@@ -228,6 +228,12 @@ echo DONE
 	case "metrics":
 		return true, "metrics on next heartbeat"
 	default:
+		if strings.HasPrefix(cmd, "restart:") {
+			unit := strings.TrimPrefix(cmd, "restart:")
+			out, err := exec.Command("systemctl", "restart", unit).CombinedOutput()
+			return err == nil, string(out)
+		}
+
 		return false, "unknown cmd: " + cmd
 	}
 }
