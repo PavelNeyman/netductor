@@ -34,6 +34,8 @@ func main() {
 		os.Exit(runDoctorNative())
 	case "vpn":
 		runVPN(os.Args[2:])
+	case "sites":
+		runSites(os.Args[2:])
 	case "nodes":
 		runNodes(os.Args[2:])
 	case "relay":
