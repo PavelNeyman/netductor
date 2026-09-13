@@ -1,10 +1,3 @@
-# MikroTik (scaffold, no hardware tests)
+# MikroTik + RPi OpenWrt
 
-Same enroll model as OpenWrt: device calls core, pending → approve.
-
-- RSC: identity + heartbeat scheduler
-- Commands: polled JSON (stub)
-- VPN: interim WG to relay; native Reality on ROS not parity with sing-box
-- No container requirement
-
-See `docs/ru/MIKROTIK.md`.
+**No VLESS on RouterOS.** ROS does routing only; Raspberry Pi with OpenWrt runs netductor-agent and VPN to relay. See `docs/ru/MIKROTIK.md`.
