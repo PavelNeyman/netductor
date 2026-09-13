@@ -18,6 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/relay"
 	"github.com/PavelNeyman/netductor/internal/session"
+	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -457,6 +458,49 @@ func buildAPIMux() http.Handler {
 		_ = vpn.EnsureSNIPresetsFile()
 		writeJSON(w, 200, map[string]any{"presets": vpn.ListSNIPresets()})
 	})
+	
+	mux.HandleFunc("/api/sites", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method == http.MethodGet {
+			list, err := sites.List()
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			writeJSON(w, 200, map[string]any{"sites": list})
+			return
+		}
+		if r.Method == http.MethodPost {
+			var s sites.Site
+			if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			out, err := sites.Upsert(s)
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			writeJSON(w, 200, out)
+			return
+		}
+		http.Error(w, "method", 405)
+	})
+	mux.HandleFunc("/api/sites/rsc", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		id := r.URL.Query().Get("id")
+		rsc, err := sites.RSCForSite(id)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"id": id, "rsc": rsc})
+	})
+
 	mux.HandleFunc("/api/session", func(w http.ResponseWriter, r *http.Request) {
 		tok := bearer(r)
 		exp, ok := session.Expiry(tok)
