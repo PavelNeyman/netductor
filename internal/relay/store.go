@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -275,6 +276,64 @@ func PruneDuplicates() int {
 	r.Devices = out
 	_ = save(r)
 	return before - len(out)
+}
+
+// PruneStale removes devices not seen within maxAge (and empty-IP ghosts).
+func PruneStale(maxAge time.Duration) int {
+	mu.Lock()
+	defer mu.Unlock()
+	r, err := load()
+	if err != nil || r == nil {
+		return 0
+	}
+	var keep []Device
+	removed := 0
+	now := time.Now().UTC()
+	for _, d := range r.Devices {
+		stale := d.LastSeen.IsZero() || now.Sub(d.LastSeen) > maxAge
+		ghost := d.PublicIP == "" && stale
+		if ghost || (stale && d.PublicIP == "") {
+			removed++
+			continue
+		}
+		if stale && maxAge > 0 {
+			// keep one offline record only if it has IP (for re-join hint) — still drop if > maxAge*2
+			if now.Sub(d.LastSeen) > maxAge*2 || d.LastSeen.IsZero() {
+				removed++
+				continue
+			}
+		}
+		keep = append(keep, d)
+	}
+	if removed > 0 {
+		r.Devices = keep
+		_ = save(r)
+	}
+	return removed
+}
+
+// RemoveDevice deletes by id.
+func RemoveDevice(id string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	r, err := load()
+	if err != nil {
+		return err
+	}
+	var out []Device
+	found := false
+	for _, d := range r.Devices {
+		if d.ID == id {
+			found = true
+			continue
+		}
+		out = append(out, d)
+	}
+	if !found {
+		return fmt.Errorf("not found")
+	}
+	r.Devices = out
+	return save(r)
 }
 
 func Rename(id, name string) error {
