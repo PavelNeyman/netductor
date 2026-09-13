@@ -40,6 +40,8 @@ func runNodes(args []string) {
 	switch args[0] {
 	case "list":
 		syncRelaysIntoNodes()
+		nodes.MarkStaleRelays(180)
+		syncRelaysIntoNodes()
 		list, err := nodes.List()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
