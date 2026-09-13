@@ -208,7 +208,11 @@
     <section id="tab-sni" class="tab-panel hide">
       <h2>SNI presets</h2>
       <p class="hint">Reality handshake names for carrier WL experiments (Yota etc.)</p>
-      <button id="btn-sni-refresh" class="ghost">Refresh</button>
+      <div class="row">
+        <select id="sni-pick"><option value="yandex">yandex (ya.ru)</option><option value="vk">vk</option><option value="mail">mail</option><option value="gosuslugi">gosuslugi</option><option value="yota-try">yota-try</option></select>
+        <button id="btn-sni-apply" class="primary">Apply live SNI</button>
+        <button id="btn-sni-refresh" class="ghost">Refresh</button>
+      </div>
       <pre id="sni-box" class="log"></pre>
     </section>
     <section id="tab-relay" class="tab-panel hide">
