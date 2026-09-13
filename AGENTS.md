@@ -99,3 +99,9 @@ Format: `nd-<role>-<marker>` (e.g. `nd-core-nl01`).
 Roles: `core` | `edge` | `lab`. Marker: region+number or IP suffix.
 See [NODES.md](NODES.md). Registry is bidirectional (device heartbeat ↔ operator desired hostname).
 UI hints: Admin → Nodes, Telegram → Nodes, TUI → Set hostname.
+
+
+## Site / MikroTik
+- TUI wizard: workstation|operator → Site setup wizard
+- Credentials one-shot, never stored
+- VPN only on RPi OpenWrt, not ROS
