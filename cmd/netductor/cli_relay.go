@@ -10,6 +10,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/relay"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -78,6 +79,32 @@ func runRelay(args []string) {
 			b, _ := os.ReadFile(filepath.Join(dir, e.Name()))
 			fmt.Printf("## %s\n%s\n", e.Name(), string(b))
 		}
+	case "prune":
+		n := relay.PruneDuplicates()
+		s := relay.PruneStale(10 * time.Minute)
+		fmt.Printf("duplicates_removed=%d stale_removed=%d\n", n, s)
+		// drop offline relay nodes from registry
+		for _, d := range relay.List() {
+			_ = d
+		}
+		nodes.MarkStaleRelays(180)
+		if list, err := nodes.List(); err == nil {
+			for _, n := range list {
+				if n.Role == "relay" && n.Status == "offline" && n.PublicIP == "" {
+					_ = nodes.Delete(n.ID)
+				}
+			}
+		}
+	case "remove":
+		if len(args) < 2 {
+			os.Exit(2)
+		}
+		if err := relay.RemoveDevice(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		_ = nodes.Delete(args[1])
+		fmt.Println("removed", args[1])
 	case "agent":
 		tokB, _ := os.ReadFile("/etc/netductor/secrets/relay_agent_token")
 		urlB, _ := os.ReadFile("/etc/netductor/secrets/relay_core_url")
