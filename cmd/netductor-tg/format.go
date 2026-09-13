@@ -256,14 +256,12 @@ func formatDoctorHTML(raw string) string {
 }
 
 
+
 func formatVPNListPretty(raw string) string {
 	nl := string([]byte{10})
 	var b strings.Builder
-	if getLang() != "en" {
-		b.WriteString("👥 <b>VPN пользователи</b>" + nl + nl)
-	} else {
-		b.WriteString("👥 <b>VPN users</b>" + nl + nl)
-	}
+	b.WriteString("<table bordered striped>" + nl)
+	b.WriteString("<tr><th>#</th><th>user</th><th>state</th></tr>" + nl)
 	n := 0
 	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
@@ -287,28 +285,28 @@ func formatVPNListPretty(raw string) string {
 		if en == "off" {
 			icon = "🔴"
 		}
-		b.WriteString(fmt.Sprintf("%s <b>%d. %s</b>", icon, n, esc(name)))
-		if en != "" {
-			b.WriteString(" · <code>" + esc(en) + "</code>")
-		}
-		b.WriteString(nl)
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s %s</td></tr>"+nl, n, esc(name), icon, esc(en)))
 	}
 	if n == 0 {
-		b.WriteString("<i>—</i>")
+		b.WriteString("<tr><td>—</td><td>—</td><td>—</td></tr>" + nl)
 	}
-	return strings.TrimRight(b.String(), nl)
+	b.WriteString("</table>")
+	return b.String()
 }
 
 func formatStatusPretty() string {
 	nl := string([]byte{10})
 	ru := getLang() != "en"
-	var b strings.Builder
 	host, _ := os.Hostname()
+	title := "📊 <b>Core status</b>"
 	if ru {
-		b.WriteString("📊 <b>Статус core</b> · <code>" + esc(host) + "</code>" + nl + nl)
-	} else {
-		b.WriteString("📊 <b>Core status</b> · <code>" + esc(host) + "</code>" + nl + nl)
+		title = "📊 <b>Статус core</b>"
 	}
+	var b strings.Builder
+	b.WriteString(title + nl)
+	b.WriteString("<code>" + esc(host) + "</code>" + nl + nl)
+	b.WriteString("<table bordered striped>" + nl)
+	b.WriteString("<tr><th>service</th><th>state</th></tr>" + nl)
 	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"} {
 		out, _ := exec.Command("systemctl", "is-active", u).CombinedOutput()
 		st := strings.TrimSpace(string(out))
@@ -316,21 +314,15 @@ func formatStatusPretty() string {
 		if st == "active" {
 			icon = "🟢"
 		}
-		b.WriteString(icon + " <code>" + esc(u) + "</code> · " + esc(st) + nl)
+		b.WriteString("<tr><td>" + esc(u) + "</td><td>" + icon + " " + esc(st) + "</td></tr>" + nl)
 	}
-	b.WriteString(nl + "🗂 <b>")
+	b.WriteString("</table>" + nl + nl)
+	nodesTitle := "🗂 <b>Nodes</b>"
 	if ru {
-		b.WriteString("Ноды")
-	} else {
-		b.WriteString("Nodes")
+		nodesTitle = "🗂 <b>Ноды</b>"
 	}
-	b.WriteString("</b>" + nl + formatNodesListHTML() + nl)
-	b.WriteString(nl)
-	if ru {
-		b.WriteString("👥 <b>VPN</b>" + nl)
-	} else {
-		b.WriteString("👥 <b>VPN</b>" + nl)
-	}
+	b.WriteString(nodesTitle + nl + formatNodesListHTML() + nl + nl)
+	b.WriteString("👥 <b>VPN</b>" + nl)
 	b.WriteString(formatVPNListPretty(runVPN("list")))
 	return b.String()
 }
