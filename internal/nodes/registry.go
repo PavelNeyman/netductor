@@ -295,3 +295,37 @@ func pruneStaleVPS(keepID, publicIP string) error {
 }
 
 
+
+
+// MarkStaleRelays sets offline for relay nodes not seen recently and drops empty-IP ghosts.
+func MarkStaleRelays(maxAgeSec int64) {
+	mu.Lock()
+	defer mu.Unlock()
+	r, err := load()
+	if err != nil {
+		return
+	}
+	if r.Nodes == nil {
+		r.Nodes = map[string]Node{}
+	}
+	now := time.Now().Unix()
+	changed := false
+	for id, n := range r.Nodes {
+		if n.Role != "relay" {
+			continue
+		}
+		if n.PublicIP == "" && (n.LastSeen == 0 || now-n.LastSeen > maxAgeSec) {
+			delete(r.Nodes, id)
+			changed = true
+			continue
+		}
+		if n.LastSeen > 0 && now-n.LastSeen > maxAgeSec && n.Status != "offline" {
+			n.Status = "offline"
+			r.Nodes[id] = n
+			changed = true
+		}
+	}
+	if changed {
+		_ = save(r)
+	}
+}
