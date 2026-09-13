@@ -1,19 +1,37 @@
-# MikroTik (без железа — каркас)
+# MikroTik + RPi OpenWrt (целевая схема)
 
-## Модель
-Одинаковый enroll с OpenWrt: устройство само ходит на core, pending → approve.
+**На ROS VLESS/Reality не поднимаем.**
 
-1. **RSC bootstrap** — identity + scheduler heartbeat (`/tool fetch` → `/api/edge/heartbeat`).
-2. **Команды** — очередь на core, ROS script забирает JSON по расписанию (в разработке).
-3. **VPN** — нативный VLESS+Reality на ROS пока слабый; временный вариант: WG/L2TP до relay или внешний пакет. WAN fallback: interface-list `nd-vpn` off при недоступности relay:443.
-4. **Контейнеры** — не требуем (не все платы поддерживают).
-
-## Генерация RSC
-```bash
-netductor edge mikrotik-rsc --name mt-office --relay 92.255.77.253 --core https://CORE
+## Архитектура
 ```
-Или Admin → Edge → MikroTik RSC.
+[Клиенты LAN] → MikroTik (только маршрутизация / firewall / DHCP)
+                      │
+                      │ L2/L3 same LAN
+                      ▼
+              Raspberry Pi (OpenWrt)
+                      │
+                      │ netductor-agent + VLESS→relay
+                      ▼
+                   relay (RU) → core
+```
 
-## Ограничения (честно)
-- Нет прогона на железе в этом релизе.
-- Reality-клиент ROS не паритетен sing-box; production VPN на MT — через relay WG или ждать зрелости ROS.
+## Роли
+| Устройство | Делает |
+|------------|--------|
+| **MikroTik** | LAN, NAT/firewall, policy routing (или static route) на RPi как gateway для нужных dest / mark-routing |
+| **RPi OpenWrt** | netductor-agent, VPN client на relay, DNS/blocky по желанию, enroll/approve как обычный edge |
+| **relay** | RU direct / non-RU uplink |
+| **core** | control plane |
+
+## MikroTik (минимум)
+1. Отдельный interface-list или routing table для «через RPi».
+2. Маршрут default или policy: mark connection → route to RPi IP.
+3. Heartbeat/API с ROS **не обязателен**, если управление только RPi.
+4. RSC-генератор в репо остаётся опциональным (identity/note), не VPN.
+
+## OpenWrt на RPi
+Стандартный edge: `netductor edge …` / agent, primary VLESS на relay, WAN fallback при недоступности relay.
+
+## Честно
+- Без тестов на железе MT+RPi в этом релизе.
+- VLESS на RouterOS не целевой путь.
