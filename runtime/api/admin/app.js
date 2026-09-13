@@ -387,3 +387,28 @@ async function refreshAlerts() {
 }
 document.getElementById('btn-refresh-alerts')?.addEventListener('click', () => refreshAlerts());
 setInterval(() => { try { refreshAlerts(); } catch(_){} }, 60000);
+
+document.getElementById('btn-journal')?.addEventListener('click', async () => {
+  const unit = document.getElementById('ops-unit')?.value || 'sing-box';
+  try {
+    const r = await api('/api/nodes/journal?unit=' + encodeURIComponent(unit));
+    const d = await r.json();
+    document.getElementById('ops-out').textContent = d.log || JSON.stringify(d, null, 2);
+  } catch (e) { toast(e.message); }
+});
+document.getElementById('btn-restart-svc')?.addEventListener('click', async () => {
+  const unit = document.getElementById('ops-unit')?.value || 'sing-box';
+  try {
+    const r = await api('/api/nodes/restart-service', { method: 'POST', body: JSON.stringify({ unit }) });
+    const d = await r.json();
+    document.getElementById('ops-out').textContent = JSON.stringify(d, null, 2);
+    toast(d.ok ? 'restarted' : 'failed');
+  } catch (e) { toast(e.message); }
+});
+document.getElementById('btn-relay-sync')?.addEventListener('click', async () => {
+  try {
+    await api('/api/relay/export', { method: 'POST' });
+    toast('relay export/sync requested');
+    refreshRelay?.();
+  } catch (e) { toast(e.message); }
+});
