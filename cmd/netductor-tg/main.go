@@ -586,9 +586,12 @@ func main() {
 		os.Exit(1)
 	}
 	adminStr := readOptional(chatFile)
+	if adminStr == "" {
+		adminStr = strings.TrimSpace(os.Getenv("NETDUCTOR_TG_ADMIN"))
+	}
 	admin, _ := strconv.ParseInt(adminStr, 10, 64)
 	if admin == 0 {
-		fmt.Fprintln(os.Stderr, "telegram_admin_id empty — waiting for first /start to claim admin")
+		fmt.Fprintln(os.Stderr, "telegram_admin_id empty — set file or NETDUCTOR_TG_ADMIN (CLAIM_FIRST=1 only for bootstrap)")
 	}
 	// default language ru for this project
 	if _, err := os.Stat(langFile); err != nil {
@@ -630,13 +633,19 @@ func main() {
 			if u.Message != nil {
 				if admin == 0 {
 					txt := strings.TrimSpace(u.Message.Text)
-					if txt == "/start" || strings.HasPrefix(txt, "/start ") {
+					// Only claim if explicitly allowed; never open bot to first random chatter.
+					if os.Getenv("NETDUCTOR_TG_CLAIM_FIRST") == "1" && (txt == "/start" || strings.HasPrefix(txt, "/start ")) {
 						admin = u.Message.Chat.ID
 						claimAdmin(admin)
-						sendHTML(token, admin, "✅ Admin claimed for this chat. Use /menu", mainKeyboard())
+						if readOptional(chatFile) != "" {
+							sendHTML(token, admin, "✅ Admin claimed for this chat. Use /menu", mainKeyboard())
+						} else {
+							sendHTML(token, u.Message.Chat.ID, "Claim failed: write /etc/netductor/secrets/telegram_admin_id", nil)
+							admin = 0
+						}
 						continue
 					}
-					sendHTML(token, u.Message.Chat.ID, "Send /start once to claim operator admin.", nil)
+					sendHTML(token, u.Message.Chat.ID, "Operator not configured. Set telegram_admin_id or NETDUCTOR_TG_ADMIN on the VPS.", nil)
 					continue
 				}
 				handleMessage(token, u.Message, admin)
