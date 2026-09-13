@@ -115,6 +115,12 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:cat:routers":
 		setState(chat, "", "")
 		reply(token, chat, msgID, T("cat_routers_title"), routersKeyboard())
+	case "m:cat:sites":
+		reply(token, chat, msgID, T("sites_title")+string([]byte{10, 10})+formatSitesHTML(), sitesKeyboard())
+	case "m:sites:list":
+		reply(token, chat, msgID, T("sites_title")+string([]byte{10, 10})+formatSitesHTML(), sitesKeyboard())
+	case "m:sites:rsc":
+		reply(token, chat, msgID, formatSitesRSCHTML(), sitesKeyboard())
 	case "m:cat:nodes":
 		setState(chat, "", "")
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+T("nodes_hint"), nodesKeyboard())
