@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -75,6 +76,7 @@ Commands (from VPS):
 				_ = os.WriteFile(filepath.Join(agentDir(), "applied_template"), []byte(res+"\n"), 0o600)
 			}
 		}
+		checkRelayAndFallback()
 		if err := heartbeat(client, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "heartbeat: %v\n", err)
 		}
@@ -306,6 +308,46 @@ func collectMetrics() map[string]any {
 		m["iwinfo"] = truncate(string(out), 1500)
 	}
 	return m
+}
+
+
+func checkRelayAndFallback() {
+	relayHost := strings.TrimSpace(readFirstLine("/etc/netductor-agent/relay.host"))
+	if relayHost == "" {
+		return
+	}
+	d := net.Dialer{Timeout: 3 * time.Second}
+	c, err := d.Dial("tcp", net.JoinHostPort(relayHost, "443"))
+	ok := err == nil
+	if ok {
+		_ = c.Close()
+	}
+	statePath := "/etc/netductor-agent/relay.health"
+	prev, _ := os.ReadFile(statePath)
+	prevOK := strings.TrimSpace(string(prev)) == "ok"
+	if ok {
+		_ = os.WriteFile(statePath, append([]byte("ok"), 10), 0o644)
+		if !prevOK {
+			_ = exec.Command("/etc/init.d/netductor-vpn", "start").Run()
+		}
+		return
+	}
+	_ = os.WriteFile(statePath, append([]byte("fail"), 10), 0o644)
+	if prevOK || len(prev) == 0 {
+		_ = exec.Command("/etc/init.d/netductor-vpn", "stop").Run()
+	}
+}
+
+func readFirstLine(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	s := string(b)
+	if i := strings.IndexByte(s, 10); i >= 0 {
+		s = s[:i]
+	}
+	return strings.TrimSpace(s)
 }
 
 func heartbeat(client *http.Client, cfg config) error {
