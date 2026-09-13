@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/sites"
 )
 
@@ -123,8 +124,61 @@ func runSites(args []string) {
 			os.Exit(1)
 		}
 		fmt.Print(rsc)
+	case "push":
+		id, host, user, pass, rpiLAN := "", "", "admin", "", "192.168.88.2"
+		port := 22
+		for i := 1; i < len(args); i++ {
+			switch args[i] {
+			case "--id":
+				if i+1 < len(args) {
+					i++
+					id = args[i]
+				}
+			case "--host":
+				if i+1 < len(args) {
+					i++
+					host = args[i]
+				}
+			case "--user":
+				if i+1 < len(args) {
+					i++
+					user = args[i]
+				}
+			case "--password":
+				if i+1 < len(args) {
+					i++
+					pass = args[i]
+				}
+			case "--port":
+				if i+1 < len(args) {
+					i++
+					fmt.Sscanf(args[i], "%d", &port)
+				}
+			case "--rpi-lan":
+				if i+1 < len(args) {
+					i++
+					rpiLAN = args[i]
+				}
+			}
+		}
+		if id == "" || host == "" || pass == "" {
+			fmt.Fprintln(os.Stderr, "usage: netductor sites push --id home --host 192.168.88.1 --user admin --password '...' [--rpi-lan 192.168.88.2] [--port 22]")
+			fmt.Fprintln(os.Stderr, "NOTE: SSH must reach the MikroTik from THIS machine (home LAN or VPN into LAN). Core VPS usually cannot see private 192.168.x.x.")
+			os.Exit(2)
+		}
+		_, _ = sites.Upsert(sites.Site{ID: id, Name: id, MikroTikID: "mt-" + id})
+		rsc, err := sites.RSCForSiteWithGateway(id, rpiLAN)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := mikrotik.PushRSC(host, user, pass, nil, rsc, port); err != nil {
+			fmt.Fprintln(os.Stderr, "push failed:", err)
+			os.Exit(1)
+		}
+		fmt.Println("ok: RSC pushed to", host)
 	default:
-		fmt.Fprintln(os.Stderr, "usage: netductor sites list|add|bootstrap|rsc [id]")
+		fmt.Fprintln(os.Stderr, "usage: netductor sites list|add|bootstrap|rsc|push")
 		os.Exit(2)
 	}
 }
