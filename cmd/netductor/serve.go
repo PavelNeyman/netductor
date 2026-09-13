@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os/exec"
 	"os"
@@ -36,21 +37,24 @@ func buildAPIMux() http.Handler {
 	})
 
 	// --- edge (device token) ---
-			mux.HandleFunc("/api/edge/backups", func(w http.ResponseWriter, r *http.Request) {
-		// agent download with edge token OR operator session
+	mux.HandleFunc("/api/edge/backups", func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
-		okEdge := edge.ValidBearer(auth)
-		okSess := false
-		if !okEdge {
-			okSess = requireSession(w, r)
-			if !okSess {
+		edgeDID := edge.DeviceIDFromAuth(auth)
+		if edgeDID == "" {
+			if !requireSession(w, r) {
 				return
 			}
 		}
-		_ = okSess
 		did := r.URL.Query().Get("device_id")
 		if did == "" {
+			did = edgeDID
+		}
+		if did == "" {
 			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		if edgeDID != "" && did != edgeDID {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
 			return
 		}
 		name := r.URL.Query().Get("name")
@@ -85,13 +89,15 @@ func buildAPIMux() http.Handler {
 			writeJSON(w, 405, map[string]string{"error": "method"})
 			return
 		}
-		if !edge.ValidBearer(r.Header.Get("Authorization")) {
+		auth := r.Header.Get("Authorization")
+		did := edge.DeviceIDFromAuth(auth)
+		if did == "" {
 			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 			return
 		}
-		did := r.Header.Get("X-Device-ID")
-		if did == "" {
-			did = "unknown"
+		if hdr := r.Header.Get("X-Device-ID"); hdr != "" && hdr != did {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
 		}
 		path, err := edge.SaveBackup(did, r.Body)
 		if err != nil {
@@ -105,15 +111,21 @@ func buildAPIMux() http.Handler {
 			writeJSON(w, 405, map[string]string{"error": "method"})
 			return
 		}
-		if !edge.ValidBearer(r.Header.Get("Authorization")) {
+		auth := r.Header.Get("Authorization")
+		tokenDID := edge.DeviceIDFromAuth(auth)
+		if tokenDID == "" {
 			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 			return
 		}
 		var payload map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&payload)
+		_ = json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&payload)
 		did, _ := payload["device_id"].(string)
 		if did == "" {
-			did = "unknown"
+			did = tokenDID
+		}
+		if did != tokenDID {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
 		}
 		_ = edge.SaveMetrics(did, payload)
 		writeJSON(w, 200, map[string]string{"ok": "true"})
@@ -210,13 +222,23 @@ func buildAPIMux() http.Handler {
 			writeJSON(w, 405, map[string]string{"error": "method"})
 			return
 		}
-		if !edge.ValidBearer(r.Header.Get("Authorization")) {
+		auth := r.Header.Get("Authorization")
+		tokenDID := edge.DeviceIDFromAuth(auth)
+		if tokenDID == "" {
 			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 			return
 		}
 		payload := readJSON(r)
-		edge.Heartbeat(payload)
 		did, _ := payload["device_id"].(string)
+		if did == "" {
+			did = tokenDID
+			payload["device_id"] = did
+		}
+		if did != tokenDID {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
+		}
+		edge.Heartbeat(payload)
 		hn, _ := payload["hostname"].(string)
 		ip, _ := payload["wan_ip"].(string)
 		if ip == "" {
@@ -242,11 +264,18 @@ func buildAPIMux() http.Handler {
 		writeJSON(w, 200, resp)
 	})
 	mux.HandleFunc("/api/edge/commands", func(w http.ResponseWriter, r *http.Request) {
-		if !edge.ValidBearer(r.Header.Get("Authorization")) {
+		auth := r.Header.Get("Authorization")
+		did := edge.DeviceIDFromAuth(auth)
+		if did == "" {
 			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"commands": edge.PollCommands(r.URL.Query().Get("device_id"))})
+		q := r.URL.Query().Get("device_id")
+		if q != "" && q != did {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"commands": edge.PollCommands(did)})
 	})
 	mux.HandleFunc("/api/edge/rsc", func(w http.ResponseWriter, r *http.Request) {
 		// device downloads RouterOS script to import
@@ -297,11 +326,18 @@ func buildAPIMux() http.Handler {
 			writeJSON(w, 405, map[string]string{"error": "method"})
 			return
 		}
-		if !edge.ValidBearer(r.Header.Get("Authorization")) {
+		tokenDID := edge.DeviceIDFromAuth(r.Header.Get("Authorization"))
+		if tokenDID == "" {
 			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 			return
 		}
-		edge.CmdResult(readJSON(r))
+		body := readJSON(r)
+		if did, _ := body["device_id"].(string); did != "" && did != tokenDID {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
+		}
+		body["device_id"] = tokenDID
+		edge.CmdResult(body)
 		writeJSON(w, 200, map[string]bool{"ok": true})
 	})
 		mux.HandleFunc("/api/edge/approve", func(w http.ResponseWriter, r *http.Request) {
@@ -822,14 +858,14 @@ func runServe(args []string) {
 	if tlsCert != "" && tlsKey != "" {
 		fmt.Fprintf(os.Stderr, "netductor serve TLS on https://%s\n", addr)
 		startRelayAgentListener()
-		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, mux); err != nil {
+		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, withSecurity(mux)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		return
 	}
 	startRelayAgentListener()
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, withSecurity(mux)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
