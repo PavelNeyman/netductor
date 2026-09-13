@@ -427,9 +427,19 @@ document.getElementById('btn-node-journal')?.addEventListener('click', async () 
 });
 document.getElementById('btn-sni-refresh')?.addEventListener('click', async () => {
   try {
-    const r = await api('/api/sni-presets');
+    const r = await api('/api/sni');
     const d = await r.json();
-    document.getElementById('sni-box').textContent = JSON.stringify(d.presets || d, null, 2);
+    document.getElementById('sni-box').textContent = 'active: ' + (d.active||'') + '\n\n' + JSON.stringify(d.presets || d, null, 2);
+  } catch (e) { toast(e.message); }
+});
+document.getElementById('btn-sni-apply')?.addEventListener('click', async () => {
+  const name = document.getElementById('sni-pick')?.value?.trim();
+  if (!name) { toast('pick preset'); return; }
+  try {
+    const r = await api('/api/sni', { method: 'POST', body: JSON.stringify({ name }) });
+    const d = await r.json();
+    toast('SNI → ' + (d.active || name));
+    document.getElementById('btn-sni-refresh')?.click();
   } catch (e) { toast(e.message); }
 });
 
