@@ -432,3 +432,60 @@ document.getElementById('btn-sni-refresh')?.addEventListener('click', async () =
     document.getElementById('sni-box').textContent = JSON.stringify(d.presets || d, null, 2);
   } catch (e) { toast(e.message); }
 });
+
+
+async function refreshStatusPanel() {
+  try {
+    const [st, nodes, users] = await Promise.all([
+      api('/api/status').then(r => r.json()).catch(() => ({})),
+      api('/api/nodes').then(r => r.json()).catch(() => ({})),
+      api('/api/vpn/users').then(r => r.json()).catch(() => ({})),
+    ]);
+    const lines = [];
+    lines.push('=== core ===');
+    lines.push(JSON.stringify(st, null, 2));
+    lines.push('=== nodes ===');
+    const nl = nodes.nodes || nodes || [];
+    (Array.isArray(nl) ? nl : []).forEach(n => {
+      lines.push(`${n.status||'?'} ${n.hostname||n.id} role=${n.role} ip=${n.public_ip||n.ip||''}`);
+    });
+    lines.push('=== vpn users ===');
+    const ul = users.users || users || [];
+    (Array.isArray(ul) ? ul : []).forEach(u => {
+      lines.push(`${u.name||u} ${u.enabled===false?'off':'on'}`);
+    });
+    const box = document.getElementById('status-box');
+    if (box) box.textContent = lines.join('\n');
+  } catch (e) { toast(e.message); }
+}
+document.getElementById('btn-refresh-status')?.addEventListener('click', () => refreshStatusPanel());
+
+async function refreshSites() {
+  try {
+    const r = await api('/api/sites');
+    const d = await r.json();
+    document.getElementById('sites-list').textContent = JSON.stringify(d.sites || d, null, 2);
+  } catch (e) { toast(e.message); }
+}
+document.getElementById('btn-sites-refresh')?.addEventListener('click', () => refreshSites());
+document.getElementById('btn-site-save')?.addEventListener('click', async () => {
+  const body = {
+    id: document.getElementById('site-id')?.value?.trim(),
+    name: document.getElementById('site-name')?.value?.trim(),
+    rpi_id: document.getElementById('site-rpi')?.value?.trim(),
+    mikrotik_id: document.getElementById('site-mt')?.value?.trim(),
+  };
+  try {
+    await api('/api/sites', { method: 'POST', body: JSON.stringify(body) });
+    toast('site saved');
+    refreshSites();
+  } catch (e) { toast(e.message); }
+});
+document.getElementById('btn-site-rsc')?.addEventListener('click', async () => {
+  const id = document.getElementById('site-id')?.value?.trim();
+  try {
+    const r = await api('/api/sites/rsc?id=' + encodeURIComponent(id || ''));
+    const d = await r.json();
+    document.getElementById('site-out').textContent = d.rsc || JSON.stringify(d, null, 2);
+  } catch (e) { toast(e.message); }
+});
