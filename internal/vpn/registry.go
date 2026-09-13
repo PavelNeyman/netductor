@@ -195,6 +195,7 @@ func writeArtifacts(name, uuid, hy2pass string) error {
 	_ = qrcode.WriteFile(sub, qrcode.Medium, 512, filepath.Join(dir, "qr-subscription.png"))
 	_ = os.Chmod(filepath.Join(dir, "qr.png"), 0o600)
 	_ = os.Chmod(filepath.Join(dir, "qr-subscription.png"), 0o600)
+	_ = WriteClientConfigs(name, uuid)
 	return nil
 }
 
