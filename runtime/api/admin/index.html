@@ -30,14 +30,24 @@
     <nav class="tabs">
       <button data-tab="overview" class="tab active">Overview</button>
       <button data-tab="users" class="tab">VPN</button>
+      <button data-tab="nodes" class="tab">Nodes</button>
       <button data-tab="routers" class="tab">Routers</button>
+      <button data-tab="sites" class="tab">Sites</button>
       <button data-tab="templates" class="tab">Templates</button>
       <button data-tab="metrics" class="tab">Metrics</button>
       <button data-tab="probes" class="tab">Probes</button>
       <button data-tab="addons" class="tab">Addons</button>
-      <button data-tab="sni">SNI</button><button type="button" class="tab" data-tab="relay" class="tab">Relay</button>
+      <button data-tab="sni" class="tab">SNI</button>
+      <button data-tab="relay" class="tab">Relay</button>
+      <button data-tab="status" class="tab">Status</button>
     </nav>
 
+    <section id="tab-status" class="tab-panel hide">
+      <h2>Status</h2>
+      <p class="hint">Core services + nodes + VPN (TG parity)</p>
+      <button id="btn-refresh-status" class="ghost">Refresh</button>
+      <pre id="status-box" class="log"></pre>
+    </section>
     <section id="tab-overview" class="tab-panel">
       <div class="grid">
         <div class="card metric"><div class="label">CPU</div><div id="m-cpu" class="value">—</div></div>
@@ -75,6 +85,24 @@
       </div>
     </section>
 
+    <section id="tab-sites" class="tab-panel hide">
+      <h2>Sites (MikroTik + RPi)</h2>
+      <p class="hint">One site = ROS (routing only) + RPi OpenWrt (VPN edge). Managed as pair.</p>
+      <div class="card">
+        <div class="row">
+          <input id="site-id" placeholder="site-home" />
+          <input id="site-name" placeholder="Home" />
+          <input id="site-rpi" placeholder="rpi device_id (edge)" />
+          <input id="site-mt" placeholder="mikrotik id (optional)" />
+          <button id="btn-site-save" class="primary">Save site</button>
+          <button id="btn-site-rsc" class="ghost">MT RSC</button>
+        </div>
+        <pre id="site-out" class="log"></pre>
+      </div>
+      <div class="card"><h3>Sites</h3><pre id="sites-list" class="log"></pre>
+        <button id="btn-sites-refresh" class="ghost">Refresh</button>
+      </div>
+    </section>
     <section id="tab-routers" class="tab-panel hide">
       <div id="edge-pending" class="card"></div>
       <div class="card"><table class="table" id="routers-table">
