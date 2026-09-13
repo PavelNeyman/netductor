@@ -319,10 +319,18 @@ func SetSNI(value string) error {
 	if err := os.WriteFile(filepath.Join(dir, "singbox_reality_sni"), []byte(line), 0o600); err != nil {
 		return err
 	}
+	if err := ApplyConfig(); err != nil {
+		return err
+	}
+	_ = exec.Command("systemctl", "restart", "sing-box").Run()
+	if _, err := ExportRelayBundle(value); err != nil {
+		// core-only OK if no relay users yet
+		_ = err
+	}
 	if err := RewriteAllLinks(); err != nil {
 		return err
 	}
-	return ApplyConfig()
+	return nil
 }
 
 func RewriteAllLinks() error {
