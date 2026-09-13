@@ -399,6 +399,20 @@ func buildAPIMux() http.Handler {
 			http.Error(w, "unit", 400)
 			return
 		}
+		id := r.URL.Query().Get("id")
+		if id != "" && (strings.HasPrefix(id, "relay-") || strings.Contains(id, "relay")) {
+			// queue remote journal; return last known log if this is a refresh
+			_ = relay.EnqueueCmd(id, "journal")
+			log := ""
+			for _, d := range relay.List() {
+				if d.ID == id {
+					log = d.LastCmdLog
+					break
+				}
+			}
+			writeJSON(w, 200, map[string]any{"unit": "remote", "id": id, "queued": true, "log": log, "hint": "re-fetch in ~30s for full journal"})
+			return
+		}
 		out, _ := exec.Command("journalctl", "-u", unit, "-n", "80", "--no-pager", "-o", "short-iso").CombinedOutput()
 		writeJSON(w, 200, map[string]any{"unit": unit, "log": string(out)})
 	})
@@ -436,6 +450,13 @@ func buildAPIMux() http.Handler {
 		writeJSON(w, 200, map[string]any{"ok": err == nil, "out": string(out)})
 	})
 
+	mux.HandleFunc("/api/sni-presets", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		_ = vpn.EnsureSNIPresetsFile()
+		writeJSON(w, 200, map[string]any{"presets": vpn.ListSNIPresets()})
+	})
 	mux.HandleFunc("/api/session", func(w http.ResponseWriter, r *http.Request) {
 		tok := bearer(r)
 		exp, ok := session.Expiry(tok)
