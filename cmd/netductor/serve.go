@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os/exec"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/probes"
+	"github.com/PavelNeyman/netductor/internal/relay"
 	"github.com/PavelNeyman/netductor/internal/session"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -375,6 +377,65 @@ func buildAPIMux() http.Handler {
 	})
 
 	// --- operator session ---
+	
+	mux.HandleFunc("/api/nodes/journal", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method", 405)
+			return
+		}
+		unit := r.URL.Query().Get("unit")
+		if unit == "" {
+			unit = "sing-box"
+		}
+		// allowlist
+		ok := false
+		for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot", "blocky", "netductor-relay-agent"} {
+			if u == unit {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			http.Error(w, "unit", 400)
+			return
+		}
+		out, _ := exec.Command("journalctl", "-u", unit, "-n", "80", "--no-pager", "-o", "short-iso").CombinedOutput()
+		writeJSON(w, 200, map[string]any{"unit": unit, "log": string(out)})
+	})
+	mux.HandleFunc("/api/nodes/restart-service", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method", 405)
+			return
+		}
+		var body struct {
+			Unit string `json:"unit"`
+			ID   string `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.Unit == "" {
+			body.Unit = "sing-box"
+		}
+		ok := false
+		for _, u := range []string{"sing-box", "netductor-api", "blocky", "netductor-telegram-bot"} {
+			if u == body.Unit {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			http.Error(w, "unit", 400)
+			return
+		}
+		// core local only for now; relay uses cmd queue
+		if body.ID != "" && (strings.HasPrefix(body.ID, "relay-") || strings.Contains(body.ID, "relay")) {
+			_ = relay.EnqueueCmd(body.ID, "restart:"+body.Unit)
+			writeJSON(w, 200, map[string]any{"ok": true, "queued": true})
+			return
+		}
+		out, err := exec.Command("systemctl", "restart", body.Unit).CombinedOutput()
+		writeJSON(w, 200, map[string]any{"ok": err == nil, "out": string(out)})
+	})
+
 	mux.HandleFunc("/api/session", func(w http.ResponseWriter, r *http.Request) {
 		tok := bearer(r)
 		exp, ok := session.Expiry(tok)
