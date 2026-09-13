@@ -122,6 +122,7 @@ func parseNodesList() []nodeRow {
 	return rows
 }
 
+
 func formatNodesListHTML() string {
 	rows := parseNodesList()
 	if len(rows) == 0 {
@@ -129,6 +130,8 @@ func formatNodesListHTML() string {
 	}
 	nl := string([]byte{10})
 	var b strings.Builder
+	b.WriteString("<table bordered striped>" + nl)
+	b.WriteString("<tr><th>#</th><th>host</th><th>role</th><th>ip</th><th>status</th></tr>" + nl)
 	for i, r := range rows {
 		label := r.Host
 		if label == "" {
@@ -141,27 +144,24 @@ func formatNodesListHTML() string {
 			icon = "🟢"
 		case st == "offline":
 			icon = "🔴"
-		case r.Role == "relay":
-			icon = "📡"
-		case r.Role == "core":
-			icon = "🗄"
 		}
-		b.WriteString(fmt.Sprintf("%s <b>%d. %s</b>", icon, i+1, esc(label)))
-		if r.Role != "" {
-			b.WriteString(" · <code>" + esc(r.Role) + "</code>")
+		ip := r.IP
+		if ip == "" {
+			ip = "—"
 		}
-		if r.IP != "" {
-			b.WriteString(" · <code>" + esc(r.IP) + "</code>")
+		role := r.Role
+		if role == "" {
+			role = "—"
 		}
-		if r.Status != "" {
-			b.WriteString(" · " + esc(r.Status))
-		}
+		status := icon + " " + r.Status
 		if r.Desired != "" {
-			b.WriteString(" → <i>" + esc(r.Desired) + "</i>")
+			status += " → " + r.Desired
 		}
-		b.WriteString(nl)
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"+nl,
+			i+1, esc(label), esc(role), esc(ip), esc(status)))
 	}
-	return strings.TrimRight(b.String(), nl)
+	b.WriteString("</table>")
+	return b.String()
 }
 
 func nodeCardKeyboard(id string) map[string]any {
