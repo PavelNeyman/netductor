@@ -18,6 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/relay"
 	"github.com/PavelNeyman/netductor/internal/session"
+	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -499,6 +500,37 @@ func buildAPIMux() http.Handler {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"id": id, "rsc": rsc})
+	})
+
+	
+	mux.HandleFunc("/api/sites/push-rsc", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method", 405)
+			}
+			return
+		}
+		var body struct {
+			SiteID   string `json:"site_id"`
+			Host     string `json:"host"`
+			User     string `json:"user"`
+			Password string `json:"password"`
+			Port     int    `json:"port"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		rsc, err := sites.RSCForSite(body.SiteID)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if err := mikrotik.PushRSC(body.Host, body.User, body.Password, nil, rsc, body.Port); err != nil {
+			http.Error(w, err.Error(), 502)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true})
 	})
 
 	mux.HandleFunc("/api/session", func(w http.ResponseWriter, r *http.Request) {
