@@ -62,6 +62,11 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			case "r": // reboot
 				_ = enqueueNodeCmd(id, "reboot")
 				reply(token, chat, msgID, formatCmdQueuedHTML("reboot", id, ""), nodeCardKeyboard(id))
+			case "j": // journal
+				reply(token, chat, msgID, formatJournalHTML(id), nodeCardKeyboard(id))
+			case "s": // restart sing-box
+				out := restartSingBox(id)
+				reply(token, chat, msgID, "♻️ <b>Restart sing-box</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>", nodeCardKeyboard(id))
 			}
 		}
 		return
