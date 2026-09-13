@@ -38,6 +38,7 @@ func mainKeyboard() map[string]any {
 			{btn(T("cat_vpn"), "m:cat:vpn", "primary"), btn(T("cat_routers"), "m:cat:routers", "primary")},
 			{btn(T("session"), "m:session", ""), btn(T("admin"), "m:admin", "")},
 			{btn(T("addons"), "m:addons", ""), btn(T("nodes"), "m:cat:nodes", "primary")},
+			{btn(T("sites"), "m:cat:sites", "")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
 	}
@@ -59,6 +60,14 @@ func addonsKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn("Lampac", "m:addon:lampac", "primary")},
 		{btn(T("back"), "m:menu", "")},
+	}}
+}
+
+func sitesKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("sites_list"), "m:sites:list", "primary")},
+		{btn(T("sites_rsc"), "m:sites:rsc", "")},
+		{btn(T("main_menu"), "m:menu", "")},
 	}}
 }
 
