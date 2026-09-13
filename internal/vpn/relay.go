@@ -165,13 +165,20 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 			},
 		})
 	}
+	// RU split: these domains + private IP exit direct (RU IP).
+	// Everything else from relay-in goes uplink → core (foreign exit).
+	// Clients abroad can use exit-in (4443) for RU-IP egress when toggled on.
 	ruSuffixes := []string{
-		"ru", "su", "xn--p1ai",
-		"vk.com", "vk.ru", "userapi.com", "vkuservideo.net",
-		"yandex.ru", "yandex.net", "yandex.com", "ya.ru", "yastatic.net",
-		"mail.ru", "ok.ru", "wildberries.ru", "ozon.ru", "avito.ru",
-		"2gis.com", "2gis.ru", "gosuslugi.ru", "mos.ru", "sberbank.ru",
-		"tinkoff.ru", "tbank.ru", "mts.ru", "megafon.ru", "beeline.ru", "tele2.ru",
+		"ru", "su", "xn--p1ai", "xn--p1acf",
+		"vk.com", "vk.ru", "vk.me", "userapi.com", "vkuservideo.net", "vk-cdn.net",
+		"yandex.ru", "yandex.net", "yandex.com", "ya.ru", "yastatic.net", "yandex.cloud",
+		"mail.ru", "imgsmail.ru", "ok.ru", "odnoklassniki.ru",
+		"wildberries.ru", "wb.ru", "ozon.ru", "avito.ru", "dns-shop.ru", "citilink.ru",
+		"2gis.com", "2gis.ru", "gosuslugi.ru", "mos.ru", "nalog.ru", "cbr.ru",
+		"sberbank.ru", "sber.ru", "tinkoff.ru", "tbank.ru", "vtb.ru", "alfabank.ru",
+		"mts.ru", "megafon.ru", "beeline.ru", "tele2.ru", "yota.ru",
+		"rutube.ru", "ivi.ru", "kinopoisk.ru", "hd.kinopoisk.ru",
+		"cloudflare-dns.com", // keep resolvers reachable; actual RU DNS via rule
 	}
 	cfg := map[string]any{
 		"log": map[string]any{"level": "info", "timestamp": true},
