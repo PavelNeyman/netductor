@@ -174,14 +174,31 @@ func runVPN(args []string) {
 		fmt.Println(s)
 	case "set-sni":
 		if len(rest) < 1 {
-			fmt.Fprintln(os.Stderr, "usage: netductor vpn set-sni <hostname>  (e.g. www.microsoft.com)")
+			fmt.Fprintln(os.Stderr, "usage: netductor vpn set-sni <hostname|preset>")
 			os.Exit(2)
 		}
-		if err := vpn.SetSNI(rest[0]); err != nil {
+		sniName := rest[0]
+		for _, p := range vpn.ListSNIPresets() {
+			if p.Name == sniName {
+				sniName = p.SNI
+				break
+			}
+		}
+		if err := vpn.SetSNI(sniName); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("sni set to", rest[0], "— links rewritten, sing-box re-applied")
+		relay.BumpConfigVer()
+		fmt.Println("sni set to", sniName)
+	case "sni":
+		fmt.Println("active", vpn.ActiveSNI())
+		for _, p := range vpn.ListSNIPresets() {
+			mark := ""
+			if p.SNI == vpn.ActiveSNI() {
+				mark = " *"
+			}
+			fmt.Printf("%s\t%s\t%s%s\n", p.Name, p.SNI, p.Note, mark)
+		}
 	case "apply":
 		relay.BumpConfigVer()
 		if err := vpn.ApplyConfig(); err != nil {
