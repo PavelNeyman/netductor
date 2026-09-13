@@ -35,7 +35,7 @@
       <button data-tab="metrics" class="tab">Metrics</button>
       <button data-tab="probes" class="tab">Probes</button>
       <button data-tab="addons" class="tab">Addons</button>
-      <button data-tab="relay" class="tab">Relay</button>
+      <button data-tab="sni">SNI</button><button type="button" class="tab" data-tab="relay" class="tab">Relay</button>
     </nav>
 
     <section id="tab-overview" class="tab-panel">
@@ -107,6 +107,7 @@
         <div class="row">
           <input id="node-id" placeholder="node id (current)" />
           <input id="node-hn" placeholder="nd-core-nl01" title="nd-&lt;role&gt;-&lt;marker&gt;" />
+          <button id="btn-node-journal" type="button">Journal</button>
           <button id="btn-node-upgrade" type="button">Upgrade</button>
       <button id="btn-node-reboot" type="button">Reboot</button>
       <button id="btn-relay-sync" type="button">Sync relays</button>
@@ -176,6 +177,12 @@
     </section>
   
     
+    <section id="tab-sni" class="tab-panel hide">
+      <h2>SNI presets</h2>
+      <p class="hint">Reality handshake names for carrier WL experiments (Yota etc.)</p>
+      <button id="btn-sni-refresh" class="ghost">Refresh</button>
+      <pre id="sni-box" class="log"></pre>
+    </section>
     <section id="tab-relay" class="tab-panel hide">
       <h2>RU Relay</h2>
       <p class="muted">Mobile whitelist hop: phone → RU VPS → this core.</p>
