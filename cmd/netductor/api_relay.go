@@ -154,11 +154,11 @@ func agentToken(r *http.Request) string {
 
 func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
-	if tok == "" {
+	if tok == "" || len(tok) < 16 {
 		http.Error(w, "unauthorized", 401)
 		return
 	}
-	raw, _ := io.ReadAll(r.Body)
+	raw, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	var in relay.HeartbeatIn
 	_ = json.Unmarshal(raw, &in)
 	d, ver, err := relay.Heartbeat(tok, in)
@@ -201,11 +201,15 @@ func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 func handleRelayAgentConfig(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
-	if relay.FindByToken(tok) == nil {
+	if tok == "" || len(tok) < 16 || relay.FindByToken(tok) == nil {
 		http.Error(w, "unauthorized", 401)
 		return
 	}
-	b, err := vpn.ExportRelayBundle("ya.ru")
+	sni := vpn.ActiveSNI()
+	if sni == "" {
+		sni = "ya.ru"
+	}
+	b, err := vpn.ExportRelayBundle(sni)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -230,6 +234,6 @@ func startRelayAgentListener() {
 		addr = ":8788"
 	}
 	go func() {
-		_ = http.ListenAndServe(addr, mux)
+		_ = http.ListenAndServe(addr, withSecurity(mux))
 	}()
 }
