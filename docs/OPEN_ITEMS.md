@@ -1,13 +1,13 @@
 # Открытые темы
 
 ## Сделано
-- [x] Admin tabs: Nodes, Sites, Status, SNI + journal/restart
-- [x] Sites model (MT + RPi) + RSC API
-- [x] Client profiles docs (Vision flow)
-- [x] Relay journal, prune, RU routing, WAN fallback
+- [x] TUI: Site wizard + MikroTik manage + Live SNI
+- [x] sites push CLI/API, line-by-line RSC
+- [x] Live SNI set-sni / Admin
+- [x] Client configs (Shadowrocket/sing-box)
+- [x] Admin Sites/Status parity
 
-## Открыто
-- [ ] SSH push RSC на MikroTik (нужны креды/ключ на площадке)
-- [ ] TG: экран Sites
-- [ ] Live SNI switch under carrier WL
+## Осталось (нужно железо / домен)
+- [ ] Прогон Site wizard на реальном MT + RPi
 - [ ] HTTPS / Mini App
+- [ ] Live SNI auto under carrier WL (policy)
