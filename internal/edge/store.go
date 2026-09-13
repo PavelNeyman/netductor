@@ -628,7 +628,8 @@ func SaveBackup(deviceID string, r io.Reader) (string, error) {
 		return "", err
 	}
 	defer f.Close()
-	if _, err := io.Copy(f, r); err != nil {
+	// cap backup upload (50 MiB)
+	if _, err := io.Copy(f, io.LimitReader(r, 50<<20)); err != nil {
 		return "", err
 	}
 	return path, nil
