@@ -168,6 +168,7 @@ func nodeCardKeyboard(id string) map[string]any {
 	pending := strings.Contains(runND("relay", "device", id), "pending:")
 	rows := [][]map[string]any{
 		{btn(T("node_metrics"), "m:nd:m:"+id, "primary")},
+		{btn(T("node_journal"), "m:nd:j:"+id, ""), btn(T("node_restart_sb"), "m:nd:s:"+id, "")},
 	}
 	if !pending {
 		rows = append(rows, []map[string]any{
