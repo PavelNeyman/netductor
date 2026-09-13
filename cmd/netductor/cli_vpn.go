@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 	"os"
@@ -82,6 +83,29 @@ func runVPN(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "client-config":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor vpn client-config <name>")
+			os.Exit(2)
+		}
+		name := args[1]
+		users, _ := vpn.ListNative()
+		var uuid string
+		for _, u := range users {
+			if u.Name == name {
+				uuid = u.UUID
+				break
+			}
+		}
+		if uuid == "" {
+			fmt.Fprintln(os.Stderr, "user not found")
+			os.Exit(1)
+		}
+		if err := vpn.WriteClientConfigs(name, uuid); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(filepath.Join(vpn.Clients(), name))
 	case "link":
 		if len(rest) < 1 {
 			os.Exit(2)
