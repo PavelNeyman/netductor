@@ -2,6 +2,7 @@ package relay
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -125,6 +126,9 @@ func IssueToken(name string) (id, token string, err error) {
 }
 
 func FindByToken(token string) *Device {
+	if token == "" || len(token) < 16 {
+		return nil
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
@@ -132,7 +136,11 @@ func FindByToken(token string) *Device {
 		return nil
 	}
 	for i := range r.Devices {
-		if r.Devices[i].Token == token {
+		t := r.Devices[i].Token
+		if t == "" || len(t) != len(token) {
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(t), []byte(token)) == 1 {
 			d := r.Devices[i]
 			return &d
 		}
@@ -164,8 +172,12 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	if token == "" || len(token) < 16 {
+		return nil, 0, fmt.Errorf("unauthorized")
+	}
 	for i := range r.Devices {
-		if r.Devices[i].Token != token {
+		t := r.Devices[i].Token
+		if t == "" || len(t) != len(token) || subtle.ConstantTimeCompare([]byte(t), []byte(token)) != 1 {
 			continue
 		}
 		r.Devices[i].PublicIP = in.PublicIP
