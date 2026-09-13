@@ -227,6 +227,9 @@ echo DONE
 		return err == nil, string(out)
 	case "metrics":
 		return true, "metrics on next heartbeat"
+	case "journal":
+		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-relay-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
+		return err == nil || len(out) > 0, string(out)
 	default:
 		if strings.HasPrefix(cmd, "restart:") {
 			unit := strings.TrimPrefix(cmd, "restart:")
