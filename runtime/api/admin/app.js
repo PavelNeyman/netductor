@@ -412,3 +412,23 @@ document.getElementById('btn-relay-sync')?.addEventListener('click', async () =>
     refreshRelay?.();
   } catch (e) { toast(e.message); }
 });
+
+document.getElementById('btn-node-journal')?.addEventListener('click', async () => {
+  const id = document.getElementById('node-id')?.value?.trim();
+  const unit = 'sing-box';
+  const q = id ? ('?id=' + encodeURIComponent(id) + '&unit=' + unit) : ('?unit=' + unit);
+  try {
+    const r = await api('/api/nodes/journal' + q);
+    const d = await r.json();
+    const box = document.getElementById('ops-out') || document.getElementById('sni-box');
+    if (box) box.textContent = d.log || JSON.stringify(d, null, 2);
+    toast(d.queued ? 'journal queued' : 'journal');
+  } catch (e) { toast(e.message); }
+});
+document.getElementById('btn-sni-refresh')?.addEventListener('click', async () => {
+  try {
+    const r = await api('/api/sni-presets');
+    const d = await r.json();
+    document.getElementById('sni-box').textContent = JSON.stringify(d.presets || d, null, 2);
+  } catch (e) { toast(e.message); }
+});
