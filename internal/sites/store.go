@@ -102,6 +102,10 @@ func Get(id string) (Site, bool) {
 
 // RSCForSite generates MikroTik routing-only script for the site.
 func RSCForSite(id string) (string, error) {
+	return RSCForSiteWithGateway(id, "")
+}
+
+func RSCForSiteWithGateway(id, rpiLAN string) (string, error) {
 	s, ok := Get(id)
 	if !ok {
 		s = Site{ID: id, Name: id}
@@ -121,5 +125,13 @@ func RSCForSite(id string) (string, error) {
 	if note == "" {
 		note = "netductor site " + s.ID
 	}
-	return mikrotik.ClientRSC(name, relayIP, "", note), nil
+	base := mikrotik.ClientRSC(name, relayIP, "", note)
+	if rpiLAN == "" {
+		return base, nil
+	}
+	nl := string([]byte{10})
+	extra := nl + "# netductor routes via RPi" + nl
+	extra += "/routing table add fib name=via-rpi" + nl
+	extra += "/ip route add dst-address=0.0.0.0/0 gateway=" + rpiLAN + " routing-table=via-rpi" + nl
+	return base + extra, nil
 }
