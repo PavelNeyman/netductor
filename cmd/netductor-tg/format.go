@@ -741,3 +741,33 @@ func formatRelayOneline() string {
 	return "🧾 <b>One command on RU VPS</b>" + nl + nl + "<code>" + esc(cmd) + "</code>"
 }
 
+
+
+func formatJournalHTML(id string) string {
+	nl := string([]byte{10})
+	role := nodeRole(id)
+	var out string
+	if role == "relay" || strings.HasPrefix(id, "relay-") {
+		out = runND("relay", "cmd", id, "metrics") // soft; journal on relay via agent later
+		out = "relay journal: use Metrics / last_cmd for now\n" + out
+	} else {
+		b, _ := exec.Command("journalctl", "-u", "sing-box", "-n", "40", "--no-pager", "-o", "short-iso").CombinedOutput()
+		out = string(b)
+	}
+	if len(out) > 3500 {
+		out = out[len(out)-3500:]
+	}
+	return "📋 <b>Journal</b>" + nl + "<pre>" + esc(out) + "</pre>"
+}
+
+func restartSingBox(id string) string {
+	role := nodeRole(id)
+	if role == "relay" || strings.HasPrefix(id, "relay-") {
+		return runND("relay", "cmd", id, "restart:sing-box")
+	}
+	b, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput()
+	if err != nil {
+		return string(b) + "\n" + err.Error()
+	}
+	return "ok\n" + string(b)
+}
