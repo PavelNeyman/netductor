@@ -550,12 +550,13 @@ func buildAPIMux() http.Handler {
 			User     string `json:"user"`
 			Password string `json:"password"`
 			Port     int    `json:"port"`
+			RpiLAN   string `json:"rpi_lan"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		rsc, err := sites.RSCForSite(body.SiteID)
+		rsc, err := sites.RSCForSiteWithGateway(body.SiteID, body.RpiLAN)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
