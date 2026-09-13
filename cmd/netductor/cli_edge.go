@@ -7,6 +7,8 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/mikrotik"
+	"github.com/PavelNeyman/netductor/internal/relay"
 )
 
 func runEdgeCLI(args []string) {
@@ -124,6 +126,36 @@ func runEdgeCLI(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("bound")
+	case "mikrotik-rsc":
+		name, relayIP, coreURL := "mt-device", "", "http://127.0.0.1:8787"
+		for i := 0; i < len(args); i++ {
+			switch args[i] {
+			case "--name":
+				if i+1 < len(args) {
+					name = args[i+1]
+					i++
+				}
+			case "--relay":
+				if i+1 < len(args) {
+					relayIP = args[i+1]
+					i++
+				}
+			case "--core":
+				if i+1 < len(args) {
+					coreURL = args[i+1]
+					i++
+				}
+			}
+		}
+		if relayIP == "" {
+			for _, d := range relay.List() {
+				if d.PublicIP != "" {
+					relayIP = d.PublicIP
+					break
+				}
+			}
+		}
+		fmt.Print(mikrotik.ClientRSC(name, relayIP, coreURL, "netductor"))
 	default:
 		fmt.Fprintln(os.Stderr, "unknown edge subcommand")
 		os.Exit(2)
