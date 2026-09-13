@@ -1,22 +1,16 @@
 package mikrotik
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestClientRSC(t *testing.T) {
 	s := ClientRSC("mt-office", "1.2.3.4", "https://core.example", "netductor")
-	if !stringsContains(s, "nd-heartbeat") || !stringsContains(s, "1.2.3.4") {
+	if !strings.Contains(s, "mt-office") || !strings.Contains(s, "no VLESS") {
 		t.Fatalf("rsc incomplete: %s", s)
 	}
-}
-
-func stringsContains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(sub) == 0 || stringIndex(s, sub) >= 0)
-}
-func stringIndex(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
+	if !strings.Contains(s, "1.2.3.4") {
+		t.Fatalf("missing relay hint")
 	}
-	return -1
 }
