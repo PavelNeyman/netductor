@@ -771,3 +771,24 @@ func restartSingBox(id string) string {
 	}
 	return "ok\n" + string(b)
 }
+
+
+func formatSitesHTML() string {
+	out := strings.TrimSpace(runND("sites", "list"))
+	if out == "" || strings.Contains(out, "unknown") {
+		return T("sites_empty")
+	}
+	return "<pre>" + esc(out) + "</pre>"
+}
+
+func formatSitesRSCHTML() string {
+	nl := string([]byte{10})
+	out := strings.TrimSpace(runND("sites", "rsc"))
+	if out == "" {
+		out = runND("sites", "list")
+	}
+	if len(out) > 3500 {
+		out = out[:3500] + "…"
+	}
+	return "📜 <b>MikroTik RSC</b>" + nl + "<pre>" + esc(out) + "</pre>"
+}
