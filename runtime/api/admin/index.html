@@ -212,5 +212,20 @@
 
   </main>
   <script src="/admin/app.js"></script>
+
+<section id="node-ops">
+  <h2>Node ops</h2>
+  <p class="muted">Parity with Telegram: journal + restart service</p>
+  <label>Unit <select id="ops-unit"><option>sing-box</option><option>blocky</option><option>netductor-api</option><option>netductor-telegram-bot</option></select></label>
+  <button type="button" id="btn-journal">Journal</button>
+  <button type="button" id="btn-restart-svc">Restart service</button>
+  <pre id="ops-out" class="log"></pre>
+</section>
+<section id="relay-routing">
+  <h2>Relay routing</h2>
+  <p>RU domains → direct on relay · other → uplink core. See docs/RELAY-ROUTING.md</p>
+  <button type="button" id="btn-relay-sync">Sync relay config</button>
+</section>
+
 </body>
 </html>
