@@ -16,6 +16,24 @@ import (
 )
 
 func registerRelayAPI(mux *http.ServeMux) {
+	mux.HandleFunc("/api/relay/device", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "id", 400)
+			return
+		}
+		for _, d := range relay.List() {
+			if d.ID == id {
+				writeJSON(w, 200, d)
+				return
+			}
+		}
+		http.Error(w, "not found", 404)
+	})
+
 	mux.HandleFunc("/api/relay/export", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
