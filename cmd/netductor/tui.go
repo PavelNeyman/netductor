@@ -162,6 +162,9 @@ func menuItemsFor(mode runMode) []list.Item {
 		return []list.Item{
 			menuItem{"Bootstrap one-liner", "copy-paste for VPS", "bootstrap"},
 			menuItem{"Build netductor (local Go)", "", "build"},
+			menuItem{"Site setup wizard", "MikroTik + RPi · step by step", "site-wizard"},
+			menuItem{"MikroTik manage", "identity / routes / push", "mt-manage"},
+			menuItem{"Sites list", "", "sites-list"},
 			menuItem{"Operator tools…", "via SSH tunnel", "to-operator"},
 			menuItem{"Change mode…", "", "change-mode"},
 			menuItem{"Quit", "", "quit"},
@@ -259,7 +262,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		m.result = tuiResult{action: "quit", mode: m.mode}
 		return m, tea.Quit
-	case "vpn-add", "session", "install", "prepare", "owrt-install", "build", "hostname":
+	case "vpn-add", "session", "install", "prepare", "owrt-install", "build", "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live":
 		m.result = tuiResult{action: id, mode: m.mode}
 		return m, tea.Quit
 	case "change-mode":
@@ -611,6 +614,16 @@ func runTUI(args []string) {
 			formOwrtInstall()
 		case "build":
 			formBuild()
+		case "hostname":
+			runHostnameForm()
+		case "site-wizard":
+			runSiteWizard()
+		case "mt-manage":
+			runMikroTikManage()
+		case "sites-list":
+			runSitesListTUI()
+		case "sni-live":
+			runSNIForm()
 		default:
 			return
 		}
