@@ -532,3 +532,9 @@ document.getElementById('btn-sshhosts-clear-relay')?.addEventListener('click', a
   await api('/api/ssh-hosts/clear?kind=relay', { method: 'POST' });
   refreshSSHHosts();
 });
+
+document.querySelectorAll('.tab').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (btn.getAttribute('data-tab') === 'sshhosts') refreshSSHHosts();
+  });
+});
