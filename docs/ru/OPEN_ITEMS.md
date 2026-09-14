@@ -1,30 +1,19 @@
 # Открытые темы
 
-## Сделано (недавнее)
-- [x] TUI: Site wizard + MikroTik manage + Live SNI
-- [x] sites push CLI/API, line-by-line RSC
-- [x] Live SNI set-sni / Admin
-- [x] Client configs (Shadowrocket/sing-box)
-- [x] Admin Sites/Status parity
-- [x] Flow mismatch counters (CLI / TG / API)
-- [x] SSH TOFU known_hosts (MT + relay) + UI: CLI, TUI, Admin, Telegram
-- [x] Edge API: device token bound to device_id; session-only devices/cmd
-- [x] TG: SSH hosts under Nodes
+## Сделано (пакет ops)
+- [x] Алерты: probe, service down, relay offline, mismatch spike, backup offsite fail
+- [x] `vpn refresh-links`
+- [x] HY2 не в primary subscription; `link full` для hy2
+- [x] Audit tail (CLI/API/Admin/TG/TUI)
+- [x] Sessions list + revoke-all
+- [x] Doctor: SNI, backup peer, TG secrets, relay registry
+- [x] `vpn apply --dry-run`
+- [x] Runbook день 1 EN+RU
+- [x] Тесты rename/fragment/subscription/refresh
+- [x] `vpn sni-import` (twl URL / cache)
+- [x] Multi-relay URIs in shadowrocket helper
 
-## Осталось (нужно железо / домен / политика)
-- [ ] Прогон Site wizard на реальном MT + RPi
-- [ ] HTTPS / Mini App (нужен домен)
-- [ ] Live SNI auto under carrier WL (policy)
-
-## Команды (актуальный CLI)
-```bash
-netductor install | tui | doctor | serve
-netductor vpn list|add|link|mismatch|session|set-sni
-netductor ssh-hosts list|forget|clear
-netductor relay | nodes | sites | edge
-```
-
-- [x] VPN rename (CLI/TG/Admin/TUI)
-- [x] Fragment #nd-core/#nd-relay
-- [x] Subscription separate UI
-- [x] Cross-VPS backup peer
+## Нужно железо / домен
+- [ ] Site wizard e2e MT+RPi
+- [ ] HTTPS / Mini App
+- [ ] Реальный L3-WL entry IP под БС
