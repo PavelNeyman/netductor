@@ -1,11 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 	"os"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
@@ -131,18 +131,10 @@ func runVPN(args []string) {
 			if err == nil {
 				for _, u := range r {
 					if u.Name == name {
-						vless := vpn.VLESSLink(name, u.UUID)
+						vless := vpn.PreferredVLESSLink(name, u.UUID)
 						via := "core"
-						for _, d := range relay.List() {
-							if relay.Online(d, 2*time.Minute) && d.PublicIP != "" && d.PBK != "" {
-								sni := d.SNI
-								if sni == "" {
-									sni = "ya.ru"
-								}
-								vless = vpn.ClientLinkForRelay(name, u.UUID, d.PublicIP, d.PBK, d.SID, sni)
-								via = "relay:" + d.ID
-								break
-							}
+						if e := vpn.ResolveClientEndpoints(name, u.UUID); e.RelayHost != "" {
+							via = "relay:" + e.RelayHost
 						}
 						fmt.Println(vless)
 						if via != "core" {
@@ -172,6 +164,19 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(s)
+	case "wl-check":
+		ip := ""
+		if len(rest) > 0 {
+			ip = rest[0]
+		}
+		var r vpn.WLCheckResult
+		if ip == "" {
+			r = vpn.CheckSelfPublicIP()
+		} else {
+			r = vpn.CheckWhitelistIP(ip)
+		}
+		b, _ := json.MarshalIndent(r, "", "  ")
+		fmt.Println(string(b))
 	case "mismatch":
 		st := vpn.CollectMismatch(30)
 		fmt.Println(vpn.FormatMismatchText(st))
