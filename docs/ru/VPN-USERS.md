@@ -35,3 +35,13 @@ netductor vpn set-sni ya.ru
 
 Автоподнятие RU-relay в netductor пока **нет** — только ручной hop для мобильных, пока не сделаем отдельный plane.
 
+
+
+## Переименование
+
+```bash
+netductor vpn rename old new
+```
+UUID не меняется. Fragment в ссылке: `#nd-relay` / `#nd-core` (не имя пользователя).
+
+Subscription: `netductor vpn link NAME sub` или TG/Admin **Subscription**.
