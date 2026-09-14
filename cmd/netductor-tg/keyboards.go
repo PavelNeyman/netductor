@@ -48,7 +48,8 @@ func vpnKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("vpn_list"), "m:vpn_list", "primary"), btn(T("vpn_add"), "m:vpn_add", "success")},
-			{btn(T("vpn_link"), "m:vpn_link", "primary")},
+			{btn(T("vpn_link"), "m:vpn_link", "primary"), btn(T("vpn_sub"), "m:vpn_sub", "primary")},
+			{btn(T("vpn_rename"), "m:vpn_rename", "")},
 			{btn(T("vpn_enable"), "m:vpn_enable", "success"), btn(T("vpn_disable"), "m:vpn_disable", "danger")},
 			{btn(T("vpn_revoke"), "m:vpn_revoke", "danger")},
 			{btn(T("main_menu"), "m:menu", "")},
