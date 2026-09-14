@@ -180,7 +180,7 @@ func buildOutboundsAndRoute() (outbounds []any, routeRules []any, finalOut strin
 		return
 	}
 	if sniR == "" {
-		sniR = "ya.ru"
+		sniR = DefaultRealitySNI
 	}
 	outbounds = append(outbounds, map[string]any{
 		"type": "vless", "tag": "ru-exit",
