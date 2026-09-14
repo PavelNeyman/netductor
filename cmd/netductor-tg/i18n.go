@@ -122,6 +122,11 @@ var dict = map[string]map[string]string{
 		"devices":       "📡 Devices",
 		"ssh_hosts":     "🔐 SSH hosts",
 		"backup":        "💾 Backup",
+		"audit":         "📋 Audit",
+		"sessions":      "🔑 Sessions",
+		"refresh_links": "🔄 Refresh links",
+		"hy2_optional":  "HY2 optional (not for carrier WL)",
+
 		"backup_hint":   "Peer SCP + run backup now",
 		"backup_run":    "▶ Run now",
 		"backup_set":    "Set peer…",
@@ -237,6 +242,11 @@ var dict = map[string]map[string]string{
 		"devices":       "📡 Устройства",
 		"ssh_hosts":     "🔐 SSH hosts",
 		"backup":        "💾 Бэкап",
+		"audit":         "📋 Аудит",
+		"sessions":      "🔑 Сессии",
+		"refresh_links": "🔄 Обновить ссылки",
+		"hy2_optional":  "HY2 опционален (не для БС)",
+
 		"backup_hint":   "Peer SCP + запуск бэкапа",
 		"backup_run":    "▶ Сейчас",
 		"backup_set":    "Задать peer…",
