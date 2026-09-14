@@ -58,7 +58,31 @@ func runStatus() {
 }
 
 
-func runBackupCmd() {
+func runBackupCmd(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "peer-set":
+			if len(args) < 2 {
+				fmt.Fprintln(os.Stderr, "usage: netductor backup peer-set root@host:/var/lib/netductor/backups/peers/core/")
+				os.Exit(2)
+			}
+			opts := ""
+			if len(args) > 2 {
+				opts = strings.Join(args[2:], " ")
+			}
+			if err := install.SetBackupPeer(args[1], opts); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println(install.BackupPeerStatus())
+			return
+		case "peer-status", "status":
+			fmt.Println(install.BackupPeerStatus())
+			return
+		case "now", "run":
+			// fallthrough
+		}
+	}
 	path, err := install.Backup()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
