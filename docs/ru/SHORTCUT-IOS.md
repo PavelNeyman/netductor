@@ -9,14 +9,14 @@
 ## Модель безопасности
 
 1. API только через **ваш VPN** или SSH-туннель на `127.0.0.1:8787`.
-2. **Session token** через `netductor-vpn session` или Telegram `/session` — не master token внутри Shortcut.
+2. **Session token** через `netductor vpn session` или Telegram `/session` — не master token внутри Shortcut.
 3. **Face ID / код** в начале Shortcut.
 4. Токен в **локальном файле** (На iPhone / На Mac; лучше не класть токен в iCloud).
 
 ## Выпустить session
 
 ```bash
-sudo netductor-vpn session 72
+sudo netductor vpn session 72
 ```
 
 Или Telegram: `/session 72`
