@@ -244,8 +244,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		setState(chat, "wait_vpn_rename", "")
 		reply(token, chat, msgID, T("vpn_rename_hint"), backKeyboard())
 	case "m:vpn_sub":
-		setState(chat, "wait_vpn_name:vpn_sub", "")
-		reply(token, chat, msgID, "📦 "+T("vpn_sub")+string([]byte{10, 10})+formatVPNListPretty(runVPN("list")), vpnUsersKeyboardFor("vpn_sub"))
+		reply(token, chat, msgID, "ℹ️ Subscription removed. Use Access → VLESS / Core / HY2.", usersListKeyboard())
 	case "m:vpn_link", "m:vpn_disable", "m:vpn_enable", "m:vpn_revoke":
 		action := strings.TrimPrefix(data, "m:")
 		// map m:vpn_link -> link
