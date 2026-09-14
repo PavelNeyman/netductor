@@ -278,13 +278,14 @@ func buildAPIMux() http.Handler {
 		writeJSON(w, 200, map[string]any{"commands": edge.PollCommands(did)})
 	})
 	mux.HandleFunc("/api/edge/rsc", func(w http.ResponseWriter, r *http.Request) {
-		// device downloads RouterOS script to import
-		if !edge.ValidBearer(r.Header.Get("Authorization")) {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
-			return
+		auth := r.Header.Get("Authorization")
+		if edge.DeviceIDFromAuth(auth) == "" {
+			if !requireSession(w, r) {
+				return
+			}
 		}
 		name := r.URL.Query().Get("name")
-		if name == "" {
+		if name == "" || strings.Contains(name, "..") || strings.Contains(name, "/") {
 			writeJSON(w, 400, map[string]string{"error": "name"})
 			return
 		}
@@ -294,7 +295,7 @@ func buildAPIMux() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write(b)
+		_, _ = w.Write(b)
 	})
 	mux.HandleFunc("/api/edge/apply_rsc", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
@@ -386,9 +387,7 @@ func buildAPIMux() http.Handler {
 		writeJSON(w, 200, map[string]any{"pending": edge.ListPending()})
 	})
 	mux.HandleFunc("/api/edge/devices", func(w http.ResponseWriter, r *http.Request) {
-		tok := bearer(r)
-		if !edge.ValidBearer(r.Header.Get("Authorization")) && !session.Valid(tok) {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+		if !requireSession(w, r) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"devices": edge.ListDevices()})
@@ -398,9 +397,7 @@ func buildAPIMux() http.Handler {
 			writeJSON(w, 405, map[string]string{"error": "method"})
 			return
 		}
-		tok := bearer(r)
-		if !edge.ValidBearer(r.Header.Get("Authorization")) && !session.Valid(tok) {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+		if !requireSession(w, r) {
 			return
 		}
 		body := readJSON(r)
