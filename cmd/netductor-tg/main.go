@@ -91,13 +91,16 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 			"html": html,
 		},
 	}
+	// Prefer in-body <tg-button-row>; still attach reply_markup as fallback for older clients.
 	if kb != nil {
 		payload["reply_markup"] = kb
 	}
-	if _, err := apiPost(token, "sendRichMessage", payload); err == nil {
+	if body, err := apiPost(token, "sendRichMessage", payload); err == nil {
 		return
+	} else {
+		fmt.Fprintf(os.Stderr, "sendRichMessage: %v body=%s\n", err, truncate(string(body), 200))
 	}
-	// fallback classic
+	// fallback classic (strips unknown tags)
 	payload2 := map[string]any{"chat_id": chat, "text": html, "parse_mode": "HTML"}
 	if kb != nil {
 		payload2["reply_markup"] = kb
