@@ -7,7 +7,7 @@
 - Security headers: nosniff, DENY frame, no-referrer
 
 ## Осознанные ограничения
-- MikroTik SSH: `InsecureIgnoreHostKey` (LAN one-shot)
+- MikroTik / relay SSH: TOFU known_hosts (`netductor ssh-hosts`)
 - `/health` без auth (liveness only)
 - API по умолчанию localhost; public bind — осознанный `api-bind`
 
@@ -30,3 +30,5 @@
 
 ## 2026-09-14 deep pass
 - `/api/nodes/journal` и `/api/nodes/restart-service` требовали session (были без auth)
+
+- `/api/nodes/self`: loopback **or** session
