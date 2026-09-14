@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
 )
 
@@ -54,6 +55,14 @@ func main() {
 		runProbe(os.Args[2:])
 	case "collect":
 		os.Exit(runCollect())
+	case "audit":
+		n := 50
+		if len(os.Args) > 2 && os.Args[2] == "tail" && len(os.Args) > 3 {
+			fmt.Sscanf(os.Args[3], "%d", &n)
+		}
+		for _, ev := range audit.Tail(n) {
+			fmt.Printf("%d\t%s\t%s\t%s\t%s\n", ev.TS, ev.Actor, ev.Action, ev.Target, ev.Detail)
+		}
 	case "backup":
 		runBackupCmd(os.Args[2:])
 	case "restore":
@@ -83,7 +92,7 @@ func printHelp() {
 	fmt.Print(`netductor — network control plane
 
   tui|menu [--mode vps|openwrt|workstation|operator]
-  backup | self-install | update
+  backup | audit | self-install | update
   version | doctor | status | vpn | sites | ssh-hosts | relay | addons | edge | serve | install | probe | collect | help
 
   (no args on a TTY → interactive menu)
