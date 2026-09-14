@@ -113,7 +113,7 @@ func sni() string {
 	}
 	// RU whitelist-oriented default (home ISP). Mobile often needs RU relay.
 	// Override: SINGBOX_REALITY_SNI or netductor vpn set-sni.
-	return "ya.ru"
+	return DefaultRealitySNI
 }
 
 func vlessPort() int {
@@ -166,9 +166,18 @@ func genHy2Pass() string {
 
 func VLESSLink(name, uuid string) string {
 	return fmt.Sprintf(
-		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=chrome&pbk=%s&sid=%s&type=tcp#%s",
-		uuid, publicIP(), vlessPort(), sni(), secret("singbox_reality_public"), secret("singbox_short_id"), name,
+		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#%s-core",
+		uuid, publicIP(), vlessPort(), sni(), DefaultUTLSFingerprint, secret("singbox_reality_public"), secret("singbox_short_id"), name,
 	)
+}
+
+// PreferredVLESSLink uses online RU relay when available (primary under carrier WL).
+func PreferredVLESSLink(name, uuid string) string {
+	e := ResolveClientEndpoints(name, uuid)
+	if e.RelayHost != "" && e.RelayPBK != "" {
+		return ClientLinkForRelayLocal(name, uuid, e.RelayHost, e.RelayPBK, e.RelaySID, e.RelaySNI)
+	}
+	return VLESSLink(name, uuid)
 }
 
 func Hy2Link(name, pass string) string {
@@ -181,14 +190,16 @@ func writeArtifacts(name, uuid, hy2pass string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	vless := VLESSLink(name, uuid)
+	vless := PreferredVLESSLink(name, uuid)
+	vlessCore := VLESSLink(name, uuid)
 	hy2 := Hy2Link(name, hy2pass)
-	sub := vless + "\n" + hy2 + "\n"
-	_ = os.WriteFile(filepath.Join(dir, "link-vless.txt"), []byte(vless+"\n"), 0o600)
-	_ = os.WriteFile(filepath.Join(dir, "link-hy2.txt"), []byte(hy2+"\n"), 0o600)
+	nl := string([]byte{10})
+	sub := vless + nl + vlessCore + nl + hy2 + nl
+	_ = os.WriteFile(filepath.Join(dir, "link-vless.txt"), []byte(vless+nl), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(vlessCore+nl), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "link-hy2.txt"), []byte(hy2+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "subscription.txt"), []byte(sub), 0o600)
-	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+"\n"), 0o600)
-	// base64 sub optional skip for simplicity or simple std encoding
+	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr.png"))
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr-vless.png"))
 	_ = qrcode.WriteFile(hy2, qrcode.Medium, 512, filepath.Join(dir, "qr-hy2.png"))
