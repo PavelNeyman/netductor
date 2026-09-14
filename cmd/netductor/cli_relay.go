@@ -142,6 +142,9 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, "required: --host and --password")
 			os.Exit(2)
 		}
+		// Reinstall always changes SSH host key — clear TOFU + OpenSSH known_hosts before dial.
+		_ = relay.ForgetSSHHost(host)
+		_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
 		sni = vpn.ResolveRelaySNI(sni, host)
 		fmt.Fprintln(os.Stderr, "provision SNI:", sni)
 		// Pre-clean: same IP must not keep dead agents from previous install.
