@@ -8,7 +8,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
-// SNIPreset is a whitelist-friendly handshake name for Reality.
+// SNIPreset is a whitelist-oriented Reality server_name.
 type SNIPreset struct {
 	Name string `json:"name"`
 	SNI  string `json:"sni"`
@@ -17,11 +17,17 @@ type SNIPreset struct {
 
 func defaultSNIPresets() []SNIPreset {
 	return []SNIPreset{
-		{Name: "yandex", SNI: "ya.ru", Note: "default RU"},
-		{Name: "vk", SNI: "api.vk.com", Note: "mobile-friendly"},
-		{Name: "mail", SNI: "mail.ru", Note: "alt RU"},
-		{Name: "gosuslugi", SNI: "gosuslugi.ru", Note: "gov WL"},
-		{Name: "yota-try", SNI: "api.vk.me", Note: "experimental under carrier WL"},
+		{Name: "vk-api", SNI: "api.vk.me", Note: "default — commercial WL profiles"},
+		{Name: "vk", SNI: "api.vk.com", Note: "VK API"},
+		{Name: "vk-live", SNI: "vklive.enotfast.com", Note: "habr sample"},
+		{Name: "userapi", SNI: "userapi.com", Note: "VK CDN"},
+		{Name: "yandex", SNI: "ya.ru", Note: "Yandex"},
+		{Name: "yastatic", SNI: "yastatic.net", Note: "Yandex CDN"},
+		{Name: "ya-storage", SNI: "storage.yandex.net", Note: "Yandex Object Storage"},
+		{Name: "okcdn", SNI: "okcdn.ru", Note: "OK CDN"},
+		{Name: "mail", SNI: "mail.ru", Note: "Mail.ru"},
+		{Name: "x5", SNI: "id.x5.ru", Note: "commercial WL hop"},
+		{Name: "gosuslugi", SNI: "gosuslugi.ru", Note: "gov"},
 	}
 }
 
@@ -29,7 +35,6 @@ func sniPresetsPath() string {
 	return filepath.Join(paths.EtcDir(), "sni_presets.json")
 }
 
-// ListSNIPresets loads operator overrides or defaults.
 func ListSNIPresets() []SNIPreset {
 	b, err := os.ReadFile(sniPresetsPath())
 	if err != nil {
@@ -42,7 +47,6 @@ func ListSNIPresets() []SNIPreset {
 	return list
 }
 
-// EnsureSNIPresetsFile writes defaults if missing.
 func EnsureSNIPresetsFile() error {
 	p := sniPresetsPath()
 	if _, err := os.Stat(p); err == nil {
@@ -50,5 +54,5 @@ func EnsureSNIPresetsFile() error {
 	}
 	_ = os.MkdirAll(filepath.Dir(p), 0o755)
 	raw, _ := json.MarshalIndent(defaultSNIPresets(), "", "  ")
-	return os.WriteFile(p, append(raw, '\n'), 0o644)
+	return os.WriteFile(p, append(raw, 10), 0o644)
 }
