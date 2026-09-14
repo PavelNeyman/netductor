@@ -130,11 +130,15 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		} else {
 			reply(token, chat, msgID, menuText(), mainKeyboard())
 		}
+	case "m:fleet":
+		reply(token, chat, msgID, T("fleet_title"), fleetKeyboard())
+	case "m:operator":
+		reply(token, chat, msgID, T("operator_title"), operatorKeyboard())
 	case "m:cat:users":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:vpn":
 		setState(chat, "", "")
-		reply(token, chat, msgID, T("cat_vpn_title"), vpnKeyboard())
+		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:routers":
 		setState(chat, "", "")
 		reply(token, chat, msgID, T("cat_routers_title"), routersKeyboard())
