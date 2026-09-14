@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ func runRelay(args []string) {
 	switch args[0] {
 	case "export":
 		out := "bundle.json"
-		sni := "ya.ru"
+		sni := vpn.DefaultRealitySNI
 		for i := 1; i < len(args); i++ {
 			switch args[i] {
 			case "-o", "--output":
@@ -120,7 +121,7 @@ func runRelay(args []string) {
 		fmt.Fprintln(os.Stderr, "relay agent →", url)
 		relay.AgentLoop(url, tok, 30*time.Second)
 	case "provision":
-		host, user, pass, sni := "", "root", "", "ya.ru"
+		host, user, pass, sni := "", "root", "", ""
 		port := 22
 		for i := 1; i < len(args); i++ {
 			a := args[i]
@@ -141,6 +142,8 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, "required: --host and --password")
 			os.Exit(2)
 		}
+		sni = vpn.ResolveRelaySNI(sni, host)
+		fmt.Fprintln(os.Stderr, "provision SNI:", sni)
 		b, err := vpn.ExportRelayBundle(sni)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -162,6 +165,10 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		// Persist preferred SNI for next re-provision (not ya.ru hardcode).
+		_ = vpn.RememberRelaySNI(sni)
+		// Post-provision automation (was manual): prune stale same-IP relays, peer backup, refresh links.
+		postProvisionRelay(host, sni)
 		fmt.Println("provisioned", host)
 	case "device":
 		if len(args) < 2 {
@@ -255,4 +262,80 @@ func runRelay(args []string) {
 		fmt.Fprintln(os.Stderr, "unknown relay subcommand")
 		os.Exit(2)
 	}
+}
+
+
+// postProvisionRelay finishes what operators used to do by hand after provision.
+func postProvisionRelay(host, sni string) {
+	fmt.Println("==> post-provision: prune stale relays")
+	_ = relay.PruneDuplicates()
+	_ = relay.PruneStale(10 * time.Minute)
+	if list, err := nodes.List(); err == nil {
+		for _, n := range list {
+			if n.Role != "relay" {
+				continue
+			}
+			if n.PublicIP == host && n.Status == "offline" {
+				_ = nodes.Delete(n.ID)
+				fmt.Println("removed stale offline node", n.ID)
+			}
+		}
+	}
+	// Preferred hostname if only one relay for this IP
+	if list, err := nodes.List(); err == nil {
+		for _, n := range list {
+			if n.Role == "relay" && n.PublicIP == host && n.Status == "online" {
+				_, _ = nodes.SetDesiredHostname(n.ID, "nd-relay-ru")
+			}
+		}
+	}
+	target := "root@" + host + ":/var/lib/netductor/backups/peers/core/"
+	fmt.Println("==> post-provision: backup peer", target)
+	_ = install.SetBackupPeer(target, "-o StrictHostKeyChecking=accept-new -o BatchMode=yes")
+	// Ensure remote peer dir + push latest local backup (key auth after provision)
+	_ = execSSHHost(host, "mkdir -p /var/lib/netductor/backups/peers/core")
+	dir := filepath.Join(paths.StateDir(), "backups")
+	ents, _ := os.ReadDir(dir)
+	var latest string
+	var latestMod time.Time
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasSuffix(name, ".ndenc") && !strings.HasSuffix(name, ".tar.gz") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if latest == "" || info.ModTime().After(latestMod) {
+			latest = filepath.Join(dir, name)
+			latestMod = info.ModTime()
+		}
+	}
+	if latest != "" {
+		fmt.Println("==> post-provision: scp backup", latest)
+		_ = execLocal("scp", "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", latest, target)
+	}
+	fmt.Println("==> post-provision: refresh client links")
+	if n, err := vpn.RefreshLinks(""); err != nil {
+		fmt.Println("refresh-links:", err)
+	} else {
+		fmt.Println("refresh-links: refreshed", n)
+	}
+	fmt.Println("==> post-provision: SNI remembered as", sni)
+}
+
+func execSSHHost(host, cmd string) error {
+	c := exec.Command("ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "root@"+host, cmd)
+	c.Stdout, c.Stderr = os.Stdout, os.Stderr
+	return c.Run()
+}
+
+func execLocal(name string, args ...string) error {
+	c := exec.Command(name, args...)
+	c.Stdout, c.Stderr = os.Stdout, os.Stderr
+	return c.Run()
 }
