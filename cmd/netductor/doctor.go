@@ -75,6 +75,23 @@ func runDoctorNative() int {
 		warnCheck("metrics timer", active("netductor-metrics.timer"))
 		warnCheck("metrics latest.json", exists(filepath.Join(state, "metrics", "latest.json")))
 	}
+	// operator config hints
+	sniFile := filepath.Join(etc, "secrets", "singbox_reality_sni")
+	sniVal := "api.vk.me"
+	if b, err := os.ReadFile(sniFile); err == nil && strings.TrimSpace(string(b)) != "" {
+		sniVal = strings.TrimSpace(string(b))
+	}
+	fmt.Printf("INFO reality_sni=%s\n", sniVal)
+	warnCheck("backup.offsite peer", exists(filepath.Join(etc, "backup.offsite")))
+	warnCheck("tg admin id", exists(filepath.Join(etc, "secrets", "telegram_admin_id")) || os.Getenv("NETDUCTOR_TG_ADMIN") != "")
+	warnCheck("tg bot token", exists(filepath.Join(etc, "secrets", "telegram_bot_token")) || os.Getenv("NETDUCTOR_TG_TOKEN") != "")
+	// preferred entry: any online relay?
+	relayDev := filepath.Join(state, "relay", "devices.json")
+	if exists(relayDev) {
+		fmt.Printf("INFO relay registry present\n")
+	} else {
+		warnCheck("relay registry", false)
+	}
 	_ = opt
 	fmt.Printf("\nSummary: ok=%d fail=%d warn=%d\n", ok, fail, warn)
 	if fail > 0 {
