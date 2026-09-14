@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -181,6 +182,9 @@ func menuItemsFor(mode runMode) []list.Item {
 			menuItem{"VPN — subscription", "show subscription body", "vpn-sub"},
 			menuItem{"Backup peer", "cross-VPS scp target", "backup-peer"},
 			menuItem{"Backup now", "local + offsite if set", "backup-now"},
+			menuItem{"VPN — refresh links", "rewrite all client files", "vpn-refresh"},
+			menuItem{"Audit tail", "", "audit-tail"},
+			menuItem{"Sessions list", "", "sessions-list"},
 			menuItem{"Session token", "hours form", "session"},
 			menuItem{"Edge — list devices", "", "edge-list"},
 			menuItem{"Nodes registry", "core + relay fleet", "nodes-list"},
@@ -318,6 +322,19 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.screen = screenOutput
 	case "backup-now":
 		m.output = capture(func() { runBackupCmd(nil) })
+		m.screen = screenOutput
+	case "vpn-refresh":
+		m.output = capture(func() { runVPN([]string{"refresh-links"}) })
+		m.screen = screenOutput
+	case "audit-tail":
+		m.output = capture(func() {
+			for _, ev := range audit.Tail(40) {
+				fmt.Printf("%d\t%s\t%s\t%s\t%s\n", ev.TS, ev.Actor, ev.Action, ev.Target, ev.Detail)
+			}
+		})
+		m.screen = screenOutput
+	case "sessions-list":
+		m.output = capture(func() { runVPN([]string{"session", "list"}) })
 		m.screen = screenOutput
 	case "vpn-list":
 		m.output = capture(func() {
