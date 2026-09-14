@@ -647,9 +647,56 @@ func formatUsersListHTML() string {
 	nl := string([]byte{10})
 	raw := runVPN("list")
 	var b strings.Builder
-	b.WriteString("👥 <b>" + T("users") + "</b>" + nl + nl)
-	b.WriteString("<i>" + T("users_hint") + "</i>" + nl + nl)
-	b.WriteString(formatVPNListPretty(raw))
+	b.WriteString("<h3>👥 " + esc(T("users")) + "</h3>" + nl)
+	b.WriteString("<p><i>" + T("users_hint") + "</i></p>" + nl)
+	n := 0
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 1 {
+			parts = strings.Fields(line)
+		}
+		if len(parts) < 1 || parts[0] == "" {
+			continue
+		}
+		name := parts[0]
+		if name == "relay-uplink" {
+			continue
+		}
+		en := ""
+		if len(parts) > 1 {
+			en = parts[1]
+		}
+		n++
+		icon := "🟢"
+		if en == "off" {
+			icon = "🔴"
+		}
+		// One visual row: status + name, then in-body rich buttons (Bot API 10.3)
+		b.WriteString("<p>" + icon + " <b>" + esc(name) + "</b>")
+		if en != "" {
+			b.WriteString(" · <code>" + esc(en) + "</code>")
+		}
+		b.WriteString("</p>" + nl)
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(`<tg-button type="callback_data" style="primary" data="u:open:` + name + `">` + esc(T("user_card")) + `</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:access:` + name + `:vless">` + esc(T("user_access")) + `</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:rename:` + name + `">` + esc(T("vpn_rename")) + `</tg-button>`)
+		b.WriteString(`</tg-button-row>` + nl)
+		if n >= 25 {
+			break
+		}
+	}
+	if n == 0 {
+		b.WriteString("<p>—</p>" + nl)
+	}
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="success" data="m:vpn_add">` + esc(T("vpn_add")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:menu">` + esc(T("main_menu")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
 
@@ -674,8 +721,21 @@ func formatUserHubHTML(name string) string {
 		icon = "🔴"
 	}
 	var b strings.Builder
-	b.WriteString("👤 <b>" + esc(name) + "</b> " + icon + " <code>" + esc(en) + "</code>" + nl + nl)
-	b.WriteString("<i>" + T("user_hub_hint") + "</i>")
+	b.WriteString("<h3>👤 " + esc(name) + " " + icon + "</h3>" + nl)
+	b.WriteString("<p><code>" + esc(en) + "</code></p>" + nl)
+	b.WriteString("<p><i>" + T("user_hub_hint") + "</i></p>" + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">` + esc(T("user_access")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="u:rename:` + name + `">` + esc(T("vpn_rename")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="success" data="u:enable:` + name + `">` + esc(T("vpn_enable")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:disable:` + name + `">` + esc(T("vpn_disable")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:revoke:` + name + `">` + esc(T("vpn_revoke")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" data="m:users">` + esc(T("users")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
 
