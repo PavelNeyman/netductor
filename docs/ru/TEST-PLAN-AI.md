@@ -25,11 +25,11 @@
 
 ## Фаза B — Инструменты хоста
 
-6. `command -v netductor-doctor netductor-vpn netductor-tests netductor-smoke`
-7. `sudo netductor-doctor` → exit 0; без FAIL; WARN (variant) допустим.
-8. `sudo netductor-smoke` → exit 0.
-9. `sudo netductor-vpn list` → есть `operator` on.
-10. `sudo netductor-vpn link operator` → subscription (vless + hysteria2).
+6. `command -v netductor && netductor version
+7. `sudo netductor doctor` → exit 0; без FAIL; WARN (variant) допустим.
+8. `sudo netductor doctor` → exit 0.
+9. `sudo netductor vpn list` → есть `operator` on.
+10. `sudo netductor vpn link operator` → subscription (vless + hysteria2).
 
 ## Фаза C — Сервисы
 
@@ -38,7 +38,7 @@
 13. `dig @127.0.0.1 example.com +short` не пусто
 14. `ss -lntp | grep -E ':443|:8443|:53'` (или аналог)
 15. Если API включён: `curl -fsS http://127.0.0.1:8787/health`
-16. Session: `TOK=$(sudo netductor-vpn session 1 | head -1)` затем  
+16. Session: `TOK=$(sudo netductor vpn session 1 | head -1)` затем  
     `curl -fsS -H "Authorization: Bearer $TOK" http://127.0.0.1:8787/vpn/users`
 17. Docker-панели (если включены): `docker ps`; порты на 127.0.0.1.
 
@@ -49,11 +49,11 @@
     sudo bash /tmp/fv.sh --upgrade --non-interactive
     ```
 19. Ожидаем skip здоровых модулей; UFW active; UUID operator тот же (jq).
-20. `netductor-doctor` снова exit 0.
+20. `netductor doctor` снова exit 0.
 
 ## Фаза E — Жизненный цикл пользователя (только сервер)
 
-21. `netductor-vpn add aitest`
+21. `netductor vpn add aitest`
 22. Артефакты в `/etc/netductor/clients/aitest/subscription.txt`
 23. `disable` / `enable` / `revoke aitest`
 24. После revoke каталог удалён; sing-box active.
@@ -63,7 +63,7 @@
 25. `PasswordAuthentication no` **только если** есть authorized_keys.
 26. SSH жив (UFW не «убит» reset).
 27. API без Bearer → 401.
-28. Опционально: `netductor-tests sysbench`; полный `--default` при наличии времени.
+28. Опционально: `netductor probe sysbench`; полный `--default` при наличии времени.
 
 ## Вне скоупа ИИ
 
