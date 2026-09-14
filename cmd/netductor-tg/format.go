@@ -324,6 +324,12 @@ func formatStatusPretty() string {
 	b.WriteString(nodesTitle + nl + formatNodesListHTML() + nl + nl)
 	b.WriteString("👥 <b>VPN</b>" + nl)
 	b.WriteString(formatVPNListPretty(runVPN("list")))
+	b.WriteString(nl + nl)
+	mmTitle := "⚠️ <b>Flow mismatch</b>"
+	if ru {
+		mmTitle = "⚠️ <b>Flow mismatch</b>"
+	}
+	b.WriteString(mmTitle + nl + "<pre>" + esc(strings.TrimSpace(runND("vpn", "mismatch"))) + "</pre>")
 	return b.String()
 }
 
