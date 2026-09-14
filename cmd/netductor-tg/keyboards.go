@@ -39,6 +39,7 @@ func mainKeyboard() map[string]any {
 			{btn(T("session"), "m:session", ""), btn(T("admin"), "m:admin", "")},
 			{btn(T("addons"), "m:addons", ""), btn(T("nodes"), "m:cat:nodes", "primary")},
 			{btn(T("sites"), "m:cat:sites", "")},
+			{btn(T("audit"), "m:audit", ""), btn(T("sessions"), "m:sessions", "")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
 	}
@@ -49,7 +50,7 @@ func vpnKeyboard() map[string]any {
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("vpn_list"), "m:vpn_list", "primary"), btn(T("vpn_add"), "m:vpn_add", "success")},
 			{btn(T("vpn_link"), "m:vpn_link", "primary"), btn(T("vpn_sub"), "m:vpn_sub", "primary")},
-			{btn(T("vpn_rename"), "m:vpn_rename", "")},
+			{btn(T("vpn_rename"), "m:vpn_rename", ""), btn(T("refresh_links"), "m:vpn_refresh", "")},
 			{btn(T("vpn_enable"), "m:vpn_enable", "success"), btn(T("vpn_disable"), "m:vpn_disable", "danger")},
 			{btn(T("vpn_revoke"), "m:vpn_revoke", "danger")},
 			{btn(T("main_menu"), "m:menu", "")},
