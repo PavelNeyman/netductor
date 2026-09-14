@@ -1,6 +1,6 @@
-# Open items
+# Открытые темы
 
-## Done (recent)
+## Сделано (недавнее)
 - [x] TUI: Site wizard + MikroTik manage + Live SNI
 - [x] sites push CLI/API, line-by-line RSC
 - [x] Live SNI set-sni / Admin
@@ -11,15 +11,20 @@
 - [x] Edge API: device token bound to device_id; session-only devices/cmd
 - [x] TG: SSH hosts under Nodes
 
-## Remaining (hardware / domain / policy)
-- [ ] Site wizard on real MT + RPi
-- [ ] HTTPS / Mini App (needs domain)
+## Осталось (нужно железо / домен / политика)
+- [ ] Прогон Site wizard на реальном MT + RPi
+- [ ] HTTPS / Mini App (нужен домен)
 - [ ] Live SNI auto under carrier WL (policy)
 
-## Commands (current CLI)
+## Команды (актуальный CLI)
 ```bash
 netductor install | tui | doctor | serve
 netductor vpn list|add|link|mismatch|session|set-sni
 netductor ssh-hosts list|forget|clear
 netductor relay | nodes | sites | edge
 ```
+
+- [x] VPN rename (CLI/TG/Admin/TUI)
+- [x] Fragment #nd-core/#nd-relay
+- [x] Subscription separate UI
+- [x] Cross-VPS backup peer
