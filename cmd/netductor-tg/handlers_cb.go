@@ -45,6 +45,12 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if strings.HasPrefix(data, "m:ssh:rm:") {
+		id := strings.TrimPrefix(data, "m:ssh:rm:")
+		out := runND("ssh-hosts", "forget", id)
+		reply(token, chat, msgID, fmt.Sprintf(T("ssh_forgot"), esc(id))+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
+		return
+	}
 	if strings.HasPrefix(data, "m:nd:") {
 		// m:nd:o|m|u|r:<id>
 		rest := strings.TrimPrefix(data, "m:nd:")
@@ -208,6 +214,17 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			}[act]
 		}
 		reply(token, chat, msgID, title+string([]byte{10, 10})+formatVPNListPretty(runVPN("list")), vpnUsersKeyboardFor(act))
+	case "m:sshhosts":
+		reply(token, chat, msgID, formatSSHHostsHTML(), sshHostsKeyboard())
+	case "m:ssh:clear:mt":
+		_ = runND("ssh-hosts", "clear", "--kind", "mt")
+		reply(token, chat, msgID, T("ssh_cleared")+" (mt)"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
+	case "m:ssh:clear:relay":
+		_ = runND("ssh-hosts", "clear", "--kind", "relay")
+		reply(token, chat, msgID, T("ssh_cleared")+" (relay)"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
+	case "m:ssh:forget":
+		setState(chat, "wait_ssh_forget", "")
+		reply(token, chat, msgID, T("ssh_forget")+string([]byte{10})+"host or host:port", backKeyboard())
 	case "m:admin":
 		reply(token, chat, msgID, T("admin_body"), backKeyboard())
 	case "m:session":
