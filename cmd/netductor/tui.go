@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -176,6 +177,10 @@ func menuItemsFor(mode runMode) []list.Item {
 			menuItem{"Doctor", "health checks", "doctor"},
 			menuItem{"VPN — list users", "", "vpn-list"},
 			menuItem{"VPN — add user", "form: name + note", "vpn-add"},
+			menuItem{"VPN — rename user", "old → new (UUID kept)", "vpn-rename"},
+			menuItem{"VPN — subscription", "show subscription body", "vpn-sub"},
+			menuItem{"Backup peer", "cross-VPS scp target", "backup-peer"},
+			menuItem{"Backup now", "local + offsite if set", "backup-now"},
 			menuItem{"Session token", "hours form", "session"},
 			menuItem{"Edge — list devices", "", "edge-list"},
 			menuItem{"Nodes registry", "core + relay fleet", "nodes-list"},
@@ -263,7 +268,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.quitting = true
 		m.result = tuiResult{action: "quit", mode: m.mode}
 		return m, tea.Quit
-	case "vpn-add", "session", "install", "prepare", "owrt-install", "build", "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts":
+	case "vpn-add", "vpn-rename", "vpn-sub", "backup-peer", "session", "install", "prepare", "owrt-install", "build", "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts":
 		m.result = tuiResult{action: id, mode: m.mode}
 		return m, tea.Quit
 	case "change-mode":
@@ -310,6 +315,9 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.screen = screenOutput
 	case "relay-exit-off":
 		m.output = capture(func() { runRelay([]string{"exit", "off"}) })
+		m.screen = screenOutput
+	case "backup-now":
+		m.output = capture(func() { runBackupCmd(nil) })
 		m.screen = screenOutput
 	case "vpn-list":
 		m.output = capture(func() {
@@ -443,6 +451,56 @@ func formVpnAdd() {
 		}
 	}
 }
+
+func formVpnRename() {
+	var oldName, newName string
+	f := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Title("Current name").Value(&oldName),
+			huh.NewInput().Title("New name").Value(&newName),
+		),
+	)
+	if err := f.Run(); err != nil {
+		return
+	}
+	out, err := vpn.Rename(strings.TrimSpace(oldName), strings.TrimSpace(newName))
+	if err != nil {
+		fmt.Println(errStyle.Render(err.Error()))
+		return
+	}
+	fmt.Println(okStyle.Render("renamed → " + out + " (UUID unchanged, links still work)"))
+}
+
+func formVpnSub() {
+	var name string
+	f := huh.NewForm(huh.NewGroup(huh.NewInput().Title("User name").Value(&name)))
+	if err := f.Run(); err != nil {
+		return
+	}
+	name = strings.TrimSpace(name)
+	sub, ok := vpn.ReadClient(name, "subscription.txt", "link.txt")
+	if !ok {
+		fmt.Println(errStyle.Render("no subscription for " + name))
+		return
+	}
+	fmt.Println(sub)
+}
+
+func formBackupPeer() {
+	var target string
+	f := huh.NewForm(huh.NewGroup(
+		huh.NewInput().Title("SCP target").Placeholder("root@RELAY:/var/lib/netductor/backups/peers/core/").Value(&target),
+	))
+	if err := f.Run(); err != nil {
+		return
+	}
+	if err := install.SetBackupPeer(strings.TrimSpace(target), ""); err != nil {
+		fmt.Println(errStyle.Render(err.Error()))
+		return
+	}
+	fmt.Println(okStyle.Render(install.BackupPeerStatus()))
+}
+
 
 func formSession() {
 	var hoursStr = "72"
@@ -605,6 +663,12 @@ func runTUI(args []string) {
 			return
 		case "vpn-add":
 			formVpnAdd()
+		case "vpn-rename":
+			formVpnRename()
+		case "vpn-sub":
+			formVpnSub()
+		case "backup-peer":
+			formBackupPeer()
 		case "session":
 			formSession()
 		case "install":
