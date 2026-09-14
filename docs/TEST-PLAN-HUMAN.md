@@ -31,7 +31,7 @@ sudo bash /tmp/fv.sh
 
 ## Operator flows you own
 
-11. [ ] `sudo netductor-vpn add alice` → send her subscription out-of-band → she connects.
+11. [ ] `sudo netductor vpn add alice` → send her subscription out-of-band → she connects.
 12. [ ] `disable` / `enable` / `revoke` as you intend.
 13. [ ] Telegram bot (if enabled): only **your** account can run commands.
 14. [ ] Shortcuts + API (if you use them): session token, Face ID gate, only over VPN/tunnel.
@@ -51,9 +51,9 @@ sudo bash /tmp/fv.sh
 ## Subjective / policy
 
 21. [ ] Latency and streaming quality acceptable for your city.
-22. [ ] `netductor-tests --default` results make sense vs provider expectations.
+22. [ ] `netductor probe --default` results make sense vs provider expectations.
 23. [ ] Decide whether HY2 `insecure=1` is acceptable for your threat model.
 
 ## Report back
 
-Paste: install log tail, `netductor-doctor` output, client app name, any FAIL lines. AI can then fix code.
+Paste: install log tail, `netductor doctor` output, client app name, any FAIL lines. AI can then fix code.
