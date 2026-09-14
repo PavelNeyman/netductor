@@ -56,14 +56,14 @@ func loadOnlineRelay() (host, pbk, sid, sniName string) {
 		}
 		sniName = d.SNI
 		if sniName == "" {
-			sniName = "ya.ru"
+			sniName = DefaultRealitySNI
 		}
 		return d.PublicIP, d.PBK, d.SID, sniName
 	}
 	return
 }
 
-func resolveClientEndpoints(name, uuid string) ClientEndpoints {
+func ResolveClientEndpoints(name, uuid string) ClientEndpoints {
 	e := ClientEndpoints{
 		Name: name, UUID: uuid,
 		CoreHost: publicIP(), CorePort: vlessPort(),
@@ -76,60 +76,97 @@ func resolveClientEndpoints(name, uuid string) ClientEndpoints {
 
 func ClientLinkForRelayLocal(name, uuid, relayIP, pbk, sid, sniName string) string {
 	if sniName == "" {
-		sniName = "ya.ru"
+		sniName = DefaultRealitySNI
 	}
 	return fmt.Sprintf(
-		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#%s-relay",
-		uuid, relayIP, sniName, pbk, sid, name,
+		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#%s-relay",
+		uuid, relayIP, sniName, DefaultUTLSFingerprint, pbk, sid, name,
 	)
 }
 
-// SingBoxClientJSON minimal dual-outbound (relay primary, core backup). Always Vision.
+func vlessOutbound(tag, host string, port int, uuid, sniName, pbk, sid string, detour string) map[string]any {
+	o := map[string]any{
+		"type": "vless", "tag": tag,
+		"server": host, "server_port": port,
+		"uuid": uuid, "flow": "xtls-rprx-vision",
+		"tls": map[string]any{
+			"enabled": true, "server_name": sniName,
+			"utls":    map[string]any{"enabled": true, "fingerprint": DefaultUTLSFingerprint},
+			"reality": map[string]any{"enabled": true, "public_key": pbk, "short_id": sid},
+		},
+	}
+	if detour != "" {
+		o["detour"] = detour
+	}
+	return o
+}
+
+// SingBoxClientJSON builds a WL-oriented client:
+// - IPv4 preferred DNS/route
+// - block UDP/443 and IPv6
+// - RU DNS via Yandex when possible
+// - dual-hop: core detours via relay when relay is online (dialerProxy analogue)
 func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 	if e.UUID == "" {
 		return nil, fmt.Errorf("uuid required")
+	}
+	if e.CoreSNI == "" {
+		e.CoreSNI = DefaultRealitySNI
+	}
+	if e.RelaySNI == "" {
+		e.RelaySNI = DefaultRealitySNI
 	}
 	outbounds := []any{
 		map[string]any{"type": "direct", "tag": "direct"},
 		map[string]any{"type": "block", "tag": "block"},
 	}
 	final := "direct"
-	if e.RelayHost != "" && e.RelayPBK != "" {
-		outbounds = append(outbounds, map[string]any{
-			"type": "vless", "tag": "relay",
-			"server": e.RelayHost, "server_port": e.RelayPort,
-			"uuid": e.UUID, "flow": "xtls-rprx-vision",
-			"tls": map[string]any{
-				"enabled": true, "server_name": e.RelaySNI,
-				"utls":    map[string]any{"enabled": true, "fingerprint": "firefox"},
-				"reality": map[string]any{"enabled": true, "public_key": e.RelayPBK, "short_id": e.RelaySID},
-			},
-		})
+	hasRelay := e.RelayHost != "" && e.RelayPBK != ""
+	hasCore := e.CoreHost != "" && e.CorePBK != ""
+
+	if hasRelay {
+		outbounds = append(outbounds, vlessOutbound("relay", e.RelayHost, e.RelayPort, e.UUID, e.RelaySNI, e.RelayPBK, e.RelaySID, ""))
 		final = "relay"
 	}
-	if e.CoreHost != "" && e.CorePBK != "" {
-		outbounds = append(outbounds, map[string]any{
-			"type": "vless", "tag": "core",
-			"server": e.CoreHost, "server_port": e.CorePort,
-			"uuid": e.UUID, "flow": "xtls-rprx-vision",
-			"tls": map[string]any{
-				"enabled": true, "server_name": e.CoreSNI,
-				"utls":    map[string]any{"enabled": true, "fingerprint": "chrome"},
-				"reality": map[string]any{"enabled": true, "public_key": e.CorePBK, "short_id": e.CoreSID},
-			},
-		})
-		if final == "direct" {
+	if hasCore {
+		detour := ""
+		tag := "core"
+		if hasRelay {
+			// second hop: dial core through established relay (commercial dual-hop pattern)
+			detour = "relay"
+			tag = "core-via-relay"
+			outbounds = append(outbounds, vlessOutbound(tag, e.CoreHost, e.CorePort, e.UUID, e.CoreSNI, e.CorePBK, e.CoreSID, detour))
+			// also plain core for home ISP without WL
+			outbounds = append(outbounds, vlessOutbound("core", e.CoreHost, e.CorePort, e.UUID, e.CoreSNI, e.CorePBK, e.CoreSID, ""))
+			final = tag
+		} else {
+			outbounds = append(outbounds, vlessOutbound("core", e.CoreHost, e.CorePort, e.UUID, e.CoreSNI, e.CorePBK, e.CoreSID, ""))
 			final = "core"
 		}
 	}
+
 	cfg := map[string]any{
-		"log": map[string]any{"level": "info"},
+		"log": map[string]any{"level": "warn"},
 		"dns": map[string]any{
-			"servers": []any{map[string]any{"type": "udp", "tag": "local", "server": "8.8.8.8"}},
-			"final":   "local",
+			"servers": []any{
+				map[string]any{"type": "udp", "tag": "ya", "server": "77.88.8.8"},
+				map[string]any{"type": "udp", "tag": "quad9", "server": "9.9.9.9", "detour": final},
+				map[string]any{"type": "udp", "tag": "google", "server": "8.8.8.8", "detour": final},
+			},
+			"rules": []any{
+				map[string]any{"domain_suffix": []string{".ru", ".su", "vk.com", "yandex.ru", "ya.ru", "vk.me"}, "server": "ya"},
+			},
+			"final":          "quad9",
+			"strategy":       "ipv4_only",
+			"independent_cache": true,
 		},
 		"inbounds": []any{
-			map[string]any{"type": "tun", "tag": "tun-in", "address": []string{"172.19.0.1/30"}, "auto_route": true, "strict_route": true},
+			map[string]any{
+				"type": "tun", "tag": "tun-in",
+				"address": []string{"172.19.0.1/30"},
+				"auto_route": true, "strict_route": true,
+				"sniff": true,
+			},
 		},
 		"outbounds": outbounds,
 		"route": map[string]any{
@@ -137,15 +174,24 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 				map[string]any{"action": "sniff"},
 				map[string]any{"protocol": "dns", "action": "hijack-dns"},
 				map[string]any{"ip_is_private": true, "outbound": "direct"},
+				// WL tip: UDP/443 (QUIC) is usually dropped — avoid stalls
+				map[string]any{"network": "udp", "port": 443, "outbound": "block"},
+				map[string]any{"ip_version": 6, "outbound": "block"},
+				// RU-ish domains: direct when possible (home / relay exit-RU later)
+				map[string]any{
+					"domain_suffix": []string{".ru", ".su", ".xn--p1ai"},
+					"outbound":      "direct",
+				},
 			},
 			"final":                 final,
 			"auto_detect_interface": true,
+			"default_domain_resolver": "ya",
 		},
 	}
 	return json.MarshalIndent(cfg, "", "  ")
 }
 
-// ShadowrocketJSON helper doc + URIs (import URIs; keep flow).
+// ShadowrocketJSON helper + URIs (relay first).
 func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 	if e.UUID == "" {
 		return nil, fmt.Errorf("uuid required")
@@ -158,8 +204,8 @@ func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 		uris = append(uris, VLESSLink(e.Name, e.UUID))
 	}
 	doc := map[string]any{
-		"remarks": "netductor minimal — RU split is on relay; no external balancers",
-		"note":    "Import uris into Shadowrocket. Every VLESS must keep flow=xtls-rprx-vision.",
+		"remarks": "netductor WL profile",
+		"note":    "Primary URI is relay when online. Keep flow=xtls-rprx-vision. Under carrier WL entry IP must be L3-whitelisted (see docs/WL.md).",
 		"uris":    uris,
 	}
 	return json.MarshalIndent(doc, "", "  ")
@@ -167,7 +213,7 @@ func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 
 // WriteClientConfigs writes sing-box + shadowrocket helper files under client dir.
 func WriteClientConfigs(name, uuid string) error {
-	e := resolveClientEndpoints(name, uuid)
+	e := ResolveClientEndpoints(name, uuid)
 	dir := filepath.Join(Clients(), name)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
