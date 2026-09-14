@@ -53,7 +53,7 @@ func dial(c ConnOpts) (*ssh.Client, error) {
 	cfg := &ssh.ClientConfig{
 		User:            c.user(),
 		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback(c.Host, c.port()),
 		Timeout:         20 * time.Second,
 	}
 	return ssh.Dial("tcp", net.JoinHostPort(c.Host, fmt.Sprintf("%d", c.port())), cfg)
