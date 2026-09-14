@@ -1,8 +1,8 @@
 # AGENTS.md — Netductor
 
-> Document Version: **2.1**  
+> Document Version: **2.2**  
 > Status: **Approved**  
-> GitHub: **https://github.com/PavelNeyman/netductor** (renamed from Netductor)
+> GitHub: **https://github.com/PavelNeyman/netductor** (renamed from FreshVPS)
 
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
