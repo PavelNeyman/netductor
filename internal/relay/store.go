@@ -29,6 +29,8 @@ type Device struct {
 	MemUsedMB  int64     `json:"mem_used_mb"`
 	MemTotalMB int64     `json:"mem_total_mb"`
 	Load1      float64   `json:"load1"`
+	MismatchTotal int            `json:"mismatch_total,omitempty"`
+	MismatchByIP  map[string]int `json:"mismatch_by_ip,omitempty"`
 	PendingCmds []string  `json:"pending_cmds,omitempty"`
 	LastCmd     string    `json:"last_cmd,omitempty"`
 	LastCmdAt   time.Time `json:"last_cmd_at,omitempty"`
@@ -163,6 +165,8 @@ type HeartbeatIn struct {
 	CmdDone    string  `json:"cmd_done,omitempty"`
 	CmdOK      bool    `json:"cmd_ok,omitempty"`
 	CmdLog     string  `json:"cmd_log,omitempty"`
+	MismatchTotal int            `json:"mismatch_total,omitempty"`
+	MismatchByIP  map[string]int `json:"mismatch_by_ip,omitempty"`
 }
 
 func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
@@ -193,6 +197,8 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 		r.Devices[i].MemUsedMB = in.MemUsedMB
 		r.Devices[i].MemTotalMB = in.MemTotalMB
 		r.Devices[i].Load1 = in.Load1
+		r.Devices[i].MismatchTotal = in.MismatchTotal
+		r.Devices[i].MismatchByIP = in.MismatchByIP
 		if in.CmdDone != "" {
 			r.Devices[i].LastCmd = in.CmdDone
 			r.Devices[i].LastCmdOK = in.CmdOK
