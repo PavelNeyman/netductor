@@ -34,6 +34,8 @@ func main() {
 		os.Exit(runDoctorNative())
 	case "vpn":
 		runVPN(os.Args[2:])
+	case "ssh-hosts", "known-hosts":
+		runSSHHosts(os.Args[2:])
 	case "sites":
 		runSites(os.Args[2:])
 	case "nodes":
@@ -82,7 +84,7 @@ func printHelp() {
 
   tui|menu [--mode vps|openwrt|workstation|operator]
   backup | self-install | update
-  version | doctor | status | vpn | relay | addons | edge | serve | install | probe | collect | help
+  version | doctor | status | vpn | sites | ssh-hosts | relay | addons | edge | serve | install | probe | collect | help
 
   (no args on a TTY → interactive menu)
 
