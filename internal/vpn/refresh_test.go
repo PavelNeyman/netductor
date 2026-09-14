@@ -28,12 +28,9 @@ func TestPreferredFragmentAndSubscriptionNoHY2(t *testing.T) {
 		t.Fatalf("expected #nd-core got %s", link)
 	}
 	_ = writeArtifacts(u.Name, u.UUID, u.Hy2Password)
-	sub, ok := ReadClient(u.Name, "subscription.txt")
-	if !ok {
-		t.Fatal("no subscription")
-	}
-	if strings.Contains(sub, "hysteria2://") {
-		t.Fatal("subscription must not include HY2 by default")
+	// subscription removed from product surface
+	if _, ok := ReadClient(u.Name, "subscription.txt"); ok {
+		t.Fatal("subscription.txt should not be written")
 	}
 	n, err := RefreshLinks("tuser")
 	if err != nil || n != 1 {
