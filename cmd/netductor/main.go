@@ -55,7 +55,7 @@ func main() {
 	case "collect":
 		os.Exit(runCollect())
 	case "backup":
-		runBackupCmd()
+		runBackupCmd(os.Args[2:])
 	case "restore":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor restore <archive>")
