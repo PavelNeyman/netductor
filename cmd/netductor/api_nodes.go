@@ -21,9 +21,12 @@ func registerNodesAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"nodes": list})
 	})
 	mux.HandleFunc("/api/nodes/self", func(w http.ResponseWriter, r *http.Request) {
-		// local VPS can register without session (loopback) or with session
+		// loopback (local install scripts) OR operator session
 		if r.Method != http.MethodPost {
 			writeJSON(w, 405, map[string]any{"error": "POST"})
+			return
+		}
+		if !isLoopback(r) && !requireSession(w, r) {
 			return
 		}
 		body := readJSON(r)
