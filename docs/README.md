@@ -1,20 +1,18 @@
-# Netductor documentation (English)
-
-**RU:** [ru/README.md](ru/README.md)
-
-Every topic has a matching file under `docs/ru/` with the same meaning.
+# Documentation
 
 | Topic | EN | RU |
 |-------|----|----|
-| Bootstrap | [BOOTSTRAP.md](BOOTSTRAP.md) | [ru/BOOTSTRAP.md](ru/BOOTSTRAP.md) |
-| Install | [INSTALL.md](INSTALL.md) | [ru/INSTALL.md](ru/INSTALL.md) |
-| Upgrade / re-run | [UPGRADE.md](UPGRADE.md) | [ru/UPGRADE.md](ru/UPGRADE.md) |
-| Security | [SECURITY.md](SECURITY.md) | [ru/SECURITY.md](ru/SECURITY.md) |
-| VPN users | [VPN-USERS.md](VPN-USERS.md) | [ru/VPN-USERS.md](ru/VPN-USERS.md) |
-| Smoke checklist | [SMOKE.md](SMOKE.md) | [ru/SMOKE.md](ru/SMOKE.md) |
-| Human tests | [TEST-PLAN-HUMAN.md](TEST-PLAN-HUMAN.md) | [ru/TEST-PLAN-HUMAN.md](ru/TEST-PLAN-HUMAN.md) |
-| AI/SSH tests | [TEST-PLAN-AI.md](TEST-PLAN-AI.md) | [ru/TEST-PLAN-AI.md](ru/TEST-PLAN-AI.md) |
-| VPS network tests | [VPS-TESTS.md](VPS-TESTS.md) | [ru/VPS-TESTS.md](ru/VPS-TESTS.md) |
-| iOS Shortcut | [SHORTCUT-IOS.md](SHORTCUT-IOS.md) | [ru/SHORTCUT-IOS.md](ru/SHORTCUT-IOS.md) |
-| Providers | [VPS-PROVIDERS.md](VPS-PROVIDERS.md) | [ru/VPS-PROVIDERS.md](ru/VPS-PROVIDERS.md) |
-| Roadmap | [ROADMAP.md](ROADMAP.md) | [ru/ROADMAP.md](ru/ROADMAP.md) |
+| Install | [INSTALL](INSTALL.md) | [ru/INSTALL](ru/INSTALL.md) |
+| Architecture | [ARCHITECTURE](ARCHITECTURE.md) | [ru/ARCHITECTURE](ru/ARCHITECTURE.md) |
+| Roadmap | [ROADMAP](ROADMAP.md) | [ru/ROADMAP](ru/ROADMAP.md) |
+| Open items | [OPEN_ITEMS](OPEN_ITEMS.md) | [ru/OPEN_ITEMS](ru/OPEN_ITEMS.md) |
+| Security | [SECURITY](SECURITY.md) | [ru/SECURITY](ru/SECURITY.md) |
+| TOFU SSH | [TOFU](TOFU.md) | [ru/TOFU](ru/TOFU.md) |
+| Relay | [RELAY](RELAY.md) | [ru/RELAY](ru/RELAY.md) |
+| VPN users | [VPN-USERS](VPN-USERS.md) | [ru/VPN-USERS](ru/VPN-USERS.md) |
+| Admin | [ADMIN](ADMIN.md) | [ru/ADMIN](ru/ADMIN.md) |
+| Edge agent | [EDGE-AGENT](EDGE-AGENT.md) | [ru/EDGE-AGENT](ru/EDGE-AGENT.md) |
+| Sites / MT | [SITE-BOOTSTRAP](SITE-BOOTSTRAP.md) · [MIKROTIK](MIKROTIK.md) | [ru/…](ru/) |
+| Mismatch | [MISMATCH](MISMATCH.md) | [ru/MISMATCH](ru/MISMATCH.md) |
+
+CLI is **`netductor <subcommand>`** (not legacy `netductor-vpn` binaries).
