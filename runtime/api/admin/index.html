@@ -39,7 +39,8 @@
       <button data-tab="addons" class="tab">Addons</button>
       <button data-tab="sni" class="tab">SNI</button>
       <button data-tab="relay" class="tab">Relay</button>
-      <button data-tab="status" class="tab">Status</button>
+      <button data-tab="backup">Backup</button>
+      <button class="tab" data-tab="status" class="tab">Status</button>
       <button data-tab="sshhosts" class="tab">SSH hosts</button>
     </nav>
 
@@ -58,6 +59,17 @@
         <button type="button" id="btn-sshhosts-forget" class="primary">Forget</button>
       </div>
     </section>
+    <section id="tab-backup" class="tab-panel hide">
+      <h2>Backup / peer</h2>
+      <p class="hint">Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.</p>
+      <pre id="backup-status" class="code">—</pre>
+      <div class="row">
+        <input id="backup-target" placeholder="root@RELAY:/var/lib/netductor/backups/peers/core/" style="min-width:24rem" />
+        <button id="btn-backup-peer" class="primary">Set peer</button>
+        <button id="btn-backup-run" class="ghost">Run backup now</button>
+      </div>
+    </section>
+
     <section id="tab-status" class="tab-panel hide">
       <h2>Status</h2>
       <p class="hint">Core services + nodes + VPN (TG parity)</p>
@@ -94,8 +106,12 @@
         <pre id="detail-sub" class="code"></pre>
         <div class="row">
           <button id="btn-copy-sub" class="primary">Copy subscription</button>
-          <button id="btn-copy-vless" class="ghost">VLESS</button>
-          <button id="btn-copy-hy2" class="ghost">HY2</button>
+          <button id="btn-copy-vless" class="ghost">VLESS (primary)</button>
+          <button id="btn-copy-hy2" class="ghost">HY2 (optional)</button>
+        </div>
+        <div class="row" style="margin-top:.5rem">
+          <input id="vpn-rename-to" placeholder="new name" />
+          <button id="btn-vpn-rename" class="primary">Rename</button>
         </div>
         <img id="detail-qr" class="qr hide" alt="QR" />
       </div>
