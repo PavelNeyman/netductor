@@ -275,9 +275,19 @@ func postProvisionRelay(host, sni string) {
 
 	fmt.Println("==> post-provision: drop stale relay devices for", host)
 	_ = relay.RemoveByPublicIP(host, "") // all; new agent will reappear on heartbeat
+	_ = relay.PruneStale(1 * time.Minute)
+	for _, d := range relay.List() {
+		if d.PublicIP == "" {
+			_ = relay.RemoveDevice(d.ID)
+			fmt.Println("  devices: removed empty-IP", d.ID)
+		}
+	}
 	if list, err := nodes.List(); err == nil {
 		for _, n := range list {
-			if n.Role == "relay" && n.PublicIP == host {
+			if n.Role != "relay" {
+				continue
+			}
+			if n.PublicIP == host || n.PublicIP == "" {
 				_ = nodes.Delete(n.ID)
 				fmt.Println("  nodes: removed", n.ID)
 			}
@@ -301,8 +311,7 @@ func postProvisionRelay(host, sni string) {
 		fmt.Println("  apply:", err)
 	} else {
 		fmt.Println("  apply: ok")
-		_ = execLocal("systemctl", "reload", "sing-box")
-		_ = execLocal("systemctl", "try-reload-or-restart", "sing-box")
+		_ = execLocal("systemctl", "try-restart", "sing-box")
 	}
 
 	fmt.Println("==> post-provision: refresh all client links (new relay keys)")
