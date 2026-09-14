@@ -259,7 +259,9 @@ func WriteClientConfigs(name, uuid string) error {
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	core := VLESSLink(name, uuid)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(core+nl), 0o600)
-	sub := vless + nl + core + nl
-	_ = os.WriteFile(filepath.Join(dir, "subscription.txt"), []byte(sub), 0o600)
+	// subscription intentionally not advertised; dual single links only
+	_ = os.Remove(filepath.Join(dir, "subscription.txt"))
+	_ = os.Remove(filepath.Join(dir, "subscription.b64"))
+	_ = os.Remove(filepath.Join(dir, "qr-subscription.png"))
 	return nil
 }
