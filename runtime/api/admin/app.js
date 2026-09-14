@@ -538,3 +538,42 @@ document.querySelectorAll('.tab').forEach((btn) => {
     if (btn.getAttribute('data-tab') === 'sshhosts') refreshSSHHosts();
   });
 });
+
+document.getElementById('btn-vpn-rename')?.addEventListener('click', async () => {
+  const name = document.getElementById('detail-title')?.textContent?.trim();
+  const neu = document.getElementById('vpn-rename-to')?.value?.trim();
+  if (!name || !neu) return toast('name required');
+  const r = await api('/vpn/users/' + encodeURIComponent(name) + '/rename', {
+    method: 'POST', body: JSON.stringify({ new_name: neu })
+  });
+  if (!r.ok) { toast('rename failed'); return; }
+  toast('renamed → ' + neu);
+  document.getElementById('vpn-rename-to').value = '';
+  if (typeof refreshUsers === 'function') refreshUsers();
+});
+async function refreshBackup() {
+  const el = document.getElementById('backup-status');
+  if (!el) return;
+  try {
+    const r = await (await api('/api/backup/peer')).json();
+    el.textContent = r.status || JSON.stringify(r);
+  } catch (e) { el.textContent = String(e); }
+}
+document.getElementById('btn-backup-peer')?.addEventListener('click', async () => {
+  const target = document.getElementById('backup-target')?.value?.trim();
+  if (!target) return toast('target required');
+  const r = await api('/api/backup/peer', { method: 'POST', body: JSON.stringify({ target }) });
+  if (!r.ok) toast('failed'); else toast('peer set');
+  refreshBackup();
+});
+document.getElementById('btn-backup-run')?.addEventListener('click', async () => {
+  const r = await api('/api/backup/run', { method: 'POST', body: '{}' });
+  const j = await r.json().catch(() => ({}));
+  toast(j.path || j.error || (r.ok ? 'ok' : 'fail'));
+  refreshBackup();
+});
+document.querySelectorAll('.tab').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (btn.getAttribute('data-tab') === 'backup') refreshBackup();
+  });
+});
