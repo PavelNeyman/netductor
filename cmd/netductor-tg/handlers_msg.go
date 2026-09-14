@@ -46,6 +46,18 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, "💾 <pre>"+esc(out)+"</pre>", nodesKeyboard())
 		return
 	}
+	if strings.HasPrefix(st, "wait_rename_new:") {
+		old := strings.TrimPrefix(st, "wait_rename_new:")
+		newName := strings.Fields(text)
+		setState(chat, "", "")
+		if len(newName) < 1 {
+			sendHTML(token, chat, Tf("rename_new_hint", old), userHubKeyboard(old))
+			return
+		}
+		out := runVPN("rename", old, newName[0])
+		sendHTML(token, chat, "✏️ <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(newName[0]), userHubKeyboard(newName[0]))
+		return
+	}
 	if st == "wait_vpn_rename" {
 		fields := strings.Fields(text)
 		setState(chat, "", "")
