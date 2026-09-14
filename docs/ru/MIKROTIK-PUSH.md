@@ -79,3 +79,12 @@ netductor sites add --id home --name Home --rpi <device_id_после_approve> -
 ```
 
 Проверка: с LAN `traceroute 1.1.1.1` должен идти через RPi, если policy/route via-rpi активен для этого трафика.
+
+
+## known_hosts (TOFU)
+
+Ключи хостов: `/var/lib/netductor/mikrotik/known_hosts.json` (или `paths.StateDir()`).
+
+- Первый SSH — ключ сохраняется
+- Смена ключа (переустановка ROS) — ошибка mismatch; удалите запись или файл
+- `NETDUCTOR_MT_STRICT=1` — неизвестные хосты отклоняются
