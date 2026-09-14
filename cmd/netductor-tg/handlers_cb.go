@@ -195,6 +195,12 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:vpn_add":
 		setState(chat, "wait_vpn_add_name", "")
 		reply(token, chat, msgID, T("add_prompt"), backTo("vpn"))
+	case "m:vpn_rename":
+		setState(chat, "wait_vpn_rename", "")
+		reply(token, chat, msgID, T("vpn_rename_hint"), backKeyboard())
+	case "m:vpn_sub":
+		setState(chat, "wait_vpn_name:vpn_sub", "")
+		reply(token, chat, msgID, "📦 "+T("vpn_sub")+string([]byte{10, 10})+formatVPNListPretty(runVPN("list")), vpnUsersKeyboardFor("vpn_sub"))
 	case "m:vpn_link", "m:vpn_disable", "m:vpn_enable", "m:vpn_revoke":
 		action := strings.TrimPrefix(data, "m:")
 		// map m:vpn_link -> link
