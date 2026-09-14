@@ -311,11 +311,9 @@ func userCardKeyboard(name, subText string) map[string]any {
 
 // User hub: all actions for one identity
 func userHubKeyboard(name string) map[string]any {
+	// Fallback keyboard; primary actions are <tg-button> in formatUserHubHTML.
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("user_access"), "u:access:"+name+":vless", "primary")},
-		{btn(T("vpn_rename"), "u:rename:"+name, "")},
-		{btn(T("vpn_enable"), "u:enable:"+name, "success"), btn(T("vpn_disable"), "u:disable:"+name, "danger")},
-		{btn(T("vpn_revoke"), "u:revoke:"+name, "danger")},
+		{btn(T("user_access"), "u:access:"+name+":vless", "primary"), btn(T("vpn_rename"), "u:rename:"+name, "")},
 		{btn(T("users"), "m:users", "primary")},
 	}}
 }
@@ -367,47 +365,8 @@ func vpnUsersKeyboardFor(action string) map[string]any {
 }
 
 func usersListKeyboard() map[string]any {
-	raw := runVPN("list")
-	rows := [][]map[string]any{}
-	n := 0
-	for _, line := range strings.Split(raw, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		parts := strings.Split(line, "\t")
-		if len(parts) < 1 {
-			parts = strings.Fields(line)
-		}
-		if len(parts) < 1 || parts[0] == "" {
-			continue
-		}
-		name := parts[0]
-		if name == "relay-uplink" {
-			continue
-		}
-		en := ""
-		if len(parts) > 1 {
-			en = parts[1]
-		}
-		n++
-		icon := "🟢"
-		if en == "off" {
-			icon = "🔴"
-		}
-		label := icon + " " + fmt.Sprintf("%d. %s", n, name)
-		if en != "" {
-			label += " · " + en
-		}
-		rows = append(rows, []map[string]any{btn(label, "u:open:"+name, "primary")})
-		if n >= 30 {
-			break
-		}
-	}
-	if n == 0 {
-		rows = append(rows, []map[string]any{btn("— empty —", "m:users", "")})
-	}
-	rows = append(rows, []map[string]any{btn(T("vpn_add"), "m:vpn_add", "success")})
-	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
-	return map[string]any{"inline_keyboard": rows}
+	// Fallback only if client strips <tg-button-row>. Primary UX = buttons inside rich HTML.
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("vpn_add"), "m:vpn_add", "success"), btn(T("main_menu"), "m:menu", "primary")},
+	}}
 }
