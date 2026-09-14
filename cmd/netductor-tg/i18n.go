@@ -49,6 +49,15 @@ type user struct {
 
 var dict = map[string]map[string]string{
 	"en": {
+		
+		"users":         "👥 Users",
+		"users_hint":    "Tap a user to open the card (access, rename, …).",
+		"user_hub_hint": "Access = links + QR. Rename keeps the same UUID.",
+		"user_access":   "🔗 Access / QR",
+		"user_card":     "👤 User card",
+		"vpn_tools":     "🛠 VPN tools",
+		"rename_new_hint": "✏️ Rename <b>%s</b>\n\nSend the <b>new name</b> only (UUID stays the same):",
+		"no_links":      "no links",
 		"menu_title":    "🛡 <b>Netductor operator panel</b>",
 		"menu_hint":     "Use buttons below. Slash commands still work.",
 		"status":        "📊 Status",
@@ -169,6 +178,15 @@ var dict = map[string]map[string]string{
 		"menu_hint2":    "Choose a category — VPN or Routers open a submenu.",
 	},
 	"ru": {
+		
+		"users":         "👥 Пользователи",
+		"users_hint":    "Нажмите пользователя, чтобы открыть карточку.",
+		"user_hub_hint": "Доступ = ссылки + QR. Переименование не меняет UUID.",
+		"user_access":   "🔗 Доступ / QR",
+		"user_card":     "👤 Карточка",
+		"vpn_tools":     "🛠 VPN tools",
+		"rename_new_hint": "✏️ Переименовать <b>%s</b>\n\nПришлите только <b>новое имя</b> (UUID не меняется):",
+		"no_links":      "нет ссылок",
 		"menu_title":    "🛡 <b>Панель оператора Netductor</b>",
 		"menu_hint":     "Кнопки ниже. Слеш-команды тоже работают.",
 		"status":        "📊 Статус",
