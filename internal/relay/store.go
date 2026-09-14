@@ -330,6 +330,50 @@ func PruneStale(maxAge time.Duration) int {
 	return removed
 }
 
+// RemoveByPublicIP drops all devices for ip except optional keepID (empty = drop all).
+func RemoveByPublicIP(ip, keepID string) int {
+	if ip == "" {
+		return 0
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	r, err := load()
+	if err != nil || r == nil {
+		return 0
+	}
+	var out []Device
+	n := 0
+	for _, d := range r.Devices {
+		if d.PublicIP == ip && d.ID != keepID {
+			n++
+			continue
+		}
+		out = append(out, d)
+	}
+	if n > 0 {
+		r.Devices = out
+		_ = save(r)
+	}
+	return n
+}
+
+// WaitOnlinePBK waits until a device for publicIP reports PBK (heartbeat after join).
+func WaitOnlinePBK(publicIP string, timeout time.Duration) *Device {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		for _, d := range List() {
+			if d.PublicIP != publicIP {
+				continue
+			}
+			if d.PBK != "" && Online(d, 2*time.Minute) {
+				return &d
+			}
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return nil
+}
+
 // RemoveDevice deletes by id.
 func RemoveDevice(id string) error {
 	mu.Lock()
