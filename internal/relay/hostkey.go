@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -69,14 +70,15 @@ func ListSSHHosts() []SSHHostEntry {
 	return out
 }
 
-// ForgetSSHHost removes one relay TOFU entry.
+// ForgetSSHHost removes one relay TOFU entry (no error if absent — safe for re-provision).
 func ForgetSSHHost(id string) error {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()
-	f := loadRelayKH()
-	if _, ok := f[id]; !ok {
-		return fmt.Errorf("not found: %s", id)
+	id = strings.TrimSpace(id)
+	if h, _, err := net.SplitHostPort(id); err == nil {
+		id = h
 	}
+	f := loadRelayKH()
 	delete(f, id)
 	return saveRelayKH(f)
 }
