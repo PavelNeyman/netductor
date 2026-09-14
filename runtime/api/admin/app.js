@@ -577,3 +577,41 @@ document.querySelectorAll('.tab').forEach((btn) => {
     if (btn.getAttribute('data-tab') === 'backup') refreshBackup();
   });
 });
+
+async function refreshAudit() {
+  const el = document.getElementById('audit-box');
+  if (!el) return;
+  try {
+    const j = await (await api('/api/audit')).json();
+    const lines = (j.events || []).map((e) => `${e.ts}\t${e.actor||''}\t${e.action}\t${e.target||''}\t${e.detail||''}`);
+    el.textContent = lines.join('\n') || '(empty)';
+  } catch (e) { el.textContent = String(e); }
+}
+async function refreshSessions() {
+  const el = document.getElementById('sessions-box');
+  if (!el) return;
+  try {
+    const j = await (await api('/api/sessions')).json();
+    const lines = (j.sessions || []).map((s) => `${s.id}\texp=${s.exp}\t${s.label||''}\t${s.ip||''}`);
+    el.textContent = lines.join('\n') || '(none)';
+  } catch (e) { el.textContent = String(e); }
+}
+document.getElementById('btn-audit-refresh')?.addEventListener('click', refreshAudit);
+document.getElementById('btn-sessions-refresh')?.addEventListener('click', refreshSessions);
+document.getElementById('btn-sessions-revoke')?.addEventListener('click', async () => {
+  await api('/api/sessions?action=revoke-all', { method: 'POST', body: '{}' });
+  toast('revoked');
+  refreshSessions();
+});
+document.getElementById('btn-vpn-refresh-links')?.addEventListener('click', async () => {
+  const r = await api('/api/vpn/refresh-links', { method: 'POST', body: '{}' });
+  const j = await r.json().catch(() => ({}));
+  toast('refreshed ' + (j.refreshed ?? '?'));
+});
+document.querySelectorAll('.tab').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const t = btn.getAttribute('data-tab');
+    if (t === 'audit') refreshAudit();
+    if (t === 'sessions') refreshSessions();
+  });
+});
