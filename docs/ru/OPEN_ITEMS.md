@@ -23,3 +23,8 @@ netductor vpn list|add|link|mismatch|session|set-sni
 netductor ssh-hosts list|forget|clear
 netductor relay | nodes | sites | edge
 ```
+
+- [x] VPN rename (CLI/TG/Admin/TUI)
+- [x] Fragment #nd-core/#nd-relay
+- [x] Subscription separate UI
+- [x] Cross-VPS backup peer
