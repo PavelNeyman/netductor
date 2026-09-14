@@ -172,6 +172,16 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(s)
+	case "mismatch":
+		st := vpn.CollectMismatch(30)
+		fmt.Println(vpn.FormatMismatchText(st))
+		fmt.Println("--- relay ---")
+		for _, d := range relay.List() {
+			if d.MismatchTotal == 0 && len(d.MismatchByIP) == 0 {
+				continue
+			}
+			fmt.Printf("%s %s total=%d %v\n", d.ID, d.PublicIP, d.MismatchTotal, d.MismatchByIP)
+		}
 	case "set-sni":
 		if len(rest) < 1 {
 			fmt.Fprintln(os.Stderr, "usage: netductor vpn set-sni <hostname|preset>")
