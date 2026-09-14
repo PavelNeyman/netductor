@@ -499,3 +499,36 @@ document.getElementById('btn-site-rsc')?.addEventListener('click', async () => {
     document.getElementById('site-out').textContent = d.rsc || JSON.stringify(d, null, 2);
   } catch (e) { toast(e.message); }
 });
+
+
+async function refreshSSHHosts() {
+  try {
+    const r = await api('/api/ssh-hosts');
+    const d = await r.json();
+    const el = document.getElementById('sshhosts-box');
+    if (el) el.textContent = JSON.stringify(d, null, 2);
+  } catch (e) {
+    const el = document.getElementById('sshhosts-box');
+    if (el) el.textContent = String(e);
+  }
+}
+document.getElementById('btn-sshhosts-refresh')?.addEventListener('click', () => refreshSSHHosts());
+document.getElementById('btn-sshhosts-forget')?.addEventListener('click', async () => {
+  const id = document.getElementById('sshhosts-id')?.value?.trim();
+  if (!id) return;
+  const kind = document.getElementById('sshhosts-kind')?.value || '';
+  let q = '/api/ssh-hosts?id=' + encodeURIComponent(id);
+  if (kind) q += '&kind=' + encodeURIComponent(kind);
+  await api(q, { method: 'DELETE' });
+  refreshSSHHosts();
+});
+document.getElementById('btn-sshhosts-clear-mt')?.addEventListener('click', async () => {
+  if (!confirm('Clear all MikroTik TOFU keys?')) return;
+  await api('/api/ssh-hosts/clear?kind=mt', { method: 'POST' });
+  refreshSSHHosts();
+});
+document.getElementById('btn-sshhosts-clear-relay')?.addEventListener('click', async () => {
+  if (!confirm('Clear all relay TOFU keys?')) return;
+  await api('/api/ssh-hosts/clear?kind=relay', { method: 'POST' });
+  refreshSSHHosts();
+});
