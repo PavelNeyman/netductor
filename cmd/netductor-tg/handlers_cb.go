@@ -195,6 +195,28 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:vpn_add":
 		setState(chat, "wait_vpn_add_name", "")
 		reply(token, chat, msgID, T("add_prompt"), backTo("vpn"))
+	case "m:vpn_refresh":
+		out := runND("vpn", "refresh-links")
+		reply(token, chat, msgID, "🔄 <pre>"+esc(out)+"</pre>", vpnKeyboard())
+	case "m:audit":
+		out := runND("audit", "tail")
+		if strings.TrimSpace(out) == "" {
+			out = "(empty)"
+		}
+		reply(token, chat, msgID, "📋 <b>Audit</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", mainKeyboard())
+	case "m:sessions":
+		out := runND("vpn", "session", "list")
+		if strings.TrimSpace(out) == "" {
+			out = "(none)"
+		}
+		reply(token, chat, msgID, "🔑 <b>Sessions</b>\n<pre>"+esc(out)+"</pre>",
+			map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("🗑 Revoke all", "m:sessions:revoke", "danger")},
+				{btn(T("main_menu"), "m:menu", "")},
+			}})
+	case "m:sessions:revoke":
+		_ = runND("vpn", "session", "revoke-all")
+		reply(token, chat, msgID, "✅ revoked all sessions", mainKeyboard())
 	case "m:vpn_rename":
 		setState(chat, "wait_vpn_rename", "")
 		reply(token, chat, msgID, T("vpn_rename_hint"), backKeyboard())
