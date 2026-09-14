@@ -40,6 +40,8 @@
       <button data-tab="sni" class="tab">SNI</button>
       <button data-tab="relay" class="tab">Relay</button>
       <button data-tab="backup">Backup</button>
+      <button class="tab" data-tab="audit">Audit</button>
+      <button class="tab" data-tab="sessions">Sessions</button>
       <button class="tab" data-tab="status" class="tab">Status</button>
       <button data-tab="sshhosts" class="tab">SSH hosts</button>
     </nav>
@@ -57,6 +59,20 @@
         <input id="sshhosts-id" placeholder="host or host:port" />
         <select id="sshhosts-kind"><option value="">auto</option><option value="mt">mikrotik</option><option value="relay">relay</option></select>
         <button type="button" id="btn-sshhosts-forget" class="primary">Forget</button>
+      </div>
+    </section>
+    <section id="tab-audit" class="tab-panel hide">
+      <h2>Audit log</h2>
+      <pre id="audit-box" class="code">—</pre>
+      <button id="btn-audit-refresh" class="primary">Refresh</button>
+    </section>
+    <section id="tab-sessions" class="tab-panel hide">
+      <h2>Sessions</h2>
+      <pre id="sessions-box" class="code">—</pre>
+      <div class="row">
+        <button id="btn-sessions-refresh" class="ghost">Refresh</button>
+        <button id="btn-sessions-revoke" class="primary">Revoke all</button>
+        <button id="btn-vpn-refresh-links" class="ghost">Refresh VPN links</button>
       </div>
     </section>
     <section id="tab-backup" class="tab-panel hide">
