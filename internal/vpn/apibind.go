@@ -10,7 +10,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
-// APIBind sets listen address for freshvps-api and/or netductor-api.
+// APIBind sets listen address for netductor-api (legacy freshvps-api units cleaned up).
 // mode: localhost | detect | <ip>
 func APIBind(mode string, openUFW bool) error {
 	port := "8787"
