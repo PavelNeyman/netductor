@@ -35,10 +35,10 @@ func mainKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("status"), "m:status", "primary")},
-			{btn(T("cat_vpn"), "m:cat:vpn", "primary"), btn(T("cat_routers"), "m:cat:routers", "primary")},
+			{btn(T("users"), "m:users", "primary"), btn(T("cat_routers"), "m:cat:routers", "primary")},
+			{btn(T("nodes"), "m:cat:nodes", "primary"), btn(T("sites"), "m:cat:sites", "")},
 			{btn(T("session"), "m:session", ""), btn(T("admin"), "m:admin", "")},
-			{btn(T("addons"), "m:addons", ""), btn(T("nodes"), "m:cat:nodes", "primary")},
-			{btn(T("sites"), "m:cat:sites", "")},
+			{btn(T("addons"), "m:addons", ""), btn(T("vpn_tools"), "m:cat:vpn", "")},
 			{btn(T("audit"), "m:audit", ""), btn(T("sessions"), "m:sessions", "")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
@@ -46,13 +46,11 @@ func mainKeyboard() map[string]any {
 }
 
 func vpnKeyboard() map[string]any {
+	// system tools only — per-user actions live on user card
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
-			{btn(T("vpn_list"), "m:vpn_list", "primary"), btn(T("vpn_add"), "m:vpn_add", "success")},
-			{btn(T("vpn_link"), "m:vpn_link", "primary"), btn(T("vpn_sub"), "m:vpn_sub", "primary")},
-			{btn(T("vpn_rename"), "m:vpn_rename", ""), btn(T("refresh_links"), "m:vpn_refresh", "")},
-			{btn(T("vpn_enable"), "m:vpn_enable", "success"), btn(T("vpn_disable"), "m:vpn_disable", "danger")},
-			{btn(T("vpn_revoke"), "m:vpn_revoke", "danger")},
+			{btn(T("users"), "m:users", "primary"), btn(T("vpn_add"), "m:vpn_add", "success")},
+			{btn(T("refresh_links"), "m:vpn_refresh", "")},
 			{btn(T("main_menu"), "m:menu", "")},
 		},
 	}
@@ -268,6 +266,8 @@ func backTo(cat string) map[string]any {
 	up := "m:menu"
 	label := T("main_menu")
 	switch cat {
+	case "users":
+		up, label = "m:users", T("users")
 	case "vpn":
 		up, label = "m:cat:vpn", T("back_vpn")
 	case "routers":
@@ -292,34 +292,67 @@ func langKeyboard() map[string]any {
 }
 
 func userCardKeyboard(name, subText string) map[string]any {
-	return userCardKeyboardMode(name, "vless")
+	return userHubKeyboard(name)
 }
 
-// mode: vless | hy2 — top button toggles QR in the same message
-func userCardKeyboardMode(name, mode string) map[string]any {
-	toggle := btn("📱 HY2 QR", "u:hy2qr:"+name, "primary")
-	if mode == "hy2" {
-		toggle = btn("📱 VLESS QR", "u:vlessqr:"+name, "primary")
-	}
-	rows := [][]map[string]any{
-		{toggle},
-		{btn(T("show_links"), "u:link:"+name, "")},
+// User hub: all actions for one identity
+func userHubKeyboard(name string) map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("user_access"), "u:access:"+name+":vless", "primary")},
+		{btn(T("vpn_rename"), "u:rename:"+name, "")},
 		{btn(T("vpn_enable"), "u:enable:"+name, "success"), btn(T("vpn_disable"), "u:disable:"+name, "danger")},
 		{btn(T("vpn_revoke"), "u:revoke:"+name, "danger")},
-		{btn(T("main_menu"), "m:menu", "primary"), btn(T("cat_vpn"), "m:cat:vpn", "")},
+		{btn(T("users"), "m:users", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
+}
+
+// mode: vless | core | hy2 | sub
+func userAccessKeyboard(name, mode string) map[string]any {
+	if mode == "" {
+		mode = "vless"
 	}
-	return map[string]any{"inline_keyboard": rows}
+	label := map[string]string{
+		"vless": "VLESS · primary",
+		"core":  "VLESS · core",
+		"hy2":   "HY2 · optional",
+		"sub":   "Subscription",
+	}
+	cur := label[mode]
+	if cur == "" {
+		cur = mode
+	}
+	// cycle order
+	order := []string{"vless", "core", "hy2", "sub"}
+	idx := 0
+	for i, m := range order {
+		if m == mode {
+			idx = i
+			break
+		}
+	}
+	prev := order[(idx+len(order)-1)%len(order)]
+	next := order[(idx+1)%len(order)]
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("◀", "u:access:"+name+":"+prev, ""), btn("📱 "+cur, "u:access:"+name+":"+mode, "primary"), btn("▶", "u:access:"+name+":"+next, "")},
+		{btn("VLESS", "u:access:"+name+":vless", ""), btn("Core", "u:access:"+name+":core", ""), btn("HY2", "u:access:"+name+":hy2", ""), btn("Sub", "u:access:"+name+":sub", "success")},
+		{btn(T("user_card"), "u:open:"+name, "primary"), btn(T("users"), "m:users", "")},
+	}}
+}
+
+// legacy alias
+func userCardKeyboardMode(name, mode string) map[string]any {
+	return userAccessKeyboard(name, mode)
 }
 
 func vpnUsersKeyboard() map[string]any {
-	return vpnUsersKeyboardFor("link")
+	return usersListKeyboard()
 }
 
-// action: link | enable | disable | revoke
 func vpnUsersKeyboardFor(action string) map[string]any {
-	if action == "" {
-		action = "link"
-	}
+	return usersListKeyboard()
+}
+
+func usersListKeyboard() map[string]any {
 	raw := runVPN("list")
 	rows := [][]map[string]any{}
 	n := 0
@@ -344,29 +377,23 @@ func vpnUsersKeyboardFor(action string) map[string]any {
 			en = parts[1]
 		}
 		n++
-		icon := "🔗"
-		switch action {
-		case "enable":
-			icon = "✅"
-		case "disable":
-			icon = "🚫"
-		case "revoke":
-			icon = "🗑"
-		}
+		icon := "🟢"
 		if en == "off" {
 			icon = "🔴"
-		} else if en == "on" && action == "link" {
-			icon = "🟢"
 		}
 		label := icon + " " + fmt.Sprintf("%d. %s", n, name)
-		rows = append(rows, []map[string]any{btn(label, "u:"+action+":"+name, "primary")})
+		if en != "" {
+			label += " · " + en
+		}
+		rows = append(rows, []map[string]any{btn(label, "u:open:"+name, "primary")})
 		if n >= 30 {
 			break
 		}
 	}
 	if n == 0 {
-		rows = append(rows, []map[string]any{btn("— empty —", "m:cat:vpn", "")})
+		rows = append(rows, []map[string]any{btn("— empty —", "m:users", "")})
 	}
-	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary"), btn(T("cat_vpn"), "m:cat:vpn", "")})
+	rows = append(rows, []map[string]any{btn(T("vpn_add"), "m:vpn_add", "success")})
+	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary"), btn(T("vpn_tools"), "m:cat:vpn", "")})
 	return map[string]any{"inline_keyboard": rows}
 }
