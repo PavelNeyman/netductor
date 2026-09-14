@@ -40,6 +40,17 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, fmt.Sprintf(T("ssh_forgot"), esc(id))+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
 		return
 	}
+	if st == "wait_vpn_rename" {
+		fields := strings.Fields(text)
+		setState(chat, "", "")
+		if len(fields) < 2 {
+			sendHTML(token, chat, T("vpn_rename_hint"), vpnKeyboard())
+			return
+		}
+		out := runVPN("rename", fields[0], fields[1])
+		sendHTML(token, chat, "✏️ <pre>"+esc(out)+"</pre>", vpnKeyboard())
+		return
+	}
 	if st == "wait_vpn_add_name" {
 		fields := strings.Fields(text)
 		if len(fields) == 0 {
@@ -95,8 +106,11 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 		setState(chat, "", "")
 		switch action {
 		case "vpn_link":
-			sub := runVPN("link", name)
+			sub := runVPN("link", name, "vless")
 			sendHTML(token, chat, "🔗 <b>"+esc(name)+"</b>\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
+		case "vpn_sub":
+			sub := runVPN("link", name, "sub")
+			sendHTML(token, chat, "📦 <b>"+esc(name)+"</b> subscription\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
 		case "vpn_disable":
 			sendHTML(token, chat, "🚫 <pre>"+esc(runVPN("disable", name))+"</pre>", backKeyboard())
 		case "vpn_enable":
