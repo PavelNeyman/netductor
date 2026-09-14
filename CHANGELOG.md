@@ -24,7 +24,7 @@
 - Metrics: net counters, probe 24h uptime %, Settings for alerts/probes JSON
 - Alerts: recovery messages; UDP hy2; flock + cooldown before notify
 - API: `/api/session`, `/vpn/users/:name/note`, `/api/probes/uptime`, POST probes config
-- CLI: `netductor-vpn note`
+- CLI: `netductor vpn note`
 - Doctor: admin UI + metrics timer checks
 
 ## 0.5.1 — probes + charts + UDP hy2 fix
