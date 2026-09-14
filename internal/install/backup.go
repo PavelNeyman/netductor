@@ -177,8 +177,12 @@ func Backup() (string, error) {
 		out = enc
 	}
 	_ = os.Chmod(out, 0o600)
+	failMark := filepath.Join(paths.StateDir(), "backup_offsite_fail")
 	if err := uploadOffsite(out); err != nil {
 		fmt.Fprintf(os.Stderr, "offsite: %v\n", err)
+		_ = os.WriteFile(failMark, []byte(err.Error()), 0o600)
+	} else {
+		_ = os.Remove(failMark)
 	}
 	pruneBackups(dir, 14)
 	return out, nil
