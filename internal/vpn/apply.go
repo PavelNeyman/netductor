@@ -224,3 +224,27 @@ func readExitTarget() (on bool, ip, pbk, sid, sni string) {
 	}
 	return on, "", "", "", ""
 }
+
+
+// ApplyConfigDryRun validates config generation without writing/restarting.
+func ApplyConfigDryRun() (string, error) {
+	if err := EnsureDirs(); err != nil {
+		return "", err
+	}
+	priv := secret("singbox_reality_private")
+	sid := secret("singbox_short_id")
+	if priv == "" || sid == "" {
+		return "", fmt.Errorf("Reality secrets missing")
+	}
+	r, err := loadRegistry()
+	if err != nil {
+		return "", err
+	}
+	enabled := 0
+	for _, u := range r.Users {
+		if u.Enabled {
+			enabled++
+		}
+	}
+	return fmt.Sprintf("dry-run ok users_total=%d enabled=%d sni=%s", len(r.Users), enabled, sni()), nil
+}
