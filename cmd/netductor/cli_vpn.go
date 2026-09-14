@@ -123,7 +123,7 @@ func runVPN(args []string) {
 		if len(rest) < 1 {
 			os.Exit(2)
 		}
-		kind := "sub"
+		kind := "vless"
 		if len(rest) > 1 {
 			kind = rest[1]
 		}
@@ -131,22 +131,9 @@ func runVPN(args []string) {
 		var s string
 		var ok bool
 		switch kind {
-		case "sub", "subscription":
-			body, err := vpn.SubscriptionBody(name)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			fmt.Print(body)
-			return
-		case "sub64", "b64":
-			b64, err := vpn.SubscriptionBase64(name)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			fmt.Println(b64)
-			return
+		case "sub", "subscription", "sub64", "b64":
+			fmt.Fprintln(os.Stderr, "subscription removed; use: link NAME vless|core|hy2")
+			os.Exit(2)
 		case "core":
 			s, ok = vpn.ReadClient(name, "link-vless-core.txt", "link-vless.txt", "link.txt")
 		case "hy2":
