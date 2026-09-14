@@ -15,7 +15,7 @@ import (
 
 func runVPN(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: netductor vpn add|list|link|note|disable|enable|revoke|apply|set-sni|session ...")
+		fmt.Fprintln(os.Stderr, "usage: netductor vpn add|list|rename|link|note|disable|enable|revoke|apply|set-sni|session ...")
 		os.Exit(2)
 	}
 	cmd := args[0]
@@ -34,6 +34,18 @@ func runVPN(args []string) {
 			}
 			fmt.Printf("%s\t%s\t%s\t%s\t%s\n", u.Name, en, u.UUID, u.Note, u.Created)
 		}
+	case "rename":
+		if len(rest) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor vpn rename <old> <new>")
+			os.Exit(2)
+		}
+		out, err := vpn.Rename(rest[0], rest[1])
+		fmt.Println(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		audit.Log("cli", "vpn.rename", rest[0], rest[1])
 	case "add":
 		if len(rest) < 1 {
 			fmt.Fprintln(os.Stderr, "name required")
