@@ -17,7 +17,7 @@ type ProvisionIn struct {
 	Port     int    // SSH port, default 22
 	User     string // default root
 	Password string
-	SNI      string // Reality SNI on relay, default ya.ru
+	SNI      string // Reality SNI on relay; empty → ResolveRelaySNI / api.vk.me
 }
 
 // ProvisionResult summarizes remote setup.
