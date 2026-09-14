@@ -152,3 +152,52 @@ func RevokeAll() error {
 	}
 	return nil
 }
+
+
+// SessionInfo is a redacted view (no plaintext token).
+type SessionInfo struct {
+	HashPrefix string `json:"id"`
+	Exp        int64  `json:"exp"`
+	Created    int64  `json:"created,omitempty"`
+	Label      string `json:"label,omitempty"`
+	IP         string `json:"ip,omitempty"`
+}
+
+// List returns active (non-expired) sessions from disk.
+func List() []SessionInfo {
+	mu.Lock()
+	defer mu.Unlock()
+	ents, err := os.ReadDir(Dir())
+	if err != nil {
+		return nil
+	}
+	now := time.Now().Unix()
+	var out []SessionInfo
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		b, err := os.ReadFile(filepath.Join(Dir(), name))
+		if err != nil {
+			continue
+		}
+		var m Meta
+		if json.Unmarshal(b, &m) != nil {
+			// legacy exp-only
+			var exp int64
+			fmt.Sscanf(strings.TrimSpace(string(b)), "%d", &exp)
+			m.Exp = exp
+		}
+		if m.Exp < now {
+			_ = os.Remove(filepath.Join(Dir(), name))
+			continue
+		}
+		pref := name
+		if len(pref) > 12 {
+			pref = pref[:12]
+		}
+		out = append(out, SessionInfo{HashPrefix: pref, Exp: m.Exp, Created: m.Created, Label: m.Label, IP: m.IP})
+	}
+	return out
+}
