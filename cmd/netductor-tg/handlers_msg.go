@@ -33,6 +33,13 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, fmt.Sprintf(T("nodes_done"), esc(id), esc(newName[0]))+string([]byte{10, 10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatNodesListHTML(), nodesKeyboard())
 		return
 	}
+	if st == "wait_ssh_forget" {
+		id := strings.Fields(text)[0]
+		out := runND("ssh-hosts", "forget", id)
+		setState(chat, "", "")
+		sendHTML(token, chat, fmt.Sprintf(T("ssh_forgot"), esc(id))+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
+		return
+	}
 	if st == "wait_vpn_add_name" {
 		name := strings.Fields(text)[0]
 		out := runVPN("add", name)
