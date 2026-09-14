@@ -51,6 +51,12 @@ var dict = map[string]map[string]string{
 	"en": {
 		
 		"users":         "👥 Users",
+		"fleet":         "🖥 Fleet",
+		"fleet_title":   "🖥 <b>Fleet</b>\nNodes · routers · sites · addons",
+		"operator":      "⚙️ Operator",
+		"operator_title": "⚙️ <b>Operator</b>\nSession, admin, audit",
+		"sub_hint_sr":   "Shadowrocket: Home → + → Type <b>Subscribe</b> → paste URL or decode Base64. Do <b>not</b> paste raw vless:// lines (those become Local).",
+
 		"users_hint":    "Tap a user to open the card (access, rename, …).",
 		"user_hub_hint": "Access = links + QR. Rename keeps the same UUID.",
 		"user_access":   "🔗 Access / QR",
@@ -180,6 +186,12 @@ var dict = map[string]map[string]string{
 	"ru": {
 		
 		"users":         "👥 Пользователи",
+		"fleet":         "🖥 Флот",
+		"fleet_title":   "🖥 <b>Флот</b>\nНоды · роутеры · сайты · аддоны",
+		"operator":      "⚙️ Оператор",
+		"operator_title": "⚙️ <b>Оператор</b>\nСессия, админка, аудит",
+		"sub_hint_sr":   "Shadowrocket: Главная → + → тип <b>Subscribe</b> → URL или Base64. Не вставляйте сырые vless:// (попадут в Local).",
+
 		"users_hint":    "Нажмите пользователя, чтобы открыть карточку.",
 		"user_hub_hint": "Доступ = ссылки + QR. Переименование не меняет UUID.",
 		"user_access":   "🔗 Доступ / QR",
