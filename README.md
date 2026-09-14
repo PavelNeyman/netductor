@@ -23,6 +23,8 @@ RU: [docs/ru/](docs/ru/)
 ```bash
 netductor doctor
 netductor vpn list
+netductor vpn refresh-links
+netductor audit tail
 netductor vpn rename old new
 netductor backup peer-set root@peer:/path/
 netductor vpn mismatch
