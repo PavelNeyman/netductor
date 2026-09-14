@@ -62,7 +62,7 @@ func EnsureRelayUplink() (uuid string, err error) {
 
 func ExportRelayBundle(relaySNI string) (*RelayBundle, error) {
 	if relaySNI == "" {
-		relaySNI = "ya.ru"
+		relaySNI = DefaultRealitySNI
 	}
 	up, err := EnsureRelayUplink()
 	if err != nil {
@@ -171,7 +171,7 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 	ruSuffixes := []string{
 		"ru", "su", "xn--p1ai", "xn--p1acf",
 		"vk.com", "vk.ru", "vk.me", "userapi.com", "vkuservideo.net", "vk-cdn.net",
-		"yandex.ru", "yandex.net", "yandex.com", "ya.ru", "yastatic.net", "yandex.cloud",
+		"yandex.ru", "yandex.net", "yandex.com", DefaultRealitySNI, "yastatic.net", "yandex.cloud",
 		"mail.ru", "imgsmail.ru", "ok.ru", "odnoklassniki.ru",
 		"wildberries.ru", "wb.ru", "ozon.ru", "avito.ru", "dns-shop.ru", "citilink.ru",
 		"2gis.com", "2gis.ru", "gosuslugi.ru", "mos.ru", "nalog.ru", "cbr.ru",
@@ -243,7 +243,7 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 
 func ClientLinkForRelay(name, uuid, relayIP, pbk, sid, sniName string) string {
 	if sniName == "" {
-		sniName = "ya.ru"
+		sniName = DefaultRealitySNI
 	}
 	return fmt.Sprintf(
 		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#%s-relay",
