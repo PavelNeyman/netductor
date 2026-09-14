@@ -79,8 +79,8 @@ func ClientLinkForRelayLocal(name, uuid, relayIP, pbk, sid, sniName string) stri
 		sniName = DefaultRealitySNI
 	}
 	return fmt.Sprintf(
-		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#%s-relay",
-		uuid, relayIP, sniName, DefaultUTLSFingerprint, pbk, sid, name,
+		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-relay",
+		uuid, relayIP, sniName, DefaultUTLSFingerprint, pbk, sid,
 	)
 }
 
