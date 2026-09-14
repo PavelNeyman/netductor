@@ -798,3 +798,45 @@ func formatSitesRSCHTML() string {
 	}
 	return "📜 <b>MikroTik RSC</b>" + nl + "<pre>" + esc(out) + "</pre>"
 }
+
+
+
+func formatSSHHostsHTML() string {
+	out := strings.TrimSpace(runND("ssh-hosts", "list"))
+	nl := string([]byte{10})
+	return "🔐 <b>" + esc(T("ssh_hosts")) + "</b>" + nl + "<i>" + T("ssh_hosts_hint") + "</i>" + nl + nl + "<pre>" + esc(out) + "</pre>"
+}
+
+func sshHostsKeyboard() map[string]any {
+	nl := string([]byte{10})
+	out := runND("ssh-hosts", "list")
+	var top [][]map[string]any
+	n := 0
+	for _, line := range strings.Split(out, nl) {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "===") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		id := fields[0]
+		label := id
+		if len(label) > 28 {
+			label = label[:28] + "…"
+		}
+		top = append(top, []map[string]any{btn("🗑 "+label, "m:ssh:rm:"+id, "danger")})
+		n++
+		if n >= 12 {
+			break
+		}
+	}
+	rows := top
+	rows = append(rows,
+		[]map[string]any{btn(T("ssh_clear_mt"), "m:ssh:clear:mt", "danger"), btn(T("ssh_clear_rel"), "m:ssh:clear:relay", "danger")},
+		[]map[string]any{btn(T("ssh_forget"), "m:ssh:forget", "")},
+		[]map[string]any{btn(T("back"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
+	)
+	return map[string]any{"inline_keyboard": rows}
+}
