@@ -24,22 +24,37 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	}
 
 	if strings.HasPrefix(data, "u:") {
-		parts := strings.SplitN(data, ":", 3)
-		if len(parts) == 3 {
+		// u:open:name | u:access:name:mode | u:rename:name | u:enable:name | ...
+		parts := strings.Split(data, ":")
+		if len(parts) >= 3 {
 			action, name := parts[1], parts[2]
 			switch action {
+			case "open":
+				reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
+			case "access":
+				mode := "vless"
+				if len(parts) >= 4 && parts[3] != "" {
+					mode = parts[3]
+				}
+				showUserAccess(token, chat, msgID, name, mode)
 			case "link":
-				deliverVPNLink(token, chat, msgID, name)
+				showUserAccess(token, chat, msgID, name, "vless")
 			case "hy2qr":
-				showVPNQR(token, chat, msgID, name, "hy2", true)
+				showUserAccess(token, chat, msgID, name, "hy2")
 			case "vlessqr":
-				showVPNQR(token, chat, msgID, name, "vless", true)
+				showUserAccess(token, chat, msgID, name, "vless")
+			case "rename":
+				setState(chat, "wait_rename_new:"+name, "")
+				reply(token, chat, msgID, Tf("rename_new_hint", name), backTo("users"))
 			case "enable":
-				reply(token, chat, msgID, "✅ <pre>"+esc(runVPN("enable", name))+"</pre>", backKeyboard())
+				out := runVPN("enable", name)
+				reply(token, chat, msgID, "✅ <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
 			case "disable":
-				reply(token, chat, msgID, "🚫 <pre>"+esc(runVPN("disable", name))+"</pre>", backKeyboard())
+				out := runVPN("disable", name)
+				reply(token, chat, msgID, "🚫 <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
 			case "revoke":
-				reply(token, chat, msgID, "🗑 <pre>"+esc(runVPN("revoke", name))+"</pre>", backKeyboard())
+				out := runVPN("revoke", name)
+				reply(token, chat, msgID, "🗑 <pre>"+esc(out)+"</pre>", usersListKeyboard())
 			}
 		}
 		return
@@ -115,6 +130,8 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		} else {
 			reply(token, chat, msgID, menuText(), mainKeyboard())
 		}
+	case "m:cat:users":
+		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:vpn":
 		setState(chat, "", "")
 		reply(token, chat, msgID, T("cat_vpn_title"), vpnKeyboard())
@@ -190,7 +207,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatLampacHTML(), addonsKeyboard())
 	case "m:status":
 		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
-	case "m:vpn_list":
+	case "m:users", "m:vpn_list":
+		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
+	case "m:vpn_list_legacy":
 		reply(token, chat, msgID, formatVPNListPretty(runVPN("list")), vpnUsersKeyboard())
 	case "m:vpn_add":
 		setState(chat, "wait_vpn_add_name", "")
