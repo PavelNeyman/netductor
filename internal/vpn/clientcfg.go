@@ -236,5 +236,13 @@ func WriteClientConfigs(name, uuid string) error {
 		uris += ClientLinkForRelayLocal(name, uuid, e.RelayHost, e.RelayPBK, e.RelaySID, e.RelaySNI) + nl
 	}
 	uris += VLESSLink(name, uuid) + nl
-	return os.WriteFile(filepath.Join(dir, "shadowrocket-uris.txt"), []byte(uris), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "shadowrocket-uris.txt"), []byte(uris), 0o600)
+	vless := PreferredVLESSLink(name, uuid)
+	_ = os.WriteFile(filepath.Join(dir, "link-vless.txt"), []byte(vless+nl), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
+	core := VLESSLink(name, uuid)
+	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(core+nl), 0o600)
+	sub := vless + nl + core + nl
+	_ = os.WriteFile(filepath.Join(dir, "subscription.txt"), []byte(sub), 0o600)
+	return nil
 }
