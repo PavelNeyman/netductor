@@ -10,12 +10,13 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/session"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 func runVPN(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: netductor vpn add|list|rename|link|note|disable|enable|revoke|apply|set-sni|session ...")
+		fmt.Fprintln(os.Stderr, "usage: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session ...")
 		os.Exit(2)
 	}
 	cmd := args[0]
@@ -152,9 +153,17 @@ func runVPN(args []string) {
 						if via != "core" {
 							fmt.Fprintln(os.Stderr, "via", via)
 						}
-						if kind != "vless" {
+						if kind == "full" || kind == "all" {
+							if core, ok2 := vpn.ReadClient(name, "link-vless-core.txt"); ok2 {
+								fmt.Println(strings.TrimSpace(core))
+							}
 							if hy, ok2 := vpn.ReadClient(name, "link-hy2.txt"); ok2 {
 								fmt.Println(strings.TrimSpace(hy))
+							}
+						} else if kind == "sub" || kind == "subscription" {
+							if sub, ok2 := vpn.ReadClient(name, "subscription.txt"); ok2 {
+								fmt.Print(sub)
+								return
 							}
 						}
 						return
@@ -176,6 +185,17 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(s)
+	case "refresh-links":
+		only := ""
+		if len(rest) > 0 {
+			only = rest[0]
+		}
+		n, err := vpn.RefreshLinks(only)
+		fmt.Printf("refreshed %d\n", n)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "wl-check":
 		ip := ""
 		if len(rest) > 0 {
@@ -217,6 +237,17 @@ func runVPN(args []string) {
 		}
 		relay.BumpConfigVer()
 		fmt.Println("sni set to", sniName)
+	case "sni-import":
+		url := ""
+		if len(rest) > 0 {
+			url = rest[0]
+		}
+		n, err := vpn.ImportSNIPresetsFromURL(url)
+		fmt.Printf("presets=%d\n", n)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "sni":
 		fmt.Println("active", vpn.ActiveSNI())
 		for _, p := range vpn.ListSNIPresets() {
@@ -227,6 +258,21 @@ func runVPN(args []string) {
 			fmt.Printf("%s\t%s\t%s%s\n", p.Name, p.SNI, p.Note, mark)
 		}
 	case "apply":
+		dry := false
+		for _, a := range rest {
+			if a == "--dry-run" || a == "-n" {
+				dry = true
+			}
+		}
+		if dry {
+			msg, err := vpn.ApplyConfigDryRun()
+			fmt.Println(msg)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			return
+		}
 		relay.BumpConfigVer()
 		if err := vpn.ApplyConfig(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -234,6 +280,17 @@ func runVPN(args []string) {
 		}
 		fmt.Println("config applied")
 	case "session":
+		if len(rest) > 0 && (rest[0] == "list" || rest[0] == "ls") {
+			for _, s := range session.List() {
+				fmt.Printf("%s\texp=%d\tlabel=%s\tip=%s\n", s.HashPrefix, s.Exp, s.Label, s.IP)
+			}
+			return
+		}
+		if len(rest) > 0 && rest[0] == "revoke-all" {
+			_ = session.RevokeAll()
+			fmt.Println("revoked all")
+			return
+		}
 		hours := 72
 		if len(rest) > 0 {
 			fmt.Sscanf(rest[0], "%d", &hours)
