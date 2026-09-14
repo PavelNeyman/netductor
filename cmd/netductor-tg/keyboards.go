@@ -32,28 +32,42 @@ func relayKeyboard() map[string]any {
 }
 
 func mainKeyboard() map[string]any {
+	// Flat top: 4 clear areas. No VPN-tools duplicate.
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("status"), "m:status", "primary")},
-			{btn(T("users"), "m:users", "primary"), btn(T("cat_routers"), "m:cat:routers", "primary")},
-			{btn(T("nodes"), "m:cat:nodes", "primary"), btn(T("sites"), "m:cat:sites", "")},
-			{btn(T("session"), "m:session", ""), btn(T("admin"), "m:admin", "")},
-			{btn(T("addons"), "m:addons", ""), btn(T("vpn_tools"), "m:cat:vpn", "")},
-			{btn(T("audit"), "m:audit", ""), btn(T("sessions"), "m:sessions", "")},
+			{btn(T("users"), "m:users", "primary")},
+			{btn(T("fleet"), "m:fleet", "primary")},
+			{btn(T("operator"), "m:operator", "")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
 	}
 }
 
+// fleet = nodes + routers + sites
+func fleetKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("nodes"), "m:cat:nodes", "primary")},
+		{btn(T("cat_routers"), "m:cat:routers", "primary")},
+		{btn(T("sites"), "m:cat:sites", "")},
+		{btn(T("addons"), "m:addons", "")},
+		{btn(T("main_menu"), "m:menu", "")},
+	}}
+}
+
+// operator = session / admin / audit (not day-to-day user VPN)
+func operatorKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("session"), "m:session", "primary"), btn(T("admin"), "m:admin", "")},
+		{btn(T("sessions"), "m:sessions", ""), btn(T("audit"), "m:audit", "")},
+		{btn(T("refresh_links"), "m:vpn_refresh", "")},
+		{btn(T("main_menu"), "m:menu", "")},
+	}}
+}
+
 func vpnKeyboard() map[string]any {
-	// system tools only — per-user actions live on user card
-	return map[string]any{
-		"inline_keyboard": [][]map[string]any{
-			{btn(T("users"), "m:users", "primary"), btn(T("vpn_add"), "m:vpn_add", "success")},
-			{btn(T("refresh_links"), "m:vpn_refresh", "")},
-			{btn(T("main_menu"), "m:menu", "")},
-		},
-	}
+	// legacy alias → users
+	return usersListKeyboard()
 }
 
 func addonsKeyboard() map[string]any {
@@ -302,7 +316,7 @@ func userHubKeyboard(name string) map[string]any {
 		{btn(T("vpn_rename"), "u:rename:"+name, "")},
 		{btn(T("vpn_enable"), "u:enable:"+name, "success"), btn(T("vpn_disable"), "u:disable:"+name, "danger")},
 		{btn(T("vpn_revoke"), "u:revoke:"+name, "danger")},
-		{btn(T("users"), "m:users", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn(T("users"), "m:users", "primary")},
 	}}
 }
 
@@ -394,6 +408,6 @@ func usersListKeyboard() map[string]any {
 		rows = append(rows, []map[string]any{btn("— empty —", "m:users", "")})
 	}
 	rows = append(rows, []map[string]any{btn(T("vpn_add"), "m:vpn_add", "success")})
-	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary"), btn(T("vpn_tools"), "m:cat:vpn", "")})
+	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
 	return map[string]any{"inline_keyboard": rows}
 }
