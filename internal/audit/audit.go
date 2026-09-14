@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -35,5 +36,37 @@ func Log(actor, action, target, detail string) {
 		return
 	}
 	defer f.Close()
-	_, _ = f.Write(append(b, '\n'))
+	_, _ = f.Write(append(b, 10))
+}
+
+// Tail returns the last n events (oldest first among the tail).
+func Tail(n int) []Event {
+	if n <= 0 {
+		n = 50
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	f, err := os.Open(path())
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var all []Event
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var ev Event
+		if json.Unmarshal(line, &ev) != nil {
+			continue
+		}
+		all = append(all, ev)
+	}
+	if len(all) > n {
+		all = all[len(all)-n:]
+	}
+	return all
 }
