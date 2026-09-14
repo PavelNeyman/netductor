@@ -419,6 +419,9 @@ func buildAPIMux() http.Handler {
 			http.Error(w, "method", 405)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		unit := r.URL.Query().Get("unit")
 		if unit == "" {
 			unit = "sing-box"
@@ -455,6 +458,9 @@ func buildAPIMux() http.Handler {
 	mux.HandleFunc("/api/nodes/restart-service", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method", 405)
+			return
+		}
+		if !requireSession(w, r) {
 			return
 		}
 		var body struct {
