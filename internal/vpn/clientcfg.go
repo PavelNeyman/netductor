@@ -36,17 +36,18 @@ type relayDevFile struct {
 	} `json:"devices"`
 }
 
-func loadOnlineRelay() (host, pbk, sid, sniName string) {
+func loadOnlineRelays() []struct{ Host, PBK, SID, SNI string } {
 	p := filepath.Join(paths.StateDir(), "relay", "devices.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
-		return
+		return nil
 	}
 	var f relayDevFile
 	if json.Unmarshal(b, &f) != nil {
-		return
+		return nil
 	}
 	now := time.Now().UTC()
+	var out []struct{ Host, PBK, SID, SNI string }
 	for _, d := range f.Devices {
 		if d.PublicIP == "" || d.PBK == "" {
 			continue
@@ -54,13 +55,21 @@ func loadOnlineRelay() (host, pbk, sid, sniName string) {
 		if !d.LastSeen.IsZero() && now.Sub(d.LastSeen) > 3*time.Minute {
 			continue
 		}
-		sniName = d.SNI
+		sniName := d.SNI
 		if sniName == "" {
 			sniName = DefaultRealitySNI
 		}
-		return d.PublicIP, d.PBK, d.SID, sniName
+		out = append(out, struct{ Host, PBK, SID, SNI string }{d.PublicIP, d.PBK, d.SID, sniName})
 	}
-	return
+	return out
+}
+
+func loadOnlineRelay() (host, pbk, sid, sniName string) {
+	rels := loadOnlineRelays()
+	if len(rels) == 0 {
+		return
+	}
+	return rels[0].Host, rels[0].PBK, rels[0].SID, rels[0].SNI
 }
 
 func ResolveClientEndpoints(name, uuid string) ClientEndpoints {
@@ -197,7 +206,15 @@ func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 		return nil, fmt.Errorf("uuid required")
 	}
 	uris := []string{}
-	if e.RelayHost != "" {
+	seen := map[string]bool{}
+	for _, r := range loadOnlineRelays() {
+		if seen[r.Host] {
+			continue
+		}
+		seen[r.Host] = true
+		uris = append(uris, ClientLinkForRelayLocal(e.Name, e.UUID, r.Host, r.PBK, r.SID, r.SNI))
+	}
+	if e.RelayHost != "" && !seen[e.RelayHost] {
 		uris = append(uris, ClientLinkForRelayLocal(e.Name, e.UUID, e.RelayHost, e.RelayPBK, e.RelaySID, e.RelaySNI))
 	}
 	if e.CoreHost != "" {
@@ -205,7 +222,7 @@ func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 	}
 	doc := map[string]any{
 		"remarks": "netductor WL profile",
-		"note":    "Primary URI is relay when online. Keep flow=xtls-rprx-vision. Under carrier WL entry IP must be L3-whitelisted (see docs/WL.md).",
+		"note":    "Primary URI is relay when online. HY2 optional (not for carrier WL). Keep flow=xtls-rprx-vision. See docs/WL.md.",
 		"uris":    uris,
 	}
 	return json.MarshalIndent(doc, "", "  ")
