@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -21,7 +22,13 @@ func knownHostsPath() string {
 }
 
 type khFile struct {
-	Hosts map[string]string `json:"hosts"` // host:port -> base64(ssh.MarshalAuthorizedKey style raw key)
+	Hosts map[string]string `json:"hosts"` // host:port -> base64 raw key
+}
+
+// HostEntry is a stored TOFU host key.
+type HostEntry struct {
+	ID        string `json:"id"` // host:port
+	KeyPrefix string `json:"key_prefix"`
 }
 
 func loadKH() khFile {
@@ -45,8 +52,60 @@ func saveKH(f khFile) error {
 	return os.WriteFile(knownHostsPath(), append(raw, 10), 0o600)
 }
 
-func hostKeyKey(host string, port int, key ssh.PublicKey) string {
+func hostKeyKey(host string, port int) string {
 	return fmt.Sprintf("%s:%d", host, port)
+}
+
+// ListKnownHosts returns all TOFU entries for MikroTik SSH.
+func ListKnownHosts() []HostEntry {
+	khMu.Lock()
+	defer khMu.Unlock()
+	f := loadKH()
+	ids := make([]string, 0, len(f.Hosts))
+	for id := range f.Hosts {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := make([]HostEntry, 0, len(ids))
+	for _, id := range ids {
+		k := f.Hosts[id]
+		pref := k
+		if len(pref) > 16 {
+			pref = pref[:16] + "…"
+		}
+		out = append(out, HostEntry{ID: id, KeyPrefix: pref})
+	}
+	return out
+}
+
+// ForgetKnownHost removes one entry (id = host:port or host).
+func ForgetKnownHost(id string) error {
+	khMu.Lock()
+	defer khMu.Unlock()
+	f := loadKH()
+	if _, ok := f.Hosts[id]; ok {
+		delete(f.Hosts, id)
+		return saveKH(f)
+	}
+	// try host without port variants
+	deleted := false
+	for k := range f.Hosts {
+		if k == id || len(k) > len(id) && k[:len(id)] == id && k[len(id)] == ':' {
+			delete(f.Hosts, k)
+			deleted = true
+		}
+	}
+	if !deleted {
+		return fmt.Errorf("not found: %s", id)
+	}
+	return saveKH(f)
+}
+
+// ClearKnownHosts removes all MikroTik TOFU entries.
+func ClearKnownHosts() error {
+	khMu.Lock()
+	defer khMu.Unlock()
+	return saveKH(khFile{Hosts: map[string]string{}})
 }
 
 // hostKeyCallback TOFU: first connect stores key; later verifies.
@@ -57,11 +116,11 @@ func hostKeyCallback(host string, port int) ssh.HostKeyCallback {
 		khMu.Lock()
 		defer khMu.Unlock()
 		f := loadKH()
-		id := hostKeyKey(host, port, key)
+		id := hostKeyKey(host, port)
 		got := base64.StdEncoding.EncodeToString(key.Marshal())
 		if prev, ok := f.Hosts[id]; ok {
 			if prev != got {
-				return fmt.Errorf("host key mismatch for %s (TOFU) — remove entry in %s if MT was reinstalled", id, knownHostsPath())
+				return fmt.Errorf("host key mismatch for %s (TOFU) — forget via: netductor ssh-hosts forget %s", id, id)
 			}
 			return nil
 		}
