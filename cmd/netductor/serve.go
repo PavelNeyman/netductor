@@ -687,9 +687,18 @@ func buildAPIMux() http.Handler {
 			return
 		}
 		m := metrics.Collect()
+		mm := vpn.CollectMismatch(30)
+		relays := []map[string]any{}
+		for _, d := range relay.List() {
+			relays = append(relays, map[string]any{
+				"id": d.ID, "name": d.Name, "ip": d.PublicIP,
+				"mismatch_total": d.MismatchTotal, "mismatch_by_ip": d.MismatchByIP,
+			})
+		}
 		writeJSON(w, 200, map[string]any{
 			"ok": true, "service": "netductor", "version": version,
 			"metrics": m, "probes": probes.Run(probes.Load()),
+			"mismatch": mm, "relay_mismatch": relays,
 		})
 	})
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
@@ -697,7 +706,8 @@ func buildAPIMux() http.Handler {
 			return
 		}
 		m := metrics.Collect()
-		writeJSON(w, 200, map[string]any{"ok": true, "metrics": m, "probes": probes.Run(probes.Load())})
+		mm := vpn.CollectMismatch(30)
+		writeJSON(w, 200, map[string]any{"ok": true, "metrics": m, "probes": probes.Run(probes.Load()), "mismatch": mm})
 	})
 
 	// --- VPN users (operator session) ---
