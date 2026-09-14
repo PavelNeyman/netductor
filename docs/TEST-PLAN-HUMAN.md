@@ -51,7 +51,7 @@ sudo bash /tmp/fv.sh
 ## Subjective / policy
 
 21. [ ] Latency and streaming quality acceptable for your city.
-22. [ ] `netductor probe --default` results make sense vs provider expectations.
+22. [ ] `netductor probe` results make sense vs provider expectations.
 23. [ ] Decide whether HY2 `insecure=1` is acceptable for your threat model.
 
 ## Report back
