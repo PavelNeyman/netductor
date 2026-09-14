@@ -59,7 +59,7 @@ func sshClient(in ProvisionIn) (*ssh.Client, error) {
 	cfg := &ssh.ClientConfig{
 		User: in.User,
 		Auth: []ssh.AuthMethod{ssh.Password(in.Password)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // first enroll only
+		HostKeyCallback: provisionHostKey(in.Host), // TOFU under state/relay/ssh_known_hosts.json
 		Timeout:         30 * time.Second,
 	}
 	addr := net.JoinHostPort(in.Host, fmt.Sprintf("%d", in.Port))
