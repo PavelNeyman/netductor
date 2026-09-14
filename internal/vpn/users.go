@@ -111,3 +111,10 @@ func ReadClient(name string, candidates ...string) (string, bool) {
 func QRPath(name string) string {
 	return filepath.Join(Clients(), name, "qr.png")
 }
+
+func Rename(oldName, newName string) (string, error) {
+	if err := RenameNative(oldName, newName); err != nil {
+		return "", err
+	}
+	return newName, nil
+}
