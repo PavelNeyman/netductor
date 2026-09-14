@@ -220,6 +220,19 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			}[act]
 		}
 		reply(token, chat, msgID, title+string([]byte{10, 10})+formatVPNListPretty(runVPN("list")), vpnUsersKeyboardFor(act))
+	case "m:backup":
+		st := runND("backup", "peer-status")
+		reply(token, chat, msgID, "💾 <b>"+esc(T("backup"))+"</b>"+string([]byte{10})+"<i>"+T("backup_hint")+"</i>"+string([]byte{10, 10})+"<pre>"+esc(st)+"</pre>",
+			map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn(T("backup_run"), "m:backup:run", "primary"), btn(T("backup_set"), "m:backup:set", "")},
+				{btn(T("back"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
+			}})
+	case "m:backup:run":
+		out := runND("backup")
+		reply(token, chat, msgID, "💾 <pre>"+esc(truncate(out, 2000))+"</pre>", backTo("nodes"))
+	case "m:backup:set":
+		setState(chat, "wait_backup_peer", "")
+		reply(token, chat, msgID, "root@HOST:/var/lib/netductor/backups/peers/core/", backKeyboard())
 	case "m:sshhosts":
 		reply(token, chat, msgID, formatSSHHostsHTML(), sshHostsKeyboard())
 	case "m:ssh:clear:mt":
