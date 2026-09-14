@@ -14,6 +14,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 func runCollect() int {
@@ -162,6 +163,23 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 					notify.ClearAlert(key + ":sb")
 				}
 			}
+		}
+	}
+	if enabled("mismatch_spike") {
+		st := vpn.CollectMismatch(30)
+		if st.Total >= 20 {
+			notify.AlertOnce("mismatch:core", fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b> in 30m", st.Total))
+		} else {
+			notify.ClearAlert("mismatch:core")
+		}
+	}
+	if enabled("backup_offsite") {
+		// marker written by backup on scp failure
+		p := filepath.Join(paths.StateDir(), "backup_offsite_fail")
+		if b, err := os.ReadFile(p); err == nil && len(b) > 0 {
+			notify.AlertOnce("backup:offsite", "⚠️ Backup offsite failed:\n<pre>"+string(b)+"</pre>")
+		} else {
+			notify.ClearAlert("backup:offsite")
 		}
 	}
 	_ = m
