@@ -46,11 +46,13 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		sbOK = strings.TrimSpace(string(out)) == "active"
 	}
 	cpu, memU, memT, load1 := sampleMetrics()
+	mm := vpn.CollectMismatch(30)
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
 		Version: "agent-1", SingBoxOK: sbOK, ConfigVer: *applied,
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: *lastDone, CmdOK: *lastOK, CmdLog: *lastLog,
+		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
 	})
 	*lastDone, *lastOK, *lastLog = "", false, ""
 	req, err := http.NewRequest(http.MethodPost, coreBase+"/api/relay/agent/heartbeat", bytes.NewReader(body))
