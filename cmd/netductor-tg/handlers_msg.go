@@ -127,8 +127,7 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 			sub := runVPN("link", name, "vless")
 			sendHTML(token, chat, "🔗 <b>"+esc(name)+"</b>\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
 		case "vpn_sub":
-			sub := runVPN("link", name, "sub")
-			sendHTML(token, chat, "📦 <b>"+esc(name)+"</b> subscription\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
+			sendHTML(token, chat, "ℹ️ Subscription removed. Open user → Access.", userHubKeyboard(name))
 		case "vpn_disable":
 			sendHTML(token, chat, "🚫 <pre>"+esc(runVPN("disable", name))+"</pre>", backKeyboard())
 		case "vpn_enable":
