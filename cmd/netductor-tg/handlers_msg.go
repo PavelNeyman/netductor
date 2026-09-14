@@ -40,6 +40,12 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, fmt.Sprintf(T("ssh_forgot"), esc(id))+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
 		return
 	}
+	if st == "wait_backup_peer" {
+		setState(chat, "", "")
+		out := runND("backup", "peer-set", strings.TrimSpace(text))
+		sendHTML(token, chat, "💾 <pre>"+esc(out)+"</pre>", nodesKeyboard())
+		return
+	}
 	if st == "wait_vpn_rename" {
 		fields := strings.Fields(text)
 		setState(chat, "", "")
