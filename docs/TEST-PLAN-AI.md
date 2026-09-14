@@ -25,11 +25,11 @@ Run **after** owner provides SSH to a clean/reinstalled Debian VPS. No physical 
 
 ## Phase B — Host tools
 
-6. `command -v netductor-doctor netductor-vpn netductor-tests netductor-smoke`
-7. `sudo netductor-doctor` → exit 0; no FAIL; note WARN (variant).
-8. `sudo netductor-smoke` → exit 0.
-9. `sudo netductor-vpn list` → includes `operator` on.
-10. `sudo netductor-vpn link operator` → two lines (vless + hysteria2) or subscription body.
+6. `command -v netductor && netductor version
+7. `sudo netductor doctor` → exit 0; no FAIL; note WARN (variant).
+8. `sudo netductor doctor` → exit 0.
+9. `sudo netductor vpn list` → includes `operator` on.
+10. `sudo netductor vpn link operator` → two lines (vless + hysteria2) or subscription body.
 
 ## Phase C — Services
 
@@ -38,7 +38,7 @@ Run **after** owner provides SSH to a clean/reinstalled Debian VPS. No physical 
 13. `dig @127.0.0.1 example.com +short` non-empty
 14. `ss -lntp | grep -E ':443|:8443|:53'` (or equivalent)
 15. If API enabled: `curl -fsS http://127.0.0.1:8787/health`
-16. Session: `TOK=$(sudo netductor-vpn session 1 | head -1)` then
+16. Session: `TOK=$(sudo netductor vpn session 1 | head -1)` then
     `curl -fsS -H "Authorization: Bearer $TOK" http://127.0.0.1:8787/vpn/users`
 17. Docker panels (if enabled): `docker ps` shows expected containers; ports on 127.0.0.1.
 
@@ -50,11 +50,11 @@ Run **after** owner provides SSH to a clean/reinstalled Debian VPS. No physical 
     ```
     or bootstrap again `--upgrade`.
 19. Expect skips for healthy modules; UFW still active; same operator UUID (jq).
-20. `netductor-doctor` still exit 0.
+20. `netductor doctor` still exit 0.
 
 ## Phase E — VPN user lifecycle (server-side only)
 
-21. `netductor-vpn add aitest`
+21. `netductor vpn add aitest`
 22. Artifacts under `/etc/netductor/clients/aitest/subscription.txt`
 23. `disable` / `enable` / `revoke aitest`
 24. After revoke, directory gone; sing-box still active.
@@ -64,7 +64,7 @@ Run **after** owner provides SSH to a clean/reinstalled Debian VPS. No physical 
 25. Confirm `PasswordAuthentication no` **only if** authorized_keys present.
 26. Confirm no `ufw --force reset` side effects (SSH still works).
 27. API without Bearer → 401.
-28. Optional: `netductor-tests sysbench` only (fast); full `--default` if time (long, third-party).
+28. Optional: `netductor probe sysbench` only (fast); full `--default` if time (long, third-party).
 
 ## Out of scope for AI
 
