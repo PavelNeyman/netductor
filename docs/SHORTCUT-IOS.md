@@ -9,14 +9,14 @@ Goal: operator Shortcut → **VPN/tunnel API** after **Face ID** + **local sessi
 ## Security model
 
 1. API only on **your VPN** or SSH tunnel to `127.0.0.1:8787`.
-2. **Session token** via `netductor-vpn session` or Telegram `/session` — not master token inside the Shortcut.
+2. **Session token** via `netductor vpn session` or Telegram `/session` — not master token inside the Shortcut.
 3. **Face ID / passcode** at the start of the Shortcut.
 4. Token in a **local file** (On My iPhone / On My Mac; avoid iCloud for the token file).
 
 ## Mint a session
 
 ```bash
-sudo netductor-vpn session 72
+sudo netductor vpn session 72
 ```
 
 Or Telegram: `/session 72`
