@@ -26,3 +26,7 @@
 - Token ≥ 16, constant-time compare
 - Heartbeat body ≤ 1 MiB
 - Config export uses ActiveSNI; no new agent token on pull
+
+
+## 2026-09-14 deep pass
+- `/api/nodes/journal` и `/api/nodes/restart-service` требовали session (были без auth)
