@@ -715,6 +715,42 @@ func buildAPIMux() http.Handler {
 		writeJSON(w, 200, map[string]any{"ok": true, "metrics": m, "probes": probes.Run(probes.Load()), "mismatch": mm})
 	})
 
+	
+	mux.HandleFunc("/api/audit", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		writeJSON(w, 200, map[string]any{"events": audit.Tail(100)})
+	})
+	mux.HandleFunc("/api/sessions", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method == http.MethodGet {
+			writeJSON(w, 200, map[string]any{"sessions": session.List()})
+			return
+		}
+		if r.Method == http.MethodDelete || (r.Method == http.MethodPost && r.URL.Query().Get("action") == "revoke-all") {
+			_ = session.RevokeAll()
+			audit.Log("session", "session.revoke_all", "", "")
+			writeJSON(w, 200, map[string]any{"ok": true})
+			return
+		}
+		http.Error(w, "method", 405)
+	})
+	mux.HandleFunc("/api/vpn/refresh-links", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		n, err := vpn.RefreshLinks("")
+		if err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "refreshed": n, "error": err.Error()})
+			return
+		}
+		audit.Log("session", "vpn.refresh-links", "", fmt.Sprintf("%d", n))
+		writeJSON(w, 200, map[string]any{"ok": true, "refreshed": n})
+	})
+
 	// --- backup peer ---
 	mux.HandleFunc("/api/backup/peer", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
