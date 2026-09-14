@@ -40,8 +40,24 @@
       <button data-tab="sni" class="tab">SNI</button>
       <button data-tab="relay" class="tab">Relay</button>
       <button data-tab="status" class="tab">Status</button>
+      <button data-tab="sshhosts" class="tab">SSH hosts</button>
     </nav>
 
+    <section id="tab-sshhosts" class="tab-panel hide">
+      <h2>SSH known hosts (TOFU)</h2>
+      <p class="hint">After MT/VPS reinstall: Forget key, then reconnect once from trusted LAN.</p>
+      <div class="row">
+        <button type="button" id="btn-sshhosts-refresh" class="ghost">Refresh</button>
+        <button type="button" id="btn-sshhosts-clear-mt" class="ghost">Clear MikroTik</button>
+        <button type="button" id="btn-sshhosts-clear-relay" class="ghost">Clear Relay</button>
+      </div>
+      <pre id="sshhosts-box" class="log"></pre>
+      <div class="row">
+        <input id="sshhosts-id" placeholder="host or host:port" />
+        <select id="sshhosts-kind"><option value="">auto</option><option value="mt">mikrotik</option><option value="relay">relay</option></select>
+        <button type="button" id="btn-sshhosts-forget" class="primary">Forget</button>
+      </div>
+    </section>
     <section id="tab-status" class="tab-panel hide">
       <h2>Status</h2>
       <p class="hint">Core services + nodes + VPN (TG parity)</p>
