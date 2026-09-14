@@ -7,11 +7,11 @@ Unified runner wraps common community probes. Scripts run in a **temp dir** and 
 ## Run
 
 ```bash
-sudo netductor-tests                 # checklist menu
-sudo netductor-tests --list
-sudo netductor-tests --default        # curated subset
-sudo netductor-tests --all            # long
-sudo netductor-tests yabs sysbench
+sudo netductor probe                 # live probes
+# curated third-party scripts: see docs/VPS-TESTS history / operator scripts
+sudo netductor probe        # curated subset
+sudo netductor probe            # long
+sudo netductor probe yabs sysbench
 sudo bash install.sh --tests        # same menu from installer
 ```
 
