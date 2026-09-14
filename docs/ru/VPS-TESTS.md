@@ -7,11 +7,11 @@
 ## Запуск
 
 ```bash
-sudo netductor-tests                 # меню checklist
-sudo netductor-tests --list
-sudo netductor-tests --default        # отобранный набор
-sudo netductor-tests --all            # долго
-sudo netductor-tests yabs sysbench
+sudo netductor probe                 # меню checklist
+# curated third-party scripts: see docs/VPS-TESTS history / operator scripts
+sudo netductor probe        # отобранный набор
+sudo netductor probe            # долго
+sudo netductor probe yabs sysbench
 sudo bash install.sh --tests
 ```
 
