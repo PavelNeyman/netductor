@@ -79,6 +79,7 @@ func nodesKeyboard() map[string]any {
 			{btn(T("nodes_enroll"), "m:relay:enroll", "primary")},
 			{btn(T("nodes_sync"), "m:relay:sync", ""), btn(T("nodes_exit"), "m:relay:exit:menu", "primary")},
 			{btn(T("ssh_hosts"), "m:sshhosts", "primary")},
+			{btn(T("backup"), "m:backup", "")},
 			{btn(T("main_menu"), "m:menu", "")},
 		},
 	}
