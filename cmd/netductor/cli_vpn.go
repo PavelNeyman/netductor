@@ -161,10 +161,23 @@ func runVPN(args []string) {
 								fmt.Println(strings.TrimSpace(hy))
 							}
 						} else if kind == "sub" || kind == "subscription" {
+							body, err := vpn.SubscriptionBody(name)
+							if err == nil {
+								fmt.Print(body)
+								return
+							}
 							if sub, ok2 := vpn.ReadClient(name, "subscription.txt"); ok2 {
 								fmt.Print(sub)
 								return
 							}
+						} else if kind == "sub64" || kind == "b64" {
+							b64, err := vpn.SubscriptionBase64(name)
+							if err != nil {
+								fmt.Fprintln(os.Stderr, err)
+								os.Exit(1)
+							}
+							fmt.Println(b64)
+							return
 						}
 						return
 					}
