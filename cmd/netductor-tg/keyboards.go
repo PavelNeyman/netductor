@@ -318,23 +318,21 @@ func userHubKeyboard(name string) map[string]any {
 	}}
 }
 
-// mode: vless | core | hy2 | sub
+// mode: vless | core | hy2  (subscription removed — single links only)
 func userAccessKeyboard(name, mode string) map[string]any {
-	if mode == "" {
+	if mode == "" || mode == "sub" {
 		mode = "vless"
 	}
 	label := map[string]string{
 		"vless": "VLESS · primary",
 		"core":  "VLESS · core",
 		"hy2":   "HY2 · optional",
-		"sub":   "Subscription",
 	}
 	cur := label[mode]
 	if cur == "" {
 		cur = mode
 	}
-	// cycle order
-	order := []string{"vless", "core", "hy2", "sub"}
+	order := []string{"vless", "core", "hy2"}
 	idx := 0
 	for i, m := range order {
 		if m == mode {
@@ -346,7 +344,7 @@ func userAccessKeyboard(name, mode string) map[string]any {
 	next := order[(idx+1)%len(order)]
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn("◀", "u:access:"+name+":"+prev, ""), btn("📱 "+cur, "u:access:"+name+":"+mode, "primary"), btn("▶", "u:access:"+name+":"+next, "")},
-		{btn("VLESS", "u:access:"+name+":vless", ""), btn("Core", "u:access:"+name+":core", ""), btn("HY2", "u:access:"+name+":hy2", ""), btn("Sub", "u:access:"+name+":sub", "success")},
+		{btn("VLESS", "u:access:"+name+":vless", ""), btn("Core", "u:access:"+name+":core", ""), btn("HY2", "u:access:"+name+":hy2", "")},
 		{btn(T("user_card"), "u:open:"+name, "primary"), btn(T("users"), "m:users", "")},
 	}}
 }
