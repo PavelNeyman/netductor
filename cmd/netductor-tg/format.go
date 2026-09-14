@@ -693,14 +693,27 @@ func accessPayload(name, mode string) (payload, caption string) {
 		caption = "📱 <b>HY2 · optional</b> · " + esc(name) + nl + nl
 		caption += "<i>" + T("hy2_optional") + "</i>" + nl + nl
 	case "sub":
-		payload = strings.TrimSpace(runVPN("link", name, "sub"))
-		if payload == "" || strings.Contains(payload, "not found") {
-			// rebuild subscription from preferred + core
-			v := strings.TrimSpace(runVPN("link", name, "vless"))
-			c := strings.TrimSpace(runVPN("link", name, "core"))
-			payload = strings.TrimSpace(v + "\n" + c)
+		// Base64 body for Shadowrocket "Subscribe" type (creates a group, not Local servers).
+		v := strings.TrimSpace(runVPN("link", name, "vless"))
+		c := strings.TrimSpace(runVPN("link", name, "core"))
+		body := strings.TrimSpace(v + string([]byte{10}) + c)
+		if body != "" {
+			payload = body // QR uses first line; caption shows base64
+		}
+		b64 := ""
+		if body != "" {
+			b64 = base64.StdEncoding.EncodeToString([]byte(body + string([]byte{10})))
 		}
 		caption = "📦 <b>Subscription</b> · " + esc(name) + nl + nl
+		caption += "<i>" + T("sub_hint_sr") + "</i>" + nl + nl
+		if b64 != "" {
+			caption += "<b>Base64</b> (Subscribe → paste):" + nl + "<code>" + esc(b64) + "</code>" + nl + nl
+			caption += "<b>URIs inside group</b>" + nl + "<code>" + esc(body) + "</code>" + nl
+		}
+		// skip generic payload append below for sub
+		if b64 != "" {
+			return body, caption
+		}
 	default:
 		mode = "vless"
 		payload = strings.TrimSpace(runVPN("link", name, "vless"))
