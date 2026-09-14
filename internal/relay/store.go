@@ -119,7 +119,7 @@ func IssueToken(name string) (id, token string, err error) {
 		name = id
 	}
 	r.Devices = append(r.Devices, Device{
-		ID: id, Token: token, Name: name, CreatedAt: time.Now().UTC(), SNI: "ya.ru",
+		ID: id, Token: token, Name: name, CreatedAt: time.Now().UTC(), SNI: "api.vk.me",
 	})
 	if r.ConfigVer < 1 {
 		r.ConfigVer = 1
