@@ -246,7 +246,7 @@ func ClientLinkForRelay(name, uuid, relayIP, pbk, sid, sniName string) string {
 		sniName = DefaultRealitySNI
 	}
 	return fmt.Sprintf(
-		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#%s-relay",
-		uuid, relayIP, sniName, pbk, sid, name,
+		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#nd-relay",
+		uuid, relayIP, sniName, pbk, sid,
 	)
 }
