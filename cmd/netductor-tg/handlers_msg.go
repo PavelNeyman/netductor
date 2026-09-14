@@ -41,7 +41,12 @@ func handleMessage(token string, m *message, admin int64) {
 		return
 	}
 	if st == "wait_vpn_add_name" {
-		name := strings.Fields(text)[0]
+		fields := strings.Fields(text)
+		if len(fields) == 0 {
+			sendHTML(token, chat, T("vpn_add"), backKeyboard())
+			return
+		}
+		name := fields[0]
 		out := runVPN("add", name)
 		setState(chat, "", "")
 		sub := runVPN("link", name)
@@ -80,7 +85,13 @@ func handleMessage(token string, m *message, admin int64) {
 
 if strings.HasPrefix(st, "wait_vpn_name:") {
 		action := strings.TrimPrefix(st, "wait_vpn_name:")
-		name := strings.Fields(text)[0]
+		fields := strings.Fields(text)
+		if len(fields) == 0 {
+			setState(chat, "", "")
+			sendHTML(token, chat, T("unknown"), mainKeyboard())
+			return
+		}
+		name := fields[0]
 		setState(chat, "", "")
 		switch action {
 		case "vpn_link":
