@@ -642,6 +642,126 @@ func ensureQRFile(path, payload string) string {
 	return path
 }
 
+
+func formatUsersListHTML() string {
+	nl := string([]byte{10})
+	raw := runVPN("list")
+	var b strings.Builder
+	b.WriteString("👥 <b>" + T("users") + "</b>" + nl + nl)
+	b.WriteString("<i>" + T("users_hint") + "</i>" + nl + nl)
+	b.WriteString(formatVPNListPretty(raw))
+	return b.String()
+}
+
+func formatUserHubHTML(name string) string {
+	nl := string([]byte{10})
+	raw := runVPN("list")
+	en := "?"
+	for _, line := range strings.Split(raw, "\n") {
+		parts := strings.Split(strings.TrimSpace(line), "\t")
+		if len(parts) == 0 {
+			parts = strings.Fields(line)
+		}
+		if len(parts) > 0 && parts[0] == name {
+			if len(parts) > 1 {
+				en = parts[1]
+			}
+			break
+		}
+	}
+	icon := "🟢"
+	if en == "off" {
+		icon = "🔴"
+	}
+	var b strings.Builder
+	b.WriteString("👤 <b>" + esc(name) + "</b> " + icon + " <code>" + esc(en) + "</code>" + nl + nl)
+	b.WriteString("<i>" + T("user_hub_hint") + "</i>")
+	return b.String()
+}
+
+func accessPayload(name, mode string) (payload, caption string) {
+	nl := string([]byte{10})
+	switch mode {
+	case "core":
+		payload = strings.TrimSpace(runVPN("link", name, "core"))
+		if payload == "" || strings.Contains(payload, "not found") {
+			payload = strings.TrimSpace(runVPN("link", name, "vless"))
+		}
+		caption = "🔗 <b>VLESS · core</b> · " + esc(name) + nl + nl
+	case "hy2":
+		payload = strings.TrimSpace(runVPN("link", name, "hy2"))
+		caption = "📱 <b>HY2 · optional</b> · " + esc(name) + nl + nl
+		caption += "<i>" + T("hy2_optional") + "</i>" + nl + nl
+	case "sub":
+		payload = strings.TrimSpace(runVPN("link", name, "sub"))
+		if payload == "" || strings.Contains(payload, "not found") {
+			// rebuild subscription from preferred + core
+			v := strings.TrimSpace(runVPN("link", name, "vless"))
+			c := strings.TrimSpace(runVPN("link", name, "core"))
+			payload = strings.TrimSpace(v + "\n" + c)
+		}
+		caption = "📦 <b>Subscription</b> · " + esc(name) + nl + nl
+	default:
+		mode = "vless"
+		payload = strings.TrimSpace(runVPN("link", name, "vless"))
+		caption = "🔗 <b>VLESS · primary</b> · " + esc(name) + nl + nl
+	}
+	if strings.Contains(payload, "not found") || strings.Contains(payload, "exit status") {
+		payload = ""
+	}
+	if payload != "" {
+		caption += "<code>" + esc(payload) + "</code>"
+	} else {
+		caption += "❌ " + T("no_links")
+	}
+	return payload, caption
+}
+
+func showUserAccess(token string, chat int64, msgID int, name, mode string) {
+	if mode == "" {
+		mode = "vless"
+	}
+	payload, cap := accessPayload(name, mode)
+	kb := userAccessKeyboard(name, mode)
+	dir := filepath.Join("/etc/netductor/clients", name)
+	_ = os.MkdirAll(dir, 0o700)
+	path := ""
+	if payload != "" {
+		// QR encodes first line only for multi-line sub
+		qrPayload := strings.TrimSpace(strings.Split(payload, "\n")[0])
+		if mode == "sub" {
+			// encode full sub if short enough for QR; else first link
+			if len(payload) < 800 {
+				qrPayload = payload
+			}
+			path = ensureQRFile(filepath.Join(dir, "qr-subscription.png"), qrPayload)
+		} else if mode == "hy2" {
+			path = ensureQRFile(filepath.Join(dir, "qr-hy2.png"), qrPayload)
+		} else if mode == "core" {
+			path = ensureQRFile(filepath.Join(dir, "qr-core.png"), qrPayload)
+		} else {
+			path = ensureQRFile(filepath.Join(dir, "qr-vless.png"), qrPayload)
+		}
+	}
+	if path == "" {
+		reply(token, chat, msgID, cap, kb)
+		return
+	}
+	if msgID > 0 {
+		if err := editPhotoFile(token, chat, msgID, path, cap, kb); err != nil {
+			_ = deleteMessage(token, chat, msgID)
+			if err2 := sendPhotoFile(token, chat, path, cap, kb); err2 != nil {
+				sendHTML(token, chat, cap, kb)
+			}
+		}
+		return
+	}
+	if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
+		sendHTML(token, chat, cap, kb)
+	}
+}
+
+
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
 	// Replace the message that contained the user button (list / card).
 	showVPNQR(token, chat, msgID, name, "vless", msgID > 0)
