@@ -15,3 +15,11 @@
 - Off by default: `NETDUCTOR_LAMPAC=1` or `netductor install lampac`
 - Image: `ghcr.io/lampac-nextgen/lampac:latest` (override `NETDUCTOR_LAMPAC_IMAGE`)
 - Port 9118 (Docker). Installs `docker.io` + `docker-cli` on Debian.
+
+
+## SSH TOFU (MikroTik / relay provision)
+- First connect stores host key under StateDir
+- Manage without editing files: `netductor ssh-hosts list|forget|clear`
+- Also: TUI, Admin tab **SSH hosts**, Telegram **Nodes → SSH hosts**
+- `NETDUCTOR_MT_STRICT=1` rejects unknown MikroTik hosts
+- Details: [TOFU.md](TOFU.md)
