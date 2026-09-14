@@ -166,8 +166,8 @@ func genHy2Pass() string {
 
 func VLESSLink(name, uuid string) string {
 	return fmt.Sprintf(
-		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#%s-core",
-		uuid, publicIP(), vlessPort(), sni(), DefaultUTLSFingerprint, secret("singbox_reality_public"), secret("singbox_short_id"), name,
+		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-core",
+		uuid, publicIP(), vlessPort(), sni(), DefaultUTLSFingerprint, secret("singbox_reality_public"), secret("singbox_short_id"),
 	)
 }
 
@@ -181,8 +181,8 @@ func PreferredVLESSLink(name, uuid string) string {
 }
 
 func Hy2Link(name, pass string) string {
-	return fmt.Sprintf("hysteria2://%s@%s:%d?sni=%s&insecure=1#%s-hy2",
-		pass, publicIP(), hy2Port(), sni(), name)
+	return fmt.Sprintf("hysteria2://%s@%s:%d?sni=%s&insecure=1#nd-hy2",
+		pass, publicIP(), hy2Port(), sni())
 }
 
 func writeArtifacts(name, uuid, hy2pass string) error {
@@ -194,11 +194,13 @@ func writeArtifacts(name, uuid, hy2pass string) error {
 	vlessCore := VLESSLink(name, uuid)
 	hy2 := Hy2Link(name, hy2pass)
 	nl := string([]byte{10})
-	sub := vless + nl + vlessCore + nl + hy2 + nl
+	// Primary subscription: VLESS only (relay-first + core). HY2 optional under WL.
+	sub := vless + nl + vlessCore + nl
 	_ = os.WriteFile(filepath.Join(dir, "link-vless.txt"), []byte(vless+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(vlessCore+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link-hy2.txt"), []byte(hy2+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "subscription.txt"), []byte(sub), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub+hy2+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr.png"))
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr-vless.png"))
@@ -207,6 +209,48 @@ func writeArtifacts(name, uuid, hy2pass string) error {
 	_ = os.Chmod(filepath.Join(dir, "qr.png"), 0o600)
 	_ = os.Chmod(filepath.Join(dir, "qr-subscription.png"), 0o600)
 	_ = WriteClientConfigs(name, uuid)
+	return nil
+}
+
+
+// RenameNative changes display name only. UUID and credentials stay the same; client links keep working.
+func RenameNative(oldName, newName string) error {
+	if !ValidName(oldName) || !ValidName(newName) {
+		return fmt.Errorf("bad name")
+	}
+	if oldName == newName {
+		return nil
+	}
+	r, err := loadRegistry()
+	if err != nil {
+		return err
+	}
+	u := findUser(r, oldName)
+	if u == nil {
+		return fmt.Errorf("user not found: %s", oldName)
+	}
+	if findUser(r, newName) != nil {
+		return fmt.Errorf("user already exists: %s", newName)
+	}
+	uuid, hy2 := u.UUID, u.Hy2Password
+	u.Name = newName
+	if err := writeRegistry(r); err != nil {
+		return err
+	}
+	oldDir := filepath.Join(Clients(), oldName)
+	newDir := filepath.Join(Clients(), newName)
+	if st, err := os.Stat(oldDir); err == nil && st.IsDir() {
+		_ = os.RemoveAll(newDir)
+		if err := os.Rename(oldDir, newDir); err != nil {
+			// fallback: rewrite into new dir
+			_ = os.MkdirAll(newDir, 0o700)
+		}
+	}
+	if err := writeArtifacts(newName, uuid, hy2); err != nil {
+		return err
+	}
+	// UUID unchanged — ApplyConfig optional (may fail in tests without sing-box)
+	_ = ApplyConfig()
 	return nil
 }
 
