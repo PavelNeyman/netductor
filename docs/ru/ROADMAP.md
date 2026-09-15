@@ -1,13 +1,9 @@
 # Roadmap
 
 ## Сделано
-- Go control plane; fleet primary/secondary; recover + COMPONENTS
-- Secondary = RU вход VPN; primary = control plane
-- Backup peer, TG standby (SOCKS), agent OpenWrt/edge
+- Fleet primary/secondary, SSH key-only, recover, TG standby, TG UI nav/actions, TUI wizard
 
-## Дальше (нужен владелец)
-- [ ] Чистый прогон: снос обоих VPS → install + provision-secondary
-- [ ] OpenWrt / MikroTik на железе
-- [ ] HTTPS / домен по желанию
+## Дальше
+- OpenWrt / MikroTik на железе; HTTPS по желанию
 
-Контекст для нового чата: [AGENT_HANDOFF.md](AGENT_HANDOFF.md)
+Контекст: [AGENT_HANDOFF.md](AGENT_HANDOFF.md)
