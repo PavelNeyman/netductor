@@ -66,6 +66,8 @@ func main() {
 		}
 	case "backup":
 		runBackupCmd(os.Args[2:])
+	case "fleet":
+		runFleet(os.Args[2:])
 	case "restore":
 		key, arch := "", ""
 		for i := 2; i < len(os.Args); i++ {
@@ -127,7 +129,7 @@ func printHelp() {
 	fmt.Print(`netductor — network control plane
 
   tui|menu [--mode vps|openwrt|workstation|operator]
-  backup | restore | recover | audit | self-install | update
+  backup | restore | recover | fleet | audit | self-install | update
   version | doctor | status | vpn | sites | ssh-hosts | relay | addons | edge | serve | install | probe | collect | help
 
   (no args on a TTY → interactive menu)
