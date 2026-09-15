@@ -4,16 +4,25 @@ on:
     branches: [main]
   pull_request:
 jobs:
-  check:
+  go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: bash -n
-        run: bash scripts/check.sh
-      - name: unit tests
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+      - name: go test
+        run: go test ./...
+      - name: go build
         run: |
-          bash tests/unit/test_vless_parse.sh
-          bash tests/unit/test_vpn_registry.sh
-      - name: go build telegram bot
+          go build -o /tmp/netductor ./cmd/netductor
+          go build -o /tmp/netductor-tg ./cmd/netductor-tg
+          go build -o /tmp/netductor-agent ./cmd/netductor-agent
+      - name: govulncheck
         run: |
-          cd cmd/freshvps-tg && go build -o /tmp/freshvps-tg .
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+      - name: gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -quiet -exclude=G204,G304,G301,G306 ./...

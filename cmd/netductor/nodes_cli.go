@@ -54,7 +54,7 @@ func runNodes(args []string) {
 	case "rename":
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor nodes rename <id> <hostname>")
-			fmt.Fprintln(os.Stderr, "  hostname format: nd-<role>-<marker>  e.g. nd-relay-msk01")
+			fmt.Fprintln(os.Stderr, "  hostname format: nd-<role>-<marker>  e.g. nd-secondary-msk01")
 			os.Exit(2)
 		}
 		syncRelaysIntoNodes()

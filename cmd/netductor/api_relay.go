@@ -141,6 +141,9 @@ func registerRelayAPI(mux *http.ServeMux) {
 	})
 
 	// Agent-facing (token = device token)
+	mux.HandleFunc("/api/secondary/agent/heartbeat", handleRelayAgentHeartbeat)
+	mux.HandleFunc("/api/secondary/agent/config", handleRelayAgentConfig)
+	// legacy paths (compat until agents upgraded)
 	mux.HandleFunc("/api/relay/agent/heartbeat", handleRelayAgentHeartbeat)
 	mux.HandleFunc("/api/relay/agent/config", handleRelayAgentConfig)
 }
@@ -176,16 +179,16 @@ func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		if len(log) > 800 {
 			log = log[len(log)-800:]
 		}
-		_ = notify.Telegram(fmt.Sprintf("%s <b>Relay cmd</b> <code>%s</code> on <code>%s</code>\n<pre>%s</pre>", ok, in.CmdDone, d.ID, log))
+		_ = notify.Telegram(fmt.Sprintf("%s <b>Secondary cmd</b> <code>%s</code> on <code>%s</code>\n<pre>%s</pre>", ok, in.CmdDone, d.ID, log))
 	}
-	// Register as node role=relay so rename / fleet UI work
+	// Register as node role=secondary so rename / fleet UI work
 	host := d.Name
-	if host == "" || host == "relay" {
-		host = "nd-relay-" + strings.ReplaceAll(d.PublicIP, ".", "-")
+	if host == "" || host == "relay" || host == "secondary" {
+		host = "nd-secondary"
 	}
 	st := "online"
 	_, _ = nodes.UpsertFromDevice(nodes.Node{
-		ID: d.ID, Hostname: host, Role: "relay", Kind: "vps",
+		ID: d.ID, Hostname: host, Role: "secondary", Kind: "vps",
 		PublicIP: d.PublicIP, Status: st, LastSeen: time.Now().Unix(),
 	})
 	desired := ""
@@ -224,6 +227,9 @@ func handleRelayAgentConfig(w http.ResponseWriter, r *http.Request) {
 // startRelayAgentListener binds :8788 for agent plane (all interfaces).
 func startRelayAgentListener() {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/secondary/agent/heartbeat", handleRelayAgentHeartbeat)
+	mux.HandleFunc("/api/secondary/agent/config", handleRelayAgentConfig)
+	// legacy paths (compat until agents upgraded)
 	mux.HandleFunc("/api/relay/agent/heartbeat", handleRelayAgentHeartbeat)
 	mux.HandleFunc("/api/relay/agent/config", handleRelayAgentConfig)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

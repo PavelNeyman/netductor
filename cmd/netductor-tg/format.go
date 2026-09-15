@@ -629,7 +629,7 @@ func formatCmdQueuedHTML(kind, nodeID, raw string) string {
 
 func enqueueNodeCmd(id, cmd string) string {
 	role := nodeRole(id)
-	isRelay := role == "relay" || strings.HasPrefix(id, "relay-")
+	isRelay := role == "secondary" || role == "relay" || strings.HasPrefix(id, "relay-") || strings.HasPrefix(id, "secondary-")
 	if !isRelay {
 		return runND("nodes", "local-cmd", cmd)
 	}
@@ -947,7 +947,7 @@ func formatJournalHTML(id string) string {
 	nl := string([]byte{10})
 	role := nodeRole(id)
 	var out string
-	if role == "relay" || strings.HasPrefix(id, "relay-") {
+	if role == "secondary" || role == "relay" || strings.HasPrefix(id, "relay-") || strings.HasPrefix(id, "secondary-") {
 		out = runND("relay", "cmd", id, "metrics") // soft; journal on relay via agent later
 		out = "relay journal: use Metrics / last_cmd for now\n" + out
 	} else {
@@ -962,7 +962,7 @@ func formatJournalHTML(id string) string {
 
 func restartSingBox(id string) string {
 	role := nodeRole(id)
-	if role == "relay" || strings.HasPrefix(id, "relay-") {
+	if role == "secondary" || role == "relay" || strings.HasPrefix(id, "relay-") || strings.HasPrefix(id, "secondary-") {
 		return runND("relay", "cmd", id, "restart:sing-box")
 	}
 	b, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput()

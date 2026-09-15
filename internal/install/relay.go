@@ -30,18 +30,18 @@ func InstallRelay(bundlePath string) error {
 		return fmt.Errorf("invalid bundle")
 	}
 
-	fmt.Fprintln(os.Stderr, "==> relay: dirs")
+	fmt.Fprintln(os.Stderr, "==> secondary: dirs")
 	_ = paths.EnsureLayout()
 	_ = os.MkdirAll("/etc/sing-box/certs", 0o755)
 	_ = os.MkdirAll("/usr/local/etc/sing-box", 0o755)
 
-	fmt.Fprintln(os.Stderr, "==> relay: sing-box binary")
+	fmt.Fprintln(os.Stderr, "==> secondary: sing-box binary")
 	if err := InstallSingBoxBinaryOnly(); err != nil {
 		return err
 	}
 
 	// Reality keypair for inbound on this RU host
-	fmt.Fprintln(os.Stderr, "==> relay: reality keys")
+	fmt.Fprintln(os.Stderr, "==> secondary: reality keys")
 	priv := readSecret("singbox_reality_private")
 	pub := readSecret("singbox_reality_public")
 	sid := readSecret("singbox_short_id")
@@ -78,7 +78,7 @@ func InstallRelay(bundlePath string) error {
 	}
 
 	unit := `[Unit]
-Description=sing-box (Netductor RU relay)
+Description=sing-box (Netductor RU secondary)
 After=network-online.target
 Wants=network-online.target
 
@@ -101,7 +101,7 @@ WantedBy=multi-user.target
 		return err
 	}
 
-	applyHostname("relay")
+	applyHostname("nd-secondary")
 	ip := b.CoreIP
 	_ = ip
 	pubIP := env("PUBLIC_IP", "")
@@ -109,7 +109,7 @@ WantedBy=multi-user.target
 		out, _ := exec.Command("curl", "-4", "-fsS", "--max-time", "5", "https://ifconfig.me").Output()
 		pubIP = strings.TrimSpace(string(out))
 	}
-	_ = nodes.SelfRegisterLocal("", "relay", pubIP)
+	_ = nodes.SelfRegisterLocal("", "secondary", pubIP)
 
 	// write mobile client links for operator convenience
 	outDir := filepath.Join(paths.StateDir(), "relay", "clients")
@@ -118,28 +118,30 @@ WantedBy=multi-user.target
 		link := vpn.ClientLinkForRelay(u.Name, u.UUID, pubIP, pub, sid, b.RelaySNI)
 		_ = os.WriteFile(filepath.Join(outDir, u.Name+".txt"), []byte(link+"\n"), 0o600)
 	}
-	fmt.Fprintf(os.Stderr, "relay ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.RelaySNI, outDir)
+	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.RelaySNI, outDir)
 	// install agent
 	if b.AgentToken != "" && b.CoreAgentURL != "" {
 		_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "relay_agent_token"), append([]byte(b.AgentToken), 10), 0o600)
 		_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "relay_core_url"), append([]byte(b.CoreAgentURL), 10), 0o600)
 		agentUnit := `[Unit]
-Description=Netductor relay agent
+Description=Netductor secondary agent
 After=network-online.target sing-box.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/netductor relay agent
+ExecStart=/usr/local/bin/netductor secondary agent
 Restart=always
 RestartSec=15
 
 [Install]
 WantedBy=multi-user.target
 `
+		_ = writeUnit("netductor-secondary-agent.service", agentUnit)
 		_ = writeUnit("netductor-relay-agent.service", agentUnit)
+		_ = enableStart("netductor-secondary-agent")
 		_ = enableStart("netductor-relay-agent")
-		fmt.Fprintln(os.Stderr, "relay agent started →", b.CoreAgentURL)
+		fmt.Fprintln(os.Stderr, "secondary agent started →", b.CoreAgentURL)
 	}
 	fmt.Fprintln(os.Stderr, "Give mobile users *-relay links; home users keep core links.")
 	return nil

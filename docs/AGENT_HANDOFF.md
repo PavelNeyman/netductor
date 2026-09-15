@@ -167,3 +167,17 @@ netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 2. Prefer GitHub `main` + release assets over ad-hoc VPS edits.  
 3. After code changes: `go test` / `go build`, push sources + update `v0.7.0-dev` assets if owner uses that tag.  
 4. Live VPS passwords are **ephemeral** — owner provides them; never commit them. SSH key may live in operator workspace only.
+
+
+---
+
+## Security hardening (locked)
+
+- SSH: password off, `X11Forwarding no`, key-only root
+- Admin API `:8787` → localhost only
+- Agent plane `:8788` → world-facing, **token required**; prefer nft limit to secondary IP
+- Blocky DNS → `127.0.0.1:53` only (not public — amp risk)
+- Lampac → localhost only
+- No Zabbix / hoster agents
+- sing-box config.json mode `600`
+- Agent remote cmds: allowlist only (`reboot`, `upgrade`, `metrics`, `journal`, `restart:<allowed-unit>`)

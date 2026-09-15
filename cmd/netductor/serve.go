@@ -435,7 +435,7 @@ func buildAPIMux() http.Handler {
 		}
 		// allowlist
 		ok := false
-		for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot", "blocky", "netductor-relay-agent"} {
+		for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot", "blocky", "netductor-secondary-agent", "netductor-relay-agent"} {
 			if u == unit {
 				ok = true
 				break

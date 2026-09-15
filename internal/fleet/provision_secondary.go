@@ -114,7 +114,7 @@ func ensurePrimaryLocal() error {
 	}
 	localIP := publicIPGuess()
 	for _, n := range list {
-		if n.Kind == "vps" && n.Role != "relay" && (n.PublicIP == localIP || n.Role == "core") {
+		if n.Kind == "vps" && (n.Role != "secondary" && n.Role != "relay") && (n.PublicIP == localIP || n.Role == "core") {
 			_ = SetPrimary(n.ID)
 			_, _ = nodes.SetDesiredHostname(n.ID, "nd-primary")
 			return nil
@@ -122,7 +122,7 @@ func ensurePrimaryLocal() error {
 	}
 	// fallback first non-relay
 	for _, n := range list {
-		if n.Role != "relay" {
+		if (n.Role != "secondary" && n.Role != "relay") {
 			_ = SetPrimary(n.ID)
 			_, _ = nodes.SetDesiredHostname(n.ID, "nd-primary")
 			return nil
@@ -143,7 +143,7 @@ func findNodeIDByIP(ip string) string {
 	}
 	// also match relay devices registered as nodes with role relay
 	for _, n := range list {
-		if n.Role == "relay" && (n.PublicIP == ip || strings.Contains(n.Hostname, "secondary") || strings.Contains(n.Hostname, "relay")) {
+		if (n.Role == "secondary" || n.Role == "relay") && (n.PublicIP == ip || strings.Contains(n.Hostname, "secondary") || strings.Contains(n.Hostname, "relay")) {
 			if n.PublicIP == ip || n.PublicIP == "" {
 				return n.ID
 			}

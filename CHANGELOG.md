@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.1-dev — 2026-09-15
+
+- **Naming**: operator-facing `relay` → `secondary` (CLI, role, hostname, docs)
+- CLI: `netductor secondary` (alias `relay`)
+- Agent API: `/api/secondary/agent/*` (+ legacy `/api/relay/agent/*`)
+- Unit: `netductor-secondary-agent.service` (+ legacy)
+- Doctor: role-aware; security checks (SSH, X11, zabbix, blocky bind, API bind, config perms); subscription check removed
+- Agent: `restart:` allowlist (sing-box, netductor-*, blocky only)
+- SSH harden: X11Forwarding no
+- Blocky default: listen 127.0.0.1:53 / 127.0.0.1:4000
+- CI: go test/build + govulncheck + gosec
+
 ## 0.7.0-dev — 2026-09-09 (Netductor)
 
 - **Rename** product/repo: Netductor → **Netductor** (`PavelNeyman/netductor`)

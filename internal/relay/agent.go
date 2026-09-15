@@ -55,7 +55,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
 	})
 	*lastDone, *lastOK, *lastLog = "", false, ""
-	req, err := http.NewRequest(http.MethodPost, coreBase+"/api/relay/agent/heartbeat", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, coreBase+"/api/secondary/agent/heartbeat", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 }
 
 func pullAndApply(client *http.Client, coreBase, token string) error {
-	req, err := http.NewRequest(http.MethodGet, coreBase+"/api/relay/agent/config", nil)
+	req, err := http.NewRequest(http.MethodGet, coreBase+"/api/secondary/agent/config", nil)
 	if err != nil {
 		return err
 	}
@@ -208,8 +208,8 @@ func reportCmdDone(client *http.Client, coreBase, token, cmd string, ok bool, lo
 }
 
 func runAgentCmd(cmd string) (ok bool, log string) {
-
-	switch strings.TrimSpace(cmd) {
+	cmd = strings.TrimSpace(cmd)
+	switch cmd {
 	case "reboot":
 		go func() {
 			time.Sleep(2 * time.Second)
@@ -220,25 +220,35 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		out, err := exec.Command("bash", "-c", `export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq 2>&1 | tail -5
 apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade 2>&1 | tail -30
-wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
+wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.7.1-dev/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
 systemctl restart sing-box 2>&1 || true
-# restart agent later so this process can report cmd_done on next heartbeat first
-nohup bash -c 'sleep 45; systemctl restart netductor-relay-agent' >/dev/null 2>&1 &
+nohup bash -c 'sleep 45; systemctl restart netductor-secondary-agent netductor-relay-agent' >/dev/null 2>&1 &
 echo DONE
 `).CombinedOutput()
 		return err == nil, string(out)
 	case "metrics":
 		return true, "metrics on next heartbeat"
 	case "journal":
-		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-relay-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
+		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-secondary-agent", "-u", "netductor-relay-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
 		return err == nil || len(out) > 0, string(out)
 	default:
 		if strings.HasPrefix(cmd, "restart:") {
 			unit := strings.TrimPrefix(cmd, "restart:")
+			// allowlist only netductor-related units
+			allowed := map[string]bool{
+				"sing-box": true,
+				"netductor-secondary-agent": true,
+				"netductor-relay-agent": true,
+				"netductor-api": true,
+				"netductor-telegram-bot": true,
+				"blocky": true,
+			}
+			if !allowed[unit] {
+				return false, "restart denied: unit not in allowlist: " + unit
+			}
 			out, err := exec.Command("systemctl", "restart", unit).CombinedOutput()
 			return err == nil, string(out)
 		}
-
 		return false, "unknown cmd: " + cmd
 	}
 }

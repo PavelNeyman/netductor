@@ -44,7 +44,7 @@ func EnsureSSHKeyAndHarden() error {
 	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0o755)
 	// Lexically first so we win over cloud-init 00password.conf (sshd: first obtained value wins)
 	drop := "/etc/ssh/sshd_config.d/00-netductor-harden.conf"
-	body := "PasswordAuthentication no\nKbdInteractiveAuthentication no\nChallengeResponseAuthentication no\nPermitRootLogin prohibit-password\nPubkeyAuthentication yes\n"
+	body := "PasswordAuthentication no\nKbdInteractiveAuthentication no\nChallengeResponseAuthentication no\nPermitRootLogin prohibit-password\nPubkeyAuthentication yes\nX11Forwarding no\n"
 	if err := os.WriteFile(drop, []byte(body), 0o644); err != nil {
 		return err
 	}

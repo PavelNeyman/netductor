@@ -100,7 +100,7 @@ func SetPrimary(nodeID string) error {
 			labs[LabelControlPlane] = "primary"
 			if labs[LabelRegion] == "" {
 				// heuristic: core role + non-relay → abroad
-				if n.Role == "relay" {
+				if (n.Role == "secondary" || n.Role == "relay") {
 					labs[LabelRegion] = "ru"
 				} else {
 					labs[LabelRegion] = "abroad"

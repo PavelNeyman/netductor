@@ -9,7 +9,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/install"
 )
 
-var version = "0.7.0-dev"
+var version = "0.7.1-dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -42,7 +42,7 @@ func main() {
 		runSites(os.Args[2:])
 	case "nodes":
 		runNodes(os.Args[2:])
-	case "relay":
+	case "secondary", "relay":
 		runRelay(os.Args[2:])
 	case "addons", "addon":
 		runAddons(os.Args[2:])
@@ -130,7 +130,8 @@ func printHelp() {
 
   tui|menu [--mode vps|openwrt|workstation|operator]
   backup | restore | recover | fleet | audit | self-install | update
-  version | doctor | status | vpn | sites | ssh-hosts | relay | addons | edge | serve | install | probe | collect | help
+  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | serve | install | probe | collect | help
+  (alias: relay → secondary)
 
   (no args on a TTY → interactive menu)
 
