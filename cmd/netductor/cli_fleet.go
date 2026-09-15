@@ -11,14 +11,14 @@ import (
 
 func runFleet(args []string) {
 	if len(args) < 1 {
-		fmt.Print(`usage: netductor fleet status|set-primary|set-secondary|set-service|sync|bootstrap
+		fmt.Print(`usage: netductor fleet <cmd>
 
-  status                     show policy + nodes
-  set-primary <node-id>      control-plane source of truth (prefer abroad)
-  set-secondary <node-id>    warm replica / RU data-plane
-  set-service lampac|bot <node-id>
-  sync [user@host]           replicate lampac data + fleet policy to peer
-  bootstrap                  set primary=local core, secondary=first online relay
+  status | bootstrap | set-primary|set-secondary|set-service
+  sync [user@host]
+  apply-lampac              install Lampac on preferred node (RU secondary)
+  sync-timer                enable hourly fleet sync on this host (primary)
+  bot-standby-install [user@primary]   units on secondary (SOCKS via core)
+  bot-failover check|promote|demote|timer
 `)
 		os.Exit(2)
 	}
@@ -65,6 +65,62 @@ func runFleet(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("sync ok")
+	case "sync-timer":
+		if err := fleet.InstallSyncTimer(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("fleet sync timer enabled (hourly)")
+	case "apply-lampac":
+		if err := fleet.ApplyLampac(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("lampac apply done")
+	case "bot-standby-install":
+		peer := ""
+		if len(args) > 1 {
+			peer = args[1]
+		}
+		if err := fleet.InstallBotStandbyUnits(peer); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("bot standby units installed")
+	case "bot-failover":
+		sub := "check"
+		if len(args) > 1 {
+			sub = args[1]
+		}
+		switch sub {
+		case "check":
+			msg, err := fleet.CheckBotFailover()
+			fmt.Println(msg)
+			if err != nil {
+				os.Exit(1)
+			}
+		case "promote":
+			if err := fleet.PromoteStandbyBot(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("standby promoted")
+		case "demote":
+			if err := fleet.DemoteStandbyBot(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("standby demoted")
+		case "timer":
+			if err := fleet.InstallBotFailoverTimer(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("bot failover timer enabled (2m)")
+		default:
+			fmt.Fprintln(os.Stderr, "usage: fleet bot-failover check|promote|demote|timer")
+			os.Exit(2)
+		}
 	case "bootstrap":
 		if err := fleetBootstrap(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
