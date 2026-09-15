@@ -59,27 +59,33 @@ func sshdT(key string) string {
 }
 
 func listeningOnAll(port string) bool {
-	// true if something listens on *:port or 0.0.0.0:port
-	out, err := exec.Command("ss", "-tlnp").Output()
-	if err != nil {
-		return false
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		if strings.Contains(line, "*:"+port) || strings.Contains(line, "0.0.0.0:"+port) {
-			return true
+	for _, flag := range []string{"-tlnp", "-ulnp"} {
+		out, err := exec.Command("ss", flag).Output()
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(out), "\n") {
+			if !strings.Contains(line, ":"+port) {
+				continue
+			}
+			if strings.Contains(line, "*:"+port) || strings.Contains(line, "0.0.0.0:"+port) || strings.Contains(line, "[::]:"+port) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 func listeningLocalhost(port string) bool {
-	out, err := exec.Command("ss", "-tlnp").Output()
-	if err != nil {
-		return false
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		if strings.Contains(line, "127.0.0.1:"+port) {
-			return true
+	for _, flag := range []string{"-tlnp", "-ulnp"} {
+		out, err := exec.Command("ss", flag).Output()
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.Contains(line, "127.0.0.1:"+port) || strings.Contains(line, "[::1]:"+port) {
+				return true
+			}
 		}
 	}
 	return false
