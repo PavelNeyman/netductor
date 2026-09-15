@@ -190,21 +190,11 @@ func formatNodesListHTML() string {
 }
 
 func nodeCardKeyboard(id string) map[string]any {
-	pending := strings.Contains(runND("relay", "device", id), "pending:")
-	rows := [][]map[string]any{
-		{btn(T("node_metrics"), "m:nd:m:"+id, "primary")},
-		{btn(T("node_journal"), "m:nd:j:"+id, ""), btn(T("node_restart_sb"), "m:nd:s:"+id, "")},
-	}
-	if !pending {
-		rows = append(rows, []map[string]any{
-			btn(T("node_upgrade"), "m:nd:u:"+id, ""),
-			btn(T("node_reboot"), "m:nd:r:"+id, "danger"),
-		})
-	} else {
-		rows = append(rows, []map[string]any{btn("⏳ …", "m:nd:m:"+id, "")})
-	}
-	rows = append(rows, []map[string]any{btn(T("nodes"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")})
-	return map[string]any{"inline_keyboard": rows}
+	_ = id
+	// Navigation only; actions are <tg-button> in formatNodeCardHTML.
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("nodes"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
 }
 
 func nodesListKeyboard() map[string]any {
@@ -309,43 +299,20 @@ func userCardKeyboard(name, subText string) map[string]any {
 	return userHubKeyboard(name)
 }
 
-// User hub: all actions for one identity
+// User hub: navigation only under the message. Actions live in formatUserHubHTML <tg-button>.
 func userHubKeyboard(name string) map[string]any {
-	// Fallback keyboard; primary actions are <tg-button> in formatUserHubHTML.
+	_ = name
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("user_access"), "u:access:"+name+":vless", "primary"), btn(T("vpn_rename"), "u:rename:"+name, "")},
-		{btn(T("users"), "m:users", "primary")},
+		{btn(T("users"), "m:users", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 }
 
-// mode: vless | core | hy2  (subscription removed — single links only)
+// mode: vless | core | hy2 — navigation under message; mode switch is in access HTML body.
 func userAccessKeyboard(name, mode string) map[string]any {
-	if mode == "" || mode == "sub" {
-		mode = "vless"
-	}
-	label := map[string]string{
-		"vless": "VLESS · primary",
-		"core":  "VLESS · core",
-		"hy2":   "HY2 · optional",
-	}
-	cur := label[mode]
-	if cur == "" {
-		cur = mode
-	}
-	order := []string{"vless", "core", "hy2"}
-	idx := 0
-	for i, m := range order {
-		if m == mode {
-			idx = i
-			break
-		}
-	}
-	prev := order[(idx+len(order)-1)%len(order)]
-	next := order[(idx+1)%len(order)]
+	_ = mode
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("◀", "u:access:"+name+":"+prev, ""), btn("📱 "+cur, "u:access:"+name+":"+mode, "primary"), btn("▶", "u:access:"+name+":"+next, "")},
-		{btn("VLESS", "u:access:"+name+":vless", ""), btn("Core", "u:access:"+name+":core", ""), btn("HY2", "u:access:"+name+":hy2", "")},
 		{btn(T("user_card"), "u:open:"+name, "primary"), btn(T("users"), "m:users", "")},
+		{btn(T("main_menu"), "m:menu", "")},
 	}}
 }
 
@@ -363,8 +330,8 @@ func vpnUsersKeyboardFor(action string) map[string]any {
 }
 
 func usersListKeyboard() map[string]any {
-	// Fallback only if client strips <tg-button-row>. Primary UX = buttons inside rich HTML.
+	// Navigation only. Add user + per-user actions are <tg-button> in formatUsersListHTML.
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("vpn_add"), "m:vpn_add", "success"), btn(T("main_menu"), "m:menu", "primary")},
+		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }
