@@ -146,7 +146,7 @@ func runInstall(args []string) {
 	for _, a := range args {
 		if a == "--help" || a == "-h" {
 			fmt.Println("netductor install [--component name ...]   default: core stack")
-			fmt.Println("components: dirs singbox blocky vpn-users api metrics telegram")
+			fmt.Println("components: dirs hardening singbox blocky vpn-users api metrics telegram backup lampac")
 			return
 		}
 		if a == "--component" || a == "-c" {
