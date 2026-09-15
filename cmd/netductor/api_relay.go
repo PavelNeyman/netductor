@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -228,6 +229,11 @@ func startRelayAgentListener() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("ok\n"))
+	})
+	mux.HandleFunc("/api/bot-status", func(w http.ResponseWriter, r *http.Request) {
+		out, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").Output()
+		active := strings.TrimSpace(string(out)) == "active"
+		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
 	})
 	addr := os.Getenv("NETDUCTOR_RELAY_API")
 	if addr == "" {
