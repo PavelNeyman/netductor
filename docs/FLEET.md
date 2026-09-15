@@ -1,5 +1,7 @@
 # Fleet: primary & secondary
 
+See also: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [BACKUP.md](BACKUP.md) · [DEPLOY.md](DEPLOY.md)
+
 ## Naming
 
 | Operator term | Typical host | Internal notes |
@@ -12,22 +14,21 @@ Do **not** load-balance VPN. Secondary is the default client entry; primary is t
 ## Deploy secondary from primary
 
 ```bash
-# on primary (after core install/recover)
 netductor fleet provision-secondary \
-  --host 92.x.x.x --password '…' [--sni api.vk.me]
-
-# equivalent low-level (VPN only):
-# netductor relay provision --host … --password …
+  --host 92.x.x.x --password '…' [--sni api.vk.me] \
+  [--no-lampac] [--no-bot-standby]
 ```
 
-`provision-secondary` runs:
+Steps: VPN join → fleet roles → data sync → Lampac → bot standby (SOCKS→primary) → hourly sync timer.
 
-1. VPN join (`relay provision` + post hooks)
-2. Fleet roles (`secondary`, desired hostname `nd-secondary`)
-3. Data sync (Lampac volume, policy)
-4. Lampac on secondary (unless `--no-lampac`)
-5. Bot standby units on secondary (unless `--no-bot-standby`) — SOCKS via primary
-6. Hourly `fleet sync` timer on primary
+VPN-only: `netductor relay provision --host … --password …`
+
+## TG failover
+
+- Active bot on **primary**
+- Standby on **secondary** only if primary host is up but bot unit is down
+- Exit via `ssh -D` SOCKS to primary (`/api/bot-status` on `:8788`)
+- If primary host is dead, standby is **not** used (SOCKS cannot exit via dead core)
 
 ## Commands
 
@@ -35,5 +36,6 @@ netductor fleet provision-secondary \
 netductor fleet status|bootstrap
 netductor fleet provision-secondary --host IP --password PASS
 netductor fleet sync | sync-timer | apply-lampac
+netductor fleet bot-standby-install [user@primary]
 netductor fleet bot-failover check|promote|demote|timer
 ```
