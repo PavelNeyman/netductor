@@ -33,10 +33,12 @@ func fleetFile() string {
 
 // Policy is local operator preference (also mirrored into node labels when possible).
 type Policy struct {
-	PrimaryNodeID   string            `json:"primary_node_id"`
-	SecondaryNodeID string            `json:"secondary_node_id,omitempty"`
-	LampacNodeID    string            `json:"lampac_node_id,omitempty"` // preferred runtime host
-	BotNodeID       string            `json:"bot_node_id,omitempty"`    // preferred TG bot host
+	PrimaryNodeID   string `json:"primary_node_id"`
+	PrimarySSH      string `json:"primary_ssh,omitempty"` // root@ip for checks from secondary
+	SecondaryNodeID string `json:"secondary_node_id,omitempty"`
+	SecondarySSH    string `json:"secondary_ssh,omitempty"`
+	LampacNodeID    string `json:"lampac_node_id,omitempty"` // preferred runtime host
+	BotNodeID       string `json:"bot_node_id,omitempty"`    // preferred TG bot host
 	SyncEnabled     bool              `json:"sync_enabled"`
 	Notes           string            `json:"notes,omitempty"`
 }
@@ -112,6 +114,9 @@ func SetPrimary(nodeID string) error {
 	}
 	p := LoadPolicy()
 	p.PrimaryNodeID = nodeID
+	if n, ok, _ := nodes.Get(nodeID); ok && n.PublicIP != "" {
+		p.PrimarySSH = "root@" + n.PublicIP
+	}
 	if p.BotNodeID == "" {
 		p.BotNodeID = nodeID // TG bot stays on control-plane primary by default
 	}
@@ -145,6 +150,9 @@ func SetSecondary(nodeID string) error {
 	}
 	p := LoadPolicy()
 	p.SecondaryNodeID = nodeID
+	if n.PublicIP != "" {
+		p.SecondarySSH = "root@" + n.PublicIP
+	}
 	if p.LampacNodeID == "" {
 		p.LampacNodeID = nodeID // Lampac prefer RU by default
 	}
