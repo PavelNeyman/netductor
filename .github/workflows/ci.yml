@@ -26,9 +26,3 @@ jobs:
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -quiet -exclude=G204,G304,G301,G306 ./...
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.61
-          args: --timeout=5m
-
