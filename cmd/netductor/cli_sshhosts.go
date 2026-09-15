@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 func runSSHHosts(args []string) {
@@ -35,7 +35,7 @@ func runSSHHosts(args []string) {
 		}
 		if kind == "all" || kind == "relay" {
 			fmt.Println("=== relay ===")
-			for _, e := range relay.ListSSHHosts() {
+			for _, e := range secondary.ListSSHHosts() {
 				fmt.Printf("%s\t%s\n", e.ID, e.KeyPrefix)
 			}
 		}
@@ -48,12 +48,12 @@ func runSSHHosts(args []string) {
 		var err error
 		switch kind {
 		case "relay":
-			err = relay.ForgetSSHHost(id)
+			err = secondary.ForgetSSHHost(id)
 		case "mt", "mikrotik":
 			err = mikrotik.ForgetKnownHost(id)
 		default:
 			e1 := mikrotik.ForgetKnownHost(id)
-			e2 := relay.ForgetSSHHost(id)
+			e2 := secondary.ForgetSSHHost(id)
 			if e1 != nil && e2 != nil {
 				err = fmt.Errorf("mt: %v; relay: %v", e1, e2)
 			}
@@ -66,12 +66,12 @@ func runSSHHosts(args []string) {
 	case "clear":
 		switch kind {
 		case "relay":
-			_ = relay.ClearSSHHosts()
+			_ = secondary.ClearSSHHosts()
 		case "mt", "mikrotik":
 			_ = mikrotik.ClearKnownHosts()
 		default:
 			_ = mikrotik.ClearKnownHosts()
-			_ = relay.ClearSSHHosts()
+			_ = secondary.ClearSSHHosts()
 		}
 		fmt.Println("ok: cleared", kind)
 	default:

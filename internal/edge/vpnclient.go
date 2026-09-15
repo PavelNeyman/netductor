@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -63,8 +63,8 @@ func EnsureVPNClient(deviceID string) (map[string]string, error) {
 
 func edgeRelayOrCoreLink(name, uuid string) string {
 	if uuid != "" {
-		for _, d := range relay.List() {
-			if !relay.Online(d, 2*time.Minute) || d.PublicIP == "" || d.PBK == "" {
+		for _, d := range secondary.List() {
+			if !secondary.Online(d, 2*time.Minute) || d.PublicIP == "" || d.PBK == "" {
 				continue
 			}
 			sni := d.SNI

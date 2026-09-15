@@ -18,7 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/probes"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/session"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/sites"
@@ -448,9 +448,9 @@ func buildAPIMux() http.Handler {
 		id := r.URL.Query().Get("id")
 		if id != "" && (strings.HasPrefix(id, "relay-") || strings.Contains(id, "relay")) {
 			// queue remote journal; return last known log if this is a refresh
-			_ = relay.EnqueueCmd(id, "journal")
+			_ = secondary.EnqueueCmd(id, "journal")
 			log := ""
-			for _, d := range relay.List() {
+			for _, d := range secondary.List() {
 				if d.ID == id {
 					log = d.LastCmdLog
 					break
@@ -491,7 +491,7 @@ func buildAPIMux() http.Handler {
 		}
 		// core local only for now; relay uses cmd queue
 		if body.ID != "" && (strings.HasPrefix(body.ID, "relay-") || strings.Contains(body.ID, "relay")) {
-			_ = relay.EnqueueCmd(body.ID, "restart:"+body.Unit)
+			_ = secondary.EnqueueCmd(body.ID, "restart:"+body.Unit)
 			writeJSON(w, 200, map[string]any{"ok": true, "queued": true})
 			return
 		}
@@ -537,7 +537,7 @@ func buildAPIMux() http.Handler {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		ver := relay.BumpConfigVer()
+		ver := secondary.BumpConfigVer()
 		writeJSON(w, 200, map[string]any{"ok": true, "active": vpn.ActiveSNI(), "relay_config_ver": ver})
 	})
 	
@@ -700,7 +700,7 @@ func buildAPIMux() http.Handler {
 		m := metrics.Collect()
 		mm := vpn.CollectMismatch(30)
 		relays := []map[string]any{}
-		for _, d := range relay.List() {
+		for _, d := range secondary.List() {
 			relays = append(relays, map[string]any{
 				"id": d.ID, "name": d.Name, "ip": d.PublicIP,
 				"mismatch_total": d.MismatchTotal, "mismatch_by_ip": d.MismatchByIP,

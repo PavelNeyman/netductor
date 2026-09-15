@@ -1,4 +1,4 @@
-package relay
+package secondary
 
 import (
 	"encoding/base64"

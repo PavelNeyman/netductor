@@ -13,7 +13,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/mtls"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -27,7 +27,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 			http.Error(w, "id", 400)
 			return
 		}
-		for _, d := range relay.List() {
+		for _, d := range secondary.List() {
 			if d.ID == id {
 				writeJSON(w, 200, d)
 				return
@@ -49,7 +49,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		if id, tok, err := relay.IssueToken("relay"); err == nil {
+		if id, tok, err := secondary.IssueToken("relay"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
 			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
@@ -69,7 +69,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 			http.Error(w, "id and cmd required", 400)
 			return
 		}
-		if err := relay.EnqueueCmd(body.ID, body.Cmd); err != nil {
+		if err := secondary.EnqueueCmd(body.ID, body.Cmd); err != nil {
 			http.Error(w, err.Error(), 404)
 			return
 		}
@@ -79,24 +79,24 @@ func registerRelayAPI(mux *http.ServeMux) {
 		if !requireSession(w, r) {
 			return
 		}
-		ver := relay.BumpConfigVer()
+		ver := secondary.BumpConfigVer()
 		writeJSON(w, 200, map[string]any{"ok": true, "config_ver": ver})
 	})
 	mux.HandleFunc("/api/relay/status", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
-		devs := relay.List()
+		devs := secondary.List()
 		type row struct {
-			relay.Device
+			secondary.Device
 			Online bool `json:"online"`
 		}
 		var out []row
 		for _, d := range devs {
-			out = append(out, row{Device: d, Online: relay.Online(d, 2*time.Minute)})
+			out = append(out, row{Device: d, Online: secondary.Online(d, 2*time.Minute)})
 		}
 		writeJSON(w, 200, map[string]any{
-			"config_ver": relay.ConfigVer(),
+			"config_ver": secondary.ConfigVer(),
 			"devices":    out,
 		})
 	})
@@ -113,17 +113,17 @@ func registerRelayAPI(mux *http.ServeMux) {
 			if body.Enabled != nil {
 				on = *body.Enabled
 			}
-			_ = relay.SetExitEnabled(on)
+			_ = secondary.SetExitEnabled(on)
 			_ = vpn.ApplyConfig()
 		}
-		writeJSON(w, 200, map[string]any{"exit_enabled": relay.ExitEnabled()})
+		writeJSON(w, 200, map[string]any{"exit_enabled": secondary.ExitEnabled()})
 	})
 	mux.HandleFunc("/api/relay/links", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
 		// mobile links from last heartbeat identity
-		devs := relay.List()
+		devs := secondary.List()
 		var links []map[string]string
 		reg, _ := vpn.ExportRelayBundle("ya.ru") // users only
 		for _, d := range devs {
@@ -164,9 +164,9 @@ func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	raw, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-	var in relay.HeartbeatIn
+	var in secondary.HeartbeatIn
 	_ = json.Unmarshal(raw, &in)
-	d, ver, err := relay.Heartbeat(tok, in)
+	d, ver, err := secondary.Heartbeat(tok, in)
 	if err != nil {
 		http.Error(w, "unauthorized", 401)
 		return
@@ -196,7 +196,7 @@ func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if n, ok, err := nodes.Get(d.ID); err == nil && ok && n.DesiredHN != "" {
 		desired = n.DesiredHN
 	}
-	cmds := relay.TakeCmds(d.ID)
+	cmds := secondary.TakeCmds(d.ID)
 	writeJSON(w, 200, map[string]any{
 		"ok": true, "config_ver": ver, "need_sync": in.ConfigVer < ver, "id": d.ID,
 		"desired_hostname": desired,
@@ -206,7 +206,7 @@ func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 func handleRelayAgentConfig(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
-	if tok == "" || len(tok) < 16 || relay.FindByToken(tok) == nil {
+	if tok == "" || len(tok) < 16 || secondary.FindByToken(tok) == nil {
 		http.Error(w, "unauthorized", 401)
 		return
 	}

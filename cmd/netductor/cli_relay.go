@@ -12,7 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/nodes"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -44,7 +44,7 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if id, tok, err := relay.IssueToken("relay"); err == nil {
+		if id, tok, err := secondary.IssueToken("relay"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
 			b.CoreAgentURL = "http://" + b.CoreIP + ":8788"
@@ -81,11 +81,11 @@ func runRelay(args []string) {
 			fmt.Printf("## %s\n%s\n", e.Name(), string(b))
 		}
 	case "prune":
-		n := relay.PruneDuplicates()
-		s := relay.PruneStale(10 * time.Minute)
+		n := secondary.PruneDuplicates()
+		s := secondary.PruneStale(10 * time.Minute)
 		fmt.Printf("duplicates_removed=%d stale_removed=%d\n", n, s)
 		// drop offline relay nodes from registry
-		for _, d := range relay.List() {
+		for _, d := range secondary.List() {
 			_ = d
 		}
 		nodes.MarkStaleRelays(180)
@@ -100,7 +100,7 @@ func runRelay(args []string) {
 		if len(args) < 2 {
 			os.Exit(2)
 		}
-		if err := relay.RemoveDevice(args[1]); err != nil {
+		if err := secondary.RemoveDevice(args[1]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -119,7 +119,7 @@ func runRelay(args []string) {
 			os.Exit(1)
 		}
 		fmt.Fprintln(os.Stderr, "relay agent →", url)
-		relay.AgentLoop(url, tok, 30*time.Second)
+		secondary.AgentLoop(url, tok, 30*time.Second)
 	case "provision":
 		host, user, pass, sni := "", "root", "", ""
 		port := 22
@@ -143,24 +143,24 @@ func runRelay(args []string) {
 			os.Exit(2)
 		}
 		// Reinstall always changes SSH host key — clear TOFU + OpenSSH known_hosts before dial.
-		_ = relay.ForgetSSHHost(host)
+		_ = secondary.ForgetSSHHost(host)
 		_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
 		sni = vpn.ResolveRelaySNI(sni, host)
 		fmt.Fprintln(os.Stderr, "provision SNI:", sni)
 		// Pre-clean: same IP must not keep dead agents from previous install.
-		_ = relay.RemoveByPublicIP(host, "")
+		_ = secondary.RemoveByPublicIP(host, "")
 		b, err := vpn.ExportRelayBundle(sni)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if id, tok, err := relay.IssueToken("relay"); err == nil {
+		if id, tok, err := secondary.IssueToken("relay"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
 			b.CoreAgentURL = "http://" + b.CoreIP + ":8788"
 		}
 		raw, _ := json.MarshalIndent(b, "", "  ")
-		res, err := relay.ProvisionFromCore(relay.ProvisionIn{
+		res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
 			Host: host, Port: port, User: user, Password: pass, SNI: sni,
 		}, string(raw))
 		if res != nil {
@@ -177,12 +177,12 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, "usage: netductor relay device <id>")
 			os.Exit(2)
 		}
-		for _, d := range relay.List() {
+		for _, d := range secondary.List() {
 			if d.ID != args[1] {
 				continue
 			}
 			on := "offline"
-			if relay.Online(d, 2*time.Minute) {
+			if secondary.Online(d, 2*time.Minute) {
 				on = "online"
 			}
 			fmt.Println("status:", on)
@@ -212,18 +212,18 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, "usage: netductor relay cmd <id> <reboot|upgrade|metrics>")
 			os.Exit(2)
 		}
-		if err := relay.EnqueueCmd(args[1], args[2]); err != nil {
+		if err := secondary.EnqueueCmd(args[1], args[2]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Println("queued", args[2], "for", args[1])
 	case "sync":
-		ver := relay.BumpConfigVer()
+		ver := secondary.BumpConfigVer()
 		fmt.Println("config_ver", ver)
 		fmt.Println("relays will pull on next heartbeat (~30s)")
 	case "exit":
 		if len(args) < 2 || args[1] == "status" {
-			fmt.Println("exit_enabled", relay.ExitEnabled())
+			fmt.Println("exit_enabled", secondary.ExitEnabled())
 			return
 		}
 		on := args[1] == "on" || args[1] == "1" || args[1] == "true"
@@ -233,7 +233,7 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, "usage: netductor relay exit on|off")
 			os.Exit(2)
 		}
-		if err := relay.SetExitEnabled(on); err != nil {
+		if err := secondary.SetExitEnabled(on); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -241,8 +241,8 @@ func runRelay(args []string) {
 		fmt.Println("exit_enabled", on)
 		fmt.Println("sing-box re-applied on core; relays will sync on next agent poll")
 	case "status":
-		_ = relay.PruneDuplicates()
-		devs := relay.List()
+		_ = secondary.PruneDuplicates()
+		devs := secondary.List()
 		if len(devs) == 0 {
 			b, err := os.ReadFile(filepath.Join(paths.StateDir(), "relay", "bundle.json"))
 			if err != nil {
@@ -254,12 +254,12 @@ func runRelay(args []string) {
 		}
 		for _, d := range devs {
 			on := "offline"
-			if relay.Online(d, 2*time.Minute) {
+			if secondary.Online(d, 2*time.Minute) {
 				on = "online"
 			}
 			fmt.Printf("%s	%s	%s	ip=%s	sb=%v	ver=%d\n", d.ID, d.Name, on, d.PublicIP, d.SingBoxOK, d.ConfigVer)
 		}
-		fmt.Println("config_ver", relay.ConfigVer())
+		fmt.Println("config_ver", secondary.ConfigVer())
 	default:
 		fmt.Fprintln(os.Stderr, "unknown relay subcommand")
 		os.Exit(2)
@@ -275,7 +275,7 @@ func postProvisionRelay(host, sni string) {
 
 	fmt.Println("==> post-provision: keep issued agent tokens (do not wipe before heartbeat)")
 	// Do not RemoveByPublicIP(host,"") here — that deleted the token IssueToken just wrote.
-	_ = relay.PruneStale(24 * time.Hour)
+	_ = secondary.PruneStale(24 * time.Hour)
 	if list, err := nodes.List(); err == nil {
 		for _, n := range list {
 			if n.Role != "relay" {
@@ -289,15 +289,15 @@ func postProvisionRelay(host, sni string) {
 	}
 
 	fmt.Println("==> post-provision: wait for agent heartbeat (pbk/sid)…")
-	dev := relay.WaitOnlinePBK(host, 90*time.Second)
+	dev := secondary.WaitOnlinePBK(host, 90*time.Second)
 	if dev == nil {
 		fmt.Println("  warn: no heartbeat with PBK within 90s — links may lag until agent checks in")
 	} else {
 		fmt.Printf("  online id=%s sni=%s pbk=%s…\n", dev.ID, dev.SNI, trimPBK(dev.PBK))
 		// keep only this device for the IP
-		_ = relay.RemoveByPublicIP(host, dev.ID)
+		_ = secondary.RemoveByPublicIP(host, dev.ID)
 		_, _ = nodes.SetDesiredHostname(dev.ID, "nd-secondary")
-		_ = relay.Rename(dev.ID, "nd-secondary")
+		_ = secondary.Rename(dev.ID, "nd-secondary")
 	}
 
 	fmt.Println("==> post-provision: re-apply core sing-box (uplink / routing)")
@@ -334,7 +334,7 @@ func postProvisionRelay(host, sni string) {
 	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "last_relay_host"), []byte(host+"\n"), 0o600)
 
 	// final prune pass
-	_ = relay.PruneDuplicates()
+	_ = secondary.PruneDuplicates()
 	fmt.Println("==> post-provision: done — secondary VPN plane ready (new Reality keys only); run: netductor fleet provision-secondary extras or fleet bootstrap")
 }
 

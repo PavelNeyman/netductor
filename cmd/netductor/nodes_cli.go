@@ -8,18 +8,18 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 func syncRelaysIntoNodes() {
-	_ = relay.PruneDuplicates()
-	for _, d := range relay.List() {
+	_ = secondary.PruneDuplicates()
+	for _, d := range secondary.List() {
 		host := d.Name
 		if host == "" || host == "relay" {
 			host = "nd-relay-" + strings.ReplaceAll(d.PublicIP, ".", "-")
 		}
 		st := "offline"
-		if relay.Online(d, 2*time.Minute) {
+		if secondary.Online(d, 2*time.Minute) {
 			st = "online"
 		}
 		ls := d.LastSeen.Unix()
@@ -63,7 +63,7 @@ func runNodes(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		_ = relay.Rename(args[1], args[2])
+		_ = secondary.Rename(args[1], args[2])
 		fmt.Printf("desired_hostname=%s for %s\n", n.DesiredHN, n.ID)
 	case "sync-local":
 		if err := nodes.SyncLocalHostname(); err != nil {

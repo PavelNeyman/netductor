@@ -8,7 +8,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 func runEdgeCLI(args []string) {
@@ -148,7 +148,7 @@ func runEdgeCLI(args []string) {
 			}
 		}
 		if relayIP == "" {
-			for _, d := range relay.List() {
+			for _, d := range secondary.List() {
 				if d.PublicIP != "" {
 					relayIP = d.PublicIP
 					break

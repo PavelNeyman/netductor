@@ -13,7 +13,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -73,7 +73,7 @@ func runCollect() int {
 
 	live := probes.Run(cfg)
 	// dynamic: TCP 443 to each enrolled relay
-	for _, d := range relay.List() {
+	for _, d := range secondary.List() {
 		if d.PublicIP == "" {
 			continue
 		}
@@ -151,9 +151,9 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 	}
 	if enabled("relay_offline") {
-		for _, d := range relay.List() {
+		for _, d := range secondary.List() {
 			key := "relay:" + d.ID
-			if !relay.Online(d, 3*time.Minute) {
+			if !secondary.Online(d, 3*time.Minute) {
 				notify.AlertOnce(key, fmt.Sprintf("🔴 Relay offline: <b>%s</b> (%s)", d.Name, d.PublicIP))
 			} else {
 				notify.ClearAlert(key)

@@ -20,7 +20,7 @@ After `install`, **SSH password auth is disabled**. Private key: `/root/.ssh/id_
 
 ```bash
 wget -qO /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64
+  https://github.com/PavelNeyman/netductor/releases/download/v0.7.1/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 netductor version
 
@@ -96,8 +96,8 @@ Cross-peer: `netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups
 
 ```bash
 systemctl stop netductor-api netductor-telegram-bot
-wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64
-wget -qO /opt/netductor/bin/netductor-tg https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-tg-linux-amd64
+wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v0.7.1/netductor-linux-amd64
+wget -qO /opt/netductor/bin/netductor-tg https://github.com/PavelNeyman/netductor/releases/download/v0.7.1/netductor-tg-linux-amd64
 chmod 755 /usr/local/bin/netductor /opt/netductor/bin/netductor-tg
 systemctl start netductor-api netductor-telegram-bot
 ```

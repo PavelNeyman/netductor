@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 — 2026-09-15
+
+- Release: agent-plane **mTLS :8789**, secondary naming, security doctor
+- Package rename: `internal/relay` → `internal/secondary` (state path migrates `relay/` → `secondary/`)
+- `internal/singboxconfig` schema marker + helpers
+- CI: golangci-lint + govulncheck + gosec
+- G7 paths: bins `/usr/local/bin`; `/opt/netductor` data-only
+- UFW: agent ports limited to secondary IP
+
 ## 0.7.1-dev — 2026-09-15
 
 - **Naming**: operator-facing `relay` → `secondary` (CLI, role, hostname, docs)

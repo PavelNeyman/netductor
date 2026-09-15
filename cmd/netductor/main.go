@@ -9,7 +9,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/install"
 )
 
-var version = "0.7.1-dev"
+var version = "0.7.1"
 
 func main() {
 	if len(os.Args) < 2 {

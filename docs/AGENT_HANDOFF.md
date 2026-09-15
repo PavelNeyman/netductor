@@ -1,3 +1,7 @@
+## Version
+
+**0.7.1** — secondary naming, mTLS :8789, hardening, package `internal/secondary`.
+
 # Agent handoff (read first in a new chat)
 
 **Repo:** https://github.com/PavelNeyman/netductor  

@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/session"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -211,7 +211,7 @@ func runVPN(args []string) {
 		st := vpn.CollectMismatch(30)
 		fmt.Println(vpn.FormatMismatchText(st))
 		fmt.Println("--- relay ---")
-		for _, d := range relay.List() {
+		for _, d := range secondary.List() {
 			if d.MismatchTotal == 0 && len(d.MismatchByIP) == 0 {
 				continue
 			}
@@ -233,7 +233,7 @@ func runVPN(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		relay.BumpConfigVer()
+		secondary.BumpConfigVer()
 		fmt.Println("sni set to", sniName)
 	case "sni-import":
 		url := ""
@@ -271,7 +271,7 @@ func runVPN(args []string) {
 			}
 			return
 		}
-		relay.BumpConfigVer()
+		secondary.BumpConfigVer()
 		if err := vpn.ApplyConfig(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

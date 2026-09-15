@@ -21,7 +21,7 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 
 1. Read this AGENTS.md entirely.
 2. Read [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md) + ROADMAP + ARCHITECTURE + FLEET.
-3. Inspect **github.com/PavelNeyman/netductor** (legacy paths `/opt/netductor` may still exist on hosts).
+3. Inspect **github.com/PavelNeyman/netductor** (bins in `/usr/local/bin`; `/opt/netductor` = data volumes only).
 4. Respect Forbidden / Frozen Architecture.
 5. If ambiguous → **STOP** and ask the owner.
 6. Implement only the requested task.
@@ -70,7 +70,12 @@ Simplicity, idempotent installs, no secrets in repo, releases ship binaries, evo
 | Monitoring | built-in metrics/probes |
 | Docs | EN + RU |
 
-**Legacy:** `/opt/netductor`, `netductor-*` until G7 cutover.
+**Paths (G7):**
+- Config/secrets: `/etc/netductor`
+- State: `/var/lib/netductor` (devices under `secondary/`; `relay/` read for migration)
+- Binaries: `/usr/local/bin/netductor`, `netductor-tg`
+- Data only under `/opt/netductor`: lampac volume, admin static (`runtime/api/admin`)
+
 
 **Forbidden without approval:** replace sing-box/Blocky; default-on Kuma/Beszel/Lampac; secrets in git; multi-tenant SaaS; delete bash without Go replacement.
 
@@ -89,7 +94,7 @@ Target layout: `cmd/netductor`, `cmd/netductor-agent`, `internal/`.
 | Area | Status |
 |------|--------|
 | Repo | **PavelNeyman/netductor** |
-| Version | **0.7.1-dev** |
+| Version | **0.7.1** |
 | G0–G1 | done |
 | G2 | release `v0.7.0-dev` published |
 | G3 | `netductor serve` health scaffold; port Python API |

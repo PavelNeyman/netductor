@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 func registerSSHHostsAPI(mux *http.ServeMux) {
@@ -20,7 +20,7 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 				out["mikrotik"] = mikrotik.ListKnownHosts()
 			}
 			if kind == "" || kind == "relay" || kind == "all" {
-				out["relay"] = relay.ListSSHHosts()
+				out["relay"] = secondary.ListSSHHosts()
 			}
 			writeJSON(w, 200, out)
 		case http.MethodDelete:
@@ -33,12 +33,12 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 			var err error
 			switch k {
 			case "relay":
-				err = relay.ForgetSSHHost(id)
+				err = secondary.ForgetSSHHost(id)
 			case "mt", "mikrotik":
 				err = mikrotik.ForgetKnownHost(id)
 			default:
 				e1 := mikrotik.ForgetKnownHost(id)
-				e2 := relay.ForgetSSHHost(id)
+				e2 := secondary.ForgetSSHHost(id)
 				if e1 != nil && e2 != nil {
 					err = e1
 				}
@@ -59,12 +59,12 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 		kind := r.URL.Query().Get("kind")
 		switch kind {
 		case "relay":
-			_ = relay.ClearSSHHosts()
+			_ = secondary.ClearSSHHosts()
 		case "mt", "mikrotik":
 			_ = mikrotik.ClearKnownHosts()
 		default:
 			_ = mikrotik.ClearKnownHosts()
-			_ = relay.ClearSSHHosts()
+			_ = secondary.ClearSSHHosts()
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "cleared": kind})
 	})

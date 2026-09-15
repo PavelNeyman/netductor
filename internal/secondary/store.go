@@ -1,4 +1,4 @@
-package relay
+package secondary
 
 import (
 	"crypto/rand"
@@ -49,12 +49,23 @@ type registry struct {
 var mu sync.Mutex
 
 func path() string {
+	return filepath.Join(paths.StateDir(), "secondary", "devices.json")
+}
+
+func legacyPath() string {
 	return filepath.Join(paths.StateDir(), "relay", "devices.json")
 }
 
 func load() (*registry, error) {
 	_ = os.MkdirAll(filepath.Dir(path()), 0o700)
 	b, err := os.ReadFile(path())
+	if err != nil && os.IsNotExist(err) {
+		// migrate from legacy relay/ path
+		if lb, e2 := os.ReadFile(legacyPath()); e2 == nil {
+			_ = os.WriteFile(path(), lb, 0o600)
+			b, err = lb, nil
+		}
+	}
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &registry{ConfigVer: 1}, nil

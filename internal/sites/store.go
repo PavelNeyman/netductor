@@ -10,7 +10,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/relay"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 // Site groups MikroTik (routing) + RPi OpenWrt (VPN edge) as one logical location.
@@ -115,7 +115,7 @@ func RSCForSiteWithGateway(id, rpiLAN string) (string, error) {
 		name = "mt-" + s.ID
 	}
 	relayIP := ""
-	for _, d := range relay.List() {
+	for _, d := range secondary.List() {
 		if d.PublicIP != "" {
 			relayIP = d.PublicIP
 			break
