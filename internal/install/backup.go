@@ -340,7 +340,8 @@ func Recover(archive, keyArg string) error {
 	// Re-apply runtime configs from restored secrets/users
 	fmt.Fprintln(os.Stderr, "recover: apply vpn / restart services")
 	_ = run("netductor", "vpn", "apply")
-	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"} {
+	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot", "netductor-backup.timer"} {
+		_ = run("systemctl", "enable", "--now", u)
 		_ = run("systemctl", "try-restart", u)
 	}
 	// lampac: if component listed, ensure container up (data already restored under opt)
