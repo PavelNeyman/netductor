@@ -3,24 +3,43 @@
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Release tag:** `v0.7.0-dev`  
 **Binaries:** `netductor-linux-amd64`, `netductor-tg-linux-amd64`, `netductor-agent-*`  
-**Owner language:** Russian OK; docs must stay **EN + RU** for user-facing behaviour.
+**Owner language:** Russian OK; docs **EN + RU** for user-facing behaviour.
 
-## Product in one paragraph
+Also read: [AGENTS.md](../AGENTS.md) · [FLEET.md](FLEET.md) · [DEPLOY.md](DEPLOY.md) · [ROADMAP.md](ROADMAP.md)
 
-Personal **production** control plane (single operator): abroad **primary** VPS runs source of truth (users, TG bot, admin, backups); optional RU **secondary** is the default **VPN entry** under carrier whitelist and hosts warm services (Lampac). VPN tunnels are **not** load-balanced. OpenWrt/MikroTik edge is agent-based (outbound to primary).
+---
+
+## Product (one paragraph)
+
+Personal **production** control plane (single operator): abroad **primary** = source of truth (users, active TG bot, admin API, backups); RU **secondary** = default **VPN entry** under carrier whitelist + warm services (Lampac). VPN is **not** load-balanced. OpenWrt/MikroTik via outbound agents to primary.
+
+---
 
 ## Fleet model (do not invert without owner OK)
 
-| Name | Typical | Responsibility |
-|------|---------|----------------|
+| Name | Where | Role |
+|------|--------|------|
 | **primary** | Abroad | Control plane, TG bot **active**, API, users/secrets, backup authority. Hostname `nd-primary` |
-| **secondary** | RU | VPN entry (WL), warm Lampac, TG bot **standby** via SOCKS→primary. Hostname `nd-secondary` |
+| **secondary** | RU | VPN entry (WL), Lampac preferred, TG **standby** via SOCKS→primary. Hostname `nd-secondary` |
 
-Internal VPN agent code may still say `role=relay` — same process, operator-facing name is **secondary**.
+Internal VPN agent code may still use `role=relay` / `netductor relay *` — same plane, operator name is **secondary**.
 
-## Clean deploy sequence (both VPS wiped)
+Default Reality SNI for WL: **`api.vk.me`**. Client VLESS links prefer **secondary IP** when online.
 
-### A. Primary (abroad)
+---
+
+## SSH policy
+
+1. Password only for **first** provider login.
+2. `netductor install` (primary) generates `/root/.ssh/id_ed25519`, installs pubkey, **disables password** (`sshd_config.d/00-netductor-harden.conf` + neutralize cloud-init `PasswordAuthentication yes`).
+3. `fleet provision-secondary` / `relay provision` installs **same** primary pubkey on secondary and disables password there.
+4. Operator must keep a copy of the private key (workspace often has `artifacts/netductor_vps_id_ed25519`).
+
+---
+
+## Clean deploy (both VPS wiped)
+
+### A. Primary
 
 ```bash
 wget -qO /usr/local/bin/netductor \
@@ -33,77 +52,118 @@ echo 'TG_USER_ID' > /etc/netductor/secrets/telegram_admin_id
 chmod 600 /etc/netductor/secrets/*
 
 netductor install
-# optional: netductor install lampac   # prefer secondary later
+netductor vpn set-sni api.vk.me
 netductor doctor
-netductor fleet bootstrap   # after secondary exists; or set-primary only first
+# copy /root/.ssh/id_ed25519 off-box before relying on key-only SSH
 ```
 
-Preferred Reality SNI for RU WL experiments: **`api.vk.me`** (also `ya.ru` preset). Client links should prefer **secondary IP** when secondary is online.
-
-### B. Secondary (RU) — from primary
+### B. Secondary (run on primary)
 
 ```bash
 netductor fleet provision-secondary \
-  --host RU_IP --password '…' [--sni api.vk.me]
+  --host RU_IP --password '…' --sni api.vk.me
+netductor fleet status
+netductor vpn refresh-links
+netductor vpn link operator vless   # expect @RU_IP
 ```
 
-Does: VPN join + fleet secondary + sync + Lampac + bot standby + sync timer.  
-Low-level VPN-only: `netductor relay provision --host … --password …`
+**Critical bug fixed:** post-provision must **not** `RemoveByPublicIP` before agent heartbeat (wiped agent token → unauthorized). Code keeps issued tokens; only prune very old offline ghosts.
 
-### C. Recover primary from encrypted backup
+### C. Recover
 
-Artifacts (keep offline): `*.ndenc`, `BACKUP_KEY.txt`, `COMPONENTS.txt` next to archive.
+Keep offline: `*.ndenc`, `BACKUP_KEY.txt`, `COMPONENTS.txt` (sidecar).
 
 ```bash
 netductor recover --key "$(cat BACKUP_KEY.txt)" /path/to/backup.ndenc
 ```
 
-Installs components from manifest, restores data, enables services. Keys inside backup are restored; if secondary Reality keys drifted, re-run `provision-secondary` or wait for agent + `vpn refresh-links`.
+---
+
+## Telegram bot UX (locked)
+
+| Location | Content |
+|----------|---------|
+| **Under message** (`reply_markup` / inline keyboard) | **Navigation only**: Main menu, Users, Nodes, back |
+| **In message body** (`<tg-button>`, tables, HTML) | **Screen actions**: user access/rename/enable, VLESS/Core/HY2 switch, node metrics/upgrade… |
+
+Do **not** duplicate Add/Menu in both places. Code: `cmd/netductor-tg/keyboards.go` + `format.go`.
+
+TG bot active on **primary**; secondary has standby units + SOCKS tunnel; failover via `fleet bot-failover check` and `/api/bot-status` on primary `:8788`.
+
+---
+
+## TUI
+
+`netductor tui` — **Setup wizard** (primary / secondary / OpenWrt / MikroTik) then questions → automatic apply; separate **Tools** (doctor, fleet, backup, sync, VPN…).
+
+---
+
+## Routing (secondary)
+
+RU domains (`.ru`, `.su`, xn--p1ai, major RU services) → **direct**; else → **uplink** to primary. See secondary `/usr/local/etc/sing-box/config.json` route rules.
+
+---
 
 ## Important paths
 
 | Path | Purpose |
 |------|---------|
 | `/etc/netductor` | secrets, users, clients |
-| `/var/lib/netductor` | state, registry, fleet policy, backups |
+| `/var/lib/netductor` | state, fleet policy, relay devices, backups |
 | `/opt/netductor` | bins, lampac volume, admin |
-| `internal/fleet/` | primary/secondary policy, sync, provision-secondary, bot failover |
-| `internal/relay/` | VPN secondary agent plane (legacy name “relay”) |
-| `cmd/netductor/serve.go` | API :8787 localhost; agent :8788 includes `/api/bot-status` |
+| `internal/fleet/` | primary/secondary, sync, provision-secondary, bot failover |
+| `internal/relay/` | VPN secondary agent (legacy name) |
+| `internal/install/ssh_harden.go` | primary key-only SSH |
+| `cmd/netductor-tg/` | operator Telegram bot |
+| `:8787` | Admin API localhost |
+| `:8788` | Agent plane + `/api/bot-status` |
 
-## Commands cheat sheet
+---
+
+## Commands
 
 ```bash
 netductor install|doctor|status|vpn|fleet|relay|backup|recover|edge|addons|tui
 netductor fleet status|bootstrap|provision-secondary|sync|apply-lampac|bot-failover
-netductor vpn link <user> [vless|hy2]
+netductor vpn link <user> [vless|hy2|core]
 netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 ```
 
+---
+
 ## Hard constraints
 
-- Go-only control plane; no new Python/shell installers.
+- Go-only control plane; no new Python/shell installers as runtime.
 - No secrets in git.
 - Docs EN+RU when behaviour changes.
 - Subscription **removed** (single links only).
-- Lampac **localhost only** (VPN/SSH to reach).
-- TG rich HTML in-message buttons preferred over reply_markup clutter.
+- Lampac **localhost only** (reach via VPN/SSH).
+- No VPN load-balancer VPS.
 - Do not expose admin API on WAN without TLS + explicit flag.
 
-## Open / next (owner)
+---
 
-- Full clean dual-VPS smoke after wipe (this handoff’s goal).
-- OpenWrt + MikroTik e2e on real hardware.
-- HTTPS / domain optional later.
-- TG bot standby needs secondary able to reach primary `:8788` and SSH for SOCKS when promoting.
+## Recent verified state (2026-09-15 smoke)
 
-## Test accounts (ephemeral — owner rotates)
+- Dual VPS clean install + provision-secondary worked after token-wipe fix.
+- Bot failover: stop primary bot → standby on secondary; restore → demote.
+- Cross-peer backup OK; fleet sync OK; Lampac on secondary OK.
+- SSH password disabled both nodes after harden.
 
-Do **not** commit live passwords. Owner provides root passwords in chat for test VPS only.
+---
 
-## File to update when architecture changes
+## Open / next
 
-1. This handoff  
-2. `docs/FLEET.md` + `docs/ru/FLEET.md`  
-3. `AGENTS.md` frozen table if product decision changes  
-4. `docs/ROADMAP.md`
+- [ ] OpenWrt + MikroTik e2e on real hardware
+- [ ] Optional HTTPS / domain
+- [ ] Optional: more TG screens under same nav-vs-actions rule
+- [ ] Path B: limited end-user bot (documented idea only)
+
+---
+
+## For the next agent
+
+1. Read this file + AGENTS.md.  
+2. Prefer GitHub `main` + release assets over ad-hoc VPS edits.  
+3. After code changes: `go test` / `go build`, push sources + update `v0.7.0-dev` assets if owner uses that tag.  
+4. Live VPS passwords are **ephemeral** — owner provides them; never commit them. SSH key may live in operator workspace only.
