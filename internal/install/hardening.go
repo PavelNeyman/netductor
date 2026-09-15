@@ -8,7 +8,7 @@ import (
 )
 
 func InstallHardening() error {
-	// Minimal: ufw + BBR. fail2ban only if NETDUCTOR_FAIL2BAN=1 (pulls many deps, slow).
+	// Minimal: ufw + BBR + SSH key-only. fail2ban only if NETDUCTOR_FAIL2BAN=1.
 	pkgs := []string{"ufw", "curl", "ca-certificates"}
 	if os.Getenv("NETDUCTOR_FAIL2BAN") == "1" {
 		pkgs = append(pkgs, "fail2ban")
@@ -28,13 +28,15 @@ func InstallHardening() error {
 		_ = run("ufw", "allow", "4443/tcp")
 		_ = run("ufw", "allow", "4443/udp")
 		_ = run("ufw", "allow", "8443/udp")
-		_ = run("ufw", "allow", "8788/tcp") // relay agent → core
-		// idempotent enable
+		_ = run("ufw", "allow", "8788/tcp")
 		out, _ := runOut("ufw", "status")
 		if !strings.Contains(out, "Status: active") {
 			_ = run("bash", "-c", "echo y | ufw --force enable")
 		}
 	}
-	fmt.Fprintln(os.Stderr, "hardening: ufw + bbr applied")
+	if err := EnsureSSHKeyAndHarden(); err != nil {
+		fmt.Fprintf(os.Stderr, "ssh harden: %v (continuing)\n", err)
+	}
+	fmt.Fprintln(os.Stderr, "hardening: ufw + bbr + ssh key-only applied")
 	return nil
 }
