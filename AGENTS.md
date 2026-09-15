@@ -1,6 +1,6 @@
 # AGENTS.md — Netductor
 
-> Document Version: **2.2**  
+> Document Version: **2.3**  
 > Status: **Approved**  
 > GitHub: **https://github.com/PavelNeyman/netductor** (renamed from FreshVPS)
 
@@ -20,7 +20,7 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 # Quick Start for AI Agents
 
 1. Read this AGENTS.md entirely.
-2. Read ROADMAP + ARCHITECTURE.
+2. Read [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md) + ROADMAP + ARCHITECTURE + FLEET.
 3. Inspect **github.com/PavelNeyman/netductor** (legacy paths `/opt/netductor` may still exist on hosts).
 4. Respect Forbidden / Frozen Architecture.
 5. If ambiguous → **STOP** and ask the owner.
@@ -41,7 +41,9 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 
 **Netductor** — personal network control plane: VPN, DNS, edge OpenWrt agents, CLI / Admin / Telegram.
 
-Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **edge** · **operator** · **extras** (optional, default off).
+Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **edge** · **operator** · **fleet** (primary/secondary) · **extras** (optional).
+
+**Fleet:** primary = abroad control plane; secondary = RU VPN entry + warm services. Details: [docs/FLEET.md](docs/FLEET.md), [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md). Internal VPN agent may still be named `relay`.
 
 ---
 
