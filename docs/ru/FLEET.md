@@ -4,25 +4,26 @@
 
 | Задача | Нода | Почему |
 |--------|------|--------|
-| **Control-plane primary** (users, policies, TG-бот оператора, админка, авторитет бэкапов) | **Зарубежный core** | Секреты безопаснее; API Telegram стабильнее; уже источник правды |
-| **Вход VPN (data plane)** | **RU relay** | Белые списки / мобильный интернет |
-| **Lampac (по умолчанию)** | **RU** (prefer) | Меньше задержка; тёплая реплика через sync |
-| **TG-бот** | **За рубежом** (active), RU = standby позже | Один токен; только active/passive |
+| **Control-plane primary** | **Зарубежный core** | Users, policies, TG-бот, админка, бэкапы |
+| **Вход VPN** | **RU relay** | Белые списки / LTE |
+| **Lampac** | **RU** | Задержка; данные синкаются раз в час |
+| **TG-бот** | **Abroad active**; RU **standby** через SOCKS→core | В РФ Telegram часто недоступен; Bot API нужен выход с core |
 
-VPN **не** балансируем. Размещение сервисов и синк данных — отдельно.
+## TG failover (без MTProxy)
 
-## Команды
+Bot API = HTTPS на `api.telegram.org`. MTProxy для этого не нужен.
+
+На **secondary (RU)**:
+1. `ssh -D 127.0.0.1:1089` на primary → SOCKS с IP **core**
+2. Standby: `ALL_PROXY=socks5://127.0.0.1:1089`
+3. Таймер 2 мин: primary мёртв → promote standby; primary жив → demote
 
 ```bash
-netductor fleet bootstrap
-netductor fleet status
-netductor fleet set-primary <id>
-netductor fleet set-secondary <id>
-netductor fleet set-service lampac <id>
-netductor fleet set-service bot <id>
-netductor fleet sync
+# на primary
+netductor fleet sync-timer
+netductor fleet apply-lampac
+
+# на secondary
+netductor fleet bot-standby-install root@CORE_IP
+netductor fleet bot-failover timer
 ```
-
-## Sync
-
-Копирует `/opt/netductor/lampac`, `components.json`, policy `fleet/`. Хост peer — из `backup peer-set`, если не указан.
