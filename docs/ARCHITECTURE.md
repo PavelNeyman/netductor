@@ -1,6 +1,8 @@
 # Architecture
 
-Single Go binary **netductor** on the VPS:
+Fleet: **primary** (abroad control plane) + optional **secondary** (RU VPN entry / warm services). See [FLEET.md](FLEET.md).
+
+Single Go binary **netductor** on each VPS:
 
 | Plane | Role |
 |-------|------|
