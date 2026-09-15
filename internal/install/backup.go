@@ -1,6 +1,7 @@
 package install
 
 import (
+	"encoding/json"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -103,11 +104,13 @@ func uploadOffsite(localPath string) error {
 		if err := run("scp", args...); err != nil {
 			return err
 		}
-		keyPath := filepath.Join(paths.StateDir(), "backups", "BACKUP_KEY.txt")
-		if st, err := os.Stat(keyPath); err == nil && st.Size() > 0 {
-			kargs := append([]string{}, args[:len(args)-2]...)
-			kargs = append(kargs, keyPath, target)
-			_ = run("scp", kargs...)
+		for _, side := range []string{"BACKUP_KEY.txt", "COMPONENTS.txt"} {
+			sidePath := filepath.Join(paths.StateDir(), "backups", side)
+			if st, err := os.Stat(sidePath); err == nil && st.Size() > 0 {
+				kargs := append([]string{}, args[:len(args)-2]...)
+				kargs = append(kargs, sidePath, target)
+				_ = run("scp", kargs...)
+			}
 		}
 		return nil
 	case "rsync":
@@ -181,13 +184,23 @@ func Backup() (string, error) {
 	}
 	stamp := time.Now().UTC().Format("20060102-150405")
 	plain := filepath.Join(dir, "netductor-"+stamp+".tar.gz")
-	// Absolute-from-root layout so restore can unpack with tar -C /
-	_ = run("tar", "-czf", plain, "-C", "/",
-		"etc/netductor",
+	// Ensure manifest exists before packing
+	if len(ReadComponentsManifest()) == 0 {
+		_ = WriteComponentsManifest(DefaultComponents())
+	}
+	args := []string{"-czf", plain, "-C", "/", "etc/netductor"}
+	for _, p := range []string{
+		"var/lib/netductor/components.json",
 		"var/lib/netductor/relay",
 		"var/lib/netductor/nodes",
 		"var/lib/netductor/sites",
-	)
+		"opt/netductor/lampac", // data/config only — image re-pulled on install
+	} {
+		if _, err := os.Stat("/" + p); err == nil {
+			args = append(args, p)
+		}
+	}
+	_ = run("tar", args...)
 	if st, err := os.Stat(plain); err != nil || st.Size() == 0 {
 		etc := paths.EtcDir()
 		_ = run("tar", "-czf", plain, "-C", filepath.Dir(etc), filepath.Base(etc))
@@ -206,8 +219,9 @@ func Backup() (string, error) {
 		out = enc
 	}
 	_ = os.Chmod(out, 0o600)
-	// Recovery key alongside archive on peer (core wipe cannot read key from encrypted blob).
+	// Recovery key + components list alongside archive (plain — needed before decrypt on bare metal).
 	_ = writeBackupKeyRecovery()
+	_ = writeComponentsSidecar(dir)
 	failMark := filepath.Join(paths.StateDir(), "backup_offsite_fail")
 	if err := uploadOffsite(out); err != nil {
 		fmt.Fprintf(os.Stderr, "offsite: %v\n", err)
@@ -259,6 +273,122 @@ func Restore(archive string, keyArg string) error {
 		_ = writeSecret("backup_key", k)
 	}
 	return nil
+}
+
+
+func writeComponentsSidecar(dir string) error {
+	comps := ReadComponentsManifest()
+	if len(comps) == 0 {
+		comps = DefaultComponents()
+	}
+	body := strings.Join(comps, "\n") + "\n"
+	return os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(body), 0o644)
+}
+
+// Recover is bare-metal recovery: install components from manifest, then restore data.
+// Order: decrypt → read components from archive → install packages/services → extract data → apply.
+func Recover(archive, keyArg string) error {
+	if archive == "" {
+		return fmt.Errorf("usage: netductor recover [--key KEY] <archive.ndenc>")
+	}
+	key := strings.TrimSpace(keyArg)
+	if key == "" {
+		key = strings.TrimSpace(os.Getenv("NETDUCTOR_BACKUP_KEY"))
+	}
+	src := archive
+	tmp := ""
+	if strings.HasSuffix(archive, ".ndenc") {
+		if key == "" {
+			return fmt.Errorf("backup_key required for recover")
+		}
+		tmp = filepath.Join(os.TempDir(), "netductor-recover.tar.gz")
+		if err := decryptFile(archive, tmp, key); err != nil {
+			return err
+		}
+		src = tmp
+		defer os.Remove(tmp)
+	}
+
+	// Prefer sidecar COMPONENTS.txt next to archive (works even if list not in tar yet).
+	comps := readComponentsSidecarNear(archive)
+	if len(comps) == 0 {
+		comps = extractComponentsFromTar(src)
+	}
+	if len(comps) == 0 {
+		comps = DefaultComponents()
+	}
+	fmt.Fprintf(os.Stderr, "recover: components %v\n", comps)
+
+	// Install first (binaries/services). Secrets not required yet for most steps.
+	if err := Run(Options{Components: comps}); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: install warnings: %v\n", err)
+		// continue — restore may still fix secrets
+	}
+
+	// Then overlay data from archive (secrets, users, state, lampac config).
+	if err := run("tar", "-xzf", src, "-C", "/"); err != nil {
+		parent := filepath.Dir(paths.EtcDir())
+		if err2 := run("tar", "-xzf", src, "-C", parent); err2 != nil {
+			return fmt.Errorf("restore data: %w", err)
+		}
+	}
+	if key != "" {
+		_ = writeSecret("backup_key", key)
+	}
+	_ = WriteComponentsManifest(comps)
+
+	// Re-apply runtime configs from restored secrets/users
+	fmt.Fprintln(os.Stderr, "recover: apply vpn / restart services")
+	_ = run("netductor", "vpn", "apply")
+	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"} {
+		_ = run("systemctl", "try-restart", u)
+	}
+	// lampac: if component listed, ensure container up (data already restored under opt)
+	for _, c := range comps {
+		if c == "lampac" {
+			_ = InstallLampac()
+			break
+		}
+	}
+	fmt.Fprintln(os.Stderr, "recover: done")
+	return nil
+}
+
+func readComponentsSidecarNear(archive string) []string {
+	dir := filepath.Dir(archive)
+	for _, name := range []string{"COMPONENTS.txt", "components.txt"} {
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+		var out []string
+		for _, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
+				out = append(out, line)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return nil
+}
+
+func extractComponentsFromTar(tarPath string) []string {
+	// try members with components.json
+	out, err := runOut("tar", "-xOf", tarPath, "var/lib/netductor/components.json")
+	if err != nil {
+		out, err = runOut("tar", "-xOf", tarPath, "./var/lib/netductor/components.json")
+	}
+	if err != nil || out == "" {
+		return nil
+	}
+	var m ComponentsManifest
+	if json.Unmarshal([]byte(out), &m) != nil {
+		return nil
+	}
+	return m.Components
 }
 
 func pruneBackups(dir string, keep int) {
