@@ -1,29 +1,21 @@
-# Роли fleet (core + relay)
+# Fleet: primary и secondary
 
-## Решение
+## Имена
 
-| Задача | Нода | Почему |
-|--------|------|--------|
-| **Control-plane primary** | **Зарубежный core** | Users, policies, TG-бот, админка, бэкапы |
-| **Вход VPN** | **RU relay** | Белые списки / LTE |
-| **Lampac** | **RU** | Задержка; данные синкаются раз в час |
-| **TG-бот** | **Abroad active**; RU **standby** через SOCKS→core | В РФ Telegram часто недоступен; Bot API нужен выход с core |
+| Термин оператора | Типичный хост | Внутри |
+|------------------|---------------|--------|
+| **primary** | Зарубежный VPS | Control plane: users, policies, TG-бот, админка, бэкапы. Hostname `nd-primary` |
+| **secondary** | RU VPS | Вход VPN (БС) + тёплые сервисы (Lampac). Hostname `nd-secondary`. VPN-агент в коде ещё может писать `role=relay` |
 
-## TG failover (без MTProxy)
+VPN **не** балансируем. Secondary — вход по умолчанию; primary — источник правды.
 
-Bot API = HTTPS на `api.telegram.org`. MTProxy для этого не нужен.
-
-На **secondary (RU)**:
-1. `ssh -D 127.0.0.1:1089` на primary → SOCKS с IP **core**
-2. Standby: `ALL_PROXY=socks5://127.0.0.1:1089`
-3. Таймер 2 мин: primary мёртв → promote standby; primary жив → demote
+## Развёртывание secondary с primary
 
 ```bash
-# на primary
-netductor fleet sync-timer
-netductor fleet apply-lampac
-
-# на secondary
-netductor fleet bot-standby-install root@CORE_IP
-netductor fleet bot-failover timer
+netductor fleet provision-secondary \
+  --host 92.x.x.x --password '…' [--sni api.vk.me]
 ```
+
+Делает: VPN join → роли fleet → sync → Lampac → bot standby (SOCKS→primary) → hourly sync.
+
+Низкоуровневый только VPN: `netductor relay provision …`
