@@ -12,6 +12,11 @@ Full dual-node narrative: [FLEET.md](FLEET.md) · [AGENT_HANDOFF.md](AGENT_HANDO
 
 After `install`, **SSH password auth is disabled**. Private key: `/root/.ssh/id_ed25519` (copy via provider console if needed). Secondary gets the same pubkey during `provision-secondary`.
 
+See [AGENT_HANDOFF.md](AGENT_HANDOFF.md) for dual-node order.
+
+
+After `install`, **SSH password auth is disabled**. Private key: `/root/.ssh/id_ed25519` (copy via provider console if needed). Secondary gets the same pubkey during `provision-secondary`.
+
 
 ```bash
 wget -qO /usr/local/bin/netductor \
