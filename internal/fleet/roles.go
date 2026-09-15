@@ -188,25 +188,16 @@ func SetServiceNode(service, nodeID string) error {
 func StatusSummary() string {
 	p := LoadPolicy()
 	var b strings.Builder
-	b.WriteString("Fleet policy (primary / secondary)
-")
-	b.WriteString("  model: primary=abroad control-plane; secondary=RU entry + warm services
-")
-	b.WriteString("  note:  VPN agent may still use role=relay internally
-")
-	b.WriteString(fmt.Sprintf("  primary:   %s  ssh=%s
-", empty(p.PrimaryNodeID, "(unset)"), empty(p.PrimarySSH, "-")))
-	b.WriteString(fmt.Sprintf("  secondary: %s  ssh=%s
-", empty(p.SecondaryNodeID, "(unset)"), empty(p.SecondarySSH, "-")))
-	b.WriteString(fmt.Sprintf("  lampac →   %s
-", empty(p.LampacNodeID, "(unset)")))
-	b.WriteString(fmt.Sprintf("  bot →      %s
-", empty(p.BotNodeID, "(unset)")))
-	b.WriteString(fmt.Sprintf("  sync:      %v
-", p.SyncEnabled))
+	b.WriteString("Fleet policy (primary / secondary)" + "\n")
+	b.WriteString("  model: primary=abroad control-plane; secondary=RU entry + warm services" + "\n")
+	b.WriteString("  note:  VPN agent may still use role=relay internally" + "\n")
+	b.WriteString(fmt.Sprintf("  primary:   %s  ssh=%s\n", empty(p.PrimaryNodeID, "(unset)"), empty(p.PrimarySSH, "-")))
+	b.WriteString(fmt.Sprintf("  secondary: %s  ssh=%s\n", empty(p.SecondaryNodeID, "(unset)"), empty(p.SecondarySSH, "-")))
+	b.WriteString(fmt.Sprintf("  lampac ->  %s\n", empty(p.LampacNodeID, "(unset)")))
+	b.WriteString(fmt.Sprintf("  bot ->     %s\n", empty(p.BotNodeID, "(unset)")))
+	b.WriteString(fmt.Sprintf("  sync:      %v\n", p.SyncEnabled))
 	list, _ := nodes.List()
-	b.WriteString("Nodes
-")
+	b.WriteString("Nodes" + "\n")
 	for _, n := range list {
 		reg := "-"
 		if n.Labels != nil && n.Labels[LabelRegion] != "" {
@@ -222,8 +213,7 @@ func StatusSummary() string {
 		if n.Labels != nil && n.Labels[LabelControlPlane] == "secondary" {
 			disp = "secondary"
 		}
-		b.WriteString(fmt.Sprintf("  • %s  host=%s fleet=%s ip=%s status=%s region=%s
-",
+		b.WriteString(fmt.Sprintf("  * %s  host=%s fleet=%s ip=%s status=%s region=%s\n",
 			n.ID, n.Hostname, disp, n.PublicIP, n.Status, reg))
 	}
 	return b.String()
