@@ -13,12 +13,15 @@ func runFleet(args []string) {
 	if len(args) < 1 {
 		fmt.Print(`usage: netductor fleet <cmd>
 
-  status | bootstrap | set-primary|set-secondary|set-service
-  sync [user@host]
-  apply-lampac              install Lampac on preferred node (RU secondary)
-  sync-timer                enable hourly fleet sync on this host (primary)
-  bot-standby-install [user@primary]   units on secondary (SOCKS via core)
+  status | bootstrap
+  set-primary|set-secondary|set-service
+  provision-secondary --host IP --password PASS [--sni SNI] [--no-lampac] [--no-bot-standby]
+      Full secondary deploy from primary: VPN join + fleet + sync + lampac + bot standby
+  sync [user@host] | sync-timer | apply-lampac
+  bot-standby-install [user@primary]
   bot-failover check|promote|demote|timer
+
+Naming: operator-facing primary/secondary. Internal VPN agent may still say role=relay.
 `)
 		os.Exit(2)
 	}
@@ -121,6 +124,40 @@ func runFleet(args []string) {
 			fmt.Fprintln(os.Stderr, "usage: fleet bot-failover check|promote|demote|timer")
 			os.Exit(2)
 		}
+	case "provision-secondary":
+		host, user, pass, sni := "", "root", "", ""
+		port := 22
+		noLampac, noBot := false, false
+		for i := 1; i < len(args); i++ {
+			a := args[i]
+			switch {
+			case a == "--host" && i+1 < len(args):
+				i++; host = args[i]
+			case a == "--user" && i+1 < len(args):
+				i++; user = args[i]
+			case a == "--password" && i+1 < len(args):
+				i++; pass = args[i]
+			case a == "--port" && i+1 < len(args):
+				i++; fmt.Sscanf(args[i], "%d", &port)
+			case a == "--sni" && i+1 < len(args):
+				i++; sni = args[i]
+			case a == "--no-lampac":
+				noLampac = true
+			case a == "--no-bot-standby":
+				noBot = true
+			}
+		}
+		if host == "" || pass == "" {
+			fmt.Fprintln(os.Stderr, "required: --host and --password")
+			os.Exit(2)
+		}
+		if err := fleet.ProvisionSecondary(fleet.ProvisionSecondaryOpts{
+			Host: host, User: user, Password: pass, Port: port, SNI: sni,
+			NoLampac: noLampac, NoBotStandby: noBot,
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "bootstrap":
 		if err := fleetBootstrap(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -163,10 +200,12 @@ func fleetBootstrap() error {
 	if err := fleet.SetPrimary(coreID); err != nil {
 		return err
 	}
+	_, _ = nodes.SetDesiredHostname(coreID, "nd-primary")
 	if relayID != "" {
 		if err := fleet.SetSecondary(relayID); err != nil {
 			return err
 		}
+		_, _ = nodes.SetDesiredHostname(relayID, "nd-secondary")
 		_ = fleet.SetServiceNode("lampac", relayID)
 	}
 	_ = fleet.SetServiceNode("bot", coreID)
