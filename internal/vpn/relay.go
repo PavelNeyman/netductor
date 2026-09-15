@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -235,18 +236,35 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 		return err
 	}
 	tmp := singboxConf + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, singboxConf)
+	_ = os.Chmod(tmp, 0o600)
+	if err := os.Rename(tmp, singboxConf); err != nil {
+		return err
+	}
+	return os.Chmod(singboxConf, 0o600)
 }
 
 func ClientLinkForRelay(name, uuid, relayIP, pbk, sid, sniName string) string {
 	if sniName == "" {
 		sniName = DefaultRealitySNI
 	}
+	host := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST"))
+	if host == "" {
+		if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "vpn_hostname")); err == nil {
+			host = strings.TrimSpace(string(b))
+		}
+	}
+	if host == "" {
+		host = relayIP
+	}
+	tag := "nd-secondary"
+	if name != "" {
+		tag = "nd-" + name
+	}
 	return fmt.Sprintf(
-		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#nd-relay",
-		uuid, relayIP, sniName, pbk, sid,
+		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#%s",
+		uuid, host, sniName, pbk, sid, tag,
 	)
 }

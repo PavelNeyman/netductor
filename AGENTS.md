@@ -70,6 +70,8 @@ Simplicity, idempotent installs, no secrets in repo, releases ship binaries, evo
 | Monitoring | built-in metrics/probes |
 | Docs | EN + RU |
 
+**Domain:** `NETDUCTOR_PUBLIC_HOSTNAME` (mTLS SAN), `NETDUCTOR_VPN_HOST` (client links).
+
 **Paths (G7):**
 - Config/secrets: `/etc/netductor`
 - State: `/var/lib/netductor` (devices under `secondary/`; `relay/` read for migration)
@@ -94,7 +96,7 @@ Target layout: `cmd/netductor`, `cmd/netductor-agent`, `internal/`.
 | Area | Status |
 |------|--------|
 | Repo | **PavelNeyman/netductor** |
-| Version | **0.7.1** |
+| Version | **0.7.2-dev** |
 | G0–G1 | done |
 | G2 | release `v0.7.0-dev` published |
 | G3 | `netductor serve` health scaffold; port Python API |

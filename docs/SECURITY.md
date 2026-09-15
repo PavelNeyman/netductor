@@ -23,3 +23,10 @@
 - Also: TUI, Admin tab **SSH hosts**, Telegram **Nodes → SSH hosts**
 - `NETDUCTOR_MT_STRICT=1` rejects unknown MikroTik hosts
 - Details: [TOFU.md](TOFU.md)
+
+
+## Agent plane (0.7.1+)
+- Preferred: **mTLS :8789** (client cert + device token)
+- Plain :8788 disabled when certs exist (`NETDUCTOR_PLAIN_AGENT=1` to force)
+- Firewall: only secondary IP (and localhost)
+- Server cert SAN includes `NETDUCTOR_PUBLIC_HOSTNAME` / `public_hostname` (default `netductor.work.gd`)

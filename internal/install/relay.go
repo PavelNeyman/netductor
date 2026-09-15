@@ -121,8 +121,11 @@ WantedBy=multi-user.target
 	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.RelaySNI, outDir)
 	// install agent
 	if b.AgentToken != "" && b.CoreAgentURL != "" {
-		_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "relay_agent_token"), append([]byte(b.AgentToken), 10), 0o600)
-		_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "relay_core_url"), append([]byte(b.CoreAgentURL), 10), 0o600)
+		_ = paths.WriteSecret("secondary_agent_token", b.AgentToken)
+		_ = paths.WriteSecret("secondary_core_url", b.CoreAgentURL)
+		// legacy names for older agents
+		_ = paths.WriteSecret("relay_agent_token", b.AgentToken)
+		_ = paths.WriteSecret("relay_core_url", b.CoreAgentURL)
 		agentUnit := `[Unit]
 Description=Netductor secondary agent
 After=network-online.target sing-box.service

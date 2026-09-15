@@ -185,3 +185,10 @@ netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 - No Zabbix / hoster agents
 - sing-box config.json mode `600`
 - Agent remote cmds: allowlist only (`reboot`, `upgrade`, `metrics`, `journal`, `restart:<allowed-unit>`)
+
+
+## Hostnames / domain
+- `NETDUCTOR_PUBLIC_HOSTNAME` or `/etc/netductor/public_hostname` → mTLS SAN + agent URL host
+- `NETDUCTOR_VPN_HOST` or `/etc/netductor/vpn_hostname` → VLESS link host (e.g. `vpn.netductor.work.gd`)
+- Secrets: prefer `secondary_agent_token` / `secondary_core_url` (legacy `relay_*` still read)
+- Devices registry: `/var/lib/netductor/secondary/devices.json` (migrates from `relay/`)

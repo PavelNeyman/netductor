@@ -107,10 +107,8 @@ func runRelay(args []string) {
 		_ = nodes.Delete(args[1])
 		fmt.Println("removed", args[1])
 	case "agent":
-		tokB, _ := os.ReadFile("/etc/netductor/secrets/relay_agent_token")
-		urlB, _ := os.ReadFile("/etc/netductor/secrets/relay_core_url")
-		tok := strings.TrimSpace(string(tokB))
-		url := strings.TrimSpace(string(urlB))
+		tok := paths.ReadSecret("secondary_agent_token", "relay_agent_token")
+		url := paths.ReadSecret("secondary_core_url", "relay_core_url")
 		if len(args) > 1 && args[1] != "" {
 			// optional overrides
 		}

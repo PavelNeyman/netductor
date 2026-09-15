@@ -1,6 +1,14 @@
 # Changelog
 
-## 0.7.1 — 2026-09-15
+## 0.7.2-dev — 2026-09-15
+
+- Security/refactor follow-up: single devices path, secondary-* ids, mTLS DNS SAN rotate
+- Secrets `secondary_*` (+ relay_* fallback); VPN links via `NETDUCTOR_VPN_HOST`
+- Split `serve.go` → `api_edge` / `api_session` / `api_vpn_http` / `api_secondary`
+- sing-box config write always mode 600
+
+## 0.7.1 —
+ 2026-09-15
 
 - Release: agent-plane **mTLS :8789**, secondary naming, security doctor
 - Package rename: `internal/relay` → `internal/secondary` (state path migrates `relay/` → `secondary/`)

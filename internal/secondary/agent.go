@@ -143,8 +143,19 @@ func pullAndApply(client *http.Client, coreBase, token string) error {
 }
 
 func readSecret(name string) string {
-	b, _ := os.ReadFile(filepath.Join(paths.EtcDir(), "secrets", name))
-	return strings.TrimSpace(string(b))
+	legacy := map[string]string{
+		"secondary_agent_token": "relay_agent_token",
+		"secondary_core_url":    "relay_core_url",
+	}
+	if leg, ok := legacy[name]; ok {
+		return paths.ReadSecret(name, leg)
+	}
+	// also allow reading legacy names directly
+	if strings.HasPrefix(name, "relay_") {
+		sec := "secondary_" + strings.TrimPrefix(name, "relay_")
+		return paths.ReadSecret(sec, name)
+	}
+	return paths.ReadSecret(name)
 }
 func readFile(p string) string {
 	b, _ := os.ReadFile(p)

@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -30,6 +31,18 @@ const (
 
 func Dir() string { return filepath.Join(paths.EtcDir(), "secrets", DirName) }
 func path(name string) string { return filepath.Join(Dir(), name) }
+
+func publicHostname() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_PUBLIC_HOSTNAME")); v != "" {
+		return v
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "public_hostname")); err == nil {
+		if v := strings.TrimSpace(string(b)); v != "" {
+			return v
+		}
+	}
+	return "netductor.work.gd"
+}
 
 func EnsureAll(serverIP string) error {
 	if err := os.MkdirAll(Dir(), 0o700); err != nil {
@@ -70,7 +83,12 @@ func ensureCA() error {
 
 func ensureServer(serverIP string) error {
 	if fileOK(path(ServerCertFile)) && fileOK(path(ServerKeyFile)) {
-		return nil
+		if serverCertHasDNS(publicHostname()) {
+			return nil
+		}
+		// hostname changed / missing from SAN — rotate server cert
+		_ = os.Remove(path(ServerCertFile))
+		_ = os.Remove(path(ServerKeyFile))
 	}
 	caCert, caKey, err := loadCA()
 	if err != nil {
@@ -85,7 +103,13 @@ func ensureServer(serverIP string) error {
 		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(5 * 365 * 24 * time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames: []string{"nd-primary", "localhost", "netductor-agent-server"},
+		DNSNames: func() []string {
+			names := []string{"nd-primary", "localhost", "netductor-agent-server"}
+			if h := publicHostname(); h != "" {
+				names = append([]string{h}, names...)
+			}
+			return names
+		}(),
 		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
 	}
 	if ip := net.ParseIP(serverIP); ip != nil {
@@ -209,6 +233,31 @@ func WriteClientMaterial(ca, cert, key []byte) error {
 		return err
 	}
 	return os.WriteFile(path(ClientKeyFile), key, 0o600)
+}
+
+
+func serverCertHasDNS(host string) bool {
+	if host == "" {
+		return true
+	}
+	pemBytes, err := os.ReadFile(path(ServerCertFile))
+	if err != nil {
+		return false
+	}
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return false
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false
+	}
+	for _, d := range cert.DNSNames {
+		if strings.EqualFold(d, host) {
+			return true
+		}
+	}
+	return false
 }
 
 func fileOK(p string) bool {

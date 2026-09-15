@@ -125,7 +125,7 @@ func IssueToken(name string) (id, token string, err error) {
 	_, _ = rand.Read(tb[:])
 	_, _ = rand.Read(ib[:])
 	token = hex.EncodeToString(tb[:])
-	id = "relay-" + hex.EncodeToString(ib[:8])
+	id = "secondary-" + hex.EncodeToString(ib[:8])
 	if name == "" {
 		name = id
 	}
