@@ -4,30 +4,35 @@
 
 | Concern | Node | Why |
 |--------|------|-----|
-| **Control-plane primary** (users, policies, TG operator bot, admin, backup authority) | **Abroad core** | Secrets less exposed; Telegram API more reliable; already the source of truth |
-| **VPN entry (data plane)** | **RU relay** | Whitelist / mobile reachability |
-| **Lampac (default placement)** | **RU** (prefer) | Lower latency for users in RU; warm replica synced from/to primary |
-| **TG bot** | **Abroad** (active), RU = standby later | One bot token; active/passive only |
+| **Control-plane primary** | **Abroad core** | Users, policies, TG operator bot, admin, backup authority |
+| **VPN entry** | **RU relay** | Whitelist / mobile |
+| **Lampac (default)** | **RU** | Latency; data synced hourly |
+| **TG bot** | **Abroad active**; RU **standby** via SOCKS→core | TG often blocked in RU; Bot API needs HTTPS exit abroad |
 
-VPN tunnels are **not** load-balanced. Service placement and data sync are separate.
+## TG failover (no MTProxy)
+
+Bot API is HTTPS to `api.telegram.org`. MTProxy is for client apps, not required here.
+
+On **secondary (RU)**:
+1. `ssh -D 127.0.0.1:1089` to primary → SOCKS exits with **core IP**
+2. Standby unit: `ALL_PROXY=socks5://127.0.0.1:1089 netductor-tg`
+3. Timer every 2 min: if primary bot not `active` → start standby; if primary healthy → stop standby
+
+```bash
+# on primary
+netductor fleet sync-timer
+netductor fleet apply-lampac
+
+# on secondary (once)
+netductor fleet bot-standby-install root@CORE_IP
+netductor fleet bot-failover timer
+```
 
 ## Commands
 
 ```bash
-netductor fleet bootstrap          # primary=core, secondary=relay, lampac→RU, bot→core
-netductor fleet status
-netductor fleet set-primary <id>
-netductor fleet set-secondary <id>
-netductor fleet set-service lampac <id>
-netductor fleet set-service bot <id>
-netductor fleet sync               # rsync/scp lampac data + fleet policy to backup peer
+netductor fleet bootstrap|status
+netductor fleet sync | sync-timer | apply-lampac
+netductor fleet bot-standby-install [user@primary]
+netductor fleet bot-failover check|promote|demote|timer
 ```
-
-## Sync
-
-`fleet sync` copies:
-
-- `/opt/netductor/lampac` (config/progress, not the image)
-- `components.json`, `fleet/` policy
-
-Peer host is taken from `backup peer-set` if not passed explicitly.
