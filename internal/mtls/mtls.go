@@ -288,3 +288,66 @@ func writeKey(p string, key *ecdsa.PrivateKey) error {
 	defer f.Close()
 	return pem.Encode(f, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
 }
+
+
+// ClientDir returns per-node client material directory.
+func ClientDir(nodeID string) string {
+	safe := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			return r
+		}
+		return '_'
+	}, nodeID)
+	return filepath.Join(Dir(), "clients", safe)
+}
+
+// EnsureClientFor issues (or returns existing) client cert for nodeID.
+func EnsureClientFor(nodeID string) (ca, cert, key []byte, err error) {
+	if err := ensureCA(); err != nil {
+		return nil, nil, nil, err
+	}
+	dir := ClientDir(nodeID)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, nil, nil, err
+	}
+	certPath := filepath.Join(dir, ClientCertFile)
+	keyPath := filepath.Join(dir, ClientKeyFile)
+	if !(fileOK(certPath) && fileOK(keyPath)) {
+		caCert, caKey, err := loadCA()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		tmpl := &x509.Certificate{
+			SerialNumber: serial(),
+			Subject:      pkix.Name{CommonName: "netductor-agent-" + nodeID, Organization: []string{"netductor"}},
+			NotBefore:    time.Now().Add(-time.Hour),
+			NotAfter:     time.Now().Add(5 * 365 * 24 * time.Hour),
+			KeyUsage:     x509.KeyUsageDigitalSignature,
+			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		}
+		der, err := x509.CreateCertificate(rand.Reader, tmpl, caCert, &k.PublicKey, caKey)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if err := writeCert(certPath, der); err != nil {
+			return nil, nil, nil, err
+		}
+		if err := writeKey(keyPath, k); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	ca, err = os.ReadFile(path(CACertFile))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	cert, err = os.ReadFile(certPath)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	key, err = os.ReadFile(keyPath)
+	return
+}

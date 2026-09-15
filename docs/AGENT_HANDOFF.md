@@ -192,3 +192,7 @@ netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 - `NETDUCTOR_VPN_HOST` or `/etc/netductor/vpn_hostname` → VLESS link host (e.g. `vpn.netductor.work.gd`)
 - Secrets: prefer `secondary_agent_token` / `secondary_core_url` (legacy `relay_*` still read)
 - Devices registry: `/var/lib/netductor/secondary/devices.json` (migrates from `relay/`)
+
+### mTLS / TLS CLI
+- `netductor mtls ensure` / `mtls issue-client <id>`
+- `netductor tls self-signed [host]` for lab HTTPS admin

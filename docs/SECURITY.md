@@ -30,3 +30,6 @@
 - Plain :8788 disabled when certs exist (`NETDUCTOR_PLAIN_AGENT=1` to force)
 - Firewall: only secondary IP (and localhost)
 - Server cert SAN includes `NETDUCTOR_PUBLIC_HOSTNAME` / `public_hostname` (default `netductor.work.gd`)
+
+- Per-node client certs: `netductor mtls issue-client <node-id>`
+- Optional HTTPS admin: `netductor tls self-signed` + `NETDUCTOR_API_PUBLIC=1` + TLS env (prefer certbot in prod)

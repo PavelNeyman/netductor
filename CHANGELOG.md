@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2-dev
+
+- TG: split format.go → format_status/vpn/nodes/sites
+- mTLS: `mtls issue-client <id>` per-node client certs under `secrets/mtls/clients/`
+- TLS: `netductor tls self-signed` for optional HTTPS admin lab certs
+
 ## 0.7.2-dev — 2026-09-15
 
 - Security/refactor follow-up: single devices path, secondary-* ids, mTLS DNS SAN rotate
