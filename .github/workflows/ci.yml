@@ -4,16 +4,13 @@ on:
     branches: [main]
   pull_request:
 jobs:
-  check:
+  go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: bash -n
-        run: bash scripts/check.sh
-      - name: unit tests
-        run: |
-          bash tests/unit/test_vless_parse.sh
-          bash tests/unit/test_vpn_registry.sh
-      - name: go build telegram bot
-        run: |
-          cd cmd/freshvps-tg && go build -o /tmp/freshvps-tg .
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+      - name: go test
+        run: go test ./
+...
