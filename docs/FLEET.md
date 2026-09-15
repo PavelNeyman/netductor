@@ -39,3 +39,9 @@ netductor fleet sync | sync-timer | apply-lampac
 netductor fleet bot-standby-install [user@primary]
 netductor fleet bot-failover check|promote|demote|timer
 ```
+
+
+## Implementation notes
+
+- Do **not** wipe relay `devices.json` tokens in post-provision before the first successful agent heartbeat (token is issued on primary and stored on secondary).
+- Agent auth: `Authorization: Bearer <relay_agent_token>` → primary `:8788`.
