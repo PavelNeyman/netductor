@@ -246,9 +246,14 @@ func startRelayAgentListener() {
 	if addr == "" {
 		addr = ":8788"
 	}
-	go func() {
-		_ = http.ListenAndServe(addr, withSecurity(mux))
-	}()
+	plain := os.Getenv("NETDUCTOR_PLAIN_AGENT")
+	if plain == "1" || !mtls.ServerReady() {
+		go func() {
+			_ = http.ListenAndServe(addr, withSecurity(mux))
+		}()
+	} else {
+		fmt.Fprintln(os.Stderr, "agent plane plain :8788 disabled (mTLS only; set NETDUCTOR_PLAIN_AGENT=1 to enable)")
+	}
 	if mtls.ServerReady() {
 		tlsCfg, err := mtls.ServerTLSConfig()
 		if err != nil {

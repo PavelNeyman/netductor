@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -25,9 +26,6 @@ func detectRole() string {
 	if activeUnit("netductor-secondary-agent") || activeUnit("netductor-relay-agent") {
 		return "secondary"
 	}
-	if activeUnit("netductor-api") && activeUnit("netductor-telegram-bot") {
-		return "primary"
-	}
 	if activeUnit("netductor-api") {
 		return "primary"
 	}
@@ -37,10 +35,6 @@ func detectRole() string {
 func activeUnit(unit string) bool {
 	out, _ := exec.Command("systemctl", "is-active", unit).Output()
 	return strings.TrimSpace(string(out)) == "active"
-}
-
-func unitExists(unit string) bool {
-	return exec.Command("systemctl", "cat", unit).Run() == nil
 }
 
 func sshdT(key string) string {
@@ -135,19 +129,16 @@ func runDoctorNative() int {
 	check("sing-box unit", activeUnit("sing-box"))
 	if exists("/usr/local/bin/sing-box") && exists("/usr/local/etc/sing-box/config.json") {
 		check("sing-box config", exec.Command("/usr/local/bin/sing-box", "check", "-c", "/usr/local/etc/sing-box/config.json").Run() == nil)
-		// perms 600
 		fi, err := os.Stat("/usr/local/etc/sing-box/config.json")
 		warnCheck("sing-box config perms 600", err == nil && fi.Mode().Perm()&0o077 == 0)
 	} else {
 		check("sing-box config", false)
 	}
 
-	// --- SSH hardening (both roles) ---
 	pa := sshdT("passwordauthentication")
 	check("ssh passwordauth no", pa == "no")
 	x11 := sshdT("x11forwarding")
 	warnCheck("ssh x11forwarding no", x11 == "no" || x11 == "")
-	// zabbix must not be present
 	warnCheck("no zabbix agent", !activeUnit("zabbix-agent") && !activeUnit("zabbix-agent2") && !listeningOnAll("10050"))
 
 	switch role {
@@ -155,10 +146,9 @@ func runDoctorNative() int {
 		check("READY.txt", exists(filepath.Join(etc, "READY.txt")))
 		check("vpn-users.json", exists(filepath.Join(etc, "vpn-users.json")))
 		check("blocky unit", activeUnit("blocky"))
-		// Blocky should not listen on public interfaces for DNS amplification risk
 		if activeUnit("blocky") {
 			if listeningOnAll("53") {
-				fmt.Printf("WARN blocky :53 on 0.0.0.0 (prefer 127.0.0.1 — DNS amp risk)\n")
+				fmt.Printf("WARN blocky :53 on 0.0.0.0 (prefer 127.0.0.1)\n")
 				warn++
 			} else if listeningLocalhost("53") {
 				fmt.Printf("OK   blocky :53 localhost only\n")
@@ -172,7 +162,6 @@ func runDoctorNative() int {
 		check("netductor-telegram-bot", activeUnit("netductor-telegram-bot"))
 		if activeUnit("netductor-api") {
 			check("api health :8787", curlOK("http://127.0.0.1:8787/health"))
-			// admin API must be localhost
 			warnCheck("api :8787 localhost only", listeningLocalhost("8787") && !listeningOnAll("8787"))
 		}
 		if exists("/etc/systemd/system/netductor-metrics.timer") {
@@ -188,9 +177,22 @@ func runDoctorNative() int {
 		} else {
 			warnCheck("secondary registry", false)
 		}
-		// agent plane :8788 is world-facing by design — remind operator
 		if listeningOnAll("8788") {
-			fmt.Printf("INFO agent plane :8788 on 0.0.0.0 (token auth required; prefer firewall to secondary IP)\n")
+			fmt.Printf("INFO agent plane :8788 plain (legacy)\n")
+		}
+		if mtls.ServerReady() {
+			fmt.Printf("OK   mtls server certs\n")
+			ok++
+			if listeningOnAll(mtls.AgentTLSPort) {
+				fmt.Printf("OK   agent plane mTLS :%s\n", mtls.AgentTLSPort)
+				ok++
+			} else {
+				fmt.Printf("WARN agent plane mTLS :%s not listening\n", mtls.AgentTLSPort)
+				warn++
+			}
+		} else {
+			fmt.Printf("WARN mtls server certs missing\n")
+			warn++
 		}
 
 	case "secondary":
@@ -208,7 +210,7 @@ func runDoctorNative() int {
 			fmt.Printf("WARN hostname=%s (expected nd-secondary*)\n", host)
 			warn++
 		}
-		// secondary should NOT run blocky/api/tg as primary
+		warnCheck("mtls client certs", mtls.ClientReady())
 		if activeUnit("blocky") {
 			fmt.Printf("WARN blocky running on secondary (usually primary-only)\n")
 			warn++
@@ -227,7 +229,6 @@ func runDoctorNative() int {
 		sniVal = strings.TrimSpace(string(b))
 	}
 	fmt.Printf("INFO reality_sni=%s\n", sniVal)
-
 	fmt.Printf("\nSummary: ok=%d fail=%d warn=%d\n", ok, fail, warn)
 	if fail > 0 {
 		return 1
@@ -248,7 +249,6 @@ func dockerLampacHealthy() bool {
 	return s == "healthy" || s == ""
 }
 
-// bindAllInterfaces reports if addr is unspecified (0.0.0.0 or ::).
 func bindAllInterfaces(addr string) bool {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
