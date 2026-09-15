@@ -1,21 +1,22 @@
 # Fleet: primary и secondary
 
+См. также: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [BACKUP.md](BACKUP.md) · [DEPLOY.md](DEPLOY.md)
+
 ## Имена
 
-| Термин оператора | Типичный хост | Внутри |
-|------------------|---------------|--------|
-| **primary** | Зарубежный VPS | Control plane: users, policies, TG-бот, админка, бэкапы. Hostname `nd-primary` |
-| **secondary** | RU VPS | Вход VPN (БС) + тёплые сервисы (Lampac). Hostname `nd-secondary`. VPN-агент в коде ещё может писать `role=relay` |
+| Термин | Хост | Смысл |
+|--------|------|--------|
+| **primary** | За рубежом | Control plane, TG active, бэкапы. `nd-primary` |
+| **secondary** | РФ | Вход VPN (БС), Lampac, standby TG. `nd-secondary` (в коде VPN — `relay`) |
 
-VPN **не** балансируем. Secondary — вход по умолчанию; primary — источник правды.
+VPN не балансируем.
 
-## Развёртывание secondary с primary
+## Деплой secondary
 
 ```bash
-netductor fleet provision-secondary \
-  --host 92.x.x.x --password '…' [--sni api.vk.me]
+netductor fleet provision-secondary --host IP --password '…' [--sni api.vk.me]
 ```
 
-Делает: VPN join → роли fleet → sync → Lampac → bot standby (SOCKS→primary) → hourly sync.
+## TG failover
 
-Низкоуровневый только VPN: `netductor relay provision …`
+Active на primary; standby на secondary через SOCKS→primary, только если primary **жив**, а unit бота упал.
