@@ -1,89 +1,90 @@
-# Deploy & test netductor (hand guide)
+# Deploy & test netductor
+
+Full dual-node narrative: [FLEET.md](FLEET.md) · [AGENT_HANDOFF.md](AGENT_HANDOFF.md)
 
 ## 1. Requirements
 
-- Debian 12/13 VPS (root SSH)
-- Public IPv4
-- Optional: Telegram bot token + your numeric user id
-- Optional: domain later (TLS); not required for loopback API
+- Debian 12/13 VPS (root SSH), public IPv4
+- Optional second RU VPS for secondary (whitelist entry)
+- Optional: Telegram bot token + numeric admin user id
 
-## 2. Bootstrap (one-liner)
+## 2. Primary bootstrap
 
 ```bash
-# as root on the VPS
 wget -qO /usr/local/bin/netductor \
   https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 netductor version
-```
 
-Telegram (optional, before install):
-
-```bash
 mkdir -p /etc/netductor/secrets
 echo 'BOT_TOKEN' > /etc/netductor/secrets/telegram_bot_token
 echo 'YOUR_TG_USER_ID' > /etc/netductor/secrets/telegram_admin_id
 chmod 600 /etc/netductor/secrets/*
+
+netductor install
+netductor doctor
 ```
 
-Full install:
+Reality SNI (WL-oriented default in ops): **`api.vk.me`**
 
 ```bash
-netductor install
-# optional media addon (localhost only):
-# NETDUCTOR_LAMPAC=1 netductor install lampac
-# or: netductor install lampac
+netductor vpn set-sni api.vk.me
 ```
 
-## 3. Verify
+## 3. Secondary (from primary)
+
+```bash
+netductor fleet provision-secondary --host RU_IP --password '…' --sni api.vk.me
+netductor fleet status
+netductor vpn refresh-links
+```
+
+Client links should show **secondary IP** when secondary is online.
+
+## 4. Verify
 
 ```bash
 netductor doctor
 systemctl is-active sing-box blocky netductor-api netductor-telegram-bot
 netductor vpn list
+netductor fleet status
+curl -fsS http://127.0.0.1:8788/api/bot-status
 ```
 
-Expect doctor **ok**, services **active**, at least user `operator`.
-
-
-Default Reality SNI is **ya.ru** (RU whitelist). Mobile often needs a **RU relay VPS** — [VPN-USERS.md](VPN-USERS.md).
+## 5. VPN client
 
 ```bash
-netductor vpn set-sni ya.ru
-```
-
-## 4. VPN client
-
-```bash
-netductor vpn link operator          # subscription (VLESS + HY2)
 netductor vpn link operator vless
 netductor vpn link operator hy2
-# QR PNG: /etc/netductor/clients/operator/qr.png
 ```
 
-Import into v2rayN / Streisand / Hiddify / sing-box.
+Import into Shadowrocket / Happ / v2rayN / sing-box. Subscription feature **removed**.
 
-## 5. Telegram bot
+## 6. Telegram
 
-1. Open your bot → `/start` (must be the admin id from secrets).
-2. **VPN → list** → tap **🟢 operator** (or **Link / QR** and type `operator`).
-3. You get VLESS + Hysteria2 as mono text + **QR photo**.
-4. Long-press the mono link to copy (Telegram cannot put long URLs into “Copy” buttons >256 chars).
+Admin id must match secrets. `/menu` — users → link/QR (VLESS default, toggle HY2).
 
-**Addons → Lampac**: status only; UI is `http://127.0.0.1:9118` via SSH tunnel / VPN path to loopback.
-
-## 6. Admin SPA
+## 7. Admin SPA
 
 ```bash
-# session token
 netductor vpn session 72
-# SSH tunnel
-ssh -L 8787:127.0.0.1:8787 root@VPS
+ssh -L 8787:127.0.0.1:8787 root@PRIMARY
 ```
 
-Browser: `http://127.0.0.1:8787/admin/` — paste token.
+Open `http://127.0.0.1:8787/admin/`
 
-## 7. Update
+## 8. Backup / recover
+
+```bash
+netductor backup
+# keep BACKUP_KEY.txt + COMPONENTS.txt with the .ndenc
+
+netductor recover --key "$KEY" /path/to/file.ndenc
+```
+
+Cross-peer: `netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/`
+
+## 9. Update binary
 
 ```bash
 systemctl stop netductor-api netductor-telegram-bot
@@ -91,20 +92,11 @@ wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/relea
 wget -qO /opt/netductor/bin/netductor-tg https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-tg-linux-amd64
 chmod 755 /usr/local/bin/netductor /opt/netductor/bin/netductor-tg
 systemctl start netductor-api netductor-telegram-bot
-netductor doctor
 ```
 
-Optional integrity: `NETDUCTOR_UPDATE_SHA256=<hex> netductor update …`
-
-## 8. Uninstall / purge
+## 10. Uninstall
 
 ```bash
-netductor uninstall   # units/binaries; keep configs
-netductor purge       # also configs/data (destructive)
+netductor uninstall   # keep configs
+netductor purge       # wipe configs/data
 ```
-
-## 9. Security notes
-
-- API listens on `127.0.0.1:8787` by default
-- Lampac on `127.0.0.1:9118` only
-- Do not expose API without TLS + `NETDUCTOR_API_PUBLIC=1`
