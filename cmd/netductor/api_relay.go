@@ -12,6 +12,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/relay"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -51,7 +52,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 		if id, tok, err := relay.IssueToken("relay"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
-			b.CoreAgentURL = "http://" + b.CoreIP + ":8788"
+			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
 		}
 		writeJSON(w, 200, b)
 	})
@@ -248,4 +249,22 @@ func startRelayAgentListener() {
 	go func() {
 		_ = http.ListenAndServe(addr, withSecurity(mux))
 	}()
+	if mtls.ServerReady() {
+		tlsCfg, err := mtls.ServerTLSConfig()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "mtls: server config:", err)
+			return
+		}
+		tlsAddr := os.Getenv("NETDUCTOR_AGENT_MTLS")
+		if tlsAddr == "" {
+			tlsAddr = ":" + mtls.AgentTLSPort
+		}
+		go func() {
+			srv := &http.Server{Addr: tlsAddr, Handler: withSecurity(mux), TLSConfig: tlsCfg}
+			fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
+			if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				fmt.Fprintln(os.Stderr, "mtls serve:", err)
+			}
+		}()
+	}
 }

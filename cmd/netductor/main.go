@@ -42,6 +42,8 @@ func main() {
 		runSites(os.Args[2:])
 	case "nodes":
 		runNodes(os.Args[2:])
+	case "mtls":
+		runMTLS(os.Args[2:])
 	case "secondary", "relay":
 		runRelay(os.Args[2:])
 	case "addons", "addon":

@@ -12,16 +12,33 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 // AgentLoop runs on RU VPS: heartbeat + pull config when version drifts.
+func agentHTTPClient() *http.Client {
+	c := &http.Client{Timeout: 20 * time.Second}
+	if mtls.ClientReady() {
+		if tlsCfg, err := mtls.ClientTLSConfig(); err == nil {
+			c.Transport = &http.Transport{TLSClientConfig: tlsCfg}
+		}
+	}
+	return c
+}
+
 func AgentLoop(coreBase, token string, interval time.Duration) {
 	if interval < 10*time.Second {
 		interval = 30 * time.Second
 	}
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := agentHTTPClient()
+	if mtls.ClientReady() && strings.HasPrefix(coreBase, "http://") {
+		coreBase = "https://" + strings.TrimPrefix(coreBase, "http://")
+		if strings.HasSuffix(coreBase, ":8788") {
+			coreBase = strings.TrimSuffix(coreBase, ":8788") + ":" + mtls.AgentTLSPort
+		}
+	}
 	applied := 0
 	var lastDone string
 	var lastOK bool
