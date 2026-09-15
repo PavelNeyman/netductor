@@ -302,8 +302,8 @@ func postProvisionRelay(host, sni string) {
 		fmt.Printf("  online id=%s sni=%s pbk=%s…\n", dev.ID, dev.SNI, trimPBK(dev.PBK))
 		// keep only this device for the IP
 		_ = relay.RemoveByPublicIP(host, dev.ID)
-		_, _ = nodes.SetDesiredHostname(dev.ID, "nd-relay-ru")
-		_ = relay.Rename(dev.ID, "nd-relay-ru")
+		_, _ = nodes.SetDesiredHostname(dev.ID, "nd-secondary")
+		_ = relay.Rename(dev.ID, "nd-secondary")
 	}
 
 	fmt.Println("==> post-provision: re-apply core sing-box (uplink / routing)")
@@ -341,7 +341,7 @@ func postProvisionRelay(host, sni string) {
 
 	// final prune pass
 	_ = relay.PruneDuplicates()
-	fmt.Println("==> post-provision: done — relay should match prior role (new Reality keys only)")
+	fmt.Println("==> post-provision: done — secondary VPN plane ready (new Reality keys only); run: netductor fleet provision-secondary extras or fleet bootstrap")
 }
 
 func trimPBK(s string) string {
