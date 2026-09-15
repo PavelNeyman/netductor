@@ -87,30 +87,38 @@ WantedBy=multi-user.target
 	return nil
 }
 
-// BotPrimaryHealthy checks primary bot systemd over SSH, or local if we are primary.
+// BotPrimaryHealthy checks primary bot.
+// Prefer HTTP :8788/api/bot-status (works without reverse SSH key).
+// Note: if whole primary host is down, SOCKS via core cannot work either —
+// standby only covers "host up, bot process down".
 func BotPrimaryHealthy() (bool, string) {
 	p := LoadPolicy()
-	if p.PrimaryNodeID == "" {
-		// local unit
-		return localBotActive(), "local"
-	}
-	n, ok, err := nodes.Get(p.PrimaryNodeID)
-	if err != nil || !ok {
-		return localBotActive(), "local-fallback"
-	}
 	localIP := publicIPGuess()
-	if n.PublicIP == "" || n.PublicIP == localIP {
+	host := ""
+	if p.PrimarySSH != "" {
+		host = p.PrimarySSH
+		if i := strings.LastIndex(host, "@"); i >= 0 {
+			host = host[i+1:]
+		}
+	}
+	if host == "" && p.PrimaryNodeID != "" {
+		if n, ok, err := nodes.Get(p.PrimaryNodeID); err == nil && ok {
+			host = n.PublicIP
+		}
+	}
+	if host == "" || host == localIP || host == "127.0.0.1" {
 		return localBotActive(), "local"
 	}
-	out, err := exec.Command("ssh",
-		"-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=8",
-		"root@"+n.PublicIP,
-		"systemctl is-active netductor-telegram-bot").CombinedOutput()
+	url := "http://" + host + ":8788/api/bot-status"
+	out, err := exec.Command("curl", "-fsS", "--max-time", "8", url).CombinedOutput()
 	s := strings.TrimSpace(string(out))
 	if err != nil {
-		return false, s
+		return false, "http:" + s
 	}
-	return s == "active", s
+	if strings.Contains(s, `"ok":true`) || strings.Contains(s, `"ok": true`) {
+		return true, s
+	}
+	return false, s
 }
 
 func localBotActive() bool {
@@ -131,17 +139,22 @@ func DemoteStandbyBot() error {
 	return exec.Command("systemctl", "stop", sshTunnelUnit).Run()
 }
 
-// CheckBotFailover: if primary unhealthy → promote standby; if healthy → demote.
+// CheckBotFailover: if primary bot process down but host reachable → promote standby via SOCKS.
+// If primary host unreachable, demote standby (SOCKS cannot exit via dead core).
 func CheckBotFailover() (string, error) {
 	ok, detail := BotPrimaryHealthy()
 	if ok {
 		_ = DemoteStandbyBot()
 		return "primary healthy (" + detail + ") — standby down", nil
 	}
-	if err := PromoteStandbyBot(); err != nil {
-		return "primary down (" + detail + ") — promote failed: " + err.Error(), err
+	if strings.Contains(detail, "http:") || strings.Contains(detail, "Connection") || strings.Contains(detail, "timed out") {
+		_ = DemoteStandbyBot()
+		return "primary unreachable (" + detail + ") — standby not used (SOCKS needs core up)", nil
 	}
-	return "primary down (" + detail + ") — standby promoted via SOCKS→core", nil
+	if err := PromoteStandbyBot(); err != nil {
+		return "primary bot down (" + detail + ") — promote failed: " + err.Error(), err
+	}
+	return "primary bot down (" + detail + ") — standby promoted via SOCKS→core", nil
 }
 
 // InstallBotFailoverTimer on secondary: periodic check.
