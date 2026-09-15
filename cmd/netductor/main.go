@@ -88,6 +88,28 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("restored")
+	case "recover":
+		key, arch := "", ""
+		for i := 2; i < len(os.Args); i++ {
+			a := os.Args[i]
+			if a == "--key" && i+1 < len(os.Args) {
+				i++
+				key = os.Args[i]
+				continue
+			}
+			if !strings.HasPrefix(a, "-") && arch == "" {
+				arch = a
+			}
+		}
+		if arch == "" {
+			fmt.Fprintln(os.Stderr, "usage: netductor recover [--key KEY] <archive.ndenc>")
+			os.Exit(2)
+		}
+		if err := install.Recover(arch, key); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("recovered")
 	case "self-install":
 		runSelfInstall()
 	case "update":
@@ -105,7 +127,7 @@ func printHelp() {
 	fmt.Print(`netductor — network control plane
 
   tui|menu [--mode vps|openwrt|workstation|operator]
-  backup | audit | self-install | update
+  backup | restore | recover | audit | self-install | update
   version | doctor | status | vpn | sites | ssh-hosts | relay | addons | edge | serve | install | probe | collect | help
 
   (no args on a TTY → interactive menu)
