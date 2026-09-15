@@ -85,10 +85,21 @@ touch /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
 grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_keys
 # disable password auth
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'SSH_EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+SSH_EOF
+for f in /etc/ssh/sshd_config.d/*.conf; do
+  [ -f "$f" ] || continue
+  case "$f" in *netductor*) continue ;; esac
+  sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/gi' "$f" 2>/dev/null || true
+done
 if [ -f /etc/ssh/sshd_config ]; then
   sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
   sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-  grep -q '^PasswordAuthentication' /etc/ssh/sshd_config || echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config
 fi
 systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || service ssh reload 2>/dev/null || true
 `, pubKey, pubKey)
