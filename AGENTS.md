@@ -1,6 +1,6 @@
 # AGENTS.md — Netductor
 
-> Document Version: **2.3**  
+> Document Version: **2.4**  
 > Status: **Approved**  
 > GitHub: **https://github.com/PavelNeyman/netductor** (renamed from FreshVPS)
 
@@ -44,6 +44,10 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **edge** · **operator** · **fleet** (primary/secondary) · **extras** (optional).
 
 **Fleet:** primary = abroad control plane; secondary = RU VPN entry + warm services. Details: [docs/FLEET.md](docs/FLEET.md), [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md). Internal VPN agent may still be named `relay`.
+
+**SSH:** password only for first login; install/provision → key-only (`internal/install/ssh_harden.go`).
+
+**TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI.md](docs/TG-UI.md).
 
 ---
 
