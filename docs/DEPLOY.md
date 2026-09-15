@@ -10,6 +10,9 @@ Full dual-node narrative: [FLEET.md](FLEET.md) · [AGENT_HANDOFF.md](AGENT_HANDO
 
 ## 2. Primary bootstrap
 
+After `install`, **SSH password auth is disabled**. Private key: `/root/.ssh/id_ed25519` (copy via provider console if needed). Secondary gets the same pubkey during `provision-secondary`.
+
+
 ```bash
 wget -qO /usr/local/bin/netductor \
   https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64
