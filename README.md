@@ -1,4 +1,4 @@
-**New agent / new chat:** start with [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md).
+**New agent / new chat:** start with [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md) · [docs/TG-UI.md](docs/TG-UI.md) · [docs/FLEET.md](docs/FLEET.md).
 
 # Netductor
 
