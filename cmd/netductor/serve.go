@@ -37,6 +37,12 @@ func buildAPIMux() http.Handler {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"ok": true, "service": "netductor", "version": version, "time": time.Now().UTC().Format(time.RFC3339)})
 	})
+	// Public-ish bot liveness for secondary failover (no secrets). Bound with API on :8788.
+	mux.HandleFunc("/api/bot-status", func(w http.ResponseWriter, r *http.Request) {
+		out, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").Output()
+		active := strings.TrimSpace(string(out)) == "active"
+		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
+	})
 
 	// --- edge (device token) ---
 	mux.HandleFunc("/api/edge/backups", func(w http.ResponseWriter, r *http.Request) {
