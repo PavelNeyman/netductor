@@ -1,3 +1,5 @@
+**New agent / new chat:** start with [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md).
+
 # Netductor
 
 Self-hosted **network control plane** for a Debian VPS (+ OpenWrt edge, optional MikroTik site, RU relay):
