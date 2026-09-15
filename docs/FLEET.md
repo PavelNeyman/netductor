@@ -1,38 +1,39 @@
-# Fleet roles (core + relay)
+# Fleet: primary & secondary
 
-## Decision
+## Naming
 
-| Concern | Node | Why |
-|--------|------|-----|
-| **Control-plane primary** | **Abroad core** | Users, policies, TG operator bot, admin, backup authority |
-| **VPN entry** | **RU relay** | Whitelist / mobile |
-| **Lampac (default)** | **RU** | Latency; data synced hourly |
-| **TG bot** | **Abroad active**; RU **standby** via SOCKS→core | TG often blocked in RU; Bot API needs HTTPS exit abroad |
+| Operator term | Typical host | Internal notes |
+|---------------|--------------|----------------|
+| **primary** | Abroad VPS | Control plane: users, policies, TG bot active, admin, backup authority. Hostname `nd-primary` |
+| **secondary** | RU VPS | VPN entry under WL + warm services (Lampac). Hostname `nd-secondary`. VPN agent code path still uses `role=relay` |
 
-## TG failover (no MTProxy)
+Do **not** load-balance VPN. Secondary is the default client entry; primary is the source of truth.
 
-Bot API is HTTPS to `api.telegram.org`. MTProxy is for client apps, not required here.
-
-On **secondary (RU)**:
-1. `ssh -D 127.0.0.1:1089` to primary → SOCKS exits with **core IP**
-2. Standby unit: `ALL_PROXY=socks5://127.0.0.1:1089 netductor-tg`
-3. Timer every 2 min: if primary bot not `active` → start standby; if primary healthy → stop standby
+## Deploy secondary from primary
 
 ```bash
-# on primary
-netductor fleet sync-timer
-netductor fleet apply-lampac
+# on primary (after core install/recover)
+netductor fleet provision-secondary \
+  --host 92.x.x.x --password '…' [--sni api.vk.me]
 
-# on secondary (once)
-netductor fleet bot-standby-install root@CORE_IP
-netductor fleet bot-failover timer
+# equivalent low-level (VPN only):
+# netductor relay provision --host … --password …
 ```
+
+`provision-secondary` runs:
+
+1. VPN join (`relay provision` + post hooks)
+2. Fleet roles (`secondary`, desired hostname `nd-secondary`)
+3. Data sync (Lampac volume, policy)
+4. Lampac on secondary (unless `--no-lampac`)
+5. Bot standby units on secondary (unless `--no-bot-standby`) — SOCKS via primary
+6. Hourly `fleet sync` timer on primary
 
 ## Commands
 
 ```bash
-netductor fleet bootstrap|status
+netductor fleet status|bootstrap
+netductor fleet provision-secondary --host IP --password PASS
 netductor fleet sync | sync-timer | apply-lampac
-netductor fleet bot-standby-install [user@primary]
 netductor fleet bot-failover check|promote|demote|timer
 ```
