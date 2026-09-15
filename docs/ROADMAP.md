@@ -1,19 +1,25 @@
 # Roadmap
 
 ## Done
-- Go-only control plane (install, VPN, API, TUI, TG, edge, relay)
-- Production auth: session hash-at-rest, device tokens, enroll rate-limit, TG admin allowlist
-- Node registry with stable UUID + hostname roles (`nd-<role>-…`)
-- Relay RU node (provision, agent, preferred links, RU exit toggle)
-- Flow mismatch monitoring; SSH TOFU known_hosts + multi-UI manage
+- Go-only control plane (install, VPN, API, TUI, TG, edge)
+- Fleet **primary / secondary** model (`internal/fleet`, `provision-secondary`)
+- Secondary = RU VPN entry + warm services; primary = control plane
+- Cross-VPS backup + `recover` with COMPONENTS manifest
+- Relay/secondary agent, preferred client links, RU exit toggle
+- TG bot standby design (SOCKS via primary, `/api/bot-status`)
+- Node registry UUID + hostnames (`nd-primary`, `nd-secondary`)
 - Site model (MikroTik + RPi), RSC push, live SNI
-- `netductor update`; audit log; APT hardened install
+- Production auth: session hash, device tokens, TG allowlist
 
-## Next (needs owner hardware/domain)
-- OpenWrt + MikroTik e2e on real devices
-- HTTPS / Mini App
-- Optional: SNI auto policy under carrier WL
+## Next (owner action)
+- [ ] Clean dual-VPS smoke: wipe primary + secondary, full provision-secondary path
+- [ ] OpenWrt + MikroTik e2e on real hardware
+- [ ] Optional HTTPS / domain
+- [ ] TG UI copy: consistent primary/secondary wording everywhere
 
 ## Tests
 - `go test ./...` on every change
-- VPS clean install smoke when host available
+- VPS clean install + secondary provision when hosts available
+
+## Handoff
+- [AGENT_HANDOFF.md](AGENT_HANDOFF.md) for new chat/agent context
