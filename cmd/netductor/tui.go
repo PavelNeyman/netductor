@@ -139,68 +139,57 @@ func modeItems(sug runMode) []list.Item {
 }
 
 func menuItemsFor(mode runMode) []list.Item {
+	items := []list.Item{
+		menuItem{"★ Setup wizard…", "Primary / Secondary / OpenWrt / MikroTik — questions then auto", "wizard"},
+	}
 	switch mode {
 	case modeVPS:
-		return []list.Item{
-			menuItem{"Full install / upgrade", "confirm → bash install.sh", "install"},
-			menuItem{"Prepare only", "confirm → install.sh --prepare", "prepare"},
-			menuItem{"Doctor", "health checks", "doctor"},
-			menuItem{"Status", "systemd units", "status"},
-			menuItem{"Operator tools…", "VPN, edge, probes", "to-operator"},
-			menuItem{"Set hostname", "nd-<role>-<marker> e.g. nd-core-nl01", "hostname"},
-			menuItem{"Nodes registry", "list fleet", "nodes-list"},
-			menuItem{"Change mode…", "", "change-mode"},
-			menuItem{"Quit", "", "quit"},
-		}
+		items = append(items,
+			menuItem{"Install / upgrade stack", "netductor install (idempotent)", "install"},
+			menuItem{"Apply Lampac", "on preferred fleet node (usually secondary)", "apply-lampac"},
+			menuItem{"Set hostname", "nd-primary / nd-secondary / …", "hostname"},
+		)
 	case modeOpenWRT:
-		return []list.Item{
+		items = append(items,
 			menuItem{"Agent install instructions", "outbound netductor-agent", "agent-help"},
-			menuItem{"Run install-openwrt.sh", "confirm if present", "owrt-install"},
+			menuItem{"Run install-openwrt.sh", "if present on device", "owrt-install"},
 			menuItem{"Check agent config", "", "agent-cfg"},
-			menuItem{"Change mode…", "", "change-mode"},
-			menuItem{"Quit", "", "quit"},
-		}
+		)
 	case modeWorkstation:
-		return []list.Item{
+		items = append(items,
 			menuItem{"Bootstrap one-liner", "copy-paste for VPS", "bootstrap"},
 			menuItem{"Build netductor (local Go)", "", "build"},
-			menuItem{"Site setup wizard", "MikroTik + RPi · step by step", "site-wizard"},
 			menuItem{"MikroTik manage", "identity / routes / push", "mt-manage"},
-			menuItem{"SSH known hosts", "TOFU list / forget", "ssh-hosts"},
-			menuItem{"Sites list", "", "sites-list"},
-			menuItem{"Operator tools…", "via SSH tunnel", "to-operator"},
-			menuItem{"Change mode…", "", "change-mode"},
-			menuItem{"Quit", "", "quit"},
-		}
+		)
 	default:
-		return []list.Item{
-			menuItem{"Status", "systemd units", "status"},
-			menuItem{"Doctor", "health checks", "doctor"},
-			menuItem{"VPN — list users", "", "vpn-list"},
-			menuItem{"VPN — add user", "form: name + note", "vpn-add"},
-			menuItem{"VPN — rename user", "old → new (UUID kept)", "vpn-rename"},
-			menuItem{"VPN — subscription", "show subscription body", "vpn-sub"},
-			menuItem{"Backup peer", "cross-VPS scp target", "backup-peer"},
-			menuItem{"Backup now", "local + offsite if set", "backup-now"},
-			menuItem{"VPN — refresh links", "rewrite all client files", "vpn-refresh"},
-			menuItem{"Audit tail", "", "audit-tail"},
-			menuItem{"Sessions list", "", "sessions-list"},
-			menuItem{"Session token", "hours form", "session"},
-			menuItem{"Edge — list devices", "", "edge-list"},
-			menuItem{"Nodes registry", "core + relay fleet", "nodes-list"},
-			menuItem{"Relay status", "online / metrics / last cmd", "relay-status"},
-			menuItem{"Relay sync", "push user list to relays", "relay-sync"},
-			menuItem{"RU exit ON", "core traffic via RU", "relay-exit-on"},
-			menuItem{"RU exit OFF", "", "relay-exit-off"},
-			menuItem{"Set hostname", "nd-<role>-<marker> e.g. nd-core-nl01", "hostname"},
-			menuItem{"Addons — Lampac", "status / health", "addons-lampac"},
-			menuItem{"Live probes", "", "probe"},
-			menuItem{"Collect metrics", "", "collect"},
-			menuItem{"Change mode…", "", "change-mode"},
-			menuItem{"Quit", "", "quit"},
-		}
+		items = append(items,
+			menuItem{"VPN — add user", "", "vpn-add"},
+			menuItem{"VPN — link / QR", "", "vpn-sub"},
+			menuItem{"Session create", "", "session"},
+			menuItem{"Live SNI", "", "sni-live"},
+			menuItem{"Edge devices", "", "edge-list"},
+		)
 	}
+	items = append(items,
+		menuItem{"── Tools ──", "diagnostics & ops", "noop"},
+		menuItem{"Doctor", "health checks", "doctor"},
+		menuItem{"Status", "systemd units", "status"},
+		menuItem{"Fleet status", "primary / secondary", "fleet-status"},
+		menuItem{"Nodes registry", "list", "nodes-list"},
+		menuItem{"Secondary / relay status", "agent online", "relay-status"},
+		menuItem{"Backup now", "encrypted + peer", "backup-now"},
+		menuItem{"Fleet sync", "data → secondary", "fleet-sync"},
+		menuItem{"VPN users", "list", "vpn-list"},
+		menuItem{"Refresh VPN links", "prefer secondary", "vpn-refresh"},
+		menuItem{"Probes", "connectivity", "probe"},
+		menuItem{"SSH known hosts", "TOFU", "ssh-hosts"},
+		menuItem{"Audit tail", "events", "audit-tail"},
+		menuItem{"Change mode…", "", "change-mode"},
+		menuItem{"Quit", "", "quit"},
+	)
+	return items
 }
+
 
 func newList(title string, items []list.Item, w, h int) list.Model {
 	d := list.NewDefaultDelegate()
@@ -285,6 +274,29 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		t, _ := describeMode(m.mode)
 		m.list = newList("Netductor · "+t, menuItemsFor(m.mode), m.width-4, m.height-8)
 		return m, nil
+	case "noop":
+		return m, nil
+	case "wizard":
+		m.result = tuiResult{action: "wizard", mode: m.mode}
+		return m, tea.Quit
+	case "fleet-status":
+		m.output = capture(func() {
+			out, _ := exec.Command("netductor", "fleet", "status").CombinedOutput()
+			fmt.Print(string(out))
+		})
+		m.screen = screenOutput
+	case "fleet-sync":
+		m.output = capture(func() {
+			out, _ := exec.Command("netductor", "fleet", "sync").CombinedOutput()
+			fmt.Print(string(out))
+		})
+		m.screen = screenOutput
+	case "apply-lampac":
+		m.output = capture(func() {
+			out, _ := exec.Command("netductor", "fleet", "apply-lampac").CombinedOutput()
+			fmt.Print(string(out))
+		})
+		m.screen = screenOutput
 	case "status":
 		m.output = capture(func() { runStatus() })
 		m.screen = screenOutput
@@ -708,8 +720,126 @@ func runTUI(args []string) {
 			runSNIForm()
 		case "ssh-hosts":
 			runSSHHostsTUI()
+		case "wizard":
+			runSetupWizard()
 		default:
 			return
 		}
 	}
+}
+
+// runSetupWizard asks what to configure, then runs automation.
+func runSetupWizard() {
+	var target string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Setup wizard — what are we configuring?").
+				Description("Questions first, then fully automatic apply").
+				Options(
+					huh.NewOption("Primary VPS (abroad control plane)", "primary"),
+					huh.NewOption("Secondary VPS (RU entry / warm services)", "secondary"),
+					huh.NewOption("OpenWrt router / RPi (edge agent)", "openwrt"),
+					huh.NewOption("MikroTik (ROS routes / site)", "mikrotik"),
+				).
+				Value(&target),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
+	if err != nil {
+		fmt.Println(errStyle.Render(err.Error()))
+		return
+	}
+	switch target {
+	case "primary":
+		wizardPrimary()
+	case "secondary":
+		wizardSecondary()
+	case "openwrt":
+		wizardOpenWrt()
+	case "mikrotik":
+		runSiteWizard()
+	}
+}
+
+func wizardPrimary() {
+	var sni string
+	var doInstall bool
+	_ = huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Run netductor install on this host?").
+				Description("Idempotent. VPN, DNS, API, bot, SSH key-only.").
+				Value(&doInstall),
+			huh.NewInput().
+				Title("Reality SNI").
+				Placeholder("api.vk.me").
+				Value(&sni),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
+	if sni == "" {
+		sni = "api.vk.me"
+	}
+	if doInstall {
+		fmt.Println(okStyle.Render("→ netductor install"))
+		cmd := exec.Command("netductor", "install")
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		_ = cmd.Run()
+	}
+	fmt.Println(okStyle.Render("→ set SNI " + sni))
+	_ = exec.Command("netductor", "vpn", "set-sni", sni).Run()
+	_ = exec.Command("netductor", "fleet", "bootstrap").Run()
+	out, _ := exec.Command("netductor", "doctor").CombinedOutput()
+	fmt.Print(string(out))
+	fmt.Println(subStyle.Render("Next: wizard → Secondary"))
+}
+
+func wizardSecondary() {
+	var host, user, pass, sni string
+	user = "root"
+	sni = "api.vk.me"
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Title("Secondary IP / host").Value(&host),
+			huh.NewInput().Title("SSH user").Value(&user),
+			huh.NewInput().Title("SSH password (first login only)").EchoMode(huh.EchoModePassword).Value(&pass),
+			huh.NewInput().Title("Reality SNI").Placeholder("api.vk.me").Value(&sni),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
+	if err != nil || host == "" || pass == "" {
+		fmt.Println(errStyle.Render("host and password required"))
+		return
+	}
+	if sni == "" {
+		sni = "api.vk.me"
+	}
+	fmt.Println(okStyle.Render("→ fleet provision-secondary (automatic)"))
+	cmd := exec.Command("netductor", "fleet", "provision-secondary",
+		"--host", host, "--user", user, "--password", pass, "--sni", sni)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Println(errStyle.Render(err.Error()))
+		return
+	}
+	out, _ := exec.Command("netductor", "fleet", "status").CombinedOutput()
+	fmt.Print(string(out))
+}
+
+func wizardOpenWrt() {
+	var host, user, pass string
+	user = "root"
+	_ = huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Title("OpenWrt host / IP").Value(&host),
+			huh.NewInput().Title("SSH user").Value(&user),
+			huh.NewInput().Title("SSH password (optional if key)").EchoMode(huh.EchoModePassword).Value(&pass),
+			huh.NewNote().Title("Note").Description("Agent enrolls outbound to primary :8788. Approve in Admin/TG."),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
+	if host == "" {
+		fmt.Println(errStyle.Render("host required"))
+		return
+	}
+	fmt.Println(okStyle.Render("→ edge enroll path for " + host))
+	fmt.Println(subStyle.Render("On router: install netductor-agent; CORE=http://PRIMARY:8788"))
+	fmt.Println(subStyle.Render("Bootstrap token: /etc/netductor/secrets/edge_bootstrap_token on primary"))
 }
