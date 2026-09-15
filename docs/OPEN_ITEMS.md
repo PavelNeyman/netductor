@@ -1,17 +1,18 @@
 # Open items
 
-## Product decisions locked
-- [x] Subscription removed (single VLESS/HY2 links only)
-- [x] Fleet primary (abroad) / secondary (RU) — not equal active-active cores
+## Locked decisions
+- [x] Subscription removed
+- [x] Fleet primary (abroad) / secondary (RU) — not active-active equals
 - [x] No VPN load-balancer VPS
-- [x] Lampac localhost only; prefer secondary placement
-- [x] TG active on primary; standby on secondary via SOCKS→primary (not MTProxy)
+- [x] SSH: password first login only, then key-only both nodes
+- [x] Lampac localhost; prefer secondary
+- [x] TG active on primary; standby via SOCKS→primary
+- [x] TG: navigation under message; actions in body
 
-## Still open
-- [ ] Dual-VPS clean smoke after wipe
-- [ ] Real OpenWrt / MikroTik hardware e2e
-- [ ] Domain + HTTPS for admin (optional)
-- [ ] Path B: separate limited user-facing TG bot (documented idea only)
+## Open
+- [ ] OpenWrt / MikroTik real hardware e2e
+- [ ] Domain + HTTPS (optional)
+- [ ] Path B end-user bot (idea only)
 
 ## Handoff
-New agents: start at [AGENT_HANDOFF.md](AGENT_HANDOFF.md).
+[AGENT_HANDOFF.md](AGENT_HANDOFF.md)
