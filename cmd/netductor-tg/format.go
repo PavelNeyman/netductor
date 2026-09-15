@@ -516,6 +516,18 @@ func formatNodeCardHTML(c nodeCard) string {
 			b.WriteString(line + nl)
 		}
 	}
+	// Node actions in body; navigation under message (nodeCardKeyboard)
+	id := c.ID
+	b.WriteString(nl + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:nd:m:` + id + `">` + esc(T("node_metrics")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:nd:j:` + id + `">` + esc(T("node_journal")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" data="m:nd:s:` + id + `">` + esc(T("node_restart_sb")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:nd:u:` + id + `">` + esc(T("node_upgrade")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:nd:r:` + id + `">` + esc(T("node_reboot")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>`)
 	return strings.TrimRight(b.String(), nl)
 }
 
@@ -695,7 +707,6 @@ func formatUsersListHTML() string {
 	}
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="success" data="m:vpn_add">` + esc(T("vpn_add")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:menu">` + esc(T("main_menu")) + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
@@ -733,9 +744,6 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:disable:` + name + `">` + esc(T("vpn_disable")) + `</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:revoke:` + name + `">` + esc(T("vpn_revoke")) + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
-	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" data="m:users">` + esc(T("users")) + `</tg-button>`)
-	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
 
@@ -761,10 +769,25 @@ func accessPayload(name, mode string) (payload, caption string) {
 		payload = ""
 	}
 	if payload != "" {
-		caption += "<code>" + esc(payload) + "</code>"
+		caption += "<code>" + esc(payload) + "</code>" + nl + nl
 	} else {
-		caption += "❌ " + T("no_links")
+		caption += "❌ " + T("no_links") + nl + nl
 	}
+	// Mode switch = function of this screen → in-body buttons (nav stays under message)
+	caption += `<tg-button-row align="left">`
+	styleV, styleC, styleH := "", "", ""
+	switch mode {
+	case "core":
+		styleC = ` style="primary"`
+	case "hy2":
+		styleH = ` style="primary"`
+	default:
+		styleV = ` style="primary"`
+	}
+	caption += `<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`
+	caption += `<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`
+	caption += `<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`
+	caption += `</tg-button-row>`
 	return payload, caption
 }
 
