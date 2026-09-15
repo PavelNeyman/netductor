@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -84,12 +85,18 @@ func ResolveClientEndpoints(name, uuid string) ClientEndpoints {
 }
 
 func ClientLinkForRelayLocal(name, uuid, relayIP, pbk, sid, sniName string) string {
+	host := relayIP
+	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST")); h != "" {
+		host = h
+	} else if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "vpn_hostname")); err == nil && strings.TrimSpace(string(b)) != "" {
+		host = strings.TrimSpace(string(b))
+	}
 	if sniName == "" {
 		sniName = DefaultRealitySNI
 	}
 	return fmt.Sprintf(
-		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-relay",
-		uuid, relayIP, sniName, DefaultUTLSFingerprint, pbk, sid,
+		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-secondary",
+		uuid, host, sniName, DefaultUTLSFingerprint, pbk, sid,
 	)
 }
 
