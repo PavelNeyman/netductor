@@ -4,21 +4,35 @@
 **Релиз:** `v0.7.0-dev`  
 Документация user-facing — **EN + RU**.
 
-## Модель fleet
+Полная версия (EN): [AGENT_HANDOFF.md](../AGENT_HANDOFF.md)
+
+## Модель
 
 | Имя | Где | Зачем |
 |-----|-----|--------|
-| **primary** | За рубежом | Источник правды, TG-бот active, API, бэкапы. `nd-primary` |
-| **secondary** | РФ | Вход VPN (БС), Lampac, standby TG через SOCKS→primary. `nd-secondary` |
+| **primary** | За рубежом | Источник правды, TG active, API, бэкапы. `nd-primary` |
+| **secondary** | РФ | Вход VPN (БС), Lampac, standby TG через SOCKS. `nd-secondary` |
 
 VPN **не** балансируем. В коде VPN-агент может называться `relay`.
 
-## Чистый деплой
+## SSH
 
-1. Primary: binary → secrets TG → `netductor install` → doctor  
+Пароль только для первого входа → `install` / `provision-secondary` ставят ключ primary и **отключают пароль**.
+
+## Деплой
+
+1. Primary: binary → secrets TG → `netductor install` → `vpn set-sni api.vk.me`  
 2. Secondary с primary: `netductor fleet provision-secondary --host IP --password …`  
-3. Recover: `netductor recover --key … backup.ndenc` (+ `COMPONENTS.txt` рядом)
+3. Recover: `netductor recover --key … backup.ndenc`
 
-SNI по умолчанию для экспериментов с БС: **`api.vk.me`**.
+**Не** удалять токены агента в post-provision до heartbeat.
 
-Подробности и cheat sheet: [AGENT_HANDOFF.md](../AGENT_HANDOFF.md) (EN, полный).
+## Telegram UI
+
+- **Под сообщением** — только навигация (меню, назад).  
+- **В тексте** — действия экрана (доступ, rename, VLESS/HY2, метрики ноды).  
+Без дублирования «Добавить» / «Меню».
+
+## TUI
+
+`netductor tui` → мастер настройки (primary/secondary/OpenWrt/MikroTik) + Tools.
