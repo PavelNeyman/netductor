@@ -188,27 +188,47 @@ func SetServiceNode(service, nodeID string) error {
 func StatusSummary() string {
 	p := LoadPolicy()
 	var b strings.Builder
-	b.WriteString("Fleet policy\n")
-	b.WriteString("  model: control-plane primary=abroad; VPN entry + lampac prefer=RU\n")
-	b.WriteString(fmt.Sprintf("  primary_node:   %s\n", empty(p.PrimaryNodeID, "(unset)")))
-	b.WriteString(fmt.Sprintf("  secondary_node: %s\n", empty(p.SecondaryNodeID, "(unset)")))
-	b.WriteString(fmt.Sprintf("  lampac_node:    %s\n", empty(p.LampacNodeID, "(unset)")))
-	b.WriteString(fmt.Sprintf("  bot_node:       %s\n", empty(p.BotNodeID, "(unset)")))
-	b.WriteString(fmt.Sprintf("  sync_enabled:   %v\n", p.SyncEnabled))
+	b.WriteString("Fleet policy (primary / secondary)
+")
+	b.WriteString("  model: primary=abroad control-plane; secondary=RU entry + warm services
+")
+	b.WriteString("  note:  VPN agent may still use role=relay internally
+")
+	b.WriteString(fmt.Sprintf("  primary:   %s  ssh=%s
+", empty(p.PrimaryNodeID, "(unset)"), empty(p.PrimarySSH, "-")))
+	b.WriteString(fmt.Sprintf("  secondary: %s  ssh=%s
+", empty(p.SecondaryNodeID, "(unset)"), empty(p.SecondarySSH, "-")))
+	b.WriteString(fmt.Sprintf("  lampac →   %s
+", empty(p.LampacNodeID, "(unset)")))
+	b.WriteString(fmt.Sprintf("  bot →      %s
+", empty(p.BotNodeID, "(unset)")))
+	b.WriteString(fmt.Sprintf("  sync:      %v
+", p.SyncEnabled))
 	list, _ := nodes.List()
-	b.WriteString("Nodes\n")
+	b.WriteString("Nodes
+")
 	for _, n := range list {
-		cp := ""
-		reg := ""
-		if n.Labels != nil {
-			cp = n.Labels[LabelControlPlane]
+		reg := "-"
+		if n.Labels != nil && n.Labels[LabelRegion] != "" {
 			reg = n.Labels[LabelRegion]
 		}
-		b.WriteString(fmt.Sprintf("  • %s  host=%s role=%s ip=%s status=%s cp=%s region=%s\n",
-			n.ID, n.Hostname, n.Role, n.PublicIP, n.Status, empty(cp, "-"), empty(reg, "-")))
+		disp := n.Role
+		if disp == "relay" {
+			disp = "secondary"
+		}
+		if n.Labels != nil && n.Labels[LabelControlPlane] == "primary" {
+			disp = "primary"
+		}
+		if n.Labels != nil && n.Labels[LabelControlPlane] == "secondary" {
+			disp = "secondary"
+		}
+		b.WriteString(fmt.Sprintf("  • %s  host=%s fleet=%s ip=%s status=%s region=%s
+",
+			n.ID, n.Hostname, disp, n.PublicIP, n.Status, reg))
 	}
 	return b.String()
 }
+
 
 func empty(s, def string) string {
 	if strings.TrimSpace(s) == "" {
