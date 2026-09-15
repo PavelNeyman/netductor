@@ -181,8 +181,17 @@ func Backup() (string, error) {
 	}
 	stamp := time.Now().UTC().Format("20060102-150405")
 	plain := filepath.Join(dir, "netductor-"+stamp+".tar.gz")
-	etc := paths.EtcDir()
-	_ = run("tar", "-czf", plain, "-C", filepath.Dir(etc), filepath.Base(etc))
+	// Absolute-from-root layout so restore can unpack with tar -C /
+	_ = run("tar", "-czf", plain, "-C", "/",
+		"etc/netductor",
+		"var/lib/netductor/relay",
+		"var/lib/netductor/nodes",
+		"var/lib/netductor/sites",
+	)
+	if st, err := os.Stat(plain); err != nil || st.Size() == 0 {
+		etc := paths.EtcDir()
+		_ = run("tar", "-czf", plain, "-C", filepath.Dir(etc), filepath.Base(etc))
+	}
 	if st, err := os.Stat(plain); err != nil || st.Size() == 0 {
 		return "", fmt.Errorf("tar failed")
 	}
@@ -236,9 +245,12 @@ func Restore(archive string, keyArg string) error {
 		src = tmp
 		defer os.Remove(tmp)
 	}
-	parent := filepath.Dir(paths.EtcDir())
-	if err := run("tar", "-xzf", src, "-C", parent); err != nil {
-		return err
+	// Prefer root extract (new backups: etc/netductor + var/lib/...). Fallback: old etc-only archives.
+	if err := run("tar", "-xzf", src, "-C", "/"); err != nil {
+		parent := filepath.Dir(paths.EtcDir())
+		if err2 := run("tar", "-xzf", src, "-C", parent); err2 != nil {
+			return err
+		}
 	}
 	// Ensure key is persisted for future backups after bare-metal restore.
 	if key := strings.TrimSpace(keyArg); key != "" {
