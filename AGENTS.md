@@ -43,7 +43,7 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 
 Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **edge** · **operator** · **fleet** (primary/secondary) · **extras** (optional).
 
-**Fleet:** primary = abroad control plane; secondary = RU VPN entry + warm services. Details: [docs/FLEET.md](docs/FLEET.md), [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md). Internal VPN agent may still be named `relay`.
+**Fleet:** primary = abroad control plane; secondary = RU VPN entry + warm services. Details: [docs/FLEET.md](docs/FLEET.md), [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md). Secondary was formerly called `relay` (legacy paths/API aliases remain).
 
 **SSH:** password only for first login; install/provision → key-only (`internal/install/ssh_harden.go`).
 
@@ -89,11 +89,11 @@ Target layout: `cmd/netductor`, `cmd/netductor-agent`, `internal/`.
 | Area | Status |
 |------|--------|
 | Repo | **PavelNeyman/netductor** |
-| Version | **0.7.0-dev** |
+| Version | **0.7.1-dev** |
 | G0–G1 | done |
 | G2 | release `v0.7.0-dev` published |
 | G3 | `netductor serve` health scaffold; port Python API |
-| Next | expand `serve` (session, edge, admin static); G4 install |
+| Next | OpenWrt/MikroTik e2e; optional HTTPS |
 
 ---
 
@@ -102,7 +102,7 @@ Final: production quality, chat never overrides AGENTS.
 ## Node naming (fleet)
 
 Format: `nd-<role>-<marker>` (e.g. `nd-core-nl01`).
-Roles: `core` | `edge` | `lab`. Marker: region+number or IP suffix.
+Roles: `core` | `secondary` | `edge` | `lab`. Marker: region+number or IP suffix.
 See [NODES.md](NODES.md). Registry is bidirectional (device heartbeat ↔ operator desired hostname).
 UI hints: Admin → Nodes, Telegram → Nodes, TUI → Set hostname.
 
