@@ -25,7 +25,10 @@ func InstallHardening() error {
 		_ = run("ufw", "allow", "OpenSSH")
 		_ = run("ufw", "allow", "22/tcp")
 		_ = run("ufw", "allow", "443/tcp")
+		_ = run("ufw", "allow", "4443/tcp")
+		_ = run("ufw", "allow", "4443/udp")
 		_ = run("ufw", "allow", "8443/udp")
+		_ = run("ufw", "allow", "8788/tcp") // relay agent → core
 		// idempotent enable
 		out, _ := runOut("ufw", "status")
 		if !strings.Contains(out, "Status: active") {
