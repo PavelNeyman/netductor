@@ -273,15 +273,9 @@ func postProvisionRelay(host, sni string) {
 	fmt.Println("==> post-provision: forget old SSH host key (reinstall changes fingerprint)")
 	_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
 
-	fmt.Println("==> post-provision: drop stale relay devices for", host)
-	_ = relay.RemoveByPublicIP(host, "") // all; new agent will reappear on heartbeat
-	_ = relay.PruneStale(1 * time.Minute)
-	for _, d := range relay.List() {
-		if d.PublicIP == "" {
-			_ = relay.RemoveDevice(d.ID)
-			fmt.Println("  devices: removed empty-IP", d.ID)
-		}
-	}
+	fmt.Println("==> post-provision: keep issued agent tokens (do not wipe before heartbeat)")
+	// Do not RemoveByPublicIP(host,"") here — that deleted the token IssueToken just wrote.
+	_ = relay.PruneStale(24 * time.Hour)
 	if list, err := nodes.List(); err == nil {
 		for _, n := range list {
 			if n.Role != "relay" {
