@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
@@ -66,11 +67,23 @@ func main() {
 	case "backup":
 		runBackupCmd(os.Args[2:])
 	case "restore":
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: netductor restore <archive>")
+		key, arch := "", ""
+		for i := 2; i < len(os.Args); i++ {
+			a := os.Args[i]
+			if a == "--key" && i+1 < len(os.Args) {
+				i++
+				key = os.Args[i]
+				continue
+			}
+			if !strings.HasPrefix(a, "-") && arch == "" {
+				arch = a
+			}
+		}
+		if arch == "" {
+			fmt.Fprintln(os.Stderr, "usage: netductor restore [--key KEY] <archive.ndenc|tar.gz>")
 			os.Exit(2)
 		}
-		if err := install.Restore(os.Args[2]); err != nil {
+		if err := install.Restore(arch, key); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
