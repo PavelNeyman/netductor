@@ -77,6 +77,17 @@ func loadOffsite() (method, target, extra string) {
 	return method, target, extra
 }
 
+func writeBackupKeyRecovery() error {
+	key := readSecret("backup_key")
+	if key == "" {
+		return nil
+	}
+	dir := filepath.Join(paths.StateDir(), "backups")
+	_ = os.MkdirAll(dir, 0o700)
+	path := filepath.Join(dir, "BACKUP_KEY.txt")
+	return os.WriteFile(path, []byte(key+"\n"), 0o600)
+}
+
 func uploadOffsite(localPath string) error {
 	method, target, extra := loadOffsite()
 	if method == "" || target == "" {
@@ -89,7 +100,16 @@ func uploadOffsite(localPath string) error {
 			args = append(args, strings.Fields(extra)...)
 		}
 		args = append(args, localPath, target)
-		return run("scp", args...)
+		if err := run("scp", args...); err != nil {
+			return err
+		}
+		keyPath := filepath.Join(paths.StateDir(), "backups", "BACKUP_KEY.txt")
+		if st, err := os.Stat(keyPath); err == nil && st.Size() > 0 {
+			kargs := append([]string{}, args[:len(args)-2]...)
+			kargs = append(kargs, keyPath, target)
+			_ = run("scp", kargs...)
+		}
+		return nil
 	case "rsync":
 		args := []string{"-az"}
 		if extra != "" {
@@ -177,6 +197,8 @@ func Backup() (string, error) {
 		out = enc
 	}
 	_ = os.Chmod(out, 0o600)
+	// Recovery key alongside archive on peer (core wipe cannot read key from encrypted blob).
+	_ = writeBackupKeyRecovery()
 	failMark := filepath.Join(paths.StateDir(), "backup_offsite_fail")
 	if err := uploadOffsite(out); err != nil {
 		fmt.Fprintf(os.Stderr, "offsite: %v\n", err)
@@ -189,16 +211,23 @@ func Backup() (string, error) {
 }
 
 // Restore unpacks backup into paths.EtcDir parent (expects tar of etc dir name).
-func Restore(archive string) error {
+// For .ndenc decryption key order: explicit keyArg → NETDUCTOR_BACKUP_KEY → secrets/backup_key.
+func Restore(archive string, keyArg string) error {
 	if archive == "" {
-		return fmt.Errorf("usage: netductor restore <file.tar.gz|.ndenc>")
+		return fmt.Errorf("usage: netductor restore [--key KEY] <file.tar.gz|.ndenc>")
 	}
 	src := archive
 	tmp := ""
 	if strings.HasSuffix(archive, ".ndenc") {
-		key := readSecret("backup_key")
+		key := strings.TrimSpace(keyArg)
 		if key == "" {
-			return fmt.Errorf("backup_key missing")
+			key = strings.TrimSpace(os.Getenv("NETDUCTOR_BACKUP_KEY"))
+		}
+		if key == "" {
+			key = readSecret("backup_key")
+		}
+		if key == "" {
+			return fmt.Errorf("backup_key missing — pass --key, or NETDUCTOR_BACKUP_KEY, or restore secrets first")
 		}
 		tmp = filepath.Join(os.TempDir(), "netductor-restore.tar.gz")
 		if err := decryptFile(archive, tmp, key); err != nil {
@@ -208,7 +237,16 @@ func Restore(archive string) error {
 		defer os.Remove(tmp)
 	}
 	parent := filepath.Dir(paths.EtcDir())
-	return run("tar", "-xzf", src, "-C", parent)
+	if err := run("tar", "-xzf", src, "-C", parent); err != nil {
+		return err
+	}
+	// Ensure key is persisted for future backups after bare-metal restore.
+	if key := strings.TrimSpace(keyArg); key != "" {
+		_ = writeSecret("backup_key", key)
+	} else if k := strings.TrimSpace(os.Getenv("NETDUCTOR_BACKUP_KEY")); k != "" {
+		_ = writeSecret("backup_key", k)
+	}
+	return nil
 }
 
 func pruneBackups(dir string, keep int) {
