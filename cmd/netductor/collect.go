@@ -14,6 +14,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -170,6 +171,18 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 			}
 		}
 	}
+	if enabled("sni_health") {
+		ok, ms, det := vpn.SNIHealth()
+		vpn.WriteSNIHealthMetric(ok, ms, det)
+		// Reality often fails plain TLS probe — only alert on dial failure
+		if strings.Contains(det, "connection refused") || strings.Contains(det, "i/o timeout") {
+			notify.AlertOnce("sni:down", fmt.Sprintf("⚠️ VLESS port/SNI probe failed: %s", det))
+		} else {
+			notify.ClearAlert("sni:down")
+		}
+		_ = ok
+		_ = ms
+	}
 	if enabled("mismatch_spike") {
 		st := vpn.CollectMismatch(30)
 		if st.Total >= 20 {
@@ -181,6 +194,13 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	}
 	if n, err := vpn.ExpireGuests(); err == nil && n > 0 {
 		notify.AlertOnce("guest:expire", fmt.Sprintf("🧹 Expired <b>%d</b> guest VPN user(s)", n))
+	}
+	for _, m := range hardening.UnusualSSHAlerts() {
+		key := "ssh:unusual"
+		if len(m) > 24 {
+			key = "ssh:unusual:"+m[len(m)-24:]
+		}
+		notify.AlertOnce(key, "🔐 "+m)
 	}
 	if enabled("backup_offsite") {
 		// marker written by backup on scp failure
