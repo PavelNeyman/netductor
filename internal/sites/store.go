@@ -96,6 +96,17 @@ func Upsert(s Site) (Site, error) {
 	return s, save(d)
 }
 
+func Delete(id string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	d, err := load()
+	if err != nil {
+		return err
+	}
+	delete(d.Sites, id)
+	return save(d)
+}
+
 func Get(id string) (Site, bool) {
 	mu.Lock()
 	defer mu.Unlock()
