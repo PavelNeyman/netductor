@@ -95,5 +95,5 @@ findtime = 10m
 }
 
 // DefaultSSHPort is used when deploy does not set NETDUCTOR_SSH_PORT.
-// 22222 — non-standard, easy to remember, avoids colliding with common 2222 scanners slightly less than 22.
-const DefaultSSHPort = 22222
+// 52222 — non-standard, easy to remember, avoids colliding with common 2222 scanners slightly less than 22.
+const DefaultSSHPort = 52222
