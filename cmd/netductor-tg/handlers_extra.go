@@ -12,6 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/dnsblock"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/sites"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -136,6 +137,44 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 		showBackupMenu(token, chat, msgID, s, "")
 		return
 	}
+	if data == "m:backup:list" {
+		names := install.ListBackupFiles()
+		nl := string([]byte{10})
+		var b strings.Builder
+		b.WriteString("🗂 <b>Backups</b>" + nl)
+		b.WriteString("<table bordered striped>" + nl)
+		b.WriteString("<tr><th>#</th><th>file</th><th></th></tr>" + nl)
+		for i, n := range names {
+			if i >= 12 {
+				break
+			}
+			b.WriteString(fmt.Sprintf(`<tr><td>%d</td><td><code>%s</code></td><td><tg-button type="callback_data" data="m:backup:restore:%s">Restore</tg-button></td></tr>`, i+1, n, n) + nl)
+		}
+		b.WriteString("</table>" + nl)
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("🗓 Backup", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")},
+		}})
+		return
+	}
+	if data == "m:backup:keep" {
+		setState(chat, "wait_backup_keep", "")
+		reply(token, chat, msgID, "Keep last N backups (1–90), now: <code>"+strconv.Itoa(install.BackupKeepCount())+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("🗓", "m:backup", ""), btn(T("main_menu"), "m:menu", "")},
+		}})
+		return
+	}
+	if strings.HasPrefix(data, "m:backup:restore:") {
+		name := strings.TrimPrefix(data, "m:backup:restore:")
+		path := filepath.Join("/var/lib/netductor/backups", name)
+		reply(token, chat, msgID, "⏳ Restore <code>"+esc(name)+"</code>…", toolsKeyboard())
+		err := install.Restore(path, "")
+		if err != nil {
+			reply(token, chat, msgID, "❌ "+esc(err.Error()), toolsKeyboard())
+			return
+		}
+		reply(token, chat, msgID, "✅ Restore done: <code>"+esc(name)+"</code>", toolsKeyboard())
+		return
+	}
 	if data == "m:backup:run" {
 		showBackupMenu(token, chat, msgID, s, "⏳ Backup starting…")
 		err := exec.Command("systemctl", "start", "netductor-backup.service").Start()
@@ -209,6 +248,7 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 		{btn("01:00 UTC", "m:backup:set:1:0", ""), btn("04:00 UTC", "m:backup:set:4:0", "")},
 		{btn("22:00 UTC", "m:backup:set:22:0", ""), btn(custom, "m:backup:custom", "")},
 		{btn(run, "m:backup:run", "primary")},
+		{btn(map[bool]string{true: "Список", false: "List"}[ru], "m:backup:list", ""), btn(map[bool]string{true: "Хранить N", false: "Keep N"}[ru], "m:backup:keep", "")},
 		{btn(T("main_menu"), "m:menu", "")},
 	}}
 	reply(token, chat, msgID, b.String(), kb)
@@ -342,4 +382,58 @@ func handleQuotaCB(token string, chat int64, msgID int, data string) {
 		reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
 		return
 	}
+}
+
+func toolsHubHTML() string {
+	ru := getLang() != "en"
+	nl := "\n"
+	if ru {
+		return "🧰 <b>Инструменты</b>" + nl + "<i>Гость, DNS, бэкапы, локации, обновления.</i>"
+	}
+	return "🧰 <b>Tools</b>" + nl + "<i>Guest, DNS, backups, locations, updates.</i>"
+}
+
+func handleUpdatesCB(token string, chat int64, msgID int, data string) {
+	ru := getLang() != "en"
+	if data == "m:updates:self" {
+		reply(token, chat, msgID, "⏳ Updating primary netductor…", toolsKeyboard())
+		err := ndupdate.SelfReplace("netductor", "/usr/local/bin/netductor", "")
+		err2 := ndupdate.SelfReplace("tg", "/opt/netductor/bin/netductor-tg", "netductor-telegram-bot")
+		msg := "✅ Update attempted"
+		if err != nil || err2 != nil {
+			msg = "❌ " + esc(fmt.Sprintf("%v / %v", err, err2))
+		}
+		reply(token, chat, msgID, msg, toolsKeyboard())
+		return
+	}
+	tag, err := ndupdate.LatestReleaseTag()
+	local := "0.7.0-dev"
+	if b, e := os.ReadFile("/etc/netductor/VERSION"); e == nil {
+		local = strings.TrimSpace(string(b))
+	}
+	var b strings.Builder
+	if ru {
+		b.WriteString("🔄 <b>Обновления</b>\n")
+	} else {
+		b.WriteString("🔄 <b>Updates</b>\n")
+	}
+	b.WriteString("<table bordered striped>\n<tr><th>item</th><th>value</th></tr>\n")
+	b.WriteString("<tr><td>local</td><td><code>" + esc(local) + "</code></td></tr>\n")
+	if err != nil {
+		b.WriteString("<tr><td>latest</td><td>❌ " + esc(err.Error()) + "</td></tr>\n")
+	} else {
+		b.WriteString("<tr><td>latest</td><td><code>" + esc(tag) + "</code></td></tr>\n")
+		if ndupdate.Newer(tag, local) {
+			b.WriteString("<tr><td>status</td><td>🆕 available</td></tr>\n")
+		} else {
+			b.WriteString("<tr><td>status</td><td>✅ up to date (or equal tag)</td></tr>\n")
+		}
+	}
+	b.WriteString("</table>\n")
+	b.WriteString("<i>Agents: UI will list outdated edge devices when registry reports versions.</i>\n")
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("⬆ Update primary", "m:updates:self", "primary")},
+		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "")},
+	}}
+	reply(token, chat, msgID, b.String(), kb)
 }
