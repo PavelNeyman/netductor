@@ -220,3 +220,25 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 - Default SSH port **52222**. SMTP alerts: `NETDUCTOR_SMTP_*` env (no Apprise).
 - Status-page / family ping button: **deferred**.
 - Flow mismatch: only public IP in journal; use per-device VPN users for identity.
+
+## 2026-09-16 evening
+
+### DNS
+- Lists verified: doubleclick.net → NXDOMAIN via blocky; example.com resolves.
+- UI gold standard: rich table + in-cell buttons; toggle writes config; **Reload** fetches lists.
+
+### Menu
+- Main: Status, Users, Fleet, **Tools**, Operator, Lang, Help.
+- Tools: Guest, DNS, Backup, Locations, Updates.
+
+### Backup
+- Paths: etc/netductor, etc/blocky, etc/sing-box, var/lib/netductor, opt/netductor/{lampac,profiles}.
+- COMPONENTS.txt drives reinstall; lampac image re-pulled, data from archive.
+- UI: schedule, run now, list, restore, keep N. prune uses BackupKeepCount (default 14).
+
+### Updates
+- `internal/update`: GitHub latest tag + download assets; TG Tools → Updates → Update primary.
+- Agent fleet update (notify + per-device / update-all) — designed, UI stub notes edge versions when registry reports them.
+
+### Locations
+- List/card/rename/delete; edge bind still when agents enroll.
