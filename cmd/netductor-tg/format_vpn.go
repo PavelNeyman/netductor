@@ -281,6 +281,8 @@ func formatAccessRichHTML(name, mode, uri string) string {
 			b.WriteString(`<tg-button-row align="left">`)
 			b.WriteString(`<tg-button type="url" url="` + attr(purl) + `">SR Work (Mac+OC)</tg-button>`)
 			b.WriteString(`</tg-button-row>` + nl)
+			// Plain link fallback (always visible even if tg-button stripped)
+			b.WriteString(`<p>📥 <a href="` + attr(purl) + `">SR Work profile (Mac+OC)</a></p>` + nl)
 		}
 	} else {
 		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)
