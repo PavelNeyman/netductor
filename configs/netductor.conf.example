@@ -1,0 +1,29 @@
+# Netductor operator config — copy to /etc/netductor/netductor.conf
+# Lines are KEY=value. Comments start with #.
+# Environment variables already set (systemd Environment=) win over this file.
+
+# --- TG import redirect (port 80 redirect-serve) ---
+# Public base used in Access buttons: Shadowrocket / Happ / INCY
+# Examples:
+#   REDIRECT_BASE=http://2.27.118.70
+#   REDIRECT_BASE=http://netductor.work.gd
+#   REDIRECT_BASE=https://vpn.example.com   # when TLS is configured for redirect
+REDIRECT_BASE=http://2.27.118.70
+
+# Optional HTTPS for redirect-serve (also: -tls-cert / -tls-key flags)
+# REDIRECT_TLS_CERT=/etc/letsencrypt/live/example.com/fullchain.pem
+# REDIRECT_TLS_KEY=/etc/letsencrypt/live/example.com/privkey.pem
+
+# --- Client link advertise hosts ---
+# Secondary / WL entry (VLESS Reality on RU node). Empty = auto (secondary public IP / registry).
+#   VPN_HOST=vpn.netductor.work.gd
+#   VPN_HOST=92.255.77.253
+# VPN_HOST=
+
+# Primary / core hop (direct core links, hy2 on core, etc.)
+#   CORE_HOST=netductor.work.gd
+#   CORE_HOST=2.27.118.70
+# CORE_HOST=
+
+# Public hostname used in mTLS SANs / public_hostname file fallback
+# PUBLIC_HOSTNAME=netductor.work.gd

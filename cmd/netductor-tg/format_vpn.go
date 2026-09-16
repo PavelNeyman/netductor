@@ -213,11 +213,11 @@ func accessPayload(name, mode string) (payload string) {
 
 // formatAccessRichHTML — body actions only (TG-UI.md). Navigation via reply_markup.
 func redirectBase() string {
+	// Prefer /etc/netductor/netductor.conf (REDIRECT_BASE) via ndconfig.Load, or env.
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")); v != "" {
 		return strings.TrimRight(v, "/")
 	}
-	// default: primary public IP http (port 80 redirect-serve)
-	return "http://2.27.118.70"
+	return ""
 }
 
 func importRedirectURL(deep string) string {

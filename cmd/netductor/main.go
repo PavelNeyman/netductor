@@ -7,11 +7,14 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
 var version = "0.7.2-dev"
 
 func main() {
+	ndconfig.Load()
+
 	if len(os.Args) < 2 {
 		// interactive when terminal; else help
 		if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {

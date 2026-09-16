@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
 func claimAdmin(chatID int64) {
@@ -208,10 +209,81 @@ func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string
 	return nil
 }
 
-// replyRichWithPhoto replaces msg and sends rich photo + under-message navigation keyboard.
+// editRichWithPhoto tries in-place edit of a rich message (same message_id).
+// Falls back to caller if API rejects (e.g. message is plain text).
+func editRichWithPhoto(token string, chat int64, msgID int, html, photoPath, photoID string, kb map[string]any) error {
+	if msgID <= 0 {
+		return fmt.Errorf("no message_id")
+	}
+	if photoID == "" {
+		photoID = "qr1"
+	}
+	f, err := os.Open(photoPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	rm := map[string]any{
+		"html": html,
+		"media": []map[string]any{
+			{"id": photoID, "media": map[string]any{"type": "photo", "media": "attach://" + photoID}},
+		},
+	}
+	rmJSON, err := json.Marshal(rm)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
+	_ = w.WriteField("message_id", strconv.Itoa(msgID))
+	_ = w.WriteField("rich_message", string(rmJSON))
+	if kb != nil {
+		jb, _ := json.Marshal(kb)
+		_ = w.WriteField("reply_markup", string(jb))
+	}
+	part, err := w.CreateFormFile(photoID, filepath.Base(photoPath))
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	// Prefer editMessageText with rich_message (Bot API 10.x); some clients accept media attach here.
+	req, err := http.NewRequest(http.MethodPost, "https://api.telegram.org/bot"+token+"/editMessageText", &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var wr struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	_ = json.Unmarshal(body, &wr)
+	if !wr.OK {
+		return fmt.Errorf("editMessageText rich: %s", wr.Description)
+	}
+	return nil
+}
+
+// replyRichWithPhoto: try in-place edit; on failure delete + send one new message (no extra clutter).
 func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, photoID string, kb map[string]any) {
 	if msgID > 0 {
-		_ = deleteMessage(token, chat, msgID)
+		if err := editRichWithPhoto(token, chat, msgID, html, photoPath, photoID, kb); err == nil {
+			return
+		} else {
+			fmt.Fprintln(os.Stderr, "editRichWithPhoto:", err)
+			_ = deleteMessage(token, chat, msgID)
+		}
 	}
 	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID, kb); err != nil {
 		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
@@ -687,6 +759,8 @@ func setBotCommands(token string) {
 }
 
 func main() {
+	ndconfig.Load()
+
 	token := mustRead(tokenFile)
 	if token == "" {
 		fmt.Fprintln(os.Stderr, "telegram_bot_token empty")

@@ -89,6 +89,9 @@ func secret(name string) string {
 
 
 func coreAdvertiseHost() string {
+	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_CORE_HOST")); h != "" {
+		return h
+	}
 	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_PUBLIC_HOSTNAME")); h != "" {
 		return h
 	}
