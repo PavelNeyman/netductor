@@ -24,6 +24,14 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	}
 
 	
+	if data == "m:tools" {
+		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
+		return
+	}
+	if data == "m:updates" || strings.HasPrefix(data, "m:updates:") {
+		handleUpdatesCB(token, chat, msgID, data)
+		return
+	}
 	if data == "m:guest" || strings.HasPrefix(data, "m:guest:") {
 		handleGuestCB(token, chat, msgID, data)
 		return
