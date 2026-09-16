@@ -58,17 +58,35 @@ Commands (from VPS):
 	}
 	cfg := loadConfig()
 	if cfg.Server == "" || cfg.Token == "" {
-		fmt.Fprintln(os.Stderr, "SERVER and TOKEN required")
+		fmt.Fprintln(os.Stderr, "SERVER and TOKEN required in /etc/netductor-agent/config")
 		os.Exit(1)
 	}
 	cfg.Server = strings.TrimRight(cfg.Server, "/")
 	client := &http.Client{Timeout: 120 * time.Second}
+
+	// Offline-first: apply local UCI overlay even with no WAN.
+	applyLocalOverlayOnce()
+
+	backoff := time.Duration(cfg.Interval) * time.Second
+	if backoff < 15*time.Second {
+		backoff = 15 * time.Second
+	}
 	for {
 		if err := ensureEnrolled(client, &cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "enroll: %v\n", err)
-			time.Sleep(time.Duration(cfg.Interval) * time.Second)
+			fmt.Fprintf(os.Stderr, "enroll: %v (retry in %s)\n", err, backoff)
+			time.Sleep(backoff)
+			if strings.Contains(err.Error(), "pending") {
+				backoff = time.Duration(cfg.Interval) * time.Second
+			} else if backoff < 5*time.Minute {
+				backoff *= 2
+				if backoff > 5*time.Minute {
+					backoff = 5 * time.Minute
+				}
+			}
 			continue
 		}
+		backoff = time.Duration(cfg.Interval) * time.Second
+
 		if _, err := os.Stat(filepath.Join(agentDir(), "applied_template")); err != nil {
 			res := applyTemplate(client, cfg)
 			fmt.Fprintf(os.Stderr, "apply_template: %s\n", res)
@@ -86,6 +104,23 @@ Commands (from VPS):
 		time.Sleep(time.Duration(cfg.Interval) * time.Second)
 	}
 }
+
+// applyLocalOverlayOnce applies /etc/netductor-agent/local.uci once (marker local_applied).
+func applyLocalOverlayOnce() {
+	marker := filepath.Join(agentDir(), "local_applied")
+	if _, err := os.Stat(marker); err == nil {
+		return
+	}
+	path := filepath.Join(agentDir(), "local.uci")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	res := uciBatch(string(b))
+	fmt.Fprintf(os.Stderr, "local.uci: %s\n", res)
+	_ = os.WriteFile(marker, []byte(res+"\n"), 0o600)
+}
+
 
 func agentDir() string {
 	if v := os.Getenv("NETDUCTOR_AGENT_DIR"); v != "" {
