@@ -292,9 +292,6 @@ func formatAccessRichHTML(name, mode, uri string) string {
 		if incy != "" {
 			b.WriteString(`<tg-button type="url" url="` + attr(incy) + `">INCY</tg-button>`)
 		}
-		if showWorkProfileButton(name) {
-			b.WriteString(`<tg-button type="url" url="` + attr(workProfileURL()) + `">📥 SR Work</tg-button>`)
-		}
 		b.WriteString(`</tg-button-row>` + nl)
 	} else {
 		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)
@@ -303,6 +300,9 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`)
+	if showWorkProfileButton(name) {
+		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Work</tg-button>`)
+	}
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }
@@ -366,6 +366,31 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 }
 
 
+
+
+func sendWorkProfileDocument(token string, chat int64) {
+	candidates := []string{
+		"/opt/netductor/profiles/operator-mac-oc.conf",
+		"/etc/netductor/profiles/operator-mac-oc.conf",
+	}
+	var path string
+	for _, c := range candidates {
+		if st, err := os.Stat(c); err == nil && !st.IsDir() {
+			path = c
+			break
+		}
+	}
+	if path == "" {
+		sendHTML(token, chat, "❌ SR Work profile file not found on server", nil)
+		return
+	}
+	nl := string([]byte{10})
+	cap := "📥 <b>SR Work (Mac+OC)</b>" + nl + "Shadowrocket → Config → import this file." + nl + "OpenConnect first, then Config mode."
+	if err := sendDocumentFile(token, chat, path, cap); err != nil {
+		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument:", err)
+		sendHTML(token, chat, "❌ Failed to send profile: "+esc(err.Error()), nil)
+	}
+}
 
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
 	showUserAccess(token, chat, msgID, name, "vless")
