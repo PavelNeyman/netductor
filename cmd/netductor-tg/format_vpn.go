@@ -201,27 +201,24 @@ func deepImportCaption(uri string) string {
 		return ""
 	}
 	enc := url.PathEscape(uri)
-	sr := "shadowrocket://add/" + enc
-	happ := "happ://add/" + enc
-	incy := "incy://add/" + enc
-	// Also try raw (some builds expect unescaped vless:// after add/)
-	// Prefer PathEscape — Telegram + iOS handle it.
-	nl := string([]byte{10})
+	href := func(prefix string) string {
+		h := prefix + enc
+		return strings.ReplaceAll(h, "&", "&amp;")
+	}
+	nl := "\n"
 	var b strings.Builder
 	b.WriteString(nl + nl)
 	b.WriteString("📲 <b>Открыть в клиенте</b>" + nl)
-	b.WriteString(`<a href="` + sr + `">Shadowrocket</a>`)
+	b.WriteString(`<a href="` + href("shadowrocket://add/") + `">Shadowrocket</a>`)
 	b.WriteString(" · ")
-	b.WriteString(`<a href="` + happ + `">Happ</a>`)
+	b.WriteString(`<a href="` + href("happ://add/") + `">Happ</a>`)
 	b.WriteString(" · ")
-	b.WriteString(`<a href="` + incy + `">INCY</a>`)
-	b.WriteString(nl)
-	b.WriteString("<i>Если не открылось — скопируйте URI выше</i>")
+	b.WriteString(`<a href="` + href("incy://add/") + `">INCY</a>`)
 	return b.String()
 }
 
 func accessPayload(name, mode string) (payload, caption string) {
-	nl := string([]byte{10})
+	nl := "\n"
 	switch mode {
 	case "core":
 		payload = shareURIFrom(runVPN("link", name, "core"))
@@ -242,15 +239,12 @@ func accessPayload(name, mode string) (payload, caption string) {
 		payload = ""
 	}
 	if payload != "" {
-		// clickable protocol URI (works in some clients) + code for long-press copy
 		first := strings.TrimSpace(strings.Split(payload, "\n")[0])
-		caption += `<a href="` + first + `">` + esc(first) + `</a>` + string([]byte{10})
 		caption += "<code>" + esc(first) + "</code>"
 		caption += deepImportCaption(first)
 	} else {
 		caption += "❌ " + T("no_links")
 	}
-	// Mode switch only via reply_markup (sendPhoto caption cannot use <tg-button>)
 	return payload, caption
 }
 
