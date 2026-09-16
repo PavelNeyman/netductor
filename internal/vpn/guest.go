@@ -76,6 +76,16 @@ func IssueGuestAccess(ttl time.Duration, note string) (Guest, string, error) {
 	if u, ok := ReadClient(name, "vless", "link"); ok {
 		link = u
 	}
+	if link == "" {
+		if users, err := List(); err == nil {
+			for _, u := range users {
+				if u.Name == name && u.UUID != "" {
+					link = PreferredVLESSLink(name, u.UUID)
+					break
+				}
+			}
+		}
+	}
 	return g, link, nil
 }
 
