@@ -173,10 +173,14 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	if enabled("mismatch_spike") {
 		st := vpn.CollectMismatch(30)
 		if st.Total >= 20 {
-			notify.AlertOnce("mismatch:core", fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b> in 30m", st.Total))
+			msg := fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b> in 30m\n<code>%s</code>\n<i>Usually clients without vision flow (old link / phone without config)</i>", st.Total, vpn.FormatMismatchText(st))
+			notify.AlertOnce("mismatch:core", msg)
 		} else {
 			notify.ClearAlert("mismatch:core")
 		}
+	}
+	if n, err := vpn.ExpireGuests(); err == nil && n > 0 {
+		notify.AlertOnce("guest:expire", fmt.Sprintf("🧹 Expired <b>%d</b> guest VPN user(s)", n))
 	}
 	if enabled("backup_offsite") {
 		// marker written by backup on scp failure
