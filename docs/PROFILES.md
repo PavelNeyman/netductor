@@ -1,10 +1,10 @@
-# Client profiles (Shadowrocket)
+# Client profiles
 
-Operator Mac + OpenConnect profile is served from primary:
+## SR Work (Mac + OpenConnect)
 
-- File: `/opt/netductor/profiles/operator-mac-oc.conf`
-- URL: `http://<REDIRECT_BASE>/profiles/operator-mac-oc.conf`
+File on primary: `/opt/netductor/profiles/operator-mac-oc.conf`
 
-Telegram: **Profiles → Work (Mac+OC)** opens that URL (download / open in SR).
+**Delivery:** Telegram bot → Users → **Pavel** → Access → **SR Work** (same row as VLESS/Core/HY2).
+Sends the file as a **Telegram document** (no public HTTP download required).
 
-Global Routing must be **Config**. Connect OpenConnect first.
+Usage: Shadowrocket → Config → import file. OpenConnect first, Global Routing = Config.
