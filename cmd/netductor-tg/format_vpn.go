@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/url"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -191,32 +190,6 @@ func formatUserHubHTML(name string) string {
 }
 
 
-// deepImportCaption returns HTML with app deep-links for one-tap import.
-// SR: shadowrocket://add/<uri>
-// Happ: happ://add/<uri>
-// INCY: incy://add/<uri>
-func deepImportCaption(uri string) string {
-	uri = strings.TrimSpace(uri)
-	if uri == "" {
-		return ""
-	}
-	enc := url.PathEscape(uri)
-	href := func(prefix string) string {
-		return strings.ReplaceAll(prefix+enc, "&", "&amp;")
-	}
-	nl := "\n"
-	var b strings.Builder
-	b.WriteString("🔗 <code>" + esc(uri) + "</code>" + nl + nl)
-	b.WriteString("📲 <b>Открыть в клиенте</b>" + nl)
-	b.WriteString(`<a href="` + href("shadowrocket://add/") + `">Shadowrocket</a>`)
-	b.WriteString(" · ")
-	b.WriteString(`<a href="` + href("happ://add/") + `">Happ</a>`)
-	b.WriteString(" · ")
-	b.WriteString(`<a href="` + href("incy://add/") + `">INCY</a>` + nl)
-	b.WriteString("<i>Или отсканируйте QR выше / скопируйте URI</i>")
-	return b.String()
-}
-
 func accessPayload(name, mode string) (payload, caption string) {
 	nl := "\n"
 	switch mode {
@@ -251,42 +224,42 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	kb := userAccessKeyboard(name, mode)
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
-	path := ""
+
 	first := ""
 	if payload != "" {
 		first = strings.TrimSpace(strings.Split(payload, "\n")[0])
-		qrPayload := first
-		if mode == "hy2" {
-			path = ensureQRFile(filepath.Join(dir, "qr-hy2.png"), qrPayload)
-		} else if mode == "core" {
-			path = ensureQRFile(filepath.Join(dir, "qr-core.png"), qrPayload)
-		} else {
-			path = ensureQRFile(filepath.Join(dir, "qr-vless.png"), qrPayload)
-		}
 	}
-	if path == "" {
-		reply(token, chat, msgID, cap, kb)
-		if first != "" {
-			sendHTML(token, chat, deepImportCaption(first), kb)
-		}
-		return
-	}
+
+	// Always replace previous message — editMessageMedia is flaky text↔photo.
 	if msgID > 0 {
-		if err := editPhotoFile(token, chat, msgID, path, cap, kb); err != nil {
-			fmt.Fprintln(os.Stderr, "editPhotoFile:", err)
-			_ = deleteMessage(token, chat, msgID)
-			if err2 := sendPhotoFile(token, chat, path, cap, kb); err2 != nil {
-				fmt.Fprintln(os.Stderr, "sendPhotoFile:", err2)
-				sendHTML(token, chat, cap, kb)
-			}
+		_ = deleteMessage(token, chat, msgID)
+	}
+
+	path := ""
+	if first != "" {
+		switch mode {
+		case "hy2":
+			path = ensureQRFile(filepath.Join(dir, "qr-hy2.png"), first)
+		case "core":
+			path = ensureQRFile(filepath.Join(dir, "qr-core.png"), first)
+		default:
+			path = ensureQRFile(filepath.Join(dir, "qr-vless.png"), first)
 		}
-	} else if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
-		fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
+	}
+
+	if path != "" {
+		if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
+			fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
+			sendHTML(token, chat, cap, kb)
+		}
+	} else {
 		sendHTML(token, chat, cap, kb)
 	}
-	// Full URI + deep-links in a follow-up text message (4096 limit, not 1024)
+
+	// URI as monospace block only (copy-friendly). No custom URL schemes —
+	// Telegram often blocks them; QR + long-press copy is reliable.
 	if first != "" {
-		sendHTML(token, chat, deepImportCaption(first), kb)
+		sendHTML(token, chat, "<code>"+esc(first)+"</code>", kb)
 	}
 }
 
