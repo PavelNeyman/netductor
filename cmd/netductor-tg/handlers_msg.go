@@ -65,6 +65,17 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, formatUserHubHTML(name), userHubKeyboard(name))
 		return
 	}
+	if st == "wait_backup_keep" {
+		setState(chat, "", "")
+		n, err := strconv.Atoi(strings.TrimSpace(text))
+		if err != nil {
+			sendHTML(token, chat, "❌ number 1–90", nil)
+			return
+		}
+		_ = install.SetBackupKeepCount(n)
+		sendHTML(token, chat, "✅ keep="+strconv.Itoa(install.BackupKeepCount()), map[string]any{"inline_keyboard": [][]map[string]any{{btn("🗓", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		return
+	}
 	if st == "wait_backup_time" {
 		setState(chat, "", "")
 		h, m, err := install.ParseHHMM(text)
