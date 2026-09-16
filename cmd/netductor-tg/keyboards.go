@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -310,11 +311,22 @@ func userHubKeyboard(name string) map[string]any {
 // mode: vless | core | hy2 — navigation under message; mode switch is in access HTML body.
 func userAccessKeyboard(name, mode string) map[string]any {
 	_ = mode
-	// Navigation only under message (docs/TG-UI.md). Mode/apps = in-body tg-buttons.
-	return map[string]any{"inline_keyboard": [][]map[string]any{
+	rows := [][]map[string]any{
 		{btn(T("user_card"), "u:open:"+name, ""), btn(T("users"), "m:users", "")},
-		{btn(T("main_menu"), "m:menu", "primary")},
-	}}
+	}
+	// Classic Telegram URL button (always visible; rich tg-button may be stripped by client).
+	if name == "operator" {
+		base := strings.TrimRight(os.Getenv("NETDUCTOR_REDIRECT_BASE"), "/")
+		if base == "" {
+			base = "http://netductor.work.gd"
+		}
+		rows = append(rows, []map[string]any{{
+			"text": "📥 SR Work (Mac+OC)",
+			"url":  base + "/profiles/operator-mac-oc.conf",
+		}})
+	}
+	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
+	return map[string]any{"inline_keyboard": rows}
 }
 
 // legacy alias
