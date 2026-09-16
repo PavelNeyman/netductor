@@ -336,6 +336,9 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 
 	if uri == "" {
 		reply(token, chat, msgID, html, kb)
+		if name == "operator" {
+			sendWorkProfileMessage(token, chat)
+		}
 		return
 	}
 	qrPath := filepath.Join(dir, "qr-vless.png")
@@ -351,7 +354,27 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		return
 	}
 	replyRichWithPhoto(token, chat, msgID, html, qrPath, "qr1", kb)
+	if name == "operator" {
+		sendWorkProfileMessage(token, chat)
+	}
 }
+
+// sendWorkProfileMessage — plain Telegram message + classic URL button (always visible).
+func sendWorkProfileMessage(token string, chat int64) {
+	base := strings.TrimRight(os.Getenv("NETDUCTOR_REDIRECT_BASE"), "/")
+	if base == "" {
+		base = "http://netductor.work.gd"
+	}
+	purl := base + "/profiles/operator-mac-oc.conf"
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{{"text": "📥 Download SR Work (Mac+OC)", "url": purl}},
+	}}
+	body := "📥 <b>SR Work profile (Mac + OpenConnect)</b>\n" +
+		"Shadowrocket → Config → import this file.\n" +
+		"<code>" + esc(purl) + "</code>"
+	sendHTML(token, chat, body, kb)
+}
+
 
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
 	showUserAccess(token, chat, msgID, name, "vless")
