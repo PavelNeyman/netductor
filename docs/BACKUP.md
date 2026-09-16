@@ -1,16 +1,19 @@
-# Backup & restore
+# Backups
 
-```bash
-netductor backup
-netductor restore /var/lib/netductor/backups/netductor-YYYYMMDD-HHMMSS.tar.gz.ndenc
-```
+## Contents
+Archive packs (when present on disk):
 
-- Encryption: AES-256-GCM (Go), key `/etc/netductor/secrets/backup_key`
-- Extension `.ndenc` (not openssl)
-- Offsite: `/etc/netductor/backup.offsite` (`scp`|`rsync`|`http`)
+- `/etc/netductor` — secrets, VPN users, conf
+- `/etc/blocky` — DNS config
+- `/etc/sing-box` — certs/config if any
+- `/var/lib/netductor` — state, sites, nodes, quotas
+- `/opt/netductor/lampac` — app data (image re-pulled)
+- `/opt/netductor/profiles` — e.g. nd-oc.conf
 
-## TLS for API
+Sidecars next to archives: `COMPONENTS.txt`, recovery key note.
 
-```bash
-netductor serve --bind 0.0.0.0 --port 8443   --tls-cert /etc/netductor/tls/cert.pem   --tls-key /etc/netductor/tls/key.pem
-```
+## UI
+Tools → Backup: schedule, Run now, List + Restore, Keep N.
+
+## CLI
+`netductor backup` / `netductor restore [--key KEY] file.ndenc`
