@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"fmt"
@@ -34,6 +35,22 @@ func handleMessage(token string, m *message, admin int64) {
 		// try apply on local if this is the VPS
 		_ = runND("nodes", "sync-local")
 		sendHTML(token, chat, fmt.Sprintf(T("nodes_done"), esc(id), esc(newName[0]))+string([]byte{10, 10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatNodesListHTML(), nodesKeyboard())
+		return
+	}
+	if strings.HasPrefix(st, "wait_loc_rename:") {
+		id := strings.TrimPrefix(st, "wait_loc_rename:")
+		setState(chat, "", "")
+		s, ok := sites.Get(id)
+		if !ok {
+			sendHTML(token, chat, "❌ not found", nil)
+			return
+		}
+		s.Name = strings.TrimSpace(text)
+		if _, err := sites.Upsert(s); err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), nil)
+			return
+		}
+		sendHTML(token, chat, "✅ "+esc(s.Name), map[string]any{"inline_keyboard": [][]map[string]any{{btn("📍", "m:loc:open:"+id, ""), btn(T("main_menu"), "m:menu", "primary")}}})
 		return
 	}
 	if strings.HasPrefix(st, "wait_quota:") {
