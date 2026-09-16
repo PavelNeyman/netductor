@@ -47,6 +47,11 @@ func CollectMismatch(windowMin int) MismatchStats {
 			continue
 		}
 		st.Total++
+		if strings.Contains(line, "vless-reality") {
+			st.Note = "core inbound (vless-reality)"
+		} else if strings.Contains(line, "relay-in") {
+			st.Note = "secondary inbound"
+		}
 		m := reMismatchIP.FindStringSubmatch(line)
 		if len(m) > 1 {
 			st.ByIP[m[1]]++
