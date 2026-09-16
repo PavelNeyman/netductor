@@ -202,18 +202,18 @@ func deepImportCaption(uri string) string {
 	}
 	enc := url.PathEscape(uri)
 	href := func(prefix string) string {
-		h := prefix + enc
-		return strings.ReplaceAll(h, "&", "&amp;")
+		return strings.ReplaceAll(prefix+enc, "&", "&amp;")
 	}
 	nl := "\n"
 	var b strings.Builder
-	b.WriteString(nl + nl)
+	b.WriteString("🔗 <code>" + esc(uri) + "</code>" + nl + nl)
 	b.WriteString("📲 <b>Открыть в клиенте</b>" + nl)
 	b.WriteString(`<a href="` + href("shadowrocket://add/") + `">Shadowrocket</a>`)
 	b.WriteString(" · ")
 	b.WriteString(`<a href="` + href("happ://add/") + `">Happ</a>`)
 	b.WriteString(" · ")
-	b.WriteString(`<a href="` + href("incy://add/") + `">INCY</a>`)
+	b.WriteString(`<a href="` + href("incy://add/") + `">INCY</a>` + nl)
+	b.WriteString("<i>Или отсканируйте QR выше / скопируйте URI</i>")
 	return b.String()
 }
 
@@ -225,25 +225,20 @@ func accessPayload(name, mode string) (payload, caption string) {
 		if payload == "" {
 			payload = shareURIFrom(runVPN("link", name, "vless"))
 		}
-		caption = "🔗 <b>VLESS · core</b> · " + esc(name) + nl + nl
+		caption = "🔗 <b>VLESS · core</b> · " + esc(name)
 	case "hy2":
 		payload = shareURIFrom(runVPN("link", name, "hy2"))
-		caption = "📱 <b>HY2 · optional</b> · " + esc(name) + nl + nl
-		caption += "<i>" + T("hy2_optional") + "</i>" + nl + nl
+		caption = "📱 <b>HY2</b> · " + esc(name)
 	default:
 		mode = "vless"
 		payload = shareURIFrom(runVPN("link", name, "vless"))
-		caption = "🔗 <b>VLESS · secondary</b> · " + esc(name) + nl + nl
+		caption = "🔗 <b>VLESS · secondary</b> · " + esc(name)
 	}
 	if strings.Contains(payload, "not found") || strings.Contains(payload, "exit status") {
 		payload = ""
 	}
-	if payload != "" {
-		first := strings.TrimSpace(strings.Split(payload, "\n")[0])
-		caption += "<code>" + esc(first) + "</code>"
-		caption += deepImportCaption(first)
-	} else {
-		caption += "❌ " + T("no_links")
+	if payload == "" {
+		caption += nl + "❌ " + T("no_links")
 	}
 	return payload, caption
 }
@@ -257,16 +252,11 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
 	path := ""
+	first := ""
 	if payload != "" {
-		// QR encodes first line only for multi-line sub
-		qrPayload := strings.TrimSpace(strings.Split(payload, "\n")[0])
-		if mode == "sub" {
-			// encode full sub if short enough for QR; else first link
-			if len(payload) < 800 {
-				qrPayload = payload
-			}
-			path = ensureQRFile(filepath.Join(dir, "qr-subscription.png"), qrPayload)
-		} else if mode == "hy2" {
+		first = strings.TrimSpace(strings.Split(payload, "\n")[0])
+		qrPayload := first
+		if mode == "hy2" {
 			path = ensureQRFile(filepath.Join(dir, "qr-hy2.png"), qrPayload)
 		} else if mode == "core" {
 			path = ensureQRFile(filepath.Join(dir, "qr-core.png"), qrPayload)
@@ -275,8 +265,10 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		}
 	}
 	if path == "" {
-		fmt.Fprintln(os.Stderr, "showUserAccess: no QR path for", name, mode)
 		reply(token, chat, msgID, cap, kb)
+		if first != "" {
+			sendHTML(token, chat, deepImportCaption(first), kb)
+		}
 		return
 	}
 	if msgID > 0 {
@@ -288,14 +280,15 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 				sendHTML(token, chat, cap, kb)
 			}
 		}
-		return
-	}
-	if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
+	} else if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
 		fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
 		sendHTML(token, chat, cap, kb)
 	}
+	// Full URI + deep-links in a follow-up text message (4096 limit, not 1024)
+	if first != "" {
+		sendHTML(token, chat, deepImportCaption(first), kb)
+	}
 }
-
 
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
 	// Replace the message that contained the user button (list / card).
