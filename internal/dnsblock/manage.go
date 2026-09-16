@@ -2,10 +2,12 @@ package dnsblock
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 const blockyConfig = "/etc/blocky/config.yml"
@@ -31,21 +33,23 @@ func currentDenyURLs() []string {
 			continue
 		}
 		if inAds {
-			if strings.HasPrefix(trim, "http") || strings.HasPrefix(trim, "- http") {
+			if strings.HasPrefix(trim, "-") {
 				m := re.FindStringSubmatch(line)
 				if len(m) > 1 {
 					urls = append(urls, m[1])
-				} else if strings.HasPrefix(trim, "- ") {
-					urls = append(urls, strings.TrimPrefix(trim, "- "))
+				} else {
+					u := strings.TrimSpace(strings.TrimPrefix(trim, "-"))
+					if strings.HasPrefix(u, "http") {
+						urls = append(urls, u)
+					}
 				}
 				continue
 			}
-			if trim != "" && !strings.HasPrefix(trim, "-") {
+			if trim != "" && !strings.HasPrefix(trim, "#") {
 				inAds = false
 			}
 		}
 	}
-	// fallback: any list URL under denylists
 	if len(urls) == 0 {
 		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
 			urls = append(urls, m[1])
@@ -59,21 +63,23 @@ func Catalog() []ListEntry {
 	for _, u := range currentDenyURLs() {
 		enabled[u] = true
 	}
+	// stable order from map keys of AdGuardStyleLists
+	ids := []string{"adguard-dns-filter", "adguard-tracking", "adguard-mobile-ads", "hagezi-multi", "stevenblack-hosts"}
 	var out []ListEntry
-	for id, url := range AdGuardStyleLists {
+	seen := map[string]bool{}
+	for _, id := range ids {
+		url, ok := AdGuardStyleLists[id]
+		if !ok {
+			continue
+		}
 		out = append(out, ListEntry{ID: id, URL: url, Enabled: enabled[url]})
+		seen[url] = true
 	}
 	for u := range enabled {
-		found := false
-		for _, e := range out {
-			if e.URL == u {
-				found = true
-				break
-			}
+		if seen[u] {
+			continue
 		}
-		if !found {
-			out = append(out, ListEntry{ID: "custom", URL: u, Enabled: true})
-		}
+		out = append(out, ListEntry{ID: "custom", URL: u, Enabled: true})
 	}
 	return out
 }
@@ -104,7 +110,6 @@ func SetEnabled(idOrURL string, on bool) error {
 	if on && !have {
 		next = append(next, url)
 	}
-	// rebuild ads: block under denylists
 	var adsBlock strings.Builder
 	adsBlock.WriteString("    ads:\n")
 	for _, u := range next {
@@ -114,7 +119,6 @@ func SetEnabled(idOrURL string, on bool) error {
 	if reAds.MatchString(text) {
 		text = reAds.ReplaceAllString(text, "${1}"+adsBlock.String())
 	} else {
-		// append minimal blocking section
 		text += "\nblocking:\n  denylists:\n" + adsBlock.String()
 		text += "  clientGroupsBlock:\n    default:\n      - ads\n"
 	}
@@ -132,22 +136,34 @@ func AddCustomURL(url string) error {
 	return SetEnabled(url, true)
 }
 
+// ReloadBlocky refreshes lists via HTTP API (no restart → no DNS flap / probe noise).
 func ReloadBlocky() error {
-	if err := exec.Command("systemctl", "reload", "blocky").Run(); err != nil {
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Post("http://127.0.0.1:4000/api/lists/refresh", "application/json", nil)
+	if err != nil {
+		return exec.Command("systemctl", "restart", "blocky").Run()
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
 		return exec.Command("systemctl", "restart", "blocky").Run()
 	}
 	return nil
 }
 
-func FormatCatalogText() string {
+func FormatCatalogHTML() string {
+	nl := "\n"
 	var b strings.Builder
-	b.WriteString("DNS block lists\n")
-	for _, e := range Catalog() {
-		mark := "☐"
+	b.WriteString("🛡 <b>DNS block lists</b>" + nl)
+	b.WriteString("<table bordered striped>" + nl)
+	b.WriteString("<tr><th>#</th><th>list</th><th>on</th></tr>" + nl)
+	for i, e := range Catalog() {
+		on := "☐"
 		if e.Enabled {
-			mark = "☑"
+			on = "☑"
 		}
-		b.WriteString(fmt.Sprintf("%s %s\n  %s\n", mark, e.ID, e.URL))
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td></tr>%s", i+1, e.ID, on, nl))
 	}
+	b.WriteString("</table>" + nl)
+	b.WriteString("<i>Tap a list to toggle. Applied via blocky API (no restart).</i>")
 	return b.String()
 }
