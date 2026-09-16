@@ -129,6 +129,9 @@ func runDoctorNative() int {
 	curlOK := func(url string) bool {
 		return exec.Command("curl", "-fsS", "--max-time", "2", "-o", "/dev/null", url).Run() == nil
 	}
+	curlOKInsecure := func(url string) bool {
+		return exec.Command("curl", "-fskS", "--max-time", "2", "-o", "/dev/null", url).Run() == nil
+	}
 
 	host, _ := os.Hostname()
 	role := detectRole()
@@ -189,7 +192,7 @@ func runDoctorNative() int {
 			}
 		}
 		if activeUnit("netductor-api") {
-			check("api health :8787", curlOK("http://127.0.0.1:8787/health"))
+			check("api health :8787", curlOK("http://127.0.0.1:8787/health") || curlOKInsecure("https://127.0.0.1:8787/health"))
 			warnCheck("api :8787 localhost only", listeningLocalhost("8787") && !listeningOnAll("8787"))
 		}
 		if exists("/etc/systemd/system/netductor-metrics.timer") {
