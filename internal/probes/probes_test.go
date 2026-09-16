@@ -65,11 +65,11 @@ func TestProbeHTTP(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	r := probeHTTP(srv.URL, 2*time.Second)
+	r := probeHTTP(srv.URL, 2*time.Second, false)
 	if ok, _ := r["ok"].(bool); !ok {
 		t.Fatalf("%v", r)
 	}
-	r2 := probeHTTP("http://127.0.0.1:1/", time.Millisecond*200)
+	r2 := probeHTTP("http://127.0.0.1:1/", time.Millisecond*200, false)
 	if ok, _ := r2["ok"].(bool); ok {
 		t.Fatal("expected fail")
 	}
