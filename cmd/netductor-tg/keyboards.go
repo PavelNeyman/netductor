@@ -36,6 +36,7 @@ func mainKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("status"), "m:status", "primary")},
+			{btn("⏱ Guest", "m:guest", ""), btn("🛡 DNS", "m:dns", ""), btn("🗓 Backup", "m:backup", "")},
 			{btn(T("users"), "m:users", "primary")},
 			{btn(T("fleet"), "m:fleet", "primary")},
 			{btn(T("operator"), "m:operator", "")},
