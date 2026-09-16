@@ -396,12 +396,15 @@ func toolsHubHTML() string {
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	if data == "m:updates:self" {
-		reply(token, chat, msgID, "⏳ Updating primary netductor…", toolsKeyboard())
+		reply(token, chat, msgID, "⏳ Updating from GitHub latest release…\n<i>Release may lag main — prefer deploy from CI/main when developing.</i>", toolsKeyboard())
 		err := ndupdate.SelfReplace("netductor", "/usr/local/bin/netductor", "")
-		err2 := ndupdate.SelfReplace("tg", "/opt/netductor/bin/netductor-tg", "netductor-telegram-bot")
-		msg := "✅ Update attempted"
+		_ = exec.Command("cp", "-f", "/usr/local/bin/netductor", "/opt/netductor/bin/netductor").Run()
+		err2 := ndupdate.SelfReplace("tg", "/opt/netductor/bin/netductor-tg", "")
+		_ = exec.Command("cp", "-f", "/opt/netductor/bin/netductor-tg", "/usr/local/bin/netductor-tg").Run()
+		_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Start()
+		msg := "✅ Updated from release + bot restarted"
 		if err != nil || err2 != nil {
-			msg = "❌ " + esc(fmt.Sprintf("%v / %v", err, err2))
+			msg = "❌ " + esc(fmt.Sprintf("netductor: %v; tg: %v", err, err2))
 		}
 		reply(token, chat, msgID, msg, toolsKeyboard())
 		return
