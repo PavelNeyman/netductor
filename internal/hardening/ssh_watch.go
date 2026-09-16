@@ -93,3 +93,7 @@ findtime = 10m
 	_ = exec.Command("systemctl", "enable", "--now", "fail2ban").Run()
 	return exec.Command("fail2ban-client", "reload").Run()
 }
+
+// DefaultSSHPort is used when deploy does not set NETDUCTOR_SSH_PORT.
+// 22222 — non-standard, easy to remember, avoids colliding with common 2222 scanners slightly less than 22.
+const DefaultSSHPort = 22222
