@@ -8,13 +8,16 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 )
 
-// runRedirectServe: minimal open-redirect-safe landing for TG url buttons.
-// GET /r?u=<base64url(deep-link)>  → 302 Location: deep-link
-// Allowed targets: shadowrocket:// happ:// incy:// vless:// hysteria2:// hy2://
+// runRedirectServe: open-redirect-safe landing for TG url buttons.
+// GET /r?u=<base64url(deep-link)> → 302 Location: deep-link
+// Optional HTTPS: -tls-cert / -tls-key and -https-listen (default :8443 only if certs given).
 func runRedirectServe(args []string) {
 	addr := ":80"
+	httpsAddr := ""
+	tlsCert, tlsKey := "", ""
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "-listen", "--listen":
@@ -22,11 +25,37 @@ func runRedirectServe(args []string) {
 				addr = args[i+1]
 				i++
 			}
+		case "-https-listen":
+			if i+1 < len(args) {
+				httpsAddr = args[i+1]
+				i++
+			}
+		case "-tls-cert":
+			if i+1 < len(args) {
+				tlsCert = args[i+1]
+				i++
+			}
+		case "-tls-key":
+			if i+1 < len(args) {
+				tlsKey = args[i+1]
+				i++
+			}
 		case "-h", "--help":
-			fmt.Println("usage: netductor redirect-serve [-listen :80]")
+			fmt.Println("usage: netductor redirect-serve [-listen :80] [-https-listen :8443] [-tls-cert C] [-tls-key K]")
 			return
 		}
 	}
+	// env fallback for TLS
+	if tlsCert == "" {
+		tlsCert = strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_TLS_CERT"))
+	}
+	if tlsKey == "" {
+		tlsKey = strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_TLS_KEY"))
+	}
+	if httpsAddr == "" && tlsCert != "" && tlsKey != "" {
+		httpsAddr = ":8443"
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/r", handleImportRedirect)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -41,11 +70,31 @@ func runRedirectServe(args []string) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("netductor import redirect\n"))
 	})
-	log.Printf("import redirect listening on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 2)
+	if addr != "" && addr != "off" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			log.Printf("import redirect HTTP on %s", addr)
+			errCh <- http.ListenAndServe(addr, mux)
+		}()
+	}
+	if httpsAddr != "" && tlsCert != "" && tlsKey != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			log.Printf("import redirect HTTPS on %s", httpsAddr)
+			errCh <- http.ListenAndServeTLS(httpsAddr, tlsCert, tlsKey, mux)
+		}()
+	}
+	err := <-errCh
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	wg.Wait()
 }
 
 func handleImportRedirect(w http.ResponseWriter, r *http.Request) {
@@ -54,14 +103,13 @@ func handleImportRedirect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing u", http.StatusBadRequest)
 		return
 	}
-	// accept standard or raw base64url
 	b, err := base64.RawURLEncoding.DecodeString(raw)
 	if err != nil {
 		b, err = base64.URLEncoding.DecodeString(raw)
 	}
 	if err != nil {
-		// also allow percent-encoded deep link directly
 		if u, e := url.QueryUnescape(raw); e == nil && allowedDeepLink(u) {
+			w.Header().Set("Cache-Control", "no-store")
 			http.Redirect(w, r, u, http.StatusFound)
 			return
 		}
@@ -73,7 +121,6 @@ func handleImportRedirect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "target not allowed", http.StatusBadRequest)
 		return
 	}
-	// no logging of secrets
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, target, http.StatusFound)
 }
@@ -81,14 +128,8 @@ func handleImportRedirect(w http.ResponseWriter, r *http.Request) {
 func allowedDeepLink(s string) bool {
 	low := strings.ToLower(s)
 	for _, p := range []string{
-		"shadowrocket://",
-		"happ://",
-		"incy://",
-		"vless://",
-		"hysteria2://",
-		"hy2://",
-		"ss://",
-		"trojan://",
+		"shadowrocket://", "happ://", "incy://",
+		"vless://", "hysteria2://", "hy2://", "ss://", "trojan://",
 	} {
 		if strings.HasPrefix(low, p) {
 			return true
@@ -96,23 +137,3 @@ func allowedDeepLink(s string) bool {
 	}
 	return false
 }
-
-// RedirectPublicBase returns public base for TG buttons (env or empty).
-func RedirectPublicBase() string {
-	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")); v != "" {
-		return strings.TrimRight(v, "/")
-	}
-	return ""
-}
-
-// BuildImportRedirectURL builds http(s)://host/r?u=base64url(deep)
-func BuildImportRedirectURL(base, deep string) string {
-	base = strings.TrimRight(base, "/")
-	if base == "" || deep == "" {
-		return ""
-	}
-	enc := base64.RawURLEncoding.EncodeToString([]byte(deep))
-	return base + "/r?u=" + enc
-}
-
-// ensure used if compiled with deadcode tools

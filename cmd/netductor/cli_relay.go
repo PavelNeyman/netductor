@@ -12,6 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -270,6 +271,36 @@ func runRelay(args []string) {
 func postProvisionRelay(host, sni string) {
 	fmt.Println("==> post-provision: forget old SSH host key (reinstall changes fingerprint)")
 	_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
+
+	fmt.Println("==> post-provision: per-node mTLS client cert → secondary")
+	for _, d := range secondary.List() {
+		if d.PublicIP != host && d.PublicIP != "" {
+			continue
+		}
+		// match by IP or take latest if empty IP not yet heartbeated
+		id := d.ID
+		if id == "" {
+			continue
+		}
+		ca, cert, key, err := mtls.EnsureClientFor(id)
+		if err != nil {
+			fmt.Println("  mtls issue:", err)
+			break
+		}
+		// write remotely under /etc/netductor/secrets/mtls/
+		script := "mkdir -p /etc/netductor/secrets/mtls && chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls"
+		_ = execSSHHost(host, script)
+		// use printf via ssh is messy; write temp local and scp
+		dir := "/tmp/nd-mtls-" + id
+		_ = os.MkdirAll(dir, 0o700)
+		_ = os.WriteFile(dir+"/ca.crt", ca, 0o600)
+		_ = os.WriteFile(dir+"/client.crt", cert, 0o600)
+		_ = os.WriteFile(dir+"/client.key", key, 0o600)
+		_ = execLocal("scp", "-o", "StrictHostKeyChecking=no", dir+"/ca.crt", dir+"/client.crt", dir+"/client.key", "root@"+host+":/etc/netductor/secrets/mtls/")
+		_ = os.RemoveAll(dir)
+		fmt.Println("  mtls client for", id, "installed on", host)
+		break
+	}
 
 	fmt.Println("==> post-provision: keep issued agent tokens (do not wipe before heartbeat)")
 	// Do not RemoveByPublicIP(host,"") here — that deleted the token IssueToken just wrote.

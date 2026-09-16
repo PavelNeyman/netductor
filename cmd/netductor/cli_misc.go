@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/paths"
+	"time"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -81,6 +83,47 @@ func runBackupCmd(args []string) {
 			return
 		case "now", "run":
 			// fallthrough
+		case "verify", "list":
+			// smoke: latest local archive exists and is non-empty
+			dir := filepath.Join(paths.StateDir(), "backups")
+			ents, err := os.ReadDir(dir)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "no backups dir:", err)
+				os.Exit(1)
+			}
+			var latest string
+			var latestSize int64
+			for _, e := range ents {
+				name := e.Name()
+				if !strings.HasSuffix(name, ".ndenc") && !strings.HasSuffix(name, ".tar.gz") {
+					continue
+				}
+				info, err := e.Info()
+				if err != nil {
+					continue
+				}
+				if latest == "" || info.ModTime().After(mustStatMod(dir, latest)) {
+					latest = name
+					latestSize = info.Size()
+				}
+			}
+			if latest == "" || latestSize < 32 {
+				fmt.Fprintln(os.Stderr, "FAIL no usable backup archive in", dir)
+				os.Exit(1)
+			}
+			fmt.Printf("OK latest backup %s (%d bytes)\n", filepath.Join(dir, latest), latestSize)
+			if args[0] == "list" {
+				for _, e := range ents {
+					name := e.Name()
+					if strings.HasSuffix(name, ".ndenc") || strings.HasSuffix(name, ".tar.gz") {
+						info, _ := e.Info()
+						if info != nil {
+							fmt.Printf("%s\t%d\t%s\n", name, info.Size(), info.ModTime().Format(time.RFC3339))
+						}
+					}
+				}
+			}
+			return
 		}
 	}
 	path, err := install.Backup()
@@ -188,4 +231,13 @@ func runProbe(args []string) {
 func sha256Hex(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+
+func mustStatMod(dir, name string) time.Time {
+	fi, err := os.Stat(filepath.Join(dir, name))
+	if err != nil {
+		return time.Time{}
+	}
+	return fi.ModTime()
 }

@@ -160,6 +160,17 @@ func runDoctorNative() int {
 		}
 		check("netductor-api", activeUnit("netductor-api"))
 		check("netductor-telegram-bot", activeUnit("netductor-telegram-bot"))
+		// import redirect for TG deep-link buttons (port 80, already allowed for ACME)
+		warnCheck("netductor-redirect unit", activeUnit("netductor-redirect"))
+		if activeUnit("netductor-redirect") || listeningOnAll("80") || listeningLocalhost("80") {
+			if curlOK("http://127.0.0.1/healthz") {
+				fmt.Printf("OK   redirect :80 /healthz\n")
+				ok++
+			} else {
+				fmt.Printf("WARN redirect :80 /healthz not OK\n")
+				warn++
+			}
+		}
 		if activeUnit("netductor-api") {
 			check("api health :8787", curlOK("http://127.0.0.1:8787/health"))
 			warnCheck("api :8787 localhost only", listeningLocalhost("8787") && !listeningOnAll("8787"))

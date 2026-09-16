@@ -1,29 +1,27 @@
 # Open items
 
-## Locked decisions
-- [x] Subscription removed
-- [x] Fleet primary (abroad) / secondary (RU) — not active-active equals
-- [x] No VPN load-balancer VPS
-- [x] SSH: password first login only, then key-only both nodes
-- [x] Lampac localhost; prefer secondary
-- [x] TG active on primary; standby via SOCKS→primary
-- [x] TG: navigation under message; actions in body
+## Done recently (0.7.3)
 
-## Open
-- [ ] OpenWrt / MikroTik real hardware e2e
-- [ ] Domain + HTTPS (optional)
-- [ ] Path B end-user bot (idea only)
+- [x] TG Access rich QR + `<pre><code>` URI + body/nav split
+- [x] Import redirect on :80 + TG url buttons (SR/Happ/INCY)
+- [x] Doctor: redirect unit + `/healthz`
+- [x] Alerts: secondary offline / sing-box (collect); redirect unit on primary
+- [x] mTLS: `EnsureClientFor` pushed on secondary provision
+- [x] `backup verify|list` smoke
+- [x] CI: redirect allowlist / encoding tests
 
-## Handoff
-[AGENT_HANDOFF.md](AGENT_HANDOFF.md)
+## Still open
 
+- [ ] Redirect **HTTPS** with real cert (optional `-tls-cert/-tls-key`; or Reality fallback later). HTTP on :80 works for TG buttons.
+- [ ] Admin UI: stays **localhost / session** — do **not** expose publicly (owner decision).
+- [ ] Rich **edit in place** for Access (see note in handoff) — careful with photo+buttons.
+- [ ] Drop remaining operator-facing `relay` wording in old docs where harmless.
+- [ ] Point `NETDUCTOR_REDIRECT_BASE` / advertise hosts at durable domain after reinstall (avoid hard-coded test IP in bot default).
 
-## Post-0.7.3 (backlog)
+## Notes for agents
 
-- [ ] Import redirect over **HTTPS** (Reality fallback on :443 or dedicated cert) so TG buttons are `https://` not `http://IP`
-- [ ] Optional domain for `NETDUCTOR_REDIRECT_BASE` (`http://netductor.work.gd` / later real domain)
-- [ ] Full mTLS client cert **provisioning** into secondary agent install path (CA already issues)
-- [ ] LE for admin UI when non-rate-limited domain available; drop self-signed
-- [ ] VPS reinstall checklist: redirect unit + bot env + mTLS + domains
-- [ ] Secondary: confirm Blocky not public; only primary runs TG bot active
-- [ ] Doctor check: `netductor-redirect` active on primary; `/healthz` on :80
+**Admin TLS (item 5):** means TLS for the **local** admin API/UI only if ever bound beyond loopback. Owner does not want public admin. No work unless binding changes.
+
+**Rich edit (item 6):** today Access does delete+send so photo/rich stay one logical screen. True `editMessageText` / edit media avoids flicker but must keep **one** message id and not send follow-ups. Risk is low if we only edit; high if we add extra sends. Optional polish.
+
+**Hardcoded base (item 12):** bot default `http://2.27.118.70` is a **test VPS IP**. After reinstall/DNS, set systemd env `NETDUCTOR_REDIRECT_BASE` (and vpn/core advertise hosts) explicitly — do not rely on compiled defaults.

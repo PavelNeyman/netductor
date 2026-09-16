@@ -140,7 +140,12 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 	}
 	if enabled("service_down") {
-		for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot"} {
+		units := []string{"sing-box", "netductor-api", "netductor-telegram-bot"}
+		// primary-only optional unit
+		if _, err := os.Stat("/etc/systemd/system/netductor-redirect.service"); err == nil {
+			units = append(units, "netductor-redirect")
+		}
+		for _, u := range units {
 			out, err := exec.Command("systemctl", "is-active", u).CombinedOutput()
 			st := strings.TrimSpace(string(out))
 			if err != nil || st != "active" {
@@ -154,11 +159,11 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		for _, d := range secondary.List() {
 			key := "relay:" + d.ID
 			if !secondary.Online(d, 3*time.Minute) {
-				notify.AlertOnce(key, fmt.Sprintf("🔴 Relay offline: <b>%s</b> (%s)", d.Name, d.PublicIP))
+				notify.AlertOnce(key, fmt.Sprintf("🔴 Secondary offline: <b>%s</b> (%s)", d.Name, d.PublicIP))
 			} else {
 				notify.ClearAlert(key)
 				if !d.SingBoxOK {
-					notify.AlertOnce(key+":sb", fmt.Sprintf("⚠️ Relay <b>%s</b> sing-box not active", d.Name))
+					notify.AlertOnce(key+":sb", fmt.Sprintf("⚠️ Secondary <b>%s</b> sing-box not active", d.Name))
 				} else {
 					notify.ClearAlert(key + ":sb")
 				}

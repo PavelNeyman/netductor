@@ -207,3 +207,8 @@ netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 4. **Advertise hosts:** `coreAdvertiseHost` (primary / netductor.work.gd) ≠ `vpnAdvertiseHost` (secondary / vpn.…); never mix Reality pbk/sid across hops.
 5. **Agent plane:** mTLS :8789; nft/UFW allow only secondary→primary; zabbix agent not ours — remove if present.
 6. **LE on \*.work.gd:** rate-limited in test; self-signed OK until real domain / reinstall.
+
+
+## TG Access edit policy
+
+Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new message (editMessageMedia/rich is flaky across text↔photo). Do not add a second “link only” message on the happy path — that was an earlier experiment and clutters chat. Optional future: in-place rich edit **without** extra messages.
