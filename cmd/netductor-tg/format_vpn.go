@@ -341,8 +341,7 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 }
 
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
-	// Replace the message that contained the user button (list / card).
-	showVPNQR(token, chat, msgID, name, "vless", msgID > 0)
+	showUserAccess(token, chat, msgID, name, "vless")
 }
 
 func vpnQRCaption(name, mode, vless, hy2 string) string {
@@ -371,6 +370,19 @@ func vpnQRCaption(name, mode, vless, hy2 string) string {
 }
 
 func showVPNQR(token string, chat int64, msgID int, name, mode string, edit bool) {
+	// legacy entry → Access rich screen (in-place edit)
+	if mode == "" || mode == "vless" {
+		showUserAccess(token, chat, msgID, name, "vless")
+		return
+	}
+	showUserAccess(token, chat, msgID, name, mode)
+	return
+	// unreachable legacy body kept for reference until next cleanup
+	override := true
+	if override {
+		return
+	}
+
 	_, vless, hy2, sub := formatVPNLinkHTML(name)
 	if mode != "hy2" {
 		mode = "vless"

@@ -47,3 +47,14 @@ Port **80** is already opened for ACME; no extra public port. Do not log the `u`
 - **User hub:** enable/disable/revoke/access in body; under: Users + Main menu  
 - **Access + QR:** photo + `<pre><code>URI</code></pre>` + app url-buttons (via redirect) + VLESS/Core/HY2 in body; under: User card + Users + Menu  
 - **Node card:** metrics/journal/upgrade/reboot in body; under: Nodes + Menu  
+
+
+## In-place updates (all screens)
+
+| Source | Behavior |
+|--------|----------|
+| Callback buttons | `reply()` → `editMessageText` / rich edit; on failure delete + one send |
+| Access QR modes | `editRichWithPhoto` → same `message_id`; fallback delete + send |
+| User slash commands (`/status`, …) | New reply (user message is not edited) |
+
+Do not send a second bot message on the happy path for menu navigation.

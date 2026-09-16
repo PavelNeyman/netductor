@@ -188,7 +188,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, T("bind_prompt"), backTo("routers"))
 		case "m:cat:relay":
 		// Relay is part of Nodes
-		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>relay = role in nodes</i>", nodesKeyboard())
+		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>secondary = RU node role</i>", nodesKeyboard())
 	case "m:relay:export":
 		out := runND("relay", "export", "-o", "/tmp/nd-relay-bundle.json", "--sni", "ya.ru")
 		b, err := os.ReadFile("/tmp/nd-relay-bundle.json")

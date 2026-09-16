@@ -12,7 +12,7 @@ func formatRelayListHTML() string {
 	ex := strings.TrimSpace(runND("relay", "exit"))
 	nl := string([]byte{10})
 	body := formatNodesListHTML()
-	return "📡 <b>Nodes / relay</b>" + nl + "RU exit: <code>" + esc(ex) + "</code>" + nl + nl + body
+	return "📡 <b>Nodes / secondary</b>" + nl + "RU exit: <code>" + esc(ex) + "</code>" + nl + nl + body
 }
 
 

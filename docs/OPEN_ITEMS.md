@@ -15,7 +15,7 @@
 - [ ] Redirect **HTTPS** with real cert (optional `-tls-cert/-tls-key`; or Reality fallback later). HTTP on :80 works for TG buttons.
 - [ ] Admin UI: stays **localhost / session** — do **not** expose publicly (owner decision).
 - [ ] Rich **edit in place** for Access (see note in handoff) — careful with photo+buttons.
-- [ ] Drop remaining operator-facing `relay` wording in old docs where harmless.
+- [x] Drop remaining operator-facing `relay` wording in old docs (RELAY.md banner, RUNBOOK, TG strings).
 - [ ] Point `NETDUCTOR_REDIRECT_BASE` / advertise hosts at durable domain after reinstall (avoid hard-coded test IP in bot default).
 
 ## Notes for agents

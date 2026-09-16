@@ -1,10 +1,14 @@
-# RU relay VPS
+# RU secondary VPS (legacy name: relay)
+
+> **Operator name is secondary.** CLI/API still accept `relay` as an alias (`netductor secondary` ≡ `netductor relay`).  
+> State path migrates `relay/` → `secondary/`. Prefer **secondary** in new docs and TG UI.
+
 
 Chain for **mobile whitelist**:
 
 ```text
-Phone  --VLESS Reality (SNI ya.ru)-->  RU relay  --VLESS Reality-->  foreign core  --> Internet
-Home   --VLESS Reality-------------->  foreign core  --> Internet
+Phone  --VLESS Reality (SNI ya.ru)-->  RU relay  --VLESS Reality-->  primary (abroad)  --> Internet
+Home   --VLESS Reality-------------->  primary (abroad)  --> Internet
 ```
 
 ## Hardware / network (RU hop)
@@ -16,14 +20,14 @@ Home   --VLESS Reality-------------->  foreign core  --> Internet
 | Disk | 10 GB | 15–20 GB |
 | OS | Debian 12/13 | same |
 | IP | Public **IPv4 in Russia** | Prefer **Yandex Cloud, VK Cloud, Timeweb, Selectel** (better whitelist chance) |
-| Ports | **443/tcp** inbound open | Outbound **443** to foreign core must work |
+| Ports | **443/tcp** inbound open | Outbound **443** to primary (abroad) must work |
 | Bandwidth | ~100 Mbps | Scale with users |
 
 Relay runs **only sing-box** (no Blocky/API/Telegram/Lampac required).
 
 ## Automated setup
 
-### On foreign **core**
+### On **primary** (abroad)
 
 ```bash
 netductor vpn list
@@ -74,14 +78,14 @@ After `relay join`, RU runs `netductor-relay-agent`:
 
 - Heartbeat → core `:8788` (`NETDUCTOR_RELAY_API`)
 - Auto-pulls user list when core VPN users change
-- Core shows status: `netductor relay status` / Admin Relay / TG Relay
+- Core shows status: `netductor secondary status  # alias: relay status` / Admin Relay / TG Relay
 - Mobile links: `GET /api/relay/links` or TG (uses last reported IP+pbk)
 
 Open on **core** firewall: **8788/tcp** from the RU IP (or world if needed).
 
 ## Provision from core (preferred)
 
-Do **not** SSH into the RU VPS yourself. On core (or TG **Enroll relay**):
+Do **not** SSH into the RU VPS yourself. On core (or TG **Enroll secondary**):
 
 ```bash
 netductor relay provision --host 92.x.x.x --user root --password '…' --sni ya.ru
@@ -96,13 +100,13 @@ Core will:
 
 Afterwards: manage via TG/Admin/CLI only. Emergency SSH: same key as core.
 
-## OpenWrt / clients: primary = relay
+## OpenWrt / clients: primary entry = secondary
 
 Recommended:
 
-1. **All clients** (phones, OpenWrt) use **relay VLESS** as the only peer.
-2. **Relay** does split routing: RU domains/private → `direct`, else → core uplink.
-3. **Fallback** on the router: if relay `:443` is down, use WAN (ISP) without VPN — implement via `mwan3` / hotplug or agent healthcheck.
+1. **All clients** (phones, OpenWrt) use **secondary VLESS** as the only peer.
+2. **Secondary** does split routing: RU domains/private → `direct`, else → core uplink.
+3. **Fallback** on the router: if secondary `:443` is down, use WAN (ISP) without VPN — implement via `mwan3` / hotplug or agent healthcheck.
 4. **Optional second peer (core)** only as manual emergency: traffic then hits foreign IP directly and may face DPI/whitelist issues on mobile.
 
 ### Why not dual-peer by default

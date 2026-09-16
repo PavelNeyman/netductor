@@ -297,11 +297,12 @@ func editHTML(token string, chat int64, msgID int, text string, kb map[string]an
 }
 
 func reply(token string, chat int64, msgID int, text string, kb map[string]any) {
+	// In-place edit for all text/rich screens. Photo→text falls back to delete+send once.
 	if msgID > 0 {
 		if err := editHTML(token, chat, msgID, text, kb); err == nil {
 			return
 		}
-		// Photo (or other non-text) message: cannot editMessageText — replace in place.
+		fmt.Fprintln(os.Stderr, "reply edit failed, replace:", msgID)
 		_ = deleteMessage(token, chat, msgID)
 	}
 	sendHTML(token, chat, text, kb)

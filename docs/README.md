@@ -8,7 +8,7 @@
 | Open items | [OPEN_ITEMS](OPEN_ITEMS.md) | [ru/OPEN_ITEMS](ru/OPEN_ITEMS.md) |
 | Security | [SECURITY](SECURITY.md) | [ru/SECURITY](ru/SECURITY.md) |
 | TOFU SSH | [TOFU](TOFU.md) | [ru/TOFU](ru/TOFU.md) |
-| Relay | [RELAY](RELAY.md) | [ru/RELAY](ru/RELAY.md) |
+| Secondary (RU hop) | [RELAY](RELAY.md) (legacy filename) | [ru/RELAY](ru/RELAY.md) |
 | VPN users | [VPN-USERS](VPN-USERS.md) | [ru/VPN-USERS](ru/VPN-USERS.md) |
 | Admin | [ADMIN](ADMIN.md) | [ru/ADMIN](ru/ADMIN.md) |
 | Edge agent | [EDGE-AGENT](EDGE-AGENT.md) | [ru/EDGE-AGENT](ru/EDGE-AGENT.md) |

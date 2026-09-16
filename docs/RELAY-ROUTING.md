@@ -1,3 +1,6 @@
-# Relay routing (RU / non-RU)
+# Secondary routing (RU / non-RU)
 
-RU domains + private → direct on relay. Other client traffic → uplink to core. Optional exit-in for RU egress from abroad. See `docs/ru/RELAY-ROUTING.md`.
+> Legacy title: Secondary routing. Operator name: **secondary**.
+
+
+RU domains + private → direct on secondary. Other client traffic → uplink to core. Optional exit-in for RU egress from abroad. See `docs/ru/RELAY-ROUTING.md`.

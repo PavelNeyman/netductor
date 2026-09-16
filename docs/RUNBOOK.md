@@ -23,12 +23,12 @@ netductor vpn link operator vless
 netductor vpn link operator sub
 netductor vpn refresh-links
 ```
-Fragments: `#nd-relay` / `#nd-core`. Rename keeps UUID.
+Fragments: `#nd-secondary` / `#nd-core`. Rename keeps UUID.
 
-## 5. Relay + backup peer
+## 5. Secondary + backup peer
 ```bash
-netductor relay provision --host IP --user root --password '…'
-netductor backup peer-set 'root@RELAY:/var/lib/netductor/backups/peers/core/'
+netductor secondary provision  # alias: relay provision --host IP --user root --password '…'
+netductor backup peer-set 'root@SECONDARY:/var/lib/netductor/backups/peers/core/'
 ```
 
 ## 6. Checks
