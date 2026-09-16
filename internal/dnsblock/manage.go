@@ -125,7 +125,8 @@ func SetEnabled(idOrURL string, on bool) error {
 	if err := os.WriteFile(blockyConfig, []byte(text), 0o644); err != nil {
 		return err
 	}
-	return ReloadBlocky()
+	// Do not reload here — operator presses 🔄 Reload after choosing lists.
+	return nil
 }
 
 func AddCustomURL(url string) error {
@@ -151,19 +152,48 @@ func ReloadBlocky() error {
 }
 
 func FormatCatalogHTML() string {
-	nl := "\n"
+	nl := string([]byte{10})
 	var b strings.Builder
 	b.WriteString("🛡 <b>DNS block lists</b>" + nl)
+	b.WriteString("<i>Списки <b>скачивает blocky</b> по URL при Reload (в netductor только ссылки в config.yml).</i>" + nl)
 	b.WriteString("<table bordered striped>" + nl)
-	b.WriteString("<tr><th>#</th><th>list</th><th>on</th></tr>" + nl)
-	for i, e := range Catalog() {
-		on := "☐"
-		if e.Enabled {
-			on = "☑"
+	b.WriteString("<tr><th>list</th><th>state</th><th>action</th></tr>" + nl)
+	for _, e := range Catalog() {
+		meta, ok := ListMeta[e.ID]
+		title := e.ID
+		if ok && meta.Title != "" {
+			title = meta.Title
 		}
-		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td></tr>%s", i+1, e.ID, on, nl))
+		on := "OFF"
+		style := ""
+		act := "m:dns:on:" + e.ID
+		label := "Enable"
+		if e.Enabled {
+			on = "ON"
+			style = ` style="success"`
+			act = "m:dns:off:" + e.ID
+			label = "Disable"
+		}
+		desc := ""
+		if ok {
+			desc = meta.Desc
+			if meta.Home != "" {
+				desc += ` · <a href="` + meta.Home + `">source</a>`
+			}
+		}
+		b.WriteString("<tr>")
+		b.WriteString("<td><b>" + title + "</b>")
+		if desc != "" {
+			b.WriteString("<br/><i>" + desc + "</i>")
+		}
+		b.WriteString("</td>")
+		b.WriteString("<td>" + on + "</td>")
+		b.WriteString(`<td><tg-button type="callback_data"` + style + ` data="` + act + `">` + label + `</tg-button></td>`)
+		b.WriteString("</tr>" + nl)
 	}
 	b.WriteString("</table>" + nl)
-	b.WriteString("<i>Tap a list to toggle. Applied via blocky API (no restart).</i>")
+	b.WriteString(`<tg-button-row>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:dns:reload">🔄 Reload lists</tg-button>`)
+	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }
