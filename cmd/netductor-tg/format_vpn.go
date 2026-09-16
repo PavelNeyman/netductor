@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"encoding/base64"
 	"net/url"
 	"fmt"
@@ -181,6 +182,13 @@ func formatUserHubHTML(name string) string {
 	b.WriteString("<p><i>" + T("user_hub_hint") + "</i></p>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">` + esc(T("user_access")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	lim := vpn.SoftLimitGB(name)
+	b.WriteString(fmt.Sprintf("<p>Soft limit: <code>%.0f</code> GiB (0=off)</p>"+nl, lim))
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:50">50 GiB</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:200">200 GiB</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:0">∞</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" data="u:rename:` + name + `">` + esc(T("vpn_rename")) + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
