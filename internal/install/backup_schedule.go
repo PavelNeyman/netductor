@@ -89,3 +89,59 @@ func ParseHHMM(s string) (hour, minute int, err error) {
 	}
 	return h, m, nil
 }
+
+
+func backupKeepPath() string {
+	return filepath.Join(paths.StateDir(), "backup_keep.json")
+}
+
+func BackupKeepCount() int {
+	b, err := os.ReadFile(backupKeepPath())
+	if err != nil {
+		return 14
+	}
+	var n int
+	if json.Unmarshal(b, &n) != nil || n < 1 {
+		return 14
+	}
+	if n > 90 {
+		return 90
+	}
+	return n
+}
+
+func SetBackupKeepCount(n int) error {
+	if n < 1 {
+		n = 1
+	}
+	if n > 90 {
+		n = 90
+	}
+	_ = os.MkdirAll(filepath.Dir(backupKeepPath()), 0o700)
+	raw, _ := json.MarshalIndent(n, "", "  ")
+	return os.WriteFile(backupKeepPath(), append(raw, '\n'), 0o600)
+}
+
+// ListBackupFiles returns newest-first backup archive names in state/backups.
+func ListBackupFiles() []string {
+	dir := filepath.Join(paths.StateDir(), "backups")
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		n := e.Name()
+		if strings.HasSuffix(n, ".ndenc") || strings.HasSuffix(n, ".tar.gz") {
+			names = append(names, n)
+		}
+	}
+	// ReadDir order is often name-sorted; stamp in name is sortable
+	for i, j := 0, len(names)-1; i < j; i, j = i+1, j-1 {
+		names[i], names[j] = names[j], names[i]
+	}
+	return names
+}
