@@ -39,3 +39,13 @@ Template ≠ device backup. Overlay on device: `lan_ip`, `ssid`, etc.
 ## Apply
 
 Idempotent UCI diff (lan IP/mask, wifi ssid/key). VPN client profile — next iteration (`vpn.enabled` in template).
+
+## Offline install from Mac (no WAN on router yet)
+
+1. On Mac: build/download `netductor-agent` for router arch; SSH to router over LAN.
+2. Install binary + `/etc/netductor-agent/config` (SERVER, TOKEN, DEVICE_ID).
+3. Optional: write `/etc/netductor-agent/local.uci` (SSID, LAN IP, hostname, …).
+4. Start agent (procd/init). It applies `local.uci` **immediately**, then **retries enroll** with backoff until the router can reach primary.
+5. When WAN appears → enroll → **pending** on primary → approve → server template may refine config.
+
+No internet on the router is required for steps 1–4.
