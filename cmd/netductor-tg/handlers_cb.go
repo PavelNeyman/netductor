@@ -36,6 +36,14 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		handleBackupCB(token, chat, msgID, data)
 		return
 	}
+	if data == "m:loc" || strings.HasPrefix(data, "m:loc:") {
+		handleLocationCB(token, chat, msgID, data)
+		return
+	}
+	if strings.HasPrefix(data, "m:quota:") {
+		handleQuotaCB(token, chat, msgID, data)
+		return
+	}
 if strings.HasPrefix(data, "u:") {
 		// u:open:name | u:access:name:mode | u:rename:name | u:enable:name | ...
 		parts := strings.Split(data, ":")
