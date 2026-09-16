@@ -216,6 +216,16 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 			map[string]any{"type": "block", "tag": "block"},
 		},
 		"route": map[string]any{
+			// domain_suffix list (fast, no download) + geoip-ru rule-set (IP ranges).
+			"rule_set": []any{
+				map[string]any{
+					"tag":             "geoip-ru",
+					"type":            "remote",
+					"format":          "binary",
+					"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
+					"download_detour": "uplink", // first fetch via core if GH blocked from RU
+				},
+			},
 			"rules": []any{
 				map[string]any{"action": "sniff"},
 				map[string]any{"protocol": "dns", "action": "hijack-dns"},
@@ -223,11 +233,12 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 				map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
 				map[string]any{"ip_is_private": true, "outbound": "direct"},
 				map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
+				map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
 				map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"},
 			},
-			"final":                    "uplink",
-			"default_domain_resolver":  "quad9",
-			"auto_detect_interface":    true,
+			"final":                   "uplink",
+			"default_domain_resolver": "quad9",
+			"auto_detect_interface":   true,
 		},
 	}
 	_ = os.MkdirAll(filepath.Dir(singboxConf), 0o755)
