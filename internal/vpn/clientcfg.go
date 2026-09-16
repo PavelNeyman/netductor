@@ -38,8 +38,14 @@ type relayDevFile struct {
 }
 
 func loadOnlineRelays() []struct{ Host, PBK, SID, SNI string } {
-	p := filepath.Join(paths.StateDir(), "relay", "devices.json")
-	b, err := os.ReadFile(p)
+	var b []byte
+	var err error
+	for _, sub := range []string{"secondary", "relay"} {
+		b, err = os.ReadFile(filepath.Join(paths.StateDir(), sub, "devices.json"))
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil
 	}
@@ -60,7 +66,11 @@ func loadOnlineRelays() []struct{ Host, PBK, SID, SNI string } {
 		if sniName == "" {
 			sniName = DefaultRealitySNI
 		}
-		out = append(out, struct{ Host, PBK, SID, SNI string }{d.PublicIP, d.PBK, d.SID, sniName})
+		host := d.PublicIP
+		if h := vpnAdvertiseHost(); h != "" {
+			host = h
+		}
+		out = append(out, struct{ Host, PBK, SID, SNI string }{host, d.PBK, d.SID, sniName})
 	}
 	return out
 }

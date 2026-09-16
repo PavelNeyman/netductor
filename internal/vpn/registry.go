@@ -88,17 +88,7 @@ func secret(name string) string {
 }
 
 
-// advertiseHost is the host put into client share links (domain preferred).
-func advertiseHost() string {
-	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST")); h != "" {
-		return h
-	}
-	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "vpn_hostname")); err == nil {
-		if h := strings.TrimSpace(string(b)); h != "" {
-			return h
-		}
-	}
-	// core-facing hostname (not RU vpn) for core-only links
+func coreAdvertiseHost() string {
 	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_PUBLIC_HOSTNAME")); h != "" {
 		return h
 	}
@@ -109,6 +99,21 @@ func advertiseHost() string {
 	}
 	return publicIP()
 }
+
+func vpnAdvertiseHost() string {
+	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST")); h != "" {
+		return h
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "vpn_hostname")); err == nil {
+		if h := strings.TrimSpace(string(b)); h != "" {
+			return h
+		}
+	}
+	return ""
+}
+
+func advertiseHost() string { return coreAdvertiseHost() }
+
 
 func publicIP() string {
 	if v := os.Getenv("PUBLIC_IP"); v != "" {
@@ -190,7 +195,7 @@ func genHy2Pass() string {
 func VLESSLink(name, uuid string) string {
 	return fmt.Sprintf(
 		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-core",
-		uuid, advertiseHost(), vlessPort(), sni(), DefaultUTLSFingerprint, secret("singbox_reality_public"), secret("singbox_short_id"),
+		uuid, coreAdvertiseHost(), vlessPort(), sni(), DefaultUTLSFingerprint, secret("singbox_reality_public"), secret("singbox_short_id"),
 	)
 }
 
@@ -205,7 +210,7 @@ func PreferredVLESSLink(name, uuid string) string {
 
 func Hy2Link(name, pass string) string {
 	return fmt.Sprintf("hysteria2://%s@%s:%d?sni=%s&insecure=1#nd-hy2",
-		pass, advertiseHost(), hy2Port(), sni())
+		pass, coreAdvertiseHost(), hy2Port(), sni())
 }
 
 func writeArtifacts(name, uuid, hy2pass string) error {
