@@ -314,12 +314,6 @@ func userAccessKeyboard(name, mode string) map[string]any {
 		{btn(T("user_card"), "u:open:"+name, ""), btn(T("users"), "m:users", "")},
 	}
 	// Classic Telegram URL button (always visible; rich tg-button may be stripped by client).
-	if showWorkProfileButton(name) {
-		rows = append(rows, []map[string]any{{
-			"text": "📥 SR Work (Mac+OC)",
-			"url":  workProfileURL(),
-		}})
-	}
 	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
 	return map[string]any{"inline_keyboard": rows}
 }
