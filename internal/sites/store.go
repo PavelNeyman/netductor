@@ -14,13 +14,17 @@ import (
 )
 
 // Site groups MikroTik (routing) + RPi OpenWrt (VPN edge) as one logical location.
+// Site is a logical location (home, flat, office): a group of edge devices
+// (OpenWrt agents) and optional MikroTik. Not a single router — a set.
 type Site struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	RPiID      string `json:"rpi_id,omitempty"`
-	MikroTikID string `json:"mikrotik_id,omitempty"`
-	Notes      string `json:"notes,omitempty"`
-	Updated    int64  `json:"updated"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"` // e.g. "home", "office-msk"
+	Kind       string   `json:"kind,omitempty"` // home|flat|office|other
+	EdgeIDs    []string `json:"edge_ids,omitempty"` // netductor-agent device_ids
+	RPiID      string   `json:"rpi_id,omitempty"`
+	MikroTikID string   `json:"mikrotik_id,omitempty"`
+	Notes      string   `json:"notes,omitempty"`
+	Updated    int64    `json:"updated"`
 }
 
 type fileData struct {
