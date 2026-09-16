@@ -14,8 +14,11 @@ import (
 )
 
 // Site groups MikroTik (routing) + RPi OpenWrt (VPN edge) as one logical location.
-// Site is a logical location (home, flat, office): a group of edge devices
+// Location (stored as Site) is a logical place (home, flat, office): a group of edge devices
 // (OpenWrt agents) and optional MikroTik. Not a single router — a set.
+// Location is the product name for Site (home / flat / room inventory).
+type Location = Site
+
 type Site struct {
 	ID         string   `json:"id"`
 	Name       string   `json:"name"` // e.g. "home", "office-msk"
