@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"os"
 	"strings"
 	"sync"
@@ -58,6 +59,7 @@ func runRedirectServe(args []string) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/r", handleImportRedirect)
+	mux.HandleFunc("/profiles/", handleProfileDownload)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -95,6 +97,36 @@ func runRedirectServe(args []string) {
 		os.Exit(1)
 	}
 	wg.Wait()
+}
+
+
+func handleProfileDownload(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/profiles/")
+	name = strings.Trim(name, "/")
+	if name == "" || strings.Contains(name, "..") || strings.Contains(name, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	candidates := []string{
+		filepath.Join("/opt/netductor/profiles", name),
+		filepath.Join("/etc/netductor/profiles", name),
+	}
+	var data []byte
+	var err error
+	for _, p := range candidates {
+		data, err = os.ReadFile(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil || len(data) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename="+name)
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(data)
 }
 
 func handleImportRedirect(w http.ResponseWriter, r *http.Request) {
