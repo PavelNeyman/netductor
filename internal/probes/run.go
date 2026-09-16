@@ -1,6 +1,7 @@
 package probes
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -51,9 +52,13 @@ func probeUDP(host string, port int, timeout time.Duration) map[string]any {
 	return map[string]any{"ok": false, "ms": float64(time.Since(t0).Milliseconds()), "error": "no udp listener"}
 }
 
-func probeHTTP(url string, timeout time.Duration) map[string]any {
+func probeHTTP(url string, timeout time.Duration, insecure bool) map[string]any {
 	t0 := time.Now()
-	client := &http.Client{Timeout: timeout}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	if insecure || strings.HasPrefix(url, "https://127.0.0.1") || strings.HasPrefix(url, "https://localhost") {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // local admin self-signed
+	}
+	client := &http.Client{Timeout: timeout, Transport: tr}
 	resp, err := client.Get(url)
 	ms := float64(time.Since(t0).Milliseconds())
 	if err != nil {
@@ -93,7 +98,11 @@ func Run(cfg map[string]any) []map[string]any {
 		switch typ {
 		case "http":
 			u, _ := p["url"].(string)
-			res = probeHTTP(u, to)
+			ins, _ := p["insecure"].(bool)
+			if !ins && (strings.HasPrefix(u, "https://127.0.0.1") || strings.HasPrefix(u, "https://localhost")) {
+				ins = true
+			}
+			res = probeHTTP(u, to, ins)
 		case "udp":
 			host, _ := p["host"].(string)
 			if host == "" {
