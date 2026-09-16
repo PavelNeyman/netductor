@@ -16,7 +16,7 @@ func Default() map[string]any {
 			map[string]any{"name": "dns-blocky", "type": "tcp", "host": "127.0.0.1", "port": 53, "timeout": 2},
 			map[string]any{"name": "vless", "type": "tcp", "host": "127.0.0.1", "port": 443, "timeout": 2},
 			map[string]any{"name": "hy2", "type": "udp", "host": "127.0.0.1", "port": 8443, "timeout": 2},
-			map[string]any{"name": "api-health", "type": "http", "url": "http://127.0.0.1:8787/health", "timeout": 3},
+			map[string]any{"name": "api-health", "type": "http", "url": "https://127.0.0.1:8787/health", "insecure": true, "timeout": 3},
 		},
 		"alerts": map[string]any{
 			"cpu_pct": 90, "mem_pct": 92, "disk_pct": 90,
