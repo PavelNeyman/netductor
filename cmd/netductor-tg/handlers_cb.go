@@ -23,7 +23,20 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		answerCallback(token, cq.ID)
 	}
 
-	if strings.HasPrefix(data, "u:") {
+	
+	if data == "m:guest" || strings.HasPrefix(data, "m:guest:") {
+		handleGuestCB(token, chat, msgID, data)
+		return
+	}
+	if data == "m:dns" || strings.HasPrefix(data, "m:dns:") {
+		handleDNSCB(token, chat, msgID, data)
+		return
+	}
+	if data == "m:backup" || strings.HasPrefix(data, "m:backup:") {
+		handleBackupCB(token, chat, msgID, data)
+		return
+	}
+if strings.HasPrefix(data, "u:") {
 		// u:open:name | u:access:name:mode | u:rename:name | u:enable:name | ...
 		parts := strings.Split(data, ":")
 		if len(parts) >= 3 {
