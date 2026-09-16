@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/url"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -189,6 +190,36 @@ func formatUserHubHTML(name string) string {
 	return b.String()
 }
 
+
+// deepImportCaption returns HTML with app deep-links for one-tap import.
+// SR: shadowrocket://add/<uri>
+// Happ: happ://add/<uri>
+// INCY: incy://add/<uri>
+func deepImportCaption(uri string) string {
+	uri = strings.TrimSpace(uri)
+	if uri == "" {
+		return ""
+	}
+	enc := url.PathEscape(uri)
+	sr := "shadowrocket://add/" + enc
+	happ := "happ://add/" + enc
+	incy := "incy://add/" + enc
+	// Also try raw (some builds expect unescaped vless:// after add/)
+	// Prefer PathEscape — Telegram + iOS handle it.
+	nl := string([]byte{10})
+	var b strings.Builder
+	b.WriteString(nl + nl)
+	b.WriteString("📲 <b>Открыть в клиенте</b>" + nl)
+	b.WriteString(`<a href="` + sr + `">Shadowrocket</a>`)
+	b.WriteString(" · ")
+	b.WriteString(`<a href="` + happ + `">Happ</a>`)
+	b.WriteString(" · ")
+	b.WriteString(`<a href="` + incy + `">INCY</a>`)
+	b.WriteString(nl)
+	b.WriteString("<i>Если не открылось — скопируйте URI выше</i>")
+	return b.String()
+}
+
 func accessPayload(name, mode string) (payload, caption string) {
 	nl := string([]byte{10})
 	switch mode {
@@ -211,8 +242,11 @@ func accessPayload(name, mode string) (payload, caption string) {
 		payload = ""
 	}
 	if payload != "" {
-		// single-line URI in <code> — required for SR copy/import
-		caption += "<code>" + esc(payload) + "</code>"
+		// clickable protocol URI (works in some clients) + code for long-press copy
+		first := strings.TrimSpace(strings.Split(payload, "\n")[0])
+		caption += `<a href="` + first + `">` + esc(first) + `</a>` + string([]byte{10})
+		caption += "<code>" + esc(first) + "</code>"
+		caption += deepImportCaption(first)
 	} else {
 		caption += "❌ " + T("no_links")
 	}
