@@ -33,7 +33,8 @@ ExecStart=%s backup
 Description=Netductor daily backup
 
 [Timer]
-OnCalendar=daily
+OnCalendar=*-*-* 01:00:00 UTC
+# 04:00 Europe/Moscow (MSK=UTC+3)
 Persistent=true
 RandomizedDelaySec=30m
 
