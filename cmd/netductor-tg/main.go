@@ -134,9 +134,88 @@ func editRich(token string, chat int64, msgID int, html string, kb map[string]an
 }
 
 
+
 func sendHTML(token string, chat int64, text string, kb map[string]any) {
 	sendRich(token, chat, text, kb)
 }
+
+// sendRichWithPhoto sends Bot API 10.2+ rich message with in-body photo + tg-buttons.
+// photoID is the media id referenced as tg://photo?id=<photoID> in html (e.g. "qr1").
+func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string) error {
+	if photoID == "" {
+		photoID = "qr1"
+	}
+	f, err := os.Open(photoPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	rm := map[string]any{
+		"html": html,
+		"media": []map[string]any{
+			{
+				"id": photoID,
+				"media": map[string]any{
+					"type":  "photo",
+					"media": "attach://" + photoID,
+				},
+			},
+		},
+	}
+	rmJSON, err := json.Marshal(rm)
+	if err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
+	_ = w.WriteField("rich_message", string(rmJSON))
+	part, err := w.CreateFormFile(photoID, filepath.Base(photoPath))
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, "https://api.telegram.org/bot"+token+"/sendRichMessage", &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var wr struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	_ = json.Unmarshal(body, &wr)
+	if !wr.OK {
+		return fmt.Errorf("sendRichMessage photo: %s", wr.Description)
+	}
+	return nil
+}
+
+// editRichWithPhoto tries edit; on failure deletes and sends new rich photo message.
+func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, photoID string) {
+	if msgID > 0 {
+		_ = deleteMessage(token, chat, msgID)
+	}
+	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID); err != nil {
+		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
+		// fallback: text-only rich
+		sendRich(token, chat, html, nil)
+	}
+}
+
 
 func editHTML(token string, chat int64, msgID int, text string, kb map[string]any) error {
 	return editRich(token, chat, msgID, text, kb)

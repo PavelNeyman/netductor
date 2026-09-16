@@ -190,77 +190,91 @@ func formatUserHubHTML(name string) string {
 }
 
 
-func accessPayload(name, mode string) (payload, caption string) {
-	nl := "\n"
+func accessPayload(name, mode string) (payload string) {
 	switch mode {
 	case "core":
 		payload = shareURIFrom(runVPN("link", name, "core"))
 		if payload == "" {
 			payload = shareURIFrom(runVPN("link", name, "vless"))
 		}
-		caption = "🔗 <b>VLESS · core</b> · " + esc(name)
 	case "hy2":
 		payload = shareURIFrom(runVPN("link", name, "hy2"))
-		caption = "📱 <b>HY2</b> · " + esc(name)
 	default:
 		mode = "vless"
 		payload = shareURIFrom(runVPN("link", name, "vless"))
-		caption = "🔗 <b>VLESS · secondary</b> · " + esc(name)
 	}
 	if strings.Contains(payload, "not found") || strings.Contains(payload, "exit status") {
 		payload = ""
 	}
-	if payload == "" {
-		caption += nl + "❌ " + T("no_links")
+	return strings.TrimSpace(strings.Split(payload, "\n")[0])
+}
+
+// formatAccessRichHTML builds one rich message: heading, QR photo, code URI, in-body buttons.
+func formatAccessRichHTML(name, mode, uri string) string {
+	nl := "\n"
+	title := "VLESS · secondary"
+	switch mode {
+	case "core":
+		title = "VLESS · core"
+	case "hy2":
+		title = "HY2"
 	}
-	return payload, caption
+	styleV, styleC, styleH := "", "", ""
+	switch mode {
+	case "core":
+		styleC = ` style="primary"`
+	case "hy2":
+		styleH = ` style="primary"`
+	default:
+		styleV = ` style="primary"`
+	}
+	var b strings.Builder
+	b.WriteString("<h3>🔗 " + esc(title) + " · " + esc(name) + "</h3>" + nl)
+	if uri != "" {
+		b.WriteString(`<img src="tg://photo?id=qr1"/>` + nl)
+		b.WriteString("<p><code>" + esc(uri) + "</code></p>" + nl)
+	} else {
+		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)
+	}
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" data="u:open:` + name + `">` + esc(T("user_card")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:users">` + esc(T("users")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:menu">` + esc(T("main_menu")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>`)
+	return b.String()
 }
 
 func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	if mode == "" {
 		mode = "vless"
 	}
-	payload, cap := accessPayload(name, mode)
-	kb := userAccessKeyboard(name, mode)
+	uri := accessPayload(name, mode)
+	html := formatAccessRichHTML(name, mode, uri)
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
 
-	first := ""
-	if payload != "" {
-		first = strings.TrimSpace(strings.Split(payload, "\n")[0])
+	if uri == "" {
+		reply(token, chat, msgID, html, nil)
+		return
 	}
-
-	// Always replace previous message — editMessageMedia is flaky text↔photo.
-	if msgID > 0 {
-		_ = deleteMessage(token, chat, msgID)
+	qrPath := filepath.Join(dir, "qr-vless.png")
+	switch mode {
+	case "hy2":
+		qrPath = filepath.Join(dir, "qr-hy2.png")
+	case "core":
+		qrPath = filepath.Join(dir, "qr-core.png")
 	}
-
-	path := ""
-	if first != "" {
-		switch mode {
-		case "hy2":
-			path = ensureQRFile(filepath.Join(dir, "qr-hy2.png"), first)
-		case "core":
-			path = ensureQRFile(filepath.Join(dir, "qr-core.png"), first)
-		default:
-			path = ensureQRFile(filepath.Join(dir, "qr-vless.png"), first)
-		}
+	if p := ensureQRFile(qrPath, uri); p == "" {
+		fmt.Fprintln(os.Stderr, "ensureQRFile failed for", name, mode)
+		reply(token, chat, msgID, html, nil)
+		return
 	}
-
-	if path != "" {
-		if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
-			fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
-			sendHTML(token, chat, cap, kb)
-		}
-	} else {
-		sendHTML(token, chat, cap, kb)
-	}
-
-	// URI as monospace block only (copy-friendly). No custom URL schemes —
-	// Telegram often blocks them; QR + long-press copy is reliable.
-	if first != "" {
-		sendHTML(token, chat, "<code>"+esc(first)+"</code>", kb)
-	}
+	replyRichWithPhoto(token, chat, msgID, html, qrPath, "qr1")
 }
 
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
