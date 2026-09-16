@@ -230,7 +230,7 @@ func importRedirectURL(deep string) string {
 }
 
 
-// showWorkProfileButton: SR Work Mac+OC profile is for the fleet operator account.
+// showWorkProfileButton: SR Config Mac+OC profile is for the fleet operator account.
 // Install used name "Pavel", not "operator".
 func showWorkProfileButton(name string) bool {
 	n := strings.ToLower(strings.TrimSpace(name))
@@ -248,7 +248,7 @@ func workProfileURL() string {
 	if base == "" {
 		base = "http://netductor.work.gd"
 	}
-	return base + "/profiles/operator-mac-oc.conf"
+	return base + "/profiles/nd-oc.conf"
 }
 
 func formatAccessRichHTML(name, mode, uri string) string {
@@ -301,7 +301,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`)
 	if showWorkProfileButton(name) {
-		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Work</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Config</tg-button>`)
 	}
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
@@ -370,8 +370,8 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 
 func sendWorkProfileDocument(token string, chat int64) {
 	candidates := []string{
-		"/opt/netductor/profiles/operator-mac-oc.conf",
-		"/etc/netductor/profiles/operator-mac-oc.conf",
+		"/opt/netductor/profiles/nd-oc.conf",
+		"/etc/netductor/profiles/nd-oc.conf",
 	}
 	var path string
 	for _, c := range candidates {
@@ -381,11 +381,11 @@ func sendWorkProfileDocument(token string, chat int64) {
 		}
 	}
 	if path == "" {
-		sendHTML(token, chat, "❌ SR Work profile file not found on server", nil)
+		sendHTML(token, chat, "❌ SR Config profile file not found on server", nil)
 		return
 	}
 	nl := string([]byte{10})
-	cap := "📥 <b>SR Work (Mac+OC)</b>" + nl + "Shadowrocket → Config → import this file." + nl + "OpenConnect first, then Config mode."
+	cap := "📥 <b>SR Config</b>" + nl + "Shadowrocket → Config → import this file." + nl + "OpenConnect first, then Config mode."
 	if err := sendDocumentFile(token, chat, path, cap); err != nil {
 		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument:", err)
 		sendHTML(token, chat, "❌ Failed to send profile: "+esc(err.Error()), nil)
