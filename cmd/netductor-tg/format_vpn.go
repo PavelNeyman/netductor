@@ -189,6 +189,7 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:50">50 GiB</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:200">200 GiB</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:0">∞</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:custom">Custom</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" data="u:rename:` + name + `">` + esc(T("vpn_rename")) + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
