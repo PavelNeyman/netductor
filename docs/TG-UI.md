@@ -58,3 +58,12 @@ Port **80** is already opened for ACME; no extra public port. Do not log the `u`
 | User slash commands (`/status`, …) | New reply (user message is not edited) |
 
 Do not send a second bot message on the happy path for menu navigation.
+
+
+## Gold standard (2026-09-16): DNS lists screen
+
+- **Rich message** table (`<table bordered striped>`) with descriptions.
+- **Actions inside table cells** via `<tg-button type="callback_data">` (not only under-message keyboard).
+- Under-message keyboard: **navigation only** (Main menu).
+- Batch config changes, then explicit **Reload** (no service flap on every toggle).
+- Same pattern target: Guest, Backup, Locations, Nodes.
