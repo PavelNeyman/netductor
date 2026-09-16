@@ -64,15 +64,18 @@ func handleGuestCB(token string, chat int64, msgID int, data string) {
 	if link != "" {
 		body += "<pre><code>" + esc(link) + "</code></pre>"
 	}
-	reply(token, chat, msgID, body, guestBackKB())
+	dir := filepath.Join("/etc/netductor/clients", "guest")
+	_ = os.MkdirAll(dir, 0o700)
+	qrPath := filepath.Join(dir, "qr-vless.png")
 	if link != "" {
-		dir := filepath.Join("/etc/netductor/clients", "guest")
-		_ = os.MkdirAll(dir, 0o700)
-		qrPath := filepath.Join(dir, "qr-vless.png")
+		nl := string([]byte{10})
+		html := `<img src="tg://photo?id=qr1"/>` + nl + body
 		if p := ensureQRFile(qrPath, link); p != "" {
-			_ = sendPhotoFile(token, chat, p, "📱 Guest VLESS QR", nil)
+			replyRichWithPhoto(token, chat, msgID, html, p, "qr1", guestBackKB())
+			return
 		}
 	}
+	reply(token, chat, msgID, body, guestBackKB())
 }
 
 func guestBackKB() map[string]any {
@@ -218,55 +221,110 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 		var b strings.Builder
 		if ru {
 			b.WriteString("📍 <b>Локации</b>\n")
-			b.WriteString("<i>Группа устройств (дом / квартира / офис): OpenWrt, RPi, MikroTik. Не один роутер — инвентарь для удалённой поддержки.</i>\n")
+			b.WriteString("<i>Инвентарь мест: дом/офис. Сюда потом вешаются OpenWrt-агенты, шаблоны сети, статусы.</i>\n")
 		} else {
 			b.WriteString("📍 <b>Locations</b>\n")
-			b.WriteString("<i>Group of edge devices (home/flat/office). Inventory for remote support — not a single router.</i>\n")
+			b.WriteString("<i>Place inventory: home/office. Bind OpenWrt agents, network templates, status here.</i>\n")
 		}
-		b.WriteString("<table bordered striped>\n<tr><th>#</th><th>id</th><th>name</th><th>kind</th><th>edges</th></tr>\n")
+		b.WriteString("<table bordered striped>\n<tr><th>#</th><th>name</th><th>kind</th><th>edges</th><th></th></tr>\n")
 		for i, s := range list {
-			edges := strconv.Itoa(len(s.EdgeIDs))
-			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
-				i+1, s.ID, esc(s.Name), esc(s.Kind), edges))
+			open := fmt.Sprintf(`<tg-button type="callback_data" data="m:loc:open:%s">Open</tg-button>`, s.ID)
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><b>%s</b><br/><code>%s</code></td><td>%s</td><td>%d</td><td>%s</td></tr>\n",
+				i+1, esc(s.Name), s.ID, esc(s.Kind), len(s.EdgeIDs), open))
 		}
 		b.WriteString("</table>\n")
 		if len(list) == 0 {
 			if ru {
-				b.WriteString("<i>Пусто. Добавьте локацию — потом привяжете агентов OpenWrt.</i>\n")
+				b.WriteString("<i>Пусто — добавьте локацию.</i>\n")
 			} else {
-				b.WriteString("<i>Empty. Add a location, then bind OpenWrt agents.</i>\n")
+				b.WriteString("<i>Empty — add a location.</i>\n")
 			}
 		}
-		add := "➕ Дом"
-		addOff := "➕ Офис"
+		addH, addO := "➕ Дом", "➕ Офис"
 		if !ru {
-			add = "➕ Home"
-			addOff = "➕ Office"
+			addH, addO = "➕ Home", "➕ Office"
 		}
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn(add, "m:loc:add:home", "primary"), btn(addOff, "m:loc:add:office", "")},
+			{btn(addH, "m:loc:add:home", "primary"), btn(addO, "m:loc:add:office", "")},
 			{btn(T("main_menu"), "m:menu", "")},
 		}}
 		reply(token, chat, msgID, b.String(), kb)
 		return
 	}
+	if strings.HasPrefix(data, "m:loc:open:") {
+		id := strings.TrimPrefix(data, "m:loc:open:")
+		showLocationCard(token, chat, msgID, id)
+		return
+	}
+	if strings.HasPrefix(data, "m:loc:del:") {
+		id := strings.TrimPrefix(data, "m:loc:del:")
+		_ = sites.Delete(id)
+		handleLocationCB(token, chat, msgID, "m:loc")
+		return
+	}
+	if strings.HasPrefix(data, "m:loc:rename:") {
+		id := strings.TrimPrefix(data, "m:loc:rename:")
+		setState(chat, "wait_loc_rename:"+id, "")
+		reply(token, chat, msgID, "Новое имя для <code>"+esc(id)+"</code>:", map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("📍", "m:loc:open:"+id, ""), btn(T("main_menu"), "m:menu", "")},
+		}})
+		return
+	}
 	if strings.HasPrefix(data, "m:loc:add:") {
 		kind := strings.TrimPrefix(data, "m:loc:add:")
 		id := kind + "-" + strconv.FormatInt(time.Now().Unix()%100000, 10)
-		name := kind
-		if kind == "home" {
-			name = "Home"
-		}
+		name := "Home"
 		if kind == "office" {
 			name = "Office"
+		}
+		if kind != "home" && kind != "office" {
+			name = kind
 		}
 		_, err := sites.Upsert(sites.Site{ID: id, Name: name, Kind: kind})
 		if err != nil {
 			reply(token, chat, msgID, "❌ "+esc(err.Error()), mainKeyboard())
 			return
 		}
-		handleLocationCB(token, chat, msgID, "m:loc")
+		showLocationCard(token, chat, msgID, id)
+		return
 	}
+}
+
+func showLocationCard(token string, chat int64, msgID int, id string) {
+	ru := getLang() != "en"
+	s, ok := sites.Get(id)
+	if !ok {
+		reply(token, chat, msgID, "❌ not found", mainKeyboard())
+		return
+	}
+	nl := "\n"
+	var b strings.Builder
+	b.WriteString("📍 <b>" + esc(s.Name) + "</b>" + nl)
+	b.WriteString("<table bordered striped>" + nl)
+	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+	b.WriteString("<tr><td>id</td><td><code>" + esc(s.ID) + "</code></td></tr>" + nl)
+	b.WriteString("<tr><td>kind</td><td>" + esc(s.Kind) + "</td></tr>" + nl)
+	b.WriteString("<tr><td>edges</td><td>" + strconv.Itoa(len(s.EdgeIDs)) + "</td></tr>" + nl)
+	if s.Notes != "" {
+		b.WriteString("<tr><td>notes</td><td>" + esc(s.Notes) + "</td></tr>" + nl)
+	}
+	b.WriteString("</table>" + nl)
+	if len(s.EdgeIDs) > 0 {
+		b.WriteString("<b>Edge IDs</b>\n<ul>\n")
+		for _, e := range s.EdgeIDs {
+			b.WriteString("<li><code>" + esc(e) + "</code></li>\n")
+		}
+		b.WriteString("</ul>\n")
+	} else if ru {
+		b.WriteString("<i>Агенты OpenWrt появятся после enroll и привязки к этой локации.</i>\n")
+	} else {
+		b.WriteString("<i>OpenWrt agents appear after enroll and bind to this location.</i>\n")
+	}
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(map[bool]string{true: "Переименовать", false: "Rename"}[ru], "m:loc:rename:"+id, ""), btn(map[bool]string{true: "Удалить", false: "Delete"}[ru], "m:loc:del:"+id, "danger")},
+		{btn("📍 List", "m:loc", ""), btn(T("main_menu"), "m:menu", "primary")},
+	}}
+	reply(token, chat, msgID, b.String(), kb)
 }
 
 func handleQuotaCB(token string, chat int64, msgID int, data string) {
