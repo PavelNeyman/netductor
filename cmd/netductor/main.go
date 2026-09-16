@@ -46,6 +46,8 @@ func main() {
 		runMTLS(os.Args[2:])
 	case "tls":
 		runTLS(os.Args[2:])
+	case "redirect-serve", "import-redirect":
+		runRedirectServe(os.Args[2:])
 	case "secondary", "relay":
 		runRelay(os.Args[2:])
 	case "addons", "addon":

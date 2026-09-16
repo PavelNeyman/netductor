@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"net/url"
 	"fmt"
 	"os"
@@ -211,6 +212,23 @@ func accessPayload(name, mode string) (payload string) {
 }
 
 // formatAccessRichHTML — body actions only (TG-UI.md). Navigation via reply_markup.
+func redirectBase() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	// default: primary public IP http (port 80 redirect-serve)
+	return "http://2.27.118.70"
+}
+
+func importRedirectURL(deep string) string {
+	deep = strings.TrimSpace(deep)
+	if deep == "" {
+		return ""
+	}
+	enc := base64.RawURLEncoding.EncodeToString([]byte(deep))
+	return redirectBase() + "/r?u=" + enc
+}
+
 func formatAccessRichHTML(name, mode, uri string) string {
 	nl := "\n"
 	title := "VLESS · secondary"
@@ -234,12 +252,24 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	if uri != "" {
 		b.WriteString(`<img src="tg://photo?id=qr1"/>` + nl)
 		b.WriteString("<pre><code>" + esc(uri) + "</code></pre>" + nl)
-		// App open: Telegram rejects custom schemes in type=url buttons.
-		// Callback sends deep-link as code for the client clipboard / share sheet.
+		enc := url.PathEscape(uri)
+		sr := importRedirectURL("shadowrocket://add/" + enc)
+		happ := importRedirectURL("happ://add/" + enc)
+		incy := importRedirectURL("incy://add/" + enc)
+		// attr escape
+		attr := func(s string) string {
+			return strings.ReplaceAll(s, "&", "&amp;")
+		}
 		b.WriteString(`<tg-button-row align="left">`)
-		b.WriteString(`<tg-button type="callback_data" data="u:app:` + name + `:` + mode + `:sr">Shadowrocket</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="u:app:` + name + `:` + mode + `:happ">Happ</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="u:app:` + name + `:` + mode + `:incy">INCY</tg-button>`)
+		if sr != "" {
+			b.WriteString(`<tg-button type="url" url="` + attr(sr) + `">Shadowrocket</tg-button>`)
+		}
+		if happ != "" {
+			b.WriteString(`<tg-button type="url" url="` + attr(happ) + `">Happ</tg-button>`)
+		}
+		if incy != "" {
+			b.WriteString(`<tg-button type="url" url="` + attr(incy) + `">INCY</tg-button>`)
+		}
 		b.WriteString(`</tg-button-row>` + nl)
 	} else {
 		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)
@@ -269,9 +299,15 @@ func sendAppDeepLink(token string, chat int64, name, mode, client string) {
 	default:
 		deep, label = "shadowrocket://add/"+enc, "Shadowrocket"
 	}
-	// Plain code — user long-presses / shares; on iOS opening the scheme from Notes/Safari works.
+	// Prefer HTTP redirect button URL if redirect-serve is up
+	if link := importRedirectURL(deep); link != "" {
+		msg := "📲 <b>" + esc(label) + "</b>\n"
+		msg += `<tg-button-row><tg-button type="url" url="` + strings.ReplaceAll(link, "&", "&amp;") + `">` + esc(label) + `</tg-button></tg-button-row>`
+		sendHTML(token, chat, msg, nil)
+		return
+	}
 	msg := "📲 <b>" + esc(label) + "</b>\n<pre><code>" + esc(deep) + "</code></pre>\n"
-	msg += "<i>Скопируйте и откройте на телефоне (Telegram не открывает shadowrocket://happ://incy:// из кнопок).</i>"
+	msg += "<i>Скопируйте и откройте на телефоне.</i>"
 	sendHTML(token, chat, msg, nil)
 }
 
