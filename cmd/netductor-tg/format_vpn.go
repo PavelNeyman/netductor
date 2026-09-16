@@ -269,6 +269,13 @@ func formatAccessRichHTML(name, mode, uri string) string {
 		}
 		if incy != "" {
 			b.WriteString(`<tg-button type="url" url="` + attr(incy) + `">INCY</tg-button>`)
+		if name == "operator" {
+			if base := strings.TrimRight(os.Getenv("NETDUCTOR_REDIRECT_BASE"), "/"); base != "" {
+				purl := base + "/profiles/operator-mac-oc.conf"
+				b.WriteString(`</tg-button-row><tg-button-row>`)
+				b.WriteString(`<tg-button type="url" url="` + attr(purl) + `">SR Work (Mac+OC)</tg-button>`)
+			}
+		}
 		}
 		b.WriteString(`</tg-button-row>` + nl)
 	} else {
