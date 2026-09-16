@@ -212,3 +212,11 @@ netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 ## TG Access edit policy
 
 Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new message (editMessageMedia/rich is flaky across text↔photo). Do not add a second “link only” message on the happy path — that was an earlier experiment and clutters chat. Optional future: in-place rich edit **without** extra messages.
+
+## 2026-09-16 updates
+
+- VPN users on live test: **Pavel**, Nelya (not `operator`). SR Work profile button only for Pavel/operator.
+- **SR Work**: callback `u:workcfg:` → **Telegram document** (`operator-mac-oc.conf`), no public URL required for download.
+- Default SSH port **52222**. SMTP alerts: `NETDUCTOR_SMTP_*` env (no Apprise).
+- Status-page / family ping button: **deferred**.
+- Flow mismatch: only public IP in journal; use per-device VPN users for identity.
