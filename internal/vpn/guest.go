@@ -47,6 +47,38 @@ func saveGuests(g []Guest) error {
 }
 
 // CreateGuest registers metadata; caller should AddUser first.
+// EnsureGuestUser returns the shared "guest" VPN account (creates if missing).
+func EnsureGuestUser() (string, error) {
+	users, _ := List()
+	for _, u := range users {
+		if u.Name == "guest" {
+			return "guest", nil
+		}
+	}
+	_, err := Add("guest", "shared guest access")
+	return "guest", err
+}
+
+// IssueGuestAccess creates/rotates guest credentials window with TTL.
+// Same user "guest"; expires → Revoke disables until next issue.
+func IssueGuestAccess(ttl time.Duration, note string) (Guest, string, error) {
+	name, err := EnsureGuestUser()
+	if err != nil {
+		return Guest{}, "", err
+	}
+	_, _ = Enable(name)
+	g, err := CreateGuest(name, note, ttl)
+	if err != nil {
+		return g, "", err
+	}
+	// preferred vless link
+	link := ""
+	if u, ok := ReadClient(name, "vless", "link"); ok {
+		link = u
+	}
+	return g, link, nil
+}
+
 func CreateGuest(user, note string, ttl time.Duration) (Guest, error) {
 	if ttl < time.Minute {
 		ttl = 10 * time.Minute
