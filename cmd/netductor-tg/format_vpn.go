@@ -229,6 +229,28 @@ func importRedirectURL(deep string) string {
 	return redirectBase() + "/r?u=" + enc
 }
 
+
+// showWorkProfileButton: SR Work Mac+OC profile is for the fleet operator account.
+// Install used name "Pavel", not "operator".
+func showWorkProfileButton(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	if n == "operator" || n == "pavel" {
+		return true
+	}
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("NETDUCTOR_WORK_PROFILE_USER"))); v != "" && n == v {
+		return true
+	}
+	return false
+}
+
+func workProfileURL() string {
+	base := strings.TrimRight(os.Getenv("NETDUCTOR_REDIRECT_BASE"), "/")
+	if base == "" {
+		base = "http://netductor.work.gd"
+	}
+	return base + "/profiles/operator-mac-oc.conf"
+}
+
 func formatAccessRichHTML(name, mode, uri string) string {
 	nl := "\n"
 	title := "VLESS · secondary"
@@ -270,20 +292,10 @@ func formatAccessRichHTML(name, mode, uri string) string {
 		if incy != "" {
 			b.WriteString(`<tg-button type="url" url="` + attr(incy) + `">INCY</tg-button>`)
 		}
-		b.WriteString(`</tg-button-row>` + nl)
-		// Operator-only: Mac+OpenConnect Shadowrocket profile
-		if name == "operator" {
-			base := strings.TrimRight(os.Getenv("NETDUCTOR_REDIRECT_BASE"), "/")
-			if base == "" {
-				base = "http://netductor.work.gd"
-			}
-			purl := base + "/profiles/operator-mac-oc.conf"
-			b.WriteString(`<tg-button-row align="left">`)
-			b.WriteString(`<tg-button type="url" url="` + attr(purl) + `">SR Work (Mac+OC)</tg-button>`)
-			b.WriteString(`</tg-button-row>` + nl)
-			// Plain link fallback (always visible even if tg-button stripped)
-			b.WriteString(`<p>📥 <a href="` + attr(purl) + `">SR Work profile (Mac+OC)</a></p>` + nl)
+		if showWorkProfileButton(name) {
+			b.WriteString(`<tg-button type="url" url="` + attr(workProfileURL()) + `">📥 SR Work</tg-button>`)
 		}
+		b.WriteString(`</tg-button-row>` + nl)
 	} else {
 		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)
 	}
@@ -336,9 +348,6 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 
 	if uri == "" {
 		reply(token, chat, msgID, html, kb)
-		if name == "operator" {
-			sendWorkProfileMessage(token, chat)
-		}
 		return
 	}
 	qrPath := filepath.Join(dir, "qr-vless.png")
@@ -354,26 +363,8 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		return
 	}
 	replyRichWithPhoto(token, chat, msgID, html, qrPath, "qr1", kb)
-	if name == "operator" {
-		sendWorkProfileMessage(token, chat)
-	}
 }
 
-// sendWorkProfileMessage — plain Telegram message + classic URL button (always visible).
-func sendWorkProfileMessage(token string, chat int64) {
-	base := strings.TrimRight(os.Getenv("NETDUCTOR_REDIRECT_BASE"), "/")
-	if base == "" {
-		base = "http://netductor.work.gd"
-	}
-	purl := base + "/profiles/operator-mac-oc.conf"
-	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{{"text": "📥 Download SR Work (Mac+OC)", "url": purl}},
-	}}
-	body := "📥 <b>SR Work profile (Mac + OpenConnect)</b>\n" +
-		"Shadowrocket → Config → import this file.\n" +
-		"<code>" + esc(purl) + "</code>"
-	sendHTML(token, chat, body, kb)
-}
 
 
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
