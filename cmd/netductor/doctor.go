@@ -14,6 +14,15 @@ import (
 
 func detectRole() string {
 	etc := paths.EtcDir()
+	if b, err := os.ReadFile(filepath.Join(etc, "role")); err == nil {
+		s := strings.TrimSpace(strings.ToLower(string(b)))
+		if s == "primary" || s == "core" {
+			return "primary"
+		}
+		if s == "secondary" || s == "relay" {
+			return "secondary"
+		}
+	}
 	if b, err := os.ReadFile(filepath.Join(etc, "READY.txt")); err == nil {
 		s := strings.ToLower(string(b))
 		if strings.Contains(s, "primary") || strings.Contains(s, "core") {
@@ -23,10 +32,18 @@ func detectRole() string {
 			return "secondary"
 		}
 	}
+	host, _ := os.Hostname()
+	hl := strings.ToLower(host)
+	if strings.Contains(hl, "primary") || strings.HasPrefix(hl, "nd-core") {
+		return "primary"
+	}
+	if strings.Contains(hl, "secondary") || strings.Contains(hl, "relay") {
+		return "secondary"
+	}
 	if activeUnit("netductor-secondary-agent") || activeUnit("netductor-relay-agent") {
 		return "secondary"
 	}
-	if activeUnit("netductor-api") {
+	if activeUnit("netductor-api") || activeUnit("netductor-telegram-bot") {
 		return "primary"
 	}
 	return "unknown"
