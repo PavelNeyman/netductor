@@ -190,12 +190,13 @@ func Backup() (string, error) {
 		_ = WriteComponentsManifest(DefaultComponents())
 	}
 	args := []string{"-czf", plain, "-C", "/", "etc/netductor"}
+	// Config + data for all managed services (binaries/images reinstalled from COMPONENTS).
 	for _, p := range []string{
-		"var/lib/netductor/components.json",
-		"var/lib/netductor/relay",
-		"var/lib/netductor/nodes",
-		"var/lib/netductor/sites",
-		"opt/netductor/lampac", // data/config only — image re-pulled on install
+		"etc/blocky",
+		"etc/sing-box",
+		"var/lib/netductor", // state, sites, nodes, quotas, guests, components.json
+		"opt/netductor/lampac",
+		"opt/netductor/profiles",
 	} {
 		if _, err := os.Stat("/" + p); err == nil {
 			args = append(args, p)
@@ -230,7 +231,7 @@ func Backup() (string, error) {
 	} else {
 		_ = os.Remove(failMark)
 	}
-	pruneBackups(dir, 14)
+	pruneBackups(dir, BackupKeepCount())
 	return out, nil
 }
 
