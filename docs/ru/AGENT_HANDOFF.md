@@ -1,38 +1,8 @@
-# Передача контекста агенту (читать первым в новом чате)
+# Передача контекста (0.7.3-dev)
 
-**Репо:** https://github.com/PavelNeyman/netductor  
-**Релиз:** `v0.7.0-dev`  
-Документация user-facing — **EN + RU**.
+Полный EN: [AGENT_HANDOFF.md](../AGENT_HANDOFF.md)
 
-Полная версия (EN): [AGENT_HANDOFF.md](../AGENT_HANDOFF.md)
-
-## Модель
-
-| Имя | Где | Зачем |
-|-----|-----|--------|
-| **primary** | За рубежом | Источник правды, TG active, API, бэкапы. `nd-primary` |
-| **secondary** | РФ | Вход VPN (БС), Lampac, standby TG через SOCKS. `nd-secondary` |
-
-VPN **не** балансируем. В коде VPN-агент может называться `relay`.
-
-## SSH
-
-Пароль только для первого входа → `install` / `provision-secondary` ставят ключ primary и **отключают пароль**.
-
-## Деплой
-
-1. Primary: binary → secrets TG → `netductor install` → `vpn set-sni api.vk.me`  
-2. Secondary с primary: `netductor fleet provision-secondary --host IP --password …`  
-3. Recover: `netductor recover --key … backup.ndenc`
-
-**Не** удалять токены агента в post-provision до heartbeat.
-
-## Telegram UI
-
-- **Под сообщением** — только навигация (меню, назад).  
-- **В тексте** — действия экрана (доступ, rename, VLESS/HY2, метрики ноды).  
-Без дублирования «Добавить» / «Меню».
-
-## TUI
-
-`netductor tui` → мастер настройки (primary/secondary/OpenWrt/MikroTik) + Tools.
+- primary / secondary, redirect :80, mTLS :8789, netductor.conf
+- TG: nav под сообщением, действия в тексте; Access in-place edit
+- Корп OpenConnect + наш full-tunnel на одном устройстве часто роняют весь интернет
+- Probes: api-health должен ходить на https localhost или tcp :8787
