@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/install"
 	"fmt"
 	"strings"
 )
@@ -31,6 +32,21 @@ func handleMessage(token string, m *message, admin int64) {
 		// try apply on local if this is the VPS
 		_ = runND("nodes", "sync-local")
 		sendHTML(token, chat, fmt.Sprintf(T("nodes_done"), esc(id), esc(newName[0]))+string([]byte{10, 10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatNodesListHTML(), nodesKeyboard())
+		return
+	}
+	if st == "wait_backup_time" {
+		setState(chat, "", "")
+		h, m, err := install.ParseHHMM(text)
+		if err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), nil)
+			return
+		}
+		s := install.BackupSchedule{Hour: h, Minute: m, UTC: true}
+		if err := install.SaveBackupSchedule(s); err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), nil)
+			return
+		}
+		sendHTML(token, chat, "✅ Backup schedule: <code>"+install.FormatBackupSchedule(s)+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{{btn("🗓 Backup", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 		return
 	}
 	if st == "wait_ssh_forget" {
