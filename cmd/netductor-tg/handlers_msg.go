@@ -1,8 +1,10 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -32,6 +34,18 @@ func handleMessage(token string, m *message, admin int64) {
 		// try apply on local if this is the VPS
 		_ = runND("nodes", "sync-local")
 		sendHTML(token, chat, fmt.Sprintf(T("nodes_done"), esc(id), esc(newName[0]))+string([]byte{10, 10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatNodesListHTML(), nodesKeyboard())
+		return
+	}
+	if strings.HasPrefix(st, "wait_quota:") {
+		name := strings.TrimPrefix(st, "wait_quota:")
+		setState(chat, "", "")
+		gb, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
+		if err != nil || gb < 0 {
+			sendHTML(token, chat, "❌ Число GiB, например 100", nil)
+			return
+		}
+		_ = vpn.SetSoftLimitGB(name, gb)
+		sendHTML(token, chat, formatUserHubHTML(name), userHubKeyboard(name))
 		return
 	}
 	if st == "wait_backup_time" {
