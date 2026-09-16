@@ -29,6 +29,8 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		if len(parts) >= 3 {
 			action, name := parts[1], parts[2]
 			switch action {
+			case "workcfg":
+				sendWorkProfileDocument(token, chat)
 			case "open":
 				reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
 			case "app":
