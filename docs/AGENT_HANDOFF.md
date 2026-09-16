@@ -5,7 +5,7 @@
 # Agent handoff (read first in a new chat)
 
 **Repo:** https://github.com/PavelNeyman/netductor  
-**Release tag:** `v0.7.0-dev`  
+**Release tag:** `v0.7.3-dev` (check Releases if tag name differs)  
 **Binaries:** `netductor-linux-amd64`, `netductor-tg-linux-amd64`, `netductor-agent-*`  
 **Owner language:** Russian OK; docs **EN + RU** for user-facing behaviour.
 
@@ -47,7 +47,7 @@ Default Reality SNI for WL: **`api.vk.me`**. Client VLESS links prefer **seconda
 
 ```bash
 wget -qO /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64
+  https://github.com/PavelNeyman/netductor/releases/download/v0.7.3-dev/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 
 mkdir -p /etc/netductor/secrets
@@ -169,7 +169,7 @@ netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 
 1. Read this file + AGENTS.md.  
 2. Prefer GitHub `main` + release assets over ad-hoc VPS edits.  
-3. After code changes: `go test` / `go build`, push sources + update `v0.7.0-dev` assets if owner uses that tag.  
+3. After code changes: `go test` / `go build`, push sources + update release assets for the tag in VERSION / Releases.  
 4. Live VPS passwords are **ephemeral** — owner provides them; never commit them. SSH key may live in operator workspace only.
 
 
