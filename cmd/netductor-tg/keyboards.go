@@ -309,9 +309,19 @@ func userHubKeyboard(name string) map[string]any {
 
 // mode: vless | core | hy2 — navigation under message; mode switch is in access HTML body.
 func userAccessKeyboard(name, mode string) map[string]any {
-	_ = mode
+	style := func(want string) string {
+		if mode == want || (want == "vless" && (mode == "" || mode == "vless")) {
+			return "primary"
+		}
+		return ""
+	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("user_card"), "u:open:"+name, "primary"), btn(T("users"), "m:users", "")},
+		{
+			btn("VLESS", "u:access:"+name+":vless", style("vless")),
+			btn("Core", "u:access:"+name+":core", style("core")),
+			btn("HY2", "u:access:"+name+":hy2", style("hy2")),
+		},
+		{btn(T("user_card"), "u:open:"+name, ""), btn(T("users"), "m:users", "")},
 		{btn(T("main_menu"), "m:menu", "")},
 	}}
 }

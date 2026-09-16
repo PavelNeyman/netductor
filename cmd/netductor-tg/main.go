@@ -349,15 +349,37 @@ func netductorBin() string {
 func runVPN(args ...string) string {
 	full := append([]string{"vpn"}, args...)
 	cmd := exec.Command(netductorBin(), full...)
-	out, err := cmd.CombinedOutput()
+	// stdout only — CLI writes diagnostics (e.g. "via relay:...") to stderr
+	out, err := cmd.Output()
 	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
+			return strings.TrimSpace(string(ee.Stderr) + "\n" + err.Error())
+		}
 		msg := string(out)
 		if msg != "" {
-			msg += string([]byte{10})
+			msg += "\n"
 		}
 		return strings.TrimSpace(msg + err.Error())
 	}
 	return string(out)
+}
+
+// shareURIFrom keeps only importable URI lines (vless/hysteria2/ss/trojan).
+func shareURIFrom(raw string) string {
+	var lines []string
+	for _, ln := range strings.Split(raw, "\n") {
+		ln = strings.TrimSpace(ln)
+		if ln == "" {
+			continue
+		}
+		low := strings.ToLower(ln)
+		if strings.HasPrefix(low, "vless://") || strings.HasPrefix(low, "hysteria2://") ||
+			strings.HasPrefix(low, "hy2://") || strings.HasPrefix(low, "ss://") ||
+			strings.HasPrefix(low, "trojan://") {
+			lines = append(lines, ln)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func runND(args ...string) string {

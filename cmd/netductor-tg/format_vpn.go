@@ -46,9 +46,9 @@ func formatVPNListPretty(raw string) string {
 }
 
 func formatVPNLinkHTML(name string) (caption string, vless, hy2, sub string) {
-	vless = strings.TrimSpace(runVPN("link", name, "vless"))
-	hy2 = strings.TrimSpace(runVPN("link", name, "hy2"))
-	sub = strings.TrimSpace(runVPN("link", name))
+	vless = shareURIFrom(runVPN("link", name, "vless"))
+	hy2 = shareURIFrom(runVPN("link", name, "hy2"))
+	sub = shareURIFrom(runVPN("link", name))
 	if sub != "" {
 		first := strings.TrimSpace(strings.Split(sub, "\n")[0])
 		if strings.HasPrefix(first, "vless://") {
@@ -193,43 +193,30 @@ func accessPayload(name, mode string) (payload, caption string) {
 	nl := string([]byte{10})
 	switch mode {
 	case "core":
-		payload = strings.TrimSpace(runVPN("link", name, "core"))
-		if payload == "" || strings.Contains(payload, "not found") {
-			payload = strings.TrimSpace(runVPN("link", name, "vless"))
+		payload = shareURIFrom(runVPN("link", name, "core"))
+		if payload == "" {
+			payload = shareURIFrom(runVPN("link", name, "vless"))
 		}
 		caption = "🔗 <b>VLESS · core</b> · " + esc(name) + nl + nl
 	case "hy2":
-		payload = strings.TrimSpace(runVPN("link", name, "hy2"))
+		payload = shareURIFrom(runVPN("link", name, "hy2"))
 		caption = "📱 <b>HY2 · optional</b> · " + esc(name) + nl + nl
 		caption += "<i>" + T("hy2_optional") + "</i>" + nl + nl
 	default:
 		mode = "vless"
-		payload = strings.TrimSpace(runVPN("link", name, "vless"))
-		caption = "🔗 <b>VLESS · primary</b> · " + esc(name) + nl + nl
+		payload = shareURIFrom(runVPN("link", name, "vless"))
+		caption = "🔗 <b>VLESS · secondary</b> · " + esc(name) + nl + nl
 	}
 	if strings.Contains(payload, "not found") || strings.Contains(payload, "exit status") {
 		payload = ""
 	}
 	if payload != "" {
-		caption += "<code>" + esc(payload) + "</code>" + nl + nl
+		// single-line URI in <code> — required for SR copy/import
+		caption += "<code>" + esc(payload) + "</code>"
 	} else {
-		caption += "❌ " + T("no_links") + nl + nl
+		caption += "❌ " + T("no_links")
 	}
-	// Mode switch = function of this screen → in-body buttons (nav stays under message)
-	caption += `<tg-button-row align="left">`
-	styleV, styleC, styleH := "", "", ""
-	switch mode {
-	case "core":
-		styleC = ` style="primary"`
-	case "hy2":
-		styleH = ` style="primary"`
-	default:
-		styleV = ` style="primary"`
-	}
-	caption += `<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`
-	caption += `<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`
-	caption += `<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`
-	caption += `</tg-button-row>`
+	// Mode switch only via reply_markup (sendPhoto caption cannot use <tg-button>)
 	return payload, caption
 }
 
@@ -260,19 +247,23 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		}
 	}
 	if path == "" {
+		fmt.Fprintln(os.Stderr, "showUserAccess: no QR path for", name, mode)
 		reply(token, chat, msgID, cap, kb)
 		return
 	}
 	if msgID > 0 {
 		if err := editPhotoFile(token, chat, msgID, path, cap, kb); err != nil {
+			fmt.Fprintln(os.Stderr, "editPhotoFile:", err)
 			_ = deleteMessage(token, chat, msgID)
 			if err2 := sendPhotoFile(token, chat, path, cap, kb); err2 != nil {
+				fmt.Fprintln(os.Stderr, "sendPhotoFile:", err2)
 				sendHTML(token, chat, cap, kb)
 			}
 		}
 		return
 	}
 	if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
+		fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
 		sendHTML(token, chat, cap, kb)
 	}
 }
