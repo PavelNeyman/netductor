@@ -47,7 +47,7 @@ Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **
 
 **SSH:** password only for first login; install/provision → key-only (`internal/install/ssh_harden.go`).
 
-**TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI.md](docs/TG-UI.md).
+**TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI.md](docs/TG-UI.md). Access import buttons use **:80 redirect-serve** (`NETDUCTOR_REDIRECT_BASE`); do not put custom schemes in Telegram url-buttons.
 
 ---
 

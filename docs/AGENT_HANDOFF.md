@@ -1,6 +1,6 @@
 ## Version
 
-**0.7.1** — secondary naming, mTLS :8789, hardening, package `internal/secondary`.
+**0.7.3-dev** — TG Access rich QR + import redirect on :80; core/vpn advertise hosts; mTLS agent plane.
 
 # Agent handoff (read first in a new chat)
 
@@ -196,3 +196,14 @@ netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 ### mTLS / TLS CLI
 - `netductor mtls ensure` / `mtls issue-client <id>`
 - `netductor tls self-signed [host]` for lab HTTPS admin
+
+---
+
+## Locked decisions (2026-09-16)
+
+1. **TG UI:** navigation under message; screen actions in body — [TG-UI.md](TG-UI.md).
+2. **Access screen:** rich message with QR (`tg://photo`), URI in `<pre><code>`, VLESS/Core/HY2 in body; nav under.
+3. **App import buttons:** Telegram forbids custom schemes in url-buttons → **`netductor redirect-serve` on :80** + `NETDUCTOR_REDIRECT_BASE`.
+4. **Advertise hosts:** `coreAdvertiseHost` (primary / netductor.work.gd) ≠ `vpnAdvertiseHost` (secondary / vpn.…); never mix Reality pbk/sid across hops.
+5. **Agent plane:** mTLS :8789; nft/UFW allow only secondary→primary; zabbix agent not ours — remove if present.
+6. **LE on \*.work.gd:** rate-limited in test; self-signed OK until real domain / reinstall.
