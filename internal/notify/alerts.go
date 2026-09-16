@@ -51,7 +51,11 @@ func AlertOnce(key, msg string) {
 	if ts, ok := disk[key]; ok && now.Unix()-ts < int64(cooldown.Seconds()) {
 		return
 	}
-	if err := Telegram(msg); err != nil {
+	tgErr := Telegram(msg)
+	if smtpConfigured() {
+		_ = Email("netductor: "+key, stripTags(msg))
+	}
+	if tgErr != nil {
 		return
 	}
 	lastSent[key] = now
