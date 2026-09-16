@@ -141,7 +141,7 @@ func sendHTML(token string, chat int64, text string, kb map[string]any) {
 
 // sendRichWithPhoto sends Bot API 10.2+ rich message with in-body photo + tg-buttons.
 // photoID is the media id referenced as tg://photo?id=<photoID> in html (e.g. "qr1").
-func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string) error {
+func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string, kb map[string]any) error {
 	if photoID == "" {
 		photoID = "qr1"
 	}
@@ -172,6 +172,10 @@ func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string
 	w := multipart.NewWriter(&buf)
 	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
 	_ = w.WriteField("rich_message", string(rmJSON))
+	if kb != nil {
+		jb, _ := json.Marshal(kb)
+		_ = w.WriteField("reply_markup", string(jb))
+	}
 	part, err := w.CreateFormFile(photoID, filepath.Base(photoPath))
 	if err != nil {
 		return err
@@ -204,15 +208,14 @@ func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string
 	return nil
 }
 
-// editRichWithPhoto tries edit; on failure deletes and sends new rich photo message.
-func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, photoID string) {
+// replyRichWithPhoto replaces msg and sends rich photo + under-message navigation keyboard.
+func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, photoID string, kb map[string]any) {
 	if msgID > 0 {
 		_ = deleteMessage(token, chat, msgID)
 	}
-	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID); err != nil {
+	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID, kb); err != nil {
 		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
-		// fallback: text-only rich
-		sendRich(token, chat, html, nil)
+		sendRich(token, chat, html, kb)
 	}
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/url"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -209,7 +210,7 @@ func accessPayload(name, mode string) (payload string) {
 	return strings.TrimSpace(strings.Split(payload, "\n")[0])
 }
 
-// formatAccessRichHTML builds one rich message: heading, QR photo, code URI, in-body buttons.
+// formatAccessRichHTML — body actions only (TG-UI.md). Navigation via reply_markup.
 func formatAccessRichHTML(name, mode, uri string) string {
 	nl := "\n"
 	title := "VLESS · secondary"
@@ -232,19 +233,23 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString("<h3>🔗 " + esc(title) + " · " + esc(name) + "</h3>" + nl)
 	if uri != "" {
 		b.WriteString(`<img src="tg://photo?id=qr1"/>` + nl)
-		b.WriteString("<p><code>" + esc(uri) + "</code></p>" + nl)
+		// code block for long-press copy (not a bare paragraph)
+		b.WriteString("<pre><code>" + esc(uri) + "</code></pre>" + nl)
+		// app import actions (url-scheme buttons in body)
+		enc := url.PathEscape(uri)
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(`<tg-button type="url" href="shadowrocket://add/` + enc + `">Shadowrocket</tg-button>`)
+		b.WriteString(`<tg-button type="url" href="happ://add/` + enc + `">Happ</tg-button>`)
+		b.WriteString(`<tg-button type="url" href="incy://add/` + enc + `">INCY</tg-button>`)
+		b.WriteString(`</tg-button-row>` + nl)
 	} else {
 		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)
 	}
+	// mode switch = screen action → body
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`)
-	b.WriteString(`</tg-button-row>` + nl)
-	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" data="u:open:` + name + `">` + esc(T("user_card")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:users">` + esc(T("users")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:menu">` + esc(T("main_menu")) + `</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }
@@ -255,11 +260,12 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	}
 	uri := accessPayload(name, mode)
 	html := formatAccessRichHTML(name, mode, uri)
+	kb := userAccessKeyboard(name, mode) // navigation only under message
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
 
 	if uri == "" {
-		reply(token, chat, msgID, html, nil)
+		reply(token, chat, msgID, html, kb)
 		return
 	}
 	qrPath := filepath.Join(dir, "qr-vless.png")
@@ -271,10 +277,10 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	}
 	if p := ensureQRFile(qrPath, uri); p == "" {
 		fmt.Fprintln(os.Stderr, "ensureQRFile failed for", name, mode)
-		reply(token, chat, msgID, html, nil)
+		reply(token, chat, msgID, html, kb)
 		return
 	}
-	replyRichWithPhoto(token, chat, msgID, html, qrPath, "qr1")
+	replyRichWithPhoto(token, chat, msgID, html, qrPath, "qr1", kb)
 }
 
 func deliverVPNLink(token string, chat int64, msgID int, name string) {
