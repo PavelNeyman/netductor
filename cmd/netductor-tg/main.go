@@ -309,6 +309,51 @@ func reply(token string, chat int64, msgID int, text string, kb map[string]any) 
 }
 
 
+func sendDocumentFile(token string, chat int64, path, caption string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
+	if caption != "" {
+		_ = w.WriteField("caption", caption)
+		_ = w.WriteField("parse_mode", "HTML")
+	}
+	part, err := w.CreateFormFile("document", filepath.Base(path))
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, "https://api.telegram.org/bot"+token+"/sendDocument", &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var wr struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	_ = json.Unmarshal(body, &wr)
+	if !wr.OK {
+		return fmt.Errorf("sendDocument: %s", wr.Description)
+	}
+	return nil
+}
+
 func sendPhotoFile(token string, chat int64, path, caption string, kb map[string]any) error {
 	f, err := os.Open(path)
 	if err != nil {
