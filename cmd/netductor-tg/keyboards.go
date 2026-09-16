@@ -36,17 +36,24 @@ func mainKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("status"), "m:status", "primary")},
-			{btn("⏱ Guest", "m:guest", ""), btn("🛡 DNS", "m:dns", ""), btn("🗓 Backup", "m:backup", "")},
-			{btn("📍 Locations", "m:loc", "")},
 			{btn(T("users"), "m:users", "primary")},
 			{btn(T("fleet"), "m:fleet", "primary")},
-			{btn(T("operator"), "m:operator", "")},
+			{btn("🧰 Tools", "m:tools", ""), btn(T("operator"), "m:operator", "")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
 	}
 }
 
 // fleet = nodes + routers + sites
+func toolsKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("⏱ Guest", "m:guest", ""), btn("🛡 DNS", "m:dns", "")},
+		{btn("🗓 Backup", "m:backup", ""), btn("📍 Locations", "m:loc", "")},
+		{btn("🔄 Updates", "m:updates", "")},
+		{btn(T("main_menu"), "m:menu", "primary")},
+	}}
+}
+
 func fleetKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("nodes"), "m:cat:nodes", "primary")},
