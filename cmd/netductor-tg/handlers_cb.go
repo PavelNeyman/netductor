@@ -31,6 +31,16 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			switch action {
 			case "open":
 				reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
+			case "app":
+				// u:app:name:mode:sr|happ|incy — deep-link as code (TG forbids custom schemes in url buttons)
+				mode, client := "vless", "sr"
+				if len(parts) >= 4 && parts[3] != "" {
+					mode = parts[3]
+				}
+				if len(parts) >= 5 && parts[4] != "" {
+					client = parts[4]
+				}
+				sendAppDeepLink(token, chat, name, mode, client)
 			case "access":
 				mode := "vless"
 				if len(parts) >= 4 && parts[3] != "" {

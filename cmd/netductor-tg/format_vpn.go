@@ -233,25 +233,46 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString("<h3>🔗 " + esc(title) + " · " + esc(name) + "</h3>" + nl)
 	if uri != "" {
 		b.WriteString(`<img src="tg://photo?id=qr1"/>` + nl)
-		// code block for long-press copy (not a bare paragraph)
 		b.WriteString("<pre><code>" + esc(uri) + "</code></pre>" + nl)
-		// app import actions (url-scheme buttons in body)
-		enc := url.PathEscape(uri)
+		// App open: Telegram rejects custom schemes in type=url buttons.
+		// Callback sends deep-link as code for the client clipboard / share sheet.
 		b.WriteString(`<tg-button-row align="left">`)
-		b.WriteString(`<tg-button type="url" href="shadowrocket://add/` + enc + `">Shadowrocket</tg-button>`)
-		b.WriteString(`<tg-button type="url" href="happ://add/` + enc + `">Happ</tg-button>`)
-		b.WriteString(`<tg-button type="url" href="incy://add/` + enc + `">INCY</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:app:` + name + `:` + mode + `:sr">Shadowrocket</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:app:` + name + `:` + mode + `:happ">Happ</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:app:` + name + `:` + mode + `:incy">INCY</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
 	} else {
 		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)
 	}
-	// mode switch = screen action → body
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
+}
+
+
+func sendAppDeepLink(token string, chat int64, name, mode, client string) {
+	uri := accessPayload(name, mode)
+	if uri == "" {
+		sendHTML(token, chat, "❌ "+T("no_links"), nil)
+		return
+	}
+	enc := url.PathEscape(uri)
+	var deep, label string
+	switch client {
+	case "happ":
+		deep, label = "happ://add/"+enc, "Happ"
+	case "incy":
+		deep, label = "incy://add/"+enc, "INCY"
+	default:
+		deep, label = "shadowrocket://add/"+enc, "Shadowrocket"
+	}
+	// Plain code — user long-presses / shares; on iOS opening the scheme from Notes/Safari works.
+	msg := "📲 <b>" + esc(label) + "</b>\n<pre><code>" + esc(deep) + "</code></pre>\n"
+	msg += "<i>Скопируйте и откройте на телефоне (Telegram не открывает shadowrocket://happ://incy:// из кнопок).</i>"
+	sendHTML(token, chat, msg, nil)
 }
 
 func showUserAccess(token string, chat int64, msgID int, name, mode string) {
