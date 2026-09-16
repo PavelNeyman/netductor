@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -16,22 +18,15 @@ import (
 func handleGuestCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	if data == "m:guest" {
-		title := "⏱ <b>Гостевой доступ</b>\nВыберите срок для пользователя <code>guest</code>:"
+		title := "⏱ <b>Гостевой доступ</b>\nОбщий пользователь <code>guest</code>. Выберите срок:"
 		if !ru {
-			title = "⏱ <b>Guest access</b>\nChoose TTL for shared <code>guest</code> user:"
+			title = "⏱ <b>Guest access</b>\nShared user <code>guest</code>. Choose TTL:"
 		}
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("10 мин", "m:guest:10m", ""), btn("1 час", "m:guest:1h", "")},
-			{btn("24 часа", "m:guest:24h", ""), btn("7 дней", "m:guest:7d", "")},
+			{btn("24 ч", "m:guest:24h", ""), btn("7 дн", "m:guest:7d", "")},
 			{btn(T("main_menu"), "m:menu", "primary")},
 		}}
-		if !ru {
-			kb = map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("10 min", "m:guest:10m", ""), btn("1 hour", "m:guest:1h", "")},
-				{btn("24 hours", "m:guest:24h", ""), btn("7 days", "m:guest:7d", "")},
-				{btn(T("main_menu"), "m:menu", "primary")},
-			}}
-		}
 		reply(token, chat, msgID, title, kb)
 		return
 	}
@@ -51,7 +46,6 @@ func handleGuestCB(token string, chat int64, msgID int, data string) {
 		reply(token, chat, msgID, "❌ "+esc(err.Error()), guestBackKB())
 		return
 	}
-	// Prefer link from registry
 	if link == "" {
 		if users, e := vpn.List(); e == nil {
 			for _, u := range users {
@@ -68,12 +62,17 @@ func handleGuestCB(token string, chat int64, msgID int, data string) {
 		body = fmt.Sprintf("⏱ <b>Guest</b> until <code>%s</code>\n", until)
 	}
 	if link != "" {
-		body += "<pre><code>" + esc(link) + "</code></pre>\n"
-		body += "Users → guest → Access — QR."
-	} else {
-		body += "Users → <code>guest</code> → Access for QR/links."
+		body += "<pre><code>" + esc(link) + "</code></pre>"
 	}
 	reply(token, chat, msgID, body, guestBackKB())
+	if link != "" {
+		dir := filepath.Join("/etc/netductor/clients", "guest")
+		_ = os.MkdirAll(dir, 0o700)
+		qrPath := filepath.Join(dir, "qr-vless.png")
+		if p := ensureQRFile(qrPath, link); p != "" {
+			_ = sendPhotoFile(token, chat, p, "📱 Guest VLESS QR", nil)
+		}
+	}
 }
 
 func guestBackKB() map[string]any {
@@ -83,6 +82,14 @@ func guestBackKB() map[string]any {
 }
 
 func handleDNSCB(token string, chat int64, msgID int, data string) {
+	if data == "m:dns:reload" {
+		if err := dnsblock.ReloadBlocky(); err != nil {
+			showDNSMenu(token, chat, msgID, "❌ Reload: "+err.Error())
+			return
+		}
+		showDNSMenu(token, chat, msgID, "✅ Lists reloaded (blocky API)")
+		return
+	}
 	if data == "m:dns" {
 		showDNSMenu(token, chat, msgID, "")
 		return
@@ -95,11 +102,11 @@ func handleDNSCB(token string, chat int64, msgID int, data string) {
 			showDNSMenu(token, chat, msgID, "❌ "+err.Error())
 			return
 		}
-		msg := "✅ " + id
+		msg := "✅ " + id + " → "
 		if on {
-			msg += " ON"
+			msg += "ON (config updated; press 🔄 Reload to fetch)"
 		} else {
-			msg += " OFF"
+			msg += "OFF"
 		}
 		showDNSMenu(token, chat, msgID, msg)
 		return
@@ -112,24 +119,11 @@ func showDNSMenu(token string, chat int64, msgID int, status string) {
 	if status != "" {
 		body = status + "\n\n" + body
 	}
-	rows := [][]map[string]any{}
-	for _, e := range dnsblock.Catalog() {
-		mark := "☐"
-		if e.Enabled {
-			mark = "☑"
-		}
-		act := "m:dns:off:" + e.ID
-		if !e.Enabled {
-			act = "m:dns:on:" + e.ID
-		}
-		label := mark + " " + e.ID
-		if len(label) > 40 {
-			label = label[:40]
-		}
-		rows = append(rows, []map[string]any{btn(label, act, "")})
-	}
-	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
-	reply(token, chat, msgID, body, map[string]any{"inline_keyboard": rows})
+	// Navigation only under message — toggles live in table
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("main_menu"), "m:menu", "primary")},
+	}}
+	reply(token, chat, msgID, body, kb)
 }
 
 func handleBackupCB(token string, chat int64, msgID int, data string) {
@@ -140,10 +134,19 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 		return
 	}
 	if data == "m:backup:run" {
-		_ = exec.Command("systemctl", "start", "netductor-backup.service").Start()
-		msg := "✅ Бэкап запущен (systemd)"
-		if !ru {
-			msg = "✅ Backup started (systemd)"
+		showBackupMenu(token, chat, msgID, s, "⏳ Backup starting…")
+		err := exec.Command("systemctl", "start", "netductor-backup.service").Start()
+		if err != nil {
+			showBackupMenu(token, chat, msgID, s, "❌ "+err.Error())
+			return
+		}
+		// brief status
+		time.Sleep(800 * time.Millisecond)
+		out, _ := exec.Command("systemctl", "is-active", "netductor-backup.service").CombinedOutput()
+		st := strings.TrimSpace(string(out))
+		msg := "✅ systemctl start issued · unit=" + st
+		if ru {
+			msg = "✅ Бэкап запущен · unit=" + st
 		}
 		showBackupMenu(token, chat, msgID, s, msg)
 		return
@@ -152,7 +155,7 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 		setState(chat, "wait_backup_time", "")
 		hint := "Введите время <code>HH:MM</code> (UTC), например <code>01:30</code>"
 		if !ru {
-			hint = "Enter time <code>HH:MM</code> (UTC), e.g. <code>01:30</code>"
+			hint = "Enter <code>HH:MM</code> (UTC), e.g. <code>01:30</code>"
 		}
 		reply(token, chat, msgID, hint, map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("🗓 Backup", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")},
@@ -169,8 +172,7 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 				showBackupMenu(token, chat, msgID, install.LoadBackupSchedule(), "❌ "+err.Error())
 				return
 			}
-			msg := fmt.Sprintf("✅ %s", install.FormatBackupSchedule(s))
-			showBackupMenu(token, chat, msgID, s, msg)
+			showBackupMenu(token, chat, msgID, s, "✅ "+install.FormatBackupSchedule(s))
 			return
 		}
 	}
@@ -179,24 +181,34 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 
 func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedule, status string) {
 	ru := getLang() != "en"
-	body := "🗓 <b>Расписание бэкапа</b>\n"
-	body += "Сейчас: <code>" + install.FormatBackupSchedule(s) + "</code>\n"
-	body += "По умолчанию ≈ 04:00 МСК (01:00 UTC)."
-	if !ru {
-		body = "🗓 <b>Backup schedule</b>\n"
-		body += "Current: <code>" + install.FormatBackupSchedule(s) + "</code>\n"
-		body += "Default ≈ 04:00 MSK (01:00 UTC)."
+	nl := "\n"
+	var b strings.Builder
+	if ru {
+		b.WriteString("🗓 <b>Расписание бэкапа</b>" + nl)
+	} else {
+		b.WriteString("🗓 <b>Backup schedule</b>" + nl)
 	}
+	b.WriteString("<table bordered striped>" + nl)
+	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+	b.WriteString("<tr><td>time</td><td><code>" + install.FormatBackupSchedule(s) + "</code></td></tr>" + nl)
+	b.WriteString("<tr><td>default</td><td>01:00 UTC ≈ 04:00 MSK</td></tr>" + nl)
+	b.WriteString("</table>" + nl)
 	if status != "" {
-		body = status + "\n\n" + body
+		b.WriteString("<p>" + status + "</p>" + nl)
+	}
+	custom := "Своё время"
+	run := "Запустить сейчас"
+	if !ru {
+		custom = "Custom time"
+		run = "Run now"
 	}
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn("01:00 UTC", "m:backup:set:1:0", ""), btn("04:00 UTC", "m:backup:set:4:0", "")},
-		{btn("22:00 UTC", "m:backup:set:22:0", ""), btn(map[bool]string{true: "Своё время", false: "Custom"}[ru], "m:backup:custom", "")},
-		{btn(map[bool]string{true: "Запустить сейчас", false: "Run now"}[ru], "m:backup:run", "primary")},
+		{btn("22:00 UTC", "m:backup:set:22:0", ""), btn(custom, "m:backup:custom", "")},
+		{btn(run, "m:backup:run", "primary")},
 		{btn(T("main_menu"), "m:menu", "")},
 	}}
-	reply(token, chat, msgID, body, kb)
+	reply(token, chat, msgID, b.String(), kb)
 }
 
 func handleLocationCB(token string, chat int64, msgID int, data string) {
@@ -204,28 +216,51 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 	if data == "m:loc" {
 		list, _ := sites.List()
 		var b strings.Builder
-		b.WriteString("📍 <b>Локации</b>\n")
-		if !ru {
+		if ru {
+			b.WriteString("📍 <b>Локации</b>\n")
+			b.WriteString("<i>Группа устройств (дом / квартира / офис): OpenWrt, RPi, MikroTik. Не один роутер — инвентарь для удалённой поддержки.</i>\n")
+		} else {
 			b.WriteString("📍 <b>Locations</b>\n")
+			b.WriteString("<i>Group of edge devices (home/flat/office). Inventory for remote support — not a single router.</i>\n")
 		}
-		b.WriteString("<table bordered striped>\n<tr><th>#</th><th>id</th><th>name</th><th>kind</th></tr>\n")
+		b.WriteString("<table bordered striped>\n<tr><th>#</th><th>id</th><th>name</th><th>kind</th><th>edges</th></tr>\n")
 		for i, s := range list {
-			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td><td>%s</td></tr>\n", i+1, s.ID, esc(s.Name), esc(s.Kind)))
+			edges := strconv.Itoa(len(s.EdgeIDs))
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+				i+1, s.ID, esc(s.Name), esc(s.Kind), edges))
 		}
 		b.WriteString("</table>\n")
 		if len(list) == 0 {
-			b.WriteString("<i>Пока пусто. Добавьте: /loc add home home</i>\n")
+			if ru {
+				b.WriteString("<i>Пусто. Добавьте локацию — потом привяжете агентов OpenWrt.</i>\n")
+			} else {
+				b.WriteString("<i>Empty. Add a location, then bind OpenWrt agents.</i>\n")
+			}
+		}
+		add := "➕ Дом"
+		addOff := "➕ Офис"
+		if !ru {
+			add = "➕ Home"
+			addOff = "➕ Office"
 		}
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn(map[bool]string{true: "Добавить home", false: "Add home"}[ru], "m:loc:add:home", "primary")},
+			{btn(add, "m:loc:add:home", "primary"), btn(addOff, "m:loc:add:office", "")},
 			{btn(T("main_menu"), "m:menu", "")},
 		}}
 		reply(token, chat, msgID, b.String(), kb)
 		return
 	}
 	if strings.HasPrefix(data, "m:loc:add:") {
-		id := strings.TrimPrefix(data, "m:loc:add:")
-		_, err := sites.Upsert(sites.Site{ID: id, Name: id, Kind: "home"})
+		kind := strings.TrimPrefix(data, "m:loc:add:")
+		id := kind + "-" + strconv.FormatInt(time.Now().Unix()%100000, 10)
+		name := kind
+		if kind == "home" {
+			name = "Home"
+		}
+		if kind == "office" {
+			name = "Office"
+		}
+		_, err := sites.Upsert(sites.Site{ID: id, Name: name, Kind: kind})
 		if err != nil {
 			reply(token, chat, msgID, "❌ "+esc(err.Error()), mainKeyboard())
 			return
@@ -235,13 +270,18 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 }
 
 func handleQuotaCB(token string, chat int64, msgID int, data string) {
-	// m:quota:user:50 or m:quota:menu
 	parts := strings.Split(data, ":")
+	// m:quota:name:50 | m:quota:name:custom
 	if len(parts) >= 4 && parts[1] == "quota" {
 		name := parts[2]
+		if parts[3] == "custom" {
+			setState(chat, "wait_quota:"+name, "")
+			reply(token, chat, msgID, "Введите лимит в GiB (число) для <code>"+esc(name)+"</code>, или <code>0</code> = без лимита:", userHubKeyboard(name))
+			return
+		}
 		gb, _ := strconv.ParseFloat(parts[3], 64)
 		_ = vpn.SetSoftLimitGB(name, gb)
-		reply(token, chat, msgID, fmt.Sprintf("✅ Soft limit <code>%s</code> = %.0f GiB", name, gb), userHubKeyboard(name))
+		reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
 		return
 	}
 }
