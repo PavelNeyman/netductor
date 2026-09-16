@@ -59,6 +59,9 @@ var dict = map[string]map[string]string{
 
 		"users_hint":    "Tap a user to open the card (access, rename, …).",
 		"user_hub_hint": "Access = links + QR. Rename keeps the same UUID.",
+		"guest_access": "⏱ Guest access",
+		"dns_lists": "🛡 DNS lists",
+		"backup_sched": "🗓 Backup schedule",
 		"user_access":   "🔗 Access / QR",
 		"user_card":     "👤 User card",
 		"vpn_tools":     "🛠 VPN tools",
@@ -194,6 +197,9 @@ var dict = map[string]map[string]string{
 
 		"users_hint":    "Нажмите пользователя, чтобы открыть карточку.",
 		"user_hub_hint": "Доступ = ссылки + QR. Переименование не меняет UUID.",
+		"guest_access": "⏱ Guest access",
+		"dns_lists": "🛡 DNS lists",
+		"backup_sched": "🗓 Backup schedule",
 		"user_access":   "🔗 Доступ / QR",
 		"user_card":     "👤 Карточка",
 		"vpn_tools":     "🛠 VPN tools",
