@@ -39,3 +39,8 @@ netductor relay sync             # push VPN users to secondary now
 ## Policy file
 
 `/var/lib/netductor/fleet/policy.json` — `sync_enabled` defaults **false**.
+
+
+## TUI
+
+Tools: **VPN → secondary** (`relay sync`), Lampac on primary, wizard secondary = VPN entry only.
