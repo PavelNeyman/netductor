@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -21,9 +22,28 @@ type locPack struct {
 }
 
 func detectLang() tuiLang {
+	// Prefer explicit env; many macOS terminals leave LANG empty.
 	for _, k := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		v := strings.ToLower(os.Getenv(k))
+		v := strings.ToLower(strings.TrimSpace(os.Getenv(k)))
+		if v == "" || v == "c" || v == "posix" {
+			continue
+		}
+		if strings.HasPrefix(v, "ru") || strings.Contains(v, ".ru_") || strings.Contains(v, "_ru") {
+			return langRU
+		}
+		// any other locale → EN
+		return langEN
+	}
+	// macOS: defaults read -g AppleLocale → ru_RU / en_US
+	if b, err := exec.Command("defaults", "read", "-g", "AppleLocale").Output(); err == nil {
+		v := strings.ToLower(strings.TrimSpace(string(b)))
 		if strings.HasPrefix(v, "ru") {
+			return langRU
+		}
+	}
+	if b, err := exec.Command("defaults", "read", "-g", "AppleLanguages").Output(); err == nil {
+		v := strings.ToLower(string(b))
+		if strings.Contains(v, `"ru"`) || strings.Contains(v, "ru-") || strings.Contains(v, "ru_") {
 			return langRU
 		}
 	}
@@ -83,21 +103,19 @@ func modeEntries(lang tuiLang) []menuEntry {
 func settingsEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
-			{"cfg-remote", "Подключение к VPS", "SSH target", "Адрес, пользователь, ключ и/или пароль. Сохраняется в ~/.config/netductor/tui.json."},
-			{"cfg-lang", "Язык интерфейса", "ru / en", "Переключить язык меню (также клавиша l)."},
-			{"cfg-save", "Сохранить настройки", "tui.json", "Записать текущие параметры на диск."},
+			{"cfg-remote", "Подключение к VPS", "SSH target", "Адрес, пользователь, ключ и/или пароль. Сохраняется в ~/.config/netductor/tui.yaml."},
+			{"cfg-lang", "Язык интерфейса", "auto → ru/en", "По умолчанию язык системы (LANG/AppleLocale). Клавиша l или этот пункт — явно ru/en."},
+			{"cfg-save", "Сохранить настройки", "tui.yaml", "Записать текущие параметры на диск."},
 			{"cfg-clear-remote", "Сбросить remote", "Local only", "Убрать SSH target — команды только локально."},
 			{"change-mode", "Сменить режим", "Mode", "VPS / Workstation / OpenWrt / Управление."},
-			{"quit", "Выход", "Quit", "Закрыть TUI."},
 		}
 	}
 	return []menuEntry{
-		{"cfg-remote", "VPS connection", "SSH target", "Host, user, key and/or password. Saved to ~/.config/netductor/tui.json."},
-		{"cfg-lang", "UI language", "ru / en", "Toggle menu language (also key l)."},
-		{"cfg-save", "Save settings", "tui.json", "Write current settings to disk."},
+		{"cfg-remote", "VPS connection", "SSH target", "Host, user, key and/or password. Saved to ~/.config/netductor/tui.yaml."},
+		{"cfg-lang", "UI language", "auto → ru/en", "Default: system locale (LANG/AppleLocale). Key l or this item forces ru/en."},
+		{"cfg-save", "Save settings", "tui.yaml", "Write current settings to disk."},
 		{"cfg-clear-remote", "Clear remote", "Local only", "Drop SSH target — local commands only."},
 		{"change-mode", "Change mode", "Mode", "VPS / Workstation / OpenWrt / Manage."},
-		{"quit", "Quit", "Exit", "Close the TUI."},
 	}
 }
 
@@ -136,12 +154,10 @@ func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 	if ru {
 		e = append(e,
 			menuEntry{"change-mode", "Сменить режим", "Mode", "VPS / Workstation / OpenWrt / Управление."},
-			menuEntry{"quit", "Выход", "Quit", "Закрыть TUI."},
 		)
 	} else {
 		e = append(e,
 			menuEntry{"change-mode", "Change mode", "Mode", "VPS / Workstation / OpenWrt / Manage."},
-			menuEntry{"quit", "Quit", "Exit", "Close the TUI."},
 		)
 	}
 	return e
@@ -164,7 +180,6 @@ func opsEntries(mode runMode, lang tuiLang) []menuEntry {
 			{"audit-tail", "Audit", "События", "Последние события."},
 			{"disable-legacy", "Disable legacy", "Timers", "Старые sync/failover timers."},
 			{"change-mode", "Сменить режим", "Mode", "Выбор режима работы."},
-			{"quit", "Выход", "Quit", "Закрыть TUI."},
 		}
 	}
 	return []menuEntry{
@@ -182,6 +197,5 @@ func opsEntries(mode runMode, lang tuiLang) []menuEntry {
 		{"audit-tail", "Audit", "Events", "Recent events."},
 		{"disable-legacy", "Disable legacy", "Timers", "Old sync/failover timers."},
 		{"change-mode", "Change mode", "Mode", "Work mode picker."},
-		{"quit", "Quit", "Exit", "Close the TUI."},
 	}
 }
