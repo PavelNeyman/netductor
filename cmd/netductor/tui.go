@@ -122,6 +122,7 @@ const (
 	screenMode screen = iota
 	screenMenu
 	screenOutput
+	screenWizard
 )
 
 // top tabs (LAG-style)
@@ -153,6 +154,13 @@ type model struct {
 	helpY    int
 	hits     []hitRect
 	list     list.Model // kept for compatibility; main UI is custom split
+	// wizard state
+	wizStep     wizStep
+	wizTarget   wizTarget
+	wizFields   []wizField
+	wizFieldIdx int
+	wizInput    string
+	wizMsg      string
 }
 
 func modeItems(sug runMode, lang tuiLang) []list.Item {
@@ -255,6 +263,13 @@ func newList(title string, items []list.Item, w, h int) list.Model {
 func (m model) Init() tea.Cmd { return nil }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.screen == screenWizard {
+		if ws, ok := msg.(tea.WindowSizeMsg); ok {
+			m.width, m.height = ws.Width, ws.Height
+			return m, nil
+		}
+		return m.updateWizard(msg)
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -282,6 +297,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.cursor = 0
+			if m.tab == tabWizard {
+				m.startWizard()
+				return m, nil
+			}
 			if m.tab == tabMode {
 				m.screen = screenMode
 			} else {
@@ -386,8 +405,8 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 	case "noop":
 		return m, nil
 	case "wizard":
-		m.result = tuiResult{action: "wizard", mode: m.mode}
-		return m, tea.Quit
+		m.startWizard()
+		return m, nil
 	case "fleet-status":
 		m.output = capture(func() {
 			out, _ := exec.Command("netductor", "fleet", "status").CombinedOutput()
@@ -810,6 +829,7 @@ func runTUI(args []string) {
 		case "ssh-hosts":
 			runSSHHostsTUI()
 		case "wizard":
+			// in-TUI wizard preferred; legacy fallback
 			runSetupWizard()
 		default:
 			return
