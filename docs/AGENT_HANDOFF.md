@@ -2,6 +2,8 @@
 
 ## Secondary role (locked 2026-09-17)
 
+Full plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
+
 - **RU secondary = VPN entry only** (VLESS/Reality + thin agent). Not a full mirror of primary.
 - **No Lampac/docker on secondary** unless RU IP is explicitly required (needs ≥2 GiB RAM).
 - **Edge/OpenWrt agents enroll to primary** (outbound). Routers in RU still reach primary API; do **not** move edge control plane to RU (splits source of truth).
@@ -25,7 +27,7 @@ Also read: [AGENTS.md](../AGENTS.md) · [FLEET.md](FLEET.md) · [DEPLOY.md](DEPL
 
 ## Product (one paragraph)
 
-Personal **production** control plane (single operator): abroad **primary** = source of truth (users, active TG bot, admin API, backups); RU **secondary** = default **VPN entry** under carrier whitelist + warm services (Lampac). VPN is **not** load-balanced. OpenWrt/MikroTik via outbound agents to primary.
+Personal **production** control plane (single operator): abroad **primary** = source of truth (users, active TG bot, admin API, backups); RU **secondary** = default **VPN entry** under carrier whitelist (**no** Lampac/mirror). VPN is **not** load-balanced. OpenWrt/MikroTik via outbound agents to primary.
 
 ---
 
