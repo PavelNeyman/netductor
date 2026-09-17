@@ -137,7 +137,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — network control plane
 
-  tui|menu [--mode vps|openwrt|workstation|operator]
+  tui|menu [--mode vps|openwrt|workstation|operator] [--remote HOST] [--remote-user U] [--remote-key PATH] [--remote-password P]
   backup | restore | recover | fleet | audit | self-install | update
   version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | serve | install | probe | collect | help
   (alias: relay → secondary)
