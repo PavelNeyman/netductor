@@ -188,7 +188,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 	case modeVPS:
 		items = append(items,
 			menuItem{"Install / upgrade stack", "netductor install (idempotent)", "install"},
-			menuItem{"Lampac (primary)", "optional on primary only", "apply-lampac"},
+			menuItem{"Lampac (primary)", "primary only (Docker)", "apply-lampac"},
 			menuItem{"Set hostname", "nd-primary / nd-secondary / …", "hostname"},
 		)
 	case modeOpenWRT:
@@ -224,7 +224,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		menuItem{"Nodes registry", "list", "nodes-list"},
 		menuItem{"Secondary / relay status", "agent online", "relay-status"},
 		menuItem{"Backup now", "encrypted + peer", "backup-now"},
-		menuItem{"Fleet sync", "data → secondary", "fleet-sync"},
+		menuItem{"VPN users → secondary", "relay sync", "relay-sync"},
 		menuItem{"VPN users", "list", "vpn-list"},
 		menuItem{"Refresh VPN links", "prefer secondary", "vpn-refresh"},
 		menuItem{"Probes", "connectivity", "probe"},
@@ -414,14 +414,25 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		})
 		m.screen = screenOutput
 	case "fleet-sync":
+		// legacy id → same as relay-sync
+		fallthrough
+	case "relay-sync":
 		m.output = capture(func() {
-			out, _ := exec.Command("netductor", "fleet", "sync").CombinedOutput()
+			out, _ := exec.Command("netductor", "relay", "sync").CombinedOutput()
 			fmt.Print(string(out))
+			fmt.Println("(VPN users → secondary; data mirror removed)")
 		})
 		m.screen = screenOutput
 	case "apply-lampac":
 		m.output = capture(func() {
-			out, _ := exec.Command("netductor", "fleet", "apply-lampac").CombinedOutput()
+			out, _ := exec.Command("netductor", "install", "lampac").CombinedOutput()
+			fmt.Print(string(out))
+			fmt.Println("(Lampac: primary only)")
+		})
+		m.screen = screenOutput
+	case "disable-legacy":
+		m.output = capture(func() {
+			out, _ := exec.Command("netductor", "fleet", "disable-legacy").CombinedOutput()
 			fmt.Print(string(out))
 		})
 		m.screen = screenOutput
@@ -450,9 +461,6 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.screen = screenOutput
 	case "relay-status":
 		m.output = capture(func() { runRelay([]string{"status"}) })
-		m.screen = screenOutput
-	case "relay-sync":
-		m.output = capture(func() { runRelay([]string{"sync"}) })
 		m.screen = screenOutput
 	case "relay-exit-on":
 		m.output = capture(func() { runRelay([]string{"exit", "on"}) })
