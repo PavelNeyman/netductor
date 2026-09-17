@@ -11,18 +11,17 @@ import (
 
 func runFleet(args []string) {
 	if len(args) < 1 {
-		fmt.Print(`usage: netductor fleet <cmd>
-
+		fmt.Fprintln(os.Stderr, `usage: netductor fleet <cmd>
   status | bootstrap
-  set-primary|set-secondary|set-service
-  provision-secondary --host IP --password PASS [--sni SNI] [--no-lampac] [--no-bot-standby]
-      Full secondary deploy from primary: VPN join + fleet + sync + lampac + bot standby
-  sync [user@host] | sync-timer | apply-lampac
-  bot-standby-install [user@primary]
-  bot-failover check|promote|demote|timer
+  set-primary <id> | set-secondary <id>
+  provision-secondary --host --password [--user root] [--port 22] [--sni SNI]
+  disable-legacy   stop old sync/bot-failover units on this host
 
-Naming: operator-facing primary/secondary. Internal VPN agent may still say role=relay.
-`)
+removed (secondary is VPN entry only):
+  sync | sync-timer | apply-lampac (use: netductor install lampac on primary)
+  bot-failover
+
+VPN users → secondary: automatic on vpn add (config_ver); force: netductor relay sync`)
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -30,104 +29,37 @@ Naming: operator-facing primary/secondary. Internal VPN agent may still say role
 		fmt.Print(fleet.StatusSummary())
 	case "set-primary":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor fleet set-primary <node-id>")
 			os.Exit(2)
 		}
 		if err := fleet.SetPrimary(args[1]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("primary set", args[1])
+		fmt.Println("primary", args[1])
 	case "set-secondary":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor fleet set-secondary <node-id>")
 			os.Exit(2)
 		}
 		if err := fleet.SetSecondary(args[1]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("secondary set", args[1])
-	case "set-service":
-		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: netductor fleet set-service lampac|bot <node-id>")
-			os.Exit(2)
+		fmt.Println("secondary", args[1])
+	case "sync", "sync-timer", "apply-lampac", "bot-failover":
+		fmt.Fprintln(os.Stderr, "removed:", args[0], "— secondary is VPN entry only (see docs/PLAN-SECONDARY-VPN-ONLY.md)")
+		if args[0] == "apply-lampac" {
+			fmt.Fprintln(os.Stderr, "hint: netductor install lampac   # on primary")
 		}
-		if err := fleet.SetServiceNode(args[1], args[2]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+		if args[0] == "sync" || args[0] == "sync-timer" {
+			_ = fleet.InstallSyncTimer()
 		}
-		fmt.Println("service", args[1], "→", args[2])
-	case "sync":
-		peer := ""
-		if len(args) > 1 {
-			peer = args[1]
-		}
-		if err := fleet.SyncPaths(peer); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println("sync ok")
-	case "sync-timer":
-		if err := fleet.InstallSyncTimer(); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println("fleet sync timer enabled (hourly)")
-	case "apply-lampac":
-		if err := fleet.ApplyLampac(); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println("lampac apply done")
-	case "bot-standby-install":
-		peer := ""
-		if len(args) > 1 {
-			peer = args[1]
-		}
-		if err := fleet.InstallBotStandbyUnits(peer); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println("bot standby units installed")
-	case "bot-failover":
-		sub := "check"
-		if len(args) > 1 {
-			sub = args[1]
-		}
-		switch sub {
-		case "check":
-			msg, err := fleet.CheckBotFailover()
-			fmt.Println(msg)
-			if err != nil {
-				os.Exit(1)
-			}
-		case "promote":
-			if err := fleet.PromoteStandbyBot(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			fmt.Println("standby promoted")
-		case "demote":
-			if err := fleet.DemoteStandbyBot(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			fmt.Println("standby demoted")
-		case "timer":
-			if err := fleet.InstallBotFailoverTimer(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-			fmt.Println("bot failover timer enabled (2m)")
-		default:
-			fmt.Fprintln(os.Stderr, "usage: fleet bot-failover check|promote|demote|timer")
-			os.Exit(2)
-		}
+		os.Exit(0)
+	case "disable-legacy":
+		fleet.DisableLegacyFleetUnits()
+		fmt.Println("disabled legacy fleet-sync / bot-failover units (if present)")
 	case "provision-secondary":
 		host, user, pass, sni := "", "root", "", ""
 		port := 22
-		noLampac, noBot := false, false
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
@@ -141,10 +73,8 @@ Naming: operator-facing primary/secondary. Internal VPN agent may still say role
 				i++; fmt.Sscanf(args[i], "%d", &port)
 			case a == "--sni" && i+1 < len(args):
 				i++; sni = args[i]
-			case a == "--no-lampac":
-				noLampac = true
-			case a == "--no-bot-standby":
-				noBot = true
+			case a == "--no-lampac", a == "--no-bot-standby":
+				// ignored; always VPN-entry only
 			}
 		}
 		if host == "" || pass == "" {
@@ -153,7 +83,6 @@ Naming: operator-facing primary/secondary. Internal VPN agent may still say role
 		}
 		if err := fleet.ProvisionSecondary(fleet.ProvisionSecondaryOpts{
 			Host: host, User: user, Password: pass, Port: port, SNI: sni,
-			NoLampac: noLampac, NoBotStandby: noBot,
 		}); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -206,8 +135,9 @@ func fleetBootstrap() error {
 			return err
 		}
 		_, _ = nodes.SetDesiredHostname(relayID, "nd-secondary")
-		_ = fleet.SetServiceNode("lampac", relayID)
 	}
 	_ = fleet.SetServiceNode("bot", coreID)
+	// lampac stays on primary when installed — do not pin to secondary
+	_ = fleet.SetServiceNode("lampac", coreID)
 	return nil
 }
