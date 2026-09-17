@@ -285,10 +285,43 @@ func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, ph
 			_ = deleteMessage(token, chat, msgID)
 		}
 	}
-	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID, kb); err != nil {
+	// 1) experimental rich+photo
+	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID, kb); err == nil {
+		return
+	} else {
 		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
-		sendRich(token, chat, html, kb)
 	}
+	// 2) classic sendPhoto + caption (strip tags, truncate) + markup, then HTML body
+	cap := stripHTMLApprox(html)
+	if len(cap) > 900 {
+		cap = cap[:900] + "…"
+	}
+	if err := sendPhotoFile(token, chat, photoPath, cap, kb); err != nil {
+		fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
+		sendRich(token, chat, html, kb)
+		return
+	}
+	// full rich text as follow-up (no second photo)
+	sendRich(token, chat, html, nil)
+}
+
+func stripHTMLApprox(s string) string {
+	out := make([]rune, 0, len(s))
+	inTag := false
+	for _, r := range s {
+		if r == '<' {
+			inTag = true
+			continue
+		}
+		if r == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			out = append(out, r)
+		}
+	}
+	return strings.TrimSpace(string(out))
 }
 
 
