@@ -104,7 +104,7 @@ netductor recover --key "$(cat BACKUP_KEY.txt)" /path/to/backup.ndenc
 
 Do **not** duplicate Add/Menu in both places. Code: `cmd/netductor-tg/keyboards.go` + `format.go`.
 
-TG bot active on **primary**; secondary has standby units + SOCKS tunnel; failover via `fleet bot-failover check` and `/api/bot-status` on primary `:8788`.
+TG bot active on **primary** only. Secondary bot-failover/standby **removed** (VPN-entry model).
 
 ---
 
@@ -140,7 +140,9 @@ RU domains (`.ru`, `.su`, xn--p1ai, major RU services) → **direct**; else → 
 
 ```bash
 netductor install|doctor|status|vpn|fleet|relay|backup|recover|edge|addons|tui
-netductor fleet status|bootstrap|provision-secondary|sync|apply-lampac|bot-failover
+netductor fleet status|bootstrap|provision-secondary|disable-legacy
+netductor install lampac   # primary only
+netductor relay sync       # VPN users → secondary
 netductor vpn link <user> [vless|hy2|core]
 netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 ```
@@ -254,3 +256,10 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 
 ### Locations
 - List/card/rename/delete; edge bind still when agents enroll.
+
+## TUI (2026-09-17)
+
+- LAG-style: tabs Wizard/Tools/Ops/Mode, split detail, chips, RU/EN (`L`), Esc back.
+- In-TUI multi-step **Setup wizard** (primary / secondary VPN-entry / OpenWrt / MikroTik).
+- Menu: **VPN → secondary** = `relay sync` (not fleet data mirror).
+- **Lampac** = `install lampac` on local host (primary).
