@@ -40,3 +40,8 @@
 - [x] Docs match
 - [x] New secondary provision does not install docker/lampac/bot standby
 - [x] `vpn add` still updates secondary users via config_ver
+
+
+## TUI follow-up (2026-09-17)
+
+- Remote SSH ops from workstation; wizard integrated; chips/keys; menu regroup.
