@@ -61,6 +61,9 @@ func (m *model) currentEntries() []menuEntry {
 	if m.tab == tabOps {
 		return opsEntries(m.mode, m.lang)
 	}
+	if m.tab == tabSettings {
+		return settingsEntries(m.lang)
+	}
 	return toolsEntries(m.mode, m.lang)
 }
 
@@ -77,6 +80,8 @@ func (m *model) currentHelp() []helpChip {
 		return loc.HelpWizard
 	case tabOps:
 		return loc.HelpOps
+	case tabSettings:
+		return loc.HelpSettings
 	default:
 		return loc.HelpTools
 	}
@@ -101,6 +106,7 @@ func (m *model) renderHeader() string {
 		{tabWizard, loc.TabWizard},
 		{tabTools, loc.TabTools},
 		{tabOps, loc.TabOps},
+		{tabSettings, loc.TabSettings},
 		{tabMode, loc.TabMode},
 	}
 	var parts []string
@@ -309,7 +315,7 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 		tx := x - 12
 		if tx >= 0 {
 			ti := tx / 12
-			tabs := []string{tabWizard, tabTools, tabOps, tabMode}
+			tabs := []string{tabWizard, tabTools, tabOps, tabSettings, tabMode}
 			if ti >= 0 && ti < len(tabs) {
 				m.tab = tabs[ti]
 				m.cursor = 0
