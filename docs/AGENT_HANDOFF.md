@@ -260,7 +260,8 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 ## TUI (2026-09-17+)
 
 - LAG-style tabs: **Wizard / Tools / Ops / Settings / Mode**. Chips = real keys (`l`, `tab`, …). No 1–9 jump.
-- **Settings**: SSH connection (host, user, key path, password), language, save to `~/.config/netductor/tui.json`.
+- Locale: default **auto** from LANG / macOS AppleLocale; `l` forces ru/en.
+- **Settings**: SSH connection (host, user, key path, password), language, save to `~/.config/netductor/tui.yaml`.
 - CLI: `netductor tui --remote HOST [--remote-user root] [--remote-key ~/.ssh/id_ed25519] [--remote-password …]`
 - Env still works: `NETDUCTOR_REMOTE`, `NETDUCTOR_REMOTE_USER`.
 - Mode **Manage** (was “Day-2/Operator”): ops on an already-installed node.
