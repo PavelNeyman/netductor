@@ -201,7 +201,7 @@ func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 			{"nodes-list", "Nodes registry", "List", "Local hostname/role/IP registry (nd-core-…, nd-secondary-…)."},
 			{"relay-status", "Secondary", "Agent online", "Secondary status (legacy relay): heartbeat, mismatch counters, sing-box."},
 			{"backup-now", "Backup now", "Encrypted archive", "Writes .ndenc (etc/netductor, blocky, state, lampac data…) + COMPONENTS. Rotation Keep N."},
-			{"fleet-sync", "Fleet sync", "→ secondary", "Replicate primary data to secondary for warm services."},
+			{"fleet-sync", "Fleet sync", "→ secondary", "Replicate primary data to secondary for VPN entry."},
 			{"vpn-list", "VPN users", "List", "Name, on/off, UUID, note."},
 			{"vpn-refresh", "Refresh links", "Prefer secondary", "Rebuild client links preferring secondary entry."},
 			{"probe", "Probes", "Connectivity", "Local TCP/UDP probes (API, VLESS, HY2, Blocky, secondary)."},
