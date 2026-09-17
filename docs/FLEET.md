@@ -49,7 +49,9 @@ Tools: **VPN → secondary** (`relay sync`), Lampac on primary, wizard secondary
 ## Remote ops from laptop
 
 ```bash
-export NETDUCTOR_REMOTE=2.27.118.70
-netductor tui   # mode Workstation → Connect VPS, then Ops
-# or set target in TUI; commands use: ssh root@$NETDUCTOR_REMOTE netductor …
+# flags
+netductor tui --remote 2.27.118.70 --remote-user root --remote-key ~/.ssh/id_ed25519
+
+# or Settings tab in TUI (saved to ~/.config/netductor/tui.json)
+# or env: NETDUCTOR_REMOTE / NETDUCTOR_REMOTE_USER
 ```
