@@ -1,22 +1,11 @@
-# Fleet: primary и secondary
+# Флот: primary + secondary
 
-См. также: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [BACKUP.md](BACKUP.md) · [DEPLOY.md](DEPLOY.md)
+| Нода | Роль |
+|------|------|
+| **primary** (abroad) | Control plane: users, API, бот, Blocky, edge, бэкапы, опционально Lampac |
+| **secondary** (RU) | **Только вход VPN** (VLESS/Reality + тонкий agent) |
 
-## Имена
+Зеркалирование сервисов / Lampac на RU / bot failover / hourly fleet sync — **убраны**.  
+Пользователи VPN на secondary: `ApplyConfig` → `config_ver` → agent. Форс: `netductor relay sync`.
 
-| Термин | Хост | Смысл |
-|--------|------|--------|
-| **primary** | За рубежом | Control plane, TG active, бэкапы. `nd-primary` |
-| **secondary** | РФ | Вход VPN (БС), Lampac, standby TG. `nd-secondary` (в коде VPN — `relay`) |
-
-VPN не балансируем.
-
-## Деплой secondary
-
-```bash
-netductor fleet provision-secondary --host IP --password '…' [--sni api.vk.me]
-```
-
-## TG failover
-
-Active на primary; standby на secondary через SOCKS→primary, только если primary **жив**, а unit бота упал.
+План: [../PLAN-SECONDARY-VPN-ONLY.md](../PLAN-SECONDARY-VPN-ONLY.md).
