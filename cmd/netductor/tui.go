@@ -13,7 +13,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
-	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -54,7 +53,7 @@ func detectSuggestedMode() (runMode, string) {
 }
 
 func describeMode(m runMode) (string, string) {
-	return describeModeLang(m, detectTUILang())
+	return describeModeLang(m, detectLang())
 }
 
 func describeModeLang(m runMode, lang tuiLang) (string, string) {
@@ -161,6 +160,8 @@ type model struct {
 	wizFieldIdx int
 	wizInput    string
 	wizMsg      string
+	remoteHost  string
+	remoteUser  string
 }
 
 func modeItems(sug runMode, lang tuiLang) []list.Item {
@@ -298,7 +299,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.cursor = 0
 			if m.tab == tabWizard {
-				m.startWizard()
+				// stay in main menu UI listing wizard targets (not a separate app)
+				m.screen = screenMenu
+				m.wizStep = wizStepTarget
 				return m, nil
 			}
 			if m.tab == tabMode {
@@ -333,14 +336,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			m.result = tuiResult{action: "quit", mode: m.mode}
 			return m, tea.Quit
-		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-			n := int(msg.String()[0] - '1')
-			ents := m.currentEntries()
-			if n >= 0 && n < len(ents) {
-				m.cursor = n
-				return m.activateCursor()
-			}
-			return m, nil
 		case "enter":
 			if m.screen == screenOutput {
 				m.screen = screenMenu
@@ -375,158 +370,109 @@ func (m model) activateCursor() (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		return m, nil
 	}
-	if id == "wizard" {
-		m.tab = tabWizard
+	if m.tab == tabWizard {
+		// start in-TUI wizard for selected target
+		m.wizTarget = wizTarget(id)
+		m.wizBuildFields()
+		m.wizStep = wizStepFields
+		m.screen = screenWizard
+		return m, nil
 	}
 	return m.handleAction(id)
 }
 
 func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
-	// actions that need Huh forms → leave TUI
 	switch id {
 	case "quit":
 		m.quitting = true
 		m.result = tuiResult{action: "quit", mode: m.mode}
-		return m, tea.Quit
-	case "vpn-add", "vpn-rename", "vpn-sub", "backup-peer", "session", "install", "prepare", "owrt-install", "build", "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts":
-		m.result = tuiResult{action: id, mode: m.mode}
 		return m, tea.Quit
 	case "change-mode":
 		m.tab = tabMode
 		m.screen = screenMode
 		m.cursor = 0
 		return m, nil
-	case "to-operator":
-		m.mode = modeOperator
-		m.tab = tabTools
-		m.screen = screenMenu
-		m.cursor = 0
+	case "remote-set":
+		m.wizTarget = "remote"
+		m.wizFields = []wizField{
+			{Key: "host", Label: map[bool]string{true: "VPS host / IP", false: "VPS host / IP"}[m.lang==langRU], Value: m.remoteHost, Placeholder: "2.27.118.70"},
+			{Key: "user", Label: "SSH user", Value: orDefault(m.remoteUser, "root")},
+		}
+		m.wizFieldIdx = 0
+		m.wizInput = m.wizFields[0].Value
+		m.wizStep = wizStepFields
+		m.screen = screenWizard
 		return m, nil
-	case "noop":
-		return m, nil
-	case "wizard":
-		m.startWizard()
+	case "remote-clear":
+		m.remoteHost, m.remoteUser = "", "root"
+		m.output = "remote cleared — commands run locally"
+		m.screen = screenOutput
 		return m, nil
 	case "fleet-status":
-		m.output = capture(func() {
-			out, _ := exec.Command("netductor", "fleet", "status").CombinedOutput()
-			fmt.Print(string(out))
-		})
-		m.screen = screenOutput
-	case "fleet-sync":
-		// legacy id → same as relay-sync
-		fallthrough
-	case "relay-sync":
-		m.output = capture(func() {
-			out, _ := exec.Command("netductor", "relay", "sync").CombinedOutput()
-			fmt.Print(string(out))
-			fmt.Println("(VPN users → secondary; data mirror removed)")
-		})
-		m.screen = screenOutput
+		m.showCmd("fleet", "status")
+	case "relay-sync", "fleet-sync":
+		m.showCmd("relay", "sync")
 	case "apply-lampac":
-		m.output = capture(func() {
-			out, _ := exec.Command("netductor", "install", "lampac").CombinedOutput()
-			fmt.Print(string(out))
-			fmt.Println("(Lampac: primary only)")
-		})
-		m.screen = screenOutput
+		m.showCmd("install", "lampac")
 	case "disable-legacy":
-		m.output = capture(func() {
-			out, _ := exec.Command("netductor", "fleet", "disable-legacy").CombinedOutput()
-			fmt.Print(string(out))
-		})
-		m.screen = screenOutput
+		m.showCmd("fleet", "disable-legacy")
 	case "status":
-		m.output = capture(func() { runStatus() })
-		m.screen = screenOutput
+		if m.hasRemote() {
+			m.showCmd("status")
+		} else {
+			m.output = capture(func() { runStatus() })
+			m.screen = screenOutput
+		}
 	case "doctor":
-		m.output = capture(func() { _ = runDoctorNative() })
-		m.screen = screenOutput
-	case "addons-lampac":
-		out, _ := exec.Command("netductor", "addons", "lampac").CombinedOutput()
-		return m, tea.Printf("%s", string(out))
-	case "probe":
-		m.output = capture(func() { runProbe(nil) })
-		m.screen = screenOutput
-	case "collect":
-		m.output = capture(func() { _ = runCollect() })
-		m.screen = screenOutput
-	case "edge-list":
-		m.output = capture(runEdgeList)
-		m.screen = screenOutput
-	case "nodes-list":
-		m.output = capture(func() {
-			runNodes([]string{"list"})
-		})
-		m.screen = screenOutput
-	case "relay-status":
-		m.output = capture(func() { runRelay([]string{"status"}) })
-		m.screen = screenOutput
-	case "relay-exit-on":
-		m.output = capture(func() { runRelay([]string{"exit", "on"}) })
-		m.screen = screenOutput
-	case "relay-exit-off":
-		m.output = capture(func() { runRelay([]string{"exit", "off"}) })
-		m.screen = screenOutput
-	case "backup-now":
-		m.output = capture(func() { runBackupCmd(nil) })
-		m.screen = screenOutput
-	case "vpn-refresh":
-		m.output = capture(func() { runVPN([]string{"refresh-links"}) })
-		m.screen = screenOutput
-	case "audit-tail":
-		m.output = capture(func() {
-			for _, ev := range audit.Tail(40) {
-				fmt.Printf("%d\t%s\t%s\t%s\t%s\n", ev.TS, ev.Actor, ev.Action, ev.Target, ev.Detail)
-			}
-		})
-		m.screen = screenOutput
-	case "sessions-list":
-		m.output = capture(func() { runVPN([]string{"session", "list"}) })
-		m.screen = screenOutput
+		if m.hasRemote() {
+			m.showCmd("doctor")
+		} else {
+			m.output = capture(func() { _ = runDoctorNative() })
+			m.screen = screenOutput
+		}
 	case "vpn-list":
-		m.output = capture(func() {
-			users, err := vpn.List()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			if len(users) == 0 {
-				fmt.Println("(no users)")
-			}
-			for _, u := range users {
-				en := "off"
-				if u.Enabled {
-					en = "on"
-				}
-				fmt.Printf("%s\t%s\t%s\t%s\n", u.Name, en, u.UUID, u.Note)
-			}
-		})
-		m.screen = screenOutput
-	case "bootstrap":
-		m.output = `curl -fsSL -o /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64
-chmod 755 /usr/local/bin/netductor
-netductor tui --mode vps`
-		m.screen = screenOutput
-	case "agent-help":
-		m.output = `mkdir -p /etc/netductor-agent
-# SERVER= TOKEN= DEVICE_ID= INTERVAL=60 → /etc/netductor-agent/config
-# binary: netductor-agent-linux-arm64|mipsle|arm from GitHub releases
-# docs: edge/openwrt/INSTALL.md`
-		m.screen = screenOutput
-	case "agent-cfg":
-		m.output = capture(func() {
-			for _, p := range []string{"/etc/netductor-agent/config"} {
-				if _, err := os.Stat(p); err == nil {
-					fmt.Println("found:", p)
-				}
-			}
-		})
+		m.showCmd("vpn", "list")
+	case "relay-status":
+		m.showCmd("relay", "status")
+	case "nodes-list":
+		m.showCmd("nodes", "list")
+	case "edge-list":
+		m.showCmd("edge", "list")
+	case "probe":
+		if m.hasRemote() {
+			m.showCmd("probe")
+		} else {
+			m.output = capture(func() { runProbe(nil) })
+			m.screen = screenOutput
+		}
+	case "backup-now":
+		m.showCmd("backup", "now")
+	case "audit-tail":
+		m.showCmd("audit", "tail")
+	case "install":
+		if m.hasRemote() {
+			m.showCmd("install")
+			return m, nil
+		}
+		m.result = tuiResult{action: id, mode: m.mode}
+		return m, tea.Quit
+	case "prepare", "build", "owrt-install", "vpn-add", "vpn-rename", "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub":
+		m.result = tuiResult{action: id, mode: m.mode}
+		return m, tea.Quit
+	default:
+		m.output = "unknown action: " + id
 		m.screen = screenOutput
 	}
 	return m, nil
 }
+
+func orDefault(s, d string) string {
+	if strings.TrimSpace(s) == "" {
+		return d
+	}
+	return s
+}
+
 
 func capture(fn func()) string {
 	r, w, err := os.Pipe()
@@ -734,8 +680,9 @@ func formBuild() {
 
 func runBubbleSession(mode runMode, startMenu bool) tuiResult {
 	w, h := 120, 40
-	lang := detectTUILang()
-	m := model{width: w, height: h, mode: mode, lang: lang, tab: tabMode, cursor: 0}
+	lang := detectLang()
+	rh, ru := loadRemoteFromEnv()
+	m := model{width: w, height: h, mode: mode, lang: lang, tab: tabMode, cursor: 0, remoteHost: rh, remoteUser: ru}
 	if startMenu && mode != "" {
 		m.screen = screenMenu
 		m.tab = tabTools
