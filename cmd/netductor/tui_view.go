@@ -312,12 +312,105 @@ func (m model) View() string {
 }
 
 
-// handleMouse recomputes hit zones to match renderHeader / renderSplit / help bar.
 func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 	w := max(40, m.width)
 	h := max(8, m.height)
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
 
-	// --- header row y==0 ---
+	// Help bar occupies the last line(s). Allow last 3 rows — gap/wrap variance.
+	chips := m.currentHelp()
+	helpRows := 1
+	{
+		curW := 0
+		for _, c := range chips {
+			pw := lipgloss.Width(renderChip(c)) + 1
+			if curW > 0 && curW+pw > w-2 {
+				helpRows++
+				curW = pw
+			} else {
+				curW += pw
+			}
+		}
+	}
+	helpTop := h - helpRows
+	if helpTop < 1 {
+		helpTop = h - 1
+	}
+
+	if y >= helpTop {
+		// Reconstruct chip positions row by row (same algorithm as renderHelpBar)
+		rowY := helpTop
+		cx := 0
+		curW := 0
+		for _, c := range chips {
+			cell := renderChip(c)
+			pw := lipgloss.Width(cell)
+			gap := 1
+			need := pw + gap
+			if curW > 0 && curW+need > w-2 {
+				rowY++
+				cx = 0
+				curW = 0
+			}
+			if curW > 0 {
+				cx++ // space between chips
+				curW++
+			}
+			if y == rowY && x >= cx && x < cx+pw {
+				key := strings.ToLower(strings.TrimSpace(c.Key))
+				switch {
+				case key == "l" || key == "lang" || strings.Contains(key, "язык"):
+					return m.toggleLang()
+				case key == "tab" || strings.Contains(key, "вклад"):
+					order := []string{tabWizard, tabTools, tabOps, tabSettings, tabMode}
+					for i, tname := range order {
+						if tname == m.tab {
+							m.tab = order[(i+1)%len(order)]
+							break
+						}
+					}
+					m.cursor = 0
+					if m.tab == tabMode {
+						m.screen = screenMode
+					} else {
+						m.screen = screenMenu
+						if m.tab == tabWizard {
+							m.wizStep = wizStepTarget
+						}
+					}
+					return m, nil
+				case key == "esc" || key == "назад" || key == "back":
+					if m.screen == screenOutput {
+						m.screen = screenMenu
+						m.output = ""
+						return m, nil
+					}
+					if m.tab != tabMode {
+						m.tab = tabMode
+						m.screen = screenMode
+						m.cursor = 0
+					}
+					return m, nil
+				case key == "^c" || key == "выход" || key == "quit":
+					m.quitting = true
+					m.result = tuiResult{action: "quit", mode: m.mode}
+					return m, tea.Quit
+				case key == "enter" || key == "↵" || key == "выбор" || key == "select" || key == "run" || key == "запуск" || key == "далее":
+					return m.activateCursor()
+				}
+			}
+			cx += pw
+			curW += need
+		}
+		return m, nil
+	}
+
+	// Header row
 	if y == 0 {
 		loc := l10n(m.lang)
 		ver := version
@@ -363,65 +456,17 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
-			cx += cw + 1 // tab + space
+			cx += cw + 1
 		}
-		// language badge (right side)
 		lang := "EN"
 		if m.lang == langRU {
 			lang = "RU"
 		}
 		langBadge := stChipKey.Render(" " + lang + " ")
 		lw := lipgloss.Width(langBadge)
-		if x >= w-lw-8 && x < w { // badge + clock area; badge is left of clock
+		// right-aligned badge + clock
+		if x >= w-lw-10 {
 			return m.toggleLang()
-		}
-		return m, nil
-	}
-
-	// --- help bar: bottom rows ---
-	helpH := 1
-	helpY0 := h - helpH
-	if y >= helpY0 {
-		// chip strip: detect "l" / lang chip roughly by scanning chip widths
-		chips := m.currentHelp()
-		cx := 1
-		for _, c := range chips {
-			cell := renderChip(c)
-			cw := lipgloss.Width(cell)
-			if x >= cx && x < cx+cw {
-				key := strings.ToLower(c.Key)
-				switch key {
-				case "l", "lang", "язык":
-					return m.toggleLang()
-				case "tab", "вкладки":
-					// cycle tab
-					order := []string{tabWizard, tabTools, tabOps, tabSettings, tabMode}
-					for i, tname := range order {
-						if tname == m.tab {
-							m.tab = order[(i+1)%len(order)]
-							break
-						}
-					}
-					m.cursor = 0
-					if m.tab == tabMode {
-						m.screen = screenMode
-					} else {
-						m.screen = screenMenu
-					}
-					return m, nil
-				case "esc", "назад":
-					if m.screen == screenOutput {
-						m.screen = screenMenu
-						m.output = ""
-					}
-					return m, nil
-				case "^c", "выход", "quit":
-					m.quitting = true
-					m.result = tuiResult{action: "quit", mode: m.mode}
-					return m, tea.Quit
-				}
-			}
-			cx += cw
 		}
 		return m, nil
 	}
@@ -430,7 +475,7 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// --- body: left list, y starts at 1 ---
+	// Body list
 	row := (y - 1) / 2
 	ents := m.currentEntries()
 	if row >= 0 && row < len(ents) {
