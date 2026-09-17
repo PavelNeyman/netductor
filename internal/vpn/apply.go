@@ -148,6 +148,45 @@ func ApplyConfig() error {
 	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "singbox-config-variant"), []byte(variant+"\n"), 0o644)
 	_ = exec.Command("systemctl", "restart", "sing-box").Run()
 	fmt.Fprintf(os.Stderr, "sing-box config variant=%s\n", variant)
+	_ = bumpSecondaryConfigVer() // end users on secondary VLESS must refresh
+	return nil
+}
+
+// bumpSecondaryConfigVer asks secondary agents to pull a new ExportRelayBundle
+// (includes all VPN UUIDs). Avoids import cycle with package secondary.
+func bumpSecondaryConfigVer() error {
+	for _, name := range []string{"secondary", "relay"} {
+		path := filepath.Join(paths.StateDir(), name, "devices.json")
+		b, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var r map[string]any
+		if err := json.Unmarshal(b, &r); err != nil {
+			continue
+		}
+		v := 1
+		switch x := r["config_ver"].(type) {
+		case float64:
+			v = int(x) + 1
+		case int:
+			v = x + 1
+		default:
+			v = 2
+		}
+		r["config_ver"] = v
+		out, err := json.MarshalIndent(r, "", "  ")
+		if err != nil {
+			continue
+		}
+		tmp := path + ".tmp"
+		if err := os.WriteFile(tmp, append(out, '\n'), 0o600); err != nil {
+			continue
+		}
+		_ = os.Rename(tmp, path)
+		fmt.Fprintf(os.Stderr, "secondary config_ver=%d (%s)\n", v, name)
+		return nil
+	}
 	return nil
 }
 
