@@ -4,13 +4,10 @@ class Netductor < Formula
   version "0.7.3-dev"
   license "MIT"
 
-  on_macos do
-    on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-darwin-arm64"
-      sha256 "9701044e14b025ecba96062e108efa9aff5671f5d98b4e72b47c96e0548d01b1"
-    end
-    # darwin-amd64 asset not published yet — build from source or use arm64 Mac
-  end
+  # Top-level url required: `brew tap` validates the formula for every OS/CPU
+  # and rejects formulae that only set url inside on_macos/on_arm blocks.
+  url "https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-darwin-arm64"
+  sha256 "9701044e14b025ecba96062e108efa9aff5671f5d98b4e72b47c96e0548d01b1"
 
   on_linux do
     on_intel do
