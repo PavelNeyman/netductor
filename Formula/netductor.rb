@@ -1,18 +1,16 @@
 class Netductor < Formula
   desc "Netductor control plane CLI (VPN fleet, edge, TUI)"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.7.3-dev"
+  version "0.7.4-dev"
   license "MIT"
 
-  # Top-level url required: `brew tap` validates the formula for every OS/CPU
-  # and rejects formulae that only set url inside on_macos/on_arm blocks.
   url "https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-darwin-arm64"
-  sha256 "9701044e14b025ecba96062e108efa9aff5671f5d98b4e72b47c96e0548d01b1"
+  sha256 "a4a77719e8deb789abeceedb88bb3eba93e426df4bc42a656a20c108245731f3"
 
   on_linux do
     on_intel do
       url "https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64"
-      sha256 "cb7ecfa1d792e27de83a93e68fd49d5f779edc85ef5123a9a4b94bd63f46ce68"
+      sha256 "4bb8458698e88bb01db72f78566f344f1aae825e657a880d581656da7f4474be"
     end
   end
 
