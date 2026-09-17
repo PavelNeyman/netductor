@@ -188,7 +188,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 	case modeVPS:
 		items = append(items,
 			menuItem{"Install / upgrade stack", "netductor install (idempotent)", "install"},
-			menuItem{"Apply Lampac", "on preferred fleet node (usually secondary)", "apply-lampac"},
+			menuItem{"Lampac (primary)", "optional on primary only", "apply-lampac"},
 			menuItem{"Set hostname", "nd-primary / nd-secondary / …", "hostname"},
 		)
 	case modeOpenWRT:
@@ -847,7 +847,7 @@ func runSetupWizard() {
 				Description("Questions first, then fully automatic apply").
 				Options(
 					huh.NewOption("Primary VPS (abroad control plane)", "primary"),
-					huh.NewOption("Secondary VPS (RU entry / warm services)", "secondary"),
+					huh.NewOption("Secondary VPS (RU VPN entry only)", "secondary"),
 					huh.NewOption("OpenWrt router / RPi (edge agent)", "openwrt"),
 					huh.NewOption("MikroTik (ROS routes / site)", "mikrotik"),
 				).
