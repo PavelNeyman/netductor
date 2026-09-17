@@ -312,41 +312,125 @@ func (m model) View() string {
 }
 
 
-// handleMouse uses layout geometry (not View-time hits) so coordinates match Ghostty.
+// handleMouse recomputes hit zones to match renderHeader / renderSplit / help bar.
 func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 	w := max(40, m.width)
-	_ = max(8, m.height)
-	if y <= 0 {
-		// header: lang is rightmost ~8 cells; tabs after title
-		if x >= w-12 {
-			return m.toggleLang()
+	h := max(8, m.height)
+
+	// --- header row y==0 ---
+	if y == 0 {
+		loc := l10n(m.lang)
+		ver := version
+		if ver == "" {
+			ver = "dev"
 		}
-		// rough tab zones: title ~12, then 4 tabs ~12 each
-		tx := x - 12
-		if tx >= 0 {
-			ti := tx / 12
-			tabs := []string{tabWizard, tabTools, tabOps, tabSettings, tabMode}
-			if ti >= 0 && ti < len(tabs) {
-				m.tab = tabs[ti]
+		title := stTitle.Render(fmt.Sprintf(" %s %s ", loc.App, ver))
+		blurb := "fleet VPN · edge · control"
+		if m.lang == langRU {
+			blurb = "VPN-флот · edge · управление"
+		}
+		title += stMuted.Render(" " + blurb + " ")
+		if m.hasRemote() {
+			title += stChipKey.Render(" " + m.remoteLabel() + " ")
+		}
+		cx := lipgloss.Width(title)
+		tabs := []struct{ id, label string }{
+			{tabWizard, loc.TabWizard},
+			{tabTools, loc.TabTools},
+			{tabOps, loc.TabOps},
+			{tabSettings, loc.TabSettings},
+			{tabMode, loc.TabMode},
+		}
+		for _, t := range tabs {
+			lab := " " + t.label + " "
+			var cell string
+			if m.tab == t.id && m.screen != screenOutput {
+				cell = stTabOn.Render(lab)
+			} else {
+				cell = stTabOff.Render(lab)
+			}
+			cw := lipgloss.Width(cell)
+			if x >= cx && x < cx+cw {
+				m.tab = t.id
 				m.cursor = 0
-				if m.tab == tabWizard {
-					m.screen = screenMenu
-					m.wizStep = wizStepTarget
-					return m, nil
-				}
 				if m.tab == tabMode {
 					m.screen = screenMode
 				} else {
 					m.screen = screenMenu
+					if m.tab == tabWizard {
+						m.wizStep = wizStepTarget
+					}
 				}
+				return m, nil
 			}
+			cx += cw + 1 // tab + space
+		}
+		// language badge (right side)
+		lang := "EN"
+		if m.lang == langRU {
+			lang = "RU"
+		}
+		langBadge := stChipKey.Render(" " + lang + " ")
+		lw := lipgloss.Width(langBadge)
+		if x >= w-lw-8 && x < w { // badge + clock area; badge is left of clock
+			return m.toggleLang()
 		}
 		return m, nil
 	}
-	if m.screen == screenOutput {
+
+	// --- help bar: bottom rows ---
+	helpH := 1
+	helpY0 := h - helpH
+	if y >= helpY0 {
+		// chip strip: detect "l" / lang chip roughly by scanning chip widths
+		chips := m.currentHelp()
+		cx := 1
+		for _, c := range chips {
+			cell := renderChip(c)
+			cw := lipgloss.Width(cell)
+			if x >= cx && x < cx+cw {
+				key := strings.ToLower(c.Key)
+				switch key {
+				case "l", "lang", "язык":
+					return m.toggleLang()
+				case "tab", "вкладки":
+					// cycle tab
+					order := []string{tabWizard, tabTools, tabOps, tabSettings, tabMode}
+					for i, tname := range order {
+						if tname == m.tab {
+							m.tab = order[(i+1)%len(order)]
+							break
+						}
+					}
+					m.cursor = 0
+					if m.tab == tabMode {
+						m.screen = screenMode
+					} else {
+						m.screen = screenMenu
+					}
+					return m, nil
+				case "esc", "назад":
+					if m.screen == screenOutput {
+						m.screen = screenMenu
+						m.output = ""
+					}
+					return m, nil
+				case "^c", "выход", "quit":
+					m.quitting = true
+					m.result = tuiResult{action: "quit", mode: m.mode}
+					return m, tea.Quit
+				}
+			}
+			cx += cw
+		}
 		return m, nil
 	}
-	// body starts at y=1; each entry 2 rows
+
+	if m.screen == screenOutput || m.screen == screenWizard {
+		return m, nil
+	}
+
+	// --- body: left list, y starts at 1 ---
 	row := (y - 1) / 2
 	ents := m.currentEntries()
 	if row >= 0 && row < len(ents) {
@@ -358,8 +442,13 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 			leftW = 48
 		}
 		if x < leftW {
+			if m.cursor == row {
+				return m.activateCursor()
+			}
 			m.cursor = row
 		}
 	}
 	return m, nil
 }
+
+
