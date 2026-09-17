@@ -268,3 +268,9 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 - Interactive actions (vpn-add, edge, build, connection) use **in-TUI forms** — no exit to huh for those paths.
 - Ops run local or via `ssh` to configured remote.
 
+
+
+## Ops note (2026-09-17)
+
+- Brief VPN blips without operator action: check secondary journal for `dial tcp PRIMARY:443: i/o timeout` (path RU→abroad). Services may stay active.
+- Flow mismatch from home IP = client without `xtls-rprx-vision`.
