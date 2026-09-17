@@ -44,3 +44,12 @@ netductor relay sync             # push VPN users to secondary now
 ## TUI
 
 Tools: **VPN → secondary** (`relay sync`), Lampac on primary, wizard secondary = VPN entry only.
+
+
+## Remote ops from laptop
+
+```bash
+export NETDUCTOR_REMOTE=2.27.118.70
+netductor tui   # mode Workstation → Connect VPS, then Ops
+# or set target in TUI; commands use: ssh root@$NETDUCTOR_REMOTE netductor …
+```
