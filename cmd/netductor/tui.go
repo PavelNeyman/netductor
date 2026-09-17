@@ -185,6 +185,7 @@ type model struct {
 	height   int
 	quitting bool
 	lang     tuiLang
+	langPref string // auto|ru|en
 	helpY    int
 	hits     []hitRect
 	list     list.Model // kept for compatibility; main UI is custom split
@@ -370,10 +371,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 				return m, nil
 			}
-			// mode screen: esc = quit confirm via quit action soft
-			m.quitting = true
-			m.result = tuiResult{action: "quit", mode: m.mode}
-			return m, tea.Quit
+			// mode screen: Esc → Tools (exit only via ^C chip)
+			m.tab = tabTools
+			m.screen = screenMenu
+			m.cursor = 0
+			return m, nil
 		case "enter":
 			if m.screen == screenOutput {
 				m.screen = screenMenu
@@ -389,8 +391,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) toggleLang() (tea.Model, tea.Cmd) {
 	if m.lang == langRU {
 		m.lang = langEN
+		m.langPref = "en"
 	} else {
 		m.lang = langRU
+		m.langPref = "ru"
 	}
 	return m, nil
 }
