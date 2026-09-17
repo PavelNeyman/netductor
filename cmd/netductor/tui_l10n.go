@@ -16,11 +16,9 @@ type helpChip struct{ Key, Label string }
 
 type locPack struct {
 	App string
-	TabWizard, TabTools, TabOps, TabMode string
-	HelpWizard, HelpTools, HelpOps, HelpModeBar, HelpOutput []helpChip
+	TabWizard, TabTools, TabOps, TabSettings, TabMode string
+	HelpWizard, HelpTools, HelpOps, HelpSettings, HelpModeBar, HelpOutput []helpChip
 }
-
-func l10n(lang tuiLang) locPack { return locFor(lang) }
 
 func detectLang() tuiLang {
 	for _, k := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
@@ -32,26 +30,32 @@ func detectLang() tuiLang {
 	return langEN
 }
 
+func l10n(lang tuiLang) locPack { return locFor(lang) }
+
 func locFor(lang tuiLang) locPack {
+	chips := func(ru bool) (wiz, tools, ops, set, mode, out []helpChip) {
+		if ru {
+			c := []helpChip{{"tab", "вкладки"}, {"↑↓", "пункт"}, {"enter", "выбор"}, {"esc", "назад"}, {"l", "язык"}, {"^c", "выход"}}
+			return c, c, c, c, []helpChip{{"↑↓", "режим"}, {"enter", "выбрать"}, {"l", "язык"}, {"^c", "выход"}},
+				[]helpChip{{"esc", "назад"}, {"enter", "назад"}, {"l", "язык"}, {"^c", "выход"}}
+		}
+		c := []helpChip{{"tab", "tabs"}, {"↑↓", "item"}, {"enter", "select"}, {"esc", "back"}, {"l", "lang"}, {"^c", "quit"}}
+		return c, c, c, c, []helpChip{{"↑↓", "mode"}, {"enter", "select"}, {"l", "lang"}, {"^c", "quit"}},
+			[]helpChip{{"esc", "back"}, {"enter", "back"}, {"l", "lang"}, {"^c", "quit"}}
+	}
 	if lang == langRU {
+		w, t, o, s, m, out := chips(true)
 		return locPack{
 			App: "netductor",
-			TabWizard: "Мастер", TabTools: "Инструменты", TabOps: "Операции", TabMode: "Режим",
-			HelpWizard: []helpChip{{"tab", "вкладки"}, {"↑↓", "выбор"}, {"enter", "далее"}, {"esc", "назад"}, {"l", "язык"}, {"^c", "выход"}},
-			HelpTools:  []helpChip{{"tab", "вкладки"}, {"↑↓", "пункт"}, {"enter", "запуск"}, {"esc", "назад"}, {"l", "язык"}, {"^c", "выход"}},
-			HelpOps:    []helpChip{{"tab", "вкладки"}, {"↑↓", "пункт"}, {"enter", "запуск"}, {"esc", "назад"}, {"l", "язык"}, {"^c", "выход"}},
-			HelpModeBar: []helpChip{{"↑↓", "режим"}, {"enter", "выбрать"}, {"l", "язык"}, {"^c", "выход"}},
-			HelpOutput: []helpChip{{"esc", "назад"}, {"enter", "назад"}, {"l", "язык"}, {"^c", "выход"}},
+			TabWizard: "Мастер", TabTools: "Инструменты", TabOps: "Операции", TabSettings: "Настройки", TabMode: "Режим",
+			HelpWizard: w, HelpTools: t, HelpOps: o, HelpSettings: s, HelpModeBar: m, HelpOutput: out,
 		}
 	}
+	w, t, o, s, m, out := chips(false)
 	return locPack{
 		App: "netductor",
-		TabWizard: "Wizard", TabTools: "Tools", TabOps: "Ops", TabMode: "Mode",
-		HelpWizard: []helpChip{{"tab", "tabs"}, {"↑↓", "select"}, {"enter", "next"}, {"esc", "back"}, {"l", "lang"}, {"^c", "quit"}},
-		HelpTools:  []helpChip{{"tab", "tabs"}, {"↑↓", "item"}, {"enter", "run"}, {"esc", "back"}, {"l", "lang"}, {"^c", "quit"}},
-		HelpOps:    []helpChip{{"tab", "tabs"}, {"↑↓", "item"}, {"enter", "run"}, {"esc", "back"}, {"l", "lang"}, {"^c", "quit"}},
-		HelpModeBar: []helpChip{{"↑↓", "mode"}, {"enter", "select"}, {"l", "lang"}, {"^c", "quit"}},
-		HelpOutput: []helpChip{{"esc", "back"}, {"enter", "back"}, {"l", "lang"}, {"^c", "quit"}},
+		TabWizard: "Wizard", TabTools: "Tools", TabOps: "Ops", TabSettings: "Settings", TabMode: "Mode",
+		HelpWizard: w, HelpTools: t, HelpOps: o, HelpSettings: s, HelpModeBar: m, HelpOutput: out,
 	}
 }
 
@@ -62,91 +66,81 @@ type menuEntry struct {
 func modeEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
-			{"vps", "VPS (эта машина)", "Install на сервере", "Запуск на самой VPS: install стека, VPN, Blocky, API, bot. Не для Mac."},
-			{"workstation", "Workstation", "Mac/PC → remote", "С ноутбука: подключение по SSH к primary/secondary и управление без выхода из TUI."},
-			{"openwrt", "OpenWrt / edge", "Роутер", "Provision агента на OpenWrt/RPi по LAN/SSH."},
-			{"operator", "Оператор", "День-2", "Локальные операции на уже настроенной ноде (или remote, если задан SSH)."},
+			{"vps", "VPS (эта машина)", "Install на сервере", "Запуск на самой VPS: установка стека. Не с Mac."},
+			{"workstation", "Workstation", "Mac/PC", "С ноутбука: remote SSH к ноде + локальная сборка/edge."},
+			{"openwrt", "OpenWrt / edge", "Роутер", "Provision агента на OpenWrt/RPi."},
+			{"operator", "Управление", "Уже установлено", "Операции на работающей системе (local или через remote в Настройках)."},
 		}
 	}
 	return []menuEntry{
-		{"vps", "VPS (this host)", "Server install", "Run on the VPS itself: stack install, VPN, Blocky, API, bot. Not for Mac."},
-		{"workstation", "Workstation", "Mac/PC → remote", "From laptop: SSH to primary/secondary and operate without leaving the TUI."},
-		{"openwrt", "OpenWrt / edge", "Router", "Provision edge agent on OpenWrt/RPi over LAN/SSH."},
-		{"operator", "Operator", "Day-2", "Day-2 ops on a configured node (or via remote SSH target)."},
+		{"vps", "VPS (this host)", "Server install", "Run on the VPS itself: stack install. Not from Mac."},
+		{"workstation", "Workstation", "Mac/PC", "From laptop: remote SSH + local build/edge."},
+		{"openwrt", "OpenWrt / edge", "Router", "Provision edge agent on OpenWrt/RPi."},
+		{"operator", "Manage", "Already installed", "Operate a running node (local or remote from Settings)."},
+	}
+}
+
+func settingsEntries(lang tuiLang) []menuEntry {
+	if lang == langRU {
+		return []menuEntry{
+			{"cfg-remote", "Подключение к VPS", "SSH target", "Адрес, пользователь, ключ и/или пароль. Сохраняется в ~/.config/netductor/tui.json."},
+			{"cfg-lang", "Язык интерфейса", "ru / en", "Переключить язык меню (также клавиша l)."},
+			{"cfg-save", "Сохранить настройки", "tui.json", "Записать текущие параметры на диск."},
+			{"cfg-clear-remote", "Сбросить remote", "Local only", "Убрать SSH target — команды только локально."},
+			{"change-mode", "Сменить режим", "Mode", "VPS / Workstation / OpenWrt / Управление."},
+			{"quit", "Выход", "Quit", "Закрыть TUI."},
+		}
+	}
+	return []menuEntry{
+		{"cfg-remote", "VPS connection", "SSH target", "Host, user, key and/or password. Saved to ~/.config/netductor/tui.json."},
+		{"cfg-lang", "UI language", "ru / en", "Toggle menu language (also key l)."},
+		{"cfg-save", "Save settings", "tui.json", "Write current settings to disk."},
+		{"cfg-clear-remote", "Clear remote", "Local only", "Drop SSH target — local commands only."},
+		{"change-mode", "Change mode", "Mode", "VPS / Workstation / OpenWrt / Manage."},
+		{"quit", "Quit", "Exit", "Close the TUI."},
 	}
 }
 
 func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 	ru := lang == langRU
 	var e []menuEntry
-
-	// Connection (workstation first)
-	if mode == modeWorkstation {
-		if ru {
-			e = append(e,
-				menuEntry{"remote-set", "Подключить VPS", "SSH target", "Задать user@host (ключ в ssh-agent). Все команды Ops/Tools ниже пойдут на эту ноду."},
-				menuEntry{"remote-clear", "Сбросить remote", "Local only", "Дальше команды только локально на этом Mac."},
-			)
-		} else {
-			e = append(e,
-				menuEntry{"remote-set", "Connect VPS", "SSH target", "Set user@host (key in ssh-agent). Tools/Ops commands run on that node."},
-				menuEntry{"remote-clear", "Clear remote", "Local only", "Commands run only on this Mac again."},
-			)
-		}
-	}
-
-	// Install only on VPS mode
 	if mode == modeVPS {
 		if ru {
 			e = append(e,
-				menuEntry{"install", "Install стека", "На этой VPS", "Полный install primary (sing-box, blocky, api…). Только когда TUI запущен на сервере."},
-				menuEntry{"prepare", "Подготовка", "apt/docker/go", "Подготовка системы перед install."},
-				menuEntry{"apply-lampac", "Lampac", "Primary only", "Docker Lampac на этой машине."},
+				menuEntry{"install", "Install стека", "На этой VPS", "Полный install primary. Запускается внутри TUI, без выхода."},
+				menuEntry{"prepare", "Подготовка", "apt/docker", "Подготовка системы (если поддерживается CLI)."},
+				menuEntry{"apply-lampac", "Lampac", "Primary", "Docker Lampac на этой машине."},
 			)
 		} else {
 			e = append(e,
-				menuEntry{"install", "Install stack", "On this VPS", "Full primary install. Only when TUI runs on the server."},
-				menuEntry{"prepare", "Prepare", "apt/docker/go", "System prep before install."},
-				menuEntry{"apply-lampac", "Lampac", "Primary only", "Docker Lampac on this host."},
+				menuEntry{"install", "Install stack", "This VPS", "Full primary install. Runs inside TUI, no exit."},
+				menuEntry{"prepare", "Prepare", "apt/docker", "System prep if CLI supports it."},
+				menuEntry{"apply-lampac", "Lampac", "Primary", "Docker Lampac on this host."},
 			)
 		}
 	}
-
-	if mode == modeOpenWRT {
+	if mode == modeOpenWRT || mode == modeWorkstation {
 		if ru {
-			e = append(e,
-				menuEntry{"owrt-install", "Edge provision", "OpenWrt SSH", "Установка агента на роутер (нужен доступ по SSH с этой машины)."},
-			)
+			e = append(e, menuEntry{"owrt-install", "Edge provision", "OpenWrt SSH", "Агент на роутер: host, user, password, id, server — форма внутри TUI."})
 		} else {
-			e = append(e,
-				menuEntry{"owrt-install", "Edge provision", "OpenWrt SSH", "Install agent on router (SSH from this machine)."},
-			)
+			e = append(e, menuEntry{"owrt-install", "Edge provision", "OpenWrt SSH", "Router agent: host, user, password, id, server — in-TUI form."})
 		}
 	}
-
 	if mode == modeWorkstation {
 		if ru {
-			e = append(e,
-				menuEntry{"build", "Сборка бинарей", "Локально", "go build под linux/darwin (на Mac)."},
-				menuEntry{"owrt-install", "Edge provision", "LAN/SSH", "Агент на OpenWrt с этой машины."},
-			)
+			e = append(e, menuEntry{"build", "Сборка бинарей", "Локально", "GOOS/GOARCH — форма в TUI, без выхода."})
 		} else {
-			e = append(e,
-				menuEntry{"build", "Build binaries", "Local", "go build for linux/darwin on this Mac."},
-				menuEntry{"owrt-install", "Edge provision", "LAN/SSH", "OpenWrt agent from this machine."},
-			)
+			e = append(e, menuEntry{"build", "Build binaries", "Local", "GOOS/GOARCH — in-TUI form."})
 		}
 	}
-
-	// Common navigation
 	if ru {
 		e = append(e,
-			menuEntry{"change-mode", "Сменить режим", "Mode", "VPS / Workstation / OpenWrt / Operator."},
+			menuEntry{"change-mode", "Сменить режим", "Mode", "VPS / Workstation / OpenWrt / Управление."},
 			menuEntry{"quit", "Выход", "Quit", "Закрыть TUI."},
 		)
 	} else {
 		e = append(e,
-			menuEntry{"change-mode", "Change mode", "Mode", "VPS / Workstation / OpenWrt / Operator."},
+			menuEntry{"change-mode", "Change mode", "Mode", "VPS / Workstation / OpenWrt / Manage."},
 			menuEntry{"quit", "Quit", "Exit", "Close the TUI."},
 		)
 	}
@@ -154,40 +148,40 @@ func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 }
 
 func opsEntries(mode runMode, lang tuiLang) []menuEntry {
-	ru := lang == langRU
-	// Day-2 ops: work locally or via remote SSH target
-	if ru {
+	if lang == langRU {
 		return []menuEntry{
-			{"status", "Статус сервисов", "systemd", "sing-box, api, bot, blocky (local или remote)."},
-			{"doctor", "Doctor", "Проверки", "Health checks без изменений."},
-			{"fleet-status", "Флот", "primary/secondary", "Роли нод, online, policy."},
-			{"vpn-list", "VPN пользователи", "Список", "Имя, UUID, on/off."},
-			{"relay-sync", "VPN → secondary", "config_ver", "Протолкнуть UUID на RU entry."},
-			{"relay-status", "Secondary status", "Agent", "Heartbeat / sing-box на secondary."},
+			{"status", "Статус сервисов", "systemd", "local или remote из Настроек."},
+			{"doctor", "Doctor", "Проверки", "Health checks."},
+			{"fleet-status", "Флот", "primary/secondary", "Роли нод."},
+			{"vpn-list", "VPN пользователи", "Список", "Имя, UUID."},
+			{"vpn-add", "Добавить VPN user", "Форма", "Имя (+ заметка) — внутри TUI."},
+			{"relay-sync", "VPN → secondary", "config_ver", "UUID на RU entry."},
+			{"relay-status", "Secondary", "Agent", "Heartbeat / sing-box."},
 			{"nodes-list", "Реестр нод", "nodes", "Hostname, role, IP."},
-			{"edge-list", "Edge devices", "OpenWrt", "Список edge / pending approve."},
-			{"probe", "Probes", "Связность", "Локальные probes API/VPN."},
-			{"backup-now", "Бэкап", "Сейчас", "Шифрованный backup на ноде."},
-			{"audit-tail", "Audit", "События", "Последние audit events."},
-			{"disable-legacy", "Disable legacy", "Timers", "Выключить старые fleet-sync/bot-failover."},
-			{"change-mode", "Сменить режим", "Mode", "Вернуться к выбору режима."},
+			{"edge-list", "Edge devices", "OpenWrt", "Список / pending."},
+			{"probe", "Probes", "Связность", "API/VPN probes."},
+			{"backup-now", "Бэкап", "Сейчас", "На ноде (local/remote)."},
+			{"audit-tail", "Audit", "События", "Последние события."},
+			{"disable-legacy", "Disable legacy", "Timers", "Старые sync/failover timers."},
+			{"change-mode", "Сменить режим", "Mode", "Выбор режима работы."},
 			{"quit", "Выход", "Quit", "Закрыть TUI."},
 		}
 	}
 	return []menuEntry{
-		{"status", "Service status", "systemd", "sing-box, api, bot, blocky (local or remote)."},
-		{"doctor", "Doctor", "Health", "Health checks, no changes."},
-		{"fleet-status", "Fleet", "primary/secondary", "Node roles, online, policy."},
-		{"vpn-list", "VPN users", "List", "Name, UUID, on/off."},
-		{"relay-sync", "VPN → secondary", "config_ver", "Push user UUIDs to RU entry."},
-		{"relay-status", "Secondary status", "Agent", "Heartbeat / sing-box on secondary."},
+		{"status", "Service status", "systemd", "local or remote from Settings."},
+		{"doctor", "Doctor", "Health", "Health checks."},
+		{"fleet-status", "Fleet", "primary/secondary", "Node roles."},
+		{"vpn-list", "VPN users", "List", "Name, UUID."},
+		{"vpn-add", "Add VPN user", "Form", "Name (+ note) — in-TUI."},
+		{"relay-sync", "VPN → secondary", "config_ver", "UUIDs to RU entry."},
+		{"relay-status", "Secondary", "Agent", "Heartbeat / sing-box."},
 		{"nodes-list", "Nodes registry", "nodes", "Hostname, role, IP."},
-		{"edge-list", "Edge devices", "OpenWrt", "Edge list / pending approve."},
+		{"edge-list", "Edge devices", "OpenWrt", "List / pending."},
 		{"probe", "Probes", "Connectivity", "API/VPN probes."},
-		{"backup-now", "Backup now", "Run", "Encrypted backup on the node."},
-		{"audit-tail", "Audit", "Events", "Recent audit events."},
-		{"disable-legacy", "Disable legacy", "Timers", "Stop old fleet-sync/bot-failover units."},
-		{"change-mode", "Change mode", "Mode", "Back to mode picker."},
+		{"backup-now", "Backup now", "Run", "On node (local/remote)."},
+		{"audit-tail", "Audit", "Events", "Recent events."},
+		{"disable-legacy", "Disable legacy", "Timers", "Old sync/failover timers."},
+		{"change-mode", "Change mode", "Mode", "Work mode picker."},
 		{"quit", "Quit", "Exit", "Close the TUI."},
 	}
 }
