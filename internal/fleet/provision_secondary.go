@@ -10,25 +10,20 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 )
 
-// ProvisionSecondaryOpts operator input for full secondary deploy from primary.
+// ProvisionSecondaryOpts operator input for RU VPN-entry deploy from primary.
 type ProvisionSecondaryOpts struct {
 	Host     string
 	User     string
 	Password string
 	Port     int
 	SNI      string
-	NoLampac bool
-	NoBotStandby bool
 }
 
-// ProvisionSecondary is the operator-facing path replacing ad-hoc "relay only":
-//  1) VPN data-plane join (existing netductor relay provision)
-//  2) fleet secondary + naming nd-secondary-*
-//  3) backup peer + sync
-//  4) optional Lampac on secondary
-//  5) bot standby units on secondary (SOCKS→primary)
+// ProvisionSecondary deploys secondary as VPN entry only:
+//  1) relay provision (sing-box + agent + SSH key)
+//  2) fleet secondary role + desired hostname nd-secondary
 //
-// Internal VPN package still uses role=relay for the agent; UI/fleet say secondary.
+// Does not install Lampac, bot standby, or data-plane mirror sync.
 func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	if o.Host == "" || o.Password == "" {
 		return fmt.Errorf("host and password required")
@@ -56,10 +51,9 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 		return fmt.Errorf("relay provision: %w", err)
 	}
 
-	// Wait a moment for registry heartbeat
 	time.Sleep(3 * time.Second)
 
-	fmt.Fprintln(os.Stderr, "==> secondary: fleet roles + hostnames")
+	fmt.Fprintln(os.Stderr, "==> secondary: fleet role + hostname")
 	_ = ensurePrimaryLocal()
 	secID := findNodeIDByIP(o.Host)
 	if secID != "" {
@@ -69,41 +63,8 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 		fmt.Fprintln(os.Stderr, "  warn: secondary node id not in registry yet — run fleet bootstrap later")
 	}
 
-	fmt.Fprintln(os.Stderr, "==> secondary: data sync")
-	_ = SyncPaths("root@" + o.Host)
-
-	if !o.NoLampac {
-		fmt.Fprintln(os.Stderr, "==> secondary: apply lampac on preferred node")
-		if err := ApplyLampac(); err != nil {
-			fmt.Fprintln(os.Stderr, "  lampac:", err)
-		}
-	}
-
-	if !o.NoBotStandby {
-		fmt.Fprintln(os.Stderr, "==> secondary: bot standby (SOCKS via primary)")
-		prim := LoadPolicy().PrimarySSH
-		if prim == "" {
-			prim = "root@" + publicIPGuess()
-		}
-		// install units remotely
-		script := fmt.Sprintf(`set -e
-mkdir -p /opt/netductor/bin /etc/netductor/secrets
-# binary already from relay join; ensure tg binary if present on primary will be scp'd by caller
-if command -v netductor >/dev/null; then
-  netductor fleet bot-standby-install %s || true
-  netductor fleet bot-failover timer || true
-fi
-`, prim)
-		c := exec.Command("ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
-			"root@"+o.Host, "bash", "-s")
-		c.Stdin = strings.NewReader(script)
-		c.Stdout, c.Stderr = os.Stdout, os.Stderr
-		_ = c.Run()
-	}
-
-	_ = InstallSyncTimer()
-	fmt.Fprintln(os.Stderr, "==> secondary: done")
-	fmt.Print(StatusSummary())
+	fmt.Fprintln(os.Stderr, "==> secondary: VPN entry ready (no lampac/bot mirror)")
+	fmt.Fprintln(os.Stderr, "  force user push: netductor relay sync")
 	return nil
 }
 
@@ -112,17 +73,8 @@ func ensurePrimaryLocal() error {
 	if err != nil {
 		return err
 	}
-	localIP := publicIPGuess()
 	for _, n := range list {
-		if n.Kind == "vps" && (n.Role != "secondary" && n.Role != "relay") && (n.PublicIP == localIP || n.Role == "core") {
-			_ = SetPrimary(n.ID)
-			_, _ = nodes.SetDesiredHostname(n.ID, "nd-primary")
-			return nil
-		}
-	}
-	// fallback first non-relay
-	for _, n := range list {
-		if (n.Role != "secondary" && n.Role != "relay") {
+		if n.Role == "core" || strings.Contains(n.Hostname, "primary") || strings.Contains(n.Hostname, "core") {
 			_ = SetPrimary(n.ID)
 			_, _ = nodes.SetDesiredHostname(n.ID, "nd-primary")
 			return nil
@@ -132,22 +84,24 @@ func ensurePrimaryLocal() error {
 }
 
 func findNodeIDByIP(ip string) string {
+	ip = strings.TrimSpace(ip)
 	list, err := nodes.List()
 	if err != nil {
 		return ""
 	}
 	for _, n := range list {
-		if n.PublicIP == ip {
+		if n.PublicIP == ip || strings.Contains(n.PublicIP, ip) {
 			return n.ID
 		}
 	}
-	// also match relay devices registered as nodes with role relay
-	for _, n := range list {
-		if (n.Role == "secondary" || n.Role == "relay") && (n.PublicIP == ip || strings.Contains(n.Hostname, "secondary") || strings.Contains(n.Hostname, "relay")) {
-			if n.PublicIP == ip || n.PublicIP == "" {
-				return n.ID
-			}
-		}
+	return ""
+}
+
+func publicIPGuess() string {
+	out, _ := exec.Command("hostname", "-I").Output()
+	fields := strings.Fields(string(out))
+	if len(fields) > 0 {
+		return fields[0]
 	}
 	return ""
 }
