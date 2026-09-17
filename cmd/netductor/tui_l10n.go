@@ -116,13 +116,13 @@ func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 		if ru {
 			modeExtra = []menuEntry{
 				{"install", "Install / upgrade", "Стек на VPS", "Идемпотентная установка компонентов (dirs, hardening, sing-box, blocky, vpn, api, bot, backup)."},
-				{"apply-lampac", "Lampac", "Addon", "Поставить/обновить Lampac (Docker) на предпочитаемой ноде флота."},
+				{"apply-lampac", "Lampac", "Addon на primary", "Docker Lampac только на этой машине (primary). На secondary не ставится."},
 				{"hostname", "Hostname", "nd-…", "Задать hostname формата nd-<role>-<marker> и зарегистрировать в реестре нод."},
 			}
 		} else {
 			modeExtra = []menuEntry{
 				{"install", "Install / upgrade", "VPS stack", "Idempotent install of components (dirs, hardening, sing-box, blocky, vpn, api, bot, backup)."},
-				{"apply-lampac", "Lampac", "Addon", "Install/update Lampac (Docker) on preferred fleet node."},
+				{"apply-lampac", "Lampac", "Primary only", "Docker Lampac on this host (primary). Not installed on secondary."},
 				{"hostname", "Hostname", "nd-…", "Set hostname nd-<role>-<marker> and register in node registry."},
 			}
 		}
@@ -183,7 +183,7 @@ func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 			{"nodes-list", "Реестр нод", "Список", "Локальный реестр hostname/role/IP (nd-core-…, nd-secondary-…)."},
 			{"relay-status", "Secondary", "Агент online", "Статус secondary (legacy relay): heartbeat, mismatch counters, sing-box."},
 			{"backup-now", "Бэкап сейчас", "Шифрованный архив", "Пишет .ndenc (etc/netductor, blocky, state, lampac data…) + COMPONENTS. Ротация Keep N."},
-			{"fleet-sync", "Синхронизация", "→ secondary", "Репликация данных primary → secondary для тёплых сервисов."},
+			{"relay-sync", "VPN → secondary", "config_ver", "Протолкнуть UUID пользователей на RU (ExportRelayBundle). Данные Lampac не синхронизируются."},
 			{"vpn-list", "VPN пользователи", "Список", "Имя, on/off, UUID, заметка."},
 			{"vpn-refresh", "Обновить ссылки", "Prefer secondary", "Пересобрать client links с предпочтением secondary entry."},
 			{"probe", "Probes", "Связность", "Локальные TCP/UDP probes (API, VLESS, HY2, Blocky, secondary)."},
@@ -201,7 +201,7 @@ func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 			{"nodes-list", "Nodes registry", "List", "Local hostname/role/IP registry (nd-core-…, nd-secondary-…)."},
 			{"relay-status", "Secondary", "Agent online", "Secondary status (legacy relay): heartbeat, mismatch counters, sing-box."},
 			{"backup-now", "Backup now", "Encrypted archive", "Writes .ndenc (etc/netductor, blocky, state, lampac data…) + COMPONENTS. Rotation Keep N."},
-			{"fleet-sync", "Fleet sync", "→ secondary", "Replicate primary data to secondary for VPN entry."},
+			{"relay-sync", "VPN → secondary", "config_ver", "Push user UUIDs to RU (ExportRelayBundle). No Lampac/data mirror."},
 			{"vpn-list", "VPN users", "List", "Name, on/off, UUID, note."},
 			{"vpn-refresh", "Refresh links", "Prefer secondary", "Rebuild client links preferring secondary entry."},
 			{"probe", "Probes", "Connectivity", "Local TCP/UDP probes (API, VLESS, HY2, Blocky, secondary)."},
