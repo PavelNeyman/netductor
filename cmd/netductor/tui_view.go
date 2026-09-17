@@ -96,7 +96,17 @@ func (m *model) renderHeader() string {
 	loc := l10n(m.lang)
 	w := max(40, m.width)
 
-	title := stTitle.Render(" " + loc.App + " ")
+	// Left: app · version · short blurb
+	ver := version
+	if ver == "" {
+		ver = "dev"
+	}
+	title := stTitle.Render(fmt.Sprintf(" %s %s ", loc.App, ver))
+	blurb := "fleet VPN · edge · control"
+	if m.lang == langRU {
+		blurb = "VPN-флот · edge · управление"
+	}
+	title += stMuted.Render(" "+blurb+" ")
 	if m.hasRemote() {
 		title += stChipKey.Render(" " + m.remoteLabel() + " ")
 	}
