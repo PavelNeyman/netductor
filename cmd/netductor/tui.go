@@ -316,7 +316,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.helpY = msg.Height - 2
 		return m, nil
 	case tea.MouseMsg:
-		if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
+		// Ghostty/terminals: some send Release only; accept Press + Release
+		if msg.Button != tea.MouseButtonLeft {
+			return m, nil
+		}
+		if msg.Action != tea.MouseActionPress && msg.Action != tea.MouseActionRelease {
 			return m, nil
 		}
 		return m.handleMouse(msg.X, msg.Y)
@@ -781,7 +785,7 @@ func runBubbleSession(mode runMode, startMenu bool, cliHost, cliUser, cliKey, cl
 		m.screen = screenMode
 		m.tab = tabMode
 	}
-	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseAllMotion())
 	final, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
