@@ -45,3 +45,13 @@ netductor fleet bot-failover check|promote|demote|timer
 
 - Do **not** wipe relay `devices.json` tokens in post-provision before the first successful agent heartbeat (token is issued on primary and stored on secondary).
 - Agent auth: `Authorization: Bearer <relay_agent_token>` → primary `:8788`.
+
+
+## Role split (2026-09-17)
+
+| Node | Role |
+|------|------|
+| **primary** (abroad) | Source of truth: users, API, TG bot, Blocky, edge enroll, backups |
+| **secondary** (RU) | **VPN entry** (client VLESS) + agent; optional warm services only if sized for them |
+
+`fleet sync` copies lampac/policy data paths — it does **not** replace VPN user push. User push = `ApplyConfig` → `config_ver` bump → agent `pullAndApply` bundle.
