@@ -257,9 +257,11 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 ### Locations
 - List/card/rename/delete; edge bind still when agents enroll.
 
-## TUI (2026-09-17)
+## TUI (2026-09-17+)
 
-- LAG-style: tabs Wizard/Tools/Ops/Mode, split detail, chips, RU/EN (`L`), Esc back.
-- In-TUI multi-step **Setup wizard** (primary / secondary VPN-entry / OpenWrt / MikroTik).
-- Menu: **VPN → secondary** = `relay sync` (not fleet data mirror).
-- **Lampac** = `install lampac` on local host (primary).
+- LAG-style: tabs Wizard / Tools / Ops / Mode, split detail, chips match real keys (`l` not Shift+L), **no 1–9 jump**.
+- **Wizard** is a tab with the same split menu (targets); fields/run stay in-app; **Tab** switches tabs (not a nested app).
+- **Workstation → Connect VPS**: SSH target (`user@host`, key in agent). Ops (`status`, `doctor`, `fleet`, `vpn list`, `relay sync`, …) run via `ssh … netductor …`.
+- Env: `NETDUCTOR_REMOTE`, `NETDUCTOR_REMOTE_USER` (default root).
+- Menus slimmed: Tools = mode-specific setup; Ops = day-2; mirror/sync clutter removed.
+- Some interactive forms (install/build/edge) still leave alt-screen once to huh; prefer remote CLI where possible.
