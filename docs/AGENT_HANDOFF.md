@@ -1,5 +1,15 @@
 ## Version
 
+## Secondary role (locked 2026-09-17)
+
+- **RU secondary = VPN entry only** (VLESS/Reality + thin agent). Not a full mirror of primary.
+- **No Lampac/docker on secondary** unless RU IP is explicitly required (needs ≥2 GiB RAM).
+- **Edge/OpenWrt agents enroll to primary** (outbound). Routers in RU still reach primary API; do **not** move edge control plane to RU (splits source of truth).
+- **Bug fixed:** adding a VPN user must bump `secondary config_ver` so agent pulls new user UUIDs onto `relay-in`. Otherwise links point at `vpn.*` (secondary) but only the first user UUID was on RU → second user “VPN dead”.
+- After `vpn add` / `ApplyConfig`, secondary agent applies `ExportRelayBundle` within ~30–90s. Operator can force: `netductor relay sync`.
+
+
+
 **0.7.3-dev** — TG Access rich QR + import redirect on :80; core/vpn advertise hosts; mTLS agent plane.
 
 # Agent handoff (read first in a new chat)
