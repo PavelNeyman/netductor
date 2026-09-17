@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -146,8 +148,9 @@ func ApplyConfig() error {
 		return err
 	}
 	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "singbox-config-variant"), []byte(variant+"\n"), 0o644)
+	notify.SuppressUntil(90 * time.Second)
 	_ = exec.Command("systemctl", "restart", "sing-box").Run()
-	fmt.Fprintf(os.Stderr, "sing-box config variant=%s\n", variant)
+	fmt.Fprintf(os.Stderr, "sing-box config variant=%s (restart; alerts suppressed 90s)\n", variant)
 	_ = bumpSecondaryConfigVer() // end users on secondary VLESS must refresh
 	return nil
 }
