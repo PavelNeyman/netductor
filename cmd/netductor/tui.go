@@ -124,6 +124,14 @@ const (
 	screenOutput
 )
 
+// top tabs (LAG-style)
+const (
+	tabWizard = "wizard"
+	tabTools  = "tools"
+	tabOps    = "ops"
+	tabMode   = "mode"
+)
+
 // result after tea.Quit — forms run outside alt-screen
 type tuiResult struct {
 	action string
@@ -134,24 +142,26 @@ type tuiResult struct {
 type model struct {
 	screen   screen
 	mode     runMode
-	list     list.Model
+	tab      string
+	cursor   int
 	output   string
 	result   tuiResult
 	width    int
 	height   int
 	quitting bool
 	lang     tuiLang
-	helpY    int // first row of help bar (for mouse)
+	helpY    int
+	hits     []hitRect
+	list     list.Model // kept for compatibility; main UI is custom split
 }
 
 func modeItems(sug runMode, lang tuiLang) []list.Item {
-	loc := l10n(lang)
 	order := []runMode{modeVPS, modeOpenWRT, modeWorkstation, modeOperator}
 	items := make([]list.Item, 0, 4)
 	for _, m := range order {
 		title, d := describeModeLang(m, lang)
 		if m == sug {
-			title += loc.SuggestedMark
+			title += " ←"
 		}
 		items = append(items, menuItem{title: title, desc: d, id: string(m)})
 	}
@@ -159,13 +169,12 @@ func modeItems(sug runMode, lang tuiLang) []list.Item {
 }
 
 func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
-	loc := l10n(lang)
 	wizDesc := "Primary / Secondary / OpenWrt / MikroTik — questions then auto"
 	if lang == langRU {
 		wizDesc = "Primary / Secondary / OpenWrt / MikroTik — вопросы, затем авто"
 	}
 	items := []list.Item{
-		menuItem{loc.Wizard, wizDesc, "wizard"},
+		menuItem{"wizard", wizDesc, "wizard"},
 	}
 	switch mode {
 	case modeVPS:
@@ -200,7 +209,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		toolsDesc = "диагностика и операции"
 	}
 	items = append(items,
-		menuItem{loc.Tools, toolsDesc, "noop"},
+		menuItem{"tools", toolsDesc, "noop"},
 		menuItem{"Doctor", "health checks", "doctor"},
 		menuItem{"Status", "systemd units", "status"},
 		menuItem{"Fleet status", "primary / secondary", "fleet-status"},
@@ -213,8 +222,8 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		menuItem{"Probes", "connectivity", "probe"},
 		menuItem{"SSH known hosts", "TOFU", "ssh-hosts"},
 		menuItem{"Audit tail", "events", "audit-tail"},
-		menuItem{loc.ChangeMode, "", "change-mode"},
-		menuItem{loc.Quit, "", "quit"},
+		menuItem{"change-mode", "", "change-mode"},
+		menuItem{"quit", "", "quit"},
 	)
 	return items
 }
@@ -249,31 +258,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		// Full terminal: list fills almost everything; help ~1–2 rows
-		listH := msg.Height - 8
-		if listH < 6 {
-			listH = 6
-		}
-		m.list.SetSize(max(20, msg.Width-2), listH)
 		m.helpY = msg.Height - 2
 		return m, nil
 	case tea.MouseMsg:
-		if msg.Action != tea.MouseActionPress {
+		if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 			return m, nil
 		}
-		// Click on list rows: approximate — select index by Y relative to list
-		if m.screen != screenOutput && msg.Button == tea.MouseButtonLeft {
-			// list content starts ~3–5 rows down after header
-			rel := msg.Y - 4
-			if rel >= 0 {
-				idx := rel / 3 // delegate height 2 + spacing 1
-				if idx >= 0 && idx < len(m.list.Items()) {
-					m.list.Select(idx)
-				}
-			}
-			// double-click-ish: second press on same — user can Enter
-		}
-		return m, nil
+		return m.handleMouse(msg.X, msg.Y)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -281,93 +272,94 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.result = tuiResult{action: "quit", mode: m.mode}
 			return m, tea.Quit
 		case "l", "L", "ctrl+l":
-			if m.lang == langRU {
-				m.lang = langEN
-			} else {
-				m.lang = langRU
+			return m.toggleLang()
+		case "tab":
+			order := []string{tabWizard, tabTools, tabOps, tabMode}
+			for i, tname := range order {
+				if tname == m.tab {
+					m.tab = order[(i+1)%len(order)]
+					break
+				}
 			}
-			loc := l10n(m.lang)
-			if m.screen == screenMode {
-				sug, _ := detectSuggestedMode()
-				m.list = newList(loc.SelectMode, modeItems(sug, m.lang), max(20, m.width-2), max(6, m.height-8))
-			} else if m.screen == screenMenu {
-				title, _ := describeModeLang(m.mode, m.lang)
-				m.list = newList(loc.AppTitle+" · "+title, menuItemsFor(m.mode, m.lang), max(20, m.width-2), max(6, m.height-8))
+			m.cursor = 0
+			if m.tab == tabMode {
+				m.screen = screenMode
+			} else {
+				m.screen = screenMenu
 			}
 			return m, nil
-		case "q":
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+			return m, nil
+		case "down", "j":
+			if m.cursor < len(m.currentEntries())-1 {
+				m.cursor++
+			}
+			return m, nil
+		case "esc", "q":
 			if m.screen == screenOutput {
 				m.screen = screenMenu
 				m.output = ""
 				return m, nil
 			}
-			if m.screen == screenMenu {
-				sug, _ := detectSuggestedMode()
-				loc := l10n(m.lang)
-				m.list = newList(loc.SelectMode, modeItems(sug, m.lang), max(20, m.width-2), max(6, m.height-8))
+			if m.tab != tabMode && m.screen == screenMenu {
+				m.tab = tabMode
 				m.screen = screenMode
+				m.cursor = 0
 				return m, nil
 			}
+			// mode screen: esc = quit confirm via quit action soft
 			m.quitting = true
 			m.result = tuiResult{action: "quit", mode: m.mode}
 			return m, tea.Quit
-		case "esc":
-			if m.screen == screenOutput {
-				m.screen = screenMenu
-				m.output = ""
-				return m, nil
-			}
-			if m.screen == screenMenu {
-				sug, _ := detectSuggestedMode()
-				loc := l10n(m.lang)
-				m.list = newList(loc.SelectMode, modeItems(sug, m.lang), max(20, m.width-2), max(6, m.height-8))
-				m.screen = screenMode
-				return m, nil
-			}
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-			if m.screen == screenOutput {
-				break
-			}
 			n := int(msg.String()[0] - '1')
-			if n >= 0 && n < len(m.list.Items()) {
-				m.list.Select(n)
-				it, ok := m.list.SelectedItem().(menuItem)
-				if ok {
-					if m.screen == screenMode {
-						m.mode = runMode(it.id)
-						loc := l10n(m.lang)
-						title, _ := describeModeLang(m.mode, m.lang)
-						m.list = newList(loc.AppTitle+" · "+title, menuItemsFor(m.mode, m.lang), max(20, m.width-2), max(6, m.height-8))
-						m.screen = screenMenu
-						return m, nil
-					}
-					return m.handleAction(it.id)
-				}
+			ents := m.currentEntries()
+			if n >= 0 && n < len(ents) {
+				m.cursor = n
+				return m.activateCursor()
 			}
+			return m, nil
 		case "enter":
 			if m.screen == screenOutput {
 				m.screen = screenMenu
 				m.output = ""
 				return m, nil
 			}
-			it, ok := m.list.SelectedItem().(menuItem)
-			if !ok {
-				return m, nil
-			}
-			if m.screen == screenMode {
-				m.mode = runMode(it.id)
-				loc := l10n(m.lang)
-				title, _ := describeModeLang(m.mode, m.lang)
-				m.list = newList(loc.AppTitle+" · "+title, menuItemsFor(m.mode, m.lang), max(20, m.width-2), max(6, m.height-8))
-				m.screen = screenMenu
-				return m, nil
-			}
-			return m.handleAction(it.id)
+			return m.activateCursor()
 		}
 	}
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	return m, nil
+}
+
+func (m model) toggleLang() (tea.Model, tea.Cmd) {
+	if m.lang == langRU {
+		m.lang = langEN
+	} else {
+		m.lang = langRU
+	}
+	return m, nil
+}
+
+func (m model) activateCursor() (tea.Model, tea.Cmd) {
+	ents := m.currentEntries()
+	if m.cursor < 0 || m.cursor >= len(ents) {
+		return m, nil
+	}
+	id := ents[m.cursor].ID
+	if m.screen == screenMode || m.tab == tabMode {
+		m.mode = runMode(id)
+		m.tab = tabTools
+		m.screen = screenMenu
+		m.cursor = 0
+		return m, nil
+	}
+	if id == "wizard" {
+		m.tab = tabWizard
+	}
+	return m.handleAction(id)
 }
 
 func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
@@ -381,14 +373,15 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.result = tuiResult{action: id, mode: m.mode}
 		return m, tea.Quit
 	case "change-mode":
-		sug, _ := detectSuggestedMode()
-		m.list = newList("Select mode", modeItems(sug, m.lang), m.width-4, m.height-8)
+		m.tab = tabMode
 		m.screen = screenMode
+		m.cursor = 0
 		return m, nil
 	case "to-operator":
 		m.mode = modeOperator
-		t, _ := describeModeLang(m.mode, m.lang)
-		m.list = newList("Netductor · "+t, menuItemsFor(m.mode, m.lang), m.width-4, m.height-8)
+		m.tab = tabTools
+		m.screen = screenMenu
+		m.cursor = 0
 		return m, nil
 	case "noop":
 		return m, nil
@@ -534,76 +527,6 @@ func capture(fn func()) string {
 	return buf.String()
 }
 
-func (m model) View() string {
-	loc := l10n(m.lang)
-	w, h := m.width, m.height
-	if w < 1 {
-		w = 80
-	}
-	if h < 1 {
-		h = 24
-	}
-	if m.quitting && m.result.action == "quit" {
-		return subStyle.Render("bye") + "\n"
-	}
-
-	helpChips := []string{}
-	if m.screen == screenOutput {
-		helpChips = []string{"↵ " + loc.Back, "q " + loc.Quit, "L lang"}
-	} else {
-		helpChips = []string{"↑↓", "↵ open", "1–9", "q back", "L lang", "^C quit"}
-	}
-	var chips strings.Builder
-	for _, c := range helpChips {
-		chips.WriteString(chipStyle.Render(c))
-	}
-	helpLine := helpStyle.Width(w).Render(chips.String())
-	helpH := lipgloss.Height(helpLine)
-	if helpH < 1 {
-		helpH = 1
-	}
-	// pin help to bottom
-	_ = helpH
-
-	if m.screen == screenOutput {
-		header := titleStyle.Width(w).Render(loc.Output)
-		bodyH := h - lipgloss.Height(header) - helpH - 2
-		if bodyH < 3 {
-			bodyH = 3
-		}
-		body := lipgloss.NewStyle().Width(w - 2).Height(bodyH).MaxHeight(bodyH).Render(m.output)
-		gap := h - lipgloss.Height(header) - lipgloss.Height(body) - helpH
-		if gap < 0 {
-			gap = 0
-		}
-		return header + "\n" + body + strings.Repeat("\n", gap) + helpLine
-	}
-
-	langBadge := "EN"
-	if m.lang == langRU {
-		langBadge = "RU"
-	}
-	header := titleStyle.Width(w).Render(loc.AppTitle + "  ·  " + langBadge)
-	if m.screen == screenMode {
-		sug, why := detectSuggestedMode()
-		st, _ := describeModeLang(sug, m.lang)
-		header += "\n" + subStyle.Width(w).Render(fmt.Sprintf("%s: %s (%s)", loc.Suggested, st, why))
-		header += "\n" + subStyle.Width(w).Render(loc.HelpMode)
-	}
-	listH := h - lipgloss.Height(header) - helpH - 1
-	if listH < 5 {
-		listH = 5
-	}
-	// list already sized in Update WindowSize
-	mid := m.list.View()
-	used := lipgloss.Height(header) + lipgloss.Height(mid) + helpH
-	gap := h - used
-	if gap < 0 {
-		gap = 0
-	}
-	return header + "\n" + mid + strings.Repeat("\n", gap) + helpLine
-}
-
 func max(a, b int) int {
 	if a > b {
 		return a
@@ -725,10 +648,12 @@ func formConfirm(title, desc string) bool {
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().Title(title).Description(desc),
-			huh.NewConfirm().Title("Proceed?").Affirmative("Yes").Negative("No").Value(&ok),
+			huh.NewConfirm().Title("Proceed? (Esc = cancel)").Affirmative("Yes").Negative("No / Esc").Value(&ok),
 		),
 	).WithTheme(huh.ThemeCharm())
-	_ = f.Run()
+	if err := f.Run(); err != nil {
+		return false // Esc / interrupt
+	}
 	return ok
 }
 
@@ -783,16 +708,13 @@ func formBuild() {
 func runBubbleSession(mode runMode, startMenu bool) tuiResult {
 	w, h := 120, 40
 	lang := detectTUILang()
-	loc := l10n(lang)
-	sug, _ := detectSuggestedMode()
-	m := model{width: w, height: h, mode: mode, lang: lang}
+	m := model{width: w, height: h, mode: mode, lang: lang, tab: tabMode, cursor: 0}
 	if startMenu && mode != "" {
 		m.screen = screenMenu
-		title, _ := describeModeLang(mode, lang)
-		m.list = newList(loc.AppTitle+" · "+title, menuItemsFor(mode, lang), w-2, h-10)
+		m.tab = tabTools
 	} else {
 		m.screen = screenMode
-		m.list = newList(loc.SelectMode, modeItems(sug, lang), w-2, h-10)
+		m.tab = tabMode
 	}
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	final, err := p.Run()
