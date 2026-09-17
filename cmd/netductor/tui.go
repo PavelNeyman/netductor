@@ -77,7 +77,7 @@ func describeModeLang(m runMode, lang tuiLang) (string, string) {
 	case modeWorkstation:
 		return "Workstation (PC/Mac)", "Build binaries, bootstrap hints, remote helpers"
 	default:
-		return "Operator panel", "Day-2 ops: users, sessions, edge, doctor, probes"
+		return "Manage node", "Operate installed system: users, fleet, doctor, probes"
 	}
 }
 
@@ -111,6 +111,40 @@ type menuItem struct {
 	title, desc, id string
 }
 
+func parseRemoteFlags(args []string) (host, user, key, pass string) {
+	user = "root"
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		take := func() string {
+			if i+1 < len(args) {
+				i++
+				return args[i]
+			}
+			return ""
+		}
+		switch {
+		case a == "--remote" || a == "--host":
+			host = take()
+		case strings.HasPrefix(a, "--remote="):
+			host = strings.TrimPrefix(a, "--remote=")
+		case a == "--remote-user" || a == "--user":
+			user = take()
+		case strings.HasPrefix(a, "--remote-user="):
+			user = strings.TrimPrefix(a, "--remote-user=")
+		case a == "--remote-key" || a == "--key":
+			key = take()
+		case strings.HasPrefix(a, "--remote-key="):
+			key = strings.TrimPrefix(a, "--remote-key=")
+		case a == "--remote-password" || a == "--password":
+			pass = take()
+		case strings.HasPrefix(a, "--remote-password="):
+			pass = strings.TrimPrefix(a, "--remote-password=")
+		}
+	}
+	return host, user, key, pass
+}
+
+
 func (i menuItem) Title() string       { return i.title }
 func (i menuItem) Description() string { return i.desc }
 func (i menuItem) FilterValue() string { return i.title }
@@ -128,8 +162,9 @@ const (
 const (
 	tabWizard = "wizard"
 	tabTools  = "tools"
-	tabOps    = "ops"
-	tabMode   = "mode"
+	tabOps      = "ops"
+	tabSettings = "settings"
+	tabMode     = "mode"
 )
 
 // result after tea.Quit — forms run outside alt-screen
@@ -160,8 +195,11 @@ type model struct {
 	wizFieldIdx int
 	wizInput    string
 	wizMsg      string
-	remoteHost  string
-	remoteUser  string
+	remoteHost     string
+	remoteUser     string
+	remoteKey      string
+	remotePassword string
+	formAction     string
 }
 
 func modeItems(sug runMode, lang tuiLang) []list.Item {
@@ -290,7 +328,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "l", "L", "ctrl+l":
 			return m.toggleLang()
 		case "tab":
-			order := []string{tabWizard, tabTools, tabOps, tabMode}
+			order := []string{tabWizard, tabTools, tabOps, tabSettings, tabMode}
 			for i, tname := range order {
 				if tname == m.tab {
 					m.tab = order[(i+1)%len(order)]
@@ -450,15 +488,44 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 	case "audit-tail":
 		m.showCmd("audit", "tail")
 	case "install":
-		if m.hasRemote() {
-			m.showCmd("install")
-			return m, nil
+		m.showCmd("install")
+		return m, nil
+	case "prepare":
+		m.showCmd("install", "--prepare")
+		return m, nil
+	case "vpn-add":
+		m.startActionForm("vpn-add")
+		return m, nil
+	case "build":
+		m.startActionForm("build")
+		return m, nil
+	case "owrt-install":
+		m.startActionForm("owrt-install")
+		return m, nil
+	case "cfg-remote":
+		m.startActionForm("cfg-remote")
+		return m, nil
+	case "cfg-lang":
+		return m.toggleLang()
+	case "cfg-save":
+		if err := saveTUISettings(m.snapshotSettings()); err != nil {
+			m.output = "save failed: " + err.Error()
+		} else {
+			m.output = "saved " + tuiConfigPath()
 		}
-		m.result = tuiResult{action: id, mode: m.mode}
-		return m, tea.Quit
-	case "prepare", "build", "owrt-install", "vpn-add", "vpn-rename", "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub":
-		m.result = tuiResult{action: id, mode: m.mode}
-		return m, tea.Quit
+		m.screen = screenOutput
+		return m, nil
+	case "cfg-clear-remote":
+		m.remoteHost, m.remoteKey, m.remotePassword = "", "", ""
+		m.remoteUser = "root"
+		_ = saveTUISettings(m.snapshotSettings())
+		m.output = "remote cleared"
+		m.screen = screenOutput
+		return m, nil
+	case "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub", "vpn-rename":
+		m.output = "CLI: netductor " + id + " — or use Wizard tab"
+		m.screen = screenOutput
+		return m, nil
 	default:
 		m.output = "unknown action: " + id
 		m.screen = screenOutput
@@ -678,11 +745,31 @@ func formBuild() {
 	}
 }
 
-func runBubbleSession(mode runMode, startMenu bool) tuiResult {
+func runBubbleSession(mode runMode, startMenu bool, cliHost, cliUser, cliKey, cliPass string) tuiResult {
 	w, h := 120, 40
 	lang := detectLang()
+	s := loadTUISettings()
 	rh, ru := loadRemoteFromEnv()
-	m := model{width: w, height: h, mode: mode, lang: lang, tab: tabMode, cursor: 0, remoteHost: rh, remoteUser: ru}
+	if rh != "" {
+		s.RemoteHost = rh
+	}
+	if ru != "" {
+		s.RemoteUser = ru
+	}
+	m := model{width: w, height: h, mode: mode, lang: lang, tab: tabMode, cursor: 0}
+	m.applySettings(s)
+	if cliHost != "" {
+		m.remoteHost = cliHost
+	}
+	if cliUser != "" {
+		m.remoteUser = cliUser
+	}
+	if cliKey != "" {
+		m.remoteKey = cliKey
+	}
+	if cliPass != "" {
+		m.remotePassword = cliPass
+	}
 	if startMenu && mode != "" {
 		m.screen = screenMenu
 		m.tab = tabTools
@@ -740,11 +827,12 @@ func runHostnameForm() {
 
 func runTUI(args []string) {
 	forced := parseModeFlags(args)
+	cliHost, cliUser, cliKey, cliPass := parseRemoteFlags(args)
 	mode := forced
 	startMenu := forced == modeVPS || forced == modeOpenWRT || forced == modeWorkstation || forced == modeOperator
 
 	for {
-		res := runBubbleSession(mode, startMenu)
+		res := runBubbleSession(mode, startMenu, cliHost, cliUser, cliKey, cliPass)
 		startMenu = true
 		if res.mode != "" {
 			mode = res.mode
