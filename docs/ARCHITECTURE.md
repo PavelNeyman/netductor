@@ -1,6 +1,6 @@
 # Architecture
 
-Fleet: **primary** (abroad control plane) + optional **secondary** (RU VPN entry / warm services). See [FLEET.md](FLEET.md).
+Fleet: **primary** (abroad control plane) + optional **secondary** (RU VPN entry only). See [FLEET.md](FLEET.md). Plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 
 Single Go binary **netductor** on each VPS:
 
