@@ -187,6 +187,7 @@ func (m *model) renderWizard() string {
 	return header + "\n" + body + strings.Repeat("\n", gap) + help
 }
 
+
 func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -197,14 +198,28 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "l", "L":
 			return m.toggleLang()
+		case "tab":
+			m.screen = screenMenu
+			m.tab = tabTools
+			m.cursor = 0
+			m.wizStep = wizStepTarget
+			return m, nil
 		case "esc":
 			switch m.wizStep {
 			case wizStepTarget:
 				m.screen = screenMenu
-				m.tab = tabTools
+				m.tab = tabWizard
 				m.cursor = 0
 				return m, nil
 			case wizStepFields:
+				if string(m.wizTarget) == "remote" {
+					m.screen = screenMenu
+					m.tab = tabTools
+					m.cursor = 0
+					return m, nil
+				}
+				m.screen = screenMenu
+				m.tab = tabWizard
 				m.wizStep = wizStepTarget
 				m.cursor = 0
 				return m, nil
@@ -217,13 +232,11 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case wizStepRun:
 				m.screen = screenMenu
-				m.tab = tabTools
+				m.tab = tabWizard
+				m.wizStep = wizStepTarget
 				return m, nil
 			}
 		case "up", "k":
-			if m.wizStep == wizStepTarget && m.cursor > 0 {
-				m.cursor--
-			}
 			if m.wizStep == wizStepFields && m.wizFieldIdx > 0 {
 				m.wizFields[m.wizFieldIdx].Value = m.wizInput
 				m.wizFieldIdx--
@@ -231,9 +244,6 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "down", "j":
-			if m.wizStep == wizStepTarget && m.cursor < len(wizTargetEntries(m.lang))-1 {
-				m.cursor++
-			}
 			if m.wizStep == wizStepFields && m.wizFieldIdx < len(m.wizFields)-1 {
 				m.wizFields[m.wizFieldIdx].Value = m.wizInput
 				m.wizFieldIdx++
@@ -259,15 +269,6 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 	switch m.wizStep {
-	case wizStepTarget:
-		ents := wizTargetEntries(m.lang)
-		if m.cursor < 0 || m.cursor >= len(ents) {
-			return m, nil
-		}
-		m.wizTarget = wizTarget(ents[m.cursor].ID)
-		m.wizBuildFields()
-		m.wizStep = wizStepFields
-		return m, nil
 	case wizStepFields:
 		if len(m.wizFields) == 0 {
 			m.wizStep = wizStepConfirm
@@ -282,12 +283,22 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 		m.wizStep = wizStepConfirm
 		return m, nil
 	case wizStepConfirm:
+		if string(m.wizTarget) == "remote" {
+			m.remoteHost = m.fieldVal("host")
+			m.remoteUser = orDefault(m.fieldVal("user"), "root")
+			m.output = "remote = " + m.remoteLabel() + "\n(SSH key in agent; BatchMode=yes)"
+			m.screen = screenOutput
+			m.tab = tabTools
+			m.wizStep = wizStepTarget
+			return m, nil
+		}
 		m.wizStep = wizStepRun
 		m.wizMsg = m.runWizardApply()
 		return m, nil
 	case wizStepRun:
 		m.screen = screenMenu
-		m.tab = tabTools
+		m.tab = tabWizard
+		m.wizStep = wizStepTarget
 		return m, nil
 	}
 	return m, nil
