@@ -22,28 +22,37 @@ type locPack struct {
 }
 
 func detectLang() tuiLang {
-	// Prefer explicit env; many macOS terminals leave LANG empty.
-	for _, k := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-		v := strings.ToLower(strings.TrimSpace(os.Getenv(k)))
-		if v == "" || v == "c" || v == "posix" {
-			continue
-		}
-		if strings.HasPrefix(v, "ru") || strings.Contains(v, ".ru_") || strings.Contains(v, "_ru") {
+	// Explicit override for TUI / CI
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("NETDUCTOR_LANG"))); v != "" {
+		if strings.HasPrefix(v, "ru") {
 			return langRU
 		}
-		// any other locale → EN
 		return langEN
 	}
-	// macOS: defaults read -g AppleLocale → ru_RU / en_US
+	// macOS UI language list is more trustworthy than LANG in modern terminals
+	// (Ghostty/iTerm often export LANG=en_US.UTF-8 while system is Russian).
+	if b, err := exec.Command("defaults", "read", "-g", "AppleLanguages").Output(); err == nil {
+		v := strings.ToLower(string(b))
+		// first preferred language roughly appears first in the plist dump
+		if idxRu, idxEn := strings.Index(v, "ru"), strings.Index(v, "en"); idxRu >= 0 && (idxEn < 0 || idxRu < idxEn) {
+			return langRU
+		}
+		if strings.Contains(v, `"ru"`) || strings.Contains(v, "ru-") || strings.Contains(v, "ru_") {
+			return langRU
+		}
+	}
 	if b, err := exec.Command("defaults", "read", "-g", "AppleLocale").Output(); err == nil {
 		v := strings.ToLower(strings.TrimSpace(string(b)))
 		if strings.HasPrefix(v, "ru") {
 			return langRU
 		}
 	}
-	if b, err := exec.Command("defaults", "read", "-g", "AppleLanguages").Output(); err == nil {
-		v := strings.ToLower(string(b))
-		if strings.Contains(v, `"ru"`) || strings.Contains(v, "ru-") || strings.Contains(v, "ru_") {
+	for _, k := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		v := strings.ToLower(strings.TrimSpace(os.Getenv(k)))
+		if v == "" || v == "c" || v == "posix" {
+			continue
+		}
+		if strings.HasPrefix(v, "ru") || strings.Contains(v, ".ru_") || strings.Contains(v, "_ru") || strings.Contains(v, "ru_") {
 			return langRU
 		}
 	}
