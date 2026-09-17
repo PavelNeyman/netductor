@@ -45,3 +45,5 @@
 ## TUI follow-up (2026-09-17)
 
 - Remote SSH ops from workstation; wizard integrated; chips/keys; menu regroup.
+
+- TUI **Settings** tab + `--remote*` flags; in-TUI forms (no huh exit) for vpn-add/edge/build/connection.
