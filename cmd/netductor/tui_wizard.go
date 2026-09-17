@@ -212,9 +212,10 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 				return m, nil
 			case wizStepFields:
-				if string(m.wizTarget) == "remote" {
+				if string(m.wizTarget) == "remote" || string(m.wizTarget) == "form" || m.formAction != "" {
+					m.formAction = ""
 					m.screen = screenMenu
-					m.tab = tabTools
+					m.tab = tabSettings
 					m.cursor = 0
 					return m, nil
 				}
