@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-// Remote target: run netductor on a VPS from workstation TUI over SSH.
-
 func (m *model) hasRemote() bool {
 	return strings.TrimSpace(m.remoteHost) != ""
 }
@@ -17,30 +15,46 @@ func (m *model) remoteLabel() string {
 	if !m.hasRemote() {
 		return ""
 	}
-	u := m.remoteUser
-	if u == "" {
-		u = "root"
-	}
+	u := orDefault(m.remoteUser, "root")
 	return u + "@" + m.remoteHost
 }
 
-// runNetductor runs local `netductor args` or `ssh user@host netductor args`.
+func (m *model) sshBaseArgs() []string {
+	args := []string{
+		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "ConnectTimeout=15",
+	}
+	if m.remoteKey != "" {
+		args = append(args, "-i", m.remoteKey)
+	}
+	if m.remotePassword != "" {
+		// password auth: disable pubkey-only batch if using sshpass wrapper
+		args = append(args, "-o", "PreferredAuthentications=password", "-o", "PubkeyAuthentication=no")
+	} else {
+		args = append(args, "-o", "BatchMode=yes")
+	}
+	return args
+}
+
 func (m *model) runNetductor(args ...string) string {
 	if m.hasRemote() {
-		u := m.remoteUser
-		if u == "" {
-			u = "root"
-		}
+		u := orDefault(m.remoteUser, "root")
 		target := u + "@" + m.remoteHost
-		sshArgs := []string{
-			"-o", "BatchMode=yes",
-			"-o", "StrictHostKeyChecking=accept-new",
-			"-o", "ConnectTimeout=15",
-			target,
-			"netductor",
+		remoteCmd := append([]string{"netductor"}, args...)
+		var cmd *exec.Cmd
+		if m.remotePassword != "" {
+			if _, err := exec.LookPath("sshpass"); err == nil {
+				sshArgs := append(m.sshBaseArgs(), target)
+				sshArgs = append(sshArgs, remoteCmd...)
+				cmd = exec.Command("sshpass", append([]string{"-p", m.remotePassword, "ssh"}, sshArgs...)...)
+			} else {
+				return "sshpass not installed — use SSH key, or: brew install sshpass / apt install sshpass\n"
+			}
+		} else {
+			sshArgs := append(m.sshBaseArgs(), target)
+			sshArgs = append(sshArgs, remoteCmd...)
+			cmd = exec.Command("ssh", sshArgs...)
 		}
-		sshArgs = append(sshArgs, args...)
-		cmd := exec.Command("ssh", sshArgs...)
 		out, err := cmd.CombinedOutput()
 		s := string(out)
 		if err != nil {
@@ -67,7 +81,6 @@ func (m *model) showCmd(args ...string) {
 	m.screen = screenOutput
 }
 
-// default remote from env (operator laptop).
 func loadRemoteFromEnv() (host, user string) {
 	host = strings.TrimSpace(os.Getenv("NETDUCTOR_REMOTE"))
 	user = strings.TrimSpace(os.Getenv("NETDUCTOR_REMOTE_USER"))
