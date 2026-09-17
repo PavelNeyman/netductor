@@ -259,9 +259,11 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 
 ## TUI (2026-09-17+)
 
-- LAG-style: tabs Wizard / Tools / Ops / Mode, split detail, chips match real keys (`l` not Shift+L), **no 1–9 jump**.
-- **Wizard** is a tab with the same split menu (targets); fields/run stay in-app; **Tab** switches tabs (not a nested app).
-- **Workstation → Connect VPS**: SSH target (`user@host`, key in agent). Ops (`status`, `doctor`, `fleet`, `vpn list`, `relay sync`, …) run via `ssh … netductor …`.
-- Env: `NETDUCTOR_REMOTE`, `NETDUCTOR_REMOTE_USER` (default root).
-- Menus slimmed: Tools = mode-specific setup; Ops = day-2; mirror/sync clutter removed.
-- Some interactive forms (install/build/edge) still leave alt-screen once to huh; prefer remote CLI where possible.
+- LAG-style tabs: **Wizard / Tools / Ops / Settings / Mode**. Chips = real keys (`l`, `tab`, …). No 1–9 jump.
+- **Settings**: SSH connection (host, user, key path, password), language, save to `~/.config/netductor/tui.json`.
+- CLI: `netductor tui --remote HOST [--remote-user root] [--remote-key ~/.ssh/id_ed25519] [--remote-password …]`
+- Env still works: `NETDUCTOR_REMOTE`, `NETDUCTOR_REMOTE_USER`.
+- Mode **Manage** (was “Day-2/Operator”): ops on an already-installed node.
+- Interactive actions (vpn-add, edge, build, connection) use **in-TUI forms** — no exit to huh for those paths.
+- Ops run local or via `ssh` to configured remote.
+
