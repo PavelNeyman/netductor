@@ -52,14 +52,14 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
 			{"primary", "Primary VPS", "Зарубежный control plane", "Чистый Debian/VPS за границей: install стека, Reality SNI, bootstrap fleet, doctor. После этого обычно настраивают Secondary."},
-			{"secondary", "Secondary VPS", "RU entry", "Российский VPS: SSH с primary, provision-secondary (ключ, agent, sing-box, warm services). Пароль только для первого входа."},
+			{"secondary", "Secondary VPS", "RU entry", "Российский VPS: SSH с primary, provision-secondary (ключ, agent, sing-box, VPN entry). Пароль только для первого входа."},
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
 			{"mikrotik", "MikroTik", "ROS site", "Сайт MikroTik (+ опционально RPi OpenWrt): identity, маршруты, push скриптов через SSH TOFU."},
 		}
 	}
 	return []menuEntry{
 		{"primary", "Primary VPS", "Abroad control plane", "Clean Debian/VPS abroad: stack install, Reality SNI, fleet bootstrap, doctor. Usually followed by Secondary."},
-		{"secondary", "Secondary VPS", "RU entry", "RU VPS: SSH from primary, provision-secondary (key, agent, sing-box, warm services). Password only for first login."},
+		{"secondary", "Secondary VPS", "RU entry", "RU VPS: SSH from primary, provision-secondary (key, agent, sing-box, VPN entry). Password only for first login."},
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
 	}
