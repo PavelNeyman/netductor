@@ -36,7 +36,7 @@
 ## Done when
 
 - [x] Plan in repo
-- [ ] Code: provision + policy + CLI/TUI cleaned
-- [ ] Docs match
-- [ ] New secondary provision does not install docker/lampac/bot standby
-- [ ] `vpn add` still updates secondary users via config_ver
+- [x] Code: provision + policy + CLI/TUI cleaned
+- [x] Docs match
+- [x] New secondary provision does not install docker/lampac/bot standby
+- [x] `vpn add` still updates secondary users via config_ver
