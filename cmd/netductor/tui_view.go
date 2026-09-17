@@ -55,6 +55,12 @@ func (m *model) currentEntries() []menuEntry {
 	if m.screen == screenMode || m.tab == tabMode {
 		return modeEntries(m.lang)
 	}
+	if m.tab == tabWizard {
+		return wizTargetEntries(m.lang)
+	}
+	if m.tab == tabOps {
+		return opsEntries(m.mode, m.lang)
+	}
 	return toolsEntries(m.mode, m.lang)
 }
 
@@ -86,6 +92,9 @@ func (m *model) renderHeader() string {
 	w := max(40, m.width)
 
 	title := stTitle.Render(" " + loc.App + " ")
+	if m.hasRemote() {
+		title += stChipKey.Render(" " + m.remoteLabel() + " ")
+	}
 	tabs := []struct {
 		id, label string
 	}{
@@ -166,7 +175,6 @@ func (m *model) renderHelpBar() string {
 }
 
 func (m *model) renderSplit() string {
-	loc := l10n(m.lang)
 	w := max(40, m.width)
 	h := max(8, m.height)
 	headerH := 1
@@ -203,11 +211,7 @@ func (m *model) renderSplit() string {
 	var leftLines []string
 	bodyY0 := 1
 	for i, e := range entries {
-		prefix := fmt.Sprintf("%d ", i+1)
-		if i+1 > 9 {
-			prefix = "  "
-		}
-		line := prefix + e.Title
+		line := e.Title
 		short := e.Short
 		var row string
 		if i == m.cursor {
@@ -235,19 +239,17 @@ func (m *model) renderSplit() string {
 	detail = stBorder.Width(rightW).Height(bodyH).MaxHeight(bodyH).Render(
 		lipgloss.NewStyle().Width(rightW-2).Height(bodyH-2).Render(detail),
 	)
-	_ = loc.Detail
 
 	gap := " "
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftBody, gap, detail)
 }
 
 func (m *model) renderOutput() string {
-	loc := l10n(m.lang)
 	w := max(40, m.width)
 	h := max(8, m.height)
 	help := m.renderHelpBar()
 	helpH := lipgloss.Height(help)
-	head := stTitle.Width(w).Render(loc.Output)
+	head := stTitle.Width(w).Render("Output")
 	bodyH := h - lipgloss.Height(head) - helpH - 1
 	if bodyH < 3 {
 		bodyH = 3
@@ -312,7 +314,8 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 				m.tab = tabs[ti]
 				m.cursor = 0
 				if m.tab == tabWizard {
-					m.startWizard()
+					m.screen = screenMenu
+					m.wizStep = wizStepTarget
 					return m, nil
 				}
 				if m.tab == tabMode {
