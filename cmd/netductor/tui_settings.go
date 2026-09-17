@@ -1,22 +1,31 @@
 package main
 
 import (
-	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// TUI settings persisted under ~/.config/netductor/tui.json
+// TUI settings: ~/.config/netductor/tui.yaml (hand-editable)
 
 type tuiSettings struct {
-	RemoteHost     string `json:"remote_host"`
-	RemoteUser     string `json:"remote_user"`
-	RemoteKey      string `json:"remote_key"`      // path to private key
-	RemotePassword string `json:"remote_password"` // optional; prefer key
-	Lang           string `json:"lang"`            // ru|en|auto
+	RemoteHost     string // remote_host
+	RemoteUser     string // remote_user
+	RemoteKey      string // remote_key
+	RemotePassword string // remote_password
+	Lang           string // lang: auto|ru|en
 }
 
 func tuiConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".config", "netductor", "tui.yaml")
+}
+
+func tuiConfigPathLegacyJSON() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return ""
@@ -25,19 +34,27 @@ func tuiConfigPath() string {
 }
 
 func loadTUISettings() tuiSettings {
-	var s tuiSettings
-	s.RemoteUser = "root"
+	s := tuiSettings{RemoteUser: "root", Lang: "auto"}
 	path := tuiConfigPath()
-	if path == "" {
-		return s
+	if path != "" {
+		if b, err := os.ReadFile(path); err == nil {
+			parseSimpleYAML(string(b), &s)
+			if s.RemoteUser == "" {
+				s.RemoteUser = "root"
+			}
+			if s.Lang == "" {
+				s.Lang = "auto"
+			}
+			return s
+		}
 	}
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return s
-	}
-	_ = json.Unmarshal(b, &s)
-	if s.RemoteUser == "" {
-		s.RemoteUser = "root"
+	// one-time migrate from json if present
+	if jp := tuiConfigPathLegacyJSON(); jp != "" {
+		if b, err := os.ReadFile(jp); err == nil {
+			// minimal: extract quoted values by key
+			migrateJSONish(string(b), &s)
+			_ = saveTUISettings(s)
+		}
 	}
 	return s
 }
@@ -48,11 +65,83 @@ func saveTUISettings(s tuiSettings) error {
 		return os.ErrInvalid
 	}
 	_ = os.MkdirAll(filepath.Dir(path), 0o700)
-	b, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
-		return err
+	if s.RemoteUser == "" {
+		s.RemoteUser = "root"
 	}
-	return os.WriteFile(path, append(b, '\n'), 0o600)
+	if s.Lang == "" {
+		s.Lang = "auto"
+	}
+	body := fmt.Sprintf(`# netductor TUI settings — edit freely
+# lang: auto | ru | en  (auto = system locale)
+remote_host: %q
+remote_user: %q
+remote_key: %q
+remote_password: %q
+lang: %q
+`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.Lang)
+	return os.WriteFile(path, []byte(body), 0o600)
+}
+
+func parseSimpleYAML(text string, s *tuiSettings) {
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		i := strings.IndexByte(line, ':')
+		if i < 0 {
+			continue
+		}
+		k := strings.TrimSpace(line[:i])
+		v := strings.TrimSpace(line[i+1:])
+		v = strings.Trim(v, `"'`)
+		switch k {
+		case "remote_host":
+			s.RemoteHost = v
+		case "remote_user":
+			s.RemoteUser = v
+		case "remote_key":
+			s.RemoteKey = v
+		case "remote_password":
+			s.RemotePassword = v
+		case "lang":
+			s.Lang = v
+		}
+	}
+}
+
+func migrateJSONish(text string, s *tuiSettings) {
+	// best-effort extract "key": "value"
+	for _, key := range []string{"remote_host", "remote_user", "remote_key", "remote_password", "lang"} {
+		pat := `"` + key + `"`
+		i := strings.Index(text, pat)
+		if i < 0 {
+			continue
+		}
+		rest := text[i+len(pat):]
+		j := strings.Index(rest, `"`)
+		if j < 0 {
+			continue
+		}
+		rest = rest[j+1:]
+		k := strings.Index(rest, `"`)
+		if k < 0 {
+			continue
+		}
+		v := rest[:k]
+		switch key {
+		case "remote_host":
+			s.RemoteHost = v
+		case "remote_user":
+			s.RemoteUser = v
+		case "remote_key":
+			s.RemoteKey = v
+		case "remote_password":
+			s.RemotePassword = v
+		case "lang":
+			s.Lang = v
+		}
+	}
 }
 
 func (m *model) applySettings(s tuiSettings) {
@@ -63,20 +152,30 @@ func (m *model) applySettings(s tuiSettings) {
 	}
 	m.remoteKey = s.RemoteKey
 	m.remotePassword = s.RemotePassword
-	switch s.Lang {
+	m.langPref = s.Lang
+	switch strings.ToLower(strings.TrimSpace(s.Lang)) {
 	case "ru":
 		m.lang = langRU
 	case "en":
 		m.lang = langEN
+	default: // auto / empty
+		m.lang = detectLang()
+		m.langPref = "auto"
 	}
 }
 
 func (m model) snapshotSettings() tuiSettings {
-	lang := "auto"
-	if m.lang == langRU {
-		lang = "ru"
-	} else if m.lang == langEN {
-		lang = "en"
+	lang := m.langPref
+	if lang == "" {
+		lang = "auto"
+	}
+	// if user toggled with `l`, prefer explicit
+	if lang != "auto" {
+		if m.lang == langRU {
+			lang = "ru"
+		} else {
+			lang = "en"
+		}
 	}
 	return tuiSettings{
 		RemoteHost: m.remoteHost, RemoteUser: orDefault(m.remoteUser, "root"),
