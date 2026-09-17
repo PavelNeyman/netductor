@@ -279,6 +279,9 @@ func (m model) View() string {
 	if m.screen == screenOutput {
 		return m.renderOutput()
 	}
+	if m.screen == screenWizard {
+		return m.renderWizard()
+	}
 	header := m.renderHeader()
 	body := m.renderSplit()
 	help := m.renderHelpBar()
@@ -308,6 +311,10 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 			if ti >= 0 && ti < len(tabs) {
 				m.tab = tabs[ti]
 				m.cursor = 0
+				if m.tab == tabWizard {
+					m.startWizard()
+					return m, nil
+				}
 				if m.tab == tabMode {
 					m.screen = screenMode
 				} else {
