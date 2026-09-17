@@ -12,13 +12,13 @@ import (
 
 // Control-plane model (netductor fleet):
 //
-//   Primary (abroad core): source of truth — users, policies, TG operator bot,
-//   admin API, backup authority. Safer for secrets; Telegram API more stable.
+//   Primary (abroad): source of truth — users, policies, TG bot, admin API,
+//   edge enroll, backups, optional Lampac. Secrets stay here.
 //
-//   Secondary (RU relay): data-plane entry for VPN under WL; warm replica of
-//   service data; preferred host for latency-sensitive addons (e.g. Lampac).
+//   Secondary (RU): VPN data-plane entry only (VLESS/Reality + thin agent).
+//   Not a service mirror. No Lampac/bot/DNS fleet sync to secondary.
 //
-// VPN traffic is NOT load-balanced. Services may be placed/failed over.
+// VPN traffic is NOT load-balanced. Clients prefer secondary entry under WL.
 
 const (
 	LabelControlPlane = "control_plane" // primary | secondary
@@ -45,8 +45,8 @@ type Policy struct {
 
 func defaultPolicy() Policy {
 	return Policy{
-		SyncEnabled: true,
-		Notes:       "control-plane primary=abroad; VPN entry=RU; lampac prefer=RU",
+		SyncEnabled: false,
+		Notes:       "primary=abroad control-plane; secondary=RU VPN entry only",
 	}
 }
 
@@ -189,8 +189,8 @@ func StatusSummary() string {
 	p := LoadPolicy()
 	var b strings.Builder
 	b.WriteString("Fleet policy (primary / secondary)" + "\n")
-	b.WriteString("  model: primary=abroad control-plane; secondary=RU entry + warm services" + "\n")
-	b.WriteString("  note:  VPN agent may still use role=relay internally" + "\n")
+	b.WriteString("  model: primary=abroad control-plane; secondary=RU VPN entry only" + "\n")
+	b.WriteString("  note:  VPN agent may still use role=relay internally; no service mirror" + "\n")
 	b.WriteString(fmt.Sprintf("  primary:   %s  ssh=%s\n", empty(p.PrimaryNodeID, "(unset)"), empty(p.PrimarySSH, "-")))
 	b.WriteString(fmt.Sprintf("  secondary: %s  ssh=%s\n", empty(p.SecondaryNodeID, "(unset)"), empty(p.SecondarySSH, "-")))
 	b.WriteString(fmt.Sprintf("  lampac ->  %s\n", empty(p.LampacNodeID, "(unset)")))
