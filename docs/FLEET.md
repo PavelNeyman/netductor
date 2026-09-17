@@ -1,57 +1,41 @@
-# Fleet: primary & secondary
+# Fleet: primary + secondary
 
-See also: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [BACKUP.md](BACKUP.md) · [DEPLOY.md](DEPLOY.md)
+## Model (locked)
 
-## Naming
+| Node | Role |
+|------|------|
+| **primary** (abroad) | Control plane: users, API, TG bot, Blocky, edge enroll, backups, optional **Lampac** |
+| **secondary** (RU) | **VPN entry only** (VLESS/Reality + thin agent). Hostname `nd-secondary`. |
 
-| Operator term | Typical host | Internal notes |
-|---------------|--------------|----------------|
-| **primary** | Abroad VPS | Control plane: users, policies, TG bot active, admin, backup authority. Hostname `nd-primary` |
-| **secondary** | RU VPS | VPN entry under WL + warm services (Lampac). Hostname `nd-secondary`. VPN agent code path still uses `role=relay` |
+VPN is **not** load-balanced. Clients prefer secondary under carrier whitelist.
 
-Do **not** load-balance VPN. Secondary is the default client entry; primary is the source of truth.
+Internal agent code may still say `role=relay` — same plane, operator name is **secondary**.
 
-## Deploy secondary from primary
+See [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 
-```bash
-netductor fleet provision-secondary \
-  --host 92.x.x.x --password '…' [--sni api.vk.me] \
-  [--no-lampac] [--no-bot-standby]
-```
+## What is NOT on secondary
 
-Steps: VPN join → fleet roles → data sync → Lampac → bot standby (SOCKS→primary) → hourly sync timer.
+- Lampac / Docker service mirror
+- Telegram bot standby / failover
+- Hourly `fleet sync` of app data
+- Edge enroll API (agents → primary)
 
-VPN-only: `netductor relay provision --host … --password …`
+## What IS synced to secondary
 
-## TG failover
-
-- Active bot on **primary**
-- Standby on **secondary** only if primary host is up but bot unit is down
-- Exit via `ssh -D` SOCKS to primary (`/api/bot-status` on `:8788`)
-- If primary host is dead, standby is **not** used (SOCKS cannot exit via dead core)
+- **VPN user UUIDs** via `ApplyConfig` → `config_ver` bump → agent pulls `ExportRelayBundle` into `relay-in`
+- Force: `netductor relay sync`
 
 ## Commands
 
 ```bash
-netductor fleet status|bootstrap
-netductor fleet provision-secondary --host IP --password PASS
-netductor fleet sync | sync-timer | apply-lampac
-netductor fleet bot-standby-install [user@primary]
-netductor fleet bot-failover check|promote|demote|timer
+netductor fleet status
+netductor fleet bootstrap
+netductor fleet provision-secondary --host IP --password '…' [--sni api.vk.me]
+netductor fleet disable-legacy   # stop old sync/failover timers on this host
+netductor install lampac         # primary only
+netductor relay sync             # push VPN users to secondary now
 ```
 
+## Policy file
 
-## Implementation notes
-
-- Do **not** wipe relay `devices.json` tokens in post-provision before the first successful agent heartbeat (token is issued on primary and stored on secondary).
-- Agent auth: `Authorization: Bearer <relay_agent_token>` → primary `:8788`.
-
-
-## Role split (2026-09-17)
-
-| Node | Role |
-|------|------|
-| **primary** (abroad) | Source of truth: users, API, TG bot, Blocky, edge enroll, backups |
-| **secondary** (RU) | **VPN entry** (client VLESS) + agent; optional warm services only if sized for them |
-
-`fleet sync` copies lampac/policy data paths — it does **not** replace VPN user push. User push = `ApplyConfig` → `config_ver` bump → agent `pullAndApply` bundle.
+`/var/lib/netductor/fleet/policy.json` — `sync_enabled` defaults **false**.
