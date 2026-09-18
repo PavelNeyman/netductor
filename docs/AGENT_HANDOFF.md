@@ -356,3 +356,6 @@ docker ps --filter name=databag
 systemctl status databag-proxy simplex-5223-proxy simplex-5224-proxy
 ```
 
+## NVR / Tapo cameras (draft)
+
+See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — leases on OpenWrt agent, RTSP to primary, record/UI/encryption options.
