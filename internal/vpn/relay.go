@@ -200,7 +200,8 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 			map[string]any{
 				"type": "vless", "tag": "uplink",
 				"server": b.CoreIP, "server_port": b.CoreVless,
-				"uuid": b.UplinkUUID, "flow": "xtls-rprx-vision",
+				// no vision: required for multiplex (vision ⊕ mux unsupported)
+				"uuid": b.UplinkUUID,
 				"domain_resolver": "quad9",
 				"tls": map[string]any{
 					"enabled": true, "server_name": b.CoreSNI,
@@ -210,6 +211,14 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 						"public_key": b.CorePBK,
 						"short_id":   b.CoreSID,
 					},
+				},
+				// fewer TCP handshakes across lossy RU→abroad path
+				"multiplex": map[string]any{
+					"enabled":         true,
+					"protocol":        "smux",
+					"max_connections": 4,
+					"min_streams":     4,
+					"padding":         false,
 				},
 			},
 			map[string]any{"type": "direct", "tag": "direct"},
