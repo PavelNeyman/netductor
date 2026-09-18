@@ -3,6 +3,26 @@
 **Status:** draft / research (2026-09-18)  
 **Scope:** 2× TP-Link Tapo C200 (Wi‑Fi, RTSP) behind Cudy OpenWrt; record & manage on netductor **primary**; UI in Admin / TG / TUI; optional encryption at rest.
 
+## Locked decisions (2026-09-18)
+
+1. **Access only via VPN**  
+   - No public exposure of RTSP (554), NVR UI, go2rtc, segment download, or Admin camera pages.  
+   - Reachability: netductor VPN (primary/secondary profiles) only.  
+   - TG delivery of clips is OK as files inside the operator bot (still assumes operator is trusted); do not publish permanent HTTP links without auth + VPN.
+
+2. **Record on primary first**  
+   - Default storage: encrypted volume under primary (see encryption).  
+   - **Storage backend must be pluggable**: `local` (primary path) now; later `nfs` / `site-agent` / `home-nas` without rewriting camera inventory.  
+   - Config knobs: `nvr.storage.backend`, `nvr.storage.path`, mount/endpoint for future home target.  
+   - Migration path: stop recorders → remount/retarget path → optional copy/rsync of old segments → start recorders.
+
+3. **Encryption: yes (at rest on primary)**  
+   - Default: dedicated directory or block device for NVR data, encrypted (**LUKS** preferred for a partition/volume; **gocryptfs** acceptable for a folder if LUKS is awkward on the VPS).  
+   - Unlock: boot/manual passphrase or keyfile on primary (operator-controlled); document unlock in RUNBOOK.  
+   - Plaintext exists only while volume is unlocked and processes run — host admin with live access can still see mounts; goal is **disk image / offline host storage theft**, not defeating a malicious live root.  
+   - Segment files should land **only** on the encrypted mount (`/var/lib/netductor/nvr` → encrypted backing).  
+   - Secrets (RTSP passwords) stay in existing netductor secret store, not in plaintext config in git.
+
 Related: edge agent leases, site/location model, VPN path to primary, storage (local disk / NFS).
 
 ---
@@ -190,9 +210,11 @@ Threat: VPS host operator or stolen disk reads files.
 
 ### Phase D — Hardening
 
-1. Encrypt storage volume.
-2. IoT VLAN docs.
-3. Alert on recorder down / tunnel down.
+1. **Encrypt NVR volume (required for primary storage)** — LUKS or gocryptfs; path only on unlocked mount.
+2. Enforce VPN-only (firewall + no public listeners for NVR).
+3. Pluggable storage backend stub for future **home** target.
+4. IoT VLAN docs.
+5. Alert on recorder down / tunnel down / unlock missing.
 
 ---
 
@@ -205,7 +227,7 @@ Threat: VPS host operator or stolen disk reads files.
 | Record | **ffmpeg `-c copy` segments** under netductor supervisor **or** MediaMTX |
 | Live | **go2rtc** (optional Phase C) |
 | Full NVR UI | Only if needed: **Frigate** (heavier) or MediaMTX + our Admin |
-| Privacy | VPN UI + encrypted volume; consider **on-site** record if host distrust is high |
+| Privacy | **VPN only** + **encrypted volume on primary**; later switch storage backend to home NAS/agent |
 
 **Not recommended as first step:** ZoneMinder, public port forwards, re-encoding on primary.
 
@@ -218,6 +240,9 @@ Threat: VPS host operator or stolen disk reads files.
 3. Prefer **minimal ffmpeg** in-tree vs **MediaMTX** docker addon?
 4. Max retention days / NFS yes-no?
 5. Cudy CPU headroom for any on-router restream?
+6. ~~Encrypt?~~ **Yes** (locked).
+7. ~~Public access?~~ **VPN only** (locked).
+8. Home storage later: NFS vs site-agent push vs record-on-LAN?
 
 ---
 
