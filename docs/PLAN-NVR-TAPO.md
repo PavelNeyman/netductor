@@ -246,6 +246,86 @@ Threat: VPS host operator or stolen disk reads files.
 
 ---
 
+
+
+## Locked addendum (2026-09-18, evening)
+
+### Multi-site / multi-camera inventory
+
+- Cameras are first-class objects: `camera_id`, `site_id` / `location_id`, name, MAC, LAN IP (hint), RTSP URL template, credentials ref, features flags (`ptz`, `night`, `onvif`).
+- **Same site** (one Cudy) or **other sites**: each site has agent (or VPN path); primary holds **global** catalog.
+- UI always shows **all cameras** and **all recordings** with filters: site, camera, day.
+- Adding a camera: pick site → leases/scan or manual RTSP → test probe → save. No assumption that only two Tapo exist.
+
+### Motion (minimal)
+
+- v1 goal: **usable alerts**, not full Frigate AI.
+- Options (prefer light → heavier):
+  1. **ffmpeg/motion or MediaMTX hook** / simple frame-diff on **substream** (`stream2`) on primary (CPU cost).
+  2. **Camera-side motion** if Tapo can webhook/push (limited without cloud) — research; often insufficient offline.
+  3. Later optional **Frigate detect** as addon for object-class motion.
+- Schedules: enable motion windows (e.g. 09:00–18:00 off, nights on) per camera or per site timezone.
+- Zones: v1 rectangles in normalized coords on substream; if too costly, ship schedule-only first, zones phase 2.
+- On motion: optional TG **text alert** + link to clip (not auto-upload full video unless operator asks).
+
+### Night mode
+
+- Tapo handles IR/night on-device; NVR mostly **records whatever RTSP delivers**.
+- Control (if exposed): ONVIF / vendor API / patterns from HA `tapo` / `onvif` integrations — implement thin **control client** in agent or primary (prefer commands via site path).
+- UI: toggle auto/day/night where API allows; otherwise document “camera-local only”.
+
+### PTZ
+
+- C200 supports pan/tilt; prefer **ONVIF PTZ** if available, else Tapo/HA-known HTTP/API.
+- UI: coarse controls (L/R/U/D/home/preset) in Admin; TG: buttons that call API (no video in chat).
+- Rate-limit commands; only operator role; only over VPN session.
+
+### Live view & privacy (critical)
+
+| Channel | Live policy |
+|---------|-------------|
+| **Admin web** | Live via **go2rtc** (WebRTC/MSE) or short-lived HLS **only on VPN** (or VPN + mTLS to API). |
+| **Telegram** | **No** permanent live stream to TG servers, **no** OBS→TG channel (content leaves your perimeter). |
+| **TUI** | Open local player URL `rtsp://…` via VPN or print one-shot HTTPS link. |
+
+**TG pattern (max privacy):**
+
+1. Bot never stores long-lived public media URLs.
+2. Bot sends **control + metadata** (motion, “camera X online”).
+3. For view/download: bot issues **one-time token** (60–120s) → operator opens `https://primary-or-redirect` **only reachable on VPN** (same as Access/SR pattern), page plays or downloads segment.
+4. Optional: bot attaches **short clip file** only on explicit “send last event” (accepts TG sees that file once).
+
+Recording remains on encrypted primary volume; live restream binds localhost/VPN interface only.
+
+### Storage backends (unchanged + explicit)
+
+- `local_encrypted` (default now) → later `home_nfs` / `site_record`.
+- Global index on primary always knows **which backend** holds each segment for multi-site.
+
+### Implementation sketch
+
+```
+sites[] → agents → leases + optional on-site restream
+cameras[] → site_id + rtsp + features
+recorders[] → ffmpeg/MediaMTX per camera → encrypted path
+motion[] → schedule + optional zones → events table → TG text + deep link
+live → go2rtc (VPN-only)
+ptz/night → control API via site path
+UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
+```
+
+### Revised phases
+
+| Phase | Scope |
+|-------|--------|
+| A | Multi-site camera CRUD; leases; static DHCP; inventory |
+| B | VPN path + encrypted record segments + global clip browser |
+| C | Live (go2rtc) VPN-only; TG one-time links |
+| D | Motion schedules (+ zones if feasible); event list |
+| E | PTZ + night controls (ONVIF/HA-inspired) |
+| F | Pluggable home storage backend |
+
+
 ## 8. References (research 2026-09)
 
 - Tapo RTSP: TP-Link FAQ; `stream1`/`stream2`; camera account in app.
