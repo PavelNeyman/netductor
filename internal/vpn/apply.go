@@ -41,7 +41,12 @@ func ApplyConfig() error {
 		if !u.Enabled {
 			continue
 		}
-		vusers = append(vusers, vu{UUID: u.UUID, Flow: "xtls-rprx-vision"})
+		// relay-uplink must NOT use vision: multiplex is incompatible with xtls-rprx-vision
+		flow := "xtls-rprx-vision"
+		if u.Name == RelayUplinkName {
+			flow = ""
+		}
+		vusers = append(vusers, vu{UUID: u.UUID, Flow: flow})
 		pass := u.Hy2Password
 		if pass == "" {
 			pass = u.UUID
@@ -70,6 +75,11 @@ func ApplyConfig() error {
 			map[string]any{
 				"type": "vless", "tag": "vless-reality", "listen": "::", "listen_port": vlessPort(),
 				"users": vusers,
+				// multiplex for secondary uplink (no vision). End-user vision streams stay non-mux.
+				"multiplex": map[string]any{
+					"enabled": true,
+					"padding": false,
+				},
 				"tls": map[string]any{
 					"enabled": true, "server_name": sniVal,
 					"reality": map[string]any{
