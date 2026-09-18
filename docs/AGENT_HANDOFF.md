@@ -359,3 +359,11 @@ systemctl status databag-proxy simplex-5223-proxy simplex-5224-proxy
 ## NVR / Tapo cameras (draft)
 
 See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — leases on OpenWrt agent, RTSP to primary, record/UI/encryption options.
+
+### NVR locked (2026-09-18)
+
+- **VPN only** (no public RTSP/NVR).
+- Record on **primary** first; storage backend **pluggable** → home later.
+- **Encryption at rest** required for primary NVR data (LUKS/gocryptfs).
+
+Full text: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md).
