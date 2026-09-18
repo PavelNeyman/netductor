@@ -49,3 +49,30 @@ Idempotent UCI diff (lan IP/mask, wifi ssid/key). VPN client profile — next it
 5. When WAN appears → enroll → **pending** on primary → approve → server template may refine config.
 
 No internet on the router is required for steps 1–4.
+
+## Agent commands (NVR / LAN discovery)
+
+| Action | Arg | Result |
+|--------|-----|--------|
+| `dhcp_leases` | — | JSON `{leases:[{expiry,mac,ip,hostname,client_id}]}` from `/tmp/dhcp.leases` |
+| `wifi_clients` | — | JSON `{clients:[{iface,mac,raw}]}` via `iwinfo` assoclist |
+| `dhcp_static` | `mac=..\|ip=..\|name=..` | UCI `dhcp` host section + dnsmasq reload |
+
+Enqueue: `POST /api/edge/cmd` or NVR helpers `POST /api/nvr/site/leases` etc. Results: `/api/edge/results`.
+
+## Agent roadmap (management beyond NVR)
+
+Worth baking into the agent command set over time (not all implemented yet):
+
+| Area | Commands / data |
+|------|-----------------|
+| **LAN inventory** | leases, wifi clients, ARP/`ip neigh`, optional port probe (554) from LAN |
+| **DHCP policy** | static host add/remove/list |
+| **Wi‑Fi** | SSID list, client kick, channel/scan (careful) |
+| **Firewall** | show/reload; IoT VLAN status |
+| **VPN path** | uplink health, sing-box/client status (already partial) |
+| **Storage on site** | future: local record path, disk free (for home NVR backend) |
+| **Camera control proxy** | future: PTZ/night via LAN to cam (agent executes, primary never needs L2) |
+| **Safe ops** | config_backup, agent_update, sysupgrade (already) |
+
+Prefer **agent-executed** LAN actions (camera control, RTSP probe) so primary only speaks to agent over VPN.

@@ -337,3 +337,20 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 ---
 
 *Draft for handoff — implement after path-to-LAN decision.*
+
+## Implementation progress (2026-09-18)
+
+### Done (Phase A start)
+
+- Agent: `dhcp_leases`, `wifi_clients`, `dhcp_static`
+- Primary: `internal/nvr` camera store + secrets; API:
+  - `GET/POST /api/nvr/cameras`
+  - `POST /api/nvr/cameras/delete`
+  - `POST /api/nvr/site/leases|wifi_clients|dhcp_static`
+- Edge allowlist updated for new actions
+
+### Next
+
+- TG/Admin UI to list leases → bind camera
+- Wait/poll cmd results in UI
+- Phase B: encrypted volume + ffmpeg recorder

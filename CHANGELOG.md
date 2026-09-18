@@ -1,3 +1,8 @@
+## 0.7.14-dev
+
+- NVR Phase A: agent dhcp_leases/wifi_clients/dhcp_static; /api/nvr/cameras inventory
+- docs: EDGE-AGENT agent management roadmap; PLAN-NVR progress
+
 # Changelog
 
 ## 0.7.3-dev — 2026-09-16
