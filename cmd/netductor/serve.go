@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/nvr"
 )
 
 func buildAPIMux() http.Handler {
@@ -21,6 +22,7 @@ func buildAPIMux() http.Handler {
 	registerSSHHostsAPI(mux)
 	registerEdgeAPI(mux)
 	registerNVRAPI(mux)
+	nvr.StartBackground()
 	registerSessionAPI(mux)
 	registerVPNHTTP(mux)
 

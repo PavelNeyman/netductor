@@ -1,3 +1,7 @@
+## 0.7.15-dev
+
+- NVR: configurable retention (days / max GB / min free GB), background rotate, segment list API, ffmpeg recorder skeleton
+
 ## 0.7.14-dev
 
 - NVR Phase A: agent dhcp_leases/wifi_clients/dhcp_static; /api/nvr/cameras inventory

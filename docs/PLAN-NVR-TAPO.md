@@ -349,6 +349,15 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
   - `POST /api/nvr/site/leases|wifi_clients|dhcp_static`
 - Edge allowlist updated for new actions
 
+
+### Done (retention + recorder skeleton)
+
+- `nvr.Config`: `retention_days` (default 7), `max_gb` (40), `min_free_gb` (5), `segment_sec` (300), `rotate_interval_sec` (300), `record_enabled` (false until ready)
+- `RunRetention`: age → max size → min free disk; oldest segments first
+- Background loop via `nvr.StartBackground()` on API serve
+- API: `GET/POST /api/nvr/config`, `POST /api/nvr/retention/run`, `GET /api/nvr/segments`, `POST /api/nvr/recorder/start|stop`
+- ffmpeg segment recorder (optional, needs RTSP path + enabled flags)
+
 ### Next
 
 - TG/Admin UI to list leases → bind camera

@@ -19,17 +19,17 @@ func registerNVRAPI(mux *http.ServeMux) {
 		case http.MethodPost:
 			body := readJSON(r)
 			c := nvr.Camera{
-				ID:        str(body["id"]),
-				SiteID:    str(body["site_id"]),
-				Name:      str(body["name"]),
-				MAC:       str(body["mac"]),
-				LANIP:     str(body["lan_ip"]),
-				RTSPUser:  str(body["rtsp_user"]),
-				RTSPPath:  str(body["rtsp_path"]),
-				SecretRef: str(body["secret_ref"]),
-				Enabled:   truthy(body["enabled"], true),
-				Record:    truthy(body["record"], true),
-				StreamSub: truthy(body["stream_sub"], false),
+				ID:        nvrStr(body["id"]),
+				SiteID:    nvrStr(body["site_id"]),
+				Name:      nvrStr(body["name"]),
+				MAC:       nvrStr(body["mac"]),
+				LANIP:     nvrStr(body["lan_ip"]),
+				RTSPUser:  nvrStr(body["rtsp_user"]),
+				RTSPPath:  nvrStr(body["rtsp_path"]),
+				SecretRef: nvrStr(body["secret_ref"]),
+				Enabled:   nvrTruthy(body["enabled"], true),
+				Record:    nvrTruthy(body["record"], true),
+				StreamSub: nvrTruthy(body["stream_sub"], false),
 			}
 			if v, ok := body["rtsp_port"].(float64); ok {
 				c.RTSPPort = int(v)
@@ -37,10 +37,10 @@ func registerNVRAPI(mux *http.ServeMux) {
 			if feat, ok := body["features"].(map[string]any); ok {
 				c.Features = map[string]bool{}
 				for k, v := range feat {
-					c.Features[k] = truthy(v, false)
+					c.Features[k] = nvrTruthy(v, false)
 				}
 			}
-			pass := str(body["rtsp_password"])
+			pass := nvrStr(body["rtsp_password"])
 			out, err := nvr.UpsertCamera(c)
 			if err != nil {
 				writeJSON(w, 500, map[string]string{"error": err.Error()})
@@ -66,7 +66,7 @@ func registerNVRAPI(mux *http.ServeMux) {
 			return
 		}
 		body := readJSON(r)
-		id := str(body["id"])
+		id := nvrStr(body["id"])
 		if id == "" {
 			writeJSON(w, 400, map[string]string{"error": "id required"})
 			return
@@ -74,13 +74,12 @@ func registerNVRAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": nvr.DeleteCamera(id)})
 	})
 
-	// Enqueue dhcp_leases / wifi_clients / dhcp_static on edge device
 	mux.HandleFunc("/api/nvr/site/leases", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return
 		}
 		body := readJSON(r)
-		did := str(body["device_id"])
+		did := nvrStr(body["device_id"])
 		if did == "" {
 			writeJSON(w, 400, map[string]string{"error": "device_id required"})
 			return
@@ -98,7 +97,7 @@ func registerNVRAPI(mux *http.ServeMux) {
 			return
 		}
 		body := readJSON(r)
-		did := str(body["device_id"])
+		did := nvrStr(body["device_id"])
 		if did == "" {
 			writeJSON(w, 400, map[string]string{"error": "device_id required"})
 			return
@@ -112,10 +111,10 @@ func registerNVRAPI(mux *http.ServeMux) {
 			return
 		}
 		body := readJSON(r)
-		did := str(body["device_id"])
-		mac := str(body["mac"])
-		ip := str(body["ip"])
-		name := str(body["name"])
+		did := nvrStr(body["device_id"])
+		mac := nvrStr(body["mac"])
+		ip := nvrStr(body["ip"])
+		name := nvrStr(body["name"])
 		if did == "" || mac == "" || ip == "" {
 			writeJSON(w, 400, map[string]string{"error": "device_id, mac, ip required"})
 			return
@@ -127,14 +126,128 @@ func registerNVRAPI(mux *http.ServeMux) {
 		id := edge.EnqueueCmd(did, "dhcp_static", arg)
 		writeJSON(w, 200, map[string]any{"ok": id != "", "cmd_id": id})
 	})
+
+	mux.HandleFunc("/api/nvr/config", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			cfg := nvr.LoadConfig()
+			last, ok := nvr.LastRetentionReport()
+			writeJSON(w, 200, map[string]any{
+				"config":            cfg,
+				"recorders":         nvr.RecorderRunning(),
+				"last_retention":    last,
+				"last_retention_ok": ok,
+			})
+		case http.MethodPost:
+			body := readJSON(r)
+			cfg := nvr.LoadConfig()
+			if v, ok := body["storage_backend"].(string); ok && v != "" {
+				cfg.StorageBackend = v
+			}
+			if v, ok := body["path"].(string); ok && v != "" {
+				cfg.Path = v
+			}
+			if v, ok := body["segment_sec"].(float64); ok && v > 0 {
+				cfg.SegmentSec = int(v)
+			}
+			if v, ok := body["retention_days"].(float64); ok {
+				cfg.RetentionDays = int(v)
+			}
+			if v, ok := body["max_gb"].(float64); ok {
+				cfg.MaxGB = v
+			}
+			if v, ok := body["min_free_gb"].(float64); ok {
+				cfg.MinFreeGB = v
+			}
+			if v, ok := body["rotate_interval_sec"].(float64); ok && v > 0 {
+				cfg.RotateIntervalSec = int(v)
+			}
+			if _, ok := body["record_enabled"]; ok {
+				cfg.RecordEnabled = nvrTruthy(body["record_enabled"], cfg.RecordEnabled)
+			}
+			if err := nvr.SaveConfig(cfg); err != nil {
+				writeJSON(w, 500, map[string]string{"error": err.Error()})
+				return
+			}
+			_ = nvr.EnsureSegmentsDir()
+			writeJSON(w, 200, map[string]any{"ok": true, "config": nvr.LoadConfig()})
+		default:
+			writeJSON(w, 405, map[string]string{"error": "method"})
+		}
+	})
+
+	mux.HandleFunc("/api/nvr/retention/run", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		rep, err := nvr.RunRetention(nvr.LoadConfig())
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "report": rep})
+	})
+
+	mux.HandleFunc("/api/nvr/segments", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		cfg := nvr.LoadConfig()
+		files, err := nvr.ListSegmentFiles(cfg.Path)
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		cam := r.URL.Query().Get("camera")
+		if cam != "" {
+			filtered := files[:0]
+			for _, f := range files {
+				if f.Camera == cam {
+					filtered = append(filtered, f)
+				}
+			}
+			files = filtered
+		}
+		writeJSON(w, 200, map[string]any{"segments": files, "count": len(files)})
+	})
+
+	mux.HandleFunc("/api/nvr/recorder/start", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		id := nvrStr(body["id"])
+		c, ok := nvr.GetCamera(id)
+		if !ok {
+			writeJSON(w, 404, map[string]string{"error": "camera not found"})
+			return
+		}
+		if err := nvr.StartRecorder(c); err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true})
+	})
+
+	mux.HandleFunc("/api/nvr/recorder/stop", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		nvr.StopRecorder(nvrStr(body["id"]))
+		writeJSON(w, 200, map[string]any{"ok": true})
+	})
 }
 
-func str(v any) string {
+func nvrStr(v any) string {
 	s, _ := v.(string)
 	return strings.TrimSpace(s)
 }
 
-func truthy(v any, def bool) bool {
+func nvrTruthy(v any, def bool) bool {
 	switch t := v.(type) {
 	case bool:
 		return t
