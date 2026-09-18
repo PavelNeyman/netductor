@@ -363,3 +363,9 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 - TG/Admin UI to list leases → bind camera
 - Wait/poll cmd results in UI
 - Phase B: encrypted volume + ffmpeg recorder
+
+### Done (CLI + prepare-storage)
+
+- `netductor nvr config|cameras|leases|retention|segments|prepare-storage|recorder`
+- Defaults protect disk: 7d / 40GB / 5GB free
+- prepare-storage: dirs + gocryptfs/LUKS instructions

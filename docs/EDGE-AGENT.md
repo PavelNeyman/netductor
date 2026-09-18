@@ -76,3 +76,5 @@ Worth baking into the agent command set over time (not all implemented yet):
 | **Safe ops** | config_backup, agent_update, sysupgrade (already) |
 
 Prefer **agent-executed** LAN actions (camera control, RTSP probe) so primary only speaks to agent over VPN.
+
+CLI: `netductor nvr leases <device_id>` enqueues `dhcp_leases`.

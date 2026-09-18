@@ -1,3 +1,9 @@
+## 0.7.16-dev
+
+- CLI `netductor nvr` (config, cameras, leases, retention, segments, prepare-storage, recorder)
+- prepare-storage + gocryptfs/LUKS guidance
+- docs/handoff NVR CLI
+
 ## 0.7.15-dev
 
 - NVR: configurable retention (days / max GB / min free GB), background rotate, segment list API, ffmpeg recorder skeleton

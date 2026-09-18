@@ -369,3 +369,16 @@ See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — leases on OpenWrt agent, RTSP to pr
 Full text: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md).
 
 - NVR addendum: **multi-site cameras**, motion schedules/zones, PTZ/night, live via go2rtc **VPN-only**; TG = alerts + one-time links (no TG live stream).
+
+### NVR CLI (0.7.16-dev)
+
+```
+netductor nvr config show|set retention_days=7 max_gb=40 min_free_gb=5
+netductor nvr cameras list|add name=… site=… mac=… ip=… password=…
+netductor nvr leases <device_id>
+netductor nvr retention
+netductor nvr prepare-storage
+```
+
+API: `/api/nvr/config`, `/api/nvr/retention/run`, `/api/nvr/cameras`, …  
+Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.

@@ -6,3 +6,16 @@
 - TG: nav под сообщением, действия в тексте; Access in-place edit
 - Корп OpenConnect + наш full-tunnel на одном устройстве часто роняют весь интернет
 - Probes: api-health должен ходить на https localhost или tcp :8787
+
+### NVR CLI (0.7.16-dev)
+
+```
+netductor nvr config show|set retention_days=7 max_gb=40 min_free_gb=5
+netductor nvr cameras list|add name=… site=… mac=… ip=… password=…
+netductor nvr leases <device_id>
+netductor nvr retention
+netductor nvr prepare-storage
+```
+
+API: `/api/nvr/config`, `/api/nvr/retention/run`, `/api/nvr/cameras`, …  
+Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.

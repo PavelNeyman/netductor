@@ -118,3 +118,7 @@ UI hints: Admin → Nodes, Telegram → Nodes, TUI → Set hostname.
 - TUI wizard: workstation|operator → Site setup wizard
 - Credentials one-shot, never stored
 - VPN only on RPi OpenWrt, not ROS
+
+## NVR
+
+See `docs/PLAN-NVR-TAPO.md`. CLI: `netductor nvr`. API under `/api/nvr/*`. Retention defaults: 7d / 40GB / 5GB free.

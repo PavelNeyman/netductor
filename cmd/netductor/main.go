@@ -10,7 +10,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.7.13-dev"
+var version = "0.7.16-dev"
 
 func main() {
 	ndconfig.Load()
@@ -57,6 +57,8 @@ func main() {
 		runAddons(os.Args[2:])
 	case "edge":
 		runEdgeCLI(os.Args[2:])
+	case "nvr":
+		runNVR(os.Args[2:])
 	case "status":
 		runStatus()
 	case "install":

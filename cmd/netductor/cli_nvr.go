@@ -1,0 +1,251 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/audit"
+	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/nvr"
+)
+
+func runNVR(args []string) {
+	if len(args) < 1 {
+		printNVRHelp()
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "help", "-h", "--help":
+		printNVRHelp()
+	case "config":
+		runNVRConfig(args[1:])
+	case "cameras", "camera":
+		runNVRCameras(args[1:])
+	case "retention", "rotate":
+		rep, err := nvr.RunRetention(nvr.LoadConfig())
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(rep)
+	case "segments":
+		cam := ""
+		if len(args) > 1 {
+			cam = args[1]
+		}
+		files, err := nvr.ListSegmentFiles(nvr.LoadConfig().Path)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		for _, f := range files {
+			if cam != "" && f.Camera != cam {
+				continue
+			}
+			fmt.Printf("%s\t%d\t%s\t%s\n", f.ModTime.Format("2006-01-02T15:04:05"), f.Size, f.Camera, f.Path)
+		}
+	case "leases":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr leases <device_id>")
+			os.Exit(2)
+		}
+		id := edge.EnqueueCmd(args[1], "dhcp_leases", "")
+		if id == "" {
+			fmt.Fprintln(os.Stderr, "enqueue failed")
+			os.Exit(1)
+		}
+		fmt.Println("cmd_id", id, "(poll: netductor edge results / api)")
+	case "wifi-clients":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr wifi-clients <device_id>")
+			os.Exit(2)
+		}
+		id := edge.EnqueueCmd(args[1], "wifi_clients", "")
+		fmt.Println("cmd_id", id)
+	case "dhcp-static":
+		if len(args) < 4 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr dhcp-static <device_id> <mac> <ip> [name]")
+			os.Exit(2)
+		}
+		name := ""
+		if len(args) > 4 {
+			name = args[4]
+		}
+		arg := "mac=" + args[2] + "|ip=" + args[3]
+		if name != "" {
+			arg += "|name=" + name
+		}
+		id := edge.EnqueueCmd(args[1], "dhcp_static", arg)
+		fmt.Println("cmd_id", id)
+	case "prepare-storage":
+		if err := nvr.PrepareStorage(len(args) > 1 && args[1] == "--print-only"); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "recorder":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr recorder start|stop <camera_id>")
+			os.Exit(2)
+		}
+		switch args[1] {
+		case "start":
+			c, ok := nvr.GetCamera(args[2])
+			if !ok {
+				fmt.Fprintln(os.Stderr, "camera not found")
+				os.Exit(1)
+			}
+			if err := nvr.StartRecorder(c); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("started", args[2])
+		case "stop":
+			nvr.StopRecorder(args[2])
+			fmt.Println("stopped", args[2])
+		default:
+			fmt.Fprintln(os.Stderr, "start|stop")
+			os.Exit(2)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "unknown nvr subcommand: %s\n", args[0])
+		printNVRHelp()
+		os.Exit(2)
+	}
+}
+
+func printNVRHelp() {
+	fmt.Print(`netductor nvr — cameras / record / retention
+
+  config [show|set key=value ...]
+  cameras list|add|delete
+  leases <device_id>
+  wifi-clients <device_id>
+  dhcp-static <device_id> <mac> <ip> [name]
+  retention|rotate
+  segments [camera_id]
+  prepare-storage [--print-only]
+  recorder start|stop <camera_id>
+
+Config keys: path, segment_sec, retention_days, max_gb, min_free_gb,
+  rotate_interval_sec, record_enabled, storage_backend
+`)
+}
+
+func runNVRConfig(args []string) {
+	if len(args) == 0 || args[0] == "show" {
+		b, _ := json.MarshalIndent(nvr.LoadConfig(), "", "  ")
+		fmt.Println(string(b))
+		if r, ok := nvr.LastRetentionReport(); ok {
+			fmt.Println("--- last retention ---")
+			b, _ = json.MarshalIndent(r, "", "  ")
+			fmt.Println(string(b))
+		}
+		return
+	}
+	if args[0] != "set" {
+		fmt.Fprintln(os.Stderr, "usage: netductor nvr config show|set k=v ...")
+		os.Exit(2)
+	}
+	cfg := nvr.LoadConfig()
+	for _, a := range args[1:] {
+		k, v, ok := strings.Cut(a, "=")
+		if !ok {
+			continue
+		}
+		switch strings.ToLower(k) {
+		case "path":
+			cfg.Path = v
+		case "storage_backend":
+			cfg.StorageBackend = v
+		case "segment_sec":
+			cfg.SegmentSec, _ = strconv.Atoi(v)
+		case "retention_days":
+			cfg.RetentionDays, _ = strconv.Atoi(v)
+		case "max_gb":
+			fmt.Sscanf(v, "%f", &cfg.MaxGB)
+		case "min_free_gb":
+			fmt.Sscanf(v, "%f", &cfg.MinFreeGB)
+		case "rotate_interval_sec":
+			cfg.RotateIntervalSec, _ = strconv.Atoi(v)
+		case "record_enabled":
+			cfg.RecordEnabled = v == "1" || strings.EqualFold(v, "true") || v == "yes"
+		}
+	}
+	if err := nvr.SaveConfig(cfg); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	audit.Log("cli", "nvr.config", "", "")
+	b, _ := json.MarshalIndent(nvr.LoadConfig(), "", "  ")
+	fmt.Println(string(b))
+}
+
+func runNVRCameras(args []string) {
+	if len(args) < 1 {
+		args = []string{"list"}
+	}
+	switch args[0] {
+	case "list":
+		for _, c := range nvr.ListCameras() {
+			fmt.Printf("%s\tsite=%s\t%s\t%s\t%s\trecord=%v\n", c.ID, c.SiteID, c.Name, c.MAC, c.LANIP, c.Record)
+		}
+	case "delete":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr cameras delete <id>")
+			os.Exit(2)
+		}
+		fmt.Println(nvr.DeleteCamera(args[1]))
+	case "add":
+		// name= site= mac= ip= user= password= path=
+		c := nvr.Camera{Enabled: true, Record: true, RTSPPath: "/stream1", RTSPPort: 554, Features: map[string]bool{"ptz": true}}
+		pass := ""
+		for _, a := range args[1:] {
+			k, v, ok := strings.Cut(a, "=")
+			if !ok {
+				continue
+			}
+			switch k {
+			case "name":
+				c.Name = v
+			case "site", "site_id":
+				c.SiteID = v
+			case "mac":
+				c.MAC = v
+			case "ip", "lan_ip":
+				c.LANIP = v
+			case "user", "rtsp_user":
+				c.RTSPUser = v
+			case "password", "rtsp_password":
+				pass = v
+			case "path", "rtsp_path":
+				c.RTSPPath = v
+			}
+		}
+		if c.Name == "" || c.SiteID == "" {
+			fmt.Fprintln(os.Stderr, "need name= and site=")
+			os.Exit(2)
+		}
+		out, err := nvr.UpsertCamera(c)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if pass != "" {
+			ref := out.ID
+			out.SecretRef = ref
+			out, _ = nvr.UpsertCamera(out)
+			_ = nvr.SetSecret(ref, pass)
+		}
+		audit.Log("cli", "nvr.camera.add", out.ID, out.Name)
+		b, _ := json.MarshalIndent(out, "", "  ")
+		fmt.Println(string(b))
+	default:
+		fmt.Fprintln(os.Stderr, "list|add|delete")
+		os.Exit(2)
+	}
+}
