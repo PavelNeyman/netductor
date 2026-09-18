@@ -367,3 +367,5 @@ See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — leases on OpenWrt agent, RTSP to pr
 - **Encryption at rest** required for primary NVR data (LUKS/gocryptfs).
 
 Full text: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md).
+
+- NVR addendum: **multi-site cameras**, motion schedules/zones, PTZ/night, live via go2rtc **VPN-only**; TG = alerts + one-time links (no TG live stream).
