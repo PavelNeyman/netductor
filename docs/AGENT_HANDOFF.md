@@ -382,3 +382,10 @@ netductor nvr prepare-storage
 
 API: `/api/nvr/config`, `/api/nvr/retention/run`, `/api/nvr/cameras`, …  
 Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
+
+
+### NVR 0.7.17-dev
+
+- TG: Tools → **NVR**
+- CLI leases wait for agent result (default)
+- doctor shows NVR path/retention/segment count

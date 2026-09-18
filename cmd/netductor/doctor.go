@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/nvr"
 	"fmt"
 	"net"
 	"os"
@@ -260,11 +261,37 @@ func runDoctorNative() int {
 		sniVal = strings.TrimSpace(string(b))
 	}
 	fmt.Printf("INFO reality_sni=%s\n", sniVal)
+
+	// NVR
+	cfgN := nvr.LoadConfig()
+	fmt.Println()
+	fmt.Println("NVR")
+	fmt.Printf("  path: %s\n", cfgN.Path)
+	fmt.Printf("  record_enabled: %v  retention_days=%d max_gb=%.0f min_free_gb=%.0f\n",
+		cfgN.RecordEnabled, cfgN.RetentionDays, cfgN.MaxGB, cfgN.MinFreeGB)
+	if st, err := os.Stat(cfgN.Path); err != nil {
+		fmt.Printf("  segments dir: missing (%v)\n", err)
+	} else if !st.IsDir() {
+		fmt.Println("  segments dir: not a directory")
+	} else {
+		files, _ := nvr.ListSegmentFiles(cfgN.Path)
+		var sum int64
+		for _, f := range files {
+			sum += f.Size
+		}
+		fmt.Printf("  segments: %d files, ~%.2f GB\n", len(files), float64(sum)/(1024*1024*1024))
+	}
+	if r, ok := nvr.LastRetentionReport(); ok {
+		fmt.Printf("  last retention: deleted=%d kept=%d at=%d\n", r.Deleted, r.Kept, r.At)
+	}
+
 	fmt.Printf("\nSummary: ok=%d fail=%d warn=%d\n", ok, fail, warn)
 	if fail > 0 {
 		return 1
 	}
-	return 0
+	
+
+return 0
 }
 
 func dirHasDockerLampac() bool {

@@ -503,6 +503,43 @@ func PollCommands(deviceID string) []map[string]any {
 	return mine
 }
 
+
+// WaitCmdResult polls results log until cmd_id appears or timeout.
+func WaitCmdResult(cmdID string, timeout time.Duration) (map[string]any, error) {
+	if cmdID == "" {
+		return nil, fmt.Errorf("empty cmd id")
+	}
+	if timeout <= 0 {
+		timeout = 90 * time.Second
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		for _, m := range ListResults() {
+			id, _ := m["cmd_id"].(string)
+			if id == cmdID {
+				return m, nil
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return nil, fmt.Errorf("timeout waiting for cmd %s", cmdID)
+}
+
+// FindResult returns latest result for cmd_id if present.
+func FindResult(cmdID string) (map[string]any, bool) {
+	var last map[string]any
+	ok := false
+	for _, m := range ListResults() {
+		id, _ := m["cmd_id"].(string)
+		if id == cmdID {
+			last = m
+			ok = true
+		}
+	}
+	return last, ok
+}
+
+
 func ListResults() []map[string]any {
 	mu.Lock()
 	defer mu.Unlock()

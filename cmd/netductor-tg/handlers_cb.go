@@ -28,6 +28,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
 		return
 	}
+	if data == "m:nvr" || strings.HasPrefix(data, "m:nvr:") {
+		handleNVRCB(token, chat, msgID, data)
+		return
+	}
 	if data == "m:updates" || strings.HasPrefix(data, "m:updates:") {
 		handleUpdatesCB(token, chat, msgID, data)
 		return

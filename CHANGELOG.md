@@ -1,3 +1,9 @@
+## 0.7.17-dev
+
+- TG NVR hub under Tools
+- edge.WaitCmdResult; nvr leases/wifi-clients wait for agent
+- doctor NVR section
+
 ## 0.7.16-dev
 
 - CLI `netductor nvr` (config, cameras, leases, retention, segments, prepare-storage, recorder)

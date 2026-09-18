@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
@@ -51,7 +52,7 @@ func runNVR(args []string) {
 		}
 	case "leases":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor nvr leases <device_id>")
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr leases <device_id> [--wait]")
 			os.Exit(2)
 		}
 		id := edge.EnqueueCmd(args[1], "dhcp_leases", "")
@@ -59,14 +60,51 @@ func runNVR(args []string) {
 			fmt.Fprintln(os.Stderr, "enqueue failed")
 			os.Exit(1)
 		}
-		fmt.Println("cmd_id", id, "(poll: netductor edge results / api)")
+		wait := true
+		for _, a := range args[2:] {
+			if a == "--no-wait" {
+				wait = false
+			}
+		}
+		if !wait {
+			fmt.Println("cmd_id", id)
+			return
+		}
+		fmt.Fprintln(os.Stderr, "waiting for", id, "…")
+		res, err := edge.WaitCmdResult(id, 120*time.Second)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			fmt.Println("cmd_id", id)
+			os.Exit(1)
+		}
+		if r, ok := res["result"].(string); ok {
+			fmt.Println(r)
+		} else {
+			b, _ := json.MarshalIndent(res, "", "  ")
+			fmt.Println(string(b))
+		}
 	case "wifi-clients":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor nvr wifi-clients <device_id>")
 			os.Exit(2)
 		}
 		id := edge.EnqueueCmd(args[1], "wifi_clients", "")
-		fmt.Println("cmd_id", id)
+		if id == "" {
+			fmt.Fprintln(os.Stderr, "enqueue failed")
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stderr, "waiting for", id, "…")
+		res, err := edge.WaitCmdResult(id, 120*time.Second)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if r, ok := res["result"].(string); ok {
+			fmt.Println(r)
+		} else {
+			b, _ := json.MarshalIndent(res, "", "  ")
+			fmt.Println(string(b))
+		}
 	case "dhcp-static":
 		if len(args) < 4 {
 			fmt.Fprintln(os.Stderr, "usage: netductor nvr dhcp-static <device_id> <mac> <ip> [name]")

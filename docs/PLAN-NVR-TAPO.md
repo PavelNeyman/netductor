@@ -369,3 +369,9 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 - `netductor nvr config|cameras|leases|retention|segments|prepare-storage|recorder`
 - Defaults protect disk: 7d / 40GB / 5GB free
 - prepare-storage: dirs + gocryptfs/LUKS instructions
+
+### Done (TG + wait + doctor)
+
+- TG Tools → NVR hub (cameras, config, rotate, segments)
+- `edge.WaitCmdResult`; CLI leases/wifi-clients wait up to 120s
+- `doctor` NVR section (path, retention, segment stats)
