@@ -30,3 +30,7 @@
 ## Family messenger
 
 See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Shortlist: **Snikket** (primary candidate), Tinode (geo?), Matrix fallback; **Guardyn** watch when mobile ships; Seclettr/Delta out.
+
+## NVR / Tapo cameras (draft)
+
+See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — leases on OpenWrt agent, RTSP to primary, record/UI/encryption options.
