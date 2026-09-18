@@ -300,3 +300,59 @@ Bare path is capacity-rich; instability was **many short TCP+Reality dials**. Mu
 ## Family messenger
 
 See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Shortlist: **Snikket** (primary candidate), Tinode (geo?), Matrix fallback; **Guardyn** watch when mobile ships; Seclettr/Delta out.
+
+## Family messenger pilot (2026-09-18)
+
+**Not** part of netductor binary — manual pilot on **primary** (+ proxies on **secondary**). See also [MESSENGER-EVAL.md](MESSENGER-EVAL.md).
+
+### Deployed
+
+| Component | Where | Port | Notes |
+|-----------|--------|------|--------|
+| **Databag** | primary Docker `databag` | **7000** | Admin env `ADMIN`; data volume `databag_databag_data` |
+| **Databag proxy** | secondary `databag-proxy.service` (socat) | **7000** | → `2.27.118.70:7000` |
+| **SMP** | primary `smp-server.service` | **5223** | `/etc/opt/simplex/`; user `smp` |
+| **XFTP** | primary `xftp-server.service` | **5224** | `/etc/opt/simplex-xftp/`, files `/srv/xftp` quota 20GB |
+| **SMP/XFTP proxy** | secondary `simplex-5223-proxy` / `simplex-5224-proxy` | 5223/5224 | → primary; useful **without** VPN |
+
+Paths/creds on primary: `/opt/databag/`, `/opt/simplex/client-servers.txt`, `/opt/messenger-pilot.txt`.
+
+### Access rules (important)
+
+- Primary **UFW**: 7000/5223/5224 allowed from **secondary** (`92.255.77.253`), localhost, and primary self (hairpin). **Not** world-open (Docker-USER drop for Databag 7000 from others).
+- Client on **secondary VPN**: use **primary public IP** in URLs (`2.27.118.70`), **not** secondary IP — hairpin to `92.255.77.253` from the tunnel often fails.
+- Client **without** VPN: Databag via secondary proxy `http://92.255.77.253:7000`; SMP/XFTP secondary proxies may work from internet (socat public listen) — review firewall if that is undesired.
+- Databag admin: **cog (settings) → admin password only** (not main user login). User accounts created via invite link from admin UI.
+
+### SimpleX addresses (VPN → secondary, then to primary)
+
+```
+smp://DtvLSkd71GwRROIU4j0L_VDsi0ak0ArKWxo7G49EHnU=:PASSWORD@2.27.118.70:5223
+xftp://73FiJ0clO6ZvINV6uG0u5yG0bg1KLAeW0gig5wyn1zg=:PASSWORD@2.27.118.70:5224
+```
+
+Passwords: `/opt/simplex/queue.pass`, `/opt/simplex/xftp.pass` on primary (rotate if this handoff is shared widely).
+
+App: Network & servers → add **both** SMP and XFTP; media errors clear after XFTP added. Own server optional; Flux = third-party preset operator (opt-in).
+
+### Test status (2026-09-18)
+
+- [x] Databag up; admin password works via **/#/admin** (cog)
+- [x] User account created; UX sparse — pilot only without domain/HTTPS
+- [x] Databag via secondary proxy HTTP OK; direct primary:7000 from secondary-VPN unreliable
+- [x] SMP on primary works from secondary-VPN
+- [x] XFTP on primary fixes “no file/media server”
+- [ ] Longer family trial / mobile apps
+- [ ] Domain + TLS (Snikket still blocked by :443 VLESS without SNI split)
+- [ ] Optional: close secondary socat to world; only VPN
+
+### Ops
+
+```bash
+# primary
+systemctl status smp-server xftp-server
+docker ps --filter name=databag
+# secondary
+systemctl status databag-proxy simplex-5223-proxy simplex-5224-proxy
+```
+
