@@ -29,3 +29,13 @@ Goal: self-hosted family chat with **voice**, preferably **video**, mobile clien
 
 - Hands-on UI check: Snikket, Databag, SimpleX
 - If pilot: prefer Snikket or Matrix behind VPN + coturn
+
+## Pilot deployment (primary, no domain) — 2026-09-18
+
+Deployed for hands-on testing (not automated in `netductor install`):
+
+1. **Databag** — Docker on primary `:7000`, proxy on secondary `:7000`. Admin = env `ADMIN` via UI cog. Create users via invite. Weak without DNS/HTTPS for mobile.
+2. **SimpleX SMP + XFTP** — systemd on primary `:5223` / `:5224`; socat proxies on secondary. **Use `2.27.118.70` host in app when client is on secondary VPN** (avoid hairpin to secondary IP).
+3. **Snikket** — not deployed: needs domain + free :443 (conflict with VLESS Reality) or SNI front / separate VPS.
+
+Details, firewall, test checklist: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) § Family messenger pilot.
