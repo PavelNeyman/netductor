@@ -280,3 +280,18 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 - Secondary uplink: **no vision**, `multiplex.smux` (max_connections=4).
 - Primary `vless-reality`: multiplex enabled; `relay-uplink` user has empty flow.
 - Vision remains for end-user clients. Vision ⊕ mux is unsupported.
+
+## Path quality secondary→primary (2026-09-18 load test)
+
+After uplink **smux multiplex** (no vision on relay-uplink):
+
+| Test | Result |
+|------|--------|
+| ICMP 20–40 pkt | **0% loss**, ~34 ms |
+| TCP :443 connect ×100 | **100/100 ok** (earlier was ~10–20% fail) |
+| iperf3 TCP 4-stream 10s | **~950 Mbit/s** sum, some Retr |
+| iperf3 reverse 8s | **~960 Mbit/s** |
+| `i/o timeout` since mux | **~2** (was 500+/6h before) |
+| flow mismatch | still high — client profiles without vision (separate issue) |
+
+Bare path is capacity-rich; instability was **many short TCP+Reality dials**. Mux addresses that. UFW on primary defaults DROP — only open test ports temporarily.
