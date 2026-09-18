@@ -1,14 +1,14 @@
 class Netductor < Formula
   desc "Netductor control plane CLI (VPN fleet, edge, TUI)"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.7.12-dev"
+  version "0.7.13-dev"
   license "MIT"
   url "https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-darwin-arm64"
-  sha256 "789970516e18cdd0b518dacd89f0e2af9e5e0545857aedb5521b3151afb65256"
+  sha256 "402711b7a35c51aba356a7a3d5654ebea374427f06e557d8fffa189eb037e621"
   on_linux do
     on_intel do
       url "https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64"
-      sha256 "81289de47b74436693da05bbde238d542e2936f9b6598adbd91ff13013769fd0"
+      sha256 "121b86079e5c7db97e626be5ee31e936a22b790561488adb19ebfb342550fce8"
     end
   end
   def install
