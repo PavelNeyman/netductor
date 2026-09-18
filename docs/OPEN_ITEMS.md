@@ -25,3 +25,8 @@
 **Rich edit (item 6):** today Access does delete+send so photo/rich stay one logical screen. True `editMessageText` / edit media avoids flicker but must keep **one** message id and not send follow-ups. Risk is low if we only edit; high if we add extra sends. Optional polish.
 
 **Hardcoded base (item 12):** bot default `http://2.27.118.70` is a **test VPS IP**. After reinstall/DNS, set systemd env `NETDUCTOR_REDIRECT_BASE` (and vpn/core advertise hosts) explicitly — do not rely on compiled defaults.
+
+
+## Family messenger
+
+See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Shortlist: **Snikket** (primary candidate), Tinode (geo?), Matrix fallback; **Guardyn** watch when mobile ships; Seclettr/Delta out.
