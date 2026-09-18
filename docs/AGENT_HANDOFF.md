@@ -274,3 +274,9 @@ Access uses **delete + sendRichWithPhoto** so QR and buttons stay a single new m
 
 - Brief VPN blips without operator action: check secondary journal for `dial tcp PRIMARY:443: i/o timeout` (path RU→abroad). Services may stay active.
 - Flow mismatch from home IP = client without `xtls-rprx-vision`.
+
+
+## Uplink multiplex (0.7.13-dev)
+- Secondary uplink: **no vision**, `multiplex.smux` (max_connections=4).
+- Primary `vless-reality`: multiplex enabled; `relay-uplink` user has empty flow.
+- Vision remains for end-user clients. Vision ⊕ mux is unsupported.
