@@ -295,3 +295,8 @@ After uplink **smux multiplex** (no vision on relay-uplink):
 | flow mismatch | still high — client profiles without vision (separate issue) |
 
 Bare path is capacity-rich; instability was **many short TCP+Reality dials**. Mux addresses that. UFW on primary defaults DROP — only open test ports temporarily.
+
+
+## Family messenger
+
+See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Shortlist: **Snikket** (primary candidate), Tinode (geo?), Matrix fallback; **Guardyn** watch when mobile ships; Seclettr/Delta out.
