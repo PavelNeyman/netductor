@@ -1,3 +1,7 @@
+## 0.7.38-dev
+
+- Edge recovery codes + LAN page :7879; register/export/import/set-site; CONTROL_ONLY
+
 ## 0.7.37-dev
 
 - Rename remaining Relay* identifiers to Secondary*; docs EDGE-REINSTALL

@@ -71,6 +71,7 @@ Commands (from VPS):
 	}
 	cfg.Server = strings.TrimRight(cfg.Server, "/")
 	client := &http.Client{Timeout: 120 * time.Second}
+	startRecoveryHTTP(&cfg)
 
 	// Offline-first: apply local UCI overlay even with no WAN.
 	applyLocalOverlayOnce()
@@ -95,7 +96,9 @@ Commands (from VPS):
 		}
 		backoff = time.Duration(cfg.Interval) * time.Second
 
-		if _, err := os.Stat(filepath.Join(agentDir(), "applied_template")); err != nil {
+		if os.Getenv("CONTROL_ONLY") == "1" || readConfigFlag("CONTROL_ONLY") == "1" {
+			// recovery / control-plane only — do not push site templates
+		} else if _, err := os.Stat(filepath.Join(agentDir(), "applied_template")); err != nil {
 			res := applyTemplate(client, cfg)
 			fmt.Fprintf(os.Stderr, "apply_template: %s\n", res)
 			if !strings.HasPrefix(res, "template:") {
@@ -1519,4 +1522,19 @@ func truncate(s string, n int) string {
 		return s[:n] + "…"
 	}
 	return s
+}
+
+
+func readConfigFlag(key string) string {
+	b, err := os.ReadFile(filepath.Join(agentDir(), "config"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, key+"=") {
+			return strings.TrimSpace(strings.TrimPrefix(line, key+"="))
+		}
+	}
+	return ""
 }

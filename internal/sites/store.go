@@ -153,3 +153,28 @@ func RSCForSiteWithGateway(id, rpiLAN string) (string, error) {
 	extra += "/ip route add dst-address=0.0.0.0/0 gateway=" + rpiLAN + " routing-table=via-rpi" + nl
 	return base + extra, nil
 }
+
+// AttachEdge adds device_id to site EdgeIDs (dedup).
+func AttachEdge(siteID, deviceID string) error {
+	mu.Lock()
+	defer mu.Unlock()
+	d, err := load()
+	if err != nil {
+		return err
+	}
+	s, ok := d.Sites[siteID]
+	if !ok {
+		return fmt.Errorf("unknown site %s", siteID)
+	}
+	for _, id := range s.EdgeIDs {
+		if id == deviceID {
+			s.Updated = time.Now().Unix()
+			d.Sites[siteID] = s
+			return save(d)
+		}
+	}
+	s.EdgeIDs = append(s.EdgeIDs, deviceID)
+	s.Updated = time.Now().Unix()
+	d.Sites[siteID] = s
+	return save(d)
+}

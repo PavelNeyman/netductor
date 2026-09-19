@@ -180,13 +180,26 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			writeJSON(w, 429, map[string]string{"error": "rate_limited"})
 			return
 		}
-		if !edge.ValidBootstrap(r.Header.Get("Authorization")) {
+		auth := r.Header.Get("Authorization")
+		if !edge.ValidRecoveryOrBootstrap(auth) {
 			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 			return
 		}
 		var payload map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&payload)
+		raw := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		if siteID, ok := edge.ConsumeRecoveryCode(raw); ok && siteID != "" {
+			if payload == nil {
+				payload = map[string]any{}
+			}
+			payload["site_id"] = siteID
+		}
 		st, dtok, isNew := edge.Enroll(payload)
+		if did, _ := payload["device_id"].(string); did != "" {
+			if sid, _ := payload["site_id"].(string); sid != "" {
+				_ = edge.SetSiteID(did, sid)
+			}
+		}
 		if isNew && st == edge.StatusPending {
 			did, _ := payload["device_id"].(string)
 			board, _ := payload["board"].(string)

@@ -575,3 +575,6 @@ Agent order: **tapo-go → python → ONVIF**.
 
 ### Edge after primary reinstall
 See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll with valid bootstrap; old device_token does not auto-approve.
+
+### 0.7.38-dev
+- Edge LAN recovery page + recovery codes; site attach; CONTROL_ONLY on agent.

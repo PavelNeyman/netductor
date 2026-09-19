@@ -37,3 +37,17 @@ So the “waiting list” (**pending → approve**) is correct **after a success
 4. Approve known MAC/board/`device_id`.  
 5. Confirm heartbeat / metrics.
 
+
+
+## LAN recovery page (preferred for remote sites)
+
+1. On **new** primary: `netductor edge recovery [--site home-msk]` → one-time code (24h).
+2. Optional: `netductor edge register <device_id> --site home-msk` (pre-declare).
+3. On site Wi‑Fi open `http://<router-lan-ip>:7879/netductor-recovery`.
+4. Enter **Primary URL** + **code** → agent writes config with `CONTROL_ONLY=1` (no UCI/template apply).
+5. Agent enrolls → **pending** → operator **Approve** in CLI/TG.
+6. Link inventory: `netductor edge set-site <device_id> <site_id>` (Locations / sites).
+
+Firewall: publish **:7879 only on LAN**, never WAN.
+
+Export/import edge registry: `netductor edge export -o …` / `import …`.
