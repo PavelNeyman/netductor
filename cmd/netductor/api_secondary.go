@@ -44,7 +44,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 		if sni == "" {
 			sni = "ya.ru"
 		}
-		b, err := vpn.ExportRelayBundle(sni)
+		b, err := vpn.ExportSecondaryBundle(sni)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -125,7 +125,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 		// mobile links from last heartbeat identity
 		devs := secondary.List()
 		var links []map[string]string
-		reg, _ := vpn.ExportRelayBundle("ya.ru") // users only
+		reg, _ := vpn.ExportSecondaryBundle("ya.ru") // users only
 		for _, d := range devs {
 			if d.PublicIP == "" || d.PBK == "" {
 				continue
@@ -134,7 +134,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 				links = append(links, map[string]string{
 					"secondary": d.ID,
 					"name":  u.Name,
-					"link":  vpn.ClientLinkForRelay(u.Name, u.UUID, d.PublicIP, d.PBK, d.SID, d.SNI),
+					"link":  vpn.ClientLinkForSecondary(u.Name, u.UUID, d.PublicIP, d.PBK, d.SID, d.SNI),
 				})
 			}
 		}
@@ -142,8 +142,8 @@ func registerRelayAPI(mux *http.ServeMux) {
 	})
 
 	// Agent-facing (token = device token)
-	mux.HandleFunc("/api/secondary/agent/heartbeat", handleRelayAgentHeartbeat)
-	mux.HandleFunc("/api/secondary/agent/config", handleRelayAgentConfig)
+	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
+	mux.HandleFunc("/api/secondary/agent/config", handleSecondaryAgentConfig)
 }
 
 func agentToken(r *http.Request) string {
@@ -154,7 +154,7 @@ func agentToken(r *http.Request) string {
 	return r.Header.Get("X-Secondary-Token")
 }
 
-func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
+func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
 	if tok == "" || len(tok) < 16 {
 		http.Error(w, "unauthorized", 401)
@@ -201,7 +201,7 @@ func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleRelayAgentConfig(w http.ResponseWriter, r *http.Request) {
+func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
 	if tok == "" || len(tok) < 16 || secondary.FindByToken(tok) == nil {
 		http.Error(w, "unauthorized", 401)
@@ -211,7 +211,7 @@ func handleRelayAgentConfig(w http.ResponseWriter, r *http.Request) {
 	if sni == "" {
 		sni = "ya.ru"
 	}
-	b, err := vpn.ExportRelayBundle(sni)
+	b, err := vpn.ExportSecondaryBundle(sni)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -222,11 +222,11 @@ func handleRelayAgentConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, b)
 }
 
-// startRelayAgentListener binds :8788 for agent plane (all interfaces).
-func startRelayAgentListener() {
+// startSecondaryAgentListener binds :8788 for agent plane (all interfaces).
+func startSecondaryAgentListener() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/secondary/agent/heartbeat", handleRelayAgentHeartbeat)
-	mux.HandleFunc("/api/secondary/agent/config", handleRelayAgentConfig)
+	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
+	mux.HandleFunc("/api/secondary/agent/config", handleSecondaryAgentConfig)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("ok\n"))

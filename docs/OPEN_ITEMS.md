@@ -42,3 +42,6 @@ See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — hardware validation remaining.
 - CLI: `netductor secondary` only (no `relay` alias).
 - API: `/api/secondary/*` only.
 - Node role/id prefix: `secondary` / `secondary-…`.
+
+### Edge after primary reinstall
+See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll with valid bootstrap; old device_token does not auto-approve.

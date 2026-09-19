@@ -128,13 +128,13 @@ func pullAndApply(client *http.Client, coreBase, token string) error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("config %s: %s", resp.Status, string(raw))
 	}
-	var b vpn.RelayBundle
+	var b vpn.SecondaryBundle
 	if err := json.Unmarshal(raw, &b); err != nil {
 		return err
 	}
 	priv := readSecret("singbox_reality_private")
 	sid := readSecret("singbox_short_id")
-	if err := vpn.WriteRelaySingBox(&b, priv, sid); err != nil {
+	if err := vpn.WriteSecondarySingBox(&b, priv, sid); err != nil {
 		return err
 	}
 	_ = exec.Command("systemctl", "restart", "sing-box").Run()

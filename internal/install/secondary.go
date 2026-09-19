@@ -22,7 +22,7 @@ func InstallRelay(bundlePath string) error {
 	if err != nil {
 		return fmt.Errorf("read bundle: %w", err)
 	}
-	var b vpn.RelayBundle
+	var b vpn.SecondaryBundle
 	if err := json.Unmarshal(raw, &b); err != nil {
 		return fmt.Errorf("parse bundle: %w", err)
 	}
@@ -67,13 +67,13 @@ func InstallRelay(bundlePath string) error {
 		sid = randomHex(8)
 		_ = writeSecret("singbox_short_id", sid)
 	}
-	_ = writeSecret("singbox_reality_sni", b.RelaySNI)
+	_ = writeSecret("singbox_reality_sni", b.SecondarySNI)
 
 	// store bundle for re-apply
 	_ = os.MkdirAll(paths.SecondaryDir(), 0o700)
 	_ = os.WriteFile(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600)
 
-	if err := vpn.WriteRelaySingBox(&b, priv, sid); err != nil {
+	if err := vpn.WriteSecondarySingBox(&b, priv, sid); err != nil {
 		return err
 	}
 
@@ -115,10 +115,10 @@ WantedBy=multi-user.target
 	outDir := filepath.Join(paths.SecondaryDir(), "clients")
 	_ = os.MkdirAll(outDir, 0o700)
 	for _, u := range b.Users {
-		link := vpn.ClientLinkForRelay(u.Name, u.UUID, pubIP, pub, sid, b.RelaySNI)
+		link := vpn.ClientLinkForSecondary(u.Name, u.UUID, pubIP, pub, sid, b.SecondarySNI)
 		_ = os.WriteFile(filepath.Join(outDir, u.Name+".txt"), []byte(link+"\n"), 0o600)
 	}
-	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.RelaySNI, outDir)
+	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.SecondarySNI, outDir)
 	// install agent
 	if b.AgentToken != "" && b.CoreAgentURL != "" {
 		_ = paths.WriteSecret("secondary_agent_token", b.AgentToken)

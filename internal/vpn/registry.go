@@ -205,8 +205,8 @@ func VLESSLink(name, uuid string) string {
 // PreferredVLESSLink uses online RU relay when available (primary under carrier WL).
 func PreferredVLESSLink(name, uuid string) string {
 	e := ResolveClientEndpoints(name, uuid)
-	if e.RelayHost != "" && e.RelayPBK != "" {
-		return ClientLinkForRelayLocal(name, uuid, e.RelayHost, e.RelayPBK, e.RelaySID, e.RelaySNI)
+	if e.SecondaryHost != "" && e.SecondaryPBK != "" {
+		return ClientLinkForSecondaryLocal(name, uuid, e.SecondaryHost, e.SecondaryPBK, e.SecondarySID, e.SecondarySNI)
 	}
 	return VLESSLink(name, uuid)
 }
@@ -409,7 +409,7 @@ func SetSNI(value string) error {
 		return err
 	}
 	_ = exec.Command("systemctl", "restart", "sing-box").Run()
-	if _, err := ExportRelayBundle(value); err != nil {
+	if _, err := ExportSecondaryBundle(value); err != nil {
 		// core-only OK if no relay users yet
 		_ = err
 	}

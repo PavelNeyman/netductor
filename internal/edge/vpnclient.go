@@ -71,7 +71,7 @@ func edgeRelayOrCoreLink(name, uuid string) string {
 			if sni == "" {
 				sni = "ya.ru"
 			}
-			return vpn.ClientLinkForRelay(name, uuid, d.PublicIP, d.PBK, d.SID, sni)
+			return vpn.ClientLinkForSecondary(name, uuid, d.PublicIP, d.PBK, d.SID, sni)
 		}
 		return vpn.VLESSLink(name, uuid)
 	}

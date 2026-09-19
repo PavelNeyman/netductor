@@ -149,8 +149,8 @@ func runVPN(args []string) {
 					if u.Name == name {
 						vless := vpn.PreferredVLESSLink(name, u.UUID)
 						via := "core"
-						if e := vpn.ResolveClientEndpoints(name, u.UUID); e.RelayHost != "" {
-							via = "secondary:" + e.RelayHost
+						if e := vpn.ResolveClientEndpoints(name, u.UUID); e.SecondaryHost != "" {
+							via = "secondary:" + e.SecondaryHost
 						}
 						fmt.Println(vless)
 						if via != "core" {

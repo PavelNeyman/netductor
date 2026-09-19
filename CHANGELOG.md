@@ -1,3 +1,7 @@
+## 0.7.37-dev
+
+- Rename remaining Relay* identifiers to Secondary*; docs EDGE-REINSTALL
+
 ## 0.7.36-dev
 
 - Remove legacy relay naming: paths, CLI, API, roles — secondary only

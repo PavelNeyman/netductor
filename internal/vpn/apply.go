@@ -165,7 +165,7 @@ func ApplyConfig() error {
 	return nil
 }
 
-// bumpSecondaryConfigVer asks secondary agents to pull a new ExportRelayBundle
+// bumpSecondaryConfigVer asks secondary agents to pull a new ExportSecondaryBundle
 // (includes all VPN UUIDs). Avoids import cycle with package secondary.
 func bumpSecondaryConfigVer() error {
 	for _, name := range []string{"secondary", "relay"} {

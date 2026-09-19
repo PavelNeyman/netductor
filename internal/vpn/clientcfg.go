@@ -20,11 +20,11 @@ type ClientEndpoints struct {
 	CoreSNI   string
 	CorePBK   string
 	CoreSID   string
-	RelayHost string
-	RelayPort int
-	RelaySNI  string
-	RelayPBK  string
-	RelaySID  string
+	SecondaryHost string
+	SecondaryPort int
+	SecondarySNI  string
+	SecondaryPBK  string
+	SecondarySID  string
 }
 
 type relayDevFile struct {
@@ -37,7 +37,7 @@ type relayDevFile struct {
 	} `json:"devices"`
 }
 
-func loadOnlineRelays() []struct{ Host, PBK, SID, SNI string } {
+func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI string } {
 	b, err := os.ReadFile(paths.SecondaryDevicesFile())
 	if err != nil {
 		return nil
@@ -68,8 +68,8 @@ func loadOnlineRelays() []struct{ Host, PBK, SID, SNI string } {
 	return out
 }
 
-func loadOnlineRelay() (host, pbk, sid, sniName string) {
-	rels := loadOnlineRelays()
+func loadOnlineSecondary() (host, pbk, sid, sniName string) {
+	rels := loadOnlineSecondarys()
 	if len(rels) == 0 {
 		return
 	}
@@ -81,13 +81,13 @@ func ResolveClientEndpoints(name, uuid string) ClientEndpoints {
 		Name: name, UUID: uuid,
 		CoreHost: publicIP(), CorePort: vlessPort(),
 		CoreSNI: sni(), CorePBK: secret("singbox_reality_public"), CoreSID: secret("singbox_short_id"),
-		RelayPort: 443,
+		SecondaryPort: 443,
 	}
-	e.RelayHost, e.RelayPBK, e.RelaySID, e.RelaySNI = loadOnlineRelay()
+	e.SecondaryHost, e.SecondaryPBK, e.SecondarySID, e.SecondarySNI = loadOnlineSecondary()
 	return e
 }
 
-func ClientLinkForRelayLocal(name, uuid, relayIP, pbk, sid, sniName string) string {
+func ClientLinkForSecondaryLocal(name, uuid, relayIP, pbk, sid, sniName string) string {
 	host := relayIP
 	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST")); h != "" {
 		host = h
@@ -132,28 +132,28 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 	if e.CoreSNI == "" {
 		e.CoreSNI = DefaultRealitySNI
 	}
-	if e.RelaySNI == "" {
-		e.RelaySNI = DefaultRealitySNI
+	if e.SecondarySNI == "" {
+		e.SecondarySNI = DefaultRealitySNI
 	}
 	outbounds := []any{
 		map[string]any{"type": "direct", "tag": "direct"},
 		map[string]any{"type": "block", "tag": "block"},
 	}
 	final := "direct"
-	hasRelay := e.RelayHost != "" && e.RelayPBK != ""
+	hasRelay := e.SecondaryHost != "" && e.SecondaryPBK != ""
 	hasCore := e.CoreHost != "" && e.CorePBK != ""
 
 	if hasRelay {
-		outbounds = append(outbounds, vlessOutbound("relay", e.RelayHost, e.RelayPort, e.UUID, e.RelaySNI, e.RelayPBK, e.RelaySID, ""))
-		final = "relay"
+		outbounds = append(outbounds, vlessOutbound("secondary", e.SecondaryHost, e.SecondaryPort, e.UUID, e.SecondarySNI, e.SecondaryPBK, e.SecondarySID, ""))
+		final = "secondary"
 	}
 	if hasCore {
 		detour := ""
 		tag := "core"
 		if hasRelay {
 			// second hop: dial core through established relay (commercial dual-hop pattern)
-			detour = "relay"
-			tag = "core-via-relay"
+			detour = "secondary"
+			tag = "core-via-secondary"
 			outbounds = append(outbounds, vlessOutbound(tag, e.CoreHost, e.CorePort, e.UUID, e.CoreSNI, e.CorePBK, e.CoreSID, detour))
 			// also plain core for home ISP without WL
 			outbounds = append(outbounds, vlessOutbound("core", e.CoreHost, e.CorePort, e.UUID, e.CoreSNI, e.CorePBK, e.CoreSID, ""))
@@ -226,15 +226,15 @@ func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 	}
 	uris := []string{}
 	seen := map[string]bool{}
-	for _, r := range loadOnlineRelays() {
+	for _, r := range loadOnlineSecondarys() {
 		if seen[r.Host] {
 			continue
 		}
 		seen[r.Host] = true
-		uris = append(uris, ClientLinkForRelayLocal(e.Name, e.UUID, r.Host, r.PBK, r.SID, r.SNI))
+		uris = append(uris, ClientLinkForSecondaryLocal(e.Name, e.UUID, r.Host, r.PBK, r.SID, r.SNI))
 	}
-	if e.RelayHost != "" && !seen[e.RelayHost] {
-		uris = append(uris, ClientLinkForRelayLocal(e.Name, e.UUID, e.RelayHost, e.RelayPBK, e.RelaySID, e.RelaySNI))
+	if e.SecondaryHost != "" && !seen[e.SecondaryHost] {
+		uris = append(uris, ClientLinkForSecondaryLocal(e.Name, e.UUID, e.SecondaryHost, e.SecondaryPBK, e.SecondarySID, e.SecondarySNI))
 	}
 	if e.CoreHost != "" {
 		uris = append(uris, VLESSLink(e.Name, e.UUID))
@@ -268,8 +268,8 @@ func WriteClientConfigs(name, uuid string) error {
 	_ = os.WriteFile(filepath.Join(dir, "shadowrocket-helper.json"), append(sr, 10), 0o600)
 	nl := string([]byte{10})
 	var uris string
-	if e.RelayHost != "" {
-		uris += ClientLinkForRelayLocal(name, uuid, e.RelayHost, e.RelayPBK, e.RelaySID, e.RelaySNI) + nl
+	if e.SecondaryHost != "" {
+		uris += ClientLinkForSecondaryLocal(name, uuid, e.SecondaryHost, e.SecondaryPBK, e.SecondarySID, e.SecondarySNI) + nl
 	}
 	uris += VLESSLink(name, uuid) + nl
 	_ = os.WriteFile(filepath.Join(dir, "shadowrocket-uris.txt"), []byte(uris), 0o600)

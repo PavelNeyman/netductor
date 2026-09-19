@@ -40,7 +40,7 @@ func runSecondary(args []string) {
 				}
 			}
 		}
-		b, err := vpn.ExportRelayBundle(sni)
+		b, err := vpn.ExportSecondaryBundle(sni)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -144,11 +144,11 @@ func runSecondary(args []string) {
 		// Reinstall always changes SSH host key — clear TOFU + OpenSSH known_hosts before dial.
 		_ = secondary.ForgetSSHHost(host)
 		_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
-		sni = vpn.ResolveRelaySNI(sni, host)
+		sni = vpn.ResolveSecondarySNI(sni, host)
 		fmt.Fprintln(os.Stderr, "provision SNI:", sni)
 		// Pre-clean: same IP must not keep dead agents from previous install.
 		_ = secondary.RemoveByPublicIP(host, "")
-		b, err := vpn.ExportRelayBundle(sni)
+		b, err := vpn.ExportSecondaryBundle(sni)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -169,7 +169,7 @@ func runSecondary(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		postProvisionRelay(host, sni)
+		postProvisionSecondary(host, sni)
 		fmt.Println("provisioned", host)
 	case "device":
 		if len(args) < 2 {
@@ -266,9 +266,9 @@ func runSecondary(args []string) {
 }
 
 
-// postProvisionRelay restores operator-facing state after a clean relay reinstall.
+// postProvisionSecondary restores operator-facing state after a clean relay reinstall.
 // Reality keys are always new on the secondary; everything else is rebuilt on core + remote.
-func postProvisionRelay(host, sni string) {
+func postProvisionSecondary(host, sni string) {
 	fmt.Println("==> post-provision: forget old SSH host key (reinstall changes fingerprint)")
 	_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
 
@@ -359,7 +359,7 @@ func postProvisionRelay(host, sni string) {
 	}
 
 	fmt.Println("==> post-provision: remember SNI", sni)
-	_ = vpn.RememberRelaySNI(sni)
+	_ = vpn.RememberSecondarySNI(sni)
 	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "last_secondary_host"), []byte(host+"\n"), 0o600)
 
 	// final prune pass

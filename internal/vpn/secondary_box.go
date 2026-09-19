@@ -13,8 +13,8 @@ import (
 
 const RelayUplinkName = "relay-uplink"
 
-// RelayBundle is generated on core and consumed on RU relay VPS.
-type RelayBundle struct {
+// SecondaryBundle is generated on core and consumed on RU relay VPS.
+type SecondaryBundle struct {
 	Version      int         `json:"version"`
 	CreatedAt    string      `json:"created_at"`
 	CoreIP       string      `json:"core_ip"`
@@ -23,7 +23,7 @@ type RelayBundle struct {
 	CorePBK      string      `json:"core_pbk"`
 	CoreSID      string      `json:"core_sid"`
 	UplinkUUID   string      `json:"uplink_uuid"`
-	RelaySNI     string      `json:"relay_sni"`
+	SecondarySNI     string      `json:"relay_sni"`
 	Users        []RelayUser `json:"users"`
 	AgentToken   string      `json:"agent_token,omitempty"`
 	AgentID      string      `json:"agent_id,omitempty"`
@@ -61,7 +61,7 @@ func EnsureRelayUplink() (uuid string, err error) {
 	return u.UUID, nil
 }
 
-func ExportRelayBundle(relaySNI string) (*RelayBundle, error) {
+func ExportSecondaryBundle(relaySNI string) (*SecondaryBundle, error) {
 	if relaySNI == "" {
 		relaySNI = DefaultRealitySNI
 	}
@@ -80,7 +80,7 @@ func ExportRelayBundle(relaySNI string) (*RelayBundle, error) {
 		}
 		users = append(users, RelayUser{Name: u.Name, UUID: u.UUID})
 	}
-	b := &RelayBundle{
+	b := &SecondaryBundle{
 		Version:    1,
 		CreatedAt:  time.Now().UTC().Format(time.RFC3339),
 		CoreIP:     publicIP(),
@@ -89,7 +89,7 @@ func ExportRelayBundle(relaySNI string) (*RelayBundle, error) {
 		CorePBK:    secret("singbox_reality_public"),
 		CoreSID:    secret("singbox_short_id"),
 		UplinkUUID: up,
-		RelaySNI:   relaySNI,
+		SecondarySNI:   relaySNI,
 		Users:      users,
 		ExitPort:   4443,
 	}
@@ -110,7 +110,7 @@ func ExportRelayBundle(relaySNI string) (*RelayBundle, error) {
 	return b, nil
 }
 
-func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
+func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 	if b == nil {
 		return fmt.Errorf("nil bundle")
 	}
@@ -137,11 +137,11 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 			"type": "vless", "tag": "relay-in", "listen": "::", "listen_port": 443,
 			"users": users,
 			"tls": map[string]any{
-				"enabled": true, "server_name": b.RelaySNI,
+				"enabled": true, "server_name": b.SecondarySNI,
 				"reality": map[string]any{
 					"enabled": true,
 					"handshake": map[string]any{
-						"server": b.RelaySNI, "server_port": 443,
+						"server": b.SecondarySNI, "server_port": 443,
 					},
 					"private_key": privKey,
 					"short_id":    []string{shortID},
@@ -154,11 +154,11 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 			"type": "vless", "tag": "exit-in", "listen": "::", "listen_port": exitPort,
 			"users": []vu{{UUID: b.ExitUUID, Flow: "xtls-rprx-vision"}},
 			"tls": map[string]any{
-				"enabled": true, "server_name": b.RelaySNI,
+				"enabled": true, "server_name": b.SecondarySNI,
 				"reality": map[string]any{
 					"enabled": true,
 					"handshake": map[string]any{
-						"server": b.RelaySNI, "server_port": 443,
+						"server": b.SecondarySNI, "server_port": 443,
 					},
 					"private_key": privKey,
 					"short_id":    []string{shortID},
@@ -257,7 +257,7 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 	return os.Chmod(singboxConf, 0o600)
 }
 
-func ClientLinkForRelay(name, uuid, relayIP, pbk, sid, sniName string) string {
+func ClientLinkForSecondary(name, uuid, relayIP, pbk, sid, sniName string) string {
 	if sniName == "" {
 		sniName = DefaultRealitySNI
 	}
