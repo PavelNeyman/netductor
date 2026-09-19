@@ -426,3 +426,25 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 
 - **Archive on primary only.** Cudy: `/tmp` buffer **≤64MB**, upload→delete.
 - TG alert on segment if motion schedule allows (`AlertOnSegment`).
+
+### NVR + Cudy storage (0.7.24-dev) — handoff
+
+**Where video lives**
+
+1. **Primary** — permanent archive (`/var/lib/netductor/nvr/…`), retention, encrypt.
+2. **OpenWrt agent** — short buffer → `POST /api/nvr/ingest` → delete local file.
+
+**Cudy constraints**
+
+- Flash **16MB**: never NVR path.
+- RAM **128MB**: default buffer **`NVR_MAX_MB=24`** on `/tmp` (tmpfs).
+- Optional **USB**: mount + `NVR_DIR=/mnt/…/netductor-nvr`, raise `NVR_MAX_MB` (e.g. 512).
+- **LTE modem SD**: only if `ls /dev/sd*` shows it; many modems hide SD from OpenWrt.
+
+**Agent config keys:** `NVR_DIR`, `NVR_MAX_MB` (also env `NETDUCTOR_NVR_DIR`, `NETDUCTOR_NVR_MAX_MB`).
+
+**Safety:** max **2** concurrent cameras; TCP pre-check + backoff; no tight ffmpeg restart.
+
+**CLI (primary):** `nvr cameras|leases|probe|record|motion|events|status|prepare-storage`  
+**TG:** Tools → NVR (leases, cameras P/R/S, motion, events)  
+**Plan:** [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) · [EDGE-AGENT.md](EDGE-AGENT.md)

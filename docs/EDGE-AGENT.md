@@ -91,3 +91,29 @@ CLI: `netductor nvr leases <device_id>` enqueues `dhcp_leases`.
 - CLI: `netductor nvr record start|stop <id>`
 - TG: Cameras → 🔍/⏺/⏹ per camera
 - Doctor: mountpoint / encryption hint
+
+## NVR buffer on OpenWrt (Cudy / low flash)
+
+Flash **16MB** is for firmware only — **do not** store video on overlay.
+
+| Storage | Use for NVR buffer? |
+|---------|---------------------|
+| **/tmp** (tmpfs in **RAM**) | Default. On **128MB RAM** keep **NVR_MAX_MB=24** (or less). |
+| **USB stick** | Recommended if available: mount e.g. `/mnt/sda1`, set `NVR_DIR=/mnt/sda1/netductor-nvr`, `NVR_MAX_MB=512`. |
+| **LTE modem SD** | Only if the modem exposes a **USB mass-storage / block device** to the host. Many modems keep SD **internal** (modem FS only) — then OpenWrt **will not** see it. Check: `ls /dev/sd*`, `block info`, `dmesg`. |
+
+Agent config (`/etc/netductor-agent/config`):
+
+```
+NVR_DIR=/tmp/netductor-nvr
+NVR_MAX_MB=24
+```
+
+USB example:
+
+```
+NVR_DIR=/mnt/sda1/netductor-nvr
+NVR_MAX_MB=512
+```
+
+Archive always on **primary** (ingest). Buffer is deleted after successful upload.

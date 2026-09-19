@@ -30,6 +30,8 @@ type config struct {
 	Token    string
 	DeviceID string
 	Interval int
+	NVRDir   string // buffer path; default /tmp/netductor-nvr (tmpfs)
+	NVRMaxMB int    // max buffer size MB; default 24 on tmpfs
 }
 
 func main() {
@@ -46,6 +48,8 @@ Config /etc/netductor-agent/config:
   TOKEN=...
   DEVICE_ID=site1
   INTERVAL=60
+  NVR_DIR=/tmp/netductor-nvr   # USB e.g. /mnt/sda1/netductor-nvr
+  NVR_MAX_MB=24                # raise on USB (e.g. 512)
 
 Commands (from VPS):
   ping, status, metrics
@@ -219,6 +223,14 @@ func loadConfig() config {
 			c.Interval = n
 		}
 	}
+	if v := os.Getenv("NETDUCTOR_NVR_DIR"); v != "" {
+		c.NVRDir = v
+	}
+	if v := os.Getenv("NETDUCTOR_NVR_MAX_MB"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.NVRMaxMB = n
+		}
+	}
 	if c.DeviceID == "" {
 		c.DeviceID = hostname()
 	}
@@ -246,6 +258,12 @@ func parseKV(s string, c *config) {
 		case "INTERVAL":
 			if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
 				c.Interval = n
+			}
+		case "NVR_DIR":
+			c.NVRDir = strings.TrimSpace(v)
+		case "NVR_MAX_MB":
+			if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+				c.NVRMaxMB = n
 			}
 		}
 	}
@@ -527,13 +545,24 @@ var (
 	nvrRecStop = map[string]chan struct{}{}
 )
 
-const (
-	nvrMaxConcurrent = 2
-	nvrMaxTmpBytes   = 64 * 1024 * 1024 // 64MB ephemeral buffer on OpenWrt /tmp
-)
+const nvrMaxConcurrent = 2
 
-func nvrDir() string {
+func nvrDir(cfg config) string {
+	if cfg.NVRDir != "" {
+		return cfg.NVRDir
+	}
 	return "/tmp/netductor-nvr"
+}
+
+func nvrMaxBytes(cfg config) int64 {
+	mb := cfg.NVRMaxMB
+	if mb <= 0 {
+		mb = 24 // safe default for 128MB RAM tmpfs
+	}
+	if mb > 4096 {
+		mb = 4096
+	}
+	return int64(mb) * 1024 * 1024
 }
 
 func nvrRecordStart(client *http.Client, cfg config, arg string) string {
@@ -566,7 +595,7 @@ func nvrRecordStart(client *http.Client, cfg config, arg string) string {
 	if running >= nvrMaxConcurrent {
 		return "error:max concurrent records (" + strconv.Itoa(nvrMaxConcurrent) + ")"
 	}
-	dir := filepath.Join(nvrDir(), camID)
+	dir := filepath.Join(nvrDir(cfg), camID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "error:" + err.Error()
 	}
@@ -576,6 +605,7 @@ func nvrRecordStart(client *http.Client, cfg config, arg string) string {
 	nvrRecStop[camID] = stop
 	nvrRecMu.Unlock()
 	go nvrSupervise(client, cfg, camID, url, seg, dir, stop)
+	// dir already under nvrDir(cfg)
 	go nvrUploadLoop(client, cfg, camID, dir, stop)
 	return "ok:recording:" + camID + " (supervised, max " + strconv.Itoa(nvrMaxConcurrent) + " cams)"
 }
@@ -605,7 +635,7 @@ func nvrSupervise(client *http.Client, cfg config, camID, url string, seg int, d
 			continue
 		}
 		backoff = 5 * time.Second
-		_ = nvrTrimTmp()
+		_ = nvrTrimTmp(cfg)
 		cmd := exec.Command("ffmpeg",
 			"-hide_banner", "-loglevel", "error",
 			"-rtsp_transport", "tcp",
@@ -690,8 +720,9 @@ func nvrTCPCheckRTSP(url string) error {
 	return nil
 }
 
-func nvrTrimTmp() error {
-	root := nvrDir()
+func nvrTrimTmp(cfg config) error {
+	root := nvrDir(cfg)
+	limit := nvrMaxBytes(cfg)
 	var files []struct {
 		path string
 		mod  time.Time
@@ -710,7 +741,7 @@ func nvrTrimTmp() error {
 		}{path, info.ModTime(), info.Size()})
 		return nil
 	})
-	if total <= nvrMaxTmpBytes {
+	if total <= limit {
 		return nil
 	}
 	// oldest first
@@ -722,7 +753,7 @@ func nvrTrimTmp() error {
 		}
 	}
 	for _, f := range files {
-		if total <= nvrMaxTmpBytes*8/10 {
+		if total <= limit*8/10 {
 			break
 		}
 		_ = os.Remove(f.path)
@@ -776,7 +807,7 @@ func nvrUploadLoop(client *http.Client, cfg config, camID, dir string, stop chan
 			return
 		case <-ticker.C:
 			nvrUploadDirOnce(client, cfg, camID, dir)
-			_ = nvrTrimTmp()
+			_ = nvrTrimTmp(cfg)
 		}
 	}
 }

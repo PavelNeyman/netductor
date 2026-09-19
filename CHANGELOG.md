@@ -1,3 +1,7 @@
+## 0.7.24-dev
+
+- agent NVR_DIR / NVR_MAX_MB (default 24MB tmpfs); USB buffer docs; handoff Cudy 16MB/128MB
+
 ## 0.7.23-dev
 
 - Edge NVR buffer 64MB, faster upload; docs: archive only on primary

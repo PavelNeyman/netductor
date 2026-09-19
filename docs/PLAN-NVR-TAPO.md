@@ -9,7 +9,7 @@
 | Place | Role | Disk |
 |-------|------|------|
 | **Primary VPS** | **Archive** (segments under NVR path, retention days/GB) | Sized for retention; encrypt (LUKS/gocryptfs) |
-| **Cudy / OpenWrt agent** | **Ephemeral buffer only** `/tmp/netductor-nvr/` | Cap **~64MB**; upload every ~10s then delete local file |
+| **Cudy / OpenWrt agent** | **Ephemeral buffer** only | Default **tmpfs `/tmp`** ~**24MB** (128MB RAM); prefer **USB** `NVR_DIR` + higher `NVR_MAX_MB`; never use 16MB flash |
 
 Recording on Cudy uses **`-c copy`** (no re-encode). If upload fails, oldest buffer files are dropped when over 64MB — **not** a full archive on the router. Router flash/overlay is **not** used for video.
 
@@ -419,3 +419,11 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 - Motion schedule (not CV yet): `nvr motion set enabled=true timezone=Europe/Moscow`
 - Events JSONL on segment ingest; TG Events/Motion
 - API `/api/nvr/motion`, `/api/nvr/events`
+
+
+### OpenWrt disk reality (Cudy)
+
+- **16MB flash** = OS only.
+- **/tmp** is **RAM** (tmpfs): video buffer competes with routing; keep small.
+- **USB** for buffer if inserted; LTE modem **SD** only if visible as host block device (often not).
+- Config: `NVR_DIR`, `NVR_MAX_MB` on agent.
