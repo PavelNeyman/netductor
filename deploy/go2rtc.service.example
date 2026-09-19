@@ -1,0 +1,15 @@
+# Example only — do not expose ports outside VPN.
+# 1) Install go2rtc binary
+# 2) netductor nvr go2rtc   # writes /var/lib/netductor/nvr/go2rtc.yaml
+# 3) systemctl enable --now this unit
+[Unit]
+Description=go2rtc (netductor NVR live, localhost only)
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/go2rtc -c /var/lib/netductor/nvr/go2rtc.yaml
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target

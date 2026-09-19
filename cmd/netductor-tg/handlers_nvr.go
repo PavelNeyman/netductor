@@ -41,7 +41,7 @@ func nvrKeyboard() map[string]any {
 			{btn("Cameras", "m:nvr:cams", ""), btn("From leases", "m:nvr:sites", "")},
 			{btn("Config", "m:nvr:cfg", ""), btn("Rotate", "m:nvr:rotate", "")},
 			{btn("Segments", "m:nvr:segs", ""), btn("Events", "m:nvr:events", "")},
-			{btn("Motion", "m:nvr:motion", "")},
+			{btn("Motion", "m:nvr:motion", ""), btn("go2rtc", "m:nvr:go2rtc", "")},
 			{btn(T("back"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
 		},
 	}
@@ -185,6 +185,11 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 				btn(fmt.Sprintf("%d▲", i+1), fmt.Sprintf("m:nvr:ptz:%d:up", i), ""),
 				btn(fmt.Sprintf("%d▼", i+1), fmt.Sprintf("m:nvr:ptz:%d:down", i), ""),
 			})
+			rows = append(rows, []map[string]any{
+				btn(fmt.Sprintf("%d night", i+1), fmt.Sprintf("m:nvr:ptz:%d:night:auto", i), ""),
+				btn(fmt.Sprintf("%d priv", i+1), fmt.Sprintf("m:nvr:ptz:%d:privacy:off", i), ""),
+				btn(fmt.Sprintf("%d cal", i+1), fmt.Sprintf("m:nvr:ptz:%d:calibrate", i), ""),
+			})
 		}
 		rows = append(rows, []map[string]any{btn(T("back"), "m:nvr", ""), btn(T("main_menu"), "m:menu", "primary")})
 		reply(token, chat, msgID, b.String()+"\nP=probe R=record S=stop", map[string]any{"inline_keyboard": rows})
@@ -281,7 +286,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		}
 		var idx int
 		fmt.Sscanf(parts[3], "%d", &idx)
-		dir := parts[4]
+		dir := strings.Join(parts[4:], ":")
 		if chatState[chat] != "nvr_cam_cache" || chatExtra[chat] == "" {
 			reply(token, chat, msgID, "open Cameras again", nvrKeyboard())
 			return
@@ -298,7 +303,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		}
 		arg := c.LANIP + "|" + c.RTSPUser + "|" + pass + "|" + dir
 		cmdID := edge.EnqueueCmd(c.SiteID, "camera_ptz", arg)
-		reply(token, chat, msgID, "PTZ "+esc(dir)+"… (ONVIF C200)", nvrKeyboard())
+		reply(token, chat, msgID, "PTZ "+esc(dir)+"… (tapo)", nvrKeyboard())
 		go func() {
 			res, err := edge.WaitCmdResult(cmdID, 30*time.Second)
 			if err != nil {

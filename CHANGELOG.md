@@ -1,3 +1,7 @@
+## 0.7.32-dev
+
+- NVR MVP close: storage backends, motion zones, go2rtc example, TG PTZ extras
+
 ## 0.7.31-dev
 
 - tapo: motion/privacy get, alarm, smart_track, hub ChildID; CLI nvr tapo

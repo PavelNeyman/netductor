@@ -16,11 +16,22 @@ type ScheduleWindow struct {
 	Days  []int  `json:"days,omitempty"`
 }
 
-// MotionConfig — phase-1: when alerts/recording windows are active (not CV yet).
+// MotionZone is a normalized rectangle 0..1 (placeholder for future CV/ONVIF).
+type MotionZone struct {
+	Name   string  `json:"name,omitempty"`
+	X      float64 `json:"x"` // left
+	Y      float64 `json:"y"` // top
+	W      float64 `json:"w"`
+	H      float64 `json:"h"`
+	Camera string  `json:"camera_id,omitempty"` // empty = all
+}
+
+// MotionConfig — schedule + optional zones (zones stored; CV not required for MVP).
 type MotionConfig struct {
 	Enabled   bool             `json:"enabled"`
 	Timezone  string           `json:"timezone"` // e.g. Europe/Moscow; empty = local
 	Windows   []ScheduleWindow `json:"windows"`
+	Zones     []MotionZone     `json:"zones,omitempty"`
 	// AlertOnSegment: emit event when new segment arrives during window.
 	AlertOnSegment bool `json:"alert_on_segment"`
 }

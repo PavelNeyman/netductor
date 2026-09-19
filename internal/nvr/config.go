@@ -11,7 +11,7 @@ import (
 
 // Config is global NVR settings (storage + retention + segment length).
 type Config struct {
-	// StorageBackend: local_encrypted | local | nfs (future)
+	// StorageBackend: local_encrypted | local | nfs | home_nfs
 	StorageBackend string `json:"storage_backend"`
 	// Path is root for segments (must be on encrypted mount when required).
 	Path string `json:"path"`
@@ -103,9 +103,13 @@ func SaveConfig(c Config) error {
 	return os.Rename(tmp, configPath())
 }
 
-// SegmentsRoot returns configured path.
+// SegmentsRoot returns configured path (best-effort resolve).
 func SegmentsRoot() string {
-	return LoadConfig().Path
+	p, err := ResolveStoragePath()
+	if err != nil {
+		return LoadConfig().Path
+	}
+	return p
 }
 
 // EnsureSegmentsDir creates segment root.

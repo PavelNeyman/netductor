@@ -142,3 +142,7 @@ Agent order: **tapo-go → python → ONVIF**.
 
 ### 0.7.31-dev
 - motion/alarm/children/ChildID; CLI nvr tapo
+
+### NVR MVP 0.7.32-dev — closed
+- go2rtc yaml + example unit; storage backends; motion zones schema; TG night/privacy/calibrate
+- Remaining: live hardware validation only

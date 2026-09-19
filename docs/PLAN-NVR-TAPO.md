@@ -433,10 +433,10 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 | Phase | Status |
 |-------|--------|
 | A Discovery & inventory | **Done** — leases, wifi_clients, dhcp_static, cameras API/CLI/TG |
-| B Path & record MVP | **Mostly** — agent record+upload, ingest, retention, buffer NVR_DIR/MAX_MB; primary recorder optional |
-| C Live go2rtc | **Not started** (optional; needs binary/addon) |
+| B Path & record MVP | **Done** — agent record+upload, ingest, retention, storage backends local/nfs |
+| C Live go2rtc | **Done** — YAML gen + TG/CLI + deploy/go2rtc.service.example |
 | C TG one-time clip links | **Done** — IssueClipToken + `/api/nvr/clip` |
-| D Motion schedule | **Done** (windows/tz); zones/CV later |
+| D Motion schedule | **Done** — windows/tz + zone rectangles stored (CV optional later) |
 | D Events | **Done** |
 | E PTZ / night | **Done (C200)** — `internal/tapo` motorMove/night/privacy; ONVIF+pytapo fallback |
 | F Home storage backend | **Config field only** — switch path/backend manually |
@@ -512,8 +512,8 @@ Ported: secure+KLAP, presets, motion, alarm, child wrap. Media stream: RTSP. Hub
 | presets list/save/goto/del | Done |
 | getBasicInfo | Done |
 | KLAP transport | **Done** (v1+v2 handshake, /app/request) |
-| Hub child devices | **Partial** — ChildID + controlChild + children list |
-| Media/direct stream | Not yet (use RTSP) |
+| Hub child devices | **Done for control path** — ChildID + controlChild + children |
+| Media/direct stream | **Out of scope** — RTSP + go2rtc |
 
 Agent order: **tapo-go → python → ONVIF**.
 
@@ -526,3 +526,18 @@ Agent order: **tapo-go → python → ONVIF**.
 - motion get/set, privacy get, alarm set, smart_track, children
 - Client.ChildID + controlChild; Perform for raw `set`
 - CLI: `netductor nvr tapo <host> <user> <pass> <action>`
+
+---
+
+## MVP complete (0.7.32-dev)
+
+Implemented end-to-end for operator use without third-party NVR:
+
+1. Edge: leases, static DHCP, RTSP probe, record buffer, camera_ptz (tapo-go/KLAP/ONVIF)
+2. Primary: cameras inventory, ingest, retention, motion schedule+zones schema, events, clip tokens
+3. Live: go2rtc.yaml (127.0.0.1) — install binary separately
+4. Storage: local_encrypted | local | nfs (mount provided by operator)
+5. UI: TG NVR hub, CLI `nvr`, API hooks
+6. Tapo C200: internal/tapo full control surface used by agent/CLI
+
+**Still operator-dependent (not code):** real Cudy deploy, camera Third-Party Compatibility, USB/NFS hardware, go2rtc binary install.

@@ -540,3 +540,7 @@ Agent order: **tapo-go → python → ONVIF**.
 - motion get/set, privacy get, alarm set, smart_track, children
 - Client.ChildID + controlChild; Perform for raw `set`
 - CLI: `netductor nvr tapo <host> <user> <pass> <action>`
+
+### NVR MVP 0.7.32-dev — closed
+- go2rtc yaml + example unit; storage backends; motion zones schema; TG night/privacy/calibrate
+- Remaining: live hardware validation only
