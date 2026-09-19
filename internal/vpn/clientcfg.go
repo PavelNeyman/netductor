@@ -180,10 +180,11 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 				map[string]any{"type": "udp", "tag": "google", "server": "8.8.8.8", "detour": final},
 			},
 			"rules": []any{
-				map[string]any{"domain_suffix": []string{".ru", ".su", "vk.com", "yandex.ru", "ya.ru", "vk.me"}, "server": "ya"},
+				map[string]any{"domain_suffix": RuDirectSuffixes(), "server": "ya"},
+				map[string]any{"domain_keyword": RuDirectKeywords(), "server": "ya"},
 			},
-			"final":          "quad9",
-			"strategy":       "ipv4_only",
+			"final":             "quad9",
+			"strategy":          "ipv4_only",
 			"independent_cache": true,
 		},
 		"inbounds": []any{
@@ -196,6 +197,15 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 		},
 		"outbounds": outbounds,
 		"route": map[string]any{
+			"rule_set": []any{
+				map[string]any{
+					"tag":             "geoip-ru",
+					"type":            "remote",
+					"format":          "binary",
+					"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
+					"download_detour": final,
+				},
+			},
 			"rules": []any{
 				map[string]any{"action": "sniff"},
 				map[string]any{"protocol": "dns", "action": "hijack-dns"},
@@ -203,14 +213,13 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 				// WL tip: UDP/443 (QUIC) is usually dropped — avoid stalls
 				map[string]any{"network": "udp", "port": 443, "outbound": "block"},
 				map[string]any{"ip_version": 6, "outbound": "block"},
-				// RU-ish domains: direct when possible (home / relay exit-RU later)
-				map[string]any{
-					"domain_suffix": []string{".ru", ".su", ".xn--p1ai"},
-					"outbound":      "direct",
-				},
+				// RU/gov/banks: home ISP (or local stack) — not foreign primary
+				map[string]any{"domain_suffix": RuDirectSuffixes(), "outbound": "direct"},
+				map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
+				map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
 			},
-			"final":                 final,
-			"auto_detect_interface": true,
+			"final":                   final,
+			"auto_detect_interface":   true,
 			"default_domain_resolver": "ya",
 		},
 	}
@@ -276,6 +285,20 @@ func WriteClientConfigs(name, uuid string) error {
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	core := VLESSLink(name, uuid)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(core+nl), 0o600)
+	// Shadowrocket routing: import as Config (or merge into nd-oc.conf)
+	var rb strings.Builder
+	rb.WriteString("# netductor — RU/gov DIRECT, rest PROXY (pair with VLESS URI from bot)\n")
+	rb.WriteString("# Global Routing = Config. Prefer single Vision VLESS (relay or core).\n\n")
+	rb.WriteString("[General]\n")
+	rb.WriteString("dns-server = system\n")
+	rb.WriteString("skip-proxy = 127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, localhost, *.local\n\n")
+	rb.WriteString("[Rule]\n")
+	for _, line := range ShadowrocketRuDirectRules() {
+		rb.WriteString(line)
+		rb.WriteByte('\n')
+	}
+	rb.WriteString("FINAL,PROXY\n")
+	_ = os.WriteFile(filepath.Join(dir, "shadowrocket-routing.conf"), []byte(rb.String()), 0o600)
 	// subscription intentionally not advertised; dual single links only
 	_ = os.Remove(filepath.Join(dir, "subscription.txt"))
 	_ = os.Remove(filepath.Join(dir, "subscription.b64"))

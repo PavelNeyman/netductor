@@ -1,3 +1,7 @@
+## 0.7.34-dev
+
+- Client/relay RU-direct lists for Gosuslugi/gov/banks; SR nd-oc + routing.conf; docs
+
 ## 0.7.33-dev
 
 - NVR polish: pathsafe clips, zones API, TUI nvr status/go2rtc; code review doc

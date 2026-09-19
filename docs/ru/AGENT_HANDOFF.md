@@ -149,3 +149,9 @@ Agent order: **tapo-go → python → ONVIF**.
 
 ### 0.7.33-dev
 - PathUnderRoot for clips; motion zones API; TUI NVR ops; docs/NVR-CODE-REVIEW.md
+
+### Client RU-direct (Gosuslugi / banks)
+- Shared list: `internal/vpn/ru_direct.go` (suffixes + keywords)
+- Client sing-box + secondary relay use it; GEOIP RU rule-set on client
+- `nd-oc.conf` + generated `shadowrocket-routing.conf` — DIRECT for RU/gov
+- Docs: `docs/ru/SHADOWROCKET.md`

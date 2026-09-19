@@ -169,18 +169,7 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 	// RU split: these domains + private IP exit direct (RU IP).
 	// Everything else from relay-in goes uplink → core (foreign exit).
 	// Clients abroad can use exit-in (4443) for RU-IP egress when toggled on.
-	ruSuffixes := []string{
-		"ru", "su", "xn--p1ai", "xn--p1acf",
-		"vk.com", "vk.ru", "vk.me", "userapi.com", "vkuservideo.net", "vk-cdn.net",
-		"yandex.ru", "yandex.net", "yandex.com", DefaultRealitySNI, "yastatic.net", "yandex.cloud",
-		"mail.ru", "imgsmail.ru", "ok.ru", "odnoklassniki.ru",
-		"wildberries.ru", "wb.ru", "ozon.ru", "avito.ru", "dns-shop.ru", "citilink.ru",
-		"2gis.com", "2gis.ru", "gosuslugi.ru", "mos.ru", "nalog.ru", "cbr.ru",
-		"sberbank.ru", "sber.ru", "tinkoff.ru", "tbank.ru", "vtb.ru", "alfabank.ru",
-		"mts.ru", "megafon.ru", "beeline.ru", "tele2.ru", "yota.ru",
-		"rutube.ru", "ivi.ru", "kinopoisk.ru", "hd.kinopoisk.ru",
-		"cloudflare-dns.com", // keep resolvers reachable; actual RU DNS via rule
-	}
+	ruSuffixes := RuDirectSuffixes()
 	cfg := map[string]any{
 		"log": map[string]any{"level": "info", "timestamp": true},
 		"dns": map[string]any{
@@ -192,6 +181,7 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 			},
 			"rules": []any{
 				map[string]any{"domain_suffix": ruSuffixes, "server": "ru-dns"},
+				map[string]any{"domain_keyword": RuDirectKeywords(), "server": "ru-dns"},
 			},
 			"final": "quad9",
 		},
@@ -242,6 +232,7 @@ func WriteRelaySingBox(b *RelayBundle, privKey, shortID string) error {
 				map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
 				map[string]any{"ip_is_private": true, "outbound": "direct"},
 				map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
+				map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
 				map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
 				map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"},
 			},

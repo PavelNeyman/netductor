@@ -1,23 +1,41 @@
 # Shadowrocket и netductor
 
-## Вывод по логам (Happ vs SR)
-При **Happ** mismatch по flow пропал (0 за 20 мин при сотнях uplink).  
-При смешанном/внешнем конфиге Shadowrocket с того же IP шли пачки `flow mismatch`.
+## Профили
 
-## Рекомендация
-1. Импортировать **только** URI из бота / `shadowrocket-uris.txt` (там всегда `flow=xtls-rprx-vision`).
-2. Не подмешивать внешние JSON с balancer/loopback на тот же server:443.
-3. RU/non-RU уже на **relay** — локальный split в SR для нашего узла не обязателен.
+| Файл | Назначение |
+|------|------------|
+| VLESS URI из бота | Сервер (предпочтительно **secondary**), `flow=xtls-rprx-vision` |
+| `nd-oc.conf` / SR Config | Mac + OpenConnect: LAN/corp + **RU/gov DIRECT** |
+| `shadowrocket-routing.conf` | После `vpn client-config`: только RU DIRECT + FINAL PROXY |
 
-## Генерация на сервере
+## Госуслуги / банки / «Моя школа»
+
+С апреля 2026 сервисы режут **зарубежный exit** и часто **детектят VPN**.
+
+**Что делает профиль:**
+
+1. `DOMAIN-SUFFIX,ru` + gov/bank keywords → **DIRECT** (домашний IP).
+2. `GEOIP,RU` → DIRECT.
+3. Остальное → **PROXY** (VLESS secondary/core).
+
+**Важно:**
+
+- Global Routing = **Config**.
+- Один VLESS с Vision; не мешать внешние balancer/JSON на тот же :443.
+- Если приложение всё равно пишет «выключите VPN» — это детект tun (per-app / временно выключить VPN), не лечится другим IP.
+- За границей для Госуслуг нужен **RU exit (secondary)**, не home DIRECT.
+
+## Генерация
+
 ```bash
 netductor vpn client-config operator
-# → /var/lib/netductor/vpn/clients/operator/
-#    shadowrocket-uris.txt
-#    shadowrocket-helper.json
-#    sing-box-client.json
+# …/sing-box-client.json   — domain_suffix + keyword + geoip-ru → direct
+# …/shadowrocket-routing.conf
+# …/shadowrocket-uris.txt
 ```
 
-## Если нужен split в SR
-Держите **один** VLESS outbound на relay с Vision; правила RU → DIRECT, остальное → этот proxy.  
-Не создавайте второй VLESS на тот же host без flow.
+## Не делать
+
+- Full tunnel без RU rules.
+- Второй outbound на тот же host без `flow=xtls-rprx-vision`.
+- Резолв RU-доменов только через зарубежный DNS (в sing-box RU → `77.88.8.8`).
