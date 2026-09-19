@@ -211,6 +211,38 @@ func runNVR(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(res["result"])
+	case "events":
+		for _, e := range nvr.ListEventsTail(30) {
+			fmt.Printf("%d\t%s\t%s\t%s\n", e.TS, e.Type, e.CameraID, e.Detail)
+		}
+	case "motion":
+		if len(args) > 1 && args[1] == "set" {
+			mc := nvr.LoadMotion()
+			for _, a := range args[2:] {
+				k, v, ok := strings.Cut(a, "=")
+				if !ok {
+					continue
+				}
+				switch k {
+				case "enabled":
+					mc.Enabled = v == "1" || strings.EqualFold(v, "true")
+				case "timezone":
+					mc.Timezone = v
+				case "alert_on_segment":
+					mc.AlertOnSegment = v == "1" || strings.EqualFold(v, "true")
+				}
+			}
+			_ = nvr.SaveMotion(mc)
+		}
+		b, _ := json.MarshalIndent(nvr.LoadMotion(), "", "  ")
+		fmt.Println(string(b))
+		fmt.Println("in_window", nvr.InMotionWindow(nvr.LoadMotion(), time.Now()))
+	case "status":
+		fmt.Println("recorders", nvr.RecorderRunning())
+		st := nvr.GetStorageStatus()
+		b, _ := json.MarshalIndent(st, "", "  ")
+		fmt.Println(string(b))
+		fmt.Println("motion_window", nvr.InMotionWindow(nvr.LoadMotion(), time.Now()))
 	case "storage":
 		b, _ := json.MarshalIndent(nvr.GetStorageStatus(), "", "  ")
 		fmt.Println(string(b))
@@ -262,6 +294,7 @@ func printNVRHelp() {
   segments [camera_id]
   record start|stop <camera_id>
   probe <camera_id>
+  events | motion [set …] | status
   storage
   prepare-storage [--print-only]
   recorder start|stop <camera_id>

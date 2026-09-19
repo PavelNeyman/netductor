@@ -20,6 +20,8 @@ func nvrHubHTML() string {
 	b.WriteString(fmt.Sprintf("retention: %dd · max %.0fGB · free>=%.0fGB · segment %ds\n",
 		cfg.RetentionDays, cfg.MaxGB, cfg.MinFreeGB, cfg.SegmentSec))
 	b.WriteString(fmt.Sprintf("cameras: <b>%d</b>\n", len(cams)))
+	mc := nvr.LoadMotion()
+	b.WriteString(fmt.Sprintf("motion: enabled=%v in_window=%v\n", mc.Enabled, nvr.InMotionWindow(mc, time.Now())))
 	if ok {
 		b.WriteString(fmt.Sprintf("last rotate: deleted=%d bytes=%d kept=%d\n", last.Deleted, last.DeletedBytes, last.Kept))
 	}
@@ -38,7 +40,8 @@ func nvrKeyboard() map[string]any {
 		"inline_keyboard": [][]map[string]any{
 			{btn("Cameras", "m:nvr:cams", ""), btn("From leases", "m:nvr:sites", "")},
 			{btn("Config", "m:nvr:cfg", ""), btn("Rotate", "m:nvr:rotate", "")},
-			{btn("Segments", "m:nvr:segs", "")},
+			{btn("Segments", "m:nvr:segs", ""), btn("Events", "m:nvr:events", "")},
+			{btn("Motion", "m:nvr:motion", "")},
 			{btn(T("back"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
 		},
 	}
@@ -263,6 +266,23 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 				reply(token, chat, 0, "STOP "+esc(r), nvrKeyboard())
 			}()
 		}
+
+	case data == "m:nvr:events":
+		var b strings.Builder
+		b.WriteString("<b>NVR events</b>\n")
+		evs := nvr.ListEventsTail(20)
+		if len(evs) == 0 {
+			b.WriteString("empty\n")
+		}
+		for _, e := range evs {
+			b.WriteString(fmt.Sprintf("- %d %s %s %s\n", e.TS, esc(e.Type), esc(e.CameraID), esc(e.Detail)))
+		}
+		reply(token, chat, msgID, b.String(), nvrKeyboard())
+	case data == "m:nvr:motion":
+		mc := nvr.LoadMotion()
+		raw, _ := json.MarshalIndent(mc, "", "  ")
+		inw := nvr.InMotionWindow(mc, time.Now())
+		reply(token, chat, msgID, "<b>Motion / schedule</b>\n<pre>"+esc(string(raw))+"</pre>\nin_window="+fmt.Sprintf("%v", inw)+"\nCLI: <code>netductor nvr motion set enabled=true timezone=Europe/Moscow</code>", nvrKeyboard())
 	case data == "m:nvr:cfg":
 		cfg := nvr.LoadConfig()
 		raw, _ := json.MarshalIndent(cfg, "", "  ")

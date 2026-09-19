@@ -1,3 +1,8 @@
+## 0.7.22-dev
+
+- NVR motion schedule (windows/tz), events log on ingest
+- CLI/API/TG: motion, events, status; prepare-storage storage snapshot
+
 ## 0.7.21-dev
 
 - agent NVR supervise: TCP pre-check, backoff, max 2 cams, /tmp 200MB trim

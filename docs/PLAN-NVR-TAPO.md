@@ -402,3 +402,8 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 - **ffprobe:** 8s timeout kill.
 - Cudy TR1200-class devices are fine for 1–2 substreams copy; avoid full HD×N + encode on-router.
 - Primary `StartRecorder` does **not** auto-restart (prevents CPU spin if URL unreachable from VPS).
+### NVR 0.7.22-dev
+
+- Motion schedule (not CV yet): `nvr motion set enabled=true timezone=Europe/Moscow`
+- Events JSONL on segment ingest; TG Events/Motion
+- API `/api/nvr/motion`, `/api/nvr/events`

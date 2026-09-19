@@ -18,7 +18,12 @@ func PrepareStorage(printOnly bool) error {
 	plainGuide := cfg.Path
 	_ = os.MkdirAll(cipherDir, 0o700)
 
+	st := GetStorageStatus()
 	fmt.Println("NVR path:", cfg.Path)
+	fmt.Printf("exists=%v writable=%v mount_point=%v free=%.1fGB\n", st.Exists, st.Writable, st.MountPoint, st.FreeGB)
+	if st.EncryptedHint != "" {
+		fmt.Println("hint:", st.EncryptedHint)
+	}
 	fmt.Println("Retention: days=", cfg.RetentionDays, "max_gb=", cfg.MaxGB, "min_free_gb=", cfg.MinFreeGB)
 	fmt.Println()
 	fmt.Println("Encryption (recommended):")
@@ -36,7 +41,6 @@ func PrepareStorage(printOnly bool) error {
 		fmt.Println("gocryptfs not in PATH — dirs created, encrypt later.")
 		return nil
 	}
-	// Do not auto-init (needs passphrase interactively).
 	fmt.Println("gocryptfs found. Run init/mount manually with a passphrase.")
 	return nil
 }

@@ -52,5 +52,6 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 		_ = os.Remove(tmp)
 		return "", 0, err
 	}
+	AppendEvent("segment", cameraID, filename)
 	return dest, n, nil
 }

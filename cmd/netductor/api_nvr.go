@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -280,6 +281,52 @@ func registerNVRAPI(mux *http.ServeMux) {
 		// opportunistic retention if over cap
 		go func() { _, _ = nvr.RunRetention(nvr.LoadConfig()) }()
 		writeJSON(w, 200, map[string]any{"ok": true, "path": path, "bytes": n, "device_id": did})
+	})
+
+	
+	mux.HandleFunc("/api/nvr/motion", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			writeJSON(w, 200, map[string]any{"motion": nvr.LoadMotion(), "in_window": nvr.InMotionWindow(nvr.LoadMotion(), nvr.Now())})
+		case http.MethodPost:
+			body := readJSON(r)
+			mc := nvr.LoadMotion()
+			if _, ok := body["enabled"]; ok {
+				mc.Enabled = nvrTruthy(body["enabled"], mc.Enabled)
+			}
+			if v, ok := body["timezone"].(string); ok {
+				mc.Timezone = v
+			}
+			if _, ok := body["alert_on_segment"]; ok {
+				mc.AlertOnSegment = nvrTruthy(body["alert_on_segment"], mc.AlertOnSegment)
+			}
+			// windows: optional full replace as JSON array in body
+			if raw, ok := body["windows"]; ok {
+				b, _ := json.Marshal(raw)
+				var wins []nvr.ScheduleWindow
+				if json.Unmarshal(b, &wins) == nil {
+					mc.Windows = wins
+				}
+			}
+			if err := nvr.SaveMotion(mc); err != nil {
+				writeJSON(w, 500, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "motion": nvr.LoadMotion()})
+		default:
+			writeJSON(w, 405, map[string]string{"error": "method"})
+		}
+	})
+
+	mux.HandleFunc("/api/nvr/events", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		n := 50
+		writeJSON(w, 200, map[string]any{"events": nvr.ListEventsTail(n)})
 	})
 
 	mux.HandleFunc("/api/nvr/storage", func(w http.ResponseWriter, r *http.Request) {
