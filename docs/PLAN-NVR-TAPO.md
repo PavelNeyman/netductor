@@ -375,3 +375,8 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 - TG Tools → NVR hub (cameras, config, rotate, segments)
 - `edge.WaitCmdResult`; CLI leases/wifi-clients wait up to 120s
 - `doctor` NVR section (path, retention, segment stats)
+
+### NVR 0.7.18-dev
+
+- TG: **From leases** → edge site → async wait → add camera (password prompt) + optional static DHCP
+- `nvr storage` / `GET /api/nvr/storage`

@@ -1,6 +1,7 @@
 package nvr
 
 import (
+	"encoding/json"
 	"bufio"
 	"strconv"
 	"strings"
@@ -57,4 +58,25 @@ func LeaseRemainingSec(l Lease, now time.Time) int64 {
 		return 0
 	}
 	return d
+}
+
+
+// ParseLeasesResult accepts agent JSON or dhcp.leases text.
+func ParseLeasesResult(raw string) []Lease {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	if strings.HasPrefix(raw, "{") {
+		var wrap struct {
+			Leases []Lease `json:"leases"`
+		}
+		if err := json.Unmarshal([]byte(raw), &wrap); err == nil && len(wrap.Leases) > 0 {
+			for i := range wrap.Leases {
+				wrap.Leases[i].MAC = normalizeMAC(wrap.Leases[i].MAC)
+			}
+			return wrap.Leases
+		}
+	}
+	return ParseDHCPLeases(raw)
 }

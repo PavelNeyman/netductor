@@ -232,6 +232,13 @@ func registerNVRAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})
 
+	
+	mux.HandleFunc("/api/nvr/storage", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		writeJSON(w, 200, map[string]any{"storage": nvr.GetStorageStatus(), "config": nvr.LoadConfig()})
+	})
 	mux.HandleFunc("/api/nvr/recorder/stop", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return

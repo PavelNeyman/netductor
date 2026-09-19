@@ -1,3 +1,8 @@
+## 0.7.18-dev
+
+- TG NVR: From leases → site → wait → pick → RTSP password → camera + dhcp_static
+- ParseLeasesResult (agent JSON); storage status API/CLI; GetStorageStatus
+
 ## 0.7.17-dev
 
 - TG NVR hub under Tools

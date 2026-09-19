@@ -16,6 +16,10 @@ func handleMessage(token string, m *message, admin int64) {
 	chat := m.Chat.ID
 	text := strings.TrimSpace(m.Text)
 
+	if handleNVRMessage(token, chat, text) {
+		return
+	}
+
 	if text == "/cancel" {
 		setState(chat, "", "")
 		sendHTML(token, chat, T("cancelled"), mainKeyboard())

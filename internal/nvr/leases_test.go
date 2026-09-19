@@ -28,3 +28,11 @@ func TestParseDHCPLeases(t *testing.T) {
 		// expiry 1710000000 is past relative to +1
 	}
 }
+
+func TestParseLeasesResultJSON(t *testing.T) {
+	raw := `{"leases":[{"expiry":1,"mac":"AA:BB:CC:DD:EE:FF","ip":"10.0.0.5","hostname":"cam"}],"count":1}`
+	got := ParseLeasesResult(raw)
+	if len(got) != 1 || got[0].IP != "10.0.0.5" || got[0].MAC != "aa:bb:cc:dd:ee:ff" {
+		t.Fatalf("%+v", got)
+	}
+}

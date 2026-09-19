@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 )
 
@@ -34,23 +36,130 @@ func nvrHubHTML() string {
 func nvrKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
-			{btn("📋 Cameras", "m:nvr:cams", ""), btn("⚙️ Config", "m:nvr:cfg", "")},
-			{btn("🔄 Rotate now", "m:nvr:rotate", ""), btn("📁 Segments", "m:nvr:segs", "")},
+			{btn("📋 Cameras", "m:nvr:cams", ""), btn("➕ From leases", "m:nvr:sites", "")},
+			{btn("⚙️ Config", "m:nvr:cfg", ""), btn("🔄 Rotate", "m:nvr:rotate", "")},
+			{btn("📁 Segments", "m:nvr:segs", "")},
 			{btn(T("back"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
 		},
 	}
+}
+
+func nvrSitesKeyboard() map[string]any {
+	rows := [][]map[string]any{}
+	for _, d := range edge.ListDevices() {
+		if d.Status != edge.StatusApproved {
+			continue
+		}
+		label := d.Hostname
+		if label == "" {
+			label = d.DeviceID
+		}
+		if len(label) > 28 {
+			label = label[:28]
+		}
+		// callback must stay short
+		id := d.DeviceID
+		if len(id) > 40 {
+			id = id[:40]
+		}
+		rows = append(rows, []map[string]any{btn("📡 "+label, "m:nvr:lease:"+id, "")})
+		if len(rows) >= 12 {
+			break
+		}
+	}
+	if len(rows) == 0 {
+		rows = append(rows, []map[string]any{btn("(no approved edge)", "m:nvr", "")})
+	}
+	rows = append(rows, []map[string]any{btn(T("back"), "m:nvr", ""), btn(T("main_menu"), "m:menu", "primary")})
+	return map[string]any{"inline_keyboard": rows}
 }
 
 func handleNVRCB(token string, chat int64, msgID int, data string) {
 	switch {
 	case data == "m:nvr" || data == "m:nvr:hub":
 		reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
+	case data == "m:nvr:sites":
+		reply(token, chat, msgID, "<b>NVR · site (edge)</b>\nSelect device to load DHCP leases:", nvrSitesKeyboard())
+	case strings.HasPrefix(data, "m:nvr:lease:"):
+		did := strings.TrimPrefix(data, "m:nvr:lease:")
+		cmdID := edge.EnqueueCmd(did, "dhcp_leases", "")
+		if cmdID == "" {
+			reply(token, chat, msgID, "⚠️ enqueue failed (device approved? online?)", nvrSitesKeyboard())
+			return
+		}
+		reply(token, chat, msgID, "⏳ leases from <code>"+esc(did)+"</code>…\ncmd <code>"+esc(cmdID)+"</code>", nvrSitesKeyboard())
+		go func(chat int64, msgID int, did, cmdID string) {
+			res, err := edge.WaitCmdResult(cmdID, 90*time.Second)
+			if err != nil {
+				reply(token, chat, msgID, "⚠️ wait: "+esc(err.Error())+"\nTry again when agent is online.", nvrSitesKeyboard())
+				return
+			}
+			raw, _ := res["result"].(string)
+			leases := nvr.ParseLeasesResult(raw)
+			payload, _ := json.Marshal(leases)
+			setState(chat, "nvr_lease_cache", did+"\n"+string(payload))
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("<b>Leases · %s</b> (%d)\nTap to add camera:\n", esc(did), len(leases)))
+			rows := [][]map[string]any{}
+			for i, l := range leases {
+				if i >= 15 {
+					b.WriteString("…\n")
+					break
+				}
+				host := l.Hostname
+				if host == "" {
+					host = l.MAC
+				}
+				b.WriteString(fmt.Sprintf("%d. <code>%s</code> %s %s\n", i+1, esc(l.IP), esc(l.MAC), esc(host)))
+				rows = append(rows, []map[string]any{btn(fmt.Sprintf("%d · %s", i+1, trunc(host, 20)), fmt.Sprintf("m:nvr:add:%d", i), "")})
+			}
+			if len(leases) == 0 {
+				b.WriteString("empty or agent returned non-lease text:\n<pre>" + esc(trunc(raw, 400)) + "</pre>")
+			}
+			rows = append(rows, []map[string]any{btn(T("back"), "m:nvr:sites", ""), btn(T("main_menu"), "m:menu", "primary")})
+			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+		}(chat, msgID, did, cmdID)
+	case strings.HasPrefix(data, "m:nvr:add:"):
+		idxStr := strings.TrimPrefix(data, "m:nvr:add:")
+		st := chatState[chat]
+		extra := chatExtra[chat]
+		if st != "nvr_lease_cache" || extra == "" {
+			reply(token, chat, msgID, "⚠️ lease cache expired — load leases again", nvrSitesKeyboard())
+			return
+		}
+		parts := strings.SplitN(extra, "\n", 2)
+		if len(parts) != 2 {
+			reply(token, chat, msgID, "⚠️ bad cache", nvrKeyboard())
+			return
+		}
+		did := parts[0]
+		var leases []nvr.Lease
+		_ = json.Unmarshal([]byte(parts[1]), &leases)
+		var idx int
+		fmt.Sscanf(idxStr, "%d", &idx)
+		if idx < 0 || idx >= len(leases) {
+			reply(token, chat, msgID, "⚠️ bad index", nvrKeyboard())
+			return
+		}
+		l := leases[idx]
+		name := l.Hostname
+		if name == "" {
+			name = "cam-" + strings.ReplaceAll(l.MAC, ":", "")[max(0, len(strings.ReplaceAll(l.MAC, ":", ""))-6):]
+		}
+		// store pending camera draft
+		draft, _ := json.Marshal(map[string]string{
+			"site_id": did, "mac": l.MAC, "lan_ip": l.IP, "name": name,
+		})
+		setState(chat, "wait_nvr_pass", string(draft))
+		reply(token, chat, msgID, fmt.Sprintf(
+			"➕ Camera <b>%s</b>\nIP <code>%s</code> MAC <code>%s</code>\nsite <code>%s</code>\n\nSend <b>RTSP password</b> (Tapo camera account), or <code>-</code> to skip:",
+			esc(name), esc(l.IP), esc(l.MAC), esc(did)), nvrKeyboard())
 	case data == "m:nvr:cams":
 		cams := nvr.ListCameras()
 		var b strings.Builder
 		b.WriteString("<b>Cameras</b>\n")
 		if len(cams) == 0 {
-			b.WriteString("empty — use CLI: <code>netductor nvr cameras add …</code>\n")
+			b.WriteString("empty — <b>From leases</b> or CLI add\n")
 		}
 		for _, c := range cams {
 			b.WriteString(fmt.Sprintf("• <b>%s</b> id=<code>%s</code>\nsite=%s mac=%s ip=%s rec=%v\n",
@@ -61,7 +170,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		cfg := nvr.LoadConfig()
 		raw, _ := json.MarshalIndent(cfg, "", "  ")
 		reply(token, chat, msgID, "<b>NVR config</b>\n<pre>"+esc(string(raw))+"</pre>\n"+
-			"Change: <code>netductor nvr config set retention_days=7 max_gb=40</code>", nvrKeyboard())
+			"<code>netductor nvr config set retention_days=7 max_gb=40</code>", nvrKeyboard())
 	case data == "m:nvr:rotate":
 		rep, err := nvr.RunRetention(nvr.LoadConfig())
 		if err != nil {
@@ -78,7 +187,6 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		}
 		var b strings.Builder
 		b.WriteString(fmt.Sprintf("<b>Segments</b> (%d)\n", len(files)))
-		// show newest last 12
 		start := 0
 		if len(files) > 12 {
 			start = len(files) - 12
@@ -93,4 +201,63 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 	default:
 		reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
 	}
+}
+
+func trunc(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// handleNVRMessage processes wait_nvr_pass text.
+func handleNVRMessage(token string, chat int64, text string) bool {
+	if chatState[chat] != "wait_nvr_pass" {
+		return false
+	}
+	draftJSON := chatExtra[chat]
+	setState(chat, "", "")
+	var draft map[string]string
+	if json.Unmarshal([]byte(draftJSON), &draft) != nil {
+		reply(token, chat, 0, "⚠️ bad draft", nvrKeyboard())
+		return true
+	}
+	pass := strings.TrimSpace(text)
+	c := nvr.Camera{
+		SiteID:   draft["site_id"],
+		Name:     draft["name"],
+		MAC:      draft["mac"],
+		LANIP:    draft["lan_ip"],
+		RTSPUser: "admin",
+		RTSPPath: "/stream1",
+		RTSPPort: 554,
+		Enabled:  true,
+		Record:   true,
+		Features: map[string]bool{"ptz": true, "night": true},
+	}
+	out, err := nvr.UpsertCamera(c)
+	if err != nil {
+		reply(token, chat, 0, "⚠️ "+esc(err.Error()), nvrKeyboard())
+		return true
+	}
+	if pass != "" && pass != "-" {
+		out.SecretRef = out.ID
+		out, _ = nvr.UpsertCamera(out)
+		_ = nvr.SetSecret(out.ID, pass)
+	}
+	// optional static DHCP
+	if out.MAC != "" && out.LANIP != "" && out.SiteID != "" {
+		arg := "mac=" + out.MAC + "|ip=" + out.LANIP + "|name=" + out.Name
+		_ = edge.EnqueueCmd(out.SiteID, "dhcp_static", arg)
+	}
+	reply(token, chat, 0, fmt.Sprintf("✅ camera <b>%s</b> id=<code>%s</code>\nstatic DHCP queued on site if agent online",
+		esc(out.Name), out.ID), nvrKeyboard())
+	return true
 }

@@ -120,6 +120,9 @@ func runNVR(args []string) {
 		}
 		id := edge.EnqueueCmd(args[1], "dhcp_static", arg)
 		fmt.Println("cmd_id", id)
+	case "storage":
+		b, _ := json.MarshalIndent(nvr.GetStorageStatus(), "", "  ")
+		fmt.Println(string(b))
 	case "prepare-storage":
 		if err := nvr.PrepareStorage(len(args) > 1 && args[1] == "--print-only"); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -166,6 +169,7 @@ func printNVRHelp() {
   dhcp-static <device_id> <mac> <ip> [name]
   retention|rotate
   segments [camera_id]
+  storage
   prepare-storage [--print-only]
   recorder start|stop <camera_id>
 
