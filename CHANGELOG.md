@@ -1,3 +1,7 @@
+## 0.7.29-dev
+
+- tapo: presets, calibrate, relativeMove, LED, info; expand Control actions
+
 ## 0.7.28-dev
 
 - internal/tapo: Go port of pytapo secure control (C200 motor/night/privacy)

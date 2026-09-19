@@ -213,7 +213,7 @@ func runNVR(args []string) {
 		fmt.Println(res["result"])
 	case "ptz":
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: netductor nvr ptz <camera_id> left|right|up|down|stop")
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr ptz <camera_id> <action>\n  actions: left|right|up|down|stop|info|presets|calibrate|night:auto|privacy:off|preset_goto:1|…")
 			os.Exit(2)
 		}
 		c, ok := nvr.GetCamera(args[1])

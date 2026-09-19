@@ -117,3 +117,20 @@ Agent `camera_ptz` order: **tapo-go → python pytapo → ONVIF**.
 Still required on camera: **Third-Party Compatibility On** + Camera Account.
 
 Not ported (later): KLAP transport, presets/cruise, full media stream, hub child devices.
+
+### Tapo Go port progress (0.7.29-dev)
+
+| Feature | Status |
+|---------|--------|
+| Secure login + AES passthrough | Done |
+| motorMove left/right/up/down | Done |
+| relativeMove step:angle | Done |
+| calibrate, cruise_stop | Done |
+| day/night, privacy, LED | Done |
+| presets list/save/goto/del | Done |
+| getBasicInfo | Done |
+| KLAP transport | Not yet (newer FW may need it) |
+| Hub child devices | Not yet |
+| Media/direct stream | Not yet (use RTSP) |
+
+Agent order: **tapo-go → python → ONVIF**.
