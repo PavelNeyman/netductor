@@ -262,7 +262,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		menuItem{"Status", "systemd units", "status"},
 		menuItem{"Fleet status", "primary / secondary", "fleet-status"},
 		menuItem{"Nodes registry", "list", "nodes-list"},
-		menuItem{"Secondary / relay status", "agent online", "relay-status"},
+		menuItem{"Secondary status", "agent online", "secondary-status"},
 		menuItem{"Backup now", "encrypted + peer", "backup-now"},
 		menuItem{"VPN users → secondary", "relay sync", "relay-sync"},
 		menuItem{"VPN users", "list", "vpn-list"},
@@ -457,7 +457,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 	case "fleet-status":
 		m.showCmd("fleet", "status")
 	case "relay-sync", "fleet-sync":
-		m.showCmd("relay", "sync")
+		m.showCmd("secondary", "sync")
 	case "apply-lampac":
 		m.showCmd("install", "lampac")
 	case "disable-legacy":
@@ -478,8 +478,8 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		}
 	case "vpn-list":
 		m.showCmd("vpn", "list")
-	case "relay-status":
-		m.showCmd("relay", "status")
+	case "secondary-status":
+		m.showCmd("secondary", "status")
 	case "nodes-list":
 		m.showCmd("nodes", "list")
 	case "edge-list":

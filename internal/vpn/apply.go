@@ -227,7 +227,7 @@ func buildOutboundsAndRoute() (outbounds []any, routeRules []any, finalOut strin
 	}
 	finalOut = "direct"
 	exitOn, ip, pbk, sid, sniR := readExitTarget()
-	exitUUID := secret("relay_exit_uuid")
+	exitUUID := secret("secondary_exit_uuid")
 	if !exitOn || ip == "" || pbk == "" || exitUUID == "" {
 		return
 	}

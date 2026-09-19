@@ -369,7 +369,7 @@ func collectMetrics() map[string]any {
 
 
 func checkRelayAndFallback() {
-	relayHost := strings.TrimSpace(readFirstLine("/etc/netductor-agent/relay.host"))
+	relayHost := strings.TrimSpace(readFirstLine("/etc/netductor-agent/secondary.host"))
 	if relayHost == "" {
 		return
 	}
@@ -379,7 +379,7 @@ func checkRelayAndFallback() {
 	if ok {
 		_ = c.Close()
 	}
-	statePath := "/etc/netductor-agent/relay.health"
+	statePath := "/etc/netductor-agent/secondary.health"
 	prev, _ := os.ReadFile(statePath)
 	prevOK := strings.TrimSpace(string(prev)) == "ok"
 	if ok {

@@ -10,7 +10,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.7.35-dev"
+var version = "0.7.36-dev"
 
 func main() {
 	ndconfig.Load()
@@ -51,8 +51,8 @@ func main() {
 		runTLS(os.Args[2:])
 	case "redirect-serve", "import-redirect":
 		runRedirectServe(os.Args[2:])
-	case "secondary", "relay":
-		runRelay(os.Args[2:])
+	case "secondary":
+		runSecondary(os.Args[2:])
 	case "addons", "addon":
 		runAddons(os.Args[2:])
 	case "edge":
@@ -142,8 +142,7 @@ func printHelp() {
   tui|menu [--mode vps|openwrt|workstation|operator] [--remote HOST] [--remote-user U] [--remote-key PATH] [--remote-password P]
   backup | restore | recover | fleet | audit | self-install | update
   version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | serve | install | probe | collect | help
-  (alias: relay → secondary)
-
+  
   (no args on a TTY → interactive menu)
 
 serve:

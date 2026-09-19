@@ -118,9 +118,9 @@ chmod 755 /usr/local/bin/netductor
 cat > /root/bundle.json << 'BUNDLE_EOF'
 %s
 BUNDLE_EOF
-netductor relay join /root/bundle.json
+netductor secondary join /root/bundle.json
 systemctl is-active sing-box || true
-systemctl is-active netductor-relay-agent || true
+systemctl is-active netductor-secondary-agent || true
 ss -tlnp | grep -E ':443|:4443' || true
 `, b64)
 	return runSSH(client, script)

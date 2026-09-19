@@ -33,21 +33,21 @@ func runSSHHosts(args []string) {
 				fmt.Printf("%s\t%s\n", e.ID, e.KeyPrefix)
 			}
 		}
-		if kind == "all" || kind == "relay" {
-			fmt.Println("=== relay ===")
+		if kind == "all" || kind == "secondary" {
+			fmt.Println("=== secondary ===")
 			for _, e := range secondary.ListSSHHosts() {
 				fmt.Printf("%s\t%s\n", e.ID, e.KeyPrefix)
 			}
 		}
 	case "forget", "delete", "rm":
 		if len(rest) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts forget [--kind mt|relay] <id>")
+			fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts forget [--kind mt|secondary] <id>")
 			os.Exit(2)
 		}
 		id := rest[1]
 		var err error
 		switch kind {
-		case "relay":
+		case "secondary":
 			err = secondary.ForgetSSHHost(id)
 		case "mt", "mikrotik":
 			err = mikrotik.ForgetKnownHost(id)
@@ -55,7 +55,7 @@ func runSSHHosts(args []string) {
 			e1 := mikrotik.ForgetKnownHost(id)
 			e2 := secondary.ForgetSSHHost(id)
 			if e1 != nil && e2 != nil {
-				err = fmt.Errorf("mt: %v; relay: %v", e1, e2)
+				err = fmt.Errorf("mt: %v; secondary: %v", e1, e2)
 			}
 		}
 		if err != nil {
@@ -65,7 +65,7 @@ func runSSHHosts(args []string) {
 		fmt.Println("ok: forgot", id)
 	case "clear":
 		switch kind {
-		case "relay":
+		case "secondary":
 			_ = secondary.ClearSSHHosts()
 		case "mt", "mikrotik":
 			_ = mikrotik.ClearKnownHosts()
@@ -75,7 +75,7 @@ func runSSHHosts(args []string) {
 		}
 		fmt.Println("ok: cleared", kind)
 	default:
-		fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts list|forget|clear [--kind mt|relay]")
+		fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts list|forget|clear [--kind mt|secondary]")
 		os.Exit(2)
 	}
 }

@@ -102,7 +102,7 @@ func runSites(args []string) {
 		fmt.Println("   netductor sites rsc " + id)
 		fmt.Println("   or POST /api/sites/push-rsc {site_id,host,user,password}")
 		fmt.Println()
-		fmt.Println("3) Verify: LAN client → MT → RPi → relay")
+		fmt.Println("3) Verify: LAN client → MT → RPi → secondary")
 		fmt.Println()
 		fmt.Println("=== RSC ===")
 		fmt.Print(rsc)

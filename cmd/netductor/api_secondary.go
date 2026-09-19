@@ -18,7 +18,7 @@ import (
 )
 
 func registerRelayAPI(mux *http.ServeMux) {
-	mux.HandleFunc("/api/relay/device", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/secondary/device", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
@@ -36,7 +36,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 		http.Error(w, "not found", 404)
 	})
 
-	mux.HandleFunc("/api/relay/export", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/secondary/export", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
@@ -49,14 +49,14 @@ func registerRelayAPI(mux *http.ServeMux) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		if id, tok, err := secondary.IssueToken("relay"); err == nil {
+		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
 			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
 		}
 		writeJSON(w, 200, b)
 	})
-	mux.HandleFunc("/api/relay/cmd", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/secondary/cmd", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
@@ -75,14 +75,14 @@ func registerRelayAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "queued": body.Cmd, "id": body.ID})
 	})
-	mux.HandleFunc("/api/relay/sync", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/secondary/sync", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
 		ver := secondary.BumpConfigVer()
 		writeJSON(w, 200, map[string]any{"ok": true, "config_ver": ver})
 	})
-	mux.HandleFunc("/api/relay/status", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/secondary/status", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
@@ -100,7 +100,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 			"devices":    out,
 		})
 	})
-	mux.HandleFunc("/api/relay/exit", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/secondary/exit", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
@@ -118,7 +118,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"exit_enabled": secondary.ExitEnabled()})
 	})
-	mux.HandleFunc("/api/relay/links", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/secondary/links", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
@@ -132,7 +132,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 			}
 			for _, u := range reg.Users {
 				links = append(links, map[string]string{
-					"relay": d.ID,
+					"secondary": d.ID,
 					"name":  u.Name,
 					"link":  vpn.ClientLinkForRelay(u.Name, u.UUID, d.PublicIP, d.PBK, d.SID, d.SNI),
 				})
@@ -144,9 +144,6 @@ func registerRelayAPI(mux *http.ServeMux) {
 	// Agent-facing (token = device token)
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleRelayAgentHeartbeat)
 	mux.HandleFunc("/api/secondary/agent/config", handleRelayAgentConfig)
-	// legacy paths (compat until agents upgraded)
-	mux.HandleFunc("/api/relay/agent/heartbeat", handleRelayAgentHeartbeat)
-	mux.HandleFunc("/api/relay/agent/config", handleRelayAgentConfig)
 }
 
 func agentToken(r *http.Request) string {
@@ -154,7 +151,7 @@ func agentToken(r *http.Request) string {
 	if strings.HasPrefix(h, "Bearer ") {
 		return strings.TrimSpace(h[7:])
 	}
-	return r.Header.Get("X-Relay-Token")
+	return r.Header.Get("X-Secondary-Token")
 }
 
 func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
@@ -184,7 +181,7 @@ func handleRelayAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 	// Register as node role=secondary so rename / fleet UI work
 	host := d.Name
-	if host == "" || host == "relay" || host == "secondary" {
+	if host == "" || host == "secondary" {
 		host = "nd-secondary"
 	}
 	st := "online"
@@ -230,9 +227,6 @@ func startRelayAgentListener() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleRelayAgentHeartbeat)
 	mux.HandleFunc("/api/secondary/agent/config", handleRelayAgentConfig)
-	// legacy paths (compat until agents upgraded)
-	mux.HandleFunc("/api/relay/agent/heartbeat", handleRelayAgentHeartbeat)
-	mux.HandleFunc("/api/relay/agent/config", handleRelayAgentConfig)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("ok\n"))
@@ -242,7 +236,7 @@ func startRelayAgentListener() {
 		active := strings.TrimSpace(string(out)) == "active"
 		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
 	})
-	addr := os.Getenv("NETDUCTOR_RELAY_API")
+	addr := os.Getenv("NETDUCTOR_SECONDARY_API")
 	if addr == "" {
 		addr = ":8788"
 	}

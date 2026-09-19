@@ -15,8 +15,8 @@ func syncRelaysIntoNodes() {
 	_ = secondary.PruneDuplicates()
 	for _, d := range secondary.List() {
 		host := d.Name
-		if host == "" || host == "relay" {
-			host = "nd-relay-" + strings.ReplaceAll(d.PublicIP, ".", "-")
+		if host == "" || host == "secondary" {
+			host = "nd-secondary-" + strings.ReplaceAll(d.PublicIP, ".", "-")
 		}
 		st := "offline"
 		if secondary.Online(d, 2*time.Minute) {
@@ -27,7 +27,7 @@ func syncRelaysIntoNodes() {
 			ls = time.Now().Unix()
 		}
 		_, _ = nodes.UpsertFromDevice(nodes.Node{
-			ID: d.ID, Hostname: host, Role: "relay", Kind: "vps",
+			ID: d.ID, Hostname: host, Role: "secondary", Kind: "vps",
 			PublicIP: d.PublicIP, Status: st, LastSeen: ls,
 		})
 	}

@@ -33,7 +33,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 		}
 		// allowlist
 		ok := false
-		for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot", "blocky", "netductor-secondary-agent", "netductor-relay-agent"} {
+		for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot", "blocky", "netductor-secondary-agent", "netductor-secondary-agent"} {
 			if u == unit {
 				ok = true
 				break
@@ -44,7 +44,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			return
 		}
 		id := r.URL.Query().Get("id")
-		if id != "" && (strings.HasPrefix(id, "relay-") || strings.Contains(id, "relay")) {
+		if id != "" && (strings.Contains(id, "secondary")) {
 			// queue remote journal; return last known log if this is a refresh
 			_ = secondary.EnqueueCmd(id, "journal")
 			log := ""
@@ -87,8 +87,8 @@ func registerSessionAPI(mux *http.ServeMux) {
 			http.Error(w, "unit", 400)
 			return
 		}
-		// core local only for now; relay uses cmd queue
-		if body.ID != "" && (strings.HasPrefix(body.ID, "relay-") || strings.Contains(body.ID, "relay")) {
+		// core local only for now; secondary uses cmd queue
+		if body.ID != "" && (strings.HasPrefix(body.ID, "secondary-") || strings.Contains(body.ID, "secondary")) {
 			_ = secondary.EnqueueCmd(body.ID, "restart:"+body.Unit)
 			writeJSON(w, 200, map[string]any{"ok": true, "queued": true})
 			return
@@ -136,7 +136,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			return
 		}
 		ver := secondary.BumpConfigVer()
-		writeJSON(w, 200, map[string]any{"ok": true, "active": vpn.ActiveSNI(), "relay_config_ver": ver})
+		writeJSON(w, 200, map[string]any{"ok": true, "active": vpn.ActiveSNI(), "secondary_config_ver": ver})
 	})
 	
 	mux.HandleFunc("/api/sites", func(w http.ResponseWriter, r *http.Request) {
@@ -307,7 +307,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{
 			"ok": true, "service": "netductor", "version": version,
 			"metrics": m, "probes": probes.Run(probes.Load()),
-			"mismatch": mm, "relay_mismatch": relays,
+			"mismatch": mm, "secondary_mismatch": relays,
 		})
 	})
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {

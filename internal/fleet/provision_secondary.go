@@ -64,7 +64,7 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	}
 
 	fmt.Fprintln(os.Stderr, "==> secondary: VPN entry ready (no lampac/bot mirror)")
-	fmt.Fprintln(os.Stderr, "  force user push: netductor relay sync")
+	fmt.Fprintln(os.Stderr, "  force user push: netductor secondary sync")
 	return nil
 }
 

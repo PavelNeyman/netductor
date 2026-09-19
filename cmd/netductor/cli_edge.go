@@ -135,7 +135,7 @@ func runEdgeCLI(args []string) {
 					name = args[i+1]
 					i++
 				}
-			case "--relay":
+			case "--secondary":
 				if i+1 < len(args) {
 					relayIP = args[i+1]
 					i++

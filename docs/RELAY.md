@@ -1,4 +1,10 @@
-# RU secondary VPS (legacy name: relay)
+# Secondary (RU VPN entry)
+
+> **Operator name: secondary.** State dir: `/var/lib/netductor/secondary` only.  
+> CLI: `netductor secondary …`  
+> HTTP agent API: `/api/secondary/agent/*` on `:8788`  
+> Legacy name **relay** removed (not in production).
+
 
 > **Operator name is secondary.** CLI/API still accept `relay` as an alias (`netductor secondary` ≡ `netductor relay`).  
 > State path migrates `relay/` → `secondary/`. Prefer **secondary** in new docs and TG UI.

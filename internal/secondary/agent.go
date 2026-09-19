@@ -143,18 +143,6 @@ func pullAndApply(client *http.Client, coreBase, token string) error {
 }
 
 func readSecret(name string) string {
-	legacy := map[string]string{
-		"secondary_agent_token": "relay_agent_token",
-		"secondary_core_url":    "relay_core_url",
-	}
-	if leg, ok := legacy[name]; ok {
-		return paths.ReadSecret(name, leg)
-	}
-	// also allow reading legacy names directly
-	if strings.HasPrefix(name, "relay_") {
-		sec := "secondary_" + strings.TrimPrefix(name, "relay_")
-		return paths.ReadSecret(sec, name)
-	}
 	return paths.ReadSecret(name)
 }
 func readFile(p string) string {
@@ -220,7 +208,7 @@ func reportCmdDone(client *http.Client, coreBase, token, cmd string, ok bool, lo
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: cmd, CmdOK: ok, CmdLog: log,
 	})
-	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(coreBase, "/")+"/api/relay/agent/heartbeat", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(coreBase, "/")+"/api/secondary/agent/heartbeat", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -250,26 +238,25 @@ apt-get update -qq 2>&1 | tail -5
 apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade 2>&1 | tail -30
 wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.7.1/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
 systemctl restart sing-box 2>&1 || true
-nohup bash -c 'sleep 45; systemctl restart netductor-secondary-agent netductor-relay-agent' >/dev/null 2>&1 &
+nohup bash -c 'sleep 45; systemctl restart netductor-secondary-agent' >/dev/null 2>&1 &
 echo DONE
 `).CombinedOutput()
 		return err == nil, string(out)
 	case "metrics":
 		return true, "metrics on next heartbeat"
 	case "journal":
-		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-secondary-agent", "-u", "netductor-relay-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
+		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-secondary-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
 		return err == nil || len(out) > 0, string(out)
 	default:
 		if strings.HasPrefix(cmd, "restart:") {
 			unit := strings.TrimPrefix(cmd, "restart:")
 			// allowlist only netductor-related units
 			allowed := map[string]bool{
-				"sing-box": true,
+				"sing-box":                 true,
 				"netductor-secondary-agent": true,
-				"netductor-relay-agent": true,
-				"netductor-api": true,
-				"netductor-telegram-bot": true,
-				"blocky": true,
+				"netductor-api":            true,
+				"netductor-telegram-bot":   true,
+				"blocky":                   true,
 			}
 			if !allowed[unit] {
 				return false, "restart denied: unit not in allowlist: " + unit

@@ -94,11 +94,11 @@ func ExportRelayBundle(relaySNI string) (*RelayBundle, error) {
 		ExitPort:   4443,
 	}
 	// dedicated UUID for core→RU exit feeder
-	if eu := secret("relay_exit_uuid"); eu != "" {
+	if eu := secret("secondary_exit_uuid"); eu != "" {
 		b.ExitUUID = eu
 	} else {
 		b.ExitUUID = genUUID()
-		_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "relay_exit_uuid"), append([]byte(b.ExitUUID), 10), 0o600)
+		_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "secondary_exit_uuid"), append([]byte(b.ExitUUID), 10), 0o600)
 	}
 	if b.CorePBK == "" || b.CoreSID == "" {
 		return nil, fmt.Errorf("core Reality secrets missing")

@@ -124,8 +124,8 @@ WantedBy=multi-user.target
 		_ = paths.WriteSecret("secondary_agent_token", b.AgentToken)
 		_ = paths.WriteSecret("secondary_core_url", b.CoreAgentURL)
 		// legacy names for older agents
-		_ = paths.WriteSecret("relay_agent_token", b.AgentToken)
-		_ = paths.WriteSecret("relay_core_url", b.CoreAgentURL)
+		_ = paths.WriteSecret("secondary_agent_token", b.AgentToken)
+		_ = paths.WriteSecret("secondary_core_url", b.CoreAgentURL)
 		agentUnit := `[Unit]
 Description=Netductor secondary agent
 After=network-online.target sing-box.service
@@ -141,9 +141,9 @@ RestartSec=15
 WantedBy=multi-user.target
 `
 		_ = writeUnit("netductor-secondary-agent.service", agentUnit)
-		_ = writeUnit("netductor-relay-agent.service", agentUnit)
+		_ = writeUnit("netductor-secondary-agent.service", agentUnit)
 		_ = enableStart("netductor-secondary-agent")
-		_ = enableStart("netductor-relay-agent")
+		_ = enableStart("netductor-secondary-agent")
 		fmt.Fprintln(os.Stderr, "secondary agent started →", b.CoreAgentURL)
 	}
 	fmt.Fprintln(os.Stderr, "Give mobile users *-relay links; home users keep core links.")

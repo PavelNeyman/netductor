@@ -36,3 +36,9 @@ See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Snikket primary candidate; Matrix fa
 ## NVR
 
 See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — hardware validation remaining.
+
+### 0.7.36-dev — relay name removed
+- State: only `secondary/` (no `relay/` fallback).
+- CLI: `netductor secondary` only (no `relay` alias).
+- API: `/api/secondary/*` only.
+- Node role/id prefix: `secondary` / `secondary-…`.

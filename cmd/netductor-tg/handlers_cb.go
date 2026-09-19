@@ -225,7 +225,7 @@ if strings.HasPrefix(data, "u:") {
 		// Relay is part of Nodes
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>secondary = RU node role</i>", nodesKeyboard())
 	case "m:relay:export":
-		out := runND("relay", "export", "-o", "/tmp/nd-relay-bundle.json", "--sni", "ya.ru")
+		out := runND("secondary", "export", "-o", "/tmp/nd-relay-bundle.json", "--sni", "ya.ru")
 		b, err := os.ReadFile("/tmp/nd-relay-bundle.json")
 		msg := out
 		if err == nil {
@@ -238,15 +238,15 @@ if strings.HasPrefix(data, "u:") {
 	case "m:relay:oneline":
 		reply(token, chat, msgID, formatRelayOneline(), relayKeyboard())
 	case "m:relay:sync":
-		out := runND("relay", "sync")
+		out := runND("secondary", "sync")
 		reply(token, chat, msgID, "🔄 <b>Sync</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatRelayListHTML(), relayKeyboard())
 	case "m:relay:exit:menu":
 		reply(token, chat, msgID, T("ru_exit_help"), relayKeyboard())
 	case "m:relay:exit:on":
-		out := runND("relay", "exit", "on")
+		out := runND("secondary", "exit", "on")
 		reply(token, chat, msgID, "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Трафик с core уходит через РФ (доступ к RU-сервисам из-за границы)</i>", relayKeyboard())
 	case "m:relay:exit:off":
-		out := runND("relay", "exit", "off")
+		out := runND("secondary", "exit", "off")
 		reply(token, chat, msgID, "✈️ <b>RU exit OFF</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>", relayKeyboard())
 	case "m:relay:list":
 		reply(token, chat, msgID, formatRelayListHTML(), relayKeyboard())

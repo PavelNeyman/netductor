@@ -139,10 +139,10 @@ func runVPN(args []string) {
 		case "hy2":
 			s, ok = vpn.ReadClient(name, "link-hy2.txt")
 		case "vless":
-			// fall through to preferred (relay-first)
+			// fall through to preferred (secondary-first)
 			fallthrough
 		default:
-			// preferred: relay VLESS when online, else core subscription
+			// preferred: secondary VLESS when online, else core
 			r, err := vpn.ListNative()
 			if err == nil {
 				for _, u := range r {
@@ -150,7 +150,7 @@ func runVPN(args []string) {
 						vless := vpn.PreferredVLESSLink(name, u.UUID)
 						via := "core"
 						if e := vpn.ResolveClientEndpoints(name, u.UUID); e.RelayHost != "" {
-							via = "relay:" + e.RelayHost
+							via = "secondary:" + e.RelayHost
 						}
 						fmt.Println(vless)
 						if via != "core" {
@@ -210,7 +210,7 @@ func runVPN(args []string) {
 	case "mismatch":
 		st := vpn.CollectMismatch(30)
 		fmt.Println(vpn.FormatMismatchText(st))
-		fmt.Println("--- relay ---")
+		fmt.Println("--- secondary ---")
 		for _, d := range secondary.List() {
 			if d.MismatchTotal == 0 && len(d.MismatchByIP) == 0 {
 				continue

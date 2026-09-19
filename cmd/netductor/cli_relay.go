@@ -17,9 +17,9 @@ import (
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
-func runRelay(args []string) {
+func runSecondary(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor relay export|join|links|status|sync|exit|provision --host --user --password")
+		fmt.Fprintln(os.Stderr, "usage: netductor secondary export|join|links|status|sync|exit|provision --host --user --password")
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -45,7 +45,7 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if id, tok, err := secondary.IssueToken("relay"); err == nil {
+		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
 			b.CoreAgentURL = "http://" + b.CoreIP + ":8788"
@@ -56,7 +56,7 @@ func runRelay(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("wrote", out)
-		fmt.Println("Copy to RU VPS and run: netductor relay join", out)
+		fmt.Println("Copy to RU VPS and run: netductor secondary join", out)
 		fmt.Println("uplink user:", vpn.RelayUplinkName, "uuid="+b.UplinkUUID)
 	case "join":
 		path := "bundle.json"
@@ -71,7 +71,7 @@ func runRelay(args []string) {
 		dir := filepath.Join(paths.SecondaryDir(), "clients")
 		ents, err := os.ReadDir(dir)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "no relay client links — run join on RU VPS first")
+			fmt.Fprintln(os.Stderr, "no secondary client links — run join on RU VPS first")
 			os.Exit(1)
 		}
 		for _, e := range ents {
@@ -85,14 +85,14 @@ func runRelay(args []string) {
 		n := secondary.PruneDuplicates()
 		s := secondary.PruneStale(10 * time.Minute)
 		fmt.Printf("duplicates_removed=%d stale_removed=%d\n", n, s)
-		// drop offline relay nodes from registry
+		// drop offline secondary nodes from registry
 		for _, d := range secondary.List() {
 			_ = d
 		}
 		nodes.MarkStaleRelays(180)
 		if list, err := nodes.List(); err == nil {
 			for _, n := range list {
-				if n.Role == "relay" && n.Status == "offline" && n.PublicIP == "" {
+				if n.Role == "secondary" && n.Status == "offline" && n.PublicIP == "" {
 					_ = nodes.Delete(n.ID)
 				}
 			}
@@ -108,16 +108,16 @@ func runRelay(args []string) {
 		_ = nodes.Delete(args[1])
 		fmt.Println("removed", args[1])
 	case "agent":
-		tok := paths.ReadSecret("secondary_agent_token", "relay_agent_token")
-		url := paths.ReadSecret("secondary_core_url", "relay_core_url")
+		tok := paths.ReadSecret("secondary_agent_token")
+		url := paths.ReadSecret("secondary_core_url")
 		if len(args) > 1 && args[1] != "" {
 			// optional overrides
 		}
 		if tok == "" || url == "" {
-			fmt.Fprintln(os.Stderr, "missing relay_agent_token or relay_core_url")
+			fmt.Fprintln(os.Stderr, "missing secondary_agent_token or secondary_core_url")
 			os.Exit(1)
 		}
-		fmt.Fprintln(os.Stderr, "relay agent →", url)
+		fmt.Fprintln(os.Stderr, "secondary agent →", url)
 		secondary.AgentLoop(url, tok, 30*time.Second)
 	case "provision":
 		host, user, pass, sni := "", "root", "", ""
@@ -153,7 +153,7 @@ func runRelay(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if id, tok, err := secondary.IssueToken("relay"); err == nil {
+		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
 			b.CoreAgentURL = "http://" + b.CoreIP + ":8788"
@@ -173,7 +173,7 @@ func runRelay(args []string) {
 		fmt.Println("provisioned", host)
 	case "device":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor relay device <id>")
+			fmt.Fprintln(os.Stderr, "usage: netductor secondary device <id>")
 			os.Exit(2)
 		}
 		for _, d := range secondary.List() {
@@ -208,7 +208,7 @@ func runRelay(args []string) {
 		fmt.Println("not found")
 	case "cmd":
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: netductor relay cmd <id> <reboot|upgrade|metrics>")
+			fmt.Fprintln(os.Stderr, "usage: netductor secondary cmd <id> <reboot|upgrade|metrics>")
 			os.Exit(2)
 		}
 		if err := secondary.EnqueueCmd(args[1], args[2]); err != nil {
@@ -229,7 +229,7 @@ func runRelay(args []string) {
 		if args[1] == "off" || args[1] == "0" || args[1] == "false" {
 			on = false
 		} else if args[1] != "on" && args[1] != "1" && args[1] != "true" {
-			fmt.Fprintln(os.Stderr, "usage: netductor relay exit on|off")
+			fmt.Fprintln(os.Stderr, "usage: netductor secondary exit on|off")
 			os.Exit(2)
 		}
 		if err := secondary.SetExitEnabled(on); err != nil {
@@ -260,14 +260,14 @@ func runRelay(args []string) {
 		}
 		fmt.Println("config_ver", secondary.ConfigVer())
 	default:
-		fmt.Fprintln(os.Stderr, "unknown relay subcommand")
+		fmt.Fprintln(os.Stderr, "unknown secondary subcommand")
 		os.Exit(2)
 	}
 }
 
 
 // postProvisionRelay restores operator-facing state after a clean relay reinstall.
-// Reality keys are always new on the relay; everything else is rebuilt on core + remote.
+// Reality keys are always new on the secondary; everything else is rebuilt on core + remote.
 func postProvisionRelay(host, sni string) {
 	fmt.Println("==> post-provision: forget old SSH host key (reinstall changes fingerprint)")
 	_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
@@ -307,7 +307,7 @@ func postProvisionRelay(host, sni string) {
 	_ = secondary.PruneStale(24 * time.Hour)
 	if list, err := nodes.List(); err == nil {
 		for _, n := range list {
-			if n.Role != "relay" {
+			if n.Role != "secondary" {
 				continue
 			}
 			if n.PublicIP == host || n.PublicIP == "" {
@@ -337,7 +337,7 @@ func postProvisionRelay(host, sni string) {
 		_ = execLocal("systemctl", "try-restart", "sing-box")
 	}
 
-	fmt.Println("==> post-provision: refresh all client links (new relay keys)")
+	fmt.Println("==> post-provision: refresh all client links (new secondary keys)")
 	if n, err := vpn.RefreshLinks(""); err != nil {
 		fmt.Println("  refresh-links:", err)
 	} else {
@@ -360,7 +360,7 @@ func postProvisionRelay(host, sni string) {
 
 	fmt.Println("==> post-provision: remember SNI", sni)
 	_ = vpn.RememberRelaySNI(sni)
-	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "last_relay_host"), []byte(host+"\n"), 0o600)
+	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "last_secondary_host"), []byte(host+"\n"), 0o600)
 
 	// final prune pass
 	_ = secondary.PruneDuplicates()

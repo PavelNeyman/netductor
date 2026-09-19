@@ -8,8 +8,8 @@ import (
 )
 
 func formatRelayListHTML() string {
-	_ = runND("relay", "status")
-	ex := strings.TrimSpace(runND("relay", "exit"))
+	_ = runND("secondary", "status")
+	ex := strings.TrimSpace(runND("secondary", "exit"))
 	nl := string([]byte{10})
 	body := formatNodesListHTML()
 	return "📡 <b>Nodes / secondary</b>" + nl + "RU exit: <code>" + esc(ex) + "</code>" + nl + nl + body
@@ -19,7 +19,7 @@ func formatRelayListHTML() string {
 
 
 
-// nodeCard is the single view-model for TG node screens (core, relay, edge).
+// nodeCard is the single view-model for TG node screens (core, secondary, edge).
 type nodeCard struct {
 	ID       string
 	Host     string
@@ -155,9 +155,9 @@ func loadNodeCard(id string) nodeCard {
 	if c.Role == "" {
 		c.Role = nodeRole(id)
 	}
-	isRelay := c.Role == "relay" || strings.HasPrefix(id, "relay-")
+	isRelay := c.Role == "secondary" || strings.HasPrefix(id, "secondary-")
 	if isRelay {
-		detail := runND("relay", "device", id)
+		detail := runND("secondary", "device", id)
 		for _, dl := range strings.Split(detail, "\n") {
 			dl = strings.TrimSpace(dl)
 			if strings.HasPrefix(dl, "status:") {
@@ -237,11 +237,11 @@ func formatCmdQueuedHTML(kind, nodeID, raw string) string {
 
 func enqueueNodeCmd(id, cmd string) string {
 	role := nodeRole(id)
-	isRelay := role == "secondary" || role == "relay" || strings.HasPrefix(id, "relay-") || strings.HasPrefix(id, "secondary-")
+	isRelay := role == "secondary" || strings.HasPrefix(id, "secondary-")
 	if !isRelay {
 		return runND("nodes", "local-cmd", cmd)
 	}
-	out := runND("relay", "cmd", id, cmd)
+	out := runND("secondary", "cmd", id, cmd)
 	low := strings.ToLower(out)
 	if strings.Contains(low, "does not exist") || strings.Contains(low, "not found") || strings.Contains(low, "exit status") {
 		return runND("nodes", "local-cmd", cmd)
@@ -253,8 +253,8 @@ func formatJournalHTML(id string) string {
 	nl := string([]byte{10})
 	role := nodeRole(id)
 	var out string
-	if role == "secondary" || role == "relay" || strings.HasPrefix(id, "relay-") || strings.HasPrefix(id, "secondary-") {
-		out = runND("relay", "cmd", id, "metrics") // soft; journal on relay via agent later
+	if role == "secondary" || strings.HasPrefix(id, "secondary-") {
+		out = runND("secondary", "cmd", id, "metrics") // soft; journal via secondary agent later
 		out = "relay journal: use Metrics / last_cmd for now\n" + out
 	} else {
 		b, _ := exec.Command("journalctl", "-u", "sing-box", "-n", "40", "--no-pager", "-o", "short-iso").CombinedOutput()
@@ -268,8 +268,8 @@ func formatJournalHTML(id string) string {
 
 func restartSingBox(id string) string {
 	role := nodeRole(id)
-	if role == "secondary" || role == "relay" || strings.HasPrefix(id, "relay-") || strings.HasPrefix(id, "secondary-") {
-		return runND("relay", "cmd", id, "restart:sing-box")
+	if role == "secondary" || strings.HasPrefix(id, "secondary-") {
+		return runND("secondary", "cmd", id, "restart:sing-box")
 	}
 	b, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput()
 	if err != nil {

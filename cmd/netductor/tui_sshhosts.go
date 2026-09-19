@@ -23,7 +23,7 @@ func runSSHHostsTUI() {
 			huh.NewSelect[string]().Title("Kind").Options(
 				huh.NewOption("All", "all"),
 				huh.NewOption("MikroTik", "mt"),
-				huh.NewOption("Relay", "relay"),
+				huh.NewOption("Secondary", "secondary"),
 			).Value(&kind),
 			huh.NewInput().Title("ID to forget (host or host:port)").Value(&id),
 		),

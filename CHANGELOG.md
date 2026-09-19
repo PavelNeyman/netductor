@@ -1,3 +1,7 @@
+## 0.7.36-dev
+
+- Remove legacy relay naming: paths, CLI, API, roles — secondary only
+
 ## 0.7.35-dev
 
 - SecondaryDir helper; no lab IP in TUI placeholders; client RU tests; release workflow_dispatch; doctor REDIRECT_BASE warn

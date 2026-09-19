@@ -59,18 +59,9 @@ func EnsureLayout() error {
 	return nil
 }
 
-// SecondaryDir is state for the RU VPN-entry node.
-// Prefers secondary/; falls back to legacy relay/ for reads; mkdir uses secondary.
+// SecondaryDir is state for the RU VPN-entry node (/var/lib/netductor/secondary).
 func SecondaryDir() string {
-	sec := filepath.Join(StateDir(), "secondary")
-	if st, err := os.Stat(sec); err == nil && st.IsDir() {
-		return sec
-	}
-	legacy := filepath.Join(StateDir(), "relay")
-	if st, err := os.Stat(legacy); err == nil && st.IsDir() {
-		return legacy
-	}
-	return sec
+	return filepath.Join(StateDir(), "secondary")
 }
 
 // SecondaryDevicesFile is devices.json under SecondaryDir.

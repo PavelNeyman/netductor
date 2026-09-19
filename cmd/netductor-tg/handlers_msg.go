@@ -169,7 +169,7 @@ func handleMessage(token string, m *message, admin int64) {
 		pass := text
 		setState(chat, "", "")
 		sendHTML(token, chat, fmt.Sprintf(T("enroll_wait"), esc(host)), nil)
-		out := runND("relay", "provision", "--host", host, "--user", user, "--password", pass, "--sni", "ya.ru")
+		out := runND("secondary", "provision", "--host", host, "--user", user, "--password", pass, "--sni", "ya.ru")
 		sendHTML(token, chat, "✅ <b>Relay</b>"+string([]byte{10})+"<pre>"+esc(truncate(out, 3500))+"</pre>"+string([]byte{10})+formatRelayListHTML(), relayKeyboard())
 		return
 	}

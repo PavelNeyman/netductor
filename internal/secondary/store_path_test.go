@@ -1,29 +1,26 @@
 package secondary
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestLoadMigratesLegacyRelayPath(t *testing.T) {
+func TestDevicesPathIsSecondary(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("NETDUCTOR_STATE", tmp)
-	legacy := filepath.Join(tmp, "relay")
-	_ = os.MkdirAll(legacy, 0o700)
-	raw, _ := json.Marshal(registry{ConfigVer: 7, Devices: []Device{{ID: "x", Name: "nd-secondary"}}})
-	if err := os.WriteFile(filepath.Join(legacy, "devices.json"), raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	r, err := load()
+	id, tok, err := IssueToken("test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.ConfigVer != 7 || len(r.Devices) != 1 {
-		t.Fatalf("migrate failed: %+v", r)
+	if id == "" || tok == "" {
+		t.Fatal("empty")
 	}
-	if _, err := os.Stat(filepath.Join(tmp, "secondary", "devices.json")); err != nil {
-		t.Fatal("expected secondary/devices.json after migrate")
+	p := filepath.Join(tmp, "secondary", "devices.json")
+	if _, err := os.Stat(p); err != nil {
+		t.Fatal("expected secondary/devices.json", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "relay")); !os.IsNotExist(err) {
+		t.Fatal("must not create relay/")
 	}
 }

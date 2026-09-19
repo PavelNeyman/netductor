@@ -21,7 +21,7 @@ removed (secondary is VPN entry only):
   sync | sync-timer | apply-lampac (use: netductor install lampac on primary)
   bot-failover
 
-VPN users → secondary: automatic on vpn add (config_ver); force: netductor relay sync`)
+VPN users → secondary: automatic on vpn add (config_ver); force: netductor secondary sync`)
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -111,13 +111,13 @@ func fleetBootstrap() error {
 				coreID = n.ID
 			}
 		}
-		if n.Role == "relay" && n.Status == "online" {
+		if n.Role == "secondary" && n.Status == "online" {
 			relayID = n.ID
 		}
 	}
 	if coreID == "" {
 		for _, n := range list {
-			if n.Kind == "vps" && n.Role != "relay" {
+			if n.Kind == "vps" && n.Role != "secondary" {
 				coreID = n.ID
 				break
 			}

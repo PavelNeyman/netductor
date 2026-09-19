@@ -122,3 +122,9 @@ UI hints: Admin → Nodes, Telegram → Nodes, TUI → Set hostname.
 ## NVR
 
 See `docs/PLAN-NVR-TAPO.md`. CLI: `netductor nvr`. API under `/api/nvr/*`. Retention defaults: 7d / 40GB / 5GB free.
+
+### 0.7.36-dev — relay name removed
+- State: only `secondary/` (no `relay/` fallback).
+- CLI: `netductor secondary` only (no `relay` alias).
+- API: `/api/secondary/*` only.
+- Node role/id prefix: `secondary` / `secondary-…`.

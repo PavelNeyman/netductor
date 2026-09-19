@@ -19,8 +19,8 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 			if kind == "" || kind == "mt" || kind == "mikrotik" || kind == "all" {
 				out["mikrotik"] = mikrotik.ListKnownHosts()
 			}
-			if kind == "" || kind == "relay" || kind == "all" {
-				out["relay"] = secondary.ListSSHHosts()
+			if kind == "" || kind == "secondary" || kind == "all" {
+				out["secondary"] = secondary.ListSSHHosts()
 			}
 			writeJSON(w, 200, out)
 		case http.MethodDelete:
@@ -32,7 +32,7 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 			k := r.URL.Query().Get("kind")
 			var err error
 			switch k {
-			case "relay":
+			case "secondary":
 				err = secondary.ForgetSSHHost(id)
 			case "mt", "mikrotik":
 				err = mikrotik.ForgetKnownHost(id)
@@ -58,7 +58,7 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 		}
 		kind := r.URL.Query().Get("kind")
 		switch kind {
-		case "relay":
+		case "secondary":
 			_ = secondary.ClearSSHHosts()
 		case "mt", "mikrotik":
 			_ = mikrotik.ClearKnownHosts()

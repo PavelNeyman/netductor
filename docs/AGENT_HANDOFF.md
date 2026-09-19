@@ -566,3 +566,9 @@ Agent order: **tapo-go → python → ONVIF**.
 
 ### 0.7.35-dev
 - `paths.SecondaryDir` / DevicesFile; install writes secondary; TUI no lab IP; tests clientcfg; `scripts/build-release-local.sh`; GH release workflow_dispatch.
+
+### 0.7.36-dev — relay name removed
+- State: only `secondary/` (no `relay/` fallback).
+- CLI: `netductor secondary` only (no `relay` alias).
+- API: `/api/secondary/*` only.
+- Node role/id prefix: `secondary` / `secondary-…`.

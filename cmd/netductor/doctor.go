@@ -20,7 +20,7 @@ func detectRole() string {
 		if s == "primary" || s == "core" {
 			return "primary"
 		}
-		if s == "secondary" || s == "relay" {
+		if s == "secondary" {
 			return "secondary"
 		}
 	}
@@ -29,7 +29,7 @@ func detectRole() string {
 		if strings.Contains(s, "primary") || strings.Contains(s, "core") {
 			return "primary"
 		}
-		if strings.Contains(s, "secondary") || strings.Contains(s, "relay") {
+		if strings.Contains(s, "secondary") {
 			return "secondary"
 		}
 	}
@@ -38,10 +38,10 @@ func detectRole() string {
 	if strings.Contains(hl, "primary") || strings.HasPrefix(hl, "nd-core") {
 		return "primary"
 	}
-	if strings.Contains(hl, "secondary") || strings.Contains(hl, "relay") {
+	if strings.Contains(hl, "secondary") {
 		return "secondary"
 	}
-	if activeUnit("netductor-secondary-agent") || activeUnit("netductor-relay-agent") {
+	if activeUnit("netductor-secondary-agent") || activeUnit("netductor-secondary-agent") {
 		return "secondary"
 	}
 	if activeUnit("netductor-api") || activeUnit("netductor-telegram-bot") {
@@ -234,7 +234,7 @@ func runDoctorNative() int {
 
 	case "secondary":
 		check("vpn-users.json", exists(filepath.Join(etc, "vpn-users.json")))
-		agentOK := activeUnit("netductor-secondary-agent") || activeUnit("netductor-relay-agent")
+		agentOK := activeUnit("netductor-secondary-agent") || activeUnit("netductor-secondary-agent")
 		check("secondary agent", agentOK)
 		if exists("/opt/netductor/lampac") || dirHasDockerLampac() {
 			warnCheck("lampac container", dockerLampacHealthy())

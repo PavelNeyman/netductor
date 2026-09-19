@@ -311,7 +311,7 @@ func MarkStaleRelays(maxAgeSec int64) {
 	now := time.Now().Unix()
 	changed := false
 	for id, n := range r.Nodes {
-		if n.Role != "relay" {
+		if n.Role != "secondary" {
 			continue
 		}
 		if n.PublicIP == "" && (n.LastSeen == 0 || now-n.LastSeen > maxAgeSec) {

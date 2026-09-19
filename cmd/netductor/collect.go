@@ -73,12 +73,12 @@ func runCollect() int {
 	}
 
 	live := probes.Run(cfg)
-	// dynamic: TCP 443 to each enrolled relay
+	// dynamic: TCP 443 to each enrolled secondary
 	for _, d := range secondary.List() {
 		if d.PublicIP == "" {
 			continue
 		}
-		p := map[string]any{"name": "relay-" + d.PublicIP, "type": "tcp", "host": d.PublicIP, "port": 443, "timeout": 5}
+		p := map[string]any{"name": "secondary-" + d.PublicIP, "type": "tcp", "host": d.PublicIP, "port": 443, "timeout": 5}
 		res := probes.Run(map[string]any{"probes": []any{p}})
 		live = append(live, res...)
 	}
@@ -122,7 +122,7 @@ func splitKeep(b []byte, max int) []byte {
 func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[string]any) {
 	al, _ := cfg["alerts"].(map[string]any)
 	if al == nil {
-		al = map[string]any{"probe_fail": true, "service_down": true, "relay_offline": true}
+		al = map[string]any{"probe_fail": true, "service_down": true, "secondary_offline": true}
 	}
 	enabled := func(k string) bool {
 		v, ok := al[k].(bool)
@@ -156,9 +156,9 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 			}
 		}
 	}
-	if enabled("relay_offline") {
+	if enabled("secondary_offline") {
 		for _, d := range secondary.List() {
-			key := "relay:" + d.ID
+			key := "secondary:" + d.ID
 			if !secondary.Online(d, 3*time.Minute) {
 				notify.AlertOnce(key, fmt.Sprintf("🔴 Secondary offline: <b>%s</b> (%s)", d.Name, d.PublicIP))
 			} else {
