@@ -19,7 +19,7 @@ import (
 var pkhMu sync.Mutex
 
 func relayKnownPath() string {
-	return filepath.Join(paths.StateDir(), "relay", "ssh_known_hosts.json")
+	return filepath.Join(paths.SecondaryDir(), "ssh_known_hosts.json")
 }
 
 // SSHHostEntry TOFU entry for relay provision SSH.

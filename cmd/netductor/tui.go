@@ -441,7 +441,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 	case "remote-set":
 		m.wizTarget = "remote"
 		m.wizFields = []wizField{
-			{Key: "host", Label: map[bool]string{true: "VPS host / IP", false: "VPS host / IP"}[m.lang==langRU], Value: m.remoteHost, Placeholder: "2.27.118.70"},
+			{Key: "host", Label: map[bool]string{true: "VPS host / IP", false: "VPS host / IP"}[m.lang==langRU], Value: m.remoteHost, Placeholder: "vps.example.com"},
 			{Key: "user", Label: "SSH user", Value: orDefault(m.remoteUser, "root")},
 		}
 		m.wizFieldIdx = 0

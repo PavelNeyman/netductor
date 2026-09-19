@@ -68,7 +68,7 @@ func runRelay(args []string) {
 			os.Exit(1)
 		}
 	case "links":
-		dir := filepath.Join(paths.StateDir(), "relay", "clients")
+		dir := filepath.Join(paths.SecondaryDir(), "clients")
 		ents, err := os.ReadDir(dir)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "no relay client links — run join on RU VPS first")
@@ -243,7 +243,7 @@ func runRelay(args []string) {
 		_ = secondary.PruneDuplicates()
 		devs := secondary.List()
 		if len(devs) == 0 {
-			b, err := os.ReadFile(filepath.Join(paths.StateDir(), "relay", "bundle.json"))
+			b, err := os.ReadFile(filepath.Join(paths.SecondaryDir(), "bundle.json"))
 			if err != nil {
 				fmt.Println("no relays registered")
 				return

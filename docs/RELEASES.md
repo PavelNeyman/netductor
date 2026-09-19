@@ -21,3 +21,10 @@ curl -fsSL -o /usr/local/bin/netductor \
 chmod 755 /usr/local/bin/netductor
 netductor version
 ```
+
+## Manual release (operator)
+
+GitHub PAT without `workflow` scope cannot update Actions YAML.
+
+1. Tag: `git tag v0.7.35-dev && git push origin v0.7.35-dev` — existing `release-netductor.yml` on tag `v*`.
+2. Or local: `./scripts/build-release-local.sh 0.7.35-dev` then upload assets to a Release by hand.

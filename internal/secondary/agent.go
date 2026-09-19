@@ -138,7 +138,7 @@ func pullAndApply(client *http.Client, coreBase, token string) error {
 		return err
 	}
 	_ = exec.Command("systemctl", "restart", "sing-box").Run()
-	_ = os.WriteFile(filepath.Join(paths.StateDir(), "relay", "bundle.json"), raw, 0o600)
+	_ = os.WriteFile(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600)
 	return nil
 }
 

@@ -87,7 +87,7 @@ func (m *model) wizBuildFields() {
 			{Key: "user", Label: "SSH user", Value: "root"},
 			{Key: "pass", Label: map[bool]string{true: "SSH пароль (если нет ключа)", false: "SSH password (if no key)"}[ru], Secret: true},
 			{Key: "id", Label: map[bool]string{true: "Device ID", false: "Device ID"}[ru], Value: "home-owrt-1", Placeholder: "home-owrt-1"},
-			{Key: "server", Label: map[bool]string{true: "Primary API URL", false: "Primary API URL"}[ru], Value: "http://2.27.118.70:8787", Placeholder: "http://PRIMARY:8787"},
+			{Key: "server", Label: map[bool]string{true: "Primary API URL", false: "Primary API URL"}[ru], Value: "", Placeholder: "http://PRIMARY_IP:8787"},
 			{Key: "agent", Label: map[bool]string{true: "Путь к agent binary", false: "Path to agent binary"}[ru], Placeholder: "./netductor-agent-linux-arm64"},
 		}
 	case wizMikroTik:

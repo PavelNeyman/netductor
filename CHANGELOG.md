@@ -1,3 +1,7 @@
+## 0.7.35-dev
+
+- SecondaryDir helper; no lab IP in TUI placeholders; client RU tests; release workflow_dispatch; doctor REDIRECT_BASE warn
+
 ## 0.7.34-dev (docs)
 
 - REVIEW-2026-09-19, OPEN_ITEMS/handoff snapshot after RU-direct deploy

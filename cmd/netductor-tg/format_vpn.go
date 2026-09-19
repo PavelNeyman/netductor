@@ -253,9 +253,10 @@ func showWorkProfileButton(name string) bool {
 }
 
 func workProfileURL() string {
-	base := strings.TrimRight(os.Getenv("NETDUCTOR_REDIRECT_BASE"), "/")
+	base := redirectBase()
 	if base == "" {
-		base = "http://netductor.work.gd"
+		// Prefer Telegram document delivery (SR Config button); no hardcoded public host.
+		return ""
 	}
 	return base + "/profiles/nd-oc.conf"
 }

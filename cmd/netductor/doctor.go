@@ -183,6 +183,11 @@ func runDoctorNative() int {
 		check("netductor-telegram-bot", activeUnit("netductor-telegram-bot"))
 		// import redirect for TG deep-link buttons (port 80, already allowed for ACME)
 		warnCheck("netductor-redirect unit", activeUnit("netductor-redirect"))
+		if strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")) == "" {
+			fmt.Printf("WARN NETDUCTOR_REDIRECT_BASE unset (TG deep-link http base; SR Config still works as document)\n")
+		} else {
+			fmt.Printf("OK   NETDUCTOR_REDIRECT_BASE=%s\n", os.Getenv("NETDUCTOR_REDIRECT_BASE"))
+		}
 		if activeUnit("netductor-redirect") || listeningOnAll("80") || listeningLocalhost("80") {
 			if curlOK("http://127.0.0.1/healthz") {
 				fmt.Printf("OK   redirect :80 /healthz\n")
@@ -203,7 +208,7 @@ func runDoctorNative() int {
 		warnCheck("backup.offsite peer", exists(filepath.Join(etc, "backup.offsite")))
 		warnCheck("tg admin id", exists(filepath.Join(etc, "secrets", "telegram_admin_id")) || os.Getenv("NETDUCTOR_TG_ADMIN") != "")
 		warnCheck("tg bot token", exists(filepath.Join(etc, "secrets", "telegram_bot_token")) || os.Getenv("NETDUCTOR_TG_TOKEN") != "")
-		secReg := exists(filepath.Join(state, "secondary", "devices.json")) || exists(filepath.Join(state, "relay", "devices.json"))
+		secReg := exists(paths.SecondaryDevicesFile())
 		if secReg {
 			fmt.Printf("INFO secondary registry present\n")
 		} else {

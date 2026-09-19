@@ -38,14 +38,7 @@ type relayDevFile struct {
 }
 
 func loadOnlineRelays() []struct{ Host, PBK, SID, SNI string } {
-	var b []byte
-	var err error
-	for _, sub := range []string{"secondary", "relay"} {
-		b, err = os.ReadFile(filepath.Join(paths.StateDir(), sub, "devices.json"))
-		if err == nil {
-			break
-		}
-	}
+	b, err := os.ReadFile(paths.SecondaryDevicesFile())
 	if err != nil {
 		return nil
 	}

@@ -9,6 +9,7 @@
 - [x] RU/gov **client + SR** direct (Gosuslugi/banks/geoip-ru) — `ru_direct.go`, `nd-oc.conf`
 - [x] Secondary = VPN entry only (not full mirror)
 - [x] NVR/Tapo Go control MVP (code); review in NVR-CODE-REVIEW.md
+- [x] SecondaryDir path helper + less hardcode IP in TUI; clientcfg tests; release workflow_dispatch
 - [x] Review 2026-09-19: [REVIEW-2026-09-19.md](REVIEW-2026-09-19.md)
 
 ## Still open
@@ -17,7 +18,7 @@
 - [ ] Admin UI: **not** public (locked)
 - [ ] OpenWrt + MikroTik + Tapo **e2e on real hardware**
 - [ ] Release assets always tracking `main` (process)
-- [ ] Optional: collapse legacy `relay` state dir name → `secondary` only on clean install
+- [x] Prefer `secondary/` state (legacy `relay/` still readable)
 - [ ] Path B: limited end-user bot (design only)
 
 ## Notes for agents

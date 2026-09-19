@@ -251,10 +251,7 @@ func buildOutboundsAndRoute() (outbounds []any, routeRules []any, finalOut strin
 }
 
 func readExitTarget() (on bool, ip, pbk, sid, sni string) {
-	b, err := os.ReadFile(filepath.Join(paths.StateDir(), "secondary", "devices.json"))
-	if err != nil {
-		b, err = os.ReadFile(filepath.Join(paths.StateDir(), "relay", "devices.json"))
-	}
+	b, err := os.ReadFile(paths.SecondaryDevicesFile())
 	if err != nil {
 		return
 	}

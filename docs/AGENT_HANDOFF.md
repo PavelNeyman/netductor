@@ -563,3 +563,6 @@ Agent order: **tapo-go → python → ONVIF**.
 - **Review:** [REVIEW-2026-09-19.md](REVIEW-2026-09-19.md) — code, security, refactor plan.
 - **Open:** hardware e2e (OpenWrt/Tapo/MikroTik), durable domain/HTTPS redirect, release-asset discipline.
 - **Not regressing:** do not remove client-side RU DIRECT in favor of “relay-only split”.
+
+### 0.7.35-dev
+- `paths.SecondaryDir` / DevicesFile; install writes secondary; TUI no lab IP; tests clientcfg; `scripts/build-release-local.sh`; GH release workflow_dispatch.

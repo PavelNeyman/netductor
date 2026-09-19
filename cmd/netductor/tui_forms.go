@@ -9,7 +9,7 @@ func (m *model) startActionForm(action string) {
 	switch action {
 	case "cfg-remote":
 		m.wizFields = []wizField{
-			{Key: "host", Label: map[bool]string{true: "Host / IP", false: "Host / IP"}[true], Value: m.remoteHost, Placeholder: "2.27.118.70"},
+			{Key: "host", Label: map[bool]string{true: "Host / IP", false: "Host / IP"}[true], Value: m.remoteHost, Placeholder: "vps.example.com"},
 			{Key: "user", Label: "SSH user", Value: orDefault(m.remoteUser, "root")},
 			{Key: "key", Label: map[bool]string{true: "Путь к ключу (пусто = agent)", false: "Key path (empty = agent)"}[ru], Value: m.remoteKey, Placeholder: "~/.ssh/id_ed25519"},
 			{Key: "pass", Label: map[bool]string{true: "Пароль (если нет ключа)", false: "Password (if no key)"}[ru], Value: m.remotePassword, Secret: true},

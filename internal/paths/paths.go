@@ -58,3 +58,22 @@ func EnsureLayout() error {
 	_ = os.Chmod(filepath.Join(EtcDir(), "clients"), 0o700)
 	return nil
 }
+
+// SecondaryDir is state for the RU VPN-entry node.
+// Prefers secondary/; falls back to legacy relay/ for reads; mkdir uses secondary.
+func SecondaryDir() string {
+	sec := filepath.Join(StateDir(), "secondary")
+	if st, err := os.Stat(sec); err == nil && st.IsDir() {
+		return sec
+	}
+	legacy := filepath.Join(StateDir(), "relay")
+	if st, err := os.Stat(legacy); err == nil && st.IsDir() {
+		return legacy
+	}
+	return sec
+}
+
+// SecondaryDevicesFile is devices.json under SecondaryDir.
+func SecondaryDevicesFile() string {
+	return filepath.Join(SecondaryDir(), "devices.json")
+}

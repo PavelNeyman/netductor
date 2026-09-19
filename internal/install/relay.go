@@ -70,8 +70,8 @@ func InstallRelay(bundlePath string) error {
 	_ = writeSecret("singbox_reality_sni", b.RelaySNI)
 
 	// store bundle for re-apply
-	_ = os.MkdirAll(filepath.Join(paths.StateDir(), "relay"), 0o700)
-	_ = os.WriteFile(filepath.Join(paths.StateDir(), "relay", "bundle.json"), raw, 0o600)
+	_ = os.MkdirAll(paths.SecondaryDir(), 0o700)
+	_ = os.WriteFile(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600)
 
 	if err := vpn.WriteRelaySingBox(&b, priv, sid); err != nil {
 		return err
@@ -112,7 +112,7 @@ WantedBy=multi-user.target
 	_ = nodes.SelfRegisterLocal("", "secondary", pubIP)
 
 	// write mobile client links for operator convenience
-	outDir := filepath.Join(paths.StateDir(), "relay", "clients")
+	outDir := filepath.Join(paths.SecondaryDir(), "clients")
 	_ = os.MkdirAll(outDir, 0o700)
 	for _, u := range b.Users {
 		link := vpn.ClientLinkForRelay(u.Name, u.UUID, pubIP, pub, sid, b.RelaySNI)

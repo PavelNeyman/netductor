@@ -103,7 +103,7 @@ func ExportRelayBundle(relaySNI string) (*RelayBundle, error) {
 	if b.CorePBK == "" || b.CoreSID == "" {
 		return nil, fmt.Errorf("core Reality secrets missing")
 	}
-	dir := filepath.Join(paths.StateDir(), "relay")
+	dir := paths.SecondaryDir()
 	_ = os.MkdirAll(dir, 0o700)
 	raw, _ := json.MarshalIndent(b, "", "  ")
 	_ = os.WriteFile(filepath.Join(dir, "bundle.json"), append(raw, '\n'), 0o600)
