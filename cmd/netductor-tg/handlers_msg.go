@@ -41,6 +41,32 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, fmt.Sprintf(T("nodes_done"), esc(id), esc(newName[0]))+string([]byte{10, 10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatNodesListHTML(), nodesKeyboard())
 		return
 	}
+	if st == "wait_edge_register" {
+		setState(chat, "", "")
+		f := strings.Fields(text)
+		if len(f) < 1 {
+			sendHTML(token, chat, T("edge_register_prompt"), routersKeyboard())
+			return
+		}
+		args := []string{"edge", "register", f[0]}
+		if len(f) > 1 {
+			args = append(args, "--site", f[1])
+		}
+		out := runND(args...)
+		sendHTML(token, chat, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
+		return
+	}
+	if st == "wait_edge_set_site" {
+		setState(chat, "", "")
+		f := strings.Fields(text)
+		if len(f) < 2 {
+			sendHTML(token, chat, T("edge_set_site_prompt"), routersKeyboard())
+			return
+		}
+		out := runND("edge", "set-site", f[0], f[1])
+		sendHTML(token, chat, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
+		return
+	}
 	if strings.HasPrefix(st, "wait_loc_rename:") {
 		id := strings.TrimPrefix(st, "wait_loc_rename:")
 		setState(chat, "", "")

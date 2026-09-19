@@ -215,6 +215,24 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, formatPendingHTML(t), pendingKeyboard(t))
 	case "m:templates":
 		reply(token, chat, msgID, formatTemplatesHTML(templatesText()), backTo("routers"))
+	case "m:edge_recovery":
+		out := runND("edge", "recovery")
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		code := ""
+		if len(lines) > 0 {
+			code = strings.TrimSpace(lines[0])
+		}
+		msg := T("edge_recovery_done") + "\n\n<code>" + esc(code) + "</code>"
+		if len(lines) > 1 {
+			msg += "\n<pre>" + esc(strings.Join(lines[1:], "\n")) + "</pre>"
+		}
+		reply(token, chat, msgID, msg, routersKeyboard())
+	case "m:edge_register":
+		setState(chat, "wait_edge_register", "")
+		reply(token, chat, msgID, T("edge_register_prompt"), backTo("routers"))
+	case "m:edge_set_site":
+		setState(chat, "wait_edge_set_site", "")
+		reply(token, chat, msgID, T("edge_set_site_prompt"), backTo("routers"))
 	case "m:edge_apply":
 		setState(chat, "wait_edge_apply", "")
 		reply(token, chat, msgID, T("apply_prompt"), backTo("routers"))

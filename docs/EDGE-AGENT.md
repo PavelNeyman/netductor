@@ -140,3 +140,20 @@ pip3 install pytapo   # or python3-pytapo if packaged
 Agent `camera_ptz` tries **pytapo script first**, then ONVIF.
 
 Commands: `move left|right|up|down`, `night:on|off|auto`, `privacy:on|off`
+
+## Recovery (LAN)
+
+1. Primary: TG **Routers → Recovery code** or `netductor edge recovery [--site ID]` or Admin UI.
+2. On site Wi-Fi: `http://<router-lan-ip>:7879/netductor-recovery` — enter Primary URL + code.
+3. Agent enrolls with `CONTROL_ONLY=1` (no Wi-Fi/UCI template).
+4. TG/Admin **Pending → Approve**.
+
+## Register / locations
+
+- `netductor edge register <device_id> [--site ID]`
+- `netductor edge set-site <device_id> <site_id>`
+- TG: Routers → Register; Admin: recovery card.
+
+## Export
+
+`netductor edge export -o file.json` / Admin Export — include in primary backup drills.

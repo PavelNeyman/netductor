@@ -34,6 +34,12 @@ func (m *model) startActionForm(action string) {
 			{Key: "id", Label: "Device ID", Value: "home-owrt-1"},
 			{Key: "server", Label: "Primary API", Value: "http://127.0.0.1:8787", Placeholder: "http://PRIMARY:8787"},
 		}
+	case "edge-register":
+		m.wizFields = []wizField{
+			{Key: "id", Label: map[bool]string{true: "Device ID", false: "Device ID"}[ru], Placeholder: "cudy-home-1"},
+			{Key: "site", Label: map[bool]string{true: "Location / site id", false: "Location / site id"}[ru], Placeholder: "home-msk"},
+			{Key: "note", Label: map[bool]string{true: "Заметка", false: "Note"}[ru]},
+		}
 	default:
 		m.output = "unknown form " + action
 		m.screen = screenOutput
@@ -78,6 +84,19 @@ func (m *model) submitActionForm() string {
 			args = append(args, "--password", p)
 		}
 		// edge provision is local SSH to router, not remote netductor
+		return m.runNetductor(args...)
+	case "edge-register":
+		id := m.fieldVal("id")
+		if id == "" {
+			return "device_id required"
+		}
+		args := []string{"edge", "register", id}
+		if s := m.fieldVal("site"); s != "" {
+			args = append(args, "--site", s)
+		}
+		if n := m.fieldVal("note"); n != "" {
+			args = append(args, "--note", n)
+		}
 		return m.runNetductor(args...)
 	default:
 		return "unknown form"

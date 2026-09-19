@@ -484,6 +484,12 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.showCmd("nodes", "list")
 	case "edge-list":
 		m.showCmd("edge", "list")
+	case "edge-pending":
+		m.showCmd("edge", "pending")
+	case "edge-recovery":
+		m.showCmd("edge", "recovery")
+	case "edge-register":
+		m.startActionForm("edge-register")
 	case "probe":
 		if m.hasRemote() {
 			m.showCmd("probe")

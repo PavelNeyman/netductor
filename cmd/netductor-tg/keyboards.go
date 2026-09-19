@@ -261,6 +261,7 @@ func routersKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("devices"), "m:routers", "primary"), btn(T("pending"), "m:pending", "primary")},
+			{btn(T("edge_recovery"), "m:edge_recovery", "primary"), btn(T("edge_register"), "m:edge_register", "")},
 			{btn(T("templates"), "m:templates", ""), btn(T("bind_tmpl"), "m:edge_bind", "")},
 			{btn(T("apply_tmpl"), "m:edge_apply", "primary")},
 			{btn(T("main_menu"), "m:menu", "")},

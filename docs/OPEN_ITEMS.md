@@ -45,3 +45,6 @@ See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — hardware validation remaining.
 
 ### Edge after primary reinstall
 See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll with valid bootstrap; old device_token does not auto-approve.
+
+### 0.7.39-dev
+- Edge recovery/register/set-site in TG, Admin UI, TUI; API /api/edge/recovery|register|set-site|export|import.

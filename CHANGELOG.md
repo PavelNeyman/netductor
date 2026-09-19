@@ -1,3 +1,7 @@
+## 0.7.39-dev
+
+- UI: edge recovery/register/set-site/export in TG, Admin, TUI + API
+
 ## 0.7.38-dev
 
 - Edge recovery codes + LAN page :7879; register/export/import/set-site; CONTROL_ONLY

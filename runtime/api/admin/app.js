@@ -615,3 +615,39 @@ document.querySelectorAll('.tab').forEach((btn) => {
     if (t === 'sessions') refreshSessions();
   });
 });
+
+
+  function wireEdgeRecovery() {
+    const btnR = document.getElementById('btn-edge-recovery');
+    if (btnR) btnR.onclick = async () => {
+      const site = document.getElementById('rec-site')?.value || '';
+      const note = document.getElementById('rec-note')?.value || '';
+      const data = await (await api('/api/edge/recovery', { method: 'POST', body: JSON.stringify({ site_id: site, note }) })).json();
+      const out = document.getElementById('edge-recovery-out');
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+      if (data.code) {
+        try { await navigator.clipboard.writeText(data.code); toast('code copied'); } catch (_) { toast('code issued'); }
+      }
+    };
+    const btnReg = document.getElementById('btn-edge-register');
+    if (btnReg) btnReg.onclick = async () => {
+      const device_id = document.getElementById('reg-device')?.value || '';
+      const site_id = document.getElementById('reg-site')?.value || '';
+      await api('/api/edge/register', { method: 'POST', body: JSON.stringify({ device_id, site_id }) });
+      toast('registered pending'); refreshPending(); refreshRouters();
+    };
+    const btnSS = document.getElementById('btn-edge-setsite');
+    if (btnSS) btnSS.onclick = async () => {
+      const device_id = document.getElementById('setsite-device')?.value || '';
+      const site_id = document.getElementById('setsite-site')?.value || '';
+      await api('/api/edge/set-site', { method: 'POST', body: JSON.stringify({ device_id, site_id }) });
+      toast('site set');
+    };
+    const btnEx = document.getElementById('btn-edge-export');
+    if (btnEx) btnEx.onclick = async () => {
+      const data = await (await api('/api/edge/export')).json();
+      const out = document.getElementById('edge-export-out');
+      if (out) out.textContent = JSON.stringify(data, null, 2);
+      toast('exported');
+    };
+  }

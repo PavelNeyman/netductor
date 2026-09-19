@@ -153,6 +153,30 @@
     </section>
     <section id="tab-routers" class="tab-panel hide">
       <div id="edge-pending" class="card"></div>
+      <div class="card" id="edge-recovery-card">
+        <h3>Edge recovery / register</h3>
+        <p class="hint">LAN page on router: <code>http://&lt;router&gt;:7879/netductor-recovery</code>. Does not change Wi-Fi.</p>
+        <div class="row">
+          <input id="rec-site" placeholder="site_id (optional)" />
+          <input id="rec-note" placeholder="note" />
+          <button type="button" class="primary" id="btn-edge-recovery">Issue recovery code</button>
+        </div>
+        <pre id="edge-recovery-out" class="code"></pre>
+        <div class="row">
+          <input id="reg-device" placeholder="device_id" />
+          <input id="reg-site" placeholder="site_id" />
+          <button type="button" id="btn-edge-register">Register pending</button>
+        </div>
+        <div class="row">
+          <input id="setsite-device" placeholder="device_id" />
+          <input id="setsite-site" placeholder="site_id" />
+          <button type="button" id="btn-edge-setsite">Set site</button>
+        </div>
+        <div class="row">
+          <button type="button" id="btn-edge-export">Export devices JSON</button>
+        </div>
+        <pre id="edge-export-out" class="code"></pre>
+      </div>
       <div class="card"><table class="table" id="routers-table">
         <thead><tr><th>ID</th><th>Status</th><th>Host</th><th>WAN</th><th></th></tr></thead>
         <tbody></tbody>

@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/sites"
 )
 
 func registerEdgeAPI(mux *http.ServeMux) {
@@ -401,5 +403,89 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "id": edge.EnqueueCmd(did, action, arg)})
 	})
+
+	mux.HandleFunc("/api/edge/recovery", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		site, _ := body["site_id"].(string)
+		note, _ := body["note"].(string)
+		code, exp, err := edge.IssueRecoveryCode(site, note, 0)
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		audit.Log("session", "edge.recovery", site, note)
+		writeJSON(w, 200, map[string]any{
+			"ok": true, "code": code, "expires": exp.UTC().Format(time.RFC3339),
+			"site_id": site, "hint": "Open http://<router-lan>:7879/netductor-recovery on site Wi-Fi",
+		})
+	})
+	mux.HandleFunc("/api/edge/register", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		did, _ := body["device_id"].(string)
+		site, _ := body["site_id"].(string)
+		note, _ := body["note"].(string)
+		if err := edge.RegisterPending(did, site, note); err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		if site != "" {
+			_ = sites.AttachEdge(site, did)
+		}
+		audit.Log("session", "edge.register", did, site)
+		writeJSON(w, 200, map[string]any{"ok": true, "device_id": did, "status": "pending"})
+	})
+	mux.HandleFunc("/api/edge/set-site", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		did, _ := body["device_id"].(string)
+		site, _ := body["site_id"].(string)
+		if err := edge.SetSiteID(did, site); err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		if site != "" {
+			_ = sites.AttachEdge(site, did)
+		}
+		writeJSON(w, 200, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("/api/edge/export", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		b, err := edge.ExportDevices()
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(b)
+	})
+	mux.HandleFunc("/api/edge/import", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		replace, _ := body["replace"].(bool)
+		raw, _ := json.Marshal(body)
+		// prefer nested devices
+		if devs, ok := body["devices"]; ok {
+			raw, _ = json.Marshal(map[string]any{"devices": devs})
+		}
+		n, err := edge.ImportDevices(raw, replace)
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "imported": n})
+	})
+
 
 }

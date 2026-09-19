@@ -180,3 +180,6 @@ See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll w
 
 ### 0.7.38-dev
 - Edge LAN recovery page + recovery codes; site attach; CONTROL_ONLY on agent.
+
+### 0.7.39-dev
+- Edge recovery/register/set-site in TG, Admin UI, TUI; API /api/edge/recovery|register|set-site|export|import.
