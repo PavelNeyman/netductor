@@ -495,3 +495,21 @@ pip3 install pytapo   # or python3-pytapo if packaged
 Agent `camera_ptz` tries **pytapo script first**, then ONVIF.
 
 Commands: `move left|right|up|down`, `night:on|off|auto`, `privacy:on|off`
+
+## Native Go port of pytapo (0.7.28-dev) — DONE
+
+Package `internal/tapo` ports the **secure local control** path used by
+[pytapo](https://github.com/JurajNyiri/pytapo) / HA Tapo-Control:
+
+- probe encrypt_type 3
+- device_confirm (MD5/SHA256 password hash)
+- digest login → stok + AES-CBC lsk/ivb
+- `securePassthrough` + Seq / Tapo_tag
+- `motorMove`, `setDayNightModeConfig`, `setLensMaskConfig`
+- legacy hashed-password login fallback
+
+Agent `camera_ptz` order: **tapo-go → python pytapo → ONVIF**.
+
+Still required on camera: **Third-Party Compatibility On** + Camera Account.
+
+Not ported (later): KLAP transport, presets/cruise, full media stream, hub child devices.

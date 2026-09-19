@@ -438,7 +438,7 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 | C TG one-time clip links | **Done** — IssueClipToken + `/api/nvr/clip` |
 | D Motion schedule | **Done** (windows/tz); zones/CV later |
 | D Events | **Done** |
-| E PTZ / night | **Not started** (Tapo proprietary / ONVIF research) |
+| E PTZ / night | **Done (C200)** — `internal/tapo` motorMove/night/privacy; ONVIF+pytapo fallback |
 | F Home storage backend | **Config field only** — switch path/backend manually |
 | Encrypt | **prepare-storage guidance**; auto-unlock not automated |
 | Cudy 16MB/128MB | **Documented** — tmpfs 24MB default, USB recommended |
@@ -481,3 +481,21 @@ pip3 install pytapo   # or python3-pytapo if packaged
 Agent `camera_ptz` tries **pytapo script first**, then ONVIF.
 
 Commands: `move left|right|up|down`, `night:on|off|auto`, `privacy:on|off`
+
+## Native Go port of pytapo (0.7.28-dev) — DONE
+
+Package `internal/tapo` ports the **secure local control** path used by
+[pytapo](https://github.com/JurajNyiri/pytapo) / HA Tapo-Control:
+
+- probe encrypt_type 3
+- device_confirm (MD5/SHA256 password hash)
+- digest login → stok + AES-CBC lsk/ivb
+- `securePassthrough` + Seq / Tapo_tag
+- `motorMove`, `setDayNightModeConfig`, `setLensMaskConfig`
+- legacy hashed-password login fallback
+
+Agent `camera_ptz` order: **tapo-go → python pytapo → ONVIF**.
+
+Still required on camera: **Third-Party Compatibility On** + Camera Account.
+
+Not ported (later): KLAP transport, presets/cruise, full media stream, hub child devices.

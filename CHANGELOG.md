@@ -1,3 +1,8 @@
+## 0.7.28-dev
+
+- internal/tapo: Go port of pytapo secure control (C200 motor/night/privacy)
+- agent PTZ prefers tapo-go over python/ONVIF
+
 ## 0.7.27-dev
 
 - Tapo C200 PTZ via pytapo (HA Tapo-Control path); ONVIF fallback

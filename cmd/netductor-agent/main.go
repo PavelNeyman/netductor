@@ -22,6 +22,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/edgeagent"
 	"github.com/PavelNeyman/netductor/internal/nvr"
+	"github.com/PavelNeyman/netductor/internal/tapo"
 )
 
 var version = "0.7.0-dev"
@@ -771,10 +772,8 @@ func nvrTrimTmp(cfg config) error {
 
 
 func cameraPTZ(arg string) string {
-	// Tapo C200 primary path = pytapo motorMove (same as HA Tapo-Control).
-	// Fallback = ONVIF :2020 ContinuousMove.
-	// arg: ip|user|pass|dir[|step_or_ms]
-	// dir: left|right|up|down|stop  OR night:on|night:off|night:auto|privacy:on|privacy:off
+	// Preferred: native Go port of pytapo (HA Tapo-Control protocol).
+	// Fallback: python scripts/tapo_control.py, then ONVIF :2020.
 	parts := strings.Split(arg, "|")
 	if len(parts) < 4 {
 		return "error:arg ip|user|pass|left|right|up|down|stop|night:auto|privacy:off"
@@ -786,15 +785,19 @@ func cameraPTZ(arg string) string {
 			step = n
 		}
 	}
-	// Prefer pytapo helper when python3+pytapo available (recommended for C200).
-	if out, ok := tryTapoControlPy(ip, user, pass, dir, step); ok {
+	out := tapo.Control(ip, user, pass, dir, step)
+	if strings.HasPrefix(out, "tapo-go:") && !strings.Contains(out, "tapo-go:login:") && !strings.Contains(out, "tapo-go:err:") {
 		return out
 	}
-	// ONVIF fallback
-	if strings.HasPrefix(dir, "night:") || strings.HasPrefix(dir, "privacy:") {
-		return "error:night/privacy need pytapo (pip install pytapo); ONVIF not used"
+	// if login failed, still try python helper / ONVIF
+	if pyOut, ok := tryTapoControlPy(ip, user, pass, dir, step); ok {
+		return pyOut + " | first=" + out
 	}
-	return nvr.ONVIFPTZ(ip, user, pass, dir, 800)
+	if strings.HasPrefix(dir, "night:") || strings.HasPrefix(dir, "privacy:") {
+		return out + " | need working tapo-go or pytapo"
+	}
+	onv := nvr.ONVIFPTZ(ip, user, pass, dir, 800)
+	return onv + " | first=" + out
 }
 
 func tryTapoControlPy(ip, user, pass, dir string, step int) (string, bool) {
