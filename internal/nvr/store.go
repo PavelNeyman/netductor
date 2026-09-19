@@ -213,6 +213,9 @@ func RTSPURL(c Camera) string {
 	if path == "" {
 		path = "/stream1"
 	}
+	if c.StreamSub && (path == "/stream1" || path == "stream1") {
+		path = "/stream2"
+	}
 	port := c.RTSPPort
 	if port == 0 {
 		port = 554

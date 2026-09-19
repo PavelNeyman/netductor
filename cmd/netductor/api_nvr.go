@@ -329,6 +329,57 @@ func registerNVRAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"events": nvr.ListEventsTail(n)})
 	})
 
+	
+	mux.HandleFunc("/api/nvr/clip/token", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		path := nvrStr(body["path"])
+		cam := nvrStr(body["camera_id"])
+		ttl := 120
+		if v, ok := body["ttl_sec"].(float64); ok && v > 0 {
+			ttl = int(v)
+		}
+		if path == "" {
+			writeJSON(w, 400, map[string]string{"error": "path required"})
+			return
+		}
+		// path must be under segments root
+		root := nvr.LoadConfig().Path
+		if !strings.HasPrefix(path, root) {
+			writeJSON(w, 400, map[string]string{"error": "path outside nvr root"})
+			return
+		}
+		tok, err := nvr.IssueClipToken(cam, path, ttl)
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "token": tok, "ttl_sec": ttl, "url": "/api/nvr/clip?token=" + tok})
+	})
+
+	mux.HandleFunc("/api/nvr/clip", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeJSON(w, 405, map[string]string{"error": "method"})
+			return
+		}
+		tok := r.URL.Query().Get("token")
+		path, ok := nvr.RedeemClipToken(tok)
+		if !ok {
+			writeJSON(w, 404, map[string]string{"error": "invalid or expired token"})
+			return
+		}
+		root := nvr.LoadConfig().Path
+		if !strings.HasPrefix(path, root) {
+			writeJSON(w, 400, map[string]string{"error": "bad path"})
+			return
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		w.Header().Set("Content-Disposition", "attachment")
+		http.ServeFile(w, r, path)
+	})
+
 	mux.HandleFunc("/api/nvr/storage", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !requireSession(w, r) {
 			return

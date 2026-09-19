@@ -1,3 +1,8 @@
+## 0.7.25-dev
+
+- one-shot clip tokens `/api/nvr/clip`; CLI token; agent nvr_disk_info
+- stream2 when StreamSub; motion windows= JSON; plan/handoff status matrix
+
 ## 0.7.24-dev
 
 - agent NVR_DIR / NVR_MAX_MB (default 24MB tmpfs); USB buffer docs; handoff Cudy 16MB/128MB

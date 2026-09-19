@@ -530,6 +530,10 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return nvrRecordStop(arg)
 	case "nvr_record_status":
 		return nvrRecordStatus()
+	case "nvr_disk_info":
+		return nvrDiskInfo(cfg)
+	case "camera_ptz":
+		return cameraPTZ(arg)
 	default:
 		return "denied:" + action
 	}
@@ -762,6 +766,45 @@ func nvrTrimTmp(cfg config) error {
 	return nil
 }
 
+
+
+
+func cameraPTZ(arg string) string {
+	// Tapo C200 often needs proprietary protocol (HA tapo-control). Stub for wiring UI.
+	parts := strings.SplitN(arg, "|", 2)
+	if len(parts) < 2 {
+		return "error:arg ip|left|right|up|down|home"
+	}
+	dir := strings.ToLower(strings.TrimSpace(parts[1]))
+	switch dir {
+	case "left", "right", "up", "down", "home":
+		return "stub:ptz:" + dir + ":not_implemented_use_tapo_app_or_onvif"
+	default:
+		return "error:dir"
+	}
+}
+
+func nvrDiskInfo(cfg config) string {
+	dir := nvrDir(cfg)
+	_ = os.MkdirAll(dir, 0o700)
+	out, err := exec.Command("df", "-h", dir).CombinedOutput()
+	info := map[string]any{"dir": dir, "max_mb": cfg.NVRMaxMB, "df": strings.TrimSpace(string(out))}
+	if err != nil {
+		info["error"] = err.Error()
+	}
+	// rough used
+	var used int64
+	_ = filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+		if err == nil && fi != nil && !fi.IsDir() {
+			used += fi.Size()
+		}
+		return nil
+	})
+	info["used_bytes"] = used
+	info["limit_bytes"] = nvrMaxBytes(cfg)
+	b, _ := json.Marshal(info)
+	return string(b)
+}
 
 func nvrRecordStatus() string {
 	nvrRecMu.Lock()

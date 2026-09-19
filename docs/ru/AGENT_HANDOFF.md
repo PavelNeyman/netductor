@@ -82,3 +82,11 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 **CLI (primary):** `nvr cameras|leases|probe|record|motion|events|status|prepare-storage`  
 **TG:** Tools → NVR (leases, cameras P/R/S, motion, events)  
 **Plan:** [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) · [EDGE-AGENT.md](EDGE-AGENT.md)
+
+### NVR backlog vs done (0.7.25-dev)
+
+**Done:** inventory, leases→camera, agent record→ingest, retention, motion schedule, events, clip one-shot tokens, NVR_DIR/MAX_MB, TG hub.
+
+**Not done (no deploy required to code later):** go2rtc live UI, PTZ/night API, CV zones, auto LUKS unlock, NFS home backend automation, Admin web NVR page, TUI NVR wizard.
+
+**Cudy:** flash 16MB unused for video; RAM tmpfs buffer default 24MB; USB via NVR_DIR.

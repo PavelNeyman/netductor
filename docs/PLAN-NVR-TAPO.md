@@ -427,3 +427,19 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 - **/tmp** is **RAM** (tmpfs): video buffer competes with routing; keep small.
 - **USB** for buffer if inserted; LTE modem **SD** only if visible as host block device (often not).
 - Config: `NVR_DIR`, `NVR_MAX_MB` on agent.
+
+## Implementation status (2026-09-19)
+
+| Phase | Status |
+|-------|--------|
+| A Discovery & inventory | **Done** — leases, wifi_clients, dhcp_static, cameras API/CLI/TG |
+| B Path & record MVP | **Mostly** — agent record+upload, ingest, retention, buffer NVR_DIR/MAX_MB; primary recorder optional |
+| C Live go2rtc | **Not started** (optional; needs binary/addon) |
+| C TG one-time clip links | **Done** — IssueClipToken + `/api/nvr/clip` |
+| D Motion schedule | **Done** (windows/tz); zones/CV later |
+| D Events | **Done** |
+| E PTZ / night | **Not started** (Tapo proprietary / ONVIF research) |
+| F Home storage backend | **Config field only** — switch path/backend manually |
+| Encrypt | **prepare-storage guidance**; auto-unlock not automated |
+| Cudy 16MB/128MB | **Documented** — tmpfs 24MB default, USB recommended |
+

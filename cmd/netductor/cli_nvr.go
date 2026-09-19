@@ -211,6 +211,22 @@ func runNVR(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(res["result"])
+	case "token":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr token <abs-segment-path> [ttl_sec]")
+			os.Exit(2)
+		}
+		ttl := 120
+		if len(args) > 2 {
+			ttl, _ = strconv.Atoi(args[2])
+		}
+		tok, err := nvr.IssueClipToken("", args[1], ttl)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(tok)
+		fmt.Println("/api/nvr/clip?token="+tok)
 	case "events":
 		for _, e := range nvr.ListEventsTail(30) {
 			fmt.Printf("%d\t%s\t%s\t%s\n", e.TS, e.Type, e.CameraID, e.Detail)
@@ -230,6 +246,11 @@ func runNVR(args []string) {
 					mc.Timezone = v
 				case "alert_on_segment":
 					mc.AlertOnSegment = v == "1" || strings.EqualFold(v, "true")
+				case "windows":
+					var wins []nvr.ScheduleWindow
+					if json.Unmarshal([]byte(v), &wins) == nil {
+						mc.Windows = wins
+					}
 				}
 			}
 			_ = nvr.SaveMotion(mc)
@@ -294,7 +315,7 @@ func printNVRHelp() {
   segments [camera_id]
   record start|stop <camera_id>
   probe <camera_id>
-  events | motion [set …] | status
+  token <path> [ttl] | events | motion [set …] | status
   storage
   prepare-storage [--print-only]
   recorder start|stop <camera_id>
