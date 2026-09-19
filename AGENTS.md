@@ -96,7 +96,7 @@ Target layout: `cmd/netductor`, `cmd/netductor-agent`, `internal/`.
 | Area | Status |
 |------|--------|
 | Repo | **PavelNeyman/netductor** |
-| Version | **0.7.2-dev** |
+| Version | **0.8.0** |
 | G0–G1 | done |
 | G2 | release `v0.7.0-dev` published |
 | G3 | `netductor serve` health scaffold; port Python API |
@@ -128,3 +128,6 @@ See `docs/PLAN-NVR-TAPO.md`. CLI: `netductor nvr`. API under `/api/nvr/*`. Reten
 - CLI: `netductor secondary` only (no `relay` alias).
 - API: `/api/secondary/*` only.
 - Node role/id prefix: `secondary` / `secondary-…`.
+
+### 0.8.0 release
+See CHANGELOG and docs/REVIEW-2026-09-20.md. Update policy: docs/UPGRADE.md.

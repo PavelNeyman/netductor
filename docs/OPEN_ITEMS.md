@@ -1,3 +1,5 @@
+> Shipped **0.8.0** (2026-09-20). See CHANGELOG.
+
 # Open items
 
 ## Done recently (through 0.7.34-dev)

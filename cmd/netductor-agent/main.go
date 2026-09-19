@@ -25,7 +25,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/tapo"
 )
 
-var version = "0.7.0-dev"
+var version = "0.8.0"
 
 type config struct {
 	Server   string

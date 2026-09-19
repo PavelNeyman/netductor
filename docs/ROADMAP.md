@@ -1,3 +1,5 @@
+> Shipped **0.8.0** (2026-09-20). See CHANGELOG.
+
 # Roadmap
 
 ## Done

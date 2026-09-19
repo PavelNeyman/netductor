@@ -1,3 +1,17 @@
+## 0.8.0 — 2026-09-20
+
+### Highlights
+- **Secondary-only** RU entry (legacy relay naming removed)
+- Edge **LAN recovery** (`:7879/netductor-recovery`), recovery codes, register/set-site
+- NVR/Tapo Go port foundations; RU-direct for gosuslugi stack
+- Primary self-update from **GitHub Releases** (TG Tools → Updates); agents **manual** `agent_update`
+- Docs EN+RU parity pass; review `docs/REVIEW-2026-09-20.md`
+
+### Breaking / cleanup
+- CLI `relay` alias removed → `secondary`
+- State path only `secondary/`
+- API only `/api/secondary/*`
+
 ## 0.7.39-dev
 
 - UI: edge recovery/register/set-site/export in TG, Admin, TUI + API

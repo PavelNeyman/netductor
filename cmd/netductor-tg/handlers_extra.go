@@ -396,13 +396,24 @@ func toolsHubHTML() string {
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	if data == "m:updates:self" {
-		reply(token, chat, msgID, "⏳ Updating from GitHub latest release…\n<i>Release may lag main — prefer deploy from CI/main when developing.</i>", toolsKeyboard())
+		wait := "⏳ Updating from GitHub latest release…"
+		if ru {
+			wait = "⏳ Обновление с GitHub latest release…"
+		}
+		reply(token, chat, msgID, wait, toolsKeyboard())
 		err := ndupdate.SelfReplace("netductor", "/usr/local/bin/netductor", "")
 		_ = exec.Command("cp", "-f", "/usr/local/bin/netductor", "/opt/netductor/bin/netductor").Run()
 		err2 := ndupdate.SelfReplace("tg", "/opt/netductor/bin/netductor-tg", "")
 		_ = exec.Command("cp", "-f", "/opt/netductor/bin/netductor-tg", "/usr/local/bin/netductor-tg").Run()
+		if tag, e := ndupdate.LatestReleaseTag(); e == nil {
+			ndupdate.WriteVERSION(tag)
+		}
+		_ = exec.Command("systemctl", "restart", "netductor-api").Start()
 		_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Start()
-		msg := "✅ Updated from release + bot restarted"
+		msg := "✅ Updated from release; api + bot restarted"
+		if ru {
+			msg = "✅ Обновлено с release; api + bot перезапущены"
+		}
 		if err != nil || err2 != nil {
 			msg = "❌ " + esc(fmt.Sprintf("netductor: %v; tg: %v", err, err2))
 		}
@@ -410,7 +421,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		return
 	}
 	tag, err := ndupdate.LatestReleaseTag()
-	local := "0.7.0-dev"
+	local := "0.0.0"
 	if b, e := os.ReadFile("/etc/netductor/VERSION"); e == nil {
 		local = strings.TrimSpace(string(b))
 	}
@@ -427,16 +438,33 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	} else {
 		b.WriteString("<tr><td>latest</td><td><code>" + esc(tag) + "</code></td></tr>\n")
 		if ndupdate.Newer(tag, local) {
-			b.WriteString("<tr><td>status</td><td>🆕 available</td></tr>\n")
+			if ru {
+				b.WriteString("<tr><td>status</td><td>🆕 доступно</td></tr>\n")
+			} else {
+				b.WriteString("<tr><td>status</td><td>🆕 available</td></tr>\n")
+			}
 		} else {
-			b.WriteString("<tr><td>status</td><td>✅ up to date (or equal tag)</td></tr>\n")
+			if ru {
+				b.WriteString("<tr><td>status</td><td>✅ актуально</td></tr>\n")
+			} else {
+				b.WriteString("<tr><td>status</td><td>✅ up to date</td></tr>\n")
+			}
 		}
 	}
 	b.WriteString("</table>\n")
-	b.WriteString("<i>Agents: UI will list outdated edge devices when registry reports versions.</i>\n")
+	if ru {
+		b.WriteString("<i>Агенты OpenWrt: точечное обновление через agent_update (без авто-раскатки).</i>\n")
+	} else {
+		b.WriteString("<i>OpenWrt agents: point update via agent_update (no auto-rollout).</i>\n")
+	}
+	upLabel := "⬆ Update primary"
+	if ru {
+		upLabel = "⬆ Обновить primary"
+	}
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("⬆ Update primary", "m:updates:self", "primary")},
+		{btn(upLabel, "m:updates:self", "primary")},
 		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "")},
 	}}
 	reply(token, chat, msgID, b.String(), kb)
 }
+

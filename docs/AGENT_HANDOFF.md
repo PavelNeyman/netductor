@@ -581,3 +581,13 @@ See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll w
 
 ### 0.7.39-dev
 - Edge recovery/register/set-site in TG, Admin UI, TUI; API /api/edge/recovery|register|set-site|export|import.
+
+## 0.8.0 lock (2026-09-20)
+
+- Version **0.8.0** tag `v0.8.0`
+- Architecture: primary + secondary (VPN entry only); no full RU mirror
+- Edge recovery: LAN page + recovery codes; CONTROL_ONLY; pending→approve
+- Updates: primary from GitHub **Release** via TG; agents **not** auto-updated
+- Docs: EN + `docs/ru/` (missing long plans have RU stubs pointing to EN)
+- Review: docs/REVIEW-2026-09-20.md
+

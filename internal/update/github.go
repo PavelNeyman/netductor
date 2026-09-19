@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -73,7 +74,7 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 	return os.Rename(destPath+".new", destPath)
 }
 
-// SelfReplace restarts unit after replacing binary (best-effort).
+// SelfReplace downloads latest release asset and optionally restarts systemd unit.
 func SelfReplace(component, destPath, unit string) error {
 	tag, err := LatestReleaseTag()
 	if err != nil {
@@ -88,9 +89,45 @@ func SelfReplace(component, destPath, unit string) error {
 	return nil
 }
 
-// VersionCompare returns true if remote is newer than local (string compare on tags).
+// Parse soft semver for comparison (major.minor.patch, ignores -suffix).
+func verParts(s string) (int, int, int) {
+	s = strings.TrimPrefix(strings.TrimSpace(s), "v")
+	if i := strings.IndexAny(s, "-+"); i >= 0 {
+		s = s[:i]
+	}
+	parts := strings.Split(s, ".")
+	var a, b, c int
+	if len(parts) > 0 {
+		a, _ = strconv.Atoi(parts[0])
+	}
+	if len(parts) > 1 {
+		b, _ = strconv.Atoi(parts[1])
+	}
+	if len(parts) > 2 {
+		c, _ = strconv.Atoi(parts[2])
+	}
+	return a, b, c
+}
+
+// Newer returns true if remote tag is numerically newer than local VERSION.
 func Newer(remote, local string) bool {
-	remote = strings.TrimPrefix(remote, "v")
-	local = strings.TrimPrefix(local, "v")
-	return remote != "" && local != "" && remote != local && remote > local
+	ra, rb, rc := verParts(remote)
+	la, lb, lc := verParts(local)
+	if ra != la {
+		return ra > la
+	}
+	if rb != lb {
+		return rb > lb
+	}
+	return rc > lc
+}
+
+// WriteVERSION updates /etc/netductor/VERSION best-effort.
+func WriteVERSION(tag string) {
+	tag = strings.TrimPrefix(strings.TrimSpace(tag), "v")
+	if tag == "" {
+		return
+	}
+	_ = os.MkdirAll("/etc/netductor", 0o755)
+	_ = os.WriteFile("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644)
 }
