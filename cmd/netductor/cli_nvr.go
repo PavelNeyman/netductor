@@ -120,6 +120,51 @@ func runNVR(args []string) {
 		}
 		id := edge.EnqueueCmd(args[1], "dhcp_static", arg)
 		fmt.Println("cmd_id", id)
+	case "probe":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr probe <camera_id>")
+			os.Exit(2)
+		}
+		c, ok := nvr.GetCamera(args[1])
+		if !ok {
+			fmt.Fprintln(os.Stderr, "camera not found")
+			os.Exit(1)
+		}
+		url := nvr.RTSPURL(c)
+		if url == "" {
+			// probe TCP only from site without password
+			if c.LANIP == "" || c.SiteID == "" {
+				fmt.Fprintln(os.Stderr, "need lan_ip+site or rtsp secret")
+				os.Exit(1)
+			}
+			port := c.RTSPPort
+			if port == 0 {
+				port = 554
+			}
+			arg := c.LANIP + ":" + strconv.Itoa(port)
+			id := edge.EnqueueCmd(c.SiteID, "rtsp_probe", arg)
+			fmt.Fprintln(os.Stderr, "tcp probe", id)
+			res, err := edge.WaitCmdResult(id, 60*time.Second)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println(res["result"])
+			return
+		}
+		// full URL probe via agent (password in cmd — 0600 state)
+		id := edge.EnqueueCmd(c.SiteID, "rtsp_probe", url)
+		if id == "" {
+			fmt.Fprintln(os.Stderr, "enqueue failed")
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stderr, "waiting", id)
+		res, err := edge.WaitCmdResult(id, 90*time.Second)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(res["result"])
 	case "storage":
 		b, _ := json.MarshalIndent(nvr.GetStorageStatus(), "", "  ")
 		fmt.Println(string(b))
@@ -169,6 +214,7 @@ func printNVRHelp() {
   dhcp-static <device_id> <mac> <ip> [name]
   retention|rotate
   segments [camera_id]
+  probe <camera_id>
   storage
   prepare-storage [--print-only]
   recorder start|stop <camera_id>

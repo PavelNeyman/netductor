@@ -78,3 +78,9 @@ Worth baking into the agent command set over time (not all implemented yet):
 Prefer **agent-executed** LAN actions (camera control, RTSP probe) so primary only speaks to agent over VPN.
 
 CLI: `netductor nvr leases <device_id>` enqueues `dhcp_leases`.
+
+### NVR 0.7.19-dev
+
+- Agent: `rtsp_probe` (TCP + optional ffprobe)
+- CLI: `netductor nvr probe <camera_id>`
+- Ingest: `POST /api/nvr/ingest` (multipart `file` + `camera_id`) for site→primary segment push

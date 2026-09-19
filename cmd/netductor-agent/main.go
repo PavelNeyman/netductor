@@ -502,9 +502,59 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return wifiClientsJSON()
 	case "dhcp_static":
 		return dhcpStaticHost(arg)
+	case "rtsp_probe":
+		return rtspProbe(arg)
 	default:
 		return "denied:" + action
 	}
+}
+
+
+
+func rtspProbe(arg string) string {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return "error:empty"
+	}
+	// Accept full rtsp URL or host:port
+	hostport := arg
+	path := ""
+	if strings.HasPrefix(arg, "rtsp://") {
+		// rtsp://user:pass@host:port/path
+		u := arg[7:]
+		if i := strings.Index(u, "@"); i >= 0 {
+			u = u[i+1:]
+		}
+		if i := strings.IndexAny(u, "/?"); i >= 0 {
+			path = u[i:]
+			u = u[:i]
+		}
+		hostport = u
+	}
+	if !strings.Contains(hostport, ":") {
+		hostport = hostport + ":554"
+	}
+	conn, err := net.DialTimeout("tcp", hostport, 5*time.Second)
+	if err != nil {
+		return "error:tcp:" + err.Error()
+	}
+	_ = conn.Close()
+	out := "ok:tcp:" + hostport
+	if path != "" {
+		out += " path=" + path
+	}
+	// optional ffprobe if present (no password echo)
+	if _, err := exec.LookPath("ffprobe"); err == nil && strings.HasPrefix(arg, "rtsp://") {
+		cmd := exec.Command("ffprobe", "-v", "error", "-rtsp_transport", "tcp", "-show_entries", "stream=codec_type", "-of", "csv=p=0", arg)
+		cmd.Stdout = nil
+		b, err := cmd.CombinedOutput()
+		if err != nil {
+			out += "; ffprobe:fail:" + truncate(string(b), 120)
+		} else {
+			out += "; ffprobe:ok:" + truncate(strings.TrimSpace(string(b)), 80)
+		}
+	}
+	return out
 }
 
 

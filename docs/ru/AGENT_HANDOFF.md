@@ -28,3 +28,9 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 
 - TG: **From leases** → edge site → async wait → add camera (password prompt) + optional static DHCP
 - `nvr storage` / `GET /api/nvr/storage`
+
+### NVR 0.7.19-dev
+
+- Agent: `rtsp_probe` (TCP + optional ffprobe)
+- CLI: `netductor nvr probe <camera_id>`
+- Ingest: `POST /api/nvr/ingest` (multipart `file` + `camera_id`) for site→primary segment push

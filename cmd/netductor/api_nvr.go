@@ -233,6 +233,55 @@ func registerNVRAPI(mux *http.ServeMux) {
 	})
 
 	
+	
+	// Agent (device token) or session may upload a segment file.
+	mux.HandleFunc("/api/nvr/ingest", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSON(w, 405, map[string]string{"error": "method"})
+			return
+		}
+		auth := r.Header.Get("Authorization")
+		did := edge.DeviceIDFromAuth(auth)
+		sessionOK := false
+		if did == "" {
+			// try session without writing unauthorized body first
+			if !requireSession(w, r) {
+				return
+			}
+			sessionOK = true
+		} else if !edge.RequireApproved(auth, did) {
+			writeJSON(w, 403, map[string]string{"error": "forbidden"})
+			return
+		}
+		_ = sessionOK
+		if err := r.ParseMultipartForm(64 << 20); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "multipart: " + err.Error()})
+			return
+		}
+		camID := r.FormValue("camera_id")
+		if camID == "" {
+			camID = r.Header.Get("X-Camera-Id")
+		}
+		file, hdr, err := r.FormFile("file")
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": "file required"})
+			return
+		}
+		defer file.Close()
+		name := ""
+		if hdr != nil {
+			name = hdr.Filename
+		}
+		path, n, err := nvr.IngestSegment(camID, name, file)
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		// opportunistic retention if over cap
+		go func() { _, _ = nvr.RunRetention(nvr.LoadConfig()) }()
+		writeJSON(w, 200, map[string]any{"ok": true, "path": path, "bytes": n, "device_id": did})
+	})
+
 	mux.HandleFunc("/api/nvr/storage", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !requireSession(w, r) {
 			return

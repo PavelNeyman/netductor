@@ -1,3 +1,9 @@
+## 0.7.19-dev
+
+- agent `rtsp_probe`; CLI `nvr probe <camera_id>`
+- `POST /api/nvr/ingest` segment upload (device token or session)
+- doctor storage status; IngestSegment tests
+
 ## 0.7.18-dev
 
 - TG NVR: From leases → site → wait → pick → RTSP password → camera + dhcp_static
