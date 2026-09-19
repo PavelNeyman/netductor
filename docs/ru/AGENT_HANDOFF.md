@@ -139,3 +139,6 @@ Agent order: **tapo-go → python → ONVIF**.
 - KLAP v1/v2 in `internal/tapo/klap.go` (python-kasa compatible)
 - Login: probe KLAP → classic secure/legacy → KLAP fallback
 - alarm + reboot actions
+
+### 0.7.31-dev
+- motion/alarm/children/ChildID; CLI nvr tapo

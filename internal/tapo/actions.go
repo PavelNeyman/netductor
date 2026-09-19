@@ -131,6 +131,26 @@ func Control(host, user, password, dir string, step int) string {
 		return resultJSON(cl.Reboot())
 	case dir == "presets":
 		return resultJSON(cl.GetPresets())
+	case dir == "privacy_get":
+		return resultJSON(cl.GetPrivacy())
+	case dir == "motion_get":
+		return resultJSON(cl.GetMotionDetection())
+	case strings.HasPrefix(dir, "motion:"):
+		// motion:on|off or motion:on:high
+		parts := strings.Split(strings.TrimPrefix(dir, "motion:"), ":")
+		on := parts[0] == "on" || parts[0] == "1"
+		sens := ""
+		if len(parts) > 1 {
+			sens = parts[1]
+		}
+		return resultJSON(cl.SetMotionDetection(on, sens))
+	case strings.HasPrefix(dir, "alarm:"):
+		on := strings.TrimPrefix(dir, "alarm:") == "on"
+		return resultJSON(cl.SetAlarm(on, true, true))
+	case dir == "children":
+		return resultJSON(cl.GetChildDeviceList())
+	case dir == "smart_track":
+		return resultJSON(cl.GetSmartTrack())
 	case dir == "calibrate":
 		return resultJSON(cl.CalibrateMotor())
 	case dir == "cruise_stop":
@@ -166,4 +186,83 @@ func Control(host, user, password, dir string, step int) string {
 	default:
 		return "tapo-go:error:dir"
 	}
+}
+
+// GetPrivacy lens mask status.
+func (c *Client) GetPrivacy() (map[string]any, error) {
+	return c.Execute("getLensMaskConfig", map[string]any{
+		"lens_mask": map[string]any{"name": []string{"lens_mask_info"}},
+	})
+}
+
+// GetMotionDetection config.
+func (c *Client) GetMotionDetection() (map[string]any, error) {
+	return c.Execute("getDetectionConfig", map[string]any{
+		"motion_detection": map[string]any{"name": []string{"motion_det"}},
+	})
+}
+
+// SetMotionDetection enabled on/off; sensitivity "" | "low"|"medium"|"high" maps digital_sensitivity.
+func (c *Client) SetMotionDetection(enabled bool, sensitivity string) (map[string]any, error) {
+	det := map[string]any{"enabled": "off"}
+	if enabled {
+		det["enabled"] = "on"
+	}
+	switch strings.ToLower(sensitivity) {
+	case "low", "l":
+		det["digital_sensitivity"] = "20"
+		det["sensitivity"] = "low"
+	case "medium", "med", "m":
+		det["digital_sensitivity"] = "50"
+		det["sensitivity"] = "normal"
+	case "high", "h":
+		det["digital_sensitivity"] = "80"
+		det["sensitivity"] = "high"
+	}
+	return c.Execute("setDetectionConfig", map[string]any{
+		"motion_detection": map[string]any{"motion_det": det},
+	})
+}
+
+// SetAlarm enables siren/light alarm (C200-style).
+func (c *Client) SetAlarm(enabled, sound, light bool) (map[string]any, error) {
+	modes := []string{}
+	if sound {
+		modes = append(modes, "sound")
+	}
+	if light {
+		modes = append(modes, "light")
+	}
+	if len(modes) == 0 {
+		modes = []string{"sound"}
+	}
+	en := "off"
+	if enabled {
+		en = "on"
+	}
+	return c.Perform(map[string]any{
+		"method": "set",
+		"msg_alarm": map[string]any{
+			"chn1_msg_alarm_info": map[string]any{
+				"alarm_type": "0",
+				"enabled":    en,
+				"light_type": "0",
+				"alarm_mode": modes,
+			},
+		},
+	})
+}
+
+// GetChildDeviceList for hubs.
+func (c *Client) GetChildDeviceList() (map[string]any, error) {
+	return c.Execute("getChildDeviceList", map[string]any{
+		"childControl": map[string]any{"start_index": 0},
+	})
+}
+
+// GetSmartTrack config.
+func (c *Client) GetSmartTrack() (map[string]any, error) {
+	return c.Execute("getSmartTrackConfig", map[string]any{
+		"smart_track": map[string]any{"name": "smart_track_info"},
+	})
 }

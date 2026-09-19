@@ -11,6 +11,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/nvr"
+	"github.com/PavelNeyman/netductor/internal/tapo"
 )
 
 func runNVR(args []string) {
@@ -291,6 +292,20 @@ func runNVR(args []string) {
 		b, _ := json.MarshalIndent(nvr.LoadMotion(), "", "  ")
 		fmt.Println(string(b))
 		fmt.Println("in_window", nvr.InMotionWindow(nvr.LoadMotion(), time.Now()))
+	case "tapo":
+		// Direct camera control (no edge): netductor nvr tapo <host> <user> <pass> <action> [step]
+		if len(args) < 5 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr tapo <host> <user> <pass> <action> [step]\n  action: left|right|up|down|info|presets|motion:on:high|privacy:off|…")
+			os.Exit(2)
+		}
+		step := 10
+		if len(args) >= 6 {
+			if n, err := strconv.Atoi(args[5]); err == nil {
+				step = n
+			}
+		}
+		fmt.Println(tapo.Control(args[1], args[2], args[3], args[4], step))
+		return
 	case "status":
 		fmt.Println("recorders", nvr.RecorderRunning())
 		st := nvr.GetStorageStatus()
@@ -348,7 +363,7 @@ func printNVRHelp() {
   segments [camera_id]
   record start|stop <camera_id>
   probe <camera_id>
-  ptz <id> dir | go2rtc | token <path> [ttl] | events | motion [set …] | status
+  ptz <id> dir | tapo <host> <user> <pass> <action> | go2rtc | token | events | motion | status
   storage
   prepare-storage [--print-only]
   recorder start|stop <camera_id>

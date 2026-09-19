@@ -34,6 +34,7 @@ type Client struct {
 	User     string
 	Password string
 	Port     int // control port, default 443
+	ChildID  string // optional hub child device_id
 
 	http *http.Client
 	stok string
@@ -298,6 +299,24 @@ func (c *Client) Execute(method string, params map[string]any) (map[string]any, 
 			},
 		},
 	}
+	if c.ChildID != "" {
+		inner = map[string]any{
+			"method": "multipleRequest",
+			"params": map[string]any{
+				"requests": []map[string]any{
+					{
+						"method": "controlChild",
+						"params": map[string]any{
+							"childControl": map[string]any{
+								"device_id":    c.ChildID,
+								"request_data": map[string]any{"method": method, "params": params},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
 	raw, _ := json.Marshal(inner)
 	if c.klap != nil {
 		return c.klap.send(inner)
@@ -344,6 +363,56 @@ func (c *Client) Execute(method string, params map[string]any) (map[string]any, 
 	}
 	// legacy plain
 	return c.postJSON(url, inner, nil)
+}
+
+
+// Perform sends a raw top-level request (e.g. {"method":"set",...}) without multipleRequest wrapper.
+func (c *Client) Perform(body map[string]any) (map[string]any, error) {
+	if c.klap == nil && c.stok == "" {
+		if err := c.Login(); err != nil {
+			return nil, err
+		}
+	}
+	if c.klap != nil {
+		return c.klap.send(body)
+	}
+	raw, _ := json.Marshal(body)
+	url := fmt.Sprintf("https://%s/stok=%s/ds", c.controlHost(), c.stok)
+	if c.secure && c.lsk != nil {
+		ct, err := c.encrypt(raw)
+		if err != nil {
+			return nil, err
+		}
+		wrap := map[string]any{
+			"method": "securePassthrough",
+			"params": map[string]any{"request": base64.StdEncoding.EncodeToString(ct)},
+		}
+		hdr := map[string]string{"Seq": fmt.Sprintf("%d", c.seq), "Tapo_tag": c.tag(raw)}
+		c.seq++
+		res, err := c.postJSON(url, wrap, hdr)
+		if err != nil {
+			return nil, err
+		}
+		if r, ok := res["result"].(map[string]any); ok {
+			if enc, ok := r["response"].(string); ok {
+				bin, err := base64.StdEncoding.DecodeString(enc)
+				if err != nil {
+					return res, err
+				}
+				pt, err := c.decrypt(bin)
+				if err != nil {
+					return res, err
+				}
+				var out map[string]any
+				if err := json.Unmarshal(pt, &out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			}
+		}
+		return res, nil
+	}
+	return c.postJSON(url, body, nil)
 }
 
 func (c *Client) postJSON(url string, body map[string]any, extra map[string]string) (map[string]any, error) {

@@ -512,7 +512,7 @@ Agent `camera_ptz` order: **tapo-go → python pytapo → ONVIF**.
 
 Still required on camera: **Third-Party Compatibility On** + Camera Account.
 
-Not ported (later): KLAP transport, presets/cruise, full media stream, hub child devices.
+Ported: secure+KLAP, presets, motion, alarm, child wrap. Media stream: RTSP. Hub list via children.
 
 ### Tapo Go port progress (0.7.29-dev)
 
@@ -526,7 +526,7 @@ Not ported (later): KLAP transport, presets/cruise, full media stream, hub child
 | presets list/save/goto/del | Done |
 | getBasicInfo | Done |
 | KLAP transport | **Done** (v1+v2 handshake, /app/request) |
-| Hub child devices | Not yet |
+| Hub child devices | **Partial** — ChildID + controlChild + children list |
 | Media/direct stream | Not yet (use RTSP) |
 
 Agent order: **tapo-go → python → ONVIF**.
@@ -535,3 +535,8 @@ Agent order: **tapo-go → python → ONVIF**.
 - KLAP v1/v2 in `internal/tapo/klap.go` (python-kasa compatible)
 - Login: probe KLAP → classic secure/legacy → KLAP fallback
 - alarm + reboot actions
+
+### 0.7.31-dev
+- motion get/set, privacy get, alarm set, smart_track, children
+- Client.ChildID + controlChild; Perform for raw `set`
+- CLI: `netductor nvr tapo <host> <user> <pass> <action>`

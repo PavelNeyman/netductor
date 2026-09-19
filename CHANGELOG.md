@@ -1,3 +1,7 @@
+## 0.7.31-dev
+
+- tapo: motion/privacy get, alarm, smart_track, hub ChildID; CLI nvr tapo
+
 ## 0.7.30-dev
 
 - tapo: KLAP v1/v2 transport; alarm/reboot; login fallback chain
