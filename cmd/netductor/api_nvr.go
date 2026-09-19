@@ -380,6 +380,40 @@ func registerNVRAPI(mux *http.ServeMux) {
 		http.ServeFile(w, r, path)
 	})
 
+	
+	mux.HandleFunc("/api/nvr/ptz", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		id := nvrStr(body["id"])
+		dir := nvrStr(body["dir"])
+		c, ok := nvr.GetCamera(id)
+		if !ok {
+			writeJSON(w, 404, map[string]string{"error": "camera not found"})
+			return
+		}
+		pass := nvr.GetSecret(c.SecretRef)
+		if pass == "" {
+			pass = nvr.GetSecret(c.ID)
+		}
+		arg := c.LANIP + "|" + c.RTSPUser + "|" + pass + "|" + dir
+		cmdID := edge.EnqueueCmd(c.SiteID, "camera_ptz", arg)
+		writeJSON(w, 200, map[string]any{"ok": true, "cmd_id": cmdID, "note": "Tapo C200 ONVIF :2020 best-effort; not HA plugins"})
+	})
+
+	mux.HandleFunc("/api/nvr/go2rtc", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		path, err := nvr.WriteGo2RTCConfig()
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "path": path})
+	})
+
 	mux.HandleFunc("/api/nvr/storage", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !requireSession(w, r) {
 			return

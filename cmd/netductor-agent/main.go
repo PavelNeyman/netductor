@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edgeagent"
+	"github.com/PavelNeyman/netductor/internal/nvr"
 )
 
 var version = "0.7.0-dev"
@@ -770,18 +771,20 @@ func nvrTrimTmp(cfg config) error {
 
 
 func cameraPTZ(arg string) string {
-	// Tapo C200 often needs proprietary protocol (HA tapo-control). Stub for wiring UI.
-	parts := strings.SplitN(arg, "|", 2)
-	if len(parts) < 2 {
-		return "error:arg ip|left|right|up|down|home"
+	// Tapo C200: ONVIF Profile S on :2020 when firmware supports it (not HA plugins).
+	// arg: ip|user|pass|dir[|duration_ms]
+	parts := strings.Split(arg, "|")
+	if len(parts) < 4 {
+		return "error:arg ip|user|pass|left|right|up|down|stop[|ms]"
 	}
-	dir := strings.ToLower(strings.TrimSpace(parts[1]))
-	switch dir {
-	case "left", "right", "up", "down", "home":
-		return "stub:ptz:" + dir + ":not_implemented_use_tapo_app_or_onvif"
-	default:
-		return "error:dir"
+	ip, user, pass, dir := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), parts[2], strings.TrimSpace(parts[3])
+	ms := 800
+	if len(parts) >= 5 {
+		if n, err := strconv.Atoi(strings.TrimSpace(parts[4])); err == nil {
+			ms = n
+		}
 	}
+	return nvr.ONVIFPTZ(ip, user, pass, dir, ms)
 }
 
 func nvrDiskInfo(cfg config) string {

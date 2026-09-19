@@ -443,3 +443,18 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 | Encrypt | **prepare-storage guidance**; auto-unlock not automated |
 | Cudy 16MB/128MB | **Documented** — tmpfs 24MB default, USB recommended |
 
+## Tapo C200 — locked integration notes
+
+**Do not depend on Home Assistant Tapo-Control / arbitrary HA plugins.** C200 support varies by firmware; HA ONVIF PTZ is often slow or incomplete.
+
+| Capability | Approach |
+|------------|----------|
+| Video | **RTSP** Camera Account: `rtsp://USER:PASS@IP:554/stream1` (HD) / `stream2` (SD for edge record) |
+| Auth | Tapo app → Advanced → **Camera Account** (not TP-Link cloud email) |
+| ONVIF | Profile **S**, port **2020** when enabled/supported by FW; PTZ ContinuousMove best-effort |
+| PTZ | Agent `camera_ptz` → ONVIF SOAP; if FW has RTSP-only, use Tapo app for PTZ |
+| Night/IR | On-camera automatic; NVR records whatever RTSP delivers |
+| Audio | One-way may work; **no** two-way over Profile S |
+| Live | Optional **go2rtc** config: `netductor nvr go2rtc` → bind 127.0.0.1 only |
+
+Flash 16MB / RAM 128MB on Cudy: buffer on tmpfs max **24MB** or **USB** `NVR_DIR`.

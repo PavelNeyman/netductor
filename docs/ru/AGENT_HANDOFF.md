@@ -90,3 +90,7 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 **Not done (no deploy required to code later):** go2rtc live UI, PTZ/night API, CV zones, auto LUKS unlock, NFS home backend automation, Admin web NVR page, TUI NVR wizard.
 
 **Cudy:** flash 16MB unused for video; RAM tmpfs buffer default 24MB; USB via NVR_DIR.
+
+### Tapo C200
+- RTSP Camera Account, stream1/stream2; ONVIF :2020 PTZ best-effort (не HA-плагины).
+- Ночь/ИК на камере; go2rtc опционально localhost.

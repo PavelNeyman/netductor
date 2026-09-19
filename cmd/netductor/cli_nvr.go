@@ -211,6 +211,39 @@ func runNVR(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(res["result"])
+	case "ptz":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr ptz <camera_id> left|right|up|down|stop")
+			os.Exit(2)
+		}
+		c, ok := nvr.GetCamera(args[1])
+		if !ok {
+			fmt.Fprintln(os.Stderr, "camera not found")
+			os.Exit(1)
+		}
+		pass := nvr.GetSecret(c.SecretRef)
+		if pass == "" {
+			pass = nvr.GetSecret(c.ID)
+		}
+		if c.SiteID == "" || c.LANIP == "" {
+			fmt.Fprintln(os.Stderr, "need site_id and lan_ip")
+			os.Exit(1)
+		}
+		arg := c.LANIP + "|" + c.RTSPUser + "|" + pass + "|" + args[2]
+		id := edge.EnqueueCmd(c.SiteID, "camera_ptz", arg)
+		res, err := edge.WaitCmdResult(id, 30*time.Second)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(res["result"])
+	case "go2rtc":
+		path, err := nvr.WriteGo2RTCConfig()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(path)
 	case "token":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor nvr token <abs-segment-path> [ttl_sec]")
@@ -315,7 +348,7 @@ func printNVRHelp() {
   segments [camera_id]
   record start|stop <camera_id>
   probe <camera_id>
-  token <path> [ttl] | events | motion [set …] | status
+  ptz <id> dir | go2rtc | token <path> [ttl] | events | motion [set …] | status
   storage
   prepare-storage [--print-only]
   recorder start|stop <camera_id>

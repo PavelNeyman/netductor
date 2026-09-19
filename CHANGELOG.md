@@ -1,3 +1,8 @@
+## 0.7.26-dev
+
+- Tapo C200: ONVIF PTZ (port 2020), model defaults, go2rtc yaml gen
+- TG/API/CLI PTZ; docs without HA plugin dependency
+
 ## 0.7.25-dev
 
 - one-shot clip tokens `/api/nvr/clip`; CLI token; agent nvr_disk_info

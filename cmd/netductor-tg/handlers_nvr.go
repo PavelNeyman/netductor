@@ -179,6 +179,12 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 				btn(fmt.Sprintf("R%d", i+1), fmt.Sprintf("m:nvr:rec:%d", i), ""),
 				btn(fmt.Sprintf("S%d", i+1), fmt.Sprintf("m:nvr:stop:%d", i), ""),
 			})
+			rows = append(rows, []map[string]any{
+				btn(fmt.Sprintf("%d◀", i+1), fmt.Sprintf("m:nvr:ptz:%d:left", i), ""),
+				btn(fmt.Sprintf("%d▶", i+1), fmt.Sprintf("m:nvr:ptz:%d:right", i), ""),
+				btn(fmt.Sprintf("%d▲", i+1), fmt.Sprintf("m:nvr:ptz:%d:up", i), ""),
+				btn(fmt.Sprintf("%d▼", i+1), fmt.Sprintf("m:nvr:ptz:%d:down", i), ""),
+			})
 		}
 		rows = append(rows, []map[string]any{btn(T("back"), "m:nvr", ""), btn(T("main_menu"), "m:menu", "primary")})
 		reply(token, chat, msgID, b.String()+"\nP=probe R=record S=stop", map[string]any{"inline_keyboard": rows})
@@ -267,6 +273,41 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			}()
 		}
 
+	case strings.HasPrefix(data, "m:nvr:ptz:"):
+		parts := strings.Split(data, ":")
+		if len(parts) < 5 {
+			reply(token, chat, msgID, "bad ptz", nvrKeyboard())
+			return
+		}
+		var idx int
+		fmt.Sscanf(parts[3], "%d", &idx)
+		dir := parts[4]
+		if chatState[chat] != "nvr_cam_cache" || chatExtra[chat] == "" {
+			reply(token, chat, msgID, "open Cameras again", nvrKeyboard())
+			return
+		}
+		var cams []nvr.Camera
+		if json.Unmarshal([]byte(chatExtra[chat]), &cams) != nil || idx < 0 || idx >= len(cams) {
+			reply(token, chat, msgID, "cache", nvrKeyboard())
+			return
+		}
+		c := cams[idx]
+		pass := nvr.GetSecret(c.SecretRef)
+		if pass == "" {
+			pass = nvr.GetSecret(c.ID)
+		}
+		arg := c.LANIP + "|" + c.RTSPUser + "|" + pass + "|" + dir
+		cmdID := edge.EnqueueCmd(c.SiteID, "camera_ptz", arg)
+		reply(token, chat, msgID, "PTZ "+esc(dir)+"… (ONVIF C200)", nvrKeyboard())
+		go func() {
+			res, err := edge.WaitCmdResult(cmdID, 30*time.Second)
+			if err != nil {
+				reply(token, chat, 0, esc(err.Error()), nvrKeyboard())
+				return
+			}
+			r, _ := res["result"].(string)
+			reply(token, chat, 0, "<code>"+esc(r)+"</code>", nvrKeyboard())
+		}()
 	case data == "m:nvr:events":
 		var b strings.Builder
 		b.WriteString("<b>NVR events</b>\n")

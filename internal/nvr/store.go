@@ -28,7 +28,9 @@ type Camera struct {
 	Features     map[string]bool   `json:"features,omitempty"`  // ptz, night, onvif
 	Enabled      bool              `json:"enabled"`
 	Record       bool              `json:"record"`
-	StreamSub    bool              `json:"stream_sub"` // prefer stream2 for motion
+	StreamSub    bool              `json:"stream_sub"` // prefer stream2 for motion/record on weak edge
+	Model        string            `json:"model,omitempty"` // default tapo_c200
+	ONVIFPort    int               `json:"onvif_port,omitempty"` // Tapo often 2020
 	Created      int64             `json:"created"`
 	Updated      int64             `json:"updated"`
 	Meta         map[string]string `json:"meta,omitempty"`
