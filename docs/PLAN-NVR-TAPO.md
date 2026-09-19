@@ -458,3 +458,26 @@ UI Admin/TG/TUI → inventory, events, clips, PTZ, live link
 | Live | Optional **go2rtc** config: `netductor nvr go2rtc` → bind 127.0.0.1 only |
 
 Flash 16MB / RAM 128MB on Cudy: buffer on tmpfs max **24MB** or **USB** `NVR_DIR`.
+
+## PTZ for Tapo C200 — preferred path (HA-compatible)
+
+Working stack in the wild: **[HomeAssistant-Tapo-Control](https://github.com/JurajNyiri/HomeAssistant-Tapo-Control)** → library **[pytapo](https://github.com/JurajNyiri/pytapo)**.
+
+| Method | Reliability on C200 |
+|--------|---------------------|
+| **pytapo `motorMove`** | Primary — same as HA |
+| ONVIF ContinuousMove :2020 | Fallback only; FW-dependent |
+
+**Prerequisites (camera):**
+1. Tapo app → **Me → Tapo Lab → Third-Party Compatibility → On**
+2. **Camera Account** (Advanced → Camera Account), not TP-Link cloud login
+
+**On site (agent host):**
+```
+pip3 install pytapo   # or python3-pytapo if packaged
+# ship scripts/tapo_control.py to /opt/netductor/scripts/
+```
+
+Agent `camera_ptz` tries **pytapo script first**, then ONVIF.
+
+Commands: `move left|right|up|down`, `night:on|off|auto`, `privacy:on|off`

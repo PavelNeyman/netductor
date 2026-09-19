@@ -94,3 +94,8 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 ### Tapo C200
 - RTSP Camera Account, stream1/stream2; ONVIF :2020 PTZ best-effort (не HA-плагины).
 - Ночь/ИК на камере; go2rtc опционально localhost.
+
+### PTZ Tapo C200
+- Как в HA Tapo-Control: **pytapo** (`motorMove`), скрипт `scripts/tapo_control.py`.
+- В приложении Tapo: **Third-Party Compatibility = On** + Camera Account.
+- ONVIF :2020 — только fallback.

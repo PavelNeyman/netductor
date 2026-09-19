@@ -1,3 +1,8 @@
+## 0.7.27-dev
+
+- Tapo C200 PTZ via pytapo (HA Tapo-Control path); ONVIF fallback
+- scripts/tapo_control.py: move/night/privacy; Third-Party Compatibility docs
+
 ## 0.7.26-dev
 
 - Tapo C200: ONVIF PTZ (port 2020), model defaults, go2rtc yaml gen

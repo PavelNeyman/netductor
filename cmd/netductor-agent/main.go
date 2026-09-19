@@ -771,20 +771,73 @@ func nvrTrimTmp(cfg config) error {
 
 
 func cameraPTZ(arg string) string {
-	// Tapo C200: ONVIF Profile S on :2020 when firmware supports it (not HA plugins).
-	// arg: ip|user|pass|dir[|duration_ms]
+	// Tapo C200 primary path = pytapo motorMove (same as HA Tapo-Control).
+	// Fallback = ONVIF :2020 ContinuousMove.
+	// arg: ip|user|pass|dir[|step_or_ms]
+	// dir: left|right|up|down|stop  OR night:on|night:off|night:auto|privacy:on|privacy:off
 	parts := strings.Split(arg, "|")
 	if len(parts) < 4 {
-		return "error:arg ip|user|pass|left|right|up|down|stop[|ms]"
+		return "error:arg ip|user|pass|left|right|up|down|stop|night:auto|privacy:off"
 	}
 	ip, user, pass, dir := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), parts[2], strings.TrimSpace(parts[3])
-	ms := 800
+	step := 10
 	if len(parts) >= 5 {
 		if n, err := strconv.Atoi(strings.TrimSpace(parts[4])); err == nil {
-			ms = n
+			step = n
 		}
 	}
-	return nvr.ONVIFPTZ(ip, user, pass, dir, ms)
+	// Prefer pytapo helper when python3+pytapo available (recommended for C200).
+	if out, ok := tryTapoControlPy(ip, user, pass, dir, step); ok {
+		return out
+	}
+	// ONVIF fallback
+	if strings.HasPrefix(dir, "night:") || strings.HasPrefix(dir, "privacy:") {
+		return "error:night/privacy need pytapo (pip install pytapo); ONVIF not used"
+	}
+	return nvr.ONVIFPTZ(ip, user, pass, dir, 800)
+}
+
+func tryTapoControlPy(ip, user, pass, dir string, step int) (string, bool) {
+	py, err := exec.LookPath("python3")
+	if err != nil {
+		py, err = exec.LookPath("python")
+		if err != nil {
+			return "", false
+		}
+	}
+	script := "/opt/netductor/scripts/tapo_control.py"
+	if _, err := os.Stat(script); err != nil {
+		script = "/usr/share/netductor/tapo_control.py"
+	}
+	if _, err := os.Stat(script); err != nil {
+		// try next to agent binary
+		if exe, e := os.Executable(); e == nil {
+			cand := filepath.Join(filepath.Dir(exe), "tapo_control.py")
+			if _, err := os.Stat(cand); err == nil {
+				script = cand
+			}
+		}
+	}
+	if _, err := os.Stat(script); err != nil {
+		return "", false
+	}
+	var args []string
+	if strings.HasPrefix(dir, "night:") {
+		mode := strings.TrimPrefix(dir, "night:")
+		args = []string{script, ip, user, pass, "night", mode}
+	} else if strings.HasPrefix(dir, "privacy:") {
+		mode := strings.TrimPrefix(dir, "privacy:")
+		args = []string{script, ip, user, pass, "privacy", mode}
+	} else {
+		args = []string{script, ip, user, pass, "move", dir, strconv.Itoa(step)}
+	}
+	cmd := exec.Command(py, args...)
+	b, err := cmd.CombinedOutput()
+	out := strings.TrimSpace(string(b))
+	if err != nil {
+		return "pytapo:" + out + " err:" + err.Error(), true
+	}
+	return "pytapo:" + out, true
 }
 
 func nvrDiskInfo(cfg config) string {
