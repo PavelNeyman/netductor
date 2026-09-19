@@ -491,6 +491,10 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 			m.output = capture(func() { runProbe(nil) })
 			m.screen = screenOutput
 		}
+	case "nvr-status":
+		m.showCmd("nvr", "status")
+	case "nvr-go2rtc":
+		m.showCmd("nvr", "go2rtc")
 	case "backup-now":
 		m.showCmd("backup", "now")
 	case "audit-tail":

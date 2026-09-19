@@ -541,3 +541,6 @@ Implemented end-to-end for operator use without third-party NVR:
 6. Tapo C200: internal/tapo full control surface used by agent/CLI
 
 **Still operator-dependent (not code):** real Cudy deploy, camera Third-Party Compatibility, USB/NFS hardware, go2rtc binary install.
+
+### 0.7.33-dev
+- PathUnderRoot for clips; motion zones API; TUI NVR ops; docs/NVR-CODE-REVIEW.md

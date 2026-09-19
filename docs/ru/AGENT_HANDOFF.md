@@ -146,3 +146,6 @@ Agent order: **tapo-go → python → ONVIF**.
 ### NVR MVP 0.7.32-dev — closed
 - go2rtc yaml + example unit; storage backends; motion zones schema; TG night/privacy/calibrate
 - Remaining: live hardware validation only
+
+### 0.7.33-dev
+- PathUnderRoot for clips; motion zones API; TUI NVR ops; docs/NVR-CODE-REVIEW.md

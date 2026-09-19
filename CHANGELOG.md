@@ -1,3 +1,7 @@
+## 0.7.33-dev
+
+- NVR polish: pathsafe clips, zones API, TUI nvr status/go2rtc; code review doc
+
 ## 0.7.32-dev
 
 - NVR MVP close: storage backends, motion zones, go2rtc example, TG PTZ extras

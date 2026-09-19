@@ -311,6 +311,13 @@ func registerNVRAPI(mux *http.ServeMux) {
 					mc.Windows = wins
 				}
 			}
+			if raw, ok := body["zones"]; ok {
+				b, _ := json.Marshal(raw)
+				var zones []nvr.MotionZone
+				if json.Unmarshal(b, &zones) == nil {
+					mc.Zones = zones
+				}
+			}
 			if err := nvr.SaveMotion(mc); err != nil {
 				writeJSON(w, 500, map[string]string{"error": err.Error()})
 				return
@@ -346,8 +353,8 @@ func registerNVRAPI(mux *http.ServeMux) {
 			return
 		}
 		// path must be under segments root
-		root := nvr.LoadConfig().Path
-		if !strings.HasPrefix(path, root) {
+		root := nvr.SegmentsRoot()
+		if !nvr.PathUnderRoot(root, path) {
 			writeJSON(w, 400, map[string]string{"error": "path outside nvr root"})
 			return
 		}
@@ -370,8 +377,8 @@ func registerNVRAPI(mux *http.ServeMux) {
 			writeJSON(w, 404, map[string]string{"error": "invalid or expired token"})
 			return
 		}
-		root := nvr.LoadConfig().Path
-		if !strings.HasPrefix(path, root) {
+		root := nvr.SegmentsRoot()
+		if !nvr.PathUnderRoot(root, path) {
 			writeJSON(w, 400, map[string]string{"error": "bad path"})
 			return
 		}
@@ -399,7 +406,7 @@ func registerNVRAPI(mux *http.ServeMux) {
 		}
 		arg := c.LANIP + "|" + c.RTSPUser + "|" + pass + "|" + dir
 		cmdID := edge.EnqueueCmd(c.SiteID, "camera_ptz", arg)
-		writeJSON(w, 200, map[string]any{"ok": true, "cmd_id": cmdID, "note": "Tapo C200 ONVIF :2020 best-effort; not HA plugins"})
+		writeJSON(w, 200, map[string]any{"ok": true, "cmd_id": cmdID, "note": "edge camera_ptz: tapo-go → pytapo → ONVIF"})
 	})
 
 	mux.HandleFunc("/api/nvr/go2rtc", func(w http.ResponseWriter, r *http.Request) {
