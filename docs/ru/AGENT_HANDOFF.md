@@ -55,3 +55,8 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 - Motion schedule (not CV yet): `nvr motion set enabled=true timezone=Europe/Moscow`
 - Events JSONL on segment ingest; TG Events/Motion
 - API `/api/nvr/motion`, `/api/nvr/events`
+
+### NVR storage (0.7.23)
+
+- **Archive on primary only.** Cudy: `/tmp` buffer **≤64MB**, upload→delete.
+- TG alert on segment if motion schedule allows (`AlertOnSegment`).

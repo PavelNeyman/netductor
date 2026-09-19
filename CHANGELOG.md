@@ -1,3 +1,8 @@
+## 0.7.23-dev
+
+- Edge NVR buffer 64MB, faster upload; docs: archive only on primary
+- TG AlertOnce on segment during motion window
+
 ## 0.7.22-dev
 
 - NVR motion schedule (windows/tz), events log on ingest

@@ -2,6 +2,7 @@ package nvr
 
 import (
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"io"
 	"os"
 	"path/filepath"
@@ -53,5 +54,9 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 		return "", 0, err
 	}
 	AppendEvent("segment", cameraID, filename)
+	mc := LoadMotion()
+	if mc.AlertOnSegment && InMotionWindow(mc, Now()) {
+		notify.AlertOnce("nvr-seg-"+cameraID, "NVR segment: camera "+cameraID+" file "+filename)
+	}
 	return dest, n, nil
 }

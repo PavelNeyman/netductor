@@ -529,7 +529,7 @@ var (
 
 const (
 	nvrMaxConcurrent = 2
-	nvrMaxTmpBytes   = 200 * 1024 * 1024 // 200MB under /tmp/netductor-nvr
+	nvrMaxTmpBytes   = 64 * 1024 * 1024 // 64MB ephemeral buffer on OpenWrt /tmp
 )
 
 func nvrDir() string {
@@ -767,7 +767,7 @@ func nvrRecordStop(camID string) string {
 }
 
 func nvrUploadLoop(client *http.Client, cfg config, camID, dir string, stop chan struct{}) {
-	ticker := time.NewTicker(20 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
@@ -801,7 +801,7 @@ func nvrUploadDirOnce(client *http.Client, cfg config, camID, dir string) {
 		if err != nil {
 			continue
 		}
-		if now.Sub(fi.ModTime()) < 15*time.Second {
+		if now.Sub(fi.ModTime()) < 8*time.Second {
 			continue
 		}
 		if err := nvrUploadFile(client, cfg, camID, path); err == nil {

@@ -3,6 +3,18 @@
 **Status:** draft / research (2026-09-18)  
 **Scope:** 2× TP-Link Tapo C200 (Wi‑Fi, RTSP) behind Cudy OpenWrt; record & manage on netductor **primary**; UI in Admin / TG / TUI; optional encryption at rest.
 
+
+## Where video is stored (locked)
+
+| Place | Role | Disk |
+|-------|------|------|
+| **Primary VPS** | **Archive** (segments under NVR path, retention days/GB) | Sized for retention; encrypt (LUKS/gocryptfs) |
+| **Cudy / OpenWrt agent** | **Ephemeral buffer only** `/tmp/netductor-nvr/` | Cap **~64MB**; upload every ~10s then delete local file |
+
+Recording on Cudy uses **`-c copy`** (no re-encode). If upload fails, oldest buffer files are dropped when over 64MB — **not** a full archive on the router. Router flash/overlay is **not** used for video.
+
+Prefer **substream** (`stream2`) when adding cameras to keep bitrate low on Wi‑Fi and /tmp.
+
 ## Locked decisions (2026-09-18)
 
 1. **Access only via VPN**  
