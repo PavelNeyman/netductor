@@ -43,6 +43,7 @@ type Client struct {
 	cnonce string
 	hash   hashMethod
 	secure bool
+	klap   *klapSession
 	hashedMD5    string
 	hashedSHA256 string
 }
@@ -86,7 +87,14 @@ func (c *Client) hashedPassword() string {
 }
 
 // Login performs stok handshake (secure encrypt_type 3 or legacy hashed password).
+// If the camera speaks KLAP (newer FW), uses KLAP instead.
 func (c *Client) Login() error {
+	if probeKLAP(c.Host, c.Port) || probeKLAP(c.Host, 80) {
+		if err := c.loginKLAP(); err == nil {
+			return nil
+		}
+		// fall through to classic
+	}
 	c.secure = c.probeSecure()
 	c.cnonce = nonce8()
 	url := "https://" + c.controlHost()
@@ -112,6 +120,9 @@ func (c *Client) Login() error {
 	}
 	res, err := c.postJSON(url, body, nil)
 	if err != nil {
+		if e2 := c.loginKLAP(); e2 == nil {
+			return nil
+		}
 		return err
 	}
 	if c.secure {
@@ -143,6 +154,9 @@ func (c *Client) Login() error {
 		r2, _ := res2["result"].(map[string]any)
 		stok, _ := r2["stok"].(string)
 		if stok == "" {
+			if e2 := c.loginKLAP(); e2 == nil {
+				return nil
+			}
 			return fmt.Errorf("tapo: no stok after digest login: %v", res2)
 		}
 		c.stok = stok
@@ -158,6 +172,9 @@ func (c *Client) Login() error {
 	r, _ := res["result"].(map[string]any)
 	stok, _ := r["stok"].(string)
 	if stok == "" {
+		if e2 := c.loginKLAP(); e2 == nil {
+			return nil
+		}
 		return fmt.Errorf("tapo: legacy login failed: %v", res)
 	}
 	c.stok = stok
@@ -268,7 +285,7 @@ func (c *Client) tag(requestJSON []byte) string {
 
 // Execute sends a multipleRequest-style method via securePassthrough or plain stok.
 func (c *Client) Execute(method string, params map[string]any) (map[string]any, error) {
-	if c.stok == "" {
+	if c.klap == nil && c.stok == "" {
 		if err := c.Login(); err != nil {
 			return nil, err
 		}
@@ -282,6 +299,9 @@ func (c *Client) Execute(method string, params map[string]any) (map[string]any, 
 		},
 	}
 	raw, _ := json.Marshal(inner)
+	if c.klap != nil {
+		return c.klap.send(inner)
+	}
 	url := fmt.Sprintf("https://%s/stok=%s/ds", c.controlHost(), c.stok)
 	if c.secure && c.lsk != nil {
 		ct, err := c.encrypt(raw)

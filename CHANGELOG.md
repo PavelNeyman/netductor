@@ -1,3 +1,7 @@
+## 0.7.30-dev
+
+- tapo: KLAP v1/v2 transport; alarm/reboot; login fallback chain
+
 ## 0.7.29-dev
 
 - tapo: presets, calibrate, relativeMove, LED, info; expand Control actions

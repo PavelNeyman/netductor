@@ -81,6 +81,16 @@ func (c *Client) SetLED(on bool) (map[string]any, error) {
 	})
 }
 
+// GetAlarmConfig motion/siren config.
+func (c *Client) GetAlarmConfig() (map[string]any, error) {
+	return c.Execute("getAlarmConfig", map[string]any{"msg_alarm": map[string]any{}})
+}
+
+// Reboot device.
+func (c *Client) Reboot() (map[string]any, error) {
+	return c.Execute("rebootDevice", map[string]any{"system": map[string]any{"reboot": "null"}})
+}
+
 func resultJSON(res map[string]any, err error) string {
 	if err != nil {
 		return "tapo-go:err:" + err.Error()
@@ -115,6 +125,10 @@ func Control(host, user, password, dir string, step int) string {
 	switch {
 	case dir == "info":
 		return resultJSON(cl.GetBasicInfo())
+	case dir == "alarm":
+		return resultJSON(cl.GetAlarmConfig())
+	case dir == "reboot":
+		return resultJSON(cl.Reboot())
 	case dir == "presets":
 		return resultJSON(cl.GetPresets())
 	case dir == "calibrate":

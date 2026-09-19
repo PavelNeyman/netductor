@@ -525,8 +525,13 @@ Not ported (later): KLAP transport, presets/cruise, full media stream, hub child
 | day/night, privacy, LED | Done |
 | presets list/save/goto/del | Done |
 | getBasicInfo | Done |
-| KLAP transport | Not yet (newer FW may need it) |
+| KLAP transport | **Done** (v1+v2 handshake, /app/request) |
 | Hub child devices | Not yet |
 | Media/direct stream | Not yet (use RTSP) |
 
 Agent order: **tapo-go → python → ONVIF**.
+
+### 0.7.30-dev
+- KLAP v1/v2 in `internal/tapo/klap.go` (python-kasa compatible)
+- Login: probe KLAP → classic secure/legacy → KLAP fallback
+- alarm + reboot actions
