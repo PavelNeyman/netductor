@@ -1,36 +1,37 @@
 # Open items
 
-## Done recently (0.7.3)
+## Done recently (through 0.7.34-dev)
 
-- [x] TG Access rich QR + `<pre><code>` URI + body/nav split
+- [x] TG Access rich QR + URI + body/nav split
 - [x] Import redirect on :80 + TG url buttons (SR/Happ/INCY)
-- [x] Doctor: redirect unit + `/healthz`
-- [x] Alerts: secondary offline / sing-box (collect); redirect unit on primary
-- [x] mTLS: `EnsureClientFor` pushed on secondary provision
-- [x] `backup verify|list` smoke
-- [x] CI: redirect allowlist / encoding tests
+- [x] Doctor: redirect + healthz; alerts secondary/sing-box
+- [x] mTLS client on secondary provision
+- [x] RU/gov **client + SR** direct (Gosuslugi/banks/geoip-ru) — `ru_direct.go`, `nd-oc.conf`
+- [x] Secondary = VPN entry only (not full mirror)
+- [x] NVR/Tapo Go control MVP (code); review in NVR-CODE-REVIEW.md
+- [x] Review 2026-09-19: [REVIEW-2026-09-19.md](REVIEW-2026-09-19.md)
 
 ## Still open
 
-- [ ] Redirect **HTTPS** with real cert (optional `-tls-cert/-tls-key`; or Reality fallback later). HTTP on :80 works for TG buttons.
-- [ ] Admin UI: stays **localhost / session** — do **not** expose publicly (owner decision).
-- [ ] Rich **edit in place** for Access (see note in handoff) — careful with photo+buttons.
-- [x] Drop remaining operator-facing `relay` wording in old docs (RELAY.md banner, RUNBOOK, TG strings).
-- [ ] Point `NETDUCTOR_REDIRECT_BASE` / advertise hosts at durable domain after reinstall (avoid hard-coded test IP in bot default).
+- [ ] Redirect **HTTPS** / durable domain (`NETDUCTOR_REDIRECT_BASE`)
+- [ ] Admin UI: **not** public (locked)
+- [ ] OpenWrt + MikroTik + Tapo **e2e on real hardware**
+- [ ] Release assets always tracking `main` (process)
+- [ ] Optional: collapse legacy `relay` state dir name → `secondary` only on clean install
+- [ ] Path B: limited end-user bot (design only)
 
 ## Notes for agents
 
-**Admin TLS (item 5):** means TLS for the **local** admin API/UI only if ever bound beyond loopback. Owner does not want public admin. No work unless binding changes.
+**RU-direct:** home ISP for `category-ru`/gov; secondary for WL entry and abroad RU-IP needs. App-level “disable VPN” = tun detection — not fixed by more routes.
 
-**Rich edit (item 6):** today Access does delete+send so photo/rich stay one logical screen. True `editMessageText` / edit media avoids flicker but must keep **one** message id and not send follow-ups. Risk is low if we only edit; high if we add extra sends. Optional polish.
+**Admin TLS:** only if binding changes off localhost.
 
-**Hardcoded base (item 12):** bot default `http://2.27.118.70` is a **test VPS IP**. After reinstall/DNS, set systemd env `NETDUCTOR_REDIRECT_BASE` (and vpn/core advertise hosts) explicitly — do not rely on compiled defaults.
-
+**Hardcoded base:** set env after reinstall; do not rely on compiled test IP.
 
 ## Family messenger
 
-See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Shortlist: **Snikket** (primary candidate), Tinode (geo?), Matrix fallback; **Guardyn** watch when mobile ships; Seclettr/Delta out.
+See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Snikket primary candidate; Matrix fallback.
 
-## NVR / Tapo cameras (draft)
+## NVR
 
-See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — leases on OpenWrt agent, RTSP to primary, record/UI/encryption options.
+See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — hardware validation remaining.

@@ -22,3 +22,7 @@
 
 ## Handoff
 [AGENT_HANDOFF.md](AGENT_HANDOFF.md)
+
+## 2026-09-19
+- Closed: client RU/gov direct for Gosuslugi stack.
+- See OPEN_ITEMS.md + REVIEW-2026-09-19.md.

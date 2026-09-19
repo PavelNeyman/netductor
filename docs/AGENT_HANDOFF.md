@@ -553,3 +553,13 @@ Agent order: **tapo-go → python → ONVIF**.
 - Client sing-box + secondary relay use it; GEOIP RU rule-set on client
 - `nd-oc.conf` + generated `shadowrocket-routing.conf` — DIRECT for RU/gov
 - Docs: `docs/ru/SHADOWROCKET.md`
+
+---
+
+## Snapshot 2026-09-19 (0.7.34-dev)
+
+- **RU-direct closed:** shared `internal/vpn/ru_direct.go`; client sing-box + secondary + `nd-oc.conf` / `shadowrocket-routing.conf`.
+- **Deployed primary:** netductor + netductor-tg updated; `vpn client-config` for Pavel, Nelya, Mama.
+- **Review:** [REVIEW-2026-09-19.md](REVIEW-2026-09-19.md) — code, security, refactor plan.
+- **Open:** hardware e2e (OpenWrt/Tapo/MikroTik), durable domain/HTTPS redirect, release-asset discipline.
+- **Not regressing:** do not remove client-side RU DIRECT in favor of “relay-only split”.

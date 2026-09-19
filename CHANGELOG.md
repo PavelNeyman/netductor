@@ -1,3 +1,7 @@
+## 0.7.34-dev (docs)
+
+- REVIEW-2026-09-19, OPEN_ITEMS/handoff snapshot after RU-direct deploy
+
 ## 0.7.34-dev
 
 - Client/relay RU-direct lists for Gosuslugi/gov/banks; SR nd-oc + routing.conf; docs
