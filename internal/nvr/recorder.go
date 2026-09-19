@@ -13,8 +13,9 @@ var (
 	recCmds = map[string]*exec.Cmd{} // camera id -> ffmpeg
 )
 
-// StartRecorder launches ffmpeg segment writer for a camera (best-effort).
-// Requires ffmpeg in PATH and reachable RTSP URL.
+// StartRecorder launches ffmpeg on primary (only if RTSP is routable from VPS).
+// Prefer site-agent nvr_record_* when cameras are behind NAT.
+// Does NOT auto-restart on failure (avoids CPU spin); operator/UI restarts.
 func StartRecorder(c Camera) error {
 	cfg := LoadConfig()
 	if !cfg.RecordEnabled || !c.Record || !c.Enabled {
@@ -36,6 +37,9 @@ func StartRecorder(c Camera) error {
 	args := []string{
 		"-hide_banner", "-loglevel", "error",
 		"-rtsp_transport", "tcp",
+		"-timeout", "5000000",
+		"-rw_timeout", "5000000",
+		"-stimeout", "5000000",
 		"-i", url,
 		"-c", "copy",
 		"-f", "segment",
@@ -43,6 +47,7 @@ func StartRecorder(c Camera) error {
 		"-segment_atclocktime", "1",
 		"-strftime", "1",
 		"-reset_timestamps", "1",
+		"-break_non_keyframes", "1",
 		pattern,
 	}
 	recMu.Lock()

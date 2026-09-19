@@ -1,3 +1,8 @@
+## 0.7.21-dev
+
+- agent NVR supervise: TCP pre-check, backoff, max 2 cams, /tmp 200MB trim
+- ffprobe timeout; primary recorder no auto-restart; nvr_record_status
+
 ## 0.7.20-dev
 
 - agent nvr_record_start/stop + segment upload to /api/nvr/ingest

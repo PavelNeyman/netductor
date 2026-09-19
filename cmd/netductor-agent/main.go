@@ -510,6 +510,8 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return nvrRecordStart(client, cfg, arg)
 	case "nvr_record_stop":
 		return nvrRecordStop(arg)
+	case "nvr_record_status":
+		return nvrRecordStatus()
 	default:
 		return "denied:" + action
 	}
@@ -518,10 +520,16 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 
 
 
+
 var (
 	nvrRecMu   sync.Mutex
 	nvrRecCmds = map[string]*exec.Cmd{}
 	nvrRecStop = map[string]chan struct{}{}
+)
+
+const (
+	nvrMaxConcurrent = 2
+	nvrMaxTmpBytes   = 200 * 1024 * 1024 // 200MB under /tmp/netductor-nvr
 )
 
 func nvrDir() string {
@@ -547,42 +555,194 @@ func nvrRecordStart(client *http.Client, cfg config, arg string) string {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return "error:ffmpeg not installed"
 	}
+	nvrRecMu.Lock()
+	running := 0
+	for id, c := range nvrRecCmds {
+		if id != camID && c != nil && c.Process != nil {
+			running++
+		}
+	}
+	nvrRecMu.Unlock()
+	if running >= nvrMaxConcurrent {
+		return "error:max concurrent records (" + strconv.Itoa(nvrMaxConcurrent) + ")"
+	}
 	dir := filepath.Join(nvrDir(), camID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "error:" + err.Error()
 	}
 	nvrRecordStop(camID)
-	pattern := filepath.Join(dir, "%Y%m%d-%H%M%S.mp4")
-	cmd := exec.Command("ffmpeg",
-		"-hide_banner", "-loglevel", "error",
-		"-rtsp_transport", "tcp",
-		"-i", url,
-		"-c", "copy",
-		"-f", "segment",
-		"-segment_time", strconv.Itoa(seg),
-		"-segment_atclocktime", "1",
-		"-strftime", "1",
-		"-reset_timestamps", "1",
-		pattern,
-	)
-	if err := cmd.Start(); err != nil {
-		return "error:start:" + err.Error()
-	}
 	stop := make(chan struct{})
 	nvrRecMu.Lock()
-	nvrRecCmds[camID] = cmd
 	nvrRecStop[camID] = stop
 	nvrRecMu.Unlock()
-	go func() {
-		_ = cmd.Wait()
-		nvrRecMu.Lock()
-		if nvrRecCmds[camID] == cmd {
-			delete(nvrRecCmds, camID)
-		}
-		nvrRecMu.Unlock()
-	}()
+	go nvrSupervise(client, cfg, camID, url, seg, dir, stop)
 	go nvrUploadLoop(client, cfg, camID, dir, stop)
-	return "ok:recording:" + camID
+	return "ok:recording:" + camID + " (supervised, max " + strconv.Itoa(nvrMaxConcurrent) + " cams)"
+}
+
+// nvrSupervise runs ffmpeg with backoff when RTSP is down (no tight restart loop).
+func nvrSupervise(client *http.Client, cfg config, camID, url string, seg int, dir string, stop chan struct{}) {
+	backoff := 5 * time.Second
+	const maxBackoff = 5 * time.Minute
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		// cheap TCP check before spawning ffmpeg
+		if err := nvrTCPCheckRTSP(url); err != nil {
+			fmt.Fprintf(os.Stderr, "nvr %s: offline %v; retry in %s\n", camID, err, backoff)
+			select {
+			case <-stop:
+				return
+			case <-time.After(backoff):
+			}
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			continue
+		}
+		backoff = 5 * time.Second
+		_ = nvrTrimTmp()
+		cmd := exec.Command("ffmpeg",
+			"-hide_banner", "-loglevel", "error",
+			"-rtsp_transport", "tcp",
+			"-timeout", "5000000", // 5s in microseconds (some builds)
+			"-rw_timeout", "5000000",
+			"-stimeout", "5000000",
+			"-i", url,
+			"-c", "copy",
+			"-f", "segment",
+			"-segment_time", strconv.Itoa(seg),
+			"-segment_atclocktime", "1",
+			"-strftime", "1",
+			"-reset_timestamps", "1",
+			"-break_non_keyframes", "1",
+			filepath.Join(dir, "%Y%m%d-%H%M%S.mp4"),
+		)
+		nvrRecMu.Lock()
+		nvrRecCmds[camID] = cmd
+		nvrRecMu.Unlock()
+		err := cmd.Start()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "nvr %s: start %v\n", camID, err)
+			select {
+			case <-stop:
+				return
+			case <-time.After(backoff):
+			}
+			continue
+		}
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		select {
+		case <-stop:
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			<-done
+			nvrRecMu.Lock()
+			delete(nvrRecCmds, camID)
+			nvrRecMu.Unlock()
+			return
+		case err := <-done:
+			nvrRecMu.Lock()
+			if nvrRecCmds[camID] == cmd {
+				delete(nvrRecCmds, camID)
+			}
+			nvrRecMu.Unlock()
+			fmt.Fprintf(os.Stderr, "nvr %s: ffmpeg exited %v; retry in %s\n", camID, err, backoff)
+			select {
+			case <-stop:
+				return
+			case <-time.After(backoff):
+			}
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+		}
+	}
+}
+
+func nvrTCPCheckRTSP(url string) error {
+	hostport := url
+	if strings.HasPrefix(url, "rtsp://") {
+		u := url[7:]
+		if i := strings.Index(u, "@"); i >= 0 {
+			u = u[i+1:]
+		}
+		if i := strings.IndexAny(u, "/?"); i >= 0 {
+			u = u[:i]
+		}
+		hostport = u
+	}
+	if !strings.Contains(hostport, ":") {
+		hostport += ":554"
+	}
+	c, err := net.DialTimeout("tcp", hostport, 3*time.Second)
+	if err != nil {
+		return err
+	}
+	_ = c.Close()
+	return nil
+}
+
+func nvrTrimTmp() error {
+	root := nvrDir()
+	var files []struct {
+		path string
+		mod  time.Time
+		size int64
+	}
+	var total int64
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		total += info.Size()
+		files = append(files, struct {
+			path string
+			mod  time.Time
+			size int64
+		}{path, info.ModTime(), info.Size()})
+		return nil
+	})
+	if total <= nvrMaxTmpBytes {
+		return nil
+	}
+	// oldest first
+	for i := 0; i < len(files); i++ {
+		for j := i + 1; j < len(files); j++ {
+			if files[j].mod.Before(files[i].mod) {
+				files[i], files[j] = files[j], files[i]
+			}
+		}
+	}
+	for _, f := range files {
+		if total <= nvrMaxTmpBytes*8/10 {
+			break
+		}
+		_ = os.Remove(f.path)
+		total -= f.size
+	}
+	return nil
+}
+
+
+func nvrRecordStatus() string {
+	nvrRecMu.Lock()
+	defer nvrRecMu.Unlock()
+	var ids []string
+	for id, c := range nvrRecCmds {
+		if c != nil && c.Process != nil {
+			ids = append(ids, id)
+		}
+	}
+	b, _ := json.Marshal(map[string]any{"active": ids, "count": len(ids), "max": nvrMaxConcurrent})
+	return string(b)
 }
 
 func nvrRecordStop(camID string) string {
@@ -616,6 +776,7 @@ func nvrUploadLoop(client *http.Client, cfg config, camID, dir string, stop chan
 			return
 		case <-ticker.C:
 			nvrUploadDirOnce(client, cfg, camID, dir)
+			_ = nvrTrimTmp()
 		}
 	}
 }
@@ -625,7 +786,6 @@ func nvrUploadDirOnce(client *http.Client, cfg config, camID, dir string) {
 	if err != nil {
 		return
 	}
-	// upload closed files older than 15s (avoid partial segment)
 	now := time.Now()
 	for _, e := range ents {
 		if e.IsDir() {
@@ -724,13 +884,29 @@ func rtspProbe(arg string) string {
 	}
 	// optional ffprobe if present (no password echo)
 	if _, err := exec.LookPath("ffprobe"); err == nil && strings.HasPrefix(arg, "rtsp://") {
-		cmd := exec.Command("ffprobe", "-v", "error", "-rtsp_transport", "tcp", "-show_entries", "stream=codec_type", "-of", "csv=p=0", arg)
+		cmd := exec.Command("ffprobe", "-v", "error", "-rtsp_transport", "tcp",
+			"-timeout", "5000000", "-rw_timeout", "5000000",
+			"-show_entries", "stream=codec_type", "-of", "csv=p=0", arg)
 		cmd.Stdout = nil
-		b, err := cmd.CombinedOutput()
-		if err != nil {
-			out += "; ffprobe:fail:" + truncate(string(b), 120)
-		} else {
-			out += "; ffprobe:ok:" + truncate(strings.TrimSpace(string(b)), 80)
+		done := make(chan struct{})
+		var b []byte
+		var err error
+		go func() {
+			b, err = cmd.CombinedOutput()
+			close(done)
+		}()
+		select {
+		case <-done:
+			if err != nil {
+				out += "; ffprobe:fail:" + truncate(string(b), 120)
+			} else {
+				out += "; ffprobe:ok:" + truncate(strings.TrimSpace(string(b)), 80)
+			}
+		case <-time.After(8 * time.Second):
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			out += "; ffprobe:timeout"
 		}
 	}
 	return out

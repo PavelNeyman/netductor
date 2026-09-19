@@ -407,3 +407,12 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 - CLI: `netductor nvr record start|stop <id>`
 - TG: Cameras → 🔍/⏺/⏹ per camera
 - Doctor: mountpoint / encryption hint
+
+### Cudy / edge load (0.7.21)
+
+- **Preferred:** record on site with `-c copy` (no re-encode). CPU stays low when stream is healthy.
+- **Offline camera:** agent does **TCP probe first**; exponential backoff 5s→5m — no tight ffmpeg restart loop.
+- **Limits:** max **2** concurrent cameras per agent; **/tmp** NVR cap **~200MB** (oldest segments dropped).
+- **ffprobe:** 8s timeout kill.
+- Cudy TR1200-class devices are fine for 1–2 substreams copy; avoid full HD×N + encode on-router.
+- Primary `StartRecorder` does **not** auto-restart (prevents CPU spin if URL unreachable from VPS).

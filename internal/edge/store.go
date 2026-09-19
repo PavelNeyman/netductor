@@ -434,7 +434,7 @@ var allowedEdgeActions = map[string]bool{
 	"uci_get": true, "uci_show": true, "uci_set": true, "uci_commit": true, "uci_batch": true,
 	"config_backup": true, "config_restore": true, "apply_template": true, "bootstrap_apply": true,
 	"reboot": true, "agent_update": true, "sysupgrade": true, "apply_rsc": true,
-	"dhcp_leases": true, "wifi_clients": true, "dhcp_static": true, "rtsp_probe": true, "nvr_record_start": true, "nvr_record_stop": true,
+	"dhcp_leases": true, "wifi_clients": true, "dhcp_static": true, "rtsp_probe": true, "nvr_record_start": true, "nvr_record_stop": true, "nvr_record_status": true,
 }
 
 func EnqueueCmd(deviceID, action, arg string) string {
