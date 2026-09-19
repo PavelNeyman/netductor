@@ -268,7 +268,10 @@ func runDoctorNative() int {
 	fmt.Println()
 	fmt.Println("NVR")
 	fmt.Printf("  path: %s\n", cfgN.Path)
-	fmt.Printf("  storage: exists=%v writable=%v free=%.1fGB segments=%d (%.2fGB)\n", stN.Exists, stN.Writable, stN.FreeGB, stN.SegmentCnt, stN.SegmentGB)
+	fmt.Printf("  storage: exists=%v writable=%v mount=%v free=%.1fGB segments=%d (%.2fGB)\n", stN.Exists, stN.Writable, stN.MountPoint, stN.FreeGB, stN.SegmentCnt, stN.SegmentGB)
+	if stN.EncryptedHint != "" {
+		fmt.Printf("  hint: %s\n", stN.EncryptedHint)
+	}
 	fmt.Printf("  record_enabled: %v  retention_days=%d max_gb=%.0f min_free_gb=%.0f\n",
 		cfgN.RecordEnabled, cfgN.RetentionDays, cfgN.MaxGB, cfgN.MinFreeGB)
 	if st, err := os.Stat(cfgN.Path); err != nil {

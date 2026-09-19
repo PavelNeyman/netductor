@@ -1,3 +1,9 @@
+## 0.7.20-dev
+
+- agent nvr_record_start/stop + segment upload to /api/nvr/ingest
+- CLI nvr record start|stop; TG Cameras probe/rec/stop
+- storage MountPoint + encrypt hint in doctor
+
 ## 0.7.19-dev
 
 - agent `rtsp_probe`; CLI `nvr probe <camera_id>`

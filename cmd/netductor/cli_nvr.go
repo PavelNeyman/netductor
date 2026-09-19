@@ -120,6 +120,52 @@ func runNVR(args []string) {
 		}
 		id := edge.EnqueueCmd(args[1], "dhcp_static", arg)
 		fmt.Println("cmd_id", id)
+	case "record":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nvr record start|stop <camera_id>")
+			os.Exit(2)
+		}
+		c, ok := nvr.GetCamera(args[2])
+		if !ok {
+			fmt.Fprintln(os.Stderr, "camera not found")
+			os.Exit(1)
+		}
+		switch args[1] {
+		case "start":
+			url := nvr.RTSPURL(c)
+			if url == "" || c.SiteID == "" {
+				fmt.Fprintln(os.Stderr, "need site_id + rtsp secret/ip")
+				os.Exit(1)
+			}
+			seg := nvr.LoadConfig().SegmentSec
+			if seg <= 0 {
+				seg = 300
+			}
+			arg := c.ID + "|" + url + "|" + strconv.Itoa(seg)
+			id := edge.EnqueueCmd(c.SiteID, "nvr_record_start", arg)
+			if id == "" {
+				fmt.Fprintln(os.Stderr, "enqueue failed")
+				os.Exit(1)
+			}
+			fmt.Fprintln(os.Stderr, "waiting", id)
+			res, err := edge.WaitCmdResult(id, 60*time.Second)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println(res["result"])
+		case "stop":
+			id := edge.EnqueueCmd(c.SiteID, "nvr_record_stop", c.ID)
+			res, err := edge.WaitCmdResult(id, 60*time.Second)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println(res["result"])
+		default:
+			fmt.Fprintln(os.Stderr, "start|stop")
+			os.Exit(2)
+		}
 	case "probe":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor nvr probe <camera_id>")
@@ -214,6 +260,7 @@ func printNVRHelp() {
   dhcp-static <device_id> <mac> <ip> [name]
   retention|rotate
   segments [camera_id]
+  record start|stop <camera_id>
   probe <camera_id>
   storage
   prepare-storage [--print-only]

@@ -34,3 +34,10 @@ Plan: [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md). Background retention on `serve`.
 - Agent: `rtsp_probe` (TCP + optional ffprobe)
 - CLI: `netductor nvr probe <camera_id>`
 - Ingest: `POST /api/nvr/ingest` (multipart `file` + `camera_id`) for site→primary segment push
+
+### NVR 0.7.20-dev
+
+- Agent records on LAN (`ffmpeg` segments in `/tmp/netductor-nvr`) and uploads to primary ingest
+- CLI: `netductor nvr record start|stop <id>`
+- TG: Cameras → 🔍/⏺/⏹ per camera
+- Doctor: mountpoint / encryption hint

@@ -10,12 +10,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edgeagent"
@@ -504,11 +506,188 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return dhcpStaticHost(arg)
 	case "rtsp_probe":
 		return rtspProbe(arg)
+	case "nvr_record_start":
+		return nvrRecordStart(client, cfg, arg)
+	case "nvr_record_stop":
+		return nvrRecordStop(arg)
 	default:
 		return "denied:" + action
 	}
 }
 
+
+
+
+var (
+	nvrRecMu   sync.Mutex
+	nvrRecCmds = map[string]*exec.Cmd{}
+	nvrRecStop = map[string]chan struct{}{}
+)
+
+func nvrDir() string {
+	return "/tmp/netductor-nvr"
+}
+
+func nvrRecordStart(client *http.Client, cfg config, arg string) string {
+	parts := strings.Split(arg, "|")
+	if len(parts) < 2 {
+		return "error:arg camera_id|rtsp_url[|segment_sec]"
+	}
+	camID := strings.TrimSpace(parts[0])
+	url := strings.TrimSpace(parts[1])
+	seg := 300
+	if len(parts) >= 3 {
+		if n, err := strconv.Atoi(strings.TrimSpace(parts[2])); err == nil && n > 0 {
+			seg = n
+		}
+	}
+	if camID == "" || url == "" {
+		return "error:empty"
+	}
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		return "error:ffmpeg not installed"
+	}
+	dir := filepath.Join(nvrDir(), camID)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "error:" + err.Error()
+	}
+	nvrRecordStop(camID)
+	pattern := filepath.Join(dir, "%Y%m%d-%H%M%S.mp4")
+	cmd := exec.Command("ffmpeg",
+		"-hide_banner", "-loglevel", "error",
+		"-rtsp_transport", "tcp",
+		"-i", url,
+		"-c", "copy",
+		"-f", "segment",
+		"-segment_time", strconv.Itoa(seg),
+		"-segment_atclocktime", "1",
+		"-strftime", "1",
+		"-reset_timestamps", "1",
+		pattern,
+	)
+	if err := cmd.Start(); err != nil {
+		return "error:start:" + err.Error()
+	}
+	stop := make(chan struct{})
+	nvrRecMu.Lock()
+	nvrRecCmds[camID] = cmd
+	nvrRecStop[camID] = stop
+	nvrRecMu.Unlock()
+	go func() {
+		_ = cmd.Wait()
+		nvrRecMu.Lock()
+		if nvrRecCmds[camID] == cmd {
+			delete(nvrRecCmds, camID)
+		}
+		nvrRecMu.Unlock()
+	}()
+	go nvrUploadLoop(client, cfg, camID, dir, stop)
+	return "ok:recording:" + camID
+}
+
+func nvrRecordStop(camID string) string {
+	camID = strings.TrimSpace(camID)
+	nvrRecMu.Lock()
+	if ch, ok := nvrRecStop[camID]; ok {
+		select {
+		case <-ch:
+		default:
+			close(ch)
+		}
+		delete(nvrRecStop, camID)
+	}
+	cmd := nvrRecCmds[camID]
+	delete(nvrRecCmds, camID)
+	nvrRecMu.Unlock()
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Kill()
+		return "ok:stopped:" + camID
+	}
+	return "ok:not_running:" + camID
+}
+
+func nvrUploadLoop(client *http.Client, cfg config, camID, dir string, stop chan struct{}) {
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			nvrUploadDirOnce(client, cfg, camID, dir)
+			return
+		case <-ticker.C:
+			nvrUploadDirOnce(client, cfg, camID, dir)
+		}
+	}
+}
+
+func nvrUploadDirOnce(client *http.Client, cfg config, camID, dir string) {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	// upload closed files older than 15s (avoid partial segment)
+	now := time.Now()
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		low := strings.ToLower(name)
+		if !strings.HasSuffix(low, ".mp4") && !strings.HasSuffix(low, ".mkv") && !strings.HasSuffix(low, ".ts") {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		fi, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if now.Sub(fi.ModTime()) < 15*time.Second {
+			continue
+		}
+		if err := nvrUploadFile(client, cfg, camID, path); err == nil {
+			_ = os.Remove(path)
+		}
+	}
+}
+
+func nvrUploadFile(client *http.Client, cfg config, camID, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	_ = w.WriteField("camera_id", camID)
+	part, err := w.CreateFormFile("file", filepath.Base(path))
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return err
+	}
+	_ = w.Close()
+	req, err := http.NewRequest(http.MethodPost, cfg.Server+"/api/nvr/ingest", &body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	tok := loadDeviceToken()
+	if tok == "" {
+		tok = cfg.Token
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
+		return fmt.Errorf("ingest %d %s", resp.StatusCode, string(b))
+	}
+	return nil
+}
 
 
 func rtspProbe(arg string) string {
