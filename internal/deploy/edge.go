@@ -17,10 +17,10 @@ type EdgeOpts struct {
 	RouterUser  string
 	RouterPass  string
 	DeviceID    string
-	ServerURL   string // e.g. http://PRIMARY_IP:8787
-	AgentArch   string // arm64, armv7, mipsle, …
+	ServerURL   string
+	AgentArch   string
 	Version     string
-	AgentDir    string // cache dir for downloaded agent
+	AgentDir    string
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -34,7 +34,7 @@ func DeployEdge(o EdgeOpts) error {
 		o.PrimaryUser = "root"
 	}
 	if o.Version == "" {
-		o.Version = "0.8.1"
+		o.Version = "0.8.2"
 	}
 	if o.AgentArch == "" {
 		o.AgentArch = "arm64"
