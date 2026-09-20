@@ -195,3 +195,6 @@ See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll w
 
 ### Post-0.8.0 review
 See docs/REVIEW-2026-09-20-POST.md (security P0 recovery bind, SHA256 self-update, mTLS 8788).
+
+### Hardening follow-up
+Recovery LAN bind + SERVER_PIN; update SHA256; TG edge approve handlers + token mask.

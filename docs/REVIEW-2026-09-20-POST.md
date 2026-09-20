@@ -135,3 +135,13 @@ Scope: `cmd/`, `internal/`, TG bot, edge agent recovery, secondary plane, NVR to
 3. mTLS default for `:8788`.  
 4. Integration test: enroll → pending → approve → heartbeat.  
 5. Audit TG approve messages to show **prefix only** of device_token.
+
+## 7. Implemented follow-up (same day)
+
+- Recovery: bind preferred private IP; forbid non-private clients (unless `NETDUCTOR_RECOVERY_ALLOW_ANY=1`); `SERVER_PIN`
+- Self-update: verify `SHA256SUMS` before replace
+- TG: `e:appr` / `e:deny` handlers; mask `token=` in approve output
+- serve: `mtls.EnsureAll` before agent plane listener
+- Secondary config SNI fallback `api.vk.me` (not ya.ru)
+- Doctor: WARN if CLAIM_FIRST enabled
+- httputil: MaxBodyBytes helpers

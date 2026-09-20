@@ -207,6 +207,9 @@ func runDoctorNative() int {
 		}
 		warnCheck("backup.offsite peer", exists(filepath.Join(etc, "backup.offsite")))
 		warnCheck("tg admin id", exists(filepath.Join(etc, "secrets", "telegram_admin_id")) || os.Getenv("NETDUCTOR_TG_ADMIN") != "")
+	if os.Getenv("CLAIM_FIRST") == "1" || os.Getenv("NETDUCTOR_TG_CLAIM_FIRST") == "1" {
+		fmt.Println("WARN CLAIM_FIRST enabled — disable in production")
+	}
 		warnCheck("tg bot token", exists(filepath.Join(etc, "secrets", "telegram_bot_token")) || os.Getenv("NETDUCTOR_TG_TOKEN") != "")
 		secReg := exists(paths.SecondaryDevicesFile())
 		if secReg {

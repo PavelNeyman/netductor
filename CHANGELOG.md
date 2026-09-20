@@ -1,3 +1,12 @@
+## 0.8.1 — 2026-09-20
+
+### Security hardening
+- Edge recovery: prefer private IP bind, LAN-only clients, optional SERVER_PIN
+- Self-update verifies release SHA256SUMS
+- TG: edge approve/deny callbacks; mask device_token in chat
+- serve: EnsureAll mTLS before agent plane; SNI fallback api.vk.me
+- Doctor warns on CLAIM_FIRST
+
 ## 0.8.0 — 2026-09-20
 
 ### Highlights

@@ -112,3 +112,19 @@ func isLoopback(r *http.Request) bool {
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }
+
+
+// MaxBodyBytes default request body limit for JSON APIs.
+const MaxBodyBytes = 1 << 20 // 1 MiB
+
+func limitBody(r *http.Request, n int64) {
+	if n <= 0 {
+		n = MaxBodyBytes
+	}
+	r.Body = http.MaxBytesReader(nil, r.Body, n)
+}
+
+func readJSONLimited(r *http.Request) map[string]any {
+	limitBody(r, MaxBodyBytes)
+	return readJSON(r)
+}

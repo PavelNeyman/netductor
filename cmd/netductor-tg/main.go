@@ -913,3 +913,26 @@ func main() {
 		}
 	}
 }
+
+
+func maskTokenKV(s string) string {
+	// approved id token=abcdef... -> token=abcd…(hidden)
+	const key = "token="
+	i := strings.Index(s, key)
+	if i < 0 {
+		return s
+	}
+	rest := s[i+len(key):]
+	end := len(rest)
+	for j, c := range rest {
+		if c == ' ' || c == '\n' || c == '\t' {
+			end = j
+			break
+		}
+	}
+	tok := rest[:end]
+	if len(tok) <= 8 {
+		return s[:i+len(key)] + "****" + rest[end:]
+	}
+	return s[:i+len(key)] + tok[:4] + "…" + tok[len(tok)-2:] + " (full in CLI only)" + rest[end:]
+}

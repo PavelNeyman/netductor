@@ -24,6 +24,21 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	}
 
 	
+	if strings.HasPrefix(data, "e:appr:") {
+		id := strings.TrimPrefix(data, "e:appr:")
+		out := runND("edge", "approve", id)
+		// mask token=... in output
+		out = maskTokenKV(out)
+		reply(token, chat, msgID, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
+		return
+	}
+	if strings.HasPrefix(data, "e:deny:") {
+		id := strings.TrimPrefix(data, "e:deny:")
+		out := runND("edge", "deny", id)
+		reply(token, chat, msgID, "🚫 <pre>"+esc(out)+"</pre>", routersKeyboard())
+		return
+	}
+
 	if data == "m:tools" {
 		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
 		return

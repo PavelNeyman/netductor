@@ -42,7 +42,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 		}
 		sni := r.URL.Query().Get("sni")
 		if sni == "" {
-			sni = "ya.ru"
+			sni = "api.vk.me"
 		}
 		b, err := vpn.ExportSecondaryBundle(sni)
 		if err != nil {
@@ -209,7 +209,7 @@ func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	sni := vpn.ActiveSNI()
 	if sni == "" {
-		sni = "ya.ru"
+		sni = "api.vk.me"
 	}
 	b, err := vpn.ExportSecondaryBundle(sni)
 	if err != nil {

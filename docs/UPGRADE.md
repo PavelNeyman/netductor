@@ -32,3 +32,5 @@ Shipping a new primary does **not** force-update all agents.
 | secondary | cmd from primary | operator |
 | edge agent | `agent_update` | operator, per device |
 | `main` branch | may lead release | not for prod auto |
+
+Self-update verifies **SHA256SUMS** from the same release (override: `NETDUCTOR_UPDATE_SKIP_VERIFY=1`).

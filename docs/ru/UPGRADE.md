@@ -32,3 +32,5 @@ echo 0.8.0 > /etc/netductor/VERSION
 | secondary | cmd с primary | оператор |
 | edge agent | `agent_update` | оператор, точечно |
 | main (dev) | может опережать release | не для prod auto |
+
+Self-update verifies **SHA256SUMS** from the same release (override: `NETDUCTOR_UPDATE_SKIP_VERIFY=1`).

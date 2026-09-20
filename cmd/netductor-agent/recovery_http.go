@@ -35,17 +35,30 @@ func startRecoveryHTTP(cfg *config) {
 	}
 	addr := os.Getenv("NETDUCTOR_RECOVERY_ADDR")
 	if addr == "" {
-		addr = ":7879"
+		addr = pickPrivateListenAddr("7879")
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/netductor-recovery", func(w http.ResponseWriter, r *http.Request) {
-		// best-effort: refuse obvious WAN-only if X-Forwarded (still rely on firewall)
+		if !allowRecoveryClient(r) {
+			http.Error(w, "forbidden: LAN only", http.StatusForbidden)
+			return
+		}
 		msg := ""
 		srv := cfg.Server
+		if pin := strings.TrimSpace(os.Getenv("NETDUCTOR_SERVER_PIN")); pin != "" {
+			srv = pin
+		} else if v := readConfigFlag("SERVER_PIN"); v != "" {
+			srv = v
+		}
 		if r.Method == http.MethodPost {
 			_ = r.ParseForm()
 			code := strings.TrimSpace(r.Form.Get("code"))
 			server := strings.TrimSpace(r.Form.Get("server"))
+			if pin := strings.TrimSpace(os.Getenv("NETDUCTOR_SERVER_PIN")); pin != "" {
+				server = pin
+			} else if v := readConfigFlag("SERVER_PIN"); v != "" {
+				server = v
+			}
 			if server == "" {
 				server = cfg.Server
 			}
@@ -80,13 +93,62 @@ func startRecoveryHTTP(cfg *config) {
 	go func() {
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "recovery http: %v\n", err)
-			return
+			// fallback all-interfaces if private bind failed
+			if addr != ":7879" && os.Getenv("NETDUCTOR_RECOVERY_ADDR") == "" {
+				addr = ":7879"
+				ln, err = net.Listen("tcp", addr)
+			}
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "recovery http: %v\n", err)
+				return
+			}
 		}
-		fmt.Fprintf(os.Stderr, "recovery http on %s /netductor-recovery (LAN only — firewall WAN)\n", addr)
+		fmt.Fprintf(os.Stderr, "recovery http on %s /netductor-recovery (prefer LAN; set NETDUCTOR_RECOVERY_HTTP=0 to disable)\n", addr)
 		s := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 		_ = s.Serve(ln)
 	}()
+}
+
+func pickPrivateListenAddr(port string) string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ":" + port
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, _ := iface.Addrs()
+		for _, a := range addrs {
+			var ip net.IP
+			switch v := a.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.To4() == nil || !ip.IsPrivate() {
+				continue
+			}
+			return net.JoinHostPort(ip.String(), port)
+		}
+	}
+	return ":" + port
+}
+
+func allowRecoveryClient(r *http.Request) bool {
+	if os.Getenv("NETDUCTOR_RECOVERY_ALLOW_ANY") == "1" {
+		return true
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }
 
 func htmlEsc(s string) string {
@@ -94,11 +156,24 @@ func htmlEsc(s string) string {
 	return r.Replace(s)
 }
 
+func validPrimaryURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	if strings.Contains(u.Host, "@") {
+		return false
+	}
+	return true
+}
+
 func writeAgentConfig(server, token, deviceID string) error {
 	dir := agentDir()
 	_ = os.MkdirAll(dir, 0o700)
 	path := dir + "/config"
-	// preserve other keys
 	cur := map[string]string{}
 	if b, err := os.ReadFile(path); err == nil {
 		for _, line := range strings.Split(string(b), "\n") {
@@ -116,10 +191,13 @@ func writeAgentConfig(server, token, deviceID string) error {
 	if deviceID != "" {
 		cur["DEVICE_ID"] = deviceID
 	}
-	cur["CONTROL_ONLY"] = "1" // recovery must not re-apply site template
+	cur["CONTROL_ONLY"] = "1"
+	if pin := strings.TrimSpace(os.Getenv("NETDUCTOR_SERVER_PIN")); pin != "" {
+		cur["SERVER_PIN"] = pin
+	}
 	var b strings.Builder
 	b.WriteString("# written by netductor-recovery\n")
-	for _, k := range []string{"SERVER", "TOKEN", "DEVICE_ID", "INTERVAL", "CONTROL_ONLY", "NVR_DIR", "NVR_MAX_MB"} {
+	for _, k := range []string{"SERVER", "TOKEN", "DEVICE_ID", "INTERVAL", "CONTROL_ONLY", "SERVER_PIN", "NVR_DIR", "NVR_MAX_MB"} {
 		if v := cur[k]; v != "" {
 			b.WriteString(k)
 			b.WriteByte('=')
@@ -128,20 +206,4 @@ func writeAgentConfig(server, token, deviceID string) error {
 		}
 	}
 	return os.WriteFile(path, []byte(b.String()), 0o600)
-}
-
-
-func validPrimaryURL(raw string) bool {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || u.Host == "" {
-		return false
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return false
-	}
-	// block obvious local scheme tricks
-	if strings.Contains(u.Host, "@") {
-		return false
-	}
-	return true
 }

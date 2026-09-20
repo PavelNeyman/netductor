@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 )
 
@@ -77,16 +78,16 @@ func runServe(args []string) {
 	root := adminRoot()
 	addr := bind + ":" + port
 	fmt.Fprintf(os.Stderr, "netductor serve on http://%s admin=%s\n", addr, root)
+	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+	startSecondaryAgentListener()
 	if tlsCert != "" && tlsKey != "" {
 		fmt.Fprintf(os.Stderr, "netductor serve TLS on https://%s\n", addr)
-		startSecondaryAgentListener()
 		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, withSecurity(mux)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		return
 	}
-	startSecondaryAgentListener()
 	if err := http.ListenAndServe(addr, withSecurity(mux)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
