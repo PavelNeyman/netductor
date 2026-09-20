@@ -8,47 +8,56 @@ import (
 	"strings"
 )
 
-// EnsureSSHKeyAndHarden ensures a root ed25519 key, authorized_keys, and key-only SSH.
-// Password auth is only for the first provider login before install runs.
+// EnsureSSHKeyAndHarden locks SSH to pubkey-only.
+// Operator (Mac) pubkey is expected already in authorized_keys from DeployPrimary.
+// We do NOT generate /root/.ssh/id_ed25519 for mesh SSH — primary does not need to SSH
+// to secondary/edge after provision (agent HTTP/mTLS). Keygen only if authorized_keys
+// is empty, so a bare `netductor install` on the box cannot lock root out.
 func EnsureSSHKeyAndHarden() error {
 	sshDir := "/root/.ssh"
 	_ = os.MkdirAll(sshDir, 0o700)
-	priv := filepath.Join(sshDir, "id_ed25519")
-	pub := priv + ".pub"
-	if _, err := os.Stat(priv); err != nil {
-		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-N", "", "-f", priv, "-C", "netductor-primary")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("ssh-keygen: %s %w", strings.TrimSpace(string(out)), err)
-		}
-		fmt.Fprintln(os.Stderr, "ssh: generated /root/.ssh/id_ed25519 (keep a copy; password auth will be disabled)")
-	}
-	pubBytes, err := os.ReadFile(pub)
-	if err != nil {
-		return fmt.Errorf("read pubkey: %w", err)
-	}
-	pubLine := strings.TrimSpace(string(pubBytes))
 	ak := filepath.Join(sshDir, "authorized_keys")
 	existing, _ := os.ReadFile(ak)
-	if !strings.Contains(string(existing), pubLine) {
-		f, err := os.OpenFile(ak, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	hasKey := false
+	for _, line := range strings.Split(string(existing), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") {
+			hasKey = true
+			break
+		}
+	}
+	if !hasKey {
+		// Emergency only: local install without prior DeployPrimary pubkey.
+		priv := filepath.Join(sshDir, "id_ed25519")
+		pub := priv + ".pub"
+		if _, err := os.Stat(priv); err != nil {
+			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-N", "", "-f", priv, "-C", "netductor-primary-local")
+			if out, err := cmd.CombinedOutput(); err != nil {
+				return fmt.Errorf("ssh-keygen: %s %w", strings.TrimSpace(string(out)), err)
+			}
+			fmt.Fprintln(os.Stderr, "ssh: generated /root/.ssh/id_ed25519 (authorized_keys was empty; copy .pub off-box before relying on key-only)")
+		}
+		pubBytes, err := os.ReadFile(pub)
 		if err != nil {
+			return fmt.Errorf("read pubkey: %w (authorized_keys empty and no local key)", err)
+		}
+		pubLine := strings.TrimSpace(string(pubBytes))
+		if err := os.WriteFile(ak, []byte(pubLine+"\n"), 0o600); err != nil {
 			return err
 		}
-		_, _ = f.WriteString(pubLine + "\n")
-		_ = f.Close()
+		_ = os.Chmod(priv, 0o600)
+	} else {
+		fmt.Fprintln(os.Stderr, "ssh: using existing authorized_keys (no local id_ed25519 generated)")
 	}
 	_ = os.Chmod(sshDir, 0o700)
 	_ = os.Chmod(ak, 0o600)
-	_ = os.Chmod(priv, 0o600)
 
 	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0o755)
-	// Lexically first so we win over cloud-init 00password.conf (sshd: first obtained value wins)
 	drop := "/etc/ssh/sshd_config.d/00-netductor-harden.conf"
 	body := "PasswordAuthentication no\nKbdInteractiveAuthentication no\nChallengeResponseAuthentication no\nPermitRootLogin prohibit-password\nPubkeyAuthentication yes\nX11Forwarding no\n"
 	if err := os.WriteFile(drop, []byte(body), 0o644); err != nil {
 		return err
 	}
-	// Neutralize other drop-ins that force password yes
 	entries, _ := os.ReadDir("/etc/ssh/sshd_config.d")
 	for _, e := range entries {
 		name := e.Name()
@@ -73,6 +82,5 @@ func EnsureSSHKeyAndHarden() error {
 	_ = exec.Command("sed", "-i", "s/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/", "/etc/ssh/sshd_config").Run()
 	_ = exec.Command("systemctl", "reload", "sshd").Run()
 	_ = exec.Command("systemctl", "reload", "ssh").Run()
-	fmt.Fprintln(os.Stderr, "ssh: password auth disabled; key-only root login")
 	return nil
 }

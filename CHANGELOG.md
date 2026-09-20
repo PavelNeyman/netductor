@@ -1,3 +1,18 @@
+## 0.8.3 — 2026-09-20
+
+### Security / SSH
+- Operator Mac pubkey on secondary, OpenWrt, MikroTik after first password bootstrap; password auth disabled where supported
+- Primary `install` no longer generates `/root/.ssh/id_ed25519` when `authorized_keys` already has a key
+- Secondary: `--operator-pubkey` (workstation deploy passes Mac `.pub`)
+
+### Transport (documented)
+- Admin API remains localhost `:8787` (SSH tunnel from Mac)
+- Secondary agent: prefer mTLS `:8789`; plain `:8788` legacy
+- Edge: prefer HTTPS or VPN path; plain public HTTP is token-only, not confidential
+
+### Docs
+- ARCHITECTURE, EDGE-AGENT, DEPLOY-WORKSTATION, AGENT_HANDOFF updated
+
 ## 0.8.1-docs — 2026-09-20
 
 ### Docs

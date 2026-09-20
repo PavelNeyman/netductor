@@ -623,5 +623,24 @@ Recovery LAN bind + SERVER_PIN; update SHA256; TG edge approve handlers + token 
 1. `git pull` · read OPEN_ITEMS + this lock  
 2. Prefer release binaries for prod VPS; `main` for development  
 3. Edge: recovery code + approve; never full site re-provision for re-bind  
-4. Docs: EN + `docs/ru/` for user-facing changes  
+4. Docs: EN + `docs/ru/` for user-facing changes
 
+
+---
+
+## 2026-09-20 — Workstation SSH + transport notes (v0.8.3)
+
+### Operator SSH
+- After bootstrap, **Mac** `~/.ssh/netductor_primary` is the operator key for primary / secondary / OpenWrt / MikroTik (best-effort).
+- Primary **does not** generate `/root/.ssh/id_ed25519` when `authorized_keys` already has a key (DeployPrimary path).
+- Secondary provision accepts `--operator-pubkey`; workstation deploy always passes Mac `.pub`.
+- Devices do **not** maintain an SSH mesh for day-2 ops.
+
+### Agent → primary transport
+- **Admin** `:8787` stays localhost; use SSH local-forward from Mac.
+- **Secondary agent:** prefer **mTLS** `:8789`; plain `:8788` is legacy/token-only on the wire.
+- **Edge agent:** HTTP(S) + device token. Prefer HTTPS or **VPN path** to primary — do not treat plain public HTTP as confidential.
+- Runtime control plane = agent heartbeat/poll, not primary→device SSH.
+
+### Releases
+- Tag **v0.8.3** includes deploy harden + docs; brew formula tracks release assets / `HEAD`.

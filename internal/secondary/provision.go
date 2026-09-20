@@ -138,7 +138,7 @@ func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 	b64 := strings.ReplaceAll(bundleJSON, "'", `'"'"'`)
 	script := fmt.Sprintf(`set -e
 export DEBIAN_FRONTEND=noninteractive
-VER=0.8.2
+VER=0.8.3
 wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v${VER}/netductor-linux-amd64 \
   || curl -fsSL -o /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v${VER}/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor

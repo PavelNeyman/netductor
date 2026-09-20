@@ -1,6 +1,16 @@
 # Edge agent
 
-Outbound enroll → approve → template apply. No management VPN.
+Outbound enroll → approve → template apply. No management VPN between edge and primary for SSH.
+
+## Transport security
+
+- Heartbeat/commands use **HTTP(S) to primary** with device **token** (not mutual SSH).
+- Prefer `SERVER=https://…` or reach primary **over the site VPN** so control traffic is not plain on the public Internet.
+- Default workstation deploy may still write `http://PRIMARY_IP:8787` for first enroll (API must be reachable). After VPN is up, pin `SERVER` to an in-tunnel or HTTPS URL if you expose only private admin.
+- OpenWrt recovery UI is **LAN-only** (`:7879`).
+
+After first password bootstrap, provision installs the **operator (Mac) pubkey** and disables dropbear/OpenSSH password auth when possible.
+
 
 ## Provision (from operator machine / VPS)
 
