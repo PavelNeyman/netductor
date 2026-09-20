@@ -1,3 +1,14 @@
+## 0.8.7 — 2026-09-20
+
+### Agent plane policy (edge + secondary)
+- **Edge behind NAT:** no IP allowlist (WAN changes); security = mTLS client cert on `:8789`
+- **Secondary:** public IP recorded in `agent_allowlist` (inventory)
+- Default ufw: `:8789` open + mTLS; `NETDUCTOR_AGENT_ALLOWLIST_STRICT=1` for secondary-only lock
+- Removed edge enroll/heartbeat auto-allowlist
+
+### UI i18n
+- Admin tabs + core labels EN/RU
+
 ## 0.8.6 — 2026-09-20
 
 ### Security default: agent allowlist

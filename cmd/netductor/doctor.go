@@ -240,16 +240,19 @@ func runDoctorNative() int {
 			warn++
 		}
 		ips := install.LoadAgentAllowlist()
-		if len(ips) == 0 {
-			fmt.Printf("WARN agent allowlist empty (:8789 closed until secondary/edge provision)\n")
-			warn++
-		} else {
-			fmt.Printf("OK   agent allowlist %d IP(s)\n", len(ips))
+		if install.AgentAllowlistStrict() {
+			if len(ips) == 0 {
+				fmt.Printf("WARN STRICT allowlist empty (:8789 may be closed)\n")
+				warn++
+			} else {
+				fmt.Printf("OK   STRICT allowlist %d IP(s)\n", len(ips))
+				ok++
+			}
+		} else if len(ips) > 0 {
+			fmt.Printf("OK   secondary allowlist inventory %d IP(s) (edge uses mTLS, not IP filter)\n", len(ips))
 			ok++
-		}
-		if listeningOnAll("8789") && len(ips) == 0 {
-			fmt.Printf("FAIL :8789 world-reachable with empty allowlist\n")
-			warn++
+		} else {
+			fmt.Printf("INFO secondary allowlist empty (edge OK via mTLS on :8789)\n")
 		}
 
 	case "secondary":

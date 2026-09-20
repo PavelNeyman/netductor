@@ -27,10 +27,8 @@ func InstallHardening() error {
 		_ = run("ufw", "allow", "4443/tcp")
 		_ = run("ufw", "allow", "4443/udp")
 		_ = run("ufw", "allow", "8443/udp")
-		// Agent plane: never world-open. Plain 8788 denied; 8789 only allowlisted IPs.
 		_ = run("ufw", "delete", "allow", "8788/tcp")
 		_ = run("ufw", "deny", "8788/tcp")
-		_ = run("ufw", "delete", "allow", "8789/tcp")
 		_ = ApplyAgentAllowlistFirewall()
 		out, _ := runOut("ufw", "status")
 		if !strings.Contains(out, "Status: active") {
@@ -43,6 +41,6 @@ func InstallHardening() error {
 	if err := ensureMTLSAtInstall(); err != nil {
 		fmt.Fprintf(os.Stderr, "mtls ensure: %v (continuing; serve will retry)\n", err)
 	}
-	fmt.Fprintln(os.Stderr, "hardening: ufw (8789 allowlist-only) + bbr + ssh key-only + mtls")
+	fmt.Fprintln(os.Stderr, "hardening: ufw + mTLS :8789 (edge-friendly) + ssh key-only")
 	return nil
 }

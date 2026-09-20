@@ -21,7 +21,7 @@ See: netductor tui → Setup wizard`)
 	}
 	switch args[0] {
 	case "primary":
-	o := deploy.PrimaryOpts{Version: "0.8.6", SNI: "api.vk.me", User: "root"}
+	o := deploy.PrimaryOpts{Version: "0.8.7", SNI: "api.vk.me", User: "root"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
@@ -86,7 +86,7 @@ See: netductor tui → Setup wizard`)
 			os.Exit(1)
 		}
 	case "edge":
-	o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: "0.8.6", AgentArch: "arm64"}
+	o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: "0.8.7", AgentArch: "arm64"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {

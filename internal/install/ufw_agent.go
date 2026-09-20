@@ -10,12 +10,22 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
-// AgentAllowlistPath stores IPs allowed to reach mTLS agent plane :8789.
+// Agent plane policy (default):
+//   - :8788 denied always
+//   - :8789 open to the world, protected by mTLS client certs
+//   - secondary public IPs are recorded in agent_allowlist (inventory / optional strict mode)
+//
+// Edge routers sit behind ISP NAT with changing WAN IPs — IP allowlist must NOT gate them.
+// Set NETDUCTOR_AGENT_ALLOWLIST_STRICT=1 to restrict :8789 to listed IPs only (secondary-only fleets).
+
 func AgentAllowlistPath() string {
 	return filepath.Join(paths.EtcDir(), "secrets", "agent_allowlist")
 }
 
-// LoadAgentAllowlist returns unique non-empty IPs.
+func AgentAllowlistStrict() bool {
+	return os.Getenv("NETDUCTOR_AGENT_ALLOWLIST_STRICT") == "1"
+}
+
 func LoadAgentAllowlist() []string {
 	b, err := os.ReadFile(AgentAllowlistPath())
 	if err != nil {
@@ -41,7 +51,9 @@ func saveAgentAllowlist(ips []string) error {
 	dir := filepath.Dir(AgentAllowlistPath())
 	_ = os.MkdirAll(dir, 0o700)
 	var b strings.Builder
-	b.WriteString("# netductor agent plane :8789 allowlist (one IP per line)\n")
+	b.WriteString("# Secondary (stable public) IPs for agent plane inventory.\n")
+	b.WriteString("# Edge/NAT devices are NOT listed — they use mTLS only.\n")
+	b.WriteString("# NETDUCTOR_AGENT_ALLOWLIST_STRICT=1 → ufw allows only these IPs on :8789.\n")
 	seen := map[string]bool{}
 	for _, ip := range ips {
 		ip = strings.TrimSpace(ip)
@@ -55,8 +67,8 @@ func saveAgentAllowlist(ips []string) error {
 	return os.WriteFile(AgentAllowlistPath(), []byte(b.String()), 0o600)
 }
 
-// AllowAgentMTLSFromIP adds IP to allowlist and reapplies ufw (default policy).
-func AllowAgentMTLSFromIP(ip string) error {
+// RecordAgentAllowlistIP stores a stable agent IP (typically secondary). Does not close the port for others unless STRICT.
+func RecordAgentAllowlistIP(ip string) error {
 	ip = strings.TrimSpace(ip)
 	if ip == "" {
 		return fmt.Errorf("ip required")
@@ -74,16 +86,19 @@ func AllowAgentMTLSFromIP(ip string) error {
 	return ApplyAgentAllowlistFirewall()
 }
 
-// RestrictAgentMTLSToIP is an alias for AllowAgentMTLSFromIP (multi-IP allowlist is default).
-func RestrictAgentMTLSToIP(ip string) error {
-	return AllowAgentMTLSFromIP(ip)
+// AllowAgentMTLSFromIP records secondary IP and applies firewall policy.
+func AllowAgentMTLSFromIP(ip string) error {
+	return RecordAgentAllowlistIP(ip)
 }
 
-// ApplyAgentAllowlistFirewall makes ufw default for agent plane:
-// - deny 8788 always
-// - delete broad allow 8789
-// - allow 8789 only from each allowlisted IP
-// If allowlist is empty, 8789 stays closed (no world open).
+// RestrictAgentMTLSToIP keeps API compatibility with secondary provision.
+func RestrictAgentMTLSToIP(ip string) error {
+	return RecordAgentAllowlistIP(ip)
+}
+
+// ApplyAgentAllowlistFirewall:
+// default — deny 8788, allow 8789 from anywhere (mTLS is the gate);
+// STRICT  — deny 8788, allow 8789 only from allowlisted IPs.
 func ApplyAgentAllowlistFirewall() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
 		return nil
@@ -91,18 +106,27 @@ func ApplyAgentAllowlistFirewall() error {
 	_ = run("ufw", "delete", "allow", "8788/tcp")
 	_ = run("ufw", "deny", "8788/tcp")
 	_ = run("ufw", "delete", "allow", "8789/tcp")
-	// Remove previous from-IP rules is hard; re-allow listed IPs (ufw dedupes).
-	ips := LoadAgentAllowlist()
-	if len(ips) == 0 {
-		fmt.Fprintln(os.Stderr, "ufw: agent :8789 closed (empty allowlist — add IP on secondary/edge provision)")
+
+	if AgentAllowlistStrict() {
+		ips := LoadAgentAllowlist()
+		if len(ips) == 0 {
+			fmt.Fprintln(os.Stderr, "ufw STRICT: allowlist empty — :8789 not opened")
+			return nil
+		}
+		for _, ip := range ips {
+			if err := run("ufw", "allow", "from", ip, "to", "any", "port", "8789", "proto", "tcp"); err != nil {
+				fmt.Fprintf(os.Stderr, "ufw: allow 8789 from %s: %v\n", ip, err)
+			} else {
+				fmt.Fprintf(os.Stderr, "ufw STRICT: :8789 from %s\n", ip)
+			}
+		}
 		return nil
 	}
-	for _, ip := range ips {
-		if err := run("ufw", "allow", "from", ip, "to", "any", "port", "8789", "proto", "tcp"); err != nil {
-			fmt.Fprintf(os.Stderr, "ufw: allow 8789 from %s: %v\n", ip, err)
-		} else {
-			fmt.Fprintf(os.Stderr, "ufw: agent mTLS :8789 allowed from %s\n", ip)
-		}
+
+	// Default: edge behind NAT needs :8789 reachable; auth = mTLS client cert.
+	if err := run("ufw", "allow", "8789/tcp"); err != nil {
+		return fmt.Errorf("ufw allow 8789: %w", err)
 	}
+	fmt.Fprintln(os.Stderr, "ufw: :8789 open (mTLS required); secondary IPs recorded in agent_allowlist")
 	return nil
 }

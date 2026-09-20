@@ -8,19 +8,19 @@
   <link rel="stylesheet" href="/admin/style.css" />
 </head>
 <body>
-<section id="alerts-section"><h2>Alerts</h2><div id="alerts-box"></div><button type="button" id="btn-refresh-alerts">Refresh alerts</button></section>
+<section id="alerts-section"><h2 data-i18n="alerts">Alerts</h2><div id="alerts-box"></div><button type="button" id="btn-refresh-alerts" data-i18n="refresh_alerts">Refresh alerts</button></section>
   <div id="toast" class="toast hide"></div>
   <header class="top">
     <div class="brand">Netductor</div>
     <div id="host-line" class="muted"></div>
     <button type="button" id="btn-lang" class="ghost">RU/EN</button>
-    <button type="button" id="btn-logout" class="ghost hide">Logout</button>
+    <button type="button" id="btn-logout" class="ghost hide" data-i18n="logout">Logout</button>
   </header>
 
   <main id="login" class="card narrow">
     <h1 data-i18n="login_title">Operator sign-in</h1>
     <p class="muted" data-i18n="login_hint">Token from: netductor vpn session 72</p>
-    <label>Session token<input id="token" type="password" autocomplete="off" /></label>
+    <label><span data-i18n="session_token">Session token</span><input id="token" type="password" autocomplete="off" /></label>
     <button type="button" id="btn-login" class="primary" data-i18n="sign_in">Sign in</button>
     <p id="login-err" class="err"></p>
   </main>
@@ -28,27 +28,27 @@
   <main id="dash" class="hide">
     <div id="probe-strip" class="strip"></div>
     <nav class="tabs">
-      <button data-tab="overview" class="tab active">Overview</button>
-      <button data-tab="users" class="tab">VPN</button>
-      <button data-tab="nodes" class="tab">Nodes</button>
-      <button data-tab="routers" class="tab">Routers</button>
-      <button data-tab="sites" class="tab">Sites</button>
-      <button data-tab="templates" class="tab">Templates</button>
-      <button data-tab="metrics" class="tab">Metrics</button>
-      <button data-tab="probes" class="tab">Probes</button>
-      <button data-tab="addons" class="tab">Addons</button>
-      <button data-tab="sni" class="tab">SNI</button>
-      <button data-tab="relay" class="tab">Relay</button>
-      <button data-tab="backup">Backup</button>
-      <button class="tab" data-tab="audit">Audit</button>
-      <button class="tab" data-tab="sessions">Sessions</button>
-      <button class="tab" data-tab="status" class="tab">Status</button>
-      <button data-tab="sshhosts" class="tab">SSH hosts</button>
+      <button data-tab="overview" class="tab active" data-i18n="tab_overview">Overview</button>
+      <button data-tab="users" class="tab" data-i18n="tab_vpn">VPN</button>
+      <button data-tab="nodes" class="tab" data-i18n="tab_nodes">Nodes</button>
+      <button data-tab="routers" class="tab" data-i18n="tab_routers">Routers</button>
+      <button data-tab="sites" class="tab" data-i18n="tab_sites">Sites</button>
+      <button data-tab="templates" class="tab" data-i18n="tab_templates">Templates</button>
+      <button data-tab="metrics" class="tab" data-i18n="tab_metrics">Metrics</button>
+      <button data-tab="probes" class="tab" data-i18n="tab_probes">Probes</button>
+      <button data-tab="addons" class="tab" data-i18n="tab_addons">Addons</button>
+      <button data-tab="sni" class="tab" data-i18n="tab_sni">SNI</button>
+      <button data-tab="relay" class="tab" data-i18n="tab_secondary">Secondary</button>
+      <button data-tab="backup" class="tab" data-i18n="tab_backup">Backup</button>
+      <button class="tab" data-tab="audit" data-i18n="tab_audit">Audit</button>
+      <button class="tab" data-tab="sessions" data-i18n="tab_sessions">Sessions</button>
+      <button class="tab" data-tab="status" data-i18n="tab_status">Status</button>
+      <button data-tab="sshhosts" class="tab" data-i18n="tab_sshhosts">SSH hosts</button>
     </nav>
 
     <section id="tab-sshhosts" class="tab-panel hide">
-      <h2>SSH known hosts (TOFU)</h2>
-      <p class="hint">After MT/VPS reinstall: Forget key, then reconnect once from trusted LAN.</p>
+      <h2 data-i18n="ssh_hosts_title">SSH known hosts (TOFU)</h2>
+      <p class="hint" data-i18n="ssh_hosts_hint">After MT/VPS reinstall: Forget key, then reconnect once from trusted LAN.</p>
       <div class="row">
         <button type="button" id="btn-sshhosts-refresh" class="ghost">Refresh</button>
         <button type="button" id="btn-sshhosts-clear-mt" class="ghost">Clear MikroTik</button>
@@ -62,12 +62,12 @@
       </div>
     </section>
     <section id="tab-audit" class="tab-panel hide">
-      <h2>Audit log</h2>
+      <h2 data-i18n="audit_title">Audit log</h2>
       <pre id="audit-box" class="code">—</pre>
       <button id="btn-audit-refresh" class="primary">Refresh</button>
     </section>
     <section id="tab-sessions" class="tab-panel hide">
-      <h2>Sessions</h2>
+      <h2 data-i18n="sessions_title">Sessions</h2>
       <pre id="sessions-box" class="code">—</pre>
       <div class="row">
         <button id="btn-sessions-refresh" class="ghost">Refresh</button>
@@ -76,7 +76,7 @@
       </div>
     </section>
     <section id="tab-backup" class="tab-panel hide">
-      <h2>Backup / peer</h2>
+      <h2 data-i18n="backup_title">Backup / peer</h2>
       <p class="hint">Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.</p>
       <pre id="backup-status" class="code">—</pre>
       <div class="row">
@@ -87,7 +87,7 @@
     </section>
 
     <section id="tab-status" class="tab-panel hide">
-      <h2>Status</h2>
+      <h2 data-i18n="status_title">Status</h2>
       <p class="hint">Core services + nodes + VPN (TG parity)</p>
       <button id="btn-refresh-status" class="ghost">Refresh</button>
       <pre id="status-box" class="log"></pre>
@@ -134,7 +134,7 @@
     </section>
 
     <section id="tab-sites" class="tab-panel hide">
-      <h2>Sites (MikroTik + RPi)</h2>
+      <h2 data-i18n="sites_title">Sites (MikroTik + RPi)</h2>
       <p class="hint">One site = ROS (routing only) + RPi OpenWrt (VPN edge). Managed as pair.</p>
       <div class="card">
         <div class="row">

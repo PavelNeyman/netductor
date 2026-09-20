@@ -37,7 +37,7 @@ func DeployEdge(o EdgeOpts) error {
 		o.PrimaryUser = "root"
 	}
 	if o.Version == "" {
-		o.Version = "0.8.6"
+		o.Version = "0.8.7"
 	}
 	if o.AgentArch == "" {
 		o.AgentArch = "arm64"
@@ -126,22 +126,6 @@ echo KEY:$(b64 "$DIR/client.key")
 		fmt.Fprintln(os.Stderr, "warn: no mTLS material — agent may fail TLS handshake until certs are present")
 	}
 	
-	// Allowlist router WAN on primary (:8789 default = allowlist only).
-	if o.PrimaryHost != "" && o.PrimaryKey != "" {
-		rKey := ""
-		if strings.TrimSpace(o.RouterPass) == "" {
-			rKey = o.PrimaryKey
-		}
-		wanOut, _ := runSSH(o.RouterPass, rKey, o.RouterUser, o.RouterHost,
-			`(curl -4 -fsS --max-time 5 https://ifconfig.me 2>/dev/null || wget -qO- --timeout=5 https://ifconfig.me 2>/dev/null || true)`)
-		wan := strings.TrimSpace(wanOut)
-		if wan != "" && len(wan) < 64 && !strings.Contains(wan, " ") {
-			_, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
-				"netductor agent-allowlist add "+shellQuote(wan))
-			fmt.Fprintln(os.Stderr, "==> primary allowlist agent IP", wan)
-		}
-	}
-
 	return edge.Provision(edge.ProvisionOpts{
 		SSHTarget:      target,
 		DeviceID:       o.DeviceID,
