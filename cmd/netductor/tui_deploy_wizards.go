@@ -45,7 +45,6 @@ func runSetupWizard() {
 	}
 }
 
-
 func wizardPrimary() {
 	s := loadTUISettings()
 	var host, user, pass, keyPath, sni, tgToken, tgAdmin string
@@ -54,7 +53,6 @@ func wizardPrimary() {
 	sni = "api.vk.me"
 	host = s.RemoteHost
 	keyPath = s.RemoteKey
-	// Empty host = install on this machine; non-empty = deploy from Mac/PC over SSH
 	_ = huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("Primary VPS host / IP").Description("Empty = install on THIS machine").Value(&host),
@@ -71,7 +69,6 @@ func wizardPrimary() {
 		sni = "api.vk.me"
 	}
 	if host == "" {
-		// local install on this host
 		var doInstall bool
 		_ = huh.NewForm(huh.NewGroup(huh.NewConfirm().Title("Run netductor install here?").Value(&doInstall))).Run()
 		if doInstall {
@@ -95,7 +92,7 @@ func wizardPrimary() {
 	err := deploy.DeployPrimary(deploy.PrimaryOpts{
 		Host: host, User: user, Password: pass,
 		SSHPrivateKey: keyPath, GenerateKey: genKey,
-		Version: "0.8.1", TelegramToken: tgToken, TelegramAdminID: tgAdmin, SNI: sni,
+		Version: "0.8.2", TelegramToken: tgToken, TelegramAdminID: tgAdmin, SNI: sni,
 	})
 	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))
@@ -104,7 +101,7 @@ func wizardPrimary() {
 	s.RemoteHost = host
 	s.RemoteUser = user
 	s.RemoteKey = keyPath
-	s.RemotePassword = "" // do not keep password
+	s.RemotePassword = ""
 	_ = saveTUISettings(s)
 	fmt.Println(okStyle.Render("saved TUI profile → " + tuiConfigPath()))
 	fmt.Println(subStyle.Render("Next: Setup wizard → Secondary"))
@@ -154,11 +151,11 @@ func wizardSecondary() {
 	}
 	s.SecondaryHost = host
 	_ = saveTUISettings(s)
-	out, _ := exec.Command("netductor", "fleet", "status").CombinedOutput()
 	if s.RemoteHost != "" {
 		m := &model{remoteHost: s.RemoteHost, remoteUser: s.RemoteUser, remoteKey: s.RemoteKey}
 		fmt.Print(m.runNetductor("fleet", "status"))
 	} else {
+		out, _ := exec.Command("netductor", "fleet", "status").CombinedOutput()
 		fmt.Print(string(out))
 	}
 	fmt.Println(subStyle.Render("Next: OpenWrt / edge or Cameras"))
@@ -194,7 +191,7 @@ func wizardOpenWrt() {
 	err = deploy.DeployEdge(deploy.EdgeOpts{
 		PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
 		RouterHost: host, RouterUser: user, RouterPass: pass,
-		DeviceID: id, ServerURL: server, AgentArch: arch, Version: "0.8.1",
+		DeviceID: id, ServerURL: server, AgentArch: arch, Version: "0.8.2",
 	})
 	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))
