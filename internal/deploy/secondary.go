@@ -7,13 +7,13 @@ import (
 
 // SecondaryOpts — provision RU secondary by driving primary over SSH.
 type SecondaryOpts struct {
-	PrimaryHost   string
-	PrimaryUser   string
-	PrimaryKey    string
-	SecondaryHost string
-	SecondaryUser string
-	SecondaryPass string
-	SNI           string
+	PrimaryHost     string
+	PrimaryUser     string
+	PrimaryKey      string
+	SecondaryHost   string
+	SecondaryUser   string
+	SecondaryPass   string
+	SNI             string
 }
 
 // DeploySecondary runs `netductor fleet provision-secondary` on primary.
@@ -35,7 +35,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 	cmd := fmt.Sprintf("netductor fleet provision-secondary --host %s --user %s --password %s --sni %s",
 		shellQuote(o.SecondaryHost), shellQuote(o.SecondaryUser), shellQuote(o.SecondaryPass), shellQuote(o.SNI))
-	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "\u2192 provision secondary", o.SecondaryHost)
+	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "→ provision secondary", o.SecondaryHost)
 	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd)
 	fmt.Print(out)
 	if err != nil {
