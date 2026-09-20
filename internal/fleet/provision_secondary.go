@@ -20,7 +20,7 @@ type ProvisionSecondaryOpts struct {
 }
 
 // ProvisionSecondary deploys secondary as VPN entry only:
-//  1) relay provision (sing-box + agent + SSH key)
+//  1) secondary provision (sing-box + agent + SSH key)
 //  2) fleet secondary role + desired hostname nd-secondary
 //
 // Does not install Lampac, bot standby, or data-plane mirror sync.
@@ -35,7 +35,7 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 		o.Port = 22
 	}
 
-	args := []string{"relay", "provision",
+	args := []string{"secondary", "provision",
 		"--host", o.Host,
 		"--user", o.User,
 		"--password", o.Password,
@@ -44,11 +44,11 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	if strings.TrimSpace(o.SNI) != "" {
 		args = append(args, "--sni", o.SNI)
 	}
-	fmt.Fprintln(os.Stderr, "==> secondary: VPN plane (relay provision)")
+	fmt.Fprintln(os.Stderr, "==> secondary: VPN plane (secondary provision)")
 	cmd := exec.Command("netductor", args...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("relay provision: %w", err)
+		return fmt.Errorf("secondary provision: %w", err)
 	}
 
 	time.Sleep(3 * time.Second)
