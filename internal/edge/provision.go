@@ -17,15 +17,20 @@ type ProvisionOpts struct {
 	AgentBin  string // local path to netductor-agent binary
 	SSHKey    string
 	Arch      string
+	Token     string // optional; default BootstrapToken() on primary
+	Password  string // optional SSH password to router
 }
 
 func Provision(opts ProvisionOpts) error {
 	if opts.SSHTarget == "" || opts.DeviceID == "" || opts.ServerURL == "" {
 		return fmt.Errorf("ssh target, device_id and server url required")
 	}
-	boot := BootstrapToken()
+	boot := strings.TrimSpace(opts.Token)
 	if boot == "" {
-		return fmt.Errorf("edge_bootstrap_token missing on VPS")
+		boot = BootstrapToken()
+	}
+	if boot == "" {
+		return fmt.Errorf("edge_bootstrap_token missing (pass Token or run on primary)")
 	}
 	agent := opts.AgentBin
 	if agent == "" {
@@ -37,13 +42,17 @@ func Provision(opts ProvisionOpts) error {
 	if _, err := os.Stat(agent); err != nil {
 		return fmt.Errorf("agent binary not found: %s (download release asset first)", agent)
 	}
-	sshBase := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes"}
+	sshBase := []string{"-o", "StrictHostKeyChecking=accept-new"}
+	if strings.TrimSpace(opts.Password) == "" {
+		sshBase = append(sshBase, "-o", "BatchMode=yes")
+	} else {
+		sshBase = append(sshBase, "-o", "PreferredAuthentications=password", "-o", "PubkeyAuthentication=no")
+	}
 	if opts.SSHKey != "" {
 		sshBase = append(sshBase, "-i", opts.SSHKey)
 	}
-	// scp agent
-	scpArgs := append(append([]string{}, sshBase...), agent, opts.SSHTarget+":/tmp/netductor-agent")
-	if out, err := exec.Command("scp", scpArgs...).CombinedOutput(); err != nil {
+	scpArgs := append(append([]string{"scp"}, sshBase...), agent, opts.SSHTarget+":/tmp/netductor-agent")
+	if out, err := sshpassCmd(opts.Password, scpArgs).CombinedOutput(); err != nil {
 		return fmt.Errorf("scp: %s %v", out, err)
 	}
 	cfg := fmt.Sprintf("SERVER=%s\nTOKEN=%s\nDEVICE_ID=%s\nINTERVAL=60\n",
@@ -56,7 +65,6 @@ cat > /etc/netductor-agent/config <<'CFG'
 %s
 CFG
 chmod 600 /etc/netductor-agent/config
-# minimal procd if openwrt
 if [ -d /etc/init.d ]; then
   cat > /etc/init.d/netductor-agent <<'INIT'
 #!/bin/sh /etc/rc.common
@@ -75,12 +83,23 @@ INIT
   /etc/init.d/netductor-agent restart 2>/dev/null || /usr/sbin/netductor-agent &
 fi
 `, cfg)
-	sshArgs := append(append([]string{}, sshBase...), opts.SSHTarget, "sh", "-s")
-	cmd := exec.Command("ssh", sshArgs...)
+	sshArgs := append(append([]string{"ssh"}, sshBase...), opts.SSHTarget, "sh", "-s")
+	cmd := sshpassCmd(opts.Password, sshArgs)
 	cmd.Stdin = strings.NewReader(script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ssh: %s %v", out, err)
 	}
 	return nil
+}
+
+func sshpassCmd(password string, args []string) *exec.Cmd {
+	if password == "" {
+		return exec.Command(args[0], args[1:]...)
+	}
+	sp, err := exec.LookPath("sshpass")
+	if err != nil {
+		return exec.Command(args[0], args[1:]...)
+	}
+	return exec.Command(sp, append([]string{"-p", password}, args...)...)
 }
