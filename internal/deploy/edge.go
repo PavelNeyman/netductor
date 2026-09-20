@@ -37,7 +37,7 @@ func DeployEdge(o EdgeOpts) error {
 		o.PrimaryUser = "root"
 	}
 	if o.Version == "" {
-		o.Version = "0.8.8"
+		o.Version = "0.8.9"
 	}
 	if o.AgentArch == "" {
 		o.AgentArch = "arm64"

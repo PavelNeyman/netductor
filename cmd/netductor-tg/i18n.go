@@ -49,6 +49,10 @@ type user struct {
 
 var dict = map[string]map[string]string{
 	"en": {
+
+		"nvr_cameras":   "Cameras",
+		"nvr_leases":    "From leases",
+		"nvr_empty":     "empty — From leases or CLI add",
 		
 		"users":         "👥 Users",
 		"fleet":         "🖥 Fleet",
@@ -192,6 +196,10 @@ var dict = map[string]map[string]string{
 		"menu_hint2":    "Choose a category — VPN or Routers open a submenu.",
 	},
 	"ru": {
+
+		"nvr_cameras":   "Камеры",
+		"nvr_leases":    "Из leases",
+		"nvr_empty":     "пусто — Из leases или CLI add",
 		
 		"users":         "👥 Пользователи",
 		"fleet":         "🖥 Флот",

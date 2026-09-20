@@ -20,30 +20,31 @@ func runSiteWizard() {
 	mtPort := "22"
 	doPush := false
 
-	desc := "One site = MikroTik (routing) + RPi OpenWrt (VPN agent). "
-	desc += "SSH to MikroTik must work from THIS machine (usually home LAN)."
+	lang := detectLang()
+	desc := TT(lang, "One site = MikroTik (routing) + RPi OpenWrt (VPN agent). SSH to MikroTik must work from THIS machine (usually home LAN).",
+		"Один сайт = MikroTik (маршруты) + RPi OpenWrt (VPN agent). SSH до MikroTik с ЭТОЙ машины (обычно домашний LAN).")
 
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewNote().Title("Site wizard").Description(desc),
-			huh.NewInput().Title("Site ID").Value(&siteID).Validate(func(s string) error {
+			huh.NewNote().Title(TT(detectLang(), "Site wizard", "Мастер сайта")).Description(desc),
+			huh.NewInput().Title(TT(detectLang(), "Site ID", "Site ID")).Value(&siteID).Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
 					return fmt.Errorf("required")
 				}
 				return nil
 			}),
-			huh.NewInput().Title("Display name").Value(&name),
-			huh.NewInput().Title("RPi LAN IP (gateway for MT)").Value(&rpiLAN),
-			huh.NewInput().Title("RPi edge device_id (if already approved)").Description("leave empty and fill later").Value(&rpiID),
-			huh.NewInput().Title("MikroTik identity name").Value(&mtID),
+			huh.NewInput().Title(TT(detectLang(), "Display name", "Отображаемое имя")).Value(&name),
+			huh.NewInput().Title(TT(detectLang(), "RPi LAN IP (gateway for MT)", "RPi LAN IP (шлюз для MT)")).Value(&rpiLAN),
+			huh.NewInput().Title(TT(detectLang(), "RPi edge device_id (if already approved)", "RPi edge device_id (если уже approved)")).Description(TT(detectLang(), "leave empty and fill later", "можно оставить пустым")).Value(&rpiID),
+			huh.NewInput().Title(TT(detectLang(), "MikroTik identity name", "MikroTik identity")).Value(&mtID),
 		),
 		huh.NewGroup(
-			huh.NewNote().Title("MikroTik SSH").Description("Credentials are not stored on disk."),
-			huh.NewInput().Title("MT host / IP").Value(&mtHost),
-			huh.NewInput().Title("SSH user").Value(&mtUser),
-			huh.NewInput().Title("SSH password").Password(true).Value(&mtPass),
-			huh.NewInput().Title("SSH port").Value(&mtPort),
-			huh.NewConfirm().Title("Push RSC now?").Affirmative("Push").Negative("Only save site + show RSC").Value(&doPush),
+			huh.NewNote().Title(TT(detectLang(), "MikroTik SSH", "MikroTik SSH")).Description(TT(detectLang(), "Credentials are not stored on disk.", "Учётные данные не сохраняются на диск.")),
+			huh.NewInput().Title(TT(detectLang(), "MT host / IP", "MT host / IP")).Value(&mtHost),
+			huh.NewInput().Title(TT(detectLang(), "SSH user", "SSH пользователь")).Value(&mtUser),
+			huh.NewInput().Title(TT(detectLang(), "SSH password", "SSH пароль")).Password(true).Value(&mtPass),
+			huh.NewInput().Title(TT(detectLang(), "SSH port", "SSH порт")).Value(&mtPort),
+			huh.NewConfirm().Title(TT(detectLang(), "Push RSC now?", "Залить RSC сейчас?")).Affirmative(TT(detectLang(), "Push", "Залить")).Negative(TT(detectLang(), "Only save site + show RSC", "Только сохранить сайт + показать RSC")).Value(&doPush),
 		),
 	).WithTheme(huh.ThemeCharm())
 
@@ -144,17 +145,17 @@ func runMikroTikManage() {
 	action := "identity"
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewNote().Title("MikroTik manage").Description("One-shot SSH · not stored"),
-			huh.NewInput().Title("Host").Value(&host),
-			huh.NewInput().Title("User").Value(&user),
-			huh.NewInput().Title("Password").Password(true).Value(&pass),
-			huh.NewInput().Title("Port").Value(&portStr),
-			huh.NewSelect[string]().Title("Action").Options(
-				huh.NewOption("Identity", "identity"),
-				huh.NewOption("Resources (CPU/RAM)", "resource"),
-				huh.NewOption("IP routes", "routes"),
-				huh.NewOption("Ping 1.1.1.1", "ping"),
-				huh.NewOption("Push site RSC", "push"),
+			huh.NewNote().Title(TT(detectLang(), "MikroTik manage", "Управление MikroTik")).Description(TT(detectLang(), "One-shot SSH · not stored", "Разовый SSH · не сохраняется")),
+			huh.NewInput().Title(TT(detectLang(), "Host", "Host")).Value(&host),
+			huh.NewInput().Title(TT(detectLang(), "User", "Пользователь")).Value(&user),
+			huh.NewInput().Title(TT(detectLang(), "Password", "Пароль")).Password(true).Value(&pass),
+			huh.NewInput().Title(TT(detectLang(), "Port", "Порт")).Value(&portStr),
+			huh.NewSelect[string]().Title(TT(detectLang(), "Action", "Действие")).Options(
+				huh.NewOption(TT(detectLang(), "Identity", "Identity"), "identity"),
+				huh.NewOption(TT(detectLang(), "Resources (CPU/RAM)", "Ресурсы (CPU/RAM)"), "resource"),
+				huh.NewOption(TT(detectLang(), "IP routes", "IP routes"), "routes"),
+				huh.NewOption(TT(detectLang(), "Ping 1.1.1.1", "Ping 1.1.1.1"), "ping"),
+				huh.NewOption(TT(detectLang(), "Push site RSC", "Залить site RSC"), "push"),
 			).Value(&action),
 		),
 	).WithTheme(huh.ThemeCharm())
@@ -191,8 +192,8 @@ func runSNIForm() {
 	ok := false
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewSelect[string]().Title("Live SNI preset").Options(presets...).Value(&choice),
-			huh.NewConfirm().Title("Apply on core + refresh relay/links?").Affirmative("Apply").Negative("Cancel").Value(&ok),
+			huh.NewSelect[string]().Title(TT(detectLang(), "Live SNI preset", "Пресет Live SNI")).Options(presets...).Value(&choice),
+			huh.NewConfirm().Title(TT(detectLang(), "Apply on core + refresh secondary/links?", "Применить на primary + обновить secondary/links?")).Affirmative(TT(detectLang(), "Apply", "Применить")).Negative(TT(detectLang(), "Cancel", "Отмена")).Value(&ok),
 		),
 	).WithTheme(huh.ThemeCharm())
 	if err := f.Run(); err != nil || !ok {

@@ -38,7 +38,7 @@ func nvrHubHTML() string {
 func nvrKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
-			{btn("Cameras", "m:nvr:cams", ""), btn("From leases", "m:nvr:sites", "")},
+			{btn(T("nvr_cameras"), "m:nvr:cams", ""), btn(T("nvr_leases"), "m:nvr:sites", "")},
 			{btn("Config", "m:nvr:cfg", ""), btn("Rotate", "m:nvr:rotate", "")},
 			{btn("Segments", "m:nvr:segs", ""), btn("Events", "m:nvr:events", "")},
 			{btn("Motion", "m:nvr:motion", ""), btn("go2rtc", "m:nvr:go2rtc", "")},
@@ -163,7 +163,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		b.WriteString("<b>Cameras</b>\n")
 		rows := [][]map[string]any{}
 		if len(cams) == 0 {
-			b.WriteString("empty — From leases or CLI add\n")
+			b.WriteString(T("nvr_empty")+"\n")
 		}
 		payload, _ := json.Marshal(cams)
 		setState(chat, "nvr_cam_cache", string(payload))

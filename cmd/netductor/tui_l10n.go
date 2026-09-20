@@ -218,3 +218,12 @@ func opsEntries(mode runMode, lang tuiLang) []menuEntry {
 		{"change-mode", "Change mode", "Mode", "Work mode picker."},
 	}
 }
+
+
+// TT returns en or ru string for the active TUI language.
+func TT(lang tuiLang, en, ru string) string {
+	if lang == langRU {
+		return ru
+	}
+	return en
+}

@@ -14,39 +14,36 @@ import (
 )
 
 func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
-	wizDesc := "Primary / Secondary / OpenWrt / MikroTik — questions then auto"
-	if lang == langRU {
-		wizDesc = "Primary / Secondary / OpenWrt / MikroTik — вопросы, затем авто"
-	}
 	items := []list.Item{
-		menuItem{"wizard", wizDesc, "wizard"},
+		menuItem{"wizard", TT(lang, "Primary / Secondary / OpenWrt / MikroTik — questions then auto",
+			"Primary / Secondary / OpenWrt / MikroTik — вопросы, затем авто"), "wizard"},
 	}
 	switch mode {
 	case modeVPS:
 		items = append(items,
-			menuItem{"Install / upgrade stack", "netductor install (idempotent)", "install"},
-			menuItem{"Lampac (primary)", "primary only (Docker)", "apply-lampac"},
-			menuItem{"Set hostname", "nd-primary / nd-secondary / …", "hostname"},
+			menuItem{TT(lang, "Install / upgrade stack", "Install / upgrade стека"), "netductor install (idempotent)", "install"},
+			menuItem{TT(lang, "Lampac (primary)", "Lampac (primary)"), TT(lang, "primary only (Docker)", "только primary (Docker)"), "apply-lampac"},
+			menuItem{TT(lang, "Set hostname", "Задать hostname"), "nd-primary / nd-secondary / …", "hostname"},
 		)
 	case modeOpenWRT:
 		items = append(items,
-			menuItem{"Agent install instructions", "outbound netductor-agent", "agent-help"},
-			menuItem{"Run install-openwrt.sh", "if present on device", "owrt-install"},
-			menuItem{"Check agent config", "", "agent-cfg"},
+			menuItem{TT(lang, "Agent install instructions", "Инструкция agent"), "outbound netductor-agent", "agent-help"},
+			menuItem{TT(lang, "Run install-openwrt.sh", "Запуск install-openwrt.sh"), TT(lang, "if present on device", "если есть на устройстве"), "owrt-install"},
+			menuItem{TT(lang, "Check agent config", "Проверить конфиг agent"), "", "agent-cfg"},
 		)
 	case modeWorkstation:
 		items = append(items,
-			menuItem{"Bootstrap one-liner", "copy-paste for VPS", "bootstrap"},
-			menuItem{"Build netductor (local Go)", "", "build"},
-			menuItem{"MikroTik manage", "identity / routes / push", "mt-manage"},
+			menuItem{TT(lang, "Bootstrap one-liner", "Bootstrap one-liner"), TT(lang, "copy-paste for VPS", "copy-paste для VPS"), "bootstrap"},
+			menuItem{TT(lang, "Build netductor (local Go)", "Сборка netductor (локальный Go)"), "", "build"},
+			menuItem{TT(lang, "MikroTik manage", "Управление MikroTik"), TT(lang, "identity / routes / push", "identity / routes / push"), "mt-manage"},
 		)
 	default:
 		items = append(items,
-			menuItem{"VPN — add user", "", "vpn-add"},
-			menuItem{"VPN — link / QR", "", "vpn-sub"},
-			menuItem{"Session create", "", "session"},
-			menuItem{"Live SNI", "", "sni-live"},
-			menuItem{"Edge devices", "", "edge-list"},
+			menuItem{TT(lang, "VPN — add user", "VPN — добавить пользователя"), "", "vpn-add"},
+			menuItem{TT(lang, "VPN — link / QR", "VPN — ссылка / QR"), "", "vpn-sub"},
+			menuItem{TT(lang, "Session create", "Создать session"), "", "session"},
+			menuItem{TT(lang, "Live SNI", "Live SNI"), "", "sni-live"},
+			menuItem{TT(lang, "Edge devices", "Edge-устройства"), "", "edge-list"},
 		)
 	}
 	toolsDesc := "diagnostics & ops"
@@ -101,9 +98,9 @@ func formVpnAdd() {
 	var ok bool
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title("VPN user name").Description("letters, digits, _ -").Value(&name),
-			huh.NewInput().Title("Note (optional)").Value(&note),
-			huh.NewConfirm().Title("Create user?").Value(&ok),
+			huh.NewInput().Title(TT(detectLang(), "VPN user name", "Имя VPN-пользователя")).Description(TT(detectLang(), "letters, digits, _ -", "буквы, цифры, _ -")).Value(&name),
+			huh.NewInput().Title(TT(detectLang(), "Note (optional)", "Заметка (опционально)")).Value(&note),
+			huh.NewConfirm().Title(TT(detectLang(), "Create user?", "Создать пользователя?")).Value(&ok),
 		),
 	).WithTheme(huh.ThemeCharm())
 	if err := f.Run(); err != nil || !ok {
@@ -127,8 +124,8 @@ func formVpnRename() {
 	var old, newN string
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title("Current name").Value(&old),
-			huh.NewInput().Title("New name").Value(&newN),
+			huh.NewInput().Title(TT(detectLang(), "Current name", "Текущее имя")).Value(&old),
+			huh.NewInput().Title(TT(detectLang(), "New name", "Новое имя")).Value(&newN),
 		),
 	).WithTheme(huh.ThemeCharm())
 	if err := f.Run(); err != nil || old == "" || newN == "" {
@@ -144,7 +141,7 @@ func formVpnRename() {
 
 func formVpnSub() {
 	var name string
-	f := huh.NewForm(huh.NewGroup(huh.NewInput().Title("VPN user").Value(&name))).WithTheme(huh.ThemeCharm())
+	f := huh.NewForm(huh.NewGroup(huh.NewInput().Title(TT(detectLang(), "VPN user", "VPN-пользователь")).Value(&name))).WithTheme(huh.ThemeCharm())
 	if err := f.Run(); err != nil || name == "" {
 		return
 	}
@@ -164,7 +161,7 @@ func formSession() {
 	var note string
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title("Note").Value(&note),
+			huh.NewInput().Title(TT(detectLang(), "Note", "Заметка")).Value(&note),
 		),
 	).WithTheme(huh.ThemeCharm())
 	_ = f.Run()
@@ -199,7 +196,7 @@ func formOwrtInstall() {
 
 func formBuild() {
 	var ok bool
-	f := huh.NewForm(huh.NewGroup(huh.NewConfirm().Title("go build ./cmd/netductor ?").Value(&ok))).WithTheme(huh.ThemeCharm())
+	f := huh.NewForm(huh.NewGroup(huh.NewConfirm().Title(TT(detectLang(), "go build ./cmd/netductor ?", "go build ./cmd/netductor ?")).Value(&ok))).WithTheme(huh.ThemeCharm())
 	if err := f.Run(); err != nil || !ok {
 		return
 	}

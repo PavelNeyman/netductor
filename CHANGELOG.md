@@ -1,3 +1,9 @@
+## 0.8.9 — 2026-09-20
+
+### TUI / TG i18n
+- Deploy wizards, VPN forms, sites, SSH hosts, menu items: full RU/EN via TT()
+- TG NVR buttons use i18n dict
+
 ## 0.8.8 — 2026-09-20
 
 ### Remove agent IP allowlist
