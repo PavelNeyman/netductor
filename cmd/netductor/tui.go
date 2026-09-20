@@ -3,18 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/PavelNeyman/netductor/internal/nodes"
-	"github.com/PavelNeyman/netductor/internal/install"
-	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 type runMode string
@@ -172,26 +165,26 @@ type tuiResult struct {
 }
 
 type model struct {
-	screen   screen
-	mode     runMode
-	tab      string
-	cursor   int
-	output   string
-	result   tuiResult
-	width    int
-	height   int
-	quitting bool
-	lang     tuiLang
-	langPref string
-	helpY    int
-	hits     []hitRect
-	list     list.Model
-	wizStep     wizStep
-	wizTarget   wizTarget
-	wizFields   []wizField
-	wizFieldIdx int
-	wizInput    string
-	wizMsg      string
+	screen         screen
+	mode           runMode
+	tab            string
+	cursor         int
+	output         string
+	result         tuiResult
+	width          int
+	height         int
+	quitting       bool
+	lang           tuiLang
+	langPref       string
+	helpY          int
+	hits           []hitRect
+	list           list.Model
+	wizStep        wizStep
+	wizTarget      wizTarget
+	wizFields      []wizField
+	wizFieldIdx    int
+	wizInput       string
+	wizMsg         string
 	remoteHost     string
 	remoteUser     string
 	remoteKey      string
