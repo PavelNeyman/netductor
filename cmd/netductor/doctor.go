@@ -218,7 +218,11 @@ func runDoctorNative() int {
 			warnCheck("secondary registry", false)
 		}
 		if listeningOnAll("8788") {
-			fmt.Printf("INFO agent plane :8788 plain (legacy)\n")
+			fmt.Printf("FAIL agent plane :8788 plain listening (emergency only: NETDUCTOR_PLAIN_AGENT=1)\n")
+			warn++
+		} else {
+			fmt.Printf("OK   agent plane :8788 not exposed\n")
+			ok++
 		}
 		if mtls.ServerReady() {
 			fmt.Printf("OK   mtls server certs\n")
@@ -227,11 +231,11 @@ func runDoctorNative() int {
 				fmt.Printf("OK   agent plane mTLS :%s\n", mtls.AgentTLSPort)
 				ok++
 			} else {
-				fmt.Printf("WARN agent plane mTLS :%s not listening\n", mtls.AgentTLSPort)
+				fmt.Printf("FAIL agent plane mTLS :%s not listening\n", mtls.AgentTLSPort)
 				warn++
 			}
 		} else {
-			fmt.Printf("WARN mtls server certs missing\n")
+			fmt.Printf("FAIL mtls server certs missing (run: netductor mtls ensure)\n")
 			warn++
 		}
 

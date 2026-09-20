@@ -25,7 +25,7 @@ No Python control plane. No shell install modules.
 | Path | Default | Notes |
 |------|---------|--------|
 | Admin UI/API | `127.0.0.1:8787` | Not public. Operator uses SSH tunnel: `ssh -L 8787:127.0.0.1:8787 primary` |
-| Secondary agent | mTLS `:8789` when certs ready; else plain `:8788` | Token auth always. Prefer mTLS; plain is legacy (`NETDUCTOR_PLAIN_AGENT=1`) |
+| Secondary agent | **mTLS `:8789` only** | Certs auto via `mtls.EnsureAll` / `EnsureClientFor`. Plain `:8788` only if `NETDUCTOR_PLAIN_AGENT=1`. UFW: allow 8789 from secondary IP |
 | Edge agent | `SERVER=` URL in agent config | Prefer **https** or reach primary **via VPN tunnel** after enroll path exists. Plain `http://PUBLIC:8787` is token-auth only and **not** confidential in transit |
 
 Devices do **not** SSH to each other after provision. Operator SSH is Mac → device with `~/.ssh/netductor_primary` only.

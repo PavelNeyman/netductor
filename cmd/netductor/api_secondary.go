@@ -222,7 +222,8 @@ func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, b)
 }
 
-// startSecondaryAgentListener binds :8788 for agent plane (all interfaces).
+// startSecondaryAgentListener serves secondary agent plane.
+// Default: mTLS only on :8789. Plain :8788 only if NETDUCTOR_PLAIN_AGENT=1 (emergency).
 func startSecondaryAgentListener() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
@@ -236,34 +237,40 @@ func startSecondaryAgentListener() {
 		active := strings.TrimSpace(string(out)) == "active"
 		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
 	})
-	addr := os.Getenv("NETDUCTOR_SECONDARY_API")
-	if addr == "" {
-		addr = ":8788"
-	}
-	plain := os.Getenv("NETDUCTOR_PLAIN_AGENT")
-	if plain == "1" || !mtls.ServerReady() {
-		go func() {
-			_ = http.ListenAndServe(addr, withSecurity(mux))
-		}()
+
+	// Ensure certs exist (auto-generate CA/server/client if missing).
+	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+
+	if !mtls.ServerReady() {
+		fmt.Fprintln(os.Stderr, "agent plane: mTLS certs missing — run: netductor mtls ensure")
 	} else {
-		fmt.Fprintln(os.Stderr, "agent plane plain :8788 disabled (mTLS only; set NETDUCTOR_PLAIN_AGENT=1 to enable)")
-	}
-	if mtls.ServerReady() {
 		tlsCfg, err := mtls.ServerTLSConfig()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "mtls: server config:", err)
-			return
-		}
-		tlsAddr := os.Getenv("NETDUCTOR_AGENT_MTLS")
-		if tlsAddr == "" {
-			tlsAddr = ":" + mtls.AgentTLSPort
-		}
-		go func() {
-			srv := &http.Server{Addr: tlsAddr, Handler: withSecurity(mux), TLSConfig: tlsCfg}
-			fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
-			if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-				fmt.Fprintln(os.Stderr, "mtls serve:", err)
+		} else {
+			tlsAddr := os.Getenv("NETDUCTOR_AGENT_MTLS")
+			if tlsAddr == "" {
+				tlsAddr = ":" + mtls.AgentTLSPort
 			}
+			go func() {
+				srv := &http.Server{Addr: tlsAddr, Handler: withSecurity(mux), TLSConfig: tlsCfg}
+				fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
+				if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+					fmt.Fprintln(os.Stderr, "mtls serve:", err)
+				}
+			}()
+		}
+	}
+
+	// Plain :8788 is emergency-only (never default).
+	if os.Getenv("NETDUCTOR_PLAIN_AGENT") == "1" {
+		addr := os.Getenv("NETDUCTOR_SECONDARY_API")
+		if addr == "" {
+			addr = ":8788"
+		}
+		fmt.Fprintln(os.Stderr, "WARN agent plane PLAIN on", addr, "(NETDUCTOR_PLAIN_AGENT=1)")
+		go func() {
+			_ = http.ListenAndServe(addr, withSecurity(mux))
 		}()
 	}
 }

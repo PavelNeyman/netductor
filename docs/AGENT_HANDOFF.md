@@ -644,3 +644,38 @@ Recovery LAN bind + SERVER_PIN; update SHA256; TG edge approve handlers + token 
 
 ### Releases
 - Tag **v0.8.3** includes deploy harden + docs; brew formula tracks release assets / `HEAD`.
+
+
+---
+
+## Plan: close plaintext control plane (2026-09-20)
+
+### Done in v0.8.4 (secondary)
+- [x] mTLS certs **auto-generated** (`mtls.EnsureAll` on install + serve; `EnsureClientFor` per node)
+- [x] Secondary provision installs client material **over same SSH session** (no post-hoc primary→secondary scp needed after Mac-key-only)
+- [x] `CoreAgentURL` = `https://primary:8789`
+- [x] Plain `:8788` **off** by default; emergency only `NETDUCTOR_PLAIN_AGENT=1`
+- [x] UFW: deny 8788; allow 8789; after secondary provision → **from secondary IP only**
+- [x] Doctor: FAIL if 8788 exposed or mTLS missing/not listening
+
+### Edge (next — do not block on VPN for control)
+**Decision:** edge should reach primary on **public mTLS/HTTPS always**, not only via site VPN.
+Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no enroll refresh, no cmds, no recovery path except LAN recovery UI).
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Control only over VPN | No public agent port | Router lost to control when VPN down |
+| **mTLS :8789 always (chosen)** | Works if VPN down; encrypted + client cert | 8789 public (restrict by IP/rate later) |
+| Plain HTTP public | Simple | Rejected |
+
+**TODO edge (phase 2):**
+- [ ] Edge-agent: load client certs / or shared edge client from primary
+- [ ] Enroll + heartbeat only on `https://primary:8789` (mTLS)
+- [ ] Workstation stop seeding `http://PUBLIC:8787`
+- [ ] Never set `NETDUCTOR_API_PUBLIC=1` for enroll
+- [ ] Optional: per-edge IP allowlist on 8789 when known
+
+### Cert automation (code, not manual VPS)
+- `internal/mtls.EnsureAll(ip)` — CA + server + default client if missing
+- `EnsureClientFor(nodeID)` — per-secondary client cert
+- Install calls EnsureAll; serve calls EnsureAll; provision pushes material in-band

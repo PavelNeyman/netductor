@@ -1,6 +1,7 @@
 package secondary
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -19,6 +20,10 @@ type ProvisionIn struct {
 	Password       string
 	SNI            string // Reality SNI; empty → ResolveSecondarySNI / api.vk.me
 	OperatorPubKey string // optional: Mac/operator pubkey (preferred). If set, only this is installed.
+	// Optional mTLS client material (written over the same SSH session — primary need not re-SSH later).
+	MTLSCA     []byte
+	MTLSCert   []byte
+	MTLSKey    []byte
 }
 
 // ProvisionResult summarizes remote setup.
@@ -153,6 +158,25 @@ ss -tlnp | grep -E ':443|:4443' || true
 	return runSSH(client, script)
 }
 
+
+// installMTLSMaterial writes CA+client cert/key on remote over an open SSH session.
+func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) error {
+	if len(ca) == 0 || len(cert) == 0 || len(key) == 0 {
+		return nil
+	}
+	enc := func(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
+	script := fmt.Sprintf(`set -e
+mkdir -p /etc/netductor/secrets/mtls
+chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls
+echo '%s' | base64 -d > /etc/netductor/secrets/mtls/ca.crt
+echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.crt
+echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.key
+chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.crt /etc/netductor/secrets/mtls/client.key
+`, enc(ca), enc(cert), enc(key))
+	_, err := runSSH(client, script)
+	return err
+}
+
 // ProvisionFromCore connects with password, installs operator (or core) pubkey, hardens SSH, runs join.
 // After this, ongoing control is agent→primary HTTP; SSH is for operator (Mac) only.
 func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, error) {
@@ -172,6 +196,11 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 		log.WriteString("harden: " + err.Error() + "\n")
 	} else {
 		log.WriteString("ssh key(s) installed, password auth disabled\n")
+	}
+	if err := installMTLSMaterial(client, in.MTLSCA, in.MTLSCert, in.MTLSKey); err != nil {
+		log.WriteString("mtls material: " + err.Error() + "\n")
+	} else if len(in.MTLSCert) > 0 {
+		log.WriteString("mtls client material installed under /etc/netductor/secrets/mtls\n")
 	}
 	out, err := RemoteJoin(client, bundleJSON)
 	log.WriteString(out)

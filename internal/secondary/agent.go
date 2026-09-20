@@ -33,11 +33,14 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 		interval = 30 * time.Second
 	}
 	client := agentHTTPClient()
-	if mtls.ClientReady() && strings.HasPrefix(coreBase, "http://") {
-		coreBase = "https://" + strings.TrimPrefix(coreBase, "http://")
-		if strings.HasSuffix(coreBase, ":8788") {
-			coreBase = strings.TrimSuffix(coreBase, ":8788") + ":" + mtls.AgentTLSPort
+	if mtls.ClientReady() {
+		// Always use mTLS agent port; never plain :8788 when client certs exist.
+		hostport := strings.TrimPrefix(strings.TrimPrefix(coreBase, "https://"), "http://")
+		host := hostport
+		if i := strings.LastIndex(hostport, ":"); i > 0 {
+			host = hostport[:i]
 		}
+		coreBase = "https://" + host + ":" + mtls.AgentTLSPort
 	}
 	applied := 0
 	var lastDone string

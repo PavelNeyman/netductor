@@ -1,3 +1,15 @@
+## 0.8.4 — 2026-09-20
+
+### Security (secondary agent plane)
+- mTLS-only agent plane on **:8789** (plain :8788 off unless `NETDUCTOR_PLAIN_AGENT=1`)
+- Certs auto-generated: `EnsureAll` at install/serve; per-node `EnsureClientFor` at secondary provision
+- Client material installed in-band over provision SSH session
+- UFW: deny 8788; allow 8789; restrict to secondary IP after provision
+- Doctor FAIL if 8788 exposed or mTLS missing
+
+### Edge (documented plan)
+- Control plane must stay reachable **without** site VPN (mTLS public :8789) so router is not lost when VPN is down
+
 ## 0.8.3 — 2026-09-20
 
 ### Security / SSH

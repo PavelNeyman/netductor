@@ -48,7 +48,7 @@ func runSecondary(args []string) {
 		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
-			b.CoreAgentURL = "http://" + b.CoreIP + ":8788"
+			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
 		}
 		raw, _ := json.MarshalIndent(b, "", "  ")
 		if err := os.WriteFile(out, append(raw, '\n'), 0o600); err != nil {
@@ -155,14 +155,22 @@ func runSecondary(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+		var mtlsCA, mtlsCert, mtlsKey []byte
 		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
 			b.AgentID = id
 			b.AgentToken = tok
-			b.CoreAgentURL = "http://" + b.CoreIP + ":8788"
+			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
+			if ca, cert, key, err := mtls.EnsureClientFor(id); err != nil {
+				fmt.Fprintln(os.Stderr, "mtls EnsureClientFor:", err)
+			} else {
+				mtlsCA, mtlsCert, mtlsKey = ca, cert, key
+			}
 		}
 		raw, _ := json.MarshalIndent(b, "", "  ")
 		res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
 			Host: host, Port: port, User: user, Password: pass, SNI: sni, OperatorPubKey: opPub,
+			MTLSCA: mtlsCA, MTLSCert: mtlsCert, MTLSKey: mtlsKey,
 		}, string(raw))
 		if res != nil {
 			fmt.Println(res.Log)
@@ -172,6 +180,9 @@ func runSecondary(args []string) {
 			os.Exit(1)
 		}
 		postProvisionSecondary(host, sni)
+		if err := install.RestrictAgentMTLSToIP(host); err != nil {
+			fmt.Fprintln(os.Stderr, "ufw restrict 8789:", err)
+		}
 		fmt.Println("provisioned", host)
 	case "device":
 		if len(args) < 2 {
