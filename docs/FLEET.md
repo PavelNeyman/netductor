@@ -23,7 +23,7 @@ See [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 ## What IS synced to secondary
 
 - **VPN user UUIDs** via `ApplyConfig` → `config_ver` bump → agent pulls `ExportRelayBundle` into `relay-in`
-- Force: `netductor relay sync`
+- Force: `netductor secondary sync`
 
 ## Commands
 
@@ -33,7 +33,7 @@ netductor fleet bootstrap
 netductor fleet provision-secondary --host IP --password '…' [--sni api.vk.me]
 netductor fleet disable-legacy   # stop old sync/failover timers on this host
 netductor install lampac         # primary only
-netductor relay sync             # push VPN users to secondary now
+netductor secondary sync             # push VPN users to secondary now
 ```
 
 ## Policy file
@@ -43,14 +43,14 @@ netductor relay sync             # push VPN users to secondary now
 
 ## TUI
 
-Tools: **VPN → secondary** (`relay sync`), Lampac on primary, wizard secondary = VPN entry only.
+Tools: **VPN → secondary** (`secondary sync`), Lampac on primary, wizard secondary = VPN entry only.
 
 
 ## Remote ops from laptop
 
 ```bash
 # flags
-netductor tui --remote 2.27.118.70 --remote-user root --remote-key ~/.ssh/id_ed25519
+netductor tui --remote PRIMARY_IP --remote-user root --remote-key ~/.ssh/id_ed25519
 
 # or Settings tab in TUI (saved to ~/.config/netductor/tui.yaml)
 # or env: NETDUCTOR_REMOTE / NETDUCTOR_REMOTE_USER

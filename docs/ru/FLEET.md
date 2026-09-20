@@ -1,11 +1,14 @@
-# Флот: primary + secondary
+# Fleet: primary + secondary
 
-| Нода | Роль |
-|------|------|
-| **primary** (abroad) | Control plane: users, API, бот, Blocky, edge, бэкапы, опционально Lampac |
-| **secondary** (RU) | **Только вход VPN** (VLESS/Reality + тонкий agent) |
+Полный EN: [FLEET.md](../FLEET.md).
 
-Зеркалирование сервисов / Lampac на RU / bot failover / hourly fleet sync — **убраны**.  
-Пользователи VPN на secondary: `ApplyConfig` → `config_ver` → agent. Форс: `netductor relay sync`.
+- **primary** — control plane
+- **secondary** — только RU VPN entry
 
-План: [../PLAN-SECONDARY-VPN-ONLY.md](../PLAN-SECONDARY-VPN-ONLY.md).
+```bash
+netductor fleet provision-secondary --host IP --password '…'
+netductor secondary sync
+netductor fleet status
+```
+
+CLI `relay` нет — используйте `secondary` / `fleet`.
