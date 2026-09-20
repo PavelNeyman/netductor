@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"strings"
 	"net/http"
 	"time"
 	"os"
@@ -127,4 +128,23 @@ func limitBody(r *http.Request, n int64) {
 func readJSONLimited(r *http.Request) map[string]any {
 	limitBody(r, MaxBodyBytes)
 	return readJSON(r)
+}
+
+
+// clientIP returns the remote IP (X-Real-IP / X-Forwarded-For first hop / RemoteAddr).
+func clientIP(r *http.Request) string {
+	if x := strings.TrimSpace(r.Header.Get("X-Real-IP")); x != "" {
+		return x
+	}
+	if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
+		if i := strings.Index(xff, ","); i > 0 {
+			return strings.TrimSpace(xff[:i])
+		}
+		return xff
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }

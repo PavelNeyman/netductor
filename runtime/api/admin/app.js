@@ -2,8 +2,20 @@
   const $ = (s) => document.querySelector(s);
   const state = { token: localStorage.getItem('nd_token') || '', lang: localStorage.getItem('nd_lang') || 'en' };
   const i18n = {
-    en: { login_title: 'Operator sign-in', login_hint: 'Token: netductor vpn session 72', sign_in: 'Sign in' },
-    ru: { login_title: 'Вход оператора', login_hint: 'Токен: netductor vpn session 72', sign_in: 'Войти' },
+    en: {
+      login_title: 'Operator sign-in',
+      login_hint: 'Token: netductor vpn session 72',
+      sign_in: 'Sign in',
+      edge_recovery_title: 'Edge recovery / register',
+      edge_recovery_hint: 'LAN page on router: http://<router>:7879/netductor-recovery. Control plane: mTLS :8789 (not plain :8787).'
+    },
+    ru: {
+      login_title: 'Вход оператора',
+      login_hint: 'Токен: netductor vpn session 72',
+      sign_in: 'Войти',
+      edge_recovery_title: 'Edge recovery / регистрация',
+      edge_recovery_hint: 'LAN-страница на роутере: http://<router>:7879/netductor-recovery. Control plane: mTLS :8789 (не plain :8787).'
+    },
   };
   function t(k) { return (i18n[state.lang] || i18n.en)[k] || k; }
   function applyI18n() {
@@ -64,7 +76,7 @@
         if ($('#relay-exit-st')) $('#relay-exit-st').textContent = 'exit_enabled=' + ex.exit_enabled + ' · devices=' + (st.devices||[]).length;
       } catch(e) {}
       const enc = btoa(unescape(encodeURIComponent(JSON.stringify(b))));
-      const cmd = 'wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v0.7.0-dev/netductor-linux-amd64 && chmod 755 /usr/local/bin/netductor && echo '+enc+' | base64 -d > /root/bundle.json && netductor relay join /root/bundle.json';
+      const cmd = 'wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v0.8.5/netductor-linux-amd64 && chmod 755 /usr/local/bin/netductor && echo '+enc+' | base64 -d > /root/bundle.json && netductor secondary join /root/bundle.json';
       $('#relay-oneline').textContent = cmd;
     } catch (e) {
       $('#relay-bundle').textContent = 'error: ' + e;

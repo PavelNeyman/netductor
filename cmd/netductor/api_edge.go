@@ -10,6 +10,7 @@ import (
 	"time"
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/sites"
@@ -208,6 +209,13 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			wan, _ := payload["wan_ip"].(string)
 			_ = notify.Telegram(fmt.Sprintf("⏳ Edge pending: <b>%s</b>\nboard=%s wan=%s", did, board, wan))
 		}
+		// Default: allowlist source IP for agent plane :8789
+		if cip := clientIP(r); cip != "" {
+			_ = install.AllowAgentMTLSFromIP(cip)
+		}
+		if wan, _ := payload["wan_ip"].(string); strings.TrimSpace(wan) != "" {
+			_ = install.AllowAgentMTLSFromIP(strings.TrimSpace(wan))
+		}
 		writeJSON(w, 200, map[string]any{"status": st, "device_token": dtok})
 	})
 	mux.HandleFunc("/api/edge/heartbeat", func(w http.ResponseWriter, r *http.Request) {
@@ -220,6 +228,9 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		if tokenDID == "" {
 			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 			return
+		}
+		if cip := clientIP(r); cip != "" {
+			_ = install.AllowAgentMTLSFromIP(cip)
 		}
 		payload := readJSON(r)
 		did, _ := payload["device_id"].(string)

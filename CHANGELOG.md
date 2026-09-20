@@ -1,3 +1,16 @@
+## 0.8.6 — 2026-09-20
+
+### Security default: agent allowlist
+- `:8789` **allowlist-only** by default (empty list = closed; no world-open)
+- `netductor agent-allowlist list|add|apply`
+- Secondary/edge provision and edge enroll/heartbeat add source IPs
+- Doctor WARN/FAIL on empty allowlist or world-open 8789
+
+### UI / i18n
+- TUI/wizard Primary URL → https://IP:8789
+- Admin recovery strings EN/RU; relay one-liner → secondary v0.8.5+
+- TG secondary download pin updated
+
 ## 0.8.5 — 2026-09-20
 
 ### Edge mTLS control plane
