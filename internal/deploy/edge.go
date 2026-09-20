@@ -17,10 +17,10 @@ type EdgeOpts struct {
 	RouterUser  string
 	RouterPass  string
 	DeviceID    string
-	ServerURL   string
-	AgentArch   string
+	ServerURL   string // e.g. http://PRIMARY_IP:8787
+	AgentArch   string // arm64, armv7, mipsle, …
 	Version     string
-	AgentDir    string
+	AgentDir    string // cache dir for downloaded agent
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -49,6 +49,7 @@ func DeployEdge(o EdgeOpts) error {
 	if o.ServerURL == "" {
 		return fmt.Errorf("server URL or primary host required")
 	}
+
 	token := ""
 	if o.PrimaryHost != "" && o.PrimaryKey != "" {
 		out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
@@ -63,7 +64,7 @@ func DeployEdge(o EdgeOpts) error {
 		return err
 	}
 	target := o.RouterUser + "@" + o.RouterHost
-	fmt.Fprintln(os.Stderr, "==> edge provision", target, "\u2192", o.ServerURL)
+	fmt.Fprintln(os.Stderr, "==> edge provision", target, "→", o.ServerURL)
 	return edge.Provision(edge.ProvisionOpts{
 		SSHTarget: target,
 		DeviceID:  o.DeviceID,
