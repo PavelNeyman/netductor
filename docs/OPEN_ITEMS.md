@@ -4,9 +4,10 @@ Baseline: **v0.8.1** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-202
 
 ## Done (through 0.8.1)
 
+- [x] Operator docs aligned to v0.8.1 (bootstrap default, INSTALL/DEPLOY/RUNBOOK/RELEASES, CLI `secondary`/`fleet`, EDGE recovery)
 - [x] Go control plane: install, VPN, API, TUI, TG, edge, secondary
 - [x] Primary / secondary roles; secondary = **RU VPN entry only** (not full mirror)
-- [x] Legacy `relay` naming removed (paths, CLI, API)
+- [x] Legacy `relay` naming removed from **operator CLI** (paths may still say `relay-in` / ExportRelayBundle)
 - [x] Edge: enroll → pending → approve; LAN recovery `:7879`; recovery codes; register/set-site/export
 - [x] Recovery hardening: private bind, LAN clients, SERVER_PIN, SHA256 self-update
 - [x] RU/gov client direct (`ru_direct.go`, SR profile)
@@ -31,13 +32,13 @@ Baseline: **v0.8.1** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-202
 
 ## Policy locks
 
-- Admin / API **not** on the open internet without explicit decision  
-- Agents **not** auto-updated from primary release  
-- Secondary **not** a full service mirror  
+- Admin / API **not** on the open internet without explicit decision
+- Agents **not** auto-updated from primary release
+- Secondary **not** a full service mirror
 
 ## For next agent / chat
 
-1. Hardware: OpenWrt recovery + enroll drill  
-2. Optional: domain + redirect HTTPS  
-3. Optional: NVR first camera on site  
-4. Keep docs EN + `docs/ru/` in sync for any new feature  
+1. Hardware: OpenWrt recovery + enroll drill
+2. Optional: domain + redirect HTTPS
+3. Optional: NVR first camera on site
+4. Keep docs EN + `docs/ru/` in sync for any new feature
