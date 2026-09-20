@@ -17,7 +17,7 @@ Full plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 # Agent handoff (read first in a new chat)
 
 **Repo:** https://github.com/PavelNeyman/netductor  
-**Release tag:** `v0.7.3-dev` (check Releases if tag name differs)  
+**Release tag:** `v0.8.9` (check Releases if tag name differs)  
 **Binaries:** `netductor-linux-amd64`, `netductor-tg-linux-amd64`, `netductor-agent-*`  
 **Owner language:** Russian OK; docs **EN + RU** for user-facing behaviour.
 
@@ -59,7 +59,7 @@ Default Reality SNI for WL: **`api.vk.me`**. Client VLESS links prefer **seconda
 
 ```bash
 wget -qO /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.7.3-dev/netductor-linux-amd64
+  https://github.com/PavelNeyman/netductor/releases/download/v0.8.9/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 
 mkdir -p /etc/netductor/secrets
@@ -695,3 +695,77 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 - Deny plain `:8788`
 - Allow mTLS `:8789` (auth = client certificate; no IP allowlist)
+
+
+---
+
+## Current baseline — v0.8.9 (2026-09-20)
+
+### Release
+- Tag: **v0.8.9** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.9
+- Assets: darwin/linux CLI, agent (amd64/arm/arm64/mipsle), tg, SHA256SUMS
+- Homebrew Formula `0.8.9` · `brew reinstall netductor`
+
+### Operator model
+- **Deployment centre** = Mac TUI (`netductor tui --mode workstation`)
+- First SSH: password → install **Mac** `~/.ssh/netductor_primary` pub → password off (primary/secondary/OpenWrt; MikroTik best-effort)
+- Day-2: **no device↔device SSH mesh**; agents → primary over **mTLS :8789**
+- Admin UI: **localhost :8787** only (`ssh -L 8787:127.0.0.1:8787 primary`)
+
+### Transport security (locked)
+| Surface | Policy |
+|---------|--------|
+| Admin `:8787` | `127.0.0.1` · need `API_PUBLIC=1` + TLS to bind public |
+| Agent plane `:8789` | mTLS (TLS1.3 + client cert) · ufw allow · **no IP allowlist** |
+| Plain `:8788` | **off** unless `NETDUCTOR_PLAIN_AGENT=1` |
+| Edge | same mTLS; works behind ISP NAT; independent of site VPN |
+| SSH | key-only after bootstrap |
+
+### UI i18n
+- Admin web, TUI (deploy/forms/sites/sshhosts/menus), TG dict + NVR buttons: **EN/RU**
+
+### Certs
+- `mtls.EnsureAll` on install/serve · `EnsureClientFor(id)` on secondary/edge provision · material on router under `/etc/netductor-agent/mtls/`
+
+---
+
+## Security review snapshot (v0.8.9)
+
+### OK
+- Admin not world-open by default
+- Agent plane encrypted + mutual TLS
+- Bootstrap password path short-lived; operator key only after
+- Recovery HTTP LAN-bound
+- Camera `InsecureSkipVerify` limited to LAN Tapo/probes (documented)
+
+### Residual risks
+1. **`:8789` reachable from internet** — intentional for NAT edge; without client cert handshake fails, but port is probeable (rate-limit / fail2ban optional)
+2. **Long-lived `edge_bootstrap_token`** — protect like a secret; prefer recovery codes for re-attach
+3. **`NETDUCTOR_PLAIN_AGENT=1` / `API_PUBLIC=1`** — foot-guns if left on prod
+4. **Hardcoded old download URLs** in some legacy docs/scripts (secondary self-update pin fixed to v0.8.9 in agent)
+5. **UFW vs cloud SG** — host ufw does not replace provider security groups
+6. **Admin session token** strength depends on `vpn session` issuance
+
+### Not bugs
+- VPN ports 443/4443/8443 public (product requirement)
+- Lampac on localhost only
+
+---
+
+## Refactor plan (priority)
+
+| P | Item | Why |
+|---|------|-----|
+| P1 | Single `version` / release pin module (CLI, agent, deploy defaults, TG one-liner, secondary update URL) | Drift (saw 0.7.x leftovers) |
+| P1 | Unify agent-plane mux construction (secondary+edge+nvr) in one `StartAgentPlane()` | serve.go / api_secondary split |
+| P2 | Extract deploy wizards i18n keys to `tui_l10n` map (not only TT literals) | Maintainability |
+| P2 | Admin i18n: remaining placeholders + dynamic JS strings | Polish |
+| P2 | Drop residual “relay” naming in admin one-liner / docs → secondary | Consistency |
+| P3 | Optional fail2ban/nft rate-limit on :8789 | Reduce probe noise |
+| P3 | Per-edge client cert rotation + revoke list | Long-term PKI |
+| P3 | Split oversized `cmd/netductor-agent/main.go` | Readability |
+| P3 | CI: `go test` + version grep gate against old `v0.7` in tree | Prevent regressions |
+
+Do **not** reintroduce IP allowlist for edge.
+
+

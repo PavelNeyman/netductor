@@ -25,8 +25,7 @@ No Python control plane. No shell install modules.
 | Path | Default | Notes |
 |------|---------|--------|
 | Admin UI/API | `127.0.0.1:8787` | Not public. Operator uses SSH tunnel: `ssh -L 8787:127.0.0.1:8787 primary` |
-| Secondary agent | mTLS `:8789` | Client cert; public IP recorded in `agent_allowlist` (inventory). Optional STRICT allowlist |
-| Edge agent | mTLS `:8789` | Client cert; no IP allowlist (ISP NAT / changing WAN OK) |
+| Secondary / Edge agent | mTLS `:8789` | Client cert required; no IP allowlist (edge behind ISP NAT) |
 | Edge agent | **mTLS `:8789`** same agent plane | Client certs on router; independent of site VPN; admin `:8787` stays localhost |
 
 Devices do **not** SSH to each other after provision. Operator SSH is Mac → device with `~/.ssh/netductor_primary` only.

@@ -12,7 +12,8 @@ Self-hosted **network control plane** for a Debian VPS (+ OpenWrt edge, optional
 - SSH TOFU known_hosts management
 
 ```bash
-export NETDUCTOR_VERSION=0.8.1
+# Mac: brew install netductor  OR  brew install --HEAD netductor
+export NETDUCTOR_VERSION=0.8.9
 curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/bootstrap.sh | bash
 sudo netductor install
 netductor tui
