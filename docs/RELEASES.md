@@ -1,30 +1,35 @@
 # Releases
 
-Repo: **https://github.com/PavelNeyman/netductor**
+Published tags (see GitHub Releases): **`v0.8.1`** (current), `v0.8.0`, older `v0.7.x` / `v0.5.x`.
 
-## How releases are published
+Artifacts typically:
 
-### CI (preferred)
+- `netductor-linux-amd64` / `arm64`
+- `netductor-tg-linux-amd64`
+- `netductor-agent-linux-*` (edge arches)
+- `SHA256SUMS`
 
-Tag `v*` → `.github/workflows/release-netductor.yml` → assets via `GITHUB_TOKEN`.
-
-### REST API
-
-`POST /repos/PavelNeyman/netductor/releases` + upload assets (`contents: write`).
-
-## Install
+## Install a specific version
 
 ```bash
-TAG=v0.7.0-dev
-curl -fsSL -o /usr/local/bin/netductor \
-  "https://github.com/PavelNeyman/netductor/releases/download/${TAG}/netductor-linux-amd64"
+export NETDUCTOR_VERSION=0.8.1
+curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/bootstrap.sh | bash
+```
+
+Or:
+
+```bash
+TAG=v0.8.1
+wget -qO /usr/local/bin/netductor \
+  https://github.com/PavelNeyman/netductor/releases/download/${TAG}/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 netductor version
 ```
 
-## Manual release (operator)
+## Publishing (maintainers)
 
-GitHub PAT without `workflow` scope cannot update Actions YAML.
+1. Bump `VERSION`, CHANGELOG, docs pins if needed.
+2. Tag: `git tag v0.8.2 && git push origin v0.8.2` — workflow on tag `v*`.
+3. Confirm Release assets + `SHA256SUMS` (primary self-update verifies checksums).
 
-1. Tag: `git tag v0.7.35-dev && git push origin v0.7.35-dev` — existing `release-netductor.yml` on tag `v*`.
-2. Or local: `./scripts/build-release-local.sh 0.7.35-dev` then upload assets to a Release by hand.
+Primary update path for operators: TG Tools → Updates (GitHub Release + SHA256). Agents: **manual** `agent_update` only — [UPGRADE.md](UPGRADE.md) · [OPEN_ITEMS.md](OPEN_ITEMS.md).

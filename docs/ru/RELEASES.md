@@ -1,3 +1,8 @@
 # Релизы
 
-Тег `v0.7.0-dev`. Артефакты: `netductor-linux-amd64`, `netductor-linux-arm64`, `netductor-tg-linux-amd64`, `netductor-darwin-arm64`.
+Актуальный тег: **`v0.8.1`**. EN: [RELEASES.md](../RELEASES.md).
+
+```bash
+export NETDUCTOR_VERSION=0.8.1
+curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/bootstrap.sh | bash
+```

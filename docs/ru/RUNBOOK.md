@@ -1,41 +1,12 @@
-# Runbook — день 1 (Netductor)
+# Runbook — день 1
 
-## 1. Установка на Debian VPS
-```bash
-curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/bootstrap.sh | bash
-netductor install
-netductor doctor
-```
+База **v0.8.1**. Полный текст: [RUNBOOK.md](../RUNBOOK.md).
 
-## 2. Session для Admin
-```bash
-netductor vpn session 72   # токен → SSH-туннель → http://127.0.0.1:8787/admin/
-```
+Кратко:
 
-## 3. Telegram
-Секреты: `telegram_bot_token`, `telegram_admin_id`.  
-Сервис: `systemctl enable --now netductor-telegram-bot`.
+1. `NETDUCTOR_VERSION=0.8.1` + `bootstrap.sh` → `netductor install` → `doctor`
+2. TG secrets · VPN link (`vless` / `hy2`)
+3. Secondary: `netductor fleet provision-secondary --host RU_IP …` · `secondary sync`
+4. Admin только через VPN/туннель
 
-## 4. Ссылка VPN
-```bash
-netductor vpn link operator vless      # primary (#nd-relay если online)
-netductor vpn link operator sub        # subscription без HY2
-netductor vpn refresh-links            # пересобрать все артефакты
-```
-Fragment: `#nd-relay` / `#nd-core` — не имя пользователя. Rename не ломает UUID.
-
-## 5. Relay (RU entry)
-```bash
-netductor relay provision --host IP --user root --password '…'
-netductor backup peer-set 'root@RELAY:/var/lib/netductor/backups/peers/core/'
-```
-
-## 6. Проверки
-```bash
-netductor doctor
-netductor vpn apply --dry-run
-netductor vpn mismatch
-netductor audit tail
-```
-
-Под БС: нужен **L3-проходимый** RU IP; SNI по умолчанию `api.vk.me`. См. [WL.md](WL.md).
+CLI `relay` **нет** — используйте `secondary` / `fleet`.
