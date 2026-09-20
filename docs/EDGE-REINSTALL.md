@@ -25,19 +25,17 @@ So the “waiting list” (**pending → approve**) is correct **after a success
 
 ## Preferred recovery paths
 
-1. **Restore primary from backup** (`.ndenc` / state) that includes edge registry + secrets → routers keep working without re-approve.  
-2. **Clean primary**: distribute new `edge_bootstrap_token` to agents → enroll → **pending** → approve in TG/Admin/CLI.  
-3. Optional future: “recovery code” / mTLS client cert bound to device — not implemented.
+1. **Restore primary from backup** (`.ndenc` / state) that includes edge registry + secrets → routers keep working without re-approve.
+2. **LAN recovery page** (0.7.38+ / **0.8.x**, implemented): on primary `netductor edge recovery` → one-time code; on site Wi-Fi open `http://<router-lan-ip>:7879/netductor-recovery` → enroll with `CONTROL_ONLY=1` → **pending** → approve.
+3. **Clean primary without recovery UI**: distribute new `edge_bootstrap_token` (re-run `edge provision` or update agent config) → enroll → **pending** → approve in TG/Admin/CLI.
 
 ## Operator checklist (clean primary)
 
-1. Install primary; note new bootstrap token.  
-2. Update each router agent config (bootstrap + server URL if IP changed).  
-3. Wait for pending list / TG notify.  
-4. Approve known MAC/board/`device_id`.  
+1. Install primary; note new bootstrap token.
+2. Prefer **LAN recovery** (§ below) for remote sites; or update each router agent config (bootstrap + server URL if IP changed).
+3. Wait for pending list / TG notify.
+4. Approve known MAC/board/`device_id`.
 5. Confirm heartbeat / metrics.
-
-
 
 ## LAN recovery page (preferred for remote sites)
 
@@ -48,6 +46,8 @@ So the “waiting list” (**pending → approve**) is correct **after a success
 5. Agent enrolls → **pending** → operator **Approve** in CLI/TG.
 6. Link inventory: `netductor edge set-site <device_id> <site_id>` (Locations / sites).
 
-Firewall: publish **:7879 only on LAN**, never WAN.
+Firewall: publish **:7879 only on LAN**, never WAN. See post-0.8.0 hardening: private bind / SERVER_PIN — [REVIEW-2026-09-20-POST.md](REVIEW-2026-09-20-POST.md).
 
 Export/import edge registry: `netductor edge export -o …` / `import …`.
+
+Also: [EDGE-AGENT.md](EDGE-AGENT.md).
