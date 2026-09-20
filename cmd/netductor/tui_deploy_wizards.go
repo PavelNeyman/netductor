@@ -16,14 +16,14 @@ func runSetupWizard() {
 	err := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title(TT(lang, "Setup wizard — what are we configuring?", "Мастер — что настраиваем?")).
-				Description(TT(lang, "Questions first, then fully automatic apply", "Сначала вопросы, затем авто-применение")).
+				Title(FormT(lang, "setup_title")).
+				Description(FormT(lang, "setup_desc")).
 				Options(
-					huh.NewOption(TT(lang, "Primary VPS (abroad control plane)", "Primary VPS (control plane за рубежом)"), "primary"),
-					huh.NewOption(TT(lang, "Secondary VPS (RU VPN entry only)", "Secondary VPS (только RU VPN entry)"), "secondary"),
-					huh.NewOption(TT(lang, "OpenWrt router / RPi (edge agent)", "OpenWrt / RPi (edge agent)"), "openwrt"),
-					huh.NewOption(TT(lang, "Cameras / NVR", "Камеры / NVR"), "nvr"),
-					huh.NewOption(TT(lang, "MikroTik (ROS routes / site)", "MikroTik (ROS / сайт)"), "mikrotik"),
+					huh.NewOption(FormT(lang, "opt_primary"), "primary"),
+					huh.NewOption(FormT(lang, "opt_secondary"), "secondary"),
+					huh.NewOption(FormT(lang, "opt_openwrt"), "openwrt"),
+					huh.NewOption(FormT(lang, "opt_nvr"), "nvr"),
+					huh.NewOption(FormT(lang, "opt_mikrotik"), "mikrotik"),
 				).
 				Value(&target),
 		),
@@ -57,18 +57,18 @@ func wizardPrimary() {
 	keyPath = s.RemoteKey
 	_ = huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title(TT(lang, "Primary VPS host / IP", "Primary VPS host / IP")).
-				Description(TT(lang, "Empty = install on THIS machine", "Пусто = install на ЭТОЙ машине")).Value(&host),
-			huh.NewInput().Title(TT(lang, "SSH user", "SSH пользователь")).Value(&user),
-			huh.NewInput().Title(TT(lang, "SSH password (first login only)", "SSH пароль (только первый вход)")).
+			huh.NewInput().Title(FormT(lang, "primary_host")).
+				Description(FormT(lang, "primary_host_desc")).Value(&host),
+			huh.NewInput().Title(FormT(lang, "ssh_user")).Value(&user),
+			huh.NewInput().Title(FormT(lang, "ssh_password_first")).
 				EchoMode(huh.EchoModePassword).Value(&pass),
-			huh.NewConfirm().Title(TT(lang, "Generate new SSH key?", "Сгенерировать новый SSH-ключ?")).
-				Description(TT(lang, "No = use path below", "Нет = путь ниже")).Value(&genKey),
-			huh.NewInput().Title(TT(lang, "SSH private key path", "Путь к SSH private key")).
+			huh.NewConfirm().Title(FormT(lang, "gen_ssh_key")).
+				Description(FormT(lang, "gen_ssh_key_desc")).Value(&genKey),
+			huh.NewInput().Title(FormT(lang, "ssh_key_path")).
 				Placeholder("~/.ssh/netductor_primary").Value(&keyPath),
-			huh.NewInput().Title(TT(lang, "Telegram bot token", "Токен Telegram-бота")).Value(&tgToken),
-			huh.NewInput().Title(TT(lang, "Telegram admin user id", "Telegram admin user id")).Value(&tgAdmin),
-			huh.NewInput().Title(TT(lang, "Reality SNI", "Reality SNI")).Placeholder("api.vk.me").Value(&sni),
+			huh.NewInput().Title(FormT(lang, "tg_token")).Value(&tgToken),
+			huh.NewInput().Title(FormT(lang, "tg_admin")).Value(&tgAdmin),
+			huh.NewInput().Title(FormT(lang, "reality_sni")).Placeholder("api.vk.me").Value(&sni),
 		),
 	).WithTheme(huh.ThemeCharm()).Run()
 	if sni == "" {
@@ -77,7 +77,7 @@ func wizardPrimary() {
 	if host == "" {
 		var doInstall bool
 		_ = huh.NewForm(huh.NewGroup(huh.NewConfirm().
-			Title(TT(lang, "Run netductor install here?", "Запустить netductor install здесь?")).
+			Title(FormT(lang, "run_install_here")).
 			Value(&doInstall))).Run()
 		if doInstall {
 			cmd := exec.Command("netductor", "install")
@@ -119,23 +119,22 @@ func wizardSecondary() {
 	sni = "api.vk.me"
 	_ = huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title(TT(lang, "Secondary (RU) IP / host", "Secondary (RU) IP / host")).Value(&host),
-			huh.NewInput().Title(TT(lang, "SSH user", "SSH пользователь")).Value(&user),
-			huh.NewInput().Title(TT(lang, "SSH password (first login)", "SSH пароль (первый вход)")).
+			huh.NewInput().Title(FormT(lang, "secondary_host")).Value(&host),
+			huh.NewInput().Title(FormT(lang, "ssh_user")).Value(&user),
+			huh.NewInput().Title(FormT(lang, "ssh_password_first")).
 				EchoMode(huh.EchoModePassword).Value(&pass),
-			huh.NewInput().Title(TT(lang, "Reality SNI", "Reality SNI")).Placeholder("api.vk.me").Value(&sni),
+			huh.NewInput().Title(FormT(lang, "reality_sni")).Placeholder("api.vk.me").Value(&sni),
 			huh.NewNote().Title(TT(lang, "Primary", "Primary")).
 				Description(TT(lang, "Uses TUI remote_host + remote_key (set by primary deploy)",
 					"Берёт remote_host + remote_key из настроек TUI (после primary)")),
 		),
 	).WithTheme(huh.ThemeCharm()).Run()
 	if host == "" || pass == "" {
-		fmt.Println(errStyle.Render(TT(lang, "host and password required", "нужны host и пароль")))
+		fmt.Println(errStyle.Render(FormT(lang, "host_pass_required")))
 		return
 	}
 	if s.RemoteHost == "" || s.RemoteKey == "" {
-		fmt.Println(errStyle.Render(TT(lang, "set primary remote in Settings / primary wizard first",
-			"сначала primary в Настройках / мастере primary")))
+		fmt.Println(errStyle.Render(FormT(lang, "set_primary_first")))
 		return
 	}
 	fmt.Println(okStyle.Render(TT(lang, "→ deploy secondary "+host, "→ деплой secondary "+host)))
@@ -163,19 +162,19 @@ func wizardOpenWrt() {
 	}
 	_ = huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title(TT(lang, "Router LAN IP", "LAN IP роутера")).Value(&host),
-			huh.NewInput().Title(TT(lang, "SSH user", "SSH пользователь")).Value(&user),
-			huh.NewInput().Title(TT(lang, "SSH password (if no key)", "SSH пароль (если нет ключа)")).
+			huh.NewInput().Title(FormT(lang, "router_lan")).Value(&host),
+			huh.NewInput().Title(FormT(lang, "ssh_user")).Value(&user),
+			huh.NewInput().Title(FormT(lang, "ssh_password_ifkey")).
 				EchoMode(huh.EchoModePassword).Value(&pass),
-			huh.NewInput().Title(TT(lang, "Device ID", "Device ID")).Value(&id),
-			huh.NewInput().Title(TT(lang, "Agent arch", "Arch агента")).
+			huh.NewInput().Title(FormT(lang, "device_id")).Value(&id),
+			huh.NewInput().Title(FormT(lang, "agent_arch")).
 				Description("arm64 | armv7 | amd64 | mipsle").Value(&arch),
-			huh.NewInput().Title(TT(lang, "Primary mTLS URL", "Primary mTLS URL")).
+			huh.NewInput().Title(FormT(lang, "primary_mtls")).
 				Description("https://IP:8789").Value(&server),
 		),
 	).WithTheme(huh.ThemeCharm()).Run()
 	if host == "" || id == "" {
-		fmt.Println(errStyle.Render(TT(lang, "host and device id required", "нужны host и device id")))
+		fmt.Println(errStyle.Render(FormT(lang, "host_id_required")))
 		return
 	}
 	fmt.Println(okStyle.Render(TT(lang, "→ edge deploy "+host, "→ edge деплой "+host)))
@@ -205,7 +204,7 @@ func wizardNVR() {
 	deviceID = s.LastEdgeID
 	_ = huh.NewForm(
 		huh.NewGroup(
-			huh.NewSelect[string]().Title(TT(lang, "NVR action", "Действие NVR")).Options(
+			huh.NewSelect[string]().Title(FormT(lang, "nvr_action")).Options(
 				huh.NewOption(TT(lang, "List DHCP leases (edge)", "DHCP leases (edge)"), "leases"),
 				huh.NewOption(TT(lang, "Add camera", "Добавить камеру"), "add"),
 				huh.NewOption(TT(lang, "Probe camera", "Probe камеры"), "probe"),
@@ -213,11 +212,11 @@ func wizardNVR() {
 				huh.NewOption(TT(lang, "Record stop", "Запись stop"), "rec-stop"),
 				huh.NewOption(TT(lang, "NVR status", "Статус NVR"), "status"),
 			).Value(&action),
-			huh.NewInput().Title(TT(lang, "Edge device id", "Edge device id")).Value(&deviceID),
-			huh.NewInput().Title(TT(lang, "Camera name (add)", "Имя камеры (add)")).Value(&camName),
-			huh.NewInput().Title(TT(lang, "Camera IP", "IP камеры")).Value(&camIP),
-			huh.NewInput().Title(TT(lang, "Camera MAC", "MAC камеры")).Value(&camMAC),
-			huh.NewInput().Title(TT(lang, "Camera password", "Пароль камеры")).
+			huh.NewInput().Title(FormT(lang, "edge_device_id")).Value(&deviceID),
+			huh.NewInput().Title(FormT(lang, "cam_name")).Value(&camName),
+			huh.NewInput().Title(FormT(lang, "cam_ip")).Value(&camIP),
+			huh.NewInput().Title(FormT(lang, "cam_mac")).Value(&camMAC),
+			huh.NewInput().Title(FormT(lang, "cam_pass")).
 				EchoMode(huh.EchoModePassword).Value(&camPass),
 		),
 	).WithTheme(huh.ThemeCharm()).Run()

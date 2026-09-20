@@ -1,3 +1,10 @@
+## 0.8.12 — 2026-09-20
+
+### Finish remaining refactor items
+- Agent plane `:8789` IP rate limit (180 req/min; plain emergency 60)
+- `FormT` expanded; deploy wizard labels use dictionary
+- CI: `scripts/check-version-pins.sh` step (via GitHub connector)
+
 ## 0.8.11 — 2026-09-20
 
 ### Refactor

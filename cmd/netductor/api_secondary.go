@@ -12,6 +12,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/httpx"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -256,7 +257,8 @@ func startSecondaryAgentListener() {
 				tlsAddr = ":" + mtls.AgentTLSPort
 			}
 			go func() {
-				srv := &http.Server{Addr: tlsAddr, Handler: withSecurity(mux), TLSConfig: tlsCfg}
+				lim := httpx.NewPlaneLimiter(180, time.Minute) // 180 req/min/IP
+				srv := &http.Server{Addr: tlsAddr, Handler: lim.Middleware(withSecurity(mux)), TLSConfig: tlsCfg}
 				fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
 				if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 					fmt.Fprintln(os.Stderr, "mtls serve:", err)
@@ -273,7 +275,8 @@ func startSecondaryAgentListener() {
 		}
 		fmt.Fprintln(os.Stderr, "WARN agent plane PLAIN on", addr, "(NETDUCTOR_PLAIN_AGENT=1)")
 		go func() {
-			_ = http.ListenAndServe(addr, withSecurity(mux))
+			lim := httpx.NewPlaneLimiter(60, time.Minute)
+			_ = http.ListenAndServe(addr, lim.Middleware(withSecurity(mux)))
 		}()
 	}
 }

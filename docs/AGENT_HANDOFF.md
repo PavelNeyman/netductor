@@ -17,7 +17,7 @@ Full plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 # Agent handoff (read first in a new chat)
 
 **Repo:** https://github.com/PavelNeyman/netductor  
-**Release tag:** `v0.8.11` (check Releases if tag name differs)  
+**Release tag:** `v0.8.12` (check Releases if tag name differs)  
 **Binaries:** `netductor-linux-amd64`, `netductor-tg-linux-amd64`, `netductor-agent-*`  
 **Owner language:** Russian OK; docs **EN + RU** for user-facing behaviour.
 
@@ -59,7 +59,7 @@ Default Reality SNI for WL: **`api.vk.me`**. Client VLESS links prefer **seconda
 
 ```bash
 wget -qO /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.8.11/netductor-linux-amd64
+  https://github.com/PavelNeyman/netductor/releases/download/v0.8.12/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 
 mkdir -p /etc/netductor/secrets
@@ -699,12 +699,12 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.11 (2026-09-20)
+## Current baseline — v0.8.12 (2026-09-20)
 
 ### Release
-- Tag: **v0.8.11** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.11
+- Tag: **v0.8.12** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.12
 - Assets: darwin/linux CLI, agent (amd64/arm/arm64/mipsle), tg, SHA256SUMS
-- Homebrew Formula `0.8.11` · `brew reinstall netductor`
+- Homebrew Formula `0.8.12` · `brew reinstall netductor`
 
 ### Operator model
 
@@ -745,7 +745,7 @@ Intended flow: `brew install netductor` → `netductor tui --mode workstation` �
 
 ---
 
-## Security review snapshot (v0.8.11)
+## Security review snapshot (v0.8.12)
 
 ### OK
 - Admin not world-open by default
@@ -758,7 +758,7 @@ Intended flow: `brew install netductor` → `netductor tui --mode workstation` �
 1. **`:8789` reachable from internet** — intentional for NAT edge; without client cert handshake fails, but port is probeable (rate-limit / fail2ban optional)
 2. **Long-lived `edge_bootstrap_token`** — protect like a secret; prefer recovery codes for re-attach
 3. **`NETDUCTOR_PLAIN_AGENT=1` / `API_PUBLIC=1`** — foot-guns if left on prod
-4. **Hardcoded old download URLs** in some legacy docs/scripts (secondary self-update pin fixed to v0.8.11 in agent)
+4. **Hardcoded old download URLs** in some legacy docs/scripts (secondary self-update pin fixed to v0.8.12 in agent)
 5. **UFW vs cloud SG** — host ufw does not replace provider security groups
 6. **Admin session token** strength depends on `vpn session` issuance
 
@@ -775,13 +775,13 @@ Intended flow: `brew install netductor` → `netductor tui --mode workstation` �
 | P1 | ~~Single version pin~~ **done** `internal/deploy.Release` + agent update URL | remaining: TG one-liner / docs/ru |
 | P1 | Unify agent-plane mux construction (secondary+edge+nvr) in one `StartAgentPlane()` | serve.go / api_secondary split |
 | P1 | ~~Tab wizard vs deploy wizard split~~ **done** (tab delegates to deploy wizards) | |
-| P2 | ~~FormT dict~~ started; expand keys over time | TT still OK for long wizard strings |
+| P2 | ~~FormT dict~~ **done** for deploy wizard + shared keys | remaining long status lines may use TT |
 | P2 | Admin i18n: remaining placeholders + dynamic JS strings | Polish |
 | P2 | Drop residual “relay” naming in admin one-liner / docs → secondary | Consistency |
-| P3 | Optional fail2ban/nft rate-limit on :8789 | Reduce probe noise |
+| P3 | ~~rate-limit :8789~~ **done** `httpx.PlaneLimiter` 180/min/IP | |
 | P3 | Per-edge client cert rotation + revoke list | Long-term PKI |
 | P3 | ~~Split agent main~~ **done** (nvr_cmds / openwrt_net / agent_ops) | |
-| P3 | ~~version grep script~~ **done** `scripts/check-version-pins.sh` (run locally / add to CI when PAT has `workflow` scope) | |
+| P3 | ~~version grep + CI~~ **done** (connector updated workflow) | |
 
 Do **not** reintroduce IP allowlist for edge.
 
