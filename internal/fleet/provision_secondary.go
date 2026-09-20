@@ -12,18 +12,19 @@ import (
 
 // ProvisionSecondaryOpts operator input for RU VPN-entry deploy from primary.
 type ProvisionSecondaryOpts struct {
-	Host     string
-	User     string
-	Password string
-	Port     int
-	SNI      string
+	Host           string
+	User           string
+	Password       string
+	Port           int
+	SNI            string
+	OperatorPubKey string // Mac/operator pubkey; preferred over core key
 }
 
 // ProvisionSecondary deploys secondary as VPN entry only:
-//  1) secondary provision (sing-box + agent + SSH key)
+//  1) secondary provision (sing-box + agent + SSH harden with operator/core pubkey)
 //  2) fleet secondary role + desired hostname nd-secondary
 //
-// Does not install Lampac, bot standby, or data-plane mirror sync.
+// Ongoing control plane is agent HTTP to primary — no permanent primary→secondary SSH required.
 func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	if o.Host == "" || o.Password == "" {
 		return fmt.Errorf("host and password required")
@@ -44,6 +45,9 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	if strings.TrimSpace(o.SNI) != "" {
 		args = append(args, "--sni", o.SNI)
 	}
+	if strings.TrimSpace(o.OperatorPubKey) != "" {
+		args = append(args, "--operator-pubkey", o.OperatorPubKey)
+	}
 	fmt.Fprintln(os.Stderr, "==> secondary: VPN plane (secondary provision)")
 	cmd := exec.Command("netductor", args...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
@@ -63,7 +67,7 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 		fmt.Fprintln(os.Stderr, "  warn: secondary node id not in registry yet — run fleet bootstrap later")
 	}
 
-	fmt.Fprintln(os.Stderr, "==> secondary: VPN entry ready (no lampac/bot mirror)")
+	fmt.Fprintln(os.Stderr, "==> secondary: VPN entry ready (agent polls primary over HTTP)")
 	fmt.Fprintln(os.Stderr, "  force user push: netductor secondary sync")
 	return nil
 }

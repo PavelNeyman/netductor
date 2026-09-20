@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -80,13 +81,38 @@ func runSiteWizard() {
 		return
 	}
 	port, _ := strconv.Atoi(strings.TrimSpace(mtPort))
+	c := mikrotik.ConnOpts{Host: mtHost, User: mtUser, Password: mtPass, Port: port}
 	if err := mikrotik.PushRSC(mtHost, mtUser, mtPass, nil, rsc, port); err != nil {
 		fmt.Println(errStyle.Render("push failed: " + err.Error()))
 		fmt.Println(subStyle.Render("Check LAN reachability to " + mtHost + " and SSH enabled on RouterOS."))
 		return
 	}
 	fmt.Println(okStyle.Render("RSC pushed to " + mtHost))
+	// Install Mac/operator pubkey and best-effort disable password login
+	if pub := operatorPubKeyFromTUI(); pub != "" {
+		if err := mikrotik.HardenSSH(c, pub); err != nil {
+			fmt.Println(errStyle.Render("SSH harden (key): " + err.Error()))
+		} else {
+			fmt.Println(okStyle.Render("operator pubkey installed on MikroTik; password login best-effort disabled"))
+		}
+	} else {
+		fmt.Println(subStyle.Render("no operator pubkey in TUI profile — skip SSH harden (deploy primary first or set remote_key)"))
+	}
 	printRPiHint(siteID, name)
+}
+
+func operatorPubKeyFromTUI() string {
+	s := loadTUISettings()
+	key := strings.TrimSpace(s.RemoteKey)
+	if key == "" {
+		home, _ := os.UserHomeDir()
+		key = home + "/.ssh/netductor_primary"
+	}
+	b, err := os.ReadFile(key + ".pub")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 func printRPiHint(siteID, name string) {

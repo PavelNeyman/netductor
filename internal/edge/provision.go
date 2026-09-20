@@ -11,14 +11,15 @@ import (
 )
 
 type ProvisionOpts struct {
-	SSHTarget string // root@192.168.1.1
-	DeviceID  string
-	ServerURL string
-	AgentBin  string // local path to netductor-agent binary
-	SSHKey    string
-	Arch      string
-	Token     string // optional; default BootstrapToken() on primary
-	Password  string // optional SSH password to router
+	SSHTarget      string // root@192.168.1.1
+	DeviceID       string
+	ServerURL      string
+	AgentBin       string // local path to netductor-agent binary
+	SSHKey         string // private key path for auth (optional)
+	Arch           string
+	Token          string // optional; default BootstrapToken() on primary
+	Password       string // optional SSH password to router (first login)
+	OperatorPubKey string // Mac/operator pubkey → install + disable password
 }
 
 func Provision(opts ProvisionOpts) error {
@@ -57,6 +58,44 @@ func Provision(opts ProvisionOpts) error {
 	}
 	cfg := fmt.Sprintf("SERVER=%s\nTOKEN=%s\nDEVICE_ID=%s\nINTERVAL=60\n",
 		strings.TrimRight(opts.ServerURL, "/"), boot, opts.DeviceID)
+
+	harden := ""
+	if pub := strings.TrimSpace(opts.OperatorPubKey); pub != "" {
+		esc := strings.ReplaceAll(pub, "'", `'"'"'`)
+		harden = fmt.Sprintf(`
+# --- SSH harden: operator pubkey + disable password (OpenSSH / dropbear) ---
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+touch /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_keys
+# dropbear (OpenWrt)
+mkdir -p /etc/dropbear
+touch /etc/dropbear/authorized_keys
+chmod 600 /etc/dropbear/authorized_keys
+grep -qxF '%s' /etc/dropbear/authorized_keys || echo '%s' >> /etc/dropbear/authorized_keys
+if [ -f /etc/config/dropbear ]; then
+  if command -v uci >/dev/null 2>&1; then
+    uci set dropbear.@dropbear[0].PasswordAuth='off' 2>/dev/null || true
+    uci set dropbear.@dropbear[0].RootPasswordAuth='off' 2>/dev/null || true
+    uci commit dropbear 2>/dev/null || true
+    /etc/init.d/dropbear reload 2>/dev/null || /etc/init.d/dropbear restart 2>/dev/null || true
+  fi
+fi
+# OpenSSH if present
+if [ -d /etc/ssh ]; then
+  mkdir -p /etc/ssh/sshd_config.d
+  cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'SSH_EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+SSH_EOF
+  /etc/init.d/sshd reload 2>/dev/null || systemctl reload ssh 2>/dev/null || true
+fi
+`, esc, esc, esc, esc)
+	}
+
 	script := fmt.Sprintf(`set -e
 mkdir -p /etc/netductor-agent /usr/sbin
 mv /tmp/netductor-agent /usr/sbin/netductor-agent
@@ -82,7 +121,8 @@ INIT
   /etc/init.d/netductor-agent enable 2>/dev/null || true
   /etc/init.d/netductor-agent restart 2>/dev/null || /usr/sbin/netductor-agent &
 fi
-`, cfg)
+%s
+`, cfg, harden)
 	sshArgs := append(append([]string{"ssh"}, sshBase...), opts.SSHTarget, "sh", "-s")
 	cmd := sshpassCmd(opts.Password, sshArgs)
 	cmd.Stdin = strings.NewReader(script)

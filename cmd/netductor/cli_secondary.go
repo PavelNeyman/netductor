@@ -120,7 +120,7 @@ func runSecondary(args []string) {
 		fmt.Fprintln(os.Stderr, "secondary agent →", url)
 		secondary.AgentLoop(url, tok, 30*time.Second)
 	case "provision":
-		host, user, pass, sni := "", "root", "", ""
+		host, user, pass, sni, opPub := "", "root", "", "", ""
 		port := 22
 		for i := 1; i < len(args); i++ {
 			a := args[i]
@@ -135,10 +135,12 @@ func runSecondary(args []string) {
 				i++; fmt.Sscanf(args[i], "%d", &port)
 			case a == "--sni" && i+1 < len(args):
 				i++; sni = args[i]
+			case a == "--operator-pubkey" && i+1 < len(args):
+				i++; opPub = args[i]
 			}
 		}
 		if host == "" || pass == "" {
-			fmt.Fprintln(os.Stderr, "required: --host and --password")
+			fmt.Fprintln(os.Stderr, "required: --host and --password [--operator-pubkey]")
 			os.Exit(2)
 		}
 		// Reinstall always changes SSH host key — clear TOFU + OpenSSH known_hosts before dial.
@@ -160,7 +162,7 @@ func runSecondary(args []string) {
 		}
 		raw, _ := json.MarshalIndent(b, "", "  ")
 		res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
-			Host: host, Port: port, User: user, Password: pass, SNI: sni,
+			Host: host, Port: port, User: user, Password: pass, SNI: sni, OperatorPubKey: opPub,
 		}, string(raw))
 		if res != nil {
 			fmt.Println(res.Log)

@@ -3,20 +3,23 @@ package deploy
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // SecondaryOpts — provision RU secondary by driving primary over SSH.
+// Operator (Mac) pubkey is installed on secondary; ongoing ops use agent→primary HTTP.
 type SecondaryOpts struct {
 	PrimaryHost     string
 	PrimaryUser     string
-	PrimaryKey      string
+	PrimaryKey      string // path to Mac private key (pubkey = path+".pub")
 	SecondaryHost   string
 	SecondaryUser   string
 	SecondaryPass   string
 	SNI             string
+	OperatorPubKey  string // optional explicit pubkey line; else read PrimaryKey+".pub"
 }
 
-// DeploySecondary runs `netductor fleet provision-secondary` on primary.
+// DeploySecondary runs `netductor fleet provision-secondary` on primary with --operator-pubkey.
 func DeploySecondary(o SecondaryOpts) error {
 	if o.PrimaryHost == "" || o.PrimaryKey == "" {
 		return fmt.Errorf("primary host and SSH key required")
@@ -33,9 +36,23 @@ func DeploySecondary(o SecondaryOpts) error {
 	if o.SNI == "" {
 		o.SNI = "api.vk.me"
 	}
-	cmd := fmt.Sprintf("netductor fleet provision-secondary --host %s --user %s --password %s --sni %s",
-		shellQuote(o.SecondaryHost), shellQuote(o.SecondaryUser), shellQuote(o.SecondaryPass), shellQuote(o.SNI))
-	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "→ provision secondary", o.SecondaryHost)
+	pub := strings.TrimSpace(o.OperatorPubKey)
+	if pub == "" {
+		b, err := os.ReadFile(o.PrimaryKey + ".pub")
+		if err != nil {
+			return fmt.Errorf("read operator pubkey %s.pub: %w", o.PrimaryKey, err)
+		}
+		pub = strings.TrimSpace(string(b))
+	}
+	if pub == "" {
+		return fmt.Errorf("operator pubkey empty")
+	}
+	cmd := fmt.Sprintf(
+		"netductor fleet provision-secondary --host %s --user %s --password %s --sni %s --operator-pubkey %s",
+		shellQuote(o.SecondaryHost), shellQuote(o.SecondaryUser), shellQuote(o.SecondaryPass),
+		shellQuote(o.SNI), shellQuote(pub),
+	)
+	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "→ provision secondary", o.SecondaryHost, "(operator pubkey)")
 	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd)
 	fmt.Print(out)
 	if err != nil {

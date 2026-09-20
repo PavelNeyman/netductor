@@ -58,7 +58,7 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 		fleet.DisableLegacyFleetUnits()
 		fmt.Println("disabled legacy fleet-sync / bot-failover units (if present)")
 	case "provision-secondary":
-		host, user, pass, sni := "", "root", "", ""
+		host, user, pass, sni, opPub := "", "root", "", "", ""
 		port := 22
 		for i := 1; i < len(args); i++ {
 			a := args[i]
@@ -73,6 +73,8 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 				i++; fmt.Sscanf(args[i], "%d", &port)
 			case a == "--sni" && i+1 < len(args):
 				i++; sni = args[i]
+			case a == "--operator-pubkey" && i+1 < len(args):
+				i++; opPub = args[i]
 			case a == "--no-lampac", a == "--no-bot-standby":
 				// ignored; always VPN-entry only
 			}
@@ -82,7 +84,7 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 			os.Exit(2)
 		}
 		if err := fleet.ProvisionSecondary(fleet.ProvisionSecondaryOpts{
-			Host: host, User: user, Password: pass, Port: port, SNI: sni,
+			Host: host, User: user, Password: pass, Port: port, SNI: sni, OperatorPubKey: opPub,
 		}); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
