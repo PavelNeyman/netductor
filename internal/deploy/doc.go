@@ -1,3 +1,4 @@
-// Package deploy implements operator-machine (Mac/PC) bootstrap of primary VPS,
-// secondary via primary, and edge agent install from the LAN.
 package deploy
+
+// Package deploy bootstraps primary / secondary / edge from an operator machine
+// (Mac/PC workstation). Control plane stays on the VPS after install.
