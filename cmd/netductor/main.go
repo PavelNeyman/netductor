@@ -10,13 +10,12 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.1"
+var version = "0.8.2"
 
 func main() {
 	ndconfig.Load()
 
 	if len(os.Args) < 2 {
-		// interactive when terminal; else help
 		if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {
 			runTUI(nil)
 			return
@@ -33,7 +32,8 @@ func main() {
 		printHelp()
 	case "doctor":
 		if len(os.Args) > 2 && os.Args[2] == "--legacy" {
-			fmt.Fprintln(os.Stderr, "legacy doctor removed"); os.Exit(2)
+			fmt.Fprintln(os.Stderr, "legacy doctor removed")
+			os.Exit(2)
 			return
 		}
 		os.Exit(runDoctorNative())
@@ -77,6 +77,8 @@ func main() {
 		}
 	case "backup":
 		runBackupCmd(os.Args[2:])
+	case "deploy":
+		runDeploy(os.Args[2:])
 	case "fleet":
 		runFleet(os.Args[2:])
 	case "restore":
@@ -135,22 +137,16 @@ func main() {
 	}
 }
 
-
 func printHelp() {
 	fmt.Print(`netductor — network control plane
 
   tui|menu [--mode vps|openwrt|workstation|operator] [--remote HOST] [--remote-user U] [--remote-key PATH] [--remote-password P]
+  deploy primary|secondary|edge
   backup | restore | recover | fleet | audit | self-install | update
-  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | serve | install | probe | collect | help
-  
+  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | serve | install | probe | collect | help
+
   (no args on a TTY → interactive menu)
 
-serve:
-  --bind ADDR   (default 127.0.0.1)
-  --port PORT   (default 8787)
-  --tls-cert PATH --tls-key PATH
-  --no-proxy
+Workstation deploy (Mac/PC): docs/DEPLOY-WORKSTATION.md
 `)
 }
-
-
