@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -50,6 +51,8 @@ func startRecoveryHTTP(cfg *config) {
 			}
 			if code == "" || len(code) < 16 {
 				msg = `<span class="err">Нужен код (recovery или bootstrap)</span>`
+			} else if !validPrimaryURL(server) {
+				msg = `<span class="err">Некорректный Primary URL (только http/https)</span>`
 			} else {
 				server = strings.TrimRight(server, "/")
 				if err := writeAgentConfig(server, code, cfg.DeviceID); err != nil {
@@ -125,4 +128,20 @@ func writeAgentConfig(server, token, deviceID string) error {
 		}
 	}
 	return os.WriteFile(path, []byte(b.String()), 0o600)
+}
+
+
+func validPrimaryURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	// block obvious local scheme tricks
+	if strings.Contains(u.Host, "@") {
+		return false
+	}
+	return true
 }

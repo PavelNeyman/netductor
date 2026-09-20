@@ -591,3 +591,5 @@ See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll w
 - Docs: EN + `docs/ru/` (missing long plans have RU stubs pointing to EN)
 - Review: docs/REVIEW-2026-09-20.md
 
+### Post-0.8.0 review
+See docs/REVIEW-2026-09-20-POST.md (security P0 recovery bind, SHA256 self-update, mTLS 8788).
