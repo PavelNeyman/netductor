@@ -31,7 +31,7 @@ func DeployPrimary(o PrimaryOpts) error {
 		o.User = "root"
 	}
 	if o.Version == "" {
-		o.Version = "0.8.1"
+		o.Version = Release
 	}
 	if o.SNI == "" {
 		o.SNI = "api.vk.me"
@@ -151,7 +151,7 @@ func shellQuote(s string) string {
 // EnsureAgentBinary downloads netductor-agent for arch into destDir, returns path.
 func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	if version == "" {
-		version = "0.8.1"
+		version = Release
 	}
 	if goarch == "" {
 		goarch = "arm64"

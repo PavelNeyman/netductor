@@ -2,9 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -315,102 +312,31 @@ func (m *model) fieldVal(key string) string {
 }
 
 func (m model) runWizardApply() string {
-	var b strings.Builder
-	log := func(s string) { b.WriteString(s); b.WriteString("\n") }
+	// Mac/workstation scenario: full deploy centre (password bootstrap → key → mTLS agents).
+	// Local-only apply is wrong on a laptop — always use deploy wizards.
 	switch m.wizTarget {
 	case wizPrimary:
-		sni := m.fieldVal("sni")
-		if sni == "" {
-			sni = "api.vk.me"
-		}
-		doInst := strings.HasPrefix(strings.ToLower(m.fieldVal("install")), "y")
-		if doInst {
-			log("→ netductor install")
-			cmd := exec.Command("netductor", "install")
-			out, err := cmd.CombinedOutput()
-			b.Write(out)
-			if err != nil {
-				log("install: " + err.Error())
-			}
-		}
-		log("→ vpn set-sni " + sni)
-		_ = exec.Command("netductor", "vpn", "set-sni", sni).Run()
-		_ = exec.Command("netductor", "fleet", "bootstrap").Run()
-		out, _ := exec.Command("netductor", "doctor").CombinedOutput()
-		b.Write(out)
-		log("Done. Next: Secondary wizard.")
+		wizardPrimary()
+		return "primary wizard finished (see terminal output above)"
 	case wizSecondary:
-		host, user, pass, sni := m.fieldVal("host"), m.fieldVal("user"), m.fieldVal("pass"), m.fieldVal("sni")
-		if host == "" || pass == "" {
-			return "host and password required"
-		}
-		if user == "" {
-			user = "root"
-		}
-		if sni == "" {
-			sni = "api.vk.me"
-		}
-		log("→ fleet provision-secondary " + host)
-		cmd := exec.Command("netductor", "fleet", "provision-secondary",
-			"--host", host, "--user", user, "--password", pass, "--sni", sni)
-		out, err := cmd.CombinedOutput()
-		b.Write(out)
-		if err != nil {
-			log(err.Error())
-		}
-		out, _ = exec.Command("netductor", "fleet", "status").CombinedOutput()
-		b.Write(out)
+		wizardSecondary()
+		return "secondary wizard finished (see terminal output above)"
 	case wizOpenWrt:
-		host, user, id, server, agent := m.fieldVal("host"), m.fieldVal("user"), m.fieldVal("id"), m.fieldVal("server"), m.fieldVal("agent")
-		if host == "" {
-			return "router host required"
-		}
-		if user == "" {
-			user = "root"
-		}
-		if id == "" {
-			id = "home-owrt-1"
-		}
-		if server == "" {
-			server = "http://127.0.0.1:8787"
-		}
-		args := []string{"edge", "provision", user + "@" + host, "--id", id, "--server", server}
-		if agent != "" {
-			if abs, err := filepath.Abs(agent); err == nil {
-				agent = abs
-			}
-			args = append(args, "--agent", agent)
-		}
-		if pass := m.fieldVal("pass"); pass != "" {
-			args = append(args, "--password", pass)
-		}
-		log("→ netductor " + strings.Join(args, " "))
-		cmd := exec.Command("netductor", args...)
-		out, err := cmd.CombinedOutput()
-		b.Write(out)
-		if err != nil {
-			log(err.Error())
-			log("Fallback: copy agent manually, set /etc/netductor-agent/config, start service.")
-		} else {
-			log("Approve device on primary: netductor edge approve " + id)
-		}
+		wizardOpenWrt()
+		return "openwrt/edge wizard finished (see terminal output above)"
 	case wizMikroTik:
-		host, user, pass, name := m.fieldVal("host"), m.fieldVal("user"), m.fieldVal("pass"), m.fieldVal("name")
-		if host == "" {
-			return "MikroTik host required"
-		}
-		log("→ site / MikroTik manage " + host)
-		// Best-effort CLI if present
-		cmd := exec.Command("netductor", "site", "init", "--host", host, "--user", user, "--password", pass, "--name", name)
-		out, err := cmd.CombinedOutput()
-		b.Write(out)
-		if err != nil {
-			log(err.Error())
-			log("Use Tools → MikroTik manage or docs/MIKROTIK.md")
-		}
+		runSiteWizard()
+		return "mikrotik/site wizard finished (see terminal output above)"
+	case "remote":
+		return "remote target set in settings"
 	default:
-		return "unknown target"
+		// NVR not in wizTarget enum — optional
+		if string(m.wizTarget) == "nvr" {
+			wizardNVR()
+			return "nvr wizard finished"
+		}
+		return "unknown wizard target"
 	}
-	_ = os.Stdout
-	return b.String()
 }
+
+

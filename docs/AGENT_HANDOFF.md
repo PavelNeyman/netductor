@@ -17,7 +17,7 @@ Full plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 # Agent handoff (read first in a new chat)
 
 **Repo:** https://github.com/PavelNeyman/netductor  
-**Release tag:** `v0.8.9` (check Releases if tag name differs)  
+**Release tag:** `v0.8.10` (check Releases if tag name differs)  
 **Binaries:** `netductor-linux-amd64`, `netductor-tg-linux-amd64`, `netductor-agent-*`  
 **Owner language:** Russian OK; docs **EN + RU** for user-facing behaviour.
 
@@ -59,7 +59,7 @@ Default Reality SNI for WL: **`api.vk.me`**. Client VLESS links prefer **seconda
 
 ```bash
 wget -qO /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.8.9/netductor-linux-amd64
+  https://github.com/PavelNeyman/netductor/releases/download/v0.8.10/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 
 mkdir -p /etc/netductor/secrets
@@ -699,14 +699,30 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.9 (2026-09-20)
+## Current baseline — v0.8.10 (2026-09-20)
 
 ### Release
-- Tag: **v0.8.9** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.9
+- Tag: **v0.8.10** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.10
 - Assets: darwin/linux CLI, agent (amd64/arm/arm64/mipsle), tg, SHA256SUMS
 - Homebrew Formula `0.8.9` · `brew reinstall netductor`
 
 ### Operator model
+
+### Mac TUI deploy scenario (verified)
+
+Intended flow: `brew install netductor` → `netductor tui --mode workstation` → Setup wizard:
+
+1. **Primary** → `deploy.DeployPrimary` (password → Mac key in authorized_keys → binary from Releases → secrets → install/harden → SNI → fleet bootstrap) → saves `remote_host`/`remote_key` in `~/.config/netductor/tui.yaml`
+2. **Secondary** → SSH to primary → `fleet provision-secondary --operator-pubkey` (Mac pub) + mTLS client material
+3. **OpenWrt** → `DeployEdge` (agent binary + mTLS certs + `SERVER=https://primary:8789` + Mac pub harden)
+4. **NVR/cameras** → CLI via primary after edge online
+5. **MikroTik** → site wizard / RSC push + optional SSH harden
+
+**Fixed in tree:** bubbletea tab wizard previously ran *local* `install` / `fleet provision-secondary` without operator pubkey and defaulted edge to `http://127.0.0.1:8787`. Now tab wizard **delegates** to the same `wizardPrimary/Secondary/OpenWrt` as the menu Setup wizard.
+
+**Requirements on Mac:** `ssh`, `scp`, `ssh-keygen`, `curl`, **`sshpass`** (first password login).
+
+
 - **Deployment centre** = Mac TUI (`netductor tui --mode workstation`)
 - First SSH: password → install **Mac** `~/.ssh/netductor_primary` pub → password off (primary/secondary/OpenWrt; MikroTik best-effort)
 - Day-2: **no device↔device SSH mesh**; agents → primary over **mTLS :8789**
@@ -729,7 +745,7 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Security review snapshot (v0.8.9)
+## Security review snapshot (v0.8.10)
 
 ### OK
 - Admin not world-open by default
@@ -742,7 +758,7 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 1. **`:8789` reachable from internet** — intentional for NAT edge; without client cert handshake fails, but port is probeable (rate-limit / fail2ban optional)
 2. **Long-lived `edge_bootstrap_token`** — protect like a secret; prefer recovery codes for re-attach
 3. **`NETDUCTOR_PLAIN_AGENT=1` / `API_PUBLIC=1`** — foot-guns if left on prod
-4. **Hardcoded old download URLs** in some legacy docs/scripts (secondary self-update pin fixed to v0.8.9 in agent)
+4. **Hardcoded old download URLs** in some legacy docs/scripts (secondary self-update pin fixed to v0.8.10 in agent)
 5. **UFW vs cloud SG** — host ufw does not replace provider security groups
 6. **Admin session token** strength depends on `vpn session` issuance
 
@@ -756,8 +772,9 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 | P | Item | Why |
 |---|------|-----|
-| P1 | Single `version` / release pin module (CLI, agent, deploy defaults, TG one-liner, secondary update URL) | Drift (saw 0.7.x leftovers) |
+| P1 | ~~Single version pin~~ **done** `internal/deploy.Release` + agent update URL | remaining: TG one-liner / docs/ru |
 | P1 | Unify agent-plane mux construction (secondary+edge+nvr) in one `StartAgentPlane()` | serve.go / api_secondary split |
+| P1 | ~~Tab wizard vs deploy wizard split~~ **done** (tab delegates to deploy wizards) | |
 | P2 | Extract deploy wizards i18n keys to `tui_l10n` map (not only TT literals) | Maintainability |
 | P2 | Admin i18n: remaining placeholders + dynamic JS strings | Polish |
 | P2 | Drop residual “relay” naming in admin one-liner / docs → secondary | Consistency |

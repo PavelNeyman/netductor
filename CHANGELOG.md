@@ -1,3 +1,9 @@
+## 0.8.10 — 2026-09-20
+
+### Mac workstation deploy scenario
+- Bubbletea **tab wizard** now delegates to full `wizardPrimary/Secondary/OpenWrt` (same as Setup menu) — no more local-only install on laptop
+- `internal/deploy.Release` single pin for binary/agent downloads
+
 ## 0.8.9 — 2026-09-20
 
 ### TUI / TG i18n
