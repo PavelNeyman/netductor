@@ -1,3 +1,11 @@
+## 0.8.11 — 2026-09-20
+
+### Refactor
+- Split `netductor-agent` into `nvr_cmds.go`, `openwrt_net.go`, `agent_ops.go`
+- `scripts/check-version-pins.sh` + CI step (no stale v0.7 in operator paths)
+- `FormT` dictionary for shared TUI form labels
+- Docs/bootstrap/TG/admin download pins → current release
+
 ## 0.8.10 — 2026-09-20
 
 ### Mac workstation deploy scenario

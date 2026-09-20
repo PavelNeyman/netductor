@@ -239,7 +239,7 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		out, err := exec.Command("bash", "-c", `export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq 2>&1 | tail -5
 apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade 2>&1 | tail -30
-wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.8.10/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
+wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.8.11/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
 systemctl restart sing-box 2>&1 || true
 nohup bash -c 'sleep 45; systemctl restart netductor-secondary-agent' >/dev/null 2>&1 &
 echo DONE

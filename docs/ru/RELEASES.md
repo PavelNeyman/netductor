@@ -1,8 +1,8 @@
 # Релизы
 
-Актуальный тег: **`v0.8.1`**. EN: [RELEASES.md](../RELEASES.md).
+Актуальный тег: **`v0.8.11`**. EN: [RELEASES.md](../RELEASES.md).
 
 ```bash
-export NETDUCTOR_VERSION=0.8.1
+export NETDUCTOR_VERSION=0.8.11
 curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/bootstrap.sh | bash
 ```

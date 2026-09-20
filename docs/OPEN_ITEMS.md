@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.10** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-2026-09-20-POST](REVIEW-2026-09-20-POST.md).
+Baseline: **v0.8.11** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-2026-09-20-POST](REVIEW-2026-09-20-POST.md).
 
 ## Done (through 0.8.1)
 

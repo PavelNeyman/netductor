@@ -227,3 +227,30 @@ func TT(lang tuiLang, en, ru string) string {
 	}
 	return en
 }
+
+
+// formDict common form labels (key → en, ru). Prefer FormT over ad-hoc TT for shared keys.
+var formDict = map[string][2]string{
+	"ssh_user":        {"SSH user", "SSH пользователь"},
+	"ssh_password":    {"SSH password", "SSH пароль"},
+	"ssh_port":        {"SSH port", "SSH порт"},
+	"host":            {"Host / IP", "Host / IP"},
+	"password":        {"Password", "Пароль"},
+	"device_id":       {"Device ID", "Device ID"},
+	"yes":             {"Yes", "Да"},
+	"no":              {"No", "Нет"},
+	"cancel":          {"Cancel", "Отмена"},
+	"apply":           {"Apply", "Применить"},
+	"refresh":         {"Refresh", "Обновить"},
+	"primary_mtls":    {"Primary mTLS URL", "Primary mTLS URL"},
+	"reality_sni":     {"Reality SNI", "Reality SNI"},
+	"required":        {"required", "обязательно"},
+}
+
+// FormT looks up formDict; falls back to TT(lang, key, key) if missing.
+func FormT(lang tuiLang, key string) string {
+	if v, ok := formDict[key]; ok {
+		return TT(lang, v[0], v[1])
+	}
+	return key
+}
