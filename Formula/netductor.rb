@@ -1,33 +1,43 @@
 class Netductor < Formula
-  desc "Netductor control plane CLI (VPN fleet, edge, TUI)"
+  desc "Netductor control plane CLI (VPN fleet, edge, TUI workstation deploy)"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.8.1"
+  version "0.8.2"
   license "MIT"
 
+  # Prefer prebuilt release assets; fall back to HEAD source build.
   on_macos do
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.1/netductor-darwin-arm64"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.2/netductor-darwin-arm64"
       sha256 :no_check
     end
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.1/netductor-darwin-amd64"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.2/netductor-darwin-amd64"
       sha256 :no_check
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.1/netductor-linux-amd64"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.2/netductor-linux-amd64"
       sha256 :no_check
     end
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.1/netductor-linux-arm64"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.2/netductor-linux-arm64"
       sha256 :no_check
     end
   end
 
+  head do
+    url "https://github.com/PavelNeyman/netductor.git", branch: "main"
+    depends_on "go" => :build
+  end
+
   def install
-    bin.install Dir["netductor*"].first => "netductor"
+    if build.head?
+      system "go", "build", *std_go_args(ldflags: "-s -w -X main.version=HEAD"), "./cmd/netductor"
+    else
+      bin.install Dir["netductor*"].first => "netductor"
+    end
   end
 
   test do
