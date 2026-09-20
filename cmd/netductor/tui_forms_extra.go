@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/huh"
@@ -111,15 +110,16 @@ func formVpnAdd() {
 		fmt.Println(subStyle.Render("cancelled"))
 		return
 	}
-	if err := vpn.AddUser(name, note); err != nil {
+	uuid, err := vpn.Add(name, note)
+	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))
 		return
 	}
-	fmt.Println(okStyle.Render("user created"))
+	fmt.Println(okStyle.Render("user created " + uuid))
 	fmt.Println(subStyle.Render("QR file: " + vpn.QRPath(name)))
-	if link, err := vpn.SubscriptionLink(name); err == nil && link != "" {
-		fmt.Println(subStyle.Render("VLESS QR (terminal):"))
-		_ = exec.Command("qrencode", "-t", "ANSIUTF8", link).Run()
+	link := vpn.PreferredVLESSLink(name, uuid)
+	if link != "" {
+		fmt.Println(subStyle.Render("VLESS: " + link))
 	}
 }
 
@@ -134,12 +134,12 @@ func formVpnRename() {
 	if err := f.Run(); err != nil || old == "" || newN == "" {
 		return
 	}
-	out, err := vpn.RenameUser(old, newN)
+	out, err := vpn.Rename(old, newN)
 	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))
 		return
 	}
-	fmt.Println(okStyle.Render("renamed → " + out + " (UUID unchanged, links still work)"))
+	fmt.Println(okStyle.Render("renamed → " + out))
 }
 
 func formVpnSub() {
@@ -148,9 +148,9 @@ func formVpnSub() {
 	if err := f.Run(); err != nil || name == "" {
 		return
 	}
-	link, err := vpn.SubscriptionLink(name)
-	if err != nil || link == "" {
-		fmt.Println(errStyle.Render("no subscription for " + name))
+	link := vpn.PreferredVLESSLink(name, "")
+	if link == "" {
+		fmt.Println(errStyle.Render("no link for " + name))
 		return
 	}
 	fmt.Println(link)
@@ -162,12 +162,9 @@ func formBackupPeer() {
 
 func formSession() {
 	var note string
-	var hours int
-	hours = 24
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("Note").Value(&note),
-			huh.NewInput().Title("Hours").Value(new(string)),
 		),
 	).WithTheme(huh.ThemeCharm())
 	_ = f.Run()
