@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.1** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-2026-09-20-POST](REVIEW-2026-09-20-POST.md).
+Baseline: **v0.8.9** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-2026-09-20-POST](REVIEW-2026-09-20-POST.md).
 
 ## Done (through 0.8.1)
 
@@ -14,6 +14,9 @@ Baseline: **v0.8.1** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-202
 - [x] NVR/Tapo **code** MVP (Go port, storage, TG hooks) — hardware e2e open
 - [x] TG Access / users / nodes / tools / updates; Admin UI VPN-only
 - [x] mTLS material EnsureAll on serve; plain `:8788` only if no certs / PLAIN_AGENT=1
+- [x] mTLS-only agent plane `:8789` for secondary **and** edge (no IP allowlist; NAT-friendly)
+- [x] Workstation deploy centre (Mac TUI); operator SSH key post-bootstrap
+- [x] Admin / TUI / TG EN+RU pass (v0.8.8–0.8.9)
 - [x] Cross-VPS backup + COMPONENTS; doctor probes
 
 ## Still open (needs operator / hardware / domain)
