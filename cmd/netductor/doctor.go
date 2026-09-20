@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -238,21 +237,6 @@ func runDoctorNative() int {
 		} else {
 			fmt.Printf("FAIL mtls server certs missing (run: netductor mtls ensure)\n")
 			warn++
-		}
-		ips := install.LoadAgentAllowlist()
-		if install.AgentAllowlistStrict() {
-			if len(ips) == 0 {
-				fmt.Printf("WARN STRICT allowlist empty (:8789 may be closed)\n")
-				warn++
-			} else {
-				fmt.Printf("OK   STRICT allowlist %d IP(s)\n", len(ips))
-				ok++
-			}
-		} else if len(ips) > 0 {
-			fmt.Printf("OK   secondary allowlist inventory %d IP(s) (edge uses mTLS, not IP filter)\n", len(ips))
-			ok++
-		} else {
-			fmt.Printf("INFO secondary allowlist empty (edge OK via mTLS on :8789)\n")
 		}
 
 	case "secondary":

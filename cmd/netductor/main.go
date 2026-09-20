@@ -10,7 +10,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.7"
+var version = "0.8.8"
 
 func main() {
 	ndconfig.Load()
@@ -45,8 +45,6 @@ func main() {
 		runSites(os.Args[2:])
 	case "nodes":
 		runNodes(os.Args[2:])
-	case "agent-allowlist":
-		runAgentAllowlist(os.Args[2:])
 	case "mtls":
 		runMTLS(os.Args[2:])
 	case "tls":

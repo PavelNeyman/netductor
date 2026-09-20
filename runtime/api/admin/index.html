@@ -50,29 +50,29 @@
       <h2 data-i18n="ssh_hosts_title">SSH known hosts (TOFU)</h2>
       <p class="hint" data-i18n="ssh_hosts_hint">After MT/VPS reinstall: Forget key, then reconnect once from trusted LAN.</p>
       <div class="row">
-        <button type="button" id="btn-sshhosts-refresh" class="ghost">Refresh</button>
-        <button type="button" id="btn-sshhosts-clear-mt" class="ghost">Clear MikroTik</button>
-        <button type="button" id="btn-sshhosts-clear-relay" class="ghost">Clear Relay</button>
+        <button type="button" id="btn-sshhosts-refresh" class="ghost" data-i18n="refresh">Refresh</button>
+        <button type="button" id="btn-sshhosts-clear-mt" class="ghost" data-i18n="clear_mt">Clear MikroTik</button>
+        <button type="button" id="btn-sshhosts-clear-relay" class="ghost" data-i18n="clear_secondary">Clear Secondary</button>
       </div>
       <pre id="sshhosts-box" class="log"></pre>
       <div class="row">
         <input id="sshhosts-id" placeholder="host or host:port" />
         <select id="sshhosts-kind"><option value="">auto</option><option value="mt">mikrotik</option><option value="relay">relay</option></select>
-        <button type="button" id="btn-sshhosts-forget" class="primary">Forget</button>
+        <button type="button" id="btn-sshhosts-forget" class="primary" data-i18n="forget">Forget</button>
       </div>
     </section>
     <section id="tab-audit" class="tab-panel hide">
       <h2 data-i18n="audit_title">Audit log</h2>
       <pre id="audit-box" class="code">—</pre>
-      <button id="btn-audit-refresh" class="primary">Refresh</button>
+      <button id="btn-audit-refresh" class="primary" data-i18n="refresh">Refresh</button>
     </section>
     <section id="tab-sessions" class="tab-panel hide">
       <h2 data-i18n="sessions_title">Sessions</h2>
       <pre id="sessions-box" class="code">—</pre>
       <div class="row">
-        <button id="btn-sessions-refresh" class="ghost">Refresh</button>
-        <button id="btn-sessions-revoke" class="primary">Revoke all</button>
-        <button id="btn-vpn-refresh-links" class="ghost">Refresh VPN links</button>
+        <button id="btn-sessions-refresh" class="ghost" data-i18n="refresh">Refresh</button>
+        <button id="btn-sessions-revoke" class="primary" data-i18n="revoke_all">Revoke all</button>
+        <button id="btn-vpn-refresh-links" class="ghost" data-i18n="refresh_vpn_links">Refresh VPN links</button>
       </div>
     </section>
     <section id="tab-backup" class="tab-panel hide">
@@ -81,53 +81,53 @@
       <pre id="backup-status" class="code">—</pre>
       <div class="row">
         <input id="backup-target" placeholder="root@RELAY:/var/lib/netductor/backups/peers/core/" style="min-width:24rem" />
-        <button id="btn-backup-peer" class="primary">Set peer</button>
-        <button id="btn-backup-run" class="ghost">Run backup now</button>
+        <button id="btn-backup-peer" class="primary" data-i18n="set_peer">Set peer</button>
+        <button id="btn-backup-run" class="ghost" data-i18n="run_backup">Run backup now</button>
       </div>
     </section>
 
     <section id="tab-status" class="tab-panel hide">
       <h2 data-i18n="status_title">Status</h2>
       <p class="hint">Core services + nodes + VPN (TG parity)</p>
-      <button id="btn-refresh-status" class="ghost">Refresh</button>
+      <button id="btn-refresh-status" class="ghost" data-i18n="refresh">Refresh</button>
       <pre id="status-box" class="log"></pre>
     </section>
     <section id="tab-overview" class="tab-panel">
       <div class="grid">
-        <div class="card metric"><div class="label">CPU</div><div id="m-cpu" class="value">—</div></div>
-        <div class="card metric"><div class="label">RAM</div><div id="m-ram" class="value">—</div></div>
-        <div class="card metric"><div class="label">Disk</div><div id="m-disk" class="value">—</div></div>
-        <div class="card metric"><div class="label">Load</div><div id="m-load" class="value">—</div></div>
+        <div class="card metric"><div class="label" data-i18n="cpu">CPU</div><div id="m-cpu" class="value">—</div></div>
+        <div class="card metric"><div class="label" data-i18n="ram">RAM</div><div id="m-ram" class="value">—</div></div>
+        <div class="card metric"><div class="label" data-i18n="disk">Disk</div><div id="m-disk" class="value">—</div></div>
+        <div class="card metric"><div class="label" data-i18n="load">Load</div><div id="m-load" class="value">—</div></div>
       </div>
       <div class="grid two">
         <div class="card metric"><div class="label">RX</div><div id="m-rx" class="value">—</div></div>
         <div class="card metric"><div class="label">TX</div><div id="m-tx" class="value">—</div></div>
       </div>
-      <p id="collector-warn" class="err hide">Collector stale</p>
+      <p id="collector-warn" class="err hide" data-i18n="collector_stale">Collector stale</p>
     </section>
 
     <section id="tab-users" class="tab-panel hide">
       <div class="row">
         <input id="new-user" placeholder="name" />
         <input id="new-note" placeholder="note" />
-        <button id="btn-add-user" class="primary">Add</button>
-        <button id="btn-refresh-users" class="ghost">Refresh</button>
+        <button id="btn-add-user" class="primary" data-i18n="add">Add</button>
+        <button id="btn-refresh-users" class="ghost" data-i18n="refresh">Refresh</button>
       </div>
       <div class="card"><table class="table" id="users-table">
-        <thead><tr><th>Name</th><th>Status</th><th>Note</th><th></th></tr></thead>
+        <thead><tr><th data-i18n="th_name">Name</th><th data-i18n="th_status">Status</th><th data-i18n="th_note">Note</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
       <div id="user-detail" class="card hide">
-        <h2 id="detail-title">User</h2>
+        <h2 id="detail-title" data-i18n="user_detail">User</h2>
         <pre id="detail-sub" class="code"></pre>
         <div class="row">
-          <button id="btn-copy-sub" class="primary">Copy subscription</button>
-          <button id="btn-copy-vless" class="ghost">VLESS (primary)</button>
-          <button id="btn-copy-hy2" class="ghost">HY2 (optional)</button>
+          <button id="btn-copy-sub" class="primary" data-i18n="copy_sub">Copy subscription</button>
+          <button id="btn-copy-vless" class="ghost" data-i18n="copy_vless">VLESS (primary)</button>
+          <button id="btn-copy-hy2" class="ghost" data-i18n="copy_hy2">HY2 (optional)</button>
         </div>
         <div class="row" style="margin-top:.5rem">
           <input id="vpn-rename-to" placeholder="new name" />
-          <button id="btn-vpn-rename" class="primary">Rename</button>
+          <button id="btn-vpn-rename" class="primary" data-i18n="rename">Rename</button>
         </div>
         <img id="detail-qr" class="qr hide" alt="QR" />
       </div>
@@ -142,13 +142,13 @@
           <input id="site-name" placeholder="Home" />
           <input id="site-rpi" placeholder="rpi device_id (edge)" />
           <input id="site-mt" placeholder="mikrotik id (optional)" />
-          <button id="btn-site-save" class="primary">Save site</button>
-          <button id="btn-site-rsc" class="ghost">MT RSC</button>
+          <button id="btn-site-save" class="primary" data-i18n="save_site">Save site</button>
+          <button id="btn-site-rsc" class="ghost" data-i18n="mt_rsc">MT RSC</button>
         </div>
         <pre id="site-out" class="log"></pre>
       </div>
-      <div class="card"><h3>Sites</h3><pre id="sites-list" class="log"></pre>
-        <button id="btn-sites-refresh" class="ghost">Refresh</button>
+      <div class="card"><h3 data-i18n="sites_list">Sites</h3><pre id="sites-list" class="log"></pre>
+        <button id="btn-sites-refresh" class="ghost" data-i18n="refresh">Refresh</button>
       </div>
     </section>
     <section id="tab-routers" class="tab-panel hide">
@@ -159,21 +159,21 @@
         <div class="row">
           <input id="rec-site" placeholder="site_id (optional)" />
           <input id="rec-note" placeholder="note" />
-          <button type="button" class="primary" id="btn-edge-recovery">Issue recovery code</button>
+          <button type="button" class="primary" id="btn-edge-recovery" data-i18n="issue_recovery">Issue recovery code</button>
         </div>
         <pre id="edge-recovery-out" class="code"></pre>
         <div class="row">
           <input id="reg-device" placeholder="device_id" />
           <input id="reg-site" placeholder="site_id" />
-          <button type="button" id="btn-edge-register">Register pending</button>
+          <button type="button" id="btn-edge-register" data-i18n="register_pending">Register pending</button>
         </div>
         <div class="row">
           <input id="setsite-device" placeholder="device_id" />
           <input id="setsite-site" placeholder="site_id" />
-          <button type="button" id="btn-edge-setsite">Set site</button>
+          <button type="button" id="btn-edge-setsite" data-i18n="set_site">Set site</button>
         </div>
         <div class="row">
-          <button type="button" id="btn-edge-export">Export devices JSON</button>
+          <button type="button" id="btn-edge-export" data-i18n="export_devices">Export devices JSON</button>
         </div>
         <pre id="edge-export-out" class="code"></pre>
       </div>
@@ -188,7 +188,7 @@
     
     <section id="tab-nodes" class="tab-panel hide">
       <div class="row">
-        <button id="btn-refresh-nodes" class="ghost">Refresh</button>
+        <button id="btn-refresh-nodes" class="ghost" data-i18n="refresh">Refresh</button>
       </div>
       <div class="card">
         <table id="nodes-table">
@@ -197,7 +197,7 @@
         </table>
       </div>
       <div class="card">
-        <h3>Rename node</h3>
+        <h3 data-i18n="rename_node">Rename node</h3>
         <p class="hint" style="opacity:.85;font-size:.9rem;margin:.25rem 0 0.75rem">
           Format: <code>nd-&lt;role&gt;-&lt;marker&gt;</code> —
           e.g. <code>nd-core-nl01</code>, <code>nd-edge-de02</code>, <code>nd-lab-01</code>.
@@ -207,22 +207,22 @@
         <div class="row">
           <input id="node-id" placeholder="node id (current)" />
           <input id="node-hn" placeholder="nd-core-nl01" title="nd-&lt;role&gt;-&lt;marker&gt;" />
-          <button id="btn-node-journal" type="button">Journal</button>
-          <button id="btn-node-upgrade" type="button">Upgrade</button>
-      <button id="btn-node-reboot" type="button">Reboot</button>
-      <button id="btn-relay-sync" type="button">Sync relays</button>
-      <button id="btn-node-rename" class="primary">Set desired hostname</button>
+          <button id="btn-node-journal" type="button" data-i18n="journal">Journal</button>
+          <button id="btn-node-upgrade" type="button" data-i18n="upgrade">Upgrade</button>
+      <button id="btn-node-reboot" type="button" data-i18n="reboot">Reboot</button>
+      <button id="btn-relay-sync" type="button" data-i18n="sync_relays">Sync secondaries</button>
+      <button id="btn-node-rename" class="primary" data-i18n="set_hostname">Set desired hostname</button>
         </div>
       </div>
     </section>
 
     <section id="tab-templates" class="tab-panel hide">
       <div class="row">
-        <button id="btn-refresh-tmpl" class="ghost">Refresh</button>
-        <button id="btn-save-default" class="primary">Ensure default</button>
+        <button id="btn-refresh-tmpl" class="ghost" data-i18n="refresh">Refresh</button>
+        <button id="btn-save-default" class="primary" data-i18n="ensure_default">Ensure default</button>
       </div>
       <div class="card">
-        <h3>Template</h3>
+        <h3 data-i18n="template">Template</h3>
         <label>ID <input id="f-id" value="default" /></label>
         <label>Role <input id="f-role" value="site" /></label>
         <h4>Network</h4>
@@ -241,16 +241,16 @@
           <select id="f-vpn-mode"><option value="socks">socks (no TUN, recommended)</option><option value="tun">tun (full tunnel)</option></select>
         </label>
         <div class="row">
-          <button id="btn-form-save" class="primary">Save template</button>
-          <button id="btn-form-load" class="ghost">Load into form</button>
+          <button id="btn-form-save" class="primary" data-i18n="save_template">Save template</button>
+          <button id="btn-form-load" class="ghost" data-i18n="load_form">Load into form</button>
         </div>
       </div>
       <div class="card">
-        <h3>Bind to device</h3>
+        <h3 data-i18n="bind_device">Bind to device</h3>
         <div class="row">
           <input id="bind-device" placeholder="device_id" />
           <input id="bind-tmpl" placeholder="template_id" value="default" />
-          <button id="btn-bind" class="primary">Bind</button>
+          <button id="btn-bind" class="primary" data-i18n="bind">Bind</button>
         </div>
         <div class="row">
           <input id="bind-ssid" placeholder="overlay ssid (optional)" />
@@ -261,8 +261,8 @@
         <summary>Advanced: raw JSON</summary>
         <textarea id="tmpl-editor" class="code" rows="12" style="width:100%"></textarea>
         <div class="row">
-          <button id="btn-load-tmpl" class="ghost">Load JSON</button>
-          <button id="btn-save-tmpl" class="ghost">Save JSON</button>
+          <button id="btn-load-tmpl" class="ghost" data-i18n="load_json">Load JSON</button>
+          <button id="btn-save-tmpl" class="ghost" data-i18n="save_json">Save JSON</button>
         </div>
         <pre id="templates-raw" class="code">—</pre>
       </details>
@@ -278,45 +278,45 @@
   
     
     <section id="tab-sni" class="tab-panel hide">
-      <h2>SNI presets</h2>
+      <h2 data-i18n="sni_presets">SNI presets</h2>
       <p class="hint">Reality handshake names for carrier WL experiments (Yota etc.)</p>
       <div class="row">
         <select id="sni-pick"><option value="yandex">yandex (ya.ru)</option><option value="vk">vk</option><option value="mail">mail</option><option value="gosuslugi">gosuslugi</option><option value="yota-try">yota-try</option></select>
-        <button id="btn-sni-apply" class="primary">Apply live SNI</button>
-        <button id="btn-sni-refresh" class="ghost">Refresh</button>
+        <button id="btn-sni-apply" class="primary" data-i18n="apply_sni">Apply live SNI</button>
+        <button id="btn-sni-refresh" class="ghost" data-i18n="refresh">Refresh</button>
       </div>
       <pre id="sni-box" class="log"></pre>
     </section>
     <section id="tab-relay" class="tab-panel hide">
-      <h2>RU Relay</h2>
-      <p class="muted">Mobile whitelist hop: phone → RU VPS → this core.</p>
-      <button id="btn-relay-export" class="primary">Export bundle (ya.ru)</button>
-      <button id="btn-relay-exit-on" class="success">RU exit ON</button>
-      <button id="btn-relay-exit-off" class="ghost">RU exit OFF</button>
+      <h2 data-i18n="relay_title">Secondary (RU)</h2>
+      <p class="muted" data-i18n="relay_hint">Mobile path: phone → RU secondary → primary.</p>
+      <button id="btn-relay-export" class="primary" data-i18n="export_bundle">Export bundle (ya.ru)</button>
+      <button id="btn-relay-exit-on" class="success" data-i18n="ru_exit_on">RU exit ON</button>
+      <button id="btn-relay-exit-off" class="ghost" data-i18n="ru_exit_off">RU exit OFF</button>
       <p id="relay-exit-st" class="muted"></p>
       <pre id="relay-bundle" class="code"></pre>
-      <h3>One-liner for RU VPS</h3>
+      <h3 data-i18n="oneliner_ru">One-liner for RU VPS</h3>
       <pre id="relay-oneline" class="code"></pre>
-      <p class="muted">After join on RU: <code>netductor relay links</code></p>
+      <p class="muted" data-i18n="after_join_ru">After join on RU: netductor secondary links</p>
     </section>
 
     <section id="tab-addons" class="tab-panel hide">
-      <h2>Addons</h2>
+      <h2 data-i18n="addons_title">Addons</h2>
       <div class="card" id="addon-lampac">
-        <h3>Lampac</h3>
+        <h3 data-i18n="lampac">Lampac</h3>
         <div class="grid two">
-          <div><span class="muted">Status</span><div id="lp-status">—</div></div>
-          <div><span class="muted">Health</span><div id="lp-health">—</div></div>
-          <div><span class="muted">CPU / RAM</span><div id="lp-res">—</div></div>
-          <div><span class="muted">Version</span><div id="lp-ver">—</div></div>
-          <div><span class="muted">Ping</span><div id="lp-ping">—</div></div>
-          <div><span class="muted">Chromium</span><div id="lp-chr">—</div></div>
+          <div><span class="muted" data-i18n="th_status">Status</span><div id="lp-status">—</div></div>
+          <div><span class="muted" data-i18n="health">Health</span><div id="lp-health">—</div></div>
+          <div><span class="muted" data-i18n="cpu_ram">CPU / RAM</span><div id="lp-res">—</div></div>
+          <div><span class="muted" data-i18n="version">Version</span><div id="lp-ver">—</div></div>
+          <div><span class="muted" data-i18n="ping">Ping</span><div id="lp-ping">—</div></div>
+          <div><span class="muted" data-i18n="chromium">Chromium</span><div id="lp-chr">—</div></div>
         </div>
-        <p class="muted">Bound to loopback only (VPN/SSH). Open UI via tunnel.</p>
+        <p class="muted" data-i18n="lampac_hint">Bound to loopback only (VPN/SSH). Open UI via tunnel.</p>
         <div class="row">
-          <a id="lp-ui" class="ghost" href="http://127.0.0.1:9118/" target="_blank" rel="noopener">Open UI</a>
-          <a id="lp-admin" class="ghost" href="http://127.0.0.1:9118/admin" target="_blank" rel="noopener">Lampac Admin</a>
-          <button type="button" id="btn-lp-refresh" class="primary">Refresh</button>
+          <a id="lp-ui" class="ghost" href="http://127.0.0.1:9118/" target="_blank" rel="noopener" data-i18n="open_ui">Open UI</a>
+          <a id="lp-admin" class="ghost" href="http://127.0.0.1:9118/admin" target="_blank" rel="noopener" data-i18n="lampac_admin">Lampac Admin</a>
+          <button type="button" id="btn-lp-refresh" class="primary" data-i18n="refresh">Refresh</button>
         </div>
       </div>
     </section>
@@ -325,17 +325,17 @@
   <script src="/admin/app.js"></script>
 
 <section id="node-ops">
-  <h2>Node ops</h2>
-  <p class="muted">Parity with Telegram: journal + restart service</p>
+  <h2 data-i18n="node_ops">Node ops</h2>
+  <p class="muted" data-i18n="node_ops_hint">Same as Telegram: journal + restart service</p>
   <label>Unit <select id="ops-unit"><option>sing-box</option><option>blocky</option><option>netductor-api</option><option>netductor-telegram-bot</option></select></label>
-  <button type="button" id="btn-journal">Journal</button>
-  <button type="button" id="btn-restart-svc">Restart service</button>
+  <button type="button" id="btn-journal" data-i18n="journal">Journal</button>
+  <button type="button" id="btn-restart-svc" data-i18n="restart_svc">Restart service</button>
   <pre id="ops-out" class="log"></pre>
 </section>
 <section id="relay-routing">
-  <h2>Relay routing</h2>
-  <p>RU domains → direct on relay · other → uplink core. See docs/RELAY-ROUTING.md</p>
-  <button type="button" id="btn-relay-sync">Sync relay config</button>
+  <h2 data-i18n="relay_routing">Secondary routing</h2>
+  <p data-i18n="relay_routing_hint">RU domains → direct on secondary · other → primary. See docs/RELAY-ROUTING.md</p>
+  <button type="button" id="btn-relay-sync" data-i18n="sync_relay">Sync secondary config</button>
 </section>
 
 </body>

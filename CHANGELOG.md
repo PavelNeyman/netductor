@@ -1,3 +1,12 @@
+## 0.8.8 — 2026-09-20
+
+### Remove agent IP allowlist
+- Firewall: deny `:8788`, allow `:8789` (mTLS only) — no IP allowlist
+- Edge behind NAT and secondary both use client certificates
+
+### Admin UI i18n
+- Tabs and main section labels EN/RU
+
 ## 0.8.7 — 2026-09-20
 
 ### Agent plane policy (edge + secondary)

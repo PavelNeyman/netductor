@@ -180,9 +180,6 @@ func runSecondary(args []string) {
 			os.Exit(1)
 		}
 		postProvisionSecondary(host, sni)
-		if err := install.RestrictAgentMTLSToIP(host); err != nil {
-			fmt.Fprintln(os.Stderr, "ufw restrict 8789:", err)
-		}
 		fmt.Println("provisioned", host)
 	case "device":
 		if len(args) < 2 {

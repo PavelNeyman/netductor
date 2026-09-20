@@ -29,7 +29,7 @@ func InstallHardening() error {
 		_ = run("ufw", "allow", "8443/udp")
 		_ = run("ufw", "delete", "allow", "8788/tcp")
 		_ = run("ufw", "deny", "8788/tcp")
-		_ = ApplyAgentAllowlistFirewall()
+		_ = ApplyAgentFirewall()
 		out, _ := runOut("ufw", "status")
 		if !strings.Contains(out, "Status: active") {
 			_ = run("bash", "-c", "echo y | ufw --force enable")

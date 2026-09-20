@@ -25,8 +25,7 @@ Ongoing control is **not** device↔device SSH. Secondary/edge agents talk to pr
 | Plane | Bind / URL | Security |
 |-------|------------|----------|
 | Admin API | `127.0.0.1:8787` | Local only. From Mac: `ssh -L 8787:127.0.0.1:8787 root@PRIMARY` |
-| Secondary agent | **mTLS `:8789`** | Auto certs; secondary IP recorded; plain 8788 emergency-only |
-| Edge agent | **mTLS `:8789`** | Client cert only (NAT-friendly; no IP allowlist) |
+| Secondary / Edge agent | **mTLS `:8789`** | Client cert; plain 8788 emergency-only; no IP allowlist |
 | Edge agent | **mTLS `:8789`** | Client certs auto-installed; works if site VPN is down |
 
 Workstation edge deploy may still seed `http://PRIMARY:8787` for first enroll if the public enroll endpoint is open. After VPN is up, prefer in-tunnel or HTTPS URL.

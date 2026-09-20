@@ -691,11 +691,7 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 - Agent plane allowlist is **default** (not optional).
 
 
-### Agent plane firewall policy (v0.8.7)
+### Agent plane firewall
 
-| Agent | Auth | IP filter |
-|-------|------|-----------|
-| Secondary (stable public IP) | mTLS client cert | IP recorded in `agent_allowlist`; optional `NETDUCTOR_AGENT_ALLOWLIST_STRICT=1` |
-| Edge / OpenWrt (ISP NAT, changing WAN) | mTLS client cert | **No IP allowlist** — would break on WAN rotation |
-
-Default ufw: deny `:8788`, allow `:8789` world (TLS+client cert is the gate).
+- Deny plain `:8788`
+- Allow mTLS `:8789` (auth = client certificate; no IP allowlist)
