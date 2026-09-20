@@ -10,11 +10,13 @@ import (
 // TUI settings: ~/.config/netductor/tui.yaml (hand-editable)
 
 type tuiSettings struct {
-	RemoteHost     string // remote_host
+	RemoteHost     string // remote_host — day-2 primary
 	RemoteUser     string // remote_user
-	RemoteKey      string // remote_key
-	RemotePassword string // remote_password
+	RemoteKey      string // remote_key — SSH private key for primary
+	RemotePassword string // remote_password — only for first deploy; prefer empty after
 	Lang           string // lang: auto|ru|en
+	SecondaryHost  string // secondary_host
+	LastEdgeID     string // last_edge_id
 }
 
 func tuiConfigPath() string {
@@ -73,12 +75,15 @@ func saveTUISettings(s tuiSettings) error {
 	}
 	body := fmt.Sprintf(`# netductor TUI settings — edit freely
 # lang: auto | ru | en  (auto = system locale)
+# After primary deploy, remote_key is the SSH key; remote_password should be empty.
 remote_host: %q
 remote_user: %q
 remote_key: %q
 remote_password: %q
+secondary_host: %q
+last_edge_id: %q
 lang: %q
-`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.Lang)
+`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.SecondaryHost, s.LastEdgeID, s.Lang)
 	return os.WriteFile(path, []byte(body), 0o600)
 }
 
@@ -106,6 +111,10 @@ func parseSimpleYAML(text string, s *tuiSettings) {
 			s.RemotePassword = v
 		case "lang":
 			s.Lang = v
+		case "secondary_host":
+			s.SecondaryHost = v
+		case "last_edge_id":
+			s.LastEdgeID = v
 		}
 	}
 }
