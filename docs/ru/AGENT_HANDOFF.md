@@ -198,3 +198,14 @@ See docs/REVIEW-2026-09-20-POST.md (security P0 recovery bind, SHA256 self-updat
 
 ### Hardening follow-up
 Recovery LAN bind + SERVER_PIN; update SHA256; TG edge approve handlers + token mask.
+
+---
+
+## Фиксация 0.8.1 (2026-09-20)
+
+- Версия **0.8.1**; secondary = только RU entry  
+- Edge recovery LAN + pending/approve; обновление primary с Release + SHA256  
+- Агенты без авто-раскатки  
+- Открыто: железо OpenWrt/MT/Tapo, опционально домен/HTTPS  
+- EN: [AGENT_HANDOFF](../AGENT_HANDOFF.md), [OPEN_ITEMS](../OPEN_ITEMS.md)  
+

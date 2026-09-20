@@ -596,3 +596,32 @@ See docs/REVIEW-2026-09-20-POST.md (security P0 recovery bind, SHA256 self-updat
 
 ### Hardening follow-up
 Recovery LAN bind + SERVER_PIN; update SHA256; TG edge approve handlers + token mask.
+
+---
+
+## 0.8.1 lock (2026-09-20)
+
+| Field | Value |
+|-------|--------|
+| Version | **0.8.1** · tags `v0.8.0`, `v0.8.1` |
+| Repo | https://github.com/PavelNeyman/netductor |
+| Primary (test) | may change; use keys/env not hardcode |
+| Architecture | **primary** (control + VPN core + API/TG) + **secondary** (RU VLESS entry only) |
+| Edge re-attach | LAN `http://<router>:7879/netductor-recovery` + recovery code → pending → approve · `CONTROL_ONLY` |
+| Updates | Primary: TG Tools → Updates (GitHub Release + **SHA256SUMS**). Agents: **manual** `agent_update` only |
+| Security post-review | [REVIEW-2026-09-20-POST](REVIEW-2026-09-20-POST.md) |
+| Open work | [OPEN_ITEMS](OPEN_ITEMS.md) — mostly hardware/domain |
+
+### Do not
+
+- Auto-rollout agents on every primary release  
+- Expose Admin/API to WAN without explicit operator decision  
+- Treat secondary as full Lampac/bot mirror (reverted by design)  
+
+### Next chat checklist
+
+1. `git pull` · read OPEN_ITEMS + this lock  
+2. Prefer release binaries for prod VPS; `main` for development  
+3. Edge: recovery code + approve; never full site re-provision for re-bind  
+4. Docs: EN + `docs/ru/` for user-facing changes  
+

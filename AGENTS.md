@@ -96,7 +96,7 @@ Target layout: `cmd/netductor`, `cmd/netductor-agent`, `internal/`.
 | Area | Status |
 |------|--------|
 | Repo | **PavelNeyman/netductor** |
-| Version | **0.8.0** |
+| Version | **0.8.1** |
 | G0–G1 | done |
 | G2 | release `v0.7.0-dev` published |
 | G3 | `netductor serve` health scaffold; port Python API |
@@ -131,3 +131,5 @@ See `docs/PLAN-NVR-TAPO.md`. CLI: `netductor nvr`. API under `/api/nvr/*`. Reten
 
 ### 0.8.0 release
 See CHANGELOG and docs/REVIEW-2026-09-20.md. Update policy: docs/UPGRADE.md.
+
+Current backlog: [docs/OPEN_ITEMS.md](docs/OPEN_ITEMS.md). Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md).

@@ -1,52 +1,43 @@
-> Shipped **0.8.0** (2026-09-20). See CHANGELOG.
-
 # Open items
 
-## Done recently (through 0.7.34-dev)
+Baseline: **v0.8.1** (2026-09-20). See [CHANGELOG](../CHANGELOG.md), [REVIEW-2026-09-20-POST](REVIEW-2026-09-20-POST.md).
 
-- [x] TG Access rich QR + URI + body/nav split
-- [x] Import redirect on :80 + TG url buttons (SR/Happ/INCY)
-- [x] Doctor: redirect + healthz; alerts secondary/sing-box
-- [x] mTLS client on secondary provision
-- [x] RU/gov **client + SR** direct (Gosuslugi/banks/geoip-ru) — `ru_direct.go`, `nd-oc.conf`
-- [x] Secondary = VPN entry only (not full mirror)
-- [x] NVR/Tapo Go control MVP (code); review in NVR-CODE-REVIEW.md
-- [x] SecondaryDir path helper + less hardcode IP in TUI; clientcfg tests; release workflow_dispatch
-- [x] Review 2026-09-19: [REVIEW-2026-09-19.md](REVIEW-2026-09-19.md)
+## Done (through 0.8.1)
 
-## Still open
+- [x] Go control plane: install, VPN, API, TUI, TG, edge, secondary
+- [x] Primary / secondary roles; secondary = **RU VPN entry only** (not full mirror)
+- [x] Legacy `relay` naming removed (paths, CLI, API)
+- [x] Edge: enroll → pending → approve; LAN recovery `:7879`; recovery codes; register/set-site/export
+- [x] Recovery hardening: private bind, LAN clients, SERVER_PIN, SHA256 self-update
+- [x] RU/gov client direct (`ru_direct.go`, SR profile)
+- [x] NVR/Tapo **code** MVP (Go port, storage, TG hooks) — hardware e2e open
+- [x] TG Access / users / nodes / tools / updates; Admin UI VPN-only
+- [x] mTLS material EnsureAll on serve; plain `:8788` only if no certs / PLAIN_AGENT=1
+- [x] Cross-VPS backup + COMPONENTS; doctor probes
 
-- [ ] Redirect **HTTPS** / durable domain (`NETDUCTOR_REDIRECT_BASE`)
-- [ ] Admin UI: **not** public (locked)
-- [ ] OpenWrt + MikroTik + Tapo **e2e on real hardware**
-- [ ] Release assets always tracking `main` (process)
-- [x] Prefer `secondary/` state (legacy `relay/` still readable)
-- [ ] Path B: limited end-user bot (design only)
+## Still open (needs operator / hardware / domain)
 
-## Notes for agents
+| Item | Why blocked | Notes |
+|------|-------------|--------|
+| OpenWrt e2e (Cudy etc.) | No router in agent lab | Agent install, recovery page, enroll, CONTROL_ONLY |
+| MikroTik + RPi site | No ROS hardware | Site wizard / RSC already in code |
+| Tapo C200 live | No cameras | PTZ/KLAP/RTSP path in code |
+| Redirect **HTTPS** / durable domain | No production domain | `NETDUCTOR_REDIRECT_BASE`, LE |
+| Admin public TLS | Policy: **not** public | Keep VPN-only |
+| Family messenger prod | Optional product | [MESSENGER-EVAL](MESSENGER-EVAL.md) |
+| Path B end-user TG bot | Design only | Limited user bot — not started |
+| Agent fleet auto-notify “update available” | Partial | Manual `agent_update`; UI list optional polish |
+| Integration tests (enroll→approve→HB) | CI time | Unit coverage exists |
 
-**RU-direct:** home ISP for `category-ru`/gov; secondary for WL entry and abroad RU-IP needs. App-level “disable VPN” = tun detection — not fixed by more routes.
+## Policy locks
 
-**Admin TLS:** only if binding changes off localhost.
+- Admin / API **not** on the open internet without explicit decision  
+- Agents **not** auto-updated from primary release  
+- Secondary **not** a full service mirror  
 
-**Hardcoded base:** set env after reinstall; do not rely on compiled test IP.
+## For next agent / chat
 
-## Family messenger
-
-See [MESSENGER-EVAL.md](MESSENGER-EVAL.md). Snikket primary candidate; Matrix fallback.
-
-## NVR
-
-See [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md) — hardware validation remaining.
-
-### 0.7.36-dev — relay name removed
-- State: only `secondary/` (no `relay/` fallback).
-- CLI: `netductor secondary` only (no `relay` alias).
-- API: `/api/secondary/*` only.
-- Node role/id prefix: `secondary` / `secondary-…`.
-
-### Edge after primary reinstall
-See [EDGE-REINSTALL.md](EDGE-REINSTALL.md) — pending queue only after enroll with valid bootstrap; old device_token does not auto-approve.
-
-### 0.7.39-dev
-- Edge recovery/register/set-site in TG, Admin UI, TUI; API /api/edge/recovery|register|set-site|export|import.
+1. Hardware: OpenWrt recovery + enroll drill  
+2. Optional: domain + redirect HTTPS  
+3. Optional: NVR first camera on site  
+4. Keep docs EN + `docs/ru/` in sync for any new feature  

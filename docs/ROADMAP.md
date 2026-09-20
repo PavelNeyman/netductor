@@ -1,3 +1,5 @@
+> **Status 2026-09-20:** shipped **v0.8.0** / **v0.8.1** (hardening). Remaining = hardware e2e, optional domain/HTTPS, optional NVR/messenger. See [OPEN_ITEMS](OPEN_ITEMS.md).
+
 > Shipped **0.8.0** (2026-09-20). See CHANGELOG.
 
 # Roadmap
