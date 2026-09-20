@@ -92,7 +92,7 @@ func wizardPrimary() {
 	err := deploy.DeployPrimary(deploy.PrimaryOpts{
 		Host: host, User: user, Password: pass,
 		SSHPrivateKey: keyPath, GenerateKey: genKey,
-		Version: "0.8.4", TelegramToken: tgToken, TelegramAdminID: tgAdmin, SNI: sni,
+		Version: "0.8.5", TelegramToken: tgToken, TelegramAdminID: tgAdmin, SNI: sni,
 	})
 	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))
@@ -171,7 +171,7 @@ func wizardOpenWrt() {
 		id = "home-owrt-1"
 	}
 	if s.RemoteHost != "" {
-		server = "http://" + s.RemoteHost + ":8787"
+		server = "https://" + s.RemoteHost + ":8789"
 	}
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -191,7 +191,7 @@ func wizardOpenWrt() {
 	err = deploy.DeployEdge(deploy.EdgeOpts{
 		PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
 		RouterHost: host, RouterUser: user, RouterPass: pass,
-		DeviceID: id, ServerURL: server, AgentArch: arch, Version: "0.8.4",
+		DeviceID: id, ServerURL: server, AgentArch: arch, Version: "0.8.5",
 	})
 	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))

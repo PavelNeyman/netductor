@@ -25,7 +25,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/tapo"
 )
 
-var version = "0.8.1"
+var version = "0.8.5"
 
 type config struct {
 	Server   string
@@ -46,7 +46,7 @@ func main() {
 			fmt.Print(`netductor-agent — outbound edge agent for OpenWrt
 
 Config /etc/netductor-agent/config:
-  SERVER=http://vps:8787
+  SERVER=https://vps:8789
   TOKEN=...
   DEVICE_ID=site1
   INTERVAL=60
@@ -69,8 +69,8 @@ Commands (from VPS):
 		fmt.Fprintln(os.Stderr, "SERVER and TOKEN required in /etc/netductor-agent/config")
 		os.Exit(1)
 	}
-	cfg.Server = strings.TrimRight(cfg.Server, "/")
-	client := &http.Client{Timeout: 120 * time.Second}
+	cfg.Server = normalizeServerURL(cfg.Server)
+	client := agentHTTPClient()
 	startRecoveryHTTP(&cfg)
 
 	// Offline-first: apply local UCI overlay even with no WAN.

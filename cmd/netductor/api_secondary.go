@@ -225,6 +225,7 @@ func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 // startSecondaryAgentListener serves secondary agent plane.
 // Default: mTLS only on :8789. Plain :8788 only if NETDUCTOR_PLAIN_AGENT=1 (emergency).
 func startSecondaryAgentListener() {
+	// Shared agent plane (mTLS :8789): secondary + edge + nvr device APIs.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
 	mux.HandleFunc("/api/secondary/agent/config", handleSecondaryAgentConfig)
@@ -237,6 +238,8 @@ func startSecondaryAgentListener() {
 		active := strings.TrimSpace(string(out)) == "active"
 		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
 	})
+	registerEdgeAPI(mux)
+	registerNVRAPI(mux)
 
 	// Ensure certs exist (auto-generate CA/server/client if missing).
 	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))

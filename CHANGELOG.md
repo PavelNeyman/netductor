@@ -1,3 +1,11 @@
+## 0.8.5 — 2026-09-20
+
+### Edge mTLS control plane
+- Agent plane `:8789` serves edge + NVR device APIs (alongside secondary)
+- `netductor-agent` loads `/etc/netductor-agent/mtls` client certs; forces `https://host:8789`
+- DeployEdge / workstation: issue per-device cert on primary, install on router, never plain `:8787`
+- Edge control independent of site VPN
+
 ## 0.8.4 — 2026-09-20
 
 ### Security (secondary agent plane)

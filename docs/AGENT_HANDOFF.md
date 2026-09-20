@@ -669,13 +669,20 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 | Plain HTTP public | Simple | Rejected |
 
 **TODO edge (phase 2):**
-- [ ] Edge-agent: load client certs / or shared edge client from primary
-- [ ] Enroll + heartbeat only on `https://primary:8789` (mTLS)
-- [ ] Workstation stop seeding `http://PUBLIC:8787`
-- [ ] Never set `NETDUCTOR_API_PUBLIC=1` for enroll
+- [x] Edge-agent: load client certs from /etc/netductor-agent/mtls (v0.8.5)
+- [x] Enroll + heartbeat on `https://primary:8789` (mTLS agent plane hosts edge+nvr APIs)
+- [x] Workstation seeds `https://PRIMARY:8789`; plain :8787 rewritten to mTLS
+- [x] Edge does not need `API_PUBLIC` — uses agent plane :8789
 - [ ] Optional: per-edge IP allowlist on 8789 when known
 
 ### Cert automation (code, not manual VPS)
 - `internal/mtls.EnsureAll(ip)` — CA + server + default client if missing
 - `EnsureClientFor(nodeID)` — per-secondary client cert
 - Install calls EnsureAll; serve calls EnsureAll; provision pushes material in-band
+
+
+### Done in v0.8.5 (edge mTLS)
+- Agent plane :8789 serves edge + nvr device APIs (same mTLS as secondary)
+- `netductor-agent` uses client certs; normalizes SERVER → https://host:8789
+- DeployEdge issues per-device cert on primary and installs on router
+- Control plane independent of site VPN

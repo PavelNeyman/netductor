@@ -1,6 +1,6 @@
 # Deploy from Mac / PC (workstation TUI)
 
-Baseline: **v0.8.4**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.
+Baseline: **v0.8.5**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.
 
 ## Requirements on Mac
 
@@ -26,7 +26,7 @@ Ongoing control is **not** device↔device SSH. Secondary/edge agents talk to pr
 |-------|------------|----------|
 | Admin API | `127.0.0.1:8787` | Local only. From Mac: `ssh -L 8787:127.0.0.1:8787 root@PRIMARY` |
 | Secondary agent | **mTLS `:8789` only** | Auto certs; UFW from secondary IP; plain 8788 emergency-only |
-| Edge agent | `SERVER=` in agent config | Prefer **HTTPS** or path **via site VPN**. Plain `http://PUBLIC_IP:8787` is token-auth only — **not** confidential on the wire |
+| Edge agent | **mTLS `:8789`** | Client certs auto-installed; works if site VPN is down |
 
 Workstation edge deploy may still seed `http://PRIMARY:8787` for first enroll if the public enroll endpoint is open. After VPN is up, prefer in-tunnel or HTTPS URL.
 
