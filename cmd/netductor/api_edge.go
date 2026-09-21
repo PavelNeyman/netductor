@@ -413,6 +413,64 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"devices": edge.ListDevices()})
 	})
+
+	mux.HandleFunc("/api/edge/guest/status", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		did := r.URL.Query().Get("device_id")
+		if did == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "id": edge.EnqueueCmd(did, "guest_status", "")})
+	})
+	mux.HandleFunc("/api/edge/guest/grant", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		did, _ := body["device_id"].(string)
+		code, _ := body["code"].(string)
+		mac, _ := body["mac"].(string)
+		mins := 10
+		switch v := body["minutes"].(type) {
+		case float64:
+			mins = int(v)
+		case string:
+			fmt.Sscanf(v, "%d", &mins)
+		}
+		if mins <= 0 {
+			mins = 10
+		}
+		if mins > 24*60 {
+			mins = 24 * 60
+		}
+		key := code
+		if key == "" {
+			key = mac
+		}
+		if did == "" || key == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id and code|mac"})
+			return
+		}
+		arg := fmt.Sprintf("%s|%d", key, mins)
+		writeJSON(w, 200, map[string]any{"ok": true, "id": edge.EnqueueCmd(did, "guest_grant", arg)})
+	})
+	mux.HandleFunc("/api/edge/guest/revoke", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		did, _ := body["device_id"].(string)
+		mac, _ := body["mac"].(string)
+		if did == "" || mac == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id, mac"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "id": edge.EnqueueCmd(did, "guest_revoke", mac)})
+	})
+
 	mux.HandleFunc("/api/edge/cmd", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})

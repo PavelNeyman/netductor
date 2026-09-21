@@ -504,6 +504,8 @@
         <td>
           <button class="ghost btn-ping" data-id="${id}">ping</button>
           <button class="ghost btn-apply" data-id="${id}">apply</button>
+          <button class="ghost btn-gstat" data-id="${id}">guest status</button>
+          <button class="ghost btn-ggrant" data-id="${id}">guest grant</button>
           <button class="ghost btn-rev" data-id="${id}">revoke</button>
         </td>`;
       tb.appendChild(tr);
@@ -519,6 +521,17 @@
     tb.querySelectorAll('.btn-rev').forEach((b) => b.onclick = async () => {
       await api('/api/edge/revoke', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id }) });
       toast('revoked'); refreshRouters();
+    });
+    tb.querySelectorAll('.btn-gstat').forEach((b) => b.onclick = async () => {
+      await api('/api/edge/guest/status?device_id=' + encodeURIComponent(b.dataset.id));
+      toast('guest status queued');
+    });
+    tb.querySelectorAll('.btn-ggrant').forEach((b) => b.onclick = async () => {
+      const code = prompt('Guest code (or MAC)');
+      if (!code) return;
+      const minutes = parseInt(prompt('Minutes (1-1440)', '10') || '10', 10);
+      await api('/api/edge/guest/grant', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id, code, minutes }) });
+      toast('guest grant queued');
     });
     try {
       const res = await (await api('/api/edge/results')).json();
@@ -548,6 +561,12 @@
       vpn: {
         enabled: $('#f-vpn').checked,
         mode: $('#f-vpn-mode').value,
+      },
+      guest: {
+        enabled: $('#f-guest') ? $('#f-guest').checked : false,
+        ssid: $('#f-guest-ssid') ? $('#f-guest-ssid').value.trim() : 'Guest',
+        desk_pin: $('#f-guest-pin') ? $('#f-guest-pin').value : '',
+        hidden: true,
       },
     };
   }

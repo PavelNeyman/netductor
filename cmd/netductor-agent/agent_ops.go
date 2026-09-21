@@ -171,7 +171,7 @@ func applyTemplate(client *http.Client, cfg config) string {
 	}
 	toSet := edgeagent.DiffUCI(desired, current)
 	if len(toSet) == 0 {
-		return edgeagent.FormatApplyReport(toSet) + applyVPNClient(tmpl)
+		return edgeagent.FormatApplyReport(toSet) + applyVPNClient(tmpl) + applyGuestFromTemplate(tmpl)
 	}
 	for _, line := range toSet {
 		_ = exec.Command("uci", "set", line).Run()
@@ -180,7 +180,8 @@ func applyTemplate(client *http.Client, cfg config) string {
 	_ = exec.Command("/etc/init.d/network", "reload").Run()
 	_ = exec.Command("wifi", "reload").Run()
 	vpnNote := applyVPNClient(tmpl)
-	return edgeagent.FormatApplyReport(toSet) + "\n" + strings.Join(toSet, "\n") + vpnNote
+	gNote := applyGuestFromTemplate(tmpl)
+	return edgeagent.FormatApplyReport(toSet) + "\n" + strings.Join(toSet, "\n") + vpnNote + gNote
 }
 
 func applyVPNClient(tmpl map[string]any) string {

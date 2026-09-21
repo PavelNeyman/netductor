@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var version = "0.8.24"
+var version = "0.8.25"
 
 type config struct {
 	Server   string
@@ -512,6 +512,14 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return configBackup(client, cfg)
 	case "config_restore":
 		return configRestore(client, cfg, arg)
+	case "guest_status":
+		return guestCmdStatus()
+	case "guest_grant":
+		return guestCmdGrant(arg)
+	case "guest_revoke":
+		return guestCmdRevoke(arg)
+	case "guest_apply_template":
+		return applyTemplate(client, cfg)
 	case "apply_template", "bootstrap_apply":
 		return applyTemplate(client, cfg)
 	case "mtls_refresh":

@@ -155,8 +155,11 @@ func wizardOpenWrt() {
 	lang := detectLang()
 	s := loadTUISettings()
 	var host, user, pass, id, arch, server string
+	var guestOn bool
+	var guestSSID, guestPIN string
 	user = "root"
 	arch = "arm64"
+	guestSSID = "Guest"
 	if s.RemoteHost != "" {
 		server = "https://" + s.RemoteHost + ":8789"
 	}
@@ -171,10 +174,20 @@ func wizardOpenWrt() {
 				Description("arm64 | armv7 | amd64 | mipsle").Value(&arch),
 			huh.NewInput().Title(FormT(lang, "primary_mtls")).
 				Description("https://IP:8789").Value(&server),
+			huh.NewConfirm().Title(TT(lang, "Enable guest Wi‑Fi?", "Включить гостевой Wi‑Fi?")).
+				Description(TT(lang, "Hidden SSID, desk PIN, captive (optional)", "Скрытый SSID, PIN кассы, captive")).
+				Value(&guestOn),
+			huh.NewInput().Title(TT(lang, "Guest SSID", "Guest SSID")).Value(&guestSSID),
+			huh.NewInput().Title(TT(lang, "Desk PIN (staff)", "PIN кассы")).
+				EchoMode(huh.EchoModePassword).Value(&guestPIN),
 		),
 	).WithTheme(huh.ThemeCharm()).Run()
 	if host == "" || id == "" {
 		fmt.Println(errStyle.Render(FormT(lang, "host_id_required")))
+		return
+	}
+	if guestOn && guestPIN == "" {
+		fmt.Println(errStyle.Render(TT(lang, "Desk PIN required when guest enabled", "Нужен PIN кассы для guest")))
 		return
 	}
 	fmt.Println(okStyle.Render(TT(lang, "→ edge deploy "+host, "→ edge деплой "+host)))
@@ -182,6 +195,7 @@ func wizardOpenWrt() {
 		PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
 		RouterHost: host, RouterUser: user, RouterPass: pass,
 		DeviceID: id, ServerURL: server, AgentArch: arch, Version: deploy.Release,
+		GuestEnable: guestOn, GuestSSID: guestSSID, GuestPIN: guestPIN,
 	})
 	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))

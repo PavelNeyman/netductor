@@ -47,7 +47,8 @@ func mainKeyboard() map[string]any {
 // fleet = nodes + routers + sites
 func toolsKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("⏱ Guest", "m:guest", ""), btn("🛡 DNS", "m:dns", "")},
+		{btn("⏱ Guest VPN", "m:guest", ""), btn("📡 Guest Wi‑Fi", "m:edgeguest", "")},
+		{btn("🛡 DNS", "m:dns", "")},
 		{btn("🗓 Backup", "m:backup", ""), btn("📍 Locations", "m:loc", "")},
 		{btn("🎥 NVR", "m:nvr", "")},
 		{btn("🔄 Updates", "m:updates", ""), btn(T("mtls"), "m:mtls", "")},

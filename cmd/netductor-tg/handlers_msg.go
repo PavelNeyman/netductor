@@ -30,6 +30,9 @@ func handleMessage(token string, m *message, admin int64) {
 	}
 
 	st := chatState[chat]
+	if handleEdgeGuestText(token, chat, text) {
+		return
+	}
 	if st == "wait_node_newname" {
 		id := chatExtra[chat]
 		newName := strings.Fields(text)

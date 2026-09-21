@@ -24,6 +24,10 @@ type EdgeOpts struct {
 	Version        string
 	AgentDir       string
 	OperatorPubKey string
+	GuestEnable    bool
+	GuestSSID      string
+	GuestPIN       string
+	GuestPSK       string
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -126,7 +130,7 @@ echo KEY:$(b64 "$DIR/client.key")
 		fmt.Fprintln(os.Stderr, "warn: no mTLS material — agent may fail TLS handshake until certs are present")
 	}
 	
-	return edge.Provision(edge.ProvisionOpts{
+	if err := edge.Provision(edge.ProvisionOpts{
 		SSHTarget:      target,
 		DeviceID:       o.DeviceID,
 		ServerURL:      o.ServerURL,
@@ -138,5 +142,44 @@ echo KEY:$(b64 "$DIR/client.key")
 		MTLSCA:         mtlsCA,
 		MTLSCert:       mtlsCert,
 		MTLSKey:        mtlsKey,
-	})
+	}); err != nil {
+		return err
+	}
+	if o.GuestEnable {
+		if err := applyGuestOnEdge(o); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: guest enable:", err)
+		}
+	}
+	return nil
+}
+
+func applyGuestOnEdge(o EdgeOpts) error {
+	ssid := o.GuestSSID
+	if ssid == "" {
+		ssid = "Guest"
+	}
+	pin := o.GuestPIN
+	psk := o.GuestPSK
+	if o.PrimaryHost != "" {
+		_ = edge.BindTemplate(o.DeviceID, "default", map[string]any{
+			"guest": map[string]any{
+				"enabled":  true,
+				"ssid":     ssid,
+				"desk_pin": pin,
+				"psk":      psk,
+				"hidden":   true,
+			},
+		})
+		_ = edge.EnqueueCmd(o.DeviceID, "apply_template", "")
+	}
+	cmd := "netductor-agent guest enable --ssid=" + shellQuote(ssid) + " --pin=" + shellQuote(pin)
+	if psk != "" {
+		cmd += " --psk=" + shellQuote(psk)
+	}
+	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, cmd)
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, out)
+	}
+	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi enable on", o.RouterHost)
+	return nil
 }
