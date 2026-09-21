@@ -1,0 +1,16 @@
+# Portable subset: same file can live as .github/workflows/ci.yml on GitHub.
+# netductor executes only `run:` steps (uses: is skipped).
+name: ci
+on:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Go test
+        run: |
+          if [ -f go.mod ]; then go test ./...; else echo "no go.mod"; fi
+      - name: Registry status (optional)
+        run: netductor registry status || true

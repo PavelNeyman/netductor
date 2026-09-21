@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/gha"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -74,7 +75,15 @@ func Init(name string) (string, error) {
 	// post-receive: optional auto pipeline via NETDUCTOR_GIT_PIPELINE
 	hook := filepath.Join(dir, "hooks", "post-receive")
 	hookBody := "#!/bin/sh\n" +
-		"if [ -n \"$NETDUCTOR_GIT_PIPELINE\" ] && command -v netductor >/dev/null 2>&1; then\n" +
+		"command -v netductor >/dev/null 2>&1 || exit 0\n" +
+		"if [ -n \"$NETDUCTOR_GIT_WORKFLOW\" ]; then\n" +
+		"  # 1 = default .github/workflows; else path relative to repo root\n" +
+		"  if [ \"$NETDUCTOR_GIT_WORKFLOW\" = \"1\" ]; then\n" +
+		"    netductor git workflow " + name + " || exit $?\n" +
+		"  else\n" +
+		"    netductor git workflow " + name + " \"$NETDUCTOR_GIT_WORKFLOW\" || exit $?\n" +
+		"  fi\n" +
+		"elif [ -n \"$NETDUCTOR_GIT_PIPELINE\" ]; then\n" +
 		"  netductor git pipeline " + name + " \"$NETDUCTOR_GIT_PIPELINE\" || exit $?\n" +
 		"fi\nexit 0\n"
 	_ = os.WriteFile(hook, []byte(hookBody), 0o755)
@@ -229,3 +238,46 @@ func ListInfo() ([]Info, error) {
 	return out, nil
 }
 
+
+
+// RunWorkflow checks out HEAD to a temp worktree and runs a GHA-subset YAML workflow.
+// workflowPath relative to worktree or absolute; empty = first .github/workflows/*.yml
+func RunWorkflow(repo, workflowPath string) (string, error) {
+	dir, err := repoDir(repo)
+	if err != nil {
+		return "", err
+	}
+	wt, err := os.MkdirTemp("", "nd-wf-*")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(wt)
+	cmd := exec.Command("git", "--git-dir="+dir, "--work-tree="+wt, "checkout", "-f", "HEAD")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return string(out), fmt.Errorf("checkout: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	path := workflowPath
+	if path == "" {
+		path, err = gha.FindDefault(wt)
+		if err != nil {
+			return "", err
+		}
+	} else if !filepath.IsAbs(path) {
+		path = filepath.Join(wt, path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	w, err := gha.Parse(data)
+	if err != nil {
+		return "", err
+	}
+	extra := []string{
+		"REPO_NAME=" + sanitize(repo),
+		"REPO_PATH=" + dir,
+		"GITHUB_WORKSPACE=" + wt,
+		"CI=true",
+	}
+	return gha.Run(w, wt, extra)
+}

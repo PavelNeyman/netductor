@@ -1,3 +1,129 @@
+# Changelog
+
+## 0.8.32
+
+- GHA-subset workflow runner: parse `.github/workflows/*.yml`, execute `run:` steps only
+- `netductor git workflow <repo> [path]`; post-receive prefers workflow if `NETDUCTOR_GIT_WORKFLOW=1` or path set
+- Example workflow in docs; CHANGELOG rebuilt for 0.8.4–0.8.31
+
+## 0.8.31
+
+- Local OCI registry: `registry status|ensure|stop|crane|catalog` + API/Admin/TG
+- Pipeline sample `oci-push`; post-receive auto-runs `NETDUCTOR_GIT_PIPELINE`
+- Docs SELFHOST-GIT / OPEN_ITEMS
+
+## 0.8.30
+
+- Git: `git delete`, sample `go-test` pipeline, docs/handoff sync
+- Thin model: no Forgejo by default
+
+## 0.8.29
+
+- Git pipelines: CLI/API/Admin tab/TG
+
+## 0.8.28
+
+- Thin `netductor git` CLI + SELFHOST-GIT clarification
+
+## 0.8.27
+
+- SSH listen **52222** + fail2ban; SELFHOST-GIT facts
+
+## 0.8.26
+
+- Guest cmd allowlist + TG wait `cmd_result`; certs in TG; docs cleanup
+
+## 0.8.25
+
+- Guest wizard, PNG QR, TG/Admin edge guest control
+
+## 0.8.24
+
+- Guest nft MAC gate, captive DNAT, VPN bypass, DHCP
+
+## 0.8.23
+
+- Guest Wi-Fi allow-list, captive+desk, default grant 10m
+
+## 0.8.22
+
+- Session test, SMTP host, TUI EchoMode, wizard SA4006
+
+## 0.8.21
+
+- SA4000 doctor, dead code removal, HTTP status constants
+
+## 0.8.20
+
+- `go vet` clean; `internal/version` single pin; remove dead TG code & 0.7 install URLs
+
+## 0.8.19
+
+- Full review docs; primary upgrade uses `deploy.Release` (no v0.7 base64)
+
+## 0.8.18
+
+- Admin i18n complete pass, UI parity matrix, mTLS rollover UI
+
+## 0.8.17
+
+- Residual risk mitigations, secondary callbacks, pure-Go upgrade
+
+## 0.8.16
+
+- cli18n full doctor body + VPN CLI strings EN/RU
+- Deep code/security/UI review docs
+
+## 0.8.15
+
+- cli18n CLI, `StartAgentPlane`, relay→secondary UI, mTLS in all UIs
+
+## 0.8.14
+
+- mTLS auto-push + grace; CA dual-trust rollover; cli18n
+
+## 0.8.13
+
+- mTLS revoke/rotate; cert expiry doctor; plane IP ban after rate limits
+
+## 0.8.12
+
+- Agent plane rate limit (180/min/IP); FormT deploy labels
+- CI version-pin step
+
+## 0.8.11
+
+- Split `netductor-agent` (nvr_cmds / openwrt_net / agent_ops)
+- `scripts/check-version-pins.sh`; FormT; docs pin
+
+## 0.8.10
+
+- Mac TUI tab wizard = full deploy wizards; `deploy.Release` pin
+
+## 0.8.9
+
+- TUI deploy/forms/sites RU/EN; TG NVR i18n
+
+## 0.8.8
+
+- Drop IP allowlist; admin EN/RU expanded
+
+## 0.8.7
+
+- Edge NAT-friendly agent plane (mTLS only); admin EN/RU tabs
+
+## 0.8.6
+
+- Agent allowlist experiment (later dropped for edge); UI/docs i18n
+
+## 0.8.5
+
+- Edge mTLS on agent plane `:8789`
+
+## 0.8.4
+
+- mTLS-only secondary agent plane, auto certs, UFW lock
+
 ## 0.8.31
 
 - Local OCI registry: `netductor registry status|ensure|stop|crane|catalog` + API/Admin/TG

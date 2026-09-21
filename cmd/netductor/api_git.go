@@ -107,4 +107,20 @@ func registerGitAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "output": out})
 	})
+
+	mux.HandleFunc("/api/git/workflow", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		repo, _ := body["repo"].(string)
+		path, _ := body["path"].(string)
+		out, err := gitstore.RunWorkflow(repo, path)
+		audit.Log("session", "git.workflow", repo+"/"+path, "")
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"error": err.Error(), "output": out})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "output": out})
+	})
 }

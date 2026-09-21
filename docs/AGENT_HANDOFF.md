@@ -1,3 +1,7 @@
+## 0.8.32
+
+- GHA-subset `git workflow`; CHANGELOG 0.8.4–0.8.31 rebuilt
+
 ## 0.8.31
 
 - Local OCI registry (`registry ensure/crane/catalog`) + Admin/TG + pipeline `oci-push`
@@ -767,10 +771,10 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.31 (2026-09-20)
+## Current baseline — v0.8.32 (2026-09-20)
 
 ### Release
-- Tag: **v0.8.31** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.30
+- Tag: **v0.8.32** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.30
 - Assets: darwin/linux CLI, agent (amd64/arm/arm64/mipsle), tg, SHA256SUMS
 - Homebrew Formula `0.8.30` · `brew reinstall netductor`
 

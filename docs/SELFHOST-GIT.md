@@ -13,6 +13,7 @@
 | Show/diff | `git show <name> [rev]` | `GET /api/git/show` | ✅ | ✅ |
 | Pipelines | `git pipelines` | `GET /api/git/pipelines` | ✅ | ✅ |
 | Run pipeline | `git pipeline <repo> <script>` | `POST /api/git/pipeline` | ✅ | ✅ |
+| GHA-subset workflow | `git workflow <repo> [yml]` | `POST /api/git/workflow` | — | — |
 
 Paths:
 
@@ -67,3 +68,28 @@ Env: `NETDUCTOR_REGISTRY_ADDR` (default `127.0.0.1:5000`), `NETDUCTOR_REGISTRY_D
 
 - No public HTTP git; SSH key-only (port 52222)
 - API/Admin/TG require operator session / bot ACL
+
+
+## GitHub Actions–subset workflows
+
+Not full Actions. **Supported:** `jobs.*.steps[].run`, `env`, `working-directory`, `shell`.  
+**Skipped:** `uses:`, `services`, `matrix`, marketplace actions.
+
+```bash
+# in repo: .github/workflows/ci.yml  (see docs/examples/ci.gha-subset.yml)
+netductor git workflow myapp
+netductor git workflow myapp .github/workflows/ci.yml
+```
+
+Auto on push (primary):
+
+```bash
+# prefer workflow over shell pipeline
+export NETDUCTOR_GIT_WORKFLOW=1
+# or explicit path relative to repo root:
+# export NETDUCTOR_GIT_WORKFLOW=.github/workflows/ci.yml
+```
+
+On **GitHub**, the same YAML with only `run:` steps works as a normal workflow.  
+**GitLab CI** uses a different schema (`.gitlab-ci.yml`, `script:`) — not the same standard; porting requires a separate file or converter.
+

@@ -103,6 +103,22 @@ func runGit(args []string) int {
 			fmt.Println(n)
 		}
 		return 0
+	case "workflow":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git workflow <repo> [path]")
+			return 2
+		}
+		path := ""
+		if len(args) > 2 {
+			path = args[2]
+		}
+		out, err := gitstore.RunWorkflow(args[1], path)
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
 	case "pipeline":
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor git pipeline <repo> <pipeline> [args...]")
