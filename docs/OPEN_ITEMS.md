@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.26**.
+Baseline: **v0.8.27**.
 
 ## Gates (green)
 go test / go vet / version pins / UI parity (core)
@@ -12,14 +12,17 @@ go test / go vet / version pins / UI parity (core)
 4. **Restore-drill** — full `.ndenc` on clean VPS after major change  
 
 ## Soft / optional product
-- TG guest wait for `cmd_result` — **done** (0.8.26)  
+- TG guest wait for `cmd_result` — **done** (0.8.27)  
 - Cert observability (doctor + TG Certs + API) — **done** / polish  
 - Plane `:8789` rate-limit + temp ban after repeated 429 — **done** (`PlaneLimiter`)  
 - Status-without-VPN — **deferred**  
 - Path B end-user bot — **dropped** (not planned)  
 - Messenger (SimpleX etc.) — **deferred**, not core  
 
-## Self-host git (discussion, not in tree)
+## Self-host git
+See [SELFHOST-GIT.md](SELFHOST-GIT.md). Prefer **bare git+SSH** for single operator; Forgejo only if web/CI UI needed.
+
+## Self-host git (old) (discussion, not in tree)
 Prefer **Forgejo** (or Gitea) on primary **behind VPN only**:
 - Git + issues/PRs  
 - Built-in Actions or **Woodpecker** for CI  

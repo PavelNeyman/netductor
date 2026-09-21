@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/PavelNeyman/netductor/internal/nvr"
-
 	"github.com/PavelNeyman/netductor/internal/cli18n"
+	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/mtls"
+	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -161,6 +161,12 @@ func runDoctorNative() int {
 	check("ssh passwordauth no", pa == "no")
 	x11 := sshdT("x11forwarding")
 	warnCheck("ssh x11forwarding no", x11 == "no" || x11 == "")
+	wantPort := hardening.SSHPort()
+	gotPort := sshdT("port")
+	warnCheck(fmt.Sprintf("ssh port %d (got %s)", wantPort, gotPort), gotPort == fmt.Sprintf("%d", wantPort) || gotPort == "")
+	if os.Getenv("NETDUCTOR_FAIL2BAN") != "0" {
+		warnCheck("fail2ban active", activeUnit("fail2ban"))
+	}
 	warnCheck("no zabbix agent", !activeUnit("zabbix-agent") && !activeUnit("zabbix-agent2") && !listeningOnAll("10050"))
 
 	switch role {

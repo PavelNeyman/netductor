@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,14 +79,16 @@ func EnsureFail2banSSH() error {
 		_ = exec.Command("apt-get", "install", "-y", "fail2ban").Run()
 	}
 	jail := `/etc/fail2ban/jail.d/netductor-ssh.conf`
-	content := `[sshd]
+	port := SSHPort()
+	content := fmt.Sprintf(`[sshd]
 enabled = true
-port = ssh
+port = %d
 filter = sshd
+backend = systemd
 maxretry = 4
 bantime = 1h
 findtime = 10m
-`
+`, port)
 	_ = os.MkdirAll("/etc/fail2ban/jail.d", 0o755)
 	if err := os.WriteFile(jail, []byte(content), 0o644); err != nil {
 		return err
@@ -97,3 +100,13 @@ findtime = 10m
 // DefaultSSHPort is used when deploy does not set NETDUCTOR_SSH_PORT.
 // 52222 — non-standard, easy to remember, avoids colliding with common 2222 scanners slightly less than 22.
 const DefaultSSHPort = 52222
+
+// SSHPort returns NETDUCTOR_SSH_PORT or DefaultSSHPort.
+func SSHPort() int {
+	if v := os.Getenv("NETDUCTOR_SSH_PORT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n < 65536 {
+			return n
+		}
+	}
+	return DefaultSSHPort
+}

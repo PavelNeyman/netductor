@@ -6,9 +6,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/hardening"
 )
 
-// EnsureSSHKeyAndHarden locks SSH to pubkey-only.
+// EnsureSSHKeyAndHarden locks SSH to pubkey-only and sets Port (default 52222).
 // Operator (Mac) pubkey is expected already in authorized_keys from DeployPrimary.
 // We do NOT generate /root/.ssh/id_ed25519 for mesh SSH — primary does not need to SSH
 // to secondary/edge after provision (agent HTTP/mTLS). Keygen only if authorized_keys
@@ -27,7 +29,6 @@ func EnsureSSHKeyAndHarden() error {
 		}
 	}
 	if !hasKey {
-		// Emergency only: local install without prior DeployPrimary pubkey.
 		priv := filepath.Join(sshDir, "id_ed25519")
 		pub := priv + ".pub"
 		if _, err := os.Stat(priv); err != nil {
@@ -54,7 +55,8 @@ func EnsureSSHKeyAndHarden() error {
 
 	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0o755)
 	drop := "/etc/ssh/sshd_config.d/00-netductor-harden.conf"
-	body := "PasswordAuthentication no\nKbdInteractiveAuthentication no\nChallengeResponseAuthentication no\nPermitRootLogin prohibit-password\nPubkeyAuthentication yes\nX11Forwarding no\n"
+	port := hardening.SSHPort()
+	body := fmt.Sprintf("Port %d\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nChallengeResponseAuthentication no\nPermitRootLogin prohibit-password\nPubkeyAuthentication yes\nX11Forwarding no\n", port)
 	if err := os.WriteFile(drop, []byte(body), 0o644); err != nil {
 		return err
 	}
@@ -82,5 +84,6 @@ func EnsureSSHKeyAndHarden() error {
 	_ = exec.Command("sed", "-i", "s/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/", "/etc/ssh/sshd_config").Run()
 	_ = exec.Command("systemctl", "reload", "sshd").Run()
 	_ = exec.Command("systemctl", "reload", "ssh").Run()
+	fmt.Fprintf(os.Stderr, "ssh: harden drop-in Port %d key-only\n", port)
 	return nil
 }
