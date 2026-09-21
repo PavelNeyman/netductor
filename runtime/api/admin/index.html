@@ -57,7 +57,7 @@
       <pre id="sshhosts-box" class="log"></pre>
       <div class="row">
         <input id="sshhosts-id" placeholder="host or host:port" />
-        <select id="sshhosts-kind"><option value="">auto</option><option value="mt">mikrotik</option><option value="relay">relay</option></select>
+        <select id="sshhosts-kind"><option value="">auto</option><option value="mt">mikrotik</option><option value="secondary">relay</option></select>
         <button type="button" id="btn-sshhosts-forget" class="primary" data-i18n="forget">Forget</button>
       </div>
     </section>
@@ -77,7 +77,7 @@
     </section>
     <section id="tab-backup" class="tab-panel hide">
       <h2 data-i18n="backup_title">Backup / peer</h2>
-      <p class="hint">Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.</p>
+      <p class="hint" data-i18n="backup_hint_long">Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.</p>
       <pre id="backup-status" class="code">—</pre>
       <div class="row">
         <input id="backup-target" placeholder="root@RELAY:/var/lib/netductor/backups/peers/core/" style="min-width:24rem" />
@@ -88,7 +88,7 @@
 
     <section id="tab-status" class="tab-panel hide">
       <h2 data-i18n="status_title">Status</h2>
-      <p class="hint">Core services + nodes + VPN (TG parity)</p>
+      <p class="hint" data-i18n="status_hint">Core services + nodes + VPN (TG parity)</p>
       <button id="btn-refresh-status" class="ghost" data-i18n="refresh">Refresh</button>
       <pre id="status-box" class="log"></pre>
     </section>
@@ -135,7 +135,7 @@
 
     <section id="tab-sites" class="tab-panel hide">
       <h2 data-i18n="sites_title">Sites (MikroTik + RPi)</h2>
-      <p class="hint">One site = ROS (routing only) + RPi OpenWrt (VPN edge). Managed as pair.</p>
+      <p class="hint" data-i18n="sites_hint">One site = ROS (routing only) + RPi OpenWrt (VPN edge). Managed as pair.</p>
       <div class="card">
         <div class="row">
           <input id="site-id" placeholder="site-home" />
@@ -178,7 +178,7 @@
         <pre id="edge-export-out" class="code"></pre>
       </div>
       <div class="card"><table class="table" id="routers-table">
-        <thead><tr><th>ID</th><th>Status</th><th>Host</th><th>WAN</th><th></th></tr></thead>
+        <thead><tr><th data-i18n="th_id">ID</th><th data-i18n="th_status">Status</th><th data-i18n="th_host">Host</th><th data-i18n="th_wan">WAN</th><th></th></tr></thead>
         <tbody></tbody>
       </table></div>
       <pre id="edge-results" class="code"></pre>
@@ -192,17 +192,14 @@
       </div>
       <div class="card">
         <table id="nodes-table">
-          <thead><tr><th>ID</th><th>Hostname</th><th>Role</th><th>Kind</th><th>IP</th><th>Desired</th><th></th></tr></thead>
+          <thead><tr><th data-i18n="th_id">ID</th><th data-i18n="th_hostname">Hostname</th><th data-i18n="th_role">Role</th><th data-i18n="th_kind">Kind</th><th data-i18n="th_ip">IP</th><th data-i18n="th_desired">Desired</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
       <div class="card">
         <h3 data-i18n="rename_node">Rename node</h3>
         <p class="hint" style="opacity:.85;font-size:.9rem;margin:.25rem 0 0.75rem">
-          Format: <code>nd-&lt;role&gt;-&lt;marker&gt;</code> —
-          e.g. <code>nd-core-nl01</code>, <code>nd-edge-de02</code>, <code>nd-lab-01</code>.
-          Roles: <b>core</b> (main VPS), <b>edge</b> (extra exit), <b>lab</b> (test).
-          Only <code>a-z</code>, <code>0-9</code>, <code>-</code>. Bidirectional: device confirms on next heartbeat.
+          <span data-i18n="nodes_rename_hint">Format: nd-&lt;role&gt;-&lt;marker&gt;. Roles: core, edge, lab. Bidirectional on heartbeat.</span>
         </p>
         <div class="row">
           <input id="node-id" placeholder="node id (current)" />
@@ -223,19 +220,19 @@
       </div>
       <div class="card">
         <h3 data-i18n="template">Template</h3>
-        <label>ID <input id="f-id" value="default" /></label>
-        <label>Role <input id="f-role" value="site" /></label>
-        <h4>Network</h4>
-        <label>LAN IP <input id="f-lan-ip" placeholder="192.168.50.1" /></label>
-        <label>LAN mask <input id="f-lan-mask" placeholder="255.255.255.0" /></label>
+        <label><span data-i18n="th_id">ID</span> <input id="f-id" value="default" /></label>
+        <label><span data-i18n="th_role">Role</span> <input id="f-role" value="site" /></label>
+        <h4 data-i18n="network">Network</h4>
+        <label><span data-i18n="lan_ip">LAN IP</span> <input id="f-lan-ip" placeholder="192.168.50.1" /></label>
+        <label><span data-i18n="lan_mask">LAN mask</span> <input id="f-lan-mask" placeholder="255.255.255.0" /></label>
         <label class="row"><input type="checkbox" id="f-dhcp" checked /> DHCP</label>
-        <h4>Wi‑Fi</h4>
-        <label>SSID <input id="f-ssid" placeholder="Netductor" /></label>
-        <label>Password <input id="f-wkey" type="password" /></label>
+        <h4 data-i18n="wifi">Wi‑Fi</h4>
+        <label><span data-i18n="wifi_ssid">SSID</span> <input id="f-ssid" placeholder="Netductor" /></label>
+        <label><span data-i18n="wifi_pass">Password</span> <input id="f-wkey" type="password" /></label>
         <label>Encryption
           <select id="f-enc"><option value="psk2">psk2</option><option value="sae">sae</option><option value="psk-mixed">psk-mixed</option></select>
         </label>
-        <h4>VPN client</h4>
+        <h4 data-i18n="vpn_client">VPN client</h4>
         <label class="row"><input type="checkbox" id="f-vpn" checked /> Enable VPN to VPS</label>
         <label>Mode
           <select id="f-vpn-mode"><option value="socks">socks (no TUN, recommended)</option><option value="tun">tun (full tunnel)</option></select>
@@ -258,7 +255,7 @@
         </div>
       </div>
       <details class="card">
-        <summary>Advanced: raw JSON</summary>
+        <summary data-i18n="advanced_json">Advanced: raw JSON</summary>
         <textarea id="tmpl-editor" class="code" rows="12" style="width:100%"></textarea>
         <div class="row">
           <button id="btn-load-tmpl" class="ghost" data-i18n="load_json">Load JSON</button>
@@ -279,7 +276,7 @@
     
     <section id="tab-sni" class="tab-panel hide">
       <h2 data-i18n="sni_presets">SNI presets</h2>
-      <p class="hint">Reality handshake names for carrier WL experiments (Yota etc.)</p>
+      <p class="hint" data-i18n="sni_hint">Reality handshake names for carrier WL experiments (Yota etc.)</p>
       <div class="row">
         <select id="sni-pick"><option value="yandex">yandex (ya.ru)</option><option value="vk">vk</option><option value="mail">mail</option><option value="gosuslugi">gosuslugi</option><option value="yota-try">yota-try</option></select>
         <button id="btn-sni-apply" class="primary" data-i18n="apply_sni">Apply live SNI</button>
@@ -327,7 +324,7 @@
 <section id="node-ops">
   <h2 data-i18n="node_ops">Node ops</h2>
   <p class="muted" data-i18n="node_ops_hint">Same as Telegram: journal + restart service</p>
-  <label>Unit <select id="ops-unit"><option>sing-box</option><option>blocky</option><option>netductor-api</option><option>netductor-telegram-bot</option></select></label>
+  <label><span data-i18n="unit">Unit</span> <select id="ops-unit"><option>sing-box</option><option>blocky</option><option>netductor-api</option><option>netductor-telegram-bot</option></select></label>
   <button type="button" id="btn-journal" data-i18n="journal">Journal</button>
   <button type="button" id="btn-restart-svc" data-i18n="restart_svc">Restart service</button>
   <pre id="ops-out" class="log"></pre>
@@ -341,7 +338,7 @@
 
       <section class="card" id="mtls-section">
         <h2><span data-i18n="mtls_title">mTLS certs</span></h2>
-        <p class="hint">Agent plane client certificates (expiry / revoke). <span data-i18n="mtls_hint">After rotate, device auto-pulls mtls_refresh.</span></p>
+        <p class="hint" data-i18n="mtls_hint_long">Agent plane client certificates (expiry / revoke). After rotate, device auto-pulls mtls_refresh.</p>
         <button type="button" class="primary" id="btn-mtls-refresh" data-i18n="mtls_refresh">Refresh</button>
         <pre id="mtls-certs" class="code"></pre>
       </section>

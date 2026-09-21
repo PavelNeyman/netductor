@@ -2,6 +2,23 @@
   const $ = (s) => document.querySelector(s);
   const state = { token: localStorage.getItem('nd_token') || '', lang: localStorage.getItem('nd_lang') || 'en' };
   const i18n = {
+      app_title: 'Netductor',
+      opt_auto: 'auto',
+      opt_mikrotik: 'mikrotik',
+      opt_secondary: 'secondary',
+      backup_hint_long: 'Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.',
+      status_hint: 'Core services + nodes + VPN (TG parity)',
+      sites_hint: 'One site = ROS (routing only) + RPi OpenWrt (VPN edge). Managed as pair.',
+      th_host: 'Host',
+      th_wan: 'WAN',
+      nodes_rename_hint: 'Format: nd-<role>-<marker>. Roles: core, edge, lab. Bidirectional on heartbeat.',
+      vpn_client: 'VPN client',
+      advanced_json: 'Advanced: raw JSON',
+      sni_hint: 'Reality handshake names for carrier WL experiments (Yota etc.)',
+      unit: 'Unit',
+      mtls_hint_long: 'Agent plane client certificates (expiry / revoke). After rotate, device auto-pulls mtls_refresh.',
+      socks_opt: 'socks (no TUN, recommended)',
+      tun_opt: 'tun (full tunnel)',
     en: {
       mtls_title: 'mTLS certs',
       mtls_refresh: 'Refresh certs',
@@ -152,6 +169,38 @@
       sni_presets: 'SNI presets',
     },
     ru: {
+      app_title: 'Netductor',
+      opt_auto: 'авто',
+      opt_mikrotik: 'mikrotik',
+      opt_secondary: 'secondary',
+      backup_hint_long: 'SCP между VPS шифрованного /etc/netductor. peer-set, затем Run backup.',
+      status_hint: 'Сервисы + ноды + VPN (как в TG)',
+      sites_hint: 'Один сайт = ROS (маршруты) + RPi OpenWrt (VPN edge).',
+      th_host: 'Хост',
+      th_wan: 'WAN',
+      nodes_rename_hint: 'Формат: nd-<role>-<marker>. Роли: core, edge, lab. Подтверждение на heartbeat.',
+      vpn_client: 'VPN-клиент',
+      advanced_json: 'Расширенно: raw JSON',
+      sni_hint: 'Reality SNI для экспериментов с белыми списками (Yota и др.)',
+      unit: 'Юнит',
+      mtls_hint_long: 'Клиентские сертификаты agent plane. После rotate устройство тянет mtls_refresh.',
+      socks_opt: 'socks (без TUN, рекомендуется)',
+      tun_opt: 'tun (полный тоннель)',
+      network: 'Сеть',
+      wifi: 'Wi‑Fi',
+      lan_ip: 'LAN IP',
+      lan_mask: 'Маска LAN',
+      wifi_ssid: 'SSID',
+      wifi_pass: 'Пароль Wi‑Fi',
+      th_id: 'ID',
+      th_hostname: 'Hostname',
+      th_role: 'Роль',
+      th_kind: 'Тип',
+      th_ip: 'IP',
+      th_desired: 'Desired',
+      mtls_title: 'mTLS сертификаты',
+      mtls_refresh: 'Обновить',
+      mtls_hint: 'После rotate устройство тянет mtls_refresh.',
       mtls_title: 'mTLS сертификаты',
       mtls_refresh: 'Обновить',
       mtls_hint: 'Клиентские сертификаты agent plane. После rotate устройство тянет mtls_refresh.',
@@ -285,7 +334,11 @@
   };
   function t(k) { return (i18n[state.lang] || i18n.en)[k] || k; }
   function applyI18n() {
-    document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const v = t(el.dataset.i18n);
+      if (el.tagName === 'TITLE') { document.title = v; return; }
+      el.textContent = v;
+    });
   }
   function toast(msg) {
     const el = $('#toast'); el.textContent = msg; el.classList.remove('hide');

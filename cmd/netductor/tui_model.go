@@ -171,6 +171,8 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		}
 	case "mtls-list":
 		m.showCmd("mtls", "list")
+	case "mtls-rollover":
+		m.showCmd("mtls", "rollover", "status")
 	case "doctor":
 		if m.hasRemote() {
 			m.showCmd("doctor")
