@@ -3,6 +3,10 @@
   const state = { token: localStorage.getItem('nd_token') || '', lang: localStorage.getItem('nd_lang') || 'en' };
   const i18n = {
     en: {
+      mtls_title: 'mTLS certs',
+      mtls_refresh: 'Refresh certs',
+      mtls_hint: 'Agent plane client certificates. After rotate, device pulls mtls_refresh.',
+      secondary_tab: 'Secondary',
       login_title: 'Operator sign-in',
       login_hint: 'Token: netductor vpn session 72',
       sign_in: 'Sign in',
@@ -112,6 +116,10 @@
       sni_presets: 'SNI presets',
     },
     ru: {
+      mtls_title: 'mTLS сертификаты',
+      mtls_refresh: 'Обновить',
+      mtls_hint: 'Клиентские сертификаты agent plane. После rotate устройство тянет mtls_refresh.',
+      secondary_tab: 'Secondary',
       login_title: 'Вход оператора',
       login_hint: 'Токен: netductor vpn session 72',
       sign_in: 'Войти',

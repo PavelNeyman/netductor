@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -136,7 +137,7 @@ func runDoctorNative() int {
 
 	host, _ := os.Hostname()
 	role := detectRole()
-	fmt.Printf("Netductor doctor — %s (role=%s)\n", host, role)
+	fmt.Printf(cli18n.T("doctor.header")+"\n", role, host)
 	etc := paths.EtcDir()
 	state := paths.StateDir()
 

@@ -340,9 +340,9 @@
 
 
       <section class="card" id="mtls-section">
-        <h2>mTLS certs</h2>
-        <p class="hint">Agent plane client certificates (expiry / revoke). After rotate, re-provision device.</p>
-        <button type="button" class="primary" id="btn-mtls-refresh">Refresh</button>
+        <h2><span data-i18n="mtls_title">mTLS certs</span></h2>
+        <p class="hint">Agent plane client certificates (expiry / revoke). <span data-i18n="mtls_hint">After rotate, device auto-pulls mtls_refresh.</span></p>
+        <button type="button" class="primary" id="btn-mtls-refresh" data-i18n="mtls_refresh">Refresh</button>
         <pre id="mtls-certs" class="code"></pre>
       </section>
 </body>

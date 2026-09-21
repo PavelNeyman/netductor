@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"fmt"
 	"os"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.14"
+var version = "0.8.15"
 
 func main() {
 	ndconfig.Load()
@@ -138,15 +139,5 @@ func main() {
 }
 
 func printHelp() {
-	fmt.Print(`netductor — network control plane
-
-  tui|menu [--mode vps|openwrt|workstation|operator] [--remote HOST] [--remote-user U] [--remote-key PATH] [--remote-password P]
-  deploy primary|secondary|edge
-  backup | restore | recover | fleet | audit | self-install | update
-  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | serve | install | probe | collect | help
-
-  (no args on a TTY → interactive menu)
-
-Workstation deploy (Mac/PC): docs/DEPLOY-WORKSTATION.md
-`)
+	fmt.Print(cli18n.T("help.main"))
 }

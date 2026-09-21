@@ -255,7 +255,7 @@ func formatJournalHTML(id string) string {
 	var out string
 	if role == "secondary" || strings.HasPrefix(id, "secondary-") {
 		out = runND("secondary", "cmd", id, "metrics") // soft; journal via secondary agent later
-		out = "relay journal: use Metrics / last_cmd for now\n" + out
+		out = "secondary journal: use Metrics / last_cmd for now\n" + out
 	} else {
 		b, _ := exec.Command("journalctl", "-u", "sing-box", "-n", "40", "--no-pager", "-o", "short-iso").CombinedOutput()
 		out = string(b)

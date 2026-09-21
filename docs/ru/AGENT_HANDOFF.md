@@ -209,6 +209,6 @@ Recovery LAN bind + SERVER_PIN; update SHA256; TG edge approve handlers + token 
 - Открыто: железо OpenWrt/MT/Tapo, опционально домен/HTTPS  
 - EN: [AGENT_HANDOFF](../AGENT_HANDOFF.md), [OPEN_ITEMS](../OPEN_ITEMS.md)
 
-### v0.8.14
+### v0.8.15
 - mTLS revoke/rotate/list; doctor cert expiry WARN; plane IP ban after repeated 429
 - Docs: MTLS.md · OPEN_ITEMS hardware-only remaining

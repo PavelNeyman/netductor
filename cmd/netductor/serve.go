@@ -79,7 +79,7 @@ func runServe(args []string) {
 	addr := bind + ":" + port
 	fmt.Fprintf(os.Stderr, "netductor serve on http://%s admin=%s\n", addr, root)
 	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
-	startSecondaryAgentListener()
+	StartAgentPlane()
 	if tlsCert != "" && tlsKey != "" {
 		fmt.Fprintf(os.Stderr, "netductor serve TLS on https://%s\n", addr)
 		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, withSecurity(mux)); err != nil {

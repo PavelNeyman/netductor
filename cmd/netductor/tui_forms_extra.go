@@ -58,7 +58,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		menuItem{"Nodes registry", "list", "nodes-list"},
 		menuItem{"Secondary status", "agent online", "secondary-status"},
 		menuItem{"Backup now", "encrypted + peer", "backup-now"},
-		menuItem{"VPN users → secondary", "relay sync", "relay-sync"},
+		menuItem{"VPN users → secondary", "secondary sync", "secondary-sync"},
 		menuItem{"VPN users", "list", "vpn-list"},
 		menuItem{"Refresh VPN links", "prefer secondary", "vpn-refresh"},
 		menuItem{"Probes", "connectivity", "probe"},

@@ -96,9 +96,9 @@ Target layout: `cmd/netductor`, `cmd/netductor-agent`, `internal/`.
 | Area | Status |
 |------|--------|
 | Repo | **PavelNeyman/netductor** |
-| Version | **0.8.14** |
+| Version | **0.8.15** |
 | G0–G1 | done |
-| G2 | release `v0.8.14` published |
+| G2 | release `v0.8.15` published |
 | G3 | `netductor serve` health scaffold; port Python API |
 | Next | OpenWrt/MikroTik e2e; optional HTTPS |
 

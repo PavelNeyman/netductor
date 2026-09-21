@@ -19,6 +19,9 @@ func handleMessage(token string, m *message, admin int64) {
 	if handleNVRMessage(token, chat, text) {
 		return
 	}
+	if tryMtlsMessage(token, chat, text) {
+		return
+	}
 
 	if text == "/cancel" {
 		setState(chat, "", "")

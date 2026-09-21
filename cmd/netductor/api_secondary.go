@@ -237,9 +237,9 @@ func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, b)
 }
 
-// startSecondaryAgentListener serves secondary agent plane.
+// StartAgentPlane serves mTLS agent plane (:8789): secondary + edge + nvr.
 // Default: mTLS only on :8789. Plain :8788 only if NETDUCTOR_PLAIN_AGENT=1 (emergency).
-func startSecondaryAgentListener() {
+func StartAgentPlane() {
 	// Shared agent plane (mTLS :8789): secondary + edge + nvr device APIs.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)

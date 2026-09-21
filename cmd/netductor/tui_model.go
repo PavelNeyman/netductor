@@ -156,7 +156,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "fleet-status":
 		m.showCmd("fleet", "status")
-	case "relay-sync", "fleet-sync":
+	case "secondary-sync", "fleet-sync", "relay-sync":
 		m.showCmd("secondary", "sync")
 	case "apply-lampac":
 		m.showCmd("install", "lampac")
@@ -169,6 +169,8 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 			m.output = capture(func() { runStatus() })
 			m.screen = screenOutput
 		}
+	case "mtls-list":
+		m.showCmd("mtls", "list")
 	case "doctor":
 		if m.hasRemote() {
 			m.showCmd("doctor")

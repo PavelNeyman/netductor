@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// Lang is "en" or "ru".
 func Lang() string {
 	if v := strings.ToLower(strings.TrimSpace(os.Getenv("NETDUCTOR_LANG"))); v != "" {
 		if strings.HasPrefix(v, "ru") {
@@ -26,15 +25,41 @@ func Lang() string {
 	return "en"
 }
 
-var dict = map[string]map[string]string{
-	"en": {
-		"mtls.help": `netductor mtls ensure                 — generate CA/server/client certs for agent plane
-netductor mtls issue-client <id>     — per-node client cert under secrets/mtls/clients/<id>
-netductor mtls list                  — plane + per-node certs (serial, expiry, pending rotate)
-netductor mtls revoke <serial|node>  — revoke by serial hex or node id
-netductor mtls rotate <node-id>      — re-issue cert, enqueue mtls_refresh (grace before revoke)
-netductor mtls revoked               — list revoke entries
-netductor mtls rollover start|status|issue <id>|finish|abort — dual-CA rollover
+var dict = map[string]map[string]string{}
+
+func init() {
+	dict["en"] = map[string]string{
+		"help.main": `netductor — network control plane
+
+  tui|menu [--mode vps|openwrt|workstation|operator] …
+  deploy primary|secondary|edge
+  backup | restore | recover | fleet | audit | self-install | update
+  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | mtls | serve | install | probe | collect | help
+
+  (no args on a TTY → interactive menu)
+
+Workstation: docs/DEPLOY-WORKSTATION.md
+`,
+		"doctor.header":        "netductor doctor role=%s host=%s",
+		"doctor.ok":            "OK  ",
+		"doctor.warn":          "WARN",
+		"doctor.fail":          "FAIL",
+		"edge.usage":           "usage: netductor edge list|pending|approve|deny|revoke|register|recovery|export|import|set-site|cmd|provision …",
+		"edge.approved":        "approved",
+		"edge.denied":          "denied",
+		"edge.revoked":         "revoked",
+		"edge.registered":      "registered pending",
+		"edge.provisioned":     "provisioned",
+		"edge.imported":        "imported",
+		"edge.ok":              "ok",
+		"vpn.usage":            "usage: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session …",
+		"vpn.refreshed":        "refreshed %d",
+		"secondary.usage":      "usage: netductor secondary export|join|links|status|sync|exit|provision …",
+		"secondary.pull_hint":  "secondaries will pull on next heartbeat (~30s)",
+		"install.usage":        "usage: netductor install [flags]",
+		"nvr.usage":            "usage: netductor nvr …",
+		"mtls.help": `netductor mtls ensure | issue-client | list | revoke | rotate | revoked
+netductor mtls rollover start|status|issue <id>|finish|abort
 `,
 		"mtls.ready":              "mtls ready:",
 		"mtls.usage.issue":        "usage: netductor mtls issue-client <node-id>",
@@ -45,28 +70,56 @@ netductor mtls rollover start|status|issue <id>|finish|abort — dual-CA rollove
 		"mtls.revoked_node":       "revoked node",
 		"mtls.revoked_serial":     "revoked serial",
 		"mtls.usage.rotate":       "usage: netductor mtls rotate <node-id>",
-		"mtls.rotated":            "rotated node serial days_left",
+		"mtls.rotated":            "rotated",
 		"mtls.material":           "material:",
 		"mtls.enqueued_edge":      "enqueued edge mtls_refresh id=",
 		"mtls.enqueued_secondary": "enqueued secondary mtls_refresh",
-		"mtls.push_manual":        "could not enqueue push — re-provision or wait for manual copy",
-		"mtls.grace_note":         "old serial stays valid for grace hours:",
+		"mtls.push_manual":        "could not enqueue push — re-provision or copy manually",
+		"mtls.grace_note":         "old serial valid for grace hours:",
 		"mtls.empty":              "(empty)",
-		"mtls.rollover_started":   "CA dual-trust started (ca-new). Issue clients, then finish.",
+		"mtls.rollover_started":   "CA dual-trust started (ca-new)",
 		"mtls.rollover_issued":    "issued from ca-new + push queued for",
-		"mtls.rollover_done":      "CA rollover finished; ca-new is now primary",
-		"mtls.rollover_abort":     "CA rollover aborted; ca-new removed",
+		"mtls.rollover_done":      "CA rollover finished",
+		"mtls.rollover_abort":     "CA rollover aborted",
 		"mtls.unknown":            "unknown mtls subcommand",
-		"doctor.header":           "netductor doctor",
-	},
-	"ru": {
-		"mtls.help": `netductor mtls ensure                 — создать CA/server/client для agent plane
-netductor mtls issue-client <id>     — client-сертификат узла в secrets/mtls/clients/<id>
-netductor mtls list                  — plane + узлы (serial, срок, pending rotate)
-netductor mtls revoke <serial|node>  — отозвать serial или узел
-netductor mtls rotate <node-id>      — перевыпуск, очередь mtls_refresh (grace до revoke)
-netductor mtls revoked               — список отзывов
-netductor mtls rollover start|status|issue <id>|finish|abort — смена CA (dual-trust)
+		"sites.usage":             "usage: netductor sites …",
+		"nodes.usage":             "usage: netductor nodes …",
+		"fleet.usage":             "usage: netductor fleet …",
+		"backup.usage":            "usage: netductor backup …",
+		"status.header":           "netductor status",
+	}
+	dict["ru"] = map[string]string{
+		"help.main": `netductor — плоскость управления сетью
+
+  tui|menu [--mode vps|openwrt|workstation|operator] …
+  deploy primary|secondary|edge
+  backup | restore | recover | fleet | audit | self-install | update
+  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | mtls | serve | install | probe | collect | help
+
+  (без аргументов в TTY → интерактивное меню)
+
+Workstation: docs/DEPLOY-WORKSTATION.md
+`,
+		"doctor.header":           "netductor doctor role=%s host=%s",
+		"doctor.ok":               "OK  ",
+		"doctor.warn":             "WARN",
+		"doctor.fail":             "FAIL",
+		"edge.usage":              "использование: netductor edge list|pending|approve|deny|revoke|register|recovery|export|import|set-site|cmd|provision …",
+		"edge.approved":           "одобрен",
+		"edge.denied":             "отклонён",
+		"edge.revoked":            "отозван",
+		"edge.registered":         "зарегистрирован (pending)",
+		"edge.provisioned":        "provision выполнен",
+		"edge.imported":           "импортировано",
+		"edge.ok":                 "ok",
+		"vpn.usage":               "использование: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session …",
+		"vpn.refreshed":           "обновлено %d",
+		"secondary.usage":         "использование: netductor secondary export|join|links|status|sync|exit|provision …",
+		"secondary.pull_hint":     "secondary подтянут на следующем heartbeat (~30с)",
+		"install.usage":           "использование: netductor install [флаги]",
+		"nvr.usage":               "использование: netductor nvr …",
+		"mtls.help": `netductor mtls ensure | issue-client | list | revoke | rotate | revoked
+netductor mtls rollover start|status|issue <id>|finish|abort
 `,
 		"mtls.ready":              "mtls готов:",
 		"mtls.usage.issue":        "использование: netductor mtls issue-client <node-id>",
@@ -77,23 +130,26 @@ netductor mtls rollover start|status|issue <id>|finish|abort — смена CA (
 		"mtls.revoked_node":       "отозван узел",
 		"mtls.revoked_serial":     "отозван serial",
 		"mtls.usage.rotate":       "использование: netductor mtls rotate <node-id>",
-		"mtls.rotated":            "перевыпущен узел serial days_left",
+		"mtls.rotated":            "перевыпущен",
 		"mtls.material":           "материал:",
 		"mtls.enqueued_edge":      "в очередь edge mtls_refresh id=",
 		"mtls.enqueued_secondary": "в очередь secondary mtls_refresh",
-		"mtls.push_manual":        "не удалось поставить push — re-provision или копирование вручную",
+		"mtls.push_manual":        "не удалось поставить push — re-provision вручную",
 		"mtls.grace_note":         "старый serial действует (часы grace):",
 		"mtls.empty":              "(пусто)",
-		"mtls.rollover_started":   "Dual-trust CA начат (ca-new). Выдайте клиентам, затем finish.",
+		"mtls.rollover_started":   "Dual-trust CA начат (ca-new)",
 		"mtls.rollover_issued":    "выпущен от ca-new + push для",
-		"mtls.rollover_done":      "Rollover CA завершён; ca-new — основная",
-		"mtls.rollover_abort":     "Rollover отменён; ca-new удалён",
+		"mtls.rollover_done":      "Rollover CA завершён",
+		"mtls.rollover_abort":     "Rollover отменён",
 		"mtls.unknown":            "неизвестная подкоманда mtls",
-		"doctor.header":           "netductor doctor",
-	},
+		"sites.usage":             "использование: netductor sites …",
+		"nodes.usage":             "использование: netductor nodes …",
+		"fleet.usage":             "использование: netductor fleet …",
+		"backup.usage":            "использование: netductor backup …",
+		"status.header":           "netductor status",
+	}
 }
 
-// T returns localized string; missing keys fall back to key or EN.
 func T(key string, args ...any) string {
 	lang := Lang()
 	s, ok := dict[lang][key]
@@ -109,7 +165,6 @@ func T(key string, args ...any) string {
 	return fmt.Sprintf(s, args...)
 }
 
-// Register adds or overrides a key for tests / expansion.
 func Register(lang, key, value string) {
 	if dict[lang] == nil {
 		dict[lang] = map[string]string{}

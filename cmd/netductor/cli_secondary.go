@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,7 +20,7 @@ import (
 
 func runSecondary(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor secondary export|join|links|status|sync|exit|provision --host --user --password")
+		fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -183,7 +184,7 @@ func runSecondary(args []string) {
 		fmt.Println("provisioned", host)
 	case "device":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor secondary device <id>")
+			fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
 			os.Exit(2)
 		}
 		for _, d := range secondary.List() {
@@ -218,7 +219,7 @@ func runSecondary(args []string) {
 		fmt.Println("not found")
 	case "cmd":
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: netductor secondary cmd <id> <reboot|upgrade|metrics>")
+			fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
 			os.Exit(2)
 		}
 		if err := secondary.EnqueueCmd(args[1], args[2]); err != nil {
@@ -229,7 +230,7 @@ func runSecondary(args []string) {
 	case "sync":
 		ver := secondary.BumpConfigVer()
 		fmt.Println("config_ver", ver)
-		fmt.Println("relays will pull on next heartbeat (~30s)")
+		fmt.Println(cli18n.T("secondary.pull_hint"))
 	case "exit":
 		if len(args) < 2 || args[1] == "status" {
 			fmt.Println("exit_enabled", secondary.ExitEnabled())
@@ -239,7 +240,7 @@ func runSecondary(args []string) {
 		if args[1] == "off" || args[1] == "0" || args[1] == "false" {
 			on = false
 		} else if args[1] != "on" && args[1] != "1" && args[1] != "true" {
-			fmt.Fprintln(os.Stderr, "usage: netductor secondary exit on|off")
+			fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
 			os.Exit(2)
 		}
 		if err := secondary.SetExitEnabled(on); err != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"fmt"
 	"time"
 	"os"
@@ -15,7 +16,7 @@ import (
 
 func runEdgeCLI(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor edge list|pending|approve|deny|revoke|register|recovery|export|import|set-site|cmd …")
+		fmt.Fprintln(os.Stderr, cli18n.T("edge.usage"))
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -36,7 +37,7 @@ func runEdgeCLI(args []string) {
 			os.Exit(1)
 		}
 		audit.Log("cli", "edge.approve", args[1], "")
-		fmt.Println("approved", args[1], "token="+tok)
+		fmt.Println(cli18n.T("edge.approved"), args[1], "token="+tok)
 	case "deny":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge deny <device_id>")
@@ -47,7 +48,7 @@ func runEdgeCLI(args []string) {
 			os.Exit(1)
 		}
 		audit.Log("cli", "edge.deny", args[1], "")
-		fmt.Println("denied")
+		fmt.Println(cli18n.T("edge.denied"))
 	case "revoke":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge revoke <device_id>")
@@ -58,7 +59,7 @@ func runEdgeCLI(args []string) {
 			os.Exit(1)
 		}
 		audit.Log("cli", "edge.revoke", args[1], "")
-		fmt.Println("revoked")
+		fmt.Println(cli18n.T("edge.revoked"))
 	case "cmd":
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge cmd <device_id> <action> [arg]")
@@ -104,7 +105,7 @@ func runEdgeCLI(args []string) {
 			_ = sitesAttach(site, did)
 		}
 		audit.Log("cli", "edge.register", did, site)
-		fmt.Println("registered pending", did)
+		fmt.Println(cli18n.T("edge.registered"), did)
 	case "recovery":
 		// issue one-time code for LAN recovery page
 		site, note := "", ""
@@ -168,7 +169,7 @@ func runEdgeCLI(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("imported", n)
+		fmt.Println(cli18n.T("edge.imported"), n)
 	case "set-site":
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge set-site <device_id> <site_id>")
@@ -179,7 +180,7 @@ func runEdgeCLI(args []string) {
 			os.Exit(1)
 		}
 		_ = sitesAttach(args[2], args[1])
-		fmt.Println("ok")
+		fmt.Println(cli18n.T("edge.ok"))
 	case "provision":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge provision user@host --id DEVICE [--server URL] [--key KEY] [--agent BIN]")
@@ -218,7 +219,7 @@ func runEdgeCLI(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("provisioned", opts.DeviceID, "→ pending enroll")
+		fmt.Println(cli18n.T("edge.provisioned"), opts.DeviceID, "→ pending enroll")
 	case "templates":
 		edge.EnsureDefaultTemplate()
 		for _, tmpl := range edge.ListTemplates() {

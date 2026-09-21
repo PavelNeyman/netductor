@@ -39,6 +39,11 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if data == "m:mtls" || strings.HasPrefix(data, "m:mtls:") {
+		handleMtlsCB(token, chat, msgID, data)
+		return
+	}
+
 	if data == "m:tools" {
 		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
 		return
@@ -258,8 +263,8 @@ if strings.HasPrefix(data, "u:") {
 		// Relay is part of Nodes
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>secondary = RU node role</i>", nodesKeyboard())
 	case "m:relay:export":
-		out := runND("secondary", "export", "-o", "/tmp/nd-relay-bundle.json", "--sni", "ya.ru")
-		b, err := os.ReadFile("/tmp/nd-relay-bundle.json")
+		out := runND("secondary", "export", "-o", "/tmp/nd-secondary-bundle.json", "--sni", "ya.ru")
+		b, err := os.ReadFile("/tmp/nd-secondary-bundle.json")
 		msg := out
 		if err == nil {
 			msg = string(b)
@@ -361,7 +366,7 @@ if strings.HasPrefix(data, "u:") {
 		_ = runND("ssh-hosts", "clear", "--kind", "mt")
 		reply(token, chat, msgID, T("ssh_cleared")+" (mt)"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
 	case "m:ssh:clear:relay":
-		_ = runND("ssh-hosts", "clear", "--kind", "relay")
+		_ = runND("ssh-hosts", "clear", "--kind", "secondary")
 		reply(token, chat, msgID, T("ssh_cleared")+" (relay)"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
 	case "m:ssh:forget":
 		setState(chat, "wait_ssh_forget", "")

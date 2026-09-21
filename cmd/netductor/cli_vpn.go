@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"encoding/json"
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"fmt"
@@ -16,7 +17,7 @@ import (
 
 func runVPN(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session ...")
+		fmt.Fprintln(os.Stderr, cli18n.T("vpn.usage"))
 		os.Exit(2)
 	}
 	cmd := args[0]
@@ -189,7 +190,7 @@ func runVPN(args []string) {
 			only = rest[0]
 		}
 		n, err := vpn.RefreshLinks(only)
-		fmt.Printf("refreshed %d\n", n)
+		fmt.Printf(cli18n.T("vpn.refreshed")+"\n", n)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

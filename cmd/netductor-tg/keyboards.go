@@ -50,7 +50,7 @@ func toolsKeyboard() map[string]any {
 		{btn("⏱ Guest", "m:guest", ""), btn("🛡 DNS", "m:dns", "")},
 		{btn("🗓 Backup", "m:backup", ""), btn("📍 Locations", "m:loc", "")},
 		{btn("🎥 NVR", "m:nvr", "")},
-		{btn("🔄 Updates", "m:updates", "")},
+		{btn("🔄 Updates", "m:updates", ""), btn(T("mtls"), "m:mtls", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }
