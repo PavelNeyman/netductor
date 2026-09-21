@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var version = "0.8.22"
+var version = "0.8.23"
 
 type config struct {
 	Server   string
@@ -35,6 +35,9 @@ func main() {
 		switch os.Args[1] {
 		case "version", "-v", "--version":
 			fmt.Printf("netductor-agent %s\n", version)
+			return
+		case "guest":
+			runGuestCLI(os.Args[2:])
 			return
 		case "help", "-h", "--help":
 			fmt.Print(`netductor-agent — outbound edge agent for OpenWrt
@@ -53,6 +56,7 @@ Commands (from VPS):
   uci_get|show|set|commit|batch
   wifi_reload, network_reload, reboot
   agent_update           — arg: URL or URL|sha256
+  guest                 — guest Wi‑Fi desk/captive (see guest -h)
   sysupgrade             — arg: URL|sha256|confirm=yes
 `)
 			return
@@ -66,6 +70,7 @@ Commands (from VPS):
 	cfg.Server = normalizeServerURL(cfg.Server)
 	client := agentHTTPClient()
 	startRecoveryHTTP(&cfg)
+	startGuestHTTP(&cfg)
 
 	// Offline-first: apply local UCI overlay even with no WAN.
 	applyLocalOverlayOnce()

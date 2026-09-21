@@ -5,6 +5,9 @@ Status: **design locked for implementation** · not all sites need guest · opt-
 
 ## Locked decisions (2026-09-21)
 
+5. **Default grant duration: 10 minutes** (QR and desk default). Staff may choose up to **24 hours** when granting by code on desk.
+
+
 1. **Layout: only separate Guest SSID** — no band-split preset. Private keeps 2.4 and/or 5 as today (cameras/IoT often need 2.4). Guest is an **extra** `wifi-iface` on chosen radio(s), default **2.4** if present, optional also on 5.
 2. **Primary cashier UX: short session code + Grant QR**; device list is fallback (online/pending only, not years of MACs).
 3. **Authorization: MAC allow-list + TTL** (default 24h), not daily Wi‑Fi PSK rotation.
@@ -18,7 +21,7 @@ At a shop (or home office) the operator sometimes needs to **lend internet brief
 2. Guest traffic: **direct via ISP**, **not** through site VPN (VLESS/secondary).
 3. Not every OpenWrt site enables this — **opt-in** in provision wizard / site template.
 4. Prefer **hidden SSID** + connect via **QR**.
-5. After a short window (default **24h**) the device must **stop** using the internet unless explicitly extended.
+5. After a short window (default **10 minutes**, max **24h**) the device must **stop** using the internet unless explicitly extended.
 6. Re-grant must be possible **without** Telegram bot and **without** logging into LuCI — by a **seller on the floor** (simple local action / QR).
 7. Ideal UX: one **stable customer QR** for joining; access lifetime is separate from Wi‑Fi password rotation.
 
@@ -153,7 +156,8 @@ guest:
   hidden: true
   psk: "<generated>"    # long-lived; rotatable manually
   subnet: "192.168.50.0/24"
-  ttl_hours: 24
+  default_grant_minutes: 10
+  max_grant_minutes: 1440
   desk_pin: "<set>"
   desk_port: 7880
 ```

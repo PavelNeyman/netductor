@@ -5,7 +5,7 @@
 На Mac в LAN с MikroTik:
 
 ```bash
-curl -fsSL -o netductor https://github.com/PavelNeyman/netductor/releases/download/v0.8.22/netductor-darwin-arm64
+curl -fsSL -o netductor https://github.com/PavelNeyman/netductor/releases/download/v0.8.23/netductor-darwin-arm64
 chmod +x netductor
 ./netductor tui --mode workstation
 ```

@@ -1,6 +1,6 @@
 # Deploy from Mac / PC (workstation TUI)
 
-Baseline: **v0.8.22**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.
+Baseline: **v0.8.23**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.
 
 ## Requirements on Mac
 
