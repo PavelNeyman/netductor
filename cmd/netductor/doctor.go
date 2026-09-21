@@ -108,19 +108,19 @@ func runDoctorNative() int {
 	ok, fail, warn := 0, 0, 0
 	check := func(name string, good bool) {
 		if good {
-			fmt.Printf("OK   %s\n", name)
+			fmt.Printf("%s %s\n", cli18n.T("doctor.ok"), name)
 			ok++
 		} else {
-			fmt.Printf("FAIL %s\n", name)
+			fmt.Printf("%s %s\n", cli18n.T("doctor.fail"), name)
 			fail++
 		}
 	}
 	warnCheck := func(name string, good bool) {
 		if good {
-			fmt.Printf("OK   %s\n", name)
+			fmt.Printf("%s %s\n", cli18n.T("doctor.ok"), name)
 			ok++
 		} else {
-			fmt.Printf("WARN %s\n", name)
+			fmt.Printf("%s %s\n", cli18n.T("doctor.warn"), name)
 			warn++
 		}
 	}
@@ -142,7 +142,7 @@ func runDoctorNative() int {
 	state := paths.StateDir()
 
 	if b, err := os.ReadFile(filepath.Join(state, "installed_version")); err == nil {
-		fmt.Printf("INFO installed_version=%s\n", strings.TrimSpace(string(b)))
+		fmt.Printf(cli18n.T("doctor.installed_version")+"\n", strings.TrimSpace(string(b)))
 	}
 	check("debian", exists("/etc/debian_version"))
 	check("secrets", exists(filepath.Join(etc, "secrets")))
@@ -170,13 +170,13 @@ func runDoctorNative() int {
 		check("blocky unit", activeUnit("blocky"))
 		if activeUnit("blocky") {
 			if listeningOnAll("53") {
-				fmt.Printf("WARN blocky :53 on 0.0.0.0 (prefer 127.0.0.1)\n")
+				fmt.Println(cli18n.T("doctor.blocky_all"))
 				warn++
 			} else if listeningLocalhost("53") {
-				fmt.Printf("OK   blocky :53 localhost only\n")
+				fmt.Println(cli18n.T("doctor.blocky_local"))
 				ok++
 			} else {
-				fmt.Printf("WARN blocky :53 listen mode unknown\n")
+				fmt.Println(cli18n.T("doctor.blocky_unknown"))
 				warn++
 			}
 		}
@@ -185,16 +185,16 @@ func runDoctorNative() int {
 		// import redirect for TG deep-link buttons (port 80, already allowed for ACME)
 		warnCheck("netductor-redirect unit", activeUnit("netductor-redirect"))
 		if strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")) == "" {
-			fmt.Printf("WARN NETDUCTOR_REDIRECT_BASE unset (TG deep-link http base; SR Config still works as document)\n")
+			fmt.Println(cli18n.T("doctor.redirect_unset"))
 		} else {
-			fmt.Printf("OK   NETDUCTOR_REDIRECT_BASE=%s\n", os.Getenv("NETDUCTOR_REDIRECT_BASE"))
+			fmt.Printf(cli18n.T("doctor.redirect_ok")+"\n", os.Getenv("NETDUCTOR_REDIRECT_BASE"))
 		}
 		if activeUnit("netductor-redirect") || listeningOnAll("80") || listeningLocalhost("80") {
 			if curlOK("http://127.0.0.1/healthz") {
-				fmt.Printf("OK   redirect :80 /healthz\n")
+				fmt.Println(cli18n.T("doctor.redirect_health_ok"))
 				ok++
 			} else {
-				fmt.Printf("WARN redirect :80 /healthz not OK\n")
+				fmt.Println(cli18n.T("doctor.redirect_health_bad"))
 				warn++
 			}
 		}
@@ -209,52 +209,52 @@ func runDoctorNative() int {
 		warnCheck("backup.offsite peer", exists(filepath.Join(etc, "backup.offsite")))
 		warnCheck("tg admin id", exists(filepath.Join(etc, "secrets", "telegram_admin_id")) || os.Getenv("NETDUCTOR_TG_ADMIN") != "")
 		if os.Getenv("CLAIM_FIRST") == "1" || os.Getenv("NETDUCTOR_TG_CLAIM_FIRST") == "1" {
-			fmt.Println("WARN CLAIM_FIRST enabled — disable in production")
+			fmt.Println(cli18n.T("doctor.claim_first"))
 		}
 		warnCheck("tg bot token", exists(filepath.Join(etc, "secrets", "telegram_bot_token")) || os.Getenv("NETDUCTOR_TG_TOKEN") != "")
 		secReg := exists(paths.SecondaryDevicesFile())
 		if secReg {
-			fmt.Printf("INFO secondary registry present\n")
+			fmt.Println(cli18n.T("doctor.secondary_reg"))
 		} else {
 			warnCheck("secondary registry", false)
 		}
 		if listeningOnAll("8788") {
-			fmt.Printf("FAIL agent plane :8788 plain listening (emergency only: NETDUCTOR_PLAIN_AGENT=1)\n")
+			fmt.Println(cli18n.T("doctor.plain_8788_fail"))
 			warn++
 		} else {
-			fmt.Printf("OK   agent plane :8788 not exposed\n")
+			fmt.Println(cli18n.T("doctor.plain_8788_ok"))
 			ok++
 		}
 		if mtls.ServerReady() {
-			fmt.Printf("OK   mtls server certs\n")
+			fmt.Println(cli18n.T("doctor.mtls_server_ok"))
 			ok++
 			if listeningOnAll(mtls.AgentTLSPort) {
-				fmt.Printf("OK   agent plane mTLS :%s\n", mtls.AgentTLSPort)
+				fmt.Printf(cli18n.T("doctor.mtls_listen_ok")+"\n", mtls.AgentTLSPort)
 				ok++
 			} else {
-				fmt.Printf("FAIL agent plane mTLS :%s not listening\n", mtls.AgentTLSPort)
+				fmt.Printf(cli18n.T("doctor.mtls_listen_fail")+"\n", mtls.AgentTLSPort)
 				warn++
 			}
 		} else {
-			fmt.Printf("FAIL mtls server certs missing (run: netductor mtls ensure)\n")
+			fmt.Println(cli18n.T("doctor.mtls_missing"))
 			warn++
 		}
 		// cert expiry (CA/server/default client + per-node clients)
 		for _, pc := range mtls.ListPlaneCerts() {
 			if pc.DaysLeft < 0 {
-				fmt.Printf("FAIL mtls %s expired (%s)\n", pc.Name, pc.NotAfter.Format("2006-01-02"))
+				fmt.Printf(cli18n.T("doctor.mtls_expired")+"\n", pc.Name, pc.NotAfter.Format("2006-01-02"))
 				warn++
 			} else if pc.DaysLeft <= 30 {
-				fmt.Printf("WARN mtls %s expires in %d days (%s)\n", pc.Name, pc.DaysLeft, pc.NotAfter.Format("2006-01-02"))
+				fmt.Printf(cli18n.T("doctor.mtls_expires_soon")+"\n", pc.Name, pc.DaysLeft, pc.NotAfter.Format("2006-01-02"))
 				warn++
 			} else {
-				fmt.Printf("OK   mtls %s valid ~%d days\n", pc.Name, pc.DaysLeft)
+				fmt.Printf(cli18n.T("doctor.mtls_valid")+"\n", pc.Name, pc.DaysLeft)
 				ok++
 			}
 		}
 		if pend, err := mtls.PendingRotates(); err == nil && len(pend) > 0 {
 			for _, p := range pend {
-				fmt.Printf("WARN mtls pending rotate node=%s old=%s new=%s\n", p.NodeID, p.OldSerial, p.NewSerial)
+				fmt.Printf(cli18n.T("doctor.mtls_pending")+"\n", p.NodeID, p.OldSerial, p.NewSerial)
 				warn++
 			}
 		}
@@ -262,7 +262,7 @@ func runDoctorNative() int {
 			for _, c := range clients {
 				tag := "OK  "
 				if c.Revoked {
-					fmt.Printf("WARN mtls client %s serial=%s REVOKED\n", c.NodeID, c.Serial)
+					fmt.Printf(cli18n.T("doctor.mtls_client_revoked")+"\n", c.NodeID, c.Serial)
 					warn++
 					continue
 				}
@@ -272,7 +272,7 @@ func runDoctorNative() int {
 				} else {
 					ok++
 				}
-				fmt.Printf("%s mtls client %s expires in %d days serial=%s\n", tag, c.NodeID, c.DaysLeft, c.Serial)
+				fmt.Printf(cli18n.T("doctor.mtls_client_line")+"\n", tag, c.NodeID, c.DaysLeft, c.Serial)
 			}
 		}
 
@@ -285,15 +285,15 @@ func runDoctorNative() int {
 			warnCheck("lampac localhost only", listeningLocalhost("9118") && !listeningOnAll("9118"))
 		}
 		if strings.HasPrefix(host, "nd-secondary") || host == "nd-secondary" {
-			fmt.Printf("OK   hostname=%s\n", host)
+			fmt.Printf(cli18n.T("doctor.hostname_ok")+"\n", host)
 			ok++
 		} else {
-			fmt.Printf("WARN hostname=%s (expected nd-secondary*)\n", host)
+			fmt.Printf(cli18n.T("doctor.hostname_warn")+"\n", host)
 			warn++
 		}
 		warnCheck("mtls client certs", mtls.ClientReady())
 		if activeUnit("blocky") {
-			fmt.Printf("WARN blocky running on secondary (usually primary-only)\n")
+			fmt.Println(cli18n.T("doctor.blocky_on_sec"))
 			warn++
 		}
 
@@ -309,37 +309,37 @@ func runDoctorNative() int {
 	if b, err := os.ReadFile(sniFile); err == nil && strings.TrimSpace(string(b)) != "" {
 		sniVal = strings.TrimSpace(string(b))
 	}
-	fmt.Printf("INFO reality_sni=%s\n", sniVal)
+	fmt.Printf(cli18n.T("doctor.sni")+"\n", sniVal)
 
 	// NVR
 	cfgN := nvr.LoadConfig()
 	stN := nvr.GetStorageStatus()
 	fmt.Println()
-	fmt.Println("NVR")
-	fmt.Printf("  path: %s\n", cfgN.Path)
-	fmt.Printf("  storage: exists=%v writable=%v mount=%v free=%.1fGB segments=%d (%.2fGB)\n", stN.Exists, stN.Writable, stN.MountPoint, stN.FreeGB, stN.SegmentCnt, stN.SegmentGB)
+	fmt.Println(cli18n.T("doctor.nvr"))
+	fmt.Printf(cli18n.T("doctor.nvr_path")+"\n", cfgN.Path)
+	fmt.Printf(cli18n.T("doctor.nvr_storage")+"\n", stN.Exists, stN.Writable, stN.MountPoint, stN.FreeGB, stN.SegmentCnt, stN.SegmentGB)
 	if stN.EncryptedHint != "" {
-		fmt.Printf("  hint: %s\n", stN.EncryptedHint)
+		fmt.Printf(cli18n.T("doctor.nvr_hint")+"\n", stN.EncryptedHint)
 	}
-	fmt.Printf("  record_enabled: %v  retention_days=%d max_gb=%.0f min_free_gb=%.0f\n",
+	fmt.Printf(cli18n.T("doctor.nvr_record")+"\n",
 		cfgN.RecordEnabled, cfgN.RetentionDays, cfgN.MaxGB, cfgN.MinFreeGB)
 	if st, err := os.Stat(cfgN.Path); err != nil {
-		fmt.Printf("  segments dir: missing (%v)\n", err)
+		fmt.Printf(cli18n.T("doctor.nvr_missing")+"\n", err)
 	} else if !st.IsDir() {
-		fmt.Println("  segments dir: not a directory")
+		fmt.Println(cli18n.T("doctor.nvr_notdir"))
 	} else {
 		files, _ := nvr.ListSegmentFiles(cfgN.Path)
 		var sum int64
 		for _, f := range files {
 			sum += f.Size
 		}
-		fmt.Printf("  segments: %d files, ~%.2f GB\n", len(files), float64(sum)/(1024*1024*1024))
+		fmt.Printf(cli18n.T("doctor.nvr_segments")+"\n", len(files), float64(sum)/(1024*1024*1024))
 	}
 	if r, ok := nvr.LastRetentionReport(); ok {
-		fmt.Printf("  last retention: deleted=%d kept=%d at=%d\n", r.Deleted, r.Kept, r.At)
+		fmt.Printf(cli18n.T("doctor.nvr_retention")+"\n", r.Deleted, r.Kept, r.At)
 	}
 
-	fmt.Printf("\nSummary: ok=%d fail=%d warn=%d\n", ok, fail, warn)
+	fmt.Printf(cli18n.T("doctor.summary")+"\n", ok, fail, warn)
 	if fail > 0 {
 		return 1
 	}

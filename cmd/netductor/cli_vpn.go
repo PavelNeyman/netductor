@@ -38,7 +38,7 @@ func runVPN(args []string) {
 		}
 	case "rename":
 		if len(rest) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor vpn rename <old> <new>")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.usage.rename"))
 			os.Exit(2)
 		}
 		out, err := vpn.Rename(rest[0], rest[1])
@@ -50,7 +50,7 @@ func runVPN(args []string) {
 		audit.Log("cli", "vpn.rename", rest[0], rest[1])
 	case "add":
 		if len(rest) < 1 {
-			fmt.Fprintln(os.Stderr, "name required")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.name_required"))
 			os.Exit(2)
 		}
 		note := ""
@@ -99,7 +99,7 @@ func runVPN(args []string) {
 		}
 	case "client-config":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor vpn client-config <name>")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.usage.client_config"))
 			os.Exit(2)
 		}
 		name := args[1]
@@ -112,7 +112,7 @@ func runVPN(args []string) {
 			}
 		}
 		if uuid == "" {
-			fmt.Fprintln(os.Stderr, "user not found")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.user_not_found"))
 			os.Exit(1)
 		}
 		if err := vpn.WriteClientConfigs(name, uuid); err != nil {
@@ -133,7 +133,7 @@ func runVPN(args []string) {
 		var ok bool
 		switch kind {
 		case "sub", "subscription", "sub64", "b64":
-			fmt.Fprintln(os.Stderr, "subscription removed; use: link NAME vless|core|hy2")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.sub_removed"))
 			os.Exit(2)
 		case "core":
 			s, ok = vpn.ReadClient(name, "link-vless-core.txt", "link-vless.txt", "link.txt")
@@ -155,7 +155,7 @@ func runVPN(args []string) {
 						}
 						fmt.Println(vless)
 						if via != "core" {
-							fmt.Fprintln(os.Stderr, "via", via)
+							fmt.Fprintln(os.Stderr, cli18n.T("vpn.via", via))
 						}
 						if kind == "full" || kind == "all" {
 							if core, ok2 := vpn.ReadClient(name, "link-vless-core.txt"); ok2 {
@@ -173,14 +173,14 @@ func runVPN(args []string) {
 		}
 		if kind == "vless" || kind == "hy2" {
 			if !ok {
-				fmt.Fprintln(os.Stderr, "not found")
+				fmt.Fprintln(os.Stderr, cli18n.T("vpn.not_found"))
 				os.Exit(1)
 			}
 			fmt.Println(s)
 			return
 		}
 		if !ok {
-			fmt.Fprintln(os.Stderr, "not found")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.not_found"))
 			os.Exit(1)
 		}
 		fmt.Println(s)
@@ -211,7 +211,7 @@ func runVPN(args []string) {
 	case "mismatch":
 		st := vpn.CollectMismatch(30)
 		fmt.Println(vpn.FormatMismatchText(st))
-		fmt.Println("--- secondary ---")
+		fmt.Println(cli18n.T("vpn.secondary_hdr"))
 		for _, d := range secondary.List() {
 			if d.MismatchTotal == 0 && len(d.MismatchByIP) == 0 {
 				continue
@@ -220,7 +220,7 @@ func runVPN(args []string) {
 		}
 	case "set-sni":
 		if len(rest) < 1 {
-			fmt.Fprintln(os.Stderr, "usage: netductor vpn set-sni <hostname|preset>")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.usage.set_sni"))
 			os.Exit(2)
 		}
 		sniName := rest[0]
@@ -235,20 +235,20 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		secondary.BumpConfigVer()
-		fmt.Println("sni set to", sniName)
+		fmt.Println(cli18n.T("vpn.sni_set", sniName))
 	case "sni-import":
 		url := ""
 		if len(rest) > 0 {
 			url = rest[0]
 		}
 		n, err := vpn.ImportSNIPresetsFromURL(url)
-		fmt.Printf("presets=%d\n", n)
+		fmt.Printf(cli18n.T("vpn.presets")+"\n", n)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	case "sni":
-		fmt.Println("active", vpn.ActiveSNI())
+		fmt.Println(cli18n.T("vpn.active", vpn.ActiveSNI()))
 		for _, p := range vpn.ListSNIPresets() {
 			mark := ""
 			if p.SNI == vpn.ActiveSNI() {
@@ -277,7 +277,7 @@ func runVPN(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("config applied")
+		fmt.Println(cli18n.T("vpn.config_applied"))
 	case "session":
 		if len(rest) > 0 && (rest[0] == "list" || rest[0] == "ls") {
 			for _, s := range session.List() {
@@ -287,7 +287,7 @@ func runVPN(args []string) {
 		}
 		if len(rest) > 0 && rest[0] == "revoke-all" {
 			_ = session.RevokeAll()
-			fmt.Println("revoked all")
+			fmt.Println(cli18n.T("vpn.revoked_all"))
 			return
 		}
 		hours := 72
@@ -300,12 +300,12 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(tok)
-		fmt.Fprintf(os.Stderr, "expires_unix=%d hours=%d\n", exp, hours)
+		fmt.Fprintf(os.Stderr, cli18n.T("vpn.expires")+"\n", exp, hours)
 	case "edge-list":
 		runEdgeList()
 	case "edge-cmd":
 		if len(rest) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor vpn edge-cmd <device_id> <action> [arg]")
+			fmt.Fprintln(os.Stderr, cli18n.T("vpn.usage.edge_cmd"))
 			os.Exit(2)
 		}
 		arg := ""

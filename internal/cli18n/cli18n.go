@@ -8,19 +8,13 @@ import (
 
 func Lang() string {
 	if v := strings.ToLower(strings.TrimSpace(os.Getenv("NETDUCTOR_LANG"))); v != "" {
-		if strings.HasPrefix(v, "ru") {
-			return "ru"
-		}
+		if strings.HasPrefix(v, "ru") { return "ru" }
 		return "en"
 	}
 	for _, k := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
 		v := strings.ToLower(strings.TrimSpace(os.Getenv(k)))
-		if v == "" || v == "c" || v == "posix" {
-			continue
-		}
-		if strings.HasPrefix(v, "ru") {
-			return "ru"
-		}
+		if v == "" || v == "c" || v == "posix" { continue }
+		if strings.HasPrefix(v, "ru") { return "ru" }
 	}
 	return "en"
 }
@@ -29,145 +23,219 @@ var dict = map[string]map[string]string{}
 
 func init() {
 	dict["en"] = map[string]string{
-		"help.main": `netductor — network control plane
-
-  tui|menu [--mode vps|openwrt|workstation|operator] …
-  deploy primary|secondary|edge
-  backup | restore | recover | fleet | audit | self-install | update
-  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | mtls | serve | install | probe | collect | help
-
-  (no args on a TTY → interactive menu)
-
-Workstation: docs/DEPLOY-WORKSTATION.md
-`,
-		"doctor.header":        "netductor doctor role=%s host=%s",
-		"doctor.ok":            "OK  ",
-		"doctor.warn":          "WARN",
-		"doctor.fail":          "FAIL",
-		"edge.usage":           "usage: netductor edge list|pending|approve|deny|revoke|register|recovery|export|import|set-site|cmd|provision …",
-		"edge.approved":        "approved",
-		"edge.denied":          "denied",
-		"edge.revoked":         "revoked",
-		"edge.registered":      "registered pending",
-		"edge.provisioned":     "provisioned",
-		"edge.imported":        "imported",
-		"edge.ok":              "ok",
-		"vpn.usage":            "usage: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session …",
-		"vpn.refreshed":        "refreshed %d",
-		"secondary.usage":      "usage: netductor secondary export|join|links|status|sync|exit|provision …",
-		"secondary.pull_hint":  "secondaries will pull on next heartbeat (~30s)",
-		"install.usage":        "usage: netductor install [flags]",
-		"nvr.usage":            "usage: netductor nvr …",
-		"mtls.help": `netductor mtls ensure | issue-client | list | revoke | rotate | revoked
-netductor mtls rollover start|status|issue <id>|finish|abort
-`,
-		"mtls.ready":              "mtls ready:",
-		"mtls.usage.issue":        "usage: netductor mtls issue-client <node-id>",
-		"mtls.client_material":    "client material:",
-		"mtls.clients_none":       "clients: (none)",
-		"mtls.pending_header":     "pending rotates (grace):",
-		"mtls.usage.revoke":       "usage: netductor mtls revoke <serial-hex|node-id>",
-		"mtls.revoked_node":       "revoked node",
-		"mtls.revoked_serial":     "revoked serial",
-		"mtls.usage.rotate":       "usage: netductor mtls rotate <node-id>",
-		"mtls.rotated":            "rotated",
-		"mtls.material":           "material:",
-		"mtls.enqueued_edge":      "enqueued edge mtls_refresh id=",
+		"backup.usage": "usage: netductor backup …",
+		"doctor.blocky_all": "WARN blocky :53 on 0.0.0.0 (prefer 127.0.0.1)",
+		"doctor.blocky_local": "OK   blocky :53 localhost only",
+		"doctor.blocky_on_sec": "WARN blocky running on secondary (usually primary-only)",
+		"doctor.blocky_unknown": "WARN blocky :53 listen mode unknown",
+		"doctor.claim_first": "WARN CLAIM_FIRST enabled — disable in production",
+		"doctor.fail": "FAIL",
+		"doctor.header": "netductor doctor role=%s host=%s",
+		"doctor.hostname_ok": "OK   hostname=%s",
+		"doctor.hostname_warn": "WARN hostname=%s (expected nd-secondary*)",
+		"doctor.info": "INFO",
+		"doctor.installed_version": "INFO installed_version=%s",
+		"doctor.mtls_client_line": "%s mtls client %s expires in %d days serial=%s",
+		"doctor.mtls_client_revoked": "WARN mtls client %s serial=%s REVOKED",
+		"doctor.mtls_expired": "FAIL mtls %s expired (%s)",
+		"doctor.mtls_expires_soon": "WARN mtls %s expires in %d days (%s)",
+		"doctor.mtls_listen_fail": "FAIL agent plane mTLS :%s not listening",
+		"doctor.mtls_listen_ok": "OK   agent plane mTLS :%s",
+		"doctor.mtls_missing": "FAIL mtls server certs missing (run: netductor mtls ensure)",
+		"doctor.mtls_pending": "WARN mtls pending rotate node=%s old=%s new=%s",
+		"doctor.mtls_server_ok": "OK   mtls server certs",
+		"doctor.mtls_valid": "OK   mtls %s valid ~%d days",
+		"doctor.nvr": "NVR",
+		"doctor.nvr_hint": "  hint: %s",
+		"doctor.nvr_missing": "  segments dir: missing (%v)",
+		"doctor.nvr_notdir": "  segments dir: not a directory",
+		"doctor.nvr_path": "  path: %s",
+		"doctor.nvr_record": "  record_enabled: %v  retention_days=%d max_gb=%.0f min_free_gb=%.0f",
+		"doctor.nvr_retention": "  last retention: deleted=%d kept=%d at=%d",
+		"doctor.nvr_segments": "  segments: %d files, ~%.2f GB",
+		"doctor.nvr_storage": "  storage: exists=%v writable=%v mount=%v free=%.1fGB segments=%d (%.2fGB)",
+		"doctor.ok": "OK  ",
+		"doctor.plain_8788_fail": "FAIL agent plane :8788 plain listening (emergency only: NETDUCTOR_PLAIN_AGENT=1)",
+		"doctor.plain_8788_ok": "OK   agent plane :8788 not exposed",
+		"doctor.redirect_health_bad": "WARN redirect :80 /healthz not OK",
+		"doctor.redirect_health_ok": "OK   redirect :80 /healthz",
+		"doctor.redirect_ok": "OK   NETDUCTOR_REDIRECT_BASE=%s",
+		"doctor.redirect_unset": "WARN NETDUCTOR_REDIRECT_BASE unset (TG deep-link http base; SR Config still works as document)",
+		"doctor.secondary_reg": "INFO secondary registry present",
+		"doctor.sni": "INFO reality_sni=%s",
+		"doctor.summary": "\nSummary: ok=%d fail=%d warn=%d",
+		"doctor.warn": "WARN",
+		"edge.approved": "approved",
+		"edge.denied": "denied",
+		"edge.imported": "imported",
+		"edge.ok": "ok",
+		"edge.provisioned": "provisioned",
+		"edge.registered": "registered pending",
+		"edge.revoked": "revoked",
+		"edge.usage": "usage: netductor edge list|pending|approve|deny|revoke|register|recovery|export|import|set-site|cmd|provision …",
+		"fleet.usage": "usage: netductor fleet …",
+		"help.main": "netductor — network control plane\n\n  tui|menu [--mode vps|openwrt|workstation|operator] …\n  deploy primary|secondary|edge\n  backup | restore | recover | fleet | audit | self-install | update\n  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | mtls | serve | install | probe | collect | help\n\n  (no args on a TTY → interactive menu)\n\nWorkstation: docs/DEPLOY-WORKSTATION.md\n",
+		"install.usage": "usage: netductor install [flags]",
+		"mtls.client_material": "client material:",
+		"mtls.clients_none": "clients: (none)",
+		"mtls.empty": "(empty)",
+		"mtls.enqueued_edge": "enqueued edge mtls_refresh id=",
 		"mtls.enqueued_secondary": "enqueued secondary mtls_refresh",
-		"mtls.push_manual":        "could not enqueue push — re-provision or copy manually",
-		"mtls.grace_note":         "old serial valid for grace hours:",
-		"mtls.empty":              "(empty)",
-		"mtls.rollover_started":   "CA dual-trust started (ca-new)",
-		"mtls.rollover_issued":    "issued from ca-new + push queued for",
-		"mtls.rollover_done":      "CA rollover finished",
-		"mtls.rollover_abort":     "CA rollover aborted",
-		"mtls.unknown":            "unknown mtls subcommand",
-		"sites.usage":             "usage: netductor sites …",
-		"nodes.usage":             "usage: netductor nodes …",
-		"fleet.usage":             "usage: netductor fleet …",
-		"backup.usage":            "usage: netductor backup …",
-		"status.header":           "netductor status",
+		"mtls.grace_note": "old serial valid for grace hours:",
+		"mtls.help": "netductor mtls ensure | issue-client | list | revoke | rotate | revoked\nnetductor mtls rollover start|status|issue <id>|finish|abort\n",
+		"mtls.material": "material:",
+		"mtls.pending_header": "pending rotates (grace):",
+		"mtls.push_manual": "could not enqueue push — re-provision or copy manually",
+		"mtls.ready": "mtls ready:",
+		"mtls.revoked_node": "revoked node",
+		"mtls.revoked_serial": "revoked serial",
+		"mtls.rollover_abort": "CA rollover aborted",
+		"mtls.rollover_done": "CA rollover finished",
+		"mtls.rollover_issued": "issued from ca-new + push queued for",
+		"mtls.rollover_started": "CA dual-trust started (ca-new)",
+		"mtls.rotated": "rotated",
+		"mtls.unknown": "unknown mtls subcommand",
+		"mtls.usage.issue": "usage: netductor mtls issue-client <node-id>",
+		"mtls.usage.revoke": "usage: netductor mtls revoke <serial-hex|node-id>",
+		"mtls.usage.rotate": "usage: netductor mtls rotate <node-id>",
+		"nodes.usage": "usage: netductor nodes …",
+		"nvr.usage": "usage: netductor nvr …",
+		"secondary.pull_hint": "secondaries will pull on next heartbeat (~30s)",
+		"secondary.usage": "usage: netductor secondary export|join|links|status|sync|exit|provision …",
+		"sites.usage": "usage: netductor sites …",
+		"status.header": "netductor status",
+		"vpn.active": "active %s",
+		"vpn.config_applied": "config applied",
+		"vpn.expires": "expires_unix=%d hours=%d",
+		"vpn.name_required": "name required",
+		"vpn.not_found": "not found",
+		"vpn.presets": "presets=%d",
+		"vpn.refreshed": "refreshed %d",
+		"vpn.revoked_all": "revoked all",
+		"vpn.secondary_hdr": "--- secondary ---",
+		"vpn.sni_set": "sni set to %s",
+		"vpn.sub_removed": "subscription removed; use: link NAME vless|core|hy2",
+		"vpn.usage": "usage: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session …",
+		"vpn.usage.client_config": "usage: netductor vpn client-config <name>",
+		"vpn.usage.edge_cmd": "usage: netductor vpn edge-cmd <device_id> <action> [arg]",
+		"vpn.usage.rename": "usage: netductor vpn rename <old> <new>",
+		"vpn.usage.set_sni": "usage: netductor vpn set-sni <hostname|preset>",
+		"vpn.user_not_found": "user not found",
+		"vpn.via": "via %s",
 	}
 	dict["ru"] = map[string]string{
-		"help.main": `netductor — плоскость управления сетью
-
-  tui|menu [--mode vps|openwrt|workstation|operator] …
-  deploy primary|secondary|edge
-  backup | restore | recover | fleet | audit | self-install | update
-  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | mtls | serve | install | probe | collect | help
-
-  (без аргументов в TTY → интерактивное меню)
-
-Workstation: docs/DEPLOY-WORKSTATION.md
-`,
-		"doctor.header":           "netductor doctor role=%s host=%s",
-		"doctor.ok":               "OK  ",
-		"doctor.warn":             "WARN",
-		"doctor.fail":             "FAIL",
-		"edge.usage":              "использование: netductor edge list|pending|approve|deny|revoke|register|recovery|export|import|set-site|cmd|provision …",
-		"edge.approved":           "одобрен",
-		"edge.denied":             "отклонён",
-		"edge.revoked":            "отозван",
-		"edge.registered":         "зарегистрирован (pending)",
-		"edge.provisioned":        "provision выполнен",
-		"edge.imported":           "импортировано",
-		"edge.ok":                 "ok",
-		"vpn.usage":               "использование: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session …",
-		"vpn.refreshed":           "обновлено %d",
-		"secondary.usage":         "использование: netductor secondary export|join|links|status|sync|exit|provision …",
-		"secondary.pull_hint":     "secondary подтянут на следующем heartbeat (~30с)",
-		"install.usage":           "использование: netductor install [флаги]",
-		"nvr.usage":               "использование: netductor nvr …",
-		"mtls.help": `netductor mtls ensure | issue-client | list | revoke | rotate | revoked
-netductor mtls rollover start|status|issue <id>|finish|abort
-`,
-		"mtls.ready":              "mtls готов:",
-		"mtls.usage.issue":        "использование: netductor mtls issue-client <node-id>",
-		"mtls.client_material":    "материал клиента:",
-		"mtls.clients_none":       "клиенты: (нет)",
-		"mtls.pending_header":     "ожидают rotate (grace):",
-		"mtls.usage.revoke":       "использование: netductor mtls revoke <serial|node-id>",
-		"mtls.revoked_node":       "отозван узел",
-		"mtls.revoked_serial":     "отозван serial",
-		"mtls.usage.rotate":       "использование: netductor mtls rotate <node-id>",
-		"mtls.rotated":            "перевыпущен",
-		"mtls.material":           "материал:",
-		"mtls.enqueued_edge":      "в очередь edge mtls_refresh id=",
+		"backup.usage": "использование: netductor backup …",
+		"doctor.blocky_all": "WARN blocky :53 на 0.0.0.0 (лучше 127.0.0.1)",
+		"doctor.blocky_local": "OK   blocky :53 только localhost",
+		"doctor.blocky_on_sec": "WARN blocky на secondary (обычно только primary)",
+		"doctor.blocky_unknown": "WARN blocky :53 режим listen неизвестен",
+		"doctor.claim_first": "WARN CLAIM_FIRST включён — отключите в production",
+		"doctor.fail": "FAIL",
+		"doctor.header": "netductor doctor role=%s host=%s",
+		"doctor.hostname_ok": "OK   hostname=%s",
+		"doctor.hostname_warn": "WARN hostname=%s (ожидался nd-secondary*)",
+		"doctor.info": "INFO",
+		"doctor.installed_version": "INFO installed_version=%s",
+		"doctor.mtls_client_line": "%s mtls client %s истекает через %d дн. serial=%s",
+		"doctor.mtls_client_revoked": "WARN mtls client %s serial=%s REVOKED",
+		"doctor.mtls_expired": "FAIL mtls %s истёк (%s)",
+		"doctor.mtls_expires_soon": "WARN mtls %s истекает через %d дн. (%s)",
+		"doctor.mtls_listen_fail": "FAIL agent plane mTLS :%s не слушает",
+		"doctor.mtls_listen_ok": "OK   agent plane mTLS :%s",
+		"doctor.mtls_missing": "FAIL нет mtls server certs (netductor mtls ensure)",
+		"doctor.mtls_pending": "WARN mtls pending rotate node=%s old=%s new=%s",
+		"doctor.mtls_server_ok": "OK   mtls server certs",
+		"doctor.mtls_valid": "OK   mtls %s валиден ~%d дн.",
+		"doctor.nvr": "NVR",
+		"doctor.nvr_hint": "  hint: %s",
+		"doctor.nvr_missing": "  каталог segments отсутствует (%v)",
+		"doctor.nvr_notdir": "  segments: не каталог",
+		"doctor.nvr_path": "  path: %s",
+		"doctor.nvr_record": "  record_enabled: %v  retention_days=%d max_gb=%.0f min_free_gb=%.0f",
+		"doctor.nvr_retention": "  last retention: deleted=%d kept=%d at=%d",
+		"doctor.nvr_segments": "  segments: %d файлов, ~%.2f GB",
+		"doctor.nvr_storage": "  storage: exists=%v writable=%v mount=%v free=%.1fGB segments=%d (%.2fGB)",
+		"doctor.ok": "OK  ",
+		"doctor.plain_8788_fail": "FAIL agent plane :8788 plain слушает (только emergency: NETDUCTOR_PLAIN_AGENT=1)",
+		"doctor.plain_8788_ok": "OK   agent plane :8788 не открыт",
+		"doctor.redirect_health_bad": "WARN redirect :80 /healthz не OK",
+		"doctor.redirect_health_ok": "OK   redirect :80 /healthz",
+		"doctor.redirect_ok": "OK   NETDUCTOR_REDIRECT_BASE=%s",
+		"doctor.redirect_unset": "WARN NETDUCTOR_REDIRECT_BASE не задан (TG deep-link; SR Config как документ всё ещё работает)",
+		"doctor.secondary_reg": "INFO registry secondary присутствует",
+		"doctor.sni": "INFO reality_sni=%s",
+		"doctor.summary": "\nИтого: ok=%d fail=%d warn=%d",
+		"doctor.warn": "WARN",
+		"edge.approved": "одобрен",
+		"edge.denied": "отклонён",
+		"edge.imported": "импортировано",
+		"edge.ok": "ok",
+		"edge.provisioned": "provision выполнен",
+		"edge.registered": "зарегистрирован (pending)",
+		"edge.revoked": "отозван",
+		"edge.usage": "использование: netductor edge list|pending|approve|deny|revoke|register|recovery|export|import|set-site|cmd|provision …",
+		"fleet.usage": "использование: netductor fleet …",
+		"help.main": "netductor — плоскость управления сетью\n\n  tui|menu [--mode vps|openwrt|workstation|operator] …\n  deploy primary|secondary|edge\n  backup | restore | recover | fleet | audit | self-install | update\n  version | doctor | status | vpn | sites | ssh-hosts | secondary | addons | edge | nvr | mtls | serve | install | probe | collect | help\n\n  (без аргументов в TTY → интерактивное меню)\n\nWorkstation: docs/DEPLOY-WORKSTATION.md\n",
+		"install.usage": "использование: netductor install [флаги]",
+		"mtls.client_material": "материал клиента:",
+		"mtls.clients_none": "клиенты: (нет)",
+		"mtls.empty": "(пусто)",
+		"mtls.enqueued_edge": "в очередь edge mtls_refresh id=",
 		"mtls.enqueued_secondary": "в очередь secondary mtls_refresh",
-		"mtls.push_manual":        "не удалось поставить push — re-provision вручную",
-		"mtls.grace_note":         "старый serial действует (часы grace):",
-		"mtls.empty":              "(пусто)",
-		"mtls.rollover_started":   "Dual-trust CA начат (ca-new)",
-		"mtls.rollover_issued":    "выпущен от ca-new + push для",
-		"mtls.rollover_done":      "Rollover CA завершён",
-		"mtls.rollover_abort":     "Rollover отменён",
-		"mtls.unknown":            "неизвестная подкоманда mtls",
-		"sites.usage":             "использование: netductor sites …",
-		"nodes.usage":             "использование: netductor nodes …",
-		"fleet.usage":             "использование: netductor fleet …",
-		"backup.usage":            "использование: netductor backup …",
-		"status.header":           "netductor status",
+		"mtls.grace_note": "старый serial действует (часы grace):",
+		"mtls.help": "netductor mtls ensure | issue-client | list | revoke | rotate | revoked\nnetductor mtls rollover start|status|issue <id>|finish|abort\n",
+		"mtls.material": "материал:",
+		"mtls.pending_header": "ожидают rotate (grace):",
+		"mtls.push_manual": "не удалось поставить push — re-provision вручную",
+		"mtls.ready": "mtls готов:",
+		"mtls.revoked_node": "отозван узел",
+		"mtls.revoked_serial": "отозван serial",
+		"mtls.rollover_abort": "Rollover отменён",
+		"mtls.rollover_done": "Rollover CA завершён",
+		"mtls.rollover_issued": "выпущен от ca-new + push для",
+		"mtls.rollover_started": "Dual-trust CA начат (ca-new)",
+		"mtls.rotated": "перевыпущен",
+		"mtls.unknown": "неизвестная подкоманда mtls",
+		"mtls.usage.issue": "использование: netductor mtls issue-client <node-id>",
+		"mtls.usage.revoke": "использование: netductor mtls revoke <serial|node-id>",
+		"mtls.usage.rotate": "использование: netductor mtls rotate <node-id>",
+		"nodes.usage": "использование: netductor nodes …",
+		"nvr.usage": "использование: netductor nvr …",
+		"secondary.pull_hint": "secondary подтянут на следующем heartbeat (~30с)",
+		"secondary.usage": "использование: netductor secondary export|join|links|status|sync|exit|provision …",
+		"sites.usage": "использование: netductor sites …",
+		"status.header": "netductor status",
+		"vpn.active": "active %s",
+		"vpn.config_applied": "конфиг применён",
+		"vpn.expires": "expires_unix=%d hours=%d",
+		"vpn.name_required": "нужно имя",
+		"vpn.not_found": "не найдено",
+		"vpn.presets": "presets=%d",
+		"vpn.refreshed": "обновлено %d",
+		"vpn.revoked_all": "все session отозваны",
+		"vpn.secondary_hdr": "--- secondary ---",
+		"vpn.sni_set": "sni установлен: %s",
+		"vpn.sub_removed": "subscription убран; используйте: link NAME vless|core|hy2",
+		"vpn.usage": "использование: netductor vpn add|list|rename|link|refresh-links|note|disable|enable|revoke|apply|set-sni|session …",
+		"vpn.usage.client_config": "использование: netductor vpn client-config <name>",
+		"vpn.usage.edge_cmd": "использование: netductor vpn edge-cmd <device_id> <action> [arg]",
+		"vpn.usage.rename": "использование: netductor vpn rename <old> <new>",
+		"vpn.usage.set_sni": "использование: netductor vpn set-sni <hostname|preset>",
+		"vpn.user_not_found": "пользователь не найден",
+		"vpn.via": "через %s",
 	}
 }
 
 func T(key string, args ...any) string {
 	lang := Lang()
 	s, ok := dict[lang][key]
-	if !ok {
-		s, ok = dict["en"][key]
-	}
-	if !ok {
-		s = key
-	}
-	if len(args) == 0 {
-		return s
-	}
+	if !ok { s, ok = dict["en"][key] }
+	if !ok { s = key }
+	if len(args) == 0 { return s }
 	return fmt.Sprintf(s, args...)
 }
 
 func Register(lang, key, value string) {
-	if dict[lang] == nil {
-		dict[lang] = map[string]string{}
-	}
+	if dict[lang] == nil { dict[lang] = map[string]string{} }
 	dict[lang][key] = value
 }
