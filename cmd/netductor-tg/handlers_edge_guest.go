@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 )
@@ -58,13 +59,24 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 	if strings.HasPrefix(rest, "st:") {
 		id := strings.TrimPrefix(rest, "st:")
 		cid := edge.EnqueueCmd(id, "guest_status", "")
-		msg := fmt.Sprintf("Status queued <code>%s</code> (heartbeat ~30–90s).", esc(cid))
-		if ru {
-			msg = fmt.Sprintf("Status в очереди <code>%s</code> (heartbeat ~30–90с).", esc(cid))
+		if cid == "" {
+			msg := "Не удалось поставить в очередь (устройство не approved?)"
+			if !ru {
+				msg = "Enqueue failed (device not approved?)"
+			}
+			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("«", "m:edgeguest:dev:"+id, "")},
+			}})
+			return true
 		}
-		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{
+		waitMsg := "⏳ Ждём ответ агента (до ~90с)…"
+		if !ru {
+			waitMsg = "⏳ Waiting for agent (up to ~90s)…"
+		}
+		reply(token, chat, msgID, waitMsg+"\n<code>"+esc(cid)+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("«", "m:edgeguest:dev:"+id, "")},
 		}})
+		go waitAndReplyEdgeCmd(token, chat, msgID, cid, id, ru)
 		return true
 	}
 	if strings.HasPrefix(rest, "g:") {
@@ -89,6 +101,7 @@ func handleEdgeGuestText(token string, chat int64, text string) bool {
 	}
 	id := chatExtra[chat]
 	setState(chat, "", "")
+	ru := getLang() != "en"
 	parts := strings.Fields(text)
 	if len(parts) < 1 {
 		return true
@@ -106,7 +119,56 @@ func handleEdgeGuestText(token string, chat int64, text string) bool {
 	}
 	arg := fmt.Sprintf("%s|%d", code, mins)
 	cid := edge.EnqueueCmd(id, "guest_grant", arg)
-	reply(token, chat, 0, fmt.Sprintf("Grant queued <code>%s</code> → %s (%dm)", esc(cid), esc(code), mins),
-		map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:edgeguest:dev:"+id, "")}}})
+	if cid == "" {
+		msg := "Enqueue failed (device not approved?)"
+		if ru {
+			msg = "Не удалось поставить в очередь"
+		}
+		reply(token, chat, 0, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:edgeguest:dev:"+id, "")}}})
+		return true
+	}
+	waitMsg := fmt.Sprintf("⏳ Grant %s (%dm)… ждём агент", esc(code), mins)
+	if !ru {
+		waitMsg = fmt.Sprintf("⏳ Grant %s (%dm)… waiting agent", esc(code), mins)
+	}
+	// msgID 0 → new message; still poll result
+	reply(token, chat, 0, waitMsg+"\n<code>"+esc(cid)+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:edgeguest:dev:"+id, "")}}})
+	go waitAndReplyEdgeCmd(token, chat, 0, cid, id, ru)
 	return true
+}
+
+func waitAndReplyEdgeCmd(token string, chat int64, msgID int, cid, deviceID string, ru bool) {
+	res, err := edge.WaitCmdResult(cid, 90*time.Second)
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("«", "m:edgeguest:dev:"+deviceID, ""), btn(T("main_menu"), "m:menu", "primary")},
+	}}
+	if err != nil {
+		msg := "⏱ Таймаут: агент не ответил за 90с. Проверьте online / heartbeat."
+		if !ru {
+			msg = "⏱ Timeout: no agent result in 90s. Check online/heartbeat."
+		}
+		reply(token, chat, msgID, msg, kb)
+		return
+	}
+	out, _ := res["output"].(string)
+	if out == "" {
+		out, _ = res["result"].(string)
+	}
+	if out == "" {
+		out = fmt.Sprintf("%v", res)
+	}
+	title := "✅ Результат"
+	if !ru {
+		title = "✅ Result"
+	}
+	body := title + "\n<pre>" + esc(truncateRunes(out, 3500)) + "</pre>"
+	reply(token, chat, msgID, body, kb)
+}
+
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }

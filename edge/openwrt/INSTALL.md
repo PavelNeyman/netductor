@@ -4,7 +4,7 @@ Outbound-only Go agent. No shell site installer in-tree.
 
 ```sh
 ARCH=arm64   # arm | amd64 | mipsle
-TAG=v0.8.25
+TAG=v0.8.26
 curl -fsSL -o /usr/sbin/netductor-agent \
   "https://github.com/PavelNeyman/netductor/releases/download/${TAG}/netductor-agent-linux-${ARCH}"
 chmod 755 /usr/sbin/netductor-agent
