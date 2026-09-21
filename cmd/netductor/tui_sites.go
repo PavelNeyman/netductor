@@ -42,7 +42,7 @@ func runSiteWizard() {
 			huh.NewNote().Title(TT(detectLang(), "MikroTik SSH", "MikroTik SSH")).Description(TT(detectLang(), "Credentials are not stored on disk.", "Учётные данные не сохраняются на диск.")),
 			huh.NewInput().Title(TT(detectLang(), "MT host / IP", "MT host / IP")).Value(&mtHost),
 			huh.NewInput().Title(TT(detectLang(), "SSH user", "SSH пользователь")).Value(&mtUser),
-			huh.NewInput().Title(TT(detectLang(), "SSH password", "SSH пароль")).Password(true).Value(&mtPass),
+			huh.NewInput().Title(TT(detectLang(), "SSH password", "SSH пароль")).EchoMode(huh.EchoModePassword).Value(&mtPass),
 			huh.NewInput().Title(TT(detectLang(), "SSH port", "SSH порт")).Value(&mtPort),
 			huh.NewConfirm().Title(TT(detectLang(), "Push RSC now?", "Залить RSC сейчас?")).Affirmative(TT(detectLang(), "Push", "Залить")).Negative(TT(detectLang(), "Only save site + show RSC", "Только сохранить сайт + показать RSC")).Value(&doPush),
 		),
@@ -148,7 +148,7 @@ func runMikroTikManage() {
 			huh.NewNote().Title(TT(detectLang(), "MikroTik manage", "Управление MikroTik")).Description(TT(detectLang(), "One-shot SSH · not stored", "Разовый SSH · не сохраняется")),
 			huh.NewInput().Title(TT(detectLang(), "Host", "Host")).Value(&host),
 			huh.NewInput().Title(TT(detectLang(), "User", "Пользователь")).Value(&user),
-			huh.NewInput().Title(TT(detectLang(), "Password", "Пароль")).Password(true).Value(&pass),
+			huh.NewInput().Title(TT(detectLang(), "Password", "Пароль")).EchoMode(huh.EchoModePassword).Value(&pass),
 			huh.NewInput().Title(TT(detectLang(), "Port", "Порт")).Value(&portStr),
 			huh.NewSelect[string]().Title(TT(detectLang(), "Action", "Действие")).Options(
 				huh.NewOption(TT(detectLang(), "Identity", "Identity"), "identity"),

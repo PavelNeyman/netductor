@@ -36,11 +36,10 @@ func Email(subject, body string) error {
 	if from == "" {
 		from = "netductor@localhost"
 	}
-	host, port, err := net.SplitHostPort(hostPort)
+	host, _, err := net.SplitHostPort(hostPort)
 	if err != nil {
 		host = hostPort
-		port = "587"
-		hostPort = net.JoinHostPort(host, port)
+		hostPort = net.JoinHostPort(host, "587")
 	}
 	recipients := []string{}
 	for _, a := range strings.Split(toList, ",") {

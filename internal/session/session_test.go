@@ -1,6 +1,7 @@
 package session
 
 import (
+	"time"
 	"os"
 	"path/filepath"
 	"testing"
@@ -74,8 +75,9 @@ func TestMaxHoursEnforced(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// ~72h
-	if exp-exp+int64(MaxHours)*3600 < int64(MaxHours)*3600-10 {
-		t.Fatal()
+	now := time.Now().Unix()
+	max := now + int64(MaxHours)*3600
+	if exp < now || exp > max+120 {
+		t.Fatalf("exp=%d now=%d max=%d", exp, now, max)
 	}
 }

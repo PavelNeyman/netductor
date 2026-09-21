@@ -1,4 +1,4 @@
-# Deep code / security / UI review — v0.8.21 (2026-09-21)
+# Deep code / security / UI review — v0.8.22 (2026-09-21)
 
 ## 1. Executive summary
 

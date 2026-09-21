@@ -21,7 +21,7 @@ func ApplyConfig() error {
 	priv := secret("singbox_reality_private")
 	sid := secret("singbox_short_id")
 	if priv == "" || sid == "" {
-		return fmt.Errorf("Reality secrets missing")
+		return fmt.Errorf("reality secrets missing")
 	}
 	r, err := loadRegistry()
 	if err != nil {
@@ -286,7 +286,7 @@ func ApplyConfigDryRun() (string, error) {
 	priv := secret("singbox_reality_private")
 	sid := secret("singbox_short_id")
 	if priv == "" || sid == "" {
-		return "", fmt.Errorf("Reality secrets missing")
+		return "", fmt.Errorf("reality secrets missing")
 	}
 	r, err := loadRegistry()
 	if err != nil {

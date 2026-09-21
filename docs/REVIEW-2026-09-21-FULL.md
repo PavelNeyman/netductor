@@ -1,4 +1,4 @@
-# Full review cycle — code · security · refactor · UI (v0.8.21)
+# Full review cycle — code · security · refactor · UI (v0.8.22)
 
 Date: 2026-09-21. Baseline after tests + parity scripts green.
 
@@ -15,7 +15,7 @@ Date: 2026-09-21. Baseline after tests + parity scripts green.
 ### Issues found & fixed this cycle
 | Issue | Severity | Action |
 |-------|----------|--------|
-| Primary `nodes local-cmd upgrade` used **base64 bash** pinned to **v0.7.0-dev** | **High** | Replaced with pure Go upgrade using `deploy.Release` (0.8.21) |
+| Primary `nodes local-cmd upgrade` used **base64 bash** pinned to **v0.7.0-dev** | **High** | Replaced with pure Go upgrade using `deploy.Release` (0.8.22) |
 | Secondary upgrade was shell (earlier) | Med | Pure Go since 0.8.17 |
 
 ### Remaining soft debt (non-blocking)
@@ -67,17 +67,17 @@ Matches product intent. Control plane stays on VPS after install.
 |---------|-------|-------|
 | TG | Strong | |
 | TUI | Strong | TT/FormT + locale |
-| Admin | Strong (0.8.21) | data-i18n pass |
+| Admin | Strong (0.8.22) | data-i18n pass |
 | CLI | doctor/vpn/mtls/help | cli18n |
 
 `scripts/check-ui-parity.sh` — all groups **OK**  
 `docs/UI-PARITY.md` — matrix  
 
-## 5. Refactor plan (post-0.8.21)
+## 5. Refactor plan (post-0.8.22)
 
 | P | Item | Status |
 |---|------|--------|
-| P0 | Fix primary upgrade pin | **done 0.8.21** |
+| P0 | Fix primary upgrade pin | **done 0.8.22** |
 | P1 | Hardware e2e | operator |
 | P2 | Domain HTTPS redirect | when domain exists |
 | P2 | Drop `m:relay` alias after TG clients refreshed | later |
