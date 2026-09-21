@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.36**.
+Baseline: **v0.8.37**.
 
 ## Gates (green)
 `go test` / version pins / git+registry UI parity / GHA-subset runner
@@ -36,3 +36,4 @@ Baseline: **v0.8.36**.
 - Registry default `127.0.0.1:5000`; auth optional if exposed
 - Git over SSH key-only (52222); API/Admin/TG require session/ACL
 - Artifact reads path-contained under `git-artifacts/`
+- API systemd restart allowlist: `netductor-*` only

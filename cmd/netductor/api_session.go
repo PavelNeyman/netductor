@@ -18,6 +18,30 @@ import (
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
+var allowedSystemdRestart = map[string]bool{
+	"netductor-api":            true,
+	"netductor-telegram-bot":   true,
+	"netductor-secondary-agent": true,
+	"netductor-agent":          true,
+	"netductor":                true,
+}
+
+func allowSystemdUnit(unit string) bool {
+	unit = strings.TrimSpace(unit)
+	if unit == "" || strings.ContainsAny(unit, " \t\r\n;/|&") {
+		return false
+	}
+	if allowedSystemdRestart[unit] {
+		return true
+	}
+	// allow netductor-*.service style
+	if strings.HasPrefix(unit, "netductor-") && !strings.Contains(unit, "..") {
+		return true
+	}
+	return false
+}
+
+
 func registerSessionAPI(mux *http.ServeMux) {
 	// --- operator session ---
 
@@ -93,6 +117,10 @@ func registerSessionAPI(mux *http.ServeMux) {
 		if body.ID != "" && (strings.HasPrefix(body.ID, "secondary-") || strings.Contains(body.ID, "secondary")) {
 			_ = secondary.EnqueueCmd(body.ID, "restart:"+body.Unit)
 			writeJSON(w, 200, map[string]any{"ok": true, "queued": true})
+			return
+		}
+		if !allowSystemdUnit(body.Unit) {
+			writeJSON(w, 400, map[string]string{"error": "unit not allowed"})
 			return
 		}
 		out, err := exec.Command("systemctl", "restart", body.Unit).CombinedOutput()

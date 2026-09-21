@@ -1,3 +1,8 @@
+## 0.8.37
+
+- Security: API systemd restart allowlist (`netductor-*` only)
+- Docs/handoff baseline lock after isolated CI + deep review (no large refactor)
+
 ## 0.8.36
 
 - Isolated CI: builds/tests in docker/podman by default (`netductor ci status|test|exec`)

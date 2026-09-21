@@ -1,4 +1,4 @@
-## 0.8.36
+## 0.8.37
 
 - Isolated CI: `internal/ci` + `netductor ci`; GHA `container:`; managed pipelines
 - Seller TG bot → ideas only
@@ -14,7 +14,7 @@
 
 # Agent handoff — netductor
 
-**Version:** 0.8.35  
+**Version:** 0.8.37  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Last full review:** `docs/REVIEW-2026-09-21-FULL.md`  
 **Residual risks:** `docs/RESIDUAL_RISKS.md`  
@@ -776,11 +776,11 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.36 (2026-09-22)
+## Current baseline — v0.8.37 (2026-09-22)
 
 ### Release
-- Tag: **v0.8.36** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.36
-- Homebrew Formula tracks `0.8.35` · `brew reinstall netductor`
+- Tag: **v0.8.37** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.37
+- Homebrew Formula tracks `0.8.37` · `brew reinstall netductor`
 
 ### Locked product surface
 - **Mac workstation TUI** deploy: primary / secondary / OpenWrt / MikroTik / NVR (single path → huh wizards)
@@ -793,13 +793,16 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 ### Operator open
 Hardware e2e · Domain/HTTPS · SMTP · Restore-drill — see [OPEN_ITEMS](OPEN_ITEMS.md)
 
-### Security review snapshot (v0.8.36)
+### Security review snapshot (v0.8.37)
 **OK**
 - Git/registry APIs gated by `requireSession`
 - Pipeline scripts only from `PipelineDir` (`filepath.Base`)
 - Artifact path containment (no `..` escape)
 - Registry bound to 127.0.0.1 by default
 - Agent plane rate limit + ban; mTLS VerifyPeerCertificate + revoke list
+
+**Fixed in lock pass**
+- API `systemctl restart` restricted to `netductor-*` units
 
 **Residual / accepted**
 1. GHA `run:` and shell pipelines execute as the service user (root on typical VPS) — operator-controlled, same as self-hosted CI
