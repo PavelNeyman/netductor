@@ -251,6 +251,12 @@ func runDoctorNative() int {
 				ok++
 			}
 		}
+		if pend, err := mtls.PendingRotates(); err == nil && len(pend) > 0 {
+			for _, p := range pend {
+				fmt.Printf("WARN mtls pending rotate node=%s old=%s new=%s\n", p.NodeID, p.OldSerial, p.NewSerial)
+				warn++
+			}
+		}
 		if clients, err := mtls.ListClientCerts(); err == nil {
 			for _, c := range clients {
 				tag := "OK  "

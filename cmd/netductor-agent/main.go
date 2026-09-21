@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
@@ -17,7 +19,7 @@ import (
 	"time"
 )
 
-var version = "0.8.13"
+var version = "0.8.14"
 
 type config struct {
 	Server   string
@@ -123,7 +125,6 @@ func applyLocalOverlayOnce() {
 	fmt.Fprintf(os.Stderr, "local.uci: %s\n", res)
 	_ = os.WriteFile(marker, []byte(res+"\n"), 0o600)
 }
-
 
 func agentDir() string {
 	if v := os.Getenv("NETDUCTOR_AGENT_DIR"); v != "" {
@@ -362,7 +363,6 @@ func collectMetrics() map[string]any {
 	return m
 }
 
-
 func checkRelayAndFallback() {
 	relayHost := strings.TrimSpace(readFirstLine("/etc/netductor-agent/secondary.host"))
 	if relayHost == "" {
@@ -405,6 +405,9 @@ func readFirstLine(path string) string {
 func heartbeat(client *http.Client, cfg config) error {
 	payload := collectMetrics()
 	payload["device_id"] = cfg.DeviceID
+	if ser := localClientCertSerial(); ser != "" {
+		payload["cert_serial"] = ser
+	}
 	_, err := doJSON(client, http.MethodPost, cfg.Server+"/api/edge/heartbeat", cfg.Token, payload)
 	if err != nil {
 		return err
@@ -506,6 +509,8 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return configRestore(client, cfg, arg)
 	case "apply_template", "bootstrap_apply":
 		return applyTemplate(client, cfg)
+	case "mtls_refresh":
+		return mtlsRefresh(client, cfg)
 	case "agent_update":
 		if !strings.Contains(arg, "confirm=yes") {
 			return "agent_update: need confirm=yes in arg (URL|sha|confirm=yes)"
@@ -536,10 +541,6 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 	}
 }
 
-
-
-
-
 var (
 	nvrRecMu   sync.Mutex
 	nvrRecCmds = map[string]*exec.Cmd{}
@@ -556,7 +557,6 @@ func truncate(s string, n int) string {
 	return s
 }
 
-
 func readConfigFlag(key string) string {
 	b, err := os.ReadFile(filepath.Join(agentDir(), "config"))
 	if err != nil {
@@ -569,4 +569,55 @@ func readConfigFlag(key string) string {
 		}
 	}
 	return ""
+}
+
+func localClientCertSerial() string {
+	for _, p := range []string{
+		"/etc/netductor-agent/mtls/client.crt",
+		"/etc/netductor/secrets/mtls/client.crt",
+	} {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		block, _ := pem.Decode(b)
+		if block == nil {
+			continue
+		}
+		c, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			continue
+		}
+		return strings.ToLower(c.SerialNumber.Text(16))
+	}
+	return ""
+}
+
+func mtlsRefresh(client *http.Client, cfg config) string {
+	data, err := doJSON(client, http.MethodGet, cfg.Server+"/api/edge/mtls/material", cfg.Token, nil)
+	if err != nil {
+		return "mtls_refresh: " + err.Error()
+	}
+	var body struct {
+		CA   string `json:"ca_pem"`
+		Cert string `json:"cert_pem"`
+		Key  string `json:"key_pem"`
+	}
+	if err := json.Unmarshal(data, &body); err != nil {
+		return "mtls_refresh: bad json"
+	}
+	if body.Cert == "" || body.Key == "" {
+		return "mtls_refresh: empty material"
+	}
+	dir := "/etc/netductor-agent/mtls"
+	_ = os.MkdirAll(dir, 0o700)
+	_ = os.WriteFile(filepath.Join(dir, "ca.crt"), []byte(body.CA), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "client.crt"), []byte(body.Cert), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "client.key"), []byte(body.Key), 0o600)
+	// also default path used by some installs
+	_ = os.MkdirAll("/etc/netductor/secrets/mtls", 0o700)
+	_ = os.WriteFile("/etc/netductor/secrets/mtls/ca.crt", []byte(body.CA), 0o600)
+	_ = os.WriteFile("/etc/netductor/secrets/mtls/client.crt", []byte(body.Cert), 0o600)
+	_ = os.WriteFile("/etc/netductor/secrets/mtls/client.key", []byte(body.Key), 0o600)
+	return "mtls material written — restart agent to use new cert"
 }

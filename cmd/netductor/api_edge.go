@@ -3,16 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/audit"
+	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/mtls"
+	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/sites"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-	"github.com/PavelNeyman/netductor/internal/audit"
-	"github.com/PavelNeyman/netductor/internal/edge"
-	"github.com/PavelNeyman/netductor/internal/nodes"
-	"github.com/PavelNeyman/netductor/internal/notify"
-	"github.com/PavelNeyman/netductor/internal/sites"
 )
 
 func registerEdgeAPI(mux *http.ServeMux) {
@@ -110,7 +111,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		_ = edge.SaveMetrics(did, payload)
 		writeJSON(w, 200, map[string]string{"ok": "true"})
 	})
-			mux.HandleFunc("/api/edge/template", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/edge/template", func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		did := r.URL.Query().Get("device_id")
 		if did == "" {
@@ -232,6 +233,9 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			return
 		}
 		edge.Heartbeat(payload)
+		if ser, _ := payload["cert_serial"].(string); ser != "" {
+			_ = mtls.ConfirmRotate(did, ser)
+		}
 		hn, _ := payload["hostname"].(string)
 		ip, _ := payload["wan_ip"].(string)
 		if ip == "" {
@@ -270,6 +274,29 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"commands": edge.PollCommands(did)})
 	})
+
+	mux.HandleFunc("/api/edge/mtls/material", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeJSON(w, 405, map[string]string{"error": "method"})
+			return
+		}
+		did := edge.DeviceIDFromAuth(r.Header.Get("Authorization"))
+		if did == "" {
+			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			return
+		}
+		ca, cert, key, err := mtls.ReadMaterial(did)
+		if err != nil {
+			writeJSON(w, 404, map[string]string{"error": err.Error()})
+			return
+		}
+		info, _ := mtls.ReadClientInfo(did)
+		writeJSON(w, 200, map[string]any{
+			"ca_pem": string(ca), "cert_pem": string(cert), "key_pem": string(key),
+			"serial": info.Serial, "node_id": did,
+		})
+	})
+
 	mux.HandleFunc("/api/edge/rsc", func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		if edge.DeviceIDFromAuth(auth) == "" {
@@ -334,7 +361,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		edge.CmdResult(body)
 		writeJSON(w, 200, map[string]bool{"ok": true})
 	})
-		mux.HandleFunc("/api/edge/approve", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/edge/approve", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return
 		}
@@ -486,6 +513,5 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "imported": n})
 	})
-
 
 }

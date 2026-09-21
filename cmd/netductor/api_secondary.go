@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/nodes"
-	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/httpx"
 	"github.com/PavelNeyman/netductor/internal/mtls"
+	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -134,8 +134,8 @@ func registerRelayAPI(mux *http.ServeMux) {
 			for _, u := range reg.Users {
 				links = append(links, map[string]string{
 					"secondary": d.ID,
-					"name":  u.Name,
-					"link":  vpn.ClientLinkForSecondary(u.Name, u.UUID, d.PublicIP, d.PBK, d.SID, d.SNI),
+					"name":      u.Name,
+					"link":      vpn.ClientLinkForSecondary(u.Name, u.UUID, d.PublicIP, d.PBK, d.SID, d.SNI),
 				})
 			}
 		}
@@ -145,6 +145,20 @@ func registerRelayAPI(mux *http.ServeMux) {
 	// Agent-facing (token = device token)
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
 	mux.HandleFunc("/api/secondary/agent/config", handleSecondaryAgentConfig)
+	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
+		tok := agentToken(r)
+		d := secondary.FindByToken(tok)
+		if d == nil {
+			http.Error(w, "unauthorized", 401)
+			return
+		}
+		ca, cert, key, err := mtls.ReadMaterial(d.ID)
+		if err != nil {
+			http.Error(w, err.Error(), 404)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ca_pem": string(ca), "cert_pem": string(cert), "key_pem": string(key), "node_id": d.ID})
+	})
 }
 
 func agentToken(r *http.Request) string {
@@ -198,7 +212,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{
 		"ok": true, "config_ver": ver, "need_sync": in.ConfigVer < ver, "id": d.ID,
 		"desired_hostname": desired,
-		"commands": cmds,
+		"commands":         cmds,
 	})
 }
 
@@ -230,6 +244,20 @@ func startSecondaryAgentListener() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
 	mux.HandleFunc("/api/secondary/agent/config", handleSecondaryAgentConfig)
+	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
+		tok := agentToken(r)
+		d := secondary.FindByToken(tok)
+		if d == nil {
+			http.Error(w, "unauthorized", 401)
+			return
+		}
+		ca, cert, key, err := mtls.ReadMaterial(d.ID)
+		if err != nil {
+			http.Error(w, err.Error(), 404)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ca_pem": string(ca), "cert_pem": string(cert), "key_pem": string(key), "node_id": d.ID})
+	})
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("ok\n"))

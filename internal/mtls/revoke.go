@@ -235,26 +235,8 @@ func ListPlaneCerts() []PlaneCertInfo {
 	return out
 }
 
-// RotateClientFor re-issues client cert for nodeID and revokes the previous serial.
+// RotateClientFor re-issues client cert with grace window (old serial valid until ConfirmRotate or grace expiry).
 func RotateClientFor(nodeID, reason string) (ClientInfo, error) {
-	if reason == "" {
-		reason = "rotate"
-	}
-	certPath := filepath.Join(ClientDir(nodeID), ClientCertFile)
-	keyPath := filepath.Join(ClientDir(nodeID), ClientKeyFile)
-	var oldSerial string
-	if fileOK(certPath) {
-		if c, err := parseCertFile(certPath); err == nil {
-			oldSerial = serialHex(c.SerialNumber)
-		}
-		_ = os.Remove(certPath)
-		_ = os.Remove(keyPath)
-	}
-	if _, _, _, err := EnsureClientFor(nodeID); err != nil {
-		return ClientInfo{}, err
-	}
-	if oldSerial != "" {
-		_ = RevokeSerial(oldSerial, nodeID, reason)
-	}
-	return ReadClientInfo(nodeID)
+	info, _, _, _, err := RotateClientForPush(nodeID, reason)
+	return info, err
 }

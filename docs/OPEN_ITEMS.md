@@ -1,26 +1,10 @@
 # Open items
 
-Baseline: **v0.8.13** (PKI revoke/rotate, cert expiry doctor, plane ban).
+Baseline: **v0.8.14**.
 
-## Done (software)
+## Still open
 
-- [x] Primary/secondary, edge recovery, RU-direct, NVR code MVP
-- [x] mTLS :8789, rate-limit + temporary IP ban
-- [x] Client cert **list / revoke / rotate**; doctor expiry WARN ≤30d
-- [x] Self-update SHA256; recovery LAN bind
-- [x] Mac TUI deploy wizards; version pins CI
-
-## Still open (hardware / optional product)
-
-| Item | Notes |
-|------|--------|
-| OpenWrt / MikroTik / Tapo **e2e** | Real devices |
-| Domain + redirect HTTPS | Optional |
-| Admin public | **Not** doing |
-| Path B user bot | Design only |
-| CA rollover dual-trust | Long-term |
-| Auto-push cert after rotate | Use re-provision for now |
-
-## Policy
-
-Admin/API not WAN; agents no auto-rollout; secondary = VPN entry only.
+- Hardware e2e (OpenWrt / MikroTik / Tapo)
+- Optional domain HTTPS
+- Expand cli18n to remaining CLI (doctor/vpn) beyond mtls
+- Path B user bot (design)

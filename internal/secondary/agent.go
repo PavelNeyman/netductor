@@ -163,7 +163,6 @@ func publicIP() string {
 	return strings.TrimSpace(string(out))
 }
 
-
 func sampleMetrics() (cpu float64, memUsed, memTotal int64, load1 float64) {
 	// loadavg
 	if b, err := os.ReadFile("/proc/loadavg"); err == nil {
@@ -192,7 +191,6 @@ func sampleMetrics() (cpu float64, memUsed, memTotal int64, load1 float64) {
 	return
 }
 
-
 func applyHostname(hn string) error {
 	hn = strings.TrimSpace(hn)
 	if hn == "" {
@@ -202,7 +200,6 @@ func applyHostname(hn string) error {
 	_ = os.WriteFile("/etc/hostname", []byte(hn+"\n"), 0o644)
 	return nil
 }
-
 
 func reportCmdDone(client *http.Client, coreBase, token, cmd string, ok bool, log, ip, pub, sid, sni string, sbOK bool, applied int, cpu float64, memU, memT int64, load1 float64) error {
 	body, _ := json.Marshal(HeartbeatIn{
@@ -239,12 +236,14 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		out, err := exec.Command("bash", "-c", `export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq 2>&1 | tail -5
 apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade 2>&1 | tail -30
-wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.8.13/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
+wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.8.14/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
 systemctl restart sing-box 2>&1 || true
 nohup bash -c 'sleep 45; systemctl restart netductor-secondary-agent' >/dev/null 2>&1 &
 echo DONE
 `).CombinedOutput()
 		return err == nil, string(out)
+	case "mtls_refresh":
+		return secondaryMTLSRefresh()
 	case "metrics":
 		return true, "metrics on next heartbeat"
 	case "journal":
@@ -255,11 +254,11 @@ echo DONE
 			unit := strings.TrimPrefix(cmd, "restart:")
 			// allowlist only netductor-related units
 			allowed := map[string]bool{
-				"sing-box":                 true,
+				"sing-box":                  true,
 				"netductor-secondary-agent": true,
-				"netductor-api":            true,
-				"netductor-telegram-bot":   true,
-				"blocky":                   true,
+				"netductor-api":             true,
+				"netductor-telegram-bot":    true,
+				"blocky":                    true,
 			}
 			if !allowed[unit] {
 				return false, "restart denied: unit not in allowlist: " + unit
@@ -271,3 +270,54 @@ echo DONE
 	}
 }
 
+func secondaryMTLSRefresh() (bool, string) {
+	// load token + core URL from secrets
+	tok := ""
+	core := ""
+	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_agent_token"); err == nil {
+		tok = strings.TrimSpace(string(b))
+	}
+	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url"); err == nil {
+		core = strings.TrimSpace(string(b))
+	}
+	if tok == "" || core == "" {
+		return false, "missing secondary_agent_token or secondary_core_url"
+	}
+	core = strings.TrimRight(core, "/")
+	client := &http.Client{Timeout: 60 * time.Second}
+	if tlsCfg, err := mtls.ClientTLSConfig(); err == nil {
+		client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
+	}
+	req, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/mtls/material", nil)
+	if err != nil {
+		return false, err.Error()
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, err.Error()
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return false, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+	var mat struct {
+		CA   string `json:"ca_pem"`
+		Cert string `json:"cert_pem"`
+		Key  string `json:"key_pem"`
+	}
+	if json.Unmarshal(body, &mat) != nil || mat.Cert == "" {
+		return false, "bad material json"
+	}
+	dir := "/etc/netductor/secrets/mtls"
+	_ = os.MkdirAll(dir, 0o700)
+	_ = os.WriteFile(dir+"/ca.crt", []byte(mat.CA), 0o600)
+	_ = os.WriteFile(dir+"/client.crt", []byte(mat.Cert), 0o600)
+	_ = os.WriteFile(dir+"/client.key", []byte(mat.Key), 0o600)
+	go func() {
+		time.Sleep(2 * time.Second)
+		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Start()
+	}()
+	return true, "mtls material written; restarting agent"
+}

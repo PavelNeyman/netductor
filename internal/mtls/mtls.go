@@ -186,6 +186,7 @@ func ServerTLSConfig() (*tls.Config, error) {
 	}
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(caPEM)
+	AppendExtraCAs(pool)
 	cfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    pool,
@@ -219,6 +220,7 @@ func ClientTLSConfig() (*tls.Config, error) {
 	}
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(caPEM)
+	AppendExtraCAs(pool)
 	return &tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: pool, MinVersion: tls.VersionTLS13, ServerName: "netductor-agent-server"}, nil
 }
 
