@@ -47,12 +47,20 @@ func handleRegistryCallback(token string, chat int64, msgID int, data string) bo
 		}
 		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:registry", "")}}})
 	case "m:registry:catalog":
-		list, err := registry.Catalog()
+		list, err := registry.CatalogDetail()
 		msg := "(empty)"
 		if err != nil {
 			msg = err.Error()
 		} else if len(list) > 0 {
-			msg = "<pre>" + esc(strings.Join(list, "\n")) + "</pre>"
+			var lines []string
+			for _, r := range list {
+				line := r.Name
+				if len(r.Tags) > 0 {
+					line += " [" + strings.Join(r.Tags, ", ") + "]"
+				}
+				lines = append(lines, line)
+			}
+			msg = "<pre>" + esc(strings.Join(lines, "\n")) + "</pre>"
 		}
 		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:registry", "")}}})
 	default:

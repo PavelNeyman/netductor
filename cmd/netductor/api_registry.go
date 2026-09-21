@@ -50,11 +50,36 @@ func registerRegistryAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "path": p})
 	})
+	mux.HandleFunc("/api/registry/auth", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		if clear, _ := body["clear"].(bool); clear {
+			err := registry.ClearAuth()
+			audit.Log("session", "registry.auth-clear", "", "")
+			if err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true})
+			return
+		}
+		user, _ := body["user"].(string)
+		pass, _ := body["password"].(string)
+		err := registry.SetAuth(user, pass)
+		audit.Log("session", "registry.auth-set", user, "")
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true})
+	})
 	mux.HandleFunc("/api/registry/catalog", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
-		list, err := registry.Catalog()
+		list, err := registry.CatalogDetail()
 		if err != nil {
 			writeJSON(w, 400, map[string]string{"error": err.Error()})
 			return

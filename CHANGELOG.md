@@ -1,3 +1,9 @@
+## 0.8.34
+
+- Git/registry UI parity: Admin+TG workflow, artifacts; catalog tags; registry htpasswd auth
+- Pipeline/workflow logs under state/git-artifacts; doctor checks git root + registry
+- Sample pipeline `ci-run` (Go/Node/Rust/Python/Make); multi-language docs
+
 ## 0.8.33
 
 - TUI: single deploy path (tab Wizard → confirm → huh deploy wizards); drop dead field forms

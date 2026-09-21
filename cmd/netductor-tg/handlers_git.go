@@ -43,7 +43,8 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		name := strings.TrimPrefix(rest, "repo:")
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("📜 Log", "m:git:log:"+name, ""), btn("🔍 HEAD", "m:git:show:"+name, "")},
-			{btn("▶️ Pipeline", "m:git:pipe:"+name, ""), btn("🗑 Del", "m:git:del:"+name, "")},
+			{btn("▶️ Pipeline", "m:git:pipe:"+name, ""), btn("⚙️ Workflow", "m:git:wf:"+name, "")},
+			{btn("📄 Artifacts", "m:git:art:"+name, ""), btn("🗑 Del", "m:git:del:"+name, "")},
 			{btn("«", "m:git", "")},
 		}}
 		reply(token, chat, msgID, "📦 <b>"+esc(name)+"</b>", kb)
@@ -105,6 +106,28 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			body = "⚠️ " + esc(err.Error()) + "\n" + body
 		} else {
 			body = "✅\n" + body
+		}
+		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		return true
+	}
+	if strings.HasPrefix(rest, "wf:") {
+		name := strings.TrimPrefix(rest, "wf:")
+		out, err := gitstore.RunWorkflow(name, "")
+		body := "<pre>" + esc(out) + "</pre>"
+		if err != nil {
+			body = "❌ " + esc(err.Error()) + "\n" + body
+		}
+		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		return true
+	}
+	if strings.HasPrefix(rest, "art:") {
+		name := strings.TrimPrefix(rest, "art:")
+		list, err := gitstore.ListArtifacts(name)
+		body := "(empty)"
+		if err != nil {
+			body = esc(err.Error())
+		} else if len(list) > 0 {
+			body = "<pre>" + esc(strings.Join(list, "\n")) + "</pre>"
 		}
 		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
 		return true

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/registry"
 )
@@ -14,7 +15,9 @@ func runRegistry(args []string) int {
   netductor registry ensure
   netductor registry stop
   netductor registry crane
-  netductor registry catalog`)
+  netductor registry catalog
+  netductor registry auth-set <user> <pass>
+  netductor registry auth-clear`)
 		return 2
 	}
 	switch args[0] {
@@ -52,14 +55,36 @@ func runRegistry(args []string) int {
 		}
 		fmt.Println(p)
 		return 0
+	case "auth-set":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: netductor registry auth-set <user> <pass>")
+			return 2
+		}
+		if err := registry.SetAuth(args[1], args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("auth set; registry restarted")
+		return 0
+	case "auth-clear":
+		if err := registry.ClearAuth(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("auth cleared")
+		return 0
 	case "catalog":
-		list, err := registry.Catalog()
+		list, err := registry.CatalogDetail()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		for _, n := range list {
-			fmt.Println(n)
+		for _, r := range list {
+			if len(r.Tags) == 0 {
+				fmt.Println(r.Name)
+			} else {
+				fmt.Printf("%s\t%s\n", r.Name, strings.Join(r.Tags, ", "))
+			}
 		}
 		return 0
 	default:

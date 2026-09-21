@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/gha"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -23,6 +24,68 @@ func PipelineDir() string {
 		return v
 	}
 	return filepath.Join(paths.EtcDir(), "git-pipelines")
+}
+
+
+func ArtifactDir() string {
+	if v := os.Getenv("NETDUCTOR_GIT_ARTIFACTS"); v != "" {
+		return v
+	}
+	return filepath.Join(paths.StateDir(), "git-artifacts")
+}
+
+func saveArtifact(repo, kind, name, body string) (string, error) {
+	dir := filepath.Join(ArtifactDir(), sanitize(repo))
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	ts := time.Now().UTC().Format("20060102T150405Z")
+	fname := fmt.Sprintf("%s-%s-%s.log", ts, kind, sanitize(name))
+	path := filepath.Join(dir, fname)
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func ListArtifacts(repo string) ([]string, error) {
+	dir := ArtifactDir()
+	if repo != "" {
+		dir = filepath.Join(dir, sanitize(repo))
+	}
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var out []string
+	for _, e := range ents {
+		if e.IsDir() {
+			if repo == "" {
+				sub, _ := ListArtifacts(e.Name())
+				out = append(out, sub...)
+			}
+			continue
+		}
+		if strings.HasSuffix(e.Name(), ".log") {
+			if repo != "" {
+				out = append(out, filepath.Join(sanitize(repo), e.Name()))
+			} else {
+				out = append(out, e.Name())
+			}
+		}
+	}
+	return out, nil
+}
+
+func ReadArtifact(rel string) (string, error) {
+	rel = filepath.Clean("/" + rel)
+	rel = strings.TrimPrefix(rel, "/")
+	path := filepath.Join(ArtifactDir(), rel)
+	b, err := os.ReadFile(path)
+	return string(b), err
 }
 
 func EnsureRoot() error {
@@ -169,12 +232,17 @@ func RunPipeline(repo, pipeline string, extraArgs ...string) (string, error) {
 		"NETDUCTOR_GIT_ROOT="+Root(),
 	)
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	body := string(out)
+	if path, e2 := saveArtifact(repo, "pipeline", pipeline, body); e2 == nil {
+		body = body + "\n# artifact: " + path + "\n"
+	}
+	return body, err
 }
 
 func EnsureSamplePipeline() error {
 	_ = os.MkdirAll(PipelineDir(), 0o755)
 	samples := map[string]string{
+		"ci-run": "#!/bin/sh\nset -e\necho \"ci-run $REPO_NAME (language-agnostic)\"\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f go.mod ]; then go test ./...\nelif [ -f package.json ]; then npm test\nelif [ -f Cargo.toml ]; then cargo test\nelif [ -f pyproject.toml ] || [ -f requirements.txt ]; then (pytest || python -m pytest || true)\nelif [ -f Makefile ]; then make test || make check || true\nelse echo \"no known project marker — add .github/workflows/ci.yml with run: steps\"\nfi\nrm -rf \"$WT\"\n",
 		"echo-ok": "#!/bin/sh\necho \"pipeline ok repo=$REPO_NAME path=$REPO_PATH at $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n",
 		"oci-push": "#!/bin/sh\nset -e\necho \"oci-push $REPO_NAME\"\n# Requires: registry ensure + crane; optional Dockerfile in repo\nREG=${NETDUCTOR_REGISTRY_ADDR:-127.0.0.1:5000}\nIMG=${OCI_IMAGE:-$REPO_NAME:latest}\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f Dockerfile ] && command -v docker >/dev/null 2>&1; then\n  docker build -t \"$REG/$IMG\" .\n  if command -v crane >/dev/null 2>&1; then\n    crane push \"$REG/$IMG\" \"$REG/$IMG\" 2>/dev/null || docker push \"$REG/$IMG\"\n  else\n    docker push \"$REG/$IMG\"\n  fi\n  echo pushed $REG/$IMG\nelse\n  echo \"no Dockerfile or docker — skip (registry status only)\"\n  netductor registry status || true\nfi\nrm -rf \"$WT\"\n",
 		"go-test": "#!/bin/sh\nset -e\necho \"go-test $REPO_NAME\"\n# clone bare to worktree\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f go.mod ]; then go test ./...; else echo no go.mod; fi\nrm -rf \"$WT\"\n",
@@ -279,5 +347,10 @@ func RunWorkflow(repo, workflowPath string) (string, error) {
 		"GITHUB_WORKSPACE=" + wt,
 		"CI=true",
 	}
-	return gha.Run(w, wt, extra)
+	log, err := gha.Run(w, wt, extra)
+	wfName := filepath.Base(path)
+	if ap, e2 := saveArtifact(repo, "workflow", wfName, log); e2 == nil {
+		log = log + "\n# artifact: " + ap + "\n"
+	}
+	return log, err
 }

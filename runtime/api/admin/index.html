@@ -99,9 +99,13 @@
       <h3 data-i18n="git_pipelines">Pipelines</h3>
       <div class="row">
         <select id="git-pipeline-sel"></select>
-        <button type="button" id="btn-git-run" data-i18n="git_run">Run</button>
+        <button type="button" id="btn-git-run" data-i18n="git_run">Run pipeline</button>
+        <button type="button" id="btn-git-workflow" data-i18n="git_workflow">Run workflow</button>
+        <button type="button" id="btn-git-artifacts" data-i18n="git_artifacts">Artifacts</button>
       </div>
       <pre id="git-pipeline-out" class="code"></pre>
+      <h3 data-i18n="git_artifacts">Artifacts</h3>
+      <pre id="git-artifacts" class="code">—</pre>
     </section>
 
     <section id="tab-registry" class="tab-panel hide">
@@ -113,6 +117,10 @@
         <button type="button" id="btn-registry-ensure" data-i18n="registry_ensure">Ensure</button>
         <button type="button" id="btn-registry-crane" data-i18n="registry_crane">Install crane</button>
         <button type="button" id="btn-registry-stop" data-i18n="registry_stop">Stop</button>
+        <input id="registry-user" placeholder="auth user" style="width:8rem" />
+        <input id="registry-pass" type="password" placeholder="auth pass" style="width:8rem" />
+        <button type="button" id="btn-registry-auth" data-i18n="registry_auth">Set auth</button>
+        <button type="button" id="btn-registry-auth-clear" data-i18n="registry_auth_clear">Clear auth</button>
       </div>
       <h3 data-i18n="registry_catalog">Catalog</h3>
       <pre id="registry-catalog" class="code">—</pre>

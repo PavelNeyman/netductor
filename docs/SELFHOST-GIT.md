@@ -13,7 +13,8 @@
 | Show/diff | `git show <name> [rev]` | `GET /api/git/show` | ✅ | ✅ |
 | Pipelines | `git pipelines` | `GET /api/git/pipelines` | ✅ | ✅ |
 | Run pipeline | `git pipeline <repo> <script>` | `POST /api/git/pipeline` | ✅ | ✅ |
-| GHA-subset workflow | `git workflow <repo> [yml]` | `POST /api/git/workflow` | — | — |
+| GHA-subset workflow | `git workflow <repo> [yml]` | `POST /api/git/workflow` | ✅ | ✅ |
+| Artifacts | `git artifacts` / `artifact` | `GET /api/git/artifacts` | ✅ | ✅ |
 
 Paths:
 
@@ -50,6 +51,8 @@ Thin **distribution/registry:2** on `127.0.0.1:5000` (not public Harbor).
 | Crane | `registry crane` | `POST /api/registry/crane` | ✅ | ✅ |
 | Catalog | `registry catalog` | `GET /api/registry/catalog` | ✅ | ✅ |
 | Stop | `registry stop` | `POST /api/registry/stop` | ✅ | ✅ |
+| Auth set/clear | `registry auth-set/clear` | `POST /api/registry/auth` | ✅ | — |
+| Catalog+tags | `registry catalog` | `GET /api/registry/catalog` | ✅ | ✅ |
 
 ```bash
 netductor registry ensure
@@ -92,4 +95,16 @@ export NETDUCTOR_GIT_WORKFLOW=1
 
 On **GitHub**, the same YAML with only `run:` steps works as a normal workflow.  
 **Policy:** target DSL is **GitHub Actions subset only** (popular + same file on GitHub). **GitLab CI** uses a different schema (`.gitlab-ci.yml`, `script:`) — not the same standard; porting requires a separate file or converter.
+
+
+
+## Multi-language projects
+
+Pipelines and GHA `run:` steps are **language-agnostic**. Install toolchains on primary (go, node, rustc, python3, …).
+
+- Sample **`ci-run`**: detects `go.mod` / `package.json` / `Cargo.toml` / Python / `Makefile`
+- Preferred: per-repo `.github/workflows/ci.yml` with your `run:` commands
+- **`oci-push`**: any language with a `Dockerfile`
+
+One VPS can host many bare repos (`git init app1`, `git init app2`, …).
 

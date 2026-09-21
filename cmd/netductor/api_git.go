@@ -123,4 +123,29 @@ func registerGitAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "output": out})
 	})
+
+	mux.HandleFunc("/api/git/artifacts", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		repo := r.URL.Query().Get("repo")
+		list, err := gitstore.ListArtifacts(repo)
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"artifacts": list, "dir": gitstore.ArtifactDir()})
+	})
+	mux.HandleFunc("/api/git/artifact", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		path := r.URL.Query().Get("path")
+		out, err := gitstore.ReadArtifact(path)
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"path": path, "body": out})
+	})
 }

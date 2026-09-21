@@ -1102,7 +1102,11 @@ async function refreshRegistry() {
     const st = await (await api('/api/registry/status')).json();
     document.getElementById('registry-status').textContent = JSON.stringify(st, null, 2);
     const cat = await (await api('/api/registry/catalog')).json().catch(() => ({ repositories: [] }));
-    document.getElementById('registry-catalog').textContent = (cat.repositories || []).join('\n') || '(empty)';
+    const repos = cat.repositories || [];
+    document.getElementById('registry-catalog').textContent = repos.map(r => {
+      if (typeof r === 'string') return r;
+      return r.name + (r.tags && r.tags.length ? '  [' + r.tags.join(', ') + ']' : '');
+    }).join('\n') || '(empty)';
   } catch (e) {
     document.getElementById('registry-status').textContent = String(e);
   }
@@ -1120,5 +1124,28 @@ document.getElementById('btn-registry-crane')?.addEventListener('click', async (
 });
 document.getElementById('btn-registry-stop')?.addEventListener('click', async () => {
   await api('/api/registry/stop', { method: 'POST', body: '{}' });
+  refreshRegistry();
+});
+
+document.getElementById('btn-git-workflow')?.addEventListener('click', async () => {
+  const name = document.querySelector('#git-repo-list .active')?.dataset?.name
+    || document.getElementById('git-new-name')?.value;
+  if (!name) return toast('repo?');
+  const data = await (await api('/api/git/workflow', { method: 'POST', body: JSON.stringify({ repo: name }) })).json();
+  document.getElementById('git-pipeline-out').textContent = data.output || data.error || JSON.stringify(data);
+});
+document.getElementById('btn-git-artifacts')?.addEventListener('click', async () => {
+  const name = document.querySelector('#git-repo-list .active')?.dataset?.name || '';
+  const data = await (await api('/api/git/artifacts?repo=' + encodeURIComponent(name))).json();
+  document.getElementById('git-artifacts').textContent = (data.artifacts || []).join('\n') || '(empty)';
+});
+document.getElementById('btn-registry-auth')?.addEventListener('click', async () => {
+  const user = document.getElementById('registry-user')?.value;
+  const password = document.getElementById('registry-pass')?.value;
+  await api('/api/registry/auth', { method: 'POST', body: JSON.stringify({ user, password }) });
+  refreshRegistry();
+});
+document.getElementById('btn-registry-auth-clear')?.addEventListener('click', async () => {
+  await api('/api/registry/auth', { method: 'POST', body: JSON.stringify({ clear: true }) });
   refreshRegistry();
 });

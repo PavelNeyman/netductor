@@ -9,7 +9,9 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/mtls"
+	"github.com/PavelNeyman/netductor/internal/registry"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -280,6 +282,27 @@ func runDoctorNative() int {
 				}
 				fmt.Printf(cli18n.T("doctor.mtls_client_line")+"\n", tag, c.NodeID, c.DaysLeft, c.Serial)
 			}
+		}
+
+		// self-host git + registry (optional components)
+		if st, err := os.Stat(gitstore.Root()); err == nil && st.IsDir() {
+			fmt.Printf("OK   git root %s\n", gitstore.Root())
+			ok++
+		} else {
+			fmt.Printf("INFO git root absent (%s) — netductor git init <name>\n", gitstore.Root())
+		}
+		rst := registry.StatusInfo()
+		if rst.OK {
+			fmt.Printf("OK   registry %s (auth=%v)\n", rst.Addr, rst.Auth)
+			ok++
+		} else if rst.Engine == "" {
+			fmt.Printf("INFO registry skipped (no docker/podman)\n")
+		} else {
+			fmt.Printf("WARN registry not ready: %s\n", rst.Error)
+			if rst.Error == "" {
+				fmt.Printf("WARN registry not running — netductor registry ensure\n")
+			}
+			warn++
 		}
 
 	case "secondary":

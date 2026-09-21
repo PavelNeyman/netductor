@@ -1,5 +1,4 @@
 // Package registry — thin local OCI registry (distribution/registry:2) + crane helper.
-// Default bind 127.0.0.1:5000 (SSH tunnel / localhost only). Not a public harbor.
 package registry
 
 import (
@@ -29,7 +28,10 @@ func DataDir() string {
 	return filepath.Join(paths.StateDir(), "registry")
 }
 
-// Addr host:port inside published mapping (default 127.0.0.1:5000).
+func AuthDir() string {
+	return filepath.Join(DataDir(), "auth")
+}
+
 func Addr() string {
 	if v := os.Getenv("NETDUCTOR_REGISTRY_ADDR"); v != "" {
 		return v
@@ -38,8 +40,7 @@ func Addr() string {
 }
 
 func HostPort() (host, port string) {
-	a := Addr()
-	h, p, err := net.SplitHostPort(a)
+	h, p, err := net.SplitHostPort(Addr())
 	if err != nil {
 		return "127.0.0.1", "5000"
 	}
@@ -66,17 +67,27 @@ func CranePath() string {
 	return ""
 }
 
+func AuthEnabled() bool {
+	_, err := os.Stat(filepath.Join(AuthDir(), "htpasswd"))
+	return err == nil
+}
+
 type Status struct {
-	OK          bool   `json:"ok"`
-	Engine      string `json:"engine,omitempty"`
-	Container   string `json:"container"`
-	Running     bool   `json:"running"`
-	Addr        string `json:"addr"`
-	DataDir     string `json:"data_dir"`
-	HTTPReach   bool   `json:"http_reachable"`
-	CranePath   string `json:"crane,omitempty"`
-	Hint        string `json:"hint,omitempty"`
-	Error       string `json:"error,omitempty"`
+	OK        bool   `json:"ok"`
+	Engine    string `json:"engine,omitempty"`
+	Container string `json:"container"`
+	Running   bool   `json:"running"`
+	Addr      string `json:"addr"`
+	DataDir   string `json:"data_dir"`
+	HTTPReach bool   `json:"http_reachable"`
+	Auth      bool   `json:"auth"`
+	CranePath string `json:"crane,omitempty"`
+	Hint      string `json:"hint,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+func httpClient() *http.Client {
+	return &http.Client{Timeout: 5 * time.Second}
 }
 
 func StatusInfo() Status {
@@ -85,6 +96,7 @@ func StatusInfo() Status {
 		Addr:      Addr(),
 		DataDir:   DataDir(),
 		CranePath: CranePath(),
+		Auth:      AuthEnabled(),
 	}
 	eng := dockerBin()
 	s.Engine = eng
@@ -94,26 +106,24 @@ func StatusInfo() Status {
 		return s
 	}
 	out, err := exec.Command(eng, "inspect", "-f", "{{.State.Running}}", containerName).CombinedOutput()
-	running := err == nil && strings.TrimSpace(string(out)) == "true"
-	s.Running = running
-	if running {
-		client := &http.Client{Timeout: 2 * time.Second}
-		resp, err := client.Get("http://" + Addr() + "/v2/")
+	s.Running = err == nil && strings.TrimSpace(string(out)) == "true"
+	if s.Running {
+		resp, err := httpClient().Get("http://" + Addr() + "/v2/")
 		if err == nil {
 			_ = resp.Body.Close()
+			// 200 anonymous, 401 when auth required
 			s.HTTPReach = resp.StatusCode == 200 || resp.StatusCode == 401
 		}
 	}
 	s.OK = s.Running && s.HTTPReach
 	if s.OK {
-		s.Hint = fmt.Sprintf("crane push/pull via %s (e.g. crane push ./img.tar %s/myapp:latest)", Addr(), Addr())
-	} else if eng != "" && !running {
+		s.Hint = fmt.Sprintf("crane → %s  auth=%v", Addr(), s.Auth)
+	} else if eng != "" && !s.Running {
 		s.Hint = "netductor registry ensure"
 	}
 	return s
 }
 
-// Ensure starts registry:2 published on Addr() with persistent data volume.
 func Ensure() (Status, error) {
 	eng := dockerBin()
 	if eng == "" {
@@ -121,31 +131,32 @@ func Ensure() (Status, error) {
 	}
 	_ = os.MkdirAll(DataDir(), 0o700)
 	host, port := HostPort()
-
-	// already running?
 	st := StatusInfo()
 	if st.Running && st.HTTPReach {
 		return st, nil
 	}
-	if st.Running && !st.HTTPReach {
-		_ = exec.Command(eng, "rm", "-f", containerName).Run()
-	}
-
-	// pull + run
+	_ = exec.Command(eng, "rm", "-f", containerName).Run()
 	_ = exec.Command(eng, "pull", imageName).Run()
+
 	args := []string{
 		"run", "-d", "--name", containerName, "--restart", "unless-stopped",
 		"-p", host + ":" + port + ":5000",
-		"-v", DataDir() + ":/var/lib/registry",
-		imageName,
+		"-v", DataDir() + "/data:/var/lib/registry",
 	}
-	// remove stopped container with same name
-	_ = exec.Command(eng, "rm", "-f", containerName).Run()
+	_ = os.MkdirAll(filepath.Join(DataDir(), "data"), 0o700)
+	if AuthEnabled() {
+		args = append(args,
+			"-v", AuthDir()+":/auth:ro",
+			"-e", "REGISTRY_AUTH=htpasswd",
+			"-e", "REGISTRY_AUTH_HTPASSWD_REALM=Netductor Registry",
+			"-e", "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd",
+		)
+	}
+	args = append(args, imageName)
 	out, err := exec.Command(eng, args...).CombinedOutput()
 	if err != nil {
 		return StatusInfo(), fmt.Errorf("run registry: %w: %s", err, strings.TrimSpace(string(out)))
 	}
-	// wait ready
 	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		st = StatusInfo()
@@ -173,29 +184,64 @@ func Stop() error {
 	return nil
 }
 
-// EnsureCrane downloads crane to /usr/local/bin if missing.
+// SetAuth writes htpasswd (bcrypt via htpasswd or apache2-utils) and restarts registry.
+func SetAuth(user, pass string) error {
+	user = strings.TrimSpace(user)
+	if user == "" || pass == "" {
+		return fmt.Errorf("user and password required")
+	}
+	_ = os.MkdirAll(AuthDir(), 0o700)
+	path := filepath.Join(AuthDir(), "htpasswd")
+	if _, err := exec.LookPath("htpasswd"); err == nil {
+		cmd := exec.Command("htpasswd", "-Bbn", user, pass)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("htpasswd: %w: %s", err, strings.TrimSpace(string(out)))
+		}
+		return os.WriteFile(path, out, 0o600)
+	}
+	// fallback: docker run httpd to generate
+	eng := dockerBin()
+	if eng == "" {
+		return fmt.Errorf("htpasswd not found; install apache2-utils or httpd-tools")
+	}
+	out, err := exec.Command(eng, "run", "--rm", "httpd:2", "htpasswd", "-Bbn", user, pass).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("htpasswd via docker: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if err := os.WriteFile(path, out, 0o600); err != nil {
+		return err
+	}
+	_ = Stop()
+	_, err = Ensure()
+	return err
+}
+
+func ClearAuth() error {
+	_ = os.Remove(filepath.Join(AuthDir(), "htpasswd"))
+	_ = Stop()
+	_, err := Ensure()
+	return err
+}
+
 func EnsureCrane() (string, error) {
 	if p := CranePath(); p != "" {
 		return p, nil
 	}
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
+	goos, goarch := runtime.GOOS, runtime.GOARCH
 	if goarch == "aarch64" {
 		goarch = "arm64"
 	}
-	// official go-containerregistry releases
 	ver := "v0.20.2"
 	name := fmt.Sprintf("go-containerregistry_%s_%s.tar.gz", goos, goarch)
 	url := fmt.Sprintf("https://github.com/google/go-containerregistry/releases/download/%s/%s", ver, name)
 	tmp := filepath.Join(os.TempDir(), name)
-	cmd := exec.Command("curl", "-fsSL", "-o", tmp, url)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := exec.Command("curl", "-fsSL", "-o", tmp, url).CombinedOutput(); err != nil {
 		return "", fmt.Errorf("download crane: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	destDir := "/usr/local/bin"
 	_ = os.MkdirAll(destDir, 0o755)
-	extract := exec.Command("tar", "-xzf", tmp, "-C", destDir, "crane")
-	if out, err := extract.CombinedOutput(); err != nil {
+	if out, err := exec.Command("tar", "-xzf", tmp, "-C", destDir, "crane").CombinedOutput(); err != nil {
 		return "", fmt.Errorf("extract crane: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	_ = os.Chmod(filepath.Join(destDir, "crane"), 0o755)
@@ -207,26 +253,58 @@ func EnsureCrane() (string, error) {
 	return p, nil
 }
 
-// Catalog lists repositories via registry HTTP API.
+// Catalog lists repository names.
 func Catalog() ([]string, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get("http://" + Addr() + "/v2/_catalog")
+	detail, err := CatalogDetail()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(detail))
+	for _, r := range detail {
+		out = append(out, r.Name)
+	}
+	return out, nil
+}
+
+type RepoInfo struct {
+	Name string   `json:"name"`
+	Tags []string `json:"tags,omitempty"`
+}
+
+// CatalogDetail returns repos with tags (digest listing via tags list API).
+func CatalogDetail() ([]RepoInfo, error) {
+	resp, err := httpClient().Get("http://" + Addr() + "/v2/_catalog")
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == 401 {
+		return nil, fmt.Errorf("registry requires auth (catalog via crane login or disable auth for local)")
+	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("catalog HTTP %d", resp.StatusCode)
 	}
 	var body struct {
 		Repositories []string `json:"repositories"`
 	}
-	if err := jsonDecode(resp, &body); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, err
 	}
-	return body.Repositories, nil
-}
-
-func jsonDecode(resp *http.Response, v any) error {
-	return json.NewDecoder(resp.Body).Decode(v)
+	var out []RepoInfo
+	for _, name := range body.Repositories {
+		ri := RepoInfo{Name: name}
+		tr, err := httpClient().Get("http://" + Addr() + "/v2/" + name + "/tags/list")
+		if err == nil {
+			var tb struct {
+				Tags []string `json:"tags"`
+			}
+			if tr.StatusCode == 200 {
+				_ = json.NewDecoder(tr.Body).Decode(&tb)
+				ri.Tags = tb.Tags
+			}
+			_ = tr.Body.Close()
+		}
+		out = append(out, ri)
+	}
+	return out, nil
 }

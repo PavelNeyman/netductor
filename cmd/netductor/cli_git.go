@@ -19,10 +19,38 @@ func runGit(args []string) int {
   netductor git pipelines
   netductor git pipeline <repo> <name> [args...]
   netductor git delete <name>
-  netductor git root`)
+  netductor git root
+  netductor git artifacts [repo]
+  netductor git artifact <rel-path>`)
 		return 2
 	}
 	switch args[0] {
+	case "artifacts":
+		repo := ""
+		if len(args) >= 2 {
+			repo = args[1]
+		}
+		list, err := gitstore.ListArtifacts(repo)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		for _, n := range list {
+			fmt.Println(n)
+		}
+		return 0
+	case "artifact":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git artifact <rel-path>")
+			return 2
+		}
+		out, err := gitstore.ReadArtifact(args[1])
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
 	case "root":
 		fmt.Println(gitstore.Root())
 		return 0
