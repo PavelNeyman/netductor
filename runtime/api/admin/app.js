@@ -867,3 +867,13 @@ document.querySelectorAll('.tab').forEach((btn) => {
       toast('exported');
     };
   }
+
+  async function refreshMtls() {
+    const pre = document.getElementById('mtls-certs');
+    if (!pre) return;
+    try {
+      const data = await (await api('/api/mtls/certs')).json();
+      pre.textContent = JSON.stringify(data, null, 2);
+    } catch (e) { pre.textContent = String(e); }
+  }
+  document.getElementById('btn-mtls-refresh')?.addEventListener('click', refreshMtls);

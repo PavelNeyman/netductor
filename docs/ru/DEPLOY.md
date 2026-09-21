@@ -6,7 +6,7 @@
 
 ```bash
 wget -qO /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.8.12/netductor-linux-amd64
+  https://github.com/PavelNeyman/netductor/releases/download/v0.8.13/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 # secrets telegram_* в /etc/netductor/secrets/
 netductor install

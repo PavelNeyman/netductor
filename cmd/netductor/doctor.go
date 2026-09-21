@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/nvr"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/nvr"
 	"net"
 	"os"
 	"os/exec"
@@ -207,9 +207,9 @@ func runDoctorNative() int {
 		}
 		warnCheck("backup.offsite peer", exists(filepath.Join(etc, "backup.offsite")))
 		warnCheck("tg admin id", exists(filepath.Join(etc, "secrets", "telegram_admin_id")) || os.Getenv("NETDUCTOR_TG_ADMIN") != "")
-	if os.Getenv("CLAIM_FIRST") == "1" || os.Getenv("NETDUCTOR_TG_CLAIM_FIRST") == "1" {
-		fmt.Println("WARN CLAIM_FIRST enabled — disable in production")
-	}
+		if os.Getenv("CLAIM_FIRST") == "1" || os.Getenv("NETDUCTOR_TG_CLAIM_FIRST") == "1" {
+			fmt.Println("WARN CLAIM_FIRST enabled — disable in production")
+		}
 		warnCheck("tg bot token", exists(filepath.Join(etc, "secrets", "telegram_bot_token")) || os.Getenv("NETDUCTOR_TG_TOKEN") != "")
 		secReg := exists(paths.SecondaryDevicesFile())
 		if secReg {
@@ -237,6 +237,36 @@ func runDoctorNative() int {
 		} else {
 			fmt.Printf("FAIL mtls server certs missing (run: netductor mtls ensure)\n")
 			warn++
+		}
+		// cert expiry (CA/server/default client + per-node clients)
+		for _, pc := range mtls.ListPlaneCerts() {
+			if pc.DaysLeft < 0 {
+				fmt.Printf("FAIL mtls %s expired (%s)\n", pc.Name, pc.NotAfter.Format("2006-01-02"))
+				warn++
+			} else if pc.DaysLeft <= 30 {
+				fmt.Printf("WARN mtls %s expires in %d days (%s)\n", pc.Name, pc.DaysLeft, pc.NotAfter.Format("2006-01-02"))
+				warn++
+			} else {
+				fmt.Printf("OK   mtls %s valid ~%d days\n", pc.Name, pc.DaysLeft)
+				ok++
+			}
+		}
+		if clients, err := mtls.ListClientCerts(); err == nil {
+			for _, c := range clients {
+				tag := "OK  "
+				if c.Revoked {
+					fmt.Printf("WARN mtls client %s serial=%s REVOKED\n", c.NodeID, c.Serial)
+					warn++
+					continue
+				}
+				if c.DaysLeft <= 30 {
+					tag = "WARN"
+					warn++
+				} else {
+					ok++
+				}
+				fmt.Printf("%s mtls client %s expires in %d days serial=%s\n", tag, c.NodeID, c.DaysLeft, c.Serial)
+			}
 		}
 
 	case "secondary":
@@ -306,9 +336,8 @@ func runDoctorNative() int {
 	if fail > 0 {
 		return 1
 	}
-	
 
-return 0
+	return 0
 }
 
 func dirHasDockerLampac() bool {

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -29,7 +30,7 @@ const (
 	AgentTLSPort   = "8789"
 )
 
-func Dir() string { return filepath.Join(paths.EtcDir(), "secrets", DirName) }
+func Dir() string             { return filepath.Join(paths.EtcDir(), "secrets", DirName) }
 func path(name string) string { return filepath.Join(Dir(), name) }
 
 func publicHostname() string {
@@ -101,7 +102,7 @@ func ensureServer(serverIP string) error {
 	tmpl := &x509.Certificate{
 		SerialNumber: serial(), Subject: pkix.Name{CommonName: "netductor-agent-server", Organization: []string{"netductor"}},
 		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(5 * 365 * 24 * time.Hour),
-		KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames: func() []string {
 			names := []string{"nd-primary", "localhost", "netductor-agent-server"}
@@ -185,7 +186,26 @@ func ServerTLSConfig() (*tls.Config, error) {
 	}
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(caPEM)
-	return &tls.Config{Certificates: []tls.Certificate{cert}, ClientCAs: pool, ClientAuth: tls.RequireAndVerifyClientCert, MinVersion: tls.VersionTLS13}, nil
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    pool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   tls.VersionTLS13,
+		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+			if len(rawCerts) == 0 {
+				return fmt.Errorf("mtls: no client certificate")
+			}
+			c, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return err
+			}
+			if IsRevoked(c.SerialNumber) {
+				return fmt.Errorf("mtls: client certificate revoked")
+			}
+			return nil
+		},
+	}
+	return cfg, nil
 }
 
 func ClientTLSConfig() (*tls.Config, error) {
@@ -234,7 +254,6 @@ func WriteClientMaterial(ca, cert, key []byte) error {
 	}
 	return os.WriteFile(path(ClientKeyFile), key, 0o600)
 }
-
 
 func serverCertHasDNS(host string) bool {
 	if host == "" {
@@ -288,7 +307,6 @@ func writeKey(p string, key *ecdsa.PrivateKey) error {
 	defer f.Close()
 	return pem.Encode(f, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
 }
-
 
 // ClientDir returns per-node client material directory.
 func ClientDir(nodeID string) string {
