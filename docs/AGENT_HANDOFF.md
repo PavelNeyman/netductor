@@ -67,7 +67,7 @@ Full plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 - **No Lampac/docker on secondary** unless RU IP is explicitly required (needs ≥2 GiB RAM).
 - **Edge/OpenWrt agents enroll to primary** (outbound). Routers in RU still reach primary API; do **not** move edge control plane to RU (splits source of truth).
 - **Bug fixed:** adding a VPN user must bump `secondary config_ver` so agent pulls new user UUIDs onto `relay-in`. Otherwise links point at `vpn.*` (secondary) but only the first user UUID was on RU → second user “VPN dead”.
-- After `vpn add` / `ApplyConfig`, secondary agent applies `ExportRelayBundle` within ~30–90s. Operator can force: `netductor relay sync`.
+- After `vpn add` / `ApplyConfig`, secondary agent applies `ExportRelayBundle` within ~30–90s. Operator can force: `netductor secondary sync` (legacy name may appear in older logs).
 
 
 
@@ -107,7 +107,7 @@ Default Reality SNI for WL: **`api.vk.me`**. Client VLESS links prefer **seconda
 
 1. Password only for **first** provider login.
 2. `netductor install` (primary) generates `/root/.ssh/id_ed25519`, installs pubkey, **disables password** (`sshd_config.d/00-netductor-harden.conf` + neutralize cloud-init `PasswordAuthentication yes`).
-3. `fleet provision-secondary` / `relay provision` installs **same** primary pubkey on secondary and disables password there.
+3. `fleet provision-secondary` installs **same** primary pubkey on secondary and disables password there.
 4. Operator must keep a copy of the private key (workspace often has `artifacts/netductor_vps_id_ed25519`).
 
 ---
@@ -201,7 +201,7 @@ RU domains (`.ru`, `.su`, xn--p1ai, major RU services) → **direct**; else → 
 netductor install|doctor|status|vpn|fleet|relay|backup|recover|edge|addons|tui
 netductor fleet status|bootstrap|provision-secondary|disable-legacy
 netductor install lampac   # primary only
-netductor relay sync       # VPN users → secondary
+netductor secondary sync   # VPN users → secondary
 netductor vpn link <user> [vless|hy2|core]
 netductor backup peer-set root@SECONDARY:/var/lib/netductor/backups/peers/core/
 ```

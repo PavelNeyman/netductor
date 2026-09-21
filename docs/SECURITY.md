@@ -17,7 +17,7 @@
 - Port 9118 (Docker). Installs `docker.io` + `docker-cli` on Debian.
 
 
-## SSH TOFU (MikroTik / relay provision)
+## SSH TOFU (MikroTik / secondary provision)
 - First connect stores host key under StateDir
 - Manage without editing files: `netductor ssh-hosts list|forget|clear`
 - Also: TUI, Admin tab **SSH hosts**, Telegram **Nodes → SSH hosts**
