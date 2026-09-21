@@ -304,7 +304,7 @@ func VersionHint() string {
 			return strings.TrimPrefix(v, "v")
 		}
 	}
-	return "0.8.18"
+	return "0.8.19"
 }
 
 func secondaryMTLSRefresh() (bool, string) {

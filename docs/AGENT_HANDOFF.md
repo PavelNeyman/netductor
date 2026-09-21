@@ -1,3 +1,50 @@
+# Agent handoff — netductor
+
+**Version:** 0.8.19  
+**Repo:** https://github.com/PavelNeyman/netductor  
+**Last full review:** `docs/REVIEW-2026-09-21-FULL.md`  
+**Residual risks:** `docs/RESIDUAL_RISKS.md`  
+**UI parity:** `docs/UI-PARITY.md` · `bash scripts/check-ui-parity.sh`
+
+## Locked architecture
+
+| Role | Name | Role |
+|------|------|------|
+| Primary | abroad VPS | Control plane, API loopback, TG bot, blocky, NVR optional, VPN core |
+| Secondary | RU VPS | VLESS entry + agent; not a full mirror of primary services |
+| Edge | OpenWrt | Agent outbound mTLS `:8789`, enroll/approve, recovery LAN page |
+
+- Deploy from **Mac TUI** workstation wizards (`deploy.DeployPrimary` / secondary / `DeployEdge`).
+- Agent plane **mTLS only** on `:8789` (plain `:8788` emergency only).
+- Admin API default **127.0.0.1:8787** — not world-open.
+- VPN public ports encrypted (Reality/HY2). SSH key-only after harden.
+
+## Recent fixes (0.8.17–0.8.19)
+
+- Recovery HTTP: no public fallback; loopback if no private IP
+- redirect-serve default `127.0.0.1:80`
+- Secondary + **primary** node upgrade: pure Go, version from `deploy.Release`
+- Admin i18n pass; TG `m:secondary:*`
+- cli18n doctor/vpn/mtls
+
+## Next for human
+
+1. Hardware e2e on Cudy / cameras / MikroTik site flow  
+2. Domain when ready → HTTPS redirect  
+3. Reinstall drill with v0.8.19 binaries from Releases  
+
+## Commands
+
+```bash
+brew reinstall netductor
+netductor version   # 0.8.19
+NETDUCTOR_LANG=ru netductor doctor
+bash scripts/check-ui-parity.sh
+bash scripts/check-version-pins.sh
+```
+
+---
+
 ## Version
 
 ## Secondary role (locked 2026-09-17)
@@ -17,7 +64,7 @@ Full plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 # Agent handoff (read first in a new chat)
 
 **Repo:** https://github.com/PavelNeyman/netductor  
-**Release tag:** `v0.8.18` (check Releases if tag name differs)  
+**Release tag:** `v0.8.19` (check Releases if tag name differs)  
 **Binaries:** `netductor-linux-amd64`, `netductor-tg-linux-amd64`, `netductor-agent-*`  
 **Owner language:** Russian OK; docs **EN + RU** for user-facing behaviour.
 
@@ -59,7 +106,7 @@ Default Reality SNI for WL: **`api.vk.me`**. Client VLESS links prefer **seconda
 
 ```bash
 wget -qO /usr/local/bin/netductor \
-  https://github.com/PavelNeyman/netductor/releases/download/v0.8.18/netductor-linux-amd64
+  https://github.com/PavelNeyman/netductor/releases/download/v0.8.19/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
 
 mkdir -p /etc/netductor/secrets
@@ -699,12 +746,12 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.18 (2026-09-20)
+## Current baseline — v0.8.19 (2026-09-20)
 
 ### Release
-- Tag: **v0.8.18** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.18
+- Tag: **v0.8.19** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.19
 - Assets: darwin/linux CLI, agent (amd64/arm/arm64/mipsle), tg, SHA256SUMS
-- Homebrew Formula `0.8.18` · `brew reinstall netductor`
+- Homebrew Formula `0.8.19` · `brew reinstall netductor`
 
 ### Operator model
 
@@ -745,7 +792,7 @@ Intended flow: `brew install netductor` → `netductor tui --mode workstation` �
 
 ---
 
-## Security review snapshot (v0.8.18)
+## Security review snapshot (v0.8.19)
 
 ### OK
 - Admin not world-open by default
@@ -758,7 +805,7 @@ Intended flow: `brew install netductor` → `netductor tui --mode workstation` �
 1. **`:8789` reachable from internet** — intentional for NAT edge; without client cert handshake fails, but port is probeable (rate-limit / fail2ban optional)
 2. **Long-lived `edge_bootstrap_token`** — protect like a secret; prefer recovery codes for re-attach
 3. **`NETDUCTOR_PLAIN_AGENT=1` / `API_PUBLIC=1`** — foot-guns if left on prod
-4. **Hardcoded old download URLs** in some legacy docs/scripts (secondary self-update pin fixed to v0.8.18 in agent)
+4. **Hardcoded old download URLs** in some legacy docs/scripts (secondary self-update pin fixed to v0.8.19 in agent)
 5. **UFW vs cloud SG** — host ufw does not replace provider security groups
 6. **Admin session token** strength depends on `vpn session` issuance
 
@@ -785,6 +832,6 @@ Intended flow: `brew install netductor` → `netductor tui --mode workstation` �
 
 Do **not** reintroduce IP allowlist for edge.
 
-### v0.8.18
+### v0.8.19
 - mTLS revoke/rotate/list; doctor cert expiry WARN; plane IP ban after repeated 429
 - Docs: MTLS.md · OPEN_ITEMS hardware-only remaining

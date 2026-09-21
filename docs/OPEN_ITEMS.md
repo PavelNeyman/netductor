@@ -1,14 +1,12 @@
 # Open items
 
-Baseline: **v0.8.18**.
+Baseline: **v0.8.19**.
 
-## Software (ideal polish done)
+## Software
+Closed through 0.8.19: residual risk mitigations, Admin i18n, UI parity, pure-Go upgrades (primary+secondary), cli18n, mTLS PKI.
 
-- Admin i18n expanded + parity script green
-- Residual risks mitigated (0.8.17)
-- cli18n doctor/vpn/mtls
-
-## Still operator-side
-
+## Operator
 - Hardware e2e (OpenWrt / MikroTik / Tapo)
-- Domain + public HTTPS for redirect (when domain exists: `-https-listen` + certs)
+- Optional domain + HTTPS redirect
+
+See `docs/REVIEW-2026-09-21-FULL.md` and `docs/RESIDUAL_RISKS.md`.
