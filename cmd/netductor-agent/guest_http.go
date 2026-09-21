@@ -30,6 +30,9 @@ func startGuestHTTP(cfg *config) {
 		fmt.Fprintf(os.Stderr, "guest store: %v\n", err)
 		return
 	}
+	_ = installGuestNFTHooks()
+	_ = applyGuestFirewallAllow(store)
+	startGuestExpireLoop(store)
 	// Captive on all interfaces (guest clients need it) — only shows code, no grant.
 	go func() {
 		addr := fmt.Sprintf(":%d", gc.CaptivePort)

@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.23**.
+Baseline: **v0.8.24**.
 
 ## Gates (green)
 go test / go vet / version pins / UI parity
