@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/PavelNeyman/netductor/internal/hardening"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 )
 
@@ -15,6 +16,8 @@ func runGit(args []string) int {
   netductor git init <name>
   netductor git log <name> [n]
   netductor git show <name> [rev]
+  netductor git pipelines
+  netductor git pipeline <repo> <name> [args...]
   netductor git root`)
 		return 2
 	}
@@ -43,7 +46,7 @@ func runGit(args []string) int {
 			return 1
 		}
 		fmt.Println(path)
-		fmt.Fprintf(os.Stderr, "remote: ssh://root@HOST:%d%s\n", 52222, path)
+		fmt.Fprintln(os.Stderr, "remote:", gitstore.RemoteHint(args[1], hardening.SSHPort()))
 		return 0
 	case "log":
 		if len(args) < 2 {
@@ -71,6 +74,29 @@ func runGit(args []string) int {
 			rev = args[2]
 		}
 		out, err := gitstore.Show(args[1], rev)
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	case "pipelines":
+		_ = gitstore.EnsureSamplePipeline()
+		list, err := gitstore.ListPipelines()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		for _, n := range list {
+			fmt.Println(n)
+		}
+		return 0
+	case "pipeline":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git pipeline <repo> <pipeline> [args...]")
+			return 2
+		}
+		out, err := gitstore.RunPipeline(args[1], args[2], args[3:]...)
 		fmt.Print(out)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)

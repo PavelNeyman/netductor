@@ -74,4 +74,4 @@ Do **not** pull Woodpecker until you adopt Forgejo/Gitea; without a forge it fig
 
 ## CLI status in tree
 
-See `netductor git -h` (from v0.8.28): `init`, `list`, `log`, `show`.
+See `netductor git -h` (from v0.8.29): `init`, `list`, `log`, `show`.

@@ -12,7 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.28"
+var version = "0.8.29"
 
 func main() {
 	ndconfig.Load()

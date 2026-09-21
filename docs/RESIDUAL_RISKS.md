@@ -1,4 +1,4 @@
-# Residual risks (detailed) — v0.8.28
+# Residual risks (detailed) — v0.8.29
 
 ## 1. HTTP redirect (`redirect-serve`)
 
@@ -6,7 +6,7 @@
 
 **Risk:** Cleartext on the wire; open port if bound to `0.0.0.0:80`.
 
-**Mitigation (0.8.28+):** Default listen **`127.0.0.1:80`**. Public HTTP only with explicit `-listen :80`. Prefer VPN path or HTTPS (`-https-listen` + certs) when domain exists.
+**Mitigation (0.8.29+):** Default listen **`127.0.0.1:80`**. Public HTTP only with explicit `-listen :80`. Prefer VPN path or HTTPS (`-https-listen` + certs) when domain exists.
 
 ## 2. Edge recovery HTTP (`:7879`)
 
@@ -14,7 +14,7 @@
 
 **Risk:** If bound to all interfaces and reachable from WAN, attacker on path could try codes (still need valid recovery/bootstrap secret).
 
-**Mitigation (0.8.28+):**
+**Mitigation (0.8.29+):**
 - Prefer **private LAN IP** bind; if none → **127.0.0.1**, not `0.0.0.0`.
 - **No auto-fallback** to public `:7879`.
 - Clients: only loopback/private/link-local unless `NETDUCTOR_RECOVERY_ALLOW_ANY=1`.

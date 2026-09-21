@@ -17,6 +17,13 @@ func Root() string {
 	return filepath.Join(paths.StateDir(), "git")
 }
 
+func PipelineDir() string {
+	if v := os.Getenv("NETDUCTOR_GIT_PIPELINES"); v != "" {
+		return v
+	}
+	return filepath.Join(paths.EtcDir(), "git-pipelines")
+}
+
 func EnsureRoot() error {
 	return os.MkdirAll(Root(), 0o700)
 }
@@ -64,6 +71,9 @@ func Init(name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
+	// sample post-receive that can call netductor pipeline
+	hook := filepath.Join(dir, "hooks", "post-receive")
+	_ = os.WriteFile(hook, []byte("#!/bin/sh\n# Optional: netductor git pipeline "+name+" default\nexit 0\n"), 0o755)
 	return dir, nil
 }
 
@@ -75,7 +85,7 @@ func Log(name string, n int) (string, error) {
 	if n <= 0 {
 		n = 20
 	}
-	cmd := exec.Command("git", "-C", dir, "log", fmt.Sprintf("-%d", n), "--oneline", "--decorate")
+	cmd := exec.Command("git", "-C", dir, "log", fmt.Sprintf("-%d", n), "--format=%h%x09%s%x09%an%x09%ai")
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
@@ -88,9 +98,71 @@ func Show(name, rev string) (string, error) {
 	if rev == "" {
 		rev = "HEAD"
 	}
-	cmd := exec.Command("git", "-C", dir, "show", "--stat", rev)
+	cmd := exec.Command("git", "-C", dir, "show", "--stat", "-p", "--format=fuller", rev)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+// ListPipelines returns script names in PipelineDir (executable or .sh).
+func ListPipelines() ([]string, error) {
+	_ = os.MkdirAll(PipelineDir(), 0o755)
+	ents, err := os.ReadDir(PipelineDir())
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		out = append(out, e.Name())
+	}
+	return out, nil
+}
+
+// RunPipeline executes PipelineDir/<pipeline> with env REPO_NAME, REPO_PATH, optional args.
+func RunPipeline(repo, pipeline string, extraArgs ...string) (string, error) {
+	dir, err := repoDir(repo)
+	if err != nil {
+		return "", err
+	}
+	pipeline = filepath.Base(pipeline)
+	script := filepath.Join(PipelineDir(), pipeline)
+	st, err := os.Stat(script)
+	if err != nil {
+		return "", fmt.Errorf("pipeline not found: %s (put scripts in %s)", pipeline, PipelineDir())
+	}
+	if st.Mode()&0o111 == 0 {
+		_ = os.Chmod(script, st.Mode()|0o755)
+	}
+	args := append([]string{script}, extraArgs...)
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"REPO_NAME="+sanitize(repo),
+		"REPO_PATH="+dir,
+		"NETDUCTOR_GIT_ROOT="+Root(),
+	)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func EnsureSamplePipeline() error {
+	_ = os.MkdirAll(PipelineDir(), 0o755)
+	path := filepath.Join(PipelineDir(), "echo-ok")
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	body := "#!/bin/sh\necho \"pipeline ok repo=$REPO_NAME path=$REPO_PATH at $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n"
+	return os.WriteFile(path, []byte(body), 0o755)
+}
+
+func RemoteHint(name string, sshPort int) string {
+	name = sanitize(name)
+	if sshPort <= 0 {
+		sshPort = 52222
+	}
+	return fmt.Sprintf("ssh://root@HOST:%d%s/%s.git", sshPort, Root(), name)
 }
 
 func repoDir(name string) (string, error) {
@@ -113,3 +185,22 @@ func sanitize(name string) string {
 	}
 	return b.String()
 }
+
+// Info is for JSON APIs.
+type Info struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+func ListInfo() ([]Info, error) {
+	names, err := List()
+	if err != nil {
+		return nil, err
+	}
+	var out []Info
+	for _, n := range names {
+		out = append(out, Info{Name: n, Path: filepath.Join(Root(), n+".git")})
+	}
+	return out, nil
+}
+

@@ -23,3 +23,22 @@ func TestInitListLog(t *testing.T) {
 	// empty bare: log may fail until first commit — acceptable
 	_, _ = Log("demo", 5)
 }
+
+func TestPipeline(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_GIT_ROOT", dir)
+	t.Setenv("NETDUCTOR_GIT_PIPELINES", filepath.Join(dir, "pipes"))
+	if _, err := Init("p1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureSamplePipeline(); err != nil {
+		t.Fatal(err)
+	}
+	out, err := RunPipeline("p1", "echo-ok")
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if out == "" {
+		t.Fatal("empty output")
+	}
+}

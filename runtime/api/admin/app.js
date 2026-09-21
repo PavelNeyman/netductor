@@ -43,6 +43,14 @@
       tab_sni: 'SNI',
       tab_secondary: 'Secondary',
       tab_backup: 'Backup',
+      tab_git: 'Git',
+      git_hint: 'Bare repos · SSH push',
+      git_init: 'Init',
+      git_log: 'Log',
+      git_show: 'Show / diff',
+      git_show_btn: 'Show',
+      git_pipelines: 'Pipelines',
+      git_run: 'Run',
       tab_audit: 'Audit',
       tab_sessions: 'Sessions',
       tab_status: 'Status',
@@ -367,6 +375,7 @@
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('hide', p.id !== 'tab-' + name));
     if (name === 'addons') refreshAddons();
     if (name === 'relay') refreshRelay();
+    if (name === 'git') refreshGit();
   }
   async function refreshNodes() {
     const data = await (await api('/api/nodes')).json();
@@ -607,7 +616,30 @@
     const p = await (await api('/api/probes')).json();
     $('#probes-raw').textContent = JSON.stringify(p, null, 2);
   }
-  function refreshAll() {
+  document.getElementById('btn-git-refresh')?.addEventListener('click', () => refreshGit());
+document.getElementById('btn-git-init')?.addEventListener('click', async () => {
+  const name = document.getElementById('git-new-name')?.value?.trim();
+  if (!name) return;
+  await api('/api/git/repos', { method: 'POST', body: JSON.stringify({ name }) });
+  refreshGit();
+});
+document.getElementById('btn-git-show')?.addEventListener('click', async () => {
+  const name = window._gitSelected;
+  if (!name) return;
+  const rev = document.getElementById('git-rev')?.value || 'HEAD';
+  const data = await (await api('/api/git/show?name=' + encodeURIComponent(name) + '&rev=' + encodeURIComponent(rev))).json();
+  const el = document.getElementById('git-show');
+  if (el) el.textContent = data.show || data.error || '';
+});
+document.getElementById('btn-git-run')?.addEventListener('click', async () => {
+  const name = window._gitSelected;
+  const pipe = document.getElementById('git-pipeline-sel')?.value;
+  if (!name || !pipe) return;
+  const data = await (await api('/api/git/pipeline', { method: 'POST', body: JSON.stringify({ repo: name, pipeline: pipe }) })).json();
+  const el = document.getElementById('git-pipeline-out');
+  if (el) el.textContent = data.output || data.error || JSON.stringify(data);
+});
+function refreshAll() {
     refreshNodes().catch(()=>{});
     refreshOverview(); refreshUsers(); refreshRouters(); refreshTemplates(); refreshMetrics(); refreshProbes(); refreshAddons();
   }
@@ -1011,3 +1043,36 @@ document.querySelectorAll('.tab').forEach((btn) => {
     } catch (e) { pre.textContent = String(e); }
   }
   document.getElementById('btn-mtls-refresh')?.addEventListener('click', refreshMtls);
+
+
+async function refreshGit() {
+  try {
+    const data = await (await api('/api/git/repos')).json();
+    const ul = document.getElementById('git-repo-list');
+    if (!ul) return;
+    ul.innerHTML = '';
+    window._gitSelected = window._gitSelected || '';
+    (data.repos || []).forEach((r) => {
+      const li = document.createElement('li');
+      const name = r.name || r;
+      li.innerHTML = `<button type="button" class="ghost git-pick" data-name="${name}">${name}</button>`;
+      ul.appendChild(li);
+    });
+    ul.querySelectorAll('.git-pick').forEach((b) => b.onclick = async () => {
+      window._gitSelected = b.dataset.name;
+      const log = await (await api('/api/git/log?name=' + encodeURIComponent(b.dataset.name) + '&n=30')).json();
+      const el = document.getElementById('git-log');
+      if (el) el.textContent = log.log || log.error || '';
+    });
+    const pl = await (await api('/api/git/pipelines')).json();
+    const sel = document.getElementById('git-pipeline-sel');
+    if (sel) {
+      sel.innerHTML = '';
+      (pl.pipelines || []).forEach((n) => {
+        const o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        sel.appendChild(o);
+      });
+    }
+  } catch (e) { console.warn(e); }
+}

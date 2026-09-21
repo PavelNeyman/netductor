@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.28**.
+Baseline: **v0.8.29**.
 
 ## Gates (green)
 go test / go vet / version pins / UI parity (core)
@@ -12,7 +12,7 @@ go test / go vet / version pins / UI parity (core)
 4. **Restore-drill** — full `.ndenc` on clean VPS after major change  
 
 ## Soft / optional product
-- TG guest wait for `cmd_result` — **done** (0.8.28)  
+- TG guest wait for `cmd_result` — **done** (0.8.29)  
 - Cert observability (doctor + TG Certs + API) — **done** / polish  
 - Plane `:8789` rate-limit + temp ban after repeated 429 — **done** (`PlaneLimiter`)  
 - Status-without-VPN — **deferred**  
@@ -40,4 +40,4 @@ mTLS required for useful traffic. Rate-limit (180/min/IP) + ban after N consecut
 
 
 ## Git (thin)
-`netductor git` v0.8.28 — bare only; pipeline UI later. See SELFHOST-GIT.md.
+`netductor git` v0.8.29 — bare only; pipeline UI later. See SELFHOST-GIT.md.

@@ -1,6 +1,6 @@
 # Guest Wi‑Fi on OpenWrt (plan)
 
-Status: **v1 agent implementation (0.8.28)** — nft + captive redirect + VPN bypass; hardware e2e pending · not all sites need guest · opt-in in edge wizard / template.
+Status: **v1 agent implementation (0.8.29)** — nft + captive redirect + VPN bypass; hardware e2e pending · not all sites need guest · opt-in in edge wizard / template.
 
 
 ## Locked decisions (2026-09-21)
@@ -195,11 +195,11 @@ Primary / TG / Admin (later, optional): remote grant — **not** required for sh
 | Phase | Scope |
 |-------|--------|
 | **G0** | Docs + template fields + wizard flag only (no apply yet) |
-| **G1** | UCI guest + isolation + VPN bypass | **done 0.8.28** |
-| **G2** | MAC allow-list + TTL + nft sync | **done 0.8.28** |
+| **G1** | UCI guest + isolation + VPN bypass | **done 0.8.29** |
+| **G2** | MAC allow-list + TTL + nft sync | **done 0.8.29** |
 | **G3** | Desk UI + join QR text | **done 0.8.23** |
-| **G4** | Captive page + HTTP DNAT redirect | **done 0.8.28** |
-| **G5** | TG/Admin remote grant + wait result | **done 0.8.28** (band_split rejected) |
+| **G4** | Captive page + HTTP DNAT redirect | **done 0.8.29** |
+| **G5** | TG/Admin remote grant + wait result | **done 0.8.29** (band_split rejected) |
 
 ## Out of scope (for now)
 

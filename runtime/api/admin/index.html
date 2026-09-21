@@ -39,6 +39,7 @@
       <button data-tab="addons" class="tab" data-i18n="tab_addons">Addons</button>
       <button data-tab="sni" class="tab" data-i18n="tab_sni">SNI</button>
       <button data-tab="relay" class="tab" data-i18n="tab_secondary">Secondary</button>
+      <button data-tab="git" class="tab" data-i18n="tab_git">Git</button>
       <button data-tab="backup" class="tab" data-i18n="tab_backup">Backup</button>
       <button class="tab" data-tab="audit" data-i18n="tab_audit">Audit</button>
       <button class="tab" data-tab="sessions" data-i18n="tab_sessions">Sessions</button>
@@ -75,7 +76,32 @@
         <button id="btn-vpn-refresh-links" class="ghost" data-i18n="refresh_vpn_links">Refresh VPN links</button>
       </div>
     </section>
-    <section id="tab-backup" class="tab-panel hide">
+    
+    <section id="tab-git" class="tab-panel hide">
+      <h2 data-i18n="tab_git">Git (bare)</h2>
+      <p class="muted" data-i18n="git_hint">Repos under /var/lib/netductor/git — SSH push only</p>
+      <div class="row">
+        <input id="git-new-name" placeholder="repo name" />
+        <button type="button" id="btn-git-init" data-i18n="git_init">Init</button>
+        <button type="button" id="btn-git-refresh" data-i18n="refresh">Refresh</button>
+      </div>
+      <ul id="git-repo-list"></ul>
+      <h3 data-i18n="git_log">Log</h3>
+      <pre id="git-log" class="code"></pre>
+      <h3 data-i18n="git_show">Show / diff</h3>
+      <div class="row">
+        <input id="git-rev" placeholder="rev (HEAD)" value="HEAD" />
+        <button type="button" id="btn-git-show" data-i18n="git_show_btn">Show</button>
+      </div>
+      <pre id="git-show" class="code"></pre>
+      <h3 data-i18n="git_pipelines">Pipelines</h3>
+      <div class="row">
+        <select id="git-pipeline-sel"></select>
+        <button type="button" id="btn-git-run" data-i18n="git_run">Run</button>
+      </div>
+      <pre id="git-pipeline-out" class="code"></pre>
+    </section>
+<section id="tab-backup" class="tab-panel hide">
       <h2 data-i18n="backup_title">Backup / peer</h2>
       <p class="hint" data-i18n="backup_hint_long">Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.</p>
       <pre id="backup-status" class="code">—</pre>
