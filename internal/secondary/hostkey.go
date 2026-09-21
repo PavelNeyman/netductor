@@ -22,7 +22,7 @@ func relayKnownPath() string {
 	return filepath.Join(paths.SecondaryDir(), "ssh_known_hosts.json")
 }
 
-// SSHHostEntry TOFU entry for relay provision SSH.
+// SSHHostEntry TOFU entry for secondary provision SSH.
 type SSHHostEntry struct {
 	ID        string `json:"id"`
 	KeyPrefix string `json:"key_prefix"`
@@ -48,7 +48,7 @@ func saveRelayKH(f map[string]string) error {
 	return os.WriteFile(relayKnownPath(), append(raw, 10), 0o600)
 }
 
-// ListSSHHosts lists relay provision TOFU keys.
+// ListSSHHosts lists secondary provision TOFU keys.
 func ListSSHHosts() []SSHHostEntry {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()
@@ -83,7 +83,7 @@ func ForgetSSHHost(id string) error {
 	return saveRelayKH(f)
 }
 
-// ClearSSHHosts removes all relay provision TOFU keys.
+// ClearSSHHosts removes all secondary provision TOFU keys.
 func ClearSSHHosts() error {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()

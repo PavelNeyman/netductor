@@ -1,39 +1,77 @@
-# Self-hosted Git (facts)
+# Self-hosted Git for netductor (single operator)
 
-## Question
-Ready forge (Forgejo/Gitea) vs bare `git` + own wrappers in netductor?
+## Goal (clarified)
 
-## Facts
+Not a forge (no multi-user web, PRs, issues, comments).
 
-| Need | Bare git over SSH | Forgejo/Gitea |
-|------|-------------------|---------------|
-| Push/pull private source | Yes (`git init --bare`) | Yes |
-| RAM | ~0 (sshd only) | typically ~150–400 MB idle |
-| Attack surface | SSH keys only | HTTP(S) app + DB + optional Actions |
-| Web diff / blame / PRs | No | Yes |
-| Issues / projects | No | Yes |
-| CI | `post-receive` hooks or external runner | Built-in Actions or Woodpecker |
-| Container registry | Separate (`registry:2`) | Built-in or separate |
-| Multi-operator ACL | SSH authorized_keys only | Users/teams/repos |
-| netductor UI integration | Trivial (list repos, run `git`) | API possible, heavier |
+**Wanted:** private source on primary + control from **netductor** (CLI / Admin / TG later):
 
-## Recommendation (single operator / family)
+| Action | Enough? |
+|--------|---------|
+| List bare repos | yes |
+| Create / delete bare repo | yes |
+| Recent commits + message | yes |
+| Diff for a commit | yes (`git show`) |
+| Trigger a pipeline | yes |
+| Full GitLab/Forgejo UI | **no** |
 
-1. **Default: bare repositories on primary over existing SSH (port 52222)**  
-   - Same keys as netductor operator  
-   - Behind VPN optional but SSH already key-only + fail2ban  
-   - Release build: local Mac or `post-receive` → `go build` / upload assets  
-   - Lowest maintenance and closest to “part of the ecosystem” without a second product
+That is **bare git + thin wrappers**, not “write GitLab”.
 
-2. **Forgejo only if** you need web review, multiple writers, or in-forge CI UI regularly. Still bind to VPN/localhost.
+---
 
-3. **Do not** build a custom “mini-GitLab” inside netductor (web UI + auth + PR model): cost approaches Forgejo, quality lags, permanent maintenance.
+## Stack by layer (facts, 2026)
 
-## Minimal bare layout (sketch)
+### 1. Git storage — only `git`
+
+- `git init --bare /var/lib/netductor/git/<name>.git`
+- Access: existing SSH (port **52222**, operator key)
+- Remote example: `ssh://root@PRIMARY:52222/var/lib/netductor/git/netductor.git`
+- List/log/show/diff: pure **git** CLI (or go-git in-process later)
+
+No alternative “lighter than git”.
+
+### 2. CI/CD — not only heavy products
+
+| Approach | Weight | Fits single operator? |
+|----------|--------|------------------------|
+| **`post-receive` hook** → script (`go test`, `build-release`) | Minimal | **Best default** |
+| **Pipelight** (CLI-only pipelines, git hooks) | ~13 MB binary | Good if you want declared pipelines |
+| **`act`** | Local GitHub Actions runner | Useful on Mac; not a server forge |
+| **Woodpecker / Drone** | Server + agent + Docker | Light vs Jenkins, but **expects a forge OAuth** (Gitea/Forgejo/GitHub) — awkward with bare-only |
+| Jenkins / GitLab CI | Heavy | No |
+
+**Fact:** there is no widely used “CI daemon as simple as `git` binary” that watches bare repos without either hooks or a forge API. For one person, **hooks + netductor “Run pipeline”** (exec script, stream log) is the right shape.
+
+### 3. Container registry
+
+| Piece | Role |
+|-------|------|
+| **`registry:2`** (distribution) | Small OCI registry daemon (or skip and only push to GHCR privately) |
+| **crane** / **skopeo** / **regctl** | CLI like git for tags, copy, inspect, delete — **no Docker daemon required** for most ops |
+
+Harbor is the “big” product; not needed for personal images.
+
+---
+
+## Recommended architecture for netductor
 
 ```text
-/var/lib/netductor/git/netductor.git   # bare
-git remote add vps ssh://root@PRIMARY:52222/var/lib/netductor/git/netductor.git
+Mac ──SSH:52222──► primary
+                    /var/lib/netductor/git/*.git   (bare)
+                    hooks/post-receive → optional build script
+                    netductor git list|log|show|pipeline
+Admin/TG → same API
+crane/skopeo → optional local registry or external
 ```
 
-Optional later: `netductor git init|list` CLI and Admin list of bare repos — thin wrapper, not a forge.
+1. Implement thin **`netductor git …`** (and API) wrapping `git`.
+2. Pipeline = named script under `/etc/netductor/git-pipelines/` or repo `hooks/`.
+3. Add registry only when you actually publish images to yourself.
+
+Do **not** pull Woodpecker until you adopt Forgejo/Gitea; without a forge it fights you.
+
+---
+
+## CLI status in tree
+
+See `netductor git -h` (from v0.8.28): `init`, `list`, `log`, `show`.

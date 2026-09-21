@@ -1,4 +1,4 @@
-# CLI ↔ UI parity matrix (v0.8.27)
+# CLI ↔ UI parity matrix (v0.8.28)
 
 | CLI | TUI (Mac/local) | Telegram | Admin |
 |-----|-----------------|----------|-------|

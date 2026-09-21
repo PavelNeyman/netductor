@@ -12,7 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.27"
+var version = "0.8.28"
 
 func main() {
 	ndconfig.Load()
@@ -57,6 +57,8 @@ func main() {
 		runSecondary(os.Args[2:])
 	case "addons", "addon":
 		runAddons(os.Args[2:])
+	case "git":
+		os.Exit(runGit(os.Args[2:]))
 	case "edge":
 		runEdgeCLI(os.Args[2:])
 	case "nvr":

@@ -1,12 +1,12 @@
 # Runbook — day 1 (Netductor)
 
-Baseline: **v0.8.27**. Full dual-node narrative: [DEPLOY.md](DEPLOY.md) · [FLEET.md](FLEET.md).
+Baseline: **v0.8.28**. Full dual-node narrative: [DEPLOY.md](DEPLOY.md) · [FLEET.md](FLEET.md).
 
 ## 1. Install on Debian VPS
 ```bash
-export NETDUCTOR_VERSION=0.8.27   # bootstrap default is 0.8.1; pin explicitly on reinstall
+export NETDUCTOR_VERSION=0.8.28   # bootstrap default is 0.8.1; pin explicitly on reinstall
 curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/bootstrap.sh | bash
-# Or binary from https://github.com/PavelNeyman/netductor/releases/tag/v0.8.27
+# Or binary from https://github.com/PavelNeyman/netductor/releases/tag/v0.8.28
 
 mkdir -p /etc/netductor/secrets
 # echo BOT_TOKEN > /etc/netductor/secrets/telegram_bot_token

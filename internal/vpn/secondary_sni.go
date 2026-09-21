@@ -12,7 +12,7 @@ func preferredSecondarySNIFile() string {
 	return filepath.Join(paths.EtcDir(), "secrets", "preferred_relay_sni")
 }
 
-// RememberSecondarySNI persists SNI used on last successful relay provision.
+// RememberSecondarySNI persists SNI used on last successful secondary provision.
 func RememberSecondarySNI(sni string) error {
 	sni = strings.TrimSpace(sni)
 	if sni == "" {

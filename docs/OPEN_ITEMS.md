@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.27**.
+Baseline: **v0.8.28**.
 
 ## Gates (green)
 go test / go vet / version pins / UI parity (core)
@@ -12,7 +12,7 @@ go test / go vet / version pins / UI parity (core)
 4. **Restore-drill** — full `.ndenc` on clean VPS after major change  
 
 ## Soft / optional product
-- TG guest wait for `cmd_result` — **done** (0.8.27)  
+- TG guest wait for `cmd_result` — **done** (0.8.28)  
 - Cert observability (doctor + TG Certs + API) — **done** / polish  
 - Plane `:8789` rate-limit + temp ban after repeated 429 — **done** (`PlaneLimiter`)  
 - Status-without-VPN — **deferred**  
@@ -37,3 +37,7 @@ Avoid full GitLab unless you need its full DevOps suite (heavier RAM).
 
 ## Security stance (:8789)
 mTLS required for useful traffic. Rate-limit (180/min/IP) + ban after N consecutive 429 (default 5 → 15 min ban). Prefer this over public fail2ban on SSH alone; do not IP-allowlist edge (NAT). Optional: tighter cloud SG + `NETDUCTOR_PLANE_BAN_*` env.
+
+
+## Git (thin)
+`netductor git` v0.8.28 — bare only; pipeline UI later. See SELFHOST-GIT.md.
