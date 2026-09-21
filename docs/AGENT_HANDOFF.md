@@ -19,6 +19,15 @@
 - Admin API default **127.0.0.1:8787** — not world-open.
 - VPN public ports encrypted (Reality/HY2). SSH key-only after harden.
 
+
+## Guest Wi‑Fi (design 2026-09-21)
+
+- Plan: **`docs/PLAN-GUEST-WIFI.md`**
+- Model: stable join QR (hidden SSID) + **MAC allow-list TTL (24h)**; staff **desk UI on LAN** (PIN), not TG-required for shop floor.
+- Guest zone: WAN only, no LAN; **VPN bypass** (direct ISP).
+- Opt-in in OpenWrt wizard / site template.
+- TUI refactor deferred (OPEN_ITEMS).
+
 ## Recent fixes
 
 - **0.8.22:** SA4000 doctor fix; dead code sweep; API status constants

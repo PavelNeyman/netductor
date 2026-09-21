@@ -7,3 +7,8 @@
 **Ждёт железа/домена:** e2e OpenWrt/MikroTik/Tapo; HTTPS redirect; мессенджер; user-bot Path B.
 
 **Политика:** admin не в паблик; агенты без авто-раскатки; secondary только VPN entry.
+
+## Отложено
+
+- Рефакторинг мёртвого TUI — позже.
+- Гостевой Wi‑Fi: `docs/PLAN-GUEST-WIFI.md` (приоритет).
