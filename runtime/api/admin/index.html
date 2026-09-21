@@ -40,6 +40,7 @@
       <button data-tab="sni" class="tab" data-i18n="tab_sni">SNI</button>
       <button data-tab="relay" class="tab" data-i18n="tab_secondary">Secondary</button>
       <button data-tab="git" class="tab" data-i18n="tab_git">Git</button>
+      <button data-tab="registry" class="tab" data-i18n="tab_registry">Registry</button>
       <button data-tab="backup" class="tab" data-i18n="tab_backup">Backup</button>
       <button class="tab" data-tab="audit" data-i18n="tab_audit">Audit</button>
       <button class="tab" data-tab="sessions" data-i18n="tab_sessions">Sessions</button>
@@ -101,6 +102,20 @@
         <button type="button" id="btn-git-run" data-i18n="git_run">Run</button>
       </div>
       <pre id="git-pipeline-out" class="code"></pre>
+    </section>
+
+    <section id="tab-registry" class="tab-panel hide">
+      <h2 data-i18n="tab_registry">Registry</h2>
+      <p class="muted" data-i18n="registry_hint">Local OCI registry (127.0.0.1:5000). Use crane/docker; not public.</p>
+      <pre id="registry-status" class="code">—</pre>
+      <div class="row">
+        <button type="button" id="btn-registry-refresh" data-i18n="refresh">Refresh</button>
+        <button type="button" id="btn-registry-ensure" data-i18n="registry_ensure">Ensure</button>
+        <button type="button" id="btn-registry-crane" data-i18n="registry_crane">Install crane</button>
+        <button type="button" id="btn-registry-stop" data-i18n="registry_stop">Stop</button>
+      </div>
+      <h3 data-i18n="registry_catalog">Catalog</h3>
+      <pre id="registry-catalog" class="code">—</pre>
     </section>
 <section id="tab-backup" class="tab-panel hide">
       <h2 data-i18n="backup_title">Backup / peer</h2>

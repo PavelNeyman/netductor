@@ -44,6 +44,18 @@
       tab_secondary: 'Secondary',
       tab_backup: 'Backup',
       tab_git: 'Git',
+      tab_registry: 'Registry',
+      registry_hint: 'Локальный OCI registry (127.0.0.1:5000). crane/docker; не публичный.',
+      registry_ensure: 'Ensure',
+      registry_crane: 'Установить crane',
+      registry_stop: 'Stop',
+      registry_catalog: 'Catalog',
+      tab_registry: 'Registry',
+      registry_hint: 'Local OCI registry (127.0.0.1:5000). Use crane/docker; not public.',
+      registry_ensure: 'Ensure',
+      registry_crane: 'Install crane',
+      registry_stop: 'Stop',
+      registry_catalog: 'Catalog',
       git_hint: 'Bare repos · SSH push',
       git_init: 'Init',
       git_log: 'Log',
@@ -1084,3 +1096,29 @@ async function refreshGit() {
     }
   } catch (e) { console.warn(e); }
 }
+
+async function refreshRegistry() {
+  try {
+    const st = await (await api('/api/registry/status')).json();
+    document.getElementById('registry-status').textContent = JSON.stringify(st, null, 2);
+    const cat = await (await api('/api/registry/catalog')).json().catch(() => ({ repositories: [] }));
+    document.getElementById('registry-catalog').textContent = (cat.repositories || []).join('\n') || '(empty)';
+  } catch (e) {
+    document.getElementById('registry-status').textContent = String(e);
+  }
+}
+document.getElementById('btn-registry-refresh')?.addEventListener('click', refreshRegistry);
+try { refreshRegistry(); } catch (_) {}
+document.getElementById('btn-registry-ensure')?.addEventListener('click', async () => {
+  await api('/api/registry/ensure', { method: 'POST', body: '{}' });
+  refreshRegistry();
+});
+document.getElementById('btn-registry-crane')?.addEventListener('click', async () => {
+  const r = await (await api('/api/registry/crane', { method: 'POST', body: '{}' })).json();
+  toast(r.path || r.error || 'ok');
+  refreshRegistry();
+});
+document.getElementById('btn-registry-stop')?.addEventListener('click', async () => {
+  await api('/api/registry/stop', { method: 'POST', body: '{}' });
+  refreshRegistry();
+});

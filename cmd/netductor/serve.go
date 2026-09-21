@@ -26,6 +26,7 @@ func buildAPIMux() http.Handler {
 	nvr.StartBackground()
 	registerSessionAPI(mux)
 	registerGitAPI(mux)
+	registerRegistryAPI(mux)
 	registerVPNHTTP(mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

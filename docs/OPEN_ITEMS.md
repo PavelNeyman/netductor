@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.30**.
+Baseline: **v0.8.31**.
 
 ## Gates (green)
 `go test` / version pins / core UI parity
@@ -21,7 +21,7 @@ Baseline: **v0.8.30**.
 ## Deferred
 - Status-without-VPN  
 - Messenger eval (SimpleX etc.) — not core  
-- Optional local OCI registry + crane integration  
+- ~~Optional local OCI registry + crane~~ **done** (v0.8.31)  
 - TUI dual-path cleanup (`bubbles/list`) — low priority  
 - Residual “relay” string cosmetics in rare docs  
 

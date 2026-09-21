@@ -1,3 +1,9 @@
+## 0.8.31
+
+- Local OCI registry: `netductor registry status|ensure|stop|crane|catalog` + API/Admin/TG
+- Pipeline sample `oci-push`; post-receive auto-runs `NETDUCTOR_GIT_PIPELINE`
+- Docs SELFHOST-GIT / OPEN_ITEMS
+
 ## 0.8.30
 
 - mTLS: revoke list + VerifyPeerCertificate; rotate/list CLI & API

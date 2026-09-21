@@ -71,9 +71,13 @@ func Init(name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
-	// sample post-receive that can call netductor pipeline
+	// post-receive: optional auto pipeline via NETDUCTOR_GIT_PIPELINE
 	hook := filepath.Join(dir, "hooks", "post-receive")
-	_ = os.WriteFile(hook, []byte("#!/bin/sh\n# Optional: netductor git pipeline "+name+" default\nexit 0\n"), 0o755)
+	hookBody := "#!/bin/sh\n" +
+		"if [ -n \"$NETDUCTOR_GIT_PIPELINE\" ] && command -v netductor >/dev/null 2>&1; then\n" +
+		"  netductor git pipeline " + name + " \"$NETDUCTOR_GIT_PIPELINE\" || exit $?\n" +
+		"fi\nexit 0\n"
+	_ = os.WriteFile(hook, []byte(hookBody), 0o755)
 	return dir, nil
 }
 
@@ -163,6 +167,7 @@ func EnsureSamplePipeline() error {
 	_ = os.MkdirAll(PipelineDir(), 0o755)
 	samples := map[string]string{
 		"echo-ok": "#!/bin/sh\necho \"pipeline ok repo=$REPO_NAME path=$REPO_PATH at $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n",
+		"oci-push": "#!/bin/sh\nset -e\necho \"oci-push $REPO_NAME\"\n# Requires: registry ensure + crane; optional Dockerfile in repo\nREG=${NETDUCTOR_REGISTRY_ADDR:-127.0.0.1:5000}\nIMG=${OCI_IMAGE:-$REPO_NAME:latest}\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f Dockerfile ] && command -v docker >/dev/null 2>&1; then\n  docker build -t \"$REG/$IMG\" .\n  if command -v crane >/dev/null 2>&1; then\n    crane push \"$REG/$IMG\" \"$REG/$IMG\" 2>/dev/null || docker push \"$REG/$IMG\"\n  else\n    docker push \"$REG/$IMG\"\n  fi\n  echo pushed $REG/$IMG\nelse\n  echo \"no Dockerfile or docker — skip (registry status only)\"\n  netductor registry status || true\nfi\nrm -rf \"$WT\"\n",
 		"go-test": "#!/bin/sh\nset -e\necho \"go-test $REPO_NAME\"\n# clone bare to worktree\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f go.mod ]; then go test ./...; else echo no go.mod; fi\nrm -rf \"$WT\"\n",
 	}
 	for name, body := range samples {

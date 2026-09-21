@@ -38,9 +38,30 @@ On push, `hooks/post-receive` runs `netductor git pipeline <repo> $NETDUCTOR_GIT
 | **post-receive** + `NETDUCTOR_GIT_PIPELINE` | Auto on push |
 | Woodpecker / Forgejo | Only if you later want a full forge |
 
-## Registry (optional, later)
+## Registry (local OCI)
 
-`registry:2` + **crane** / **skopeo** — not wired into netductor yet.
+Thin **distribution/registry:2** on `127.0.0.1:5000` (not public Harbor).
+
+| Action | CLI | API | Admin | TG |
+|--------|-----|-----|-------|-----|
+| Status | `registry status` | `GET /api/registry/status` | ✅ | ✅ |
+| Ensure | `registry ensure` | `POST /api/registry/ensure` | ✅ | ✅ |
+| Crane | `registry crane` | `POST /api/registry/crane` | ✅ | ✅ |
+| Catalog | `registry catalog` | `GET /api/registry/catalog` | ✅ | ✅ |
+| Stop | `registry stop` | `POST /api/registry/stop` | ✅ | ✅ |
+
+```bash
+netductor registry ensure
+netductor registry crane
+# pipeline with Dockerfile:
+netductor git pipeline myapp oci-push
+# or:
+docker build -t 127.0.0.1:5000/myapp:latest .
+crane push 127.0.0.1:5000/myapp:latest 127.0.0.1:5000/myapp:latest
+```
+
+Env: `NETDUCTOR_REGISTRY_ADDR` (default `127.0.0.1:5000`), `NETDUCTOR_REGISTRY_DATA`.
+
 
 ## Security
 
