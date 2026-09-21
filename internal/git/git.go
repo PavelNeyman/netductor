@@ -250,15 +250,63 @@ func RunPipeline(repo, pipeline string, extraArgs ...string) (string, error) {
 func EnsureSamplePipeline() error {
 	_ = os.MkdirAll(PipelineDir(), 0o755)
 	samples := map[string]string{
-		"ci-run": "#!/bin/sh\nset -e\necho \"ci-run $REPO_NAME (language-agnostic)\"\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f go.mod ]; then go test ./...\nelif [ -f package.json ]; then npm test\nelif [ -f Cargo.toml ]; then cargo test\nelif [ -f pyproject.toml ] || [ -f requirements.txt ]; then (pytest || python -m pytest || true)\nelif [ -f Makefile ]; then make test || make check || true\nelse echo \"no known project marker — add .github/workflows/ci.yml with run: steps\"\nfi\nrm -rf \"$WT\"\n",
-		"echo-ok": "#!/bin/sh\necho \"pipeline ok repo=$REPO_NAME path=$REPO_PATH at $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n",
-		"oci-push": "#!/bin/sh\nset -e\necho \"oci-push $REPO_NAME\"\n# Requires: registry ensure + crane; optional Dockerfile in repo\nREG=${NETDUCTOR_REGISTRY_ADDR:-127.0.0.1:5000}\nIMG=${OCI_IMAGE:-$REPO_NAME:latest}\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f Dockerfile ] && command -v docker >/dev/null 2>&1; then\n  docker build -t \"$REG/$IMG\" .\n  if command -v crane >/dev/null 2>&1; then\n    crane push \"$REG/$IMG\" \"$REG/$IMG\" 2>/dev/null || docker push \"$REG/$IMG\"\n  else\n    docker push \"$REG/$IMG\"\n  fi\n  echo pushed $REG/$IMG\nelse\n  echo \"no Dockerfile or docker — skip (registry status only)\"\n  netductor registry status || true\nfi\nrm -rf \"$WT\"\n",
-		"go-test": "#!/bin/sh\nset -e\necho \"go-test $REPO_NAME\"\n# clone bare to worktree\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f go.mod ]; then go test ./...; else echo no go.mod; fi\nrm -rf \"$WT\"\n",
+		"echo-ok": `#!/bin/sh
+# netductor-managed-pipeline
+echo "pipeline ok repo=$REPO_NAME path=$REPO_PATH at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+`,
+		"ci-run": `#!/bin/sh
+# netductor-managed-pipeline — isolated container tests (no host toolchains)
+set -e
+WT=$(mktemp -d)
+trap 'rm -rf "$WT"' EXIT
+git --git-dir="$REPO_PATH" --work-tree="$WT" checkout -f HEAD 2>/dev/null || true
+netductor ci test "$WT"
+`,
+		"go-test": `#!/bin/sh
+# netductor-managed-pipeline — go test in golang container
+set -e
+WT=$(mktemp -d)
+trap 'rm -rf "$WT"' EXIT
+git --git-dir="$REPO_PATH" --work-tree="$WT" checkout -f HEAD 2>/dev/null || true
+netductor ci exec --image "${NETDUCTOR_CI_IMAGE_GO:-golang:1.22-bookworm}" --workdir "$WT" -- "go test ./..."
+`,
+		"oci-push": `#!/bin/sh
+# netductor-managed-pipeline — docker build on host engine, push to local registry
+# (build runs via docker daemon; not language toolchains on host)
+set -e
+REG=${NETDUCTOR_REGISTRY_ADDR:-127.0.0.1:5000}
+IMG=${OCI_IMAGE:-$REPO_NAME:latest}
+WT=$(mktemp -d)
+trap 'rm -rf "$WT"' EXIT
+git --git-dir="$REPO_PATH" --work-tree="$WT" checkout -f HEAD 2>/dev/null || true
+cd "$WT"
+if [ ! -f Dockerfile ]; then
+  echo "no Dockerfile — skip"
+  netductor registry status || true
+  exit 0
+fi
+if ! command -v docker >/dev/null 2>&1 && ! command -v podman >/dev/null 2>&1; then
+  echo "docker/podman required for oci-push"
+  exit 1
+fi
+ENG=$(command -v docker || command -v podman)
+$ENG build -t "$REG/$IMG" .
+if command -v crane >/dev/null 2>&1; then
+  crane push "$REG/$IMG" "$REG/$IMG" 2>/dev/null || $ENG push "$REG/$IMG"
+else
+  $ENG push "$REG/$IMG"
+fi
+echo pushed "$REG/$IMG"
+`,
 	}
 	for name, body := range samples {
 		path := filepath.Join(PipelineDir(), name)
-		if _, err := os.Stat(path); err == nil {
-			continue
+		if st, err := os.Stat(path); err == nil {
+			b, _ := os.ReadFile(path)
+			// refresh only managed or empty custom
+			if !strings.Contains(string(b), "netductor-managed-pipeline") && st.Size() > 0 {
+				continue
+			}
 		}
 		if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
 			return err
@@ -266,6 +314,7 @@ func EnsureSamplePipeline() error {
 	}
 	return nil
 }
+
 
 func RemoteHint(name string, sshPort int) string {
 	name = sanitize(name)

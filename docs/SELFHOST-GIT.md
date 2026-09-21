@@ -108,3 +108,27 @@ Pipelines and GHA `run:` steps are **language-agnostic**. Install toolchains on 
 
 One VPS can host many bare repos (`git init app1`, `git init app2`, …).
 
+
+
+## Isolated CI (containers)
+
+**Default:** builds/tests run in **docker/podman containers**, not host toolchains.
+
+| Piece | On primary host | In container |
+|-------|-----------------|--------------|
+| Bare git, artifacts | ✅ data | |
+| Registry blobs | ✅ data | |
+| `go` / `npm` / `cargo` / … | ❌ not required | ✅ image per language |
+| `docker build` (oci-push) | uses host engine | Dockerfile context |
+
+```bash
+netductor ci status
+netductor ci test /path/to/worktree
+# workflow job may set:
+#   container: golang:1.22-bookworm
+```
+
+Escape hatch (discouraged): `NETDUCTOR_CI_HOST=1`.
+
+Images: `NETDUCTOR_CI_IMAGE_GO`, `_NODE`, `_RUST`, `_PYTHON`, or `NETDUCTOR_CI_IMAGE` generic.
+

@@ -9,6 +9,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/ci"
 	"github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/registry"
@@ -284,12 +285,23 @@ func runDoctorNative() int {
 			}
 		}
 
-		// self-host git + registry (optional components)
+		// self-host git + registry + isolated CI (optional components)
 		if st, err := os.Stat(gitstore.Root()); err == nil && st.IsDir() {
 			fmt.Printf("OK   git root %s\n", gitstore.Root())
 			ok++
 		} else {
 			fmt.Printf("INFO git root absent (%s) — netductor git init <name>\n", gitstore.Root())
+		}
+		fmt.Printf("INFO ci %s\n", ci.StatusLine())
+		if ci.IsolationEnabled() && ci.Engine() == "" {
+			fmt.Println("WARN ci isolation on but no docker/podman")
+			warn++
+		} else if ci.IsolationEnabled() {
+			fmt.Println("OK   ci builds isolated in containers")
+			ok++
+		} else {
+			fmt.Println("WARN ci NETDUCTOR_CI_HOST=1 (host builds)")
+			warn++
 		}
 		rst := registry.StatusInfo()
 		if rst.OK {

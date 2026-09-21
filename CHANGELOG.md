@@ -1,3 +1,10 @@
+## 0.8.36
+
+- Isolated CI: builds/tests in docker/podman by default (`netductor ci status|test|exec`)
+- GHA-subset honors `container:`; auto image by go.mod/package.json/…
+- Managed pipelines ci-run/go-test/oci-push use isolation; host keeps git+registry data only
+- Doctor CI isolation check; seller guest-bot parked under Ideas
+
 ## 0.8.35
 
 - Harden git artifact path reads (no `..` escape)

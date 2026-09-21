@@ -1,3 +1,8 @@
+## 0.8.36
+
+- Isolated CI: `internal/ci` + `netductor ci`; GHA `container:`; managed pipelines
+- Seller TG bot → ideas only
+
 ## 0.8.32
 
 - GHA-subset `git workflow`; CHANGELOG 0.8.4–0.8.31 rebuilt
@@ -771,10 +776,10 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.35 (2026-09-22)
+## Current baseline — v0.8.36 (2026-09-22)
 
 ### Release
-- Tag: **v0.8.35** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.35
+- Tag: **v0.8.36** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.36
 - Homebrew Formula tracks `0.8.35` · `brew reinstall netductor`
 
 ### Locked product surface
@@ -788,7 +793,7 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 ### Operator open
 Hardware e2e · Domain/HTTPS · SMTP · Restore-drill — see [OPEN_ITEMS](OPEN_ITEMS.md)
 
-### Security review snapshot (v0.8.35)
+### Security review snapshot (v0.8.36)
 **OK**
 - Git/registry APIs gated by `requireSession`
 - Pipeline scripts only from `PipelineDir` (`filepath.Base`)

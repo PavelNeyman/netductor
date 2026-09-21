@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.35**.
+Baseline: **v0.8.36**.
 
 ## Gates (green)
 `go test` / version pins / git+registry UI parity / GHA-subset runner
@@ -12,7 +12,8 @@ Baseline: **v0.8.35**.
 4. **Restore-drill** — full `.ndenc` on clean VPS  
 
 ## Done (do not re-open)
-- Thin git + shell pipelines + GHA-subset workflows (`docs/SELFHOST-GIT.md`)
+- Thin git + shell pipelines + GHA-subset workflows
+- **Isolated CI** in docker/podman (host = data only; no host language SDKs) (`docs/SELFHOST-GIT.md`)
 - Local OCI registry + crane + catalog tags + optional htpasswd
 - Pipeline/workflow **artifacts**; doctor git/registry checks
 - CLI ↔ Admin ↔ TG parity for git/registry
@@ -20,6 +21,9 @@ Baseline: **v0.8.35**.
 - Guest Wi‑Fi software path (hardware e2e still open)
 - TUI single deploy path; allowlist removed for edge NAT
 - Path B user-bot — **dropped**
+
+## Ideas (not scheduled)
+- **Guest Wi‑Fi seller TG bot** — staff grant/deny/TTL without PIN / without being on guest SSID; separate bot token optional
 
 ## Deferred (low)
 - Status-without-VPN  

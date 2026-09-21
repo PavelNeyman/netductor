@@ -1,28 +1,30 @@
 // Package gha runs a minimal GitHub Actions–compatible subset:
-// jobs.*.steps with `run:` (shell). Ignores uses:/services/matrix.
+// jobs.*.steps with `run:` (shell), optional job container:.
+// Build steps run in containers by default (see internal/ci).
 package gha
 
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/ci"
 	"gopkg.in/yaml.v3"
 )
 
 type Workflow struct {
-	Name string             `yaml:"name"`
-	On   any                `yaml:"on"`
-	Jobs map[string]Job     `yaml:"jobs"`
+	Name string         `yaml:"name"`
+	On   any            `yaml:"on"`
+	Jobs map[string]Job `yaml:"jobs"`
 }
 
 type Job struct {
-	RunsOn string  `yaml:"runs-on"`
-	Steps  []Step  `yaml:"steps"`
-	Env    map[string]string `yaml:"env"`
+	RunsOn    string            `yaml:"runs-on"`
+	Container any               `yaml:"container"` // string or {image: ...}
+	Steps     []Step            `yaml:"steps"`
+	Env       map[string]string `yaml:"env"`
 }
 
 type Step struct {
@@ -35,7 +37,6 @@ type Step struct {
 	ID               string            `yaml:"id"`
 }
 
-// Parse loads GHA-like YAML.
 func Parse(data []byte) (*Workflow, error) {
 	var w Workflow
 	if err := yaml.Unmarshal(data, &w); err != nil {
@@ -47,17 +48,27 @@ func Parse(data []byte) (*Workflow, error) {
 	return &w, nil
 }
 
-type Result struct {
-	Job   string
-	Step  string
-	Output string
-	Err   error
+func containerImage(c any) string {
+	switch v := c.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case map[string]any:
+		if img, ok := v["image"].(string); ok {
+			return strings.TrimSpace(img)
+		}
+	case map[any]any:
+		if img, ok := v["image"].(string); ok {
+			return strings.TrimSpace(img)
+		}
+	}
+	return ""
 }
 
 // Run executes jobs in sorted name order; only steps with non-empty run:.
-// workDir is the checkout / work tree root.
+// workDir is the checkout / work tree root. Steps run in containers unless NETDUCTOR_CI_HOST=1.
 func Run(w *Workflow, workDir string, extraEnv []string) (log string, err error) {
 	var b strings.Builder
+	fmt.Fprintf(&b, "ci %s\n", ci.StatusLine())
 	names := make([]string, 0, len(w.Jobs))
 	for n := range w.Jobs {
 		names = append(names, n)
@@ -65,7 +76,11 @@ func Run(w *Workflow, workDir string, extraEnv []string) (log string, err error)
 	sort.Strings(names)
 	for _, jn := range names {
 		job := w.Jobs[jn]
-		fmt.Fprintf(&b, "==> job %s (runs-on=%s)\n", jn, job.RunsOn)
+		img := containerImage(job.Container)
+		if img == "" && ci.IsolationEnabled() {
+			img = ci.DetectImage(workDir)
+		}
+		fmt.Fprintf(&b, "==> job %s (runs-on=%s container=%s)\n", jn, job.RunsOn, img)
 		for i, st := range job.Steps {
 			label := st.Name
 			if label == "" {
@@ -88,18 +103,21 @@ func Run(w *Workflow, workDir string, extraEnv []string) (log string, err error)
 			if shell == "" {
 				shell = "bash"
 			}
-			cmd := exec.Command(shell, "-c", st.Run)
-			cmd.Dir = dir
-			env := append(os.Environ(), extraEnv...)
+			env := append([]string{}, extraEnv...)
 			for k, v := range job.Env {
 				env = append(env, k+"="+v)
 			}
 			for k, v := range st.Env {
 				env = append(env, k+"="+v)
 			}
-			cmd.Env = env
-			out, e := cmd.CombinedOutput()
-			b.Write(out)
+			out, e := ci.Exec(ci.ExecOpts{
+				Image:   img,
+				WorkDir: dir,
+				Shell:   shell,
+				Script:  st.Run,
+				Env:     env,
+			})
+			b.WriteString(out)
 			if len(out) > 0 && out[len(out)-1] != '\n' {
 				b.WriteByte('\n')
 			}
@@ -113,7 +131,6 @@ func Run(w *Workflow, workDir string, extraEnv []string) (log string, err error)
 	return b.String(), nil
 }
 
-// FindDefault looks for .github/workflows/*.yml under root (first name sorted).
 func FindDefault(root string) (string, error) {
 	dir := filepath.Join(root, ".github", "workflows")
 	ents, err := os.ReadDir(dir)
