@@ -262,7 +262,7 @@ if strings.HasPrefix(data, "u:") {
 		case "m:cat:relay":
 		// Relay is part of Nodes
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>secondary = RU node role</i>", nodesKeyboard())
-	case "m:relay:export":
+	case "m:relay:export", "m:secondary:export":
 		out := runND("secondary", "export", "-o", "/tmp/nd-secondary-bundle.json", "--sni", "ya.ru")
 		b, err := os.ReadFile("/tmp/nd-secondary-bundle.json")
 		msg := out
@@ -270,23 +270,23 @@ if strings.HasPrefix(data, "u:") {
 			msg = string(b)
 		}
 		reply(token, chat, msgID, "📦 <b>bundle</b>"+string([]byte{10})+"<pre>"+esc(truncate(msg, 3500))+"</pre>", relayKeyboard())
-	case "m:relay:enroll":
+	case "m:relay:enroll", "m:secondary:enroll":
 		setState(chat, "wait_relay_host", "")
 		reply(token, chat, msgID, T("enroll_title")+string([]byte{10,10})+T("enroll_ip"), backTo("nodes"))
-	case "m:relay:oneline":
+	case "m:relay:oneline", "m:secondary:oneline":
 		reply(token, chat, msgID, formatRelayOneline(), relayKeyboard())
-	case "m:relay:sync":
+	case "m:relay:sync", "m:secondary:sync":
 		out := runND("secondary", "sync")
 		reply(token, chat, msgID, "🔄 <b>Sync</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatRelayListHTML(), relayKeyboard())
-	case "m:relay:exit:menu":
+	case "m:relay:exit:menu", "m:secondary:exit:menu":
 		reply(token, chat, msgID, T("ru_exit_help"), relayKeyboard())
-	case "m:relay:exit:on":
+	case "m:relay:exit:on", "m:secondary:exit:on":
 		out := runND("secondary", "exit", "on")
 		reply(token, chat, msgID, "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Трафик с core уходит через РФ (доступ к RU-сервисам из-за границы)</i>", relayKeyboard())
-	case "m:relay:exit:off":
+	case "m:relay:exit:off", "m:secondary:exit:off":
 		out := runND("secondary", "exit", "off")
 		reply(token, chat, msgID, "✈️ <b>RU exit OFF</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>", relayKeyboard())
-	case "m:relay:list":
+	case "m:relay:list", "m:secondary:list":
 		reply(token, chat, msgID, formatRelayListHTML(), relayKeyboard())
 	case "m:addons":
 		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatAddonsHTML(), addonsKeyboard())

@@ -16,7 +16,7 @@ import (
 // GET /r?u=<base64url(deep-link)> → 302 Location: deep-link
 // Optional HTTPS: -tls-cert / -tls-key and -https-listen (default :8443 only if certs given).
 func runRedirectServe(args []string) {
-	addr := ":80"
+	addr := "127.0.0.1:80"
 	httpsAddr := ""
 	tlsCert, tlsKey := "", ""
 	for i := 0; i < len(args); i++ {
@@ -42,7 +42,7 @@ func runRedirectServe(args []string) {
 				i++
 			}
 		case "-h", "--help":
-			fmt.Println("usage: netductor redirect-serve [-listen :80] [-https-listen :8443] [-tls-cert C] [-tls-key K]")
+			fmt.Println("usage: netductor redirect-serve [-listen 127.0.0.1:80] [-https-listen :8443] [-tls-cert C] [-tls-key K]\n  default listen is loopback; use -listen :80 only if intentional public HTTP")
 			return
 		}
 	}

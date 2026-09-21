@@ -24,9 +24,9 @@ func btnCopy(text, copyPayload string) map[string]any {
 func relayKeyboard() map[string]any {
 	// nested under Nodes — same actions, back goes to nodes
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("nodes_enroll"), "m:relay:enroll", "primary")},
-		{btn(T("relay_exit_on"), "m:relay:exit:on", "success"), btn(T("relay_exit_off"), "m:relay:exit:off", "danger")},
-		{btn(T("relay_sync"), "m:relay:sync", ""), btn(T("nodes"), "m:cat:nodes", "primary")},
+		{btn(T("nodes_enroll"), "m:secondary:enroll", "primary")},
+		{btn(T("relay_exit_on"), "m:secondary:exit:on", "success"), btn(T("relay_exit_off"), "m:secondary:exit:off", "danger")},
+		{btn(T("relay_sync"), "m:secondary:sync", ""), btn(T("nodes"), "m:cat:nodes", "primary")},
 		{btn(T("main_menu"), "m:menu", "")},
 	}}
 }
@@ -99,8 +99,8 @@ func nodesKeyboard() map[string]any {
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
 			{btn(T("nodes_list_btn"), "m:nodes_list", "primary"), btn(T("nodes_rename_btn"), "m:node_rename", "")},
-			{btn(T("nodes_enroll"), "m:relay:enroll", "primary")},
-			{btn(T("nodes_sync"), "m:relay:sync", ""), btn(T("nodes_exit"), "m:relay:exit:menu", "primary")},
+			{btn(T("nodes_enroll"), "m:secondary:enroll", "primary")},
+			{btn(T("nodes_sync"), "m:secondary:sync", ""), btn(T("nodes_exit"), "m:secondary:exit:menu", "primary")},
 			{btn(T("ssh_hosts"), "m:sshhosts", "primary")},
 			{btn(T("backup"), "m:backup", "")},
 			{btn(T("main_menu"), "m:menu", "")},
@@ -228,7 +228,7 @@ func nodesListKeyboard() map[string]any {
 		}
 		kb = append(kb, []map[string]any{btn(label, data, "")})
 	}
-	kb = append(kb, []map[string]any{btn(T("nodes_enroll"), "m:relay:enroll", "primary")})
+	kb = append(kb, []map[string]any{btn(T("nodes_enroll"), "m:secondary:enroll", "primary")})
 	kb = append(kb, []map[string]any{btn(T("main_menu"), "m:menu", "")})
 	return map[string]any{"inline_keyboard": kb}
 }

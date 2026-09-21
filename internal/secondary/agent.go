@@ -233,15 +233,7 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		}()
 		return true, "reboot scheduled in 2s"
 	case "upgrade":
-		out, err := exec.Command("bash", "-c", `export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq 2>&1 | tail -5
-apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade 2>&1 | tail -30
-wget -qO /tmp/nd.bin https://github.com/PavelNeyman/netductor/releases/download/v0.8.16/netductor-linux-amd64 && cp /tmp/nd.bin /usr/local/bin/netductor
-systemctl restart sing-box 2>&1 || true
-nohup bash -c 'sleep 45; systemctl restart netductor-secondary-agent' >/dev/null 2>&1 &
-echo DONE
-`).CombinedOutput()
-		return err == nil, string(out)
+		return secondaryUpgrade()
 	case "mtls_refresh":
 		return secondaryMTLSRefresh()
 	case "metrics":
@@ -268,6 +260,51 @@ echo DONE
 		}
 		return false, "unknown cmd: " + cmd
 	}
+}
+
+
+// secondaryUpgrade: apt + binary replace without shell. Agent restart deferred in-process.
+func secondaryUpgrade() (bool, string) {
+	var log strings.Builder
+	run := func(name string, args ...string) {
+		cmd := exec.Command(name, args...)
+		cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
+		out, err := cmd.CombinedOutput()
+		log.Write(out)
+		if err != nil {
+			log.WriteString(err.Error())
+			log.WriteByte('\n')
+		}
+	}
+	run("apt-get", "update", "-qq")
+	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
+	ver := VersionHint()
+	url := "https://github.com/PavelNeyman/netductor/releases/download/v" + ver + "/netductor-linux-amd64"
+	tmp := "/tmp/nd-upgrade.bin"
+	run("wget", "-qO", tmp, url)
+	if st, err := os.Stat(tmp); err == nil && st.Size() > 1000 {
+		_ = os.Chmod(tmp, 0o755)
+		_ = exec.Command("cp", tmp, "/usr/local/bin/netductor").Run()
+	}
+	_ = exec.Command("systemctl", "restart", "sing-box").Run()
+	go func() {
+		time.Sleep(45 * time.Second)
+		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Run()
+	}()
+	log.WriteString("DONE\n")
+	return true, log.String()
+}
+
+func VersionHint() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_VERSION")); v != "" {
+		return strings.TrimPrefix(v, "v")
+	}
+	if b, err := os.ReadFile("/etc/netductor/VERSION"); err == nil {
+		if v := strings.TrimSpace(string(b)); v != "" {
+			return strings.TrimPrefix(v, "v")
+		}
+	}
+	return "0.8.17"
 }
 
 func secondaryMTLSRefresh() (bool, string) {

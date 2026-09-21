@@ -22,7 +22,7 @@ button{background:#1a7;color:#fff;border:0;border-radius:6px}
 <h1>netductor recovery</h1>
 <p>Введите код с primary (CLI/TG). Настройки Wi‑Fi/сети <b>не</b> меняются — только привязка к серверу.</p>
 <form method="POST" action="/netductor-recovery">
-<label>Primary URL<br/><input name="server" placeholder="http://x.x.x.x:8787" value="{{SERVER}}"/></label>
+<label>Primary URL<br/><input name="server" placeholder="https://x.x.x.x:8789" value="{{SERVER}}"/></label>
 <label>Recovery / bootstrap code<br/><input name="code" autocomplete="off" required/></label>
 <button type="submit">Отправить</button>
 </form>
@@ -93,17 +93,17 @@ func startRecoveryHTTP(cfg *config) {
 	go func() {
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
-			// fallback all-interfaces if private bind failed
-			if addr != ":7879" && os.Getenv("NETDUCTOR_RECOVERY_ADDR") == "" {
-				addr = ":7879"
+			// Never auto-bind 0.0.0.0 unless operator explicitly asked.
+			if os.Getenv("NETDUCTOR_RECOVERY_ALLOW_ANY") == "1" && os.Getenv("NETDUCTOR_RECOVERY_ADDR") == "" {
+				addr = "127.0.0.1:7879"
 				ln, err = net.Listen("tcp", addr)
 			}
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "recovery http: %v\n", err)
+				fmt.Fprintf(os.Stderr, "recovery http: %v (no private LAN bind; set NETDUCTOR_RECOVERY_ADDR or RECOVERY_ALLOW_ANY=1)\n", err)
 				return
 			}
 		}
-		fmt.Fprintf(os.Stderr, "recovery http on %s /netductor-recovery (prefer LAN; set NETDUCTOR_RECOVERY_HTTP=0 to disable)\n", addr)
+		fmt.Fprintf(os.Stderr, "recovery http on %s /netductor-recovery (LAN clients only unless RECOVERY_ALLOW_ANY=1; set RECOVERY_HTTP=0 to disable)\n", addr)
 		s := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 		_ = s.Serve(ln)
 	}()
@@ -133,7 +133,8 @@ func pickPrivateListenAddr(port string) string {
 			return net.JoinHostPort(ip.String(), port)
 		}
 	}
-	return ":" + port
+	// No private iface: loopback only (not 0.0.0.0).
+	return "127.0.0.1:" + port
 }
 
 func allowRecoveryClient(r *http.Request) bool {

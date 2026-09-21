@@ -76,7 +76,7 @@ func runNodes(args []string) {
 		}
 		switch args[1] {
 		case "reboot":
-			_ = exec.Command("bash", "-c", "nohup bash -c 'sleep 3; systemctl reboot' >/dev/null 2>&1 &").Run()
+			go func() { time.Sleep(3 * time.Second); _ = exec.Command("systemctl", "reboot").Run() }()
 			fmt.Println("queued")
 		case "upgrade":
 			logf := "/var/lib/netductor/core-upgrade.log"
