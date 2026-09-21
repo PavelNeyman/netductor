@@ -51,6 +51,7 @@
       git_show_btn: 'Show',
       git_pipelines: 'Pipelines',
       git_run: 'Run',
+      git_delete: 'Delete',
       tab_audit: 'Audit',
       tab_sessions: 'Sessions',
       tab_status: 'Status',
@@ -617,6 +618,13 @@
     $('#probes-raw').textContent = JSON.stringify(p, null, 2);
   }
   document.getElementById('btn-git-refresh')?.addEventListener('click', () => refreshGit());
+document.getElementById('btn-git-delete')?.addEventListener('click', async () => {
+  const name = window._gitSelected;
+  if (!name || !confirm('Delete ' + name + '?')) return;
+  await api('/api/git/repos?name=' + encodeURIComponent(name), { method: 'DELETE' });
+  window._gitSelected = '';
+  refreshGit();
+});
 document.getElementById('btn-git-init')?.addEventListener('click', async () => {
   const name = document.getElementById('git-new-name')?.value?.trim();
   if (!name) return;

@@ -18,12 +18,24 @@ func runGit(args []string) int {
   netductor git show <name> [rev]
   netductor git pipelines
   netductor git pipeline <repo> <name> [args...]
+  netductor git delete <name>
   netductor git root`)
 		return 2
 	}
 	switch args[0] {
 	case "root":
 		fmt.Println(gitstore.Root())
+		return 0
+	case "delete":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git delete <name>")
+			return 2
+		}
+		if err := gitstore.Delete(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("deleted", args[1])
 		return 0
 	case "list":
 		list, err := gitstore.List()

@@ -1,77 +1,48 @@
-# Self-hosted Git for netductor (single operator)
+# Self-hosted Git (netductor thin model)
 
-## Goal (clarified)
+**Not a forge.** Single-operator bare repos + control from netductor.
 
-Not a forge (no multi-user web, PRs, issues, comments).
+## Status (v0.8.30)
 
-**Wanted:** private source on primary + control from **netductor** (CLI / Admin / TG later):
+| Action | CLI | API | Admin | TG |
+|--------|-----|-----|-------|-----|
+| List | `git list` | `GET /api/git/repos` | ✅ | ✅ |
+| Init | `git init <name>` | `POST /api/git/repos` | ✅ | — (CLI) |
+| Delete | `git delete <name>` | `DELETE /api/git/repos?name=` | ✅ | ✅ |
+| Log | `git log <name> [n]` | `GET /api/git/log` | ✅ | ✅ |
+| Show/diff | `git show <name> [rev]` | `GET /api/git/show` | ✅ | ✅ |
+| Pipelines | `git pipelines` | `GET /api/git/pipelines` | ✅ | ✅ |
+| Run pipeline | `git pipeline <repo> <script>` | `POST /api/git/pipeline` | ✅ | ✅ |
 
-| Action | Enough? |
-|--------|---------|
-| List bare repos | yes |
-| Create / delete bare repo | yes |
-| Recent commits + message | yes |
-| Diff for a commit | yes (`git show`) |
-| Trigger a pipeline | yes |
-| Full GitLab/Forgejo UI | **no** |
+Paths:
 
-That is **bare git + thin wrappers**, not “write GitLab”.
+- Repos: `/var/lib/netductor/git/<name>.git` (`NETDUCTOR_GIT_ROOT`)
+- Pipelines: `/etc/netductor/git-pipelines/` (`NETDUCTOR_GIT_PIPELINES`)
+- Samples auto-created: `echo-ok`, `go-test`
 
----
+## Push from Mac
 
-## Stack by layer (facts, 2026)
-
-### 1. Git storage — only `git`
-
-- `git init --bare /var/lib/netductor/git/<name>.git`
-- Access: existing SSH (port **52222**, operator key)
-- Remote example: `ssh://root@PRIMARY:52222/var/lib/netductor/git/netductor.git`
-- List/log/show/diff: pure **git** CLI (or go-git in-process later)
-
-No alternative “lighter than git”.
-
-### 2. CI/CD — not only heavy products
-
-| Approach | Weight | Fits single operator? |
-|----------|--------|------------------------|
-| **`post-receive` hook** → script (`go test`, `build-release`) | Minimal | **Best default** |
-| **Pipelight** (CLI-only pipelines, git hooks) | ~13 MB binary | Good if you want declared pipelines |
-| **`act`** | Local GitHub Actions runner | Useful on Mac; not a server forge |
-| **Woodpecker / Drone** | Server + agent + Docker | Light vs Jenkins, but **expects a forge OAuth** (Gitea/Forgejo/GitHub) — awkward with bare-only |
-| Jenkins / GitLab CI | Heavy | No |
-
-**Fact:** there is no widely used “CI daemon as simple as `git` binary” that watches bare repos without either hooks or a forge API. For one person, **hooks + netductor “Run pipeline”** (exec script, stream log) is the right shape.
-
-### 3. Container registry
-
-| Piece | Role |
-|-------|------|
-| **`registry:2`** (distribution) | Small OCI registry daemon (or skip and only push to GHCR privately) |
-| **crane** / **skopeo** / **regctl** | CLI like git for tags, copy, inspect, delete — **no Docker daemon required** for most ops |
-
-Harbor is the “big” product; not needed for personal images.
-
----
-
-## Recommended architecture for netductor
-
-```text
-Mac ──SSH:52222──► primary
-                    /var/lib/netductor/git/*.git   (bare)
-                    hooks/post-receive → optional build script
-                    netductor git list|log|show|pipeline
-Admin/TG → same API
-crane/skopeo → optional local registry or external
+```bash
+netductor git init netductor   # on primary
+git remote add vps ssh://root@PRIMARY:52222/var/lib/netductor/git/netductor.git
+git push -u vps main
 ```
 
-1. Implement thin **`netductor git …`** (and API) wrapping `git`.
-2. Pipeline = named script under `/etc/netductor/git-pipelines/` or repo `hooks/`.
-3. Add registry only when you actually publish images to yourself.
+On push, `hooks/post-receive` runs `netductor git pipeline <repo> $NETDUCTOR_GIT_PIPELINE` if that env is set on the server (e.g. in systemd or `/etc/environment`).
 
-Do **not** pull Woodpecker until you adopt Forgejo/Gitea; without a forge it fights you.
+## CI model
 
----
+| Approach | When |
+|----------|------|
+| **Pipeline scripts** in `git-pipelines/` | Default |
+| **post-receive** + `NETDUCTOR_GIT_PIPELINE` | Auto on push |
+| Woodpecker / Forgejo | Only if you later want a full forge |
 
-## CLI status in tree
+## Registry (optional, later)
 
-See `netductor git -h` (from v0.8.29): `init`, `list`, `log`, `show`.
+`registry:2` + **crane** / **skopeo** — not wired into netductor yet.
+
+## Security
+
+- No public HTTP git; SSH key-only (port 52222)
+- API/Admin/TG require operator session / bot ACL

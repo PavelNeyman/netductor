@@ -43,7 +43,8 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		name := strings.TrimPrefix(rest, "repo:")
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("📜 Log", "m:git:log:"+name, ""), btn("🔍 HEAD", "m:git:show:"+name, "")},
-			{btn("▶️ Pipeline", "m:git:pipe:"+name, ""), btn("«", "m:git", "")},
+			{btn("▶️ Pipeline", "m:git:pipe:"+name, ""), btn("🗑 Del", "m:git:del:"+name, "")},
+			{btn("«", "m:git", "")},
 		}}
 		reply(token, chat, msgID, "📦 <b>"+esc(name)+"</b>", kb)
 		return true
@@ -66,6 +67,16 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			body = "⚠️ " + esc(err.Error()) + "\n" + body
 		}
 		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		return true
+	}
+	if strings.HasPrefix(rest, "del:") {
+		name := strings.TrimPrefix(rest, "del:")
+		err := gitstore.Delete(name)
+		msg := "✅ deleted " + name
+		if err != nil {
+			msg = "⚠️ " + err.Error()
+		}
+		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git", "")}}})
 		return true
 	}
 	if strings.HasPrefix(rest, "pipe:") {

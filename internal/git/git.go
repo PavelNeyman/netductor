@@ -77,6 +77,18 @@ func Init(name string) (string, error) {
 	return dir, nil
 }
 
+func Delete(name string) error {
+	name = sanitize(name)
+	if name == "" {
+		return fmt.Errorf("empty name")
+	}
+	dir := filepath.Join(Root(), name+".git")
+	if _, err := os.Stat(filepath.Join(dir, "HEAD")); err != nil {
+		return fmt.Errorf("repo not found: %s", name)
+	}
+	return os.RemoveAll(dir)
+}
+
 func Log(name string, n int) (string, error) {
 	dir, err := repoDir(name)
 	if err != nil {
@@ -149,12 +161,20 @@ func RunPipeline(repo, pipeline string, extraArgs ...string) (string, error) {
 
 func EnsureSamplePipeline() error {
 	_ = os.MkdirAll(PipelineDir(), 0o755)
-	path := filepath.Join(PipelineDir(), "echo-ok")
-	if _, err := os.Stat(path); err == nil {
-		return nil
+	samples := map[string]string{
+		"echo-ok": "#!/bin/sh\necho \"pipeline ok repo=$REPO_NAME path=$REPO_PATH at $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n",
+		"go-test": "#!/bin/sh\nset -e\necho \"go-test $REPO_NAME\"\n# clone bare to worktree\nWT=$(mktemp -d)\ngit --git-dir=\"$REPO_PATH\" --work-tree=\"$WT\" checkout -f HEAD 2>/dev/null || true\ncd \"$WT\"\nif [ -f go.mod ]; then go test ./...; else echo no go.mod; fi\nrm -rf \"$WT\"\n",
 	}
-	body := "#!/bin/sh\necho \"pipeline ok repo=$REPO_NAME path=$REPO_PATH at $(date -u +%Y-%m-%dT%H:%M:%SZ)\"\n"
-	return os.WriteFile(path, []byte(body), 0o755)
+	for name, body := range samples {
+		path := filepath.Join(PipelineDir(), name)
+		if _, err := os.Stat(path); err == nil {
+			continue
+		}
+		if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func RemoteHint(name string, sshPort int) string {

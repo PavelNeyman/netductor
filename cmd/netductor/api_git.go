@@ -38,6 +38,20 @@ func registerGitAPI(mux *http.ServeMux) {
 			})
 			return
 		}
+		if r.Method == http.MethodDelete {
+			name := r.URL.Query().Get("name")
+			if name == "" {
+				body := readJSON(r)
+				name, _ = body["name"].(string)
+			}
+			if err := gitstore.Delete(name); err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			audit.Log("session", "git.delete", name, "")
+			writeJSON(w, 200, map[string]any{"ok": true})
+			return
+		}
 		writeJSON(w, 405, map[string]string{"error": "method"})
 	})
 	mux.HandleFunc("/api/git/log", func(w http.ResponseWriter, r *http.Request) {
