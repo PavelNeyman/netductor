@@ -2,6 +2,14 @@
 
 Status: **design locked for implementation** · not all sites need guest · opt-in in edge wizard / template.
 
+
+## Locked decisions (2026-09-21)
+
+1. **Layout: only separate Guest SSID** — no band-split preset. Private keeps 2.4 and/or 5 as today (cameras/IoT often need 2.4). Guest is an **extra** `wifi-iface` on chosen radio(s), default **2.4** if present, optional also on 5.
+2. **Primary cashier UX: short session code + Grant QR**; device list is fallback (online/pending only, not years of MACs).
+3. **Authorization: MAC allow-list + TTL** (default 24h), not daily Wi‑Fi PSK rotation.
+4. **Stable Join QR** for association; internet only after grant.
+
 ## Problem
 
 At a shop (or home office) the operator sometimes needs to **lend internet briefly** (e.g. customer pays via phone). Requirements:
@@ -31,19 +39,18 @@ Password rotation of the guest PSK remains **optional hygiene** (e.g. monthly), 
 
 ## Network topology (OpenWrt)
 
-### Option A — preferred: dedicated guest SSID
+### Layout (single path): dedicated Guest SSID
 
-- New interface `guest` (bridge `br-guest`), subnet e.g. `192.168.50.0/24`, DHCP on guest only.
-- `wifi-iface` `guest` → `network guest`, `mode ap`, `hidden 1`, WPA2/3 PSK.
-- Bands: either both radios or **2.4 GHz only** (config flag `guest_band: "2g" | "5g" | "both"`).
-- Private SSIDs unchanged (e.g. 5 GHz + optional 2.4 private).
+**Not** “give all of 2.4 to guests”. Private Wi‑Fi stays as configured (2.4 and/or 5) for staff, POS, cameras, IoT.
 
-### Option B — “2.4 = guest, 5 = private”
+Guest is an **additional** AP interface:
 
-- `radio0` (2.4): only guest iface.  
-- `radio1` (5): only private iface.  
-- Same `guest` L3 zone as Option A.  
-- Wizard choice: `guest_layout: "ssid" | "band_split"`.
+- Interface/bridge `guest` / `br-guest`, subnet e.g. `192.168.50.0/24`, DHCP only on guest.
+- New `wifi-iface` (e.g. `guest24`) → `network guest`, `mode ap`, `hidden 1`, WPA2/3 PSK.
+- Default radio: **2.4 GHz** when the device has it (better range in a shop hall). Optional second guest iface on 5 GHz later if needed — still same L3 guest zone.
+- Private SSIDs/keys unchanged.
+
+`guest_layout: band_split` — **rejected** (would kick cameras/IoT off 2.4).
 
 ### Firewall (nft/fw4)
 
@@ -70,6 +77,25 @@ Site VPN (agent outbound / policy routing) must **not** capture guest:
 - Never send guest into VLESS/tun.
 
 Doctor check: from a guest-associated test MAC, egress IP = ISP, not secondary/core.
+
+
+## Short session code (captive) — detail
+
+When a phone associates to guest and has **no** valid allow-list entry:
+
+1. DHCP assigns an address; agent notes `mac`, `lease time`, optional hostname.
+2. Agent creates a **session**: `{ code: "7K2", mac, created_at, expires_at: now+15m }`.
+3. Captive portal (gateway HTTP) shows large text:
+   - RU: «Код для продавца: **7K2**»
+   - Optional: Grant QR encoding the same session (one-time token).
+4. Cashier either:
+   - types `7K2` on Guest Desk → sees that MAC → Grant 24h, or
+   - scans Grant QR → same grant without typing.
+5. Code is **not** the Wi‑Fi password. It only points at “this phone right now”.
+6. Codes are short (3–4 chars, unambiguous alphabet), unique among **active** sessions; recycled after expiry.
+7. Desk default view: **Pending / online now** sorted by newest — typically a handful, not historical thousands.
+
+Historical MACs (years) are **not** shown on desk; optional admin log with retention (e.g. 30–90 days) only.
 
 ## Authorization model (24h)
 
@@ -122,8 +148,7 @@ Opt-in fields (site template + OpenWrt wizard):
 ```yaml
 guest:
   enabled: false
-  layout: ssid          # ssid | band_split
-  band: "2g"            # 2g | 5g | both (when layout=ssid)
+  band: "2g"            # 2g | both — which radio(s) get guest AP (private unchanged)
   ssid: "Shop-Guest"
   hidden: true
   psk: "<generated>"    # long-lived; rotatable manually
@@ -135,8 +160,8 @@ guest:
 
 Wizard questions (only if “Enable guest Wi‑Fi?” = yes):
 
-1. Layout: separate SSID vs 2.4 guest / 5 private.  
-2. Hidden SSID? (default yes).  
+1. Enable guest? Hidden SSID? (default yes).  
+2. Guest on 2.4 only or also 5 (private unchanged).  
 3. Default grant TTL (24h).  
 4. Desk PIN.  
 
