@@ -91,5 +91,5 @@ export NETDUCTOR_GIT_WORKFLOW=1
 ```
 
 On **GitHub**, the same YAML with only `run:` steps works as a normal workflow.  
-**GitLab CI** uses a different schema (`.gitlab-ci.yml`, `script:`) — not the same standard; porting requires a separate file or converter.
+**Policy:** target DSL is **GitHub Actions subset only** (popular + same file on GitHub). **GitLab CI** uses a different schema (`.gitlab-ci.yml`, `script:`) — not the same standard; porting requires a separate file or converter.
 

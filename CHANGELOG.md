@@ -1,3 +1,8 @@
+## 0.8.33
+
+- TUI: single deploy path (tab Wizard → confirm → huh deploy wizards); drop dead field forms
+- NVR in tab wizard targets; GitHub Actions–subset is the only CI YAML target (no GitLab dual-DSL)
+
 # Changelog
 
 ## 0.8.32

@@ -17,6 +17,7 @@ const (
 	wizSecondary wizTarget = "secondary"
 	wizOpenWrt   wizTarget = "openwrt"
 	wizMikroTik  wizTarget = "mikrotik"
+	wizNVR       wizTarget = "nvr"
 )
 
 type wizStep int
@@ -52,6 +53,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 			{"secondary", "Secondary VPS", "RU entry", "Российский VPS: SSH с primary, provision-secondary (ключ, agent, sing-box, VPN entry). Пароль только для первого входа."},
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
 			{"mikrotik", "MikroTik", "ROS site", "Сайт MikroTik (+ опционально RPi OpenWrt): identity, маршруты, push скриптов через SSH TOFU."},
+			{"nvr", "Cameras / NVR", "Камеры", "NVR: leases, add camera, probe, record — через primary после edge."},
 		}
 	}
 	return []menuEntry{
@@ -59,47 +61,11 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		{"secondary", "Secondary VPS", "RU entry", "RU VPS: SSH from primary, provision-secondary (key, agent, sing-box, VPN entry). Password only for first login."},
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
+		{"nvr", "Cameras / NVR", "Cameras", "NVR: leases, add camera, probe, record — via primary after edge."},
 	}
 }
 
-func (m *model) wizBuildFields() {
-	lang := m.lang
-	ru := lang == langRU
-	switch m.wizTarget {
-	case wizPrimary:
-		m.wizFields = []wizField{
-			{Key: "sni", Label: map[bool]string{true: "Reality SNI", false: "Reality SNI"}[true], Value: "api.vk.me", Placeholder: "api.vk.me"},
-			{Key: "install", Label: map[bool]string{true: "Запустить install? (yes/no)", false: "Run install? (yes/no)"}[ru], Value: "yes", Placeholder: "yes"},
-		}
-	case wizSecondary:
-		m.wizFields = []wizField{
-			{Key: "host", Label: map[bool]string{true: "IP / host secondary", false: "Secondary IP / host"}[ru], Placeholder: "92.x.x.x"},
-			{Key: "user", Label: "SSH user", Value: "root"},
-			{Key: "pass", Label: map[bool]string{true: "SSH пароль (первый вход)", false: "SSH password (first login)"}[ru], Secret: true},
-			{Key: "sni", Label: "Reality SNI", Value: "api.vk.me", Placeholder: "api.vk.me"},
-		}
-	case wizOpenWrt:
-		m.wizFields = []wizField{
-			{Key: "host", Label: map[bool]string{true: "IP роутера (LAN)", false: "Router LAN IP"}[ru], Placeholder: "192.168.1.1"},
-			{Key: "user", Label: "SSH user", Value: "root"},
-			{Key: "pass", Label: map[bool]string{true: "SSH пароль (если нет ключа)", false: "SSH password (if no key)"}[ru], Secret: true},
-			{Key: "id", Label: map[bool]string{true: "Device ID", false: "Device ID"}[ru], Value: "home-owrt-1", Placeholder: "home-owrt-1"},
-			{Key: "server", Label: map[bool]string{true: "Primary mTLS URL (https://IP:8789)", false: "Primary mTLS URL (https://IP:8789)"}[ru], Value: "", Placeholder: "https://PRIMARY_IP:8789"},
-			{Key: "agent", Label: map[bool]string{true: "Путь к agent binary", false: "Path to agent binary"}[ru], Placeholder: "./netductor-agent-linux-arm64"},
-		}
-	case wizMikroTik:
-		m.wizFields = []wizField{
-			{Key: "host", Label: "MikroTik IP", Placeholder: "192.168.88.1"},
-			{Key: "user", Label: "SSH user", Value: "admin"},
-			{Key: "pass", Label: map[bool]string{true: "Пароль", false: "Password"}[ru], Secret: true},
-			{Key: "name", Label: map[bool]string{true: "Имя сайта", false: "Site name"}[ru], Value: "home", Placeholder: "home"},
-		}
-	}
-	m.wizFieldIdx = 0
-	if len(m.wizFields) > 0 {
-		m.wizInput = m.wizFields[0].Value
-	}
-}
+// wizBuildFields removed: deploy targets use huh wizards in tui_deploy_wizards.go (single path).
 
 func (m *model) renderWizard() string {
 	w := max(40, m.width)
@@ -154,6 +120,7 @@ func (m *model) renderWizard() string {
 			}
 		}
 	case wizStepConfirm:
+		// Single path: confirm → tui_deploy_wizards (huh), not inline fields
 		msg := "Enter = run · Esc = back to fields"
 		if ru {
 			msg = "Enter = выполнить · Esc = к полям"
@@ -221,6 +188,7 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 				return m, nil
 			case wizStepConfirm:
+		// Single path: confirm → tui_deploy_wizards (huh), not inline fields
 				m.wizStep = wizStepFields
 				m.wizFieldIdx = 0
 				if len(m.wizFields) > 0 {
@@ -280,6 +248,7 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 		m.wizStep = wizStepConfirm
 		return m, nil
 	case wizStepConfirm:
+		// Single path: confirm → tui_deploy_wizards (huh), not inline fields
 		if string(m.wizTarget) == "remote" {
 			m.remoteHost = m.fieldVal("host")
 			m.remoteUser = orDefault(m.fieldVal("user"), "root")
@@ -326,14 +295,12 @@ func (m model) runWizardApply() string {
 	case wizMikroTik:
 		runSiteWizard()
 		return "mikrotik/site wizard finished (see terminal output above)"
+	case wizNVR:
+		wizardNVR()
+		return "nvr wizard finished (see terminal output above)"
 	case "remote":
 		return "remote target set in settings"
 	default:
-		// NVR not in wizTarget enum — optional
-		if string(m.wizTarget) == "nvr" {
-			wizardNVR()
-			return "nvr wizard finished"
-		}
 		return "unknown wizard target"
 	}
 }

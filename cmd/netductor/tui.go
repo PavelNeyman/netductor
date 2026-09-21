@@ -278,6 +278,7 @@ func runTUI(args []string) {
 		case "ssh-hosts":
 			runSSHHostsTUI()
 		case "wizard":
+			// Same deploy centre as tab Wizard (huh forms in tui_deploy_wizards.go)
 			runSetupWizard()
 		default:
 			return

@@ -119,8 +119,8 @@ func (m model) activateCursor() (tea.Model, tea.Cmd) {
 	}
 	if m.tab == tabWizard {
 		m.wizTarget = wizTarget(id)
-		m.wizBuildFields()
-		m.wizStep = wizStepFields
+		m.wizFields = nil
+		m.wizStep = wizStepConfirm
 		m.screen = screenWizard
 		return m, nil
 	}

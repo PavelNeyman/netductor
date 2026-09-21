@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.32**.
+Baseline: **v0.8.33**.
 
 ## Gates (green)
 `go test` / version pins / core UI parity
@@ -22,7 +22,7 @@ Baseline: **v0.8.32**.
 - Status-without-VPN  
 - Messenger eval (SimpleX etc.) — not core  
 - ~~Optional local OCI registry + crane~~ **done** (v0.8.31)  
-- TUI dual-path cleanup (`bubbles/list`) — low priority  
+- ~~TUI dual-path cleanup~~ **done** (tab → confirm → deploy wizards; no dead field forms)  
 - Residual “relay” string cosmetics in rare docs  
 
 ## Security (:8789)
