@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -73,7 +74,7 @@ func Run(opts Options) error {
 			return fmt.Errorf("%s: %w", c, err)
 		}
 	}
-	_ = os.WriteFile(filepath.Join(paths.StateDir(), "installed_version"), []byte("0.8.0\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(paths.StateDir(), "installed_version"), []byte(version.Release+"\n"), 0o644)
 	writeReady()
 	// optional extras (env-gated)
 	if os.Getenv("NETDUCTOR_LAMPAC") == "1" {

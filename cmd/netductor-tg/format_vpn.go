@@ -438,54 +438,5 @@ func showVPNQR(token string, chat int64, msgID int, name, mode string, edit bool
 		return
 	}
 	showUserAccess(token, chat, msgID, name, mode)
-	return
-	// unreachable legacy body kept for reference until next cleanup
-	override := true
-	if override {
-		return
-	}
-
-	_, vless, hy2, sub := formatVPNLinkHTML(name)
-	if mode != "hy2" {
-		mode = "vless"
-	}
-	kb := userCardKeyboardMode(name, mode)
-	dir := filepath.Join("/etc/netductor/clients", name)
-	var path, payload string
-	if mode == "hy2" {
-		payload = hy2
-		path = ensureQRFile(filepath.Join(dir, "qr-hy2.png"), hy2)
-	} else {
-		payload = vless
-		if payload == "" {
-			payload = sub
-		}
-		path = ensureQRFile(filepath.Join(dir, "qr-vless.png"), vless)
-		if path == "" {
-			path = ensureQRFile(filepath.Join(dir, "qr.png"), vless)
-		}
-	}
-	cap := vpnQRCaption(name, mode, vless, hy2)
-	if payload == "" && path == "" {
-		sendHTML(token, chat, cap, kb)
-		return
-	}
-	if path == "" {
-		sendHTML(token, chat, cap, kb)
-		return
-	}
-	if edit && msgID > 0 {
-		if err := editPhotoFile(token, chat, msgID, path, cap, kb); err != nil {
-			// Text list message cannot become a photo — delete and put QR in its place.
-			_ = deleteMessage(token, chat, msgID)
-			if err2 := sendPhotoFile(token, chat, path, cap, kb); err2 != nil {
-				sendHTML(token, chat, cap+string([]byte{10})+"⚠️ <code>"+esc(err2.Error())+"</code>", kb)
-			}
-		}
-		return
-	}
-	if err := sendPhotoFile(token, chat, path, cap, kb); err != nil {
-		sendHTML(token, chat, cap+string([]byte{10})+"⚠️ <code>"+esc(err.Error())+"</code>", kb)
-	}
 }
 

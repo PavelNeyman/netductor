@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/version"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -143,7 +144,7 @@ func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 	b64 := strings.ReplaceAll(bundleJSON, "'", `'"'"'`)
 	script := fmt.Sprintf(`set -e
 export DEBIAN_FRONTEND=noninteractive
-VER=0.8.3
+VER=%s
 wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v${VER}/netductor-linux-amd64 \
   || curl -fsSL -o /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v${VER}/netductor-linux-amd64
 chmod 755 /usr/local/bin/netductor
@@ -154,7 +155,7 @@ netductor secondary join /root/bundle.json
 systemctl is-active sing-box || true
 systemctl is-active netductor-secondary-agent || true
 ss -tlnp | grep -E ':443|:4443' || true
-`, b64)
+`, version.Release, b64)
 	return runSSH(client, script)
 }
 

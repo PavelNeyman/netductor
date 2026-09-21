@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -54,7 +55,7 @@ func WriteComponentsManifest(comps []string) error {
 		}
 	}
 	m := ComponentsManifest{
-		Version:    "0.7.0-dev",
+		Version:    version.Release,
 		UpdatedAt:  time.Now().UTC().Format(time.RFC3339),
 		Components: out,
 	}

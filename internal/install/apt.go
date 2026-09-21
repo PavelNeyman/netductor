@@ -75,11 +75,11 @@ func aptInstall(pkgs ...string) error {
 		fmt.Fprintf(os.Stderr, "apt update warn: %v\n", err)
 	}
 	waitAptLock(90 * time.Second)
-	args := append([]string{
+	args := []string{
 		"-c",
 		"export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a; " +
 			"apt-get install -y --no-install-recommends " + strings.Join(need, " "),
-	})
+	}
 	cmd := exec.Command("bash", args...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	return cmd.Run()

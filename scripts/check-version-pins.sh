@@ -10,7 +10,7 @@ bad=0
 check_file() {
   local f="$1"
   [[ -f "$f" ]] || return 0
-  if grep -nE 'v0\.7\.|0\.7\.0-dev' "$f" 2>/dev/null | grep -vE 'CHANGELOG|REVIEW-|OPEN_ITEMS|older|historical|was |legacy|v0\.7\.x' >/tmp/nd-pin-hits 2>/dev/null; then
+  if grep -nE 'v0\.7\.|0\.7\.0-dev' "$f" 2>/dev/null | grep -vE 'CHANGELOG|REVIEW-|OPEN_ITEMS|AGENT_HANDOFF|PLAN-|EDGE-|older|historical|was |legacy|v0\.7\.x|pinned to|base64' >/tmp/nd-pin-hits 2>/dev/null; then
     if [[ -s /tmp/nd-pin-hits ]]; then
       echo "FAIL stale pin: $f"
       cat /tmp/nd-pin-hits
@@ -26,6 +26,9 @@ check_file runtime/api/admin/app.js
 check_file cmd/netductor-tg/format_sites.go
 check_file internal/secondary/agent.go
 check_file internal/deploy/version.go
+check_file internal/version/version.go
+check_file internal/install/services.go
+check_file internal/install/components.go
 check_file edge/openwrt/INSTALL.md
 
 while IFS= read -r f; do
@@ -34,9 +37,9 @@ done <<FIND
 $(find docs -type f \( -name '*.md' -o -name '*.sh' \) 2>/dev/null)
 FIND
 
-rel="$(grep -E 'const Release' internal/deploy/version.go | sed -E 's/.*"([0-9.]+)".*/\1/')"
+rel="$(grep -E 'const Release' internal/version/version.go | sed -E 's/.*"([0-9.]+)".*/\1/')"
 if [[ "$rel" != "$VER" ]]; then
-  echo "FAIL deploy.Release=$rel != VERSION=$VER"
+  echo "FAIL version.Release=$rel != VERSION=$VER"
   bad=1
 fi
 

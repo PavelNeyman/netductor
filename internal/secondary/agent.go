@@ -14,6 +14,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -304,7 +305,7 @@ func VersionHint() string {
 			return strings.TrimPrefix(v, "v")
 		}
 	}
-	return "0.8.19"
+	return version.Release
 }
 
 func secondaryMTLSRefresh() (bool, string) {

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -158,7 +159,7 @@ func InstallTelegram() error {
 	if a == "arm" {
 		a = "arm64" // best effort
 	}
-	ver := "0.7.0-dev"
+	ver := version.Release
 	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/v%s/netductor-tg-linux-%s", ver, a)
 	dest := filepath.Join(paths.OptDir(), "bin", "netductor-tg")
 	_ = os.MkdirAll(filepath.Dir(dest), 0o755)

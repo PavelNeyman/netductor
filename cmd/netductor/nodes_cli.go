@@ -105,7 +105,7 @@ func runNodes(args []string) {
 				run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
 				ver := deploy.Release
 				if ver == "" {
-					ver = "0.8.19"
+					ver = "0.8.20"
 				}
 				ver = strings.TrimPrefix(ver, "v")
 				base := "https://github.com/PavelNeyman/netductor/releases/download/v" + ver

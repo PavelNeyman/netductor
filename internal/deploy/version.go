@@ -1,5 +1,6 @@
 package deploy
 
+import "github.com/PavelNeyman/netductor/internal/version"
+
 // Release is the pinned product version for downloads and deploy defaults.
-// Bump together with VERSION / Formula / main.version on each release.
-const Release = "0.8.19"
+const Release = version.Release
