@@ -2,7 +2,7 @@
 
 **Not a forge.** Single-operator bare repos + control from netductor.
 
-## Status (v0.8.30)
+## Status (v0.8.35)
 
 | Action | CLI | API | Admin | TG |
 |--------|-----|-----|-------|-----|

@@ -9,7 +9,7 @@
 
 # Agent handoff — netductor
 
-**Version:** 0.8.30  
+**Version:** 0.8.35  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Last full review:** `docs/REVIEW-2026-09-21-FULL.md`  
 **Residual risks:** `docs/RESIDUAL_RISKS.md`  
@@ -771,51 +771,47 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.32 (2026-09-20)
+## Current baseline — v0.8.35 (2026-09-22)
 
 ### Release
-- Tag: **v0.8.32** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.30
-- Assets: darwin/linux CLI, agent (amd64/arm/arm64/mipsle), tg, SHA256SUMS
-- Homebrew Formula `0.8.30` · `brew reinstall netductor`
+- Tag: **v0.8.35** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.35
+- Homebrew Formula tracks `0.8.35` · `brew reinstall netductor`
 
-### Operator model
+### Locked product surface
+- **Mac workstation TUI** deploy: primary / secondary / OpenWrt / MikroTik / NVR (single path → huh wizards)
+- **mTLS** agent plane `:8789` (edge + secondary); revoke/rotate/grace; doctor expiry
+- **Self-host git**: bare repos, shell pipelines, GHA-subset `git workflow`, artifacts, post-receive hooks
+- **Registry**: local OCI + crane; catalog tags; optional htpasswd; default localhost
+- **Guest Wi‑Fi**: software path complete; hardware e2e pending
+- **i18n**: TUI/TG/Admin EN+RU for operator surfaces
 
-### Mac TUI deploy scenario (verified)
+### Operator open
+Hardware e2e · Domain/HTTPS · SMTP · Restore-drill — see [OPEN_ITEMS](OPEN_ITEMS.md)
 
-Intended flow: `brew install netductor` → `netductor tui --mode workstation` → Setup wizard:
+### Security review snapshot (v0.8.35)
+**OK**
+- Git/registry APIs gated by `requireSession`
+- Pipeline scripts only from `PipelineDir` (`filepath.Base`)
+- Artifact path containment (no `..` escape)
+- Registry bound to 127.0.0.1 by default
+- Agent plane rate limit + ban; mTLS VerifyPeerCertificate + revoke list
 
-1. **Primary** → `deploy.DeployPrimary` (password → Mac key in authorized_keys → binary from Releases → secrets → install/harden → SNI → fleet bootstrap) → saves `remote_host`/`remote_key` in `~/.config/netductor/tui.yaml`
-2. **Secondary** → SSH to primary → `fleet provision-secondary --operator-pubkey` (Mac pub) + mTLS client material
-3. **OpenWrt** → `DeployEdge` (agent binary + mTLS certs + `SERVER=https://primary:8789` + Mac pub harden)
-4. **NVR/cameras** → CLI via primary after edge online
-5. **MikroTik** → site wizard / RSC push + optional SSH harden
+**Residual / accepted**
+1. GHA `run:` and shell pipelines execute as the service user (root on typical VPS) — operator-controlled, same as self-hosted CI
+2. Registry catalog HTTP client has no basic auth yet when htpasswd enabled (use crane login / or clear auth for local)
+3. Admin UI over plain HTTP until domain TLS (operator network trust)
+4. Legacy docs may still mention old version pins in narrative sections of handoff history
 
-**Fixed in tree:** bubbletea tab wizard previously ran *local* `install` / `fleet provision-secondary` without operator pubkey and defaulted edge to `http://127.0.0.1:8787`. Now tab wizard **delegates** to the same `wizardPrimary/Secondary/OpenWrt` as the menu Setup wizard.
+**Not bugs**
+- No public git HTTP; SSH only
+- Edge without IP allowlist (NAT) — intentional
 
-**Requirements on Mac:** `ssh`, `scp`, `ssh-keygen`, `curl`, **`sshpass`** (first password login).
-
-
-- **Deployment centre** = Mac TUI (`netductor tui --mode workstation`)
-- First SSH: password → install **Mac** `~/.ssh/netductor_primary` pub → password off (primary/secondary/OpenWrt; MikroTik best-effort)
-- Day-2: **no device↔device SSH mesh**; agents → primary over **mTLS :8789**
-- Admin UI: **localhost :8787** only (`ssh -L 8787:127.0.0.1:8787 primary`)
-
-### Transport security (locked)
-| Surface | Policy |
-|---------|--------|
-| Admin `:8787` | `127.0.0.1` · need `API_PUBLIC=1` + TLS to bind public |
-| Agent plane `:8789` | mTLS (TLS1.3 + client cert) · ufw allow · **no IP allowlist** |
-| Plain `:8788` | **off** unless `NETDUCTOR_PLAIN_AGENT=1` |
-| Edge | same mTLS; works behind ISP NAT; independent of site VPN |
-| SSH | key-only after bootstrap |
-
-### UI i18n
-- Admin web, TUI (deploy/forms/sites/sshhosts/menus), TG dict + NVR buttons: **EN/RU**
-
-### Certs
-- `mtls.EnsureAll` on install/serve · `EnsureClientFor(id)` on secondary/edge provision · material on router under `/etc/netductor-agent/mtls/`
+### Refactor status
+- Agent split, FormT, version pin, TUI dual-path — done
+- No large structural refactor required post-0.8.34; keep incremental
 
 ---
+
 
 ## 0.8.30
 - Guest edge actions in `allowedEdgeActions`; TG waits `WaitCmdResult` (~90s) for status/grant

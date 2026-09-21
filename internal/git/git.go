@@ -81,9 +81,17 @@ func ListArtifacts(repo string) ([]string, error) {
 }
 
 func ReadArtifact(rel string) (string, error) {
-	rel = filepath.Clean("/" + rel)
-	rel = strings.TrimPrefix(rel, "/")
-	path := filepath.Join(ArtifactDir(), rel)
+	rel = filepath.Clean(strings.ReplaceAll(rel, "\\", "/"))
+	if rel == "." || rel == "" || strings.HasPrefix(rel, "..") || strings.Contains(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("invalid artifact path")
+	}
+	base := filepath.Clean(ArtifactDir())
+	path := filepath.Join(base, rel)
+	// contain under ArtifactDir
+	sep := string(os.PathSeparator)
+	if path != base && !strings.HasPrefix(path, base+sep) {
+		return "", fmt.Errorf("artifact path escape")
+	}
 	b, err := os.ReadFile(path)
 	return string(b), err
 }

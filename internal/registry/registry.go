@@ -108,7 +108,7 @@ func StatusInfo() Status {
 	out, err := exec.Command(eng, "inspect", "-f", "{{.State.Running}}", containerName).CombinedOutput()
 	s.Running = err == nil && strings.TrimSpace(string(out)) == "true"
 	if s.Running {
-		resp, err := httpClient().Get("http://" + Addr() + "/v2/")
+		resp, err := registryGET("/v2/")
 		if err == nil {
 			_ = resp.Body.Close()
 			// 200 anonymous, 401 when auth required
@@ -254,6 +254,18 @@ func EnsureCrane() (string, error) {
 }
 
 // Catalog lists repository names.
+
+func registryGET(path string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, "http://"+Addr()+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	if u := os.Getenv("NETDUCTOR_REGISTRY_USER"); u != "" {
+		req.SetBasicAuth(u, os.Getenv("NETDUCTOR_REGISTRY_PASSWORD"))
+	}
+	return httpClient().Do(req)
+}
+
 func Catalog() ([]string, error) {
 	detail, err := CatalogDetail()
 	if err != nil {
@@ -273,7 +285,7 @@ type RepoInfo struct {
 
 // CatalogDetail returns repos with tags (digest listing via tags list API).
 func CatalogDetail() ([]RepoInfo, error) {
-	resp, err := httpClient().Get("http://" + Addr() + "/v2/_catalog")
+	resp, err := registryGET("/v2/_catalog")
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +305,7 @@ func CatalogDetail() ([]RepoInfo, error) {
 	var out []RepoInfo
 	for _, name := range body.Repositories {
 		ri := RepoInfo{Name: name}
-		tr, err := httpClient().Get("http://" + Addr() + "/v2/" + name + "/tags/list")
+		tr, err := registryGET("/v2/" + name + "/tags/list")
 		if err == nil {
 			var tb struct {
 				Tags []string `json:"tags"`

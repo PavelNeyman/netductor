@@ -1,9 +1,9 @@
 # Open items
 
-Baseline: **v0.8.34**.
+Baseline: **v0.8.35**.
 
 ## Gates (green)
-`go test` / version pins / core UI parity
+`go test` / version pins / git+registry UI parity / GHA-subset runner
 
 ## Operator (needs you)
 1. **Hardware e2e** — OpenWrt (+ guest), Tapo/NVR, MikroTik+RPi  
@@ -11,19 +11,24 @@ Baseline: **v0.8.34**.
 3. **SMTP alerts** — when mailbox exists  
 4. **Restore-drill** — full `.ndenc` on clean VPS  
 
-## Done recently (do not re-open)
+## Done (do not re-open)
+- Thin git + shell pipelines + GHA-subset workflows (`docs/SELFHOST-GIT.md`)
+- Local OCI registry + crane + catalog tags + optional htpasswd
+- Pipeline/workflow **artifacts**; doctor git/registry checks
+- CLI ↔ Admin ↔ TG parity for git/registry
+- mTLS revoke/rotate, plane rate-limit/ban, SSH 52222 + fail2ban
 - Guest Wi‑Fi software path (hardware e2e still open)
-- TG guest wait `cmd_result`; mTLS certs in doctor/TG
-- Plane `:8789` rate-limit + ban; SSH **52222** + fail2ban
-- Thin git: CLI + API + Admin + TG + pipelines (`docs/SELFHOST-GIT.md`)
+- TUI single deploy path; allowlist removed for edge NAT
 - Path B user-bot — **dropped**
 
-## Deferred
+## Deferred (low)
 - Status-without-VPN  
-- Messenger eval (SimpleX etc.) — not core  
-- ~~Optional local OCI registry + crane~~ **done** (v0.8.31)  
-- ~~TUI dual-path cleanup~~ **done** (tab → confirm → deploy wizards; no dead field forms)  
+- Messenger eval  
 - Residual “relay” string cosmetics in rare docs  
+- GHA `matrix` / full Actions compatibility  
 
-## Security (:8789)
-mTLS required for useful traffic; 180 req/min/IP; ban after repeated 429. No IP allowlist for edge (NAT).
+## Security notes
+- Agent plane `:8789` mTLS; plain `:8788` only `NETDUCTOR_PLAIN_AGENT=1`
+- Registry default `127.0.0.1:5000`; auth optional if exposed
+- Git over SSH key-only (52222); API/Admin/TG require session/ACL
+- Artifact reads path-contained under `git-artifacts/`

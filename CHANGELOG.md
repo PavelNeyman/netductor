@@ -1,3 +1,9 @@
+## 0.8.35
+
+- Harden git artifact path reads (no `..` escape)
+- Docs/handoff/OPEN_ITEMS baseline lock; security review snapshot
+- Git+registry+GHA surface marked complete for thin self-host
+
 ## 0.8.34
 
 - Git/registry UI parity: Admin+TG workflow, artifacts; catalog tags; registry htpasswd auth

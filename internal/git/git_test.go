@@ -42,3 +42,14 @@ func TestPipeline(t *testing.T) {
 		t.Fatal("empty output")
 	}
 }
+
+func TestReadArtifactNoEscape(t *testing.T) {
+	_, err := ReadArtifact("../etc/passwd")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	_, err = ReadArtifact("/etc/passwd")
+	if err == nil {
+		t.Fatal("expected error abs")
+	}
+}
