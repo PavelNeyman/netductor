@@ -3,17 +3,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/sites"
-	"io"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 )
 
 func registerEdgeAPI(mux *http.ServeMux) {
@@ -67,13 +68,13 @@ func registerEdgeAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/edge/backup", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		auth := r.Header.Get("Authorization")
 		did := edge.DeviceIDFromAuth(auth)
 		if did == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		if hdr := r.Header.Get("X-Device-ID"); hdr != "" && hdr != did {
@@ -89,13 +90,13 @@ func registerEdgeAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/edge/metrics", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		auth := r.Header.Get("Authorization")
 		tokenDID := edge.DeviceIDFromAuth(auth)
 		if tokenDID == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		var payload map[string]any
@@ -130,7 +131,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			writeJSON(w, 200, tmpl)
 			return
 		}
-		writeJSON(w, 405, map[string]string{"error": "method"})
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 	})
 	mux.HandleFunc("/api/edge/templates", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
@@ -153,7 +154,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			}
 			writeJSON(w, 200, map[string]any{"ok": true})
 		default:
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
 	mux.HandleFunc("/api/edge/bind-template", func(w http.ResponseWriter, r *http.Request) {
@@ -172,7 +173,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/edge/enroll", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		ip := r.Header.Get("X-Real-IP")
@@ -185,7 +186,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		auth := r.Header.Get("Authorization")
 		if !edge.ValidRecoveryOrBootstrap(auth) {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		var payload map[string]any
@@ -213,13 +214,13 @@ func registerEdgeAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/edge/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		auth := r.Header.Get("Authorization")
 		tokenDID := edge.DeviceIDFromAuth(auth)
 		if tokenDID == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		payload := readJSON(r)
@@ -264,7 +265,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		auth := r.Header.Get("Authorization")
 		did := edge.DeviceIDFromAuth(auth)
 		if did == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		q := r.URL.Query().Get("device_id")
@@ -277,12 +278,12 @@ func registerEdgeAPI(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/edge/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		did := edge.DeviceIDFromAuth(r.Header.Get("Authorization"))
 		if did == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		ca, cert, key, err := mtls.ReadMaterial(did)
@@ -344,12 +345,12 @@ func registerEdgeAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/edge/cmd_result", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		tokenDID := edge.DeviceIDFromAuth(r.Header.Get("Authorization"))
 		if tokenDID == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		body := readJSON(r)
@@ -414,7 +415,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/edge/cmd", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		if !requireSession(w, r) {

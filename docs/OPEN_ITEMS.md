@@ -1,13 +1,13 @@
 # Open items
 
-Baseline: **v0.8.20**.
+Baseline: **v0.8.21**.
 
-## Software quality gates (green)
-- `go test ./...`
-- `go vet ./...`
-- `scripts/check-version-pins.sh`
-- `scripts/check-ui-parity.sh`
+## Gates
+- go test ./... OK
+- go vet ./... OK
+- check-version-pins OK
+- check-ui-parity OK
 
-## Operator-only
+## Operator
 - Hardware e2e
-- Domain HTTPS redirect when domain exists
+- Domain HTTPS redirect

@@ -6,13 +6,6 @@ import (
 	"strings"
 )
 
-func formatRelayHelp() string {
-	nl := string([]byte{10})
-	if getLang() != "en" {
-		return "Управление промежуточным VPS в РФ." + nl + nl + "1) <b>Export</b> / <b>One-liner</b>" + nl + "2) На RU выполнить команду" + nl + "3) Мобильным — secondary / Access links"
-	}
-	return "RU intermediate VPS." + nl + nl + "1) Export / One-liner" + nl + "2) Run on RU" + nl + "3) Mobile uses secondary Access links"
-}
 
 func formatRelayOneline() string {
 	_ = runND("secondary", "export", "-o", "/tmp/nd-secondary-bundle.json", "--sni", "ya.ru")
@@ -21,7 +14,7 @@ func formatRelayOneline() string {
 		return "❌ export failed: " + esc(err.Error())
 	}
 	enc := base64.StdEncoding.EncodeToString(b)
-	cmd := "wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v0.8.20/netductor-linux-amd64 && chmod 755 /usr/local/bin/netductor && echo " + enc + " | base64 -d > /root/bundle.json && netductor secondary join /root/bundle.json"
+	cmd := "wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v0.8.21/netductor-linux-amd64 && chmod 755 /usr/local/bin/netductor && echo " + enc + " | base64 -d > /root/bundle.json && netductor secondary join /root/bundle.json"
 	nl := string([]byte{10})
 	if getLang() != "en" {
 		return "🧾 <b>Одна команда на RU VPS</b>" + nl + nl + "<code>" + esc(cmd) + "</code>"

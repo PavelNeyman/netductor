@@ -1,17 +1,18 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.20"
+var version = "0.8.21"
 
 func main() {
 	ndconfig.Load()

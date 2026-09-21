@@ -49,7 +49,7 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 			}
 			writeJSON(w, 200, map[string]any{"ok": true, "forgot": id})
 		default:
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
 	mux.HandleFunc("/api/ssh-hosts/clear", func(w http.ResponseWriter, r *http.Request) {

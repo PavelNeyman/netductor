@@ -58,7 +58,7 @@ func registerNVRAPI(mux *http.ServeMux) {
 			}
 			writeJSON(w, 200, map[string]any{"ok": true, "camera": out})
 		default:
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
 
@@ -176,7 +176,7 @@ func registerNVRAPI(mux *http.ServeMux) {
 			_ = nvr.EnsureSegmentsDir()
 			writeJSON(w, 200, map[string]any{"ok": true, "config": nvr.LoadConfig()})
 		default:
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
 
@@ -233,12 +233,10 @@ func registerNVRAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})
 
-	
-	
 	// Agent (device token) or session may upload a segment file.
 	mux.HandleFunc("/api/nvr/ingest", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		auth := r.Header.Get("Authorization")
@@ -283,7 +281,6 @@ func registerNVRAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "path": path, "bytes": n, "device_id": did})
 	})
 
-	
 	mux.HandleFunc("/api/nvr/motion", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
@@ -324,7 +321,7 @@ func registerNVRAPI(mux *http.ServeMux) {
 			}
 			writeJSON(w, 200, map[string]any{"ok": true, "motion": nvr.LoadMotion()})
 		default:
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
 
@@ -336,7 +333,6 @@ func registerNVRAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"events": nvr.ListEventsTail(n)})
 	})
 
-	
 	mux.HandleFunc("/api/nvr/clip/token", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return
@@ -368,7 +364,7 @@ func registerNVRAPI(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/nvr/clip", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		tok := r.URL.Query().Get("token")
@@ -387,7 +383,6 @@ func registerNVRAPI(mux *http.ServeMux) {
 		http.ServeFile(w, r, path)
 	})
 
-	
 	mux.HandleFunc("/api/nvr/ptz", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return

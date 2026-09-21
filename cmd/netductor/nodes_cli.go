@@ -85,7 +85,11 @@ func runNodes(args []string) {
 			_ = os.WriteFile(logf, []byte("started\n"), 0o600)
 			go func() {
 				f, _ := os.OpenFile(logf, os.O_APPEND|os.O_WRONLY, 0o600)
-				defer func() { if f != nil { f.Close() } }()
+				defer func() {
+					if f != nil {
+						f.Close()
+					}
+				}()
 				logw := func(s string) {
 					if f != nil {
 						_, _ = f.WriteString(s + "\n")
@@ -105,7 +109,7 @@ func runNodes(args []string) {
 				run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
 				ver := deploy.Release
 				if ver == "" {
-					ver = "0.8.20"
+					ver = "0.8.21"
 				}
 				ver = strings.TrimPrefix(ver, "v")
 				base := "https://github.com/PavelNeyman/netductor/releases/download/v" + ver

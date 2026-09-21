@@ -45,35 +45,6 @@ func detectSuggestedMode() (runMode, string) {
 	return modeOperator, "no strong signal"
 }
 
-func describeMode(m runMode) (string, string) {
-	return describeModeLang(m, detectLang())
-}
-
-func describeModeLang(m runMode, lang tuiLang) (string, string) {
-	if lang == langRU {
-		switch m {
-		case modeVPS:
-			return "Настройка VPS", "Стек на сервере: VPN, DNS, API, бот…"
-		case modeOpenWRT:
-			return "OpenWrt / edge", "Агент на роутере, сеть сайта, тоннель к VPS"
-		case modeWorkstation:
-			return "Рабочая станция (PC/Mac)", "Сборка, bootstrap, удалённые хелперы"
-		default:
-			return "Панель оператора", "Пользователи, сессии, edge, doctor, probes"
-		}
-	}
-	switch m {
-	case modeVPS:
-		return "VPS setup", "Install & configure stack on a server (VPN, DNS, API, bot…)"
-	case modeOpenWRT:
-		return "OpenWrt / edge", "Router agent, site network, tunnel toward your VPS"
-	case modeWorkstation:
-		return "Workstation (PC/Mac)", "Build binaries, bootstrap hints, remote helpers"
-	default:
-		return "Manage node", "Operate installed system: users, fleet, doctor, probes"
-	}
-}
-
 func parseModeFlags(args []string) runMode {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -313,3 +284,21 @@ func runTUI(args []string) {
 		}
 	}
 }
+
+func describeMode(m runMode) string {
+	title, d := describeModeLang(m, detectLang())
+	if d == "" {
+		return title
+	}
+	return title + " — " + d
+}
+
+func describeModeLang(m runMode, lang tuiLang) (title, desc string) {
+	for _, e := range modeEntries(lang) {
+		if runMode(e.ID) == m {
+			return e.Title, e.Detail
+		}
+	}
+	return string(m), ""
+}
+

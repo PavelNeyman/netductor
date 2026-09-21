@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,10 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/cli18n"
+
 	"github.com/PavelNeyman/netductor/internal/install"
-	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/mtls"
+	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -127,17 +128,23 @@ func runSecondary(args []string) {
 			a := args[i]
 			switch {
 			case a == "--host" && i+1 < len(args):
-				i++; host = args[i]
+				i++
+				host = args[i]
 			case a == "--user" && i+1 < len(args):
-				i++; user = args[i]
+				i++
+				user = args[i]
 			case a == "--password" && i+1 < len(args):
-				i++; pass = args[i]
+				i++
+				pass = args[i]
 			case a == "--port" && i+1 < len(args):
-				i++; fmt.Sscanf(args[i], "%d", &port)
+				i++
+				fmt.Sscanf(args[i], "%d", &port)
 			case a == "--sni" && i+1 < len(args):
-				i++; sni = args[i]
+				i++
+				sni = args[i]
 			case a == "--operator-pubkey" && i+1 < len(args):
-				i++; opPub = args[i]
+				i++
+				opPub = args[i]
 			}
 		}
 		if host == "" || pass == "" {
@@ -275,7 +282,6 @@ func runSecondary(args []string) {
 		os.Exit(2)
 	}
 }
-
 
 // postProvisionSecondary restores operator-facing state after a clean relay reinstall.
 // Reality keys are always new on the secondary; everything else is rebuilt on core + remote.

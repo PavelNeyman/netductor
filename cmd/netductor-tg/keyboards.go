@@ -330,9 +330,6 @@ func userAccessKeyboard(name, mode string) map[string]any {
 }
 
 // legacy alias
-func userCardKeyboardMode(name, mode string) map[string]any {
-	return userAccessKeyboard(name, mode)
-}
 
 func vpnUsersKeyboard() map[string]any {
 	return usersListKeyboard()

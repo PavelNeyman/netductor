@@ -149,7 +149,7 @@ func registerRelayAPI(mux *http.ServeMux) {
 		tok := agentToken(r)
 		d := secondary.FindByToken(tok)
 		if d == nil {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		ca, cert, key, err := mtls.ReadMaterial(d.ID)
@@ -172,7 +172,7 @@ func agentToken(r *http.Request) string {
 func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
 	if tok == "" || len(tok) < 16 {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	raw, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
@@ -180,7 +180,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(raw, &in)
 	d, ver, err := secondary.Heartbeat(tok, in)
 	if err != nil {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if strings.TrimSpace(in.CmdDone) != "" {
@@ -219,7 +219,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
 	if tok == "" || len(tok) < 16 || secondary.FindByToken(tok) == nil {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	sni := vpn.ActiveSNI()
@@ -248,7 +248,7 @@ func StartAgentPlane() {
 		tok := agentToken(r)
 		d := secondary.FindByToken(tok)
 		if d == nil {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		ca, cert, key, err := mtls.ReadMaterial(d.ID)

@@ -214,41 +214,6 @@ func isHexish(s string) bool {
 	return true
 }
 
-func formatDoctorHTML(raw string) string {
-	raw = strings.TrimSpace(raw)
-	var b strings.Builder
-	b.WriteString("🩺 <b>Doctor</b>\n\n")
-	ok, fail, warn := 0, 0, 0
-	for _, line := range strings.Split(raw, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		switch {
-		case strings.HasPrefix(line, "OK"):
-			ok++
-			b.WriteString("✅ " + esc(strings.TrimSpace(strings.TrimPrefix(line, "OK"))) + "\n")
-		case strings.HasPrefix(line, "FAIL"):
-			fail++
-			b.WriteString("❌ " + esc(strings.TrimSpace(strings.TrimPrefix(line, "FAIL"))) + "\n")
-		case strings.HasPrefix(line, "WARN"):
-			warn++
-			b.WriteString("⚠️ " + esc(strings.TrimSpace(strings.TrimPrefix(line, "WARN"))) + "\n")
-		case strings.HasPrefix(line, "INFO"):
-			b.WriteString("ℹ️ " + esc(strings.TrimSpace(strings.TrimPrefix(line, "INFO"))) + "\n")
-		case strings.HasPrefix(line, "Summary"):
-			b.WriteString("\n<b>" + esc(line) + "</b>\n")
-		default:
-			if strings.HasPrefix(line, "Netductor doctor") {
-				b.WriteString("<b>" + esc(line) + "</b>\n")
-			}
-		}
-	}
-	_ = ok
-	_ = fail
-	_ = warn
-	return b.String()
-}
 
 
 
@@ -291,32 +256,7 @@ func formatStatusPretty() string {
 	return b.String()
 }
 
-func padRight(s string, n int) string {
-	if len(s) >= n {
-		return s
-	}
-	return s + strings.Repeat(" ", n-len(s))
-}
 
-func table2(rows [][2]string) string {
-	w := 0
-	for _, r := range rows {
-		if len(r[0]) > w {
-			w = len(r[0])
-		}
-	}
-	if w < 8 {
-		w = 8
-	}
-	var b strings.Builder
-	for _, r := range rows {
-		b.WriteString(padRight(r[0], w))
-		b.WriteString("  ")
-		b.WriteString(r[1])
-		b.WriteByte(10)
-	}
-	return b.String()
-}
 
 // formatNodeCardHTML — one template for all roles (pre tables).
 func truncate(s string, n int) string {

@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
-	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -198,7 +198,7 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	for _, m := range hardening.UnusualSSHAlerts() {
 		key := "ssh:unusual"
 		if len(m) > 24 {
-			key = "ssh:unusual:"+m[len(m)-24:]
+			key = "ssh:unusual:" + m[len(m)-24:]
 		}
 		notify.AlertOnce(key, "🔐 "+m)
 	}
@@ -213,4 +213,3 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	}
 	_ = m
 }
-

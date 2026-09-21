@@ -2,6 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"os/exec"
+	"strconv"
+	"strings"
+
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
@@ -11,10 +16,6 @@ import (
 	"github.com/PavelNeyman/netductor/internal/session"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/vpn"
-	"net/http"
-	"os/exec"
-	"strconv"
-	"strings"
 )
 
 func registerSessionAPI(mux *http.ServeMux) {
@@ -22,7 +23,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/nodes/journal", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "method", 405)
+			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
 		if !requireSession(w, r) {
@@ -63,7 +64,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/nodes/restart-service", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method", 405)
+			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
 		if !requireSession(w, r) {
@@ -114,7 +115,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			return
 		}
 		if r.Method != http.MethodPost {
-			http.Error(w, "method", 405)
+			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
 		var body struct {
@@ -167,7 +168,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			writeJSON(w, 200, out)
 			return
 		}
-		http.Error(w, "method", 405)
+		http.Error(w, "method", http.StatusMethodNotAllowed)
 	})
 	mux.HandleFunc("/api/sites/rsc", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
@@ -185,7 +186,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/sites/push-rsc", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			if r.Method != http.MethodPost {
-				http.Error(w, "method", 405)
+				http.Error(w, "method", http.StatusMethodNotAllowed)
 			}
 			return
 		}
@@ -207,7 +208,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			return
 		}
 		if err := mikrotik.PushRSC(body.Host, body.User, body.Password, nil, rsc, body.Port); err != nil {
-			http.Error(w, err.Error(), 502)
+			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
 		writeJSON(w, 200, map[string]any{"ok": true})
@@ -217,7 +218,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 		tok := bearer(r)
 		exp, ok := session.Expiry(tok)
 		if !ok {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "expires_unix": exp})
@@ -286,7 +287,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			}
 			writeJSON(w, 200, map[string]any{"ok": true})
 		default:
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +338,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			writeJSON(w, 200, map[string]any{"ok": true})
 			return
 		}
-		http.Error(w, "method", 405)
+		http.Error(w, "method", http.StatusMethodNotAllowed)
 	})
 
 	mux.HandleFunc("/api/mtls/certs", func(w http.ResponseWriter, r *http.Request) {

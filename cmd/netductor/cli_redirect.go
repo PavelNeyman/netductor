@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -98,7 +98,6 @@ func runRedirectServe(args []string) {
 	}
 	wg.Wait()
 }
-
 
 func handleProfileDownload(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/profiles/")

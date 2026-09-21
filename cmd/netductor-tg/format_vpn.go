@@ -48,43 +48,6 @@ func formatVPNListPretty(raw string) string {
 	return b.String()
 }
 
-func formatVPNLinkHTML(name string) (caption string, vless, hy2, sub string) {
-	vless = shareURIFrom(runVPN("link", name, "vless"))
-	hy2 = shareURIFrom(runVPN("link", name, "hy2"))
-	sub = shareURIFrom(runVPN("link", name))
-	if sub != "" {
-		first := strings.TrimSpace(strings.Split(sub, "\n")[0])
-		if strings.HasPrefix(first, "vless://") {
-			vless = first
-		}
-	}
-	if strings.Contains(vless, "not found") || strings.Contains(vless, "exit status") {
-		vless = ""
-	}
-	if strings.Contains(hy2, "not found") || strings.Contains(hy2, "exit status") {
-		hy2 = ""
-	}
-	if strings.Contains(sub, "not found") || strings.Contains(sub, "exit status") {
-		sub = ""
-	}
-	nl := string([]byte{10})
-	var b strings.Builder
-	b.WriteString("🔗 <b>VPN · " + esc(name) + "</b>" + nl + nl)
-	if vless != "" {
-		b.WriteString("<b>VLESS · primary</b>" + nl + "<code>" + esc(vless) + "</code>" + nl + nl)
-		coreL := strings.TrimSpace(runVPN("link", name, "core"))
-		if coreL != "" && coreL != vless && !strings.Contains(coreL, "not found") {
-			b.WriteString("<b>VLESS · core (домашний, быстрее)</b>" + nl + "<code>" + esc(coreL) + "</code>" + nl + nl)
-		}
-	}
-	if hy2 != "" {
-		b.WriteString("<b>HY2</b>" + nl + "<code>" + esc(hy2) + "</code>" + nl)
-	}
-	if vless == "" && hy2 == "" {
-		b.WriteString("❌ no links")
-	}
-	return b.String(), vless, hy2, sub
-}
 
 func ensureQRFile(path, payload string) string {
 	if payload == "" {
@@ -252,14 +215,6 @@ func showWorkProfileButton(name string) bool {
 	return false
 }
 
-func workProfileURL() string {
-	base := redirectBase()
-	if base == "" {
-		// Prefer Telegram document delivery (SR Config button); no hardcoded public host.
-		return ""
-	}
-	return base + "/profiles/nd-oc.conf"
-}
 
 func formatAccessRichHTML(name, mode, uri string) string {
 	nl := "\n"
@@ -402,41 +357,6 @@ func sendWorkProfileDocument(token string, chat int64) {
 	}
 }
 
-func deliverVPNLink(token string, chat int64, msgID int, name string) {
-	showUserAccess(token, chat, msgID, name, "vless")
-}
 
-func vpnQRCaption(name, mode, vless, hy2 string) string {
-	ru := getLang() != "en"
-	nl := string([]byte{10})
-	var b strings.Builder
-	if mode == "hy2" {
-		b.WriteString("📱 <b>Hysteria2</b> · " + esc(name) + nl + nl)
-		if hy2 != "" {
-			b.WriteString("<code>" + esc(hy2) + "</code>")
-		}
-	} else {
-		b.WriteString("📱 <b>VLESS Reality</b> · " + esc(name) + nl + nl)
-		if vless != "" {
-			b.WriteString("<code>" + esc(vless) + "</code>")
-		}
-		if hy2 != "" {
-			if ru {
-				b.WriteString(nl + nl + "<i>HY2 — кнопка «HY2 QR» выше</i>")
-			} else {
-				b.WriteString(nl + nl + "<i>HY2 — use «HY2 QR» button</i>")
-			}
-		}
-	}
-	return b.String()
-}
 
-func showVPNQR(token string, chat int64, msgID int, name, mode string, edit bool) {
-	// legacy entry → Access rich screen (in-place edit)
-	if mode == "" || mode == "vless" {
-		showUserAccess(token, chat, msgID, name, "vless")
-		return
-	}
-	showUserAccess(token, chat, msgID, name, mode)
-}
 

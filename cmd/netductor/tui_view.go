@@ -106,7 +106,7 @@ func (m *model) renderHeader() string {
 	if m.lang == langRU {
 		blurb = "VPN-флот · edge · управление"
 	}
-	title += stMuted.Render(" "+blurb+" ")
+	title += stMuted.Render(" " + blurb + " ")
 	if m.hasRemote() {
 		title += stChipKey.Render(" " + m.remoteLabel() + " ")
 	}
@@ -248,12 +248,12 @@ func (m *model) renderSplit() string {
 	detail := ""
 	if len(entries) > 0 {
 		e := entries[m.cursor]
-		detail = stDetail.Width(rightW-2).Render(
+		detail = stDetail.Width(rightW - 2).Render(
 			stTitle.Render(e.Title) + "\n\n" + e.Detail,
 		)
 	}
 	detail = stBorder.Width(rightW).Height(bodyH).MaxHeight(bodyH).Render(
-		lipgloss.NewStyle().Width(rightW-2).Height(bodyH-2).Render(detail),
+		lipgloss.NewStyle().Width(rightW - 2).Height(bodyH - 2).Render(detail),
 	)
 
 	gap := " "
@@ -270,7 +270,7 @@ func (m *model) renderOutput() string {
 	if bodyH < 3 {
 		bodyH = 3
 	}
-	body := lipgloss.NewStyle().Width(w-2).Height(bodyH).MaxHeight(bodyH).Render(m.output)
+	body := lipgloss.NewStyle().Width(w - 2).Height(bodyH).MaxHeight(bodyH).Render(m.output)
 	used := lipgloss.Height(head) + lipgloss.Height(body) + helpH
 	gap := h - used
 	if gap < 0 {
@@ -310,7 +310,6 @@ func (m model) View() string {
 	}
 	return header + "\n" + body + strings.Repeat("\n", gap) + help
 }
-
 
 func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 	w := max(40, m.width)
@@ -495,5 +494,3 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
-
-

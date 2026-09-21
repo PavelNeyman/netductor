@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/paths"
-	"time"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,6 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/PavelNeyman/netductor/internal/paths"
 
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/probes"
@@ -31,23 +32,6 @@ func lookPath(names ...string) string {
 	return ""
 }
 
-
-func runBridge(bin string, args []string) {
-	if bin == "" {
-		fmt.Fprintln(os.Stderr, "binary not found")
-		os.Exit(1)
-	}
-	c := exec.Command(bin, args...)
-	c.Stdout, c.Stderr, c.Stdin = os.Stdout, os.Stderr, os.Stdin
-	if err := c.Run(); err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			os.Exit(ee.ExitCode())
-		}
-		os.Exit(1)
-	}
-}
-
-
 func runStatus() {
 	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"} {
 		out, _ := exec.Command("systemctl", "is-active", u).Output()
@@ -58,7 +42,6 @@ func runStatus() {
 		fmt.Printf("  %s: %s\n", u, st)
 	}
 }
-
 
 func runBackupCmd(args []string) {
 	if len(args) > 0 {
@@ -134,7 +117,6 @@ func runBackupCmd(args []string) {
 	fmt.Println(path)
 }
 
-
 func runSelfInstall() {
 	runUpdate(false)
 }
@@ -182,8 +164,6 @@ func runUpdate(restart bool) {
 	}
 }
 
-
-
 func runInstall(args []string) {
 	comps := []string{}
 	for _, a := range args {
@@ -207,7 +187,6 @@ func runInstall(args []string) {
 	}
 }
 
-
 func runProbe(args []string) {
 	cfg := probes.Load()
 	results := probes.Run(cfg)
@@ -225,14 +204,10 @@ func runProbe(args []string) {
 	}
 }
 
-
-
-
 func sha256Hex(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
-
 
 func mustStatMod(dir, name string) time.Time {
 	fi, err := os.Stat(filepath.Join(dir, name))

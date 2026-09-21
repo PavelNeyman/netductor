@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"fmt"
-	"time"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
@@ -282,7 +283,6 @@ func runEdgeList() {
 			d.DeviceID, d.Status, st, d.Board, d.Hostname, d.WANIP, d.LastSeen)
 	}
 }
-
 
 func sitesAttach(siteID, deviceID string) error {
 	return sites.AttachEdge(siteID, deviceID)

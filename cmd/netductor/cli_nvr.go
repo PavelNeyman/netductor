@@ -260,7 +260,7 @@ func runNVR(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(tok)
-		fmt.Println("/api/nvr/clip?token="+tok)
+		fmt.Println("/api/nvr/clip?token=" + tok)
 	case "events":
 		for _, e := range nvr.ListEventsTail(30) {
 			fmt.Printf("%d\t%s\t%s\t%s\n", e.TS, e.Type, e.CameraID, e.Detail)

@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/PavelNeyman/netductor/internal/nvr"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/nvr"
 
 	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/mtls"
@@ -42,7 +42,7 @@ func detectRole() string {
 	if strings.Contains(hl, "secondary") {
 		return "secondary"
 	}
-	if activeUnit("netductor-secondary-agent") || activeUnit("netductor-secondary-agent") {
+	if activeUnit("netductor-secondary-agent") {
 		return "secondary"
 	}
 	if activeUnit("netductor-api") || activeUnit("netductor-telegram-bot") {
@@ -278,7 +278,7 @@ func runDoctorNative() int {
 
 	case "secondary":
 		check("vpn-users.json", exists(filepath.Join(etc, "vpn-users.json")))
-		agentOK := activeUnit("netductor-secondary-agent") || activeUnit("netductor-secondary-agent")
+		agentOK := activeUnit("netductor-secondary-agent")
 		check("secondary agent", agentOK)
 		if exists("/opt/netductor/lampac") || dirHasDockerLampac() {
 			warnCheck("lampac container", dockerLampacHealthy())
@@ -358,13 +358,4 @@ func dockerLampacHealthy() bool {
 	}
 	s := strings.TrimSpace(string(out))
 	return s == "healthy" || s == ""
-}
-
-func bindAllInterfaces(addr string) bool {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		host = addr
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsUnspecified()
 }

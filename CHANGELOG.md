@@ -1,11 +1,11 @@
-## 0.8.20
+## 0.8.21
 
 - mTLS: revoke list + VerifyPeerCertificate; rotate/list CLI & API
 - Doctor: cert expiry WARN (≤30 days); revoked client flags
 - Agent plane: temporary IP ban after repeated rate limits
 - Docs: MTLS.md, OPEN_ITEMS (hardware e2e remaining)
 
-## 0.8.20 — 2026-09-20
+## 0.8.21 — 2026-09-20
 
 ### Finish remaining refactor items
 - Agent plane `:8789` IP rate limit (180 req/min; plain emergency 60)

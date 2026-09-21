@@ -23,7 +23,7 @@ func registerNodesAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/nodes/self", func(w http.ResponseWriter, r *http.Request) {
 		// loopback (local install scripts) OR operator session
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]any{"error": "POST"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "POST"})
 			return
 		}
 		if !isLoopback(r) && !requireSession(w, r) {
@@ -47,7 +47,7 @@ func registerNodesAPI(mux *http.ServeMux) {
 			return
 		}
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]any{"error": "POST"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "POST"})
 			return
 		}
 		body := readJSON(r)
@@ -70,12 +70,12 @@ func registerNodesAPI(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/session/revoke", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
 		tok := bearer(r)
 		if !session.Valid(tok) {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		body := readJSON(r)

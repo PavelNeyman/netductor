@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -34,7 +35,7 @@ func registerVPNHTTP(mux *http.ServeMux) {
 			return
 		}
 		if r.Method != http.MethodPost {
-			http.Error(w, "method", 405)
+			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
 		body := readJSON(r)
@@ -88,7 +89,7 @@ func registerVPNHTTP(mux *http.ServeMux) {
 			}
 			writeJSON(w, 200, map[string]any{"ok": true, "output": strings.TrimSpace(out), "name": name})
 		default:
-			writeJSON(w, 405, map[string]string{"error": "method"})
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
 	mux.HandleFunc("/vpn/users/", func(w http.ResponseWriter, r *http.Request) {

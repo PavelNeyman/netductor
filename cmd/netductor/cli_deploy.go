@@ -21,28 +21,36 @@ See: netductor tui → Setup wizard`)
 	}
 	switch args[0] {
 	case "primary":
-	o := deploy.PrimaryOpts{Version: deploy.Release, SNI: "api.vk.me", User: "root"}
+		o := deploy.PrimaryOpts{Version: deploy.Release, SNI: "api.vk.me", User: "root"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
 			case a == "--host" && i+1 < len(args):
-				i++; o.Host = args[i]
+				i++
+				o.Host = args[i]
 			case a == "--user" && i+1 < len(args):
-				i++; o.User = args[i]
+				i++
+				o.User = args[i]
 			case a == "--password" && i+1 < len(args):
-				i++; o.Password = args[i]
+				i++
+				o.Password = args[i]
 			case a == "--key" && i+1 < len(args):
-				i++; o.SSHPrivateKey = args[i]
+				i++
+				o.SSHPrivateKey = args[i]
 			case a == "--generate-key":
 				o.GenerateKey = true
 			case a == "--version" && i+1 < len(args):
-				i++; o.Version = args[i]
+				i++
+				o.Version = args[i]
 			case a == "--sni" && i+1 < len(args):
-				i++; o.SNI = args[i]
+				i++
+				o.SNI = args[i]
 			case a == "--tg-token" && i+1 < len(args):
-				i++; o.TelegramToken = args[i]
+				i++
+				o.TelegramToken = args[i]
 			case a == "--tg-admin" && i+1 < len(args):
-				i++; o.TelegramAdminID = args[i]
+				i++
+				o.TelegramAdminID = args[i]
 			case a == "--skip-install":
 				o.SkipInstall = true
 			}
@@ -59,22 +67,28 @@ See: netductor tui → Setup wizard`)
 			os.Exit(1)
 		}
 	case "secondary":
-	o := deploy.SecondaryOpts{PrimaryUser: "root", SecondaryUser: "root", SNI: "api.vk.me"}
+		o := deploy.SecondaryOpts{PrimaryUser: "root", SecondaryUser: "root", SNI: "api.vk.me"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
 			case a == "--primary" && i+1 < len(args):
-				i++; o.PrimaryHost = args[i]
+				i++
+				o.PrimaryHost = args[i]
 			case a == "--primary-key" && i+1 < len(args):
-				i++; o.PrimaryKey = args[i]
+				i++
+				o.PrimaryKey = args[i]
 			case a == "--host" && i+1 < len(args):
-				i++; o.SecondaryHost = args[i]
+				i++
+				o.SecondaryHost = args[i]
 			case a == "--password" && i+1 < len(args):
-				i++; o.SecondaryPass = args[i]
+				i++
+				o.SecondaryPass = args[i]
 			case a == "--user" && i+1 < len(args):
-				i++; o.SecondaryUser = args[i]
+				i++
+				o.SecondaryUser = args[i]
 			case a == "--sni" && i+1 < len(args):
-				i++; o.SNI = args[i]
+				i++
+				o.SNI = args[i]
 			}
 		}
 		if o.PrimaryHost == "" || o.PrimaryKey == "" || o.SecondaryHost == "" {
@@ -86,24 +100,31 @@ See: netductor tui → Setup wizard`)
 			os.Exit(1)
 		}
 	case "edge":
-	o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: deploy.Release, AgentArch: "arm64"}
+		o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: deploy.Release, AgentArch: "arm64"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
 			case a == "--primary" && i+1 < len(args):
-				i++; o.PrimaryHost = args[i]
+				i++
+				o.PrimaryHost = args[i]
 			case a == "--primary-key" && i+1 < len(args):
-				i++; o.PrimaryKey = args[i]
+				i++
+				o.PrimaryKey = args[i]
 			case a == "--router" && i+1 < len(args):
-				i++; o.RouterHost = args[i]
+				i++
+				o.RouterHost = args[i]
 			case a == "--password" && i+1 < len(args):
-				i++; o.RouterPass = args[i]
+				i++
+				o.RouterPass = args[i]
 			case a == "--id" && i+1 < len(args):
-				i++; o.DeviceID = args[i]
+				i++
+				o.DeviceID = args[i]
 			case a == "--server" && i+1 < len(args):
-				i++; o.ServerURL = args[i]
+				i++
+				o.ServerURL = args[i]
 			case a == "--arch" && i+1 < len(args):
-				i++; o.AgentArch = args[i]
+				i++
+				o.AgentArch = args[i]
 			}
 		}
 		if o.RouterHost == "" || o.DeviceID == "" {

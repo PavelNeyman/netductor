@@ -1,9 +1,9 @@
 # Install (Netductor)
 
-Debian-like VPS, root. Target release: **v0.8.20** ([Releases](https://github.com/PavelNeyman/netductor/releases)).
+Debian-like VPS, root. Target release: **v0.8.21** ([Releases](https://github.com/PavelNeyman/netductor/releases)).
 
 ```bash
-export NETDUCTOR_VERSION=0.8.20
+export NETDUCTOR_VERSION=0.8.21
 curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/bootstrap.sh | bash
 netductor install
 # or interactive

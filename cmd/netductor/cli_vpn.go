@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"encoding/json"
-	"github.com/PavelNeyman/netductor/internal/audit"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
-	"os"
+
+	"github.com/PavelNeyman/netductor/internal/audit"
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -329,7 +330,7 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 	default:
-		fmt.Fprintln(os.Stderr, "unknown vpn subcommand"); os.Exit(2)
+		fmt.Fprintln(os.Stderr, "unknown vpn subcommand")
+		os.Exit(2)
 	}
 }
-

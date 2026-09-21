@@ -64,17 +64,23 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 			a := args[i]
 			switch {
 			case a == "--host" && i+1 < len(args):
-				i++; host = args[i]
+				i++
+				host = args[i]
 			case a == "--user" && i+1 < len(args):
-				i++; user = args[i]
+				i++
+				user = args[i]
 			case a == "--password" && i+1 < len(args):
-				i++; pass = args[i]
+				i++
+				pass = args[i]
 			case a == "--port" && i+1 < len(args):
-				i++; fmt.Sscanf(args[i], "%d", &port)
+				i++
+				fmt.Sscanf(args[i], "%d", &port)
 			case a == "--sni" && i+1 < len(args):
-				i++; sni = args[i]
+				i++
+				sni = args[i]
 			case a == "--operator-pubkey" && i+1 < len(args):
-				i++; opPub = args[i]
+				i++
+				opPub = args[i]
 			case a == "--no-lampac", a == "--no-bot-standby":
 				// ignored; always VPN-entry only
 			}

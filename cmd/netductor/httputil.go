@@ -4,40 +4,12 @@ import (
 	"encoding/json"
 	"io"
 	"net"
-	"strings"
 	"net/http"
-	"time"
 	"os"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/session"
 )
-
-func setSessionCookie(w http.ResponseWriter, token string, exp int64, secure bool) {
-	c := &http.Cookie{
-		Name:     "nd_session",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-		Expires:  time.Unix(exp, 0),
-	}
-	if secure {
-		c.Secure = true
-	}
-	http.SetCookie(w, c)
-}
-
-func publicErr(err error) string {
-	if err == nil {
-		return "error"
-	}
-	s := err.Error()
-	if len(s) > 120 {
-		s = s[:120]
-	}
-	return s
-}
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -104,7 +76,6 @@ func envOr(k, d string) string {
 	return d
 }
 
-
 func isLoopback(r *http.Request) bool {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -114,37 +85,7 @@ func isLoopback(r *http.Request) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-
 // MaxBodyBytes default request body limit for JSON APIs.
 const MaxBodyBytes = 1 << 20 // 1 MiB
 
-func limitBody(r *http.Request, n int64) {
-	if n <= 0 {
-		n = MaxBodyBytes
-	}
-	r.Body = http.MaxBytesReader(nil, r.Body, n)
-}
-
-func readJSONLimited(r *http.Request) map[string]any {
-	limitBody(r, MaxBodyBytes)
-	return readJSON(r)
-}
-
-
 // clientIP returns the remote IP (X-Real-IP / X-Forwarded-For first hop / RemoteAddr).
-func clientIP(r *http.Request) string {
-	if x := strings.TrimSpace(r.Header.Get("X-Real-IP")); x != "" {
-		return x
-	}
-	if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
-		if i := strings.Index(xff, ","); i > 0 {
-			return strings.TrimSpace(xff[:i])
-		}
-		return xff
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}

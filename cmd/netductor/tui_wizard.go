@@ -184,7 +184,6 @@ func (m *model) renderWizard() string {
 	return header + "\n" + body + strings.Repeat("\n", gap) + help
 }
 
-
 func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -338,5 +337,3 @@ func (m model) runWizardApply() string {
 		return "unknown wizard target"
 	}
 }
-
-

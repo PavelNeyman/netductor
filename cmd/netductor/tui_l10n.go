@@ -16,8 +16,8 @@ const (
 type helpChip struct{ Key, Label string }
 
 type locPack struct {
-	App string
-	TabWizard, TabTools, TabOps, TabSettings, TabMode string
+	App                                                                   string
+	TabWizard, TabTools, TabOps, TabSettings, TabMode                     string
 	HelpWizard, HelpTools, HelpOps, HelpSettings, HelpModeBar, HelpOutput []helpChip
 }
 
@@ -75,14 +75,14 @@ func locFor(lang tuiLang) locPack {
 	if lang == langRU {
 		w, t, o, s, m, out := chips(true)
 		return locPack{
-			App: "netductor",
+			App:       "netductor",
 			TabWizard: "Мастер", TabTools: "Инструменты", TabOps: "Операции", TabSettings: "Настройки", TabMode: "Режим",
 			HelpWizard: w, HelpTools: t, HelpOps: o, HelpSettings: s, HelpModeBar: m, HelpOutput: out,
 		}
 	}
 	w, t, o, s, m, out := chips(false)
 	return locPack{
-		App: "netductor",
+		App:       "netductor",
 		TabWizard: "Wizard", TabTools: "Tools", TabOps: "Ops", TabSettings: "Settings", TabMode: "Mode",
 		HelpWizard: w, HelpTools: t, HelpOps: o, HelpSettings: s, HelpModeBar: m, HelpOutput: out,
 	}
@@ -219,7 +219,6 @@ func opsEntries(mode runMode, lang tuiLang) []menuEntry {
 	}
 }
 
-
 // TT returns en or ru string for the active TUI language.
 func TT(lang tuiLang, en, ru string) string {
 	if lang == langRU {
@@ -227,7 +226,6 @@ func TT(lang tuiLang, en, ru string) string {
 	}
 	return en
 }
-
 
 // formDict common form labels (key → en, ru). Prefer FormT over ad-hoc TT for shared keys.
 var formDict = map[string][2]string{
