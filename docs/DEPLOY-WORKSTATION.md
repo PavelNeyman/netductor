@@ -1,3 +1,5 @@
+**Baseline: v0.8.49** — no Mac private key on primary; secondary harden-last; backup via agent pull.
+
 # Deploy from Mac / PC (workstation TUI)
 
 Baseline: **v0.8.42**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.

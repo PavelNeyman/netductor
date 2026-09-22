@@ -3,6 +3,8 @@
 | Topic | EN | RU |
 |-------|----|----|
 | Install | [INSTALL](INSTALL.md) | [ru/INSTALL](ru/INSTALL.md) |
+| Backup / DR | [BACKUP](BACKUP.md) | (EN; RU section inside) |
+| Ports | [PORTS](PORTS.md) | — |
 | Architecture | [ARCHITECTURE](ARCHITECTURE.md) | [ru/ARCHITECTURE](ru/ARCHITECTURE.md) |
 | Roadmap | [ROADMAP](ROADMAP.md) | [ru/ROADMAP](ru/ROADMAP.md) |
 | Open items | [OPEN_ITEMS](OPEN_ITEMS.md) | [ru/OPEN_ITEMS](ru/OPEN_ITEMS.md) |

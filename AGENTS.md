@@ -1,11 +1,13 @@
 # AGENTS.md — Netductor
 
-> Document Version: **2.4**  
+> Document Version: **2.5**  
 > Status: **Approved**  
 > GitHub: **https://github.com/PavelNeyman/netductor** (renamed from FreshVPS)
 
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
+
+**Release baseline: v0.8.49** · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
 
 Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROADMAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 

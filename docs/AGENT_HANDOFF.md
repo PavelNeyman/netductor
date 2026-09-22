@@ -1,42 +1,90 @@
-## 0.8.49
+# Agent handoff — netductor
 
-**Secondary deploy hybrid (locked)**
-- Mac TUI/CLI orchestrates; control-plane actions run on **primary**
-- **Never** copy Mac private key to primary
-- Provision order: install operator pubkey → mTLS → join → **then** disable password
-- Ongoing: secondary agent → primary `:8789` only
+**Version:** **0.8.49**  
+**Repo:** https://github.com/PavelNeyman/netductor  
+**Start here for any new chat.**
 
-**Test:** after clean VPS reinstall, Mac:
+---
+
+## Locked architecture (do not reopen without owner)
+
+| Topic | Decision |
+|-------|----------|
+| Roles | **Primary** (abroad) = control plane; **Secondary** (RU) = VPN entry + agent only |
+| VPN | VLESS+Reality + HY2; clients prefer secondary under WL |
+| SSH | Operator key on **Mac only**. Primary never stores Mac private key. After provision: password off |
+| Secondary provision | Harden-**last**: keys → mTLS → join → then PasswordAuthentication no |
+| Post-provision | **No** primary→secondary SSH/scp |
+| Agent plane | mTLS **:8789** only; plain :8788 emergency/off |
+| Local-only | API :8787, Lampac :9118, registry :5000, blocky :53 → `127.0.0.1` |
+| Backup | Data+configs in `.ndenc`; binaries reinstalled from `components.json` |
+| Offsite RU | Agent **`backup_pull`** after each backup (HTTPS mTLS), not scp |
+| DR | Secondary recovery API **:8790** + `recovery_token`; `netductor recover --from-secondary` |
+| Control plane | **Go-only** (`netductor`, agent, tg) |
+
+See also: [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md) · [FLEET.md](FLEET.md) · [DEPLOY-WORKSTATION.md](DEPLOY-WORKSTATION.md)
+
+---
+
+## Deploy (workstation / Mac)
+
+```bash
+# Primary (password once)
+netductor deploy primary --host PRIMARY --password '…' --key ~/.ssh/netductor_primary \
+  --sni api.vk.me --tg-token '…' --tg-admin ID --with-lampac
+
+export NETDUCTOR_SSH_PORT=52222   # after harden
+
+# Secondary (orchestrated from Mac; primary runs provision)
+netductor deploy secondary --primary PRIMARY --primary-key ~/.ssh/netductor_primary \
+  --host SECONDARY --password '…' --sni api.vk.me
 ```
-export NETDUCTOR_SSH_PORT=52222   # after primary harden
-netductor deploy primary … --with-lampac
-netductor deploy secondary --primary … --primary-key … --host SEC --password …
+
+Defaults: SSH **52222**, SNI often `api.vk.me`. Save secondary `recovery_token` from provision log / `/etc/netductor/secrets/recovery_token`.
+
+---
+
+## Backup / recover
+
+```bash
+netductor backup                          # local + queue backup_pull on online secondaries
+# on secondary: /var/lib/netductor/backups/peers/core/
+
+# New primary from RU copy (no primary API needed):
+netductor recover --from-secondary http://SECONDARY:8790 --recovery-token TOKEN
 ```
 
-## 0.8.49 (2026-09-22)
+Manifest auto-syncs lampac/git/registry via `SyncComponentsFromDisk` before pack.
 
-E2E VPS reinstall fixes:
-- DeployPrimary auto-sets `NETDUCTOR_SSH_PORT=52222` after SSH harden
-- `docker-cli` + `docker.io` for Debian Trixie; crane asset names fixed
-- git/wget in hardening; registry+git bootstrap after primary deploy
-- Secondary: `--ssh-key` when password auth off; `operator_reprovision` on primary for post-scp
-- RemoteJoin download fallback to last published release; install avoids text-file-busy
+---
 
-Test keys (sandbox): `/home/workdir/artifacts/netductor_primary` — do not delete until e2e complete.
+## Ports (summary)
 
-## 0.8.37
+Public: **443** (Reality), **52222** (SSH key), **8789** (mTLS agent), secondary **8790** (recovery, token).  
+Loopback only: 8787, 9118, 5000, 53. Full table: [PORTS.md](PORTS.md).
 
-- Isolated CI: `internal/ci` + `netductor ci`; GHA `container:`; managed pipelines
-- Seller TG bot → ideas only
+---
 
-## 0.8.32
+## Changelog snapshot (recent)
 
-- GHA-subset `git workflow`; CHANGELOG 0.8.4–0.8.31 rebuilt
+### 0.8.49
+- SyncComponentsFromDisk; agent `backup_pull`; recovery `:8790` + `recover --from-secondary`
 
-## 0.8.31
+### 0.8.48
+- No primary→secondary SSH post-steps; mTLS refresh via agent HTTPS
 
-- Local OCI registry (`registry ensure/crane/catalog`) + Admin/TG + pipeline `oci-push`
-- Git post-receive runs `NETDUCTOR_GIT_PIPELINE` when set
+### 0.8.47
+- fleet SetSecondary from secondary store; PORTS.md
+
+### 0.8.46
+- Harden-last provision; no Mac private key on primary
+
+---
+
+## Historical notes (below)
+
+The following sections are retained for context; prefer the locked table above if anything conflicts (e.g. ignore legacy `operator_reprovision` / scp offsite).
+
 
 # Agent handoff — netductor
 

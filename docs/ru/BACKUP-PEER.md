@@ -1,21 +1,11 @@
-# Перекрёстный бэкап core ↔ relay
+# Backup peer (устаревший SSH)
 
-Архив `/etc/netductor` (секреты, vpn-users, sni) обычно **несколько МБ** — места на обеих VPS хватает.
+**Устарело.** Primary **не** копирует бэкапы на secondary через SCP.
 
-```bash
-# на core: пуш на relay
-mkdir -p setup on relay:
-  ssh root@RELAY 'mkdir -p /var/lib/netductor/backups/peers/core'
+Актуальная модель: [BACKUP.md](../BACKUP.md) / [ru — см. BACKUP.md](../BACKUP.md)
 
-netductor backup peer-set 'root@RELAY_IP:/var/lib/netductor/backups/peers/core/'
-# ключ SSH без пароля (тот же, что для enroll)
-netductor backup   # создаёт локальный + scp на peer
+- После `netductor backup` secondary-агенты получают **`backup_pull`** (HTTPS mTLS).
+- Файлы: `/var/lib/netductor/backups/peers/core/`
+- DR: API secondary **:8790** + `netductor recover --from-secondary`
 
-netductor backup peer-status
-```
-
-Обратно (на relay → core) — симметрично, другой target.
-
-Таймер `netductor-backup.timer` уже вызывает `netductor backup` ежедневно; после `peer-set` offsite пойдёт сам.
-
-Restore: `netductor restore /path/to/*.ndenc` (нужен `backup_key`).
+`backup peer-set` (SCP) не используется при автодеплое.

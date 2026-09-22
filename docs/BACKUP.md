@@ -1,3 +1,5 @@
+**Baseline: v0.8.49**
+
 # Backups (RU + EN)
 
 ## Concept
