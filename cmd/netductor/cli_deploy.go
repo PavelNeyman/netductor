@@ -18,7 +18,7 @@ func runDeploy(args []string) {
 
 primary:
   --host --password [--user root] [--generate-key] [--key-passphrase]
-  [--key PATH] [--tg-token] [--tg-admin] [--sni]
+  [--key PATH] [--tg-token] [--tg-admin] [--sni] [--with-lampac]
 
 secondary:
   --primary --primary-key --host --password [--user] [--sni]
@@ -58,6 +58,8 @@ See: netductor tui → Setup wizard`)
 				o.SSHPrivateKey = args[i]
 			case a == "--generate-key":
 				o.GenerateKey = true
+			case a == "--with-lampac":
+				o.WithLampac = true
 			case a == "--key-passphrase" && i+1 < len(args):
 				i++
 				o.KeyPassphrase = args[i]

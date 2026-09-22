@@ -269,6 +269,13 @@ var formDict = map[string][2]string{
 	"opt_openwrt":        {"OpenWrt router / RPi (edge agent)", "OpenWrt / RPi (edge agent)"},
 	"opt_nvr":            {"Cameras / NVR", "Камеры / NVR"},
 	"opt_mikrotik":       {"MikroTik (ROS routes / site)", "MikroTik (ROS / сайт)"},
+	"opt_addons":         {"Add-ons (Lampac, …)", "Дополнения (Lampac, …)"},
+	"addons_title":       {"Optional add-ons on primary", "Опциональные дополнения на primary"},
+	"addons_desc":        {"Runs on primary over SSH (key from TUI settings)", "Ставится на primary по SSH (ключ из настроек TUI)"},
+	"addon_lampac":       {"Install Lampac (Docker, localhost:9118)", "Установить Lampac (Docker, localhost:9118)"},
+	"addon_lampac_desc":  {"Needs Docker; not exposed on WAN", "Нужен Docker; наружу не открывается"},
+	"with_lampac_primary":{"Also install Lampac after primary?", "Сразу поставить Lampac после primary?"},
+
 	"net_configure":      {"Configure LAN/Wi‑Fi/WAN now?", "Настроить LAN/Wi‑Fi/WAN сейчас?"},
 	"net_configure_desc": {"LAN/DHCP/Wi‑Fi/WAN (dhcp|static|pppoe). Wi‑Fi: fill one band → both; or set 2.4 and 5 separately", "LAN/DHCP/Wi‑Fi/WAN (dhcp|static|pppoe). Wi‑Fi: одна полоса → обе; или 2.4 и 5 раздельно"},
 	"lan_ip":             {"LAN IP (router)", "LAN IP (роутер)"},

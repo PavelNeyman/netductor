@@ -16,6 +16,8 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
+var currentComps []string
+
 type Options struct {
 	Components []string // empty = default core set
 	Force      bool

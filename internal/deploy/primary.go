@@ -21,6 +21,7 @@ type PrimaryOpts struct {
 	TelegramAdminID string
 	SNI             string
 	SkipInstall     bool
+	WithLampac      bool
 }
 
 // DeployPrimary installs netductor on a remote VPS over SSH.
@@ -146,6 +147,14 @@ chmod 755 /usr/local/bin/netductor
 	out, _ = runSSH("", keyPath, o.User, o.Host, "netductor fleet bootstrap; netductor doctor", o.KeyPassphrase)
 	fmt.Print(out)
 
+	if o.WithLampac {
+		fmt.Fprintln(os.Stderr, "==> install lampac (docker)")
+		out, err = runSSH("", keyPath, o.User, o.Host, "netductor install lampac", o.KeyPassphrase)
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warn lampac:", err)
+		}
+	}
 	fmt.Fprintln(os.Stderr, "==> primary deploy done")
 	fmt.Fprintln(os.Stderr, "  SSH: ssh -i", keyPath, o.User+"@"+o.Host)
 	fmt.Fprintln(os.Stderr, "  Save key path in TUI settings (remote_key)")

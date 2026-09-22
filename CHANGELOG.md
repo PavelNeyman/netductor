@@ -1,3 +1,9 @@
+## 0.8.44
+
+- TUI Setup: **Add-ons** (Lampac) + optional Lampac after primary deploy
+- `deploy primary --with-lampac`; `deploy.RunOnPrimary`
+- InstallLampac: ensure Docker (apt docker.io / get.docker.com), image fallbacks
+
 ## 0.8.43
 
 - Deploy SSH: `NETDUCTOR_SSH_PORT` (default 22; use 52222 after harden)

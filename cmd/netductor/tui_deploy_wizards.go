@@ -25,6 +25,7 @@ func runSetupWizard() {
 					huh.NewOption(FormT(lang, "opt_openwrt"), "openwrt"),
 					huh.NewOption(FormT(lang, "opt_nvr"), "nvr"),
 					huh.NewOption(FormT(lang, "opt_mikrotik"), "mikrotik"),
+					huh.NewOption(FormT(lang, "opt_addons"), "addons"),
 				).
 				Value(&target),
 		),
@@ -44,6 +45,8 @@ func runSetupWizard() {
 		wizardNVR()
 	case "mikrotik":
 		runSiteWizard()
+	case "addons":
+		wizardAddons()
 	}
 }
 
@@ -115,9 +118,14 @@ func wizardPrimary() {
 		return
 	}
 	fmt.Println(okStyle.Render(TT(lang, "→ deploy primary "+host, "→ деплой primary "+host)))
+	var withLampac bool
+	_ = huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().Title(FormT(lang, "with_lampac_primary")).
+			Description(FormT(lang, "addon_lampac_desc")).Value(&withLampac),
+	)).WithTheme(huh.ThemeCharm()).Run()
 	err := deploy.DeployPrimary(deploy.PrimaryOpts{
 		Host: host, User: user, Password: pass, SSHPrivateKey: keyPath, GenerateKey: genKey,
-		KeyPassphrase: keyPass,
+		KeyPassphrase: keyPass, WithLampac: withLampac,
 		Version: deploy.Release, TelegramToken: tgToken, TelegramAdminID: tgAdmin, SNI: sni,
 	})
 	if err != nil {
@@ -354,4 +362,39 @@ func wizardNVR() {
 	default:
 		fmt.Print(m.runNetductor("nvr", "status"))
 	}
+}
+
+
+func wizardAddons() {
+	lang := detectLang()
+	s := loadTUISettings()
+	if s.RemoteHost == "" || s.RemoteKey == "" {
+		fmt.Println(errStyle.Render(FormT(lang, "set_primary_first")))
+		return
+	}
+	var lampac bool
+	_ = huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().Title(FormT(lang, "addons_title")).Description(FormT(lang, "addons_desc")),
+			huh.NewConfirm().Title(FormT(lang, "addon_lampac")).
+				Description(FormT(lang, "addon_lampac_desc")).Value(&lampac),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
+	if !lampac {
+		fmt.Println(okStyle.Render(TT(lang, "Nothing selected.", "Ничего не выбрано.")))
+		return
+	}
+	var keyPass string
+	_ = huh.NewForm(huh.NewGroup(
+		huh.NewInput().Title(FormT(lang, "key_passphrase")).
+			EchoMode(huh.EchoModePassword).Value(&keyPass),
+	)).WithTheme(huh.ThemeCharm()).Run()
+	fmt.Println(okStyle.Render(TT(lang, "→ install lampac on "+s.RemoteHost, "→ lampac на "+s.RemoteHost)))
+	out, err := deploy.RunOnPrimary(s.RemoteHost, orDefault(s.RemoteUser, "root"), s.RemoteKey, keyPass, "netductor install lampac")
+	fmt.Print(out)
+	if err != nil {
+		fmt.Println(errStyle.Render(err.Error()))
+		return
+	}
+	fmt.Println(okStyle.Render(TT(lang, "Lampac install finished.", "Lampac установлен.")))
 }
