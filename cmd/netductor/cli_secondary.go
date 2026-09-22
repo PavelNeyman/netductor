@@ -326,38 +326,8 @@ func postProvisionSecondary(host, sni string) {
 	fmt.Println("==> post-provision: forget old SSH host key (reinstall changes fingerprint)")
 	_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
 
-	fmt.Println("==> post-provision: per-node mTLS client cert → secondary")
-	for _, d := range secondary.List() {
-		if d.PublicIP != host && d.PublicIP != "" {
-			continue
-		}
-		// match by IP or take latest if empty IP not yet heartbeated
-		id := d.ID
-		if id == "" {
-			continue
-		}
-		ca, cert, key, err := mtls.EnsureClientFor(id)
-		if err != nil {
-			fmt.Println("  mtls issue:", err)
-			break
-		}
-		// write remotely under /etc/netductor/secrets/mtls/
-		script := "mkdir -p /etc/netductor/secrets/mtls && chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls"
-		_ = execSSHHost(host, script)
-		// use printf via ssh is messy; write temp local and scp
-		dir := "/tmp/nd-mtls-" + id
-		_ = os.MkdirAll(dir, 0o700)
-		_ = os.WriteFile(dir+"/ca.crt", ca, 0o600)
-		_ = os.WriteFile(dir+"/client.crt", cert, 0o600)
-		_ = os.WriteFile(dir+"/client.key", key, 0o600)
-		if err := execLocal("scp", "-o", "StrictHostKeyChecking=no", dir+"/ca.crt", dir+"/client.crt", dir+"/client.key", "root@"+host+":/etc/netductor/secrets/mtls/"); err != nil {
-			fmt.Println("  mtls re-seed scp soft-fail (ok if installed during provision session):", err)
-		} else {
-			fmt.Println("  mtls client for", id, "installed on", host)
-		}
-		_ = os.RemoveAll(dir)
-		break
-	}
+	fmt.Println("==> post-provision: mTLS already installed in provision SSH session (no primary→secondary SSH)")
+	// Optional later refresh uses agent plane: EnqueueCmd(id, "mtls_refresh") after heartbeat.
 
 	fmt.Println("==> post-provision: keep issued agent tokens (do not wipe before heartbeat)")
 	// Do not RemoveByPublicIP(host,"") here — that deleted the token IssueToken just wrote.
@@ -380,6 +350,12 @@ func postProvisionSecondary(host, sni string) {
 		fmt.Println("  warn: no heartbeat with PBK within 90s — links may lag until agent checks in")
 	} else {
 		fmt.Printf("  online id=%s sni=%s pbk=%s…\n", dev.ID, dev.SNI, trimPBK(dev.PBK))
+		// Agent-plane path (HTTPS mTLS): optional cert re-pull; not required if provision wrote material.
+		if err := secondary.EnqueueCmd(dev.ID, "mtls_refresh"); err != nil {
+			fmt.Println("  mtls_refresh enqueue:", err)
+		} else {
+			fmt.Println("  queued mtls_refresh via agent (HTTPS), not SSH")
+		}
 		// keep only this device for the IP
 		_ = secondary.RemoveByPublicIP(host, dev.ID)
 		_, _ = nodes.SetDesiredHostname(dev.ID, "nd-secondary")
@@ -401,18 +377,14 @@ func postProvisionSecondary(host, sni string) {
 		fmt.Println("  refresh-links: refreshed", n)
 	}
 
-	target := "root@" + host + ":/var/lib/netductor/backups/peers/core/"
-	fmt.Println("==> post-provision: backup peer + seed archive", target)
-	_ = install.SetBackupPeer(target, "-o StrictHostKeyChecking=accept-new -o BatchMode=yes")
-	_ = execSSHHost(host, "mkdir -p /var/lib/netductor/backups/peers/core && chmod 700 /var/lib/netductor/backups/peers /var/lib/netductor/backups/peers/core")
-	// take a fresh local backup then push (ensures current core secrets are on peer)
+	fmt.Println("==> post-provision: local backup only (no primary→secondary SSH/scp)")
+	// Offsite mirror to secondary is not done over SSH. Model: agent pulls from primary
+	// over mTLS HTTPS later (backup_pull cmd) or operator seeds from Mac once.
+	// SSH offsite peer disabled — primary keeps local backups only until agent pull exists
 	if path, err := install.Backup(); err != nil {
 		fmt.Println("  backup now:", err)
-		// still try latest on disk
-		pushLatestBackup(target)
 	} else {
-		fmt.Println("  backup:", path)
-		_ = scpToSecondary(path, target)
+		fmt.Println("  backup (primary local):", path)
 	}
 
 	fmt.Println("==> post-provision: remember SNI", sni)

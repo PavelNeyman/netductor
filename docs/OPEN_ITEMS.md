@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.47**.
+Baseline: **v0.8.48**.
 
 ## Gates
 `go test` · primary/secondary e2e (this cycle)
