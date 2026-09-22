@@ -215,7 +215,7 @@ func runDoctorNative() int {
 			warnCheck("metrics timer", activeUnit("netductor-metrics.timer"))
 			warnCheck("metrics latest.json", exists(filepath.Join(state, "metrics", "latest.json")))
 		}
-		warnCheck("backup.offsite peer", exists(filepath.Join(etc, "backup.offsite")))
+		// SCP peer removed — offsite is agent backup_pull
 		warnCheck("tg admin id", exists(filepath.Join(etc, "secrets", "telegram_admin_id")) || os.Getenv("NETDUCTOR_TG_ADMIN") != "")
 		if os.Getenv("CLAIM_FIRST") == "1" || os.Getenv("NETDUCTOR_TG_CLAIM_FIRST") == "1" {
 			fmt.Println(cli18n.T("doctor.claim_first"))

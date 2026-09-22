@@ -112,8 +112,18 @@ func (m model) activateCursor() (tea.Model, tea.Cmd) {
 	id := ents[m.cursor].ID
 	if m.screen == screenMode || m.tab == tabMode {
 		m.mode = runMode(id)
+		// Persist for next launch
+		s := m.snapshotSettings()
+		s.Mode = string(m.mode)
+		_ = saveTUISettings(s)
+		mt, md := describeModeLang(m.mode, m.lang)
+		if m.lang == langRU {
+			m.output = "✓ Режим: " + mt + "\n" + md + "\n\nДальше: вкладки Мастер / Инструменты / Операции для этого режима."
+		} else {
+			m.output = "✓ Mode: " + mt + "\n" + md + "\n\nNext: Wizard / Tools / Ops tabs apply to this mode."
+		}
 		m.tab = tabTools
-		m.screen = screenMenu
+		m.screen = screenOutput
 		m.cursor = 0
 		return m, nil
 	}

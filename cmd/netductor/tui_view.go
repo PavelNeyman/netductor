@@ -110,6 +110,18 @@ func (m *model) renderHeader() string {
 	if m.hasRemote() {
 		title += stChipKey.Render(" " + m.remoteLabel() + " ")
 	}
+	// Current run mode (always visible)
+	{
+		mt, _ := describeModeLang(m.mode, m.lang)
+		if mt == "" {
+			mt = string(m.mode)
+		}
+		label := "mode:" + mt
+		if m.lang == langRU {
+			label = "режим:" + mt
+		}
+		title += stChipKey.Render(" " + label + " ")
+	}
 	tabs := []struct {
 		id, label string
 	}{

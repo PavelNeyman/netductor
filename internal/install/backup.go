@@ -56,32 +56,6 @@ WantedBy=timers.target
 	return nil
 }
 
-func loadOffsite() (method, target, extra string) {
-	b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "backup.offsite"))
-	if err != nil {
-		return "", "", ""
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		k, v, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		switch strings.TrimSpace(k) {
-		case "method":
-			method = strings.TrimSpace(v)
-		case "target":
-			target = strings.TrimSpace(v)
-		case "scp_opts", "extra":
-			extra = strings.TrimSpace(v)
-		}
-	}
-	return method, target, extra
-}
-
 func writeBackupKeyRecovery() error {
 	key := readSecret("backup_key")
 	if key == "" {
@@ -91,44 +65,6 @@ func writeBackupKeyRecovery() error {
 	_ = os.MkdirAll(dir, 0o700)
 	path := filepath.Join(dir, "BACKUP_KEY.txt")
 	return os.WriteFile(path, []byte(key+"\n"), 0o600)
-}
-
-func uploadOffsite(localPath string) error {
-	method, target, extra := loadOffsite()
-	if method == "" || target == "" {
-		return nil
-	}
-	switch method {
-	case "scp":
-		args := []string{}
-		if extra != "" {
-			args = append(args, strings.Fields(extra)...)
-		}
-		args = append(args, localPath, target)
-		if err := run("scp", args...); err != nil {
-			return err
-		}
-		for _, side := range []string{"BACKUP_KEY.txt", "COMPONENTS.txt"} {
-			sidePath := filepath.Join(paths.StateDir(), "backups", side)
-			if st, err := os.Stat(sidePath); err == nil && st.Size() > 0 {
-				kargs := append([]string{}, args[:len(args)-2]...)
-				kargs = append(kargs, sidePath, target)
-				_ = run("scp", kargs...)
-			}
-		}
-		return nil
-	case "rsync":
-		args := []string{"-az"}
-		if extra != "" {
-			args = append(args, strings.Fields(extra)...)
-		}
-		args = append(args, localPath, target)
-		return run("rsync", args...)
-	case "http", "https", "curl":
-		return run("curl", "-fsS", "-X", "PUT", "--data-binary", "@"+localPath, target)
-	default:
-		return fmt.Errorf("unknown offsite method %s", method)
-	}
 }
 
 func keyBytes(pass string) []byte {
@@ -229,13 +165,8 @@ func Backup() (string, error) {
 	_ = writeBackupKeyRecovery()
 	_ = writeComponentsSidecar(dir)
 	failMark := filepath.Join(paths.StateDir(), "backup_offsite_fail")
-	if err := uploadOffsite(out); err != nil {
-		fmt.Fprintf(os.Stderr, "offsite: %v\n", err)
-		_ = os.WriteFile(failMark, []byte(err.Error()), 0o600)
-	} else {
-		_ = os.Remove(failMark)
-	}
-	// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
+	_ = os.Remove(failMark) // cleared unless agent pull fails below
+		// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
 	n, offline := 0, 0
 	for _, d := range secondary.List() {
 		if !secondary.Online(d, 3*time.Minute) {

@@ -1,3 +1,7 @@
+## 0.8.51
+- SCP offsite removed
+- TUI mode indicator + persist + clearer Mode tab
+
 ## 0.8.50
 - Recovery server actually started in AgentLoop
 - Backup offline secondary → TG AlertOnce
@@ -5,7 +9,7 @@
 
 # Agent handoff — netductor
 
-**Version:** **0.8.50**  
+**Version:** **0.8.51**  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Start here for any new chat.**
 

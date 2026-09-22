@@ -58,3 +58,7 @@ netductor recover --key KEY file.ndenc
 | `NETDUCTOR_RECOVERY_BIND` | `0.0.0.0` | Listen address |
 | `NETDUCTOR_RECOVERY_UFW` | off | If `1`, `ufw allow 8790/tcp` |
 | `NETDUCTOR_RECOVERY_ALLOW_CIDR` | empty | Comma-separated IPs allowed (else any + token) |
+
+
+## SCP peer
+**Removed** in 0.8.51. Do not use `backup peer-set` / `backup.offsite`. Offsite is agent `backup_pull` only.

@@ -95,20 +95,19 @@ type menuEntry struct {
 func modeEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
-			{"vps", "VPS (эта машина)", "Install на сервере", "Запуск на самой VPS: установка стека. Не с Mac."},
-			{"workstation", "Workstation", "Mac/PC", "С ноутбука: remote SSH к ноде + локальная сборка/edge."},
-			{"openwrt", "OpenWrt / edge", "Роутер", "Provision агента на OpenWrt/RPi."},
-			{"operator", "Управление", "Уже установлено", "Операции на работающей системе (local или через remote в Настройках)."},
+			{"vps", "VPS (эта машина)", "Установка на сервере", "Вы на Debian VPS под root: install стека (sing-box, API, bot…). Не выбирайте с Mac."},
+			{"workstation", "Workstation (Mac/PC)", "Удалённый деплой", "С ноутбука: master/wizard → primary/secondary/edge по SSH. Remote в Настройках."},
+			{"openwrt", "OpenWrt / edge", "Роутер", "Настройка агента на OpenWrt/Cudy/RPi (локально или через SSH)."},
+			{"operator", "Оператор", "Уже развёрнуто", "Управление живой системой: VPN, fleet, backup, doctor. Local или Remote."},
 		}
 	}
 	return []menuEntry{
-		{"vps", "VPS (this host)", "Server install", "Run on the VPS itself: stack install. Not from Mac."},
-		{"workstation", "Workstation", "Mac/PC", "From laptop: remote SSH + local build/edge."},
-		{"openwrt", "OpenWrt / edge", "Router", "Provision edge agent on OpenWrt/RPi."},
-		{"operator", "Manage", "Already installed", "Operate a running node (local or remote from Settings)."},
+		{"vps", "VPS (this host)", "Server-side install", "You are on the Debian VPS as root: install stack. Do not pick this on a Mac."},
+		{"workstation", "Workstation (Mac/PC)", "Remote deploy", "From laptop: wizard deploys primary/secondary/edge over SSH. Set Remote in Settings."},
+		{"openwrt", "OpenWrt / edge", "Router", "Provision edge agent on OpenWrt/Cudy/RPi (local or SSH)."},
+		{"operator", "Operator", "Already installed", "Operate a live system: VPN, fleet, backup, doctor. Local or Remote."},
 	}
 }
-
 func settingsEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{

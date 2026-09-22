@@ -1,3 +1,8 @@
+## 0.8.51
+
+- Remove SCP backup.offsite path (agent backup_pull only)
+- TUI: current mode chip in header; clearer Mode tab; persist mode in tui.yaml; confirmation screen on change
+
 ## 0.8.50
 
 - Fix: StartRecoveryServer in AgentLoop (was missing on secondary)

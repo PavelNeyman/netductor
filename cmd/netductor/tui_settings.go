@@ -17,6 +17,7 @@ type tuiSettings struct {
 	Lang           string // lang: auto|ru|en
 	SecondaryHost  string // secondary_host
 	LastEdgeID     string // last_edge_id
+	Mode           string // mode: vps|workstation|openwrt|operator
 }
 
 func tuiConfigPath() string {
@@ -75,6 +76,7 @@ func saveTUISettings(s tuiSettings) error {
 	}
 	body := fmt.Sprintf(`# netductor TUI settings — edit freely
 # lang: auto | ru | en  (auto = system locale)
+# mode: vps | workstation | openwrt | operator
 # After primary deploy, remote_key is the SSH key; remote_password should be empty.
 remote_host: %q
 remote_user: %q
@@ -83,7 +85,8 @@ remote_password: %q
 secondary_host: %q
 last_edge_id: %q
 lang: %q
-`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.SecondaryHost, s.LastEdgeID, s.Lang)
+mode: %q
+`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.SecondaryHost, s.LastEdgeID, s.Lang, s.Mode)
 	return os.WriteFile(path, []byte(body), 0o600)
 }
 
@@ -115,6 +118,8 @@ func parseSimpleYAML(text string, s *tuiSettings) {
 			s.SecondaryHost = v
 		case "last_edge_id":
 			s.LastEdgeID = v
+		case "mode":
+			s.Mode = v
 		}
 	}
 }
@@ -155,6 +160,9 @@ func migrateJSONish(text string, s *tuiSettings) {
 
 func (m *model) applySettings(s tuiSettings) {
 	m.remoteHost = s.RemoteHost
+	if s.Mode != "" {
+		m.mode = runMode(s.Mode)
+	}
 	m.remoteUser = s.RemoteUser
 	if m.remoteUser == "" {
 		m.remoteUser = "root"
@@ -189,5 +197,6 @@ func (m model) snapshotSettings() tuiSettings {
 	return tuiSettings{
 		RemoteHost: m.remoteHost, RemoteUser: orDefault(m.remoteUser, "root"),
 		RemoteKey: m.remoteKey, RemotePassword: m.remotePassword, Lang: lang,
+		Mode: string(m.mode),
 	}
 }
