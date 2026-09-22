@@ -1,3 +1,8 @@
+## 0.8.52
+
+- Backup: snapshot live hostname + operator **public** keys (`hostname.backup`, `operator_authorized_keys`)
+- Recover: SkipHostname (no invented `nd-core-*`); restore hostname from backup; inject operator pubkeys (+ `NETDUCTOR_OPERATOR_PUBKEY` / `_FILE`)
+
 ## 0.8.51
 
 - Remove SCP backup.offsite path (agent backup_pull only)

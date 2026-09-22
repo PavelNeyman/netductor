@@ -19,8 +19,9 @@ import (
 var currentComps []string
 
 type Options struct {
-	Components []string // empty = default core set
-	Force      bool
+	Components    []string // empty = default core set
+	Force         bool
+	SkipHostname  bool // recover: do not invent nd-core-*; restore name from backup after tar
 }
 
 func DefaultComponents() []string {
@@ -43,7 +44,9 @@ func Run(opts Options) error {
 		return err
 	}
 	_ = copySelfToLocalBin()
-	applyHostname("core")
+	if !opts.SkipHostname {
+		applyHostname("core")
+	}
 	_ = nodes.LocalStableID() // stable node id (UUID), independent of hostname
 	for _, c := range comps {
 		fmt.Fprintf(os.Stderr, "==> %s\n", c)

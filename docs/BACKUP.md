@@ -62,3 +62,20 @@ netductor recover --key KEY file.ndenc
 
 ## SCP peer
 **Removed** in 0.8.51. Do not use `backup peer-set` / `backup.offsite`. Offsite is agent `backup_pull` only.
+
+
+## Hostname on backup/recover (0.8.52+)
+
+- **Backup** writes current hostname to `/etc/netductor/hostname.backup` and aligns `node_id`.
+- **Recover** does **not** call auto `nd-core-<ip>`; after data extract applies hostname from backup.
+- Fresh install (not recover) still uses `applyHostname` / `NETDUCTOR_HOSTNAME`.
+
+## Operator SSH keys (public only)
+
+- **Never** store private keys in backup.
+- **Backup** copies lines from `/root/.ssh/authorized_keys` → `/etc/netductor/operator_authorized_keys` (in tar).
+- **Recover** merges into `/root/.ssh/authorized_keys` from:
+  1. `operator_authorized_keys` (from backup)
+  2. `NETDUCTOR_OPERATOR_PUBKEY` (one line env)
+  3. `NETDUCTOR_OPERATOR_PUBKEY_FILE` (path to pubkey file)
+- Phone/other device recover without local key still works if pubkey was in backup at last backup time.

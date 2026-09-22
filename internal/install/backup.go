@@ -125,6 +125,8 @@ func Backup() (string, error) {
 	stamp := time.Now().UTC().Format("20060102-150405")
 	plain := filepath.Join(dir, "netductor-"+stamp+".tar.gz")
 	SyncComponentsFromDisk()
+	snapshotHostnameForBackup()
+	snapshotOperatorKeysForBackup()
 	// Ensure manifest exists before packing
 	if len(ReadComponentsManifest()) == 0 {
 		_ = WriteComponentsManifest(DefaultComponents())
@@ -279,7 +281,7 @@ func Recover(archive, keyArg string) error {
 	fmt.Fprintf(os.Stderr, "recover: components %v\n", comps)
 
 	// Install first (binaries/services). Secrets not required yet for most steps.
-	if err := Run(Options{Components: comps}); err != nil {
+	if err := Run(Options{Components: comps, SkipHostname: true}); err != nil {
 		fmt.Fprintf(os.Stderr, "recover: install warnings: %v\n", err)
 		// continue — restore may still fix secrets
 	}
@@ -295,6 +297,11 @@ func Recover(archive, keyArg string) error {
 		_ = writeSecret("backup_key", key)
 	}
 	_ = WriteComponentsManifest(comps)
+
+	// Hostname from backup (node_id / hostname.backup) — never invent nd-core-* on recover
+	restoreHostnameFromBackup()
+	// Operator pubkeys from backup + env (never private keys)
+	restoreOperatorKeysFromBackup()
 
 	// Re-apply runtime configs from restored secrets/users
 	fmt.Fprintln(os.Stderr, "recover: apply vpn / restart services")
@@ -413,4 +420,136 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 		_ = os.WriteFile(filepath.Join(tmpDir, "COMPONENTS.txt"), cb, 0o644)
 	}
 	return Recover(arch, keyArg)
+}
+
+// snapshotHostnameForBackup records the live hostname so recover can restore it.
+func snapshotHostnameForBackup() {
+	hn := ""
+	if b, err := os.ReadFile("/etc/hostname"); err == nil {
+		hn = strings.TrimSpace(string(b))
+	}
+	if hn == "" {
+		if out, err := runOut("hostname"); err == nil {
+			hn = strings.TrimSpace(out)
+		}
+	}
+	if hn == "" {
+		return
+	}
+	_ = os.MkdirAll(paths.EtcDir(), 0o755)
+	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "hostname.backup"), []byte(hn+"\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "node_id"), []byte(hn+"\n"), 0o644)
+}
+
+// snapshotOperatorKeysForBackup stores authorized public keys under etc/netductor (in backup).
+// Private keys are never stored.
+func snapshotOperatorKeysForBackup() {
+	src := "/root/.ssh/authorized_keys"
+	b, err := os.ReadFile(src)
+	if err != nil || len(b) == 0 {
+		return
+	}
+	var lines []string
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "ssh-") || strings.HasPrefix(line, "ecdsa-") {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) == 0 {
+		return
+	}
+	_ = os.MkdirAll(paths.EtcDir(), 0o755)
+	path := filepath.Join(paths.EtcDir(), "operator_authorized_keys")
+	prev, _ := os.ReadFile(path)
+	seen := map[string]bool{}
+	var out []string
+	for _, line := range append(strings.Split(string(prev), "\n"), lines...) {
+		line = strings.TrimSpace(line)
+		if line == "" || seen[line] {
+			continue
+		}
+		seen[line] = true
+		out = append(out, line)
+	}
+	_ = os.WriteFile(path, []byte(strings.Join(out, "\n")+"\n"), 0o600)
+}
+
+// restoreHostnameFromBackup applies hostname from restored etc (no auto nd-core-* invent).
+func restoreHostnameFromBackup() {
+	name := ""
+	for _, p := range []string{
+		filepath.Join(paths.EtcDir(), "hostname.backup"),
+		filepath.Join(paths.EtcDir(), "node_id"),
+		"/etc/hostname",
+	} {
+		if b, err := os.ReadFile(p); err == nil {
+			name = strings.TrimSpace(string(b))
+			if name != "" {
+				break
+			}
+		}
+	}
+	if name == "" {
+		fmt.Fprintln(os.Stderr, "recover: no hostname in backup — leave system hostname unchanged")
+		return
+	}
+	name = strings.ToLower(name)
+	fmt.Fprintf(os.Stderr, "recover: hostname=%s (from backup)\n", name)
+	_ = os.MkdirAll(paths.EtcDir(), 0o755)
+	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "node_id"), []byte(name+"\n"), 0o644)
+	_ = os.WriteFile("/etc/hostname", []byte(name+"\n"), 0o644)
+	_ = run("hostnamectl", "set-hostname", name)
+	_ = run("bash", "-c", fmt.Sprintf(
+		`grep -q '%s' /etc/hosts || echo '127.0.1.1 %s' >> /etc/hosts`, name, name))
+}
+
+// restoreOperatorKeysFromBackup writes pubkeys into /root/.ssh/authorized_keys.
+// Sources (public keys only): backup operator_authorized_keys, NETDUCTOR_OPERATOR_PUBKEY, NETDUCTOR_OPERATOR_PUBKEY_FILE.
+func restoreOperatorKeysFromBackup() {
+	var lines []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			return
+		}
+		if !(strings.HasPrefix(s, "ssh-") || strings.HasPrefix(s, "ecdsa-")) {
+			return
+		}
+		seen[s] = true
+		lines = append(lines, s)
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "operator_authorized_keys")); err == nil {
+		for _, line := range strings.Split(string(b), "\n") {
+			add(line)
+		}
+	}
+	add(os.Getenv("NETDUCTOR_OPERATOR_PUBKEY"))
+	if fp := strings.TrimSpace(os.Getenv("NETDUCTOR_OPERATOR_PUBKEY_FILE")); fp != "" {
+		if b, err := os.ReadFile(fp); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				add(line)
+			}
+		}
+	}
+	if len(lines) == 0 {
+		fmt.Fprintln(os.Stderr, "recover: no operator pubkeys in backup/env — ensure console access before harden")
+		return
+	}
+	_ = os.MkdirAll("/root/.ssh", 0o700)
+	path := "/root/.ssh/authorized_keys"
+	prev, _ := os.ReadFile(path)
+	for _, line := range strings.Split(string(prev), "\n") {
+		add(line)
+	}
+	body := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: authorized_keys: %v\n", err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "recover: installed %d operator pubkey(s)\n", len(lines))
 }

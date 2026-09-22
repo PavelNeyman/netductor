@@ -1,3 +1,6 @@
+## 0.8.52
+- Hostname preserved on recover; operator **pubkeys** in backup
+
 ## 0.8.51
 - SCP offsite removed
 - TUI mode indicator + persist + clearer Mode tab
@@ -9,7 +12,7 @@
 
 # Agent handoff — netductor
 
-**Version:** **0.8.51**  
+**Version:** **0.8.52**  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Start here for any new chat.**
 
