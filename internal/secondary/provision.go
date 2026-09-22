@@ -114,100 +114,106 @@ func runSSH(client *ssh.Client, cmd string) (string, error) {
 	return string(out), err
 }
 
-// HardenSSH installs pubkey(s) and disables password auth on remote Debian/Ubuntu.
-func HardenSSH(client *ssh.Client, pubKeys ...string) error {
+
+
+// InstallOperatorKeys writes authorized_keys only (password auth stays enabled).
+func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 	var installLines strings.Builder
 	for _, pk := range pubKeys {
 		pk = strings.TrimSpace(pk)
 		if pk == "" {
 			continue
 		}
-		// escape single quotes for shell
 		esc := strings.ReplaceAll(pk, "'", `'"'"'`)
 		installLines.WriteString(fmt.Sprintf("grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_keys\n", esc, esc))
 	}
 	if installLines.Len() == 0 {
 		return fmt.Errorf("no public keys to install")
 	}
-	script := `set -e
-mkdir -p /root/.ssh
-chmod 700 /root/.ssh
-touch /root/.ssh/authorized_keys
-chmod 600 /root/.ssh/authorized_keys
-` + installLines.String() + `
-mkdir -p /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'SSH_EOF'
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-ChallengeResponseAuthentication no
-PermitRootLogin prohibit-password
-PubkeyAuthentication yes
-SSH_EOF
-for f in /etc/ssh/sshd_config.d/*.conf; do
-  [ -f "$f" ] || continue
-  case "$f" in *netductor*) continue ;; esac
-  sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/gi' "$f" 2>/dev/null || true
-done
-if [ -f /etc/ssh/sshd_config ]; then
-  sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-fi
-systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || service ssh reload 2>/dev/null || true
-`
+	script := "set -e\nmkdir -p /root/.ssh\nchmod 700 /root/.ssh\ntouch /root/.ssh/authorized_keys\nchmod 600 /root/.ssh/authorized_keys\n" + installLines.String()
 	_, err := runSSH(client, script)
 	return err
 }
 
+// DisablePasswordAuth is the last step of a successful provision (harden-last).
+func DisablePasswordAuth(client *ssh.Client) error {
+	script := "set -e\n" +
+		"mkdir -p /etc/ssh/sshd_config.d\n" +
+		"printf '%s\\n' " +
+		"'PasswordAuthentication no' " +
+		"'KbdInteractiveAuthentication no' " +
+		"'ChallengeResponseAuthentication no' " +
+		"'PermitRootLogin prohibit-password' " +
+		"'PubkeyAuthentication yes' " +
+		"> /etc/ssh/sshd_config.d/00-netductor-harden.conf\n" +
+		"for f in /etc/ssh/sshd_config.d/*.conf; do\n" +
+		"  [ -f \"$f\" ] || continue\n" +
+		"  case \"$f\" in *netductor*) continue ;; esac\n" +
+		"  sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/gi' \"$f\" 2>/dev/null || true\n" +
+		"done\n" +
+		"if [ -f /etc/ssh/sshd_config ]; then\n" +
+		"  sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config\n" +
+		"  sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config\n" +
+		"fi\n" +
+		"systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || service ssh reload 2>/dev/null || true\n"
+	_, err := runSSH(client, script)
+	return err
+}
+
+// HardenSSH = InstallOperatorKeys + DisablePasswordAuth (legacy one-shot).
+func HardenSSH(client *ssh.Client, pubKeys ...string) error {
+	if err := InstallOperatorKeys(client, pubKeys...); err != nil {
+		return err
+	}
+	return DisablePasswordAuth(client)
+}
+
 // RemoteJoin installs netductor binary + joins with bundle JSON.
 func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
-	b64 := strings.ReplaceAll(bundleJSON, "'", `'"'"'`)
-	// Prefer published release for remote download; unreleased tags 404.
+	escaped := strings.ReplaceAll(bundleJSON, "'", `'"'"'`)
 	ver := version.Release
-	script := fmt.Sprintf(`set -e
-export DEBIAN_FRONTEND=noninteractive
-VER=%s
-FALLBACK=0.8.44
-dl() {
-  u="https://github.com/PavelNeyman/netductor/releases/download/v$1/netductor-linux-amd64"
-  if command -v curl >/dev/null 2>&1; then curl -fsSL -o /tmp/netductor.new "$u"
-  else wget -qO /tmp/netductor.new "$u"; fi
-}
-dl "$VER" || dl "$FALLBACK"
-systemctl stop netductor-secondary-agent 2>/dev/null || true
-install -m 755 /tmp/netductor.new /usr/local/bin/netductor
-rm -f /tmp/netductor.new
-cat > /root/bundle.json << 'BUNDLE_EOF'
-%s
-BUNDLE_EOF
-netductor secondary join /root/bundle.json
-systemctl is-active sing-box || true
-systemctl is-active netductor-secondary-agent || true
-ss -tlnp | grep -E ':443|:4443' || true
-`, ver, b64)
+	script := fmt.Sprintf("set -e\n"+
+		"export DEBIAN_FRONTEND=noninteractive\n"+
+		"VER=%s\n"+
+		"FALLBACK=0.8.45\n"+
+		"dl() {\n"+
+		"  u=\"https://github.com/PavelNeyman/netductor/releases/download/v$1/netductor-linux-amd64\"\n"+
+		"  if command -v curl >/dev/null 2>&1; then curl -fsSL -o /tmp/netductor.new \"$u\"\n"+
+		"  else wget -qO /tmp/netductor.new \"$u\"; fi\n"+
+		"}\n"+
+		"dl \"$VER\" || dl \"$FALLBACK\"\n"+
+		"systemctl stop netductor-secondary-agent 2>/dev/null || true\n"+
+		"install -m 755 /tmp/netductor.new /usr/local/bin/netductor\n"+
+		"rm -f /tmp/netductor.new\n"+
+		"cat > /root/bundle.json << 'BUNDLE_EOF'\n"+
+		"%s\n"+
+		"BUNDLE_EOF\n"+
+		"netductor secondary join /root/bundle.json\n"+
+		"systemctl is-active sing-box || true\n"+
+		"systemctl is-active netductor-secondary-agent || true\n"+
+		"ss -tlnp | grep -E ':443|:4443' || true\n",
+		ver, escaped)
 	return runSSH(client, script)
 }
 
-
-// installMTLSMaterial writes CA+client cert/key on remote over an open SSH session.
 func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) error {
 	if len(ca) == 0 || len(cert) == 0 || len(key) == 0 {
 		return nil
 	}
 	enc := func(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
-	script := fmt.Sprintf(`set -e
-mkdir -p /etc/netductor/secrets/mtls
-chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls
-echo '%s' | base64 -d > /etc/netductor/secrets/mtls/ca.crt
-echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.crt
-echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.key
-chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.crt /etc/netductor/secrets/mtls/client.key
-`, enc(ca), enc(cert), enc(key))
+	script := fmt.Sprintf("set -e\n"+
+		"mkdir -p /etc/netductor/secrets/mtls\n"+
+		"chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls\n"+
+		"echo '%s' | base64 -d > /etc/netductor/secrets/mtls/ca.crt\n"+
+		"echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.crt\n"+
+		"echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.key\n"+
+		"chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.crt /etc/netductor/secrets/mtls/client.key\n",
+		enc(ca), enc(cert), enc(key))
 	_, err := runSSH(client, script)
 	return err
 }
 
-// ProvisionFromCore connects with password, installs operator (or core) pubkey, hardens SSH, runs join.
-// After this, ongoing control is agent→primary HTTP; SSH is for operator (Mac) only.
+// ProvisionFromCore: keys + mTLS + join while password works, then disable password (harden-last).
 func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, error) {
 	var log strings.Builder
 	keys, err := resolveInstallPubKeys(in)
@@ -221,15 +227,14 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	defer client.Close()
 
 	log.WriteString("ssh connected\n")
-	if err := HardenSSH(client, keys...); err != nil {
-		log.WriteString("harden: " + err.Error() + "\n")
-	} else {
-		log.WriteString("ssh key(s) installed, password auth disabled\n")
+	if err := InstallOperatorKeys(client, keys...); err != nil {
+		return nil, fmt.Errorf("install keys: %w", err)
 	}
+	log.WriteString("operator pubkey installed (password still on)\n")
 	if err := installMTLSMaterial(client, in.MTLSCA, in.MTLSCert, in.MTLSKey); err != nil {
 		log.WriteString("mtls material: " + err.Error() + "\n")
 	} else if len(in.MTLSCert) > 0 {
-		log.WriteString("mtls client material installed under /etc/netductor/secrets/mtls\n")
+		log.WriteString("mtls client material installed\n")
 	}
 	out, err := RemoteJoin(client, bundleJSON)
 	log.WriteString(out)
@@ -237,6 +242,13 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	if err != nil {
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("join: %w\n%s", err, out)
 	}
+	if err := DisablePasswordAuth(client); err != nil {
+		log.WriteString("disable password: " + err.Error() + "\n")
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(),
+			AgentOK: strings.Contains(out, "active"), SingBoxOK: strings.Contains(out, "443"),
+		}, fmt.Errorf("join ok but disable password failed: %w", err)
+	}
+	log.WriteString("password auth disabled (harden-last)\n")
 	return &ProvisionResult{
 		Host: in.Host, PublicKey: pubJoined, Log: log.String(),
 		AgentOK: strings.Contains(out, "active"), SingBoxOK: strings.Contains(out, "443"),

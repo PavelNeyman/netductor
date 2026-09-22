@@ -13,7 +13,7 @@ func runDeploy(args []string) {
 		fmt.Fprintln(os.Stderr, `usage: netductor deploy primary|secondary|edge [flags]
 
   primary   — bootstrap Debian VPS from this machine (Mac/PC)
-  secondary — provision RU VPN entry via primary SSH
+  secondary — provision RU entry (Mac orchestrates; primary runs provision; no Mac private key on primary)
   edge      — OpenWrt agent (+ optional guest/network, same as TUI)
 
 primary:
@@ -119,6 +119,7 @@ See: netductor tui → Setup wizard`)
 			fmt.Fprintln(os.Stderr, "required: --primary --primary-key --host --password")
 			os.Exit(2)
 		}
+		o.ViaPrimary = true
 		if err := deploy.DeploySecondary(o); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

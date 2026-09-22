@@ -295,7 +295,8 @@ func runSecondary(args []string) {
 
 // sshIdentityArgs: prefer operator_reprovision (deploy left key for post-steps), else default identity.
 func sshIdentityArgs() []string {
-	for _, p := range []string{"/root/.ssh/operator_reprovision", "/root/.ssh/id_ed25519", "/root/.ssh/id_rsa"} {
+	// Prefer core's own key for rare primary→secondary post-steps — never Mac private key.
+	for _, p := range []string{"/root/.ssh/id_ed25519", "/root/.ssh/id_rsa"} {
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
 			return []string{"-i", p}
 		}

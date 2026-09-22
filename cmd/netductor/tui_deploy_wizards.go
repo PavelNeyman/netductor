@@ -170,6 +170,9 @@ func wizardSecondary() {
 		fmt.Println(errStyle.Render(FormT(lang, "set_primary_first")))
 		return
 	}
+	fmt.Println(okStyle.Render(TT(lang,
+		"→ secondary via primary (bundle on core; Mac key stays on Mac; harden-last)",
+		"→ secondary через primary (bundle на core; ключ Mac только на Mac; harden-last)")))
 	fmt.Println(okStyle.Render(TT(lang, "→ deploy secondary "+host, "→ деплой secondary "+host)))
 	var keyPass string
 	_ = huh.NewForm(
@@ -184,6 +187,7 @@ func wizardSecondary() {
 		PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
 		PrimaryKeyPassphrase: keyPass,
 		SecondaryHost: host, SecondaryUser: user, SecondaryPass: pass, SNI: sni,
+		ViaPrimary: true,
 	})
 	if err != nil {
 		fmt.Println(errStyle.Render(err.Error()))
