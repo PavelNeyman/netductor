@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 
@@ -224,6 +225,41 @@ func wizardOpenWrt() {
 		fmt.Println(errStyle.Render(TT(lang, "Desk PIN required when guest enabled", "Нужен PIN кассы для guest")))
 		return
 	}
+	var netOn bool
+	var lanIP, lanMask, dhcpStart, dhcpLimit, wifiSSID, wifiKey, wanProto, wanIP, wanMask, wanGW, wanDNS string
+	lanMask = "255.255.255.0"
+	dhcpStart = "100"
+	dhcpLimit = "150"
+	wanProto = "dhcp"
+	_ = huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().Title(FormT(lang, "net_configure")).
+				Description(FormT(lang, "net_configure_desc")).Value(&netOn),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
+	if netOn {
+		_ = huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().Title(FormT(lang, "lan_ip")).Placeholder("192.168.50.1").Value(&lanIP),
+				huh.NewInput().Title(FormT(lang, "lan_mask")).Value(&lanMask),
+				huh.NewInput().Title(FormT(lang, "dhcp_start")).Value(&dhcpStart),
+				huh.NewInput().Title(FormT(lang, "dhcp_limit")).Value(&dhcpLimit),
+				huh.NewInput().Title(FormT(lang, "wifi_ssid")).Value(&wifiSSID),
+				huh.NewInput().Title(FormT(lang, "wifi_key")).EchoMode(huh.EchoModePassword).Value(&wifiKey),
+				huh.NewInput().Title(FormT(lang, "wan_proto")).Placeholder("dhcp").Value(&wanProto),
+			),
+		).WithTheme(huh.ThemeCharm()).Run()
+		if strings.ToLower(strings.TrimSpace(wanProto)) == "static" {
+			_ = huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().Title(FormT(lang, "wan_ip")).Value(&wanIP),
+					huh.NewInput().Title(FormT(lang, "wan_mask")).Placeholder("255.255.255.0").Value(&wanMask),
+					huh.NewInput().Title(FormT(lang, "wan_gateway")).Value(&wanGW),
+					huh.NewInput().Title(FormT(lang, "wan_dns")).Placeholder("1.1.1.1").Value(&wanDNS),
+				),
+			).WithTheme(huh.ThemeCharm()).Run()
+		}
+	}
 	fmt.Println(okStyle.Render(TT(lang, "→ edge deploy "+host, "→ edge деплой "+host)))
 	var keyPass string
 	_ = huh.NewForm(
@@ -239,6 +275,9 @@ func wizardOpenWrt() {
 		PrimaryKeyPassphrase: keyPass,
 		RouterHost: host, RouterUser: user, RouterPass: pass,
 		DeviceID: id, ServerURL: server, AgentArch: arch, Version: deploy.Release,
+		NetConfigure: netOn, LANIP: lanIP, LANMask: lanMask, DHCPStart: dhcpStart, DHCPLimit: dhcpLimit,
+		WiFiSSID: wifiSSID, WiFiKey: wifiKey, WANProto: wanProto, WANIP: wanIP, WANMask: wanMask,
+		WANGateway: wanGW, WANDNS: wanDNS,
 		GuestEnable: guestOn, GuestSSID: guestSSID, GuestPIN: guestPIN,
 	})
 	if err != nil {

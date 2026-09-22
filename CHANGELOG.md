@@ -1,3 +1,8 @@
+## 0.8.40
+
+- OpenWrt wizard: optional LAN/DHCP/Wi‑Fi/WAN (dhcp|static) EN/RU → UCI on router + edge template
+- edgeagent DesiredUCI: wan static, dhcp pool; ShellApply for first-boot
+
 ## 0.8.39
 
 - Primary SSH key: optional passphrase in TUI (ask yes/no → phrase + confirm) and CLI `--key-passphrase`

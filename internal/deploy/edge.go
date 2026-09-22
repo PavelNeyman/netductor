@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/edgeagent"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 )
 
@@ -29,6 +30,19 @@ type EdgeOpts struct {
 	GuestSSID      string
 	GuestPIN       string
 	GuestPSK       string
+	// Optional first-boot network (applied via UCI on router + edge template)
+	NetConfigure bool
+	LANIP        string
+	LANMask      string
+	DHCPStart    string // e.g. 100
+	DHCPLimit    string // e.g. 150
+	WiFiSSID     string
+	WiFiKey      string
+	WANProto     string // dhcp | static
+	WANIP        string
+	WANMask      string
+	WANGateway   string
+	WANDNS       string
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -146,6 +160,11 @@ echo KEY:$(b64 "$DIR/client.key")
 	}); err != nil {
 		return err
 	}
+	if o.NetConfigure {
+		if err := applyNetworkOnEdge(o); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: network apply:", err)
+		}
+	}
 	if o.GuestEnable {
 		if err := applyGuestOnEdge(o); err != nil {
 			fmt.Fprintln(os.Stderr, "warn: guest enable:", err)
@@ -153,6 +172,63 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 	return nil
 }
+
+func networkTemplateMap(o EdgeOpts) map[string]any {
+	m := map[string]any{}
+	net := map[string]any{}
+	if o.LANIP != "" {
+		net["lan_ip"] = o.LANIP
+	}
+	if o.LANMask != "" {
+		net["lan_mask"] = o.LANMask
+	} else if o.LANIP != "" {
+		net["lan_mask"] = "255.255.255.0"
+	}
+	proto := strings.ToLower(strings.TrimSpace(o.WANProto))
+	if proto == "" {
+		proto = "dhcp"
+	}
+	net["wan_proto"] = proto
+	if proto == "static" {
+		net["wan_ip"] = o.WANIP
+		net["wan_mask"] = o.WANMask
+		if o.WANMask == "" {
+			net["wan_mask"] = "255.255.255.0"
+		}
+		net["wan_gateway"] = o.WANGateway
+		net["wan_dns"] = o.WANDNS
+	}
+	if len(net) > 0 {
+		m["network"] = net
+	}
+	if o.DHCPStart != "" || o.DHCPLimit != "" {
+		m["dhcp"] = map[string]any{"start": o.DHCPStart, "limit": o.DHCPLimit}
+	}
+	if o.WiFiSSID != "" {
+		m["wifi"] = map[string]any{"ssid": o.WiFiSSID, "key": o.WiFiKey, "encryption": "psk2"}
+	}
+	return m
+}
+
+func applyNetworkOnEdge(o EdgeOpts) error {
+	tmpl := networkTemplateMap(o)
+	if len(tmpl) == 0 {
+		return nil
+	}
+	if o.PrimaryHost != "" && o.DeviceID != "" {
+		_ = edge.BindTemplate(o.DeviceID, "default", tmpl)
+		_ = edge.EnqueueCmd(o.DeviceID, "apply_template", "")
+	}
+	desired := edgeagent.DesiredUCI(tmpl)
+	script := edgeagent.ShellApply(desired)
+	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, script, "")
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, out)
+	}
+	fmt.Fprintln(os.Stderr, "==> network UCI applied on", o.RouterHost)
+	return nil
+}
+
 
 func applyGuestOnEdge(o EdgeOpts) error {
 	ssid := o.GuestSSID
