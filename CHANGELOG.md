@@ -1,3 +1,9 @@
+## 0.8.50
+
+- Fix: StartRecoveryServer in AgentLoop (was missing on secondary)
+- Backup: TG alert when no online secondary for backup_pull
+- Recovery: NETDUCTOR_RECOVERY_BIND / UFW / ALLOW_CIDR + rate limit
+
 ## 0.8.49
 
 - DeployPrimary: after harden auto `NETDUCTOR_SSH_PORT=52222` for post-steps

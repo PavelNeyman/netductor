@@ -49,3 +49,12 @@ netductor recover --key KEY file.ndenc
 Бэкап = данные/конфиги. Список компонентов синхронизируется с диском при каждом backup.  
 Копия на RU — agent pull по расписанию backup.  
 Восстановление primary: `recover --from-secondary` с recovery API secondary `:8790`.
+
+
+## Recovery server env (secondary)
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `NETDUCTOR_RECOVERY_BIND` | `0.0.0.0` | Listen address |
+| `NETDUCTOR_RECOVERY_UFW` | off | If `1`, `ufw allow 8790/tcp` |
+| `NETDUCTOR_RECOVERY_ALLOW_CIDR` | empty | Comma-separated IPs allowed (else any + token) |

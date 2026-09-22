@@ -30,6 +30,7 @@ func agentHTTPClient() *http.Client {
 }
 
 func AgentLoop(coreBase, token string, interval time.Duration) {
+	go StartRecoveryServer()
 	if interval < 10*time.Second {
 		interval = 30 * time.Second
 	}

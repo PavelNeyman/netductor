@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,16 +35,66 @@ func EnsureRecoveryToken() (string, error) {
 }
 
 // StartRecoveryServer serves encrypted backups for bare-metal recover (no primary API needed).
-// Auth: Bearer recovery_token. Bind: all interfaces :8790 (operator should firewall to trusted IPs).
+// Auth: Bearer recovery_token.
+// Bind: NETDUCTOR_RECOVERY_BIND (default 0.0.0.0). Set 127.0.0.1 to lock down.
+// Optional: NETDUCTOR_RECOVERY_UFW=1 → ufw allow 8790/tcp
+// Optional: NETDUCTOR_RECOVERY_ALLOW_CIDR=1.2.3.4/32 (comma-separated; empty = any)
 func StartRecoveryServer() {
 	tok, err := EnsureRecoveryToken()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "recovery-serve: token: %v\n", err)
 		return
 	}
+	bind := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_BIND"))
+	if bind == "" {
+		bind = "0.0.0.0"
+	}
+	if os.Getenv("NETDUCTOR_RECOVERY_UFW") == "1" {
+		_ = exec.Command("ufw", "allow", recoveryPort+"/tcp", "comment", "netductor-recovery").Run()
+	}
+	allow := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_ALLOW_CIDR"))
+	var allowList []string
+	if allow != "" {
+		for _, p := range strings.Split(allow, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				allowList = append(allowList, p)
+			}
+		}
+	}
+	var mu sync.Mutex
+	last := map[string]time.Time{}
+
 	mux := http.NewServeMux()
 	auth := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			ip := r.RemoteAddr
+			if i := strings.LastIndex(ip, ":"); i > 0 {
+				ip = ip[:i]
+			}
+			ip = strings.Trim(ip, "[]")
+			if len(allowList) > 0 {
+				ok := false
+				for _, a := range allowList {
+					if a == ip || strings.HasPrefix(ip, strings.TrimSuffix(a, "/32")) {
+						ok = true
+						break
+					}
+				}
+				if !ok {
+					http.Error(w, "forbidden", 403)
+					return
+				}
+			}
+			mu.Lock()
+			if t, hit := last[ip]; hit && time.Since(t) < 2*time.Second {
+				mu.Unlock()
+				http.Error(w, "rate", 429)
+				return
+			}
+			last[ip] = time.Now()
+			mu.Unlock()
+
 			got := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 			if got == "" || got != tok {
 				http.Error(w, "unauthorized", 401)
@@ -104,7 +156,8 @@ func StartRecoveryServer() {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("ok\n"))
 	})
-	srv := &http.Server{Addr: ":" + recoveryPort, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	fmt.Fprintf(os.Stderr, "recovery-serve: :%s (Bearer recovery_token)\n", recoveryPort)
+	addr := bind + ":" + recoveryPort
+	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	fmt.Fprintf(os.Stderr, "recovery-serve: %s (Bearer recovery_token)\n", addr)
 	_ = srv.ListenAndServe()
 }

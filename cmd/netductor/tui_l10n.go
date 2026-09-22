@@ -229,6 +229,10 @@ func TT(lang tuiLang, en, ru string) string {
 
 // formDict common form labels (key → en, ru). Prefer FormT over ad-hoc TT for shared keys.
 var formDict = map[string][2]string{
+	"backup.run": {"Run backup now", "Сделать бэкап сейчас"},
+	"backup.list": {"List backups", "Список бэкапов"},
+	"recover.from_secondary": {"Recover from secondary", "Восстановить с secondary"},
+
 	"ssh_user":           {"SSH user", "SSH пользователь"},
 	"ssh_password":       {"SSH password", "SSH пароль"},
 	"ssh_password_first": {"SSH password (first login only)", "SSH пароль (только первый вход)"},

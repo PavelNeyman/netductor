@@ -1,6 +1,11 @@
+## 0.8.50
+- Recovery server actually started in AgentLoop
+- Backup offline secondary → TG AlertOnce
+- Recovery BIND/UFW/CIDR
+
 # Agent handoff — netductor
 
-**Version:** **0.8.49**  
+**Version:** **0.8.50**  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Start here for any new chat.**
 

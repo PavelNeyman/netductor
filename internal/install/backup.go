@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
@@ -235,9 +236,10 @@ func Backup() (string, error) {
 		_ = os.Remove(failMark)
 	}
 	// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
-	n := 0
+	n, offline := 0, 0
 	for _, d := range secondary.List() {
 		if !secondary.Online(d, 3*time.Minute) {
+			offline++
 			continue
 		}
 		if err := secondary.EnqueueCmd(d.ID, "backup_pull"); err == nil {
@@ -246,6 +248,14 @@ func Backup() (string, error) {
 	}
 	if n > 0 {
 		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d secondary agent(s)\n", n)
+		notify.ClearAlert("backup-offsite")
+	} else if len(secondary.List()) == 0 {
+		fmt.Fprintln(os.Stderr, "backup: no secondary devices registered — skip offsite pull")
+	} else {
+		msg := fmt.Sprintf("🔴 Backup offsite: no online secondary for backup_pull (offline=%d total=%d)", offline, len(secondary.List()))
+		fmt.Fprintln(os.Stderr, msg)
+		notify.AlertOnce("backup-offsite", msg)
+		_ = os.WriteFile(failMark, []byte(msg), 0o600)
 	}
 	pruneBackups(dir, BackupKeepCount())
 	return out, nil
