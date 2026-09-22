@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -60,6 +61,7 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 	case "provision-secondary":
 		host, user, pass, sni, opPub := "", "root", "", "", ""
 		port := 22
+		passStdin := false
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
@@ -72,6 +74,8 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 			case a == "--password" && i+1 < len(args):
 				i++
 				pass = args[i]
+			case a == "--password-stdin":
+				passStdin = true
 			case a == "--port" && i+1 < len(args):
 				i++
 				fmt.Sscanf(args[i], "%d", &port)
@@ -85,8 +89,15 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 				// ignored; always VPN-entry only
 			}
 		}
+		if pass == "" {
+			pass = os.Getenv("NETDUCTOR_SSH_PASSWORD")
+		}
+		if pass == "" && passStdin {
+			b, _ := io.ReadAll(os.Stdin)
+			pass = strings.TrimSpace(string(b))
+		}
 		if host == "" || pass == "" {
-			fmt.Fprintln(os.Stderr, "required: --host and --password")
+			fmt.Fprintln(os.Stderr, "required: --host and password (--password | NETDUCTOR_SSH_PASSWORD | --password-stdin)")
 			os.Exit(2)
 		}
 		if err := fleet.ProvisionSecondary(fleet.ProvisionSecondaryOpts{

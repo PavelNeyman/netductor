@@ -31,6 +31,7 @@ func sshOpts(keyPath string, passwordAuth bool) []string {
 	return args
 }
 
+// runSSH: password is passed via SSHPASS env + sshpass -e (never argv -p).
 func runSSH(password, keyPath, user, host string, remoteCmd string) (string, error) {
 	target := user + "@" + host
 	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
@@ -40,9 +41,11 @@ func runSSH(password, keyPath, user, host string, remoteCmd string) (string, err
 		if err != nil {
 			return "", err
 		}
-		args := append([]string{"-p", password, "ssh"}, base...)
+		args := append([]string{"-e", "ssh"}, base...)
 		args = append(args, target, remoteCmd)
-		out, err := exec.Command(sp, args...).CombinedOutput()
+		cmd := exec.Command(sp, args...)
+		cmd.Env = append(os.Environ(), "SSHPASS="+password)
+		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}
 	args := append(base, target, remoteCmd)
@@ -59,9 +62,11 @@ func runSCP(password, keyPath, user, host, local, remotePath string) error {
 		if err != nil {
 			return err
 		}
-		args := append([]string{"-p", password, "scp"}, base...)
+		args := append([]string{"-e", "scp"}, base...)
 		args = append(args, local, target)
-		out, err := exec.Command(sp, args...).CombinedOutput()
+		cmd := exec.Command(sp, args...)
+		cmd.Env = append(os.Environ(), "SSHPASS="+password)
+		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("scp: %s: %w", strings.TrimSpace(string(out)), err)
 		}
@@ -91,4 +96,12 @@ func defaultKeyPath() (string, error) {
 	dir := home + "/.ssh"
 	_ = os.MkdirAll(dir, 0o700)
 	return dir + "/netductor_primary", nil
+}
+
+// ShellQuote for safe remote argv (not for secrets in process list).
+func ShellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }

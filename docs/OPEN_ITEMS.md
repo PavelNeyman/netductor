@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.37**.
+Baseline: **v0.8.38**.
 
 ## Gates (green)
 `go test` / version pins / git+registry UI parity / GHA-subset runner
@@ -37,3 +37,5 @@ Baseline: **v0.8.37**.
 - Git over SSH key-only (52222); API/Admin/TG require session/ACL
 - Artifact reads path-contained under `git-artifacts/`
 - API systemd restart allowlist: `netductor-*` only
+- SSH passwords: `SSHPASS`/`--password-stdin` (not process argv `-p`)
+- API `MaxBodyBytes` aligned with `withSecurity` (16 MiB)

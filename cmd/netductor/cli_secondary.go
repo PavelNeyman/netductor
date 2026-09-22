@@ -147,8 +147,11 @@ func runSecondary(args []string) {
 				opPub = args[i]
 			}
 		}
+		if pass == "" {
+			pass = os.Getenv("NETDUCTOR_SSH_PASSWORD")
+		}
 		if host == "" || pass == "" {
-			fmt.Fprintln(os.Stderr, "required: --host and --password [--operator-pubkey]")
+			fmt.Fprintln(os.Stderr, "required: --host and password (--password or NETDUCTOR_SSH_PASSWORD)")
 			os.Exit(2)
 		}
 		// Reinstall always changes SSH host key — clear TOFU + OpenSSH known_hosts before dial.

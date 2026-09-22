@@ -28,7 +28,7 @@ func withSecurity(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		if r.Body != nil {
-			r.Body = http.MaxBytesReader(w, r.Body, 64<<20)
+			r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -37,7 +37,7 @@ func withSecurity(next http.Handler) http.Handler {
 func readJSON(r *http.Request) map[string]any {
 	defer r.Body.Close()
 	var m map[string]any
-	_ = json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&m)
+	_ = json.NewDecoder(io.LimitReader(r.Body, MaxBodyBytes)).Decode(&m)
 	if m == nil {
 		m = map[string]any{}
 	}
@@ -86,6 +86,27 @@ func isLoopback(r *http.Request) bool {
 }
 
 // MaxBodyBytes default request body limit for JSON APIs.
-const MaxBodyBytes = 1 << 20 // 1 MiB
+const MaxBodyBytes = 16 << 20 // 16 MiB — JSON APIs + modest uploads
 
 // clientIP returns the remote IP (X-Real-IP / X-Forwarded-For first hop / RemoteAddr).
+
+func clientIP(r *http.Request) string {
+	if x := r.Header.Get("X-Real-IP"); x != "" {
+		return x
+	}
+	if x := r.Header.Get("X-Forwarded-For"); x != "" {
+		if i := len(x); i > 0 {
+			for j := 0; j < len(x); j++ {
+				if x[j] == ',' {
+					return x[:j]
+				}
+			}
+			return x
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}

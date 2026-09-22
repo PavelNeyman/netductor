@@ -1,3 +1,11 @@
+## 0.8.38
+
+- SSH: sshpass uses `SSHPASS` + `-e` (no password in argv)
+- fleet provision-secondary: `--password-stdin` / `NETDUCTOR_SSH_PASSWORD`
+- Deploy secondary pipes password on primary via stdin
+- API `MaxBodyBytes` = 16 MiB, used by `withSecurity` + `readJSON`
+- AGENT_HANDOFF baseline cleanup (stale 0.8.30 operator hints)
+
 ## 0.8.37
 
 - Security: API systemd restart allowlist (`netductor-*` only)

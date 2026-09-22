@@ -47,10 +47,11 @@ func DeploySecondary(o SecondaryOpts) error {
 	if pub == "" {
 		return fmt.Errorf("operator pubkey empty")
 	}
+	// Password via stdin on primary (not netductor CLI argv / process list).
 	cmd := fmt.Sprintf(
-		"netductor fleet provision-secondary --host %s --user %s --password %s --sni %s --operator-pubkey %s",
-		shellQuote(o.SecondaryHost), shellQuote(o.SecondaryUser), shellQuote(o.SecondaryPass),
-		shellQuote(o.SNI), shellQuote(pub),
+		"printf '%%s' %s | netductor fleet provision-secondary --password-stdin --host %s --user %s --sni %s --operator-pubkey %s",
+		ShellQuote(o.SecondaryPass), ShellQuote(o.SecondaryHost), ShellQuote(o.SecondaryUser),
+		ShellQuote(o.SNI), ShellQuote(pub),
 	)
 	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "→ provision secondary", o.SecondaryHost, "(operator pubkey)")
 	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd)
