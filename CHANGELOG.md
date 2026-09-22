@@ -1,3 +1,8 @@
+## 0.8.42
+
+- CLI `deploy edge`: full parity with TUI network/guest flags (LAN/DHCP/Wi‑Fi 2.4+5/WAN/pppoe)
+- `deploy secondary --primary-key-passphrase`; edge/secondary password via NETDUCTOR_SSH_PASSWORD
+
 ## 0.8.41
 
 - OpenWrt WAN: dhcp | static | **pppoe** (user/pass/service/AC)

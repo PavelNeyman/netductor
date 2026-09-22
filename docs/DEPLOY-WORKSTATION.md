@@ -1,6 +1,6 @@
 # Deploy from Mac / PC (workstation TUI)
 
-Baseline: **v0.8.41**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.
+Baseline: **v0.8.42**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.
 
 ## Requirements on Mac
 
@@ -50,7 +50,9 @@ netductor tui --mode workstation
 ```bash
 netductor deploy primary --host IP --password '…' --generate-key --tg-token '…' --tg-admin '…'
 netductor deploy secondary --primary IP --primary-key ~/.ssh/netductor_primary --host RU_IP --password '…'
-netductor deploy edge --primary IP --primary-key ~/.ssh/netductor_primary --router 192.168.1.1 --id cudy-home-1 --arch arm64
+netductor deploy edge --primary IP --primary-key ~/.ssh/netductor_primary --router 192.168.1.1 --id cudy-home-1 --arch arm64 \
+  --password '…' --server https://IP:8789 \
+  --configure-net --lan-ip 192.168.50.1 --wifi-ssid-24 Home --wifi-key-24 '…' --wan-proto dhcp
 ```
 
 See also [DEPLOY.md](DEPLOY.md) · [FLEET.md](FLEET.md) · [EDGE-AGENT.md](EDGE-AGENT.md) · [ARCHITECTURE.md](ARCHITECTURE.md).

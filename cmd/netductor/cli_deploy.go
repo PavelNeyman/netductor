@@ -14,7 +14,26 @@ func runDeploy(args []string) {
 
   primary   — bootstrap Debian VPS from this machine (Mac/PC)
   secondary — provision RU VPN entry via primary SSH
-  edge      — install agent on OpenWrt (LAN; token from primary)
+  edge      — OpenWrt agent (+ optional guest/network, same as TUI)
+
+primary:
+  --host --password [--user root] [--generate-key] [--key-passphrase]
+  [--key PATH] [--tg-token] [--tg-admin] [--sni]
+
+secondary:
+  --primary --primary-key --host --password [--user] [--sni]
+  [--primary-key-passphrase]
+
+edge:
+  --router --id --password [--user root] [--arch arm64]
+  --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
+  --guest [--guest-ssid] [--guest-pin] [--guest-psk]
+  --configure-net
+  --lan-ip --lan-mask --dhcp-start --dhcp-limit
+  --wifi-ssid-24 --wifi-key-24 [--wifi-ssid-5] [--wifi-key-5]
+  --wan-proto dhcp|static|pppoe
+  --wan-ip --wan-mask --wan-gateway --wan-dns
+  --pppoe-user --pppoe-pass [--pppoe-service] [--pppoe-ac]
 
 See: netductor tui → Setup wizard`)
 		os.Exit(2)
@@ -113,9 +132,15 @@ See: netductor tui → Setup wizard`)
 			case a == "--primary-key" && i+1 < len(args):
 				i++
 				o.PrimaryKey = args[i]
+			case a == "--primary-key-passphrase" && i+1 < len(args):
+				i++
+				o.PrimaryKeyPassphrase = args[i]
 			case a == "--router" && i+1 < len(args):
 				i++
 				o.RouterHost = args[i]
+			case a == "--user" && i+1 < len(args):
+				i++
+				o.RouterUser = args[i]
 			case a == "--password" && i+1 < len(args):
 				i++
 				o.RouterPass = args[i]
@@ -128,11 +153,91 @@ See: netductor tui → Setup wizard`)
 			case a == "--arch" && i+1 < len(args):
 				i++
 				o.AgentArch = args[i]
+			case a == "--guest":
+				o.GuestEnable = true
+			case a == "--guest-ssid" && i+1 < len(args):
+				i++
+				o.GuestSSID = args[i]
+			case a == "--guest-pin" && i+1 < len(args):
+				i++
+				o.GuestPIN = args[i]
+			case a == "--guest-psk" && i+1 < len(args):
+				i++
+				o.GuestPSK = args[i]
+			case a == "--configure-net":
+				o.NetConfigure = true
+			case a == "--lan-ip" && i+1 < len(args):
+				i++
+				o.LANIP = args[i]
+				o.NetConfigure = true
+			case a == "--lan-mask" && i+1 < len(args):
+				i++
+				o.LANMask = args[i]
+			case a == "--dhcp-start" && i+1 < len(args):
+				i++
+				o.DHCPStart = args[i]
+			case a == "--dhcp-limit" && i+1 < len(args):
+				i++
+				o.DHCPLimit = args[i]
+			case a == "--wifi-ssid-24" && i+1 < len(args):
+				i++
+				o.WiFiSSID24 = args[i]
+				o.NetConfigure = true
+			case a == "--wifi-key-24" && i+1 < len(args):
+				i++
+				o.WiFiKey24 = args[i]
+			case a == "--wifi-ssid-5" && i+1 < len(args):
+				i++
+				o.WiFiSSID5 = args[i]
+			case a == "--wifi-key-5" && i+1 < len(args):
+				i++
+				o.WiFiKey5 = args[i]
+			case a == "--wifi-ssid" && i+1 < len(args):
+				i++
+				o.WiFiSSID = args[i]
+				o.NetConfigure = true
+			case a == "--wifi-key" && i+1 < len(args):
+				i++
+				o.WiFiKey = args[i]
+			case a == "--wan-proto" && i+1 < len(args):
+				i++
+				o.WANProto = args[i]
+				o.NetConfigure = true
+			case a == "--wan-ip" && i+1 < len(args):
+				i++
+				o.WANIP = args[i]
+			case a == "--wan-mask" && i+1 < len(args):
+				i++
+				o.WANMask = args[i]
+			case a == "--wan-gateway" && i+1 < len(args):
+				i++
+				o.WANGateway = args[i]
+			case a == "--wan-dns" && i+1 < len(args):
+				i++
+				o.WANDNS = args[i]
+			case a == "--pppoe-user" && i+1 < len(args):
+				i++
+				o.PPPoEUser = args[i]
+			case a == "--pppoe-pass" && i+1 < len(args):
+				i++
+				o.PPPoEPass = args[i]
+			case a == "--pppoe-service" && i+1 < len(args):
+				i++
+				o.PPPoEService = args[i]
+			case a == "--pppoe-ac" && i+1 < len(args):
+				i++
+				o.PPPoEAC = args[i]
 			}
 		}
+		if o.RouterPass == "" {
+			o.RouterPass = os.Getenv("NETDUCTOR_SSH_PASSWORD")
+		}
 		if o.RouterHost == "" || o.DeviceID == "" {
-			fmt.Fprintln(os.Stderr, "required: --router --id [--primary --primary-key --arch]")
+			fmt.Fprintln(os.Stderr, "required: --router --id --password (or NETDUCTOR_SSH_PASSWORD)")
 			os.Exit(2)
+		}
+		if o.ServerURL == "" && o.PrimaryHost != "" {
+			o.ServerURL = "https://" + o.PrimaryHost + ":8789"
 		}
 		if err := deploy.DeployEdge(o); err != nil {
 			fmt.Fprintln(os.Stderr, err)
