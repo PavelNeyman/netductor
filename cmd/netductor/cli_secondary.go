@@ -350,9 +350,12 @@ func postProvisionSecondary(host, sni string) {
 		_ = os.WriteFile(dir+"/ca.crt", ca, 0o600)
 		_ = os.WriteFile(dir+"/client.crt", cert, 0o600)
 		_ = os.WriteFile(dir+"/client.key", key, 0o600)
-		_ = execLocal("scp", "-o", "StrictHostKeyChecking=no", dir+"/ca.crt", dir+"/client.crt", dir+"/client.key", "root@"+host+":/etc/netductor/secrets/mtls/")
+		if err := execLocal("scp", "-o", "StrictHostKeyChecking=no", dir+"/ca.crt", dir+"/client.crt", dir+"/client.key", "root@"+host+":/etc/netductor/secrets/mtls/"); err != nil {
+			fmt.Println("  mtls re-seed scp soft-fail (ok if installed during provision session):", err)
+		} else {
+			fmt.Println("  mtls client for", id, "installed on", host)
+		}
 		_ = os.RemoveAll(dir)
-		fmt.Println("  mtls client for", id, "installed on", host)
 		break
 	}
 

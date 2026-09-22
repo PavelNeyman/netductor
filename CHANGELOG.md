@@ -1,4 +1,4 @@
-## 0.8.46
+## 0.8.47
 
 - DeployPrimary: after harden auto `NETDUCTOR_SSH_PORT=52222` for post-steps
 - install lampac: Debian `docker-cli` + `docker.io`

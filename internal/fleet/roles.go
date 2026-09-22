@@ -8,6 +8,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 // Control-plane model (netductor fleet):
@@ -134,7 +135,32 @@ func SetSecondary(nodeID string) error {
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("unknown node %s", nodeID)
+		// Secondary agents live in secondary store first; ensure fleet node row exists.
+		for _, d := range secondary.List() {
+			if d.ID != nodeID {
+				continue
+			}
+			hn := d.Name
+			if hn == "" {
+				hn = "nd-secondary"
+			}
+			_, err := nodes.UpsertFromDevice(nodes.Node{
+				ID: d.ID, Hostname: hn, Role: "secondary", Kind: "vps",
+				PublicIP: d.PublicIP, Status: "online",
+				Labels: map[string]string{LabelControlPlane: "secondary", LabelRegion: "ru"},
+			})
+			if err != nil {
+				return err
+			}
+			n, ok, err = nodes.Get(nodeID)
+			if err != nil {
+				return err
+			}
+			break
+		}
+		if !ok {
+			return fmt.Errorf("unknown node %s", nodeID)
+		}
 	}
 	labs := n.Labels
 	if labs == nil {

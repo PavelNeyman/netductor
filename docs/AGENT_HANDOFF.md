@@ -1,4 +1,4 @@
-## 0.8.46
+## 0.8.47
 
 **Secondary deploy hybrid (locked)**
 - Mac TUI/CLI orchestrates; control-plane actions run on **primary**
@@ -13,7 +13,7 @@ netductor deploy primary … --with-lampac
 netductor deploy secondary --primary … --primary-key … --host SEC --password …
 ```
 
-## 0.8.46 (2026-09-22)
+## 0.8.47 (2026-09-22)
 
 E2E VPS reinstall fixes:
 - DeployPrimary auto-sets `NETDUCTOR_SSH_PORT=52222` after SSH harden
@@ -40,7 +40,7 @@ Test keys (sandbox): `/home/workdir/artifacts/netductor_primary` — do not dele
 
 # Agent handoff — netductor
 
-**Version:** 0.8.46  
+**Version:** 0.8.47  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Last full review:** `docs/REVIEW-2026-09-21-FULL.md`  
 **Residual risks:** `docs/RESIDUAL_RISKS.md`  

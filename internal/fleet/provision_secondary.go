@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 // ProvisionSecondaryOpts operator input for RU VPN-entry deploy from primary.
@@ -94,12 +95,16 @@ func ensurePrimaryLocal() error {
 func findNodeIDByIP(ip string) string {
 	ip = strings.TrimSpace(ip)
 	list, err := nodes.List()
-	if err != nil {
-		return ""
+	if err == nil {
+		for _, n := range list {
+			if n.PublicIP == ip || strings.Contains(n.PublicIP, ip) {
+				return n.ID
+			}
+		}
 	}
-	for _, n := range list {
-		if n.PublicIP == ip || strings.Contains(n.PublicIP, ip) {
-			return n.ID
+	for _, d := range secondary.List() {
+		if d.PublicIP == ip || (ip != "" && strings.Contains(d.PublicIP, ip)) {
+			return d.ID
 		}
 	}
 	return ""
