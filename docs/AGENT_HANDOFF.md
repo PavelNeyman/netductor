@@ -776,31 +776,27 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.38 (2026-09-22)
+## Current baseline — v0.8.41 (2026-09-22)
 
 ### Release
-- Tag: **v0.8.38** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.38
-- Homebrew Formula tracks release · `brew reinstall netductor`
+- Tag: **v0.8.41** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.41
+- Homebrew Formula tracks **0.8.41** · `brew reinstall netductor`
 
 ### Locked surface
 - Mac TUI deploy: primary / secondary / OpenWrt / MikroTik / NVR
-- mTLS agent plane `:8789`; revoke/rotate; rate-limit + ban
-- Thin git + GHA-subset + local registry + **isolated CI** (containers)
-- SSH bootstrap then Mac key only; no device↔device SSH mesh
-- systemd API restart allowlist `netductor-*`
-- SSH passwords via `SSHPASS` env / `--password-stdin` (not argv `-p`)
+- OpenWrt network wizard: LAN/DHCP/Wi‑Fi 2.4+5 (inherit) / WAN dhcp|static|pppoe
+- mTLS `:8789`; isolated CI; thin git+GHA+registry
+- SSH: SSHPASS / password-stdin; optional key passphrase
+- After bootstrap: Mac key only; agent mTLS (not device↔device SSH)
 
 ### Operator open
 Hardware e2e · Domain/HTTPS · SMTP · Restore-drill — [OPEN_ITEMS](OPEN_ITEMS.md)
 
-### Ideas
-Guest Wi‑Fi seller TG bot (staff grant) — not scheduled
-
-### Security residual (accepted)
-Admin loopback without TLS until domain; CI runs as service user; Tapo/SNI InsecureSkipVerify intentional
+### Not present
+USB/LTE modem WAN failover (only VPN↔direct WAN fallback in agent)
 
 ### Historical notes
-Sections below retain design history (0.7–0.8.x). Prefer **this baseline** and OPEN_ITEMS for current work.
+Sections below may cite older versions; prefer this baseline and OPEN_ITEMS.
 
 ---
 
