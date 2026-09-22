@@ -69,6 +69,11 @@ func Run(opts Options) error {
 			err = InstallBackup()
 		case "lampac":
 			err = InstallLampac()
+		case "git":
+			// bare repos root; sample repo optional
+			err = ensureGitComponent()
+		case "registry":
+			err = ensureRegistryComponent()
 		default:
 			fmt.Fprintf(os.Stderr, "skip unknown component %s\n", c)
 		}
@@ -257,4 +262,23 @@ func copySelfToLocalBin() error {
 		return nil
 	}
 	return nil
+}
+
+func ensureGitComponent() error {
+	// thin: create git root; repos restored from backup data under var/lib/netductor/git
+	dir := filepath.Join(paths.StateDir(), "git")
+	return os.MkdirAll(dir, 0o755)
+}
+
+func ensureRegistryComponent() error {
+	// docker registry; data under var/lib/netductor/registry restored by tar
+	if err := exec.Command("docker", "info").Run(); err != nil {
+		return fmt.Errorf("docker required for registry recover: %w", err)
+	}
+	// start empty registry; blob data already restored from backup if present
+	_ = exec.Command("docker", "rm", "-f", "netductor-registry").Run()
+	data := filepath.Join(paths.StateDir(), "registry")
+	_ = os.MkdirAll(data, 0o755)
+	return exec.Command("docker", "run", "-d", "--name", "netductor-registry", "--restart", "unless-stopped",
+		"-p", "127.0.0.1:5000:5000", "-v", data+":/var/lib/registry", "registry:2").Run()
 }

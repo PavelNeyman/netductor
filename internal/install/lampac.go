@@ -57,6 +57,7 @@ func InstallLampac() error {
 	}
 
 	lockLampacToLocalhost(port)
+	MarkComponentInstalled("lampac")
 	fmt.Fprintf(os.Stderr, "lampac on %s:%s only (not public WAN); image %s\n", bind, port, used)
 	return nil
 }

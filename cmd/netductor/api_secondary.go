@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"os/exec"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -145,6 +147,8 @@ func registerRelayAPI(mux *http.ServeMux) {
 	// Agent-facing (token = device token)
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
 	mux.HandleFunc("/api/secondary/agent/config", handleSecondaryAgentConfig)
+	mux.HandleFunc("/api/secondary/agent/backup/latest", handleSecondaryBackupLatest)
+	mux.HandleFunc("/api/secondary/agent/backup/key", handleSecondaryBackupKey)
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
 		d := secondary.FindByToken(tok)
@@ -244,6 +248,8 @@ func StartAgentPlane() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
 	mux.HandleFunc("/api/secondary/agent/config", handleSecondaryAgentConfig)
+	mux.HandleFunc("/api/secondary/agent/backup/latest", handleSecondaryBackupLatest)
+	mux.HandleFunc("/api/secondary/agent/backup/key", handleSecondaryBackupKey)
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
 		d := secondary.FindByToken(tok)
@@ -307,4 +313,76 @@ func StartAgentPlane() {
 			_ = http.ListenAndServe(addr, lim.Middleware(withSecurity(mux)))
 		}()
 	}
+}
+
+func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method", 405)
+		return
+	}
+	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	tok = strings.TrimSpace(tok)
+	if secondary.FindByToken(tok) == nil {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	dir := filepath.Join(paths.StateDir(), "backups")
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		http.Error(w, "no backups", 404)
+		return
+	}
+	var latest string
+	var latestT int64
+	for _, e := range ents {
+		n := e.Name()
+		if !strings.HasSuffix(n, ".ndenc") && !strings.HasSuffix(n, ".tar.gz") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().Unix() >= latestT {
+			latestT = info.ModTime().Unix()
+			latest = filepath.Join(dir, n)
+		}
+	}
+	if latest == "" {
+		http.Error(w, "no backups", 404)
+		return
+	}
+	// sidecars as headers
+	if b, err := os.ReadFile(filepath.Join(dir, "COMPONENTS.txt")); err == nil {
+		w.Header().Set("X-Netductor-Components", strings.ReplaceAll(strings.TrimSpace(string(b)), "\n", ","))
+	}
+	w.Header().Set("X-Netductor-Backup-Name", filepath.Base(latest))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(latest))
+	http.ServeFile(w, r, latest)
+}
+
+func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method", 405)
+		return
+	}
+	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	tok = strings.TrimSpace(tok)
+	if secondary.FindByToken(tok) == nil {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	keyPath := filepath.Join(paths.StateDir(), "backups", "BACKUP_KEY.txt")
+	b, err := os.ReadFile(keyPath)
+	if err != nil {
+		// fallback secret
+		b, err = os.ReadFile(filepath.Join(paths.EtcDir(), "secrets", "backup_key"))
+		if err != nil {
+			http.Error(w, "no key", 404)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	_, _ = w.Write(b)
 }

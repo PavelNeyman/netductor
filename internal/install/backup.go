@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"net/http"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
 func InstallBackup() error {
@@ -185,6 +187,7 @@ func Backup() (string, error) {
 	}
 	stamp := time.Now().UTC().Format("20060102-150405")
 	plain := filepath.Join(dir, "netductor-"+stamp+".tar.gz")
+	SyncComponentsFromDisk()
 	// Ensure manifest exists before packing
 	if len(ReadComponentsManifest()) == 0 {
 		_ = WriteComponentsManifest(DefaultComponents())
@@ -230,6 +233,19 @@ func Backup() (string, error) {
 		_ = os.WriteFile(failMark, []byte(err.Error()), 0o600)
 	} else {
 		_ = os.Remove(failMark)
+	}
+	// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
+	n := 0
+	for _, d := range secondary.List() {
+		if !secondary.Online(d, 3*time.Minute) {
+			continue
+		}
+		if err := secondary.EnqueueCmd(d.ID, "backup_pull"); err == nil {
+			n++
+		}
+	}
+	if n > 0 {
+		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d secondary agent(s)\n", n)
 	}
 	pruneBackups(dir, BackupKeepCount())
 	return out, nil
@@ -402,4 +418,58 @@ func pruneBackups(dir string, keep int) {
 	for i := 0; i < len(entries)-keep; i++ {
 		_ = os.Remove(filepath.Join(dir, entries[i].Name()))
 	}
+}
+
+
+// RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().
+func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if baseURL == "" || recoveryToken == "" {
+		return fmt.Errorf("usage: netductor recover --from-secondary URL --recovery-token TOKEN [--key KEY]")
+	}
+	client := &http.Client{Timeout: 30 * time.Minute}
+	get := func(path string) ([]byte, http.Header, error) {
+		req, err := http.NewRequest(http.MethodGet, baseURL+path, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+recoveryToken)
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer resp.Body.Close()
+		b, err := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 300 {
+			return nil, nil, fmt.Errorf("%s: HTTP %d %s", path, resp.StatusCode, string(b))
+		}
+		return b, resp.Header, err
+	}
+	body, hdr, err := get("/recovery/latest")
+	if err != nil {
+		return err
+	}
+	name := hdr.Get("X-Netductor-Backup-Name")
+	if name == "" {
+		name = "from-secondary.ndenc"
+	}
+	tmpDir, err := os.MkdirTemp("", "nd-recover-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+	arch := filepath.Join(tmpDir, name)
+	if err := os.WriteFile(arch, body, 0o600); err != nil {
+		return err
+	}
+	if kb, _, err := get("/recovery/key"); err == nil && len(kb) > 0 {
+		_ = os.WriteFile(filepath.Join(tmpDir, "BACKUP_KEY.txt"), kb, 0o600)
+		if keyArg == "" {
+			keyArg = strings.TrimSpace(string(kb))
+		}
+	}
+	if cb, _, err := get("/recovery/components"); err == nil && len(cb) > 0 {
+		_ = os.WriteFile(filepath.Join(tmpDir, "COMPONENTS.txt"), cb, 0o644)
+	}
+	return Recover(arch, keyArg)
 }

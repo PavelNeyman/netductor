@@ -237,6 +237,8 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		return secondaryUpgrade()
 	case "mtls_refresh":
 		return secondaryMTLSRefresh()
+	case "backup_pull":
+		return secondaryBackupPull()
 	case "metrics":
 		return true, "metrics on next heartbeat"
 	case "journal":
@@ -358,4 +360,68 @@ func secondaryMTLSRefresh() (bool, string) {
 		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Start()
 	}()
 	return true, "mtls material written; restarting agent"
+}
+
+
+func secondaryBackupPull() (bool, string) {
+	tok := ""
+	core := ""
+	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_agent_token"); err == nil {
+		tok = strings.TrimSpace(string(b))
+	}
+	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url"); err == nil {
+		core = strings.TrimSpace(string(b))
+	}
+	if tok == "" || core == "" {
+		return false, "missing secondary_agent_token or secondary_core_url"
+	}
+	core = strings.TrimRight(core, "/")
+	client := &http.Client{Timeout: 10 * time.Minute}
+	if tlsCfg, err := mtls.ClientTLSConfig(); err == nil {
+		client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
+	}
+	req, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/latest", nil)
+	if err != nil {
+		return false, err.Error()
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, err.Error()
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return false, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(b))
+	}
+	name := resp.Header.Get("X-Netductor-Backup-Name")
+	if name == "" {
+		name = "netductor-latest.ndenc"
+	}
+	dir := "/var/lib/netductor/backups/peers/core"
+	_ = os.MkdirAll(dir, 0o700)
+	outPath := filepath.Join(dir, name)
+	f, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return false, err.Error()
+	}
+	_, err = io.Copy(f, resp.Body)
+	f.Close()
+	if err != nil {
+		return false, err.Error()
+	}
+	// key sidecar
+	req2, _ := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/key", nil)
+	req2.Header.Set("Authorization", "Bearer "+tok)
+	if resp2, err := client.Do(req2); err == nil {
+		defer resp2.Body.Close()
+		if resp2.StatusCode == 200 {
+			kb, _ := io.ReadAll(resp2.Body)
+			_ = os.WriteFile(filepath.Join(dir, "BACKUP_KEY.txt"), kb, 0o600)
+		}
+	}
+	if comps := resp.Header.Get("X-Netductor-Components"); comps != "" {
+		_ = os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(strings.ReplaceAll(comps, ",", "\n")+"\n"), 0o644)
+	}
+	return true, "stored " + outPath
 }

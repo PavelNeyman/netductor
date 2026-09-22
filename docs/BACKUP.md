@@ -1,19 +1,49 @@
-# Backups
+# Backups (RU + EN)
 
-## Contents
-Archive packs (when present on disk):
+## Concept
 
-- `/etc/netductor` — secrets, VPN users, conf
-- `/etc/blocky` — DNS config
-- `/etc/sing-box` — certs/config if any
-- `/var/lib/netductor` — state, sites, nodes, quotas
-- `/opt/netductor/lampac` — app data (image re-pulled)
-- `/opt/netductor/profiles` — e.g. nd-oc.conf
+- Archive holds **configs + data**, not application binaries/images.
+- `components.json` / `COMPONENTS.txt` lists what to reinstall on recover.
+- `SyncComponentsFromDisk()` runs before each backup: lampac/git/registry appear/disappear with install/uninstall.
 
-Sidecars next to archives: `COMPONENTS.txt`, recovery key note.
+## What is packed
 
-## UI
-Tools → Backup: schedule, Run now, List + Restore, Keep N.
+`/etc/netductor`, `/etc/blocky`, `/etc/sing-box`, `/var/lib/netductor` (incl. git + registry data), `/opt/netductor/lampac`, profiles.
 
-## CLI
-`netductor backup` / `netductor restore [--key KEY] file.ndenc`
+## Offsite on secondary (RU)
+
+After each successful backup on primary, online secondary agents get `backup_pull`:
+
+1. Agent `GET https://primary:8789/api/secondary/agent/backup/latest` (mTLS + agent token)
+2. Stores under `/var/lib/netductor/backups/peers/core/`
+3. Also pulls `BACKUP_KEY.txt` + COMPONENTS header
+
+No primary→secondary SSH.
+
+## Disaster recovery (new primary, primary dead)
+
+Secondary agent listens **`:8790` recovery API** (Bearer `recovery_token` from `/etc/netductor/secrets/recovery_token` on secondary).
+
+```bash
+# on clean Debian VPS (after placing netductor binary)
+netductor recover --from-secondary http://SECONDARY_IP:8790 \
+  --recovery-token "$(cat recovery_token)" 
+# optional --key if key not served
+```
+
+Flow: download .ndenc → install components from manifest → extract data → restart.
+
+Save `recovery_token` offline when secondary is first provisioned (printed in provision log).
+
+## Manual
+
+```bash
+netductor backup
+netductor recover --key KEY file.ndenc
+```
+
+## RU
+
+Бэкап = данные/конфиги. Список компонентов синхронизируется с диском при каждом backup.  
+Копия на RU — agent pull по расписанию backup.  
+Восстановление primary: `recover --from-secondary` с recovery API secondary `:8790`.

@@ -12,7 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.48"
+var version = "0.8.49"
 
 func main() {
 	ndconfig.Load()
@@ -112,7 +112,7 @@ func main() {
 		}
 		fmt.Println("restored")
 	case "recover":
-		key, arch := "", ""
+		key, arch, fromSec, recTok := "", "", "", ""
 		for i := 2; i < len(os.Args); i++ {
 			a := os.Args[i]
 			if a == "--key" && i+1 < len(os.Args) {
@@ -120,12 +120,31 @@ func main() {
 				key = os.Args[i]
 				continue
 			}
+			if a == "--from-secondary" && i+1 < len(os.Args) {
+				i++
+				fromSec = os.Args[i]
+				continue
+			}
+			if a == "--recovery-token" && i+1 < len(os.Args) {
+				i++
+				recTok = os.Args[i]
+				continue
+			}
 			if !strings.HasPrefix(a, "-") && arch == "" {
 				arch = a
 			}
 		}
+		if fromSec != "" {
+			if err := install.RecoverFromSecondary(fromSec, recTok, key); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("recovered from secondary")
+			return
+		}
 		if arch == "" {
 			fmt.Fprintln(os.Stderr, "usage: netductor recover [--key KEY] <archive.ndenc>")
+			fmt.Fprintln(os.Stderr, "   or: netductor recover --from-secondary http://SECONDARY:8790 --recovery-token TOKEN [--key KEY]")
 			os.Exit(2)
 		}
 		if err := install.Recover(arch, key); err != nil {
