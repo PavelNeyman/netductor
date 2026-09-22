@@ -6,74 +6,138 @@ import (
 )
 
 // DesiredUCI extracts uci set lines from template JSON-like map.
-// Supports network (lan + wan), dhcp.lan, wifi (same SSID on radio0/radio1).
+// network: lan_ip, lan_mask, wan_proto (dhcp|static|pppoe), wan_* / pppoe_*
+// dhcp: start, limit
+// wifi: ssid/key (both radios) or ssid_24/key_24 + ssid_5/key_5 (empty band inherits the other)
 func DesiredUCI(tmpl map[string]any) []string {
 	var lines []string
 	if net, ok := tmpl["network"].(map[string]any); ok {
-		if ip, ok := net["lan_ip"].(string); ok && ip != "" {
+		if ip := str(net["lan_ip"]); ip != "" {
 			lines = append(lines, "network.lan.ipaddr="+ip)
 		}
-		if mask, ok := net["lan_mask"].(string); ok && mask != "" {
+		if mask := str(net["lan_mask"]); mask != "" {
 			lines = append(lines, "network.lan.netmask="+mask)
 		}
-		proto, _ := net["wan_proto"].(string)
-		proto = strings.ToLower(strings.TrimSpace(proto))
-		if proto == "static" || proto == "dhcp" {
+		proto := strings.ToLower(strings.TrimSpace(str(net["wan_proto"])))
+		switch proto {
+		case "static", "dhcp", "pppoe":
 			lines = append(lines, "network.wan.proto="+proto)
 		}
-		if proto == "static" {
-			if ip, ok := net["wan_ip"].(string); ok && ip != "" {
+		switch proto {
+		case "static":
+			if ip := str(net["wan_ip"]); ip != "" {
 				lines = append(lines, "network.wan.ipaddr="+ip)
 			}
-			if mask, ok := net["wan_mask"].(string); ok && mask != "" {
+			if mask := str(net["wan_mask"]); mask != "" {
 				lines = append(lines, "network.wan.netmask="+mask)
 			}
-			if gw, ok := net["wan_gateway"].(string); ok && gw != "" {
+			if gw := str(net["wan_gateway"]); gw != "" {
 				lines = append(lines, "network.wan.gateway="+gw)
 			}
-			if dns, ok := net["wan_dns"].(string); ok && dns != "" {
+			if dns := str(net["wan_dns"]); dns != "" {
+				lines = append(lines, "network.wan.dns="+dns)
+			}
+		case "pppoe":
+			if u := str(net["pppoe_user"]); u != "" {
+				lines = append(lines, "network.wan.username="+u)
+			}
+			if p := str(net["pppoe_pass"]); p != "" {
+				lines = append(lines, "network.wan.password="+p)
+			}
+			if svc := str(net["pppoe_service"]); svc != "" {
+				lines = append(lines, "network.wan.service="+svc)
+			}
+			if ac := str(net["pppoe_ac"]); ac != "" {
+				lines = append(lines, "network.wan.ac="+ac)
+			}
+			if dns := str(net["wan_dns"]); dns != "" {
 				lines = append(lines, "network.wan.dns="+dns)
 			}
 		}
 	}
 	if dhcp, ok := tmpl["dhcp"].(map[string]any); ok {
-		if start, ok := dhcp["start"].(string); ok && start != "" {
+		if start := strOrNum(dhcp["start"]); start != "" {
 			lines = append(lines, "dhcp.lan.start="+start)
 		}
-		if lim, ok := dhcp["limit"].(string); ok && lim != "" {
+		if lim := strOrNum(dhcp["limit"]); lim != "" {
 			lines = append(lines, "dhcp.lan.limit="+lim)
-		}
-		// also accept numbers from JSON
-		if start, ok := dhcp["start"].(float64); ok {
-			lines = append(lines, fmt.Sprintf("dhcp.lan.start=%d", int(start)))
-		}
-		if lim, ok := dhcp["limit"].(float64); ok {
-			lines = append(lines, fmt.Sprintf("dhcp.lan.limit=%d", int(lim)))
 		}
 	}
 	if wifi, ok := tmpl["wifi"].(map[string]any); ok {
-		ssid, _ := wifi["ssid"].(string)
-		key, _ := wifi["key"].(string)
-		enc, _ := wifi["encryption"].(string)
+		ssid24, key24, ssid5, key5 := resolveBands(wifi)
+		enc := str(wifi["encryption"])
 		if enc == "" {
 			enc = "psk2"
 		}
-		if ssid != "" {
-			for _, radio := range []string{"default_radio0", "default_radio1"} {
-				lines = append(lines,
-					"wireless."+radio+".ssid="+ssid,
-					"wireless."+radio+".encryption="+enc,
-				)
-				if key != "" {
-					lines = append(lines, "wireless."+radio+".key="+key)
-				}
+		if ssid24 != "" {
+			lines = append(lines,
+				"wireless.default_radio0.ssid="+ssid24,
+				"wireless.default_radio0.encryption="+enc,
+			)
+			if key24 != "" {
+				lines = append(lines, "wireless.default_radio0.key="+key24)
+			}
+		}
+		if ssid5 != "" {
+			lines = append(lines,
+				"wireless.default_radio1.ssid="+ssid5,
+				"wireless.default_radio1.encryption="+enc,
+			)
+			if key5 != "" {
+				lines = append(lines, "wireless.default_radio1.key="+key5)
 			}
 		}
 	}
 	return lines
 }
 
-// DiffUCI returns sets needed when current values differ (current map path->value).
+// resolveBands: fill empty 2.4 from 5 and vice versa; legacy ssid/key apply to both when band-specific empty.
+func resolveBands(wifi map[string]any) (ssid24, key24, ssid5, key5 string) {
+	ssid24 = str(wifi["ssid_24"])
+	key24 = str(wifi["key_24"])
+	ssid5 = str(wifi["ssid_5"])
+	key5 = str(wifi["key_5"])
+	legacySSID := str(wifi["ssid"])
+	legacyKey := str(wifi["key"])
+	if ssid24 == "" && ssid5 == "" && legacySSID != "" {
+		ssid24, ssid5 = legacySSID, legacySSID
+	}
+	if key24 == "" && key5 == "" && legacyKey != "" {
+		key24, key5 = legacyKey, legacyKey
+	}
+	if ssid24 == "" {
+		ssid24 = ssid5
+	}
+	if ssid5 == "" {
+		ssid5 = ssid24
+	}
+	if key24 == "" {
+		key24 = key5
+	}
+	if key5 == "" {
+		key5 = key24
+	}
+	return
+}
+
+func str(v any) string {
+	s, _ := v.(string)
+	return strings.TrimSpace(s)
+}
+
+func strOrNum(v any) string {
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
+	case float64:
+		return fmt.Sprintf("%d", int(x))
+	case int:
+		return fmt.Sprintf("%d", x)
+	default:
+		return ""
+	}
+}
+
 func DiffUCI(desired []string, current map[string]string) (toSet []string) {
 	for _, line := range desired {
 		parts := strings.SplitN(line, "=", 2)
@@ -95,7 +159,6 @@ func FormatApplyReport(toSet []string) string {
 	return fmt.Sprintf("changing %d keys", len(toSet))
 }
 
-// ShellApply builds a safe-ish OpenWrt shell snippet from desired uci lines.
 func ShellApply(desired []string) string {
 	if len(desired) == 0 {
 		return "true"
@@ -107,11 +170,10 @@ func ShellApply(desired []string) string {
 		if len(parts) != 2 {
 			continue
 		}
-		// uci set path=value — value may need quoting
 		b.WriteString("uci set ")
 		b.WriteString(parts[0])
 		b.WriteString("=")
-		b.WriteString(shellSingle(parts[1]))
+		b.WriteString("'" + strings.ReplaceAll(parts[1], "'", `'"'"'`) + "'")
 		b.WriteByte('\n')
 	}
 	b.WriteString("uci commit network 2>/dev/null || true\n")
@@ -120,8 +182,4 @@ func ShellApply(desired []string) string {
 	b.WriteString("/etc/init.d/network reload 2>/dev/null || true\n")
 	b.WriteString("wifi reload 2>/dev/null || true\n")
 	return b.String()
-}
-
-func shellSingle(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }

@@ -226,7 +226,10 @@ func wizardOpenWrt() {
 		return
 	}
 	var netOn bool
-	var lanIP, lanMask, dhcpStart, dhcpLimit, wifiSSID, wifiKey, wanProto, wanIP, wanMask, wanGW, wanDNS string
+	var lanIP, lanMask, dhcpStart, dhcpLimit string
+	var wifiSSID24, wifiKey24, wifiSSID5, wifiKey5 string
+	var wanProto, wanIP, wanMask, wanGW, wanDNS string
+	var pppoeUser, pppoePass, pppoeSvc, pppoeAC string
 	lanMask = "255.255.255.0"
 	dhcpStart = "100"
 	dhcpLimit = "150"
@@ -244,17 +247,34 @@ func wizardOpenWrt() {
 				huh.NewInput().Title(FormT(lang, "lan_mask")).Value(&lanMask),
 				huh.NewInput().Title(FormT(lang, "dhcp_start")).Value(&dhcpStart),
 				huh.NewInput().Title(FormT(lang, "dhcp_limit")).Value(&dhcpLimit),
-				huh.NewInput().Title(FormT(lang, "wifi_ssid")).Value(&wifiSSID),
-				huh.NewInput().Title(FormT(lang, "wifi_key")).EchoMode(huh.EchoModePassword).Value(&wifiKey),
-				huh.NewInput().Title(FormT(lang, "wan_proto")).Placeholder("dhcp").Value(&wanProto),
+				huh.NewInput().Title(FormT(lang, "wifi_ssid_24")).
+					Description(FormT(lang, "wifi_ssid_24_desc")).Value(&wifiSSID24),
+				huh.NewInput().Title(FormT(lang, "wifi_key_24")).EchoMode(huh.EchoModePassword).Value(&wifiKey24),
+				huh.NewInput().Title(FormT(lang, "wifi_ssid_5")).
+					Description(FormT(lang, "wifi_ssid_5_desc")).Value(&wifiSSID5),
+				huh.NewInput().Title(FormT(lang, "wifi_key_5")).EchoMode(huh.EchoModePassword).Value(&wifiKey5),
+				huh.NewInput().Title(FormT(lang, "wan_proto")).
+					Description(FormT(lang, "wan_proto_desc")).Placeholder("dhcp").Value(&wanProto),
 			),
 		).WithTheme(huh.ThemeCharm()).Run()
-		if strings.ToLower(strings.TrimSpace(wanProto)) == "static" {
+		wp := strings.ToLower(strings.TrimSpace(wanProto))
+		if wp == "static" {
 			_ = huh.NewForm(
 				huh.NewGroup(
 					huh.NewInput().Title(FormT(lang, "wan_ip")).Value(&wanIP),
 					huh.NewInput().Title(FormT(lang, "wan_mask")).Placeholder("255.255.255.0").Value(&wanMask),
 					huh.NewInput().Title(FormT(lang, "wan_gateway")).Value(&wanGW),
+					huh.NewInput().Title(FormT(lang, "wan_dns")).Placeholder("1.1.1.1").Value(&wanDNS),
+				),
+			).WithTheme(huh.ThemeCharm()).Run()
+		}
+		if wp == "pppoe" {
+			_ = huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().Title(FormT(lang, "pppoe_user")).Value(&pppoeUser),
+					huh.NewInput().Title(FormT(lang, "pppoe_pass")).EchoMode(huh.EchoModePassword).Value(&pppoePass),
+					huh.NewInput().Title(FormT(lang, "pppoe_service")).Value(&pppoeSvc),
+					huh.NewInput().Title(FormT(lang, "pppoe_ac")).Value(&pppoeAC),
 					huh.NewInput().Title(FormT(lang, "wan_dns")).Placeholder("1.1.1.1").Value(&wanDNS),
 				),
 			).WithTheme(huh.ThemeCharm()).Run()
@@ -276,8 +296,9 @@ func wizardOpenWrt() {
 		RouterHost: host, RouterUser: user, RouterPass: pass,
 		DeviceID: id, ServerURL: server, AgentArch: arch, Version: deploy.Release,
 		NetConfigure: netOn, LANIP: lanIP, LANMask: lanMask, DHCPStart: dhcpStart, DHCPLimit: dhcpLimit,
-		WiFiSSID: wifiSSID, WiFiKey: wifiKey, WANProto: wanProto, WANIP: wanIP, WANMask: wanMask,
-		WANGateway: wanGW, WANDNS: wanDNS,
+		WiFiSSID24: wifiSSID24, WiFiKey24: wifiKey24, WiFiSSID5: wifiSSID5, WiFiKey5: wifiKey5,
+		WANProto: wanProto, WANIP: wanIP, WANMask: wanMask, WANGateway: wanGW, WANDNS: wanDNS,
+		PPPoEUser: pppoeUser, PPPoEPass: pppoePass, PPPoEService: pppoeSvc, PPPoEAC: pppoeAC,
 		GuestEnable: guestOn, GuestSSID: guestSSID, GuestPIN: guestPIN,
 	})
 	if err != nil {

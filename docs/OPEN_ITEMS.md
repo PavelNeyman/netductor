@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.40**.
+Baseline: **v0.8.41**.
 
 ## Gates (green)
 `go test` / version pins / git+registry UI parity / GHA-subset runner

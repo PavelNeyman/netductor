@@ -1,3 +1,9 @@
+## 0.8.41
+
+- OpenWrt WAN: dhcp | static | **pppoe** (user/pass/service/AC)
+- Wi‑Fi 2.4/5 separate fields; empty band inherits the other (EN/RU hints)
+- edgeagent DesiredUCI dual-band + PPPoE
+
 ## 0.8.40
 
 - OpenWrt wizard: optional LAN/DHCP/Wi‑Fi/WAN (dhcp|static) EN/RU → UCI on router + edge template

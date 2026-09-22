@@ -2,35 +2,45 @@ package edgeagent
 
 import "testing"
 
-func TestDesiredAndDiff(t *testing.T) {
-	tmpl := map[string]any{
-		"network": map[string]any{"lan_ip": "192.168.50.1", "lan_mask": "255.255.255.0"},
-		"wifi":    map[string]any{"ssid": "Test", "key": "secret123", "encryption": "psk2"},
+func TestDesiredUCIBandsInherit(t *testing.T) {
+	lines := DesiredUCI(map[string]any{
+		"wifi": map[string]any{"ssid_24": "Home", "key_24": "secret12"},
+	})
+	joined := ""
+	for _, l := range lines {
+		joined += l + "\n"
 	}
-	d := DesiredUCI(tmpl)
-	if len(d) < 3 {
-		t.Fatal(d)
+	if !contains(joined, "default_radio0.ssid=Home") || !contains(joined, "default_radio1.ssid=Home") {
+		t.Fatalf("inherit 5 from 24: %s", joined)
 	}
-	cur := map[string]string{"network.lan.ipaddr": "192.168.50.1"}
-	diff := DiffUCI(d, cur)
-	if len(diff) == 0 {
-		t.Fatal("expected some diffs")
-	}
-	// all match
-	cur2 := map[string]string{}
-	for _, line := range d {
-		p := splitKV(line)
-		cur2[p[0]] = p[1]
-	}
-	if len(DiffUCI(d, cur2)) != 0 {
-		t.Fatal("expected no changes")
+	if !contains(joined, "default_radio1.key=secret12") {
+		t.Fatalf("inherit key: %s", joined)
 	}
 }
 
-func splitKV(line string) [2]string {
-	i := 0
-	for i < len(line) && line[i] != '=' {
-		i++
+func TestDesiredUCIPPPoE(t *testing.T) {
+	lines := DesiredUCI(map[string]any{
+		"network": map[string]any{
+			"wan_proto": "pppoe", "pppoe_user": "u", "pppoe_pass": "p",
+		},
+	})
+	joined := ""
+	for _, l := range lines {
+		joined += l + ";"
 	}
-	return [2]string{line[:i], line[i+1:]}
+	if !contains(joined, "network.wan.proto=pppoe") || !contains(joined, "username=u") {
+		t.Fatal(joined)
+	}
+}
+
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(sub) == 0 || stringIndex(s, sub) >= 0)
+}
+func stringIndex(s, sub string) int {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
 }

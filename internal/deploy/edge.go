@@ -36,13 +36,21 @@ type EdgeOpts struct {
 	LANMask      string
 	DHCPStart    string // e.g. 100
 	DHCPLimit    string // e.g. 150
-	WiFiSSID     string
+	WiFiSSID     string // legacy both bands
 	WiFiKey      string
-	WANProto     string // dhcp | static
+	WiFiSSID24   string
+	WiFiKey24    string
+	WiFiSSID5    string
+	WiFiKey5     string
+	WANProto     string // dhcp | static | pppoe
 	WANIP        string
 	WANMask      string
 	WANGateway   string
 	WANDNS       string
+	PPPoEUser    string
+	PPPoEPass    string
+	PPPoEService string
+	PPPoEAC      string
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -198,14 +206,33 @@ func networkTemplateMap(o EdgeOpts) map[string]any {
 		net["wan_gateway"] = o.WANGateway
 		net["wan_dns"] = o.WANDNS
 	}
+	if proto == "pppoe" {
+		net["pppoe_user"] = o.PPPoEUser
+		net["pppoe_pass"] = o.PPPoEPass
+		net["pppoe_service"] = o.PPPoEService
+		net["pppoe_ac"] = o.PPPoEAC
+		if o.WANDNS != "" {
+			net["wan_dns"] = o.WANDNS
+		}
+	}
 	if len(net) > 0 {
 		m["network"] = net
 	}
 	if o.DHCPStart != "" || o.DHCPLimit != "" {
 		m["dhcp"] = map[string]any{"start": o.DHCPStart, "limit": o.DHCPLimit}
 	}
-	if o.WiFiSSID != "" {
-		m["wifi"] = map[string]any{"ssid": o.WiFiSSID, "key": o.WiFiKey, "encryption": "psk2"}
+	wifi := map[string]any{"encryption": "psk2"}
+	if o.WiFiSSID24 != "" || o.WiFiKey24 != "" || o.WiFiSSID5 != "" || o.WiFiKey5 != "" {
+		wifi["ssid_24"] = o.WiFiSSID24
+		wifi["key_24"] = o.WiFiKey24
+		wifi["ssid_5"] = o.WiFiSSID5
+		wifi["key_5"] = o.WiFiKey5
+	} else if o.WiFiSSID != "" {
+		wifi["ssid"] = o.WiFiSSID
+		wifi["key"] = o.WiFiKey
+	}
+	if o.WiFiSSID24 != "" || o.WiFiSSID5 != "" || o.WiFiSSID != "" {
+		m["wifi"] = wifi
 	}
 	return m
 }
