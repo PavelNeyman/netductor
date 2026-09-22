@@ -10,9 +10,9 @@ import (
 )
 
 func InstallHardening() error {
-	pkgs := []string{"ufw", "curl", "ca-certificates", "fail2ban"}
+	pkgs := []string{"ufw", "curl", "wget", "ca-certificates", "fail2ban", "git"}
 	if os.Getenv("NETDUCTOR_FAIL2BAN") == "0" {
-		pkgs = []string{"ufw", "curl", "ca-certificates"}
+		pkgs = []string{"ufw", "curl", "wget", "ca-certificates", "git"}
 	}
 	if err := aptInstall(pkgs...); err != nil {
 		fmt.Fprintf(os.Stderr, "hardening apt: %v (continuing)\n", err)

@@ -73,10 +73,11 @@ func ensureDocker() error {
 			return nil
 		}
 	}
-	// Debian/Ubuntu package
-	if err := aptInstall("docker.io"); err != nil {
-		// try docker-ce convenience script only if apt failed hard
-		fmt.Fprintln(os.Stderr, "apt docker.io failed, trying get.docker.com…")
+	// Debian/Ubuntu: docker.io = daemon; docker-cli = client (Trixie splits them)
+	_ = aptInstall("docker.io")
+	_ = aptInstall("docker-cli")
+	if _, err := exec.LookPath("docker"); err != nil {
+		fmt.Fprintln(os.Stderr, "apt docker packages missing CLI, trying get.docker.com…")
 		script := exec.Command("sh", "-c", "curl -fsSL https://get.docker.com | sh || wget -qO- https://get.docker.com | sh")
 		script.Stdout, script.Stderr = os.Stdout, os.Stderr
 		_ = script.Run()

@@ -229,10 +229,21 @@ func EnsureCrane() (string, error) {
 		return p, nil
 	}
 	goos, goarch := runtime.GOOS, runtime.GOARCH
-	if goarch == "aarch64" {
+	switch goos {
+	case "linux":
+		goos = "Linux"
+	case "darwin":
+		goos = "Darwin"
+	case "windows":
+		goos = "Windows"
+	}
+	switch goarch {
+	case "amd64", "x86_64":
+		goarch = "x86_64"
+	case "arm64", "aarch64":
 		goarch = "arm64"
 	}
-	ver := "v0.20.2"
+	ver := "v0.22.1"
 	name := fmt.Sprintf("go-containerregistry_%s_%s.tar.gz", goos, goarch)
 	url := fmt.Sprintf("https://github.com/google/go-containerregistry/releases/download/%s/%s", ver, name)
 	tmp := filepath.Join(os.TempDir(), name)

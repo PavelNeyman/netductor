@@ -19,6 +19,7 @@ type ProvisionIn struct {
 	Port           int    // SSH port, default 22
 	User           string // default root
 	Password       string
+	SSHPrivateKey  string // optional path; used when password auth disabled (re-provision)
 	SNI            string // Reality SNI; empty → ResolveSecondarySNI / api.vk.me
 	OperatorPubKey string // optional: Mac/operator pubkey (preferred). If set, only this is installed.
 	// Optional mTLS client material (written over the same SSH session — primary need not re-SSH later).
@@ -75,9 +76,27 @@ func sshClient(in ProvisionIn) (*ssh.Client, error) {
 	if in.User == "" {
 		in.User = "root"
 	}
+	var methods []ssh.AuthMethod
+	if k := strings.TrimSpace(in.SSHPrivateKey); k != "" {
+		key, err := os.ReadFile(k)
+		if err != nil {
+			return nil, fmt.Errorf("read SSH private key: %w", err)
+		}
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("parse SSH private key: %w", err)
+		}
+		methods = append(methods, ssh.PublicKeys(signer))
+	}
+	if in.Password != "" {
+		methods = append(methods, ssh.Password(in.Password))
+	}
+	if len(methods) == 0 {
+		return nil, fmt.Errorf("password or SSH private key required")
+	}
 	cfg := &ssh.ClientConfig{
 		User:            in.User,
-		Auth:            []ssh.AuthMethod{ssh.Password(in.Password)},
+		Auth:            methods,
 		HostKeyCallback: provisionHostKey(in.Host),
 		Timeout:         30 * time.Second,
 	}
@@ -142,12 +161,21 @@ systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || service
 // RemoteJoin installs netductor binary + joins with bundle JSON.
 func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 	b64 := strings.ReplaceAll(bundleJSON, "'", `'"'"'`)
+	// Prefer published release for remote download; unreleased tags 404.
+	ver := version.Release
 	script := fmt.Sprintf(`set -e
 export DEBIAN_FRONTEND=noninteractive
 VER=%s
-wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v${VER}/netductor-linux-amd64 \
-  || curl -fsSL -o /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v${VER}/netductor-linux-amd64
-chmod 755 /usr/local/bin/netductor
+FALLBACK=0.8.44
+dl() {
+  u="https://github.com/PavelNeyman/netductor/releases/download/v$1/netductor-linux-amd64"
+  if command -v curl >/dev/null 2>&1; then curl -fsSL -o /tmp/netductor.new "$u"
+  else wget -qO /tmp/netductor.new "$u"; fi
+}
+dl "$VER" || dl "$FALLBACK"
+systemctl stop netductor-secondary-agent 2>/dev/null || true
+install -m 755 /tmp/netductor.new /usr/local/bin/netductor
+rm -f /tmp/netductor.new
 cat > /root/bundle.json << 'BUNDLE_EOF'
 %s
 BUNDLE_EOF
@@ -155,7 +183,7 @@ netductor secondary join /root/bundle.json
 systemctl is-active sing-box || true
 systemctl is-active netductor-secondary-agent || true
 ss -tlnp | grep -E ':443|:4443' || true
-`, version.Release, b64)
+`, ver, b64)
 	return runSSH(client, script)
 }
 

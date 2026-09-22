@@ -180,3 +180,24 @@ func ShellQuote(s string) string {
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
+
+// scpTo copies localPath to remoteSpec (user@host:/path) using the same port/askpass rules as runSSH.
+func scpTo(keyPath, localPath, remoteSpec, keyPassphrase string) error {
+	base := []string{"-P", sshPort(), "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes"}
+	if keyPath != "" {
+		base = append(base, "-i", keyPath)
+	}
+	args := append(base, localPath, remoteSpec)
+	cmd := exec.Command("scp", args...)
+	env, cleanup, err := sshEnvWithAskPass(keyPassphrase)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("scp: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}

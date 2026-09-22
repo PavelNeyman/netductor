@@ -122,7 +122,7 @@ func runSecondary(args []string) {
 		fmt.Fprintln(os.Stderr, "secondary agent →", url)
 		secondary.AgentLoop(url, tok, 30*time.Second)
 	case "provision":
-		host, user, pass, sni, opPub := "", "root", "", "", ""
+		host, user, pass, sni, opPub, sshKey := "", "root", "", "", "", ""
 		port := 22
 		for i := 1; i < len(args); i++ {
 			a := args[i]
@@ -145,13 +145,19 @@ func runSecondary(args []string) {
 			case a == "--operator-pubkey" && i+1 < len(args):
 				i++
 				opPub = args[i]
+			case a == "--ssh-key" && i+1 < len(args):
+				i++
+				sshKey = args[i]
 			}
 		}
 		if pass == "" {
 			pass = os.Getenv("NETDUCTOR_SSH_PASSWORD")
 		}
-		if host == "" || pass == "" {
-			fmt.Fprintln(os.Stderr, "required: --host and password (--password or NETDUCTOR_SSH_PASSWORD)")
+		if sshKey == "" {
+			sshKey = os.Getenv("NETDUCTOR_SSH_KEY")
+		}
+		if host == "" || (pass == "" && sshKey == "") {
+			fmt.Fprintln(os.Stderr, "required: --host and (--password or --ssh-key / NETDUCTOR_SSH_*)")
 			os.Exit(2)
 		}
 		// Reinstall always changes SSH host key — clear TOFU + OpenSSH known_hosts before dial.
@@ -180,7 +186,7 @@ func runSecondary(args []string) {
 		}
 		raw, _ := json.MarshalIndent(b, "", "  ")
 		res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
-			Host: host, Port: port, User: user, Password: pass, SNI: sni, OperatorPubKey: opPub,
+			Host: host, Port: port, User: user, Password: pass, SSHPrivateKey: sshKey, SNI: sni, OperatorPubKey: opPub,
 			MTLSCA: mtlsCA, MTLSCert: mtlsCert, MTLSKey: mtlsKey,
 		}, string(raw))
 		if res != nil {
@@ -286,6 +292,33 @@ func runSecondary(args []string) {
 	}
 }
 
+
+// sshIdentityArgs: prefer operator_reprovision (deploy left key for post-steps), else default identity.
+func sshIdentityArgs() []string {
+	for _, p := range []string{"/root/.ssh/operator_reprovision", "/root/.ssh/id_ed25519", "/root/.ssh/id_rsa"} {
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return []string{"-i", p}
+		}
+	}
+	return nil
+}
+
+func scpToSecondary(local, remoteHostPath string) error {
+	args := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes"}
+	args = append(args, sshIdentityArgs()...)
+	args = append(args, local, remoteHostPath)
+	return execLocal("scp", args...)
+}
+
+func sshOnSecondary(host, cmd string) error {
+	args := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes"}
+	args = append(args, sshIdentityArgs()...)
+	args = append(args, "root@"+host, cmd)
+	c := exec.Command("ssh", args...)
+	c.Stdout, c.Stderr = os.Stdout, os.Stderr
+	return c.Run()
+}
+
 // postProvisionSecondary restores operator-facing state after a clean relay reinstall.
 // Reality keys are always new on the secondary; everything else is rebuilt on core + remote.
 func postProvisionSecondary(host, sni string) {
@@ -375,7 +408,7 @@ func postProvisionSecondary(host, sni string) {
 		pushLatestBackup(target)
 	} else {
 		fmt.Println("  backup:", path)
-		_ = execLocal("scp", "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", path, target)
+		_ = scpToSecondary(path, target)
 	}
 
 	fmt.Println("==> post-provision: remember SNI", sni)
@@ -420,14 +453,12 @@ func pushLatestBackup(target string) {
 		}
 	}
 	if latest != "" {
-		_ = execLocal("scp", "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", latest, target)
+		_ = scpToSecondary(latest, target)
 	}
 }
 
 func execSSHHost(host, cmd string) error {
-	c := exec.Command("ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "root@"+host, cmd)
-	c.Stdout, c.Stderr = os.Stdout, os.Stderr
-	return c.Run()
+	return sshOnSecondary(host, cmd)
 }
 
 func execLocal(name string, args ...string) error {

@@ -136,6 +136,10 @@ chmod 755 /usr/local/bin/netductor
 		if err != nil {
 			return fmt.Errorf("install: %w", err)
 		}
+		if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
+			_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+			fmt.Fprintln(os.Stderr, "==> post-harden SSH port 52222")
+		}
 	}
 
 	fmt.Fprintln(os.Stderr, "==> set SNI", o.SNI)
@@ -155,9 +159,17 @@ chmod 755 /usr/local/bin/netductor
 			fmt.Fprintln(os.Stderr, "warn lampac:", err)
 		}
 	}
+	fmt.Fprintln(os.Stderr, "==> registry + git bootstrap")
+	out, _ = runSSH("", keyPath, o.User, o.Host,
+		"command -v git >/dev/null || apt-get install -y -qq git; "+
+			"netductor registry ensure; netductor registry crane; "+
+			"netductor git init netductor 2>/dev/null || true; netductor git pipelines; netductor registry status",
+		o.KeyPassphrase)
+	fmt.Print(out)
 	fmt.Fprintln(os.Stderr, "==> primary deploy done")
-	fmt.Fprintln(os.Stderr, "  SSH: ssh -i", keyPath, o.User+"@"+o.Host)
-	fmt.Fprintln(os.Stderr, "  Save key path in TUI settings (remote_key)")
+	port := sshPort()
+	fmt.Fprintf(os.Stderr, "  SSH: ssh -i %s -p %s %s@%s\n", keyPath, port, o.User, o.Host)
+	fmt.Fprintln(os.Stderr, "  Save key path in TUI settings (remote_key); NETDUCTOR_SSH_PORT="+port)
 	return nil
 }
 

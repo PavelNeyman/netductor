@@ -1,3 +1,14 @@
+## 0.8.45 (2026-09-22)
+
+E2E VPS reinstall fixes:
+- DeployPrimary auto-sets `NETDUCTOR_SSH_PORT=52222` after SSH harden
+- `docker-cli` + `docker.io` for Debian Trixie; crane asset names fixed
+- git/wget in hardening; registry+git bootstrap after primary deploy
+- Secondary: `--ssh-key` when password auth off; `operator_reprovision` on primary for post-scp
+- RemoteJoin download fallback to last published release; install avoids text-file-busy
+
+Test keys (sandbox): `/home/workdir/artifacts/netductor_primary` — do not delete until e2e complete.
+
 ## 0.8.37
 
 - Isolated CI: `internal/ci` + `netductor ci`; GHA `container:`; managed pipelines
@@ -14,7 +25,7 @@
 
 # Agent handoff — netductor
 
-**Version:** 0.8.38  
+**Version:** 0.8.45  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Last full review:** `docs/REVIEW-2026-09-21-FULL.md`  
 **Residual risks:** `docs/RESIDUAL_RISKS.md`  

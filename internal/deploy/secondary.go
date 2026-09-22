@@ -54,6 +54,17 @@ func DeploySecondary(o SecondaryOpts) error {
 		ShellQuote(o.SecondaryPass), ShellQuote(o.SecondaryHost), ShellQuote(o.SecondaryUser),
 		ShellQuote(o.SNI), ShellQuote(pub),
 	)
+	// Leave operator private key on primary for post-provision scp (mtls seed, offsite backup).
+	// Password auth on secondary is disabled after first provision.
+	fmt.Fprintln(os.Stderr, "==> install operator key on primary for secondary post-steps")
+	pubPath := o.PrimaryKey + ".pub"
+	installKeyCmd := fmt.Sprintf(
+		"install -m 600 /dev/null /root/.ssh/operator_reprovision 2>/dev/null; true")
+	_, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, installKeyCmd, o.PrimaryKeyPassphrase)
+	_ = scpTo(o.PrimaryKey, o.PrimaryKey, o.PrimaryUser+"@"+o.PrimaryHost+":/root/.ssh/operator_reprovision", o.PrimaryKeyPassphrase)
+	_ = scpTo(o.PrimaryKey, pubPath, o.PrimaryUser+"@"+o.PrimaryHost+":/root/.ssh/operator_reprovision.pub", o.PrimaryKeyPassphrase)
+	_, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, "chmod 600 /root/.ssh/operator_reprovision", o.PrimaryKeyPassphrase)
+
 	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "→ provision secondary", o.SecondaryHost, "(operator pubkey)")
 	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd, o.PrimaryKeyPassphrase)
 	fmt.Print(out)

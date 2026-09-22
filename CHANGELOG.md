@@ -1,3 +1,12 @@
+## 0.8.45
+
+- DeployPrimary: after harden auto `NETDUCTOR_SSH_PORT=52222` for post-steps
+- install lampac: Debian `docker-cli` + `docker.io`
+- registry crane: correct GitHub asset names (Linux_x86_64, v0.22.1)
+- hardening apt: git, wget
+- primary deploy: registry+git bootstrap after install
+- secondary ProvisionIn: SSH private key auth when password disabled
+
 ## 0.8.44
 
 - TUI Setup: **Add-ons** (Lampac) + optional Lampac after primary deploy

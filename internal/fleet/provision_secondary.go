@@ -15,6 +15,7 @@ type ProvisionSecondaryOpts struct {
 	Host           string
 	User           string
 	Password       string
+	SSHPrivateKey  string // operator private key path (re-provision when password off)
 	Port           int
 	SNI            string
 	OperatorPubKey string // Mac/operator pubkey; preferred over core key
@@ -26,8 +27,8 @@ type ProvisionSecondaryOpts struct {
 //
 // Ongoing control plane is agent HTTP to primary — no permanent primary→secondary SSH required.
 func ProvisionSecondary(o ProvisionSecondaryOpts) error {
-	if o.Host == "" || o.Password == "" {
-		return fmt.Errorf("host and password required")
+	if o.Host == "" || (o.Password == "" && o.SSHPrivateKey == "") {
+		return fmt.Errorf("host and password or ssh key required")
 	}
 	if o.User == "" {
 		o.User = "root"
@@ -47,6 +48,9 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	}
 	if strings.TrimSpace(o.OperatorPubKey) != "" {
 		args = append(args, "--operator-pubkey", o.OperatorPubKey)
+	}
+	if strings.TrimSpace(o.SSHPrivateKey) != "" {
+		args = append(args, "--ssh-key", o.SSHPrivateKey)
 	}
 	fmt.Fprintln(os.Stderr, "==> secondary: VPN plane (secondary provision)")
 	cmd := exec.Command("netductor", args...)
