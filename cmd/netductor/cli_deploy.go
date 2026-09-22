@@ -39,6 +39,9 @@ See: netductor tui → Setup wizard`)
 				o.SSHPrivateKey = args[i]
 			case a == "--generate-key":
 				o.GenerateKey = true
+			case a == "--key-passphrase" && i+1 < len(args):
+				i++
+				o.KeyPassphrase = args[i]
 			case a == "--version" && i+1 < len(args):
 				i++
 				o.Version = args[i]

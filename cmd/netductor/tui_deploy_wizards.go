@@ -50,7 +50,8 @@ func wizardPrimary() {
 	lang := detectLang()
 	s := loadTUISettings()
 	var host, user, pass, keyPath, sni, tgToken, tgAdmin string
-	var genKey bool
+	var genKey, useKeyPass bool
+	var keyPass, keyPass2 string
 	user = "root"
 	sni = "api.vk.me"
 	host = s.RemoteHost
@@ -71,6 +72,28 @@ func wizardPrimary() {
 			huh.NewInput().Title(FormT(lang, "reality_sni")).Placeholder("api.vk.me").Value(&sni),
 		),
 	).WithTheme(huh.ThemeCharm()).Run()
+	if genKey {
+		_ = huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().Title(FormT(lang, "key_use_passphrase")).
+					Description(FormT(lang, "key_use_passphrase_desc")).Value(&useKeyPass),
+			),
+		).WithTheme(huh.ThemeCharm()).Run()
+		if useKeyPass {
+			_ = huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().Title(FormT(lang, "key_passphrase")).
+						EchoMode(huh.EchoModePassword).Value(&keyPass),
+					huh.NewInput().Title(FormT(lang, "key_passphrase_confirm")).
+						EchoMode(huh.EchoModePassword).Value(&keyPass2),
+				),
+			).WithTheme(huh.ThemeCharm()).Run()
+			if keyPass != keyPass2 {
+				fmt.Println(errStyle.Render(FormT(lang, "key_passphrase_mismatch")))
+				return
+			}
+		}
+	}
 	if sni == "" {
 		sni = "api.vk.me"
 	}
@@ -93,6 +116,7 @@ func wizardPrimary() {
 	fmt.Println(okStyle.Render(TT(lang, "→ deploy primary "+host, "→ деплой primary "+host)))
 	err := deploy.DeployPrimary(deploy.PrimaryOpts{
 		Host: host, User: user, Password: pass, SSHPrivateKey: keyPath, GenerateKey: genKey,
+		KeyPassphrase: keyPass,
 		Version: deploy.Release, TelegramToken: tgToken, TelegramAdminID: tgAdmin, SNI: sni,
 	})
 	if err != nil {
@@ -138,8 +162,18 @@ func wizardSecondary() {
 		return
 	}
 	fmt.Println(okStyle.Render(TT(lang, "→ deploy secondary "+host, "→ деплой secondary "+host)))
+	var keyPass string
+	_ = huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Title(FormT(lang, "key_passphrase")).
+				Description(TT(lang, "If primary key has passphrase (leave empty if none)",
+					"Если ключ primary с passphrase (пусто = без фразы)")).
+				EchoMode(huh.EchoModePassword).Value(&keyPass),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
 	err := deploy.DeploySecondary(deploy.SecondaryOpts{
 		PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
+		PrimaryKeyPassphrase: keyPass,
 		SecondaryHost: host, SecondaryUser: user, SecondaryPass: pass, SNI: sni,
 	})
 	if err != nil {
@@ -191,8 +225,18 @@ func wizardOpenWrt() {
 		return
 	}
 	fmt.Println(okStyle.Render(TT(lang, "→ edge deploy "+host, "→ edge деплой "+host)))
+	var keyPass string
+	_ = huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Title(FormT(lang, "key_passphrase")).
+				Description(TT(lang, "Primary key passphrase if any (empty = none)",
+					"Passphrase ключа primary, если есть (пусто = нет)")).
+				EchoMode(huh.EchoModePassword).Value(&keyPass),
+		),
+	).WithTheme(huh.ThemeCharm()).Run()
 	err := deploy.DeployEdge(deploy.EdgeOpts{
 		PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
+		PrimaryKeyPassphrase: keyPass,
 		RouterHost: host, RouterUser: user, RouterPass: pass,
 		DeviceID: id, ServerURL: server, AgentArch: arch, Version: deploy.Release,
 		GuestEnable: guestOn, GuestSSID: guestSSID, GuestPIN: guestPIN,

@@ -15,6 +15,7 @@ type PrimaryOpts struct {
 	Password        string // first-login only
 	SSHPrivateKey   string // path; empty + GenerateKey => ~/.ssh/netductor_primary
 	GenerateKey     bool
+	KeyPassphrase  string // optional; empty = no passphrase on generated/used key
 	Version         string // e.g. 0.8.1
 	TelegramToken   string
 	TelegramAdminID string
@@ -52,7 +53,8 @@ func DeployPrimary(o PrimaryOpts) error {
 			fmt.Fprintln(os.Stderr, "==> generating SSH key", keyPath)
 			_ = os.Remove(keyPath)
 			_ = os.Remove(pubPath)
-			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", keyPath, "-N", "", "-C", "netductor-primary")
+			pass := o.KeyPassphrase
+			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", keyPath, "-N", pass, "-C", "netductor-primary")
 			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("ssh-keygen: %w", err)
@@ -81,9 +83,9 @@ chmod 600 /root/.ssh/authorized_keys
 grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_keys
 `, pubLine, pubLine)
 	pass := o.Password
-	out, err := runSSH(pass, "", o.User, o.Host, installKey)
+	out, err := runSSH(pass, "", o.User, o.Host, installKey, o.KeyPassphrase)
 	if err != nil {
-		out2, err2 := runSSH("", keyPath, o.User, o.Host, installKey)
+		out2, err2 := runSSH("", keyPath, o.User, o.Host, installKey, o.KeyPassphrase)
 		if err2 != nil {
 			return fmt.Errorf("ssh install key: %v\n%s\nfallback: %v\n%s", err, out, err2, out2)
 		}
@@ -98,7 +100,7 @@ curl -fsSL -o /usr/local/bin/netductor \
 chmod 755 /usr/local/bin/netductor
 /usr/local/bin/netductor version
 `, o.Version)
-	out, err = runSSH("", keyPath, o.User, o.Host, dl)
+	out, err = runSSH("", keyPath, o.User, o.Host, dl, o.KeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
 		return fmt.Errorf("download binary: %w", err)
@@ -114,7 +116,7 @@ chmod 755 /usr/local/bin/netductor
 			script += fmt.Sprintf("printf '%%s\\n' %q > /etc/netductor/secrets/telegram_admin_id\n", o.TelegramAdminID)
 		}
 		script += "chmod 600 /etc/netductor/secrets/* 2>/dev/null || true\n"
-		out, err = runSSH("", keyPath, o.User, o.Host, script)
+		out, err = runSSH("", keyPath, o.User, o.Host, script, o.KeyPassphrase)
 		if err != nil {
 			return fmt.Errorf("secrets: %w\n%s", err, out)
 		}
@@ -122,7 +124,7 @@ chmod 755 /usr/local/bin/netductor
 
 	if !o.SkipInstall {
 		fmt.Fprintln(os.Stderr, "==> netductor install (may take several minutes)")
-		out, err = runSSH("", keyPath, o.User, o.Host, "netductor install")
+		out, err = runSSH("", keyPath, o.User, o.Host, "netductor install", o.KeyPassphrase)
 		fmt.Print(out)
 		if err != nil {
 			return fmt.Errorf("install: %w", err)
@@ -130,12 +132,12 @@ chmod 755 /usr/local/bin/netductor
 	}
 
 	fmt.Fprintln(os.Stderr, "==> set SNI", o.SNI)
-	out, err = runSSH("", keyPath, o.User, o.Host, "netductor vpn set-sni "+shellQuote(o.SNI))
+	out, err = runSSH("", keyPath, o.User, o.Host, "netductor vpn set-sni "+shellQuote(o.SNI), o.KeyPassphrase)
 	fmt.Print(out)
 	_ = err
 
 	fmt.Fprintln(os.Stderr, "==> fleet bootstrap + doctor")
-	out, _ = runSSH("", keyPath, o.User, o.Host, "netductor fleet bootstrap; netductor doctor")
+	out, _ = runSSH("", keyPath, o.User, o.Host, "netductor fleet bootstrap; netductor doctor", o.KeyPassphrase)
 	fmt.Print(out)
 
 	fmt.Fprintln(os.Stderr, "==> primary deploy done")

@@ -15,6 +15,7 @@ type EdgeOpts struct {
 	PrimaryHost    string
 	PrimaryUser    string
 	PrimaryKey     string
+	PrimaryKeyPassphrase string
 	RouterHost     string
 	RouterUser     string
 	RouterPass     string
@@ -70,7 +71,7 @@ func DeployEdge(o EdgeOpts) error {
 	var mtlsCA, mtlsCert, mtlsKey []byte
 	if o.PrimaryHost != "" && o.PrimaryKey != "" {
 		out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
-			"cat /etc/netductor/secrets/edge_bootstrap_token 2>/dev/null")
+			"cat /etc/netductor/secrets/edge_bootstrap_token 2>/dev/null", o.PrimaryKeyPassphrase)
 		if err != nil {
 			return fmt.Errorf("read bootstrap token from primary: %w\n%s", err, out)
 		}
@@ -93,7 +94,7 @@ echo CA:$(b64 "$CA")
 echo CERT:$(b64 "$DIR/client.crt")
 echo KEY:$(b64 "$DIR/client.key")
 `, shellQuote(o.DeviceID), shellQuote(o.DeviceID))
-		mout, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, remote)
+		mout, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, remote, o.PrimaryKeyPassphrase)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn: mtls material from primary:", err)
 			fmt.Fprintln(os.Stderr, mout)
@@ -176,7 +177,7 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	if psk != "" {
 		cmd += " --psk=" + shellQuote(psk)
 	}
-	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, cmd)
+	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, cmd, "")
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, out)
 	}

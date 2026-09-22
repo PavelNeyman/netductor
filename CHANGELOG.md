@@ -1,3 +1,9 @@
+## 0.8.39
+
+- Primary SSH key: optional passphrase in TUI (ask yes/no → phrase + confirm) and CLI `--key-passphrase`
+- Key passphrase via SSH_ASKPASS (not argv); secondary/edge wizards can supply primary key phrase
+- Form labels EN/RU for passphrase flow
+
 ## 0.8.38
 
 - SSH: sshpass uses `SSHPASS` + `-e` (no password in argv)

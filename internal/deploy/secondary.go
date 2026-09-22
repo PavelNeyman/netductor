@@ -12,6 +12,7 @@ type SecondaryOpts struct {
 	PrimaryHost     string
 	PrimaryUser     string
 	PrimaryKey      string // path to Mac private key (pubkey = path+".pub")
+	PrimaryKeyPassphrase string
 	SecondaryHost   string
 	SecondaryUser   string
 	SecondaryPass   string
@@ -54,12 +55,12 @@ func DeploySecondary(o SecondaryOpts) error {
 		ShellQuote(o.SNI), ShellQuote(pub),
 	)
 	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "→ provision secondary", o.SecondaryHost, "(operator pubkey)")
-	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd)
+	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd, o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
 		return err
 	}
-	out, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, "netductor secondary sync; netductor fleet status")
+	out, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, "netductor secondary sync; netductor fleet status", o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	return nil
 }
