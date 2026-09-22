@@ -95,8 +95,14 @@ grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_
 	dl := fmt.Sprintf(`set -e
 arch=$(uname -m)
 case "$arch" in x86_64) a=amd64;; aarch64) a=arm64;; *) echo "unsupported arch $arch"; exit 1;; esac
-curl -fsSL -o /usr/local/bin/netductor \
-  "https://github.com/PavelNeyman/netductor/releases/download/v%s/netductor-linux-${a}"
+URL="https://github.com/PavelNeyman/netductor/releases/download/v%s/netductor-linux-${a}"
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL -o /usr/local/bin/netductor "$URL"
+elif command -v wget >/dev/null 2>&1; then
+  wget -q -O /usr/local/bin/netductor "$URL"
+else
+  echo "need curl or wget"; exit 1
+fi
 chmod 755 /usr/local/bin/netductor
 /usr/local/bin/netductor version
 `, o.Version)

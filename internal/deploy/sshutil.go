@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+
+func sshPort() string {
+	if p := strings.TrimSpace(os.Getenv("NETDUCTOR_SSH_PORT")); p != "" {
+		return p
+	}
+	return "22"
+}
+
 func lookSSHPass() (string, error) {
 	p, err := exec.LookPath("sshpass")
 	if err != nil {
@@ -87,6 +95,7 @@ func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (str
 	target := user + "@" + host
 	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
+	base = append([]string{"-p", sshPort()}, base...)
 	if usePass {
 		sp, err := lookSSHPass()
 		if err != nil {
@@ -115,6 +124,7 @@ func runSCP(password, keyPath, user, host, local, remotePath, keyPassphrase stri
 	target := user + "@" + host + ":" + remotePath
 	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
+	base = append([]string{"-P", sshPort()}, base...)
 	if usePass {
 		sp, err := lookSSHPass()
 		if err != nil {

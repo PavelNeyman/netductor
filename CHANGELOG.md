@@ -1,3 +1,9 @@
+## 0.8.43
+
+- Deploy SSH: `NETDUCTOR_SSH_PORT` (default 22; use 52222 after harden)
+- Primary binary download: curl **or** wget
+- E2E: primary+secondary VPS path validated
+
 ## 0.8.42
 
 - CLI `deploy edge`: full parity with TUI network/guest flags (LAN/DHCP/Wi‑Fi 2.4+5/WAN/pppoe)
