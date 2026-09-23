@@ -1,3 +1,7 @@
+## 0.8.75
+- Telegram only via Add-ons / `install telegram` (not core)
+- Homebrew Formula tracks 0.8.75
+
 ## 0.8.74
 - Primary = core stack only; lampac/git/registry/TG via Add-ons
 - TUI: no mouse capture (copy-friendly)

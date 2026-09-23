@@ -190,7 +190,12 @@ func runDoctorNative() int {
 			}
 		}
 		check("netductor-api", activeUnit("netductor-api"))
-		check("netductor-telegram-bot", activeUnit("netductor-telegram-bot"))
+		// Telegram is an optional add-on — only require unit if installed
+		if exists("/etc/systemd/system/netductor-telegram-bot.service") || exists("/lib/systemd/system/netductor-telegram-bot.service") {
+			check("netductor-telegram-bot", activeUnit("netductor-telegram-bot"))
+		} else {
+			fmt.Println(cli18n.T("doctor.tg_skip"))
+		}
 		// import redirect for TG deep-link buttons (port 80, already allowed for ACME)
 		warnCheck("netductor-redirect unit", activeUnit("netductor-redirect"))
 		if strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")) == "" {

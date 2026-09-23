@@ -180,9 +180,7 @@ func InstallTelegram() error {
 			}
 		}
 		if !haveBin {
-			fmt.Fprintln(os.Stderr, "telegram: netductor-tg binary missing (not in release assets / local). Unit skipped.")
-			fmt.Fprintln(os.Stderr, "  Fix: publish netductor-tg-linux-"+a+" on GitHub release, then: netductor install telegram")
-			return nil
+			return fmt.Errorf("telegram: netductor-tg binary missing for %s — publish netductor-tg-linux-%s on release v%s, then: netductor install telegram", a, a, ver)
 		}
 	} else {
 		haveBin = true

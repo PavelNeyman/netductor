@@ -1,3 +1,10 @@
+## 0.8.75
+
+- Telegram **fully optional**: removed from DefaultComponents / core primary install
+- `netductor install telegram` installs binary + systemd unit (error if binary missing)
+- Doctor: INFO skip when bot unit not present
+- Formula + release assets include netductor-tg
+
 ## 0.8.74
 
 - Primary deploy: **no** automatic lampac / git / registry (only core install)

@@ -1,31 +1,35 @@
 class Netductor < Formula
-  desc "Netductor control plane CLI"
+  desc "Netductor control plane CLI / TUI"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.8.73"
+  version "0.8.75"
   license "MIT"
+
   on_macos do
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.73/netductor-darwin-arm64"
-      sha256 "c368ffc1d9bd89cbc061aa8a4bc7d91101583765da66941bf218dfaaeba692f0"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.75/netductor-darwin-arm64"
+      sha256 "bbb5c958c07c0927aaaf0fc3a3808bb5fe0420cb760c5cdf7e50df38f6fac7be"
     end
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.73/netductor-darwin-amd64"
-      sha256 "ea7711d75dc0951bca2d3b50d68467a8648da73600602f3d2c73ad91bf5b1605"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.75/netductor-darwin-amd64"
+      sha256 "9451bf54a66524cc4937bb639b5363eb5cc7bd3d4864778227b7ac0b24bb6e0b"
     end
   end
+
   on_linux do
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.73/netductor-linux-amd64"
-      sha256 "b05fd72b7488178fcd1f8b709157a51383f036c63d92e153d46aab94e044ab5b"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.75/netductor-linux-amd64"
+      sha256 "715fce796ce5cf6b6f7b0a77b71d5d8af790fc9f68b0e75d848b712b138368d1"
     end
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.73/netductor-linux-arm64"
-      sha256 "8ba4510ebcf0cdc9552f1776bef3af26bfe1df70b6383b626ab31fdf0314bd9e"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.75/netductor-linux-arm64"
+      sha256 "11a8d49248b0bd01fa224b8a4b3415c3c5eeb3a24dcd782563e2073bf1e23aea"
     end
   end
+
   def install
-    bin.install Dir["netductor*"].first => "netductor"
+    bin.install Dir["netductor-*"].first => "netductor"
   end
+
   test do
     assert_match version.to_s, shell_output("#{bin}/netductor version 2>&1")
   end

@@ -25,7 +25,7 @@ type Options struct {
 }
 
 func DefaultComponents() []string {
-	return []string{"dirs", "hardening", "singbox", "blocky", "vpn-users", "api", "metrics", "telegram", "backup"}
+	return []string{"dirs", "hardening", "singbox", "blocky", "vpn-users", "api", "metrics", "backup"}
 }
 
 func Run(opts Options) error {
