@@ -119,16 +119,18 @@ func wizBuildFields(id string, m *model) []wizField {
 		}
 	case "addons":
 		return []wizField{
-			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "no",
-				Short: ph("Media/Lampa stack", "Стек Lampac"),
-				Detail: ph("Docker on primary, bind 127.0.0.1:9118 only.", "Docker на primary, только 127.0.0.1:9118.")},
-			{Key: "telegram", Label: "Telegram bot (yes/no)", Value: "no",
-				Short: ph("Reinstall/restart TG bot unit", "Переустановить/рестарт TG-бота"),
-				Detail: ph("Requires secrets/telegram_bot_token already on primary.", "Нужен secrets/telegram_bot_token на primary.")},
-			{Key: "go2rtc", Label: "go2rtc NVR helper (yes/no)", Value: "no",
-				Short: ph("Optional stream helper", "Опциональный stream helper"),
-				Detail: ph("Placeholder — full go2rtc path after hardware e2e.", "Заглушка — полный путь после hardware e2e.")},
-			{Key: "key_pass", Label: FormT(lang, "key_passphrase"), Secret: true, Short: "primary key", Detail: ph("If key has passphrase.", "Если ключ с фразой.")},
+			{Key: "lampac", Label: "Lampac", Value: "no", Toggle: true,
+				Short: ph("Docker media stack · localhost:9118", "Docker медиа · localhost:9118"),
+				Detail: ph("Install Lampac in Docker on primary (127.0.0.1 only).", "Lampac в Docker на primary (только 127.0.0.1).")},
+			{Key: "telegram", Label: "Telegram bot", Value: "no", Toggle: true,
+				Short: ph("netductor-tg unit", "Юнит netductor-tg"),
+				Detail: ph("Download bot binary + enable unit. Needs secrets already on primary.", "Скачать binary бота и включить unit. Секреты уже должны быть на primary.")},
+			{Key: "go2rtc", Label: "go2rtc", Value: "no", Toggle: true,
+				Short: ph("NVR helper (soon)", "NVR helper (скоро)"),
+				Detail: ph("Placeholder until hardware e2e.", "Заглушка до hardware e2e.")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase"), Secret: true,
+				Short: ph("If primary SSH key has passphrase", "Если ключ primary с фразой"),
+				Detail: ph("Leave empty if none.", "Пусто, если нет.")},
 		}
 	case "mikrotik":
 		return []wizField{

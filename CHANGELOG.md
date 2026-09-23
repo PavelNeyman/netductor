@@ -1,3 +1,8 @@
+## 0.8.70
+
+- TUI Add-ons: **checklist** [✓]/[ ] with Space toggle (not sequential yes/no batch)
+- Ctrl+R from checklist installs selected only
+
 ## 0.8.69
 
 - **Fix:** publish `netductor-tg-linux-*` on releases; InstallTelegram clearer fallback; primary deploy ensures bot after secrets

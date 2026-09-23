@@ -36,6 +36,7 @@ type wizField struct {
 	Placeholder       string
 	Short             string // one-line hint under label (menu style)
 	Detail            string // right pane full description
+	Toggle            bool   // checklist item: Value yes/no, Space toggles
 }
 
 func (m *model) startWizard() {
@@ -57,7 +58,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
 			{"mikrotik", "MikroTik", "ROS site", "Сайт MikroTik (+ опционально RPi OpenWrt): identity, маршруты, push скриптов через SSH TOFU."},
 			{"nvr", "Cameras / NVR", "Камеры", "NVR: leases, add camera, probe, record — через primary после edge."},
-			{"addons", "Дополнения", "Lampac", "Опционально: Lampac (Docker) на primary по SSH."},
+			{"addons", "Дополнения", "выбор по пунктам", "Чек-лист: Lampac, Telegram, go2rtc — Space вкл/выкл, Ctrl+R установка."},
 		}
 	}
 	return []menuEntry{
@@ -66,7 +67,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
 		{"nvr", "Cameras / NVR", "Cameras", "NVR: leases, add camera, probe, record — via primary after edge."},
-		{"addons", "Add-ons", "Lampac", "Optional: Lampac (Docker) on primary over SSH."},
+		{"addons", "Add-ons", "pick items", "Checklist: Lampac, Telegram, go2rtc — Space toggle, Ctrl+R install."},
 	}
 }
 
@@ -196,6 +197,19 @@ func (m *model) renderWizardSplitFields(bodyH, w int) string {
 	if ru {
 		hint = "Enter — следующее · ↑↓ поле · Esc назад"
 	}
+	hasToggle := false
+	for _, f := range m.wizFields {
+		if f.Toggle {
+			hasToggle = true
+			break
+		}
+	}
+	if hasToggle {
+		hint = "Space = toggle · ↑↓ · Enter next · Ctrl+R install"
+		if ru {
+			hint = "Space = вкл/выкл · ↑↓ · Enter далее · Ctrl+R установка"
+		}
+	}
 	var leftLines []string
 	leftLines = append(leftLines, stMuted.Width(leftW).Render(hint))
 	leftLines = append(leftLines, stMuted.Width(leftW).Render(strings.ToUpper(string(m.wizTarget))))
@@ -203,26 +217,45 @@ func (m *model) renderWizardSplitFields(bodyH, w int) string {
 		val := f.Value
 		if i == m.wizFieldIdx {
 			val = m.wizInput
-			if f.Secret && val != "" {
-				val = strings.Repeat("•", len(val))
-			} else if val == "" && f.Placeholder != "" {
-				val = f.Placeholder
-			}
-			leftLines = append(leftLines, stSel.Width(leftW).Render(f.Label))
-			leftLines = append(leftLines, stSel.Width(leftW).Render("  "+val+"▌"))
-			if f.Short != "" {
-				leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+f.Short))
+			if f.Toggle {
+				mark := "[ ]"
+				if yesish(val) {
+					mark = "[✓]"
+				}
+				leftLines = append(leftLines, stSel.Width(leftW).Render(mark+" "+f.Label))
+				if f.Short != "" {
+					leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+f.Short))
+				}
+			} else {
+				if f.Secret && val != "" {
+					val = strings.Repeat("•", len(val))
+				} else if val == "" && f.Placeholder != "" {
+					val = f.Placeholder
+				}
+				leftLines = append(leftLines, stSel.Width(leftW).Render(f.Label))
+				leftLines = append(leftLines, stSel.Width(leftW).Render("  "+val+"▌"))
+				if f.Short != "" {
+					leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+f.Short))
+				}
 			}
 		} else {
-			show := f.Value
-			if f.Secret && show != "" {
-				show = "••••"
+			if f.Toggle {
+				mark := "[ ]"
+				if yesish(f.Value) {
+					mark = "[✓]"
+				}
+				leftLines = append(leftLines, stNorm.Width(leftW).Render(mark+" "+f.Label))
+			} else {
+				show := f.Value
+				if f.Secret && show != "" {
+					show = "••••"
+				}
+				if show == "" {
+					show = "—"
+				}
+				leftLines = append(leftLines, stNorm.Width(leftW).Render(f.Label))
+				leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+show))
 			}
-			if show == "" {
-				show = "—"
-			}
-			leftLines = append(leftLines, stNorm.Width(leftW).Render(f.Label))
-			leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+show))
 		}
 	}
 	leftBody := lipgloss.NewStyle().Width(leftW).Height(bodyH).MaxHeight(bodyH).Render(strings.Join(leftLines, "\n"))
@@ -265,6 +298,14 @@ func (m *model) renderWizardConfirm(bodyH, w int) string {
 	leftLines = append(leftLines, stMuted.Width(leftW).Render(msg))
 	leftLines = append(leftLines, stTitle.Width(leftW).Render(strings.ToUpper(string(m.wizTarget))))
 	for _, f := range m.wizFields {
+		if f.Toggle {
+			mark := "[ ]"
+			if yesish(f.Value) {
+				mark = "[✓]"
+			}
+			leftLines = append(leftLines, stNorm.Width(leftW).Render(mark+" "+f.Label))
+			continue
+		}
 		show := f.Value
 		if f.Secret && show != "" {
 			show = "••••"
@@ -324,6 +365,14 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "ctrl+r", "ctrl+R":
 			if m.wizStep == wizStepConfirm {
+				return m.wizardEnter()
+			}
+			if m.wizStep == wizStepFields && string(m.wizTarget) == "addons" {
+				// sync current field and jump to confirm then run
+				if m.wizFieldIdx < len(m.wizFields) {
+					m.wizFields[m.wizFieldIdx].Value = m.wizInput
+				}
+				m.wizStep = wizStepConfirm
 				return m.wizardEnter()
 			}
 			return m, nil
@@ -426,6 +475,21 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.wizFields[m.wizFieldIdx].Value = m.wizInput
 				m.wizFieldIdx++
 				m.wizInput = m.wizFields[m.wizFieldIdx].Value
+			}
+			return m, nil
+		case " ", "space":
+			if m.wizStep == wizStepFields && m.wizFieldIdx < len(m.wizFields) {
+				f := &m.wizFields[m.wizFieldIdx]
+				if f.Toggle {
+					if yesish(m.wizInput) || yesish(f.Value) {
+						m.wizInput = "no"
+						f.Value = "no"
+					} else {
+						m.wizInput = "yes"
+						f.Value = "yes"
+					}
+					return m, nil
+				}
 			}
 			return m, nil
 		case "enter":
