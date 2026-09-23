@@ -40,6 +40,35 @@ func (m *model) startActionForm(action string) {
 			{Key: "site", Label: map[bool]string{true: "Location / site id", false: "Location / site id"}[ru], Placeholder: "home-msk"},
 			{Key: "note", Label: map[bool]string{true: "Заметка", false: "Note"}[ru]},
 		}
+	case "hostname":
+		m.wizFields = []wizField{
+			{Key: "name", Label: "Hostname", Placeholder: "nd-core-nl01"},
+		}
+	case "sni-live":
+		m.wizFields = []wizField{
+			{Key: "sni", Label: "Reality SNI", Value: "api.vk.me"},
+		}
+	case "vpn-rename":
+		m.wizFields = []wizField{
+			{Key: "old", Label: "Old name"},
+			{Key: "new", Label: "New name"},
+		}
+	case "vpn-sub":
+		m.wizFields = []wizField{
+			{Key: "name", Label: "VPN user"},
+		}
+	case "backup-peer":
+		m.wizFields = []wizField{
+			{Key: "peer", Label: "Peer URL / id"},
+		}
+	case "session":
+		m.wizFields = []wizField{
+			{Key: "user", Label: "VPN user"},
+		}
+	case "ssh-hosts", "sites-list":
+		m.wizFields = []wizField{
+			{Key: "note", Label: "Enter to run", Value: "ok"},
+		}
 	default:
 		m.output = "unknown form " + action
 		m.screen = screenOutput
@@ -98,6 +127,26 @@ func (m *model) submitActionForm() string {
 			args = append(args, "--note", n)
 		}
 		return m.runNetductor(args...)
+	case "hostname":
+		name := m.fieldVal("name")
+		if name == "" {
+			return "hostname required"
+		}
+		return m.runNetductor("hostname", "set", name)
+	case "sni-live":
+		return m.runNetductor("vpn", "set-sni", orDefault(m.fieldVal("sni"), "api.vk.me"))
+	case "vpn-rename":
+		return m.runNetductor("vpn", "rename", m.fieldVal("old"), m.fieldVal("new"))
+	case "vpn-sub":
+		return m.runNetductor("vpn", "sub", m.fieldVal("name"))
+	case "backup-peer":
+		return m.runNetductor("backup", "peer", m.fieldVal("peer"))
+	case "session":
+		return m.runNetductor("vpn", "session", m.fieldVal("user"))
+	case "ssh-hosts":
+		return m.runNetductor("ssh", "hosts")
+	case "sites-list":
+		return m.runNetductor("sites", "list")
 	default:
 		return "unknown form"
 	}

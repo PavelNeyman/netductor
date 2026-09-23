@@ -264,11 +264,36 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.output = "remote cleared"
 		m.screen = screenOutput
 		return m, nil
-	case "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub", "vpn-rename", "wizard", "addons":
-		// huh forms outside alt-screen
-		m.result = tuiResult{action: id, mode: m.mode}
-		m.quitting = true
-		return m, tea.Quit
+	case "wizard", "addons":
+		m.tab = tabWizard
+		m.screen = screenMenu
+		m.cursor = 0
+		if id == "addons" {
+			m.wizTarget = "addons"
+			m.wizFields = wizBuildFields("addons", &m)
+			m.wizFieldIdx = 0
+			m.wizInput = ""
+			if len(m.wizFields) > 0 {
+				m.wizInput = m.wizFields[0].Value
+			}
+			m.wizStep = wizStepFields
+			m.screen = screenWizard
+		}
+		return m, nil
+	case "site-wizard", "mt-manage":
+		m.wizTarget = wizMikroTik
+		m.wizFields = wizBuildFields("mikrotik", &m)
+		m.wizFieldIdx = 0
+		m.wizInput = ""
+		if len(m.wizFields) > 0 {
+			m.wizInput = m.wizFields[0].Value
+		}
+		m.wizStep = wizStepFields
+		m.screen = screenWizard
+		return m, nil
+	case "hostname", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub", "vpn-rename", "sites-list":
+		m.startActionForm(id)
+		return m, nil
 	default:
 		m.output = "unknown action: " + id
 		m.screen = screenOutput

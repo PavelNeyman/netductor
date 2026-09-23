@@ -273,22 +273,32 @@ func (m *model) renderSplit() string {
 }
 
 func (m *model) renderOutput() string {
+	// Framed log — same chrome as menu/wizard (TUI stays whole).
 	w := max(40, m.width)
 	h := max(8, m.height)
+	header := m.renderHeader()
 	help := m.renderHelpBar()
 	helpH := lipgloss.Height(help)
-	head := stTitle.Width(w).Render("Output")
-	bodyH := h - lipgloss.Height(head) - helpH - 1
-	if bodyH < 3 {
-		bodyH = 3
+	headH := lipgloss.Height(header)
+	bodyH := h - headH - helpH - 1
+	if bodyH < 5 {
+		bodyH = 5
 	}
-	body := lipgloss.NewStyle().Width(w - 2).Height(bodyH).MaxHeight(bodyH).Render(m.output)
-	used := lipgloss.Height(head) + lipgloss.Height(body) + helpH
+	ru := m.lang == langRU
+	title, hint := "Output", "Esc = back to menu"
+	if ru {
+		title, hint = "Вывод", "Esc = назад в меню"
+	}
+	inner := stTitle.Render(title) + "\n" + stMuted.Render(hint) + "\n\n" + m.output
+	body := stBorder.Width(w).Height(bodyH).MaxHeight(bodyH).Render(
+		lipgloss.NewStyle().Width(w-2).Height(bodyH-2).MaxHeight(bodyH-2).Render(inner),
+	)
+	used := headH + lipgloss.Height(body) + helpH
 	gap := h - used
 	if gap < 0 {
 		gap = 0
 	}
-	return head + "\n" + body + strings.Repeat("\n", gap) + help
+	return header + "\n" + body + strings.Repeat("\n", gap) + help
 }
 
 func (m model) View() string {

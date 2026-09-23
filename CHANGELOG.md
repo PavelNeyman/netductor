@@ -1,3 +1,8 @@
+## 0.8.66
+
+- **TUI integrity rule** locked (`docs/TUI-RULES.md`): no external huh/quit for operator flows
+- Framed Output (header+border); Tools forms stay in-TUI; site/addons via wizard fields
+
 ## 0.8.65
 
 - TUI Wizard: deploy runs **inside** framed UI (async log pane, no bare Output screen)

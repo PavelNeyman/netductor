@@ -424,6 +424,14 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 			m.screen = screenWizard
 			return m, nil
 		}
+		if m.formAction != "" || string(m.wizTarget) == "form" {
+			m.wizMsg = m.submitActionForm()
+			m.formAction = ""
+			m.wizStep = wizStepRun
+			m.wizRunning = false
+			m.screen = screenWizard
+			return m, nil
+		}
 		m.wizMsg = TT(m.lang, "Working… please wait.\n", "Работаю… подождите.\n")
 		m.wizStep = wizStepRun
 		m.wizRunning = true
