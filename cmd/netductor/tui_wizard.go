@@ -54,6 +54,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
 			{"mikrotik", "MikroTik", "ROS site", "Сайт MikroTik (+ опционально RPi OpenWrt): identity, маршруты, push скриптов через SSH TOFU."},
 			{"nvr", "Cameras / NVR", "Камеры", "NVR: leases, add camera, probe, record — через primary после edge."},
+			{"addons", "Дополнения", "Lampac", "Опционально: Lampac (Docker) на primary по SSH."},
 		}
 	}
 	return []menuEntry{
@@ -62,6 +63,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
 		{"nvr", "Cameras / NVR", "Cameras", "NVR: leases, add camera, probe, record — via primary after edge."},
+		{"addons", "Add-ons", "Lampac", "Optional: Lampac (Docker) on primary over SSH."},
 	}
 }
 
@@ -280,27 +282,6 @@ func (m *model) fieldVal(key string) string {
 }
 
 func (m model) runWizardApply() string {
-	// Mac/workstation scenario: full deploy centre (password bootstrap → key → mTLS agents).
-	// Local-only apply is wrong on a laptop — always use deploy wizards.
-	switch m.wizTarget {
-	case wizPrimary:
-		wizardPrimary()
-		return "primary wizard finished (see terminal output above)"
-	case wizSecondary:
-		wizardSecondary()
-		return "secondary wizard finished (see terminal output above)"
-	case wizOpenWrt:
-		wizardOpenWrt()
-		return "openwrt/edge wizard finished (see terminal output above)"
-	case wizMikroTik:
-		runSiteWizard()
-		return "mikrotik/site wizard finished (see terminal output above)"
-	case wizNVR:
-		wizardNVR()
-		return "nvr wizard finished (see terminal output above)"
-	case "remote":
-		return "remote target set in settings"
-	default:
-		return "unknown wizard target"
-	}
+	// Intentionally does not run huh here — deploy wizards exit alt-screen via tuiResult.
+	return "use Wizard tab selection (forms run outside TUI)"
 }

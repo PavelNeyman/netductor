@@ -1,3 +1,9 @@
+## 0.8.59
+
+- TUI: all deploy wizards (Primary/Secondary/OpenWrt/MikroTik/NVR/Add-ons) only outside alt-screen
+- Wizard tab: Add-ons entry; Tools site/mt/ssh forms exit to huh
+- runWizardApply no longer invokes huh inside Bubble Tea
+
 ## 0.8.58
 
 - TUI Wizard tab: exit alt-screen before huh Primary/Secondary/OpenWrt/… forms (fixes blank UI)

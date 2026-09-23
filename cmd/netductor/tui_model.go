@@ -254,10 +254,11 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.output = "remote cleared"
 		m.screen = screenOutput
 		return m, nil
-	case "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub", "vpn-rename":
-		m.output = "CLI: netductor " + id + " — or use Wizard tab"
-		m.screen = screenOutput
-		return m, nil
+	case "hostname", "site-wizard", "mt-manage", "sites-list", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub", "vpn-rename", "wizard", "addons":
+		// huh forms outside alt-screen
+		m.result = tuiResult{action: id, mode: m.mode}
+		m.quitting = true
+		return m, tea.Quit
 	default:
 		m.output = "unknown action: " + id
 		m.screen = screenOutput

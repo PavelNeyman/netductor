@@ -289,6 +289,8 @@ func runTUI(args []string) {
 			runSiteWizard()
 		case "wizard-nvr":
 			wizardNVR()
+		case "wizard-addons", "addons":
+			wizardAddons()
 		default:
 			return
 		}
