@@ -1,3 +1,9 @@
+## 0.8.54
+
+- TG: restore in-body rich `<tg-button>` (Access/hub); warn if REDIRECT_BASE unset
+- install: EnsureClientProfiles (`nd-oc.conf`), EnsureDomainConfig, InstallRedirect
+- Env: `NETDUCTOR_DOMAIN` / `NETDUCTOR_REDIRECT_BASE` / `NETDUCTOR_PUBLIC_HOSTNAME`
+
 ## 0.8.53
 
 - TG: Access/User hub use **classic inline_keyboard** (no broken tg-button text glue)

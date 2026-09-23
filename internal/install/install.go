@@ -44,6 +44,8 @@ func Run(opts Options) error {
 		return err
 	}
 	_ = copySelfToLocalBin()
+	_ = EnsureDomainConfig()
+	_ = EnsureClientProfiles()
 	if !opts.SkipHostname {
 		applyHostname("core")
 	}
@@ -67,6 +69,8 @@ func Run(opts Options) error {
 		case "metrics":
 			err = InstallMetrics()
 		case "telegram", "tg":
+			_ = EnsureClientProfiles()
+			_ = InstallRedirect()
 			err = InstallTelegram()
 		case "backup":
 			err = InstallBackup()

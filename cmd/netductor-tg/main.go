@@ -277,10 +277,19 @@ func editRichWithPhoto(token string, chat int64, msgID int, html, photoPath, pho
 
 // replyRichWithPhoto: try in-place edit; on failure delete + send one new message (no extra clutter).
 func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, photoID string, kb map[string]any) {
-	// Prefer classic photo + caption + inline keyboard (always works).
-	// Rich API often fails: BUTTON_URL_INVALID / RICH_MESSAGE_PHOTO_INVALID.
+	// Prefer rich message (in-body tg-button + photo). Fallback classic photo/HTML.
 	if msgID > 0 {
-		_ = deleteMessage(token, chat, msgID)
+		if err := editRichWithPhoto(token, chat, msgID, html, photoPath, photoID, kb); err == nil {
+			return
+		} else {
+			fmt.Fprintln(os.Stderr, "editRichWithPhoto:", err)
+			_ = deleteMessage(token, chat, msgID)
+		}
+	}
+	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID, kb); err == nil {
+		return
+	} else {
+		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
 	}
 	cap := stripHTMLApprox(html)
 	if len(cap) > 900 {
@@ -288,8 +297,10 @@ func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, ph
 	}
 	if err := sendPhotoFile(token, chat, photoPath, cap, kb); err != nil {
 		fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
-		sendHTML(token, chat, html, kb)
+		sendRich(token, chat, html, kb)
+		return
 	}
+	// Do not send a second message with full HTML (avoids tag-stripped button text).
 }
 
 func stripHTMLApprox(s string) string {
