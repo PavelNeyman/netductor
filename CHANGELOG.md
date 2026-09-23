@@ -1,3 +1,8 @@
+## 0.8.77
+
+- Edge VPN default mode: **tun** (was socks/mixed)
+- socks/mixed remains opt-in via template `vpn.mode` or explicit mode
+
 ## 0.8.76
 
 - Recovery: **no backup key on the wire** by default; `--key` / `NETDUCTOR_BACKUP_KEY` required for recover-from-secondary

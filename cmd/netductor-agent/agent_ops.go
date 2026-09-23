@@ -217,7 +217,7 @@ func applyVPNClient(tmpl map[string]any) string {
 	}
 	mode, _ := vpn["mode"].(string)
 	if mode == "" {
-		mode = "socks" // default: no TUN required
+		mode = "tun" // default: whole-router VPN; socks/mixed only if template sets mode
 	}
 	cfg, err := edgeagent.VLESSClientConfig(vless, mode)
 	if err != nil {
@@ -241,8 +241,8 @@ func applyVPNClient(tmpl map[string]any) string {
 		_ = exec.Command(bin, "run", "-c", path).Start()
 		note += "; sing-box started"
 	}
-	if mode == "socks" {
-		note += "; local proxy 0.0.0.0:7890 (set LAN devices or transparent redirect manually)"
+	if mode == "socks" || mode == "mixed" {
+		note += "; local proxy 127.0.0.1:7890 (or NETDUCTOR_EDGE_MIXED_LISTEN)"
 	}
 	return note
 }

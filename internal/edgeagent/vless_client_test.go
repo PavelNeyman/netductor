@@ -27,3 +27,14 @@ func TestVLESSClientConfigTun(t *testing.T) {
 		t.Fatal(string(b))
 	}
 }
+
+func TestVLESSClientConfigDefaultTun(t *testing.T) {
+	link := "vless://11111111-1111-1111-1111-111111111111@1.2.3.4:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=abc&sid=abcd#t"
+	b, err := VLESSClientConfig(link, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"type": "tun"`) && !strings.Contains(string(b), `"type":"tun"`) {
+		t.Fatalf("expected tun default, got %s", b)
+	}
+}

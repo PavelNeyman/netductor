@@ -174,7 +174,7 @@ func EnsureDefaultTemplate() {
 		},
 		"vpn": map[string]any{
 			"enabled": true,
-			"mode":    "socks",
+			"mode":    "tun",
 		},
 	})
 }

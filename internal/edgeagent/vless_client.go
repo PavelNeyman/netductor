@@ -9,7 +9,7 @@ import (
 )
 
 // VLESSClientConfig builds sing-box client JSON.
-// mode: "tun" (default if empty) or "socks" (no kernel TUN — safer on OpenWrt).
+// mode: "tun" (default) or "socks"/"mixed" (local proxy, no kernel TUN).
 func VLESSClientConfig(link string, mode string) ([]byte, error) {
 	link = strings.TrimSpace(link)
 	if !strings.HasPrefix(link, "vless://") {
@@ -41,7 +41,7 @@ func VLESSClientConfig(link string, mode string) ([]byte, error) {
 		fp = "chrome"
 	}
 	if mode == "" {
-		mode = "socks"
+		mode = "tun"
 	}
 	var inbounds []any
 	if mode == "tun" {
@@ -56,9 +56,7 @@ func VLESSClientConfig(link string, mode string) ([]byte, error) {
 			},
 		}
 	} else {
-		// local SOCKS/HTTP — works without TUN modules; LAN can point proxy here
-		// Loopback only: LAN clients should not get an open proxy; use TUN or explicit
-		// LAN bind via NETDUCTOR_EDGE_MIXED_LISTEN if needed.
+		// Fallback without TUN modules: SOCKS/HTTP on loopback only.
 		listen := "127.0.0.1"
 		if v := strings.TrimSpace(os.Getenv("NETDUCTOR_EDGE_MIXED_LISTEN")); v != "" {
 			listen = v

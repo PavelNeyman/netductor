@@ -1,3 +1,6 @@
+## 0.8.77
+- Edge agent VPN: default **TUN**
+
 ## 0.8.76
 - Recovery: encrypted blob only on :8790; key offline
 - TUI scroll clamp; edge mixed localhost
