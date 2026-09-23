@@ -1,60 +1,136 @@
-**Baseline: v0.8.49** — no Mac private key on primary; secondary harden-last; backup via agent pull.
-
 # Deploy from Mac / PC (workstation TUI)
 
-Baseline: **v0.8.42**. Operator machine runs TUI as the **deployment centre**; VPS remains the control plane after install.
+**Baseline: v0.8.57** — operator machine = deployment centre; VPS = control plane after install.
+
+Verified e2e: primary deploy · secondary (no Mac private key on primary) · recover from secondary `:8790` with operator pubkeys from backup **before** harden (no required `NETDUCTOR_OPERATOR_PUBKEY`).
 
 ## Requirements on Mac
 
-- `netductor` binary for darwin ([Releases](https://github.com/PavelNeyman/netductor/releases) or `brew install netductor` / `brew install --HEAD netductor`)
-- `ssh`, `scp`, `ssh-keygen`, `curl`
-- First login to a **password** SSH host: `sshpass` (`brew install hudochenkov/sshpass/sshpass` or equivalent)
-- After primary deploy: key-only SSH via `~/.ssh/netductor_primary` (path saved in TUI settings)
+```bash
+brew reinstall netductor   # or Releases darwin binary
+netductor version          # ≥ 0.8.57
 
-## SSH keys (operator only)
+brew install hudochenkov/sshpass/sshpass   # first password SSH only
+```
 
-| Device | After first password bootstrap |
-|--------|--------------------------------|
-| Primary | Mac `netductor_primary.pub` in `authorized_keys`; password auth **off** |
-| Secondary | **Mac** pubkey installed (`--operator-pubkey`); password **off**. Primary does **not** need a mesh SSH key to secondary |
-| OpenWrt | Mac pubkey + dropbear/OpenSSH password **off** when possible |
-| MikroTik | Mac pubkey via `/user ssh-keys`; password login best-effort off |
+Also: `ssh`, `ssh-keygen`. Settings: `~/.config/netductor/tui.yaml`.
 
-Ongoing control is **not** device↔device SSH. Secondary/edge agents talk to primary over **HTTP(S)** (see transport below).
+## SSH model
 
-## Control traffic (agent → primary)
+| Device | After first bootstrap |
+|--------|------------------------|
+| Primary | Mac pubkey; password **off**; SSH **port 52222** |
+| Secondary | Mac pubkey only; primary **does not** store Mac private key; no mesh SSH |
+| OpenWrt / MikroTik | Mac pubkey; password off when possible |
 
-| Plane | Bind / URL | Security |
-|-------|------------|----------|
-| Admin API | `127.0.0.1:8787` | Local only. From Mac: `ssh -L 8787:127.0.0.1:8787 root@PRIMARY` |
-| Secondary / Edge agent | **mTLS `:8789`** | Client cert; plain 8788 emergency-only; no IP allowlist |
-| Edge agent | **mTLS `:8789`** | Client certs auto-installed; works if site VPN is down |
+Day-2 control: agents → primary **mTLS `:8789`**. Backup offsite: agent **`backup_pull`**, not SCP.
 
-Workstation edge deploy may still seed `http://PRIMARY:8787` for first enroll if the public enroll endpoint is open. After VPN is up, prefer in-tunnel or HTTPS URL.
+After primary harden, from Mac:
 
-## TUI flow
+```bash
+export NETDUCTOR_SSH_PORT=52222   # optional; deploy primary sets this for later steps
+ssh -i ~/.ssh/netductor_primary -p 52222 root@PRIMARY
+```
+
+## Control plane ports
+
+| Port | Role |
+|------|------|
+| `127.0.0.1:8787` | Admin (tunnel: `ssh -L 8787:127.0.0.1:8787 -p 52222 -i KEY root@PRIMARY`) |
+| `*:8789` | Agent mTLS |
+| `*:52222` | SSH key-only |
+| `127.0.0.1:9118` | Lampac (VPN or SSH `-L`) |
+| Secondary `:8790` | Recovery API (Bearer `recovery_token`) |
+
+## TUI — full setup order
 
 ```bash
 netductor tui --mode workstation
+# language: L or NETDUCTOR_LANG=ru
 ```
 
-**Setup wizard:**
+Use **Setup** menu or **Wizard** tab (same masters).
 
-1. **Primary VPS** — host, root password, generate/path SSH key, TG token + admin id, SNI → binary on VPS, secrets, `install` (SSH harden, **no** extra mesh key if Mac pubkey already present), SNI, fleet bootstrap; writes `~/.config/netductor/tui.yaml`.
-2. **Secondary VPS** — RU host + password; Mac pubkey passed as `--operator-pubkey` → provision on primary → agent polls primary (HTTP/mTLS).
-3. **OpenWrt** — LAN IP, device id, arch; agent + Mac pubkey harden; enroll/approve on primary.
-4. **Cameras / NVR** — leases / add / probe / record via primary API (through tunnel or allowed path).
-5. **MikroTik** — site RSC push + optional SSH harden with Mac pubkey.
-6. Day-2: Doctor, VPN, Fleet, Edge approve.
+### 1. Primary VPS
 
-## CLI
+1. Target **Primary VPS**
+2. Host / IP, SSH user (`root`), **password** (first login)
+3. Generate key? → optional **passphrase** (yes/no → phrase + confirm)
+4. TG token + admin id, Reality SNI (e.g. `api.vk.me`)
+5. Optional: **Also install Lampac?**
+6. Confirm → deploy
+
+Writes `remote_host` / `remote_key` to TUI settings. SSH becomes **52222** + key-only.
+
+Check: `netductor doctor` on primary (via SSH).
+
+### 2. Secondary VPS (RU VPN entry)
+
+Requires primary already in TUI settings.
+
+1. **Secondary VPS** — host, password, SNI
+2. Primary key passphrase if any
+3. Provision via primary (Mac pubkey → secondary; agent → mTLS)
+
+Save **`recovery_token`** from provision log / secondary `/etc/netductor/secrets/recovery_token`.
+
+### 3. Add-ons (optional)
+
+Setup → **Add-ons** → Lampac on primary over SSH (Docker, localhost only).
+
+### 4. OpenWrt / edge
+
+1. LAN IP (current SSH reachability), device id, arch, `https://PRIMARY:8789`
+2. Optional guest Wi‑Fi
+3. Optional **Configure LAN/Wi‑Fi/WAN**: dhcp \| static \| pppoe; Wi‑Fi 2.4/5 (empty band inherits the other)
+4. Approve edge on primary (TUI / TG / CLI)
+
+Prefer **different LAN subnets** per site; SSID/PSK may be shared.
+
+### 5. Cameras / NVR
+
+Via primary (tunnel). Two-way Tapo audio: plan **go2rtc `tapo://` + WebRTC** (not ONVIF) — after hardware e2e.
+
+### 6. MikroTik
+
+Site / ROS wizard; Mac pubkey harden.
+
+### 7. Day-2
+
+Doctor · VPN users · Edge approve · Admin tunnel · optional git/CI/registry on primary.
+
+## Recover primary from secondary
+
+On a **fresh** VPS (password SSH still on):
 
 ```bash
-netductor deploy primary --host IP --password '…' --generate-key --tg-token '…' --tg-admin '…'
-netductor deploy secondary --primary IP --primary-key ~/.ssh/netductor_primary --host RU_IP --password '…'
-netductor deploy edge --primary IP --primary-key ~/.ssh/netductor_primary --router 192.168.1.1 --id cudy-home-1 --arch arm64 \
-  --password '…' --server https://IP:8789 \
-  --configure-net --lan-ip 192.168.50.1 --wifi-ssid-24 Home --wifi-key-24 '…' --wan-proto dhcp
+# install binary ≥ 0.8.57, then:
+netductor recover --from-secondary http://SECONDARY_IP:8790 \
+  --recovery-token '…' \
+  --key '…'    # backup decrypt key from /recovery/key or BACKUP_KEY
 ```
 
-See also [DEPLOY.md](DEPLOY.md) · [FLEET.md](FLEET.md) · [EDGE-AGENT.md](EDGE-AGENT.md) · [ARCHITECTURE.md](ARCHITECTURE.md).
+Operator pubkeys are taken **from the backup before harden**. Env pubkey optional.
+
+Then: `ssh -i ~/.ssh/netductor_primary -p 52222 root@PRIMARY`.
+
+## CLI equivalents
+
+```bash
+netductor deploy primary --host IP --password '…' --generate-key \
+  [--key-passphrase '…'] [--tg-token '…'] [--tg-admin '…'] [--sni api.vk.me] [--with-lampac]
+
+export NETDUCTOR_SSH_PORT=52222
+netductor deploy secondary --primary IP --primary-key ~/.ssh/netductor_primary \
+  --host RU_IP --password '…' [--sni api.vk.me]
+
+netductor deploy edge --primary IP --primary-key ~/.ssh/netductor_primary \
+  --router LAN_IP --password '…' --id site-1 --arch arm64 \
+  --server https://PRIMARY:8789 \
+  [--configure-net --lan-ip … --wifi-ssid-24 … --wan-proto dhcp|static|pppoe …] \
+  [--guest --guest-ssid … --guest-pin …]
+```
+
+## See also
+
+[DEPLOY.md](DEPLOY.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md) · [EDGE-AGENT.md](EDGE-AGENT.md)

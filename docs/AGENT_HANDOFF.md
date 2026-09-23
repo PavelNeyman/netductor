@@ -869,27 +869,24 @@ Reason: if VPN dies, control-plane via VPN-only would black-hole the router (no 
 
 ---
 
-## Current baseline — v0.8.41 (2026-09-22)
+## Current baseline — v0.8.57 (2026-09-23)
 
 ### Release
-- Tag: **v0.8.41** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.41
-- Homebrew Formula tracks **0.8.41** · `brew reinstall netductor`
+- Tag: **v0.8.57** · https://github.com/PavelNeyman/netductor/releases/tag/v0.8.57
+- Homebrew Formula tracks release · `brew reinstall netductor`
 
-### Locked surface
-- Mac TUI deploy: primary / secondary / OpenWrt / MikroTik / NVR
-- OpenWrt network wizard: LAN/DHCP/Wi‑Fi 2.4+5 (inherit) / WAN dhcp|static|pppoe
-- mTLS `:8789`; isolated CI; thin git+GHA+registry
-- SSH: SSHPASS / password-stdin; optional key passphrase
-- After bootstrap: Mac key only; agent mTLS (not device↔device SSH)
+### Locked
+- Mac TUI deploy: primary / secondary / OpenWrt (LAN+WAN+guest) / MikroTik / NVR / **Add-ons (Lampac)**
+- No Mac private key on primary; secondary harden-last; agent mTLS only
+- Backup offsite: agent `backup_pull`; recovery API secondary `:8790`
+- Recover: operator pubkeys from backup **before** harden (env optional)
+- E2E verified: recover-from-secondary on clean primary → key SSH :52222, doctor ok
 
 ### Operator open
-Hardware e2e · Domain/HTTPS · SMTP · Restore-drill — [OPEN_ITEMS](OPEN_ITEMS.md)
+Hardware e2e · Domain/HTTPS · SMTP — [OPEN_ITEMS](OPEN_ITEMS.md)
 
-### Not present
-USB/LTE modem WAN failover (only VPN↔direct WAN fallback in agent)
-
-### Historical notes
-Sections below may cite older versions; prefer this baseline and OPEN_ITEMS.
+### Historical
+Older narrative sections below may cite 0.7–0.8.4x; prefer this baseline.
 
 ---
 

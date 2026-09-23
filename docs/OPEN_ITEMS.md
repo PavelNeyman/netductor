@@ -3,7 +3,7 @@
 Baseline: **v0.8.57**.
 
 ## Gates
-- Optional: re-restore drill on 0.8.52+ (hostname + operator pubkeys without console)
+- Recover-from-secondary e2e **verified** (0.8.57): keys from backup before harden, doctor ok
 
 ## Operator / hardware
 1. Hardware e2e (OpenWrt guest, Tapo, MikroTik)
@@ -15,9 +15,9 @@ Baseline: **v0.8.57**.
 - FormT polish
 
 ## Done recently
+- Recover-from-secondary e2e + keys from backup before harden (0.8.57)
 - TG user Access buttons fixed (classic keyboard)
-- recover hostname + operator pubkeys (0.8.52)
-- backup_pull / recovery :8790
-- SCP offsite removed
+- recover hostname + operator pubkeys (0.8.52+)
+- backup_pull / recovery :8790; SCP offsite removed
 
 - NVR: go2rtc `tapo://` two-way audio (see PLAN-NVR-TAPO)

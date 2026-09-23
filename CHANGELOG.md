@@ -1,3 +1,7 @@
+## Docs
+
+- DEPLOY-WORKSTATION + handoff + OPEN_ITEMS locked to **v0.8.57** (TUI flow, recover e2e)
+
 ## 0.8.57
 
 - recover: **peek operator pubkeys from backup tar before harden** (no required env)
