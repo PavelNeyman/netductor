@@ -1,3 +1,7 @@
+## 0.8.58
+
+- TUI Wizard tab: exit alt-screen before huh Primary/Secondary/OpenWrt/… forms (fixes blank UI)
+
 ## Formula
 
 - Homebrew: pin **0.8.57** with real SHA256 (no `:no_check`)

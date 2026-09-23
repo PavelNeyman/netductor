@@ -128,11 +128,11 @@ func (m model) activateCursor() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.tab == tabWizard {
-		m.wizTarget = wizTarget(id)
-		m.wizFields = nil
-		m.wizStep = wizStepConfirm
-		m.screen = screenWizard
-		return m, nil
+		// Exit alt-screen and run huh deploy wizard outside Bubble Tea
+		// (huh inside tea.WithAltScreen blanks the UI).
+		m.result = tuiResult{action: "wizard-" + id, mode: m.mode}
+		m.quitting = true
+		return m, tea.Quit
 	}
 	return m.handleAction(id)
 }

@@ -248,7 +248,7 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 		m.wizStep = wizStepConfirm
 		return m, nil
 	case wizStepConfirm:
-		// Single path: confirm → tui_deploy_wizards (huh), not inline fields
+		// Exit alt-screen; run huh outside Bubble Tea (see runTUI switch).
 		if string(m.wizTarget) == "remote" {
 			m.remoteHost = m.fieldVal("host")
 			m.remoteUser = orDefault(m.fieldVal("user"), "root")
@@ -258,9 +258,9 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 			m.wizStep = wizStepTarget
 			return m, nil
 		}
-		m.wizStep = wizStepRun
-		m.wizMsg = m.runWizardApply()
-		return m, nil
+		m.result = tuiResult{action: "wizard-" + string(m.wizTarget), mode: m.mode}
+		m.quitting = true
+		return m, tea.Quit
 	case wizStepRun:
 		m.screen = screenMenu
 		m.tab = tabWizard
