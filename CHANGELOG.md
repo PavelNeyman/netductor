@@ -1,3 +1,8 @@
+## 0.8.61
+
+- TUI Wizard: multi-step fields **inside** framed UI (no external huh window)
+- Primary / Secondary / OpenWrt / NVR / Add-ons collect data in-screen; result on Output
+
 ## 0.8.60
 
 - go2rtc: WebRTC listen **127.0.0.1:8555** (was `:8555` all interfaces)

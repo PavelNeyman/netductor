@@ -128,11 +128,21 @@ func (m model) activateCursor() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.tab == tabWizard {
-		// Exit alt-screen and run huh deploy wizard outside Bubble Tea
-		// (huh inside tea.WithAltScreen blanks the UI).
-		m.result = tuiResult{action: "wizard-" + id, mode: m.mode}
-		m.quitting = true
-		return m, tea.Quit
+		// In-TUI multi-step fields (no huh / no alt-screen exit)
+		m.wizTarget = wizTarget(id)
+		m.wizFields = wizBuildFields(id, &m)
+		m.wizFieldIdx = 0
+		m.wizInput = ""
+		if len(m.wizFields) > 0 {
+			m.wizInput = m.wizFields[0].Value
+		}
+		m.wizMsg = ""
+		m.wizStep = wizStepFields
+		if len(m.wizFields) == 0 {
+			m.wizStep = wizStepConfirm
+		}
+		m.screen = screenWizard
+		return m, nil
 	}
 	return m.handleAction(id)
 }

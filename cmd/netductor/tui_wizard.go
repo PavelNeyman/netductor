@@ -260,9 +260,11 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 			m.wizStep = wizStepTarget
 			return m, nil
 		}
-		m.result = tuiResult{action: "wizard-" + string(m.wizTarget), mode: m.mode}
-		m.quitting = true
-		return m, tea.Quit
+		m.output = m.runWizardApplyInTUI()
+		m.screen = screenOutput
+		m.tab = tabWizard
+		m.wizStep = wizStepTarget
+		return m, nil
 	case wizStepRun:
 		m.screen = screenMenu
 		m.tab = tabWizard
@@ -282,6 +284,5 @@ func (m *model) fieldVal(key string) string {
 }
 
 func (m model) runWizardApply() string {
-	// Intentionally does not run huh here — deploy wizards exit alt-screen via tuiResult.
-	return "use Wizard tab selection (forms run outside TUI)"
+	return m.runWizardApplyInTUI()
 }
