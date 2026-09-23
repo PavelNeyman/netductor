@@ -544,3 +544,34 @@ Implemented end-to-end for operator use without third-party NVR:
 
 ### 0.7.33-dev
 - PathUnderRoot for clips; motion zones API; TUI NVR ops; docs/NVR-CODE-REVIEW.md
+
+
+## Two-way audio (go2rtc) — planned
+
+Official ONVIF Profile S / RTSP: **no** talk-back (TP-Link).
+
+Working third-party path (Frigate / community):
+
+```yaml
+streams:
+  cam1:
+    - rtsp://CAM_USER:CAM_PASS@CAM_IP:554/stream1
+    - ffmpeg:cam1#audio=aac
+    - ffmpeg:cam1#audio=opus
+    - tapo://TAPO_CLOUD_PASSWORD@CAM_IP   # talk / two-way (not Camera Account)
+```
+
+Requirements observed in the wild:
+
+- go2rtc **WebRTC** enabled; UI over **HTTPS** for browser mic
+- Tapo Lab → Third-Party Compatibility
+- Firmware-dependent (C200 reports vary by HW/FW)
+
+**Netductor:** we already ship go2rtc config helpers (`internal/nvr/go2rtc.go`). Next steps:
+
+1. Extend generated go2rtc yaml with optional `tapo://` source per camera (cloud password in secrets, not RTSP account).
+2. WebRTC candidates via VPN IP only (no public expose).
+3. Admin/TG: open talk → go2rtc WebUI or embed WebRTC (HTTPS later).
+4. Document: cloud password ≠ Camera Account; risk if password stored on primary.
+
+Status: **planned**, not implemented. Hardware e2e first.

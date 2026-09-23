@@ -1,3 +1,7 @@
+## 0.8.56
+- recover: inject operator pubkey **before** harden (fixes lockout)
+- NVR plan: go2rtc two-way via `tapo://`
+
 ## 0.8.53
 - TG Access/hub: classic inline buttons; no relative redirect URLs
 

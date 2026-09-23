@@ -280,6 +280,10 @@ func Recover(archive, keyArg string) error {
 	}
 	fmt.Fprintf(os.Stderr, "recover: components %v\n", comps)
 
+	// BEFORE install/harden: put operator pubkeys in authorized_keys so key-only SSH
+	// does not lock out the operator (harden runs inside Run and disables password).
+	injectOperatorKeysFromEnvEarly()
+
 	// Install first (binaries/services). Secrets not required yet for most steps.
 	if err := Run(Options{Components: comps, SkipHostname: true}); err != nil {
 		fmt.Fprintf(os.Stderr, "recover: install warnings: %v\n", err)
@@ -302,6 +306,7 @@ func Recover(archive, keyArg string) error {
 	restoreHostnameFromBackup()
 	// Operator pubkeys from backup + env (never private keys)
 	restoreOperatorKeysFromBackup()
+	reloadSSHDAfterRecover()
 
 	// Re-apply runtime configs from restored secrets/users
 	fmt.Fprintln(os.Stderr, "recover: apply vpn / restart services")
@@ -552,4 +557,51 @@ func restoreOperatorKeysFromBackup() {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "recover: installed %d operator pubkey(s)\n", len(lines))
+}
+
+// injectOperatorKeysFromEnvEarly runs before harden so PasswordAuthentication no
+// still leaves a working operator key. Does not read backup (tar not extracted yet).
+func injectOperatorKeysFromEnvEarly() {
+	var lines []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			return
+		}
+		if !(strings.HasPrefix(s, "ssh-") || strings.HasPrefix(s, "ecdsa-")) {
+			return
+		}
+		seen[s] = true
+		lines = append(lines, s)
+	}
+	add(os.Getenv("NETDUCTOR_OPERATOR_PUBKEY"))
+	if fp := strings.TrimSpace(os.Getenv("NETDUCTOR_OPERATOR_PUBKEY_FILE")); fp != "" {
+		if b, err := os.ReadFile(fp); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				add(line)
+			}
+		}
+	}
+	prev, _ := os.ReadFile("/root/.ssh/authorized_keys")
+	for _, line := range strings.Split(string(prev), "\n") {
+		add(line)
+	}
+	if len(lines) == 0 {
+		fmt.Fprintln(os.Stderr, "recover: no NETDUCTOR_OPERATOR_PUBKEY before install — harden may lock password auth")
+		return
+	}
+	_ = os.MkdirAll("/root/.ssh", 0o700)
+	body := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile("/root/.ssh/authorized_keys", []byte(body), 0o600); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: early authorized_keys: %v\n", err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "recover: early operator pubkey(s)=%d (before harden)\n", len(lines))
+}
+
+func reloadSSHDAfterRecover() {
+	_ = run("systemctl", "reload", "ssh")
+	_ = run("systemctl", "reload", "sshd")
+	_ = run("service", "ssh", "reload")
 }

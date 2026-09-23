@@ -19,3 +19,5 @@ Baseline: **v0.8.53**.
 - recover hostname + operator pubkeys (0.8.52)
 - backup_pull / recovery :8790
 - SCP offsite removed
+
+- NVR: go2rtc `tapo://` two-way audio (see PLAN-NVR-TAPO)

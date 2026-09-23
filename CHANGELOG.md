@@ -1,3 +1,8 @@
+## 0.8.56
+
+- recover: inject operator pubkey before harden + reload sshd after restore
+- PLAN-NVR: go2rtc two-way audio (`tapo://`)
+
 ## 0.8.55
 
 - probes: api-health default **http://127.0.0.1:8787/health** (API is HTTP-only); migrate old https defaults
