@@ -430,6 +430,17 @@ func keyTextForField(msg tea.KeyMsg) (string, bool) {
 	case tea.KeySpace:
 		return " ", true
 	default:
+		s := msg.String()
+		// Some terminals deliver paste as one long key string without Paste=true
+		if len(s) > 1 && !strings.HasPrefix(s, "ctrl+") && !strings.HasPrefix(s, "alt+") &&
+			!strings.HasPrefix(s, "shift+") && s != "enter" && s != "tab" && s != "esc" &&
+			s != "up" && s != "down" && s != "left" && s != "right" &&
+			s != "backspace" && s != "delete" && s != "space" {
+			return s, true
+		}
+		if s == " " {
+			return " ", true
+		}
 		return "", false
 	}
 }

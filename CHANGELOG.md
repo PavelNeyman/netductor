@@ -1,3 +1,8 @@
+## 0.8.64
+
+- SSH deploy: clear stale known_hosts before connect (fixes exit 255 after VPS reinstall)
+- TUI wizard paste: accept long KeyMsg strings from terminals without bracketed-paste flag
+
 ## 0.8.63
 
 - TUI Wizard fields: paste support (bracketed paste + Ctrl+V clipboard), multi-rune input

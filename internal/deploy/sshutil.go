@@ -16,6 +16,20 @@ func sshPort() string {
 	return "22"
 }
 
+
+// clearHostKeys drops stale known_hosts entries after VPS reinstall (changed host key).
+func clearHostKeys(host string) {
+	if host == "" {
+		return
+	}
+	_ = exec.Command("ssh-keygen", "-R", host).Run()
+	_ = exec.Command("ssh-keygen", "-R", "["+host+"]:22").Run()
+	_ = exec.Command("ssh-keygen", "-R", "["+host+"]:52222").Run()
+	if p := sshPort(); p != "22" && p != "52222" {
+		_ = exec.Command("ssh-keygen", "-R", "["+host+"]:"+p).Run()
+	}
+}
+
 func lookSSHPass() (string, error) {
 	p, err := exec.LookPath("sshpass")
 	if err != nil {
@@ -92,6 +106,7 @@ func sshEnvWithAskPass(keyPass string) ([]string, func(), error) {
 
 // runSSH: host password via SSHPASS+sshpass -e; key passphrase via SSH_ASKPASS (never argv).
 func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {
+	clearHostKeys(host)
 	target := user + "@" + host
 	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
