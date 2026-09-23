@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
@@ -115,19 +117,38 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "cam_pass", Label: FormT(lang, "cam_pass"), Secret: true, Short: "cam password", Detail: ph("Tapo/account password as configured.", "Пароль камеры/аккаунта.")},
 		}
 	case "addons":
+		hostDef := s.RemoteHost
+		keyDef := s.RemoteKey
+		if keyDef == "" {
+			keyDef = "~/.ssh/netductor_primary"
+		}
 		return []wizField{
+			{Key: "host", Label: FormT(lang, "ssh_host") + " / IP", Value: hostDef,
+				Short: ph("Any VPS with netductor (often primary)", "Любая VPS с netductor (часто primary)"),
+				Detail: ph("SSH target for selected add-ons. Defaults to saved primary in Settings.", "Куда ставить выбранные дополнения. По умолчанию primary из Настроек.")},
+			{Key: "user", Label: FormT(lang, "ssh_user"), Value: orDefault(s.RemoteUser, "root"),
+				Short: "SSH user", Detail: "root"},
+			{Key: "key_path", Label: FormT(lang, "ssh_key_path"), Value: keyDef,
+				Short: ph("Operator private key on this Mac", "Приватный ключ оператора на Mac"),
+				Detail: ph("Key that already has access (pubkey on the VPS).", "Ключ, к которому уже есть доступ (pubkey на VPS).")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase"), Secret: true,
+				Short: ph("If key is encrypted", "Если ключ с фразой"),
+				Detail: ph("Leave empty if none.", "Пусто, если нет.")},
 			{Key: "lampac", Label: "Lampac", Value: "no", Toggle: true,
-				Short: ph("Docker media stack · localhost:9118", "Docker медиа · localhost:9118"),
-				Detail: ph("Install Lampac in Docker on primary (127.0.0.1 only).", "Lampac в Docker на primary (только 127.0.0.1).")},
+				Short: ph("Docker · 127.0.0.1:9118", "Docker · 127.0.0.1:9118"),
+				Detail: ph("Requires Docker on target. Binds localhost only.", "Нужен Docker на цели. Только localhost.")},
 			{Key: "telegram", Label: "Telegram bot", Value: "no", Toggle: true,
-				Short: ph("netductor-tg unit", "Юнит netductor-tg"),
-				Detail: ph("Download bot binary + enable unit. Needs secrets already on primary.", "Скачать binary бота и включить unit. Секреты уже должны быть на primary.")},
+				Short: ph("netductor-tg unit + secrets", "Юнит netductor-tg + секреты"),
+				Detail: ph("After toggle ON: fill token + admin id below (or leave if already on VPS).", "После ON: токен и admin id ниже (или уже лежат на VPS).")},
+			{Key: "tg_token", Label: FormT(lang, "tg_token"), Secret: true,
+				Short: ph("Required if installing Telegram", "Нужен при установке Telegram"),
+				Detail: ph("BotFather token written to /etc/netductor/secrets on target.", "Пишется в secrets на целевой VPS.")},
+			{Key: "tg_admin", Label: FormT(lang, "tg_admin"),
+				Short: ph("Telegram numeric user id", "Числовой Telegram user id"),
+				Detail: ph("Admin allowed to control the bot.", "Админ бота.")},
 			{Key: "go2rtc", Label: "go2rtc", Value: "no", Toggle: true,
 				Short: ph("NVR helper (soon)", "NVR helper (скоро)"),
 				Detail: ph("Placeholder until hardware e2e.", "Заглушка до hardware e2e.")},
-			{Key: "key_pass", Label: FormT(lang, "key_passphrase"), Secret: true,
-				Short: ph("If primary SSH key has passphrase", "Если ключ primary с фразой"),
-				Detail: ph("Leave empty if none.", "Пусто, если нет.")},
 		}
 	case "mikrotik":
 		return []wizField{
@@ -214,37 +235,52 @@ func (m model) runWizardApplyInTUI() string {
 			return mm.runNetductor("nvr", "status")
 		}
 		case "addons":
-		if s.RemoteHost == "" || s.RemoteKey == "" {
-			return FormT(lang, "set_primary_first")
+		host := orDefault(m.fieldVal("host"), s.RemoteHost)
+		user := orDefault(m.fieldVal("user"), orDefault(s.RemoteUser, "root"))
+		keyPath := expandHome(orDefault(m.fieldVal("key_path"), s.RemoteKey))
+		pass := m.fieldVal("key_pass")
+		if host == "" || keyPath == "" {
+			return TT(lang, "Host and SSH key path required (or set primary in Settings).", "Нужны host и путь к SSH-ключу (или primary в Настройках).")
 		}
 		var parts []string
-		pass := m.fieldVal("key_pass")
-		user := orDefault(s.RemoteUser, "root")
 		any := false
 		if yesish(m.fieldVal("lampac")) {
 			any = true
-			out, err := deploy.RunOnPrimary(s.RemoteHost, user, s.RemoteKey, pass, "netductor install lampac")
-			parts = append(parts, "=== lampac ===", out)
+			out, err := deploy.RunOnPrimary(host, user, keyPath, pass, "netductor install lampac")
+			parts = append(parts, "=== lampac @ "+host+" ===", out)
 			if err != nil {
 				parts = append(parts, err.Error())
 			}
 		}
 		if yesish(m.fieldVal("telegram")) {
 			any = true
-			out, err := deploy.RunOnPrimary(s.RemoteHost, user, s.RemoteKey, pass,
-				"netductor install telegram; systemctl restart netductor-telegram-bot || true; systemctl is-active netductor-telegram-bot || true")
-			parts = append(parts, "=== telegram ===", out)
+			tok := m.fieldVal("tg_token")
+			adm := m.fieldVal("tg_admin")
+			script := "set -e; mkdir -p /etc/netductor/secrets; chmod 700 /etc/netductor/secrets; "
+			if tok != "" {
+				script += fmt.Sprintf("printf '%%s\n' %s > /etc/netductor/secrets/telegram_bot_token; ", strconv.Quote(tok))
+			}
+			if adm != "" {
+				script += fmt.Sprintf("printf '%%s\n' %s > /etc/netductor/secrets/telegram_admin_id; ", strconv.Quote(adm))
+			}
+			script += "chmod 600 /etc/netductor/secrets/* 2>/dev/null || true; "
+			script += "netductor install telegram; systemctl restart netductor-telegram-bot || true; systemctl is-active netductor-telegram-bot || true"
+			out, err := deploy.RunOnPrimary(host, user, keyPath, pass, script)
+			parts = append(parts, "=== telegram @ "+host+" ===", out)
 			if err != nil {
 				parts = append(parts, err.Error())
+			}
+			if tok == "" {
+				parts = append(parts, TT(lang, "(no token in form — used secrets already on VPS if present)", "(токен в форме пуст — если на VPS уже есть secrets, использованы они)"))
 			}
 		}
 		if yesish(m.fieldVal("go2rtc")) {
 			any = true
-			parts = append(parts, "=== go2rtc ===",
+			parts = append(parts, "=== go2rtc @ "+host+" ===",
 				TT(lang, "go2rtc addon not fully wired yet (planned after hardware e2e).", "go2rtc пока в плане после hardware e2e."))
 		}
 		if !any {
-			return TT(lang, "Nothing selected (all no).", "Ничего не выбрано (везде no).")
+			return TT(lang, "Nothing selected (all off).", "Ничего не выбрано (всё выкл).")
 		}
 		return strings.Join(parts, "\n")
 	case wizMikroTik:

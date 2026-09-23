@@ -1,3 +1,9 @@
+## 0.8.72
+
+- Add-ons: target **any VPS** (host/user/key), not primary-only
+- Telegram: token + admin id fields when installing bot
+- Primary still has no Lampac yes/no (use Add-ons)
+
 ## 0.8.71
 
 - Primary wizard: **removed** single Lampac yes/no (was confusing)
