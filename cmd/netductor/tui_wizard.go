@@ -33,6 +33,8 @@ type wizField struct {
 	Key, Label, Value string
 	Secret            bool
 	Placeholder       string
+	Short             string // one-line hint under label (menu style)
+	Detail            string // right pane full description
 }
 
 func (m *model) startWizard() {
@@ -73,84 +75,195 @@ func (m *model) renderWizard() string {
 	w := max(40, m.width)
 	h := max(8, m.height)
 	ru := m.lang == langRU
-	title := "Setup wizard"
-	if ru {
-		title = "Мастер настройки"
-	}
-	head := stTitle.Width(w).Render(title + "  ·  " + strings.ToUpper(string(map[bool]string{true: "ru", false: "en"}[ru])))
-	// language badge time in header via shared
 	header := m.renderHeader()
-	_ = head
-
-	var body string
-	switch m.wizStep {
-	case wizStepTarget:
-		hint := "↑↓ choose target · Enter · Esc cancel"
-		if ru {
-			hint = "↑↓ цель · Enter · Esc отмена"
-		}
-		body = stMuted.Render(hint) + "\n\n"
-		for i, e := range wizTargetEntries(m.lang) {
-			line := fmt.Sprintf("%d. %s — %s", i+1, e.Title, e.Short)
-			if i == m.cursor {
-				body += stSel.Width(w-2).Render(line) + "\n"
-				body += stDetail.Width(w-4).Render(e.Detail) + "\n"
-			} else {
-				body += stNorm.Width(w-2).Render(line) + "\n"
-			}
-		}
-	case wizStepFields:
-		hint := "Enter = next field · Esc = back"
-		if ru {
-			hint = "Enter = следующее поле · Esc = назад"
-		}
-		body = stMuted.Render(hint) + "\n\n"
-		for i, f := range m.wizFields {
-			val := f.Value
-			if i == m.wizFieldIdx {
-				val = m.wizInput
-				if f.Secret && val != "" {
-					val = strings.Repeat("•", len(val))
-				}
-				body += stSel.Width(w-2).Render(fmt.Sprintf("> %s: %s▌", f.Label, val)) + "\n"
-			} else {
-				show := f.Value
-				if f.Secret && show != "" {
-					show = "••••"
-				}
-				body += stNorm.Width(w-2).Render(fmt.Sprintf("  %s: %s", f.Label, show)) + "\n"
-			}
-		}
-	case wizStepConfirm:
-		// Single path: confirm → tui_deploy_wizards (huh), not inline fields
-		msg := "Enter = run · Esc = back to fields"
-		if ru {
-			msg = "Enter = выполнить · Esc = к полям"
-		}
-		body = stMuted.Render(msg) + "\n\n" + stTitle.Render(string(m.wizTarget)) + "\n"
-		for _, f := range m.wizFields {
-			show := f.Value
-			if f.Secret && show != "" {
-				show = "••••"
-			}
-			body += stNorm.Render(fmt.Sprintf("  %s = %s", f.Label, show)) + "\n"
-		}
-	case wizStepRun:
-		body = lipgloss.NewStyle().Width(w - 2).MaxHeight(h - 6).Render(m.wizMsg)
+	helpChips := []helpChip{
+		{"Esc", map[bool]string{true: "назад", false: "back"}[ru]},
+		{"↵", map[bool]string{true: "далее", false: "next"}[ru]},
+		{"↑↓", map[bool]string{true: "поле", false: "field"}[ru]},
+		{"L", map[bool]string{true: "язык", false: "lang"}[ru]},
+		{"^C", map[bool]string{true: "выход", false: "quit"}[ru]},
 	}
-
-	helpChips := []helpChip{{"Esc", map[bool]string{true: "назад", false: "back"}[ru]}, {"↵", map[bool]string{true: "далее", false: "next"}[ru]}, {"L", map[bool]string{true: "язык", false: "lang"}[ru]}, {"^C", map[bool]string{true: "выход", false: "quit"}[ru]}}
 	var chips strings.Builder
 	for _, c := range helpChips {
 		chips.WriteString(renderChip(c))
 	}
 	help := stHelpBG.Width(w).Render(chips.String())
-	used := lipgloss.Height(header) + lipgloss.Height(body) + lipgloss.Height(help)
+	helpH := lipgloss.Height(help)
+	headH := lipgloss.Height(header)
+	bodyH := h - headH - helpH - 1
+	if bodyH < 5 {
+		bodyH = 5
+	}
+
+	var body string
+	switch m.wizStep {
+	case wizStepTarget:
+		// same split as main menu
+		ents := wizTargetEntries(m.lang)
+		body = m.renderWizardSplitEntries(ents, bodyH, w)
+	case wizStepFields:
+		body = m.renderWizardSplitFields(bodyH, w)
+	case wizStepConfirm:
+		body = m.renderWizardConfirm(bodyH, w)
+	case wizStepRun:
+		body = lipgloss.NewStyle().Width(w - 2).Height(bodyH).MaxHeight(bodyH).Render(m.wizMsg)
+	default:
+		body = ""
+	}
+
+	used := headH + lipgloss.Height(body) + helpH
 	gap := h - used
 	if gap < 0 {
 		gap = 0
 	}
 	return header + "\n" + body + strings.Repeat("\n", gap) + help
+}
+
+func (m *model) renderWizardSplitEntries(entries []menuEntry, bodyH, w int) string {
+	leftW := w * 2 / 5
+	if leftW < 28 {
+		leftW = 28
+	}
+	if leftW > 48 {
+		leftW = 48
+	}
+	rightW := w - leftW - 3
+	if rightW < 20 {
+		rightW = 20
+		leftW = w - rightW - 3
+	}
+	var leftLines []string
+	for i, e := range entries {
+		if i == m.cursor {
+			leftLines = append(leftLines, stSel.Width(leftW).Render(e.Title))
+			leftLines = append(leftLines, stSel.Width(leftW).Render("  "+e.Short))
+		} else {
+			leftLines = append(leftLines, stNorm.Width(leftW).Render(e.Title))
+			leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+e.Short))
+		}
+	}
+	leftBody := lipgloss.NewStyle().Width(leftW).Height(bodyH).MaxHeight(bodyH).Render(strings.Join(leftLines, "\n"))
+	detail := ""
+	if len(entries) > 0 {
+		e := entries[m.cursor]
+		if m.cursor >= len(entries) {
+			e = entries[len(entries)-1]
+		}
+		detail = stDetail.Width(rightW - 2).Render(stTitle.Render(e.Title) + "\n\n" + e.Detail)
+	}
+	detail = stBorder.Width(rightW).Height(bodyH).MaxHeight(bodyH).Render(
+		lipgloss.NewStyle().Width(rightW - 2).Height(bodyH - 2).Render(detail),
+	)
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftBody, " ", detail)
+}
+
+func (m *model) renderWizardSplitFields(bodyH, w int) string {
+	ru := m.lang == langRU
+	leftW := w * 2 / 5
+	if leftW < 30 {
+		leftW = 30
+	}
+	if leftW > 52 {
+		leftW = 52
+	}
+	rightW := w - leftW - 3
+	if rightW < 22 {
+		rightW = 22
+		leftW = w - rightW - 3
+	}
+	hint := "Enter next field · ↑↓ move · Esc back"
+	if ru {
+		hint = "Enter — следующее · ↑↓ поле · Esc назад"
+	}
+	var leftLines []string
+	leftLines = append(leftLines, stMuted.Width(leftW).Render(hint))
+	leftLines = append(leftLines, stMuted.Width(leftW).Render(strings.ToUpper(string(m.wizTarget))))
+	for i, f := range m.wizFields {
+		val := f.Value
+		if i == m.wizFieldIdx {
+			val = m.wizInput
+			if f.Secret && val != "" {
+				val = strings.Repeat("•", len(val))
+			} else if val == "" && f.Placeholder != "" {
+				val = f.Placeholder
+			}
+			leftLines = append(leftLines, stSel.Width(leftW).Render(f.Label))
+			leftLines = append(leftLines, stSel.Width(leftW).Render("  "+val+"▌"))
+			if f.Short != "" {
+				leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+f.Short))
+			}
+		} else {
+			show := f.Value
+			if f.Secret && show != "" {
+				show = "••••"
+			}
+			if show == "" {
+				show = "—"
+			}
+			leftLines = append(leftLines, stNorm.Width(leftW).Render(f.Label))
+			leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+show))
+		}
+	}
+	leftBody := lipgloss.NewStyle().Width(leftW).Height(bodyH).MaxHeight(bodyH).Render(strings.Join(leftLines, "\n"))
+
+	detailTitle := ""
+	detailBody := ""
+	if len(m.wizFields) > 0 && m.wizFieldIdx < len(m.wizFields) {
+		f := m.wizFields[m.wizFieldIdx]
+		detailTitle = f.Label
+		detailBody = f.Detail
+		if detailBody == "" {
+			detailBody = f.Short
+		}
+		if f.Placeholder != "" {
+			detailBody += "\n\n" + map[bool]string{true: "Подсказка: ", false: "Placeholder: "}[ru] + f.Placeholder
+		}
+	}
+	detail := stDetail.Width(rightW - 2).Render(stTitle.Render(detailTitle) + "\n\n" + detailBody)
+	detail = stBorder.Width(rightW).Height(bodyH).MaxHeight(bodyH).Render(
+		lipgloss.NewStyle().Width(rightW - 2).Height(bodyH - 2).Render(detail),
+	)
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftBody, " ", detail)
+}
+
+func (m *model) renderWizardConfirm(bodyH, w int) string {
+	ru := m.lang == langRU
+	msg := "Enter = run deploy · Esc = edit fields"
+	if ru {
+		msg = "Enter = запуск · Esc = править поля"
+	}
+	leftW := w * 2 / 5
+	if leftW < 30 {
+		leftW = 30
+	}
+	if leftW > 52 {
+		leftW = 52
+	}
+	rightW := w - leftW - 3
+	var leftLines []string
+	leftLines = append(leftLines, stMuted.Width(leftW).Render(msg))
+	leftLines = append(leftLines, stTitle.Width(leftW).Render(strings.ToUpper(string(m.wizTarget))))
+	for _, f := range m.wizFields {
+		show := f.Value
+		if f.Secret && show != "" {
+			show = "••••"
+		}
+		if show == "" {
+			show = "—"
+		}
+		leftLines = append(leftLines, stNorm.Width(leftW).Render(f.Label))
+		leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+show))
+	}
+	leftBody := lipgloss.NewStyle().Width(leftW).Height(bodyH).MaxHeight(bodyH).Render(strings.Join(leftLines, "\n"))
+	sum := map[bool]string{
+		true:  "Проверьте значения слева.\n\nEnter — выполнить деплой.\nEsc — вернуться к полям.",
+		false: "Review values on the left.\n\nEnter — run deploy.\nEsc — back to fields.",
+	}[ru]
+	detail := stDetail.Width(rightW - 2).Render(stTitle.Render(map[bool]string{true: "Подтверждение", false: "Confirm"}[ru]) + "\n\n" + sum)
+	detail = stBorder.Width(rightW).Height(bodyH).MaxHeight(bodyH).Render(
+		lipgloss.NewStyle().Width(rightW - 2).Height(bodyH - 2).Render(detail),
+	)
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftBody, " ", detail)
 }
 
 func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {

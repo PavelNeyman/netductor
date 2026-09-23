@@ -24,27 +24,60 @@ func yesish(s string) bool {
 func wizBuildFields(id string, m *model) []wizField {
 	s := loadTUISettings()
 	lang := detectLang()
+	ru := lang == langRU
+	ph := func(en, r string) string {
+		if ru {
+			return r
+		}
+		return en
+	}
 	switch id {
 	case "primary":
 		return []wizField{
-			{Key: "host", Label: FormT(lang, "primary_host"), Value: s.RemoteHost, Placeholder: "x.x.x.x"},
-			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root"},
-			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true},
-			{Key: "gen_key", Label: FormT(lang, "gen_ssh_key") + " (yes/no)", Value: "yes"},
-			{Key: "key_path", Label: FormT(lang, "ssh_key_path"), Value: orDefault(s.RemoteKey, "~/.ssh/netductor_primary")},
-			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (empty=none)", Secret: true},
-			{Key: "tg_token", Label: FormT(lang, "tg_token")},
-			{Key: "tg_admin", Label: FormT(lang, "tg_admin")},
-			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me"},
-			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "no"},
+			{Key: "host", Label: FormT(lang, "primary_host"), Value: s.RemoteHost, Placeholder: "x.x.x.x",
+				Short: ph("VPS public IP or DNS", "Публичный IP или DNS VPS"),
+				Detail: ph("Abroad control-plane host reachable over SSH on port 22 (first login).", "Зарубежный control plane: SSH на порт 22 при первом входе.")},
+			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root",
+				Short: ph("SSH user", "Пользователь SSH"),
+				Detail: ph("Usually root on a fresh Debian VPS.", "Обычно root на чистом Debian VPS.")},
+			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true,
+				Short: ph("Only for first bootstrap", "Только первый вход"),
+				Detail: ph("Used once with sshpass; then password auth is disabled.", "Один раз через sshpass; дальше вход только по ключу.")},
+			{Key: "gen_key", Label: FormT(lang, "gen_ssh_key") + " (yes/no)", Value: "yes",
+				Short: ph("yes = create ed25519 key", "yes = создать ключ ed25519"),
+				Detail: ph("Creates ~/.ssh/netductor_primary unless path overridden.", "Создаёт ~/.ssh/netductor_primary, если путь не задан иначе.")},
+			{Key: "key_path", Label: FormT(lang, "ssh_key_path"), Value: orDefault(s.RemoteKey, "~/.ssh/netductor_primary"),
+				Short: ph("Private key path on Mac", "Путь к private key на Mac"),
+				Detail: ph("Saved into TUI settings as remote_key.", "Сохраняется в настройках TUI как remote_key.")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (empty=none)", Secret: true,
+				Short: ph("Optional key encryption", "Опциональная фраза ключа"),
+				Detail: ph("Leave empty for no passphrase. Needed later for secondary/edge if set.", "Пусто = без фразы. Если задали — понадобится для secondary/edge.")},
+			{Key: "tg_token", Label: FormT(lang, "tg_token"),
+				Short: ph("BotFather token", "Токен BotFather"),
+				Detail: ph("Optional. Enables Telegram bot unit on primary.", "Опционально. Включает Telegram-бота на primary.")},
+			{Key: "tg_admin", Label: FormT(lang, "tg_admin"),
+				Short: ph("Your Telegram user id", "Ваш Telegram user id"),
+				Detail: ph("Numeric admin id allowed to control the bot.", "Числовой id админа бота.")},
+			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me",
+				Short: ph("Reality TLS SNI", "SNI для Reality"),
+				Detail: ph("SNI camouflage for VPN (e.g. api.vk.me).", "Маскировка VPN, напр. api.vk.me.")},
+			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "no",
+				Short: ph("Install Docker Lampac", "Поставить Lampac в Docker"),
+				Detail: ph("Optional. Binds to 127.0.0.1:9118 only.", "Опционально. Только 127.0.0.1:9118.")},
 		}
 	case "secondary":
 		return []wizField{
-			{Key: "host", Label: "Secondary host / IP"},
-			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root"},
-			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true},
-			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me"},
-			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (primary key)", Secret: true},
+			{Key: "host", Label: "Secondary host / IP",
+				Short: ph("RU VPS address", "Адрес РФ VPS"),
+				Detail: ph("VPN entry only. Primary must already be set in TUI.", "Только VPN entry. Primary уже должен быть в TUI.")},
+			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root", Short: "SSH", Detail: ph("First login user.", "Пользователь первого входа.")},
+			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true,
+				Short: ph("First SSH password", "Пароль первого SSH"),
+				Detail: ph("Mac pubkey installed; password auth then off.", "Ставится pubkey Mac; пароль отключается.")},
+			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me", Short: "Reality SNI", Detail: ph("Usually same as primary.", "Обычно как на primary.")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (primary key)", Secret: true,
+				Short: ph("If primary key has passphrase", "Если ключ primary с фразой"),
+				Detail: ph("Unlocks Mac private key when SSHing to primary during provision.", "Нужна, чтобы с Mac ходить на primary при provision.")},
 		}
 	case "openwrt":
 		srv := "https://PRIMARY:8789"
@@ -52,38 +85,51 @@ func wizBuildFields(id string, m *model) []wizField {
 			srv = "https://" + s.RemoteHost + ":8789"
 		}
 		return []wizField{
-			{Key: "router", Label: "Router LAN IP", Value: "192.168.1.1"},
-			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true},
-			{Key: "id", Label: FormT(lang, "edge_device_id"), Value: orDefault(s.LastEdgeID, "edge-1")},
-			{Key: "arch", Label: "Agent arch", Value: "arm64"},
-			{Key: "server", Label: "Primary mTLS URL", Value: srv},
-			{Key: "net", Label: "Configure network? (yes/no)", Value: "no"},
-			{Key: "lan_ip", Label: "LAN IP", Value: "192.168.50.1"},
-			{Key: "wifi_ssid", Label: "Wi-Fi SSID 2.4"},
-			{Key: "wifi_key", Label: "Wi-Fi password", Secret: true},
-			{Key: "wan_proto", Label: "WAN (dhcp|static|pppoe)", Value: "dhcp"},
-			{Key: "guest", Label: "Guest Wi-Fi? (yes/no)", Value: "no"},
-			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (primary key)", Secret: true},
+			{Key: "router", Label: "Router LAN IP", Value: "192.168.1.1",
+				Short: ph("Current SSH reachability IP", "IP, куда сейчас ходит SSH"),
+				Detail: ph("Must be reachable from this Mac over LAN.", "Должен быть доступен с Mac по LAN.")},
+			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true, Short: "root password", Detail: ph("OpenWrt root password.", "Пароль root OpenWrt.")},
+			{Key: "id", Label: FormT(lang, "edge_device_id"), Value: orDefault(s.LastEdgeID, "edge-1"),
+				Short: ph("Stable edge id", "Стабильный id edge"),
+				Detail: ph("Used for enroll/approve on primary.", "Для enroll/approve на primary.")},
+			{Key: "arch", Label: "Agent arch", Value: "arm64", Short: "arm64 / armv7 / …", Detail: ph("Match router CPU.", "Под CPU роутера.")},
+			{Key: "server", Label: "Primary mTLS URL", Value: srv,
+				Short: "https://PRIMARY:8789",
+				Detail: ph("Agent plane. Must be reachable from the router.", "Agent plane. Должен быть доступен с роутера.")},
+			{Key: "net", Label: "Configure network? (yes/no)", Value: "no",
+				Short: ph("Apply LAN/Wi-Fi/WAN now", "Применить LAN/Wi-Fi/WAN сейчас"),
+				Detail: ph("If yes, fill LAN/Wi-Fi/WAN fields below.", "Если yes — заполните поля сети ниже.")},
+			{Key: "lan_ip", Label: "LAN IP", Value: "192.168.50.1", Short: ph("New router address", "Новый адрес роутера"),
+				Detail: ph("Prefer different subnets per site.", "На разных точках лучше разные подсети.")},
+			{Key: "wifi_ssid", Label: "Wi-Fi SSID 2.4", Short: "2.4 GHz", Detail: ph("Empty 5 GHz inherits 2.4.", "Пустой 5 GHz = как 2.4.")},
+			{Key: "wifi_key", Label: "Wi-Fi password", Secret: true, Short: "PSK", Detail: ph("WPA2/3 key.", "Ключ WPA.")},
+			{Key: "wan_proto", Label: "WAN (dhcp|static|pppoe)", Value: "dhcp", Short: "WAN type", Detail: ph("Provider uplink type.", "Тип uplink провайдера.")},
+			{Key: "guest", Label: "Guest Wi-Fi? (yes/no)", Value: "no", Short: "Guest SSID", Detail: ph("Optional captive guest network.", "Опциональная гостевая сеть.")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (primary key)", Secret: true, Short: "Mac key", Detail: ph("If primary key is encrypted.", "Если ключ primary с фразой.")},
 		}
 	case "nvr":
 		return []wizField{
-			{Key: "action", Label: "Action (leases|add|probe|rec-start|rec-stop|status)", Value: "status"},
-			{Key: "device_id", Label: FormT(lang, "edge_device_id"), Value: s.LastEdgeID},
-			{Key: "cam_name", Label: FormT(lang, "cam_name")},
-			{Key: "cam_ip", Label: FormT(lang, "cam_ip")},
-			{Key: "cam_pass", Label: FormT(lang, "cam_pass"), Secret: true},
+			{Key: "action", Label: "Action (leases|add|probe|rec-start|rec-stop|status)", Value: "status",
+				Short: ph("NVR operation", "Операция NVR"),
+				Detail: ph("Runs against primary (remote in settings).", "Через primary из настроек.")},
+			{Key: "device_id", Label: FormT(lang, "edge_device_id"), Value: s.LastEdgeID, Short: "edge id", Detail: ph("For DHCP leases on edge.", "Для DHCP leases на edge.")},
+			{Key: "cam_name", Label: FormT(lang, "cam_name"), Short: "camera id/name", Detail: ph("Used by add/probe/record.", "Для add/probe/record.")},
+			{Key: "cam_ip", Label: FormT(lang, "cam_ip"), Short: "LAN IP", Detail: ph("Camera address on site LAN.", "IP камеры в LAN.")},
+			{Key: "cam_pass", Label: FormT(lang, "cam_pass"), Secret: true, Short: "cam password", Detail: ph("Tapo/account password as configured.", "Пароль камеры/аккаунта.")},
 		}
 	case "addons":
 		return []wizField{
-			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "yes"},
-			{Key: "key_pass", Label: FormT(lang, "key_passphrase"), Secret: true},
+			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "yes",
+				Short: "Docker on primary",
+				Detail: ph("Installs lampac bound to localhost only.", "Ставит lampac только на localhost.")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase"), Secret: true, Short: "primary key", Detail: ph("If key has passphrase.", "Если ключ с фразой.")},
 		}
 	case "mikrotik":
 		return []wizField{
-			{Key: "host", Label: "MikroTik host"},
-			{Key: "user", Label: "User", Value: "admin"},
-			{Key: "password", Label: "Password", Secret: true},
-			{Key: "name", Label: "Site name"},
+			{Key: "host", Label: "MikroTik host", Short: "ROS IP", Detail: ph("RouterOS management address.", "Адрес управления ROS.")},
+			{Key: "user", Label: "User", Value: "admin", Short: "API/SSH user", Detail: "admin"},
+			{Key: "password", Label: "Password", Secret: true, Short: "ROS password", Detail: ph("First connection.", "Первое подключение.")},
+			{Key: "name", Label: "Site name", Short: "logical site", Detail: ph("Stored site id.", "Имя сайта.")},
 		}
 	default:
 		return nil

@@ -1,3 +1,7 @@
+## 0.8.62
+
+- TUI Wizard: menu-style split layout — short hints + right detail pane for all field steps
+
 ## 0.8.61
 
 - TUI Wizard: multi-step fields **inside** framed UI (no external huh window)
