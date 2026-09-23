@@ -3,6 +3,7 @@ package probes
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"path/filepath"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -16,7 +17,7 @@ func Default() map[string]any {
 			map[string]any{"name": "dns-blocky", "type": "tcp", "host": "127.0.0.1", "port": 53, "timeout": 2},
 			map[string]any{"name": "vless", "type": "tcp", "host": "127.0.0.1", "port": 443, "timeout": 2},
 			map[string]any{"name": "hy2", "type": "udp", "host": "127.0.0.1", "port": 8443, "timeout": 2},
-			map[string]any{"name": "api-health", "type": "http", "url": "https://127.0.0.1:8787/health", "insecure": true, "timeout": 3},
+			map[string]any{"name": "api-health", "type": "http", "url": "http://127.0.0.1:8787/health", "timeout": 3},
 		},
 		"alerts": map[string]any{
 			"cpu_pct": 90, "mem_pct": 92, "disk_pct": 90,
@@ -36,7 +37,37 @@ func Load() map[string]any {
 	if json.Unmarshal(b, &m) != nil {
 		return Default()
 	}
+	// migrate: API is HTTP-only on loopback; old defaults used https://
+	if fixAPIHealthHTTPS(m) {
+		_ = Save(m)
+	}
 	return m
+}
+
+func fixAPIHealthHTTPS(m map[string]any) bool {
+	probes, ok := m["probes"].([]any)
+	if !ok {
+		return false
+	}
+	changed := false
+	for i, p := range probes {
+		pm, ok := p.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := pm["name"].(string)
+		url, _ := pm["url"].(string)
+		if name == "api-health" && strings.HasPrefix(url, "https://127.0.0.1:8787") {
+			pm["url"] = "http://127.0.0.1:8787/health"
+			delete(pm, "insecure")
+			probes[i] = pm
+			changed = true
+		}
+	}
+	if changed {
+		m["probes"] = probes
+	}
+	return changed
 }
 
 func Save(cfg map[string]any) error {

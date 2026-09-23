@@ -1,3 +1,7 @@
+## 0.8.55
+
+- probes: api-health default **http://127.0.0.1:8787/health** (API is HTTP-only); migrate old https defaults
+
 ## 0.8.54
 
 - TG: restore in-body rich `<tg-button>` (Access/hub); warn if REDIRECT_BASE unset
