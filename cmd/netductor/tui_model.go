@@ -20,6 +20,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.helpY = msg.Height - 2
 		return m, nil
 	case tea.MouseMsg:
+		// Wheel scroll log inside wizard run
+		if m.screen == screenWizard && m.wizStep == wizStepRun && m.wizViewMode != "steps" {
+			if msg.Button == tea.MouseButtonWheelUp {
+				m.wizLogOffset++
+				return m, nil
+			}
+			if msg.Button == tea.MouseButtonWheelDown {
+				if m.wizLogOffset > 0 {
+					m.wizLogOffset--
+				}
+				return m, nil
+			}
+		}
 		if msg.Button != tea.MouseButtonLeft {
 			return m, nil
 		}

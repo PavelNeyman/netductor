@@ -77,13 +77,7 @@ func (m *model) renderWizard() string {
 	h := max(8, m.height)
 	ru := m.lang == langRU
 	header := m.renderHeader()
-	helpChips := []helpChip{
-		{"Esc", map[bool]string{true: "назад", false: "back"}[ru]},
-		{"↵", map[bool]string{true: "далее", false: "next"}[ru]},
-		{"↑↓", map[bool]string{true: "поле", false: "field"}[ru]},
-		{"L", map[bool]string{true: "язык", false: "lang"}[ru]},
-		{"^C", map[bool]string{true: "выход", false: "quit"}[ru]},
-	}
+	helpChips := m.wizardHelpChips(ru)
 	var chips strings.Builder
 	for _, c := range helpChips {
 		chips.WriteString(renderChip(c))
@@ -109,29 +103,31 @@ func (m *model) renderWizard() string {
 	case wizStepRun:
 		ru2 := m.lang == langRU
 		title := "Running · " + string(m.wizTarget)
-		hint := "p = progress · l = log · Enter/Esc when done"
 		if ru2 {
 			title = "Выполнение · " + string(m.wizTarget)
-			hint = "p = прогресс · l = лог · Enter/Esc когда готово"
 		}
+		var statusLine string
 		if m.wizRunning {
-			if ru2 {
-				hint = "Идёт работа…  p/l переключить вид"
-			} else {
-				hint = "In progress…  p/l switch view"
-			}
+			statusLine = map[bool]string{true: "Идёт работа… p=прогресс o=лог ↑↓=скролл", false: "In progress… p=progress o=log ↑↓=scroll"}[ru2]
+		} else {
+			statusLine = map[bool]string{
+				true:  "Готово. Enter или Esc — в главное меню · p/o · ↑↓ скролл лога",
+				false: "Done. Enter or Esc — main menu · p/o · ↑↓ scroll log",
+			}[ru2]
 		}
-		head2 := stTitle.Render(title) + "\n" + stMuted.Render(hint) + "\n"
+		head2 := stTitle.Render(title) + "\n" + stMuted.Render(statusLine) + "\n"
 		var content string
 		if m.wizViewMode == "steps" {
-			content = m.renderWizardStepsView(w - 4)
+			content = m.renderWizardStepsView(w - 6)
 		} else {
-			content = m.wizMsg
+			content = m.scrollableLog(max(3, bodyH-6))
 		}
-		logBody := lipgloss.NewStyle().Width(w - 4).Height(max(3, bodyH-5)).MaxHeight(max(3, bodyH-5)).Render(head2 + content)
-		body = stBorder.Width(w).Height(bodyH).MaxHeight(bodyH).Render(
-			lipgloss.NewStyle().Width(w-2).Height(bodyH-2).Render(logBody),
-		)
+		innerH := bodyH - 2
+		if innerH < 3 {
+			innerH = 3
+		}
+		inner := lipgloss.NewStyle().Width(w - 4).Height(innerH).MaxHeight(innerH).Render(head2 + content)
+		body = stBorder.Width(w).Height(bodyH).MaxHeight(bodyH).Render(inner)
 	default:
 		body = ""
 	}
@@ -253,9 +249,9 @@ func (m *model) renderWizardSplitFields(bodyH, w int) string {
 
 func (m *model) renderWizardConfirm(bodyH, w int) string {
 	ru := m.lang == langRU
-	msg := "Enter = run deploy · Esc = edit fields"
+	msg := "Ctrl+R or Enter = START deploy · Esc = edit fields"
 	if ru {
-		msg = "Enter = запуск · Esc = править поля"
+		msg = "Ctrl+R или Enter = ЗАПУСК · Esc = править поля"
 	}
 	leftW := w * 2 / 5
 	if leftW < 30 {
@@ -281,7 +277,7 @@ func (m *model) renderWizardConfirm(bodyH, w int) string {
 	}
 	leftBody := lipgloss.NewStyle().Width(leftW).Height(bodyH).MaxHeight(bodyH).Render(strings.Join(leftLines, "\n"))
 	sum := map[bool]string{
-		true:  "Проверьте значения слева.\n\nEnter — выполнить деплой.\nEsc — вернуться к полям.",
+		true:  "Проверьте значения слева.\n\nCtrl+R или Enter — ЗАПУСТИТЬ деплой.\nEsc — к полям.\n\nПосле успеха: doctor / status.",
 		false: "Review values on the left.\n\nEnter — run deploy.\nEsc — back to fields.",
 	}[ru]
 	detail := stDetail.Width(rightW - 2).Render(stTitle.Render(map[bool]string{true: "Подтверждение", false: "Confirm"}[ru]) + "\n\n" + sum)
@@ -308,7 +304,7 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if msg.OK {
-			m.wizMsg += TT(m.lang, "\n✓ Done. Enter = menu · Esc = menu\n", "\n✓ Готово. Enter = меню · Esc = меню\n")
+			m.wizMsg += TT(m.lang, "\n\n══════════════════════════════════════\n✓ Install/setup finished.\n  Press Enter or Esc → main menu\n  Then: Tools → doctor / status to verify\n══════════════════════════════════════\n", "\n\n══════════════════════════════════════\n✓ Установка/настройка завершена.\n  Enter или Esc → главное меню\n  Далее: Инструменты → doctor / status\n══════════════════════════════════════\n")
 		} else {
 			m.wizMsg += TT(m.lang, "\n✗ Failed. Enter / Esc = back\n", "\n✗ Ошибка. Enter / Esc = назад\n")
 		}
@@ -326,6 +322,11 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			m.result = tuiResult{action: "quit", mode: m.mode}
 			return m, tea.Quit
+		case "ctrl+r", "ctrl+R":
+			if m.wizStep == wizStepConfirm {
+				return m.wizardEnter()
+			}
+			return m, nil
 		case "p":
 			if m.wizStep == wizStepRun {
 				m.wizViewMode = "steps"
@@ -334,6 +335,31 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "o":
 			if m.wizStep == wizStepRun {
 				m.wizViewMode = "log"
+				return m, nil
+			}
+		case "pgup":
+			if m.wizStep == wizStepRun && m.wizViewMode != "steps" {
+				m.wizLogOffset += 10
+				return m, nil
+			}
+		case "pgdown", "ctrl+d":
+			if m.wizStep == wizStepRun && m.wizViewMode != "steps" {
+				m.wizLogOffset -= 10
+				if m.wizLogOffset < 0 {
+					m.wizLogOffset = 0
+				}
+				return m, nil
+			}
+		case "home":
+			if m.wizStep == wizStepRun {
+				// jump to top of log
+				n := strings.Count(m.wizMsg, "\n")
+				m.wizLogOffset = n
+				return m, nil
+			}
+		case "end":
+			if m.wizStep == wizStepRun {
+				m.wizLogOffset = 0
 				return m, nil
 			}
 		case "l", "L":
@@ -379,6 +405,10 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "up", "k":
+			if m.wizStep == wizStepRun && m.wizViewMode != "steps" {
+				m.wizLogOffset++
+				return m, nil
+			}
 			if m.wizStep == wizStepFields && m.wizFieldIdx > 0 {
 				m.wizFields[m.wizFieldIdx].Value = m.wizInput
 				m.wizFieldIdx--
@@ -386,6 +416,12 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "down", "j":
+			if m.wizStep == wizStepRun && m.wizViewMode != "steps" {
+				if m.wizLogOffset > 0 {
+					m.wizLogOffset--
+				}
+				return m, nil
+			}
 			if m.wizStep == wizStepFields && m.wizFieldIdx < len(m.wizFields)-1 {
 				m.wizFields[m.wizFieldIdx].Value = m.wizInput
 				m.wizFieldIdx++
@@ -401,6 +437,10 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "ctrl+u":
+			if m.wizStep == wizStepRun && m.wizViewMode != "steps" {
+				m.wizLogOffset += 10
+				return m, nil
+			}
 			if m.wizStep == wizStepFields {
 				m.wizInput = ""
 			}
@@ -526,3 +566,88 @@ func stripFieldNewlines(s string) string {
 	s = strings.ReplaceAll(s, "\n", "")
 	return s
 }
+
+
+func (m model) wizardHelpChips(ru bool) []helpChip {
+	L := func(en, r string) string {
+		if ru {
+			return r
+		}
+		return en
+	}
+	switch m.wizStep {
+	case wizStepFields:
+		return []helpChip{
+			{"Esc", L("back", "назад")},
+			{"↵", L("next field", "след. поле")},
+			{"↑↓", L("field", "поле")},
+			{"L", L("lang", "язык")},
+			{"^C", L("quit", "выход")},
+		}
+	case wizStepConfirm:
+		return []helpChip{
+			{"^R", L("START", "ЗАПУСК")},
+			{"↵", L("START", "ЗАПУСК")},
+			{"Esc", L("edit", "править")},
+			{"L", L("lang", "язык")},
+			{"^C", L("quit", "выход")},
+		}
+	case wizStepRun:
+		chips := []helpChip{
+			{"p", L("progress", "прогресс")},
+			{"o", L("log", "лог")},
+			{"↑↓", L("scroll", "скролл")},
+		}
+		if !m.wizRunning {
+			chips = append([]helpChip{{"↵/Esc", L("main menu", "в меню")}}, chips...)
+		}
+		chips = append(chips, helpChip{"L", L("lang", "язык")}, helpChip{"^C", L("quit", "выход")})
+		return chips
+	default:
+		return []helpChip{
+			{"Esc", L("back", "назад")},
+			{"↵", L("next", "далее")},
+			{"L", L("lang", "язык")},
+			{"^C", L("quit", "выход")},
+		}
+	}
+}
+
+func (m model) scrollableLog(maxLines int) string {
+	if maxLines < 1 {
+		maxLines = 1
+	}
+	lines := strings.Split(m.wizMsg, "\n")
+	// drop trailing empty from final newline
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	n := len(lines)
+	if n == 0 {
+		return stMuted.Render(map[bool]string{true: "(лог пуст)", false: "(empty log)"}[m.lang == langRU])
+	}
+	off := m.wizLogOffset
+	if off < 0 {
+		off = 0
+	}
+	// off=0 means show tail
+	end := n - off
+	if end < 1 {
+		end = 1
+	}
+	if end > n {
+		end = n
+	}
+	start := end - maxLines
+	if start < 0 {
+		start = 0
+	}
+	chunk := lines[start:end]
+	out := strings.Join(chunk, "\n")
+	if start > 0 || off > 0 {
+		more := map[bool]string{true: "… ↑ есть выше · ↓ ниже", false: "… ↑ more above · ↓ below"}[m.lang == langRU]
+		out = stMuted.Render(more) + "\n" + out
+	}
+	return out
+}
+
