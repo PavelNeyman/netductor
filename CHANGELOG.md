@@ -1,3 +1,7 @@
+## Formula
+
+- Homebrew: pin **0.8.57** with real SHA256 (no `:no_check`)
+
 ## Docs
 
 - DEPLOY-WORKSTATION + handoff + OPEN_ITEMS locked to **v0.8.57** (TUI flow, recover e2e)
