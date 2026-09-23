@@ -119,9 +119,15 @@ func wizBuildFields(id string, m *model) []wizField {
 		}
 	case "addons":
 		return []wizField{
-			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "yes",
-				Short: "Docker on primary",
-				Detail: ph("Installs lampac bound to localhost only.", "Ставит lampac только на localhost.")},
+			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "no",
+				Short: ph("Media/Lampa stack", "Стек Lampac"),
+				Detail: ph("Docker on primary, bind 127.0.0.1:9118 only.", "Docker на primary, только 127.0.0.1:9118.")},
+			{Key: "telegram", Label: "Telegram bot (yes/no)", Value: "no",
+				Short: ph("Reinstall/restart TG bot unit", "Переустановить/рестарт TG-бота"),
+				Detail: ph("Requires secrets/telegram_bot_token already on primary.", "Нужен secrets/telegram_bot_token на primary.")},
+			{Key: "go2rtc", Label: "go2rtc NVR helper (yes/no)", Value: "no",
+				Short: ph("Optional stream helper", "Опциональный stream helper"),
+				Detail: ph("Placeholder — full go2rtc path after hardware e2e.", "Заглушка — полный путь после hardware e2e.")},
 			{Key: "key_pass", Label: FormT(lang, "key_passphrase"), Secret: true, Short: "primary key", Detail: ph("If key has passphrase.", "Если ключ с фразой.")},
 		}
 	case "mikrotik":
@@ -208,18 +214,40 @@ func (m model) runWizardApplyInTUI() string {
 		default:
 			return mm.runNetductor("nvr", "status")
 		}
-	case "addons":
+		case "addons":
 		if s.RemoteHost == "" || s.RemoteKey == "" {
 			return FormT(lang, "set_primary_first")
 		}
-		if !yesish(m.fieldVal("lampac")) {
-			return TT(lang, "Nothing selected.", "Ничего не выбрано.")
+		var parts []string
+		pass := m.fieldVal("key_pass")
+		user := orDefault(s.RemoteUser, "root")
+		any := false
+		if yesish(m.fieldVal("lampac")) {
+			any = true
+			out, err := deploy.RunOnPrimary(s.RemoteHost, user, s.RemoteKey, pass, "netductor install lampac")
+			parts = append(parts, "=== lampac ===", out)
+			if err != nil {
+				parts = append(parts, err.Error())
+			}
 		}
-		out, err := deploy.RunOnPrimary(s.RemoteHost, orDefault(s.RemoteUser, "root"), s.RemoteKey, m.fieldVal("key_pass"), "netductor install lampac")
-		if err != nil {
-			return out + "\n" + err.Error()
+		if yesish(m.fieldVal("telegram")) {
+			any = true
+			out, err := deploy.RunOnPrimary(s.RemoteHost, user, s.RemoteKey, pass,
+				"netductor install telegram; systemctl restart netductor-telegram-bot || true; systemctl is-active netductor-telegram-bot || true")
+			parts = append(parts, "=== telegram ===", out)
+			if err != nil {
+				parts = append(parts, err.Error())
+			}
 		}
-		return out + "\n" + TT(lang, "Lampac install finished.", "Lampac установлен.")
+		if yesish(m.fieldVal("go2rtc")) {
+			any = true
+			parts = append(parts, "=== go2rtc ===",
+				TT(lang, "go2rtc addon not fully wired yet (planned after hardware e2e).", "go2rtc пока в плане после hardware e2e."))
+		}
+		if !any {
+			return TT(lang, "Nothing selected (all no).", "Ничего не выбрано (везде no).")
+		}
+		return strings.Join(parts, "\n")
 	case wizMikroTik:
 		return TT(lang, "MikroTik: use Ops/CLI for full site push", "MikroTik: Ops/CLI")
 	default:

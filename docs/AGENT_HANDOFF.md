@@ -1,3 +1,8 @@
+## 0.8.69
+
+- Release includes **netductor-tg** binaries (bot was inactive because asset missing).
+- TUI Add-ons: multi-select lampac/telegram/go2rtc.
+
 ## Next (product)
 
 - **Add-ons multi-select** in TUI (per-addon yes/no, not install-all). See OPEN_ITEMS.

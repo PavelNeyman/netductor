@@ -1,3 +1,8 @@
+## 0.8.69
+
+- **Fix:** publish `netductor-tg-linux-*` on releases; InstallTelegram clearer fallback; primary deploy ensures bot after secrets
+- **TUI Add-ons multi-select:** Lampac / Telegram / go2rtc (placeholder) each yes/no independently
+
 - Plan: TUI Add-ons multi-select (per component), not all-or-nothing
 
 ## 0.8.67

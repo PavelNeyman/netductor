@@ -136,6 +136,15 @@ chmod 755 /usr/local/bin/netductor
 		if err != nil {
 			return fmt.Errorf("install: %w", err)
 		}
+		// Secrets may exist before install; re-run telegram so unit starts with netductor-tg binary
+		if o.TelegramToken != "" {
+			fmt.Fprintln(os.Stderr, "==> ensure telegram bot unit")
+			out, err = runSSH("", keyPath, o.User, o.Host, "netductor install telegram; systemctl restart netductor-telegram-bot || true; systemctl is-active netductor-telegram-bot || true", o.KeyPassphrase)
+			fmt.Print(out)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "warn telegram ensure:", err)
+			}
+		}
 		if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
 			_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 			fmt.Fprintln(os.Stderr, "==> post-harden SSH port 52222")

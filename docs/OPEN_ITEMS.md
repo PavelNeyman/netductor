@@ -12,7 +12,7 @@ Baseline: **v0.8.67+** (TUI stream/progress).
 
 
 ## Product / TUI (next)
-1. **Add-ons multi-select menu** — not all-or-nothing. Operator picks which add-ons to install (e.g. Lampac yes/no, future: go2rtc, others) in Wizard **Add-ons** and optionally in Primary wizard section. Checklist UI; persist choices in TUI settings if useful.
+1. **Add-ons multi-select menu** — **done in 0.8.69** (Lampac / Telegram / go2rtc placeholder per yes/no). Persist choices later if needed.
 
 ## Optional later
 - Path B user-bot

@@ -164,21 +164,35 @@ func InstallTelegram() error {
 	dest := filepath.Join(paths.OptDir(), "bin", "netductor-tg")
 	_ = os.MkdirAll(filepath.Dir(dest), 0o755)
 	tmp := dest + ".tmp"
+	haveBin := false
 	if err := httpDownload(url, tmp); err != nil {
-		fmt.Fprintf(os.Stderr, "telegram binary download: %v — trying local\n", err)
-		for _, src := range []string{"/usr/local/bin/netductor-tg", "/tmp/netductor-tg.bin"} {
+		fmt.Fprintf(os.Stderr, "telegram binary download: %v — trying local/fallback\n", err)
+		for _, src := range []string{
+			"/usr/local/bin/netductor-tg",
+			"/opt/netductor/bin/netductor-tg",
+			"/tmp/netductor-tg.bin",
+			dest,
+		} {
 			if b, e := os.ReadFile(src); e == nil && len(b) > 1000 {
 				_ = os.WriteFile(tmp, b, 0o755)
-				err = nil
+				haveBin = true
 				break
 			}
 		}
-		if err != nil {
+		if !haveBin {
+			fmt.Fprintln(os.Stderr, "telegram: netductor-tg binary missing (not in release assets / local). Unit skipped.")
+			fmt.Fprintln(os.Stderr, "  Fix: publish netductor-tg-linux-"+a+" on GitHub release, then: netductor install telegram")
 			return nil
 		}
+	} else {
+		haveBin = true
+	}
+	if !haveBin {
+		return nil
 	}
 	_ = os.Chmod(tmp, 0o755)
 	_ = os.Rename(tmp, dest)
+	_ = os.Remove("/usr/local/bin/netductor-tg")
 	_ = os.Symlink(dest, "/usr/local/bin/netductor-tg")
 	unit := fmt.Sprintf(`[Unit]
 Description=Netductor Telegram bot
@@ -205,5 +219,10 @@ WantedBy=multi-user.target
 	if _, e2 := os.Stat(chat); e2 != nil {
 		fmt.Fprintln(os.Stderr, "telegram_admin_id missing — set secrets/telegram_admin_id (or NETDUCTOR_TG_ADMIN)")
 	}
-	return enableStart("netductor-telegram-bot")
+	if err := enableStart("netductor-telegram-bot"); err != nil {
+		return err
+	}
+	// ensure running after install
+	_ = run("systemctl", "restart", "netductor-telegram-bot")
+	return nil
 }
