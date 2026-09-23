@@ -107,7 +107,23 @@ func (m *model) renderWizard() string {
 	case wizStepConfirm:
 		body = m.renderWizardConfirm(bodyH, w)
 	case wizStepRun:
-		body = lipgloss.NewStyle().Width(w - 2).Height(bodyH).MaxHeight(bodyH).Render(m.wizMsg)
+		ru2 := m.lang == langRU
+		title := "Running · " + string(m.wizTarget)
+		hint := "Deploy log inside TUI. When done: Enter/Esc."
+		if ru2 {
+			title = "Выполнение · " + string(m.wizTarget)
+			hint = "Лог внутри TUI. После завершения: Enter/Esc."
+			if m.wizRunning {
+				hint = "Идёт работа… не закрывайте окно."
+			}
+		} else if m.wizRunning {
+			hint = "In progress… do not close."
+		}
+		head2 := stTitle.Render(title) + "\n" + stMuted.Render(hint) + "\n\n"
+		logBody := lipgloss.NewStyle().Width(w - 4).Height(max(3, bodyH-5)).MaxHeight(max(3, bodyH-5)).Render(m.wizMsg)
+		body = stBorder.Width(w).Height(bodyH).MaxHeight(bodyH).Render(
+			lipgloss.NewStyle().Width(w-2).Height(bodyH-2).Render(head2+logBody),
+		)
 	default:
 		body = ""
 	}
@@ -269,6 +285,26 @@ func (m *model) renderWizardConfirm(bodyH, w int) string {
 
 func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case wizLogMsg:
+		m.wizMsg += msg.Line
+		if len(m.wizMsg) > 12000 {
+			m.wizMsg = m.wizMsg[len(m.wizMsg)-10000:]
+		}
+		return m, nil
+	case wizDoneMsg:
+		if msg.Text != "" {
+			m.wizMsg += msg.Text
+			if !strings.HasSuffix(m.wizMsg, "\n") {
+				m.wizMsg += "\n"
+			}
+		}
+		if msg.OK {
+			m.wizMsg += TT(m.lang, "\n✓ Done. Enter = menu · Esc = menu\n", "\n✓ Готово. Enter = меню · Esc = меню\n")
+		} else {
+			m.wizMsg += TT(m.lang, "\n✗ Failed. Enter / Esc = back\n", "\n✗ Ошибка. Enter / Esc = назад\n")
+		}
+		m.wizRunning = false
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -379,25 +415,29 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 		m.wizStep = wizStepConfirm
 		return m, nil
 	case wizStepConfirm:
-		// Exit alt-screen; run huh outside Bubble Tea (see runTUI switch).
 		if string(m.wizTarget) == "remote" {
 			m.remoteHost = m.fieldVal("host")
 			m.remoteUser = orDefault(m.fieldVal("user"), "root")
-			m.output = "remote = " + m.remoteLabel() + "\n(SSH key in agent; BatchMode=yes)"
-			m.screen = screenOutput
-			m.tab = tabTools
-			m.wizStep = wizStepTarget
+			m.wizMsg = "remote = " + m.remoteLabel() + "\n(SSH key in agent; BatchMode=yes)"
+			m.wizStep = wizStepRun
+			m.wizRunning = false
+			m.screen = screenWizard
 			return m, nil
 		}
-		m.output = m.runWizardApplyInTUI()
-		m.screen = screenOutput
-		m.tab = tabWizard
-		m.wizStep = wizStepTarget
-		return m, nil
+		m.wizMsg = TT(m.lang, "Working… please wait.\n", "Работаю… подождите.\n")
+		m.wizStep = wizStepRun
+		m.wizRunning = true
+		m.screen = screenWizard
+		return m, startWizardDeployCmd(m)
 	case wizStepRun:
+		if m.wizRunning {
+			return m, nil
+		}
+		m.wizStep = wizStepTarget
+		m.wizMsg = ""
 		m.screen = screenMenu
 		m.tab = tabWizard
-		m.wizStep = wizStepTarget
+		m.cursor = 0
 		return m, nil
 	}
 	return m, nil

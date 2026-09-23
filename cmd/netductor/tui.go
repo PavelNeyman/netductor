@@ -156,6 +156,7 @@ type model struct {
 	wizFieldIdx    int
 	wizInput       string
 	wizMsg         string
+	wizRunning     bool
 	remoteHost     string
 	remoteUser     string
 	remoteKey      string

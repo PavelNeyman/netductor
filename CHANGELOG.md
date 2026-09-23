@@ -1,3 +1,7 @@
+## 0.8.65
+
+- TUI Wizard: deploy runs **inside** framed UI (async log pane, no bare Output screen)
+
 ## 0.8.64
 
 - SSH deploy: clear stale known_hosts before connect (fixes exit 255 after VPS reinstall)
