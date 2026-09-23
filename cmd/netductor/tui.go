@@ -157,6 +157,8 @@ type model struct {
 	wizInput       string
 	wizMsg         string
 	wizRunning     bool
+	wizViewMode    string // "log" | "steps"
+	wizSteps       []wizProgStep
 	remoteHost     string
 	remoteUser     string
 	remoteKey      string

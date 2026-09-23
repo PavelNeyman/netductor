@@ -9,3 +9,7 @@
 5. Do not add new `runTUI` post-quit huh hooks.
 
 See also AGENT_HANDOFF.
+
+## Progress UI
+During long runs: default view = checklist + progress bar. Toggle with `p` (progress) / `o` (log stream). Line-streamed from process stderr/stdout.
+

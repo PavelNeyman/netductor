@@ -1,3 +1,8 @@
+## 0.8.67
+
+- TUI deploy: **line-by-line stream** + **checklist/progress bar**
+- Toggle views: **p** = progress/checklist, **o** = log (not both at once)
+
 ## 0.8.66
 
 - **TUI integrity rule** locked (`docs/TUI-RULES.md`): no external huh/quit for operator flows

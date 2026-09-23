@@ -109,20 +109,28 @@ func (m *model) renderWizard() string {
 	case wizStepRun:
 		ru2 := m.lang == langRU
 		title := "Running · " + string(m.wizTarget)
-		hint := "Deploy log inside TUI. When done: Enter/Esc."
+		hint := "p = progress · l = log · Enter/Esc when done"
 		if ru2 {
 			title = "Выполнение · " + string(m.wizTarget)
-			hint = "Лог внутри TUI. После завершения: Enter/Esc."
-			if m.wizRunning {
-				hint = "Идёт работа… не закрывайте окно."
-			}
-		} else if m.wizRunning {
-			hint = "In progress… do not close."
+			hint = "p = прогресс · l = лог · Enter/Esc когда готово"
 		}
-		head2 := stTitle.Render(title) + "\n" + stMuted.Render(hint) + "\n\n"
-		logBody := lipgloss.NewStyle().Width(w - 4).Height(max(3, bodyH-5)).MaxHeight(max(3, bodyH-5)).Render(m.wizMsg)
+		if m.wizRunning {
+			if ru2 {
+				hint = "Идёт работа…  p/l переключить вид"
+			} else {
+				hint = "In progress…  p/l switch view"
+			}
+		}
+		head2 := stTitle.Render(title) + "\n" + stMuted.Render(hint) + "\n"
+		var content string
+		if m.wizViewMode == "steps" {
+			content = m.renderWizardStepsView(w - 4)
+		} else {
+			content = m.wizMsg
+		}
+		logBody := lipgloss.NewStyle().Width(w - 4).Height(max(3, bodyH-5)).MaxHeight(max(3, bodyH-5)).Render(head2 + content)
 		body = stBorder.Width(w).Height(bodyH).MaxHeight(bodyH).Render(
-			lipgloss.NewStyle().Width(w-2).Height(bodyH-2).Render(head2+logBody),
+			lipgloss.NewStyle().Width(w-2).Height(bodyH-2).Render(logBody),
 		)
 	default:
 		body = ""
@@ -290,7 +298,8 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.wizMsg) > 12000 {
 			m.wizMsg = m.wizMsg[len(m.wizMsg)-10000:]
 		}
-		return m, nil
+		m.applyLogLine(msg.Line)
+		return m, listenWizardStream()
 	case wizDoneMsg:
 		if msg.Text != "" {
 			m.wizMsg += msg.Text
@@ -304,6 +313,12 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.wizMsg += TT(m.lang, "\n✗ Failed. Enter / Esc = back\n", "\n✗ Ошибка. Enter / Esc = назад\n")
 		}
 		m.wizRunning = false
+		if msg.OK {
+			for i := range m.wizSteps {
+				m.wizSteps[i].Done = true
+				m.wizSteps[i].Active = false
+			}
+		}
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -311,6 +326,16 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			m.result = tuiResult{action: "quit", mode: m.mode}
 			return m, tea.Quit
+		case "p":
+			if m.wizStep == wizStepRun {
+				m.wizViewMode = "steps"
+				return m, nil
+			}
+		case "o":
+			if m.wizStep == wizStepRun {
+				m.wizViewMode = "log"
+				return m, nil
+			}
 		case "l", "L":
 			return m.toggleLang()
 		case "tab":
@@ -433,6 +458,8 @@ func (m model) wizardEnter() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.wizMsg = TT(m.lang, "Working… please wait.\n", "Работаю… подождите.\n")
+		m.wizSteps = wizStepsForTarget(m.wizTarget, m.lang)
+		m.wizViewMode = "steps"
 		m.wizStep = wizStepRun
 		m.wizRunning = true
 		m.screen = screenWizard
