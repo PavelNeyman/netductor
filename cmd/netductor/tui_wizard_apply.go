@@ -54,12 +54,6 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (empty=none)", Secret: true,
 				Short: ph("Optional key encryption", "Опциональная фраза ключа"),
 				Detail: ph("Leave empty for no passphrase. Needed later for secondary/edge if set.", "Пусто = без фразы. Если задали — понадобится для secondary/edge.")},
-			{Key: "tg_token", Label: FormT(lang, "tg_token"),
-				Short: ph("BotFather token", "Токен BotFather"),
-				Detail: ph("Optional. Enables Telegram bot unit on primary.", "Опционально. Включает Telegram-бота на primary.")},
-			{Key: "tg_admin", Label: FormT(lang, "tg_admin"),
-				Short: ph("Your Telegram user id", "Ваш Telegram user id"),
-				Detail: ph("Numeric admin id allowed to control the bot.", "Числовой id админа бота.")},
 			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me",
 				Short: ph("Reality TLS SNI", "SNI для Reality"),
 				Detail: ph("SNI camouflage for VPN (e.g. api.vk.me).", "Маскировка VPN, напр. api.vk.me.")},
@@ -176,7 +170,8 @@ func (m model) runWizardApplyInTUI() string {
 			Host: host, User: orDefault(m.fieldVal("user"), "root"), Password: m.fieldVal("password"),
 			SSHPrivateKey: keyPath, GenerateKey: yesish(m.fieldVal("gen_key")),
 			KeyPassphrase: m.fieldVal("key_pass"), WithLampac: false, // add-ons via Wizard → Дополнения
-			Version: deploy.Release, TelegramToken: m.fieldVal("tg_token"), TelegramAdminID: m.fieldVal("tg_admin"),
+			Version: deploy.Release, // TG bot via Wizard → Add-ons (token/admin there)
+			TelegramToken: "", TelegramAdminID: "",
 			SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
 		})
 		if err != nil {

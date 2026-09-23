@@ -1,3 +1,7 @@
+## 0.8.73
+
+- Primary wizard: removed TG token/admin (use Add-ons)
+
 ## 0.8.72
 
 - Add-ons: target **any VPS** (host/user/key), not primary-only
