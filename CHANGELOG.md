@@ -1,3 +1,10 @@
+## 0.8.74
+
+- Primary deploy: **no** automatic lampac / git / registry (only core install)
+- Git+Registry moved to Add-ons checklist (`git_registry` toggle)
+- Primary progress checklist: core steps only
+- TUI: disable mouse capture so terminal select/copy works (scroll: arrows / PgUp/PgDn)
+
 ## 0.8.73
 
 - Primary wizard: removed TG token/admin (use Add-ons)

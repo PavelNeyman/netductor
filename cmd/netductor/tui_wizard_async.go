@@ -36,19 +36,18 @@ func wizStepsForTarget(target wizTarget, lang tuiLang) []wizProgStep {
 	}
 	switch target {
 	case wizPrimary:
+		// Core primary only — lampac/git/registry/TG are Add-ons checklist, not this wizard.
 		return []wizProgStep{
 			{ID: "keygen", Label: L("SSH key", "SSH-ключ"), Active: true},
-			{ID: "pubkey", Label: L("Install pubkey on VPS", "Pubkey на VPS")},
-			{ID: "download", Label: L("Download netductor binary", "Скачать binary")},
-			{ID: "secrets", Label: L("Telegram secrets", "Секреты Telegram")},
-			{ID: "install", Label: L("netductor install", "netductor install")},
+			{ID: "pubkey", Label: L("Install pubkey", "Pubkey на VPS")},
+			{ID: "download", Label: L("Download binary", "Скачать бинарь")},
+			{ID: "install", Label: L("netductor install (core)", "netductor install (ядро)")},
 			{ID: "harden", Label: L("SSH harden :52222", "SSH harden :52222")},
 			{ID: "sni", Label: L("Reality SNI", "Reality SNI")},
 			{ID: "fleet", Label: L("Fleet bootstrap + doctor", "Fleet + doctor")},
-			{ID: "lampac", Label: L("Lampac (optional)", "Lampac (опц.)")},
-			{ID: "registry", Label: L("Registry + git", "Registry + git")},
 			{ID: "done", Label: L("Finish", "Готово")},
 		}
+
 	case wizSecondary:
 		return []wizProgStep{
 			{ID: "connect", Label: L("SSH to secondary", "SSH secondary"), Active: true},

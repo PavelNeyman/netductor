@@ -143,6 +143,9 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "go2rtc", Label: "go2rtc", Value: "no", Toggle: true,
 				Short: ph("NVR helper (soon)", "NVR helper (скоро)"),
 				Detail: ph("Placeholder until hardware e2e.", "Заглушка до hardware e2e.")},
+			{Key: "git_registry", Label: "Git + Registry", Value: "no", Toggle: true,
+				Short: ph("Thin git + local registry", "Thin git + локальный registry"),
+				Detail: ph("Optional. Not part of core primary install.", "Опционально. Не входит в ядро primary.")},
 		}
 	case "mikrotik":
 		return []wizField{
@@ -273,6 +276,17 @@ func (m model) runWizardApplyInTUI() string {
 			any = true
 			parts = append(parts, "=== go2rtc @ "+host+" ===",
 				TT(lang, "go2rtc addon not fully wired yet (planned after hardware e2e).", "go2rtc пока в плане после hardware e2e."))
+		}
+		if yesish(m.fieldVal("git_registry")) {
+			any = true
+			cmd := "command -v git >/dev/null || apt-get install -y -qq git; " +
+				"netductor registry ensure; netductor registry crane; " +
+				"netductor git init netductor 2>/dev/null || true; netductor git pipelines; netductor registry status"
+			out, err := deploy.RunOnPrimary(host, user, keyPath, pass, cmd)
+			parts = append(parts, "=== git+registry @ "+host+" ===", out)
+			if err != nil {
+				parts = append(parts, err.Error())
+			}
 		}
 		if !any {
 			return TT(lang, "Nothing selected (all off).", "Ничего не выбрано (всё выкл).")

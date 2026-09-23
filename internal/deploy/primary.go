@@ -22,6 +22,7 @@ type PrimaryOpts struct {
 	SNI             string
 	SkipInstall     bool
 	WithLampac      bool
+	WithGitRegistry bool // optional thin git + local registry (addon)
 }
 
 // DeployPrimary installs netductor on a remote VPS over SSH.
@@ -168,13 +169,15 @@ chmod 755 /usr/local/bin/netductor
 			fmt.Fprintln(os.Stderr, "warn lampac:", err)
 		}
 	}
-	fmt.Fprintln(os.Stderr, "==> registry + git bootstrap")
-	out, _ = runSSH("", keyPath, o.User, o.Host,
-		"command -v git >/dev/null || apt-get install -y -qq git; "+
-			"netductor registry ensure; netductor registry crane; "+
-			"netductor git init netductor 2>/dev/null || true; netductor git pipelines; netductor registry status",
-		o.KeyPassphrase)
-	fmt.Print(out)
+	if o.WithGitRegistry {
+		fmt.Fprintln(os.Stderr, "==> registry + git bootstrap")
+		out, _ = runSSH("", keyPath, o.User, o.Host,
+			"command -v git >/dev/null || apt-get install -y -qq git; "+
+				"netductor registry ensure; netductor registry crane; "+
+				"netductor git init netductor 2>/dev/null || true; netductor git pipelines; netductor registry status",
+			o.KeyPassphrase)
+		fmt.Print(out)
+	}
 	fmt.Fprintln(os.Stderr, "==> primary deploy done")
 	port := sshPort()
 	fmt.Fprintf(os.Stderr, "  SSH: ssh -i %s -p %s %s@%s\n", keyPath, port, o.User, o.Host)

@@ -44,7 +44,7 @@ func runBubbleSession(mode runMode, startMenu bool, cliHost, cliUser, cliKey, cl
 		m.screen = screenMode
 		m.tab = tabMode
 	}
-	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseAllMotion())
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -18,7 +18,7 @@ func runDeploy(args []string) {
 
 primary:
   --host --password [--user root] [--generate-key] [--key-passphrase]
-  [--key PATH] [--tg-token] [--tg-admin] [--sni] [--with-lampac]
+  [--key PATH] [--tg-token] [--tg-admin] [--sni] [--with-lampac] [--with-git-registry]
 
 secondary:
   --primary --primary-key --host --password [--user] [--sni]
@@ -60,6 +60,8 @@ See: netductor tui → Setup wizard`)
 				o.GenerateKey = true
 			case a == "--with-lampac":
 				o.WithLampac = true
+			case a == "--with-git-registry":
+				o.WithGitRegistry = true
 			case a == "--key-passphrase" && i+1 < len(args):
 				i++
 				o.KeyPassphrase = args[i]

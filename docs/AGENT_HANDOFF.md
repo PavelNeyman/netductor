@@ -1,3 +1,7 @@
+## 0.8.74
+- Primary = core stack only; lampac/git/registry/TG via Add-ons
+- TUI: no mouse capture (copy-friendly)
+
 ## 0.8.69
 
 - Release includes **netductor-tg** binaries (bot was inactive because asset missing).
