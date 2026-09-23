@@ -192,7 +192,17 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 	case "secondary-sync", "fleet-sync", "relay-sync":
 		m.showCmd("secondary", "sync")
 	case "apply-lampac":
-		m.showCmd("install", "lampac")
+		// Open multi-select add-ons instead of single lampac install
+		m.tab = tabWizard
+		m.wizTarget = "addons"
+		m.wizFields = wizBuildFields("addons", &m)
+		m.wizFieldIdx = 0
+		m.wizInput = ""
+		if len(m.wizFields) > 0 {
+			m.wizInput = m.wizFields[0].Value
+		}
+		m.wizStep = wizStepFields
+		m.screen = screenWizard
 	case "disable-legacy":
 		m.showCmd("fleet", "disable-legacy")
 	case "status":

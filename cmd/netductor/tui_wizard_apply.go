@@ -61,9 +61,6 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me",
 				Short: ph("Reality TLS SNI", "SNI для Reality"),
 				Detail: ph("SNI camouflage for VPN (e.g. api.vk.me).", "Маскировка VPN, напр. api.vk.me.")},
-			{Key: "lampac", Label: FormT(lang, "addon_lampac") + " (yes/no)", Value: "no",
-				Short: ph("Install Docker Lampac", "Поставить Lampac в Docker"),
-				Detail: ph("Optional. Binds to 127.0.0.1:9118 only.", "Опционально. Только 127.0.0.1:9118.")},
 		}
 	case "secondary":
 		return []wizField{
@@ -157,7 +154,7 @@ func (m model) runWizardApplyInTUI() string {
 		err := deploy.DeployPrimary(deploy.PrimaryOpts{
 			Host: host, User: orDefault(m.fieldVal("user"), "root"), Password: m.fieldVal("password"),
 			SSHPrivateKey: keyPath, GenerateKey: yesish(m.fieldVal("gen_key")),
-			KeyPassphrase: m.fieldVal("key_pass"), WithLampac: yesish(m.fieldVal("lampac")),
+			KeyPassphrase: m.fieldVal("key_pass"), WithLampac: false, // add-ons via Wizard → Дополнения
 			Version: deploy.Release, TelegramToken: m.fieldVal("tg_token"), TelegramAdminID: m.fieldVal("tg_admin"),
 			SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
 		})

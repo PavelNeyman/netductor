@@ -22,7 +22,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 	case modeVPS:
 		items = append(items,
 			menuItem{TT(lang, "Install / upgrade stack", "Install / upgrade стека"), "netductor install (idempotent)", "install"},
-			menuItem{TT(lang, "Lampac (primary)", "Lampac (primary)"), TT(lang, "primary only (Docker)", "только primary (Docker)"), "apply-lampac"},
+			menuItem{TT(lang, "Add-ons checklist", "Дополнения (чек-лист)"), TT(lang, "Lampac / TG / go2rtc", "Lampac / TG / go2rtc"), "apply-lampac"},
 			menuItem{TT(lang, "Set hostname", "Задать hostname"), "nd-primary / nd-secondary / …", "hostname"},
 		)
 	case modeOpenWRT:

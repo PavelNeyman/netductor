@@ -58,7 +58,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
 			{"mikrotik", "MikroTik", "ROS site", "Сайт MikroTik (+ опционально RPi OpenWrt): identity, маршруты, push скриптов через SSH TOFU."},
 			{"nvr", "Cameras / NVR", "Камеры", "NVR: leases, add camera, probe, record — через primary после edge."},
-			{"addons", "Дополнения", "выбор по пунктам", "Чек-лист: Lampac, Telegram, go2rtc — Space вкл/выкл, Ctrl+R установка."},
+			{"addons", "Дополнения (чек-лист)", "Lampac · TG · go2rtc", "Отдельный экран: [✓] по Space. Не путать с Primary — там больше нет Lampac yes/no."},
 		}
 	}
 	return []menuEntry{
@@ -67,7 +67,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
 		{"nvr", "Cameras / NVR", "Cameras", "NVR: leases, add camera, probe, record — via primary after edge."},
-		{"addons", "Add-ons", "pick items", "Checklist: Lampac, Telegram, go2rtc — Space toggle, Ctrl+R install."},
+		{"addons", "Add-ons (checklist)", "Lampac · TG · go2rtc", "Separate screen: [✓] via Space. Not the Primary wizard (Lampac yes/no removed there)."},
 	}
 }
 

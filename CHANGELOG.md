@@ -1,3 +1,9 @@
+## 0.8.71
+
+- Primary wizard: **removed** single Lampac yes/no (was confusing)
+- Add-ons checklist is the only multi-select path (Мастер → Дополнения)
+- Tools → same checklist
+
 ## 0.8.70
 
 - TUI Add-ons: **checklist** [✓]/[ ] with Space toggle (not sequential yes/no batch)
