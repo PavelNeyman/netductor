@@ -416,11 +416,19 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	if err := os.WriteFile(arch, body, 0o600); err != nil {
 		return err
 	}
-	if kb, _, err := get("/recovery/key"); err == nil && len(kb) > 0 {
-		_ = os.WriteFile(filepath.Join(tmpDir, "BACKUP_KEY.txt"), kb, 0o600)
-		if keyArg == "" {
+	// Decryption key: operator-supplied only (offline). Wire key fetch is opt-in and discouraged.
+	if keyArg == "" {
+		keyArg = strings.TrimSpace(os.Getenv("NETDUCTOR_BACKUP_KEY"))
+	}
+	if keyArg == "" && os.Getenv("NETDUCTOR_RECOVERY_FETCH_KEY") == "1" {
+		if kb, _, err := get("/recovery/key"); err == nil && len(kb) > 0 {
+			_ = os.WriteFile(filepath.Join(tmpDir, "BACKUP_KEY.txt"), kb, 0o600)
 			keyArg = strings.TrimSpace(string(kb))
+			fmt.Fprintln(os.Stderr, "recover: fetched backup key from secondary (NETDUCTOR_RECOVERY_FETCH_KEY=1)")
 		}
+	}
+	if keyArg == "" {
+		return fmt.Errorf("backup key required: pass --key or NETDUCTOR_BACKUP_KEY (not served by secondary unless SERVE_KEY+FETCH_KEY)")
 	}
 	if cb, _, err := get("/recovery/components"); err == nil && len(cb) > 0 {
 		_ = os.WriteFile(filepath.Join(tmpDir, "COMPONENTS.txt"), cb, 0o644)

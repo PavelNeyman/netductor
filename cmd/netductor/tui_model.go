@@ -24,6 +24,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.screen == screenWizard && m.wizStep == wizStepRun && m.wizViewMode != "steps" {
 			if msg.Button == tea.MouseButtonWheelUp {
 				m.wizLogOffset++
+				m.clampWizLogOffset(20)
 				return m, nil
 			}
 			if msg.Button == tea.MouseButtonWheelDown {

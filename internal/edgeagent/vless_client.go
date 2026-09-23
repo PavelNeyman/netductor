@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -56,10 +57,16 @@ func VLESSClientConfig(link string, mode string) ([]byte, error) {
 		}
 	} else {
 		// local SOCKS/HTTP — works without TUN modules; LAN can point proxy here
+		// Loopback only: LAN clients should not get an open proxy; use TUN or explicit
+		// LAN bind via NETDUCTOR_EDGE_MIXED_LISTEN if needed.
+		listen := "127.0.0.1"
+		if v := strings.TrimSpace(os.Getenv("NETDUCTOR_EDGE_MIXED_LISTEN")); v != "" {
+			listen = v
+		}
 		inbounds = []any{
 			map[string]any{
 				"type": "mixed", "tag": "mixed-in",
-				"listen": "0.0.0.0", "listen_port": 7890,
+				"listen": listen, "listen_port": 7890,
 			},
 		}
 	}

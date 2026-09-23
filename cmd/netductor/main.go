@@ -12,7 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.75"
+var version = "0.8.76"
 
 func main() {
 	ndconfig.Load()
@@ -103,7 +103,7 @@ func main() {
 			}
 		}
 		if arch == "" {
-			fmt.Fprintln(os.Stderr, "usage: netductor restore [--key KEY] <archive.ndenc|tar.gz>")
+			fmt.Fprintln(os.Stderr, "usage: netductor restore --key KEY (required; offline) <archive.ndenc|tar.gz>")
 			os.Exit(2)
 		}
 		if err := install.Restore(arch, key); err != nil {
@@ -143,8 +143,8 @@ func main() {
 			return
 		}
 		if arch == "" {
-			fmt.Fprintln(os.Stderr, "usage: netductor recover [--key KEY] <archive.ndenc>")
-			fmt.Fprintln(os.Stderr, "   or: netductor recover --from-secondary http://SECONDARY:8790 --recovery-token TOKEN [--key KEY]")
+			fmt.Fprintln(os.Stderr, "usage: netductor recover --key KEY (required; offline) <archive.ndenc>")
+			fmt.Fprintln(os.Stderr, "   or: netductor recover --from-secondary http://SECONDARY:8790 --recovery-token TOKEN --key KEY (required; offline)")
 			os.Exit(2)
 		}
 		if err := install.Recover(arch, key); err != nil {

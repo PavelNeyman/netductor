@@ -389,6 +389,7 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "pgup":
 			if m.wizStep == wizStepRun && m.wizViewMode != "steps" {
 				m.wizLogOffset += 10
+				m.clampWizLogOffset(20)
 				return m, nil
 			}
 		case "pgdown", "ctrl+d":
@@ -456,6 +457,7 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.wizStep == wizStepRun && m.wizViewMode != "steps" {
 				m.wizLogOffset++
+				m.clampWizLogOffset(20)
 				return m, nil
 			}
 			if m.wizStep == wizStepFields && m.wizFieldIdx > 0 {
@@ -682,7 +684,6 @@ func (m model) scrollableLog(maxLines int) string {
 		maxLines = 1
 	}
 	lines := strings.Split(m.wizMsg, "\n")
-	// drop trailing empty from final newline
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
 	}
@@ -694,11 +695,14 @@ func (m model) scrollableLog(maxLines int) string {
 	if off < 0 {
 		off = 0
 	}
-	// off=0 means show tail
-	end := n - off
-	if end < 1 {
-		end = 1
+	maxOff := n - maxLines
+	if maxOff < 0 {
+		maxOff = 0
 	}
+	if off > maxOff {
+		off = maxOff
+	}
+	end := n - off
 	if end > n {
 		end = n
 	}
@@ -713,5 +717,26 @@ func (m model) scrollableLog(maxLines int) string {
 		out = stMuted.Render(more) + "\n" + out
 	}
 	return out
+}
+
+func (m *model) clampWizLogOffset(viewport int) {
+	if viewport < 1 {
+		viewport = 1
+	}
+	lines := strings.Split(m.wizMsg, "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	n := len(lines)
+	maxOff := n - viewport
+	if maxOff < 0 {
+		maxOff = 0
+	}
+	if m.wizLogOffset < 0 {
+		m.wizLogOffset = 0
+	}
+	if m.wizLogOffset > maxOff {
+		m.wizLogOffset = maxOff
+	}
 }
 

@@ -86,3 +86,21 @@ netductor recover --key KEY file.ndenc
 Backups include **public** operator keys (`/etc/netductor/operator_authorized_keys`).
 On `recover`, those keys are **read from the archive before harden**, so password auth can be disabled without lockout.
 Optional: `NETDUCTOR_OPERATOR_PUBKEY` / `_FILE` merge additional pubs.
+
+
+## Recovery security (0.8.76+)
+
+Automation when primary is wiped:
+
+```bash
+# On clean primary (or Mac pushing install):
+export NETDUCTOR_BACKUP_KEY='…'          # offline — never from :8790 by default
+export NETDUCTOR_OPERATOR_PUBKEY='ssh-ed25519 AAAA…'
+netductor recover --from-secondary http://SECONDARY:8790   --recovery-token "$(cat recovery_token)" --key "$NETDUCTOR_BACKUP_KEY"
+```
+
+- Secondary `:8790` hands out **encrypted** backup + component list only.
+- Decryption key stays offline (`NETDUCTOR_BACKUP_KEY` / `--key`).
+- Optional (discouraged): `NETDUCTOR_RECOVERY_SERVE_KEY=1` on secondary + `NETDUCTOR_RECOVERY_FETCH_KEY=1` on client.
+- Optional: `NETDUCTOR_RECOVERY_ALLOW_CIDR=NEW_PRIMARY_IP/32` after you know the new IP.
+- Failed auth: lockout 15m after 5 failures per IP.

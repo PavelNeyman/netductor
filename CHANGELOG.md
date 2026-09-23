@@ -1,3 +1,10 @@
+## 0.8.76
+
+- Recovery: **no backup key on the wire** by default; `--key` / `NETDUCTOR_BACKUP_KEY` required for recover-from-secondary
+- Recovery: real CIDR allowlist, auth lockout (5 fails → 15m), optional `RECOVERY_SERVE_KEY=1`
+- TUI: clamp log scroll (no vanishing lines past top)
+- Edge mixed inbound: default `127.0.0.1:7890` (override `NETDUCTOR_EDGE_MIXED_LISTEN`)
+
 ## 0.8.75
 
 - Telegram **fully optional**: removed from DefaultComponents / core primary install

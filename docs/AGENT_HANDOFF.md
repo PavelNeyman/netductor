@@ -1,3 +1,7 @@
+## 0.8.76
+- Recovery: encrypted blob only on :8790; key offline
+- TUI scroll clamp; edge mixed localhost
+
 ## 0.8.75
 - Telegram only via Add-ons / `install telegram` (not core)
 - Homebrew Formula tracks 0.8.75

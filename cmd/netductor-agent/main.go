@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var version = "0.8.75"
+var version = "0.8.76"
 
 type config struct {
 	Server   string
