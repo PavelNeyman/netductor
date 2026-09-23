@@ -1,3 +1,8 @@
+## 0.8.57
+
+- recover: **peek operator pubkeys from backup tar before harden** (no required env)
+- NETDUCTOR_OPERATOR_PUBKEY remains optional extra merge
+
 ## 0.8.56
 
 - recover: inject operator pubkey before harden + reload sshd after restore

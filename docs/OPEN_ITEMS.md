@@ -1,6 +1,6 @@
 # Open items
 
-Baseline: **v0.8.53**.
+Baseline: **v0.8.57**.
 
 ## Gates
 - Optional: re-restore drill on 0.8.52+ (hostname + operator pubkeys without console)

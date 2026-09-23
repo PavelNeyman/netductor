@@ -79,3 +79,10 @@ netductor recover --key KEY file.ndenc
   2. `NETDUCTOR_OPERATOR_PUBKEY` (one line env)
   3. `NETDUCTOR_OPERATOR_PUBKEY_FILE` (path to pubkey file)
 - Phone/other device recover without local key still works if pubkey was in backup at last backup time.
+
+
+## Recover and SSH keys
+
+Backups include **public** operator keys (`/etc/netductor/operator_authorized_keys`).
+On `recover`, those keys are **read from the archive before harden**, so password auth can be disabled without lockout.
+Optional: `NETDUCTOR_OPERATOR_PUBKEY` / `_FILE` merge additional pubs.

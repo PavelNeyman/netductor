@@ -280,8 +280,9 @@ func Recover(archive, keyArg string) error {
 	}
 	fmt.Fprintf(os.Stderr, "recover: components %v\n", comps)
 
-	// BEFORE install/harden: put operator pubkeys in authorized_keys so key-only SSH
-	// does not lock out the operator (harden runs inside Run and disables password).
+	// BEFORE install/harden: operator pubkeys from the backup archive (primary source),
+	// then optional env. Harden disables password — keys must exist first.
+	injectOperatorKeysFromBackupEarly(src)
 	injectOperatorKeysFromEnvEarly()
 
 	// Install first (binaries/services). Secrets not required yet for most steps.
@@ -559,8 +560,63 @@ func restoreOperatorKeysFromBackup() {
 	fmt.Fprintf(os.Stderr, "recover: installed %d operator pubkey(s)\n", len(lines))
 }
 
-// injectOperatorKeysFromEnvEarly runs before harden so PasswordAuthentication no
-// still leaves a working operator key. Does not read backup (tar not extracted yet).
+
+// injectOperatorKeysFromBackupEarly extracts operator_authorized_keys (and optional
+// root/.ssh/authorized_keys) from the decrypted tar before harden runs.
+// Full tar extract still happens after install; this only peeks public keys.
+func injectOperatorKeysFromBackupEarly(tarPath string) {
+	if tarPath == "" {
+		return
+	}
+	var blobs []string
+	for _, member := range []string{
+		"etc/netductor/operator_authorized_keys",
+		"./etc/netductor/operator_authorized_keys",
+		"root/.ssh/authorized_keys",
+		"./root/.ssh/authorized_keys",
+	} {
+		out, err := runOut("tar", "-xOf", tarPath, member)
+		if err != nil || strings.TrimSpace(out) == "" {
+			continue
+		}
+		blobs = append(blobs, out)
+	}
+	if len(blobs) == 0 {
+		fmt.Fprintln(os.Stderr, "recover: no operator pubkeys inside archive yet — try env or wait for full restore")
+		return
+	}
+	sshDir := "/root/.ssh"
+	_ = os.MkdirAll(sshDir, 0o700)
+	ak := filepath.Join(sshDir, "authorized_keys")
+	existing, _ := os.ReadFile(ak)
+	seen := map[string]bool{}
+	var lines []string
+	for _, block := range append([]string{string(existing)}, blobs...) {
+		for _, line := range strings.Split(block, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			if seen[line] {
+				continue
+			}
+			seen[line] = true
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) == 0 {
+		return
+	}
+	body := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(ak, []byte(body), 0o600); err != nil {
+		fmt.Fprintln(os.Stderr, "recover: write authorized_keys early:", err)
+		return
+	}
+	_ = os.Chmod(sshDir, 0o700)
+	fmt.Fprintf(os.Stderr, "recover: early operator pubkey(s) from backup=%d (before harden)\n", len(lines))
+}
+
+// injectOperatorKeysFromEnvEarly merges optional NETDUCTOR_OPERATOR_PUBKEY after backup peek.
 func injectOperatorKeysFromEnvEarly() {
 	var lines []string
 	seen := map[string]bool{}
@@ -588,7 +644,7 @@ func injectOperatorKeysFromEnvEarly() {
 		add(line)
 	}
 	if len(lines) == 0 {
-		fmt.Fprintln(os.Stderr, "recover: no NETDUCTOR_OPERATOR_PUBKEY before install — harden may lock password auth")
+		fmt.Fprintln(os.Stderr, "recover: no extra NETDUCTOR_OPERATOR_PUBKEY (backup keys already applied if present)")
 		return
 	}
 	_ = os.MkdirAll("/root/.ssh", 0o700)
