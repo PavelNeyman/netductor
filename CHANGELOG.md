@@ -1,3 +1,8 @@
+## 0.8.60
+
+- go2rtc: WebRTC listen **127.0.0.1:8555** (was `:8555` all interfaces)
+- PORTS.md: document go2rtc 1984/8554/8555 localhost-only
+
 ## 0.8.59
 
 - TUI: all deploy wizards (Primary/Secondary/OpenWrt/MikroTik/NVR/Add-ons) only outside alt-screen

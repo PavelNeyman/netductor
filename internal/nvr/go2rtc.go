@@ -19,7 +19,7 @@ func WriteGo2RTCConfig() (string, error) {
 	b.WriteString("# go2rtc -c " + path + "\n")
 	b.WriteString("api:\n  listen: \"127.0.0.1:1984\"\n")
 	b.WriteString("rtsp:\n  listen: \"127.0.0.1:8554\"\n")
-	b.WriteString("webrtc:\n  listen: \":8555\"\n  candidates: []\n")
+	b.WriteString("webrtc:\n  listen: \"127.0.0.1:8555\"\n  candidates: []\n")
 	b.WriteString("streams:\n")
 	for _, c := range ListCameras() {
 		if !c.Enabled {
