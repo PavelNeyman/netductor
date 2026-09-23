@@ -1,3 +1,5 @@
+- Plan: TUI Add-ons multi-select (per component), not all-or-nothing
+
 ## 0.8.67
 
 - TUI deploy: **line-by-line stream** + **checklist/progress bar**

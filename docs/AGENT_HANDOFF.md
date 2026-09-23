@@ -1,3 +1,7 @@
+## Next (product)
+
+- **Add-ons multi-select** in TUI (per-addon yes/no, not install-all). See OPEN_ITEMS.
+
 ## TUI integrity (locked)
 
 See [TUI-RULES.md](TUI-RULES.md).
