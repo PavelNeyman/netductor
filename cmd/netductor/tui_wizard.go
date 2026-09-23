@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 
+	"github.com/atotto/clipboard"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -331,14 +333,29 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			return m.wizardEnter()
-		case "backspace":
+		case "backspace", "ctrl+h":
 			if m.wizStep == wizStepFields && len(m.wizInput) > 0 {
-				m.wizInput = m.wizInput[:len(m.wizInput)-1]
+				r := []rune(m.wizInput)
+				m.wizInput = string(r[:len(r)-1])
+			}
+			return m, nil
+		case "ctrl+u":
+			if m.wizStep == wizStepFields {
+				m.wizInput = ""
+			}
+			return m, nil
+		case "ctrl+v":
+			if m.wizStep == wizStepFields {
+				if s, err := clipboard.ReadAll(); err == nil && s != "" {
+					m.wizInput = stripFieldNewlines(m.wizInput + s)
+				}
 			}
 			return m, nil
 		default:
-			if m.wizStep == wizStepFields && len(msg.String()) == 1 {
-				m.wizInput += msg.String()
+			if m.wizStep == wizStepFields {
+				if text, ok := keyTextForField(msg); ok {
+					m.wizInput = stripFieldNewlines(m.wizInput + text)
+				}
 			}
 			return m, nil
 		}
@@ -397,4 +414,29 @@ func (m *model) fieldVal(key string) string {
 
 func (m model) runWizardApply() string {
 	return m.runWizardApplyInTUI()
+}
+
+func keyTextForField(msg tea.KeyMsg) (string, bool) {
+	if msg.Paste {
+		if len(msg.Runes) > 0 {
+			return string(msg.Runes), true
+		}
+		s := msg.String()
+		return s, s != ""
+	}
+	switch msg.Type {
+	case tea.KeyRunes:
+		return string(msg.Runes), len(msg.Runes) > 0
+	case tea.KeySpace:
+		return " ", true
+	default:
+		return "", false
+	}
+}
+
+func stripFieldNewlines(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	s = strings.ReplaceAll(s, "\n", "")
+	return s
 }

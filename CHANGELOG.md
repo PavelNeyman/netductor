@@ -1,3 +1,7 @@
+## 0.8.63
+
+- TUI Wizard fields: paste support (bracketed paste + Ctrl+V clipboard), multi-rune input
+
 ## 0.8.62
 
 - TUI Wizard: menu-style split layout — short hints + right detail pane for all field steps
