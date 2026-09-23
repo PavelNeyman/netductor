@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strings"
 )
@@ -314,36 +315,94 @@ func userCardKeyboard(name, subText string) map[string]any {
 
 // User hub: navigation only under the message. Actions live in formatUserHubHTML <tg-button>.
 func userHubKeyboard(name string) map[string]any {
-	_ = name
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("users"), "m:users", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn(T("user_access"), "u:access:"+name+":vless", "primary")},
+		{btn("50 GiB", "m:quota:"+name+":50", ""), btn("200 GiB", "m:quota:"+name+":200", ""), btn("∞", "m:quota:"+name+":0", ""), btn("Custom", "m:quota:"+name+":custom", "")},
+		{btn(T("vpn_rename"), "u:rename:"+name, "")},
+		{btn(T("vpn_enable"), "u:enable:"+name, "success"), btn(T("vpn_disable"), "u:disable:"+name, "danger"), btn(T("vpn_revoke"), "u:revoke:"+name, "danger")},
+		{btn(T("users"), "m:users", ""), btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }
 
-// mode: vless | core | hy2 — navigation under message; mode switch is in access HTML body.
+func btnURL(text, u string) map[string]any {
+	return map[string]any{"text": text, "url": u}
+}
+
 func userAccessKeyboard(name, mode string) map[string]any {
-	_ = mode
-	rows := [][]map[string]any{
-		{btn(T("user_card"), "u:open:"+name, ""), btn(T("users"), "m:users", "")},
+	if mode == "" {
+		mode = "vless"
 	}
-	// Classic Telegram URL button (always visible; rich tg-button may be stripped by client).
+	uri := accessPayload(name, mode)
+	rows := [][]map[string]any{}
+	if uri != "" {
+		enc := url.PathEscape(uri)
+		var deepRow []map[string]any
+		if link := importRedirectURL("shadowrocket://add/" + enc); link != "" {
+			deepRow = append(deepRow, btnURL("Shadowrocket", link))
+		} else {
+			deepRow = append(deepRow, btn("Shadowrocket", "u:app:"+name+":"+mode+":sr", ""))
+		}
+		if link := importRedirectURL("happ://add/" + enc); link != "" {
+			deepRow = append(deepRow, btnURL("Happ", link))
+		} else {
+			deepRow = append(deepRow, btn("Happ", "u:app:"+name+":"+mode+":happ", ""))
+		}
+		if link := importRedirectURL("incy://add/" + enc); link != "" {
+			deepRow = append(deepRow, btnURL("INCY", link))
+		} else {
+			deepRow = append(deepRow, btn("INCY", "u:app:"+name+":"+mode+":incy", ""))
+		}
+		if len(deepRow) > 0 {
+			rows = append(rows, deepRow)
+		}
+	}
+	styleV, styleC, styleH := "", "", ""
+	switch mode {
+	case "core":
+		styleC = "primary"
+	case "hy2":
+		styleH = "primary"
+	default:
+		styleV = "primary"
+	}
+	rows = append(rows, []map[string]any{
+		btn("VLESS", "u:access:"+name+":vless", styleV),
+		btn("Core", "u:access:"+name+":core", styleC),
+		btn("HY2", "u:access:"+name+":hy2", styleH),
+	})
+	if showWorkProfileButton(name) {
+		rows = append(rows, []map[string]any{btn("📥 SR Config", "u:workcfg:"+name, "")})
+	}
+	rows = append(rows, []map[string]any{
+		btn(T("user_card"), "u:open:"+name, ""), btn(T("users"), "m:users", ""),
+	})
 	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
 	return map[string]any{"inline_keyboard": rows}
 }
 
-// legacy alias
-
-func vpnUsersKeyboard() map[string]any {
-	return usersListKeyboard()
-}
-
-func vpnUsersKeyboardFor(action string) map[string]any {
-	return usersListKeyboard()
-}
-
 func usersListKeyboard() map[string]any {
-	// Navigation only. Add user + per-user actions are <tg-button> in formatUsersListHTML.
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("main_menu"), "m:menu", "primary")},
-	}}
+	raw := runVPN("list")
+	rows := [][]map[string]any{}
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 1 {
+			parts = strings.Fields(line)
+		}
+		if len(parts) < 1 || parts[0] == "" || parts[0] == "relay-uplink" {
+			continue
+		}
+		name := parts[0]
+		rows = append(rows, []map[string]any{btn("👤 "+name, "u:open:"+name, "")})
+	}
+	rows = append(rows, []map[string]any{btn(T("vpn_add"), "m:vpn_add", "primary")})
+	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "")})
+	return map[string]any{"inline_keyboard": rows}
 }
+
+
+func vpnUsersKeyboard() map[string]any { return usersListKeyboard() }
+func vpnUsersKeyboardFor(action string) map[string]any { return usersListKeyboard() }

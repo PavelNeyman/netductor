@@ -1,3 +1,9 @@
+## 0.8.53
+
+- TG: Access/User hub use **classic inline_keyboard** (no broken tg-button text glue)
+- importRedirectURL returns empty without absolute http(s) base (fixes BUTTON_URL_INVALID)
+- replyRichWithPhoto prefers sendPhoto + keyboard
+
 ## 0.8.52
 
 - Backup: snapshot live hostname + operator **public** keys (`hostname.backup`, `operator_authorized_keys`)

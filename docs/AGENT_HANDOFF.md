@@ -1,3 +1,6 @@
+## 0.8.53
+- TG Access/hub: classic inline buttons; no relative redirect URLs
+
 ## 0.8.52
 - Hostname preserved on recover; operator **pubkeys** in backup
 
@@ -12,7 +15,7 @@
 
 # Agent handoff — netductor
 
-**Version:** **0.8.52**  
+**Version:** **0.8.53**  
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Start here for any new chat.**
 

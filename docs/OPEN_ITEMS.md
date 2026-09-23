@@ -1,21 +1,21 @@
 # Open items
 
-Baseline: **v0.8.50**.
+Baseline: **v0.8.53**.
 
 ## Gates
-- restore-drill after primary wipe (`recover --from-secondary`)
+- Optional: re-restore drill on 0.8.52+ (hostname + operator pubkeys without console)
 
 ## Operator / hardware
 1. Hardware e2e (OpenWrt guest, Tapo, MikroTik)
-2. Domain + HTTPS (P1 skipped for now)
-3. SMTP when mailbox exists (P1 skipped)
+2. Domain + HTTPS (redirect) — enables URL deep-link buttons
+3. SMTP when mailbox exists
 
 ## Optional later
 - Path B user-bot
-- More FormT coverage for long wizard strings
+- FormT polish
 
-## Done (0.8.49–0.8.50)
-- Agent backup_pull + recovery :8790
-- Offline secondary alert on backup
-- Recovery bind/UFW/CIDR controls
-- Harden-last; no Mac key on primary
+## Done recently
+- TG user Access buttons fixed (classic keyboard)
+- recover hostname + operator pubkeys (0.8.52)
+- backup_pull / recovery :8790
+- SCP offsite removed
