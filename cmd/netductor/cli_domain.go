@@ -12,13 +12,13 @@ func runDomain(args []string) {
 	if len(args) < 1 {
 		fmt.Fprint(os.Stderr, `usage:
   netductor domain show
-  netductor domain set --base netductor.example.com [--http] [--enable-redirect] [--le --email you@x]
+  netductor domain set --base netductor.example.com [--http] [--cf-proxy] [--enable-redirect] [--le --email you@x]
   netductor domain set --primary HOST --vpn HOST --redirect URL [--enable-redirect]
 
 Preset from --base:
   primary.<base>  secondary not written (use --vpn)
   vpn.<base>      as VPN entry host
-  https://i.<base> as REDIRECT_BASE (--http → http://)
+  https://i.<base>:8443 REDIRECT_BASE; --cf-proxy → https://i.<base> (Cloudflare orange on i.)
 `)
 		os.Exit(2)
 	}
@@ -56,6 +56,9 @@ Preset from --base:
 				c.LEEmail = next()
 			case "--staging":
 				c.LEStaging = true
+			case "--cf-proxy", "--cloudflare":
+				c.CFProxiedI = true
+				_ = os.Setenv("NETDUCTOR_CF_PROXY_I", "1")
 			}
 		}
 		if err := domain.Apply(c); err != nil {

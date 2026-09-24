@@ -110,8 +110,12 @@ func Obtain(c Config) error {
 	// HTTPS redirect base if we have i. host
 	for _, d := range c.Domains {
 		if strings.HasPrefix(d, "i.") {
-			upsert["REDIRECT_BASE"] = "https://" + d + ":8443" // :443 is Reality (sing-box); LE on :8443
-			_ = os.Setenv("NETDUCTOR_REDIRECT_BASE", "https://"+d+":8443")
+			baseURL := "https://" + d + ":8443" // direct origin LE
+			if os.Getenv("NETDUCTOR_CF_PROXY_I") == "1" || os.Getenv("NETDUCTOR_CF_PROXY_I") == "true" {
+				baseURL = "https://" + d // CF orange on i.; Origin Rule → :8443
+			}
+			upsert["REDIRECT_BASE"] = baseURL
+			_ = os.Setenv("NETDUCTOR_REDIRECT_BASE", baseURL)
 			break
 		}
 	}
@@ -258,7 +262,7 @@ Type=simple
 EnvironmentFile=-/etc/netductor/netductor.conf
 Environment=NETDUCTOR_REDIRECT_TLS_CERT=%s
 Environment=NETDUCTOR_REDIRECT_TLS_KEY=%s
-ExecStart=%s redirect-serve -listen :80 -https-listen :8443 -tls-cert %s -tls-key %s
+ExecStart=%s redirect-serve -listen off -https-listen :8443 -tls-cert %s -tls-key %s
 Restart=on-failure
 RestartSec=5
 

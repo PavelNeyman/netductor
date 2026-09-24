@@ -12,6 +12,7 @@ netductor domain show
 | `--base` | Preset: `primary.` / `vpn.` / `i.` |
 | `--primary` / `--vpn` / `--redirect` | Explicit hosts/URL |
 | `--le --email` | certbot HTTP-01 for `primary.` + `i.`; then HTTPS redirect |
+| `--cf-proxy` | `REDIRECT_BASE=https://i.<base>` (no port); CF orange on **only** `i.` |
 | `--http` | HTTP redirect only (no LE) |
 | `--enable-redirect` | enable unit |
 
@@ -53,3 +54,14 @@ Reality SNI is separate (`vpn set-sni` / primary wizard).
 | Orange on `primary.` / VPN hosts | **Avoid** — breaks Reality fingerprint on 443. |
 
 Do orange **only** for the import hostname (`i.`), keep `primary.` and `vpn.` DNS-only.
+
+
+## Cloudflare setup (when using --cf-proxy)
+
+1. DNS: `i.<base>` **Proxied** (orange). `primary.` / `vpn.` **DNS only** (grey).
+2. SSL/TLS mode: **Full** (or Full strict).
+3. **Origin Rule** (required): hostname equals `i.<base>` → destination port **8443**  
+   (default CF→origin:443 would hit Reality, not LE redirect).
+4. `netductor domain set --base <base> --le --email … --cf-proxy`
+
+Without Origin Rule, leave grey cloud and use `https://i.:8443`.

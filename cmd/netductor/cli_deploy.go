@@ -89,6 +89,8 @@ See: netductor tui → Setup wizard`)
 				o.DomainLE = true
 			case a == "--domain-http":
 				o.DomainHTTP = true
+			case a == "--cf-proxy", a == "--cloudflare":
+				o.DomainCFProxy = true
 			}
 		}
 		if o.Host == "" {

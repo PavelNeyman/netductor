@@ -23,6 +23,7 @@ type Config struct {
 	LE             bool   // obtain Let's Encrypt after apply
 	LEEmail        string
 	LEStaging      bool
+	CFProxiedI     bool   // Cloudflare orange on i. → REDIRECT_BASE without :8443
 }
 
 // Expand fills empty Primary/VPN/RedirectBase from Base.
@@ -41,8 +42,11 @@ func (c *Config) Expand() {
 	if c.RedirectBase == "" && base != "" {
 		if c.UseHTTPRedirect && !c.LE {
 			c.RedirectBase = "http://i." + base
+		} else if c.CFProxiedI {
+			// CF orange on i.: public URL on :443 via CF; origin LE stays :8443
+			c.RedirectBase = "https://i." + base
 		} else {
-			// LE / default HTTPS: port 8443 (443 is Reality)
+			// Direct to origin LE (443 is Reality)
 			c.RedirectBase = "https://i." + base + ":8443"
 		}
 	}
@@ -54,6 +58,9 @@ func (c *Config) Expand() {
 // Apply writes conf keys, hostname files, env; optionally enables redirect unit.
 func Apply(c Config) error {
 	c.Expand()
+	if c.CFProxiedI {
+		_ = os.Setenv("NETDUCTOR_CF_PROXY_I", "1")
+	}
 	if c.Primary == "" && c.VPN == "" && c.RedirectBase == "" {
 		return fmt.Errorf("nothing to set: pass --base netductor.example.com or explicit hosts")
 	}
@@ -78,6 +85,9 @@ func Apply(c Config) error {
 	if c.RedirectBase != "" {
 		upsert["REDIRECT_BASE"] = c.RedirectBase
 		_ = os.Setenv("NETDUCTOR_REDIRECT_BASE", c.RedirectBase)
+		if c.CFProxiedI {
+			upsert["NETDUCTOR_CF_PROXY_I"] = "1"
+		}
 	}
 	if err := upsertConf(upsert); err != nil {
 		return err

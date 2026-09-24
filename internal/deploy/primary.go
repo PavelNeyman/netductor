@@ -23,6 +23,7 @@ type PrimaryOpts struct {
 	DomainBase      string // e.g. netductor.neyman.top → domain set on host
 	DomainHTTP      bool   // http redirect base (ignored if DomainLE)
 	DomainLE        bool   // Let's Encrypt after domain set
+	DomainCFProxy   bool   // CF orange on i. → REDIRECT_BASE without :8443
 	DomainEmail     string
 	SkipInstall     bool
 	WithLampac      bool
@@ -175,6 +176,10 @@ chmod 755 /usr/local/bin/netductor
 			fmt.Fprintln(os.Stderr, "==> Let's Encrypt for primary.+i."+o.DomainBase)
 		} else if o.DomainHTTP {
 			cmd += " --http"
+		}
+		if o.DomainCFProxy {
+			cmd += " --cf-proxy"
+			fmt.Fprintln(os.Stderr, "==> CF orange on i. → REDIRECT_BASE without :8443")
 		}
 		out, err = runSSH("", keyPath, o.User, o.Host, cmd, o.KeyPassphrase)
 		fmt.Print(out)
