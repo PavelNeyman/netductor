@@ -71,7 +71,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 	}
 }
 
-// wizBuildFields removed: deploy targets use huh wizards in tui_deploy_wizards.go (single path).
+// Deploy targets: framed fields (tui_wizard_apply) + async run. huh in tui_deploy_wizards is legacy.
 
 func (m *model) renderWizard() string {
 	w := max(40, m.width)
@@ -441,7 +441,7 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 				return m, nil
 			case wizStepConfirm:
-		// Single path: confirm → tui_deploy_wizards (huh), not inline fields
+		// confirm → fields (already filled); run stays in frame
 				m.wizStep = wizStepFields
 				m.wizFieldIdx = 0
 				if len(m.wizFields) > 0 {

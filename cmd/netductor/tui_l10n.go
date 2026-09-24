@@ -253,6 +253,7 @@ var formDict = map[string][2]string{
 	"password":           {"Password", "Пароль"},
 	"device_id":          {"Device ID", "Device ID"},
 	"edge_device_id":     {"Edge device id", "Edge device id"},
+	"router_lan_ip":     {"Router LAN IP", "LAN IP роутера"},
 	"agent_arch":         {"Agent arch", "Arch агента"},
 	"primary_mtls":       {"Primary mTLS URL", "Primary mTLS URL"},
 	"reality_sni":        {"Reality SNI", "Reality SNI"},

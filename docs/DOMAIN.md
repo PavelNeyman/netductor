@@ -40,3 +40,16 @@ netductor tls le --email admin@example.com --base netductor.neyman.top
 Uses **certbot standalone** (needs free :80 briefly). Opens ufw 80/443/8443. After success, redirect listens **only on :8443**. Renew: certbot timer + deploy-hook restarts redirect.
 
 Reality SNI is separate (`vpn set-sni` / primary wizard).
+
+
+## Cloudflare orange cloud for `i.` — optional
+
+**Not required** if clients use `https://i.<base>:8443` (LE on primary).
+
+| Setup | Result |
+|-------|--------|
+| DNS only (grey) for `i.` | Browser/TG must use **:8443** for valid LE cert. Port 443 = Reality (wrong cert). |
+| Orange proxy **only** for `i.` | CF terminates HTTPS on 443 with CF cert; origin can be `:8443` or HTTP. URL can be `https://i.<base>` without port. |
+| Orange on `primary.` / VPN hosts | **Avoid** — breaks Reality fingerprint on 443. |
+
+Do orange **only** for the import hostname (`i.`), keep `primary.` and `vpn.` DNS-only.

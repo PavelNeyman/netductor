@@ -1,3 +1,10 @@
+## 0.8.90
+
+- Secondary RemoteJoin: no ancient FALLBACK 0.8.45 — download current release only
+- docs/UI-PARITY.md rewritten for framed TUI + Mac-direct secondary
+- DOMAIN.md: Cloudflare orange for `i.` is optional
+- OpenWrt wizard labels FormT; stale huh-path comments fixed
+
 ## 0.8.89
 
 - **credentials collect**: full dump of `/etc/netductor/secrets`, conf, LE, secondary devices.json → `~/.netductor/credentials/<role>-<host>-ts/`

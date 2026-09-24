@@ -282,6 +282,7 @@ func runTUI(args []string) {
 		case "ssh-hosts":
 			runSSHHostsTUI()
 		case "wizard":
+			// Prefer framed TUI: netductor tui → Wizard tab. Huh legacy kept for non-interactive scripts.
 			runSetupWizard()
 		case "wizard-primary":
 			wizardPrimary()

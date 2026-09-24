@@ -84,15 +84,15 @@ func wizBuildFields(id string, m *model) []wizField {
 			srv = "https://" + s.RemoteHost + ":8789"
 		}
 		return []wizField{
-			{Key: "router", Label: "Router LAN IP", Value: "192.168.1.1",
+			{Key: "router", Label: FormT(lang, "router_lan_ip"), Value: "192.168.1.1",
 				Short: ph("Current SSH reachability IP", "IP, куда сейчас ходит SSH"),
 				Detail: ph("Must be reachable from this Mac over LAN.", "Должен быть доступен с Mac по LAN.")},
 			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true, Short: "root password", Detail: ph("OpenWrt root password.", "Пароль root OpenWrt.")},
 			{Key: "id", Label: FormT(lang, "edge_device_id"), Value: orDefault(s.LastEdgeID, "edge-1"),
 				Short: ph("Stable edge id", "Стабильный id edge"),
 				Detail: ph("Used for enroll/approve on primary.", "Для enroll/approve на primary.")},
-			{Key: "arch", Label: "Agent arch", Value: "arm64", Short: "arm64 / armv7 / …", Detail: ph("Match router CPU.", "Под CPU роутера.")},
-			{Key: "server", Label: "Primary mTLS URL", Value: srv,
+			{Key: "arch", Label: FormT(lang, "agent_arch"), Value: "arm64", Short: "arm64 / armv7 / …", Detail: ph("Match router CPU.", "Под CPU роутера.")},
+			{Key: "server", Label: FormT(lang, "primary_mtls"), Value: srv,
 				Short: "https://PRIMARY:8789",
 				Detail: ph("Agent plane. Must be reachable from the router.", "Agent plane. Должен быть доступен с роутера.")},
 			{Key: "net", Label: "Configure network? (yes/no)", Value: "no",
