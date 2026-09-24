@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
 )
@@ -28,6 +29,15 @@ func DeploySecondary(s SecondarySpec) error {
 
 // CollectCredentials pulls secrets to ~/.netductor/credentials on the operator machine.
 func CollectCredentials(role, user, host, keyPath, keyPass string) (string, error) {
+	role = strings.ToLower(strings.TrimSpace(role))
+	switch role {
+	case "primary", "secondary", "node":
+	default:
+		role = "node"
+	}
+	if !ValidHost(host) {
+		return "", fmt.Errorf("invalid host")
+	}
 	return deploy.CollectOperatorSecrets(role, user, host, keyPath, keyPass)
 }
 
