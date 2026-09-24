@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/deploy"
 )
 
 // FieldGetter abstracts TUI fieldVal / maps.
@@ -49,6 +51,7 @@ func PrimaryFromFields(get FieldGetter) PrimarySpec {
 		WithGitRegistry: yesish(get("with_git")),
 		TelegramToken:   strings.TrimSpace(get("tg_token")),
 		TelegramAdminID: strings.TrimSpace(get("tg_admin")),
+		Version: deploy.Release,
 	}
 	ApplyDomainFlags(&s)
 	return s
