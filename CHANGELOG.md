@@ -1,3 +1,9 @@
+## 0.8.84
+
+- **Let's Encrypt:** `netductor tls le` + `domain set --le --email`
+- Primary/TUI: optional LE email with domain base → auto certs + HTTPS redirect
+- Redirect unit :80 + :443 when certs present
+
 ## 0.8.83
 
 - `netductor domain set|show` — primary/vpn/redirect from `--base`

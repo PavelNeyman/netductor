@@ -21,7 +21,9 @@ type PrimaryOpts struct {
 	TelegramAdminID string
 	SNI             string
 	DomainBase      string // e.g. netductor.neyman.top → domain set on host
-	DomainHTTP      bool   // http redirect base
+	DomainHTTP      bool   // http redirect base (ignored if DomainLE)
+	DomainLE        bool   // Let's Encrypt after domain set
+	DomainEmail     string
 	SkipInstall     bool
 	WithLampac      bool
 	WithGitRegistry bool // optional thin git + local registry (addon)
@@ -161,14 +163,18 @@ chmod 755 /usr/local/bin/netductor
 
 	if strings.TrimSpace(o.DomainBase) != "" {
 		fmt.Fprintln(os.Stderr, "==> domain set", o.DomainBase)
-		httpFlag := ""
-		if o.DomainHTTP {
-			httpFlag = " --http"
+		cmd := "netductor domain set --base " + shellQuote(o.DomainBase)
+		if o.DomainLE && strings.TrimSpace(o.DomainEmail) != "" {
+			cmd += " --le --email " + shellQuote(o.DomainEmail)
+			fmt.Fprintln(os.Stderr, "==> Let's Encrypt for primary.+i."+o.DomainBase)
+		} else if o.DomainHTTP {
+			cmd += " --http"
 		}
-		cmd := "netductor domain set --base " + shellQuote(o.DomainBase) + httpFlag
 		out, err = runSSH("", keyPath, o.User, o.Host, cmd, o.KeyPassphrase)
 		fmt.Print(out)
-		_ = err
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warn domain:", err)
+		}
 	}
 
 	fmt.Fprintln(os.Stderr, "==> fleet bootstrap + doctor")

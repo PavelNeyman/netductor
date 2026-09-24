@@ -20,6 +20,9 @@ type Config struct {
 	RedirectBase    string
 	UseHTTPRedirect bool
 	EnableRedirect  bool
+	LE             bool   // obtain Let's Encrypt after apply
+	LEEmail        string
+	LEStaging      bool
 }
 
 // Expand fills empty Primary/VPN/RedirectBase from Base.
@@ -37,7 +40,7 @@ func (c *Config) Expand() {
 	}
 	if c.RedirectBase == "" && base != "" {
 		scheme := "https"
-		if c.UseHTTPRedirect {
+		if c.UseHTTPRedirect && !c.LE {
 			scheme = "http"
 		}
 		c.RedirectBase = scheme + "://i." + base
@@ -90,12 +93,58 @@ func Apply(c Config) error {
 	if c.RedirectBase != "" {
 		fmt.Fprintln(os.Stderr, "  REDIRECT_BASE:", c.RedirectBase)
 	}
-	if c.EnableRedirect && c.RedirectBase != "" {
+	if c.EnableRedirect && c.RedirectBase != "" && !c.LE {
 		if err := tryEnableRedirect(); err != nil {
 			fmt.Fprintln(os.Stderr, "  warn redirect:", err)
 		}
 	}
+	if c.LE {
+		if err := runLE(c); err != nil {
+			fmt.Fprintln(os.Stderr, "  warn LE:", err)
+			// still try enable redirect (maybe http)
+			if c.EnableRedirect {
+				_ = tryEnableRedirect()
+			}
+		}
+	}
 	return nil
+}
+
+func runLE(c Config) error {
+	email := strings.TrimSpace(c.LEEmail)
+	if email == "" {
+		return fmt.Errorf("LE requires email (domain set --le --email …)")
+	}
+	// lazy import via exec to avoid cycle — call netductor tls le
+	bin, err := os.Executable()
+	if err != nil || bin == "" {
+		bin = "netductor"
+	}
+	args := []string{"tls", "le", "--email", email, "--agree-tos"}
+	if c.LEStaging {
+		args = append(args, "--staging")
+	}
+	if c.Base != "" {
+		args = append(args, "--base", c.Base)
+	} else if c.Primary != "" {
+		args = append(args, "--domains", c.Primary)
+		if c.RedirectBase != "" {
+			// extract host from URL
+			rb := strings.TrimPrefix(strings.TrimPrefix(c.RedirectBase, "https://"), "http://")
+			rb = strings.Split(rb, "/")[0]
+			if rb != "" && rb != c.Primary {
+				args = []string{"tls", "le", "--email", email, "--agree-tos", "--domains", c.Primary + "," + rb}
+				if c.LEStaging {
+					args = append(args, "--staging")
+				}
+			}
+		}
+	}
+	fmt.Fprintln(os.Stderr, "domain: obtaining Let's Encrypt…")
+	cmd := exec.Command(bin, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // Show prints current domain-related settings.

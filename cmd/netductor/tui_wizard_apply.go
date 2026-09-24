@@ -60,6 +60,9 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "domain_base", Label: FormT(lang, "domain_base"), Value: "",
 				Short: ph("Optional DNS base", "Опционально DNS base"),
 				Detail: ph("e.g. netductor.neyman.top → primary./vpn./i. hosts + REDIRECT_BASE. Empty = skip.", "Напр. netductor.neyman.top. Пусто = пропуск.")},
+			{Key: "le_email", Label: "LE email (if domain)", Value: "",
+				Short: ph("Let's Encrypt registration email", "Email для Let's Encrypt"),
+				Detail: ph("With domain_base: LE for primary.+i. Empty = skip LE (http domain only).", "С domain_base: LE. Пусто = без LE.")},
 		}
 	case "secondary":
 		return []wizField{
@@ -179,8 +182,10 @@ func (m model) runWizardApplyInTUI() string {
 			Version: deploy.Release, // TG bot via Wizard → Add-ons (token/admin there)
 			TelegramToken: "", TelegramAdminID: "",
 			SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
+			DomainLE: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) != "",
+			DomainEmail: m.fieldVal("le_email"),
+			DomainHTTP: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) == "",
 			DomainBase: strings.TrimSpace(m.fieldVal("domain_base")),
-			DomainHTTP: true, // until LE on i.; switch to https after cert
 		})
 		if err != nil {
 			return err.Error()

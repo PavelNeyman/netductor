@@ -12,7 +12,7 @@ func runDomain(args []string) {
 	if len(args) < 1 {
 		fmt.Fprint(os.Stderr, `usage:
   netductor domain show
-  netductor domain set --base netductor.example.com [--http] [--enable-redirect]
+  netductor domain set --base netductor.example.com [--http] [--enable-redirect] [--le --email you@x]
   netductor domain set --primary HOST --vpn HOST --redirect URL [--enable-redirect]
 
 Preset from --base:
@@ -49,6 +49,13 @@ Preset from --base:
 				c.UseHTTPRedirect = true
 			case "--enable-redirect":
 				c.EnableRedirect = true
+			case "--le", "--letsencrypt":
+				c.LE = true
+				c.EnableRedirect = true
+			case "--email":
+				c.LEEmail = next()
+			case "--staging":
+				c.LEStaging = true
 			}
 		}
 		if err := domain.Apply(c); err != nil {

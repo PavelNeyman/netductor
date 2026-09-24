@@ -20,3 +20,18 @@ netductor domain show
 | `--enable-redirect` | enable unit if installed |
 
 Reality SNI is separate (`vpn set-sni`).
+
+## Let's Encrypt
+
+```bash
+# after DNS A records for primary.<base> and i.<base> point at this VPS:
+netductor domain set --base netductor.neyman.top --le --email admin@example.com
+
+# or only certs:
+netductor tls le --email admin@example.com --base netductor.neyman.top
+netductor tls show
+```
+
+Uses **certbot standalone** (needs :80 free briefly). Opens ufw 80/443. Writes certs, sets `REDIRECT_BASE=https://i.<base>`, restarts redirect on :80+:443.
+
+Renewal: certbot timer (distro default); after renew restart `netductor-redirect`.

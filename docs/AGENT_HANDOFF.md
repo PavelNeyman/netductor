@@ -1,6 +1,6 @@
 # Agent handoff (canonical)
 
-**Baseline: v0.8.83**
+**Baseline: v0.8.84**
 
 ## Locked decisions
 
@@ -10,6 +10,7 @@
 - **Edge VPN:** default TUN; socks@127.0.0.1 fallback if TUN fails.
 - **SSH:** port **52222**, key-only after harden; operator private key stays on Mac.
 - **Domain:** `netductor domain set --base netductor.neyman.top` (DNS in CF; no CF API).
+- **TLS:** `domain set --le --email …` or `tls le --base …` (certbot HTTP-01; primary.+i.).
 
 ## Do not
 
