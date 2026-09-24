@@ -50,8 +50,7 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 	var lastLog string
 	for {
 		if err := agentTick(client, coreBase, token, &applied, &lastDone, &lastOK, &lastLog); err != nil {
-			fmt.Fprintf(os.Stderr, "agent tick: %v
-", err)
+			fmt.Fprintf(os.Stderr, "agent tick: %v\n", err)
 		}
 		time.Sleep(interval)
 	}
