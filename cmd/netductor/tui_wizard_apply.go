@@ -60,13 +60,13 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "domain_base", Label: FormT(lang, "domain_base"), Value: "",
 				Short: ph("Optional DNS base", "Опционально DNS base"),
 				Detail: ph("e.g. netductor.neyman.top → primary./vpn./i. hosts + REDIRECT_BASE. Empty = skip.", "Напр. netductor.neyman.top. Пусто = пропуск.")},
-			{Key: "le_email", Label: "LE email (if domain)", Value: "",
+			{Key: "le_email", Label: FormT(lang, "le_email"), Value: "",
 				Short: ph("Let's Encrypt registration email", "Email для Let's Encrypt"),
 				Detail: ph("With domain_base: LE for primary.+i. Empty = skip LE (http domain only).", "С domain_base: LE. Пусто = без LE.")},
 		}
 	case "secondary":
 		return []wizField{
-			{Key: "host", Label: "Secondary host / IP",
+			{Key: "host", Label: FormT(lang, "secondary_host"),
 				Short: ph("RU VPS address", "Адрес РФ VPS"),
 				Detail: ph("VPN entry only. Primary must already be set in TUI.", "Только VPN entry. Primary уже должен быть в TUI.")},
 			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root", Short: "SSH", Detail: ph("First login user.", "Пользователь первого входа.")},

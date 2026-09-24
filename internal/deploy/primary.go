@@ -67,9 +67,15 @@ func DeployPrimary(o PrimaryOpts) error {
 			}
 		}
 	}
-	if !fileExists(pubPath) {
-		return fmt.Errorf("public key missing: %s", pubPath)
+	if !fileExists(pubPath) || fileEmpty(pubPath) {
+		cmd := exec.Command("ssh-keygen", "-y", "-f", keyPath)
+		out, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("public key missing: %s", pubPath)
+		}
+		_ = os.WriteFile(pubPath, out, 0o644)
 	}
+	_ = os.Chmod(keyPath, 0o600)
 	pub, err := os.ReadFile(pubPath)
 	if err != nil {
 		return err
@@ -234,4 +240,9 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	}
 	_ = os.Chmod(dest, 0o755)
 	return dest, nil
+}
+
+func fileEmpty(p string) bool {
+	st, err := os.Stat(p)
+	return err != nil || st.Size() == 0
 }

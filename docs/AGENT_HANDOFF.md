@@ -1,6 +1,6 @@
 # Agent handoff (canonical)
 
-**Baseline: v0.8.87**
+**Baseline: v0.8.88**
 
 ## Locked decisions
 
@@ -10,7 +10,8 @@
 - **Edge VPN:** default TUN; socks@127.0.0.1 fallback if TUN fails.
 - **SSH:** port **52222**, key-only after harden; operator private key stays on Mac.
 - **Secondary deploy:** Mac-direct — primary only `prepare-pack`; Mac SSHs to secondary (no primary→secondary SSH).
-- **Redirect TLS:** LE on **:8443** (`REDIRECT_BASE=https://i.:8443`); :443 = Reality only.
+- **Redirect TLS:** LE redirect **:8443 only** (no public :80 after LE); :443 = Reality only.
+- **Mac two-VPS:** [DEPLOY-MAC.md](DEPLOY-MAC.md) TUI≡CLI; secondary Mac-direct.
 - **Domain:** `netductor domain set --base netductor.neyman.top` (DNS in CF; no CF API).
 - **TLS:** `domain set --le --email …` or `tls le --base …` (certbot HTTP-01; primary.+i.).
 

@@ -72,6 +72,11 @@ func Obtain(c Config) error {
 		_ = exec.Command("systemctl", "start", "netductor-redirect").Run()
 		return fmt.Errorf("certbot: %w", err)
 	}
+	// Ensure renew keeps working: standalone needs free :80; restart redirect after renew
+	_ = os.MkdirAll("/etc/letsencrypt/renewal-hooks/deploy", 0o755)
+	_ = os.WriteFile("/etc/letsencrypt/renewal-hooks/deploy/netductor-redirect.sh",
+		[]byte("#!/bin/sh\nsystemctl restart netductor-redirect 2>/dev/null || true\n"), 0o755)
+
 
 	// Certbot uses first domain as live dir name
 	liveName := c.Domains[0]
@@ -243,7 +248,7 @@ func rewriteRedirectUnitHTTPS(cert, key string) error {
 	if err != nil || bin == "" {
 		bin = "/usr/local/bin/netductor"
 	}
-	// HTTP :80 for ACME renew + legacy; HTTPS :443
+	// HTTPS :8443 only (LE). :443 = Reality. :80 off — certbot renew uses standalone on free :80.
 	unit := fmt.Sprintf(`[Unit]
 Description=Netductor import redirect (TG deep links)
 After=network-online.target

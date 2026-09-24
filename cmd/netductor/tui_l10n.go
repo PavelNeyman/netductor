@@ -257,6 +257,7 @@ var formDict = map[string][2]string{
 	"primary_mtls":       {"Primary mTLS URL", "Primary mTLS URL"},
 	"reality_sni":        {"Reality SNI", "Reality SNI"},
 	"domain_base":        {"Domain base (optional)", "Домен base (опц.)"},
+	"le_email":           {"LE email (if domain)", "LE email (если домен)"},
 	"tg_token":           {"Telegram bot token", "Токен Telegram-бота"},
 	"tg_admin":           {"Telegram admin user id", "Telegram admin user id"},
 	"yes":                {"Yes", "Да"},

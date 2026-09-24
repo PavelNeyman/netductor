@@ -97,16 +97,40 @@ func InstallRedirect() error {
 	if err != nil || bin == "" {
 		bin = "/usr/local/bin/netductor"
 	}
-	listen := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_LISTEN"))
-	if listen == "" {
-		// Public HTTP only if domain/base set; else loopback
-		if strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")) != "" {
-			listen = ":80"
-		} else {
+	// Prefer LE HTTPS :8443 when certs present (after domain set --le). No public :80.
+	cert := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_TLS_CERT"))
+	key := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_TLS_KEY"))
+	if cert == "" {
+		cert = strings.TrimSpace(os.Getenv("NETDUCTOR_TLS_CERT"))
+	}
+	if key == "" {
+		key = strings.TrimSpace(os.Getenv("NETDUCTOR_TLS_KEY"))
+	}
+	var unit string
+	if cert != "" && key != "" {
+		unit = fmt.Sprintf(`[Unit]
+Description=Netductor import redirect (TG deep links)
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/netductor/netductor.conf
+Environment=NETDUCTOR_REDIRECT_TLS_CERT=%s
+Environment=NETDUCTOR_REDIRECT_TLS_KEY=%s
+ExecStart=%s redirect-serve -listen off -https-listen :8443 -tls-cert %s -tls-key %s
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+`, cert, key, bin, cert, key)
+	} else {
+		listen := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_LISTEN"))
+		if listen == "" {
+			// Before LE: loopback only (no public HTTP). Domain LE enables :8443.
 			listen = "127.0.0.1:80"
 		}
-	}
-	unit := fmt.Sprintf(`[Unit]
+		unit = fmt.Sprintf(`[Unit]
 Description=Netductor import redirect (TG deep links)
 After=network-online.target
 
@@ -120,6 +144,7 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 `, bin, listen)
+	}
 	if err := writeUnit("netductor-redirect.service", unit); err != nil {
 		return err
 	}

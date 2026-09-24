@@ -39,11 +39,12 @@ func (c *Config) Expand() {
 		c.VPN = "vpn." + base
 	}
 	if c.RedirectBase == "" && base != "" {
-		scheme := "https"
 		if c.UseHTTPRedirect && !c.LE {
-			scheme = "http"
+			c.RedirectBase = "http://i." + base
+		} else {
+			// LE / default HTTPS: port 8443 (443 is Reality)
+			c.RedirectBase = "https://i." + base + ":8443"
 		}
-		c.RedirectBase = scheme + "://i." + base
 	}
 	c.Primary = strings.TrimSpace(c.Primary)
 	c.VPN = strings.TrimSpace(c.VPN)

@@ -3,38 +3,40 @@
 DNS (Cloudflare etc.) is configured **outside** netductor. This only maps names into conf and VPN advertise hosts.
 
 ```bash
-netductor domain set --base netductor.neyman.top --http
-# → primary.netductor.neyman.top, vpn.netductor.neyman.top, http://i.netductor.neyman.top
-
-netductor domain set --base netductor.neyman.top --enable-redirect
+netductor domain set --base netductor.neyman.top --le --email you@example.com
 netductor domain show
 ```
 
 | Flag | Meaning |
 |------|---------|
-| `--base` | Preset suffix |
-| `--primary` | Core host in links |
-| `--vpn` | VPN entry host |
-| `--redirect` | Full REDIRECT_BASE |
-| `--http` | `http://i.<base>` instead of https |
-| `--enable-redirect` | enable unit if installed |
+| `--base` | Preset: `primary.` / `vpn.` / `i.` |
+| `--primary` / `--vpn` / `--redirect` | Explicit hosts/URL |
+| `--le --email` | certbot HTTP-01 for `primary.` + `i.`; then HTTPS redirect |
+| `--http` | HTTP redirect only (no LE) |
+| `--enable-redirect` | enable unit |
 
-Reality SNI is separate (`vpn set-sni`).
+## Ports (locked)
+
+| Port | Service | Certificate |
+|------|---------|-------------|
+| **443** | sing-box Reality | Camouflage (e.g. VK) — **not** LE |
+| **8443** | `netductor-redirect` | **Let's Encrypt** |
+| **80** | **off** after LE | Free for `certbot renew` standalone |
+| **52222** | SSH (primary) | key-only |
+| **8789** | agent mTLS | internal CA |
+
+`REDIRECT_BASE` after LE = `https://i.<base>:8443`.
+
+**Optional cleaner URL:** Cloudflare orange-cloud **only** for `i.` → CF terminates HTTPS on 443; origin can use :8443 or HTTP. VPN/Reality names stay DNS-only (grey).
 
 ## Let's Encrypt
 
 ```bash
-# after DNS A records for primary.<base> and i.<base> point at this VPS:
 netductor domain set --base netductor.neyman.top --le --email admin@example.com
-
-# or only certs:
+# or
 netductor tls le --email admin@example.com --base netductor.neyman.top
-netductor tls show
 ```
 
-Uses **certbot standalone** (needs :80 free briefly). Opens ufw 80/443. Writes certs, sets `REDIRECT_BASE=https://i.<base>`, restarts redirect on :80+:443.
+Uses **certbot standalone** (needs free :80 briefly). Opens ufw 80/443/8443. After success, redirect listens **only on :8443**. Renew: certbot timer + deploy-hook restarts redirect.
 
-Renewal: certbot timer (distro default); after renew restart `netductor-redirect`.
-
-
-Redirect HTTPS listens on **:8443** (port 443 is Reality/sing-box). HTTP :80 for ACME/CF flexible.
+Reality SNI is separate (`vpn set-sni` / primary wizard).

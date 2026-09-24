@@ -1,3 +1,10 @@
+## 0.8.88
+
+- Redirect after LE: **:8443 only** (no public :80); certbot renew uses free :80
+- Deploy automation: key chmod 600, empty .pub repair, REDIRECT_BASE :8443
+- TUI≡CLI parity docs [DEPLOY-MAC.md](docs/DEPLOY-MAC.md); FormT le_email
+- InstallRedirect prefers LE HTTPS unit
+
 ## 0.8.87
 
 - LE redirect: `REDIRECT_BASE=https://i.<base>:8443` (port 443 is Reality, not LE)
