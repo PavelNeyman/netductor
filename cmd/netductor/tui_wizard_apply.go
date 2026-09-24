@@ -63,10 +63,10 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "le_email", Label: FormT(lang, "le_email"), Value: "",
 				Short: ph("Let's Encrypt registration email", "Email для Let's Encrypt"),
 				Detail: ph("With domain_base: LE for primary.+i. Empty = skip LE (http domain only).", "С domain_base: LE. Пусто = без LE.")},
-			{Key: "cf_proxy", Label: FormT(lang, "cf_proxy"), Value: "yes", Toggle: true,
+			{Key: "cf_proxy", Label: FormT(lang, "cf_proxy"), Value: "no", Toggle: true,
 				Short: ph("Cloudflare orange on i.", "CF orange на i."),
-				Detail: ph("yes = REDIRECT_BASE https://i.BASE (no :8443). CF Origin Rule must send i. to origin :8443. primary./vpn. stay DNS-only.",
-					"yes = REDIRECT_BASE без :8443. В CF Origin Rule: i. → origin port 8443. primary./vpn. — только DNS.")},
+				Detail: ph("Usually no. CF free SSL only covers one subdomain level (*.neyman.top), not i.netductor.neyman.top. Keep DNS-only (grey) and :8443.",
+					"Обычно no. Бесплатный SSL CF не покрывает i.netductor.… (два уровня). Серое облако + :8443.")},
 		}
 	case "secondary":
 		return []wizField{

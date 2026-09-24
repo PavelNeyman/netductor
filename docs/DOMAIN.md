@@ -65,3 +65,14 @@ Do orange **only** for the import hostname (`i.`), keep `primary.` and `vpn.` DN
 4. `netductor domain set --base <base> --le --email … --cf-proxy`
 
 Without Origin Rule, leave grey cloud and use `https://i.:8443`.
+
+
+## Cloudflare and multi-level names
+
+`i.netductor.neyman.top` is **two** labels under `neyman.top`. Free Universal SSL covers `*.neyman.top` only, **not** `*.netductor.neyman.top`.
+
+**Default / recommended:** DNS **only** (grey) for `i.` / `primary.` / `vpn.` and:
+
+`REDIRECT_BASE=https://i.<base>:8443`
+
+`--cf-proxy` only if the import host is a **single** level under the zone apex (e.g. `i.neyman.top`) or you have Advanced Certificate Manager.

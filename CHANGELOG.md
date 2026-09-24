@@ -1,3 +1,8 @@
+## 0.8.92
+
+- Default: no CF proxy for multi-level `i.netductor.*` (grey + :8443)
+- TUI `cf_proxy` default **no**; DOMAIN.md Universal SSL limit note
+
 ## 0.8.91
 
 - --cf-proxy / TUI cf_proxy for Cloudflare orange on i.
