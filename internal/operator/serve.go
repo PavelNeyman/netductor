@@ -51,6 +51,9 @@ func Serve(o ServeOpts) error {
 			return err
 		}
 	}
+	if !safeOperatorToken(token) {
+		return fmt.Errorf("operator token must be 16–128 chars [A-Za-z0-9_-] (reject HTML/shell metacharacters)")
+	}
 
 	addr := net.JoinHostPort(bind, port)
 	mux := http.NewServeMux()
@@ -80,9 +83,16 @@ func Serve(o ServeOpts) error {
 
 	fmt.Fprintf(os.Stderr, "operator serve: http://%s/  (loopback only)\n", addr)
 	fmt.Fprintf(os.Stderr, "operator token: %s  (header X-Netductor-Token)\n", token)
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'self'; connect-src 'self'; base-uri 'none'")
+		mux.ServeHTTP(w, r)
+	})
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           h,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      2 * time.Hour, // deploy can be long
@@ -106,6 +116,19 @@ func randomToken(n int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func safeOperatorToken(tok string) bool {
+	if len(tok) < 16 || len(tok) > 128 {
+		return false
+	}
+	for _, r := range tok {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func tokenOK(want, got string) bool {

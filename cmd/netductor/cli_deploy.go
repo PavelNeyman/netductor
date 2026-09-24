@@ -315,7 +315,20 @@ See: netductor tui → Setup wizard`)
 		if o.ServerURL == "" && o.PrimaryHost != "" {
 			o.ServerURL = "https://" + o.PrimaryHost + ":8789"
 		}
-		if err := deploy.DeployEdge(o); err != nil {
+		if err := operator.DeployEdge(operator.EdgeSpec{
+			PrimaryHost: o.PrimaryHost, PrimaryUser: o.PrimaryUser, PrimaryKey: o.PrimaryKey,
+			PrimaryKeyPassphrase: o.PrimaryKeyPassphrase,
+			RouterHost: o.RouterHost, RouterUser: o.RouterUser, RouterPass: o.RouterPass,
+			DeviceID: o.DeviceID, ServerURL: o.ServerURL, Version: o.Version, AgentArch: o.AgentArch,
+			NetConfigure: o.NetConfigure, LANIP: o.LANIP, LANMask: o.LANMask,
+			DHCPStart: o.DHCPStart, DHCPLimit: o.DHCPLimit,
+			WiFiSSID: o.WiFiSSID, WiFiKey: o.WiFiKey,
+			WiFiSSID24: o.WiFiSSID24, WiFiKey24: o.WiFiKey24,
+			WiFiSSID5: o.WiFiSSID5, WiFiKey5: o.WiFiKey5,
+			GuestEnable: o.GuestEnable, GuestSSID: o.GuestSSID, GuestPIN: o.GuestPIN, GuestPSK: o.GuestPSK,
+			WANProto: o.WANProto, WANIP: o.WANIP, WANMask: o.WANMask, WANGateway: o.WANGateway, WANDNS: o.WANDNS,
+			PPPoEUser: o.PPPoEUser, PPPoEPass: o.PPPoEPass, PPPoEService: o.PPPoEService, PPPoEAC: o.PPPoEAC,
+		}); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

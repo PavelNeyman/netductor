@@ -90,3 +90,45 @@ func ApplyDomainFlags(p *PrimarySpec) {
 	p.DomainLE = false
 	p.DomainHTTP = true
 }
+
+// EdgeSpec — OpenWrt / RPi from operator machine.
+type EdgeSpec struct {
+	PrimaryHost          string
+	PrimaryUser          string
+	PrimaryKey           string
+	PrimaryKeyPassphrase string
+	RouterHost           string
+	RouterUser           string
+	RouterPass           string
+	DeviceID             string
+	ServerURL            string
+	Version              string
+	AgentArch            string
+	NetConfigure         bool
+	LANIP, LANMask       string
+	DHCPStart, DHCPLimit string
+	WiFiSSID, WiFiKey    string
+	WiFiSSID24, WiFiKey24 string
+	WiFiSSID5, WiFiKey5  string
+	GuestEnable          bool
+	GuestSSID, GuestPIN, GuestPSK string
+	WANProto, WANIP, WANMask, WANGateway, WANDNS string
+	PPPoEUser, PPPoEPass, PPPoEService, PPPoEAC string
+}
+
+func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
+	return deploy.EdgeOpts{
+		PrimaryHost: e.PrimaryHost, PrimaryUser: e.PrimaryUser, PrimaryKey: e.PrimaryKey,
+		PrimaryKeyPassphrase: e.PrimaryKeyPassphrase,
+		RouterHost: e.RouterHost, RouterUser: e.RouterUser, RouterPass: e.RouterPass,
+		DeviceID: e.DeviceID, ServerURL: e.ServerURL, Version: e.Version, AgentArch: e.AgentArch,
+		NetConfigure: e.NetConfigure, LANIP: e.LANIP, LANMask: e.LANMask,
+		DHCPStart: e.DHCPStart, DHCPLimit: e.DHCPLimit,
+		WiFiSSID: e.WiFiSSID, WiFiKey: e.WiFiKey,
+		WiFiSSID24: e.WiFiSSID24, WiFiKey24: e.WiFiKey24,
+		WiFiSSID5: e.WiFiSSID5, WiFiKey5: e.WiFiKey5,
+		GuestEnable: e.GuestEnable, GuestSSID: e.GuestSSID, GuestPIN: e.GuestPIN, GuestPSK: e.GuestPSK,
+		WANProto: e.WANProto, WANIP: e.WANIP, WANMask: e.WANMask, WANGateway: e.WANGateway, WANDNS: e.WANDNS,
+		PPPoEUser: e.PPPoEUser, PPPoEPass: e.PPPoEPass, PPPoEService: e.PPPoEService, PPPoEAC: e.PPPoEAC,
+	}
+}

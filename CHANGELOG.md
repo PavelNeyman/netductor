@@ -351,6 +351,14 @@
 
 # Changelog
 
+## 0.8.99
+
+- security(operator): stricter ValidHost/ValidUser; DeployEdge use-case
+- security(operator): token charset + CSP/XFO on operator serve
+- security(deploy): ssh `--` before user@host
+- CLI/TUI edge via operator core only
+
+
 ## 0.8.32
 
 - GHA-subset workflow runner: parse `.github/workflows/*.yml`, execute `run:` steps only

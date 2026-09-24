@@ -282,7 +282,7 @@ func (m model) runWizardApplyInTUI() string {
 		return TT(lang, "Secondary deploy finished", "Secondary готов")
 	case wizOpenWrt:
 		id := m.fieldVal("id")
-		err := deploy.DeployEdge(deploy.EdgeOpts{
+		err := operator.DeployEdge(operator.EdgeSpec{
 			PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
 			PrimaryKeyPassphrase: m.fieldVal("key_pass"),
 			RouterHost: m.fieldVal("router"), RouterUser: "root", RouterPass: m.fieldVal("password"),

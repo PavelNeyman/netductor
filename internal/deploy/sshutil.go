@@ -114,7 +114,7 @@ func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (str
 	if usePass {
 		if sp, err := lookSSHPass(); err == nil {
 			args := append([]string{"-e", "ssh"}, base...)
-			args = append(args, target, remoteCmd)
+			args = append(args, "--", target, remoteCmd)
 			cmd := exec.Command(sp, args...)
 			cmd.Env = append(os.Environ(), "SSHPASS="+password)
 			out, err := cmd.CombinedOutput()
@@ -125,7 +125,7 @@ func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (str
 			return "", fmt.Errorf("sshpass missing and ASKPASS failed: %w", err)
 		}
 		defer cleanup()
-		args := append(append([]string{}, base...), target, remoteCmd)
+		args := append(append([]string{}, base...), "--", target, remoteCmd)
 		cmd := exec.Command("setsid", append([]string{"ssh"}, args...)...)
 		cmd.Env = append(os.Environ(), "SSH_ASKPASS="+ask, "SSH_ASKPASS_REQUIRE=force", "DISPLAY=.")
 		out, err := cmd.CombinedOutput()
@@ -136,7 +136,7 @@ func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (str
 		return "", err
 	}
 	defer cleanup()
-	args := append(base, target, remoteCmd)
+	args := append(base, "--", target, remoteCmd)
 	cmd := exec.Command("ssh", args...)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
