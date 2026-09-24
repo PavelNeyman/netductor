@@ -1,13 +1,13 @@
 # AGENTS.md — Netductor
 
-> Document Version: **2.5**  
+> Document Version: **2.6**  
 > Status: **Approved**  
 > GitHub: **https://github.com/PavelNeyman/netductor** (renamed from FreshVPS)
 
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
 
-**Release baseline: v0.8.49** · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
+**Release baseline: v0.8.94** · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
 
 Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROADMAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
@@ -33,6 +33,27 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 
 ---
 
+
+
+---
+
+# Documentation & checklist discipline (**mandatory for AI**)
+
+This rule is **strict and non-negotiable**:
+
+1. Work follows [docs/OPERATOR-PLAN.md](docs/OPERATOR-PLAN.md) (and ROADMAP when relevant).
+2. When any checklist item is **finished**, the **same** change (commit / PR / task outcome) **must**:
+   - mark that item `[x]` in the plan file;
+   - update affected docs (ARCHITECTURE-OPERATOR, DOMAIN, DEPLOY-MAC, HANDOFF, CHANGELOG as applicable);
+   - keep EN+RU in sync when user-facing behaviour is documented in both.
+3. **Forbidden:** closing a task as done while leaving plan boxes unchecked or handoff/architecture stale.
+4. **Forbidden:** implementing deploy behaviour only in TUI or only in CLI — extend operator/deploy Spec + one use-case, then thin UI.
+5. New chats: read [docs/ARCHITECTURE-OPERATOR.md](docs/ARCHITECTURE-OPERATOR.md) before changing deploy/TUI.
+
+Operator vs node and phases: [docs/ARCHITECTURE-OPERATOR.md](docs/ARCHITECTURE-OPERATOR.md).
+
+---
+
 # Editing AGENTS.md
 
 **Do not modify without explicit owner consent in the current task.**
@@ -49,7 +70,7 @@ Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **
 
 **SSH:** password only for first login; install/provision → key-only (`internal/install/ssh_harden.go`).
 
-**TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI.md](docs/TG-UI.md). Access import buttons use **:80 redirect-serve** (`NETDUCTOR_REDIRECT_BASE`); do not put custom schemes in Telegram url-buttons.
+**TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI.md](docs/TG-UI.md). Access import buttons use **redirect-serve** + `NETDUCTOR_REDIRECT_BASE` (HTTPS **:8443** after LE; not custom schemes in Telegram url-buttons).
 
 ---
 

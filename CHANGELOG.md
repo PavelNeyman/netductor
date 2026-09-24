@@ -1,3 +1,9 @@
+## Docs (post-0.8.94)
+
+- [ARCHITECTURE-OPERATOR.md](docs/ARCHITECTURE-OPERATOR.md) — operator core + UI clients
+- [OPERATOR-PLAN.md](docs/OPERATOR-PLAN.md) — phased checklist
+- Handoff compressed; AGENTS.md v2.6 mandatory doc/checklist discipline
+
 ## 0.8.94
 
 - Remove legacy huh deploy wizards; framed Setup only

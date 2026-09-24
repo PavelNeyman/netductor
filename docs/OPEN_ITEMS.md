@@ -1,27 +1,20 @@
 # Open items
 
-Baseline: **v0.8.67+** (TUI stream/progress).
+## Active program
 
-## Gates
-- Recover-from-secondary e2e **verified** (0.8.57): keys from backup before harden, doctor ok
+Operator core (thin UIs): **[OPERATOR-PLAN.md](OPERATOR-PLAN.md)**  
+Architecture: **[ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)**
 
-## Operator / hardware
-1. Hardware e2e (OpenWrt guest, Tapo, MikroTik)
-2. Domain + HTTPS (redirect) — enables URL deep-link buttons
-3. SMTP when mailbox exists
+## Deferred / later
 
+- SMTP alerts (mailbox)
+- Status page without "VPN checks VPN"
+- Path B user-facing bot
+- Binary split netductor vs netductor-op (phase 4)
+- Hardware e2e (OpenWrt / Tapo) — owner-driven
 
-## Product / TUI (next)
-1. **Add-ons multi-select menu** — **done in 0.8.69** (Lampac / Telegram / go2rtc placeholder per yes/no). Persist choices later if needed.
+## Not doing
 
-## Optional later
-- Path B user-bot
-- FormT polish
-
-## Done recently
-- Recover-from-secondary e2e + keys from backup before harden (0.8.57)
-- TG user Access buttons fixed (classic keyboard)
-- recover hostname + operator pubkeys (0.8.52+)
-- backup_pull / recovery :8790; SCP offsite removed
-
-- NVR: go2rtc `tapo://` two-way audio (see PLAN-NVR-TAPO)
+- Public admin on WAN
+- Cloudflare API from netductor (DNS stays manual in CF)
+- Reviving legacy huh deploy wizards
