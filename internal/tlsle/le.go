@@ -46,6 +46,15 @@ func Obtain(c Config) error {
 		return fmt.Errorf("--agree-tos required")
 	}
 
+	for i, d := range c.Domains {
+		d = strings.TrimSpace(d)
+		d = strings.TrimPrefix(strings.TrimPrefix(d, "https://"), "http://")
+		d = strings.Split(d, "/")[0]
+		if j := strings.Index(d, ":"); j >= 0 {
+			d = d[:j]
+		}
+		c.Domains[i] = d
+	}
 	fmt.Fprintln(os.Stderr, "tls le: domains", strings.Join(c.Domains, ", "))
 
 	if err := ensureCertbot(); err != nil {

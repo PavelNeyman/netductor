@@ -76,3 +76,13 @@ Without Origin Rule, leave grey cloud and use `https://i.:8443`.
 `REDIRECT_BASE=https://i.<base>:8443`
 
 `--cf-proxy` only if the import host is a **single** level under the zone apex (e.g. `i.neyman.top`) or you have Advanced Certificate Manager.
+
+## Example short names under neyman.top
+
+```bash
+netductor domain set \
+  --primary p.nd.neyman.top \
+  --vpn s.nd.neyman.top \
+  --redirect https://i.nd.neyman.top:8443 \
+  --le --email you@example.com
+```

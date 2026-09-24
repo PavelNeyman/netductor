@@ -601,3 +601,8 @@
 - Remove legacy relay naming: paths, CLI, API, roles — secondary only
 
 See git history for earlier 0.7.x / 0.5.x notes.
+## 0.8.93
+
+- LE: strip :port from redirect hostname for certbot
+- docs example p.nd / i.nd / s.nd
+
