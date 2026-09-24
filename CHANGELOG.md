@@ -1,3 +1,9 @@
+## 0.8.83
+
+- `netductor domain set|show` — primary/vpn/redirect from `--base`
+- Primary wizard optional domain base; deploy runs domain set on host
+- Docs: DOMAIN.md
+
 ## 0.8.82
 
 - Recovery arm: **HTTPS** self-signed by default (`RECOVERY_TLS=0` for HTTP)

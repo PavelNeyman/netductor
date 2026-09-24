@@ -71,6 +71,8 @@ func mapKey(k string) string {
 		return "NETDUCTOR_REDIRECT_TLS_KEY"
 	case "PUBLIC_HOSTNAME", "NETDUCTOR_PUBLIC_HOSTNAME":
 		return "NETDUCTOR_PUBLIC_HOSTNAME"
+	case "DOMAIN", "NETDUCTOR_DOMAIN":
+		return "NETDUCTOR_DOMAIN"
 	default:
 		if strings.HasPrefix(k, "NETDUCTOR_") {
 			return k

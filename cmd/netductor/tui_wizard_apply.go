@@ -57,6 +57,9 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me",
 				Short: ph("Reality TLS SNI", "SNI для Reality"),
 				Detail: ph("SNI camouflage for VPN (e.g. api.vk.me).", "Маскировка VPN, напр. api.vk.me.")},
+			{Key: "domain_base", Label: FormT(lang, "domain_base"), Value: "",
+				Short: ph("Optional DNS base", "Опционально DNS base"),
+				Detail: ph("e.g. netductor.neyman.top → primary./vpn./i. hosts + REDIRECT_BASE. Empty = skip.", "Напр. netductor.neyman.top. Пусто = пропуск.")},
 		}
 	case "secondary":
 		return []wizField{
@@ -176,6 +179,8 @@ func (m model) runWizardApplyInTUI() string {
 			Version: deploy.Release, // TG bot via Wizard → Add-ons (token/admin there)
 			TelegramToken: "", TelegramAdminID: "",
 			SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
+			DomainBase: strings.TrimSpace(m.fieldVal("domain_base")),
+			DomainHTTP: true, // until LE on i.; switch to https after cert
 		})
 		if err != nil {
 			return err.Error()

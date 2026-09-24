@@ -1,6 +1,6 @@
 # Agent handoff (canonical)
 
-**Baseline: v0.8.82**
+**Baseline: v0.8.83**
 
 ## Locked decisions
 
@@ -9,6 +9,7 @@
 - **Primary core-only;** telegram/lampac/git/registry = Add-ons.
 - **Edge VPN:** default TUN; socks@127.0.0.1 fallback if TUN fails.
 - **SSH:** port **52222**, key-only after harden; operator private key stays on Mac.
+- **Domain:** `netductor domain set --base netductor.neyman.top` (DNS in CF; no CF API).
 
 ## Do not
 

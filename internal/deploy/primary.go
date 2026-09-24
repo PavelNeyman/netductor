@@ -20,6 +20,8 @@ type PrimaryOpts struct {
 	TelegramToken   string
 	TelegramAdminID string
 	SNI             string
+	DomainBase      string // e.g. netductor.neyman.top → domain set on host
+	DomainHTTP      bool   // http redirect base
 	SkipInstall     bool
 	WithLampac      bool
 	WithGitRegistry bool // optional thin git + local registry (addon)
@@ -156,6 +158,18 @@ chmod 755 /usr/local/bin/netductor
 	out, err = runSSH("", keyPath, o.User, o.Host, "netductor vpn set-sni "+shellQuote(o.SNI), o.KeyPassphrase)
 	fmt.Print(out)
 	_ = err
+
+	if strings.TrimSpace(o.DomainBase) != "" {
+		fmt.Fprintln(os.Stderr, "==> domain set", o.DomainBase)
+		httpFlag := ""
+		if o.DomainHTTP {
+			httpFlag = " --http"
+		}
+		cmd := "netductor domain set --base " + shellQuote(o.DomainBase) + httpFlag
+		out, err = runSSH("", keyPath, o.User, o.Host, cmd, o.KeyPassphrase)
+		fmt.Print(out)
+		_ = err
+	}
 
 	fmt.Fprintln(os.Stderr, "==> fleet bootstrap + doctor")
 	out, _ = runSSH("", keyPath, o.User, o.Host, "netductor fleet bootstrap; netductor doctor", o.KeyPassphrase)
