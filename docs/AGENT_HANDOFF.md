@@ -1,3 +1,6 @@
+## 0.8.79
+- Recovery knock: random 8-port sequence; no ALWAYS mode
+
 ## 0.8.78
 
 - Recovery: **not always listening**. Arm via CLI or port-knock; key still offline.

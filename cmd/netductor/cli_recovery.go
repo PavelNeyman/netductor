@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,8 +16,10 @@ func runRecovery(args []string) {
   netductor recovery arm [--ttl 30m]
   netductor recovery disarm
   netductor recovery status
+  netductor recovery knock-show
+  netductor recovery knock-regen
 
-Default: recovery HTTP is OFF. Arm temporarily for DR (or use port-knock sequence).
+Default: recovery HTTP is OFF. Arm via CLI or host-specific port-knock sequence.
 `)
 		os.Exit(2)
 	}
@@ -50,6 +53,31 @@ Default: recovery HTTP is OFF. Arm temporarily for DR (or use port-knock sequenc
 			return
 		}
 		fmt.Printf("armed=true until=%s\n", until.Format(time.RFC3339))
+	case "knock-show", "knock":
+		ports, err := secondary.KnockPorts()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		parts := make([]string, len(ports))
+		for i, p := range ports {
+			parts[i] = strconv.Itoa(p)
+		}
+		fmt.Println(strings.Join(parts, " "))
+		fmt.Fprintf(os.Stderr, "# order matters; window 8s between steps; from same IP\n")
+		fmt.Fprintf(os.Stderr, "# example: for p in %s; do nc -z SECONDARY $p; sleep 0.3; done\n", strings.Join(parts, " "))
+	case "knock-regen":
+		ports, err := secondary.RegenerateKnockPorts()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		parts := make([]string, len(ports))
+		for i, p := range ports {
+			parts[i] = strconv.Itoa(p)
+		}
+		fmt.Println(strings.Join(parts, " "))
+		fmt.Fprintln(os.Stderr, "# new sequence written; restart agent/knock watchers to bind new ports")
 	default:
 		fmt.Fprintln(os.Stderr, "unknown recovery subcommand")
 		os.Exit(2)

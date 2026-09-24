@@ -106,23 +106,29 @@ netductor recover --from-secondary http://SECONDARY:8790   --recovery-token "$(c
 - Failed auth: lockout 15m after 5 failures per IP.
 
 
-## Recovery arm / port-knock (0.8.78+)
+## Recovery arm / port-knock (0.8.79+)
 
-Recovery HTTP **:8790 is not always on**.
+Recovery HTTP **:8790 is off** until armed. No always-on mode.
 
-1. **Preferred:** SSH to secondary and arm:
+1. **Preferred — SSH:**
 ```bash
 ssh -p 52222 root@SECONDARY
 netductor recovery arm --ttl 30m
-# … recover from new primary …
+# … recover …
 netductor recovery disarm
 ```
 
-2. **Port-knock** (when you only need to open DR without interactive SSH session):
-   - Sequence (default): TCP connect **41222 → 41223 → 41224** within 5s from same IP
-   - Then recovery arms for `NETDUCTOR_RECOVERY_ARM_TTL` (default 30m)
-   - Override ports: `NETDUCTOR_RECOVERY_KNOCK=41222,41223,41224`
-   - Disable knock: `NETDUCTOR_RECOVERY_KNOCK=0`
-   - Legacy always-on: `NETDUCTOR_RECOVERY_ALWAYS=1` (not recommended)
+2. **Port-knock** — **8 random ports** unique per host, file:
+   `/etc/netductor/secrets/recovery_knock_ports` (mode 0600).
 
-Still need offline `NETDUCTOR_BACKUP_KEY` / `--key` for decrypt.
+```bash
+netductor recovery knock-show    # print sequence (store offline)
+netductor recovery knock-regen   # rotate sequence
+# from operator machine (same order, ~0.3s between, same IP):
+for p in $(ssh secondary netductor recovery knock-show 2>/dev/null); do nc -z SECONDARY $p; sleep 0.3; done
+```
+
+- Window between steps: **8s**
+- Disable knock: `NETDUCTOR_RECOVERY_KNOCK=0`
+- Override sequence (ops): `NETDUCTOR_RECOVERY_KNOCK=p1,p2,...` (≥4 ports)
+- Decrypt still needs offline `NETDUCTOR_BACKUP_KEY` / `--key`

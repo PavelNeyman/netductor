@@ -1,3 +1,8 @@
+## 0.8.79
+
+- Recovery: remove always-on legacy; 8-port **random** knock sequence per host (secrets file)
+- CLI: `recovery knock-show` / `knock-regen`
+
 ## 0.8.78
 
 - Recovery HTTP **off by default**; `netductor recovery arm|disarm|status`

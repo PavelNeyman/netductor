@@ -295,50 +295,101 @@ func ArmRecovery(ttl time.Duration) error {
 	return nil
 }
 
-// StartRecoveryServer — legacy name. Default: do NOT listen always.
-// NETDUCTOR_RECOVERY_ALWAYS=1 → arm for 24h (tests/legacy).
-// Otherwise only knock watcher + manual `netductor recovery arm`.
+
+// StartRecoveryServer does not listen on :8790. Starts knock watcher only.
 func StartRecoveryServer() {
-	if os.Getenv("NETDUCTOR_RECOVERY_ALWAYS") == "1" {
-		_ = ArmRecovery(24 * time.Hour)
-		return
-	}
 	go StartRecoveryKnockWatcher()
-	fmt.Fprintln(os.Stderr, "recovery-serve: idle (arm via CLI or port-knock; ALWAYS=1 to force)")
+	fmt.Fprintln(os.Stderr, "recovery-serve: idle (arm via CLI or port-knock)")
 }
 
-// StartRecoveryKnockWatcher listens for a unique TCP sequence then arms recovery.
-// Default ports: 41222,41223,41224 (override NETDUCTOR_RECOVERY_KNOCK=p1,p2,p3).
-// Window: 5s between knocks. Not the SSH port itself (SSH stays normal auth);
-// sequence is separate unused ports so we don't interfere with OpenSSH.
-func StartRecoveryKnockWatcher() {
+const knockPortsPath = "/etc/netductor/secrets/recovery_knock_ports"
+const knockSeqLen = 8
+
+// KnockPorts returns the TCP knock sequence (generate+persist if missing).
+func KnockPorts() ([]int, error) {
 	if os.Getenv("NETDUCTOR_RECOVERY_KNOCK") == "0" {
-		return
+		return nil, fmt.Errorf("knock disabled")
 	}
-	raw := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_KNOCK"))
-	if raw == "" {
-		raw = "41222,41223,41224"
+	if raw := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_KNOCK")); raw != "" {
+		return parseKnockPorts(raw)
 	}
+	if b, err := os.ReadFile(knockPortsPath); err == nil {
+		ports, err := parseKnockPorts(strings.TrimSpace(string(b)))
+		if err == nil && len(ports) >= 4 {
+			return ports, nil
+		}
+	}
+	return regenerateKnockPorts()
+}
+
+// RegenerateKnockPorts writes a new random sequence (operator should store offline).
+func RegenerateKnockPorts() ([]int, error) {
+	return regenerateKnockPorts()
+}
+
+func regenerateKnockPorts() ([]int, error) {
+	ports := make([]int, 0, knockSeqLen)
+	used := map[int]bool{}
+	// high ephemeral-ish range; avoid common services
+	for len(ports) < knockSeqLen {
+		var b [2]byte
+		_, _ = rand.Read(b[:])
+		n := 30000 + (int(b[0])<<8|int(b[1]))%30000
+		if used[n] {
+			continue
+		}
+		used[n] = true
+		ports = append(ports, n)
+	}
+	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
+	var parts []string
+	for _, p := range ports {
+		parts = append(parts, strconv.Itoa(p))
+	}
+	line := strings.Join(parts, ",") + "\n"
+	if err := os.WriteFile(knockPortsPath, []byte(line), 0o600); err != nil {
+		return nil, err
+	}
+	return ports, nil
+}
+
+func parseKnockPorts(raw string) ([]int, error) {
 	var ports []int
 	for _, p := range strings.Split(raw, ",") {
 		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
 		n, err := strconv.Atoi(p)
 		if err != nil || n < 1 || n > 65535 {
 			continue
 		}
 		ports = append(ports, n)
 	}
-	if len(ports) < 2 {
-		fmt.Fprintln(os.Stderr, "recovery-knock: need ≥2 ports")
+	if len(ports) < 4 {
+		return nil, fmt.Errorf("need ≥4 knock ports, got %d", len(ports))
+	}
+	return ports, nil
+}
+
+// StartRecoveryKnockWatcher listens for host-specific TCP sequence then arms recovery.
+// Sequence: 8 random ports in 30000–59999, stored in secrets (or NETDUCTOR_RECOVERY_KNOCK override).
+// Window: 8s between steps. SSH port is never part of the sequence.
+func StartRecoveryKnockWatcher() {
+	if os.Getenv("NETDUCTOR_RECOVERY_KNOCK") == "0" {
+		return
+	}
+	ports, err := KnockPorts()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "recovery-knock: %v\n", err)
 		return
 	}
 	type hit struct {
 		idx int
 		at  time.Time
-		ip  string
 	}
 	var mu sync.Mutex
-	progress := map[string]*hit{} // ip → progress
+	progress := map[string]*hit{}
 
 	armTTL := 30 * time.Minute
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_ARM_TTL")); v != "" {
@@ -346,6 +397,8 @@ func StartRecoveryKnockWatcher() {
 			armTTL = d
 		}
 	}
+
+	fmt.Fprintf(os.Stderr, "recovery-knock: watching %d-step sequence (see: netductor recovery knock-show)\n", len(ports))
 
 	for i, port := range ports {
 		i, port := i, port
@@ -355,7 +408,6 @@ func StartRecoveryKnockWatcher() {
 				fmt.Fprintf(os.Stderr, "recovery-knock: listen %d: %v\n", port, err)
 				return
 			}
-			fmt.Fprintf(os.Stderr, "recovery-knock: watching :%d (step %d/%d)\n", port, i+1, len(ports))
 			for {
 				c, err := ln.Accept()
 				if err != nil {
@@ -366,8 +418,8 @@ func StartRecoveryKnockWatcher() {
 				mu.Lock()
 				h := progress[ip]
 				now := time.Now()
-				if h == nil || now.Sub(h.at) > 5*time.Second {
-					h = &hit{idx: -1, ip: ip}
+				if h == nil || now.Sub(h.at) > 8*time.Second {
+					h = &hit{idx: -1}
 					progress[ip] = h
 				}
 				if h.idx+1 == i {
@@ -376,7 +428,7 @@ func StartRecoveryKnockWatcher() {
 					if h.idx == len(ports)-1 {
 						delete(progress, ip)
 						mu.Unlock()
-						fmt.Fprintf(os.Stderr, "recovery-knock: sequence OK from %s → arm %s\n", ip, armTTL)
+						fmt.Fprintf(os.Stderr, "recovery-knock: OK from %s → arm %s\n", ip, armTTL)
 						_ = ArmRecovery(armTTL)
 						continue
 					}
