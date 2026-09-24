@@ -1,7 +1,7 @@
 # Agent handoff — netductor
 
 **Start here in a new chat.**  
-**Baseline:** v0.8.94 · Repo: https://github.com/PavelNeyman/netductor
+**Baseline:** v0.8.95 · Repo: https://github.com/PavelNeyman/netductor
 
 ## Read order
 
@@ -27,6 +27,11 @@
 | DNS | External (Cloudflare). App: `domain set` / deploy flags only |
 | Control plane | **Go-only** |
 | Deploy UI | **Framed TUI + CLI only** (huh deploy removed). Prefer **Fleet** wizard |
+
+## Operator direction
+
+**Done (0.8.95):**  Specs + FleetDeploy; CLI/TUI thin.
+**Next:** step events; phase 3 operator serve + WebUI.
 
 ## Operator direction (active work)
 

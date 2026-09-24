@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/operator"
 )
 
 func expandHome(p string) string {
@@ -228,107 +229,43 @@ func (m model) runWizardApplyInTUI() string {
 	s := loadTUISettings()
 	switch m.wizTarget {
 	case wizPrimary:
-		host := m.fieldVal("host")
-		if host == "" {
+		spec := operator.PrimaryFromFields(m.fieldVal)
+		if spec.Host == "" {
 			return FormT(lang, "primary_host") + " required"
 		}
-		keyPath := expandHome(orDefault(m.fieldVal("key_path"), "~/.ssh/netductor_primary"))
-		err := deploy.DeployPrimary(deploy.PrimaryOpts{
-			Host: host, User: orDefault(m.fieldVal("user"), "root"), Password: m.fieldVal("password"),
-			SSHPrivateKey: keyPath, GenerateKey: yesish(m.fieldVal("gen_key")),
-			KeyPassphrase: m.fieldVal("key_pass"),
-			WithLampac: yesish(m.fieldVal("with_lampac")),
-			WithGitRegistry: yesish(m.fieldVal("with_git")),
-			Version: deploy.Release,
-			TelegramToken: strings.TrimSpace(m.fieldVal("tg_token")),
-			TelegramAdminID: strings.TrimSpace(m.fieldVal("tg_admin")),
-			SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
-			DomainLE: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) != "",
-			DomainEmail: m.fieldVal("le_email"),
-			DomainHTTP: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) == "",
-			DomainBase: strings.TrimSpace(m.fieldVal("domain_base")),
-			DomainCFProxy: yesish(m.fieldVal("cf_proxy")),
-		})
-		if err != nil {
+		spec.Version = deploy.Release
+		if err := operator.DeployPrimary(spec); err != nil {
 			return err.Error()
 		}
-		s.RemoteHost = host
-		s.RemoteUser = orDefault(m.fieldVal("user"), "root")
-		s.RemoteKey = keyPath
+		s.RemoteHost = spec.Host
+		s.RemoteUser = orDefault(spec.User, "root")
+		s.RemoteKey = spec.SSHPrivateKey
 		_ = saveTUISettings(s)
-		return TT(lang, "Primary deploy finished: "+host, "Primary готов: "+host)
+		return TT(lang, "Primary deploy finished: "+spec.Host, "Primary готов: "+spec.Host)
 
-	case wizFleet:
-		keyPath := expandHome(orDefault(m.fieldVal("key_path"), "~/.ssh/netductor_primary"))
-		var msgs []string
-		if yesish(m.fieldVal("do_primary")) {
-			host := m.fieldVal("host")
-			if host == "" {
-				return FormT(lang, "primary_host") + " required"
-			}
-			err := deploy.DeployPrimary(deploy.PrimaryOpts{
-				Host: host, User: orDefault(m.fieldVal("user"), "root"), Password: m.fieldVal("password"),
-				SSHPrivateKey: keyPath, GenerateKey: yesish(m.fieldVal("gen_key")),
-				KeyPassphrase: m.fieldVal("key_pass"),
-				WithLampac: yesish(m.fieldVal("with_lampac")),
-				WithGitRegistry: yesish(m.fieldVal("with_git")),
-				Version: deploy.Release,
-				TelegramToken: strings.TrimSpace(m.fieldVal("tg_token")),
-				TelegramAdminID: strings.TrimSpace(m.fieldVal("tg_admin")),
-				SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
-				DomainLE: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) != "",
-				DomainEmail: m.fieldVal("le_email"),
-				DomainHTTP: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) == "",
-				DomainBase: strings.TrimSpace(m.fieldVal("domain_base")),
-				DomainCFProxy: yesish(m.fieldVal("cf_proxy")),
-			})
-			if err != nil {
-				return "primary: " + err.Error()
-			}
-			s.RemoteHost = host
-			s.RemoteUser = orDefault(m.fieldVal("user"), "root")
-			s.RemoteKey = keyPath
+		case wizFleet:
+		f := operator.FleetFromFields(m.fieldVal)
+		f.Primary.Version = deploy.Release
+		if err := operator.FleetDeploy(f); err != nil {
+			return err.Error()
+		}
+		if f.DoPrimary {
+			s.RemoteHost = f.Primary.Host
+			s.RemoteUser = orDefault(f.Primary.User, "root")
+			s.RemoteKey = f.Primary.SSHPrivateKey
 			_ = saveTUISettings(s)
-			msgs = append(msgs, TT(lang, "Primary OK: "+host, "Primary OK: "+host))
 		}
-		if yesish(m.fieldVal("do_secondary")) {
-			if s.RemoteHost == "" || s.RemoteKey == "" {
-				s = loadTUISettings()
-			}
-			if s.RemoteHost == "" || s.RemoteKey == "" {
-				return FormT(lang, "set_primary_first")
-			}
-			secHost := m.fieldVal("sec_host")
-			if secHost == "" {
-				return FormT(lang, "secondary_host") + " required"
-			}
-			err := deploy.DeploySecondary(deploy.SecondaryOpts{
-				PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
-				PrimaryKeyPassphrase: m.fieldVal("key_pass"),
-				SecondaryHost: secHost, SecondaryUser: orDefault(m.fieldVal("user"), "root"),
-				SecondaryPass: m.fieldVal("sec_password"), SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
-			})
-			if err != nil {
-				return "secondary: " + err.Error()
-			}
-			msgs = append(msgs, TT(lang, "Secondary OK: "+secHost, "Secondary OK: "+secHost))
-		}
-		if len(msgs) == 0 {
-			return TT(lang, "Nothing selected", "Ничего не выбрано")
-		}
-		return strings.Join(msgs, "\n")
+		return TT(lang, "Fleet deploy finished", "Fleet готов")
 
 	case wizSecondary:
 		if s.RemoteHost == "" || s.RemoteKey == "" {
 			return FormT(lang, "set_primary_first")
 		}
-		err := deploy.DeploySecondary(deploy.SecondaryOpts{
-			PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
-			PrimaryKeyPassphrase: m.fieldVal("key_pass"),
-			SecondaryHost: m.fieldVal("host"), SecondaryUser: orDefault(m.fieldVal("user"), "root"),
-			SecondaryPass: m.fieldVal("password"), SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
-		})
-		if err != nil {
+		sec := operator.SecondaryFromFields(m.fieldVal)
+		sec.PrimaryHost = s.RemoteHost
+		sec.PrimaryUser = orDefault(s.RemoteUser, "root")
+		sec.PrimaryKey = s.RemoteKey
+		if err := operator.DeploySecondary(sec); err != nil {
 			return err.Error()
 		}
 		return TT(lang, "Secondary deploy finished", "Secondary готов")

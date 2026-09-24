@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/operator"
 )
 
 func runCredentials(args []string) {
@@ -77,7 +77,7 @@ Pull ALL /etc/netductor/secrets (+ conf, LE, secondary devices.json) over SSH in
 		_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 	}
 	role = strings.TrimSpace(role)
-	path, err := deploy.CollectOperatorSecrets(role, user, host, key, pass)
+	path, err := operator.CollectCredentials(role, user, host, key, pass)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -1,3 +1,7 @@
+## 0.8.95
+
+- internal/operator use-cases; CLI/TUI thin clients; deploy fleet
+
 ## Docs (post-0.8.94)
 
 - [ARCHITECTURE-OPERATOR.md](docs/ARCHITECTURE-OPERATOR.md) — operator core + UI clients

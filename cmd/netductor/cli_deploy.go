@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/operator"
 )
 
 func runDeploy(args []string) {
@@ -41,7 +42,7 @@ See: netductor tui → Setup wizard`)
 	}
 	switch args[0] {
 	case "primary":
-		o := deploy.PrimaryOpts{Version: deploy.Release, SNI: "api.vk.me", User: "root"}
+		o := operator.PrimarySpec{Version: deploy.Release, SNI: "api.vk.me", User: "root"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
@@ -100,12 +101,12 @@ See: netductor tui → Setup wizard`)
 		if o.SSHPrivateKey == "" {
 			o.GenerateKey = true
 		}
-		if err := deploy.DeployPrimary(o); err != nil {
+		if err := operator.DeployPrimary(o); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	case "secondary":
-		o := deploy.SecondaryOpts{PrimaryUser: "root", SecondaryUser: "root", SNI: "api.vk.me"}
+		o := operator.SecondarySpec{PrimaryUser: "root", SecondaryUser: "root", SNI: "api.vk.me"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
@@ -139,8 +140,60 @@ See: netductor tui → Setup wizard`)
 			fmt.Fprintln(os.Stderr, "required: --primary --primary-key --host (--password or --secondary-key)")
 			os.Exit(2)
 		}
-		o.ViaPrimary = false // Mac-direct
-		if err := deploy.DeploySecondary(o); err != nil {
+		if err := operator.DeploySecondary(o); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case "fleet":
+		f := operator.FleetSpec{DoPrimary: true, DoSecondary: true}
+		f.Primary = operator.PrimarySpec{User: "root", SNI: "api.vk.me", Version: deploy.Release, GenerateKey: true}
+		f.Secondary = operator.SecondarySpec{PrimaryUser: "root", SecondaryUser: "root", SNI: "api.vk.me"}
+		for i := 1; i < len(args); i++ {
+			a := args[i]
+			switch {
+			case a == "--primary-host" && i+1 < len(args):
+				i++
+				f.Primary.Host = args[i]
+			case a == "--primary-password" && i+1 < len(args):
+				i++
+				f.Primary.Password = args[i]
+			case a == "--secondary-host" && i+1 < len(args):
+				i++
+				f.Secondary.SecondaryHost = args[i]
+			case a == "--secondary-password" && i+1 < len(args):
+				i++
+				f.Secondary.SecondaryPass = args[i]
+			case a == "--key" && i+1 < len(args):
+				i++
+				f.Primary.SSHPrivateKey = args[i]
+				f.Primary.GenerateKey = false
+			case a == "--sni" && i+1 < len(args):
+				i++
+				f.Primary.SNI = args[i]
+				f.Secondary.SNI = args[i]
+			case a == "--domain-base" && i+1 < len(args):
+				i++
+				f.Primary.DomainBase = args[i]
+			case a == "--le-email" && i+1 < len(args):
+				i++
+				f.Primary.DomainEmail = args[i]
+			case a == "--with-lampac":
+				f.Primary.WithLampac = true
+			case a == "--primary-only":
+				f.DoSecondary = false
+			case a == "--secondary-only":
+				f.DoPrimary = false
+			}
+		}
+		if f.DoPrimary && f.Primary.Host == "" {
+			fmt.Fprintln(os.Stderr, "fleet: --primary-host required")
+			os.Exit(2)
+		}
+		if f.DoSecondary && f.Secondary.SecondaryHost == "" {
+			fmt.Fprintln(os.Stderr, "fleet: --secondary-host required")
+			os.Exit(2)
+		}
+		if err := operator.FleetDeploy(f); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

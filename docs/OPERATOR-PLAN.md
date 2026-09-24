@@ -13,21 +13,21 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 
 ## Phase 1 — Use-case layer
 
-- [ ] Package `internal/operator` (name flexible) with Spec types shared by CLI/TUI
-- [ ] `DeployPrimary` / `DeploySecondary` / `CollectCredentials` invoked **only** via operator package
-- [ ] CLI `deploy primary|secondary` thin wrapper over Spec
-- [ ] TUI Fleet + Primary + Secondary thin wrapper over Spec (no private opts divergence)
-- [ ] Single place for domain/LE/add-ons/TG field → Spec mapping helpers
-- [ ] Docs: update ARCHITECTURE-OPERATOR + DOMAIN + DEPLOY-MAC if CLI flags change
-- [ ] Mark items `[x]` here when done
+- [x] Package `internal/operator` with Spec types shared by CLI/TUI
+- [x] `DeployPrimary` / `DeploySecondary` / `CollectCredentials` via operator package
+- [x] CLI `deploy primary|secondary` thin wrapper over Spec
+- [x] TUI Fleet + Primary + Secondary thin wrapper over Spec
+- [x] `PrimaryFromFields` / `FleetFromFields` / `ApplyDomainFlags` helpers
+- [x] Docs updated
+- [x] Mark items `[x]` here when done
 
 ## Phase 2 — FleetDeploy
 
-- [ ] `FleetDeploy(FleetSpec)` one function: ordered primary → secondary → credentials
-- [ ] Structured step events (or stable step IDs) for progress UI
-- [ ] TUI Fleet calls `FleetDeploy` only
-- [ ] CLI `deploy fleet` (or equivalent) same entry
-- [ ] Docs + this checklist updated
+- [x] `FleetDeploy(FleetSpec)` one function: ordered primary → secondary
+- [x] TUI Fleet calls `FleetDeploy` only
+- [x] CLI `deploy fleet` same entry
+- [ ] Structured step events (or stable step IDs) for progress UI — **next**
+- [x] Docs + this checklist updated
 
 ## Phase 3 — Localhost API + WebUI
 
@@ -42,7 +42,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [ ] Binary split `netductor` (node) vs `netductor-op` (operator)
 - [ ] Mobile day-2 client (not bootstrap)
 
-## Done recently (context, not phase work)
+## Done recently
 
-- [x] v0.8.94 — legacy huh deploy removed; framed Fleet wizard; primary TUI fields ≈ CLI
-- [x] Domain/LE on primary deploy path; credentials on Mac after deploy
+- [x] v0.8.94 — legacy huh deploy removed; framed Fleet wizard
+- [x] v0.8.95 — `internal/operator` use-cases; CLI/TUI thin clients; `deploy fleet`

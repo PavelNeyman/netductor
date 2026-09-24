@@ -37,7 +37,15 @@ Same Go module/repo for now. **Logical** split is mandatory; **binary** split (`
 5. **Primary admin API** (`:8787`) is day-2 runtime, not bootstrap. Do not merge trust boundaries.
 6. **Legacy huh deploy** is removed; framed Wizard / Fleet / CLI only.
 
-### Use-cases (contract to implement)
+### Use-cases (in  since 0.8.95)
+
+DeployPrimary, DeploySecondary, FleetDeploy, CollectCredentials, *FromFields helpers.
+
+### Remaining
+
+Structured events; operator serve + WebUI (phase 3).
+
+### Use-cases (historical contract)
 
 | Use-case | Spec (approx.) | Notes |
 |----------|----------------|--------|
