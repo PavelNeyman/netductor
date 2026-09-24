@@ -1,3 +1,7 @@
+## 0.8.96
+
+- operator.Step + FleetDeployWithReport structured progress events
+
 ## 0.8.95
 
 - internal/operator use-cases; CLI/TUI thin clients; deploy fleet

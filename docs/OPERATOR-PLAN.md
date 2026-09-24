@@ -26,7 +26,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] `FleetDeploy(FleetSpec)` one function: ordered primary → secondary
 - [x] TUI Fleet calls `FleetDeploy` only
 - [x] CLI `deploy fleet` same entry
-- [ ] Structured step events (or stable step IDs) for progress UI — **next**
+- [x] Structured step events (`operator.Step` + `FleetDeployWithReport`)
 - [x] Docs + this checklist updated
 
 ## Phase 3 — Localhost API + WebUI
@@ -45,4 +45,4 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 ## Done recently
 
 - [x] v0.8.94 — legacy huh deploy removed; framed Fleet wizard
-- [x] v0.8.95 — `internal/operator` use-cases; CLI/TUI thin clients; `deploy fleet`
+- [x] v0.8.96 — Step events; v0.8.95 — `internal/operator` use-cases; CLI/TUI thin clients; `deploy fleet`

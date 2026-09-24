@@ -246,7 +246,18 @@ func (m model) runWizardApplyInTUI() string {
 		case wizFleet:
 		f := operator.FleetFromFields(m.fieldVal)
 		f.Primary.Version = deploy.Release
-		if err := operator.FleetDeploy(f); err != nil {
+		rep := func(st operator.Step) {
+			if st.Err != "" {
+				fmt.Fprintf(os.Stderr, "step %s ERROR: %s\n", st.ID, st.Err)
+				return
+			}
+			if st.Done {
+				fmt.Fprintf(os.Stderr, "step %s done: %s\n", st.ID, st.Message)
+				return
+			}
+			fmt.Fprintf(os.Stderr, "step %s: %s\n", st.ID, st.Message)
+		}
+		if err := operator.FleetDeployWithReport(f, rep); err != nil {
 			return err.Error()
 		}
 		if f.DoPrimary {
