@@ -25,3 +25,12 @@ func TestValidUser(t *testing.T) {
 		t.Fatal("expected reject bad users")
 	}
 }
+
+func TestValidDeviceID(t *testing.T) {
+	if !ValidDeviceID("edge-1") {
+		t.Fatal("edge-1")
+	}
+	if ValidDeviceID("../etc") || ValidDeviceID("a/b") || ValidDeviceID("") {
+		t.Fatal("bad ids accepted")
+	}
+}

@@ -44,6 +44,9 @@ func DeploySecondary(s SecondarySpec) error {
 
 // DeployEdge provisions OpenWrt/RPi agent from the operator machine (Mac-direct).
 func DeployEdge(s EdgeSpec) error {
+	if !ValidDeviceID(s.DeviceID) {
+		return fmt.Errorf("invalid device id (use [A-Za-z0-9_-] only)")
+	}
 	if !ValidHost(s.RouterHost) {
 		return fmt.Errorf("invalid router host")
 	}

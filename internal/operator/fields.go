@@ -143,3 +143,19 @@ func ValidUser(u string) bool {
 	}
 	return true
 }
+
+
+// ValidDeviceID restricts edge device ids used in remote paths (no path traversal).
+func ValidDeviceID(id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for _, r := range id {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}

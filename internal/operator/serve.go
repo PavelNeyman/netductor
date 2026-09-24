@@ -188,6 +188,14 @@ func handleFleet(w http.ResponseWriter, r *http.Request, token string) {
 		http.Error(w, "do_primary and/or do_secondary required", 400)
 		return
 	}
+	if body.DoPrimary && !ValidHost(body.PrimaryHost) {
+		http.Error(w, "invalid primary_host", 400)
+		return
+	}
+	if body.DoSecondary && !ValidHost(body.SecondaryHost) {
+		http.Error(w, "invalid secondary_host", 400)
+		return
+	}
 
 	if !fleetMu.TryLock() {
 		http.Error(w, "another deploy is running", 409)
