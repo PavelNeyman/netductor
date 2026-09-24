@@ -1,3 +1,23 @@
+# Agent handoff (canonical)
+
+**Baseline: v0.8.81**
+
+## Locked decisions
+
+- **Recovery:** `:8790` off by default. Arm only over SSH: `netductor recovery arm`. No port-knock. Backup key offline (`--key` / `NETDUCTOR_BACKUP_KEY`).
+- **Credentials:** after deploy, `~/.netductor/credentials/` (+ `latest-<role>.txt`). Re-collect: `netductor credentials collect --host IP --role primary|secondary`.
+- **Primary core-only;** telegram/lampac/git/registry = Add-ons.
+- **Edge VPN:** default TUN; socks@127.0.0.1 fallback if TUN fails.
+- **SSH:** port **52222**, key-only after harden; operator private key stays on Mac.
+
+## Do not
+
+- Publish 8787/9118/5000 on `0.0.0.0`
+- Expect recovery HTTP without explicit `arm`
+- Commit or cloud-sync `~/.netductor/credentials/`
+
+---
+
 ## 0.8.80
 - Recovery: SSH arm only (no knock)
 - Deploy writes ~/.netductor/credentials/

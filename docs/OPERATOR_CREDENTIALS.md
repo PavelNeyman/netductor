@@ -1,24 +1,42 @@
 # Operator credentials file
 
-After **primary** or **secondary** deploy, netductor writes:
+After **primary** or **secondary** deploy (or manual collect), netductor writes:
 
 `~/.netductor/credentials/<role>-<host>-<timestamp>.txt` (mode `0600`)
+
+Symlink: `~/.netductor/credentials/latest-<role>.txt`
+
+## Collect again
+
+```bash
+export NETDUCTOR_SSH_PORT=52222
+netductor credentials collect --host 2.27.118.70 --role primary --key ~/.ssh/netductor_primary
+netductor credentials collect --host 92.255.77.253 --role secondary --key ~/.ssh/netductor_primary
+```
+
+No file is written if SSH fails or required secrets are empty.
 
 ## Contents
 
 | Field | Purpose |
 |-------|---------|
-| SSH command + key path | Daily access (password auth is off after harden) |
-| `BACKUP_KEY` | Decrypt `.ndenc` backups / `recover --key` |
-| `RECOVERY_TOKEN` | Download backup from secondary after `recovery arm` (often only on secondary) |
+| SSH command + key path | Access after harden |
+| `BACKUP_KEY` | Decrypt backups / recover |
+| `RECOVERY_TOKEN` | Download from secondary after `recovery arm` |
 
-## Recovery flow (no port-knock)
+## Warnings
 
-1. SSH to secondary: `netductor recovery arm --ttl 30m`
-2. On new primary: `netductor recover --from-secondary http://SECONDARY:8790 --recovery-token … --key …`
-3. On secondary: `netductor recovery disarm`
+- Do **not** put `~/.netductor` in iCloud/Dropbox/Google Drive.
+- Prefer a password manager; delete local copies if desired.
+- Never commit these files.
 
-## RU
+## Recovery
 
-Файл создаётся на **вашем Mac** после деплоя. Сохраните в менеджер паролей.  
-Приватный ключ SSH на сервер не копируется. Пароль root после harden не работает.
+```bash
+ssh -p 52222 root@SECONDARY
+netductor recovery arm --ttl 30m
+# new primary:
+netductor recover --from-secondary http://SECONDARY:8790 \
+  --recovery-token "$RECOVERY_TOKEN" --key "$BACKUP_KEY"
+netductor recovery disarm
+```

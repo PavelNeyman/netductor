@@ -45,6 +45,7 @@ func wizStepsForTarget(target wizTarget, lang tuiLang) []wizProgStep {
 			{ID: "harden", Label: L("SSH harden :52222", "SSH harden :52222")},
 			{ID: "sni", Label: L("Reality SNI", "Reality SNI")},
 			{ID: "fleet", Label: L("Fleet bootstrap + doctor", "Fleet + doctor")},
+			{ID: "credentials", Label: L("Save credentials file", "Файл секретов")},
 			{ID: "done", Label: L("Finish", "Готово")},
 		}
 
@@ -53,6 +54,7 @@ func wizStepsForTarget(target wizTarget, lang tuiLang) []wizProgStep {
 			{ID: "connect", Label: L("SSH to secondary", "SSH secondary"), Active: true},
 			{ID: "provision", Label: L("Provision agent", "Provision agent")},
 			{ID: "mtls", Label: L("mTLS enroll", "mTLS")},
+			{ID: "credentials", Label: L("Save credentials file", "Файл секретов")},
 			{ID: "done", Label: L("Finish", "Готово")},
 		}
 	case wizOpenWrt:
@@ -94,6 +96,8 @@ func matchStepID(line string) string {
 		return "lampac"
 	case strings.Contains(l, "registry") || strings.Contains(l, "git bootstrap"):
 		return "registry"
+	case strings.Contains(l, "operator credentials saved"):
+		return "credentials"
 	case strings.Contains(l, "primary deploy done") || strings.Contains(l, "deploy done"):
 		return "done"
 	case strings.Contains(l, "provision"):

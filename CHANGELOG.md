@@ -1,3 +1,10 @@
+## 0.8.81
+
+- Credentials: no file on SSH/secret failure; `latest-<role>.txt` symlink; iCloud warning
+- CLI: `netductor credentials collect`
+- Handoff: canonical baseline (no knock)
+- TUI log marks credentials step
+
 ## 0.8.80
 
 - Remove recovery port-knock; arm over SSH only
