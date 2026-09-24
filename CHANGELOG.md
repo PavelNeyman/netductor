@@ -1,3 +1,9 @@
+## 0.8.94
+
+- Remove legacy huh deploy wizards; framed Setup only
+- Wizard **Fleet**: primary+secondary one run (domain/LE/add-ons/TG → credentials on Mac)
+- Primary wizard: lampac/git/TG toggles + LE parity with CLI
+
 ## 0.8.92
 
 - Default: no CF proxy for multi-level `i.netductor.*` (grey + :8443)

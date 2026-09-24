@@ -46,3 +46,10 @@ Mac ──SSH password once──► secondary :22
 ```
 
 No primary→secondary SSH. Private key never leaves Mac.
+
+
+## 0.8.94
+
+- Legacy `tui_deploy_wizards` huh forms **removed** (stubs → framed wizard).
+- Framed **Fleet** target deploys primary+secondary with same opts as CLI `deploy primary/secondary`.
+- Primary framed fields: domain/LE/cf_proxy/lampac/git/tg — same as CLI flags.

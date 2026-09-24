@@ -1,6 +1,6 @@
 # Agent handoff (canonical)
 
-**Baseline: v0.8.92**
+**Baseline: v0.8.94**
 
 ## Locked decisions
 
@@ -12,6 +12,7 @@
 - **Secondary deploy:** Mac-direct — primary only `prepare-pack`; Mac SSHs to secondary (no primary→secondary SSH).
 - **Redirect TLS:** LE redirect **:8443 only** (no public :80 after LE); :443 = Reality only.
 - **Mac two-VPS:** [DEPLOY-MAC.md](DEPLOY-MAC.md) TUI≡CLI; secondary Mac-direct.
+- **Mac TUI:** framed Wizard only (huh deploy removed). **Fleet** = primary→secondary→domain/LE→add-ons→credentials.
 - **Domain:** `netductor domain set --base netductor.neyman.top` (DNS in CF; no CF API).
 - **TLS:** `domain set --le --email …` or `tls le --base …` (certbot HTTP-01; primary.+i.).
 

@@ -35,8 +35,14 @@ func wizStepsForTarget(target wizTarget, lang tuiLang) []wizProgStep {
 		return en
 	}
 	switch target {
+	case wizFleet:
+		return []wizProgStep{
+			{ID: "primary", Label: L("Primary", "Primary"), Active: true},
+			{ID: "secondary", Label: L("Secondary", "Secondary")},
+			{ID: "credentials", Label: L("Save credentials", "Секреты на Mac")},
+			{ID: "done", Label: L("Finish", "Готово")},
+		}
 	case wizPrimary:
-		// Core primary only — lampac/git/registry/TG are Add-ons checklist, not this wizard.
 		return []wizProgStep{
 			{ID: "keygen", Label: L("SSH key", "SSH-ключ"), Active: true},
 			{ID: "pubkey", Label: L("Install pubkey", "Pubkey на VPS")},
@@ -44,7 +50,8 @@ func wizStepsForTarget(target wizTarget, lang tuiLang) []wizProgStep {
 			{ID: "install", Label: L("netductor install (core)", "netductor install (ядро)")},
 			{ID: "harden", Label: L("SSH harden :52222", "SSH harden :52222")},
 			{ID: "sni", Label: L("Reality SNI", "Reality SNI")},
-			{ID: "fleet", Label: L("Fleet bootstrap + doctor", "Fleet + doctor")},
+			{ID: "domain", Label: L("Domain / LE", "Домен / LE")},
+			{ID: "addons", Label: L("Add-ons", "Дополнения")},
 			{ID: "credentials", Label: L("Save credentials file", "Файл секретов")},
 			{ID: "done", Label: L("Finish", "Готово")},
 		}
@@ -96,6 +103,10 @@ func matchStepID(line string) string {
 		return "lampac"
 	case strings.Contains(l, "registry") || strings.Contains(l, "git bootstrap"):
 		return "registry"
+	case strings.Contains(l, "domain set") || strings.Contains(l, "let's encrypt"):
+		return "domain"
+	case strings.Contains(l, "lampac") || strings.Contains(l, "registry"):
+		return "addons"
 	case strings.Contains(l, "operator credentials saved"):
 		return "credentials"
 	case strings.Contains(l, "primary deploy done") || strings.Contains(l, "deploy done"):

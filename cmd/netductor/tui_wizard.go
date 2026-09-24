@@ -14,6 +14,7 @@ import (
 type wizTarget string
 
 const (
+	wizFleet     wizTarget = "fleet"
 	wizPrimary   wizTarget = "primary"
 	wizSecondary wizTarget = "secondary"
 	wizOpenWrt   wizTarget = "openwrt"
@@ -53,6 +54,7 @@ func (m *model) startWizard() {
 func wizTargetEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
+			{"fleet", "Fleet (primary+secondary)", "Один сценарий", "Primary → secondary → domain/LE → add-ons → credentials на Mac."},
 			{"primary", "Primary VPS", "Зарубежный control plane", "Чистый Debian/VPS за границей: install стека, Reality SNI, bootstrap fleet, doctor. После этого обычно настраивают Secondary."},
 			{"secondary", "Secondary VPS", "RU entry", "Российский VPS: с Mac — prepare-pack на primary, SSH на secondary (pubkey, agent, sing-box). Пароль только первый вход."},
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
@@ -62,6 +64,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		}
 	}
 	return []menuEntry{
+		{"fleet", "Fleet (primary+secondary)", "Full auto", "Primary → secondary → domain/LE → add-ons → credentials on Mac."},
 		{"primary", "Primary VPS", "Abroad control plane", "Clean Debian/VPS abroad: stack install, Reality SNI, fleet bootstrap, doctor. Usually followed by Secondary."},
 		{"secondary", "Secondary VPS", "RU entry", "RU VPS: from Mac — prepare-pack on primary, SSH to secondary (pubkey, agent, sing-box). Password first login only."},
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
@@ -71,7 +74,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 	}
 }
 
-// Deploy targets: framed fields (tui_wizard_apply) + async run. huh in tui_deploy_wizards is legacy.
+// Deploy targets: framed fields only (tui_wizard_apply). Legacy huh deploy removed.
 
 func (m *model) renderWizard() string {
 	w := max(40, m.width)

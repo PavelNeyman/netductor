@@ -67,7 +67,61 @@ func wizBuildFields(id string, m *model) []wizField {
 				Short: ph("Cloudflare orange on i.", "CF orange на i."),
 				Detail: ph("Usually no. CF free SSL only covers one subdomain level (*.neyman.top), not i.netductor.neyman.top. Keep DNS-only (grey) and :8443.",
 					"Обычно no. Бесплатный SSL CF не покрывает i.netductor.… (два уровня). Серое облако + :8443.")},
+			{Key: "with_lampac", Label: FormT(lang, "with_lampac_primary"), Value: "no", Toggle: true,
+				Short: ph("Install Lampac add-on", "Поставить Lampac"),
+				Detail: ph("Docker Lampac on primary after core install.", "Docker Lampac на primary после ядра.")},
+			{Key: "with_git", Label: FormT(lang, "with_git_registry"), Value: "no", Toggle: true,
+				Short: ph("Thin git + registry", "Git + registry"),
+				Detail: ph("Optional git repos + local container registry.", "Опционально git и локальный registry.")},
+			{Key: "tg_token", Label: FormT(lang, "tg_bot_token"), Value: "", Secret: true,
+				Short: ph("Optional Telegram bot", "Опционально TG-бот"),
+				Detail: ph("If set, installs telegram unit on primary.", "Если задан — ставит telegram unit.")},
+			{Key: "tg_admin", Label: FormT(lang, "tg_admin_id"), Value: "",
+				Short: ph("Telegram admin user id", "TG admin id"),
+				Detail: ph("Numeric Telegram user id for operator.", "Числовой id оператора в Telegram.")},
 		}
+
+	case "fleet":
+		return []wizField{
+			{Key: "do_primary", Label: FormT(lang, "fleet_do_primary"), Value: "yes", Toggle: true,
+				Short: ph("Deploy abroad control plane", "Деплой зарубежного primary"),
+				Detail: ph("Runs full primary install + domain/LE + selected add-ons.", "Полный primary: install, domain/LE, add-ons.")},
+			{Key: "do_secondary", Label: FormT(lang, "fleet_do_secondary"), Value: "yes", Toggle: true,
+				Short: ph("Deploy RU secondary", "Деплой RU secondary"),
+				Detail: ph("After primary: Mac-direct secondary provision.", "После primary: secondary с Mac.")},
+			{Key: "host", Label: FormT(lang, "primary_host"), Value: s.RemoteHost, Placeholder: "x.x.x.x",
+				Short: ph("Primary public IP", "IP primary"), Detail: ph("Abroad VPS.", "Зарубежный VPS.")},
+			{Key: "password", Label: FormT(lang, "ssh_password_first") + " (primary)", Secret: true,
+				Short: ph("Primary first-login password", "Пароль primary"), Detail: ph("Once; then key-only.", "Один раз.")},
+			{Key: "sec_host", Label: FormT(lang, "secondary_host"), Value: "",
+				Short: ph("Secondary public IP", "IP secondary"), Detail: ph("RU VPS.", "РФ VPS.")},
+			{Key: "sec_password", Label: FormT(lang, "ssh_password_first") + " (secondary)", Secret: true,
+				Short: ph("Secondary first-login password", "Пароль secondary"), Detail: ph("Once; then key-only.", "Один раз.")},
+			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root", Short: "SSH user", Detail: "root"},
+			{Key: "gen_key", Label: FormT(lang, "gen_ssh_key") + " (yes/no)", Value: "yes",
+				Short: ph("Create Mac key", "Ключ на Mac"), Detail: ph("~/.ssh/netductor_primary", "~/.ssh/netductor_primary")},
+			{Key: "key_path", Label: FormT(lang, "ssh_key_path"), Value: orDefault(s.RemoteKey, "~/.ssh/netductor_primary"),
+				Short: ph("Private key path", "Путь к ключу"), Detail: ph("Shared for primary+secondary collect.", "Общий для collect.")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (empty=none)", Secret: true,
+				Short: ph("Optional", "Опционально"), Detail: ph("Key passphrase", "Фраза ключа")},
+			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me",
+				Short: "Reality SNI", Detail: ph("Same on both nodes.", "На обеих нодах.")},
+			{Key: "domain_base", Label: FormT(lang, "domain_base"), Value: "",
+				Short: ph("DNS base (CF already set)", "DNS base"), Detail: ph("e.g. nd.neyman.top → p./s./i. if short names in CF.", "Напр. nd.neyman.top.")},
+			{Key: "le_email", Label: FormT(lang, "le_email"), Value: "",
+				Short: ph("LE email", "LE email"), Detail: ph("Required for certs on primary+i.", "Для сертификатов.")},
+			{Key: "cf_proxy", Label: FormT(lang, "cf_proxy"), Value: "no", Toggle: true,
+				Short: "CF orange i.", Detail: ph("Usually no for multi-level names.", "Обычно no.")},
+			{Key: "with_lampac", Label: FormT(lang, "with_lampac_primary"), Value: "no", Toggle: true,
+				Short: "Lampac", Detail: "Docker on primary"},
+			{Key: "with_git", Label: FormT(lang, "with_git_registry"), Value: "no", Toggle: true,
+				Short: "Git+registry", Detail: "Optional"},
+			{Key: "tg_token", Label: FormT(lang, "tg_bot_token"), Value: "", Secret: true,
+				Short: "TG bot", Detail: "Optional"},
+			{Key: "tg_admin", Label: FormT(lang, "tg_admin_id"), Value: "",
+				Short: "TG admin id", Detail: "Optional"},
+		}
+
 	case "secondary":
 		return []wizField{
 			{Key: "host", Label: FormT(lang, "secondary_host"),
@@ -182,9 +236,12 @@ func (m model) runWizardApplyInTUI() string {
 		err := deploy.DeployPrimary(deploy.PrimaryOpts{
 			Host: host, User: orDefault(m.fieldVal("user"), "root"), Password: m.fieldVal("password"),
 			SSHPrivateKey: keyPath, GenerateKey: yesish(m.fieldVal("gen_key")),
-			KeyPassphrase: m.fieldVal("key_pass"), WithLampac: false, // add-ons via Wizard → Дополнения
-			Version: deploy.Release, // TG bot via Wizard → Add-ons (token/admin there)
-			TelegramToken: "", TelegramAdminID: "",
+			KeyPassphrase: m.fieldVal("key_pass"),
+			WithLampac: yesish(m.fieldVal("with_lampac")),
+			WithGitRegistry: yesish(m.fieldVal("with_git")),
+			Version: deploy.Release,
+			TelegramToken: strings.TrimSpace(m.fieldVal("tg_token")),
+			TelegramAdminID: strings.TrimSpace(m.fieldVal("tg_admin")),
 			SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
 			DomainLE: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) != "",
 			DomainEmail: m.fieldVal("le_email"),
@@ -200,6 +257,67 @@ func (m model) runWizardApplyInTUI() string {
 		s.RemoteKey = keyPath
 		_ = saveTUISettings(s)
 		return TT(lang, "Primary deploy finished: "+host, "Primary готов: "+host)
+
+	case wizFleet:
+		keyPath := expandHome(orDefault(m.fieldVal("key_path"), "~/.ssh/netductor_primary"))
+		var msgs []string
+		if yesish(m.fieldVal("do_primary")) {
+			host := m.fieldVal("host")
+			if host == "" {
+				return FormT(lang, "primary_host") + " required"
+			}
+			err := deploy.DeployPrimary(deploy.PrimaryOpts{
+				Host: host, User: orDefault(m.fieldVal("user"), "root"), Password: m.fieldVal("password"),
+				SSHPrivateKey: keyPath, GenerateKey: yesish(m.fieldVal("gen_key")),
+				KeyPassphrase: m.fieldVal("key_pass"),
+				WithLampac: yesish(m.fieldVal("with_lampac")),
+				WithGitRegistry: yesish(m.fieldVal("with_git")),
+				Version: deploy.Release,
+				TelegramToken: strings.TrimSpace(m.fieldVal("tg_token")),
+				TelegramAdminID: strings.TrimSpace(m.fieldVal("tg_admin")),
+				SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
+				DomainLE: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) != "",
+				DomainEmail: m.fieldVal("le_email"),
+				DomainHTTP: strings.TrimSpace(m.fieldVal("domain_base")) != "" && strings.TrimSpace(m.fieldVal("le_email")) == "",
+				DomainBase: strings.TrimSpace(m.fieldVal("domain_base")),
+				DomainCFProxy: yesish(m.fieldVal("cf_proxy")),
+			})
+			if err != nil {
+				return "primary: " + err.Error()
+			}
+			s.RemoteHost = host
+			s.RemoteUser = orDefault(m.fieldVal("user"), "root")
+			s.RemoteKey = keyPath
+			_ = saveTUISettings(s)
+			msgs = append(msgs, TT(lang, "Primary OK: "+host, "Primary OK: "+host))
+		}
+		if yesish(m.fieldVal("do_secondary")) {
+			if s.RemoteHost == "" || s.RemoteKey == "" {
+				s = loadTUISettings()
+			}
+			if s.RemoteHost == "" || s.RemoteKey == "" {
+				return FormT(lang, "set_primary_first")
+			}
+			secHost := m.fieldVal("sec_host")
+			if secHost == "" {
+				return FormT(lang, "secondary_host") + " required"
+			}
+			err := deploy.DeploySecondary(deploy.SecondaryOpts{
+				PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
+				PrimaryKeyPassphrase: m.fieldVal("key_pass"),
+				SecondaryHost: secHost, SecondaryUser: orDefault(m.fieldVal("user"), "root"),
+				SecondaryPass: m.fieldVal("sec_password"), SNI: orDefault(m.fieldVal("sni"), "api.vk.me"),
+			})
+			if err != nil {
+				return "secondary: " + err.Error()
+			}
+			msgs = append(msgs, TT(lang, "Secondary OK: "+secHost, "Secondary OK: "+secHost))
+		}
+		if len(msgs) == 0 {
+			return TT(lang, "Nothing selected", "Ничего не выбрано")
+		}
+		return strings.Join(msgs, "\n")
+
 	case wizSecondary:
 		if s.RemoteHost == "" || s.RemoteKey == "" {
 			return FormT(lang, "set_primary_first")

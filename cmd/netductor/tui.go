@@ -284,12 +284,9 @@ func runTUI(args []string) {
 		case "wizard":
 			// Prefer framed TUI: netductor tui → Wizard tab. Huh legacy kept for non-interactive scripts.
 			runSetupWizard()
-		case "wizard-primary":
-			wizardPrimary()
-		case "wizard-secondary":
-			wizardSecondary()
-		case "wizard-openwrt":
-			wizardOpenWrt()
+		case "wizard-primary", "wizard-secondary", "wizard-openwrt", "wizard-fleet":
+			// Legacy huh removed — framed Setup wizard only (netductor tui → Wizard).
+			runSetupWizard()
 		case "wizard-mikrotik":
 			runSiteWizard()
 		case "wizard-nvr":
