@@ -82,6 +82,15 @@ func wizStepsForTarget(target wizTarget, lang tuiLang) []wizProgStep {
 
 func matchStepID(line string) string {
 	l := strings.ToLower(line)
+	// Structured operator.Step lines: "step primary:", "step secondary done:", …
+	if strings.HasPrefix(strings.TrimSpace(l), "step ") {
+		rest := strings.TrimSpace(l[5:])
+		for _, id := range []string{"primary", "secondary", "credentials", "done", "edge"} {
+			if strings.HasPrefix(rest, id) {
+				return id
+			}
+		}
+	}
 	switch {
 	case strings.Contains(l, "generating ssh key"):
 		return "keygen"
@@ -89,32 +98,36 @@ func matchStepID(line string) string {
 		return "pubkey"
 	case strings.Contains(l, "download netductor"):
 		return "download"
-	case strings.Contains(l, "telegram"):
-		return "secrets"
 	case strings.Contains(l, "netductor install"):
 		return "install"
-	case strings.Contains(l, "post-harden"):
+	case strings.Contains(l, "post-harden") || strings.Contains(l, "ssh harden"):
 		return "harden"
-	case strings.Contains(l, "set sni"):
+	case strings.Contains(l, "set sni") || strings.Contains(l, "reality sni"):
 		return "sni"
-	case strings.Contains(l, "fleet bootstrap"):
-		return "fleet"
-	case strings.Contains(l, "lampac"):
-		return "lampac"
-	case strings.Contains(l, "registry") || strings.Contains(l, "git bootstrap"):
-		return "registry"
-	case strings.Contains(l, "domain set") || strings.Contains(l, "let's encrypt"):
+	case strings.Contains(l, "domain set") || strings.Contains(l, "let's encrypt") || strings.Contains(l, "lets encrypt"):
 		return "domain"
-	case strings.Contains(l, "lampac") || strings.Contains(l, "registry"):
+	case strings.Contains(l, "lampac") || strings.Contains(l, "registry") || strings.Contains(l, "git bootstrap"):
 		return "addons"
-	case strings.Contains(l, "operator credentials saved"):
+	case strings.Contains(l, "credentials file") || strings.Contains(l, "operator credentials") || strings.Contains(l, "credentials:"):
 		return "credentials"
-	case strings.Contains(l, "primary deploy done") || strings.Contains(l, "deploy done"):
+	case strings.Contains(l, "primary deploy done") || (strings.Contains(l, "deploy done") && !strings.Contains(l, "secondary")):
 		return "done"
-	case strings.Contains(l, "provision"):
+	case strings.Contains(l, "secondary deploy done") || strings.Contains(l, "secondary provision"):
 		return "provision"
+	case strings.Contains(l, "ssh to") && strings.Contains(l, "secondary"):
+		return "connect"
 	case strings.Contains(l, "mtls"):
 		return "mtls"
+	case strings.Contains(l, "edge") && (strings.Contains(l, "agent") || strings.Contains(l, "install")):
+		return "agent"
+	case strings.Contains(l, "enroll"):
+		return "enroll"
+	case strings.Contains(l, "uci") || strings.Contains(l, "network") || strings.Contains(l, "wifi"):
+		return "net"
+	case strings.Contains(l, "ssh") && strings.Contains(l, "router"):
+		return "ssh"
+	case strings.Contains(l, "provision"):
+		return "provision"
 	}
 	return ""
 }

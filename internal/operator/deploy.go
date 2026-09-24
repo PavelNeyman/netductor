@@ -93,3 +93,18 @@ func FleetDeploy(f FleetSpec) error {
 func defaultOperatorKeyPath() string {
 	return expandHome("~/.ssh/netductor_primary")
 }
+
+// RunRemote is day-2 SSH from the operator machine (addons, one-off scripts).
+// Validates host/user; does not implement install logic.
+func RunRemote(user, host, keyPath, keyPass, cmd string) (string, error) {
+	if !ValidHost(host) {
+		return "", fmt.Errorf("invalid host")
+	}
+	if user == "" {
+		user = "root"
+	}
+	if !ValidUser(user) {
+		return "", fmt.Errorf("invalid user")
+	}
+	return deploy.RunOnPrimary(host, user, keyPath, keyPass, cmd)
+}

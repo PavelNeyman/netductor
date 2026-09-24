@@ -353,6 +353,8 @@
 
 ## 0.8.99
 
+- TUI wizard: all deploy targets via operator (EdgeFromFields, RunRemote); step matcher for Fleet events
+
 - security(operator): stricter ValidHost/ValidUser; DeployEdge use-case
 - security(operator): token charset + CSP/XFO on operator serve
 - security(deploy): ssh `--` before user@host

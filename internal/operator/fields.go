@@ -159,3 +159,24 @@ func ValidDeviceID(id string) bool {
 	}
 	return true
 }
+
+// EdgeFromFields maps OpenWrt wizard keys → EdgeSpec.
+// Keys: router, password, id, arch, server, net, lan_ip, wifi_ssid, wifi_key, wan_proto, guest, key_pass
+// Primary* filled by caller from TUI settings when empty.
+func EdgeFromFields(get FieldGetter) EdgeSpec {
+	return EdgeSpec{
+		RouterHost:           strings.TrimSpace(get("router")),
+		RouterUser:           orDefault(get("user"), "root"),
+		RouterPass:           get("password"),
+		DeviceID:             strings.TrimSpace(get("id")),
+		AgentArch:            orDefault(get("arch"), "arm64"),
+		ServerURL:            strings.TrimSpace(get("server")),
+		NetConfigure:         yesish(get("net")),
+		LANIP:                strings.TrimSpace(get("lan_ip")),
+		WiFiSSID24:           get("wifi_ssid"),
+		WiFiKey24:            get("wifi_key"),
+		WANProto:             orDefault(get("wan_proto"), "dhcp"),
+		GuestEnable:          yesish(get("guest")),
+		PrimaryKeyPassphrase: get("key_pass"),
+	}
+}

@@ -243,7 +243,7 @@ func (m model) runWizardApplyInTUI() string {
 		_ = saveTUISettings(s)
 		return TT(lang, "Primary deploy finished: "+spec.Host, "Primary готов: "+spec.Host)
 
-		case wizFleet:
+	case wizFleet:
 		f := operator.FleetFromFields(m.fieldVal)
 		f.Primary.Version = deploy.Release
 		rep := func(st operator.Step) {
@@ -281,22 +281,26 @@ func (m model) runWizardApplyInTUI() string {
 		}
 		return TT(lang, "Secondary deploy finished", "Secondary готов")
 	case wizOpenWrt:
-		id := m.fieldVal("id")
-		err := operator.DeployEdge(operator.EdgeSpec{
-			PrimaryHost: s.RemoteHost, PrimaryUser: orDefault(s.RemoteUser, "root"), PrimaryKey: s.RemoteKey,
-			PrimaryKeyPassphrase: m.fieldVal("key_pass"),
-			RouterHost: m.fieldVal("router"), RouterUser: "root", RouterPass: m.fieldVal("password"),
-			DeviceID: id, ServerURL: m.fieldVal("server"), AgentArch: orDefault(m.fieldVal("arch"), "arm64"),
-			Version: deploy.Release, NetConfigure: yesish(m.fieldVal("net")),
-			LANIP: m.fieldVal("lan_ip"), WiFiSSID24: m.fieldVal("wifi_ssid"), WiFiKey24: m.fieldVal("wifi_key"),
-			WANProto: m.fieldVal("wan_proto"), GuestEnable: yesish(m.fieldVal("guest")),
-		})
-		if err != nil {
+		if s.RemoteHost == "" || s.RemoteKey == "" {
+			return FormT(lang, "set_primary_first")
+		}
+		edge := operator.EdgeFromFields(m.fieldVal)
+		edge.PrimaryHost = s.RemoteHost
+		edge.PrimaryUser = orDefault(s.RemoteUser, "root")
+		edge.PrimaryKey = s.RemoteKey
+		edge.Version = deploy.Release
+		if edge.RouterUser == "" {
+			edge.RouterUser = "root"
+		}
+		if err := operator.DeployEdge(edge); err != nil {
 			return err.Error()
 		}
-		s.LastEdgeID = id
-		_ = saveTUISettings(s)
-		return TT(lang, "Edge provisioned: "+id, "Edge: "+id)
+		if edge.DeviceID != "" {
+			s.LastEdgeID = edge.DeviceID
+			_ = saveTUISettings(s)
+		}
+		return TT(lang, "Edge provisioned: "+edge.DeviceID, "Edge: "+edge.DeviceID)
+
 	case wizNVR:
 		mm := &model{remoteHost: s.RemoteHost, remoteUser: s.RemoteUser, remoteKey: s.RemoteKey}
 		switch m.fieldVal("action") {
@@ -325,7 +329,7 @@ func (m model) runWizardApplyInTUI() string {
 		any := false
 		if yesish(m.fieldVal("lampac")) {
 			any = true
-			out, err := deploy.RunOnPrimary(host, user, keyPath, pass, "netductor install lampac")
+			out, err := operator.RunRemote(user, host, keyPath, pass, "netductor install lampac")
 			parts = append(parts, "=== lampac @ "+host+" ===", out)
 			if err != nil {
 				parts = append(parts, err.Error())
@@ -344,7 +348,7 @@ func (m model) runWizardApplyInTUI() string {
 			}
 			script += "chmod 600 /etc/netductor/secrets/* 2>/dev/null || true; "
 			script += "netductor install telegram; systemctl restart netductor-telegram-bot || true; systemctl is-active netductor-telegram-bot || true"
-			out, err := deploy.RunOnPrimary(host, user, keyPath, pass, script)
+			out, err := operator.RunRemote(user, host, keyPath, pass, script)
 			parts = append(parts, "=== telegram @ "+host+" ===", out)
 			if err != nil {
 				parts = append(parts, err.Error())
@@ -363,7 +367,7 @@ func (m model) runWizardApplyInTUI() string {
 			cmd := "command -v git >/dev/null || apt-get install -y -qq git; " +
 				"netductor registry ensure; netductor registry crane; " +
 				"netductor git init netductor 2>/dev/null || true; netductor git pipelines; netductor registry status"
-			out, err := deploy.RunOnPrimary(host, user, keyPath, pass, cmd)
+			out, err := operator.RunRemote(user, host, keyPath, pass, cmd)
 			parts = append(parts, "=== git+registry @ "+host+" ===", out)
 			if err != nil {
 				parts = append(parts, err.Error())
