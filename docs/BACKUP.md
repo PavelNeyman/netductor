@@ -104,3 +104,25 @@ netductor recover --from-secondary http://SECONDARY:8790   --recovery-token "$(c
 - Optional (discouraged): `NETDUCTOR_RECOVERY_SERVE_KEY=1` on secondary + `NETDUCTOR_RECOVERY_FETCH_KEY=1` on client.
 - Optional: `NETDUCTOR_RECOVERY_ALLOW_CIDR=NEW_PRIMARY_IP/32` after you know the new IP.
 - Failed auth: lockout 15m after 5 failures per IP.
+
+
+## Recovery arm / port-knock (0.8.78+)
+
+Recovery HTTP **:8790 is not always on**.
+
+1. **Preferred:** SSH to secondary and arm:
+```bash
+ssh -p 52222 root@SECONDARY
+netductor recovery arm --ttl 30m
+# … recover from new primary …
+netductor recovery disarm
+```
+
+2. **Port-knock** (when you only need to open DR without interactive SSH session):
+   - Sequence (default): TCP connect **41222 → 41223 → 41224** within 5s from same IP
+   - Then recovery arms for `NETDUCTOR_RECOVERY_ARM_TTL` (default 30m)
+   - Override ports: `NETDUCTOR_RECOVERY_KNOCK=41222,41223,41224`
+   - Disable knock: `NETDUCTOR_RECOVERY_KNOCK=0`
+   - Legacy always-on: `NETDUCTOR_RECOVERY_ALWAYS=1` (not recommended)
+
+Still need offline `NETDUCTOR_BACKUP_KEY` / `--key` for decrypt.

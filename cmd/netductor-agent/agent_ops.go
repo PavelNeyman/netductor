@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
 	"github.com/PavelNeyman/netductor/internal/edgeagent"
 )
 
@@ -237,6 +238,20 @@ func applyVPNClient(tmpl map[string]any) string {
 		_ = exec.Command("/etc/init.d/netductor-vpn", "enable").Run()
 		_ = exec.Command("/etc/init.d/netductor-vpn", "restart").Run()
 		note += "; netductor-vpn restarted"
+		// If TUN fails on this board, fall back to socks@127.0.0.1 once.
+		if mode == "tun" {
+			time.Sleep(2 * time.Second)
+			out, _ := exec.Command("/etc/init.d/netductor-vpn", "status").CombinedOutput()
+			st := string(out)
+			if strings.Contains(st, "inactive") || strings.Contains(st, "failed") || strings.Contains(strings.ToLower(st), "not running") {
+				note += "; tun failed → socks fallback"
+				mode = "socks"
+				if cfg2, err2 := edgeagent.VLESSClientConfig(vless, mode); err2 == nil {
+					_ = os.WriteFile(path, cfg2, 0o600)
+					_ = exec.Command("/etc/init.d/netductor-vpn", "restart").Run()
+				}
+			}
+		}
 	} else {
 		_ = exec.Command(bin, "run", "-c", path).Start()
 		note += "; sing-box started"

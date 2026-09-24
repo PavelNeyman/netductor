@@ -1,3 +1,10 @@
+## 0.8.78
+
+- Recovery HTTP **off by default**; `netductor recovery arm|disarm|status`
+- Port-knock sequence (default 41222→41223→41224) arms recovery for TTL
+- Recovery token compare: constant-time
+- Edge: TUN start failure → automatic socks@127.0.0.1 fallback
+
 ## 0.8.77
 
 - Edge VPN default mode: **tun** (was socks/mixed)

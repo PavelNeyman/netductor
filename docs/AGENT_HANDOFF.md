@@ -1,3 +1,8 @@
+## 0.8.78
+
+- Recovery: **not always listening**. Arm via CLI or port-knock; key still offline.
+- Edge TUN default + auto socks fallback if service fails.
+
 ## 0.8.77
 - Edge agent VPN: default **TUN**
 
