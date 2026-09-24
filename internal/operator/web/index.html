@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>netductor operator</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:52rem;margin:1.5rem auto;padding:0 1rem;background:#0f1419;color:#e7ecf1}
+h1{font-size:1.25rem} label{display:block;margin:.5rem 0 .2rem;font-size:.85rem;color:#9aa4b2}
+input,button{font:inherit;padding:.45rem .6rem;border-radius:6px;border:1px solid #2a3340;background:#1a222d;color:#e7ecf1;width:100%;box-sizing:border-box}
+button{cursor:pointer;background:#3b82f6;border-color:#3b82f6;margin-top:1rem;width:auto}
+button:disabled{opacity:.5} .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+pre{background:#1a222d;padding:1rem;border-radius:8px;overflow:auto;min-height:12rem;font-size:.8rem}
+.note{color:#9aa4b2;font-size:.85rem;margin-bottom:1rem}
+</style>
+</head>
+<body>
+<h1>netductor operator (localhost)</h1>
+<p class="note">Loopback only. Runs FleetDeploy on this machine via SSH — same as CLI.</p>
+<form id="f">
+<div class="row">
+<div><label>Primary host</label><input name="primary_host" required placeholder="2.x.x.x"/></div>
+<div><label>Primary password (first login)</label><input name="primary_password" type="password"/></div>
+</div>
+<div class="row">
+<div><label>Secondary host</label><input name="secondary_host" placeholder="92.x.x.x"/></div>
+<div><label>Secondary password</label><input name="secondary_password" type="password"/></div>
+</div>
+<div class="row">
+<div><label>Domain base (optional)</label><input name="domain_base" placeholder="nd.neyman.top"/></div>
+<div><label>LE email (optional)</label><input name="le_email" type="email"/></div>
+</div>
+<div class="row">
+<div><label>SNI</label><input name="sni" value="api.vk.me"/></div>
+<div><label>SSH key path</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
+</div>
+<label><input type="checkbox" name="do_primary" checked/> Deploy primary</label>
+<label><input type="checkbox" name="do_secondary" checked/> Deploy secondary</label>
+<label><input type="checkbox" name="with_lampac"/> Lampac</label>
+<button type="submit" id="go">Run FleetDeploy</button>
+</form>
+<h2>Log</h2>
+<pre id="log">idle\n</pre>
+<script>
+const log=document.getElementById('log');
+function line(s){log.textContent+=s+'\n';log.scrollTop=log.scrollHeight}
+document.getElementById('f').onsubmit=async(e)=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const body={
+    do_primary:fd.get('do_primary')==='on',
+    do_secondary:fd.get('do_secondary')==='on',
+    primary_host:fd.get('primary_host'),
+    primary_password:fd.get('primary_password'),
+    secondary_host:fd.get('secondary_host'),
+    secondary_password:fd.get('secondary_password'),
+    domain_base:fd.get('domain_base'),
+    le_email:fd.get('le_email'),
+    sni:fd.get('sni')||'api.vk.me',
+    key:fd.get('key'),
+    with_lampac:fd.get('with_lampac')==='on',
+  };
+  document.getElementById('go').disabled=true;
+  log.textContent='';
+  line('POST /v1/fleet …');
+  try{
+    const res=await fetch('/v1/fleet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const reader=res.body.getReader();
+    const dec=new TextDecoder();
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      line(dec.decode(value));
+    }
+  }catch(err){line('error: '+err)}
+  document.getElementById('go').disabled=false;
+};
+</script>
+</body>
+</html>

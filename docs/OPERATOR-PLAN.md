@@ -6,43 +6,32 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 
 ## Phase 0 — Documentation
 
-- [x] [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) — target model + phases
-- [x] Compress [AGENT_HANDOFF.md](AGENT_HANDOFF.md) — drop version archaeology
-- [x] AGENTS.md — operator rules + **mandatory doc update on every completed item**
-- [x] This checklist created
+- [x] ARCHITECTURE-OPERATOR.md, compressed handoff, AGENTS discipline, this checklist
 
 ## Phase 1 — Use-case layer
 
-- [x] Package `internal/operator` with Spec types shared by CLI/TUI
-- [x] `DeployPrimary` / `DeploySecondary` / `CollectCredentials` via operator package
-- [x] CLI `deploy primary|secondary` thin wrapper over Spec
-- [x] TUI Fleet + Primary + Secondary thin wrapper over Spec
-- [x] `PrimaryFromFields` / `FleetFromFields` / `ApplyDomainFlags` helpers
-- [x] Docs updated
-- [x] Mark items `[x]` here when done
+- [x] `internal/operator` Specs + DeployPrimary/Secondary/CollectCredentials
+- [x] CLI + TUI thin wrappers; field helpers
 
 ## Phase 2 — FleetDeploy
 
-- [x] `FleetDeploy(FleetSpec)` one function: ordered primary → secondary
-- [x] TUI Fleet calls `FleetDeploy` only
-- [x] CLI `deploy fleet` same entry
-- [x] Structured step events (`operator.Step` + `FleetDeployWithReport`)
-- [x] Docs + this checklist updated
+- [x] `FleetDeploy` / `FleetDeployWithReport`
+- [x] TUI Fleet + CLI `deploy fleet`
+- [x] Structured `operator.Step` events
 
 ## Phase 3 — Localhost API + WebUI
 
-- [ ] `netductor operator serve` bind **127.0.0.1 only**
-- [ ] JSON endpoints for fleet/primary/secondary + event stream
-- [ ] `go:embed` minimal WebUI (Fleet form + log + credentials path)
-- [ ] Security note in docs (loopback only)
-- [ ] Docs + this checklist updated
+- [x] `netductor operator serve` bind **127.0.0.1 only** (default port 7373)
+- [x] `POST /v1/fleet` streaming log; `GET /v1/health`
+- [x] `go:embed` minimal WebUI (Fleet form)
+- [x] Security: non-loopback bind rejected in code + docs
+- [x] Docs + this checklist updated
 
 ## Phase 4 — Optional
 
-- [ ] Binary split `netductor` (node) vs `netductor-op` (operator)
+- [ ] Binary split `netductor` vs `netductor-op`
 - [ ] Mobile day-2 client (not bootstrap)
 
-## Done recently
+## Releases
 
-- [x] v0.8.94 — legacy huh deploy removed; framed Fleet wizard
-- [x] v0.8.96 — Step events; v0.8.95 — `internal/operator` use-cases; CLI/TUI thin clients; `deploy fleet`
+- [x] v0.8.94–0.8.97 operator program

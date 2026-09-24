@@ -1,3 +1,8 @@
+## 0.8.97
+
+- `netductor operator serve` — localhost UI + `POST /v1/fleet` (loopback only)
+- embed WebUI for FleetDeploy
+
 ## 0.8.96
 
 - operator.Step + FleetDeployWithReport structured progress events

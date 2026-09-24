@@ -12,7 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
-var version = "0.8.96"
+var version = "0.8.97"
 
 func main() {
 	ndconfig.Load()
@@ -83,6 +83,8 @@ func main() {
 		for _, ev := range audit.Tail(n) {
 			fmt.Printf("%d\t%s\t%s\t%s\t%s\n", ev.TS, ev.Actor, ev.Action, ev.Target, ev.Detail)
 		}
+	case "operator":
+		runOperator(os.Args[2:])
 	case "domain":
 		runDomain(os.Args[2:])
 	case "credentials":
