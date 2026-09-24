@@ -35,3 +35,6 @@ netductor tls show
 Uses **certbot standalone** (needs :80 free briefly). Opens ufw 80/443. Writes certs, sets `REDIRECT_BASE=https://i.<base>`, restarts redirect on :80+:443.
 
 Renewal: certbot timer (distro default); after renew restart `netductor-redirect`.
+
+
+Redirect HTTPS listens on **:8443** (port 443 is Reality/sing-box). HTTP :80 for ACME/CF flexible.

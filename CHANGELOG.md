@@ -1,3 +1,10 @@
+## 0.8.85
+
+- deploy: SSH_ASKPASS fallback without sshpass; CLI --domain-base/--le-email
+- redirect HTTPS **:8443** (443 = Reality)
+- secondary deploy defaults NETDUCTOR_SSH_PORT=52222 for primary
+- agent logs failed ticks; NETDUCTOR_KEY_PATH for durable key path
+
 ## 0.8.84
 
 - **Let's Encrypt:** `netductor tls le` + `domain set --le --email`

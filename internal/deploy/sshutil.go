@@ -112,14 +112,22 @@ func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (str
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
 	base = append([]string{"-p", sshPort()}, base...)
 	if usePass {
-		sp, err := lookSSHPass()
-		if err != nil {
-			return "", err
+		if sp, err := lookSSHPass(); err == nil {
+			args := append([]string{"-e", "ssh"}, base...)
+			args = append(args, target, remoteCmd)
+			cmd := exec.Command(sp, args...)
+			cmd.Env = append(os.Environ(), "SSHPASS="+password)
+			out, err := cmd.CombinedOutput()
+			return string(out), err
 		}
-		args := append([]string{"-e", "ssh"}, base...)
-		args = append(args, target, remoteCmd)
-		cmd := exec.Command(sp, args...)
-		cmd.Env = append(os.Environ(), "SSHPASS="+password)
+		ask, cleanup, err := writeAskPass(password)
+		if err != nil {
+			return "", fmt.Errorf("sshpass missing and ASKPASS failed: %w", err)
+		}
+		defer cleanup()
+		args := append(append([]string{}, base...), target, remoteCmd)
+		cmd := exec.Command("setsid", append([]string{"ssh"}, args...)...)
+		cmd.Env = append(os.Environ(), "SSH_ASKPASS="+ask, "SSH_ASKPASS_REQUIRE=force", "DISPLAY=.")
 		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}
@@ -179,6 +187,10 @@ func fileExists(p string) bool {
 }
 
 func defaultKeyPath() (string, error) {
+	if p := os.Getenv("NETDUCTOR_KEY_PATH"); p != "" {
+		_ = os.MkdirAll(filepath.Dir(p), 0o700)
+		return p, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

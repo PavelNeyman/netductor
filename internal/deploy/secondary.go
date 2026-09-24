@@ -34,6 +34,10 @@ type SecondaryOpts struct {
 
 // DeploySecondary provisions secondary without copying the Mac private key to primary.
 func DeploySecondary(o SecondaryOpts) error {
+	// Primary is hardened to 52222 after install
+	if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
+		_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+	}
 	if o.PrimaryHost == "" || o.PrimaryKey == "" {
 		return fmt.Errorf("primary host and SSH key required")
 	}

@@ -252,7 +252,7 @@ Type=simple
 EnvironmentFile=-/etc/netductor/netductor.conf
 Environment=NETDUCTOR_REDIRECT_TLS_CERT=%s
 Environment=NETDUCTOR_REDIRECT_TLS_KEY=%s
-ExecStart=%s redirect-serve -listen :80 -https-listen :443 -tls-cert %s -tls-key %s
+ExecStart=%s redirect-serve -listen :80 -https-listen :8443 -tls-cert %s -tls-key %s
 Restart=on-failure
 RestartSec=5
 

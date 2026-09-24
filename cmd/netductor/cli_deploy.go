@@ -18,7 +18,8 @@ func runDeploy(args []string) {
 
 primary:
   --host --password [--user root] [--generate-key] [--key-passphrase]
-  [--key PATH] [--tg-token] [--tg-admin] [--sni] [--with-lampac] [--with-git-registry]
+  [--key PATH] [--tg-token] [--tg-admin] [--sni] [--domain-base] [--le-email]
+  [--with-lampac] [--with-git-registry]
 
 secondary:
   --primary --primary-key --host --password [--user] [--sni]
@@ -79,6 +80,15 @@ See: netductor tui → Setup wizard`)
 				o.TelegramAdminID = args[i]
 			case a == "--skip-install":
 				o.SkipInstall = true
+			case a == "--domain-base" && i+1 < len(args):
+				i++
+				o.DomainBase = args[i]
+			case a == "--le-email" && i+1 < len(args):
+				i++
+				o.DomainEmail = args[i]
+				o.DomainLE = true
+			case a == "--domain-http":
+				o.DomainHTTP = true
 			}
 		}
 		if o.Host == "" {
