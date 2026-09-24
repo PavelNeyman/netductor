@@ -1,21 +1,22 @@
 package deploy
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
-// SecondaryOpts — provision RU secondary from operator workstation (Mac) or via primary.
+// SecondaryOpts — provision RU secondary from operator workstation (Mac).
 //
-// Default path (ViaPrimary=false): Mac SSHs to primary only to run provision command that
-// opens SSH primary→secondary with secondary password. No Mac private key is copied to primary.
+// Path (locked):
+//  1. Mac → primary SSH (key): prepare-pack (IssueToken + mTLS + VPN bundle) — no primary→secondary SSH
+//  2. Mac → secondary SSH (password once): install pubkey, binary, secrets, join, harden-last
 //
-// ViaPrimary=true: same transport (must run provision on primary where control-plane state lives).
-// Named explicitly for TUI; behavior matches default because bundle/mtls are issued on primary.
-//
-// True "Mac opens SSH to secondary" still needs primary for IssueToken/mTLS; the operator
-// machine orchestrates both legs. Private key never leaves the operator machine.
+// Agent then talks primary :8789 over mTLS. Mac private key never stored on primary or secondary.
 type SecondaryOpts struct {
 	PrimaryHost          string
 	PrimaryUser          string
@@ -24,17 +25,26 @@ type SecondaryOpts struct {
 	SecondaryHost        string
 	SecondaryUser        string
 	SecondaryPass        string
-	SecondarySSHKey      string // optional; re-provision when password already off
+	SecondarySSHKey      string // optional re-provision when password already off
 	SNI                  string
 	OperatorPubKey       string
-	// ViaPrimary kept for CLI/TUI clarity; provision always executes on primary
-	// (control plane). Direct Mac→secondary SSH for join is future if we add pack export.
+	// ViaPrimary is ignored (deprecated). Always Mac-direct.
 	ViaPrimary bool
 }
 
-// DeploySecondary provisions secondary without copying the Mac private key to primary.
+type secondaryPack struct {
+	Bundle      json.RawMessage `json:"bundle"`
+	AgentID     string          `json:"agent_id"`
+	AgentToken  string          `json:"agent_token"`
+	CoreURL     string          `json:"core_url"`
+	MTLSCAB64   string          `json:"mtls_ca_b64"`
+	MTLSCertB64 string          `json:"mtls_cert_b64"`
+	MTLSKeyB64  string          `json:"mtls_key_b64"`
+	SNI         string          `json:"sni"`
+}
+
+// DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
 func DeploySecondary(o SecondaryOpts) error {
-	// Primary is hardened to 52222 after install
 	if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
 		_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 	}
@@ -45,7 +55,7 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("secondary host required")
 	}
 	if o.SecondaryPass == "" && o.SecondarySSHKey == "" {
-		return fmt.Errorf("secondary password or --secondary-ssh-key required")
+		return fmt.Errorf("secondary password or secondary SSH key required")
 	}
 	if o.PrimaryUser == "" {
 		o.PrimaryUser = "root"
@@ -68,41 +78,79 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("operator pubkey empty")
 	}
 
-	// Password via stdin on primary (not in process list). No Mac private key upload.
-	var cmd string
-	if o.SecondaryPass != "" {
-		cmd = fmt.Sprintf(
-			"printf '%%s' %s | netductor fleet provision-secondary --password-stdin --host %s --user %s --sni %s --operator-pubkey %s",
-			ShellQuote(o.SecondaryPass), ShellQuote(o.SecondaryHost), ShellQuote(o.SecondaryUser),
-			ShellQuote(o.SNI), ShellQuote(pub),
-		)
-	} else {
-		// Re-provision with key already on primary is unsupported without copying key;
-		// operator should use password on fresh VPS or run secondary provision on primary with --ssh-key locally.
-		return fmt.Errorf("secondary password required for deploy from workstation (fresh VPS); for re-provision run on primary: netductor secondary provision --ssh-key …")
+	fmt.Fprintln(os.Stderr, "==> secondary deploy: Mac-direct (primary prepares pack; Mac SSHs to secondary)")
+	fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost)
+
+	prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
+	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
+	if err != nil {
+		return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
+	}
+	// prepare-pack prints JSON on stdout; may mix stderr noise — find first '{'
+	raw := out
+	if i := strings.Index(out, "{"); i >= 0 {
+		raw = out[i:]
+	}
+	var pack secondaryPack
+	if err := json.Unmarshal([]byte(raw), &pack); err != nil {
+		return fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out)
+	}
+	if pack.AgentToken == "" || len(pack.Bundle) == 0 {
+		return fmt.Errorf("prepare-pack missing token/bundle:\n%s", out)
+	}
+	ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
+	if err != nil {
+		return fmt.Errorf("mtls ca: %w", err)
+	}
+	cert, err := base64.StdEncoding.DecodeString(pack.MTLSCertB64)
+	if err != nil {
+		return fmt.Errorf("mtls cert: %w", err)
+	}
+	key, err := base64.StdEncoding.DecodeString(pack.MTLSKeyB64)
+	if err != nil {
+		return fmt.Errorf("mtls key: %w", err)
 	}
 
-	mode := "via primary (control-plane issues bundle; harden-last)"
-	if !o.ViaPrimary {
-		mode = "default: orchestrated from Mac → primary runs provision (no private key on primary)"
+	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
+	// Secondary first login is :22; do not use primary's 52222 env for this leg.
+	prevPort := os.Getenv("NETDUCTOR_SSH_PORT")
+	_ = os.Setenv("NETDUCTOR_SSH_PORT", "22")
+	defer func() {
+		if prevPort != "" {
+			_ = os.Setenv("NETDUCTOR_SSH_PORT", prevPort)
+		} else {
+			_ = os.Unsetenv("NETDUCTOR_SSH_PORT")
+		}
+	}()
+
+	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
+		Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
+		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
+		SNI: o.SNI, OperatorPubKey: pub,
+		MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
+	}, string(pack.Bundle))
+	if res != nil {
+		fmt.Print(res.Log)
 	}
-	fmt.Fprintln(os.Stderr, "==> secondary deploy:", mode)
-	fmt.Fprintln(os.Stderr, "==> on primary:", o.PrimaryHost, "→ provision secondary", o.SecondaryHost)
-	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd, o.PrimaryKeyPassphrase)
-	fmt.Print(out)
 	if err != nil {
-		return err
+		return fmt.Errorf("secondary provision: %w", err)
 	}
-	out, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, "netductor secondary sync; netductor fleet status", o.PrimaryKeyPassphrase)
-	fmt.Print(out)
-	fmt.Fprintln(os.Stderr, "==> secondary deploy done (agent→primary HTTP; Mac key never stored on primary)")
-	// recovery_token lives on secondary — collect via operator key after harden
+
+	// post: sync/fleet on primary
 	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+	fmt.Fprintln(os.Stderr, "==> primary: secondary sync + fleet status")
+	out, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
+		"netductor secondary sync; netductor fleet bootstrap 2>/dev/null; netductor fleet status",
+		o.PrimaryKeyPassphrase)
+	fmt.Print(out)
+
+	// credentials: secondary often stays on :22 after harden (password off)
+	_ = os.Setenv("NETDUCTOR_SSH_PORT", "22")
 	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, o.PrimaryKey, o.PrimaryKeyPassphrase); err != nil {
-		fmt.Fprintln(os.Stderr, "warn: could not collect secondary credentials file:", err)
-		fmt.Fprintln(os.Stderr, "  (SSH to secondary with the same operator key and re-run collection later)")
+		fmt.Fprintln(os.Stderr, "warn: credentials collect:", err)
 	} else {
 		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
 	}
+	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS)")
 	return nil
 }

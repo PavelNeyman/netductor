@@ -1,3 +1,8 @@
+## 0.8.86
+
+- **Secondary deploy Mac-direct:** primary only `prepare-pack` (token/mTLS/bundle); **Mac SSHs to secondary** (no primary→secondary SSH)
+- CLI: `netductor secondary prepare-pack --sni …`
+
 ## 0.8.85
 
 - deploy: SSH_ASKPASS fallback without sshpass; CLI --domain-base/--le-email

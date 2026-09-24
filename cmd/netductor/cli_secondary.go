@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -198,6 +199,61 @@ func runSecondary(args []string) {
 		}
 		postProvisionSecondary(host, sni)
 		fmt.Println("provisioned", host)
+	case "prepare-pack":
+		// Control-plane only: issue token + mTLS + VPN bundle. No SSH to secondary.
+		// Operator machine applies the pack via `deploy secondary` (Mac → secondary SSH).
+		sni := ""
+		name := "secondary"
+		for i := 1; i < len(args); i++ {
+			switch args[i] {
+			case "--sni":
+				if i+1 < len(args) {
+					i++
+					sni = args[i]
+				}
+			case "--name":
+				if i+1 < len(args) {
+					i++
+					name = args[i]
+				}
+			}
+		}
+		sni = vpn.ResolveSecondarySNI(sni, "")
+		_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+		b, err := vpn.ExportSecondaryBundle(sni)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		id, tok, err := secondary.IssueToken(name)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "IssueToken:", err)
+			os.Exit(1)
+		}
+		b.AgentID = id
+		b.AgentToken = tok
+		b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
+		var mtlsCA, mtlsCert, mtlsKey []byte
+		if ca, cert, key, err := mtls.EnsureClientFor(id); err != nil {
+			fmt.Fprintln(os.Stderr, "mtls EnsureClientFor:", err)
+			os.Exit(1)
+		} else {
+			mtlsCA, mtlsCert, mtlsKey = ca, cert, key
+		}
+		pack := map[string]any{
+			"bundle":       b,
+			"agent_id":     id,
+			"agent_token":  tok,
+			"core_url":     b.CoreAgentURL,
+			"mtls_ca_b64":  base64.StdEncoding.EncodeToString(mtlsCA),
+			"mtls_cert_b64": base64.StdEncoding.EncodeToString(mtlsCert),
+			"mtls_key_b64": base64.StdEncoding.EncodeToString(mtlsKey),
+			"sni":          sni,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(pack)
+
 	case "device":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
