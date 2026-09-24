@@ -92,3 +92,15 @@ func FleetFromFields(get FieldGetter) FleetSpec {
 		Secondary:   sec,
 	}
 }
+
+// ValidHost rejects empty and shell-metacharacter hosts (SSH target safety).
+func ValidHost(h string) bool {
+	h = strings.TrimSpace(h)
+	if h == "" || len(h) > 253 {
+		return false
+	}
+	if strings.ContainsAny(h, " \t\n;|&$`\"'\\<>(){}") {
+		return false
+	}
+	return true
+}

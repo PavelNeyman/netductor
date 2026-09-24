@@ -1,17 +1,28 @@
 package operator
 
 import (
+	"fmt"
+
 	"github.com/PavelNeyman/netductor/internal/deploy"
 )
 
 // DeployPrimary bootstraps a primary VPS (operator machine → SSH).
 func DeployPrimary(s PrimarySpec) error {
 	ApplyDomainFlags(&s)
+	if !ValidHost(s.Host) {
+		return fmt.Errorf("invalid primary host")
+	}
 	return deploy.DeployPrimary(s.toDeploy())
 }
 
 // DeploySecondary provisions secondary Mac-direct.
 func DeploySecondary(s SecondarySpec) error {
+	if !ValidHost(s.SecondaryHost) {
+		return fmt.Errorf("invalid secondary host")
+	}
+	if s.PrimaryHost != "" && !ValidHost(s.PrimaryHost) {
+		return fmt.Errorf("invalid primary host")
+	}
 	return deploy.DeploySecondary(s.toDeploy())
 }
 
