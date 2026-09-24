@@ -1,3 +1,7 @@
+## 0.8.80
+- Recovery: SSH arm only (no knock)
+- Deploy writes ~/.netductor/credentials/
+
 ## 0.8.79
 - Recovery knock: random 8-port sequence; no ALWAYS mode
 

@@ -1,3 +1,9 @@
+## 0.8.80
+
+- Remove recovery port-knock; arm over SSH only
+- After primary/secondary deploy: write `~/.netductor/credentials/*.txt` (BACKUP_KEY, RECOVERY_TOKEN, SSH)
+- Docs: OPERATOR_CREDENTIALS.md
+
 ## 0.8.79
 
 - Recovery: remove always-on legacy; 8-port **random** knock sequence per host (secrets file)

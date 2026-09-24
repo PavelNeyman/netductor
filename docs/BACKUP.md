@@ -106,29 +106,19 @@ netductor recover --from-secondary http://SECONDARY:8790   --recovery-token "$(c
 - Failed auth: lockout 15m after 5 failures per IP.
 
 
-## Recovery arm / port-knock (0.8.79+)
+## Recovery arm (SSH only, 0.8.80+)
 
-Recovery HTTP **:8790 is off** until armed. No always-on mode.
+`:8790` is **off** until you arm over SSH (port-knock removed).
 
-1. **Preferred — SSH:**
 ```bash
 ssh -p 52222 root@SECONDARY
 netductor recovery arm --ttl 30m
-# … recover …
+# other machine:
+netductor recover --from-secondary http://SECONDARY:8790 \
+  --recovery-token "$RECOVERY_TOKEN" --key "$BACKUP_KEY"
+# secondary:
 netductor recovery disarm
 ```
 
-2. **Port-knock** — **8 random ports** unique per host, file:
-   `/etc/netductor/secrets/recovery_knock_ports` (mode 0600).
-
-```bash
-netductor recovery knock-show    # print sequence (store offline)
-netductor recovery knock-regen   # rotate sequence
-# from operator machine (same order, ~0.3s between, same IP):
-for p in $(ssh secondary netductor recovery knock-show 2>/dev/null); do nc -z SECONDARY $p; sleep 0.3; done
-```
-
-- Window between steps: **8s**
-- Disable knock: `NETDUCTOR_RECOVERY_KNOCK=0`
-- Override sequence (ops): `NETDUCTOR_RECOVERY_KNOCK=p1,p2,...` (≥4 ports)
-- Decrypt still needs offline `NETDUCTOR_BACKUP_KEY` / `--key`
+Credentials (including keys/tokens) are written after deploy to
+`~/.netductor/credentials/` — see [OPERATOR_CREDENTIALS.md](OPERATOR_CREDENTIALS.md).

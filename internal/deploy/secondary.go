@@ -92,5 +92,13 @@ func DeploySecondary(o SecondaryOpts) error {
 	out, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, "netductor secondary sync; netductor fleet status", o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	fmt.Fprintln(os.Stderr, "==> secondary deploy done (agent→primary HTTP; Mac key never stored on primary)")
+	// recovery_token lives on secondary — collect via operator key after harden
+	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, o.PrimaryKey, o.PrimaryKeyPassphrase); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: could not collect secondary credentials file:", err)
+		fmt.Fprintln(os.Stderr, "  (SSH to secondary with the same operator key and re-run collection later)")
+	} else {
+		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
+	}
 	return nil
 }

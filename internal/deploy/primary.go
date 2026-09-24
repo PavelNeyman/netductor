@@ -182,6 +182,11 @@ chmod 755 /usr/local/bin/netductor
 	port := sshPort()
 	fmt.Fprintf(os.Stderr, "  SSH: ssh -i %s -p %s %s@%s\n", keyPath, port, o.User, o.Host)
 	fmt.Fprintln(os.Stderr, "  Save key path in TUI settings (remote_key); NETDUCTOR_SSH_PORT="+port)
+	if path, err := CollectOperatorSecrets("primary", o.User, o.Host, keyPath, o.KeyPassphrase); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: could not collect credentials file:", err)
+	} else {
+		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
+	}
 	return nil
 }
 
