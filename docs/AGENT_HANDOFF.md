@@ -1,10 +1,10 @@
 # Agent handoff (canonical)
 
-**Baseline: v0.8.81**
+**Baseline: v0.8.82**
 
 ## Locked decisions
 
-- **Recovery:** `:8790` off by default. Arm only over SSH: `netductor recovery arm`. No port-knock. Backup key offline (`--key` / `NETDUCTOR_BACKUP_KEY`).
+- **Recovery:** `:8790` off by default. Arm only over SSH. **HTTPS** self-signed by default (`RECOVERY_TLS=0` → HTTP). Backup key offline. No port-knock.
 - **Credentials:** after deploy, `~/.netductor/credentials/` (+ `latest-<role>.txt`). Re-collect: `netductor credentials collect --host IP --role primary|secondary`.
 - **Primary core-only;** telegram/lampac/git/registry = Add-ons.
 - **Edge VPN:** default TUN; socks@127.0.0.1 fallback if TUN fails.
@@ -21,14 +21,6 @@
 ## 0.8.80
 - Recovery: SSH arm only (no knock)
 - Deploy writes ~/.netductor/credentials/
-
-## 0.8.79
-- Recovery knock: random 8-port sequence; no ALWAYS mode
-
-## 0.8.78
-
-- Recovery: **not always listening**. Arm via CLI or port-knock; key still offline.
-- Edge TUN default + auto socks fallback if service fails.
 
 ## 0.8.77
 - Edge agent VPN: default **TUN**

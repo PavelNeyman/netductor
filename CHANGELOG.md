@@ -1,3 +1,9 @@
+## 0.8.82
+
+- Recovery arm: **HTTPS** self-signed by default (`RECOVERY_TLS=0` for HTTP)
+- Credentials: keep last 5 files per role
+- Handoff/docs: knock history trimmed; baseline 0.8.82
+
 ## 0.8.81
 
 - Credentials: no file on SSH/secret failure; `latest-<role>.txt` symlink; iCloud warning

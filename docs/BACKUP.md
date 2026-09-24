@@ -108,13 +108,13 @@ netductor recover --from-secondary http://SECONDARY:8790   --recovery-token "$(c
 
 ## Recovery arm (SSH only, 0.8.80+)
 
-`:8790` is **off** until you arm over SSH (port-knock removed).
+`:8790` is **off** until you arm over SSH. Default **HTTPS** (self-signed); client uses skip-verify for DR only. `NETDUCTOR_RECOVERY_TLS=0` forces HTTP.
 
 ```bash
 ssh -p 52222 root@SECONDARY
 netductor recovery arm --ttl 30m
 # other machine:
-netductor recover --from-secondary http://SECONDARY:8790 \
+netductor recover --from-secondary https://SECONDARY:8790 \
   --recovery-token "$RECOVERY_TOKEN" --key "$BACKUP_KEY"
 # secondary:
 netductor recovery disarm

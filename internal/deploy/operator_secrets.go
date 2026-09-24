@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -147,6 +148,7 @@ Password SSH is disabled after harden — only this key.
 	latest := filepath.Join(outDir, "latest-"+role+".txt")
 	_ = os.Remove(latest)
 	_ = os.Symlink(path, latest)
+	pruneCredentials(outDir, role, 5)
 
 	fmt.Fprintln(os.Stderr, "==> operator credentials saved:", path)
 	fmt.Fprintln(os.Stderr, "==> latest symlink:", latest)
@@ -160,4 +162,33 @@ func trimOut(s string) string {
 		return s[:400] + "…"
 	}
 	return s
+}
+
+// pruneCredentials keeps the newest keep files matching role-*.txt (not symlinks).
+func pruneCredentials(dir, role string, keep int) {
+	if keep < 1 {
+		keep = 5
+	}
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	prefix := role + "-"
+	var names []string
+	for _, e := range ents {
+		n := e.Name()
+		if e.Type()&os.ModeSymlink != 0 {
+			continue
+		}
+		if strings.HasPrefix(n, prefix) && strings.HasSuffix(n, ".txt") {
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names) // timestamp in name sorts chronologically
+	if len(names) <= keep {
+		return
+	}
+	for _, n := range names[:len(names)-keep] {
+		_ = os.Remove(filepath.Join(dir, n))
+	}
 }

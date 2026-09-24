@@ -1,21 +1,22 @@
 package install
 
 import (
-	"encoding/json"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"net/http"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
@@ -168,7 +169,7 @@ func Backup() (string, error) {
 	_ = writeComponentsSidecar(dir)
 	failMark := filepath.Join(paths.StateDir(), "backup_offsite_fail")
 	_ = os.Remove(failMark) // cleared unless agent pull fails below
-		// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
+	// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
 	n, offline := 0, 0
 	for _, d := range secondary.List() {
 		if !secondary.Online(d, 3*time.Minute) {
@@ -235,7 +236,6 @@ func Restore(archive string, keyArg string) error {
 	}
 	return nil
 }
-
 
 func writeComponentsSidecar(dir string) error {
 	comps := ReadComponentsManifest()
@@ -374,14 +374,19 @@ func pruneBackups(dir string, keep int) {
 	}
 }
 
-
 // RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().
 func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" || recoveryToken == "" {
 		return fmt.Errorf("usage: netductor recover --from-secondary URL --recovery-token TOKEN [--key KEY]")
 	}
-	client := &http.Client{Timeout: 30 * time.Minute}
+	// Self-signed recovery TLS is default on secondary; allow skip-verify for this DR path only.
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // recovery self-signed
+		},
+	}
 	get := func(path string) ([]byte, http.Header, error) {
 		req, err := http.NewRequest(http.MethodGet, baseURL+path, nil)
 		if err != nil {
@@ -567,7 +572,6 @@ func restoreOperatorKeysFromBackup() {
 	}
 	fmt.Fprintf(os.Stderr, "recover: installed %d operator pubkey(s)\n", len(lines))
 }
-
 
 // injectOperatorKeysFromBackupEarly extracts operator_authorized_keys (and optional
 // root/.ssh/authorized_keys) from the decrypted tar before harden runs.

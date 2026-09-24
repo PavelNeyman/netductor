@@ -6,7 +6,7 @@
 | **4443** | `*` | HY2/TLS as configured | Public VPN alt |
 | **52222** TCP | `*` | SSH | Key-only after harden; fail2ban |
 | **8789** TCP | `*` | **mTLS** | Agent plane; no useful access without client cert |
-| **8790** TCP | `*` when **armed** | HTTP + Bearer | **Off.** Only after `netductor recovery arm` on secondary. |
+| **8790** TCP | `*` when **armed** | **HTTPS** (self-signed) + Bearer | **Off.** `recovery arm`. `RECOVERY_TLS=0` → HTTP. Key not on wire. |
 | **8787** | `127.0.0.1` | plain local | Admin API — not on WAN |
 | **9118** | `127.0.0.1` | plain local | Lampac — VPN or SSH tunnel only |
 | **5000** | `127.0.0.1` | plain local | OCI registry — local only |
