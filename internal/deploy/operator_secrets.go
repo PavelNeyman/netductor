@@ -1,17 +1,18 @@
 package deploy
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 )
 
-// CollectOperatorSecrets SSHs to host, reads netductor secrets, writes a local file
-// the operator must store offline. Returns path to the file.
-// Does not write a file if SSH fails or no secrets were retrieved.
+// CollectOperatorSecrets SSHs to host, archives ALL /etc/netductor secrets + recovery
+// material to ~/.netductor/credentials/ on the operator Mac.
 func CollectOperatorSecrets(role, user, host, keyPath, keyPass string) (string, error) {
 	if user == "" {
 		user = "root"
@@ -22,23 +23,53 @@ func CollectOperatorSecrets(role, user, host, keyPath, keyPass string) (string, 
 	if keyPath == "" {
 		return "", fmt.Errorf("SSH key path required")
 	}
+	_ = os.Chmod(keyPath, 0o600)
+
+	// Full dump: text sections + base64 tar of secrets tree and critical state
 	script := `set +e
 echo "===HOST==="
 hostname -f 2>/dev/null || hostname
 echo "===IP==="
 hostname -I 2>/dev/null | awk '{print $1}'
 echo "===SSH_PORT==="
-grep -E '^Port ' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}' | tail -1
+(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}'; grep -E '^Port ' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}' | tail -1)
+echo "===VERSION==="
+cat /etc/netductor/VERSION 2>/dev/null || netductor version 2>/dev/null | head -1 || true
+echo "===CONF==="
+cat /etc/netductor/netductor.conf 2>/dev/null || true
+echo "===PUBLIC_HOSTNAME==="
+cat /etc/netductor/public_hostname 2>/dev/null || true
+echo "===VPN_HOSTNAME==="
+cat /etc/netductor/vpn_hostname 2>/dev/null || true
+echo "===SECRETS_LIST==="
+find /etc/netductor/secrets -type f 2>/dev/null | sort
 echo "===BACKUP_KEY==="
 cat /etc/netductor/secrets/backup_key 2>/dev/null || true
 echo "===RECOVERY_TOKEN==="
 cat /etc/netductor/secrets/recovery_token 2>/dev/null || true
-echo "===VERSION==="
-cat /etc/netductor/VERSION 2>/dev/null || netductor version 2>/dev/null | head -1 || true
+echo "===TAR_B64==="
+# secrets + conf + hostnames + secondary registry tokens + LE live certs if any
+TMP=$(mktemp)
+tar czf "$TMP" \
+  -C / etc/netductor/secrets \
+  etc/netductor/netductor.conf \
+  etc/netductor/public_hostname \
+  etc/netductor/vpn_hostname \
+  var/lib/netductor/secondary/devices.json \
+  var/lib/netductor/secondary/bundle.json \
+  var/lib/netductor/nodes/registry.json \
+  etc/letsencrypt/live \
+  etc/letsencrypt/archive \
+  etc/letsencrypt/renewal \
+  2>/dev/null
+base64 -w0 "$TMP" 2>/dev/null || base64 "$TMP" 2>/dev/null | tr -d '\n'
+rm -f "$TMP"
+echo
 echo "===END==="
 `
-	out, err := runSSH("", keyPath, user, host, script, keyPass)
-	raw := string(out)
+
+	out, err := runSSHWithPortFallback(keyPath, user, host, script, keyPass)
+	raw := out
 	if err != nil {
 		return "", fmt.Errorf("ssh collect secrets: %w\n%s", err, trimOut(raw))
 	}
@@ -61,30 +92,25 @@ echo "===END==="
 	ip := get("IP")
 	sshPort := get("SSH_PORT")
 	if sshPort == "" {
-		sshPort = "52222"
+		if p := os.Getenv("NETDUCTOR_SSH_PORT"); p != "" {
+			sshPort = p
+		} else {
+			sshPort = "52222"
+		}
 	}
 	backupKey := get("BACKUP_KEY")
 	recTok := get("RECOVERY_TOKEN")
 	ver := get("VERSION")
+	secretsList := get("SECRETS_LIST")
+	conf := get("CONF")
+	tarB64 := get("TAR_B64")
+	// strip accidental newlines in b64
+	tarB64 = strings.ReplaceAll(tarB64, "\n", "")
+	tarB64 = strings.ReplaceAll(tarB64, "\r", "")
 
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "" {
 		role = "node"
-	}
-	// Primary must have backup key; secondary should have recovery token (backup key optional).
-	switch role {
-	case "primary", "core":
-		if backupKey == "" {
-			return "", fmt.Errorf("BACKUP_KEY empty on primary — install/backup init may have failed")
-		}
-	case "secondary":
-		if recTok == "" && backupKey == "" {
-			return "", fmt.Errorf("no RECOVERY_TOKEN or BACKUP_KEY on secondary")
-		}
-	default:
-		if backupKey == "" && recTok == "" {
-			return "", fmt.Errorf("no secrets found on %s", host)
-		}
 	}
 
 	dir, err := os.UserHomeDir()
@@ -102,58 +128,137 @@ echo "===END==="
 		}
 		return '-'
 	}, host)
-	path := filepath.Join(outDir, fmt.Sprintf("%s-%s-%s.txt", role, safeHost, ts))
 
-	body := fmt.Sprintf(`# netductor operator credentials — KEEP OFFLINE / password manager
-# Собран автоматически. Не коммитить в git. Не слать в чаты.
-# WARNING: do not put ~/.netductor/ in iCloud/Dropbox/Google Drive sync; exclude from Time Machine if possible.
+	bundleDir := filepath.Join(outDir, fmt.Sprintf("%s-%s-%s", role, safeHost, ts))
+	if err := os.MkdirAll(bundleDir, 0o700); err != nil {
+		return "", err
+	}
+
+	// Decode full archive if present
+	archivePath := filepath.Join(bundleDir, "secrets-full.tgz")
+	if tarB64 != "" {
+		bin, err := base64.StdEncoding.DecodeString(tarB64)
+		if err != nil {
+			// try raw StdEncoding with whitespace already stripped
+			bin, err = base64.RawStdEncoding.DecodeString(tarB64)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warn: could not decode secrets tar:", err)
+		} else if len(bin) > 0 {
+			if err := os.WriteFile(archivePath, bin, 0o600); err != nil {
+				return "", err
+			}
+			// extract for convenience
+			extractDir := filepath.Join(bundleDir, "extract")
+			_ = os.MkdirAll(extractDir, 0o700)
+			// use tar command
+			cmd := fmt.Sprintf("tar xzf %s -C %s", ShellQuote(archivePath), ShellQuote(extractDir))
+			_ = runLocal(cmd)
+		}
+	}
+
+	if conf != "" {
+		_ = os.WriteFile(filepath.Join(bundleDir, "netductor.conf"), []byte(conf+"\n"), 0o600)
+	}
+	_ = os.WriteFile(filepath.Join(bundleDir, "secrets-list.txt"), []byte(secretsList+"\n"), 0o600)
+
+	path := filepath.Join(bundleDir, "README.txt")
+	body := fmt.Sprintf(`# netductor operator credentials — KEEP OFFLINE
 # Generated: %s UTC
 # Role: %s
 
-## Access / Доступ
+## Access
 Host:     %s
 IP:       %s
 SSH:      ssh -i %s -p %s %s@%s
-Key file: %s  (private key stays on THIS machine only)
+Key file: %s
 
-## Backup decryption key / Ключ расшифровки бэкапа
-# netductor recover --from-secondary … --key …
-# Server path: /etc/netductor/secrets/backup_key
+## Quick recovery keys
 BACKUP_KEY=%s
-
-## Recovery token (secondary DR after "recovery arm")
-# --recovery-token …  |  Server: /etc/netductor/secrets/recovery_token
 RECOVERY_TOKEN=%s
+
+## Full dump
+- secrets-full.tgz — /etc/netductor/secrets + conf + hostnames + secondary devices.json + LE live (if present)
+- extract/ — unpacked copy of the archive
+- netductor.conf — domain/REDIRECT_BASE snapshot
+- secrets-list.txt — files that existed under /etc/netductor/secrets
+
+## Secrets on server (names)
+%s
 
 ## Notes
 Version: %s
-Recovery HTTP :8790 is OFF until: netductor recovery arm --ttl 30m
-Then: netductor recover --from-secondary http://SECONDARY:8790 --recovery-token … --key …
-Then: netductor recovery disarm
-Password SSH is disabled after harden — only this key.
-
-## RU
-1. Приватный SSH-ключ — только на Mac.
-2. BACKUP_KEY — сохранить offline (без него бэкап не расшифровать).
-3. RECOVERY_TOKEN — для скачивания с secondary после arm.
-4. Не синхронизировать ~/.netductor в облако.
+After harden only key auth works.
+Restore example (on a new VPS after install):
+  tar xzf secrets-full.tgz -C /
+  # then fix perms: chmod -R go-rwx /etc/netductor/secrets
 `, time.Now().UTC().Format(time.RFC3339), role,
 		hostname, ip, keyPath, sshPort, user, host, keyPath,
-		backupKey, recTok, ver)
+		backupKey, recTok, secretsList, ver)
 
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		return "", err
 	}
-	// latest symlink for role
+
+	// also flat latest-role.txt summary for password managers
+	flat := filepath.Join(outDir, fmt.Sprintf("%s-%s-%s.txt", role, safeHost, ts))
+	_ = os.WriteFile(flat, []byte(body), 0o600)
 	latest := filepath.Join(outDir, "latest-"+role+".txt")
 	_ = os.Remove(latest)
-	_ = os.Symlink(path, latest)
+	_ = os.Symlink(flat, latest)
+	latestDir := filepath.Join(outDir, "latest-"+role+".dir")
+	_ = os.Remove(latestDir)
+	_ = os.Symlink(bundleDir, latestDir)
 	pruneCredentials(outDir, role, 5)
 
-	fmt.Fprintln(os.Stderr, "==> operator credentials saved:", path)
-	fmt.Fprintln(os.Stderr, "==> latest symlink:", latest)
-	fmt.Fprintln(os.Stderr, "    Store offline (password manager). Do not sync ~/.netductor to iCloud.")
-	return path, nil
+	fmt.Fprintln(os.Stderr, "==> operator credentials saved:", bundleDir)
+	fmt.Fprintln(os.Stderr, "==> summary:", flat)
+	fmt.Fprintln(os.Stderr, "    Store offline. Do not sync ~/.netductor to iCloud.")
+	return bundleDir, nil
+}
+
+func runSSHWithPortFallback(keyPath, user, host, script, keyPass string) (string, error) {
+	ports := []string{}
+	if p := os.Getenv("NETDUCTOR_SSH_PORT"); p != "" {
+		ports = append(ports, p)
+	}
+	for _, p := range []string{"52222", "22"} {
+		dup := false
+		for _, x := range ports {
+			if x == p {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			ports = append(ports, p)
+		}
+	}
+	var lastOut string
+	var lastErr error
+	prev := os.Getenv("NETDUCTOR_SSH_PORT")
+	for _, p := range ports {
+		_ = os.Setenv("NETDUCTOR_SSH_PORT", p)
+		out, err := runSSH("", keyPath, user, host, script, keyPass)
+		lastOut, lastErr = out, err
+		if err == nil {
+			if prev != "" {
+				_ = os.Setenv("NETDUCTOR_SSH_PORT", prev)
+			}
+			return out, nil
+		}
+	}
+	if prev != "" {
+		_ = os.Setenv("NETDUCTOR_SSH_PORT", prev)
+	} else {
+		_ = os.Unsetenv("NETDUCTOR_SSH_PORT")
+	}
+	return lastOut, lastErr
+}
+
+func runLocal(cmd string) error {
+	c := exec.Command("sh", "-c", cmd)
+	return c.Run()
 }
 
 func trimOut(s string) string {
@@ -164,7 +269,6 @@ func trimOut(s string) string {
 	return s
 }
 
-// pruneCredentials keeps the newest keep files matching role-*.txt (not symlinks).
 func pruneCredentials(dir, role string, keep int) {
 	if keep < 1 {
 		keep = 5
@@ -184,11 +288,14 @@ func pruneCredentials(dir, role string, keep int) {
 			names = append(names, n)
 		}
 	}
-	sort.Strings(names) // timestamp in name sorts chronologically
+	sort.Strings(names)
 	if len(names) <= keep {
 		return
 	}
 	for _, n := range names[:len(names)-keep] {
 		_ = os.Remove(filepath.Join(dir, n))
+		// also remove matching dir without .txt
+		base := strings.TrimSuffix(n, ".txt")
+		_ = os.RemoveAll(filepath.Join(dir, base))
 	}
 }

@@ -11,9 +11,11 @@ import (
 func runCredentials(args []string) {
 	if len(args) < 1 || args[0] == "help" || args[0] == "-h" {
 		fmt.Fprint(os.Stderr, `usage:
-  netductor credentials collect --host IP [--user root] [--key PATH] [--role primary|secondary]
+  netductor credentials collect --host IP [--user root] [--key PATH] [--role primary|secondary] [--passphrase] [--port 52222|22]
 
-Pull BACKUP_KEY / RECOVERY_TOKEN over SSH and write ~/.netductor/credentials/*.txt
+Pull ALL /etc/netductor/secrets (+ conf, LE, secondary devices.json) over SSH into:
+  ~/.netductor/credentials/<role>-<host>-<ts>/
+    secrets-full.tgz  README.txt  extract/  netductor.conf
 `)
 		os.Exit(2)
 	}
@@ -21,7 +23,7 @@ Pull BACKUP_KEY / RECOVERY_TOKEN over SSH and write ~/.netductor/credentials/*.t
 		fmt.Fprintln(os.Stderr, "unknown credentials subcommand")
 		os.Exit(2)
 	}
-	host, user, key, role, pass := "", "root", "", "primary", ""
+	host, user, key, role, pass, port := "", "root", "", "primary", "", ""
 	for i := 1; i < len(args); i++ {
 		a := args[i]
 		next := func() string {
@@ -42,6 +44,8 @@ Pull BACKUP_KEY / RECOVERY_TOKEN over SSH and write ~/.netductor/credentials/*.t
 			role = next()
 		case "--passphrase":
 			pass = next()
+		case "--port", "-p":
+			port = next()
 		}
 	}
 	if host == "" {
@@ -67,7 +71,9 @@ Pull BACKUP_KEY / RECOVERY_TOKEN over SSH and write ~/.netductor/credentials/*.t
 		fmt.Fprintln(os.Stderr, "--key or NETDUCTOR_SSH_KEY required")
 		os.Exit(2)
 	}
-	if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
+	if port != "" {
+		_ = os.Setenv("NETDUCTOR_SSH_PORT", port)
+	} else if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
 		_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 	}
 	role = strings.TrimSpace(role)

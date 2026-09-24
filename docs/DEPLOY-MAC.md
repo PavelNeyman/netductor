@@ -68,3 +68,24 @@ Secondary: Mac → primary `prepare-pack` → Mac SSH to secondary (password onc
 ssh -i ~/.ssh/netductor_primary -p 52222 root@PRIMARY 'netductor doctor'
 curl -sS https://i.BASE:8443/healthz
 ```
+
+
+## Credentials on Mac (automatic after deploy)
+
+After primary/secondary deploy, netductor writes:
+
+```text
+~/.netductor/credentials/
+  primary-<host>-<ts>/
+    secrets-full.tgz   # full /etc/netductor/secrets + conf + LE + devices.json
+    README.txt
+    extract/
+  latest-primary.txt → summary
+```
+
+Re-collect anytime:
+
+```bash
+netductor credentials collect --host PRIMARY --key ~/.ssh/netductor_primary --role primary
+netductor credentials collect --host SECONDARY --key ~/.ssh/netductor_primary --role secondary --port 22
+```

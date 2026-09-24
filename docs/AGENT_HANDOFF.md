@@ -1,6 +1,6 @@
 # Agent handoff (canonical)
 
-**Baseline: v0.8.88**
+**Baseline: v0.8.89**
 
 ## Locked decisions
 

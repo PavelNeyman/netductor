@@ -1,3 +1,9 @@
+## 0.8.89
+
+- **credentials collect**: full dump of `/etc/netductor/secrets`, conf, LE, secondary devices.json → `~/.netductor/credentials/<role>-<host>-ts/`
+- Port fallback 52222/22; CLI `--port`; secondary `--primary-key-passphrase` `--secondary-key`
+- DEPLOY-MAC + handoff updated
+
 ## 0.8.88
 
 - Redirect after LE: **:8443 only** (no public :80); certbot renew uses free :80

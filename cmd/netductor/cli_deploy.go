@@ -23,7 +23,7 @@ primary:
 
 secondary:
   --primary --primary-key --host --password [--user] [--sni]
-  [--primary-key-passphrase]
+  [--primary-key-passphrase] [--secondary-key]
 
 edge:
   --router --id --password [--user root] [--arch arm64]
@@ -125,10 +125,16 @@ See: netductor tui → Setup wizard`)
 			case a == "--sni" && i+1 < len(args):
 				i++
 				o.SNI = args[i]
+			case a == "--primary-key-passphrase" && i+1 < len(args):
+				i++
+				o.PrimaryKeyPassphrase = args[i]
+			case a == "--secondary-key" && i+1 < len(args):
+				i++
+				o.SecondarySSHKey = args[i]
 			}
 		}
 		if o.PrimaryHost == "" || o.PrimaryKey == "" || o.SecondaryHost == "" {
-			fmt.Fprintln(os.Stderr, "required: --primary --primary-key --host --password")
+			fmt.Fprintln(os.Stderr, "required: --primary --primary-key --host (--password or --secondary-key)")
 			os.Exit(2)
 		}
 		o.ViaPrimary = false // Mac-direct
