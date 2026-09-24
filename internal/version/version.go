@@ -1,4 +1,4 @@
 package version
 
-const Release = "0.8.86"
+const Release = "0.8.87"
 

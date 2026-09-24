@@ -105,8 +105,8 @@ func Obtain(c Config) error {
 	// HTTPS redirect base if we have i. host
 	for _, d := range c.Domains {
 		if strings.HasPrefix(d, "i.") {
-			upsert["REDIRECT_BASE"] = "https://" + d
-			_ = os.Setenv("NETDUCTOR_REDIRECT_BASE", "https://"+d)
+			upsert["REDIRECT_BASE"] = "https://" + d + ":8443" // :443 is Reality (sing-box); LE on :8443
+			_ = os.Setenv("NETDUCTOR_REDIRECT_BASE", "https://"+d+":8443")
 			break
 		}
 	}
@@ -146,6 +146,7 @@ func openFirewallHTTP() error {
 	// best-effort ufw
 	_ = exec.Command("ufw", "allow", "80/tcp").Run()
 	_ = exec.Command("ufw", "allow", "443/tcp").Run()
+	_ = exec.Command("ufw", "allow", "8443/tcp").Run()
 	return nil
 }
 

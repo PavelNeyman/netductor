@@ -1,3 +1,8 @@
+## 0.8.87
+
+- LE redirect: `REDIRECT_BASE=https://i.<base>:8443` (port 443 is Reality, not LE)
+- ufw allow 8443/tcp on tls le; docs DOMAIN.md Reality vs LE
+
 ## 0.8.86
 
 - **Secondary deploy Mac-direct:** primary only `prepare-pack` (token/mTLS/bundle); **Mac SSHs to secondary** (no primary→secondary SSH)
