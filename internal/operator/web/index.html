@@ -64,7 +64,8 @@ document.getElementById('f').onsubmit=async(e)=>{
   log.textContent='';
   line('POST /v1/fleet …');
   try{
-    const res=await fetch('/v1/fleet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const ND_TOKEN='/*__ND_TOKEN__*/';
+  const res=await fetch('/v1/fleet',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
     const reader=res.body.getReader();
     const dec=new TextDecoder();
     while(true){
