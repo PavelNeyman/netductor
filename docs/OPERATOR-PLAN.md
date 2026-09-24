@@ -35,3 +35,4 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 ## Releases
 
 - [x] v0.8.94–0.8.97 operator program
+- [x] v0.8.98 operator HTTP hardening (token, host validation)

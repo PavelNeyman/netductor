@@ -98,3 +98,12 @@ Every completed checkbox **must** update that file + relevant docs in the **same
 - [FLEET.md](FLEET.md) — primary/secondary roles  
 - [UI-PARITY.md](UI-PARITY.md) — historical parity notes  
 - [PORTS.md](PORTS.md) — exposure rules  
+
+
+## Operator HTTP security (0.8.98)
+
+- Bind loopback only
+- Random or `--token` / `NETDUCTOR_OPERATOR_TOKEN`
+- Header `X-Netductor-Token` required on `POST /v1/fleet`
+- Single in-flight deploy (409 if busy)
+- Hostnames validated (no shell metacharacters)

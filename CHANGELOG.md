@@ -1,3 +1,8 @@
+## 0.8.98
+
+- security(operator): token auth for /v1/fleet; host validation; credentials role sanitize
+- operator serve: timeouts, deploy mutex, max body 1MiB, CLI --token
+
 ## 0.8.97
 
 - `netductor operator serve` — localhost UI + `POST /v1/fleet` (loopback only)
