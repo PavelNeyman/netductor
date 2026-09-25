@@ -326,21 +326,9 @@ func registerSessionAPI(mux *http.ServeMux) {
 		if !requireSession(w, r) {
 			return
 		}
-		bin, err := os.Executable()
-		if err != nil || bin == "" {
-			bin = "netductor"
-		}
-		cmd := exec.Command(bin, "doctor")
-		out, err := cmd.CombinedOutput()
-		errStr := ""
-		if err != nil {
-			errStr = err.Error()
-		}
-		writeJSON(w, 200, map[string]any{
-			"ok":     err == nil,
-			"output": string(out),
-			"error":  errStr,
-		})
+		// Capture CLI text while building structured report
+		rep := CollectDoctor()
+		writeJSON(w, 200, rep)
 	})
 	mux.HandleFunc("/api/domain", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {

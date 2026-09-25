@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"github.com/PavelNeyman/netductor/internal/deploy"
 	"github.com/PavelNeyman/netductor/internal/operator/web"
 )
@@ -98,6 +99,7 @@ func Serve(o ServeOpts) error {
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write([]byte(html))
 	})
+	mux.HandleFunc("/v1/catalog", handleCatalog)
 	mux.HandleFunc("/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("ok\n"))
@@ -677,4 +679,18 @@ func handleMikroTik(w http.ResponseWriter, r *http.Request, token string) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "output": out})
+}
+
+
+func handleCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "GET only", 405)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok": true,
+		"actions": opcatalog.ForSurface("web"),
+		"by_section": opcatalog.BySection(),
+	})
 }

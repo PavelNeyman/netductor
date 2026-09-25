@@ -1,3 +1,10 @@
+## 0.9.18
+
+- Structured doctor JSON (`CollectDoctor` / `/api/doctor`)
+- `internal/opcatalog` + `GET /v1/catalog` (Web↔TG shared actions)
+- Web Installer NVR tab (parity with TUI NVR wizard)
+- Advanced Control hidden unless Settings → Show Advanced
+
 ## 0.9.17
 
 - REVIEW-0.9.16 full code/security review; handoff for next chat

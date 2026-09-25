@@ -24,6 +24,7 @@
   <button type="button" data-tab="secondary">Secondary</button>
   <button type="button" data-tab="edge">OpenWrt</button>
   <button type="button" data-tab="site">MikroTik</button>
+  <button type="button" data-tab="nvr">NVR</button>
   <button type="button" data-tab="creds">Credentials</button>
 </nav>
 <main>
@@ -109,7 +110,23 @@
       <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
     </form>
   </section>
-  <section id="panel-creds" class="panel">
+  
+  <section id="panel-nvr" class="panel">
+    <p class="note" data-i18n="nvr_note">Day-2 NVR via node session (start tunnel + session first). Same ops as TUI NVR wizard.</p>
+    <form id="form-nvr">
+      <div class="row"><div><label data-i18n="l_nvr_action">Action</label>
+        <select name="action"><option value="status">status</option><option value="list">list cameras</option>
+        <option value="leases">leases</option><option value="add">add camera</option>
+        <option value="rec-start">record start</option><option value="rec-stop">record stop</option></select></div>
+        <div><label data-i18n="l_edge_id">Edge device id</label><input name="device_id" placeholder="site-cudy-1"/></div></div>
+      <div class="row"><div><label data-i18n="l_cam_name">Camera name/id</label><input name="cam_name"/></div>
+        <div><label data-i18n="l_cam_ip">Camera LAN IP</label><input name="cam_ip"/></div></div>
+      <div class="row"><div><label data-i18n="l_cam_pass">Camera password</label><input name="cam_pass" type="password"/></div>
+        <div><label data-i18n="l_site_id">Site id</label><input name="site_id"/></div></div>
+      <button class="primary" type="submit" data-i18n="btn_nvr">Run NVR</button>
+    </form>
+  </section>
+<section id="panel-creds" class="panel">
     <form id="form-creds">
       <div class="row"><div><label data-i18n="l_role">Role</label><select name="role"><option>primary</option><option>secondary</option></select></div><div><label data-i18n="l_host">Host</label><input name="host" required/></div></div>
       <div class="row"><div><label data-i18n="l_key">Key</label><input name="key"/></div><div><label>Passphrase</label><input name="key_passphrase" type="password"/></div></div>
@@ -139,7 +156,7 @@
     <button type="button" data-csec="git">Git / Reg</button>
     <button type="button" data-csec="backup">Backup</button>
     <button type="button" data-csec="probes">Probes</button>
-    <button type="button" data-csec="adv">Advanced</button>
+    <button type="button" data-csec="adv" id="btnAdvTab">Advanced</button>
   </nav>
   <div id="csec-overview" class="csec"></div>
   <div id="csec-vpn" class="csec hidden"></div>
@@ -149,7 +166,7 @@
   <div id="csec-git" class="csec hidden"></div>
   <div id="csec-backup" class="csec hidden"></div>
   <div id="csec-probes" class="csec hidden"></div>
-  <div id="csec-adv" class="csec hidden">
+  <div id="csec-adv" data-advanced="1" class="csec hidden">
     <p class="note" data-i18n="adv_note">Generic POST/GET for any session API path</p>
     <div class="row"><div><label data-i18n="l_method">method</label><select id="advMethod"><option>GET</option><option>POST</option></select></div>
     <div><label data-i18n="l_path">path</label><input id="advPath" placeholder="/api/status"/></div></div>
@@ -177,6 +194,7 @@
       <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div>
       <div><label data-i18n="set_prefer">Prefer VPN for SSH</label><select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes</option><option value="0">no</option></select></div></div>
       <div class="row"><div><label data-i18n="set_session">Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div><div><span class="note" data-i18n="set_session_note">Not stored in localStorage</span></div></div>
+      <div class="checks"><label><input type="checkbox" name="show_advanced" id="set_show_advanced"/> <span data-i18n="c_adv">Show Advanced (full session API)</span></label></div>
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <pre class="log" id="settingsSaved" class="log settings-log"></pre>
     </div>

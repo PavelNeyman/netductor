@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.17** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.17
+**Baseline:** **v0.9.18** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.18
 
 ## Read order (new chat)
 
@@ -12,6 +12,11 @@
 6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
 
 ## Architecture (locked)
+
+- Day-2 action catalog: `internal/opcatalog` (`GET /v1/catalog`)
+- Doctor: structured JSON via `/api/doctor` (`CollectDoctor`)
+- Web Advanced: off by default (Settings → Show Advanced)
+
 
 Thin UIs (Web, TUI, CLI) share **one** backend: `internal/operator` + `internal/deploy` + node API.
 Parity is the rule; temporary gaps are debt (not intentional TUI-only features).

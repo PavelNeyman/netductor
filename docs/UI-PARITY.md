@@ -29,3 +29,14 @@ Any “TUI-only” hardware deploy is a **parity debt**, not product intent.
 ## Day-2
 
 Web Control + Advanced, TUI Tools, TG Tools, node CLI — all talk to the **same node API / CLI**.
+
+## Action catalog (0.9.18)
+
+Go package `internal/opcatalog` — single registry of day-2 session actions.
+- Operator: `GET /v1/catalog`
+- Web Control loads catalog for button labels/paths
+- TG: same package available for progressive migration of menus
+
+## NVR Web Installer
+
+Installer tab **NVR** mirrors TUI wizard actions (status/list/leases/add/record) via node session API.

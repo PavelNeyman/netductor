@@ -54,7 +54,10 @@ en:{
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'SSH hosts clear', b_mtls:'mTLS certs', b_sites:'Sites',
   b_hostname:'Set hostname', b_svc_restart:'Restart service', b_journal:'Journal',
   l_vpn_name:'name', l_vpn_note:'note', l_vpn_act:'user action', l_hostname:'hostname', l_node_id:'node id',
-  l_svc:'service restart', l_journal:'journal unit', yes:'yes', no:'no'
+  l_svc:'service restart', l_journal:'journal unit', yes:'yes', no:'no',
+  nvr_note:'Day-2 NVR via node session (tunnel + session). Same ops as TUI wizard.',
+  l_nvr_action:'Action', l_edge_id:'Edge device id', l_cam_name:'Camera name/id', l_cam_ip:'Camera LAN IP', l_cam_pass:'Camera password',
+  btn_nvr:'Run NVR', c_adv:'Show Advanced (full session API)', sub_nvr:'NVR'
 },
 ru:{
   app_title:'netductor-op', meta_line:'Клиент Mac · API ноды',
@@ -90,11 +93,22 @@ ru:{
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты',
   b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
   l_vpn_name:'имя', l_vpn_note:'заметка', l_vpn_act:'user', l_hostname:'hostname', l_node_id:'id ноды',
-  l_svc:'restart сервиса', l_journal:'journal unit', yes:'да', no:'нет'
+  l_svc:'restart сервиса', l_journal:'journal unit', yes:'да', no:'нет',
+  nvr_note:'NVR day-2 через session (туннель + session). Те же операции, что TUI.',
+  l_nvr_action:'Операция', l_edge_id:'Edge device id', l_cam_name:'Имя/id камеры', l_cam_ip:'LAN IP камеры', l_cam_pass:'Пароль камеры',
+  btn_nvr:'Выполнить NVR', c_adv:'Показать Advanced (полный session API)', sub_nvr:'NVR'
 }};
 function t(k){ const d=I18N[uiLang]||I18N.en; return (d&&d[k])||(I18N.en[k])||k; }
 let uiLang=localStorage.getItem('nd_op_lang')||((navigator.language||'').startsWith('ru')?'ru':'en');
+function applyAdvancedVisibility(){
+  const show = !!(settings().show_advanced === true || settings().show_advanced === '1' || settings().show_advanced === 1);
+  document.querySelectorAll('#controlSub button[data-csec="adv"]').forEach(b=>{ b.style.display = show ? '' : 'none'; });
+  const adv = document.getElementById('csec-adv');
+  if(adv && !show) adv.style.display = 'none';
+}
 function applyI18n(){
+  applyAdvancedVisibility();
+
   const d=I18N[uiLang]||I18N.en;
   document.documentElement.lang = uiLang==='ru'?'ru':'en';
   document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
@@ -105,7 +119,7 @@ function applyI18n(){
     if(b.dataset.main==='settings') b.textContent=d.tab_settings||b.textContent;
   });
   document.querySelectorAll('#subInstaller button').forEach(b=>{
-    const map={fleet:'sub_fleet',primary:'sub_primary',secondary:'sub_secondary',edge:'sub_edge',site:'sub_site',creds:'sub_creds'};
+    const map={fleet:'sub_fleet',primary:'sub_primary',secondary:'sub_secondary',edge:'sub_edge',site:'sub_site',nvr:'sub_nvr',creds:'sub_creds'};
     const k=map[b.dataset.tab]; if(k&&d[k]) b.textContent=d[k];
   });
   document.querySelectorAll('#controlSub button').forEach(b=>{
@@ -114,7 +128,7 @@ function applyI18n(){
   const le=document.getElementById('langEn'), lr=document.getElementById('langRu');
   if(le) le.classList.toggle('active', uiLang==='en');
   if(lr) lr.classList.toggle('active', uiLang==='ru');
-  try{ mountButtons(); }catch(e){}
+  try{ loadCatalogButtons().then(()=>mountButtons()).catch(()=>mountButtons()); }catch(e){}
 }
 
 
@@ -216,6 +230,37 @@ document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); con
     wifi_ssid:fd.get('wifi_ssid'), wifi_key:fd.get('wifi_key'),
     net_configure:fd.get('net_configure')==='on', guest_enable:fd.get('guest_enable')==='on'
   }, e.submitter); };
+
+document.getElementById('form-nvr').onsubmit=async e=>{
+  e.preventDefault(); const fd=new FormData(e.target); saveForm('nvr',fd);
+  const act=(fd.get('action')||'status').trim();
+  const btn=e.submitter; if(btn) btn.disabled=true;
+  try{
+    let res;
+    if(act==='status'||act==='list'){
+      res = await nodeFetch('/api/nvr/cameras');
+      if(act==='status'){ const st=await nodeFetch('/api/nvr/storage'); res={cameras:res, storage:st}; }
+    } else if(act==='leases'){
+      res = await nodeFetch('/api/nvr/site/leases',{method:'POST',body:JSON.stringify({device_id:(fd.get('device_id')||'').trim()})});
+    } else if(act==='add'){
+      res = await nodeFetch('/api/nvr/cameras',{method:'POST',body:JSON.stringify({
+        name:(fd.get('cam_name')||'').trim(), site_id:(fd.get('site_id')||'').trim(),
+        lan_ip:(fd.get('cam_ip')||'').trim(), rtsp_password:(fd.get('cam_pass')||'').trim(), enabled:true, record:true
+      })});
+    } else if(act==='rec-start'){
+      res = await nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:(fd.get('cam_name')||'').trim()})});
+    } else if(act==='rec-stop'){
+      res = await nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id:(fd.get('cam_name')||'').trim()})});
+    } else {
+      res = {error:'unknown action'};
+    }
+    showControl(res);
+    // switch to control result visibility
+    document.querySelector('[data-main="control"]')?.click?.();
+  }catch(err){ showControl({error:String(err)}); }
+  if(btn) btn.disabled=false;
+};
+
 document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd); const btn=e.submitter; btn.disabled=true;
   try{ const res=await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({role:fd.get('role'),host:fd.get('host'),key:fd.get('key'),key_passphrase:fd.get('key_passphrase')})});
     const j=await res.json(); document.getElementById('credResult').textContent=j.path?('OK → '+j.path):(j.error||JSON.stringify(j)); }catch(err){ document.getElementById('credResult').textContent=String(err); }
@@ -227,13 +272,14 @@ function loadSettingsForm(){
   Object.keys(map).forEach(id=>{ const el=document.getElementById(id); if(!el)return; el.value=s[map[id]]||(id==='set_key'?'~/.ssh/netductor_primary':id==='set_user'?'root':id==='set_api_port'?'8787':id==='set_api_base'?'http://127.0.0.1:8787':''); });
   const pv=document.getElementById('set_prefer_vpn'); if(pv) pv.value=(s.prefer_vpn==='0'?'0':'1');
 }
+(function(){ const el=document.getElementById('set_show_advanced'); if(el){ el.checked=!!(settings().show_advanced===true||settings().show_advanced==='1'); } })();
 document.getElementById('form-settings').onsubmit=e=>{
   e.preventDefault(); const fd=new FormData(e.target);
-  saveSettingsObj({ primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
+  saveSettingsObj({ show_advanced: fd.get('show_advanced')==='on', primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
     api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
     vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session') });
   document.getElementById('settingsSaved').textContent='OK'; updateTunnelHint();
-};
+ applyAdvancedVisibility(); };
 function updateTunnelHint(){
   const s=settings();
   document.getElementById('tunnelCmd').textContent='host='+(s.primary_host||'—')+' vpn='+(s.vpn_host||'—')+' key='+(s.key||'~/.ssh/netductor_primary');
@@ -403,6 +449,23 @@ const BTN = {
   ],
 };
 
+
+async function loadCatalogButtons(){
+  try{
+    const res = await fetch('/v1/catalog',{headers:{'X-Netductor-Token':ND_TOKEN}});
+    if(!res.ok) return;
+    const j = await res.json();
+    if(!j.by_section) return;
+    // rebuild BTN simple GETs from catalog
+    for(const [sec, list] of Object.entries(j.by_section)){
+      if(!BTN[sec]) BTN[sec]=[];
+      // merge: catalog actions that are simple
+      const mapped = list.map(a=>[a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
+      // keep form-only sections hybrid: replace list portion
+      BTN[sec] = mapped;
+    }
+  }catch(e){}
+}
 function mountButtons(){
   for(const [sec, list] of Object.entries(BTN)){
     const el=document.getElementById('csec-'+sec); if(!el) continue;
@@ -574,7 +637,7 @@ document.getElementById('btnSessionLoad').onclick=async()=>{
   showControl(j);
 };
 
-['form-fleet','form-primary','form-secondary','form-edge','form-site','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
+['form-fleet','form-primary','form-secondary','form-edge','form-site','form-nvr','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
 document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
 document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
 applyI18n();
