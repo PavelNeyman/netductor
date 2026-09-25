@@ -121,11 +121,13 @@ func handleDNSCB(token string, chat int64, msgID int, data string) {
 func showDNSMenu(token string, chat int64, msgID int, status string) {
 	body := dnsblock.FormatCatalogHTML()
 	if status != "" {
-		body = status + "\n\n" + body
+		// Plain status + newlines before rich HTML can make sendRichMessage fail →
+		// classic fallback used to strip <tg-button> inside the table.
+		body = "<p>" + esc(status) + "</p>" + body
 	}
-	// Navigation only under message — toggles live in table
+	// Navigation only under message — Enable/Disable/Reload stay in the table body.
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("main_menu"), "m:menu", "primary")},
+		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	reply(token, chat, msgID, body, kb)
 }

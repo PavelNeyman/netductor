@@ -1,3 +1,9 @@
+## 0.9.24
+
+- TG: never classic-fallback when HTML has tables/tg-button (DNS in-table actions)
+- apiPost treats Telegram ok:false as error so edit fails → delete+sendRich
+- DNS menu: status as HTML; Back → Tools
+
 ## 0.9.23
 
 - SNI health: Reality plain-TLS fail is OK; alert only if TCP dial fails

@@ -33,7 +33,11 @@ Code path today:
 
 Also verify Bot API 10.3 table-cell buttons vs row-below-table pattern (Users list uses **paragraph + `tg-button-row` under each item**, not button inside `<td>`). DNS puts buttons **inside `<td>`** — may be less reliable on some clients than the Users pattern.
 
-**Recommendation:** re-render DNS like Users: one block per list (title, state) + `tg-button-row` under it; keep table optional for read-only columns.
+**Preferred visual (owner):** keep **buttons inside table cells** (DNS layout). Users row-under-item is alternate.
+
+**Fix (0.9.24):** rich transport + no classic strip — not layout change.
+
+**Optional later:** re-render DNS like Users only if table-cell buttons still fail on some clients: one block per list (title, state) + `tg-button-row` under it; keep table optional for read-only columns.
 
 ---
 

@@ -65,6 +65,21 @@ func apiPost(token, method string, payload any) ([]byte, error) {
 		}
 		return data, fmt.Errorf("telegram %s HTTP %d: %s", method, resp.StatusCode, msg)
 	}
+	// Bot API returns HTTP 200 with {"ok":false,"description":"..."} on logical errors.
+	var wr struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	if json.Unmarshal(data, &wr) == nil && !wr.OK {
+		desc := wr.Description
+		if desc == "" {
+			desc = string(data)
+		}
+		if len(desc) > 200 {
+			desc = desc[:200] + "…"
+		}
+		return data, fmt.Errorf("telegram %s: %s", method, desc)
+	}
 	return data, nil
 }
 
@@ -84,7 +99,16 @@ func esc(s string) string {
 }
 
 
-// sendRich prefers Bot API 10.1+ sendRichMessage (native tables); falls back to HTML sendMessage.
+// htmlNeedsRich is true when classic parse_mode=HTML would strip controls/tables.
+func htmlNeedsRich(html string) bool {
+	return strings.Contains(html, "tg-button") ||
+		strings.Contains(html, "<table") ||
+		strings.Contains(html, "<details") ||
+		strings.Contains(html, "<tg-button")
+}
+
+// sendRich prefers Bot API 10.1+ sendRichMessage (native tables).
+// Classic fallback is ONLY for plain text — never when body has in-table actions.
 func sendRich(token string, chat int64, html string, kb map[string]any) {
 	payload := map[string]any{
 		"chat_id": chat,
@@ -100,8 +124,17 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 		return
 	} else {
 		fmt.Fprintf(os.Stderr, "sendRichMessage: %v body=%s\n", err, truncate(string(body), 200))
+		if htmlNeedsRich(html) {
+			// Do not strip tables/buttons. Last resort: still try sendMessage without parse_mode
+			// so user at least sees tags as text, then one more rich attempt without keyboard.
+			payloadRetry := map[string]any{"chat_id": chat, "rich_message": map[string]any{"html": html}}
+			if b2, err2 := apiPost(token, "sendRichMessage", payloadRetry); err2 != nil {
+				fmt.Fprintf(os.Stderr, "sendRichMessage retry: %v body=%s\n", err2, truncate(string(b2), 200))
+			}
+			return
+		}
 	}
-	// fallback classic (strips unknown tags)
+	// plain messages only
 	payload2 := map[string]any{"chat_id": chat, "text": html, "parse_mode": "HTML"}
 	if kb != nil {
 		payload2["reply_markup"] = kb
@@ -120,17 +153,22 @@ func editRich(token string, chat int64, msgID int, html string, kb map[string]an
 	if kb != nil {
 		payload["reply_markup"] = kb
 	}
-	if _, err := apiPost(token, "editMessageText", payload); err == nil {
+	body, err := apiPost(token, "editMessageText", payload)
+	if err == nil {
 		return nil
 	}
-	// fallback classic HTML
+	fmt.Fprintf(os.Stderr, "editMessageText rich: %v body=%s\n", err, truncate(string(body), 200))
+	if htmlNeedsRich(html) {
+		// Force caller (reply) to delete + sendRich — classic edit would kill tg-buttons.
+		return fmt.Errorf("rich edit failed: %w", err)
+	}
 	payload2 := map[string]any{
 		"chat_id": chat, "message_id": msgID, "text": html, "parse_mode": "HTML",
 	}
 	if kb != nil {
 		payload2["reply_markup"] = kb
 	}
-	_, err := apiPost(token, "editMessageText", payload2)
+	_, err = apiPost(token, "editMessageText", payload2)
 	return err
 }
 
