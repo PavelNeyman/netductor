@@ -1,3 +1,9 @@
+## 0.9.14
+
+- DeploySite + MikroTikAction in operator (shared backend)
+- Web Installer: MikroTik site + manage; TUI wizard uses DeploySite
+- UI-PARITY: OpenWrt + MikroTik on Web and TUI
+
 ## 0.9.13
 
 - Architecture clarified: thin UIs share one operator/deploy backend; parity is the rule

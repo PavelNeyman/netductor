@@ -19,6 +19,7 @@
 | Fleet / Primary / Secondary | ✅ | ✅ | ✅ |
 | Credentials collect | ✅ | ✅ | ✅ |
 | OpenWrt edge (`DeployEdge`) | ✅ `/v1/edge` | ✅ wizard | ✅ |
+| MikroTik site (`DeploySite`) | ✅ `/v1/site` | ✅ wizard | ✅ |
 | MikroTik site | gap → close via same backend | ✅ partial | CLI |
 | NVR day-2 | Control API | Tools + wizard | `netductor nvr` |
 

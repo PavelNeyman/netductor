@@ -123,6 +123,8 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
 	mux.HandleFunc("/v1/edge", func(w http.ResponseWriter, r *http.Request) { handleEdge(w, r, token) })
+	mux.HandleFunc("/v1/site", func(w http.ResponseWriter, r *http.Request) { handleSite(w, r, token) })
+	mux.HandleFunc("/v1/mikrotik", func(w http.ResponseWriter, r *http.Request) { handleMikroTik(w, r, token) })
 	mux.HandleFunc("/v1/node/", func(w http.ResponseWriter, r *http.Request) { ProxyNodeAPI(w, r, token) })
 	mux.HandleFunc("/v1/tunnel/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -586,4 +588,75 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 		return
 	}
 	_, _ = w.Write([]byte("step edge done\n"))
+}
+
+
+func handleSite(w http.ResponseWriter, r *http.Request, token string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", 405)
+		return
+	}
+	if !requireToken(r, token) {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var body struct {
+		SiteID   string `json:"site_id"`
+		Name     string `json:"name"`
+		RPiID    string `json:"rpi_id"`
+		MikroTikID string `json:"mikrotik_id"`
+		RPiLAN   string `json:"rpi_lan"`
+		MTHost   string `json:"mt_host"`
+		MTUser   string `json:"mt_user"`
+		MTPass   string `json:"mt_password"`
+		MTPort   string `json:"mt_port"`
+		DoPush   bool   `json:"do_push"`
+		KeyPath  string `json:"operator_key"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write([]byte("step site start\n"))
+	out, err := DeploySite(SiteSpec{
+		SiteID: body.SiteID, Name: body.Name, RPiID: body.RPiID, MikroTikID: body.MikroTikID,
+		RPiLAN: body.RPiLAN, MTHost: body.MTHost, MTUser: body.MTUser, MTPass: body.MTPass,
+		MTPort: ParsePort(body.MTPort, 22), DoPush: body.DoPush, OperatorKeyPath: body.KeyPath,
+	})
+	_, _ = w.Write([]byte(out))
+	if err != nil {
+		_, _ = w.Write([]byte("step site ERROR " + err.Error() + "\n"))
+		return
+	}
+	_, _ = w.Write([]byte("step site done\n"))
+}
+
+func handleMikroTik(w http.ResponseWriter, r *http.Request, token string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", 405)
+		return
+	}
+	if !requireToken(r, token) {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var body struct {
+		Host     string `json:"host"`
+		User     string `json:"user"`
+		Password string `json:"password"`
+		Port     string `json:"port"`
+		Action   string `json:"action"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	out, err := MikroTikAction(body.Host, body.User, body.Password, ParsePort(body.Port, 22), body.Action)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "output": out})
 }

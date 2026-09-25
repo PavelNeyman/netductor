@@ -23,6 +23,7 @@
   <button type="button" data-tab="primary">Primary</button>
   <button type="button" data-tab="secondary">Secondary</button>
   <button type="button" data-tab="edge">OpenWrt</button>
+  <button type="button" data-tab="site">MikroTik</button>
   <button type="button" data-tab="creds">Credentials</button>
 </nav>
 <main>
@@ -39,6 +40,7 @@
         <label><input type="checkbox" name="do_secondary" checked/> Secondary</label>
         <label><input type="checkbox" name="with_lampac"/> Lampac</label>
         <label><input type="checkbox" name="with_git"/> Git</label>
+        <label><input type="checkbox" name="with_telegram"/> Telegram bot</label>
       </div>
       <button class="primary" type="submit">FleetDeploy</button>
     </form>
@@ -58,7 +60,28 @@
       <button class="primary" type="submit">Deploy secondary</button>
     </form>
   </section>
-  <section id="panel-edge" class="panel">
+  <section id="panel-site" class="panel">
+    <p class="note">MikroTik site + optional RSC push (same DeploySite as TUI).</p>
+    <form id="form-site">
+      <div class="row"><div><label>Site ID</label><input name="site_id" required placeholder="home"/></div><div><label>Display name</label><input name="name"/></div></div>
+      <div class="row"><div><label>RPi LAN (gateway)</label><input name="rpi_lan" placeholder="192.168.88.2"/></div><div><label>RPi device_id</label><input name="rpi_id"/></div></div>
+      <div class="row"><div><label>MT host</label><input name="mt_host" required/></div><div><label>MT user</label><input name="mt_user" value="admin"/></div></div>
+      <div class="row"><div><label>MT password</label><input name="mt_password" type="password"/></div><div><label>MT SSH port</label><input name="mt_port" value="22"/></div></div>
+      <div class="row"><div><label>Operator key</label><input name="operator_key" placeholder="~/.ssh/netductor_primary"/></div><div><label>MikroTik ID</label><input name="mikrotik_id"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="do_push" checked/> Push RSC now</label></div>
+      <button class="primary" type="submit">Save site / push</button>
+    </form>
+    <p class="note">Quick manage</p>
+    <form id="form-mt">
+      <div class="row"><div><label>Host</label><input name="host" required/></div><div><label>Action</label>
+        <select name="action"><option>identity</option><option>resource</option><option>routes</option><option>ping</option></select></div></div>
+      <div class="row"><div><label>User</label><input name="user" value="admin"/></div><div></div></div>
+      <div class="row"><div><label>Password</label><input name="password" type="password"/></div><div><label>Port</label><input name="port" value="22"/></div></div>
+      <button class="primary" type="submit">Run</button>
+    </form>
+    <pre class="log" id="mtResult">—</pre>
+  </section>
+<section id="panel-edge" class="panel">
     <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
     <form id="form-edge">
       <div class="row"><div><label>Router host</label><input name="router_host" required/></div><div><label>Router password</label><input name="router_password" type="password"/></div></div>

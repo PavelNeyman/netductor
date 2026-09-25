@@ -378,7 +378,21 @@ func (m model) runWizardApplyInTUI() string {
 		}
 		return strings.Join(parts, "\n")
 	case wizMikroTik:
-		return TT(lang, "MikroTik: use Ops/CLI for full site push", "MikroTik: Ops/CLI")
+		out, err := operator.DeploySite(operator.SiteSpec{
+			SiteID:         orDefault(m.fieldVal("name"), "site"),
+			Name:           m.fieldVal("name"),
+			MTHost:         m.fieldVal("host"),
+			MTUser:         orDefault(m.fieldVal("user"), "admin"),
+			MTPass:         m.fieldVal("password"),
+			MTPort:         22,
+			DoPush:         true,
+			OperatorKeyPath: s.RemoteKey,
+			MikroTikID:     m.fieldVal("name"),
+		})
+		if err != nil {
+			return out + "\n" + err.Error()
+		}
+		return out
 	default:
 		return "unknown target"
 	}

@@ -99,11 +99,21 @@ document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); co
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
     domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
-    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on' }, e.submitter); };
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on', with_telegram:fd.get('with_telegram')==='on' }, e.submitter); };
 document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('primary',fd);
   await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key') }, e.submitter); };
 document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
   await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
+document.getElementById('form-site').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('site',fd);
+  await streamPost('/v1/site',{
+    site_id:fd.get('site_id'), name:fd.get('name'), rpi_id:fd.get('rpi_id'), mikrotik_id:fd.get('mikrotik_id'),
+    rpi_lan:fd.get('rpi_lan'), mt_host:fd.get('mt_host'), mt_user:fd.get('mt_user'), mt_password:fd.get('mt_password'),
+    mt_port:fd.get('mt_port'), do_push:fd.get('do_push')==='on', operator_key:fd.get('operator_key')
+  }, e.submitter); };
+document.getElementById('form-mt').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target);
+  const res=await fetch('/v1/mikrotik',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({host:fd.get('host'),user:fd.get('user'),password:fd.get('password'),port:fd.get('port'),action:fd.get('action')})});
+  const j=await res.json(); document.getElementById('mtResult').textContent=j.output||j.error||JSON.stringify(j); };
 document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('edge',fd);
   await streamPost('/v1/edge',{
     router_host:fd.get('router_host'), router_password:fd.get('router_password'),
@@ -468,7 +478,7 @@ document.getElementById('btnSessionLoad').onclick=async()=>{
   showControl(j);
 };
 
-['form-fleet','form-primary','form-secondary','form-edge','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
+['form-fleet','form-primary','form-secondary','form-edge','form-site','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
 document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
 document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
 applyI18n();
