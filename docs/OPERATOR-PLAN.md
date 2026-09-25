@@ -32,7 +32,8 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Separate packages `cmd/netductor-op` vs `cmd/netductor`; assets `netductor-linux-*` vs `netductor-op-*`
 - [x] Deploy downloads **node** binary only onto VPS
 - [x] Release workflow + CI build both surfaces
-- [ ] Mobile day-2 client (not bootstrap)
+- [x] Richer localhost WebUI (tabs: fleet/primary/secondary/credentials; EN/RU; step chips; localStorage)
+- [ ] Mobile day-2 client (not bootstrap) — deferred
 
 ## Releases
 

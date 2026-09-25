@@ -1,3 +1,8 @@
+## 0.9.1
+
+- Operator WebUI: Fleet / Primary / Secondary / Credentials tabs, EN/RU, step chips, localStorage
+- API: POST /v1/primary, /v1/secondary, /v1/credentials; GET /v1/meta
+
 ## 0.9.0
 
 - Physical split: **netductor-op** (Mac) vs **netductor** node (VPS)

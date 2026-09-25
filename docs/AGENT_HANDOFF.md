@@ -1,7 +1,7 @@
 # Agent handoff — netductor
 
 **Start here in a new chat.**  
-**Baseline:** **v0.9.0** · Repo: https://github.com/PavelNeyman/netductor
+**Baseline:** **v0.9.1** · Repo: https://github.com/PavelNeyman/netductor
 
 ## Read order
 
@@ -44,7 +44,8 @@ Brew (Mac): install **netductor-op** from Formula. Deploy downloads **netductor-
 - [x] Physical split **cmd/netductor-op** vs **cmd/netductor**  
 - [x] Security pass: path/filename, XFF, token SHA compares, host validation  
 - [x] Recovery model clarified: WAN bind while armed is **by design** (doctor WARN, not FAIL)  
-- [ ] Optional phase 4: richer WebUI, binary polish  
+- [x] Richer operator WebUI (0.9.1): tabs + credentials + step chips
+- [ ] Mobile day-2 client — deferred  
 - [ ] Hardware e2e (OpenWrt / Tapo) — owner  
 
 ## Forbidden

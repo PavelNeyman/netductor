@@ -115,3 +115,18 @@ Every completed checkbox **must** update that file + relevant docs in the **same
 - Header `X-Netductor-Token` required on `POST /v1/fleet`
 - Single in-flight deploy (409 if busy)
 - Hostnames validated (no shell metacharacters)
+
+
+## Operator WebUI (0.9.1)
+
+`netductor-op operator serve` → http://127.0.0.1:7373/
+
+| Endpoint | Purpose |
+|----------|---------|
+| GET /v1/meta | version, credentials_dir |
+| POST /v1/fleet | full fleet (stream steps) |
+| POST /v1/primary | primary only |
+| POST /v1/secondary | secondary only |
+| POST /v1/credentials | collect to ~/.netductor/credentials |
+
+Auth: `X-Netductor-Token`. UI tabs + EN/RU + step chips. Not a public installer.
