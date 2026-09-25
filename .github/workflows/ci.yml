@@ -14,20 +14,28 @@ jobs:
       - name: version pins
         run: bash scripts/check-version-pins.sh
       - name: go test
-        run: go test ./...
+        run: go test ./
+...
       - name: go build
         run: |
           go build -o /tmp/netductor ./cmd/netductor
+          go build -o /tmp/netductor-op ./cmd/netductor-op
           go build -o /tmp/netductor-tg ./cmd/netductor-tg
           go build -o /tmp/netductor-agent ./cmd/netductor-agent
+          /tmp/netductor version | grep -q node
+          /tmp/netductor-op version | grep -q operator
+          /tmp/netductor deploy 2>&1 | grep -qi 'netductor-op' || true
+          /tmp/netductor-op help | grep -qi deploy
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          govulncheck ./
+...
       - name: gosec
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -quiet -exclude=G204,G304,G301,G306 ./...
+          gosec -quiet -exclude=G204,G304,G301,G306 ./
+...
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
