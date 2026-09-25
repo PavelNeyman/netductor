@@ -19,3 +19,8 @@ Tools: guest, DNS, probes, backup, locations, NVR, metrics, updates, mTLS, git, 
 ## Not in any operator UI
 
 Agent-plane only: enroll/heartbeat, plain recovery pull without arm, etc.
+
+
+## Review baseline
+
+See [REVIEW-0.9.12.md](REVIEW-0.9.12.md) for API gaps (Advanced covers), deploy TUI vs Web, i18n gaps.

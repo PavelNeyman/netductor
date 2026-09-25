@@ -1,20 +1,15 @@
 # Open items
 
-## Active
+## Owner / later
 
-- Hardware e2e (OpenWrt guest Wi‑Fi, Tapo NVR) — owner
-- SMTP alerts — when mailbox available
-
-## Deferred
-
-- Mobile day-2 client
-- Status page without “VPN checks VPN”
-- Path B user-facing bot
-- Full TG/TUI parity for every rare API POST (WebUI Advanced + forms cover operator API)
+- Hardware e2e (OpenWrt guest, Tapo NVR)
+- SMTP alerts (mailbox)
+- Mobile day-2
+- Full WebUI form-label i18n
+- Optional Web entry for OpenWrt/MikroTik (TUI has wizards)
 
 ## Not doing
 
-- Public admin on WAN
-- Cloudflare API from netductor
-- Legacy huh wizards
-- Password SSH for day-2 tunnel (password only first Installer deploy)
+- Public VPS admin
+- Deploy from Telegram
+- Password day-2 tunnel

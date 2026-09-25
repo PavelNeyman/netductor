@@ -1,50 +1,64 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.12** · https://github.com/PavelNeyman/netductor
+**Baseline:** **v0.9.12** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.12
 
-## Read order
+## Read order (new chat)
 
 1. [AGENTS.md](../AGENTS.md)  
-2. This file  
-3. [PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md) · [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)  
-4. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
+2. **This file**  
+3. [REVIEW-0.9.12.md](REVIEW-0.9.12.md) — latest full security/code review  
+4. [PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md) · [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)  
+5. [UI-PARITY.md](UI-PARITY.md) · [WEB-UI-NOTES.md](WEB-UI-NOTES.md)  
+6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
 
-## Product model
+## Product model (locked)
 
-| Piece | Decision |
-|-------|----------|
-| **UI** | Only on Mac (`netductor-op` WebUI / TUI) |
-| **Node** | API + VPN/agents — no product web admin |
-| **VPS `/admin`** | Off unless `NETDUCTOR_LEGACY_ADMIN_UI=1` |
-| **First deploy** | Password once → inject key → harden |
-| **Day-2** | SSH key (+ agent); tunnel prefer VPN host then public |
-| **Recovery** | Off until arm; WAN bind while armed |
+| Piece | Rule |
+|-------|------|
+| UI | **Mac only** — `netductor-op` WebUI + TUI |
+| Node | API + VPN + agents — **no product admin on VPS** |
+| TG | Day-2 on node; **no VPS deploy** from bot |
+| First deploy | Password once → inject key → harden (52222) |
+| Day-2 access | SSH key; tunnel prefer VPN host then public |
+| Recovery | Off until arm; WAN OK while armed (TTL) |
 
 ## Binaries
 
 | Binary | Role |
 |--------|------|
-| netductor-op | Mac operator (deploy + local WebUI Control) |
-| netductor | Linux node |
-| netductor-agent | OpenWrt |
-| netductor-tg | TG addon |
+| `netductor-op` | Mac: serve WebUI, TUI, deploy, tunnel, session |
+| `netductor` | Linux node |
+| `netductor-agent` | OpenWrt |
+| `netductor-tg` | Telegram addon on node |
 
-## Closed (Mac client)
+## Mac deploy (both paths work)
 
-- Installer Fleet / Primary / Secondary / Credentials  
-- Control: operator-session APIs (VPN, nodes, edge, NVR, git/registry, backup, probes) + Advanced generic path  
-- Tables, row actions, session autofill, EN/RU chrome  
-- Tunnel: health direct → VPN SSH → public SSH  
+**Web:** `netductor-op operator serve` → Installer → Fleet / Primary / Secondary / Credentials  
+**TUI:** `netductor-op` → Wizard → Fleet / Primary / Secondary (+ OpenWrt / MikroTik / NVR / Add-ons)
 
-## Still open
+Shared backend: `internal/operator` + `internal/deploy`.
 
-- Hardware e2e · SMTP · mobile  
-- TG/TUI: not every rare POST mirrored (use WebUI Advanced)
+## Day-2
 
-## Docs
+- **Web Control:** broad session API + Advanced  
+- **TUI Tools:** `netductor …` local or `--remote`  
+- **TG:** Tools (VPN, edge, NVR, git, DNS, backup, probes, …)
 
-Obsolete reviews/plans → [archive/](archive/). Prefer this handoff + PLAN-MAC-CLIENT.
+## Open / deferred
 
-## Rule for agents
+- Hardware e2e (owner)  
+- SMTP when mailbox exists  
+- Mobile client  
+- Web form-label full i18n  
+- Optional Web thin links for OpenWrt wizard (TUI remains primary)
 
-Every completed work item: update docs + mark checklist; push release when version bumps.
+## Agent rules
+
+1. Every completed item → update docs + checklist + version when shipping  
+2. No new VPS HTML admin  
+3. No password SSH for day-2 tunnel  
+4. Do not enable PLAIN_AGENT / API_PUBLIC / CLAIM_FIRST in defaults  
+
+## Obsolete docs
+
+`docs/archive/` — old reviews/plans. Prefer this handoff + REVIEW-0.9.12.
