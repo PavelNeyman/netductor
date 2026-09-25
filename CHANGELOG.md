@@ -1,3 +1,8 @@
+## 0.9.6
+
+- Control: full section coverage (VPN, Edge/guest, NVR, Git/Registry, Backup, Probes, …)
+- Result: HTML tables + raw JSON toggle
+
 ## 0.9.5
 
 - P4: managed SSH tunnel from WebUI (start/stop/status, auto on Control)

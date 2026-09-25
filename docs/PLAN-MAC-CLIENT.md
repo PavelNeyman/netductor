@@ -78,3 +78,30 @@ Transport to `:8787`:
 - Hosting installer on primary
 - Public VPS web UI
 - Replacing Telegram bot
+
+
+## P5 — Control API coverage + tables (0.9.6)
+
+- [x] Control subsections: Overview, VPN, Nodes, Edge (+guest), NVR, Git/Registry, Backup, Probes
+- [x] Table renderer for array/object API responses (raw JSON toggle)
+- [ ] Deeper POST forms (NVR PTZ, git pipeline run, registry ensure) — incremental
+- [ ] Mobile day-2 — deferred
+
+### Tunnel without key / without BatchMode
+
+Auto-tunnel uses **SSH with a private key** (`BatchMode=yes` = no interactive password/prompt).  
+Without a key on the Mac there is nothing non-interactive to open `-L` safely from a headless `op` process.
+
+Options later (not default):
+
+| Approach | Notes |
+|----------|--------|
+| **ssh-agent** | Key unlocked once; BatchMode still works |
+| **Password SSH** | Needs sshpass/expect; weaker; not product default |
+| **VPN-only path** | When operator VPN is up, API on a private path — no tunnel |
+| **Manual tunnel** | CLI still works |
+
+### In-process GUI
+
+Today: **localhost WebUI** in the browser + **TUI** in the terminal — both talk to the same `internal/operator` / node API.  
+“In-process GUI” would mean embedding a native window (WebView/Wails/Fyne) **inside** the binary so no external browser is needed. Same backend; different shell. **Not required** while `operator serve` + browser works; optional polish later.

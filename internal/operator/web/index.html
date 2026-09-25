@@ -33,6 +33,8 @@ pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10p
 .sec{margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem}
 .card h3{margin:0 0 .5rem;font-size:.95rem}
+.csec{margin-bottom:.5rem}
+table th,table td{word-break:break-word;max-width:14rem}
 </style>
 </head>
 <body>
@@ -94,33 +96,111 @@ pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10p
 </div>
 
 <div id="main-control" style="display:none">
-  <p class="note">Day-2 via node JSON API (proxied by op). Need tunnel + session token in Settings.</p>
+  <p class="note">Day-2 via node API (proxied). Tunnel auto-starts when this tab opens (Settings: host + key).</p>
   <div class="card">
     <h3>Tunnel <span id="tunnelBadge" class="chip">—</span></h3>
-    <pre class="log" id="tunnelCmd" style="min-height:auto"></pre>
+    <pre class="log" id="tunnelCmd" style="min-height:auto;max-height:6rem"></pre>
     <button class="primary" type="button" id="btnTunnelStart">Start tunnel</button>
     <button class="primary" type="button" id="btnTunnelStop">Stop tunnel</button>
     <button class="primary" type="button" id="btnSessionIssue">Issue session</button>
-    <button class="primary" type="button" id="btnHealth">Health</button>
-    <button class="primary" type="button" id="btnVpnUsers">VPN users</button>
-    <button class="primary" type="button" id="btnNodes">Nodes</button>
-    <button class="primary" type="button" id="btnEdgePending">Edge pending</button>
-    <button class="primary" type="button" id="btnEdgeDevices">Edge devices</button>
   </div>
-  <div class="card">
-    <h3>Add VPN user</h3>
-    <div class="row"><div><label>Name</label><input id="vpnName"/></div><div><label>Note</label><input id="vpnNote"/></div></div>
-    <button class="primary" type="button" id="btnVpnAdd">Add</button>
-  </div>
-  <div class="card">
-    <h3>Edge approve / deny</h3>
-    <div class="row"><div><label>device_id</label><input id="edgeId"/></div>
-    <div><label>action</label><select id="edgeAction"><option>approve</option><option>deny</option></select></div></div>
-    <button class="primary" type="button" id="btnEdgeAct">Submit</button>
-  </div>
-  <div class="card"><h3>Result</h3><pre class="log" id="controlStatus">—</pre></div>
-</div>
+  <nav class="nav-sub" id="controlSub" style="margin:0 -1.25rem 1rem;border:1px solid var(--border);border-radius:8px">
+    <button type="button" data-csec="overview" class="active">Overview</button>
+    <button type="button" data-csec="vpn">VPN</button>
+    <button type="button" data-csec="nodes">Nodes</button>
+    <button type="button" data-csec="edge">Edge</button>
+    <button type="button" data-csec="nvr">NVR</button>
+    <button type="button" data-csec="git">Git / Registry</button>
+    <button type="button" data-csec="backup">Backup</button>
+    <button type="button" data-csec="probes">Probes</button>
+  </nav>
 
+  <div id="csec-overview" class="csec">
+    <button class="primary" type="button" data-act="health">Health + bot</button>
+    <button class="primary" type="button" data-act="status">/api/status</button>
+    <button class="primary" type="button" data-act="metrics">Metrics</button>
+    <button class="primary" type="button" data-act="metrics-hist">Metrics history</button>
+    <button class="primary" type="button" data-act="addons">Addons</button>
+    <button class="primary" type="button" data-act="sni">SNI</button>
+  </div>
+  <div id="csec-vpn" class="csec" style="display:none">
+    <button class="primary" type="button" data-act="vpn-users">List users</button>
+    <button class="primary" type="button" data-act="vpn-refresh">Refresh links</button>
+    <div class="row" style="margin-top:.75rem">
+      <div><label>Name</label><input id="vpnName"/></div>
+      <div><label>Note</label><input id="vpnNote"/></div>
+    </div>
+    <button class="primary" type="button" data-act="vpn-add">Add user</button>
+  </div>
+  <div id="csec-nodes" class="csec" style="display:none">
+    <button class="primary" type="button" data-act="nodes">Nodes</button>
+    <button class="primary" type="button" data-act="nodes-self">Self</button>
+    <button class="primary" type="button" data-act="secondary">Secondary status</button>
+    <button class="primary" type="button" data-act="ssh-hosts">SSH hosts</button>
+    <button class="primary" type="button" data-act="mtls-certs">mTLS certs</button>
+    <button class="primary" type="button" data-act="sites">Sites</button>
+  </div>
+  <div id="csec-edge" class="csec" style="display:none">
+    <button class="primary" type="button" data-act="edge-pending">Pending</button>
+    <button class="primary" type="button" data-act="edge-devices">Devices</button>
+    <button class="primary" type="button" data-act="edge-metrics">Metrics</button>
+    <button class="primary" type="button" data-act="edge-metrics-hist">Metrics history</button>
+    <button class="primary" type="button" data-act="edge-templates">Templates</button>
+    <button class="primary" type="button" data-act="edge-backups">Backups list</button>
+    <div class="row" style="margin-top:.75rem">
+      <div><label>device_id</label><input id="edgeId"/></div>
+      <div><label>action</label>
+        <select id="edgeAction"><option>approve</option><option>deny</option><option>revoke</option></select>
+      </div>
+    </div>
+    <button class="primary" type="button" data-act="edge-act">Submit</button>
+    <div class="row">
+      <div><label>guest device_id</label><input id="guestDid"/></div>
+      <div><label>guest action</label>
+        <select id="guestAct"><option value="status">status</option><option value="grant">grant</option><option value="revoke">revoke</option></select>
+      </div>
+    </div>
+    <button class="primary" type="button" data-act="edge-guest">Guest Wi‑Fi</button>
+  </div>
+  <div id="csec-nvr" class="csec" style="display:none">
+    <button class="primary" type="button" data-act="nvr-cameras">Cameras</button>
+    <button class="primary" type="button" data-act="nvr-config">Config</button>
+    <button class="primary" type="button" data-act="nvr-storage">Storage</button>
+    <button class="primary" type="button" data-act="nvr-events">Events</button>
+    <button class="primary" type="button" data-act="nvr-segments">Segments</button>
+    <button class="primary" type="button" data-act="nvr-go2rtc">go2rtc</button>
+    <div class="row" style="margin-top:.75rem">
+      <div><label>edge device_id (leases)</label><input id="nvrSiteDid"/></div>
+      <div></div>
+    </div>
+    <button class="primary" type="button" data-act="nvr-leases">Site DHCP leases</button>
+    <button class="primary" type="button" data-act="nvr-wifi">Site Wi‑Fi clients</button>
+  </div>
+  <div id="csec-git" class="csec" style="display:none">
+    <button class="primary" type="button" data-act="git-repos">Repos</button>
+    <button class="primary" type="button" data-act="git-pipelines">Pipelines</button>
+    <button class="primary" type="button" data-act="git-artifacts">Artifacts</button>
+    <button class="primary" type="button" data-act="reg-status">Registry status</button>
+    <button class="primary" type="button" data-act="reg-catalog">Registry catalog</button>
+  </div>
+  <div id="csec-backup" class="csec" style="display:none">
+    <button class="primary" type="button" data-act="backup-peer">Peer status</button>
+    <button class="primary" type="button" data-act="backup-run">Run backup now</button>
+  </div>
+  <div id="csec-probes" class="csec" style="display:none">
+    <button class="primary" type="button" data-act="probes">Probes</button>
+    <button class="primary" type="button" data-act="probes-cfg">Probes config</button>
+    <button class="primary" type="button" data-act="probes-uptime">Uptime</button>
+    <button class="primary" type="button" data-act="audit">Audit log</button>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h3>Result</h3>
+    <div id="controlTables"></div>
+    <pre class="log" id="controlStatus" style="display:none">—</pre>
+    <button class="primary" type="button" id="btnShowRaw" style="display:none">Show raw JSON</button>
+  </div>
+</div>
 <div id="main-settings" style="display:none">
   <form id="form-settings">
     <div class="row"><div><label>Primary host</label><input name="primary_host" id="set_primary_host"/></div>
@@ -141,6 +221,7 @@ pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10p
   <pre class="log" id="log">idle</pre>
 </div>
 </main>
+
 <script>
 const ND_TOKEN = '/*__ND_TOKEN__*/';
 function settings(){ try{return JSON.parse(localStorage.getItem('nd_op_settings')||'{}')}catch(e){return{}} }
@@ -164,6 +245,14 @@ document.querySelectorAll('#subInstaller button').forEach(btn=>{
     document.querySelectorAll('#main-installer .panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  };
+});
+document.querySelectorAll('#controlSub button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#controlSub button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.csec').forEach(p=>p.style.display='none');
+    document.getElementById('csec-'+btn.dataset.csec).style.display='block';
   };
 });
 
@@ -201,13 +290,11 @@ document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); co
 
 function loadSettingsForm(){
   const s=settings();
-  document.getElementById('set_primary_host').value=s.primary_host||'';
-  document.getElementById('set_key').value=s.key||'~/.ssh/netductor_primary';
-  document.getElementById('set_user').value=s.user||'root';
-  document.getElementById('set_api_port').value=s.api_port||'8787';
-  document.getElementById('set_api_base').value=s.api_base||'http://127.0.0.1:8787';
-  document.getElementById('set_secondary_host').value=s.secondary_host||'';
-  document.getElementById('set_node_session').value=s.node_session||'';
+  ['set_primary_host','set_key','set_user','set_api_port','set_api_base','set_secondary_host','set_node_session'].forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    const map={set_primary_host:'primary_host',set_key:'key',set_user:'user',set_api_port:'api_port',set_api_base:'api_base',set_secondary_host:'secondary_host',set_node_session:'node_session'};
+    const k=map[id]; el.value=s[k]||(id==='set_key'?'~/.ssh/netductor_primary':id==='set_user'?'root':id==='set_api_port'?'8787':id==='set_api_base'?'http://127.0.0.1:8787':'');
+  });
 }
 document.getElementById('form-settings').onsubmit=e=>{
   e.preventDefault(); const fd=new FormData(e.target);
@@ -219,8 +306,7 @@ document.getElementById('form-settings').onsubmit=e=>{
 function updateTunnelHint(){
   const s=settings(); const host=s.primary_host||'PRIMARY'; const key=s.key||'~/.ssh/netductor_primary'; const port=s.api_port||'8787';
   document.getElementById('tunnelCmd').textContent=
-    'Auto: Start tunnel + Issue session (Settings host/key).
-CLI: netductor-op tunnel --host '+host+' --key '+key+' --local-port '+port;
+    'Auto tunnel on Control open. CLI: netductor-op tunnel --host '+host+' --key '+key+' --local-port '+port;
 }
 async function refreshTunnelBadge(){
   try{
@@ -236,7 +322,7 @@ async function refreshTunnelBadge(){
 }
 async function ensureTunnel(){
   const s=settings();
-  if(!s.primary_host){ return false; }
+  if(!s.primary_host) return false;
   await fetch('/v1/tunnel/start',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
     body:JSON.stringify({host:s.primary_host,user:s.user||'root',key:s.key,local_port:s.api_port||'8787'})});
   await refreshTunnelBadge();
@@ -252,7 +338,78 @@ async function nodeFetch(path, opts){
   const text=await res.text(); let data; try{data=JSON.parse(text)}catch(e){data=text}
   return {ok:res.ok,status:res.status,data};
 }
-function showControl(x){ document.getElementById('controlStatus').textContent = typeof x==='string'?x:JSON.stringify(x,null,2); }
+
+let lastRaw = null;
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderTables(payload){
+  const box=document.getElementById('controlTables');
+  const raw=document.getElementById('controlStatus');
+  const btn=document.getElementById('btnShowRaw');
+  lastRaw = payload;
+  box.innerHTML='';
+  raw.style.display='none';
+  btn.style.display='inline-block';
+
+  const data = payload && payload.data !== undefined ? payload.data : payload;
+  // Find arrays of objects to table
+  const tables = [];
+  function walk(obj, path){
+    if(Array.isArray(obj)){
+      if(obj.length && typeof obj[0]==='object' && obj[0]!==null && !Array.isArray(obj[0])){
+        tables.push({title: path||'items', rows: obj});
+      } else if(obj.length){
+        tables.push({title: path||'list', rows: obj.map((v,i)=>({index:i, value: typeof v==='object'?JSON.stringify(v):v}))});
+      }
+      return;
+    }
+    if(obj && typeof obj==='object'){
+      // scalar summary card
+      const scalars={};
+      for(const [k,v] of Object.entries(obj)){
+        if(v!==null && typeof v==='object') walk(v, path?path+'.'+k:k);
+        else scalars[k]=v;
+      }
+      if(Object.keys(scalars).length && !path){
+        tables.unshift({title:'summary', rows:[scalars]});
+      } else if(Object.keys(scalars).length && path){
+        tables.push({title:path, rows:[scalars]});
+      }
+    }
+  }
+  walk(data, '');
+  if(!tables.length){
+    raw.style.display='block';
+    raw.textContent = typeof payload==='string'?payload:JSON.stringify(payload,null,2);
+    btn.style.display='none';
+    return;
+  }
+  for(const t of tables){
+    const keys=[];
+    t.rows.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!keys.includes(k)) keys.push(k); }));
+    // limit columns
+    const cols=keys.slice(0,12);
+    let h='<div class="card" style="padding:.75rem"><h3 style="margin:0 0 .5rem;font-size:.9rem">'+esc(t.title)+' <span class="note">('+t.rows.length+')</span></h3>';
+    h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">';
+    h+='<thead><tr>'+cols.map(c=>'<th style="text-align:left;border-bottom:1px solid var(--border);padding:.35rem;color:var(--muted)">'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+    t.rows.slice(0,200).forEach(r=>{
+      h+='<tr>'+cols.map(c=>{
+        let v=r[c];
+        if(v===null||v===undefined) v='';
+        else if(typeof v==='object') v=JSON.stringify(v);
+        return '<td style="border-bottom:1px solid var(--border);padding:.35rem;vertical-align:top">'+esc(v)+'</td>';
+      }).join('')+'</tr>';
+    });
+    h+='</tbody></table></div></div>';
+    box.innerHTML+=h;
+  }
+}
+function showControl(x){ renderTables(x); }
+document.getElementById('btnShowRaw').onclick=()=>{
+  const raw=document.getElementById('controlStatus');
+  raw.style.display = raw.style.display==='none'?'block':'none';
+  raw.textContent = typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
+};
+
 document.getElementById('btnTunnelStart').onclick=async()=>{ showControl('starting tunnel…'); await ensureTunnel(); showControl(await refreshTunnelBadge()); };
 document.getElementById('btnTunnelStop').onclick=async()=>{
   await fetch('/v1/tunnel/stop',{method:'POST',headers:{'X-Netductor-Token':ND_TOKEN}});
@@ -261,31 +418,90 @@ document.getElementById('btnTunnelStop').onclick=async()=>{
 document.getElementById('btnSessionIssue').onclick=async()=>{
   const s=settings();
   if(!s.primary_host){ showControl('primary host required in Settings'); return; }
-  showControl('issuing session…');
   const res=await fetch('/v1/session/issue',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
     body:JSON.stringify({host:s.primary_host,user:s.user||'root',key:s.key,hours:'72'})});
   const j=await res.json();
-  if(j.token){ const st=Object.assign({},settings(),{node_session:j.token}); saveSettingsObj(st); showControl({ok:true,saved:j.saved,token_preview:j.token.slice(0,8)+'…'}); }
+  if(j.token){ saveSettingsObj(Object.assign({},settings(),{node_session:j.token})); showControl({ok:true,saved:j.saved,token_preview:j.token.slice(0,8)+'…'}); }
   else showControl(j);
 };
-document.getElementById('btnHealth').onclick=async()=>{ try{ showControl({health:await nodeFetch('/health'), bot:await nodeFetch('/api/bot-status')}); }catch(e){showControl(String(e));} };
-document.getElementById('btnVpnUsers').onclick=async()=>{ try{ showControl(await nodeFetch('/vpn/users')); }catch(e){showControl(String(e));} };
-document.getElementById('btnNodes').onclick=async()=>{ try{ showControl({nodes:await nodeFetch('/api/nodes'), self:await nodeFetch('/api/nodes/self')}); }catch(e){showControl(String(e));} };
-document.getElementById('btnEdgePending').onclick=async()=>{ try{ showControl(await nodeFetch('/api/edge/pending')); }catch(e){showControl(String(e));} };
-document.getElementById('btnEdgeDevices').onclick=async()=>{ try{ showControl(await nodeFetch('/api/edge/devices')); }catch(e){showControl(String(e));} };
-document.getElementById('btnVpnAdd').onclick=async()=>{
-  const name=document.getElementById('vpnName').value.trim(); const note=document.getElementById('vpnNote').value.trim();
-  if(!name){showControl('name required');return;}
-  try{ showControl(await nodeFetch('/vpn/users',{method:'POST',body:JSON.stringify({name,note})})); }catch(e){showControl(String(e));}
+
+const actions = {
+  'health': async()=>({health:await nodeFetch('/health'), bot:await nodeFetch('/api/bot-status')}),
+  'status': async()=>nodeFetch('/api/status'),
+  'metrics': async()=>nodeFetch('/api/metrics'),
+  'metrics-hist': async()=>nodeFetch('/api/metrics/history'),
+  'addons': async()=>nodeFetch('/api/addons'),
+  'sni': async()=>nodeFetch('/api/sni'),
+  'vpn-users': async()=>nodeFetch('/vpn/users'),
+  'vpn-refresh': async()=>nodeFetch('/api/vpn/refresh-links',{method:'POST',body:'{}'}),
+  'vpn-add': async()=>{
+    const name=document.getElementById('vpnName').value.trim();
+    const note=document.getElementById('vpnNote').value.trim();
+    if(!name) return {error:'name required'};
+    return nodeFetch('/vpn/users',{method:'POST',body:JSON.stringify({name,note})});
+  },
+  'nodes': async()=>nodeFetch('/api/nodes'),
+  'nodes-self': async()=>nodeFetch('/api/nodes/self'),
+  'secondary': async()=>nodeFetch('/api/secondary/status'),
+  'ssh-hosts': async()=>nodeFetch('/api/ssh-hosts'),
+  'mtls-certs': async()=>nodeFetch('/api/mtls/certs'),
+  'sites': async()=>nodeFetch('/api/sites'),
+  'edge-pending': async()=>nodeFetch('/api/edge/pending'),
+  'edge-devices': async()=>nodeFetch('/api/edge/devices'),
+  'edge-metrics': async()=>nodeFetch('/api/edge/metrics'),
+  'edge-metrics-hist': async()=>nodeFetch('/api/edge/metrics/history'),
+  'edge-templates': async()=>nodeFetch('/api/edge/templates'),
+  'edge-backups': async()=>nodeFetch('/api/edge/backups'),
+  'edge-act': async()=>{
+    const id=document.getElementById('edgeId').value.trim();
+    const act=document.getElementById('edgeAction').value;
+    if(!id) return {error:'device_id required'};
+    return nodeFetch('/api/edge/'+act,{method:'POST',body:JSON.stringify({device_id:id})});
+  },
+  'edge-guest': async()=>{
+    const did=document.getElementById('guestDid').value.trim();
+    const act=document.getElementById('guestAct').value;
+    if(act==='status') return nodeFetch('/api/edge/guest/status'+(did?('?device_id='+encodeURIComponent(did)):''));
+    if(!did) return {error:'device_id required'};
+    return nodeFetch('/api/edge/guest/'+act,{method:'POST',body:JSON.stringify({device_id:did})});
+  },
+  'nvr-cameras': async()=>nodeFetch('/api/nvr/cameras'),
+  'nvr-config': async()=>nodeFetch('/api/nvr/config'),
+  'nvr-storage': async()=>nodeFetch('/api/nvr/storage'),
+  'nvr-events': async()=>nodeFetch('/api/nvr/events'),
+  'nvr-segments': async()=>nodeFetch('/api/nvr/segments'),
+  'nvr-go2rtc': async()=>nodeFetch('/api/nvr/go2rtc'),
+  'nvr-leases': async()=>{
+    const did=document.getElementById('nvrSiteDid').value.trim();
+    return nodeFetch('/api/nvr/site/leases'+(did?('?device_id='+encodeURIComponent(did)):''));
+  },
+  'nvr-wifi': async()=>{
+    const did=document.getElementById('nvrSiteDid').value.trim();
+    return nodeFetch('/api/nvr/site/wifi_clients'+(did?('?device_id='+encodeURIComponent(did)):''));
+  },
+  'git-repos': async()=>nodeFetch('/api/git/repos'),
+  'git-pipelines': async()=>nodeFetch('/api/git/pipelines'),
+  'git-artifacts': async()=>nodeFetch('/api/git/artifacts'),
+  'reg-status': async()=>nodeFetch('/api/registry/status'),
+  'reg-catalog': async()=>nodeFetch('/api/registry/catalog'),
+  'backup-peer': async()=>nodeFetch('/api/backup/peer'),
+  'backup-run': async()=>nodeFetch('/api/backup/run',{method:'POST',body:'{}'}),
+  'probes': async()=>nodeFetch('/api/probes'),
+  'probes-cfg': async()=>nodeFetch('/api/probes/config'),
+  'probes-uptime': async()=>nodeFetch('/api/probes/uptime'),
+  'audit': async()=>nodeFetch('/api/audit'),
 };
-document.getElementById('btnEdgeAct').onclick=async()=>{
-  const id=document.getElementById('edgeId').value.trim(); const act=document.getElementById('edgeAction').value;
-  if(!id){showControl('device_id required');return;}
-  try{ showControl(await nodeFetch('/api/edge/'+act,{method:'POST',body:JSON.stringify({device_id:id})})); }catch(e){showControl(String(e));}
-};
+document.querySelectorAll('[data-act]').forEach(btn=>{
+  btn.onclick=async()=>{
+    const act=btn.dataset.act;
+    showControl({loading:act});
+    try{ showControl(await actions[act]()); }
+    catch(e){ showControl({error:String(e)}); }
+  };
+});
 
 ['form-fleet','form-primary','form-secondary','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
-fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version+' · node API via /v1/node proxy'; }).catch(()=>{});
+fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version+' · Control API parity'; }).catch(()=>{});
 updateTunnelHint();
 </script>
 </body>
