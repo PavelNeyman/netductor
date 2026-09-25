@@ -126,15 +126,11 @@ func showDNSMenu(token string, chat int64, msgID int, status string) {
 	if status != "" {
 		body = "<p>" + esc(status) + "</p>" + body
 	}
-	// Navigation only under message — Enable/Disable/Reload are in-body tg-button-row (not in <td>).
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
-	// Always replace message so state refresh is visible.
-	if msgID > 0 {
-		_ = deleteMessage(token, chat, msgID)
-	}
-	sendHTML(token, chat, body, kb)
+	// Prefer in-place edit; delete+send only if rich edit fails.
+	reply(token, chat, msgID, body, kb)
 }
 
 func handleBackupCB(token string, chat int64, msgID int, data string) {

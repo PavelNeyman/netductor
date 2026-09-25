@@ -1,3 +1,8 @@
+## 0.9.28
+
+- DNS: numbered compact buttons in one row; table keeps full names
+- DNS refresh: edit in place, delete+send only as fallback
+
 ## 0.9.27
 
 - DNS UI: compact table (status only) + link-style buttons with name inside (no extra labels)

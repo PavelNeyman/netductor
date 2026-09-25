@@ -153,12 +153,12 @@ func ReloadBlocky() error {
 
 func FormatCatalogHTML() string {
 	nl := string([]byte{10})
+	entries := Catalog()
 	var b strings.Builder
 	b.WriteString("🛡 <b>DNS block lists</b>" + nl)
-	b.WriteString("<i>Статус в таблице · действие — кнопка ниже (Telegram не шлёт callback из &lt;td&gt;).</i>" + nl)
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>#</th><th>list</th><th></th></tr>" + nl)
-	for i, e := range Catalog() {
+	for i, e := range entries {
 		meta, ok := ListMeta[e.ID]
 		title := e.ID
 		if ok && meta.Title != "" {
@@ -171,28 +171,28 @@ func FormatCatalogHTML() string {
 		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, i+1, title, st))
 	}
 	b.WriteString("</table>" + nl)
-	// Compact: one button per list, label = name + action (no extra <p> clutter).
-	// style "link" is borderless / denser; primary/danger for stronger actions.
-	for _, e := range Catalog() {
-		meta, ok := ListMeta[e.ID]
-		title := e.ID
-		if ok && meta.Title != "" {
-			title = meta.Title
+	// Compact numbered toggles: several per tg-button-row (max 8 per Bot API).
+	const perRow = 5
+	for i, e := range entries {
+		if i%perRow == 0 {
+			if i > 0 {
+				b.WriteString(`</tg-button-row>` + nl)
+			}
+			b.WriteString(`<tg-button-row align="left">`)
 		}
+		n := i + 1
 		if e.Enabled {
-			label := "🟢 " + title + " · off"
-			b.WriteString(`<tg-button-row align="left">`)
-			b.WriteString(`<tg-button type="callback_data" style="link" data="m:dns:off:` + e.ID + `">` + label + `</tg-button>`)
-			b.WriteString(`</tg-button-row>` + nl)
+			// link style = denser; label is just the row number
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="success" data="m:dns:off:%s">%d</tg-button>`, e.ID, n))
 		} else {
-			label := "⚪ " + title + " · on"
-			b.WriteString(`<tg-button-row align="left">`)
-			b.WriteString(`<tg-button type="callback_data" style="link" data="m:dns:on:` + e.ID + `">` + label + `</tg-button>`)
-			b.WriteString(`</tg-button-row>` + nl)
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:dns:on:%s">%d</tg-button>`, e.ID, n))
 		}
 	}
+	if len(entries) > 0 {
+		b.WriteString(`</tg-button-row>` + nl)
+	}
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:dns:reload">🔄 Reload lists</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:dns:reload">🔄</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
