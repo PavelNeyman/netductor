@@ -48,11 +48,12 @@ func mainKeyboard() map[string]any {
 func toolsKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn("⏱ Guest VPN", "m:guest", ""), btn("📡 Guest Wi‑Fi", "m:edgeguest", "")},
-		{btn("🛡 DNS", "m:dns", "")},
+		{btn("🛡 DNS", "m:dns", ""), btn("📡 Probes", "m:probes", "")},
 		{btn("🗓 Backup", "m:backup", ""), btn("📍 Locations", "m:loc", "")},
-		{btn("🎥 NVR", "m:nvr", "")},
+		{btn("🎥 NVR", "m:nvr", ""), btn("📊 Metrics", "m:metrics", "")},
 		{btn("🔄 Updates", "m:updates", ""), btn(T("mtls"), "m:mtls", "")},
 		{btn("📦 Git", "m:git", ""), btn("🗄 Registry", "m:registry", "")},
+		{btn("🖥 Secondary", "m:secondary:status", ""), btn("📋 Audit", "m:audit", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }

@@ -1,3 +1,9 @@
+## 0.9.11
+
+- TUI tools expanded: edge, NVR, git, registry, addons, mTLS, sites (remote CLI)
+- TG Tools: probes, metrics, secondary, audit shortcuts
+- Docs: WEB-UI-NOTES (index/CSP), UI-PARITY update
+
 ## 0.9.10
 
 - Security hardening: sessionStorage for node session; stronger CSP/COOP; confirm Advanced POST

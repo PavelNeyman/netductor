@@ -300,6 +300,16 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, "✈️ <b>RU exit OFF</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>", relayKeyboard())
 	case "m:relay:list", "m:secondary:list":
 		reply(token, chat, msgID, formatRelayListHTML(), relayKeyboard())
+	case "m:probes":
+		out := runND("probe")
+		reply(token, chat, msgID, "📡 <b>Probes</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())
+	case "m:metrics":
+		out := runND("status")
+		// prefer metrics via secondary cmd if available; status is readable summary
+		reply(token, chat, msgID, "📊 <b>Status / metrics</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())
+	case "m:secondary:status":
+		out := runND("secondary", "status")
+		reply(token, chat, msgID, "🖥 <b>Secondary</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())
 	case "m:addons":
 		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatAddonsHTML(), addonsKeyboard())
 	case "m:addon:lampac":

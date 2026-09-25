@@ -1,17 +1,21 @@
 # UI parity
 
-## WebUI (`netductor-op serve`) — primary day-2 surface
+## Surfaces
 
-Covers operator **session** API under `/api/*`, `/vpn/*`, `/health` via `/v1/node` proxy.
+| UI | Deploy VPS | Day-2 ops | Notes |
+|----|------------|-----------|--------|
+| **WebUI** (`op serve`) | Yes (Installer) | Max operator API + Advanced | Primary day-2 for rare POSTs |
+| **TUI** (`op` / `netductor` TUI) | Yes (Wizard) | CLI via local/remote `netductor …` | Same backend as CLI |
+| **Telegram** | **No** | Day-2: VPN, nodes, edge, NVR, git, DNS, backup… | Runs on node; admin chat only |
 
-- Sections: Overview, VPN, Nodes, Edge, NVR, Git/Registry, Backup, Probes, **Advanced**
-- Agent-plane only endpoints (`/api/edge/enroll`, heartbeat, secondary agent mTLS) are **not** operator UI actions
-- Use **Advanced** for uncommon bodies
+## TUI (0.9.11)
 
-## Telegram / TUI
+Tools: doctor, status, fleet, nodes, secondary, edge (list/pending/recovery), NVR, git, registry, addons, mTLS, backup, VPN, probes, SSH hosts, audit, sites.
 
-Core fleet ops + VPN users + nodes status. Rare POSTs → WebUI Advanced or CLI on node.
+## TG
 
-## Installer
+Tools: guest, DNS, probes, backup, locations, NVR, metrics, updates, mTLS, git, registry, secondary, audit. No fleet deploy from TG.
 
-Password allowed for first primary/secondary deploy only.
+## Not in any operator UI
+
+Agent-plane only: enroll/heartbeat, plain recovery pull without arm, etc.
