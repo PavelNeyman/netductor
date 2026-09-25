@@ -184,10 +184,12 @@ func opcatalogGetSection(id string) (string, bool) {
 }
 
 
-// replyCatalog always sendRich (delete old message) so tables are not lost on edit fallback.
+// replyCatalog prefers editRich; on failure sends a new rich message (keeps tables).
 func replyCatalog(token string, chat int64, msgID int, html string, kb map[string]any) {
 	if msgID > 0 {
-		_ = deleteMessage(token, chat, msgID)
+		if err := editRich(token, chat, msgID, html, kb); err == nil {
+			return
+		}
 	}
 	sendHTML(token, chat, html, kb)
 }

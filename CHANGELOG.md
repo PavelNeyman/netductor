@@ -1,3 +1,8 @@
+## 0.9.22
+
+- format: dedicated Health / Metrics / Metrics-history renderers (no raw JSON primary view)
+- TG catalog reply: editRich first, then sendRich
+
 ## 0.9.21
 
 - format: robust smart tables for all catalog JSON (not only health)

@@ -36,12 +36,18 @@ func API(actionID string, raw []byte, lang string) Result {
 		return formatVPNUsers(v, ru)
 	case "nvr-cameras":
 		return formatNVRCameras(v, ru)
-	case "health", "bot":
-		return formatFlatMap(actionID, emojiFor(actionID), v, ru)
+	case "health":
+		return formatHealth(v, ru)
+	case "bot":
+		return formatBot(v, ru)
 	case "status":
 		return formatStatus(v, ru)
-	case "metrics", "metrics-hist", "latest":
-		return formatFlatMap(actionID, "📊", v, ru)
+	case "metrics":
+		return formatMetrics(v, ru)
+	case "metrics-hist":
+		return formatMetricsHist(v, ru)
+	case "latest":
+		return formatMetrics(v, ru)
 	case "nodes", "nodes-self", "sites", "edge-devices", "edge-pending", "git-repos",
 		"sessions", "ssh-hosts", "addons", "sni", "sni-presets", "probes", "probes-cfg",
 		"audit", "mtls-certs", "secondary", "secondary-links", "edge-metrics",
@@ -50,6 +56,173 @@ func API(actionID string, raw []byte, lang string) Result {
 		return formatSmart(actionID, v, ru)
 	default:
 		return formatSmart(actionID, v, ru)
+	}
+}
+
+
+func formatHealth(v any, ru bool) Result {
+	m, _ := asMap(v)
+	title := "💚 Health"
+	if ru {
+		title = "💚 Health"
+	}
+	if m == nil {
+		return Result{HTML: "<b>" + title + "</b><br><code>" + esc(fmt.Sprint(v)) + "</code>", Text: "health"}
+	}
+	var b strings.Builder
+	b.WriteString("<b>" + title + "</b><br>")
+	ok := m["ok"] == true
+	if ok {
+		b.WriteString("✅ <b>ok</b><br>")
+	} else {
+		b.WriteString("❌ <b>not ok</b><br>")
+	}
+	for _, k := range []string{"service", "version", "time"} {
+		if val, ok := m[k]; ok {
+			b.WriteString("• <b>" + esc(k) + "</b>: <code>" + esc(fmt.Sprint(val)) + "</code><br>")
+		}
+	}
+	return Result{HTML: b.String(), Text: "health ok"}
+}
+
+func formatBot(v any, ru bool) Result {
+	m, _ := asMap(v)
+	title := "🤖 Bot"
+	var b strings.Builder
+	b.WriteString("<b>" + title + "</b><br>")
+	if m == nil {
+		b.WriteString("<code>" + esc(fmt.Sprint(v)) + "</code>")
+		return Result{HTML: b.String(), Text: "bot"}
+	}
+	if m["ok"] == true {
+		b.WriteString("✅ ok<br>")
+	}
+	if s, ok := m["bot"].(string); ok {
+		emoji := "ℹ️"
+		if s == "active" {
+			emoji = "✅"
+		} else if s == "inactive" {
+			emoji = "❌"
+		}
+		b.WriteString(emoji + " status: <b>" + esc(s) + "</b><br>")
+	}
+	return Result{HTML: b.String(), Text: "bot"}
+}
+
+func formatMetrics(v any, ru bool) Result {
+	m, _ := asMap(v)
+	title := "📊 Metrics"
+	if ru {
+		title = "📊 Метрики"
+	}
+	if m == nil {
+		return formatSmart("metrics", v, ru)
+	}
+	var b strings.Builder
+	b.WriteString("<b>" + title + "</b><br>")
+	if h, ok := m["hostname"].(string); ok {
+		b.WriteString("🖥 <code>" + esc(h) + "</code><br>")
+	}
+	if c, ok := m["cpu_pct"]; ok {
+		b.WriteString("CPU: <b>" + esc(fmt.Sprintf("%.1f", asFloat(c))) + "%</b><br>")
+	}
+	if la, ok := m["loadavg"].(map[string]any); ok {
+		b.WriteString(fmt.Sprintf("Load: <code>%.2f</code> / <code>%.2f</code> / <code>%.2f</code><br>",
+			asFloat(la["1"]), asFloat(la["5"]), asFloat(la["15"])))
+	}
+	if mem, ok := m["mem"].(map[string]any); ok {
+		used := asFloat(mem["used"])
+		total := asFloat(mem["total"])
+		if total > 0 {
+			b.WriteString(fmt.Sprintf("RAM: <b>%.1f</b> / %.1f GiB<br>", used/(1<<30), total/(1<<30)))
+		}
+	}
+	if disk, ok := m["disk"].(map[string]any); ok {
+		b.WriteString(fmt.Sprintf("Disk: <b>%v%%</b> used<br>", disk["use_pct"]))
+	}
+	if sv, ok := m["services"].(map[string]any); ok {
+		b.WriteString("<br><b>Services</b><br><table bordered striped compact><tr><th>unit</th><th>state</th></tr>")
+		keys := make([]string, 0, len(sv))
+		for k := range sv {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			st := fmt.Sprint(sv[k])
+			em := "❓"
+			if st == "active" {
+				em = "✅"
+			} else if st == "inactive" || st == "failed" {
+				em = "❌"
+			}
+			b.WriteString("<tr><td>" + esc(k) + "</td><td>" + em + " " + esc(st) + "</td></tr>")
+		}
+		b.WriteString("</table>")
+	}
+	return Result{HTML: b.String(), Text: "metrics"}
+}
+
+func formatMetricsHist(v any, ru bool) Result {
+	m, _ := asMap(v)
+	title := "📈 Metrics history"
+	if ru {
+		title = "📈 История метрик"
+	}
+	var list []any
+	if m != nil {
+		list, _ = m["points"].([]any)
+	}
+	if list == nil {
+		if a, ok := v.([]any); ok {
+			list = a
+		}
+	}
+	var b strings.Builder
+	b.WriteString("<b>" + title + "</b> · " + fmt.Sprintf("%d", len(list)) + "<br>")
+	b.WriteString("<table bordered striped compact><tr><th>ts</th><th>cpu%</th><th>load1</th><th>mem%</th></tr>")
+	// show last 15 points
+	start := 0
+	if len(list) > 15 {
+		start = len(list) - 15
+	}
+	for _, item := range list[start:] {
+		im, _ := asMap(item)
+		if im == nil {
+			continue
+		}
+		ts := fmt.Sprint(im["ts"])
+		cpu := fmt.Sprintf("%.1f", asFloat(im["cpu_pct"]))
+		load := "—"
+		if la, ok := im["loadavg"].(map[string]any); ok {
+			load = fmt.Sprintf("%.2f", asFloat(la["1"]))
+		}
+		mempct := "—"
+		if mem, ok := im["mem"].(map[string]any); ok {
+			total := asFloat(mem["total"])
+			used := asFloat(mem["used"])
+			if total > 0 {
+				mempct = fmt.Sprintf("%.0f", used*100/total)
+			}
+		}
+		b.WriteString("<tr><td><code>" + esc(ts) + "</code></td><td>" + esc(cpu) + "</td><td>" + esc(load) + "</td><td>" + esc(mempct) + "</td></tr>")
+	}
+	b.WriteString("</table>")
+	return Result{HTML: b.String(), Text: "metrics history"}
+}
+
+func asFloat(v any) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case int:
+		return float64(t)
+	case int64:
+		return float64(t)
+	case json.Number:
+		f, _ := t.Float64()
+		return f
+	default:
+		return 0
 	}
 }
 
