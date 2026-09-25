@@ -1,3 +1,9 @@
+## 0.9.32
+
+- OPEN_ITEMS: CDN-XHTTP plan B (idea only)
+- NVR TG: compact table + body actions (hub, cams, sites)
+- Functional parity matrix draft
+
 ## 0.9.31
 
 - TG: compact emoji legends under titles (Users, Nodes, Git)

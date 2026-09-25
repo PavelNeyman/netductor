@@ -31,3 +31,11 @@ Git pipeline pick, NVR pickers, registry Ensure/Crane, catalog 📄 JSON, SSH ho
 - User hub: compact emoji row
 - Nodes list: numbered open; node card emoji ops
 - Git / Registry / SSH hosts: same pattern
+
+
+## 0.9.32
+
+- NVR hub: table + emoji body actions
+- NVR cameras: table + P/R/S/PTZ rows per cam
+- NVR sites: numbered edge lease pick
+- CDN-XHTTP: idea only in OPEN_ITEMS
