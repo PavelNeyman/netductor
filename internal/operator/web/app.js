@@ -368,7 +368,28 @@ function renderTables(payload){
     h+='</tbody></table></div></div>'; box.innerHTML+=h;
   }
 }
-function showControl(x){ renderTables(x); }
+
+function formatDoctorWeb(x){
+  if(!x||!x.checks) return null;
+  const s=x.summary||{};
+  let h='<div class="card"><b>Doctor</b> '+esc(x.role||'')+' @ '+esc(x.host||'')+
+    ' · ok='+(s.ok||0)+' warn='+(s.warn||0)+' fail='+(s.fail||0)+'</div>';
+  h+='<table class="grid"><tr><th>check</th><th>status</th></tr>';
+  (x.checks||[]).forEach(c=>{
+    if(c.status==='ok') return;
+    h+='<tr><td>'+esc(c.id||'')+'</td><td>'+esc(c.status||'')+'</td></tr>';
+  });
+  h+='</table>';
+  return h;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+function showControl(x){
+  const box=document.getElementById('controlTables');
+  if(box && x && x.checks){ box.innerHTML=formatDoctorWeb(x)||''; }
+  renderTables(x);
+}
+
 document.getElementById('btnShowRaw').onclick=()=>{
   const raw=document.getElementById('controlStatus');
   raw.style.display=raw.style.display==='none'?'block':'none';

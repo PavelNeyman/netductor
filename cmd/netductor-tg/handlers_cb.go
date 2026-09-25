@@ -53,18 +53,29 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, catalogSectionTitle(sec), catalogSectionKeyboard(sec))
 		return
 	}
+	if strings.HasPrefix(data, "m:opraw:") {
+		id := strings.TrimPrefix(data, "m:opraw:")
+		raw, err := execCatalogActionRaw(id)
+		html := formatCatalogHTML(id, raw, true)
+		if err != nil {
+			html = "⚠️ " + esc(err.Error()) + "<br>" + html
+		}
+		reply(token, chat, msgID, html, catalogResultKeyboard(id))
+		return
+	}
 	if strings.HasPrefix(data, "m:op:") {
 		id := strings.TrimPrefix(data, "m:op:")
-		answerCallbackText(token, cq.ID, "⏳ …")
-		out := execCatalogAction(id)
-		if len(out) > 3500 {
-			out = out[:3500] + "\n..."
+		raw, err := execCatalogActionRaw(id)
+		var html string
+		if err != nil {
+			html = "⚠️ <b>error</b><br><pre>" + esc(err.Error()) + "</pre>"
+			if len(raw) > 0 {
+				html += "<br>" + formatCatalogHTML(id, raw, true)
+			}
+		} else {
+			html = formatCatalogHTML(id, raw, false)
 		}
-		sec := "overview"
-		if s, ok := opcatalogGetSection(id); ok {
-			sec = s
-		}
-		reply(token, chat, msgID, "<pre>"+esc(out)+"</pre>", catalogSectionKeyboard(sec))
+		reply(token, chat, msgID, html, catalogResultKeyboard(id))
 		return
 	}
 	if data == "m:nvr" || strings.HasPrefix(data, "m:nvr:") {

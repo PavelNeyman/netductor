@@ -1,3 +1,9 @@
+## 0.9.20
+
+- `internal/format`: API JSON → rich HTML (tables, emoji) for TG sendRichMessage
+- Catalog actions: human view + 📄 JSON button (details/raw)
+- Web Control: doctor structured table
+
 ## 0.9.19
 
 - TG Tools: sections + actions from `internal/opcatalog` (same as Web)

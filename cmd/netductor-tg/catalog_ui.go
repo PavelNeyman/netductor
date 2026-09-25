@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/format"
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"github.com/PavelNeyman/netductor/internal/session"
 )
@@ -104,15 +104,15 @@ func catalogSectionTitle(sec string) string {
 	return "📂 <b>" + sec + "</b>\nActions from shared catalog (same as Web Control)."
 }
 
-// execCatalogAction calls node session API on localhost with a short-lived session.
-func execCatalogAction(id string) string {
+// execCatalogActionRaw returns raw response body from localhost session API.
+func execCatalogActionRaw(id string) ([]byte, error) {
 	a, ok := opcatalog.Get(id)
 	if !ok {
-		return "unknown action: " + id
+		return nil, fmt.Errorf("unknown action: %s", id)
 	}
 	tok, _, err := session.Create(1, "telegram-bot", "127.0.0.1")
 	if err != nil {
-		return "session: " + err.Error()
+		return nil, err
 	}
 	defer session.Revoke(tok)
 
@@ -131,7 +131,7 @@ func execCatalogAction(id string) string {
 	}
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		return err.Error()
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
 	if method == "POST" {
@@ -140,22 +140,40 @@ func execCatalogAction(id string) string {
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err.Error()
+		return nil, err
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 256<<10))
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 512<<10))
 	if resp.StatusCode >= 400 {
-		return fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(raw))
+		return raw, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(raw))
 	}
-	// pretty-print JSON if possible
-	var v any
-	if json.Unmarshal(raw, &v) == nil {
-		b, _ := json.MarshalIndent(v, "", "  ")
-		return string(b)
-	}
-	return string(raw)
+	return raw, nil
 }
 
+func catalogResultKeyboard(id string) map[string]any {
+	sec := "overview"
+	if s, ok := opcatalogGetSection(id); ok {
+		sec = s
+	}
+	jsonLabel := "📄 JSON"
+	if catalogLang() == "ru" {
+		jsonLabel = "📄 JSON"
+	}
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(jsonLabel, "m:opraw:"+id, "")},
+		{btn("📂 "+sec, "m:ops:"+sec, ""), btn("🧰 Tools", "m:tools", "")},
+		{btn(T("main_menu"), "m:menu", "primary")},
+	}}
+}
+
+func formatCatalogHTML(id string, raw []byte, asRaw bool) string {
+	lang := catalogLang()
+	if asRaw {
+		return format.RawJSONHTML(raw, lang == "ru")
+	}
+	r := format.API(id, raw, lang)
+	return r.HTML
+}
 
 func opcatalogGetSection(id string) (string, bool) {
 	a, ok := opcatalog.Get(id)
