@@ -1,3 +1,8 @@
+## 0.9.19
+
+- TG Tools: sections + actions from `internal/opcatalog` (same as Web)
+- Execute via localhost session API (`m:op:<id>`)
+
 ## 0.9.18
 
 - Structured doctor JSON (`CollectDoctor` / `/api/doctor`)

@@ -48,6 +48,25 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
 		return
 	}
+	if strings.HasPrefix(data, "m:ops:") {
+		sec := strings.TrimPrefix(data, "m:ops:")
+		reply(token, chat, msgID, catalogSectionTitle(sec), catalogSectionKeyboard(sec))
+		return
+	}
+	if strings.HasPrefix(data, "m:op:") {
+		id := strings.TrimPrefix(data, "m:op:")
+		answerCallbackText(token, cq.ID, "⏳ …")
+		out := execCatalogAction(id)
+		if len(out) > 3500 {
+			out = out[:3500] + "\n..."
+		}
+		sec := "overview"
+		if s, ok := opcatalogGetSection(id); ok {
+			sec = s
+		}
+		reply(token, chat, msgID, "<pre>"+esc(out)+"</pre>", catalogSectionKeyboard(sec))
+		return
+	}
 	if data == "m:nvr" || strings.HasPrefix(data, "m:nvr:") {
 		handleNVRCB(token, chat, msgID, data)
 		return

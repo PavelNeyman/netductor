@@ -100,3 +100,41 @@ func ForSurface(surface string) []Action {
 	}
 	return out
 }
+
+
+// Label returns EN or RU label.
+func (a Action) Label(lang string) string {
+	if lang == "ru" && a.LabelRU != "" {
+		return a.LabelRU
+	}
+	if a.LabelEN != "" {
+		return a.LabelEN
+	}
+	return a.ID
+}
+
+// Get returns action by id or false.
+func Get(id string) (Action, bool) {
+	for _, a := range All() {
+		if a.ID == id {
+			return a, true
+		}
+	}
+	return Action{}, false
+}
+
+// Sections returns unique section names in stable order.
+func Sections() []string {
+	order := []string{"overview", "vpn", "nodes", "edge", "nvr", "git", "backup", "probes"}
+	have := map[string]bool{}
+	for _, a := range All() {
+		have[a.Section] = true
+	}
+	var out []string
+	for _, s := range order {
+		if have[s] {
+			out = append(out, s)
+		}
+	}
+	return out
+}

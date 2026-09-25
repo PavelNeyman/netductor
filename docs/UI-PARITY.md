@@ -40,3 +40,4 @@ Go package `internal/opcatalog` — single registry of day-2 session actions.
 ## NVR Web Installer
 
 Installer tab **NVR** mirrors TUI wizard actions (status/list/leases/add/record) via node session API.
+- TG Tools hub: opcatalog sections (`m:ops:` / `m:op:`)

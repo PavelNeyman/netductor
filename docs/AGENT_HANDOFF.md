@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.18** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.18
+**Baseline:** **v0.9.19** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.19
 
 ## Read order (new chat)
 
@@ -13,7 +13,7 @@
 
 ## Architecture (locked)
 
-- Day-2 action catalog: `internal/opcatalog` (`GET /v1/catalog`)
+- TG Tools hub sections from opcatalog; day-2 action catalog: `internal/opcatalog` (`GET /v1/catalog`)
 - Doctor: structured JSON via `/api/doctor` (`CollectDoctor`)
 - Web Advanced: off by default (Settings → Show Advanced)
 
