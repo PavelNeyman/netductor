@@ -37,13 +37,13 @@ func runSSHHostsTUI() {
 	}
 	switch action {
 	case "list":
-		runSSHHosts([]string{"list", "--kind", kind})
+		runNodeCLI([]string{"list", "--kind", kind})
 	case "forget":
 		if id == "" {
 			fmt.Println(errStyle.Render(TT(lang, "id required", "нужен id")))
 			return
 		}
-		runSSHHosts([]string{"forget", "--kind", kind, id})
+		runNodeCLI([]string{"forget", "--kind", kind, id})
 	case "clear":
 		ok := false
 		cf := huh.NewForm(huh.NewGroup(
@@ -52,7 +52,7 @@ func runSSHHostsTUI() {
 		)).WithTheme(huh.ThemeCharm())
 		_ = cf.Run()
 		if ok {
-			runSSHHosts([]string{"clear", "--kind", kind})
+			runNodeCLI([]string{"clear", "--kind", kind})
 		}
 	}
 }

@@ -33,7 +33,7 @@ Same Go module/repo. **Binary split (v0.9+):**
 | **netductor-op** | `netductor-op-darwin-*` / `netductor-op-linux-*` | Workstation: `deploy`, `operator serve`, `credentials`, Setup TUI |
 | **netductor** | `netductor-linux-*` | VPS node: `install`, `serve`, vpn, doctor, secondary, edge plane |
 
-Built from `./cmd/netductor` with `-X main.binaryRole=operator|node`.  
+Packages: `./cmd/netductor-op` (workstation) and `./cmd/netductor` (node).  
 **Deploy must install the node asset on VPS** — never copy netductor-op onto a server.
 
 ### Rules

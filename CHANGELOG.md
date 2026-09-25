@@ -353,6 +353,9 @@
 
 ## 0.9.0
 
+- **Physical split:** `cmd/netductor-op` (deploy/TUI/operator serve only) vs `cmd/netductor` (node plane only)
+- No shared “fat” binary; operator day-2 uses SSH → `netductor` on primary
+
 - **Binary split:** `netductor-op` (operator / Mac) vs `netductor` node (`netductor-linux-*` on VPS)
 - Link-time `main.binaryRole=operator|node|all`; command surfaces gated
 - Deploy / secondary provision download **node** assets only (never operator binary onto VPS)

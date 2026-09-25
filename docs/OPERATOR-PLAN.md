@@ -29,7 +29,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 
 ## Phase 4 — Binary split
 
-- [x] `binaryRole=node|operator` (ldflags); assets `netductor-linux-*` vs `netductor-op-*`
+- [x] Separate packages `cmd/netductor-op` vs `cmd/netductor`; assets `netductor-linux-*` vs `netductor-op-*`
 - [x] Deploy downloads **node** binary only onto VPS
 - [x] Release workflow + CI build both surfaces
 - [ ] Mobile day-2 client (not bootstrap)

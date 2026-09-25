@@ -1,13 +1,12 @@
 # netductor-op
 
-The **operator** workstation binary is built from `./cmd/netductor` with:
+Operator workstation binary (Mac/PC).
 
 ```bash
-go build -ldflags "-X main.binaryRole=operator -X main.version=0.9.0" \
-  -o netductor-op ./cmd/netductor
+go build -o netductor-op ./cmd/netductor-op
 ```
 
-Release assets: `netductor-op-darwin-*`, `netductor-op-linux-*`.
+Commands: `deploy`, `operator serve`, `credentials`, `tui`.
 
-Node binary (VPS) uses `-X main.binaryRole=node` → asset `netductor-linux-*`.
-Deploy always installs the **node** asset on remote hosts.
+Node control plane is a **separate package**: `./cmd/netductor` → release asset `netductor-linux-*`.
+Deploy downloads only that node asset onto VPS hosts.

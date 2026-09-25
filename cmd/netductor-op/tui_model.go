@@ -210,7 +210,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		if m.hasRemote() {
 			m.showCmd("status")
 		} else {
-			m.output = capture(func() { runStatus() })
+			m.output = m.runNetductor("status")
 			m.screen = screenOutput
 		}
 	case "mtls-list":
@@ -221,7 +221,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		if m.hasRemote() {
 			m.showCmd("doctor")
 		} else {
-			m.output = capture(func() { _ = runDoctorNative() })
+			m.output = m.runNetductor("doctor")
 			m.screen = screenOutput
 		}
 	case "vpn-list":
@@ -242,7 +242,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		if m.hasRemote() {
 			m.showCmd("probe")
 		} else {
-			m.output = capture(func() { runProbe(nil) })
+			m.output = m.runNetductor("probe")
 			m.screen = screenOutput
 		}
 	case "nvr-status":

@@ -29,7 +29,7 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 6. Implement only the requested task.
 7. Docs EN+RU when user-facing behaviour changes.
 8. **Go only** for control plane (install/serve/vpn/doctor/agent/tg).
-**Binaries:** `netductor-op` (workstation) vs `netductor` node (`netductor-linux-*` on VPS). Shell/Python under `legacy/` is reference-only, not runtime.
+**Binaries:** `cmd/netductor-op` (workstation) vs `cmd/netductor` node (`netductor-linux-*` on VPS). Shell/Python under `legacy/` is reference-only, not runtime.
 9. One logical Git commit per task.
 
 ---
