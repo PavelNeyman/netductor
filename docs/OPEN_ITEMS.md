@@ -1,27 +1,21 @@
 # Open items
 
-## In progress / planned
+## In progress
 
-- **[PLAN-TG-MENU-REFACTOR.md](PLAN-TG-MENU-REFACTOR.md)** — global TG menu UX (nav vs actions, rich tables, back stack, i18n)
+- TG menu pattern: applied to DNS, backup, pending, locations — remaining: git/NVR/registry/ssh (see [TG-UI-PATTERN.md](TG-UI-PATTERN.md))
 
 ## Owner / later
 
-- Hardware e2e (OpenWrt guest, Tapo NVR, MikroTik+RPi)
-- SMTP alerts (mailbox)
+- Hardware e2e (OpenWrt, Tapo NVR, MikroTik+RPi)
+- SMTP alerts
 - Mobile day-2
 
 ## Done recently
 
-- SNI health: Reality plain-TLS is not downtime (v0.9.23)
-- TG Tools + opcatalog; format cards for health/metrics/doctor
-- Web/TUI deploy parity; structured doctor JSON
+- DNS compact numbered toggles (0.9.28–0.9.29)
+- SNI health false-positive fixed (0.9.23)
+- TG rich format health/metrics
 
 ## Not doing
 
-- Public VPS admin
-- Deploy from Telegram
-- Password day-2 tunnel
-
-## Ideas / later design
-
-See [PLAN-MIKROTIK-API-EDGE.md](PLAN-MIKROTIK-API-EDGE.md), [PLAN-SITE-ROOMS.md](PLAN-SITE-ROOMS.md).
+- Public VPS admin · Deploy from Telegram · Password day-2 tunnel

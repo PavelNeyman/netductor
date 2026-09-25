@@ -1,3 +1,9 @@
+## 0.9.29
+
+- TG UI pattern locked (docs/TG-UI-PATTERN.md): table=status, numbered/compact tg-button-row actions
+- Apply pattern: backup list/schedule, pending edge, locations
+- DNS already on pattern; edit-first refresh
+
 ## 0.9.28
 
 - DNS: numbered compact buttons in one row; table keeps full names

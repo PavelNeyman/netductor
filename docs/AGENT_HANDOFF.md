@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.23** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.23
+**Baseline:** **v0.9.29** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.29
 
 **Next engineering:** [PLAN-TG-MENU-REFACTOR.md](PLAN-TG-MENU-REFACTOR.md) (plan frozen; implement Phase 0–2 next).
 

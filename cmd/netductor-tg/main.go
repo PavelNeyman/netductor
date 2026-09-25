@@ -638,20 +638,11 @@ func templatesText() string {
 }
 
 func pendingKeyboard(lines string) map[string]any {
-	rows := [][]map[string]any{}
-	for _, line := range strings.Split(lines, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		id := strings.Fields(line)[0]
-		rows = append(rows, []map[string]any{
-			btn("✅ "+id, "e:appr:"+id, "success"),
-			btn("🚫 "+id, "e:deny:"+id, "danger"),
-		})
-	}
-	rows = append(rows, []map[string]any{btn(T("back_routers"), "m:cat:routers", "primary"), btn(T("main_menu"), "m:menu", "")})
-	return map[string]any{"inline_keyboard": rows}
+	// Navigation only — approve/deny are numbered tg-buttons in formatPendingHTML.
+	_ = lines
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("back_routers"), "m:cat:routers", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
 }
 
 func menuText() string {

@@ -142,20 +142,33 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 	}
 	if data == "m:backup:list" {
 		names := install.ListBackupFiles()
+		if len(names) > 12 {
+			names = names[:12]
+		}
 		nl := string([]byte{10})
 		var b strings.Builder
 		b.WriteString("🗂 <b>Backups</b>" + nl)
-		b.WriteString("<table bordered striped>" + nl)
-		b.WriteString("<tr><th>#</th><th>file</th><th></th></tr>" + nl)
+		b.WriteString("<table bordered striped compact>" + nl)
+		b.WriteString("<tr><th>#</th><th>file</th></tr>" + nl)
 		for i, n := range names {
-			if i >= 12 {
-				break
-			}
-			b.WriteString(fmt.Sprintf(`<tr><td>%d</td><td><code>%s</code></td><td><tg-button type="callback_data" data="m:backup:restore:%s">Restore</tg-button></td></tr>`, i+1, n, n) + nl)
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, n))
 		}
 		b.WriteString("</table>" + nl)
+		const per = 4
+		for i, n := range names {
+			if i%per == 0 {
+				if i > 0 {
+					b.WriteString(`</tg-button-row>` + nl)
+				}
+				b.WriteString(`<tg-button-row align="left">`)
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:backup:restore:%s">%d</tg-button>`, n, i+1))
+		}
+		if len(names) > 0 {
+			b.WriteString(`</tg-button-row>` + nl)
+		}
 		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🗓 Backup", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")},
+			{btn("🗓 Backup", "m:backup", "primary"), btn(T("main_menu"), "m:menu", "")},
 		}})
 		return
 	}
@@ -241,18 +254,19 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 	if status != "" {
 		b.WriteString("<p>" + status + "</p>" + nl)
 	}
-	custom := "Своё время"
-	run := "Запустить сейчас"
-	if !ru {
-		custom = "Custom time"
-		run = "Run now"
-	}
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:set:1:0">01:00</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:set:4:0">04:00</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:set:22:0">22:00</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:custom">⏱</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:backup:run">▶</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:list">📋</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:keep">N</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("01:00 UTC", "m:backup:set:1:0", ""), btn("04:00 UTC", "m:backup:set:4:0", "")},
-		{btn("22:00 UTC", "m:backup:set:22:0", ""), btn(custom, "m:backup:custom", "")},
-		{btn(run, "m:backup:run", "primary")},
-		{btn(map[bool]string{true: "Список", false: "List"}[ru], "m:backup:list", ""), btn(map[bool]string{true: "Хранить N", false: "Keep N"}[ru], "m:backup:keep", "")},
-		{btn(T("main_menu"), "m:menu", "")},
+		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	reply(token, chat, msgID, b.String(), kb)
 }
@@ -269,13 +283,25 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 			b.WriteString("📍 <b>Locations</b>\n")
 			b.WriteString("<i>Place inventory: home/office. Bind OpenWrt agents, network templates, status here.</i>\n")
 		}
-		b.WriteString("<table bordered striped>\n<tr><th>#</th><th>name</th><th>kind</th><th>edges</th><th></th></tr>\n")
+		b.WriteString("<table bordered striped compact>\n<tr><th>#</th><th>name</th><th>kind</th><th>edges</th></tr>\n")
 		for i, s := range list {
-			open := fmt.Sprintf(`<tg-button type="callback_data" data="m:loc:open:%s">Open</tg-button>`, s.ID)
-			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><b>%s</b><br/><code>%s</code></td><td>%s</td><td>%d</td><td>%s</td></tr>\n",
-				i+1, esc(s.Name), s.ID, esc(s.Kind), len(s.EdgeIDs), open))
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><b>%s</b><br/><code>%s</code></td><td>%s</td><td>%d</td></tr>\n",
+				i+1, esc(s.Name), s.ID, esc(s.Kind), len(s.EdgeIDs)))
 		}
 		b.WriteString("</table>\n")
+		const per = 5
+		for i, s := range list {
+			if i%per == 0 {
+				if i > 0 {
+					b.WriteString(`</tg-button-row>` + "\n")
+				}
+				b.WriteString(`<tg-button-row align="left">`)
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:loc:open:%s">%d</tg-button>`, s.ID, i+1))
+		}
+		if len(list) > 0 {
+			b.WriteString(`</tg-button-row>` + "\n")
+		}
 		if len(list) == 0 {
 			if ru {
 				b.WriteString("<i>Пусто — добавьте локацию.</i>\n")
@@ -363,9 +389,12 @@ func showLocationCard(token string, chat int64, msgID int, id string) {
 	} else {
 		b.WriteString("<i>OpenWrt agents appear after enroll and bind to this location.</i>\n")
 	}
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:loc:rename:` + id + `">✏️</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:loc:del:` + id + `">🗑</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(map[bool]string{true: "Переименовать", false: "Rename"}[ru], "m:loc:rename:"+id, ""), btn(map[bool]string{true: "Удалить", false: "Delete"}[ru], "m:loc:del:"+id, "danger")},
-		{btn("📍 List", "m:loc", ""), btn(T("main_menu"), "m:menu", "primary")},
+		{btn("📍", "m:loc", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	reply(token, chat, msgID, b.String(), kb)
 }

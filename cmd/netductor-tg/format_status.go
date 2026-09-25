@@ -121,34 +121,57 @@ func formatEdgeListHTML(raw string) string {
 
 func formatPendingHTML(raw string) string {
 	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		if getLang() != "en" {
-			return "⏳ <b>Ожидают approve</b>\n\n<i>Список пуст</i>"
-		}
-		return "⏳ <b>Pending</b>\n\n<i>Empty</i>"
-	}
+	nl := string([]byte{10})
 	var b strings.Builder
 	if getLang() != "en" {
-		b.WriteString("⏳ <b>Ожидают approve</b>\n\n")
+		b.WriteString("⏳ <b>Ожидают approve</b>" + nl)
 	} else {
-		b.WriteString("⏳ <b>Pending enroll</b>\n\n")
+		b.WriteString("⏳ <b>Pending enroll</b>" + nl)
 	}
+	if raw == "" {
+		if getLang() != "en" {
+		b.WriteString("<i>Список пуст</i>")
+	} else {
+		b.WriteString("<i>Empty</i>")
+	}
+		return b.String()
+	}
+	var ids []string
+	var extras []string
 	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 		parts := strings.Fields(line)
-		id := parts[0]
-		extra := ""
+		ids = append(ids, parts[0])
 		if len(parts) > 1 {
-			extra = strings.Join(parts[1:], " · ")
+			extras = append(extras, strings.Join(parts[1:], " · "))
+		} else {
+			extras = append(extras, "")
 		}
-		b.WriteString(fmt.Sprintf("• <code>%s</code>", esc(id)))
-		if extra != "" {
-			b.WriteString(" — " + esc(extra))
+	}
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>#</th><th>id</th><th>info</th></tr>" + nl)
+	for i, id := range ids {
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td></tr>"+nl, i+1, esc(id), esc(extras[i])))
+	}
+	b.WriteString("</table>" + nl)
+	// Compact: ✅n 🚫n pairs in rows
+	const per = 3
+	for i, id := range ids {
+		if i%per == 0 {
+			if i > 0 {
+				b.WriteString(`</tg-button-row>` + nl)
+			}
+			b.WriteString(`<tg-button-row align="left">`)
 		}
-		b.WriteByte('\n')
+		n := i + 1
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="success" data="e:appr:%s">✅%d</tg-button>`, id, n))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="e:deny:%s">🚫%d</tg-button>`, id, n))
+	}
+	if len(ids) > 0 {
+		b.WriteString(`</tg-button-row>` + nl)
 	}
 	return b.String()
 }
