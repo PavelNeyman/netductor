@@ -615,8 +615,13 @@ func ListBackups(deviceID string) []map[string]any {
 }
 
 func BackupPath(deviceID, name string) (string, error) {
-	if name == "" || strings.Contains(name, "..") || strings.Contains(name, "/") {
+	if name == "" || strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, ":") {
 		return "", fmt.Errorf("invalid name")
+	}
+	for _, r := range name {
+		if r < 32 {
+			return "", fmt.Errorf("invalid name")
+		}
 	}
 	path := filepath.Join(deviceDir(deviceID), "backups", name)
 	if _, err := os.Stat(path); err != nil {

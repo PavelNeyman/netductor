@@ -51,8 +51,17 @@ func NewPlaneLimiter(maxPerWindow int, window time.Duration) *PlaneLimiter {
 }
 
 func clientIP(r *http.Request) string {
-	if x := r.Header.Get("X-Forwarded-For"); x != "" {
-		return strings.TrimSpace(strings.Split(x, ",")[0])
+	// Only trust proxy headers when explicitly enabled (prevents rate-limit bypass).
+	if os.Getenv("NETDUCTOR_TRUST_PROXY") == "1" {
+		if x := r.Header.Get("X-Real-IP"); x != "" {
+			return strings.TrimSpace(x)
+		}
+		if x := r.Header.Get("X-Forwarded-For"); x != "" {
+			if i := strings.IndexByte(x, ','); i >= 0 {
+				return strings.TrimSpace(x[:i])
+			}
+			return strings.TrimSpace(x)
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -60,6 +69,7 @@ func clientIP(r *http.Request) string {
 	}
 	return host
 }
+
 
 func trimTimes(arr []time.Time, cut time.Time) []time.Time {
 	n := 0

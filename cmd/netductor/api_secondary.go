@@ -20,7 +20,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
-func registerRelayAPI(mux *http.ServeMux) {
+func registerSecondaryAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/secondary/device", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
@@ -358,7 +358,7 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("X-Netductor-Backup-Name", filepath.Base(latest))
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(latest))
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeAttachmentFilename(filepath.Base(latest))+"\"")
 	http.ServeFile(w, r, latest)
 }
 

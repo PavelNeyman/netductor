@@ -1,3 +1,4 @@
+# v0.9+: Mac should install netductor-op-* as netductor-op; update URLs/sha after first v0.9 release.
 class Netductor < Formula
   desc "Netductor control plane CLI / TUI"
   homepage "https://github.com/PavelNeyman/netductor"

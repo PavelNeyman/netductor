@@ -353,6 +353,10 @@
 
 ## 0.9.0
 
+- security: Content-Disposition filename sanitization; BackupPath rejects control chars
+- security: rate-limit / clientIP trust XFF only with NETDUCTOR_TRUST_PROXY=1
+- chore: agent version 0.9.0; registerSecondaryAPI rename (drop relay naming)
+
 - **Physical split:** `cmd/netductor-op` (deploy/TUI/operator serve only) vs `cmd/netductor` (node plane only)
 - No shared “fat” binary; operator day-2 uses SSH → `netductor` on primary
 

@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/session"
@@ -91,17 +93,15 @@ const MaxBodyBytes = 16 << 20 // 16 MiB — JSON APIs + modest uploads
 // clientIP returns the remote IP (X-Real-IP / X-Forwarded-For first hop / RemoteAddr).
 
 func clientIP(r *http.Request) string {
-	if x := r.Header.Get("X-Real-IP"); x != "" {
-		return x
-	}
-	if x := r.Header.Get("X-Forwarded-For"); x != "" {
-		if i := len(x); i > 0 {
-			for j := 0; j < len(x); j++ {
-				if x[j] == ',' {
-					return x[:j]
-				}
+	if os.Getenv("NETDUCTOR_TRUST_PROXY") == "1" {
+		if x := r.Header.Get("X-Real-IP"); x != "" {
+			return strings.TrimSpace(x)
+		}
+		if x := r.Header.Get("X-Forwarded-For"); x != "" {
+			if i := strings.IndexByte(x, ','); i >= 0 {
+				return strings.TrimSpace(x[:i])
 			}
-			return x
+			return strings.TrimSpace(x)
 		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -109,4 +109,23 @@ func clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+
+// safeAttachmentFilename strips path and header-injection characters from Content-Disposition names.
+func safeAttachmentFilename(name string) string {
+	name = filepath.Base(strings.TrimSpace(name))
+	name = strings.Map(func(r rune) rune {
+		if r < 32 || r == '"' || r == '\\' || r == '/' {
+			return -1
+		}
+		return r
+	}, name)
+	if name == "" || name == "." || name == ".." {
+		return "download"
+	}
+	if len(name) > 180 {
+		name = name[:180]
+	}
+	return name
 }

@@ -52,7 +52,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/gzip")
-			w.Header().Set("Content-Disposition", "attachment; filename="+name)
+			w.Header().Set("Content-Disposition", "attachment; filename=\""+safeAttachmentFilename(name)+"\"")
 			w.WriteHeader(200)
 			_, _ = w.Write(b)
 			return
@@ -176,10 +176,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
-		ip := r.Header.Get("X-Real-IP")
-		if ip == "" {
-			ip = r.RemoteAddr
-		}
+		ip := clientIP(r)
 		if !edge.AllowEnroll(ip) {
 			writeJSON(w, 429, map[string]string{"error": "rate_limited"})
 			return
