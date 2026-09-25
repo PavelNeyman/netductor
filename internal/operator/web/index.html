@@ -23,29 +23,21 @@ input,select{width:100%;padding:.5rem .65rem;border-radius:8px;border:1px solid 
 @media(max-width:640px){.row{grid-template-columns:1fr}}
 .checks{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin:.85rem 0}
 .checks label{display:flex;align-items:center;gap:.4rem;margin:0;color:var(--text);font-size:.9rem}
-button.primary{background:var(--acc);border:1px solid var(--acc);color:#fff;padding:.55rem 1rem;border-radius:8px;font:inherit;cursor:pointer;margin-top:.75rem}
+button.primary{background:var(--acc);border:1px solid var(--acc);color:#fff;padding:.55rem 1rem;border-radius:8px;font:inherit;cursor:pointer;margin:.35rem .35rem .35rem 0}
 button.primary:disabled{opacity:.5}
 .note{color:var(--muted);font-size:.85rem;margin:0 0 1rem}
 .steps{display:flex;flex-wrap:wrap;gap:.4rem;margin:.75rem 0}
 .chip{font-size:.75rem;padding:.25rem .55rem;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
 .chip.run{border-color:var(--acc);color:var(--acc)}.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.err{border-color:var(--err);color:var(--err)}
-pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;min-height:12rem;max-height:26rem;overflow:auto;font-size:.78rem;white-space:pre-wrap}
+pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;min-height:10rem;max-height:26rem;overflow:auto;font-size:.78rem;white-space:pre-wrap}
 .sec{margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem}
 .card h3{margin:0 0 .5rem;font-size:.95rem}
-code{font-size:.8rem;background:#0c1015;padding:.15rem .35rem;border-radius:4px}
 </style>
 </head>
 <body>
 <header>
-  <div>
-    <h1>netductor-op</h1>
-    <div class="meta" id="metaLine">Mac client · node = API only</div>
-  </div>
-  <div>
-    <button type="button" id="langEn" class="active">EN</button>
-    <button type="button" id="langRu">RU</button>
-  </div>
+  <div><h1>netductor-op</h1><div class="meta" id="metaLine">Mac client · node API</div></div>
 </header>
 <nav class="nav-main" id="mainTabs">
   <button type="button" data-main="installer" class="active">Installer</button>
@@ -58,143 +50,99 @@ code{font-size:.8rem;background:#0c1015;padding:.15rem .35rem;border-radius:4px}
   <button type="button" data-tab="secondary">Secondary</button>
   <button type="button" data-tab="creds">Credentials</button>
 </nav>
-
 <main>
-  <!-- INSTALLER -->
-  <div id="main-installer">
-  <p class="note">Deploy from this Mac over SSH (same core as CLI). Token injected for localhost API.</p>
-
+<div id="main-installer">
+  <p class="note">Deploy from this Mac over SSH.</p>
   <section id="panel-fleet" class="panel active">
     <form id="form-fleet">
-      <div class="row">
-        <div><label>Primary host</label><input name="primary_host" required/></div>
-        <div><label>Primary password</label><input name="primary_password" type="password"/></div>
-      </div>
-      <div class="row">
-        <div><label>Secondary host</label><input name="secondary_host"/></div>
-        <div><label>Secondary password</label><input name="secondary_password" type="password"/></div>
-      </div>
-      <div class="row">
-        <div><label>Domain base</label><input name="domain_base"/></div>
-        <div><label>LE email</label><input name="le_email" type="email"/></div>
-      </div>
-      <div class="row">
-        <div><label>SNI</label><input name="sni" value="api.vk.me"/></div>
-        <div><label>SSH key path</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
-      </div>
-      <div class="row">
-        <div><label>Key passphrase</label><input name="key_passphrase" type="password"/></div>
-        <div><label>TG bot token</label><input name="tg_token"/></div>
-      </div>
+      <div class="row"><div><label>Primary host</label><input name="primary_host" required/></div><div><label>Primary password</label><input name="primary_password" type="password"/></div></div>
+      <div class="row"><div><label>Secondary host</label><input name="secondary_host"/></div><div><label>Secondary password</label><input name="secondary_password" type="password"/></div></div>
+      <div class="row"><div><label>Domain base</label><input name="domain_base"/></div><div><label>LE email</label><input name="le_email" type="email"/></div></div>
+      <div class="row"><div><label>SNI</label><input name="sni" value="api.vk.me"/></div><div><label>SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="checks">
         <label><input type="checkbox" name="do_primary" checked/> Primary</label>
         <label><input type="checkbox" name="do_secondary" checked/> Secondary</label>
         <label><input type="checkbox" name="with_lampac"/> Lampac</label>
-        <label><input type="checkbox" name="with_git"/> Git/registry</label>
-        <label><input type="checkbox" name="cf_proxy"/> CF proxy</label>
+        <label><input type="checkbox" name="with_git"/> Git</label>
       </div>
-      <button class="primary" type="submit">Run FleetDeploy</button>
+      <button class="primary" type="submit">FleetDeploy</button>
     </form>
   </section>
-
   <section id="panel-primary" class="panel">
     <form id="form-primary">
-      <div class="row">
-        <div><label>Host</label><input name="host" required/></div>
-        <div><label>Password</label><input name="password" type="password"/></div>
-      </div>
-      <div class="row">
-        <div><label>Domain base</label><input name="domain_base"/></div>
-        <div><label>LE email</label><input name="le_email" type="email"/></div>
-      </div>
-      <div class="row">
-        <div><label>SNI</label><input name="sni" value="api.vk.me"/></div>
-        <div><label>SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
-      </div>
-      <div class="checks">
-        <label><input type="checkbox" name="with_lampac"/> Lampac</label>
-        <label><input type="checkbox" name="with_git"/> Git/registry</label>
-      </div>
+      <div class="row"><div><label>Host</label><input name="host" required/></div><div><label>Password</label><input name="password" type="password"/></div></div>
+      <div class="row"><div><label>Domain</label><input name="domain_base"/></div><div><label>LE email</label><input name="le_email" type="email"/></div></div>
+      <div class="row"><div><label>SNI</label><input name="sni" value="api.vk.me"/></div><div><label>Key</label><input name="key"/></div></div>
       <button class="primary" type="submit">Deploy primary</button>
     </form>
   </section>
-
   <section id="panel-secondary" class="panel">
     <form id="form-secondary">
-      <div class="row">
-        <div><label>Primary host</label><input name="primary_host" required/></div>
-        <div><label>Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div>
-      </div>
-      <div class="row">
-        <div><label>Secondary host</label><input name="secondary_host" required/></div>
-        <div><label>Secondary password</label><input name="secondary_password" type="password"/></div>
-      </div>
+      <div class="row"><div><label>Primary host</label><input name="primary_host" required/></div><div><label>Primary key</label><input name="primary_key"/></div></div>
+      <div class="row"><div><label>Secondary host</label><input name="secondary_host" required/></div><div><label>Password</label><input name="secondary_password" type="password"/></div></div>
       <button class="primary" type="submit">Deploy secondary</button>
     </form>
   </section>
-
   <section id="panel-creds" class="panel">
     <form id="form-creds">
-      <div class="row">
-        <div><label>Role</label><select name="role"><option>primary</option><option>secondary</option></select></div>
-        <div><label>Host</label><input name="host" required/></div>
-      </div>
-      <div class="row">
-        <div><label>SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
-        <div><label>Passphrase</label><input name="key_passphrase" type="password"/></div>
-      </div>
-      <button class="primary" type="submit">Collect credentials</button>
+      <div class="row"><div><label>Role</label><select name="role"><option>primary</option><option>secondary</option></select></div><div><label>Host</label><input name="host" required/></div></div>
+      <div class="row"><div><label>Key</label><input name="key"/></div><div><label>Passphrase</label><input name="key_passphrase" type="password"/></div></div>
+      <button class="primary" type="submit">Collect</button>
     </form>
     <p id="credResult" class="note"></p>
   </section>
-  </div>
+</div>
 
-  <!-- CONTROL -->
-  <div id="main-control" style="display:none">
-    <p class="note">Day-2 against node <strong>API</strong> (not VPS HTML admin). Open SSH tunnel first, then refresh status.</p>
-    <div class="card">
-      <h3>Tunnel</h3>
-      <p class="note" id="tunnelHint">Run in a terminal:</p>
-      <pre class="log" id="tunnelCmd" style="min-height:auto;max-height:none">netductor-op tunnel --host …</pre>
-      <button class="primary" type="button" id="btnRefreshStatus">Refresh API status</button>
-    </div>
-    <div class="card">
-      <h3>Node API status</h3>
-      <pre class="log" id="controlStatus">Not loaded</pre>
-    </div>
+<div id="main-control" style="display:none">
+  <p class="note">Day-2 via node JSON API (proxied by op). Need tunnel + session token in Settings.</p>
+  <div class="card">
+    <h3>Setup</h3>
+    <pre class="log" id="tunnelCmd" style="min-height:auto"></pre>
+    <button class="primary" type="button" id="btnHealth">Health</button>
+    <button class="primary" type="button" id="btnVpnUsers">VPN users</button>
+    <button class="primary" type="button" id="btnNodes">Nodes</button>
+    <button class="primary" type="button" id="btnEdgePending">Edge pending</button>
+    <button class="primary" type="button" id="btnEdgeDevices">Edge devices</button>
   </div>
+  <div class="card">
+    <h3>Add VPN user</h3>
+    <div class="row"><div><label>Name</label><input id="vpnName"/></div><div><label>Note</label><input id="vpnNote"/></div></div>
+    <button class="primary" type="button" id="btnVpnAdd">Add</button>
+  </div>
+  <div class="card">
+    <h3>Edge approve / deny</h3>
+    <div class="row"><div><label>device_id</label><input id="edgeId"/></div>
+    <div><label>action</label><select id="edgeAction"><option>approve</option><option>deny</option></select></div></div>
+    <button class="primary" type="button" id="btnEdgeAct">Submit</button>
+  </div>
+  <div class="card"><h3>Result</h3><pre class="log" id="controlStatus">—</pre></div>
+</div>
 
-  <!-- SETTINGS -->
-  <div id="main-settings" style="display:none">
-    <p class="note">Profiles stored in browser localStorage (this Mac only). Used by Control for tunnel hint and API base.</p>
-    <form id="form-settings">
-      <div class="row">
-        <div><label>Primary host</label><input name="primary_host" id="set_primary_host"/></div>
-        <div><label>SSH key path</label><input name="key" id="set_key" placeholder="~/.ssh/netductor_primary"/></div>
-      </div>
-      <div class="row">
-        <div><label>SSH user</label><input name="user" id="set_user" value="root"/></div>
-        <div><label>Local API port (tunnel)</label><input name="api_port" id="set_api_port" value="8787"/></div>
-      </div>
-      <div class="row">
-        <div><label>API base URL</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div>
-        <div><label>Secondary host (optional)</label><input name="secondary_host" id="set_secondary_host"/></div>
-      </div>
-      <button class="primary" type="submit">Save settings</button>
-    </form>
-    <p id="settingsSaved" class="note"></p>
-  </div>
+<div id="main-settings" style="display:none">
+  <form id="form-settings">
+    <div class="row"><div><label>Primary host</label><input name="primary_host" id="set_primary_host"/></div>
+    <div><label>SSH key</label><input name="key" id="set_key" value="~/.ssh/netductor_primary"/></div></div>
+    <div class="row"><div><label>User</label><input name="user" id="set_user" value="root"/></div>
+    <div><label>Local API port</label><input name="api_port" id="set_api_port" value="8787"/></div></div>
+    <div class="row"><div><label>API base (loopback)</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div>
+    <div><label>Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div></div>
+    <div class="row"><div><label>Node session token</label><input name="node_session" id="set_node_session" type="password" placeholder="netductor-op session issue --host …"/></div>
+    <div><label>&nbsp;</label><span class="note">localStorage only</span></div></div>
+    <button class="primary" type="submit">Save</button>
+  </form>
+  <p id="settingsSaved" class="note"></p>
+</div>
 
-  <div class="sec" id="deployLogSec">
-    <div class="steps" id="steps"></div>
-    <pre class="log" id="log">idle</pre>
-  </div>
+<div class="sec" id="deployLogSec">
+  <div class="steps" id="steps"></div>
+  <pre class="log" id="log">idle</pre>
+</div>
 </main>
 <script>
 const ND_TOKEN = '/*__ND_TOKEN__*/';
 function settings(){ try{return JSON.parse(localStorage.getItem('nd_op_settings')||'{}')}catch(e){return{}} }
 function saveSettingsObj(o){ localStorage.setItem('nd_op_settings', JSON.stringify(o)); }
-function apiBase(){ const s=settings(); return (s.api_base||'http://127.0.0.1:8787').replace(/\/$/,''); }
+function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replace(/\/$/,''); }
 
 function showMain(name){
   document.getElementById('main-installer').style.display = name==='installer'?'block':'none';
@@ -207,7 +155,6 @@ function showMain(name){
   if(name==='settings') loadSettingsForm();
 }
 document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
-
 document.querySelectorAll('#subInstaller button').forEach(btn=>{
   btn.onclick=()=>{
     document.querySelectorAll('#subInstaller button').forEach(b=>b.classList.remove('active'));
@@ -222,7 +169,6 @@ function line(s){ logEl.textContent+=s+(s.endsWith('\n')?'':'\n'); logEl.scrollT
 function resetLog(){ logEl.textContent=''; stepsEl.innerHTML=''; }
 function chip(id,st){ let el=stepsEl.querySelector('[data-id="'+id+'"]'); if(!el){el=document.createElement('span');el.dataset.id=id;el.textContent=id;stepsEl.appendChild(el);} el.className='chip '+(st||''); }
 function parseSteps(chunk){ chunk.split('\n').forEach(l=>{ const m=l.match(/^step (\S+)/); if(!m)return; if(l.includes(' ERROR'))chip(m[1],'err'); else if(l.includes(' done'))chip(m[1],'ok'); else chip(m[1],'run'); }); }
-
 async function streamPost(url, body, btn){
   btn.disabled=true; resetLog(); line('POST '+url);
   try{
@@ -232,25 +178,20 @@ async function streamPost(url, body, btn){
   }catch(e){ line('error: '+e); }
   btn.disabled=false;
 }
-function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
+function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token|session/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
 function loadForm(id,form){ try{ const o=JSON.parse(localStorage.getItem('nd_op_'+id)||'{}'); Object.keys(o).forEach(k=>{ const el=form.elements.namedItem(k); if(!el)return; if(el.type==='checkbox')el.checked=true; else el.value=o[k]; }); }catch(e){} }
 
 document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('fleet',fd);
   await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on',
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
-    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), cf_proxy:fd.get('cf_proxy')==='on',
-    sni:fd.get('sni'), key:fd.get('key'), key_passphrase:fd.get('key_passphrase'),
-    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
-    tg_token:fd.get('tg_token'), tg_admin:fd.get('tg_admin') }, e.submitter); };
+    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on' }, e.submitter); };
 document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('primary',fd);
-  await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'),
-    sni:fd.get('sni'), key:fd.get('key'), with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on' }, e.submitter); };
+  await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key') }, e.submitter); };
 document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
-  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
-    secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
-document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd);
-  const btn=e.submitter; btn.disabled=true;
+  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
+document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd); const btn=e.submitter; btn.disabled=true;
   try{ const res=await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({role:fd.get('role'),host:fd.get('host'),key:fd.get('key'),key_passphrase:fd.get('key_passphrase')})});
     const j=await res.json(); document.getElementById('credResult').textContent=j.path?('OK → '+j.path):(j.error||JSON.stringify(j)); }catch(err){ document.getElementById('credResult').textContent=String(err); }
   btn.disabled=false; };
@@ -263,41 +204,51 @@ function loadSettingsForm(){
   document.getElementById('set_api_port').value=s.api_port||'8787';
   document.getElementById('set_api_base').value=s.api_base||'http://127.0.0.1:8787';
   document.getElementById('set_secondary_host').value=s.secondary_host||'';
+  document.getElementById('set_node_session').value=s.node_session||'';
 }
 document.getElementById('form-settings').onsubmit=e=>{
-  e.preventDefault();
-  const fd=new FormData(e.target);
-  saveSettingsObj({
-    primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
+  e.preventDefault(); const fd=new FormData(e.target);
+  saveSettingsObj({ primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
     api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
-  });
-  document.getElementById('settingsSaved').textContent='Saved.';
-  updateTunnelHint();
+    node_session:fd.get('node_session') });
+  document.getElementById('settingsSaved').textContent='Saved.'; updateTunnelHint();
 };
 function updateTunnelHint(){
-  const s=settings();
-  const host=s.primary_host||'PRIMARY_IP';
-  const key=s.key||'~/.ssh/netductor_primary';
-  const port=s.api_port||'8787';
+  const s=settings(); const host=s.primary_host||'PRIMARY'; const key=s.key||'~/.ssh/netductor_primary'; const port=s.api_port||'8787';
   document.getElementById('tunnelCmd').textContent=
-    'netductor-op tunnel --host '+host+' --key '+key+' --local-port '+port+'\n\n# then Control → Refresh API status\n# API base: '+(s.api_base||('http://127.0.0.1:'+port));
+    '1) netductor-op tunnel --host '+host+' --key '+key+' --local-port '+port+'\n'+
+    '2) netductor-op session issue --host '+host+' --key '+key+'\n'+
+    '3) Settings → paste Node session token → Save';
 }
-document.getElementById('btnRefreshStatus').onclick=async()=>{
-  const pre=document.getElementById('controlStatus');
-  pre.textContent='Loading '+apiBase()+' …';
-  try{
-    const h=await fetch(apiBase()+'/health');
-    const hj=await h.json();
-    let bot='';
-    try{ const b=await fetch(apiBase()+'/api/bot-status'); bot=JSON.stringify(await b.json(),null,2);}catch(e){bot=String(e);}
-    pre.textContent=JSON.stringify(hj,null,2)+'\n\nbot-status:\n'+bot;
-  }catch(e){
-    pre.textContent='Failed: '+e+'\n\nIs tunnel up?\n'+document.getElementById('tunnelCmd').textContent;
-  }
+async function nodeFetch(path, opts){
+  opts=opts||{}; const s=settings();
+  const headers={'X-Netductor-Token':ND_TOKEN,'X-Node-API-Base':apiBase()};
+  if(s.node_session) headers['X-Node-Session']=s.node_session;
+  if(opts.body) headers['Content-Type']='application/json';
+  Object.assign(headers, opts.headers||{});
+  const res=await fetch('/v1/node'+path,{method:opts.method||'GET',headers,body:opts.body});
+  const text=await res.text(); let data; try{data=JSON.parse(text)}catch(e){data=text}
+  return {ok:res.ok,status:res.status,data};
+}
+function showControl(x){ document.getElementById('controlStatus').textContent = typeof x==='string'?x:JSON.stringify(x,null,2); }
+document.getElementById('btnHealth').onclick=async()=>{ try{ showControl({health:await nodeFetch('/health'), bot:await nodeFetch('/api/bot-status')}); }catch(e){showControl(String(e));} };
+document.getElementById('btnVpnUsers').onclick=async()=>{ try{ showControl(await nodeFetch('/vpn/users')); }catch(e){showControl(String(e));} };
+document.getElementById('btnNodes').onclick=async()=>{ try{ showControl({nodes:await nodeFetch('/api/nodes'), self:await nodeFetch('/api/nodes/self')}); }catch(e){showControl(String(e));} };
+document.getElementById('btnEdgePending').onclick=async()=>{ try{ showControl(await nodeFetch('/api/edge/pending')); }catch(e){showControl(String(e));} };
+document.getElementById('btnEdgeDevices').onclick=async()=>{ try{ showControl(await nodeFetch('/api/edge/devices')); }catch(e){showControl(String(e));} };
+document.getElementById('btnVpnAdd').onclick=async()=>{
+  const name=document.getElementById('vpnName').value.trim(); const note=document.getElementById('vpnNote').value.trim();
+  if(!name){showControl('name required');return;}
+  try{ showControl(await nodeFetch('/vpn/users',{method:'POST',body:JSON.stringify({name,note})})); }catch(e){showControl(String(e));}
+};
+document.getElementById('btnEdgeAct').onclick=async()=>{
+  const id=document.getElementById('edgeId').value.trim(); const act=document.getElementById('edgeAction').value;
+  if(!id){showControl('device_id required');return;}
+  try{ showControl(await nodeFetch('/api/edge/'+act,{method:'POST',body:JSON.stringify({device_id:id})})); }catch(e){showControl(String(e));}
 };
 
 ['form-fleet','form-primary','form-secondary','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
-fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version+' · '+m.bind+' · node API via tunnel'; }).catch(()=>{});
+fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version+' · node API via /v1/node proxy'; }).catch(()=>{});
 updateTunnelHint();
 </script>
 </body>

@@ -98,6 +98,7 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/primary", func(w http.ResponseWriter, r *http.Request) { handlePrimary(w, r, token) })
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
+	mux.HandleFunc("/v1/node/", func(w http.ResponseWriter, r *http.Request) { ProxyNodeAPI(w, r, token) })
 
 	fmt.Fprintf(os.Stderr, "operator serve: http://%s/  (loopback only)\n", addr)
 	fmt.Fprintf(os.Stderr, "operator token: %s  (header X-Netductor-Token)\n", token)

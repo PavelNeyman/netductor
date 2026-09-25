@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Start here.** **Baseline:** **v0.9.2** · https://github.com/PavelNeyman/netductor
+**Start here.** **Baseline:** **v0.9.3** · https://github.com/PavelNeyman/netductor
 
 ## Read order
 
@@ -37,7 +37,7 @@
 - [x] Recovery WAN-while-armed clarified  
 - [x] **Locked: Mac client UI, node API-only** ([PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md))  
 - [x] **P1** Mac WebUI Installer | Control | Settings + tunnel + API status  
-- [ ] P2 Control parity (users/nodes/edge via API)  
+- [x] P2 Control parity (users/nodes/edge via /v1/node proxy + session)  
 - [ ] P3 drop default VPS static admin  
 - [ ] Mobile day-2 later  
 

@@ -1,3 +1,9 @@
+## 0.9.3
+
+- Control P2: VPN users, nodes, edge pending/approve via `/v1/node` proxy (CORS-safe)
+- `netductor-op session issue` — create node API session over SSH
+- Node session token in WebUI Settings
+
 ## 0.9.2
 
 - Locked: Mac client UI only; node = API server ([PLAN-MAC-CLIENT.md](docs/PLAN-MAC-CLIENT.md))

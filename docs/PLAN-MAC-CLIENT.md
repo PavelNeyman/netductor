@@ -46,10 +46,10 @@ Transport to `:8787`:
 
 ### P2 — Control parity (API-driven)
 
-- [ ] VPN users list / create (existing node API)
-- [ ] Nodes / secondary status
-- [ ] Edge pending / approve (API)
-- [ ] Credentials collect stays Installer-adjacent
+- [x] VPN users list / create (Control + /v1/node proxy)
+- [x] Nodes list + self
+- [x] Edge pending / devices / approve / deny
+- [x] Credentials collect stays Installer-adjacent
 
 ### P3 — Node pure API
 
