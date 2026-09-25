@@ -1,3 +1,9 @@
+## 0.9.13
+
+- Architecture clarified: thin UIs share one operator/deploy backend; parity is the rule
+- Web Installer: OpenWrt edge via POST /v1/edge (DeployEdge)
+- Docs: UI-PARITY, ARCHITECTURE-OPERATOR, handoff corrected
+
 ## 0.9.12
 
 - WebUI split: index.html + app.css + app.js (embed)

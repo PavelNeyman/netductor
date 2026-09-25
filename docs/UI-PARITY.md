@@ -1,26 +1,29 @@
-# UI parity
+# UI parity (locked model)
 
-## Surfaces
+## Rule
 
-| UI | Deploy VPS | Day-2 ops | Notes |
-|----|------------|-----------|--------|
-| **WebUI** (`op serve`) | Yes (Installer) | Max operator API + Advanced | Primary day-2 for rare POSTs |
-| **TUI** (`op` / `netductor` TUI) | Yes (Wizard) | CLI via local/remote `netductor …` | Same backend as CLI |
-| **Telegram** | **No** | Day-2: VPN, nodes, edge, NVR, git, DNS, backup… | Runs on node; admin chat only |
+**One backend** (`internal/operator` + `internal/deploy` + node API).  
+**All UIs are thin:** Web, TUI, CLI — same use-cases, same outcomes.
 
-## TUI (0.9.11)
+| UI | Role |
+|----|------|
+| **Web** (`operator serve`) | Full Installer + Control |
+| **TUI** | Full Wizard + Tools (same Deploy* / CLI) |
+| **CLI** | Same packages / `netductor` on node / op subcommands |
+| **TG** | Day-2 only on node — **no fleet deploy** (ops channel, not installer) |
 
-Tools: doctor, status, fleet, nodes, secondary, edge (list/pending/recovery), NVR, git, registry, addons, mTLS, backup, VPN, probes, SSH hosts, audit, sites.
+## Deploy parity (Mac)
 
-## TG
+| Use-case | Web | TUI | CLI/op |
+|----------|-----|-----|--------|
+| Fleet / Primary / Secondary | ✅ | ✅ | ✅ |
+| Credentials collect | ✅ | ✅ | ✅ |
+| OpenWrt edge (`DeployEdge`) | ✅ `/v1/edge` | ✅ wizard | ✅ |
+| MikroTik site | gap → close via same backend | ✅ partial | CLI |
+| NVR day-2 | Control API | Tools + wizard | `netductor nvr` |
 
-Tools: guest, DNS, probes, backup, locations, NVR, metrics, updates, mTLS, git, registry, secondary, audit. No fleet deploy from TG.
+Any “TUI-only” hardware deploy is a **parity debt**, not product intent.
 
-## Not in any operator UI
+## Day-2
 
-Agent-plane only: enroll/heartbeat, plain recovery pull without arm, etc.
-
-
-## Review baseline
-
-See [REVIEW-0.9.12.md](REVIEW-0.9.12.md) for API gaps (Advanced covers), deploy TUI vs Web, i18n gaps.
+Web Control + Advanced, TUI Tools, TG Tools, node CLI — all talk to the **same node API / CLI**.

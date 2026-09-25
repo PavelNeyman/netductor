@@ -59,7 +59,7 @@ Operator (Mac), node API, agent plane, recovery, WebUI assets/CSP, TUI/TG parity
 | NVR bootstrap | ❌ use TUI | ✅ |
 | Day-2 remote CLI tools | via Control API | ✅ Tools → `netductor …` SSH |
 
-**Verdict:** Core **VPS fleet deploy** is shared intent (operator/deploy backend). Web covers VPS fleet; **hardware wizards remain TUI-first**. Not a bug — document as intentional.
+**Verdict:** Core **VPS fleet deploy** is shared intent (operator/deploy backend). Web covers VPS fleet; **hardware must reach Web/CLI parity via same Deploy* (OpenWrt edge on Web as of 0.9.13)**. Not a bug — document as intentional.
 
 Password: Installer/Web + TUI first login only; day-2 tunnel = key.
 

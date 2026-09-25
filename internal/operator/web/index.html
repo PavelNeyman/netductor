@@ -22,6 +22,7 @@
   <button type="button" data-tab="fleet" class="active">Fleet</button>
   <button type="button" data-tab="primary">Primary</button>
   <button type="button" data-tab="secondary">Secondary</button>
+  <button type="button" data-tab="edge">OpenWrt</button>
   <button type="button" data-tab="creds">Credentials</button>
 </nav>
 <main>
@@ -55,6 +56,20 @@
       <div class="row"><div><label>Primary host</label><input name="primary_host" required/></div><div><label>Primary key</label><input name="primary_key"/></div></div>
       <div class="row"><div><label>Secondary host</label><input name="secondary_host" required/></div><div><label>Password</label><input name="secondary_password" type="password"/></div></div>
       <button class="primary" type="submit">Deploy secondary</button>
+    </form>
+  </section>
+  <section id="panel-edge" class="panel">
+    <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
+    <form id="form-edge">
+      <div class="row"><div><label>Router host</label><input name="router_host" required/></div><div><label>Router password</label><input name="router_password" type="password"/></div></div>
+      <div class="row"><div><label>Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label>Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
+      <div class="row"><div><label>Primary host</label><input name="primary_host"/></div><div><label>Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="row"><div><label>Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label>Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
+      <div class="row"><div><label>LAN IP (optional)</label><input name="lan_ip"/></div><div><label>WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>
+      <div class="row"><div><label>Wi-Fi SSID</label><input name="wifi_ssid"/></div><div><label>Wi-Fi key</label><input name="wifi_key" type="password"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="net_configure"/> Configure network</label>
+      <label><input type="checkbox" name="guest_enable"/> Guest Wi-Fi</label></div>
+      <button class="primary" type="submit">Provision edge</button>
     </form>
   </section>
   <section id="panel-creds" class="panel">

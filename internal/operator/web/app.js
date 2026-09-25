@@ -104,6 +104,16 @@ document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); 
   await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key') }, e.submitter); };
 document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
   await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
+document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('edge',fd);
+  await streamPost('/v1/edge',{
+    router_host:fd.get('router_host'), router_password:fd.get('router_password'),
+    device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch'),
+    primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
+    server_url:fd.get('server_url'), key_passphrase:fd.get('key_passphrase'),
+    lan_ip:fd.get('lan_ip'), wan_proto:fd.get('wan_proto'),
+    wifi_ssid:fd.get('wifi_ssid'), wifi_key:fd.get('wifi_key'),
+    net_configure:fd.get('net_configure')==='on', guest_enable:fd.get('guest_enable')==='on'
+  }, e.submitter); };
 document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd); const btn=e.submitter; btn.disabled=true;
   try{ const res=await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({role:fd.get('role'),host:fd.get('host'),key:fd.get('key'),key_passphrase:fd.get('key_passphrase')})});
     const j=await res.json(); document.getElementById('credResult').textContent=j.path?('OK → '+j.path):(j.error||JSON.stringify(j)); }catch(err){ document.getElementById('credResult').textContent=String(err); }
@@ -458,7 +468,7 @@ document.getElementById('btnSessionLoad').onclick=async()=>{
   showControl(j);
 };
 
-['form-fleet','form-primary','form-secondary','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
+['form-fleet','form-primary','form-secondary','form-edge','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
 document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
 document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
 applyI18n();

@@ -6,7 +6,7 @@
 - SMTP alerts (mailbox)
 - Mobile day-2
 - Full WebUI form-label i18n
-- Optional Web entry for OpenWrt/MikroTik (TUI has wizards)
+- Finish MikroTik Web/CLI parity; NVR already Control API
 
 ## Not doing
 

@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.12** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.12
+**Baseline:** **v0.9.13** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.12
 
 ## Read order (new chat)
 
@@ -10,6 +10,11 @@
 4. [PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md) · [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)  
 5. [UI-PARITY.md](UI-PARITY.md) · [WEB-UI-NOTES.md](WEB-UI-NOTES.md)  
 6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
+
+## Architecture (locked)
+
+Thin UIs (Web, TUI, CLI) share **one** backend: `internal/operator` + `internal/deploy` + node API.
+Parity is the rule; temporary gaps are debt (not intentional TUI-only features).
 
 ## Product model (locked)
 

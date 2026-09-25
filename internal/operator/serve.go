@@ -122,6 +122,7 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/primary", func(w http.ResponseWriter, r *http.Request) { handlePrimary(w, r, token) })
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
+	mux.HandleFunc("/v1/edge", func(w http.ResponseWriter, r *http.Request) { handleEdge(w, r, token) })
 	mux.HandleFunc("/v1/node/", func(w http.ResponseWriter, r *http.Request) { ProxyNodeAPI(w, r, token) })
 	mux.HandleFunc("/v1/tunnel/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -524,4 +525,65 @@ func handleCredentials(w http.ResponseWriter, r *http.Request, token string) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]string{"ok": "true", "path": path})
+}
+
+
+type edgeBody struct {
+	RouterHost   string `json:"router_host"`
+	RouterUser   string `json:"router_user"`
+	RouterPass   string `json:"router_password"`
+	DeviceID     string `json:"device_id"`
+	PrimaryHost  string `json:"primary_host"`
+	PrimaryUser  string `json:"primary_user"`
+	PrimaryKey   string `json:"primary_key"`
+	KeyPass      string `json:"key_passphrase"`
+	ServerURL    string `json:"server_url"`
+	AgentArch    string `json:"agent_arch"`
+	NetConfigure bool   `json:"net_configure"`
+	LANIP        string `json:"lan_ip"`
+	WiFiSSID     string `json:"wifi_ssid"`
+	WiFiKey      string `json:"wifi_key"`
+	GuestEnable  bool   `json:"guest_enable"`
+	WANProto     string `json:"wan_proto"`
+}
+
+func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", 405)
+		return
+	}
+	if !requireToken(r, token) {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var body edgeBody
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write([]byte("step edge start\n"))
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	spec := EdgeSpec{
+		RouterHost: body.RouterHost, RouterUser: body.RouterUser, RouterPass: body.RouterPass,
+		DeviceID: body.DeviceID, PrimaryHost: body.PrimaryHost, PrimaryUser: body.PrimaryUser,
+		PrimaryKey: body.PrimaryKey, PrimaryKeyPassphrase: body.KeyPass,
+		ServerURL: body.ServerURL, AgentArch: body.AgentArch,
+		NetConfigure: body.NetConfigure, LANIP: body.LANIP,
+		WiFiSSID24: body.WiFiSSID, WiFiKey24: body.WiFiKey,
+		GuestEnable: body.GuestEnable, WANProto: body.WANProto,
+	}
+	if spec.RouterUser == "" {
+		spec.RouterUser = "root"
+	}
+	if spec.PrimaryUser == "" {
+		spec.PrimaryUser = "root"
+	}
+	if err := DeployEdge(spec); err != nil {
+		_, _ = w.Write([]byte("step edge ERROR " + err.Error() + "\n"))
+		return
+	}
+	_, _ = w.Write([]byte("step edge done\n"))
 }
