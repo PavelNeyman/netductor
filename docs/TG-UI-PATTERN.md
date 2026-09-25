@@ -23,3 +23,11 @@
 ## Still on keyboard (debt)
 
 Git pipeline pick, NVR pickers, registry Ensure/Crane, catalog 📄 JSON, SSH host delete — migrate next when touched.
+
+
+## 0.9.30
+
+- Users list: table + numbered open (green=on)
+- User hub: compact emoji row
+- Nodes list: numbered open; node card emoji ops
+- Git / Registry / SSH hosts: same pattern

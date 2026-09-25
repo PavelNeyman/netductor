@@ -128,13 +128,11 @@ func formatNodeCardHTML(c nodeCard) string {
 	id := c.ID
 	b.WriteString(nl + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:nd:m:` + id + `">` + esc(T("node_metrics")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:nd:j:` + id + `">` + esc(T("node_journal")) + `</tg-button>`)
-	b.WriteString(`</tg-button-row>` + nl)
-	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" data="m:nd:s:` + id + `">` + esc(T("node_restart_sb")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:nd:u:` + id + `">` + esc(T("node_upgrade")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:nd:r:` + id + `">` + esc(T("node_reboot")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:nd:m:` + id + `">📊</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:nd:j:` + id + `">📜</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:nd:s:` + id + `">♻️</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:nd:u:` + id + `">⬆</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:nd:r:` + id + `">🔁</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	return strings.TrimRight(b.String(), nl)
 }

@@ -156,8 +156,8 @@ func formatNodesListHTML() string {
 	}
 	nl := string([]byte{10})
 	var b strings.Builder
-	b.WriteString("<table bordered striped>" + nl)
-	b.WriteString("<tr><th>#</th><th>host</th><th>role</th><th>ip</th><th>status</th></tr>" + nl)
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>#</th><th>host</th><th>role</th><th>status</th></tr>" + nl)
 	for i, r := range rows {
 		label := r.Host
 		if label == "" {
@@ -171,22 +171,27 @@ func formatNodesListHTML() string {
 		case st == "offline":
 			icon = "🔴"
 		}
-		ip := r.IP
-		if ip == "" {
-			ip = "—"
-		}
 		role := r.Role
 		if role == "" {
 			role = "—"
 		}
-		status := icon + " " + r.Status
-		if r.Desired != "" {
-			status += " → " + r.Desired
-		}
-		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"+nl,
-			i+1, esc(label), esc(role), esc(ip), esc(status)))
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>"+nl,
+			i+1, esc(label), esc(role), icon))
 	}
-	b.WriteString("</table>")
+	b.WriteString("</table>" + nl)
+	const per = 5
+	for i, r := range rows {
+		if i%per == 0 {
+			if i > 0 {
+				b.WriteString(`</tg-button-row>` + nl)
+			}
+			b.WriteString(`<tg-button-row align="left">`)
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nd:o:%s">%d</tg-button>`, r.ID, i+1))
+	}
+	if len(rows) > 0 {
+		b.WriteString(`</tg-button-row>` + nl)
+	}
 	return b.String()
 }
 
@@ -199,30 +204,11 @@ func nodeCardKeyboard(id string) map[string]any {
 }
 
 func nodesListKeyboard() map[string]any {
-	rows := parseNodesList()
-	kb := [][]map[string]any{}
-	for i, r := range rows {
-		name := r.Host
-		if name == "" {
-			name = r.ID
-		}
-		label := fmt.Sprintf("%d. %s", i+1, name)
-		if r.Role != "" {
-			label += " [" + r.Role + "]"
-		}
-		if len(label) > 40 {
-			label = label[:40]
-		}
-		data := "m:nd:o:" + r.ID
-		if len(data) > 64 {
-			data = data[:64]
-		}
-		kb = append(kb, []map[string]any{btn(label, data, "")})
-	}
-	kb = append(kb, []map[string]any{btn(T("nodes_enroll"), "m:secondary:enroll", "primary")})
-	kb = append(kb, []map[string]any{btn(T("main_menu"), "m:menu", "")})
-	return map[string]any{"inline_keyboard": kb}
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("main_menu"), "m:menu", "primary")},
+	}}
 }
+
 
 func nodesRenameKeyboard() map[string]any {
 	rows := parseNodesList()

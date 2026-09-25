@@ -66,10 +66,8 @@ func ensureQRFile(path, payload string) string {
 func formatUsersListHTML() string {
 	nl := string([]byte{10})
 	raw := runVPN("list")
-	var b strings.Builder
-	b.WriteString("<h3>👥 " + esc(T("users")) + "</h3>" + nl)
-	b.WriteString("<p><i>" + T("users_hint") + "</i></p>" + nl)
-	n := 0
+	type row struct{ name, en string }
+	var rows []row
 	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -79,42 +77,52 @@ func formatUsersListHTML() string {
 		if len(parts) < 1 {
 			parts = strings.Fields(line)
 		}
-		if len(parts) < 1 || parts[0] == "" {
-			continue
-		}
-		name := parts[0]
-		if name == "relay-uplink" {
+		if len(parts) < 1 || parts[0] == "" || parts[0] == "relay-uplink" {
 			continue
 		}
 		en := ""
 		if len(parts) > 1 {
 			en = parts[1]
 		}
-		n++
-		icon := "🟢"
-		if en == "off" {
-			icon = "🔴"
-		}
-		// One visual row: status + name, then in-body rich buttons (Bot API 10.3)
-		b.WriteString("<p>" + icon + " <b>" + esc(name) + "</b>")
-		if en != "" {
-			b.WriteString(" · <code>" + esc(en) + "</code>")
-		}
-		b.WriteString("</p>" + nl)
-		b.WriteString(`<tg-button-row align="left">`)
-		b.WriteString(`<tg-button type="callback_data" style="primary" data="u:open:` + name + `">` + esc(T("user_card")) + `</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="u:access:` + name + `:vless">` + esc(T("user_access")) + `</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="u:rename:` + name + `">` + esc(T("vpn_rename")) + `</tg-button>`)
-		b.WriteString(`</tg-button-row>` + nl)
-		if n >= 25 {
+		rows = append(rows, row{parts[0], en})
+		if len(rows) >= 25 {
 			break
 		}
 	}
-	if n == 0 {
-		b.WriteString("<p>—</p>" + nl)
+	var b strings.Builder
+	b.WriteString("👥 <b>" + esc(T("users")) + "</b>" + nl)
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>#</th><th>user</th><th></th></tr>" + nl)
+	for i, r := range rows {
+		icon := "🟢"
+		if r.en == "off" {
+			icon = "🔴"
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, i+1, esc(r.name), icon))
+	}
+	if len(rows) == 0 {
+		b.WriteString("<tr><td>—</td><td>—</td><td>—</td></tr>" + nl)
+	}
+	b.WriteString("</table>" + nl)
+	const per = 5
+	for i, r := range rows {
+		if i%per == 0 {
+			if i > 0 {
+				b.WriteString(`</tg-button-row>` + nl)
+			}
+			b.WriteString(`<tg-button-row align="left">`)
+		}
+		style := "link"
+		if r.en != "off" {
+			style = "success"
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="u:open:%s">%d</tg-button>`, style, r.name, i+1))
+	}
+	if len(rows) > 0 {
+		b.WriteString(`</tg-button-row>` + nl)
 	}
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="success" data="m:vpn_add">` + esc(T("vpn_add")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:vpn_add">➕</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
@@ -139,29 +147,30 @@ func formatUserHubHTML(name string) string {
 	if en == "off" {
 		icon = "🔴"
 	}
-	var b strings.Builder
-	b.WriteString("<h3>👤 " + esc(name) + " " + icon + "</h3>" + nl)
-	b.WriteString("<p><code>" + esc(en) + "</code></p>" + nl)
-	b.WriteString("<p><i>" + T("user_hub_hint") + "</i></p>" + nl)
-	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">` + esc(T("user_access")) + `</tg-button>`)
-	b.WriteString(`</tg-button-row>` + nl)
 	lim := vpn.SoftLimitGB(name)
-	b.WriteString(fmt.Sprintf("<p>Soft limit: <code>%.0f</code> GiB (0=off)</p>"+nl, lim))
+	var b strings.Builder
+	b.WriteString("👤 <b>" + esc(name) + "</b>" + nl)
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+	b.WriteString("<tr><td>status</td><td>" + icon + " <code>" + esc(en) + "</code></td></tr>" + nl)
+	b.WriteString(fmt.Sprintf("<tr><td>limit</td><td><code>%.0f</code> GiB</td></tr>"+nl, lim))
+	b.WriteString("</table>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:50">50 GiB</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:200">200 GiB</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:0">∞</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:quota:` + name + `:custom">Custom</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="u:rename:` + name + `">` + esc(T("vpn_rename")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">🔗</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="u:rename:` + name + `">✏️</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:50">50</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:200">200</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:0">∞</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:custom">N</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="success" data="u:enable:` + name + `">` + esc(T("vpn_enable")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:disable:` + name + `">` + esc(T("vpn_disable")) + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:revoke:` + name + `">` + esc(T("vpn_revoke")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="success" data="u:enable:` + name + `">▶</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:disable:` + name + `">⏸</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:revoke:` + name + `">🗑</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
+
 
 
 func accessPayload(name, mode string) (payload string) {

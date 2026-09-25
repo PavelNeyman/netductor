@@ -1,3 +1,9 @@
+## 0.9.30
+
+- Users/VPN: table + numbered open; compact user hub emoji actions
+- Nodes: numbered open; compact node card
+- Git / Registry / SSH hosts: same TG-UI pattern
+
 ## 0.9.29
 
 - TG UI pattern locked (docs/TG-UI-PATTERN.md): table=status, numbered/compact tg-button-row actions

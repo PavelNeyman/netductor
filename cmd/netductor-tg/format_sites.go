@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"encoding/base64"
 	"os"
 	"strings"
@@ -49,7 +50,37 @@ func formatSitesRSCHTML() string {
 func formatSSHHostsHTML() string {
 	out := strings.TrimSpace(runND("ssh-hosts", "list"))
 	nl := string([]byte{10})
-	return "🔐 <b>" + esc(T("ssh_hosts")) + "</b>" + nl + "<i>" + T("ssh_hosts_hint") + "</i>" + nl + nl + "<pre>" + esc(out) + "</pre>"
+	var b strings.Builder
+	b.WriteString("🔐 <b>" + esc(T("ssh_hosts")) + "</b>" + nl)
+	ids := []string{}
+	for _, line := range strings.Split(out, nl) {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "===") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		ids = append(ids, fields[0])
+	}
+	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>id</th></tr>" + nl)
+	for i, id := range ids {
+		if i >= 12 {
+			break
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, esc(id)))
+	}
+	b.WriteString("</table>" + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	for i, id := range ids {
+		if i >= 12 {
+			break
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="m:ssh:rm:%s">%d</tg-button>`, id, i+1))
+	}
+	b.WriteString(`</tg-button-row>` + nl)
+	return b.String()
 }
 
 func sshHostsKeyboard() map[string]any {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
@@ -17,37 +18,56 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			reply(token, chat, msgID, esc(err.Error()), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
 			return true
 		}
-		var rows [][]map[string]any
-		for _, n := range list {
-			rows = append(rows, []map[string]any{btn(n, "m:git:repo:"+n, "")})
+		nl := string([]byte{10})
+		var b strings.Builder
+		if ru {
+			b.WriteString("📦 <b>Git</b>" + nl)
+		} else {
+			b.WriteString("📦 <b>Git</b>" + nl)
 		}
-		if len(rows) == 0 {
-			msg := "Репозиториев нет. CLI: <code>netductor git init name</code>"
-			if !ru {
-				msg = "No repos. CLI: <code>netductor git init name</code>"
+		if len(list) == 0 {
+			if ru {
+				b.WriteString("<i>Репозиториев нет. CLI: <code>netductor git init name</code></i>")
+			} else {
+				b.WriteString("<i>No repos. CLI: <code>netductor git init name</code></i>")
 			}
-			rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
-			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": rows})
+			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
 			return true
 		}
-		rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
-		title := "📦 <b>Git</b> — выберите репозиторий"
-		if !ru {
-			title = "📦 <b>Git</b> — pick a repo"
+		b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>repo</th></tr>" + nl)
+		for i, n := range list {
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, esc(n)))
 		}
-		reply(token, chat, msgID, title, map[string]any{"inline_keyboard": rows})
+		b.WriteString("</table>" + nl)
+		const per = 5
+		for i, n := range list {
+			if i%per == 0 {
+				if i > 0 {
+					b.WriteString(`</tg-button-row>` + nl)
+				}
+				b.WriteString(`<tg-button-row align="left">`)
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:git:repo:%s">%d</tg-button>`, n, i+1))
+		}
+		b.WriteString(`</tg-button-row>` + nl)
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
 		return true
 	}
 	rest := strings.TrimPrefix(data, "m:git:")
 	if strings.HasPrefix(rest, "repo:") {
 		name := strings.TrimPrefix(rest, "repo:")
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("📜 Log", "m:git:log:"+name, ""), btn("🔍 HEAD", "m:git:show:"+name, "")},
-			{btn("▶️ Pipeline", "m:git:pipe:"+name, ""), btn("⚙️ Workflow", "m:git:wf:"+name, "")},
-			{btn("📄 Artifacts", "m:git:art:"+name, ""), btn("🗑 Del", "m:git:del:"+name, "")},
-			{btn("«", "m:git", "")},
-		}}
-		reply(token, chat, msgID, "📦 <b>"+esc(name)+"</b>", kb)
+		nl := string([]byte{10})
+		var b strings.Builder
+		b.WriteString("📦 <b>" + esc(name) + "</b>" + nl)
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:log:` + name + `">📜</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:show:` + name + `">🔍</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:pipe:` + name + `">▶️</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:wf:` + name + `">⚙️</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:art:` + name + `">📄</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="danger" data="m:git:del:` + name + `">🗑</tg-button>`)
+		b.WriteString(`</tg-button-row>` + nl)
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 		return true
 	}
 	if strings.HasPrefix(rest, "log:") {
@@ -84,12 +104,19 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		name := strings.TrimPrefix(rest, "pipe:")
 		_ = gitstore.EnsureSamplePipeline()
 		pipes, _ := gitstore.ListPipelines()
-		var rows [][]map[string]any
-		for _, p := range pipes {
-			rows = append(rows, []map[string]any{btn(p, "m:git:run:"+name+":"+p, "")})
+		nl := string([]byte{10})
+		var b strings.Builder
+		b.WriteString("Pipeline" + nl + "<table bordered striped compact>" + nl + "<tr><th>#</th><th>name</th></tr>" + nl)
+		for i, p := range pipes {
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, esc(p)))
 		}
-		rows = append(rows, []map[string]any{btn("«", "m:git:repo:"+name, "")})
-		reply(token, chat, msgID, "Pipeline:", map[string]any{"inline_keyboard": rows})
+		b.WriteString("</table>" + nl)
+		b.WriteString(`<tg-button-row align="left">`)
+		for i, p := range pipes {
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:git:run:%s:%s">%d</tg-button>`, name, p, i+1))
+		}
+		b.WriteString(`</tg-button-row>` + nl)
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "primary")}}})
 		return true
 	}
 	if strings.HasPrefix(rest, "run:") {
