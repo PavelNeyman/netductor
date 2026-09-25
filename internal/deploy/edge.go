@@ -66,8 +66,14 @@ func DeployEdge(o EdgeOpts) error {
 	if o.Version == "" {
 		o.Version = Release
 	}
+	if !validReleaseVersion(o.Version) {
+		return fmt.Errorf("invalid release version %q", o.Version)
+	}
 	if o.AgentArch == "" {
 		o.AgentArch = "arm64"
+	}
+	if !validReleaseVersion(o.AgentArch) { // same charset: arm64, armv7, amd64
+		return fmt.Errorf("invalid agent arch %q", o.AgentArch)
 	}
 	if o.AgentDir == "" {
 		home, _ := os.UserHomeDir()
@@ -87,6 +93,12 @@ func DeployEdge(o EdgeOpts) error {
 			u = u + ":" + mtls.AgentTLSPort
 		}
 		o.ServerURL = "https://" + u
+	}
+	if !strings.HasPrefix(o.ServerURL, "https://") {
+		return fmt.Errorf("server URL must be https:// (agent plane)")
+	}
+	if serverURLUnsafe(o.ServerURL) {
+		return fmt.Errorf("invalid server URL characters")
 	}
 
 	token := ""
@@ -286,4 +298,15 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	}
 	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi enable on", o.RouterHost)
 	return nil
+}
+
+
+func serverURLUnsafe(u string) bool {
+	for _, r := range u {
+		switch r {
+		case ' ', '\t', '\n', '\r', ';', '|', '&', '$', '`', '"', '\'', '\\', '<', '>', '(', ')', '{', '}':
+			return true
+		}
+	}
+	return false
 }

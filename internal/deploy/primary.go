@@ -41,6 +41,9 @@ func DeployPrimary(o PrimaryOpts) error {
 	if o.Version == "" {
 		o.Version = Release
 	}
+	if !validReleaseVersion(o.Version) {
+		return fmt.Errorf("invalid release version %q", o.Version)
+	}
 	if o.SNI == "" {
 		o.SNI = "api.vk.me"
 	}
@@ -225,10 +228,29 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
 
+// validReleaseVersion rejects shell/path injection in release tags used in download URLs.
+func validReleaseVersion(v string) bool {
+	v = strings.TrimSpace(v)
+	if v == "" || len(v) > 32 {
+		return false
+	}
+	for _, r := range v {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+
 // EnsureAgentBinary downloads netductor-agent for arch into destDir, returns path.
 func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	if version == "" {
 		version = Release
+	}
+	if !validReleaseVersion(version) {
+		return "", fmt.Errorf("invalid release version %q", version)
 	}
 	if goarch == "" {
 		goarch = "arm64"

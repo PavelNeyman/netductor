@@ -154,7 +154,7 @@ func runSCP(password, keyPath, user, host, local, remotePath, keyPassphrase stri
 			return err
 		}
 		args := append([]string{"-e", "scp"}, base...)
-		args = append(args, local, target)
+		args = append(args, "--", local, target)
 		cmd := exec.Command(sp, args...)
 		cmd.Env = append(os.Environ(), "SSHPASS="+password)
 		out, err := cmd.CombinedOutput()
@@ -168,7 +168,7 @@ func runSCP(password, keyPath, user, host, local, remotePath, keyPassphrase stri
 		return err
 	}
 	defer cleanup()
-	args := append(base, local, target)
+	args := append(base, "--", local, target)
 	cmd := exec.Command("scp", args...)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
@@ -214,7 +214,7 @@ func scpTo(keyPath, localPath, remoteSpec, keyPassphrase string) error {
 	if keyPath != "" {
 		base = append(base, "-i", keyPath)
 	}
-	args := append(base, localPath, remoteSpec)
+	args := append(base, "--", localPath, remoteSpec)
 	cmd := exec.Command("scp", args...)
 	env, cleanup, err := sshEnvWithAskPass(keyPassphrase)
 	if err != nil {

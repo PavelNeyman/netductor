@@ -2,6 +2,7 @@ package operator
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
@@ -135,7 +136,10 @@ func tokenOK(want, got string) bool {
 	if want == "" || got == "" {
 		return false
 	}
-	return subtle.ConstantTimeCompare([]byte(want), []byte(got)) == 1
+	// Hash so compare is always same-length (subtle requires equal len).
+	a := sha256.Sum256([]byte(want))
+	b := sha256.Sum256([]byte(got))
+	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
 
 type fleetJSON struct {

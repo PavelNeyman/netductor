@@ -353,6 +353,9 @@
 
 ## 0.8.99
 
+- security(deploy): release version / agent arch charset; https-only edge ServerURL
+- security(deploy): scp uses `--` before paths; token compare via SHA-256
+
 - TUI wizard: all deploy targets via operator (EdgeFromFields, RunRemote); step matcher for Fleet events
 
 - security(operator): stricter ValidHost/ValidUser; DeployEdge use-case
