@@ -1,3 +1,8 @@
+## 0.9.15
+
+- Web Fleet/Primary: Telegram checkbox → tg_token + tg_admin; server validates
+- Deferred plans: PLAN-MIKROTIK-API-EDGE, PLAN-SITE-ROOMS; OPEN_ITEMS
+
 ## 0.9.14
 
 - DeploySite + MikroTikAction in operator (shared backend)
@@ -750,4 +755,3 @@ See git history for earlier 0.7.x / 0.5.x notes.
 
 - LE: strip :port from redirect hostname for certbot
 - docs example p.nd / i.nd / s.nd
-
