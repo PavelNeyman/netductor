@@ -102,8 +102,13 @@ func formatNodeCardHTML(c nodeCard) string {
 		idShort = idShort[:8] + "…" + idShort[len(idShort)-6:]
 	}
 	var b strings.Builder
-	b.WriteString("🖥 <b>" + esc(host) + "</b>" + nl + nl)
-	b.WriteString("<table bordered striped>" + nl)
+	b.WriteString("🖥 <b>" + esc(host) + "</b>" + nl)
+	if getLang() != "en" {
+		b.WriteString("<i>📊 метрики · 📜 journal · ♻️ sing-box · ⬆ upgrade · 🔁 reboot</i>" + nl)
+	} else {
+		b.WriteString("<i>📊 metrics · 📜 journal · ♻️ sing-box · ⬆ upgrade · 🔁 reboot</i>" + nl)
+	}
+	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
 	b.WriteString("<tr><td>role</td><td>" + esc(role) + "</td></tr>" + nl)
 	b.WriteString("<tr><td>id</td><td>" + esc(idShort) + "</td></tr>" + nl)

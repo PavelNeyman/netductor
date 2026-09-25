@@ -34,6 +34,11 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
 			return true
 		}
+		if ru {
+			b.WriteString("<i># открыть репозиторий</i>" + nl)
+		} else {
+			b.WriteString("<i># open repo</i>" + nl)
+		}
 		b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>repo</th></tr>" + nl)
 		for i, n := range list {
 			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, esc(n)))
@@ -59,6 +64,11 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		nl := string([]byte{10})
 		var b strings.Builder
 		b.WriteString("📦 <b>" + esc(name) + "</b>" + nl)
+		if ru {
+			b.WriteString("<i>📜 log · 🔍 HEAD · ▶️ pipeline · ⚙️ workflow · 📄 artifacts · 🗑 delete</i>" + nl)
+		} else {
+			b.WriteString("<i>📜 log · 🔍 HEAD · ▶️ pipeline · ⚙️ workflow · 📄 artifacts · 🗑 delete</i>" + nl)
+		}
 		b.WriteString(`<tg-button-row align="left">`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:log:` + name + `">📜</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:show:` + name + `">🔍</tg-button>`)

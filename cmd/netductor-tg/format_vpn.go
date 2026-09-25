@@ -91,6 +91,11 @@ func formatUsersListHTML() string {
 	}
 	var b strings.Builder
 	b.WriteString("👥 <b>" + esc(T("users")) + "</b>" + nl)
+	if getLang() != "en" {
+		b.WriteString("<i>🟢 on · 🔴 off · # карточка · ➕ добавить</i>" + nl)
+	} else {
+		b.WriteString("<i>🟢 on · 🔴 off · # open · ➕ add</i>" + nl)
+	}
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>#</th><th>user</th><th></th></tr>" + nl)
 	for i, r := range rows {
@@ -150,6 +155,11 @@ func formatUserHubHTML(name string) string {
 	lim := vpn.SoftLimitGB(name)
 	var b strings.Builder
 	b.WriteString("👤 <b>" + esc(name) + "</b>" + nl)
+	if getLang() != "en" {
+		b.WriteString("<i>🔗 доступ · ✏️ имя · 50/200/∞/N квота · ▶ вкл · ⏸ выкл · 🗑 удалить</i>" + nl)
+	} else {
+		b.WriteString("<i>🔗 access · ✏️ rename · 50/200/∞/N quota · ▶ on · ⏸ off · 🗑 revoke</i>" + nl)
+	}
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
 	b.WriteString("<tr><td>status</td><td>" + icon + " <code>" + esc(en) + "</code></td></tr>" + nl)

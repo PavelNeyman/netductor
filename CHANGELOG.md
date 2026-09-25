@@ -1,3 +1,7 @@
+## 0.9.31
+
+- TG: compact emoji legends under titles (Users, Nodes, Git)
+
 ## 0.9.30
 
 - Users/VPN: table + numbered open; compact user hub emoji actions

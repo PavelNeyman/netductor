@@ -156,6 +156,11 @@ func formatNodesListHTML() string {
 	}
 	nl := string([]byte{10})
 	var b strings.Builder
+	if getLang() != "en" {
+		b.WriteString("<i># открыть карточку ноды</i>" + nl)
+	} else {
+		b.WriteString("<i># open node card</i>" + nl)
+	}
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>#</th><th>host</th><th>role</th><th>status</th></tr>" + nl)
 	for i, r := range rows {
