@@ -53,9 +53,9 @@ Transport to `:8787`:
 
 ### P3 — Node pure API
 
-- [ ] Stop installing/shipping `runtime/api/admin` by default (or `NETDUCTOR_LEGACY_ADMIN_UI=1` only)
-- [ ] `serve` log: API-only; no admin path in happy path
-- [ ] TG bot remains (not a VPS web UI)
+- [x] Stop installing/shipping admin static by default (`NETDUCTOR_LEGACY_ADMIN_UI=1` only)
+- [x] `serve` API-only; `/admin` → 410 unless LEGACY=1
+- [x] TG bot remains (not a VPS web UI)
 
 ### P4 — Polish
 

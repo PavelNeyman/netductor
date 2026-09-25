@@ -1,3 +1,8 @@
+## 0.9.4
+
+- Node API-only by default: `/admin` returns 410 unless `NETDUCTOR_LEGACY_ADMIN_UI=1`
+- Install no longer ships static admin UI by default
+
 ## 0.9.3
 
 - Control P2: VPN users, nodes, edge pending/approve via `/v1/node` proxy (CORS-safe)

@@ -51,17 +51,19 @@ func InstallAPI() error {
 	if _, err := os.Stat(bin); err != nil {
 		return fmt.Errorf("netductor binary not at %s — install release asset first", bin)
 	}
-	adminDst := filepath.Join(paths.OptDir(), "runtime", "api", "admin")
-	_ = os.MkdirAll(adminDst, 0o755)
-	adminSrc := paths.AdminRoot()
-	if adminSrc != adminDst {
-		_ = run("cp", "-a", adminSrc+"/.", adminDst)
-	}
-	// if still empty, pull from GitHub raw
-	if _, err := os.Stat(filepath.Join(adminDst, "index.html")); err != nil {
-		base := "https://raw.githubusercontent.com/PavelNeyman/netductor/main/runtime/api/admin/"
-		for _, f := range []string{"index.html", "app.js", "style.css"} {
-			_ = httpDownload(base+f, filepath.Join(adminDst, f))
+	// Static VPS admin UI is not installed by default (Mac client is the product UI).
+	if os.Getenv("NETDUCTOR_LEGACY_ADMIN_UI") == "1" {
+		adminDst := filepath.Join(paths.OptDir(), "runtime", "api", "admin")
+		_ = os.MkdirAll(adminDst, 0o755)
+		adminSrc := paths.AdminRoot()
+		if adminSrc != adminDst {
+			_ = run("cp", "-a", adminSrc+"/.", adminDst)
+		}
+		if _, err := os.Stat(filepath.Join(adminDst, "index.html")); err != nil {
+			base := "https://raw.githubusercontent.com/PavelNeyman/netductor/main/runtime/api/admin/"
+			for _, f := range []string{"index.html", "app.js", "style.css"} {
+				_ = httpDownload(base+f, filepath.Join(adminDst, f))
+			}
 		}
 	}
 	unit := fmt.Sprintf(`[Unit]
@@ -71,14 +73,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-Environment=NETDUCTOR_ADMIN_ROOT=%s
 ExecStart=%s serve --bind 127.0.0.1 --port 8787 --no-proxy
 Restart=on-failure
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
-`, adminDst, bin)
+`, bin)
 	if err := writeUnit("netductor-api.service", unit); err != nil {
 		return err
 	}

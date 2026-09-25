@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Start here.** **Baseline:** **v0.9.3** · https://github.com/PavelNeyman/netductor
+**Start here.** **Baseline:** **v0.9.4** · https://github.com/PavelNeyman/netductor
 
 ## Read order
 
@@ -38,7 +38,7 @@
 - [x] **Locked: Mac client UI, node API-only** ([PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md))  
 - [x] **P1** Mac WebUI Installer | Control | Settings + tunnel + API status  
 - [x] P2 Control parity (users/nodes/edge via /v1/node proxy + session)  
-- [ ] P3 drop default VPS static admin  
+- [x] P3 drop default VPS static admin (LEGACY_ADMIN_UI=1 only)  
 - [ ] Mobile day-2 later  
 
 ## Forbidden
