@@ -1,3 +1,8 @@
+## Operator binary (v0.9+)
+
+On the Mac use **`netductor-op`** (release asset `netductor-op-darwin-*`).
+Remote VPS receives **`netductor-linux-*`** (node) via deploy — not the operator binary.
+
 # Deploy from Mac (TUI / CLI) — two VPS
 
 Goal: primary + secondary fully automatic from this machine. **No primary→secondary SSH.**

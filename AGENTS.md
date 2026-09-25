@@ -7,7 +7,7 @@
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
 
-**Release baseline: v0.8.94** · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
+**Release baseline: v0.9.0** (operator/node binary split) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
 
 Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROADMAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
@@ -28,7 +28,8 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 5. If ambiguous → **STOP** and ask the owner.
 6. Implement only the requested task.
 7. Docs EN+RU when user-facing behaviour changes.
-8. **Go only** for control plane (install/serve/vpn/doctor/agent/tg). Shell/Python under `legacy/` is reference-only, not runtime.
+8. **Go only** for control plane (install/serve/vpn/doctor/agent/tg).
+**Binaries:** `netductor-op` (workstation) vs `netductor` node (`netductor-linux-*` on VPS). Shell/Python under `legacy/` is reference-only, not runtime.
 9. One logical Git commit per task.
 
 ---

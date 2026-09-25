@@ -351,6 +351,14 @@
 
 # Changelog
 
+## 0.9.0
+
+- **Binary split:** `netductor-op` (operator / Mac) vs `netductor` node (`netductor-linux-*` on VPS)
+- Link-time `main.binaryRole=operator|node|all`; command surfaces gated
+- Deploy / secondary provision download **node** assets only (never operator binary onto VPS)
+- Release workflow emits both asset families; docs + OPERATOR-PLAN Phase 4
+
+
 ## 0.8.99
 
 - security(deploy): release version / agent arch charset; https-only edge ServerURL

@@ -26,7 +26,15 @@ CLI and TUI were synchronized feature-by-feature. Logic leaked into UI layers �
 | **Operator** | Mac / workstation | Bootstrap fleet, domain/LE, collect secrets to `~/.netductor/` |
 | **Node** | VPS / OpenWrt | `install`, `serve`, vpn, agent, day-2 admin/TG |
 
-Same Go module/repo for now. **Logical** split is mandatory; **binary** split (`netductor` vs `netductor-op`) is optional later.
+Same Go module/repo. **Binary split (v0.9+):**
+
+| Binary | Asset | Role |
+|--------|--------|------|
+| **netductor-op** | `netductor-op-darwin-*` / `netductor-op-linux-*` | Workstation: `deploy`, `operator serve`, `credentials`, Setup TUI |
+| **netductor** | `netductor-linux-*` | VPS node: `install`, `serve`, vpn, doctor, secondary, edge plane |
+
+Built from `./cmd/netductor` with `-X main.binaryRole=operator|node`.  
+**Deploy must install the node asset on VPS** — never copy netductor-op onto a server.
 
 ### Rules
 
@@ -82,7 +90,7 @@ Every completed checkbox **must** update that file + relevant docs in the **same
 | **1** | `internal/operator` (or equivalent) use-cases | CLI + TUI call **only** use-cases; no duplicate opts assembly |
 | **2** | `FleetDeploy` single entry | One Spec → primary→secondary→credentials; progress from events |
 | **3** | `operator serve` + embed WebUI | Fleet form + log on localhost |
-| **4** | Optional binary split / mobile day-2 | Only if needed |
+| **4** | Binary split + optional mobile day-2 | netductor-op vs netductor-linux node assets |
 
 ### Explicitly out of scope until phase 1 done
 

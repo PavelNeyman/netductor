@@ -27,12 +27,15 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] Security: non-loopback bind rejected in code + docs
 - [x] Docs + this checklist updated
 
-## Phase 4 — Optional
+## Phase 4 — Binary split
 
-- [ ] Binary split `netductor` vs `netductor-op`
+- [x] `binaryRole=node|operator` (ldflags); assets `netductor-linux-*` vs `netductor-op-*`
+- [x] Deploy downloads **node** binary only onto VPS
+- [x] Release workflow + CI build both surfaces
 - [ ] Mobile day-2 client (not bootstrap)
 
 ## Releases
 
 - [x] v0.8.94–0.8.97 operator program
 - [x] v0.8.98 operator HTTP hardening (token, host validation)
+- [x] v0.9.0 binary split operator / node

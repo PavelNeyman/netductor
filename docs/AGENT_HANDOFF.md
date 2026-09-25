@@ -28,10 +28,20 @@
 | Control plane | **Go-only** |
 | Deploy UI | **Framed TUI + CLI only** (huh deploy removed). Prefer **Fleet** wizard |
 
+## Binaries (v0.9+)
+
+- **netductor-op** — Mac deploy / TUI / `operator serve`
+- **netductor** (`netductor-linux-*`) — VPS node plane; what `deploy` downloads
+
 ## Operator direction
 
 **Done (0.8.95):**  Specs + FleetDeploy; CLI/TUI thin.
 **Next:** step events; phase 3 operator serve + WebUI.
+
+## Binaries (v0.9+)
+
+- **netductor-op** — Mac deploy / TUI / `operator serve`
+- **netductor** (`netductor-linux-*`) — VPS node plane; what `deploy` downloads
 
 ## Operator direction (active work)
 

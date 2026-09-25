@@ -107,7 +107,7 @@ grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_
 		}
 	}
 
-	fmt.Fprintln(os.Stderr, "==> download netductor v"+o.Version)
+	fmt.Fprintln(os.Stderr, "==> download node binary netductor-linux-* v"+o.Version+" (not netductor-op)")
 	dl := fmt.Sprintf(`set -e
 arch=$(uname -m)
 case "$arch" in x86_64) a=amd64;; aarch64) a=arm64;; *) echo "unsupported arch $arch"; exit 1;; esac
