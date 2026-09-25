@@ -250,3 +250,9 @@ Keyboard:
 ## 9. Next step after this doc
 
 Implement **Phase 0 + 1 + 2** first (doc debt, rich transport, DNS), then Phase 3–5 in order. Do not mix large registry/git moves until DNS is verified on device.
+
+
+### DNS lesson (0.9.26)
+
+**Telegram does not deliver `callback_query` for `<tg-button>` placed inside `<td>`.**
+Working pattern: read-only `<table>` + `<tg-button-row>` under each item (same as VPN Users).

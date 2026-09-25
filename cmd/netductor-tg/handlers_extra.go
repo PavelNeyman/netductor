@@ -126,20 +126,10 @@ func showDNSMenu(token string, chat int64, msgID int, status string) {
 	if status != "" {
 		body = "<p>" + esc(status) + "</p>" + body
 	}
-	// Navigation + safety net: same toggles on keyboard if client drops in-table tg-button callbacks.
-	var rows [][]map[string]any
-	for _, e := range dnsblock.Catalog() {
-		label := "🟢 " + e.ID
-		data := "m:dns:off:" + e.ID
-		if !e.Enabled {
-			label = "⚪ " + e.ID
-			data = "m:dns:on:" + e.ID
-		}
-		rows = append(rows, []map[string]any{btn(label, data, "")})
-	}
-	rows = append(rows, []map[string]any{btn("🔄 Reload", "m:dns:reload", "primary")})
-	rows = append(rows, []map[string]any{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")})
-	kb := map[string]any{"inline_keyboard": rows}
+	// Navigation only under message — Enable/Disable/Reload are in-body tg-button-row (not in <td>).
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
 	// Always replace message so state refresh is visible.
 	if msgID > 0 {
 		_ = deleteMessage(token, chat, msgID)

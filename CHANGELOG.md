@@ -1,3 +1,9 @@
+## 0.9.26
+
+- DNS: Telegram does not fire callbacks for tg-button inside <td>
+- Layout: read-only table + Enable/Disable in tg-button-row under each list (works)
+- Keyboard under message: nav only again
+
 ## 0.9.25
 
 - TG DNS: fix no-op clicks — nil-safe callbacks, log data, delete+sendRich refresh

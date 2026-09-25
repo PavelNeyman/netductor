@@ -155,24 +155,19 @@ func FormatCatalogHTML() string {
 	nl := string([]byte{10})
 	var b strings.Builder
 	b.WriteString("🛡 <b>DNS block lists</b>" + nl)
-	b.WriteString("<i>Списки <b>скачивает blocky</b> по URL при Reload (в netductor только ссылки в config.yml).</i>" + nl)
-	b.WriteString("<table bordered striped>" + nl)
-	b.WriteString("<tr><th>list</th><th>state</th><th>action</th></tr>" + nl)
+	b.WriteString("<i>Таблица — обзор. Кнопки под каждым списком (Telegram не шлёт callback из кнопок внутри &lt;td&gt;).</i>" + nl)
+	// Read-only table
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>list</th><th>state</th></tr>" + nl)
 	for _, e := range Catalog() {
 		meta, ok := ListMeta[e.ID]
 		title := e.ID
 		if ok && meta.Title != "" {
 			title = meta.Title
 		}
-		on := "OFF"
-		style := ""
-		act := "m:dns:on:" + e.ID
-		label := "Enable"
+		st := "⚪ OFF"
 		if e.Enabled {
-			on = "ON"
-			style = ` style="success"`
-			act = "m:dns:off:" + e.ID
-			label = "Disable"
+			st = "🟢 ON"
 		}
 		desc := ""
 		if ok {
@@ -181,19 +176,34 @@ func FormatCatalogHTML() string {
 				desc += ` · <a href="` + meta.Home + `">source</a>`
 			}
 		}
-		b.WriteString("<tr>")
-		b.WriteString("<td><b>" + title + "</b>")
+		b.WriteString("<tr><td><b>" + title + "</b>")
 		if desc != "" {
 			b.WriteString("<br/><i>" + desc + "</i>")
 		}
-		b.WriteString("</td>")
-		b.WriteString("<td>" + on + "</td>")
-		b.WriteString(`<td><tg-button type="callback_data"` + style + ` data="` + act + `">` + label + `</tg-button></td>`)
-		b.WriteString("</tr>" + nl)
+		b.WriteString("</td><td>" + st + "</td></tr>" + nl)
 	}
 	b.WriteString("</table>" + nl)
+	// Working actions: tg-button-row (same as VPN users), not inside <td>
+	for _, e := range Catalog() {
+		meta, ok := ListMeta[e.ID]
+		title := e.ID
+		if ok && meta.Title != "" {
+			title = meta.Title
+		}
+		if e.Enabled {
+			b.WriteString("<p>🟢 <b>" + title + "</b></p>" + nl)
+			b.WriteString(`<tg-button-row align="left">`)
+			b.WriteString(`<tg-button type="callback_data" style="danger" data="m:dns:off:` + e.ID + `">Disable</tg-button>`)
+			b.WriteString(`</tg-button-row>` + nl)
+		} else {
+			b.WriteString("<p>⚪ <b>" + title + "</b></p>" + nl)
+			b.WriteString(`<tg-button-row align="left">`)
+			b.WriteString(`<tg-button type="callback_data" style="success" data="m:dns:on:` + e.ID + `">Enable</tg-button>`)
+			b.WriteString(`</tg-button-row>` + nl)
+		}
+	}
 	b.WriteString(`<tg-button-row>`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:dns:reload">🔄 Reload lists</tg-button>`)
-	b.WriteString(`</tg-button-row>`)
+	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
