@@ -1,3 +1,8 @@
+## 0.9.7
+
+- Control POST: NVR PTZ/recorder, git pipeline run, registry ensure/stop
+- Tunnel path: prefer API direct if healthy; else SSH via VPN host when reachable, else public
+
 ## 0.9.6
 
 - Control: full section coverage (VPN, Edge/guest, NVR, Git/Registry, Backup, Probes, …)

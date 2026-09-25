@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Start here.** **Baseline:** **v0.9.6** · https://github.com/PavelNeyman/netductor
+**Start here.** **Baseline:** **v0.9.7** · https://github.com/PavelNeyman/netductor
 
 ## Read order
 
@@ -41,6 +41,7 @@
 - [x] P3 drop default VPS static admin (LEGACY_ADMIN_UI=1 only)  
 - [x] P4 auto-tunnel + session issue from Control
 - [x] P5 Control API sections + HTML tables (0.9.6)
+- [x] P6 POST forms + VPN-prefer SSH path (0.9.7)
 - [ ] Mobile day-2 later  
 
 ## Forbidden

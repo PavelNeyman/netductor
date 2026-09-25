@@ -84,7 +84,7 @@ Transport to `:8787`:
 
 - [x] Control subsections: Overview, VPN, Nodes, Edge (+guest), NVR, Git/Registry, Backup, Probes
 - [x] Table renderer for array/object API responses (raw JSON toggle)
-- [ ] Deeper POST forms (NVR PTZ, git pipeline run, registry ensure) — incremental
+- [x] Deeper POST forms (NVR PTZ, recorder, git pipeline, registry ensure/stop)
 - [ ] Mobile day-2 — deferred
 
 ### Tunnel without key / without BatchMode
@@ -105,3 +105,10 @@ Options later (not default):
 
 Today: **localhost WebUI** in the browser + **TUI** in the terminal — both talk to the same `internal/operator` / node API.  
 “In-process GUI” would mean embedding a native window (WebView/Wails/Fyne) **inside** the binary so no external browser is needed. Same backend; different shell. **Not required** while `operator serve` + browser works; optional polish later.
+
+
+## Path selection (0.9.7)
+
+1. If `api_base` `/health` already OK → **direct** (existing tunnel or API via VPN path) — no new SSH.
+2. Else SSH tunnel: **VPN host first** if `prefer_vpn` and TCP to SSH port works, else public `primary_host`.
+3. Auth always **SSH key** (+ agent for passphrase).

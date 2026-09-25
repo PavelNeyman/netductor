@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,20 +13,23 @@ import (
 )
 
 type TunnelOpts struct {
-	Host     string
-	User     string
-	Key      string
-	KeyPass  string // unused for BatchMode ssh; document passphrase keys need ssh-agent
+	Host      string
+	VPNHost   string // preferred SSH target when PreferVPN and reachable
+	PreferVPN bool
+	User      string
+	Key       string
+	KeyPass   string
 	LocalPort string
-	SSHPort  string
+	SSHPort   string
 }
 
 type tunnelState struct {
-	mu     sync.Mutex
-	cmd    *exec.Cmd
-	opts   TunnelOpts
-	since  time.Time
+	mu      sync.Mutex
+	cmd     *exec.Cmd
+	opts    TunnelOpts
+	since   time.Time
 	lastErr string
+	via     string // "vpn" | "public" | ""
 }
 
 var globalTunnel tunnelState
@@ -45,7 +49,8 @@ func expandKeyPath(key string) string {
 
 func (o *TunnelOpts) normalize() error {
 	o.Host = strings.TrimSpace(o.Host)
-	if o.Host == "" {
+	o.VPNHost = strings.TrimSpace(o.VPNHost)
+	if o.Host == "" && o.VPNHost == "" {
 		return fmt.Errorf("host required")
 	}
 	if o.User == "" {
@@ -64,16 +69,82 @@ func (o *TunnelOpts) normalize() error {
 	return nil
 }
 
-// TunnelStart starts SSH -L if not already running to same target.
+// sshHostReachable quick TCP check to host:sshPort.
+func sshHostReachable(host, port string) bool {
+	if host == "" {
+		return false
+	}
+	c, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 800*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = c.Close()
+	return true
+}
+
+// ResolveSSHHost prefers VPN host when PreferVPN and TCP to SSH port works.
+func ResolveSSHHost(o TunnelOpts) (host, via string) {
+	_ = o.normalize()
+	if o.PreferVPN && o.VPNHost != "" && sshHostReachable(o.VPNHost, o.SSHPort) {
+		return o.VPNHost, "vpn"
+	}
+	if o.Host != "" {
+		return o.Host, "public"
+	}
+	if o.VPNHost != "" {
+		return o.VPNHost, "vpn-fallback"
+	}
+	return "", ""
+}
+
+// APIReachable probes node health without tunnel requirement (existing tunnel or VPN-routed base).
+func APIReachable(apiBase string) bool {
+	apiBase = strings.TrimRight(strings.TrimSpace(apiBase), "/")
+	if apiBase == "" {
+		apiBase = "http://127.0.0.1:8787"
+	}
+	client := &http.Client{Timeout: 900 * time.Millisecond}
+	resp, err := client.Get(apiBase + "/health")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+// EnsureAPIPath: if API already up on local base → no tunnel; else SSH tunnel (VPN host preferred).
+func EnsureAPIPath(o TunnelOpts, apiBase string) (map[string]any, error) {
+	if APIReachable(apiBase) {
+		return map[string]any{
+			"ok": true, "path": "direct", "tunnel": false,
+			"api_base": apiBase, "status": TunnelStatus(),
+			"note": "API reachable without new tunnel (VPN or existing forward)",
+		}, nil
+	}
+	if err := TunnelStart(o); err != nil {
+		return map[string]any{"ok": false, "path": "ssh", "error": err.Error(), "status": TunnelStatus()}, err
+	}
+	return map[string]any{
+		"ok": true, "path": "ssh", "tunnel": true,
+		"via": globalTunnel.via, "status": TunnelStatus(),
+	}, nil
+}
+
 func TunnelStart(o TunnelOpts) error {
 	if err := o.normalize(); err != nil {
 		return err
 	}
+	host, via := ResolveSSHHost(o)
+	if host == "" {
+		return fmt.Errorf("no reachable SSH host")
+	}
+	o.Host = host
+
 	globalTunnel.mu.Lock()
 	defer globalTunnel.mu.Unlock()
 	if globalTunnel.cmd != nil && globalTunnel.cmd.Process != nil {
-		// already up — same host/port ok
 		if globalTunnel.opts.Host == o.Host && globalTunnel.opts.LocalPort == o.LocalPort {
+			globalTunnel.via = via
 			return nil
 		}
 		_ = globalTunnel.cmd.Process.Kill()
@@ -91,44 +162,36 @@ func TunnelStart(o TunnelOpts) error {
 		"--", o.User + "@" + o.Host,
 	}
 	cmd := exec.Command("ssh", argv...)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
 	if err := cmd.Start(); err != nil {
 		globalTunnel.lastErr = err.Error()
 		return err
 	}
 	globalTunnel.cmd = cmd
 	globalTunnel.opts = o
+	globalTunnel.via = via
 	globalTunnel.since = time.Now()
 	globalTunnel.lastErr = ""
-	// wait briefly for port
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
 		c, err := net.DialTimeout("tcp", "127.0.0.1:"+o.LocalPort, 200*time.Millisecond)
 		if err == nil {
 			_ = c.Close()
-			go func() {
-				_ = cmd.Wait()
-				globalTunnel.mu.Lock()
-				if globalTunnel.cmd == cmd {
-					globalTunnel.cmd = nil
-				}
-				globalTunnel.mu.Unlock()
-			}()
+			go waitTunnel(cmd)
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	// process may still be connecting — leave running
-	go func() {
-		_ = cmd.Wait()
-		globalTunnel.mu.Lock()
-		if globalTunnel.cmd == cmd {
-			globalTunnel.cmd = nil
-		}
-		globalTunnel.mu.Unlock()
-	}()
+	go waitTunnel(cmd)
 	return nil
+}
+
+func waitTunnel(cmd *exec.Cmd) {
+	_ = cmd.Wait()
+	globalTunnel.mu.Lock()
+	if globalTunnel.cmd == cmd {
+		globalTunnel.cmd = nil
+	}
+	globalTunnel.mu.Unlock()
 }
 
 func TunnelStop() {
@@ -138,17 +201,18 @@ func TunnelStop() {
 		_ = globalTunnel.cmd.Process.Kill()
 	}
 	globalTunnel.cmd = nil
+	globalTunnel.via = ""
 }
 
 func TunnelStatus() map[string]any {
 	globalTunnel.mu.Lock()
 	defer globalTunnel.mu.Unlock()
 	up := globalTunnel.cmd != nil && globalTunnel.cmd.Process != nil
-	portOpen := false
 	port := globalTunnel.opts.LocalPort
 	if port == "" {
 		port = "8787"
 	}
+	portOpen := false
 	if c, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 150*time.Millisecond); err == nil {
 		_ = c.Close()
 		portOpen = true
@@ -158,6 +222,7 @@ func TunnelStatus() map[string]any {
 		"port_open":  portOpen,
 		"local_port": port,
 		"host":       globalTunnel.opts.Host,
+		"via":        globalTunnel.via,
 		"since":      "",
 		"last_error": globalTunnel.lastErr,
 	}

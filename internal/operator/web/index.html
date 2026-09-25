@@ -168,20 +168,39 @@ table th,table td{word-break:break-word;max-width:14rem}
     <button class="primary" type="button" data-act="nvr-storage">Storage</button>
     <button class="primary" type="button" data-act="nvr-events">Events</button>
     <button class="primary" type="button" data-act="nvr-segments">Segments</button>
-    <button class="primary" type="button" data-act="nvr-go2rtc">go2rtc</button>
+    <button class="primary" type="button" data-act="nvr-go2rtc">Write go2rtc</button>
+    <button class="primary" type="button" data-act="nvr-retention">Run retention</button>
     <div class="row" style="margin-top:.75rem">
       <div><label>edge device_id (leases)</label><input id="nvrSiteDid"/></div>
       <div></div>
     </div>
     <button class="primary" type="button" data-act="nvr-leases">Site DHCP leases</button>
     <button class="primary" type="button" data-act="nvr-wifi">Site Wi‑Fi clients</button>
+    <div class="row">
+      <div><label>PTZ camera id</label><input id="nvrPtzId"/></div>
+      <div><label>PTZ dir</label><select id="nvrPtzDir"><option>left</option><option>right</option><option>up</option><option>down</option><option>stop</option></select></div>
+    </div>
+    <button class="primary" type="button" data-act="nvr-ptz">PTZ</button>
+    <div class="row">
+      <div><label>Recorder camera id</label><input id="nvrRecId"/></div>
+      <div></div>
+    </div>
+    <button class="primary" type="button" data-act="nvr-rec-start">Recorder start</button>
+    <button class="primary" type="button" data-act="nvr-rec-stop">Recorder stop</button>
   </div>
   <div id="csec-git" class="csec" style="display:none">
     <button class="primary" type="button" data-act="git-repos">Repos</button>
     <button class="primary" type="button" data-act="git-pipelines">Pipelines</button>
     <button class="primary" type="button" data-act="git-artifacts">Artifacts</button>
+    <div class="row" style="margin-top:.75rem">
+      <div><label>repo</label><input id="gitRepo"/></div>
+      <div><label>pipeline</label><input id="gitPipe" placeholder="name"/></div>
+    </div>
+    <button class="primary" type="button" data-act="git-run">Run pipeline</button>
     <button class="primary" type="button" data-act="reg-status">Registry status</button>
     <button class="primary" type="button" data-act="reg-catalog">Registry catalog</button>
+    <button class="primary" type="button" data-act="reg-ensure">Registry ensure</button>
+    <button class="primary" type="button" data-act="reg-stop">Registry stop</button>
   </div>
   <div id="csec-backup" class="csec" style="display:none">
     <button class="primary" type="button" data-act="backup-peer">Peer status</button>
@@ -207,8 +226,10 @@ table th,table td{word-break:break-word;max-width:14rem}
     <div><label>SSH key</label><input name="key" id="set_key" value="~/.ssh/netductor_primary"/></div></div>
     <div class="row"><div><label>User</label><input name="user" id="set_user" value="root"/></div>
     <div><label>Local API port</label><input name="api_port" id="set_api_port" value="8787"/></div></div>
-    <div class="row"><div><label>API base (loopback)</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div>
+    <div class="row"><div><label>API base (after tunnel / VPN)</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div>
     <div><label>Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div></div>
+    <div class="row"><div><label>Primary VPN host (SSH via VPN)</label><input name="vpn_host" id="set_vpn_host" placeholder="optional e.g. 10.x or hostname"/></div>
+    <div><label>Prefer VPN for SSH</label><select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes (default)</option><option value="0">no — public only</option></select></div></div>
     <div class="row"><div><label>Node session token</label><input name="node_session" id="set_node_session" type="password" placeholder="netductor-op session issue --host …"/></div>
     <div><label>&nbsp;</label><span class="note">localStorage only</span></div></div>
     <button class="primary" type="submit">Save</button>
@@ -290,16 +311,18 @@ document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); co
 
 function loadSettingsForm(){
   const s=settings();
-  ['set_primary_host','set_key','set_user','set_api_port','set_api_base','set_secondary_host','set_node_session'].forEach(id=>{
+  ['set_primary_host','set_key','set_user','set_api_port','set_api_base','set_secondary_host','set_vpn_host','set_node_session'].forEach(id=>{
     const el=document.getElementById(id); if(!el)return;
-    const map={set_primary_host:'primary_host',set_key:'key',set_user:'user',set_api_port:'api_port',set_api_base:'api_base',set_secondary_host:'secondary_host',set_node_session:'node_session'};
+    const map={set_primary_host:'primary_host',set_key:'key',set_user:'user',set_api_port:'api_port',set_api_base:'api_base',set_secondary_host:'secondary_host',set_vpn_host:'vpn_host',set_node_session:'node_session'};
     const k=map[id]; el.value=s[k]||(id==='set_key'?'~/.ssh/netductor_primary':id==='set_user'?'root':id==='set_api_port'?'8787':id==='set_api_base'?'http://127.0.0.1:8787':'');
   });
+  const pv=document.getElementById('set_prefer_vpn'); if(pv) pv.value=(s.prefer_vpn==='0'?'0':'1');
 }
 document.getElementById('form-settings').onsubmit=e=>{
   e.preventDefault(); const fd=new FormData(e.target);
   saveSettingsObj({ primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
     api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
+    vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'),
     node_session:fd.get('node_session') });
   document.getElementById('settingsSaved').textContent='Saved.'; updateTunnelHint();
 };
@@ -314,19 +337,23 @@ async function refreshTunnelBadge(){
     const st=await res.json();
     const b=document.getElementById('tunnelBadge');
     if(!b) return st;
-    if(st.port_open){ b.textContent='up :'+st.local_port; b.className='chip ok'; }
-    else if(st.process_up){ b.textContent='starting…'; b.className='chip run'; }
+    if(st.port_open){ b.textContent='up :'+st.local_port+(st.via?(' ·'+st.via):''); b.className='chip ok'; }
+    else if(st.process_up){ b.textContent='starting…'+(st.via?(' ·'+st.via):''); b.className='chip run'; }
     else { b.textContent='down'; b.className='chip err'; }
     return st;
   }catch(e){ return null; }
 }
 async function ensureTunnel(){
   const s=settings();
-  if(!s.primary_host) return false;
-  await fetch('/v1/tunnel/start',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
-    body:JSON.stringify({host:s.primary_host,user:s.user||'root',key:s.key,local_port:s.api_port||'8787'})});
+  if(!s.primary_host && !s.vpn_host) return false;
+  const res=await fetch('/v1/tunnel/start',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({
+      host:s.primary_host, vpn_host:s.vpn_host, prefer_vpn:s.prefer_vpn!=='0',
+      user:s.user||'root', key:s.key, local_port:s.api_port||'8787', api_base:apiBase()
+    })});
+  const j=await res.json();
   await refreshTunnelBadge();
-  return true;
+  return j;
 }
 async function nodeFetch(path, opts){
   opts=opts||{}; const s=settings();
@@ -470,7 +497,24 @@ const actions = {
   'nvr-storage': async()=>nodeFetch('/api/nvr/storage'),
   'nvr-events': async()=>nodeFetch('/api/nvr/events'),
   'nvr-segments': async()=>nodeFetch('/api/nvr/segments'),
-  'nvr-go2rtc': async()=>nodeFetch('/api/nvr/go2rtc'),
+  'nvr-go2rtc': async()=>nodeFetch('/api/nvr/go2rtc',{method:'POST',body:'{}'}),
+  'nvr-retention': async()=>nodeFetch('/api/nvr/retention/run',{method:'POST',body:'{}'}),
+  'nvr-ptz': async()=>{
+    const id=document.getElementById('nvrPtzId').value.trim();
+    const dir=document.getElementById('nvrPtzDir').value;
+    if(!id) return {error:'camera id'};
+    return nodeFetch('/api/nvr/ptz',{method:'POST',body:JSON.stringify({id,dir})});
+  },
+  'nvr-rec-start': async()=>{
+    const id=document.getElementById('nvrRecId').value.trim();
+    if(!id) return {error:'camera id'};
+    return nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id})});
+  },
+  'nvr-rec-stop': async()=>{
+    const id=document.getElementById('nvrRecId').value.trim();
+    if(!id) return {error:'camera id'};
+    return nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id})});
+  },
   'nvr-leases': async()=>{
     const did=document.getElementById('nvrSiteDid').value.trim();
     return nodeFetch('/api/nvr/site/leases'+(did?('?device_id='+encodeURIComponent(did)):''));
@@ -482,8 +526,16 @@ const actions = {
   'git-repos': async()=>nodeFetch('/api/git/repos'),
   'git-pipelines': async()=>nodeFetch('/api/git/pipelines'),
   'git-artifacts': async()=>nodeFetch('/api/git/artifacts'),
+  'git-run': async()=>{
+    const repo=document.getElementById('gitRepo').value.trim();
+    const pipeline=document.getElementById('gitPipe').value.trim();
+    if(!repo||!pipeline) return {error:'repo and pipeline required'};
+    return nodeFetch('/api/git/pipeline',{method:'POST',body:JSON.stringify({repo,pipeline})});
+  },
   'reg-status': async()=>nodeFetch('/api/registry/status'),
   'reg-catalog': async()=>nodeFetch('/api/registry/catalog'),
+  'reg-ensure': async()=>nodeFetch('/api/registry/ensure',{method:'POST',body:'{}'}),
+  'reg-stop': async()=>nodeFetch('/api/registry/stop',{method:'POST',body:'{}'}),
   'backup-peer': async()=>nodeFetch('/api/backup/peer'),
   'backup-run': async()=>nodeFetch('/api/backup/run',{method:'POST',body:'{}'}),
   'probes': async()=>nodeFetch('/api/probes'),

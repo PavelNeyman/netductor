@@ -122,22 +122,30 @@ func Serve(o ServeOpts) error {
 		}
 		var body struct {
 			Host      string `json:"host"`
+			VPNHost   string `json:"vpn_host"`
+			PreferVPN *bool  `json:"prefer_vpn"`
 			User      string `json:"user"`
 			Key       string `json:"key"`
 			LocalPort string `json:"local_port"`
 			SSHPort   string `json:"ssh_port"`
+			APIBase   string `json:"api_base"`
 		}
 		if !decodeJSON(w, r, &body) {
 			return
 		}
-		err := TunnelStart(TunnelOpts{Host: body.Host, User: body.User, Key: body.Key, LocalPort: body.LocalPort, SSHPort: body.SSHPort})
+		prefer := true
+		if body.PreferVPN != nil {
+			prefer = *body.PreferVPN
+		}
+		opts := TunnelOpts{Host: body.Host, VPNHost: body.VPNHost, PreferVPN: prefer, User: body.User, Key: body.Key, LocalPort: body.LocalPort, SSHPort: body.SSHPort}
+		res, err := EnsureAPIPath(opts, body.APIBase)
 		w.Header().Set("Content-Type", "application/json")
 		if err != nil {
 			w.WriteHeader(500)
-			_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error(), "status": TunnelStatus()})
+			_ = json.NewEncoder(w).Encode(res)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "status": TunnelStatus()})
+		_ = json.NewEncoder(w).Encode(res)
 	})
 	mux.HandleFunc("/v1/tunnel/stop", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
