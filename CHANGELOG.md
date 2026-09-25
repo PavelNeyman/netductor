@@ -1,3 +1,8 @@
+## 0.9.21
+
+- format: robust smart tables for all catalog JSON (not only health)
+- TG catalog: always sendRichMessage (avoid edit stripping tables)
+
 ## 0.9.20
 
 - `internal/format`: API JSON → rich HTML (tables, emoji) for TG sendRichMessage

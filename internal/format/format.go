@@ -12,17 +12,20 @@ import (
 
 // Result of formatting.
 type Result struct {
-	HTML string // TG rich_message html (tables, details, emoji)
-	Text string // plain / TUI
+	HTML string
+	Text string
 }
 
-// API formats known action payloads; unknown → compact summary + raw details-friendly body.
+// API formats known action payloads; always returns readable HTML (never raw-only).
 func API(actionID string, raw []byte, lang string) Result {
 	ru := lang == "ru"
 	var v any
 	if err := json.Unmarshal(raw, &v); err != nil {
 		s := string(raw)
-		return Result{HTML: "<pre>" + html.EscapeString(truncate(s, 3500)) + "</pre>", Text: s}
+		return Result{
+			HTML: "<b>📦 " + html.EscapeString(actionID) + "</b><br><pre>" + html.EscapeString(truncate(s, 3500)) + "</pre>",
+			Text: s,
+		}
 	}
 	switch actionID {
 	case "doctor":
@@ -33,22 +36,42 @@ func API(actionID string, raw []byte, lang string) Result {
 		return formatVPNUsers(v, ru)
 	case "nvr-cameras":
 		return formatNVRCameras(v, ru)
-	case "status", "metrics", "bot", "health":
-		return formatKeyValues(actionID, v, ru)
-	case "nodes", "sites", "edge-devices", "edge-pending", "git-repos", "sessions", "ssh-hosts":
-		return formatListy(actionID, v, ru)
+	case "health", "bot":
+		return formatFlatMap(actionID, emojiFor(actionID), v, ru)
+	case "status":
+		return formatStatus(v, ru)
+	case "metrics", "metrics-hist", "latest":
+		return formatFlatMap(actionID, "📊", v, ru)
+	case "nodes", "nodes-self", "sites", "edge-devices", "edge-pending", "git-repos",
+		"sessions", "ssh-hosts", "addons", "sni", "sni-presets", "probes", "probes-cfg",
+		"audit", "mtls-certs", "secondary", "secondary-links", "edge-metrics",
+		"nvr-config", "nvr-storage", "nvr-events", "nvr-segments", "git-pipelines",
+		"reg-status", "backup-peer", "sec-export", "probes-uptime":
+		return formatSmart(actionID, v, ru)
 	default:
-		return formatGeneric(actionID, v, ru)
+		return formatSmart(actionID, v, ru)
+	}
+}
+
+func emojiFor(id string) string {
+	switch id {
+	case "health":
+		return "💚"
+	case "bot":
+		return "🤖"
+	case "doctor":
+		return "🩺"
+	default:
+		return "📦"
 	}
 }
 
 func formatDoctor(v any, ru bool) Result {
-	m, _ := v.(map[string]any)
+	m, _ := asMap(v)
 	if m == nil {
-		return formatGeneric("doctor", v, ru)
+		return formatSmart("doctor", v, ru)
 	}
-	okN, failN, warnN := num(m, "summary", "ok"), num(m, "summary", "fail"), num(m, "summary", "warn")
-	// also nested summary object
+	okN, failN, warnN := 0, 0, 0
 	if s, ok := m["summary"].(map[string]any); ok {
 		okN, failN, warnN = asInt(s["ok"]), asInt(s["fail"]), asInt(s["warn"])
 	}
@@ -60,83 +83,62 @@ func formatDoctor(v any, ru bool) Result {
 	}
 	var b strings.Builder
 	b.WriteString("<b>" + title + "</b><br>")
-	b.WriteString(fmt.Sprintf("🖥 <code>%s</code> · %s<br>", html.EscapeString(host), html.EscapeString(role)))
-	b.WriteString(fmt.Sprintf("✅ %d · ⚠️ %d · ❌ %d<br><br>", okN, warnN, failN))
-	b.WriteString("<table bordered striped compact><tr><th>check</th><th>status</th></tr>")
+	b.WriteString(fmt.Sprintf("🖥 <code>%s</code> · %s<br>", esc(host), esc(role)))
+	b.WriteString(fmt.Sprintf("✅ <b>%d</b> · ⚠️ <b>%d</b> · ❌ <b>%d</b><br><br>", okN, warnN, failN))
+
+	var fails, warns []string
 	if checks, ok := m["checks"].([]any); ok {
 		for _, c := range checks {
-			cm, _ := c.(map[string]any)
+			cm, _ := asMap(c)
 			if cm == nil {
 				continue
 			}
 			id, _ := cm["id"].(string)
 			st, _ := cm["status"].(string)
-			emoji := "✅"
-			if st == "fail" {
-				emoji = "❌"
-			} else if st == "warn" {
-				emoji = "⚠️"
+			line := esc(id)
+			if d, _ := cm["detail"].(string); d != "" {
+				line += " — " + esc(d)
 			}
-			// only show non-ok to keep short, or show all if few fails
-			if st == "ok" {
-				continue
+			switch st {
+			case "fail":
+				fails = append(fails, "❌ "+line)
+			case "warn":
+				warns = append(warns, "⚠️ "+line)
 			}
-			b.WriteString("<tr><td>" + html.EscapeString(id) + "</td><td>" + emoji + " " + html.EscapeString(st) + "</td></tr>")
 		}
 	}
-	b.WriteString("</table>")
-	if failN == 0 && warnN == 0 {
-		if ru {
-			b.WriteString("<br>✨ Всё в порядке.")
-		} else {
-			b.WriteString("<br>✨ All clear.")
+	if len(fails)+len(warns) > 0 {
+		b.WriteString("<table bordered striped compact><tr><th>issue</th></tr>")
+		for _, line := range fails {
+			b.WriteString("<tr><td>" + line + "</td></tr>")
 		}
+		for _, line := range warns {
+			b.WriteString("<tr><td>" + line + "</td></tr>")
+		}
+		b.WriteString("</table>")
+	} else if ru {
+		b.WriteString("✨ Всё в порядке.")
+	} else {
+		b.WriteString("✨ All clear.")
 	}
-	text := fmt.Sprintf("doctor %s/%s ok=%d warn=%d fail=%d", role, host, okN, warnN, failN)
-	return Result{HTML: b.String(), Text: text}
+	return Result{HTML: b.String(), Text: fmt.Sprintf("doctor ok=%d warn=%d fail=%d", okN, warnN, failN)}
 }
 
 func formatDomain(v any, ru bool) Result {
-	m, _ := v.(map[string]any)
+	m, _ := asMap(v)
 	dom, _ := m["domain"].(map[string]any)
 	if dom == nil {
-		if d, ok := m["domain"].(string); ok {
-			return Result{HTML: "🌐 <b>Domain</b><br><code>" + html.EscapeString(d) + "</code>", Text: d}
-		}
-		return formatGeneric("domain", v, ru)
+		return formatSmart("domain", v, ru)
 	}
 	title := "🌐 Domain"
 	if ru {
 		title = "🌐 Домен"
 	}
-	var b strings.Builder
-	b.WriteString("<b>" + title + "</b><br><table bordered striped compact>")
-	b.WriteString("<tr><th>key</th><th>value</th></tr>")
-	keys := make([]string, 0, len(dom))
-	for k := range dom {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		b.WriteString("<tr><td>" + html.EscapeString(k) + "</td><td><code>" + html.EscapeString(fmt.Sprint(dom[k])) + "</code></td></tr>")
-	}
-	b.WriteString("</table>")
-	return Result{HTML: b.String(), Text: "domain settings"}
+	return Result{HTML: "<b>" + title + "</b><br>" + mapTable(dom, 40), Text: "domain"}
 }
 
 func formatVPNUsers(v any, ru bool) Result {
-	// shape varies: {users:[...]} or array
-	var list []any
-	switch t := v.(type) {
-	case map[string]any:
-		if u, ok := t["users"].([]any); ok {
-			list = u
-		} else if u, ok := t["Users"].([]any); ok {
-			list = u
-		}
-	case []any:
-		list = t
-	}
+	list := extractList(v, "users", "Users")
 	title := "👥 VPN users"
 	if ru {
 		title = "👥 VPN пользователи"
@@ -145,8 +147,9 @@ func formatVPNUsers(v any, ru bool) Result {
 	b.WriteString("<b>" + title + "</b> · " + fmt.Sprintf("%d", len(list)) + "<br>")
 	b.WriteString("<table bordered striped compact><tr><th>name</th><th>status</th></tr>")
 	for _, item := range list {
-		im, _ := item.(map[string]any)
+		im, _ := asMap(item)
 		if im == nil {
+			b.WriteString("<tr><td colspan=\"2\">" + esc(fmt.Sprint(item)) + "</td></tr>")
 			continue
 		}
 		name := firstStr(im, "name", "Name", "id", "ID")
@@ -160,19 +163,14 @@ func formatVPNUsers(v any, ru bool) Result {
 		} else if s, ok := im["status"].(string); ok {
 			st = s
 		}
-		b.WriteString("<tr><td>" + html.EscapeString(name) + "</td><td>" + html.EscapeString(st) + "</td></tr>")
+		b.WriteString("<tr><td>" + esc(name) + "</td><td>" + esc(st) + "</td></tr>")
 	}
 	b.WriteString("</table>")
-	return Result{HTML: b.String(), Text: fmt.Sprintf("%d vpn users", len(list))}
+	return Result{HTML: b.String(), Text: fmt.Sprintf("%d users", len(list))}
 }
 
 func formatNVRCameras(v any, ru bool) Result {
-	var list []any
-	if m, ok := v.(map[string]any); ok {
-		if c, ok := m["cameras"].([]any); ok {
-			list = c
-		}
-	}
+	list := extractList(v, "cameras", "Cameras")
 	title := "🎥 Cameras"
 	if ru {
 		title = "🎥 Камеры"
@@ -181,13 +179,10 @@ func formatNVRCameras(v any, ru bool) Result {
 	b.WriteString("<b>" + title + "</b> · " + fmt.Sprintf("%d", len(list)) + "<br>")
 	b.WriteString("<table bordered striped compact><tr><th>id</th><th>name</th><th>IP</th><th>rec</th></tr>")
 	for _, item := range list {
-		im, _ := item.(map[string]any)
+		im, _ := asMap(item)
 		if im == nil {
 			continue
 		}
-		id := firstStr(im, "id", "ID")
-		name := firstStr(im, "name", "Name")
-		ip := firstStr(im, "lan_ip", "LANIP", "ip")
 		rec := "—"
 		if r, ok := im["record"].(bool); ok {
 			if r {
@@ -196,116 +191,153 @@ func formatNVRCameras(v any, ru bool) Result {
 				rec = "⏸"
 			}
 		}
-		b.WriteString("<tr><td><code>" + html.EscapeString(id) + "</code></td><td>" + html.EscapeString(name) +
-			"</td><td>" + html.EscapeString(ip) + "</td><td>" + rec + "</td></tr>")
+		b.WriteString("<tr><td><code>" + esc(firstStr(im, "id", "ID")) + "</code></td><td>" +
+			esc(firstStr(im, "name", "Name")) + "</td><td>" +
+			esc(firstStr(im, "lan_ip", "LANIP", "ip")) + "</td><td>" + rec + "</td></tr>")
 	}
 	b.WriteString("</table>")
 	return Result{HTML: b.String(), Text: fmt.Sprintf("%d cameras", len(list))}
 }
 
-func formatKeyValues(action string, v any, ru bool) Result {
-	m, ok := v.(map[string]any)
-	if !ok {
-		return formatGeneric(action, v, ru)
+func formatStatus(v any, ru bool) Result {
+	m, _ := asMap(v)
+	if m == nil {
+		return formatSmart("status", v, ru)
 	}
-	emoji := "📊"
-	if action == "health" || action == "bot" {
-		emoji = "💚"
+	title := "📡 Status"
+	if ru {
+		title = "📡 Статус"
 	}
 	var b strings.Builder
-	b.WriteString("<b>" + emoji + " " + html.EscapeString(action) + "</b><br>")
-	b.WriteString("<table bordered striped compact><tr><th>key</th><th>value</th></tr>")
+	b.WriteString("<b>" + title + "</b><br>")
+	// top scalars
+	flat := map[string]any{}
+	for k, val := range m {
+		switch val.(type) {
+		case map[string]any, []any:
+			continue
+		default:
+			flat[k] = val
+		}
+	}
+	if len(flat) > 0 {
+		b.WriteString(mapTable(flat, 20))
+	}
+	// nested summary lines
+	for _, k := range []string{"metrics", "probes", "mismatch", "secondary_mismatch"} {
+		if sub, ok := m[k]; ok {
+			b.WriteString("<br><b>" + esc(k) + "</b><br>")
+			b.WriteString(valueHTML(sub, 0))
+		}
+	}
+	return Result{HTML: b.String(), Text: "status"}
+}
+
+func formatFlatMap(action, emoji string, v any, ru bool) Result {
+	m, _ := asMap(v)
+	if m == nil {
+		return formatSmart(action, v, ru)
+	}
+	return Result{HTML: "<b>" + emoji + " " + esc(action) + "</b><br>" + mapTable(m, 40), Text: action}
+}
+
+// formatSmart: arrays → table of items; objects → key/value (nested summarized).
+func formatSmart(action string, v any, ru bool) Result {
+	title := emojiFor(action) + " " + action
+	var b strings.Builder
+	b.WriteString("<b>" + esc(title) + "</b><br>")
+	b.WriteString(valueHTML(v, 0))
+	return Result{HTML: b.String(), Text: action}
+}
+
+func valueHTML(v any, depth int) string {
+	if depth > 3 {
+		return "<code>…</code>"
+	}
+	switch t := v.(type) {
+	case map[string]any:
+		// if looks like list wrapper
+		for _, k := range []string{"users", "cameras", "nodes", "sites", "devices", "pending", "repos", "sessions", "hosts", "items", "checks", "events", "segments"} {
+			if a, ok := t[k].([]any); ok {
+				return "<i>" + esc(k) + "</i> · " + fmt.Sprintf("%d", len(a)) + "<br>" + listTable(a, 25)
+			}
+		}
+		return mapTable(t, 30)
+	case []any:
+		return listTable(t, 25)
+	default:
+		return "<code>" + esc(truncate(fmt.Sprint(t), 200)) + "</code>"
+	}
+}
+
+func mapTable(m map[string]any, maxRows int) string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString("<table bordered striped compact><tr><th>key</th><th>value</th></tr>")
 	n := 0
 	for _, k := range keys {
-		if k == "metrics" || k == "probes" || k == "mismatch" {
-			continue // too deep
-		}
-		val := m[k]
-		if _, isMap := val.(map[string]any); isMap {
-			continue
-		}
-		if _, isArr := val.([]any); isArr {
-			continue
-		}
-		b.WriteString("<tr><td>" + html.EscapeString(k) + "</td><td><code>" + html.EscapeString(fmt.Sprint(val)) + "</code></td></tr>")
+		b.WriteString("<tr><td>" + esc(k) + "</td><td>" + cellValue(m[k]) + "</td></tr>")
 		n++
-		if n >= 24 {
-			break
-		}
-	}
-	b.WriteString("</table>")
-	return Result{HTML: b.String(), Text: action}
-}
-
-func formatListy(action string, v any, ru bool) Result {
-	var list []any
-	switch t := v.(type) {
-	case []any:
-		list = t
-	case map[string]any:
-		for _, k := range []string{"nodes", "sites", "devices", "pending", "repos", "sessions", "hosts", "items"} {
-			if a, ok := t[k].([]any); ok {
-				list = a
-				break
-			}
-		}
-		if list == nil {
-			return formatKeyValues(action, v, ru)
-		}
-	}
-	title := "📋 " + action
-	var b strings.Builder
-	b.WriteString("<b>" + html.EscapeString(title) + "</b> · " + fmt.Sprintf("%d", len(list)) + "<br>")
-	b.WriteString("<table bordered striped compact><tr><th>#</th><th>item</th></tr>")
-	for i, item := range list {
-		if i >= 30 {
+		if n >= maxRows {
 			b.WriteString("<tr><td colspan=\"2\">…</td></tr>")
 			break
 		}
-		label := fmt.Sprint(item)
-		if im, ok := item.(map[string]any); ok {
-			label = firstStr(im, "id", "name", "host", "path", "repo")
-			if label == "" {
-				label = fmt.Sprint(im)
-			}
-		}
-		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td></tr>", i+1, html.EscapeString(truncate(label, 80))))
 	}
 	b.WriteString("</table>")
-	return Result{HTML: b.String(), Text: fmt.Sprintf("%s (%d)", action, len(list))}
+	return b.String()
 }
 
-func formatGeneric(action string, v any, ru bool) Result {
-	title := "📦 " + action
-	if ru {
-		title = "📦 " + action
-	}
-	// shallow summary
+func listTable(list []any, maxRows int) string {
 	var b strings.Builder
-	b.WriteString("<b>" + html.EscapeString(title) + "</b><br>")
-	switch t := v.(type) {
-	case map[string]any:
-		b.WriteString(fmt.Sprintf("keys: <code>%d</code>", len(t)))
-	case []any:
-		b.WriteString(fmt.Sprintf("items: <code>%d</code>", len(t)))
-	default:
-		b.WriteString("<code>" + html.EscapeString(truncate(fmt.Sprint(v), 200)) + "</code>")
+	b.WriteString("<table bordered striped compact><tr><th>#</th><th>item</th></tr>")
+	for i, item := range list {
+		if i >= maxRows {
+			b.WriteString("<tr><td colspan=\"2\">… +" + fmt.Sprintf("%d", len(list)-maxRows) + "</td></tr>")
+			break
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td></tr>", i+1, cellValue(item)))
 	}
-	return Result{HTML: b.String(), Text: action}
+	b.WriteString("</table>")
+	return b.String()
 }
 
-// RawJSONHTML wraps raw JSON in expandable details (Bot API 10.x <details>).
+func cellValue(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return "—"
+	case bool:
+		if t {
+			return "✅"
+		}
+		return "🚫"
+	case float64, int, int64, json.Number:
+		return "<code>" + esc(fmt.Sprint(t)) + "</code>"
+	case string:
+		return "<code>" + esc(truncate(t, 120)) + "</code>"
+	case map[string]any:
+		// one-line summary of object
+		if name := firstStr(t, "name", "id", "host", "path", "repo", "unit"); name != "" {
+			return esc(name)
+		}
+		return "<code>{" + fmt.Sprintf("%d keys", len(t)) + "}</code>"
+	case []any:
+		return "<code>[" + fmt.Sprintf("%d", len(t)) + "]</code>"
+	default:
+		return "<code>" + esc(truncate(fmt.Sprint(t), 100)) + "</code>"
+	}
+}
+
+// RawJSONHTML wraps raw JSON in expandable details (Bot API 10.x).
 func RawJSONHTML(raw []byte, ru bool) string {
 	sum := "📄 JSON"
 	if ru {
 		sum = "📄 Сырой JSON"
 	}
-	body := html.EscapeString(truncate(prettyJSON(raw), 8000))
+	body := esc(truncate(prettyJSON(raw), 8000))
 	return "<details><summary>" + sum + "</summary><pre language=\"json\">" + body + "</pre></details>"
 }
 
@@ -319,6 +351,25 @@ func prettyJSON(raw []byte) string {
 		return string(raw)
 	}
 	return string(b)
+}
+
+func extractList(v any, keys ...string) []any {
+	switch t := v.(type) {
+	case []any:
+		return t
+	case map[string]any:
+		for _, k := range keys {
+			if a, ok := t[k].([]any); ok {
+				return a
+			}
+		}
+	}
+	return nil
+}
+
+func asMap(v any) (map[string]any, bool) {
+	m, ok := v.(map[string]any)
+	return m, ok
 }
 
 func firstStr(m map[string]any, keys ...string) string {
@@ -343,17 +394,7 @@ func asInt(v any) int {
 	return 0
 }
 
-func num(m map[string]any, path ...string) int {
-	cur := any(m)
-	for _, p := range path {
-		mm, ok := cur.(map[string]any)
-		if !ok {
-			return 0
-		}
-		cur = mm[p]
-	}
-	return asInt(cur)
-}
+func esc(s string) string { return html.EscapeString(s) }
 
 func truncate(s string, n int) string {
 	if len(s) <= n {

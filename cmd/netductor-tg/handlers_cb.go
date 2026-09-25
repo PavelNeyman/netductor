@@ -60,7 +60,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		if err != nil {
 			html = "⚠️ " + esc(err.Error()) + "<br>" + html
 		}
-		reply(token, chat, msgID, html, catalogResultKeyboard(id))
+		replyCatalog(token, chat, msgID, html, catalogResultKeyboard(id))
 		return
 	}
 	if strings.HasPrefix(data, "m:op:") {
@@ -75,7 +75,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		} else {
 			html = formatCatalogHTML(id, raw, false)
 		}
-		reply(token, chat, msgID, html, catalogResultKeyboard(id))
+		replyCatalog(token, chat, msgID, html, catalogResultKeyboard(id))
 		return
 	}
 	if data == "m:nvr" || strings.HasPrefix(data, "m:nvr:") {
