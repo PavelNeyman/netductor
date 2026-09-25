@@ -161,6 +161,7 @@ func Serve(o ServeOpts) error {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "status": TunnelStatus()})
 	})
 	mux.HandleFunc("/v1/session/issue", handleSessionIssue(token))
+	mux.HandleFunc("/v1/session/local", handleSessionLocal(token))
 
 	fmt.Fprintf(os.Stderr, "operator serve: http://%s/  (loopback only)\n", addr)
 	fmt.Fprintf(os.Stderr, "operator token: %s  (header X-Netductor-Token)\n", token)

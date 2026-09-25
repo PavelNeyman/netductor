@@ -1,3 +1,9 @@
+## 0.9.8
+
+- GET /v1/session/local — autofill node session from ~/.netductor/node_session
+- WebUI EN/RU tabs; table row actions (VPN on/off, edge approve/deny)
+- Extra POST: edge recovery, dhcp_static, mtls rotate, vpn enable/disable/revoke
+
 ## 0.9.7
 
 - Control POST: NVR PTZ/recorder, git pipeline run, registry ensure/stop

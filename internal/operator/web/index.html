@@ -39,7 +39,8 @@ table th,table td{word-break:break-word;max-width:14rem}
 </head>
 <body>
 <header>
-  <div><h1>netductor-op</h1><div class="meta" id="metaLine">Mac client · node API</div></div>
+  <div><h1 data-i18n="app_title">netductor-op</h1><div class="meta" id="metaLine">Mac client · node API</div></div>
+  <div><button type="button" id="langEn" class="active">EN</button> <button type="button" id="langRu">RU</button></div>
 </header>
 <nav class="nav-main" id="mainTabs">
   <button type="button" data-main="installer" class="active">Installer</button>
@@ -131,6 +132,10 @@ table th,table td{word-break:break-word;max-width:14rem}
       <div><label>Note</label><input id="vpnNote"/></div>
     </div>
     <button class="primary" type="button" data-act="vpn-add">Add user</button>
+    <div class="row"><div><label>user for enable/disable</label><input id="vpnActName"/></div><div></div></div>
+    <button class="primary" type="button" data-act="vpn-enable">Enable</button>
+    <button class="primary" type="button" data-act="vpn-disable">Disable</button>
+    <button class="primary" type="button" data-act="vpn-revoke">Revoke</button>
   </div>
   <div id="csec-nodes" class="csec" style="display:none">
     <button class="primary" type="button" data-act="nodes">Nodes</button>
@@ -139,6 +144,8 @@ table th,table td{word-break:break-word;max-width:14rem}
     <button class="primary" type="button" data-act="ssh-hosts">SSH hosts</button>
     <button class="primary" type="button" data-act="mtls-certs">mTLS certs</button>
     <button class="primary" type="button" data-act="sites">Sites</button>
+    <div class="row"><div><label>mTLS node_id</label><input id="mtlsNode"/></div><div></div></div>
+    <button class="primary" type="button" data-act="mtls-rotate">Rotate client cert</button>
   </div>
   <div id="csec-edge" class="csec" style="display:none">
     <button class="primary" type="button" data-act="edge-pending">Pending</button>
@@ -161,6 +168,11 @@ table th,table td{word-break:break-word;max-width:14rem}
       </div>
     </div>
     <button class="primary" type="button" data-act="edge-guest">Guest Wi‑Fi</button>
+    <div class="row">
+      <div><label>recovery site_id</label><input id="edgeRecSite"/></div>
+      <div><label>note</label><input id="edgeRecNote"/></div>
+    </div>
+    <button class="primary" type="button" data-act="edge-recovery">Issue recovery code</button>
   </div>
   <div id="csec-nvr" class="csec" style="display:none">
     <button class="primary" type="button" data-act="nvr-cameras">Cameras</button>
@@ -176,6 +188,15 @@ table th,table td{word-break:break-word;max-width:14rem}
     </div>
     <button class="primary" type="button" data-act="nvr-leases">Site DHCP leases</button>
     <button class="primary" type="button" data-act="nvr-wifi">Site Wi‑Fi clients</button>
+    <div class="row">
+      <div><label>dhcp device_id</label><input id="dhcpDid"/></div>
+      <div><label>mac</label><input id="dhcpMac"/></div>
+    </div>
+    <div class="row">
+      <div><label>ip</label><input id="dhcpIp"/></div>
+      <div><label>name</label><input id="dhcpName"/></div>
+    </div>
+    <button class="primary" type="button" data-act="nvr-dhcp">DHCP static</button>
     <div class="row">
       <div><label>PTZ camera id</label><input id="nvrPtzId"/></div>
       <div><label>PTZ dir</label><select id="nvrPtzDir"><option>left</option><option>right</option><option>up</option><option>down</option><option>stop</option></select></div>
@@ -418,8 +439,23 @@ function renderTables(payload){
     let h='<div class="card" style="padding:.75rem"><h3 style="margin:0 0 .5rem;font-size:.9rem">'+esc(t.title)+' <span class="note">('+t.rows.length+')</span></h3>';
     h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">';
     h+='<thead><tr>'+cols.map(c=>'<th style="text-align:left;border-bottom:1px solid var(--border);padding:.35rem;color:var(--muted)">'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+    const hasName = cols.includes('Name')||cols.includes('name');
+    const hasDid = cols.includes('device_id')||cols.includes('ID')||cols.includes('id');
+    if(hasName||hasDid) cols.push('_act');
     t.rows.slice(0,200).forEach(r=>{
       h+='<tr>'+cols.map(c=>{
+        if(c==='_act'){
+          let btns='';
+          const nm=r.Name||r.name;
+          const did=r.device_id||r.ID||r.id;
+          if(nm){ btns+='<button type="button" class="primary rowact" data-kind="vpn-disable" data-name="'+esc(nm)+'" style="padding:.2rem .4rem;font-size:.7rem;margin:0 .15rem">off</button>';
+                  btns+='<button type="button" class="primary rowact" data-kind="vpn-enable" data-name="'+esc(nm)+'" style="padding:.2rem .4rem;font-size:.7rem;margin:0 .15rem">on</button>'; }
+          if(did && String(t.title).toLowerCase().includes('pending')){
+            btns+='<button type="button" class="primary rowact" data-kind="edge-approve" data-id="'+esc(did)+'" style="padding:.2rem .4rem;font-size:.7rem;margin:0 .15rem">ok</button>';
+            btns+='<button type="button" class="primary rowact" data-kind="edge-deny" data-id="'+esc(did)+'" style="padding:.2rem .4rem;font-size:.7rem;margin:0 .15rem">no</button>';
+          }
+          return '<td style="border-bottom:1px solid var(--border);padding:.35rem;white-space:nowrap">'+btns+'</td>';
+        }
         let v=r[c];
         if(v===null||v===undefined) v='';
         else if(typeof v==='object') v=JSON.stringify(v);
@@ -473,6 +509,11 @@ const actions = {
   'ssh-hosts': async()=>nodeFetch('/api/ssh-hosts'),
   'mtls-certs': async()=>nodeFetch('/api/mtls/certs'),
   'sites': async()=>nodeFetch('/api/sites'),
+  'mtls-rotate': async()=>{
+    const node_id=document.getElementById('mtlsNode').value.trim();
+    if(!node_id) return {error:'node_id'};
+    return nodeFetch('/api/mtls/rotate',{method:'POST',body:JSON.stringify({node_id})});
+  },
   'edge-pending': async()=>nodeFetch('/api/edge/pending'),
   'edge-devices': async()=>nodeFetch('/api/edge/devices'),
   'edge-metrics': async()=>nodeFetch('/api/edge/metrics'),
@@ -484,6 +525,11 @@ const actions = {
     const act=document.getElementById('edgeAction').value;
     if(!id) return {error:'device_id required'};
     return nodeFetch('/api/edge/'+act,{method:'POST',body:JSON.stringify({device_id:id})});
+  },
+  'edge-recovery': async()=>{
+    const site_id=document.getElementById('edgeRecSite').value.trim();
+    const note=document.getElementById('edgeRecNote').value.trim();
+    return nodeFetch('/api/edge/recovery',{method:'POST',body:JSON.stringify({site_id,note})});
   },
   'edge-guest': async()=>{
     const did=document.getElementById('guestDid').value.trim();
@@ -519,6 +565,14 @@ const actions = {
     const did=document.getElementById('nvrSiteDid').value.trim();
     return nodeFetch('/api/nvr/site/leases'+(did?('?device_id='+encodeURIComponent(did)):''));
   },
+  'nvr-dhcp': async()=>{
+    const device_id=document.getElementById('dhcpDid').value.trim();
+    const mac=document.getElementById('dhcpMac').value.trim();
+    const ip=document.getElementById('dhcpIp').value.trim();
+    const name=document.getElementById('dhcpName').value.trim();
+    if(!device_id||!mac||!ip) return {error:'device_id, mac, ip'};
+    return nodeFetch('/api/nvr/site/dhcp_static',{method:'POST',body:JSON.stringify({device_id,mac,ip,name})});
+  },
   'nvr-wifi': async()=>{
     const did=document.getElementById('nvrSiteDid').value.trim();
     return nodeFetch('/api/nvr/site/wifi_clients'+(did?('?device_id='+encodeURIComponent(did)):''));
@@ -552,8 +606,50 @@ document.querySelectorAll('[data-act]').forEach(btn=>{
   };
 });
 
+document.body.addEventListener('click', async (ev)=>{
+  const t=ev.target.closest('.rowact'); if(!t) return;
+  const kind=t.dataset.kind;
+  try{
+    if(kind==='vpn-disable') showControl(await nodeFetch('/vpn/users/'+encodeURIComponent(t.dataset.name)+'/disable',{method:'POST',body:'{}'}));
+    if(kind==='vpn-enable') showControl(await nodeFetch('/vpn/users/'+encodeURIComponent(t.dataset.name)+'/enable',{method:'POST',body:'{}'}));
+    if(kind==='edge-approve') showControl(await nodeFetch('/api/edge/approve',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
+    if(kind==='edge-deny') showControl(await nodeFetch('/api/edge/deny',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
+  }catch(e){ showControl(String(e)); }
+});
 ['form-fleet','form-primary','form-secondary','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
-fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version+' · Control API parity'; }).catch(()=>{});
+const I18N={
+  en:{app_title:'netductor-op', tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings'},
+  ru:{app_title:'netductor-op', tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки'}
+};
+let uiLang=localStorage.getItem('nd_op_lang')||(navigator.language||'').startsWith('ru')?'ru':'en';
+function applyI18n(){
+  const d=I18N[uiLang]||I18N.en;
+  document.querySelectorAll('#mainTabs button').forEach(b=>{
+    if(b.dataset.main==='installer') b.textContent=d.tab_installer;
+    if(b.dataset.main==='control') b.textContent=d.tab_control;
+    if(b.dataset.main==='settings') b.textContent=d.tab_settings;
+  });
+  const t=document.querySelector('[data-i18n="app_title"]'); if(t) t.textContent=d.app_title;
+  document.getElementById('langEn').classList.toggle('active', uiLang==='en');
+  document.getElementById('langRu').classList.toggle('active', uiLang==='ru');
+}
+document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
+document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
+applyI18n();
+
+async function loadLocalSession(){
+  try{
+    const res=await fetch('/v1/session/local',{headers:{'X-Netductor-Token':ND_TOKEN}});
+    const j=await res.json();
+    if(j.ok && j.token){
+      const s=settings();
+      if(!s.node_session){ s.node_session=j.token; saveSettingsObj(s); }
+    }
+  }catch(e){}
+}
+loadLocalSession();
+
+fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version+' · Control'; }).catch(()=>{});
 updateTunnelHint();
 </script>
 </body>

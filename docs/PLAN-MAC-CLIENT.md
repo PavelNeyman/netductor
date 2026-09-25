@@ -112,3 +112,13 @@ Today: **localhost WebUI** in the browser + **TUI** in the terminal — both tal
 1. If `api_base` `/health` already OK → **direct** (existing tunnel or API via VPN path) — no new SSH.
 2. Else SSH tunnel: **VPN host first** if `prefer_vpn` and TCP to SSH port works, else public `primary_host`.
 3. Auth always **SSH key** (+ agent for passphrase).
+
+## Auth: password vs key
+
+| Phase | Auth |
+|-------|------|
+| **First deploy** (Installer primary/secondary) | **Password** on VPS once — inject operator SSH key, then harden (password off) |
+| **Day-2** tunnel / session / Control | **SSH key only** (`BatchMode`); passphrase via ssh-agent |
+| Password for day-2 tunnel | **Not used** — not needed after first deploy |
+
+Domain + LE: set in Installer / `domain` flags; certbot on primary as before (see DOMAIN.md).
