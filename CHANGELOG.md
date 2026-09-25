@@ -1,3 +1,9 @@
+## 0.9.12
+
+- WebUI split: index.html + app.css + app.js (embed)
+- CSP without unsafe-inline (style-src/script-src self only)
+- Token via meta nd-token, not injected into JS
+
 ## 0.9.11
 
 - TUI tools expanded: edge, NVR, git, registry, addons, mTLS, sites (remote CLI)

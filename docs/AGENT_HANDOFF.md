@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.11** · https://github.com/PavelNeyman/netductor
+**Baseline:** **v0.9.12** · https://github.com/PavelNeyman/netductor
 
 ## Read order
 

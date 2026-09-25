@@ -1,0 +1,467 @@
+const ND_TOKEN = (function(){
+  const m = document.querySelector('meta[name="nd-token"]');
+  return m ? (m.getAttribute('content') || '') : '';
+})();
+function settings(){
+  try{
+    const o=JSON.parse(localStorage.getItem('nd_op_settings')||'{}');
+    // session never from localStorage (XSS residual)
+    try{ const s=sessionStorage.getItem('nd_op_session'); if(s) o.node_session=s; else delete o.node_session; }catch(e){ delete o.node_session; }
+    return o;
+  }catch(e){return{}}
+}
+function saveSettingsObj(o){
+  const copy=Object.assign({}, o);
+  const tok=copy.node_session||'';
+  delete copy.node_session;
+  localStorage.setItem('nd_op_settings', JSON.stringify(copy));
+  try{ if(tok) sessionStorage.setItem('nd_op_session', tok); else sessionStorage.removeItem('nd_op_session'); }catch(e){}
+}
+function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replace(/\/$/,''); }
+
+const I18N = {
+en:{
+  app_title:'netductor-op', tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings',
+  set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
+  save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).', result:'Result',
+  sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_probes:'Probes', sec_adv:'Advanced'
+},
+ru:{
+  app_title:'netductor-op', tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки',
+  set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
+  save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage (не localStorage).', result:'Результат',
+  sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_probes:'Probes', sec_adv:'Advanced'
+}};
+let uiLang=localStorage.getItem('nd_op_lang')||((navigator.language||'').startsWith('ru')?'ru':'en');
+function applyI18n(){
+  const d=I18N[uiLang]||I18N.en;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
+  document.querySelectorAll('#mainTabs button').forEach(b=>{
+    if(b.dataset.main==='installer') b.textContent=d.tab_installer;
+    if(b.dataset.main==='control') b.textContent=d.tab_control;
+    if(b.dataset.main==='settings') b.textContent=d.tab_settings;
+  });
+  document.querySelectorAll('#controlSub button').forEach(b=>{
+    const k='sec_'+b.dataset.csec; if(d[k]) b.textContent=d[k];
+  });
+  const le=document.getElementById('langEn'), lr=document.getElementById('langRu');
+  if(le) le.classList.toggle('active', uiLang==='en');
+  if(lr) lr.classList.toggle('active', uiLang==='ru');
+}
+
+function showMain(name){
+  document.getElementById('main-installer').style.display = name==='installer'?'block':'none';
+  document.getElementById('main-control').style.display = name==='control'?'block':'none';
+  document.getElementById('main-settings').style.display = name==='settings'?'block':'none';
+  document.getElementById('subInstaller').style.display = name==='installer'?'flex':'none';
+  document.getElementById('deployLogSec').style.display = name==='installer'?'block':'none';
+  document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
+  if(name==='control'){ updateTunnelHint(); ensureTunnel().then(()=>refreshTunnelBadge()); }
+  if(name==='settings') loadSettingsForm();
+}
+document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
+document.querySelectorAll('#subInstaller button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#subInstaller button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('#main-installer .panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  };
+});
+document.querySelectorAll('#controlSub button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#controlSub button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.csec').forEach(p=>p.style.display='none');
+    document.getElementById('csec-'+btn.dataset.csec).style.display='block';
+  };
+});
+
+const logEl=document.getElementById('log'), stepsEl=document.getElementById('steps');
+function line(s){ logEl.textContent+=s+(s.endsWith('\n')?'':'\n'); logEl.scrollTop=logEl.scrollHeight; }
+function resetLog(){ logEl.textContent=''; stepsEl.innerHTML=''; }
+function chip(id,st){ let el=stepsEl.querySelector('[data-id="'+id+'"]'); if(!el){el=document.createElement('span');el.dataset.id=id;el.textContent=id;stepsEl.appendChild(el);} el.className='chip '+(st||''); }
+function parseSteps(chunk){ chunk.split('\n').forEach(l=>{ const m=l.match(/^step (\S+)/); if(!m)return; if(l.includes(' ERROR'))chip(m[1],'err'); else if(l.includes(' done'))chip(m[1],'ok'); else chip(m[1],'run'); }); }
+async function streamPost(url, body, btn){
+  btn.disabled=true; resetLog(); line('POST '+url);
+  try{
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
+    const reader=res.body.getReader(); const dec=new TextDecoder();
+    while(true){ const {done,value}=await reader.read(); if(done)break; const t=dec.decode(value); line(t); parseSteps(t); }
+  }catch(e){ line('error: '+e); }
+  btn.disabled=false;
+}
+function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token|session/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
+function loadForm(id,form){ try{ const o=JSON.parse(localStorage.getItem('nd_op_'+id)||'{}'); Object.keys(o).forEach(k=>{ const el=form.elements.namedItem(k); if(!el)return; if(el.type==='checkbox')el.checked=true; else el.value=o[k]; }); }catch(e){} }
+
+document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('fleet',fd);
+  await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on',
+    primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
+    secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
+    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on' }, e.submitter); };
+document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('primary',fd);
+  await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key') }, e.submitter); };
+document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
+  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
+document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd); const btn=e.submitter; btn.disabled=true;
+  try{ const res=await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({role:fd.get('role'),host:fd.get('host'),key:fd.get('key'),key_passphrase:fd.get('key_passphrase')})});
+    const j=await res.json(); document.getElementById('credResult').textContent=j.path?('OK → '+j.path):(j.error||JSON.stringify(j)); }catch(err){ document.getElementById('credResult').textContent=String(err); }
+  btn.disabled=false; };
+
+function loadSettingsForm(){
+  const s=settings();
+  const map={set_primary_host:'primary_host',set_key:'key',set_user:'user',set_api_port:'api_port',set_api_base:'api_base',set_secondary_host:'secondary_host',set_vpn_host:'vpn_host',set_node_session:'node_session'};
+  Object.keys(map).forEach(id=>{ const el=document.getElementById(id); if(!el)return; el.value=s[map[id]]||(id==='set_key'?'~/.ssh/netductor_primary':id==='set_user'?'root':id==='set_api_port'?'8787':id==='set_api_base'?'http://127.0.0.1:8787':''); });
+  const pv=document.getElementById('set_prefer_vpn'); if(pv) pv.value=(s.prefer_vpn==='0'?'0':'1');
+}
+document.getElementById('form-settings').onsubmit=e=>{
+  e.preventDefault(); const fd=new FormData(e.target);
+  saveSettingsObj({ primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
+    api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
+    vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session') });
+  document.getElementById('settingsSaved').textContent='OK'; updateTunnelHint();
+};
+function updateTunnelHint(){
+  const s=settings();
+  document.getElementById('tunnelCmd').textContent='host='+(s.primary_host||'—')+' vpn='+(s.vpn_host||'—')+' key='+(s.key||'~/.ssh/netductor_primary');
+}
+async function refreshTunnelBadge(){
+  try{
+    const res=await fetch('/v1/tunnel/status',{headers:{'X-Netductor-Token':ND_TOKEN}});
+    const st=await res.json();
+    const b=document.getElementById('tunnelBadge');
+    if(st.port_open){ b.textContent='up :'+st.local_port+(st.via?(' ·'+st.via):''); b.className='chip ok'; }
+    else if(st.process_up){ b.textContent='starting…'; b.className='chip run'; }
+    else { b.textContent='down'; b.className='chip err'; }
+    return st;
+  }catch(e){ return null; }
+}
+async function ensureTunnel(){
+  const s=settings();
+  if(!s.primary_host && !s.vpn_host) return false;
+  const res=await fetch('/v1/tunnel/start',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({ host:s.primary_host, vpn_host:s.vpn_host, prefer_vpn:s.prefer_vpn!=='0',
+      user:s.user||'root', key:s.key, local_port:s.api_port||'8787', api_base:apiBase() })});
+  await refreshTunnelBadge();
+  return res.json();
+}
+async function nodeFetch(path, opts){
+  opts=opts||{}; const s=settings();
+  const headers={'X-Netductor-Token':ND_TOKEN,'X-Node-API-Base':apiBase()};
+  if(s.node_session) headers['X-Node-Session']=s.node_session;
+  if(opts.body) headers['Content-Type']='application/json';
+  const res=await fetch('/v1/node'+path,{method:opts.method||'GET',headers,body:opts.body});
+  const text=await res.text(); let data; try{data=JSON.parse(text)}catch(e){data=text}
+  return {ok:res.ok,status:res.status,data};
+}
+
+let lastRaw=null;
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function renderTables(payload){
+  const box=document.getElementById('controlTables');
+  const raw=document.getElementById('controlStatus');
+  const btn=document.getElementById('btnShowRaw');
+  lastRaw=payload; box.innerHTML=''; raw.style.display='none'; btn.style.display='inline-block';
+  const data = payload && payload.data !== undefined ? payload.data : payload;
+  const tables=[];
+  function walk(obj, path){
+    if(Array.isArray(obj)){
+      if(obj.length && typeof obj[0]==='object' && obj[0]!==null && !Array.isArray(obj[0])) tables.push({title:path||'items', rows:obj});
+      else if(obj.length) tables.push({title:path||'list', rows:obj.map((v,i)=>({index:i,value:typeof v==='object'?JSON.stringify(v):v}))});
+      return;
+    }
+    if(obj && typeof obj==='object'){
+      const scalars={};
+      for(const [k,v] of Object.entries(obj)){
+        if(v!==null && typeof v==='object') walk(v, path?path+'.'+k:k);
+        else scalars[k]=v;
+      }
+      if(Object.keys(scalars).length) tables.push({title:path||'summary', rows:[scalars]});
+    }
+  }
+  walk(data,'');
+  if(!tables.length){ raw.style.display='block'; raw.textContent=typeof payload==='string'?payload:JSON.stringify(payload,null,2); btn.style.display='none'; return; }
+  for(const t of tables){
+    const keys=[]; t.rows.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!keys.includes(k)) keys.push(k); }));
+    const cols=keys.slice(0,12);
+    const hasName=cols.includes('Name')||cols.includes('name');
+    const hasDid=cols.includes('device_id')||cols.includes('ID')||cols.includes('id');
+    if(hasName||hasDid) cols.push('_act');
+    let h='<div class="card" style="padding:.75rem"><h3 style="margin:0 0 .5rem;font-size:.9rem">'+esc(t.title)+' <span class="note">('+t.rows.length+')</span></h3>';
+    h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr>'+cols.map(c=>'<th style="text-align:left;border-bottom:1px solid var(--border);padding:.35rem;color:var(--muted)">'+esc(c==='_act'?'':c)+'</th>').join('')+'</tr></thead><tbody>';
+    t.rows.slice(0,200).forEach(r=>{
+      h+='<tr>'+cols.map(c=>{
+        if(c==='_act'){
+          let btns='';
+          const nm=r.Name||r.name; const did=r.device_id||r.ID||r.id;
+          if(nm){ btns+='<button type="button" class="primary rowact" data-kind="vpn-disable" data-name="'+esc(nm)+'" style="padding:.15rem .35rem;font-size:.7rem">off</button> ';
+                  btns+='<button type="button" class="primary rowact" data-kind="vpn-enable" data-name="'+esc(nm)+'" style="padding:.15rem .35rem;font-size:.7rem">on</button>'; }
+          if(did && /pending/i.test(String(t.title))){
+            btns+=' <button type="button" class="primary rowact" data-kind="edge-approve" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">ok</button>';
+            btns+=' <button type="button" class="primary rowact" data-kind="edge-deny" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">no</button>';
+          }
+          return '<td style="border-bottom:1px solid var(--border);padding:.35rem;white-space:nowrap">'+btns+'</td>';
+        }
+        let v=r[c]; if(v===null||v===undefined) v=''; else if(typeof v==='object') v=JSON.stringify(v);
+        return '<td style="border-bottom:1px solid var(--border);padding:.35rem;vertical-align:top">'+esc(v)+'</td>';
+      }).join('')+'</tr>';
+    });
+    h+='</tbody></table></div></div>'; box.innerHTML+=h;
+  }
+}
+function showControl(x){ renderTables(x); }
+document.getElementById('btnShowRaw').onclick=()=>{
+  const raw=document.getElementById('controlStatus');
+  raw.style.display=raw.style.display==='none'?'block':'none';
+  raw.textContent=typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
+};
+
+// --- Control button definitions (max operator-session API) ---
+const BTN = {
+  overview:[
+    ['health','Health','GET','/health'],
+    ['bot','Bot status','GET','/api/bot-status'],
+    ['status','Status','GET','/api/status'],
+    ['metrics','Metrics','GET','/api/metrics'],
+    ['metrics-hist','Metrics history','GET','/api/metrics/history'],
+    ['addons','Addons','GET','/api/addons'],
+    ['addons-lampac','Lampac','GET','/api/addons/lampac'],
+    ['sni','SNI','GET','/api/sni'],
+    ['sni-presets','SNI presets','GET','/api/sni-presets'],
+    ['latest','Latest','GET','/api/latest'],
+    ['sessions','Sessions','GET','/api/sessions'],
+  ],
+  vpn:[
+    ['vpn-users','List users','GET','/vpn/users'],
+    ['vpn-refresh','Refresh links','POST','/api/vpn/refresh-links','{}'],
+  ],
+  nodes:[
+    ['nodes','Nodes','GET','/api/nodes'],
+    ['nodes-self','Self','GET','/api/nodes/self'],
+    ['secondary','Secondary status','GET','/api/secondary/status'],
+    ['secondary-links','Secondary links','GET','/api/secondary/links'],
+    ['ssh-hosts','SSH hosts','GET','/api/ssh-hosts'],
+    ['ssh-clear','SSH hosts clear','POST','/api/ssh-hosts/clear','{}'],
+    ['mtls-certs','mTLS certs','GET','/api/mtls/certs'],
+    ['sites','Sites','GET','/api/sites'],
+  ],
+  edge:[
+    ['edge-pending','Pending','GET','/api/edge/pending'],
+    ['edge-devices','Devices','GET','/api/edge/devices'],
+    ['edge-metrics','Metrics','GET','/api/edge/metrics'],
+    ['edge-metrics-hist','Metrics hist','GET','/api/edge/metrics/history'],
+    ['edge-templates','Templates','GET','/api/edge/templates'],
+    ['edge-backups','Backups','GET','/api/edge/backups'],
+    ['edge-commands','Commands','GET','/api/edge/commands'],
+    ['edge-results','Results','GET','/api/edge/results'],
+    ['edge-guest-st','Guest status','GET','/api/edge/guest/status'],
+  ],
+  nvr:[
+    ['nvr-cameras','Cameras','GET','/api/nvr/cameras'],
+    ['nvr-config','Config','GET','/api/nvr/config'],
+    ['nvr-storage','Storage','GET','/api/nvr/storage'],
+    ['nvr-events','Events','GET','/api/nvr/events'],
+    ['nvr-segments','Segments','GET','/api/nvr/segments'],
+    ['nvr-retention','Retention run','POST','/api/nvr/retention/run','{}'],
+    ['nvr-go2rtc','go2rtc write','POST','/api/nvr/go2rtc','{}'],
+  ],
+  git:[
+    ['git-repos','Repos','GET','/api/git/repos'],
+    ['git-pipelines','Pipelines','GET','/api/git/pipelines'],
+    ['git-artifacts','Artifacts','GET','/api/git/artifacts'],
+    ['reg-status','Registry status','GET','/api/registry/status'],
+    ['reg-catalog','Registry catalog','GET','/api/registry/catalog'],
+    ['reg-ensure','Registry ensure','POST','/api/registry/ensure','{}'],
+    ['reg-stop','Registry stop','POST','/api/registry/stop','{}'],
+    ['reg-crane','Ensure crane','POST','/api/registry/crane','{}'],
+  ],
+  backup:[
+    ['backup-peer','Peer','GET','/api/backup/peer'],
+    ['backup-run','Run now','POST','/api/backup/run','{}'],
+    ['sec-export','Secondary export','GET','/api/secondary/export'],
+  ],
+  probes:[
+    ['probes','Probes','GET','/api/probes'],
+    ['probes-cfg','Probes config','GET','/api/probes/config'],
+    ['probes-uptime','Uptime','GET','/api/probes/uptime'],
+    ['audit','Audit','GET','/api/audit'],
+  ],
+};
+
+function mountButtons(){
+  for(const [sec, list] of Object.entries(BTN)){
+    const el=document.getElementById('csec-'+sec); if(!el) continue;
+    let h='';
+    for(const [id,label,method,path,body] of list){
+      h+='<button class="primary" type="button" data-act="'+id+'">'+label+'</button> ';
+    }
+    // append forms for complex POSTs
+    if(sec==='vpn'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>name</label><input id="vpnName"/></div><div><label>note</label><input id="vpnNote"/></div></div>
+      <button class="primary" type="button" data-act="vpn-add">Add user</button>
+      <div class="row"><div><label>user action</label><input id="vpnActName"/></div><div></div></div>
+      <button class="primary" type="button" data-act="vpn-enable">Enable</button>
+      <button class="primary" type="button" data-act="vpn-disable">Disable</button>
+      <button class="primary" type="button" data-act="vpn-revoke">Revoke</button>
+      <button class="primary" type="button" data-act="vpn-link">Get links</button>`;
+    }
+    if(sec==='nodes'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>hostname</label><input id="nodeHost"/></div><div><label>node id</label><input id="nodeId"/></div></div>
+      <button class="primary" type="button" data-act="nodes-hostname">Set hostname</button>
+      <div class="row"><div><label>service restart</label><input id="nodeSvc" placeholder="sing-box"/></div><div><label>journal unit</label><input id="nodeJournal"/></div></div>
+      <button class="primary" type="button" data-act="nodes-restart">Restart service</button>
+      <button class="primary" type="button" data-act="nodes-journal">Journal</button>
+      <div class="row"><div><label>mTLS node_id</label><input id="mtlsNode"/></div><div></div></div>
+      <button class="primary" type="button" data-act="mtls-rotate">Rotate cert</button>
+      <button class="primary" type="button" data-act="mtls-revoke">Revoke cert</button>
+      <div class="row"><div><label>site_id</label><input id="siteId"/></div><div><label>push rsc</label><input id="siteRsc"/></div></div>
+      <button class="primary" type="button" data-act="sites-rsc">Get site RSC</button>
+      <button class="primary" type="button" data-act="sites-push">Push RSC</button>
+      <div class="row"><div><label>secondary cmd</label><input id="secCmd"/></div><div></div></div>
+      <button class="primary" type="button" data-act="sec-cmd">Secondary cmd</button>
+      <button class="primary" type="button" data-act="sec-sync">Secondary sync</button>
+      <button class="primary" type="button" data-act="sec-exit">Secondary exit toggle info</button>`;
+    }
+    if(sec==='edge'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>device_id</label><input id="edgeId"/></div>
+      <div><label>action</label><select id="edgeAction"><option>approve</option><option>deny</option><option>revoke</option></select></div></div>
+      <button class="primary" type="button" data-act="edge-act">Submit</button>
+      <div class="row"><div><label>guest device</label><input id="guestDid"/></div>
+      <div><label>guest</label><select id="guestAct"><option value="status">status</option><option value="grant">grant</option><option value="revoke">revoke</option></select></div></div>
+      <button class="primary" type="button" data-act="edge-guest">Guest</button>
+      <div class="row"><div><label>recovery site</label><input id="edgeRecSite"/></div><div></div></div>
+      <button class="primary" type="button" data-act="edge-recovery">Recovery code</button>
+      <div class="row"><div><label>set-site device</label><input id="edgeSiteDid"/></div><div><label>site_id</label><input id="edgeSiteId"/></div></div>
+      <button class="primary" type="button" data-act="edge-set-site">Set site</button>
+      <div class="row"><div><label>template name</label><input id="edgeTpl"/></div><div><label>bind device</label><input id="edgeBindDid"/></div></div>
+      <button class="primary" type="button" data-act="edge-template">Get template</button>
+      <button class="primary" type="button" data-act="edge-bind">Bind template</button>
+      <div class="row"><div><label>cmd device</label><input id="edgeCmdDid"/></div><div><label>cmd</label><input id="edgeCmdName"/></div></div>
+      <label>cmd arg</label><input id="edgeCmdArg"/>
+      <button class="primary" type="button" data-act="edge-cmd">Enqueue cmd</button>
+      <button class="primary" type="button" data-act="edge-export">Export</button>
+      <button class="primary" type="button" data-act="edge-backup">Trigger backup</button>`;
+    }
+    if(sec==='nvr'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>camera id</label><input id="nvrCamId"/></div>
+      <div><label>PTZ dir</label><select id="nvrPtzDir"><option>left</option><option>right</option><option>up</option><option>down</option><option>stop</option></select></div></div>
+      <button class="primary" type="button" data-act="nvr-ptz">PTZ</button>
+      <button class="primary" type="button" data-act="nvr-rec-start">Rec start</button>
+      <button class="primary" type="button" data-act="nvr-rec-stop">Rec stop</button>
+      <button class="primary" type="button" data-act="nvr-cam-del">Delete camera</button>
+      <div class="row"><div><label>site device</label><input id="nvrSiteDid"/></div><div></div></div>
+      <button class="primary" type="button" data-act="nvr-leases">Leases</button>
+      <button class="primary" type="button" data-act="nvr-wifi">Wi‑Fi clients</button>
+      <div class="row"><div><label>dhcp did</label><input id="dhcpDid"/></div><div><label>mac</label><input id="dhcpMac"/></div></div>
+      <div class="row"><div><label>ip</label><input id="dhcpIp"/></div><div><label>name</label><input id="dhcpName"/></div></div>
+      <button class="primary" type="button" data-act="nvr-dhcp">DHCP static</button>
+      <div class="row"><div><label>clip path</label><input id="nvrClip"/></div><div></div></div>
+      <button class="primary" type="button" data-act="nvr-clip-token">Clip token</button>
+      <button class="primary" type="button" data-act="nvr-motion">Motion cfg GET/POST via adv</button>`;
+    }
+    if(sec==='git'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>repo</label><input id="gitRepo"/></div><div><label>pipeline</label><input id="gitPipe"/></div></div>
+      <button class="primary" type="button" data-act="git-run">Run pipeline</button>
+      <div class="row"><div><label>git log repo</label><input id="gitLogRepo"/></div><div><label>show path</label><input id="gitShowPath"/></div></div>
+      <button class="primary" type="button" data-act="git-log">Log</button>
+      <button class="primary" type="button" data-act="git-show">Show</button>`;
+    }
+    el.innerHTML=h;
+  }
+}
+mountButtons();
+
+const special = {
+  'vpn-add': async()=>{ const name=document.getElementById('vpnName').value.trim(); const note=document.getElementById('vpnNote').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/vpn/users',{method:'POST',body:JSON.stringify({name,note})}); },
+  'vpn-enable': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/enable',{method:'POST',body:'{}'}); },
+  'vpn-disable': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/disable',{method:'POST',body:'{}'}); },
+  'vpn-revoke': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/revoke',{method:'POST',body:'{}'}); },
+  'vpn-link': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/link'); },
+  'nodes-hostname': async()=>{ const hostname=document.getElementById('nodeHost').value.trim(); return nodeFetch('/api/nodes/hostname',{method:'POST',body:JSON.stringify({hostname,id:document.getElementById('nodeId').value.trim()})}); },
+  'nodes-restart': async()=>{ return nodeFetch('/api/nodes/restart-service',{method:'POST',body:JSON.stringify({service:document.getElementById('nodeSvc').value.trim(),id:document.getElementById('nodeId').value.trim()})}); },
+  'nodes-journal': async()=>{ const u=document.getElementById('nodeJournal').value.trim(); return nodeFetch('/api/nodes/journal'+(u?('?unit='+encodeURIComponent(u)):'')); },
+  'mtls-rotate': async()=>{ const node_id=document.getElementById('mtlsNode').value.trim(); return nodeFetch('/api/mtls/rotate',{method:'POST',body:JSON.stringify({node_id})}); },
+  'mtls-revoke': async()=>{ const node_id=document.getElementById('mtlsNode').value.trim(); return nodeFetch('/api/mtls/revoke',{method:'POST',body:JSON.stringify({node_id})}); },
+  'sites-rsc': async()=>{ const id=document.getElementById('siteId').value.trim(); return nodeFetch('/api/sites/rsc'+(id?('?id='+encodeURIComponent(id)):'')); },
+  'sites-push': async()=>{ return nodeFetch('/api/sites/push-rsc',{method:'POST',body:JSON.stringify({site_id:document.getElementById('siteId').value.trim(),rsc:document.getElementById('siteRsc').value})}); },
+  'sec-cmd': async()=>{ return nodeFetch('/api/secondary/cmd',{method:'POST',body:JSON.stringify({cmd:document.getElementById('secCmd').value.trim()})}); },
+  'sec-sync': async()=>{ return nodeFetch('/api/secondary/sync',{method:'POST',body:'{}'}); },
+  'sec-exit': async()=>{ return nodeFetch('/api/secondary/exit'); },
+  'edge-act': async()=>{ const id=document.getElementById('edgeId').value.trim(); const act=document.getElementById('edgeAction').value; return nodeFetch('/api/edge/'+act,{method:'POST',body:JSON.stringify({device_id:id})}); },
+  'edge-guest': async()=>{ const did=document.getElementById('guestDid').value.trim(); const act=document.getElementById('guestAct').value; if(act==='status') return nodeFetch('/api/edge/guest/status'+(did?('?device_id='+encodeURIComponent(did)):'')); return nodeFetch('/api/edge/guest/'+act,{method:'POST',body:JSON.stringify({device_id:did})}); },
+  'edge-recovery': async()=>{ return nodeFetch('/api/edge/recovery',{method:'POST',body:JSON.stringify({site_id:document.getElementById('edgeRecSite').value.trim()})}); },
+  'edge-set-site': async()=>{ return nodeFetch('/api/edge/set-site',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeSiteDid').value.trim(),site_id:document.getElementById('edgeSiteId').value.trim()})}); },
+  'edge-template': async()=>{ const n=document.getElementById('edgeTpl').value.trim(); return nodeFetch('/api/edge/template'+(n?('?name='+encodeURIComponent(n)):'')); },
+  'edge-bind': async()=>{ return nodeFetch('/api/edge/bind-template',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeBindDid').value.trim(),template:document.getElementById('edgeTpl').value.trim()})}); },
+  'edge-cmd': async()=>{ return nodeFetch('/api/edge/cmd',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeCmdDid').value.trim(),cmd:document.getElementById('edgeCmdName').value.trim(),arg:document.getElementById('edgeCmdArg').value})}); },
+  'edge-export': async()=>{ return nodeFetch('/api/edge/export'); },
+  'edge-backup': async()=>{ return nodeFetch('/api/edge/backup',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeId').value.trim()})}); },
+  'nvr-ptz': async()=>{ return nodeFetch('/api/nvr/ptz',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim(),dir:document.getElementById('nvrPtzDir').value})}); },
+  'nvr-rec-start': async()=>{ return nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
+  'nvr-rec-stop': async()=>{ return nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
+  'nvr-cam-del': async()=>{ return nodeFetch('/api/nvr/cameras/delete',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
+  'nvr-leases': async()=>{ const did=document.getElementById('nvrSiteDid').value.trim(); return nodeFetch('/api/nvr/site/leases'+(did?('?device_id='+encodeURIComponent(did)):'')); },
+  'nvr-wifi': async()=>{ const did=document.getElementById('nvrSiteDid').value.trim(); return nodeFetch('/api/nvr/site/wifi_clients'+(did?('?device_id='+encodeURIComponent(did)):'')); },
+  'nvr-dhcp': async()=>{ return nodeFetch('/api/nvr/site/dhcp_static',{method:'POST',body:JSON.stringify({device_id:document.getElementById('dhcpDid').value.trim(),mac:document.getElementById('dhcpMac').value.trim(),ip:document.getElementById('dhcpIp').value.trim(),name:document.getElementById('dhcpName').value.trim()})}); },
+  'nvr-clip-token': async()=>{ return nodeFetch('/api/nvr/clip/token',{method:'POST',body:JSON.stringify({path:document.getElementById('nvrClip').value.trim()})}); },
+  'git-run': async()=>{ return nodeFetch('/api/git/pipeline',{method:'POST',body:JSON.stringify({repo:document.getElementById('gitRepo').value.trim(),pipeline:document.getElementById('gitPipe').value.trim()})}); },
+  'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?repo='+encodeURIComponent(r)):'')); },
+  'git-show': async()=>{ return nodeFetch('/api/git/show?repo='+encodeURIComponent(document.getElementById('gitLogRepo').value.trim())+'&path='+encodeURIComponent(document.getElementById('gitShowPath').value.trim())); },
+  'adv-send': async()=>{
+    const method=document.getElementById('advMethod').value;
+    let path=document.getElementById('advPath').value.trim(); if(!path.startsWith('/')) path='/'+path;
+    const body=document.getElementById('advBody').value;
+    if(method==='POST' && !confirm('POST '+path+' ?')) return {cancelled:true};
+    return nodeFetch(path,{method, body: method==='POST'?body:undefined});
+  },
+};
+
+// wire simple BTN acts
+for(const list of Object.values(BTN)){
+  for(const [id,label,method,path,body] of list){
+    special[id]=special[id]||(async()=>nodeFetch(path,{method, body: method==='POST'?(body||'{}'):undefined}));
+  }
+}
+
+document.getElementById('main-control').addEventListener('click', async (ev)=>{
+  const btn=ev.target.closest('[data-act]'); if(!btn) return;
+  const act=btn.dataset.act; if(!special[act]) return;
+  showControl({loading:act});
+  try{ showControl(await special[act]()); }catch(e){ showControl({error:String(e)}); }
+});
+
+document.body.addEventListener('click', async (ev)=>{
+  const t=ev.target.closest('.rowact'); if(!t) return;
+  try{
+    if(t.dataset.kind==='vpn-disable') showControl(await nodeFetch('/vpn/users/'+encodeURIComponent(t.dataset.name)+'/disable',{method:'POST',body:'{}'}));
+    if(t.dataset.kind==='vpn-enable') showControl(await nodeFetch('/vpn/users/'+encodeURIComponent(t.dataset.name)+'/enable',{method:'POST',body:'{}'}));
+    if(t.dataset.kind==='edge-approve') showControl(await nodeFetch('/api/edge/approve',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
+    if(t.dataset.kind==='edge-deny') showControl(await nodeFetch('/api/edge/deny',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
+  }catch(e){ showControl(String(e)); }
+});
+
+document.getElementById('btnTunnelStart').onclick=async()=>{ showControl(await ensureTunnel()); };
+document.getElementById('btnTunnelStop').onclick=async()=>{ await fetch('/v1/tunnel/stop',{method:'POST',headers:{'X-Netductor-Token':ND_TOKEN}}); showControl(await refreshTunnelBadge()); };
+document.getElementById('btnSessionIssue').onclick=async()=>{
+  const s=settings();
+  const res=await fetch('/v1/session/issue',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({host:s.primary_host,user:s.user||'root',key:s.key,hours:'72'})});
+  const j=await res.json();
+  if(j.token){ saveSettingsObj(Object.assign({},s,{node_session:j.token})); showControl({ok:true,saved:j.saved}); }
+  else showControl(j);
+};
+document.getElementById('btnSessionLoad').onclick=async()=>{
+  const res=await fetch('/v1/session/local',{headers:{'X-Netductor-Token':ND_TOKEN}});
+  const j=await res.json();
+  if(j.token){ saveSettingsObj(Object.assign({},settings(),{node_session:j.token})); loadSettingsForm(); }
+  showControl(j);
+};
+
+['form-fleet','form-primary','form-secondary','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
+document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
+document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
+applyI18n();
+(async()=>{ try{ const res=await fetch('/v1/session/local',{headers:{'X-Netductor-Token':ND_TOKEN}}); const j=await res.json(); if(j.ok&&j.token){ const s=settings(); if(!s.node_session){ s.node_session=j.token; saveSettingsObj(s);} } }catch(e){} })();
+fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version; }).catch(()=>{});
+updateTunnelHint();

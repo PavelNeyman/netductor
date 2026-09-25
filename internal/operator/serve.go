@@ -59,6 +59,30 @@ func Serve(o ServeOpts) error {
 
 	addr := net.JoinHostPort(bind, port)
 	mux := http.NewServeMux()
+	mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "method", 405)
+			return
+		}
+		name := strings.TrimPrefix(r.URL.Path, "/static/")
+		name = filepath.Base(name) // no traversal
+		switch name {
+		case "app.css":
+			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		case "app.js":
+			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		default:
+			http.NotFound(w, r)
+			return
+		}
+		b, err := web.FS.ReadFile(name)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(b)
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" && r.URL.Path != "/index.html" {
 			http.NotFound(w, r)
@@ -171,7 +195,7 @@ func Serve(o ServeOpts) error {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
-		w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'")
 		mux.ServeHTTP(w, r)
 	})
 	srv := &http.Server{
