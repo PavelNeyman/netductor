@@ -1,396 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="dark" />
-  <title>Netductor</title>
-  <link rel="stylesheet" href="/admin/style.css" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>netductor-op</title>
+<link rel="stylesheet" href="/static/app.css"/>
+<meta name="nd-token" content="/*__ND_TOKEN__*/"/>
+
 </head>
 <body>
-<section id="alerts-section"><h2 data-i18n="alerts">Alerts</h2><div id="alerts-box"></div><button type="button" id="btn-refresh-alerts" data-i18n="refresh_alerts">Refresh alerts</button></section>
-  <div id="toast" class="toast hide"></div>
-  <header class="top">
-    <div class="brand">Netductor</div>
-    <div id="host-line" class="muted"></div>
-    <button type="button" id="btn-lang" class="ghost">RU/EN</button>
-    <button type="button" id="btn-logout" class="ghost hide" data-i18n="logout">Logout</button>
-  </header>
-
-  <main id="login" class="card narrow">
-    <h1 data-i18n="login_title">Operator sign-in</h1>
-    <p class="muted" data-i18n="login_hint">Token from: netductor vpn session 72</p>
-    <label><span data-i18n="session_token">Session token</span><input id="token" type="password" autocomplete="off" /></label>
-    <button type="button" id="btn-login" class="primary" data-i18n="sign_in">Sign in</button>
-    <p id="login-err" class="err"></p>
-  </main>
-
-  <main id="dash" class="hide">
-    <div id="probe-strip" class="strip"></div>
-    <nav class="tabs">
-      <button data-tab="overview" class="tab active" data-i18n="tab_overview">Overview</button>
-      <button data-tab="users" class="tab" data-i18n="tab_vpn">VPN</button>
-      <button data-tab="nodes" class="tab" data-i18n="tab_nodes">Nodes</button>
-      <button data-tab="routers" class="tab" data-i18n="tab_routers">Routers</button>
-      <button data-tab="sites" class="tab" data-i18n="tab_sites">Sites</button>
-      <button data-tab="templates" class="tab" data-i18n="tab_templates">Templates</button>
-      <button data-tab="metrics" class="tab" data-i18n="tab_metrics">Metrics</button>
-      <button data-tab="probes" class="tab" data-i18n="tab_probes">Probes</button>
-      <button data-tab="addons" class="tab" data-i18n="tab_addons">Addons</button>
-      <button data-tab="sni" class="tab" data-i18n="tab_sni">SNI</button>
-      <button data-tab="relay" class="tab" data-i18n="tab_secondary">Secondary</button>
-      <button data-tab="git" class="tab" data-i18n="tab_git">Git</button>
-      <button data-tab="registry" class="tab" data-i18n="tab_registry">Registry</button>
-      <button data-tab="backup" class="tab" data-i18n="tab_backup">Backup</button>
-      <button class="tab" data-tab="audit" data-i18n="tab_audit">Audit</button>
-      <button class="tab" data-tab="sessions" data-i18n="tab_sessions">Sessions</button>
-      <button class="tab" data-tab="status" data-i18n="tab_status">Status</button>
-      <button data-tab="sshhosts" class="tab" data-i18n="tab_sshhosts">SSH hosts</button>
-    </nav>
-
-    <section id="tab-sshhosts" class="tab-panel hide">
-      <h2 data-i18n="ssh_hosts_title">SSH known hosts (TOFU)</h2>
-      <p class="hint" data-i18n="ssh_hosts_hint">After MT/VPS reinstall: Forget key, then reconnect once from trusted LAN.</p>
-      <div class="row">
-        <button type="button" id="btn-sshhosts-refresh" class="ghost" data-i18n="refresh">Refresh</button>
-        <button type="button" id="btn-sshhosts-clear-mt" class="ghost" data-i18n="clear_mt">Clear MikroTik</button>
-        <button type="button" id="btn-sshhosts-clear-relay" class="ghost" data-i18n="clear_secondary">Clear Secondary</button>
+<header>
+  <div><h1 data-i18n="app_title">netductor-op</h1><div class="meta" id="metaLine" data-i18n="meta_line">Mac client · node API</div></div>
+  <div><button type="button" id="langEn" class="active">EN</button> <button type="button" id="langRu">RU</button></div>
+</header>
+<nav class="nav-main" id="mainTabs">
+  <button type="button" data-main="installer" class="active">Installer</button>
+  <button type="button" data-main="control">Control</button>
+  <button type="button" data-main="settings">Settings</button>
+</nav>
+<nav class="nav-sub" id="subInstaller">
+  <button type="button" data-tab="fleet" class="active">Fleet</button>
+  <button type="button" data-tab="primary">Primary</button>
+  <button type="button" data-tab="secondary">Secondary</button>
+  <button type="button" data-tab="edge">OpenWrt</button>
+  <button type="button" data-tab="site">MikroTik</button>
+  <button type="button" data-tab="nvr">NVR</button>
+  <button type="button" data-tab="creds">Credentials</button>
+</nav>
+<main>
+<div id="main-installer">
+  <p class="note" data-i18n="inst_note">Deploy from this Mac over SSH.</p>
+  <section id="panel-fleet" class="panel active">
+    <form id="form-fleet">
+      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_ppass">Primary password</label><input name="primary_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host"/></div><div><label data-i18n="l_spass">Secondary password</label><input name="secondary_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain">Domain base</label><input name="domain_base"/></div><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div></div>
+      <div class="row"><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div><div><label data-i18n="l_key">SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="checks">
+        <label><input type="checkbox" name="do_primary" checked/> <span data-i18n="c_do_primary">Primary</span></label>
+        <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="c_do_secondary">Secondary</span></label>
+        <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
+        <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label>
+        <label><input type="checkbox" name="cf_proxy"/> <span data-i18n="c_cf">CF proxy i.</span></label>
+        <label><input type="checkbox" name="with_telegram" id="fleet_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
       </div>
-      <pre id="sshhosts-box" class="log"></pre>
-      <div class="row">
-        <input id="sshhosts-id" placeholder="host or host:port" />
-        <select id="sshhosts-kind"><option value="">auto</option><option value="mt">mikrotik</option><option value="secondary">relay</option></select>
-        <button type="button" id="btn-sshhosts-forget" class="primary" data-i18n="forget">Forget</button>
+      <div class="row tg-fields" id="fleet_tg_fields" hidden>
+        <div><label data-i18n="l_tg_token">TG bot token</label><input name="tg_token" type="password" autocomplete="off" placeholder="123456:ABC…"/></div>
+        <div><label data-i18n="l_tg_admin">TG admin user id</label><input name="tg_admin" inputmode="numeric" placeholder="149842673"/></div>
       </div>
-    </section>
-    <section id="tab-audit" class="tab-panel hide">
-      <h2 data-i18n="audit_title">Audit log</h2>
-      <pre id="audit-box" class="code">—</pre>
-      <button id="btn-audit-refresh" class="primary" data-i18n="refresh">Refresh</button>
-    </section>
-    <section id="tab-sessions" class="tab-panel hide">
-      <h2 data-i18n="sessions_title">Sessions</h2>
-      <pre id="sessions-box" class="code">—</pre>
-      <div class="row">
-        <button id="btn-sessions-refresh" class="ghost" data-i18n="refresh">Refresh</button>
-        <button id="btn-sessions-revoke" class="primary" data-i18n="revoke_all">Revoke all</button>
-        <button id="btn-vpn-refresh-links" class="ghost" data-i18n="refresh_vpn_links">Refresh VPN links</button>
+      <p class="note" id="fleet_tg_note" hidden data-i18n="tg_note">Telegram installs on primary only (token + numeric admin id required).</p>
+      <button class="primary" type="submit" data-i18n="btn_fleet">Fleet deploy</button>
+    </form>
+  </section>
+  <section id="panel-primary" class="panel">
+    <form id="form-primary">
+      <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain">Domain</label><input name="domain_base"/></div><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div></div>
+      <div class="row"><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div><div><label data-i18n="l_key">Key</label><input name="key"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="cf_proxy"/> <span data-i18n="c_cf">CF proxy i.</span></label>
+        <label><input type="checkbox" name="with_telegram" id="pri_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
+        <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
+        <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label></div>
+      <div class="row tg-fields" id="pri_tg_fields" hidden>
+        <div><label data-i18n="l_tg_token">TG bot token</label><input name="tg_token" type="password" autocomplete="off"/></div>
+        <div><label data-i18n="l_tg_admin">TG admin user id</label><input name="tg_admin" inputmode="numeric"/></div>
       </div>
-    </section>
-    
-    <section id="tab-git" class="tab-panel hide">
-      <h2 data-i18n="tab_git">Git (bare)</h2>
-      <p class="muted" data-i18n="git_hint">Repos under /var/lib/netductor/git — SSH push only</p>
-      <div class="row">
-        <input id="git-new-name" placeholder="repo name" />
-        <button type="button" id="btn-git-delete" data-i18n="git_delete">Delete</button>
-        <button type="button" id="btn-git-init" data-i18n="git_init">Init</button>
-        <button type="button" id="btn-git-refresh" data-i18n="refresh">Refresh</button>
-      </div>
-      <ul id="git-repo-list"></ul>
-      <h3 data-i18n="git_log">Log</h3>
-      <pre id="git-log" class="code"></pre>
-      <h3 data-i18n="git_show">Show / diff</h3>
-      <div class="row">
-        <input id="git-rev" placeholder="rev (HEAD)" value="HEAD" />
-        <button type="button" id="btn-git-show" data-i18n="git_show_btn">Show</button>
-      </div>
-      <pre id="git-show" class="code"></pre>
-      <h3 data-i18n="git_pipelines">Pipelines</h3>
-      <div class="row">
-        <select id="git-pipeline-sel"></select>
-        <button type="button" id="btn-git-run" data-i18n="git_run">Run pipeline</button>
-        <button type="button" id="btn-git-workflow" data-i18n="git_workflow">Run workflow</button>
-        <button type="button" id="btn-git-artifacts" data-i18n="git_artifacts">Artifacts</button>
-      </div>
-      <pre id="git-pipeline-out" class="code"></pre>
-      <h3 data-i18n="git_artifacts">Artifacts</h3>
-      <pre id="git-artifacts" class="code">—</pre>
-    </section>
-
-    <section id="tab-registry" class="tab-panel hide">
-      <h2 data-i18n="tab_registry">Registry</h2>
-      <p class="muted" data-i18n="registry_hint">Local OCI registry (127.0.0.1:5000). Use crane/docker; not public.</p>
-      <pre id="registry-status" class="code">—</pre>
-      <div class="row">
-        <button type="button" id="btn-registry-refresh" data-i18n="refresh">Refresh</button>
-        <button type="button" id="btn-registry-ensure" data-i18n="registry_ensure">Ensure</button>
-        <button type="button" id="btn-registry-crane" data-i18n="registry_crane">Install crane</button>
-        <button type="button" id="btn-registry-stop" data-i18n="registry_stop">Stop</button>
-        <input id="registry-user" placeholder="auth user" style="width:8rem" />
-        <input id="registry-pass" type="password" placeholder="auth pass" style="width:8rem" />
-        <button type="button" id="btn-registry-auth" data-i18n="registry_auth">Set auth</button>
-        <button type="button" id="btn-registry-auth-clear" data-i18n="registry_auth_clear">Clear auth</button>
-      </div>
-      <h3 data-i18n="registry_catalog">Catalog</h3>
-      <pre id="registry-catalog" class="code">—</pre>
-    </section>
-<section id="tab-backup" class="tab-panel hide">
-      <h2 data-i18n="backup_title">Backup / peer</h2>
-      <p class="hint" data-i18n="backup_hint_long">Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.</p>
-      <pre id="backup-status" class="code">—</pre>
-      <div class="row">
-        <input id="backup-target" placeholder="root@RELAY:/var/lib/netductor/backups/peers/core/" style="min-width:24rem" />
-        <button id="btn-backup-peer" class="primary" data-i18n="set_peer">Set peer</button>
-        <button id="btn-backup-run" class="ghost" data-i18n="run_backup">Run backup now</button>
-      </div>
-    </section>
-
-    <section id="tab-status" class="tab-panel hide">
-      <h2 data-i18n="status_title">Status</h2>
-      <p class="hint" data-i18n="status_hint">Core services + nodes + VPN (TG parity)</p>
-      <button id="btn-refresh-status" class="ghost" data-i18n="refresh">Refresh</button>
-      <pre id="status-box" class="log"></pre>
-    </section>
-    <section id="tab-overview" class="tab-panel">
-      <div class="grid">
-        <div class="card metric"><div class="label" data-i18n="cpu">CPU</div><div id="m-cpu" class="value">—</div></div>
-        <div class="card metric"><div class="label" data-i18n="ram">RAM</div><div id="m-ram" class="value">—</div></div>
-        <div class="card metric"><div class="label" data-i18n="disk">Disk</div><div id="m-disk" class="value">—</div></div>
-        <div class="card metric"><div class="label" data-i18n="load">Load</div><div id="m-load" class="value">—</div></div>
-      </div>
-      <div class="grid two">
-        <div class="card metric"><div class="label">RX</div><div id="m-rx" class="value">—</div></div>
-        <div class="card metric"><div class="label">TX</div><div id="m-tx" class="value">—</div></div>
-      </div>
-      <p id="collector-warn" class="err hide" data-i18n="collector_stale">Collector stale</p>
-    </section>
-
-    <section id="tab-users" class="tab-panel hide">
-      <div class="row">
-        <input id="new-user" placeholder="name" />
-        <input id="new-note" placeholder="note" />
-        <button id="btn-add-user" class="primary" data-i18n="add">Add</button>
-        <button id="btn-refresh-users" class="ghost" data-i18n="refresh">Refresh</button>
-      </div>
-      <div class="card"><table class="table" id="users-table">
-        <thead><tr><th data-i18n="th_name">Name</th><th data-i18n="th_status">Status</th><th data-i18n="th_note">Note</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table></div>
-      <div id="user-detail" class="card hide">
-        <h2 id="detail-title" data-i18n="user_detail">User</h2>
-        <pre id="detail-sub" class="code"></pre>
-        <div class="row">
-          <button id="btn-copy-sub" class="primary" data-i18n="copy_sub">Copy subscription</button>
-          <button id="btn-copy-vless" class="ghost" data-i18n="copy_vless">VLESS (primary)</button>
-          <button id="btn-copy-hy2" class="ghost" data-i18n="copy_hy2">HY2 (optional)</button>
-        </div>
-        <div class="row" style="margin-top:.5rem">
-          <input id="vpn-rename-to" placeholder="new name" />
-          <button id="btn-vpn-rename" class="primary" data-i18n="rename">Rename</button>
-        </div>
-        <img id="detail-qr" class="qr hide" alt="QR" />
-      </div>
-    </section>
-
-    <section id="tab-sites" class="tab-panel hide">
-      <h2 data-i18n="sites_title">Sites (MikroTik + RPi)</h2>
-      <p class="hint" data-i18n="sites_hint">One site = ROS (routing only) + RPi OpenWrt (VPN edge). Managed as pair.</p>
-      <div class="card">
-        <div class="row">
-          <input id="site-id" placeholder="site-home" />
-          <input id="site-name" placeholder="Home" />
-          <input id="site-rpi" placeholder="rpi device_id (edge)" />
-          <input id="site-mt" placeholder="mikrotik id (optional)" />
-          <button id="btn-site-save" class="primary" data-i18n="save_site">Save site</button>
-          <button id="btn-site-rsc" class="ghost" data-i18n="mt_rsc">MT RSC</button>
-        </div>
-        <pre id="site-out" class="log"></pre>
-      </div>
-      <div class="card"><h3 data-i18n="sites_list">Sites</h3><pre id="sites-list" class="log"></pre>
-        <button id="btn-sites-refresh" class="ghost" data-i18n="refresh">Refresh</button>
-      </div>
-    </section>
-    <section id="tab-routers" class="tab-panel hide">
-      <div id="edge-pending" class="card"></div>
-      <div class="card" id="edge-recovery-card">
-        <h3 data-i18n="edge_recovery_title">Edge recovery / register</h3>
-        <p class="hint" data-i18n="edge_recovery_hint">LAN page on router: http://&lt;router&gt;:7879/netductor-recovery. Control plane uses mTLS :8789 (not plain :8787).</p>
-        <div class="row">
-          <input id="rec-site" placeholder="site_id (optional)" />
-          <input id="rec-note" placeholder="note" />
-          <button type="button" class="primary" id="btn-edge-recovery" data-i18n="issue_recovery">Issue recovery code</button>
-        </div>
-        <pre id="edge-recovery-out" class="code"></pre>
-        <div class="row">
-          <input id="reg-device" placeholder="device_id" />
-          <input id="reg-site" placeholder="site_id" />
-          <button type="button" id="btn-edge-register" data-i18n="register_pending">Register pending</button>
-        </div>
-        <div class="row">
-          <input id="setsite-device" placeholder="device_id" />
-          <input id="setsite-site" placeholder="site_id" />
-          <button type="button" id="btn-edge-setsite" data-i18n="set_site">Set site</button>
-        </div>
-        <div class="row">
-          <button type="button" id="btn-edge-export" data-i18n="export_devices">Export devices JSON</button>
-        </div>
-        <pre id="edge-export-out" class="code"></pre>
-      </div>
-      <div class="card"><table class="table" id="routers-table">
-        <thead><tr><th data-i18n="th_id">ID</th><th data-i18n="th_status">Status</th><th data-i18n="th_host">Host</th><th data-i18n="th_wan">WAN</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table></div>
-      <pre id="edge-results" class="code"></pre>
-      <pre id="edge-backups" class="code"></pre>
-    </section>
-
-    
-    <section id="tab-nodes" class="tab-panel hide">
-      <div class="row">
-        <button id="btn-refresh-nodes" class="ghost" data-i18n="refresh">Refresh</button>
-      </div>
-      <div class="card">
-        <table id="nodes-table">
-          <thead><tr><th data-i18n="th_id">ID</th><th data-i18n="th_hostname">Hostname</th><th data-i18n="th_role">Role</th><th data-i18n="th_kind">Kind</th><th data-i18n="th_ip">IP</th><th data-i18n="th_desired">Desired</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="card">
-        <h3 data-i18n="rename_node">Rename node</h3>
-        <p class="hint" style="opacity:.85;font-size:.9rem;margin:.25rem 0 0.75rem">
-          <span data-i18n="nodes_rename_hint">Format: nd-&lt;role&gt;-&lt;marker&gt;. Roles: core, edge, lab. Bidirectional on heartbeat.</span>
-        </p>
-        <div class="row">
-          <input id="node-id" placeholder="node id (current)" />
-          <input id="node-hn" placeholder="nd-core-nl01" title="nd-&lt;role&gt;-&lt;marker&gt;" />
-          <button id="btn-node-journal" type="button" data-i18n="journal">Journal</button>
-          <button id="btn-node-upgrade" type="button" data-i18n="upgrade">Upgrade</button>
-      <button id="btn-node-reboot" type="button" data-i18n="reboot">Reboot</button>
-      <button id="btn-relay-sync" type="button" data-i18n="sync_relays">Sync secondaries</button>
-      <button id="btn-node-rename" class="primary" data-i18n="set_hostname">Set desired hostname</button>
-        </div>
-      </div>
-    </section>
-
-    <section id="tab-templates" class="tab-panel hide">
-      <div class="row">
-        <button id="btn-refresh-tmpl" class="ghost" data-i18n="refresh">Refresh</button>
-        <button id="btn-save-default" class="primary" data-i18n="ensure_default">Ensure default</button>
-      </div>
-      <div class="card">
-        <h3 data-i18n="template">Template</h3>
-        <label><span data-i18n="th_id">ID</span> <input id="f-id" value="default" /></label>
-        <label><span data-i18n="th_role">Role</span> <input id="f-role" value="site" /></label>
-        <h4 data-i18n="network">Network</h4>
-        <label><span data-i18n="lan_ip">LAN IP</span> <input id="f-lan-ip" placeholder="192.168.50.1" /></label>
-        <label><span data-i18n="lan_mask">LAN mask</span> <input id="f-lan-mask" placeholder="255.255.255.0" /></label>
-        <label class="row"><input type="checkbox" id="f-dhcp" checked /> DHCP</label>
-        <h4 data-i18n="wifi">Wi‑Fi</h4>
-        <label><span data-i18n="wifi_ssid">SSID</span> <input id="f-ssid" placeholder="Netductor" /></label>
-        <label><span data-i18n="wifi_pass">Password</span> <input id="f-wkey" type="password" /></label>
-        <label>Encryption
-          <select id="f-enc"><option value="psk2">psk2</option><option value="sae">sae</option><option value="psk-mixed">psk-mixed</option></select>
-        </label>
-        <h4 data-i18n="vpn_client">VPN client</h4>
-        <label class="row"><input type="checkbox" id="f-vpn" checked /> Enable VPN to VPS</label>
-        <label>Mode
-          <select id="f-vpn-mode"><option value="socks">socks (no TUN, recommended)</option><option value="tun">tun (full tunnel)</option></select>
-        </label>
-        <div class="row">
-          <button id="btn-form-save" class="primary" data-i18n="save_template">Save template</button>
-          <button id="btn-form-load" class="ghost" data-i18n="load_form">Load into form</button>
-        </div>
-      </div>
-      <div class="card">
-        <h3 data-i18n="bind_device">Bind to device</h3>
-        <div class="row">
-          <input id="bind-device" placeholder="device_id" />
-          <input id="bind-tmpl" placeholder="template_id" value="default" />
-          <button id="btn-bind" class="primary" data-i18n="bind">Bind</button>
-        </div>
-        <div class="row">
-          <input id="bind-ssid" placeholder="overlay ssid (optional)" />
-          <input id="bind-lan" placeholder="overlay lan_ip (optional)" />
-        </div>
-      </div>
-      <details class="card">
-        <summary data-i18n="advanced_json">Advanced: raw JSON</summary>
-        <textarea id="tmpl-editor" class="code" rows="12" style="width:100%"></textarea>
-        <div class="row">
-          <button id="btn-load-tmpl" class="ghost" data-i18n="load_json">Load JSON</button>
-          <button id="btn-save-tmpl" class="ghost" data-i18n="save_json">Save JSON</button>
-        </div>
-        <pre id="templates-raw" class="code">—</pre>
-      </details>
-    </section>
-
-    <section id="tab-metrics" class="tab-panel hide">
-      <div class="card"><pre id="metrics-raw" class="code">—</pre></div>
-    </section>
-
-    <section id="tab-probes" class="tab-panel hide">
-      <div class="card"><pre id="probes-raw" class="code">—</pre></div>
-    </section>
+      <button class="primary" type="submit" data-i18n="btn_primary">Deploy primary</button>
+    </form>
+  </section>
+  <section id="panel-secondary" class="panel">
+    <form id="form-secondary">
+      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key"/></div></div>
+      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" required/></div><div><label data-i18n="l_pass">Password</label><input name="secondary_password" type="password"/></div></div>
+      <button class="primary" type="submit" data-i18n="btn_secondary">Deploy secondary</button>
+    </form>
+  </section>
+  <section id="panel-site" class="panel">
+    <p class="note">MikroTik site + optional RSC push (same DeploySite as TUI).</p>
+    <form id="form-site">
+      <div class="row"><div><label>Site ID</label><input name="site_id" required placeholder="home"/></div><div><label>Display name</label><input name="name"/></div></div>
+      <div class="row"><div><label>RPi LAN (gateway)</label><input name="rpi_lan" placeholder="192.168.88.2"/></div><div><label>RPi device_id</label><input name="rpi_id"/></div></div>
+      <div class="row"><div><label data-i18n="l_mthost">MT host</label><input name="mt_host" required/></div><div><label data-i18n="l_mtuser">MT user</label><input name="mt_user" value="admin"/></div></div>
+      <div class="row"><div><label data-i18n="l_mtpass">MT password</label><input name="mt_password" type="password"/></div><div><label>MT SSH port</label><input name="mt_port" value="22"/></div></div>
+      <div class="row"><div><label data-i18n="l_opkey">Operator key</label><input name="operator_key" placeholder="~/.ssh/netductor_primary"/></div><div><label>MikroTik ID</label><input name="mikrotik_id"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="do_push" checked/> Push RSC now</label></div>
+      <button class="primary" type="submit">Save site / push</button>
+    </form>
+    <p class="note">Quick manage</p>
+    <form id="form-mt">
+      <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label>Action</label>
+        <select name="action"><option>identity</option><option>resource</option><option>routes</option><option>ping</option></select></div></div>
+      <div class="row"><div><label>User</label><input name="user" value="admin"/></div><div></div></div>
+      <div class="row"><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div><div><label>Port</label><input name="port" value="22"/></div></div>
+      <button class="primary" type="submit">Run</button>
+    </form>
+    <pre class="log" id="mtResult">—</pre>
+  </section>
+<section id="panel-edge" class="panel">
+    <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
+    <form id="form-edge">
+      <div class="row"><div><label>Router host</label><input name="router_host" required/></div><div><label>Router password</label><input name="router_password" type="password"/></div></div>
+      <div class="row"><div><label>Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
+      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_lan">LAN IP (optional)</label><input name="lan_ip"/></div><div><label data-i18n="l_wan">WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>
+      <div class="row"><div><label data-i18n="l_ssid">Wi-Fi SSID</label><input name="wifi_ssid"/></div><div><label data-i18n="l_wifikey">Wi-Fi key</label><input name="wifi_key" type="password"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="net_configure"/> <span data-i18n="c_netcfg">Configure network</span></label>
+      <label><input type="checkbox" name="guest_enable"/> <span data-i18n="c_guest">Guest Wi-Fi</span></label></div>
+      <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
+    </form>
+  </section>
   
-    
-    <section id="tab-sni" class="tab-panel hide">
-      <h2 data-i18n="sni_presets">SNI presets</h2>
-      <p class="hint" data-i18n="sni_hint">Reality handshake names for carrier WL experiments (Yota etc.)</p>
-      <div class="row">
-        <select id="sni-pick"><option value="yandex">yandex (ya.ru)</option><option value="vk">vk</option><option value="mail">mail</option><option value="gosuslugi">gosuslugi</option><option value="yota-try">yota-try</option></select>
-        <button id="btn-sni-apply" class="primary" data-i18n="apply_sni">Apply live SNI</button>
-        <button id="btn-sni-refresh" class="ghost" data-i18n="refresh">Refresh</button>
-      </div>
-      <pre id="sni-box" class="log"></pre>
-    </section>
-    <section id="tab-relay" class="tab-panel hide">
-      <h2 data-i18n="relay_title">Secondary (RU)</h2>
-      <p class="muted" data-i18n="relay_hint">Mobile path: phone → RU secondary → primary.</p>
-      <button id="btn-relay-export" class="primary" data-i18n="export_bundle">Export bundle (ya.ru)</button>
-      <button id="btn-relay-exit-on" class="success" data-i18n="ru_exit_on">RU exit ON</button>
-      <button id="btn-relay-exit-off" class="ghost" data-i18n="ru_exit_off">RU exit OFF</button>
-      <p id="relay-exit-st" class="muted"></p>
-      <pre id="relay-bundle" class="code"></pre>
-      <h3 data-i18n="oneliner_ru">One-liner for RU VPS</h3>
-      <pre id="relay-oneline" class="code"></pre>
-      <p class="muted" data-i18n="after_join_ru">After join on RU: netductor secondary links</p>
-    </section>
-
-    <section id="tab-addons" class="tab-panel hide">
-      <h2 data-i18n="addons_title">Addons</h2>
-      <div class="card" id="addon-lampac">
-        <h3 data-i18n="lampac">Lampac</h3>
-        <div class="grid two">
-          <div><span class="muted" data-i18n="th_status">Status</span><div id="lp-status">—</div></div>
-          <div><span class="muted" data-i18n="health">Health</span><div id="lp-health">—</div></div>
-          <div><span class="muted" data-i18n="cpu_ram">CPU / RAM</span><div id="lp-res">—</div></div>
-          <div><span class="muted" data-i18n="version">Version</span><div id="lp-ver">—</div></div>
-          <div><span class="muted" data-i18n="ping">Ping</span><div id="lp-ping">—</div></div>
-          <div><span class="muted" data-i18n="chromium">Chromium</span><div id="lp-chr">—</div></div>
-        </div>
-        <p class="muted" data-i18n="lampac_hint">Bound to loopback only (VPN/SSH). Open UI via tunnel.</p>
-        <div class="row">
-          <a id="lp-ui" class="ghost" href="http://127.0.0.1:9118/" target="_blank" rel="noopener" data-i18n="open_ui">Open UI</a>
-          <a id="lp-admin" class="ghost" href="http://127.0.0.1:9118/admin" target="_blank" rel="noopener" data-i18n="lampac_admin">Lampac Admin</a>
-          <button type="button" id="btn-lp-refresh" class="primary" data-i18n="refresh">Refresh</button>
-        </div>
-      </div>
-    </section>
-
-  </main>
-  <script src="/admin/app.js"></script>
-
-<section id="node-ops">
-  <h2 data-i18n="node_ops">Node ops</h2>
-  <p class="muted" data-i18n="node_ops_hint">Same as Telegram: journal + restart service</p>
-  <label><span data-i18n="unit">Unit</span> <select id="ops-unit"><option>sing-box</option><option>blocky</option><option>netductor-api</option><option>netductor-telegram-bot</option></select></label>
-  <button type="button" id="btn-journal" data-i18n="journal">Journal</button>
-  <button type="button" id="btn-restart-svc" data-i18n="restart_svc">Restart service</button>
-  <pre id="ops-out" class="log"></pre>
-</section>
-<section id="relay-routing">
-  <h2 data-i18n="relay_routing">Secondary routing</h2>
-  <p data-i18n="relay_routing_hint">RU domains → direct on secondary · other → primary. See docs/RELAY-ROUTING.md</p>
-  <button type="button" id="btn-relay-sync" data-i18n="sync_relay">Sync secondary config</button>
-</section>
+  <section id="panel-nvr" class="panel">
+    <p class="note" data-i18n="nvr_note">Day-2 NVR via node session (start tunnel + session first). Same ops as TUI NVR wizard.</p>
+    <form id="form-nvr">
+      <div class="row"><div><label data-i18n="l_nvr_action">Action</label>
+        <select name="action"><option value="status">status</option><option value="list">list cameras</option>
+        <option value="leases">leases</option><option value="add">add camera</option>
+        <option value="rec-start">record start</option><option value="rec-stop">record stop</option></select></div>
+        <div><label data-i18n="l_edge_id">Edge device id</label><input name="device_id" placeholder="site-cudy-1"/></div></div>
+      <div class="row"><div><label data-i18n="l_cam_name">Camera name/id</label><input name="cam_name"/></div>
+        <div><label data-i18n="l_cam_ip">Camera LAN IP</label><input name="cam_ip"/></div></div>
+      <div class="row"><div><label data-i18n="l_cam_pass">Camera password</label><input name="cam_pass" type="password"/></div>
+        <div><label data-i18n="l_site_id">Site id</label><input name="site_id"/></div></div>
+      <button class="primary" type="submit" data-i18n="btn_nvr">Run NVR</button>
+    </form>
+  </section>
+<section id="panel-creds" class="panel">
+    <form id="form-creds">
+      <div class="row"><div><label data-i18n="l_role">Role</label><select name="role"><option>primary</option><option>secondary</option></select></div><div><label data-i18n="l_host">Host</label><input name="host" required/></div></div>
+      <div class="row"><div><label data-i18n="l_key">Key</label><input name="key"/></div><div><label>Passphrase</label><input name="key_passphrase" type="password"/></div></div>
+      <button class="primary" type="submit" data-i18n="btn_creds">Collect</button>
+    </form>
+    <p id="credResult" class="note"></p>
+  </section>
+</div>
 
 
-      <section class="card" id="mtls-section">
-        <h2><span data-i18n="mtls_title">mTLS certs</span></h2>
-        <p class="hint" data-i18n="mtls_hint_long">Agent plane client certificates (expiry / revoke). After rotate, device auto-pulls mtls_refresh.</p>
-        <button type="button" class="primary" id="btn-mtls-refresh" data-i18n="mtls_refresh">Refresh</button>
-        <pre id="mtls-certs" class="code"></pre>
-      </section>
+<div id="main-control" class="hidden">
+  <p class="note" data-i18n="ctrl_note">Day-2 via node API. Tunnel: direct health → VPN SSH → public SSH.</p>
+  <div class="card">
+    <h3 data-i18n="tunnel">Tunnel <span id="tunnelBadge" class="chip">—</span></h3>
+    <pre class="log" id="tunnelCmd" class="log tunnel-log"></pre>
+    <button class="primary" type="button" id="btnTunnelStart" data-i18n="btn_tunnel_start">Start / ensure</button>
+    <button class="primary" type="button" id="btnTunnelStop" data-i18n="btn_tunnel_stop">Stop</button>
+    <button class="primary" type="button" id="btnSessionIssue" data-i18n="btn_session_issue">Issue session</button>
+    <button class="primary" type="button" id="btnSessionLoad" data-i18n="btn_session_load">Load session file</button>
+  </div>
+  <nav class="nav-sub" id="controlSub" class="nav-sub nav-sub-wrap">
+    <button type="button" data-csec="overview" class="active">Overview</button>
+    <button type="button" data-csec="vpn">VPN</button>
+    <button type="button" data-csec="nodes">Nodes</button>
+    <button type="button" data-csec="edge">Edge</button>
+    <button type="button" data-csec="nvr">NVR</button>
+    <button type="button" data-csec="git">Git / Reg</button>
+    <button type="button" data-csec="backup">Backup</button>
+    <button type="button" data-csec="dns">DNS</button>
+    <button type="button" data-csec="probes">Probes</button>
+    <button type="button" data-csec="adv" id="btnAdvTab">Advanced</button>
+  </nav>
+  <div id="csec-overview" class="csec"></div>
+  <div id="csec-vpn" class="csec hidden"></div>
+  <div id="csec-nodes" class="csec hidden"></div>
+  <div id="csec-edge" class="csec hidden"></div>
+  <div id="csec-nvr" class="csec hidden"></div>
+  <div id="csec-git" class="csec hidden"></div>
+  <div id="csec-backup" class="csec hidden"></div>
+  <div id="csec-dns" class="csec hidden"></div>
+  <div id="csec-probes" class="csec hidden"></div>
+  <div id="csec-adv" data-advanced="1" class="csec hidden">
+    <p class="note" data-i18n="adv_note">Generic POST/GET for any session API path</p>
+    <div class="row"><div><label data-i18n="l_method">method</label><select id="advMethod"><option>GET</option><option>POST</option></select></div>
+    <div><label data-i18n="l_path">path</label><input id="advPath" placeholder="/api/status"/></div></div>
+    <label data-i18n="l_body">JSON body</label><textarea id="advBody" rows="4" class="adv-body">{ }</textarea>
+    <button class="primary" type="button" data-act="adv-send" data-i18n="btn_send">Send</button>
+  </div>
+  <div class="card mt-1">
+    <h3 data-i18n="result">Result</h3>
+    <div id="controlTables"></div>
+    <pre class="log hidden" id="controlStatus">—</pre>
+    <button class="primary hidden" type="button" id="btnShowRaw" data-i18n="btn_raw">Raw JSON</button>
+  </div>
+</div>
+
+<div id="main-settings" class="hidden">
+  <form id="form-settings">
+    <div class="card">
+      <h3 data-i18n="set_conn">Connection</h3>
+      <div class="row"><div><label data-i18n="set_phost">Primary host (public)</label><input name="primary_host" id="set_primary_host"/></div>
+      <div><label data-i18n="set_vpn">Primary VPN host</label><input name="vpn_host" id="set_vpn_host"/></div></div>
+      <div class="row"><div><label data-i18n="set_key">SSH key</label><input name="key" id="set_key" value="~/.ssh/netductor_primary"/></div>
+      <div><label data-i18n="set_user">SSH user</label><input name="user" id="set_user" value="root"/></div></div>
+      <div class="row"><div><label data-i18n="set_api_port">API local port</label><input name="api_port" id="set_api_port" value="8787"/></div>
+      <div><label data-i18n="set_api_base">API base</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div></div>
+      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div>
+      <div><label data-i18n="set_prefer">Prefer VPN for SSH</label><select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes</option><option value="0">no</option></select></div></div>
+      <div class="row"><div><label data-i18n="set_session">Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div><div><span class="note" data-i18n="set_session_note">Not stored in localStorage</span></div></div>
+      <div class="checks"><label><input type="checkbox" name="show_advanced" id="set_show_advanced"/> <span data-i18n="c_adv">Show Advanced (full session API)</span></label></div>
+      <button class="primary" type="submit" data-i18n="save">Save</button>
+      <pre class="log" id="settingsSaved" class="log settings-log"></pre>
+    </div>
+  </form>
+</div>
+<div class="sec" id="deployLogSec">
+  <div class="steps" id="steps"></div>
+  <pre class="log" id="log" data-i18n="idle">idle</pre>
+</div>
+</main>
+
+
+<script src="/static/app.js" defer></script>
 </body>
 </html>

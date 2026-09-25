@@ -44,7 +44,7 @@ en:{
   set_session_note:'Not stored in localStorage',
   save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
   result:'Result', tunnel:'Tunnel', idle:'idle',
-  sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_probes:'Probes', sec_adv:'Advanced',
+  sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
   adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
   b_health:'Health', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_metrics:'Metrics',
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
@@ -83,7 +83,7 @@ ru:{
   set_session_note:'Не хранится в localStorage',
   save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
   result:'Результат', tunnel:'Туннель', idle:'ожидание',
-  sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_probes:'Probes', sec_adv:'Дополнительно',
+  sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
   adv_note:'Произвольный POST/GET к session API', l_method:'метод', l_path:'путь', l_body:'JSON body',
   b_health:'Health', b_doctor:'Doctor', b_domain:'Домен', b_bot:'Статус бота', b_status:'Статус', b_metrics:'Метрики',
   b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
@@ -457,9 +457,15 @@ const BTN = {
     ['reg-stop','Registry stop','POST','/api/registry/stop','{}'],
     ['reg-crane','Ensure crane','POST','/api/registry/crane','{}'],
   ],
+  dns:[
+    ['dns-lists','DNS lists','GET','/api/dns/lists'],
+    ['dns-reload','DNS reload','POST','/api/dns/reload','{}'],
+  ],
   backup:[
     ['backup-peer','Peer','GET','/api/backup/peer'],
     ['backup-run','Run now','POST','/api/backup/run','{}'],
+    ['backup-schedule','Schedule','GET','/api/backup/schedule'],
+    ['backup-list','Files','GET','/api/backup/list'],
     ['sec-export','Secondary export','GET','/api/secondary/export'],
   ],
   probes:[

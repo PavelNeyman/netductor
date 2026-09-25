@@ -68,6 +68,11 @@ func All() []Action {
 		a("reg-status", "git", "GET", "/api/registry/status", "", "Registry status", "Registry"),
 		a("reg-ensure", "git", "POST", "/api/registry/ensure", "{}", "Registry ensure", "Registry ensure"),
 
+		
+		a("dns-lists", "dns", "GET", "/api/dns/lists", "", "DNS lists", "DNS списки"),
+		a("dns-reload", "dns", "POST", "/api/dns/reload", "{}", "DNS reload", "DNS reload"),
+		a("backup-schedule", "backup", "GET", "/api/backup/schedule", "", "Backup schedule", "Расписание бэкапа"),
+		a("backup-list", "backup", "GET", "/api/backup/list", "", "Backup files", "Файлы бэкапа"),
 		a("backup-peer", "backup", "GET", "/api/backup/peer", "", "Peer", "Peer"),
 		a("backup-run", "backup", "POST", "/api/backup/run", "{}", "Run now", "Бэкап сейчас"),
 		a("sec-export", "backup", "GET", "/api/secondary/export", "", "Secondary export", "Secondary export"),
@@ -125,7 +130,7 @@ func Get(id string) (Action, bool) {
 
 // Sections returns unique section names in stable order.
 func Sections() []string {
-	order := []string{"overview", "vpn", "nodes", "edge", "nvr", "git", "backup", "probes"}
+	order := []string{"overview", "vpn", "nodes", "edge", "nvr", "git", "backup", "dns", "probes"}
 	have := map[string]bool{}
 	for _, a := range All() {
 		have[a.Section] = true

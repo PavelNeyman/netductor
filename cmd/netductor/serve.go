@@ -26,6 +26,7 @@ func buildAPIMux() http.Handler {
 	nvr.StartBackground()
 	registerSessionAPI(mux)
 	registerGitAPI(mux)
+	registerDNSAPI(mux)
 	registerRegistryAPI(mux)
 	registerVPNHTTP(mux)
 

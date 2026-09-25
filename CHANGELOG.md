@@ -1,3 +1,9 @@
+## 0.9.33
+
+- API: /api/dns/lists|set|reload; /api/backup/schedule|list
+- Web Control: DNS section; backup schedule/files buttons
+- opcatalog: dns + backup schedule/list
+
 ## 0.9.32
 
 - OPEN_ITEMS: CDN-XHTTP plan B (idea only)

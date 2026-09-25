@@ -60,6 +60,52 @@ func registerVPNHTTP(mux *http.ServeMux) {
 	})
 
 	// --- VPN users (operator session) ---
+	
+	mux.HandleFunc("/api/backup/schedule", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method == http.MethodGet {
+			s := install.LoadBackupSchedule()
+			writeJSON(w, 200, map[string]any{
+				"schedule": s,
+				"display":  install.FormatBackupSchedule(s),
+				"keep":     install.BackupKeepCount(),
+			})
+			return
+		}
+		if r.Method == http.MethodPost {
+			body := readJSON(r)
+			s := install.LoadBackupSchedule()
+			if v, ok := body["hour"].(float64); ok {
+				s.Hour = int(v)
+			}
+			if v, ok := body["minute"].(float64); ok {
+				s.Minute = int(v)
+			}
+			if v, ok := body["utc"].(bool); ok {
+				s.UTC = v
+			}
+			if err := install.SaveBackupSchedule(s); err != nil {
+				writeJSON(w, 500, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "schedule": s, "display": install.FormatBackupSchedule(s)})
+			return
+		}
+		writeJSON(w, 405, map[string]string{"error": "method"})
+	})
+	mux.HandleFunc("/api/backup/list", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodGet {
+			writeJSON(w, 405, map[string]string{"error": "method"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"files": install.ListBackupFiles()})
+	})
+
 	mux.HandleFunc("/vpn/users", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return

@@ -1,1151 +1,673 @@
-(() => {
-  const $ = (s) => document.querySelector(s);
-  const state = { token: localStorage.getItem('nd_token') || '', lang: localStorage.getItem('nd_lang') || 'en' };
-  const i18n = {
-      app_title: 'Netductor',
-      opt_auto: 'auto',
-      opt_mikrotik: 'mikrotik',
-      opt_secondary: 'secondary',
-      backup_hint_long: 'Cross-VPS SCP of encrypted /etc/netductor (few MB). peer-set then Run backup.',
-      status_hint: 'Core services + nodes + VPN (TG parity)',
-      sites_hint: 'One site = ROS (routing only) + RPi OpenWrt (VPN edge). Managed as pair.',
-      th_host: 'Host',
-      th_wan: 'WAN',
-      nodes_rename_hint: 'Format: nd-<role>-<marker>. Roles: core, edge, lab. Bidirectional on heartbeat.',
-      vpn_client: 'VPN client',
-      advanced_json: 'Advanced: raw JSON',
-      sni_hint: 'Reality handshake names for carrier WL experiments (Yota etc.)',
-      unit: 'Unit',
-      mtls_hint_long: 'Agent plane client certificates (expiry / revoke). After rotate, device auto-pulls mtls_refresh.',
-      socks_opt: 'socks (no TUN, recommended)',
-      tun_opt: 'tun (full tunnel)',
-    en: {
-      mtls_title: 'mTLS certs',
-      mtls_refresh: 'Refresh certs',
-      mtls_hint: 'Agent plane client certificates. After rotate, device pulls mtls_refresh.',
-      secondary_tab: 'Secondary',
-      login_title: 'Operator sign-in',
-      login_hint: 'Token: netductor vpn session 72',
-      sign_in: 'Sign in',
-      logout: 'Logout',
-      session_token: 'Session token',
-      alerts: 'Alerts',
-      refresh_alerts: 'Refresh alerts',
-      tab_overview: 'Overview',
-      tab_vpn: 'VPN',
-      tab_nodes: 'Nodes',
-      tab_routers: 'Routers',
-      tab_sites: 'Sites',
-      tab_templates: 'Templates',
-      tab_metrics: 'Metrics',
-      tab_probes: 'Probes',
-      tab_addons: 'Addons',
-      tab_sni: 'SNI',
-      tab_secondary: 'Secondary',
-      tab_backup: 'Backup',
-      tab_git: 'Git',
-      tab_registry: 'Registry',
-      registry_hint: 'Локальный OCI registry (127.0.0.1:5000). crane/docker; не публичный.',
-      registry_ensure: 'Ensure',
-      registry_crane: 'Установить crane',
-      registry_stop: 'Stop',
-      registry_catalog: 'Catalog',
-      tab_registry: 'Registry',
-      registry_hint: 'Local OCI registry (127.0.0.1:5000). Use crane/docker; not public.',
-      registry_ensure: 'Ensure',
-      registry_crane: 'Install crane',
-      registry_stop: 'Stop',
-      registry_catalog: 'Catalog',
-      git_hint: 'Bare repos · SSH push',
-      git_init: 'Init',
-      git_log: 'Log',
-      git_show: 'Show / diff',
-      git_show_btn: 'Show',
-      git_pipelines: 'Pipelines',
-      git_run: 'Run',
-      git_delete: 'Delete',
-      tab_audit: 'Audit',
-      tab_sessions: 'Sessions',
-      tab_status: 'Status',
-      tab_sshhosts: 'SSH-хосты',
-      th_id: 'ID',
-      th_hostname: 'Hostname',
-      th_role: 'Роль',
-      th_kind: 'Тип',
-      th_ip: 'IP',
-      th_desired: 'Desired',
-      lan_ip: 'LAN IP',
-      lan_mask: 'Маска LAN',
-      wifi_ssid: 'SSID',
-      wifi_pass: 'Пароль Wi‑Fi',
-      network: 'Сеть',
-      wifi: 'Wi‑Fi',
-      mtls_title: 'mTLS сертификаты',
-      mtls_refresh: 'Обновить',
-      mtls_hint: 'После rotate устройство само тянет mtls_refresh.',
-      secondary_tab: 'Secondary',
-      risk_redirect: 'Redirect по умолчанию loopback; публичный :80 опционален.',
-
-      th_id: 'ID',
-      th_hostname: 'Hostname',
-      th_role: 'Role',
-      th_kind: 'Kind',
-      th_ip: 'IP',
-      th_desired: 'Desired',
-      lan_ip: 'LAN IP',
-      lan_mask: 'LAN mask',
-      wifi_ssid: 'SSID',
-      wifi_pass: 'Wi‑Fi password',
-      network: 'Network',
-      wifi: 'Wi‑Fi',
-      mtls_title: 'mTLS certs',
-      mtls_refresh: 'Refresh certs',
-      mtls_hint: 'After rotate, device pulls mtls_refresh automatically.',
-      secondary_tab: 'Secondary',
-      risk_redirect: 'Redirect default is loopback; public :80 is optional.',
-
-      overview_title: 'Overview',
-      collector_stale: 'Collector stale',
-      add: 'Add',
-      refresh: 'Refresh',
-      th_name: 'Name',
-      th_status: 'Status',
-      th_note: 'Note',
-      user_detail: 'User',
-      copy_sub: 'Copy subscription',
-      copy_vless: 'VLESS (primary)',
-      copy_hy2: 'HY2 (optional)',
-      rename: 'Rename',
-      sites_title: 'Sites (MikroTik + RPi)',
-      save_site: 'Save site',
-      mt_rsc: 'MT RSC',
-      sites_list: 'Sites',
-      edge_recovery_title: 'Edge recovery / register',
-      edge_recovery_hint: 'LAN page on router: http://<router>:7879/netductor-recovery. Control plane: mTLS :8789 (client cert).',
-      issue_recovery: 'Issue recovery code',
-      register_pending: 'Register pending',
-      set_site: 'Set site',
-      rename_node: 'Rename node',
-      template: 'Template',
-      bind_device: 'Bind to device',
-      nodes_title: 'Nodes',
-      routers_title: 'Routers / edge',
-      templates_title: 'Templates',
-      metrics_title: 'Metrics',
-      probes_title: 'Probes',
-      sni_title: 'SNI',
-      relay_title: 'Secondary (RU)',
-      relay_hint: 'Mobile path: phone → RU secondary → primary.',
-      export_bundle: 'Export bundle (ya.ru)',
-      ru_exit_on: 'RU exit ON',
-      ru_exit_off: 'RU exit OFF',
-      oneliner_ru: 'One-liner for RU VPS',
-      after_join_ru: 'After join on RU: netductor secondary links',
-      addons_title: 'Addons',
-      lampac: 'Lampac',
-      lampac_hint: 'Bound to loopback only (VPN/SSH). Open UI via tunnel.',
-      open_ui: 'Open UI',
-      lampac_admin: 'Lampac Admin',
-      node_ops: 'Node ops',
-      node_ops_hint: 'Same as Telegram: journal + restart service',
-      journal: 'Journal',
-      restart_svc: 'Restart service',
-      relay_routing: 'Secondary routing',
-      relay_routing_hint: 'RU domains → direct on secondary · other → primary. See docs/RELAY-ROUTING.md',
-      sync_relay: 'Sync secondary config',
-      cpu: 'CPU',
-      ram: 'RAM',
-      disk: 'Disk',
-      load: 'Load',
-      health: 'Health',
-      cpu_ram: 'CPU / RAM',
-      version: 'Version',
-      ping: 'Ping',
-      chromium: 'Chromium',
-      ssh_hosts_title: 'SSH known hosts (TOFU)',
-      ssh_hosts_hint: 'After MT/VPS reinstall: Forget key, then reconnect once from trusted LAN.',
-      audit_title: 'Audit log',
-      sessions_title: 'Sessions',
-      backup_title: 'Backup / peer',
-      status_title: 'Status',
-      clear_mt: 'Clear MikroTik',
-      clear_secondary: 'Clear Secondary',
-      forget: 'Forget',
-      revoke_all: 'Revoke all',
-      refresh_vpn_links: 'Refresh VPN links',
-      set_peer: 'Set peer',
-      run_backup: 'Run backup now',
-      export_devices: 'Export devices JSON',
-      upgrade: 'Upgrade',
-      reboot: 'Reboot',
-      sync_relays: 'Sync secondaries',
-      set_hostname: 'Set desired hostname',
-      ensure_default: 'Ensure default',
-      save_template: 'Save template',
-      load_form: 'Load into form',
-      bind: 'Bind',
-      load_json: 'Load JSON',
-      save_json: 'Save JSON',
-      apply_sni: 'Apply live SNI',
-      sni_presets: 'SNI presets',
-    },
-    ru: {
-      app_title: 'Netductor',
-      opt_auto: 'авто',
-      opt_mikrotik: 'mikrotik',
-      opt_secondary: 'secondary',
-      backup_hint_long: 'SCP между VPS шифрованного /etc/netductor. peer-set, затем Run backup.',
-      status_hint: 'Сервисы + ноды + VPN (как в TG)',
-      sites_hint: 'Один сайт = ROS (маршруты) + RPi OpenWrt (VPN edge).',
-      th_host: 'Хост',
-      th_wan: 'WAN',
-      nodes_rename_hint: 'Формат: nd-<role>-<marker>. Роли: core, edge, lab. Подтверждение на heartbeat.',
-      vpn_client: 'VPN-клиент',
-      advanced_json: 'Расширенно: raw JSON',
-      sni_hint: 'Reality SNI для экспериментов с белыми списками (Yota и др.)',
-      unit: 'Юнит',
-      mtls_hint_long: 'Клиентские сертификаты agent plane. После rotate устройство тянет mtls_refresh.',
-      socks_opt: 'socks (без TUN, рекомендуется)',
-      tun_opt: 'tun (полный тоннель)',
-      network: 'Сеть',
-      wifi: 'Wi‑Fi',
-      lan_ip: 'LAN IP',
-      lan_mask: 'Маска LAN',
-      wifi_ssid: 'SSID',
-      wifi_pass: 'Пароль Wi‑Fi',
-      th_id: 'ID',
-      th_hostname: 'Hostname',
-      th_role: 'Роль',
-      th_kind: 'Тип',
-      th_ip: 'IP',
-      th_desired: 'Desired',
-      mtls_title: 'mTLS сертификаты',
-      mtls_refresh: 'Обновить',
-      mtls_hint: 'После rotate устройство тянет mtls_refresh.',
-      mtls_title: 'mTLS сертификаты',
-      mtls_refresh: 'Обновить',
-      mtls_hint: 'Клиентские сертификаты agent plane. После rotate устройство тянет mtls_refresh.',
-      secondary_tab: 'Secondary',
-      login_title: 'Вход оператора',
-      login_hint: 'Токен: netductor vpn session 72',
-      sign_in: 'Войти',
-      th_id: 'ID',
-      th_hostname: 'Hostname',
-      th_role: 'Роль',
-      th_kind: 'Тип',
-      th_ip: 'IP',
-      th_desired: 'Desired',
-      lan_ip: 'LAN IP',
-      lan_mask: 'Маска LAN',
-      wifi_ssid: 'SSID',
-      wifi_pass: 'Пароль Wi‑Fi',
-      network: 'Сеть',
-      wifi: 'Wi‑Fi',
-      mtls_title: 'mTLS сертификаты',
-      mtls_refresh: 'Обновить',
-      mtls_hint: 'После rotate устройство само тянет mtls_refresh.',
-      secondary_tab: 'Secondary',
-      risk_redirect: 'Redirect по умолчанию loopback; публичный :80 опционален.',
-
-      logout: 'Выйти',
-      session_token: 'Токен сессии',
-      alerts: 'Алерты',
-      refresh_alerts: 'Обновить алерты',
-      tab_overview: 'Обзор',
-      tab_vpn: 'VPN',
-      tab_nodes: 'Ноды',
-      tab_routers: 'Роутеры',
-      tab_sites: 'Сайты',
-      tab_templates: 'Шаблоны',
-      tab_metrics: 'Метрики',
-      tab_probes: 'Пробы',
-      tab_addons: 'Аддоны',
-      tab_sni: 'SNI',
-      tab_secondary: 'Secondary',
-      tab_backup: 'Бэкап',
-      tab_audit: 'Аудит',
-      tab_sessions: 'Сессии',
-      tab_status: 'Статус',
-      tab_sshhosts: 'SSH hosts',
-      overview_title: 'Обзор',
-      collector_stale: 'Collector устарел',
-      add: 'Добавить',
-      refresh: 'Обновить',
-      th_name: 'Имя',
-      th_status: 'Статус',
-      th_note: 'Заметка',
-      user_detail: 'Пользователь',
-      copy_sub: 'Копировать подписку',
-      copy_vless: 'VLESS (primary)',
-      copy_hy2: 'HY2 (опционально)',
-      rename: 'Переименовать',
-      sites_title: 'Сайты (MikroTik + RPi)',
-      save_site: 'Сохранить сайт',
-      mt_rsc: 'MT RSC',
-      sites_list: 'Сайты',
-      edge_recovery_title: 'Edge recovery / регистрация',
-      edge_recovery_hint: 'LAN-страница на роутере: http://<router>:7879/netductor-recovery. Control plane: mTLS :8789 (клиентский сертификат).',
-      issue_recovery: 'Выдать recovery-код',
-      register_pending: 'Зарегистрировать pending',
-      set_site: 'Привязать сайт',
-      rename_node: 'Переименовать ноду',
-      template: 'Шаблон',
-      bind_device: 'Привязать к устройству',
-      nodes_title: 'Ноды',
-      routers_title: 'Роутеры / edge',
-      templates_title: 'Шаблоны',
-      metrics_title: 'Метрики',
-      probes_title: 'Пробы',
-      sni_title: 'SNI',
-      relay_title: 'Secondary (RU)',
-      relay_hint: 'Путь телефона: phone → RU secondary → primary.',
-      export_bundle: 'Экспорт bundle (ya.ru)',
-      ru_exit_on: 'RU exit ВКЛ',
-      ru_exit_off: 'RU exit ВЫКЛ',
-      oneliner_ru: 'One-liner для RU VPS',
-      after_join_ru: 'После join на RU: netductor secondary links',
-      addons_title: 'Аддоны',
-      lampac: 'Lampac',
-      lampac_hint: 'Только loopback (VPN/SSH). UI через туннель.',
-      open_ui: 'Открыть UI',
-      lampac_admin: 'Lampac Admin',
-      node_ops: 'Операции с нодой',
-      node_ops_hint: 'Как в Telegram: journal + restart service',
-      journal: 'Journal',
-      restart_svc: 'Перезапустить сервис',
-      relay_routing: 'Маршрутизация secondary',
-      relay_routing_hint: 'RU-домены → direct на secondary · остальное → primary. См. docs/RELAY-ROUTING.md',
-      sync_relay: 'Синхронизировать secondary',
-      cpu: 'CPU',
-      ram: 'RAM',
-      disk: 'Диск',
-      load: 'Load',
-      health: 'Health',
-      cpu_ram: 'CPU / RAM',
-      version: 'Версия',
-      ping: 'Ping',
-      chromium: 'Chromium',
-      ssh_hosts_title: 'SSH known hosts (TOFU)',
-      ssh_hosts_hint: 'После переустановки MT/VPS: Forget key, затем один reconnect из доверенной сети.',
-      audit_title: 'Журнал аудита',
-      sessions_title: 'Сессии',
-      backup_title: 'Бэкап / peer',
-      status_title: 'Статус',
-      clear_mt: 'Очистить MikroTik',
-      clear_secondary: 'Очистить Secondary',
-      forget: 'Забыть',
-      revoke_all: 'Отозвать все',
-      refresh_vpn_links: 'Обновить VPN links',
-      set_peer: 'Задать peer',
-      run_backup: 'Сделать бэкап',
-      export_devices: 'Экспорт devices JSON',
-      upgrade: 'Upgrade',
-      reboot: 'Reboot',
-      sync_relays: 'Синхронизировать secondary',
-      set_hostname: 'Задать hostname',
-      ensure_default: 'Ensure default',
-      save_template: 'Сохранить шаблон',
-      load_form: 'Загрузить в форму',
-      bind: 'Привязать',
-      load_json: 'Load JSON',
-      save_json: 'Save JSON',
-      apply_sni: 'Применить SNI',
-      sni_presets: 'Пресеты SNI',
-    },
-  };
-  function t(k) { return (i18n[state.lang] || i18n.en)[k] || k; }
-  function applyI18n() {
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const v = t(el.dataset.i18n);
-      if (el.tagName === 'TITLE') { document.title = v; return; }
-      el.textContent = v;
-    });
-  }
-  function toast(msg) {
-    const el = $('#toast'); el.textContent = msg; el.classList.remove('hide');
-    setTimeout(() => el.classList.add('hide'), 2500);
-  }
-  async function api(path, opts = {}) {
-    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
-    if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
-    const r = await fetch(path, { ...opts, headers });
-    if (r.status === 401) { logout(); throw new Error('unauthorized'); }
-    return r;
-  }
-  function logout() {
-    state.token = ''; localStorage.removeItem('nd_token');
-    $('#dash').classList.add('hide'); $('#login').classList.remove('hide');
-    const blp=$('#btn-lp-refresh'); if(blp) blp.onclick=()=>refreshAddons();
-  $('#btn-logout').classList.add('hide');
-  }
-  function showDash() {
-    $('#login').classList.add('hide'); $('#dash').classList.remove('hide');
-    $('#btn-logout').classList.remove('hide');
-    refreshAll();
-  }
-  function tab(name) {
-    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
-    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('hide', p.id !== 'tab-' + name));
-    if (name === 'addons') refreshAddons();
-    if (name === 'relay') refreshRelay();
-    if (name === 'git') refreshGit();
-  }
-  async function refreshNodes() {
-    const data = await (await api('/api/nodes')).json();
-    const list = data.nodes || [];
-    const tb = $('#nodes-table tbody'); if (!tb) return;
-    tb.innerHTML = '';
-    list.forEach((n) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${n.id||''}</td><td>${n.hostname||''}</td><td>${n.role||''}</td><td>${n.kind||''}</td><td>${n.public_ip||''}</td><td>${n.desired_hostname||''}</td>
-        <td><button class="ghost btn-nren" data-id="${n.id}" data-hn="${n.hostname||''}">Rename</button></td>`;
-      tb.appendChild(tr);
-    });
-    tb.querySelectorAll('.btn-nren').forEach((b) => b.onclick = () => {
-      $('#node-id').value = b.dataset.id;
-      $('#node-hn').value = b.dataset.hn || '';
-    });
-  }
-  async function refreshRelay() {
-    try {
-      const r = await api('/api/relay/export?sni=ya.ru');
-      const b = await r.json();
-      $('#relay-bundle').textContent = JSON.stringify(b, null, 2);
-      try {
-        const st = await (await api('/api/relay/status')).json();
-        const ex = await (await api('/api/relay/exit')).json();
-        if ($('#relay-exit-st')) $('#relay-exit-st').textContent = 'exit_enabled=' + ex.exit_enabled + ' · devices=' + (st.devices||[]).length;
-      } catch(e) {}
-      const enc = btoa(unescape(encodeURIComponent(JSON.stringify(b))));
-      const cmd = 'wget -qO /usr/local/bin/netductor https://github.com/PavelNeyman/netductor/releases/download/v0.8.12/netductor-linux-amd64 && chmod 755 /usr/local/bin/netductor && echo '+enc+' | base64 -d > /root/bundle.json && netductor secondary join /root/bundle.json';
-      $('#relay-oneline').textContent = cmd;
-    } catch (e) {
-      $('#relay-bundle').textContent = 'error: ' + e;
-    }
-  }
-  async function refreshAddons() {
-    try {
-      const lp = await (await api('/api/addons/lampac')).json();
-      const st = !lp.installed ? 'not installed' : (lp.running ? 'running' : 'stopped');
-      $('#lp-status').textContent = st + (lp.image ? ' · ' + lp.image : '');
-      $('#lp-health').textContent = lp.healthy ? 'healthy' : (lp.running ? 'unhealthy' : '—');
-      $('#lp-res').textContent = (lp.cpu || '—') + ' / ' + (lp.mem || '—');
-      $('#lp-ver').textContent = lp.version_hash || '—';
-      $('#lp-ping').textContent = lp.ping_ok ? 'ok' : 'fail';
-      $('#lp-chr').textContent = lp.chromium_ok ? 'ok' : 'fail';
-      if (lp.ui_url) $('#lp-ui').href = lp.ui_url;
-      if (lp.admin_url) $('#lp-admin').href = lp.admin_url;
-    } catch (e) {
-      $('#lp-status').textContent = 'error';
-    }
-  }
-
-  async function refreshOverview() {
-    try {
-      const st = await (await api('/api/status')).json();
-      $('#host-line').textContent = st.hostname || st.host || '';
-      const m = await (await api('/api/metrics')).json().catch(() => ({}));
-      $('#m-cpu').textContent = m.cpu_pct != null ? m.cpu_pct + '%' : (m.cpu || '—');
-      $('#m-ram').textContent = m.mem_pct != null ? m.mem_pct + '%' : '—';
-      $('#m-disk').textContent = m.disk_pct != null ? m.disk_pct + '%' : '—';
-      $('#m-load').textContent = (m.load && (m.load['1'] || m.load[0])) || '—';
-      $('#m-rx').textContent = m.net_rx || m.rx || '—';
-      $('#m-tx').textContent = m.net_tx || m.tx || '—';
-      const pr = await (await api('/api/probes')).json().catch(() => []);
-      const strip = $('#probe-strip'); strip.innerHTML = '';
-      (Array.isArray(pr) ? pr : (pr.probes || [])).forEach((p) => {
-        const s = document.createElement('span');
-        s.className = 'pill ' + (p.ok ? 'ok' : 'bad');
-        s.textContent = (p.name || p.id || 'probe') + (p.ok ? ' ✓' : ' ✗');
-        strip.appendChild(s);
-      });
-    } catch (e) { console.warn(e); }
-  }
-  async function refreshUsers() {
-    const r = await api('/vpn/users');
-    const data = await r.json();
-    const users = data.users || data || [];
-    const tb = $('#users-table tbody'); tb.innerHTML = '';
-    users.forEach((u) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${u.name}</td><td>${u.enabled ? 'on' : 'off'}</td><td>${u.note || ''}</td>
-        <td><button class="ghost btn-open" data-name="${u.name}">Open</button></td>`;
-      tb.appendChild(tr);
-    });
-    tb.querySelectorAll('.btn-open').forEach((b) => b.onclick = () => openUser(b.dataset.name));
-  }
-  async function openUser(name) {
-    $('#user-detail').classList.remove('hide');
-    $('#detail-title').textContent = name;
-    const r = await api('/vpn/users/' + name + '/subscription');
-    const text = await r.text();
-    $('#detail-sub').textContent = text;
-    const img = $('#detail-qr');
-    img.classList.add('hide');
-    try {
-      const qr = await api('/vpn/users/' + name + '/qr');
-      if (qr.ok) {
-        img.src = URL.createObjectURL(await qr.blob());
-        img.classList.remove('hide');
-      }
-    } catch (_) {}
-    $('#btn-copy-sub').onclick = () => { navigator.clipboard.writeText(text); toast('copied'); };
-  }
-  async function refreshPending() {
-    try {
-      const data = await (await api('/api/edge/pending')).json();
-      const list = data.pending || [];
-      const box = $('#edge-pending');
-      if (!box) return;
-      if (!list.length) { box.innerHTML = '<div class="muted">No pending devices</div>'; return; }
-      box.innerHTML = '<h3>Pending approval</h3>' + list.map((d) => {
-        const id = d.device_id || '';
-        return `<div class="row"><code>${id}</code> ${d.status||''} ${d.board||''} ${d.wan_ip||''} ${d.hostname||''}
-          <button class="primary btn-appr" data-id="${id}">Approve</button>
-          <button class="ghost btn-deny" data-id="${id}">Deny</button></div>`;
-      }).join('');
-      box.querySelectorAll('.btn-appr').forEach((b) => b.onclick = async () => {
-        await api('/api/edge/approve', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id }) });
-        toast('approved'); refreshPending(); refreshRouters();
-      });
-      box.querySelectorAll('.btn-deny').forEach((b) => b.onclick = async () => {
-        await api('/api/edge/deny', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id }) });
-        toast('denied'); refreshPending();
-      });
-    } catch (e) { console.warn(e); }
-  }
-  async function refreshRouters() {
-    refreshPending();
-    const data = await (await api('/api/edge/devices')).json();
-    const list = data.devices || data || [];
-    const tb = $('#routers-table tbody'); tb.innerHTML = '';
-    list.forEach((d) => {
-      const tr = document.createElement('tr');
-      const id = d.device_id || d.id || '';
-      tr.innerHTML = `<td>${id}</td><td>${d.status||''}</td><td>${d.hostname||''}</td><td>${d.wan_ip||''}</td>
-        <td>
-          <button class="ghost btn-ping" data-id="${id}">ping</button>
-          <button class="ghost btn-apply" data-id="${id}">apply</button>
-          <button class="ghost btn-gstat" data-id="${id}">guest status</button>
-          <button class="ghost btn-ggrant" data-id="${id}">guest grant</button>
-          <button class="ghost btn-rev" data-id="${id}">revoke</button>
-        </td>`;
-      tb.appendChild(tr);
-    });
-    tb.querySelectorAll('.btn-ping').forEach((b) => b.onclick = async () => {
-      await api('/api/edge/cmd', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id, action: 'ping' }) });
-      toast('queued');
-    });
-    tb.querySelectorAll('.btn-apply').forEach((b) => b.onclick = async () => {
-      await api('/api/edge/cmd', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id, action: 'apply_template' }) });
-      toast('apply queued');
-    });
-    tb.querySelectorAll('.btn-rev').forEach((b) => b.onclick = async () => {
-      await api('/api/edge/revoke', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id }) });
-      toast('revoked'); refreshRouters();
-    });
-    tb.querySelectorAll('.btn-gstat').forEach((b) => b.onclick = async () => {
-      await api('/api/edge/guest/status?device_id=' + encodeURIComponent(b.dataset.id));
-      toast('guest status queued');
-    });
-    tb.querySelectorAll('.btn-ggrant').forEach((b) => b.onclick = async () => {
-      const code = prompt('Guest code (or MAC)');
-      if (!code) return;
-      const minutes = parseInt(prompt('Minutes (1-1440)', '10') || '10', 10);
-      await api('/api/edge/guest/grant', { method: 'POST', body: JSON.stringify({ device_id: b.dataset.id, code, minutes }) });
-      toast('guest grant queued');
-    });
-    try {
-      const res = await (await api('/api/edge/results')).json();
-      $('#edge-results').textContent = JSON.stringify(res.results || res, null, 2);
-      if (list.length) {
-        const id0 = list[0].device_id || list[0].id;
-        const bk = await (await api('/api/edge/backups?device_id=' + encodeURIComponent(id0))).json();
-        $('#edge-backups').textContent = 'backups ' + id0 + ':\n' + JSON.stringify(bk.backups || bk, null, 2);
-      }
-    } catch (_) {}
-  }
-  
-  function formToTemplate() {
-    return {
-      id: $('#f-id').value.trim() || 'default',
-      role: $('#f-role').value.trim() || 'site',
-      network: {
-        lan_ip: $('#f-lan-ip').value.trim(),
-        lan_mask: $('#f-lan-mask').value.trim() || '255.255.255.0',
-        dhcp: $('#f-dhcp').checked,
-      },
-      wifi: {
-        ssid: $('#f-ssid').value.trim(),
-        key: $('#f-wkey').value,
-        encryption: $('#f-enc').value,
-      },
-      vpn: {
-        enabled: $('#f-vpn').checked,
-        mode: $('#f-vpn-mode').value,
-      },
-      guest: {
-        enabled: $('#f-guest') ? $('#f-guest').checked : false,
-        ssid: $('#f-guest-ssid') ? $('#f-guest-ssid').value.trim() : 'Guest',
-        desk_pin: $('#f-guest-pin') ? $('#f-guest-pin').value : '',
-        hidden: true,
-      },
-    };
-  }
-  function templateToForm(t) {
-    if (!t) return;
-    $('#f-id').value = t.id || 'default';
-    $('#f-role').value = t.role || 'site';
-    const net = t.network || {};
-    $('#f-lan-ip').value = net.lan_ip || '';
-    $('#f-lan-mask').value = net.lan_mask || '255.255.255.0';
-    $('#f-dhcp').checked = net.dhcp !== false;
-    const wifi = t.wifi || {};
-    $('#f-ssid').value = wifi.ssid || '';
-    $('#f-wkey').value = wifi.key || '';
-    if (wifi.encryption) $('#f-enc').value = wifi.encryption;
-    const vpn = t.vpn || {};
-    $('#f-vpn').checked = vpn.enabled !== false && vpn.enabled !== 'false';
-    if (vpn.mode) $('#f-vpn-mode').value = vpn.mode;
-    $('#tmpl-editor').value = JSON.stringify(t, null, 2);
-  }
-
-  async function refreshTemplates() {
-    const data = await (await api('/api/edge/templates')).json();
-    const list = data.templates || data || [];
-    $('#templates-raw').textContent = JSON.stringify(list, null, 2);
-    if (list.length) {
-      const id = ($('#f-id') && $('#f-id').value) || 'default';
-      const found = list.find((x) => x.id === id) || list[0];
-      if (found && !$('#f-lan-ip').value) templateToForm(found);
-      if ($('#tmpl-editor') && !$('#tmpl-editor').value) $('#tmpl-editor').value = JSON.stringify(found, null, 2);
-    }
-  }
-  async function refreshMetrics() {
-    const m = await (await api('/api/metrics')).json();
-    $('#metrics-raw').textContent = JSON.stringify(m, null, 2);
-  }
-  async function refreshProbes() {
-    const p = await (await api('/api/probes')).json();
-    $('#probes-raw').textContent = JSON.stringify(p, null, 2);
-  }
-  document.getElementById('btn-git-refresh')?.addEventListener('click', () => refreshGit());
-document.getElementById('btn-git-delete')?.addEventListener('click', async () => {
-  const name = window._gitSelected;
-  if (!name || !confirm('Delete ' + name + '?')) return;
-  await api('/api/git/repos?name=' + encodeURIComponent(name), { method: 'DELETE' });
-  window._gitSelected = '';
-  refreshGit();
-});
-document.getElementById('btn-git-init')?.addEventListener('click', async () => {
-  const name = document.getElementById('git-new-name')?.value?.trim();
-  if (!name) return;
-  await api('/api/git/repos', { method: 'POST', body: JSON.stringify({ name }) });
-  refreshGit();
-});
-document.getElementById('btn-git-show')?.addEventListener('click', async () => {
-  const name = window._gitSelected;
-  if (!name) return;
-  const rev = document.getElementById('git-rev')?.value || 'HEAD';
-  const data = await (await api('/api/git/show?name=' + encodeURIComponent(name) + '&rev=' + encodeURIComponent(rev))).json();
-  const el = document.getElementById('git-show');
-  if (el) el.textContent = data.show || data.error || '';
-});
-document.getElementById('btn-git-run')?.addEventListener('click', async () => {
-  const name = window._gitSelected;
-  const pipe = document.getElementById('git-pipeline-sel')?.value;
-  if (!name || !pipe) return;
-  const data = await (await api('/api/git/pipeline', { method: 'POST', body: JSON.stringify({ repo: name, pipeline: pipe }) })).json();
-  const el = document.getElementById('git-pipeline-out');
-  if (el) el.textContent = data.output || data.error || JSON.stringify(data);
-});
-function refreshAll() {
-    refreshNodes().catch(()=>{});
-    refreshOverview(); refreshUsers(); refreshRouters(); refreshTemplates(); refreshMetrics(); refreshProbes(); refreshAddons();
-  }
-
-  $('#btn-login').onclick = async () => {
-    state.token = $('#token').value.trim();
-    try {
-      const r = await api('/api/session');
-      if (!r.ok) throw new Error('bad token');
-      localStorage.setItem('nd_token', state.token);
-      showDash();
-    } catch (e) { $('#login-err').textContent = 'Invalid session'; }
-  };
-  if ($('#btn-lp-refresh')) $('#btn-lp-refresh').onclick = () => refreshAddons();
-  if ($('#btn-relay-export')) $('#btn-relay-export').onclick = () => refreshRelay();
-  if ($('#btn-relay-exit-on')) $('#btn-relay-exit-on').onclick = async () => { await api('/api/relay/exit?enabled=1', {method:'POST'}); refreshRelay(); };
-  if ($('#btn-relay-exit-off')) $('#btn-relay-exit-off').onclick = async () => { await api('/api/relay/exit?enabled=0', {method:'POST'}); refreshRelay(); };
-  $('#btn-logout').onclick = logout;
-  $('#btn-lang').onclick = () => {
-    state.lang = state.lang === 'en' ? 'ru' : 'en';
-    localStorage.setItem('nd_lang', state.lang); applyI18n();
-  };
-  document.querySelectorAll('.tab').forEach((b) => b.onclick = () => tab(b.dataset.tab));
-  $('#btn-refresh-users').onclick = refreshUsers;
-  $('#btn-add-user').onclick = async () => {
-    const name = $('#new-user').value.trim();
-    const note = $('#new-note').value.trim();
-    if (!name) return;
-    await api('/vpn/users', { method: 'POST', body: JSON.stringify({ name, note }) });
-    $('#new-user').value = ''; refreshUsers(); toast('added');
-  };
-  $('#btn-refresh-tmpl').onclick = refreshTemplates;
-  $('#btn-form-save').onclick = async () => {
-    const body = formToTemplate();
-    await api('/api/edge/templates', { method: 'POST', body: JSON.stringify(body) });
-    toast('saved ' + body.id); refreshTemplates();
-  };
-  $('#btn-form-load').onclick = async () => {
-    const data = await (await api('/api/edge/templates')).json();
-    const list = data.templates || [];
-    const id = $('#f-id').value.trim() || 'default';
-    const found = list.find((x) => x.id === id) || list[0];
-    templateToForm(found);
-    toast(found ? 'loaded' : 'empty');
-  };
-  $('#btn-load-tmpl').onclick = async () => {
-    const id = $('#f-id').value.trim() || 'default';
-    const data = await (await api('/api/edge/templates')).json();
-    const list = data.templates || [];
-    const found = list.find((t) => t.id === id) || list[0];
-    if (found) {
-      $('#f-id').value = found.id || id;
-      $('#tmpl-editor').value = JSON.stringify(found, null, 2);
-    } else toast('not found');
-  };
-  $('#btn-save-tmpl').onclick = async () => {
-    try {
-      const body = JSON.parse($('#tmpl-editor').value);
-      body.id = $('#f-id').value.trim() || body.id || 'default';
-      await api('/api/edge/templates', { method: 'POST', body: JSON.stringify(body) });
-      toast('saved'); refreshTemplates();
-    } catch (e) { toast('JSON error: ' + e.message); }
-  };
-  $('#btn-save-default').onclick = async () => {
-    await api('/api/edge/templates', { method: 'POST', body: JSON.stringify({
-      id: 'default', role: 'site',
-      network: { lan_ip: '192.168.50.1', lan_mask: '255.255.255.0', dhcp: true },
-      wifi: { ssid: 'Netductor', encryption: 'psk2', key: '' },
-      vpn: { enabled: true }
-    })});
-    toast('default saved'); refreshTemplates();
-  };
-  $('#btn-bind').onclick = async () => {
-    const device_id = $('#bind-device').value.trim();
-    const template_id = $('#bind-tmpl').value.trim() || 'default';
-    const overlay = {};
-    if ($('#bind-ssid').value.trim()) overlay.ssid = $('#bind-ssid').value.trim();
-    if ($('#bind-lan').value.trim()) overlay.lan_ip = $('#bind-lan').value.trim();
-    await api('/api/edge/bind-template', { method: 'POST', body: JSON.stringify({ device_id, template_id, overlay }) });
-    toast('bound');
-  };
-  applyI18n();
-  if (state.token) showDash();
+const ND_TOKEN = (function(){
+  const m = document.querySelector('meta[name="nd-token"]');
+  return m ? (m.getAttribute('content') || '') : '';
 })();
+function settings(){
+  try{
+    const o=JSON.parse(localStorage.getItem('nd_op_settings')||'{}');
+    // session never from localStorage (XSS residual)
+    try{ const s=sessionStorage.getItem('nd_op_session'); if(s) o.node_session=s; else delete o.node_session; }catch(e){ delete o.node_session; }
+    return o;
+  }catch(e){return{}}
+}
+function saveSettingsObj(o){
+  const copy=Object.assign({}, o);
+  const tok=copy.node_session||'';
+  delete copy.node_session;
+  localStorage.setItem('nd_op_settings', JSON.stringify(copy));
+  try{ if(tok) sessionStorage.setItem('nd_op_session', tok); else sessionStorage.removeItem('nd_op_session'); }catch(e){}
+}
+function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replace(/\/$/,''); }
 
-  document.getElementById('btn-refresh-nodes')?.addEventListener('click', () => refreshNodes().catch(e=>toast(e.message)));
-  document.getElementById('btn-node-rename')?.addEventListener('click', async () => {
-    const id = document.getElementById('node-id').value.trim();
-    const hostname = document.getElementById('node-hn').value.trim();
-    await api('/api/nodes/hostname', { method: 'POST', body: JSON.stringify({ id, hostname }) });
-    toast('desired hostname set');
-    refreshNodes();
+const I18N = {
+en:{
+  app_title:'netductor-op', meta_line:'Mac client · node API',
+  tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings',
+  sub_fleet:'Fleet', sub_primary:'Primary', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
+  inst_note:'Deploy from this Mac over SSH.',
+  l_phost:'Primary host', l_ppass:'Primary password', l_shost:'Secondary host', l_spass:'Secondary password',
+  l_domain:'Domain base', l_le:'LE email', l_sni:'SNI', l_key:'SSH key', l_host:'Host', l_pass:'Password',
+  l_pkey:'Primary key', l_user:'User', l_arch:'Agent arch', l_server_url:'Server URL (mTLS)', l_keypass:'Key passphrase',
+  l_lan:'LAN IP (optional)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Wi-Fi key',
+  l_site_id:'Site id', l_name:'Name', l_rpi:'RPi id', l_mtid:'MikroTik id', l_rpilan:'RPi LAN gateway',
+  l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
+  l_role:'Role', l_tg_token:'TG bot token', l_tg_admin:'TG admin user id',
+  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot', c_cf:'CF proxy i. (multi-level usually off)',
+  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_push:'Push RSC + harden',
+  tg_note:'Telegram installs on primary only (token + numeric admin id required).',
+  btn_fleet:'Fleet deploy', btn_primary:'Deploy primary', btn_secondary:'Deploy secondary',
+  btn_edge:'Provision edge', btn_site:'Save / push site', btn_creds:'Collect',
+  btn_tunnel_start:'Start / ensure', btn_tunnel_stop:'Stop', btn_session_issue:'Issue session', btn_session_load:'Load session file',
+  btn_raw:'Raw JSON', btn_send:'Send',
+  set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
+  set_api_port:'API local port', set_api_base:'API base', set_sec_host:'Secondary host', set_session:'Node session (sessionStorage)',
+  set_session_note:'Not stored in localStorage',
+  save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
+  result:'Result', tunnel:'Tunnel', idle:'idle',
+  sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
+  adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
+  b_health:'Health', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_metrics:'Metrics',
+  b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
+  b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
+  b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
+  b_nodes:'Nodes', b_self:'Self', b_sec_st:'Secondary status', b_sec_links:'Secondary links',
+  b_ssh_hosts:'SSH hosts', b_ssh_clear:'SSH hosts clear', b_mtls:'mTLS certs', b_sites:'Sites',
+  b_hostname:'Set hostname', b_svc_restart:'Restart service', b_journal:'Journal',
+  l_vpn_name:'name', l_vpn_note:'note', l_vpn_act:'user action', l_hostname:'hostname', l_node_id:'node id',
+  l_svc:'service restart', l_journal:'journal unit', yes:'yes', no:'no',
+  nvr_note:'Day-2 NVR via node session (tunnel + session). Same ops as TUI wizard.',
+  l_nvr_action:'Action', l_edge_id:'Edge device id', l_cam_name:'Camera name/id', l_cam_ip:'Camera LAN IP', l_cam_pass:'Camera password',
+  btn_nvr:'Run NVR', c_adv:'Show Advanced (full session API)', sub_nvr:'NVR'
+},
+ru:{
+  app_title:'netductor-op', meta_line:'Клиент Mac · API ноды',
+  tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки',
+  sub_fleet:'Флот', sub_primary:'Primary', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
+  inst_note:'Деплой с этого Mac по SSH.',
+  l_phost:'Хост primary', l_ppass:'Пароль primary', l_shost:'Хост secondary', l_spass:'Пароль secondary',
+  l_domain:'Базовый домен', l_le:'Email LE', l_sni:'SNI', l_key:'SSH-ключ', l_host:'Хост', l_pass:'Пароль',
+  l_pkey:'Ключ primary', l_user:'Пользователь', l_arch:'Архитектура agent', l_server_url:'URL сервера (mTLS)', l_keypass:'Passphrase ключа',
+  l_lan:'LAN IP (опц.)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Ключ Wi-Fi',
+  l_site_id:'ID сайта', l_name:'Имя', l_rpi:'ID RPi', l_mtid:'ID MikroTik', l_rpilan:'Шлюз LAN RPi',
+  l_mthost:'Хост MT', l_mtuser:'Пользователь MT', l_mtpass:'Пароль MT', l_mtport:'Порт MT', l_opkey:'Ключ оператора',
+  l_role:'Роль', l_tg_token:'Токен TG-бота', l_tg_admin:'TG admin id',
+  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram-бот', c_cf:'CF proxy i. (multi-level обычно no)',
+  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_push:'Push RSC + harden',
+  tg_note:'Telegram ставится только на primary (нужны token и числовой admin id).',
+  btn_fleet:'Деплой флота', btn_primary:'Деплой primary', btn_secondary:'Деплой secondary',
+  btn_edge:'Поставить edge', btn_site:'Сохранить / push сайта', btn_creds:'Собрать',
+  btn_tunnel_start:'Старт / ensure', btn_tunnel_stop:'Стоп', btn_session_issue:'Выдать session', btn_session_load:'Загрузить session',
+  btn_raw:'Сырой JSON', btn_send:'Отправить',
+  set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
+  set_api_port:'Локальный порт API', set_api_base:'База API', set_sec_host:'Хост secondary', set_session:'Session ноды (sessionStorage)',
+  set_session_note:'Не хранится в localStorage',
+  save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
+  result:'Результат', tunnel:'Туннель', idle:'ожидание',
+  sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
+  adv_note:'Произвольный POST/GET к session API', l_method:'метод', l_path:'путь', l_body:'JSON body',
+  b_health:'Health', b_doctor:'Doctor', b_domain:'Домен', b_bot:'Статус бота', b_status:'Статус', b_metrics:'Метрики',
+  b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
+  b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'Список users', b_vpn_refresh:'Обновить ссылки',
+  b_vpn_add:'Добавить user', b_vpn_enable:'Включить', b_vpn_disable:'Выключить', b_vpn_revoke:'Отозвать', b_vpn_link:'Ссылки',
+  b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
+  b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты',
+  b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
+  l_vpn_name:'имя', l_vpn_note:'заметка', l_vpn_act:'user', l_hostname:'hostname', l_node_id:'id ноды',
+  l_svc:'restart сервиса', l_journal:'journal unit', yes:'да', no:'нет',
+  nvr_note:'NVR day-2 через session (туннель + session). Те же операции, что TUI.',
+  l_nvr_action:'Операция', l_edge_id:'Edge device id', l_cam_name:'Имя/id камеры', l_cam_ip:'LAN IP камеры', l_cam_pass:'Пароль камеры',
+  btn_nvr:'Выполнить NVR', c_adv:'Показать Advanced (полный session API)', sub_nvr:'NVR'
+}};
+function t(k){ const d=I18N[uiLang]||I18N.en; return (d&&d[k])||(I18N.en[k])||k; }
+let uiLang=localStorage.getItem('nd_op_lang')||((navigator.language||'').startsWith('ru')?'ru':'en');
+function applyAdvancedVisibility(){
+  const show = !!(settings().show_advanced === true || settings().show_advanced === '1' || settings().show_advanced === 1);
+  document.querySelectorAll('#controlSub button[data-csec="adv"]').forEach(b=>{ b.style.display = show ? '' : 'none'; });
+  const adv = document.getElementById('csec-adv');
+  if(adv && !show) adv.style.display = 'none';
+}
+function applyI18n(){
+  applyAdvancedVisibility();
+
+  const d=I18N[uiLang]||I18N.en;
+  document.documentElement.lang = uiLang==='ru'?'ru':'en';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{ const k=el.getAttribute('data-i18n-html'); if(d[k]) el.innerHTML=d[k]; });
+  document.querySelectorAll('#mainTabs button').forEach(b=>{
+    if(b.dataset.main==='installer') b.textContent=d.tab_installer||b.textContent;
+    if(b.dataset.main==='control') b.textContent=d.tab_control||b.textContent;
+    if(b.dataset.main==='settings') b.textContent=d.tab_settings||b.textContent;
   });
+  document.querySelectorAll('#subInstaller button').forEach(b=>{
+    const map={fleet:'sub_fleet',primary:'sub_primary',secondary:'sub_secondary',edge:'sub_edge',site:'sub_site',nvr:'sub_nvr',creds:'sub_creds'};
+    const k=map[b.dataset.tab]; if(k&&d[k]) b.textContent=d[k];
+  });
+  document.querySelectorAll('#controlSub button').forEach(b=>{
+    const k='sec_'+b.dataset.csec; if(d[k]) b.textContent=d[k];
+  });
+  const le=document.getElementById('langEn'), lr=document.getElementById('langRu');
+  if(le) le.classList.toggle('active', uiLang==='en');
+  if(lr) lr.classList.toggle('active', uiLang==='ru');
+  try{ loadCatalogButtons().then(()=>mountButtons()).catch(()=>mountButtons()); }catch(e){}
+}
 
-document.getElementById('btn-node-upgrade')?.addEventListener('click', async () => {
-  const id = document.getElementById('node-id')?.value?.trim();
-  if (!id) return toast('select node');
-  await api('/api/relay/cmd', { method: 'POST', body: JSON.stringify({ id, cmd: 'upgrade' }) });
-  toast('upgrade queued');
+
+function showMain(name){
+  document.getElementById('main-installer').style.display = name==='installer'?'block':'none';
+  document.getElementById('main-control').style.display = name==='control'?'block':'none';
+  document.getElementById('main-settings').style.display = name==='settings'?'block':'none';
+  document.getElementById('subInstaller').style.display = name==='installer'?'flex':'none';
+  document.getElementById('deployLogSec').style.display = name==='installer'?'block':'none';
+  document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
+  if(name==='control'){ updateTunnelHint(); ensureTunnel().then(()=>refreshTunnelBadge()); }
+  if(name==='settings') loadSettingsForm();
+}
+document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
+document.querySelectorAll('#subInstaller button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#subInstaller button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('#main-installer .panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  };
 });
-document.getElementById('btn-node-reboot')?.addEventListener('click', async () => {
-  const id = document.getElementById('node-id')?.value?.trim();
-  if (!id) return toast('select node');
-  await api('/api/relay/cmd', { method: 'POST', body: JSON.stringify({ id, cmd: 'reboot' }) });
-  toast('reboot queued');
-});
-document.getElementById('btn-relay-sync')?.addEventListener('click', async () => {
-  await api('/api/relay/sync', { method: 'POST' });
-  toast('sync bumped');
-  refreshRelay?.();
+document.querySelectorAll('#controlSub button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#controlSub button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.csec').forEach(p=>p.style.display='none');
+    document.getElementById('csec-'+btn.dataset.csec).style.display='block';
+  };
 });
 
-async function refreshAlerts() {
-  try {
-    const r = await api('/api/dashboard');
-    const d = await r.json();
-    const el = document.getElementById('alerts-box');
-    if (!el) return;
-    const probes = d.probes || [];
-    const bad = probes.filter(p => p.ok === false);
-    if (bad.length === 0) {
-      el.innerHTML = '<span class="ok">No probe failures</span>';
+const logEl=document.getElementById('log'), stepsEl=document.getElementById('steps');
+function line(s){ logEl.textContent+=s+(s.endsWith('\n')?'':'\n'); logEl.scrollTop=logEl.scrollHeight; }
+function resetLog(){ logEl.textContent=''; stepsEl.innerHTML=''; }
+function chip(id,st){ let el=stepsEl.querySelector('[data-id="'+id+'"]'); if(!el){el=document.createElement('span');el.dataset.id=id;el.textContent=id;stepsEl.appendChild(el);} el.className='chip '+(st||''); }
+function parseSteps(chunk){ chunk.split('\n').forEach(l=>{ const m=l.match(/^step (\S+)/); if(!m)return; if(l.includes(' ERROR'))chip(m[1],'err'); else if(l.includes(' done'))chip(m[1],'ok'); else chip(m[1],'run'); }); }
+async function streamPost(url, body, btn){
+  btn.disabled=true; resetLog(); line('POST '+url);
+  try{
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
+    const reader=res.body.getReader(); const dec=new TextDecoder();
+    while(true){ const {done,value}=await reader.read(); if(done)break; const t=dec.decode(value); line(t); parseSteps(t); }
+  }catch(e){ line('error: '+e); }
+  btn.disabled=false;
+}
+function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token|session/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
+function loadForm(id,form){ try{ const o=JSON.parse(localStorage.getItem('nd_op_'+id)||'{}'); Object.keys(o).forEach(k=>{ const el=form.elements.namedItem(k); if(!el)return; if(el.type==='checkbox')el.checked=true; else el.value=o[k]; }); }catch(e){} }
+
+function tgFieldsOk(fd){
+  if(fd.get('with_telegram')!=='on') return true;
+  const tok=(fd.get('tg_token')||'').trim(), adm=(fd.get('tg_admin')||'').trim();
+  if(!tok||!adm){ alert('Telegram: bot token and admin user id required'); return false; }
+  return true;
+}
+function bindTgToggle(cbId, fieldsId, noteId){
+  const cb=document.getElementById(cbId), box=document.getElementById(fieldsId), note=noteId?document.getElementById(noteId):null;
+  if(!cb||!box) return;
+  const sync=()=>{ box.hidden=!cb.checked; if(note) note.hidden=!cb.checked; };
+  cb.addEventListener('change', sync); sync();
+}
+bindTgToggle('fleet_with_tg','fleet_tg_fields','fleet_tg_note');
+bindTgToggle('pri_with_tg','pri_tg_fields',null);
+
+document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; saveForm('fleet',fd);
+  await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on',
+    primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
+    secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
+    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
+    cf_proxy:fd.get('cf_proxy')==='on',
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
+    with_telegram:fd.get('with_telegram')==='on',
+    tg_token:(fd.get('tg_token')||'').trim(), tg_admin:(fd.get('tg_admin')||'').trim() }, e.submitter); };
+document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; saveForm('primary',fd);
+  await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'),
+    sni:fd.get('sni'), key:fd.get('key'),
+    cf_proxy:fd.get('cf_proxy')==='on',
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
+    with_telegram:fd.get('with_telegram')==='on',
+    tg_token:(fd.get('tg_token')||'').trim(), tg_admin:(fd.get('tg_admin')||'').trim() }, e.submitter); };
+document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
+  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
+document.getElementById('form-site').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('site',fd);
+  await streamPost('/v1/site',{
+    site_id:fd.get('site_id'), name:fd.get('name'), rpi_id:fd.get('rpi_id'), mikrotik_id:fd.get('mikrotik_id'),
+    rpi_lan:fd.get('rpi_lan'), mt_host:fd.get('mt_host'), mt_user:fd.get('mt_user'), mt_password:fd.get('mt_password'),
+    mt_port:fd.get('mt_port'), do_push:fd.get('do_push')==='on', operator_key:fd.get('operator_key')
+  }, e.submitter); };
+document.getElementById('form-mt').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target);
+  const res=await fetch('/v1/mikrotik',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({host:fd.get('host'),user:fd.get('user'),password:fd.get('password'),port:fd.get('port'),action:fd.get('action')})});
+  const j=await res.json(); document.getElementById('mtResult').textContent=j.output||j.error||JSON.stringify(j); };
+document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('edge',fd);
+  await streamPost('/v1/edge',{
+    router_host:fd.get('router_host'), router_password:fd.get('router_password'),
+    device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch'),
+    primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
+    server_url:fd.get('server_url'), key_passphrase:fd.get('key_passphrase'),
+    lan_ip:fd.get('lan_ip'), wan_proto:fd.get('wan_proto'),
+    wifi_ssid:fd.get('wifi_ssid'), wifi_key:fd.get('wifi_key'),
+    net_configure:fd.get('net_configure')==='on', guest_enable:fd.get('guest_enable')==='on'
+  }, e.submitter); };
+
+document.getElementById('form-nvr').onsubmit=async e=>{
+  e.preventDefault(); const fd=new FormData(e.target); saveForm('nvr',fd);
+  const act=(fd.get('action')||'status').trim();
+  const btn=e.submitter; if(btn) btn.disabled=true;
+  try{
+    let res;
+    if(act==='status'||act==='list'){
+      res = await nodeFetch('/api/nvr/cameras');
+      if(act==='status'){ const st=await nodeFetch('/api/nvr/storage'); res={cameras:res, storage:st}; }
+    } else if(act==='leases'){
+      res = await nodeFetch('/api/nvr/site/leases',{method:'POST',body:JSON.stringify({device_id:(fd.get('device_id')||'').trim()})});
+    } else if(act==='add'){
+      res = await nodeFetch('/api/nvr/cameras',{method:'POST',body:JSON.stringify({
+        name:(fd.get('cam_name')||'').trim(), site_id:(fd.get('site_id')||'').trim(),
+        lan_ip:(fd.get('cam_ip')||'').trim(), rtsp_password:(fd.get('cam_pass')||'').trim(), enabled:true, record:true
+      })});
+    } else if(act==='rec-start'){
+      res = await nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:(fd.get('cam_name')||'').trim()})});
+    } else if(act==='rec-stop'){
+      res = await nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id:(fd.get('cam_name')||'').trim()})});
+    } else {
+      res = {error:'unknown action'};
+    }
+    showControl(res);
+    // switch to control result visibility
+    document.querySelector('[data-main="control"]')?.click?.();
+  }catch(err){ showControl({error:String(err)}); }
+  if(btn) btn.disabled=false;
+};
+
+document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd); const btn=e.submitter; btn.disabled=true;
+  try{ const res=await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({role:fd.get('role'),host:fd.get('host'),key:fd.get('key'),key_passphrase:fd.get('key_passphrase')})});
+    const j=await res.json(); document.getElementById('credResult').textContent=j.path?('OK → '+j.path):(j.error||JSON.stringify(j)); }catch(err){ document.getElementById('credResult').textContent=String(err); }
+  btn.disabled=false; };
+
+function loadSettingsForm(){
+  const s=settings();
+  const map={set_primary_host:'primary_host',set_key:'key',set_user:'user',set_api_port:'api_port',set_api_base:'api_base',set_secondary_host:'secondary_host',set_vpn_host:'vpn_host',set_node_session:'node_session'};
+  Object.keys(map).forEach(id=>{ const el=document.getElementById(id); if(!el)return; el.value=s[map[id]]||(id==='set_key'?'~/.ssh/netductor_primary':id==='set_user'?'root':id==='set_api_port'?'8787':id==='set_api_base'?'http://127.0.0.1:8787':''); });
+  const pv=document.getElementById('set_prefer_vpn'); if(pv) pv.value=(s.prefer_vpn==='0'?'0':'1');
+}
+(function(){ const el=document.getElementById('set_show_advanced'); if(el){ el.checked=!!(settings().show_advanced===true||settings().show_advanced==='1'); } })();
+document.getElementById('form-settings').onsubmit=e=>{
+  e.preventDefault(); const fd=new FormData(e.target);
+  saveSettingsObj({ show_advanced: fd.get('show_advanced')==='on', primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
+    api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
+    vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session') });
+  document.getElementById('settingsSaved').textContent='OK'; updateTunnelHint();
+ applyAdvancedVisibility(); };
+function updateTunnelHint(){
+  const s=settings();
+  document.getElementById('tunnelCmd').textContent='host='+(s.primary_host||'—')+' vpn='+(s.vpn_host||'—')+' key='+(s.key||'~/.ssh/netductor_primary');
+}
+async function refreshTunnelBadge(){
+  try{
+    const res=await fetch('/v1/tunnel/status',{headers:{'X-Netductor-Token':ND_TOKEN}});
+    const st=await res.json();
+    const b=document.getElementById('tunnelBadge');
+    if(st.port_open){ b.textContent='up :'+st.local_port+(st.via?(' ·'+st.via):''); b.className='chip ok'; }
+    else if(st.process_up){ b.textContent='starting…'; b.className='chip run'; }
+    else { b.textContent='down'; b.className='chip err'; }
+    return st;
+  }catch(e){ return null; }
+}
+async function ensureTunnel(){
+  const s=settings();
+  if(!s.primary_host && !s.vpn_host) return false;
+  const res=await fetch('/v1/tunnel/start',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({ host:s.primary_host, vpn_host:s.vpn_host, prefer_vpn:s.prefer_vpn!=='0',
+      user:s.user||'root', key:s.key, local_port:s.api_port||'8787', api_base:apiBase() })});
+  await refreshTunnelBadge();
+  return res.json();
+}
+async function nodeFetch(path, opts){
+  opts=opts||{}; const s=settings();
+  const headers={'X-Netductor-Token':ND_TOKEN,'X-Node-API-Base':apiBase()};
+  if(s.node_session) headers['X-Node-Session']=s.node_session;
+  if(opts.body) headers['Content-Type']='application/json';
+  const res=await fetch('/v1/node'+path,{method:opts.method||'GET',headers,body:opts.body});
+  const text=await res.text(); let data; try{data=JSON.parse(text)}catch(e){data=text}
+  return {ok:res.ok,status:res.status,data};
+}
+
+let lastRaw=null;
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function renderTables(payload){
+  const box=document.getElementById('controlTables');
+  const raw=document.getElementById('controlStatus');
+  const btn=document.getElementById('btnShowRaw');
+  lastRaw=payload; box.innerHTML=''; raw.style.display='none'; btn.style.display='inline-block';
+  const data = payload && payload.data !== undefined ? payload.data : payload;
+  const tables=[];
+  function walk(obj, path){
+    if(Array.isArray(obj)){
+      if(obj.length && typeof obj[0]==='object' && obj[0]!==null && !Array.isArray(obj[0])) tables.push({title:path||'items', rows:obj});
+      else if(obj.length) tables.push({title:path||'list', rows:obj.map((v,i)=>({index:i,value:typeof v==='object'?JSON.stringify(v):v}))});
       return;
     }
-    el.innerHTML = bad.map(p => `<div class="alert">⚠️ ${p.name}: ${p.error||'fail'}</div>`).join('');
-  } catch (e) { /* ignore */ }
-}
-document.getElementById('btn-refresh-alerts')?.addEventListener('click', () => refreshAlerts());
-setInterval(() => { try { refreshAlerts(); } catch(_){} }, 60000);
-
-document.getElementById('btn-journal')?.addEventListener('click', async () => {
-  const unit = document.getElementById('ops-unit')?.value || 'sing-box';
-  try {
-    const r = await api('/api/nodes/journal?unit=' + encodeURIComponent(unit));
-    const d = await r.json();
-    document.getElementById('ops-out').textContent = d.log || JSON.stringify(d, null, 2);
-  } catch (e) { toast(e.message); }
-});
-document.getElementById('btn-restart-svc')?.addEventListener('click', async () => {
-  const unit = document.getElementById('ops-unit')?.value || 'sing-box';
-  try {
-    const r = await api('/api/nodes/restart-service', { method: 'POST', body: JSON.stringify({ unit }) });
-    const d = await r.json();
-    document.getElementById('ops-out').textContent = JSON.stringify(d, null, 2);
-    toast(d.ok ? 'restarted' : 'failed');
-  } catch (e) { toast(e.message); }
-});
-document.getElementById('btn-relay-sync')?.addEventListener('click', async () => {
-  try {
-    await api('/api/relay/export', { method: 'POST' });
-    toast('relay export/sync requested');
-    refreshRelay?.();
-  } catch (e) { toast(e.message); }
-});
-
-document.getElementById('btn-node-journal')?.addEventListener('click', async () => {
-  const id = document.getElementById('node-id')?.value?.trim();
-  const unit = 'sing-box';
-  const q = id ? ('?id=' + encodeURIComponent(id) + '&unit=' + unit) : ('?unit=' + unit);
-  try {
-    const r = await api('/api/nodes/journal' + q);
-    const d = await r.json();
-    const box = document.getElementById('ops-out') || document.getElementById('sni-box');
-    if (box) box.textContent = d.log || JSON.stringify(d, null, 2);
-    toast(d.queued ? 'journal queued' : 'journal');
-  } catch (e) { toast(e.message); }
-});
-document.getElementById('btn-sni-refresh')?.addEventListener('click', async () => {
-  try {
-    const r = await api('/api/sni');
-    const d = await r.json();
-    document.getElementById('sni-box').textContent = 'active: ' + (d.active||'') + '\n\n' + JSON.stringify(d.presets || d, null, 2);
-  } catch (e) { toast(e.message); }
-});
-document.getElementById('btn-sni-apply')?.addEventListener('click', async () => {
-  const name = document.getElementById('sni-pick')?.value?.trim();
-  if (!name) { toast('pick preset'); return; }
-  try {
-    const r = await api('/api/sni', { method: 'POST', body: JSON.stringify({ name }) });
-    const d = await r.json();
-    toast('SNI → ' + (d.active || name));
-    document.getElementById('btn-sni-refresh')?.click();
-  } catch (e) { toast(e.message); }
-});
-
-
-async function refreshStatusPanel() {
-  try {
-    const [st, nodes, users] = await Promise.all([
-      api('/api/status').then(r => r.json()).catch(() => ({})),
-      api('/api/nodes').then(r => r.json()).catch(() => ({})),
-      api('/api/vpn/users').then(r => r.json()).catch(() => ({})),
-    ]);
-    const lines = [];
-    lines.push('=== core ===');
-    lines.push(JSON.stringify(st, null, 2));
-    lines.push('=== nodes ===');
-    const nl = nodes.nodes || nodes || [];
-    (Array.isArray(nl) ? nl : []).forEach(n => {
-      lines.push(`${n.status||'?'} ${n.hostname||n.id} role=${n.role} ip=${n.public_ip||n.ip||''}`);
-    });
-    lines.push('=== vpn users ===');
-    const ul = users.users || users || [];
-    (Array.isArray(ul) ? ul : []).forEach(u => {
-      lines.push(`${u.name||u} ${u.enabled===false?'off':'on'}`);
-    });
-    const box = document.getElementById('status-box');
-    if (box) box.textContent = lines.join('\n');
-  } catch (e) { toast(e.message); }
-}
-document.getElementById('btn-refresh-status')?.addEventListener('click', () => refreshStatusPanel());
-
-async function refreshSites() {
-  try {
-    const r = await api('/api/sites');
-    const d = await r.json();
-    document.getElementById('sites-list').textContent = JSON.stringify(d.sites || d, null, 2);
-  } catch (e) { toast(e.message); }
-}
-document.getElementById('btn-sites-refresh')?.addEventListener('click', () => refreshSites());
-document.getElementById('btn-site-save')?.addEventListener('click', async () => {
-  const body = {
-    id: document.getElementById('site-id')?.value?.trim(),
-    name: document.getElementById('site-name')?.value?.trim(),
-    rpi_id: document.getElementById('site-rpi')?.value?.trim(),
-    mikrotik_id: document.getElementById('site-mt')?.value?.trim(),
-  };
-  try {
-    await api('/api/sites', { method: 'POST', body: JSON.stringify(body) });
-    toast('site saved');
-    refreshSites();
-  } catch (e) { toast(e.message); }
-});
-document.getElementById('btn-site-rsc')?.addEventListener('click', async () => {
-  const id = document.getElementById('site-id')?.value?.trim();
-  try {
-    const r = await api('/api/sites/rsc?id=' + encodeURIComponent(id || ''));
-    const d = await r.json();
-    document.getElementById('site-out').textContent = d.rsc || JSON.stringify(d, null, 2);
-  } catch (e) { toast(e.message); }
-});
-
-
-async function refreshSSHHosts() {
-  try {
-    const r = await api('/api/ssh-hosts');
-    const d = await r.json();
-    const el = document.getElementById('sshhosts-box');
-    if (el) el.textContent = JSON.stringify(d, null, 2);
-  } catch (e) {
-    const el = document.getElementById('sshhosts-box');
-    if (el) el.textContent = String(e);
-  }
-}
-document.getElementById('btn-sshhosts-refresh')?.addEventListener('click', () => refreshSSHHosts());
-document.getElementById('btn-sshhosts-forget')?.addEventListener('click', async () => {
-  const id = document.getElementById('sshhosts-id')?.value?.trim();
-  if (!id) return;
-  const kind = document.getElementById('sshhosts-kind')?.value || '';
-  let q = '/api/ssh-hosts?id=' + encodeURIComponent(id);
-  if (kind) q += '&kind=' + encodeURIComponent(kind);
-  await api(q, { method: 'DELETE' });
-  refreshSSHHosts();
-});
-document.getElementById('btn-sshhosts-clear-mt')?.addEventListener('click', async () => {
-  if (!confirm('Clear all MikroTik TOFU keys?')) return;
-  await api('/api/ssh-hosts/clear?kind=mt', { method: 'POST' });
-  refreshSSHHosts();
-});
-document.getElementById('btn-sshhosts-clear-relay')?.addEventListener('click', async () => {
-  if (!confirm('Clear all relay TOFU keys?')) return;
-  await api('/api/ssh-hosts/clear?kind=relay', { method: 'POST' });
-  refreshSSHHosts();
-});
-
-document.querySelectorAll('.tab').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    if (btn.getAttribute('data-tab') === 'sshhosts') refreshSSHHosts();
-  });
-});
-
-document.getElementById('btn-vpn-rename')?.addEventListener('click', async () => {
-  const name = document.getElementById('detail-title')?.textContent?.trim();
-  const neu = document.getElementById('vpn-rename-to')?.value?.trim();
-  if (!name || !neu) return toast('name required');
-  const r = await api('/vpn/users/' + encodeURIComponent(name) + '/rename', {
-    method: 'POST', body: JSON.stringify({ new_name: neu })
-  });
-  if (!r.ok) { toast('rename failed'); return; }
-  toast('renamed → ' + neu);
-  document.getElementById('vpn-rename-to').value = '';
-  if (typeof refreshUsers === 'function') refreshUsers();
-});
-async function refreshBackup() {
-  const el = document.getElementById('backup-status');
-  if (!el) return;
-  try {
-    const r = await (await api('/api/backup/peer')).json();
-    el.textContent = r.status || JSON.stringify(r);
-  } catch (e) { el.textContent = String(e); }
-}
-document.getElementById('btn-backup-peer')?.addEventListener('click', async () => {
-  const target = document.getElementById('backup-target')?.value?.trim();
-  if (!target) return toast('target required');
-  const r = await api('/api/backup/peer', { method: 'POST', body: JSON.stringify({ target }) });
-  if (!r.ok) toast('failed'); else toast('peer set');
-  refreshBackup();
-});
-document.getElementById('btn-backup-run')?.addEventListener('click', async () => {
-  const r = await api('/api/backup/run', { method: 'POST', body: '{}' });
-  const j = await r.json().catch(() => ({}));
-  toast(j.path || j.error || (r.ok ? 'ok' : 'fail'));
-  refreshBackup();
-});
-document.querySelectorAll('.tab').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    if (btn.getAttribute('data-tab') === 'backup') refreshBackup();
-  });
-});
-
-async function refreshAudit() {
-  const el = document.getElementById('audit-box');
-  if (!el) return;
-  try {
-    const j = await (await api('/api/audit')).json();
-    const lines = (j.events || []).map((e) => `${e.ts}\t${e.actor||''}\t${e.action}\t${e.target||''}\t${e.detail||''}`);
-    el.textContent = lines.join('\n') || '(empty)';
-  } catch (e) { el.textContent = String(e); }
-}
-async function refreshSessions() {
-  const el = document.getElementById('sessions-box');
-  if (!el) return;
-  try {
-    const j = await (await api('/api/sessions')).json();
-    const lines = (j.sessions || []).map((s) => `${s.id}\texp=${s.exp}\t${s.label||''}\t${s.ip||''}`);
-    el.textContent = lines.join('\n') || '(none)';
-  } catch (e) { el.textContent = String(e); }
-}
-document.getElementById('btn-audit-refresh')?.addEventListener('click', refreshAudit);
-document.getElementById('btn-sessions-refresh')?.addEventListener('click', refreshSessions);
-document.getElementById('btn-sessions-revoke')?.addEventListener('click', async () => {
-  await api('/api/sessions?action=revoke-all', { method: 'POST', body: '{}' });
-  toast('revoked');
-  refreshSessions();
-});
-document.getElementById('btn-vpn-refresh-links')?.addEventListener('click', async () => {
-  const r = await api('/api/vpn/refresh-links', { method: 'POST', body: '{}' });
-  const j = await r.json().catch(() => ({}));
-  toast('refreshed ' + (j.refreshed ?? '?'));
-});
-document.querySelectorAll('.tab').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const t = btn.getAttribute('data-tab');
-    if (t === 'audit') refreshAudit();
-    if (t === 'sessions') refreshSessions();
-  });
-});
-
-
-  function wireEdgeRecovery() {
-    const btnR = document.getElementById('btn-edge-recovery');
-    if (btnR) btnR.onclick = async () => {
-      const site = document.getElementById('rec-site')?.value || '';
-      const note = document.getElementById('rec-note')?.value || '';
-      const data = await (await api('/api/edge/recovery', { method: 'POST', body: JSON.stringify({ site_id: site, note }) })).json();
-      const out = document.getElementById('edge-recovery-out');
-      if (out) out.textContent = JSON.stringify(data, null, 2);
-      if (data.code) {
-        try { await navigator.clipboard.writeText(data.code); toast('code copied'); } catch (_) { toast('code issued'); }
+    if(obj && typeof obj==='object'){
+      const scalars={};
+      for(const [k,v] of Object.entries(obj)){
+        if(v!==null && typeof v==='object') walk(v, path?path+'.'+k:k);
+        else scalars[k]=v;
       }
-    };
-    const btnReg = document.getElementById('btn-edge-register');
-    if (btnReg) btnReg.onclick = async () => {
-      const device_id = document.getElementById('reg-device')?.value || '';
-      const site_id = document.getElementById('reg-site')?.value || '';
-      await api('/api/edge/register', { method: 'POST', body: JSON.stringify({ device_id, site_id }) });
-      toast('registered pending'); refreshPending(); refreshRouters();
-    };
-    const btnSS = document.getElementById('btn-edge-setsite');
-    if (btnSS) btnSS.onclick = async () => {
-      const device_id = document.getElementById('setsite-device')?.value || '';
-      const site_id = document.getElementById('setsite-site')?.value || '';
-      await api('/api/edge/set-site', { method: 'POST', body: JSON.stringify({ device_id, site_id }) });
-      toast('site set');
-    };
-    const btnEx = document.getElementById('btn-edge-export');
-    if (btnEx) btnEx.onclick = async () => {
-      const data = await (await api('/api/edge/export')).json();
-      const out = document.getElementById('edge-export-out');
-      if (out) out.textContent = JSON.stringify(data, null, 2);
-      toast('exported');
-    };
-  }
-
-  async function refreshMtls() {
-    const pre = document.getElementById('mtls-certs');
-    if (!pre) return;
-    try {
-      const data = await (await api('/api/mtls/certs')).json();
-      pre.textContent = JSON.stringify(data, null, 2);
-    } catch (e) { pre.textContent = String(e); }
-  }
-  document.getElementById('btn-mtls-refresh')?.addEventListener('click', refreshMtls);
-
-
-async function refreshGit() {
-  try {
-    const data = await (await api('/api/git/repos')).json();
-    const ul = document.getElementById('git-repo-list');
-    if (!ul) return;
-    ul.innerHTML = '';
-    window._gitSelected = window._gitSelected || '';
-    (data.repos || []).forEach((r) => {
-      const li = document.createElement('li');
-      const name = r.name || r;
-      li.innerHTML = `<button type="button" class="ghost git-pick" data-name="${name}">${name}</button>`;
-      ul.appendChild(li);
-    });
-    ul.querySelectorAll('.git-pick').forEach((b) => b.onclick = async () => {
-      window._gitSelected = b.dataset.name;
-      const log = await (await api('/api/git/log?name=' + encodeURIComponent(b.dataset.name) + '&n=30')).json();
-      const el = document.getElementById('git-log');
-      if (el) el.textContent = log.log || log.error || '';
-    });
-    const pl = await (await api('/api/git/pipelines')).json();
-    const sel = document.getElementById('git-pipeline-sel');
-    if (sel) {
-      sel.innerHTML = '';
-      (pl.pipelines || []).forEach((n) => {
-        const o = document.createElement('option');
-        o.value = n; o.textContent = n;
-        sel.appendChild(o);
-      });
+      if(Object.keys(scalars).length) tables.push({title:path||'summary', rows:[scalars]});
     }
-  } catch (e) { console.warn(e); }
-}
-
-async function refreshRegistry() {
-  try {
-    const st = await (await api('/api/registry/status')).json();
-    document.getElementById('registry-status').textContent = JSON.stringify(st, null, 2);
-    const cat = await (await api('/api/registry/catalog')).json().catch(() => ({ repositories: [] }));
-    const repos = cat.repositories || [];
-    document.getElementById('registry-catalog').textContent = repos.map(r => {
-      if (typeof r === 'string') return r;
-      return r.name + (r.tags && r.tags.length ? '  [' + r.tags.join(', ') + ']' : '');
-    }).join('\n') || '(empty)';
-  } catch (e) {
-    document.getElementById('registry-status').textContent = String(e);
+  }
+  walk(data,'');
+  if(!tables.length){ raw.style.display='block'; raw.textContent=typeof payload==='string'?payload:JSON.stringify(payload,null,2); btn.style.display='none'; return; }
+  for(const t of tables){
+    const keys=[]; t.rows.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!keys.includes(k)) keys.push(k); }));
+    const cols=keys.slice(0,12);
+    const hasName=cols.includes('Name')||cols.includes('name');
+    const hasDid=cols.includes('device_id')||cols.includes('ID')||cols.includes('id');
+    if(hasName||hasDid) cols.push('_act');
+    let h='<div class="card" style="padding:.75rem"><h3 style="margin:0 0 .5rem;font-size:.9rem">'+esc(t.title)+' <span class="note">('+t.rows.length+')</span></h3>';
+    h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr>'+cols.map(c=>'<th style="text-align:left;border-bottom:1px solid var(--border);padding:.35rem;color:var(--muted)">'+esc(c==='_act'?'':c)+'</th>').join('')+'</tr></thead><tbody>';
+    t.rows.slice(0,200).forEach(r=>{
+      h+='<tr>'+cols.map(c=>{
+        if(c==='_act'){
+          let btns='';
+          const nm=r.Name||r.name; const did=r.device_id||r.ID||r.id;
+          if(nm){ btns+='<button type="button" class="primary rowact" data-kind="vpn-disable" data-name="'+esc(nm)+'" style="padding:.15rem .35rem;font-size:.7rem">off</button> ';
+                  btns+='<button type="button" class="primary rowact" data-kind="vpn-enable" data-name="'+esc(nm)+'" style="padding:.15rem .35rem;font-size:.7rem">on</button>'; }
+          if(did && /pending/i.test(String(t.title))){
+            btns+=' <button type="button" class="primary rowact" data-kind="edge-approve" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">ok</button>';
+            btns+=' <button type="button" class="primary rowact" data-kind="edge-deny" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">no</button>';
+          }
+          return '<td style="border-bottom:1px solid var(--border);padding:.35rem;white-space:nowrap">'+btns+'</td>';
+        }
+        let v=r[c]; if(v===null||v===undefined) v=''; else if(typeof v==='object') v=JSON.stringify(v);
+        return '<td style="border-bottom:1px solid var(--border);padding:.35rem;vertical-align:top">'+esc(v)+'</td>';
+      }).join('')+'</tr>';
+    });
+    h+='</tbody></table></div></div>'; box.innerHTML+=h;
   }
 }
-document.getElementById('btn-registry-refresh')?.addEventListener('click', refreshRegistry);
-try { refreshRegistry(); } catch (_) {}
-document.getElementById('btn-registry-ensure')?.addEventListener('click', async () => {
-  await api('/api/registry/ensure', { method: 'POST', body: '{}' });
-  refreshRegistry();
-});
-document.getElementById('btn-registry-crane')?.addEventListener('click', async () => {
-  const r = await (await api('/api/registry/crane', { method: 'POST', body: '{}' })).json();
-  toast(r.path || r.error || 'ok');
-  refreshRegistry();
-});
-document.getElementById('btn-registry-stop')?.addEventListener('click', async () => {
-  await api('/api/registry/stop', { method: 'POST', body: '{}' });
-  refreshRegistry();
+
+function formatDoctorWeb(x){
+  if(!x||!x.checks) return null;
+  const s=x.summary||{};
+  let h='<div class="card"><b>Doctor</b> '+esc(x.role||'')+' @ '+esc(x.host||'')+
+    ' · ok='+(s.ok||0)+' warn='+(s.warn||0)+' fail='+(s.fail||0)+'</div>';
+  h+='<table class="grid"><tr><th>check</th><th>status</th></tr>';
+  (x.checks||[]).forEach(c=>{
+    if(c.status==='ok') return;
+    h+='<tr><td>'+esc(c.id||'')+'</td><td>'+esc(c.status||'')+'</td></tr>';
+  });
+  h+='</table>';
+  return h;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+function showControl(x){
+  const box=document.getElementById('controlTables');
+  if(box && x && x.checks){ box.innerHTML=formatDoctorWeb(x)||''; }
+  renderTables(x);
+}
+
+document.getElementById('btnShowRaw').onclick=()=>{
+  const raw=document.getElementById('controlStatus');
+  raw.style.display=raw.style.display==='none'?'block':'none';
+  raw.textContent=typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
+};
+
+// --- Control button definitions (max operator-session API) ---
+const BTN = {
+  overview:[
+    ['health','b_health','GET','/health'],
+    ['doctor','b_doctor','GET','/api/doctor'],
+    ['domain','b_domain','GET','/api/domain'],
+    ['bot','b_bot','GET','/api/bot-status'],
+    ['status','b_status','GET','/api/status'],
+    ['metrics','b_metrics','GET','/api/metrics'],
+    ['metrics-hist','b_metrics_hist','GET','/api/metrics/history'],
+    ['addons','b_addons','GET','/api/addons'],
+    ['addons-lampac','b_lampac','GET','/api/addons/lampac'],
+    ['sni','b_sni','GET','/api/sni'],
+    ['sni-presets','b_sni_presets','GET','/api/sni-presets'],
+    ['latest','b_latest','GET','/api/latest'],
+    ['sessions','b_sessions','GET','/api/sessions'],
+  ],
+  vpn:[
+    ['vpn-users','b_vpn_users','GET','/vpn/users'],
+    ['vpn-refresh','b_vpn_refresh','POST','/api/vpn/refresh-links','{}'],
+  ],
+  nodes:[
+    ['nodes','b_nodes','GET','/api/nodes'],
+    ['nodes-self','b_self','GET','/api/nodes/self'],
+    ['secondary','b_sec_st','GET','/api/secondary/status'],
+    ['secondary-links','b_sec_links','GET','/api/secondary/links'],
+    ['ssh-hosts','b_ssh_hosts','GET','/api/ssh-hosts'],
+    ['ssh-clear','b_ssh_clear','POST','/api/ssh-hosts/clear','{}'],
+    ['mtls-certs','b_mtls','GET','/api/mtls/certs'],
+    ['sites','b_sites','GET','/api/sites'],
+  ],
+  edge:[
+    ['edge-pending','Pending','GET','/api/edge/pending'],
+    ['edge-devices','Devices','GET','/api/edge/devices'],
+    ['edge-metrics','Metrics','GET','/api/edge/metrics'],
+    ['edge-metrics-hist','Metrics hist','GET','/api/edge/metrics/history'],
+    ['edge-templates','Templates','GET','/api/edge/templates'],
+    ['edge-backups','Backups','GET','/api/edge/backups'],
+    ['edge-commands','Commands','GET','/api/edge/commands'],
+    ['edge-results','Results','GET','/api/edge/results'],
+    ['edge-guest-st','Guest status','GET','/api/edge/guest/status'],
+  ],
+  nvr:[
+    ['nvr-cameras','Cameras','GET','/api/nvr/cameras'],
+    ['nvr-config','Config','GET','/api/nvr/config'],
+    ['nvr-storage','Storage','GET','/api/nvr/storage'],
+    ['nvr-events','Events','GET','/api/nvr/events'],
+    ['nvr-segments','Segments','GET','/api/nvr/segments'],
+    ['nvr-retention','Retention run','POST','/api/nvr/retention/run','{}'],
+    ['nvr-go2rtc','go2rtc write','POST','/api/nvr/go2rtc','{}'],
+  ],
+  git:[
+    ['git-repos','Repos','GET','/api/git/repos'],
+    ['git-pipelines','Pipelines','GET','/api/git/pipelines'],
+    ['git-artifacts','Artifacts','GET','/api/git/artifacts'],
+    ['reg-status','Registry status','GET','/api/registry/status'],
+    ['reg-catalog','Registry catalog','GET','/api/registry/catalog'],
+    ['reg-ensure','Registry ensure','POST','/api/registry/ensure','{}'],
+    ['reg-stop','Registry stop','POST','/api/registry/stop','{}'],
+    ['reg-crane','Ensure crane','POST','/api/registry/crane','{}'],
+  ],
+  dns:[
+    ['dns-lists','DNS lists','GET','/api/dns/lists'],
+    ['dns-reload','DNS reload','POST','/api/dns/reload','{}'],
+  ],
+  backup:[
+    ['backup-peer','Peer','GET','/api/backup/peer'],
+    ['backup-run','Run now','POST','/api/backup/run','{}'],
+    ['backup-schedule','Schedule','GET','/api/backup/schedule'],
+    ['backup-list','Files','GET','/api/backup/list'],
+    ['sec-export','Secondary export','GET','/api/secondary/export'],
+  ],
+  probes:[
+    ['probes','Probes','GET','/api/probes'],
+    ['probes-cfg','Probes config','GET','/api/probes/config'],
+    ['probes-uptime','Uptime','GET','/api/probes/uptime'],
+    ['audit','Audit','GET','/api/audit'],
+  ],
+};
+
+
+async function loadCatalogButtons(){
+  try{
+    const res = await fetch('/v1/catalog',{headers:{'X-Netductor-Token':ND_TOKEN}});
+    if(!res.ok) return;
+    const j = await res.json();
+    if(!j.by_section) return;
+    // rebuild BTN simple GETs from catalog
+    for(const [sec, list] of Object.entries(j.by_section)){
+      if(!BTN[sec]) BTN[sec]=[];
+      // merge: catalog actions that are simple
+      const mapped = list.map(a=>[a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
+      // keep form-only sections hybrid: replace list portion
+      BTN[sec] = mapped;
+    }
+  }catch(e){}
+}
+function mountButtons(){
+  for(const [sec, list] of Object.entries(BTN)){
+    const el=document.getElementById('csec-'+sec); if(!el) continue;
+    // preserve form blocks: clear only button strip by regenerating whole section content carefully
+    let h='';
+    for(const [id,label,method,path,body] of list){
+      const lab=(label&&label.indexOf('b_')===0)?t(label):label;
+      h+='<button class="primary" type="button" data-act="'+id+'">'+lab+'</button> ';
+    }
+    // append forms for complex POSTs
+    if(sec==='vpn'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>
+      <button class="primary" type="button" data-act="vpn-add">${t('b_vpn_add')}</button>
+      <div class="row"><div><label>${t('l_vpn_act')}</label><input id="vpnActName"/></div><div></div></div>
+      <button class="primary" type="button" data-act="vpn-enable">${t('b_vpn_enable')}</button>
+      <button class="primary" type="button" data-act="vpn-disable">${t('b_vpn_disable')}</button>
+      <button class="primary" type="button" data-act="vpn-revoke">${t('b_vpn_revoke')}</button>
+      <button class="primary" type="button" data-act="vpn-link">${t('b_vpn_link')}</button>`;
+    }
+    if(sec==='nodes'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_hostname')}</label><input id="nodeHost"/></div><div><label>${t('l_node_id')}</label><input id="nodeId"/></div></div>
+      <button class="primary" type="button" data-act="nodes-hostname">${t('b_hostname')}</button>
+      <div class="row"><div><label>${t('l_svc')}</label><input id="nodeSvc" placeholder="sing-box"/></div><div><label>${t('l_journal')}</label><input id="nodeJournal"/></div></div>
+      <button class="primary" type="button" data-act="nodes-restart">${t('b_svc_restart')}</button>
+      <button class="primary" type="button" data-act="nodes-journal">${t('b_journal')}</button>
+      <div class="row"><div><label>mTLS node_id</label><input id="mtlsNode"/></div><div></div></div>
+      <button class="primary" type="button" data-act="mtls-rotate">Rotate cert</button>
+      <button class="primary" type="button" data-act="mtls-revoke">Revoke cert</button>
+      <div class="row"><div><label>site_id</label><input id="siteId"/></div><div><label>push rsc</label><input id="siteRsc"/></div></div>
+      <button class="primary" type="button" data-act="sites-rsc">Get site RSC</button>
+      <button class="primary" type="button" data-act="sites-push">Push RSC</button>
+      <div class="row"><div><label>secondary cmd</label><input id="secCmd"/></div><div></div></div>
+      <button class="primary" type="button" data-act="sec-cmd">Secondary cmd</button>
+      <button class="primary" type="button" data-act="sec-sync">Secondary sync</button>
+      <button class="primary" type="button" data-act="sec-exit">Secondary exit toggle info</button>`;
+    }
+    if(sec==='edge'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>device_id</label><input id="edgeId"/></div>
+      <div><label>action</label><select id="edgeAction"><option>approve</option><option>deny</option><option>revoke</option></select></div></div>
+      <button class="primary" type="button" data-act="edge-act">Submit</button>
+      <div class="row"><div><label>guest device</label><input id="guestDid"/></div>
+      <div><label>guest</label><select id="guestAct"><option value="status">status</option><option value="grant">grant</option><option value="revoke">revoke</option></select></div></div>
+      <button class="primary" type="button" data-act="edge-guest">Guest</button>
+      <div class="row"><div><label>recovery site</label><input id="edgeRecSite"/></div><div></div></div>
+      <button class="primary" type="button" data-act="edge-recovery">Recovery code</button>
+      <div class="row"><div><label>set-site device</label><input id="edgeSiteDid"/></div><div><label>site_id</label><input id="edgeSiteId"/></div></div>
+      <button class="primary" type="button" data-act="edge-set-site">Set site</button>
+      <div class="row"><div><label>template name</label><input id="edgeTpl"/></div><div><label>bind device</label><input id="edgeBindDid"/></div></div>
+      <button class="primary" type="button" data-act="edge-template">Get template</button>
+      <button class="primary" type="button" data-act="edge-bind">Bind template</button>
+      <div class="row"><div><label>cmd device</label><input id="edgeCmdDid"/></div><div><label>cmd</label><input id="edgeCmdName"/></div></div>
+      <label>cmd arg</label><input id="edgeCmdArg"/>
+      <button class="primary" type="button" data-act="edge-cmd">Enqueue cmd</button>
+      <button class="primary" type="button" data-act="edge-export">Export</button>
+      <button class="primary" type="button" data-act="edge-backup">Trigger backup</button>`;
+    }
+    if(sec==='nvr'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>camera id</label><input id="nvrCamId"/></div>
+      <div><label>PTZ dir</label><select id="nvrPtzDir"><option>left</option><option>right</option><option>up</option><option>down</option><option>stop</option></select></div></div>
+      <button class="primary" type="button" data-act="nvr-ptz">PTZ</button>
+      <button class="primary" type="button" data-act="nvr-rec-start">Rec start</button>
+      <button class="primary" type="button" data-act="nvr-rec-stop">Rec stop</button>
+      <button class="primary" type="button" data-act="nvr-cam-del">Delete camera</button>
+      <div class="row"><div><label>site device</label><input id="nvrSiteDid"/></div><div></div></div>
+      <button class="primary" type="button" data-act="nvr-leases">Leases</button>
+      <button class="primary" type="button" data-act="nvr-wifi">Wi‑Fi clients</button>
+      <div class="row"><div><label>dhcp did</label><input id="dhcpDid"/></div><div><label>mac</label><input id="dhcpMac"/></div></div>
+      <div class="row"><div><label>ip</label><input id="dhcpIp"/></div><div><label>name</label><input id="dhcpName"/></div></div>
+      <button class="primary" type="button" data-act="nvr-dhcp">DHCP static</button>
+      <div class="row"><div><label>clip path</label><input id="nvrClip"/></div><div></div></div>
+      <button class="primary" type="button" data-act="nvr-clip-token">Clip token</button>
+      <button class="primary" type="button" data-act="nvr-motion">Motion cfg GET/POST via adv</button>`;
+    }
+    if(sec==='git'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>repo</label><input id="gitRepo"/></div><div><label>pipeline</label><input id="gitPipe"/></div></div>
+      <button class="primary" type="button" data-act="git-run">Run pipeline</button>
+      <div class="row"><div><label>git log repo</label><input id="gitLogRepo"/></div><div><label>show path</label><input id="gitShowPath"/></div></div>
+      <button class="primary" type="button" data-act="git-log">Log</button>
+      <button class="primary" type="button" data-act="git-show">Show</button>`;
+    }
+    el.innerHTML=h;
+  }
+}
+mountButtons();
+
+const special = {
+  'vpn-add': async()=>{ const name=document.getElementById('vpnName').value.trim(); const note=document.getElementById('vpnNote').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/vpn/users',{method:'POST',body:JSON.stringify({name,note})}); },
+  'vpn-enable': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/enable',{method:'POST',body:'{}'}); },
+  'vpn-disable': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/disable',{method:'POST',body:'{}'}); },
+  'vpn-revoke': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/revoke',{method:'POST',body:'{}'}); },
+  'vpn-link': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/link'); },
+  'nodes-hostname': async()=>{ const hostname=document.getElementById('nodeHost').value.trim(); return nodeFetch('/api/nodes/hostname',{method:'POST',body:JSON.stringify({hostname,id:document.getElementById('nodeId').value.trim()})}); },
+  'nodes-restart': async()=>{ return nodeFetch('/api/nodes/restart-service',{method:'POST',body:JSON.stringify({service:document.getElementById('nodeSvc').value.trim(),id:document.getElementById('nodeId').value.trim()})}); },
+  'nodes-journal': async()=>{ const u=document.getElementById('nodeJournal').value.trim(); return nodeFetch('/api/nodes/journal'+(u?('?unit='+encodeURIComponent(u)):'')); },
+  'mtls-rotate': async()=>{ const node_id=document.getElementById('mtlsNode').value.trim(); return nodeFetch('/api/mtls/rotate',{method:'POST',body:JSON.stringify({node_id})}); },
+  'mtls-revoke': async()=>{ const node_id=document.getElementById('mtlsNode').value.trim(); return nodeFetch('/api/mtls/revoke',{method:'POST',body:JSON.stringify({node_id})}); },
+  'sites-rsc': async()=>{ const id=document.getElementById('siteId').value.trim(); return nodeFetch('/api/sites/rsc'+(id?('?id='+encodeURIComponent(id)):'')); },
+  'sites-push': async()=>{ return nodeFetch('/api/sites/push-rsc',{method:'POST',body:JSON.stringify({site_id:document.getElementById('siteId').value.trim(),rsc:document.getElementById('siteRsc').value})}); },
+  'sec-cmd': async()=>{ return nodeFetch('/api/secondary/cmd',{method:'POST',body:JSON.stringify({cmd:document.getElementById('secCmd').value.trim()})}); },
+  'sec-sync': async()=>{ return nodeFetch('/api/secondary/sync',{method:'POST',body:'{}'}); },
+  'sec-exit': async()=>{ return nodeFetch('/api/secondary/exit'); },
+  'edge-act': async()=>{ const id=document.getElementById('edgeId').value.trim(); const act=document.getElementById('edgeAction').value; return nodeFetch('/api/edge/'+act,{method:'POST',body:JSON.stringify({device_id:id})}); },
+  'edge-guest': async()=>{ const did=document.getElementById('guestDid').value.trim(); const act=document.getElementById('guestAct').value; if(act==='status') return nodeFetch('/api/edge/guest/status'+(did?('?device_id='+encodeURIComponent(did)):'')); return nodeFetch('/api/edge/guest/'+act,{method:'POST',body:JSON.stringify({device_id:did})}); },
+  'edge-recovery': async()=>{ return nodeFetch('/api/edge/recovery',{method:'POST',body:JSON.stringify({site_id:document.getElementById('edgeRecSite').value.trim()})}); },
+  'edge-set-site': async()=>{ return nodeFetch('/api/edge/set-site',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeSiteDid').value.trim(),site_id:document.getElementById('edgeSiteId').value.trim()})}); },
+  'edge-template': async()=>{ const n=document.getElementById('edgeTpl').value.trim(); return nodeFetch('/api/edge/template'+(n?('?name='+encodeURIComponent(n)):'')); },
+  'edge-bind': async()=>{ return nodeFetch('/api/edge/bind-template',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeBindDid').value.trim(),template:document.getElementById('edgeTpl').value.trim()})}); },
+  'edge-cmd': async()=>{ return nodeFetch('/api/edge/cmd',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeCmdDid').value.trim(),cmd:document.getElementById('edgeCmdName').value.trim(),arg:document.getElementById('edgeCmdArg').value})}); },
+  'edge-export': async()=>{ return nodeFetch('/api/edge/export'); },
+  'edge-backup': async()=>{ return nodeFetch('/api/edge/backup',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeId').value.trim()})}); },
+  'nvr-ptz': async()=>{ return nodeFetch('/api/nvr/ptz',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim(),dir:document.getElementById('nvrPtzDir').value})}); },
+  'nvr-rec-start': async()=>{ return nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
+  'nvr-rec-stop': async()=>{ return nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
+  'nvr-cam-del': async()=>{ return nodeFetch('/api/nvr/cameras/delete',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
+  'nvr-leases': async()=>{ const did=document.getElementById('nvrSiteDid').value.trim(); return nodeFetch('/api/nvr/site/leases'+(did?('?device_id='+encodeURIComponent(did)):'')); },
+  'nvr-wifi': async()=>{ const did=document.getElementById('nvrSiteDid').value.trim(); return nodeFetch('/api/nvr/site/wifi_clients'+(did?('?device_id='+encodeURIComponent(did)):'')); },
+  'nvr-dhcp': async()=>{ return nodeFetch('/api/nvr/site/dhcp_static',{method:'POST',body:JSON.stringify({device_id:document.getElementById('dhcpDid').value.trim(),mac:document.getElementById('dhcpMac').value.trim(),ip:document.getElementById('dhcpIp').value.trim(),name:document.getElementById('dhcpName').value.trim()})}); },
+  'nvr-clip-token': async()=>{ return nodeFetch('/api/nvr/clip/token',{method:'POST',body:JSON.stringify({path:document.getElementById('nvrClip').value.trim()})}); },
+  'git-run': async()=>{ return nodeFetch('/api/git/pipeline',{method:'POST',body:JSON.stringify({repo:document.getElementById('gitRepo').value.trim(),pipeline:document.getElementById('gitPipe').value.trim()})}); },
+  'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?repo='+encodeURIComponent(r)):'')); },
+  'git-show': async()=>{ return nodeFetch('/api/git/show?repo='+encodeURIComponent(document.getElementById('gitLogRepo').value.trim())+'&path='+encodeURIComponent(document.getElementById('gitShowPath').value.trim())); },
+  'adv-send': async()=>{
+    const method=document.getElementById('advMethod').value;
+    let path=document.getElementById('advPath').value.trim(); if(!path.startsWith('/')) path='/'+path;
+    const body=document.getElementById('advBody').value;
+    if(method==='POST' && !confirm('POST '+path+' ?')) return {cancelled:true};
+    return nodeFetch(path,{method, body: method==='POST'?body:undefined});
+  },
+};
+
+// wire simple BTN acts
+for(const list of Object.values(BTN)){
+  for(const [id,label,method,path,body] of list){
+    special[id]=special[id]||(async()=>nodeFetch(path,{method, body: method==='POST'?(body||'{}'):undefined}));
+  }
+}
+
+document.getElementById('main-control').addEventListener('click', async (ev)=>{
+  const btn=ev.target.closest('[data-act]'); if(!btn) return;
+  const act=btn.dataset.act; if(!special[act]) return;
+  showControl({loading:act});
+  try{ showControl(await special[act]()); }catch(e){ showControl({error:String(e)}); }
 });
 
-document.getElementById('btn-git-workflow')?.addEventListener('click', async () => {
-  const name = document.querySelector('#git-repo-list .active')?.dataset?.name
-    || document.getElementById('git-new-name')?.value;
-  if (!name) return toast('repo?');
-  const data = await (await api('/api/git/workflow', { method: 'POST', body: JSON.stringify({ repo: name }) })).json();
-  document.getElementById('git-pipeline-out').textContent = data.output || data.error || JSON.stringify(data);
+document.body.addEventListener('click', async (ev)=>{
+  const t=ev.target.closest('.rowact'); if(!t) return;
+  try{
+    if(t.dataset.kind==='vpn-disable') showControl(await nodeFetch('/vpn/users/'+encodeURIComponent(t.dataset.name)+'/disable',{method:'POST',body:'{}'}));
+    if(t.dataset.kind==='vpn-enable') showControl(await nodeFetch('/vpn/users/'+encodeURIComponent(t.dataset.name)+'/enable',{method:'POST',body:'{}'}));
+    if(t.dataset.kind==='edge-approve') showControl(await nodeFetch('/api/edge/approve',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
+    if(t.dataset.kind==='edge-deny') showControl(await nodeFetch('/api/edge/deny',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
+  }catch(e){ showControl(String(e)); }
 });
-document.getElementById('btn-git-artifacts')?.addEventListener('click', async () => {
-  const name = document.querySelector('#git-repo-list .active')?.dataset?.name || '';
-  const data = await (await api('/api/git/artifacts?repo=' + encodeURIComponent(name))).json();
-  document.getElementById('git-artifacts').textContent = (data.artifacts || []).join('\n') || '(empty)';
-});
-document.getElementById('btn-registry-auth')?.addEventListener('click', async () => {
-  const user = document.getElementById('registry-user')?.value;
-  const password = document.getElementById('registry-pass')?.value;
-  await api('/api/registry/auth', { method: 'POST', body: JSON.stringify({ user, password }) });
-  refreshRegistry();
-});
-document.getElementById('btn-registry-auth-clear')?.addEventListener('click', async () => {
-  await api('/api/registry/auth', { method: 'POST', body: JSON.stringify({ clear: true }) });
-  refreshRegistry();
-});
+
+document.getElementById('btnTunnelStart').onclick=async()=>{ showControl(await ensureTunnel()); };
+document.getElementById('btnTunnelStop').onclick=async()=>{ await fetch('/v1/tunnel/stop',{method:'POST',headers:{'X-Netductor-Token':ND_TOKEN}}); showControl(await refreshTunnelBadge()); };
+document.getElementById('btnSessionIssue').onclick=async()=>{
+  const s=settings();
+  const res=await fetch('/v1/session/issue',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({host:s.primary_host,user:s.user||'root',key:s.key,hours:'72'})});
+  const j=await res.json();
+  if(j.token){ saveSettingsObj(Object.assign({},s,{node_session:j.token})); showControl({ok:true,saved:j.saved}); }
+  else showControl(j);
+};
+document.getElementById('btnSessionLoad').onclick=async()=>{
+  const res=await fetch('/v1/session/local',{headers:{'X-Netductor-Token':ND_TOKEN}});
+  const j=await res.json();
+  if(j.token){ saveSettingsObj(Object.assign({},settings(),{node_session:j.token})); loadSettingsForm(); }
+  showControl(j);
+};
+
+['form-fleet','form-primary','form-secondary','form-edge','form-site','form-nvr','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
+document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
+document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
+applyI18n();
+(async()=>{ try{ const res=await fetch('/v1/session/local',{headers:{'X-Netductor-Token':ND_TOKEN}}); const j=await res.json(); if(j.ok&&j.token){ const s=settings(); if(!s.node_session){ s.node_session=j.token; saveSettingsObj(s);} } }catch(e){} })();
+fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version; }).catch(()=>{});
+updateTunnelHint();
