@@ -1,3 +1,8 @@
+## 0.9.16
+
+- WebUI full EN/RU labels
+- /api/doctor /api/domain
+
 ## 0.9.15
 
 - Web Fleet/Primary: Telegram checkbox → tg_token + tg_admin; server validates

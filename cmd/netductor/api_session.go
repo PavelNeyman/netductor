@@ -3,11 +3,14 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/mtls"
@@ -318,6 +321,44 @@ func registerSessionAPI(mux *http.ServeMux) {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
+	
+	mux.HandleFunc("/api/doctor", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		bin, err := os.Executable()
+		if err != nil || bin == "" {
+			bin = "netductor"
+		}
+		cmd := exec.Command(bin, "doctor")
+		out, err := cmd.CombinedOutput()
+		errStr := ""
+		if err != nil {
+			errStr = err.Error()
+		}
+		writeJSON(w, 200, map[string]any{
+			"ok":     err == nil,
+			"output": string(out),
+			"error":  errStr,
+		})
+	})
+	mux.HandleFunc("/api/domain", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		keys := []string{"NETDUCTOR_DOMAIN", "NETDUCTOR_PUBLIC_HOSTNAME", "NETDUCTOR_CORE_HOST", "NETDUCTOR_VPN_HOST", "NETDUCTOR_REDIRECT_BASE"}
+		m := map[string]string{}
+		for _, k := range keys {
+			m[k] = os.Getenv(k)
+		}
+		for _, f := range []string{"public_hostname", "vpn_hostname"} {
+			if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), f)); err == nil {
+				m["file:"+f] = strings.TrimSpace(string(b))
+			}
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "domain": m})
+	})
+
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return

@@ -10,7 +10,7 @@
 </head>
 <body>
 <header>
-  <div><h1 data-i18n="app_title">netductor-op</h1><div class="meta" id="metaLine">Mac client · node API</div></div>
+  <div><h1 data-i18n="app_title">netductor-op</h1><div class="meta" id="metaLine" data-i18n="meta_line">Mac client · node API</div></div>
   <div><button type="button" id="langEn" class="active">EN</button> <button type="button" id="langRu">RU</button></div>
 </header>
 <nav class="nav-main" id="mainTabs">
@@ -28,48 +28,48 @@
 </nav>
 <main>
 <div id="main-installer">
-  <p class="note">Deploy from this Mac over SSH.</p>
+  <p class="note" data-i18n="inst_note">Deploy from this Mac over SSH.</p>
   <section id="panel-fleet" class="panel active">
     <form id="form-fleet">
-      <div class="row"><div><label>Primary host</label><input name="primary_host" required/></div><div><label>Primary password</label><input name="primary_password" type="password"/></div></div>
-      <div class="row"><div><label>Secondary host</label><input name="secondary_host"/></div><div><label>Secondary password</label><input name="secondary_password" type="password"/></div></div>
-      <div class="row"><div><label>Domain base</label><input name="domain_base"/></div><div><label>LE email</label><input name="le_email" type="email"/></div></div>
-      <div class="row"><div><label>SNI</label><input name="sni" value="api.vk.me"/></div><div><label>SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_ppass">Primary password</label><input name="primary_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host"/></div><div><label data-i18n="l_spass">Secondary password</label><input name="secondary_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain">Domain base</label><input name="domain_base"/></div><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div></div>
+      <div class="row"><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div><div><label data-i18n="l_key">SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="checks">
-        <label><input type="checkbox" name="do_primary" checked/> Primary</label>
-        <label><input type="checkbox" name="do_secondary" checked/> Secondary</label>
-        <label><input type="checkbox" name="with_lampac"/> Lampac</label>
-        <label><input type="checkbox" name="with_git"/> Git</label>
-        <label><input type="checkbox" name="with_telegram" id="fleet_with_tg"/> Telegram bot</label>
+        <label><input type="checkbox" name="do_primary" checked/> <span data-i18n="c_do_primary">Primary</span></label>
+        <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="c_do_secondary">Secondary</span></label>
+        <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
+        <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label>
+        <label><input type="checkbox" name="with_telegram" id="fleet_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
       </div>
       <div class="row tg-fields" id="fleet_tg_fields" hidden>
-        <div><label>TG bot token</label><input name="tg_token" type="password" autocomplete="off" placeholder="123456:ABC…"/></div>
-        <div><label>TG admin user id</label><input name="tg_admin" inputmode="numeric" placeholder="149842673"/></div>
+        <div><label data-i18n="l_tg_token">TG bot token</label><input name="tg_token" type="password" autocomplete="off" placeholder="123456:ABC…"/></div>
+        <div><label data-i18n="l_tg_admin">TG admin user id</label><input name="tg_admin" inputmode="numeric" placeholder="149842673"/></div>
       </div>
-      <p class="note" id="fleet_tg_note" hidden>Telegram installs on primary only (token + numeric admin id required).</p>
-      <button class="primary" type="submit">FleetDeploy</button>
+      <p class="note" id="fleet_tg_note" hidden data-i18n="tg_note">Telegram installs on primary only (token + numeric admin id required).</p>
+      <button class="primary" type="submit" data-i18n="btn_fleet">Fleet deploy</button>
     </form>
   </section>
   <section id="panel-primary" class="panel">
     <form id="form-primary">
-      <div class="row"><div><label>Host</label><input name="host" required/></div><div><label>Password</label><input name="password" type="password"/></div></div>
-      <div class="row"><div><label>Domain</label><input name="domain_base"/></div><div><label>LE email</label><input name="le_email" type="email"/></div></div>
-      <div class="row"><div><label>SNI</label><input name="sni" value="api.vk.me"/></div><div><label>Key</label><input name="key"/></div></div>
-      <div class="checks"><label><input type="checkbox" name="with_telegram" id="pri_with_tg"/> Telegram bot</label>
-        <label><input type="checkbox" name="with_lampac"/> Lampac</label>
-        <label><input type="checkbox" name="with_git"/> Git</label></div>
+      <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain">Domain</label><input name="domain_base"/></div><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div></div>
+      <div class="row"><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div><div><label data-i18n="l_key">Key</label><input name="key"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="with_telegram" id="pri_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
+        <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
+        <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label></div>
       <div class="row tg-fields" id="pri_tg_fields" hidden>
-        <div><label>TG bot token</label><input name="tg_token" type="password" autocomplete="off"/></div>
-        <div><label>TG admin user id</label><input name="tg_admin" inputmode="numeric"/></div>
+        <div><label data-i18n="l_tg_token">TG bot token</label><input name="tg_token" type="password" autocomplete="off"/></div>
+        <div><label data-i18n="l_tg_admin">TG admin user id</label><input name="tg_admin" inputmode="numeric"/></div>
       </div>
-      <button class="primary" type="submit">Deploy primary</button>
+      <button class="primary" type="submit" data-i18n="btn_primary">Deploy primary</button>
     </form>
   </section>
   <section id="panel-secondary" class="panel">
     <form id="form-secondary">
-      <div class="row"><div><label>Primary host</label><input name="primary_host" required/></div><div><label>Primary key</label><input name="primary_key"/></div></div>
-      <div class="row"><div><label>Secondary host</label><input name="secondary_host" required/></div><div><label>Password</label><input name="secondary_password" type="password"/></div></div>
-      <button class="primary" type="submit">Deploy secondary</button>
+      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key"/></div></div>
+      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" required/></div><div><label data-i18n="l_pass">Password</label><input name="secondary_password" type="password"/></div></div>
+      <button class="primary" type="submit" data-i18n="btn_secondary">Deploy secondary</button>
     </form>
   </section>
   <section id="panel-site" class="panel">
@@ -77,18 +77,18 @@
     <form id="form-site">
       <div class="row"><div><label>Site ID</label><input name="site_id" required placeholder="home"/></div><div><label>Display name</label><input name="name"/></div></div>
       <div class="row"><div><label>RPi LAN (gateway)</label><input name="rpi_lan" placeholder="192.168.88.2"/></div><div><label>RPi device_id</label><input name="rpi_id"/></div></div>
-      <div class="row"><div><label>MT host</label><input name="mt_host" required/></div><div><label>MT user</label><input name="mt_user" value="admin"/></div></div>
-      <div class="row"><div><label>MT password</label><input name="mt_password" type="password"/></div><div><label>MT SSH port</label><input name="mt_port" value="22"/></div></div>
-      <div class="row"><div><label>Operator key</label><input name="operator_key" placeholder="~/.ssh/netductor_primary"/></div><div><label>MikroTik ID</label><input name="mikrotik_id"/></div></div>
+      <div class="row"><div><label data-i18n="l_mthost">MT host</label><input name="mt_host" required/></div><div><label data-i18n="l_mtuser">MT user</label><input name="mt_user" value="admin"/></div></div>
+      <div class="row"><div><label data-i18n="l_mtpass">MT password</label><input name="mt_password" type="password"/></div><div><label>MT SSH port</label><input name="mt_port" value="22"/></div></div>
+      <div class="row"><div><label data-i18n="l_opkey">Operator key</label><input name="operator_key" placeholder="~/.ssh/netductor_primary"/></div><div><label>MikroTik ID</label><input name="mikrotik_id"/></div></div>
       <div class="checks"><label><input type="checkbox" name="do_push" checked/> Push RSC now</label></div>
       <button class="primary" type="submit">Save site / push</button>
     </form>
     <p class="note">Quick manage</p>
     <form id="form-mt">
-      <div class="row"><div><label>Host</label><input name="host" required/></div><div><label>Action</label>
+      <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label>Action</label>
         <select name="action"><option>identity</option><option>resource</option><option>routes</option><option>ping</option></select></div></div>
       <div class="row"><div><label>User</label><input name="user" value="admin"/></div><div></div></div>
-      <div class="row"><div><label>Password</label><input name="password" type="password"/></div><div><label>Port</label><input name="port" value="22"/></div></div>
+      <div class="row"><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div><div><label>Port</label><input name="port" value="22"/></div></div>
       <button class="primary" type="submit">Run</button>
     </form>
     <pre class="log" id="mtResult">—</pre>
@@ -97,21 +97,21 @@
     <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
     <form id="form-edge">
       <div class="row"><div><label>Router host</label><input name="router_host" required/></div><div><label>Router password</label><input name="router_password" type="password"/></div></div>
-      <div class="row"><div><label>Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label>Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
-      <div class="row"><div><label>Primary host</label><input name="primary_host"/></div><div><label>Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
-      <div class="row"><div><label>Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label>Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
-      <div class="row"><div><label>LAN IP (optional)</label><input name="lan_ip"/></div><div><label>WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>
-      <div class="row"><div><label>Wi-Fi SSID</label><input name="wifi_ssid"/></div><div><label>Wi-Fi key</label><input name="wifi_key" type="password"/></div></div>
-      <div class="checks"><label><input type="checkbox" name="net_configure"/> Configure network</label>
-      <label><input type="checkbox" name="guest_enable"/> Guest Wi-Fi</label></div>
-      <button class="primary" type="submit">Provision edge</button>
+      <div class="row"><div><label>Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
+      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_lan">LAN IP (optional)</label><input name="lan_ip"/></div><div><label data-i18n="l_wan">WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>
+      <div class="row"><div><label data-i18n="l_ssid">Wi-Fi SSID</label><input name="wifi_ssid"/></div><div><label data-i18n="l_wifikey">Wi-Fi key</label><input name="wifi_key" type="password"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="net_configure"/> <span data-i18n="c_netcfg">Configure network</span></label>
+      <label><input type="checkbox" name="guest_enable"/> <span data-i18n="c_guest">Guest Wi-Fi</span></label></div>
+      <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
     </form>
   </section>
   <section id="panel-creds" class="panel">
     <form id="form-creds">
-      <div class="row"><div><label>Role</label><select name="role"><option>primary</option><option>secondary</option></select></div><div><label>Host</label><input name="host" required/></div></div>
-      <div class="row"><div><label>Key</label><input name="key"/></div><div><label>Passphrase</label><input name="key_passphrase" type="password"/></div></div>
-      <button class="primary" type="submit">Collect</button>
+      <div class="row"><div><label data-i18n="l_role">Role</label><select name="role"><option>primary</option><option>secondary</option></select></div><div><label data-i18n="l_host">Host</label><input name="host" required/></div></div>
+      <div class="row"><div><label data-i18n="l_key">Key</label><input name="key"/></div><div><label>Passphrase</label><input name="key_passphrase" type="password"/></div></div>
+      <button class="primary" type="submit" data-i18n="btn_creds">Collect</button>
     </form>
     <p id="credResult" class="note"></p>
   </section>
@@ -121,12 +121,12 @@
 <div id="main-control" class="hidden">
   <p class="note" data-i18n="ctrl_note">Day-2 via node API. Tunnel: direct health → VPN SSH → public SSH.</p>
   <div class="card">
-    <h3>Tunnel <span id="tunnelBadge" class="chip">—</span></h3>
+    <h3 data-i18n="tunnel">Tunnel <span id="tunnelBadge" class="chip">—</span></h3>
     <pre class="log" id="tunnelCmd" class="log tunnel-log"></pre>
-    <button class="primary" type="button" id="btnTunnelStart">Start / ensure</button>
-    <button class="primary" type="button" id="btnTunnelStop">Stop</button>
-    <button class="primary" type="button" id="btnSessionIssue">Issue session</button>
-    <button class="primary" type="button" id="btnSessionLoad">Load session file</button>
+    <button class="primary" type="button" id="btnTunnelStart" data-i18n="btn_tunnel_start">Start / ensure</button>
+    <button class="primary" type="button" id="btnTunnelStop" data-i18n="btn_tunnel_stop">Stop</button>
+    <button class="primary" type="button" id="btnSessionIssue" data-i18n="btn_session_issue">Issue session</button>
+    <button class="primary" type="button" id="btnSessionLoad" data-i18n="btn_session_load">Load session file</button>
   </div>
   <nav class="nav-sub" id="controlSub" class="nav-sub nav-sub-wrap">
     <button type="button" data-csec="overview" class="active">Overview</button>
@@ -148,17 +148,17 @@
   <div id="csec-backup" class="csec hidden"></div>
   <div id="csec-probes" class="csec hidden"></div>
   <div id="csec-adv" class="csec hidden">
-    <p class="note">Generic POST/GET for any session API path</p>
-    <div class="row"><div><label>method</label><select id="advMethod"><option>GET</option><option>POST</option></select></div>
-    <div><label>path</label><input id="advPath" placeholder="/api/status"/></div></div>
-    <label>JSON body</label><textarea id="advBody" rows="4" class="adv-body">{ }</textarea>
-    <button class="primary" type="button" data-act="adv-send">Send</button>
+    <p class="note" data-i18n="adv_note">Generic POST/GET for any session API path</p>
+    <div class="row"><div><label data-i18n="l_method">method</label><select id="advMethod"><option>GET</option><option>POST</option></select></div>
+    <div><label data-i18n="l_path">path</label><input id="advPath" placeholder="/api/status"/></div></div>
+    <label data-i18n="l_body">JSON body</label><textarea id="advBody" rows="4" class="adv-body">{ }</textarea>
+    <button class="primary" type="button" data-act="adv-send" data-i18n="btn_send">Send</button>
   </div>
   <div class="card mt-1">
     <h3 data-i18n="result">Result</h3>
     <div id="controlTables"></div>
     <pre class="log hidden" id="controlStatus">—</pre>
-    <button class="primary hidden" type="button" id="btnShowRaw">Raw JSON</button>
+    <button class="primary hidden" type="button" id="btnShowRaw" data-i18n="btn_raw">Raw JSON</button>
   </div>
 </div>
 
@@ -170,11 +170,11 @@
       <div><label data-i18n="set_vpn">Primary VPN host</label><input name="vpn_host" id="set_vpn_host"/></div></div>
       <div class="row"><div><label data-i18n="set_key">SSH key</label><input name="key" id="set_key" value="~/.ssh/netductor_primary"/></div>
       <div><label data-i18n="set_user">SSH user</label><input name="user" id="set_user" value="root"/></div></div>
-      <div class="row"><div><label>API local port</label><input name="api_port" id="set_api_port" value="8787"/></div>
-      <div><label>API base</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div></div>
-      <div class="row"><div><label>Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div>
+      <div class="row"><div><label data-i18n="set_api_port">API local port</label><input name="api_port" id="set_api_port" value="8787"/></div>
+      <div><label data-i18n="set_api_base">API base</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div></div>
+      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div>
       <div><label data-i18n="set_prefer">Prefer VPN for SSH</label><select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes</option><option value="0">no</option></select></div></div>
-      <div class="row"><div><label>Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div><div><span class="note">Not stored in localStorage</span></div></div>
+      <div class="row"><div><label data-i18n="set_session">Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div><div><span class="note" data-i18n="set_session_note">Not stored in localStorage</span></div></div>
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <pre class="log" id="settingsSaved" class="log settings-log"></pre>
     </div>
@@ -182,7 +182,7 @@
 </div>
 <div class="sec" id="deployLogSec">
   <div class="steps" id="steps"></div>
-  <pre class="log" id="log">idle</pre>
+  <pre class="log" id="log" data-i18n="idle">idle</pre>
 </div>
 </main>
 

@@ -21,25 +21,92 @@ function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replac
 
 const I18N = {
 en:{
-  app_title:'netductor-op', tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings',
+  app_title:'netductor-op', meta_line:'Mac client · node API',
+  tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings',
+  sub_fleet:'Fleet', sub_primary:'Primary', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
+  inst_note:'Deploy from this Mac over SSH.',
+  l_phost:'Primary host', l_ppass:'Primary password', l_shost:'Secondary host', l_spass:'Secondary password',
+  l_domain:'Domain base', l_le:'LE email', l_sni:'SNI', l_key:'SSH key', l_host:'Host', l_pass:'Password',
+  l_pkey:'Primary key', l_user:'User', l_arch:'Agent arch', l_server_url:'Server URL (mTLS)', l_keypass:'Key passphrase',
+  l_lan:'LAN IP (optional)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Wi-Fi key',
+  l_site_id:'Site id', l_name:'Name', l_rpi:'RPi id', l_mtid:'MikroTik id', l_rpilan:'RPi LAN gateway',
+  l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
+  l_role:'Role', l_tg_token:'TG bot token', l_tg_admin:'TG admin user id',
+  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot',
+  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_push:'Push RSC + harden',
+  tg_note:'Telegram installs on primary only (token + numeric admin id required).',
+  btn_fleet:'Fleet deploy', btn_primary:'Deploy primary', btn_secondary:'Deploy secondary',
+  btn_edge:'Provision edge', btn_site:'Save / push site', btn_creds:'Collect',
+  btn_tunnel_start:'Start / ensure', btn_tunnel_stop:'Stop', btn_session_issue:'Issue session', btn_session_load:'Load session file',
+  btn_raw:'Raw JSON', btn_send:'Send',
   set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
-  save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).', result:'Result',
-  sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_probes:'Probes', sec_adv:'Advanced'
+  set_api_port:'API local port', set_api_base:'API base', set_sec_host:'Secondary host', set_session:'Node session (sessionStorage)',
+  set_session_note:'Not stored in localStorage',
+  save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
+  result:'Result', tunnel:'Tunnel', idle:'idle',
+  sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_probes:'Probes', sec_adv:'Advanced',
+  adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
+  b_health:'Health', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_metrics:'Metrics',
+  b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
+  b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
+  b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
+  b_nodes:'Nodes', b_self:'Self', b_sec_st:'Secondary status', b_sec_links:'Secondary links',
+  b_ssh_hosts:'SSH hosts', b_ssh_clear:'SSH hosts clear', b_mtls:'mTLS certs', b_sites:'Sites',
+  b_hostname:'Set hostname', b_svc_restart:'Restart service', b_journal:'Journal',
+  l_vpn_name:'name', l_vpn_note:'note', l_vpn_act:'user action', l_hostname:'hostname', l_node_id:'node id',
+  l_svc:'service restart', l_journal:'journal unit', yes:'yes', no:'no'
 },
 ru:{
-  app_title:'netductor-op', tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки',
+  app_title:'netductor-op', meta_line:'Клиент Mac · API ноды',
+  tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки',
+  sub_fleet:'Флот', sub_primary:'Primary', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
+  inst_note:'Деплой с этого Mac по SSH.',
+  l_phost:'Хост primary', l_ppass:'Пароль primary', l_shost:'Хост secondary', l_spass:'Пароль secondary',
+  l_domain:'Базовый домен', l_le:'Email LE', l_sni:'SNI', l_key:'SSH-ключ', l_host:'Хост', l_pass:'Пароль',
+  l_pkey:'Ключ primary', l_user:'Пользователь', l_arch:'Архитектура agent', l_server_url:'URL сервера (mTLS)', l_keypass:'Passphrase ключа',
+  l_lan:'LAN IP (опц.)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Ключ Wi-Fi',
+  l_site_id:'ID сайта', l_name:'Имя', l_rpi:'ID RPi', l_mtid:'ID MikroTik', l_rpilan:'Шлюз LAN RPi',
+  l_mthost:'Хост MT', l_mtuser:'Пользователь MT', l_mtpass:'Пароль MT', l_mtport:'Порт MT', l_opkey:'Ключ оператора',
+  l_role:'Роль', l_tg_token:'Токен TG-бота', l_tg_admin:'TG admin id',
+  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram-бот',
+  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_push:'Push RSC + harden',
+  tg_note:'Telegram ставится только на primary (нужны token и числовой admin id).',
+  btn_fleet:'Деплой флота', btn_primary:'Деплой primary', btn_secondary:'Деплой secondary',
+  btn_edge:'Поставить edge', btn_site:'Сохранить / push сайта', btn_creds:'Собрать',
+  btn_tunnel_start:'Старт / ensure', btn_tunnel_stop:'Стоп', btn_session_issue:'Выдать session', btn_session_load:'Загрузить session',
+  btn_raw:'Сырой JSON', btn_send:'Отправить',
   set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
-  save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage (не localStorage).', result:'Результат',
-  sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_probes:'Probes', sec_adv:'Advanced'
+  set_api_port:'Локальный порт API', set_api_base:'База API', set_sec_host:'Хост secondary', set_session:'Session ноды (sessionStorage)',
+  set_session_note:'Не хранится в localStorage',
+  save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
+  result:'Результат', tunnel:'Туннель', idle:'ожидание',
+  sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_probes:'Probes', sec_adv:'Дополнительно',
+  adv_note:'Произвольный POST/GET к session API', l_method:'метод', l_path:'путь', l_body:'JSON body',
+  b_health:'Health', b_doctor:'Doctor', b_domain:'Домен', b_bot:'Статус бота', b_status:'Статус', b_metrics:'Метрики',
+  b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
+  b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'Список users', b_vpn_refresh:'Обновить ссылки',
+  b_vpn_add:'Добавить user', b_vpn_enable:'Включить', b_vpn_disable:'Выключить', b_vpn_revoke:'Отозвать', b_vpn_link:'Ссылки',
+  b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
+  b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты',
+  b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
+  l_vpn_name:'имя', l_vpn_note:'заметка', l_vpn_act:'user', l_hostname:'hostname', l_node_id:'id ноды',
+  l_svc:'restart сервиса', l_journal:'journal unit', yes:'да', no:'нет'
 }};
+function t(k){ const d=I18N[uiLang]||I18N.en; return (d&&d[k])||(I18N.en[k])||k; }
 let uiLang=localStorage.getItem('nd_op_lang')||((navigator.language||'').startsWith('ru')?'ru':'en');
 function applyI18n(){
   const d=I18N[uiLang]||I18N.en;
+  document.documentElement.lang = uiLang==='ru'?'ru':'en';
   document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{ const k=el.getAttribute('data-i18n-html'); if(d[k]) el.innerHTML=d[k]; });
   document.querySelectorAll('#mainTabs button').forEach(b=>{
-    if(b.dataset.main==='installer') b.textContent=d.tab_installer;
-    if(b.dataset.main==='control') b.textContent=d.tab_control;
-    if(b.dataset.main==='settings') b.textContent=d.tab_settings;
+    if(b.dataset.main==='installer') b.textContent=d.tab_installer||b.textContent;
+    if(b.dataset.main==='control') b.textContent=d.tab_control||b.textContent;
+    if(b.dataset.main==='settings') b.textContent=d.tab_settings||b.textContent;
+  });
+  document.querySelectorAll('#subInstaller button').forEach(b=>{
+    const map={fleet:'sub_fleet',primary:'sub_primary',secondary:'sub_secondary',edge:'sub_edge',site:'sub_site',creds:'sub_creds'};
+    const k=map[b.dataset.tab]; if(k&&d[k]) b.textContent=d[k];
   });
   document.querySelectorAll('#controlSub button').forEach(b=>{
     const k='sec_'+b.dataset.csec; if(d[k]) b.textContent=d[k];
@@ -47,7 +114,9 @@ function applyI18n(){
   const le=document.getElementById('langEn'), lr=document.getElementById('langRu');
   if(le) le.classList.toggle('active', uiLang==='en');
   if(lr) lr.classList.toggle('active', uiLang==='ru');
+  try{ mountButtons(); }catch(e){}
 }
+
 
 function showMain(name){
   document.getElementById('main-installer').style.display = name==='installer'?'block':'none';
@@ -261,31 +330,33 @@ document.getElementById('btnShowRaw').onclick=()=>{
 // --- Control button definitions (max operator-session API) ---
 const BTN = {
   overview:[
-    ['health','Health','GET','/health'],
-    ['bot','Bot status','GET','/api/bot-status'],
-    ['status','Status','GET','/api/status'],
-    ['metrics','Metrics','GET','/api/metrics'],
-    ['metrics-hist','Metrics history','GET','/api/metrics/history'],
-    ['addons','Addons','GET','/api/addons'],
-    ['addons-lampac','Lampac','GET','/api/addons/lampac'],
-    ['sni','SNI','GET','/api/sni'],
-    ['sni-presets','SNI presets','GET','/api/sni-presets'],
-    ['latest','Latest','GET','/api/latest'],
-    ['sessions','Sessions','GET','/api/sessions'],
+    ['health','b_health','GET','/health'],
+    ['doctor','b_doctor','GET','/api/doctor'],
+    ['domain','b_domain','GET','/api/domain'],
+    ['bot','b_bot','GET','/api/bot-status'],
+    ['status','b_status','GET','/api/status'],
+    ['metrics','b_metrics','GET','/api/metrics'],
+    ['metrics-hist','b_metrics_hist','GET','/api/metrics/history'],
+    ['addons','b_addons','GET','/api/addons'],
+    ['addons-lampac','b_lampac','GET','/api/addons/lampac'],
+    ['sni','b_sni','GET','/api/sni'],
+    ['sni-presets','b_sni_presets','GET','/api/sni-presets'],
+    ['latest','b_latest','GET','/api/latest'],
+    ['sessions','b_sessions','GET','/api/sessions'],
   ],
   vpn:[
-    ['vpn-users','List users','GET','/vpn/users'],
-    ['vpn-refresh','Refresh links','POST','/api/vpn/refresh-links','{}'],
+    ['vpn-users','b_vpn_users','GET','/vpn/users'],
+    ['vpn-refresh','b_vpn_refresh','POST','/api/vpn/refresh-links','{}'],
   ],
   nodes:[
-    ['nodes','Nodes','GET','/api/nodes'],
-    ['nodes-self','Self','GET','/api/nodes/self'],
-    ['secondary','Secondary status','GET','/api/secondary/status'],
-    ['secondary-links','Secondary links','GET','/api/secondary/links'],
-    ['ssh-hosts','SSH hosts','GET','/api/ssh-hosts'],
-    ['ssh-clear','SSH hosts clear','POST','/api/ssh-hosts/clear','{}'],
-    ['mtls-certs','mTLS certs','GET','/api/mtls/certs'],
-    ['sites','Sites','GET','/api/sites'],
+    ['nodes','b_nodes','GET','/api/nodes'],
+    ['nodes-self','b_self','GET','/api/nodes/self'],
+    ['secondary','b_sec_st','GET','/api/secondary/status'],
+    ['secondary-links','b_sec_links','GET','/api/secondary/links'],
+    ['ssh-hosts','b_ssh_hosts','GET','/api/ssh-hosts'],
+    ['ssh-clear','b_ssh_clear','POST','/api/ssh-hosts/clear','{}'],
+    ['mtls-certs','b_mtls','GET','/api/mtls/certs'],
+    ['sites','b_sites','GET','/api/sites'],
   ],
   edge:[
     ['edge-pending','Pending','GET','/api/edge/pending'],
@@ -333,26 +404,28 @@ const BTN = {
 function mountButtons(){
   for(const [sec, list] of Object.entries(BTN)){
     const el=document.getElementById('csec-'+sec); if(!el) continue;
+    // preserve form blocks: clear only button strip by regenerating whole section content carefully
     let h='';
     for(const [id,label,method,path,body] of list){
-      h+='<button class="primary" type="button" data-act="'+id+'">'+label+'</button> ';
+      const lab=(label&&label.indexOf('b_')===0)?t(label):label;
+      h+='<button class="primary" type="button" data-act="'+id+'">'+lab+'</button> ';
     }
     // append forms for complex POSTs
     if(sec==='vpn'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>name</label><input id="vpnName"/></div><div><label>note</label><input id="vpnNote"/></div></div>
-      <button class="primary" type="button" data-act="vpn-add">Add user</button>
-      <div class="row"><div><label>user action</label><input id="vpnActName"/></div><div></div></div>
-      <button class="primary" type="button" data-act="vpn-enable">Enable</button>
-      <button class="primary" type="button" data-act="vpn-disable">Disable</button>
-      <button class="primary" type="button" data-act="vpn-revoke">Revoke</button>
-      <button class="primary" type="button" data-act="vpn-link">Get links</button>`;
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>
+      <button class="primary" type="button" data-act="vpn-add">${t('b_vpn_add')}</button>
+      <div class="row"><div><label>${t('l_vpn_act')}</label><input id="vpnActName"/></div><div></div></div>
+      <button class="primary" type="button" data-act="vpn-enable">${t('b_vpn_enable')}</button>
+      <button class="primary" type="button" data-act="vpn-disable">${t('b_vpn_disable')}</button>
+      <button class="primary" type="button" data-act="vpn-revoke">${t('b_vpn_revoke')}</button>
+      <button class="primary" type="button" data-act="vpn-link">${t('b_vpn_link')}</button>`;
     }
     if(sec==='nodes'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>hostname</label><input id="nodeHost"/></div><div><label>node id</label><input id="nodeId"/></div></div>
-      <button class="primary" type="button" data-act="nodes-hostname">Set hostname</button>
-      <div class="row"><div><label>service restart</label><input id="nodeSvc" placeholder="sing-box"/></div><div><label>journal unit</label><input id="nodeJournal"/></div></div>
-      <button class="primary" type="button" data-act="nodes-restart">Restart service</button>
-      <button class="primary" type="button" data-act="nodes-journal">Journal</button>
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_hostname')}</label><input id="nodeHost"/></div><div><label>${t('l_node_id')}</label><input id="nodeId"/></div></div>
+      <button class="primary" type="button" data-act="nodes-hostname">${t('b_hostname')}</button>
+      <div class="row"><div><label>${t('l_svc')}</label><input id="nodeSvc" placeholder="sing-box"/></div><div><label>${t('l_journal')}</label><input id="nodeJournal"/></div></div>
+      <button class="primary" type="button" data-act="nodes-restart">${t('b_svc_restart')}</button>
+      <button class="primary" type="button" data-act="nodes-journal">${t('b_journal')}</button>
       <div class="row"><div><label>mTLS node_id</label><input id="mtlsNode"/></div><div></div></div>
       <button class="primary" type="button" data-act="mtls-rotate">Rotate cert</button>
       <button class="primary" type="button" data-act="mtls-revoke">Revoke cert</button>
