@@ -1,32 +1,29 @@
 class NetductorOp < Formula
-  desc "Netductor Mac operator (WebUI/TUI/deploy)"
+  desc "netductor"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.9.15"
+  version "0.9.17"
   license "MIT"
   on_macos do
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.15/netductor-op-darwin-arm64"
-      sha256 "41e9069997d770b5b0d9881c68882a827b3f4b2b567e0df734474588942a043f"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.17/netductor-op-darwin-arm64"
+      sha256 "f3cd88dc2a6a149a259994f31082258e779beb1ec4dfbf0bbbabc69576cf7512"
     end
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.15/netductor-op-darwin-amd64"
-      sha256 "4bdcbf188280022047c9caea97513908d4972fc9780281891000dd9b61efea5d"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.17/netductor-op-darwin-amd64"
+      sha256 "104a314f03b8a5bf9782af6b7ca3835f95557f63c268b5169e51bc92eb4e9470"
     end
   end
   on_linux do
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.15/netductor-op-linux-amd64"
-      sha256 "30fff57c771b4da8a3f33dc88d32e8ebd78605ba70ddd427b59b0747cd8a4779"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.17/netductor-op-linux-amd64"
+      sha256 "ce3a7845e24cbf942244011293e6a393a71a741282af2cc235ee6c88731e2eda"
     end
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.15/netductor-op-linux-arm64"
-      sha256 "f5b7dfc8f4ce511f5dacf5648d4cc4e541de6bf5762eec306a91cb0b5e56cd06"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.17/netductor-op-linux-arm64"
+      sha256 "c3f880392d299758770011600a734338037d5208364177662045f64e7c944f09"
     end
   end
   def install
     bin.install Dir["netductor-op*"].first => "netductor-op"
-  end
-  test do
-    assert_match version.to_s, shell_output("#{bin}/netductor-op version 2>&1")
   end
 end

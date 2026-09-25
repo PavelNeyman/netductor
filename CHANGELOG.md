@@ -1,3 +1,9 @@
+## 0.9.17
+
+- REVIEW-0.9.16 full code/security review; handoff for next chat
+- Web Fleet/Primary: cf_proxy checkbox (parity with deploy API)
+- OPEN_ITEMS / UI-PARITY refreshed
+
 ## 0.9.16
 
 - WebUI full EN/RU labels

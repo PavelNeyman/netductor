@@ -32,7 +32,7 @@ en:{
   l_site_id:'Site id', l_name:'Name', l_rpi:'RPi id', l_mtid:'MikroTik id', l_rpilan:'RPi LAN gateway',
   l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
   l_role:'Role', l_tg_token:'TG bot token', l_tg_admin:'TG admin user id',
-  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot',
+  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot', c_cf:'CF proxy i. (multi-level usually off)',
   c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_push:'Push RSC + harden',
   tg_note:'Telegram installs on primary only (token + numeric admin id required).',
   btn_fleet:'Fleet deploy', btn_primary:'Deploy primary', btn_secondary:'Deploy secondary',
@@ -68,7 +68,7 @@ ru:{
   l_site_id:'ID сайта', l_name:'Имя', l_rpi:'ID RPi', l_mtid:'ID MikroTik', l_rpilan:'Шлюз LAN RPi',
   l_mthost:'Хост MT', l_mtuser:'Пользователь MT', l_mtpass:'Пароль MT', l_mtport:'Порт MT', l_opkey:'Ключ оператора',
   l_role:'Роль', l_tg_token:'Токен TG-бота', l_tg_admin:'TG admin id',
-  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram-бот',
+  c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram-бот', c_cf:'CF proxy i. (multi-level обычно no)',
   c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_push:'Push RSC + harden',
   tg_note:'Telegram ставится только на primary (нужны token и числовой admin id).',
   btn_fleet:'Деплой флота', btn_primary:'Деплой primary', btn_secondary:'Деплой secondary',
@@ -183,12 +183,14 @@ document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); co
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
     domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
+    cf_proxy:fd.get('cf_proxy')==='on',
     with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
     with_telegram:fd.get('with_telegram')==='on',
     tg_token:(fd.get('tg_token')||'').trim(), tg_admin:(fd.get('tg_admin')||'').trim() }, e.submitter); };
 document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; saveForm('primary',fd);
   await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'),
     sni:fd.get('sni'), key:fd.get('key'),
+    cf_proxy:fd.get('cf_proxy')==='on',
     with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
     with_telegram:fd.get('with_telegram')==='on',
     tg_token:(fd.get('tg_token')||'').trim(), tg_admin:(fd.get('tg_admin')||'').trim() }, e.submitter); };
