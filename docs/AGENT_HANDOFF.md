@@ -1,12 +1,14 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.20** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.20
+**Baseline:** **v0.9.23** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.23
+
+**Next engineering:** [PLAN-TG-MENU-REFACTOR.md](PLAN-TG-MENU-REFACTOR.md) (plan frozen; implement Phase 0–2 next).
 
 ## Read order (new chat)
 
 1. [AGENTS.md](../AGENTS.md)  
 2. **This file**  
-3. [REVIEW-0.9.17.md](REVIEW-0.9.17.md) — latest full security/code review (covers 0.9.17–0.9.17)  
+3. [REVIEW-0.9.16.md](REVIEW-0.9.16.md) — latest full security/code review (covers 0.9.17–0.9.17)  
 4. [PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md) · [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)  
 5. [UI-PARITY.md](UI-PARITY.md) · [WEB-UI-NOTES.md](WEB-UI-NOTES.md)  
 6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)

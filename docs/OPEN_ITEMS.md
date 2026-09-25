@@ -1,5 +1,9 @@
 # Open items
 
+## In progress / planned
+
+- **[PLAN-TG-MENU-REFACTOR.md](PLAN-TG-MENU-REFACTOR.md)** — global TG menu UX (nav vs actions, rich tables, back stack, i18n)
+
 ## Owner / later
 
 - Hardware e2e (OpenWrt guest, Tapo NVR, MikroTik+RPi)
@@ -8,11 +12,9 @@
 
 ## Done recently
 
-- Full WebUI form-label i18n (0.9.16+)
-- Web Fleet Telegram token/admin (0.9.15)
-- `/api/doctor` + `/api/domain` session (0.9.16)
-- Deploy parity Web/TUI: Fleet, Primary, Secondary, OpenWrt, MikroTik site
-- Mac-direct secondary; LE; domain short names `*.nd.neyman.top`
+- SNI health: Reality plain-TLS is not downtime (v0.9.23)
+- TG Tools + opcatalog; format cards for health/metrics/doctor
+- Web/TUI deploy parity; structured doctor JSON
 
 ## Not doing
 
@@ -20,6 +22,6 @@
 - Deploy from Telegram
 - Password day-2 tunnel
 
-## Ideas / later design (not scheduled)
+## Ideas / later design
 
 See [PLAN-MIKROTIK-API-EDGE.md](PLAN-MIKROTIK-API-EDGE.md), [PLAN-SITE-ROOMS.md](PLAN-SITE-ROOMS.md).
