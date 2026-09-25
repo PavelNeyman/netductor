@@ -86,6 +86,7 @@ func guestBackKB() map[string]any {
 }
 
 func handleDNSCB(token string, chat int64, msgID int, data string) {
+	fmt.Fprintf(os.Stderr, "dns cb data=%q\n", data)
 	if data == "m:dns:reload" {
 		if err := dnsblock.ReloadBlocky(); err != nil {
 			showDNSMenu(token, chat, msgID, "❌ Reload: "+err.Error())
@@ -99,16 +100,18 @@ func handleDNSCB(token string, chat int64, msgID int, data string) {
 		return
 	}
 	parts := strings.Split(data, ":")
-	if len(parts) >= 4 && (parts[2] == "on" || parts[2] == "off") {
+	// m:dns:on:id or m:dns:off:id  (id may contain colons — join rest)
+	if len(parts) >= 4 && parts[0] == "m" && parts[1] == "dns" && (parts[2] == "on" || parts[2] == "off") {
 		on := parts[2] == "on"
 		id := strings.Join(parts[3:], ":")
 		if err := dnsblock.SetEnabled(id, on); err != nil {
+			fmt.Fprintf(os.Stderr, "dns SetEnabled %s on=%v: %v\n", id, on, err)
 			showDNSMenu(token, chat, msgID, "❌ "+err.Error())
 			return
 		}
 		msg := "✅ " + id + " → "
 		if on {
-			msg += "ON (config updated; press 🔄 Reload to fetch)"
+			msg += "ON (press 🔄 Reload to fetch)"
 		} else {
 			msg += "OFF"
 		}
@@ -121,15 +124,27 @@ func handleDNSCB(token string, chat int64, msgID int, data string) {
 func showDNSMenu(token string, chat int64, msgID int, status string) {
 	body := dnsblock.FormatCatalogHTML()
 	if status != "" {
-		// Plain status + newlines before rich HTML can make sendRichMessage fail →
-		// classic fallback used to strip <tg-button> inside the table.
 		body = "<p>" + esc(status) + "</p>" + body
 	}
-	// Navigation only under message — Enable/Disable/Reload stay in the table body.
-	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
-	reply(token, chat, msgID, body, kb)
+	// Navigation + safety net: same toggles on keyboard if client drops in-table tg-button callbacks.
+	var rows [][]map[string]any
+	for _, e := range dnsblock.Catalog() {
+		label := "🟢 " + e.ID
+		data := "m:dns:off:" + e.ID
+		if !e.Enabled {
+			label = "⚪ " + e.ID
+			data = "m:dns:on:" + e.ID
+		}
+		rows = append(rows, []map[string]any{btn(label, data, "")})
+	}
+	rows = append(rows, []map[string]any{btn("🔄 Reload", "m:dns:reload", "primary")})
+	rows = append(rows, []map[string]any{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")})
+	kb := map[string]any{"inline_keyboard": rows}
+	// Always replace message so state refresh is visible.
+	if msgID > 0 {
+		_ = deleteMessage(token, chat, msgID)
+	}
+	sendHTML(token, chat, body, kb)
 }
 
 func handleBackupCB(token string, chat int64, msgID int, data string) {

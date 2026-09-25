@@ -7,21 +7,39 @@ import (
 )
 
 func handleCallback(token string, cq *callbackQuery, admin int64) {
-	if cq.From.ID != admin {
+	if cq == nil {
 		return
 	}
-	chat := cq.Message.Chat.ID
-	msgID := 0
-	if cq.Message != nil {
-		msgID = cq.Message.MessageID
-	}
-	data := cq.Data
-	// hourglass toast for long node ops — same UX core & relay
+	data := strings.TrimSpace(cq.Data)
+	// Always ack the spinner first (rich in-body buttons included).
 	if strings.HasPrefix(data, "m:nd:u:") || strings.HasPrefix(data, "m:nd:r:") {
 		answerCallbackText(token, cq.ID, "⏳ …")
-	} else {
+	} else if data != "" {
 		answerCallback(token, cq.ID)
 	}
+	if admin != 0 && cq.From.ID != admin {
+		fmt.Fprintf(os.Stderr, "tg callback ignored: from=%d admin=%d data=%q\n", cq.From.ID, admin, data)
+		return
+	}
+	chat := int64(0)
+	msgID := 0
+	if cq.Message != nil {
+		chat = cq.Message.Chat.ID
+		msgID = cq.Message.MessageID
+	}
+	if chat == 0 {
+		// Some clients omit message on rich-button callbacks — fall back to admin chat.
+		chat = admin
+		if chat == 0 {
+			fmt.Fprintf(os.Stderr, "tg callback: no chat for data=%q\n", data)
+			return
+		}
+	}
+	if data == "" {
+		fmt.Fprintln(os.Stderr, "tg callback: empty data")
+		return
+	}
+	fmt.Fprintf(os.Stderr, "tg callback: chat=%d msg=%d data=%q\n", chat, msgID, data)
 
 	
 	if strings.HasPrefix(data, "e:appr:") {

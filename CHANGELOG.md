@@ -1,3 +1,9 @@
+## 0.9.25
+
+- TG DNS: fix no-op clicks — nil-safe callbacks, log data, delete+sendRich refresh
+- DNS keyboard mirror toggles (safety if in-table callback not delivered)
+- handleCallback: ack spinner before admin check
+
 ## 0.9.24
 
 - TG: never classic-fallback when HTML has tables/tg-button (DNS in-table actions)
