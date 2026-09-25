@@ -44,7 +44,7 @@ func (m *model) runNetductor(args ...string) string {
 		var cmd *exec.Cmd
 		if m.remotePassword != "" {
 			if _, err := exec.LookPath("sshpass"); err == nil {
-				sshArgs := append(m.sshBaseArgs(), target)
+				sshArgs := append(m.sshBaseArgs(), "--", target)
 				sshArgs = append(sshArgs, remoteCmd...)
 				cmd = exec.Command("sshpass", append([]string{"-e", "ssh"}, sshArgs...)...)
 				cmd.Env = append(os.Environ(), "SSHPASS="+m.remotePassword)
@@ -52,7 +52,7 @@ func (m *model) runNetductor(args ...string) string {
 				return "sshpass not installed — use SSH key, or: brew install sshpass / apt install sshpass\n"
 			}
 		} else {
-			sshArgs := append(m.sshBaseArgs(), target)
+			sshArgs := append(m.sshBaseArgs(), "--", target)
 			sshArgs = append(sshArgs, remoteCmd...)
 			cmd = exec.Command("ssh", sshArgs...)
 		}
