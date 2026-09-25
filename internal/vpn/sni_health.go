@@ -6,12 +6,15 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
-// SNIHealth tries TLS handshake to local Reality port with configured SNI.
+// SNIHealth checks that the VLESS/Reality port accepts TCP.
+// A full TLS handshake with stock crypto/tls almost always fails on Reality
+// (server expects REALITY auth) — that is NOT treated as downtime.
 func SNIHealth() (ok bool, ms int64, detail string) {
 	sniName := sni()
 	port := vlessPort()
@@ -20,19 +23,26 @@ func SNIHealth() (ok bool, ms int64, detail string) {
 	d := net.Dialer{Timeout: 3 * time.Second}
 	conn, err := d.Dial("tcp", addr)
 	if err != nil {
-		return false, 0, err.Error()
+		return false, 0, "dial: " + err.Error()
 	}
 	defer conn.Close()
+	msDial := time.Since(t0).Milliseconds()
+
 	cfg := &tls.Config{ServerName: sniName, InsecureSkipVerify: true, NextProtos: []string{"h2", "http/1.1"}}
 	tconn := tls.Client(conn, cfg)
-	_ = tconn.SetDeadline(time.Now().Add(3 * time.Second))
+	_ = tconn.SetDeadline(time.Now().Add(2 * time.Second))
 	err = tconn.Handshake()
 	ms = time.Since(t0).Milliseconds()
 	if err != nil {
-		// Reality may fail standard TLS; still records latency to accept
-		return false, ms, fmt.Sprintf("sni=%s handshake: %v", sniName, err)
+		// Port is open; Reality rejects vanilla TLS — expected.
+		return true, msDial, fmt.Sprintf("sni=%s port_up dial_ms=%d (reality rejects plain TLS: %v)", sniName, msDial, err)
 	}
-	return true, ms, fmt.Sprintf("sni=%s ok", sniName)
+	return true, ms, fmt.Sprintf("sni=%s tls_ok", sniName)
+}
+
+// SNIDialDown reports whether detail from SNIHealth means the port is unreachable.
+func SNIDialDown(detail string) bool {
+	return strings.HasPrefix(detail, "dial:")
 }
 
 func WriteSNIHealthMetric(ok bool, ms int64, detail string) {

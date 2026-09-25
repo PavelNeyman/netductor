@@ -174,13 +174,12 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	if enabled("sni_health") {
 		ok, ms, det := vpn.SNIHealth()
 		vpn.WriteSNIHealthMetric(ok, ms, det)
-		// Reality often fails plain TLS probe — only alert on dial failure
-		if strings.Contains(det, "connection refused") || strings.Contains(det, "i/o timeout") {
-			notify.AlertOnce("sni:down", fmt.Sprintf("⚠️ VLESS port/SNI probe failed: %s", det))
+		// Only real dial failures (port closed). Reality rejects plain TLS — not an outage.
+		if vpn.SNIDialDown(det) || !ok {
+			notify.AlertOnce("sni:down", fmt.Sprintf("⚠️ VLESS port closed/unreachable: %s", det))
 		} else {
 			notify.ClearAlert("sni:down")
 		}
-		_ = ok
 		_ = ms
 	}
 	if enabled("mismatch_spike") {

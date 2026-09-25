@@ -1,3 +1,7 @@
+## 0.9.23
+
+- SNI health: Reality plain-TLS fail is OK; alert only if TCP dial fails
+
 ## 0.9.22
 
 - format: dedicated Health / Metrics / Metrics-history renderers (no raw JSON primary view)
