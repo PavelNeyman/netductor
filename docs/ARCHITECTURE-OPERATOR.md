@@ -1,3 +1,16 @@
+# Operator architecture (Mac client · Node API)
+
+**Status:** locked · **Baseline:** v0.9.2+
+
+## Product split
+
+| Binary | Role |
+|--------|------|
+| **netductor-op** (Mac) | **Only human UI** + deploy orchestration: WebUI, TUI, SSH, credentials |
+| **netductor** (VPS) | **Server only**: JSON API, vpn, agents, backup, recovery — **not** a product web console |
+
+Migration plan: [PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md).
+
 # Operator architecture (Mac / workstation)
 
 **Status:** approved direction · **Baseline:** v0.8.94+  

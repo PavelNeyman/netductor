@@ -2,12 +2,12 @@
 
 Fleet: **primary** (abroad control plane) + optional **secondary** (RU VPN entry only). See [FLEET.md](FLEET.md). Plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 
-Single Go binary **netductor** on each VPS:
+**netductor** on each VPS (node). **netductor-op** on Mac (UI + deploy).
 
 | Plane | Role |
 |-------|------|
 | install | packages + systemd units |
-| serve | Admin API + static admin UI :8787 |
+| serve | JSON API :8787 (Mac client via tunnel); legacy `/admin` optional |
 | vpn | multi-user VLESS Reality + HY2 (sing-box) |
 | collect / probes | metrics + alerts via Telegram |
 | doctor / status | health |

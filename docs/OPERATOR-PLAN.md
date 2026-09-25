@@ -40,3 +40,11 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress
 - [x] v0.8.94–0.8.97 operator program
 - [x] v0.8.98 operator HTTP hardening (token, host validation)
 - [x] v0.9.0 binary split operator / node
+
+
+## Mac client program (after operator core)
+
+See **[PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md)**.
+
+- [x] Architecture locked: UI on Mac only; node = API
+- [~] P1 WebUI shell Control + Settings

@@ -1,3 +1,6 @@
+> **Legacy path.** Product UI is **netductor-op on Mac** ([PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md)).  
+> Static files under `/admin` on the node may remain temporarily for SSH-tunnel emergencies; they are **not** the target architecture.
+
 # Admin UI
 
 `http://127.0.0.1:8787/admin/` (SSH tunnel).

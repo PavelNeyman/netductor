@@ -1,26 +1,26 @@
 class Netductor < Formula
-  desc "Netductor operator (Mac): deploy, TUI, operator serve"
+  desc "Netductor operator (Mac client): deploy + local admin UI"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.9.1"
+  version "0.9.2"
   license "MIT"
   on_macos do
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.1/netductor-op-darwin-arm64"
-      sha256 "a44343add6586a8ae2785ee57a04c29ea30cae6c6c9c437a8434a113fad027ef"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.2/netductor-op-darwin-arm64"
+      sha256 "d6d3423ab5a7d7544890b5dbcf504099e16eb82144c52a7247610b4ccc4c5a0e"
     end
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.1/netductor-op-darwin-amd64"
-      sha256 "ebd40f8d52548d7487a52ac73fc84161425d8b815824f7f71ff3baf75aac836c"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.2/netductor-op-darwin-amd64"
+      sha256 "cdae21af0023f1981af247895493a08c2f193b510ab47a267b4fc12ebd3796ac"
     end
   end
   on_linux do
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.1/netductor-op-linux-amd64"
-      sha256 "9a3c79d9b0a98bab7b6a3ce2ab58c4ca3a444bb20102d03545bcecc8f147f351"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.2/netductor-op-linux-amd64"
+      sha256 "90faeefa0db9b9c699f6c52e6c7a555c39f1c1588486a6296c5286a9d150fb5f"
     end
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.1/netductor-op-linux-arm64"
-      sha256 "365e397012d726380f1de2b46040fbba408c49a08eb879d0c00239eeebfeb364"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.2/netductor-op-linux-arm64"
+      sha256 "abc841f0be418283e92c732ec405929d85fcd5811822acf9279ad6095b5829ae"
     end
   end
   def install
@@ -29,8 +29,9 @@ class Netductor < Formula
   end
   def caveats
     <<~EOS
-      Operator: netductor-op (symlink netductor). WebUI: netductor-op operator serve
-      VPS node: deploy installs netductor-linux-* from Releases.
+      Mac client: netductor-op operator serve  → http://127.0.0.1:7373/
+      Node API tunnel: netductor-op tunnel --host PRIMARY
+      VPS has no product web UI — API only.
     EOS
   end
   test do

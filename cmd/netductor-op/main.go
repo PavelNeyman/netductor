@@ -6,7 +6,7 @@ import (
 )
 
 // Operator workstation binary (Mac/PC). Does not embed node plane (install/serve/vpn).
-var version = "0.9.1"
+var version = "0.9.2"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -30,6 +30,8 @@ func main() {
 		runOperator(os.Args[2:])
 	case "credentials":
 		runCredentials(os.Args[2:])
+	case "tunnel":
+		runTunnel(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown: %s (operator binary — see netductor-op help)\n", os.Args[1])
 		os.Exit(1)
@@ -38,6 +40,8 @@ func main() {
 
 func printOpHelp() {
 	fmt.Print(`netductor-op — operator workstation (Mac/PC)
+  tunnel --host IP   # SSH local forward to node API
+
 
   deploy primary|secondary|fleet|edge   bootstrap nodes over SSH
   operator serve [--bind 127.0.0.1] [--port 7373] [--token SECRET]

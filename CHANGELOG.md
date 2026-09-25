@@ -1,3 +1,9 @@
+## 0.9.2
+
+- Locked: Mac client UI only; node = API server ([PLAN-MAC-CLIENT.md](docs/PLAN-MAC-CLIENT.md))
+- WebUI: Installer | Control | Settings; tunnel CLI; Control hits node `/health`
+- VPS `/admin` documented as legacy
+
 ## 0.9.1
 
 - Operator WebUI: Fleet / Primary / Secondary / Credentials tabs, EN/RU, step chips, localStorage

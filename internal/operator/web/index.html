@@ -3,340 +3,302 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>netductor operator</title>
+<title>netductor-op</title>
 <style>
-:root{--bg:#0f1419;--panel:#1a222d;--border:#2a3340;--text:#e7ecf1;--muted:#9aa4b2;--acc:#3b82f6;--ok:#22c55e;--err:#ef4444;--warn:#eab308}
+:root{--bg:#0f1419;--panel:#1a222d;--border:#2a3340;--text:#e7ecf1;--muted:#9aa4b2;--acc:#3b82f6;--ok:#22c55e;--err:#ef4444}
 *{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:var(--bg);color:var(--text);line-height:1.45}
+body{font-family:system-ui,sans-serif;margin:0;background:var(--bg);color:var(--text);line-height:1.45}
 header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;justify-content:space-between}
-header h1{font-size:1.1rem;margin:0;font-weight:650}
-header .meta{font-size:.8rem;color:var(--muted)}
-nav{display:flex;gap:.35rem;flex-wrap:wrap;padding:.75rem 1.25rem;border-bottom:1px solid var(--border)}
+header h1{font-size:1.15rem;margin:0}
+.meta{font-size:.8rem;color:var(--muted)}
+.nav-main,.nav-sub{display:flex;gap:.35rem;flex-wrap:wrap;padding:.65rem 1.25rem;border-bottom:1px solid var(--border)}
+.nav-sub{padding-top:.35rem;background:#0c1015}
 nav button{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.4rem .75rem;border-radius:999px;cursor:pointer;font:inherit;font-size:.85rem}
 nav button.active{background:var(--acc);border-color:var(--acc);color:#fff}
 main{max-width:56rem;margin:0 auto;padding:1.25rem}
-.panel{display:none}
-.panel.active{display:block}
+.panel{display:none}.panel.active{display:block}
 label{display:block;margin:.55rem 0 .2rem;font-size:.8rem;color:var(--muted)}
-input[type=text],input[type=password],input[type=email],select{width:100%;padding:.5rem .65rem;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font:inherit}
+input,select{width:100%;padding:.5rem .65rem;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font:inherit}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
 @media(max-width:640px){.row{grid-template-columns:1fr}}
 .checks{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin:.85rem 0}
 .checks label{display:flex;align-items:center;gap:.4rem;margin:0;color:var(--text);font-size:.9rem}
 button.primary{background:var(--acc);border:1px solid var(--acc);color:#fff;padding:.55rem 1rem;border-radius:8px;font:inherit;cursor:pointer;margin-top:.75rem}
-button.primary:disabled{opacity:.5;cursor:not-allowed}
+button.primary:disabled{opacity:.5}
 .note{color:var(--muted);font-size:.85rem;margin:0 0 1rem}
 .steps{display:flex;flex-wrap:wrap;gap:.4rem;margin:.75rem 0}
 .chip{font-size:.75rem;padding:.25rem .55rem;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
-.chip.run{border-color:var(--acc);color:var(--acc)}
-.chip.ok{border-color:var(--ok);color:var(--ok)}
-.chip.err{border-color:var(--err);color:var(--err)}
-pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;min-height:14rem;max-height:28rem;overflow:auto;font-size:.78rem;white-space:pre-wrap}
+.chip.run{border-color:var(--acc);color:var(--acc)}.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.err{border-color:var(--err);color:var(--err)}
+pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;min-height:12rem;max-height:26rem;overflow:auto;font-size:.78rem;white-space:pre-wrap}
 .sec{margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
-.lang{display:flex;gap:.35rem}
-.lang button{font-size:.75rem;padding:.25rem .5rem}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:1rem}
+.card h3{margin:0 0 .5rem;font-size:.95rem}
+code{font-size:.8rem;background:#0c1015;padding:.15rem .35rem;border-radius:4px}
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1 data-i18n="title">netductor operator</h1>
-    <div class="meta" id="metaLine">localhost · loading…</div>
+    <h1>netductor-op</h1>
+    <div class="meta" id="metaLine">Mac client · node = API only</div>
   </div>
-  <div class="lang">
+  <div>
     <button type="button" id="langEn" class="active">EN</button>
     <button type="button" id="langRu">RU</button>
   </div>
 </header>
-<nav id="tabs">
-  <button type="button" data-tab="fleet" class="active" data-i18n="tab_fleet">Fleet</button>
-  <button type="button" data-tab="primary" data-i18n="tab_primary">Primary</button>
-  <button type="button" data-tab="secondary" data-i18n="tab_secondary">Secondary</button>
-  <button type="button" data-tab="creds" data-i18n="tab_creds">Credentials</button>
-  <button type="button" data-tab="help" data-i18n="tab_help">Help</button>
+<nav class="nav-main" id="mainTabs">
+  <button type="button" data-main="installer" class="active">Installer</button>
+  <button type="button" data-main="control">Control</button>
+  <button type="button" data-main="settings">Settings</button>
 </nav>
+<nav class="nav-sub" id="subInstaller">
+  <button type="button" data-tab="fleet" class="active">Fleet</button>
+  <button type="button" data-tab="primary">Primary</button>
+  <button type="button" data-tab="secondary">Secondary</button>
+  <button type="button" data-tab="creds">Credentials</button>
+</nav>
+
 <main>
-  <p class="note" data-i18n="banner">Loopback only. Same deploy core as CLI / TUI. Token injected for this page.</p>
+  <!-- INSTALLER -->
+  <div id="main-installer">
+  <p class="note">Deploy from this Mac over SSH (same core as CLI). Token injected for localhost API.</p>
 
   <section id="panel-fleet" class="panel active">
     <form id="form-fleet">
       <div class="row">
-        <div><label data-i18n="primary_host">Primary host</label><input name="primary_host" required placeholder="2.x.x.x"/></div>
-        <div><label data-i18n="primary_pass">Primary password (first login)</label><input name="primary_password" type="password"/></div>
+        <div><label>Primary host</label><input name="primary_host" required/></div>
+        <div><label>Primary password</label><input name="primary_password" type="password"/></div>
       </div>
       <div class="row">
-        <div><label data-i18n="secondary_host">Secondary host</label><input name="secondary_host" placeholder="92.x.x.x"/></div>
-        <div><label data-i18n="secondary_pass">Secondary password</label><input name="secondary_password" type="password"/></div>
+        <div><label>Secondary host</label><input name="secondary_host"/></div>
+        <div><label>Secondary password</label><input name="secondary_password" type="password"/></div>
       </div>
       <div class="row">
-        <div><label data-i18n="domain">Domain base</label><input name="domain_base" placeholder="nd.neyman.top"/></div>
-        <div><label data-i18n="le_email">LE email</label><input name="le_email" type="email"/></div>
+        <div><label>Domain base</label><input name="domain_base"/></div>
+        <div><label>LE email</label><input name="le_email" type="email"/></div>
       </div>
       <div class="row">
         <div><label>SNI</label><input name="sni" value="api.vk.me"/></div>
-        <div><label data-i18n="key">SSH key path</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
+        <div><label>SSH key path</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
       </div>
       <div class="row">
-        <div><label data-i18n="key_pass">Key passphrase</label><input name="key_passphrase" type="password"/></div>
-        <div><label data-i18n="tg_token">TG bot token</label><input name="tg_token" placeholder="optional addon"/></div>
-      </div>
-      <div class="row">
-        <div><label data-i18n="tg_admin">TG admin id</label><input name="tg_admin"/></div>
-        <div></div>
+        <div><label>Key passphrase</label><input name="key_passphrase" type="password"/></div>
+        <div><label>TG bot token</label><input name="tg_token"/></div>
       </div>
       <div class="checks">
-        <label><input type="checkbox" name="do_primary" checked/> <span data-i18n="do_primary">Deploy primary</span></label>
-        <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="do_secondary">Deploy secondary</span></label>
+        <label><input type="checkbox" name="do_primary" checked/> Primary</label>
+        <label><input type="checkbox" name="do_secondary" checked/> Secondary</label>
         <label><input type="checkbox" name="with_lampac"/> Lampac</label>
         <label><input type="checkbox" name="with_git"/> Git/registry</label>
-        <label><input type="checkbox" name="cf_proxy"/> CF proxy (orange i.)</label>
+        <label><input type="checkbox" name="cf_proxy"/> CF proxy</label>
       </div>
-      <button class="primary" type="submit" data-i18n="run_fleet">Run FleetDeploy</button>
+      <button class="primary" type="submit">Run FleetDeploy</button>
     </form>
   </section>
 
   <section id="panel-primary" class="panel">
     <form id="form-primary">
       <div class="row">
-        <div><label data-i18n="host">Host</label><input name="host" required/></div>
-        <div><label data-i18n="password">Password</label><input name="password" type="password"/></div>
+        <div><label>Host</label><input name="host" required/></div>
+        <div><label>Password</label><input name="password" type="password"/></div>
       </div>
       <div class="row">
-        <div><label data-i18n="domain">Domain base</label><input name="domain_base"/></div>
-        <div><label data-i18n="le_email">LE email</label><input name="le_email" type="email"/></div>
+        <div><label>Domain base</label><input name="domain_base"/></div>
+        <div><label>LE email</label><input name="le_email" type="email"/></div>
       </div>
       <div class="row">
         <div><label>SNI</label><input name="sni" value="api.vk.me"/></div>
-        <div><label data-i18n="key">SSH key path</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
+        <div><label>SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
       </div>
       <div class="checks">
         <label><input type="checkbox" name="with_lampac"/> Lampac</label>
         <label><input type="checkbox" name="with_git"/> Git/registry</label>
-        <label><input type="checkbox" name="cf_proxy"/> CF proxy</label>
       </div>
-      <button class="primary" type="submit" data-i18n="run_primary">Deploy primary</button>
+      <button class="primary" type="submit">Deploy primary</button>
     </form>
   </section>
 
   <section id="panel-secondary" class="panel">
     <form id="form-secondary">
       <div class="row">
-        <div><label data-i18n="primary_host">Primary host</label><input name="primary_host" required/></div>
-        <div><label data-i18n="primary_key">Primary key path</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div>
+        <div><label>Primary host</label><input name="primary_host" required/></div>
+        <div><label>Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div>
       </div>
       <div class="row">
-        <div><label data-i18n="secondary_host">Secondary host</label><input name="secondary_host" required/></div>
-        <div><label data-i18n="secondary_pass">Secondary password</label><input name="secondary_password" type="password"/></div>
+        <div><label>Secondary host</label><input name="secondary_host" required/></div>
+        <div><label>Secondary password</label><input name="secondary_password" type="password"/></div>
       </div>
-      <div class="row">
-        <div><label>SNI</label><input name="sni" value="api.vk.me"/></div>
-        <div><label data-i18n="key_pass">Key passphrase</label><input name="primary_key_passphrase" type="password"/></div>
-      </div>
-      <button class="primary" type="submit" data-i18n="run_secondary">Deploy secondary</button>
+      <button class="primary" type="submit">Deploy secondary</button>
     </form>
   </section>
 
   <section id="panel-creds" class="panel">
-    <p class="note" data-i18n="creds_note">Pull secrets from a node to ~/.netductor/credentials on this Mac.</p>
     <form id="form-creds">
       <div class="row">
-        <div><label data-i18n="role">Role</label>
-          <select name="role"><option value="primary">primary</option><option value="secondary">secondary</option></select>
-        </div>
-        <div><label data-i18n="host">Host</label><input name="host" required/></div>
+        <div><label>Role</label><select name="role"><option>primary</option><option>secondary</option></select></div>
+        <div><label>Host</label><input name="host" required/></div>
       </div>
       <div class="row">
-        <div><label data-i18n="key">SSH key path</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
-        <div><label data-i18n="key_pass">Key passphrase</label><input name="key_passphrase" type="password"/></div>
+        <div><label>SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div>
+        <div><label>Passphrase</label><input name="key_passphrase" type="password"/></div>
       </div>
-      <button class="primary" type="submit" data-i18n="run_creds">Collect credentials</button>
+      <button class="primary" type="submit">Collect credentials</button>
     </form>
     <p id="credResult" class="note"></p>
   </section>
+  </div>
 
-  <section id="panel-help" class="panel">
-    <p class="note" data-i18n="help_body">
-      This UI talks only to 127.0.0.1 and runs deploy on your machine over SSH — same as netductor-op CLI.
-      Not a public installer. Mobile day-2 control of a live fleet is a separate product (via VPN to node admin/TG).
-    </p>
-    <ul class="note">
-      <li>POST /v1/fleet · /v1/primary · /v1/secondary · /v1/credentials</li>
-      <li>Header X-Netductor-Token (injected into this page)</li>
-      <li>Form values cached in localStorage (passwords not stored)</li>
-    </ul>
-  </section>
+  <!-- CONTROL -->
+  <div id="main-control" style="display:none">
+    <p class="note">Day-2 against node <strong>API</strong> (not VPS HTML admin). Open SSH tunnel first, then refresh status.</p>
+    <div class="card">
+      <h3>Tunnel</h3>
+      <p class="note" id="tunnelHint">Run in a terminal:</p>
+      <pre class="log" id="tunnelCmd" style="min-height:auto;max-height:none">netductor-op tunnel --host …</pre>
+      <button class="primary" type="button" id="btnRefreshStatus">Refresh API status</button>
+    </div>
+    <div class="card">
+      <h3>Node API status</h3>
+      <pre class="log" id="controlStatus">Not loaded</pre>
+    </div>
+  </div>
 
-  <div class="sec">
+  <!-- SETTINGS -->
+  <div id="main-settings" style="display:none">
+    <p class="note">Profiles stored in browser localStorage (this Mac only). Used by Control for tunnel hint and API base.</p>
+    <form id="form-settings">
+      <div class="row">
+        <div><label>Primary host</label><input name="primary_host" id="set_primary_host"/></div>
+        <div><label>SSH key path</label><input name="key" id="set_key" placeholder="~/.ssh/netductor_primary"/></div>
+      </div>
+      <div class="row">
+        <div><label>SSH user</label><input name="user" id="set_user" value="root"/></div>
+        <div><label>Local API port (tunnel)</label><input name="api_port" id="set_api_port" value="8787"/></div>
+      </div>
+      <div class="row">
+        <div><label>API base URL</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div>
+        <div><label>Secondary host (optional)</label><input name="secondary_host" id="set_secondary_host"/></div>
+      </div>
+      <button class="primary" type="submit">Save settings</button>
+    </form>
+    <p id="settingsSaved" class="note"></p>
+  </div>
+
+  <div class="sec" id="deployLogSec">
     <div class="steps" id="steps"></div>
     <pre class="log" id="log">idle</pre>
   </div>
 </main>
 <script>
 const ND_TOKEN = '/*__ND_TOKEN__*/';
-const i18n = {
-  en: {
-    title:'netductor operator', tab_fleet:'Fleet', tab_primary:'Primary', tab_secondary:'Secondary', tab_creds:'Credentials', tab_help:'Help',
-    banner:'Loopback only. Same deploy core as CLI / TUI. Token injected for this page.',
-    primary_host:'Primary host', primary_pass:'Primary password (first login)', secondary_host:'Secondary host', secondary_pass:'Secondary password',
-    domain:'Domain base', le_email:'LE email', key:'SSH key path', key_pass:'Key passphrase', tg_token:'TG bot token', tg_admin:'TG admin id',
-    do_primary:'Deploy primary', do_secondary:'Deploy secondary', run_fleet:'Run FleetDeploy', host:'Host', password:'Password',
-    run_primary:'Deploy primary', primary_key:'Primary key path', run_secondary:'Deploy secondary',
-    creds_note:'Pull secrets from a node to ~/.netductor/credentials on this Mac.', role:'Role', run_creds:'Collect credentials',
-    help_body:'This UI talks only to 127.0.0.1 and runs deploy on your machine over SSH — same as netductor-op CLI. Not a public installer.'
-  },
-  ru: {
-    title:'netductor operator', tab_fleet:'Флот', tab_primary:'Primary', tab_secondary:'Secondary', tab_creds:'Секреты', tab_help:'Справка',
-    banner:'Только localhost. Тот же deploy core, что CLI / TUI. Токен вшит в страницу.',
-    primary_host:'Primary host', primary_pass:'Пароль primary (первый вход)', secondary_host:'Secondary host', secondary_pass:'Пароль secondary',
-    domain:'База домена', le_email:'Email LE', key:'Путь к SSH-ключу', key_pass:'Passphrase ключа', tg_token:'Токен TG-бота', tg_admin:'TG admin id',
-    do_primary:'Ставить primary', do_secondary:'Ставить secondary', run_fleet:'Запустить FleetDeploy', host:'Host', password:'Пароль',
-    run_primary:'Развернуть primary', primary_key:'Ключ primary', run_secondary:'Развернуть secondary',
-    creds_note:'Стянуть секреты ноды в ~/.netductor/credentials на этом Mac.', role:'Роль', run_creds:'Собрать credentials',
-    help_body:'UI только на 127.0.0.1, деплой с вашей машины по SSH. Не публичный инсталлер.'
-  }
-};
-let lang = localStorage.getItem('nd_op_lang') || 'en';
-function applyLang(){
-  const dict = i18n[lang] || i18n.en;
-  document.querySelectorAll('[data-i18n]').forEach(el=>{
-    const k = el.getAttribute('data-i18n');
-    if(dict[k]) el.textContent = dict[k];
-  });
-  document.getElementById('langEn').classList.toggle('active', lang==='en');
-  document.getElementById('langRu').classList.toggle('active', lang==='ru');
-}
-document.getElementById('langEn').onclick=()=>{lang='en';localStorage.setItem('nd_op_lang',lang);applyLang()};
-document.getElementById('langRu').onclick=()=>{lang='ru';localStorage.setItem('nd_op_lang',lang);applyLang()};
-applyLang();
+function settings(){ try{return JSON.parse(localStorage.getItem('nd_op_settings')||'{}')}catch(e){return{}} }
+function saveSettingsObj(o){ localStorage.setItem('nd_op_settings', JSON.stringify(o)); }
+function apiBase(){ const s=settings(); return (s.api_base||'http://127.0.0.1:8787').replace(/\/$/,''); }
 
-document.querySelectorAll('#tabs button').forEach(btn=>{
+function showMain(name){
+  document.getElementById('main-installer').style.display = name==='installer'?'block':'none';
+  document.getElementById('main-control').style.display = name==='control'?'block':'none';
+  document.getElementById('main-settings').style.display = name==='settings'?'block':'none';
+  document.getElementById('subInstaller').style.display = name==='installer'?'flex':'none';
+  document.getElementById('deployLogSec').style.display = name==='installer'?'block':'none';
+  document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
+  if(name==='control') updateTunnelHint();
+  if(name==='settings') loadSettingsForm();
+}
+document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
+
+document.querySelectorAll('#subInstaller button').forEach(btn=>{
   btn.onclick=()=>{
-    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('#subInstaller button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('#main-installer .panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
   };
 });
 
-const logEl = document.getElementById('log');
-const stepsEl = document.getElementById('steps');
-function line(s){ logEl.textContent += s + (s.endsWith('\n')?'':'\n'); logEl.scrollTop = logEl.scrollHeight; }
+const logEl=document.getElementById('log'), stepsEl=document.getElementById('steps');
+function line(s){ logEl.textContent+=s+(s.endsWith('\n')?'':'\n'); logEl.scrollTop=logEl.scrollHeight; }
 function resetLog(){ logEl.textContent=''; stepsEl.innerHTML=''; }
-function chip(id, state){
-  let el = stepsEl.querySelector('[data-id="'+id+'"]');
-  if(!el){ el=document.createElement('span'); el.className='chip'; el.dataset.id=id; el.textContent=id; stepsEl.appendChild(el); }
-  el.className = 'chip ' + (state||'');
-}
-function parseSteps(chunk){
-  chunk.split('\n').forEach(l=>{
-    const m = l.match(/^step (\S+)(?: done| ERROR)?:/);
-    if(!m) return;
-    if(l.includes(' ERROR:')) chip(m[1],'err');
-    else if(l.includes(' done:')) chip(m[1],'ok');
-    else chip(m[1],'run');
-  });
-}
+function chip(id,st){ let el=stepsEl.querySelector('[data-id="'+id+'"]'); if(!el){el=document.createElement('span');el.dataset.id=id;el.textContent=id;stepsEl.appendChild(el);} el.className='chip '+(st||''); }
+function parseSteps(chunk){ chunk.split('\n').forEach(l=>{ const m=l.match(/^step (\S+)/); if(!m)return; if(l.includes(' ERROR'))chip(m[1],'err'); else if(l.includes(' done'))chip(m[1],'ok'); else chip(m[1],'run'); }); }
 
 async function streamPost(url, body, btn){
-  btn.disabled = true; resetLog(); line('POST '+url+' …');
+  btn.disabled=true; resetLog(); line('POST '+url);
   try{
-    const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
-    if(!res.ok && !res.body){ line('HTTP '+res.status+' '+await res.text()); btn.disabled=false; return; }
-    const reader = res.body.getReader(); const dec = new TextDecoder();
-    while(true){
-      const {done,value} = await reader.read();
-      if(done) break;
-      const t = dec.decode(value);
-      line(t); parseSteps(t);
-    }
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
+    const reader=res.body.getReader(); const dec=new TextDecoder();
+    while(true){ const {done,value}=await reader.read(); if(done)break; const t=dec.decode(value); line(t); parseSteps(t); }
   }catch(e){ line('error: '+e); }
-  btn.disabled = false;
-}
-
-function saveForm(id, fd){
-  const o={};
-  for(const [k,v] of fd.entries()){
-    if(k.includes('password')||k.includes('passphrase')||k.includes('token')) continue;
-    o[k]=v;
-  }
-  localStorage.setItem('nd_op_'+id, JSON.stringify(o));
-}
-function loadForm(id, form){
-  try{
-    const o = JSON.parse(localStorage.getItem('nd_op_'+id)||'{}');
-    Object.keys(o).forEach(k=>{
-      const el = form.elements.namedItem(k);
-      if(!el) return;
-      if(el.type==='checkbox') el.checked = true;
-      else el.value = o[k];
-    });
-  }catch(_){}
-}
-
-document.getElementById('form-fleet').onsubmit = async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target); saveForm('fleet', fd);
-  await streamPost('/v1/fleet', {
-    do_primary: fd.get('do_primary')==='on',
-    do_secondary: fd.get('do_secondary')==='on',
-    primary_host: fd.get('primary_host'),
-    primary_password: fd.get('primary_password'),
-    secondary_host: fd.get('secondary_host'),
-    secondary_password: fd.get('secondary_password'),
-    domain_base: fd.get('domain_base'),
-    le_email: fd.get('le_email'),
-    cf_proxy: fd.get('cf_proxy')==='on',
-    sni: fd.get('sni')||'api.vk.me',
-    key: fd.get('key'),
-    key_passphrase: fd.get('key_passphrase'),
-    with_lampac: fd.get('with_lampac')==='on',
-    with_git: fd.get('with_git')==='on',
-    tg_token: fd.get('tg_token'),
-    tg_admin: fd.get('tg_admin'),
-  }, e.submitter);
-};
-document.getElementById('form-primary').onsubmit = async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target); saveForm('primary', fd);
-  await streamPost('/v1/primary', {
-    host: fd.get('host'), password: fd.get('password'),
-    domain_base: fd.get('domain_base'), le_email: fd.get('le_email'),
-    cf_proxy: fd.get('cf_proxy')==='on', sni: fd.get('sni'), key: fd.get('key'),
-    with_lampac: fd.get('with_lampac')==='on', with_git: fd.get('with_git')==='on',
-  }, e.submitter);
-};
-document.getElementById('form-secondary').onsubmit = async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target); saveForm('secondary', fd);
-  await streamPost('/v1/secondary', {
-    primary_host: fd.get('primary_host'), primary_key: fd.get('primary_key'),
-    primary_key_passphrase: fd.get('primary_key_passphrase'),
-    secondary_host: fd.get('secondary_host'), secondary_password: fd.get('secondary_password'),
-    sni: fd.get('sni'),
-  }, e.submitter);
-};
-document.getElementById('form-creds').onsubmit = async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target); saveForm('creds', fd);
-  const btn = e.submitter; btn.disabled=true; document.getElementById('credResult').textContent='…';
-  try{
-    const res = await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({
-      role: fd.get('role'), host: fd.get('host'), key: fd.get('key'), key_passphrase: fd.get('key_passphrase'),
-    })});
-    const j = await res.json();
-    document.getElementById('credResult').textContent = j.path ? ('OK → '+j.path) : (j.error||JSON.stringify(j));
-    line(JSON.stringify(j,null,2));
-  }catch(err){ document.getElementById('credResult').textContent=String(err); }
   btn.disabled=false;
+}
+function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
+function loadForm(id,form){ try{ const o=JSON.parse(localStorage.getItem('nd_op_'+id)||'{}'); Object.keys(o).forEach(k=>{ const el=form.elements.namedItem(k); if(!el)return; if(el.type==='checkbox')el.checked=true; else el.value=o[k]; }); }catch(e){} }
+
+document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('fleet',fd);
+  await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on',
+    primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
+    secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
+    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), cf_proxy:fd.get('cf_proxy')==='on',
+    sni:fd.get('sni'), key:fd.get('key'), key_passphrase:fd.get('key_passphrase'),
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
+    tg_token:fd.get('tg_token'), tg_admin:fd.get('tg_admin') }, e.submitter); };
+document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('primary',fd);
+  await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'),
+    sni:fd.get('sni'), key:fd.get('key'), with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on' }, e.submitter); };
+document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
+  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
+    secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
+document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd);
+  const btn=e.submitter; btn.disabled=true;
+  try{ const res=await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({role:fd.get('role'),host:fd.get('host'),key:fd.get('key'),key_passphrase:fd.get('key_passphrase')})});
+    const j=await res.json(); document.getElementById('credResult').textContent=j.path?('OK → '+j.path):(j.error||JSON.stringify(j)); }catch(err){ document.getElementById('credResult').textContent=String(err); }
+  btn.disabled=false; };
+
+function loadSettingsForm(){
+  const s=settings();
+  document.getElementById('set_primary_host').value=s.primary_host||'';
+  document.getElementById('set_key').value=s.key||'~/.ssh/netductor_primary';
+  document.getElementById('set_user').value=s.user||'root';
+  document.getElementById('set_api_port').value=s.api_port||'8787';
+  document.getElementById('set_api_base').value=s.api_base||'http://127.0.0.1:8787';
+  document.getElementById('set_secondary_host').value=s.secondary_host||'';
+}
+document.getElementById('form-settings').onsubmit=e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  saveSettingsObj({
+    primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
+    api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
+  });
+  document.getElementById('settingsSaved').textContent='Saved.';
+  updateTunnelHint();
+};
+function updateTunnelHint(){
+  const s=settings();
+  const host=s.primary_host||'PRIMARY_IP';
+  const key=s.key||'~/.ssh/netductor_primary';
+  const port=s.api_port||'8787';
+  document.getElementById('tunnelCmd').textContent=
+    'netductor-op tunnel --host '+host+' --key '+key+' --local-port '+port+'\n\n# then Control → Refresh API status\n# API base: '+(s.api_base||('http://127.0.0.1:'+port));
+}
+document.getElementById('btnRefreshStatus').onclick=async()=>{
+  const pre=document.getElementById('controlStatus');
+  pre.textContent='Loading '+apiBase()+' …';
+  try{
+    const h=await fetch(apiBase()+'/health');
+    const hj=await h.json();
+    let bot='';
+    try{ const b=await fetch(apiBase()+'/api/bot-status'); bot=JSON.stringify(await b.json(),null,2);}catch(e){bot=String(e);}
+    pre.textContent=JSON.stringify(hj,null,2)+'\n\nbot-status:\n'+bot;
+  }catch(e){
+    pre.textContent='Failed: '+e+'\n\nIs tunnel up?\n'+document.getElementById('tunnelCmd').textContent;
+  }
 };
 
-['form-fleet','form-primary','form-secondary','form-creds'].forEach(id=>{
-  const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''), f);
-});
-
-fetch('/v1/meta').then(r=>r.json()).then(m=>{
-  document.getElementById('metaLine').textContent = 'v'+m.version+' · '+m.bind+' · creds '+m.credentials_dir;
-}).catch(()=>{});
+['form-fleet','form-primary','form-secondary','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
+fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version+' · '+m.bind+' · node API via tunnel'; }).catch(()=>{});
+updateTunnelHint();
 </script>
 </body>
 </html>
