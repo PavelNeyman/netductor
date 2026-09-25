@@ -27,3 +27,11 @@ Split web/index.html; shared action registry for TG+WebUI; optional CSP on op se
 ## Verdict
 
 Ship 0.9.9. Keep PLAIN_AGENT / API_PUBLIC / CLAIM_FIRST off.
+
+
+## Fixes in 0.9.10
+
+- [x] Session token → **sessionStorage only** (not localStorage)
+- [x] Stronger CSP + Permissions-Policy + COOP on operator serve
+- [x] Confirm dialog before Advanced POST
+- [x] Control section labels EN/RU

@@ -1,3 +1,8 @@
+## 0.9.10
+
+- Security hardening: sessionStorage for node session; stronger CSP/COOP; confirm Advanced POST
+- Control section labels EN/RU
+
 ## 0.9.9
 
 - WebUI Control: max operator-session API coverage + Advanced generic API

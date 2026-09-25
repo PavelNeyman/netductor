@@ -153,7 +153,7 @@ table th,table td{word-break:break-word;max-width:14rem}
       <div><label>API base</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div></div>
       <div class="row"><div><label>Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div>
       <div><label data-i18n="set_prefer">Prefer VPN for SSH</label><select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes</option><option value="0">no</option></select></div></div>
-      <div class="row"><div><label>Node session</label><input name="node_session" id="set_node_session"/></div><div></div></div>
+      <div class="row"><div><label>Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div><div><span class="note">Not stored in localStorage</span></div></div>
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <pre class="log" id="settingsSaved" style="min-height:auto;max-height:4rem;margin-top:.5rem"></pre>
     </div>
@@ -168,20 +168,35 @@ table th,table td{word-break:break-word;max-width:14rem}
 
 <script>
 const ND_TOKEN = '/*__ND_TOKEN__*/';
-function settings(){ try{return JSON.parse(localStorage.getItem('nd_op_settings')||'{}')}catch(e){return{}} }
-function saveSettingsObj(o){ localStorage.setItem('nd_op_settings', JSON.stringify(o)); }
+function settings(){
+  try{
+    const o=JSON.parse(localStorage.getItem('nd_op_settings')||'{}');
+    // session never from localStorage (XSS residual)
+    try{ const s=sessionStorage.getItem('nd_op_session'); if(s) o.node_session=s; else delete o.node_session; }catch(e){ delete o.node_session; }
+    return o;
+  }catch(e){return{}}
+}
+function saveSettingsObj(o){
+  const copy=Object.assign({}, o);
+  const tok=copy.node_session||'';
+  delete copy.node_session;
+  localStorage.setItem('nd_op_settings', JSON.stringify(copy));
+  try{ if(tok) sessionStorage.setItem('nd_op_session', tok); else sessionStorage.removeItem('nd_op_session'); }catch(e){}
+}
 function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replace(/\/$/,''); }
 
 const I18N = {
 en:{
   app_title:'netductor-op', tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings',
   set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
-  save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH.', result:'Result'
+  save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).', result:'Result',
+  sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_probes:'Probes', sec_adv:'Advanced'
 },
 ru:{
   app_title:'netductor-op', tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки',
-  set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'SSH user', set_prefer:'Сначала VPN для SSH',
-  save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH.', result:'Результат'
+  set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
+  save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage (не localStorage).', result:'Результат',
+  sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_probes:'Probes', sec_adv:'Advanced'
 }};
 let uiLang=localStorage.getItem('nd_op_lang')||((navigator.language||'').startsWith('ru')?'ru':'en');
 function applyI18n(){
@@ -191,6 +206,9 @@ function applyI18n(){
     if(b.dataset.main==='installer') b.textContent=d.tab_installer;
     if(b.dataset.main==='control') b.textContent=d.tab_control;
     if(b.dataset.main==='settings') b.textContent=d.tab_settings;
+  });
+  document.querySelectorAll('#controlSub button').forEach(b=>{
+    const k='sec_'+b.dataset.csec; if(d[k]) b.textContent=d[k];
   });
   const le=document.getElementById('langEn'), lr=document.getElementById('langRu');
   if(le) le.classList.toggle('active', uiLang==='en');
@@ -560,6 +578,7 @@ const special = {
     const method=document.getElementById('advMethod').value;
     let path=document.getElementById('advPath').value.trim(); if(!path.startsWith('/')) path='/'+path;
     const body=document.getElementById('advBody').value;
+    if(method==='POST' && !confirm('POST '+path+' ?')) return {cancelled:true};
     return nodeFetch(path,{method, body: method==='POST'?body:undefined});
   },
 };
