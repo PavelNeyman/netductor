@@ -1,55 +1,17 @@
-# CLI ↔ TUI parity (v0.8.90)
+# UI parity
 
-Canonical bootstrap UI: **framed TUI** (`netductor tui` → Wizard tab).  
-Legacy: `tui_deploy_wizards.go` (huh) still reachable from Tools → wizard-* for scripts.
+## WebUI (`netductor-op serve`) — primary day-2 surface
 
-## Deploy (Mac → two VPS)
+Covers operator **session** API under `/api/*`, `/vpn/*`, `/health` via `/v1/node` proxy.
 
-| Capability | CLI | TUI framed wizard |
-|------------|-----|-------------------|
-| Primary install + harden 52222 | `deploy primary` | Wizard → Primary |
-| SSH key gen / path / passphrase | `--generate-key --key --key-passphrase` | gen_key, key_path, key_pass |
-| Reality SNI | `--sni` | sni |
-| Domain + LE | `--domain-base --le-email` | domain_base, le_email |
-| Lampac / git-registry | `--with-lampac --with-git-registry` | Wizard → Add-ons |
-| Telegram bot | (Add-ons / secrets on host) | Add-ons + token/admin fields |
-| Secondary Mac-direct | `deploy secondary --primary --primary-key --host --password` | Wizard → Secondary (primary from Settings) |
-| Primary key passphrase | `--primary-key-passphrase` | key_pass |
-| Secondary existing key | `--secondary-key` | — (CLI only) |
-| Credentials dump | `credentials collect` + post-deploy | post-deploy step |
+- Sections: Overview, VPN, Nodes, Edge, NVR, Git/Registry, Backup, Probes, **Advanced**
+- Agent-plane only endpoints (`/api/edge/enroll`, heartbeat, secondary agent mTLS) are **not** operator UI actions
+- Use **Advanced** for uncommon bodies
 
-## Day-2 ops
+## Telegram / TUI
 
-| Capability | CLI | TUI | TG |
-|------------|-----|-----|-----|
-| doctor / status | ✓ | Tools | ✓ |
-| vpn users | ✓ | partial | ✓ |
-| secondary sync/status | ✓ | partial | ✓ |
-| mtls list/rotate | ✓ | Tools | Tools |
-| edge list/register | ✓ | Wizard OpenWrt | ✓ |
-| backup / recover | ✓ | Tools | Tools |
-| nvr | ✓ | Wizard NVR | partial |
-| domain / tls le | ✓ on host | via primary deploy | — |
+Core fleet ops + VPN users + nodes status. Rare POSTs → WebUI Advanced or CLI on node.
 
-## Secondary flow (locked)
+## Installer
 
-```
-Mac ──SSH key──► primary :52222
-       netductor secondary prepare-pack
-       ◄── JSON (token, bundle, mTLS client material)
-
-Mac ──SSH password once──► secondary :22
-       install operator pubkey (Mac .pub)
-       write mTLS + join bundle
-       start agent → primary :8789
-       disable password auth
-```
-
-No primary→secondary SSH. Private key never leaves Mac.
-
-
-## 0.8.94
-
-- Legacy `tui_deploy_wizards` huh forms **removed** (stubs → framed wizard).
-- Framed **Fleet** target deploys primary+secondary with same opts as CLI `deploy primary/secondary`.
-- Primary framed fields: domain/LE/cf_proxy/lampac/git/tg — same as CLI flags.
+Password allowed for first primary/secondary deploy only.

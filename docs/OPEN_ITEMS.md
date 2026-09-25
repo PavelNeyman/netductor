@@ -1,20 +1,20 @@
 # Open items
 
-## Active program
+## Active
 
-Operator core (thin UIs): **[OPERATOR-PLAN.md](OPERATOR-PLAN.md)**  
-Architecture: **[ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)**
+- Hardware e2e (OpenWrt guest Wi‑Fi, Tapo NVR) — owner
+- SMTP alerts — when mailbox available
 
-## Deferred / later
+## Deferred
 
-- SMTP alerts (mailbox)
-- Status page without "VPN checks VPN"
+- Mobile day-2 client
+- Status page without “VPN checks VPN”
 - Path B user-facing bot
-- Binary split netductor vs netductor-op (phase 4)
-- Hardware e2e (OpenWrt / Tapo) — owner-driven
+- Full TG/TUI parity for every rare API POST (WebUI Advanced + forms cover operator API)
 
 ## Not doing
 
 - Public admin on WAN
-- Cloudflare API from netductor (DNS stays manual in CF)
-- Reviving legacy huh deploy wizards
+- Cloudflare API from netductor
+- Legacy huh wizards
+- Password SSH for day-2 tunnel (password only first Installer deploy)

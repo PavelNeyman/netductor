@@ -1,57 +1,50 @@
 # Agent handoff — netductor
 
-**Start here.** **Baseline:** **v0.9.8** · https://github.com/PavelNeyman/netductor
+**Baseline:** **v0.9.9** · https://github.com/PavelNeyman/netductor
 
 ## Read order
 
 1. [AGENTS.md](../AGENTS.md)  
 2. This file  
-3. **[PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md)** — Mac UI · node API only  
-4. [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) · [OPERATOR-PLAN.md](OPERATOR-PLAN.md)  
-5. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
+3. [PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md) · [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)  
+4. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
 
-## Locked product model
+## Product model
 
 | Piece | Decision |
 |-------|----------|
-| **UI** | **Only on Mac** (`netductor-op` WebUI/TUI) |
-| **Node** | **API server** + vpn/agents — **no product web admin** |
-| **Legacy `/admin` on VPS** | Not a goal; may exist until P3 removal |
-| Installer + Control | Same local WebUI (Installer deploy · Control day-2 via API tunnel) |
-| Recovery | Off until arm; WAN bind while armed by design |
-| Deploy | Mac-direct; credentials on Mac |
+| **UI** | Only on Mac (`netductor-op` WebUI / TUI) |
+| **Node** | API + VPN/agents — no product web admin |
+| **VPS `/admin`** | Off unless `NETDUCTOR_LEGACY_ADMIN_UI=1` |
+| **First deploy** | Password once → inject key → harden |
+| **Day-2** | SSH key (+ agent); tunnel prefer VPN host then public |
+| **Recovery** | Off until arm; WAN bind while armed |
 
 ## Binaries
 
-| Binary | Where |
-|--------|--------|
-| netductor-op | Mac — UI + deploy |
-| netductor (linux) | VPS node |
+| Binary | Role |
+|--------|------|
+| netductor-op | Mac operator (deploy + local WebUI Control) |
+| netductor | Linux node |
 | netductor-agent | OpenWrt |
-| netductor-tg | VPS addon |
+| netductor-tg | TG addon |
 
-## Where we stopped
+## Closed (Mac client)
 
-- [x] Operator core + Fleet + operator WebUI installer tabs  
-- [x] Physical split op / node  
-- [x] Recovery WAN-while-armed clarified  
-- [x] **Locked: Mac client UI, node API-only** ([PLAN-MAC-CLIENT.md](PLAN-MAC-CLIENT.md))  
-- [x] **P1** Mac WebUI Installer | Control | Settings + tunnel + API status  
-- [x] P2 Control parity (users/nodes/edge via /v1/node proxy + session)  
-- [x] P3 drop default VPS static admin (LEGACY_ADMIN_UI=1 only)  
-- [x] P4 auto-tunnel + session issue from Control
-- [x] P5 Control API sections + HTML tables (0.9.6)
-- [x] P6 POST forms + VPN-prefer SSH path (0.9.7)
-- [x] P7 session autofill, WebUI i18n, row actions, extra POST (0.9.8)
-- [ ] Mobile day-2 later  
+- Installer Fleet / Primary / Secondary / Credentials  
+- Control: operator-session APIs (VPN, nodes, edge, NVR, git/registry, backup, probes) + Advanced generic path  
+- Tables, row actions, session autofill, EN/RU chrome  
+- Tunnel: health direct → VPN SSH → public SSH  
 
-## Forbidden
+## Still open
 
-- New features as VPS HTML admin  
-- Public 8787 / installer on primary  
-- Always-on recovery  
-- Mac private key on primary  
+- Hardware e2e · SMTP · mobile  
+- TG/TUI: not every rare POST mirrored (use WebUI Advanced)
 
-## AI rule
+## Docs
 
-Every completed plan item → `[x]` in PLAN-MAC-CLIENT / OPERATOR-PLAN + docs in the **same** change.
+Obsolete reviews/plans → [archive/](archive/). Prefer this handoff + PLAN-MAC-CLIENT.
+
+## Rule for agents
+
+Every completed work item: update docs + mark checklist; push release when version bumps.

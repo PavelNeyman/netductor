@@ -122,3 +122,11 @@ Today: **localhost WebUI** in the browser + **TUI** in the terminal — both tal
 | Password for day-2 tunnel | **Not used** — not needed after first deploy |
 
 Domain + LE: set in Installer / `domain` flags; certbot on primary as before (see DOMAIN.md).
+
+
+## P8 — Max API coverage + i18n (0.9.9)
+
+- [x] Control buttons for operator-session APIs (GET/POST forms)
+- [x] Advanced generic method+path+JSON
+- [x] EN/RU chrome (tabs, settings labels)
+- [x] Docs archive of obsolete reviews/plans

@@ -1,3 +1,8 @@
+## 0.9.9
+
+- WebUI Control: max operator-session API coverage + Advanced generic API
+- EN/RU chrome; docs archive; UI-PARITY + handoff; SECURITY-REVIEW-0.9.9
+
 ## 0.9.8
 
 - GET /v1/session/local — autofill node session from ~/.netductor/node_session
