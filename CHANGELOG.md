@@ -1,3 +1,7 @@
+## 0.9.27
+
+- DNS UI: compact table (status only) + link-style buttons with name inside (no extra labels)
+
 ## 0.9.26
 
 - DNS: Telegram does not fire callbacks for tg-button inside <td>
