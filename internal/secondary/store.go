@@ -2,6 +2,7 @@ package secondary
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
@@ -139,10 +140,7 @@ func FindByToken(token string) *Device {
 	}
 	for i := range r.Devices {
 		t := r.Devices[i].Token
-		if t == "" || len(t) != len(token) {
-			continue
-		}
-		if subtle.ConstantTimeCompare([]byte(t), []byte(token)) == 1 {
+		if tokenSHAEq(t, token) {
 			d := r.Devices[i]
 			return &d
 		}
@@ -181,7 +179,7 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 	}
 	for i := range r.Devices {
 		t := r.Devices[i].Token
-		if t == "" || len(t) != len(token) || subtle.ConstantTimeCompare([]byte(t), []byte(token)) != 1 {
+		if t == "" || !tokenSHAEq(t, token) {
 			continue
 		}
 		r.Devices[i].PublicIP = in.PublicIP
@@ -453,4 +451,13 @@ func TakeCmds(id string) []string {
 		return cmds
 	}
 	return nil
+}
+
+func tokenSHAEq(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	x := sha256.Sum256([]byte(a))
+	y := sha256.Sum256([]byte(b))
+	return subtle.ConstantTimeCompare(x[:], y[:]) == 1
 }

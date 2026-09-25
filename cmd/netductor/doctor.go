@@ -239,6 +239,10 @@ func runDoctorNative() int {
 			fmt.Println(cli18n.T("doctor.plain_8788_ok"))
 			ok++
 		}
+		if listeningOnAll("8790") {
+			fmt.Println(cli18n.T("doctor.recovery_wan_fail"))
+			warn++
+		}
 		if mtls.ServerReady() {
 			fmt.Println(cli18n.T("doctor.mtls_server_ok"))
 			ok++

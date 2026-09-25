@@ -2,6 +2,7 @@ package edge
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
@@ -55,10 +56,13 @@ func bytesTrim(b []byte) []byte {
 }
 
 func constEq(a, b string) bool {
-	if len(a) != len(b) {
+	if a == "" || b == "" {
 		return false
 	}
-	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+	// Hash so compare is always same-length (subtle requires equal len).
+	x := sha256.Sum256([]byte(a))
+	y := sha256.Sum256([]byte(b))
+	return subtle.ConstantTimeCompare(x[:], y[:]) == 1
 }
 
 func bearerRaw(auth string) string {

@@ -353,6 +353,10 @@
 
 ## 0.9.0
 
+- security(recovery): default bind 127.0.0.1; non-loopback requires ALLOW_CIDR
+- security: SHA-256 constant-time token compares (secondary/edge/recovery)
+- doctor: FAIL if recovery :8790 on 0.0.0.0
+
 - security: Content-Disposition filename sanitization; BackupPath rejects control chars
 - security: rate-limit / clientIP trust XFF only with NETDUCTOR_TRUST_PROXY=1
 - chore: agent version 0.9.0; registerSecondaryAPI rename (drop relay naming)

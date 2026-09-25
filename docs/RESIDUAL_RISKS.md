@@ -44,3 +44,8 @@ VPN 443/4443/8443, SSH 22/52222 — not “bugs”. Keep Reality/HY2 params and 
 ## 6. Upgrade / remote cmds
 
 Secondary `upgrade` is now **Go-only** (no `bash -c`). Operator-initiated `uci`/`reboot` still powerful — only for **approved** edge devices.
+
+
+## Recovery HTTP (:8790)
+
+Default bind is **127.0.0.1** (not 0.0.0.0). Non-loopback bind requires `NETDUCTOR_RECOVERY_ALLOW_CIDR`. Doctor reports FAIL if :8790 listens on all interfaces.

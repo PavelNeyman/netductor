@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -202,7 +203,7 @@ func ArmRecovery(ttl time.Duration) error {
 				return
 			}
 			got := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
-			if subtle.ConstantTimeCompare([]byte(got), []byte(tok)) != 1 {
+			if !recoveryTokenOK(tok, got) {
 				st.fails++
 				if st.fails >= 5 {
 					st.lockedUntil = time.Now().Add(15 * time.Minute)
@@ -360,4 +361,22 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool) {
 	_ = pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
 	_ = kf.Close()
 	return recoveryCert, recoveryKey, true
+}
+
+func recoveryBindIsLoopback(bind string) bool {
+	bind = strings.TrimSpace(bind)
+	if bind == "" || bind == "127.0.0.1" || bind == "::1" || bind == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(bind)
+	return ip != nil && ip.IsLoopback()
+}
+
+func recoveryTokenOK(want, got string) bool {
+	if want == "" || got == "" {
+		return false
+	}
+	a := sha256.Sum256([]byte(want))
+	b := sha256.Sum256([]byte(got))
+	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
