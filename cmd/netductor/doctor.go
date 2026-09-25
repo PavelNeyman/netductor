@@ -240,8 +240,12 @@ func runDoctorNative() int {
 			ok++
 		}
 		if listeningOnAll("8790") {
-			fmt.Println(cli18n.T("doctor.recovery_wan_fail"))
+			// Expected during short recovery arm (DR from new primary over WAN).
+			fmt.Println(cli18n.T("doctor.recovery_wan_armed"))
 			warn++
+		} else if listeningLocalhost("8790") {
+			fmt.Println(cli18n.T("doctor.recovery_loopback"))
+			ok++
 		}
 		if mtls.ServerReady() {
 			fmt.Println(cli18n.T("doctor.mtls_server_ok"))

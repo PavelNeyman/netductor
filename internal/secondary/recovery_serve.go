@@ -119,6 +119,9 @@ func ArmRecovery(ttl time.Duration) error {
 	if err != nil {
 		return err
 	}
+	// Recovery is OFF until arm. While armed (short TTL), default bind is WAN-visible
+	// so a wiped primary can pull backup from secondary. Mitigations: TTL, Bearer token,
+	// TLS, optional NETDUCTOR_RECOVERY_ALLOW_CIDR. Use BIND=127.0.0.1 only for local tests.
 	bind := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_BIND"))
 	if bind == "" {
 		bind = "0.0.0.0"
@@ -287,10 +290,16 @@ func ArmRecovery(ttl time.Duration) error {
 	go func() {
 		certFile, keyFile, tlsOn := ensureRecoveryTLS()
 		if tlsOn {
+			if recoveryBindIsLoopback(bind) {
+				fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
+			}
 			fmt.Fprintf(os.Stderr, "recovery-serve: ARMED https://%s until %s (Bearer; key on wire=%v)\n",
 				addr, recUntil.Format(time.RFC3339), serveKey)
 			_ = srv.ListenAndServeTLS(certFile, keyFile)
 			return
+		}
+		if recoveryBindIsLoopback(bind) {
+			fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
 		}
 		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED http://%s until %s (Bearer; key on wire=%v; set RECOVERY_TLS=0 to force HTTP)\n",
 			addr, recUntil.Format(time.RFC3339), serveKey)

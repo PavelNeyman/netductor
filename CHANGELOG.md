@@ -1,3 +1,9 @@
+## 0.9.0
+
+- Physical split: **netductor-op** (Mac) vs **netductor** node (VPS)
+- Recovery: default bind **0.0.0.0 while armed** (DR); doctor WARN not FAIL
+- Security: path/XFF/token hardening (see prior 0.8.98–0.9.0 commits)
+
 ## 0.8.98
 
 - security(operator): token auth for /v1/fleet; host validation; credentials role sanitize

@@ -1,33 +1,47 @@
-# v0.9+: Mac should install netductor-op-* as netductor-op; update URLs/sha after first v0.9 release.
+# Homebrew formula for **operator** workstation binary (Mac/PC).
+# VPS node binary is netductor-linux-* from GitHub Releases (installed by deploy).
 class Netductor < Formula
-  desc "Netductor control plane CLI / TUI"
+  desc "Netductor operator (Mac): deploy, TUI, operator serve"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.8.98"
+  version "0.9.0"
   license "MIT"
+
   on_macos do
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.98/netductor-darwin-arm64"
-      sha256 "b70c00584749b0b56abba465536cf7b6f3f2e246b4b97152c6ea9d4f715887c2"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.0/netductor-op-darwin-arm64"
+      sha256 "863efc890afa3fc51eff6f7b0c79b49a58f454b84ebece0c678164aee9232483"
     end
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.98/netductor-darwin-amd64"
-      sha256 "dbcf84f11ab0b90b3695a4474f6ede9c7be1d9b6b40d11f62b6ba57b64dc9bbe"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.0/netductor-op-darwin-amd64"
+      sha256 "47212fd7ff5ba49cfdd3bbe924aa4110bb88e8b91295b73c40edbb0376578d84"
     end
   end
+
   on_linux do
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.98/netductor-linux-amd64"
-      sha256 "6eea84ef6b89f110a39bcb918c9393744c65360cb872f1011b412f48f696b031"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.0/netductor-op-linux-amd64"
+      sha256 "e37541155647d8a9be7754669d3090197ae012afa43908f61fc4ad97bd476418"
     end
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.8.98/netductor-linux-arm64"
-      sha256 "2d52dd61f3a2948ca99feb88095ebf18386409c9a0ea148379e06ee54e9a29e8"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.0/netductor-op-linux-arm64"
+      sha256 "b894296bd2e5962760e564ea9fd3d0f96389e9149ed238d738e7e3837f47bbd7"
     end
   end
+
   def install
-    bin.install Dir["netductor-*"].first => "netductor"
+    bin.install Dir["netductor-op-*"].first => "netductor-op"
+    # Convenience symlink: historical `netductor tui` / deploy muscle memory on Mac
+    bin.install_symlink "netductor-op" => "netductor"
   end
+
+  def caveats
+    <<~EOS
+      Operator binary: netductor-op (also linked as netductor).
+      VPS node plane is NOT this formula — deploy installs netductor-linux-* on the server.
+    EOS
+  end
+
   test do
-    assert_match version.to_s, shell_output("#{bin}/netductor version 2>&1")
+    assert_match "operator", shell_output("#{bin}/netductor-op version 2>&1")
   end
 end

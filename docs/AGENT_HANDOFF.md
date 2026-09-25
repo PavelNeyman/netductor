@@ -1,75 +1,60 @@
 # Agent handoff — netductor
 
 **Start here in a new chat.**  
-**Baseline:** v0.8.98 · Repo: https://github.com/PavelNeyman/netductor
+**Baseline:** **v0.9.0** · Repo: https://github.com/PavelNeyman/netductor
 
 ## Read order
 
-1. [AGENTS.md](../AGENTS.md) — hard rules  
+1. [AGENTS.md](../AGENTS.md) — hard rules + doc discipline  
 2. This file  
-3. **[ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)** — Mac operator vs node; target backend  
-4. **[OPERATOR-PLAN.md](OPERATOR-PLAN.md)** — checklist (mark done + update docs)  
-5. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [PORTS.md](PORTS.md)
+3. [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) · [OPERATOR-PLAN.md](OPERATOR-PLAN.md)  
+4. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md) · [RESIDUAL_RISKS.md](RESIDUAL_RISKS.md)
 
-## Locked decisions (do not reopen without owner)
+## Binaries (physical split since 0.9.0)
+
+| Binary | Where | Role |
+|--------|--------|------|
+| **netductor-op** | Mac / workstation | deploy, TUI, `operator serve`, credentials |
+| **netductor** (`netductor-linux-*`) | VPS | node: install, serve, vpn, recovery, doctor |
+| **netductor-agent** | OpenWrt / edge | agent plane |
+| **netductor-tg** | VPS (addon) | Telegram bot |
+
+Brew (Mac): install **netductor-op** from Formula. Deploy downloads **netductor-linux-*** onto VPS.
+
+## Locked decisions
 
 | Topic | Decision |
 |-------|----------|
-| Roles | **Primary** (abroad) = control plane; **Secondary** (RU) = VPN entry + agent |
-| VPN | VLESS+Reality + HY2; prefer secondary under whitelist |
-| SSH | Key on **Mac only**; password first login only; default port **52222** after harden |
-| Secondary deploy | **Mac-direct** (prepare-pack on primary; Mac SSHs secondary). No primary→secondary SSH |
+| Roles | Primary (abroad) = control; Secondary (RU) = VPN entry + agent |
+| VPN | VLESS+Reality + HY2; prefer secondary under WL |
+| SSH | Key on **Mac only**; password first login; port **52222** after harden |
+| Secondary deploy | **Mac-direct** (no primary→secondary SSH) |
 | Agent plane | mTLS **:8789** |
-| Local-only | `:8787` API, Lampac, registry, blocky → `127.0.0.1` |
-| Redirect | LE on **:8443**; **:443** = Reality only |
-| Recovery | `:8790` **off** until `recovery arm` (SSH); HTTPS self-signed; key offline |
+| Local-only | `:8787`, Lampac, registry, blocky → `127.0.0.1` |
+| Redirect | LE **:8443**; **:443** = Reality |
+| **Recovery** | **Off until `recovery arm`**. While armed: default bind **`0.0.0.0:8790`** (short TTL, Bearer, TLS). Loopback bind only for local tests. |
 | Credentials | After deploy → `~/.netductor/credentials/` on Mac |
-| DNS | External (Cloudflare). App: `domain set` / deploy flags only |
+| DNS | External (Cloudflare); app `domain set` / deploy flags |
 | Control plane | **Go-only** |
-| Deploy UI | **Framed TUI + CLI only** (huh deploy removed). Prefer **Fleet** wizard |
+| Operator UI | Framed TUI + CLI + localhost `operator serve` |
 
-## Binaries (v0.9+)
+## Where we stopped (2026-09-25)
 
-- **netductor-op** — Mac deploy / TUI / `operator serve`
-- **netductor** (`netductor-linux-*`) — VPS node plane; what `deploy` downloads
-
-## Operator direction
-
-**Done (0.8.95):**  Specs + FleetDeploy; CLI/TUI thin.
-**Next:** step events; phase 3 operator serve + WebUI.
-
-## Binaries (v0.9+)
-
-- **netductor-op** — Mac deploy / TUI / `operator serve`
-- **netductor** (`netductor-linux-*`) — VPS node plane; what `deploy` downloads
-
-## Operator direction (active work)
-
-**Goal:** one operator core; CLI / TUI / later WebUI are thin clients.
-
-- Architecture: [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md)  
-- Checklist: [OPERATOR-PLAN.md](OPERATOR-PLAN.md) — **phase 1 next**  
-- Do **not** add new deploy logic only in TUI or only in CLI.
-
-## Current product surface (short)
-
-- `netductor deploy primary|secondary|edge`  
-- `netductor tui` → Wizard → **Fleet** / Primary / Secondary / OpenWrt / …  
-- `netductor domain set --base … [--le --email …]`  
-- `netductor credentials collect`  
-- Node: `install`, `serve`, `vpn`, agent, tg  
-
-Example DNS (operator’s zone): `p.nd.neyman.top`, `s.nd.neyman.top`, `i.nd.neyman.top` (grey cloud).
+- [x] Operator core (`internal/operator`), FleetDeploy, step events, localhost WebUI  
+- [x] Physical split **cmd/netductor-op** vs **cmd/netductor**  
+- [x] Security pass: path/filename, XFF, token SHA compares, host validation  
+- [x] Recovery model clarified: WAN bind while armed is **by design** (doctor WARN, not FAIL)  
+- [ ] Optional phase 4: richer WebUI, binary polish  
+- [ ] Hardware e2e (OpenWrt / Tapo) — owner  
 
 ## Forbidden
 
-- Publish 8787 / 9118 / 5000 / DNS on `0.0.0.0`  
-- Recovery always-on or port-knock revival  
+- Always-on recovery / port-knock  
+- Publish 8787/9118/5000 on `0.0.0.0`  
 - Cloud-sync of `~/.netductor/credentials`  
-- Deploy orchestration that requires Mac private key stored on primary  
-- Public “installer” API on primary  
+- Mac private key stored on primary  
+- Deploy logic only in TUI or only in CLI (use `internal/operator`)  
 
-## AI progress rule (mandatory)
+## AI progress rule
 
-See **AGENTS.md → Documentation & checklist discipline**.  
-Every completed plan item → update docs + mark `[x]` in OPERATOR-PLAN (or ROADMAP) in the **same** change set.
+Every completed checklist item → mark `[x]` in OPERATOR-PLAN + update docs **in the same change**.

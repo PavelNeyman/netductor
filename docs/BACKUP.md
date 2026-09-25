@@ -55,9 +55,9 @@ netductor recover --key KEY file.ndenc
 
 | Env | Default | Meaning |
 |-----|---------|---------|
-| `NETDUCTOR_RECOVERY_BIND` | `127.0.0.1` | Listen address (non-loopback requires ALLOW_CIDR) |
+| `NETDUCTOR_RECOVERY_BIND` | `0.0.0.0` | Listen while **armed** only. WAN default so wiped primary can pull; use `127.0.0.1` for local tests |
 | `NETDUCTOR_RECOVERY_UFW` | off | If `1`, `ufw allow 8790/tcp` |
-| `NETDUCTOR_RECOVERY_ALLOW_CIDR` | empty | Comma-separated IPs allowed (else any + token) |
+| `NETDUCTOR_RECOVERY_ALLOW_CIDR` | empty | Optional IP allowlist (else any client + Bearer token) |
 
 
 ## SCP peer

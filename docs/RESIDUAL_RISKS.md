@@ -48,4 +48,10 @@ Secondary `upgrade` is now **Go-only** (no `bash -c`). Operator-initiated `uci`/
 
 ## Recovery HTTP (:8790)
 
-Default bind is **127.0.0.1** (not 0.0.0.0). Non-loopback bind requires `NETDUCTOR_RECOVERY_ALLOW_CIDR`. Doctor reports FAIL if :8790 listens on all interfaces.
+**Off by default.** `recovery arm` opens a **short TTL** window (Bearer + optional TLS).
+
+Default bind while armed: **`0.0.0.0`** — intentional so a wiped primary can `recover --from-secondary` over the internet. Mitigations: TTL (≤2h), recovery token, TLS, optional `NETDUCTOR_RECOVERY_ALLOW_CIDR`, optional UFW.
+
+`NETDUCTOR_RECOVERY_BIND=127.0.0.1` only for local/SSH-tunnel tests (remote recover will not work).
+
+Doctor: **WARN** if :8790 is on WAN (armed window), not FAIL.
