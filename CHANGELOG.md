@@ -1,3 +1,8 @@
+## 0.9.5
+
+- P4: managed SSH tunnel from WebUI (start/stop/status, auto on Control)
+- P4: Issue session from Control → localStorage + ~/.netductor/node_session
+
 ## 0.9.4
 
 - Node API-only by default: `/admin` returns 410 unless `NETDUCTOR_LEGACY_ADMIN_UI=1`

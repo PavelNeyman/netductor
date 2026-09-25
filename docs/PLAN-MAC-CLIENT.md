@@ -59,9 +59,13 @@ Transport to `:8787`:
 
 ### P4 — Polish
 
-- [ ] Single design language Installer ↔ Control
-- [ ] Auto-tunnel when Control opens
-- [ ] Mobile day-2 later (same APIs, not bootstrap)
+- [x] `POST /v1/tunnel/start|stop`, `GET /v1/tunnel/status`
+- [x] `POST /v1/session/issue` from WebUI (stores token in Settings)
+### P4 — Polish (detail)
+
+- [x] Shared WebUI shell Installer ↔ Control ↔ Settings
+- [x] Auto-tunnel when Control opens (+ Start/Stop + badge)
+- [ ] Mobile day-2 later (same APIs, not bootstrap) — deferred
 
 ## Rules
 

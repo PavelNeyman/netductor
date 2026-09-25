@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Start here.** **Baseline:** **v0.9.4** · https://github.com/PavelNeyman/netductor
+**Start here.** **Baseline:** **v0.9.5** · https://github.com/PavelNeyman/netductor
 
 ## Read order
 
@@ -39,6 +39,7 @@
 - [x] **P1** Mac WebUI Installer | Control | Settings + tunnel + API status  
 - [x] P2 Control parity (users/nodes/edge via /v1/node proxy + session)  
 - [x] P3 drop default VPS static admin (LEGACY_ADMIN_UI=1 only)  
+- [x] P4 auto-tunnel + session issue from Control
 - [ ] Mobile day-2 later  
 
 ## Forbidden

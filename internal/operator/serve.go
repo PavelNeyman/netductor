@@ -99,6 +99,60 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
 	mux.HandleFunc("/v1/node/", func(w http.ResponseWriter, r *http.Request) { ProxyNodeAPI(w, r, token) })
+	mux.HandleFunc("/v1/tunnel/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "GET only", 405)
+			return
+		}
+		if !requireToken(r, token) {
+			http.Error(w, "unauthorized", 401)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(TunnelStatus())
+	})
+	mux.HandleFunc("/v1/tunnel/start", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", 405)
+			return
+		}
+		if !requireToken(r, token) {
+			http.Error(w, "unauthorized", 401)
+			return
+		}
+		var body struct {
+			Host      string `json:"host"`
+			User      string `json:"user"`
+			Key       string `json:"key"`
+			LocalPort string `json:"local_port"`
+			SSHPort   string `json:"ssh_port"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		err := TunnelStart(TunnelOpts{Host: body.Host, User: body.User, Key: body.Key, LocalPort: body.LocalPort, SSHPort: body.SSHPort})
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error(), "status": TunnelStatus()})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "status": TunnelStatus()})
+	})
+	mux.HandleFunc("/v1/tunnel/stop", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", 405)
+			return
+		}
+		if !requireToken(r, token) {
+			http.Error(w, "unauthorized", 401)
+			return
+		}
+		TunnelStop()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "status": TunnelStatus()})
+	})
+	mux.HandleFunc("/v1/session/issue", handleSessionIssue(token))
 
 	fmt.Fprintf(os.Stderr, "operator serve: http://%s/  (loopback only)\n", addr)
 	fmt.Fprintf(os.Stderr, "operator token: %s  (header X-Netductor-Token)\n", token)

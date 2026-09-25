@@ -96,8 +96,11 @@ pre.log{background:var(--panel);border:1px solid var(--border);border-radius:10p
 <div id="main-control" style="display:none">
   <p class="note">Day-2 via node JSON API (proxied by op). Need tunnel + session token in Settings.</p>
   <div class="card">
-    <h3>Setup</h3>
+    <h3>Tunnel <span id="tunnelBadge" class="chip">—</span></h3>
     <pre class="log" id="tunnelCmd" style="min-height:auto"></pre>
+    <button class="primary" type="button" id="btnTunnelStart">Start tunnel</button>
+    <button class="primary" type="button" id="btnTunnelStop">Stop tunnel</button>
+    <button class="primary" type="button" id="btnSessionIssue">Issue session</button>
     <button class="primary" type="button" id="btnHealth">Health</button>
     <button class="primary" type="button" id="btnVpnUsers">VPN users</button>
     <button class="primary" type="button" id="btnNodes">Nodes</button>
@@ -151,7 +154,7 @@ function showMain(name){
   document.getElementById('subInstaller').style.display = name==='installer'?'flex':'none';
   document.getElementById('deployLogSec').style.display = name==='installer'?'block':'none';
   document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
-  if(name==='control') updateTunnelHint();
+  if(name==='control'){ updateTunnelHint(); ensureTunnel().then(()=>refreshTunnelBadge()); }
   if(name==='settings') loadSettingsForm();
 }
 document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
@@ -216,9 +219,28 @@ document.getElementById('form-settings').onsubmit=e=>{
 function updateTunnelHint(){
   const s=settings(); const host=s.primary_host||'PRIMARY'; const key=s.key||'~/.ssh/netductor_primary'; const port=s.api_port||'8787';
   document.getElementById('tunnelCmd').textContent=
-    '1) netductor-op tunnel --host '+host+' --key '+key+' --local-port '+port+'\n'+
-    '2) netductor-op session issue --host '+host+' --key '+key+'\n'+
-    '3) Settings → paste Node session token → Save';
+    'Auto: Start tunnel + Issue session (Settings host/key).
+CLI: netductor-op tunnel --host '+host+' --key '+key+' --local-port '+port;
+}
+async function refreshTunnelBadge(){
+  try{
+    const res=await fetch('/v1/tunnel/status',{headers:{'X-Netductor-Token':ND_TOKEN}});
+    const st=await res.json();
+    const b=document.getElementById('tunnelBadge');
+    if(!b) return st;
+    if(st.port_open){ b.textContent='up :'+st.local_port; b.className='chip ok'; }
+    else if(st.process_up){ b.textContent='starting…'; b.className='chip run'; }
+    else { b.textContent='down'; b.className='chip err'; }
+    return st;
+  }catch(e){ return null; }
+}
+async function ensureTunnel(){
+  const s=settings();
+  if(!s.primary_host){ return false; }
+  await fetch('/v1/tunnel/start',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({host:s.primary_host,user:s.user||'root',key:s.key,local_port:s.api_port||'8787'})});
+  await refreshTunnelBadge();
+  return true;
 }
 async function nodeFetch(path, opts){
   opts=opts||{}; const s=settings();
@@ -231,6 +253,21 @@ async function nodeFetch(path, opts){
   return {ok:res.ok,status:res.status,data};
 }
 function showControl(x){ document.getElementById('controlStatus').textContent = typeof x==='string'?x:JSON.stringify(x,null,2); }
+document.getElementById('btnTunnelStart').onclick=async()=>{ showControl('starting tunnel…'); await ensureTunnel(); showControl(await refreshTunnelBadge()); };
+document.getElementById('btnTunnelStop').onclick=async()=>{
+  await fetch('/v1/tunnel/stop',{method:'POST',headers:{'X-Netductor-Token':ND_TOKEN}});
+  showControl(await refreshTunnelBadge());
+};
+document.getElementById('btnSessionIssue').onclick=async()=>{
+  const s=settings();
+  if(!s.primary_host){ showControl('primary host required in Settings'); return; }
+  showControl('issuing session…');
+  const res=await fetch('/v1/session/issue',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+    body:JSON.stringify({host:s.primary_host,user:s.user||'root',key:s.key,hours:'72'})});
+  const j=await res.json();
+  if(j.token){ const st=Object.assign({},settings(),{node_session:j.token}); saveSettingsObj(st); showControl({ok:true,saved:j.saved,token_preview:j.token.slice(0,8)+'…'}); }
+  else showControl(j);
+};
 document.getElementById('btnHealth').onclick=async()=>{ try{ showControl({health:await nodeFetch('/health'), bot:await nodeFetch('/api/bot-status')}); }catch(e){showControl(String(e));} };
 document.getElementById('btnVpnUsers').onclick=async()=>{ try{ showControl(await nodeFetch('/vpn/users')); }catch(e){showControl(String(e));} };
 document.getElementById('btnNodes').onclick=async()=>{ try{ showControl({nodes:await nodeFetch('/api/nodes'), self:await nodeFetch('/api/nodes/self')}); }catch(e){showControl(String(e));} };
