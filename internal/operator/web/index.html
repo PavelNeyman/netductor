@@ -40,8 +40,13 @@
         <label><input type="checkbox" name="do_secondary" checked/> Secondary</label>
         <label><input type="checkbox" name="with_lampac"/> Lampac</label>
         <label><input type="checkbox" name="with_git"/> Git</label>
-        <label><input type="checkbox" name="with_telegram"/> Telegram bot</label>
+        <label><input type="checkbox" name="with_telegram" id="fleet_with_tg"/> Telegram bot</label>
       </div>
+      <div class="row tg-fields" id="fleet_tg_fields" hidden>
+        <div><label>TG bot token</label><input name="tg_token" type="password" autocomplete="off" placeholder="123456:ABC…"/></div>
+        <div><label>TG admin user id</label><input name="tg_admin" inputmode="numeric" placeholder="149842673"/></div>
+      </div>
+      <p class="note" id="fleet_tg_note" hidden>Telegram installs on primary only (token + numeric admin id required).</p>
       <button class="primary" type="submit">FleetDeploy</button>
     </form>
   </section>
@@ -50,6 +55,13 @@
       <div class="row"><div><label>Host</label><input name="host" required/></div><div><label>Password</label><input name="password" type="password"/></div></div>
       <div class="row"><div><label>Domain</label><input name="domain_base"/></div><div><label>LE email</label><input name="le_email" type="email"/></div></div>
       <div class="row"><div><label>SNI</label><input name="sni" value="api.vk.me"/></div><div><label>Key</label><input name="key"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="with_telegram" id="pri_with_tg"/> Telegram bot</label>
+        <label><input type="checkbox" name="with_lampac"/> Lampac</label>
+        <label><input type="checkbox" name="with_git"/> Git</label></div>
+      <div class="row tg-fields" id="pri_tg_fields" hidden>
+        <div><label>TG bot token</label><input name="tg_token" type="password" autocomplete="off"/></div>
+        <div><label>TG admin user id</label><input name="tg_admin" inputmode="numeric"/></div>
+      </div>
       <button class="primary" type="submit">Deploy primary</button>
     </form>
   </section>

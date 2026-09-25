@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.14** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.12
+**Baseline:** **v0.9.15** · https://github.com/PavelNeyman/netductor/releases/tag/v0.9.15
 
 ## Read order (new chat)
 
@@ -38,6 +38,8 @@ Parity is the rule; temporary gaps are debt (not intentional TUI-only features).
 
 ## Mac deploy (both paths work)
 
+**Web Fleet/Primary Telegram:** checkbox + `tg_token` / `tg_admin` → same `DeployPrimary` secrets/install as TUI/CLI.
+
 **Web:** `netductor-op operator serve` → Installer → Fleet / Primary / Secondary / Credentials  
 **TUI:** `netductor-op` → Wizard → Fleet / Primary / Secondary (+ OpenWrt / MikroTik / NVR / Add-ons)
 
@@ -50,6 +52,8 @@ Shared backend: `internal/operator` + `internal/deploy`.
 - **TG:** Tools (VPN, edge, NVR, git, DNS, backup, probes, …)
 
 ## Open / deferred
+
+- Ideas: MikroTik API via RPi agent; Site rooms/photos (Web/TG) — see OPEN_ITEMS
 
 - Hardware e2e (owner)  
 - SMTP when mailbox exists  

@@ -94,14 +94,35 @@ async function streamPost(url, body, btn){
 function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token|session/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
 function loadForm(id,form){ try{ const o=JSON.parse(localStorage.getItem('nd_op_'+id)||'{}'); Object.keys(o).forEach(k=>{ const el=form.elements.namedItem(k); if(!el)return; if(el.type==='checkbox')el.checked=true; else el.value=o[k]; }); }catch(e){} }
 
-document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('fleet',fd);
+function tgFieldsOk(fd){
+  if(fd.get('with_telegram')!=='on') return true;
+  const tok=(fd.get('tg_token')||'').trim(), adm=(fd.get('tg_admin')||'').trim();
+  if(!tok||!adm){ alert('Telegram: bot token and admin user id required'); return false; }
+  return true;
+}
+function bindTgToggle(cbId, fieldsId, noteId){
+  const cb=document.getElementById(cbId), box=document.getElementById(fieldsId), note=noteId?document.getElementById(noteId):null;
+  if(!cb||!box) return;
+  const sync=()=>{ box.hidden=!cb.checked; if(note) note.hidden=!cb.checked; };
+  cb.addEventListener('change', sync); sync();
+}
+bindTgToggle('fleet_with_tg','fleet_tg_fields','fleet_tg_note');
+bindTgToggle('pri_with_tg','pri_tg_fields',null);
+
+document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; saveForm('fleet',fd);
   await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on',
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
     domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
-    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on', with_telegram:fd.get('with_telegram')==='on' }, e.submitter); };
-document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('primary',fd);
-  await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key') }, e.submitter); };
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
+    with_telegram:fd.get('with_telegram')==='on',
+    tg_token:(fd.get('tg_token')||'').trim(), tg_admin:(fd.get('tg_admin')||'').trim() }, e.submitter); };
+document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; saveForm('primary',fd);
+  await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), le_email:fd.get('le_email'),
+    sni:fd.get('sni'), key:fd.get('key'),
+    with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
+    with_telegram:fd.get('with_telegram')==='on',
+    tg_token:(fd.get('tg_token')||'').trim(), tg_admin:(fd.get('tg_admin')||'').trim() }, e.submitter); };
 document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
   await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
 document.getElementById('form-site').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('site',fd);

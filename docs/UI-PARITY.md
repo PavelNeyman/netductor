@@ -17,6 +17,7 @@
 | Use-case | Web | TUI | CLI/op |
 |----------|-----|-----|--------|
 | Fleet / Primary / Secondary | ✅ | ✅ | ✅ |
+| Telegram on primary (token+admin) | ✅ Fleet/Primary fields | ✅ Add-ons / fields | ✅ `--tg-token` |
 | Credentials collect | ✅ | ✅ | ✅ |
 | OpenWrt edge (`DeployEdge`) | ✅ `/v1/edge` | ✅ wizard | ✅ |
 | MikroTik site (`DeploySite`) | ✅ `/v1/site` | ✅ wizard | ✅ |

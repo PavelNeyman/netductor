@@ -302,6 +302,7 @@ type fleetJSON struct {
 	WithGit             bool   `json:"with_git"`
 	TelegramToken       string `json:"tg_token"`
 	TelegramAdminID     string `json:"tg_admin"`
+	WithTelegram        bool   `json:"with_telegram"`
 }
 
 type primaryJSON struct {
@@ -318,6 +319,7 @@ type primaryJSON struct {
 	WithGit         bool   `json:"with_git"`
 	TelegramToken   string `json:"tg_token"`
 	TelegramAdminID string `json:"tg_admin"`
+	WithTelegram    bool   `json:"with_telegram"`
 }
 
 type secondaryJSON struct {
@@ -383,6 +385,16 @@ func handleFleet(w http.ResponseWriter, r *http.Request, token string) {
 		http.Error(w, "do_primary and/or do_secondary required", 400)
 		return
 	}
+	if body.WithTelegram || strings.TrimSpace(body.TelegramToken) != "" || strings.TrimSpace(body.TelegramAdminID) != "" {
+		if strings.TrimSpace(body.TelegramToken) == "" || strings.TrimSpace(body.TelegramAdminID) == "" {
+			http.Error(w, "telegram requires tg_token and tg_admin", 400)
+			return
+		}
+		if !body.DoPrimary {
+			http.Error(w, "telegram installs on primary only (enable do_primary)", 400)
+			return
+		}
+	}
 	if !tryLockDeploy(w) {
 		return
 	}
@@ -435,6 +447,12 @@ func handlePrimary(w http.ResponseWriter, r *http.Request, token string) {
 	if strings.TrimSpace(body.Host) == "" {
 		http.Error(w, "host required", 400)
 		return
+	}
+	if body.WithTelegram || strings.TrimSpace(body.TelegramToken) != "" || strings.TrimSpace(body.TelegramAdminID) != "" {
+		if strings.TrimSpace(body.TelegramToken) == "" || strings.TrimSpace(body.TelegramAdminID) == "" {
+			http.Error(w, "telegram requires tg_token and tg_admin", 400)
+			return
+		}
 	}
 	if !tryLockDeploy(w) {
 		return
