@@ -459,7 +459,8 @@ const BTN = {
   ],
   dns:[
     ['dns-lists','DNS lists','GET','/api/dns/lists'],
-    ['dns-reload','DNS reload','POST','/api/dns/reload','{}'],
+    ['dns-set': async()=>{ const on=document.getElementById('dnsOn').value==='1'; return nodeFetch('/api/dns/set',{method:'POST',body:JSON.stringify({id:document.getElementById('dnsId').value.trim(),enabled:on})}); },
+  'dns-reload','DNS reload','POST','/api/dns/reload','{}'],
   ],
   backup:[
     ['backup-peer','Peer','GET','/api/backup/peer'],
@@ -503,6 +504,11 @@ function mountButtons(){
       h+='<button class="primary" type="button" data-act="'+id+'">'+lab+'</button> ';
     }
     // append forms for complex POSTs
+        if(sec==='dns'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>list id</label><input id="dnsId" placeholder="adguard"/></div>
+      <div><label>enabled</label><select id="dnsOn"><option value="1">on</option><option value="0">off</option></select></div></div>
+      <button class="primary" type="button" data-act="dns-set">Set list</button>`;
+    }
     if(sec==='vpn'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>
       <button class="primary" type="button" data-act="vpn-add">${t('b_vpn_add')}</button>

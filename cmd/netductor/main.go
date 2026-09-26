@@ -75,6 +75,8 @@ func main() {
 		for _, e := range audit.Tail(n) {
 			fmt.Println(e)
 		}
+	case "dns":
+		runDNS(os.Args[2:])
 	case "domain":
 		runDomain(os.Args[2:])
 	case "recovery":
