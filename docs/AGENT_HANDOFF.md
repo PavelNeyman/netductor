@@ -1,12 +1,12 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.46** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
+**Baseline:** **v0.9.47** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
 
 **Next engineering:** owner/later only — hardware e2e, SMTP, mobile day-2, CDN-XHTTP idea ([OPEN_ITEMS](OPEN_ITEMS.md)). Do not reopen day-2 UI unless regression.
 
 ## Access note (agent)
 
-Artifact keys (`netductor_primary`, `netductor_vps_id_ed25519`) may **not** match current VPS authorized_keys after reinstalls. Owner must place current operator key on the agent host or open temporary password for tests. Primary typically **:52222**; secondary may still be **:22** until harden.
+Artifact keys (`netductor_primary`, `netductor_vps_id_ed25519`) may **not** match current VPS authorized_keys after reinstalls. Owner must place current operator key on the agent host or open temporary password for tests. Both primary and secondary harden to **:52222** (password off). Live secondary fixed 2026-09-26 if still on :22.
 
 ## Read order (new chat)
 

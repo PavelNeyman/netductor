@@ -144,8 +144,8 @@ func DeploySecondary(o SecondaryOpts) error {
 		o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 
-	// credentials: secondary often stays on :22 after harden (password off)
-	_ = os.Setenv("NETDUCTOR_SSH_PORT", "22")
+	// credentials: after harden SSH is on :52222 (same as primary)
+	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, o.PrimaryKey, o.PrimaryKeyPassphrase); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: credentials collect:", err)
 	} else {

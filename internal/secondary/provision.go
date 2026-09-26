@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"golang.org/x/crypto/ssh"
 )
@@ -136,26 +137,37 @@ func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 }
 
 // DisablePasswordAuth is the last step of a successful provision (harden-last).
+// Sets Port to hardening.DefaultSSHPort (52222), same as primary install.
 func DisablePasswordAuth(client *ssh.Client) error {
-	script := "set -e\n" +
-		"mkdir -p /etc/ssh/sshd_config.d\n" +
-		"printf '%s\\n' " +
-		"'PasswordAuthentication no' " +
-		"'KbdInteractiveAuthentication no' " +
-		"'ChallengeResponseAuthentication no' " +
-		"'PermitRootLogin prohibit-password' " +
-		"'PubkeyAuthentication yes' " +
-		"> /etc/ssh/sshd_config.d/00-netductor-harden.conf\n" +
-		"for f in /etc/ssh/sshd_config.d/*.conf; do\n" +
-		"  [ -f \"$f\" ] || continue\n" +
-		"  case \"$f\" in *netductor*) continue ;; esac\n" +
-		"  sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/gi' \"$f\" 2>/dev/null || true\n" +
-		"done\n" +
-		"if [ -f /etc/ssh/sshd_config ]; then\n" +
-		"  sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config\n" +
-		"  sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config\n" +
-		"fi\n" +
-		"systemctl reload sshd 2>/dev/null || systemctl reload ssh 2>/dev/null || service ssh reload 2>/dev/null || true\n"
+	port := hardening.DefaultSSHPort
+	script := fmt.Sprintf(`set -e
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'NDSSH'
+Port %d
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+X11Forwarding no
+NDSSH
+for f in /etc/ssh/sshd_config.d/*.conf; do
+  [ -f "$f" ] || continue
+  case "$f" in *netductor*) continue ;; esac
+  sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/gi' "$f" 2>/dev/null || true
+done
+if [ -f /etc/ssh/sshd_config ]; then
+  sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+  # comment conflicting Port lines in main config so drop-in wins
+  sed -i 's/^Port /# Port /' /etc/ssh/sshd_config
+fi
+# ensure firewall allows new port when ufw is active
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi active; then
+  ufw allow %d/tcp comment netductor-ssh 2>/dev/null || true
+fi
+systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service ssh restart 2>/dev/null || true
+`, port, port)
 	_, err := runSSH(client, script)
 	return err
 }

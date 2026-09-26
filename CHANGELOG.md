@@ -1,3 +1,8 @@
+## 0.9.47
+
+- Secondary harden-last now sets SSH **Port 52222** (parity with primary); was password-only on :22
+- DeploySecondary credentials collect uses :52222 after harden
+
 ## 0.9.46
 
 - TG: Status is single overview (host metrics + services + nodes + VPN); no separate Metrics menu
