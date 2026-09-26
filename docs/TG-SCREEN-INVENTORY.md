@@ -1,4 +1,4 @@
-# TG screen inventory (v0.9.46)
+# TG screen inventory (v0.9.48)
 
 Patterns: **A** list · **B** card · **C** status (see [TG-UI-PATTERN.md](TG-UI-PATTERN.md)).
 

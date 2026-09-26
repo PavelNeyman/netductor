@@ -67,12 +67,30 @@ func fleetKeyboard() map[string]any {
 
 // operator = session / admin / audit (not day-to-day user VPN)
 func operatorKeyboard() map[string]any {
+	// Navigation only — actions in operatorHubHTML body (TG pattern).
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("session"), "m:session", "primary"), btn(T("admin"), "m:admin", "")},
-		{btn(T("sessions"), "m:sessions", ""), btn(T("audit"), "m:audit", "")},
-		{btn(T("refresh_links"), "m:vpn_refresh", "")},
-		{btn(T("main_menu"), "m:menu", "")},
+		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
+}
+
+func operatorHubHTML() string {
+	ru := getLang() != "en"
+	title := "🛠 <b>Operator</b>"
+	if ru {
+		title = "🛠 <b>Оператор</b>"
+	}
+	session, admin, sessions, audit, refresh := "🔑 Session", "👤 Admin", "📋 Sessions", "📜 Audit", "🔄 Refresh VPN links"
+	if ru {
+		session, admin, sessions, audit, refresh = "🔑 Сессия", "👤 Admin", "📋 Сессии", "📜 Audit", "🔄 Обновить ссылки VPN"
+	}
+	return title + "\n" +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:admin">` + admin + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:sessions">` + sessions + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:audit">` + audit + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:vpn_refresh">` + refresh + `</tg-button>` +
+		`</tg-button-row>`
 }
 
 func vpnKeyboard() map[string]any {
@@ -82,8 +100,7 @@ func vpnKeyboard() map[string]any {
 
 func addonsKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("Lampac", "m:addon:lampac", "primary")},
-		{btn(T("back"), "m:menu", "")},
+		{btn(T("back"), "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 }
 

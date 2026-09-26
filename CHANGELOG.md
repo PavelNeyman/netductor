@@ -1,3 +1,9 @@
+## 0.9.48
+
+- Shared SSH harden: hardening.DropInConf + RemoteHardenScript (primary+secondary)
+- TG Operator/Addons: actions in body, keyboard nav only
+- docs: SHARED-OPS.md
+
 ## 0.9.47
 
 - Secondary harden-last now sets SSH **Port 52222** (parity with primary); was password-only on :22

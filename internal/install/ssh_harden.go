@@ -56,7 +56,7 @@ func EnsureSSHKeyAndHarden() error {
 	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0o755)
 	drop := "/etc/ssh/sshd_config.d/00-netductor-harden.conf"
 	port := hardening.SSHPort()
-	body := fmt.Sprintf("Port %d\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nChallengeResponseAuthentication no\nPermitRootLogin prohibit-password\nPubkeyAuthentication yes\nX11Forwarding no\n", port)
+	body := hardening.DropInConf()
 	if err := os.WriteFile(drop, []byte(body), 0o644); err != nil {
 		return err
 	}

@@ -258,7 +258,7 @@ if strings.HasPrefix(data, "u:") {
 	case "m:fleet":
 		reply(token, chat, msgID, T("fleet_title"), fleetKeyboard())
 	case "m:operator":
-		reply(token, chat, msgID, T("operator_title"), operatorKeyboard())
+		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
 	case "m:cat:users":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:vpn":
@@ -355,13 +355,13 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, formatRelayListHTML(), relayKeyboard())
 	case "m:probes":
 		out := runND("probe")
-		reply(token, chat, msgID, "📡 <b>Probes</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())
+		reply(token, chat, msgID, "📡 <b>Probes</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", map[string]any{"inline_keyboard": [][]map[string]any{{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 	case "m:metrics":
 		// folded into main Status (no separate Metrics screen)
 		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
 	case "m:secondary:status":
 		out := runND("secondary", "status")
-		reply(token, chat, msgID, "🖥 <b>Secondary</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())
+		reply(token, chat, msgID, "🖥 <b>Secondary</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", map[string]any{"inline_keyboard": [][]map[string]any{{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 	case "m:addons":
 		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatAddonsHTML(), addonsKeyboard())
 	case "m:addon:lampac":

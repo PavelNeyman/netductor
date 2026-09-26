@@ -71,10 +71,11 @@ func formatAddonsHTML() string {
 	ru := getLang() != "en"
 	var b strings.Builder
 	if ru {
-		b.WriteString("🧩 <b>Аддоны</b>\n\nВыберите компонент:")
+		b.WriteString("🧩 <b>Аддоны</b>\n\n")
 	} else {
-		b.WriteString("🧩 <b>Addons</b>\n\nPick a component:")
+		b.WriteString("🧩 <b>Addons</b>\n\n")
 	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:addon:lampac">📺 Lampac</tg-button></tg-button-row>`)
 	return b.String()
 }
 
