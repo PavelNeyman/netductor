@@ -421,15 +421,6 @@ func handleQuotaCB(token string, chat int64, msgID int, data string) {
 	}
 }
 
-func toolsHubHTML() string {
-	ru := getLang() != "en"
-	nl := "\n"
-	if ru {
-		return "🧰 <b>Инструменты</b>" + nl + "<i>Гость, DNS, бэкапы, локации, обновления.</i>"
-	}
-	return "🧰 <b>Tools</b>" + nl + "<i>Guest, DNS, backups, locations, updates.</i>"
-}
-
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	if data == "m:updates:self" {

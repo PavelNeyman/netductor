@@ -1,3 +1,8 @@
+## 0.9.49
+
+- TG hubs Fleet/Nodes/Routers/Sites/Tools: body actions, keyboard nav only
+- SHARED-OPS: thin UI → one API method rule
+
 ## 0.9.48
 
 - Shared SSH harden: hardening.DropInConf + RemoteHardenScript (primary+secondary)

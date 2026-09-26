@@ -22,3 +22,16 @@ Secondary once hardened **password only on :22** while primary used **:52222** �
 - ufw allow lists for node ports
 - fail2ban jail snippets
 - sing-box base service unit templates
+
+## Thin UI + one API method
+
+Operator Web, TUI, CLI and (where applicable) TG must not reimplement business logic.
+
+| Layer | Role |
+|-------|------|
+| `internal/*` + node/API | **One** implementation of each action |
+| `internal/opcatalog` | Maps action IDs → HTTP for Web/TG Tools |
+| `internal/operator` | Local Mac Control API for deploy |
+| TG / Web / TUI / CLI | Call API or CLI wrappers only; format output |
+
+Same action → same backend function; UIs differ only in presentation.

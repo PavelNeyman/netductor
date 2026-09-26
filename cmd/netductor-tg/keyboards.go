@@ -57,13 +57,25 @@ func mainKeyboard() map[string]any {
 
 func fleetKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("nodes"), "m:cat:nodes", "primary")},
-		{btn(T("cat_routers"), "m:cat:routers", "primary")},
-		{btn(T("sites"), "m:cat:sites", "")},
-		{btn(T("addons"), "m:addons", "")},
-		{btn(T("main_menu"), "m:menu", "")},
+		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }
+
+func fleetHubHTML() string {
+	ru := getLang() != "en"
+	title := "🌐 <b>Fleet</b>"
+	if ru {
+		title = "🌐 <b>Флот</b>"
+	}
+	return title + "\n" +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:cat:nodes">` + T("nodes") + `</tg-button>` +
+		`<tg-button type="callback_data" style="primary" data="m:cat:routers">` + T("cat_routers") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:cat:sites">` + T("sites") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:addons">` + T("addons") + `</tg-button>` +
+		`</tg-button-row>`
+}
+
 
 // operator = session / admin / audit (not day-to-day user VPN)
 func operatorKeyboard() map[string]any {
@@ -106,24 +118,43 @@ func addonsKeyboard() map[string]any {
 
 func sitesKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("sites_list"), "m:sites:list", "primary")},
-		{btn(T("sites_rsc"), "m:sites:rsc", "")},
-		{btn(T("main_menu"), "m:menu", "")},
+		{btn("«", "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 }
 
-func nodesKeyboard() map[string]any {
-	return map[string]any{
-		"inline_keyboard": [][]map[string]any{
-			{btn(T("nodes_list_btn"), "m:nodes_list", "primary"), btn(T("nodes_rename_btn"), "m:node_rename", "")},
-			{btn(T("nodes_enroll"), "m:secondary:enroll", "primary")},
-			{btn(T("nodes_sync"), "m:secondary:sync", ""), btn(T("nodes_exit"), "m:secondary:exit:menu", "primary")},
-			{btn(T("ssh_hosts"), "m:sshhosts", "primary")},
-			{btn(T("backup"), "m:backup", "")},
-			{btn(T("main_menu"), "m:menu", "")},
-		},
-	}
+func sitesHubHTML() string {
+	return T("sites_title") + "\n" +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:sites:list">` + T("sites_list") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:sites:rsc">` + T("sites_rsc") + `</tg-button>` +
+		`</tg-button-row>`
 }
+
+
+func nodesKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("«", "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
+}
+
+func nodesHubHTML() string {
+	ru := getLang() != "en"
+	title := "🖥 <b>Nodes</b>"
+	if ru {
+		title = "🖥 <b>Ноды</b>"
+	}
+	return title + "\n" +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:nodes_list">` + T("nodes_list_btn") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:node_rename">` + T("nodes_rename_btn") + `</tg-button>` +
+		`<tg-button type="callback_data" style="primary" data="m:secondary:enroll">` + T("nodes_enroll") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:secondary:sync">` + T("nodes_sync") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:secondary:exit:menu">` + T("nodes_exit") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:sshhosts">` + T("ssh_hosts") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:backup">` + T("backup") + `</tg-button>` +
+		`</tg-button-row>`
+}
+
 
 type nodeRow struct {
 	ID, Host, Role, Kind, IP, Status, Desired string
@@ -266,16 +297,29 @@ func nodesRenameKeyboard() map[string]any {
 
 
 func routersKeyboard() map[string]any {
-	return map[string]any{
-		"inline_keyboard": [][]map[string]any{
-			{btn(T("devices"), "m:routers", "primary"), btn(T("pending"), "m:pending", "primary")},
-			{btn(T("edge_recovery"), "m:edge_recovery", "primary"), btn(T("edge_register"), "m:edge_register", "")},
-			{btn(T("templates"), "m:templates", ""), btn(T("bind_tmpl"), "m:edge_bind", "")},
-			{btn(T("apply_tmpl"), "m:edge_apply", "primary")},
-			{btn(T("main_menu"), "m:menu", "")},
-		},
-	}
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("«", "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
 }
+
+func routersHubHTML() string {
+	ru := getLang() != "en"
+	title := "📡 <b>Routers</b>"
+	if ru {
+		title = "📡 <b>Роутеры</b>"
+	}
+	return title + "\n" +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:routers">` + T("devices") + `</tg-button>` +
+		`<tg-button type="callback_data" style="primary" data="m:pending">` + T("pending") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:edge_recovery">` + T("edge_recovery") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:edge_register">` + T("edge_register") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:templates">` + T("templates") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:edge_bind">` + T("bind_tmpl") + `</tg-button>` +
+		`<tg-button type="callback_data" style="primary" data="m:edge_apply">` + T("apply_tmpl") + `</tg-button>` +
+		`</tg-button-row>`
+}
+
 
 func backKeyboard() map[string]any {
 	return map[string]any{

@@ -79,3 +79,6 @@ Keyboard rule: under-message = **nav only** (Back / Main / parent). Actions in b
 rg 'formatSmart|m:metrics|inline_keyboard' cmd/netductor-tg
 rg 'Metrics history|m:metrics' cmd/netductor-tg internal/opcatalog
 ```
+
+### 0.9.49
+Fleet/Nodes/Routers/Sites/Tools hubs → body buttons.

@@ -20,28 +20,36 @@ func catalogLang() string {
 	return "ru"
 }
 
-// toolsKeyboard builds Tools hub from opcatalog sections + a few product hubs not in catalog.
+// toolsKeyboard — navigation only; section links in toolsHubHTML body.
 func toolsKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("main_menu"), "m:menu", "primary")},
+	}}
+}
+
+func toolsHubHTML() string {
 	lang := catalogLang()
-	var rows [][]map[string]any
-	// catalog sections
-	var row []map[string]any
+	title := "🧰 <b>Tools</b>"
+	if lang == "ru" {
+		title = "🧰 <b>Инструменты</b>"
+	}
+	var b strings.Builder
+	b.WriteString(title + "\n")
+	b.WriteString(`<tg-button-row align="left">`)
 	for _, sec := range opcatalog.Sections() {
 		label := sec
 		switch sec {
 		case "overview":
+			label = "Overview"
 			if lang == "ru" {
 				label = "Обзор"
-			} else {
-				label = "Overview"
 			}
 		case "vpn":
 			label = "VPN"
 		case "nodes":
+			label = "Nodes"
 			if lang == "ru" {
 				label = "Ноды"
-			} else {
-				label = "Nodes"
 			}
 		case "edge":
 			label = "Edge"
@@ -50,32 +58,26 @@ func toolsKeyboard() map[string]any {
 		case "git":
 			label = "Git"
 		case "backup":
+			label = "Backup"
 			if lang == "ru" {
 				label = "Бэкап"
-			} else {
-				label = "Backup"
 			}
 		case "dns":
 			label = "DNS"
 		case "probes":
 			label = "Probes"
 		}
-		row = append(row, btn(label, "m:ops:"+sec, ""))
-		if len(row) == 2 {
-			rows = append(rows, row)
-			row = nil
-		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="m:ops:%s">%s</tg-button>`, sec, label))
 	}
-	if len(row) > 0 {
-		rows = append(rows, row)
-	}
-	// product-specific hubs (not pure session GET/POST)
-	rows = append(rows,
-		[]map[string]any{btn("⏱ Guest VPN", "m:guest", ""), btn("📡 Guest Wi‑Fi", "m:edgeguest", "")},
-		[]map[string]any{btn("📍 Locations", "m:loc", ""), btn("🔄 Updates", "m:updates", "")},
-		[]map[string]any{btn(T("mtls"), "m:mtls", ""), btn(T("main_menu"), "m:menu", "primary")},
-	)
-	return map[string]any{"inline_keyboard": rows}
+	b.WriteString(`</tg-button-row>`)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" data="m:guest">⏱ Guest VPN</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:edgeguest">📡 Guest Wi‑Fi</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:loc">📍 Locations</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:updates">🔄 Updates</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:mtls">` + T("mtls") + `</tg-button>`)
+	b.WriteString(`</tg-button-row>`)
+	return b.String()
 }
 
 func catalogSectionKeyboard(sec string) map[string]any {

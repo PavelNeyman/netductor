@@ -256,7 +256,7 @@ if strings.HasPrefix(data, "u:") {
 			reply(token, chat, msgID, menuText(), mainKeyboard())
 		}
 	case "m:fleet":
-		reply(token, chat, msgID, T("fleet_title"), fleetKeyboard())
+		reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
 	case "m:operator":
 		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
 	case "m:cat:users":
@@ -266,16 +266,16 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:routers":
 		setState(chat, "", "")
-		reply(token, chat, msgID, T("cat_routers_title"), routersKeyboard())
+		reply(token, chat, msgID, routersHubHTML(), routersKeyboard())
 	case "m:cat:sites":
-		reply(token, chat, msgID, T("sites_title")+string([]byte{10, 10})+formatSitesHTML(), sitesKeyboard())
+		reply(token, chat, msgID, sitesHubHTML()+"\n"+formatSitesHTML(), sitesKeyboard())
 	case "m:sites:list":
 		reply(token, chat, msgID, T("sites_title")+string([]byte{10, 10})+formatSitesHTML(), sitesKeyboard())
 	case "m:sites:rsc":
 		reply(token, chat, msgID, formatSitesRSCHTML(), sitesKeyboard())
 	case "m:cat:nodes":
 		setState(chat, "", "")
-		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+T("nodes_hint"), nodesKeyboard())
+		reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
 	case "m:nodes_list":
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>"+T("nodes_hint")+"</i>", nodesListKeyboard())
 	case "m:node_rename":
