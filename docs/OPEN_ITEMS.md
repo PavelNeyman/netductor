@@ -2,6 +2,9 @@
 
 ## In progress
 
+- TG style: matrix A/B/C documented (0.9.45); remaining screens audit ongoing
+- Next: backbone WG spike; h2mux A/B; mTLS 8789 if offline alerts recur
+
 - Day-2 UI parity + TG body-pattern closed through 0.9.41 (see REVIEW-0.9.41)
 - Remaining: hardware e2e, owner later items below
 

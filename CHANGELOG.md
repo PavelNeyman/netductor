@@ -1,3 +1,8 @@
+## 0.9.45
+
+- TG template C: metrics as expanded key/value table
+- docs/TG-UI-PATTERN.md: A/B/C templates + full screen matrix + audit checklist
+
 ## 0.9.44
 
 - TG: metrics/status nested tables (mem/disk/load/services) not `{N keys}`

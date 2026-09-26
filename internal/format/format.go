@@ -120,45 +120,85 @@ func formatMetrics(v any, ru bool) Result {
 	}
 	var b strings.Builder
 	b.WriteString("<b>" + title + "</b><br>")
-	if h, ok := m["hostname"].(string); ok {
-		b.WriteString("🖥 <code>" + esc(h) + "</code><br>")
+	b.WriteString("<table bordered striped compact><tr><th>key</th><th>value</th></tr>")
+	// stable order for known keys first
+	order := []string{"hostname", "cpu_pct", "loadavg", "mem", "disk", "net", "services", "containers", "ts"}
+	seen := map[string]bool{}
+	row := func(k, val string) {
+		b.WriteString("<tr><td>" + esc(k) + "</td><td>" + val + "</td></tr>")
+		seen[k] = true
 	}
-	if c, ok := m["cpu_pct"]; ok {
-		b.WriteString("CPU: <b>" + esc(fmt.Sprintf("%.1f", asFloat(c))) + "%</b><br>")
-	}
-	if la, ok := m["loadavg"].(map[string]any); ok {
-		b.WriteString(fmt.Sprintf("Load: <code>%.2f</code> / <code>%.2f</code> / <code>%.2f</code><br>",
-			asFloat(la["1"]), asFloat(la["5"]), asFloat(la["15"])))
-	}
-	if mem, ok := m["mem"].(map[string]any); ok {
-		used := asFloat(mem["used"])
-		total := asFloat(mem["total"])
-		if total > 0 {
-			b.WriteString(fmt.Sprintf("RAM: <b>%.1f</b> / %.1f GiB<br>", used/(1<<30), total/(1<<30)))
+	for _, k := range order {
+		val, ok := m[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "hostname":
+			row(k, "<code>"+esc(fmt.Sprint(val))+"</code>")
+		case "cpu_pct":
+			row(k, "<b>"+esc(fmt.Sprintf("%.1f%%", asFloat(val)))+"</b>")
+		case "loadavg":
+			if la, ok := val.(map[string]any); ok {
+				row(k, fmt.Sprintf("<code>%.2f / %.2f / %.2f</code>", asFloat(la["1"]), asFloat(la["5"]), asFloat(la["15"])))
+			} else {
+				row(k, cellValue(val))
+			}
+		case "mem":
+			if mem, ok := val.(map[string]any); ok {
+				used, total := asFloat(mem["used"]), asFloat(mem["total"])
+				if total > 0 {
+					row(k, fmt.Sprintf("<code>%.1f / %.1f GiB</code>", used/(1<<30), total/(1<<30)))
+				} else {
+					row(k, cellValue(val))
+				}
+			}
+		case "disk":
+			if disk, ok := val.(map[string]any); ok {
+				s := fmt.Sprintf("<code>%v%%</code>", disk["use_pct"])
+				if disk["free"] != nil {
+					s = fmt.Sprintf("<code>%v%% free=%.1fG</code>", disk["use_pct"], asFloat(disk["free"])/(1<<30))
+				}
+				row(k, s)
+			}
+		case "services":
+			if sv, ok := val.(map[string]any); ok {
+				keys := make([]string, 0, len(sv))
+				for kk := range sv {
+					keys = append(keys, kk)
+				}
+				sort.Strings(keys)
+				parts := make([]string, 0, len(keys))
+				for _, kk := range keys {
+					st := fmt.Sprint(sv[kk])
+					em := "·"
+					if st == "active" {
+						em = "✅"
+					} else if st == "inactive" || st == "failed" {
+						em = "❌"
+					}
+					parts = append(parts, em+" "+esc(kk))
+				}
+				row(k, strings.Join(parts, " "))
+			}
+		case "ts":
+			row(k, "<code>"+esc(fmt.Sprintf("%.0f", asFloat(val)))+"</code>")
+		default:
+			row(k, cellValue(val))
 		}
 	}
-	if disk, ok := m["disk"].(map[string]any); ok {
-		b.WriteString(fmt.Sprintf("Disk: <b>%v%%</b> used<br>", disk["use_pct"]))
-	}
-	if sv, ok := m["services"].(map[string]any); ok {
-		b.WriteString("<br><b>Services</b><br><table bordered striped compact><tr><th>unit</th><th>state</th></tr>")
-		keys := make([]string, 0, len(sv))
-		for k := range sv {
+	// remaining keys
+	keys := make([]string, 0)
+	for k := range m {
+		if !seen[k] {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			st := fmt.Sprint(sv[k])
-			em := "❓"
-			if st == "active" {
-				em = "✅"
-			} else if st == "inactive" || st == "failed" {
-				em = "❌"
-			}
-			b.WriteString("<tr><td>" + esc(k) + "</td><td>" + em + " " + esc(st) + "</td></tr>")
-		}
-		b.WriteString("</table>")
 	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		row(k, cellValue(m[k]))
+	}
+	b.WriteString("</table>")
 	return Result{HTML: b.String(), Text: "metrics"}
 }
 

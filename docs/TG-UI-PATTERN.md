@@ -1,47 +1,56 @@
-# TG UI pattern (locked after DNS 0.9.28)
+# TG UI pattern (locked)
 
-## Rules
+## Templates (only three)
 
-1. **Table** = overview only (`#`, name, status icons). **No** `<tg-button>` inside `<td>` (Telegram does not deliver callbacks).
-2. **Actions** = `<tg-button-row>` under the table. Prefer **numbers** matching `#` when many items; several buttons per row (≤8).
-3. **Keyboard under message** = navigation only (`Back` → parent, `Main`).
-4. **Refresh** = `reply()` → edit rich first; delete+send only if edit fails.
-5. **Style**: `link` = compact toggle; `success`/`danger`/`primary` for strong actions; short labels / emoji OK.
+### A — List
+1. Title + optional one-line legend  
+2. `<table>`: `#` | name | status (icons only, **no** buttons in cells)  
+3. `<tg-button-row>`: numbers / short actions  
+4. Keyboard: **Back** + **Main** only  
 
-## Applied
+### B — Card
+1. Title + legend (emoji · meaning)  
+2. `<table>` field/value  
+3. `<tg-button-row>` emoji ops  
+4. Keyboard: Back + Main  
 
-| Screen | Pattern |
-|--------|---------|
-| DNS lists | numbered toggles + 🔄 |
-| Backup list | numbered restore |
-| Backup schedule | time / ▶ / 📋 / N in body |
-| Pending edge | ✅n 🚫n in body |
-| Locations list | numbered open |
-| Location card | ✏️ 🗑 in body |
-| Users / VPN | already row-buttons (reference) |
+### C — Status / read-only
+1. Title  
+2. **One** `<table>` key/value with **expanded** values (never `{N keys}`)  
+3. Optional 🔄 in body  
+4. Keyboard: Back + Main  
 
-## Still on keyboard (debt)
+## Global rules
+- No `<tg-button>` inside `<td>`  
+- `reply()` = edit-first; delete+sendRich fallback  
+- EN/RU on every user-visible string  
+- Catalog/Tools day-2 results must use A/B/C or dedicated formatter — **not** raw `formatSmart` for known actions  
 
-None material (0.9.41). Free-text wait-states only (grant code, rename, mtls rotate node).
+## Screen matrix
 
+| Screen | Template | Notes |
+|--------|----------|-------|
+| DNS lists | A | numbered on/off |
+| Users list | A | # open card |
+| User hub | B | emoji ops |
+| Nodes list | A | |
+| Node card | B | |
+| Git list / repo | A / B | |
+| Registry | B | |
+| SSH hosts | A | |
+| Backup list/schedule | A / B | |
+| Pending / Locations | A / B | |
+| NVR hub/cams/sites | B / A | |
+| Catalog sections | A-like | body actions |
+| **Metrics / Status / Health** | **C** | expanded table |
+| Doctor | C or checks table | |
+| Guest / Edge / mTLS hubs | B | 0.9.41 |
 
-## 0.9.30
+## How to audit (for agents)
+1. Open this matrix; any screen not listed = debt  
+2. Grep `formatSmart(` in `internal/format` callers — known action IDs must not fall through  
+3. Grep `inline_keyboard` in handlers: non-nav buttons under message = style break  
+4. Before TG release: walk matrix in bot once  
 
-- Users list: table + numbered open (green=on)
-- User hub: compact emoji row
-- Nodes list: numbered open; node card emoji ops
-- Git / Registry / SSH hosts: same pattern
-
-
-## 0.9.32
-
-- NVR hub: table + emoji body actions
-- NVR cameras: table + P/R/S/PTZ rows per cam
-- NVR sites: numbered edge lease pick
-- CDN-XHTTP: idea only in OPEN_ITEMS
-
-
-## 0.9.37–0.9.38
-
-- Catalog section/result: body actions + 📄 JSON
-- SSH hosts: numbered forget + clear in body
+## Changelog notes
+- 0.9.45: metrics/status template C table with expanded cells; matrix documented  
