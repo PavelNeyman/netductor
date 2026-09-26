@@ -86,6 +86,6 @@ func runHostnameForm() {
 	if b, err := os.ReadFile("/etc/netductor/public_ip"); err == nil {
 		ip = strings.TrimSpace(string(b))
 	}
-	_ = nodes.SelfRegisterLocal(name, "core", ip)
+	_ = nodes.SelfRegisterLocal(name, "primary", ip)
 	fmt.Println("hostname:", name)
 }

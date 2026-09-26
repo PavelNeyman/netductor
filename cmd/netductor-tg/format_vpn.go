@@ -244,7 +244,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	title := "VLESS · secondary"
 	switch mode {
 	case "core":
-		title = "VLESS · core"
+		title = "VLESS · primary"
 	case "hy2":
 		title = "HY2"
 	}
@@ -289,7 +289,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	}
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Core</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Primary</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`)
 	if showWorkProfileButton(name) {
 		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Config</tg-button>`)

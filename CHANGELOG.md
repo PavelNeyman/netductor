@@ -1,3 +1,7 @@
+## 0.9.53
+
+- Access UI: Core label → Primary; more static text cleanup
+
 ## 0.9.52
 
 - Naming: primary/secondary (not core/relay) in TG, TUI, docs
