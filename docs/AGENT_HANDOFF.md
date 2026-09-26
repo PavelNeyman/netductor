@@ -1,8 +1,14 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.48** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
+**Baseline:** **v0.9.60** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
 
-**Next engineering:** owner/later only — hardware e2e, SMTP, mobile day-2, CDN-XHTTP idea ([OPEN_ITEMS](OPEN_ITEMS.md)). Do not reopen day-2 UI unless regression.
+**Next engineering:**
+1. **Backbone WG** — [BACKBONE-WG.md](BACKBONE-WG.md) design done; implement after owner OK (service plane primary↔secondary only)
+2. **h2mux A/B** on secondary uplink
+3. mTLS 8789 if offline alerts recur
+4. Owner/later: hardware e2e, SMTP, mobile, CDN-XHTTP ([OPEN_ITEMS](OPEN_ITEMS.md))
+
+Do not reopen TG menu polish unless regression.
 
 ## Access note (agent)
 
@@ -14,7 +20,7 @@ Artifact keys (`netductor_primary`, `netductor_vps_id_ed25519`) may **not** matc
 2. **This file**
 3. [REVIEW-0.9.41.md](REVIEW-0.9.41.md) — code/security, Mac TUI/Web deploy parity, API, EN/RU
 4. [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) · [UI-PARITY.md](UI-PARITY.md)
-5. [OPEN_ITEMS.md](OPEN_ITEMS.md) · [TG-UI-PATTERN.md](TG-UI-PATTERN.md) · [TG-SCREEN-INVENTORY.md](TG-SCREEN-INVENTORY.md)
+5. [OPEN_ITEMS.md](OPEN_ITEMS.md) · [BACKBONE-WG.md](BACKBONE-WG.md) · [TG-UI-PATTERN.md](TG-UI-PATTERN.md) · [TG-SCREEN-INVENTORY.md](TG-SCREEN-INVENTORY.md)
 6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
 
 ## Architecture (locked)

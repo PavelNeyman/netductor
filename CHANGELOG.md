@@ -1,3 +1,7 @@
+## 0.9.61
+
+- Docs: backbone WG/AWG design spike ([docs/BACKBONE-WG.md](docs/BACKBONE-WG.md)); OPEN_ITEMS + handoff next steps
+
 ## 0.9.60
 
 - TG: lampac→addons; sites hub≠list; locations legend+tools back; git empty copy; sites vs locations hints
