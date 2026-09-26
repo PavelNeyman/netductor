@@ -135,7 +135,7 @@ func showDNSMenu(token string, chat int64, msgID int, status string) {
 		body = "<p>" + esc(status) + "</p>" + body
 	}
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	// Prefer in-place edit; delete+send only if rich edit fails.
 	reply(token, chat, msgID, body, kb)
@@ -200,15 +200,15 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 		path := filepath.Join("/var/lib/netductor/backups", name)
 				rst := "⏳ Restore <code>"+esc(name)+"</code>…"
 		if ru { rst = "⏳ Восстановление <code>"+esc(name)+"</code>…" }
-		reply(token, chat, msgID, rst, toolsKeyboard())
+		reply(token, chat, msgID, rst, navKeyboard("m:tools", parentTools()))
 		err := install.Restore(path, "")
 		if err != nil {
-			reply(token, chat, msgID, "❌ "+esc(err.Error()), toolsKeyboard())
+			reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:tools", parentTools()))
 			return
 		}
 				done := "✅ Restore done: <code>"+esc(name)+"</code>"
 		if ru { done = "✅ Восстановлено: <code>"+esc(name)+"</code>" }
-		reply(token, chat, msgID, done, toolsKeyboard())
+		reply(token, chat, msgID, done, navKeyboard("m:tools", parentTools()))
 		return
 	}
 	if data == "m:backup:run" {
@@ -294,7 +294,7 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:keep">N</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	reply(token, chat, msgID, b.String(), kb)
 }
@@ -454,7 +454,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		if ru {
 			wait = "⏳ Обновление с GitHub (latest release)…"
 		}
-		reply(token, chat, msgID, wait, toolsKeyboard())
+		reply(token, chat, msgID, wait, navKeyboard("m:tools", parentTools()))
 		err := ndupdate.SelfReplace("netductor", "/usr/local/bin/netductor", "")
 		_ = exec.Command("cp", "-f", "/usr/local/bin/netductor", "/opt/netductor/bin/netductor").Run()
 		err2 := ndupdate.SelfReplace("tg", "/opt/netductor/bin/netductor-tg", "")
@@ -471,7 +471,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		if err != nil || err2 != nil {
 			msg = "❌ " + esc(fmt.Sprintf("netductor: %v; tg: %v", err, err2))
 		}
-		reply(token, chat, msgID, msg, toolsKeyboard())
+		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	}
 	tag, err := ndupdate.LatestReleaseTag()
@@ -517,7 +517,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Update primary</tg-button></tg-button-row>`)
 	}
 	reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
+		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}})
 }
 

@@ -14,7 +14,7 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 	}
 	ru := getLang() != "en"
 	nav := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
+		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 
 	if data == "m:edgeguest" {

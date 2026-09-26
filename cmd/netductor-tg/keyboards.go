@@ -74,10 +74,7 @@ func btnCopy(text, copyPayload string) map[string]any {
 }
 
 func relayKeyboard() map[string]any {
-	// Navigation only — actions in secondary body (formatRelayActionsHTML).
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("nodes"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:cat:nodes", parentNodes())
 }
 
 func formatRelayActionsHTML() string {
@@ -172,7 +169,7 @@ func addonsKeyboard() map[string]any {
 }
 
 func sitesListKeyboard() map[string]any {
-	return navKeyboard("m:sites", parentSites())
+	return navKeyboard("m:cat:sites", parentSites())
 }
 
 func sitesKeyboard() map[string]any {
@@ -401,23 +398,31 @@ func backKeyboard() map[string]any {
 }
 
 func backTo(cat string) map[string]any {
-	up := "m:menu"
-	label := T("main_menu")
 	switch cat {
-	case "users":
-		up, label = "m:users", T("users")
-	case "vpn":
-		up, label = "m:cat:vpn", T("back_vpn")
+	case "users", "vpn":
+		return navKeyboard("m:users", parentUsers())
 	case "routers":
-		up, label = "m:cat:routers", T("back_routers")
+		return navKeyboard("m:cat:routers", parentRouters())
 	case "relay", "nodes":
-		up, label = "m:cat:nodes", T("nodes")
+		return navKeyboard("m:cat:nodes", parentNodes())
+	case "tools":
+		return navKeyboard("m:tools", parentTools())
+	case "sites":
+		return navKeyboard("m:cat:sites", parentSites())
+	case "fleet":
+		return navKeyboard("m:fleet", parentFleet())
+	case "operator":
+		return navKeyboard("m:operator", parentOperator())
+	default:
+		return backKeyboard()
 	}
-	return map[string]any{
-		"inline_keyboard": [][]map[string]any{
-			{btn(label, up, "primary"), btn(T("main_menu"), "m:menu", "")},
-		},
+}
+
+func parentUsers() string {
+	if getLang() != "en" {
+		return "VPN"
 	}
+	return "Users"
 }
 
 func langKeyboard() map[string]any {

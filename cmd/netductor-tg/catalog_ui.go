@@ -70,7 +70,7 @@ func toolsHubHTML() string {
 func catalogSectionKeyboard(sec string) map[string]any {
 	// Navigation only — actions live in HTML body (TG-UI pattern).
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
+		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 }
 

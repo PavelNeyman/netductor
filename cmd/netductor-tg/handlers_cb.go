@@ -97,7 +97,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		case "probes":
 			out := runND("probe")
 			r := format.API("probes", []byte(out), catalogLang())
-			reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+			reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 			return
 		case "git":
 			handleGitCB(token, chat, msgID, "m:git")
@@ -345,7 +345,7 @@ if strings.HasPrefix(data, "u:") {
 		if len(lines) > 1 {
 			msg += "\n<pre>" + esc(strings.Join(lines[1:], "\n")) + "</pre>"
 		}
-		reply(token, chat, msgID, msg, routersKeyboard())
+		reply(token, chat, msgID, msg, backTo("routers"))
 	case "m:edge_register":
 		setState(chat, "wait_edge_register", "")
 		reply(token, chat, msgID, T("edge_register_prompt"), backTo("routers"))
@@ -376,41 +376,52 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, formatRelayOneline(), relayKeyboard())
 	case "m:relay:sync", "m:secondary:sync":
 		out := runND("secondary", "sync")
-		reply(token, chat, msgID, "🔄 <b>Sync</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatRelayListHTML(), relayKeyboard())
+		nl := string([]byte{10})
+		title := "🔄 <b>Sync secondary</b>" + nl + "<i>Push profiles/config to RU node</i>" + nl
+		if getLang() != "en" {
+			title = "🔄 <b>Синхронизация secondary</b>" + nl + "<i>Отправка профилей/конфига на RU-ноду</i>" + nl
+		}
+		reply(token, chat, msgID, title+"<pre>"+esc(out)+"</pre>"+nl+formatRelayListHTML(), relayKeyboard())
 	case "m:relay:exit:menu", "m:secondary:exit:menu":
 		reply(token, chat, msgID, T("ru_exit_help"), relayKeyboard())
 	case "m:relay:exit:on", "m:secondary:exit:on":
 		out := runND("secondary", "exit", "on")
 		reply(token, chat, msgID, func() string {
 			if getLang() != "en" {
-				return "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Трафик с core уходит через РФ</i>"+string([]byte{10})+formatRelayActionsHTML()
+				return "🇷🇺 <b>RU-выход ВКЛ</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Трафик с primary через РФ</i>"+string([]byte{10})+formatRelayActionsHTML()
 			}
-			return "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Core traffic exits via RU</i>"+string([]byte{10})+formatRelayActionsHTML()
+			return "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Primary traffic exits via RU</i>"+string([]byte{10})+formatRelayActionsHTML()
 		}(), relayKeyboard())
 	case "m:relay:exit:off", "m:secondary:exit:off":
 		out := runND("secondary", "exit", "off")
-		reply(token, chat, msgID, "✈️ <b>RU exit OFF</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>", relayKeyboard())
+		nl := string([]byte{10})
+		off := "✈️ <b>RU exit OFF</b>" + nl + "<pre>" + esc(out) + "</pre>"
+		if getLang() != "en" {
+			off = "✈️ <b>RU-выход ВЫКЛ</b>" + nl + "<pre>" + esc(out) + "</pre>"
+		}
+		reply(token, chat, msgID, off, relayKeyboard())
 	case "m:relay:list", "m:secondary:list":
 		reply(token, chat, msgID, formatRelayListHTML(), relayKeyboard())
 	case "m:probes":
 		out := runND("probe")
 		r := format.API("probes", []byte(out), catalogLang())
-		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 	case "m:metrics":
 		// folded into main Status (no separate Metrics screen)
 		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
 	case "m:secondary:status":
 		out := runND("secondary", "status")
 		r := format.API("secondary", []byte(out), catalogLang())
-		title := "🖥 <b>Secondary</b>\n"
+		nl2 := string([]byte{10})
+		title := "🖥 <b>Secondary</b>" + nl2
 		if getLang() != "en" {
-			title = "🖥 <b>Secondary · RU</b>\n"
+			title = "🖥 <b>Secondary · RU</b>" + nl2
 		}
 		body := title + r.HTML
 		if strings.TrimSpace(r.HTML) == "" || (strings.Contains(r.HTML, "<pre>") && len(out) < 20) {
 			body = title + "<pre>" + esc(truncate(out, 3500)) + "</pre>"
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 	case "m:addons":
 		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatAddonsHTML(), addonsKeyboard())
 	case "m:addon:lampac":

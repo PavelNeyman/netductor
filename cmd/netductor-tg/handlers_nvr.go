@@ -163,7 +163,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 				b.WriteString("empty or bad agent payload:\n<pre>" + esc(trunc(raw, 400)) + "</pre>")
 			}
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn(T("back"), "m:nvr:sites", ""), btn(T("main_menu"), "m:menu", "primary")},
+				{btn("« NVR", "m:nvr", "primary"), btn(T("main_menu"), "m:menu", "")},
 			}})
 		}(chat, msgID, did, cmdID)
 	case strings.HasPrefix(data, "m:nvr:add:"):

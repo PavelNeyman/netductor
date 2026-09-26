@@ -30,7 +30,23 @@ func formatSitesHTML() string {
 	if out == "" || strings.Contains(out, "unknown") {
 		return T("sites_empty")
 	}
-	return "<pre>" + esc(out) + "</pre>"
+	nl := string([]byte{10})
+	var b strings.Builder
+	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>line</th></tr>" + nl)
+	i := 0
+	for _, line := range strings.Split(out, nl) {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		i++
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i, esc(line)))
+	}
+	b.WriteString("</table>")
+	if i == 0 {
+		return T("sites_empty")
+	}
+	return b.String()
 }
 
 func formatSitesRSCHTML() string {
@@ -38,20 +54,46 @@ func formatSitesRSCHTML() string {
 	out := strings.TrimSpace(runND("sites", "rsc"))
 	ru := getLang() != "en"
 	title := "📜 <b>MikroTik RSC</b>"
-	hint := "<i>Paste into RouterOS / import. From site template.</i>"
 	if ru {
-		hint = "<i>Вставить в терминал RouterOS / import. Из шаблона площадки.</i>"
+		title = "📜 <b>Скрипт MikroTik (RSC)</b>"
 	}
+	var b strings.Builder
+	b.WriteString(title + nl)
+	b.WriteString("<table bordered striped compact>" + nl)
+	n := 0
+	if out != "" {
+		n = len(strings.Split(out, nl))
+	}
+	if ru {
+		b.WriteString("<tr><th>поле</th><th>значение</th></tr>" + nl)
+		b.WriteString("<tr><td>формат</td><td>RouterOS script (.rsc)</td></tr>" + nl)
+		b.WriteString("<tr><td>куда</td><td>терминал Winbox / <code>/import</code></td></tr>" + nl)
+		b.WriteString("<tr><td>источник</td><td>шаблон площадки netductor</td></tr>" + nl)
+		b.WriteString(fmt.Sprintf("<tr><td>строк</td><td>%d</td></tr>"+nl, n))
+	} else {
+		b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+		b.WriteString("<tr><td>format</td><td>RouterOS script (.rsc)</td></tr>" + nl)
+		b.WriteString("<tr><td>apply</td><td>Winbox terminal / <code>/import</code></td></tr>" + nl)
+		b.WriteString("<tr><td>source</td><td>netductor site template</td></tr>" + nl)
+		b.WriteString(fmt.Sprintf("<tr><td>lines</td><td>%d</td></tr>"+nl, n))
+	}
+	b.WriteString("</table>" + nl + nl)
 	if out == "" {
 		if ru {
-			out = "(пусто — нет площадок или шаблона)"
+			b.WriteString("<i>Нет данных: создайте площадку и шаблон.</i>")
 		} else {
-			out = "(empty — no sites/template)"
+			b.WriteString("<i>No data: create a site and template first.</i>")
 		}
+		return b.String()
 	}
-	return title + nl + hint + nl + nl + "<pre>" + esc(out) + "</pre>"
+	if ru {
+		b.WriteString("<b>Текст скрипта</b> <i>(команды RouterOS на английском — так требует ROS)</i>" + nl)
+	} else {
+		b.WriteString("<b>Script body</b> <i>(RouterOS commands are English by design)</i>" + nl)
+	}
+	b.WriteString("<pre>" + esc(out) + "</pre>")
+	return b.String()
 }
-
 
 func formatSSHHostsHTML() string {
 	out := strings.TrimSpace(runND("ssh-hosts", "list"))

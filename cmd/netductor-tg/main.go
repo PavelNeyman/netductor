@@ -638,11 +638,8 @@ func templatesText() string {
 }
 
 func pendingKeyboard(lines string) map[string]any {
-	// Navigation only — approve/deny are numbered tg-buttons in formatPendingHTML.
 	_ = lines
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back_routers"), "m:cat:routers", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:cat:routers", parentRouters())
 }
 
 func menuText() string {

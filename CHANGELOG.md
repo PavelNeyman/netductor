@@ -1,3 +1,7 @@
+## 0.9.58
+
+- TG: unified « Parent nav everywhere; sites parent fix; RSC table; sync/RU-exit i18n; addons key
+
 ## 0.9.57
 
 - TG: navKeyboard « Parent; drop enroll from Nodes; Operator/Admin Mac; NVR/addons/RSC/lampac polish
