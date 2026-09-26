@@ -17,7 +17,7 @@ import (
 type Node struct {
 	ID        string            `json:"id"`
 	Hostname  string            `json:"hostname"`
-	Role      string            `json:"role"` // core | edge | lab
+	Role      string            `json:"role"` // primary | secondary | edge | lab (core→primary, relay→secondary)
 	Kind      string            `json:"kind"` // vps | openwrt | mikrotik
 	PublicIP  string            `json:"public_ip,omitempty"`
 	Status    string            `json:"status"` // online | offline | pending
@@ -86,6 +86,23 @@ func NormalizeHostname(s string) string {
 }
 
 // Upsert from device heartbeat / install (device is source of truth for current hostname/ip).
+// NormalizeRole maps legacy names to current fleet roles.
+func NormalizeRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "", "core", "primary":
+		return "primary"
+	case "relay", "secondary":
+		return "secondary"
+	case "edge":
+		return "edge"
+	case "lab":
+		return "lab"
+	default:
+		return strings.ToLower(strings.TrimSpace(role))
+	}
+}
+
+
 func UpsertFromDevice(n Node) (Node, error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -198,9 +215,7 @@ func SelfRegisterLocal(hostname, role, publicIP string) error {
 	if hostname == "" {
 		hostname = LocalHostname()
 	}
-	if role == "" {
-		role = "core"
-	}
+	role = NormalizeRole(role)
 	_, err := UpsertFromDevice(Node{
 		ID:       id,
 		Hostname: hostname,
@@ -245,12 +260,12 @@ func SyncLocalHostname() error {
 		}
 	}
 	if mine == nil {
-		return SelfRegisterLocal(hn, "core", ip)
+		return SelfRegisterLocal(hn, "primary", ip)
 	}
 
 	role := mine.Role
 	if role == "" {
-		role = "core"
+		role = "primary"
 	}
 	want := mine.DesiredHN
 	oldID := mine.ID

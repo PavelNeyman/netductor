@@ -132,7 +132,7 @@ Final: production quality, chat never overrides AGENTS.
 
 ## Node naming (fleet)
 
-Format: `nd-<role>-<marker>` (e.g. `nd-core-nl01`).
+Format: `nd-<role>-<marker>` (e.g. `nd-primary-nl01`, `nd-secondary-ru01`). Roles: primary, secondary, edge, lab.
 Roles: `core` | `secondary` | `edge` | `lab`. Marker: region+number or IP suffix.
 See [NODES.md](NODES.md). Registry is bidirectional (device heartbeat ↔ operator desired hostname).
 UI hints: Admin → Nodes, Telegram → Nodes, TUI → Set hostname.

@@ -42,6 +42,6 @@ netductor vpn set-sni ya.ru
 ```bash
 netductor vpn rename old new
 ```
-UUID не меняется. Fragment в ссылке: `#nd-relay` / `#nd-core` (не имя пользователя).
+UUID не меняется. Fragment в ссылке: `#nd-secondary` / `#nd-primary` (не имя пользователя).
 
 Subscription: `netductor vpn link NAME sub` или TG/Admin **Subscription**.

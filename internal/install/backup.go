@@ -303,7 +303,7 @@ func Recover(archive, keyArg string) error {
 	}
 	_ = WriteComponentsManifest(comps)
 
-	// Hostname from backup (node_id / hostname.backup) — never invent nd-core-* on recover
+	// Hostname from backup (node_id / hostname.backup) — never invent nd-primary-* on recover
 	restoreHostnameFromBackup()
 	// Operator pubkeys from backup + env (never private keys)
 	restoreOperatorKeysFromBackup()
@@ -497,7 +497,7 @@ func snapshotOperatorKeysForBackup() {
 	_ = os.WriteFile(path, []byte(strings.Join(out, "\n")+"\n"), 0o600)
 }
 
-// restoreHostnameFromBackup applies hostname from restored etc (no auto nd-core-* invent).
+// restoreHostnameFromBackup applies hostname from restored etc (no auto nd-primary-* invent).
 func restoreHostnameFromBackup() {
 	name := ""
 	for _, p := range []string{

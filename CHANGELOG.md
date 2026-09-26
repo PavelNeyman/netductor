@@ -1,3 +1,10 @@
+## 0.9.52
+
+- Naming: primary/secondary (not core/relay) in TG, TUI, docs
+- NormalizeRole: core→primary, relay→secondary
+- Auto hostname nd-primary-* / nd-secondary-* (fix secondary applyHostname)
+- VLESS fragment #nd-primary
+
 ## 0.9.51
 
 - TG Probes/Secondary status via format.API (tables)

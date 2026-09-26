@@ -19,7 +19,7 @@ func formatRelayListHTML() string {
 
 
 
-// nodeCard is the single view-model for TG node screens (core, secondary, edge).
+// nodeCard is the single view-model for TG node screens (primary, secondary, edge).
 type nodeCard struct {
 	ID       string
 	Host     string

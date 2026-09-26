@@ -197,7 +197,7 @@ func genHy2Pass() string {
 
 func VLESSLink(name, uuid string) string {
 	return fmt.Sprintf(
-		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-core",
+		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-primary",
 		uuid, coreAdvertiseHost(), vlessPort(), sni(), DefaultUTLSFingerprint, secret("singbox_reality_public"), secret("singbox_short_id"),
 	)
 }

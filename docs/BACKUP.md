@@ -67,7 +67,7 @@ netductor recover --key KEY file.ndenc
 ## Hostname on backup/recover (0.8.52+)
 
 - **Backup** writes current hostname to `/etc/netductor/hostname.backup` and aligns `node_id`.
-- **Recover** does **not** call auto `nd-core-<ip>`; after data extract applies hostname from backup.
+- **Recover** does **not** call auto `nd-primary-<ip>`; after data extract applies hostname from backup.
 - Fresh install (not recover) still uses `applyHostname` / `NETDUCTOR_HOSTNAME`.
 
 ## Operator SSH keys (public only)

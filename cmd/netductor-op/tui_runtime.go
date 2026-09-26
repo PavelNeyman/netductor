@@ -66,7 +66,7 @@ func runHostnameForm() {
 	ok := false
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title(TT(detectLang(), "Hostname", "Hostname")).Description(TT(detectLang(), "Format nd-<role>-<marker> · core|edge|lab · e.g. nd-core-nl01 · a-z0-9- only", "Формат nd-<role>-<marker> · core|edge|lab · напр. nd-core-nl01 · только a-z0-9-")).Value(&name),
+			huh.NewInput().Title(TT(detectLang(), "Hostname", "Hostname")).Description(TT(detectLang(), "Format nd-<role>-<marker> · primary|secondary|edge|lab · e.g. nd-primary-nl01 · a-z0-9- only", "Формат nd-<role>-<marker> · primary|secondary|edge|lab · напр. nd-primary-nl01 · только a-z0-9-")).Value(&name),
 			huh.NewConfirm().Title(TT(detectLang(), "Apply hostname on this host?", "Применить hostname на этой машине?")).Affirmative(TT(detectLang(), "Yes", "Да")).Negative(TT(detectLang(), "Skip", "Пропустить")).Value(&ok),
 		),
 	).WithTheme(huh.ThemeCharm())

@@ -101,7 +101,7 @@ WantedBy=multi-user.target
 		return err
 	}
 
-	applyHostname("nd-secondary")
+	applyHostname("secondary")
 	ip := b.CoreIP
 	_ = ip
 	pubIP := env("PUBLIC_IP", "")

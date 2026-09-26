@@ -42,7 +42,7 @@ func (m *model) startActionForm(action string) {
 		}
 	case "hostname":
 		m.wizFields = []wizField{
-			{Key: "name", Label: "Hostname", Placeholder: "nd-core-nl01"},
+			{Key: "name", Label: "Hostname", Placeholder: "nd-primary-nl01"},
 		}
 	case "sni-live":
 		m.wizFields = []wizField{

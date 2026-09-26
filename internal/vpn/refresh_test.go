@@ -24,8 +24,8 @@ func TestPreferredFragmentAndSubscriptionNoHY2(t *testing.T) {
 	}
 	u := findUser(r, "tuser")
 	link := VLESSLink(u.Name, u.UUID)
-	if !strings.Contains(link, "#nd-core") {
-		t.Fatalf("expected #nd-core got %s", link)
+	if !strings.Contains(link, "#nd-primary") {
+		t.Fatalf("expected #nd-primary got %s", link)
 	}
 	_ = writeArtifacts(u.Name, u.UUID, u.Hy2Password)
 	// subscription removed from product surface

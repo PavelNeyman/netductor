@@ -4,4 +4,4 @@
 
 Формат hostname: `nd-<role>-<marker>`.
 
-Roles: core, relay, edge, lab.
+Roles: primary, secondary, edge, lab.

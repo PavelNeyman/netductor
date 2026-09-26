@@ -21,7 +21,7 @@ var currentComps []string
 type Options struct {
 	Components    []string // empty = default core set
 	Force         bool
-	SkipHostname  bool // recover: do not invent nd-core-*; restore name from backup after tar
+	SkipHostname  bool // recover: do not invent nd-primary-*; restore name from backup after tar
 }
 
 func DefaultComponents() []string {
@@ -47,7 +47,7 @@ func Run(opts Options) error {
 	_ = EnsureDomainConfig()
 	_ = EnsureClientProfiles()
 	if !opts.SkipHostname {
-		applyHostname("core")
+		applyHostname("primary")
 	}
 	_ = nodes.LocalStableID() // stable node id (UUID), independent of hostname
 	for _, c := range comps {
@@ -157,7 +157,7 @@ func enableStart(unit string) error {
 // Priority: NETDUCTOR_HOSTNAME env > existing /etc/netductor/node_id > auto nd-<role>-<ip-suffix>
 func applyHostname(role string) {
 	if role == "" {
-		role = "core"
+		role = "primary"
 	}
 	name := strings.TrimSpace(os.Getenv("NETDUCTOR_HOSTNAME"))
 	if name == "" {
@@ -232,7 +232,7 @@ func writeReady() {
 			hn = strings.TrimSpace(string(b))
 		}
 	}
-	_ = nodes.SelfRegisterLocal(hn, "core", ip)
+	_ = nodes.SelfRegisterLocal(hn, "primary", ip)
 }
 
 

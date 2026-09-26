@@ -323,7 +323,7 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, T("bind_prompt"), backTo("routers"))
 		case "m:cat:relay":
 		// Relay is part of Nodes
-		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>secondary = RU node role</i>", nodesKeyboard())
+		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>role=secondary = RU ingress node</i>", nodesKeyboard())
 	case "m:relay:export", "m:secondary:export":
 		out := runND("secondary", "export", "-o", "/tmp/nd-secondary-bundle.json", "--sni", "ya.ru")
 		b, err := os.ReadFile("/tmp/nd-secondary-bundle.json")
