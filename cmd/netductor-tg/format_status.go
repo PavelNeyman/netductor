@@ -1,6 +1,9 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/format"
+	"github.com/PavelNeyman/netductor/internal/metrics"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -251,6 +254,14 @@ func formatStatusPretty() string {
 	var b strings.Builder
 	b.WriteString(title + nl)
 	b.WriteString("<code>" + esc(host) + "</code>" + nl + nl)
+	// Host metrics (template C) — single place; no separate Metrics menu
+	lang := "en"
+	if ru {
+		lang = "ru"
+	}
+	raw, _ := json.Marshal(metrics.Collect())
+	mr := format.API("metrics", raw, lang)
+	b.WriteString(mr.HTML + nl + nl)
 	b.WriteString("<table bordered striped>" + nl)
 	b.WriteString("<tr><th>service</th><th>state</th></tr>" + nl)
 	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"} {

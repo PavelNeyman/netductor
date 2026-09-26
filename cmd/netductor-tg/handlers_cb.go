@@ -357,9 +357,8 @@ if strings.HasPrefix(data, "u:") {
 		out := runND("probe")
 		reply(token, chat, msgID, "📡 <b>Probes</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())
 	case "m:metrics":
-		out := runND("status")
-		// prefer metrics via secondary cmd if available; status is readable summary
-		reply(token, chat, msgID, "📊 <b>Status / metrics</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())
+		// folded into main Status (no separate Metrics screen)
+		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
 	case "m:secondary:status":
 		out := runND("secondary", "status")
 		reply(token, chat, msgID, "🖥 <b>Secondary</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", toolsKeyboard())

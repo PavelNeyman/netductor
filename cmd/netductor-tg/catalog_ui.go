@@ -72,9 +72,8 @@ func toolsKeyboard() map[string]any {
 	// product-specific hubs (not pure session GET/POST)
 	rows = append(rows,
 		[]map[string]any{btn("⏱ Guest VPN", "m:guest", ""), btn("📡 Guest Wi‑Fi", "m:edgeguest", "")},
-		[]map[string]any{btn("🛡 DNS", "m:dns", ""), btn("📍 Locations", "m:loc", "")},
-		[]map[string]any{btn("🔄 Updates", "m:updates", ""), btn(T("mtls"), "m:mtls", "")},
-		[]map[string]any{btn(T("main_menu"), "m:menu", "primary")},
+		[]map[string]any{btn("📍 Locations", "m:loc", ""), btn("🔄 Updates", "m:updates", "")},
+		[]map[string]any{btn(T("mtls"), "m:mtls", ""), btn(T("main_menu"), "m:menu", "primary")},
 	)
 	return map[string]any{"inline_keyboard": rows}
 }

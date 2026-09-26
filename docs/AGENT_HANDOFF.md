@@ -1,8 +1,12 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.42** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
+**Baseline:** **v0.9.46** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
 
 **Next engineering:** owner/later only — hardware e2e, SMTP, mobile day-2, CDN-XHTTP idea ([OPEN_ITEMS](OPEN_ITEMS.md)). Do not reopen day-2 UI unless regression.
+
+## Access note (agent)
+
+Artifact keys (`netductor_primary`, `netductor_vps_id_ed25519`) may **not** match current VPS authorized_keys after reinstalls. Owner must place current operator key on the agent host or open temporary password for tests. Primary typically **:52222**; secondary may still be **:22** until harden.
 
 ## Read order (new chat)
 
@@ -10,7 +14,7 @@
 2. **This file**
 3. [REVIEW-0.9.41.md](REVIEW-0.9.41.md) — code/security, Mac TUI/Web deploy parity, API, EN/RU
 4. [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) · [UI-PARITY.md](UI-PARITY.md)
-5. [OPEN_ITEMS.md](OPEN_ITEMS.md) · [TG-UI-PATTERN.md](TG-UI-PATTERN.md)
+5. [OPEN_ITEMS.md](OPEN_ITEMS.md) · [TG-UI-PATTERN.md](TG-UI-PATTERN.md) · [TG-SCREEN-INVENTORY.md](TG-SCREEN-INVENTORY.md)
 6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
 
 ## Architecture (locked)

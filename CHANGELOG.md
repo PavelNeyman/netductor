@@ -1,3 +1,10 @@
+## 0.9.46
+
+- TG: Status is single overview (host metrics + services + nodes + VPN); no separate Metrics menu
+- Catalog metrics/health = web-only on TG surface
+- Tools hub: drop duplicate DNS button
+- docs: TG-SCREEN-INVENTORY.md
+
 ## 0.9.45
 
 - TG template C: metrics as expanded key/value table

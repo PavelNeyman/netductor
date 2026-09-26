@@ -42,7 +42,8 @@
 | Pending / Locations | A / B | |
 | NVR hub/cams/sites | B / A | |
 | Catalog sections | A-like | body actions |
-| **Metrics / Status / Health** | **C** | expanded table |
+| **Status (main)** | **C** | metrics + services + nodes + VPN — **one screen** |
+| Metrics / Health catalog | web-only | not separate TG menus |
 | Doctor | C or checks table | |
 | Guest / Edge / mTLS hubs | B | 0.9.41 |
 
@@ -54,3 +55,5 @@
 
 ## Changelog notes
 - 0.9.45: metrics/status template C table with expanded cells; matrix documented  
+
+- 0.9.46: Status absorbs host metrics; Metrics catalog TG removed; inventory [TG-SCREEN-INVENTORY.md](TG-SCREEN-INVENTORY.md)

@@ -24,13 +24,13 @@ func All() []Action {
 	}
 	_ = s
 	return []Action{
-		a("health", "overview", "GET", "/health", "", "Health", "Health"),
+		a("health", "overview", "GET", "/health", "", "Health", "Health", "web"),
 		a("doctor", "overview", "GET", "/api/doctor", "", "Doctor", "Doctor"),
 		a("domain", "overview", "GET", "/api/domain", "", "Domain", "Домен"),
 		a("bot", "overview", "GET", "/api/bot-status", "", "Bot status", "Статус бота"),
 		a("status", "overview", "GET", "/api/status", "", "Status", "Статус"),
-		a("metrics", "overview", "GET", "/api/metrics", "", "Metrics", "Метрики"),
-		a("metrics-hist", "overview", "GET", "/api/metrics/history", "", "Metrics history", "История метрик"),
+		a("metrics", "overview", "GET", "/api/metrics", "", "Metrics", "Метрики", "web"),
+		a("metrics-hist", "overview", "GET", "/api/metrics/history", "", "Metrics history", "История метрик", "web"),
 		a("addons", "overview", "GET", "/api/addons", "", "Addons", "Дополнения"),
 		a("addons-lampac", "overview", "GET", "/api/addons/lampac", "", "Lampac", "Lampac"),
 		a("sni", "overview", "GET", "/api/sni", "", "SNI", "SNI"),
