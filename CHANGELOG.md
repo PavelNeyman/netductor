@@ -1,3 +1,8 @@
+## 0.9.54
+
+- TG nav dedupe: Status slim; Tools ops-only; Nodes without Backup; ops redirects
+- docs/TG-NAV.md
+
 ## 0.9.53
 
 - Access UI: Core label → Primary; more static text cleanup

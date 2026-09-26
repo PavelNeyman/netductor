@@ -248,24 +248,27 @@ func formatStatusPretty() string {
 	nl := string([]byte{10})
 	ru := getLang() != "en"
 	host, _ := os.Hostname()
-	title := "📊 <b>Core status</b>"
+	title := "📊 <b>Primary status</b>"
 	if ru {
-		title = "📊 <b>Статус core</b>"
+		title = "📊 <b>Статус primary</b>"
 	}
 	var b strings.Builder
 	b.WriteString(title + nl)
 	b.WriteString("<code>" + esc(host) + "</code>" + nl + nl)
-	// Host metrics (template C) — single place; no separate Metrics menu
-	lang := "en"
-	if ru {
-		lang = "ru"
-	}
+
+	// metrics once (not repeated under Tools)
 	raw, _ := json.Marshal(metrics.Collect())
-	mr := format.API("metrics", raw, lang)
-	b.WriteString(mr.HTML + nl + nl)
-	b.WriteString("<table bordered striped>" + nl)
-	b.WriteString("<tr><th>service</th><th>state</th></tr>" + nl)
-	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"} {
+	r := format.API("metrics", raw, catalogLang())
+	b.WriteString(r.HTML + nl + nl)
+
+	// services table
+	svcTitle := "⚙️ <b>Services</b>"
+	if ru {
+		svcTitle = "⚙️ <b>Сервисы</b>"
+	}
+	b.WriteString(svcTitle + nl)
+	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>unit</th><th>st</th></tr>" + nl)
+	for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot"} {
 		out, _ := exec.Command("systemctl", "is-active", u).CombinedOutput()
 		st := strings.TrimSpace(string(out))
 		icon := "🔴"
@@ -275,25 +278,41 @@ func formatStatusPretty() string {
 		b.WriteString("<tr><td>" + esc(u) + "</td><td>" + icon + " " + esc(st) + "</td></tr>" + nl)
 	}
 	b.WriteString("</table>" + nl + nl)
-	nodesTitle := "🗂 <b>Nodes</b>"
-	if ru {
-		nodesTitle = "🗂 <b>Ноды</b>"
+
+	// short fleet summary — no full lists (Fleet / Users are separate)
+	rows := parseNodesList()
+	online := 0
+	for _, r := range rows {
+		if strings.EqualFold(r.Status, "online") {
+			online++
+		}
 	}
-	b.WriteString(nodesTitle + nl + formatNodesListHTML() + nl + nl)
-	b.WriteString("👥 <b>VPN</b>" + nl)
-	b.WriteString(formatVPNListPretty(runVPN("list")))
-	b.WriteString(nl + nl)
-	mmTitle := "⚠️ <b>Flow mismatch</b>"
-	if ru {
-		mmTitle = "⚠️ <b>Flow mismatch</b>"
+	vpnN := 0
+	if out := strings.TrimSpace(runVPN("list")); out != "" {
+		for _, line := range strings.Split(out, "\n") {
+			if strings.TrimSpace(line) != "" && !strings.HasPrefix(strings.TrimSpace(line), "(") {
+				vpnN++
+			}
+		}
 	}
-	b.WriteString(mmTitle + nl + "<pre>" + esc(strings.TrimSpace(runND("vpn", "mismatch"))) + "</pre>")
+	if ru {
+		b.WriteString(fmt.Sprintf("🗂 Ноды: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
+	} else {
+		b.WriteString(fmt.Sprintf("🗂 Nodes: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
+	}
+	b.WriteString(`<tg-button-row align="left">`)
+	if ru {
+		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:fleet">🌐 Флот</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>`)
+	} else {
+		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:fleet">🌐 Fleet</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>`)
+	}
+	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }
 
 
-
-// formatNodeCardHTML — one template for all roles (pre tables).
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s

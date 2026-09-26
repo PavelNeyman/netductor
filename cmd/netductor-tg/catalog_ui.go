@@ -30,45 +30,24 @@ func toolsKeyboard() map[string]any {
 func toolsHubHTML() string {
 	lang := catalogLang()
 	title := "🧰 <b>Tools</b>"
+	bak := "Backup"
 	if lang == "ru" {
 		title = "🧰 <b>Инструменты</b>"
+		bak = "Бэкап"
 	}
 	var b strings.Builder
 	b.WriteString(title + "\n")
-	b.WriteString(`<tg-button-row align="left">`)
-	for _, sec := range opcatalog.Sections() {
-		label := sec
-		switch sec {
-		case "overview":
-			label = "Overview"
-			if lang == "ru" {
-				label = "Обзор"
-			}
-		case "vpn":
-			label = "VPN"
-		case "nodes":
-			label = "Nodes"
-			if lang == "ru" {
-				label = "Ноды"
-			}
-		case "edge":
-			label = "Edge"
-		case "nvr":
-			label = "NVR"
-		case "git":
-			label = "Git"
-		case "backup":
-			label = "Backup"
-			if lang == "ru" {
-				label = "Бэкап"
-			}
-		case "dns":
-			label = "DNS"
-		case "probes":
-			label = "Probes"
-		}
-		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="m:ops:%s">%s</tg-button>`, sec, label))
+	if lang == "ru" {
+		b.WriteString("<i>Операции. Ноды/роутеры — Флот, VPN — Users.</i>\n")
+	} else {
+		b.WriteString("<i>Ops only. Nodes/routers → Fleet, VPN → Users.</i>\n")
 	}
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:dns">DNS</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:backup">` + bak + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:probes">Probes</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:nvr">NVR</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:git">Git</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" data="m:guest">⏱ Guest VPN</tg-button>`)

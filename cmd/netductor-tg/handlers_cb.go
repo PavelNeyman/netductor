@@ -70,6 +70,39 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	}
 	if strings.HasPrefix(data, "m:ops:") {
 		sec := strings.TrimPrefix(data, "m:ops:")
+		// One canonical screen per domain — no parallel catalog menus.
+		switch sec {
+		case "overview":
+			reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
+			return
+		case "vpn":
+			reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
+			return
+		case "nodes":
+			reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
+			return
+		case "edge":
+			reply(token, chat, msgID, routersHubHTML(), routersKeyboard())
+			return
+		case "nvr":
+			reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
+			return
+		case "dns":
+			showDNSMenu(token, chat, msgID, "")
+			return
+		case "backup":
+			// handleBackupCB expects m:backup
+			handleBackupCB(token, chat, msgID, "m:backup")
+			return
+		case "probes":
+			out := runND("probe")
+			r := format.API("probes", []byte(out), catalogLang())
+			reply(token, chat, msgID, "📡 <b>Probes</b>\n"+r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+			return
+		case "git":
+			handleGitCB(token, chat, msgID, "m:git")
+			return
+		}
 		reply(token, chat, msgID, catalogSectionTitle(sec), catalogSectionKeyboard(sec))
 		return
 	}
@@ -96,6 +129,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			html = formatCatalogHTML(id, raw, false)
 		}
 		replyCatalog(token, chat, msgID, html, catalogResultKeyboard(id))
+		return
+	}
+	if data == "m:git" || strings.HasPrefix(data, "m:git:") {
+		handleGitCB(token, chat, msgID, data)
 		return
 	}
 	if data == "m:nvr" || strings.HasPrefix(data, "m:nvr:") {

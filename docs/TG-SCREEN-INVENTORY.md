@@ -90,3 +90,6 @@ Rename picker body; NVR/help labels.
 Probes/Secondary/NVR cfg → format.API; tools i18n.
 
 **TG body-first hubs: largely complete.** Remaining pre dumps only on free-text CLI replies (approve, msg handlers).
+
+### 0.9.54
+See TG-NAV.md — canonical single paths.

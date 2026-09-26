@@ -29,10 +29,8 @@ func relayKeyboard() map[string]any {
 }
 
 func formatRelayActionsHTML() string {
+	// Secondary traffic controls only (enroll lives under Nodes hub once).
 	return `<tg-button-row align="left">` +
-		`<tg-button type="callback_data" style="primary" data="m:secondary:enroll">` + T("nodes_enroll") + `</tg-button>` +
-		`</tg-button-row>` +
-		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="success" data="m:secondary:exit:on">` + T("relay_exit_on") + `</tg-button>` +
 		`<tg-button type="callback_data" style="danger" data="m:secondary:exit:off">` + T("relay_exit_off") + `</tg-button>` +
 		`<tg-button type="callback_data" style="link" data="m:secondary:sync">` + T("relay_sync") + `</tg-button>` +
@@ -143,15 +141,17 @@ func nodesHubHTML() string {
 	if ru {
 		title = "🖥 <b>Ноды</b>"
 	}
+	// Single place for fleet nodes + secondary ops (not duplicated in Tools).
 	return title + "\n" +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:nodes_list">` + T("nodes_list_btn") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:node_rename">` + T("nodes_rename_btn") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:sshhosts">` + T("ssh_hosts") + `</tg-button>` +
+		`</tg-button-row>` +
+		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:secondary:enroll">` + T("nodes_enroll") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:secondary:sync">` + T("nodes_sync") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:secondary:exit:menu">` + T("nodes_exit") + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:sshhosts">` + T("ssh_hosts") + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:backup">` + T("backup") + `</tg-button>` +
 		`</tg-button-row>`
 }
 
