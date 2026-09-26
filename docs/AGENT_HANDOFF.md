@@ -1,8 +1,8 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.31** · next: finish TG menus + UI parity; CDN-XHTTP = idea only (OPEN_ITEMS)
+**Baseline:** **v0.9.35** · Web DNS+backup schedule forms; TG compact pattern; CDN-XHTTP = idea only (OPEN_ITEMS)
 
-**Next engineering:** [PLAN-TG-MENU-REFACTOR.md](PLAN-TG-MENU-REFACTOR.md) (plan frozen; implement Phase 0–2 next).
+**Next engineering:** TG NVR pickers / catalog 📄; TUI Tools dns optional; remaining UI parity (OPEN_ITEMS).
 
 ## Read order (new chat)
 
@@ -56,7 +56,7 @@ Shared backend: `internal/operator` + `internal/deploy`.
 
 ## Day-2
 
-- **Web Control:** broad session API + Advanced  
+- **Web Control:** broad session API + Advanced; DNS lists/set/reload; backup schedule GET/POST + list  
 - **TUI Tools:** `netductor …` local or `--remote`  
 - **TG:** Tools (VPN, edge, NVR, git, DNS, backup, probes, …)
 

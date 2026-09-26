@@ -90,6 +90,7 @@ func registerVPNHTTP(mux *http.ServeMux) {
 				writeJSON(w, 500, map[string]string{"error": err.Error()})
 				return
 			}
+			audit.Log("session", "backup.schedule", install.FormatBackupSchedule(s), "")
 			writeJSON(w, 200, map[string]any{"ok": true, "schedule": s, "display": install.FormatBackupSchedule(s)})
 			return
 		}

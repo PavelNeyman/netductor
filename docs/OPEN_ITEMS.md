@@ -3,7 +3,7 @@
 ## In progress
 
 - TG menu pattern: DNS/Users/Backup/Pending/Locations/Nodes/Git/Registry/SSH done — remaining: NVR pickers, Tools odds, catalog 📄 on keyboard
-- UI functional parity Web/TUI/CLI after TG polish
+- UI functional parity Web/TUI/CLI after TG polish (DNS/backup Web done 0.9.33–0.9.35)
 
 ## Ideas (no implementation yet)
 
@@ -53,10 +53,10 @@
 | Doctor | ✅ | ✅ | ✅ Control | ✅ catalog |
 | Domain set/show | ✅ | ✅ | ✅ | ✅ catalog |
 | VPN users add/list/access | ✅ | ✅ | partial | ✅ compact |
-| DNS block lists | ✅ | ✅ | ? | ✅ |
-| Backup schedule/list | ✅ | ✅ | ? | ✅ |
+| DNS block lists | ✅ | remote CLI | ✅ Web | ✅ |
+| Backup schedule/list | ✅ | remote CLI | ✅ Web | ✅ |
 | NVR cams/PTZ | ✅ | ✅ | Control | ✅ compact |
 | Git/registry | ✅ | ✅ | ? | ✅ |
 | Nodes card/ops | ✅ | ✅ | ? | ✅ |
 
-**Next parity pass:** Web Control fill gaps (DNS, backup, git/registry, nodes) via same backend APIs; TUI already near CLI.
+**Next parity pass:** git/registry Web polish; TG NVR pickers; catalog JSON button (git/registry, nodes) via same backend APIs; TUI already near CLI.

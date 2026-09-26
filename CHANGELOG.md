@@ -1,3 +1,9 @@
+## 0.9.35
+
+- Web Control: backup schedule POST form (hour/minute/UTC)
+- Fix broken DNS section in app.js (0.9.34 syntax); dns-set via special handler
+- audit: backup.schedule on POST
+
 ## 0.9.34
 
 - CLI: `netductor dns list|on|off|reload`

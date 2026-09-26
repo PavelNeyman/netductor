@@ -459,8 +459,7 @@ const BTN = {
   ],
   dns:[
     ['dns-lists','DNS lists','GET','/api/dns/lists'],
-    ['dns-set': async()=>{ const on=document.getElementById('dnsOn').value==='1'; return nodeFetch('/api/dns/set',{method:'POST',body:JSON.stringify({id:document.getElementById('dnsId').value.trim(),enabled:on})}); },
-  'dns-reload','DNS reload','POST','/api/dns/reload','{}'],
+    ['dns-reload','DNS reload','POST','/api/dns/reload','{}'],
   ],
   backup:[
     ['backup-peer','Peer','GET','/api/backup/peer'],
@@ -508,6 +507,12 @@ function mountButtons(){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>list id</label><input id="dnsId" placeholder="adguard"/></div>
       <div><label>enabled</label><select id="dnsOn"><option value="1">on</option><option value="0">off</option></select></div></div>
       <button class="primary" type="button" data-act="dns-set">Set list</button>`;
+    }
+    if(sec==='backup'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>hour (0-23)</label><input id="bakHour" type="number" min="0" max="23" value="1"/></div>
+      <div><label>minute (0-59)</label><input id="bakMin" type="number" min="0" max="59" value="0"/></div></div>
+      <div class="row"><div><label>timezone</label><select id="bakUtc"><option value="1">UTC</option><option value="0">local</option></select></div><div></div></div>
+      <button class="primary" type="button" data-act="backup-schedule-set">Save schedule</button>`;
     }
     if(sec==='vpn'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>
@@ -609,6 +614,20 @@ const special = {
   'edge-cmd': async()=>{ return nodeFetch('/api/edge/cmd',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeCmdDid').value.trim(),cmd:document.getElementById('edgeCmdName').value.trim(),arg:document.getElementById('edgeCmdArg').value})}); },
   'edge-export': async()=>{ return nodeFetch('/api/edge/export'); },
   'edge-backup': async()=>{ return nodeFetch('/api/edge/backup',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeId').value.trim()})}); },
+  'dns-set': async()=>{
+    const id=document.getElementById('dnsId').value.trim();
+    if(!id) return {error:'list id required'};
+    const on=document.getElementById('dnsOn').value==='1';
+    return nodeFetch('/api/dns/set',{method:'POST',body:JSON.stringify({id,enabled:on})});
+  },
+  'backup-schedule-set': async()=>{
+    const hour=parseInt(document.getElementById('bakHour').value,10);
+    const minute=parseInt(document.getElementById('bakMin').value,10);
+    const utc=document.getElementById('bakUtc').value==='1';
+    if(isNaN(hour)||hour<0||hour>23) return {error:'hour 0-23'};
+    if(isNaN(minute)||minute<0||minute>59) return {error:'minute 0-59'};
+    return nodeFetch('/api/backup/schedule',{method:'POST',body:JSON.stringify({hour,minute,utc})});
+  },
   'nvr-ptz': async()=>{ return nodeFetch('/api/nvr/ptz',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim(),dir:document.getElementById('nvrPtzDir').value})}); },
   'nvr-rec-start': async()=>{ return nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
   'nvr-rec-stop': async()=>{ return nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
