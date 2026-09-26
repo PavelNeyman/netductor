@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -63,6 +64,29 @@ func runBackupCmd(args []string) {
 			return
 		case "peer-status", "status":
 			fmt.Println(install.BackupPeerStatus())
+			return
+		case "schedule":
+			s := install.LoadBackupSchedule()
+			fmt.Println(install.FormatBackupSchedule(s))
+			if len(args) >= 4 && (args[1] == "set" || args[1] == "--set") {
+				// netductor backup schedule set <hour> <minute> [utc|local]
+				h, err1 := strconv.Atoi(args[2])
+				m, err2 := strconv.Atoi(args[3])
+				if err1 != nil || err2 != nil {
+					fmt.Fprintln(os.Stderr, "usage: netductor backup schedule set <hour> <minute> [utc|local]")
+					os.Exit(2)
+				}
+				s.Hour, s.Minute = h, m
+				s.UTC = true
+				if len(args) >= 5 && (args[4] == "local" || args[4] == "0") {
+					s.UTC = false
+				}
+				if err := install.SaveBackupSchedule(s); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+				fmt.Println("ok", install.FormatBackupSchedule(s))
+			}
 			return
 		case "now", "run":
 			// fallthrough

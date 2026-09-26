@@ -259,8 +259,22 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.showCmd("addons", "list")
 	case "vpn-refresh":
 		m.showCmd("vpn", "refresh-links")
+	case "dns-list":
+		m.showCmd("dns", "list")
+	case "dns-reload":
+		m.showCmd("dns", "reload")
+	case "dns-on":
+		m.startActionForm("dns-on")
+		return m, nil
+	case "dns-off":
+		m.startActionForm("dns-off")
+		return m, nil
 	case "backup-now":
 		m.showCmd("backup", "now")
+	case "backup-list":
+		m.showCmd("backup", "list")
+	case "backup-schedule":
+		m.showCmd("backup", "schedule")
 	case "audit-tail":
 		m.showCmd("audit", "tail")
 	case "install":

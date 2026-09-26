@@ -57,6 +57,10 @@ func (m *model) startActionForm(action string) {
 		m.wizFields = []wizField{
 			{Key: "name", Label: "VPN user"},
 		}
+	case "dns-on", "dns-off":
+		m.wizFields = []wizField{
+			{Key: "id", Label: map[bool]string{true: "ID списка", false: "List id"}[ru], Placeholder: "adguard"},
+		}
 	case "backup-peer":
 		m.wizFields = []wizField{
 			{Key: "peer", Label: "Peer URL / id"},
@@ -139,6 +143,10 @@ func (m *model) submitActionForm() string {
 		return m.runNetductor("vpn", "rename", m.fieldVal("old"), m.fieldVal("new"))
 	case "vpn-sub":
 		return m.runNetductor("vpn", "sub", m.fieldVal("name"))
+	case "dns-on":
+		return m.runNetductor("dns", "on", m.fieldVal("id"))
+	case "dns-off":
+		return m.runNetductor("dns", "off", m.fieldVal("id"))
 	case "backup-peer":
 		return m.runNetductor("backup", "peer", m.fieldVal("peer"))
 	case "session":

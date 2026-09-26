@@ -1,8 +1,8 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.35** · Web DNS+backup schedule forms; TG compact pattern; CDN-XHTTP = idea only (OPEN_ITEMS)
+**Baseline:** **v0.9.36** · Web DNS+backup schedule forms; TG compact pattern; CDN-XHTTP = idea only (OPEN_ITEMS)
 
-**Next engineering:** TG NVR pickers / catalog 📄; TUI Tools dns optional; remaining UI parity (OPEN_ITEMS).
+**Next engineering:** TG catalog 📄 JSON; git/registry Web polish; remaining UI parity (OPEN_ITEMS).
 
 ## Read order (new chat)
 

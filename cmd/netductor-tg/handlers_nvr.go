@@ -125,25 +125,34 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			payload, _ := json.Marshal(leases)
 			setState(chat, "nvr_lease_cache", did+"\n"+string(payload))
 			var b strings.Builder
-			b.WriteString(fmt.Sprintf("<b>Leases · %s</b> (%d)\nTap to add camera:\n", esc(did), len(leases)))
-			rows := [][]map[string]any{}
+			b.WriteString(fmt.Sprintf("<b>Leases · %s</b> (%d)\n", esc(did), len(leases)))
+			b.WriteString("<table>\n<tr><th>#</th><th>IP</th><th>host</th></tr>\n")
+			nShow := 0
 			for i, l := range leases {
 				if i >= 15 {
-					b.WriteString("...\n")
 					break
 				}
 				host := l.Hostname
 				if host == "" {
 					host = l.MAC
 				}
-				b.WriteString(fmt.Sprintf("%d. <code>%s</code> %s %s\n", i+1, esc(l.IP), esc(l.MAC), esc(host)))
-				rows = append(rows, []map[string]any{btn(fmt.Sprintf("%d · %s", i+1, trunc(host, 20)), fmt.Sprintf("m:nvr:add:%d", i), "")})
+				b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td></tr>\n", i+1, esc(l.IP), esc(host)))
+				nShow++
+			}
+			b.WriteString("</table>\n")
+			if nShow > 0 {
+				b.WriteString("<tg-button-row>")
+				for i := 0; i < nShow; i++ {
+					b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:add:%d">%d</tg-button>`, i, i+1))
+				}
+				b.WriteString("</tg-button-row>\n")
 			}
 			if len(leases) == 0 {
 				b.WriteString("empty or bad agent payload:\n<pre>" + esc(trunc(raw, 400)) + "</pre>")
 			}
-			rows = append(rows, []map[string]any{btn(T("back"), "m:nvr:sites", ""), btn(T("main_menu"), "m:menu", "primary")})
-			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn(T("back"), "m:nvr:sites", ""), btn(T("main_menu"), "m:menu", "primary")},
+			}})
 		}(chat, msgID, did, cmdID)
 	case strings.HasPrefix(data, "m:nvr:add:"):
 		idxStr := strings.TrimPrefix(data, "m:nvr:add:")

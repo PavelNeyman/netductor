@@ -1,3 +1,9 @@
+## 0.9.36
+
+- TUI Ops: DNS list/on/off/reload; backup list/schedule
+- CLI: `netductor backup schedule` [set hour minute utc|local]
+- TG NVR: lease host picker → table + numbered body buttons (nav keyboard only)
+
 ## 0.9.35
 
 - Web Control: backup schedule POST form (hour/minute/UTC)
