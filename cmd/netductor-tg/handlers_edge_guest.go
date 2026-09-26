@@ -14,7 +14,7 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 	}
 	ru := getLang() != "en"
 	nav := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 
 	if data == "m:edgeguest" {
@@ -77,7 +77,7 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="m:edgeguest:g:%s">%s</tg-button>`, id, grLabel))
 		b.WriteString(`</tg-button-row>`)
 		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("« Guest Wi‑Fi", "m:edgeguest", "primary"), btn(T("main_menu"), "m:menu", "")},
+			{btn("⬅️ Guest Wi‑Fi", "m:edgeguest", "primary"), btn(T("main_menu"), "m:menu", "")},
 		}})
 		return true
 	}

@@ -97,7 +97,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		case "probes":
 			out := runND("probe")
 			r := format.API("probes", []byte(out), catalogLang())
-			reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
+			reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 			return
 		case "git":
 			handleGitCB(token, chat, msgID, "m:git")
@@ -405,7 +405,7 @@ if strings.HasPrefix(data, "u:") {
 	case "m:probes":
 		out := runND("probe")
 		r := format.API("probes", []byte(out), catalogLang())
-		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
+		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 	case "m:metrics":
 		// folded into main Status (no separate Metrics screen)
 		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
@@ -421,7 +421,7 @@ if strings.HasPrefix(data, "u:") {
 		if strings.TrimSpace(r.HTML) == "" || (strings.Contains(r.HTML, "<pre>") && len(out) < 20) {
 			body = title + "<pre>" + esc(truncate(out, 3500)) + "</pre>"
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
+		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 	case "m:addons":
 		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatAddonsHTML(), addonsKeyboard())
 	case "m:addon:lampac":

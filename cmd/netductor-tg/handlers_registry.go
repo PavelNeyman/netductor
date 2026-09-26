@@ -13,7 +13,7 @@ func handleRegistryCallback(token string, chat int64, msgID int, data string) bo
 		return false
 	}
 	nav := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	if data == "m:registry" || data == "m:registry:status" {
 		st := registry.StatusInfo()

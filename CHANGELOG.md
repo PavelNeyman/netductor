@@ -1,3 +1,7 @@
+## 0.9.59
+
+- TG: ⬅️ parent nav; NVR sub→hub; go2rtc; guest/loc/mtls/git/addons; drop Status fleet buttons
+
 ## 0.9.58
 
 - TG: unified « Parent nav everywhere; sites parent fix; RSC table; sync/RU-exit i18n; addons key

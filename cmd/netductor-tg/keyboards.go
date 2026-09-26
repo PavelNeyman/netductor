@@ -6,15 +6,22 @@ import (
 	"strings"
 )
 
-// navKeyboard — единый «назад»: « <имя родителя> + Главное меню.
+// navKeyboard — единый «назад»: ⬅️ <имя родителя> + Главное меню (как emoji в меню).
 func navKeyboard(parentCB, parentLabel string) map[string]any {
 	if parentLabel == "" {
-		parentLabel = T("back")
+		parentLabel = "Back"
+		if getLang() != "en" {
+			parentLabel = "Назад"
+		}
 	}
-	back := parentLabel
-	if !strings.HasPrefix(back, "«") {
-		back = "« " + back
-	}
+	back := strings.TrimSpace(parentLabel)
+	// strip old prefixes so we never get « ⬅️ or ⬅️ ⬅️
+	back = strings.TrimPrefix(back, "« ")
+	back = strings.TrimPrefix(back, "«")
+	back = strings.TrimPrefix(back, "⬅️ ")
+	back = strings.TrimPrefix(back, "⬅️")
+	back = strings.TrimSpace(back)
+	back = "⬅️ " + back
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(back, parentCB, "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
@@ -163,9 +170,7 @@ func vpnKeyboard() map[string]any {
 }
 
 func addonsKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back"), "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:fleet", parentFleet())
 }
 
 func sitesListKeyboard() map[string]any {

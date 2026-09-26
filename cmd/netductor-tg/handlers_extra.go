@@ -28,9 +28,7 @@ func handleGuestCB(token string, chat int64, msgID int, data string) {
 		} else {
 			title += `<tg-button-row align="left"><tg-button type="callback_data" style="link" data="m:guest:10m">10m</tg-button><tg-button type="callback_data" style="link" data="m:guest:1h">1h</tg-button><tg-button type="callback_data" style="link" data="m:guest:24h">24h</tg-button><tg-button type="callback_data" style="link" data="m:guest:7d">7d</tg-button></tg-button-row>`
 		}
-		reply(token, chat, msgID, title, map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn(T("main_menu"), "m:menu", "primary")},
-		}})
+		reply(token, chat, msgID, title, navKeyboard("m:tools", parentTools()))
 		return
 	}
 	ttl := time.Hour
@@ -82,9 +80,7 @@ func handleGuestCB(token string, chat int64, msgID int, data string) {
 }
 
 func guestBackKB() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("⏱ Guest", "m:guest", ""), btn(T("main_menu"), "m:menu", "primary")},
-	}}
+	return navKeyboard("m:tools", parentTools())
 }
 
 func handleDNSCB(token string, chat int64, msgID int, data string) {
@@ -135,7 +131,7 @@ func showDNSMenu(token string, chat int64, msgID int, status string) {
 		body = "<p>" + esc(status) + "</p>" + body
 	}
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	// Prefer in-place edit; delete+send only if rich edit fails.
 	reply(token, chat, msgID, body, kb)
@@ -294,7 +290,7 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:keep">N</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 	reply(token, chat, msgID, b.String(), kb)
 }
@@ -365,9 +361,11 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 		if !ru {
 			rnMsg = "New name for <code>"+esc(id)+"</code>:"
 		}
-		reply(token, chat, msgID, rnMsg, map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("📍", "m:loc:open:"+id, ""), btn(T("main_menu"), "m:menu", "")},
-		}})
+		pl := "Locations"
+		if ru {
+			pl = "Локации"
+		}
+		reply(token, chat, msgID, rnMsg, navKeyboard("m:loc", pl))
 		return
 	}
 	if strings.HasPrefix(data, "m:loc:add:") {
@@ -424,10 +422,11 @@ func showLocationCard(token string, chat int64, msgID int, id string) {
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:loc:rename:` + id + `">✏️</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:loc:del:` + id + `">🗑</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
-	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("📍", "m:loc", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
-	reply(token, chat, msgID, b.String(), kb)
+	pl := "Locations"
+	if ru {
+		pl = "Локации"
+	}
+	reply(token, chat, msgID, b.String(), navKeyboard("m:loc", pl))
 }
 
 func handleQuotaCB(token string, chat int64, msgID int, data string) {
@@ -517,7 +516,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Update primary</tg-button></tg-button-row>`)
 	}
 	reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("« "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}})
 }
 

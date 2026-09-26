@@ -291,15 +291,6 @@ func formatStatusPretty() string {
 	} else {
 		b.WriteString(fmt.Sprintf("🗂 Nodes: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
 	}
-	b.WriteString(`<tg-button-row align="left">`)
-	if ru {
-		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:fleet">🌐 Флот</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 VPN</tg-button>`)
-	} else {
-		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:fleet">🌐 Fleet</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 VPN</tg-button>`)
-	}
-	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }
 

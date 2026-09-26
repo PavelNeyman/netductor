@@ -15,7 +15,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 	if data == "m:git" {
 		list, err := gitstore.List()
 		if err != nil {
-			reply(token, chat, msgID, esc(err.Error()), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
+			reply(token, chat, msgID, esc(err.Error()), navKeyboard("m:tools", parentTools()))
 			return true
 		}
 		nl := string([]byte{10})
@@ -31,7 +31,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			} else {
 				b.WriteString("<i>No repos. CLI: <code>netductor git init name</code></i>")
 			}
-			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
+			reply(token, chat, msgID, b.String(), navKeyboard("m:tools", parentTools()))
 			return true
 		}
 		if ru {
@@ -55,7 +55,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:git:repo:%s">%d</tg-button>`, n, i+1))
 		}
 		b.WriteString(`</tg-button-row>` + nl)
-		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
+		reply(token, chat, msgID, b.String(), navKeyboard("m:tools", parentTools()))
 		return true
 	}
 	rest := strings.TrimPrefix(data, "m:git:")
@@ -77,7 +77,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:art:` + name + `">📄</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="danger" data="m:git:del:` + name + `">🗑</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
-		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn("« Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")}}})
+		reply(token, chat, msgID, b.String(), navKeyboard("m:git", "Git"))
 		return true
 	}
 	if strings.HasPrefix(rest, "log:") {
@@ -87,7 +87,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		if err != nil {
 			body = "⚠️ " + esc(err.Error()) + "\n" + body
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		reply(token, chat, msgID, body, navKeyboard("m:git", "Git"))
 		return true
 	}
 	if strings.HasPrefix(rest, "show:") {
@@ -97,7 +97,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		if err != nil {
 			body = "⚠️ " + esc(err.Error()) + "\n" + body
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		reply(token, chat, msgID, body, navKeyboard("m:git", "Git"))
 		return true
 	}
 	if strings.HasPrefix(rest, "del:") {
@@ -107,7 +107,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		if err != nil {
 			msg = "⚠️ " + err.Error()
 		}
-		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« Git", "m:git", "primary")}}})
+		reply(token, chat, msgID, msg, navKeyboard("m:git", "Git"))
 		return true
 	}
 	if strings.HasPrefix(rest, "pipe:") {
@@ -126,7 +126,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:git:run:%s:%s">%d</tg-button>`, name, p, i+1))
 		}
 		b.WriteString(`</tg-button-row>` + nl)
-		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "primary")}}})
+		reply(token, chat, msgID, b.String(), navKeyboard("m:git", "Git"))
 		return true
 	}
 	if strings.HasPrefix(rest, "run:") {
@@ -144,7 +144,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		} else {
 			body = "✅\n" + body
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		reply(token, chat, msgID, body, navKeyboard("m:git", "Git"))
 		return true
 	}
 	if strings.HasPrefix(rest, "wf:") {
@@ -154,7 +154,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		if err != nil {
 			body = "❌ " + esc(err.Error()) + "\n" + body
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		reply(token, chat, msgID, body, navKeyboard("m:git", "Git"))
 		return true
 	}
 	if strings.HasPrefix(rest, "art:") {
@@ -166,7 +166,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		} else if len(list) > 0 {
 			body = "<pre>" + esc(strings.Join(list, "\n")) + "</pre>"
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git:repo:"+name, "")}}})
+		reply(token, chat, msgID, body, navKeyboard("m:git", "Git"))
 		return true
 	}
 	return true
