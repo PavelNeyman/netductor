@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"io"
 	"net/http"
 	"time"
@@ -77,34 +78,58 @@ func toolsKeyboard() map[string]any {
 }
 
 func catalogSectionKeyboard(sec string) map[string]any {
-	lang := catalogLang()
-	var rows [][]map[string]any
-	var row []map[string]any
-	for _, a := range opcatalog.ForSurface("tg") {
-		if a.Section != sec {
-			continue
-		}
-		row = append(row, btn(a.Label(lang), "m:op:"+a.ID, ""))
-		if len(row) == 2 {
-			rows = append(rows, row)
-			row = nil
-		}
-	}
-	if len(row) > 0 {
-		rows = append(rows, row)
-	}
-	rows = append(rows, []map[string]any{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "")})
-	return map[string]any{"inline_keyboard": rows}
+	// Navigation only — actions live in HTML body (TG-UI pattern).
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
+	}}
 }
 
 func catalogSectionTitle(sec string) string {
-	if catalogLang() == "ru" {
-		return "📂 <b>" + sec + "</b>\nДействия из общего каталога (как Web Control)."
+	lang := catalogLang()
+	var b strings.Builder
+	if lang == "ru" {
+		b.WriteString("📂 <b>" + sec + "</b>\nДействия из общего каталога (как Web Control).\n")
+	} else {
+		b.WriteString("📂 <b>" + sec + "</b>\nActions from shared catalog (same as Web Control).\n")
 	}
-	return "📂 <b>" + sec + "</b>\nActions from shared catalog (same as Web Control)."
+	acts := opcatalog.ForSurface("tg")
+	var ids []string
+	var labels []string
+	for _, a := range acts {
+		if a.Section != sec {
+			continue
+		}
+		ids = append(ids, a.ID)
+		labels = append(labels, a.Label(lang))
+	}
+	if len(ids) == 0 {
+		if lang == "ru" {
+			b.WriteString("<i>нет действий</i>")
+		} else {
+			b.WriteString("<i>no actions</i>")
+		}
+		return b.String()
+	}
+	b.WriteString("<table>\n<tr><th>#</th><th>action</th></tr>\n")
+	for i, lab := range labels {
+		b.WriteString("<tr><td>" + fmt.Sprint(i+1) + "</td><td>" + esc(lab) + "</td></tr>\n")
+	}
+	b.WriteString("</table>\n")
+	// body buttons in rows of up to 4
+	for i := 0; i < len(ids); i += 4 {
+		b.WriteString("<tg-button-row>")
+		end := i + 4
+		if end > len(ids) {
+			end = len(ids)
+		}
+		for j := i; j < end; j++ {
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:op:%s">%d</tg-button>`, ids[j], j+1))
+		}
+		b.WriteString("</tg-button-row>")
+	}
+	return b.String()
 }
 
-// execCatalogActionRaw returns raw response body from localhost session API.
 func execCatalogActionRaw(id string) ([]byte, error) {
 	a, ok := opcatalog.Get(id)
 	if !ok {
@@ -155,12 +180,7 @@ func catalogResultKeyboard(id string) map[string]any {
 	if s, ok := opcatalogGetSection(id); ok {
 		sec = s
 	}
-	jsonLabel := "📄 JSON"
-	if catalogLang() == "ru" {
-		jsonLabel = "📄 JSON"
-	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(jsonLabel, "m:opraw:"+id, "")},
 		{btn("📂 "+sec, "m:ops:"+sec, ""), btn("🧰 Tools", "m:tools", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
@@ -169,10 +189,15 @@ func catalogResultKeyboard(id string) map[string]any {
 func formatCatalogHTML(id string, raw []byte, asRaw bool) string {
 	lang := catalogLang()
 	if asRaw {
-		return format.RawJSONHTML(raw, lang == "ru")
+		html := format.RawJSONHTML(raw, lang == "ru")
+		// allow switch back to pretty view
+		html += `<tg-button-row><tg-button type="callback_data" style="link" data="m:op:` + id + `">📋</tg-button></tg-button-row>`
+		return html
 	}
 	r := format.API(id, raw, lang)
-	return r.HTML
+	html := r.HTML
+	html += `<tg-button-row><tg-button type="callback_data" style="link" data="m:opraw:` + id + `">📄 JSON</tg-button></tg-button-row>`
+	return html
 }
 
 func opcatalogGetSection(id string) (string, bool) {

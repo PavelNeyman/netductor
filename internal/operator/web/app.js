@@ -578,11 +578,16 @@ function mountButtons(){
       <button class="primary" type="button" data-act="nvr-motion">Motion cfg GET/POST via adv</button>`;
     }
     if(sec==='git'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>repo</label><input id="gitRepo"/></div><div><label>pipeline</label><input id="gitPipe"/></div></div>
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>repo</label><input id="gitRepo" placeholder="my-repo"/></div>
+      <div><label>pipeline</label><input id="gitPipe" placeholder="build.yml"/></div></div>
       <button class="primary" type="button" data-act="git-run">Run pipeline</button>
-      <div class="row"><div><label>git log repo</label><input id="gitLogRepo"/></div><div><label>show path</label><input id="gitShowPath"/></div></div>
+      <button class="primary" type="button" data-act="git-init">Init repo</button>
+      <div class="row"><div><label>repo (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
+      <div><label>rev / path</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
       <button class="primary" type="button" data-act="git-log">Log</button>
-      <button class="primary" type="button" data-act="git-show">Show</button>`;
+      <button class="primary" type="button" data-act="git-show">Show</button>
+      <div class="row"><div><label>artifact path</label><input id="gitArtPath" placeholder="build/out.bin"/></div><div></div></div>
+      <button class="primary" type="button" data-act="git-artifact">Get artifact</button>`;
     }
     el.innerHTML=h;
   }
@@ -637,8 +642,17 @@ const special = {
   'nvr-dhcp': async()=>{ return nodeFetch('/api/nvr/site/dhcp_static',{method:'POST',body:JSON.stringify({device_id:document.getElementById('dhcpDid').value.trim(),mac:document.getElementById('dhcpMac').value.trim(),ip:document.getElementById('dhcpIp').value.trim(),name:document.getElementById('dhcpName').value.trim()})}); },
   'nvr-clip-token': async()=>{ return nodeFetch('/api/nvr/clip/token',{method:'POST',body:JSON.stringify({path:document.getElementById('nvrClip').value.trim()})}); },
   'git-run': async()=>{ return nodeFetch('/api/git/pipeline',{method:'POST',body:JSON.stringify({repo:document.getElementById('gitRepo').value.trim(),pipeline:document.getElementById('gitPipe').value.trim()})}); },
-  'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?repo='+encodeURIComponent(r)):'')); },
-  'git-show': async()=>{ return nodeFetch('/api/git/show?repo='+encodeURIComponent(document.getElementById('gitLogRepo').value.trim())+'&path='+encodeURIComponent(document.getElementById('gitShowPath').value.trim())); },
+  'git-init': async()=>{ const name=document.getElementById('gitRepo').value.trim(); if(!name) return {error:'repo name'}; return nodeFetch('/api/git/repos',{method:'POST',body:JSON.stringify({name})}); },
+  'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?name='+encodeURIComponent(r)):'')); },
+  'git-show': async()=>{
+    const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim();
+    const rev=document.getElementById('gitShowPath').value.trim()||'HEAD';
+    return nodeFetch('/api/git/show?name='+encodeURIComponent(r)+'&rev='+encodeURIComponent(rev));
+  },
+  'git-artifact': async()=>{
+    const path=document.getElementById('gitArtPath').value.trim();
+    return nodeFetch('/api/git/artifact'+(path?('?path='+encodeURIComponent(path)):''));
+  },
   'adv-send': async()=>{
     const method=document.getElementById('advMethod').value;
     let path=document.getElementById('advPath').value.trim(); if(!path.startsWith('/')) path='/'+path;

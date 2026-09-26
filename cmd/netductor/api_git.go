@@ -59,6 +59,9 @@ func registerGitAPI(mux *http.ServeMux) {
 			return
 		}
 		name := r.URL.Query().Get("name")
+		if name == "" {
+			name = r.URL.Query().Get("repo")
+		}
 		n, _ := strconv.Atoi(r.URL.Query().Get("n"))
 		out, err := gitstore.Log(name, n)
 		if err != nil {
@@ -72,7 +75,13 @@ func registerGitAPI(mux *http.ServeMux) {
 			return
 		}
 		name := r.URL.Query().Get("name")
+		if name == "" {
+			name = r.URL.Query().Get("repo")
+		}
 		rev := r.URL.Query().Get("rev")
+		if rev == "" {
+			rev = r.URL.Query().Get("path")
+		}
 		out, err := gitstore.Show(name, rev)
 		if err != nil {
 			writeJSON(w, 400, map[string]string{"error": err.Error(), "show": out})

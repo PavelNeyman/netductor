@@ -1,3 +1,9 @@
+## 0.9.37
+
+- TG catalog: section actions + 📄 JSON in message body; keyboard = nav only
+- Web Git: init/log/show/artifact forms; fix log/show query params (`name`/`rev`)
+- API git: accept `repo`/`path` aliases for log/show
+
 ## 0.9.36
 
 - TUI Ops: DNS list/on/off/reload; backup list/schedule
