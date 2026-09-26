@@ -25,6 +25,7 @@ type Device struct {
 	SNI        string    `json:"sni"`
 	Version    string    `json:"version"`
 	SingBoxOK  bool      `json:"singbox_ok"`
+	UplinkOK   bool      `json:"uplink_ok"`
 	ConfigVer  int       `json:"config_ver"`
 	CPUPercent float64   `json:"cpu_percent"`
 	MemUsedMB  int64     `json:"mem_used_mb"`
@@ -155,6 +156,7 @@ type HeartbeatIn struct {
 	SNI        string  `json:"sni"`
 	Version    string  `json:"version"`
 	SingBoxOK  bool    `json:"singbox_ok"`
+	UplinkOK   bool    `json:"uplink_ok"`
 	ConfigVer  int     `json:"config_ver"`
 	CPUPercent float64 `json:"cpu_percent"`
 	MemUsedMB  int64   `json:"mem_used_mb"`
@@ -190,6 +192,7 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 		}
 		r.Devices[i].Version = in.Version
 		r.Devices[i].SingBoxOK = in.SingBoxOK
+		r.Devices[i].UplinkOK = in.UplinkOK
 		r.Devices[i].ConfigVer = in.ConfigVer
 		r.Devices[i].CPUPercent = in.CPUPercent
 		r.Devices[i].MemUsedMB = in.MemUsedMB

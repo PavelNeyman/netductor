@@ -1,3 +1,9 @@
+## 0.9.44
+
+- TG: metrics/status nested tables (mem/disk/load/services) not `{N keys}`
+- Secondary uplink: mux padding + stream limits; agent TCP probe primary:443 + auto restart sing-box after 3 fails
+- Primary: TG alert when secondary reports uplink_ok=false
+
 ## 0.9.43
 
 - fix: doctorPrintf/doctorPrintln infinite recursion (stack overflow)

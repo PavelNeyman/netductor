@@ -396,8 +396,12 @@ func formatStatus(v any, ru bool) Result {
 	if len(flat) > 0 {
 		b.WriteString(mapTable(flat, 20))
 	}
-	// nested summary lines
-	for _, k := range []string{"metrics", "probes", "mismatch", "secondary_mismatch"} {
+	// nested: metrics use dedicated formatter
+	if sub, ok := m["metrics"]; ok {
+		b.WriteString("<br>")
+		b.WriteString(formatMetrics(sub, ru).HTML)
+	}
+	for _, k := range []string{"probes", "mismatch", "secondary_mismatch"} {
 		if sub, ok := m[k]; ok {
 			b.WriteString("<br><b>" + esc(k) + "</b><br>")
 			b.WriteString(valueHTML(sub, 0))
@@ -478,6 +482,84 @@ func listTable(list []any, maxRows int) string {
 	return b.String()
 }
 
+
+// summarizeMetricMap renders nested mem/disk/load/net/services one-liners for tables.
+func summarizeMetricMap(t map[string]any) string {
+	// loadavg: 1/5/15
+	if _, ok1 := t["1"]; ok1 {
+		if _, ok5 := t["5"]; ok5 {
+			return fmt.Sprintf("<code>%.2f / %.2f / %.2f</code>", asFloat(t["1"]), asFloat(t["5"]), asFloat(t["15"]))
+		}
+	}
+	// mem: used/total
+	if _, ok := t["total"]; ok {
+		if _, ok2 := t["used"]; ok2 {
+			total := asFloat(t["total"])
+			used := asFloat(t["used"])
+			if total > 1e6 { // bytes
+				return fmt.Sprintf("<code>%.1f / %.1f GiB</code>", used/(1<<30), total/(1<<30))
+			}
+			return fmt.Sprintf("<code>%.0f / %.0f</code>", used, total)
+		}
+	}
+	// disk: use_pct
+	if _, ok := t["use_pct"]; ok {
+		free := ""
+		if _, ok2 := t["free"]; ok2 {
+			free = fmt.Sprintf(" free=%.1fG", asFloat(t["free"])/(1<<30))
+		}
+		return fmt.Sprintf("<code>%v%%%s</code>", t["use_pct"], free)
+	}
+	// net rx/tx
+	if _, ok := t["rx_bytes"]; ok || t["rx"] != nil {
+		return fmt.Sprintf("<code>rx=%v tx=%v</code>", t["rx_bytes"], t["tx_bytes"])
+	}
+	// services map unit→state
+	allActive := true
+	n := 0
+	for _, v := range t {
+		n++
+		if s, ok := v.(string); ok {
+			if s != "active" {
+				allActive = false
+			}
+			continue
+		}
+		allActive = false
+	}
+	if n > 0 && n <= 12 {
+		// if all values are short strings, list them
+		strOnly := true
+		for _, v := range t {
+			if _, ok := v.(string); !ok {
+				strOnly = false
+				break
+			}
+		}
+		if strOnly {
+			keys := make([]string, 0, len(t))
+			for k := range t {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			parts := make([]string, 0, len(keys))
+			for _, k := range keys {
+				st := t[k].(string)
+				em := "·"
+				if st == "active" {
+					em = "✅"
+				} else if st == "inactive" || st == "failed" {
+					em = "❌"
+				}
+				parts = append(parts, em+" "+esc(k))
+			}
+			_ = allActive
+			return strings.Join(parts, " ")
+		}
+	}
+	return ""
+}
+
 func cellValue(v any) string {
 	switch t := v.(type) {
 	case nil:
@@ -492,7 +574,10 @@ func cellValue(v any) string {
 	case string:
 		return "<code>" + esc(truncate(t, 120)) + "</code>"
 	case map[string]any:
-		// one-line summary of object
+		// compact known metric-shaped objects
+		if s := summarizeMetricMap(t); s != "" {
+			return s
+		}
 		if name := firstStr(t, "name", "id", "host", "path", "repo", "unit"); name != "" {
 			return esc(name)
 		}

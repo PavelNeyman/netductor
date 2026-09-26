@@ -168,6 +168,11 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 				} else {
 					notify.ClearAlert(key + ":sb")
 				}
+				if !d.UplinkOK {
+					notify.AlertOnce(key+":uplink", fmt.Sprintf("⚠️ Secondary <b>%s</b> uplink to primary:443 failed (mux may be stuck)", d.Name))
+				} else {
+					notify.ClearAlert(key + ":uplink")
+				}
 			}
 		}
 	}

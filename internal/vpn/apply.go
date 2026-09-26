@@ -78,7 +78,10 @@ func ApplyConfig() error {
 				// multiplex for secondary uplink (no vision). End-user vision streams stay non-mux.
 				"multiplex": map[string]any{
 					"enabled": true,
-					"padding": false,
+					"padding": true,
+					"max_connections": 4,
+					"min_streams": 4,
+					"max_streams": 32,
 				},
 				"tls": map[string]any{
 					"enabled": true, "server_name": sniVal,

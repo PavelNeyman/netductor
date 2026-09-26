@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"io"
 	"net/http"
 	"os"
@@ -27,6 +28,25 @@ func agentHTTPClient() *http.Client {
 		}
 	}
 	return c
+}
+
+var uplinkFailStreak int
+
+func probePrimaryUplink(coreBase string) bool {
+	hostport := strings.TrimPrefix(strings.TrimPrefix(coreBase, "https://"), "http://")
+	host := hostport
+	if i := strings.LastIndex(hostport, ":"); i > 0 {
+		host = hostport[:i]
+	}
+	if host == "" {
+		return false
+	}
+	c, err := net.DialTimeout("tcp", net.JoinHostPort(host, "443"), 5*time.Second)
+	if err != nil {
+		return false
+	}
+	_ = c.Close()
+	return true
 }
 
 func AgentLoop(coreBase, token string, interval time.Duration) {
@@ -69,11 +89,24 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").Output(); err == nil {
 		sbOK = strings.TrimSpace(string(out)) == "active"
 	}
+	upOK := probePrimaryUplink(coreBase)
+	if upOK {
+		uplinkFailStreak = 0
+	} else {
+		uplinkFailStreak++
+		fmt.Fprintf(os.Stderr, "uplink probe primary:443 fail streak=%d\n", uplinkFailStreak)
+		// after 3 consecutive fails (~1.5min at 30s tick): restart sing-box to clear stuck mux
+		if uplinkFailStreak >= 3 && sbOK {
+			fmt.Fprintf(os.Stderr, "uplink watchdog: restarting sing-box\n")
+			_ = exec.Command("systemctl", "restart", "sing-box").Run()
+			uplinkFailStreak = 0
+		}
+	}
 	cpu, memU, memT, load1 := sampleMetrics()
 	mm := vpn.CollectMismatch(30)
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
-		Version: "agent-1", SingBoxOK: sbOK, ConfigVer: *applied,
+		Version: "agent-1", SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: *applied,
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: *lastDone, CmdOK: *lastOK, CmdLog: *lastLog,
 		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
@@ -206,9 +239,10 @@ func applyHostname(hn string) error {
 }
 
 func reportCmdDone(client *http.Client, coreBase, token, cmd string, ok bool, log, ip, pub, sid, sni string, sbOK bool, applied int, cpu float64, memU, memT int64, load1 float64) error {
+	upOK := probePrimaryUplink(coreBase)
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
-		Version: "agent-1", SingBoxOK: sbOK, ConfigVer: applied,
+		Version: "agent-1", SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: applied,
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: cmd, CmdOK: ok, CmdLog: log,
 	})

@@ -204,11 +204,11 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 				},
 				// fewer TCP handshakes across lossy RU→abroad path
 				"multiplex": map[string]any{
-					"enabled":         true,
-					"protocol":        "smux",
+					"enabled": true,
+					"padding": true,
 					"max_connections": 4,
-					"min_streams":     4,
-					"padding":         false,
+					"min_streams": 4,
+					"max_streams": 32,
 				},
 			},
 			map[string]any{"type": "direct", "tag": "direct"},
