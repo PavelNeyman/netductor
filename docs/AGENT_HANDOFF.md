@@ -84,3 +84,8 @@ Shared backend: `internal/operator` + `internal/deploy`.
 ## Obsolete docs
 
 `docs/archive/` — old reviews/plans. Prefer this handoff + REVIEW-0.9.12.
+
+
+## TG UI (0.9.51)
+Hubs body-first; Status includes metrics; catalog uses format.API; Probes/Secondary/NVR formatted.
+See TG-SCREEN-INVENTORY.md / TG-UI-PATTERN.md.

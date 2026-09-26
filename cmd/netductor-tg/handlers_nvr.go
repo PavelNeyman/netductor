@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/format"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 )
 
@@ -383,12 +384,14 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		mc := nvr.LoadMotion()
 		raw, _ := json.MarshalIndent(mc, "", "  ")
 		inw := nvr.InMotionWindow(mc, time.Now())
-		reply(token, chat, msgID, "<b>Motion / schedule</b>\n<pre>"+esc(string(raw))+"</pre>\nin_window="+fmt.Sprintf("%v", inw)+"\nCLI: <code>netductor nvr motion set enabled=true timezone=Europe/Moscow</code>", nvrKeyboard())
+		r := format.API("nvr-config", raw, catalogLang())
+		hint := "in_window="+fmt.Sprintf("%v", inw)
+		reply(token, chat, msgID, "👁 <b>Motion</b>\n"+r.HTML+"\n"+hint, nvrKeyboard())
 	case data == "m:nvr:cfg":
 		cfg := nvr.LoadConfig()
 		raw, _ := json.MarshalIndent(cfg, "", "  ")
-		reply(token, chat, msgID, "<b>NVR config</b>\n<pre>"+esc(string(raw))+"</pre>\n"+
-			"<code>netductor nvr config set retention_days=7 max_gb=40</code>", nvrKeyboard())
+		r := format.API("nvr-config", raw, catalogLang())
+		reply(token, chat, msgID, "⚙️ <b>NVR config</b>\n"+r.HTML, nvrKeyboard())
 	case data == "m:nvr:rotate":
 		rep, err := nvr.RunRetention(nvr.LoadConfig())
 		if err != nil {

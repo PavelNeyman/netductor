@@ -85,3 +85,8 @@ Fleet/Nodes/Routers/Sites/Tools hubs → body buttons.
 
 ### 0.9.50
 Rename picker body; NVR/help labels.
+
+### 0.9.51
+Probes/Secondary/NVR cfg → format.API; tools i18n.
+
+**TG body-first hubs: largely complete.** Remaining pre dumps only on free-text CLI replies (approve, msg handlers).

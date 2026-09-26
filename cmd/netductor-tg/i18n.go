@@ -58,6 +58,7 @@ var dict = map[string]map[string]string{
 		"fleet":         "🖥 Fleet",
 		"fleet_title":   "🖥 <b>Fleet</b>\nNodes · routers · sites · addons",
 		"operator":      "⚙️ Operator",
+		"tools":         "🧰 Tools",
 		"operator_title": "⚙️ <b>Operator</b>\nSession, admin, audit",
 		"sub_hint_sr":   "Shadowrocket: Home → + → Type <b>Subscribe</b> → paste URL or decode Base64. Do <b>not</b> paste raw vless:// lines (those become Local).",
 
@@ -211,6 +212,7 @@ var dict = map[string]map[string]string{
 		"fleet":         "🖥 Флот",
 		"fleet_title":   "🖥 <b>Флот</b>\nНоды · роутеры · сайты · аддоны",
 		"operator":      "⚙️ Оператор",
+		"tools":         "🧰 Инструменты",
 		"operator_title": "⚙️ <b>Оператор</b>\nСессия, админка, аудит",
 		"sub_hint_sr":   "Shadowrocket: Главная → + → тип <b>Subscribe</b> → URL или Base64. Не вставляйте сырые vless:// (попадут в Local).",
 

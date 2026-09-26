@@ -47,7 +47,7 @@ func mainKeyboard() map[string]any {
 			{btn(T("status"), "m:status", "primary")},
 			{btn(T("users"), "m:users", "primary")},
 			{btn(T("fleet"), "m:fleet", "primary")},
-			{btn("🧰 Tools", "m:tools", ""), btn(T("operator"), "m:operator", "")},
+			{btn(T("tools"), "m:tools", ""), btn(T("operator"), "m:operator", "")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
 	}

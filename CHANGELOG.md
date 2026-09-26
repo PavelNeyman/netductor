@@ -1,3 +1,9 @@
+## 0.9.51
+
+- TG Probes/Secondary status via format.API (tables)
+- NVR config/motion via format.API
+- i18n tools key on main menu
+
 ## 0.9.50
 
 - TG: nodes rename body picker; NVR labels i18n; help hub shortcuts
