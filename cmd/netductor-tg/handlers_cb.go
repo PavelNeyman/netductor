@@ -423,9 +423,13 @@ if strings.HasPrefix(data, "u:") {
 		}
 		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 	case "m:addons":
-		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatAddonsHTML(), addonsKeyboard())
+		reply(token, chat, msgID, formatAddonsHTML(), addonsKeyboard())
 	case "m:addon:lampac":
-		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatLampacHTML(), addonsKeyboard())
+		pl := "Addons"
+		if getLang() != "en" {
+			pl = "Аддоны"
+		}
+		reply(token, chat, msgID, formatLampacHTML(), navKeyboard("m:addons", pl))
 	case "m:status":
 		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
 	case "m:users", "m:vpn_list":

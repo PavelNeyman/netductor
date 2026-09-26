@@ -27,9 +27,13 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		}
 		if len(list) == 0 {
 			if ru {
-				b.WriteString("<i>Репозиториев нет. CLI: <code>netductor git init name</code></i>")
+				b.WriteString("<i>Пока пусто — это нормально, пока не создали bare-repo на primary.</i>" + nl)
+				b.WriteString("CLI: <code>netductor git init myrepo</code>" + nl)
+				b.WriteString("Путь: <code>/var/lib/netductor/git/</code>")
 			} else {
-				b.WriteString("<i>No repos. CLI: <code>netductor git init name</code></i>")
+				b.WriteString("<i>Empty is OK until you create a bare repo on primary.</i>" + nl)
+				b.WriteString("CLI: <code>netductor git init myrepo</code>" + nl)
+				b.WriteString("Path: <code>/var/lib/netductor/git/</code>")
 			}
 			reply(token, chat, msgID, b.String(), navKeyboard("m:tools", parentTools()))
 			return true

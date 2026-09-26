@@ -418,6 +418,11 @@ func showLocationCard(token string, chat int64, msgID int, id string) {
 	} else {
 		b.WriteString("<i>OpenWrt agents appear after enroll and bind to this location.</i>\n")
 	}
+	if ru {
+		b.WriteString("<i>✏️ переименовать · 🗑 удалить</i>" + nl)
+	} else {
+		b.WriteString("<i>✏️ rename · 🗑 delete</i>" + nl)
+	}
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:loc:rename:` + id + `">✏️</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:loc:del:` + id + `">🗑</tg-button>`)

@@ -1,3 +1,7 @@
+## 0.9.60
+
+- TG: lampac→addons; sites hub≠list; locations legend+tools back; git empty copy; sites vs locations hints
+
 ## 0.9.59
 
 - TG: ⬅️ parent nav; NVR sub→hub; go2rtc; guest/loc/mtls/git/addons; drop Status fleet buttons
