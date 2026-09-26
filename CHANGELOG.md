@@ -1,3 +1,7 @@
+## 0.9.56
+
+- TG i18n: probes no double title, backup/DNS/tools RU strings
+
 ## 0.9.55
 
 - formatProbes table; role core→primary display + List normalize

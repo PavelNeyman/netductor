@@ -97,7 +97,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		case "probes":
 			out := runND("probe")
 			r := format.API("probes", []byte(out), catalogLang())
-			reply(token, chat, msgID, "📡 <b>Probes</b>\n"+r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+			reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 			return
 		case "git":
 			handleGitCB(token, chat, msgID, "m:git")
@@ -395,11 +395,7 @@ if strings.HasPrefix(data, "u:") {
 	case "m:probes":
 		out := runND("probe")
 		r := format.API("probes", []byte(out), catalogLang())
-		title := "📡 <b>Probes</b>\n"
-		if getLang() != "en" {
-			title = "📡 <b>Пробы</b>\n"
-		}
-		reply(token, chat, msgID, title+r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 	case "m:metrics":
 		// folded into main Status (no separate Metrics screen)
 		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
@@ -408,13 +404,13 @@ if strings.HasPrefix(data, "u:") {
 		r := format.API("secondary", []byte(out), catalogLang())
 		title := "🖥 <b>Secondary</b>\n"
 		if getLang() != "en" {
-			title = "🖥 <b>Secondary</b>\n"
+			title = "🖥 <b>Secondary · RU</b>\n"
 		}
 		body := title + r.HTML
 		if strings.TrimSpace(r.HTML) == "" || (strings.Contains(r.HTML, "<pre>") && len(out) < 20) {
 			body = title + "<pre>" + esc(truncate(out, 3500)) + "</pre>"
 		}
-		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("tools"), "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 	case "m:addons":
 		editHTML(token, cq.Message.Chat.ID, cq.Message.MessageID, formatAddonsHTML(), addonsKeyboard())
 	case "m:addon:lampac":

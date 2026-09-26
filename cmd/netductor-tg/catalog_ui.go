@@ -50,10 +50,14 @@ func toolsHubHTML() string {
 	b.WriteString(`<tg-button type="callback_data" data="m:git">Git</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" data="m:guest">⏱ Guest VPN</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:edgeguest">📡 Guest Wi‑Fi</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:loc">📍 Locations</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:updates">🔄 Updates</tg-button>`)
+	g1, g2, loc, upd := "⏱ Guest VPN", "📡 Guest Wi‑Fi", "📍 Locations", "🔄 Updates"
+	if lang == "ru" {
+		g1, g2, loc, upd = "⏱ Гостевой VPN", "📡 Guest Wi‑Fi", "📍 Локации", "🔄 Обновления"
+	}
+	b.WriteString(`<tg-button type="callback_data" data="m:guest">` + g1 + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:edgeguest">` + g2 + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:loc">` + loc + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:updates">` + upd + `</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" data="m:mtls">` + T("mtls") + `</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	return b.String()

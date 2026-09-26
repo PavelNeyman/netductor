@@ -112,7 +112,13 @@ func handleDNSCB(token string, chat int64, msgID int, data string) {
 			return
 		}
 		msg := "✅ " + id + " → "
-		if on {
+		if getLang() != "en" {
+			if on {
+				msg += "ВКЛ (нажмите 🔄 Reload чтобы скачать)"
+			} else {
+				msg += "ВЫКЛ"
+			}
+		} else if on {
 			msg += "ON (press 🔄 Reload to fetch)"
 		} else {
 			msg += "OFF"
@@ -149,7 +155,11 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 		}
 		nl := string([]byte{10})
 		var b strings.Builder
-		b.WriteString("🗂 <b>Backups</b>" + nl)
+		if ru {
+			b.WriteString("🗂 <b>Бэкапы</b>" + nl)
+		} else {
+			b.WriteString("🗂 <b>Backups</b>" + nl)
+		}
 		b.WriteString("<table bordered striped compact>" + nl)
 		b.WriteString("<tr><th>#</th><th>file</th></tr>" + nl)
 		for i, n := range names {
@@ -176,7 +186,11 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 	}
 	if data == "m:backup:keep" {
 		setState(chat, "wait_backup_keep", "")
-		reply(token, chat, msgID, "Keep last N backups (1–90), now: <code>"+strconv.Itoa(install.BackupKeepCount())+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{
+		keepMsg := "Keep last N backups (1–90), now: <code>"+strconv.Itoa(install.BackupKeepCount())+"</code>"
+		if ru {
+			keepMsg = "Хранить последних N бэкапов (1–90), сейчас: <code>"+strconv.Itoa(install.BackupKeepCount())+"</code>"
+		}
+		reply(token, chat, msgID, keepMsg, map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("🗓", "m:backup", ""), btn(T("main_menu"), "m:menu", "")},
 		}})
 		return
@@ -184,17 +198,23 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 	if strings.HasPrefix(data, "m:backup:restore:") {
 		name := strings.TrimPrefix(data, "m:backup:restore:")
 		path := filepath.Join("/var/lib/netductor/backups", name)
-		reply(token, chat, msgID, "⏳ Restore <code>"+esc(name)+"</code>…", toolsKeyboard())
+				rst := "⏳ Restore <code>"+esc(name)+"</code>…"
+		if ru { rst = "⏳ Восстановление <code>"+esc(name)+"</code>…" }
+		reply(token, chat, msgID, rst, toolsKeyboard())
 		err := install.Restore(path, "")
 		if err != nil {
 			reply(token, chat, msgID, "❌ "+esc(err.Error()), toolsKeyboard())
 			return
 		}
-		reply(token, chat, msgID, "✅ Restore done: <code>"+esc(name)+"</code>", toolsKeyboard())
+				done := "✅ Restore done: <code>"+esc(name)+"</code>"
+		if ru { done = "✅ Восстановлено: <code>"+esc(name)+"</code>" }
+		reply(token, chat, msgID, done, toolsKeyboard())
 		return
 	}
 	if data == "m:backup:run" {
-		showBackupMenu(token, chat, msgID, s, "⏳ Backup starting…")
+				st0 := "⏳ Backup starting…"
+		if ru { st0 = "⏳ Запуск бэкапа…" }
+		showBackupMenu(token, chat, msgID, s, st0)
 		err := exec.Command("systemctl", "start", "netductor-backup.service").Start()
 		if err != nil {
 			showBackupMenu(token, chat, msgID, s, "❌ "+err.Error())
@@ -249,9 +269,15 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 		b.WriteString("🗓 <b>Backup schedule</b>" + nl)
 	}
 	b.WriteString("<table bordered striped>" + nl)
-	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
-	b.WriteString("<tr><td>time</td><td><code>" + install.FormatBackupSchedule(s) + "</code></td></tr>" + nl)
-	b.WriteString("<tr><td>default</td><td>01:00 UTC ≈ 04:00 MSK</td></tr>" + nl)
+	if ru {
+		b.WriteString("<tr><th>поле</th><th>значение</th></tr>" + nl)
+		b.WriteString("<tr><td>время</td><td><code>" + install.FormatBackupSchedule(s) + "</code></td></tr>" + nl)
+		b.WriteString("<tr><td>по умолчанию</td><td>01:00 UTC ≈ 04:00 MSK</td></tr>" + nl)
+	} else {
+		b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+		b.WriteString("<tr><td>time</td><td><code>" + install.FormatBackupSchedule(s) + "</code></td></tr>" + nl)
+		b.WriteString("<tr><td>default</td><td>01:00 UTC ≈ 04:00 MSK</td></tr>" + nl)
+	}
 	b.WriteString("</table>" + nl)
 	if status != "" {
 		b.WriteString("<p>" + status + "</p>" + nl)
@@ -426,7 +452,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	if data == "m:updates:self" {
 		wait := "⏳ Updating from GitHub latest release…"
 		if ru {
-			wait = "⏳ Обновление с GitHub latest release…"
+			wait = "⏳ Обновление с GitHub (latest release)…"
 		}
 		reply(token, chat, msgID, wait, toolsKeyboard())
 		err := ndupdate.SelfReplace("netductor", "/usr/local/bin/netductor", "")
