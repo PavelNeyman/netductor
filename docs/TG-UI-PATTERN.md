@@ -22,7 +22,7 @@
 
 ## Still on keyboard (debt)
 
-Git pipeline pick, NVR pickers, registry Ensure/Crane, catalog 📄 JSON, SSH host delete — migrate next when touched.
+None material for day-2 hubs (0.9.38). Product pickers that need free-text still use wait-state messages.
 
 
 ## 0.9.30
@@ -39,3 +39,9 @@ Git pipeline pick, NVR pickers, registry Ensure/Crane, catalog 📄 JSON, SSH ho
 - NVR cameras: table + P/R/S/PTZ rows per cam
 - NVR sites: numbered edge lease pick
 - CDN-XHTTP: idea only in OPEN_ITEMS
+
+
+## 0.9.37–0.9.38
+
+- Catalog section/result: body actions + 📄 JSON
+- SSH hosts: numbered forget + clear in body

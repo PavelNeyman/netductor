@@ -52,6 +52,9 @@ func formatSSHHostsHTML() string {
 	nl := string([]byte{10})
 	var b strings.Builder
 	b.WriteString("🔐 <b>" + esc(T("ssh_hosts")) + "</b>" + nl)
+	if h := strings.TrimSpace(T("ssh_hosts_hint")); h != "" {
+		b.WriteString("<i>" + esc(h) + "</i>" + nl)
+	}
 	ids := []string{}
 	for _, line := range strings.Split(out, nl) {
 		line = strings.TrimSpace(line)
@@ -72,47 +75,31 @@ func formatSSHHostsHTML() string {
 		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, esc(id)))
 	}
 	b.WriteString("</table>" + nl)
-	b.WriteString(`<tg-button-row align="left">`)
-	for i, id := range ids {
-		if i >= 12 {
-			break
+	// numbered forget per host
+	if len(ids) > 0 {
+		b.WriteString(`<tg-button-row align="left">`)
+		for i, id := range ids {
+			if i >= 12 {
+				break
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="m:ssh:rm:%s">%d</tg-button>`, id, i+1))
 		}
-		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="m:ssh:rm:%s">%d</tg-button>`, id, i+1))
+		b.WriteString(`</tg-button-row>` + nl)
 	}
+	// bulk actions in body
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:ssh:clear:mt">` + esc(T("ssh_clear_mt")) + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:ssh:clear:relay">` + esc(T("ssh_clear_rel")) + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:ssh:forget">` + esc(T("ssh_forget")) + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
 
 func sshHostsKeyboard() map[string]any {
-	nl := string([]byte{10})
-	out := runND("ssh-hosts", "list")
-	var top [][]map[string]any
-	n := 0
-	for _, line := range strings.Split(out, nl) {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "===") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		id := fields[0]
-		label := id
-		if len(label) > 28 {
-			label = label[:28] + "…"
-		}
-		top = append(top, []map[string]any{btn("🗑 "+label, "m:ssh:rm:"+id, "danger")})
-		n++
-		if n >= 12 {
-			break
-		}
-	}
-	rows := top
-	rows = append(rows,
-		[]map[string]any{btn(T("ssh_clear_mt"), "m:ssh:clear:mt", "danger"), btn(T("ssh_clear_rel"), "m:ssh:clear:relay", "danger")},
-		[]map[string]any{btn(T("ssh_forget"), "m:ssh:forget", "")},
-		[]map[string]any{btn(T("back"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
-	)
-	return map[string]any{"inline_keyboard": rows}
+	// Navigation only — host actions in HTML body.
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("back"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
 }

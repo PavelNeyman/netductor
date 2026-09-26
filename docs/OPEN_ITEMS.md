@@ -2,8 +2,8 @@
 
 ## In progress
 
-- TG menu pattern: DNS/Users/Backup/Pending/Locations/Nodes/Git/Registry/SSH done — remaining: NVR pickers, Tools odds, catalog 📄 on keyboard
-- UI functional parity Web/TUI/CLI after TG polish (DNS/backup Web done 0.9.33–0.9.35)
+- Day-2 UI parity is largely closed for DNS/backup/git/catalog/SSH hosts (through 0.9.38)
+- Remaining: hardware e2e, owner later items below
 
 ## Ideas (no implementation yet)
 
@@ -36,7 +36,9 @@
 
 ## Done recently
 
-- TG compact UI + emoji legends (0.9.28–0.9.31)
+- TG compact UI + catalog body actions / JSON (0.9.28–0.9.37)
+- Web DNS + backup schedule forms; TUI Ops DNS/backup/git
+- SSH hosts body actions; NVR lease pickers
 - SNI health false-positive fixed
 - Domain / LE / Mac-direct deploy
 
@@ -51,12 +53,13 @@
 |------------|-----|-----|-----|-----|
 | Deploy primary/secondary/edge/site | ✅ | ✅ | ✅ Fleet | ❌ (by design) |
 | Doctor | ✅ | ✅ | ✅ Control | ✅ catalog |
-| Domain set/show | ✅ | ✅ | ✅ | ✅ catalog |
-| VPN users add/list/access | ✅ | ✅ | partial | ✅ compact |
-| DNS block lists | ✅ | remote CLI | ✅ Web | ✅ |
-| Backup schedule/list | ✅ | remote CLI | ✅ Web | ✅ |
+| Domain set/show | ✅ | ✅ Ops | ✅ | ✅ catalog |
+| VPN users add/list/access | ✅ | ✅ | ✅ list/forms | ✅ compact |
+| DNS block lists | ✅ | ✅ Ops | ✅ | ✅ |
+| Backup schedule/list | ✅ | ✅ Ops | ✅ | ✅ |
 | NVR cams/PTZ | ✅ | ✅ | Control | ✅ compact |
-| Git/registry | ✅ | ✅ | ? | ✅ |
-| Nodes card/ops | ✅ | ✅ | ? | ✅ |
+| Git/registry | ✅ | ✅ Ops | ✅ | ✅ body |
+| Nodes card/ops | ✅ | ✅ | ✅ forms | ✅ |
+| SSH hosts TOFU | ✅ | — | — | ✅ body |
 
-**Next parity pass:** git/registry Web polish; TG NVR pickers; catalog JSON button (git/registry, nodes) via same backend APIs; TUI already near CLI.
+**Parity pass (0.9.33–0.9.38):** Web Control + TUI Ops + TG pattern aligned for DNS, backup, git, catalog, SSH hosts.

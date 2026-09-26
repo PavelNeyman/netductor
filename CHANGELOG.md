@@ -1,3 +1,9 @@
+## 0.9.38
+
+- TG SSH hosts: delete/clear/forget in body; keyboard nav only
+- TUI Ops: git repos/pipelines, registry status, domain show
+- Docs: OPEN_ITEMS / TG-UI-PATTERN / handoff catch-up to 0.9.38
+
 ## 0.9.37
 
 - TG catalog: section actions + 📄 JSON in message body; keyboard = nav only

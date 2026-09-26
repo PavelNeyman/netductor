@@ -1,8 +1,8 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.37** · Web DNS+backup schedule forms; TG compact pattern; CDN-XHTTP = idea only (OPEN_ITEMS)
+**Baseline:** **v0.9.38** · Web DNS+backup schedule forms; TG compact pattern; CDN-XHTTP = idea only (OPEN_ITEMS)
 
-**Next engineering:** remaining Tools odds; functional parity polish (OPEN_ITEMS).
+**Next engineering:** owner/later (hardware e2e, SMTP, mobile); CDN-XHTTP idea only. Day-2 UI parity largely closed.
 
 ## Read order (new chat)
 

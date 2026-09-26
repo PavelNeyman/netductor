@@ -255,6 +255,8 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.showCmd("git", "pipelines")
 	case "registry-status":
 		m.showCmd("registry", "status")
+	case "domain-show":
+		m.showCmd("domain", "show")
 	case "addons-status":
 		m.showCmd("addons", "list")
 	case "vpn-refresh":
