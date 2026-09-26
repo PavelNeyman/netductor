@@ -1,6 +1,6 @@
 # UI parity (locked model)
 
-**Verified through v0.9.40** — see [REVIEW-0.9.39.md](REVIEW-0.9.39.md).
+**Verified through v0.9.42** (review 0.9.41) — see [REVIEW-0.9.39.md](REVIEW-0.9.39.md).
 
 ## Rule
 

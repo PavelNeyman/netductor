@@ -2,7 +2,7 @@
 
 ## In progress
 
-- Day-2 UI parity is largely closed for DNS/backup/git/catalog/SSH hosts (through 0.9.38)
+- Day-2 UI parity + TG body-pattern closed through 0.9.41 (see REVIEW-0.9.41)
 - Remaining: hardware e2e, owner later items below
 
 ## Ideas (no implementation yet)

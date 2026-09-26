@@ -1,3 +1,8 @@
+## 0.9.42
+
+- Full code/security review: [docs/REVIEW-0.9.41.md](docs/REVIEW-0.9.41.md)
+- Handoff / UI-PARITY / OPEN_ITEMS for next chat (no functional must-fix)
+
 ## 0.9.41
 
 - TG: Guest VPN, Edge Guest Wi‑Fi, mTLS, Locations add, Updates, Sessions, Secondary — body actions (DNS/Users style)

@@ -1,16 +1,16 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.41** · TG body-pattern complete (0.9.41) · day-2 parity · last full review: [REVIEW-0.9.39.md](REVIEW-0.9.39.md)
+**Baseline:** **v0.9.42** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
 
-**Next engineering:** owner/later (hardware e2e, SMTP, mobile); CDN-XHTTP idea only ([OPEN_ITEMS](OPEN_ITEMS.md)). Do not reopen closed day-2 parity work unless regressing.
+**Next engineering:** owner/later only — hardware e2e, SMTP, mobile day-2, CDN-XHTTP idea ([OPEN_ITEMS](OPEN_ITEMS.md)). Do not reopen day-2 UI unless regression.
 
 ## Read order (new chat)
 
-1. [AGENTS.md](../AGENTS.md)  
-2. **This file**  
-3. [REVIEW-0.9.39.md](REVIEW-0.9.39.md) — code/security + Mac deploy parity  
-4. [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) · [UI-PARITY.md](UI-PARITY.md)  
-5. [OPEN_ITEMS.md](OPEN_ITEMS.md) · [TG-UI-PATTERN.md](TG-UI-PATTERN.md)  
+1. [AGENTS.md](../AGENTS.md)
+2. **This file**
+3. [REVIEW-0.9.41.md](REVIEW-0.9.41.md) — code/security, Mac TUI/Web deploy parity, API, EN/RU
+4. [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) · [UI-PARITY.md](UI-PARITY.md)
+5. [OPEN_ITEMS.md](OPEN_ITEMS.md) · [TG-UI-PATTERN.md](TG-UI-PATTERN.md)
 6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
 
 ## Architecture (locked)
