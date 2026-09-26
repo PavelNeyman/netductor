@@ -19,61 +19,52 @@ func yn(ok bool, good, bad string) string {
 }
 
 func formatLampacHTML() string {
-	st := addons.CollectLampac()
 	ru := getLang() != "en"
+	st := addons.CollectLampac()
+	nl := string([]byte{10})
 	var b strings.Builder
-	b.WriteString("📺 <b>Lampac</b>\n\n")
-	if !st.Installed {
-		if ru {
-			b.WriteString("⚪ Не установлен\n")
-			b.WriteString("<i>Установка: <code>netductor install lampac</code></i>")
-		} else {
-			b.WriteString("⚪ Not installed\n")
-			b.WriteString("<i>Install: <code>netductor install lampac</code></i>")
-		}
-		return b.String()
-	}
-	runIcon := yn(st.Running, "🟢", "🔴")
-	healthIcon := yn(st.Healthy, "✅", "⚠️")
+	b.WriteString("📺 <b>Lampac</b>" + nl)
+	b.WriteString("<table bordered striped compact>" + nl)
 	if ru {
-		b.WriteString(fmt.Sprintf("%s <b>Контейнер:</b> %s\n", runIcon, yn(st.Running, "запущен", "остановлен")))
-		b.WriteString(fmt.Sprintf("%s <b>Health:</b> %s\n", healthIcon, yn(st.Healthy, "healthy", "unhealthy")))
+		b.WriteString("<tr><th>параметр</th><th>значение</th></tr>" + nl)
+		b.WriteString(fmt.Sprintf("<tr><td>контейнер</td><td>%s %s</td></tr>"+nl, yn(st.Running, "🟢", "🔴"), yn(st.Running, "запущен", "остановлен")))
+		b.WriteString(fmt.Sprintf("<tr><td>health</td><td>%s %s</td></tr>"+nl, yn(st.Healthy, "✅", "⚠️"), yn(st.Healthy, "ok", "bad")))
 	} else {
-		b.WriteString(fmt.Sprintf("%s <b>Container:</b> %s\n", runIcon, yn(st.Running, "running", "stopped")))
-		b.WriteString(fmt.Sprintf("%s <b>Health:</b> %s\n", healthIcon, yn(st.Healthy, "healthy", "unhealthy")))
+		b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+		b.WriteString(fmt.Sprintf("<tr><td>container</td><td>%s %s</td></tr>"+nl, yn(st.Running, "🟢", "🔴"), yn(st.Running, "running", "stopped")))
+		b.WriteString(fmt.Sprintf("<tr><td>health</td><td>%s %s</td></tr>"+nl, yn(st.Healthy, "✅", "⚠️"), yn(st.Healthy, "ok", "bad")))
 	}
 	if st.Image != "" {
-		b.WriteString(fmt.Sprintf("📦 <b>Image:</b> <code>%s</code>\n", esc(st.Image)))
+		b.WriteString(fmt.Sprintf("<tr><td>image</td><td><code>%s</code></td></tr>"+nl, esc(st.Image)))
 	}
-	b.WriteString(fmt.Sprintf("🔌 <b>Bind:</b> <code>%s</code>\n", esc(st.Bind)))
+	b.WriteString(fmt.Sprintf("<tr><td>bind</td><td><code>%s</code></td></tr>"+nl, esc(st.Bind)))
 	if st.VersionHash != "" {
-		b.WriteString(fmt.Sprintf("🏷 <b>Version:</b> <code>%s</code>\n", esc(st.VersionHash)))
+		b.WriteString(fmt.Sprintf("<tr><td>version</td><td><code>%s</code></td></tr>"+nl, esc(st.VersionHash)))
 	}
 	if st.CPU != "" || st.Mem != "" {
-		b.WriteString(fmt.Sprintf("📊 <b>CPU / RAM:</b> %s · %s\n", esc(st.CPU), esc(st.Mem)))
+		b.WriteString(fmt.Sprintf("<tr><td>cpu/ram</td><td>%s · %s</td></tr>"+nl, esc(st.CPU), esc(st.Mem)))
 	}
-	b.WriteString(fmt.Sprintf("🏓 <b>Ping:</b> %s\n", yn(st.PingOK, "✅", "—")))
-	b.WriteString(fmt.Sprintf("🧭 <b>Chromium:</b> %s\n", yn(st.ChromiumOK, "✅", "—")))
-	b.WriteByte('\n')
+	b.WriteString(fmt.Sprintf("<tr><td>ping</td><td>%s</td></tr>"+nl, yn(st.PingOK, "✅", "—")))
+	b.WriteString(fmt.Sprintf("<tr><td>chromium</td><td>%s</td></tr>"+nl, yn(st.ChromiumOK, "✅", "—")))
+	b.WriteString(fmt.Sprintf("<tr><td>UI</td><td><code>%s</code></td></tr>"+nl, esc(st.UIURL)))
+	b.WriteString(fmt.Sprintf("<tr><td>admin</td><td><code>%s</code></td></tr>"+nl, esc(st.AdminURL)))
+	b.WriteString("</table>" + nl)
 	if ru {
-		b.WriteString("🔗 UI: <code>" + esc(st.UIURL) + "</code>\n")
-		b.WriteString("🛠 Admin: <code>" + esc(st.AdminURL) + "</code>\n")
-		b.WriteString("\n<i>Только localhost — доступ через VPN/SSH-туннель</i>")
+		b.WriteString("<i>Только localhost — доступ через VPN / SSH-туннель</i>")
 	} else {
-		b.WriteString("🔗 UI: <code>" + esc(st.UIURL) + "</code>\n")
-		b.WriteString("🛠 Admin: <code>" + esc(st.AdminURL) + "</code>\n")
-		b.WriteString("\n<i>Loopback only — reach via VPN/SSH tunnel</i>")
+		b.WriteString("<i>Loopback only — reach via VPN / SSH tunnel</i>")
 	}
 	return b.String()
 }
+
 
 func formatAddonsHTML() string {
 	ru := getLang() != "en"
 	var b strings.Builder
 	if ru {
-		b.WriteString("🧩 <b>Аддоны</b>\n\n")
+		b.WriteString("🧩 <b>Аддоны</b>\n<i>Опциональные сервисы на primary</i>\n")
 	} else {
-		b.WriteString("🧩 <b>Addons</b>\n\n")
+		b.WriteString("🧩 <b>Addons</b>\n<i>Optional services on primary</i>\n")
 	}
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:addon:lampac">📺 Lampac</tg-button></tg-button-row>`)
 	return b.String()
@@ -303,10 +294,10 @@ func formatStatusPretty() string {
 	b.WriteString(`<tg-button-row align="left">`)
 	if ru {
 		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:fleet">🌐 Флот</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 VPN</tg-button>`)
 	} else {
 		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:fleet">🌐 Fleet</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="m:users">👥 VPN</tg-button>`)
 	}
 	b.WriteString(`</tg-button-row>`)
 	return b.String()

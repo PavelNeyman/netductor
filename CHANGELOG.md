@@ -1,3 +1,7 @@
+## 0.9.57
+
+- TG: navKeyboard « Parent; drop enroll from Nodes; Operator/Admin Mac; NVR/addons/RSC/lampac polish
+
 ## 0.9.56
 
 - TG i18n: probes no double title, backup/DNS/tools RU strings

@@ -19,9 +19,9 @@ func nvrHubHTML() string {
 	var b strings.Builder
 	b.WriteString("🎥 <b>NVR</b>" + nl)
 	if getLang() != "en" {
-		b.WriteString("<i>📷 камеры · 📍 lease · ⚙️ cfg · 🗜 rotate · 📼 segments · ⚡ events · 👁 motion · 📡 go2rtc</i>" + nl)
+		b.WriteString("<i>📷 камеры · 📍 DHCP · ⚙️ конфиг · 🗜 ротация · 📼 сегменты · ⚡ события · 👁 движение · 📡 go2rtc</i>" + nl)
 	} else {
-		b.WriteString("<i>📷 cameras · 📍 lease · ⚙️ cfg · 🗜 rotate · 📼 segments · ⚡ events · 👁 motion · 📡 go2rtc</i>" + nl)
+		b.WriteString("<i>📷 cameras · 📍 DHCP leases · ⚙️ config · 🗜 rotate · 📼 segments · ⚡ events · 👁 motion · 📡 go2rtc</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
@@ -38,20 +38,20 @@ func nvrHubHTML() string {
 	if getLang() != "en" {
 		b.WriteString(`<tg-button-row align="left">`)
 		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:nvr:cams">📷 Камеры</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:sites">📍 Lease</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:cfg">⚙️ Config</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:sites">📍 DHCP</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:cfg">⚙️ Конфиг</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:rotate">🗜 Ротация</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
 		b.WriteString(`<tg-button-row align="left">`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:segs">📼 Сегменты</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:events">⚡ События</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:motion">👁 Motion</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:motion">👁 Движение</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:go2rtc">📡 go2rtc</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
 	} else {
 		b.WriteString(`<tg-button-row align="left">`)
 		b.WriteString(`<tg-button type="callback_data" style="primary" data="m:nvr:cams">📷 Cameras</tg-button>`)
-		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:sites">📍 Leases</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:sites">📍 DHCP</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:cfg">⚙️ Config</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:rotate">🗜 Rotate</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
@@ -66,15 +66,11 @@ func nvrHubHTML() string {
 }
 
 func nvrKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back"), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:tools", parentTools())
 }
 
 func nvrSitesKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back"), "m:nvr", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:nvr", "NVR")
 }
 
 func handleNVRCB(token string, chat int64, msgID int, data string) {

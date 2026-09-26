@@ -309,9 +309,9 @@ if strings.HasPrefix(data, "u:") {
 	case "m:cat:sites":
 		reply(token, chat, msgID, sitesHubHTML()+"\n"+formatSitesHTML(), sitesKeyboard())
 	case "m:sites:list":
-		reply(token, chat, msgID, T("sites_title")+string([]byte{10, 10})+formatSitesHTML(), sitesKeyboard())
+		reply(token, chat, msgID, T("sites_title")+string([]byte{10, 10})+formatSitesHTML(), sitesListKeyboard())
 	case "m:sites:rsc":
-		reply(token, chat, msgID, formatSitesRSCHTML(), sitesKeyboard())
+		reply(token, chat, msgID, formatSitesRSCHTML(), sitesListKeyboard())
 	case "m:cat:nodes":
 		setState(chat, "", "")
 		reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
@@ -426,13 +426,17 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, T("add_prompt"), backTo("vpn"))
 	case "m:vpn_refresh":
 		out := runND("vpn", "refresh-links")
-		reply(token, chat, msgID, "🔄 <pre>"+esc(out)+"</pre>", vpnKeyboard())
+		reply(token, chat, msgID, "🔄 <pre>"+esc(out)+"</pre>", operatorSubKeyboard())
 	case "m:audit":
 		out := runND("audit", "tail")
 		if strings.TrimSpace(out) == "" {
 			out = "(empty)"
 		}
-		reply(token, chat, msgID, "📋 <b>Audit</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", mainKeyboard())
+		title := "📋 <b>Audit</b>\n"
+		if getLang() != "en" {
+			title = "📋 <b>Аудит</b>\n"
+		}
+		reply(token, chat, msgID, title+"<pre>"+esc(truncate(out, 3500))+"</pre>", operatorSubKeyboard())
 	case "m:sessions":
 		out := runND("vpn", "session", "list")
 		if strings.TrimSpace(out) == "" {
@@ -446,9 +450,7 @@ if strings.HasPrefix(data, "u:") {
 			rev = "🗑 Отозвать все"
 		}
 		title += `<tg-button-row align="left"><tg-button type="callback_data" style="danger" data="m:sessions:revoke">` + rev + `</tg-button></tg-button-row>`
-		reply(token, chat, msgID, title, map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn(T("main_menu"), "m:menu", "primary")},
-		}})
+		reply(token, chat, msgID, title, operatorSubKeyboard())
 	case "m:sessions:revoke":
 		_ = runND("vpn", "session", "revoke-all")
 		msg := "✅ revoked all sessions"
@@ -460,9 +462,7 @@ if strings.HasPrefix(data, "u:") {
 		if strings.TrimSpace(out) == "" {
 			out = "(none)"
 		}
-		reply(token, chat, msgID, msg+"\n<pre>"+esc(out)+"</pre>", map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn(T("sessions"), "m:sessions", ""), btn(T("main_menu"), "m:menu", "primary")},
-		}})
+		reply(token, chat, msgID, msg+"\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
 	case "m:vpn_rename":
 		setState(chat, "wait_vpn_rename", "")
 		reply(token, chat, msgID, T("vpn_rename_hint"), backKeyboard())
@@ -512,10 +512,10 @@ if strings.HasPrefix(data, "u:") {
 		setState(chat, "wait_ssh_forget", "")
 		reply(token, chat, msgID, T("ssh_forget")+string([]byte{10})+"host or host:port", backKeyboard())
 	case "m:admin":
-		reply(token, chat, msgID, T("admin_body"), backKeyboard())
+		reply(token, chat, msgID, T("admin_body"), operatorSubKeyboard())
 	case "m:session":
 		setState(chat, "wait_session_hours", "")
-		reply(token, chat, msgID, T("session_prompt"), backKeyboard())
+		reply(token, chat, msgID, T("session_prompt"), operatorSubKeyboard())
 	default:
 		reply(token, chat, msgID, T("unknown"), mainKeyboard())
 	}

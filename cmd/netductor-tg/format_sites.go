@@ -36,15 +36,21 @@ func formatSitesHTML() string {
 func formatSitesRSCHTML() string {
 	nl := string([]byte{10})
 	out := strings.TrimSpace(runND("sites", "rsc"))
+	ru := getLang() != "en"
+	title := "📜 <b>MikroTik RSC</b>"
+	hint := "<i>Paste into RouterOS / import. From site template.</i>"
+	if ru {
+		hint = "<i>Вставить в терминал RouterOS / import. Из шаблона площадки.</i>"
+	}
 	if out == "" {
-		out = runND("sites", "list")
+		if ru {
+			out = "(пусто — нет площадок или шаблона)"
+		} else {
+			out = "(empty — no sites/template)"
+		}
 	}
-	if len(out) > 3500 {
-		out = out[:3500] + "…"
-	}
-	return "📜 <b>MikroTik RSC</b>" + nl + "<pre>" + esc(out) + "</pre>"
+	return title + nl + hint + nl + nl + "<pre>" + esc(out) + "</pre>"
 }
-
 
 
 func formatSSHHostsHTML() string {
@@ -98,8 +104,5 @@ func formatSSHHostsHTML() string {
 }
 
 func sshHostsKeyboard() map[string]any {
-	// Navigation only — host actions in HTML body.
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("back"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:cat:nodes", parentNodes())
 }

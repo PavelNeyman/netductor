@@ -6,6 +6,58 @@ import (
 	"strings"
 )
 
+// navKeyboard — единый «назад»: « <имя родителя> + Главное меню.
+func navKeyboard(parentCB, parentLabel string) map[string]any {
+	if parentLabel == "" {
+		parentLabel = T("back")
+	}
+	back := parentLabel
+	if !strings.HasPrefix(back, "«") {
+		back = "« " + back
+	}
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(back, parentCB, "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
+}
+
+func parentFleet() string {
+	if getLang() != "en" {
+		return "Флот"
+	}
+	return "Fleet"
+}
+func parentNodes() string {
+	if getLang() != "en" {
+		return "Ноды"
+	}
+	return "Nodes"
+}
+func parentTools() string {
+	if getLang() != "en" {
+		return "Инструменты"
+	}
+	return "Tools"
+}
+func parentOperator() string {
+	if getLang() != "en" {
+		return "Оператор"
+	}
+	return "Operator"
+}
+func parentSites() string {
+	if getLang() != "en" {
+		return "Площадки"
+	}
+	return "Sites"
+}
+func parentRouters() string {
+	if getLang() != "en" {
+		return "Роутеры"
+	}
+	return "Routers"
+}
+
+
 func btn(text, data, style string) map[string]any {
 	b := map[string]any{"text": text, "callback_data": data}
 	if style != "" {
@@ -77,10 +129,13 @@ func fleetHubHTML() string {
 
 // operator = session / admin / audit (not day-to-day user VPN)
 func operatorKeyboard() map[string]any {
-	// Navigation only — actions in operatorHubHTML body (TG pattern).
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
+}
+
+func operatorSubKeyboard() map[string]any {
+	return navKeyboard("m:operator", parentOperator())
 }
 
 func operatorHubHTML() string {
@@ -89,17 +144,19 @@ func operatorHubHTML() string {
 	if ru {
 		title = "🛠 <b>Оператор</b>"
 	}
-	session, admin, sessions, audit, refresh := "🔑 Session", "👤 Admin", "📋 Sessions", "📜 Audit", "🔄 Refresh VPN links"
+	session, help, sessions, audit, refresh := "🔑 Session", "ℹ️ Mac Admin", "📋 Sessions", "📜 Audit", "🔄 Refresh VPN links"
 	if ru {
-		session, admin, sessions, audit, refresh = "🔑 Сессия", "👤 Admin", "📋 Сессии", "📜 Audit", "🔄 Обновить ссылки VPN"
+		session, help, sessions, audit, refresh = "🔑 Сессия", "ℹ️ Админ на Mac", "📋 Сессии", "📜 Аудит", "🔄 Обновить ссылки VPN"
 	}
 	return title + "\n" +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:admin">` + admin + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:sessions">` + sessions + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:audit">` + audit + `</tg-button>` +
+		`</tg-button-row>` +
+		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" data="m:vpn_refresh">` + refresh + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:admin">` + help + `</tg-button>` +
 		`</tg-button-row>`
 }
 
@@ -114,10 +171,12 @@ func addonsKeyboard() map[string]any {
 	}}
 }
 
+func sitesListKeyboard() map[string]any {
+	return navKeyboard("m:sites", parentSites())
+}
+
 func sitesKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("«", "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:fleet", parentFleet())
 }
 
 func sitesHubHTML() string {
@@ -130,9 +189,7 @@ func sitesHubHTML() string {
 
 
 func nodesKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("«", "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:fleet", parentFleet())
 }
 
 func nodesHubHTML() string {
@@ -141,7 +198,7 @@ func nodesHubHTML() string {
 	if ru {
 		title = "🖥 <b>Ноды</b>"
 	}
-	// Single place for fleet nodes + secondary ops (not duplicated in Tools).
+	// List/rename/SSH + secondary ops (sync/exit). Enroll/deploy — only from Mac op/TUI, not TG.
 	return title + "\n" +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:nodes_list">` + T("nodes_list_btn") + `</tg-button>` +
@@ -149,7 +206,6 @@ func nodesHubHTML() string {
 		`<tg-button type="callback_data" data="m:sshhosts">` + T("ssh_hosts") + `</tg-button>` +
 		`</tg-button-row>` +
 		`<tg-button-row align="left">` +
-		`<tg-button type="callback_data" style="primary" data="m:secondary:enroll">` + T("nodes_enroll") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:secondary:sync">` + T("nodes_sync") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:secondary:exit:menu">` + T("nodes_exit") + `</tg-button>` +
 		`</tg-button-row>`
@@ -266,16 +322,12 @@ func nodeCardKeyboard(id string) map[string]any {
 }
 
 func nodesListKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("main_menu"), "m:menu", "primary")},
-	}}
+	return navKeyboard("m:cat:nodes", parentNodes())
 }
 
 
 func nodesRenameKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("«", "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:cat:nodes", parentNodes())
 }
 
 // formatNodesRenameHTML — pick node by number (body buttons).
@@ -318,9 +370,7 @@ func formatNodesRenameHTML() string {
 
 
 func routersKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("«", "m:fleet", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	return navKeyboard("m:fleet", parentFleet())
 }
 
 func routersHubHTML() string {

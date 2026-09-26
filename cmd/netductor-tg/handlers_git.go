@@ -77,7 +77,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:git:art:` + name + `">📄</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="danger" data="m:git:del:` + name + `">🗑</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
-		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")}}})
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{{btn("« Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 		return true
 	}
 	if strings.HasPrefix(rest, "log:") {
@@ -107,7 +107,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		if err != nil {
 			msg = "⚠️ " + err.Error()
 		}
-		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:git", "")}}})
+		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("« Git", "m:git", "primary")}}})
 		return true
 	}
 	if strings.HasPrefix(rest, "pipe:") {
