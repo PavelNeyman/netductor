@@ -1,10 +1,10 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.60** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
+**Baseline:** **v0.9.62** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
 
 **Next engineering:**
-1. **Backbone WG** — [BACKBONE-WG.md](BACKBONE-WG.md) design done; implement after owner OK (service plane primary↔secondary only)
-2. **h2mux A/B** on secondary uplink
+1. **Backbone WG** — CLI v1 done ([BACKBONE-WG.md](BACKBONE-WG.md)); owner soak + `apply` on both nodes
+2. **h2mux A/B** — `uplink-mux set on|off|h2mux` (re-apply secondary box)
 3. mTLS 8789 if offline alerts recur
 4. Owner/later: hardware e2e, SMTP, mobile, CDN-XHTTP ([OPEN_ITEMS](OPEN_ITEMS.md))
 

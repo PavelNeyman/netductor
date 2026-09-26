@@ -1,6 +1,6 @@
 # Backbone WireGuard / AmneziaWG — design spike
 
-**Status:** design only (no production code yet)  
+**Status:** design + **CLI v1 implemented** (`netductor backbone …`); soak checklist still manual  
 **Related incident:** secondary→primary VLESS uplink mux timeouts while primary OS/API stayed up (2026-09)  
 **Related code today:** `internal/vpn/secondary_box.go` (uplink VLESS+mux, no vision), `internal/secondary/agent.go` (uplink probe + sing-box restart watchdog)
 
@@ -160,3 +160,30 @@ On a maintenance window:
 | 2026-09 | Uplink = VLESS+mux no vision; watchdog restart sing-box. |
 | 2026-09-26 | This doc: backbone WG default, AWG optional, service plane only. |
 
+
+
+## 12. CLI (v0.9.62+)
+
+```bash
+# on primary
+netductor backbone init-primary --endpoint PRIMARY_PUBLIC_IP
+netductor backbone export > /tmp/backbone-secondary.json
+netductor backbone apply   # needs: apt install wireguard wireguard-tools
+
+# copy JSON to secondary, then:
+netductor backbone init-secondary --file backbone-secondary.json --endpoint PRIMARY_PUBLIC_IP
+netductor backbone apply
+netductor backbone status
+```
+
+### Uplink mux A/B (secondary)
+
+```bash
+netductor uplink-mux status
+netductor uplink-mux set on      # default smux-style multiplex
+netductor uplink-mux set h2mux   # protocol h2mux
+netductor uplink-mux set off     # no multiplex
+# then regenerate secondary sing-box config and: systemctl restart sing-box
+```
+
+Env override: `NETDUCTOR_UPLINK_MUX=on|off|h2mux`.

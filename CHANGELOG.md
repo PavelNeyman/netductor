@@ -1,3 +1,9 @@
+## 0.9.62
+
+- **Backbone WG v1:** `internal/backbone`, CLI `netductor backbone init-primary|export|init-secondary|apply|status|conf`, doctor WARN/OK
+- **Uplink mux A/B:** `NETDUCTOR_UPLINK_MUX` / `uplink_mux_mode` → on|off|h2mux; `netductor uplink-mux`
+- Docs: BACKBONE-WG.md CLI section
+
 ## 0.9.61
 
 - Docs: backbone WG/AWG design spike ([docs/BACKBONE-WG.md](docs/BACKBONE-WG.md)); OPEN_ITEMS + handoff next steps

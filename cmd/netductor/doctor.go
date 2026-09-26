@@ -2,19 +2,20 @@ package main
 
 import (
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/backbone"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/PavelNeyman/netductor/internal/cli18n"
-	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/ci"
+	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/mtls"
-	"github.com/PavelNeyman/netductor/internal/registry"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/registry"
 )
 
 func detectRole() string {
@@ -106,7 +107,6 @@ func listeningLocalhost(port string) bool {
 	}
 	return false
 }
-
 
 // DoctorCheck is one health line for CLI + JSON API.
 type DoctorCheck struct {
@@ -304,6 +304,17 @@ func runDoctorNative() int {
 			doctorPrintln(cli18n.T("doctor.recovery_loopback"))
 			ok++
 		}
+		// backbone WG (optional service plane)
+		if br := backbone.Status(); br.Configured {
+			if br.IfaceUp {
+				doctorPrintf("OK backbone %s up role=%s\n", backbone.InterfaceName, br.Role)
+				ok++
+			} else {
+				doctorPrintf("WARN backbone configured but iface down role=%s\n", br.Role)
+				warn++
+			}
+		}
+
 		if mtls.ServerReady() {
 			doctorPrintln(cli18n.T("doctor.mtls_server_ok"))
 			ok++

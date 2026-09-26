@@ -11,6 +11,36 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
+// UplinkMuxMode: on (default) | off | h2mux — NETDUCTOR_UPLINK_MUX or /etc/netductor/uplink_mux_mode
+func UplinkMuxMode() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_UPLINK_MUX")); v != "" {
+		return strings.ToLower(v)
+	}
+	b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "uplink_mux_mode"))
+	if err == nil {
+		return strings.ToLower(strings.TrimSpace(string(b)))
+	}
+	return "on"
+}
+
+func uplinkMultiplexObject() map[string]any {
+	mode := UplinkMuxMode()
+	if mode == "off" || mode == "0" || mode == "false" || mode == "no" {
+		return nil
+	}
+	m := map[string]any{
+		"enabled":         true,
+		"padding":         true,
+		"max_connections": 4,
+		"min_streams":     4,
+		"max_streams":     32,
+	}
+	if mode == "h2mux" || mode == "h2" {
+		m["protocol"] = "h2mux"
+	}
+	return m
+}
+
 const RelayUplinkName = "relay-uplink"
 
 // SecondaryBundle is generated on core and consumed on RU relay VPS.
@@ -23,7 +53,7 @@ type SecondaryBundle struct {
 	CorePBK      string      `json:"core_pbk"`
 	CoreSID      string      `json:"core_sid"`
 	UplinkUUID   string      `json:"uplink_uuid"`
-	SecondarySNI     string      `json:"relay_sni"`
+	SecondarySNI string      `json:"relay_sni"`
 	Users        []RelayUser `json:"users"`
 	AgentToken   string      `json:"agent_token,omitempty"`
 	AgentID      string      `json:"agent_id,omitempty"`
@@ -81,17 +111,17 @@ func ExportSecondaryBundle(relaySNI string) (*SecondaryBundle, error) {
 		users = append(users, RelayUser{Name: u.Name, UUID: u.UUID})
 	}
 	b := &SecondaryBundle{
-		Version:    1,
-		CreatedAt:  time.Now().UTC().Format(time.RFC3339),
-		CoreIP:     publicIP(),
-		CoreVless:  vlessPort(),
-		CoreSNI:    sni(),
-		CorePBK:    secret("singbox_reality_public"),
-		CoreSID:    secret("singbox_short_id"),
-		UplinkUUID: up,
-		SecondarySNI:   relaySNI,
-		Users:      users,
-		ExitPort:   4443,
+		Version:      1,
+		CreatedAt:    time.Now().UTC().Format(time.RFC3339),
+		CoreIP:       publicIP(),
+		CoreVless:    vlessPort(),
+		CoreSNI:      sni(),
+		CorePBK:      secret("singbox_reality_public"),
+		CoreSID:      secret("singbox_short_id"),
+		UplinkUUID:   up,
+		SecondarySNI: relaySNI,
+		Users:        users,
+		ExitPort:     4443,
 	}
 	// dedicated UUID for core→RU exit feeder
 	if eu := secret("secondary_exit_uuid"); eu != "" {
@@ -170,6 +200,25 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 	// Everything else from relay-in goes uplink → core (foreign exit).
 	// Clients abroad can use exit-in (4443) for RU-IP egress when toggled on.
 	ruSuffixes := RuDirectSuffixes()
+	uplink := map[string]any{
+		"type": "vless", "tag": "uplink",
+		"server": b.CoreIP, "server_port": b.CoreVless,
+		// no vision: required for multiplex (vision ⊕ mux unsupported)
+		"uuid":            b.UplinkUUID,
+		"domain_resolver": "quad9",
+		"tls": map[string]any{
+			"enabled": true, "server_name": b.CoreSNI,
+			"utls": map[string]any{"enabled": true, "fingerprint": "firefox"},
+			"reality": map[string]any{
+				"enabled":    true,
+				"public_key": b.CorePBK,
+				"short_id":   b.CoreSID,
+			},
+		},
+	}
+	if mx := uplinkMultiplexObject(); mx != nil {
+		uplink["multiplex"] = mx
+	}
 	cfg := map[string]any{
 		"log": map[string]any{"level": "info", "timestamp": true},
 		"dns": map[string]any{
@@ -187,30 +236,7 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		},
 		"inbounds": inbounds,
 		"outbounds": []any{
-			map[string]any{
-				"type": "vless", "tag": "uplink",
-				"server": b.CoreIP, "server_port": b.CoreVless,
-				// no vision: required for multiplex (vision ⊕ mux unsupported)
-				"uuid": b.UplinkUUID,
-				"domain_resolver": "quad9",
-				"tls": map[string]any{
-					"enabled": true, "server_name": b.CoreSNI,
-					"utls":    map[string]any{"enabled": true, "fingerprint": "firefox"},
-					"reality": map[string]any{
-						"enabled":    true,
-						"public_key": b.CorePBK,
-						"short_id":   b.CoreSID,
-					},
-				},
-				// fewer TCP handshakes across lossy RU→abroad path
-				"multiplex": map[string]any{
-					"enabled": true,
-					"padding": true,
-					"max_connections": 4,
-					"min_streams": 4,
-					"max_streams": 32,
-				},
-			},
+			uplink,
 			map[string]any{"type": "direct", "tag": "direct"},
 			map[string]any{"type": "block", "tag": "block"},
 		},
