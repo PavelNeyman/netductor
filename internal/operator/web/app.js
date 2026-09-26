@@ -50,6 +50,10 @@ en:{
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
   b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
+  l_dns_id:'list id', l_dns_en:'enabled', b_dns_set:'Set list', b_dns_on:'on', b_dns_off:'off',
+  l_bak_hour:'hour (0-23)', l_bak_min:'minute (0-59)', l_bak_tz:'timezone', b_bak_save:'Save schedule',
+  l_git_repo:'repo', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'artifact path',
+  b_git_run:'Run pipeline', b_git_init:'Init repo', b_git_log:'Log', b_git_show:'Show', b_git_art:'Get artifact',
   b_nodes:'Nodes', b_self:'Self', b_sec_st:'Secondary status', b_sec_links:'Secondary links',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'SSH hosts clear', b_mtls:'mTLS certs', b_sites:'Sites',
   b_hostname:'Set hostname', b_svc_restart:'Restart service', b_journal:'Journal',
@@ -89,6 +93,10 @@ ru:{
   b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'Список users', b_vpn_refresh:'Обновить ссылки',
   b_vpn_add:'Добавить user', b_vpn_enable:'Включить', b_vpn_disable:'Выключить', b_vpn_revoke:'Отозвать', b_vpn_link:'Ссылки',
+  l_dns_id:'id списка', l_dns_en:'вкл', b_dns_set:'Применить', b_dns_on:'вкл', b_dns_off:'выкл',
+  l_bak_hour:'час (0-23)', l_bak_min:'мин (0-59)', l_bak_tz:'часовой пояс', b_bak_save:'Сохранить расписание',
+  l_git_repo:'репо', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'путь артефакта',
+  b_git_run:'Запуск pipeline', b_git_init:'Init репо', b_git_log:'Log', b_git_show:'Show', b_git_art:'Артефакт',
   b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты',
   b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
@@ -504,15 +512,15 @@ function mountButtons(){
     }
     // append forms for complex POSTs
         if(sec==='dns'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>list id</label><input id="dnsId" placeholder="adguard"/></div>
-      <div><label>enabled</label><select id="dnsOn"><option value="1">on</option><option value="0">off</option></select></div></div>
-      <button class="primary" type="button" data-act="dns-set">Set list</button>`;
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_dns_id')}</label><input id="dnsId" placeholder="adguard"/></div>
+      <div><label>${t('l_dns_en')}</label><select id="dnsOn"><option value="1">${t('b_dns_on')}</option><option value="0">${t('b_dns_off')}</option></select></div></div>
+      <button class="primary" type="button" data-act="dns-set">${t('b_dns_set')}</button>`;
     }
     if(sec==='backup'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>hour (0-23)</label><input id="bakHour" type="number" min="0" max="23" value="1"/></div>
-      <div><label>minute (0-59)</label><input id="bakMin" type="number" min="0" max="59" value="0"/></div></div>
-      <div class="row"><div><label>timezone</label><select id="bakUtc"><option value="1">UTC</option><option value="0">local</option></select></div><div></div></div>
-      <button class="primary" type="button" data-act="backup-schedule-set">Save schedule</button>`;
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_bak_hour')}</label><input id="bakHour" type="number" min="0" max="23" value="1"/></div>
+      <div><label>${t('l_bak_min')}</label><input id="bakMin" type="number" min="0" max="59" value="0"/></div></div>
+      <div class="row"><div><label>${t('l_bak_tz')}</label><select id="bakUtc"><option value="1">UTC</option><option value="0">local</option></select></div><div></div></div>
+      <button class="primary" type="button" data-act="backup-schedule-set">${t('b_bak_save')}</button>`;
     }
     if(sec==='vpn'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>
@@ -578,16 +586,16 @@ function mountButtons(){
       <button class="primary" type="button" data-act="nvr-motion">Motion cfg GET/POST via adv</button>`;
     }
     if(sec==='git'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>repo</label><input id="gitRepo" placeholder="my-repo"/></div>
-      <div><label>pipeline</label><input id="gitPipe" placeholder="build.yml"/></div></div>
-      <button class="primary" type="button" data-act="git-run">Run pipeline</button>
-      <button class="primary" type="button" data-act="git-init">Init repo</button>
-      <div class="row"><div><label>repo (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
-      <div><label>rev / path</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
-      <button class="primary" type="button" data-act="git-log">Log</button>
-      <button class="primary" type="button" data-act="git-show">Show</button>
-      <div class="row"><div><label>artifact path</label><input id="gitArtPath" placeholder="build/out.bin"/></div><div></div></div>
-      <button class="primary" type="button" data-act="git-artifact">Get artifact</button>`;
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_git_repo')}</label><input id="gitRepo" placeholder="my-repo"/></div>
+      <div><label>${t('l_git_pipe')}</label><input id="gitPipe" placeholder="build.yml"/></div></div>
+      <button class="primary" type="button" data-act="git-run">${t('b_git_run')}</button>
+      <button class="primary" type="button" data-act="git-init">${t('b_git_init')}</button>
+      <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
+      <div><label>${t('l_git_rev')}</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
+      <button class="primary" type="button" data-act="git-log">${t('b_git_log')}</button>
+      <button class="primary" type="button" data-act="git-show">${t('b_git_show')}</button>
+      <div class="row"><div><label>${t('l_git_art')}</label><input id="gitArtPath" placeholder="build/out.bin"/></div><div></div></div>
+      <button class="primary" type="button" data-act="git-artifact">${t('b_git_art')}</button>`;
     }
     el.innerHTML=h;
   }

@@ -1,3 +1,9 @@
+## 0.9.39
+
+- Web Control: EN/RU labels for DNS, backup schedule, Git forms
+- TG Tools catalog: DNS section label; registry ensure/crane/stop/catalog rich HTML
+- Docs handoff polish
+
 ## 0.9.38
 
 - TG SSH hosts: delete/clear/forget in body; keyboard nav only

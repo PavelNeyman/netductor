@@ -35,30 +35,30 @@ func handleRegistryCallback(token string, chat int64, msgID int, data string) bo
 	switch data {
 	case "m:registry:ensure":
 		st, err := registry.Ensure()
-		msg := "ok " + st.Addr
+		msg := "✅ <b>Ensure</b>\n<code>" + esc(st.Addr) + "</code>"
 		if err != nil {
-			msg = "err: " + err.Error()
+			msg = "❌ <b>Ensure</b>\n<pre>" + esc(err.Error()) + "</pre>"
 		}
 		reply(token, chat, msgID, msg, back)
 	case "m:registry:crane":
-		p, err := registry.EnsureCrane()
-		msg := p
+		path, err := registry.EnsureCrane()
+		msg := "✅ <b>Crane</b>\n<code>" + esc(path) + "</code>"
 		if err != nil {
-			msg = err.Error()
+			msg = "❌ <b>Crane</b>\n<pre>" + esc(err.Error()) + "</pre>"
 		}
 		reply(token, chat, msgID, msg, back)
 	case "m:registry:stop":
 		err := registry.Stop()
-		msg := "stopped"
+		msg := "✅ <b>Registry stopped</b>"
 		if err != nil {
-			msg = err.Error()
+			msg = "❌ <b>Stop</b>\n<pre>" + esc(err.Error()) + "</pre>"
 		}
 		reply(token, chat, msgID, msg, back)
 	case "m:registry:catalog":
 		list, err := registry.CatalogDetail()
-		msg := "(empty)"
+		msg := "📋 <b>Catalog</b>\n<i>(empty)</i>"
 		if err != nil {
-			msg = err.Error()
+			msg = "❌ <b>Catalog</b>\n<pre>" + esc(err.Error()) + "</pre>"
 		} else if len(list) > 0 {
 			var lines []string
 			for _, r := range list {
@@ -68,7 +68,7 @@ func handleRegistryCallback(token string, chat int64, msgID int, data string) bo
 				}
 				lines = append(lines, line)
 			}
-			msg = "<pre>" + esc(strings.Join(lines, "\n")) + "</pre>"
+			msg = "📋 <b>Catalog</b>\n<pre>" + esc(strings.Join(lines, "\n")) + "</pre>"
 		}
 		reply(token, chat, msgID, msg, back)
 	default:

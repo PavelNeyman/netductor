@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/format"
@@ -55,6 +55,8 @@ func toolsKeyboard() map[string]any {
 			} else {
 				label = "Backup"
 			}
+		case "dns":
+			label = "DNS"
 		case "probes":
 			label = "Probes"
 		}
@@ -207,7 +209,6 @@ func opcatalogGetSection(id string) (string, bool) {
 	}
 	return a.Section, true
 }
-
 
 // replyCatalog prefers editRich; on failure sends a new rich message (keeps tables).
 func replyCatalog(token string, chat int64, msgID int, html string, kb map[string]any) {
