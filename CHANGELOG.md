@@ -1,3 +1,8 @@
+## 0.9.41
+
+- TG: Guest VPN, Edge Guest Wi‑Fi, mTLS, Locations add, Updates, Sessions, Secondary — body actions (DNS/Users style)
+- EN/RU labels for those screens; keyboard = navigation only
+
 ## 0.9.40
 
 - Full code/security review: [docs/REVIEW-0.9.39.md](docs/REVIEW-0.9.39.md)

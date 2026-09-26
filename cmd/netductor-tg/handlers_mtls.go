@@ -5,29 +5,32 @@ import (
 )
 
 func handleMtlsCB(token string, chat int64, msgID int, data string) {
-	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("mtls_list"), "m:mtls:list", "")},
-		{btn(T("mtls_rotate_hint"), "m:mtls:rotate", "")},
-		{btn(T("mtls_rollover_status"), "m:mtls:rollover", "")},
-		{btn(T("main_menu"), "m:menu", "primary")},
+	nav := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
 	}}
+	bodyActions := `<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="link" data="m:mtls:list">` + T("mtls_list") + `</tg-button>` +
+		`<tg-button type="callback_data" style="link" data="m:mtls:rotate">` + T("mtls_rotate_hint") + `</tg-button>` +
+		`<tg-button type="callback_data" style="link" data="m:mtls:rollover">` + T("mtls_rollover_status") + `</tg-button>` +
+		`</tg-button-row>`
+
 	if data == "m:mtls" || data == "m:mtls:" {
-		reply(token, chat, msgID, T("mtls_title"), kb)
+		reply(token, chat, msgID, T("mtls_title")+"\n"+bodyActions, nav)
 		return
 	}
 	if data == "m:mtls:list" {
 		out := runND("mtls", "list")
-		reply(token, chat, msgID, T("mtls_title")+"\n<pre>"+esc(out)+"</pre>", kb)
+		reply(token, chat, msgID, T("mtls_title")+"\n<pre>"+esc(out)+"</pre>\n"+bodyActions, nav)
 		return
 	}
 	if data == "m:mtls:rotate" {
 		setState(chat, "wait_mtls_rotate", "")
-		reply(token, chat, msgID, T("mtls_rotate_hint"), kb)
+		reply(token, chat, msgID, T("mtls_rotate_hint")+"\n"+bodyActions, nav)
 		return
 	}
 	if data == "m:mtls:rollover" {
 		out := runND("mtls", "rollover", "status")
-		reply(token, chat, msgID, T("mtls_title")+"\n<pre>"+esc(out)+"</pre>", kb)
+		reply(token, chat, msgID, T("mtls_title")+"\n<pre>"+esc(out)+"</pre>\n"+bodyActions, nav)
 		return
 	}
 }

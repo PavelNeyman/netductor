@@ -13,65 +13,90 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 		return false
 	}
 	ru := getLang() != "en"
+	nav := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
+	}}
+
 	if data == "m:edgeguest" {
 		devs := edge.ListDevices()
-		var rows [][]map[string]any
+		var ids []string
+		var statuses []string
 		for _, d := range devs {
 			id := d.DeviceID
 			if id == "" {
 				continue
 			}
-			label := id
-			if d.Status != "" {
-				label = id + " · " + d.Status
-			}
-			rows = append(rows, []map[string]any{btn(label, "m:edgeguest:dev:"+id, "")})
+			ids = append(ids, id)
+			statuses = append(statuses, d.Status)
 		}
-		if len(rows) == 0 {
-			msg := "Нет edge-устройств"
-			if !ru {
-				msg = "No edge devices"
+		var b strings.Builder
+		if ru {
+			b.WriteString("📡 <b>Guest Wi‑Fi на роутере</b>\nВыберите устройство:\n")
+		} else {
+			b.WriteString("📡 <b>Router guest Wi‑Fi</b>\nPick a device:\n")
+		}
+		if len(ids) == 0 {
+			if ru {
+				b.WriteString("<i>Нет edge-устройств</i>")
+			} else {
+				b.WriteString("<i>No edge devices</i>")
 			}
-			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn(T("main_menu"), "m:menu", "primary")},
-			}})
+			reply(token, chat, msgID, b.String(), nav)
 			return true
 		}
-		rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
-		title := "📡 <b>Guest Wi‑Fi на роутере</b>\nВыберите устройство:"
-		if !ru {
-			title = "📡 <b>Router guest Wi‑Fi</b>\nPick a device:"
+		b.WriteString("<table bordered striped compact>\n<tr><th>#</th><th>id</th><th>st</th></tr>\n")
+		for i, id := range ids {
+			if i >= 12 {
+				break
+			}
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%s</td></tr>\n", i+1, esc(id), esc(statuses[i])))
 		}
-		reply(token, chat, msgID, title, map[string]any{"inline_keyboard": rows})
+		b.WriteString("</table>\n")
+		b.WriteString(`<tg-button-row align="left">`)
+		for i, id := range ids {
+			if i >= 12 {
+				break
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:edgeguest:dev:%s">%d</tg-button>`, id, i+1))
+		}
+		b.WriteString(`</tg-button-row>`)
+		reply(token, chat, msgID, b.String(), nav)
 		return true
 	}
 	rest := strings.TrimPrefix(data, "m:edgeguest:")
 	if strings.HasPrefix(rest, "dev:") {
 		id := strings.TrimPrefix(rest, "dev:")
-		title := fmt.Sprintf("📡 <b>%s</b>", id)
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("📊 Status", "m:edgeguest:st:"+id, ""), btn("⏱ Grant", "m:edgeguest:g:"+id, "")},
-			{btn("«", "m:edgeguest", ""), btn(T("main_menu"), "m:menu", "primary")},
-		}}
-		reply(token, chat, msgID, title, kb)
+		var b strings.Builder
+		b.WriteString(fmt.Sprintf("📡 <b>%s</b>\n", esc(id)))
+		stLabel, grLabel := "📊 Status", "⏱ Grant"
+		if ru {
+			stLabel, grLabel = "📊 Статус", "⏱ Выдать"
+		}
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:edgeguest:st:%s">%s</tg-button>`, id, stLabel))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="m:edgeguest:g:%s">%s</tg-button>`, id, grLabel))
+		b.WriteString(`</tg-button-row>`)
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("«", "m:edgeguest", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}})
 		return true
 	}
 	if strings.HasPrefix(rest, "st:") {
 		id := strings.TrimPrefix(rest, "st:")
 		cid := edge.EnqueueCmd(id, "guest_status", "")
 		if cid == "" {
-			msg := "Не удалось поставить в очередь (устройство не approved?)"
-			if !ru {
-				msg = "Enqueue failed (device not approved?)"
+			msg := "Enqueue failed (device not approved?)"
+			if ru {
+				msg = "Не удалось поставить в очередь (устройство не approved?)"
 			}
 			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{
 				{btn("«", "m:edgeguest:dev:"+id, "")},
 			}})
 			return true
 		}
-		waitMsg := "⏳ Ждём ответ агента (до ~90с)…"
-		if !ru {
-			waitMsg = "⏳ Waiting for agent (up to ~90s)…"
+		waitMsg := "⏳ Waiting for agent (up to ~90s)…"
+		if ru {
+			waitMsg = "⏳ Ждём ответ агента (до ~90с)…"
 		}
 		reply(token, chat, msgID, waitMsg+"\n<code>"+esc(cid)+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("«", "m:edgeguest:dev:"+id, "")},
@@ -82,7 +107,7 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 	if strings.HasPrefix(rest, "g:") {
 		id := strings.TrimPrefix(rest, "g:")
 		setState(chat, "wait_edgeguest_grant", id)
-		msg := "Send: <code>CODE minutes</code> e.g. <code>7K2 10</code> (max 1440)."
+		msg := "Enter: <code>CODE minutes</code>, e.g. <code>7K2 10</code> (max 1440)."
 		if ru {
 			msg = "Введите: <code>КОД минуты</code>, например <code>7K2 10</code> (макс 1440)."
 		}
@@ -127,11 +152,10 @@ func handleEdgeGuestText(token string, chat int64, text string) bool {
 		reply(token, chat, 0, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:edgeguest:dev:"+id, "")}}})
 		return true
 	}
-	waitMsg := fmt.Sprintf("⏳ Grant %s (%dm)… ждём агент", esc(code), mins)
-	if !ru {
-		waitMsg = fmt.Sprintf("⏳ Grant %s (%dm)… waiting agent", esc(code), mins)
+	waitMsg := fmt.Sprintf("⏳ Grant %s (%dm)… waiting agent", esc(code), mins)
+	if ru {
+		waitMsg = fmt.Sprintf("⏳ Grant %s (%dm)… ждём агент", esc(code), mins)
 	}
-	// msgID 0 → new message; still poll result
 	reply(token, chat, 0, waitMsg+"\n<code>"+esc(cid)+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{{btn("«", "m:edgeguest:dev:"+id, "")}}})
 	go waitAndReplyEdgeCmd(token, chat, 0, cid, id, ru)
 	return true
@@ -143,9 +167,9 @@ func waitAndReplyEdgeCmd(token string, chat int64, msgID int, cid, deviceID stri
 		{btn("«", "m:edgeguest:dev:"+deviceID, ""), btn(T("main_menu"), "m:menu", "primary")},
 	}}
 	if err != nil {
-		msg := "⏱ Таймаут: агент не ответил за 90с. Проверьте online / heartbeat."
-		if !ru {
-			msg = "⏱ Timeout: no agent result in 90s. Check online/heartbeat."
+		msg := "⏱ Timeout: no agent result in 90s. Check online/heartbeat."
+		if ru {
+			msg = "⏱ Таймаут: агент не ответил за 90с. Проверьте online / heartbeat."
 		}
 		reply(token, chat, msgID, msg, kb)
 		return
@@ -157,9 +181,9 @@ func waitAndReplyEdgeCmd(token string, chat int64, msgID int, cid, deviceID stri
 	if out == "" {
 		out = fmt.Sprintf("%v", res)
 	}
-	title := "✅ Результат"
-	if !ru {
-		title = "✅ Result"
+	title := "✅ Result"
+	if ru {
+		title = "✅ Результат"
 	}
 	body := title + "\n<pre>" + esc(truncateRunes(out, 3500)) + "</pre>"
 	reply(token, chat, msgID, body, kb)

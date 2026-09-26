@@ -1,6 +1,6 @@
 # Agent handoff — netductor
 
-**Baseline:** **v0.9.40** · day-2 UI parity closed · last full review: [REVIEW-0.9.39.md](REVIEW-0.9.39.md)
+**Baseline:** **v0.9.41** · TG body-pattern complete (0.9.41) · day-2 parity · last full review: [REVIEW-0.9.39.md](REVIEW-0.9.39.md)
 
 **Next engineering:** owner/later (hardware e2e, SMTP, mobile); CDN-XHTTP idea only ([OPEN_ITEMS](OPEN_ITEMS.md)). Do not reopen closed day-2 parity work unless regressing.
 

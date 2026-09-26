@@ -12,7 +12,7 @@ func formatRelayListHTML() string {
 	ex := strings.TrimSpace(runND("secondary", "exit"))
 	nl := string([]byte{10})
 	body := formatNodesListHTML()
-	return "📡 <b>Nodes / secondary</b>" + nl + "RU exit: <code>" + esc(ex) + "</code>" + nl + nl + body
+	return "📡 <b>Nodes / secondary</b>" + nl + "RU exit: <code>" + esc(ex) + "</code>" + nl + nl + body + nl + formatRelayActionsHTML()
 }
 
 
@@ -235,6 +235,7 @@ func formatCmdQueuedHTML(kind, nodeID, raw string) string {
 	b.WriteString("<tr><td>status</td><td>queued</td></tr>" + nl)
 	b.WriteString("</table>" + nl)
 	b.WriteString("<i>" + T("cmd_wait_hint") + "</i>")
+		b.WriteString(formatRelayActionsHTML())
 	return b.String()
 }
 

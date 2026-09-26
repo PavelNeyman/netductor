@@ -22,7 +22,7 @@
 
 ## Still on keyboard (debt)
 
-None material for day-2 hubs (0.9.38). Product pickers that need free-text still use wait-state messages.
+None material (0.9.41). Free-text wait-states only (grant code, rename, mtls rotate node).
 
 
 ## 0.9.30

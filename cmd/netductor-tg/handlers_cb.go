@@ -342,7 +342,12 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, T("ru_exit_help"), relayKeyboard())
 	case "m:relay:exit:on", "m:secondary:exit:on":
 		out := runND("secondary", "exit", "on")
-		reply(token, chat, msgID, "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Трафик с core уходит через РФ (доступ к RU-сервисам из-за границы)</i>", relayKeyboard())
+		reply(token, chat, msgID, func() string {
+			if getLang() != "en" {
+				return "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Трафик с core уходит через РФ</i>"+string([]byte{10})+formatRelayActionsHTML()
+			}
+			return "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Core traffic exits via RU</i>"+string([]byte{10})+formatRelayActionsHTML()
+		}(), relayKeyboard())
 	case "m:relay:exit:off", "m:secondary:exit:off":
 		out := runND("secondary", "exit", "off")
 		reply(token, chat, msgID, "✈️ <b>RU exit OFF</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>", relayKeyboard())
@@ -385,14 +390,31 @@ if strings.HasPrefix(data, "u:") {
 		if strings.TrimSpace(out) == "" {
 			out = "(none)"
 		}
-		reply(token, chat, msgID, "🔑 <b>Sessions</b>\n<pre>"+esc(out)+"</pre>",
-			map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("🗑 Revoke all", "m:sessions:revoke", "danger")},
-				{btn(T("main_menu"), "m:menu", "")},
-			}})
+		ru := getLang() != "en"
+		title := "🔑 <b>Sessions</b>\n<pre>" + esc(out) + "</pre>\n"
+		rev := "🗑 Revoke all"
+		if ru {
+			title = "🔑 <b>Сессии</b>\n<pre>" + esc(out) + "</pre>\n"
+			rev = "🗑 Отозвать все"
+		}
+		title += `<tg-button-row align="left"><tg-button type="callback_data" style="danger" data="m:sessions:revoke">` + rev + `</tg-button></tg-button-row>`
+		reply(token, chat, msgID, title, map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn(T("main_menu"), "m:menu", "primary")},
+		}})
 	case "m:sessions:revoke":
 		_ = runND("vpn", "session", "revoke-all")
-		reply(token, chat, msgID, "✅ revoked all sessions", mainKeyboard())
+		msg := "✅ revoked all sessions"
+		if getLang() != "en" {
+			msg = "✅ все сессии отозваны"
+		}
+		// re-show list pattern
+		out := runND("vpn", "session", "list")
+		if strings.TrimSpace(out) == "" {
+			out = "(none)"
+		}
+		reply(token, chat, msgID, msg+"\n<pre>"+esc(out)+"</pre>", map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn(T("sessions"), "m:sessions", ""), btn(T("main_menu"), "m:menu", "primary")},
+		}})
 	case "m:vpn_rename":
 		setState(chat, "wait_vpn_rename", "")
 		reply(token, chat, msgID, T("vpn_rename_hint"), backKeyboard())

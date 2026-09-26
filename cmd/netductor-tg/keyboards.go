@@ -22,14 +22,23 @@ func btnCopy(text, copyPayload string) map[string]any {
 }
 
 func relayKeyboard() map[string]any {
-	// nested under Nodes — same actions, back goes to nodes
+	// Navigation only — actions in secondary body (formatRelayActionsHTML).
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(T("nodes_enroll"), "m:secondary:enroll", "primary")},
-		{btn(T("relay_exit_on"), "m:secondary:exit:on", "success"), btn(T("relay_exit_off"), "m:secondary:exit:off", "danger")},
-		{btn(T("relay_sync"), "m:secondary:sync", ""), btn(T("nodes"), "m:cat:nodes", "primary")},
-		{btn(T("main_menu"), "m:menu", "")},
+		{btn(T("nodes"), "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 }
+
+func formatRelayActionsHTML() string {
+	return `<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:secondary:enroll">` + T("nodes_enroll") + `</tg-button>` +
+		`</tg-button-row>` +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="success" data="m:secondary:exit:on">` + T("relay_exit_on") + `</tg-button>` +
+		`<tg-button type="callback_data" style="danger" data="m:secondary:exit:off">` + T("relay_exit_off") + `</tg-button>` +
+		`<tg-button type="callback_data" style="link" data="m:secondary:sync">` + T("relay_sync") + `</tg-button>` +
+		`</tg-button-row>`
+}
+
 
 func mainKeyboard() map[string]any {
 	// Flat top: 4 clear areas. No VPN-tools duplicate.

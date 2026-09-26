@@ -19,16 +19,18 @@ import (
 func handleGuestCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	if data == "m:guest" {
-		title := "⏱ <b>Гостевой доступ</b>\nОбщий пользователь <code>guest</code>. Выберите срок:"
+		title := "⏱ <b>Гостевой доступ</b>\nОбщий пользователь <code>guest</code>. Выберите срок:\n"
 		if !ru {
-			title = "⏱ <b>Guest access</b>\nShared user <code>guest</code>. Choose TTL:"
+			title = "⏱ <b>Guest access</b>\nShared user <code>guest</code>. Choose TTL:\n"
 		}
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("10 мин", "m:guest:10m", ""), btn("1 час", "m:guest:1h", "")},
-			{btn("24 ч", "m:guest:24h", ""), btn("7 дн", "m:guest:7d", "")},
+		if ru {
+			title += `<tg-button-row align="left"><tg-button type="callback_data" style="link" data="m:guest:10m">10 мин</tg-button><tg-button type="callback_data" style="link" data="m:guest:1h">1 ч</tg-button><tg-button type="callback_data" style="link" data="m:guest:24h">24 ч</tg-button><tg-button type="callback_data" style="link" data="m:guest:7d">7 дн</tg-button></tg-button-row>`
+		} else {
+			title += `<tg-button-row align="left"><tg-button type="callback_data" style="link" data="m:guest:10m">10m</tg-button><tg-button type="callback_data" style="link" data="m:guest:1h">1h</tg-button><tg-button type="callback_data" style="link" data="m:guest:24h">24h</tg-button><tg-button type="callback_data" style="link" data="m:guest:7d">7d</tg-button></tg-button-row>`
+		}
+		reply(token, chat, msgID, title, map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn(T("main_menu"), "m:menu", "primary")},
-		}}
-		reply(token, chat, msgID, title, kb)
+		}})
 		return
 	}
 	ttl := time.Hour
@@ -309,15 +311,14 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 				b.WriteString("<i>Empty — add a location.</i>\n")
 			}
 		}
-		addH, addO := "➕ Дом", "➕ Офис"
-		if !ru {
-			addH, addO = "➕ Home", "➕ Office"
+		if ru {
+			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:loc:add:home">➕ Дом</tg-button><tg-button type="callback_data" style="link" data="m:loc:add:office">➕ Офис</tg-button></tg-button-row>`)
+		} else {
+			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:loc:add:home">➕ Home</tg-button><tg-button type="callback_data" style="link" data="m:loc:add:office">➕ Office</tg-button></tg-button-row>`)
 		}
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn(addH, "m:loc:add:home", "primary"), btn(addO, "m:loc:add:office", "")},
-			{btn(T("main_menu"), "m:menu", "")},
-		}}
-		reply(token, chat, msgID, b.String(), kb)
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn(T("main_menu"), "m:menu", "primary")},
+		}})
 		return
 	}
 	if strings.HasPrefix(data, "m:loc:open:") {
@@ -334,7 +335,11 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 	if strings.HasPrefix(data, "m:loc:rename:") {
 		id := strings.TrimPrefix(data, "m:loc:rename:")
 		setState(chat, "wait_loc_rename:"+id, "")
-		reply(token, chat, msgID, "Новое имя для <code>"+esc(id)+"</code>:", map[string]any{"inline_keyboard": [][]map[string]any{
+		rnMsg := "Новое имя для <code>"+esc(id)+"</code>:"
+		if !ru {
+			rnMsg = "New name for <code>"+esc(id)+"</code>:"
+		}
+		reply(token, chat, msgID, rnMsg, map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("📍", "m:loc:open:"+id, ""), btn(T("main_menu"), "m:menu", "")},
 		}})
 		return
@@ -489,14 +494,14 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	} else {
 		b.WriteString("<i>OpenWrt agents: point update via agent_update (no auto-rollout).</i>\n")
 	}
-	upLabel := "⬆ Update primary"
 	if ru {
-		upLabel = "⬆ Обновить primary"
+		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Обновить primary</tg-button></tg-button-row>`)
+	} else {
+		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Update primary</tg-button></tg-button-row>`)
 	}
-	kb := map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(upLabel, "m:updates:self", "primary")},
-		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "")},
-	}}
-	reply(token, chat, msgID, b.String(), kb)
+	reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("🧰 Tools", "m:tools", ""), btn(T("main_menu"), "m:menu", "primary")},
+	}})
 }
+
 
