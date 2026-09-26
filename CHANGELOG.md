@@ -1,3 +1,8 @@
+## 0.9.55
+
+- formatProbes table; role core→primary display + List normalize
+- docs/PATHS.md: /opt/netductor/bin is truth
+
 ## 0.9.54
 
 - TG nav dedupe: Status slim; Tools ops-only; Nodes without Backup; ops redirects

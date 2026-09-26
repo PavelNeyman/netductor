@@ -110,7 +110,7 @@ func formatNodeCardHTML(c nodeCard) string {
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
-	b.WriteString("<tr><td>role</td><td>" + esc(role) + "</td></tr>" + nl)
+	b.WriteString("<tr><td>role</td><td>" + esc(displayRole(role)) + "</td></tr>" + nl)
 	b.WriteString("<tr><td>id</td><td>" + esc(idShort) + "</td></tr>" + nl)
 	if c.IP != "" {
 		b.WriteString("<tr><td>ip</td><td>" + esc(c.IP) + "</td></tr>" + nl)
@@ -158,7 +158,7 @@ func loadNodeCard(id string) nodeCard {
 	if c.Role == "" {
 		c.Role = nodeRole(id)
 	}
-	isRelay := c.Role == "secondary" || strings.HasPrefix(id, "secondary-")
+	isRelay := displayRole(c.Role) == "secondary" || strings.HasPrefix(id, "secondary-") || strings.HasPrefix(id, "relay-")
 	if isRelay {
 		detail := runND("secondary", "device", id)
 		for _, dl := range strings.Split(detail, "\n") {
@@ -231,7 +231,7 @@ func formatCmdQueuedHTML(kind, nodeID, raw string) string {
 	b.WriteString("<table bordered striped>" + nl)
 	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
 	b.WriteString("<tr><td>node</td><td>" + esc(host) + "</td></tr>" + nl)
-	b.WriteString("<tr><td>role</td><td>" + esc(c.Role) + "</td></tr>" + nl)
+	b.WriteString("<tr><td>role</td><td>" + esc(displayRole(c.Role)) + "</td></tr>" + nl)
 	b.WriteString("<tr><td>status</td><td>queued</td></tr>" + nl)
 	b.WriteString("</table>" + nl)
 	b.WriteString("<i>" + T("cmd_wait_hint") + "</i>")

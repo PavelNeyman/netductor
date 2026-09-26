@@ -11,7 +11,7 @@ import (
 )
 
 // Node control-plane binary (VPS). No deploy/TUI/operator serve.
-var version = "0.9.54"
+var version = "0.9.55"
 
 func main() {
 	ndconfig.Load()

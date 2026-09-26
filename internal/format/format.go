@@ -48,8 +48,10 @@ func API(actionID string, raw []byte, lang string) Result {
 		return formatMetricsHist(v, ru)
 	case "latest":
 		return formatMetrics(v, ru)
+	case "probes":
+		return formatProbes(v, ru)
 	case "nodes", "nodes-self", "sites", "edge-devices", "edge-pending", "git-repos",
-		"sessions", "ssh-hosts", "addons", "sni", "sni-presets", "probes", "probes-cfg",
+		"sessions", "ssh-hosts", "addons", "sni", "sni-presets", "probes-cfg",
 		"audit", "mtls-certs", "secondary", "secondary-links", "edge-metrics",
 		"nvr-config", "nvr-storage", "nvr-events", "nvr-segments", "git-pipelines",
 		"reg-status", "backup-peer", "sec-export", "probes-uptime":
@@ -459,6 +461,64 @@ func formatFlatMap(action, emoji string, v any, ru bool) Result {
 }
 
 // formatSmart: arrays → table of items; objects → key/value (nested summarized).
+
+func formatProbes(v any, ru bool) Result {
+	title := "📡 Probes"
+	if ru {
+		title = "📡 Пробы"
+	}
+	var list []any
+	if m, ok := v.(map[string]any); ok {
+		if a, ok := m["probes"].([]any); ok {
+			list = a
+		}
+	}
+	if list == nil {
+		if a, ok := v.([]any); ok {
+			list = a
+		}
+	}
+	var b strings.Builder
+	b.WriteString("<b>" + title + "</b><br>")
+	if len(list) == 0 {
+		b.WriteString("<i>—</i>")
+		return Result{HTML: b.String(), Text: "probes"}
+	}
+	b.WriteString("<table bordered striped compact><tr><th>#</th><th>name</th><th>ok</th><th>ms</th><th>info</th></tr>")
+	for i, item := range list {
+		im, _ := asMap(item)
+		if im == nil {
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td colspan=\"4\">%s</td></tr>", i+1, cellValue(item)))
+			continue
+		}
+		name := fmt.Sprint(im["name"])
+		if name == "" || name == "<nil>" {
+			name = fmt.Sprint(im["id"])
+		}
+		ok := im["ok"] == true
+		icon := "🔴"
+		if ok {
+			icon = "🟢"
+		}
+		ms := "—"
+		if im["ms"] != nil {
+			ms = fmt.Sprintf("%.0f", asFloat(im["ms"]))
+		}
+		info := ""
+		if im["error"] != nil {
+			info = esc(truncate(fmt.Sprint(im["error"]), 80))
+		} else if im["code"] != nil {
+			info = "HTTP " + fmt.Sprint(im["code"])
+		} else if im["via"] != nil {
+			info = "via " + fmt.Sprint(im["via"])
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
+			i+1, esc(name), icon, ms, info))
+	}
+	b.WriteString("</table>")
+	return Result{HTML: b.String(), Text: "probes"}
+}
+
 func formatSmart(action string, v any, ru bool) Result {
 	title := emojiFor(action) + " " + action
 	var b strings.Builder
@@ -474,7 +534,7 @@ func valueHTML(v any, depth int) string {
 	switch t := v.(type) {
 	case map[string]any:
 		// if looks like list wrapper
-		for _, k := range []string{"users", "cameras", "nodes", "sites", "devices", "pending", "repos", "sessions", "hosts", "items", "checks", "events", "segments"} {
+		for _, k := range []string{"users", "cameras", "nodes", "sites", "devices", "pending", "repos", "sessions", "hosts", "items", "checks", "events", "segments", "probes"} {
 			if a, ok := t[k].([]any); ok {
 				return "<i>" + esc(k) + "</i> · " + fmt.Sprintf("%d", len(a)) + "<br>" + listTable(a, 25)
 			}

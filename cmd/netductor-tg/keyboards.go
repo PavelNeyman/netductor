@@ -233,7 +233,7 @@ func formatNodesListHTML() string {
 		case st == "offline":
 			icon = "🔴"
 		}
-		role := r.Role
+		role := displayRole(r.Role)
 		if role == "" {
 			role = "—"
 		}
@@ -297,7 +297,7 @@ func formatNodesRenameHTML() string {
 		if name == "" {
 			name = r.ID
 		}
-		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, i+1, esc(name), esc(r.Role)))
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, i+1, esc(name), esc(displayRole(r.Role))))
 	}
 	b.WriteString("</table>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
@@ -439,4 +439,16 @@ func helpHubHTML() string {
 			`</tg-button-row>`
 	}
 	return body
+}
+
+
+func displayRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "", "core":
+		return "primary"
+	case "relay":
+		return "secondary"
+	default:
+		return strings.ToLower(strings.TrimSpace(role))
+	}
 }

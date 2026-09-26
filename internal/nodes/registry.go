@@ -181,6 +181,7 @@ func List() ([]Node, error) {
 	}
 	out := make([]Node, 0, len(d.Nodes))
 	for _, n := range d.Nodes {
+		n.Role = NormalizeRole(n.Role)
 		out = append(out, n)
 	}
 	return out, nil
