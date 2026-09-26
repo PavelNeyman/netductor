@@ -82,3 +82,6 @@ rg 'Metrics history|m:metrics' cmd/netductor-tg internal/opcatalog
 
 ### 0.9.49
 Fleet/Nodes/Routers/Sites/Tools hubs → body buttons.
+
+### 0.9.50
+Rename picker body; NVR/help labels.

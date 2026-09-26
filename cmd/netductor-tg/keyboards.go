@@ -273,27 +273,48 @@ func nodesListKeyboard() map[string]any {
 
 
 func nodesRenameKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("«", "m:cat:nodes", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
+}
+
+// formatNodesRenameHTML — pick node by number (body buttons).
+func formatNodesRenameHTML() string {
 	rows := parseNodesList()
-	kb := [][]map[string]any{}
+	nl := string([]byte{10})
+	var b strings.Builder
+	b.WriteString(T("nodes_rename") + nl)
+	if len(rows) == 0 {
+		b.WriteString(T("nodes_empty"))
+		return b.String()
+	}
+	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>host</th><th>role</th></tr>" + nl)
 	for i, r := range rows {
+		if i >= 20 {
+			break
+		}
 		name := r.Host
 		if name == "" {
 			name = r.ID
 		}
-		label := fmt.Sprintf("%d. %s", i+1, name)
-		if len(label) > 40 {
-			label = label[:40]
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, i+1, esc(name), esc(r.Role)))
+	}
+	b.WriteString("</table>" + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	for i, r := range rows {
+		if i >= 20 {
+			break
 		}
-		// callback max 64 bytes
 		data := "m:nr:" + r.ID
 		if len(data) > 64 {
 			data = data[:64]
 		}
-		kb = append(kb, []map[string]any{btn(label, data, "")})
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="%s">%d</tg-button>`, data, i+1))
 	}
-	kb = append(kb, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
-	return map[string]any{"inline_keyboard": kb}
+	b.WriteString(`</tg-button-row>`)
+	return b.String()
 }
+
 
 
 func routersKeyboard() map[string]any {
@@ -396,4 +417,26 @@ func usersListKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
+}
+
+
+func helpHubHTML() string {
+	ru := getLang() != "en"
+	body := helpText()
+	if ru {
+		body += "\n" + `<tg-button-row align="left">` +
+			`<tg-button type="callback_data" style="primary" data="m:status">📊 Статус</tg-button>` +
+			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
+			`<tg-button type="callback_data" data="m:fleet">🌐 Флот</tg-button>` +
+			`<tg-button type="callback_data" data="m:tools">🧰 Tools</tg-button>` +
+			`</tg-button-row>`
+	} else {
+		body += "\n" + `<tg-button-row align="left">` +
+			`<tg-button type="callback_data" style="primary" data="m:status">📊 Status</tg-button>` +
+			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
+			`<tg-button type="callback_data" data="m:fleet">🌐 Fleet</tg-button>` +
+			`<tg-button type="callback_data" data="m:tools">🧰 Tools</tg-button>` +
+			`</tg-button-row>`
+	}
+	return body
 }

@@ -1,3 +1,7 @@
+## 0.9.50
+
+- TG: nodes rename body picker; NVR labels i18n; help hub shortcuts
+
 ## 0.9.49
 
 - TG hubs Fleet/Nodes/Routers/Sites/Tools: body actions, keyboard nav only

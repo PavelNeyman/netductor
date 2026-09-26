@@ -280,7 +280,7 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>"+T("nodes_hint")+"</i>", nodesListKeyboard())
 	case "m:node_rename":
 		setState(chat, "", "")
-		reply(token, chat, msgID, T("nodes_rename")+string([]byte{10, 10})+formatNodesListHTML(), nodesRenameKeyboard())
+		reply(token, chat, msgID, formatNodesRenameHTML(), nodesRenameKeyboard())
 	case "m:lang":
 		cur := getLang()
 		label := "Русский"
