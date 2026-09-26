@@ -70,6 +70,7 @@ func All() []Action {
 
 		
 		a("dns-lists", "dns", "GET", "/api/dns/lists", "", "DNS lists", "DNS списки"),
+		a("dns-set", "dns", "POST", "/api/dns/set", `{"id":"","enabled":true}`, "DNS set list", "DNS вкл/выкл список"),
 		a("dns-reload", "dns", "POST", "/api/dns/reload", "{}", "DNS reload", "DNS reload"),
 		a("backup-schedule", "backup", "GET", "/api/backup/schedule", "", "Backup schedule", "Расписание бэкапа"),
 		a("backup-list", "backup", "GET", "/api/backup/list", "", "Backup files", "Файлы бэкапа"),

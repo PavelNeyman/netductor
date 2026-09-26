@@ -1,5 +1,7 @@
 # UI parity (locked model)
 
+**Verified through v0.9.40** — see [REVIEW-0.9.39.md](REVIEW-0.9.39.md).
+
 ## Rule
 
 **One backend** (`internal/operator` + `internal/deploy` + node API).  

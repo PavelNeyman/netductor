@@ -78,8 +78,8 @@
   <section id="panel-site" class="panel">
     <p class="note">MikroTik site + optional RSC push (same DeploySite as TUI).</p>
     <form id="form-site">
-      <div class="row"><div><label>Site ID</label><input name="site_id" required placeholder="home"/></div><div><label>Display name</label><input name="name"/></div></div>
-      <div class="row"><div><label>RPi LAN (gateway)</label><input name="rpi_lan" placeholder="192.168.88.2"/></div><div><label>RPi device_id</label><input name="rpi_id"/></div></div>
+      <div class="row"><div><label data-i18n="l_site_id">Site ID</label><input name="site_id" required placeholder="home"/></div><div><label data-i18n="l_display">Display name</label><input name="name"/></div></div>
+      <div class="row"><div><label data-i18n="l_rpi_lan">RPi LAN (gateway)</label><input name="rpi_lan" placeholder="192.168.88.2"/></div><div><label data-i18n="l_rpi_id">RPi device_id</label><input name="rpi_id"/></div></div>
       <div class="row"><div><label data-i18n="l_mthost">MT host</label><input name="mt_host" required/></div><div><label data-i18n="l_mtuser">MT user</label><input name="mt_user" value="admin"/></div></div>
       <div class="row"><div><label data-i18n="l_mtpass">MT password</label><input name="mt_password" type="password"/></div><div><label>MT SSH port</label><input name="mt_port" value="22"/></div></div>
       <div class="row"><div><label data-i18n="l_opkey">Operator key</label><input name="operator_key" placeholder="~/.ssh/netductor_primary"/></div><div><label>MikroTik ID</label><input name="mikrotik_id"/></div></div>
@@ -99,7 +99,7 @@
 <section id="panel-edge" class="panel">
     <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
     <form id="form-edge">
-      <div class="row"><div><label>Router host</label><input name="router_host" required/></div><div><label>Router password</label><input name="router_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
       <div class="row"><div><label>Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>

@@ -1,3 +1,9 @@
+## 0.9.40
+
+- Full code/security review: [docs/REVIEW-0.9.39.md](docs/REVIEW-0.9.39.md)
+- Handoff + UI-PARITY for next chat; Installer i18n site/edge labels
+- opcatalog: dns-set POST
+
 ## 0.9.39
 
 - Web Control: EN/RU labels for DNS, backup schedule, Git forms
