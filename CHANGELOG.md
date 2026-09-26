@@ -1,3 +1,7 @@
+## 0.9.43
+
+- fix: doctorPrintf/doctorPrintln infinite recursion (stack overflow)
+
 ## 0.9.42
 
 - Full code/security review: [docs/REVIEW-0.9.41.md](docs/REVIEW-0.9.41.md)

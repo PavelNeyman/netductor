@@ -146,13 +146,13 @@ func doctorPrintf(format string, args ...any) {
 	if doctorQuiet {
 		return
 	}
-	doctorPrintf(format, args...)
+	fmt.Printf(format, args...)
 }
 func doctorPrintln(args ...any) {
 	if doctorQuiet {
 		return
 	}
-	doctorPrintln(args...)
+	fmt.Println(args...)
 }
 
 func runDoctorNative() int {
