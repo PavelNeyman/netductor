@@ -1,3 +1,8 @@
+## 0.9.34
+
+- CLI: `netductor dns list|on|off|reload`
+- Web Control: DNS set form (id + on/off)
+
 ## 0.9.33
 
 - API: /api/dns/lists|set|reload; /api/backup/schedule|list
