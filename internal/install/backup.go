@@ -321,10 +321,6 @@ func Recover(archive, keyArg string) error {
 		}
 	}
 
-	// Strip footgun env/conf left from old installs
-	fmt.Fprintln(os.Stderr, "recover: sanitize conf (remove unsupported footguns)")
-	_ = SanitizeNetductorConf()
-
 	// Re-apply runtime configs from restored secrets/users
 	fmt.Fprintln(os.Stderr, "recover: re-issue LE if DOMAIN+LE_EMAIL in conf (certs not in backup)")
 	if err := ReissueLEAfterRecover(); err != nil {

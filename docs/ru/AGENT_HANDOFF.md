@@ -1,3 +1,5 @@
+**v0.9.75:** footgun knobs not in code; ndconfig ignores old keys.
+
 **RU** · [EN](../AGENT_HANDOFF.md)
 
 # Handoff для агента

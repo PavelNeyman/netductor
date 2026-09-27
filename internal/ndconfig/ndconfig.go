@@ -10,6 +10,19 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
+// Keys that must never enter process env (removed from product).
+var forbiddenKeys = map[string]struct{}{
+	"NETDUCTOR_PLAIN_AGENT":        {},
+	"NETDUCTOR_API_PUBLIC":         {},
+	"NETDUCTOR_API_ALLOW_PUBLIC":   {},
+	"NETDUCTOR_TRUST_PROXY":        {},
+	"NETDUCTOR_LEGACY_ADMIN_UI":    {},
+	"NETDUCTOR_RECOVERY_SERVE_KEY": {},
+	"NETDUCTOR_RECOVERY_FETCH_KEY": {},
+	"NETDUCTOR_EDGE_LEGACY_TOKEN":  {},
+	"NETDUCTOR_REDIRECT_LISTEN":    {},
+}
+
 // ConfPath is the operator-facing config (KEY=value, # comments).
 func ConfPath() string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_CONF")); v != "" {
@@ -33,7 +46,6 @@ func Load() {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// optional export KEY=val
 		line = strings.TrimPrefix(line, "export ")
 		i := strings.IndexByte(line, '=')
 		if i <= 0 {
@@ -48,6 +60,9 @@ func Load() {
 		}
 		envKey := mapKey(key)
 		if envKey == "" {
+			continue
+		}
+		if _, bad := forbiddenKeys[envKey]; bad {
 			continue
 		}
 		if strings.TrimSpace(os.Getenv(envKey)) == "" {

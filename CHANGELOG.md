@@ -1,3 +1,7 @@
+## 0.9.75
+
+- Remove enable paths for footgun env; ndconfig ignores obsolete keys (no Sanitize rewrite)
+
 ## 0.9.74
 
 - recover: auto LE re-issue when DOMAIN+LE_EMAIL in conf (certs stay out of backup)

@@ -93,7 +93,6 @@ func Run(opts Options) error {
 	}
 	_ = os.WriteFile(filepath.Join(paths.StateDir(), "installed_version"), []byte(version.Release+"\n"), 0o644)
 	writeReady()
-	_ = SanitizeNetductorConf()
 	// optional extras (env-gated)
 	if os.Getenv("NETDUCTOR_LAMPAC") == "1" {
 		fmt.Fprintln(os.Stderr, "==> lampac")

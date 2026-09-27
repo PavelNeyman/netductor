@@ -73,17 +73,11 @@ func bearerRaw(auth string) string {
 	return ""
 }
 
-// ValidBearer: approved per-device token.
-// Global edge_token is denied unless NETDUCTOR_EDGE_LEGACY_TOKEN=1 (migration only).
+// ValidBearer: approved per-device token only (no global edge_token).
 func ValidBearer(auth string) bool {
 	raw := bearerRaw(auth)
 	if raw == "" || len(raw) < 32 {
 		return false
-	}
-	if os.Getenv("NETDUCTOR_EDGE_LEGACY_TOKEN") == "1" {
-		if tok := Token(); tok != "" && constEq(raw, tok) {
-			return true
-		}
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -127,11 +121,6 @@ func RequireApproved(auth, deviceID string) bool {
 	raw := bearerRaw(auth)
 	if raw == "" || deviceID == "" {
 		return false
-	}
-	if os.Getenv("NETDUCTOR_EDGE_LEGACY_TOKEN") == "1" {
-		if tok := Token(); tok != "" && constEq(raw, tok) {
-			return true
-		}
 	}
 	mu.Lock()
 	defer mu.Unlock()

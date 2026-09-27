@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -52,17 +51,6 @@ func NewPlaneLimiter(maxPerWindow int, window time.Duration) *PlaneLimiter {
 
 func clientIP(r *http.Request) string {
 	// Only trust proxy headers when explicitly enabled (prevents rate-limit bypass).
-	if false /* TRUST_PROXY unsupported */ {
-		if x := r.Header.Get("X-Real-IP"); x != "" {
-			return strings.TrimSpace(x)
-		}
-		if x := r.Header.Get("X-Forwarded-For"); x != "" {
-			if i := strings.IndexByte(x, ','); i >= 0 {
-				return strings.TrimSpace(x[:i])
-			}
-			return strings.TrimSpace(x)
-		}
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
