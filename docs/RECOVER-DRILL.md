@@ -60,3 +60,19 @@ recover: done
 ## Failure notes
 - SSH lockout: provider console + pubkey (should be rare if early inject works).
 - Binaries always from Release by component — not from `.ndenc`.
+
+
+## Post-recover Reality / uplink checklist (required)
+
+After wipe+recover, **do not assume VPN works** until:
+
+1. `netductor vpn apply` succeeds (primary sing-box conf **from secrets** + registry users including **relay-uplink**).
+2. Primary inbound Reality: `private_key` / `short_id` / `server_name` match `/etc/netductor/secrets/singbox_*`.
+3. Secondary uplink: `public_key`+`short_id` = primary **public** secrets; SNI same as primary handshake dest.
+4. **Multiplex stays ON** (canon for disconnect mitigation):
+   - **Primary inbound** `vless-reality.multiplex.enabled` (fields: `enabled`, `padding` only — no `max_connections` on inbound; sing-box 1.14 rejects them).
+   - **Secondary uplink outbound** multiplex via `uplinkMultiplexObject()` (`max_connections` OK on outbound).
+5. Client links: secondary `pbk`/`sid` from agent heartbeat (`devices.json`), not a stale pre-recover QR.
+
+**Incident 2026-09-27:** recover left empty inbound users + conf keys ≠ secrets + apply failed on invalid inbound mux fields → uplink `unknown UUID` / x509. Fixed by apply schema + ensure-relay-uplink in post-restore.
+

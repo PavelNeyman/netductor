@@ -24,6 +24,17 @@ func runVPN(args []string) {
 	cmd := args[0]
 	rest := args[1:]
 	switch cmd {
+	case "ensure-relay-uplink":
+		uuid, err := vpn.EnsureRelayUplink()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("relay-uplink", uuid)
+		if err := vpn.ApplyConfig(); err != nil {
+			fmt.Fprintln(os.Stderr, "apply:", err)
+			os.Exit(1)
+		}
 	case "list":
 		users, err := vpn.List()
 		if err != nil {

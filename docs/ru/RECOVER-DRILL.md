@@ -28,3 +28,17 @@
 Сначала install по COMPONENTS (vpn-users может soft-fail без секретов → continuing), затем tar, затем **второй проход** api/telegram/backup/vpn-users, затем ufw secondary.
 
 Ожидаемый хвост лога: `(continuing)` → `post-restore component pass` → `recover: done`.
+
+
+## Чеклист Reality / uplink после recover (обязательно)
+
+После wipe+recover **не считать VPN рабочим**, пока:
+
+1. `netductor vpn apply` успешен (конфиг primary из secrets + users registry, в т.ч. **relay-uplink**).
+2. Reality inbound primary совпадает с `/etc/netductor/secrets/singbox_*`.
+3. Uplink secondary: pbk/sid/SNI = public secrets primary.
+4. **Multiplex включён** (канон против отвалов): inbound primary — только `enabled`+`padding`; outbound secondary — полный mux object.
+5. Клиентские ссылки — актуальный secondary pbk/sid из `devices.json`.
+
+Инцидент 2026-09-27: после recover пустые users, ключи conf≠secrets, apply падал на полях inbound mux → чинили apply + ensure-relay-uplink в post-restore.
+

@@ -313,3 +313,9 @@ Operator proposal + extensions:
 ### User uplink failover (secondary)
 
 When `users_to_sp_on_vless_down=true` (default) and public TCP :443 to primary fails but SP is up, health script sets sing-box outbound `uplink` **server** to `10.87.10.1` (VLESS Reality via service WG). When public :443 recovers, restores public primary IP. Agent URL still switches tunnel↔public independently.
+
+
+### Multiplex schema (sing-box 1.14+)
+
+- **Outbound** (secondary uplink): `enabled`, `padding`, `max_connections`, `min_streams`, `max_streams`, optional `protocol` h2mux.
+- **Inbound** (primary `vless-reality`): **only** `enabled` + `padding`. `max_connections` on inbound → `json: unknown field` and `vpn apply` fails all variants.

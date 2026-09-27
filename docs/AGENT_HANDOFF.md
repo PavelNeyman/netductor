@@ -19,6 +19,9 @@ primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH **52222** both VPS ·
 - Live recover drill unattended 2026-09-27
 - Docs cleanup: old REVIEW/PLAN snapshots → `docs/archive/`
 
+## VPN after recover
+See [RECOVER-DRILL.md](RECOVER-DRILL.md) § Reality/uplink. `vpn apply` must succeed; multiplex ON (inbound padding-only; outbound full). Baseline fix **0.9.73**.
+
 ## Next
 1. Full dual-node smoke (primary + secondary together)
 2. Hardware e2e when ready

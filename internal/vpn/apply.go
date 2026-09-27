@@ -76,12 +76,10 @@ func ApplyConfig() error {
 				"type": "vless", "tag": "vless-reality", "listen": "::", "listen_port": vlessPort(),
 				"users": vusers,
 				// multiplex for secondary uplink (no vision). End-user vision streams stay non-mux.
+				// inbound mux (sing-box ≥1.10): no max_connections here — those are outbound-only
 				"multiplex": map[string]any{
 					"enabled": true,
 					"padding": true,
-					"max_connections": 4,
-					"min_streams": 4,
-					"max_streams": 32,
 				},
 				"tls": map[string]any{
 					"enabled": true, "server_name": sniVal,
@@ -211,7 +209,13 @@ func tryCheck(conf string) bool {
 	if _, err := os.Stat(bin); err != nil {
 		return true // no binary → accept first
 	}
-	return exec.Command(bin, "check", "-c", conf).Run() == nil
+	cmd := exec.Command(bin, "check", "-c", conf)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sing-box check %s: %v\n%s\n", conf, err, string(out))
+		return false
+	}
+	return true
 }
 
 func cloneMap(m map[string]any) map[string]any {

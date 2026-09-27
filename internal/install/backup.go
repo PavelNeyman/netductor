@@ -324,8 +324,13 @@ func Recover(archive, keyArg string) error {
 	// Re-apply runtime configs from restored secrets/users
 	fmt.Fprintln(os.Stderr, "recover: ensure redirect (LE paths from conf if any)")
 	_ = InstallRedirect()
-	fmt.Fprintln(os.Stderr, "recover: apply vpn / restart services")
-	_ = run("netductor", "vpn", "apply")
+	fmt.Fprintln(os.Stderr, "recover: ensure relay-uplink user + apply vpn from secrets (must match secondary bundle)")
+	_ = run("netductor", "vpn", "ensure-relay-uplink")
+	if err := run("netductor", "vpn", "apply"); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: vpn apply FAILED (primary conf may not match secrets): %v\n", err)
+	} else {
+		fmt.Fprintln(os.Stderr, "recover: vpn apply OK (Reality+users from secrets/registry)")
+	}
 	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot", "netductor-backup.timer"} {
 		_ = run("systemctl", "enable", "--now", u)
 		_ = run("systemctl", "try-restart", u)
