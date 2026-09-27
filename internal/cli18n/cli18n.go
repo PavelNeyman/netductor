@@ -33,6 +33,7 @@ func init() {
 		"doctor.fail": "FAIL",
 		"doctor.footgun_env": "FAIL removed env %s is set (unset; use api-public arm for temporary :8789)",
 		"doctor.footgun_env_ok": "OK   env %s unset",
+		"doctor.footgun_clean": "OK   removed env footguns unset",
 
 		"doctor.header": "netductor doctor role=%s host=%s",
 		"doctor.hostname_ok": "OK   hostname=%s",
@@ -140,6 +141,7 @@ func init() {
 		"doctor.fail": "FAIL",
 		"doctor.footgun_env": "FAIL удалённый env %s задан (снимите; временно :8789 — api-public arm)",
 		"doctor.footgun_env_ok": "OK   env %s не задан",
+		"doctor.footgun_clean": "OK   удалённые env footguns не заданы",
 
 		"doctor.header": "netductor doctor role=%s host=%s",
 		"doctor.hostname_ok": "OK   hostname=%s",
