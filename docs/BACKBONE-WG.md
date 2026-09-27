@@ -187,3 +187,52 @@ netductor uplink-mux set off     # no multiplex
 ```
 
 Env override: `NETDUCTOR_UPLINK_MUX=on|off|h2mux`.
+
+---
+
+## 13. Dual service paths over WSS/TLS (2026-09-27)
+
+**Context:** Direct UDP WG primary↔secondary tops out ~40 Mbit/s on this path (heavy loss). VLESS Reality uplink delivers ~150–430 Mbit/s. WG-over-WSS (wstunnel) delivers ~200 Mbit/s with 0 retransmits on a 30‑minute 10 Mbit soak.
+
+**Locked traffic split (do not mix without explicit failover policy):**
+
+| Path | Direction | Role |
+|------|-----------|------|
+| **VLESS uplink** | S→P | **Users only** (unchanged Reality ingress on secondary) |
+| **nd-svc-sp** + WSS | S→P (secondary dials) | **Service** secondary→primary |
+| **nd-svc-ps** + WSS | P→S (primary dials) | **Service** primary→secondary |
+
+### Addressing
+
+| Iface | Primary | Secondary | WG UDP (localhost only) |
+|-------|---------|-----------|-------------------------|
+| `nd-svc-sp` | 10.87.10.1/30 | 10.87.10.2/30 | P listen 51830 ← WSS :8444 |
+| `nd-svc-ps` | 10.87.11.1/30 | 10.87.11.2/30 | S listen 51832 ← WSS :8445 |
+
+`Table = off`, `AllowedIPs` only peer /32 — **no** default-route steal.
+
+### Units (live test VPS)
+
+**Primary:** `nd-wss-sp-server`, `nd-wss-ps-client`, `wg-quick@nd-svc-sp`, `wg-quick@nd-svc-ps`  
+**Secondary:** `nd-wss-sp-client`, `nd-wss-ps-server`, `wg-quick@nd-svc-sp`, `wg-quick@nd-svc-ps`  
+Keys: `/etc/netductor/svc-paths/` (0600). Binary: `/usr/local/bin/wstunnel`.
+
+### Failover matrix (data vs service)
+
+| VLESS | SP | PS | User exit | Service S→P | Service P→S |
+|-------|----|----|-----------|-------------|-------------|
+| UP | * | * | VLESS | SP | PS |
+| DOWN | UP | * | SP (degraded capacity) | SP | PS |
+| DOWN | DOWN | UP | PS if routed, else degrade | fallback public/VLESS | PS |
+| DOWN | DOWN | DOWN | degrade / direct RU policy | public | public |
+
+Anti-flap: 3 failed probes → DOWN; 3 ok + 30–60s stable → failback to VLESS for users.
+
+### Next code steps
+
+1. Health probes → metrics `svc_sp_up`, `svc_ps_up`, `vless_uplink_up`.
+2. Route service flows by direction (not one shared default).
+3. Optional user-exit failover VLESS→SP only by policy flag.
+4. CLI: `netductor svc-paths status|apply` (or extend `backbone`).
+
+**VLESS client ingress and uplink config: out of scope for this change.**

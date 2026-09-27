@@ -3,10 +3,11 @@
 **Baseline:** **v0.9.62** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
 
 **Next engineering:**
-1. **Backbone WG** — CLI v1 done ([BACKBONE-WG.md](BACKBONE-WG.md)); owner soak + `apply` on both nodes
-2. **h2mux A/B** — `uplink-mux set on|off|h2mux` (re-apply secondary box)
-3. mTLS 8789 if offline alerts recur
-4. Owner/later: hardware e2e, SMTP, mobile, CDN-XHTTP ([OPEN_ITEMS](OPEN_ITEMS.md))
+1. **Dual service WG-over-WSS** — live on test VPS (`nd-svc-sp` / `nd-svc-ps`); design §13 [BACKBONE-WG.md](BACKBONE-WG.md). Next: health probes + metrics, then flow routing, then failover matrix.
+2. **Backbone WG UDP** — CLI v1 remains for low-volume/legacy; do not expect bulk on bare UDP on this path.
+3. **h2mux A/B** — `uplink-mux set on|off|h2mux` (re-apply secondary box)
+4. mTLS 8789 if offline alerts recur
+5. Owner/later: hardware e2e, SMTP, mobile, CDN-XHTTP ([OPEN_ITEMS](OPEN_ITEMS.md))
 
 Do not reopen TG menu polish unless regression.
 
