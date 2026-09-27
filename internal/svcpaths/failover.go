@@ -25,7 +25,7 @@ type Policy struct {
 func DefaultPolicy() Policy {
 	return Policy{
 		Enabled:            true,
-		UsersToSPOnVLESSDown: false, // explicit opt-in
+		UsersToSPOnVLESSDown: true,
 		FailThreshold:      3,
 		OKThreshold:        3,
 		StableSeconds:      45,

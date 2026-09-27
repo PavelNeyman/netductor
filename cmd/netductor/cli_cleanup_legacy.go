@@ -13,12 +13,17 @@ func runCleanupLegacy(args []string) {
 			dry = false
 		}
 	}
-	ifaces := []string{"nd-backbone", "nd-awg"}
+	ifaces := []string{"nd-backbone", "nd-awg", "nd-wgios"}
 	units := []string{
 		"nd-backbone-iperf-s", "nd-backbone-iperf-c", "nd-awg-iperf-s", "nd-awg-iperf-c",
-		"nd-backbone-soak", "wg-quick@nd-backbone",
+		"nd-backbone-soak", "wg-quick@nd-backbone", "wg-quick@nd-wgios",
+		"strongswan", "strongswan-starter",
 	}
-	fmt.Println("legacy cleanup (test backbone/AWG/iperf); service paths nd-svc-* kept")
+	files := []string{
+		"/etc/wireguard/nd-backbone.conf", "/etc/wireguard/nd-wgios.conf",
+		"/etc/amnezia/amneziawg/nd-awg.conf",
+	}
+	fmt.Println("cleanup test/legacy (keeps nd-svc-sp / nd-svc-ps)")
 	for _, u := range units {
 		fmt.Println(" unit", u)
 		if !dry {
@@ -35,14 +40,14 @@ func runCleanupLegacy(args []string) {
 			_ = exec.Command("ip", "link", "delete", iface).Run()
 		}
 	}
-	for _, f := range []string{"/etc/wireguard/nd-backbone.conf", "/etc/amnezia/amneziawg/nd-awg.conf"} {
+	for _, f := range files {
 		fmt.Println(" conf", f)
 		if !dry {
 			_ = os.Remove(f)
 		}
 	}
 	if dry {
-		fmt.Println("dry-run only; pass --apply to execute")
+		fmt.Println("dry-run; pass --apply")
 	} else {
 		fmt.Println("done")
 	}
