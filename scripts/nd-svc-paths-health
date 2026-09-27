@@ -1,0 +1,69 @@
+#!/bin/bash
+# netductor dual service-path health + agent URL failover
+set +e
+OUT=/var/lib/netductor/svc-paths-health.json
+DESIRED=/var/lib/netductor/failover-desired.json
+SECRETS=/etc/netductor/secrets
+mkdir -p /var/lib/netductor
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+role=unknown
+ip -br a | grep -q 10.87.10.1 && role=primary
+ip -br a | grep -q 10.87.10.2 && role=secondary
+
+ping_ok() { ping -c 1 -W 2 "$1" >/dev/null 2>&1; }
+
+sp=0; ps=0; wss_sp=0; wss_ps=0
+if [ "$role" = primary ]; then
+  ping_ok 10.87.10.2 && sp=1
+  ping_ok 10.87.11.2 && ps=1
+  systemctl is-active --quiet nd-wss-sp-server && wss_sp=1
+  systemctl is-active --quiet nd-wss-ps-client && wss_ps=1
+else
+  ping_ok 10.87.10.1 && sp=1
+  ping_ok 10.87.11.1 && ps=1
+  systemctl is-active --quiet nd-wss-sp-client && wss_sp=1
+  systemctl is-active --quiet nd-wss-ps-server && wss_ps=1
+fi
+
+vless=0
+if [ "$role" = secondary ]; then
+  PRIMARY_HOST=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' "$SECRETS/secondary_core_url.public" 2>/dev/null | head -1)
+  [ -z "$PRIMARY_HOST" ] && PRIMARY_HOST=2.27.118.70
+  timeout 3 bash -c "echo >/dev/tcp/${PRIMARY_HOST}/443" 2>/dev/null && vless=1
+fi
+
+printf '{"ts":"%s","role":"%s","svc_sp_up":%s,"svc_ps_up":%s,"wss_sp_unit":%s,"wss_ps_unit":%s,"vless_tcp443":%s}\n' \
+  "$ts" "$role" "$sp" "$ps" "$wss_sp" "$wss_ps" "$vless" | tee "$OUT" >/dev/null
+
+# Agent URL switch on secondary: tunnel (SP) vs public
+if [ "$role" = secondary ]; then
+  TUN=https://10.87.10.1:8789
+  PUB=$(cat "$SECRETS/secondary_core_url.public" 2>/dev/null | tr -d '\n')
+  [ -z "$PUB" ] && PUB="https://${PRIMARY_HOST}:8789"
+  CUR=$(cat "$SECRETS/secondary_core_url" 2>/dev/null | tr -d '\n')
+  if [ "$sp" = 1 ]; then
+    WANT=$TUN
+    MODE=tunnel
+  else
+    WANT=$PUB
+    MODE=public
+  fi
+  if [ -n "$WANT" ] && [ "$CUR" != "$WANT" ]; then
+    echo "$WANT" > "$SECRETS/secondary_core_url"
+    chmod 600 "$SECRETS/secondary_core_url"
+    # restart agent to pick new URL if unit exists
+    systemctl try-reload-or-restart netductor-secondary-agent 2>/dev/null || \
+      systemctl try-reload-or-restart netductor-agent 2>/dev/null || true
+    logger -t nd-svc-paths "agent_url -> $MODE $WANT"
+  fi
+  # desired snapshot for ops
+  printf '{"ts":"%s","agent_url_mode":"%s","user_path":"%s","sp":%s,"ps":%s,"vless":%s}\n' \
+    "$ts" "$MODE" "$([ "$vless" = 1 ] && echo vless || echo degraded)" "$sp" "$ps" "$vless" > "$DESIRED"
+fi
+
+# primary: run Go tick if binary present (anti-flap + TG via collect)
+if [ "$role" = primary ] && command -v netductor >/dev/null; then
+  netductor svc-paths failover tick >/dev/null 2>&1 || true
+fi
+
+if [ "$sp" = 1 ] && [ "$ps" = 1 ]; then exit 0; else exit 1; fi

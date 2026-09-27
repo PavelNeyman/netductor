@@ -15,6 +15,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -154,6 +155,30 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 			} else {
 				notify.ClearAlert("svc:" + u)
 			}
+		}
+	}
+	if enabled("svc_path_down") {
+		b, err := os.ReadFile("/var/lib/netductor/svc-paths-health.json")
+		if err == nil {
+			var h map[string]any
+			if json.Unmarshal(b, &h) == nil {
+				sp, _ := h["svc_sp_up"].(float64)
+				ps, _ := h["svc_ps_up"].(float64)
+				if int(sp) != 1 {
+					notify.AlertOnce("svcpath:sp", "🔴 Service path <b>SP</b> (nd-svc-sp) down")
+				} else {
+					notify.ClearAlert("svcpath:sp")
+				}
+				if int(ps) != 1 {
+					notify.AlertOnce("svcpath:ps", "🔴 Service path <b>PS</b> (nd-svc-ps) down")
+				} else {
+					notify.ClearAlert("svcpath:ps")
+				}
+			}
+		}
+		// advance failover state machine (anti-flap + desired JSON)
+		if _, _, err := svcpaths.Tick(); err != nil {
+			_ = err
 		}
 	}
 	if enabled("secondary_offline") {

@@ -41,6 +41,8 @@ func main() {
 		runNodes(os.Args[2:])
 	case "mtls":
 		runMTLS(os.Args[2:])
+	case "cleanup-legacy":
+		runCleanupLegacy(os.Args[2:])
 	case "api-public":
 		runAPIPublic(os.Args[2:])
 	case "svc-paths":

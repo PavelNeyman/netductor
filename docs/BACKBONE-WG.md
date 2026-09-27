@@ -296,3 +296,13 @@ Operator proposal + extensions:
 **Feasible:** yes, with health-driven controller (timer) rewriting routes / sing-box outbound / agent URL. **Not** a free swap: user bulk on WSS competes with service; need rate limits and anti-flap (3 fails / 30–60s stable).
 
 **api-public arm:** cannot be invoked from the closed WAN API itself. Triggers without inbound SSH: TG bot on primary, secondary agent command over SP, VPS console, or standing `api-allow.cidr`.
+
+
+### Failover controller (implemented)
+
+- `netductor svc-paths failover tick|status|enable|disable|set-users-sp on|off`
+- Anti-flap counters; desired JSON `/var/lib/netductor/failover-desired.json`
+- TG alerts `svcpath:sp` / `svcpath:ps` via collect
+- Secondary health script switches `secondary_core_url` tunnel↔public
+- `users_to_sp_on_vless_down` default **false** (opt-in); full user outbound over SP still needs sing-box wiring
+- `netductor cleanup-legacy --apply` removes test nd-backbone/nd-awg
