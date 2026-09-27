@@ -20,6 +20,11 @@ primary `2.27.118.70` · secondary `92.255.77.253` (rebuild OK)
 - Live recover drill; docs prune + RU parity
 - VPN post-recover: secrets↔conf, users, multiplex ON
 
+
+## Ревью (v0.9.73)
+
+[REVIEW-0.9.73.md](REVIEW-0.9.73.md) — security + паритет TUI/Web + OPCATALOG. После recover — чеклист Reality.
+
 ## Дальше
 1. Full dual-node smoke  
 2. Hardware e2e  

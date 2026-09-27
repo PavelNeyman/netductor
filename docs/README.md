@@ -5,7 +5,7 @@
 ## Must-read
 | EN | RU |
 |----|-----|
-| [AGENT_HANDOFF.md](AGENT_HANDOFF.md) | [ru/](ru/AGENT_HANDOFF.md) |
+| [AGENT_HANDOFF · [REVIEW-0.9.73](REVIEW-0.9.73.md).md](AGENT_HANDOFF · [REVIEW-0.9.73](REVIEW-0.9.73.md).md) | [ru/](ru/AGENT_HANDOFF · [REVIEW-0.9.73](REVIEW-0.9.73.md).md) |
 | [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | [ru/](ru/ARCHITECTURE-FREEZE.md) |
 | [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
 | [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |

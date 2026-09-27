@@ -22,6 +22,19 @@ primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH **52222** both VPS ·
 ## VPN after recover
 See [RECOVER-DRILL.md](RECOVER-DRILL.md) § Reality/uplink. `vpn apply` must succeed; multiplex ON (inbound padding-only; outbound full). Baseline fix **0.9.73**.
 
+
+
+## Review snapshot (v0.9.73)
+
+Full write-up: [REVIEW-0.9.73.md](REVIEW-0.9.73.md).
+
+- Security freeze controls in force (no WAN admin, no plain :8788, redirect :8443 only).
+- Mac **TUI + Web** deploy share `internal/deploy` (fleet/primary/secondary/edge).
+- OPCATALOG day-2 coverage documented; deploy intentionally Mac-only (not TG).
+- Docs **42 EN + 42 RU**.
+- After recover: require `vpn apply` OK + Reality/uplink checklist (RECOVER-DRILL).
+
+
 ## Next
 1. Full dual-node smoke (primary + secondary together)
 2. Hardware e2e when ready
