@@ -6,7 +6,7 @@ import (
 )
 
 // Operator workstation binary (Mac/PC). Does not embed node plane (install/serve/vpn).
-var version = "0.9.57"
+var version = "0.9.69"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -34,6 +34,8 @@ func main() {
 		runTunnel(os.Args[2:])
 	case "session":
 		runSession(os.Args[2:])
+	case "update":
+		runOpUpdate(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown: %s (operator binary — see netductor-op help)\n", os.Args[1])
 		os.Exit(1)
@@ -49,6 +51,7 @@ func printOpHelp() {
   operator serve [--bind 127.0.0.1] [--port 7373] [--token SECRET]
   credentials collect                   secrets -> ~/.netductor/credentials
   tui|menu                              Setup wizard / fleet UI
+  update [--version X] [--skip-verify]   self-update from GitHub Release
   version | help
 
 The VPS runs a separate binary: netductor (release asset netductor-linux-*).

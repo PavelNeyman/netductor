@@ -20,7 +20,7 @@ Permanent `API_ALLOW_PUBLIC` / `PLAIN_AGENT` / `API_PUBLIC` / `TRUST_PROXY` · V
 
 ## Baseline
 
-**v0.9.68** — A5 footgun doctor; B1 agent pin; B3/B4 posture; i18n audit
+**v0.9.69** — A5 footgun doctor; B1 agent pin; B3/B4 posture; i18n audit
 
 ## Next work (plan order)
 

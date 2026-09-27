@@ -1,3 +1,9 @@
+## 0.9.69
+
+- B1: `netductor-op update` from GitHub Release (component op)
+- B2: [RUNBOOK-INSTALL-RECOVER.md](docs/RUNBOOK-INSTALL-RECOVER.md) idempotent install/update/recover
+- Formula track v0.9.69 (`sha256 :no_check` until CI fills digests; prefer op update)
+
 ## 0.9.68
 
 - A5 doctor footgun env; cert expiry WARN already

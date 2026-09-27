@@ -47,7 +47,9 @@ func assetName(component string) string {
 		return fmt.Sprintf("netductor-agent-%s-%s", goos, arch)
 	case "tg":
 		return fmt.Sprintf("netductor-tg-%s-%s", goos, arch)
-	default:
+	case "op", "operator":
+		return fmt.Sprintf("netductor-op-%s-%s", goos, arch)
+	default: // node
 		return fmt.Sprintf("netductor-%s-%s", goos, arch)
 	}
 }
