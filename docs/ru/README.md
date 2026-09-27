@@ -1,5 +1,5 @@
 # Документация
 
-См. [../README.md](../README.md) — таблица EN/RU.
+Канон на **EN**. RU: handoff, open items, recover, security.
 
-CLI: `netductor <subcommand>` (не старые `netductor-vpn`).
+См. [../README.md](../README.md).

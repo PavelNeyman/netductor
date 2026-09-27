@@ -24,7 +24,7 @@ export NETDUCTOR_SSH_PORT=52222
 netductor deploy secondary --primary … --primary-key … --host … --password … --sni api.vk.me
 ```
 
-**Docs:** [INSTALL](docs/INSTALL.md) · [DEPLOY](docs/DEPLOY.md) · [DEPLOY-WORKSTATION](docs/DEPLOY-WORKSTATION.md) · [FLEET](docs/FLEET.md) · [BACKUP](docs/BACKUP.md) · [PORTS](docs/PORTS.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [AGENT_HANDOFF](docs/AGENT_HANDOFF.md) · [RECOVER-DRILL](docs/RECOVER-DRILL.md) · [AGENTS.md](AGENTS.md)
+**Docs:** [index](docs/README.md) · [DEPLOY-MAC](docs/DEPLOY-MAC.md) · [FLEET](docs/FLEET.md) · [BACKUP](docs/BACKUP.md) · [PORTS](docs/PORTS.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [AGENT_HANDOFF](docs/AGENT_HANDOFF.md) · [RECOVER-DRILL](docs/RECOVER-DRILL.md) · [AGENTS.md](AGENTS.md)
 
 RU: [docs/ru/](docs/ru/)
 

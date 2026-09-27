@@ -1,24 +1,23 @@
-# Documentation index
+# Documentation
 
-**EN** / **RU:** operational docs prefer a pair (`doc.md` + `ru/doc.md`) or a bilingual section at the top.
+**EN** canonical · **RU** (handoff / open items / recover / security): [ru/](ru/)
 
-## Start here
-| Doc | RU |
-|-----|-----|
-| [AGENT_HANDOFF.md](AGENT_HANDOFF.md) | [ru/](ru/AGENT_HANDOFF.md) |
-| [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | — |
-| [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |
-| [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) | — |
-| [DEPLOY-MAC.md](DEPLOY-MAC.md) | — |
-| [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
-| [BREW.md](BREW.md) | — |
-| [I18N.md](I18N.md) | — |
-| [PORTS.md](PORTS.md) | — |
-| [SECURITY.md](SECURITY.md) | [ru/](ru/SECURITY.md) |
+## Must-read
+| Doc | Topic |
+|-----|--------|
+| [AGENT_HANDOFF.md](AGENT_HANDOFF.md) | Next-chat context |
+| [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | Canon |
+| [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) | Close-out status |
+| [OPEN_ITEMS.md](OPEN_ITEMS.md) | Checklist |
+| [RECOVER-DRILL.md](RECOVER-DRILL.md) | Unattended recover |
+| [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) | Install / update / recover |
+| [DEPLOY-MAC.md](DEPLOY-MAC.md) | Mac deploy |
+| [BREW.md](BREW.md) | Homebrew SHA rule |
 
-## Archive
-One-off reviews and superseded plans: [archive/](archive/).
+## Product
+Architecture · Ports · Security · Paths · Domain · Backup · mTLS · VPN · Edge · MikroTik · Nodes · Fleet · Git/registry · SSH · Update · Profiles · SNI · Shadowrocket · Build · UI parity / TUI / TG pattern · i18n · OpCatalog · Backbone · B3/B4
 
-## Language rule
-User-facing product UI = EN+RU in code ([I18N.md](I18N.md)).  
-Ops docs: keep EN canonical; add/update `docs/ru/` for handoff, recover, open items, security when changed.
+## Plans (ideas)
+[PLAN-NVR-TAPO](PLAN-NVR-TAPO.md) · [PLAN-MIKROTIK-API-EDGE](PLAN-MIKROTIK-API-EDGE.md) · [PLAN-SITE-ROOMS](PLAN-SITE-ROOMS.md)
+
+Obsolete reviews, test plans, and duplicate runbooks were **deleted**.

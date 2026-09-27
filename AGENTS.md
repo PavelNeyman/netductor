@@ -7,9 +7,9 @@
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
 
-**Release baseline: v0.9.0** (operator/node binary split) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
+**Release baseline: v0.9.71** (operator/node binary split) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
 
-Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROADMAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+Progress: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
@@ -22,7 +22,7 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 # Quick Start for AI Agents
 
 1. Read this AGENTS.md entirely.
-2. Read [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md) + ROADMAP + ARCHITECTURE + FLEET.
+2. Read [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md) + ARCHITECTURE-FREEZE + FLEET.
 3. Inspect **github.com/PavelNeyman/netductor** (bins in `/usr/local/bin`; `/opt/netductor` = data volumes only).
 4. Respect Forbidden / Frozen Architecture.
 5. If ambiguous → **STOP** and ask the owner.
@@ -42,7 +42,7 @@ Progress: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ru/ROADMAP.md](docs/ru/ROA
 
 This rule is **strict and non-negotiable**:
 
-1. Work follows [docs/OPERATOR-PLAN.md](docs/OPERATOR-PLAN.md) (and ROADMAP when relevant).
+1. Work follows [docs/ARCHITECTURE-PLAN.md](docs/ARCHITECTURE-PLAN.md) and [docs/OPEN_ITEMS.md](docs/OPEN_ITEMS.md).
 2. When any checklist item is **finished**, the **same** change (commit / PR / task outcome) **must**:
    - mark that item `[x]` in the plan file;
    - update affected docs (ARCHITECTURE-OPERATOR, DOMAIN, DEPLOY-MAC, HANDOFF, CHANGELOG as applicable);
@@ -87,7 +87,7 @@ Do **not** reintroduce: permanent public :8789 env, plain :8788, non-local node 
 Operator UI lives on **Mac `netductor-op`**. Node is server-only.
 
 
-**TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI.md](docs/TG-UI.md). Access import buttons use **redirect-serve** + `NETDUCTOR_REDIRECT_BASE` (HTTPS **:8443** after LE; not custom schemes in Telegram url-buttons).
+**TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI-PATTERN.md](docs/TG-UI-PATTERN.md). Access import buttons use **redirect-serve** + `NETDUCTOR_REDIRECT_BASE` (HTTPS **:8443** after LE; not custom schemes in Telegram url-buttons).
 
 ---
 
@@ -170,6 +170,6 @@ See `docs/PLAN-NVR-TAPO.md`. CLI: `netductor nvr`. API under `/api/nvr/*`. Reten
 - Node role/id prefix: `secondary` / `secondary-…`.
 
 ### 0.8.0 release
-See CHANGELOG and docs/REVIEW-2026-09-20.md. Update policy: docs/UPGRADE.md.
+See CHANGELOG. Update: [docs/UPDATE.md](docs/UPDATE.md).
 
 Current backlog: [docs/OPEN_ITEMS.md](docs/OPEN_ITEMS.md). Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md).

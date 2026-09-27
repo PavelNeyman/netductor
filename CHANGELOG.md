@@ -1,3 +1,8 @@
+## docs-prune
+
+- Removed ~80 obsolete docs (reviews, test plans, duplicate runbooks, archive)
+- Kept product + plans + handoff; RU only for operational pair
+
 ## 0.9.71-docs
 
 - Live unattended recover marked passed
