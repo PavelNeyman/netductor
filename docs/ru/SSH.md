@@ -1,6 +1,8 @@
-# SSH
-
 **RU** · [EN](../SSH.md)
 
-После bootstrap: порт **52222**, PasswordAuthentication no, ключ Mac на primary и secondary.  
-Первый вход secondary может быть :22 по паролю, day-2 — только 52222.
+# SSH
+
+- Порт **52222** на primary и secondary после harden
+- Первый вход: пароль провайдера → укладка Mac operator key → password off
+- Один и тот же ключ оператора на обе VPS
+- Day-2: `ssh -i ~/.ssh/netductor_primary -p 52222 root@HOST`

@@ -1,6 +1,7 @@
-# Ноды
-
 **RU** · [EN](../NODES.md)
 
-Реестр: id, hostname, role, IP, last seen. Переименование через desired_hostname → агент применяет.  
-Формат имён: `nd-<role>-<marker>`.
+# Ноды
+
+Реестр `/var/lib/netductor/nodes`. Роли: primary, secondary, edge, lab.  
+Rename в UI/CLI/TG; desired hostname через agent.  
+SSH known_hosts / TOFU для операторских хостов.

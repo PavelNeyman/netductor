@@ -1,36 +1,43 @@
-# Бэкапы
-
 **RU** · [EN](../BACKUP.md)
 
-## Что входит
-- Конфиг `/etc/netductor/` (включая secrets, conf, hostname files)
-- State `/var/lib/netductor/` (users, secondary registry, git data по возможности)
-- Шифрование AES → файл `.ndenc`
-- Рядом с архивом: `COMPONENTS.txt` (что ставить при recover)
-- Бинарники **не** кладутся в бэкап — всегда GitHub Release
+# Backup и recover
 
-## Команды
+## Состав бэкапа
+Конфиги и данные сервисов (`/etc/netductor`, blocky, sing-box, `/var/lib/netductor`, profiles, lampac data…).  
+**Бинарники не тащим** — ставятся с GitHub Release по списку COMPONENTS.
+
+## Cross-backup
+Агент secondary **pull** бэкапа primary по schedule (канон). Legacy scp primary→secondary **отключён**.
+
+## Hostname
+В бэкап пишется hostname; recover **не** генерит `nd-primary-<ip>` поверх — восстанавливает из backup. Свежий install — `applyHostname` / env.
+
+## SSH ключи оператора
+В бэкап только **public** keys (`operator_authorized_keys`). Private **никогда**.  
+Recover: merge authorized_keys **до** harden из archive + `NETDUCTOR_OPERATOR_PUBKEY` / `_FILE`.
+
+## Recovery security
+- Secondary `:8790` только после `recovery arm` (SSH), TTL
+- Отдаёт **шифрованный** `.ndenc` + COMPONENTS; ключ расшифровки **offline** (`--key` / env)
+- Lockout после N неудачных auth
+- Optional CIDR allow на recovery
+
 ```bash
-netductor backup now          # локальный .ndenc
-netductor backup list
-# peer: secondary agent тянет архив в peers/core/
+ssh -p 52222 root@SECONDARY
+netductor recovery arm --ttl 30m
+# на чистом primary / Mac:
+netductor recover --from-secondary https://SECONDARY:8790 \
+  --recovery-token "$TOKEN" --key "$BACKUP_KEY"
+netductor recovery disarm
 ```
 
-Ключ: `backup_key` в secrets или `NETDUCTOR_BACKUP_KEY`. Хранить offline на Mac.
+Credentials после деплоя: `~/.netductor/credentials/` — [OPERATOR_CREDENTIALS.md](OPERATOR_CREDENTIALS.md).
 
-## COMPONENTS
-Автоманифест: optional (lampac/git/registry) + **baseline** primary (dirs…telegram…backup).  
-Sparse list не должен убирать core при recover (merge DefaultComponents с 0.9.70+).
+## Post-restore (0.9.71+)
+1. Pre-install COMPONENTS (vpn-users может soft-fail без secrets)
+2. Распаковка archive
+3. Post-restore pass (api/tg/backup/vpn-users)
+4. **ensure-relay-uplink + vpn apply** (0.9.73) — conf = secrets, users не пустые
+5. UFW secondary IPs, redirect LE
 
-## Offsite / secondary
-Secondary держит копии peers; recovery API `:8790` (arm TTL) отдаёт latest по Bearer `recovery_token`.  
-На проводе ключ шифрования не обязателен — он у оператора.
-
-## Recover
-См. [RECOVER-DRILL](RECOVER-DRILL.md) и [RUNBOOK-INSTALL-RECOVER](RUNBOOK-INSTALL-RECOVER.md).
-
-**Важно:** каталог Let's Encrypt (`/etc/letsencrypt`) обычно **не** в бэкапе. После wipe primary перевыпустить:
-`netductor tls le --email … --domains i.nd.neyman.top,p.nd.neyman.top`.
-
-## Credentials на Mac
-`netductor credentials collect` — локальная копия метаданных/секретов для restore.
+Без успешного `vpn apply` после recover **не считать VPN рабочим** — [RECOVER-DRILL.md](RECOVER-DRILL.md).

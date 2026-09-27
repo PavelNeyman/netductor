@@ -1,6 +1,6 @@
-# План: MikroTik API через edge
-
 **RU** · [EN](../PLAN-MIKROTIK-API-EDGE.md)
 
-**Идея:** RouterOS API не светить в интернет; агент на RPi в LAN ходит в MikroTik, на primary — уже по mTLS.  
-Пока не в каноне — обсуждение/бэклог.
+# План: MikroTik API + edge
+
+Агент на RPi/OpenWrt в LAN ходит к ROS API; на primary — как edge.  
+Контейнер ROS не опираемся (не везде есть).

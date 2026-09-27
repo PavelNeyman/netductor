@@ -1,12 +1,11 @@
-# Архитектура (обзор)
-
 **RU** · [EN](../ARCHITECTURE.md)
 
-Кратко: self-hosted control plane.
+# Архитектура (обзор)
 
-- **Primary** — API, bot, DNS (blocky), бэкапы, mTLS-сервер, домен/redirect
-- **Secondary** — вход VPN для пользователей, agent heartbeat на primary :8789
-- **Edge (OpenWrt)** — агент на объекте, enroll/recovery
-- **Mac op** — деплой флота, TUI/Web installer, credentials
+Личный control plane: VPN, DNS (Blocky), edge OpenWrt, CLI / Mac op / Telegram.
 
-Канон и запреты: [ARCHITECTURE-FREEZE](../ARCHITECTURE-FREEZE.md).
+Плоскости: host · vpn (sing-box) · dns · core/API · edge · operator · fleet (primary/secondary) · extras.
+
+Флот: primary = control abroad; secondary = RU entry + service paths.  
+Канон freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md).  
+Оператор: [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md).

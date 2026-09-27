@@ -1,13 +1,9 @@
-# Оператор vs нода
-
 **RU** · [EN](../ARCHITECTURE-OPERATOR.md)
 
-Два бинаря:
+# Оператор vs нода
 
-| Бинарь | Где | Роль |
-|--------|-----|------|
-| `netductor-op` | Mac/PC | TUI, deploy, operator serve, credentials |
-| `netductor` | VPS | install, serve, vpn, doctor, agent plane |
-
-Деплой качает **node**-asset с Release, не op-бинарь.  
-Новые use-case: сначала backend (`operator`/`deploy`/node API), потом все UI.
+- **`netductor-op`** (Mac/PC): деплой, TUI, local WebUI, credentials, session/tunnel к API
+- **`netductor`** (VPS): install/serve/vpn/doctor/agent/tg — **server plane**
+- Один backend `internal/deploy` + API; UI тонкие
+- Деплой флота с Mac: primary → secondary → domain/LE → addons
+- Секреты оператора остаются на Mac (`~/.netductor/…`), private key primary→secondary не кладём

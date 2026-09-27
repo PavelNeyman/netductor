@@ -1,33 +1,25 @@
-# Деплой с Mac
-
 **RU** · [EN](../DEPLOY-MAC.md)
 
-## Подготовка
-1. Установить op: `brew install netductor` (только **реальные SHA** в Formula) или бинарь с Release.
-2. Ключ: `~/.ssh/netductor_primary` (ed25519); passphrase опционально в мастере.
-3. После bootstrap на VPS — SSH **:52222**, password выключен.
+# Деплой с Mac
 
-## Primary
-TUI/Web/CLI: host, password (первый раз), SNI Reality, domain base, LE email, add-ons (tg/lampac/git…) отдельно.
+## Бинарник
+`netductor-op` — workstation. Не путать с `netductor` на VPS.
 
-```bash
-netductor deploy primary --host IP --password … --key ~/.ssh/netductor_primary \
-  --sni api.vk.me --domain-base … 
-```
+## UI
+- **TUI** — вкладки, мастер деплоя, settings (remote host, key)
+- **Web** — localhost, session Bearer / tunnel к :8787
 
-## Secondary
-Деплой **с Mac**, не «через primary»:
+## Сценарий флота
+1. Primary: SSH password → install COMPONENTS → harden 52222 → key only
+2. Secondary: provision agent + Reality + uplink
+3. Domain/LE → redirect :8443
+4. Addons по выбору
 
-```bash
-export NETDUCTOR_SSH_PORT=52222
-netductor deploy secondary --host IP --password … --key ~/.ssh/netductor_primary \
-  --primary IP --sni …
-```
+## Remote mode
+TUI может управлять уже стоящей VPS по SSH (не только локальный apply).
 
-Тот же pubkey на secondary.
+## Credentials
+Сбор секретов всех нод на Mac после успеха — [OPERATOR_CREDENTIALS](OPERATOR_CREDENTIALS.md).
 
-## Edge / OpenWrt / MikroTik
-Мастера в TUI/Web → тот же backend DeployEdge / DeploySite.
-
-## Day-2
-API ноды localhost :8787 через SSH tunnel; TG bot на primary; agent plane :8789 mTLS.
+## Brew
+[BREW.md](BREW.md) — только реальные SHA256.

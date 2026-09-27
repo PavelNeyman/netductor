@@ -1,6 +1,7 @@
-# Флот
-
 **RU** · [EN](../FLEET.md)
 
-Primary + secondary (+ edge/sites). Статус нод, деплой пакетом с Mac, day-2 через API ноды.  
-Secondary — RU entry; primary — control plane.
+# Флот
+
+primary + secondary (+ edge OpenWrt). Имена `nd-<role>-…`.  
+Реестр nodes; dual-write hostname. Secondary — RU entry, не full HA mirror.  
+Service SP/PS; failover policy; backup pull.

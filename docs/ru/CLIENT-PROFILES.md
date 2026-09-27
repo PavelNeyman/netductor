@@ -1,6 +1,7 @@
-# Клиентские профили
-
 **RU** · [EN](../CLIENT-PROFILES.md)
 
-Готовые профили/подсказки под клиенты (Shadowrocket и др.): куда вставлять subscribe URL, что не вставлять raw `vless://` как local.  
-Связано с redirect-base и VPN user links.
+# Клиентские профили
+
+Ссылки VLESS/HY2 и QR из TG / op.  
+Имя в fragment — сервис (`nd-secondary`), не обязательно имя пользователя.  
+После recover — заново из бота (pbk/sid secondary из `devices.json`).

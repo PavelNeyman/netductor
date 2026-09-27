@@ -1,8 +1,9 @@
-# Homebrew
-
 **RU** · [EN](../BREW.md)
 
-**Жёсткое правило:** в `Formula/netductor.rb` **никогда** не ставить `sha256 :no_check` — brew падает.
+# Homebrew
 
-После каждого релиза op-ассетов: `sha256sum netductor-op-*` → вставить digests в Formula, version = tag.  
-Альтернатива: `netductor-op update` с Release.
+- Tap: `pavelneyman/netductor` (репозиторий Formula)
+- **Никогда** `sha256 :no_check` — brew отказывается / ломает install
+- После релиза: `sha256sum` артефактов `netductor-op-*` / `netductor-*` → вписать в Formula
+- `brew reinstall netductor` / `netductor-op` после обновления SHA
+- Workstation binary: **netductor-op**; node binary на VPS не из brew по умолчанию

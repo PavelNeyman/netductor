@@ -1,4 +1,4 @@
-**EN** · Unattended install/update/recover.
+**EN** · [RU](ru/RUNBOOK-INSTALL-RECOVER.md)
 
 **RU:** install/update/recover без ручных костылей; dual-node smoke — следующий шаг.
 

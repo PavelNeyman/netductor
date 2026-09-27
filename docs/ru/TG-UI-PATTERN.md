@@ -1,8 +1,10 @@
-# Паттерн UI Telegram
-
 **RU** · [EN](../TG-UI-PATTERN.md)
 
-- Таблица + компактные кнопки-действия в теле (номера/emoji)
-- Под сообщением — только навигация
-- editMessageText first, fallback delete+send
-- Меньше дублей (metrics внутри status)
+# Шаблоны TG UI
+
+**A** — список + таблица + кнопки номеров  
+**B** — карточка + таблица field/value + ops  
+**C** — status read-only одна таблица  
+
+Правила: нет кнопок в `<td>`; reply=edit-first; EN/RU все строки.  
+Operator hub: таблица состояния (API public, Users→SP) + **одна** toggle-кнопка на действие.

@@ -1,7 +1,7 @@
-# OpCatalog
-
 **RU** · [EN](../OPCATALOG.md)
 
-Матрица day-2 действий: API ↔ Web / TG / CLI / TUI.  
-Новая возможность → сначала запись в opcatalog, потом UI.  
-Намеренные пробелы: metrics отдельно на TG нет (есть в Status); deploy флота — только Mac op.
+# OPCATALOG
+
+Матрица action ID → Web / TUI / TG / CLI.  
+Цель: не оставлять API-only функции без UI.  
+Намеренные gaps документированы в EN-таблице.

@@ -1,24 +1,23 @@
-# Runbook: install и recover
-
 **RU** · [EN](../RUNBOOK-INSTALL-RECOVER.md)
 
-## Install / update
-Идемпотентно: `netductor install …`, `netductor update` с Release → `/usr/local/bin`.  
-FHS: conf в `/etc/netductor`, state в `/var/lib/netductor`.
+# Runbook: install / update / recover
 
-## Recover (unattended, 0.9.71+)
-1. Бинарь с Release на чистый VPS  
-2. Secondary: `recovery arm`  
-3. `recover --from-secondary https://SEC:8790 --recovery-token … --key …`  
-4. Early pubkey → harden → install COMPONENTS → tar → **post-restore pass** → ufw secondary → done  
+## Чистый primary (Mac op)
+1. TUI/Web wizard primary: IP, password, hostname, SNI, bot token, admin id, domain/LE optional
+2. Harden SSH 52222 + operator key
+3. COMPONENTS: sing-box, blocky, api, tg, backup…
+4. Credentials → `~/.netductor/credentials/`
 
-vpn-users до restore может soft-fail → `(continuing)`.
+## Secondary
+1. Wizard secondary: IP, password, primary URL/IP, agent join
+2. Reality inbound + uplink к primary; agent → :8789 via SP когда есть
+3. Тот же Mac pubkey
 
-Критерий: doctor fail=0, bot/api/sing-box active, secondary online, **без** ручного scp.
+## Update
+`netductor update` / agent pin с Release; op через brew с **реальными SHA**.
 
-## После recover проверить
-- LE/redirect: если нет `/etc/letsencrypt` — `tls le`  
-- secondary sing-box: geoip download через **direct**, не Reality uplink (0.9.72)  
-- `ufw status` :8789 для IP secondary  
+## Recover
+См. [RECOVER-DRILL.md](RECOVER-DRILL.md). Ключ бэкапа offline. После recover — vpn apply + Reality checklist.
 
-См. [RECOVER-DRILL](RECOVER-DRILL.md).
+## Dual-node smoke (следующий шаг владельца)
+Оба VPS с нуля или после recover: doctor, VPN client, agent heartbeat, backup pull, api-public toggle, Users→SP policy sync.

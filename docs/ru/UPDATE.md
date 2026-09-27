@@ -1,8 +1,6 @@
-# Обновление
-
 **RU** · [EN](../UPDATE.md)
 
-- Node: `netductor update` с GitHub Release → `/usr/local/bin`
-- TG: `--component tg`
-- Agent secondary: `desired_release` в heartbeat
-- Mac: `netductor-op update` или brew с реальными SHA
+# Обновления
+
+`netductor update` с GitHub Release; agent pin/self-replace; op — brew + SHA.  
+Secondary подтягивает policy/config через heartbeat.

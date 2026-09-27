@@ -1,44 +1,38 @@
-# Drill recover (primary со secondary)
-
 **RU** · [EN](../RECOVER-DRILL.md)
 
-**Статус:** live unattended drill **пройден** 2026-09-27 на **v0.9.71**.
+# Recover drill
 
-**Цель:** бэкап → wipe primary → recover без потери данных и **без ручных доработок**.
+## Статус
+Unattended recover **пройден** 2026-09-27 / **v0.9.71+**; Reality/uplink checklist **v0.9.73**.
 
-## Условия
-- Secondary online; актуальный `.ndenc` в `peers/core/`
-- `recovery_token` на secondary; у оператора есть `backup_key`
-- Ключ Mac `~/.ssh/netductor_primary`
-- Бинарь ноды с GitHub Release (**не** из бэкапа)
+## Цель
+Снести primary → поднять с secondary backup → стек primary + VPN path без ручного «докручивания».
 
-## Шаги
+## Фазы лога
+| Фаза | Что |
+|------|-----|
+| Pre-restore install | COMPONENTS; `vpn-users` может soft-fail (нет secrets) → **continuing** |
+| Tar restore | secrets, users, state |
+| Post-restore pass | api / telegram / backup / vpn-users снова |
+| ensure-relay-uplink + vpn apply | conf из secrets, UUID uplink в inbound |
+| UFW | secondary IP → api-allow |
 
-1. **Бэкап** на primary: `netductor backup now` — в `COMPONENTS.txt` baseline + optional.
-2. Убедиться, что архив на secondary.
-3. **Снести** primary; запомнить root-пароль.
-4. На чистом primary поставить `netductor` с Release.
-5. На secondary: `netductor recovery arm --ttl 2h`.
-6. `netductor recover --from-secondary https://SECONDARY:8790 --recovery-token … --key …` (+ `NETDUCTOR_OPERATOR_PUBKEY`).
-7. **Проверка без ручного install:** doctor fail=0, api/sing-box/blocky/bot active, `netductor-tg` — файл ELF, ufw :8789 для IP secondary, secondary online, SSH `:52222`.
-8. Снять arm recovery на secondary.
+Ожидаемый хвост: `(continuing)` → `post-restore component pass` → `vpn apply OK` → `recover: done`.
 
-## Как устроен recover (0.9.71+)
-
-Сначала install по COMPONENTS (vpn-users может soft-fail без секретов → continuing), затем tar, затем **второй проход** api/telegram/backup/vpn-users, затем ufw secondary.
-
-Ожидаемый хвост лога: `(continuing)` → `post-restore component pass` → `recover: done`.
-
-
-## Чеклист Reality / uplink после recover (обязательно)
+## Чеклист Reality / uplink (обязательно)
 
 После wipe+recover **не считать VPN рабочим**, пока:
 
-1. `netductor vpn apply` успешен (конфиг primary из secrets + users registry, в т.ч. **relay-uplink**).
-2. Reality inbound primary совпадает с `/etc/netductor/secrets/singbox_*`.
-3. Uplink secondary: pbk/sid/SNI = public secrets primary.
-4. **Multiplex включён** (канон против отвалов): inbound primary — только `enabled`+`padding`; outbound secondary — полный mux object.
-5. Клиентские ссылки — актуальный secondary pbk/sid из `devices.json`.
+1. `netductor vpn apply` **успешен**
+2. Reality inbound primary = `/etc/netductor/secrets/singbox_*` (private, sid, sni)
+3. Secondary uplink pbk/sid/SNI = public secrets primary
+4. **Multiplex ON**: inbound primary только `enabled`+`padding`; outbound secondary — полный object
+5. Клиентские ссылки — актуальный secondary pbk/sid из `devices.json`
 
-Инцидент 2026-09-27: после recover пустые users, ключи conf≠secrets, apply падал на полях inbound mux → чинили apply + ensure-relay-uplink в post-restore.
+**Инцидент 2026-09-27:** conf≠secrets, users=[], apply падал на `max_connections` в inbound mux → unknown UUID / x509. Фикс 0.9.73.
 
+## SSH
+Day-2: `-p 52222` + Mac key. Recovery arm/disarm на secondary.
+
+## Secondary после drill
+Disarm recovery; :8790 закрыт.

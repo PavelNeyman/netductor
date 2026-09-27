@@ -1,6 +1,8 @@
-# VPN-пользователи
-
 **RU** · [EN](../VPN-USERS.md)
 
-CRUD, ссылки, QR, enable/disable/revoke. UUID стабилен при rename.  
-Синхронизация на secondary через agent config_ver. Failover Users→SP — политика на primary.
+# Пользователи VPN
+
+- Реестр: `/etc/netductor/clients` + state registry
+- `netductor vpn list|add|rename|…` и UI (TG / op)
+- Служебный пользователь **`relay-uplink`**: UUID secondary→primary, **без** vision (совместим с multiplex)
+- После recover обязателен `vpn ensure-relay-uplink` + `vpn apply` (см. RECOVER-DRILL)

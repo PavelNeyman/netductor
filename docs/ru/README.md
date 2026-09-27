@@ -1,5 +1,7 @@
-# Документация
+**RU** · [EN](../README.md)
 
-Канон и детали — в **EN**. Здесь — тот же смысл по-русски (не дословный перевод).
+# Документация netductor
 
-Оглавление: [../README.md](../README.md).
+Сначала: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [AGENT_HANDOFF](AGENT_HANDOFF.md) · [RECOVER-DRILL](RECOVER-DRILL.md)
+
+Индекс продукта, планов и ops — те же имена файлов, что в EN `docs/`.
