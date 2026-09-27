@@ -1,3 +1,10 @@
+## 0.9.65
+
+- A6: `netductor update` downloads GitHub Release → `/usr/local/bin` (node|tg|agent)
+- A2: DEPLOY-PARITY.md + Web fleet key_passphrase
+- Recover drill documentation
+- Freeze path: no /opt in update install
+
 ## 0.9.62
 
 - **Backbone WG v1:** `internal/backbone`, CLI `netductor backbone init-primary|export|init-secondary|apply|status|conf`, doctor WARN/OK

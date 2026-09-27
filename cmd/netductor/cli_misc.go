@@ -15,6 +15,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/probes"
 )
 
@@ -145,46 +146,87 @@ func runSelfInstall() {
 	runUpdate(false)
 }
 
-// runUpdate replaces the local binary and optionally restarts services.
+
+
+// runUpdate installs from GitHub Releases into /usr/local/bin (FHS).
+// usage: netductor update [version] [--component node|tg|agent] [--no-restart] [--skip-verify]
 func runUpdate(restart bool) {
-	exe, err := os.Executable()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	comp, ver := "node", ""
+	doRestart := restart
+	skipVerify := false
+	args := os.Args[2:]
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch a {
+		case "--component", "-c":
+			if i+1 < len(args) {
+				i++
+				comp = args[i]
+			}
+		case "--version", "-v":
+			if i+1 < len(args) {
+				i++
+				ver = args[i]
+			}
+		case "--no-restart":
+			doRestart = false
+		case "--restart":
+			doRestart = true
+		case "--skip-verify":
+			skipVerify = true
+		case "--help", "-h":
+			fmt.Println("netductor update [version] [--component node|tg|agent] [--no-restart] [--skip-verify]")
+			fmt.Println("Downloads GitHub Release asset into /usr/local/bin. Verifies SHA256SUMS unless --skip-verify or NETDUCTOR_UPDATE_SKIP_VERIFY=1.")
+			return
+		default:
+			if !strings.HasPrefix(a, "-") && ver == "" {
+				ver = a
+			}
+		}
 	}
-	dest := "/usr/local/bin/netductor"
-	data, err := os.ReadFile(exe)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	if skipVerify {
+		_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
 	}
-	_ = os.MkdirAll("/opt/netductor/bin", 0o755)
-	if want := os.Getenv("NETDUCTOR_UPDATE_SHA256"); want != "" {
-		sum := sha256Hex(data)
-		if sum != strings.TrimSpace(want) {
-			fmt.Fprintln(os.Stderr, "sha256 mismatch", sum, "!=", want)
+	tag := strings.TrimSpace(ver)
+	if tag == "" {
+		var err error
+		tag, err = ndupdate.LatestReleaseTag()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "latest release:", err)
 			os.Exit(1)
 		}
 	}
-	tmp := dest + ".new"
-	if err := os.WriteFile(tmp, data, 0o755); err != nil {
+	if !strings.HasPrefix(tag, "v") {
+		tag = "v" + tag
+	}
+	dest := "/usr/local/bin/netductor"
+	unit := "netductor-api"
+	switch comp {
+	case "tg", "telegram":
+		dest = "/usr/local/bin/netductor-tg"
+		unit = "netductor-telegram-bot"
+	case "agent":
+		dest = "/usr/local/bin/netductor-agent"
+		unit = "netductor-secondary-agent"
+	case "node", "netductor", "":
+		comp = "node"
+	default:
+		fmt.Fprintln(os.Stderr, "unknown component", comp)
+		os.Exit(2)
+	}
+	fmt.Fprintln(os.Stderr, "==> update", comp, tag, "→", dest)
+	if err := ndupdate.DownloadReleaseAsset(tag, comp, dest); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	_ = exec.Command("systemctl", "stop", "netductor-api").Run()
-	if err := os.Rename(tmp, dest); err != nil {
-		fmt.Fprintf(os.Stderr, "wrote %s (rename failed: %v)\n", tmp, err)
-	} else {
-		fmt.Println("updated", dest)
-	}
-	// keep parallel copy for unit ExecStart paths
-	_ = exec.Command("cp", "-f", dest, "/opt/netductor/bin/netductor").Run()
-	if restart {
-		_ = exec.Command("systemctl", "start", "netductor-api").Run()
-		_ = exec.Command("systemctl", "try-restart", "netductor-telegram-bot").Run()
-		fmt.Println("services restarted")
-	} else {
-		fmt.Println("restart: systemctl start netductor-api")
+	ndupdate.WriteVERSION(tag)
+	fmt.Println("updated", dest, tag)
+	if doRestart && unit != "" {
+		_ = exec.Command("systemctl", "try-restart", unit).Run()
+		if unit == "netductor-api" {
+			_ = exec.Command("systemctl", "try-restart", "netductor-telegram-bot").Run()
+		}
+		fmt.Println("restarted", unit, "(try)")
 	}
 }
 

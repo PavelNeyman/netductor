@@ -50,6 +50,10 @@ en:{
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
   b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
+  l_dns_id:'list id', l_dns_en:'enabled', b_dns_set:'Set list', b_dns_on:'on', b_dns_off:'off',
+  l_bak_hour:'hour (0-23)', l_bak_min:'minute (0-59)', l_bak_tz:'timezone', b_bak_save:'Save schedule',
+  l_git_repo:'repo', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'artifact path',
+  b_git_run:'Run pipeline', b_git_init:'Init repo', b_git_log:'Log', b_git_show:'Show', b_git_art:'Get artifact',
   b_nodes:'Nodes', b_self:'Self', b_sec_st:'Secondary status', b_sec_links:'Secondary links',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'SSH hosts clear', b_mtls:'mTLS certs', b_sites:'Sites',
   b_hostname:'Set hostname', b_svc_restart:'Restart service', b_journal:'Journal',
@@ -89,6 +93,10 @@ ru:{
   b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'Список users', b_vpn_refresh:'Обновить ссылки',
   b_vpn_add:'Добавить user', b_vpn_enable:'Включить', b_vpn_disable:'Выключить', b_vpn_revoke:'Отозвать', b_vpn_link:'Ссылки',
+  l_dns_id:'id списка', l_dns_en:'вкл', b_dns_set:'Применить', b_dns_on:'вкл', b_dns_off:'выкл',
+  l_bak_hour:'час (0-23)', l_bak_min:'мин (0-59)', l_bak_tz:'часовой пояс', b_bak_save:'Сохранить расписание',
+  l_git_repo:'репо', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'путь артефакта',
+  b_git_run:'Запуск pipeline', b_git_init:'Init репо', b_git_log:'Log', b_git_show:'Show', b_git_art:'Артефакт',
   b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты',
   b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
@@ -196,7 +204,7 @@ document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); co
   await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on',
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
-    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
+    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'), key_passphrase:fd.get('key_passphrase'),
     cf_proxy:fd.get('cf_proxy')==='on',
     with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
     with_telegram:fd.get('with_telegram')==='on',
@@ -459,8 +467,7 @@ const BTN = {
   ],
   dns:[
     ['dns-lists','DNS lists','GET','/api/dns/lists'],
-    ['dns-set': async()=>{ const on=document.getElementById('dnsOn').value==='1'; return nodeFetch('/api/dns/set',{method:'POST',body:JSON.stringify({id:document.getElementById('dnsId').value.trim(),enabled:on})}); },
-  'dns-reload','DNS reload','POST','/api/dns/reload','{}'],
+    ['dns-reload','DNS reload','POST','/api/dns/reload','{}'],
   ],
   backup:[
     ['backup-peer','Peer','GET','/api/backup/peer'],
@@ -505,9 +512,15 @@ function mountButtons(){
     }
     // append forms for complex POSTs
         if(sec==='dns'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>list id</label><input id="dnsId" placeholder="adguard"/></div>
-      <div><label>enabled</label><select id="dnsOn"><option value="1">on</option><option value="0">off</option></select></div></div>
-      <button class="primary" type="button" data-act="dns-set">Set list</button>`;
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_dns_id')}</label><input id="dnsId" placeholder="adguard"/></div>
+      <div><label>${t('l_dns_en')}</label><select id="dnsOn"><option value="1">${t('b_dns_on')}</option><option value="0">${t('b_dns_off')}</option></select></div></div>
+      <button class="primary" type="button" data-act="dns-set">${t('b_dns_set')}</button>`;
+    }
+    if(sec==='backup'){
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_bak_hour')}</label><input id="bakHour" type="number" min="0" max="23" value="1"/></div>
+      <div><label>${t('l_bak_min')}</label><input id="bakMin" type="number" min="0" max="59" value="0"/></div></div>
+      <div class="row"><div><label>${t('l_bak_tz')}</label><select id="bakUtc"><option value="1">UTC</option><option value="0">local</option></select></div><div></div></div>
+      <button class="primary" type="button" data-act="backup-schedule-set">${t('b_bak_save')}</button>`;
     }
     if(sec==='vpn'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>
@@ -573,11 +586,16 @@ function mountButtons(){
       <button class="primary" type="button" data-act="nvr-motion">Motion cfg GET/POST via adv</button>`;
     }
     if(sec==='git'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>repo</label><input id="gitRepo"/></div><div><label>pipeline</label><input id="gitPipe"/></div></div>
-      <button class="primary" type="button" data-act="git-run">Run pipeline</button>
-      <div class="row"><div><label>git log repo</label><input id="gitLogRepo"/></div><div><label>show path</label><input id="gitShowPath"/></div></div>
-      <button class="primary" type="button" data-act="git-log">Log</button>
-      <button class="primary" type="button" data-act="git-show">Show</button>`;
+      h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_git_repo')}</label><input id="gitRepo" placeholder="my-repo"/></div>
+      <div><label>${t('l_git_pipe')}</label><input id="gitPipe" placeholder="build.yml"/></div></div>
+      <button class="primary" type="button" data-act="git-run">${t('b_git_run')}</button>
+      <button class="primary" type="button" data-act="git-init">${t('b_git_init')}</button>
+      <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
+      <div><label>${t('l_git_rev')}</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
+      <button class="primary" type="button" data-act="git-log">${t('b_git_log')}</button>
+      <button class="primary" type="button" data-act="git-show">${t('b_git_show')}</button>
+      <div class="row"><div><label>${t('l_git_art')}</label><input id="gitArtPath" placeholder="build/out.bin"/></div><div></div></div>
+      <button class="primary" type="button" data-act="git-artifact">${t('b_git_art')}</button>`;
     }
     el.innerHTML=h;
   }
@@ -609,6 +627,20 @@ const special = {
   'edge-cmd': async()=>{ return nodeFetch('/api/edge/cmd',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeCmdDid').value.trim(),cmd:document.getElementById('edgeCmdName').value.trim(),arg:document.getElementById('edgeCmdArg').value})}); },
   'edge-export': async()=>{ return nodeFetch('/api/edge/export'); },
   'edge-backup': async()=>{ return nodeFetch('/api/edge/backup',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeId').value.trim()})}); },
+  'dns-set': async()=>{
+    const id=document.getElementById('dnsId').value.trim();
+    if(!id) return {error:'list id required'};
+    const on=document.getElementById('dnsOn').value==='1';
+    return nodeFetch('/api/dns/set',{method:'POST',body:JSON.stringify({id,enabled:on})});
+  },
+  'backup-schedule-set': async()=>{
+    const hour=parseInt(document.getElementById('bakHour').value,10);
+    const minute=parseInt(document.getElementById('bakMin').value,10);
+    const utc=document.getElementById('bakUtc').value==='1';
+    if(isNaN(hour)||hour<0||hour>23) return {error:'hour 0-23'};
+    if(isNaN(minute)||minute<0||minute>59) return {error:'minute 0-59'};
+    return nodeFetch('/api/backup/schedule',{method:'POST',body:JSON.stringify({hour,minute,utc})});
+  },
   'nvr-ptz': async()=>{ return nodeFetch('/api/nvr/ptz',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim(),dir:document.getElementById('nvrPtzDir').value})}); },
   'nvr-rec-start': async()=>{ return nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
   'nvr-rec-stop': async()=>{ return nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
@@ -618,8 +650,17 @@ const special = {
   'nvr-dhcp': async()=>{ return nodeFetch('/api/nvr/site/dhcp_static',{method:'POST',body:JSON.stringify({device_id:document.getElementById('dhcpDid').value.trim(),mac:document.getElementById('dhcpMac').value.trim(),ip:document.getElementById('dhcpIp').value.trim(),name:document.getElementById('dhcpName').value.trim()})}); },
   'nvr-clip-token': async()=>{ return nodeFetch('/api/nvr/clip/token',{method:'POST',body:JSON.stringify({path:document.getElementById('nvrClip').value.trim()})}); },
   'git-run': async()=>{ return nodeFetch('/api/git/pipeline',{method:'POST',body:JSON.stringify({repo:document.getElementById('gitRepo').value.trim(),pipeline:document.getElementById('gitPipe').value.trim()})}); },
-  'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?repo='+encodeURIComponent(r)):'')); },
-  'git-show': async()=>{ return nodeFetch('/api/git/show?repo='+encodeURIComponent(document.getElementById('gitLogRepo').value.trim())+'&path='+encodeURIComponent(document.getElementById('gitShowPath').value.trim())); },
+  'git-init': async()=>{ const name=document.getElementById('gitRepo').value.trim(); if(!name) return {error:'repo name'}; return nodeFetch('/api/git/repos',{method:'POST',body:JSON.stringify({name})}); },
+  'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?name='+encodeURIComponent(r)):'')); },
+  'git-show': async()=>{
+    const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim();
+    const rev=document.getElementById('gitShowPath').value.trim()||'HEAD';
+    return nodeFetch('/api/git/show?name='+encodeURIComponent(r)+'&rev='+encodeURIComponent(rev));
+  },
+  'git-artifact': async()=>{
+    const path=document.getElementById('gitArtPath').value.trim();
+    return nodeFetch('/api/git/artifact'+(path?('?path='+encodeURIComponent(path)):''));
+  },
   'adv-send': async()=>{
     const method=document.getElementById('advMethod').value;
     let path=document.getElementById('advPath').value.trim(); if(!path.startsWith('/')) path='/'+path;

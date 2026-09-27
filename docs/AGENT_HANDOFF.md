@@ -18,12 +18,16 @@ Permanent `API_ALLOW_PUBLIC` / `PLAIN_AGENT` / `API_PUBLIC` / `TRUST_PROXY` · V
 - Policy Users→SP syncs secondary via agent heartbeat
 - VPS: primary `2.27.118.70`, secondary `92.255.77.253` (test; rebuild OK)
 
+## Baseline
+
+**v0.9.65** — A2 parity table, A6 `netductor update` from Release, RECOVER-DRILL.md
+
 ## Next work (plan order)
 
-1. A2 deploy parity TUI/Web  
-2. A6 update path Release → node/agent/op  
-3. Recover drill documentation + one live test  
-4. B5 opcatalog matrix  
+1. ~~A2~~ ~~A6~~ ~~Recover drill doc~~  
+2. Live recover drill (owner)  
+3. B5 opcatalog matrix  
+4. B1–B4 remaining  
 5. Features only after A/B green  
 
 ## Rule

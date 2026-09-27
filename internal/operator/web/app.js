@@ -204,7 +204,7 @@ document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); co
   await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on',
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
-    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'),
+    domain_base:fd.get('domain_base'), le_email:fd.get('le_email'), sni:fd.get('sni'), key:fd.get('key'), key_passphrase:fd.get('key_passphrase'),
     cf_proxy:fd.get('cf_proxy')==='on',
     with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
     with_telegram:fd.get('with_telegram')==='on',

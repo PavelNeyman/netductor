@@ -9,8 +9,8 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 - [x] No VPS admin product path
 
 ## Open (from plan)
-- [ ] A2 Deploy parity TUI ↔ Web
-- [ ] A6 Unified update path
-- [ ] Recover drill
+- [x] A2 Deploy parity TUI ↔ Web ([DEPLOY-PARITY.md](DEPLOY-PARITY.md))
+- [x] A6 Unified update path ([UPDATE.md](UPDATE.md), `netductor update`)
+- [x] Recover drill doc ([RECOVER-DRILL.md](RECOVER-DRILL.md)); live drill = owner
 - [ ] B5 opcatalog matrix
 - [ ] Hardware e2e (non-blocking for freeze)

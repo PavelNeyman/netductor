@@ -2,18 +2,18 @@
 
 ## A — Close before freeze is “done in practice”
 
-| ID | Item | Why it hurts if skipped |
-|----|------|-------------------------|
-| A2 | Deploy parity TUI ↔ Web (one fleet checklist) | Mac reinstall diverges |
-| A6 | Unified update path (node + agent + op from Release) | Manual scp forever |
-| A5 | Doctor: footgun env gone; cert expiry WARN | Silent rot |
-| Recover drill | Backup → wipe primary → recover from secondary | Fear of failure |
+| ID | Item | Status |
+|----|------|--------|
+| A2 | Deploy parity TUI ↔ Web (one fleet checklist) | **[x]** [DEPLOY-PARITY.md](DEPLOY-PARITY.md) |
+| A6 | Unified update path (node + agent + op from Release) | **[x]** [UPDATE.md](UPDATE.md), `netductor update` |
+| A5 | Doctor: footgun env gone; cert expiry WARN | open |
+| Recover drill | Backup → wipe primary → recover from secondary | **[x] doc** [RECOVER-DRILL.md](RECOVER-DRILL.md); live = owner |
 
 ## B — Missing for calm “features only”
 
 | ID | Item | Notes |
 |----|------|-------|
-| B1 | Version pins + self-update agent/op | Heartbeat / brew |
+| B1 | Version pins + self-update agent/op | Heartbeat / brew; agent uses same Release URL |
 | B2 | Idempotent install/recover documented + tested | RUNBOOK one path |
 | B3 | Desired state only via agent plane | No primary→secondary SSH |
 | B4 | Operator secrets stay on Mac | Never put private key on primary for secondary |
