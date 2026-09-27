@@ -8,6 +8,7 @@
 3. **h2mux A/B** — `uplink-mux set on|off|h2mux` (re-apply secondary box)
 4. mTLS 8789 if offline alerts recur
 5. Owner/later: hardware e2e, SMTP, mobile, CDN-XHTTP ([OPEN_ITEMS](OPEN_ITEMS.md))
+6. **After tunnels stable:** path layout — remove `/opt/netductor`, canon `/usr/local/bin` + `/etc` + `/var/lib` ([OPEN_ITEMS](OPEN_ITEMS.md))
 
 Do not reopen TG menu polish unless regression.
 

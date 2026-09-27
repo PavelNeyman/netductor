@@ -236,3 +236,10 @@ Anti-flap: 3 failed probes → DOWN; 3 ok + 30–60s stable → failback to VLES
 4. CLI: `netductor svc-paths status|apply` (or extend `backbone`).
 
 **VLESS client ingress and uplink config: out of scope for this change.**
+
+### Live wiring (test VPS, 2026-09-27)
+
+- Agent on secondary: `secondary_core_url=https://10.87.10.1:8789` (service S→P); public fallback file `secondary_core_url.public`.
+- VLESS uplink unchanged for users.
+- Legacy `nd-backbone` / `nd-awg` may still exist from spikes — not the service-plane canon.
+

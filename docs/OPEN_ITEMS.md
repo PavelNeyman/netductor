@@ -2,9 +2,13 @@
 
 ## In progress
 
+- **Dual service tunnels (WG-over-WSS)** — live on test VPS (`nd-svc-sp` S→P, `nd-svc-ps` P→S); health timer; agent prefers `https://10.87.10.1:8789` via SP. Next: wire more service flows P→S, optional user-exit failover VLESS→SP, CLI `svc-paths`. See [BACKBONE-WG.md](BACKBONE-WG.md) §13.
 - TG style: matrix A/B/C documented (0.9.45); remaining screens audit ongoing
-- Backbone design: [BACKBONE-WG.md](BACKBONE-WG.md) (code pending)
-- Next implement: backbone WG v1 → h2mux A/B → mTLS 8789 if needed
+- h2mux A/B — `uplink-mux set on|off|h2mux` when ready to re-test
+
+## Planned (after tunnels)
+
+- **Path layout cleanup:** drop `/opt/netductor` as install prefix; canon = `/usr/local/bin/netductor` + `/etc/netductor` + `/var/lib/netductor` (install/deploy/docs/units). Do **not** start until dual service paths are stable and documented.
 
 - Day-2 UI parity + TG body-pattern closed through 0.9.41 (see REVIEW-0.9.41)
 - Remaining: hardware e2e, owner later items below
