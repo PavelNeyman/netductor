@@ -8,7 +8,7 @@
 
 ## Planned (after tunnels)
 
-- **API exposure:** after operator path clear — optionally restrict primary :8789 to svc subnets + operator allowlist (today agent already via SP).
+- **API exposure:** primary :8789 locked to service CIDRs + api-allow.cidr (2026-09-27); Mac → SSH tunnel. Optional later: temporary api-public arm.
 - **Path layout cleanup:** drop `/opt/netductor` as install prefix; canon = `/usr/local/bin/netductor` + `/etc/netductor` + `/var/lib/netductor` (install/deploy/docs/units). Do **not** start until dual service paths are stable and documented.
 
 - Day-2 UI parity + TG body-pattern closed through 0.9.41 (see REVIEW-0.9.41)

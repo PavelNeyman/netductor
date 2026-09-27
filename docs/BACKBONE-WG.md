@@ -248,7 +248,7 @@ Anti-flap: 3 failed probes → DOWN; 3 ok + 30–60s stable → failback to VLES
 | Traffic | Through tunnel now? | Notes |
 |---------|---------------------|-------|
 | Secondary agent → primary API (:8789) | **Yes** (`https://10.87.10.1:8789` via SP) | Heartbeat/commands; mTLS still required |
-| Operator → primary API | **No** (public :8789) | Mac/deploy still needs public or future operator VPN |
+| Operator → primary API | **Restricted** | :8789 only service CIDRs + `api-allow.cidr`; Mac via **SSH tunnel** or VLESS+allowlist |
 | SSH :52222 | **No** | Key-only; optional later via PS/SP |
 | User VLESS | N/A (own path) | Unchanged |
 | Backup pull primary→secondary | **Not yet forced** | Prefer PS when wiring next |
@@ -278,4 +278,5 @@ Separate ops WG is “more correct” isolation; for a solo operator **one VLESS
 - Port **:8790** only while `netductor recovery arm` (process must **stay running** — fixed in CLI).
 - Pull from primary: `https://10.87.11.2:8790/recovery/...` (Bearer token).
 - Prefer `NETDUCTOR_RECOVERY_ALLOW_CIDR=10.87.11.0/30` so WAN is not required when PS is up.
+
 
