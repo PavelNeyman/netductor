@@ -77,3 +77,8 @@ Without manual steps after wipe:
 4. After restore, **ufw :8789** is opened for secondary public IPs from registry; heartbeat also appends IP.
 
 Drill success criterion: password → recover one-shot → doctor fail=0, bot active, secondary online — **no** manual install/scp/ufw.
+
+
+## 0.9.71
+
+Pre-restore install may soft-fail `vpn-users` (no secrets yet). Remaining components still install; after tar restore a **second pass** installs api/telegram/backup/vpn-users with secrets present.

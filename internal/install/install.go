@@ -50,6 +50,7 @@ func Run(opts Options) error {
 		applyHostname("primary")
 	}
 	_ = nodes.LocalStableID() // stable node id (UUID), independent of hostname
+	var errs []error
 	for _, c := range comps {
 		fmt.Fprintf(os.Stderr, "==> %s\n", c)
 		var err error
@@ -85,7 +86,9 @@ func Run(opts Options) error {
 			fmt.Fprintf(os.Stderr, "skip unknown component %s\n", c)
 		}
 		if err != nil {
-			return fmt.Errorf("%s: %w", c, err)
+			fmt.Fprintf(os.Stderr, "component %s: %v (continuing)\n", c, err)
+			errs = append(errs, fmt.Errorf("%s: %w", c, err))
+			continue
 		}
 	}
 	_ = os.WriteFile(filepath.Join(paths.StateDir(), "installed_version"), []byte(version.Release+"\n"), 0o644)
@@ -98,6 +101,13 @@ func Run(opts Options) error {
 		}
 	}
 	fmt.Fprintln(os.Stderr, "install finished")
+	if len(errs) > 0 {
+		parts := make([]string, 0, len(errs))
+		for _, e := range errs {
+			parts = append(parts, e.Error())
+		}
+		return fmt.Errorf("install partial: %s", strings.Join(parts, "; "))
+	}
 	return nil
 }
 

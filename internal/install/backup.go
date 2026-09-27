@@ -306,6 +306,21 @@ func Recover(archive, keyArg string) error {
 	restoreOperatorKeysFromBackup()
 	reloadSSHDAfterRecover()
 
+	// Second pass: components that need secrets or were skipped when pre-restore install aborted mid-list.
+	fmt.Fprintln(os.Stderr, "recover: post-restore component pass")
+	post := []string{}
+	for _, c := range comps {
+		switch c {
+		case "vpn-users", "api", "metrics", "telegram", "backup", "lampac", "registry", "git":
+			post = append(post, c)
+		}
+	}
+	if len(post) > 0 {
+		if err := Run(Options{Components: post, SkipHostname: true}); err != nil {
+			fmt.Fprintf(os.Stderr, "recover: post-restore install: %v\n", err)
+		}
+	}
+
 	// Re-apply runtime configs from restored secrets/users
 	fmt.Fprintln(os.Stderr, "recover: apply vpn / restart services")
 	_ = run("netductor", "vpn", "apply")

@@ -1,3 +1,9 @@
+## 0.9.71
+
+- install.Run: continue on per-component errors (do not abort remaining list)
+- recover: post-restore second pass for api/telegram/backup/vpn-users/… after secrets are on disk
+- Fixes unattended recover stopped at vpn-users validation before tar restore
+
 ## 0.9.70
 
 - Recover: always merge DefaultComponents (incl. telegram); backup COMPONENTS never sparse core
