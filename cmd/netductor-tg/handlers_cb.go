@@ -527,6 +527,17 @@ if strings.HasPrefix(data, "u:") {
 		setState(chat, "wait_ssh_forget", "")
 		reply(token, chat, msgID, T("ssh_forget")+string([]byte{10})+"host or host:port", backKeyboard())
 
+
+	case "m:failover_status":
+		out := runND("svc-paths", "failover", "status")
+		reply(token, chat, msgID, "🔀 <b>Failover</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", operatorSubKeyboard())
+	case "m:users_sp_on":
+		out := runND("svc-paths", "failover", "set-users-sp", "on")
+		reply(token, chat, msgID, "👥 <b>Users→SP</b> ON\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
+	case "m:users_sp_off":
+		out := runND("svc-paths", "failover", "set-users-sp", "off")
+		reply(token, chat, msgID, "👥 <b>Users→SP</b> OFF\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
+
 	case "m:api_public_arm":
 		out := runND("api-public", "arm", "--ttl", "15m")
 		reply(token, chat, msgID, "🔓 <b>API :8789</b>\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())

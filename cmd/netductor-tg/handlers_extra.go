@@ -460,9 +460,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		}
 		reply(token, chat, msgID, wait, navKeyboard("m:tools", parentTools()))
 		err := ndupdate.SelfReplace("netductor", "/usr/local/bin/netductor", "")
-		_ = exec.Command("cp", "-f", "/usr/local/bin/netductor", "/opt/netductor/bin/netductor").Run()
-		err2 := ndupdate.SelfReplace("tg", "/opt/netductor/bin/netductor-tg", "")
-		_ = exec.Command("cp", "-f", "/opt/netductor/bin/netductor-tg", "/usr/local/bin/netductor-tg").Run()
+		err2 := ndupdate.SelfReplace("tg", "/usr/local/bin/netductor-tg", "")
 		if tag, e := ndupdate.LatestReleaseTag(); e == nil {
 			ndupdate.WriteVERSION(tag)
 		}

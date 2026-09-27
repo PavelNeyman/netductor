@@ -18,10 +18,11 @@ func TestEnsureLayout(t *testing.T) {
 	root := t.TempDir()
 	_ = os.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
 	_ = os.Setenv("NETDUCTOR_STATE", filepath.Join(root, "state"))
-	_ = os.Setenv("NETDUCTOR_ROOT", filepath.Join(root, "opt"))
+	_ = os.Setenv("NETDUCTOR_SHARE", filepath.Join(root, "share"))
 	t.Cleanup(func() {
 		_ = os.Unsetenv("NETDUCTOR_ETC")
 		_ = os.Unsetenv("NETDUCTOR_STATE")
+		_ = os.Unsetenv("NETDUCTOR_SHARE")
 		_ = os.Unsetenv("NETDUCTOR_ROOT")
 	})
 	if err := EnsureLayout(); err != nil {
@@ -29,7 +30,7 @@ func TestEnsureLayout(t *testing.T) {
 	}
 	for _, d := range []string{
 		EtcDir(), filepath.Join(EtcDir(), "secrets"), SessionsDir(), ClientsDir(),
-		StateDir(), MetricsDir(), EdgeDir(), OptDir(), AdminRoot(),
+		StateDir(), MetricsDir(), EdgeDir(), AdminRoot(), ShareDir(),
 	} {
 		st, err := os.Stat(d)
 		if err != nil || !st.IsDir() {

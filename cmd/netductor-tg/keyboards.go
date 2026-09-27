@@ -156,6 +156,10 @@ func operatorHubHTML() string {
 	if ru {
 		apiArm, apiDis, apiSt = "🔓 API наружу 15м", "🔒 API закрыть", "📡 API статус"
 	}
+	foSt, uOn, uOff := "🔀 Failover", "👥 Users→SP ON", "👥 Users→SP OFF"
+	if ru {
+		foSt, uOn, uOff = "🔀 Failover", "👥 Users→SP вкл", "👥 Users→SP выкл"
+	}
 	return title + "\n" +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>` +
@@ -170,6 +174,11 @@ func operatorHubHTML() string {
 		`<tg-button type="callback_data" style="danger" data="m:api_public_arm">` + apiArm + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:api_public_disarm">` + apiDis + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:api_public_status">` + apiSt + `</tg-button>` +
+		`</tg-button-row>` +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" data="m:failover_status">` + foSt + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:users_sp_on">` + uOn + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:users_sp_off">` + uOff + `</tg-button>` +
 		`</tg-button-row>`
 }
 

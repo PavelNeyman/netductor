@@ -43,6 +43,7 @@ func Run(opts Options) error {
 	if err := paths.EnsureLayout(); err != nil {
 		return err
 	}
+	_ = paths.MigrateFromOpt()
 	_ = copySelfToLocalBin()
 	_ = EnsureDomainConfig()
 	_ = EnsureClientProfiles()

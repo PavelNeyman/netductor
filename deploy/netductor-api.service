@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-Environment=NETDUCTOR_ADMIN_ROOT=/opt/netductor/runtime/api/admin
+Environment=NETDUCTOR_ADMIN_ROOT=/usr/local/share/netductor/admin
 ExecStart=/usr/local/bin/netductor serve --bind 127.0.0.1 --port 8787 --no-proxy
 Restart=on-failure
 RestartSec=3

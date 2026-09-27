@@ -1,15 +1,13 @@
-# Binary layout
+# Paths (FHS)
 
-**Canonical install root:** `/opt/netductor/`
+| Path | Role |
+|------|------|
+| `/usr/local/bin/netductor` | node CLI + API |
+| `/usr/local/bin/netductor-tg` | Telegram bot |
+| `/usr/local/bin/netductor-agent` | edge/secondary agent |
+| `/usr/local/share/netductor/admin` | optional static admin assets |
+| `/usr/local/share/netductor/scripts` | helper scripts (tapo, …) |
+| `/etc/netductor` | config, secrets, sessions |
+| `/var/lib/netductor` | state, metrics, edge, profiles, lampac data, telegram runtime |
 
-| Path | Purpose |
-|------|---------|
-| `/opt/netductor/bin/netductor` | node CLI + API helpers |
-| `/opt/netductor/bin/netductor-tg` | Telegram bot (**systemd ExecStart**) |
-| `/opt/netductor/bin/netductor-agent` | edge agent (OpenWrt path differs) |
-| `/etc/netductor/` | config |
-| `/var/lib/netductor/` | state |
-
-`/usr/local/bin/netductor*` may be a **symlink** to `/opt/netductor/bin/*` for PATH convenience — not a second copy of truth.
-
-Deploy / self-update **must** write `/opt/netductor/bin/…` and restart the matching unit.
+Legacy `/opt/netductor` is no longer the install prefix. On upgrade, `paths.MigrateFromOpt()` moves data into the table above.

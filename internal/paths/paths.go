@@ -14,7 +14,18 @@ func env(k, d string) string {
 
 func EtcDir() string   { return env("NETDUCTOR_ETC", "/etc/netductor") }
 func StateDir() string { return env("NETDUCTOR_STATE", "/var/lib/netductor") }
-func OptDir() string   { return env("NETDUCTOR_ROOT", "/opt/netductor") }
+
+// BinDir is where node binaries live (FHS).
+func BinDir() string { return env("NETDUCTOR_BIN", "/usr/local/bin") }
+
+// ShareDir is static share data (admin UI, scripts).
+func ShareDir() string { return env("NETDUCTOR_SHARE", "/usr/local/share/netductor") }
+
+// OptDir is deprecated install prefix. Defaults to StateDir (data only).
+// Override NETDUCTOR_ROOT only for migration from /opt/netductor.
+func OptDir() string {
+	return env("NETDUCTOR_ROOT", StateDir())
+}
 
 func SessionsDir() string {
 	return env("NETDUCTOR_SESSIONS", filepath.Join(EtcDir(), "sessions"))
@@ -35,19 +46,31 @@ func ProbesCfg() string {
 	return env("NETDUCTOR_PROBES_CFG", filepath.Join(EtcDir(), "probes.json"))
 }
 func AdminRoot() string {
-	return env("NETDUCTOR_ADMIN_ROOT", filepath.Join(OptDir(), "runtime", "api", "admin"))
+	return env("NETDUCTOR_ADMIN_ROOT", filepath.Join(ShareDir(), "admin"))
 }
 func VPNBin() string {
-	return env("NETDUCTOR_VPN_BIN", "/usr/local/bin/netductor")
+	return env("NETDUCTOR_VPN_BIN", filepath.Join(BinDir(), "netductor"))
+}
+func ProfilesDir() string {
+	return env("NETDUCTOR_PROFILES", filepath.Join(StateDir(), "profiles"))
+}
+func TelegramDir() string {
+	return env("NETDUCTOR_TELEGRAM", filepath.Join(StateDir(), "telegram"))
+}
+func LampacDir() string {
+	return env("NETDUCTOR_LAMPAC", filepath.Join(StateDir(), "lampac"))
+}
+func ScriptsDir() string {
+	return env("NETDUCTOR_SCRIPTS", filepath.Join(ShareDir(), "scripts"))
 }
 
 func EnsureLayout() error {
 	for _, d := range []string{
 		EtcDir(), filepath.Join(EtcDir(), "secrets"), filepath.Join(EtcDir(), "sessions"),
 		filepath.Join(EtcDir(), "clients"), StateDir(), filepath.Join(StateDir(), "metrics"),
-		filepath.Join(StateDir(), "edge"), OptDir(), filepath.Join(OptDir(), "bin"),
-		filepath.Join(OptDir(), "runtime", "api", "admin"),
-		filepath.Join(OptDir(), "runtime", "telegram"),
+		filepath.Join(StateDir(), "edge"), ProfilesDir(), TelegramDir(), LampacDir(),
+		ShareDir(), AdminRoot(), ScriptsDir(),
+		filepath.Join(StateDir(), "svc-paths"),
 	} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return err
@@ -59,12 +82,11 @@ func EnsureLayout() error {
 	return nil
 }
 
-// SecondaryDir is state for the RU VPN-entry node (/var/lib/netductor/secondary).
+// SecondaryDir is state for the RU VPN-entry node.
 func SecondaryDir() string {
 	return filepath.Join(StateDir(), "secondary")
 }
 
-// SecondaryDevicesFile is devices.json under SecondaryDir.
 func SecondaryDevicesFile() string {
 	return filepath.Join(SecondaryDir(), "devices.json")
 }

@@ -361,7 +361,7 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 
 func sendWorkProfileDocument(token string, chat int64) {
 	candidates := []string{
-		"/opt/netductor/profiles/nd-oc.conf",
+		"/var/lib/netductor/profiles/nd-oc.conf",
 		"/etc/netductor/profiles/nd-oc.conf",
 	}
 	var path string

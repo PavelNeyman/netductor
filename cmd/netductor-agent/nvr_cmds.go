@@ -273,7 +273,7 @@ func tryTapoControlPy(ip, user, pass, dir string, step int) (string, bool) {
 			return "", false
 		}
 	}
-	script := "/opt/netductor/scripts/tapo_control.py"
+	script := "/usr/local/share/netductor/scripts/tapo_control.py"
 	if _, err := os.Stat(script); err != nil {
 		script = "/usr/share/netductor/tapo_control.py"
 	}

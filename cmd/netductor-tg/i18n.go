@@ -10,7 +10,7 @@ const (
 	tokenFile = "/etc/netductor/secrets/telegram_bot_token"
 	chatFile  = "/etc/netductor/secrets/telegram_admin_id"
 	langFile  = "/etc/netductor/telegram_lang"
-	statusSh  = "/opt/netductor/runtime/telegram/status.sh"
+	statusSh  = "/var/lib/netductor/telegram/status.sh"
 )
 
 type update struct {
