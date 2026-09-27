@@ -2,13 +2,15 @@
 
 **RU** · [EN](../PORTS.md)
 
-| Порт | Назначение |
-|------|------------|
-| **52222** | SSH, key-only (primary и secondary) |
-| **443** | VLESS/Reality (sing-box) |
-| **8787** | Node API, только localhost (туннель с Mac) |
-| **8789** | Agent mTLS |
-| **8443** | Redirect HTTPS |
-| **53** | Blocky на localhost |
+| Порт | Где | Назначение |
+|------|-----|------------|
+| 52222/tcp | primary, secondary | SSH key-only |
+| 443/tcp | secondary (и primary sing-box) | VLESS+Reality пользователи |
+| 4443/tcp | secondary | exit-in (внутренний) |
+| 8787/tcp | primary | Node API, localhost |
+| 8789/tcp | primary | Agent mTLS |
+| 8443/tcp | primary | Redirect HTTPS |
+| 53 | primary | Blocky, localhost |
+| 8790/tcp | secondary | Recovery API только при `recovery arm` |
 
-:8788 plain — не использовать. :80 публично — нет.
+**Не использовать:** публичный plain :8788, постоянный публичный :80.
