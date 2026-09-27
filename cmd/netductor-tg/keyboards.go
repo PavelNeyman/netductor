@@ -148,19 +148,86 @@ func operatorHubHTML() string {
 	if ru {
 		title = "🛠 <b>Оператор</b>"
 	}
+	// live state for table
+	apiArmed := strings.Contains(runND("api-public", "status"), "armed=true")
+	pol := runND("svc-paths", "failover", "status")
+	usersSP := strings.Contains(pol, `"users_to_sp_on_vless_down": true`) || strings.Contains(pol, `"users_to_sp_on_vless_down":true`)
+	apiCell, usersCell := "🔴 off", "🔴 off"
+	if ru {
+		apiCell, usersCell = "🔴 выкл", "🔴 выкл"
+	}
+	if apiArmed {
+		apiCell = "🟢 on"
+		if ru {
+			apiCell = "🟢 вкл"
+		}
+	}
+	if usersSP {
+		usersCell = "🟢 on"
+		if ru {
+			usersCell = "🟢 вкл"
+		}
+	}
+	kAPI, kUsers, kFO := "API :8789 public", "Users→SP on VLESS down", "Failover"
+	if ru {
+		kAPI, kUsers, kFO = "API :8789 наружу", "Users→SP при падении VLESS", "Failover"
+	}
+	foHint := "enabled"
+	if ru {
+		foHint = "включён"
+	}
+	if !strings.Contains(pol, `"enabled": true`) && !strings.Contains(pol, `"enabled":true`) {
+		foHint = "disabled"
+		if ru {
+			foHint = "выкл"
+		}
+	}
+
 	session, help, sessions, audit, refresh := "🔑 Session", "ℹ️ Mac Admin", "📋 Sessions", "📜 Audit", "🔄 Refresh VPN links"
 	if ru {
 		session, help, sessions, audit, refresh = "🔑 Сессия", "ℹ️ Админ на Mac", "📋 Сессии", "📜 Аудит", "🔄 Обновить ссылки VPN"
 	}
-	apiArm, apiDis, apiSt := "🔓 API public 15m", "🔒 API close", "📡 API status"
+	apiToggle := "🔓 API public"
+	usersToggle := "👥 Users→SP"
 	if ru {
-		apiArm, apiDis, apiSt = "🔓 API наружу 15м", "🔒 API закрыть", "📡 API статус"
+		apiToggle, usersToggle = "🔓 API наружу", "👥 Users→SP"
 	}
-	foSt, uOn, uOff := "🔀 Failover", "👥 Users→SP ON", "👥 Users→SP OFF"
-	if ru {
-		foSt, uOn, uOff = "🔀 Failover", "👥 Users→SP вкл", "👥 Users→SP выкл"
+	if apiArmed {
+		apiToggle = "🔒 API public"
+		if ru {
+			apiToggle = "🔒 API наружу"
+		}
 	}
-	return title + "\n" +
+	// toggle flips current state — label is the action target
+	if apiArmed {
+		apiToggle = "🔒 Close API"
+		if ru {
+			apiToggle = "🔒 Закрыть API"
+		}
+	} else {
+		apiToggle = "🔓 Open API 15m"
+		if ru {
+			apiToggle = "🔓 API 15м"
+		}
+	}
+	if usersSP {
+		usersToggle = "👥 Users→SP OFF"
+		if ru {
+			usersToggle = "👥 Users→SP выкл"
+		}
+	} else {
+		usersToggle = "👥 Users→SP ON"
+		if ru {
+			usersToggle = "👥 Users→SP вкл"
+		}
+	}
+
+	table := "<table><tr><td><b>key</b></td><td><b>value</b></td></tr>" +
+		"<tr><td>" + kAPI + "</td><td>" + apiCell + "</td></tr>" +
+		"<tr><td>" + kUsers + "</td><td>" + usersCell + "</td></tr>" +
+		"<tr><td>" + kFO + "</td><td>" + foHint + "</td></tr></table>"
+
+	return title + "\n" + table + "\n" +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:sessions">` + sessions + `</tg-button>` +
@@ -171,14 +238,8 @@ func operatorHubHTML() string {
 		`<tg-button type="callback_data" data="m:admin">` + help + `</tg-button>` +
 		`</tg-button-row>` +
 		`<tg-button-row align="left">` +
-		`<tg-button type="callback_data" style="danger" data="m:api_public_arm">` + apiArm + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:api_public_disarm">` + apiDis + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:api_public_status">` + apiSt + `</tg-button>` +
-		`</tg-button-row>` +
-		`<tg-button-row align="left">` +
-		`<tg-button type="callback_data" data="m:failover_status">` + foSt + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:users_sp_on">` + uOn + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:users_sp_off">` + uOff + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:api_public_toggle">` + apiToggle + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:users_sp_toggle">` + usersToggle + `</tg-button>` +
 		`</tg-button-row>`
 }
 

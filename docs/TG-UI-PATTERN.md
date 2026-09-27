@@ -57,3 +57,6 @@
 - 0.9.45: metrics/status template C table with expanded cells; matrix documented  
 
 - 0.9.46: Status absorbs host metrics; Metrics catalog TG removed; inventory [TG-SCREEN-INVENTORY.md](TG-SCREEN-INVENTORY.md)
+
+
+| Operator hub | **B** | status table (API public, Users→SP) + single toggle buttons |

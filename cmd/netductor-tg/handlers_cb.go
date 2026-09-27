@@ -528,23 +528,23 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, T("ssh_forget")+string([]byte{10})+"host or host:port", backKeyboard())
 
 
-	case "m:failover_status":
-		out := runND("svc-paths", "failover", "status")
-		reply(token, chat, msgID, "🔀 <b>Failover</b>\n<pre>"+esc(truncate(out, 3500))+"</pre>", operatorSubKeyboard())
-	case "m:users_sp_on":
-		out := runND("svc-paths", "failover", "set-users-sp", "on")
-		reply(token, chat, msgID, "👥 <b>Users→SP</b> ON\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
-	case "m:users_sp_off":
-		out := runND("svc-paths", "failover", "set-users-sp", "off")
-		reply(token, chat, msgID, "👥 <b>Users→SP</b> OFF\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
-
-	case "m:api_public_arm":
-		out := runND("api-public", "arm", "--ttl", "15m")
-		reply(token, chat, msgID, "🔓 <b>API :8789</b>\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
-	case "m:api_public_disarm":
-		out := runND("api-public", "disarm")
-		reply(token, chat, msgID, "🔒 <b>API</b>\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
-	case "m:api_public_status":
+	case "m:api_public_toggle":
+		st := runND("api-public", "status")
+		if strings.Contains(st, "armed=true") {
+			_ = runND("api-public", "disarm")
+		} else {
+			_ = runND("api-public", "arm", "--ttl", "15m")
+		}
+		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
+	case "m:users_sp_toggle":
+		pol := runND("svc-paths", "failover", "status")
+		on := strings.Contains(pol, `"users_to_sp_on_vless_down": true`) || strings.Contains(pol, `"users_to_sp_on_vless_down":true`)
+		if on {
+			_ = runND("svc-paths", "failover", "set-users-sp", "off")
+		} else {
+			_ = runND("svc-paths", "failover", "set-users-sp", "on")
+		}
+		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
 		out := runND("api-public", "status")
 		reply(token, chat, msgID, "📡 <b>API public</b>\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
 

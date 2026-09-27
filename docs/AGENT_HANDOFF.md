@@ -1,102 +1,68 @@
-# Agent handoff — netductor
+# Agent handoff (netductor)
 
-**Baseline:** **v0.9.62** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
+**Repo:** https://github.com/PavelNeyman/netductor  
+**Model:** primary (abroad) + secondary (RU entry). Operator UI: **Mac** `netductor-op` (TUI + local Web). Node: `netductor` on VPS.
 
-**Next engineering:**
-0. **api-public arm** — CLI + TG Operator (done). Failover controller still next.
+## Locked architecture
 
-**Next engineering (rest):**
-1. **Dual service WG-over-WSS** — live; CLI `svc-paths status|apply` in tree. Next: auto failover controller (see BACKBONE § failover proposed), metrics export.
-2. **Backbone WG UDP** — CLI v1 remains for low-volume/legacy; do not expect bulk on bare UDP on this path.
-3. **h2mux A/B** — `uplink-mux set on|off|h2mux` (re-apply secondary box)
-4. mTLS 8789 if offline alerts recur
-5. Owner/later: hardware e2e, SMTP, mobile, CDN-XHTTP ([OPEN_ITEMS](OPEN_ITEMS.md))
-6. **After tunnels stable:** path layout — remove `/opt/netductor`, canon `/usr/local/bin` + `/etc` + `/var/lib` ([OPEN_ITEMS](OPEN_ITEMS.md))
+| Plane | Path | Role |
+|-------|------|------|
+| Users | VLESS Reality (secondary→primary uplink) | client traffic |
+| Service SP | WG-over-WSS `nd-svc-sp` 10.87.10.0/30 | agent S→P, API via tunnel |
+| Service PS | WG-over-WSS `nd-svc-ps` 10.87.11.0/30 | primary→secondary (recovery pull) |
+| API :8789 | mTLS; WAN **deny** except service CIDRs + `api-allow.cidr` | TG `api-public` toggle opens 15m |
+| SSH | port **52222**, key-only after harden | break-glass |
 
-Do not reopen TG menu polish unless regression.
+**Failover:** `svc-paths failover` policy on primary; synced to secondary via agent heartbeat `failover_policy`. Users→SP: sing-box uplink server `2.27.x` ↔ `10.87.10.1` when public :443 fails (policy flag).
 
-## Access note (agent)
+**Paths (FHS):** `/usr/local/bin/*`, `/usr/local/share/netductor/*`, `/etc/netductor`, `/var/lib/netductor`. **No `/opt/netductor`.**
 
-Artifact keys (`netductor_primary`, `netductor_vps_id_ed25519`) may **not** match current VPS authorized_keys after reinstalls. Owner must place current operator key on the agent host or open temporary password for tests. Both primary and secondary harden to **:52222** (password off). Live secondary fixed 2026-09-26 if still on :22.
+## Operator (Mac)
 
-## Read order (new chat)
+- Binary: `netductor-op` (brew tap `pavelneyman/netductor`)
+- **TUI** + **WebUI** (localhost): same `internal/deploy` + remote API over SSH tunnel or VPN
+- Deploy wizards: primary → secondary → domain/LE → addons; credentials saved on Mac
+- Parity rule: thin clients over one backend; new API → expose in opcatalog + TUI + Web
 
-1. [AGENTS.md](../AGENTS.md)
-2. **This file**
-3. [REVIEW-0.9.41.md](REVIEW-0.9.41.md) — code/security, Mac TUI/Web deploy parity, API, EN/RU
-4. [ARCHITECTURE-OPERATOR.md](ARCHITECTURE-OPERATOR.md) · [UI-PARITY.md](UI-PARITY.md)
-5. [OPEN_ITEMS.md](OPEN_ITEMS.md) · [BACKBONE-WG.md](BACKBONE-WG.md) · [TG-UI-PATTERN.md](TG-UI-PATTERN.md) · [TG-SCREEN-INVENTORY.md](TG-SCREEN-INVENTORY.md)
-6. [DOMAIN.md](DOMAIN.md) · [DEPLOY-MAC.md](DEPLOY-MAC.md) · [FLEET.md](FLEET.md) · [BACKUP.md](BACKUP.md) · [PORTS.md](PORTS.md)
+## Telegram
 
-## Architecture (locked)
+- Operator-only bot on primary; EN/RU
+- Templates A/B/C: [TG-UI-PATTERN.md](TG-UI-PATTERN.md)
+- Operator hub: **table** state (API public, Users→SP) + **toggle** buttons (single control per action)
+- Policy change propagates to secondary on next agent heartbeat (~15–30s)
 
-- TG Tools hub sections from opcatalog; day-2 action catalog: `internal/opcatalog` (`GET /v1/catalog`)
-- Doctor: structured JSON via `/api/doctor` (`CollectDoctor`)
-- Web Advanced: off by default (Settings → Show Advanced)
+## CLI highlights
 
+```
+netductor api-public arm|disarm|status
+netductor svc-paths status|apply|failover …
+netductor cleanup-legacy --apply
+netductor recovery arm|disarm  # secondary
+```
 
-Thin UIs (Web, TUI, CLI) share **one** backend: `internal/operator` + `internal/deploy` + node API.
-Parity is the rule; temporary gaps are debt (not intentional TUI-only features).
+## Security notes
 
-## Product model (locked)
+- Do not enable `NETDUCTOR_API_ALLOW_PUBLIC` permanently; use TG toggle
+- Do not enable `PLAIN_AGENT` / `API_PUBLIC` env footguns in prod
+- Recovery :8790 only when armed
+- Trust `X-Forwarded-For` only if `NETDUCTOR_TRUST_PROXY=1`
 
-| Piece | Rule |
-|-------|------|
-| UI | **Mac only** — `netductor-op` WebUI + TUI |
-| Node | API + VPN + agents — **no product admin on VPS** |
-| TG | Day-2 on node; **no VPS deploy** from bot |
-| First deploy | Password once → inject key → harden (52222) |
-| Day-2 access | SSH key; tunnel prefer VPN host then public |
-| Recovery | Off until arm; WAN OK while armed (TTL) |
+## Next engineering (open)
 
-## Binaries
+1. Optional TG alert when `user_path=degraded`
+2. Full opcatalog parity audit (NVR/guest/git) on Web vs TUI
+3. Cert expiry WARN in doctor (if not already)
+4. Hardware e2e OpenWrt/Tapo (needs iron)
 
-| Binary | Role |
-|--------|------|
-| `netductor-op` | Mac: serve WebUI, TUI, deploy, tunnel, session |
-| `netductor` | Linux node |
-| `netductor-agent` | OpenWrt |
-| `netductor-tg` | Telegram addon on node |
+## Docs map
 
-## Mac deploy (both paths work)
+| Doc | Topic |
+|-----|--------|
+| PATHS.md | FHS layout |
+| BACKBONE-WG.md | SP/PS, failover |
+| PORTS.md | listening ports + api-public |
+| TG-UI-PATTERN.md | bot screen rules |
+| DEPLOY.md / INSTALL.md | install |
+| OPEN_ITEMS.md | backlog |
 
-Both call the **same** `internal/operator` → `internal/deploy` (Mac-direct SSH; no primary→secondary hop).
-
-**Web Fleet/Primary Telegram:** checkbox + `tg_token` / `tg_admin` → same `DeployPrimary` secrets/install as TUI/CLI.
-
-**Web:** `netductor-op operator serve` → Installer → Fleet / Primary / Secondary / Credentials  
-**TUI:** `netductor-op` → Wizard → Fleet / Primary / Secondary (+ OpenWrt / MikroTik / NVR / Add-ons)
-
-Shared backend: `internal/operator` + `internal/deploy`.
-
-## Day-2
-
-- **Web Control:** broad session API + Advanced; DNS lists/set/reload; backup schedule GET/POST + list  
-- **TUI Tools:** `netductor …` local or `--remote`  
-- **TG:** Tools (VPN, edge, NVR, git, DNS, backup, probes, …)
-
-## Open / deferred
-
-- Ideas: MikroTik API via RPi agent; Site rooms/photos (Web/TG) — see OPEN_ITEMS
-
-- Hardware e2e (owner)  
-- SMTP when mailbox exists  
-- Mobile client  
-- Web form-label full i18n  
-- Optional Web thin links for OpenWrt wizard (TUI remains primary)
-
-## Agent rules
-
-1. Every completed item → update docs + checklist + version when shipping  
-2. No new VPS HTML admin  
-3. No password SSH for day-2 tunnel  
-4. Do not enable PLAIN_AGENT / API_PUBLIC / CLAIM_FIRST in defaults  
-
-## Obsolete docs
-
-`docs/archive/` — old reviews/plans. Prefer this handoff + REVIEW-0.9.12.
-
-
-## TG UI (0.9.51)
-Hubs body-first; Status includes metrics; catalog uses format.API; Probes/Secondary/NVR formatted.
-See TG-SCREEN-INVENTORY.md / TG-UI-PATTERN.md.
+**Rule:** every completed item → update this handoff + mark OPEN_ITEMS; push release bins when shipping to VPS.
