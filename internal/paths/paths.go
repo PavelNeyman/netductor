@@ -21,8 +21,7 @@ func BinDir() string { return env("NETDUCTOR_BIN", "/usr/local/bin") }
 // ShareDir is static share data (admin UI, scripts).
 func ShareDir() string { return env("NETDUCTOR_SHARE", "/usr/local/share/netductor") }
 
-// OptDir is deprecated install prefix. Defaults to StateDir (data only).
-// Override NETDUCTOR_ROOT only for migration from /opt/netductor.
+// OptDir aliases StateDir for older call sites (no /opt prefix).
 func OptDir() string {
 	return env("NETDUCTOR_ROOT", StateDir())
 }

@@ -128,14 +128,18 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		return fmt.Errorf("heartbeat %s: %s", resp.Status, string(raw))
 	}
 	var hr struct {
-		ConfigVer       int      `json:"config_ver"`
-		NeedSync        bool     `json:"need_sync"`
-		DesiredHostname string   `json:"desired_hostname"`
-		Commands        []string `json:"commands"`
+		ConfigVer       int             `json:"config_ver"`
+		NeedSync        bool            `json:"need_sync"`
+		DesiredHostname string          `json:"desired_hostname"`
+		Commands        []string        `json:"commands"`
+		FailoverPolicy  json.RawMessage `json:"failover_policy"`
 	}
 	_ = json.Unmarshal(raw, &hr)
 	if hn := strings.TrimSpace(hr.DesiredHostname); hn != "" {
 		_ = applyHostname(hn)
+	}
+	if len(hr.FailoverPolicy) > 2 {
+		_ = applyFailoverPolicy(hr.FailoverPolicy)
 	}
 	for _, c := range hr.Commands {
 		ok, log := runAgentCmd(c)
@@ -461,4 +465,18 @@ func secondaryBackupPull() (bool, string) {
 		_ = os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(strings.ReplaceAll(comps, ",", "\n")+"\n"), 0o644)
 	}
 	return true, "stored " + outPath
+}
+
+
+func applyFailoverPolicy(raw json.RawMessage) error {
+	dir := "/etc/netductor/svc-paths"
+	_ = os.MkdirAll(dir, 0o755)
+	path := dir + "/failover-policy.json"
+	// pretty-print stable
+	var m map[string]any
+	if json.Unmarshal(raw, &m) != nil {
+		return os.WriteFile(path, raw, 0o644)
+	}
+	b, _ := json.MarshalIndent(m, "", "  ")
+	return os.WriteFile(path, append(b, '\n'), 0o644)
 }

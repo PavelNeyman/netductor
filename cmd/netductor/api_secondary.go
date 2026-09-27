@@ -16,6 +16,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -213,10 +214,12 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		desired = n.DesiredHN
 	}
 	cmds := secondary.TakeCmds(d.ID)
+	pol := svcpaths.LoadPolicy()
 	writeJSON(w, 200, map[string]any{
 		"ok": true, "config_ver": ver, "need_sync": in.ConfigVer < ver, "id": d.ID,
 		"desired_hostname": desired,
 		"commands":         cmds,
+		"failover_policy":  pol,
 	})
 }
 

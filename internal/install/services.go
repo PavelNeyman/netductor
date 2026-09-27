@@ -162,7 +162,7 @@ func InstallTelegram() error {
 	}
 	ver := version.Release
 	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/v%s/netductor-tg-linux-%s", ver, a)
-	dest := filepath.Join(paths.OptDir(), "bin", "netductor-tg")
+	dest := filepath.Join(paths.BinDir(), "netductor-tg")
 	_ = os.MkdirAll(filepath.Dir(dest), 0o755)
 	tmp := dest + ".tmp"
 	haveBin := false
@@ -170,7 +170,6 @@ func InstallTelegram() error {
 		fmt.Fprintf(os.Stderr, "telegram binary download: %v — trying local/fallback\n", err)
 		for _, src := range []string{
 			"/usr/local/bin/netductor-tg",
-			"/opt/netductor/bin/netductor-tg",
 			"/tmp/netductor-tg.bin",
 			dest,
 		} {
