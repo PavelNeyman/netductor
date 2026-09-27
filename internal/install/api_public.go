@@ -22,7 +22,42 @@ type apiPublicState struct {
 	TTL     string    `json:"ttl"`
 }
 
-// ArmAPIPublic opens :8789 from anywhere for ttl, then schedules disarm via systemd-run.
+func ufwQuiet(args ...string) error {
+	cmd := exec.Command("ufw", args...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run()
+}
+
+// deleteUFWByComment removes rules whose status line contains comment (high→low numbers).
+func deleteUFWByComment(comment string) {
+	out, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if err != nil {
+		return
+	}
+	var nums []string
+	for _, ln := range strings.Split(string(out), "\n") {
+		if !strings.Contains(ln, comment) {
+			continue
+		}
+		ln = strings.TrimSpace(ln)
+		if !strings.HasPrefix(ln, "[") {
+			continue
+		}
+		end := strings.Index(ln, "]")
+		if end > 1 {
+			n := strings.TrimSpace(ln[1:end])
+			nums = append([]string{n}, nums...)
+		}
+	}
+	for _, n := range nums {
+		cmd := exec.Command("bash", "-c", "echo y | ufw delete "+n)
+		cmd.Stdout, cmd.Stderr = nil, nil
+		_ = cmd.Run()
+	}
+}
+
+// ArmAPIPublic opens :8789 from anywhere for ttl, then schedules disarm.
 func ArmAPIPublic(ttl time.Duration) error {
 	if ttl < time.Minute {
 		ttl = time.Minute
@@ -33,10 +68,11 @@ func ArmAPIPublic(ttl time.Duration) error {
 	if _, err := exec.LookPath("ufw"); err != nil {
 		return fmt.Errorf("ufw not found")
 	}
-	// remove previous temp allow if any
-	_ = DisarmAPIPublic()
+	// clear only previous temp public rules (do not re-apply full firewall)
+	deleteUFWByComment(apiPublicComment)
+	_ = exec.Command("systemctl", "stop", "nd-api-public-disarm.timer").Run()
 
-	if err := run("ufw", "allow", apiPublicPort+"/tcp", "comment", apiPublicComment); err != nil {
+	if err := ufwQuiet("allow", apiPublicPort+"/tcp", "comment", apiPublicComment); err != nil {
 		return fmt.Errorf("ufw allow public %s: %w", apiPublicPort, err)
 	}
 	st := apiPublicState{
@@ -49,20 +85,16 @@ func ArmAPIPublic(ttl time.Duration) error {
 	if err := os.WriteFile(apiPublicStatePath, b, 0o600); err != nil {
 		return err
 	}
-	// schedule disarm
 	sec := int(ttl.Seconds())
 	if sec < 60 {
 		sec = 60
 	}
-	// systemd-run one-shot
-	_ = exec.Command("systemctl", "reset-failed", "nd-api-public-disarm.service").Run()
-	_ = exec.Command("systemctl", "stop", "nd-api-public-disarm.timer").Run()
-	unit := fmt.Sprintf(`[Unit]
+	unit := `[Unit]
 Description=Disarm netductor API public after arm TTL
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/netductor api-public disarm
-`)
+`
 	timer := fmt.Sprintf(`[Unit]
 Description=Timer disarm API public
 [Timer]
@@ -76,43 +108,20 @@ WantedBy=timers.target
 	_ = os.WriteFile("/run/systemd/system/nd-api-public-disarm.timer", []byte(timer), 0o644)
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "start", "nd-api-public-disarm.timer").Run()
-	fmt.Fprintf(os.Stderr, "api-public: :%s OPEN until %s (TTL %s)\n", apiPublicPort, st.Until.Format(time.RFC3339), ttl)
 	return nil
 }
 
-// DisarmAPIPublic removes temporary public allow and re-applies restricted rules.
+// DisarmAPIPublic removes temporary public allow; keeps service-plane rules intact.
 func DisarmAPIPublic() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
 		_ = os.Remove(apiPublicStatePath)
 		return nil
 	}
-	// delete rules with our comment (best-effort)
-	out, _ := exec.Command("ufw", "status", "numbered").CombinedOutput()
-	lines := strings.Split(string(out), "\n")
-	// delete from highest number to lowest
-	var nums []string
-	for _, ln := range lines {
-		if !strings.Contains(ln, apiPublicComment) && !strings.Contains(ln, "netductor-api-public") {
-			continue
-		}
-		ln = strings.TrimSpace(ln)
-		if !strings.HasPrefix(ln, "[") {
-			continue
-		}
-		end := strings.Index(ln, "]")
-		if end > 1 {
-			nums = append([]string{strings.TrimSpace(ln[1:end])}, nums...)
-		}
-	}
-	for _, n := range nums {
-		_ = exec.Command("bash", "-c", fmt.Sprintf("echo y | ufw delete %s", n)).Run()
-	}
-	_ = run("ufw", "delete", "allow", apiPublicPort+"/tcp")
+	deleteUFWByComment(apiPublicComment)
 	_ = os.Remove(apiPublicStatePath)
 	_ = exec.Command("systemctl", "stop", "nd-api-public-disarm.timer").Run()
-	// restore restricted policy
-	_ = ApplyAgentFirewall()
-	fmt.Fprintln(os.Stderr, "api-public: disarmed, :8789 restricted again")
+	// ensure restricted policy present (quiet)
+	_ = applyAgentFirewallQuiet()
 	return nil
 }
 

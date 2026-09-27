@@ -17,7 +17,7 @@ func runAPIPublic(args []string) {
   netductor api-public status
 
 Temporarily open mTLS :8789 from the public Internet (UFW).
-Auto-disarm via systemd timer. Prefer TG button or this CLI on primary.
+Auto-disarm via systemd timer. Prefer TG Operator buttons.
 Default TTL 15m, min 1m, max 2h.
 `)
 		os.Exit(2)

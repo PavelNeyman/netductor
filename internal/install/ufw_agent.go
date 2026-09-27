@@ -106,3 +106,43 @@ func RestrictAgentMTLSToIP(ip string) error {
 func AllowAgentMTLSFromIP(ip string) error {
 	return RestrictAgentMTLSToIP(ip)
 }
+
+
+// applyAgentFirewallQuiet is ApplyAgentFirewall without ufw chatter on stderr.
+func applyAgentFirewallQuiet() error {
+	if _, err := exec.LookPath("ufw"); err != nil {
+		return nil
+	}
+	_ = ufwQuiet("delete", "allow", "8788/tcp")
+	_ = ufwQuiet("deny", "8788/tcp")
+	// do not wipe all 8789 rules — would remove service CIDRs; only ensure service CIDRs exist
+	cidrs := append([]string{}, defaultAPIAllowCIDRs...)
+	if extra := strings.TrimSpace(os.Getenv("NETDUCTOR_API_ALLOW_CIDR")); extra != "" {
+		for _, p := range strings.Split(extra, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				cidrs = append(cidrs, p)
+			}
+		}
+	}
+	if f, err := os.Open("/etc/netductor/api-allow.cidr"); err == nil {
+		sc := bufio.NewScanner(f)
+		for sc.Scan() {
+			line := strings.TrimSpace(sc.Text())
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			cidrs = append(cidrs, line)
+		}
+		_ = f.Close()
+	}
+	seen := map[string]bool{}
+	for _, c := range cidrs {
+		if seen[c] {
+			continue
+		}
+		seen[c] = true
+		_ = ufwQuiet("allow", "from", c, "to", "any", "port", "8789", "proto", "tcp", "comment", "netductor-api")
+	}
+	return nil
+}
