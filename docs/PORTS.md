@@ -20,3 +20,11 @@ Camera native RTSP (e.g. Tapo :554) stays on **LAN only**; netductor does not pu
 Do **not** publish 8787/9118/5000 on `0.0.0.0`.
 
 RU/EN: see also `docs/AGENT_HANDOFF.md` agent plane section.
+
+
+## Temporary public :8789 (operator)
+
+- CLI: `netductor api-public arm [--ttl 15m]` / `disarm` / `status`
+- TG: Operator → **API public 15m** / close / status
+- Auto-disarm via systemd timer; then UFW restricted again (service CIDRs + api-allow.cidr)
+- Break-glass without public open: SSH tunnel `-L 8789:127.0.0.1:8789`

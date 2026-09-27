@@ -152,6 +152,10 @@ func operatorHubHTML() string {
 	if ru {
 		session, help, sessions, audit, refresh = "🔑 Сессия", "ℹ️ Админ на Mac", "📋 Сессии", "📜 Аудит", "🔄 Обновить ссылки VPN"
 	}
+	apiArm, apiDis, apiSt := "🔓 API public 15m", "🔒 API close", "📡 API status"
+	if ru {
+		apiArm, apiDis, apiSt = "🔓 API наружу 15м", "🔒 API закрыть", "📡 API статус"
+	}
 	return title + "\n" +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>` +
@@ -161,6 +165,11 @@ func operatorHubHTML() string {
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" data="m:vpn_refresh">` + refresh + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:admin">` + help + `</tg-button>` +
+		`</tg-button-row>` +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="danger" data="m:api_public_arm">` + apiArm + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:api_public_disarm">` + apiDis + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:api_public_status">` + apiSt + `</tg-button>` +
 		`</tg-button-row>`
 }
 

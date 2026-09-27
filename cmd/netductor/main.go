@@ -41,6 +41,8 @@ func main() {
 		runNodes(os.Args[2:])
 	case "mtls":
 		runMTLS(os.Args[2:])
+	case "api-public":
+		runAPIPublic(os.Args[2:])
 	case "svc-paths":
 		runSvcPaths(os.Args[2:])
 	case "backbone":
@@ -172,7 +174,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | doctor | status | vpn | secondary | backbone | svc-paths | edge | mtls | nvr
+  install | serve | doctor | status | vpn | secondary | backbone | svc-paths | api-public | edge | mtls | nvr
   redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

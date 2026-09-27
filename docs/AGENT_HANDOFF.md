@@ -3,6 +3,9 @@
 **Baseline:** **v0.9.62** · TG body-pattern complete · day-2 parity closed · review: [REVIEW-0.9.41.md](REVIEW-0.9.41.md)
 
 **Next engineering:**
+0. **api-public arm** — CLI + TG Operator (done). Failover controller still next.
+
+**Next engineering (rest):**
 1. **Dual service WG-over-WSS** — live; CLI `svc-paths status|apply` in tree. Next: auto failover controller (see BACKBONE § failover proposed), metrics export.
 2. **Backbone WG UDP** — CLI v1 remains for low-volume/legacy; do not expect bulk on bare UDP on this path.
 3. **h2mux A/B** — `uplink-mux set on|off|h2mux` (re-apply secondary box)
