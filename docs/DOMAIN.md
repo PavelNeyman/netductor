@@ -1,3 +1,5 @@
+**EN** · [RU](ru/DOMAIN.md)
+
 # Domain hostnames (DNS external)
 
 DNS (Cloudflare etc.) is configured **outside** netductor. This only maps names into conf and VPN advertise hosts.

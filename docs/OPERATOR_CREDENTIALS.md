@@ -1,3 +1,5 @@
+**EN** · [RU](ru/OPERATOR_CREDENTIALS.md)
+
 # Operator credentials file
 
 After **primary** or **secondary** deploy (or manual collect), netductor writes:

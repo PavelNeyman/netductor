@@ -1,3 +1,5 @@
+**EN** · [RU](ru/DEPLOY-MAC.md)
+
 ## Operator binary (v0.9+)
 
 On the Mac use **`netductor-op`** (release asset `netductor-op-darwin-*`).

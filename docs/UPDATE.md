@@ -1,3 +1,5 @@
+**EN** · [RU](ru/UPDATE.md)
+
 # Unified update path (A6)
 
 All components install under **FHS** `/usr/local/bin` (no `/opt/netductor`).

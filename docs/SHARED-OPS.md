@@ -1,3 +1,5 @@
+**EN** · [RU](ru/SHARED-OPS.md)
+
 # Shared ops modules (anti-drift)
 
 ## Rule

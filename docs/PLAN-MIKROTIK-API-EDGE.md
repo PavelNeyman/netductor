@@ -1,3 +1,5 @@
+**EN** · [RU](ru/PLAN-MIKROTIK-API-EDGE.md)
+
 # Plan: MikroTik API via edge agent (deferred)
 
 Status: **optional design** — not implementing now.

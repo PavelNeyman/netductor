@@ -1,3 +1,5 @@
+**EN** · [RU](ru/ARCHITECTURE-FREEZE.md)
+
 # Architecture freeze (canon)
 
 **Status:** locked. Feature work may proceed; topology/roles/paths below **must not** change without explicit owner decision.

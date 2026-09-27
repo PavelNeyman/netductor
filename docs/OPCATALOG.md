@@ -1,3 +1,5 @@
+**EN** · [RU](ru/OPCATALOG.md)
+
 # OpCatalog matrix (day-2)
 
 Deploy (fleet/primary/secondary/edge) is Mac-only — see [DEPLOY-PARITY.md](DEPLOY-PARITY.md).

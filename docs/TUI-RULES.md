@@ -1,3 +1,5 @@
+**EN** · [RU](ru/TUI-RULES.md)
+
 # TUI integrity rule
 
 **Locked:** the workstation TUI must stay **self-contained**.

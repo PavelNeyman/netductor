@@ -1,3 +1,5 @@
+**EN** · [RU](ru/PLAN-SITE-ROOMS.md)
+
 # Plan: site rooms / zones (deferred)
 
 Status: **ideas only** — not in current sprint.

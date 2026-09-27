@@ -1,3 +1,5 @@
+**EN** · [RU](ru/PATHS.md)
+
 # Paths (FHS)
 
 | Path | Role |

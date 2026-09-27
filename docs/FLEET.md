@@ -1,3 +1,5 @@
+**EN** · [RU](ru/FLEET.md)
+
 # Fleet: primary + secondary
 
 ## Model (locked)

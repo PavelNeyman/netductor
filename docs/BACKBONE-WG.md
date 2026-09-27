@@ -1,3 +1,5 @@
+**EN** · [RU](ru/BACKBONE-WG.md)
+
 # Backbone WireGuard / AmneziaWG — design spike
 
 **Status:** design + **CLI v1 implemented** (`netductor backbone …`); soak checklist still manual  

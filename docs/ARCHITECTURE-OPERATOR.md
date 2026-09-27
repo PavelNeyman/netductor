@@ -1,3 +1,5 @@
+**EN** · [RU](ru/ARCHITECTURE-OPERATOR.md)
+
 # Operator architecture
 
 ## Principle

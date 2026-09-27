@@ -1,3 +1,5 @@
+**EN** · [RU](ru/SELFHOST-GIT.md)
+
 # Self-hosted Git (netductor thin model)
 
 **Not a forge.** Single-operator bare repos + control from netductor.

@@ -1,3 +1,5 @@
+**EN** · [RU](ru/VPN-USERS.md)
+
 # VPN users
 
 ## Secondary must list every user UUID

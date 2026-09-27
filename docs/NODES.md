@@ -1,3 +1,5 @@
+**EN** · [RU](ru/NODES.md)
+
 # Node naming & registry / Именование нод и реестр
 
 ## Identity

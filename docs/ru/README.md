@@ -1,5 +1,5 @@
 # Документация
 
-Канон на **EN**. RU: handoff, open items, recover, security.
+Канон и детали — в **EN**. Здесь — тот же смысл по-русски (не дословный перевод).
 
-См. [../README.md](../README.md).
+Оглавление: [../README.md](../README.md).

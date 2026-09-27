@@ -1,3 +1,5 @@
+**EN** · [RU](ru/TG-UI-PATTERN.md)
+
 # TG UI pattern (locked)
 
 ## Templates (only three)

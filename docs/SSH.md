@@ -1,3 +1,5 @@
+**EN** · [RU](ru/SSH.md)
+
 # SSH access to netductor nodes
 
 ## Fleet key

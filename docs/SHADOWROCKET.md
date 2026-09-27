@@ -1,3 +1,5 @@
+**EN** · [RU](ru/SHADOWROCKET.md)
+
 # Shadowrocket and netductor
 
 See also [ru/SHADOWROCKET.md](ru/SHADOWROCKET.md).

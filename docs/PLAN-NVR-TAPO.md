@@ -1,3 +1,5 @@
+**EN** · [RU](ru/PLAN-NVR-TAPO.md)
+
 # PLAN: Tapo C200 cameras → OpenWrt agent → primary NVR
 
 **Status:** draft / research (2026-09-18)  

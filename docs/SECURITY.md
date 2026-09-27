@@ -1,3 +1,5 @@
+**EN** · [RU](ru/SECURITY.md)
+
 # Security
 
 ## Defaults

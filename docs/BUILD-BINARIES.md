@@ -1,3 +1,5 @@
+**EN** · [RU](ru/BUILD-BINARIES.md)
+
 # Building operator vs node binaries (v0.9+)
 
 **Separate packages** (not only ldflags):

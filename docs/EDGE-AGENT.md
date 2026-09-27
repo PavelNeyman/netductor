@@ -1,3 +1,5 @@
+**EN** · [RU](ru/EDGE-AGENT.md)
+
 # Edge agent
 
 Outbound enroll → approve → template apply. No management VPN between edge and primary for SSH.

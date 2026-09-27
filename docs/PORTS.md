@@ -1,3 +1,5 @@
+**EN** · [RU](ru/PORTS.md)
+
 # Network surface (security)
 
 | Port | Bind | Encryption | Notes |

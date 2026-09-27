@@ -1,3 +1,5 @@
+**EN** · [RU](ru/DEPLOY-PARITY.md)
+
 # Deploy parity (Mac TUI ↔ Web ↔ CLI)
 
 **Backend:** `operator.FleetDeployWithReport` / `DeployPrimary` / `DeploySecondary` only.  

@@ -1,3 +1,5 @@
+**EN** · [RU](ru/ARCHITECTURE.md)
+
 # Architecture
 
 Fleet: **primary** (abroad control plane) + optional **secondary** (RU VPN entry only). See [FLEET.md](FLEET.md). Plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).

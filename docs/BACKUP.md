@@ -1,3 +1,5 @@
+**EN** · [RU](ru/BACKUP.md)
+
 **Baseline: v0.8.49**
 
 # Backups (RU + EN)

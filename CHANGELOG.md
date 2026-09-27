@@ -1,3 +1,8 @@
+## docs-i18n
+
+- Sense-equivalent RU for all remaining product docs under docs/ru/
+- EN headers link to RU pairs
+
 ## docs-prune
 
 - Removed ~80 obsolete docs (reviews, test plans, duplicate runbooks, archive)
