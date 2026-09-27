@@ -245,7 +245,7 @@ func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartAgentPlane serves mTLS agent plane (:8789): secondary + edge + nvr.
-// Default: mTLS only on :8789. Plain :8788 only if NETDUCTOR_PLAIN_AGENT=1 (emergency).
+// Default: mTLS only on :8789. Plain :8788 unsupported.
 func StartAgentPlane() {
 	// Shared agent plane (mTLS :8789): secondary + edge + nvr device APIs.
 	mux := http.NewServeMux()
@@ -304,17 +304,10 @@ func StartAgentPlane() {
 		}
 	}
 
-	// Plain :8788 is emergency-only (never default).
+	// Plain :8788 removed from product (use mTLS :8789 only).
 	if os.Getenv("NETDUCTOR_PLAIN_AGENT") == "1" {
-		addr := os.Getenv("NETDUCTOR_SECONDARY_API")
-		if addr == "" {
-			addr = ":8788"
-		}
-		fmt.Fprintln(os.Stderr, "WARN agent plane PLAIN on", addr, "(NETDUCTOR_PLAIN_AGENT=1)")
-		go func() {
-			lim := httpx.NewPlaneLimiter(60, time.Minute)
-			_ = http.ListenAndServe(addr, lim.Middleware(withSecurity(mux)))
-		}()
+		fmt.Fprintln(os.Stderr, "FAIL: NETDUCTOR_PLAIN_AGENT is unsupported — refuse start")
+		os.Exit(1)
 	}
 }
 

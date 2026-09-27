@@ -20,13 +20,8 @@ var defaultAPIAllowCIDRs = []string{
 //
 // Default (locked): allow only service-plane CIDRs + /etc/netductor/api-allow.cidr
 // and NETDUCTOR_API_ALLOW_CIDR (comma-separated).
-// Escape hatch: NETDUCTOR_API_ALLOW_PUBLIC=1 → allow 8789 from anywhere (old behaviour).
-//
-// Operator without public :8789: SSH tunnel
-//
-//	ssh -N -L 8789:127.0.0.1:8789 -p 52222 root@PRIMARY
-//
-// then https://127.0.0.1:8789 with client certs. Or use VLESS + allowlist your path.
+// Temporary WAN open: only via `netductor api-public arm` (TG/CLI), not env.
+// Operator steady-state: SSH tunnel or service CIDR / api-allow.cidr.
 func ApplyAgentFirewall() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
 		return nil
@@ -36,14 +31,6 @@ func ApplyAgentFirewall() error {
 	// wipe broad allows (v4/v6)
 	_ = run("ufw", "delete", "allow", "8789/tcp")
 	_ = run("ufw", "delete", "allow", "8789/tcp")
-
-	if os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") == "1" {
-		if err := run("ufw", "allow", "8789/tcp", "comment", "netductor-api-public"); err != nil {
-			return fmt.Errorf("ufw allow 8789 public: %w", err)
-		}
-		fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 OPEN (NETDUCTOR_API_ALLOW_PUBLIC=1)")
-		return nil
-	}
 
 	cidrs := append([]string{}, defaultAPIAllowCIDRs...)
 	if extra := strings.TrimSpace(os.Getenv("NETDUCTOR_API_ALLOW_CIDR")); extra != "" {
@@ -77,7 +64,7 @@ func ApplyAgentFirewall() error {
 			fmt.Fprintf(os.Stderr, "ufw allow 8789 from %s: %v\n", c, err)
 		}
 	}
-	fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 restricted to service CIDRs + api-allow.cidr (set NETDUCTOR_API_ALLOW_PUBLIC=1 to open)")
+	fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 restricted to service CIDRs + api-allow.cidr (WAN open only via api-public arm)")
 	return nil
 }
 

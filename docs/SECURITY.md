@@ -33,3 +33,11 @@
 
 - Per-node client certs: `netductor mtls issue-client <node-id>`
 - Optional HTTPS admin: `netductor tls self-signed` + `NETDUCTOR_API_PUBLIC=1` + TLS env (prefer certbot in prod)
+
+## Freeze (2026-09)
+
+- No permanent public :8789 via env — only `api-public arm` (TTL).
+- No plain agent :8788; no non-local node API bind; no TRUST_PROXY.
+- Redirect: HTTPS :8443 only; no public :80.
+- Admin UI: Mac `netductor-op` only, not on VPS.
+See ARCHITECTURE-FREEZE.md.

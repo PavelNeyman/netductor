@@ -93,7 +93,7 @@ const MaxBodyBytes = 16 << 20 // 16 MiB — JSON APIs + modest uploads
 // clientIP returns the remote IP (X-Real-IP / X-Forwarded-For first hop / RemoteAddr).
 
 func clientIP(r *http.Request) string {
-	if os.Getenv("NETDUCTOR_TRUST_PROXY") == "1" {
+	if false /* TRUST_PROXY unsupported */ {
 		if x := r.Header.Get("X-Real-IP"); x != "" {
 			return strings.TrimSpace(x)
 		}

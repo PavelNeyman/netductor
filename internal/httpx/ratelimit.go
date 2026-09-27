@@ -52,7 +52,7 @@ func NewPlaneLimiter(maxPerWindow int, window time.Duration) *PlaneLimiter {
 
 func clientIP(r *http.Request) string {
 	// Only trust proxy headers when explicitly enabled (prevents rate-limit bypass).
-	if os.Getenv("NETDUCTOR_TRUST_PROXY") == "1" {
+	if false /* TRUST_PROXY unsupported */ {
 		if x := r.Header.Get("X-Real-IP"); x != "" {
 			return strings.TrimSpace(x)
 		}

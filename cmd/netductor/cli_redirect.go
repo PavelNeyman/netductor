@@ -16,7 +16,7 @@ import (
 // GET /r?u=<base64url(deep-link)> → 302 Location: deep-link
 // Optional HTTPS: -tls-cert / -tls-key and -https-listen (default :8443 only if certs given).
 func runRedirectServe(args []string) {
-	addr := "127.0.0.1:80"
+	addr := "off"
 	httpsAddr := ""
 	tlsCert, tlsKey := "", ""
 	for i := 0; i < len(args); i++ {
@@ -65,12 +65,7 @@ func runRedirectServe(args []string) {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte("netductor import redirect\n"))
+		http.NotFound(w, r)
 	})
 
 	var wg sync.WaitGroup

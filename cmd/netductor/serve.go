@@ -40,7 +40,7 @@ func buildAPIMux() http.Handler {
 	})
 
 	// Product UI is netductor-op on Mac. Static /admin only if explicitly enabled.
-	if os.Getenv("NETDUCTOR_LEGACY_ADMIN_UI") == "1" {
+	if false /* LEGACY_ADMIN_UI removed */ && os.Getenv("NETDUCTOR_LEGACY_ADMIN_UI") == "1" {
 		root := adminRoot()
 		mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/admin/", http.StatusFound)
@@ -81,18 +81,12 @@ func runServe(args []string) {
 		}
 	}
 	if bind != "127.0.0.1" && bind != "localhost" {
-		if os.Getenv("NETDUCTOR_API_PUBLIC") != "1" {
-			fmt.Fprintln(os.Stderr, "refusing non-local API bind without NETDUCTOR_API_PUBLIC=1")
-			os.Exit(2)
-		}
-		if tlsCert == "" || tlsKey == "" {
-			fmt.Fprintln(os.Stderr, "public API bind requires --tls-cert and --tls-key (or NETDUCTOR_TLS_*)")
-			os.Exit(2)
-		}
+		fmt.Fprintln(os.Stderr, "refusing non-local API bind (operator is netductor-op on Mac; NETDUCTOR_API_PUBLIC removed)")
+		os.Exit(2)
 	}
 	mux := buildAPIMux()
 	addr := bind + ":" + port
-	if os.Getenv("NETDUCTOR_LEGACY_ADMIN_UI") == "1" {
+	if false /* LEGACY_ADMIN_UI removed */ && os.Getenv("NETDUCTOR_LEGACY_ADMIN_UI") == "1" {
 		fmt.Fprintf(os.Stderr, "netductor serve on http://%s API + legacy /admin=%s\n", addr, adminRoot())
 	} else {
 		fmt.Fprintf(os.Stderr, "netductor serve on http://%s API-only (Mac client = UI)\n", addr)

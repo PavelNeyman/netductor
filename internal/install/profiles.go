@@ -128,7 +128,7 @@ WantedBy=multi-user.target
 		listen := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_LISTEN"))
 		if listen == "" {
 			// Before LE: loopback only (no public HTTP). Domain LE enables :8443.
-			listen = "127.0.0.1:80"
+			listen = "off" // no HTTP :80
 		}
 		unit = fmt.Sprintf(`[Unit]
 Description=Netductor import redirect (TG deep links)

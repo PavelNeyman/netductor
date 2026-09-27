@@ -71,6 +71,18 @@ Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **
 
 **SSH:** password only for first login; install/provision → key-only (`internal/install/ssh_harden.go`).
 
+
+
+## Architecture freeze (mandatory)
+
+**Canon:** [docs/ARCHITECTURE-FREEZE.md](docs/ARCHITECTURE-FREEZE.md).  
+**Close-out plan:** [docs/ARCHITECTURE-PLAN.md](docs/ARCHITECTURE-PLAN.md).
+
+Do **not** reintroduce: permanent public :8789 env, plain :8788, non-local node API bind, TRUST_PROXY, VPS admin UI, `/opt/netductor` prefix, public HTTP :80 redirect.
+
+Operator UI lives on **Mac `netductor-op`**. Node is server-only.
+
+
 **TG UI:** navigation under the message; screen actions in HTML body — [docs/TG-UI.md](docs/TG-UI.md). Access import buttons use **redirect-serve** + `NETDUCTOR_REDIRECT_BASE` (HTTPS **:8443** after LE; not custom schemes in Telegram url-buttons).
 
 ---
