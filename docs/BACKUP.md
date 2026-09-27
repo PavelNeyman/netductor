@@ -103,7 +103,7 @@ netductor recover --from-secondary http://SECONDARY:8790   --recovery-token "$(c
 
 - Secondary `:8790` hands out **encrypted** backup + component list only.
 - Decryption key stays offline (`NETDUCTOR_BACKUP_KEY` / `--key`).
-- Optional (discouraged): `NETDUCTOR_RECOVERY_SERVE_KEY=1` on secondary + `NETDUCTOR_RECOVERY_FETCH_KEY=1` on client.
+- Backup decryption key is **offline only** (never served from recovery API).
 - Optional: `NETDUCTOR_RECOVERY_ALLOW_CIDR=NEW_PRIMARY_IP/32` after you know the new IP.
 - Failed auth: lockout 15m after 5 failures per IP.
 

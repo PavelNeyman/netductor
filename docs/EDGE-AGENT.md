@@ -9,7 +9,7 @@ Outbound enroll → approve → template apply. No management VPN between edge a
 - Heartbeat/commands use **HTTP(S) to primary** with device **token** (not mutual SSH).
 - **v0.8.30+:** control plane is **mTLS on primary `:8789`** (not VPN-dependent, not plain `:8787`).
 - Workstation/deploy sets `SERVER=https://PRIMARY:8789` and installs client certs under `/etc/netductor-agent/mtls/`.
-- Admin UI stays on localhost `:8787` (SSH tunnel). Never require `NETDUCTOR_API_PUBLIC=1` for edge enroll.
+- Admin UI stays on localhost `:8787` (SSH tunnel). Node API stays loopback; enroll uses mTLS :8789 (no public API flag).
 - OpenWrt recovery UI is **LAN-only** (`:7879`).
 
 After first password bootstrap, provision installs the **operator (Mac) pubkey** and disables dropbear/OpenSSH password auth when possible.

@@ -1,46 +1,45 @@
-**v0.9.75:** footgun knobs not in code; ndconfig ignores old keys.
+**EN** · [RU](ru/AGENT_HANDOFF.md)
 
 # Agent handoff
 
-**EN** · [RU](ru/AGENT_HANDOFF.md)
-
 **Repo:** https://github.com/PavelNeyman/netductor  
+**Version:** **v0.9.75**
 
-Read: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) · [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL.md](RECOVER-DRILL.md) · [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) · [BREW.md](BREW.md)
+Read first: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [ARCHITECTURE-PLAN](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [RUNBOOK-INSTALL-RECOVER](RUNBOOK-INSTALL-RECOVER.md) · [SECURITY](SECURITY.md) · [REVIEW-0.9.75](REVIEW-0.9.75.md) · [BREW](BREW.md)
 
-## Canon
-primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH **52222** both VPS · same Mac key · FHS · Mac op · redirect **:8443 only**
+## Canon (frozen)
 
-## Baseline
-**v0.9.71** — unattended recover (continue-on-error + post-restore pass); COMPONENTS baseline; tg real binary; ufw secondary IP
+primary + secondary · VLESS Reality · service SP/PS · mTLS **:8789** · SSH **52222** both VPS · one Mac operator key · FHS · **netductor-op** on Mac · redirect **:8443 only** · no plain agent / no VPS admin UI / no permanent public API
+
+## Baseline releases
+
+| Ver | Note |
+|-----|------|
+| **0.9.75** | Footgun knobs removed from code; `ndconfig` ignores obsolete conf keys |
+| **0.9.74** | LE re-issue on recover when `DOMAIN`+`LE_EMAIL`; no certs in `.ndenc` |
+| **0.9.73** | Inbound mux schema (padding only); post-restore `ensure-relay-uplink` + `vpn apply` |
+| **0.9.71** | Unattended recover continue-on-error + post-restore pass |
 
 ## Live test VPS
-- primary `2.27.118.70` · secondary `92.255.77.253` (rebuild OK)
 
-## Done recently
-- Live recover drill unattended 2026-09-27
-- Docs cleanup: old REVIEW/PLAN snapshots → `docs/archive/`
+- primary `2.27.118.70` · secondary `92.255.77.253`
 
-## VPN after recover
-See [RECOVER-DRILL.md](RECOVER-DRILL.md) § Reality/uplink. `vpn apply` must succeed; multiplex ON (inbound padding-only; outbound full). Baseline fix **0.9.73**.
+## Deploy
 
+Mac **TUI + Web** → shared `internal/deploy`. TG does not deploy VPS.
 
+## After recover checklist
 
-## Review snapshot (v0.9.73)
+1. `vpn apply` OK · Reality secrets match · relay-uplink present · multiplex ON  
+2. LE auto if conf has DOMAIN+LE_EMAIL; else `domain set --le` once  
+3. See [RECOVER-DRILL.md](RECOVER-DRILL.md)
 
-Full write-up: [REVIEW-0.9.73.md](REVIEW-0.9.73.md).
+## Next (owner)
 
-- Security freeze controls in force (no WAN admin, no plain :8788, redirect :8443 only).
-- Mac **TUI + Web** deploy share `internal/deploy` (fleet/primary/secondary/edge).
-- OPCATALOG day-2 coverage documented; deploy intentionally Mac-only (not TG).
-- Docs **42 EN + 42 RU**.
-- After recover: require `vpn apply` OK + Reality/uplink checklist (RECOVER-DRILL).
+1. Full **dual-node smoke**  
+2. Hardware e2e  
+3. Features only after smoke  
 
+## Rule for agents
 
-## Next
-1. Full dual-node smoke (primary + secondary together)
-2. Hardware e2e when ready
-3. Features only after that if desired
-
-## Rule
-Checklist item done → plan `[x]` + this handoff + CHANGELOG in the same change.
+Closed checklist item → mark plan + update this handoff + CHANGELOG in the **same** change.

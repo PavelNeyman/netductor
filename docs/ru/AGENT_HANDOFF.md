@@ -1,38 +1,24 @@
-**v0.9.75:** footgun knobs not in code; ndconfig ignores old keys.
-
 **RU** · [EN](../AGENT_HANDOFF.md)
 
 # Handoff для агента
 
 **Репо:** https://github.com/PavelNeyman/netductor  
+**Версия:** **v0.9.75**
 
-Читать: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [ARCHITECTURE-PLAN](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [RUNBOOK-INSTALL-RECOVER](RUNBOOK-INSTALL-RECOVER.md) · [BREW](BREW.md)
+Читать: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [PLAN](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [SECURITY](SECURITY.md) · [REVIEW-0.9.75](REVIEW-0.9.75.md) · [BREW](BREW.md)
 
 ## Канон
-primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH **52222** обе VPS · один Mac key · FHS · Mac op · redirect **:8443 only**
+
+primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH 52222 · Mac op · redirect :8443 only · без plain agent / VPS admin / permanent public API
 
 ## Baseline
-- **v0.9.71** — unattended recover (continue-on-error + post-restore)
-- **v0.9.74** — LE при recover; sanitize conf
 
-**v0.9.73** — inbound mux schema; post-restore ensure-relay-uplink + vpn apply; Reality checklist
-
-## Live test VPS
-primary `2.27.118.70` · secondary `92.255.77.253` (rebuild OK)
-
-## Сделано недавно
-- Live recover drill; docs prune + RU parity
-- VPN post-recover: secrets↔conf, users, multiplex ON
-
-
-## Ревью (v0.9.73)
-
-[REVIEW-0.9.73.md](REVIEW-0.9.73.md) — security + паритет TUI/Web + OPCATALOG. После recover — чеклист Reality.
+**0.9.75** — knobs убраны из кода · **0.9.74** — LE при recover · **0.9.73** — mux + ensure-relay-uplink · **0.9.71** — unattended recover
 
 ## Дальше
-1. Full dual-node smoke  
-2. Hardware e2e  
-3. Features only  
 
-## Правило
-Закрытый пункт чеклиста → отметить план + обновить handoff + CHANGELOG в **том же** изменении.
+1. Dual-node smoke  
+2. Hardware e2e  
+3. Фичи  
+
+Закрытый пункт → план + handoff + CHANGELOG в том же изменении.

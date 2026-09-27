@@ -78,8 +78,8 @@ After wipe+recover, **do not assume VPN works** until:
 
 
 
-## LE after recover (0.9.74+)
+## LE after recover (0.9.74+ / 0.9.75)
 
 Certs are **not** in `.ndenc`. If conf has `DOMAIN` + `LE_EMAIL`, recover re-runs LE + redirect unit. Otherwise set once: `netductor domain set --base … --le --email …`.
 
-Post-restore **sanitize conf** strips footgun keys (PLAIN_AGENT, ALLOW_PUBLIC, LEGACY_ADMIN, …).
+Obsolete conf keys are **not loaded** by `ndconfig` (cannot re-enable removed knobs).

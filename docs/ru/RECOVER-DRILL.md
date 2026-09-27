@@ -42,4 +42,4 @@ Disarm recovery; :8790 закрыт.
 
 Сертификаты **не** в `.ndenc`. Если в conf есть `DOMAIN` + `LE_EMAIL`, recover сам вызывает `domain`/`tls le` и `InstallRedirect`. Иначе один раз: `netductor domain set --base … --le --email …`.
 
-Post-restore также **sanitize conf** — удаляет footgun-ключи (PLAIN_AGENT, ALLOW_PUBLIC, …).
+Устаревшие ключи conf **не загружаются** `ndconfig` (включить снятые опции нельзя).

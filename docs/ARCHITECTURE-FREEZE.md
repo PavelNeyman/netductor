@@ -32,3 +32,5 @@
 ## Before “features only” (plan)
 
 See [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md).
+
+**Code (0.9.75):** removed knobs are not loadable via conf (`ndconfig` ignore list). Do not reintroduce enable paths.
