@@ -256,3 +256,26 @@ Anti-flap: 3 failed probes → DOWN; 3 ok + 30–60s stable → failback to VLES
 **Benefit today:** agent plane leaves secondary as WSS to :8444, not as direct client to public :8789; extra encryption (WSS+WG+mTLS).  
 **Not yet:** closing public :8789 to the world — needs operator access plan first. Fail-open: keep `secondary_core_url.public` for emergency.
 
+### Operator Mac → API
+
+**Recommendation:** one daily path — **VLESS** (same profile as personal use), with split or full tunnel so `primary:8789` / `10.87.10.1:8789` reachable when VPN is up.
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **VLESS only (prefer)** | One client, simple | If user plane is broken, API via VPN also broken |
+| Separate WG for ops | Independent of VLESS | Second profile, more moving parts |
+| Public :8789 + allowlist | Works offline from VPN | Larger attack surface |
+
+**Practical split:**
+1. **Day-to-day:** Mac → VLESS → reach API (prefer `https://10.87.10.1:8789` if routes include service prefixes, else primary public hostname only while still allowlisted).
+2. **Break-glass:** SSH `:52222` key-only (always). Optional short `recovery arm` / temporary public API allow — not a second permanent WG unless you want it.
+3. Do **not** make API reachable **only** via VLESS with no SSH break-glass.
+
+Separate ops WG is “more correct” isolation; for a solo operator **one VLESS + SSH break-glass** is usually better.
+
+### Recovery P→S via `nd-svc-ps`
+
+- Port **:8790** only while `netductor recovery arm` (process must **stay running** — fixed in CLI).
+- Pull from primary: `https://10.87.11.2:8790/recovery/...` (Bearer token).
+- Prefer `NETDUCTOR_RECOVERY_ALLOW_CIDR=10.87.11.0/30` so WAN is not required when PS is up.
+
