@@ -248,7 +248,8 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 					"type":            "remote",
 					"format":          "binary",
 					"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
-					"download_detour": "uplink", // first fetch via core if GH blocked from RU
+					// direct: uplink is Reality (SNI=api.vk.me) and breaks TLS to githubusercontent
+					"download_detour": "direct",
 				},
 			},
 			"rules": []any{

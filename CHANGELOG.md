@@ -1,3 +1,8 @@
+## 0.9.72
+
+- secondary geoip rule-set: download_detour **direct** (Reality uplink broke TLS to GitHub → sing-box crash loop)
+- InstallRedirect: read REDIRECT_TLS_* from netductor.conf after recover; enable HTTPS :8443
+
 ## docs-i18n
 
 - Sense-equivalent RU for all remaining product docs under docs/ru/

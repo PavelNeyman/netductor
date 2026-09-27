@@ -196,7 +196,7 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 					"type":            "remote",
 					"format":          "binary",
 					"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
-					"download_detour": final,
+					"download_detour": "direct", // not Reality uplink — TLS SNI must match github
 				},
 			},
 			"rules": []any{

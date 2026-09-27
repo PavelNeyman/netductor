@@ -98,6 +98,7 @@ func InstallRedirect() error {
 		bin = "/usr/local/bin/netductor"
 	}
 	// Prefer LE HTTPS :8443 when certs present (after domain set --le). No public :80.
+	// Env first, then /etc/netductor/netductor.conf (recover restores conf but unit may lag).
 	cert := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_TLS_CERT"))
 	key := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_TLS_KEY"))
 	if cert == "" {
@@ -105,6 +106,23 @@ func InstallRedirect() error {
 	}
 	if key == "" {
 		key = strings.TrimSpace(os.Getenv("NETDUCTOR_TLS_KEY"))
+	}
+	if conf := readNetductorConfMap(); conf != nil {
+		if cert == "" {
+			cert = conf["REDIRECT_TLS_CERT"]
+			if cert == "" {
+				cert = conf["NETDUCTOR_REDIRECT_TLS_CERT"]
+			}
+		}
+		if key == "" {
+			key = conf["REDIRECT_TLS_KEY"]
+			if key == "" {
+				key = conf["NETDUCTOR_REDIRECT_TLS_KEY"]
+			}
+		}
+		if os.Getenv("NETDUCTOR_REDIRECT_BASE") == "" && conf["REDIRECT_BASE"] != "" {
+			_ = os.Setenv("NETDUCTOR_REDIRECT_BASE", conf["REDIRECT_BASE"])
+		}
 	}
 	var unit string
 	if cert != "" && key != "" {
@@ -154,4 +172,24 @@ WantedBy=multi-user.target
 		return nil
 	}
 	return enableStart("netductor-redirect")
+}
+
+func readNetductorConfMap() map[string]string {
+	b, err := os.ReadFile("/etc/netductor/netductor.conf")
+	if err != nil {
+		return nil
+	}
+	out := map[string]string{}
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		out[strings.TrimSpace(k)] = strings.TrimSpace(v)
+	}
+	return out
 }

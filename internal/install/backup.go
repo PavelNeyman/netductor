@@ -322,6 +322,8 @@ func Recover(archive, keyArg string) error {
 	}
 
 	// Re-apply runtime configs from restored secrets/users
+	fmt.Fprintln(os.Stderr, "recover: ensure redirect (LE paths from conf if any)")
+	_ = InstallRedirect()
 	fmt.Fprintln(os.Stderr, "recover: apply vpn / restart services")
 	_ = run("netductor", "vpn", "apply")
 	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot", "netductor-backup.timer"} {
