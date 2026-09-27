@@ -1,20 +1,9 @@
-# Plan until architecture is feature-stable
+# Plan — architecture close-out **complete**
 
-| ID | Status |
-|----|--------|
-| A2 Deploy parity | **[x]** |
-| A5 Doctor footgun + cert WARN | **[x]** |
-| A6 Update path | **[x]** |
-| Recover drill doc | **[x]**; live = owner |
-| B1 Version pins agent + op update | **[x]** |
-| B2 Idempotent runbook | **[x]** [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) |
-| B3 Agent plane desired state | **[x]** |
-| B4 Secrets on Mac | **[x]** |
-| B5 opcatalog | **[x]** |
+All A/B items done in code/docs. See [OPEN_ITEMS.md](OPEN_ITEMS.md).
 
-## Still owner
-- Live recover drill once
-- Hardware e2e
+**Owner residual:** live recover drill, hardware e2e.
 
-## Features only
-Architecture close-out complete for code/docs. Remaining = live drill + hardware.
+**Brew:** [BREW.md](BREW.md) — real SHA only.
+
+**SSH:** primary + secondary day-2 → **:52222**, key `~/.ssh/netductor_primary`.

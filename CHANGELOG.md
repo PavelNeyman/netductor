@@ -1,3 +1,9 @@
+## 0.9.69-debt
+
+- Secondary verified :52222 + updated to 0.9.69
+- NVR TG i18n remaining strings; Web residual labels
+- OPEN_ITEMS: debts closed; owner-only recover/hardware
+
 ## 0.9.69-docs
 
 - Formula: **real** sha256 for all op arches; never `:no_check` ([BREW.md](docs/BREW.md))

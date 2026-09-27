@@ -132,7 +132,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			reply(token, chat, msgID, T("nvr_enqueue_fail"), nvrSitesKeyboard())
 			return
 		}
-		reply(token, chat, msgID, "leases from <code>"+esc(did)+"</code>...\ncmd <code>"+esc(cmdID)+"</code>", nvrSitesKeyboard())
+		reply(token, chat, msgID, fmt.Sprintf(T("nvr_leases_cmd"), esc(did), esc(cmdID)), nvrSitesKeyboard())
 		go func(chat int64, msgID int, did, cmdID string) {
 			res, err := edge.WaitCmdResult(cmdID, 90*time.Second)
 			if err != nil {
@@ -181,7 +181,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		}
 		parts := strings.SplitN(chatExtra[chat], "\n", 2)
 		if len(parts) != 2 {
-			reply(token, chat, msgID, "bad cache", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_bad_cache"), nvrSubKeyboard())
 			return
 		}
 		did := parts[0]
@@ -190,7 +190,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		var idx int
 		fmt.Sscanf(idxStr, "%d", &idx)
 		if idx < 0 || idx >= len(leases) {
-			reply(token, chat, msgID, "bad index", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_bad_index"), nvrSubKeyboard())
 			return
 		}
 		l := leases[idx]
@@ -212,7 +212,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		cams := nvr.ListCameras()
 		nl := string([]byte{10})
 		var b strings.Builder
-		b.WriteString("📷 <b>Cameras</b>" + nl)
+		b.WriteString("📷 <b>"+T("nvr_cams_title")+"</b>" + nl)
 		if getLang() != "en" {
 			b.WriteString("<i># · P probe · R record · S stop · ◀▶▲▼ PTZ</i>" + nl)
 		} else {
@@ -254,19 +254,19 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 	case strings.HasPrefix(data, "m:nvr:probe:"), strings.HasPrefix(data, "m:nvr:rec:"), strings.HasPrefix(data, "m:nvr:stop:"):
 		parts := strings.Split(data, ":")
 		if len(parts) < 4 {
-			reply(token, chat, msgID, "bad", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_bad"), nvrSubKeyboard())
 			return
 		}
 		action := parts[2]
 		var idx int
 		fmt.Sscanf(parts[3], "%d", &idx)
 		if chatState[chat] != "nvr_cam_cache" || chatExtra[chat] == "" {
-			reply(token, chat, msgID, "open Cameras again", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_open_cams"), nvrSubKeyboard())
 			return
 		}
 		var cams []nvr.Camera
 		if json.Unmarshal([]byte(chatExtra[chat]), &cams) != nil || idx < 0 || idx >= len(cams) {
-			reply(token, chat, msgID, "cache", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_cache"), nvrSubKeyboard())
 			return
 		}
 		c := cams[idx]
@@ -274,7 +274,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		case "probe":
 			arg := c.LANIP
 			if arg == "" {
-				reply(token, chat, msgID, "no lan_ip", nvrSubKeyboard())
+				reply(token, chat, msgID, T("nvr_no_lan"), nvrSubKeyboard())
 				return
 			}
 			port := c.RTSPPort
@@ -287,10 +287,10 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			}
 			cmdID := edge.EnqueueCmd(c.SiteID, "rtsp_probe", arg)
 			if cmdID == "" {
-				reply(token, chat, msgID, "enqueue failed", nvrSubKeyboard())
+				reply(token, chat, msgID, T("nvr_enqueue_fail"), nvrSubKeyboard())
 				return
 			}
-			reply(token, chat, msgID, "probe <code>"+esc(c.Name)+"</code>...", nvrSubKeyboard())
+			reply(token, chat, msgID, fmt.Sprintf(T("nvr_probe"), esc(c.Name)), nvrSubKeyboard())
 			go func() {
 				res, err := edge.WaitCmdResult(cmdID, 60*time.Second)
 				if err != nil {
@@ -312,7 +312,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			}
 			arg := fmt.Sprintf("%s|%s|%d", c.ID, url, seg)
 			cmdID := edge.EnqueueCmd(c.SiteID, "nvr_record_start", arg)
-			reply(token, chat, msgID, "start record...", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_rec_start"), nvrSubKeyboard())
 			go func() {
 				res, err := edge.WaitCmdResult(cmdID, 60*time.Second)
 				if err != nil {
@@ -324,7 +324,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			}()
 		case "stop":
 			cmdID := edge.EnqueueCmd(c.SiteID, "nvr_record_stop", c.ID)
-			reply(token, chat, msgID, "stop...", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_rec_stop"), nvrSubKeyboard())
 			go func() {
 				res, err := edge.WaitCmdResult(cmdID, 60*time.Second)
 				if err != nil {
@@ -339,19 +339,19 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 	case strings.HasPrefix(data, "m:nvr:ptz:"):
 		parts := strings.Split(data, ":")
 		if len(parts) < 5 {
-			reply(token, chat, msgID, "bad ptz", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_bad_ptz"), nvrSubKeyboard())
 			return
 		}
 		var idx int
 		fmt.Sscanf(parts[3], "%d", &idx)
 		dir := strings.Join(parts[4:], ":")
 		if chatState[chat] != "nvr_cam_cache" || chatExtra[chat] == "" {
-			reply(token, chat, msgID, "open Cameras again", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_open_cams"), nvrSubKeyboard())
 			return
 		}
 		var cams []nvr.Camera
 		if json.Unmarshal([]byte(chatExtra[chat]), &cams) != nil || idx < 0 || idx >= len(cams) {
-			reply(token, chat, msgID, "cache", nvrSubKeyboard())
+			reply(token, chat, msgID, T("nvr_cache"), nvrSubKeyboard())
 			return
 		}
 		c := cams[idx]
@@ -361,7 +361,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		}
 		arg := c.LANIP + "|" + c.RTSPUser + "|" + pass + "|" + dir
 		cmdID := edge.EnqueueCmd(c.SiteID, "camera_ptz", arg)
-		reply(token, chat, msgID, "PTZ "+esc(dir)+"… (tapo)", nvrSubKeyboard())
+		reply(token, chat, msgID, fmt.Sprintf(T("nvr_ptz"), esc(dir)), nvrSubKeyboard())
 		go func() {
 			res, err := edge.WaitCmdResult(cmdID, 30*time.Second)
 			if err != nil {
@@ -400,7 +400,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			reply(token, chat, msgID, esc(err.Error()), nvrSubKeyboard())
 			return
 		}
-		reply(token, chat, msgID, fmt.Sprintf("retention done\ndeleted=%d (%d bytes)\nkept=%d total=%d",
+		reply(token, chat, msgID, fmt.Sprintf(T("nvr_retention_done"),
 			rep.Deleted, rep.DeletedBytes, rep.Kept, rep.TotalBytes), nvrSubKeyboard())
 	case data == "m:nvr:go2rtc":
 		nl := string([]byte{10})
@@ -459,7 +459,7 @@ func handleNVRMessage(token string, chat int64, text string) bool {
 	setState(chat, "", "")
 	var draft map[string]string
 	if json.Unmarshal([]byte(draftJSON), &draft) != nil {
-		reply(token, chat, 0, "bad draft", nvrSubKeyboard())
+		reply(token, chat, 0, T("nvr_bad_draft"), nvrSubKeyboard())
 		return true
 	}
 	pass := strings.TrimSpace(text)
@@ -489,7 +489,7 @@ func handleNVRMessage(token string, chat int64, text string) bool {
 		arg := "mac=" + out.MAC + "|ip=" + out.LANIP + "|name=" + out.Name
 		_ = edge.EnqueueCmd(out.SiteID, "dhcp_static", arg)
 	}
-	reply(token, chat, 0, fmt.Sprintf("camera <b>%s</b> id=<code>%s</code>\nstatic DHCP queued if agent online",
+	reply(token, chat, 0, fmt.Sprintf(T("nvr_cam_added"),
 		esc(out.Name), out.ID), nvrSubKeyboard())
 	return true
 }

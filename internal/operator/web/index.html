@@ -82,17 +82,17 @@
       <div class="row"><div><label data-i18n="l_site_id">Site ID</label><input name="site_id" required placeholder="home"/></div><div><label data-i18n="l_display">Display name</label><input name="name"/></div></div>
       <div class="row"><div><label data-i18n="l_rpi_lan">RPi LAN (gateway)</label><input name="rpi_lan" placeholder="192.168.88.2"/></div><div><label data-i18n="l_rpi_id">RPi device_id</label><input name="rpi_id"/></div></div>
       <div class="row"><div><label data-i18n="l_mthost">MT host</label><input name="mt_host" required/></div><div><label data-i18n="l_mtuser">MT user</label><input name="mt_user" value="admin"/></div></div>
-      <div class="row"><div><label data-i18n="l_mtpass">MT password</label><input name="mt_password" type="password"/></div><div><label>MT SSH port</label><input name="mt_port" value="22"/></div></div>
-      <div class="row"><div><label data-i18n="l_opkey">Operator key</label><input name="operator_key" placeholder="~/.ssh/netductor_primary"/></div><div><label>MikroTik ID</label><input name="mikrotik_id"/></div></div>
+      <div class="row"><div><label data-i18n="l_mtpass">MT password</label><input name="mt_password" type="password"/></div><div><label data-i18n="l_mtport">MT SSH port</label><input name="mt_port" value="22"/></div></div>
+      <div class="row"><div><label data-i18n="l_opkey">Operator key</label><input name="operator_key" placeholder="~/.ssh/netductor_primary"/></div><div><label data-i18n="l_mtid">MikroTik ID</label><input name="mikrotik_id"/></div></div>
       <div class="checks"><label><input type="checkbox" name="do_push" checked/> Push RSC now</label></div>
-      <button class="primary" type="submit">Save site / push</button>
+      <button class="primary" type="submit" data-i18n="btn_site">Save site / push</button>
     </form>
     <p class="note">Quick manage</p>
     <form id="form-mt">
-      <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label>Action</label>
+      <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label data-i18n="l_action">Action</label>
         <select name="action"><option>identity</option><option>resource</option><option>routes</option><option>ping</option></select></div></div>
-      <div class="row"><div><label>User</label><input name="user" value="admin"/></div><div></div></div>
-      <div class="row"><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div><div><label>Port</label><input name="port" value="22"/></div></div>
+      <div class="row"><div><label data-i18n="l_user">User</label><input name="user" value="admin"/></div><div></div></div>
+      <div class="row"><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div><div><label data-i18n="l_port">Port</label><input name="port" value="22"/></div></div>
       <button class="primary" type="submit">Run</button>
     </form>
     <pre class="log" id="mtResult">—</pre>
@@ -101,7 +101,7 @@
     <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
     <form id="form-edge">
       <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
-      <div class="row"><div><label>Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
+      <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_lan">LAN IP (optional)</label><input name="lan_ip"/></div><div><label data-i18n="l_wan">WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>

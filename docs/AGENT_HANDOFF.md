@@ -20,15 +20,11 @@ Permanent `API_ALLOW_PUBLIC` / `PLAIN_AGENT` / `API_PUBLIC` / `TRUST_PROXY` · V
 
 ## Baseline
 
-**v0.9.69** — A5 footgun doctor; B1 agent pin; B3/B4 posture; i18n audit
+**v0.9.69+** (debts closed 2026-09-27) — A5 footgun doctor; B1 agent pin; B3/B4 posture; i18n audit
 
-## Next work (plan order)
+## Next work
 
-1. ~~A2~~ ~~A5~~ ~~A6~~ ~~B1 agent~~ ~~B3~~ ~~B4~~ ~~B5~~ ~~Recover doc~~
-2. Live recover drill (owner)
-3. B2 runbook tested
-4. Mac op update/brew (B1 rest)
-5. Features only after A/B green
+Architecture debts closed. Next: **features** or owner **live recover / hardware**.
 
 ## Rule
 
