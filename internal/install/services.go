@@ -162,17 +162,21 @@ func InstallTelegram() error {
 	}
 	ver := version.Release
 	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/v%s/netductor-tg-linux-%s", ver, a)
-	dest := filepath.Join(paths.BinDir(), "netductor-tg")
+	// Always install a real binary at /usr/local/bin/netductor-tg (never symlink to self).
+	dest := "/usr/local/bin/netductor-tg"
 	_ = os.MkdirAll(filepath.Dir(dest), 0o755)
-	tmp := dest + ".tmp"
+	tmp := dest + ".new"
 	haveBin := false
 	if err := httpDownload(url, tmp); err != nil {
 		fmt.Fprintf(os.Stderr, "telegram binary download: %v — trying local/fallback\n", err)
 		for _, src := range []string{
-			"/usr/local/bin/netductor-tg",
 			"/tmp/netductor-tg.bin",
-			dest,
+			filepath.Join(paths.BinDir(), "netductor-tg.real"),
 		} {
+			st, e := os.Lstat(src)
+			if e != nil || st.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
 			if b, e := os.ReadFile(src); e == nil && len(b) > 1000 {
 				_ = os.WriteFile(tmp, b, 0o755)
 				haveBin = true
@@ -189,9 +193,11 @@ func InstallTelegram() error {
 		return nil
 	}
 	_ = os.Chmod(tmp, 0o755)
-	_ = os.Rename(tmp, dest)
-	_ = os.Remove("/usr/local/bin/netductor-tg")
-	_ = os.Symlink(dest, "/usr/local/bin/netductor-tg")
+	// Replace any broken self-symlink
+	_ = os.Remove(dest)
+	if err := os.Rename(tmp, dest); err != nil {
+		return fmt.Errorf("telegram install binary: %w", err)
+	}
 	unit := fmt.Sprintf(`[Unit]
 Description=Netductor Telegram bot
 After=network-online.target

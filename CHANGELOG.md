@@ -1,3 +1,9 @@
+## 0.9.70
+
+- Recover: always merge DefaultComponents (incl. telegram); backup COMPONENTS never sparse core
+- InstallTelegram: real binary path, no self-symlink loop
+- UFW :8789: SyncAgentAllowFromSecondaryRegistry after recover + heartbeat AllowAgentMTLSFromIP
+
 ## 0.9.69-debt
 
 - Secondary verified :52222 + updated to 0.9.69

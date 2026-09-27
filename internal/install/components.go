@@ -109,6 +109,10 @@ func MarkComponentRemoved(name string) {
 // Called before every backup so manifest tracks install/uninstall without manual lists.
 func SyncComponentsFromDisk() {
 	var add []string
+	// Primary baseline: if this host has node binary + any core unit, pin full DefaultComponents
+	if _, err := os.Stat(filepath.Join(paths.BinDir(), "netductor")); err == nil {
+		add = append(add, DefaultComponents()...)
+	}
 	if _, err := os.Stat(filepath.Join(paths.OptDir(), "lampac")); err == nil {
 		add = append(add, "lampac")
 	}
@@ -161,4 +165,32 @@ func SyncComponentsFromDisk() {
 func dockerPsNames() (string, error) {
 	out, err := exec.Command("docker", "ps", "--format", "{{.Names}}").CombinedOutput()
 	return string(out), err
+}
+
+// MergeComponents unions lists in preferred order (DefaultComponents first when includeBaseline).
+func MergeComponents(lists ...[]string) []string {
+	set := map[string]struct{}{}
+	for _, list := range lists {
+		for _, c := range list {
+			c = strings.TrimSpace(c)
+			if c != "" {
+				set[c] = struct{}{}
+			}
+		}
+	}
+	order := []string{"dirs", "hardening", "singbox", "blocky", "vpn-users", "api", "metrics", "telegram", "backup", "lampac", "git", "registry"}
+	out := make([]string, 0, len(set))
+	seen := map[string]bool{}
+	for _, c := range order {
+		if _, ok := set[c]; ok {
+			out = append(out, c)
+			seen[c] = true
+		}
+	}
+	for c := range set {
+		if !seen[c] {
+			out = append(out, c)
+		}
+	}
+	return out
 }

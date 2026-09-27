@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/httpx"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
@@ -210,6 +211,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		ID: d.ID, Hostname: host, Role: "secondary", Kind: "vps",
 		PublicIP: d.PublicIP, Status: st, LastSeen: time.Now().Unix(),
 	})
+	_ = install.AllowAgentMTLSFromIP(d.PublicIP)
 	desired := ""
 	if n, ok, err := nodes.Get(d.ID); err == nil && ok && n.DesiredHN != "" {
 		desired = n.DesiredHN

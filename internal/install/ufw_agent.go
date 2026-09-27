@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"strings"
 )
 
@@ -132,4 +134,12 @@ func applyAgentFirewallQuiet() error {
 		_ = ufwQuiet("allow", "from", c, "to", "any", "port", "8789", "proto", "tcp", "comment", "netductor-api")
 	}
 	return nil
+}
+
+// SyncAgentAllowFromSecondaryRegistry writes secondary public IPs into api-allow.cidr.
+func SyncAgentAllowFromSecondaryRegistry() error {
+	for _, ip := range secondary.ListPublicIPs() {
+		_ = RestrictAgentMTLSToIP(ip) // append + apply each time is ok
+	}
+	return ApplyAgentFirewall()
 }

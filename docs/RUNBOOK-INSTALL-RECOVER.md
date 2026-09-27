@@ -65,3 +65,15 @@ Offline: `netductor recover --key KEY archive.ndenc`
 
 ## E. What this runbook does *not* do
 Live wipe of production primary without operator approval.
+
+
+## Recover automation (0.9.70+)
+
+Without manual steps after wipe:
+
+1. Backup always writes **full baseline** COMPONENTS (dirs…telegram…backup + optional lampac/git/registry).
+2. Recover **merges** DefaultComponents even if sidecar was sparse.
+3. `netductor-tg` installs as a **real file** at `/usr/local/bin/netductor-tg` (no self-symlink).
+4. After restore, **ufw :8789** is opened for secondary public IPs from registry; heartbeat also appends IP.
+
+Drill success criterion: password → recover one-shot → doctor fail=0, bot active, secondary online — **no** manual install/scp/ufw.

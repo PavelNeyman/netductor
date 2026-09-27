@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -463,4 +464,25 @@ func tokenSHAEq(a, b string) bool {
 	x := sha256.Sum256([]byte(a))
 	y := sha256.Sum256([]byte(b))
 	return subtle.ConstantTimeCompare(x[:], y[:]) == 1
+}
+
+// ListPublicIPs returns unique non-empty public IPs of registered secondaries.
+func ListPublicIPs() []string {
+	mu.Lock()
+	defer mu.Unlock()
+	r, err := load()
+	if err != nil || r == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, d := range r.Devices {
+		ip := strings.TrimSpace(d.PublicIP)
+		if ip == "" || seen[ip] {
+			continue
+		}
+		seen[ip] = true
+		out = append(out, ip)
+	}
+	return out
 }

@@ -238,10 +238,8 @@ func Restore(archive string, keyArg string) error {
 }
 
 func writeComponentsSidecar(dir string) error {
-	comps := ReadComponentsManifest()
-	if len(comps) == 0 {
-		comps = DefaultComponents()
-	}
+	SyncComponentsFromDisk()
+	comps := MergeComponents(DefaultComponents(), ReadComponentsManifest())
 	body := strings.Join(comps, "\n") + "\n"
 	return os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(body), 0o644)
 }
@@ -275,9 +273,8 @@ func Recover(archive, keyArg string) error {
 	if len(comps) == 0 {
 		comps = extractComponentsFromTar(src)
 	}
-	if len(comps) == 0 {
-		comps = DefaultComponents()
-	}
+	// Always union with primary baseline so a sparse COMPONENTS.txt cannot skip core stack.
+	comps = MergeComponents(DefaultComponents(), comps)
 	fmt.Fprintf(os.Stderr, "recover: components %v\n", comps)
 
 	// BEFORE install/harden: operator pubkeys from the backup archive (primary source),
@@ -323,6 +320,9 @@ func Recover(archive, keyArg string) error {
 			break
 		}
 	}
+	// Agent plane: allow known secondary public IPs on :8789 (restored registry + api-allow.cidr)
+	_ = SyncAgentAllowFromSecondaryRegistry()
+	_ = ApplyAgentFirewall()
 	fmt.Fprintln(os.Stderr, "recover: done")
 	return nil
 }
