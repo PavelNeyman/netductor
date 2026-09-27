@@ -12,7 +12,7 @@
 | API :8789 | mTLS only; WAN deny except service CIDRs + `api-allow.cidr`; temporary open **only** `api-public arm` (UI/CLI), **no** permanent env |
 | Operator API | Loopback on node; **no** public node admin UI |
 | Operator workstation | **Mac `netductor-op`** (TUI + local Web) over tunnel/VPN |
-| SSH | **52222**, key-only after first bootstrap |
+| SSH | **52222**, key-only after first bootstrap (**primary and secondary**; same Mac operator key) |
 | Paths | FHS: `/usr/local/bin`, `/usr/local/share/netductor`, `/etc/netductor`, `/var/lib/netductor`. **No `/opt/netductor`** |
 | Failover policy | Primary file of truth; secondary via agent `failover_policy` heartbeat |
 | Backup | Config + data; binaries from release by component list |

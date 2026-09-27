@@ -21,3 +21,7 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath \
 ```
 
 Deploy always installs **`netductor-linux-*`** on remote hosts — never `netductor-op`.
+
+
+## Homebrew
+See [BREW.md](BREW.md): Formula SHAs must match Release; never `:no_check`.

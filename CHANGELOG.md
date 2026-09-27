@@ -1,3 +1,10 @@
+## 0.9.69-docs
+
+- Formula: **real** sha256 for all op arches; never `:no_check` ([BREW.md](docs/BREW.md))
+- Secondary day-2 SSH **:52222** + same Mac key — docs/FREEZE/PORTS/DEPLOY-MAC
+- SHA256SUMS on release; linux-arm64 op asset
+- i18n: NVR RTSP/enqueue prompts EN/RU
+
 ## 0.9.69
 
 - B1: `netductor-op update` from GitHub Release (component op)

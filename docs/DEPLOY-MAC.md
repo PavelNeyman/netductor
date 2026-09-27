@@ -92,5 +92,5 @@ Re-collect anytime:
 
 ```bash
 netductor credentials collect --host PRIMARY --key ~/.ssh/netductor_primary --role primary
-netductor credentials collect --host SECONDARY --key ~/.ssh/netductor_primary --role secondary --port 22
+netductor credentials collect --host SECONDARY --key ~/.ssh/netductor_primary --role secondary --port 52222
 ```

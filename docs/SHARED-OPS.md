@@ -15,7 +15,7 @@ Any behaviour applied on **more than one device type** (primary VPS, secondary V
 
 ## Why
 
-Secondary once hardened **password only on :22** while primary used **:52222** — two scripts diverged. Shared `DropInConf` prevents that class of bug.
+Historical bug: secondary stayed on **:22** while primary used **:52222**. Fixed: both harden via `DropInConf` → **:52222** key-only, same Mac pubkey.
 
 ## Next candidates
 

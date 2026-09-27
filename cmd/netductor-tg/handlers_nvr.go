@@ -129,14 +129,14 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		did := strings.TrimPrefix(data, "m:nvr:lease:")
 		cmdID := edge.EnqueueCmd(did, "dhcp_leases", "")
 		if cmdID == "" {
-			reply(token, chat, msgID, "enqueue failed (device approved? online?)", nvrSitesKeyboard())
+			reply(token, chat, msgID, T("nvr_enqueue_fail"), nvrSitesKeyboard())
 			return
 		}
 		reply(token, chat, msgID, "leases from <code>"+esc(did)+"</code>...\ncmd <code>"+esc(cmdID)+"</code>", nvrSitesKeyboard())
 		go func(chat int64, msgID int, did, cmdID string) {
 			res, err := edge.WaitCmdResult(cmdID, 90*time.Second)
 			if err != nil {
-				reply(token, chat, msgID, "wait: "+esc(err.Error())+"\nTry again when agent is online.", nvrSitesKeyboard())
+				reply(token, chat, msgID, fmt.Sprintf(T("nvr_agent_wait"), esc(err.Error())), nvrSitesKeyboard())
 				return
 			}
 			raw, _ := res["result"].(string)
@@ -176,7 +176,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 	case strings.HasPrefix(data, "m:nvr:add:"):
 		idxStr := strings.TrimPrefix(data, "m:nvr:add:")
 		if chatState[chat] != "nvr_lease_cache" || chatExtra[chat] == "" {
-			reply(token, chat, msgID, "lease cache expired — load leases again", nvrSitesKeyboard())
+			reply(token, chat, msgID, T("nvr_lease_expired"), nvrSitesKeyboard())
 			return
 		}
 		parts := strings.SplitN(chatExtra[chat], "\n", 2)
@@ -206,8 +206,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			"site_id": did, "mac": l.MAC, "lan_ip": l.IP, "name": name,
 		})
 		setState(chat, "wait_nvr_pass", string(draft))
-		reply(token, chat, msgID, fmt.Sprintf(
-			"Camera <b>%s</b>\nIP <code>%s</code> MAC <code>%s</code>\nsite <code>%s</code>\n\nSend <b>RTSP password</b> (Tapo camera account), or <code>-</code> to skip:",
+		reply(token, chat, msgID, fmt.Sprintf(T("nvr_rtsp_prompt"),
 			esc(name), esc(l.IP), esc(l.MAC), esc(did)), nvrSubKeyboard())
 	case data == "m:nvr:cams":
 		cams := nvr.ListCameras()
@@ -304,7 +303,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		case "rec":
 			url := nvr.RTSPURL(c)
 			if url == "" || c.SiteID == "" {
-				reply(token, chat, msgID, "need RTSP password + site", nvrSubKeyboard())
+				reply(token, chat, msgID, T("nvr_need_rtsp_site"), nvrSubKeyboard())
 				return
 			}
 			seg := nvr.LoadConfig().SegmentSec

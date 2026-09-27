@@ -73,6 +73,10 @@ Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **
 
 
 
+## Homebrew (mandatory)
+
+Never `sha256 :no_check` in Formula — real digests per release. See [docs/BREW.md](docs/BREW.md).
+
 ## Architecture freeze (mandatory)
 
 **Canon:** [docs/ARCHITECTURE-FREEZE.md](docs/ARCHITECTURE-FREEZE.md).  
