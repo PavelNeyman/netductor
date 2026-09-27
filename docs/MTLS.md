@@ -2,7 +2,7 @@
 
 # mTLS agent plane
 
-Port **:8789** (TLS 1.3, client cert required). Plain **:8788** only with `NETDUCTOR_PLAIN_AGENT=1`.
+Port **:8789** (TLS 1.3, client cert required). Plain **:8788** is not implemented (mTLS only).
 
 ## Rotate + auto-push
 
