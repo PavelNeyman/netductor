@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"os"
 	"strings"
 
@@ -69,6 +71,9 @@ func main() {
 		runEdgeCLI(os.Args[2:])
 	case "nvr":
 		runNVR(os.Args[2:])
+	case "opcatalog", "catalog-matrix":
+		fmt.Print(opcatalog.MatrixMarkdown())
+		return
 	case "status":
 		runStatus()
 	case "install":

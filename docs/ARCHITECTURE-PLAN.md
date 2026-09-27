@@ -17,7 +17,7 @@
 | B2 | Idempotent install/recover documented + tested | RUNBOOK one path |
 | B3 | Desired state only via agent plane | No primary→secondary SSH |
 | B4 | Operator secrets stay on Mac | Never put private key on primary for secondary |
-| B5 | UI↔API matrix (opcatalog) | Avoid API-only features |
+| B5 | UI↔API matrix (opcatalog) | **[x]** [OPCATALOG.md](OPCATALOG.md) |
 
 ## C — Explicitly not architecture (later features)
 

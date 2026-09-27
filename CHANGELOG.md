@@ -1,3 +1,8 @@
+## 0.9.66
+
+- B5: opcatalog surfaces web/tg/cli/tui + matrix (`netductor opcatalog`, docs/OPCATALOG.md)
+- Metrics not on TG (Status only) — less duplication
+
 ## 0.9.65
 
 - A6: `netductor update` downloads GitHub Release → `/usr/local/bin` (node|tg|agent)
