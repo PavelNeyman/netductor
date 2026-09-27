@@ -736,14 +736,14 @@ func main() {
 						admin = u.Message.Chat.ID
 						claimAdmin(admin)
 						if readOptional(chatFile) != "" {
-							sendHTML(token, admin, "✅ Admin claimed for this chat. Use /menu", mainKeyboard())
+							sendHTML(token, admin, T("claim_ok"), mainKeyboard())
 						} else {
-							sendHTML(token, u.Message.Chat.ID, "Claim failed: write /etc/netductor/secrets/telegram_admin_id", nil)
+							sendHTML(token, u.Message.Chat.ID, T("claim_fail"), nil)
 							admin = 0
 						}
 						continue
 					}
-					sendHTML(token, u.Message.Chat.ID, "Operator not configured. Set telegram_admin_id or NETDUCTOR_TG_ADMIN on the VPS.", nil)
+					sendHTML(token, u.Message.Chat.ID, T("operator_not_cfg"), nil)
 					continue
 				}
 				handleMessage(token, u.Message, admin)

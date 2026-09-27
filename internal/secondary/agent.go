@@ -16,6 +16,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/version"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -106,7 +107,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	mm := vpn.CollectMismatch(30)
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
-		Version: "agent-1", SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: *applied,
+		Version: version.Release, SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: *applied,
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: *lastDone, CmdOK: *lastOK, CmdLog: *lastLog,
 		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
@@ -131,6 +132,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		ConfigVer       int             `json:"config_ver"`
 		NeedSync        bool            `json:"need_sync"`
 		DesiredHostname string          `json:"desired_hostname"`
+		DesiredRelease  string          `json:"desired_release"`
 		Commands        []string        `json:"commands"`
 		FailoverPolicy  json.RawMessage `json:"failover_policy"`
 	}
@@ -140,6 +142,19 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	}
 	if len(hr.FailoverPolicy) > 2 {
 		_ = applyFailoverPolicy(hr.FailoverPolicy)
+	}
+	if rel := strings.TrimSpace(hr.DesiredRelease); rel != "" && ndupdate.Newer("v"+strings.TrimPrefix(rel, "v"), "v"+version.Release) {
+		tag := "v" + strings.TrimPrefix(rel, "v")
+		fmt.Fprintf(os.Stderr, "agent self-update → %s\n", tag)
+		_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
+		if err := ndupdate.DownloadReleaseAsset(tag, "node", "/usr/local/bin/netductor"); err != nil {
+			fmt.Fprintf(os.Stderr, "self-update: %v\n", err)
+		} else {
+			ndupdate.WriteVERSION(tag)
+			// restart agent unit after binary replace
+			_ = exec.Command("systemctl", "try-restart", "netductor-secondary-agent").Start()
+			return nil
+		}
 	}
 	for _, c := range hr.Commands {
 		ok, log := runAgentCmd(c)
@@ -246,7 +261,7 @@ func reportCmdDone(client *http.Client, coreBase, token, cmd string, ok bool, lo
 	upOK := probePrimaryUplink(coreBase)
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
-		Version: "agent-1", SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: applied,
+		Version: version.Release, SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: applied,
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: cmd, CmdOK: ok, CmdLog: log,
 	})

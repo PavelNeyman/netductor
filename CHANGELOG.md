@@ -1,3 +1,9 @@
+## 0.9.68
+
+- A5 doctor footgun env; cert expiry WARN already
+- B1 agent desired_release self-update
+- B3/B4 posture docs; i18n claim EN/RU; I18N.md
+
 ## 0.9.67
 
 - OPCATALOG: intentional gaps documented; health all surfaces; metrics-hist +TUI

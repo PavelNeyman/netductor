@@ -31,6 +31,9 @@ func init() {
 		"doctor.claim_first": "WARN CLAIM_FIRST enabled — disable in production",
 		"doctor.tg_skip": "INFO telegram bot not installed (optional add-on)",
 		"doctor.fail": "FAIL",
+		"doctor.footgun_env": "FAIL removed env %s is set (unset; use api-public arm for temporary :8789)",
+		"doctor.footgun_env_ok": "OK   env %s unset",
+
 		"doctor.header": "netductor doctor role=%s host=%s",
 		"doctor.hostname_ok": "OK   hostname=%s",
 		"doctor.hostname_warn": "WARN hostname=%s (expected nd-secondary*)",
@@ -135,6 +138,9 @@ func init() {
 		"doctor.claim_first": "WARN CLAIM_FIRST включён — отключите в production",
 		"doctor.tg_skip": "INFO telegram-бот не установлен (опциональный add-on)",
 		"doctor.fail": "FAIL",
+		"doctor.footgun_env": "FAIL удалённый env %s задан (снимите; временно :8789 — api-public arm)",
+		"doctor.footgun_env_ok": "OK   env %s не задан",
+
 		"doctor.header": "netductor doctor role=%s host=%s",
 		"doctor.hostname_ok": "OK   hostname=%s",
 		"doctor.hostname_warn": "WARN hostname=%s (ожидался nd-secondary*)",

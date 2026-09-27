@@ -20,15 +20,15 @@ Permanent `API_ALLOW_PUBLIC` / `PLAIN_AGENT` / `API_PUBLIC` / `TRUST_PROXY` · V
 
 ## Baseline
 
-**v0.9.67** — A2 parity table, A6 `netductor update` from Release, RECOVER-DRILL.md
+**v0.9.68** — A5 footgun doctor; B1 agent pin; B3/B4 posture; i18n audit
 
 ## Next work (plan order)
 
-1. ~~A2~~ ~~A6~~ ~~Recover drill doc~~ ~~B5~~  
-2. Live recover drill (owner)  
-3. B1–B4 remaining  
-4. Features only after A/B green  
-5. Features only after A/B green  
+1. ~~A2~~ ~~A5~~ ~~A6~~ ~~B1 agent~~ ~~B3~~ ~~B4~~ ~~B5~~ ~~Recover doc~~
+2. Live recover drill (owner)
+3. B2 runbook tested
+4. Mac op update/brew (B1 rest)
+5. Features only after A/B green
 
 ## Rule
 

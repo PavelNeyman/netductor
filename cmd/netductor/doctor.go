@@ -329,6 +329,19 @@ func runDoctorNative() int {
 			doctorPrintln(cli18n.T("doctor.mtls_missing"))
 			warn++
 		}
+		// A5: removed env footguns must not linger
+		footgunHit := false
+		for _, e := range []string{"NETDUCTOR_API_ALLOW_PUBLIC", "NETDUCTOR_PLAIN_AGENT", "NETDUCTOR_API_PUBLIC", "NETDUCTOR_TRUST_PROXY"} {
+			if strings.TrimSpace(os.Getenv(e)) != "" {
+				doctorPrintf(cli18n.T("doctor.footgun_env")+"\n", e)
+				warn++
+				footgunHit = true
+			}
+		}
+		if !footgunHit {
+			doctorPrintln(cli18n.T("doctor.footgun_clean"))
+			ok++
+		}
 		// cert expiry (CA/server/default client + per-node clients)
 		for _, pc := range mtls.ListPlaneCerts() {
 			if pc.DaysLeft < 0 {
