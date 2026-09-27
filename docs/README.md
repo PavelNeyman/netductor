@@ -1,20 +1,24 @@
-# Documentation
+# Documentation index
 
-| Topic | EN | RU |
-|-------|----|----|
-| Install | [INSTALL](INSTALL.md) | [ru/INSTALL](ru/INSTALL.md) |
-| Backup / DR | [BACKUP](BACKUP.md) | (EN; RU section inside) |
-| Ports | [PORTS](PORTS.md) | — |
-| Architecture | [ARCHITECTURE](ARCHITECTURE.md) | [ru/ARCHITECTURE](ru/ARCHITECTURE.md) |
-| Roadmap | [ROADMAP](ROADMAP.md) | [ru/ROADMAP](ru/ROADMAP.md) |
-| Open items | [OPEN_ITEMS](OPEN_ITEMS.md) | [ru/OPEN_ITEMS](ru/OPEN_ITEMS.md) |
-| Security | [SECURITY](SECURITY.md) | [ru/SECURITY](ru/SECURITY.md) |
-| TOFU SSH | [TOFU](TOFU.md) | [ru/TOFU](ru/TOFU.md) |
-| Secondary (RU hop) | [RELAY](RELAY.md) (legacy filename) | [ru/RELAY](ru/RELAY.md) |
-| VPN users | [VPN-USERS](VPN-USERS.md) | [ru/VPN-USERS](ru/VPN-USERS.md) |
-| Admin | [ADMIN](ADMIN.md) | [ru/ADMIN](ru/ADMIN.md) |
-| Edge agent | [EDGE-AGENT](EDGE-AGENT.md) | [ru/EDGE-AGENT](ru/EDGE-AGENT.md) |
-| Sites / MT | [SITE-BOOTSTRAP](SITE-BOOTSTRAP.md) · [MIKROTIK](MIKROTIK.md) | [ru/…](ru/) |
-| Mismatch | [MISMATCH](MISMATCH.md) | [ru/MISMATCH](ru/MISMATCH.md) |
+**EN** / **RU:** operational docs prefer a pair (`doc.md` + `ru/doc.md`) or a bilingual section at the top.
 
-CLI is **`netductor <subcommand>`** (not legacy `netductor-vpn` binaries).
+## Start here
+| Doc | RU |
+|-----|-----|
+| [AGENT_HANDOFF.md](AGENT_HANDOFF.md) | [ru/](ru/AGENT_HANDOFF.md) |
+| [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | — |
+| [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |
+| [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) | — |
+| [DEPLOY-MAC.md](DEPLOY-MAC.md) | — |
+| [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
+| [BREW.md](BREW.md) | — |
+| [I18N.md](I18N.md) | — |
+| [PORTS.md](PORTS.md) | — |
+| [SECURITY.md](SECURITY.md) | [ru/](ru/SECURITY.md) |
+
+## Archive
+One-off reviews and superseded plans: [archive/](archive/).
+
+## Language rule
+User-facing product UI = EN+RU in code ([I18N.md](I18N.md)).  
+Ops docs: keep EN canonical; add/update `docs/ru/` for handoff, recover, open items, security when changed.

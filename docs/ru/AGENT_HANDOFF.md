@@ -1,20 +1,28 @@
-# Передача контекста
+# Handoff агента
 
-**Версия:** 0.8.30  
+**RU** · [EN](../AGENT_HANDOFF.md)
 
-Полный текст (EN): [../AGENT_HANDOFF.md](../AGENT_HANDOFF.md)  
-Ревью: [../REVIEW-2026-09-21-FULL.md](../REVIEW-2026-09-21-FULL.md)  
-Риски: [../RESIDUAL_RISKS.md](../RESIDUAL_RISKS.md)  
-Паритет UI: [../UI-PARITY.md](../UI-PARITY.md)
+**Репа:** https://github.com/PavelNeyman/netductor  
 
-## Архитектура (зафиксировано)
+Читать: [ARCHITECTURE-FREEZE](../ARCHITECTURE-FREEZE.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [RUNBOOK-INSTALL-RECOVER](../RUNBOOK-INSTALL-RECOVER.md) · [BREW](../BREW.md)
 
-- **Primary** (зарубежный VPS) — control plane, API localhost, TG, blocky, опционально NVR  
-- **Secondary** (RU) — вход VLESS + agent, не полное зеркало сервисов  
-- **Edge OpenWrt** — agent → mTLS `:8789`, enroll/approve, recovery только LAN  
+## Канон
+primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH **52222** на обеих VPS · один Mac-ключ · FHS · Mac op · redirect только **:8443**
 
-Деплой с **Mac TUI**. Upgrade primary/secondary — pure Go, версия `deploy.Release`.
+## Baseline
+**v0.9.71** — unattended recover; COMPONENTS; tg ELF; ufw IP secondary
 
-## Следующий шаг оператора
+## Тестовые VPS
+- primary `2.27.118.70` · secondary `92.255.77.253`
 
-Hardware e2e (Cudy / Tapo / MikroTik), при наличии домена — HTTPS redirect.
+## Сделано
+- Live recover без ручных правок 2026-09-27
+- Уборка docs: старые REVIEW/PLAN → `docs/archive/`
+
+## Дальше
+1. Полный прогон обеих нод
+2. Hardware e2e
+3. Фичи — после smoke
+
+## Правило
+Закрытый пункт → `[x]` в плане + handoff + CHANGELOG в том же изменении.

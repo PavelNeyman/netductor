@@ -1,3 +1,7 @@
+**EN** · Unattended install/update/recover.
+
+**RU:** install/update/recover без ручных костылей; dual-node smoke — следующий шаг.
+
 # Runbook: install & recover (idempotent)
 
 **Canon:** [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) · recover detail [RECOVER-DRILL.md](RECOVER-DRILL.md)

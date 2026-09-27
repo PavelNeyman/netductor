@@ -1,3 +1,9 @@
+## 0.9.71-docs
+
+- Live unattended recover marked passed
+- EN+RU handoff/open items/recover; archive old reviews
+- README → 0.9.71
+
 ## 0.9.71
 
 - install.Run: continue on per-component errors (do not abort remaining list)

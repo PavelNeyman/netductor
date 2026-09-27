@@ -1,14 +1,17 @@
 # Открытые пункты
 
-База: **v0.8.1**. Полная таблица: [EN OPEN_ITEMS](../OPEN_ITEMS.md).
+**RU** · [EN](../OPEN_ITEMS.md)
 
-**Закрыто в коде:** secondary-only, edge recovery, RU-direct, NVR MVP, hardening 0.8.1.
+## Закрыто
+- [x] Архитектура A/B
+- [x] Brew: реальные SHA — [BREW.md](../BREW.md)
+- [x] Автоматизация recover 0.9.70–0.9.71
+- [x] **Live unattended recover** 2026-09-27 (v0.9.71)
 
-**Ждёт железа/домена:** e2e OpenWrt/MikroTik/Tapo; HTTPS redirect; мессенджер; user-bot Path B.
+## Дальше
+- [ ] Полный прогон обеих нод (primary + secondary)
+- [ ] Hardware e2e
+- [ ] Опционально: CI для SHA Formula
 
-**Политика:** admin не в паблик; агенты без авто-раскатки; secondary только VPN entry.
-
-## Отложено
-
-- Рефакторинг мёртвого TUI — позже.
-- Гостевой Wi‑Fi: `docs/PLAN-GUEST-WIFI.md` (приоритет).
+## Фичи
+После dual-node smoke — по желанию.

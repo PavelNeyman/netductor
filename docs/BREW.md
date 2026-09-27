@@ -1,3 +1,7 @@
+**EN** · Homebrew formula — never `sha256 :no_check`.
+
+**RU:** в Formula только реальные SHA; `:no_check` ломает `brew install`. После релиза: `sha256sum netductor-op-*` → вставить в Formula.
+
 # Homebrew formula (Mac)
 
 ## Hard rule (locked)

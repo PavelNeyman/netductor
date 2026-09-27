@@ -1,31 +1,28 @@
 # Agent handoff
 
+**EN** · [RU](ru/AGENT_HANDOFF.md)
+
 **Repo:** https://github.com/PavelNeyman/netductor  
 
-Read first: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) · [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · [PATHS.md](PATHS.md) · [BACKBONE-WG.md](BACKBONE-WG.md)
+Read: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) · [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL.md](RECOVER-DRILL.md) · [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) · [BREW.md](BREW.md)
 
-## Canon (summary)
-
-primary + secondary · VLESS users · SP/PS service WG · :8789 mTLS (arm via TG only) · SSH 52222 · FHS · Mac op · backup data+config · redirect **:8443 only**
-
-## Removed
-
-Permanent `API_ALLOW_PUBLIC` / `PLAIN_AGENT` / `API_PUBLIC` / `TRUST_PROXY` · VPS admin · `/opt` · public :80
-
-## Live ops
-
-- TG Operator: table + toggles (API public 15m, Users→SP)
-- Policy Users→SP syncs secondary via agent heartbeat
-- VPS: primary `2.27.118.70`, secondary `92.255.77.253` (test; rebuild OK)
+## Canon
+primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH **52222** both VPS · same Mac key · FHS · Mac op · redirect **:8443 only**
 
 ## Baseline
+**v0.9.71** — unattended recover (continue-on-error + post-restore pass); COMPONENTS baseline; tg real binary; ufw secondary IP
 
-**v0.9.69+** (debts closed 2026-09-27) — A5 footgun doctor; B1 agent pin; B3/B4 posture; i18n audit
+## Live test VPS
+- primary `2.27.118.70` · secondary `92.255.77.253` (rebuild OK)
 
-## Next work
+## Done recently
+- Live recover drill unattended 2026-09-27
+- Docs cleanup: old REVIEW/PLAN snapshots → `docs/archive/`
 
-Architecture debts closed. Next: **features** or owner **live recover / hardware**.
+## Next
+1. Full dual-node smoke (primary + secondary together)
+2. Hardware e2e when ready
+3. Features only after that if desired
 
 ## Rule
-
-Finished checklist item → mark plan `[x]` + update this handoff + CHANGELOG in the **same** change.
+Checklist item done → plan `[x]` + this handoff + CHANGELOG in the same change.
