@@ -243,3 +243,16 @@ Anti-flap: 3 failed probes → DOWN; 3 ok + 30–60s stable → failback to VLES
 - VLESS uplink unchanged for users.
 - Legacy `nd-backbone` / `nd-awg` may still exist from spikes — not the service-plane canon.
 
+### Security posture (honest)
+
+| Traffic | Through tunnel now? | Notes |
+|---------|---------------------|-------|
+| Secondary agent → primary API (:8789) | **Yes** (`https://10.87.10.1:8789` via SP) | Heartbeat/commands; mTLS still required |
+| Operator → primary API | **No** (public :8789) | Mac/deploy still needs public or future operator VPN |
+| SSH :52222 | **No** | Key-only; optional later via PS/SP |
+| User VLESS | N/A (own path) | Unchanged |
+| Backup pull primary→secondary | **Not yet forced** | Prefer PS when wiring next |
+
+**Benefit today:** agent plane leaves secondary as WSS to :8444, not as direct client to public :8789; extra encryption (WSS+WG+mTLS).  
+**Not yet:** closing public :8789 to the world — needs operator access plan first. Fail-open: keep `secondary_core_url.public` for emergency.
+
