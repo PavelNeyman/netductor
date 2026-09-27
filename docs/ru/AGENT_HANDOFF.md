@@ -11,7 +11,9 @@ primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH **52222** обе VPS 
 
 ## Baseline
 - **v0.9.71** — unattended recover (continue-on-error + post-restore)
-- **v0.9.73** — inbound mux schema; post-restore ensure-relay-uplink + vpn apply; Reality checklist
+- **v0.9.74** — LE при recover; sanitize conf
+
+**v0.9.73** — inbound mux schema; post-restore ensure-relay-uplink + vpn apply; Reality checklist
 
 ## Live test VPS
 primary `2.27.118.70` · secondary `92.255.77.253` (rebuild OK)

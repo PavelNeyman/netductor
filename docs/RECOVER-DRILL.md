@@ -76,3 +76,10 @@ After wipe+recover, **do not assume VPN works** until:
 
 **Incident 2026-09-27:** recover left empty inbound users + conf keys ≠ secrets + apply failed on invalid inbound mux fields → uplink `unknown UUID` / x509. Fixed by apply schema + ensure-relay-uplink in post-restore.
 
+
+
+## LE after recover (0.9.74+)
+
+Certs are **not** in `.ndenc`. If conf has `DOMAIN` + `LE_EMAIL`, recover re-runs LE + redirect unit. Otherwise set once: `netductor domain set --base … --le --email …`.
+
+Post-restore **sanitize conf** strips footgun keys (PLAIN_AGENT, ALLOW_PUBLIC, LEGACY_ADMIN, …).

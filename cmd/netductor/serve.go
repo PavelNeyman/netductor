@@ -39,24 +39,16 @@ func buildAPIMux() http.Handler {
 		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
 	})
 
-	// Product UI is netductor-op on Mac. Static /admin only if explicitly enabled.
-	if false /* LEGACY_ADMIN_UI removed */ && os.Getenv("NETDUCTOR_LEGACY_ADMIN_UI") == "1" {
-		root := adminRoot()
-		mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/admin/", http.StatusFound)
-		})
-		mux.Handle("/admin/", http.StripPrefix("/admin/", http.FileServer(http.Dir(root))))
-	} else {
-		mux.HandleFunc("/admin", legacyAdminGone)
-		mux.HandleFunc("/admin/", legacyAdminGone)
-	}
+	// Product UI is netductor-op on Mac — no VPS /admin.
+	mux.HandleFunc("/admin", legacyAdminGone)
+	mux.HandleFunc("/admin/", legacyAdminGone)
 	return mux
 }
 
 func legacyAdminGone(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(410)
-	_, _ = w.Write([]byte(`{"ok":false,"error":"legacy VPS admin UI disabled; use netductor-op on Mac (PLAN-MAC-CLIENT). Set NETDUCTOR_LEGACY_ADMIN_UI=1 only for emergency SSH-tunnel access."}
+	_, _ = w.Write([]byte(`{"ok":false,"error":"VPS admin UI removed; use netductor-op on Mac"}
 `))
 }
 
@@ -86,11 +78,7 @@ func runServe(args []string) {
 	}
 	mux := buildAPIMux()
 	addr := bind + ":" + port
-	if false /* LEGACY_ADMIN_UI removed */ && os.Getenv("NETDUCTOR_LEGACY_ADMIN_UI") == "1" {
-		fmt.Fprintf(os.Stderr, "netductor serve on http://%s API + legacy /admin=%s\n", addr, adminRoot())
-	} else {
-		fmt.Fprintf(os.Stderr, "netductor serve on http://%s API-only (Mac client = UI)\n", addr)
-	}
+	fmt.Fprintf(os.Stderr, "netductor serve on http://%s API-only (Mac client = UI)\n", addr)
 	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
 	StartAgentPlane()
 	if tlsCert != "" && tlsKey != "" {

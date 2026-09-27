@@ -73,6 +73,8 @@ func mapKey(k string) string {
 		return "NETDUCTOR_PUBLIC_HOSTNAME"
 	case "DOMAIN", "NETDUCTOR_DOMAIN":
 		return "NETDUCTOR_DOMAIN"
+	case "LE_EMAIL", "NETDUCTOR_LE_EMAIL":
+		return "NETDUCTOR_LE_EMAIL"
 	default:
 		if strings.HasPrefix(k, "NETDUCTOR_") {
 			return k

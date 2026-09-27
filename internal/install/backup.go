@@ -321,8 +321,16 @@ func Recover(archive, keyArg string) error {
 		}
 	}
 
+	// Strip footgun env/conf left from old installs
+	fmt.Fprintln(os.Stderr, "recover: sanitize conf (remove unsupported footguns)")
+	_ = SanitizeNetductorConf()
+
 	// Re-apply runtime configs from restored secrets/users
-	fmt.Fprintln(os.Stderr, "recover: ensure redirect (LE paths from conf if any)")
+	fmt.Fprintln(os.Stderr, "recover: re-issue LE if DOMAIN+LE_EMAIL in conf (certs not in backup)")
+	if err := ReissueLEAfterRecover(); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: LE reissue: %v (redirect may stay down until domain set --le)\n", err)
+	}
+	fmt.Fprintln(os.Stderr, "recover: ensure redirect unit")
 	_ = InstallRedirect()
 	fmt.Fprintln(os.Stderr, "recover: ensure relay-uplink user + apply vpn from secrets (must match secondary bundle)")
 	_ = run("netductor", "vpn", "ensure-relay-uplink")
@@ -447,13 +455,8 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	if keyArg == "" {
 		keyArg = strings.TrimSpace(os.Getenv("NETDUCTOR_BACKUP_KEY"))
 	}
-	if keyArg == "" && os.Getenv("NETDUCTOR_RECOVERY_FETCH_KEY") == "1" {
-		if kb, _, err := get("/recovery/key"); err == nil && len(kb) > 0 {
-			_ = os.WriteFile(filepath.Join(tmpDir, "BACKUP_KEY.txt"), kb, 0o600)
-			keyArg = strings.TrimSpace(string(kb))
-			fmt.Fprintln(os.Stderr, "recover: fetched backup key from secondary (NETDUCTOR_RECOVERY_FETCH_KEY=1)")
-		}
-	}
+	// RECOVERY_FETCH_KEY removed — key must be offline
+
 	if keyArg == "" {
 		return fmt.Errorf("backup key required: pass --key or NETDUCTOR_BACKUP_KEY (not served by secondary unless SERVE_KEY+FETCH_KEY)")
 	}

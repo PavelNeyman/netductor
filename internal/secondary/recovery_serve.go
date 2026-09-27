@@ -148,7 +148,7 @@ func ArmRecovery(ttl time.Duration) error {
 			nets = append(nets, n)
 		}
 	}
-	serveKey := os.Getenv("NETDUCTOR_RECOVERY_SERVE_KEY") == "1"
+	serveKey := false // backup key is offline-only; SERVE_KEY removed
 
 	var mu sync.Mutex
 	type ipState struct {

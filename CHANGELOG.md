@@ -1,3 +1,9 @@
+## 0.9.74
+
+- recover: auto LE re-issue when DOMAIN+LE_EMAIL in conf (certs stay out of backup)
+- persist LE_EMAIL on domain set --le
+- SanitizeNetductorConf strips footgun keys; no LEGACY_ADMIN / public REDIRECT_LISTEN / recovery key fetch
+
 ## 0.9.72
 
 - secondary geoip rule-set: download_detour **direct** (Reality uplink broke TLS to GitHub → sing-box crash loop)

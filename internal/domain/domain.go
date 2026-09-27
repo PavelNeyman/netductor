@@ -89,6 +89,10 @@ func Apply(c Config) error {
 			upsert["NETDUCTOR_CF_PROXY_I"] = "1"
 		}
 	}
+	if email := strings.TrimSpace(c.LEEmail); email != "" {
+		upsert["LE_EMAIL"] = email
+		_ = os.Setenv("NETDUCTOR_LE_EMAIL", email)
+	}
 	if err := upsertConf(upsert); err != nil {
 		return err
 	}
@@ -166,7 +170,7 @@ func Show() {
 	ndconfig.Load()
 	for _, k := range []string{
 		"NETDUCTOR_DOMAIN", "NETDUCTOR_PUBLIC_HOSTNAME", "NETDUCTOR_CORE_HOST",
-		"NETDUCTOR_VPN_HOST", "NETDUCTOR_REDIRECT_BASE",
+		"NETDUCTOR_VPN_HOST", "NETDUCTOR_REDIRECT_BASE", "NETDUCTOR_LE_EMAIL",
 	} {
 		fmt.Printf("%s=%s\n", k, os.Getenv(k))
 	}

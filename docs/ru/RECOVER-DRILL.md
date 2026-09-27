@@ -36,3 +36,10 @@ Day-2: `-p 52222` + Mac key. Recovery arm/disarm на secondary.
 
 ## Secondary после drill
 Disarm recovery; :8790 закрыт.
+
+
+## LE после recover (0.9.74+)
+
+Сертификаты **не** в `.ndenc`. Если в conf есть `DOMAIN` + `LE_EMAIL`, recover сам вызывает `domain`/`tls le` и `InstallRedirect`. Иначе один раз: `netductor domain set --base … --le --email …`.
+
+Post-restore также **sanitize conf** — удаляет footgun-ключи (PLAIN_AGENT, ALLOW_PUBLIC, …).

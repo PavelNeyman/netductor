@@ -143,11 +143,8 @@ RestartSec=5
 WantedBy=multi-user.target
 `, cert, key, bin, cert, key)
 	} else {
-		listen := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_LISTEN"))
-		if listen == "" {
-			// Before LE: loopback only (no public HTTP). Domain LE enables :8443.
-			listen = "off" // no HTTP :80
-		}
+		// Product: no public HTTP :80 (only HTTPS :8443 after LE).
+		listen := "off"
 		unit = fmt.Sprintf(`[Unit]
 Description=Netductor import redirect (TG deep links)
 After=network-online.target
