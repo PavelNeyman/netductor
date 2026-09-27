@@ -4,13 +4,13 @@ Deploy (fleet/primary/secondary/edge) is Mac-only — see [DEPLOY-PARITY.md](DEP
 
 | ID | API | CLI hint | Web | TG | CLI | TUI |
 |----|-----|----------|-----|----|-----|-----|
-| `health` | `GET /health` | `—` | ✅ | — | ✅ | — |
+| `health` | `GET /health` | `—` | ✅ | ✅ | ✅ | ✅ |
 | `doctor` | `GET /api/doctor` | `doctor` | ✅ | ✅ | ✅ | ✅ |
 | `domain` | `GET /api/domain` | `domain show` | ✅ | ✅ | ✅ | ✅ |
 | `bot` | `GET /api/bot-status` | `—` | ✅ | ✅ | ✅ | ✅ |
 | `status` | `GET /api/status` | `status` | ✅ | ✅ | ✅ | ✅ |
 | `metrics` | `GET /api/metrics` | `—` | ✅ | — | ✅ | ✅ |
-| `metrics-hist` | `GET /api/metrics/history` | `—` | ✅ | — | ✅ | — |
+| `metrics-hist` | `GET /api/metrics/history` | `—` | ✅ | — | ✅ | ✅ |
 | `addons` | `GET /api/addons` | `addons list` | ✅ | ✅ | ✅ | ✅ |
 | `addons-lampac` | `GET /api/addons/lampac` | `—` | ✅ | ✅ | ✅ | ✅ |
 | `sni` | `GET /api/sni` | `—` | ✅ | ✅ | ✅ | ✅ |
@@ -54,4 +54,11 @@ Deploy (fleet/primary/secondary/edge) is Mac-only — see [DEPLOY-PARITY.md](DEP
 | `probes-cfg` | `GET /api/probes/config` | `—` | ✅ | ✅ | ✅ | ✅ |
 | `audit` | `GET /api/audit` | `audit tail` | ✅ | ✅ | ✅ | ✅ |
 
-**Rule:** new day-2 capability → entry in `internal/opcatalog` **before** UI-only code.
+### Intentional gaps (not debt)
+
+| ID | Missing | Why |
+|----|---------|-----|
+| `metrics` / `metrics-hist` | TG | Covered inside **Status** — no second button |
+| Deploy fleet/primary/… | TG | Day-2 only on node; deploy = Mac op |
+
+**Rule:** new day-2 capability → entry in `internal/opcatalog` **before** UI-only code. `—` in matrix without a row above = real parity debt.

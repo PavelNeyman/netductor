@@ -37,14 +37,14 @@ func All() []Action {
 	}
 	return []Action{
 		// overview
-		a("health", "overview", "GET", "/health", "", "—", "Health", "Health", SurfWeb, SurfCLI),
+		a("health", "overview", "GET", "/health", "", "—", "Health", "Health"),
 		a("doctor", "overview", "GET", "/api/doctor", "", "doctor", "Doctor", "Doctor"),
 		a("domain", "overview", "GET", "/api/domain", "", "domain show", "Domain", "Домен"),
 		a("bot", "overview", "GET", "/api/bot-status", "", "—", "Bot status", "Статус бота"),
 		a("status", "overview", "GET", "/api/status", "", "status", "Status", "Статус"),
 		// metrics: Web/CLI/TUI; TG uses Status (no duplicate button)
 		a("metrics", "overview", "GET", "/api/metrics", "", "—", "Metrics", "Метрики", SurfWeb, SurfCLI, SurfTUI),
-		a("metrics-hist", "overview", "GET", "/api/metrics/history", "", "—", "Metrics history", "История метрик", SurfWeb, SurfCLI),
+		a("metrics-hist", "overview", "GET", "/api/metrics/history", "", "—", "Metrics history", "История метрик", SurfWeb, SurfCLI, SurfTUI),
 		a("addons", "overview", "GET", "/api/addons", "", "addons list", "Addons", "Дополнения"),
 		a("addons-lampac", "overview", "GET", "/api/addons/lampac", "", "—", "Lampac", "Lampac"),
 		a("sni", "overview", "GET", "/api/sni", "", "—", "SNI", "SNI"),
@@ -197,6 +197,11 @@ func MatrixMarkdown() string {
 		b.WriteString("| `" + a.ID + "` | `" + a.Method + " " + a.Path + "` | `" + cli + "` | " +
 			mark(SurfWeb) + " | " + mark(SurfTG) + " | " + mark(SurfCLI) + " | " + mark(SurfTUI) + " |\n")
 	}
-	b.WriteString("\n**Rule:** new day-2 capability → entry in `internal/opcatalog` **before** UI-only code.\n")
+	b.WriteString("\n### Intentional gaps (not debt)\n\n")
+	b.WriteString("| ID | Missing | Why |\n")
+	b.WriteString("|----|---------|-----|\n")
+	b.WriteString("| `metrics` / `metrics-hist` | TG | Covered inside **Status** — no second button |\n")
+	b.WriteString("| Deploy fleet/primary/… | TG | Day-2 only on node; deploy = Mac op |\n")
+	b.WriteString("\n**Rule:** new day-2 capability → entry in `internal/opcatalog` **before** UI-only code. `—` in matrix without a row above = real parity debt.\n")
 	return b.String()
 }

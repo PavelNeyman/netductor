@@ -1,3 +1,7 @@
+## 0.9.67
+
+- OPCATALOG: intentional gaps documented; health all surfaces; metrics-hist +TUI
+
 ## 0.9.66
 
 - B5: opcatalog surfaces web/tg/cli/tui + matrix (`netductor opcatalog`, docs/OPCATALOG.md)

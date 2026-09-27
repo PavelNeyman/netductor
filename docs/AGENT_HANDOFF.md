@@ -20,7 +20,7 @@ Permanent `API_ALLOW_PUBLIC` / `PLAIN_AGENT` / `API_PUBLIC` / `TRUST_PROXY` · V
 
 ## Baseline
 
-**v0.9.66** — A2 parity table, A6 `netductor update` from Release, RECOVER-DRILL.md
+**v0.9.67** — A2 parity table, A6 `netductor update` from Release, RECOVER-DRILL.md
 
 ## Next work (plan order)
 
