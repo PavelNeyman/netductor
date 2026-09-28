@@ -261,8 +261,10 @@ func runDoctorNative() int {
 		} else {
 			doctorPrintf(cli18n.T("doctor.redirect_ok")+"\n", os.Getenv("NETDUCTOR_REDIRECT_BASE"))
 		}
-		if activeUnit("netductor-redirect") || listeningOnAll("80") || listeningLocalhost("80") {
-			if curlOK("http://127.0.0.1/healthz") {
+		if activeUnit("netductor-redirect") {
+			// Product: redirect on HTTPS :8443 (no public :80). Accept either bind for healthz.
+			okH := curlOKInsecure("https://127.0.0.1:8443/healthz") || curlOK("http://127.0.0.1/healthz") || curlOK("http://127.0.0.1:8443/healthz")
+			if okH {
 				doctorPrintln(cli18n.T("doctor.redirect_health_ok"))
 				ok++
 			} else {

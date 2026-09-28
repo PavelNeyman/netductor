@@ -207,10 +207,19 @@ PersistentKeepalive = 25
 		_ = exec.Command("systemctl", "restart", u).Run()
 	}
 
-	// ufw
+	// ufw: WSS SP port + agent plane only from SP peer (not secondary public IP)
 	_ = exec.Command("bash", "-c", fmt.Sprintf(
 		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-sp && ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp || true`,
 		WSS_SP, AddrS_SP)).Run()
+	// Drop interim WAN allow for secondary public IP once SP is the path
+	if m.Secondary != "" {
+		_ = exec.Command("bash", "-c", fmt.Sprintf(
+			`command -v ufw >/dev/null || exit 0
+ufw status numbered 2>/dev/null | grep -E '8789.*%s' | head -5
+ufw delete allow from %s to any port 8789 proto tcp 2>/dev/null || true
+ufw status 2>/dev/null | grep 8789 || true
+`, m.Secondary, m.Secondary)).Run()
+	}
 
 	// health timer
 	_ = installHealthTimer()

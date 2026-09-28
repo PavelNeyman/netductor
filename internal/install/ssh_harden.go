@@ -15,6 +15,7 @@ import (
 // We do NOT generate /root/.ssh/id_ed25519 for mesh SSH — primary does not need to SSH
 // to secondary/edge after provision (agent HTTP/mTLS). Keygen only if authorized_keys
 // is empty, so a bare `netductor install` on the box cannot lock root out.
+// Only Port SSHPort() listens — default :22 is commented out and denied in ufw.
 func EnsureSSHKeyAndHarden() error {
 	sshDir := "/root/.ssh"
 	_ = os.MkdirAll(sshDir, 0o700)
@@ -56,8 +57,7 @@ func EnsureSSHKeyAndHarden() error {
 	_ = os.MkdirAll("/etc/ssh/sshd_config.d", 0o755)
 	drop := "/etc/ssh/sshd_config.d/00-netductor-harden.conf"
 	port := hardening.SSHPort()
-	body := hardening.DropInConf()
-	if err := os.WriteFile(drop, []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(drop, []byte(hardening.DropInConf()), 0o644); err != nil {
 		return err
 	}
 	entries, _ := os.ReadDir("/etc/ssh/sshd_config.d")
@@ -72,18 +72,43 @@ func EnsureSSHKeyAndHarden() error {
 			continue
 		}
 		s := string(b)
+		changed := false
 		if strings.Contains(strings.ToLower(s), "passwordauthentication") && strings.Contains(strings.ToLower(s), "yes") {
 			s2 := strings.ReplaceAll(s, "PasswordAuthentication yes", "PasswordAuthentication no")
 			s2 = strings.ReplaceAll(s2, "PasswordAuthentication Yes", "PasswordAuthentication no")
 			if s2 != s {
-				_ = os.WriteFile(path, []byte(s2), 0o644)
+				s = s2
+				changed = true
 			}
+		}
+		// remove Port lines from other drop-ins so only our Port applies
+		lines := strings.Split(s, "\n")
+		var out []string
+		for _, ln := range lines {
+			trim := strings.TrimSpace(ln)
+			if strings.HasPrefix(trim, "Port ") || strings.HasPrefix(trim, "Port\t") {
+				changed = true
+				continue
+			}
+			out = append(out, ln)
+		}
+		if changed {
+			_ = os.WriteFile(path, []byte(strings.Join(out, "\n")), 0o644)
 		}
 	}
 	_ = exec.Command("sed", "-i", "s/^#\\?PasswordAuthentication.*/PasswordAuthentication no/", "/etc/ssh/sshd_config").Run()
 	_ = exec.Command("sed", "-i", "s/^#\\?PermitRootLogin.*/PermitRootLogin prohibit-password/", "/etc/ssh/sshd_config").Run()
-	_ = exec.Command("systemctl", "reload", "sshd").Run()
-	_ = exec.Command("systemctl", "reload", "ssh").Run()
-	fmt.Fprintf(os.Stderr, "ssh: harden drop-in Port %d key-only\n", port)
+	_ = exec.Command("sed", "-i", "s/^Port /# Port /", "/etc/ssh/sshd_config").Run()
+
+	// ufw: allow only hardened port; deny classic :22
+	if _, err := exec.LookPath("ufw"); err == nil {
+		_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", port), "comment", "netductor-ssh").Run()
+		_ = exec.Command("ufw", "delete", "allow", "22/tcp").Run()
+		_ = exec.Command("ufw", "deny", "22/tcp", "comment", "netductor-no-ssh22").Run()
+	}
+
+	_ = exec.Command("systemctl", "restart", "sshd").Run()
+	_ = exec.Command("systemctl", "restart", "ssh").Run()
+	fmt.Fprintf(os.Stderr, "ssh: harden drop-in Port %d key-only (no :22)\n", port)
 	return nil
 }
