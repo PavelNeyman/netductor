@@ -18,6 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/version"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/vpn"
+	"github.com/PavelNeyman/netductor/internal/svcpaths"
 )
 
 // AgentLoop runs on RU VPS: heartbeat + pull config when version drifts.
@@ -78,7 +79,31 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 }
 
 func agentTick(client *http.Client, coreBase, token string, applied *int, lastDone *string, lastOK *bool, lastLog *string) error {
+	// Re-read preferred core URL each tick (failover may switch tunnel↔public)
+	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url"); err == nil {
+		if s := strings.TrimSpace(string(b)); s != "" {
+			coreBase = s
+		}
+	}
+	// Service-plane health + failover state machine + apply (user uplink / agent URL)
+	if _, sum, err := svcpaths.RunSecondaryCycle(); err != nil {
+		fmt.Fprintf(os.Stderr, "svc-paths cycle: %v\n", err)
+	} else if sum != "" && sum != "failover disabled" {
+		// log only on action changes — Tick sets last_action
+		st := svcpaths.LoadState()
+		if st.LastAction != "" && st.LastAction != "none" {
+			fmt.Fprintf(os.Stderr, "svc-paths: %s\n", sum)
+		}
+	}
 	coreBase = strings.TrimRight(coreBase, "/")
+	if mtls.ClientReady() {
+		hostport := strings.TrimPrefix(strings.TrimPrefix(coreBase, "https://"), "http://")
+		host := hostport
+		if i := strings.LastIndex(hostport, ":"); i > 0 {
+			host = hostport[:i]
+		}
+		coreBase = "https://" + host + ":" + mtls.AgentTLSPort
+	}
 	pub := readSecret("singbox_reality_public")
 	sid := readSecret("singbox_short_id")
 	sni := strings.TrimSpace(readFile(filepath.Join(paths.EtcDir(), "secrets", "singbox_reality_sni")))
@@ -90,16 +115,34 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").Output(); err == nil {
 		sbOK = strings.TrimSpace(string(out)) == "active"
 	}
-	upOK := probePrimaryUplink(coreBase)
+	// Probe public primary:443 (VLESS Reality path), not agent mTLS host
+	pubHost := ""
+	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url.public"); err == nil {
+		s := strings.TrimSpace(string(b))
+		s = strings.TrimPrefix(strings.TrimPrefix(s, "https://"), "http://")
+		if i := strings.IndexAny(s, ":/"); i > 0 {
+			s = s[:i]
+		}
+		pubHost = s
+	}
+	upOK := false
+	if pubHost != "" {
+		upOK = probePrimaryUplink("https://" + pubHost + ":8789")
+	} else {
+		upOK = probePrimaryUplink(coreBase)
+	}
 	if upOK {
 		uplinkFailStreak = 0
 	} else {
 		uplinkFailStreak++
 		fmt.Fprintf(os.Stderr, "uplink probe primary:443 fail streak=%d\n", uplinkFailStreak)
-		// after 3 consecutive fails (~1.5min at 30s tick): restart sing-box to clear stuck mux
+		// after 3 consecutive fails: let svc-paths apply switch path; also restart mux if still on vless
 		if uplinkFailStreak >= 3 && sbOK {
-			fmt.Fprintf(os.Stderr, "uplink watchdog: restarting sing-box\n")
-			_ = exec.Command("systemctl", "restart", "sing-box").Run()
+			st := svcpaths.LoadState()
+			if st.UserPath == "vless" {
+				fmt.Fprintf(os.Stderr, "uplink watchdog: restarting sing-box\n")
+				_ = exec.Command("systemctl", "restart", "sing-box").Run()
+			}
 			uplinkFailStreak = 0
 		}
 	}

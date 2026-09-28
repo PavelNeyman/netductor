@@ -221,8 +221,9 @@ ufw status 2>/dev/null | grep 8789 || true
 `, m.Secondary, m.Secondary)).Run()
 	}
 
-	// health timer
+	// health timer + default failover policy
 	_ = installHealthTimer()
+	_ = SavePolicy(DefaultPolicy())
 	return nil
 }
 
@@ -290,6 +291,7 @@ AllowedIPs = %s/32
 	_ = exec.Command("systemctl", "try-restart", "netductor-secondary-agent").Run()
 
 	_ = installHealthTimer()
+	_ = SavePolicy(DefaultPolicy())
 	return nil
 }
 
@@ -298,6 +300,11 @@ func installHealthTimer() error {
 	// minimal if missing
 	if _, err := os.Stat(script); err != nil {
 		body := `#!/bin/bash
+# Probe + failover tick/apply (binary owns health JSON + sing-box/agent URL)
+if command -v netductor >/dev/null 2>&1; then
+  netductor svc-paths failover tick >/dev/null 2>&1 || true
+  exit 0
+fi
 OUT=/var/lib/netductor/svc-paths-health.json
 mkdir -p /var/lib/netductor
 sp=0; ps=0

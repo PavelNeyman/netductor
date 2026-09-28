@@ -134,13 +134,15 @@ func runSvcFailover(args []string) {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(map[string]any{"policy": p, "state": s})
 	case "tick":
-		s, sum, err := svcpaths.Tick()
+		// probe + state machine + apply (secondary); primary only advances from health file
+		s, sum, err := svcpaths.RunSecondaryCycle()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Println(sum)
-		_ = s
+		b, _ := json.MarshalIndent(s, "", "  ")
+		fmt.Println(string(b))
 	case "enable":
 		p := svcpaths.LoadPolicy()
 		p.Enabled = true

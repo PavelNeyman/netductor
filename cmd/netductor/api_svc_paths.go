@@ -61,7 +61,7 @@ func registerSvcPathsAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
-		s, sum, err := svcpaths.Tick()
+		s, sum, err := svcpaths.RunSecondaryCycle()
 		if err != nil {
 			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error(), "summary": sum})
 			return

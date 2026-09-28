@@ -319,3 +319,15 @@ When `users_to_sp_on_vless_down=true` (default) and public TCP :443 to primary f
 
 - **Outbound** (secondary uplink): `enabled`, `padding`, `max_connections`, `min_streams`, `max_streams`, optional `protocol` h2mux.
 - **Inbound** (primary `vless-reality`): **only** `enabled` + `padding`. `max_connections` on inbound → `json: unknown field` and `vpn apply` fails all variants.
+
+### Auto failover runtime (0.9.77+)
+
+On **secondary** every agent tick + health timer:
+
+1. `ProbeHealth` — SP/PS ping + public primary:443  
+2. `Tick` — anti-flap state → `/var/lib/netductor/failover-desired.json`  
+3. `EnforceState` — agent URL tunnel/public; sing-box `uplink.server` → `10.87.10.1` when `user_path=sp`  
+
+Policy: `/etc/netductor/svc-paths/failover-policy.json` (`enabled`, `users_to_sp_on_vless_down`, thresholds).  
+CLI: `netductor svc-paths failover tick|status|enable|disable|set-users-sp on|off`.
+
