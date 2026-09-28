@@ -29,6 +29,10 @@ type PrimaryOpts struct {
 	DomainPrimary   string // explicit e.g. p2.nd.example.com (overrides base primary label)
 	DomainVPN       string // explicit VPN host e.g. s.nd.example.com
 	DomainRedirect  string // full REDIRECT_BASE e.g. https://i2.nd.example.com:8443
+	SSHPort         int    // 0 → default 52222
+	RedirectHTTPSPort string
+	AgentMTLSPort   string
+	LampacPort      string
 	SkipInstall     bool
 	WithLampac      bool
 	WithGitRegistry bool // optional thin git + local registry (addon)
@@ -171,11 +175,45 @@ chmod 755 /usr/local/bin/netductor
 			}
 		}
 		if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
-			_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
-			fmt.Fprintln(os.Stderr, "==> post-harden SSH port 52222")
+			port := "52222"
+			if o.SSHPort > 0 {
+				port = fmt.Sprintf("%d", o.SSHPort)
+			}
+			_ = os.Setenv("NETDUCTOR_SSH_PORT", port)
+			fmt.Fprintln(os.Stderr, "==> post-harden SSH port", port)
 		}
 	}
 
+
+	// Persist operator-chosen product ports into netductor.conf on host
+	{
+		var confLines []string
+		if o.SSHPort > 0 {
+			confLines = append(confLines, fmt.Sprintf("SSH_PORT=%d", o.SSHPort))
+		}
+		if p := strings.TrimSpace(o.RedirectHTTPSPort); p != "" {
+			confLines = append(confLines, "REDIRECT_HTTPS_PORT="+p)
+		}
+		if p := strings.TrimSpace(o.AgentMTLSPort); p != "" {
+			confLines = append(confLines, "AGENT_MTLS_PORT="+p)
+		}
+		if p := strings.TrimSpace(o.LampacPort); p != "" {
+			confLines = append(confLines, "LAMPAC_PORT="+p)
+		}
+		if sni := strings.TrimSpace(o.SNI); sni != "" {
+			confLines = append(confLines, "DEFAULT_SNI="+sni)
+		}
+		if len(confLines) > 0 {
+			fmt.Fprintln(os.Stderr, "==> write product defaults to netductor.conf")
+			script := "mkdir -p /etc/netductor; "
+			for _, line := range confLines {
+				k := strings.SplitN(line, "=", 2)[0]
+				script += fmt.Sprintf("grep -q '^%s=' /etc/netductor/netductor.conf 2>/dev/null && sed -i 's|^%s=.*|%s|' /etc/netductor/netductor.conf || echo '%s' >> /etc/netductor/netductor.conf; ", k, k, line, line)
+			}
+			out, _ = runSSH("", keyPath, o.User, o.Host, script, o.KeyPassphrase)
+			fmt.Print(out)
+		}
+	}
 	fmt.Fprintln(os.Stderr, "==> set SNI", o.SNI)
 	out, err = runSSH("", keyPath, o.User, o.Host, "netductor vpn set-sni "+shellQuote(o.SNI), o.KeyPassphrase)
 	fmt.Print(out)

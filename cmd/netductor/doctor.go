@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"fmt"
-	"github.com/PavelNeyman/netductor/internal/backbone"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -306,16 +305,6 @@ func runDoctorNative() int {
 		} else if listeningLocalhost("8790") {
 			doctorPrintln(cli18n.T("doctor.recovery_loopback"))
 			ok++
-		}
-		// backbone WG (optional service plane)
-		if br := backbone.Status(); br.Configured {
-			if br.IfaceUp {
-				doctorPrintf("OK backbone %s up role=%s\n", backbone.InterfaceName, br.Role)
-				ok++
-			} else {
-				doctorPrintf("WARN backbone configured but iface down role=%s\n", br.Role)
-				warn++
-			}
 		}
 
 		if mtls.ServerReady() {

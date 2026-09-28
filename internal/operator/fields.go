@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"strconv"
 	"net"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
 // FieldGetter abstracts TUI fieldVal / maps.
@@ -43,13 +45,17 @@ func PrimaryFromFields(get FieldGetter) PrimarySpec {
 		GenerateKey:     yesish(orDefault(get("gen_key"), "yes")),
 		SSHPrivateKey:   expandHome(orDefault(get("key_path"), "~/.ssh/netductor_primary")),
 		KeyPassphrase:   get("key_pass"),
-		SNI:             orDefault(get("sni"), "api.vk.me"),
+		SNI:             orDefault(get("sni"), ndconfig.DefaultSNI()),
 		DomainBase:      strings.TrimSpace(get("domain_base")),
 		DomainPrimary:   strings.TrimSpace(get("domain_primary")),
 		DomainVPN:       strings.TrimSpace(get("domain_vpn")),
 		DomainRedirect:  strings.TrimSpace(get("domain_redirect")),
 		DomainEmail:     strings.TrimSpace(get("le_email")),
 		DomainCFProxy:   yesish(get("cf_proxy")),
+		SSHPort:         atoiDefault(get("ssh_port"), 0),
+		RedirectHTTPSPort: strings.TrimSpace(get("redirect_https_port")),
+		AgentMTLSPort:   strings.TrimSpace(get("agent_mtls_port")),
+		LampacPort:      strings.TrimSpace(get("lampac_port")),
 		WithLampac:      yesish(get("with_lampac")),
 		WithGitRegistry: yesish(get("with_git")),
 		TelegramToken:   strings.TrimSpace(get("tg_token")),
@@ -182,4 +188,12 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		GuestEnable:          yesish(get("guest")),
 		PrimaryKeyPassphrase: get("key_pass"),
 	}
+}
+
+func atoiDefault(s string, def int) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return def
+	}
+	return n
 }

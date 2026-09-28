@@ -28,6 +28,10 @@ type PrimarySpec struct {
 	DomainPrimary   string
 	DomainVPN       string
 	DomainRedirect  string
+	SSHPort         int    // harden listen port; 0 = ndconfig default 52222
+	RedirectHTTPSPort string
+	AgentMTLSPort   string
+	LampacPort      string
 	SkipInstall     bool
 	WithLampac      bool
 	WithGitRegistry bool
@@ -63,6 +67,8 @@ func (p PrimarySpec) toDeploy() deploy.PrimaryOpts {
 		SNI: p.SNI, DomainBase: p.DomainBase, DomainHTTP: p.DomainHTTP, DomainLE: p.DomainLE,
 		DomainCFProxy: p.DomainCFProxy, DomainEmail: p.DomainEmail,
 		DomainPrimary: p.DomainPrimary, DomainVPN: p.DomainVPN, DomainRedirect: p.DomainRedirect,
+		SSHPort: p.SSHPort, RedirectHTTPSPort: p.RedirectHTTPSPort,
+		AgentMTLSPort: p.AgentMTLSPort, LampacPort: p.LampacPort,
 		SkipInstall: p.SkipInstall,
 		WithLampac: p.WithLampac, WithGitRegistry: p.WithGitRegistry,
 	}

@@ -13,7 +13,7 @@ import (
 )
 
 // Node control-plane binary (VPS). No deploy/TUI/operator serve.
-var version = "0.9.89"
+var version = "0.9.90"
 
 func main() {
 	ndconfig.Load()
@@ -49,8 +49,6 @@ func main() {
 		runAPIPublic(os.Args[2:])
 	case "svc-paths":
 		runSvcPaths(os.Args[2:])
-	case "backbone":
-		runBackbone(os.Args[2:])
 	case "uplink-mux":
 		runUplinkMux(os.Args[2:])
 	case "tls":
@@ -181,7 +179,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | doctor | status | vpn | secondary | backbone | svc-paths | api-public | edge | mtls | nvr
+  install | serve | doctor | status | vpn | secondary | svc-paths | api-public | edge | mtls | nvr
   redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

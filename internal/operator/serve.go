@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"strconv"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -295,9 +296,16 @@ type fleetJSON struct {
 	SecondaryUser       string `json:"secondary_user"`
 	SecondaryPassword   string `json:"secondary_password"`
 	DomainBase          string `json:"domain_base"`
+	DomainPrimary       string `json:"domain_primary"`
+	DomainVPN           string `json:"domain_vpn"`
+	DomainRedirect      string `json:"domain_redirect"`
 	LEEmail             string `json:"le_email"`
 	CFProxy             bool   `json:"cf_proxy"`
 	SNI                 string `json:"sni"`
+	SSHPort             string `json:"ssh_port"`
+	RedirectHTTPSPort   string `json:"redirect_https_port"`
+	AgentMTLSPort       string `json:"agent_mtls_port"`
+	LampacPort          string `json:"lampac_port"`
 	Key                 string `json:"key"`
 	KeyPassphrase       string `json:"key_passphrase"`
 	WithLampac          bool   `json:"with_lampac"`
@@ -312,9 +320,16 @@ type primaryJSON struct {
 	User            string `json:"user"`
 	Password        string `json:"password"`
 	DomainBase      string `json:"domain_base"`
+	DomainPrimary   string `json:"domain_primary"`
+	DomainVPN       string `json:"domain_vpn"`
+	DomainRedirect  string `json:"domain_redirect"`
 	LEEmail         string `json:"le_email"`
 	CFProxy         bool   `json:"cf_proxy"`
 	SNI             string `json:"sni"`
+	SSHPort         string `json:"ssh_port"`
+	RedirectHTTPSPort string `json:"redirect_https_port"`
+	AgentMTLSPort   string `json:"agent_mtls_port"`
+	LampacPort      string `json:"lampac_port"`
 	Key             string `json:"key"`
 	KeyPassphrase   string `json:"key_passphrase"`
 	WithLampac      bool   `json:"with_lampac"`
@@ -409,7 +424,7 @@ func handleFleet(w http.ResponseWriter, r *http.Request, token string) {
 		DoSecondary: body.DoSecondary,
 		Primary: PrimarySpec{
 			Host: body.PrimaryHost, User: pu, Password: body.PrimaryPassword,
-			SNI: orDefault(body.SNI, "api.vk.me"), DomainBase: body.DomainBase, DomainEmail: body.LEEmail,
+			SNI: orDefault(body.SNI, "api.vk.me"), DomainBase: body.DomainBase, DomainPrimary: body.DomainPrimary, DomainVPN: body.DomainVPN, DomainRedirect: body.DomainRedirect, DomainEmail: body.LEEmail, SSHPort: parsePortField(body.SSHPort), RedirectHTTPSPort: body.RedirectHTTPSPort, AgentMTLSPort: body.AgentMTLSPort, LampacPort: body.LampacPort,
 			DomainCFProxy: body.CFProxy,
 			WithLampac: body.WithLampac, WithGitRegistry: body.WithGit,
 			GenerateKey: strings.TrimSpace(body.Key) == "",
@@ -462,7 +477,7 @@ func handlePrimary(w http.ResponseWriter, r *http.Request, token string) {
 	defer fleetMu.Unlock()
 	s := PrimarySpec{
 		Host: body.Host, User: orDefault(body.User, "root"), Password: body.Password,
-		SNI: orDefault(body.SNI, "api.vk.me"), DomainBase: body.DomainBase, DomainEmail: body.LEEmail,
+		SNI: orDefault(body.SNI, "api.vk.me"), DomainBase: body.DomainBase, DomainPrimary: body.DomainPrimary, DomainVPN: body.DomainVPN, DomainRedirect: body.DomainRedirect, DomainEmail: body.LEEmail, SSHPort: parsePortField(body.SSHPort), RedirectHTTPSPort: body.RedirectHTTPSPort, AgentMTLSPort: body.AgentMTLSPort, LampacPort: body.LampacPort,
 		DomainCFProxy: body.CFProxy, WithLampac: body.WithLampac, WithGitRegistry: body.WithGit,
 		GenerateKey: strings.TrimSpace(body.Key) == "", SSHPrivateKey: expandHome(body.Key),
 		KeyPassphrase: body.KeyPassphrase, TelegramToken: body.TelegramToken, TelegramAdminID: body.TelegramAdminID,
@@ -693,4 +708,12 @@ func handleCatalog(w http.ResponseWriter, r *http.Request) {
 		"actions": opcatalog.ForSurface("web"),
 		"by_section": opcatalog.BySection(),
 	})
+}
+
+func parsePortField(s string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
 }

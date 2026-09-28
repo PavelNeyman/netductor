@@ -34,9 +34,12 @@
     <form id="form-fleet">
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_ppass">Primary password</label><input name="primary_password" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host"/></div><div><label data-i18n="l_spass">Secondary password</label><input name="secondary_password" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_domain">Domain base</label><input name="domain_base"/></div><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div></div>
-      <div class="row"><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div><div><label data-i18n="l_key">SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div></div>
-      <div class="row"><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password" autocomplete="off"/></div><div></div></div>
+      <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="p2.nd.example.com"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="s.nd.example.com"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://i2.nd.example.com:8443"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base"/></div></div>
+      <div class="row"><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div></div>
+      <div class="row"><div><label data-i18n="l_ssh_port">SSH port</label><input name="ssh_port" value="52222"/></div><div><label data-i18n="l_redir_port">Redirect HTTPS</label><input name="redirect_https_port" value="8443"/></div></div>
+      <div class="row"><div><label data-i18n="l_mtls_port">Agent mTLS</label><input name="agent_mtls_port" value="8789"/></div><div><label data-i18n="l_lampac_port">Lampac</label><input name="lampac_port" value="9118"/></div></div>
+      <div class="row"><div><label data-i18n="l_key">SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password" autocomplete="off"/></div></div>
       <div class="checks">
         <label><input type="checkbox" name="do_primary" checked/> <span data-i18n="c_do_primary">Primary</span></label>
         <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="c_do_secondary">Secondary</span></label>
@@ -56,8 +59,12 @@
   <section id="panel-primary" class="panel">
     <form id="form-primary">
       <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_domain">Domain</label><input name="domain_base"/></div><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div></div>
-      <div class="row"><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div><div><label data-i18n="l_key">Key</label><input name="key"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="p2.nd.example.com"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="s.nd.example.com"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://i2.nd.example.com:8443"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base" placeholder="nd.example.com"/></div></div>
+      <div class="row"><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div></div>
+      <div class="row"><div><label data-i18n="l_ssh_port">SSH port</label><input name="ssh_port" value="52222"/></div><div><label data-i18n="l_redir_port">Redirect HTTPS</label><input name="redirect_https_port" value="8443"/></div></div>
+      <div class="row"><div><label data-i18n="l_mtls_port">Agent mTLS</label><input name="agent_mtls_port" value="8789"/></div><div><label data-i18n="l_lampac_port">Lampac</label><input name="lampac_port" value="9118"/></div></div>
+      <div class="row"><div><label data-i18n="l_key">Key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div><div></div></div>
       <div class="checks"><label><input type="checkbox" name="cf_proxy"/> <span data-i18n="c_cf">CF proxy i.</span></label>
         <label><input type="checkbox" name="with_telegram" id="pri_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
         <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
