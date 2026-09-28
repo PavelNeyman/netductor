@@ -73,6 +73,12 @@ func Run(opts Options) error {
 			_ = EnsureClientProfiles()
 			_ = InstallRedirect()
 			err = InstallTelegram()
+			// Soft: missing release asset must not fail whole install (deploy continues domain/LE).
+			// Unit stays inactive until: netductor install telegram (after asset published).
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "component telegram: %v (soft — install continues)\n", err)
+				err = nil
+			}
 		case "backup":
 			err = InstallBackup()
 		case "lampac":

@@ -149,7 +149,14 @@ chmod 755 /usr/local/bin/netductor
 		out, err = runSSH("", keyPath, o.User, o.Host, "netductor install", o.KeyPassphrase)
 		fmt.Print(out)
 		if err != nil {
-			return fmt.Errorf("install: %w", err)
+			// Telegram asset missing on a hand-cut release must not block LE/domain/lampac.
+			msg := err.Error() + "
+" + out
+			if strings.Contains(msg, "telegram") && !strings.Contains(msg, "netductor:") {
+				fmt.Fprintln(os.Stderr, "warn install partial (continuing deploy):", err)
+			} else {
+				return fmt.Errorf("install: %w", err)
+			}
 		}
 		// Secrets may exist before install; re-run telegram so unit starts with netductor-tg binary
 		if o.TelegramToken != "" {
