@@ -310,15 +310,19 @@ func PruneStale(maxAge time.Duration) int {
 	removed := 0
 	now := time.Now().UTC()
 	for _, d := range r.Devices {
-		stale := d.LastSeen.IsZero() || now.Sub(d.LastSeen) > maxAge
-		ghost := d.PublicIP == "" && stale
-		if ghost || (stale && d.PublicIP == "") {
+		// Never-joined prepare-pack tokens → always drop
+		if d.LastSeen.IsZero() {
+			removed++
+			continue
+		}
+		stale := now.Sub(d.LastSeen) > maxAge
+		if d.PublicIP == "" && stale {
 			removed++
 			continue
 		}
 		if stale && maxAge > 0 {
-			// keep one offline record only if it has IP (for re-join hint) — still drop if > maxAge*2
-			if now.Sub(d.LastSeen) > maxAge*2 || d.LastSeen.IsZero() {
+			// keep offline-with-IP briefly; drop after 2x maxAge
+			if now.Sub(d.LastSeen) > maxAge*2 {
 				removed++
 				continue
 			}

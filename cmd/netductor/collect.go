@@ -184,19 +184,38 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 	}
 	if enabled("secondary_offline") {
+		// Drop prepare-pack ghosts (never heartbeated) and long-stale empties
+		if n := secondary.PruneStale(24 * time.Hour); n > 0 {
+			fmt.Fprintf(os.Stderr, "secondary prune: removed %d stale/ghost device(s)\n", n)
+		}
 		for _, d := range secondary.List() {
 			key := "secondary:" + d.ID
+			// Never alert for tokens that never joined (empty last_seen) — prepare-pack residue
+			if d.LastSeen.IsZero() {
+				notify.ClearAlert(key)
+				notify.ClearAlert(key + ":sb")
+				notify.ClearAlert(key + ":uplink")
+				continue
+			}
+			label := d.Name
+			if label == "" {
+				label = d.ID
+			}
+			ip := d.PublicIP
+			if ip == "" {
+				ip = "no-ip"
+			}
 			if !secondary.Online(d, 3*time.Minute) {
-				notify.AlertOnce(key, fmt.Sprintf("🔴 Secondary offline: <b>%s</b> (%s)", d.Name, d.PublicIP))
+				notify.AlertOnce(key, fmt.Sprintf("🔴 Secondary offline: <b>%s</b> (%s)", label, ip))
 			} else {
 				notify.ClearAlert(key)
 				if !d.SingBoxOK {
-					notify.AlertOnce(key+":sb", fmt.Sprintf("⚠️ Secondary <b>%s</b> sing-box not active", d.Name))
+					notify.AlertOnce(key+":sb", fmt.Sprintf("⚠️ Secondary <b>%s</b> sing-box not active", label))
 				} else {
 					notify.ClearAlert(key + ":sb")
 				}
 				if !d.UplinkOK {
-					notify.AlertOnce(key+":uplink", fmt.Sprintf("⚠️ Secondary <b>%s</b> uplink to primary:443 failed (mux may be stuck)", d.Name))
+					notify.AlertOnce(key+":uplink", fmt.Sprintf("⚠️ Secondary <b>%s</b> uplink to primary:443 failed (mux may be stuck)", label))
 				} else {
 					notify.ClearAlert(key + ":uplink")
 				}
