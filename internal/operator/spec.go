@@ -78,22 +78,23 @@ func (s SecondarySpec) toDeploy() deploy.SecondaryOpts {
 	}
 }
 
-// ApplyDomainFlags sets DomainLE/HTTP consistently from base + email.
+// ApplyDomainFlags sets DomainLE/HTTP when email is present and primary host is explicit.
 func ApplyDomainFlags(p *PrimarySpec) {
-	base := strings.TrimSpace(p.DomainBase)
 	email := strings.TrimSpace(p.DomainEmail)
-	if base == "" {
-		p.DomainLE, p.DomainHTTP = false, false
-		return
-	}
-	if email != "" {
+	primary := strings.TrimSpace(p.DomainPrimary)
+	if email != "" && primary != "" {
 		p.DomainLE = true
 		p.DomainHTTP = false
 		p.DomainEmail = email
 		return
 	}
-	p.DomainLE = false
-	p.DomainHTTP = true
+	if email != "" && primary == "" {
+		// LE without explicit primary is invalid — caller must set DomainPrimary.
+		p.DomainLE = false
+	}
+	if strings.TrimSpace(p.DomainRedirect) != "" && !p.DomainLE {
+		p.DomainHTTP = true
+	}
 }
 
 // EdgeSpec — OpenWrt / RPi from operator machine.

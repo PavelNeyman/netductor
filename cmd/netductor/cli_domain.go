@@ -15,10 +15,11 @@ func runDomain(args []string) {
   netductor domain set --base netductor.example.com [--http] [--cf-proxy] [--enable-redirect] [--le --email you@x]
   netductor domain set --primary HOST --vpn HOST --redirect URL [--enable-redirect]
 
-Preset from --base:
-  primary.<base>  secondary not written (use --vpn)
-  vpn.<base>      as VPN entry host
-  https://i.<base>:8443 REDIRECT_BASE; --cf-proxy → https://i.<base> (Cloudflare orange on i.)
+No hostname invent from --base. Always pass explicit:
+  --primary HOST   CORE / public hostname
+  --vpn HOST       VPN entry (usually secondary)
+  --redirect URL   REDIRECT_BASE (e.g. https://redir.example.com:8443)
+  --base LABEL     optional DOMAIN= org label only
 `)
 		os.Exit(2)
 	}

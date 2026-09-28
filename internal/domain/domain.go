@@ -14,7 +14,7 @@ import (
 
 // Config is the operator-facing domain mapping (DNS is external — Cloudflare etc.).
 type Config struct {
-	Base            string // e.g. netductor.neyman.top
+	Base            string // optional org label only (DOMAIN=); never invents hostnames
 	Primary         string
 	VPN             string
 	RedirectBase    string
@@ -23,34 +23,17 @@ type Config struct {
 	LE             bool   // obtain Let's Encrypt after apply
 	LEEmail        string
 	LEStaging      bool
-	CFProxiedI     bool   // Cloudflare orange on i. → REDIRECT_BASE without :8443
+	CFProxiedI     bool   // Cloudflare orange on redirect host → REDIRECT_BASE without :8443
 }
 
-// Expand fills empty Primary/VPN/RedirectBase from Base.
+// Expand normalizes Base and explicit host fields. Does NOT invent hostnames
+// (no p./s./i. presets). Primary, VPN, RedirectBase must be set by the operator.
 func (c *Config) Expand() {
 	base := strings.TrimSpace(c.Base)
 	base = strings.TrimPrefix(base, "https://")
 	base = strings.TrimPrefix(base, "http://")
 	base = strings.TrimSuffix(base, "/")
 	c.Base = base
-	if c.Primary == "" && base != "" {
-		// short labels: p.<base> / s.<base> / i.<base> (matches typical ND DNS)
-		c.Primary = "p." + base
-	}
-	if c.VPN == "" && base != "" {
-		c.VPN = "s." + base
-	}
-	if c.RedirectBase == "" && base != "" {
-		if c.UseHTTPRedirect && !c.LE {
-			c.RedirectBase = "http://i." + base
-		} else if c.CFProxiedI {
-			// CF orange on i.: public URL on :443 via CF; origin LE stays :8443
-			c.RedirectBase = "https://i." + base
-		} else {
-			// Direct to origin LE (443 is Reality)
-			c.RedirectBase = "https://i." + base + ":8443"
-		}
-	}
 	c.Primary = strings.TrimSpace(c.Primary)
 	c.VPN = strings.TrimSpace(c.VPN)
 	c.RedirectBase = strings.TrimSpace(c.RedirectBase)
@@ -63,7 +46,7 @@ func Apply(c Config) error {
 		_ = os.Setenv("NETDUCTOR_CF_PROXY_I", "1")
 	}
 	if c.Primary == "" && c.VPN == "" && c.RedirectBase == "" {
-		return fmt.Errorf("nothing to set: pass --base netductor.example.com or explicit hosts")
+		return fmt.Errorf("nothing to set: pass --primary, --vpn, and/or --redirect (explicit hosts; --base is optional label only)")
 	}
 	_ = os.MkdirAll(paths.EtcDir(), 0o755)
 

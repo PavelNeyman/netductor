@@ -180,7 +180,10 @@ chmod 755 /usr/local/bin/netductor
 	fmt.Print(out)
 	_ = err
 
-	hasDomain := strings.TrimSpace(o.DomainBase) != "" || strings.TrimSpace(o.DomainPrimary) != "" || strings.TrimSpace(o.DomainRedirect) != ""
+	if o.DomainLE && strings.TrimSpace(o.DomainPrimary) == "" {
+		return fmt.Errorf("domain LE requires explicit --domain-primary (and usually --domain-redirect); no p./i. invent from --domain-base")
+	}
+		hasDomain := strings.TrimSpace(o.DomainBase) != "" || strings.TrimSpace(o.DomainPrimary) != "" || strings.TrimSpace(o.DomainRedirect) != ""
 	if hasDomain {
 		fmt.Fprintln(os.Stderr, "==> domain set")
 		var cmd string

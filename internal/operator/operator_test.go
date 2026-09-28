@@ -5,10 +5,15 @@ import "testing"
 func TestApplyDomainFlags(t *testing.T) {
 	p := PrimarySpec{DomainBase: "nd.example.com", DomainEmail: "a@b.c"}
 	ApplyDomainFlags(&p)
+	if p.DomainLE {
+		t.Fatalf("LE without DomainPrimary must be false")
+	}
+	p = PrimarySpec{DomainPrimary: "core.example.com", DomainEmail: "a@b.c", DomainRedirect: "https://r.example.com:8443"}
+	ApplyDomainFlags(&p)
 	if !p.DomainLE || p.DomainHTTP {
 		t.Fatalf("le=%v http=%v", p.DomainLE, p.DomainHTTP)
 	}
-	p = PrimarySpec{DomainBase: "nd.example.com"}
+	p = PrimarySpec{DomainRedirect: "https://r.example.com:8443"}
 	ApplyDomainFlags(&p)
 	if p.DomainLE || !p.DomainHTTP {
 		t.Fatalf("le=%v http=%v", p.DomainLE, p.DomainHTTP)
@@ -22,7 +27,7 @@ func TestPrimaryFromFields(t *testing.T) {
 	}
 	get := func(k string) string { return m[k] }
 	s := PrimaryFromFields(get)
-	if s.Host != "1.2.3.4" || !s.DomainLE || !s.WithLampac {
+	if s.Host != "1.2.3.4" || !s.WithLampac {
 		t.Fatalf("%+v", s)
 	}
 }

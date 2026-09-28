@@ -16,7 +16,7 @@ import (
 type Config struct {
 	Email    string
 	Domains  []string
-	Base     string // if set and Domains empty → p.<base>, i.<base>
+	Base     string // deprecated: ignored for hostname invent; use Domains
 	Staging  bool
 	AgreeTOS bool
 }
@@ -28,19 +28,35 @@ func Obtain(c Config) error {
 	if c.Email == "" {
 		return fmt.Errorf("--email required (LE registration)")
 	}
-	if len(c.Domains) == 0 && c.Base != "" {
-		c.Domains = []string{"p." + c.Base, "i." + c.Base}
-	}
 	if len(c.Domains) == 0 {
-		// try public_hostname
+		// from already-applied domain config (explicit files)
 		if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "public_hostname")); err == nil {
 			if h := strings.TrimSpace(string(b)); h != "" {
 				c.Domains = append(c.Domains, h)
 			}
 		}
+		if rb := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")); rb != "" {
+			rb = strings.TrimPrefix(strings.TrimPrefix(rb, "https://"), "http://")
+			rb = strings.Split(rb, "/")[0]
+			if i := strings.Index(rb, ":"); i >= 0 {
+				rb = rb[:i]
+			}
+			if rb != "" {
+				dup := false
+				for _, d := range c.Domains {
+					if d == rb {
+						dup = true
+						break
+					}
+				}
+				if !dup {
+					c.Domains = append(c.Domains, rb)
+				}
+			}
+		}
 	}
 	if len(c.Domains) == 0 {
-		return fmt.Errorf("no domains: pass --domains or --base")
+		return fmt.Errorf("no domains: pass --domains host1,host2 (explicit; no p./i. invent from --base)")
 	}
 	if !c.AgreeTOS {
 		return fmt.Errorf("--agree-tos required")
@@ -116,18 +132,8 @@ func Obtain(c Config) error {
 		"TLS_CERT":          fullchain,
 		"TLS_KEY":           privkey,
 	}
-	// HTTPS redirect base if we have i. host
-	for _, d := range c.Domains {
-		if strings.HasPrefix(d, "i.") {
-			baseURL := "https://" + d + ":8443" // direct origin LE
-			if os.Getenv("NETDUCTOR_CF_PROXY_I") == "1" || os.Getenv("NETDUCTOR_CF_PROXY_I") == "true" {
-				baseURL = "https://" + d // CF orange on i.; Origin Rule → :8443
-			}
-			upsert["REDIRECT_BASE"] = baseURL
-			_ = os.Setenv("NETDUCTOR_REDIRECT_BASE", baseURL)
-			break
-		}
-	}
+	// Do not invent REDIRECT_BASE from hostname patterns; operator sets it via domain set --redirect.
+
 	if err := writeConfKeys(upsert); err != nil {
 		fmt.Fprintln(os.Stderr, "warn conf:", err)
 	}
