@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/secondary"
-	"strings"
 )
 
 // Default service-plane CIDRs (dual WG-over-WSS + legacy backbone).
@@ -19,92 +19,39 @@ var defaultAPIAllowCIDRs = []string{
 }
 
 // ApplyAgentFirewall: deny plain :8788; restrict mTLS :8789.
-//
-// Default (locked): allow only service-plane CIDRs + /etc/netductor/api-allow.cidr
-// and NETDUCTOR_API_ALLOW_CIDR (comma-separated).
-// Temporary WAN open: only via `netductor api-public arm` (TG/CLI), not env.
-// Operator steady-state: SSH tunnel or service CIDR / api-allow.cidr.
 func ApplyAgentFirewall() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
 		return nil
 	}
 	_ = run("ufw", "delete", "allow", "8788/tcp")
 	_ = run("ufw", "deny", "8788/tcp")
-	// wipe broad allows (v4/v6)
 	_ = run("ufw", "delete", "allow", "8789/tcp")
 	_ = run("ufw", "delete", "allow", "8789/tcp")
 
-	cidrs := append([]string{}, defaultAPIAllowCIDRs...)
-	if extra := strings.TrimSpace(os.Getenv("NETDUCTOR_API_ALLOW_CIDR")); extra != "" {
-		for _, p := range strings.Split(extra, ",") {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				cidrs = append(cidrs, p)
-			}
+	if os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") == "1" {
+		if err := run("ufw", "allow", "8789/tcp", "comment", "netductor-api-public"); err != nil {
+			return fmt.Errorf("ufw allow 8789 public: %w", err)
 		}
-	}
-	if f, err := os.Open("/etc/netductor/api-allow.cidr"); err == nil {
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			line := strings.TrimSpace(sc.Text())
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			cidrs = append(cidrs, line)
-		}
-		_ = f.Close()
+		fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 OPEN (NETDUCTOR_API_ALLOW_PUBLIC=1)")
+		return nil
 	}
 
+	cidrs := collectAPIAllowCIDRs()
 	seen := map[string]bool{}
 	for _, c := range cidrs {
 		if seen[c] {
 			continue
 		}
 		seen[c] = true
-		// ufw: allow from CIDR to port
 		if err := run("ufw", "allow", "from", c, "to", "any", "port", "8789", "proto", "tcp", "comment", "netductor-api"); err != nil {
 			fmt.Fprintf(os.Stderr, "ufw allow 8789 from %s: %v\n", c, err)
 		}
 	}
-	fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 restricted to service CIDRs + api-allow.cidr (WAN open only via api-public arm)")
+	fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 restricted to service CIDRs + api-allow.cidr")
 	return nil
 }
 
-// RestrictAgentMTLSToIP adds a single IP to the allow path then re-applies locked policy.
-func RestrictAgentMTLSToIP(ip string) error {
-	ip = strings.TrimSpace(ip)
-	if ip != "" && !strings.Contains(ip, "/") {
-		ip += "/32"
-	}
-	if ip != "" {
-		_ = os.MkdirAll("/etc/netductor", 0o755)
-		// append if not present
-		b, _ := os.ReadFile("/etc/netductor/api-allow.cidr")
-		if !strings.Contains(string(b), ip) {
-			f, err := os.OpenFile("/etc/netductor/api-allow.cidr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-			if err == nil {
-				_, _ = fmt.Fprintln(f, ip)
-				_ = f.Close()
-			}
-		}
-	}
-	return ApplyAgentFirewall()
-}
-
-// AllowAgentMTLSFromIP adds operator/path CIDR and re-applies.
-func AllowAgentMTLSFromIP(ip string) error {
-	return RestrictAgentMTLSToIP(ip)
-}
-
-
-// applyAgentFirewallQuiet is ApplyAgentFirewall without ufw chatter on stderr.
-func applyAgentFirewallQuiet() error {
-	if _, err := exec.LookPath("ufw"); err != nil {
-		return nil
-	}
-	_ = ufwQuiet("delete", "allow", "8788/tcp")
-	_ = ufwQuiet("deny", "8788/tcp")
-	// do not wipe all 8789 rules — would remove service CIDRs; only ensure service CIDRs exist
+func collectAPIAllowCIDRs() []string {
 	cidrs := append([]string{}, defaultAPIAllowCIDRs...)
 	if extra := strings.TrimSpace(os.Getenv("NETDUCTOR_API_ALLOW_CIDR")); extra != "" {
 		for _, p := range strings.Split(extra, ",") {
@@ -125,8 +72,67 @@ func applyAgentFirewallQuiet() error {
 		}
 		_ = f.Close()
 	}
+	return cidrs
+}
+
+// cidrAlreadyListed reports whether ip/CIDR is already in api-allow.cidr (exact line).
+func cidrAlreadyListed(cidr string) bool {
+	b, err := os.ReadFile("/etc/netductor/api-allow.cidr")
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if line == cidr {
+			return true
+		}
+	}
+	return false
+}
+
+// RestrictAgentMTLSToIP appends IP to api-allow.cidr once. Does NOT re-apply full ufw
+// when the IP is already listed (heartbeat used to spam ufw every 30s).
+func RestrictAgentMTLSToIP(ip string) error {
+	ip = strings.TrimSpace(ip)
+	if ip == "" {
+		return nil
+	}
+	if !strings.Contains(ip, "/") {
+		ip += "/32"
+	}
+	if cidrAlreadyListed(ip) {
+		return nil
+	}
+	_ = os.MkdirAll("/etc/netductor", 0o755)
+	f, err := os.OpenFile("/etc/netductor/api-allow.cidr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintln(f, ip)
+	_ = f.Close()
+	// one-shot ufw allow for this CIDR only (no full wipe/reapply)
+	if _, err := exec.LookPath("ufw"); err == nil {
+		_ = run("ufw", "allow", "from", ip, "to", "any", "port", "8789", "proto", "tcp", "comment", "netductor-api")
+	}
+	return nil
+}
+
+// AllowAgentMTLSFromIP adds operator/path CIDR without hammering ufw.
+func AllowAgentMTLSFromIP(ip string) error {
+	return RestrictAgentMTLSToIP(ip)
+}
+
+func applyAgentFirewallQuiet() error {
+	if _, err := exec.LookPath("ufw"); err != nil {
+		return nil
+	}
+	_ = ufwQuiet("delete", "allow", "8788/tcp")
+	_ = ufwQuiet("deny", "8788/tcp")
 	seen := map[string]bool{}
-	for _, c := range cidrs {
+	for _, c := range collectAPIAllowCIDRs() {
 		if seen[c] {
 			continue
 		}
@@ -139,7 +145,8 @@ func applyAgentFirewallQuiet() error {
 // SyncAgentAllowFromSecondaryRegistry writes secondary public IPs into api-allow.cidr.
 func SyncAgentAllowFromSecondaryRegistry() error {
 	for _, ip := range secondary.ListPublicIPs() {
-		_ = RestrictAgentMTLSToIP(ip) // append + apply each time is ok
+		_ = RestrictAgentMTLSToIP(ip)
 	}
-	return ApplyAgentFirewall()
+	return nil
 }
+

@@ -15,7 +15,9 @@ import (
 var (
 	alertMu   sync.Mutex
 	lastSent  = map[string]time.Time{}
+	clearedAt = map[string]time.Time{}
 	cooldown  = 15 * time.Minute
+	rearmAfter = 5 * time.Minute // after ClearAlert, do not re-alert sooner
 )
 
 func alertStatePath() string {
@@ -69,6 +71,9 @@ func AlertOnce(key, msg string) {
 	if t, ok := lastSent[key]; ok && now.Sub(t) < cooldown {
 		return
 	}
+	if t, ok := clearedAt[key]; ok && now.Sub(t) < rearmAfter {
+		return
+	}
 	disk := loadSent()
 	if ts, ok := disk[key]; ok && now.Unix()-ts < int64(cooldown.Seconds()) {
 		return
@@ -89,6 +94,7 @@ func ClearAlert(key string) {
 	alertMu.Lock()
 	defer alertMu.Unlock()
 	delete(lastSent, key)
+	clearedAt[key] = time.Now()
 	disk := loadSent()
 	delete(disk, key)
 	saveSent(disk)

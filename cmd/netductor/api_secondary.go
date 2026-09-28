@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/httpx"
-	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
@@ -211,7 +210,8 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		ID: d.ID, Hostname: host, Role: "secondary", Kind: "vps",
 		PublicIP: d.PublicIP, Status: st, LastSeen: time.Now().Unix(),
 	})
-	_ = install.AllowAgentMTLSFromIP(d.PublicIP)
+	// Do not AllowAgentMTLSFromIP on every heartbeat — spammed ufw + re-opened WAN :8789.
+	// Secondary agent uses SP (10.87.10.2); public IP allow is optional via api-allow.cidr / join.
 	desired := ""
 	if n, ok, err := nodes.Get(d.ID); err == nil && ok && n.DesiredHN != "" {
 		desired = n.DesiredHN

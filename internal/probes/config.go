@@ -3,8 +3,8 @@ package probes
 import (
 	"encoding/json"
 	"os"
-	"strings"
 	"path/filepath"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -16,7 +16,7 @@ func Default() map[string]any {
 		"probes": []any{
 			map[string]any{"name": "dns-blocky", "type": "tcp", "host": "127.0.0.1", "port": 53, "timeout": 2},
 			map[string]any{"name": "vless", "type": "tcp", "host": "127.0.0.1", "port": 443, "timeout": 2},
-			map[string]any{"name": "hy2", "type": "udp", "host": "127.0.0.1", "port": 8443, "timeout": 2},
+			// hy2 removed — primary no longer listens HY2 (VLESS only)
 			map[string]any{"name": "api-health", "type": "http", "url": "http://127.0.0.1:8787/health", "timeout": 3},
 		},
 		"alerts": map[string]any{
@@ -37,11 +37,40 @@ func Load() map[string]any {
 	if json.Unmarshal(b, &m) != nil {
 		return Default()
 	}
-	// migrate: API is HTTP-only on loopback; old defaults used https://
-	if fixAPIHealthHTTPS(m) {
+	changed := fixAPIHealthHTTPS(m)
+	if stripObsoleteProbes(m) {
+		changed = true
+	}
+	if changed {
 		_ = Save(m)
 	}
 	return m
+}
+
+func stripObsoleteProbes(m map[string]any) bool {
+	probes, ok := m["probes"].([]any)
+	if !ok {
+		return false
+	}
+	out := make([]any, 0, len(probes))
+	changed := false
+	for _, p := range probes {
+		pm, ok := p.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := pm["name"].(string)
+		// HY2 inbound removed from primary; drop probe so collect stops alerting
+		if strings.EqualFold(name, "hy2") || strings.EqualFold(name, "hysteria2") {
+			changed = true
+			continue
+		}
+		out = append(out, pm)
+	}
+	if changed {
+		m["probes"] = out
+	}
+	return changed
 }
 
 func fixAPIHealthHTTPS(m map[string]any) bool {
