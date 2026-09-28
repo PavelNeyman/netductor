@@ -72,6 +72,9 @@ func load() (*registry, error) {
 }
 
 func save(r *registry) error {
+	if r != nil && r.Devices == nil {
+		r.Devices = []Device{}
+	}
 	_ = os.MkdirAll(filepath.Dir(path()), 0o700)
 	raw, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
@@ -344,8 +347,12 @@ func PruneStale(maxAge time.Duration) int {
 	removed := 0
 	now := time.Now().UTC()
 	for _, d := range r.Devices {
-		// Never-joined prepare-pack tokens → always drop
+		// Never-joined: keep 2h after create (heartbeat race with metrics collect)
 		if d.LastSeen.IsZero() {
+			if d.CreatedAt.IsZero() || now.Sub(d.CreatedAt) < 2*time.Hour {
+				keep = append(keep, d)
+				continue
+			}
 			removed++
 			continue
 		}
@@ -354,16 +361,16 @@ func PruneStale(maxAge time.Duration) int {
 			removed++
 			continue
 		}
-		if stale && maxAge > 0 {
-			// keep offline-with-IP briefly; drop after 2x maxAge
-			if now.Sub(d.LastSeen) > maxAge*2 {
-				removed++
-				continue
-			}
+		if stale && maxAge > 0 && now.Sub(d.LastSeen) > maxAge*2 {
+			removed++
+			continue
 		}
 		keep = append(keep, d)
 	}
 	if removed > 0 {
+		if keep == nil {
+			keep = []Device{}
+		}
 		r.Devices = keep
 		_ = save(r)
 	}
