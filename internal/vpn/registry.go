@@ -1,10 +1,8 @@
 package vpn
 
 import (
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
 
 	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -22,7 +20,6 @@ import (
 type UserRecord struct {
 	Name        string `json:"name"`
 	UUID        string `json:"uuid"`
-	Hy2Password string `json:"hy2_password"`
 	Enabled     bool   `json:"enabled"`
 	Note        string `json:"note"`
 	Created     string `json:"created"`
@@ -160,16 +157,6 @@ func vlessPort() int {
 	return 443
 }
 
-func hy2Port() int {
-	if v := os.Getenv("SINGBOX_HY2_PORT"); v != "" {
-		var n int
-		fmt.Sscanf(v, "%d", &n)
-		if n > 0 {
-			return n
-		}
-	}
-	return 8443
-}
 
 func genUUID() string {
 	if Bin() != "" {
@@ -191,11 +178,6 @@ func genUUID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", raw[0:4], raw[4:6], raw[6:8], raw[8:10], raw[10:16])
 }
 
-func genHy2Pass() string {
-	var b [16]byte
-	_, _ = rand.Read(b[:])
-	return hex.EncodeToString(b[:])
-}
 
 func VLESSLink(name, uuid string) string {
 	return fmt.Sprintf(
@@ -213,12 +195,8 @@ func PreferredVLESSLink(name, uuid string) string {
 	return VLESSLink(name, uuid)
 }
 
-func Hy2Link(name, pass string) string {
-	return fmt.Sprintf("hysteria2://%s@%s:%d?sni=%s&insecure=1#nd-hy2",
-		pass, coreAdvertiseHost(), hy2Port(), sni())
-}
 
-func writeArtifacts(name, uuid, hy2pass string) error {
+func writeArtifacts(name, uuid string) error {
 	dir := filepath.Join(Clients(), name)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -226,7 +204,7 @@ func writeArtifacts(name, uuid, hy2pass string) error {
 	vless := PreferredVLESSLink(name, uuid)
 	vlessCore := VLESSLink(name, uuid)
 	nl := string([]byte{10})
-	// Primary subscription: VLESS only. HY2 only when NETDUCTOR_HY2=1.
+	// Primary subscription: VLESS only.
 	sub := vless + nl + vlessCore + nl
 	_ = os.WriteFile(filepath.Join(dir, "link-vless.txt"), []byte(vless+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(vlessCore+nl), 0o600)
@@ -235,14 +213,7 @@ func writeArtifacts(name, uuid, hy2pass string) error {
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr.png"))
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr-vless.png"))
 	_ = qrcode.WriteFile(sub, qrcode.Medium, 512, filepath.Join(dir, "qr-subscription.png"))
-	if ndconfig.HY2Enabled() {
-		hy2 := Hy2Link(name, hy2pass)
-		_ = os.WriteFile(filepath.Join(dir, "link-hy2.txt"), []byte(hy2+nl), 0o600)
-		_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub+hy2+nl), 0o600)
-		_ = qrcode.WriteFile(hy2, qrcode.Medium, 512, filepath.Join(dir, "qr-hy2.png"))
-	} else {
-		_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub), 0o600)
-	}
+	_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub), 0o600)
 	_ = os.Chmod(filepath.Join(dir, "qr.png"), 0o600)
 	_ = os.Chmod(filepath.Join(dir, "qr-subscription.png"), 0o600)
 	_ = WriteClientConfigs(name, uuid)
@@ -269,7 +240,7 @@ func RenameNative(oldName, newName string) error {
 	if findUser(r, newName) != nil {
 		return fmt.Errorf("user already exists: %s", newName)
 	}
-	uuid, hy2 := u.UUID, u.Hy2Password
+	uuid := u.UUID
 	u.Name = newName
 	if err := writeRegistry(r); err != nil {
 		return err
@@ -283,7 +254,7 @@ func RenameNative(oldName, newName string) error {
 			_ = os.MkdirAll(newDir, 0o700)
 		}
 	}
-	if err := writeArtifacts(newName, uuid, hy2); err != nil {
+	if err := writeArtifacts(newName, uuid); err != nil {
 		return err
 	}
 	// UUID unchanged — ApplyConfig optional (may fail in tests without sing-box)
@@ -312,14 +283,13 @@ func AddNative(name, note string) (string, error) {
 		return "", fmt.Errorf("user already exists: %s", name)
 	}
 	uuid := genUUID()
-	hy2 := genHy2Pass()
 	r.Users = append(r.Users, UserRecord{
-		Name: name, UUID: uuid, Hy2Password: hy2, Enabled: true, Note: note, Created: time.Now().Format(time.RFC3339),
+		Name: name, UUID: uuid, Enabled: true, Note: note, Created: time.Now().Format(time.RFC3339),
 	})
 	if err := writeRegistry(r); err != nil {
 		return "", err
 	}
-	if err := writeArtifacts(name, uuid, hy2); err != nil {
+	if err := writeArtifacts(name, uuid); err != nil {
 		return "", err
 	}
 	if err := ApplyConfig(); err != nil {
@@ -399,7 +369,7 @@ func CreateSession(hours int) (token string, exp int64, err error) {
 }
 
 
-// SetSNI stores Reality/HY2 SNI and rewrites client links + server config.
+// SetSNI stores Reality SNI and rewrites client links + server config.
 func SetSNI(value string) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -431,7 +401,7 @@ func RewriteAllLinks() error {
 		return err
 	}
 	for _, u := range r.Users {
-		if err := writeArtifacts(u.Name, u.UUID, u.Hy2Password); err != nil {
+		if err := writeArtifacts(u.Name, u.UUID); err != nil {
 			return err
 		}
 	}

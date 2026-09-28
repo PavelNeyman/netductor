@@ -43,20 +43,14 @@ func EnsureVPNClient(deviceID string) (map[string]string, error) {
 		}
 	}
 	vless := edgeRelayOrCoreLink(name, uuid)
-	hy2, _ := vpn.ReadClient(name, "link-hy2.txt")
-	sub := vless
-	if hy2 != "" {
-		sub = vless + "\n" + hy2
-	}
 	if vless == "" {
 		return nil, fmt.Errorf("no vpn links for %s — is sing-box installed?", name)
 	}
 	return map[string]string{
 		"user":         name,
-		"subscription": sub,
+		"subscription": vless,
 		"vless":        vless,
-		"hy2":          hy2,
-		"primary":      "relay",
+		"primary":      "secondary",
 		"fallback":     "wan",
 	}, nil
 }

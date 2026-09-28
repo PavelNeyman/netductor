@@ -568,7 +568,7 @@ func userHubKeyboard(name string) map[string]any {
 	}}
 }
 
-// mode: vless | core | hy2 — navigation under message; mode switch is in access HTML body.
+// mode: vless | core — navigation under message; mode switch is in access HTML body.
 func userAccessKeyboard(name, mode string) map[string]any {
 	_ = mode
 	rows := [][]map[string]any{

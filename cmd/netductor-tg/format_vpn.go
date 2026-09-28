@@ -190,8 +190,6 @@ func accessPayload(name, mode string) (payload string) {
 		if payload == "" {
 			payload = shareURIFrom(runVPN("link", name, "vless"))
 		}
-	case "hy2":
-		payload = shareURIFrom(runVPN("link", name, "hy2"))
 	default:
 		mode = "vless"
 		payload = shareURIFrom(runVPN("link", name, "vless"))
@@ -245,15 +243,11 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	switch mode {
 	case "core":
 		title = "VLESS · primary"
-	case "hy2":
-		title = "HY2"
 	}
-	styleV, styleC, styleH := "", "", ""
+	styleV, styleC := "", ""
 	switch mode {
 	case "core":
 		styleC = ` style="primary"`
-	case "hy2":
-		styleH = ` style="primary"`
 	default:
 		styleV = ` style="primary"`
 	}
@@ -290,7 +284,6 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Primary</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data"` + styleH + ` data="u:access:` + name + `:hy2">HY2</tg-button>`)
 	if showWorkProfileButton(name) {
 		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Config</tg-button>`)
 	}
@@ -343,8 +336,6 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	}
 	qrPath := filepath.Join(dir, "qr-vless.png")
 	switch mode {
-	case "hy2":
-		qrPath = filepath.Join(dir, "qr-hy2.png")
 	case "core":
 		qrPath = filepath.Join(dir, "qr-core.png")
 	}

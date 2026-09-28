@@ -29,10 +29,6 @@ func InstallHardening() error {
 		// keep 22 open during transition so operators are not locked out after Port change
 		_ = run("ufw", "allow", "22/tcp")
 		_ = run("ufw", "allow", "443/tcp")
-		if ndconfig.HY2Enabled() {
-			_ = run("ufw", "allow", "4443/tcp")
-			_ = run("ufw", "allow", "4443/udp")
-		}
 		redir := ndconfig.RedirectHTTPSPort()
 		_ = run("ufw", "allow", redir+"/tcp")
 		_ = run("ufw", "allow", redir+"/udp")

@@ -17,7 +17,7 @@ func RefreshLinks(onlyName string) (int, error) {
 		if onlyName != "" && u.Name != onlyName {
 			continue
 		}
-		if err := writeArtifacts(u.Name, u.UUID, u.Hy2Password); err != nil {
+		if err := writeArtifacts(u.Name, u.UUID); err != nil {
 			errs = append(errs, u.Name+": "+err.Error())
 			continue
 		}

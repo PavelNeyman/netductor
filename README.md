@@ -2,7 +2,7 @@
 
 Self-hosted **network control plane** (Debian primary + RU **secondary** VPN entry + OpenWrt edge):
 
-- VPN: VLESS+Reality, Hysteria2 (sing-box)
+- VPN: VLESS+Reality (sing-box)
 - DNS: Blocky (localhost)
 - Admin API + web UI (localhost / via VPN)
 - Telegram operator bot

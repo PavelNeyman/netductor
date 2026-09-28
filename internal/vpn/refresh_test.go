@@ -27,7 +27,7 @@ func TestPreferredFragmentAndSubscriptionNoHY2(t *testing.T) {
 	if !strings.Contains(link, "#nd-primary") {
 		t.Fatalf("expected #nd-primary got %s", link)
 	}
-	_ = writeArtifacts(u.Name, u.UUID, u.Hy2Password)
+	_ = writeArtifacts(u.Name, u.UUID)
 	// subscription removed from product surface
 	if _, ok := ReadClient(u.Name, "subscription.txt"); ok {
 		t.Fatal("subscription.txt should not be written")

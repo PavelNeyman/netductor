@@ -68,6 +68,5 @@ On install, `netductor.conf` gets commented keys. Override as needed:
 | REDIRECT_HTTPS_PORT | 8443 | LE import redirect |
 | DEFAULT_SNI | api.vk.me | Reality if not set via set-sni |
 | LAMPAC_PORT | 9118 | lampac bind |
-| HY2 | 0 | enable Hysteria2 (off) |
 | SVC_SP_CIDR / SVC_PS_CIDR | 10.87.10/11.0/30 | service WG allow |
 | SVC_LEGACY_CIDR | (empty) | opt-in old backbone |

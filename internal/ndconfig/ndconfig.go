@@ -102,8 +102,6 @@ func mapKey(k string) string {
 		return "NETDUCTOR_DEFAULT_SNI"
 	case "LAMPAC_PORT", "NETDUCTOR_LAMPAC_PORT":
 		return "NETDUCTOR_LAMPAC_PORT"
-	case "HY2", "NETDUCTOR_HY2":
-		return "NETDUCTOR_HY2"
 	case "SVC_SP_CIDR", "NETDUCTOR_SVC_SP_CIDR":
 		return "NETDUCTOR_SVC_SP_CIDR"
 	case "SVC_PS_CIDR", "NETDUCTOR_SVC_PS_CIDR":

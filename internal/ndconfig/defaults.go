@@ -64,11 +64,6 @@ func DefaultSNI() string {
 
 func LampacPort() string { return EnvOr("NETDUCTOR_LAMPAC_PORT", DefLampacPort) }
 
-// HY2Enabled — off by default (product dropped HY2 for clients).
-func HY2Enabled() bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("NETDUCTOR_HY2")))
-	return v == "1" || v == "true" || v == "yes" || v == "on"
-}
 
 func SvcSPCIDR() string { return EnvOr("NETDUCTOR_SVC_SP_CIDR", DefSvcSPCIDR) }
 func SvcPSCIDR() string { return EnvOr("NETDUCTOR_SVC_PS_CIDR", DefSvcPSCIDR) }
@@ -86,7 +81,6 @@ func DefaultsConfSnippet() string {
 # REDIRECT_HTTPS_PORT=%s
 # DEFAULT_SNI=%s
 # LAMPAC_PORT=%s
-# HY2=0
 # SVC_SP_CIDR=%s
 # SVC_PS_CIDR=%s
 `, DefSSHPort, DefAgentMTLSPort, DefAPIPort, DefRedirectHTTPSPort, DefDefaultSNI, DefLampacPort, DefSvcSPCIDR, DefSvcPSCIDR)

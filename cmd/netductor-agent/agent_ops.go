@@ -205,12 +205,8 @@ func applyVPNClient(tmpl map[string]any) string {
 		_ = os.WriteFile("/etc/netductor-agent/vpn.subscription", []byte(sub+"\n"), 0o600)
 	}
 	vless, _ := vpn["vless"].(string)
-	hy2, _ := vpn["hy2"].(string)
 	if vless != "" {
 		_ = os.WriteFile("/etc/netductor-agent/vpn.vless", []byte(vless+"\n"), 0o600)
-	}
-	if hy2 != "" {
-		_ = os.WriteFile("/etc/netductor-agent/vpn.hy2", []byte(hy2+"\n"), 0o600)
 	}
 	note := "\nvpn links saved"
 	if vless == "" {

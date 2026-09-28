@@ -241,7 +241,7 @@ func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 	}
 	doc := map[string]any{
 		"remarks": "netductor WL profile",
-		"note":    "Primary URI is relay when online. HY2 optional (not for carrier WL). Keep flow=xtls-rprx-vision. See docs/WL.md.",
+		"note":    "Primary URI is secondary when online. Keep flow=xtls-rprx-vision. See docs/WL.md.",
 		"uris":    uris,
 	}
 	return json.MarshalIndent(doc, "", "  ")

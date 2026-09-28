@@ -173,7 +173,7 @@ func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 		"netductor secondary join /root/bundle.json\n"+
 		"systemctl is-active sing-box || true\n"+
 		"systemctl is-active netductor-secondary-agent || true\n"+
-		"ss -tlnp | grep -E ':443|:4443' || true\n",
+		"ss -tlnp | grep -E ':443' || true\n",
 		ver, escaped)
 	return runSSH(client, script)
 }

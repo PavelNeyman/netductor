@@ -31,12 +31,7 @@ func ApplyConfig() error {
 		UUID string `json:"uuid"`
 		Flow string `json:"flow"`
 	}
-	type hu struct {
-		Name     string `json:"name"`
-		Password string `json:"password"`
-	}
-	var vusers []vu
-	var husers []hu
+		var vusers []vu
 	for _, u := range r.Users {
 		if !u.Enabled {
 			continue
@@ -47,20 +42,10 @@ func ApplyConfig() error {
 			flow = ""
 		}
 		vusers = append(vusers, vu{UUID: u.UUID, Flow: flow})
-		pass := u.Hy2Password
-		if pass == "" {
-			pass = u.UUID
-		}
-		husers = append(husers, hu{Name: u.Name, Password: pass})
 	}
 	if vusers == nil {
 		vusers = []vu{}
 	}
-	if husers == nil {
-		husers = []hu{}
-	}
-	_ = husers // HY2 inbound disabled
-
 	sniVal := sni()
 	outbounds, routeRules, finalOut := buildOutboundsAndRoute()
 	cfg := map[string]any{
@@ -91,7 +76,6 @@ func ApplyConfig() error {
 					},
 				},
 			},
-			// HY2 removed from product default (VLESS Reality only). husers kept for registry compat.
 		},
 		"outbounds": outbounds,
 		"route": map[string]any{

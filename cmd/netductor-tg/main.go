@@ -577,7 +577,7 @@ func runVPN(args ...string) string {
 	return string(out)
 }
 
-// shareURIFrom keeps only importable URI lines (vless/hysteria2/ss/trojan).
+// shareURIFrom keeps only importable URI lines (vless/ss/trojan).
 func shareURIFrom(raw string) string {
 	var lines []string
 	for _, ln := range strings.Split(raw, "\n") {
@@ -586,8 +586,7 @@ func shareURIFrom(raw string) string {
 			continue
 		}
 		low := strings.ToLower(ln)
-		if strings.HasPrefix(low, "vless://") || strings.HasPrefix(low, "hysteria2://") ||
-			strings.HasPrefix(low, "hy2://") || strings.HasPrefix(low, "ss://") ||
+		if strings.HasPrefix(low, "vless://") || strings.HasPrefix(low, "ss://") ||
 			strings.HasPrefix(low, "trojan://") {
 			lines = append(lines, ln)
 		}

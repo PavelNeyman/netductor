@@ -11,13 +11,9 @@ import (
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
-// defaultAPIAllowCIDRs from ndconfig (overridable). Legacy backbone only if NETDUCTOR_SVC_LEGACY_CIDR set.
+// defaultAPIAllowCIDRs from ndconfig (SP/PS service paths only).
 func defaultAPIAllowCIDRs() []string {
-	out := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
-	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_SVC_LEGACY_CIDR")); v != "" {
-		out = append(out, v)
-	}
-	return out
+	return []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
 }
 
 // ApplyAgentFirewall: deny plain :8788; restrict mTLS :8789.

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// SubscriptionBody returns newline-separated primary URIs (relay + core), no HY2.
+// SubscriptionBody returns newline-separated primary URIs (relay + core).
 func SubscriptionBody(name string) (string, error) {
 	r, err := loadRegistry()
 	if err != nil {

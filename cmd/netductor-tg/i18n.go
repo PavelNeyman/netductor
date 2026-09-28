@@ -185,7 +185,6 @@ var dict = map[string]map[string]string{
 		"audit":         "📋 Audit",
 		"sessions":      "🔑 Sessions",
 		"refresh_links": "🔄 Refresh links",
-		"hy2_optional":  "HY2 optional (not for carrier WL)",
 
 		"backup_hint":   "Peer SCP + run backup now",
 		"backup_run":    "▶ Run now",
@@ -365,7 +364,6 @@ var dict = map[string]map[string]string{
 		"audit":         "📋 Аудит",
 		"sessions":      "🔑 Сессии",
 		"refresh_links": "🔄 Обновить ссылки",
-		"hy2_optional":  "HY2 опционален (не для БС)",
 
 		"backup_hint":   "Peer SCP + запуск бэкапа",
 		"backup_run":    "▶ Сейчас",

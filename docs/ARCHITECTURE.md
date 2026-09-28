@@ -10,7 +10,7 @@ Fleet: **primary** (abroad control plane) + optional **secondary** (RU VPN entry
 |-------|------|
 | install | packages + systemd units |
 | serve | JSON API :8787 (Mac client via tunnel); legacy `/admin` optional |
-| vpn | multi-user VLESS Reality + HY2 (sing-box) |
+| vpn | multi-user VLESS Reality (sing-box) |
 | collect / probes | metrics + alerts via Telegram |
 | doctor / status | health |
 | tui | Bubble Tea + Huh |
