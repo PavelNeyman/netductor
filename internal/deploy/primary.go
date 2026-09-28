@@ -150,8 +150,7 @@ chmod 755 /usr/local/bin/netductor
 		fmt.Print(out)
 		if err != nil {
 			// Telegram asset missing on a hand-cut release must not block LE/domain/lampac.
-			msg := err.Error() + "
-" + out
+			msg := err.Error() + "\n" + out
 			if strings.Contains(msg, "telegram") && !strings.Contains(msg, "netductor:") {
 				fmt.Fprintln(os.Stderr, "warn install partial (continuing deploy):", err)
 			} else {
