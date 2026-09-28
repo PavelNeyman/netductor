@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -101,6 +102,7 @@ func runCollect() int {
 	latest := filepath.Join(dir, "latest.json")
 	_ = os.WriteFile(latest, append(line, '\n'), 0o644)
 
+	install.EnsureRedirectRunning()
 	evaluateSimpleAlerts(m, live, cfg)
 	fmt.Printf("collected ts=%v probes=%d → %s\n", m["ts"], len(live), latest)
 	return 0

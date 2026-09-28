@@ -3,7 +3,7 @@
 # Agent handoff
 
 **Repo:** https://github.com/PavelNeyman/netductor  
-**Version:** **v0.9.77**
+**Version:** **v0.9.79**
 
 Read first: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [ARCHITECTURE-PLAN](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [RUNBOOK-INSTALL-RECOVER](RUNBOOK-INSTALL-RECOVER.md) · [SECURITY](SECURITY.md) · [REVIEW-0.9.75](REVIEW-0.9.75.md) · [BREW](BREW.md)
 
@@ -15,6 +15,7 @@ primary + secondary · VLESS Reality · service SP/PS · mTLS **:8789** · SSH *
 
 | Ver | Note |
 |-----|------|
+| **0.9.79** | Auto-heal redirect in collect; probes strip hy2; no ufw on agent heartbeat |
 | **0.9.77** | Auto failover: probe→tick→apply (agent URL + uplink server) on secondary |
 | **0.9.76** | SSH only :52222 (deny :22); :8789 no secondary WAN after SP; doctor healthz :8443 |
 | **0.9.75** | Footgun knobs removed from code; `ndconfig` ignores obsolete conf keys |

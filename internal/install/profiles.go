@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -168,7 +169,38 @@ WantedBy=multi-user.target
 		fmt.Fprintln(os.Stderr, "redirect: unit installed; set REDIRECT_BASE and start when domain ready")
 		return nil
 	}
-	return enableStart("netductor-redirect")
+	if err := enableStart("netductor-redirect"); err != nil {
+		return err
+	}
+	EnsureRedirectRunning()
+	return nil
+}
+
+// EnsureRedirectRunning starts netductor-redirect if the unit exists, is enabled
+// (or has LE certs + REDIRECT_BASE), and is not active. Prevents collect/TG spam
+// after binary updates that kill the shared netductor process.
+func EnsureRedirectRunning() {
+	unit := "/etc/systemd/system/netductor-redirect.service"
+	if _, err := os.Stat(unit); err != nil {
+		return
+	}
+	out, _ := exec.Command("systemctl", "is-active", "netductor-redirect").Output()
+	if strings.TrimSpace(string(out)) == "active" {
+		return
+	}
+	// enabled or has conf base
+	en, _ := exec.Command("systemctl", "is-enabled", "netductor-redirect").Output()
+	enS := strings.TrimSpace(string(en))
+	base := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE"))
+	if base == "" {
+		if conf := readNetductorConfMap(); conf != nil {
+			base = conf["REDIRECT_BASE"]
+		}
+	}
+	if enS != "enabled" && base == "" {
+		return
+	}
+	_ = exec.Command("systemctl", "start", "netductor-redirect").Run()
 }
 
 func readNetductorConfMap() map[string]string {
