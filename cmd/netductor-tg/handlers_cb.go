@@ -545,8 +545,16 @@ if strings.HasPrefix(data, "u:") {
 			_ = runND("svc-paths", "failover", "set-users-sp", "on")
 		}
 		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
-		out := runND("api-public", "status")
-		reply(token, chat, msgID, "📡 <b>API public</b>\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
+	case "m:svc_paths":
+		out := runND("svc-paths", "status")
+		title := "🔗 <b>Service paths SP/PS</b>"
+		if getLang() != "en" {
+			title = "🔗 <b>Служебные каналы SP/PS</b>"
+		}
+		reply(token, chat, msgID, title+"\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
+	case "m:svc_paths_apply":
+		out := runND("svc-paths", "apply")
+		reply(token, chat, msgID, "svc-paths apply\n<pre>"+esc(out)+"</pre>", operatorSubKeyboard())
 
 	case "m:admin":
 		reply(token, chat, msgID, T("admin_body"), operatorSubKeyboard())

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/backbone"
 	"os"
@@ -475,6 +476,24 @@ func runDoctorNative() int {
 	}
 
 	doctorPrintf(cli18n.T("doctor.summary")+"\n", ok, fail, warn)
+	// Service plane SP/PS (when secondary is expected)
+	{
+		st := svcpaths.Status()
+		if st.KeysDirOK || st.SP.Up || st.PS.Up {
+			spOK := st.SP.Up && st.SP.PeerPingOK != nil && *st.SP.PeerPingOK
+			psOK := st.PS.Up && st.PS.PeerPingOK != nil && *st.PS.PeerPingOK
+			if spOK {
+				check("svc-paths SP peer", true)
+			} else {
+				warnCheck("svc-paths SP peer", false)
+			}
+			if psOK {
+				check("svc-paths PS peer", true)
+			} else {
+				warnCheck("svc-paths PS peer", false)
+			}
+		}
+	}
 	lastDoctorReport.Summary.OK = ok
 	lastDoctorReport.Summary.Fail = fail
 	lastDoctorReport.Summary.Warn = warn

@@ -222,12 +222,50 @@ func operatorHubHTML() string {
 		}
 	}
 
+	stJSON := runND("svc-paths", "status")
+	spCell, psCell := "🔴 down", "🔴 down"
+	if ru {
+		spCell, psCell = "🔴 нет", "🔴 нет"
+	}
+	if i := strings.Index(stJSON, `"sp"`); i >= 0 {
+		chunk := stJSON[i:]
+		if j := strings.Index(chunk, `"ps"`); j > 0 {
+			chunk = chunk[:j]
+		}
+		if strings.Contains(chunk, `"peer_ping_ok": true`) || strings.Contains(chunk, `"peer_ping_ok":true`) {
+			spCell = "🟢 up"
+			if ru {
+				spCell = "🟢 ок"
+			}
+		}
+	}
+	if i := strings.Index(stJSON, `"ps"`); i >= 0 {
+		chunk := stJSON[i:]
+		if strings.Contains(chunk, `"peer_ping_ok": true`) || strings.Contains(chunk, `"peer_ping_ok":true`) {
+			psCell = "🟢 up"
+			if ru {
+				psCell = "🟢 ок"
+			}
+		}
+	}
+	kSP, kPS := "SP (S→P)", "PS (P→S)"
+	svcBtn, applyBtn := "🔗 SP/PS status", "⚙️ Apply paths"
+	if ru {
+		svcBtn, applyBtn = "🔗 Статус SP/PS", "⚙️ Apply каналы"
+	}
+
 	table := "<table><tr><td><b>key</b></td><td><b>value</b></td></tr>" +
 		"<tr><td>" + kAPI + "</td><td>" + apiCell + "</td></tr>" +
 		"<tr><td>" + kUsers + "</td><td>" + usersCell + "</td></tr>" +
-		"<tr><td>" + kFO + "</td><td>" + foHint + "</td></tr></table>"
+		"<tr><td>" + kFO + "</td><td>" + foHint + "</td></tr>" +
+		"<tr><td>" + kSP + "</td><td>" + spCell + "</td></tr>" +
+		"<tr><td>" + kPS + "</td><td>" + psCell + "</td></tr></table>"
 
 	return title + "\n" + table + "\n" +
+		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" data="m:svc_paths">` + svcBtn + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:svc_paths_apply">` + applyBtn + `</tg-button>` +
+		`</tg-button-row>` +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:sessions">` + sessions + `</tg-button>` +
