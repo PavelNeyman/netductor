@@ -59,6 +59,7 @@ func ApplyConfig() error {
 	if husers == nil {
 		husers = []hu{}
 	}
+	_ = husers // HY2 inbound disabled
 
 	sniVal := sni()
 	outbounds, routeRules, finalOut := buildOutboundsAndRoute()
@@ -90,16 +91,7 @@ func ApplyConfig() error {
 					},
 				},
 			},
-			map[string]any{
-				"type": "hysteria2", "tag": "hy2", "listen": "::", "listen_port": hy2Port(),
-				"users": husers,
-				"tls": map[string]any{
-					"enabled": true, "alpn": []string{"h3"},
-					"certificate_path": "/etc/sing-box/certs/hy2.crt",
-					"key_path":         "/etc/sing-box/certs/hy2.key",
-				},
-				"masquerade": "https://" + sniVal,
-			},
+			// HY2 removed from product default (VLESS Reality only). husers kept for registry compat.
 		},
 		"outbounds": outbounds,
 		"route": map[string]any{

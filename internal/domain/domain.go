@@ -34,10 +34,11 @@ func (c *Config) Expand() {
 	base = strings.TrimSuffix(base, "/")
 	c.Base = base
 	if c.Primary == "" && base != "" {
-		c.Primary = "primary." + base
+		// short labels: p.<base> / s.<base> / i.<base> (matches typical ND DNS)
+		c.Primary = "p." + base
 	}
 	if c.VPN == "" && base != "" {
-		c.VPN = "vpn." + base
+		c.VPN = "s." + base
 	}
 	if c.RedirectBase == "" && base != "" {
 		if c.UseHTTPRedirect && !c.LE {
