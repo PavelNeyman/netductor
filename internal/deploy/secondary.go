@@ -45,9 +45,8 @@ type secondaryPack struct {
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
 func DeploySecondary(o SecondaryOpts) error {
-	if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
-		_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
-	}
+	// Primary is day-2 on 52222 after harden; secondary first hop forces :22 below.
+	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 	if o.PrimaryHost == "" || o.PrimaryKey == "" {
 		return fmt.Errorf("primary host and SSH key required")
 	}
