@@ -140,24 +140,22 @@ func runLE(c Config) error {
 	if c.LEStaging {
 		args = append(args, "--staging")
 	}
-	if c.Base != "" {
-		args = append(args, "--base", c.Base)
-	} else if c.Primary != "" {
-		args = append(args, "--domains", c.Primary)
+	// Prefer explicit Primary/Redirect hosts (p2/i2) over --base preset (p/i).
+	if c.Primary != "" {
+		doms := c.Primary
 		if c.RedirectBase != "" {
-			// extract host from URL (strip path and :port)
 			rb := strings.TrimPrefix(strings.TrimPrefix(c.RedirectBase, "https://"), "http://")
 			rb = strings.Split(rb, "/")[0]
 			if i := strings.Index(rb, ":"); i >= 0 {
 				rb = rb[:i]
 			}
 			if rb != "" && rb != c.Primary {
-				args = []string{"tls", "le", "--email", email, "--agree-tos", "--domains", c.Primary + "," + rb}
-				if c.LEStaging {
-					args = append(args, "--staging")
-				}
+				doms = c.Primary + "," + rb
 			}
 		}
+		args = append(args, "--domains", doms)
+	} else if c.Base != "" {
+		args = append(args, "--base", c.Base)
 	}
 	fmt.Fprintln(os.Stderr, "domain: obtaining Let's Encrypt…")
 	cmd := exec.Command(bin, args...)

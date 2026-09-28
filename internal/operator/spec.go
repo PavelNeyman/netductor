@@ -25,6 +25,9 @@ type PrimarySpec struct {
 	DomainLE        bool
 	DomainCFProxy   bool
 	DomainEmail     string
+	DomainPrimary   string
+	DomainVPN       string
+	DomainRedirect  string
 	SkipInstall     bool
 	WithLampac      bool
 	WithGitRegistry bool
@@ -58,7 +61,9 @@ func (p PrimarySpec) toDeploy() deploy.PrimaryOpts {
 		SSHPrivateKey: p.SSHPrivateKey, GenerateKey: p.GenerateKey, KeyPassphrase: p.KeyPassphrase,
 		Version: p.Version, TelegramToken: p.TelegramToken, TelegramAdminID: p.TelegramAdminID,
 		SNI: p.SNI, DomainBase: p.DomainBase, DomainHTTP: p.DomainHTTP, DomainLE: p.DomainLE,
-		DomainCFProxy: p.DomainCFProxy, DomainEmail: p.DomainEmail, SkipInstall: p.SkipInstall,
+		DomainCFProxy: p.DomainCFProxy, DomainEmail: p.DomainEmail,
+		DomainPrimary: p.DomainPrimary, DomainVPN: p.DomainVPN, DomainRedirect: p.DomainRedirect,
+		SkipInstall: p.SkipInstall,
 		WithLampac: p.WithLampac, WithGitRegistry: p.WithGitRegistry,
 	}
 }

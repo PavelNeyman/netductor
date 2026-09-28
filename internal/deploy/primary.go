@@ -25,6 +25,9 @@ type PrimaryOpts struct {
 	DomainLE        bool   // Let's Encrypt after domain set
 	DomainCFProxy   bool   // CF orange on i. → REDIRECT_BASE without :8443
 	DomainEmail     string
+	DomainPrimary   string // explicit e.g. p2.nd.example.com (overrides base primary label)
+	DomainVPN       string // explicit VPN host e.g. s.nd.example.com
+	DomainRedirect  string // full REDIRECT_BASE e.g. https://i2.nd.example.com:8443
 	SkipInstall     bool
 	WithLampac      bool
 	WithGitRegistry bool // optional thin git + local registry (addon)
@@ -177,18 +180,37 @@ chmod 755 /usr/local/bin/netductor
 	fmt.Print(out)
 	_ = err
 
-	if strings.TrimSpace(o.DomainBase) != "" {
-		fmt.Fprintln(os.Stderr, "==> domain set", o.DomainBase)
-		cmd := "netductor domain set --base " + shellQuote(o.DomainBase)
+	hasDomain := strings.TrimSpace(o.DomainBase) != "" || strings.TrimSpace(o.DomainPrimary) != "" || strings.TrimSpace(o.DomainRedirect) != ""
+	if hasDomain {
+		fmt.Fprintln(os.Stderr, "==> domain set")
+		var cmd string
+		if strings.TrimSpace(o.DomainPrimary) != "" || strings.TrimSpace(o.DomainRedirect) != "" {
+			cmd = "netductor domain set"
+			if p := strings.TrimSpace(o.DomainPrimary); p != "" {
+				cmd += " --primary " + shellQuote(p)
+			}
+			if v := strings.TrimSpace(o.DomainVPN); v != "" {
+				cmd += " --vpn " + shellQuote(v)
+			} else if strings.TrimSpace(o.DomainBase) != "" {
+				cmd += " --vpn " + shellQuote("s."+strings.TrimSpace(o.DomainBase))
+			}
+			if r := strings.TrimSpace(o.DomainRedirect); r != "" {
+				cmd += " --redirect " + shellQuote(r)
+			}
+			if b := strings.TrimSpace(o.DomainBase); b != "" {
+				cmd += " --base " + shellQuote(b) // DOMAIN= conf only; hosts already explicit
+			}
+		} else {
+			cmd = "netductor domain set --base " + shellQuote(o.DomainBase)
+		}
 		if o.DomainLE && strings.TrimSpace(o.DomainEmail) != "" {
 			cmd += " --le --email " + shellQuote(o.DomainEmail)
-			fmt.Fprintln(os.Stderr, "==> Let's Encrypt for primary.+i."+o.DomainBase)
+			fmt.Fprintln(os.Stderr, "==> Let's Encrypt", o.DomainPrimary, o.DomainRedirect)
 		} else if o.DomainHTTP {
 			cmd += " --http"
 		}
 		if o.DomainCFProxy {
 			cmd += " --cf-proxy"
-			fmt.Fprintln(os.Stderr, "==> CF orange on i. → REDIRECT_BASE without :8443")
 		}
 		out, err = runSSH("", keyPath, o.User, o.Host, cmd, o.KeyPassphrase)
 		fmt.Print(out)

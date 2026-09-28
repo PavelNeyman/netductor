@@ -84,6 +84,15 @@ See: netductor tui → Setup wizard`)
 			case a == "--domain-base" && i+1 < len(args):
 				i++
 				o.DomainBase = args[i]
+			case a == "--domain-primary" && i+1 < len(args):
+				i++
+				o.DomainPrimary = args[i]
+			case a == "--domain-vpn" && i+1 < len(args):
+				i++
+				o.DomainVPN = args[i]
+			case a == "--domain-redirect" && i+1 < len(args):
+				i++
+				o.DomainRedirect = args[i]
 			case a == "--le-email" && i+1 < len(args):
 				i++
 				o.DomainEmail = args[i]
