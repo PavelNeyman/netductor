@@ -13,6 +13,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/version"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -43,6 +44,8 @@ func Run(opts Options) error {
 	if err := paths.EnsureLayout(); err != nil {
 		return err
 	}
+	ndconfig.EnsureDefaultsInConf()
+	ndconfig.Load()
 	_ = copySelfToLocalBin()
 	_ = EnsureDomainConfig()
 	_ = EnsureClientProfiles()

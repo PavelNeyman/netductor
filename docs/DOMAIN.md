@@ -55,3 +55,19 @@ netductor tls le --email admin@example.com --domains p2.nd.example.com,i2.nd.exa
 ## Cloudflare (optional)
 
 Orange proxy only on the **redirect** hostname if you want HTTPS without `:8443`. Keep CORE and VPN **DNS-only** (grey) so Reality on 443 is not broken.
+
+## Product defaults (conf)
+
+On install, `netductor.conf` gets commented keys. Override as needed:
+
+| Conf key | Default | Meaning |
+|----------|---------|---------|
+| SSH_PORT | 52222 | harden / deploy SSH |
+| AGENT_MTLS_PORT | 8789 | agent plane |
+| API_PORT | 8787 | loopback API |
+| REDIRECT_HTTPS_PORT | 8443 | LE import redirect |
+| DEFAULT_SNI | api.vk.me | Reality if not set via set-sni |
+| LAMPAC_PORT | 9118 | lampac bind |
+| HY2 | 0 | enable Hysteria2 (off) |
+| SVC_SP_CIDR / SVC_PS_CIDR | 10.87.10/11.0/30 | service WG allow |
+| SVC_LEGACY_CIDR | (empty) | opt-in old backbone |

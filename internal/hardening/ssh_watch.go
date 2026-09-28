@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -99,14 +99,10 @@ findtime = 10m
 
 // DefaultSSHPort is used when deploy does not set NETDUCTOR_SSH_PORT.
 // 52222 — non-standard, easy to remember, avoids colliding with common 2222 scanners slightly less than 22.
-const DefaultSSHPort = 52222
+const DefaultSSHPort = ndconfig.DefSSHPort // keep for callers
 
 // SSHPort returns NETDUCTOR_SSH_PORT or DefaultSSHPort.
 func SSHPort() int {
-	if v := os.Getenv("NETDUCTOR_SSH_PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n < 65536 {
-			return n
-		}
-	}
-	return DefaultSSHPort
+	return ndconfig.SSHPort()
 }
+

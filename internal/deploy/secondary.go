@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -64,7 +65,7 @@ func DeploySecondary(o SecondaryOpts) error {
 		o.SecondaryUser = "root"
 	}
 	if o.SNI == "" {
-		o.SNI = "api.vk.me"
+		o.SNI = ndconfig.DefaultSNI()
 	}
 	pub := strings.TrimSpace(o.OperatorPubKey)
 	if pub == "" {

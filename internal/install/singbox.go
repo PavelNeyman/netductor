@@ -1,6 +1,7 @@
 package install
 
 import (
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -64,9 +65,10 @@ afterBin:
 		sni = readSecret("singbox_reality_sni")
 	}
 	if sni == "" {
-		sni = "ya.ru"
+		sni = ndconfig.DefaultSNI()
 	}
 	_ = writeSecret("singbox_reality_sni", sni)
+	if ndconfig.HY2Enabled() {
 	if _, err := os.Stat("/etc/sing-box/certs/hy2.crt"); err != nil {
 		_ = exec.Command("openssl", "req", "-x509", "-nodes", "-newkey", "ec",
 			"-pkeyopt", "ec_paramgen_curve:prime256v1",
@@ -74,6 +76,7 @@ afterBin:
 			"-out", "/etc/sing-box/certs/hy2.crt",
 			"-days", "3650", "-subj", "/CN="+sni).Run()
 		_ = os.Chmod("/etc/sing-box/certs/hy2.key", 0o600)
+	}
 	}
 	// minimal empty config; users via vpn.ApplyConfig
 	if err := vpn.EnsureDirs(); err != nil {

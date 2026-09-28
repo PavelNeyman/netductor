@@ -7,15 +7,17 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
-// Default service-plane CIDRs (dual WG-over-WSS + legacy backbone).
-var defaultAPIAllowCIDRs = []string{
-	"10.87.10.0/30", // nd-svc-sp
-	"10.87.11.0/30", // nd-svc-ps
-	"10.87.0.0/30",  // legacy nd-backbone
-	"127.0.0.1/32",
+// defaultAPIAllowCIDRs from ndconfig (overridable). Legacy backbone only if NETDUCTOR_SVC_LEGACY_CIDR set.
+func defaultAPIAllowCIDRs() []string {
+	out := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_SVC_LEGACY_CIDR")); v != "" {
+		out = append(out, v)
+	}
+	return out
 }
 
 // ApplyAgentFirewall: deny plain :8788; restrict mTLS :8789.
@@ -25,11 +27,11 @@ func ApplyAgentFirewall() error {
 	}
 	_ = run("ufw", "delete", "allow", "8788/tcp")
 	_ = run("ufw", "deny", "8788/tcp")
-	_ = run("ufw", "delete", "allow", "8789/tcp")
-	_ = run("ufw", "delete", "allow", "8789/tcp")
+	_ = run("ufw", "delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
+	_ = run("ufw", "delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
 
 	if os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") == "1" {
-		if err := run("ufw", "allow", "8789/tcp", "comment", "netductor-api-public"); err != nil {
+		if err := run("ufw", "allow", ndconfig.AgentMTLSPort()+"/tcp", "comment", "netductor-api-public"); err != nil {
 			return fmt.Errorf("ufw allow 8789 public: %w", err)
 		}
 		fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 OPEN (NETDUCTOR_API_ALLOW_PUBLIC=1)")
@@ -43,7 +45,7 @@ func ApplyAgentFirewall() error {
 			continue
 		}
 		seen[c] = true
-		if err := run("ufw", "allow", "from", c, "to", "any", "port", "8789", "proto", "tcp", "comment", "netductor-api"); err != nil {
+		if err := run("ufw", "allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api"); err != nil {
 			fmt.Fprintf(os.Stderr, "ufw allow 8789 from %s: %v\n", c, err)
 		}
 	}
@@ -52,7 +54,7 @@ func ApplyAgentFirewall() error {
 }
 
 func collectAPIAllowCIDRs() []string {
-	cidrs := append([]string{}, defaultAPIAllowCIDRs...)
+	cidrs := append([]string{}, defaultAPIAllowCIDRs()...)
 	if extra := strings.TrimSpace(os.Getenv("NETDUCTOR_API_ALLOW_CIDR")); extra != "" {
 		for _, p := range strings.Split(extra, ",") {
 			p = strings.TrimSpace(p)
@@ -115,7 +117,7 @@ func RestrictAgentMTLSToIP(ip string) error {
 	_ = f.Close()
 	// one-shot ufw allow for this CIDR only (no full wipe/reapply)
 	if _, err := exec.LookPath("ufw"); err == nil {
-		_ = run("ufw", "allow", "from", ip, "to", "any", "port", "8789", "proto", "tcp", "comment", "netductor-api")
+		_ = run("ufw", "allow", "from", ip, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api")
 	}
 	return nil
 }
@@ -137,7 +139,7 @@ func applyAgentFirewallQuiet() error {
 			continue
 		}
 		seen[c] = true
-		_ = ufwQuiet("allow", "from", c, "to", "any", "port", "8789", "proto", "tcp", "comment", "netductor-api")
+		_ = ufwQuiet("allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api")
 	}
 	return nil
 }

@@ -1,6 +1,8 @@
 package vpn
 
 import (
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
+
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -223,20 +225,24 @@ func writeArtifacts(name, uuid, hy2pass string) error {
 	}
 	vless := PreferredVLESSLink(name, uuid)
 	vlessCore := VLESSLink(name, uuid)
-	hy2 := Hy2Link(name, hy2pass)
 	nl := string([]byte{10})
-	// Primary subscription: VLESS only (relay-first + core). HY2 optional under WL.
+	// Primary subscription: VLESS only. HY2 only when NETDUCTOR_HY2=1.
 	sub := vless + nl + vlessCore + nl
 	_ = os.WriteFile(filepath.Join(dir, "link-vless.txt"), []byte(vless+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(vlessCore+nl), 0o600)
-	_ = os.WriteFile(filepath.Join(dir, "link-hy2.txt"), []byte(hy2+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "subscription.txt"), []byte(sub), 0o600)
-	_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub+hy2+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr.png"))
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr-vless.png"))
-	_ = qrcode.WriteFile(hy2, qrcode.Medium, 512, filepath.Join(dir, "qr-hy2.png"))
 	_ = qrcode.WriteFile(sub, qrcode.Medium, 512, filepath.Join(dir, "qr-subscription.png"))
+	if ndconfig.HY2Enabled() {
+		hy2 := Hy2Link(name, hy2pass)
+		_ = os.WriteFile(filepath.Join(dir, "link-hy2.txt"), []byte(hy2+nl), 0o600)
+		_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub+hy2+nl), 0o600)
+		_ = qrcode.WriteFile(hy2, qrcode.Medium, 512, filepath.Join(dir, "qr-hy2.png"))
+	} else {
+		_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub), 0o600)
+	}
 	_ = os.Chmod(filepath.Join(dir, "qr.png"), 0o600)
 	_ = os.Chmod(filepath.Join(dir, "qr-subscription.png"), 0o600)
 	_ = WriteClientConfigs(name, uuid)

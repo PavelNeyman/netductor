@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"fmt"
 	"os"
 	"os/exec"
@@ -48,7 +49,7 @@ func DeployPrimary(o PrimaryOpts) error {
 		return fmt.Errorf("invalid release version %q", o.Version)
 	}
 	if o.SNI == "" {
-		o.SNI = "api.vk.me"
+		o.SNI = ndconfig.DefaultSNI()
 	}
 
 	keyPath := strings.TrimSpace(o.SSHPrivateKey)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
 func InstallHardening() error {
@@ -28,9 +29,13 @@ func InstallHardening() error {
 		// keep 22 open during transition so operators are not locked out after Port change
 		_ = run("ufw", "allow", "22/tcp")
 		_ = run("ufw", "allow", "443/tcp")
-		_ = run("ufw", "allow", "4443/tcp")
-		_ = run("ufw", "allow", "4443/udp")
-		_ = run("ufw", "allow", "8443/udp")
+		if ndconfig.HY2Enabled() {
+			_ = run("ufw", "allow", "4443/tcp")
+			_ = run("ufw", "allow", "4443/udp")
+		}
+		redir := ndconfig.RedirectHTTPSPort()
+		_ = run("ufw", "allow", redir+"/tcp")
+		_ = run("ufw", "allow", redir+"/udp")
 		_ = run("ufw", "delete", "allow", "8788/tcp")
 		_ = run("ufw", "deny", "8788/tcp")
 		_ = ApplyAgentFirewall()

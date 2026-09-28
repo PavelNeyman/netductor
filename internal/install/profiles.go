@@ -1,6 +1,7 @@
 package install
 
 import (
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	_ "embed"
 	"fmt"
 	"os"
@@ -136,13 +137,13 @@ Type=simple
 EnvironmentFile=-/etc/netductor/netductor.conf
 Environment=NETDUCTOR_REDIRECT_TLS_CERT=%s
 Environment=NETDUCTOR_REDIRECT_TLS_KEY=%s
-ExecStart=%s redirect-serve -listen off -https-listen :8443 -tls-cert %s -tls-key %s
+ExecStart=%s redirect-serve -listen off -https-listen :%s -tls-cert %s -tls-key %s
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-`, cert, key, bin, cert, key)
+`, cert, key, bin, ndconfig.RedirectHTTPSPort(), cert, key)
 	} else {
 		// Product: no public HTTP :80 (only HTTPS :8443 after LE).
 		listen := "off"
