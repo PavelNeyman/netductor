@@ -106,6 +106,8 @@ func ConfigVer() int {
 	return r.ConfigVer
 }
 
+// IssueToken creates a new agent token. Replaces never-joined (ghost) devices with the
+// same name so repeated prepare-pack / deploy secondary does not accumulate offline alerts.
 func IssueToken(name string) (id, token string, err error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -121,6 +123,16 @@ func IssueToken(name string) (id, token string, err error) {
 	if name == "" {
 		name = id
 	}
+	// Drop prepare-pack ghosts: same name never heartbeated, or any never-seen empty-IP
+	var kept []Device
+	for _, d := range r.Devices {
+		ghost := d.LastSeen.IsZero() && (d.Name == name || d.PublicIP == "")
+		if ghost {
+			continue
+		}
+		kept = append(kept, d)
+	}
+	r.Devices = kept
 	r.Devices = append(r.Devices, Device{
 		ID: id, Token: token, Name: name, CreatedAt: time.Now().UTC(), SNI: "api.vk.me",
 	})
@@ -208,8 +220,30 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 			r.Devices[i].LastCmdAt = time.Now().UTC()
 		}
 		r.Devices[i].LastSeen = time.Now().UTC()
+		// After first/real heartbeat: drop other never-joined tokens with same name
+		name := r.Devices[i].Name
+		curID := r.Devices[i].ID
+		var kept []Device
+		for j := range r.Devices {
+			if r.Devices[j].ID == curID {
+				kept = append(kept, r.Devices[j])
+				continue
+			}
+			if r.Devices[j].LastSeen.IsZero() && (r.Devices[j].Name == name || r.Devices[j].PublicIP == "") {
+				continue
+			}
+			kept = append(kept, r.Devices[j])
+		}
+		r.Devices = kept
 		_ = save(r)
-		d := r.Devices[i]
+		// re-find current after prune
+		for j := range r.Devices {
+			if r.Devices[j].ID == curID {
+				d := r.Devices[j]
+				return &d, r.ConfigVer, nil
+			}
+		}
+		d := Device{ID: curID}
 		return &d, r.ConfigVer, nil
 	}
 	return nil, 0, os.ErrNotExist
