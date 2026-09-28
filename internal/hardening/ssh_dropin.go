@@ -42,6 +42,12 @@ if command -v ufw >/dev/null 2>&1; then
   ufw delete allow 22/tcp 2>/dev/null || true
   ufw deny 22/tcp comment netductor-no-ssh22 2>/dev/null || true
 fi
+# Debian 13+ often uses ssh.socket → still binds :22; force ssh.service only
+systemctl stop ssh.socket 2>/dev/null || true
+systemctl disable ssh.socket 2>/dev/null || true
+systemctl stop sshd.socket 2>/dev/null || true
+systemctl disable sshd.socket 2>/dev/null || true
+systemctl enable ssh.service 2>/dev/null || systemctl enable sshd.service 2>/dev/null || true
 systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service ssh restart 2>/dev/null || true
 `, DropInConf(), port)
 }

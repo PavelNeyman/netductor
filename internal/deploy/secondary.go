@@ -166,9 +166,17 @@ func DeploySecondary(o SecondaryOpts) error {
 		}
 		tmp := filepath.Join(os.TempDir(), "nd-svc-material.json")
 		_ = os.WriteFile(tmp, []byte(raw), 0o600)
+		// Prefer :52222; if secondary still has ssh.socket on :22, fall back
 		if err := runSCP("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmp, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase); err != nil {
-			fmt.Fprintln(os.Stderr, "warn svc-paths scp material:", err)
-		} else {
+			fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", err, "— retry :22")
+			_ = os.Setenv("NETDUCTOR_SSH_PORT", "22")
+			if err2 := runSCP("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmp, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase); err2 != nil {
+				fmt.Fprintln(os.Stderr, "warn svc-paths scp material:", err2)
+			} else {
+				err = nil
+			}
+		}
+		if err == nil {
 			out2, err2 := runSSH("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
 				"netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json; rm -f /tmp/nd-svc-material.json; sleep 2; ping -c1 -W3 10.87.10.1 || true",
 				o.PrimaryKeyPassphrase)
@@ -176,7 +184,12 @@ func DeploySecondary(o SecondaryOpts) error {
 			if err2 != nil {
 				fmt.Fprintln(os.Stderr, "warn svc-paths secondary:", err2)
 			}
+			// Force ssh.service only (kill ssh.socket :22)
+			_, _ = runSSH("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
+				`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
+				o.PrimaryKeyPassphrase)
 		}
+		_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 		_ = os.Remove(tmp)
 		_, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
 			"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; true",

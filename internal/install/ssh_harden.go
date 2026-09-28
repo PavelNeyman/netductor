@@ -107,6 +107,12 @@ func EnsureSSHKeyAndHarden() error {
 		_ = exec.Command("ufw", "deny", "22/tcp", "comment", "netductor-no-ssh22").Run()
 	}
 
+	// Debian 13 socket activation keeps :22 even after Port 52222 drop-in
+	_ = exec.Command("systemctl", "stop", "ssh.socket").Run()
+	_ = exec.Command("systemctl", "disable", "ssh.socket").Run()
+	_ = exec.Command("systemctl", "stop", "sshd.socket").Run()
+	_ = exec.Command("systemctl", "disable", "sshd.socket").Run()
+	_ = exec.Command("systemctl", "enable", "ssh.service").Run()
 	_ = exec.Command("systemctl", "restart", "sshd").Run()
 	_ = exec.Command("systemctl", "restart", "ssh").Run()
 	fmt.Fprintf(os.Stderr, "ssh: harden drop-in Port %d key-only (no :22)\n", port)
