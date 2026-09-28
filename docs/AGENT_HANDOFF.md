@@ -43,3 +43,14 @@ Mac **TUI + Web** → shared `internal/deploy`. TG does not deploy VPS.
 ## Rule for agents
 
 Closed checklist item → mark plan + update this handoff + CHANGELOG in the **same** change.
+
+## Service plane (SP/PS) — auto with secondary deploy (0.9.75+)
+
+After `deploy secondary`, Mac runs:
+1. `svc-paths bootstrap-primary --peer-ip <secondary>` on primary → material JSON
+2. `svc-paths bootstrap-secondary --material` on secondary
+3. Agent `secondary_core_url` → `https://10.87.10.1:8789`
+
+Units: `nd-wss-sp-*`, `nd-wss-ps-*`, `wg-quick@nd-svc-sp|ps`. Health timer every 30s.
+If missing on an old node: same two bootstrap commands (not optional in architecture).
+
