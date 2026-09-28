@@ -16,7 +16,7 @@ import (
 type Config struct {
 	Email    string
 	Domains  []string
-	Base     string // if set and Domains empty → primary.<base>, i.<base>
+	Base     string // if set and Domains empty → p.<base>, i.<base>
 	Staging  bool
 	AgreeTOS bool
 }
@@ -29,7 +29,7 @@ func Obtain(c Config) error {
 		return fmt.Errorf("--email required (LE registration)")
 	}
 	if len(c.Domains) == 0 && c.Base != "" {
-		c.Domains = []string{"primary." + c.Base, "i." + c.Base}
+		c.Domains = []string{"p." + c.Base, "i." + c.Base}
 	}
 	if len(c.Domains) == 0 {
 		// try public_hostname
