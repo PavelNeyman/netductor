@@ -152,6 +152,12 @@ chmod 755 /usr/local/bin/netductor
 		}
 	}
 
+	// Product ports/SNI into conf BEFORE install so harden/redirect read them
+	fmt.Fprintln(os.Stderr, "==> write product defaults to netductor.conf")
+	if err := writeProductConfRemote(keyPath, o.User, o.Host, o.KeyPassphrase, o); err != nil {
+		fmt.Fprintln(os.Stderr, "warn product conf:", err)
+	}
+
 	if !o.SkipInstall {
 		fmt.Fprintln(os.Stderr, "==> netductor install (may take several minutes)")
 		out, err = runSSH("", keyPath, o.User, o.Host, "netductor install", o.KeyPassphrase)
@@ -159,12 +165,24 @@ chmod 755 /usr/local/bin/netductor
 		if err != nil {
 			// Telegram asset missing on a hand-cut release must not block LE/domain/lampac.
 			msg := err.Error() + "\n" + out
-			if strings.Contains(msg, "telegram") && !strings.Contains(msg, "netductor:") {
-				fmt.Fprintln(os.Stderr, "warn install partial (continuing deploy):", err)
+			// Only soft-fail missing telegram release asset / unit download — not core failures.
+			low := strings.ToLower(msg)
+			if strings.Contains(low, "telegram") && (strings.Contains(low, "404") ||
+				strings.Contains(low, "not found") || strings.Contains(low, "no such file") ||
+				strings.Contains(low, "failed to download") || strings.Contains(low, "asset")) {
+				fmt.Fprintln(os.Stderr, "warn install partial telegram (continuing deploy):", err)
 			} else {
 				return fmt.Errorf("install: %w", err)
 			}
 		}
+		// Harden moves SSH off :22 — set operator-side port before any more remote cmds
+		port := "52222"
+		if o.SSHPort > 0 {
+			port = fmt.Sprintf("%d", o.SSHPort)
+		}
+		_ = os.Setenv("NETDUCTOR_SSH_PORT", port)
+		fmt.Fprintln(os.Stderr, "==> post-harden SSH port", port)
+
 		// Secrets may exist before install; re-run telegram so unit starts with netductor-tg binary
 		if o.TelegramToken != "" {
 			fmt.Fprintln(os.Stderr, "==> ensure telegram bot unit")
@@ -174,46 +192,9 @@ chmod 755 /usr/local/bin/netductor
 				fmt.Fprintln(os.Stderr, "warn telegram ensure:", err)
 			}
 		}
-		if os.Getenv("NETDUCTOR_SSH_PORT") == "" {
-			port := "52222"
-			if o.SSHPort > 0 {
-				port = fmt.Sprintf("%d", o.SSHPort)
-			}
-			_ = os.Setenv("NETDUCTOR_SSH_PORT", port)
-			fmt.Fprintln(os.Stderr, "==> post-harden SSH port", port)
-		}
 	}
 
 
-	// Persist operator-chosen product ports into netductor.conf on host
-	{
-		var confLines []string
-		if o.SSHPort > 0 {
-			confLines = append(confLines, fmt.Sprintf("SSH_PORT=%d", o.SSHPort))
-		}
-		if p := strings.TrimSpace(o.RedirectHTTPSPort); p != "" {
-			confLines = append(confLines, "REDIRECT_HTTPS_PORT="+p)
-		}
-		if p := strings.TrimSpace(o.AgentMTLSPort); p != "" {
-			confLines = append(confLines, "AGENT_MTLS_PORT="+p)
-		}
-		if p := strings.TrimSpace(o.LampacPort); p != "" {
-			confLines = append(confLines, "LAMPAC_PORT="+p)
-		}
-		if sni := strings.TrimSpace(o.SNI); sni != "" {
-			confLines = append(confLines, "DEFAULT_SNI="+sni)
-		}
-		if len(confLines) > 0 {
-			fmt.Fprintln(os.Stderr, "==> write product defaults to netductor.conf")
-			script := "mkdir -p /etc/netductor; "
-			for _, line := range confLines {
-				k := strings.SplitN(line, "=", 2)[0]
-				script += fmt.Sprintf("grep -q '^%s=' /etc/netductor/netductor.conf 2>/dev/null && sed -i 's|^%s=.*|%s|' /etc/netductor/netductor.conf || echo '%s' >> /etc/netductor/netductor.conf; ", k, k, line, line)
-			}
-			out, _ = runSSH("", keyPath, o.User, o.Host, script, o.KeyPassphrase)
-			fmt.Print(out)
-		}
-	}
 	fmt.Fprintln(os.Stderr, "==> set SNI", o.SNI)
 	out, err = runSSH("", keyPath, o.User, o.Host, "netductor vpn set-sni "+shellQuote(o.SNI), o.KeyPassphrase)
 	fmt.Print(out)
@@ -293,6 +274,60 @@ chmod 755 /usr/local/bin/netductor
 	}
 	return nil
 }
+
+// writeProductConfRemote upserts KEY=value lines safely (no shell metachar injection).
+func writeProductConfRemote(keyPath, user, host, keyPass string, o PrimaryOpts) error {
+	kv := map[string]string{}
+	port := o.SSHPort
+	if port <= 0 {
+		port = 52222
+	}
+	kv["SSH_PORT"] = fmt.Sprintf("%d", port)
+	if p := strings.TrimSpace(o.RedirectHTTPSPort); p != "" {
+		kv["REDIRECT_HTTPS_PORT"] = p
+	}
+	if p := strings.TrimSpace(o.AgentMTLSPort); p != "" {
+		kv["AGENT_MTLS_PORT"] = p
+	}
+	if p := strings.TrimSpace(o.LampacPort); p != "" {
+		kv["LAMPAC_PORT"] = p
+	}
+	if sni := strings.TrimSpace(o.SNI); sni != "" {
+		kv["DEFAULT_SNI"] = sni
+	}
+	var b strings.Builder
+	b.WriteString("set -e\nmkdir -p /etc/netductor\ntouch /etc/netductor/netductor.conf\n")
+	for k, v := range kv {
+		if !safeConfKey(k) {
+			continue
+		}
+		// Drop existing key lines, append new (printf %q-safe via Go %q → shell single-quoted)
+		b.WriteString(fmt.Sprintf(`tmp=$(mktemp)
+grep -v '^%s=' /etc/netductor/netductor.conf > "$tmp" || true
+printf '%%s=%%s\n' %s %s >> "$tmp"
+mv "$tmp" /etc/netductor/netductor.conf
+`, k, shellQuote(k), shellQuote(v)))
+	}
+	out, err := runSSH("", keyPath, user, host, b.String(), keyPass)
+	if out != "" {
+		fmt.Print(out)
+	}
+	return err
+}
+
+func safeConfKey(k string) bool {
+	if k == "" {
+		return false
+	}
+	for _, c := range k {
+		if (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"

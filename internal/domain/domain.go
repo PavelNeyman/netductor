@@ -137,8 +137,8 @@ func runLE(c Config) error {
 			}
 		}
 		args = append(args, "--domains", doms)
-	} else if c.Base != "" {
-		args = append(args, "--base", c.Base)
+	} else {
+		return fmt.Errorf("LE requires --primary (and ideally --redirect); no invent from --base")
 	}
 	fmt.Fprintln(os.Stderr, "domain: obtaining Let's Encrypt…")
 	cmd := exec.Command(bin, args...)

@@ -15,8 +15,8 @@ func runTLS(args []string) {
 	if len(args) == 0 || args[0] == "help" {
 		fmt.Print(`netductor tls self-signed [hostname]
 netductor tls le --email you@example.com --domains a.example.com,b.example.com
-netductor tls le --email you@example.com --base netductor.example.com
-  # → primary.<base> + i.<base> (HTTP-01 via certbot standalone)
+netductor tls le --email you@example.com --domains host1,host2
+  # explicit FQDNs only (HTTP-01 via certbot standalone)
 netductor tls show
 
 After LE: certs under /etc/letsencrypt/live/… and linked in secrets/tls/;
