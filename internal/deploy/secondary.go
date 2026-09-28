@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -150,6 +151,38 @@ func DeploySecondary(o SecondaryOpts) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
 	}
-	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS)")
+	// Service plane SP/PS (canonical dual WG-over-WSS) — required with secondary.
+	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths bootstrap (SP/PS)")
+	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+	primIP, secIP := o.PrimaryHost, o.SecondaryHost
+	pre := fmt.Sprintf("mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths bootstrap-primary --peer-ip %s", ShellQuote(primIP), ShellQuote(secIP))
+	out, err = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "warn svc-paths primary:", err, out)
+	} else {
+		raw := out
+		if idx := strings.Index(out, "{"); idx >= 0 {
+			raw = out[idx:]
+		}
+		tmp := filepath.Join(os.TempDir(), "nd-svc-material.json")
+		_ = os.WriteFile(tmp, []byte(raw), 0o600)
+		if err := runSCP("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmp, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase); err != nil {
+			fmt.Fprintln(os.Stderr, "warn svc-paths scp material:", err)
+		} else {
+			out2, err2 := runSSH("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
+				"netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json; rm -f /tmp/nd-svc-material.json; sleep 2; ping -c1 -W3 10.87.10.1 || true",
+				o.PrimaryKeyPassphrase)
+			fmt.Print(out2)
+			if err2 != nil {
+				fmt.Fprintln(os.Stderr, "warn svc-paths secondary:", err2)
+			}
+		}
+		_ = os.Remove(tmp)
+		_, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
+			"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; true",
+			o.PrimaryKeyPassphrase)
+	}
+
+	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS + svc-paths)")
 	return nil
 }

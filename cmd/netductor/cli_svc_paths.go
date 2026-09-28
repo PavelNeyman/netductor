@@ -14,6 +14,8 @@ func runSvcPaths(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, `usage:
   netductor svc-paths status|health|apply
+  netductor svc-paths bootstrap-primary --peer-ip IP
+  netductor svc-paths bootstrap-secondary --material /path/or/stdin
   netductor svc-paths failover status|tick
   netductor svc-paths failover enable|disable
   netductor svc-paths failover set-users-sp on|off
@@ -40,6 +42,77 @@ func runSvcPaths(args []string) {
 		}
 		r := svcpaths.Status()
 		fmt.Printf("sp_up=%v ps_up=%v role=%s\n", r.SP.Up, r.PS.Up, r.HostRole)
+	case "bootstrap-primary":
+		peer := ""
+		for i := 1; i < len(args); i++ {
+			if args[i] == "--peer-ip" && i+1 < len(args) {
+				peer = args[i+1]
+				i++
+			}
+		}
+		if peer == "" {
+			fmt.Fprintln(os.Stderr, "need --peer-ip secondary-public-ip")
+			os.Exit(2)
+		}
+		prim := strings.TrimSpace(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+		if prim == "" {
+			// best-effort
+			out, _ := os.ReadFile("/etc/netductor/public_hostname")
+			_ = out
+			prim = "0.0.0.0"
+		}
+		// discover primary public IP
+		if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
+			prim = strings.TrimSpace(string(b))
+		}
+		if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
+			if p := strings.TrimSpace(string(b)); p != "" {
+				prim = p
+			}
+		}
+		m, err := svcpaths.GenerateMaterial(prim, peer)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		m.Primary = prim
+		m.Secondary = peer
+		if err := svcpaths.BootstrapPrimary(m); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(m)
+	case "bootstrap-secondary":
+		path := ""
+		for i := 1; i < len(args); i++ {
+			if args[i] == "--material" && i+1 < len(args) {
+				path = args[i+1]
+			}
+		}
+		var m svcpaths.Material
+		if path != "" && path != "-" {
+			b, err := os.ReadFile(path)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			if err := json.Unmarshal(b, &m); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		} else {
+			if err := json.NewDecoder(os.Stdin).Decode(&m); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		}
+		if err := svcpaths.BootstrapSecondary(&m); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("svc-paths secondary OK")
 	case "failover":
 		runSvcFailover(args[1:])
 	default:
