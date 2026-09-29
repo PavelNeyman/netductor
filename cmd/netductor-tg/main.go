@@ -190,20 +190,6 @@ func editRich(token string, chat int64, msgID int, html string, kb map[string]an
 
 
 
-var topicsEnsured bool
-
-func ensureTopicsOnce(token string, admin int64) {
-	if topicsEnsured || admin == 0 || token == "" {
-		return
-	}
-	topicsEnsured = true
-	if err := notify.EnsureTopics(token, admin); err != nil {
-		fmt.Fprintln(os.Stderr, "topics:", err)
-	} else {
-		fmt.Fprintln(os.Stderr, "topics: ensured Alerts/Warnings/Service/Updates")
-	}
-}
-
 func sendHTML(token string, chat int64, text string, kb map[string]any) {
 	sendRich(token, chat, text, kb)
 }
@@ -807,7 +793,6 @@ func main() {
 				if admin == 0 {
 					continue
 				}
-				ensureTopicsOnce(token, admin)
 			handleCallback(token, u.CallbackQuery, admin)
 				continue
 			}
@@ -829,7 +814,6 @@ func main() {
 					sendHTML(token, u.Message.Chat.ID, T("operator_not_cfg"), nil)
 					continue
 				}
-				ensureTopicsOnce(token, admin)
 			handleMessage(token, u.Message, admin)
 			}
 		}

@@ -3,29 +3,21 @@ package notify
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
-// Default private-chat topics the bot ensures when Threaded Mode is on.
-var defaultTopics = []struct {
-	Key  string
-	Name string
-}{
-	{"alerts", "🚨 Alerts"},
-	{"warnings", "⚠️ Warnings"},
-	{"service", "🛠 Service"},
-	{"updates", "🔄 Updates"},
-}
+// Known topic roles (operator assigns manually after creating topics in Telegram).
+var TopicKeys = []string{"alerts", "warnings", "service", "updates"}
 
 type topicsFile struct {
-	ChatID int64             `json:"chat_id"`
-	Topics map[string]int    `json:"topics"` // key → message_thread_id
+	ChatID int64          `json:"chat_id"`
+	Topics map[string]int `json:"topics"` // key → message_thread_id
 }
 
 var topicMu sync.Mutex
@@ -57,7 +49,7 @@ func saveTopics(t topicsFile) error {
 	return os.WriteFile(topicsPath(), append(raw, '\n'), 0o600)
 }
 
-// ThreadForAlertKey maps alert key prefix → topic key.
+// ThreadForAlertKey maps alert key → topic role.
 func ThreadForAlertKey(key string) string {
 	k := strings.ToLower(key)
 	switch {
@@ -73,8 +65,8 @@ func ThreadForAlertKey(key string) string {
 }
 
 // ThreadID returns message_thread_id for topic key, or 0.
+// Legacy: telegram_alerts_thread_id secret forces one thread for everything.
 func ThreadID(topicKey string) int {
-	// explicit secret overrides all (legacy single-thread)
 	if th := alertsThreadID(); th != "" {
 		var n int
 		fmt.Sscanf(th, "%d", &n)
@@ -84,15 +76,24 @@ func ThreadID(topicKey string) int {
 	}
 	topicMu.Lock()
 	defer topicMu.Unlock()
-	t := loadTopics()
-	return t.Topics[topicKey]
+	return loadTopics().Topics[topicKey]
 }
 
-// EnsureTopics creates missing private-chat topics via Bot API and stores ids.
-// Safe to call repeatedly. Requires BotFather Threaded Mode.
-func EnsureTopics(botToken string, chatID int64) error {
-	if botToken == "" || chatID == 0 {
-		return fmt.Errorf("token/chat required")
+// AssignTopic binds a private-chat topic (thread id from a message) to a role.
+func AssignTopic(chatID int64, key string, threadID int) error {
+	key = strings.ToLower(strings.TrimSpace(key))
+	ok := false
+	for _, k := range TopicKeys {
+		if k == key {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return fmt.Errorf("unknown topic key %q (use: %s)", key, strings.Join(TopicKeys, ", "))
+	}
+	if threadID <= 0 {
+		return fmt.Errorf("message_thread_id required — send the command from inside a topic")
 	}
 	topicMu.Lock()
 	defer topicMu.Unlock()
@@ -101,42 +102,63 @@ func EnsureTopics(botToken string, chatID int64) error {
 	if t.Topics == nil {
 		t.Topics = map[string]int{}
 	}
-	for _, d := range defaultTopics {
-		if t.Topics[d.Key] > 0 {
-			continue
-		}
-		id, err := createForumTopic(botToken, chatID, d.Name)
-		if err != nil {
-			// Threaded Mode off or API error — skip remaining
-			return fmt.Errorf("create topic %s: %w (enable Threaded Mode in BotFather?)", d.Key, err)
-		}
-		t.Topics[d.Key] = id
-	}
+	t.Topics[key] = threadID
 	return saveTopics(t)
 }
 
-func createForumTopic(botToken string, chatID int64, name string) (int, error) {
-	u := fmt.Sprintf("https://api.telegram.org/bot%s/createForumTopic", botToken)
-	body := fmt.Sprintf(`{"chat_id":%d,"name":%q}`, chatID, name)
-	resp, err := http.Post(u, "application/json", strings.NewReader(body))
-	if err != nil {
-		return 0, err
+// ClearTopic removes binding for key.
+func ClearTopic(key string) error {
+	key = strings.ToLower(strings.TrimSpace(key))
+	topicMu.Lock()
+	defer topicMu.Unlock()
+	t := loadTopics()
+	delete(t.Topics, key)
+	return saveTopics(t)
+}
+
+// ListTopics returns role → thread_id (0 if unset).
+func ListTopics() map[string]int {
+	topicMu.Lock()
+	defer topicMu.Unlock()
+	t := loadTopics()
+	out := map[string]int{}
+	for _, k := range TopicKeys {
+		out[k] = t.Topics[k]
 	}
-	defer resp.Body.Close()
-	var wr struct {
-		OK          bool   `json:"ok"`
-		Description string `json:"description"`
-		Result      struct {
-			MessageThreadID int `json:"message_thread_id"`
-		} `json:"result"`
+	return out
+}
+
+// TopicsStatusHTML for TG menu.
+func TopicsStatusHTML(ru bool) string {
+	m := ListTopics()
+	var b strings.Builder
+	if ru {
+		b.WriteString("📁 <b>Топики алертов</b>\n")
+		b.WriteString("<i>Создайте тему в чате с ботом (Threaded Mode в BotFather), откройте её и отправьте:\n<code>/topic alerts</code> (или warnings / service / updates)</i>\n\n")
+	} else {
+		b.WriteString("📁 <b>Alert topics</b>\n")
+		b.WriteString("<i>Create a topic in the bot chat (Threaded Mode in BotFather), open it, send:\n<code>/topic alerts</code> (or warnings / service / updates)</i>\n\n")
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&wr); err != nil {
-		return 0, err
+	b.WriteString("<table bordered striped compact>\n<tr><th>role</th><th>thread</th></tr>\n")
+	keys := append([]string{}, TopicKeys...)
+	sort.Strings(keys)
+	for _, k := range TopicKeys {
+		id := m[k]
+		cell := "—"
+		if id > 0 {
+			cell = fmt.Sprintf("%d", id)
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td><code>%s</code></td></tr>\n", k, cell))
 	}
-	if !wr.OK || wr.Result.MessageThreadID == 0 {
-		return 0, fmt.Errorf("%s", wr.Description)
+	b.WriteString("</table>\n")
+	if th := alertsThreadID(); th != "" {
+		if ru {
+			b.WriteString("\n⚠️ Задан <code>telegram_alerts_thread_id</code> — все алерты в один тред (перекрывает таблицу).")
+		} else {
+			b.WriteString("\n⚠️ <code>telegram_alerts_thread_id</code> is set — all alerts use that one thread (overrides table).")
+		}
 	}
-	return wr.Result.MessageThreadID, nil
+	return b.String()
 }
 
 // ResolveThreadIDForMessage picks thread for outbound alert by key.

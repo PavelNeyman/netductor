@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/PavelNeyman/netductor/internal/sites"
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"fmt"
@@ -304,6 +305,25 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 		sendHTML(token, chat, "✅ <pre>"+esc(runVPN("enable", arg1))+"</pre>", backKeyboard())
 	case "/vpn_revoke":
 		sendHTML(token, chat, "🗑 <pre>"+esc(runVPN("revoke", arg1))+"</pre>", backKeyboard())
+	case "/topic":
+		// Assign current private topic to a role. Must be sent *inside* the topic.
+		key := "alerts"
+		if arg1 != "" {
+			key = arg1
+		}
+		if m.MessageThreadID <= 0 {
+			msg := "Send /topic from inside a topic (Threaded Mode in BotFather)."
+			if getLang() != "en" {
+				msg = "Отправьте /topic изнутри темы (Threaded Mode в BotFather)."
+			}
+			sendHTML(token, chat, "❌ "+msg+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), mainKeyboard())
+			return
+		}
+		if err := notify.AssignTopic(chat, key, m.MessageThreadID); err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), mainKeyboard())
+			return
+		}
+		sendHTML(token, chat, "✅ <code>"+esc(key)+"</code> → thread <code>"+fmt.Sprintf("%d", m.MessageThreadID)+"</code>\n\n"+notify.TopicsStatusHTML(getLang() != "en"), mainKeyboard())
 	case "/session":
 		h := "72"
 		if arg1 != "" {

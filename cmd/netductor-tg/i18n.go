@@ -20,8 +20,9 @@ type update struct {
 }
 
 type message struct {
-	MessageID    int      `json:"message_id"`
-	Text         string   `json:"text"`
+	MessageID       int    `json:"message_id"`
+	MessageThreadID int    `json:"message_thread_id"`
+	Text            string `json:"text"`
 	Chat         chat     `json:"chat"`
 	From         *user    `json:"from"`
 	ForwardFrom  *user    `json:"forward_from"`

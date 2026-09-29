@@ -295,6 +295,10 @@ if strings.HasPrefix(data, "u:") {
 	switch data {
 	case "m:noop":
 		return
+	case "m:topics":
+		reply(token, chat, msgID, notify.TopicsStatusHTML(getLang() != "en"), map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("🔄", "m:topics", ""), btn(T("main_menu"), "m:menu", "primary")},
+		}})
 	case "m:digest":
 		reply(token, chat, msgID, formatFleetDigestHTML(), mainKeyboard())
 	case "m:dr":
