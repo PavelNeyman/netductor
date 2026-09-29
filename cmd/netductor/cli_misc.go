@@ -228,8 +228,8 @@ func runUpdate(restart bool) {
 			fmt.Fprintln(os.Stderr, "warn backup:", err)
 		} else {
 			fmt.Fprintln(os.Stderr, "backup:", path)
-			fmt.Fprintln(os.Stderr, "==> wait backup_pull on secondary (up to 45s)")
-			acked, pend := install.WaitForBackupPull(45 * time.Second)
+			fmt.Fprintln(os.Stderr, "==> wait backup_pull on secondary (up to 15s)")
+			acked, pend := install.WaitForBackupPull(15 * time.Second)
 			fmt.Fprintf(os.Stderr, "backup_pull: acked=%d pending=%d\n", acked, pend)
 		}
 	}
@@ -260,29 +260,34 @@ func runUpdate(restart bool) {
 		os.Exit(2)
 	}
 	fmt.Fprintln(os.Stderr, "==> update", comp, tag, "→", dest)
+	// Download ALL binaries before any restart — never restart TG on old binary.
 	if err := ndupdate.DownloadReleaseAsset(tag, comp, dest); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	ndupdate.WriteVERSION(tag)
 	fmt.Println("updated", dest, tag)
-	// Primary node update also refreshes TG bot binary (same release) — otherwise
-	// only API restarts and bot stays on old build.
 	if comp == "node" {
 		tgDest := "/usr/local/bin/netductor-tg"
 		if err := ndupdate.DownloadReleaseAsset(tag, "tg", tgDest); err != nil {
-			fmt.Fprintln(os.Stderr, "warn tg binary:", err)
-		} else {
-			fmt.Println("updated", tgDest, tag)
+			fmt.Fprintln(os.Stderr, "tg binary (required with node):", err)
+			os.Exit(1)
 		}
+		fmt.Println("updated", tgDest, tag)
 	}
+	ndupdate.WriteVERSION(tag)
 	if doRestart && unit != "" {
+		if unit == "netductor-api" {
+			// stop bot first so ETXTBSY is less likely, then install already done
+			_ = exec.Command("systemctl", "stop", "netductor-telegram-bot").Run()
+		}
 		_ = exec.Command("systemctl", "try-restart", unit).Run()
 		if unit == "netductor-api" {
-			_ = exec.Command("systemctl", "try-restart", "netductor-telegram-bot").Run()
+			_ = exec.Command("systemctl", "start", "netductor-telegram-bot").Run()
 			_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
+		} else if unit == "netductor-telegram-bot" {
+			_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
 		}
-		fmt.Println("restarted", unit, "(try)")
+		fmt.Println("restarted", unit)
 	}
 	// Fan-out binary upgrade to online secondaries (agent cmd "upgrade")
 	if comp == "node" {
