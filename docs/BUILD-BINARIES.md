@@ -27,3 +27,7 @@ Deploy always installs **`netductor-linux-*`** on remote hosts — never `netduc
 
 ## Homebrew
 See [BREW.md](BREW.md): Formula SHAs must match Release; never `:no_check`.
+
+## Version pin for deploy downloads
+`internal/version.Release` must match the GitHub Release tag assets. Updating only `VERSION` or `-ldflags -X main.version` does **not** change the URL op uses to fetch `netductor-linux-*`.
+
