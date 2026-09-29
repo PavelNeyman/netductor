@@ -166,8 +166,8 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(fmt.Sprintf("<tr><td>limit</td><td><code>%.0f</code> GiB</td></tr>"+nl, lim))
 	b.WriteString("</table>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">🔗 Link</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:sub">📡 Sub</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">` + T("btn_link") + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:sub">` + T("btn_sub") + `</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="u:rename:` + name + `">✏️</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:50">50</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:200">200</tg-button>`)
@@ -264,7 +264,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	case "core":
 		title = "VLESS · primary"
 	case "sub":
-		title = "Subscription"
+		title = T("vpn_sub")
 	}
 	styleV, styleC, styleS := "", "", ""
 	switch mode {
@@ -286,9 +286,9 @@ func formatAccessRichHTML(name, mode, uri string) string {
 		b.WriteString(`<tg-button-row align="left">`)
 		if mode == "sub" {
 			// Subscription: open HTTPS sub URL; clients refresh profiles from it.
-			b.WriteString(`<tg-button type="url" url="` + attr(uri) + `">Open sub URL</tg-button>`)
+			b.WriteString(`<tg-button type="url" url="` + attr(uri) + `">` + T("btn_open_sub") + `</tg-button>`)
 			// rotate token
-			b.WriteString(`<tg-button type="callback_data" data="u:subrot:` + name + `">🔄 Rotate</tg-button>`)
+			b.WriteString(`<tg-button type="callback_data" data="u:subrot:` + name + `">` + T("btn_rotate") + `</tg-button>`)
 		} else {
 			enc := url.PathEscape(uri)
 			sr := importRedirectURL("shadowrocket://add/" + enc)
@@ -325,7 +325,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleS + ` data="u:access:` + name + `:sub">Sub</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Primary</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">` + T("mode_primary") + `</tg-button>`)
 	if showWorkProfileButton(name) {
 		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Config</tg-button>`)
 	}

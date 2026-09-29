@@ -274,7 +274,7 @@ func operatorHubHTML() string {
 		`</tg-button-row>` +
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>`+
-		`<tg-button type="callback_data" data="m:topics">📁 Topics</tg-button>` +
+		`<tg-button type="callback_data" data="m:topics">` + T("btn_topics") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:sessions">` + sessions + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:audit">` + audit + `</tg-button>` +
 		`</tg-button-row>` +

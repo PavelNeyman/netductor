@@ -501,7 +501,7 @@ if strings.HasPrefix(data, "u:") {
 		setState(chat, "wait_vpn_rename", "")
 		reply(token, chat, msgID, T("vpn_rename_hint"), backKeyboard())
 	case "m:vpn_sub":
-		reply(token, chat, msgID, "ℹ️ Subscription removed. Use Access → VLESS / Core.", usersListKeyboard())
+		reply(token, chat, msgID, T("sub_removed"), usersListKeyboard())
 	case "m:vpn_link", "m:vpn_disable", "m:vpn_enable", "m:vpn_revoke":
 		action := strings.TrimPrefix(data, "m:")
 		// map m:vpn_link -> link
