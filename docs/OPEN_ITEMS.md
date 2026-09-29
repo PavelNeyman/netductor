@@ -24,6 +24,10 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 - [x] Edge agent_update buttons on TG Updates (0.9.101)
 - [x] Primary apply queues secondary `upgrade` for online agents (0.9.103)
 
+## Closed recently
+
+- [x] TG alert batch + dedupe + hub re-pin throttle (0.9.105)
+
 ## Owner next
 
 - [x] **Show password** Web (Show/Hide) + TUI Ctrl+P (0.9.103)

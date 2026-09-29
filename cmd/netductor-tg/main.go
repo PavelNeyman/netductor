@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
 func claimAdmin(chatID int64) {
@@ -109,6 +110,16 @@ func htmlNeedsRich(html string) bool {
 
 // sendRich prefers Bot API 10.1+ sendRichMessage (native tables).
 // Classic fallback is ONLY for plain text — never when body has in-table actions.
+func messageIDFromTG(body []byte) int {
+	var wr struct {
+		Result struct {
+			MessageID int `json:"message_id"`
+		} `json:"result"`
+	}
+	_ = json.Unmarshal(body, &wr)
+	return wr.Result.MessageID
+}
+
 func sendRich(token string, chat int64, html string, kb map[string]any) {
 	payload := map[string]any{
 		"chat_id": chat,
@@ -116,30 +127,35 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 			"html": html,
 		},
 	}
-	// Prefer in-body <tg-button-row>; still attach reply_markup as fallback for older clients.
 	if kb != nil {
 		payload["reply_markup"] = kb
 	}
 	if body, err := apiPost(token, "sendRichMessage", payload); err == nil {
+		if mid := messageIDFromTG(body); mid > 0 {
+			notify.SaveHubMsg(chat, mid)
+		}
 		return
 	} else {
 		fmt.Fprintf(os.Stderr, "sendRichMessage: %v body=%s\n", err, truncate(string(body), 200))
 		if htmlNeedsRich(html) {
-			// Do not strip tables/buttons. Last resort: still try sendMessage without parse_mode
-			// so user at least sees tags as text, then one more rich attempt without keyboard.
 			payloadRetry := map[string]any{"chat_id": chat, "rich_message": map[string]any{"html": html}}
 			if b2, err2 := apiPost(token, "sendRichMessage", payloadRetry); err2 != nil {
 				fmt.Fprintf(os.Stderr, "sendRichMessage retry: %v body=%s\n", err2, truncate(string(b2), 200))
+			} else if mid := messageIDFromTG(b2); mid > 0 {
+				notify.SaveHubMsg(chat, mid)
 			}
 			return
 		}
 	}
-	// plain messages only
 	payload2 := map[string]any{"chat_id": chat, "text": html, "parse_mode": "HTML"}
 	if kb != nil {
 		payload2["reply_markup"] = kb
 	}
-	_, _ = apiPost(token, "sendMessage", payload2)
+	if body, err := apiPost(token, "sendMessage", payload2); err == nil {
+		if mid := messageIDFromTG(body); mid > 0 {
+			notify.SaveHubMsg(chat, mid)
+		}
+	}
 }
 
 func editRich(token string, chat int64, msgID int, html string, kb map[string]any) error {

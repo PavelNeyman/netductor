@@ -82,13 +82,13 @@ func AlertOnce(key, msg string) {
 	if ts, ok := disk[key]; ok && now.Unix()-ts < int64(cd.Seconds()) {
 		return
 	}
-	tgErr := Telegram(msg)
+	// Queue + batch (dedupe by key, single TG message, optional hub re-pin).
+	EnqueueAlert(key, msg)
 	if smtpConfigured() {
 		_ = Email("netductor: "+key, stripTags(msg))
 	}
-	if tgErr != nil {
-		return
-	}
+	// mark sent even if flush is deferred — cooldown still applies
+
 	lastSent[key] = now
 	disk[key] = now.Unix()
 	saveSent(disk)

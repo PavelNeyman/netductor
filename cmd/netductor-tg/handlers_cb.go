@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/format"
+	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
 func handleCallback(token string, cq *callbackQuery, admin int64) {
@@ -291,6 +292,9 @@ if strings.HasPrefix(data, "u:") {
 			reply(token, chat, msgID, helpText(), mainKeyboard())
 		} else {
 			reply(token, chat, msgID, menuText(), mainKeyboard())
+		}
+		if msgID > 0 {
+			notify.SaveHubMsg(chat, msgID)
 		}
 	case "m:fleet":
 		reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
