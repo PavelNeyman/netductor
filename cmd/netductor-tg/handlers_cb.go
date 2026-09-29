@@ -286,6 +286,12 @@ if strings.HasPrefix(data, "u:") {
 	}
 
 	switch data {
+	case "m:noop":
+		return
+	case "m:digest":
+		reply(token, chat, msgID, formatFleetDigestHTML(), mainKeyboard())
+	case "m:dr":
+		reply(token, chat, msgID, formatDisasterHTML(), mainKeyboard())
 	case "m:menu", "m:help":
 		setState(chat, "", "")
 		if data == "m:help" {

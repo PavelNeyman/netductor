@@ -66,6 +66,10 @@ func parentRouters() string {
 }
 
 
+func btnDisabled(text string) map[string]any {
+	return map[string]any{"text": text, "callback_data": "m:noop", "style": "secondary"}
+}
+
 func btn(text, data, style string) map[string]any {
 	b := map[string]any{"text": text, "callback_data": data}
 	if style != "" {
@@ -99,7 +103,7 @@ func mainKeyboard() map[string]any {
 	// Flat top: 4 clear areas. No VPN-tools duplicate.
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
-			{btn(T("status"), "m:status", "primary")},
+			{btn(T("status"), "m:status", "primary"), btn("📡", "m:digest", "")},
 			{btn(T("users"), "m:users", "primary")},
 			{btn(T("fleet"), "m:fleet", "primary")},
 			{btn(T("tools"), "m:tools", ""), btn(T("operator"), "m:operator", "")},
@@ -665,14 +669,16 @@ func helpHubHTML() string {
 	body := helpText()
 	if ru {
 		body += "\n" + `<tg-button-row align="left">` +
-			`<tg-button type="callback_data" style="primary" data="m:status">📊 Статус</tg-button>` +
+			`<tg-button type="callback_data" style="primary" data="m:status">📊 Статус</tg-button>`+
+			`<tg-button type="callback_data" data="m:digest">📡 Fleet</tg-button>` +
 			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
 			`<tg-button type="callback_data" data="m:fleet">🌐 Флот</tg-button>` +
 			`<tg-button type="callback_data" data="m:tools">🧰 Tools</tg-button>` +
 			`</tg-button-row>`
 	} else {
 		body += "\n" + `<tg-button-row align="left">` +
-			`<tg-button type="callback_data" style="primary" data="m:status">📊 Status</tg-button>` +
+			`<tg-button type="callback_data" style="primary" data="m:status">📊 Status</tg-button>`+
+			`<tg-button type="callback_data" data="m:digest">📡 Fleet</tg-button>` +
 			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
 			`<tg-button type="callback_data" data="m:fleet">🌐 Fleet</tg-button>` +
 			`<tg-button type="callback_data" data="m:tools">🧰 Tools</tg-button>` +

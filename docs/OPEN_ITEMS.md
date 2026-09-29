@@ -26,6 +26,13 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Closed recently
 
+- [x] Fleet health digest API/CLI/TG (0.9.106)
+- [x] DR checklist in TG + docs/DISASTER-RECOVERY.md
+- [x] Optional alerts private topic (`telegram_alerts_thread_id`)
+- [x] scripts/release.sh local release helper
+- [x] btnDisabled / m:noop for spent actions
+
+
 - [x] TG alert batch + dedupe + hub re-pin throttle (0.9.105)
 
 ## Owner next

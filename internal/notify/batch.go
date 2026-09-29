@@ -163,7 +163,11 @@ func sendTelegramHTML(msg string) error {
 		return fmt.Errorf("telegram secrets not configured")
 	}
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
+	th := alertsThreadID()
 	body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
+	if th != "" {
+		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%s,"rich_message":{"html":%q}}`, chat, th, msg)
+	}
 	resp, err := http.Post(u, "application/json", strings.NewReader(body))
 	if err == nil {
 		defer resp.Body.Close()
@@ -171,9 +175,11 @@ func sendTelegramHTML(msg string) error {
 			return nil
 		}
 	}
-	return postTG(tok, "sendMessage", url.Values{
-		"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"},
-	})
+	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
+	if th := alertsThreadID(); th != "" {
+		vals.Set("message_thread_id", th)
+	}
+	return postTG(tok, "sendMessage", vals)
 }
 
 // repinHub deletes previous hub (if any) and sends a compact menu at chat bottom.

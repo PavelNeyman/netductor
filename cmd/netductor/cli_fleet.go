@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +14,7 @@ import (
 func runFleet(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, `usage: netductor fleet <cmd>
-  status | bootstrap
+  digest | status | bootstrap
   set-primary <id> | set-secondary <id>
   provision-secondary --host --password [--user root] [--port 22] [--sni SNI]
   disable-legacy   stop old sync/bot-failover units on this host
@@ -26,6 +27,12 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 		os.Exit(2)
 	}
 	switch args[0] {
+	case "digest":
+		d := fleet.Build()
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(d)
+		return
 	case "status":
 		fmt.Print(fleet.StatusSummary())
 	case "set-primary":

@@ -26,6 +26,10 @@ func htmlEsc(s string) string {
 	return s
 }
 
+func alertsThreadID() string {
+	return secret("telegram_alerts_thread_id")
+}
+
 func postTG(tok string, method string, vals url.Values) error {
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/%s", tok, method)
 	resp, err := http.PostForm(u, vals)
@@ -48,7 +52,11 @@ func Telegram(msg string) error {
 	}
 	// try rich
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
+	th := alertsThreadID()
 	body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
+	if th != "" {
+		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%s,"rich_message":{"html":%q}}`, chat, th, msg)
+	}
 	resp, err := http.Post(u, "application/json", strings.NewReader(body))
 	if err == nil {
 		defer resp.Body.Close()
@@ -56,9 +64,11 @@ func Telegram(msg string) error {
 			return nil
 		}
 	}
-	return postTG(tok, "sendMessage", url.Values{
-		"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"},
-	})
+	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
+	if th := alertsThreadID(); th != "" {
+		vals.Set("message_thread_id", th)
+	}
+	return postTG(tok, "sendMessage", vals)
 }
 
 // TelegramCmd reports a finished node command with a small table.
