@@ -34,9 +34,9 @@
     <form id="form-fleet">
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_ppass">Primary password</label><input name="primary_password" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host"/></div><div><label data-i18n="l_spass">Secondary password</label><input name="secondary_password" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="p2.nd.example.com"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="s.nd.example.com"/></div></div>
-      <div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://i2.nd.example.com:8443"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base"/></div></div>
-      <div class="row"><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="FQDN primary (DNS A → primary IP)" title="Primary host domain for LE / conf"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="FQDN secondary (DNS A → secondary IP)" title="Secondary / VPN entry domain"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://FQDN:8443" title="Redirect base URL (LE host is hostname without port)"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base" placeholder="optional org label" title="Optional DOMAIN= in conf only; does not invent p./i. names"/></div></div>
+      <div class="row"><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me" title="Reality TLS camouflage name (DEFAULT_SNI)"/></div></div>
       <div class="row"><div><label data-i18n="l_ssh_port">SSH port</label><input name="ssh_port" value="52222"/></div><div><label data-i18n="l_redir_port">Redirect HTTPS</label><input name="redirect_https_port" value="8443"/></div></div>
       <div class="row"><div><label data-i18n="l_mtls_port">Agent mTLS</label><input name="agent_mtls_port" value="8789"/></div><div><label data-i18n="l_lampac_port">Lampac</label><input name="lampac_port" value="9118"/></div></div>
       <div class="row"><div><label data-i18n="l_key">SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password" autocomplete="off"/></div></div>
@@ -45,7 +45,6 @@
         <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="c_do_secondary">Secondary</span></label>
         <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
         <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label>
-        <label><input type="checkbox" name="cf_proxy"/> <span data-i18n="c_cf">CF proxy i.</span></label>
         <label><input type="checkbox" name="with_telegram" id="fleet_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
       </div>
       <div class="row tg-fields" id="fleet_tg_fields" hidden>
@@ -59,13 +58,13 @@
   <section id="panel-primary" class="panel">
     <form id="form-primary">
       <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="p2.nd.example.com"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="s.nd.example.com"/></div></div>
-      <div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://i2.nd.example.com:8443"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base" placeholder="nd.example.com"/></div></div>
-      <div class="row"><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="FQDN primary (DNS A → primary IP)" title="Primary host domain for LE / conf"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="FQDN secondary (DNS A → secondary IP)" title="Secondary / VPN entry domain"/></div></div>
+      <div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://FQDN:8443" title="Redirect base URL (LE host is hostname without port)"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base" placeholder="optional org label" title="Optional DOMAIN= in conf only; does not invent p./i. names"/></div></div>
+      <div class="row"><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me" title="Reality TLS camouflage name (DEFAULT_SNI)"/></div></div>
       <div class="row"><div><label data-i18n="l_ssh_port">SSH port</label><input name="ssh_port" value="52222"/></div><div><label data-i18n="l_redir_port">Redirect HTTPS</label><input name="redirect_https_port" value="8443"/></div></div>
       <div class="row"><div><label data-i18n="l_mtls_port">Agent mTLS</label><input name="agent_mtls_port" value="8789"/></div><div><label data-i18n="l_lampac_port">Lampac</label><input name="lampac_port" value="9118"/></div></div>
       <div class="row"><div><label data-i18n="l_key">Key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div><div></div></div>
-      <div class="checks"><label><input type="checkbox" name="cf_proxy"/> <span data-i18n="c_cf">CF proxy i.</span></label>
+      <div class="checks">
         <label><input type="checkbox" name="with_telegram" id="pri_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
         <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
         <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label></div>

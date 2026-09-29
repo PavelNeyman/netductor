@@ -40,12 +40,15 @@ func loadRelayKH() map[string]string {
 }
 
 func saveRelayKH(f map[string]string) error {
-	_ = os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700)
+	path := relayKnownPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("ssh known_hosts dir %s: %w", filepath.Dir(path), err)
+	}
 	raw, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(relayKnownPath(), append(raw, 10), 0o600)
+	return os.WriteFile(path, append(raw, 10), 0o600)
 }
 
 // ListSSHHosts lists secondary provision TOFU keys.

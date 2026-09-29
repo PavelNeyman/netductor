@@ -71,7 +71,7 @@ func wizBuildFields(id string, m *model) []wizField {
 				Short: ph("Lampac listen (loopback)", "Lampac (localhost)"),
 				Detail: ph("Only if Lampac installed. LAMPAC_PORT.", "Если ставите Lampac. LAMPAC_PORT.")},
 			{Key: "domain_primary", Label: FormT(lang, "domain_primary"), Value: "",
-				Short: ph("CORE hostname (explicit)", "Hostname CORE (явно)"),
+				Short: ph("DNS A → primary IP", "DNS A → IP primary"),
 				Detail: ph("e.g. p2.nd.example.com. Required for LE. No auto p./i. invent.", "Напр. p2.nd.example.com. Для LE обязательно. Без авто-p./i.")},
 			{Key: "domain_vpn", Label: FormT(lang, "domain_vpn"), Value: "",
 				Short: ph("VPN entry host", "Хост входа VPN"),

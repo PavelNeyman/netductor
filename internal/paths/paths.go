@@ -13,7 +13,18 @@ func env(k, d string) string {
 }
 
 func EtcDir() string   { return env("NETDUCTOR_ETC", "/etc/netductor") }
-func StateDir() string { return env("NETDUCTOR_STATE", "/var/lib/netductor") }
+func StateDir() string {
+	if v := os.Getenv("NETDUCTOR_STATE"); v != "" {
+		return v
+	}
+	// Operator Mac/PC (non-root): never require /var/lib — TOFU, local state under ~/.netductor.
+	if os.Geteuid() != 0 {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			return filepath.Join(home, ".netductor")
+		}
+	}
+	return "/var/lib/netductor"
+}
 
 // BinDir is where node binaries live (FHS).
 func BinDir() string { return env("NETDUCTOR_BIN", "/usr/local/bin") }

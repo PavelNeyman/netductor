@@ -1,3 +1,5 @@
+> **IMPLEMENTED in 0.9.93** (TOFU path, labels, CF removed from main form; Lampac checkbox kept).
+
 **RU** · [EN](../WEB-UI-FIXES.md)
 
 # Web UI / Fleet — отложенные правки
