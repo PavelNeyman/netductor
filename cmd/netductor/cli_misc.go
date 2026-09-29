@@ -266,6 +266,16 @@ func runUpdate(restart bool) {
 	}
 	ndupdate.WriteVERSION(tag)
 	fmt.Println("updated", dest, tag)
+	// Primary node update also refreshes TG bot binary (same release) — otherwise
+	// only API restarts and bot stays on old build.
+	if comp == "node" {
+		tgDest := "/usr/local/bin/netductor-tg"
+		if err := ndupdate.DownloadReleaseAsset(tag, "tg", tgDest); err != nil {
+			fmt.Fprintln(os.Stderr, "warn tg binary:", err)
+		} else {
+			fmt.Println("updated", tgDest, tag)
+		}
+	}
 	if doRestart && unit != "" {
 		_ = exec.Command("systemctl", "try-restart", unit).Run()
 		if unit == "netductor-api" {

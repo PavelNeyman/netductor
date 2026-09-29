@@ -297,8 +297,18 @@ if strings.HasPrefix(data, "u:") {
 		return
 	case "m:topics":
 		reply(token, chat, msgID, notify.TopicsStatusHTML(getLang() != "en"), map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🔄", "m:topics", ""), btn(T("main_menu"), "m:menu", "primary")},
+			{btn("🔄", "m:topics", ""), btn("♻️ Reconcile", "m:topics:reconcile", ""), btn(T("main_menu"), "m:menu", "primary")},
 		}})
+	case "m:topics:reconcile":
+		// force reconcile now
+		admin := chat
+		if err := notify.ReconcileTopics(token, admin); err != nil {
+			reply(token, chat, msgID, "❌ "+esc(err.Error()), map[string]any{"inline_keyboard": [][]map[string]any{{btn(T("main_menu"), "m:menu", "primary")}}})
+		} else {
+			reply(token, chat, msgID, "✅ reconciled\n\n"+notify.TopicsStatusHTML(getLang() != "en"), map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("🔄", "m:topics", ""), btn(T("main_menu"), "m:menu", "primary")},
+			}})
+		}
 	case "m:digest":
 		reply(token, chat, msgID, formatFleetDigestHTML(), mainKeyboard())
 	case "m:dr":

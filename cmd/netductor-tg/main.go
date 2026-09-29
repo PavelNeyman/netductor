@@ -190,19 +190,28 @@ func editRich(token string, chat int64, msgID int, html string, kb map[string]an
 
 
 
-var topicsEnsured bool
+var topicsLastReconcile time.Time
 
 func ensureTopicsOnce(token string, admin int64) {
-	if topicsEnsured || admin == 0 || token == "" {
+	if admin == 0 || token == "" {
 		return
 	}
-	topicsEnsured = true
-	if err := notify.EnsureTopics(token, admin); err != nil {
-		fmt.Fprintln(os.Stderr, "topics:", err)
-	} else {
-		fmt.Fprintln(os.Stderr, "topics: bootstrap Alerts/Warnings/Service/Updates")
+	// Full reconcile at most every 6h (also runs soon after process start).
+	if !topicsLastReconcile.IsZero() && time.Since(topicsLastReconcile) < 6*time.Hour {
+		return
 	}
-	notify.SeedAllTopics(token, admin)
+	topicsLastReconcile = time.Now()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintln(os.Stderr, "topics panic:", r)
+		}
+	}()
+	if err := notify.ReconcileTopics(token, admin); err != nil {
+		fmt.Fprintln(os.Stderr, "topics:", err)
+		topicsLastReconcile = time.Time{} // retry next update
+		return
+	}
+	fmt.Fprintln(os.Stderr, "topics: reconciled bootstrap + backup")
 }
 
 func sendHTML(token string, chat int64, text string, kb map[string]any) {
