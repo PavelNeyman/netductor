@@ -268,6 +268,9 @@ func runSecondary(args []string) {
 				on = "online"
 			}
 			fmt.Println("status:", on)
+			if d.Version != "" {
+				fmt.Println("version:", d.Version)
+			}
 			fmt.Println("sb=", d.SingBoxOK, "cpu=", d.CPUPercent, "mem=", d.MemUsedMB, "/", d.MemTotalMB, "load=", d.Load1)
 			if len(d.PendingCmds) > 0 {
 				fmt.Println("pending:", d.PendingCmds)
@@ -339,7 +342,7 @@ func runSecondary(args []string) {
 			if secondary.Online(d, 2*time.Minute) {
 				on = "online"
 			}
-			fmt.Printf("%s	%s	%s	ip=%s	sb=%v	ver=%d\n", d.ID, d.Name, on, d.PublicIP, d.SingBoxOK, d.ConfigVer)
+			fmt.Printf("%s\t%s\t%s\tip=%s\tsb=%v\tconfig_ver=%d\tagent=%s\n", d.ID, d.Name, on, d.PublicIP, d.SingBoxOK, d.ConfigVer, d.Version)
 		}
 		fmt.Println("config_ver", secondary.ConfigVer())
 	default:

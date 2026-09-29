@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -333,7 +334,7 @@ func nodesHubHTML() string {
 
 
 type nodeRow struct {
-	ID, Host, Role, Kind, IP, Status, Desired string
+	ID, Host, Role, Kind, IP, Status, Desired, Version string
 }
 
 func parseNodesList() []nodeRow {
@@ -378,6 +379,47 @@ func parseNodesList() []nodeRow {
 		}
 		rows = append(rows, r)
 	}
+	// secondary agent versions from secondary status
+	agents := map[string]string{}
+	if out, err := exec.Command(netductorBin(), "secondary", "status").CombinedOutput(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "config_ver") {
+				continue
+			}
+			parts := strings.Split(line, "\t")
+			if len(parts) == 0 {
+				continue
+			}
+			id := strings.TrimSpace(parts[0])
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if strings.HasPrefix(p, "agent=") {
+					agents[id] = strings.TrimPrefix(p, "agent=")
+				}
+			}
+		}
+	}
+	for i := range rows {
+		if v := agents[rows[i].ID]; v != "" {
+			rows[i].Version = v
+			continue
+		}
+		// primary on this host
+		if rows[i].Role == "primary" || rows[i].Role == "core" {
+			if b, err := os.ReadFile("/etc/netductor/VERSION"); err == nil {
+				rows[i].Version = strings.TrimSpace(string(b))
+			}
+			if rows[i].Version == "" {
+				rows[i].Version = strings.TrimSpace(runND("version"))
+				// "netductor 0.9.98 (node)" → take middle token
+				f := strings.Fields(rows[i].Version)
+				if len(f) >= 2 {
+					rows[i].Version = f[1]
+				}
+			}
+		}
+	}
 	return rows
 }
 
@@ -395,7 +437,7 @@ func formatNodesListHTML() string {
 		b.WriteString("<i># open node card</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>#</th><th>host</th><th>role</th><th>status</th></tr>" + nl)
+	b.WriteString("<tr><th>#</th><th>host</th><th>role</th><th>ver</th><th>status</th></tr>" + nl)
 	for i, r := range rows {
 		label := r.Host
 		if label == "" {
@@ -413,8 +455,12 @@ func formatNodesListHTML() string {
 		if role == "" {
 			role = "—"
 		}
-		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>"+nl,
-			i+1, esc(label), esc(role), icon))
+		ver := r.Version
+		if ver == "" {
+			ver = "—"
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>"+nl,
+			i+1, esc(label), esc(role), esc(ver), icon))
 	}
 	b.WriteString("</table>" + nl)
 	const per = 5

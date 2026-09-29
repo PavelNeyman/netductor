@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
 
 func formatRelayListHTML() string {
@@ -26,6 +28,7 @@ type nodeCard struct {
 	Role     string
 	IP       string
 	Status   string
+	Version  string
 	CPU      float64
 	MemUsed  int64
 	MemTotal int64
@@ -116,6 +119,11 @@ func formatNodeCardHTML(c nodeCard) string {
 		b.WriteString("<tr><td>ip</td><td>" + esc(c.IP) + "</td></tr>" + nl)
 	}
 	b.WriteString("<tr><td>status</td><td>" + esc(st) + "</td></tr>" + nl)
+	ver := c.Version
+	if ver == "" {
+		ver = "—"
+	}
+	b.WriteString("<tr><td>version</td><td><code>" + esc(ver) + "</code></td></tr>" + nl)
 	b.WriteString("</table>" + nl + nl)
 	b.WriteString("<table bordered striped>" + nl)
 	b.WriteString("<tr><th>metric</th><th>value</th></tr>" + nl)
@@ -166,6 +174,9 @@ func loadNodeCard(id string) nodeCard {
 			if strings.HasPrefix(dl, "status:") {
 				c.Status = strings.TrimSpace(strings.TrimPrefix(dl, "status:"))
 			}
+			if strings.HasPrefix(dl, "version:") {
+				c.Version = strings.TrimSpace(strings.TrimPrefix(dl, "version:"))
+			}
 			var sb string
 			_, _ = fmt.Sscanf(dl, "sb= %s cpu= %f mem= %d / %d load= %f", &sb, &c.CPU, &c.MemUsed, &c.MemTotal, &c.Load)
 			if strings.HasPrefix(dl, "pending:") {
@@ -181,6 +192,9 @@ func loadNodeCard(id string) nodeCard {
 		return c
 	}
 	c.CPU, c.MemUsed, c.MemTotal, c.Load = sampleHostMetrics()
+	if c.Version == "" {
+		c.Version = ndver.Release
+	}
 	if c.Status == "" {
 		c.Status = "online"
 	}
