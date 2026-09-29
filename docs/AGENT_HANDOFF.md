@@ -57,3 +57,6 @@ After `deploy secondary`, Mac runs:
 Units: `nd-wss-sp-*`, `nd-wss-ps-*`, `wg-quick@nd-svc-sp|ps`. Health timer every 30s.
 If missing on an old node: same two bootstrap commands (not optional in architecture).
 
+## Pending UX (no code yet)
+
+- Web **Control (Day-2)** simplify — [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2 / Control UX.

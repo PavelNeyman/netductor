@@ -75,3 +75,24 @@ netductor-op operator serve
 
 - Dual-node smoke / hardware e2e (see OPEN_ITEMS).
 - Release/Formula sync (done for v0.9.92 separately).
+
+
+## Day-2 / Control UX (pending — do not implement yet)
+
+**Owner request (2026-09-29):** simplify **Control** (Day-2) in Web op UI.
+
+### Problem
+- Too many sub-tabs and buttons (Overview, VPN, Nodes, Edge, NVR, Git, Backup, DNS, Probes, Advanced, …).
+- Unclear what each control does, when to use it, and the happy path after install.
+- Cognitive load: looks like a full API console, not an operator day-2 surface.
+
+### Goals (when prioritized)
+- Fewer top-level sections; group by **task** (status, users/VPN, fleet/nodes, add-ons, danger zone).
+- Short RU/EN description per section and per primary action.
+- Hide raw/Advanced session API behind one explicit toggle (already partially there — make default path obvious).
+- Align naming with TG Tools / TUI so the same mental model applies across UIs.
+- Optional: progressive disclosure — “Status + VPN users” first; NVR/Git/DNS only if components installed.
+
+### Out of scope for this note
+- No code changes until prioritized.
+- Installer/Fleet is separate (labels/TOFU/checkbox fixes tracked above / shipped in 0.9.93–0.9.94).
