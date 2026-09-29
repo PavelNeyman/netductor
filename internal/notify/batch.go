@@ -169,15 +169,9 @@ func sendTelegramHTML(msg string, threadID int) error {
 		return fmt.Errorf("telegram secrets not configured")
 	}
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
-	th := ""
-	if threadID > 0 {
-		th = fmt.Sprintf("%d", threadID)
-	} else if x := alertsThreadID(); x != "" {
-		th = x
-	}
 	body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
-	if th != "" {
-		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%s,"rich_message":{"html":%q}}`, chat, th, msg)
+	if threadID > 0 {
+		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"rich_message":{"html":%q}}`, chat, threadID, msg)
 	}
 	resp, err := http.Post(u, "application/json", strings.NewReader(body))
 	if err == nil {
@@ -189,8 +183,6 @@ func sendTelegramHTML(msg string, threadID int) error {
 	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
 	if threadID > 0 {
 		vals.Set("message_thread_id", fmt.Sprintf("%d", threadID))
-	} else if th := alertsThreadID(); th != "" {
-		vals.Set("message_thread_id", th)
 	}
 	return postTG(tok, "sendMessage", vals)
 }

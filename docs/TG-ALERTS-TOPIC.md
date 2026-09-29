@@ -1,37 +1,22 @@
-# Alert topics (manual)
+# Alert topics
 
-**No auto-create.** You create topics in Telegram; the bot only stores `message_thread_id`.
+## Bootstrap (automatic)
 
-## Prerequisites
+With **Threaded Mode** enabled in @BotFather, the bot on first update creates exactly four topics and stores their ids in `…/tg/topics.json`:
 
-1. @BotFather → your bot → **Threaded Mode** → Enable  
-2. Open private chat with the bot → create topics (e.g. Alerts, Warnings, Service, Updates)
+| Topic | Role |
+|-------|------|
+| 🚨 Alerts | default / offline |
+| ⚠️ Warnings | mismatch, quota |
+| 🛠 Service | backup, mtls, svc-paths |
+| 🔄 Updates | release / update |
 
-## Assign a topic
+No other topics are auto-created.
 
-**From inside the topic** send:
+## Optional re-bind
 
-```text
-/topic alerts
-/topic warnings
-/topic service
-/topic updates
-```
+From inside a topic: `/topic alerts` (or warnings / service / updates).
 
-Or: Operator → **📁 Topics** (status table).
+## Removed
 
-The bot reads `message_thread_id` from that message and saves  
-`/var/lib/netductor/tg/topics.json`.
-
-## Routing
-
-| Topic role | Typical alert keys |
-|------------|-------------------|
-| alerts | default / offline |
-| warnings | mismatch, quota, warn |
-| service | backup, mtls, svc-paths |
-| updates | release, update |
-
-## Legacy override
-
-If `/etc/netductor/secrets/telegram_alerts_thread_id` is set, **all** alerts go to that single thread (ignores the table). Remove the file to use per-role topics.
+`telegram_alerts_thread_id` secret is **not** used — routing is only via `topics.json`.
