@@ -1,6 +1,7 @@
 package main
 
 import (
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"fmt"
 	"strings"
 	"time"
@@ -109,6 +110,10 @@ func (m *model) renderHeader() string {
 	title += stMuted.Render(" " + blurb + " ")
 	if m.hasRemote() {
 		title += stChipKey.Render(" " + m.remoteLabel() + " ")
+	}
+	// operator self-update available?
+	if st := ndupdate.CheckStatusCached(version); st.Update && st.Latest != "" {
+		title += stChipKey.Render(fmt.Sprintf(" ⬆%s ", st.Latest))
 	}
 	// Current run mode (always visible)
 	{

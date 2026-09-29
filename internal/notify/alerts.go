@@ -68,14 +68,18 @@ func AlertOnce(key, msg string) {
 		return
 	}
 	now := time.Now()
-	if t, ok := lastSent[key]; ok && now.Sub(t) < cooldown {
+	cd := cooldown
+	if strings.HasPrefix(key, "update:available:") {
+		cd = 24 * time.Hour // one reminder per day per release tag
+	}
+	if t, ok := lastSent[key]; ok && now.Sub(t) < cd {
 		return
 	}
 	if t, ok := clearedAt[key]; ok && now.Sub(t) < rearmAfter {
 		return
 	}
 	disk := loadSent()
-	if ts, ok := disk[key]; ok && now.Unix()-ts < int64(cooldown.Seconds()) {
+	if ts, ok := disk[key]; ok && now.Unix()-ts < int64(cd.Seconds()) {
 		return
 	}
 	tgErr := Telegram(msg)

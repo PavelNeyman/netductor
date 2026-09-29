@@ -6,7 +6,7 @@ import (
 )
 
 // Operator workstation binary (Mac/PC). Does not embed node plane (install/serve/vpn).
-var version = "0.9.101"
+var version = "0.9.102"
 
 
 func main() {

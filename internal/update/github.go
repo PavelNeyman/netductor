@@ -289,3 +289,29 @@ func WriteVERSION(tag string) {
 	_ = os.MkdirAll("/etc/netductor", 0o755)
 	_ = os.WriteFile("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644)
 }
+
+
+var (
+	statusCache    Status
+	statusCacheAt  time.Time
+	statusCacheTTL = 30 * time.Minute
+)
+
+// CheckStatusCached is CheckStatus with a 30m process-local cache (TUI/header safe).
+func CheckStatusCached(local string) Status {
+	if time.Since(statusCacheAt) < statusCacheTTL && statusCache.Local != "" {
+		// re-evaluate Update against current local string
+		st := statusCache
+		st.Local = strings.TrimSpace(local)
+		if st.Latest != "" {
+			st.Update = Newer(st.Latest, st.Local)
+		}
+		return st
+	}
+	st := CheckStatus(local)
+	if st.Error == "" {
+		statusCache = st
+		statusCacheAt = time.Now()
+	}
+	return st
+}

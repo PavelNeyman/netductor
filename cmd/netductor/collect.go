@@ -13,6 +13,8 @@ import (
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -259,6 +261,20 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 			notify.AlertOnce("backup:offsite", "⚠️ Backup offsite failed:\n<pre>"+string(b)+"</pre>")
 		} else {
 			notify.ClearAlert("backup:offsite")
+		}
+	}
+
+	// GitHub release newer than local node — notify once per remote tag
+	if enabled("release_update") {
+		st := ndupdate.CheckStatus(ndver.Release)
+		if st.Error == "" && st.Update && st.Latest != "" {
+			key := "update:available:" + st.Latest
+			notify.AlertOnce(key, fmt.Sprintf(
+				"🆕 <b>Netductor update</b>\nlocal <code>%s</code> → latest <code>%s</code>\n<i>TG Tools → Updates · or: netductor update apply %s</i>",
+				st.Local, st.Latest, strings.TrimPrefix(st.Latest, "v")))
+		} else if st.Error == "" && !st.Update {
+			// clear any prior version keys is hard; clear generic
+			notify.ClearAlert("update:available")
 		}
 	}
 	_ = m
