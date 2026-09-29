@@ -11,6 +11,28 @@ import (
 )
 
 func runOpUpdate(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "check", "status":
+			st := ndupdate.CheckStatus(version)
+			fmt.Printf("local=%s latest=%s update=%v %s\n", st.Local, st.Latest, st.Update, st.Error)
+			return
+		case "list", "releases":
+			list, err := ndupdate.ListReleases(15)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			for _, r := range list {
+				fmt.Printf("%s  %s\n", r.Tag, r.PublishedAt)
+			}
+			return
+		case "help", "--help", "-h":
+			fmt.Println("netductor-op update check|list")
+			fmt.Println("netductor-op update [--version X] [--skip-verify]")
+			return
+		}
+	}
 	ver := ""
 	skip := false
 	for i := 0; i < len(args); i++ {
@@ -24,6 +46,7 @@ func runOpUpdate(args []string) {
 		case "--skip-verify":
 			skip = true
 		case "--help", "-h":
+			fmt.Println("netductor-op update check|list")
 			fmt.Println("netductor-op update [--version X] [--skip-verify]")
 			fmt.Println("Downloads netductor-op-<goos>-<goarch> from GitHub Releases into this binary's directory.")
 			return

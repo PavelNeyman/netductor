@@ -52,6 +52,11 @@ func All() []Action {
 		a("latest", "overview", "GET", "/api/latest", "", "—", "Latest metrics", "Latest"),
 		a("sessions", "overview", "GET", "/api/sessions", "", "—", "Sessions", "Sessions"),
 
+		// updates
+		a("update-status", "overview", "GET", "/api/update/status", "", "update check", "Update status", "Статус обновлений"),
+		a("update-releases", "overview", "GET", "/api/update/releases", "", "update list", "Release list", "Список релизов"),
+		a("update-apply", "overview", "POST", "/api/update/apply", `{"version":"","component":"node"}`, "update apply", "Apply update", "Применить обновление"),
+
 		// vpn
 		a("vpn-users", "vpn", "GET", "/vpn/users", "", "vpn list", "List users", "Список users"),
 		a("vpn-refresh", "vpn", "POST", "/api/vpn/refresh-links", "{}", "vpn refresh-links", "Refresh links", "Обновить ссылки"),

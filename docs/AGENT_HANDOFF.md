@@ -1,3 +1,10 @@
+## Updates (0.9.97+)
+
+- `netductor update check|list|apply [vX] [--component node|tg] [--no-backup]`
+- API: `GET /api/update/status`, `GET /api/update/releases`, `POST /api/update/apply`
+- Apply runs **backup** first (unless `--no-backup`); secondary already pulls via `backup_pull`
+- Always pin `internal/version.Release` with assets on each release
+
 **EN** · [RU](ru/AGENT_HANDOFF.md)
 
 # Agent handoff

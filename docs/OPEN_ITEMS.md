@@ -11,11 +11,19 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 - [x] Live unattended recover drill 2026-09-27
 - [x] Docs EN/RU pairs (42)
 
+## Phase Updates (priority)
+
+- [x] Node: `update check` / `list` / apply with optional pre-backup + API `/api/update/*` + opcatalog (0.9.97)
+- [ ] TG/Web/TUI: show update badge from `/api/update/status`; pick tag from `/api/update/releases`
+- [ ] Pre-upgrade: wait for secondary `backup_pull` ACK before apply (mutual)
+- [ ] Secondary restore-from-peer-backup documented + one-shot CLI
+- [ ] Edge agent update parity in same Operator Updates screen
+
 ## Owner next
 
 - [ ] **Show password** toggles in Web/TUI password fields (one-shot deploy secrets) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Show password. Plan only.
 - [ ] **Web Control (Day-2) UX simplify** — too many tabs/buttons; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Plan only.
-- [ ] Full dual-node smoke (primary + secondary)
+- [x] Full dual-node smoke (primary + secondary) — live deploy 2026-09-29 (LE, bot, SP, secondary)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
 - [ ] Optional: CI Formula SHA automation
 

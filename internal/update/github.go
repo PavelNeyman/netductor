@@ -40,6 +40,76 @@ func LatestReleaseTag() (string, error) {
 	return strings.TrimSpace(body.TagName), nil
 }
 
+// ReleaseInfo is a GitHub release list entry (tag + optional name/date).
+type ReleaseInfo struct {
+	Tag         string `json:"tag"`
+	Name        string `json:"name,omitempty"`
+	PublishedAt string `json:"published_at,omitempty"`
+	Prerelease  bool   `json:"prerelease,omitempty"`
+}
+
+// ListReleases returns up to limit recent releases (newest first). limit<=0 → 15.
+func ListReleases(limit int) ([]ReleaseInfo, error) {
+	if limit <= 0 {
+		limit = 15
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	client := &http.Client{Timeout: 20 * time.Second}
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=%d", Repo, limit)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("github HTTP %d", resp.StatusCode)
+	}
+	var body []struct {
+		TagName     string `json:"tag_name"`
+		Name        string `json:"name"`
+		PublishedAt string `json:"published_at"`
+		Prerelease  bool   `json:"prerelease"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, err
+	}
+	out := make([]ReleaseInfo, 0, len(body))
+	for _, r := range body {
+		tag := strings.TrimSpace(r.TagName)
+		if tag == "" {
+			continue
+		}
+		out = append(out, ReleaseInfo{
+			Tag: tag, Name: r.Name, PublishedAt: r.PublishedAt, Prerelease: r.Prerelease,
+		})
+	}
+	return out, nil
+}
+
+// Status compares local version string to GitHub latest.
+type Status struct {
+	Local      string `json:"local"`
+	Latest     string `json:"latest,omitempty"`
+	Update     bool   `json:"update_available"`
+	Error      string `json:"error,omitempty"`
+}
+
+func CheckStatus(local string) Status {
+	st := Status{Local: strings.TrimSpace(local)}
+	tag, err := LatestReleaseTag()
+	if err != nil {
+		st.Error = err.Error()
+		return st
+	}
+	st.Latest = tag
+	st.Update = Newer(tag, st.Local)
+	return st
+}
+
 func assetName(component string) string {
 	goos, arch := runtime.GOOS, runtime.GOARCH
 	switch component {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/install"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/probes"
 )
 
@@ -149,50 +150,90 @@ func runSelfInstall() {
 
 
 // runUpdate installs from GitHub Releases into /usr/local/bin (FHS).
-// usage: netductor update [version] [--component node|tg|agent] [--no-restart] [--skip-verify]
+// usage:
+//   netductor update check
+//   netductor update list [--limit N]
+//   netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]
 func runUpdate(restart bool) {
-	comp, ver := "node", ""
-	doRestart := restart
-	skipVerify := false
 	args := os.Args[2:]
+	if len(args) > 0 {
+		switch args[0] {
+		case "check", "status":
+			st := ndupdate.CheckStatus(ndver.Release)
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(st)
+			if st.Update {
+				os.Exit(0)
+			}
+			return
+		case "list", "releases":
+			limit := 15
+			for i := 1; i < len(args); i++ {
+				if (args[i] == "--limit" || args[i] == "-n") && i+1 < len(args) {
+					i++
+					fmt.Sscanf(args[i], "%d", &limit)
+				}
+			}
+			list, err := ndupdate.ListReleases(limit)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(map[string]any{"local": ndver.Release, "releases": list})
+			return
+		case "apply":
+			args = args[1:]
+		case "--help", "-h", "help":
+			fmt.Println("netductor update check | list [--limit N]")
+			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
+			fmt.Println("  version empty → latest release; prefer explicit tag if latest is broken")
+			return
+		}
+	}
+	comp := "node"
+	tag := ""
+	doRestart := restart
+	noBackup := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		switch a {
-		case "--component", "-c":
-			if i+1 < len(args) {
-				i++
-				comp = args[i]
-			}
-		case "--version", "-v":
-			if i+1 < len(args) {
-				i++
-				ver = args[i]
-			}
-		case "--no-restart":
+		switch {
+		case a == "--component" && i+1 < len(args):
+			i++
+			comp = args[i]
+		case a == "--no-restart":
 			doRestart = false
-		case "--restart":
-			doRestart = true
-		case "--skip-verify":
-			skipVerify = true
-		case "--help", "-h":
-			fmt.Println("netductor update [version] [--component node|tg|agent] [--no-restart] [--skip-verify]")
-			fmt.Println("Downloads GitHub Release asset into /usr/local/bin. Verifies SHA256SUMS unless --skip-verify or NETDUCTOR_UPDATE_SKIP_VERIFY=1.")
+		case a == "--skip-verify":
+			_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
+		case a == "--no-backup":
+			noBackup = true
+		case a == "--help" || a == "-h":
+			fmt.Println("netductor update check | list [--limit N]")
+			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
 			return
+		case strings.HasPrefix(a, "-"):
+			// skip unknown flags
 		default:
-			if !strings.HasPrefix(a, "-") && ver == "" {
-				ver = a
+			if tag == "" {
+				tag = a
 			}
 		}
 	}
-	if skipVerify {
-		_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
+	if !noBackup {
+		fmt.Fprintln(os.Stderr, "==> pre-upgrade backup")
+		if path, err := install.Backup(); err != nil {
+			fmt.Fprintln(os.Stderr, "warn backup:", err)
+		} else {
+			fmt.Fprintln(os.Stderr, "backup:", path)
+		}
 	}
-	tag := strings.TrimSpace(ver)
 	if tag == "" {
 		var err error
 		tag, err = ndupdate.LatestReleaseTag()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "latest release:", err)
+			fmt.Fprintln(os.Stderr, "latest:", err)
 			os.Exit(1)
 		}
 	}
@@ -225,6 +266,7 @@ func runUpdate(restart bool) {
 		_ = exec.Command("systemctl", "try-restart", unit).Run()
 		if unit == "netductor-api" {
 			_ = exec.Command("systemctl", "try-restart", "netductor-telegram-bot").Run()
+			_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
 		}
 		fmt.Println("restarted", unit, "(try)")
 	}

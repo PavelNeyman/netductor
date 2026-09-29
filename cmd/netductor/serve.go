@@ -30,6 +30,7 @@ func buildAPIMux() http.Handler {
 	registerRegistryAPI(mux)
 	registerVPNHTTP(mux)
 	registerSvcPathsAPI(mux)
+	registerUpdateAPI(mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"ok": true, "service": "netductor", "version": version, "time": time.Now().UTC().Format(time.RFC3339)})
