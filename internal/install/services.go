@@ -193,6 +193,10 @@ Type=simple
 ExecStart=%s
 Restart=on-failure
 RestartSec=5
+# Cap RSS so a backup/update leak cannot OOM the whole VPS
+MemoryMax=512M
+MemoryHigh=384M
+OOMPolicy=stop
 
 [Install]
 WantedBy=multi-user.target

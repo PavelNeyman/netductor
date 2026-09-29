@@ -11,7 +11,6 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/dnsblock"
 	"github.com/PavelNeyman/netductor/internal/edge"
-	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -481,13 +480,8 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			wait = "⏳ Бэкап + обновление…"
 		}
 		reply(token, chat, msgID, wait, navKeyboard("m:tools", parentTools()))
-		if path, err := install.Backup(); err != nil {
-			fmt.Fprintf(os.Stderr, "update pre-backup: %v\n", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "update pre-backup: %s\n", path)
-			acked, pend := install.WaitForBackupPull(45 * time.Second)
-			fmt.Fprintf(os.Stderr, "backup_pull acked=%d pending=%d\n", acked, pend)
-		}
+		// Never run backup/download inside the bot process (OOM: tar+encrypt in RAM).
+		// Delegate to node CLI which is a separate process with its own memory limit.
 		if tag == "" {
 			var err error
 			tag, err = ndupdate.LatestReleaseTag()
@@ -499,27 +493,17 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		if !strings.HasPrefix(tag, "v") {
 			tag = "v" + tag
 		}
-		err := ndupdate.ApplyTag(tag, "node", "/usr/local/bin/netductor")
-		err2 := ndupdate.ApplyTag(tag, "tg", "/usr/local/bin/netductor-tg")
-		ndupdate.WriteVERSION(tag)
-		_ = exec.Command("systemctl", "restart", "netductor-api").Start()
-		_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Start()
-		_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Start()
-		secN := 0
-		for _, d := range secondary.List() {
-			if secondary.Online(d, 2*time.Minute) {
-				if err := secondary.EnqueueCmd(d.ID, "upgrade"); err == nil {
-					secN++
-				}
-			}
-		}
-		msg := fmt.Sprintf("✅ %s — api+bot restarted; secondary upgrade queued=%d", esc(tag), secN)
+		cmd := exec.Command("/usr/local/bin/netductor", "update", "apply", tag)
+		out, err := cmd.CombinedOutput()
+		msg := fmt.Sprintf("✅ %s\n<pre>%s</pre>", esc(tag), esc(trimRunes(string(out), 1500)))
 		if ru {
-			msg = fmt.Sprintf("✅ %s — api+bot перезапущены; secondary upgrade в очереди=%d", esc(tag), secN)
+			msg = fmt.Sprintf("✅ %s\n<pre>%s</pre>", esc(tag), esc(trimRunes(string(out), 1500)))
 		}
-		if err != nil || err2 != nil {
-			msg = "❌ " + esc(fmt.Sprintf("node: %v; tg: %v", err, err2))
+		if err != nil {
+			msg = "❌ " + esc(fmt.Sprintf("%v\n%s", err, trimRunes(string(out), 1500)))
 		}
+		// CLI apply already restarts api/tg; if bot still here, soft-restart self
+		_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Start()
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	}
@@ -607,3 +591,11 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 }
 
+
+func trimRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}

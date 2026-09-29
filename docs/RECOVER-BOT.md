@@ -19,3 +19,8 @@ netductor version
 ```
 
 Topics: after bot is up, Topics → Reconcile (or wait ≤6h). Clearing Telegram chat history deletes topics client-side; reconcile recreates bootstrap from `topics-backup.json` names.
+
+
+## Memory guard (0.9.115+)
+
+Unit has `MemoryMax=512M`. If bot is OOM-killed, check backup size and that update is not running inside the bot process.

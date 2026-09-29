@@ -55,7 +55,7 @@ func apiPost(token, method string, payload any) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func apiGet(token, method string, v url.Values) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 }
 
 func esc(s string) string {
@@ -327,7 +327,7 @@ func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	var wr struct {
 		OK          bool   `json:"ok"`
 		Description string `json:"description"`
@@ -393,7 +393,7 @@ func editRichWithPhoto(token string, chat int64, msgID int, html, photoPath, pho
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	var wr struct {
 		OK          bool   `json:"ok"`
 		Description string `json:"description"`
@@ -503,7 +503,7 @@ func sendDocumentFile(token string, chat int64, path, caption string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	var wr struct {
 		OK          bool   `json:"ok"`
 		Description string `json:"description"`
@@ -556,7 +556,7 @@ func sendPhotoFile(token string, chat int64, path, caption string, kb map[string
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if resp.StatusCode >= 300 {
 		return fmt.Errorf("sendPhoto %s: %s", resp.Status, string(body))
 	}
@@ -598,7 +598,7 @@ func apiPOST(token, method string, fields map[string]any) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	var wr struct {
 		OK          bool   `json:"ok"`
 		Description string `json:"description"`

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -74,6 +75,15 @@ func keyBytes(pass string) []byte {
 }
 
 func encryptFile(inPath, outPath, pass string) error {
+	st, err := os.Stat(inPath)
+	if err != nil {
+		return err
+	}
+	// In-process AES-GCM loads the whole file twice — cap to protect bot/api RAM.
+	const maxInMem = 64 << 20 // 64 MiB
+	if st.Size() > maxInMem {
+		return encryptFileOpenSSL(inPath, outPath, pass)
+	}
 	in, err := os.ReadFile(inPath)
 	if err != nil {
 		return err
@@ -94,28 +104,41 @@ func encryptFile(inPath, outPath, pass string) error {
 	return os.WriteFile(outPath, out, 0o600)
 }
 
+// encryptFileOpenSSL streams large archives (openssl enc AES-256-CBC + salt).
+// Format differs from small GCM blobs — decryptFile tries both.
+func encryptFileOpenSSL(inPath, outPath, pass string) error {
+	cmd := exec.Command("openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
+		"-in", inPath, "-out", outPath, "-pass", "pass:"+pass)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("openssl enc: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	return os.Chmod(outPath, 0o600)
+}
+
 func decryptFile(inPath, outPath, pass string) error {
+	// Try legacy in-memory GCM first (small archives).
 	in, err := os.ReadFile(inPath)
 	if err != nil {
 		return err
 	}
-	block, err := aes.NewCipher(keyBytes(pass))
-	if err != nil {
-		return err
+	if len(in) < 64<<20 {
+		block, err := aes.NewCipher(keyBytes(pass))
+		if err == nil {
+			if gcm, err2 := cipher.NewGCM(block); err2 == nil && len(in) >= gcm.NonceSize() {
+				nonce, ct := in[:gcm.NonceSize()], in[gcm.NonceSize():]
+				if plain, err3 := gcm.Open(nil, nonce, ct, nil); err3 == nil {
+					return os.WriteFile(outPath, plain, 0o600)
+				}
+			}
+		}
 	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return err
+	// openssl / large
+	cmd := exec.Command("openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2",
+		"-in", inPath, "-out", outPath, "-pass", "pass:"+pass)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("decrypt: gcm and openssl failed: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
-	if len(in) < gcm.NonceSize() {
-		return fmt.Errorf("ciphertext too short")
-	}
-	nonce, ct := in[:gcm.NonceSize()], in[gcm.NonceSize():]
-	plain, err := gcm.Open(nil, nonce, ct, nil)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(outPath, plain, 0o600)
+	return os.Chmod(outPath, 0o600)
 }
 
 
@@ -172,8 +195,16 @@ func Backup() (string, error) {
 	if len(ReadComponentsManifest()) == 0 {
 		_ = WriteComponentsManifest(DefaultComponents())
 	}
-	args := []string{"-czf", plain, "-C", "/", "etc/netductor"}
-	// Config + data for all managed services (binaries/images reinstalled from COMPONENTS).
+	// Never pack previous backups (exponential growth) or bulky local media/registry blobs.
+	args := []string{
+		"-czf", plain,
+		"--exclude=var/lib/netductor/backups",
+		"--exclude=var/lib/netductor/registry",
+		"--exclude=var/lib/netductor/nvr/segments",
+		"--exclude=var/lib/netductor/git",
+		"-C", "/", "etc/netductor",
+	}
+	// Config + data for managed services (binaries/images reinstalled from COMPONENTS).
 	for _, p := range []string{
 		"etc/blocky",
 		"etc/sing-box",

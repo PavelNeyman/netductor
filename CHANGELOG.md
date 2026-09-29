@@ -1,3 +1,11 @@
+## 0.9.115
+
+- **Backup:** exclude `var/lib/netductor/backups` (and registry/nvr/git) — stopped exponential tar growth
+- **encryptFile:** >64MiB uses streaming openssl; small files keep AES-GCM
+- **TG update apply:** runs `netductor update apply` in a **separate process** (no backup/download inside bot)
+- **netductor-telegram-bot unit:** MemoryMax=512M MemoryHigh=384M
+- TG HTTP body reads capped at 8MiB
+
 ## 0.9.75
 
 - Remove enable paths for footgun env; ndconfig ignores obsolete keys (no Sanitize rewrite)

@@ -26,6 +26,8 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Closed recently
 
+- [x] TG OOM: backup exclude + out-of-process update + MemoryMax (0.9.115)
+
 - [x] Fleet health digest API/CLI/TG (0.9.106)
 - [x] DR checklist in TG + docs/DISASTER-RECOVERY.md
 - [x] Optional alerts private topic (`telegram_alerts_thread_id`)
