@@ -400,6 +400,22 @@ func parseNodesList() []nodeRow {
 			}
 		}
 	}
+	// edge agent versions
+	if out, err := exec.Command(netductorBin(), "edge", "list").CombinedOutput(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			parts := strings.Split(line, "\t")
+			if len(parts) == 0 {
+				continue
+			}
+			id := strings.TrimSpace(parts[0])
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if strings.HasPrefix(p, "agent=") && strings.TrimPrefix(p, "agent=") != "" {
+					agents[id] = strings.TrimPrefix(p, "agent=")
+				}
+			}
+		}
+	}
 	for i := range rows {
 		if v := agents[rows[i].ID]; v != "" {
 			rows[i].Version = v

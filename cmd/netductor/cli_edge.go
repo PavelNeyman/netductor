@@ -279,8 +279,8 @@ func runEdgeList() {
 		if d.Healthy {
 			st = "online"
 		}
-		fmt.Printf("%s\t%s\t%s\t%s\t%s\tip=%s\tlast=%d\n",
-			d.DeviceID, d.Status, st, d.Board, d.Hostname, d.WANIP, d.LastSeen)
+		fmt.Printf("%s\t%s\t%s\t%s\t%s\tip=%s\tagent=%s\tlast=%d\n",
+			d.DeviceID, d.Status, st, d.Board, d.Hostname, d.WANIP, d.Agent, d.LastSeen)
 	}
 }
 

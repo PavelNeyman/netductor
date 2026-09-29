@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	ndver "github.com/PavelNeyman/netductor/internal/version"
+	"github.com/PavelNeyman/netductor/internal/edge"
 )
 
 func formatRelayListHTML() string {
@@ -188,6 +189,26 @@ func loadNodeCard(id string) nodeCard {
 		}
 		if c.Status == "" {
 			c.Status = "online"
+		}
+		return c
+	}
+	for _, d := range edge.ListDevices() {
+		if d.DeviceID != id {
+			continue
+		}
+		if d.Agent != "" {
+			c.Version = d.Agent
+		}
+		if d.Healthy {
+			c.Status = "online"
+		} else if c.Status == "" {
+			c.Status = "offline"
+		}
+		if c.Host == "" && d.Hostname != "" {
+			c.Host = d.Hostname
+		}
+		if c.IP == "" && d.WANIP != "" {
+			c.IP = d.WANIP
 		}
 		return c
 	}

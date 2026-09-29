@@ -223,7 +223,7 @@ func mergePayload(d *Device, payload map[string]any) {
 	if s := strFrom(payload, "wan_ip"); s != "" {
 		d.WANIP = s
 	}
-	if s := strFrom(payload, "agent"); s != "" {
+	if s := strFrom(payload, "agent", "version", "agent_version", "agent_ver"); s != "" {
 		d.Agent = s
 	}
 	if v := floatFrom(payload, "uptime_sec"); v > 0 {
@@ -237,7 +237,7 @@ func mergePayload(d *Device, payload map[string]any) {
 		"device_id": true, "status": true, "device_token": true, "board": true,
 		"hostname": true, "wan_ip": true, "template_id": true, "overlay": true,
 		"enrolled_at": true, "approved_at": true, "denied_at": true, "revoked_at": true,
-		"last_seen": true, "healthy": true, "agent": true, "uptime_sec": true, "mem_pct": true,
+		"last_seen": true, "healthy": true, "agent": true, "version": true, "agent_version": true, "agent_ver": true, "uptime_sec": true, "mem_pct": true,
 		"extra": true,
 	}
 	for k, v := range payload {

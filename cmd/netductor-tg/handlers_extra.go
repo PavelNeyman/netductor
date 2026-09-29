@@ -469,6 +469,8 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			fmt.Fprintf(os.Stderr, "update pre-backup: %v\n", err)
 		} else {
 			fmt.Fprintf(os.Stderr, "update pre-backup: %s\n", path)
+			acked, pend := install.WaitForBackupPull(45 * time.Second)
+			fmt.Fprintf(os.Stderr, "backup_pull acked=%d pending=%d\n", acked, pend)
 		}
 		if tag == "" {
 			var err error
@@ -530,9 +532,9 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	}
 	b.WriteString("</table>\n")
 	if ru {
-		b.WriteString("<i>Выберите релиз (не только latest). Перед apply — backup; secondary тянет копию через backup_pull.</i>\n")
+		b.WriteString("<i>Выберите релиз. Перед apply — backup + ожидание backup_pull. Edge: agent_update точечно (без авто-раскатки).</i>\n")
 	} else {
-		b.WriteString("<i>Pick a release (not only latest). Pre-apply backup; secondary pulls via backup_pull.</i>\n")
+		b.WriteString("<i>Pick a release. Pre-apply backup + wait backup_pull. Edge: point agent_update (no auto-rollout).</i>\n")
 	}
 	// release picker (top 6)
 	rows := [][]map[string]any{}

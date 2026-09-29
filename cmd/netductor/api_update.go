@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"time"
 	"encoding/json"
 	"net/http"
 	"os/exec"
@@ -63,10 +65,11 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		backupPath := ""
 		if !body.NoBackup {
 			if p, err := install.Backup(); err != nil {
-				// non-fatal: still allow upgrade
 				backupPath = "error:" + err.Error()
 			} else {
 				backupPath = p
+				acked, pend := install.WaitForBackupPull(45 * time.Second)
+				backupPath = fmt.Sprintf("%s (pull acked=%d pending=%d)", p, acked, pend)
 			}
 		}
 		dest := "/usr/local/bin/netductor"

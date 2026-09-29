@@ -227,6 +227,9 @@ func runUpdate(restart bool) {
 			fmt.Fprintln(os.Stderr, "warn backup:", err)
 		} else {
 			fmt.Fprintln(os.Stderr, "backup:", path)
+			fmt.Fprintln(os.Stderr, "==> wait backup_pull on secondary (up to 45s)")
+			acked, pend := install.WaitForBackupPull(45 * time.Second)
+			fmt.Fprintf(os.Stderr, "backup_pull: acked=%d pending=%d\n", acked, pend)
 		}
 	}
 	if tag == "" {

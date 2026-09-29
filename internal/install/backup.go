@@ -118,6 +118,46 @@ func decryptFile(inPath, outPath, pass string) error {
 	return os.WriteFile(outPath, plain, 0o600)
 }
 
+
+// WaitForBackupPull waits up to timeout for online secondaries to report last_cmd backup_pull ok.
+// Returns (acked, pending). Soft signal for pre-upgrade; does not fail hard if timeout.
+func WaitForBackupPull(timeout time.Duration) (acked, pending int) {
+	if timeout <= 0 {
+		timeout = 45 * time.Second
+	}
+	deadline := time.Now().Add(timeout)
+	online := 0
+	for _, d := range secondary.List() {
+		if secondary.Online(d, 2*time.Minute) {
+			online++
+		}
+	}
+	if online == 0 {
+		return 0, 0
+	}
+	for time.Now().Before(deadline) {
+		acked, pending = 0, 0
+		for _, d := range secondary.List() {
+			if !secondary.Online(d, 2*time.Minute) {
+				continue
+			}
+			if d.LastCmd == "backup_pull" && d.LastCmdOK {
+				// recent enough (10 min)
+				if time.Since(d.LastCmdAt) < 10*time.Minute {
+					acked++
+					continue
+				}
+			}
+			pending++
+		}
+		if pending == 0 && acked > 0 {
+			return acked, 0
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return acked, pending
+}
+
 func Backup() (string, error) {
 	dir := filepath.Join(paths.StateDir(), "backups")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
