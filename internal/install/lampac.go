@@ -18,47 +18,31 @@ func InstallLampac() error {
 	if err := ensureDocker(); err != nil {
 		return fmt.Errorf("docker for lampac: %w", err)
 	}
-	_ = os.MkdirAll(filepath.Join(paths.OptDir(), "lampac"), 0o755)
-	_ = exec.Command("docker", "rm", "-f", "netductor-lampac").Run()
-
-	img := env("NETDUCTOR_LAMPAC_IMAGE", "ghcr.io/immisterio/lampac:latest")
-	// fallback list if primary image 404s
-	alts := []string{
-		img,
-		"ghcr.io/lampac-nextgen/lampac:latest",
-		"immisterio/lampac:latest",
-	}
-
+	// Canonical image: https://github.com/lampac-nextgen/lampac (GHCR only).
+	img := env("NETDUCTOR_LAMPAC_IMAGE", "ghcr.io/lampac-nextgen/lampac:latest")
 	port := env("NETDUCTOR_LAMPAC_PORT", "9118")
 	bind := env("NETDUCTOR_LAMPAC_BIND", "127.0.0.1")
 	publish := bind + ":" + port + ":9118"
+	data := filepath.Join(paths.OptDir(), "lampac")
+	_ = os.MkdirAll(data, 0o755)
 
-	var lastErr error
-	var used string
-	for _, image := range alts {
-		_ = exec.Command("docker", "rm", "-f", "netductor-lampac").Run()
-		cmd := exec.Command("docker", "run", "-d",
-			"--name", "netductor-lampac",
-			"--restart", "unless-stopped",
-			"-p", publish,
-			"-v", filepath.Join(paths.OptDir(), "lampac")+":/home",
-			image,
-		)
-		out, err := cmd.CombinedOutput()
-		if err == nil {
-			used = image
-			lastErr = nil
-			break
-		}
-		lastErr = fmt.Errorf("%s: %s", image, strings.TrimSpace(string(out)))
-	}
-	if lastErr != nil {
-		return fmt.Errorf("lampac: %w", lastErr)
+	_ = exec.Command("docker", "rm", "-f", "netductor-lampac").Run()
+	cmd := exec.Command("docker", "run", "-d",
+		"--name", "netductor-lampac",
+		"--restart", "unless-stopped",
+		"--shm-size", "1024m",
+		"-p", publish,
+		"-v", data+":/lampac/data",
+		img,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("lampac %s: %s", img, strings.TrimSpace(string(out)))
 	}
 
 	lockLampacToLocalhost(port)
 	MarkComponentInstalled("lampac")
-	fmt.Fprintf(os.Stderr, "lampac on %s:%s only (not public WAN); image %s\n", bind, port, used)
+	fmt.Fprintf(os.Stderr, "lampac on %s:%s only (not public WAN); image %s\n", bind, port, img)
 	return nil
 }
 
