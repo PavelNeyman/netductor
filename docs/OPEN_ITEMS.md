@@ -22,11 +22,12 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 - [x] Secondary→primary restore: `netductor recover --from-secondary URL --recovery-token TOKEN --key KEY` (already; noted 0.9.100)
 - [x] Edge version shown on node card/list (agent heartbeat)
 - [x] Edge agent_update buttons on TG Updates (0.9.101)
+- [x] Primary apply queues secondary `upgrade` for online agents (0.9.103)
 
 ## Owner next
 
-- [ ] **Show password** toggles in Web/TUI password fields (one-shot deploy secrets) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Show password. Plan only.
-- [ ] **Web Control (Day-2) UX simplify** — too many tabs/buttons; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Plan only.
+- [x] **Show password** Web (Show/Hide) + TUI Ctrl+P (0.9.103)
+- [x] Web Updates tab (0.9.101); full Day-2 simplify deferred (low priority)
 - [x] Full dual-node smoke (primary + secondary) — live deploy 2026-09-29 (LE, bot, SP, secondary)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
 - [ ] Optional: CI Formula SHA automation

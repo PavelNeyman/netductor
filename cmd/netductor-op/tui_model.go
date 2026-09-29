@@ -309,6 +309,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "cfg-clear-remote":
 		m.remoteHost, m.remoteKey, m.remotePassword = "", "", ""
+		m.showSecrets = false
 		m.remoteUser = "root"
 		_ = saveTUISettings(m.snapshotSettings())
 		m.output = "remote cleared"

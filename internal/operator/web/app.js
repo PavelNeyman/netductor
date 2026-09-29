@@ -151,6 +151,7 @@ function showMain(name){
   document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
   if(name==='control'){ updateTunnelHint();
 try{ fillUpdateUI(); }catch(e){}
+try{ wirePasswordToggles(); }catch(e){}
  ensureTunnel().then(()=>{ refreshTunnelBadge(); fillUpdateUI(); }); }
   if(name==='settings') loadSettingsForm();
 }
@@ -489,6 +490,29 @@ const BTN = {
 };
 
 
+
+
+function wirePasswordToggles(){
+  document.querySelectorAll('input[type="password"]').forEach(inp=>{
+    if(inp.closest('.pwd-wrap')) return;
+    const wrap=document.createElement('div');
+    wrap.className='pwd-wrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='pwd-toggle';
+    btn.textContent = (uiLang==='ru') ? 'Показать' : 'Show';
+    btn.addEventListener('click',()=>{
+      const show = inp.type==='password';
+      inp.type = show ? 'text' : 'password';
+      btn.textContent = show
+        ? ((uiLang==='ru')?'Скрыть':'Hide')
+        : ((uiLang==='ru')?'Показать':'Show');
+    });
+    wrap.appendChild(btn);
+  });
+}
 
 async function fillUpdateUI(){
   try{

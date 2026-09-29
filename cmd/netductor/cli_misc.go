@@ -15,6 +15,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/probes"
@@ -272,6 +273,21 @@ func runUpdate(restart bool) {
 			_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
 		}
 		fmt.Println("restarted", unit, "(try)")
+	}
+	// Fan-out binary upgrade to online secondaries (agent cmd "upgrade")
+	if comp == "node" {
+		n := 0
+		for _, d := range secondary.List() {
+			if !secondary.Online(d, 2*time.Minute) {
+				continue
+			}
+			if err := secondary.EnqueueCmd(d.ID, "upgrade"); err == nil {
+				n++
+			}
+		}
+		if n > 0 {
+			fmt.Println("queued secondary upgrade on", n, "device(s)")
+		}
 	}
 }
 

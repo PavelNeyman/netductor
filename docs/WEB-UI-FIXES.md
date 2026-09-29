@@ -27,7 +27,7 @@ Apply the same wording in **TUI wizard** and **CLI help** for parity.
 | **Lampac** | Missing checkbox in Web Fleet (Git + TG present). | Add Lampac checkbox like CLI/TUI `--with-lampac`. |
 | **CF proxy** | Unclear if needed. | Prefer **remove** from default UI (or hide under “Advanced”). Canonical setup is **DNS-only (grey cloud)** + origin LE on `:8443`. Orange CF often breaks multi-level names / LE on origin. Keep only if someone deliberately uses CF edge certs. |
 
-## Secondary provision error (explained — fix later)
+## Secondary provision error (mitigated — non-root StateDir is ~/.netductor)
 
 ### Symptom
 
@@ -77,7 +77,7 @@ netductor-op operator serve
 - Release/Formula sync (done for v0.9.92 separately).
 
 
-## Day-2 / Control UX (pending — do not implement yet)
+## Day-2 / Control UX (partial 0.9.103 — Updates tab; full simplify later)
 
 **Owner request (2026-09-29):** simplify **Control** (Day-2) in Web op UI.
 
@@ -98,7 +98,7 @@ netductor-op operator serve
 - Installer/Fleet is separate (labels/TOFU/checkbox fixes tracked above / shipped in 0.9.93–0.9.94).
 
 
-## Show password toggle (pending — all UIs)
+## Show password toggle (done 0.9.103)
 
 **Owner request (2026-09-29):** add **“show password”** controls everywhere passwords are entered.
 

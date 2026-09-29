@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
@@ -99,8 +100,20 @@ func registerUpdateAPI(mux *http.ServeMux) {
 				_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
 			}
 		}
+		secN := 0
+		if comp == "node" {
+			for _, d := range secondary.List() {
+				if !secondary.Online(d, 2*time.Minute) {
+					continue
+				}
+				if err := secondary.EnqueueCmd(d.ID, "upgrade"); err == nil {
+					secN++
+				}
+			}
+		}
 		writeJSON(w, 200, map[string]any{
 			"ok": true, "component": comp, "version": tag, "dest": dest, "backup": backupPath,
+			"secondary_upgrade_queued": secN,
 		})
 	})
 }

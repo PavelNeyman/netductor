@@ -11,6 +11,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/dnsblock"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -504,9 +505,17 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		_ = exec.Command("systemctl", "restart", "netductor-api").Start()
 		_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Start()
 		_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Start()
-		msg := "✅ " + esc(tag) + " — api + bot restarted (pre-backup done; secondary pulls via backup_pull)"
+		secN := 0
+		for _, d := range secondary.List() {
+			if secondary.Online(d, 2*time.Minute) {
+				if err := secondary.EnqueueCmd(d.ID, "upgrade"); err == nil {
+					secN++
+				}
+			}
+		}
+		msg := fmt.Sprintf("✅ %s — api+bot restarted; secondary upgrade queued=%d", esc(tag), secN)
 		if ru {
-			msg = "✅ " + esc(tag) + " — api + bot перезапущены (бэкап сделан; secondary заберёт через backup_pull)"
+			msg = fmt.Sprintf("✅ %s — api+bot перезапущены; secondary upgrade в очереди=%d", esc(tag), secN)
 		}
 		if err != nil || err2 != nil {
 			msg = "❌ " + esc(fmt.Sprintf("node: %v; tg: %v", err, err2))

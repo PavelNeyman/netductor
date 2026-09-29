@@ -164,6 +164,7 @@ type model struct {
 	remoteUser     string
 	remoteKey      string
 	remotePassword string
+	showSecrets    bool
 	formAction     string
 }
 

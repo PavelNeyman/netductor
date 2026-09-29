@@ -13,9 +13,9 @@
 
 ## У владельца
 
-- [ ] **Показать пароль** в Web/TUI (одноразовые пароли деплоя) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md). Только план.
-- [ ] **Web Control (Day-2): упростить UX** — много вкладок/кнопок; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Только план.
-- [ ] Dual-node smoke
+- [x] **Показать пароль** (Web + TUI Ctrl+P, 0.9.103) в Web/TUI (одноразовые пароли деплоя) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md). Только план.
+- [x] Web Updates; полное упрощение Day-2 отложено — много вкладок/кнопок; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Только план.
+- [x] Dual-node smoke
 - [ ] Hardware e2e
 - [ ] CI SHA Formula (опционально)
 

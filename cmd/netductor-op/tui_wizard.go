@@ -230,7 +230,7 @@ func (m *model) renderWizardSplitFields(bodyH, w int) string {
 					leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+f.Short))
 				}
 			} else {
-				if f.Secret && val != "" {
+				if f.Secret && val != "" && !m.showSecrets {
 					val = strings.Repeat("•", len(val))
 				} else if val == "" && f.Placeholder != "" {
 					val = f.Placeholder
@@ -250,7 +250,7 @@ func (m *model) renderWizardSplitFields(bodyH, w int) string {
 				leftLines = append(leftLines, stNorm.Width(leftW).Render(mark+" "+f.Label))
 			} else {
 				show := f.Value
-				if f.Secret && show != "" {
+				if f.Secret && show != "" && !m.showSecrets {
 					show = "••••"
 				}
 				if show == "" {
@@ -310,7 +310,7 @@ func (m *model) renderWizardConfirm(bodyH, w int) string {
 			continue
 		}
 		show := f.Value
-		if f.Secret && show != "" {
+		if f.Secret && show != "" && !m.showSecrets {
 			show = "••••"
 		}
 		if show == "" {
@@ -366,6 +366,10 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			m.result = tuiResult{action: "quit", mode: m.mode}
 			return m, tea.Quit
+		case "ctrl+p", "ctrl+P":
+			// toggle reveal for Secret fields (deploy passwords)
+			m.showSecrets = !m.showSecrets
+			return m, nil
 		case "ctrl+r", "ctrl+R":
 			if m.wizStep == wizStepConfirm {
 				return m.wizardEnter()
