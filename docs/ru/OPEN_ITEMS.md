@@ -18,3 +18,7 @@
 - [ ] CI SHA Formula (опционально)
 
 Ревью: [REVIEW-0.9.75](REVIEW-0.9.75.md).
+
+## Web UI / Fleet (код отложен)
+
+См. [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — подписи, галочка Lampac, CF proxy, TOFU secondary на Mac. **Не реализовывать, пока не приоритет.**

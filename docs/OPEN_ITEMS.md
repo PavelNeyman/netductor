@@ -18,3 +18,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 - [ ] Optional: CI Formula SHA automation
 
 Latest review: [REVIEW-0.9.75.md](REVIEW-0.9.75.md).
+
+## Web UI / Fleet (pending code)
+
+See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — labels, Lampac checkbox, CF proxy, secondary TOFU path on Mac. **Do not implement until prioritized.**
