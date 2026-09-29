@@ -103,8 +103,46 @@ func EnsureTopics(botToken string, chatID int64) error {
 			return fmt.Errorf("create topic %s: %w (enable Threaded Mode in BotFather?)", d.Key, err)
 		}
 		t.Topics[d.Key] = id
+		// First real message removes TG "send a message to start this topic" placeholder.
+		_ = seedTopicMessage(botToken, chatID, id, d.Key)
 	}
 	return saveTopics(t)
+}
+
+func seedTopicMessage(botToken string, chatID int64, threadID int, key string) error {
+	if threadID <= 0 {
+		return nil
+	}
+	text := "📌 " + key + " — netductor"
+	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken)
+	body := fmt.Sprintf(`{"chat_id":%d,"message_thread_id":%d,"text":%q,"disable_notification":true}`, chatID, threadID, text)
+	resp, err := http.Post(u, "application/json", strings.NewReader(body))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	var wr struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&wr)
+	if !wr.OK {
+		return fmt.Errorf("%s", wr.Description)
+	}
+	return nil
+}
+
+
+// SeedAllTopics posts a quiet marker into each known topic (clears empty-topic UI).
+func SeedAllTopics(botToken string, chatID int64) {
+	topicMu.Lock()
+	t := loadTopics()
+	topicMu.Unlock()
+	for _, k := range TopicKeys {
+		if id := t.Topics[k]; id > 0 {
+			_ = seedTopicMessage(botToken, chatID, id, k)
+		}
+	}
 }
 
 func createForumTopic(botToken string, chatID int64, name string) (int, error) {

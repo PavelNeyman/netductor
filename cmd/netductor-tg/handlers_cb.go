@@ -305,10 +305,14 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, formatDisasterHTML(), mainKeyboard())
 	case "m:menu", "m:help":
 		setState(chat, "", "")
+		// Menu always lives in General (no topic). Edit-in-topic leaves hub stuck above the TG placeholder.
+		if msgID > 0 {
+			_ = deleteMessage(token, chat, msgID)
+		}
 		if data == "m:help" {
-			reply(token, chat, msgID, helpText(), mainKeyboard())
+			sendHTML(token, chat, helpText(), mainKeyboard())
 		} else {
-			reply(token, chat, msgID, menuText(), mainKeyboard())
+			sendHTML(token, chat, menuText(), mainKeyboard())
 		}
 		if msgID > 0 {
 			notify.SaveHubMsg(chat, msgID)

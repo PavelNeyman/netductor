@@ -202,6 +202,7 @@ func ensureTopicsOnce(token string, admin int64) {
 	} else {
 		fmt.Fprintln(os.Stderr, "topics: bootstrap Alerts/Warnings/Service/Updates")
 	}
+	notify.SeedAllTopics(token, admin)
 }
 
 func sendHTML(token string, chat int64, text string, kb map[string]any) {
