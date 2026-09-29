@@ -154,29 +154,13 @@
     <button class="primary" type="button" id="btnSessionIssue" data-i18n="btn_session_issue">Issue session</button>
     <button class="primary" type="button" id="btnSessionLoad" data-i18n="btn_session_load">Load session file</button>
   </div>
-  <nav class="nav-sub" id="controlSub" class="nav-sub nav-sub-wrap">
-    <button type="button" data-csec="overview" class="active">Overview</button>
-    <button type="button" data-csec="updates">Updates</button>
-    <button type="button" data-csec="vpn">VPN</button>
-    <button type="button" data-csec="nodes">Nodes</button>
-    <button type="button" data-csec="edge">Edge</button>
-    <button type="button" data-csec="nvr">NVR</button>
-    <button type="button" data-csec="git">Git / Reg</button>
-    <button type="button" data-csec="backup">Backup</button>
-    <button type="button" data-csec="dns">DNS</button>
-    <button type="button" data-csec="probes">Probes</button>
-    <button type="button" data-csec="adv" id="btnAdvTab">Advanced</button>
-  </nav>
-  <div id="csec-overview" class="csec"></div>
-  <div id="csec-vpn" class="csec hidden"></div>
-  <div id="csec-nodes" class="csec hidden"></div>
+  <nav class="nav-sub nav-sub-wrap" id="controlSub"></nav>
+  <div id="csec-home" class="csec"></div>
+  <div id="csec-users" class="csec hidden"></div>
+  <div id="csec-fleet" class="csec hidden"></div>
   <div id="csec-edge" class="csec hidden"></div>
-  <div id="csec-nvr" class="csec hidden"></div>
-  <div id="csec-git" class="csec hidden"></div>
-  <div id="csec-backup" class="csec hidden"></div>
-  <div id="csec-dns" class="csec hidden"></div>
-  <div id="csec-probes" class="csec hidden"></div>
-  <div id="csec-updates" class="csec hidden"></div>
+  <div id="csec-media" class="csec hidden"></div>
+  <div id="csec-data" class="csec hidden"></div>
   <div id="csec-adv" data-advanced="1" class="csec hidden">
     <p class="note" data-i18n="adv_note">Generic POST/GET for any session API path</p>
     <div class="row"><div><label data-i18n="l_method">method</label><select id="advMethod"><option>GET</option><option>POST</option></select></div>

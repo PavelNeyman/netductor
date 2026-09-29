@@ -707,6 +707,8 @@ func handleCatalog(w http.ResponseWriter, r *http.Request) {
 		"ok": true,
 		"actions": opcatalog.ForSurface("web"),
 		"by_section": opcatalog.BySection(),
+		"groups": opcatalog.Groups(),
+		"by_group": opcatalog.ByGroup("web"),
 	})
 }
 

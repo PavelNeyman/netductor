@@ -28,44 +28,9 @@ func toolsKeyboard() map[string]any {
 }
 
 func toolsHubHTML() string {
-	lang := catalogLang()
-	title := "🧰 <b>Tools</b>"
-	bak := "Backup"
-	if lang == "ru" {
-		title = "🧰 <b>Инструменты</b>"
-		bak = "Бэкап"
-	}
-	var b strings.Builder
-	b.WriteString(title + "\n")
-	if lang == "ru" {
-		b.WriteString("<i>Операции. Ноды/роутеры — Флот, VPN — Users.</i>\n")
-	} else {
-		b.WriteString("<i>Ops only. Nodes/routers → Fleet, VPN → Users.</i>\n")
-	}
-	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:dns">DNS</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:backup">` + bak + `</tg-button>`)
-	pr := "Probes"
-	if lang == "ru" {
-		pr = "Пробы"
-	}
-	b.WriteString(`<tg-button type="callback_data" data="m:probes">` + pr + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:nvr">NVR</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:git">Git</tg-button>`)
-	b.WriteString(`</tg-button-row>`)
-	b.WriteString(`<tg-button-row align="left">`)
-	g1, g2, loc, upd := "⏱ Guest VPN", "📡 Guest Wi‑Fi", "📍 Locations", "🔄 Updates"
-	if lang == "ru" {
-		g1, g2, loc, upd = "⏱ Гостевой VPN", "📡 Гостевой Wi‑Fi", "📍 Локации", "🔄 Обновления"
-	}
-	b.WriteString(`<tg-button type="callback_data" data="m:guest">` + g1 + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:edgeguest">` + g2 + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:loc">` + loc + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:updates">` + upd + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:mtls">` + T("mtls") + `</tg-button>`)
-	b.WriteString(`</tg-button-row>`)
-	return b.String()
+	return formatToolsFromGroups()
 }
+
 
 func catalogSectionKeyboard(sec string) map[string]any {
 	// Navigation only — actions live in HTML body (TG-UI pattern).
@@ -207,3 +172,33 @@ func replyCatalog(token string, chat int64, msgID int, html string, kb map[strin
 	}
 	sendHTML(token, chat, html, kb)
 }
+
+func formatToolsFromGroups() string {
+	lang := catalogLang()
+	var b strings.Builder
+	if lang == "ru" {
+		b.WriteString("🛠 <b>Tools</b>\n<i>Группы Day-2 = Web / TUI (opcatalog.Groups).</i>\n")
+	} else {
+		b.WriteString("🛠 <b>Tools</b>\n<i>Day-2 groups = Web / TUI (opcatalog.Groups).</i>\n")
+	}
+	b.WriteString(`<tg-button-row align="left">`)
+	groups := opcatalog.Groups()
+	for i, g := range groups {
+		lab := g.LabelEN
+		if lang == "ru" {
+			lab = g.LabelRU
+		}
+		b.WriteString(`<tg-button type="callback_data" data="m:cat:` + g.ID + `">` + lab + `</tg-button>`)
+		if (i+1)%4 == 0 && i+1 < len(groups) {
+			b.WriteString(`</tg-button-row><tg-button-row align="left">`)
+		}
+	}
+	b.WriteString(`</tg-button-row>`)
+	upd := "🔄 Updates"
+	if lang == "ru" {
+		upd = "🔄 Обновления"
+	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:updates">` + upd + `</tg-button></tg-button-row>`)
+	return b.String()
+}
+

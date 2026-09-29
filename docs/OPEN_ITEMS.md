@@ -27,7 +27,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 ## Owner next
 
 - [x] **Show password** Web (Show/Hide) + TUI Ctrl+P (0.9.103)
-- [x] Web Updates tab (0.9.101); full Day-2 simplify deferred (low priority)
+- [x] Day-2 groups in opcatalog (`Groups()`) → Web tabs / TG Tools / TUI catalog (0.9.104)
 - [x] Full dual-node smoke (primary + secondary) — live deploy 2026-09-29 (LE, bot, SP, secondary)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
 - [ ] Optional: CI Formula SHA automation

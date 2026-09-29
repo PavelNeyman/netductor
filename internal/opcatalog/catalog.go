@@ -171,7 +171,7 @@ func Get(id string) (Action, bool) {
 
 // Sections returns unique section names in stable order.
 func Sections() []string {
-	order := []string{"overview", "vpn", "nodes", "edge", "nvr", "git", "dns", "backup", "probes"}
+	order := []string{"overview", "updates", "vpn", "nodes", "edge", "nvr", "git", "dns", "backup", "probes"}
 	have := map[string]bool{}
 	for _, a := range All() {
 		have[a.Section] = true

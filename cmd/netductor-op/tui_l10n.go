@@ -174,6 +174,7 @@ func toolsEntries(mode runMode, lang tuiLang) []menuEntry {
 func opsEntries(mode runMode, lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
+			{"catalog", "Day-2 каталог", "группы = Web/TG", "opcatalog.Groups → действия."},
 			{"status", "Статус сервисов", "systemd", "local или remote из Настроек."},
 			{"doctor", "Doctor", "Проверки", "Health checks."},
 			{"fleet-status", "Флот", "primary/secondary", "Роли нод."},
@@ -206,6 +207,7 @@ func opsEntries(mode runMode, lang tuiLang) []menuEntry {
 		}
 	}
 	return []menuEntry{
+		{"catalog", "Day-2 catalog", "same groups as Web/TG", "opcatalog.Groups → actions."},
 		{"status", "Service status", "systemd", "local or remote from Settings."},
 		{"doctor", "Doctor", "Health", "Health checks."},
 		{"fleet-status", "Fleet", "primary/secondary", "Node roles."},

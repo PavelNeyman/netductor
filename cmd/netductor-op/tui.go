@@ -118,6 +118,7 @@ const (
 	screenMode screen = iota
 	screenMenu
 	screenOutput
+	screenCatalog
 	screenWizard
 )
 
@@ -166,6 +167,9 @@ type model struct {
 	remotePassword string
 	showSecrets    bool
 	formAction     string
+	catGroupIdx    int
+	catActionIdx   int
+	catLevel       int
 }
 
 func modeItems(sug runMode, lang tuiLang) []list.Item {

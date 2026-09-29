@@ -327,6 +327,12 @@ func (m model) View() string {
 	if m.screen == screenWizard {
 		return m.renderWizard()
 	}
+	if m.screen == screenCatalog {
+		header := m.renderHeader()
+		body := m.renderCatalog(max(8, m.height-6), max(40, m.width))
+		help := m.renderHelpBar()
+		return header + "\n" + body + "\n" + help
+	}
 	header := m.renderHeader()
 	body := m.renderSplit()
 	help := m.renderHelpBar()

@@ -14,6 +14,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.updateWizard(msg)
 	}
+	if m.screen == screenCatalog {
+		if ws, ok := msg.(tea.WindowSizeMsg); ok {
+			m.width, m.height = ws.Width, ws.Height
+			return m, nil
+		}
+		return m.updateCatalog(msg)
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -206,6 +213,9 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.screen = screenWizard
 	case "disable-legacy":
 		m.showCmd("fleet", "disable-legacy")
+	case "catalog":
+		m.openCatalog()
+		return m, nil
 	case "status":
 		if m.hasRemote() {
 			m.showCmd("status")

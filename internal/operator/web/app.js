@@ -553,16 +553,46 @@ async function loadCatalogButtons(){
     const res = await fetch('/v1/catalog',{headers:{'X-Netductor-Token':ND_TOKEN}});
     if(!res.ok) return;
     const j = await res.json();
-    if(!j.by_section) return;
-    // rebuild BTN simple GETs from catalog
-    for(const [sec, list] of Object.entries(j.by_section)){
-      if(!BTN[sec]) BTN[sec]=[];
-      // merge: catalog actions that are simple
-      const mapped = list.map(a=>[a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
-      // keep form-only sections hybrid: replace list portion
-      BTN[sec] = mapped;
+    window.__ndGroups = j.groups || [];
+    window.__ndByGroup = j.by_group || {};
+    if(j.by_section){
+      for(const [sec, list] of Object.entries(j.by_section)){
+        if(!BTN[sec]) BTN[sec]=[];
+        BTN[sec] = list.map(a=>[a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
+      }
     }
+    // map group → merged button lists from sections
+    for(const g of (j.groups||[])){
+      const list = (j.by_group && j.by_group[g.id]) || [];
+      BTN[g.id] = list.map(a=>[a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
+    }
+    renderControlNav();
   }catch(e){}
+}
+function renderControlNav(){
+  const nav = document.getElementById('controlSub');
+  if(!nav) return;
+  const groups = window.__ndGroups || [];
+  if(!groups.length){
+    // fallback static
+    nav.innerHTML = ['home','users','fleet','edge','media','data','adv'].map((id,i)=>
+      `<button type="button" data-csec="${id}" class="${i===0?'active':''}">${id}</button>`).join(' ');
+  } else {
+    nav.innerHTML = groups.map((g,i)=>{
+      const lab = uiLang==='ru' ? (g.label_ru||g.label_en) : (g.label_en||g.id);
+      return `<button type="button" data-csec="${g.id}" class="${i===0?'active':''}">${lab}</button>`;
+    }).join(' ');
+  }
+  nav.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      nav.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.csec').forEach(el=>el.classList.add('hidden'));
+      const panel = document.getElementById('csec-'+btn.dataset.csec);
+      if(panel) panel.classList.remove('hidden');
+      if(btn.dataset.csec==='home') try{ fillUpdateUI(); }catch(e){}
+    });
+  });
 }
 function mountButtons(){
   for(const [sec, list] of Object.entries(BTN)){
@@ -574,7 +604,7 @@ function mountButtons(){
       h+='<button class="primary" type="button" data-act="'+id+'">'+lab+'</button> ';
     }
     // append forms for complex POSTs
-        if(sec==='updates'){
+        if(sec==='updates' || sec==='home'){
       h+=`<div class="card" style="margin-top:.5rem"><h3>${t('tab_updates')||'Updates'}</h3>
       <p class="note" id="updStatusLine">—</p>
       <div class="row"><div><label>${t('upd_pick')||'Release'}</label><select id="updTag"></select></div>
@@ -582,7 +612,7 @@ function mountButtons(){
       <button class="primary" type="button" data-act="upd-apply">${t('upd_apply')||'Apply'}</button></div></div>
       <p class="note">Pre-backup + backup_pull wait on apply. Edge: use Edge → cmd agent_update.</p></div>`;
     }
-    if(sec==='dns'){
+    if(sec==='dns' || sec==='data'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_dns_id')}</label><input id="dnsId" placeholder="adguard"/></div>
       <div><label>${t('l_dns_en')}</label><select id="dnsOn"><option value="1">${t('b_dns_on')}</option><option value="0">${t('b_dns_off')}</option></select></div></div>
       <button class="primary" type="button" data-act="dns-set">${t('b_dns_set')}</button>`;
@@ -593,7 +623,7 @@ function mountButtons(){
       <div class="row"><div><label>${t('l_bak_tz')}</label><select id="bakUtc"><option value="1">UTC</option><option value="0">local</option></select></div><div></div></div>
       <button class="primary" type="button" data-act="backup-schedule-set">${t('b_bak_save')}</button>`;
     }
-    if(sec==='vpn'){
+    if(sec==='vpn' || sec==='users'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>
       <button class="primary" type="button" data-act="vpn-add">${t('b_vpn_add')}</button>
       <div class="row"><div><label>${t('l_vpn_act')}</label><input id="vpnActName"/></div><div></div></div>
@@ -602,7 +632,7 @@ function mountButtons(){
       <button class="primary" type="button" data-act="vpn-revoke">${t('b_vpn_revoke')}</button>
       <button class="primary" type="button" data-act="vpn-link">${t('b_vpn_link')}</button>`;
     }
-    if(sec==='nodes'){
+    if(sec==='nodes' || sec==='fleet'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_hostname')}</label><input id="nodeHost"/></div><div><label>${t('l_node_id')}</label><input id="nodeId"/></div></div>
       <button class="primary" type="button" data-act="nodes-hostname">${t('b_hostname')}</button>
       <div class="row"><div><label>${t('l_svc')}</label><input id="nodeSvc" placeholder="sing-box"/></div><div><label>${t('l_journal')}</label><input id="nodeJournal"/></div></div>
@@ -639,7 +669,7 @@ function mountButtons(){
       <button class="primary" type="button" data-act="edge-export">Export</button>
       <button class="primary" type="button" data-act="edge-backup">Trigger backup</button>`;
     }
-    if(sec==='nvr'){
+    if(sec==='nvr' || sec==='media'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>camera id</label><input id="nvrCamId"/></div>
       <div><label>PTZ dir</label><select id="nvrPtzDir"><option>left</option><option>right</option><option>up</option><option>down</option><option>stop</option></select></div></div>
       <button class="primary" type="button" data-act="nvr-ptz">PTZ</button>
