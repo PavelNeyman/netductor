@@ -42,3 +42,6 @@ table th,table td{word-break:break-word;max-width:14rem}
 .mt-1{margin-top:1rem}
 .mt-75{margin-top:.75rem}
 .adv-body{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.5rem;font-family:ui-monospace,monospace}
+
+.badge { display:inline-block; margin-left:.5rem; padding:.15rem .45rem; border-radius:999px; background:#c45; color:#fff; font-size:.75rem; font-weight:600; }
+.badge.hidden { display:none; }

@@ -10,7 +10,7 @@
 </head>
 <body>
 <header>
-  <div><h1 data-i18n="app_title">netductor-op</h1><div class="meta" id="metaLine" data-i18n="meta_line">Mac client · node API</div></div>
+  <div><h1 data-i18n="app_title">netductor-op</h1><div class="meta" id="metaLine" data-i18n="meta_line">Mac client · node API</div> <span id="updateBadge" class="badge hidden"></span></div>
   <div><button type="button" id="langEn" class="active">EN</button> <button type="button" id="langRu">RU</button></div>
 </header>
 <nav class="nav-main" id="mainTabs">
@@ -156,6 +156,7 @@
   </div>
   <nav class="nav-sub" id="controlSub" class="nav-sub nav-sub-wrap">
     <button type="button" data-csec="overview" class="active">Overview</button>
+    <button type="button" data-csec="updates">Updates</button>
     <button type="button" data-csec="vpn">VPN</button>
     <button type="button" data-csec="nodes">Nodes</button>
     <button type="button" data-csec="edge">Edge</button>
@@ -175,6 +176,7 @@
   <div id="csec-backup" class="csec hidden"></div>
   <div id="csec-dns" class="csec hidden"></div>
   <div id="csec-probes" class="csec hidden"></div>
+  <div id="csec-updates" class="csec hidden"></div>
   <div id="csec-adv" data-advanced="1" class="csec hidden">
     <p class="note" data-i18n="adv_note">Generic POST/GET for any session API path</p>
     <div class="row"><div><label data-i18n="l_method">method</label><select id="advMethod"><option>GET</option><option>POST</option></select></div>

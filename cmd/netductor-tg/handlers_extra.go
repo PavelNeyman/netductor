@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/dnsblock"
+	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -454,6 +455,20 @@ func handleQuotaCB(token string, chat int64, msgID int, data string) {
 
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
+	// m:updates:edge:<device_id> — enqueue agent_update (no auto-rollout)
+	if strings.HasPrefix(data, "m:updates:edge:") {
+		did := strings.TrimPrefix(data, "m:updates:edge:")
+		cid := edge.EnqueueCmd(did, "agent_update", "")
+		msg := "✅ queued agent_update for <code>" + esc(did) + "</code> cmd=<code>" + esc(cid) + "</code>"
+		if ru {
+			msg = "✅ agent_update в очереди для <code>" + esc(did) + "</code> cmd=<code>" + esc(cid) + "</code>"
+		}
+		if cid == "" {
+			msg = "❌ enqueue failed"
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
+		return
+	}
 	// m:updates:apply:v0.9.97 or m:updates:self (latest)
 	if data == "m:updates:self" || strings.HasPrefix(data, "m:updates:apply:") {
 		tag := ""
@@ -555,6 +570,25 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Latest</tg-button></tg-button-row>`)
 		} else {
 			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Latest</tg-button></tg-button-row>`)
+		}
+	}
+	// edge agent_update (point)
+	for _, d := range edge.ListDevices() {
+		if d.DeviceID == "" {
+			continue
+		}
+		lab := "edge " + d.DeviceID
+		if d.Hostname != "" {
+			lab = d.Hostname
+		}
+		ver := d.Agent
+		if ver == "" {
+			ver = "?"
+		}
+		if ru {
+			rows = append(rows, []map[string]any{btn("📡 "+lab+" ("+ver+") ⬆", "m:updates:edge:"+d.DeviceID, "")})
+		} else {
+			rows = append(rows, []map[string]any{btn("📡 "+lab+" ("+ver+") ⬆", "m:updates:edge:"+d.DeviceID, "")})
 		}
 	}
 	rows = append(rows, []map[string]any{

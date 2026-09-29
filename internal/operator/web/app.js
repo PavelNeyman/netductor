@@ -22,7 +22,8 @@ function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replac
 const I18N = {
 en:{
   app_title:'netductor-op', meta_line:'Mac client · node API',
-  tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings',
+  tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings', tab_updates:'Updates',
+  upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date',
   sub_fleet:'Fleet', sub_primary:'Primary', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
   inst_note:'Deploy from this Mac over SSH.',
   l_phost:'Primary host', l_ppass:'Primary password', l_shost:'Secondary host', l_spass:'Secondary password',
@@ -65,7 +66,8 @@ en:{
 },
 ru:{
   app_title:'netductor-op', meta_line:'Клиент Mac · API ноды',
-  tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки',
+  tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки', tab_updates:'Обновления',
+  upd_local:'Локально', upd_latest:'Latest', upd_pick:'Релиз', upd_apply:'Применить на primary', upd_refresh:'Обновить', upd_available:'есть обновление', upd_ok:'актуально',
   sub_fleet:'Флот', sub_primary:'Primary', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
   inst_note:'Деплой с этого Mac по SSH.',
   l_phost:'Хост primary', l_ppass:'Пароль primary', l_shost:'Хост secondary', l_spass:'Пароль secondary',
@@ -147,7 +149,9 @@ function showMain(name){
   document.getElementById('subInstaller').style.display = name==='installer'?'flex':'none';
   document.getElementById('deployLogSec').style.display = name==='installer'?'block':'none';
   document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
-  if(name==='control'){ updateTunnelHint(); ensureTunnel().then(()=>refreshTunnelBadge()); }
+  if(name==='control'){ updateTunnelHint();
+try{ fillUpdateUI(); }catch(e){}
+ ensureTunnel().then(()=>{ refreshTunnelBadge(); fillUpdateUI(); }); }
   if(name==='settings') loadSettingsForm();
 }
 document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
@@ -485,6 +489,41 @@ const BTN = {
 };
 
 
+
+async function fillUpdateUI(){
+  try{
+    const st = await nodeFetch('/api/update/status');
+    const rel = await nodeFetch('/api/update/releases');
+    const line = document.getElementById('updStatusLine');
+    const sel = document.getElementById('updTag');
+    const badge = document.getElementById('updateBadge');
+    if(line){
+      const loc = st.local||'?';
+      const lat = st.latest||'?';
+      const msg = st.update_available ? (t('upd_available')||'update available') : (t('upd_ok')||'up to date');
+      line.textContent = (t('upd_local')||'Local')+': '+loc+' · '+(t('upd_latest')||'Latest')+': '+lat+' · '+msg;
+    }
+    if(sel && rel && rel.releases){
+      sel.innerHTML='';
+      for(const r of rel.releases){
+        const o=document.createElement('option');
+        o.value=r.tag||r.Tag||'';
+        o.textContent=o.value+(r.prerelease?' (pre)':'');
+        sel.appendChild(o);
+      }
+    }
+    if(badge){
+      if(st && st.update_available){
+        badge.textContent = '⬆ '+(st.latest||'');
+        badge.classList.remove('hidden');
+      } else {
+        badge.textContent='';
+        badge.classList.add('hidden');
+      }
+    }
+  }catch(e){}
+}
+
 async function loadCatalogButtons(){
   try{
     const res = await fetch('/v1/catalog',{headers:{'X-Netductor-Token':ND_TOKEN}});
@@ -511,7 +550,15 @@ function mountButtons(){
       h+='<button class="primary" type="button" data-act="'+id+'">'+lab+'</button> ';
     }
     // append forms for complex POSTs
-        if(sec==='dns'){
+        if(sec==='updates'){
+      h+=`<div class="card" style="margin-top:.5rem"><h3>${t('tab_updates')||'Updates'}</h3>
+      <p class="note" id="updStatusLine">—</p>
+      <div class="row"><div><label>${t('upd_pick')||'Release'}</label><select id="updTag"></select></div>
+      <div style="align-self:end"><button class="primary" type="button" data-act="upd-refresh">${t('upd_refresh')||'Refresh'}</button>
+      <button class="primary" type="button" data-act="upd-apply">${t('upd_apply')||'Apply'}</button></div></div>
+      <p class="note">Pre-backup + backup_pull wait on apply. Edge: use Edge → cmd agent_update.</p></div>`;
+    }
+    if(sec==='dns'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_dns_id')}</label><input id="dnsId" placeholder="adguard"/></div>
       <div><label>${t('l_dns_en')}</label><select id="dnsOn"><option value="1">${t('b_dns_on')}</option><option value="0">${t('b_dns_off')}</option></select></div></div>
       <button class="primary" type="button" data-act="dns-set">${t('b_dns_set')}</button>`;
@@ -660,6 +707,15 @@ const special = {
   'git-artifact': async()=>{
     const path=document.getElementById('gitArtPath').value.trim();
     return nodeFetch('/api/git/artifact'+(path?('?path='+encodeURIComponent(path)):''));
+  },
+  'upd-refresh': async()=>{
+    await fillUpdateUI();
+    return {ok:true, refreshed:true};
+  },
+  'upd-apply': async()=>{
+    const tag=(document.getElementById('updTag')||{}).value||'';
+    if(!confirm('Apply update '+(tag||'latest')+' on primary?')) return {cancelled:true};
+    return nodeFetch('/api/update/apply',{method:'POST',body:JSON.stringify({version:tag,component:'node'})});
   },
   'adv-send': async()=>{
     const method=document.getElementById('advMethod').value;

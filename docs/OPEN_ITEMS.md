@@ -15,11 +15,12 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 - [x] Node: `update check` / `list` / apply with optional pre-backup + API `/api/update/*` + opcatalog (0.9.97)
 - [x] TG: Updates screen lists releases + apply tag with pre-backup (0.9.98)
-- [ ] Web/TUI: update badge + release picker (same API)
+- [x] Web: Updates tab + badge + release picker/apply (0.9.101)
+- [ ] TUI: update badge (optional; Web/TG cover day-2)
 - [x] Pre-upgrade: wait for secondary `backup_pull` ACK (45s soft) before apply (0.9.100)
 - [x] Secondary→primary restore: `netductor recover --from-secondary URL --recovery-token TOKEN --key KEY` (already; noted 0.9.100)
 - [x] Edge version shown on node card/list (agent heartbeat)
-- [ ] Edge agent_update button on Updates screen (enqueue per device)
+- [x] Edge agent_update buttons on TG Updates (0.9.101)
 
 ## Owner next
 
