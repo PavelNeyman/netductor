@@ -96,3 +96,25 @@ netductor-op operator serve
 ### Out of scope for this note
 - No code changes until prioritized.
 - Installer/Fleet is separate (labels/TOFU/checkbox fixes tracked above / shipped in 0.9.93–0.9.94).
+
+
+## Show password toggle (pending — all UIs)
+
+**Owner request (2026-09-29):** add **“show password”** controls everywhere passwords are entered.
+
+### Why
+- Deploy / secondary / edge passwords are often **one-shot** (paste from panel, then harden disables password auth).
+- Easy to mistype or paste the wrong buffer; need to **verify** the visible value before submit without retyping from memory.
+
+### Scope (when prioritized)
+| UI | Where |
+|----|--------|
+| **Web** op Installer | Fleet / Primary / Secondary / Edge password fields (`type=password` → toggle to text) |
+| **TUI** | Wizard password fields (huh/bubbletea reveal or temporary unmask) |
+| **CLI** | N/A interactive prompts only if we add readline masks; optional `--show-password` is footgun — prefer local TUI/Web |
+| **TG** | Only if any password entry exists (usually none; skip or redact) |
+
+### UX notes
+- Default remains **masked**.
+- Toggle is per-field, session-local (do not persist “show” in localStorage).
+- Still never log password values to Result/step stream.

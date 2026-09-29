@@ -60,3 +60,4 @@ If missing on an old node: same two bootstrap commands (not optional in architec
 ## Pending UX (no code yet)
 
 - Web **Control (Day-2)** simplify — [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2 / Control UX.
+- **Show password** toggles (Web/TUI) — plan in WEB-UI-FIXES; not implemented.

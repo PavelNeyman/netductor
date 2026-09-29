@@ -13,6 +13,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Owner next
 
+- [ ] **Show password** toggles in Web/TUI password fields (one-shot deploy secrets) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Show password. Plan only.
 - [ ] **Web Control (Day-2) UX simplify** — too many tabs/buttons; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Plan only.
 - [ ] Full dual-node smoke (primary + secondary)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
