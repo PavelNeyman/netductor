@@ -13,6 +13,7 @@
 
 ## У владельца
 
+- [ ] **Web Control (Day-2): упростить UX** — много вкладок/кнопок; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Только план.
 - [ ] Dual-node smoke
 - [ ] Hardware e2e
 - [ ] CI SHA Formula (опционально)
