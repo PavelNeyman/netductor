@@ -221,6 +221,18 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 	return os.Rename(tmp, destPath)
 }
 
+// ApplyTag downloads a specific release tag asset to destPath (atomic .new + rename).
+func ApplyTag(tag, component, destPath string) error {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return fmt.Errorf("empty tag")
+	}
+	if !strings.HasPrefix(tag, "v") {
+		tag = "v" + tag
+	}
+	return DownloadReleaseAsset(tag, component, destPath)
+}
+
 // SelfReplace downloads latest release asset and optionally restarts systemd unit.
 func SelfReplace(component, destPath, unit string) error {
 	tag, err := LatestReleaseTag()

@@ -14,7 +14,8 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 ## Phase Updates (priority)
 
 - [x] Node: `update check` / `list` / apply with optional pre-backup + API `/api/update/*` + opcatalog (0.9.97)
-- [ ] TG/Web/TUI: show update badge from `/api/update/status`; pick tag from `/api/update/releases`
+- [x] TG: Updates screen lists releases + apply tag with pre-backup (0.9.98)
+- [ ] Web/TUI: update badge + release picker (same API)
 - [ ] Pre-upgrade: wait for secondary `backup_pull` ACK before apply (mutual)
 - [ ] Secondary restore-from-peer-backup documented + one-shot CLI
 - [ ] Edge agent update parity in same Operator Updates screen

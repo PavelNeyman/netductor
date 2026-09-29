@@ -13,6 +13,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -453,32 +454,52 @@ func handleQuotaCB(token string, chat int64, msgID int, data string) {
 
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
-	if data == "m:updates:self" {
-		wait := "⏳ Updating from GitHub latest release…"
+	// m:updates:apply:v0.9.97 or m:updates:self (latest)
+	if data == "m:updates:self" || strings.HasPrefix(data, "m:updates:apply:") {
+		tag := ""
+		if strings.HasPrefix(data, "m:updates:apply:") {
+			tag = strings.TrimPrefix(data, "m:updates:apply:")
+		}
+		wait := "⏳ Backup + update…"
 		if ru {
-			wait = "⏳ Обновление с GitHub (latest release)…"
+			wait = "⏳ Бэкап + обновление…"
 		}
 		reply(token, chat, msgID, wait, navKeyboard("m:tools", parentTools()))
-		err := ndupdate.SelfReplace("netductor", "/usr/local/bin/netductor", "")
-		err2 := ndupdate.SelfReplace("tg", "/usr/local/bin/netductor-tg", "")
-		if tag, e := ndupdate.LatestReleaseTag(); e == nil {
-			ndupdate.WriteVERSION(tag)
+		if path, err := install.Backup(); err != nil {
+			fmt.Fprintf(os.Stderr, "update pre-backup: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "update pre-backup: %s\n", path)
 		}
+		if tag == "" {
+			var err error
+			tag, err = ndupdate.LatestReleaseTag()
+			if err != nil {
+				reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:tools", parentTools()))
+				return
+			}
+		}
+		if !strings.HasPrefix(tag, "v") {
+			tag = "v" + tag
+		}
+		err := ndupdate.ApplyTag(tag, "node", "/usr/local/bin/netductor")
+		err2 := ndupdate.ApplyTag(tag, "tg", "/usr/local/bin/netductor-tg")
+		ndupdate.WriteVERSION(tag)
 		_ = exec.Command("systemctl", "restart", "netductor-api").Start()
 		_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Start()
-		msg := "✅ Updated from release; api + bot restarted"
+		_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Start()
+		msg := "✅ " + esc(tag) + " — api + bot restarted (pre-backup done; secondary pulls via backup_pull)"
 		if ru {
-			msg = "✅ Обновлено с release; api + bot перезапущены"
+			msg = "✅ " + esc(tag) + " — api + bot перезапущены (бэкап сделан; secondary заберёт через backup_pull)"
 		}
 		if err != nil || err2 != nil {
-			msg = "❌ " + esc(fmt.Sprintf("netductor: %v; tg: %v", err, err2))
+			msg = "❌ " + esc(fmt.Sprintf("node: %v; tg: %v", err, err2))
 		}
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	}
 	tag, err := ndupdate.LatestReleaseTag()
-	local := "0.0.0"
-	if b, e := os.ReadFile("/etc/netductor/VERSION"); e == nil {
+	local := ndver.Release
+	if b, e := os.ReadFile("/etc/netductor/VERSION"); e == nil && strings.TrimSpace(string(b)) != "" {
 		local = strings.TrimSpace(string(b))
 	}
 	var b strings.Builder
@@ -509,18 +530,35 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	}
 	b.WriteString("</table>\n")
 	if ru {
-		b.WriteString("<i>Агенты OpenWrt: точечное обновление через agent_update (без авто-раскатки).</i>\n")
+		b.WriteString("<i>Выберите релиз (не только latest). Перед apply — backup; secondary тянет копию через backup_pull.</i>\n")
 	} else {
-		b.WriteString("<i>OpenWrt agents: point update via agent_update (no auto-rollout).</i>\n")
+		b.WriteString("<i>Pick a release (not only latest). Pre-apply backup; secondary pulls via backup_pull.</i>\n")
 	}
-	if ru {
-		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Обновить primary</tg-button></tg-button-row>`)
+	// release picker (top 6)
+	rows := [][]map[string]any{}
+	if list, e := ndupdate.ListReleases(6); e == nil {
+		for _, r := range list {
+			label := r.Tag
+			if r.Tag == tag {
+				if ru {
+					label = r.Tag + " (latest)"
+				} else {
+					label = r.Tag + " (latest)"
+				}
+			}
+			rows = append(rows, []map[string]any{btn("⬆ "+label, "m:updates:apply:"+r.Tag, "primary")})
+		}
 	} else {
-		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Update primary</tg-button></tg-button-row>`)
+		if ru {
+			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Latest</tg-button></tg-button-row>`)
+		} else {
+			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Latest</tg-button></tg-button-row>`)
+		}
 	}
-	reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}})
+	rows = append(rows, []map[string]any{
+		btn("⬅️ "+parentTools(), "m:tools", "primary"),
+		btn(T("main_menu"), "m:menu", ""),
+	})
+	reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 }
-
 
