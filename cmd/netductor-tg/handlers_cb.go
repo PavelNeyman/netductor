@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/format"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
@@ -196,6 +197,12 @@ if strings.HasPrefix(data, "u:") {
 					client = parts[4]
 				}
 				sendAppDeepLink(token, chat, name, mode, client)
+			case "subrot":
+				if _, err := vpn.IssueSubToken(name); err != nil {
+					reply(token, chat, msgID, "❌ "+esc(err.Error()), userHubKeyboard(name))
+					return
+				}
+				showUserAccess(token, chat, msgID, name, "sub")
 			case "access":
 				mode := "vless"
 				if len(parts) >= 4 && parts[3] != "" {

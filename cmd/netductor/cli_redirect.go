@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -60,6 +61,7 @@ func runRedirectServe(args []string) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/r", handleImportRedirect)
 	mux.HandleFunc("/profiles/", handleProfileDownload)
+	mux.HandleFunc("/sub/", handleSubscription)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -162,4 +164,32 @@ func allowedDeepLink(s string) bool {
 		}
 	}
 	return false
+}
+
+
+// GET /sub/{token} — base64 subscription body for one VPN user (token auth).
+func handleSubscription(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method", 405)
+		return
+	}
+	tok := strings.TrimPrefix(r.URL.Path, "/sub/")
+	tok = strings.Trim(tok, "/")
+	if i := strings.IndexByte(tok, '/'); i >= 0 {
+		tok = tok[:i]
+	}
+	user := vpn.ResolveSubToken(tok)
+	if user == "" {
+		http.NotFound(w, r)
+		return
+	}
+	b64, err := vpn.SubscriptionBase64(user)
+	if err != nil {
+		http.Error(w, "unavailable", 503)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write([]byte(b64))
 }

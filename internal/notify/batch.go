@@ -139,7 +139,13 @@ func FlushAlerts(force bool) error {
 			b.WriteString(fmt.Sprintf("<b>%d.</b> %s\n\n", i+1, p))
 		}
 	}
-	if err := sendTelegramHTML(b.String()); err != nil {
+	threadID := 0
+	if len(keys) == 1 {
+		threadID = ResolveThreadIDForMessage(keys[0])
+	} else {
+		threadID = ThreadID("alerts")
+	}
+	if err := sendTelegramHTML(b.String(), threadID); err != nil {
 		// put back on failure (best-effort, may duplicate later)
 		batchMu.Lock()
 		for i, k := range keys {
@@ -156,14 +162,19 @@ func FlushAlerts(force bool) error {
 	return nil
 }
 
-func sendTelegramHTML(msg string) error {
+func sendTelegramHTML(msg string, threadID int) error {
 	tok := secret("telegram_bot_token")
 	chat := secret("telegram_admin_id")
 	if tok == "" || chat == "" {
 		return fmt.Errorf("telegram secrets not configured")
 	}
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
-	th := alertsThreadID()
+	th := ""
+	if threadID > 0 {
+		th = fmt.Sprintf("%d", threadID)
+	} else if x := alertsThreadID(); x != "" {
+		th = x
+	}
 	body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
 	if th != "" {
 		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%s,"rich_message":{"html":%q}}`, chat, th, msg)
@@ -176,7 +187,9 @@ func sendTelegramHTML(msg string) error {
 		}
 	}
 	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
-	if th := alertsThreadID(); th != "" {
+	if threadID > 0 {
+		vals.Set("message_thread_id", fmt.Sprintf("%d", threadID))
+	} else if th := alertsThreadID(); th != "" {
 		vals.Set("message_thread_id", th)
 	}
 	return postTG(tok, "sendMessage", vals)

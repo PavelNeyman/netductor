@@ -166,7 +166,8 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(fmt.Sprintf("<tr><td>limit</td><td><code>%.0f</code> GiB</td></tr>"+nl, lim))
 	b.WriteString("</table>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">🔗</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">🔗 Link</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:sub">📡 Sub</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="u:rename:` + name + `">✏️</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:50">50</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:200">200</tg-button>`)
@@ -185,6 +186,25 @@ func formatUserHubHTML(name string) string {
 
 func accessPayload(name, mode string) (payload string) {
 	switch mode {
+	case "sub":
+		tok, err := vpn.EnsureSubToken(name)
+		if err != nil {
+			return ""
+		}
+		base := strings.TrimRight(os.Getenv("REDIRECT_BASE"), "/")
+		if base == "" {
+			// try domain file
+			if b, err := os.ReadFile("/etc/netductor/secrets/domain"); err == nil {
+				d := strings.TrimSpace(string(b))
+				if d != "" {
+					base = "https://" + d
+				}
+			}
+		}
+		if base == "" {
+			return ""
+		}
+		return base + "/sub/" + tok
 	case "core":
 		payload = shareURIFrom(runVPN("link", name, "core"))
 		if payload == "" {
@@ -243,11 +263,15 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	switch mode {
 	case "core":
 		title = "VLESS · primary"
+	case "sub":
+		title = "Subscription"
 	}
-	styleV, styleC := "", ""
+	styleV, styleC, styleS := "", "", ""
 	switch mode {
 	case "core":
 		styleC = ` style="primary"`
+	case "sub":
+		styleS = ` style="primary"`
 	default:
 		styleV = ` style="primary"`
 	}
@@ -256,29 +280,42 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	if uri != "" {
 		b.WriteString(`<img src="tg://photo?id=qr1"/>` + nl)
 		b.WriteString("<pre><code>" + esc(uri) + "</code></pre>" + nl)
-		enc := url.PathEscape(uri)
-		sr := importRedirectURL("shadowrocket://add/" + enc)
-		happ := importRedirectURL("happ://add/" + enc)
-		incy := importRedirectURL("incy://add/" + enc)
-		// attr escape
 		attr := func(s string) string {
 			return strings.ReplaceAll(s, "&", "&amp;")
 		}
 		b.WriteString(`<tg-button-row align="left">`)
-		if sr != "" {
-			b.WriteString(`<tg-button type="url" url="` + attr(sr) + `">Shadowrocket</tg-button>`)
-		}
-		if happ != "" {
-			b.WriteString(`<tg-button type="url" url="` + attr(happ) + `">Happ</tg-button>`)
-		}
-		if incy != "" {
-			b.WriteString(`<tg-button type="url" url="` + attr(incy) + `">INCY</tg-button>`)
+		if mode == "sub" {
+			// Subscription: open HTTPS sub URL; clients refresh profiles from it.
+			b.WriteString(`<tg-button type="url" url="` + attr(uri) + `">Open sub URL</tg-button>`)
+			// rotate token
+			b.WriteString(`<tg-button type="callback_data" data="u:subrot:` + name + `">🔄 Rotate</tg-button>`)
+		} else {
+			enc := url.PathEscape(uri)
+			sr := importRedirectURL("shadowrocket://add/" + enc)
+			happ := importRedirectURL("happ://add/" + enc)
+			incy := importRedirectURL("incy://add/" + enc)
+			if sr != "" {
+				b.WriteString(`<tg-button type="url" url="` + attr(sr) + `">Shadowrocket</tg-button>`)
+			}
+			if happ != "" {
+				b.WriteString(`<tg-button type="url" url="` + attr(happ) + `">Happ</tg-button>`)
+			}
+			if incy != "" {
+				b.WriteString(`<tg-button type="url" url="` + attr(incy) + `">INCY</tg-button>`)
+			}
 		}
 		b.WriteString(`</tg-button-row>` + nl)
-		if sr == "" && happ == "" && incy == "" {
+		if mode != "sub" && redirectBase() == "" {
 			msg := `⚠️ <i>REDIRECT_BASE unset — set domain for Shadowrocket/Happ/INCY url buttons</i>`
 			if getLang() != "en" {
 				msg = `⚠️ <i>REDIRECT_BASE не задан — укажите домен для кнопок Shadowrocket/Happ/INCY</i>`
+			}
+			b.WriteString(`<p>` + msg + `</p>` + nl)
+		}
+		if mode == "sub" && uri == "" {
+			msg := `⚠️ <i>Set REDIRECT_BASE or domain secret for subscription URL</i>`
+			if getLang() != "en" {
+				msg = `⚠️ <i>Задайте REDIRECT_BASE или domain для URL подписки</i>`
 			}
 			b.WriteString(`<p>` + msg + `</p>` + nl)
 		}
@@ -287,6 +324,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	}
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data"` + styleV + ` data="u:access:` + name + `:vless">VLESS</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data"` + styleS + ` data="u:access:` + name + `:sub">Sub</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">Primary</tg-button>`)
 	if showWorkProfileButton(name) {
 		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Config</tg-button>`)
@@ -342,6 +380,8 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	switch mode {
 	case "core":
 		qrPath = filepath.Join(dir, "qr-core.png")
+	case "sub":
+		qrPath = filepath.Join(dir, "qr-sub.png")
 	}
 	if p := ensureQRFile(qrPath, uri); p == "" {
 		fmt.Fprintln(os.Stderr, "ensureQRFile failed for", name, mode)
