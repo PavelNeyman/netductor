@@ -213,9 +213,9 @@ func formatSessionHTML(raw string) string {
 	if token != "" {
 		b.WriteString("<code>" + esc(token) + "</code>\n\n")
 		if getLang() != "en" {
-			b.WriteString("<i>Для Admin SPA / API (Authorization: Bearer …)</i>")
+			b.WriteString("<i>Для Admin SPA / API (Authorization: Bearer …)\nСообщение исчезнет ~2 мин</i>")
 		} else {
-			b.WriteString("<i>For Admin SPA / API (Authorization: Bearer …)</i>")
+			b.WriteString("<i>For Admin SPA / API (Authorization: Bearer …)\nMessage auto-deletes ~2 min</i>")
 		}
 	} else {
 		b.WriteString("<pre>" + esc(raw) + "</pre>")

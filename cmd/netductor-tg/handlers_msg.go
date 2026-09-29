@@ -249,7 +249,7 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 				{btn(T("main_menu"), "m:menu", "primary")},
 			},
 		}
-		sendHTML(token, chat, formatSessionHTML(tok), kb)
+		sendEphemeralHTML(token, chat, formatSessionHTML(tok), kb, 120)
 		return
 	}
 
@@ -321,7 +321,7 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 				{btn(T("main_menu"), "m:menu", "primary")},
 			},
 		}
-		sendHTML(token, chat, formatSessionHTML(tok), kb)
+		sendEphemeralHTML(token, chat, formatSessionHTML(tok), kb, 120)
 	case "/admin":
 		sendHTML(token, chat, T("admin_body"), mainKeyboard())
 	default:

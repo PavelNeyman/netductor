@@ -194,6 +194,58 @@ func sendHTML(token string, chat int64, text string, kb map[string]any) {
 	sendRich(token, chat, text, kb)
 }
 
+// sendEphemeralHTML tries Bot API ephemeral params; on failure sends normal message
+// and schedules deleteMessage after ttl (default 120s). Used for session tokens.
+func sendEphemeralHTML(token string, chat int64, text string, kb map[string]any, ttlSec int) {
+	if ttlSec <= 0 {
+		ttlSec = 120
+	}
+	payload := map[string]any{
+		"chat_id": chat,
+		"text":    text,
+		"parse_mode": "HTML",
+		"ephemeral_message_parameters": map[string]any{
+			"replace_callback_query_message": false,
+		},
+	}
+	if kb != nil {
+		payload["reply_markup"] = kb
+	}
+	// Prefer rich ephemeral if supported
+	rich := map[string]any{
+		"chat_id": chat,
+		"rich_message": map[string]any{"html": text},
+		"ephemeral_message_parameters": map[string]any{
+			"replace_callback_query_message": false,
+		},
+	}
+	if kb != nil {
+		rich["reply_markup"] = kb
+	}
+	if body, err := apiPost(token, "sendRichMessage", rich); err == nil {
+		if mid := messageIDFromTG(body); mid > 0 {
+			go scheduleDelete(token, chat, mid, ttlSec)
+		}
+		return
+	}
+	if body, err := apiPost(token, "sendMessage", payload); err == nil {
+		if mid := messageIDFromTG(body); mid > 0 {
+			go scheduleDelete(token, chat, mid, ttlSec)
+		}
+		return
+	}
+	// last resort: normal send + delete
+	sendRich(token, chat, text+"\n\n<i>⏱ auto-delete ~"+fmt.Sprintf("%d", ttlSec)+"s</i>", kb)
+}
+
+func scheduleDelete(token string, chat int64, msgID, ttlSec int) {
+	time.Sleep(time.Duration(ttlSec) * time.Second)
+	_, _ = apiPost(token, "deleteMessage", map[string]any{
+		"chat_id": chat, "message_id": msgID,
+	})
+}
+
+
 // sendRichWithPhoto sends Bot API 10.2+ rich message with in-body photo + tg-buttons.
 // photoID is the media id referenced as tg://photo?id=<photoID> in html (e.g. "qr1").
 func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string, kb map[string]any) error {
