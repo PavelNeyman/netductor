@@ -106,7 +106,18 @@ func Apply(c Config) error {
 			}
 		}
 	}
+	restartTelegramIfPresent()
 	return nil
+}
+
+func restartTelegramIfPresent() {
+	out, err := exec.Command("systemctl", "restart", "netductor-telegram-bot").CombinedOutput()
+	if err != nil {
+		// unit may be absent on secondary / minimal install
+		return
+	}
+	_ = out
+	fmt.Fprintln(os.Stderr, "  telegram-bot restarted (REDIRECT_BASE / domain)")
 }
 
 func runLE(c Config) error {

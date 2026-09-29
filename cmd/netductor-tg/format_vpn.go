@@ -276,7 +276,11 @@ func formatAccessRichHTML(name, mode, uri string) string {
 		}
 		b.WriteString(`</tg-button-row>` + nl)
 		if sr == "" && happ == "" && incy == "" {
-			b.WriteString(`<p>⚠️ <i>REDIRECT_BASE unset — set domain for Shadowrocket/Happ/INCY url buttons</i></p>` + nl)
+			msg := `⚠️ <i>REDIRECT_BASE unset — set domain for Shadowrocket/Happ/INCY url buttons</i>`
+			if getLang() != "en" {
+				msg = `⚠️ <i>REDIRECT_BASE не задан — укажите домен для кнопок Shadowrocket/Happ/INCY</i>`
+			}
+			b.WriteString(`<p>` + msg + `</p>` + nl)
 		}
 	} else {
 		b.WriteString("<p>❌ " + T("no_links") + "</p>" + nl)

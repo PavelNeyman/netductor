@@ -152,14 +152,15 @@ func operatorHubHTML() string {
 	apiArmed := strings.Contains(runND("api-public", "status"), "armed=true")
 	pol := runND("svc-paths", "failover", "status")
 	usersSP := strings.Contains(pol, `"users_to_sp_on_vless_down": true`) || strings.Contains(pol, `"users_to_sp_on_vless_down":true`)
-	apiCell, usersCell := "🔴 off", "🔴 off"
+	// API :8789 WAN open is emergency only; closed = normal secure state
+	apiCell, usersCell := "🟢 closed (ok)", "🔴 off"
 	if ru {
-		apiCell, usersCell = "🔴 выкл", "🔴 выкл"
+		apiCell, usersCell = "🟢 закрыт (норма)", "🔴 выкл"
 	}
 	if apiArmed {
-		apiCell = "🟢 on"
+		apiCell = "🔴 OPEN (temp)"
 		if ru {
-			apiCell = "🟢 вкл"
+			apiCell = "🔴 ОТКРЫТ (временно)"
 		}
 	}
 	if usersSP {
@@ -168,9 +169,9 @@ func operatorHubHTML() string {
 			usersCell = "🟢 вкл"
 		}
 	}
-	kAPI, kUsers, kFO := "API :8789 public", "Users→SP on VLESS down", "Failover"
+	kAPI, kUsers, kFO := "API :8789 WAN", "Users→SP on VLESS down", "Failover"
 	if ru {
-		kAPI, kUsers, kFO = "API :8789 наружу", "Users→SP при падении VLESS", "Failover"
+		kAPI, kUsers, kFO = "API :8789 WAN", "Users→SP при падении VLESS", "Failover"
 	}
 	foHint := "enabled"
 	if ru {

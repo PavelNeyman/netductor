@@ -239,6 +239,16 @@ chmod 755 /usr/local/bin/netductor
 		fmt.Print(out)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn domain:", err)
+		} else {
+			// Bot often starts during install before REDIRECT_BASE exists — reload conf.
+			fmt.Fprintln(os.Stderr, "==> restart telegram bot (pick up REDIRECT_BASE)")
+			out2, err2 := runSSH("", keyPath, o.User, o.Host,
+				"systemctl restart netductor-telegram-bot 2>/dev/null || true; systemctl is-active netductor-telegram-bot 2>/dev/null || true",
+				o.KeyPassphrase)
+			fmt.Print(out2)
+			if err2 != nil {
+				fmt.Fprintln(os.Stderr, "warn telegram restart:", err2)
+			}
 		}
 	}
 
