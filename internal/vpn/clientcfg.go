@@ -216,7 +216,24 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 			"default_domain_resolver": "ya",
 		},
 	}
-	return json.MarshalIndent(cfg, "", "  ")
+		if cidrs := AdminNodeDirectCIDRs(); len(cidrs) > 0 {
+		if route, ok := cfg["route"].(map[string]any); ok {
+			if rules, ok := route["rules"].([]any); ok {
+				admin := map[string]any{"ip_cidr": cidrs, "outbound": "direct"}
+				// after private / dns rules (index 2 or 3)
+				ins := 3
+				if ins > len(rules) {
+					ins = len(rules)
+				}
+				nr := make([]any, 0, len(rules)+1)
+				nr = append(nr, rules[:ins]...)
+				nr = append(nr, admin)
+				nr = append(nr, rules[ins:]...)
+				route["rules"] = nr
+			}
+		}
+	}
+return json.MarshalIndent(cfg, "", "  ")
 }
 
 // ShadowrocketJSON helper + URIs (relay first).
@@ -286,6 +303,10 @@ func WriteClientConfigs(name, uuid string) error {
 	rb.WriteString("dns-server = system\n")
 	rb.WriteString("skip-proxy = 127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, localhost, *.local\n\n")
 	rb.WriteString("[Rule]\n")
+	for _, line := range ShadowrocketAdminDirectRules() {
+		rb.WriteString(line)
+		rb.WriteByte('\n')
+	}
 	for _, line := range ShadowrocketRuDirectRules() {
 		rb.WriteString(line)
 		rb.WriteByte('\n')
