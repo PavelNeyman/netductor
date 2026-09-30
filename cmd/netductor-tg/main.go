@@ -407,18 +407,20 @@ func editRichWithPhoto(token string, chat int64, msgID int, html, photoPath, pho
 	return nil
 }
 
-// replyRichWithPhoto: try in-place edit; on failure delete + send one new message (no extra clutter).
+// replyRichWithPhoto: try in-place edit; on failure send NEW first, delete old only after success.
+// Deleting before send caused empty cards when sendRichWithPhoto failed (rapid VLESS↔Sub).
 func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, photoID string, kb map[string]any) {
-	// Prefer rich message (in-body tg-button + photo). Fallback classic photo/HTML.
 	if msgID > 0 {
 		if err := editRichWithPhoto(token, chat, msgID, html, photoPath, photoID, kb); err == nil {
 			return
 		} else {
 			fmt.Fprintln(os.Stderr, "editRichWithPhoto:", err)
-			_ = deleteMessage(token, chat, msgID)
 		}
 	}
 	if err := sendRichWithPhoto(token, chat, html, photoPath, photoID, kb); err == nil {
+		if msgID > 0 {
+			_ = deleteMessage(token, chat, msgID)
+		}
 		return
 	} else {
 		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
@@ -429,10 +431,19 @@ func replyRichWithPhoto(token string, chat int64, msgID int, html, photoPath, ph
 	}
 	if err := sendPhotoFile(token, chat, photoPath, cap, kb); err != nil {
 		fmt.Fprintln(os.Stderr, "sendPhotoFile:", err)
+		// Always keep the link text visible
+		if msgID > 0 {
+			if err2 := editHTML(token, chat, msgID, html, kb); err2 == nil {
+				return
+			}
+			_ = deleteMessage(token, chat, msgID)
+		}
 		sendRich(token, chat, html, kb)
 		return
 	}
-	// Do not send a second message with full HTML (avoids tag-stripped button text).
+	if msgID > 0 {
+		_ = deleteMessage(token, chat, msgID)
+	}
 }
 
 func stripHTMLApprox(s string) string {
@@ -460,13 +471,15 @@ func editHTML(token string, chat int64, msgID int, text string, kb map[string]an
 }
 
 func reply(token string, chat int64, msgID int, text string, kb map[string]any) {
-	// In-place edit for all text/rich screens. Photo→text falls back to delete+send once.
+	// In-place edit; on failure send new first, then delete old (avoid empty gap).
 	if msgID > 0 {
 		if err := editHTML(token, chat, msgID, text, kb); err == nil {
 			return
 		}
 		fmt.Fprintln(os.Stderr, "reply edit failed, replace:", msgID)
+		sendHTML(token, chat, text, kb)
 		_ = deleteMessage(token, chat, msgID)
+		return
 	}
 	sendHTML(token, chat, text, kb)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sync"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"encoding/base64"
 	"net/url"
@@ -400,7 +401,11 @@ func sendAppDeepLink(token string, chat int64, name, mode, client string) {
 	sendHTML(token, chat, msg, nil)
 }
 
+var accessShowMu sync.Mutex
+
 func showUserAccess(token string, chat int64, msgID int, name, mode string) {
+	accessShowMu.Lock()
+	defer accessShowMu.Unlock()
 	if mode == "" {
 		mode = "vless"
 	}
