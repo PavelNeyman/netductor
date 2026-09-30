@@ -74,6 +74,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
 		return
 	}
+	if strings.HasPrefix(data, "m:cat:") {
+		handleCatGroup(token, chat, msgID, strings.TrimPrefix(data, "m:cat:"))
+		return
+	}
 	if strings.HasPrefix(data, "m:ops:") {
 		sec := strings.TrimPrefix(data, "m:ops:")
 		// One canonical screen per domain — no parallel catalog menus.

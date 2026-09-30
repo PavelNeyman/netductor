@@ -208,3 +208,57 @@ func formatToolsFromGroups() string {
 	return b.String()
 }
 
+
+
+// handleCatGroup maps opcatalog.Groups() IDs to real TG screens (not unknown → main menu).
+func handleCatGroup(token string, chat int64, msgID int, groupID string) {
+	ru := getLang() != "en"
+	switch groupID {
+	case "home":
+		// overview: status + stack entry
+		body := formatStatusPretty()
+		kb := map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("🧱 Stack", "m:stack", "primary"), btn("🔄 Updates", "m:updates", "")},
+			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}}
+		if ru {
+			kb = map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("🧱 Стек", "m:stack", "primary"), btn("🔄 Обновления", "m:updates", "")},
+				{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+			}}
+		}
+		reply(token, chat, msgID, body, kb)
+	case "users":
+		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
+	case "fleet":
+		reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
+	case "edge":
+		reply(token, chat, msgID, routersHubHTML(), routersKeyboard())
+	case "media":
+		reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
+	case "data":
+		title := "📦 <b>Data</b>"
+		if ru {
+			title = "📦 <b>Данные</b>"
+		}
+		body := title + "\n" +
+			`<tg-button-row align="left">` +
+			`<tg-button type="callback_data" data="m:ops:dns">DNS</tg-button>` +
+			`<tg-button type="callback_data" data="m:ops:backup">Backup</tg-button>` +
+			`<tg-button type="callback_data" data="m:ops:git">Git</tg-button>` +
+			`</tg-button-row>`
+		kb := map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}}
+		reply(token, chat, msgID, body, kb)
+	case "adv":
+		out := runND("probe")
+		r := format.API("probes", []byte(out), catalogLang())
+		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}})
+	default:
+		// Show catalog sections for unknown group
+		reply(token, chat, msgID, catalogSectionTitle(groupID), catalogSectionKeyboard(groupID))
+	}
+}
