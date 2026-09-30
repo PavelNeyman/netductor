@@ -48,7 +48,7 @@ type SecRow struct {
 func Build() Digest {
 	d := Digest{
 		TS:             time.Now().UTC(),
-		PrimaryVersion: version.Release,
+		PrimaryVersion: version.Running(),
 		Services:       map[string]string{},
 	}
 	for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot", "netductor-redirect"} {
@@ -59,7 +59,7 @@ func Build() Digest {
 		}
 		d.Services[u] = st
 	}
-	st := ndupdate.CheckStatus(version.Release)
+	st := ndupdate.CheckStatus(version.Running())
 	if st.Error == "" {
 		d.UpdateAvailable = st.Update
 		d.LatestRelease = st.Latest

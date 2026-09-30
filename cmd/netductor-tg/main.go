@@ -1,6 +1,7 @@
 package main
 
 import (
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -18,7 +19,6 @@ import (
 	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
-var version = "0.9.122"
 
 func claimAdmin(chatID int64) {
 	// Production: admin id must be pre-provisioned (file or NETDUCTOR_TG_ADMIN).
@@ -772,7 +772,7 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "version", "-v", "--version":
-			fmt.Printf("netductor-tg %s\n", version)
+			fmt.Printf("netductor-tg %s\n", ndver.Release)
 			return
 		case "help", "-h", "--help":
 			fmt.Println("netductor-tg [version] — Telegram bot for netductor (systemd)")

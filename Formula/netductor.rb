@@ -1,28 +1,29 @@
 class Netductor < Formula
-  desc "Netductor operator"
+  desc "Netductor operator (Mac/Linux CLI+TUI+Web)"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.9.127"
+  version "0.9.128"
   license "MIT"
+
   on_macos do
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.127/netductor-op-darwin-arm64"
-      sha256 "f9e240911162d2fdf1cebcd56fda736a21db76328248c5e35c013dc4ec6ac80a"
-    end
-    on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.127/netductor-op-darwin-amd64"
-      sha256 "e646d1b1b821639cabedb043471588897b60ea28f743eed08d8ab535dbe73f8c"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.128/netductor-op-darwin-arm64"
+      sha256 "f0e55aa52690bf4953f6eaca9d6d59bb73a6f59871d1aa5a2741f21d646000ea"
     end
   end
+
   on_linux do
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.127/netductor-op-linux-amd64"
-      sha256 "56a1afe16656faf4279b012850b3b57b992f77c59996901b868c4a42a589ce8f"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.128/netductor-op-linux-amd64"
+      sha256 "9b0dc972cbc7f444989f07c7d7ffceea414ad99e390935441744a163346ff8fd"
     end
   end
+
   def install
-    bin.install Dir["netductor-op-*"].first => "netductor-op"
+    bin.install Dir["netductor-op*"].first => "netductor-op"
+    bin.install_symlink "netductor-op" => "netductor"
   end
+
   test do
-    assert_match "operator", shell_output("#{bin}/netductor-op version 2>&1")
+    assert_match "0.9.128", shell_output("#{bin}/netductor-op version 2>&1")
   end
 end

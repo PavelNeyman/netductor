@@ -114,9 +114,11 @@ func curMetaPath() string {
 
 // Collect status of managed units.
 func Collect() Status {
-	st := Status{Release: version.Release, At: time.Now().Unix()}
+	rel := version.Running()
+	st := Status{Release: rel, At: time.Now().Unix()}
+	saveCurrent(rel)
 	if b, err := os.ReadFile(filepath.Join(prevDir(), "VERSION")); err == nil {
-		st.Prev = strings.TrimSpace(string(b))
+		st.Prev = strings.TrimPrefix(strings.TrimSpace(string(b)), "v")
 	}
 	for _, u := range PrimaryUnits {
 		active, sub := unitState(u.Unit)

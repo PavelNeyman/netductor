@@ -1,6 +1,7 @@
 package main
 
 import (
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"fmt"
 	"net/http"
 	"os"
@@ -35,7 +36,7 @@ func buildAPIMux() http.Handler {
 	registerFleetAPI(mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"ok": true, "service": "netductor", "version": version, "time": time.Now().UTC().Format(time.RFC3339)})
+		writeJSON(w, 200, map[string]any{"ok": true, "service": "netductor", "version": ndver.Release, "time": time.Now().UTC().Format(time.RFC3339)})
 	})
 	mux.HandleFunc("/api/bot-status", func(w http.ResponseWriter, r *http.Request) {
 		out, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").Output()

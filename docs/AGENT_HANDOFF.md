@@ -65,3 +65,8 @@ Closed checklist item → mark plan + update this handoff + CHANGELOG in the **s
 - TG: Tools → Updates → GitHub token
 - Web Settings: GitHub token (on primary) — needs node session
 - Env: `NETDUCTOR_GITHUB_TOKEN` / `GITHUB_TOKEN`
+
+
+## 0.9.128
+- Display version = `version.Running()` + `/etc/netductor/VERSION`
+- After manual binary replace: write VERSION + restart units; Fleet/Stack follow file

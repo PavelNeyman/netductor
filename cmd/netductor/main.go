@@ -1,6 +1,7 @@
 package main
 
 import (
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"fmt"
 
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
@@ -13,7 +14,6 @@ import (
 )
 
 // Node control-plane binary (VPS). No deploy/TUI/operator serve.
-var version = "0.9.121"
 
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "version", "-v", "--version":
-		fmt.Printf("netductor %s (node)\n", version)
+		fmt.Printf("netductor %s (node)\n", ndver.Release)
 	case "help", "-h", "--help":
 		printHelp()
 	case "doctor":

@@ -1,3 +1,10 @@
+## 0.9.128
+
+- **Version single source:** Fleet/Stack use `version.Running()` (prefer `/etc/netductor/VERSION`, then binary, then const)
+- TG/node `version` CLI prints `internal/version.Release` (no stale `main.version` defaults like 0.9.121)
+- `stack.Collect` syncs `current.json` to running version
+- Removes dual-display bug (CLI 0.9.127 vs Fleet 0.9.121)
+
 ## 0.9.121
 
 - Web Control: Stack status/apply/rollback/watchdog

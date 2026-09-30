@@ -1,6 +1,7 @@
 package main
 
 import (
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -361,7 +362,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			})
 		}
 		writeJSON(w, 200, map[string]any{
-			"ok": true, "service": "netductor", "version": version,
+			"ok": true, "service": "netductor", "version": ndver.Release,
 			"metrics": m, "probes": probes.Run(probes.Load()),
 			"mismatch": mm, "secondary_mismatch": relays,
 		})
