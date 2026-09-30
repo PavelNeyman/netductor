@@ -3,13 +3,25 @@ package stack
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
 const applyLockFile = "/var/lib/netductor/stack/apply.lock"
-const applyLockTTL = 15 * time.Minute
+const applyLockTTL = 8 * time.Minute
+const applyUnit = "netductor-stack-apply.service"
+
+// applyUnitRunning is true if oneshot/service is still active or activating.
+func applyUnitRunning() bool {
+	out, err := exec.Command("systemctl", "is-active", applyUnit).Output()
+	if err != nil {
+		return false
+	}
+	s := strings.TrimSpace(string(out))
+	return s == "active" || s == "activating"
+}
 
 // ApplyInProgress reports an active (or stale-cleared) stack apply lock.
 func ApplyInProgress() (busy bool, tag string, started time.Time) {
@@ -19,7 +31,7 @@ func ApplyInProgress() (busy bool, tag string, started time.Time) {
 	}
 	line := strings.TrimSpace(string(b))
 	parts := strings.SplitN(line, "\t", 2)
-	if len(parts) < 1 {
+	if len(parts) < 1 || parts[0] == "" {
 		_ = ClearApplyLock()
 		return false, "", time.Time{}
 	}
@@ -28,7 +40,14 @@ func ApplyInProgress() (busy bool, tag string, started time.Time) {
 		_ = ClearApplyLock()
 		return false, "", time.Time{}
 	}
+	// Stale TTL
 	if time.Since(ts) > applyLockTTL {
+		_ = ClearApplyLock()
+		return false, "", time.Time{}
+	}
+	// Lock file without a live unit → crashed apply; free the lock
+	if time.Since(ts) > 45*time.Second && !applyUnitRunning() {
+		// give apply a short window to start after systemd-run
 		_ = ClearApplyLock()
 		return false, "", time.Time{}
 	}
@@ -46,10 +65,8 @@ func TryAcquireApplyLock(tag string) bool {
 	}
 	_ = os.MkdirAll(filepath.Dir(applyLockFile), 0o755)
 	payload := time.Now().UTC().Format(time.RFC3339) + "\t" + strings.TrimSpace(tag)
-	// O_EXCL-style: write if not exists
 	f, err := os.OpenFile(applyLockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
-		// race or exists
 		if busy, _, _ := ApplyInProgress(); busy {
 			return false
 		}
@@ -65,6 +82,13 @@ func ClearApplyLock() error {
 	return os.Remove(applyLockFile)
 }
 
+// ForceClearApply unlocks stuck apply (admin). Stops oneshot unit if any.
+func ForceClearApply() error {
+	_ = exec.Command("systemctl", "stop", applyUnit).Run()
+	_ = exec.Command("systemctl", "reset-failed", applyUnit).Run()
+	return ClearApplyLock()
+}
+
 func ApplyLockStatusLine(ru bool) string {
 	busy, tag, started := ApplyInProgress()
 	if !busy {
@@ -72,7 +96,7 @@ func ApplyLockStatusLine(ru bool) string {
 	}
 	age := time.Since(started).Round(time.Second)
 	if ru {
-		return fmt.Sprintf("⏳ Обновление уже идёт: <code>%s</code> (%s). Повтор нажат не будет выполнен.", tag, age)
+		return fmt.Sprintf("⏳ Обновление уже идёт: <code>%s</code> (%s). Подождите или сбросьте lock.", tag, age)
 	}
-	return fmt.Sprintf("⏳ Update already in progress: <code>%s</code> (%s). Extra taps ignored.", tag, age)
+	return fmt.Sprintf("⏳ Update already in progress: <code>%s</code> (%s). Wait or clear lock.", tag, age)
 }

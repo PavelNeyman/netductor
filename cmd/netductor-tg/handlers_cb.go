@@ -1,6 +1,7 @@
 package main
 
 import (
+	ndstack "github.com/PavelNeyman/netductor/internal/stack"
 	"fmt"
 	"os"
 	"strings"
@@ -304,6 +305,14 @@ if strings.HasPrefix(data, "u:") {
 	case "m:noop":
 		// Disabled / busy button — brief toast
 		answerCallbackText(token, cq.ID, "⏳")
+		return
+		case "m:updates:unlock":
+		_ = ndstack.ForceClearApply()
+		msg := "✅ Apply lock cleared"
+		if getLang() != "en" {
+			msg = "✅ Lock обновления сброшен"
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	case "m:topics":
 		reply(token, chat, msgID, notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())

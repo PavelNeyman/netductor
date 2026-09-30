@@ -1,3 +1,8 @@
+## 0.9.131
+
+- Apply lock: TTL 8m; clear if unit dead after 45s; TG **Clear lock** button
+- Prevents sticky "apply already in progress: v0.9.130"
+
 ## 0.9.130
 
 - **Fix stack auto-rollback:** health no longer fails on telegram-bot alone (false fail → rollback to 0.9.121)

@@ -519,7 +519,14 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			if msg == "" {
 				msg = "⏳ busy: " + esc(cur)
 			}
-			rows := [][]map[string]any{{btnDisabled("⏳ " + cur), btn("⬅️ "+parentTools(), "m:tools", "primary")}}
+			clr := "🔓 Clear lock"
+			if ru {
+				clr = "🔓 Сбросить lock"
+			}
+			rows := [][]map[string]any{
+				{btnDisabled("⏳ " + cur)},
+				{btn(clr, "m:updates:unlock", "danger"), btn("⬅️ "+parentTools(), "m:tools", "primary")},
+			}
 			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": rows})
 			return
 		}
@@ -635,6 +642,13 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		if local != "" {
 			rows = append(rows, []map[string]any{btn("⬆ v"+strings.TrimPrefix(local, "v"), "m:updates:apply:v"+strings.TrimPrefix(local, "v"), "")})
 		}
+	}
+	if applyBusy {
+		clr := "🔓 Clear lock"
+		if ru {
+			clr = "🔓 Сбросить lock"
+		}
+		rows = append(rows, []map[string]any{btn(clr, "m:updates:unlock", "danger")})
 	}
 	rows = append(rows, []map[string]any{
 		btn("🔑 GitHub token", "m:updates:token:set", "primary"),
