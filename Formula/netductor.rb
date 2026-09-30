@@ -6,17 +6,17 @@ class Netductor < Formula
   on_macos do
     on_arm do
       url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.122/netductor-op-darwin-arm64"
-      sha256 "4c59ea06e252e9a5e978ec3fe848d0578ee886dc8e46165eb42bf36fa3b89581"
+      sha256 "d1c649e23d8c088023d096d00f1e0dcb75ecaf08765c22aab1bc090d8a62022a"
     end
     on_intel do
       url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.122/netductor-op-darwin-amd64"
-      sha256 "8cad59f416a435a0f3404d4cc85d91ab4497aa16506a8e2fb6f77c61671b9924"
+      sha256 "d3770f0f97088c5dd62e7eb18b2919bfd52fd7cf4397462f18d05531f9d9c787"
     end
   end
   on_linux do
     on_intel do
       url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.122/netductor-op-linux-amd64"
-      sha256 "f1184f7fbe910dbd2075388bd5cfcbf2e7a6213349829ca322c6ec7d4374086a"
+      sha256 "ddc8221dfc2eb9b88b917feae0b00455e24ad584f4f68d70db410ce423db11a3"
     end
   end
   def install
