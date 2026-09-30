@@ -1,6 +1,7 @@
 package main
 
 import (
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -31,6 +32,25 @@ func handleMessage(token string, m *message, admin int64) {
 	}
 
 	st := chatState[chat]
+	if st == "wait_github_token" {
+		setState(chat, "", "")
+		tok := strings.TrimSpace(text)
+		if tok == "" || tok == "-" {
+			sendHTML(token, chat, T("cancelled"), navKeyboard("m:updates", parentTools()))
+			return
+		}
+		if err := ndupdate.SetToken(tok); err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:updates", parentTools()))
+			return
+		}
+		stt := ndupdate.GetTokenStatus()
+		msg := "✅ GitHub token saved: <code>" + esc(stt.Hint) + "</code>"
+		if getLang() != "en" {
+			msg = "✅ GitHub token сохранён: <code>" + esc(stt.Hint) + "</code>"
+		}
+		sendHTML(token, chat, msg, navKeyboard("m:updates", parentTools()))
+		return
+	}
 	if handleEdgeGuestText(token, chat, text) {
 		return
 	}

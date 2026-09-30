@@ -22,6 +22,44 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, ndupdate.CheckStatus(ndver.Release))
 	})
+	mux.HandleFunc("/api/update/github-token", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			writeJSON(w, 200, ndupdate.GetTokenStatus())
+		case http.MethodPost:
+			var body struct {
+				Token string `json:"token"`
+				Clear bool   `json:"clear"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.Clear || strings.TrimSpace(body.Token) == "" && body.Clear {
+				_ = ndupdate.ClearToken()
+				writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
+				return
+			}
+			if body.Clear {
+				_ = ndupdate.ClearToken()
+				writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
+				return
+			}
+			tok := strings.TrimSpace(body.Token)
+			if tok == "" {
+				writeJSON(w, 400, map[string]string{"error": "token required (or clear:true)"})
+				return
+			}
+			if err := ndupdate.SetToken(tok); err != nil {
+				writeJSON(w, 500, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
+		case http.MethodDelete:
+			_ = ndupdate.ClearToken()
+			writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/api/update/releases", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)

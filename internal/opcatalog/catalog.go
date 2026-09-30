@@ -76,6 +76,11 @@ func All() []Action {
 		a("secondary-links", "nodes", "GET", "/api/secondary/links", "", "—", "Secondary links", "Ссылки secondary"),
 		a("ssh-hosts", "nodes", "GET", "/api/ssh-hosts", "", "ssh-hosts list", "SSH hosts", "SSH hosts"),
 		a("ssh-clear", "nodes", "POST", "/api/ssh-hosts/clear", "{}", "ssh-hosts clear", "SSH hosts clear", "Очистить SSH hosts"),
+		a("update-status", "updates", "GET", "/api/update/status", "", "update check", "Update status", "Статус обновлений"),
+		a("update-releases", "updates", "GET", "/api/update/releases", "", "update list", "Release list", "Список релизов"),
+		a("update-gh-token", "updates", "GET", "/api/update/github-token", "", "update github-token status", "GitHub token status", "Статус GitHub token"),
+		a("update-gh-token-set", "updates", "POST", "/api/update/github-token", `{"token":"ghp_..."}`, "update github-token set", "Set GitHub token", "Задать GitHub token"),
+		a("update-gh-token-clear", "updates", "POST", "/api/update/github-token", `{"clear":true}`, "update github-token clear", "Clear GitHub token", "Удалить GitHub token"),
 		a("mtls-certs", "nodes", "GET", "/api/mtls/certs", "", "mtls list", "mTLS certs", "mTLS сертификаты"),
 		a("sites", "nodes", "GET", "/api/sites", "", "—", "Sites", "Сайты"),
 

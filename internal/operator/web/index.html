@@ -193,7 +193,17 @@
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <pre class="log" id="settingsSaved" class="log settings-log"></pre>
     </div>
-  </form>
+  
+    <div class="card mt-1">
+      <h3 data-i18n="set_gh">GitHub token (on primary)</h3>
+      <p class="note" data-i18n="set_gh_note">Stored as /etc/netductor/secrets/github_token on the node. Avoids API 403 when listing releases.</p>
+      <div class="row"><div><label data-i18n="set_gh_tok">Token</label><input name="github_token" id="set_github_token" type="password" autocomplete="off" placeholder="ghp_…"/></div>
+      <div><label data-i18n="set_gh_st">Status</label><input id="set_github_token_status" readonly placeholder="—"/></div></div>
+      <button class="primary" type="button" id="btnGhTokenSave" data-i18n="set_gh_save">Save on primary</button>
+      <button type="button" id="btnGhTokenClear" data-i18n="set_gh_clear">Clear</button>
+      <button type="button" id="btnGhTokenRefresh" data-i18n="set_gh_refresh">Refresh status</button>
+    </div>
+</form>
 </div>
 <div class="sec" id="deployLogSec">
   <div class="steps" id="steps"></div>

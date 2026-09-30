@@ -455,6 +455,25 @@ func handleQuotaCB(token string, chat int64, msgID int, data string) {
 
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
+	// m:updates:token:set|clear
+	if data == "m:updates:token:set" {
+		setState(chat, "wait_github_token", "")
+		msg := "🔑 <b>GitHub token</b>\n\nSend a <b>classic PAT</b> (repo read) or fine-grained token with Releases read.\n<code>/cancel</code> to abort."
+		if ru {
+			msg = "🔑 <b>GitHub token</b>\n\nПришлите <b>classic PAT</b> (чтение репо) или fine-grained с доступом к Releases.\n<code>/cancel</code> — отмена."
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
+		return
+	}
+	if data == "m:updates:token:clear" {
+		_ = ndupdate.ClearToken()
+		msg := "✅ GitHub token cleared"
+		if ru {
+			msg = "✅ GitHub token удалён"
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
+		return
+	}
 	// m:updates:edge:<device_id> — enqueue agent_update (no auto-rollout)
 	if strings.HasPrefix(data, "m:updates:edge:") {
 		did := strings.TrimPrefix(data, "m:updates:edge:")
@@ -520,6 +539,12 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	}
 	b.WriteString("<table bordered striped>\n<tr><th>item</th><th>value</th></tr>\n")
 	b.WriteString("<tr><td>local</td><td><code>" + esc(local) + "</code></td></tr>\n")
+	ts := ndupdate.GetTokenStatus()
+	tokCell := "❌"
+	if ts.Configured {
+		tokCell = "✅ " + esc(ts.Hint) + " <i>(" + esc(ts.Source) + ")</i>"
+	}
+	b.WriteString("<tr><td>github token</td><td>" + tokCell + "</td></tr>\n")
 	if err != nil {
 		b.WriteString("<tr><td>latest</td><td>❌ " + esc(err.Error()) + "</td></tr>\n")
 	} else {
@@ -570,6 +595,10 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			rows = append(rows, []map[string]any{btn("⬆ v"+strings.TrimPrefix(local, "v"), "m:updates:apply:v"+strings.TrimPrefix(local, "v"), "")})
 		}
 	}
+	rows = append(rows, []map[string]any{
+		btn("🔑 GitHub token", "m:updates:token:set", "primary"),
+		btn("🗑 Clear token", "m:updates:token:clear", "danger"),
+	})
 	// edge agent_update (point)
 	for _, d := range edge.ListDevices() {
 		if d.DeviceID == "" {

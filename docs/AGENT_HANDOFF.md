@@ -56,3 +56,12 @@ Closed checklist item → mark plan + update this handoff + CHANGELOG in the **s
 ## Pending UX (low priority)
 
 - Further Day-2 Web polish — [WEB-UI-FIXES.md](WEB-UI-FIXES.md)
+
+## GitHub token (0.9.124)
+
+- File: `/etc/netductor/secrets/github_token`
+- CLI: `netductor update github-token status|set <tok>|clear`
+- API: `GET/POST /api/update/github-token`
+- TG: Tools → Updates → GitHub token
+- Web Settings: GitHub token (on primary) — needs node session
+- Env: `NETDUCTOR_GITHUB_TOKEN` / `GITHUB_TOKEN`

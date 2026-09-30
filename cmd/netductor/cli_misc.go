@@ -270,9 +270,13 @@ func runUpdate(restart bool) {
 			return
 		case "apply":
 			args = args[1:]
+		case "github-token", "gh-token", "token":
+			runUpdateGitHubToken(args[1:])
+			return
 		case "--help", "-h", "help":
 			fmt.Println("netductor update check | list [--limit N]")
 			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
+			fmt.Println("netductor update github-token status|set <token>|clear")
 			fmt.Println("  version empty → latest release; prefer explicit tag if latest is broken")
 			return
 		}
@@ -440,4 +444,41 @@ func mustStatMod(dir, name string) time.Time {
 		return time.Time{}
 	}
 	return fi.ModTime()
+}
+
+func runUpdateGitHubToken(args []string) {
+	if len(args) == 0 || args[0] == "status" || args[0] == "check" {
+		st := ndupdate.GetTokenStatus()
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(st)
+		return
+	}
+	switch args[0] {
+	case "clear", "delete", "rm":
+		if err := ndupdate.ClearToken(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("github token cleared")
+	case "set":
+		tok := ""
+		if len(args) > 1 {
+			tok = strings.Join(args[1:], " ")
+		}
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			fmt.Fprintln(os.Stderr, "usage: netductor update github-token set <token>")
+			os.Exit(1)
+		}
+		if err := ndupdate.SetToken(tok); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		st := ndupdate.GetTokenStatus()
+		fmt.Println("github token saved:", st.Hint, "source=", st.Source)
+	default:
+		fmt.Fprintln(os.Stderr, "usage: netductor update github-token status|set <token>|clear")
+		os.Exit(1)
+	}
 }

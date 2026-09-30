@@ -43,13 +43,13 @@ en:{
   set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
   set_api_port:'API local port', set_api_base:'API base', set_sec_host:'Secondary host', set_session:'Node session (sessionStorage)',
   set_session_note:'Not stored in localStorage',
-  save:'Save', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
+  save:'Save', set_gh:'GitHub token (on primary)', set_gh_note:'Stored on node as secrets/github_token. Avoids release-list 403.', set_gh_tok:'Token', set_gh_st:'Status', set_gh_save:'Save on primary', set_gh_clear:'Clear', set_gh_refresh:'Refresh status', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
   result:'Result', tunnel:'Tunnel', idle:'idle',
   sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
   adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
   b_health:'Health', b_stack:'Stack', b_stack_apply:'Stack apply', b_stack_rb:'Stack rollback', b_stack_wd:'Stack WD', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_metrics:'Metrics',
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
-  b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
+  b_latest:'Latest', b_sessions:'Sessions', b_gh_token:'GitHub token', b_upd:'Статус обновлений', b_gh_token:'GitHub token', b_upd:'Update status', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
   b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
   l_dns_id:'list id', l_dns_en:'enabled', b_dns_set:'Set list', b_dns_on:'on', b_dns_off:'off',
   l_bak_hour:'hour (0-23)', l_bak_min:'minute (0-59)', l_bak_tz:'timezone', b_bak_save:'Save schedule',
@@ -87,7 +87,7 @@ ru:{
   set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
   set_api_port:'Локальный порт API', set_api_base:'База API', set_sec_host:'Хост secondary', set_session:'Session ноды (sessionStorage)',
   set_session_note:'Не хранится в localStorage',
-  save:'Сохранить', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
+  save:'Сохранить', set_gh:'GitHub token (на primary)', set_gh_note:'Файл secrets/github_token на ноде. Снимает 403 при списке релизов.', set_gh_tok:'Токен', set_gh_st:'Статус', set_gh_save:'Сохранить на primary', set_gh_clear:'Удалить', set_gh_refresh:'Обновить статус', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
   result:'Результат', tunnel:'Туннель', idle:'ожидание',
   sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
   adv_note:'Произвольный POST/GET к session API', l_method:'метод', l_path:'путь', l_body:'JSON body',
@@ -429,6 +429,8 @@ const BTN = {
     ['sni-presets','b_sni_presets','GET','/api/sni-presets'],
     ['latest','b_latest','GET','/api/latest'],
     ['sessions','b_sessions','GET','/api/sessions'],
+    ['gh-token','b_gh_token','GET','/api/update/github-token'],
+    ['update-status','b_upd','GET','/api/update/status'],
   ],
   vpn:[
     ['vpn-users','b_vpn_users','GET','/vpn/users'],
@@ -832,3 +834,37 @@ applyI18n();
 (async()=>{ try{ const res=await fetch('/v1/session/local',{headers:{'X-Netductor-Token':ND_TOKEN}}); const j=await res.json(); if(j.ok&&j.token){ const s=settings(); if(!s.node_session){ s.node_session=j.token; saveSettingsObj(s);} } }catch(e){} })();
 fetch('/v1/meta').then(r=>r.json()).then(m=>{ document.getElementById('metaLine').textContent='op v'+m.version; }).catch(()=>{});
 updateTunnelHint();
+
+
+async function refreshGhTokenStatus(){
+  const el=document.getElementById('set_github_token_status');
+  if(!el) return;
+  try{
+    const r=await nodeFetch('/api/update/github-token');
+    const d=r.data||{};
+    if(d.configured) el.value='✅ '+(d.hint||'')+' ('+(d.source||'')+')';
+    else el.value='❌ not set';
+  }catch(e){ el.value='error: '+e; }
+}
+(function(){
+  const save=document.getElementById('btnGhTokenSave');
+  const clr=document.getElementById('btnGhTokenClear');
+  const ref=document.getElementById('btnGhTokenRefresh');
+  if(save) save.onclick=async()=>{
+    const tok=(document.getElementById('set_github_token')||{}).value||'';
+    if(!tok.trim()){ alert('token required'); return; }
+    const r=await nodeFetch('/api/update/github-token',{method:'POST',body:JSON.stringify({token:tok.trim()})});
+    if(!r.ok) alert(JSON.stringify(r.data));
+    document.getElementById('set_github_token').value='';
+    await refreshGhTokenStatus();
+  };
+  if(clr) clr.onclick=async()=>{
+    await nodeFetch('/api/update/github-token',{method:'POST',body:JSON.stringify({clear:true})});
+    await refreshGhTokenStatus();
+  };
+  if(ref) ref.onclick=()=>refreshGhTokenStatus();
+  // refresh when opening settings
+  document.querySelectorAll('#mainTabs button').forEach(b=>{
+    b.addEventListener('click',()=>{ if(b.dataset.main==='settings') refreshGhTokenStatus(); });
+  });
+})();
