@@ -135,3 +135,32 @@ func PushBackupSSH(host, port, keyPath, filePath string) error {
 	fmt.Println("pushed", filepath.Base(filePath), "→", host+":"+remoteDir)
 	return nil
 }
+
+
+// InstallSecondaryLocalBackupTimer daily local backup on secondary (no primary API).
+func InstallSecondaryLocalBackupTimer() error {
+	bin := "/usr/local/bin/netductor"
+	service := fmt.Sprintf(`[Unit]
+Description=Netductor secondary local backup
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%s backup secondary-local
+Nice=10
+`, bin)
+	timer := `[Unit]
+Description=Netductor secondary local backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`
+	_ = os.WriteFile("/etc/systemd/system/netductor-secondary-local-backup.service", []byte(service), 0o644)
+	_ = os.WriteFile("/etc/systemd/system/netductor-secondary-local-backup.timer", []byte(timer), 0o644)
+	_ = exec.Command("systemctl", "daemon-reload").Run()
+	return exec.Command("systemctl", "enable", "--now", "netductor-secondary-local-backup.timer").Run()
+}

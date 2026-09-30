@@ -334,7 +334,7 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		}()
 		return true, "reboot scheduled in 2s"
 	case "upgrade":
-		return secondaryUpgrade()
+		return secondaryUpgrade("")
 	case "mtls_refresh":
 		return secondaryMTLSRefresh()
 	case "backup_pull":
@@ -345,6 +345,16 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-secondary-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
 		return err == nil || len(out) > 0, string(out)
 	default:
+		if strings.HasPrefix(cmd, "upgrade:") {
+			return secondaryUpgrade(strings.TrimPrefix(cmd, "upgrade:"))
+		}
+		if cmd == "backup_local" {
+			path, err := secondaryBackupLocal()
+			if err != nil {
+				return false, err.Error()
+			}
+			return true, path
+		}
 		if strings.HasPrefix(cmd, "restart:") {
 			unit := strings.TrimPrefix(cmd, "restart:")
 			// allowlist only netductor-related units
@@ -366,38 +376,6 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 }
 
 
-// secondaryUpgrade: apt + binary replace without shell. Agent restart deferred in-process.
-func secondaryUpgrade() (bool, string) {
-	var log strings.Builder
-	run := func(name string, args ...string) {
-		cmd := exec.Command(name, args...)
-		cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
-		out, err := cmd.CombinedOutput()
-		log.Write(out)
-		if err != nil {
-			log.WriteString(err.Error())
-			log.WriteByte('\n')
-		}
-	}
-	run("apt-get", "update", "-qq")
-	run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
-	ver := VersionHint()
-	url := "https://github.com/PavelNeyman/netductor/releases/download/v" + ver + "/netductor-linux-amd64"
-	tmp := "/tmp/nd-upgrade.bin"
-	run("wget", "-qO", tmp, url)
-	if st, err := os.Stat(tmp); err == nil && st.Size() > 1000 {
-		_ = os.Chmod(tmp, 0o755)
-		_ = exec.Command("cp", tmp, "/usr/local/bin/netductor").Run()
-	}
-	_ = exec.Command("systemctl", "restart", "sing-box").Run()
-	go func() {
-		time.Sleep(45 * time.Second)
-		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Run()
-	}()
-	log.WriteString("DONE\n")
-	return true, log.String()
-}
-
 func VersionHint() string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_VERSION")); v != "" {
 		return strings.TrimPrefix(v, "v")
@@ -408,6 +386,69 @@ func VersionHint() string {
 		}
 	}
 	return version.Release
+}
+
+// secondaryUpgrade downloads node+agent from GitHub Release (no apt storm).
+// tag empty → VersionHint / latest file VERSION.
+func secondaryUpgrade(tag string) (bool, string) {
+	var log strings.Builder
+	tag = strings.TrimSpace(tag)
+	tag = strings.TrimPrefix(tag, "v")
+	if tag == "" {
+		tag = VersionHint()
+	}
+	if tag == "" {
+		tag = version.Release
+	}
+	tag = strings.TrimPrefix(tag, "v")
+	base := "https://github.com/PavelNeyman/netductor/releases/download/v" + tag + "/"
+	fetch := func(name, dest string) error {
+		tmp := "/tmp/" + name + ".new"
+		cmd := exec.Command("wget", "-qO", tmp, base+name)
+		out, err := cmd.CombinedOutput()
+		log.Write(out)
+		if err != nil {
+			// curl fallback
+			cmd = exec.Command("curl", "-fsSL", "-o", tmp, base+name)
+			out, err = cmd.CombinedOutput()
+			log.Write(out)
+			if err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+		}
+		st, err := os.Stat(tmp)
+		if err != nil || st.Size() < 1000 {
+			return fmt.Errorf("%s: download too small", name)
+		}
+		_ = os.Chmod(tmp, 0o755)
+		if err := exec.Command("cp", tmp, dest).Run(); err != nil {
+			return err
+		}
+		log.WriteString("updated " + dest + "\n")
+		return nil
+	}
+	if err := fetch("netductor-linux-amd64", "/usr/local/bin/netductor"); err != nil {
+		log.WriteString(err.Error() + "\n")
+		return false, log.String()
+	}
+	_ = fetch("netductor-agent-linux-amd64", "/usr/local/bin/netductor-agent")
+	_ = os.WriteFile("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644)
+	_ = exec.Command("systemctl", "try-restart", "sing-box").Run()
+	go func() {
+		time.Sleep(3 * time.Second)
+		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Run()
+	}()
+	log.WriteString("DONE v" + tag + "\n")
+	return true, log.String()
+}
+
+func secondaryBackupLocal() (string, error) {
+	// prefer CLI if present (same binary often)
+	out, err := exec.Command("/usr/local/bin/netductor", "backup", "secondary-local").CombinedOutput()
+	if err == nil {
+		return strings.TrimSpace(string(out)), nil
+	}
+	return "", fmt.Errorf("backup secondary-local: %w (%s)", err, strings.TrimSpace(string(out)))
 }
 
 func secondaryMTLSRefresh() (bool, string) {

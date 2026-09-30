@@ -1,3 +1,9 @@
+## 0.9.120
+
+- secondary agent upgrade:vX (node+agent from GitHub)
+- stack apply queues secondary upgrade
+- secondary-local-timer
+
 ## 0.9.119
 
 - backup secondary-local / push-recovery / push-ssh

@@ -38,3 +38,11 @@ Alerts: apply start/ok/fail, auto-rollback, watchdog restarts → Updates/Alerts
 3. download node+tg
 4. restart api/bot
 5. health → on fail auto-rollback + alert
+
+## Secondary (0.9.120+)
+
+`stack apply` queues `upgrade:vX` on secondary agents.
+
+```bash
+netductor backup secondary-local-timer
+```

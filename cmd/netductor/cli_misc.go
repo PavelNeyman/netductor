@@ -91,6 +91,13 @@ func runBackupCmd(args []string) {
 				fmt.Println("ok", install.FormatBackupSchedule(s))
 			}
 			return
+		case "secondary-local-timer":
+			if err := install.InstallSecondaryLocalBackupTimer(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("secondary local backup timer enabled")
+			return
 		case "secondary-local", "local-secondary":
 			path, err := install.BackupSecondaryLocal()
 			if err != nil {

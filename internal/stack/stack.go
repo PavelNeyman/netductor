@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/version"
@@ -215,8 +216,21 @@ func ApplyOpts(tag string, noBackup bool) error {
 		}
 		return fmt.Errorf("apply health fail %v; rolled back", failed)
 	}
-	notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack apply ok <code>"+tag+"</code>")
-	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
+	// queue secondary agents to same release
+	secN := 0
+	for _, d := range secondary.List() {
+		if secondary.Online(d, 2*time.Minute) {
+			if err := secondary.EnqueueCmd(d.ID, "upgrade:"+tag); err == nil {
+				secN++
+			}
+		}
+	}
+	msg := "✅ Stack apply ok <code>" + tag + "</code>"
+	if secN > 0 {
+		msg += fmt.Sprintf(" · secondary upgrade queued=%d", secN)
+	}
+	notify.AlertOnce("stack:apply-ok:"+tag, msg)
+	fmt.Fprintln(os.Stderr, "stack apply ok", tag, "secondary_queued", secN)
 	return nil
 }
 
