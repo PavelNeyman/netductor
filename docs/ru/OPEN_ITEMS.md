@@ -13,6 +13,9 @@
 
 ## У владельца
 
+- [ ] Force-update VPS до **0.9.121** (если ещё 111–115) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
+- [ ] Smoke после обновления
+
 - [x] **Показать пароль** (Web + TUI Ctrl+P, 0.9.103) в Web/TUI (одноразовые пароли деплоя) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md). Только план.
 - [x] Web Updates; полное упрощение Day-2 отложено — много вкладок/кнопок; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Только план.
 - [x] Dual-node smoke

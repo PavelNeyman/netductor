@@ -2,23 +2,23 @@
 
 # Handoff для агента
 
-**Репо:** https://github.com/PavelNeyman/netductor  
-**Версия:** **v0.9.75**
+**Репозиторий:** https://github.com/PavelNeyman/netductor  
+**Версия:** **v0.9.121**
 
-Читать: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [PLAN](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [SECURITY](SECURITY.md) · [REVIEW-0.9.75](REVIEW-0.9.75.md) · [BREW](BREW.md)
+Читать: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [RUNBOOK-FORCE-UPDATE](RUNBOOK-FORCE-UPDATE.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [BREW](BREW.md)
 
 ## Канон
 
-primary + secondary · VLESS · SP/PS · mTLS :8789 · SSH 52222 · Mac op · redirect :8443 only · без plain agent / VPS admin / permanent public API
+primary + secondary · VLESS Reality · SP/PS · mTLS **:8789** · SSH **52222** · op только на Mac · redirect **:8443**
 
-## Baseline
+## Оркестратор (0.9.116–121)
 
-**0.9.75** — knobs убраны из кода · **0.9.74** — LE при recover · **0.9.73** — mux + ensure-relay-uplink · **0.9.71** — unattended recover
+stack status/apply/rollback/watchdog · pre-backup · secondary `upgrade:vX` · DR secondary без API primary · Web/TG Stack
 
-## Дальше
+Сломанный узел (0.9.111 и т.п.): [RUNBOOK-FORCE-UPDATE](RUNBOOK-FORCE-UPDATE.md) — ручная подмена бинарников, не in-process update.
 
-1. Dual-node smoke  
-2. Hardware e2e  
-3. Фичи  
+## Дальше (владелец)
 
-Закрытый пункт → план + handoff + CHANGELOG в том же изменении.
+1. Обновить живые VPS до **0.9.121**  
+2. Smoke  
+3. Hardware e2e  

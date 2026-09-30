@@ -42,6 +42,9 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Owner next
 
+- [ ] Force-update live VPS to **0.9.121** if still on 0.9.111–0.9.115 — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
+- [ ] Dual-node smoke after force-update (VPN, bot, stack, secondary online)
+
 - [x] **Show password** Web (Show/Hide) + TUI Ctrl+P (0.9.103)
 - [x] Day-2 groups in opcatalog (`Groups()`) → Web tabs / TG Tools / TUI catalog (0.9.104)
 - [x] Full dual-node smoke (primary + secondary) — live deploy 2026-09-29 (LE, bot, SP, secondary)
