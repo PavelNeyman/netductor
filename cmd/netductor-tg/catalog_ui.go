@@ -204,7 +204,12 @@ func formatToolsFromGroups() string {
 	if lang == "ru" {
 		upd = "🔄 Обновления"
 	}
-	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:updates">` + upd + `</tg-button></tg-button-row>`)
+	top := "📁 Topics"
+	if lang == "ru" {
+		top = "📁 Топики"
+	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:updates">` + upd + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:topics">` + top + `</tg-button></tg-button-row>`)
 	return b.String()
 }
 

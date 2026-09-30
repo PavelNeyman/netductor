@@ -277,6 +277,28 @@ func SeedAllTopics(botToken string, chatID int64) {
 
 // ReconcileTopics is EnsureTopics + optional discovery of extra topics via /topic.
 // Safe for periodic call (rate-limited by caller).
+
+// ForceRecreateTopics clears stored thread ids and creates bootstrap topics again.
+// Use after chat clear, bot reinstall, or when topics UI is broken.
+func ForceRecreateTopics(botToken string, chatID int64) error {
+	if botToken == "" || chatID == 0 {
+		return fmt.Errorf("token/chat required")
+	}
+	topicMu.Lock()
+	t := loadTopics()
+	// keep names; zero ids
+	if t.Topics == nil {
+		t.Topics = map[string]int{}
+	}
+	for _, k := range TopicKeys {
+		t.Topics[k] = 0
+	}
+	t.ChatID = chatID
+	_ = saveTopics(t)
+	topicMu.Unlock()
+	return EnsureTopics(botToken, chatID)
+}
+
 func ReconcileTopics(botToken string, chatID int64) error {
 	return EnsureTopics(botToken, chatID)
 }
@@ -353,13 +375,12 @@ func TopicsStatusHTML(ru bool) string {
 	m := ListTopics()
 	var b strings.Builder
 	if ru {
-		b.WriteString("📁 <b>Топики алертов</b>\n")
-		b.WriteString("<i>Bootstrap: Alerts / Warnings / Service / Updates.\nПосле очистки чата id сбрасываются и топики создаются заново из бэкапа имён.</i>\n\n")
+		b.WriteString("📁 <b>Топики</b>\n")
+		b.WriteString("<table bordered striped compact>\n<tr><th>роль</th><th>thread</th></tr>\n")
 	} else {
-		b.WriteString("📁 <b>Alert topics</b>\n")
-		b.WriteString("<i>Bootstrap: Alerts / Warnings / Service / Updates.\nAfter clearing chat, dead ids are detected and topics recreated from name backup.</i>\n\n")
+		b.WriteString("📁 <b>Topics</b>\n")
+		b.WriteString("<table bordered striped compact>\n<tr><th>role</th><th>thread</th></tr>\n")
 	}
-	b.WriteString("<table bordered striped compact>\n<tr><th>role</th><th>thread</th></tr>\n")
 	for _, k := range TopicKeys {
 		id := m[k]
 		cell := "—"
@@ -369,6 +390,19 @@ func TopicsStatusHTML(ru bool) string {
 		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td><code>%s</code></td></tr>\n", k, cell))
 	}
 	b.WriteString("</table>\n")
+	if ru {
+		b.WriteString("\n<b>BotFather</b>\n")
+		b.WriteString("<i>1) Threaded Mode — вкл (нужен для топиков бота)\n")
+		b.WriteString("2) <b>Disallow users to create topics</b> — вкл\n")
+		b.WriteString("Иначе каждое сообщение в «General» создаёт новую тему (системное «New thread»).\n")
+		b.WriteString("Меню бота всегда в General; алерты — в bootstrap-топиках.</i>\n")
+	} else {
+		b.WriteString("\n<b>BotFather</b>\n")
+		b.WriteString("<i>1) Threaded Mode — ON\n")
+		b.WriteString("2) <b>Disallow users to create topics</b> — ON\n")
+		b.WriteString("Otherwise every message in General becomes a new thread (system «New thread»).\n")
+		b.WriteString("Bot menu stays in General; alerts go to bootstrap topics.</i>\n")
+	}
 	return b.String()
 }
 

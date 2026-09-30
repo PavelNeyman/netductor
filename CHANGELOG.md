@@ -1,3 +1,9 @@
+## 0.9.129
+
+- TG Topics: visible on main menu + Tools; **Recreate topics** button (ForceRecreate)
+- Topics screen: BotFather hint — Threaded Mode + **Disallow users to create topics** (stops «New thread» spam)
+- Reconcile/Recreate bilingual labels
+
 ## 0.9.128
 
 - **Version single source:** Fleet/Stack use `version.Running()` (prefer `/etc/netductor/VERSION`, then binary, then const)

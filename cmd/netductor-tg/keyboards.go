@@ -106,7 +106,7 @@ func mainKeyboard() map[string]any {
 			{btn(T("status"), "m:status", "primary"), btn("📡", "m:digest", "")},
 			{btn(T("users"), "m:users", "primary")},
 			{btn(T("fleet"), "m:fleet", "primary")},
-			{btn(T("tools"), "m:tools", ""), btn(T("operator"), "m:operator", "")},
+			{btn(T("tools"), "m:tools", ""), btn(T("operator"), "m:operator", ""), btn(T("btn_topics"), "m:topics", "")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
 	}
@@ -137,6 +137,19 @@ func fleetHubHTML() string {
 
 
 // operator = session / admin / audit (not day-to-day user VPN)
+
+func topicsKeyboard() map[string]any {
+	ru := getLang() != "en"
+	refresh, recreate, recon, menu := "🔄 Refresh", "♻️ Recreate topics", "🔁 Reconcile", T("main_menu")
+	if ru {
+		refresh, recreate, recon = "🔄 Обновить", "♻️ Пересоздать топики", "🔁 Сверить"
+	}
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(recreate, "m:topics:recreate", "primary"), btn(recon, "m:topics:reconcile", "")},
+		{btn(refresh, "m:topics", ""), btn(menu, "m:menu", "")},
+	}}
+}
+
 func operatorKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("main_menu"), "m:menu", "primary")},
