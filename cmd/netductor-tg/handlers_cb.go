@@ -66,6 +66,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if data == "m:stack" || strings.HasPrefix(data, "m:stack:") {
+		handleStackCB(token, chat, msgID, data)
+		return
+	}
 	if data == "m:tools" {
 		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
 		return

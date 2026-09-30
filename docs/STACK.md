@@ -25,3 +25,16 @@ VPN business logic, configs in `/etc/netductor` (still backup/restore).
 netductor stack watchdog-install
 ```
 Runs every 5 minutes; restarts failed core units only.
+
+
+## TG
+Tools → **Stack status** — table of units, Rollback, Watchdog.
+Apply still via Updates (calls `stack apply` out-of-process).
+Alerts: apply start/ok/fail, auto-rollback, watchdog restarts → Updates/Alerts topics.
+
+## Apply flow
+1. pre-backup (+ wait backup_pull ~20s)
+2. snapshot prev binaries
+3. download node+tg
+4. restart api/bot
+5. health → on fail auto-rollback + alert

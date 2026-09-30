@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/notify"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -74,6 +76,30 @@ func binVersion(path string) string {
 	return strings.TrimSpace(string(out))
 }
 
+
+func FormatHTML(st Status) string {
+	var b strings.Builder
+	b.WriteString("🧱 <b>Stack</b>\n")
+	b.WriteString("release <code>" + st.Release + "</code>")
+	if st.Prev != "" {
+		b.WriteString(" · prev <code>" + st.Prev + "</code>")
+	}
+	b.WriteString("\n<table bordered striped>\n<tr><th>unit</th><th>state</th><th>ok</th></tr>\n")
+	for _, u := range st.Units {
+		mark := "✅"
+		if !u.OK {
+			mark = "❌"
+		}
+		b.WriteString("<tr><td>" + u.Unit + "</td><td><code>" + u.Active)
+		if u.Sub != "" {
+			b.WriteString("/" + u.Sub)
+		}
+		b.WriteString("</code></td><td>" + mark + "</td></tr>\n")
+	}
+	b.WriteString("</table>")
+	return b.String()
+}
+
 func prevDir() string {
 	return filepath.Join(paths.StateDir(), "stack", "prev")
 }
@@ -130,6 +156,11 @@ func snapshotPrev() error {
 
 // Apply downloads node+tg for tag, snapshots prev, restarts core units, health-checks.
 func Apply(tag string) error {
+	return ApplyOpts(tag, false)
+}
+
+// ApplyOpts downloads node+tg; optional pre-backup; health + auto-rollback with TG alerts.
+func ApplyOpts(tag string, noBackup bool) error {
 	tag = strings.TrimSpace(tag)
 	if tag == "" {
 		var err error
@@ -141,17 +172,28 @@ func Apply(tag string) error {
 	if !strings.HasPrefix(tag, "v") {
 		tag = "v" + tag
 	}
+	if !noBackup {
+		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
+		if path, err := install.Backup(); err != nil {
+			fmt.Fprintln(os.Stderr, "warn backup:", err)
+		} else {
+			fmt.Fprintln(os.Stderr, "backup:", path)
+			_, _ = install.WaitForBackupPull(20 * time.Second)
+		}
+	}
 	_ = snapshotPrev()
 	fmt.Fprintln(os.Stderr, "stack apply:", tag)
+	notify.AlertOnce("stack:apply:"+tag, "⬆️ Stack apply <code>"+tag+"</code> started")
 	if err := ndupdate.DownloadReleaseAsset(tag, "node", "/usr/local/bin/netductor"); err != nil {
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (node): "+err.Error())
 		return fmt.Errorf("node: %w", err)
 	}
 	if err := ndupdate.DownloadReleaseAsset(tag, "tg", "/usr/local/bin/netductor-tg"); err != nil {
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg): "+err.Error())
 		return fmt.Errorf("tg: %w", err)
 	}
 	ndupdate.WriteVERSION(tag)
 	saveCurrent(tag)
-	// restart order: api then bot
 	_ = exec.Command("systemctl", "restart", "netductor-api").Run()
 	_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
 	_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
@@ -167,11 +209,13 @@ func Apply(tag string) error {
 	}
 	if len(failed) > 0 {
 		fmt.Fprintln(os.Stderr, "health failed, rolling back:", failed)
+		notify.AlertOnce("stack:rollback:"+tag, "↩️ Stack auto-rollback after failed apply <code>"+tag+"</code>: "+strings.Join(failed, ", "))
 		if err := Rollback(); err != nil {
 			return fmt.Errorf("apply health fail %v; rollback: %w", failed, err)
 		}
 		return fmt.Errorf("apply health fail %v; rolled back", failed)
 	}
+	notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack apply ok <code>"+tag+"</code>")
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
 	return nil
 }
@@ -199,31 +243,33 @@ func Rollback() error {
 	}
 	_ = exec.Command("systemctl", "restart", "netductor-api").Run()
 	_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
+	notify.AlertOnce("stack:rollback-manual", "↩️ Stack rollback restored prev binaries")
 	fmt.Fprintln(os.Stderr, "stack rollback done")
 	return nil
 }
 
 // WatchdogOnce restarts core units that are failed/inactive.
 func WatchdogOnce() {
+	var restarted []string
 	for _, u := range PrimaryUnits {
 		if u.Role != "core" {
 			continue
 		}
+		active, sub := unitState(u.Unit)
+		need := false
 		if u.Unit == "sing-box" || u.Unit == "blocky" {
-			// only restart if failed, not inactive by policy
-			active, sub := unitState(u.Unit)
-			if active == "failed" || sub == "auto-restart" {
-				_ = exec.Command("systemctl", "try-restart", u.Unit).Run()
-			}
-			continue
+			need = active == "failed" || sub == "auto-restart"
+		} else if u.Unit != "netductor-redirect" {
+			need = active == "failed" || active == "inactive"
 		}
-		active, _ := unitState(u.Unit)
-		if active == "failed" || active == "inactive" {
-			if u.Unit == "netductor-redirect" {
-				continue
-			}
+		if need {
 			_ = exec.Command("systemctl", "try-restart", u.Unit).Run()
+			restarted = append(restarted, u.Unit)
 		}
+	}
+	if len(restarted) > 0 {
+		notify.AlertOnce("stack:watchdog:"+strings.Join(restarted, ","),
+			"🔧 Stack watchdog restarted: <code>"+strings.Join(restarted, ", ")+"</code>")
 	}
 }
 

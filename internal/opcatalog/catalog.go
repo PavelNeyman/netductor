@@ -56,6 +56,9 @@ func All() []Action {
 		// updates
 		a("update-status", "overview", "GET", "/api/update/status", "", "update check", "Update status", "Статус обновлений"),
 		a("update-releases", "overview", "GET", "/api/update/releases", "", "update list", "Release list", "Список релизов"),
+		a("stack-status", "overview", "GET", "/api/stack/status", `{}`, "stack status", "Stack status", "Статус стека"),
+		a("stack-apply", "overview", "POST", "/api/stack/apply", `{"version":""}`, "stack apply", "Stack apply", "Применить стек"),
+		a("stack-rollback", "overview", "POST", "/api/stack/rollback", `{}`, "stack rollback", "Stack rollback", "Откат стека"),
 		a("update-apply", "overview", "POST", "/api/update/apply", `{"version":"","component":"node"}`, "update apply", "Apply update", "Применить обновление"),
 
 		// vpn

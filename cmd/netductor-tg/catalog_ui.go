@@ -28,7 +28,13 @@ func toolsKeyboard() map[string]any {
 }
 
 func toolsHubHTML() string {
-	return formatToolsFromGroups()
+	base := formatToolsFromGroups()
+	if getLang() != "en" {
+		return base + "\n\n🧱 <b>Стек</b>\n" +
+			`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">Stack status</tg-button></tg-button-row>`
+	}
+	return base + "\n\n🧱 <b>Stack</b>\n" +
+		`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">Stack status</tg-button></tg-button-row>`
 }
 
 

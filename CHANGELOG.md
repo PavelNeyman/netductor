@@ -1,3 +1,9 @@
+## 0.9.118
+
+- stack: pre-backup on apply; TG alerts on apply/rollback/watchdog; FormatHTML
+- TG Tools → Stack status / Rollback / Watchdog
+- stack-watchdog.timer in status matrix
+
 ## 0.9.117
 
 - Topics: private DM support — createForumTopic is valid in private chats (BotFather Threaded Mode); send uses message_thread_id + direct_messages_topic_id
