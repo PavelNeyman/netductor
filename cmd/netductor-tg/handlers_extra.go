@@ -512,17 +512,26 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		if !strings.HasPrefix(tag, "v") {
 			tag = "v" + tag
 		}
-		cmd := exec.Command("/usr/local/bin/netductor", "stack", "apply", tag)
-		out, err := cmd.CombinedOutput()
-		msg := fmt.Sprintf("✅ %s\n<pre>%s</pre>", esc(tag), esc(trimRunes(string(out), 1500)))
+		// Schedule apply outside bot process (replacing tg binary under feet → failed + rollback).
+		script := fmt.Sprintf(
+			"/bin/bash -c 'sleep 2; /usr/local/bin/netductor stack apply %s >>/var/log/netductor-stack-apply.log 2>&1; systemctl reset-failed netductor-telegram-bot 2>/dev/null; systemctl restart netductor-telegram-bot netductor-api'",
+			tag,
+		)
+		runErr := exec.Command("systemd-run", "--unit=netductor-stack-apply", "--collect",
+			"/bin/bash", "-c", script).Start()
+		var msg string
 		if ru {
-			msg = fmt.Sprintf("✅ %s\n<pre>%s</pre>", esc(tag), esc(trimRunes(string(out), 1500)))
+			msg = "⏳ <b>Обновление запланировано</b> <code>" + esc(tag) + "</code>\n"
+			msg += "<i>Бот перезапустится через ~15–30 с. Не жмите Update повторно.</i>\n"
+			msg += "Лог: <code>/var/log/netductor-stack-apply.log</code>"
+		} else {
+			msg = "⏳ <b>Update scheduled</b> <code>" + esc(tag) + "</code>\n"
+			msg += "<i>Bot will restart in ~15–30s. Do not tap Update again.</i>\n"
+			msg += "Log: <code>/var/log/netductor-stack-apply.log</code>"
 		}
-		if err != nil {
-			msg = "❌ " + esc(fmt.Sprintf("%v\n%s", err, trimRunes(string(out), 1500)))
+		if runErr != nil {
+			msg = "❌ schedule: " + esc(runErr.Error())
 		}
-		// CLI apply already restarts api/tg; if bot still here, soft-restart self
-		_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Start()
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	}

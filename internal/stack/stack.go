@@ -198,16 +198,35 @@ func ApplyOpts(tag string, noBackup bool) error {
 	}
 	ndupdate.WriteVERSION(tag)
 	saveCurrent(tag)
+	_ = exec.Command("systemctl", "daemon-reload").Run()
+	_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
 	_ = exec.Command("systemctl", "restart", "netductor-api").Run()
 	_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
 	_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
-	time.Sleep(2 * time.Second)
+	// Give bot time to long-poll start (was 2s — false fail → auto-rollback to ancient prev).
+	time.Sleep(8 * time.Second)
 	st := Collect()
 	var failed []string
 	for _, u := range st.Units {
 		if u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot" {
 			if !u.OK {
 				failed = append(failed, u.Unit+":"+u.Active)
+			}
+		}
+	}
+	// One recovery attempt for bot/api before rollback
+	if len(failed) > 0 {
+		fmt.Fprintln(os.Stderr, "health soft-fail, retry restart:", failed)
+		_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
+		_ = exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run()
+		time.Sleep(6 * time.Second)
+		st = Collect()
+		failed = nil
+		for _, u := range st.Units {
+			if u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot" {
+				if !u.OK {
+					failed = append(failed, u.Unit+":"+u.Active)
+				}
 			}
 		}
 	}
