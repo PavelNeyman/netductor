@@ -4,9 +4,9 @@
 
 Use when the node is stuck on an old build (e.g. **0.9.111**), `netductor update` fails, or the Telegram bot / API cannot self-upgrade safely.
 
-Target: **v0.9.121** (or later tag — replace `VER` below).
+Target: **v0.9.122** (or later tag — replace `VER` below).
 
-Assets: https://github.com/PavelNeyman/netductor/releases/tag/v0.9.121
+Assets: https://github.com/PavelNeyman/netductor/releases/tag/v0.9.122
 
 SSH: port **52222**, operator key (e.g. `~/.ssh/netductor`).
 
@@ -15,7 +15,7 @@ SSH: port **52222**, operator key (e.g. `~/.ssh/netductor`).
 ## Primary (control plane)
 
 ```bash
-VER=0.9.121
+VER=0.9.122
 KEY=~/.ssh/netductor
 HOST=2.27.118.70   # your primary IP
 
@@ -45,7 +45,7 @@ Configs, VPN users, LE, secrets under `/etc/netductor` and `/var/lib/netductor` 
 ## Secondary (RU entry + agent)
 
 ```bash
-VER=0.9.121
+VER=0.9.122
 KEY=~/.ssh/netductor
 HOST=92.255.77.253   # your secondary IP
 
@@ -73,7 +73,7 @@ EOF
 
 ```bash
 brew reinstall netductor
-netductor-op version   # expect 0.9.121
+netductor-op version   # expect 0.9.122
 ```
 
 Formula tracks Release assets; after `brew reinstall` you get **netductor-op** only (node stays on VPS).

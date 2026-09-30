@@ -4,12 +4,12 @@
 
 Если нода на **0.9.111** (или update/бот не поднимаются) — подменить бинарники с GitHub, **без** wipe.
 
-Цель: **v0.9.121**. SSH **52222**, ключ `~/.ssh/netductor`.
+Цель: **v0.9.122**. SSH **52222**, ключ `~/.ssh/netductor`.
 
 ## Primary
 
 ```bash
-VER=0.9.121
+VER=0.9.122
 ssh -i ~/.ssh/netductor -p 52222 root@PRIMARY_IP bash -s <<EOF
 set -euo pipefail
 VER=$VER
@@ -30,7 +30,7 @@ EOF
 ## Secondary
 
 ```bash
-VER=0.9.121
+VER=0.9.122
 ssh -i ~/.ssh/netductor -p 52222 root@SECONDARY_IP bash -s <<EOF
 set -euo pipefail
 VER=$VER

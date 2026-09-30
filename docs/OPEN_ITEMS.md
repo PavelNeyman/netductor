@@ -42,7 +42,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Owner next
 
-- [ ] Force-update live VPS to **0.9.121** if still on 0.9.111–0.9.115 — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
+- [ ] Force-update live VPS to **0.9.122** if still on 0.9.111–0.9.115 — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
 - [ ] Dual-node smoke after force-update (VPN, bot, stack, secondary online)
 
 - [x] **Show password** Web (Show/Hide) + TUI Ctrl+P (0.9.103)

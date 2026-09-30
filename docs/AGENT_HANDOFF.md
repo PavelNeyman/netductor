@@ -3,7 +3,7 @@
 # Agent handoff
 
 **Repo:** https://github.com/PavelNeyman/netductor  
-**Version:** **v0.9.121** (`internal/version.Release` + GitHub Release assets)
+**Version:** **v0.9.122** (`internal/version.Release` + GitHub Release assets)
 
 Read first: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [ARCHITECTURE-PLAN](ARCHITECTURE-PLAN.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [RUNBOOK-INSTALL-RECOVER](RUNBOOK-INSTALL-RECOVER.md) · [RUNBOOK-FORCE-UPDATE](RUNBOOK-FORCE-UPDATE.md) · [SECURITY](SECURITY.md) · [BREW](BREW.md)
 
@@ -15,7 +15,7 @@ primary + secondary · VLESS Reality · service SP/PS · mTLS **:8789** · SSH *
 
 | Ver | Note |
 |-----|------|
-| **0.9.121** | Web Control Stack; TG digest stack table |
+| **0.9.122** | Web Control Stack; TG digest stack table |
 | **0.9.120** | secondary `upgrade:vX` via agent; stack queues secondaries; secondary-local backup timer |
 | **0.9.119** | secondary backup without primary API (local / recovery upload / SSH) |
 | **0.9.118** | stack pre-backup, TG stack UI, apply/rollback/watchdog alerts |
@@ -45,7 +45,7 @@ Mac **TUI + Web** → `internal/deploy`. TG does not deploy VPS.
 
 ## Next (owner)
 
-1. Force-update live nodes to **0.9.121** if still on 111–115  
+1. Force-update live nodes to **0.9.122** if still on 111–115  
 2. Dual-node smoke (VPN, bot, stack status, secondary heartbeat)  
 3. Hardware e2e  
 

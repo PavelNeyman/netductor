@@ -3,7 +3,7 @@
 # Handoff для агента
 
 **Репозиторий:** https://github.com/PavelNeyman/netductor  
-**Версия:** **v0.9.121**
+**Версия:** **v0.9.122**
 
 Читать: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [RUNBOOK-FORCE-UPDATE](RUNBOOK-FORCE-UPDATE.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [BREW](BREW.md)
 
@@ -19,6 +19,6 @@ stack status/apply/rollback/watchdog · pre-backup · secondary `upgrade:vX` · 
 
 ## Дальше (владелец)
 
-1. Обновить живые VPS до **0.9.121**  
+1. Обновить живые VPS до **0.9.122**  
 2. Smoke  
 3. Hardware e2e  
