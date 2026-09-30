@@ -1,3 +1,9 @@
+## 0.9.117
+
+- Topics: private DM support — createForumTopic is valid in private chats (BotFather Threaded Mode); send uses message_thread_id + direct_messages_topic_id
+- stack: watchdog-install timer (5min); API stack routes fixed in tree; TG update apply → `stack apply`
+- Docs: STACK note on private topics
+
 ## 0.9.116
 
 - **stack** orchestrator: `netductor stack status|apply|rollback|watchdog` + API `/api/stack/*` + opcatalog

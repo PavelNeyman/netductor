@@ -172,6 +172,10 @@ func sendTelegramHTML(msg string, threadID int) error {
 	body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
 	if threadID > 0 {
 		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"rich_message":{"html":%q}}`, chat, threadID, msg)
+		// private DM topics: also set direct_messages_topic_id (Bot API 10+ quirk)
+		if chatIDPositive(chat) {
+			body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"direct_messages_topic_id":%d,"rich_message":{"html":%q}}`, chat, threadID, threadID, msg)
+		}
 	}
 	resp, err := http.Post(u, "application/json", strings.NewReader(body))
 	if err == nil {
@@ -183,9 +187,19 @@ func sendTelegramHTML(msg string, threadID int) error {
 	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
 	if threadID > 0 {
 		vals.Set("message_thread_id", fmt.Sprintf("%d", threadID))
+		if chatIDPositive(chat) {
+			vals.Set("direct_messages_topic_id", fmt.Sprintf("%d", threadID))
+		}
 	}
 	return postTG(tok, "sendMessage", vals)
 }
+
+func chatIDPositive(chat string) bool {
+	var n int64
+	_, err := fmt.Sscanf(strings.TrimSpace(chat), "%d", &n)
+	return err == nil && n > 0
+}
+
 
 // repinHub deletes previous hub (if any) and sends a compact menu at chat bottom.
 func repinHub() error {

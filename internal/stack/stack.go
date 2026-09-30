@@ -226,3 +226,37 @@ func WatchdogOnce() {
 		}
 	}
 }
+
+// InstallWatchdogTimer installs a short periodic unit that runs `netductor stack watchdog`.
+func InstallWatchdogTimer() error {
+	bin := "/usr/local/bin/netductor"
+	service := fmt.Sprintf(`[Unit]
+Description=Netductor stack watchdog (one-shot)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%s stack watchdog
+Nice=10
+`, bin)
+	timer := `[Unit]
+Description=Netductor stack watchdog every 5 min
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`
+	if err := os.WriteFile("/etc/systemd/system/netductor-stack-watchdog.service", []byte(service), 0o644); err != nil {
+		return err
+	}
+	if err := os.WriteFile("/etc/systemd/system/netductor-stack-watchdog.timer", []byte(timer), 0o644); err != nil {
+		return err
+	}
+	_ = exec.Command("systemctl", "daemon-reload").Run()
+	_ = exec.Command("systemctl", "enable", "--now", "netductor-stack-watchdog.timer").Run()
+	return nil
+}

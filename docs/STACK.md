@@ -19,3 +19,9 @@ TG/Web should call apply via API later; when bot is dead use SSH + `stack apply`
 
 ## Not in scope
 VPN business logic, configs in `/etc/netductor` (still backup/restore).
+
+## Watchdog
+```bash
+netductor stack watchdog-install
+```
+Runs every 5 minutes; restarts failed core units only.

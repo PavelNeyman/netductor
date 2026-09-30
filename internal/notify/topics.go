@@ -133,6 +133,9 @@ func topicAlive(botToken string, chatID int64, threadID int) bool {
 	// sendChatAction is lightweight; fails with TOPIC_ID_INVALID when topic is gone
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendChatAction", botToken)
 	body := fmt.Sprintf(`{"chat_id":%d,"message_thread_id":%d,"action":"typing"}`, chatID, threadID)
+	if chatID > 0 {
+		body = fmt.Sprintf(`{"chat_id":%d,"message_thread_id":%d,"direct_messages_topic_id":%d,"action":"typing"}`, chatID, threadID, threadID)
+	}
 	resp, err := http.Post(u, "application/json", strings.NewReader(body))
 	if err != nil {
 		return false
@@ -218,7 +221,7 @@ func EnsureTopics(botToken string, chatID int64) error {
 		name := nameForKey(t, d.Key)
 		id, err := createForumTopic(botToken, chatID, name)
 		if err != nil {
-			return fmt.Errorf("create topic %s: %w (need a *group/supergroup* with Topics on — not a private chat; BotFather → Group Privacy / Topics)", d.Key, err)
+			return fmt.Errorf("create topic %s: %w (BotFather → Threaded Mode for DM topics; user client may need Topics enabled in chat)", d.Key, err)
 		}
 		t.Topics[d.Key] = id
 		t.Names[d.Key] = name
@@ -234,6 +237,10 @@ func seedTopicMessage(botToken string, chatID int64, threadID int, key string) e
 	text := "📌 " + key + " — netductor"
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken)
 	body := fmt.Sprintf(`{"chat_id":%d,"message_thread_id":%d,"text":%q,"disable_notification":true}`, chatID, threadID, text)
+	if chatID > 0 {
+		// Private DM topics (Bot API 9.3+): some servers want direct_messages_topic_id
+		body = fmt.Sprintf(`{"chat_id":%d,"message_thread_id":%d,"direct_messages_topic_id":%d,"text":%q,"disable_notification":true}`, chatID, threadID, threadID, text)
+	}
 	resp, err := http.Post(u, "application/json", strings.NewReader(body))
 	if err != nil {
 		return err

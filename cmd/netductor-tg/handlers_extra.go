@@ -493,7 +493,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		if !strings.HasPrefix(tag, "v") {
 			tag = "v" + tag
 		}
-		cmd := exec.Command("/usr/local/bin/netductor", "update", "apply", tag)
+		cmd := exec.Command("/usr/local/bin/netductor", "stack", "apply", tag)
 		out, err := cmd.CombinedOutput()
 		msg := fmt.Sprintf("✅ %s\n<pre>%s</pre>", esc(tag), esc(trimRunes(string(out), 1500)))
 		if ru {
