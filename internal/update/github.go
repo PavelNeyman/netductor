@@ -18,17 +18,126 @@ import (
 
 const Repo = "PavelNeyman/netductor"
 
-// LatestReleaseTag from GitHub (no auth). Empty on error.
-func LatestReleaseTag() (string, error) {
-	client := &http.Client{Timeout: 15 * time.Second}
-	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
+func githubToken() string {
+	for _, k := range []string{"NETDUCTOR_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"} {
+		if t := strings.TrimSpace(os.Getenv(k)); t != "" {
+			return t
+		}
+	}
+	for _, p := range []string{"/etc/netductor/secrets/github_token", "/etc/netductor/github_token"} {
+		if b, err := os.ReadFile(p); err == nil {
+			if t := strings.TrimSpace(string(b)); t != "" {
+				return t
+			}
+		}
+	}
+	return ""
+}
+
+func setGitHubHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "netductor-update")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	if tok := githubToken(); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+}
+
+func releaseCachePath() string {
+	return filepath.Join("/var/lib/netductor", "update-releases-cache.json")
+}
+
+type releaseCache struct {
+	At       int64         `json:"at"`
+	Latest   string        `json:"latest"`
+	Releases []ReleaseInfo `json:"releases,omitempty"`
+}
+
+func loadReleaseCache(maxAge time.Duration) (releaseCache, bool) {
+	var c releaseCache
+	b, err := os.ReadFile(releaseCachePath())
+	if err != nil {
+		return c, false
+	}
+	if json.Unmarshal(b, &c) != nil || c.At == 0 {
+		return c, false
+	}
+	if time.Since(time.Unix(c.At, 0)) > maxAge {
+		return c, false
+	}
+	return c, true
+}
+
+func saveReleaseCache(latest string, list []ReleaseInfo) {
+	_ = os.MkdirAll("/var/lib/netductor", 0o755)
+	c := releaseCache{At: time.Now().Unix(), Latest: latest, Releases: list}
+	raw, _ := json.Marshal(c)
+	_ = os.WriteFile(releaseCachePath(), raw, 0o644)
+}
+
+// latestViaRedirect uses github.com HTML redirect (no API quota).
+func latestViaRedirect() (string, error) {
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	req, err := http.NewRequest("GET", "https://github.com/"+Repo+"/releases/latest", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "netductor-update")
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
+	loc := resp.Header.Get("Location")
+	if i := strings.LastIndex(loc, "/tag/"); i >= 0 {
+		tag := strings.TrimSpace(loc[i+5:])
+		if q := strings.IndexAny(tag, "?#"); q >= 0 {
+			tag = tag[:q]
+		}
+		if tag != "" {
+			return tag, nil
+		}
+	}
+	return "", fmt.Errorf("github redirect HTTP %d", resp.StatusCode)
+}
+
+// LatestReleaseTag from GitHub (no auth). Empty on error.
+func LatestReleaseTag() (string, error) {
+	if c, ok := loadReleaseCache(30 * time.Minute); ok && c.Latest != "" {
+		return c.Latest, nil
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
+	setGitHubHeaders(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		if tag, e2 := latestViaRedirect(); e2 == nil {
+			saveReleaseCache(tag, nil)
+			return tag, nil
+		}
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 403 || resp.StatusCode == 429 {
+		if tag, e2 := latestViaRedirect(); e2 == nil {
+			saveReleaseCache(tag, nil)
+			return tag, nil
+		}
+		if c, ok := loadReleaseCache(24 * time.Hour); ok && c.Latest != "" {
+			return c.Latest, nil
+		}
+		return "", fmt.Errorf("github HTTP %d (rate limit — NETDUCTOR_GITHUB_TOKEN or secrets/github_token)", resp.StatusCode)
+	}
 	if resp.StatusCode >= 300 {
+		if tag, e2 := latestViaRedirect(); e2 == nil {
+			saveReleaseCache(tag, nil)
+			return tag, nil
+		}
 		return "", fmt.Errorf("github HTTP %d", resp.StatusCode)
 	}
 	var body struct {
@@ -37,7 +146,11 @@ func LatestReleaseTag() (string, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(body.TagName), nil
+	tag := strings.TrimSpace(body.TagName)
+	if tag != "" {
+		saveReleaseCache(tag, nil)
+	}
+	return tag, nil
 }
 
 // ReleaseInfo is a GitHub release list entry (tag + optional name/date).
@@ -56,16 +169,31 @@ func ListReleases(limit int) ([]ReleaseInfo, error) {
 	if limit > 50 {
 		limit = 50
 	}
+	if c, ok := loadReleaseCache(30 * time.Minute); ok && len(c.Releases) > 0 {
+		if len(c.Releases) > limit {
+			return c.Releases[:limit], nil
+		}
+		return c.Releases, nil
+	}
 	client := &http.Client{Timeout: 20 * time.Second}
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=%d", Repo, limit)
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Accept", "application/vnd.github+json")
+	setGitHubHeaders(req)
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return listReleasesFallback(limit)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == 403 || resp.StatusCode == 429 {
+		if list, e2 := listReleasesFallback(limit); e2 == nil {
+			return list, nil
+		}
+		return nil, fmt.Errorf("github HTTP %d (rate limit — NETDUCTOR_GITHUB_TOKEN)", resp.StatusCode)
+	}
 	if resp.StatusCode >= 300 {
+		if list, e2 := listReleasesFallback(limit); e2 == nil {
+			return list, nil
+		}
 		return nil, fmt.Errorf("github HTTP %d", resp.StatusCode)
 	}
 	var body []struct {
@@ -87,7 +215,28 @@ func ListReleases(limit int) ([]ReleaseInfo, error) {
 			Tag: tag, Name: r.Name, PublishedAt: r.PublishedAt, Prerelease: r.Prerelease,
 		})
 	}
+	latest := ""
+	if len(out) > 0 {
+		latest = out[0].Tag
+	}
+	saveReleaseCache(latest, out)
 	return out, nil
+}
+
+func listReleasesFallback(limit int) ([]ReleaseInfo, error) {
+	if c, ok := loadReleaseCache(24 * time.Hour); ok && len(c.Releases) > 0 {
+		if len(c.Releases) > limit {
+			return c.Releases[:limit], nil
+		}
+		return c.Releases, nil
+	}
+	tag, err := latestViaRedirect()
+	if err != nil {
+		return nil, err
+	}
+	list := []ReleaseInfo{{Tag: tag}}
+	saveReleaseCache(tag, list)
+	return list, nil
 }
 
 // Status compares local version string to GitHub latest.

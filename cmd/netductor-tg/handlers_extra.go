@@ -559,10 +559,15 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			rows = append(rows, []map[string]any{btn("⬆ "+label, "m:updates:apply:"+r.Tag, "primary")})
 		}
 	} else {
+		// API rate-limited: still offer latest attempt + current local tag
 		if ru {
-			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Latest</tg-button></tg-button-row>`)
+			b.WriteString("<i>Список релизов недоступен (GitHub 403). Попробуйте позже или задайте NETDUCTOR_GITHUB_TOKEN на primary.</i>\n")
 		} else {
-			b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:updates:self">⬆ Latest</tg-button></tg-button-row>`)
+			b.WriteString("<i>Release list unavailable (GitHub 403). Retry later or set NETDUCTOR_GITHUB_TOKEN on primary.</i>\n")
+		}
+		rows = append(rows, []map[string]any{btn("⬆ Latest", "m:updates:self", "primary")})
+		if local != "" {
+			rows = append(rows, []map[string]any{btn("⬆ v"+strings.TrimPrefix(local, "v"), "m:updates:apply:v"+strings.TrimPrefix(local, "v"), "")})
 		}
 	}
 	// edge agent_update (point)
