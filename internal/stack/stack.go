@@ -113,8 +113,8 @@ func curMetaPath() string {
 }
 
 // Collect status of managed units.
+// Do NOT PromoteLastGood here — viewing Fleet/Stack must not swap binaries (caused 121↔135 loops).
 func Collect() Status {
-	_ = PromoteLastGood()
 	rel := version.Running()
 	st := Status{Release: rel, At: time.Now().Unix()}
 	saveCurrent(rel)
