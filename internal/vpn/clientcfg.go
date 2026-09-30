@@ -295,10 +295,19 @@ func WriteClientConfigs(name, uuid string) error {
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	core := VLESSLink(name, uuid)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(core+nl), 0o600)
-	// Shadowrocket routing: import as Config (Global Routing = Config). Pair with VLESS from bot.
+	_ = WriteShadowrocketRoutingFile(filepath.Join(dir, "shadowrocket-routing.conf"))
+	// subscription intentionally not advertised; dual single links only
+	_ = os.Remove(filepath.Join(dir, "subscription.txt"))
+	_ = os.Remove(filepath.Join(dir, "subscription.b64"))
+	_ = os.Remove(filepath.Join(dir, "qr-subscription.png"))
+	return nil
+}
+
+// BuildShadowrocketRoutingConf returns full SR Config text (General + Rule + FINAL).
+func BuildShadowrocketRoutingConf() string {
 	var rb strings.Builder
 	rb.WriteString("# netductor — nodes DIRECT, RU/gov DIRECT, remote RULE-SET, else PROXY\n")
-	rb.WriteString("# Import this file as Config in Shadowrocket; add VLESS server separately.\n\n")
+	rb.WriteString("# Import as Config in Shadowrocket; add VLESS server separately.\n\n")
 	rb.WriteString(ShadowrocketGeneralBlock())
 	rb.WriteString("\n[Rule]\n")
 	for _, line := range ShadowrocketAdminDirectRules() {
@@ -314,10 +323,11 @@ func WriteClientConfigs(name, uuid string) error {
 		rb.WriteByte('\n')
 	}
 	rb.WriteString("FINAL,PROXY\n")
-	_ = os.WriteFile(filepath.Join(dir, "shadowrocket-routing.conf"), []byte(rb.String()), 0o600)
-	// subscription intentionally not advertised; dual single links only
-	_ = os.Remove(filepath.Join(dir, "subscription.txt"))
-	_ = os.Remove(filepath.Join(dir, "subscription.b64"))
-	_ = os.Remove(filepath.Join(dir, "qr-subscription.png"))
-	return nil
+	return rb.String()
+}
+
+// WriteShadowrocketRoutingFile writes SR Config to path (used by TG work profile + client dirs).
+func WriteShadowrocketRoutingFile(path string) error {
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	return os.WriteFile(path, []byte(BuildShadowrocketRoutingConf()), 0o644)
 }

@@ -397,23 +397,18 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 
 
 func sendWorkProfileDocument(token string, chat int64) {
-	candidates := []string{
-		"/var/lib/netductor/profiles/nd-oc.conf",
-		"/etc/netductor/profiles/nd-oc.conf",
-	}
-	var path string
-	for _, c := range candidates {
-		if st, err := os.Stat(c); err == nil && !st.IsDir() {
-			path = c
-			break
+	// Always regenerate from current node IPs + rule generator (stale nd-oc.conf caused hairpin SSH).
+	path := "/var/lib/netductor/profiles/nd-oc.conf"
+	if err := vpn.WriteShadowrocketRoutingFile(path); err != nil {
+		path = "/tmp/nd-oc.conf"
+		if err2 := vpn.WriteShadowrocketRoutingFile(path); err2 != nil {
+			sendHTML(token, chat, "❌ SR Config generate failed: "+esc(err2.Error()), nil)
+			return
 		}
 	}
-	if path == "" {
-		sendHTML(token, chat, "❌ SR Config profile file not found on server", nil)
-		return
-	}
+	_ = vpn.WriteShadowrocketRoutingFile("/etc/netductor/profiles/nd-oc.conf")
 	nl := string([]byte{10})
-	cap := "📥 <b>SR Config</b>" + nl + "Shadowrocket → Config → import this file." + nl + "OpenConnect first, then Config mode."
+	cap := "📥 <b>SR Config</b>" + nl + "Shadowrocket → Config → import. Global Routing = Config." + nl + "Nodes IP-CIDR DIRECT (no SSH hairpin) + RU DIRECT + FINAL PROXY."
 	if err := sendDocumentFile(token, chat, path, cap); err != nil {
 		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument:", err)
 		sendHTML(token, chat, "❌ Failed to send profile: "+esc(err.Error()), nil)
