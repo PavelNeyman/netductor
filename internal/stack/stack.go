@@ -217,8 +217,12 @@ func readDirVersion(dir string) string {
 	return verNorm(string(b))
 }
 
-// PromoteLastGood restores prev/ when it is newer than running (fixes stuck 0.9.121 with prev 0.9.132).
+// PromoteLastGood restores prev/ when it is strictly newer than running AND prev binaries match VERSION.
+// Safe for explicit CLI; Watchdog does NOT call this by default.
 func PromoteLastGood() bool {
+	if ok, _ := IsPinned(); ok {
+		return false
+	}
 	cur := verNorm(version.Running())
 	prev := readDirVersion(prevDir())
 	if prev == "" || cur == "" {
@@ -227,15 +231,28 @@ func PromoteLastGood() bool {
 	if !verLess(cur, prev) {
 		return false
 	}
+	// Refuse dirty prev/: VERSION claims X but binary is Y (classic oscillation fuel).
+	if bv := verNorm(parseVerField(binVersion(filepath.Join(prevDir(), "netductor")))); bv != "" && bv != prev {
+		fmt.Fprintln(os.Stderr, "stack: refuse promote — prev VERSION", prev, "!= binary", bv)
+		return false
+	}
 	fmt.Fprintln(os.Stderr, "stack: promote last-good", prev, "over running", cur)
 	if err := restoreFrom(prevDir()); err != nil {
 		fmt.Fprintln(os.Stderr, "promote failed:", err)
 		return false
 	}
-	// Never leave pre-apply snapshots around — they re-seed 0.9.121 loops on old apply code paths.
 	_ = os.RemoveAll(attemptDir())
 	notify.AlertOnce("stack:promote:"+prev, "⬆️ Stack promoted last-good <code>"+prev+"</code> (was <code>"+cur+"</code>)")
 	return true
+}
+
+func parseVerField(s string) string {
+	for _, f := range strings.Fields(s) {
+		if len(f) > 0 && f[0] >= '0' && f[0] <= '9' && strings.Contains(f, ".") {
+			return f
+		}
+	}
+	return strings.TrimSpace(s)
 }
 
 // Apply downloads node+tg for tag, snapshots prev, restarts core units, health-checks.
@@ -354,9 +371,9 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if len(failed) > 0 {
 		// Keep new binaries — auto-restore to attempt caused endless 0.9.121 loops when prev was newer.
 		fmt.Fprintln(os.Stderr, "health failed (api), KEEPING new binaries:", failed)
-		notify.AlertOnce("stack:health:"+tag, "⚠️ Stack apply <code>"+tag+"</code> health: "+strings.Join(failed, ", ")+" — binaries kept (no auto-downgrade)")
-		_ = snapshotPrev() // still record as last-good if we got this far with new bins
+		notify.AlertOnce("stack:health:"+tag, "⚠️ Stack apply <code>"+tag+"</code> health: "+strings.Join(failed, ", ")+" — binaries kept (no auto-downgrade; prev unchanged)")
 		_ = os.RemoveAll(attemptDir())
+		// Do NOT snapshotPrev on health fail — avoids marking a flaky apply as last-good.
 		return fmt.Errorf("apply health fail %v (binaries kept at %s)", failed, tag)
 	}
 	// queue secondary agents to same release
@@ -420,16 +437,8 @@ func Rollback() error {
 
 // WatchdogOnce restarts core units that are failed/inactive.
 func WatchdogOnce() {
-	// Drop attempt/ always — must not outlive a successful newer install.
-	if av := readDirVersion(attemptDir()); av != "" {
-		rv := verNorm(version.Running())
-		if rv == "" || verLess(av, rv) || av == rv {
-			_ = os.RemoveAll(attemptDir())
-		}
-	}
-	if ok, _ := IsPinned(); !ok {
-		_ = PromoteLastGood()
-	}
+	// Only cleanup + restart failed units. Never swap binaries here (promote was causing silent version flips).
+	_ = os.RemoveAll(attemptDir())
 	var restarted []string
 	for _, u := range PrimaryUnits {
 		if u.Role != "core" {
@@ -484,5 +493,35 @@ WantedBy=timers.target
 	}
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "enable", "--now", "netductor-stack-watchdog.timer").Run()
+	return nil
+}
+
+
+// ScheduleApply runs stack apply via systemd-run so API/bot are not mid-request when binaries swap.
+func ScheduleApply(tag string) error {
+	if ok, why := IsPinned(); ok {
+		return fmt.Errorf("stack pinned: %s", why)
+	}
+	tag = strings.TrimSpace(tag)
+	if tag != "" && !strings.HasPrefix(tag, "v") {
+		tag = "v" + tag
+	}
+	if busy, cur, _ := ApplyInProgress(); busy {
+		return fmt.Errorf("apply already in progress: %s", cur)
+	}
+	if applyUnitRunning() {
+		return fmt.Errorf("apply unit %s still running", applyUnit)
+	}
+	// Do not take apply lock here — child `stack apply` owns the lock.
+	script := fmt.Sprintf(
+		"sleep 2; /usr/local/bin/netductor stack apply %s >>/var/log/netductor-stack-apply.log 2>&1",
+		tag,
+	)
+	cmd := exec.Command("systemd-run", "--unit="+applyUnit, "--collect",
+		"/bin/bash", "-c", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("systemd-run: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
 	return nil
 }

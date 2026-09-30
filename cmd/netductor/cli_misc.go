@@ -15,6 +15,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/stack"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
@@ -345,6 +346,15 @@ func runUpdate(restart bool) {
 	default:
 		fmt.Fprintln(os.Stderr, "unknown component", comp)
 		os.Exit(2)
+	}
+		// Single path for primary node+tg: stack orchestrator (lock, pin, no dual-writer).
+	if comp == "node" {
+		fmt.Fprintln(os.Stderr, "==> stack apply", tag, "(unified update path)")
+		if err := stack.ApplyOpts(tag, noBackup); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
 	}
 	fmt.Fprintln(os.Stderr, "==> update", comp, tag, "→", dest)
 	// Download ALL binaries before any restart — never restart TG on old binary.

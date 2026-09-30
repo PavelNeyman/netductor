@@ -18,6 +18,8 @@ netductor stack watchdog
 netductor stack watchdog-install
 netductor stack pin [reason]
 netductor stack unpin
+netductor stack promote
+netductor stack schedule [vX.Y.Z]
 `)
 		return
 	}
@@ -47,6 +49,24 @@ netductor stack unpin
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(st)
+	case "promote":
+		if !stack.PromoteLastGood() {
+			fmt.Println("promote: nothing to do (or refused dirty prev/pin)")
+			return
+		}
+		fmt.Println("promoted")
+		return
+	case "schedule":
+		tag := ""
+		if len(args) > 1 {
+			tag = args[1]
+		}
+		if err := stack.ScheduleApply(tag); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("scheduled", tag)
+		return
 	case "pin":
 		reason := "manual"
 		if len(args) > 1 {

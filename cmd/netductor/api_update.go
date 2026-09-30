@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/stack"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
@@ -124,6 +125,14 @@ func registerUpdateAPI(mux *http.ServeMux) {
 			comp = "node"
 		default:
 			writeJSON(w, 400, map[string]any{"ok": false, "error": "unknown component"})
+			return
+		}
+		if comp == "node" {
+			if err := stack.ScheduleApply(tag); err != nil {
+				writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "scheduled": true, "version": tag, "backup": backupPath})
 			return
 		}
 		if err := ndupdate.DownloadReleaseAsset(tag, comp, dest); err != nil {

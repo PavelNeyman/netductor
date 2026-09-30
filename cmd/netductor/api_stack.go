@@ -24,11 +24,12 @@ func registerStackAPI(mux *http.ServeMux) {
 			Version string `json:"version"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		if err := stack.Apply(body.Version); err != nil {
+		// Never apply in-process — restarting api mid-handler races and orphans locks.
+		if err := stack.ScheduleApply(body.Version); err != nil {
 			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "status": stack.Collect()})
+		writeJSON(w, 200, map[string]any{"ok": true, "scheduled": true, "version": body.Version})
 	})
 	mux.HandleFunc("/api/stack/rollback", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

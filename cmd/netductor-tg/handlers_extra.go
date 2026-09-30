@@ -540,12 +540,8 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			return
 		}
 		// Schedule apply outside bot process. stack apply restarts units itself — do not double-restart.
-		script := fmt.Sprintf(
-			"sleep 3; /usr/local/bin/netductor stack apply %s >>/var/log/netductor-stack-apply.log 2>&1",
-			tag,
-		)
-		runErr := exec.Command("systemd-run", "--unit=netductor-stack-apply", "--collect",
-			"/bin/bash", "-c", script).Start()
+		// Unified scheduler (same as API) — avoids double lock / divergent paths.
+		runErr := exec.Command("/usr/local/bin/netductor", "stack", "schedule", tag).Run()
 		var msg string
 		if ru {
 			msg = "⏳ <b>Обновление запланировано</b> <code>" + esc(tag) + "</code>\n"
