@@ -191,20 +191,21 @@ func accessPayload(name, mode string) (payload string) {
 		if err != nil {
 			return ""
 		}
-		base := strings.TrimRight(os.Getenv("REDIRECT_BASE"), "/")
+		// Same base as import buttons (redirect service hosts /sub/{token}).
+		base := redirectBase()
 		if base == "" {
-			// try domain file
 			if b, err := os.ReadFile("/etc/netductor/secrets/domain"); err == nil {
 				d := strings.TrimSpace(string(b))
 				if d != "" {
-					base = "https://" + d
+					// Prefer dedicated redirect host if operator uses redirect.<domain>
+					base = "https://redirect." + d
 				}
 			}
 		}
 		if base == "" {
 			return ""
 		}
-		return base + "/sub/" + tok
+		return strings.TrimRight(base, "/") + "/sub/" + tok
 	case "core":
 		payload = shareURIFrom(runVPN("link", name, "core"))
 		if payload == "" {
@@ -222,9 +223,10 @@ func accessPayload(name, mode string) (payload string) {
 
 // formatAccessRichHTML — body actions only (TG-UI.md). Navigation via reply_markup.
 func redirectBase() string {
-	// Prefer /etc/netductor/netductor.conf (REDIRECT_BASE) via ndconfig.Load, or env.
-	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_BASE")); v != "" {
-		return strings.TrimRight(v, "/")
+	for _, k := range []string{"NETDUCTOR_REDIRECT_BASE", "REDIRECT_BASE"} {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return strings.TrimRight(v, "/")
+		}
 	}
 	return ""
 }
