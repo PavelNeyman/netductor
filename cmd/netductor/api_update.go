@@ -102,16 +102,6 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		if !strings.HasPrefix(tag, "v") {
 			tag = "v" + tag
 		}
-		backupPath := ""
-		if !body.NoBackup {
-			if p, err := install.Backup(); err != nil {
-				backupPath = "error:" + err.Error()
-			} else {
-				backupPath = p
-				acked, pend := install.WaitForBackupPull(45 * time.Second)
-				backupPath = fmt.Sprintf("%s (pull acked=%d pending=%d)", p, acked, pend)
-			}
-		}
 		dest := "/usr/local/bin/netductor"
 		unit := "netductor-api"
 		switch comp {
@@ -127,13 +117,24 @@ func registerUpdateAPI(mux *http.ServeMux) {
 			writeJSON(w, 400, map[string]any{"ok": false, "error": "unknown component"})
 			return
 		}
+		// node: single path — stack apply does one backup; no double-wait here.
 		if comp == "node" {
 			if err := stack.ScheduleApply(tag); err != nil {
 				writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 				return
 			}
-			writeJSON(w, 200, map[string]any{"ok": true, "scheduled": true, "version": tag, "backup": backupPath})
+			writeJSON(w, 200, map[string]any{"ok": true, "scheduled": true, "version": tag})
 			return
+		}
+		backupPath := ""
+		if !body.NoBackup {
+			if p, err := install.Backup(); err != nil {
+				backupPath = "error:" + err.Error()
+			} else {
+				backupPath = p
+				acked, pend := install.WaitForBackupPull(20 * time.Second)
+				backupPath = fmt.Sprintf("%s (pull acked=%d pending=%d)", p, acked, pend)
+			}
 		}
 		if err := ndupdate.DownloadReleaseAsset(tag, comp, dest); err != nil {
 			writeJSON(w, 502, map[string]any{"ok": false, "error": err.Error(), "backup": backupPath})

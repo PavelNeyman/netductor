@@ -1,48 +1,24 @@
-# Stack orchestrator (0.9.116+)
+# Stack orchestrator (simplified)
 
-**EN** · Thin layer over netductor units + binaries (not a second control plane).
+## Rules
 
-## Commands
+1. **One writer** for primary `netductor` + `netductor-tg`: `netductor stack apply [vX]`.
+2. API / TG only **schedule** apply (`stack schedule` → systemd-run). Never apply inside api/bot process.
+3. **`prev/`** = snapshot after **successful** apply only. Manual `stack rollback` target.
+4. **No `attempt/`**, no auto-rollback, no auto-promote on status view or watchdog.
+5. **Watchdog** = restart failed units only.
+6. **`stack promote`** = explicit; refuses dirty prev (VERSION ≠ binary).
+7. **`stack pin`** = freeze apply/promote while stabilizing.
+
+## Operator flow
+
 ```bash
 netductor stack status
-netductor stack apply v0.9.116   # or empty = latest
-netductor stack rollback
-netductor stack watchdog
+netductor stack apply v0.9.138    # or: stack schedule v0.9.138
+netductor stack pin "stabilize"
+# … wait …
+netductor stack unpin
+netductor stack watchdog-install  # optional
 ```
 
-## Behaviour
-1. **apply** — snapshot current node+tg → `/var/lib/netductor/stack/prev/` → download from GitHub → restart api/bot → health; on fail → **rollback**
-2. **status** — unit active + binary version
-3. **watchdog** — try-restart failed core units (api/bot/sing-box/blocky)
-
-TG/Web should call apply via API later; when bot is dead use SSH + `stack apply`.
-
-## Not in scope
-VPN business logic, configs in `/etc/netductor` (still backup/restore).
-
-## Watchdog
-```bash
-netductor stack watchdog-install
-```
-Runs every 5 minutes; restarts failed core units only.
-
-
-## TG
-Tools → **Stack status** — table of units, Rollback, Watchdog.
-Apply still via Updates (calls `stack apply` out-of-process).
-Alerts: apply start/ok/fail, auto-rollback, watchdog restarts → Updates/Alerts topics.
-
-## Apply flow
-1. pre-backup (+ wait backup_pull ~20s)
-2. snapshot prev binaries
-3. download node+tg
-4. restart api/bot
-5. health → on fail auto-rollback + alert
-
-## Secondary (0.9.120+)
-
-`stack apply` queues `upgrade:vX` on secondary agents.
-
-```bash
-netductor backup secondary-local-timer
-```
+Force binary install without stack logic: see `docs/RECOVER-BOT.md`.

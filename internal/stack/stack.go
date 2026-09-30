@@ -1,10 +1,22 @@
 // Package stack is a thin orchestrator for netductor-owned systemd units and binaries.
+//
+// Simplified model (after 0.9.137+):
+//
+//	Single writer for primary node+tg binaries: Apply / ApplyOpts only.
+//	ScheduleApply → systemd-run → Apply (API/TG must not apply in-process).
+//	prev/     = last successful apply only (manual Rollback target).
+//	attempt/  = removed (caused version oscillation).
+//	Watchdog  = restart failed units only (never swaps binaries).
+//	Promote   = explicit CLI only; verifies prev binary matches VERSION.
+//	Pin       = blocks Apply and Promote while stabilizing.
+//
 package stack
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,6 +62,27 @@ type Status struct {
 	Units   []UnitStatus `json:"units"`
 	Prev    string       `json:"prev_release,omitempty"`
 	At      int64        `json:"ts"`
+}
+
+
+// apiHTTPHealthy probes local control API (best-effort).
+func apiHTTPHealthy() bool {
+	client := &http.Client{Timeout: 3 * time.Second}
+	for _, u := range []string{
+		"http://127.0.0.1:8787/healthz",
+		"http://127.0.0.1:8787/health",
+		"http://127.0.0.1:8787/api/health",
+	} {
+		resp, err := client.Get(u)
+		if err != nil {
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return true
+		}
+	}
+	return false
 }
 
 func unitState(unit string) (active, sub string) {
@@ -171,8 +204,6 @@ func snapshotBins(dir string) error {
 // snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
 func snapshotPrev() error { return snapshotBins(prevDir()) }
 
-// snapshotAttempt is pre-apply only — used if apply must abort mid-flight.
-func snapshotAttempt() error { return snapshotBins(attemptDir()) }
 
 
 // verNorm strips leading v.
@@ -318,7 +349,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 			fmt.Fprintln(os.Stderr, "warn backup:", err)
 		} else {
 			fmt.Fprintln(os.Stderr, "backup:", path)
-			_, _ = install.WaitForBackupPull(20 * time.Second)
+			_, _ = install.WaitForBackupPull(12 * time.Second)
 		}
 	}
 	fmt.Fprintln(os.Stderr, "stack apply:", tag)
@@ -368,8 +399,15 @@ func ApplyOpts(tag string, noBackup bool) error {
 			notify.AlertOnce("stack:bot-warn:"+tag, "⚠️ Stack apply <code>"+tag+"</code>: telegram-bot="+u.Active+" (binaries kept)")
 		}
 	}
+	// Prefer live /healthz over unit state alone (unit can be "active" while API deadlocked).
+	if len(failed) == 0 && !apiHTTPHealthy() {
+		// one soft retry window
+		time.Sleep(8 * time.Second)
+		if !apiHTTPHealthy() {
+			failed = append(failed, "api-http-health")
+		}
+	}
 	if len(failed) > 0 {
-		// Keep new binaries — auto-restore to attempt caused endless 0.9.121 loops when prev was newer.
 		fmt.Fprintln(os.Stderr, "health failed (api), KEEPING new binaries:", failed)
 		notify.AlertOnce("stack:health:"+tag, "⚠️ Stack apply <code>"+tag+"</code> health: "+strings.Join(failed, ", ")+" — binaries kept (no auto-downgrade; prev unchanged)")
 		_ = os.RemoveAll(attemptDir())
@@ -425,8 +463,16 @@ func restoreFrom(dir string) error {
 	return nil
 }
 
-// Rollback restores last-good (prev/) binaries — never auto-called to ancient snapshots after success.
+// Rollback restores last-good (prev/) binaries — manual only.
 func Rollback() error {
+	if ok, why := IsPinned(); ok {
+		return fmt.Errorf("stack pinned: %s", why)
+	}
+	prev := readDirVersion(prevDir())
+	bv := verNorm(parseVerField(binVersion(filepath.Join(prevDir(), "netductor"))))
+	if prev != "" && bv != "" && prev != bv {
+		return fmt.Errorf("refuse rollback: dirty prev/ VERSION=%s binary=%s — fix or re-snapshot", prev, bv)
+	}
 	if err := restoreFrom(prevDir()); err != nil {
 		return err
 	}
