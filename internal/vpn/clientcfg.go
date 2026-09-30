@@ -295,15 +295,17 @@ func WriteClientConfigs(name, uuid string) error {
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	core := VLESSLink(name, uuid)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(core+nl), 0o600)
-	// Shadowrocket routing: import as Config (or merge into nd-oc.conf)
+	// Shadowrocket routing: import as Config (Global Routing = Config). Pair with VLESS from bot.
 	var rb strings.Builder
-	rb.WriteString("# netductor — RU/gov DIRECT, rest PROXY (pair with VLESS URI from bot)\n")
-	rb.WriteString("# Global Routing = Config. Prefer single Vision VLESS (relay or core).\n\n")
-	rb.WriteString("[General]\n")
-	rb.WriteString("dns-server = system\n")
-	rb.WriteString("skip-proxy = 127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, localhost, *.local\n\n")
-	rb.WriteString("[Rule]\n")
+	rb.WriteString("# netductor — nodes DIRECT, RU/gov DIRECT, remote RULE-SET, else PROXY\n")
+	rb.WriteString("# Import this file as Config in Shadowrocket; add VLESS server separately.\n\n")
+	rb.WriteString(ShadowrocketGeneralBlock())
+	rb.WriteString("\n[Rule]\n")
 	for _, line := range ShadowrocketAdminDirectRules() {
+		rb.WriteString(line)
+		rb.WriteByte('\n')
+	}
+	for _, line := range ShadowrocketRemoteRuleSetRules() {
 		rb.WriteString(line)
 		rb.WriteByte('\n')
 	}
