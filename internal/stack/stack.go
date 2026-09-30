@@ -232,6 +232,8 @@ func PromoteLastGood() bool {
 		fmt.Fprintln(os.Stderr, "promote failed:", err)
 		return false
 	}
+	// Never leave pre-apply snapshots around — they re-seed 0.9.121 loops on old apply code paths.
+	_ = os.RemoveAll(attemptDir())
 	notify.AlertOnce("stack:promote:"+prev, "⬆️ Stack promoted last-good <code>"+prev+"</code> (was <code>"+cur+"</code>)")
 	return true
 }
@@ -242,7 +244,33 @@ func Apply(tag string) error {
 }
 
 // ApplyOpts downloads node+tg; optional pre-backup; health + auto-rollback with TG alerts.
+func stackPinPath() string {
+	return filepath.Join(paths.StateDir(), "stack", "PIN")
+}
+
+// Pin blocks stack apply/promote until removed (stops oscillation while operator fixes disk).
+func Pin(reason string) error {
+	_ = os.MkdirAll(filepath.Dir(stackPinPath()), 0o755)
+	if reason == "" {
+		reason = "pinned"
+	}
+	return os.WriteFile(stackPinPath(), []byte(reason+"\n"+time.Now().UTC().Format(time.RFC3339)+"\n"), 0o644)
+}
+
+func Unpin() error { return os.Remove(stackPinPath()) }
+
+func IsPinned() (bool, string) {
+	b, err := os.ReadFile(stackPinPath())
+	if err != nil {
+		return false, ""
+	}
+	return true, strings.TrimSpace(string(b))
+}
+
 func ApplyOpts(tag string, noBackup bool) error {
+	if ok, why := IsPinned(); ok {
+		return fmt.Errorf("stack pinned — unpin first (netductor stack unpin): %s", why)
+	}
 	tag = strings.TrimSpace(tag)
 	if tag == "" {
 		var err error
@@ -265,7 +293,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if cur != "" && want != "" && verLess(want, cur) {
 		return fmt.Errorf("refuse downgrade: running %s > target %s (use manual binary replace if intentional)", cur, want)
 	}
-	// Drop stale attempt from older runs (avoids restoring 0.9.121 after a later success)
+	// Never keep attempt/ — old builds restored it on health fail and fought prev/ (121↔132 loops).
 	_ = os.RemoveAll(attemptDir())
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
@@ -276,7 +304,6 @@ func ApplyOpts(tag string, noBackup bool) error {
 			_, _ = install.WaitForBackupPull(20 * time.Second)
 		}
 	}
-	_ = snapshotAttempt()
 	fmt.Fprintln(os.Stderr, "stack apply:", tag)
 	notify.AlertOnce("stack:apply:"+tag, "⬆️ Stack apply <code>"+tag+"</code> started")
 	if err := ndupdate.DownloadReleaseAsset(tag, "node", "/usr/local/bin/netductor"); err != nil {
@@ -393,7 +420,16 @@ func Rollback() error {
 
 // WatchdogOnce restarts core units that are failed/inactive.
 func WatchdogOnce() {
-	_ = PromoteLastGood()
+	// Drop attempt/ always — must not outlive a successful newer install.
+	if av := readDirVersion(attemptDir()); av != "" {
+		rv := verNorm(version.Running())
+		if rv == "" || verLess(av, rv) || av == rv {
+			_ = os.RemoveAll(attemptDir())
+		}
+	}
+	if ok, _ := IsPinned(); !ok {
+		_ = PromoteLastGood()
+	}
 	var restarted []string
 	for _, u := range PrimaryUnits {
 		if u.Role != "core" {

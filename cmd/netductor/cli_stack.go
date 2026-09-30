@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"os"
 
 	"github.com/PavelNeyman/netductor/internal/stack"
@@ -15,6 +16,8 @@ netductor stack apply [vX.Y.Z]
 netductor stack rollback
 netductor stack watchdog
 netductor stack watchdog-install
+netductor stack pin [reason]
+netductor stack unpin
 `)
 		return
 	}
@@ -44,6 +47,21 @@ netductor stack watchdog-install
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(st)
+	case "pin":
+		reason := "manual"
+		if len(args) > 1 {
+			reason = strings.Join(args[1:], " ")
+		}
+		if err := stack.Pin(reason); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("stack pinned")
+		return
+	case "unpin":
+		_ = stack.Unpin()
+		fmt.Println("stack unpinned")
+		return
 	case "watchdog-install":
 		if err := stack.InstallWatchdogTimer(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
