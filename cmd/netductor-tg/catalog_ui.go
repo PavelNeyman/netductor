@@ -218,28 +218,39 @@ func formatToolsFromGroups() string {
 // handleCatGroup maps opcatalog.Groups() IDs to real TG screens (not unknown → main menu).
 func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 	ru := getLang() != "en"
+	back := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
 	switch groupID {
-	case "home":
-		// overview: status + stack entry
+	case "home", "overview":
 		body := formatStatusPretty()
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("🧱 Stack", "m:stack", "primary"), btn("🔄 Updates", "m:updates", "")},
+			{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
 			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 		}}
 		if ru {
 			kb = map[string]any{"inline_keyboard": [][]map[string]any{
 				{btn("🧱 Стек", "m:stack", "primary"), btn("🔄 Обновления", "m:updates", "")},
+				{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
 				{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 			}}
 		}
 		reply(token, chat, msgID, body, kb)
-	case "users":
+	case "users", "vpn":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
-	case "fleet":
-		reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
-	case "edge":
+	case "fleet", "nodes":
+		// fleet hub or nodes list — both valid
+		if groupID == "nodes" {
+			reply(token, chat, msgID, formatNodesListHTML(), nodesKeyboard())
+		} else {
+			reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
+		}
+	case "edge", "routers":
 		reply(token, chat, msgID, routersHubHTML(), routersKeyboard())
-	case "media":
+	case "sites":
+		reply(token, chat, msgID, formatSitesHTML(), sitesListKeyboard())
+	case "media", "nvr":
 		reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
 	case "data":
 		title := "📦 <b>Data</b>"
@@ -252,18 +263,17 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 			`<tg-button type="callback_data" data="m:ops:backup">Backup</tg-button>` +
 			`<tg-button type="callback_data" data="m:ops:git">Git</tg-button>` +
 			`</tg-button-row>`
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-		}}
-		reply(token, chat, msgID, body, kb)
-	case "adv":
+		reply(token, chat, msgID, body, back)
+	case "adv", "probes", "updates":
+		if groupID == "updates" {
+			handleUpdatesCB(token, chat, msgID, "m:updates")
+			return
+		}
 		out := runND("probe")
 		r := format.API("probes", []byte(out), catalogLang())
-		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-		}})
+		reply(token, chat, msgID, r.HTML, back)
 	default:
-		// Show catalog sections for unknown group
 		reply(token, chat, msgID, catalogSectionTitle(groupID), catalogSectionKeyboard(groupID))
 	}
 }
+

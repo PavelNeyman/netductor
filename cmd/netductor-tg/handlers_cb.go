@@ -81,39 +81,47 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	}
 	if strings.HasPrefix(data, "m:ops:") {
 		sec := strings.TrimPrefix(data, "m:ops:")
-		// One canonical screen per domain — no parallel catalog menus.
+		backTools := map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}}
 		switch sec {
-		case "overview":
-			reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
+		case "overview", "home":
+			reply(token, chat, msgID, formatStatusPretty(), backTools)
 			return
-		case "vpn":
+		case "vpn", "users":
 			reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 			return
-		case "nodes":
-			reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
+		case "nodes", "fleet":
+			reply(token, chat, msgID, formatNodesListHTML(), nodesKeyboard())
 			return
-		case "edge":
+		case "edge", "routers":
 			reply(token, chat, msgID, routersHubHTML(), routersKeyboard())
 			return
-		case "nvr":
+		case "nvr", "media":
 			reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
 			return
 		case "dns":
 			showDNSMenu(token, chat, msgID, "")
 			return
 		case "backup":
-			// handleBackupCB expects m:backup
 			handleBackupCB(token, chat, msgID, "m:backup")
 			return
-		case "probes":
+		case "probes", "adv":
 			out := runND("probe")
 			r := format.API("probes", []byte(out), catalogLang())
-			reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
+			reply(token, chat, msgID, r.HTML, backTools)
 			return
 		case "git":
 			handleGitCB(token, chat, msgID, "m:git")
 			return
+		case "updates":
+			handleUpdatesCB(token, chat, msgID, "m:updates")
+			return
+		case "sites":
+			reply(token, chat, msgID, formatSitesHTML(), sitesListKeyboard())
+			return
 		}
+		// fallback: catalog section with numbered API actions
 		reply(token, chat, msgID, catalogSectionTitle(sec), catalogSectionKeyboard(sec))
 		return
 	}
@@ -624,7 +632,11 @@ if strings.HasPrefix(data, "u:") {
 		setState(chat, "wait_session_hours", "")
 		reply(token, chat, msgID, T("session_prompt"), operatorSubKeyboard())
 	default:
-		reply(token, chat, msgID, T("unknown"), mainKeyboard())
+		fmt.Fprintf(os.Stderr, "tg unknown callback data=%q\n", data)
+		msg := T("unknown") + "\n<code>" + esc(data) + "</code>"
+		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("🧰 Tools", "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}})
 	}
 }
 

@@ -1,3 +1,8 @@
+## 0.9.132
+
+- TG Tools: route `m:cat:nodes|routers|sites|vpn` (aliases used in fleet hub)
+- Expand `m:ops:*` sections; unknown callback shows data + Tools button
+
 ## 0.9.131
 
 - Apply lock: TTL 8m; clear if unit dead after 45s; TG **Clear lock** button
