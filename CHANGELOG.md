@@ -1,3 +1,10 @@
+## 0.9.134
+
+- **No auto-downgrade:** failed health keeps new binaries (stops 0.9.121 loop)
+- **PromoteLastGood:** if prev > running, restore prev (fixes stuck 121 with prev 132)
+- Refuse apply target older than running
+- Clear stale attempt/ before each apply
+
 ## 0.9.133
 
 - **Stack:** last-good `prev/` updated only after successful apply (no more rollback to ancient 0.9.121)

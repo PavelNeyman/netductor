@@ -114,6 +114,7 @@ func curMetaPath() string {
 
 // Collect status of managed units.
 func Collect() Status {
+	_ = PromoteLastGood()
 	rel := version.Running()
 	st := Status{Release: rel, At: time.Now().Unix()}
 	saveCurrent(rel)
@@ -173,6 +174,68 @@ func snapshotPrev() error { return snapshotBins(prevDir()) }
 // snapshotAttempt is pre-apply only — used if apply must abort mid-flight.
 func snapshotAttempt() error { return snapshotBins(attemptDir()) }
 
+
+// verNorm strips leading v.
+func verNorm(s string) string {
+	return strings.TrimPrefix(strings.TrimSpace(s), "v")
+}
+
+// verLess reports a < b for dotted numeric versions (0.9.121 < 0.9.133).
+func verLess(a, b string) bool {
+	a, b = verNorm(a), verNorm(b)
+	if a == "" || b == "" {
+		return false
+	}
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	n := len(as)
+	if len(bs) > n {
+		n = len(bs)
+	}
+	for i := 0; i < n; i++ {
+		var ai, bi int
+		if i < len(as) {
+			fmt.Sscanf(as[i], "%d", &ai)
+		}
+		if i < len(bs) {
+			fmt.Sscanf(bs[i], "%d", &bi)
+		}
+		if ai < bi {
+			return true
+		}
+		if ai > bi {
+			return false
+		}
+	}
+	return false
+}
+
+func readDirVersion(dir string) string {
+	b, err := os.ReadFile(filepath.Join(dir, "VERSION"))
+	if err != nil {
+		return ""
+	}
+	return verNorm(string(b))
+}
+
+// PromoteLastGood restores prev/ when it is newer than running (fixes stuck 0.9.121 with prev 0.9.132).
+func PromoteLastGood() bool {
+	cur := verNorm(version.Running())
+	prev := readDirVersion(prevDir())
+	if prev == "" || cur == "" {
+		return false
+	}
+	if !verLess(cur, prev) {
+		return false
+	}
+	fmt.Fprintln(os.Stderr, "stack: promote last-good", prev, "over running", cur)
+	if err := restoreFrom(prevDir()); err != nil {
+		fmt.Fprintln(os.Stderr, "promote failed:", err)
+		return false
+	}
+	notify.AlertOnce("stack:promote:"+prev, "⬆️ Stack promoted last-good <code>"+prev+"</code> (was <code>"+cur+"</code>)")
+	return true
+}
+
 // Apply downloads node+tg for tag, snapshots prev, restarts core units, health-checks.
 func Apply(tag string) error {
 	return ApplyOpts(tag, false)
@@ -197,6 +260,13 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return fmt.Errorf("apply already in progress: %s", cur)
 	}
 	defer ClearApplyLock()
+	cur := verNorm(version.Running())
+	want := verNorm(tag)
+	if cur != "" && want != "" && verLess(want, cur) {
+		return fmt.Errorf("refuse downgrade: running %s > target %s (use manual binary replace if intentional)", cur, want)
+	}
+	// Drop stale attempt from older runs (avoids restoring 0.9.121 after a later success)
+	_ = os.RemoveAll(attemptDir())
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
 		if path, err := install.Backup(); err != nil {
@@ -255,13 +325,12 @@ func ApplyOpts(tag string, noBackup bool) error {
 		}
 	}
 	if len(failed) > 0 {
-		fmt.Fprintln(os.Stderr, "health failed (api), restoring attempt snapshot:", failed)
-		notify.AlertOnce("stack:rollback:"+tag, "↩️ Stack apply failed <code>"+tag+"</code>: "+strings.Join(failed, ", ")+" — restored pre-apply binaries")
-		if err := restoreFrom(attemptDir()); err != nil {
-			// do not touch last-good prev/
-			return fmt.Errorf("apply health fail %v; restore attempt: %w", failed, err)
-		}
-		return fmt.Errorf("apply health fail %v; restored pre-apply", failed)
+		// Keep new binaries — auto-restore to attempt caused endless 0.9.121 loops when prev was newer.
+		fmt.Fprintln(os.Stderr, "health failed (api), KEEPING new binaries:", failed)
+		notify.AlertOnce("stack:health:"+tag, "⚠️ Stack apply <code>"+tag+"</code> health: "+strings.Join(failed, ", ")+" — binaries kept (no auto-downgrade)")
+		_ = snapshotPrev() // still record as last-good if we got this far with new bins
+		_ = os.RemoveAll(attemptDir())
+		return fmt.Errorf("apply health fail %v (binaries kept at %s)", failed, tag)
 	}
 	// queue secondary agents to same release
 	secN := 0
@@ -324,6 +393,7 @@ func Rollback() error {
 
 // WatchdogOnce restarts core units that are failed/inactive.
 func WatchdogOnce() {
+	_ = PromoteLastGood()
 	var restarted []string
 	for _, u := range PrimaryUnits {
 		if u.Role != "core" {
