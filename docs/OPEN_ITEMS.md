@@ -26,6 +26,9 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Closed recently
 
+- [x] Stack orchestrator MVP (0.9.116)
+- [x] Peer backup prune on secondary
+
 - [x] TG OOM: backup exclude + out-of-process update + MemoryMax (0.9.115)
 
 - [x] Fleet health digest API/CLI/TG (0.9.106)

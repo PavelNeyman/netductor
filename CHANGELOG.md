@@ -1,3 +1,9 @@
+## 0.9.116
+
+- **stack** orchestrator: `netductor stack status|apply|rollback|watchdog` + API `/api/stack/*` + opcatalog
+- Backup prune: only `.ndenc`/`.tar.gz`, keep newest N by stamp; secondary peers/core pruned after backup_pull
+- Topics: clearer error if chat is private (forum topics need a group)
+
 ## 0.9.115
 
 - **Backup:** exclude `var/lib/netductor/backups` (and registry/nvr/git) — stopped exponential tar growth

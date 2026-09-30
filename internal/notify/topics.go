@@ -218,7 +218,7 @@ func EnsureTopics(botToken string, chatID int64) error {
 		name := nameForKey(t, d.Key)
 		id, err := createForumTopic(botToken, chatID, name)
 		if err != nil {
-			return fmt.Errorf("create topic %s: %w (enable Threaded Mode in BotFather?)", d.Key, err)
+			return fmt.Errorf("create topic %s: %w (need a *group/supergroup* with Topics on — not a private chat; BotFather → Group Privacy / Topics)", d.Key, err)
 		}
 		t.Topics[d.Key] = id
 		t.Names[d.Key] = name

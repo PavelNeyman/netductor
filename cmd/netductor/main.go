@@ -13,7 +13,7 @@ import (
 )
 
 // Node control-plane binary (VPS). No deploy/TUI/operator serve.
-var version = "0.9.115"
+var version = "0.9.116"
 
 
 func main() {
@@ -164,6 +164,8 @@ func main() {
 		fmt.Println("recovered")
 	case "self-install":
 		runSelfInstall()
+	case "stack":
+		runStack(os.Args[2:])
 	case "update":
 		runUpdate(true)
 	case "serve":
@@ -181,7 +183,7 @@ func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
   install | serve | doctor | status | vpn | secondary | svc-paths | api-public | edge | mtls | nvr
-  redirect-serve | domain | fleet | backup | restore | sites | nodes | …
+  stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 
 Workstation deploy / TUI: install netductor-op (not this binary).

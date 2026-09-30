@@ -30,6 +30,7 @@ func buildAPIMux() http.Handler {
 	registerRegistryAPI(mux)
 	registerVPNHTTP(mux)
 	registerSvcPathsAPI(mux)
+	registerStackAPI(mux)
 	registerUpdateAPI(mux)
 	registerFleetAPI(mux)
 

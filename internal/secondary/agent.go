@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -522,7 +523,35 @@ func secondaryBackupPull() (bool, string) {
 	if comps := resp.Header.Get("X-Netductor-Components"); comps != "" {
 		_ = os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(strings.ReplaceAll(comps, ",", "\n")+"\n"), 0o644)
 	}
+	prunePeerArchives(dir, 14)
 	return true, "stored " + outPath
+}
+
+func prunePeerArchives(dir string, keep int) {
+	if keep < 1 {
+		keep = 1
+	}
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	var names []string
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		n := e.Name()
+		if strings.HasSuffix(n, ".ndenc") || strings.HasSuffix(n, ".tar.gz") {
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names)
+	if len(names) <= keep {
+		return
+	}
+	for _, n := range names[:len(names)-keep] {
+		_ = os.Remove(filepath.Join(dir, n))
+	}
 }
 
 

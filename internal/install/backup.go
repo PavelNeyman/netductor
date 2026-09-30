@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -462,13 +463,35 @@ func extractComponentsFromTar(tarPath string) []string {
 }
 
 func pruneBackups(dir string, keep int) {
+	if keep < 1 {
+		keep = 1
+	}
 	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) <= keep {
+	if err != nil {
 		return
 	}
-	for i := 0; i < len(entries)-keep; i++ {
-		_ = os.Remove(filepath.Join(dir, entries[i].Name()))
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		n := e.Name()
+		if strings.HasSuffix(n, ".ndenc") || strings.HasSuffix(n, ".tar.gz") {
+			names = append(names, n)
+		}
 	}
+	sort.Strings(names) // stamp in name → chronological
+	if len(names) <= keep {
+		return
+	}
+	for _, n := range names[:len(names)-keep] {
+		_ = os.Remove(filepath.Join(dir, n))
+	}
+}
+
+// PrunePeerBackups trims secondary offsite copies under peers/core.
+func PrunePeerBackups(keep int) {
+	pruneBackups("/var/lib/netductor/backups/peers/core", keep)
 }
 
 // RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().
