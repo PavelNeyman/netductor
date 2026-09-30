@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
+	"github.com/PavelNeyman/netductor/internal/stack"
 )
 
 func formatFleetDigestHTML() string {
@@ -77,7 +78,30 @@ func formatFleetDigestHTML() string {
 			b.WriteString(nl + "<i>Soft limit set: " + esc(strings.Join(d.VPNNearQuota, ", ")) + "</i>" + nl)
 		}
 	}
-	// disaster path short
+		// stack units
+	st := stack.Collect()
+	b.WriteString(nl + stack.FormatHTML(st) + nl)
+	var bad []string
+	for _, u := range st.Units {
+		if !u.OK && u.Unit != "netductor-redirect" && u.Unit != "netductor-stack-watchdog.timer" && u.Unit != "netductor-backup.timer" {
+			// optional timers may be inactive — only flag core
+			if u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot" || u.Unit == "sing-box" || u.Unit == "blocky" {
+				bad = append(bad, u.Unit+":"+u.Active)
+			}
+		}
+	}
+	if len(bad) > 0 {
+		if ru {
+			b.WriteString("⚠️ <b>Core units</b>: <code>" + esc(strings.Join(bad, ", ")) + "</code>" + nl)
+		} else {
+			b.WriteString("⚠️ <b>Core units</b>: <code>" + esc(strings.Join(bad, ", ")) + "</code>" + nl)
+		}
+		b.WriteString(`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">Stack</tg-button><tg-button type="callback_data" data="m:stack:watchdog">WD</tg-button></tg-button-row>` + nl)
+	} else {
+		b.WriteString(`<tg-button-row><tg-button type="callback_data" data="m:stack">🧱 Stack</tg-button></tg-button-row>` + nl)
+	}
+
+// disaster path short
 	if ru {
 		b.WriteString(nl + "<i>DR: netductor recover --from-secondary … · Updates · doctor</i>")
 	} else {

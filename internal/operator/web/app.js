@@ -47,7 +47,7 @@ en:{
   result:'Result', tunnel:'Tunnel', idle:'idle',
   sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
   adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
-  b_health:'Health', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_metrics:'Metrics',
+  b_health:'Health', b_stack:'Stack', b_stack_apply:'Stack apply', b_stack_rb:'Stack rollback', b_stack_wd:'Stack WD', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_metrics:'Metrics',
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
   b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
@@ -91,7 +91,7 @@ ru:{
   result:'Результат', tunnel:'Туннель', idle:'ожидание',
   sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
   adv_note:'Произвольный POST/GET к session API', l_method:'метод', l_path:'путь', l_body:'JSON body',
-  b_health:'Health', b_doctor:'Doctor', b_domain:'Домен', b_bot:'Статус бота', b_status:'Статус', b_metrics:'Метрики',
+  b_health:'Health', b_stack:'Стек', b_stack_apply:'Применить стек', b_stack_rb:'Откат стека', b_stack_wd:'Watchdog', b_doctor:'Doctor', b_domain:'Домен', b_bot:'Статус бота', b_status:'Статус', b_metrics:'Метрики',
   b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'Список users', b_vpn_refresh:'Обновить ссылки',
   b_vpn_add:'Добавить user', b_vpn_enable:'Включить', b_vpn_disable:'Выключить', b_vpn_revoke:'Отозвать', b_vpn_link:'Ссылки',
@@ -413,6 +413,10 @@ document.getElementById('btnShowRaw').onclick=()=>{
 const BTN = {
   overview:[
     ['health','b_health','GET','/health'],
+    ['stack-status','b_stack','GET','/api/stack/status'],
+    ['stack-apply','b_stack_apply','POST','/api/stack/apply','{}'],
+    ['stack-rollback','b_stack_rb','POST','/api/stack/rollback','{}'],
+    ['stack-wd','b_stack_wd','POST','/api/stack/watchdog','{}'],
     ['doctor','b_doctor','GET','/api/doctor'],
     ['domain','b_domain','GET','/api/domain'],
     ['bot','b_bot','GET','/api/bot-status'],

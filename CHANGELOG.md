@@ -1,3 +1,8 @@
+## 0.9.121
+
+- Web Control: Stack status/apply/rollback/watchdog
+- TG Fleet digest: stack table + core unit fails + Stack/WD buttons
+
 ## 0.9.120
 
 - secondary agent upgrade:vX (node+agent from GitHub)
