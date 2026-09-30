@@ -532,9 +532,9 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btnDisabled("⏳ …"), btn("⬅️ "+parentTools(), "m:tools", "primary")}}})
 			return
 		}
-		// Schedule apply outside bot process (replacing tg binary under feet → failed + rollback).
+		// Schedule apply outside bot process. stack apply restarts units itself — do not double-restart.
 		script := fmt.Sprintf(
-			"/bin/bash -c 'sleep 2; /usr/local/bin/netductor stack apply %s >>/var/log/netductor-stack-apply.log 2>&1; systemctl reset-failed netductor-telegram-bot 2>/dev/null; systemctl restart netductor-telegram-bot netductor-api'",
+			"sleep 3; /usr/local/bin/netductor stack apply %s >>/var/log/netductor-stack-apply.log 2>&1",
 			tag,
 		)
 		runErr := exec.Command("systemd-run", "--unit=netductor-stack-apply", "--collect",

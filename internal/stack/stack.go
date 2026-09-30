@@ -156,7 +156,12 @@ func snapshotPrev() error {
 		}
 		_ = os.WriteFile(filepath.Join(dir, filepath.Base(src)), b, 0o755)
 	}
-	_ = os.WriteFile(filepath.Join(dir, "VERSION"), []byte(version.Release+"\n"), 0o644)
+	// Prefer on-disk/binary version, not compile-time const of the apply process.
+	prevVer := version.Running()
+	if prevVer == "" {
+		prevVer = version.Release
+	}
+	_ = os.WriteFile(filepath.Join(dir, "VERSION"), []byte(prevVer+"\n"), 0o644)
 	return nil
 }
 
@@ -211,35 +216,38 @@ func ApplyOpts(tag string, noBackup bool) error {
 	_ = exec.Command("systemctl", "restart", "netductor-api").Run()
 	_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
 	_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
-	// Give bot time to long-poll start (was 2s — false fail → auto-rollback to ancient prev).
-	time.Sleep(8 * time.Second)
+	// Bot long-poll / restart is flaky for 10–20s — do NOT hard-fail on telegram-bot alone
+	// (that caused auto-rollback to ancient prev like 0.9.121 after a successful binary replace).
+	time.Sleep(12 * time.Second)
 	st := Collect()
 	var failed []string
 	for _, u := range st.Units {
-		if u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot" {
-			if !u.OK {
+		if u.Unit == "netductor-api" && !u.OK {
+			failed = append(failed, u.Unit+":"+u.Active)
+		}
+	}
+	if len(failed) > 0 {
+		fmt.Fprintln(os.Stderr, "health soft-fail (api), retry restart:", failed)
+		_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
+		_ = exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run()
+		time.Sleep(10 * time.Second)
+		st = Collect()
+		failed = nil
+		for _, u := range st.Units {
+			if u.Unit == "netductor-api" && !u.OK {
 				failed = append(failed, u.Unit+":"+u.Active)
 			}
 		}
 	}
-	// One recovery attempt for bot/api before rollback
-	if len(failed) > 0 {
-		fmt.Fprintln(os.Stderr, "health soft-fail, retry restart:", failed)
-		_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
-		_ = exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run()
-		time.Sleep(6 * time.Second)
-		st = Collect()
-		failed = nil
-		for _, u := range st.Units {
-			if u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot" {
-				if !u.OK {
-					failed = append(failed, u.Unit+":"+u.Active)
-				}
-			}
+	// Soft warn if bot still down — leave new binaries in place
+	for _, u := range st.Units {
+		if u.Unit == "netductor-telegram-bot" && !u.OK {
+			fmt.Fprintln(os.Stderr, "warn: telegram-bot not active after apply (no rollback):", u.Active)
+			notify.AlertOnce("stack:bot-warn:"+tag, "⚠️ Stack apply <code>"+tag+"</code>: telegram-bot="+u.Active+" (binaries kept)")
 		}
 	}
 	if len(failed) > 0 {
-		fmt.Fprintln(os.Stderr, "health failed, rolling back:", failed)
+		fmt.Fprintln(os.Stderr, "health failed (api), rolling back:", failed)
 		notify.AlertOnce("stack:rollback:"+tag, "↩️ Stack auto-rollback after failed apply <code>"+tag+"</code>: "+strings.Join(failed, ", "))
 		if err := Rollback(); err != nil {
 			return fmt.Errorf("apply health fail %v; rollback: %w", failed, err)

@@ -1,3 +1,10 @@
+## 0.9.130
+
+- **Fix stack auto-rollback:** health no longer fails on telegram-bot alone (false fail → rollback to 0.9.121)
+- `version.Running()` prefers **binary** over stale `/etc/netductor/VERSION` and self-heals the file
+- snapshotPrev stores real running version, not compile const
+- TG update: simpler systemd-run (no double restart race)
+
 ## 0.9.129
 
 - TG Topics: visible on main menu + Tools; **Recreate topics** button (ForceRecreate)
