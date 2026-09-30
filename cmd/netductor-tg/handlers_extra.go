@@ -13,6 +13,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/sites"
+	ndstack "github.com/PavelNeyman/netductor/internal/stack"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -512,6 +513,25 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		if !strings.HasPrefix(tag, "v") {
 			tag = "v" + tag
 		}
+		// Ignore double-taps while apply lock held or oneshot still scheduled.
+		if busy, cur, _ := ndstack.ApplyInProgress(); busy {
+			msg := ndstack.ApplyLockStatusLine(ru)
+			if msg == "" {
+				msg = "⏳ busy: " + esc(cur)
+			}
+			rows := [][]map[string]any{{btnDisabled("⏳ " + cur), btn("⬅️ "+parentTools(), "m:tools", "primary")}}
+			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": rows})
+			return
+		}
+		// Refuse if previous systemd unit still active
+		if out, _ := exec.Command("systemctl", "is-active", "netductor-stack-apply.service").Output(); strings.TrimSpace(string(out)) == "activating" || strings.TrimSpace(string(out)) == "active" {
+			msg := "⏳ Update job still running"
+			if ru {
+				msg = "⏳ Задача обновления ещё выполняется"
+			}
+			reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{{btnDisabled("⏳ …"), btn("⬅️ "+parentTools(), "m:tools", "primary")}}})
+			return
+		}
 		// Schedule apply outside bot process (replacing tg binary under feet → failed + rollback).
 		script := fmt.Sprintf(
 			"/bin/bash -c 'sleep 2; /usr/local/bin/netductor stack apply %s >>/var/log/netductor-stack-apply.log 2>&1; systemctl reset-failed netductor-telegram-bot 2>/dev/null; systemctl restart netductor-telegram-bot netductor-api'",
@@ -578,6 +598,10 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	} else {
 		b.WriteString("<i>Pick a release. Pre-apply backup + wait backup_pull. Edge: point agent_update (no auto-rollout).</i>\n")
 	}
+	applyBusy, _, _ := ndstack.ApplyInProgress()
+	if line := ndstack.ApplyLockStatusLine(ru); line != "" {
+		b.WriteString(line + "\n")
+	}
 	// release picker (top 6)
 	rows := [][]map[string]any{}
 	if list, e := ndupdate.ListReleases(6); e == nil {
@@ -590,7 +614,11 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 					label = r.Tag + " (latest)"
 				}
 			}
-			rows = append(rows, []map[string]any{btn("⬆ "+label, "m:updates:apply:"+r.Tag, "primary")})
+			if applyBusy {
+				rows = append(rows, []map[string]any{btnDisabled("⏳ "+label)})
+			} else {
+				rows = append(rows, []map[string]any{btn("⬆ "+label, "m:updates:apply:"+r.Tag, "primary")})
+			}
 		}
 	} else {
 		// API rate-limited: still offer latest attempt + current local tag
@@ -599,7 +627,11 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		} else {
 			b.WriteString("<i>Release list unavailable (GitHub 403). Retry later or set NETDUCTOR_GITHUB_TOKEN on primary.</i>\n")
 		}
-		rows = append(rows, []map[string]any{btn("⬆ Latest", "m:updates:self", "primary")})
+		if applyBusy {
+			rows = append(rows, []map[string]any{btnDisabled("⏳ Latest")})
+		} else {
+			rows = append(rows, []map[string]any{btn("⬆ Latest", "m:updates:self", "primary")})
+		}
 		if local != "" {
 			rows = append(rows, []map[string]any{btn("⬆ v"+strings.TrimPrefix(local, "v"), "m:updates:apply:v"+strings.TrimPrefix(local, "v"), "")})
 		}

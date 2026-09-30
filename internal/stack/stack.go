@@ -176,6 +176,12 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if !strings.HasPrefix(tag, "v") {
 		tag = "v" + tag
 	}
+	if !TryAcquireApplyLock(tag) {
+		busy, cur, _ := ApplyInProgress()
+		_ = busy
+		return fmt.Errorf("apply already in progress: %s", cur)
+	}
+	defer ClearApplyLock()
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
 		if path, err := install.Backup(); err != nil {

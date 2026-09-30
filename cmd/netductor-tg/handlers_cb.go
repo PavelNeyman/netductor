@@ -302,6 +302,8 @@ if strings.HasPrefix(data, "u:") {
 
 	switch data {
 	case "m:noop":
+		// Disabled / busy button — brief toast
+		answerCallbackText(token, cq.ID, "⏳")
 		return
 	case "m:topics":
 		reply(token, chat, msgID, notify.TopicsStatusHTML(getLang() != "en"), map[string]any{"inline_keyboard": [][]map[string]any{
