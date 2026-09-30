@@ -2,6 +2,7 @@
 package stack
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -70,7 +71,9 @@ func binVersion(path string) string {
 	if _, err := os.Stat(path); err != nil {
 		return "missing"
 	}
-	out, err := exec.Command(path, "version").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, path, "version").CombinedOutput()
 	if err != nil {
 		return ""
 	}

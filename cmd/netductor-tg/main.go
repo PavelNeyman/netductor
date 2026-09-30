@@ -18,6 +18,8 @@ import (
 	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
+var version = "0.9.122"
+
 func claimAdmin(chatID int64) {
 	// Production: admin id must be pre-provisioned (file or NETDUCTOR_TG_ADMIN).
 	// First-message claim only if NETDUCTOR_TG_CLAIM_FIRST=1.
@@ -767,6 +769,16 @@ func setBotCommands(token string) {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "version", "-v", "--version":
+			fmt.Printf("netductor-tg %s\n", version)
+			return
+		case "help", "-h", "--help":
+			fmt.Println("netductor-tg [version] — Telegram bot for netductor (systemd)")
+			return
+		}
+	}
 
 	ndconfig.Load()
 
