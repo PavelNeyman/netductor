@@ -148,12 +148,11 @@ func ShadowrocketAdminDirectRules() []string {
 // Default remote RULE-SET URLs (community-maintained domain lists for Shadowrocket).
 // RULE-SET = "load this list of domains/IPs from URL and apply policy" — not our VPS IPs.
 func defaultRemoteRuleSetDIRECT() []string {
+	// Only lists that must stay on home ISP (DIRECT).
+	// Do NOT include domains_community.list — that list is YouTube/Instagram/AI/etc.
+	// and is meant for PROXY in community configs, not DIRECT.
 	return []string{
-		// Banking / fintech domains (ЦБ-oriented list maintained by community)
-		"https://cdn.jsdelivr.net/gh/misha-tgshv/shadowrocket-configuration-file@main/rules/banking.list",
-		// Extra community domains
-		"https://cdn.jsdelivr.net/gh/misha-tgshv/shadowrocket-configuration-file@main/rules/domains_community.list",
-		// RU IP-checker apps (should see real ISP IP)
+		"https://cdn.jsdelivr.net/gh/misha-tgshv/shadowrocket-configuration-file@main/rules/domains_banking.list",
 		"https://cdn.jsdelivr.net/gh/misha-tgshv/shadowrocket-configuration-file@main/rules/domains_ipchecker.list",
 	}
 }
