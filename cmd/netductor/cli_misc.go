@@ -91,6 +91,82 @@ func runBackupCmd(args []string) {
 				fmt.Println("ok", install.FormatBackupSchedule(s))
 			}
 			return
+		case "secondary-local", "local-secondary":
+			path, err := install.BackupSecondaryLocal()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println(path)
+			return
+		case "push-recovery":
+			url, tok, file := "", "", ""
+			for i := 1; i < len(args); i++ {
+				switch args[i] {
+				case "--url", "-u":
+					if i+1 < len(args) {
+						i++
+						url = args[i]
+					}
+				case "--token", "-t":
+					if i+1 < len(args) {
+						i++
+						tok = args[i]
+					}
+				case "--file", "-f":
+					if i+1 < len(args) {
+						i++
+						file = args[i]
+					}
+				}
+			}
+			if err := install.PushBackupRecovery(url, tok, file); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			return
+		case "push-ssh":
+			host, port, key, file := "", "52222", "", ""
+			for i := 1; i < len(args); i++ {
+				switch args[i] {
+				case "--host", "-h":
+					if i+1 < len(args) {
+						i++
+						host = args[i]
+					}
+				case "--port", "-p":
+					if i+1 < len(args) {
+						i++
+						port = args[i]
+					}
+				case "--key", "-i":
+					if i+1 < len(args) {
+						i++
+						key = args[i]
+					}
+				case "--file", "-f":
+					if i+1 < len(args) {
+						i++
+						file = args[i]
+					}
+				}
+			}
+			if file == "" {
+				// latest local
+				dir := filepath.Join(paths.StateDir(), "backups")
+				ents, _ := os.ReadDir(dir)
+				for _, e := range ents {
+					n := e.Name()
+					if strings.HasSuffix(n, ".ndenc") {
+						file = filepath.Join(dir, n)
+					}
+				}
+			}
+			if err := install.PushBackupSSH(host, port, key, file); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			return
 		case "now", "run":
 			// fallthrough
 		case "verify", "list":

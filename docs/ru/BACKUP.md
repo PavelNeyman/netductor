@@ -41,3 +41,13 @@ Credentials после деплоя: `~/.netductor/credentials/` — [OPERATOR_C
 5. UFW secondary IPs, redirect LE
 
 Без успешного `vpn apply` после recover **не считать VPN рабочим** — [RECOVER-DRILL.md](RECOVER-DRILL.md).
+
+
+## Secondary без API primary
+
+```bash
+netductor backup secondary-local
+netductor recovery arm
+netductor backup push-recovery --url https://SEC:8790 --token … --file …
+netductor backup push-ssh --host SEC --file …
+```

@@ -1,3 +1,16 @@
+## 0.9.119
+
+- backup secondary-local / push-recovery / push-ssh
+- recovery upload endpoint
+- doctor stack-watchdog timer
+
+## 0.9.119
+
+- backup secondary-local (no primary API)
+- recovery POST /recovery/upload + backup push-recovery
+- backup push-ssh emergency offsite
+- doctor WARN stack-watchdog.timer
+
 ## 0.9.118
 
 - stack: pre-backup on apply; TG alerts on apply/rollback/watchdog; FormatHTML

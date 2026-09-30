@@ -124,3 +124,26 @@ netductor recovery disarm
 
 Credentials (including keys/tokens) are written after deploy to
 `~/.netductor/credentials/` — see [OPERATOR_CREDENTIALS.md](OPERATOR_CREDENTIALS.md).
+
+## Secondary without primary API (DR)
+
+When primary API is down, agent `backup_pull` cannot run. Alternatives:
+
+```bash
+# A) On secondary itself — local archive of secondary state
+netductor backup secondary-local
+# → /var/lib/netductor/backups/local/secondary-*.ndenc
+
+# B) From Mac/primary: push existing .ndenc into secondary recovery port
+#    (secondary must have: netductor recovery arm)
+netductor recovery arm --ttl 30m   # on secondary
+netductor backup push-recovery \
+  --url https://SECONDARY_IP:8790 \
+  --token "$(cat recovery_token)" \
+  --file /path/to/netductor-….ndenc
+
+# C) Emergency SCP (operator key, port 52222)
+netductor backup push-ssh --host SECONDARY_IP --file /path/to/….ndenc
+```
+
+Recovery pull for primary rebuild is unchanged: `netductor recover --from-secondary …`.

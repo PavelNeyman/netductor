@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -274,7 +275,34 @@ func ArmRecovery(ttl time.Duration) error {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write(b)
 	}))
-	mux.HandleFunc("/recovery/health", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/recovery/upload", auth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", 405)
+			return
+		}
+		dir := "/var/lib/netductor/backups/peers/core"
+		_ = os.MkdirAll(dir, 0o700)
+		name := r.Header.Get("X-Netductor-Backup-Name")
+		if name == "" {
+			name = "netductor-upload-" + time.Now().UTC().Format("20060102-150405") + ".ndenc"
+		}
+		name = filepath.Base(name)
+		outPath := filepath.Join(dir, name)
+		f, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		n, err := io.Copy(f, r.Body)
+		f.Close()
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintf(w, "stored %s (%d bytes)\n", outPath, n)
+	}))
+mux.HandleFunc("/recovery/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("ok\n"))
 	})

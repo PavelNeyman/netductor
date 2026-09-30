@@ -485,6 +485,14 @@ func runDoctorNative() int {
 			}
 		}
 	}
+	// stack watchdog timer (optional orchestrator)
+	if st, err := exec.Command("systemctl", "is-active", "netductor-stack-watchdog.timer").CombinedOutput(); err == nil && strings.TrimSpace(string(st)) == "active" {
+		ok++
+		fmt.Println("OK   stack-watchdog.timer")
+	} else {
+		warn++
+		fmt.Println("WARN stack-watchdog.timer inactive (netductor stack watchdog-install)")
+	}
 	lastDoctorReport.Summary.OK = ok
 	lastDoctorReport.Summary.Fail = fail
 	lastDoctorReport.Summary.Warn = warn
