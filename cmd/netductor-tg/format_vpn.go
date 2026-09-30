@@ -188,37 +188,49 @@ func accessPayload(name, mode string) (payload string) {
 	switch mode {
 	case "sub":
 		tok, err := vpn.EnsureSubToken(name)
-		if err != nil {
+		if err != nil || tok == "" {
 			return ""
 		}
-		// Same base as import buttons (redirect service hosts /sub/{token}).
 		base := redirectBase()
-		if base == "" {
-			if b, err := os.ReadFile("/etc/netductor/secrets/domain"); err == nil {
-				d := strings.TrimSpace(string(b))
-				if d != "" {
-					// Prefer dedicated redirect host if operator uses redirect.<domain>
-					base = "https://redirect." + d
-				}
-			}
-		}
 		if base == "" {
 			return ""
 		}
 		return strings.TrimRight(base, "/") + "/sub/" + tok
 	case "core":
-		payload = shareURIFrom(runVPN("link", name, "core"))
+		payload = vlessURIDirect(name, true)
 		if payload == "" {
-			payload = shareURIFrom(runVPN("link", name, "vless"))
+			payload = vlessURIDirect(name, false)
 		}
 	default:
-		mode = "vless"
-		payload = shareURIFrom(runVPN("link", name, "vless"))
+		payload = vlessURIDirect(name, false)
 	}
-	if strings.Contains(payload, "not found") || strings.Contains(payload, "exit status") {
-		payload = ""
+	payload = strings.TrimSpace(strings.Split(payload, "\n")[0])
+	if payload == "" || strings.Contains(payload, "not found") || strings.Contains(payload, "exit status") {
+		return ""
 	}
-	return strings.TrimSpace(strings.Split(payload, "\n")[0])
+	return payload
+}
+
+// vlessURIDirect builds link in-process (no CLI shell) — stable under rapid TG callbacks.
+func vlessURIDirect(name string, core bool) string {
+	users, err := vpn.ListNative()
+	if err != nil {
+		return ""
+	}
+	var uuid string
+	for _, u := range users {
+		if u.Name == name {
+			uuid = u.UUID
+			break
+		}
+	}
+	if uuid == "" {
+		return ""
+	}
+	if core {
+		return strings.TrimSpace(vpn.VLESSLink(name, uuid))
+	}
+	return strings.TrimSpace(vpn.PreferredVLESSLink(name, uuid))
 }
 
 // formatAccessRichHTML — body actions only (TG-UI.md). Navigation via reply_markup.
@@ -226,6 +238,30 @@ func redirectBase() string {
 	for _, k := range []string{"NETDUCTOR_REDIRECT_BASE", "REDIRECT_BASE"} {
 		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 			return strings.TrimRight(v, "/")
+		}
+	}
+	// conf may exist even if unit env was not reloaded
+	if b, err := os.ReadFile("/etc/netductor/netductor.conf"); err == nil {
+		for _, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			for _, pfx := range []string{"REDIRECT_BASE=", "NETDUCTOR_REDIRECT_BASE="} {
+				if strings.HasPrefix(line, pfx) {
+					v := strings.TrimSpace(strings.TrimPrefix(line, pfx))
+					v = strings.Trim(v, "\"")
+					if v != "" {
+						return strings.TrimRight(v, "/")
+					}
+				}
+			}
+		}
+	}
+	if b, err := os.ReadFile("/etc/netductor/secrets/domain"); err == nil {
+		d := strings.TrimSpace(string(b))
+		if d != "" {
+			return "https://redirect." + d
 		}
 	}
 	return ""
@@ -369,8 +405,11 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		mode = "vless"
 	}
 	uri := accessPayload(name, mode)
+	if uri == "" && mode == "sub" {
+		fmt.Fprintln(os.Stderr, "accessPayload sub empty: redirectBase=", redirectBase(), "name=", name)
+	}
 	html := formatAccessRichHTML(name, mode, uri)
-	kb := userAccessKeyboard(name, mode) // navigation only under message
+	kb := userAccessKeyboard(name, mode)
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
 
@@ -386,7 +425,8 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		qrPath = filepath.Join(dir, "qr-sub.png")
 	}
 	if p := ensureQRFile(qrPath, uri); p == "" {
-		fmt.Fprintln(os.Stderr, "ensureQRFile failed for", name, mode)
+		fmt.Fprintln(os.Stderr, "ensureQRFile failed for", name, mode, "uriLen=", len(uri))
+		// Still show link text — do not treat as "no links"
 		reply(token, chat, msgID, html, kb)
 		return
 	}
