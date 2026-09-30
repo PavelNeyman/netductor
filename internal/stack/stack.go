@@ -145,9 +145,12 @@ func saveCurrent(tag string) {
 	_ = os.WriteFile(curMetaPath(), append(raw, '\n'), 0o644)
 }
 
-// snapshotPrev copies current node+tg binaries aside for rollback.
-func snapshotPrev() error {
-	dir := prevDir()
+func attemptDir() string {
+	return filepath.Join(paths.StateDir(), "stack", "attempt")
+}
+
+// snapshotBins copies node+tg (+ VERSION) into dir for rollback / last-good.
+func snapshotBins(dir string) error {
 	_ = os.MkdirAll(dir, 0o755)
 	for _, src := range []string{"/usr/local/bin/netductor", "/usr/local/bin/netductor-tg"} {
 		b, err := os.ReadFile(src)
@@ -156,14 +159,19 @@ func snapshotPrev() error {
 		}
 		_ = os.WriteFile(filepath.Join(dir, filepath.Base(src)), b, 0o755)
 	}
-	// Prefer on-disk/binary version, not compile-time const of the apply process.
-	prevVer := version.Running()
-	if prevVer == "" {
-		prevVer = version.Release
+	ver := version.Running()
+	if ver == "" {
+		ver = version.Release
 	}
-	_ = os.WriteFile(filepath.Join(dir, "VERSION"), []byte(prevVer+"\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "VERSION"), []byte(ver+"\n"), 0o644)
 	return nil
 }
+
+// snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
+func snapshotPrev() error { return snapshotBins(prevDir()) }
+
+// snapshotAttempt is pre-apply only — used if apply must abort mid-flight.
+func snapshotAttempt() error { return snapshotBins(attemptDir()) }
 
 // Apply downloads node+tg for tag, snapshots prev, restarts core units, health-checks.
 func Apply(tag string) error {
@@ -198,7 +206,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 			_, _ = install.WaitForBackupPull(20 * time.Second)
 		}
 	}
-	_ = snapshotPrev()
+	_ = snapshotAttempt()
 	fmt.Fprintln(os.Stderr, "stack apply:", tag)
 	notify.AlertOnce("stack:apply:"+tag, "⬆️ Stack apply <code>"+tag+"</code> started")
 	if err := ndupdate.DownloadReleaseAsset(tag, "node", "/usr/local/bin/netductor"); err != nil {
@@ -247,12 +255,13 @@ func ApplyOpts(tag string, noBackup bool) error {
 		}
 	}
 	if len(failed) > 0 {
-		fmt.Fprintln(os.Stderr, "health failed (api), rolling back:", failed)
-		notify.AlertOnce("stack:rollback:"+tag, "↩️ Stack auto-rollback after failed apply <code>"+tag+"</code>: "+strings.Join(failed, ", "))
-		if err := Rollback(); err != nil {
-			return fmt.Errorf("apply health fail %v; rollback: %w", failed, err)
+		fmt.Fprintln(os.Stderr, "health failed (api), restoring attempt snapshot:", failed)
+		notify.AlertOnce("stack:rollback:"+tag, "↩️ Stack apply failed <code>"+tag+"</code>: "+strings.Join(failed, ", ")+" — restored pre-apply binaries")
+		if err := restoreFrom(attemptDir()); err != nil {
+			// do not touch last-good prev/
+			return fmt.Errorf("apply health fail %v; restore attempt: %w", failed, err)
 		}
-		return fmt.Errorf("apply health fail %v; rolled back", failed)
+		return fmt.Errorf("apply health fail %v; restored pre-apply", failed)
 	}
 	// queue secondary agents to same release
 	secN := 0
@@ -269,12 +278,14 @@ func ApplyOpts(tag string, noBackup bool) error {
 	}
 	notify.AlertOnce("stack:apply-ok:"+tag, msg)
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag, "secondary_queued", secN)
+	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)
+	_ = snapshotPrev()
+	_ = os.RemoveAll(attemptDir())
 	return nil
 }
 
-// Rollback restores prev binaries and restarts.
-func Rollback() error {
-	dir := prevDir()
+func restoreFrom(dir string) error {
+	restored := 0
 	for _, name := range []string{"netductor", "netductor-tg"} {
 		src := filepath.Join(dir, name)
 		if _, err := os.Stat(src); err != nil {
@@ -284,10 +295,13 @@ func Rollback() error {
 		if err != nil {
 			return err
 		}
-		dest := "/usr/local/bin/" + name
-		if err := os.WriteFile(dest, b, 0o755); err != nil {
+		if err := os.WriteFile("/usr/local/bin/"+name, b, 0o755); err != nil {
 			return err
 		}
+		restored++
+	}
+	if restored == 0 {
+		return fmt.Errorf("no binaries in %s", dir)
 	}
 	if b, err := os.ReadFile(filepath.Join(dir, "VERSION")); err == nil {
 		ndupdate.WriteVERSION(strings.TrimSpace(string(b)))
@@ -295,7 +309,15 @@ func Rollback() error {
 	}
 	_ = exec.Command("systemctl", "restart", "netductor-api").Run()
 	_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
-	notify.AlertOnce("stack:rollback-manual", "↩️ Stack rollback restored prev binaries")
+	return nil
+}
+
+// Rollback restores last-good (prev/) binaries — never auto-called to ancient snapshots after success.
+func Rollback() error {
+	if err := restoreFrom(prevDir()); err != nil {
+		return err
+	}
+	notify.AlertOnce("stack:rollback-manual", "↩️ Stack rollback restored last-good binaries")
 	fmt.Fprintln(os.Stderr, "stack rollback done")
 	return nil
 }

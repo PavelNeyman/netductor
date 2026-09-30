@@ -1,3 +1,9 @@
+## 0.9.133
+
+- **Stack:** last-good `prev/` updated only after successful apply (no more rollback to ancient 0.9.121)
+- Pre-apply snapshot in `attempt/` — auto-restore only from attempt on API hard-fail
+- TG Rollback requires **confirm**
+
 ## 0.9.132
 
 - TG Tools: route `m:cat:nodes|routers|sites|vpn` (aliases used in fleet hub)

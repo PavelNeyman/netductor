@@ -11,8 +11,12 @@ import (
 func handleStackCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	kb := func() map[string]any {
+		rb := "↩️ Rollback"
+		if ru {
+			rb = "↩️ Откат"
+		}
 		return map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🔄", "m:stack", "primary"), btn("↩️ Rollback", "m:stack:rollback", ""), btn("🔧 WD", "m:stack:watchdog", "")},
+			{btn("🔄", "m:stack", "primary"), btn(rb, "m:stack:rollback", ""), btn("🔧 WD", "m:stack:watchdog", "")},
 			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 		}}
 	}
@@ -21,12 +25,22 @@ func handleStackCB(token string, chat int64, msgID int, data string) {
 		st := stack.Collect()
 		html := stack.FormatHTML(st)
 		if ru {
-			html += "\n\n<i>Rollback — предыдущие node+tg. WD — one-shot watchdog.</i>"
+			html += "\n\n<i>Откат — last-good (после успешного apply = текущий релиз). Нужно подтверждение.</i>"
 		} else {
-			html += "\n\n<i>Rollback — prev node+tg. WD — one-shot watchdog.</i>"
+			html += "\n\n<i>Rollback — last-good (after successful apply = current). Requires confirm.</i>"
 		}
 		reply(token, chat, msgID, html, kb())
 	case data == "m:stack:rollback":
+		msg := "↩️ <b>Rollback last-good?</b>\n<i>After a successful update, prev is the same release — safe. Ancient 0.9.121 is no longer kept as last-good.</i>"
+		yes, cancel := "✅ Confirm", "⬅️ Cancel"
+		if ru {
+			msg = "↩️ <b>Откатить на last-good?</b>\n<i>После успешного обновления prev = текущий релиз. Древний 0.9.121 больше не хранится как last-good.</i>"
+			yes, cancel = "✅ Подтвердить", "⬅️ Отмена"
+		}
+		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn(yes, "m:stack:rollback:yes", "danger"), btn(cancel, "m:stack", "")},
+		}})
+	case data == "m:stack:rollback:yes":
 		wait := "⏳ Rollback…"
 		if ru {
 			wait = "⏳ Откат…"
