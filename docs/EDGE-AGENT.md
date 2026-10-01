@@ -16,6 +16,11 @@ After first password bootstrap, provision installs the **operator (Mac) pubkey**
 
 
 
+## Root password (first-boot)
+
+- **Current** password: optional — leave empty for factory OpenWrt (no password).
+- **New** password: optional — set once during provision, then password SSH is disabled (operator key only).
+
 ## Agent architecture (first-boot)
 
 **No OpenWrt package feed.** First-boot always places a pure-Go binary via SCP from the operator machine.

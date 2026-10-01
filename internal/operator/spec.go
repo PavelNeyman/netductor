@@ -112,6 +112,7 @@ type EdgeSpec struct {
 	RouterHost                                   string
 	RouterUser                                   string
 	RouterPass                                   string
+	NewRootPassword                              string
 	DeviceID                                     string
 	ServerURL                                    string
 	Version                                      string
@@ -134,6 +135,7 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		PrimaryHost: e.PrimaryHost, PrimaryUser: e.PrimaryUser, PrimaryKey: e.PrimaryKey,
 		PrimaryKeyPassphrase: e.PrimaryKeyPassphrase,
 		RouterHost:           e.RouterHost, RouterUser: e.RouterUser, RouterPass: e.RouterPass,
+		NewRootPassword:      e.NewRootPassword,
 		DeviceID: e.DeviceID, ServerURL: e.ServerURL, Version: e.Version, AgentArch: e.AgentArch,
 		NetConfigure: e.NetConfigure, LANIP: e.LANIP, LANMask: e.LANMask,
 		DHCPStart: e.DHCPStart, DHCPLimit: e.DHCPLimit,

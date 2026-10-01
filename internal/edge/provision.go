@@ -19,7 +19,8 @@ type ProvisionOpts struct {
 	SSHKey         string
 	Arch           string
 	Token          string
-	Password       string
+	Password       string // current root password; empty = factory OpenWrt (empty password login)
+	NewRootPassword string // optional: set root password before disabling password SSH
 	OperatorPubKey string
 	// Optional mTLS client material (from primary EnsureClientFor).
 	MTLSCA   []byte
@@ -55,18 +56,33 @@ func Provision(opts ProvisionOpts) error {
 		server = forceAgentMTLSURL(server)
 	}
 
-	sshBase := []string{"-o", "StrictHostKeyChecking=accept-new"}
-	if strings.TrimSpace(opts.Password) == "" {
-		sshBase = append(sshBase, "-o", "BatchMode=yes")
-	} else {
-		sshBase = append(sshBase, "-o", "PreferredAuthentications=password", "-o", "PubkeyAuthentication=no")
+	// Factory OpenWrt often has empty root password. Prefer password auth (including empty)
+	// for first contact; do not BatchMode+operator key (pubkey not on router yet).
+	sshBase := []string{
+		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "PreferredAuthentications=password",
+		"-o", "PubkeyAuthentication=no",
+		"-o", "NumberOfPasswordPrompts=3",
 	}
-	if opts.SSHKey != "" {
-		sshBase = append(sshBase, "-i", opts.SSHKey)
+	// Re-provision path: no password attempt, operator key already on router.
+	useKeyOnly := strings.TrimSpace(opts.Password) == "" && opts.SSHKey != "" && opts.NewRootPassword == "" && os.Getenv("NETDUCTOR_EDGE_KEY_ONLY") == "1"
+	if useKeyOnly {
+		sshBase = []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
 	}
 	scpArgs := append(append([]string{"scp"}, sshBase...), agent, opts.SSHTarget+":/tmp/netductor-agent")
 	if out, err := sshpassCmd(opts.Password, scpArgs).CombinedOutput(); err != nil {
-		return fmt.Errorf("scp: %s %v", out, err)
+		// Fallback: try operator key (router already provisioned once).
+		if opts.SSHKey != "" && !useKeyOnly {
+			keyBase := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
+			scp2 := append(append([]string{"scp"}, keyBase...), agent, opts.SSHTarget+":/tmp/netductor-agent")
+			if out2, err2 := exec.Command(scp2[0], scp2[1:]...).CombinedOutput(); err2 == nil {
+				sshBase = keyBase
+			} else {
+				return fmt.Errorf("scp: %s %v (key fallback: %s %v); empty password = factory OpenWrt, leave router password blank", out, err, out2, err2)
+			}
+		} else {
+			return fmt.Errorf("scp: %s %v", out, err)
+		}
 	}
 	cfg := fmt.Sprintf("SERVER=%s\nTOKEN=%s\nDEVICE_ID=%s\nINTERVAL=60\n",
 		server, boot, opts.DeviceID)
@@ -82,6 +98,20 @@ echo '%s' | base64 -d > /etc/netductor-agent/mtls/client.key
 chmod 700 /etc/netductor-agent/mtls
 chmod 600 /etc/netductor-agent/mtls/*
 `, enc(opts.MTLSCA), enc(opts.MTLSCert), enc(opts.MTLSKey))
+	}
+
+	// Optional root password change before SSH password auth is disabled.
+	setPass := ""
+	if np := strings.TrimSpace(opts.NewRootPassword); np != "" {
+		b64 := base64.StdEncoding.EncodeToString([]byte(np))
+		setPass = fmt.Sprintf(`
+# set root password (optional, before harden)
+NEWP=$(echo '%s' | base64 -d 2>/dev/null) || NEWP=$(echo '%s' | base64 -D 2>/dev/null)
+if [ -n "$NEWP" ]; then
+  printf '%%s\n%%s\n' "$NEWP" "$NEWP" | passwd root 2>/dev/null || \
+    (command -v chpasswd >/dev/null && printf 'root:%%s\n' "$NEWP" | chpasswd) || true
+fi
+`, b64, b64)
 	}
 
 	harden := ""
@@ -126,6 +156,7 @@ CFG
 chmod 600 /etc/netductor-agent/config
 %s
 %s
+%s
 if [ -d /etc/init.d ]; then
   cat > /etc/init.d/netductor-agent <<'INIT'
 #!/bin/sh /etc/rc.common
@@ -143,7 +174,7 @@ INIT
   /etc/init.d/netductor-agent enable 2>/dev/null || true
   /etc/init.d/netductor-agent restart 2>/dev/null || /usr/sbin/netductor-agent &
 fi
-`, cfg, mtlsBlock, harden)
+`, cfg, mtlsBlock, setPass, harden)
 	sshArgs := append(append([]string{"ssh"}, sshBase...), opts.SSHTarget, "sh", "-s")
 	cmd := sshpassCmd(opts.Password, sshArgs)
 	cmd.Stdin = strings.NewReader(script)
@@ -168,12 +199,13 @@ func forceAgentMTLSURL(server string) string {
 }
 
 func sshpassCmd(password string, args []string) *exec.Cmd {
-	if password == "" {
-		return exec.Command(args[0], args[1:]...)
-	}
+	// Empty password is valid for factory OpenWrt; still use sshpass when available.
 	sp, err := exec.LookPath("sshpass")
 	if err != nil {
 		return exec.Command(args[0], args[1:]...)
 	}
-	return exec.Command(sp, append([]string{"-p", password}, args...)...)
+	// Prefer env form so empty password works (sshpass -e).
+	cmd := exec.Command(sp, append([]string{"-e"}, args...)...)
+	cmd.Env = append(os.Environ(), "SSHPASS="+password)
+	return cmd
 }

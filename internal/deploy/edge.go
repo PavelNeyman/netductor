@@ -20,6 +20,7 @@ type EdgeOpts struct {
 	RouterHost           string
 	RouterUser           string
 	RouterPass           string
+	NewRootPassword      string // optional set root pass before harden
 	DeviceID             string
 	ServerURL            string
 	AgentArch            string
@@ -178,6 +179,7 @@ echo KEY:$(b64 "$DIR/client.key")
 		AgentBin:       agent,
 		Token:          token,
 		Password:       o.RouterPass,
+		NewRootPassword: o.NewRootPassword,
 		SSHKey:         o.PrimaryKey,
 		OperatorPubKey: pub,
 		MTLSCA:         mtlsCA,

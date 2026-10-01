@@ -27,7 +27,7 @@ secondary:
   [--primary-key-passphrase] [--secondary-key]
 
 edge:
-  --router --id --password [--user root] [--arch auto|arm64|arm|mipsle|amd64|riscv64]
+  --router --id [--password] [--new-root-password] [--user root] [--arch auto|…]
   --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
   --guest [--guest-ssid] [--guest-pin] [--guest-psk] [--reboot]
   --configure-net
@@ -229,6 +229,9 @@ See: netductor tui → Setup wizard`)
 			case a == "--password" && i+1 < len(args):
 				i++
 				o.RouterPass = args[i]
+			case a == "--new-root-password" && i+1 < len(args):
+				i++
+				o.NewRootPassword = args[i]
 			case a == "--id" && i+1 < len(args):
 				i++
 				o.DeviceID = args[i]
@@ -330,6 +333,7 @@ See: netductor tui → Setup wizard`)
 			PrimaryHost: o.PrimaryHost, PrimaryUser: o.PrimaryUser, PrimaryKey: o.PrimaryKey,
 			PrimaryKeyPassphrase: o.PrimaryKeyPassphrase,
 			RouterHost:           o.RouterHost, RouterUser: o.RouterUser, RouterPass: o.RouterPass,
+			NewRootPassword:      o.NewRootPassword,
 			DeviceID: o.DeviceID, ServerURL: o.ServerURL, Version: o.Version, AgentArch: o.AgentArch,
 			NetConfigure: o.NetConfigure, LANIP: o.LANIP, LANMask: o.LANMask,
 			DHCPStart: o.DHCPStart, DHCPLimit: o.DHCPLimit,

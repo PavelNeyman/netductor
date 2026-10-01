@@ -106,7 +106,9 @@
 <section id="panel-edge" class="panel">
     <p class="note" data-i18n="edge_note">OpenWrt / RPi: agent + optional UCI. Primary host/key/URL prefill from Fleet form or Settings when possible.</p>
     <form id="form-edge">
-      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required placeholder="192.168.1.1"/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required placeholder="192.168.1.1"/></div><div><label data-i18n="l_router_pass">Current root password</label><input name="router_password" type="password" placeholder="empty = factory OpenWrt"/></div></div>
+      <div class="checks"><label><input type="checkbox" name="set_root_pass" id="edge_set_root"/> <span data-i18n="c_set_root">Set new root password</span></label></div>
+      <div id="edge_new_root" class="row" hidden><div><label data-i18n="l_new_root">New root password</label><input name="new_root_password" type="password" autocomplete="new-password"/></div><div></div></div>
       <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="auto" placeholder="auto | arm64 | arm | mipsle | amd64 | riscv64"/></div></div>
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" placeholder="2.27.118.70 or p.nd…"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>

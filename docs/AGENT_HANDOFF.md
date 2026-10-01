@@ -1,3 +1,9 @@
+## 0.9.158 Optional root password on edge provision
+
+- Current router password may be **empty** (factory OpenWrt)
+- Optional **new root password** (Web checkbox / TUI / `--new-root-password`) applied before SSH harden (password auth off, key only)
+- Prefers password auth (incl. empty) for first contact; key fallback if already provisioned
+
 ## 0.9.157 Edge prefill key path
 
 - Fleet localStorage stores SSH path as `key`; edge prefill looked for `primary_key` only → wrong/empty path

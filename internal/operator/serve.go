@@ -568,6 +568,7 @@ type edgeBody struct {
 	RouterHost   string `json:"router_host"`
 	RouterUser   string `json:"router_user"`
 	RouterPass   string `json:"router_password"`
+	NewRootPassword string `json:"new_root_password"`
 	DeviceID     string `json:"device_id"`
 	PrimaryHost  string `json:"primary_host"`
 	PrimaryUser  string `json:"primary_user"`
@@ -630,6 +631,7 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 	}
 	spec := EdgeSpec{
 		RouterHost: body.RouterHost, RouterUser: body.RouterUser, RouterPass: body.RouterPass,
+		NewRootPassword: body.NewRootPassword,
 		DeviceID: body.DeviceID, PrimaryHost: body.PrimaryHost, PrimaryUser: body.PrimaryUser,
 		PrimaryKey: body.PrimaryKey, PrimaryKeyPassphrase: body.KeyPass,
 		ServerURL: body.ServerURL, AgentArch: body.AgentArch,

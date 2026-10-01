@@ -186,6 +186,16 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		RouterHost:           strings.TrimSpace(get("router")),
 		RouterUser:           orDefault(get("user"), "root"),
 		RouterPass:           get("password"),
+		NewRootPassword: func() string {
+			if yesish(get("set_root_pass")) {
+				return get("new_root_password")
+			}
+			// Web sends new_root_password only when checkbox on; CLI may set directly
+			if v := strings.TrimSpace(get("new_root_password")); v != "" && get("set_root_pass") == "" {
+				return v
+			}
+			return ""
+		}(),
 		DeviceID:             strings.TrimSpace(get("id")),
 		AgentArch:            orDefault(get("arch"), "auto"),
 		ServerURL:            strings.TrimSpace(get("server")),
