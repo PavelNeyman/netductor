@@ -43,6 +43,11 @@ func handleEdgeLuciCB(token string, chat int64, msgID int, data string) bool {
 			reply(token, chat, msgID, b.String(), nav)
 			return true
 		}
+		if ru {
+			b.WriteString("<blockquote>Список edge · нажмите номер</blockquote>\n")
+		} else {
+			b.WriteString("<blockquote>Edge list · tap number</blockquote>\n")
+		}
 		b.WriteString("<table bordered striped compact>\n<tr><th>#</th><th>id</th><th>st</th></tr>\n")
 		for i, id := range ids {
 			if i >= 12 {

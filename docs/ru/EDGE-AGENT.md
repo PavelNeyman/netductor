@@ -1,3 +1,11 @@
+## LuCI (временный admin UI)
+
+- Только start/stop **uhttpd** (пакет остаётся).
+- TTL по умолчанию **1ч**; продление 4/24/72ч.
+- **SSH с Mac** (та же LAN, интернет на роутере не нужен) или **очередь агента** на primary.
+- Автовыключение по TTL (цикл агента).
+- TG: Роутеры → LuCI; Web/TUI/CLI `edge-luci`.
+
 **RU** · [EN](../EDGE-AGENT.md)
 
 # Edge agent (OpenWrt)

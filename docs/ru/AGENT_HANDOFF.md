@@ -1,3 +1,19 @@
+## Модель edge (решено, код частично)
+
+**Сделано (0.9.160+):** LuCI вкл/выкл/продление/статус — агент + SSH в LAN + TG Роутеры + Web + TUI + CLI.
+
+**Решено, ещё не в коде:**
+- Private Wi‑Fi → VLESS на secondary; мягкий fallback на WAN ISP
+- Агент mTLS вне user VLESS
+- VPN-peer на каждый роутер (не в Users)
+- Blocky/DNS для LAN через VPN
+
+## 0.9.160–0.9.161 LuCI
+
+- Действия агента: `luci_enable|disable|extend|status` (hours=, дефолт **1ч**)
+- Оператор: `POST /v1/edge/luci` via ssh|agent
+- Пакет не удаляется — только uhttpd
+
 ## 0.9.151 Control+Media hub
 
 See docs/TG-MEDIA-TOPICS.md
