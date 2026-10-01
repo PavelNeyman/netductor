@@ -44,6 +44,7 @@
 | Pending / Locations | A / B | |
 | NVR hub/cams/sites | B / A | |
 | Catalog sections | A-like | body actions |
+| **Versions** | **B** + list | primary/secondary select + Apply; replaces Digest/Updates entry |
 | **Status (main)** | **C** | metrics + services + nodes + VPN — **one screen** |
 | Metrics / Health catalog | web-only | not separate TG menus |
 | Doctor | C or checks table | |

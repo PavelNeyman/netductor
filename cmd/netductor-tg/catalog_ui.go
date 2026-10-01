@@ -208,7 +208,7 @@ func formatToolsFromGroups() string {
 	if lang == "ru" {
 		top = "📁 Топики"
 	}
-	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:updates">` + upd + `</tg-button>` +
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:versions">` + upd + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:topics">` + top + `</tg-button></tg-button-row>`)
 	return b.String()
 }
@@ -225,13 +225,13 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 	case "home", "overview":
 		body := formatStatusPretty()
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🧱 Stack", "m:stack", "primary"), btn("🔄 Updates", "m:updates", "")},
+			{btn("🧱 Stack", "m:stack", "primary"), btn("🔄 Updates", "m:versions", "")},
 			{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
 			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 		}}
 		if ru {
 			kb = map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("🧱 Стек", "m:stack", "primary"), btn("🔄 Обновления", "m:updates", "")},
+				{btn("🧱 Стек", "m:stack", "primary"), btn("🔄 Обновления", "m:versions", "")},
 				{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
 				{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 			}}
@@ -266,7 +266,7 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 		reply(token, chat, msgID, body, back)
 	case "adv", "probes", "updates":
 		if groupID == "updates" {
-			handleUpdatesCB(token, chat, msgID, "m:updates")
+			handleUpdatesCB(token, chat, msgID, "m:versions")
 			return
 		}
 		out := runND("probe")

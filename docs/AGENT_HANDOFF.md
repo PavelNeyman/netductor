@@ -1,4 +1,12 @@
 
+## 0.9.150 — Versions hub + sub profiles
+
+- TG **Versions** merges Fleet digest + Updates; multi-select primary/secondary Apply
+- VPN **sub_profile**: `secondary` (default) | `primary` | `both` — subscription URL body replaced (client refresh)
+- Operator unset profile → both; others → secondary
+- Design: [TG-MEDIA-TOPICS.md](TG-MEDIA-TOPICS.md)
+
+
 ## Version policy (0.9.148+)
 
 - **No auto upgrade/rollback** of node/tg/agent binaries.

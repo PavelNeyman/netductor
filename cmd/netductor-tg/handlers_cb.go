@@ -158,7 +158,11 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		handleNVRCB(token, chat, msgID, data)
 		return
 	}
-	if data == "m:updates" || strings.HasPrefix(data, "m:updates:") {
+	if data == "m:updates" || data == "m:versions" || strings.HasPrefix(data, "m:ver:") {
+		handleVersionsCB(token, chat, msgID, data)
+		return
+	}
+	if strings.HasPrefix(data, "m:updates:") {
 		handleUpdatesCB(token, chat, msgID, data)
 		return
 	}
@@ -230,6 +234,17 @@ if strings.HasPrefix(data, "u:") {
 				showUserAccess(token, chat, msgID, name, "vless")
 			case "vlessqr":
 				showUserAccess(token, chat, msgID, name, "vless")
+			case "subprof":
+				next, err := vpn.CycleSubProfile(name)
+				if err != nil {
+					reply(token, chat, msgID, "❌ "+esc(err.Error()), userHubKeyboard(name))
+					return
+				}
+				msg := "✅ sub profile → <code>" + esc(next) + "</code>\n<i>subscription URL content replaced; client refreshes on next poll</i>"
+				if getLang() != "en" {
+					msg = "✅ профиль подписки → <code>" + esc(next) + "</code>\n<i>содержимое URL заменено; клиент подтянет при обновлении</i>"
+				}
+				reply(token, chat, msgID, msg+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
 			case "rename":
 				setState(chat, "wait_rename_new:"+name, "")
 				reply(token, chat, msgID, Tf("rename_new_hint", name), backTo("users"))
@@ -346,8 +361,8 @@ if strings.HasPrefix(data, "u:") {
 			}
 			reply(token, chat, msgID, ok+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())
 		}
-	case "m:digest":
-		reply(token, chat, msgID, formatFleetDigestHTML(), mainKeyboard())
+	case "m:digest", "m:versions":
+		handleVersionsCB(token, chat, msgID, "m:versions")
 	case "m:dr":
 		reply(token, chat, msgID, formatDisasterHTML(), mainKeyboard())
 	case "m:menu", "m:help":

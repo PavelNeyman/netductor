@@ -1,3 +1,9 @@
+## 0.9.150
+
+- TG Versions hub (select primary/secondary → Apply)
+- Subscription profiles secondary|primary|both (default secondary; operator both)
+- docs: TG-MEDIA-TOPICS design
+
 ## 0.9.149
 
 - **version.Running:** never prefer probe older than VERSION file; never prefer value older than process Release

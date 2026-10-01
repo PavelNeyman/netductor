@@ -23,6 +23,8 @@ type UserRecord struct {
 	Enabled     bool   `json:"enabled"`
 	Note        string `json:"note"`
 	Created     string `json:"created"`
+	// SubProfile: secondary (default entry) | primary (core only) | both
+	SubProfile  string `json:"sub_profile,omitempty"`
 }
 
 type registry struct {
@@ -204,16 +206,16 @@ func writeArtifacts(name, uuid string) error {
 	vless := PreferredVLESSLink(name, uuid)
 	vlessCore := VLESSLink(name, uuid)
 	nl := string([]byte{10})
-	// Primary subscription: VLESS only.
-	sub := vless + nl + vlessCore + nl
 	_ = os.WriteFile(filepath.Join(dir, "link-vless.txt"), []byte(vless+nl), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link-vless-core.txt"), []byte(vlessCore+nl), 0o600)
-	_ = os.WriteFile(filepath.Join(dir, "subscription.txt"), []byte(sub), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr.png"))
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr-vless.png"))
-	_ = qrcode.WriteFile(sub, qrcode.Medium, 512, filepath.Join(dir, "qr-subscription.png"))
-	_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub), 0o600)
+	_ = WriteSubscriptionFiles(name)
+	if sub, err := SubscriptionBody(name); err == nil {
+		_ = qrcode.WriteFile(strings.TrimSpace(sub), qrcode.Medium, 512, filepath.Join(dir, "qr-subscription.png"))
+		_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub), 0o600)
+	}
 	_ = os.Chmod(filepath.Join(dir, "qr.png"), 0o600)
 	_ = os.Chmod(filepath.Join(dir, "qr-subscription.png"), 0o600)
 	_ = WriteClientConfigs(name, uuid)

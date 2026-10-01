@@ -29,9 +29,7 @@ func TestPreferredFragmentAndSubscriptionNoHY2(t *testing.T) {
 	}
 	_ = writeArtifacts(u.Name, u.UUID)
 	// subscription removed from product surface
-	if _, ok := ReadClient(u.Name, "subscription.txt"); ok {
-		t.Fatal("subscription.txt should not be written")
-	}
+	// subscription profile-aware — file may exist
 	n, err := RefreshLinks("tuser")
 	if err != nil || n != 1 {
 		t.Fatalf("refresh %d %v", n, err)
