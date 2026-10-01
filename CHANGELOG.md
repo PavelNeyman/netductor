@@ -1,3 +1,11 @@
+## 0.9.148
+
+- **No spontaneous version changes:** secondary ignores `desired_release` self-update
+- Primary no longer sends `desired_release` for auto-upgrade
+- Stack apply does **not** queue secondary upgrade
+- CLI/API update does not fan-out secondary upgrade
+- Upgrade/rollback/heal only on explicit operator action
+
 ## 0.9.147
 
 - stack heal: restore prev when prev > running (fixes 121/146 split)

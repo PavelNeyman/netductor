@@ -1,3 +1,5 @@
+// Package stack is a thin orchestrator.
+// Policy: no spontaneous binary upgrade/rollback. Apply/Rollback/Heal/Promote only on explicit CLI/API/TG action.
 // Package stack is a thin orchestrator for netductor-owned systemd units and binaries.
 //
 // Simplified model (after 0.9.137+):
@@ -24,7 +26,6 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/install"
-	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/version"
@@ -447,21 +448,10 @@ func ApplyOpts(tag string, noBackup bool) error {
 		// Do NOT snapshotPrev on health fail — avoids marking a flaky apply as last-good.
 		return fmt.Errorf("apply health fail %v (binaries kept at %s)", failed, tag)
 	}
-	// queue secondary agents to same release
-	secN := 0
-	for _, d := range secondary.List() {
-		if secondary.Online(d, 2*time.Minute) {
-			if err := secondary.EnqueueCmd(d.ID, "upgrade:"+tag); err == nil {
-				secN++
-			}
-		}
-	}
-	msg := "✅ Stack apply ok <code>" + tag + "</code>"
-	if secN > 0 {
-		msg += fmt.Sprintf(" · secondary upgrade queued=%d", secN)
-	}
+	// Secondary is NOT auto-upgraded — operator must enqueue upgrade explicitly.
+	msg := "✅ Stack apply ok <code>" + tag + "</code> (secondary: manual upgrade only)"
 	notify.AlertOnce("stack:apply-ok:"+tag, msg)
-	fmt.Fprintln(os.Stderr, "stack apply ok", tag, "secondary_queued", secN)
+	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
 	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)
 	_ = snapshotPrev()
 	_ = os.RemoveAll(attemptDir())

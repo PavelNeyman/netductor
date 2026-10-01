@@ -1,3 +1,11 @@
+
+## Version policy (0.9.148+)
+
+- **No auto upgrade/rollback** of node/tg/agent binaries.
+- Operator chooses version (TG Updates / CLI `stack apply` / `stack rollback` / `stack heal`).
+- Secondary: only explicit queue `upgrade` / `upgrade:vX` — not `desired_release` heartbeat.
+- Watchdog: unit restart only, never swaps binaries.
+
 **RU** · [EN](../AGENT_HANDOFF.md)
 
 # Handoff для агента

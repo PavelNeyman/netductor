@@ -17,7 +17,6 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/version"
-	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
 )
@@ -187,19 +186,9 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if len(hr.FailoverPolicy) > 2 {
 		_ = applyFailoverPolicy(hr.FailoverPolicy)
 	}
-	if rel := strings.TrimSpace(hr.DesiredRelease); rel != "" && ndupdate.Newer("v"+strings.TrimPrefix(rel, "v"), "v"+version.Release) {
-		tag := "v" + strings.TrimPrefix(rel, "v")
-		fmt.Fprintf(os.Stderr, "agent self-update → %s\n", tag)
-		_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
-		if err := ndupdate.DownloadReleaseAsset(tag, "node", "/usr/local/bin/netductor"); err != nil {
-			fmt.Fprintf(os.Stderr, "self-update: %v\n", err)
-		} else {
-			ndupdate.WriteVERSION(tag)
-			// restart agent unit after binary replace
-			_ = exec.Command("systemctl", "try-restart", "netductor-secondary-agent").Start()
-			return nil
-		}
-	}
+	// desired_release is informational only — never auto-upgrade.
+	// Version changes only via explicit agent command (upgrade / upgrade:vX) from operator.
+	_ = hr.DesiredRelease
 	for _, c := range hr.Commands {
 		ok, log := runAgentCmd(c)
 		*lastDone, *lastOK, *lastLog = c, ok, log
