@@ -15,10 +15,10 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/stack"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
-	"github.com/PavelNeyman/netductor/internal/probes"
 )
 
 func lookPath(names ...string) string {
@@ -231,19 +231,29 @@ func runSelfInstall() {
 	runUpdate(false)
 }
 
-
-
 // runUpdate installs from GitHub Releases into /usr/local/bin (FHS).
 // usage:
-//   netductor update check
-//   netductor update list [--limit N]
-//   netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]
+//
+//	netductor update check
+//	netductor update list [--limit N]
+//	netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]
 func runUpdate(restart bool) {
 	args := os.Args[2:]
 	if len(args) > 0 {
 		switch args[0] {
 		case "check", "status":
-			st := ndupdate.CheckStatus(ndver.Release)
+			force := false
+			for _, a := range args[1:] {
+				if a == "--refresh" || a == "--force" || a == "-f" {
+					force = true
+				}
+			}
+			var st ndupdate.Status
+			if force {
+				st = ndupdate.CheckStatusForce(ndver.Release)
+			} else {
+				st = ndupdate.CheckStatus(ndver.Release)
+			}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(st)
@@ -253,20 +263,31 @@ func runUpdate(restart bool) {
 			return
 		case "list", "releases":
 			limit := 15
+			force := false
 			for i := 1; i < len(args); i++ {
 				if (args[i] == "--limit" || args[i] == "-n") && i+1 < len(args) {
 					i++
 					fmt.Sscanf(args[i], "%d", &limit)
+					continue
+				}
+				if args[i] == "--refresh" || args[i] == "--force" || args[i] == "-f" {
+					force = true
 				}
 			}
-			list, err := ndupdate.ListReleases(limit)
+			var list []ndupdate.ReleaseInfo
+			var err error
+			if force {
+				list, err = ndupdate.ListReleasesForce(limit)
+			} else {
+				list, err = ndupdate.ListReleases(limit)
+			}
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			_ = enc.Encode(map[string]any{"local": ndver.Release, "releases": list})
+			_ = enc.Encode(map[string]any{"local": ndver.Release, "releases": list, "forced": force})
 			return
 		case "apply":
 			args = args[1:]
@@ -274,7 +295,7 @@ func runUpdate(restart bool) {
 			runUpdateGitHubToken(args[1:])
 			return
 		case "--help", "-h", "help":
-			fmt.Println("netductor update check | list [--limit N]")
+			fmt.Println("netductor update check|list [--limit N] [--refresh|--force]")
 			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
 			fmt.Println("netductor update github-token status|set <token>|clear")
 			fmt.Println("  version empty → latest release; prefer explicit tag if latest is broken")
@@ -298,7 +319,7 @@ func runUpdate(restart bool) {
 		case a == "--no-backup":
 			noBackup = true
 		case a == "--help" || a == "-h":
-			fmt.Println("netductor update check | list [--limit N]")
+			fmt.Println("netductor update check|list [--limit N] [--refresh|--force]")
 			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
 			return
 		case strings.HasPrefix(a, "-"):
@@ -346,7 +367,7 @@ func runUpdate(restart bool) {
 		fmt.Fprintln(os.Stderr, "unknown component", comp)
 		os.Exit(2)
 	}
-		// Single path for primary node+tg: stack orchestrator (lock, pin, no dual-writer).
+	// Single path for primary node+tg: stack orchestrator (lock, pin, no dual-writer).
 	if comp == "node" {
 		fmt.Fprintln(os.Stderr, "==> stack apply", tag, "(unified update path)")
 		if err := stack.ApplyOpts(tag, noBackup); err != nil {

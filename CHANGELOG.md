@@ -1,3 +1,9 @@
+## 0.9.153
+
+- **Force refresh versions:** `InvalidateReleaseCache` + TG 🔄 refresh GitHub, API `?force=1`, CLI `--refresh/--force`
+- Web Control: Update status / Release list always force GitHub
+- netductor-op update check|list `--refresh`
+
 ## 0.9.152
 
 - **Hub force reset:** `/menu force|new|reset`, Topics → «Reset hub» / «Сброс меню» (`m:hub:reset`)

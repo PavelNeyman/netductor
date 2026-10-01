@@ -46,7 +46,7 @@ func mark(on bool) string {
 	return "⬜"
 }
 
-func formatVersionsHTML() string {
+func formatVersionsHTML(force bool) string {
 	ru := getLang() != "en"
 	nl := string([]byte{10})
 	d := fleet.Build()
@@ -62,10 +62,17 @@ func formatVersionsHTML() string {
 		b.WriteString("<i>legend: 🟢 current · 🆕 newer · ✅/⬜ select for Apply</i>" + nl + nl)
 	}
 
-	latest := d.LatestRelease
-	if latest == "" {
-		if t, err := ndupdate.LatestReleaseTag(); err == nil {
+	latest := ""
+	if force {
+		if t, err := ndupdate.LatestReleaseTagForce(); err == nil {
 			latest = t
+		}
+	} else {
+		latest = d.LatestRelease
+		if latest == "" {
+			if t, err := ndupdate.LatestReleaseTag(); err == nil {
+				latest = t
+			}
 		}
 	}
 
@@ -153,7 +160,11 @@ func formatVersionsHTML() string {
 	}
 	b.WriteString(`</tg-button-row>`)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" data="m:ver:refresh">🔄</tg-button>`)
+	if ru {
+		b.WriteString(`<tg-button type="callback_data" data="m:ver:refresh">🔄 обновить с GitHub</tg-button>`)
+	} else {
+		b.WriteString(`<tg-button type="callback_data" data="m:ver:refresh">🔄 refresh GitHub</tg-button>`)
+	}
 	b.WriteString(`<tg-button type="callback_data" data="m:stack">🧱 Stack</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" data="m:stack:rollback">↩️ Rollback</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
@@ -174,20 +185,22 @@ func versionsKeyboard() map[string]any {
 func handleVersionsCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	switch {
-	case data == "m:versions" || data == "m:ver:refresh" || data == "m:digest" || data == "m:updates":
-		reply(token, chat, msgID, formatVersionsHTML(), versionsKeyboard())
+	case data == "m:ver:refresh":
+		reply(token, chat, msgID, formatVersionsHTML(true), versionsKeyboard())
+	case data == "m:versions" || data == "m:digest" || data == "m:updates":
+		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	case data == "m:ver:toggle:primary":
 		verSelToggle("primary")
-		reply(token, chat, msgID, formatVersionsHTML(), versionsKeyboard())
+		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	case data == "m:ver:toggle:secondary":
 		verSelToggle("secondary")
-		reply(token, chat, msgID, formatVersionsHTML(), versionsKeyboard())
+		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	case data == "m:ver:all":
 		verSelSetAll(true)
-		reply(token, chat, msgID, formatVersionsHTML(), versionsKeyboard())
+		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	case data == "m:ver:none":
 		verSelSetAll(false)
-		reply(token, chat, msgID, formatVersionsHTML(), versionsKeyboard())
+		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	case data == "m:ver:apply":
 		pri, sec := verSelGet()
 		if !pri && !sec {
@@ -234,6 +247,6 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 			handleUpdatesCB(token, chat, msgID, data)
 			return
 		}
-		reply(token, chat, msgID, formatVersionsHTML(), versionsKeyboard())
+		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	}
 }

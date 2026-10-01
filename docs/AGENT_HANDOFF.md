@@ -1,3 +1,9 @@
+## 0.9.153 Force version list refresh
+
+- TG Versions → 🔄 refresh GitHub bypasses 30m cache
+- `GET /api/update/status|releases?force=1`, CLI `update list --refresh`
+- Web Control update buttons append force=1
+
 ## 0.9.152 Hub force + secondary upgrade log
 
 - `/menu force|new|reset` and Topics **Reset hub** drop `hub_msg.json` and send a new Control message

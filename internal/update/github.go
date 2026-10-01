@@ -75,6 +75,32 @@ func saveReleaseCache(latest string, list []ReleaseInfo) {
 	_ = os.WriteFile(releaseCachePath(), raw, 0o644)
 }
 
+// InvalidateReleaseCache drops on-disk release cache and in-process status cache.
+// Call on explicit user Refresh in TG / Web / CLI / API (?force=1).
+func InvalidateReleaseCache() {
+	_ = os.Remove(releaseCachePath())
+	statusCache = Status{}
+	statusCacheAt = time.Time{}
+}
+
+// LatestReleaseTagForce ignores caches and re-queries GitHub.
+func LatestReleaseTagForce() (string, error) {
+	InvalidateReleaseCache()
+	return LatestReleaseTag()
+}
+
+// ListReleasesForce ignores caches and re-queries GitHub.
+func ListReleasesForce(limit int) ([]ReleaseInfo, error) {
+	InvalidateReleaseCache()
+	return ListReleases(limit)
+}
+
+// CheckStatusForce re-queries GitHub (no status/release cache).
+func CheckStatusForce(local string) Status {
+	InvalidateReleaseCache()
+	return CheckStatus(local)
+}
+
 // latestViaRedirect uses github.com HTML redirect (no API quota).
 func latestViaRedirect() (string, error) {
 	client := &http.Client{
@@ -241,10 +267,10 @@ func listReleasesFallback(limit int) ([]ReleaseInfo, error) {
 
 // Status compares local version string to GitHub latest.
 type Status struct {
-	Local      string `json:"local"`
-	Latest     string `json:"latest,omitempty"`
-	Update     bool   `json:"update_available"`
-	Error      string `json:"error,omitempty"`
+	Local  string `json:"local"`
+	Latest string `json:"latest,omitempty"`
+	Update bool   `json:"update_available"`
+	Error  string `json:"error,omitempty"`
 }
 
 func CheckStatus(local string) Status {
@@ -438,7 +464,6 @@ func WriteVERSION(tag string) {
 	_ = os.MkdirAll("/etc/netductor", 0o755)
 	_ = os.WriteFile("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644)
 }
-
 
 var (
 	statusCache    Status

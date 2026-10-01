@@ -419,6 +419,8 @@ const BTN = {
     ['sni','b_sni','GET','/api/sni'],
     ['sni-presets','b_sni_presets','GET','/api/sni-presets'],
     ['latest','b_latest','GET','/api/latest'],
+    ['update-status','Update status','GET','/api/update/status'],
+    ['update-releases','Release list','GET','/api/update/releases'],
     ['sessions','b_sessions','GET','/api/sessions'],
   ],
   vpn:[
@@ -670,10 +672,16 @@ const special = {
   },
 };
 
-// wire simple BTN acts
+// wire simple BTN acts — update status/list always force-refresh GitHub
 for(const list of Object.values(BTN)){
   for(const [id,label,method,path,body] of list){
-    special[id]=special[id]||(async()=>nodeFetch(path,{method, body: method==='POST'?(body||'{}'):undefined}));
+    special[id]=special[id]||(async()=>{
+      let p = path;
+      if(method==='GET' && (p.indexOf('/api/update/status')===0 || p.indexOf('/api/update/releases')===0 || p.indexOf('/api/latest')===0)){
+        p += (p.indexOf('?')>=0 ? '&' : '?') + 'force=1';
+      }
+      return nodeFetch(p,{method, body: method==='POST'?(body||'{}'):undefined});
+    });
   }
 }
 

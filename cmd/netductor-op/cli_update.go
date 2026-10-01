@@ -14,11 +14,34 @@ func runOpUpdate(args []string) {
 	if len(args) > 0 {
 		switch args[0] {
 		case "check", "status":
-			st := ndupdate.CheckStatus(version)
+			force := false
+			for _, a := range args[1:] {
+				if a == "--refresh" || a == "--force" || a == "-f" {
+					force = true
+				}
+			}
+			var st ndupdate.Status
+			if force {
+				st = ndupdate.CheckStatusForce(version)
+			} else {
+				st = ndupdate.CheckStatus(version)
+			}
 			fmt.Printf("local=%s latest=%s update=%v %s\n", st.Local, st.Latest, st.Update, st.Error)
 			return
 		case "list", "releases":
-			list, err := ndupdate.ListReleases(15)
+			force := false
+			for _, a := range args[1:] {
+				if a == "--refresh" || a == "--force" || a == "-f" {
+					force = true
+				}
+			}
+			var list []ndupdate.ReleaseInfo
+			var err error
+			if force {
+				list, err = ndupdate.ListReleasesForce(15)
+			} else {
+				list, err = ndupdate.ListReleases(15)
+			}
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
@@ -28,7 +51,7 @@ func runOpUpdate(args []string) {
 			}
 			return
 		case "help", "--help", "-h":
-			fmt.Println("netductor-op update check|list")
+			fmt.Println("netductor-op update check|list [--refresh|--force]")
 			fmt.Println("netductor-op update [--version X] [--skip-verify]")
 			return
 		}

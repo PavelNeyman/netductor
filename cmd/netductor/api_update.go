@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"time"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/stack"
@@ -18,6 +18,11 @@ func registerUpdateAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/update/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		force := r.URL.Query().Get("force") == "1" || r.URL.Query().Get("refresh") == "1"
+		if force {
+			writeJSON(w, 200, ndupdate.CheckStatusForce(ndver.Release))
 			return
 		}
 		writeJSON(w, 200, ndupdate.CheckStatus(ndver.Release))
@@ -66,12 +71,22 @@ func registerUpdateAPI(mux *http.ServeMux) {
 			return
 		}
 		limit := 15
-		list, err := ndupdate.ListReleases(limit)
+		if v := r.URL.Query().Get("limit"); v != "" {
+			fmt.Sscanf(v, "%d", &limit)
+		}
+		force := r.URL.Query().Get("force") == "1" || r.URL.Query().Get("refresh") == "1"
+		var list []ndupdate.ReleaseInfo
+		var err error
+		if force {
+			list, err = ndupdate.ListReleasesForce(limit)
+		} else {
+			list, err = ndupdate.ListReleases(limit)
+		}
 		if err != nil {
 			writeJSON(w, 502, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "local": ndver.Release, "releases": list})
+		writeJSON(w, 200, map[string]any{"ok": true, "local": ndver.Release, "releases": list, "forced": force})
 	})
 	mux.HandleFunc("/api/update/apply", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
