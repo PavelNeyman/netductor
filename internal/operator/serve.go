@@ -1,7 +1,6 @@
 package operator
 
 import (
-	"strconv"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -13,12 +12,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"github.com/PavelNeyman/netductor/internal/operator/web"
 )
 
@@ -114,11 +114,11 @@ func Serve(o ServeOpts) error {
 		cred := filepath.Join(home, ".netductor", "credentials")
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"version":          deploy.Release,
-			"bind":             addr,
-			"credentials_dir":  cred,
-			"endpoints":        []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/credentials", "/v1/health", "/v1/meta"},
-			"auth":             "X-Netductor-Token",
+			"version":         deploy.Release,
+			"bind":            addr,
+			"credentials_dir": cred,
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/credentials", "/v1/health", "/v1/meta"},
+			"auth":            "X-Netductor-Token",
 		})
 	})
 	mux.HandleFunc("/v1/fleet", func(w http.ResponseWriter, r *http.Request) { handleFleet(w, r, token) })
@@ -287,56 +287,56 @@ func streamRep(w http.ResponseWriter, flusher http.Flusher, okFlush bool) Report
 }
 
 type fleetJSON struct {
-	DoPrimary           bool   `json:"do_primary"`
-	DoSecondary         bool   `json:"do_secondary"`
-	PrimaryHost         string `json:"primary_host"`
-	PrimaryUser         string `json:"primary_user"`
-	PrimaryPassword     string `json:"primary_password"`
-	SecondaryHost       string `json:"secondary_host"`
-	SecondaryUser       string `json:"secondary_user"`
-	SecondaryPassword   string `json:"secondary_password"`
-	DomainBase          string `json:"domain_base"`
-	DomainPrimary       string `json:"domain_primary"`
-	DomainVPN           string `json:"domain_vpn"`
-	DomainRedirect      string `json:"domain_redirect"`
-	LEEmail             string `json:"le_email"`
-	CFProxy             bool   `json:"cf_proxy"`
-	SNI                 string `json:"sni"`
-	SSHPort             string `json:"ssh_port"`
-	RedirectHTTPSPort   string `json:"redirect_https_port"`
-	AgentMTLSPort       string `json:"agent_mtls_port"`
-	LampacPort          string `json:"lampac_port"`
-	Key                 string `json:"key"`
-	KeyPassphrase       string `json:"key_passphrase"`
-	WithLampac          bool   `json:"with_lampac"`
-	WithGit             bool   `json:"with_git"`
-	TelegramToken       string `json:"tg_token"`
-	TelegramAdminID     string `json:"tg_admin"`
-	WithTelegram        bool   `json:"with_telegram"`
+	DoPrimary         bool   `json:"do_primary"`
+	DoSecondary       bool   `json:"do_secondary"`
+	PrimaryHost       string `json:"primary_host"`
+	PrimaryUser       string `json:"primary_user"`
+	PrimaryPassword   string `json:"primary_password"`
+	SecondaryHost     string `json:"secondary_host"`
+	SecondaryUser     string `json:"secondary_user"`
+	SecondaryPassword string `json:"secondary_password"`
+	DomainBase        string `json:"domain_base"`
+	DomainPrimary     string `json:"domain_primary"`
+	DomainVPN         string `json:"domain_vpn"`
+	DomainRedirect    string `json:"domain_redirect"`
+	LEEmail           string `json:"le_email"`
+	CFProxy           bool   `json:"cf_proxy"`
+	SNI               string `json:"sni"`
+	SSHPort           string `json:"ssh_port"`
+	RedirectHTTPSPort string `json:"redirect_https_port"`
+	AgentMTLSPort     string `json:"agent_mtls_port"`
+	LampacPort        string `json:"lampac_port"`
+	Key               string `json:"key"`
+	KeyPassphrase     string `json:"key_passphrase"`
+	WithLampac        bool   `json:"with_lampac"`
+	WithGit           bool   `json:"with_git"`
+	TelegramToken     string `json:"tg_token"`
+	TelegramAdminID   string `json:"tg_admin"`
+	WithTelegram      bool   `json:"with_telegram"`
 }
 
 type primaryJSON struct {
-	Host            string `json:"host"`
-	User            string `json:"user"`
-	Password        string `json:"password"`
-	DomainBase      string `json:"domain_base"`
-	DomainPrimary   string `json:"domain_primary"`
-	DomainVPN       string `json:"domain_vpn"`
-	DomainRedirect  string `json:"domain_redirect"`
-	LEEmail         string `json:"le_email"`
-	CFProxy         bool   `json:"cf_proxy"`
-	SNI             string `json:"sni"`
-	SSHPort         string `json:"ssh_port"`
+	Host              string `json:"host"`
+	User              string `json:"user"`
+	Password          string `json:"password"`
+	DomainBase        string `json:"domain_base"`
+	DomainPrimary     string `json:"domain_primary"`
+	DomainVPN         string `json:"domain_vpn"`
+	DomainRedirect    string `json:"domain_redirect"`
+	LEEmail           string `json:"le_email"`
+	CFProxy           bool   `json:"cf_proxy"`
+	SNI               string `json:"sni"`
+	SSHPort           string `json:"ssh_port"`
 	RedirectHTTPSPort string `json:"redirect_https_port"`
-	AgentMTLSPort   string `json:"agent_mtls_port"`
-	LampacPort      string `json:"lampac_port"`
-	Key             string `json:"key"`
-	KeyPassphrase   string `json:"key_passphrase"`
-	WithLampac      bool   `json:"with_lampac"`
-	WithGit         bool   `json:"with_git"`
-	TelegramToken   string `json:"tg_token"`
-	TelegramAdminID string `json:"tg_admin"`
-	WithTelegram    bool   `json:"with_telegram"`
+	AgentMTLSPort     string `json:"agent_mtls_port"`
+	LampacPort        string `json:"lampac_port"`
+	Key               string `json:"key"`
+	KeyPassphrase     string `json:"key_passphrase"`
+	WithLampac        bool   `json:"with_lampac"`
+	WithGit           bool   `json:"with_git"`
+	TelegramToken     string `json:"tg_token"`
+	TelegramAdminID   string `json:"tg_admin"`
+	WithTelegram      bool   `json:"with_telegram"`
 }
 
 type secondaryJSON struct {
@@ -426,15 +426,15 @@ func handleFleet(w http.ResponseWriter, r *http.Request, token string) {
 			Host: body.PrimaryHost, User: pu, Password: body.PrimaryPassword,
 			SNI: orDefault(body.SNI, "api.vk.me"), DomainBase: body.DomainBase, DomainPrimary: body.DomainPrimary, DomainVPN: body.DomainVPN, DomainRedirect: body.DomainRedirect, DomainEmail: body.LEEmail, SSHPort: parsePortField(body.SSHPort), RedirectHTTPSPort: body.RedirectHTTPSPort, AgentMTLSPort: body.AgentMTLSPort, LampacPort: body.LampacPort,
 			DomainCFProxy: body.CFProxy,
-			WithLampac: body.WithLampac, WithGitRegistry: body.WithGit,
-			GenerateKey: strings.TrimSpace(body.Key) == "",
+			WithLampac:    body.WithLampac, WithGitRegistry: body.WithGit,
+			GenerateKey:   strings.TrimSpace(body.Key) == "",
 			SSHPrivateKey: expandHome(body.Key), KeyPassphrase: body.KeyPassphrase,
 			TelegramToken: body.TelegramToken, TelegramAdminID: body.TelegramAdminID,
 			Version: deploy.Release,
 		},
 		Secondary: SecondarySpec{
 			SecondaryHost: body.SecondaryHost, SecondaryUser: su, SecondaryPass: body.SecondaryPassword,
-			SNI: orDefault(body.SNI, "api.vk.me"),
+			SNI:                  orDefault(body.SNI, "api.vk.me"),
 			PrimaryKeyPassphrase: body.KeyPassphrase,
 		},
 	}
@@ -564,7 +564,6 @@ func handleCredentials(w http.ResponseWriter, r *http.Request, token string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"ok": "true", "path": path})
 }
 
-
 type edgeBody struct {
 	RouterHost   string `json:"router_host"`
 	RouterUser   string `json:"router_user"`
@@ -578,10 +577,29 @@ type edgeBody struct {
 	AgentArch    string `json:"agent_arch"`
 	NetConfigure bool   `json:"net_configure"`
 	LANIP        string `json:"lan_ip"`
-	WiFiSSID     string `json:"wifi_ssid"`
+	LANMask      string `json:"lan_mask"`
+	DHCPStart    string `json:"dhcp_start"`
+	DHCPLimit    string `json:"dhcp_limit"`
+	WiFiSSID     string `json:"wifi_ssid"` // legacy both bands
 	WiFiKey      string `json:"wifi_key"`
+	WiFiSSID24   string `json:"wifi_ssid_24"`
+	WiFiKey24    string `json:"wifi_key_24"`
+	WiFiSSID5    string `json:"wifi_ssid_5"`
+	WiFiKey5     string `json:"wifi_key_5"`
 	GuestEnable  bool   `json:"guest_enable"`
+	GuestSSID    string `json:"guest_ssid"`
+	GuestPIN     string `json:"guest_pin"`
+	GuestPSK     string `json:"guest_psk"`
 	WANProto     string `json:"wan_proto"`
+	WANIP        string `json:"wan_ip"`
+	WANMask      string `json:"wan_mask"`
+	WANGateway   string `json:"wan_gateway"`
+	WANDNS       string `json:"wan_dns"`
+	PPPoEUser    string `json:"pppoe_user"`
+	PPPoEPass    string `json:"pppoe_pass"`
+	PPPoEService string `json:"pppoe_service"`
+	PPPoEAC      string `json:"pppoe_ac"`
+	Reboot       bool   `json:"reboot"`
 }
 
 func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
@@ -603,14 +621,26 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
+	ssid24, key24 := body.WiFiSSID24, body.WiFiKey24
+	if ssid24 == "" {
+		ssid24 = body.WiFiSSID
+	}
+	if key24 == "" {
+		key24 = body.WiFiKey
+	}
 	spec := EdgeSpec{
 		RouterHost: body.RouterHost, RouterUser: body.RouterUser, RouterPass: body.RouterPass,
 		DeviceID: body.DeviceID, PrimaryHost: body.PrimaryHost, PrimaryUser: body.PrimaryUser,
 		PrimaryKey: body.PrimaryKey, PrimaryKeyPassphrase: body.KeyPass,
 		ServerURL: body.ServerURL, AgentArch: body.AgentArch,
-		NetConfigure: body.NetConfigure, LANIP: body.LANIP,
-		WiFiSSID24: body.WiFiSSID, WiFiKey24: body.WiFiKey,
-		GuestEnable: body.GuestEnable, WANProto: body.WANProto,
+		NetConfigure: body.NetConfigure, LANIP: body.LANIP, LANMask: body.LANMask,
+		DHCPStart: body.DHCPStart, DHCPLimit: body.DHCPLimit,
+		WiFiSSID24: ssid24, WiFiKey24: key24,
+		WiFiSSID5: body.WiFiSSID5, WiFiKey5: body.WiFiKey5,
+		GuestEnable: body.GuestEnable, GuestSSID: body.GuestSSID, GuestPIN: body.GuestPIN, GuestPSK: body.GuestPSK,
+		WANProto: body.WANProto, WANIP: body.WANIP, WANMask: body.WANMask, WANGateway: body.WANGateway, WANDNS: body.WANDNS,
+		PPPoEUser: body.PPPoEUser, PPPoEPass: body.PPPoEPass, PPPoEService: body.PPPoEService, PPPoEAC: body.PPPoEAC,
+		Reboot: body.Reboot,
 	}
 	if spec.RouterUser == "" {
 		spec.RouterUser = "root"
@@ -622,9 +652,12 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 		_, _ = w.Write([]byte("step edge ERROR " + err.Error() + "\n"))
 		return
 	}
-	_, _ = w.Write([]byte("step edge done\n"))
+	if body.Reboot {
+		_, _ = w.Write([]byte("step edge done (reboot issued)\n"))
+	} else {
+		_, _ = w.Write([]byte("step edge done — approve on primary; reboot router when ready\n"))
+	}
 }
-
 
 func handleSite(w http.ResponseWriter, r *http.Request, token string) {
 	if r.Method != http.MethodPost {
@@ -636,17 +669,17 @@ func handleSite(w http.ResponseWriter, r *http.Request, token string) {
 		return
 	}
 	var body struct {
-		SiteID   string `json:"site_id"`
-		Name     string `json:"name"`
-		RPiID    string `json:"rpi_id"`
+		SiteID     string `json:"site_id"`
+		Name       string `json:"name"`
+		RPiID      string `json:"rpi_id"`
 		MikroTikID string `json:"mikrotik_id"`
-		RPiLAN   string `json:"rpi_lan"`
-		MTHost   string `json:"mt_host"`
-		MTUser   string `json:"mt_user"`
-		MTPass   string `json:"mt_password"`
-		MTPort   string `json:"mt_port"`
-		DoPush   bool   `json:"do_push"`
-		KeyPath  string `json:"operator_key"`
+		RPiLAN     string `json:"rpi_lan"`
+		MTHost     string `json:"mt_host"`
+		MTUser     string `json:"mt_user"`
+		MTPass     string `json:"mt_password"`
+		MTPort     string `json:"mt_port"`
+		DoPush     bool   `json:"do_push"`
+		KeyPath    string `json:"operator_key"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -696,7 +729,6 @@ func handleMikroTik(w http.ResponseWriter, r *http.Request, token string) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "output": out})
 }
 
-
 func handleCatalog(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "GET only", 405)
@@ -704,11 +736,11 @@ func handleCatalog(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"ok": true,
-		"actions": opcatalog.ForSurface("web"),
+		"ok":         true,
+		"actions":    opcatalog.ForSurface("web"),
 		"by_section": opcatalog.BySection(),
-		"groups": opcatalog.Groups(),
-		"by_group": opcatalog.ByGroup("web"),
+		"groups":     opcatalog.Groups(),
+		"by_group":   opcatalog.ByGroup("web"),
 	})
 }
 

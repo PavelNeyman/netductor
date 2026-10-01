@@ -10,31 +10,31 @@ import (
 
 // PrimarySpec is the deploy-primary use-case input (shared by CLI/TUI/Web).
 type PrimarySpec struct {
-	Host            string
-	User            string
-	Password        string
-	SSHPrivateKey   string
-	GenerateKey     bool
-	KeyPassphrase   string
-	Version         string
-	TelegramToken   string
-	TelegramAdminID string
-	SNI             string
-	DomainBase      string
-	DomainHTTP      bool
-	DomainLE        bool
-	DomainCFProxy   bool
-	DomainEmail     string
-	DomainPrimary   string
-	DomainVPN       string
-	DomainRedirect  string
-	SSHPort         int    // harden listen port; 0 = ndconfig default 52222
+	Host              string
+	User              string
+	Password          string
+	SSHPrivateKey     string
+	GenerateKey       bool
+	KeyPassphrase     string
+	Version           string
+	TelegramToken     string
+	TelegramAdminID   string
+	SNI               string
+	DomainBase        string
+	DomainHTTP        bool
+	DomainLE          bool
+	DomainCFProxy     bool
+	DomainEmail       string
+	DomainPrimary     string
+	DomainVPN         string
+	DomainRedirect    string
+	SSHPort           int // harden listen port; 0 = ndconfig default 52222
 	RedirectHTTPSPort string
-	AgentMTLSPort   string
-	LampacPort      string
-	SkipInstall     bool
-	WithLampac      bool
-	WithGitRegistry bool
+	AgentMTLSPort     string
+	LampacPort        string
+	SkipInstall       bool
+	WithLampac        bool
+	WithGitRegistry   bool
 }
 
 // SecondarySpec is the deploy-secondary use-case input.
@@ -70,7 +70,7 @@ func (p PrimarySpec) toDeploy() deploy.PrimaryOpts {
 		SSHPort: p.SSHPort, RedirectHTTPSPort: p.RedirectHTTPSPort,
 		AgentMTLSPort: p.AgentMTLSPort, LampacPort: p.LampacPort,
 		SkipInstall: p.SkipInstall,
-		WithLampac: p.WithLampac, WithGitRegistry: p.WithGitRegistry,
+		WithLampac:  p.WithLampac, WithGitRegistry: p.WithGitRegistry,
 	}
 }
 
@@ -78,7 +78,7 @@ func (s SecondarySpec) toDeploy() deploy.SecondaryOpts {
 	return deploy.SecondaryOpts{
 		PrimaryHost: s.PrimaryHost, PrimaryUser: s.PrimaryUser, PrimaryKey: s.PrimaryKey,
 		PrimaryKeyPassphrase: s.PrimaryKeyPassphrase,
-		SecondaryHost: s.SecondaryHost, SecondaryUser: s.SecondaryUser,
+		SecondaryHost:        s.SecondaryHost, SecondaryUser: s.SecondaryUser,
 		SecondaryPass: s.SecondaryPass, SecondarySSHKey: s.SecondarySSHKey,
 		SNI: s.SNI, OperatorPubKey: s.OperatorPubKey, ViaPrimary: false,
 	}
@@ -105,34 +105,35 @@ func ApplyDomainFlags(p *PrimarySpec) {
 
 // EdgeSpec — OpenWrt / RPi from operator machine.
 type EdgeSpec struct {
-	PrimaryHost          string
-	PrimaryUser          string
-	PrimaryKey           string
-	PrimaryKeyPassphrase string
-	RouterHost           string
-	RouterUser           string
-	RouterPass           string
-	DeviceID             string
-	ServerURL            string
-	Version              string
-	AgentArch            string
-	NetConfigure         bool
-	LANIP, LANMask       string
-	DHCPStart, DHCPLimit string
-	WiFiSSID, WiFiKey    string
-	WiFiSSID24, WiFiKey24 string
-	WiFiSSID5, WiFiKey5  string
-	GuestEnable          bool
-	GuestSSID, GuestPIN, GuestPSK string
+	PrimaryHost                                  string
+	PrimaryUser                                  string
+	PrimaryKey                                   string
+	PrimaryKeyPassphrase                         string
+	RouterHost                                   string
+	RouterUser                                   string
+	RouterPass                                   string
+	DeviceID                                     string
+	ServerURL                                    string
+	Version                                      string
+	AgentArch                                    string
+	NetConfigure                                 bool
+	LANIP, LANMask                               string
+	DHCPStart, DHCPLimit                         string
+	WiFiSSID, WiFiKey                            string
+	WiFiSSID24, WiFiKey24                        string
+	WiFiSSID5, WiFiKey5                          string
+	GuestEnable                                  bool
+	GuestSSID, GuestPIN, GuestPSK                string
 	WANProto, WANIP, WANMask, WANGateway, WANDNS string
-	PPPoEUser, PPPoEPass, PPPoEService, PPPoEAC string
+	PPPoEUser, PPPoEPass, PPPoEService, PPPoEAC  string
+	Reboot                                       bool
 }
 
 func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 	return deploy.EdgeOpts{
 		PrimaryHost: e.PrimaryHost, PrimaryUser: e.PrimaryUser, PrimaryKey: e.PrimaryKey,
 		PrimaryKeyPassphrase: e.PrimaryKeyPassphrase,
-		RouterHost: e.RouterHost, RouterUser: e.RouterUser, RouterPass: e.RouterPass,
+		RouterHost:           e.RouterHost, RouterUser: e.RouterUser, RouterPass: e.RouterPass,
 		DeviceID: e.DeviceID, ServerURL: e.ServerURL, Version: e.Version, AgentArch: e.AgentArch,
 		NetConfigure: e.NetConfigure, LANIP: e.LANIP, LANMask: e.LANMask,
 		DHCPStart: e.DHCPStart, DHCPLimit: e.DHCPLimit,
@@ -142,5 +143,6 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		GuestEnable: e.GuestEnable, GuestSSID: e.GuestSSID, GuestPIN: e.GuestPIN, GuestPSK: e.GuestPSK,
 		WANProto: e.WANProto, WANIP: e.WANIP, WANMask: e.WANMask, WANGateway: e.WANGateway, WANDNS: e.WANDNS,
 		PPPoEUser: e.PPPoEUser, PPPoEPass: e.PPPoEPass, PPPoEService: e.PPPoEService, PPPoEAC: e.PPPoEAC,
+		Reboot: e.Reboot,
 	}
 }

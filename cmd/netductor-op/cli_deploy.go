@@ -29,7 +29,7 @@ secondary:
 edge:
   --router --id --password [--user root] [--arch arm64]
   --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
-  --guest [--guest-ssid] [--guest-pin] [--guest-psk]
+  --guest [--guest-ssid] [--guest-pin] [--guest-psk] [--reboot]
   --configure-net
   --lan-ip --lan-mask --dhcp-start --dhcp-limit
   --wifi-ssid-24 --wifi-key-24 [--wifi-ssid-5] [--wifi-key-5]
@@ -240,6 +240,8 @@ See: netductor tui → Setup wizard`)
 				o.AgentArch = args[i]
 			case a == "--guest":
 				o.GuestEnable = true
+			case a == "--reboot":
+				o.Reboot = true
 			case a == "--guest-ssid" && i+1 < len(args):
 				i++
 				o.GuestSSID = args[i]
@@ -327,7 +329,7 @@ See: netductor tui → Setup wizard`)
 		if err := operator.DeployEdge(operator.EdgeSpec{
 			PrimaryHost: o.PrimaryHost, PrimaryUser: o.PrimaryUser, PrimaryKey: o.PrimaryKey,
 			PrimaryKeyPassphrase: o.PrimaryKeyPassphrase,
-			RouterHost: o.RouterHost, RouterUser: o.RouterUser, RouterPass: o.RouterPass,
+			RouterHost:           o.RouterHost, RouterUser: o.RouterUser, RouterPass: o.RouterPass,
 			DeviceID: o.DeviceID, ServerURL: o.ServerURL, Version: o.Version, AgentArch: o.AgentArch,
 			NetConfigure: o.NetConfigure, LANIP: o.LANIP, LANMask: o.LANMask,
 			DHCPStart: o.DHCPStart, DHCPLimit: o.DHCPLimit,
@@ -337,6 +339,7 @@ See: netductor tui → Setup wizard`)
 			GuestEnable: o.GuestEnable, GuestSSID: o.GuestSSID, GuestPIN: o.GuestPIN, GuestPSK: o.GuestPSK,
 			WANProto: o.WANProto, WANIP: o.WANIP, WANMask: o.WANMask, WANGateway: o.WANGateway, WANDNS: o.WANDNS,
 			PPPoEUser: o.PPPoEUser, PPPoEPass: o.PPPoEPass, PPPoEService: o.PPPoEService, PPPoEAC: o.PPPoEAC,
+			Reboot: o.Reboot,
 		}); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

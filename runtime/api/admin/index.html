@@ -98,20 +98,28 @@
     <pre class="log" id="mtResult">—</pre>
   </section>
 <section id="panel-edge" class="panel">
-    <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
+    <p class="note">OpenWrt / RPi edge agent (same DeployEdge as TUI). Fill 2.4 only → 5 inherits; or set bands separately. WAN: dhcp | static | pppoe.</p>
     <form id="form-edge">
-      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
+      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required placeholder="192.168.1.1"/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64" placeholder="arm64|armv7|amd64"/></div></div>
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_lan">LAN IP (optional)</label><input name="lan_ip"/></div><div><label data-i18n="l_wan">WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>
-      <div class="row"><div><label data-i18n="l_ssid">Wi-Fi SSID</label><input name="wifi_ssid"/></div><div><label data-i18n="l_wifikey">Wi-Fi key</label><input name="wifi_key" type="password"/></div></div>
+      <h3 style="margin:.75rem 0 .35rem;font-size:.9rem">Network (optional)</h3>
       <div class="checks"><label><input type="checkbox" name="net_configure"/> <span data-i18n="c_netcfg">Configure network</span></label>
-      <label><input type="checkbox" name="guest_enable"/> <span data-i18n="c_guest">Guest Wi-Fi</span></label></div>
+      <label><input type="checkbox" name="guest_enable"/> <span data-i18n="c_guest">Guest Wi-Fi</span></label>
+      <label><input type="checkbox" name="reboot" checked/> <span>Reboot after provision</span></label></div>
+      <div class="row"><div><label>LAN IP</label><input name="lan_ip" placeholder="192.168.50.1"/></div><div><label>LAN mask</label><input name="lan_mask" placeholder="255.255.255.0"/></div></div>
+      <div class="row"><div><label>DHCP start</label><input name="dhcp_start" placeholder="100"/></div><div><label>DHCP limit</label><input name="dhcp_limit" placeholder="150"/></div></div>
+      <div class="row"><div><label>Wi-Fi SSID 2.4</label><input name="wifi_ssid_24"/></div><div><label>Wi-Fi key 2.4</label><input name="wifi_key_24" type="password"/></div></div>
+      <div class="row"><div><label>Wi-Fi SSID 5 (optional)</label><input name="wifi_ssid_5"/></div><div><label>Wi-Fi key 5</label><input name="wifi_key_5" type="password"/></div></div>
+      <div class="row"><div><label>WAN proto</label><input name="wan_proto" value="dhcp" placeholder="dhcp|static|pppoe"/></div><div><label>WAN DNS</label><input name="wan_dns" placeholder="optional"/></div></div>
+      <div class="row"><div><label>WAN static IP</label><input name="wan_ip"/></div><div><label>WAN mask</label><input name="wan_mask"/></div></div>
+      <div class="row"><div><label>WAN gateway</label><input name="wan_gateway"/></div><div></div></div>
+      <div class="row"><div><label>PPPoE user</label><input name="pppoe_user"/></div><div><label>PPPoE password</label><input name="pppoe_pass" type="password"/></div></div>
+      <div class="row"><div><label>Guest SSID</label><input name="guest_ssid" placeholder="Guest"/></div><div><label>Guest PIN</label><input name="guest_pin"/></div></div>
       <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
     </form>
   </section>
-  
   <section id="panel-nvr" class="panel">
     <p class="note" data-i18n="nvr_note">Day-2 NVR via node session (start tunnel + session first). Same ops as TUI NVR wizard.</p>
     <form id="form-nvr">

@@ -1,3 +1,8 @@
+## 0.9.154
+
+- **Edge Web/TUI parity:** 2.4+5 Wi‑Fi, LAN/DHCP, WAN static/pppoe, guest, **reboot** after provision
+- `DeployEdge` optional reboot; CLI `--reboot`; EDGE-AGENT dry-run checklist
+
 ## 0.9.153
 
 - **Force refresh versions:** `InvalidateReleaseCache` + TG 🔄 refresh GitHub, API `?force=1`, CLI `--refresh/--force`

@@ -1,3 +1,8 @@
+## 0.9.154 Edge provision parity + reboot
+
+- Web OpenWrt form matches TUI network fields; reboot checkbox
+- DeployEdge step 9: optional router reboot after agent install
+
 ## 0.9.153 Force version list refresh
 
 - TG Versions → 🔄 refresh GitHub bypasses 30m cache

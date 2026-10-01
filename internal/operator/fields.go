@@ -1,10 +1,10 @@
 package operator
 
 import (
-	"strconv"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -39,28 +39,28 @@ func expandHome(p string) string {
 // PrimaryFromFields maps wizard/CLI-style keys to PrimarySpec.
 func PrimaryFromFields(get FieldGetter) PrimarySpec {
 	s := PrimarySpec{
-		Host:            strings.TrimSpace(get("host")),
-		User:            orDefault(get("user"), "root"),
-		Password:        get("password"),
-		GenerateKey:     yesish(orDefault(get("gen_key"), "yes")),
-		SSHPrivateKey:   expandHome(orDefault(get("key_path"), "~/.ssh/netductor_primary")),
-		KeyPassphrase:   get("key_pass"),
-		SNI:             orDefault(get("sni"), ndconfig.DefaultSNI()),
-		DomainBase:      strings.TrimSpace(get("domain_base")),
-		DomainPrimary:   strings.TrimSpace(get("domain_primary")),
-		DomainVPN:       strings.TrimSpace(get("domain_vpn")),
-		DomainRedirect:  strings.TrimSpace(get("domain_redirect")),
-		DomainEmail:     strings.TrimSpace(get("le_email")),
-		DomainCFProxy:   yesish(get("cf_proxy")),
-		SSHPort:         atoiDefault(get("ssh_port"), 0),
+		Host:              strings.TrimSpace(get("host")),
+		User:              orDefault(get("user"), "root"),
+		Password:          get("password"),
+		GenerateKey:       yesish(orDefault(get("gen_key"), "yes")),
+		SSHPrivateKey:     expandHome(orDefault(get("key_path"), "~/.ssh/netductor_primary")),
+		KeyPassphrase:     get("key_pass"),
+		SNI:               orDefault(get("sni"), ndconfig.DefaultSNI()),
+		DomainBase:        strings.TrimSpace(get("domain_base")),
+		DomainPrimary:     strings.TrimSpace(get("domain_primary")),
+		DomainVPN:         strings.TrimSpace(get("domain_vpn")),
+		DomainRedirect:    strings.TrimSpace(get("domain_redirect")),
+		DomainEmail:       strings.TrimSpace(get("le_email")),
+		DomainCFProxy:     yesish(get("cf_proxy")),
+		SSHPort:           atoiDefault(get("ssh_port"), 0),
 		RedirectHTTPSPort: strings.TrimSpace(get("redirect_https_port")),
-		AgentMTLSPort:   strings.TrimSpace(get("agent_mtls_port")),
-		LampacPort:      strings.TrimSpace(get("lampac_port")),
-		WithLampac:      yesish(get("with_lampac")),
-		WithGitRegistry: yesish(get("with_git")),
-		TelegramToken:   strings.TrimSpace(get("tg_token")),
-		TelegramAdminID: strings.TrimSpace(get("tg_admin")),
-		Version:         deploy.Release,
+		AgentMTLSPort:     strings.TrimSpace(get("agent_mtls_port")),
+		LampacPort:        strings.TrimSpace(get("lampac_port")),
+		WithLampac:        yesish(get("with_lampac")),
+		WithGitRegistry:   yesish(get("with_git")),
+		TelegramToken:     strings.TrimSpace(get("tg_token")),
+		TelegramAdminID:   strings.TrimSpace(get("tg_admin")),
+		Version:           deploy.Release,
 	}
 	ApplyDomainFlags(&s)
 	return s
@@ -153,7 +153,6 @@ func ValidUser(u string) bool {
 	return true
 }
 
-
 // ValidDeviceID restricts edge device ids used in remote paths (no path traversal).
 func ValidDeviceID(id string) bool {
 	id = strings.TrimSpace(id)
@@ -173,6 +172,16 @@ func ValidDeviceID(id string) bool {
 // Keys: router, password, id, arch, server, net, lan_ip, wifi_ssid, wifi_key, wan_proto, guest, key_pass
 // Primary* filled by caller from TUI settings when empty.
 func EdgeFromFields(get FieldGetter) EdgeSpec {
+	ssid24 := strings.TrimSpace(get("wifi_ssid_24"))
+	if ssid24 == "" {
+		ssid24 = strings.TrimSpace(get("wifi_ssid"))
+	}
+	key24 := get("wifi_key_24")
+	if key24 == "" {
+		key24 = get("wifi_key")
+	}
+	ssid5 := strings.TrimSpace(get("wifi_ssid_5"))
+	key5 := get("wifi_key_5")
 	return EdgeSpec{
 		RouterHost:           strings.TrimSpace(get("router")),
 		RouterUser:           orDefault(get("user"), "root"),
@@ -182,11 +191,28 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		ServerURL:            strings.TrimSpace(get("server")),
 		NetConfigure:         yesish(get("net")),
 		LANIP:                strings.TrimSpace(get("lan_ip")),
-		WiFiSSID24:           get("wifi_ssid"),
-		WiFiKey24:            get("wifi_key"),
+		LANMask:              strings.TrimSpace(get("lan_mask")),
+		DHCPStart:            strings.TrimSpace(get("dhcp_start")),
+		DHCPLimit:            strings.TrimSpace(get("dhcp_limit")),
+		WiFiSSID24:           ssid24,
+		WiFiKey24:            key24,
+		WiFiSSID5:            ssid5,
+		WiFiKey5:             key5,
 		WANProto:             orDefault(get("wan_proto"), "dhcp"),
+		WANIP:                strings.TrimSpace(get("wan_ip")),
+		WANMask:              strings.TrimSpace(get("wan_mask")),
+		WANGateway:           strings.TrimSpace(get("wan_gateway")),
+		WANDNS:               strings.TrimSpace(get("wan_dns")),
+		PPPoEUser:            get("pppoe_user"),
+		PPPoEPass:            get("pppoe_pass"),
+		PPPoEService:         get("pppoe_service"),
+		PPPoEAC:              get("pppoe_ac"),
 		GuestEnable:          yesish(get("guest")),
+		GuestSSID:            strings.TrimSpace(get("guest_ssid")),
+		GuestPIN:             get("guest_pin"),
+		GuestPSK:             get("guest_psk"),
 		PrimaryKeyPassphrase: get("key_pass"),
+		Reboot:               yesish(get("reboot")),
 	}
 }
 

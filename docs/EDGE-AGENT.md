@@ -170,3 +170,35 @@ Commands: `move left|right|up|down`, `night:on|off|auto`, `privacy:on|off`
 ## Export
 
 `netductor edge export -o file.json` / Admin Export — include in primary backup drills.
+
+
+## DeployEdge dry-run checklist (0.9.154)
+
+Ordered steps inside `deploy.DeployEdge` / `edge.Provision`:
+
+| # | Step | Failure mode |
+|---|------|----------------|
+| 1 | Validate router host, device id, version, arch | Invalid id/arch aborts |
+| 2 | Resolve `ServerURL` → must be `https://…:8789` (never plain :8787) | Wrong URL → TLS fail later |
+| 3 | SSH **primary**: read `edge_bootstrap_token` | No key/token → abort |
+| 4 | SSH primary: `mtls ensure` + `mtls issue-client <device_id>` | Warn if certs missing; agent may fail handshake |
+| 5 | Download `netductor-agent-linux-<arch>` for `deploy.Release` | Missing GitHub asset / arch |
+| 6 | `edge.Provision`: SCP agent + write config + mTLS material + enable service | SSH to router (password or key) |
+| 7 | Optional `NetConfigure`: UCI LAN/DHCP/Wi‑Fi 2.4+5 / WAN dhcp\|static\|pppoe | Network apply is **warn-only** if fails |
+| 8 | Optional guest Wi‑Fi | Warn-only |
+| 9 | Optional **Reboot** (`reboot` / `--reboot` / TUI yes) | Agent enrolls after boot |
+
+### Operator flow (factory OpenWrt)
+
+1. Reset router → join default Wi‑Fi/LAN → SSH `root@192.168.1.1`.
+2. Mac: Settings → Remote = primary host + `~/.ssh/netductor_primary`.
+3. **TUI** OpenWrt wizard **or** Web Installer → OpenWrt **or** CLI `netductor-op deploy edge …`.
+4. Fields: device id, arch, server `https://PRIMARY:8789`, network (2.4/5, WAN), **reboot=yes**.
+5. After reboot: TG/Web **Edge pending** → **Approve**.
+6. Device appears in edge list; heartbeat + cmds.
+
+### Parity Web / TUI / CLI (0.9.154)
+
+- Web form: 2.4 + 5 SSID/key, LAN/DHCP, WAN static/pppoe, guest, reboot checkbox.
+- TUI wizard: same field set.
+- CLI: full flags + `--reboot`.

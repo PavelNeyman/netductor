@@ -13,23 +13,23 @@ import (
 )
 
 type EdgeOpts struct {
-	PrimaryHost    string
-	PrimaryUser    string
-	PrimaryKey     string
+	PrimaryHost          string
+	PrimaryUser          string
+	PrimaryKey           string
 	PrimaryKeyPassphrase string
-	RouterHost     string
-	RouterUser     string
-	RouterPass     string
-	DeviceID       string
-	ServerURL      string
-	AgentArch      string
-	Version        string
-	AgentDir       string
-	OperatorPubKey string
-	GuestEnable    bool
-	GuestSSID      string
-	GuestPIN       string
-	GuestPSK       string
+	RouterHost           string
+	RouterUser           string
+	RouterPass           string
+	DeviceID             string
+	ServerURL            string
+	AgentArch            string
+	Version              string
+	AgentDir             string
+	OperatorPubKey       string
+	GuestEnable          bool
+	GuestSSID            string
+	GuestPIN             string
+	GuestPSK             string
 	// Optional first-boot network (applied via UCI on router + edge template)
 	NetConfigure bool
 	LANIP        string
@@ -51,6 +51,8 @@ type EdgeOpts struct {
 	PPPoEPass    string
 	PPPoEService string
 	PPPoEAC      string
+	// Reboot router after provision (agent init + optional network).
+	Reboot bool
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -164,7 +166,7 @@ echo KEY:$(b64 "$DIR/client.key")
 	} else {
 		fmt.Fprintln(os.Stderr, "warn: no mTLS material — agent may fail TLS handshake until certs are present")
 	}
-	
+
 	if err := edge.Provision(edge.ProvisionOpts{
 		SSHTarget:      target,
 		DeviceID:       o.DeviceID,
@@ -188,6 +190,15 @@ echo KEY:$(b64 "$DIR/client.key")
 	if o.GuestEnable {
 		if err := applyGuestOnEdge(o); err != nil {
 			fmt.Fprintln(os.Stderr, "warn: guest enable:", err)
+		}
+	}
+	if o.Reboot {
+		fmt.Fprintln(os.Stderr, "==> reboot", o.RouterHost)
+		out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warn: reboot:", err, out)
+		} else {
+			fmt.Fprintln(os.Stderr, "==> reboot issued; agent will enroll after boot")
 		}
 	}
 	return nil
@@ -268,7 +279,6 @@ func applyNetworkOnEdge(o EdgeOpts) error {
 	return nil
 }
 
-
 func applyGuestOnEdge(o EdgeOpts) error {
 	ssid := o.GuestSSID
 	if ssid == "" {
@@ -299,7 +309,6 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi enable on", o.RouterHost)
 	return nil
 }
-
 
 func serverURLUnsafe(u string) bool {
 	for _, r := range u {

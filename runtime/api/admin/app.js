@@ -231,12 +231,19 @@ document.getElementById('form-mt').onsubmit=async e=>{ e.preventDefault(); const
 document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('edge',fd);
   await streamPost('/v1/edge',{
     router_host:fd.get('router_host'), router_password:fd.get('router_password'),
-    device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch'),
+    device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch')||'arm64',
     primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
     server_url:fd.get('server_url'), key_passphrase:fd.get('key_passphrase'),
-    lan_ip:fd.get('lan_ip'), wan_proto:fd.get('wan_proto'),
-    wifi_ssid:fd.get('wifi_ssid'), wifi_key:fd.get('wifi_key'),
-    net_configure:fd.get('net_configure')==='on', guest_enable:fd.get('guest_enable')==='on'
+    net_configure:fd.get('net_configure')==='on', guest_enable:fd.get('guest_enable')==='on',
+    reboot:fd.get('reboot')==='on',
+    lan_ip:fd.get('lan_ip'), lan_mask:fd.get('lan_mask'),
+    dhcp_start:fd.get('dhcp_start'), dhcp_limit:fd.get('dhcp_limit'),
+    wifi_ssid_24:fd.get('wifi_ssid_24'), wifi_key_24:fd.get('wifi_key_24'),
+    wifi_ssid_5:fd.get('wifi_ssid_5'), wifi_key_5:fd.get('wifi_key_5'),
+    wan_proto:fd.get('wan_proto')||'dhcp', wan_dns:fd.get('wan_dns'),
+    wan_ip:fd.get('wan_ip'), wan_mask:fd.get('wan_mask'), wan_gateway:fd.get('wan_gateway'),
+    pppoe_user:fd.get('pppoe_user'), pppoe_pass:fd.get('pppoe_pass'),
+    guest_ssid:fd.get('guest_ssid'), guest_pin:fd.get('guest_pin')
   }, e.submitter); };
 
 document.getElementById('form-nvr').onsubmit=async e=>{
