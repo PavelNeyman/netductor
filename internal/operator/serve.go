@@ -648,6 +648,9 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 	if spec.PrimaryUser == "" {
 		spec.PrimaryUser = "root"
 	}
+	if strings.TrimSpace(spec.AgentArch) == "" {
+		spec.AgentArch = "auto"
+	}
 	if err := DeployEdge(spec); err != nil {
 		_, _ = w.Write([]byte("step edge ERROR " + err.Error() + "\n"))
 		return

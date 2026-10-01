@@ -31,9 +31,11 @@ for arch in arm64 arm mipsle riscv64; do
 done
 build netductor-op-linux-amd64 ./cmd/netductor-op
 GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o dist/netductor-op-darwin-arm64 ./cmd/netductor-op
+GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o dist/netductor-op-darwin-amd64 ./cmd/netductor-op
 (cd dist && sha256sum netductor-* > SHA256SUMS)
 # Formula sha
 SHA_ARM=$(sha256sum dist/netductor-op-darwin-arm64 | awk '{print $1}')
+SHA_AMD=$(sha256sum dist/netductor-op-darwin-amd64 | awk '{print $1}')
 SHA_LIN=$(sha256sum dist/netductor-op-linux-amd64 | awk '{print $1}')
 cat > Formula/netductor.rb << FORM
 class Netductor < Formula
@@ -45,6 +47,10 @@ class Netductor < Formula
     on_arm do
       url "https://github.com/PavelNeyman/netductor/releases/download/$TAG/netductor-op-darwin-arm64"
       sha256 "$SHA_ARM"
+    end
+    on_intel do
+      url "https://github.com/PavelNeyman/netductor/releases/download/$TAG/netductor-op-darwin-amd64"
+      sha256 "$SHA_AMD"
     end
   end
   on_linux do
