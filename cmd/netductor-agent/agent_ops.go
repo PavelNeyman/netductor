@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/url"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -172,7 +173,7 @@ func applyTemplate(client *http.Client, cfg config) string {
 	}
 	toSet := edgeagent.DiffUCI(desired, current)
 	if len(toSet) == 0 {
-		return edgeagent.FormatApplyReport(toSet) + applyVPNClient(tmpl) + applyGuestFromTemplate(tmpl)
+		return edgeagent.FormatApplyReport(toSet) + applyVPNClient(tmpl, cfg) + applyGuestFromTemplate(tmpl)
 	}
 	for _, line := range toSet {
 		_ = exec.Command("uci", "set", line).Run()
@@ -180,12 +181,12 @@ func applyTemplate(client *http.Client, cfg config) string {
 	_ = exec.Command("uci", "commit").Run()
 	_ = exec.Command("/etc/init.d/network", "reload").Run()
 	_ = exec.Command("wifi", "reload").Run()
-	vpnNote := applyVPNClient(tmpl)
+	vpnNote := applyVPNClient(tmpl, cfg)
 	gNote := applyGuestFromTemplate(tmpl)
 	return edgeagent.FormatApplyReport(toSet) + "\n" + strings.Join(toSet, "\n") + vpnNote + gNote
 }
 
-func applyVPNClient(tmpl map[string]any) string {
+func applyVPNClient(tmpl map[string]any, cfg config) string {
 	vpn, _ := tmpl["vpn"].(map[string]any)
 	if vpn == nil {
 		return ""
@@ -216,12 +217,37 @@ func applyVPNClient(tmpl map[string]any) string {
 	if mode == "" {
 		mode = "tun" // default: whole-router VPN; socks/mixed only if template sets mode
 	}
-	cfg, err := edgeagent.VLESSClientConfig(vless, mode)
+	dnsMode, _ := vpn["dns"].(string)
+	if dnsMode == "" {
+		dnsMode, _ = vpn["dns_mode"].(string)
+	}
+	if dnsMode == "" {
+		dnsMode = "vpn"
+	}
+	soft := true
+	if fb, _ := vpn["fallback"].(string); fb == "none" || fb == "off" {
+		soft = false
+	}
+	if v, ok := vpn["soft_fallback"].(bool); ok {
+		soft = v
+	}
+	primaryHost := ""
+	if ph, _ := vpn["primary_host"].(string); ph != "" {
+		primaryHost = ph
+	}
+	if primaryHost == "" && cfg.Server != "" {
+		if u, err := url.Parse(cfg.Server); err == nil {
+			primaryHost = u.Hostname()
+		}
+	}
+	boxJSON, err := edgeagent.VLESSClientConfigOpts(vless, edgeagent.ClientOpts{
+		Mode: mode, SoftFallback: soft, PrimaryHost: primaryHost, DNSMode: dnsMode,
+	})
 	if err != nil {
 		return note + "; vless parse: " + err.Error()
 	}
 	path := "/etc/netductor-agent/sing-box-client.json"
-	_ = os.WriteFile(path, cfg, 0o600)
+	_ = os.WriteFile(path, boxJSON, 0o600)
 	note += "; config " + path + " mode=" + mode
 	bin, err := edgeagent.EnsureSingBox("/usr/sbin/sing-box")
 	if err != nil {
@@ -242,7 +268,7 @@ func applyVPNClient(tmpl map[string]any) string {
 			if strings.Contains(st, "inactive") || strings.Contains(st, "failed") || strings.Contains(strings.ToLower(st), "not running") {
 				note += "; tun failed → socks fallback"
 				mode = "socks"
-				if cfg2, err2 := edgeagent.VLESSClientConfig(vless, mode); err2 == nil {
+				if cfg2, err2 := edgeagent.VLESSClientConfigOpts(vless, edgeagent.ClientOpts{Mode: mode, SoftFallback: soft, PrimaryHost: primaryHost, DNSMode: dnsMode}); err2 == nil {
 					_ = os.WriteFile(path, cfg2, 0o600)
 					_ = exec.Command("/etc/init.d/netductor-vpn", "restart").Run()
 				}

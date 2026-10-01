@@ -1,3 +1,9 @@
+## 0.9.162 LAN через VLESS (мягкий fallback WAN)
+
+- Шаблон: VPN вкл, tun, fallback=wan, dns=vpn
+- Peer `edge-<id>` не в списке Users
+- Soft fallback + DNS через secondary; агент к primary — direct
+
 ## Модель edge (решено, код частично)
 
 **Сделано (0.9.160+):** LuCI вкл/выкл/продление/статус — агент + SSH в LAN + TG Роутеры + Web + TUI + CLI.

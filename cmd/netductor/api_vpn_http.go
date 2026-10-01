@@ -118,6 +118,17 @@ func registerVPNHTTP(mux *http.ServeMux) {
 				writeJSON(w, 500, map[string]string{"error": err.Error()})
 				return
 			}
+			includeEdge := r.URL.Query().Get("include_edge") == "1"
+			if !includeEdge {
+				filtered := users[:0]
+				for _, u := range users {
+					if vpn.IsEdgeUser(u.Name) {
+						continue
+					}
+					filtered = append(filtered, u)
+				}
+				users = filtered
+			}
 			writeJSON(w, 200, map[string]any{"users": users})
 		case http.MethodPost:
 			body := readJSON(r)

@@ -1,3 +1,12 @@
+## Edge LAN VPN (private Wi‑Fi)
+
+- Template `vpn.enabled` (default **true**): agent installs sing-box client, TUN `nd-tun`
+- Traffic: private LAN → **VLESS to secondary**; **urltest** falls back to **ISP WAN** if proxy down
+- Guest Wi‑Fi: separate zone, **ISP only** (not forced into TUN isolation beyond firewall)
+- DNS mode `vpn`: DNS hijack + queries via proxy (foreign); `.ru` → Yandex DNS
+- Agent mTLS to primary: **direct** (not through user VLESS)
+- VPN account: `edge-<device_id>` — not shown in human Users list
+
 ## LuCI (temporary admin UI)
 
 - Enable/disable **uhttpd** only (package stays).

@@ -10,12 +10,12 @@ Self-hosted **network control plane** (Debian primary + RU **secondary** VPN ent
 - Thin git + local OCI registry + optional Lampac
 - Encrypted backups + agent offsite pull to RU + recovery API
 
-**Current release:** **v0.9.161**
+**Current release:** **v0.9.162**
 
 ```bash
 # Mac
 brew install netductor   # or download from Releases
-netductor version        # 0.9.161
+netductor version        # 0.9.162
 
 # Full deploy from workstation
 netductor deploy primary --host … --password … --key ~/.ssh/netductor_primary \

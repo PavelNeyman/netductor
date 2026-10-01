@@ -38,3 +38,20 @@ func TestVLESSClientConfigDefaultTun(t *testing.T) {
 		t.Fatalf("expected tun default, got %s", b)
 	}
 }
+
+func TestVLESSClientConfigSoftDNS(t *testing.T) {
+	link := "vless://11111111-2222-3333-4444-555555555555@9.9.9.9:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.cloudflare.com&fp=chrome&pbk=PUB&sid=abcd&type=tcp#t"
+	b, err := VLESSClientConfigOpts(link, ClientOpts{Mode: "tun", SoftFallback: true, DNSMode: "vpn", PrimaryHost: "2.27.118.70"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, need := range []string{"urltest", "auto", "hijack-dns", "9.9.9.9", "2.27.118.70", "strict_route"} {
+		if !strings.Contains(s, need) {
+			t.Fatalf("missing %q in %s", need, s)
+		}
+	}
+	if !strings.Contains(s, `"strict_route": false`) && !strings.Contains(s, `"strict_route":false`) {
+		t.Fatalf("soft should set strict_route false: %s", s)
+	}
+}

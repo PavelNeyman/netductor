@@ -118,3 +118,10 @@ func Rename(oldName, newName string) (string, error) {
 	}
 	return newName, nil
 }
+
+
+// IsEdgeUser reports VPN accounts created for OpenWrt/edge routers (not human Users UI).
+func IsEdgeUser(name string) bool {
+	name = strings.TrimSpace(name)
+	return strings.HasPrefix(name, "edge-")
+}

@@ -42,6 +42,9 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		for _, u := range users {
+			if vpn.IsEdgeUser(u.Name) {
+				continue
+			}
 			en := "off"
 			if u.Enabled {
 				en = "on"

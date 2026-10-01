@@ -173,8 +173,11 @@ func EnsureDefaultTemplate() {
 			"key":        "",
 		},
 		"vpn": map[string]any{
-			"enabled": true,
-			"mode":    "tun",
+			"enabled":       true,
+			"mode":          "tun",
+			"fallback":      "wan",
+			"soft_fallback": true,
+			"dns":           "vpn",
 		},
 	})
 }

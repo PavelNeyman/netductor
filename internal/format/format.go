@@ -3,6 +3,7 @@
 package format
 
 import (
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -368,6 +369,9 @@ func formatVPNUsers(v any, ru bool) Result {
 			continue
 		}
 		name := firstStr(im, "name", "Name", "id", "ID")
+		if vpn.IsEdgeUser(name) {
+			continue
+		}
 		st := "—"
 		if en, ok := im["enabled"].(bool); ok {
 			if en {

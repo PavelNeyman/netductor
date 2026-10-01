@@ -7,7 +7,7 @@
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
 
-**Release baseline: v0.9.161** (operator/node binary split) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
+**Release baseline: v0.9.162** (operator/node binary split) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
 
 Progress: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 

@@ -1,12 +1,16 @@
+## 0.9.162 Edge LAN via VLESS (soft WAN)
+
+- Default template `vpn.enabled=true`, `mode=tun`, `fallback=wan`, `dns=vpn`
+- Peer name `edge-<device_id>` — **hidden** from Users TG/API/Web (use `?include_edge=1`)
+- Client: urltest proxy+direct; private IP direct; primary host direct (agent mTLS)
+- DNS: hijack + resolve via proxy (blocky path on secondary uplink); `.ru` via 77.88.8.8
+- Guest zone stays ISP-direct (not in TUN policy for guest iface isolation — guest firewall unchanged)
+
 ## Edge model (decided, partial code)
 
 **Done (0.9.160+):** LuCI enable/disable/extend/status — agent + SSH LAN + TG Routers + Web + TUI + CLI.
 
-**Decided, not implemented yet:**
-- Private Wi‑Fi → VLESS to secondary; **soft fallback to ISP WAN** if VPN down
-- Agent mTLS always outside user VLESS
-- Per-router VPN peer (not in Users list)
-- Blocky/DNS for LAN via VPN path
+**Implemented 0.9.162:** private Wi‑Fi → VLESS secondary + soft WAN fallback; edge peer; DNS via VPN path; agent→primary direct.
 
 ## 0.9.160 LuCI enable/disable (agent + SSH LAN)
 

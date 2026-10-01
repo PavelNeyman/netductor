@@ -102,6 +102,21 @@ func TemplateWithVPN(deviceID string) (Template, error) {
 	for k, v := range links {
 		vpnSec[k] = v
 	}
+	// Defaults: soft WAN fallback + DNS via VPN path (blocky/remote through secondary).
+	if _, ok := vpnSec["fallback"]; !ok {
+		vpnSec["fallback"] = "wan"
+	}
+	if _, ok := vpnSec["soft_fallback"]; !ok {
+		vpnSec["soft_fallback"] = true
+	}
+	if _, ok := vpnSec["dns"]; !ok {
+		if _, ok2 := vpnSec["dns_mode"]; !ok2 {
+			vpnSec["dns"] = "vpn"
+		}
+	}
+	if _, ok := vpnSec["mode"]; !ok {
+		vpnSec["mode"] = "tun"
+	}
 	t["vpn"] = vpnSec
 	return t, nil
 }
