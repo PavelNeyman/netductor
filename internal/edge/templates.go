@@ -182,20 +182,11 @@ func EnsureDefaultTemplate() {
 	})
 }
 
-// SetTemplateVPN merges vpn.* policy keys into template id (creates vpn section if missing).
-// Allowed: enabled, mode, dns|dns_mode, fallback, soft_fallback. Unknown keys rejected.
-func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
-	EnsureDefaultTemplate()
-	if id == "" {
-		id = "default"
-	}
-	tmpl, err := GetTemplate(id)
-	if err != nil {
-		return nil, err
-	}
-	vpn, _ := tmpl["vpn"].(map[string]any)
+
+// applyVPNPolicyToMap merges validated policy keys from kvs into vpn map.
+func applyVPNPolicyToMap(vpn map[string]any, kvs map[string]any) error {
 	if vpn == nil {
-		vpn = map[string]any{}
+		return fmt.Errorf("vpn map nil")
 	}
 	parseBool := func(v any) bool {
 		switch x := v.(type) {
@@ -228,31 +219,51 @@ func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
 		case "dns", "dns_mode":
 			s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
 			if !inList(s, []string{"vpn", "wan", "off"}) {
-				return nil, fmt.Errorf("invalid dns %q (want vpn|wan|off)", s)
+				return fmt.Errorf("invalid dns %q (want vpn|wan|off)", s)
 			}
 			vpn["dns"] = s
 			delete(vpn, "dns_mode")
 		case "mode":
 			s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
 			if !inList(s, []string{"tun", "off", "socks", "mixed"}) {
-				return nil, fmt.Errorf("invalid mode %q (want tun|off|socks|mixed)", s)
+				return fmt.Errorf("invalid mode %q (want tun|off|socks|mixed)", s)
 			}
 			vpn["mode"] = s
 		case "fallback":
 			s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
 			if !inList(s, []string{"wan", "block", "none", "off"}) {
-				return nil, fmt.Errorf("invalid fallback %q (want wan|block)", s)
+				return fmt.Errorf("invalid fallback %q (want wan|block)", s)
 			}
 			if s == "none" || s == "off" {
 				s = "block"
 			}
 			vpn["fallback"] = s
-		case "user", "subscription", "vless", "exit", "primary":
-			// link fields — ignore if client sends them on policy API
+		case "user", "subscription", "vless", "exit", "primary", "primary_host":
+			// link / runtime fields — ignore on policy API
 			continue
 		default:
-			return nil, fmt.Errorf("unknown vpn key %q", k)
+			return fmt.Errorf("unknown vpn key %q", k)
 		}
+	}
+	return nil
+}
+
+// SetTemplateVPN merges vpn.* policy keys into template id (creates vpn section if missing).
+func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
+	EnsureDefaultTemplate()
+	if id == "" {
+		id = "default"
+	}
+	tmpl, err := GetTemplate(id)
+	if err != nil {
+		return nil, err
+	}
+	vpn, _ := tmpl["vpn"].(map[string]any)
+	if vpn == nil {
+		vpn = map[string]any{}
+	}
+	if err := applyVPNPolicyToMap(vpn, kvs); err != nil {
+		return nil, err
 	}
 	tmpl["vpn"] = vpn
 	if err := SaveTemplate(id, tmpl); err != nil {
@@ -262,8 +273,8 @@ func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
 }
 
 // MergeTemplate merges body into existing template (non-destructive).
-// Top-level keys in body replace same keys; nested map[string]any are shallow-merged.
-// If replace is true, body fully replaces the template (legacy SaveTemplate behaviour).
+// Nested map[string]any are shallow-merged; vpn keys are allowlisted.
+// If replace is true, body fully replaces the template.
 func MergeTemplate(id string, body Template, replace bool) (Template, error) {
 	id = sanitizeID(id)
 	if id == "" {
@@ -278,7 +289,6 @@ func MergeTemplate(id string, body Template, replace bool) (Template, error) {
 	EnsureDefaultTemplate()
 	cur, err := GetTemplate(id)
 	if err != nil {
-		// new id — save as full body
 		if err := SaveTemplate(id, body); err != nil {
 			return nil, err
 		}
@@ -286,6 +296,21 @@ func MergeTemplate(id string, body Template, replace bool) (Template, error) {
 	}
 	for k, v := range body {
 		if k == "id" {
+			continue
+		}
+		if k == "vpn" {
+			vm, ok := v.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("vpn must be object")
+			}
+			base, _ := cur["vpn"].(map[string]any)
+			if base == nil {
+				base = map[string]any{}
+			}
+			if err := applyVPNPolicyToMap(base, vm); err != nil {
+				return nil, err
+			}
+			cur["vpn"] = base
 			continue
 		}
 		if vm, ok := v.(map[string]any); ok {

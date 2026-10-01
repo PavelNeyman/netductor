@@ -2,6 +2,7 @@ package edge
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -32,7 +33,7 @@ func EnsureVPNClient(deviceID string) (map[string]string, error) {
 	}
 	if !found {
 		if _, err := vpn.AddNative(name, "edge device "+deviceID); err != nil {
-			_ = err
+			return nil, fmt.Errorf("create edge vpn user %s: %w", name, err)
 		}
 		users, _ = vpn.ListNative()
 		for _, u := range users {
@@ -41,6 +42,9 @@ func EnsureVPNClient(deviceID string) (map[string]string, error) {
 				break
 			}
 		}
+	}
+	if uuid == "" {
+		return nil, fmt.Errorf("edge vpn user %s missing after create", name)
 	}
 	vless := edgeRelayOrCoreLink(name, uuid)
 	if vless == "" {
@@ -80,15 +84,7 @@ func TemplateWithVPN(deviceID string) (Template, error) {
 		return nil, err
 	}
 	vpnSec, _ := t["vpn"].(map[string]any)
-	enabled := false
-	if vpnSec != nil {
-		switch v := vpnSec["enabled"].(type) {
-		case bool:
-			enabled = v
-		case string:
-			enabled = v == "true" || v == "1"
-		}
-	}
+	enabled := vpnTruthy(vpnSec, "enabled", false)
 	if !enabled {
 		return t, nil
 	}
@@ -128,4 +124,25 @@ func TemplateWithVPN(deviceID string) (Template, error) {
 	}
 	t["vpn"] = vpnSec
 	return t, nil
+}
+
+func vpnTruthy(m map[string]any, key string, def bool) bool {
+	if m == nil {
+		return def
+	}
+	v, ok := m[key]
+	if !ok || v == nil {
+		return def
+	}
+	switch x := v.(type) {
+	case bool:
+		return x
+	case string:
+		s := strings.ToLower(strings.TrimSpace(x))
+		return s == "1" || s == "true" || s == "yes" || s == "on"
+	case float64:
+		return x != 0
+	default:
+		return def
+	}
 }

@@ -2,6 +2,7 @@ package edgeagent
 
 import (
 	"encoding/json"
+	"net"
 	"fmt"
 	"net/url"
 	"os"
@@ -142,14 +143,17 @@ func VLESSClientConfigOpts(link string, opt ClientOpts) ([]byte, error) {
 	}
 	routeRules = append(routeRules, map[string]any{"ip_is_private": true, "outbound": "direct"})
 	if host != "" {
-		routeRules = append(routeRules, map[string]any{"ip_cidr": []string{host + "/32"}, "outbound": "direct"})
-		routeRules = append(routeRules, map[string]any{"domain": []string{host}, "outbound": "direct"})
+		if ip := net.ParseIP(host); ip != nil {
+			routeRules = append(routeRules, map[string]any{"ip_cidr": []string{host + "/32"}, "outbound": "direct"})
+		} else {
+			routeRules = append(routeRules, map[string]any{"domain": []string{host}, "outbound": "direct"})
+		}
 	}
 	if ph := strings.TrimSpace(opt.PrimaryHost); ph != "" {
-		routeRules = append(routeRules, map[string]any{"domain": []string{ph}, "outbound": "direct"})
-		// only add /32 if looks like IPv4
-		if strings.Count(ph, ".") == 3 && !strings.Contains(ph, ":") {
+		if ip := net.ParseIP(ph); ip != nil {
 			routeRules = append(routeRules, map[string]any{"ip_cidr": []string{ph + "/32"}, "outbound": "direct"})
+		} else {
+			routeRules = append(routeRules, map[string]any{"domain": []string{ph}, "outbound": "direct"})
 		}
 	}
 	routeRules = append(routeRules, map[string]any{"network": "udp", "port": 443, "outbound": "block"})

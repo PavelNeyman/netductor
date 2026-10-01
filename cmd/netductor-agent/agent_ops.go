@@ -224,12 +224,19 @@ func applyVPNClient(tmpl map[string]any, cfg config) string {
 	if dnsMode == "" {
 		dnsMode = "vpn"
 	}
+	// soft_fallback: explicit wins; else fallback=block/none/off ⇒ no ISP urltest.
 	soft := true
-	if fb, _ := vpn["fallback"].(string); fb == "none" || fb == "off" {
+	if fb, _ := vpn["fallback"].(string); strings.EqualFold(fb, "block") || fb == "none" || fb == "off" {
 		soft = false
 	}
-	if v, ok := vpn["soft_fallback"].(bool); ok {
-		soft = v
+	if v, ok := vpn["soft_fallback"]; ok {
+		switch x := v.(type) {
+		case bool:
+			soft = x
+		case string:
+			s := strings.ToLower(strings.TrimSpace(x))
+			soft = s == "1" || s == "true" || s == "yes" || s == "on"
+		}
 	}
 	primaryHost := ""
 	if ph, _ := vpn["primary_host"].(string); ph != "" {
