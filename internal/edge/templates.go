@@ -182,8 +182,8 @@ func EnsureDefaultTemplate() {
 	})
 }
 
-// SetTemplateVPN merges vpn.* keys into template id (creates vpn section if missing).
-// Known keys: enabled, mode, dns (or dns_mode), fallback, soft_fallback — others stored as strings.
+// SetTemplateVPN merges vpn.* policy keys into template id (creates vpn section if missing).
+// Allowed: enabled, mode, dns|dns_mode, fallback, soft_fallback. Unknown keys rejected.
 func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
 	EnsureDefaultTemplate()
 	if id == "" {
@@ -197,27 +197,61 @@ func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
 	if vpn == nil {
 		vpn = map[string]any{}
 	}
+	parseBool := func(v any) bool {
+		switch x := v.(type) {
+		case bool:
+			return x
+		case string:
+			return x == "1" || strings.EqualFold(x, "true") || strings.EqualFold(x, "yes") || strings.EqualFold(x, "on")
+		case float64:
+			return x != 0
+		default:
+			return false
+		}
+	}
+	inList := func(s string, allowed []string) bool {
+		s = strings.ToLower(strings.TrimSpace(s))
+		for _, a := range allowed {
+			if s == a {
+				return true
+			}
+		}
+		return false
+	}
 	for k, v := range kvs {
 		if k == "" {
 			continue
 		}
 		switch k {
 		case "enabled", "soft_fallback":
-			switch x := v.(type) {
-			case bool:
-				vpn[k] = x
-			case string:
-				vpn[k] = x == "1" || strings.EqualFold(x, "true") || strings.EqualFold(x, "yes")
-			case float64:
-				vpn[k] = x != 0
-			default:
-				vpn[k] = false
+			vpn[k] = parseBool(v)
+		case "dns", "dns_mode":
+			s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
+			if !inList(s, []string{"vpn", "wan", "off"}) {
+				return nil, fmt.Errorf("invalid dns %q (want vpn|wan|off)", s)
 			}
-		case "dns_mode":
-			// alias
-			vpn["dns"] = fmt.Sprint(v)
+			vpn["dns"] = s
+			delete(vpn, "dns_mode")
+		case "mode":
+			s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
+			if !inList(s, []string{"tun", "off", "socks", "mixed"}) {
+				return nil, fmt.Errorf("invalid mode %q (want tun|off|socks|mixed)", s)
+			}
+			vpn["mode"] = s
+		case "fallback":
+			s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
+			if !inList(s, []string{"wan", "block", "none", "off"}) {
+				return nil, fmt.Errorf("invalid fallback %q (want wan|block)", s)
+			}
+			if s == "none" || s == "off" {
+				s = "block"
+			}
+			vpn["fallback"] = s
+		case "user", "subscription", "vless", "exit", "primary":
+			// link fields — ignore if client sends them on policy API
+			continue
 		default:
-			vpn[k] = fmt.Sprint(v)
+			return nil, fmt.Errorf("unknown vpn key %q", k)
 		}
 	}
 	tmpl["vpn"] = vpn
@@ -225,4 +259,50 @@ func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
 		return nil, err
 	}
 	return tmpl, nil
+}
+
+// MergeTemplate merges body into existing template (non-destructive).
+// Top-level keys in body replace same keys; nested map[string]any are shallow-merged.
+// If replace is true, body fully replaces the template (legacy SaveTemplate behaviour).
+func MergeTemplate(id string, body Template, replace bool) (Template, error) {
+	id = sanitizeID(id)
+	if id == "" {
+		return nil, fmt.Errorf("empty id")
+	}
+	if replace {
+		if err := SaveTemplate(id, body); err != nil {
+			return nil, err
+		}
+		return GetTemplate(id)
+	}
+	EnsureDefaultTemplate()
+	cur, err := GetTemplate(id)
+	if err != nil {
+		// new id — save as full body
+		if err := SaveTemplate(id, body); err != nil {
+			return nil, err
+		}
+		return GetTemplate(id)
+	}
+	for k, v := range body {
+		if k == "id" {
+			continue
+		}
+		if vm, ok := v.(map[string]any); ok {
+			base, _ := cur[k].(map[string]any)
+			if base == nil {
+				base = map[string]any{}
+			}
+			for sk, sv := range vm {
+				base[sk] = sv
+			}
+			cur[k] = base
+			continue
+		}
+		cur[k] = v
+	}
+	if err := SaveTemplate(id, cur); err != nil {
+		return nil, err
+	}
+	return cur, nil
 }

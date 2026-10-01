@@ -148,11 +148,22 @@ func registerEdgeAPI(mux *http.ServeMux) {
 				writeJSON(w, 400, map[string]string{"error": "id"})
 				return
 			}
-			if err := edge.SaveTemplate(id, edge.Template(body)); err != nil {
+			// Default: merge into existing template (avoid wiping wifi/guest when body is partial).
+			// Full replace only with replace=true|1|yes.
+			replace := false
+			switch v := body["replace"].(type) {
+			case bool:
+				replace = v
+			case string:
+				replace = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+			}
+			delete(body, "replace")
+			tmpl, err := edge.MergeTemplate(id, edge.Template(body), replace)
+			if err != nil {
 				writeJSON(w, 500, map[string]string{"error": err.Error()})
 				return
 			}
-			writeJSON(w, 200, map[string]any{"ok": true})
+			writeJSON(w, 200, map[string]any{"ok": true, "id": id, "replace": replace, "template": tmpl})
 		default:
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}

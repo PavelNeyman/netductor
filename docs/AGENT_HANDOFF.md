@@ -1,4 +1,6 @@
 
+- **0.9.166:** TemplateWithVPN no longer overwrites `vpn.fallback`/policy; `SetTemplateVPN` allowlist; `POST /api/edge/templates` merges by default (`replace=true` for full replace).
+
 ## 0.9.163 Edge DNS order + template CLI
 
 - Remote DNS: **1.1.1.1** first, **9.9.9.9** second (RU paths often faster to CF).

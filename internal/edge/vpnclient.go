@@ -46,12 +46,13 @@ func EnsureVPNClient(deviceID string) (map[string]string, error) {
 	if vless == "" {
 		return nil, fmt.Errorf("no vpn links for %s — is sing-box installed?", name)
 	}
+	// Link fields only — never policy (fallback/dns/mode/soft_fallback).
+	// Those come from the template and must survive TemplateWithVPN merge.
 	return map[string]string{
 		"user":         name,
 		"subscription": vless,
 		"vless":        vless,
-		"primary":      "secondary",
-		"fallback":     "wan",
+		"exit":         "secondary", // informational; not a routing policy key
 	}, nil
 }
 
@@ -99,10 +100,18 @@ func TemplateWithVPN(deviceID string) (Template, error) {
 	if vpnSec == nil {
 		vpnSec = map[string]any{}
 	}
+	// Merge link fields only; never overwrite operator policy keys.
+	policyKeys := map[string]bool{
+		"enabled": true, "mode": true, "dns": true, "dns_mode": true,
+		"fallback": true, "soft_fallback": true,
+	}
 	for k, v := range links {
+		if policyKeys[k] {
+			continue
+		}
 		vpnSec[k] = v
 	}
-	// Defaults: soft WAN fallback + DNS via VPN path (blocky/remote through secondary).
+	// Defaults only when missing (do not clobber template-set values).
 	if _, ok := vpnSec["fallback"]; !ok {
 		vpnSec["fallback"] = "wan"
 	}

@@ -1,4 +1,6 @@
 
+- **0.9.166:** TemplateWithVPN no longer overwrites `vpn.fallback`/policy; `SetTemplateVPN` allowlist; `POST /api/edge/templates` merges by default (`replace=true` for full replace).
+
 ## 0.9.163 Порядок DNS edge + CLI шаблона
 
 - Удалённый DNS: сначала **1.1.1.1**, затем **9.9.9.9**.
