@@ -1,6 +1,6 @@
 # AGENTS.md — Netductor
 
-> Document Version: **2.6**  
+> Document Version: **2.7**  
 > Status: **Approved**  
 > GitHub: **https://github.com/PavelNeyman/netductor** (renamed from FreshVPS)
 
@@ -27,7 +27,12 @@ Progress: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 4. Respect Forbidden / Frozen Architecture.
 5. If ambiguous → **STOP** and ask the owner.
 6. Implement only the requested task.
-7. Docs EN+RU when user-facing behaviour changes.
+7. **Documentation bilingualism (MANDATORY, non-negotiable):**
+   - Every product/ops doc under `docs/` **MUST** have a pair under `docs/ru/` with the **same sections and the same meaning in full**.
+   - Not word-for-word translation — **full semantic parity**. RU must not omit facts, steps, warnings, parameters, or decisions present in EN.
+   - **Forbidden:** “RU is condensed / shorter by design”, partial RU digests of long EN design docs.
+   - UI strings (TG/TUI/Web/CLI): both languages in the **same change**.
+   - A change that updates EN docs without updating RU (or vice versa) is **incomplete** and must not be marked done.
 8. **Go only** for control plane (install/serve/vpn/doctor/agent/tg).
 **Binaries:** `cmd/netductor-op` (workstation) vs `cmd/netductor` node (`netductor-linux-*` on VPS). Shell/Python under `legacy/` is reference-only, not runtime.
 9. One logical Git commit per task.
@@ -46,7 +51,7 @@ This rule is **strict and non-negotiable**:
 2. When any checklist item is **finished**, the **same** change (commit / PR / task outcome) **must**:
    - mark that item `[x]` in the plan file;
    - update affected docs (ARCHITECTURE-OPERATOR, DOMAIN, DEPLOY-MAC, HANDOFF, CHANGELOG as applicable);
-   - keep EN+RU in sync when user-facing behaviour is documented in both.
+   - EN+RU docs: full semantic parity always (see Quick Start §7).
 3. **Forbidden:** closing a task as done while leaving plan boxes unchecked or handoff/architecture stale.
 4. **Forbidden:** implementing deploy behaviour only in TUI or only in CLI — extend operator/deploy Spec + one use-case, then thin UI.
 5. New chats: read [docs/ARCHITECTURE-OPERATOR.md](docs/ARCHITECTURE-OPERATOR.md) before changing deploy/TUI.

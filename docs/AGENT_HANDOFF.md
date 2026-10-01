@@ -1,3 +1,7 @@
+## Docs EN/RU
+
+**Hard rule:** full **semantic** parity `docs/` ↔ `docs/ru/` (not a RU digest). See AGENTS.md §7, docs/I18N.md.
+
 ## 0.9.162 Edge LAN via VLESS (soft WAN)
 
 - Default template `vpn.enabled=true`, `mode=tun`, `fallback=wan`, `dns=vpn`

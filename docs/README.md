@@ -16,4 +16,9 @@
 ## Product / plans
 Full set under `docs/` and `docs/ru/` — architecture, ports, security, backup, mTLS, VPN, edge, MikroTik, git, UI rules, plans (NVR, rooms, MT API).
 
-RU texts are **sense-equivalent**, not word-for-word. Long design docs (e.g. NVR, backbone) are condensed in RU; EN keeps detail.
+**Bilingualism (owner rule — mandatory):**
+
+- EN under `docs/`, RU under `docs/ru/` — **full semantic parity**, not a summary.
+- Not required to be word-for-word; required to carry **the same meaning completely** (all sections, steps, warnings, parameters).
+- **Never** treat RU as “condensed” or “shorter by design”. If EN has detail, RU must have that detail in meaning.
+- Updating only one language = unfinished work.

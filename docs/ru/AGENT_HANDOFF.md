@@ -1,3 +1,7 @@
+## Документация EN/RU
+
+**Жёсткое правило:** полный **смысловой** паритет `docs/` ↔ `docs/ru/` (не краткий пересказ). См. AGENTS.md §7, docs/I18N.md.
+
 ## 0.9.162 LAN через VLESS (мягкий fallback WAN)
 
 - Шаблон: VPN вкл, tun, fallback=wan, dns=vpn

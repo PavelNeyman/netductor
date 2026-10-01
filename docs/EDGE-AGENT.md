@@ -1,4 +1,51 @@
-## Edge LAN VPN (private Wi‑Fi)
+
+## Route: private IP → always `direct`
+
+On the edge sing-box client, one of the first route rules is:
+
+`ip_is_private: true` → outbound **`direct`**
+
+**What counts as private (typical):**
+- RFC1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+- Link-local, CGNAT blocks if classified private by sing-box
+- Traffic to hosts on the **router’s own LAN** (phones, PCs, Tapo cameras, printers, LuCI at `192.168.x.1`)
+
+**Why:**
+1. **LAN must work without VPN.** Cameras RTSP, SMB, SSH to the router, LuCI, guest isolation targets, DHCP — none of this should be stuffed into VLESS.
+2. **No hairpin through secondary.** Sending `192.168.50.20` to the RU VPS and back is useless and breaks local services.
+3. **Soft fallback safety.** Even when the default path is VLESS, local traffic never depends on secondary being up.
+
+**What still goes via VLESS (when proxy is healthy):**
+- Public Internet destinations from **private Wi‑Fi / LAN clients** whose default gateway is the router (TUN `auto_route` on the router).
+
+**Guest Wi‑Fi:** separate firewall zone; policy is **ISP only**, not “force everything into TUN”. Private-IP direct still applies on the router’s own stack.
+
+**Primary / secondary addresses:** also forced **direct** so agent mTLS to primary and the VLESS dial to secondary do not recurse into the tunnel.
+
+---
+
+## Template `dns: vpn` (default)
+
+Template field (default on new templates):
+
+```json
+"vpn": { "enabled": true, "mode": "tun", "fallback": "wan", "dns": "vpn" }
+```
+
+**Meaning of `dns: vpn`:**
+1. Route rule **`protocol: dns` → `hijack-dns`**: DNS packets seen by sing-box are handled by its DNS module (not leaked “raw” to a random upstream on WAN alone).
+2. DNS servers in client config:
+   - **`ya`**: `77.88.8.8` — used for suffixes `.ru` / `.р` / `.su` (no detour through VLESS).
+   - **`remote` / `remote2`**: `9.9.9.9` / `1.1.1.1` with **`detour: auto|proxy`** — resolution for the rest goes **through the VPN path** (secondary). That is the “LAN uses DNS over the same path as web traffic” behaviour; blocky on primary still sits on the control plane — edge does not talk to `127.0.0.1:53` on primary.
+3. **`dns: wan`**: do not rely on hijack + remote detour (ISP/resolver on WAN).
+4. **`dns: off`**: no dedicated DNS block in client JSON (OpenWrt dnsmasq defaults).
+
+**LAN clients:** still use the **router** as DNS (dnsmasq). Upstream of dnsmasq effectively follows router routing: with TUN + hijack, queries are pulled into sing-box policy above.
+
+**Not the same as “every answer comes from blocky on primary”.** Edge has no direct localhost path to primary’s blocky; filtering on primary applies to traffic that **exits via** secondary→primary uplink when that path is used. Edge-side lists can be added later if needed.
+
+
+
 
 - Template `vpn.enabled` (default **true**): agent installs sing-box client, TUN `nd-tun`
 - Traffic: private LAN → **VLESS to secondary**; **urltest** falls back to **ISP WAN** if proxy down
