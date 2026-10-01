@@ -16,8 +16,8 @@ func handleStackCB(token string, chat int64, msgID int, data string) {
 			rb = "↩️ Откат"
 		}
 		return map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🔄", "m:stack", "primary"), btn(rb, "m:stack:rollback", ""), btn("🔧 WD", "m:stack:watchdog", "")},
-			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+			{btn("🔄", "m:stack", "primary"), btn("🩹 Heal", "m:stack:heal", ""), btn("🔧 WD", "m:stack:watchdog", "")},
+			{btn(rb, "m:stack:rollback", ""), btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 		}}
 	}
 	switch {
@@ -30,6 +30,13 @@ func handleStackCB(token string, chat int64, msgID int, data string) {
 			html += "\n\n<i>Rollback — last-good (after successful apply = current). Requires confirm.</i>"
 		}
 		reply(token, chat, msgID, html, kb())
+	case data == "m:stack:heal":
+		out, err := exec.Command("/usr/local/bin/netductor", "stack", "heal").CombinedOutput()
+		msg := "🩹 Heal\n<pre>" + esc(trimRunes(string(out), 1200)) + "</pre>"
+		if err != nil {
+			msg = "❌ " + esc(fmt.Sprintf("%v\n%s", err, trimRunes(string(out), 800)))
+		}
+		reply(token, chat, msgID, msg+"\n\n"+stack.FormatHTML(stack.Collect()), kb())
 	case data == "m:stack:rollback":
 		msg := "↩️ <b>Rollback last-good?</b>\n<i>After a successful update, prev is the same release — safe. Ancient 0.9.121 is no longer kept as last-good.</i>"
 		yes, cancel := "✅ Confirm", "⬅️ Cancel"

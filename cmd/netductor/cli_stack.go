@@ -15,6 +15,7 @@ func runStack(args []string) {
 netductor stack apply [vX.Y.Z]
 netductor stack rollback
 netductor stack watchdog
+netductor stack heal               # if prev > running, restore prev
 netductor stack watchdog-install
 netductor stack pin [reason]
 netductor stack unpin
@@ -43,6 +44,15 @@ netductor stack schedule [vX.Y.Z]
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "heal":
+		if err := stack.HealVersion(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		st := stack.Collect()
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(st)
 	case "watchdog":
 		stack.WatchdogOnce()
 		st := stack.Collect()

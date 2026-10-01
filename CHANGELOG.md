@@ -1,3 +1,9 @@
+## 0.9.147
+
+- stack heal: restore prev when prev > running (fixes 121/146 split)
+- Stack HTML warns when prev newer
+- TG Stack: Heal button
+
 ## 0.9.146
 
 - Access card: never photo-edit on VLESS↔Sub; track msg id, always new card then delete old

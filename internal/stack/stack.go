@@ -121,6 +121,9 @@ func FormatHTML(st Status) string {
 	if st.Prev != "" {
 		b.WriteString(" · prev <code>" + st.Prev + "</code>")
 	}
+	if st.Prev != "" && st.Release != "" && verLess(st.Release, st.Prev) {
+		b.WriteString("\n⚠️ <b>prev newer than running</b> — <code>netductor stack heal</code> or re-apply")
+	}
 	b.WriteString("\n<table bordered striped>\n<tr><th>unit</th><th>state</th><th>ok</th></tr>\n")
 	for _, u := range st.Units {
 		mark := "✅"
@@ -284,6 +287,36 @@ func parseVerField(s string) string {
 		}
 	}
 	return strings.TrimSpace(s)
+}
+
+
+// HealVersion: if prev/ is newer than running binary, restore prev (fixes 121 running / 146 prev).
+func HealVersion() error {
+	if ok, why := IsPinned(); ok {
+		return fmt.Errorf("stack pinned: %s", why)
+	}
+	run := verNorm(version.Running())
+	prev := verNorm(readDirVersion(prevDir()))
+	bv := verNorm(parseVerField(binVersion(filepath.Join(prevDir(), "netductor"))))
+	if bv != "" {
+		prev = bv // binary in prev/ is ground truth
+	}
+	if prev == "" {
+		return fmt.Errorf("no prev snapshot")
+	}
+	if run != "" && !verLess(run, prev) && run == prev {
+		fmt.Fprintln(os.Stderr, "heal: already at", run)
+		return nil
+	}
+	if run != "" && verLess(prev, run) {
+		return fmt.Errorf("prev %s is older than running %s — use stack apply instead", prev, run)
+	}
+	fmt.Fprintln(os.Stderr, "heal: restoring prev", prev, "(running was", run+")")
+	if err := restoreFrom(prevDir()); err != nil {
+		return err
+	}
+	notify.AlertOnce("stack:heal:"+prev, "🩹 Stack heal restored <code>"+prev+"</code> from prev/")
+	return nil
 }
 
 // Apply downloads node+tg for tag, snapshots prev, restarts core units, health-checks.
