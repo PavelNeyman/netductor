@@ -1,24 +1,23 @@
 package main
 
 import (
-	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"github.com/PavelNeyman/netductor/internal/notify"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
-	"github.com/PavelNeyman/netductor/internal/notify"
 )
-
 
 func claimAdmin(chatID int64) {
 	// Production: admin id must be pre-provisioned (file or NETDUCTOR_TG_ADMIN).
@@ -100,7 +99,6 @@ func esc(s string) string {
 	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 	return r.Replace(s)
 }
-
 
 // htmlNeedsRich is true when classic parse_mode=HTML would strip controls/tables.
 func htmlNeedsRich(html string) bool {
@@ -192,8 +190,6 @@ func editRich(token string, chat int64, msgID int, html string, kb map[string]an
 	return err
 }
 
-
-
 var topicsLastReconcile time.Time
 
 func ensureTopicsOnce(token string, admin int64) {
@@ -229,8 +225,8 @@ func sendEphemeralHTML(token string, chat int64, text string, kb map[string]any,
 		ttlSec = 120
 	}
 	payload := map[string]any{
-		"chat_id": chat,
-		"text":    text,
+		"chat_id":    chat,
+		"text":       text,
 		"parse_mode": "HTML",
 		"ephemeral_message_parameters": map[string]any{
 			"replace_callback_query_message": false,
@@ -241,7 +237,7 @@ func sendEphemeralHTML(token string, chat int64, text string, kb map[string]any,
 	}
 	// Prefer rich ephemeral if supported
 	rich := map[string]any{
-		"chat_id": chat,
+		"chat_id":      chat,
 		"rich_message": map[string]any{"html": text},
 		"ephemeral_message_parameters": map[string]any{
 			"replace_callback_query_message": false,
@@ -272,7 +268,6 @@ func scheduleDelete(token string, chat int64, msgID, ttlSec int) {
 		"chat_id": chat, "message_id": msgID,
 	})
 }
-
 
 // sendRichWithPhoto sends Bot API 10.2+ rich message with in-body photo + tg-buttons.
 // photoID is the media id referenced as tg://photo?id=<photoID> in html (e.g. "qr1").
@@ -337,7 +332,7 @@ func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	var wr struct {
-		OK          bool `json:"ok"`
+		OK          bool   `json:"ok"`
 		Description string `json:"description"`
 		Result      struct {
 			MessageID int `json:"message_id"`
@@ -475,7 +470,6 @@ func stripHTMLApprox(s string) string {
 	return strings.TrimSpace(string(out))
 }
 
-
 func editHTML(token string, chat int64, msgID int, text string, kb map[string]any) error {
 	return editRich(token, chat, msgID, text, kb)
 }
@@ -493,8 +487,10 @@ func reply(token string, chat int64, msgID int, text string, kb map[string]any) 
 			return
 		}
 		fmt.Fprintln(os.Stderr, "reply edit failed, replace hub:", target)
+		// Message gone (chat clear / delete for all) or uneditable — drop stale id and send fresh.
+		notify.ClearHubMsg()
 		sendHTML(token, chat, text, kb)
-		if target != msgID && target > 0 {
+		if target > 0 {
 			_ = deleteMessage(token, chat, target)
 		}
 		if msgID > 0 && msgID != target {
@@ -505,6 +501,16 @@ func reply(token string, chat int64, msgID int, text string, kb map[string]any) 
 	sendHTML(token, chat, text, kb)
 }
 
+// forceHub clears singleton state, tries to delete the old hub message, and always sends a new menu.
+// Use after user deleted hub "for me", cleared chat, or Topics recreate.
+func forceHub(token string, chat int64, text string, kb map[string]any) {
+	h := notify.LoadHubMsg()
+	notify.ClearHubMsg()
+	if h.MessageID > 0 && (h.ChatID == 0 || h.ChatID == chat) {
+		_ = deleteMessage(token, chat, h.MessageID)
+	}
+	sendHTML(token, chat, text, kb)
+}
 
 func sendDocumentFile(token string, chat int64, path, caption string) error {
 	f, err := os.Open(path)
@@ -611,7 +617,6 @@ func sendPhotoFile(token string, chat int64, path, caption string, kb map[string
 	return nil
 }
 
-
 func deleteMessage(token string, chat int64, msgID int) error {
 	return apiPOST(token, "deleteMessage", map[string]any{
 		"chat_id": chat, "message_id": msgID,
@@ -649,7 +654,6 @@ func apiPOST(token, method string, fields map[string]any) error {
 	}
 	return nil
 }
-
 
 func answerCallback(token, id string) {
 	_, _ = apiPost(token, "answerCallbackQuery", map[string]any{"callback_query_id": id})
@@ -738,11 +742,6 @@ func runND(args ...string) string {
 	}
 	return string(out)
 }
-
-
-
-
-
 
 func routersText() string {
 	out, err := exec.Command(netductorBin(), "edge", "list").CombinedOutput()
@@ -867,8 +866,8 @@ func main() {
 				if admin == 0 {
 					continue
 				}
-			ensureTopicsOnce(token, admin)
-			handleCallback(token, u.CallbackQuery, admin)
+				ensureTopicsOnce(token, admin)
+				handleCallback(token, u.CallbackQuery, admin)
 				continue
 			}
 			if u.Message != nil {
@@ -889,13 +888,12 @@ func main() {
 					sendHTML(token, u.Message.Chat.ID, T("operator_not_cfg"), nil)
 					continue
 				}
-			ensureTopicsOnce(token, admin)
-			handleMessage(token, u.Message, admin)
+				ensureTopicsOnce(token, admin)
+				handleMessage(token, u.Message, admin)
 			}
 		}
 	}
 }
-
 
 func maskTokenKV(s string) string {
 	// approved id token=abcdef... -> token=abcd…(hidden)

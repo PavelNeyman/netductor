@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -65,7 +65,6 @@ func parentRouters() string {
 	return "Routers"
 }
 
-
 func btnDisabled(text string) map[string]any {
 	return map[string]any{"text": text, "callback_data": "m:noop", "style": "secondary"}
 }
@@ -97,7 +96,6 @@ func formatRelayActionsHTML() string {
 		`<tg-button type="callback_data" style="link" data="m:secondary:sync">` + T("relay_sync") + `</tg-button>` +
 		`</tg-button-row>`
 }
-
 
 func mainKeyboard() map[string]any {
 	// Flat top: 4 clear areas. No VPN-tools duplicate.
@@ -135,18 +133,20 @@ func fleetHubHTML() string {
 		`</tg-button-row>`
 }
 
-
 // operator = session / admin / audit (not day-to-day user VPN)
 
 func topicsKeyboard() map[string]any {
 	ru := getLang() != "en"
 	refresh, recreate, recon, menu := "🔄 Refresh", "♻️ Recreate topics", "🔁 Reconcile", T("main_menu")
+	resetHub := "📌 Reset hub"
 	if ru {
 		refresh, recreate, recon = "🔄 Обновить", "♻️ Пересоздать топики", "🔁 Сверить"
+		resetHub = "📌 Сброс меню"
 	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(recreate, "m:topics:recreate", "primary"), btn(recon, "m:topics:reconcile", "")},
-		{btn(refresh, "m:topics", ""), btn(menu, "m:menu", "")},
+		{btn(resetHub, "m:hub:reset", "primary"), btn(refresh, "m:topics", "")},
+		{btn(menu, "m:menu", "")},
 	}}
 }
 
@@ -286,7 +286,7 @@ func operatorHubHTML() string {
 		`<tg-button type="callback_data" data="m:svc_paths_apply">` + applyBtn + `</tg-button>` +
 		`</tg-button-row>` +
 		`<tg-button-row align="left">` +
-		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>`+
+		`<tg-button type="callback_data" style="primary" data="m:session">` + session + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:topics">` + T("btn_topics") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:sessions">` + sessions + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:audit">` + audit + `</tg-button>` +
@@ -326,7 +326,6 @@ func sitesHubHTML() string {
 		`</tg-button-row>`
 }
 
-
 func nodesKeyboard() map[string]any {
 	return navKeyboard("m:fleet", parentFleet())
 }
@@ -349,7 +348,6 @@ func nodesHubHTML() string {
 		`<tg-button type="callback_data" data="m:secondary:exit:menu">` + T("nodes_exit") + `</tg-button>` +
 		`</tg-button-row>`
 }
-
 
 type nodeRow struct {
 	ID, Host, Role, Kind, IP, Status, Desired, Version string
@@ -457,7 +455,6 @@ func parseNodesList() []nodeRow {
 	return rows
 }
 
-
 func formatNodesListHTML() string {
 	rows := parseNodesList()
 	if len(rows) == 0 {
@@ -525,7 +522,6 @@ func nodesListKeyboard() map[string]any {
 	return navKeyboard("m:cat:nodes", parentNodes())
 }
 
-
 func nodesRenameKeyboard() map[string]any {
 	return navKeyboard("m:cat:nodes", parentNodes())
 }
@@ -567,8 +563,6 @@ func formatNodesRenameHTML() string {
 	return b.String()
 }
 
-
-
 func routersKeyboard() map[string]any {
 	return navKeyboard("m:fleet", parentFleet())
 }
@@ -590,7 +584,6 @@ func routersHubHTML() string {
 		`<tg-button type="callback_data" style="primary" data="m:edge_apply">` + T("apply_tmpl") + `</tg-button>` +
 		`</tg-button-row>`
 }
-
 
 func backKeyboard() map[string]any {
 	return map[string]any{
@@ -677,13 +670,12 @@ func usersListKeyboard() map[string]any {
 	}}
 }
 
-
 func helpHubHTML() string {
 	ru := getLang() != "en"
 	body := helpText()
 	if ru {
 		body += "\n" + `<tg-button-row align="left">` +
-			`<tg-button type="callback_data" style="primary" data="m:status">📊 Статус</tg-button>`+
+			`<tg-button type="callback_data" style="primary" data="m:status">📊 Статус</tg-button>` +
 			`<tg-button type="callback_data" data="m:digest">📡 Fleet</tg-button>` +
 			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
 			`<tg-button type="callback_data" data="m:fleet">🌐 Флот</tg-button>` +
@@ -691,7 +683,7 @@ func helpHubHTML() string {
 			`</tg-button-row>`
 	} else {
 		body += "\n" + `<tg-button-row align="left">` +
-			`<tg-button type="callback_data" style="primary" data="m:status">📊 Status</tg-button>`+
+			`<tg-button type="callback_data" style="primary" data="m:status">📊 Status</tg-button>` +
 			`<tg-button type="callback_data" data="m:digest">📡 Fleet</tg-button>` +
 			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
 			`<tg-button type="callback_data" data="m:fleet">🌐 Fleet</tg-button>` +
@@ -700,7 +692,6 @@ func helpHubHTML() string {
 	}
 	return body
 }
-
 
 func displayRole(role string) string {
 	switch strings.ToLower(strings.TrimSpace(role)) {

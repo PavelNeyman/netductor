@@ -23,3 +23,15 @@
 
 ## Limits
 Telegram may still show cross-topic items in «All». Perfect one-message-only chats are impossible with media; goal is one **control** message + ephemeral media in another topic.
+
+
+## Hub recovery (0.9.152)
+
+| Action | Effect |
+|--------|--------|
+| `/menu force` (or `new` / `reset`) | Clear `hub_msg.json`, delete old hub if possible, **send** new Control message |
+| Topics → **Reset hub** | Same as `/menu force` |
+| Topics → **Recreate** | New bootstrap topics + clear hub + force menu |
+| SSH | `rm -f /var/lib/netductor/tg/hub_msg.json` then `/menu` |
+
+Delete-for-me alone does not invalidate Telegram message_id — bot keeps editing an invisible message until force reset.

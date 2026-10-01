@@ -30,11 +30,11 @@ const (
 )
 
 var (
-	batchMu     sync.Mutex
-	pending     = map[string]string{} // key → html body
-	flushOnce   sync.Once
-	lastFlush   time.Time
-	lastHubPin  time.Time
+	batchMu    sync.Mutex
+	pending    = map[string]string{} // key → html body
+	flushOnce  sync.Once
+	lastFlush  time.Time
+	lastHubPin time.Time
 )
 
 func hubStatePath() string {
@@ -67,6 +67,11 @@ func LoadHubMsg() HubMsg {
 	var h HubMsg
 	_ = json.Unmarshal(b, &h)
 	return h
+}
+
+// ClearHubMsg drops stored singleton hub id (after user delete / force / topic recreate).
+func ClearHubMsg() {
+	_ = os.Remove(hubStatePath())
 }
 
 func startFlusher() {
@@ -200,7 +205,6 @@ func chatIDPositive(chat string) bool {
 	return err == nil && n > 0
 }
 
-
 // repinHub deletes previous hub (if any) and sends a compact menu at chat bottom.
 func repinHub() error {
 	tok := secret("telegram_bot_token")
@@ -229,7 +233,7 @@ func repinHub() error {
 	var wr struct {
 		OK     bool `json:"ok"`
 		Result struct {
-			MessageID int   `json:"message_id"`
+			MessageID int                `json:"message_id"`
 			Chat      struct{ ID int64 } `json:"chat"`
 		} `json:"result"`
 	}

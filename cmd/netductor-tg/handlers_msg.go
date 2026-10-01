@@ -1,12 +1,12 @@
 package main
 
 import (
-	ndupdate "github.com/PavelNeyman/netductor/internal/update"
-	"github.com/PavelNeyman/netductor/internal/sites"
-	"github.com/PavelNeyman/netductor/internal/notify"
-	"github.com/PavelNeyman/netductor/internal/vpn"
-	"github.com/PavelNeyman/netductor/internal/install"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/sites"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"strconv"
 	"strings"
 )
@@ -197,7 +197,7 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, "✅ <pre>"+esc(out)+"</pre>\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
 		return
 	}
-		if st == "wait_relay_host" {
+	if st == "wait_relay_host" {
 		setState(chat, "wait_relay_user:"+text, "")
 		sendHTML(token, chat, T("enroll_user"), backTo("nodes"))
 		return
@@ -227,7 +227,7 @@ func handleMessage(token string, m *message, admin int64) {
 		return
 	}
 
-if strings.HasPrefix(st, "wait_vpn_name:") {
+	if strings.HasPrefix(st, "wait_vpn_name:") {
 		action := strings.TrimPrefix(st, "wait_vpn_name:")
 		fields := strings.Fields(text)
 		if len(fields) == 0 {
@@ -287,7 +287,12 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 
 	switch cmd {
 	case "/start", "/menu":
-		reply(token, chat, 0, menuText(), mainKeyboard())
+		// /menu force|new|reset — drop singleton and send a visible new hub
+		if arg1 == "force" || arg1 == "new" || arg1 == "reset" {
+			forceHub(token, chat, menuText(), mainKeyboard())
+		} else {
+			reply(token, chat, 0, menuText(), mainKeyboard())
+		}
 	case "/help":
 		reply(token, chat, 0, helpText(), mainKeyboard())
 	case "/lang":
@@ -368,4 +373,3 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 		sendHTML(token, chat, T("unknown_cmd"), mainKeyboard())
 	}
 }
-

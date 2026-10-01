@@ -4,21 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
-	"github.com/PavelNeyman/netductor/internal/svcpaths"
 )
 
 // AgentLoop runs on RU VPS: heartbeat + pull config when version drifts.
@@ -364,7 +365,6 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 	}
 }
 
-
 func VersionHint() string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_VERSION")); v != "" {
 		return strings.TrimPrefix(v, "v")
@@ -390,37 +390,55 @@ func secondaryUpgrade(tag string) (bool, string) {
 		tag = version.Release
 	}
 	tag = strings.TrimPrefix(tag, "v")
+	arch := runtime.GOARCH
+	if arch != "amd64" && arch != "arm64" {
+		arch = "amd64"
+	}
 	base := "https://github.com/PavelNeyman/netductor/releases/download/v" + tag + "/"
-	fetch := func(name, dest string) error {
-		tmp := "/tmp/" + name + ".new"
-		cmd := exec.Command("wget", "-qO", tmp, base+name)
+	log.WriteString(fmt.Sprintf("upgrade tag=v%s arch=%s\n", tag, arch))
+	fetch := func(asset, dest string) error {
+		url := base + asset
+		tmp := "/tmp/" + asset + ".new"
+		_ = os.Remove(tmp)
+		// curl: show HTTP code on failure (wget -q hides reason → bare "exit status 1")
+		cmd := exec.Command("curl", "-fL", "--connect-timeout", "20", "--max-time", "180",
+			"-o", tmp, "-w", "http=%{http_code} size=%{size_download}\n", url)
 		out, err := cmd.CombinedOutput()
 		log.Write(out)
 		if err != nil {
-			// curl fallback
-			cmd = exec.Command("curl", "-fsSL", "-o", tmp, base+name)
-			out, err = cmd.CombinedOutput()
-			log.Write(out)
-			if err != nil {
-				return fmt.Errorf("%s: %w", name, err)
+			log.WriteString(fmt.Sprintf("curl %s: %v\n", asset, err))
+			// wget fallback
+			cmd = exec.Command("wget", "-O", tmp, url)
+			out2, err2 := cmd.CombinedOutput()
+			log.Write(out2)
+			if err2 != nil {
+				return fmt.Errorf("%s: download failed url=%s curl=%v wget=%v", asset, url, err, err2)
 			}
 		}
 		st, err := os.Stat(tmp)
-		if err != nil || st.Size() < 1000 {
-			return fmt.Errorf("%s: download too small", name)
+		if err != nil {
+			return fmt.Errorf("%s: missing file after download: %w", asset, err)
+		}
+		if st.Size() < 1000 {
+			return fmt.Errorf("%s: download too small (%d bytes) — check GitHub reachability / asset name", asset, st.Size())
 		}
 		_ = os.Chmod(tmp, 0o755)
-		if err := exec.Command("cp", tmp, dest).Run(); err != nil {
-			return err
+		if err := exec.Command("cp", "-f", tmp, dest).Run(); err != nil {
+			return fmt.Errorf("%s: install to %s: %w", asset, dest, err)
 		}
-		log.WriteString("updated " + dest + "\n")
+		log.WriteString("updated " + dest + " (" + fmt.Sprintf("%d", st.Size()) + " bytes)\n")
 		return nil
 	}
-	if err := fetch("netductor-linux-amd64", "/usr/local/bin/netductor"); err != nil {
+	nodeAsset := "netductor-linux-" + arch
+	agentAsset := "netductor-agent-linux-" + arch
+	if err := fetch(nodeAsset, "/usr/local/bin/netductor"); err != nil {
 		log.WriteString(err.Error() + "\n")
 		return false, log.String()
 	}
-	_ = fetch("netductor-agent-linux-amd64", "/usr/local/bin/netductor-agent")
+	if err := fetch(agentAsset, "/usr/local/bin/netductor-agent"); err != nil {
+		log.WriteString("agent: " + err.Error() + "\n")
+		// node already updated; still write VERSION so status is honest
+	}
 	_ = os.WriteFile("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644)
 	_ = exec.Command("systemctl", "try-restart", "sing-box").Run()
 	go func() {
@@ -491,7 +509,6 @@ func secondaryMTLSRefresh() (bool, string) {
 	}()
 	return true, "mtls material written; restarting agent"
 }
-
 
 func secondaryBackupPull() (bool, string) {
 	tok := ""
@@ -583,7 +600,6 @@ func prunePeerArchives(dir string, keep int) {
 		_ = os.Remove(filepath.Join(dir, n))
 	}
 }
-
 
 func applyFailoverPolicy(raw json.RawMessage) error {
 	dir := "/etc/netductor/svc-paths"

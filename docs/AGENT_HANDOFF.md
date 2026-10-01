@@ -1,3 +1,10 @@
+## 0.9.152 Hub force + secondary upgrade log
+
+- `/menu force|new|reset` and Topics **Reset hub** drop `hub_msg.json` and send a new Control message
+- Failed edit → clear singleton (fixes invisible hub after delete-for-me / clear chat)
+- Topics recreate → ClearHubMsg + forceHub
+- Secondary upgrade CmdLog includes HTTP code/size and arch asset names
+
 ## 0.9.151 Control+Media hub
 
 See docs/TG-MEDIA-TOPICS.md

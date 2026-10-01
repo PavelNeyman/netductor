@@ -30,10 +30,10 @@ var defaultTopics = []struct {
 var TopicKeys = []string{"menu", "media", "alerts", "warnings", "service", "updates"}
 
 type topicsFile struct {
-	ChatID    int64          `json:"chat_id"`
-	Topics    map[string]int `json:"topics"` // key → message_thread_id
+	ChatID    int64             `json:"chat_id"`
+	Topics    map[string]int    `json:"topics"`          // key → message_thread_id
 	Names     map[string]string `json:"names,omitempty"` // key → display name
-	UpdatedAt string         `json:"updated_at,omitempty"`
+	UpdatedAt string            `json:"updated_at,omitempty"`
 }
 
 var topicMu sync.Mutex
@@ -298,6 +298,8 @@ func ForceRecreateTopics(botToken string, chatID int64) error {
 	t.ChatID = chatID
 	_ = saveTopics(t)
 	topicMu.Unlock()
+	// Hub message lived in old menu thread — drop singleton so next /menu sends fresh.
+	ClearHubMsg()
 	return EnsureTopics(botToken, chatID)
 }
 
@@ -397,13 +399,15 @@ func TopicsStatusHTML(ru bool) string {
 		b.WriteString("<i>1) Threaded Mode — вкл (нужен для топиков бота)\n")
 		b.WriteString("2) <b>Disallow users to create topics</b> — вкл\n")
 		b.WriteString("Иначе каждое сообщение в «General» создаёт новую тему (системное «New thread»).\n")
-		b.WriteString("Меню бота всегда в General; алерты — в bootstrap-топиках.</i>\n")
+		b.WriteString("Меню — топик 🎛 Control; алерты — в bootstrap-топиках.\n")
+		b.WriteString("Если меню пропало (удалили у себя / очистили чат): <code>/menu force</code> или кнопка «Сброс меню».</i>\n")
 	} else {
 		b.WriteString("\n<b>BotFather</b>\n")
 		b.WriteString("<i>1) Threaded Mode — ON\n")
 		b.WriteString("2) <b>Disallow users to create topics</b> — ON\n")
 		b.WriteString("Otherwise every message in General becomes a new thread (system «New thread»).\n")
-		b.WriteString("Bot menu stays in General; alerts go to bootstrap topics.</i>\n")
+		b.WriteString("Menu lives in 🎛 Control; alerts go to bootstrap topics.\n")
+		b.WriteString("If menu vanished (deleted for me / cleared chat): <code>/menu force</code> or «Reset hub».</i>\n")
 	}
 	return b.String()
 }

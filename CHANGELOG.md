@@ -1,3 +1,11 @@
+## 0.9.152
+
+- **Hub force reset:** `/menu force|new|reset`, Topics → «Reset hub» / «Сброс меню» (`m:hub:reset`)
+- On failed hub edit → ClearHubMsg + send new (chat clear / delete-for-all)
+- ForceRecreateTopics clears hub; after recreate always forceHub into Control
+- Topics status hint: vanished menu → `/menu force`
+- Secondary `upgrade:vX`: GOARCH assets, curl HTTP code/size in CmdLog (no bare exit status 1)
+
 ## 0.9.151
 
 - Bootstrap topics: 🎛 Control + 📎 Media

@@ -1,14 +1,14 @@
 package main
 
 import (
-	ndstack "github.com/PavelNeyman/netductor/internal/stack"
 	"fmt"
+	ndstack "github.com/PavelNeyman/netductor/internal/stack"
 	"os"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/format"
-	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 func handleCallback(token string, cq *callbackQuery, admin int64) {
@@ -46,7 +46,6 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	}
 	fmt.Fprintf(os.Stderr, "tg callback: chat=%d msg=%d data=%q\n", chat, msgID, data)
 
-	
 	if strings.HasPrefix(data, "e:appr:") {
 		id := strings.TrimPrefix(data, "e:appr:")
 		out := runND("edge", "approve", id)
@@ -198,7 +197,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		handleQuotaCB(token, chat, msgID, data)
 		return
 	}
-if strings.HasPrefix(data, "u:") {
+	if strings.HasPrefix(data, "u:") {
 		// u:open:name | u:access:name:mode | u:rename:name | u:enable:name | ...
 		parts := strings.Split(data, ":")
 		if len(parts) >= 3 {
@@ -329,7 +328,7 @@ if strings.HasPrefix(data, "u:") {
 		// Disabled / busy button — brief toast
 		answerCallbackText(token, cq.ID, "⏳")
 		return
-		case "m:updates:unlock":
+	case "m:updates:unlock":
 		_ = ndstack.ForceClearApply()
 		msg := "✅ Apply lock cleared"
 		if getLang() != "en" {
@@ -355,12 +354,18 @@ if strings.HasPrefix(data, "u:") {
 		if err := notify.ForceRecreateTopics(token, admin); err != nil {
 			reply(token, chat, msgID, "❌ "+esc(err.Error()), topicsKeyboard())
 		} else {
+			// New threads → old hub message_id is stale; always force a fresh Control hub.
+			notify.ClearHubMsg()
 			ok := "✅ Topics recreated (bootstrap)"
 			if getLang() != "en" {
 				ok = "✅ Топики пересозданы (bootstrap)"
 			}
-			reply(token, chat, msgID, ok+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())
+			sendHTML(token, chat, ok+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())
+			forceHub(token, chat, menuText(), mainKeyboard())
 		}
+	case "m:hub:reset":
+		// Explicit singleton reset (user deleted hub "for me" / cleared chat).
+		forceHub(token, chat, menuText(), mainKeyboard())
 	case "m:digest", "m:versions":
 		handleVersionsCB(token, chat, msgID, "m:versions")
 	case "m:dr":
@@ -437,7 +442,7 @@ if strings.HasPrefix(data, "u:") {
 	case "m:edge_bind":
 		setState(chat, "wait_edge_bind_dev", "")
 		reply(token, chat, msgID, T("bind_prompt"), backTo("routers"))
-		case "m:cat:relay":
+	case "m:cat:relay":
 		// Relay is part of Nodes
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>role=secondary = RU ingress node</i>", nodesKeyboard())
 	case "m:relay:export", "m:secondary:export":
@@ -450,7 +455,7 @@ if strings.HasPrefix(data, "u:") {
 		reply(token, chat, msgID, "📦 <b>bundle</b>"+string([]byte{10})+"<pre>"+esc(truncate(msg, 3500))+"</pre>", relayKeyboard())
 	case "m:relay:enroll", "m:secondary:enroll":
 		setState(chat, "wait_relay_host", "")
-		reply(token, chat, msgID, T("enroll_title")+string([]byte{10,10})+T("enroll_ip"), backTo("nodes"))
+		reply(token, chat, msgID, T("enroll_title")+string([]byte{10, 10})+T("enroll_ip"), backTo("nodes"))
 	case "m:relay:oneline", "m:secondary:oneline":
 		reply(token, chat, msgID, formatRelayOneline(), relayKeyboard())
 	case "m:relay:sync", "m:secondary:sync":
@@ -467,9 +472,9 @@ if strings.HasPrefix(data, "u:") {
 		out := runND("secondary", "exit", "on")
 		reply(token, chat, msgID, func() string {
 			if getLang() != "en" {
-				return "🇷🇺 <b>RU-выход ВКЛ</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Трафик с primary через РФ</i>"+string([]byte{10})+formatRelayActionsHTML()
+				return "🇷🇺 <b>RU-выход ВКЛ</b>" + string([]byte{10}) + "<pre>" + esc(out) + "</pre>" + string([]byte{10}) + "<i>Трафик с primary через РФ</i>" + string([]byte{10}) + formatRelayActionsHTML()
 			}
-			return "🇷🇺 <b>RU exit ON</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+"<i>Primary traffic exits via RU</i>"+string([]byte{10})+formatRelayActionsHTML()
+			return "🇷🇺 <b>RU exit ON</b>" + string([]byte{10}) + "<pre>" + esc(out) + "</pre>" + string([]byte{10}) + "<i>Primary traffic exits via RU</i>" + string([]byte{10}) + formatRelayActionsHTML()
 		}(), relayKeyboard())
 	case "m:relay:exit:off", "m:secondary:exit:off":
 		out := runND("secondary", "exit", "off")
@@ -567,17 +572,17 @@ if strings.HasPrefix(data, "u:") {
 		// map m:vpn_link -> link
 		act := strings.TrimPrefix(action, "vpn_")
 		title := map[string]string{
-			"link": "🔗 <b>Ссылка / QR</b> — выберите пользователя:",
+			"link":    "🔗 <b>Ссылка / QR</b> — выберите пользователя:",
 			"disable": "🚫 <b>Disable</b> — выберите пользователя:",
-			"enable": "✅ <b>Enable</b> — выберите пользователя:",
-			"revoke": "🗑 <b>Revoke</b> — выберите пользователя:",
+			"enable":  "✅ <b>Enable</b> — выберите пользователя:",
+			"revoke":  "🗑 <b>Revoke</b> — выберите пользователя:",
 		}[act]
 		if getLang() == "en" {
 			title = map[string]string{
-				"link": "🔗 <b>Link / QR</b> — pick a user:",
+				"link":    "🔗 <b>Link / QR</b> — pick a user:",
 				"disable": "🚫 <b>Disable</b> — pick a user:",
-				"enable": "✅ <b>Enable</b> — pick a user:",
-				"revoke": "🗑 <b>Revoke</b> — pick a user:",
+				"enable":  "✅ <b>Enable</b> — pick a user:",
+				"revoke":  "🗑 <b>Revoke</b> — pick a user:",
 			}[act]
 		}
 		reply(token, chat, msgID, title+string([]byte{10, 10})+formatVPNListPretty(runVPN("list")), vpnUsersKeyboardFor(act))
@@ -605,7 +610,6 @@ if strings.HasPrefix(data, "u:") {
 	case "m:ssh:forget":
 		setState(chat, "wait_ssh_forget", "")
 		reply(token, chat, msgID, T("ssh_forget")+string([]byte{10})+"host or host:port", backKeyboard())
-
 
 	case "m:api_public_toggle":
 		st := runND("api-public", "status")
@@ -648,4 +652,3 @@ if strings.HasPrefix(data, "u:") {
 		}})
 	}
 }
-
