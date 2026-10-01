@@ -112,6 +112,9 @@ Day-2: stack / agent_update вручную, не opkg.
 | **На роутере** | Агент пишет `/etc/netductor-agent/sing-box-client.json` при `apply_template` |
 | **CLI** | `netductor edge template-get [id]` · `netductor edge template-set-vpn [id] dns=vpn mode=tun fallback=wan` |
 | **API** | `POST /api/edge/templates` полным JSON (session); bind — bind-template |
+
+| **Web Control** | Edge → **Template VPN / DNS** (Load / Save) → `GET|POST /api/edge/templates/vpn` |
+| **Telegram** | Роутеры → **Шаблон VPN/DNS** → кнопки `dns:` / `mode:` / `fb:` / `soft:` |
 | **Web Day-2** | Get/bind шаблонов (отдельной формы полей `dns` пока нет — CLI/API или правка JSON) |
 | **TG** | Роутеры → Шаблоны / Bind / Apply; редактора поля `dns` пока нет |
 

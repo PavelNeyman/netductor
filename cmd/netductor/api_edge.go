@@ -157,6 +157,57 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
+	
+	mux.HandleFunc("/api/edge/templates/vpn", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		edge.EnsureDefaultTemplate()
+		switch r.Method {
+		case http.MethodGet:
+			id := r.URL.Query().Get("id")
+			if id == "" {
+				id = "default"
+			}
+			tmpl, err := edge.GetTemplate(id)
+			if err != nil {
+				writeJSON(w, 404, map[string]string{"error": err.Error()})
+				return
+			}
+			vpn, _ := tmpl["vpn"].(map[string]any)
+			if vpn == nil {
+				vpn = map[string]any{}
+			}
+			writeJSON(w, 200, map[string]any{"id": id, "vpn": vpn})
+		case http.MethodPost:
+			body := readJSON(r)
+			id, _ := body["id"].(string)
+			if id == "" {
+				id = "default"
+			}
+			// accept nested vpn{} or flat keys
+			kvs := map[string]any{}
+			if nested, ok := body["vpn"].(map[string]any); ok {
+				for k, v := range nested {
+					kvs[k] = v
+				}
+			}
+			for _, k := range []string{"enabled", "mode", "dns", "dns_mode", "fallback", "soft_fallback"} {
+				if v, ok := body[k]; ok {
+					kvs[k] = v
+				}
+			}
+			tmpl, err := edge.SetTemplateVPN(id, kvs)
+			if err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "id": id, "vpn": tmpl["vpn"]})
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+		}
+	})
+
 	mux.HandleFunc("/api/edge/bind-template", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return

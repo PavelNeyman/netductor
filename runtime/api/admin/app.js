@@ -571,6 +571,48 @@ function mountButtons(){
       <div class="row"><div><label>template name</label><input id="edgeTpl"/></div><div><label>bind device</label><input id="edgeBindDid"/></div></div>
       <button class="primary" type="button" data-act="edge-template">Get template</button>
       <button class="primary" type="button" data-act="edge-bind">Bind template</button>
+      <h3 style="margin-top:1rem">Template VPN / DNS</h3>
+      <p class="muted">Edge template <code>vpn.dns</code> · mode · fallback (applies after device template apply)</p>
+      <div class="row">
+        <div><label>template id</label><input id="edgeVpnTpl" placeholder="default" value="default"/></div>
+        <div><label>dns</label>
+          <select id="edgeVpnDns">
+            <option value="vpn">vpn (hijack via VLESS path)</option>
+            <option value="wan">wan (ISP / router default)</option>
+            <option value="off">off</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label>mode</label>
+          <select id="edgeVpnMode">
+            <option value="tun">tun</option>
+            <option value="off">off</option>
+          </select>
+        </div>
+        <div><label>fallback</label>
+          <select id="edgeVpnFallback">
+            <option value="wan">wan (soft ISP)</option>
+            <option value="block">block</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label>soft_fallback</label>
+          <select id="edgeVpnSoft">
+            <option value="1">yes</option>
+            <option value="0">no</option>
+          </select>
+        </div>
+        <div><label>enabled</label>
+          <select id="edgeVpnEn">
+            <option value="1">yes</option>
+            <option value="0">no</option>
+          </select>
+        </div>
+      </div>
+      <button class="primary" type="button" data-act="edge-vpn-get">Load VPN settings</button>
+      <button class="primary" type="button" data-act="edge-vpn-set">Save VPN settings</button>
       <div class="row"><div><label>cmd device</label><input id="edgeCmdDid"/></div><div><label>cmd</label><input id="edgeCmdName"/></div></div>
       <label>cmd arg</label><input id="edgeCmdArg"/>
       <button class="primary" type="button" data-act="edge-cmd">Enqueue cmd</button>
@@ -633,6 +675,31 @@ const special = {
   'edge-set-site': async()=>{ return nodeFetch('/api/edge/set-site',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeSiteDid').value.trim(),site_id:document.getElementById('edgeSiteId').value.trim()})}); },
   'edge-template': async()=>{ const n=document.getElementById('edgeTpl').value.trim(); return nodeFetch('/api/edge/template'+(n?('?name='+encodeURIComponent(n)):'')); },
   'edge-bind': async()=>{ return nodeFetch('/api/edge/bind-template',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeBindDid').value.trim(),template:document.getElementById('edgeTpl').value.trim()})}); },
+  'edge-vpn-get': async()=>{
+    const id=(document.getElementById('edgeVpnTpl').value||'default').trim()||'default';
+    const j=await nodeFetch('/api/edge/templates/vpn?id='+encodeURIComponent(id));
+    if(j&&j.vpn){
+      const v=j.vpn;
+      if(v.dns!=null) document.getElementById('edgeVpnDns').value=String(v.dns);
+      else if(v.dns_mode!=null) document.getElementById('edgeVpnDns').value=String(v.dns_mode);
+      if(v.mode!=null) document.getElementById('edgeVpnMode').value=String(v.mode);
+      if(v.fallback!=null) document.getElementById('edgeVpnFallback').value=String(v.fallback);
+      if(v.soft_fallback!=null) document.getElementById('edgeVpnSoft').value=(v.soft_fallback===true||v.soft_fallback==='true'||v.soft_fallback===1||v.soft_fallback==='1')?'1':'0';
+      if(v.enabled!=null) document.getElementById('edgeVpnEn').value=(v.enabled===true||v.enabled==='true'||v.enabled===1||v.enabled==='1')?'1':'0';
+    }
+    return j;
+  },
+  'edge-vpn-set': async()=>{
+    const id=(document.getElementById('edgeVpnTpl').value||'default').trim()||'default';
+    return nodeFetch('/api/edge/templates/vpn',{method:'POST',body:JSON.stringify({
+      id,
+      dns: document.getElementById('edgeVpnDns').value,
+      mode: document.getElementById('edgeVpnMode').value,
+      fallback: document.getElementById('edgeVpnFallback').value,
+      soft_fallback: document.getElementById('edgeVpnSoft').value==='1',
+      enabled: document.getElementById('edgeVpnEn').value==='1'
+    })});
+  },
   'edge-cmd': async()=>{ return nodeFetch('/api/edge/cmd',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeCmdDid').value.trim(),cmd:document.getElementById('edgeCmdName').value.trim(),arg:document.getElementById('edgeCmdArg').value})}); },
   'edge-export': async()=>{ return nodeFetch('/api/edge/export'); },
   'edge-backup': async()=>{ return nodeFetch('/api/edge/backup',{method:'POST',body:JSON.stringify({device_id:document.getElementById('edgeId').value.trim()})}); },

@@ -181,3 +181,48 @@ func EnsureDefaultTemplate() {
 		},
 	})
 }
+
+// SetTemplateVPN merges vpn.* keys into template id (creates vpn section if missing).
+// Known keys: enabled, mode, dns (or dns_mode), fallback, soft_fallback — others stored as strings.
+func SetTemplateVPN(id string, kvs map[string]any) (Template, error) {
+	EnsureDefaultTemplate()
+	if id == "" {
+		id = "default"
+	}
+	tmpl, err := GetTemplate(id)
+	if err != nil {
+		return nil, err
+	}
+	vpn, _ := tmpl["vpn"].(map[string]any)
+	if vpn == nil {
+		vpn = map[string]any{}
+	}
+	for k, v := range kvs {
+		if k == "" {
+			continue
+		}
+		switch k {
+		case "enabled", "soft_fallback":
+			switch x := v.(type) {
+			case bool:
+				vpn[k] = x
+			case string:
+				vpn[k] = x == "1" || strings.EqualFold(x, "true") || strings.EqualFold(x, "yes")
+			case float64:
+				vpn[k] = x != 0
+			default:
+				vpn[k] = false
+			}
+		case "dns_mode":
+			// alias
+			vpn["dns"] = fmt.Sprint(v)
+		default:
+			vpn[k] = fmt.Sprint(v)
+		}
+	}
+	tmpl["vpn"] = vpn
+	if err := SaveTemplate(id, tmpl); err != nil {
+		return nil, err
+	}
+	return tmpl, nil
+}

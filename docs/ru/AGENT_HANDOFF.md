@@ -2,7 +2,7 @@
 ## 0.9.163 Порядок DNS edge + CLI шаблона
 
 - Удалённый DNS: сначала **1.1.1.1**, затем **9.9.9.9**.
-- CLI: `edge template-get` / `template-set-vpn`.
+- CLI: `edge template-get` / `template-set-vpn`. Web/TG: Template VPN/DNS → `GET|POST /api/edge/templates/vpn`.
 ## Документация EN/RU
 
 **Жёсткое правило:** полный **смысловой** паритет `docs/` ↔ `docs/ru/` (не краткий пересказ). См. AGENTS.md §7, docs/I18N.md.

@@ -171,6 +171,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	if handleEdgeLuciCB(token, chat, msgID, data) {
 		return
 	}
+	if handleEdgeTemplateCB(token, chat, msgID, data) {
+		return
+	}
 	if handleCertsCB(token, chat, msgID, data) {
 		return
 	}

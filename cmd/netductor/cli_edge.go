@@ -244,36 +244,21 @@ func runEdgeCLI(args []string) {
 			id = args[1]
 			kvs = args[2:]
 		}
-		edge.EnsureDefaultTemplate()
-		tmpl, err := edge.GetTemplate(id)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		vpn, _ := tmpl["vpn"].(map[string]any)
-		if vpn == nil {
-			vpn = map[string]any{}
-		}
+		m := map[string]any{}
 		for _, kv := range kvs {
 			parts := strings.SplitN(kv, "=", 2)
 			if len(parts) != 2 {
 				fmt.Fprintln(os.Stderr, "want key=value, got", kv)
 				os.Exit(2)
 			}
-			k, v := parts[0], parts[1]
-			switch k {
-			case "enabled", "soft_fallback":
-				vpn[k] = v == "1" || strings.EqualFold(v, "true") || v == "yes"
-			default:
-				vpn[k] = v
-			}
+			m[parts[0]] = parts[1]
 		}
-		tmpl["vpn"] = vpn
-		if err := edge.SaveTemplate(id, tmpl); err != nil {
+		tmpl, err := edge.SetTemplateVPN(id, m)
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("ok", id, "vpn=", vpn)
+		fmt.Println("ok", id, "vpn=", tmpl["vpn"])
 	case "templates":
 		edge.EnsureDefaultTemplate()
 		for _, tmpl := range edge.ListTemplates() {

@@ -305,6 +305,9 @@ Ordered steps inside `deploy.DeployEdge` / `edge.Provision`:
 | **Runtime on router** | Agent writes `/etc/netductor-agent/sing-box-client.json` on `apply_template` |
 | **CLI** | `netductor edge template-get [id]` · `netductor edge template-set-vpn [id] dns=vpn mode=tun fallback=wan` |
 | **API** | `POST /api/edge/templates` with full JSON body (session); bind via bind-template |
+
+| **Web Control** | Edge → **Template VPN / DNS** (Load / Save) → `GET|POST /api/edge/templates/vpn` |
+| **Telegram** | Routers → **Template VPN/DNS** → buttons `dns:` / `mode:` / `fb:` / `soft:` |
 | **Web Day-2** | Templates get/bind actions (no dedicated form fields yet — use CLI/API or edit JSON) |
 | **TG** | Routers → Templates / Bind / Apply (apply enqueues agent); no field editor for `dns` yet |
 

@@ -2,7 +2,7 @@
 ## 0.9.163 Edge DNS order + template CLI
 
 - Remote DNS: **1.1.1.1** first, **9.9.9.9** second (RU paths often faster to CF).
-- CLI: `edge template-get` / `template-set-vpn`.
+- CLI: `edge template-get` / `template-set-vpn`. Web/TG: Template VPN/DNS → `GET|POST /api/edge/templates/vpn`.
 ## Docs EN/RU
 
 **Hard rule:** full **semantic** parity `docs/` ↔ `docs/ru/` (not a RU digest). See AGENTS.md §7, docs/I18N.md.
