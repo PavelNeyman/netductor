@@ -1,3 +1,10 @@
+## 0.9.160 LuCI enable/disable (agent + SSH LAN)
+
+- Agent actions: `luci_enable|disable|extend|status` (arg `hours=N`, default **1h** TTL; auto-stop on expire)
+- Operator: `POST /v1/edge/luci` via **ssh** (same LAN, no internet) or **agent** (queue on primary)
+- Web: Edge form section LuCI; presets 1/4/24/72h
+- Package not removed — only uhttpd stop/start
+
 ## 0.9.159 Edge root password default-required; guest SSID visibility
 
 - **New root password** required by default (LuCI). Checkbox/flag **skip** = leave empty (not recommended).

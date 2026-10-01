@@ -37,7 +37,7 @@ en:{
   c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', c_skip_root:'Do not set root password (leave empty)', l_new_root:'New root password (LuCI)', edge_root_help:'Required for LuCI. SSH uses operator key; password SSH is disabled after provision.', edge_guest_help:'Isolated guest, ISP direct (not VPN). Default: hidden SSID.', l_guest_visible:'SSID visibility', opt_hidden:'Hidden (default)', opt_visible:'Visible in scan', edge_note:'OpenWrt edge: agent then optional UCI. Primary fields prefill from Fleet/Settings.', edge_net_help:'Only if Configure network is on.', l_lan_mask:'LAN mask', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'Wi-Fi SSID 2.4', l_key24:'Wi-Fi key 2.4', l_ssid5:'Wi-Fi SSID 5', l_key5:'Wi-Fi key 5', l_wan_ip:'WAN IP', l_wan_mask:'WAN mask', l_wan_gw:'WAN gateway', l_wan_dns:'WAN DNS', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'Guest desk PIN', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
   tg_note:'Telegram installs on primary only (token + numeric admin id required).',
   btn_fleet:'Fleet deploy', btn_primary:'Deploy primary', btn_secondary:'Deploy secondary',
-  btn_edge:'Provision edge', btn_site:'Save / push site', btn_creds:'Collect',
+  btn_edge:'Provision edge', h_luci:'LuCI (LAN)', luci_help:'Enable LuCI with TTL (default 1h). SSH on same LAN without internet; agent queues via primary.', l_luci_action:'Action', l_luci_hours:'Hours', l_luci_via:'Via', btn_luci:'LuCI control', btn_site:'Save / push site', btn_creds:'Collect',
   btn_tunnel_start:'Start / ensure', btn_tunnel_stop:'Stop', btn_session_issue:'Issue session', btn_session_load:'Load session file',
   btn_raw:'Raw JSON', btn_send:'Send',
   set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
@@ -81,7 +81,7 @@ ru:{
   c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_reboot:'Перезагрузка после provision', c_skip_root:'Не задавать пароль root (оставить пустым)', l_new_root:'Новый пароль root (LuCI)', edge_root_help:'Нужен для LuCI. SSH — ключ оператора; password SSH после provision отключается.', edge_guest_help:'Гостевая изолирована, интернет через провайдера (не VPN). По умолчанию: скрытый SSID.', l_guest_visible:'Видимость SSID', opt_hidden:'Скрытый (по умолчанию)', opt_visible:'Видимый в списке сетей', edge_note:'OpenWrt edge: агент, затем опционально UCI. Primary подставляется из Fleet/Settings.', edge_net_help:'Только если включено «Настроить сеть».', l_lan_mask:'Маска LAN', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'SSID 2.4', l_key24:'Ключ 2.4', l_ssid5:'SSID 5', l_key5:'Ключ 5', l_wan_ip:'WAN IP', l_wan_mask:'Маска WAN', l_wan_gw:'Шлюз WAN', l_wan_dns:'DNS WAN', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'PIN продавца', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
   tg_note:'Telegram ставится только на primary (нужны token и числовой admin id).',
   btn_fleet:'Деплой флота', btn_primary:'Деплой primary', btn_secondary:'Деплой secondary',
-  btn_edge:'Поставить edge', btn_site:'Сохранить / push сайта', btn_creds:'Собрать',
+  btn_edge:'Поставить edge', h_luci:'LuCI (LAN)', luci_help:'Включение LuCI с TTL (по умолчанию 1ч). SSH в LAN без интернета; agent — очередь на primary.', l_luci_action:'Действие', l_luci_hours:'Часы', l_luci_via:'Канал', btn_luci:'Управление LuCI', btn_site:'Сохранить / push сайта', btn_creds:'Собрать',
   btn_tunnel_start:'Старт / ensure', btn_tunnel_stop:'Стоп', btn_session_issue:'Выдать session', btn_session_load:'Загрузить session',
   btn_raw:'Сырой JSON', btn_send:'Отправить',
   set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
@@ -924,3 +924,20 @@ async function refreshGhTokenStatus(){
     b.addEventListener('click',()=>{ if(b.dataset.main==='settings') refreshGhTokenStatus(); });
   });
 })();
+
+document.getElementById('form-edge-luci')?.addEventListener('submit', async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const s=typeof settings==='function'?settings():{};
+  const body={
+    router_host:fd.get('router_host'), router_password:fd.get('router_password')||'',
+    primary_key:fd.get('primary_key')||s.key||'',
+    device_id:fd.get('device_id')||'',
+    action:fd.get('action'), hours:parseFloat(fd.get('hours')||'1'), via:fd.get('via')||'ssh'
+  };
+  try{
+    const r=await fetch('/v1/edge/luci',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({}));
+    log(r.ok?JSON.stringify(j,null,2):(j.error||JSON.stringify(j)||r.statusText));
+  }catch(err){ log(String(err)); }
+});

@@ -149,6 +149,21 @@
       </div>
       <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
     </form>
+    <h3 data-i18n="h_luci">LuCI (LAN)</h3>
+    <p class="note" data-i18n="luci_help">Enable/disable LuCI without uninstall. Default TTL 1h; extend +24h when needed. SSH path works on same LAN even if router has no internet; agent path queues when device is online on primary.</p>
+    <form id="form-edge-luci">
+      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" placeholder="192.168.1.1"/></div>
+        <div><label data-i18n="l_device_id">Device id (agent)</label><input name="device_id" placeholder="optional for via=agent"/></div></div>
+      <div class="row"><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div>
+        <div><label data-i18n="l_pkey">SSH key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="row"><div><label data-i18n="l_luci_action">Action</label>
+        <select name="action"><option value="enable">enable</option><option value="disable">disable</option><option value="extend">extend</option><option value="status">status</option></select></div>
+        <div><label data-i18n="l_luci_hours">Hours</label>
+        <select name="hours"><option value="1" selected>1</option><option value="4">4</option><option value="24">24</option><option value="72">72</option></select></div></div>
+      <div class="row"><div><label data-i18n="l_luci_via">Via</label>
+        <select name="via"><option value="ssh" selected>SSH (LAN)</option><option value="agent">Agent (primary queue)</option></select></div><div></div></div>
+      <button class="primary" type="submit" data-i18n="btn_luci">LuCI control</button>
+    </form>
   </section>
   
   <section id="panel-nvr" class="panel">

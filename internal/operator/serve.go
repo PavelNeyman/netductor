@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"github.com/PavelNeyman/netductor/internal/operator/web"
 )
@@ -117,7 +118,7 @@ func Serve(o ServeOpts) error {
 			"version":         deploy.Release,
 			"bind":            addr,
 			"credentials_dir": cred,
-			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/credentials", "/v1/health", "/v1/meta"},
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/edge", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
 			"auth":            "X-Netductor-Token",
 		})
 	})
@@ -126,6 +127,7 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
 	mux.HandleFunc("/v1/edge", func(w http.ResponseWriter, r *http.Request) { handleEdge(w, r, token) })
+	mux.HandleFunc("/v1/edge/luci", func(w http.ResponseWriter, r *http.Request) { handleEdgeLuci(w, r, token) })
 	mux.HandleFunc("/v1/site", func(w http.ResponseWriter, r *http.Request) { handleSite(w, r, token) })
 	mux.HandleFunc("/v1/mikrotik", func(w http.ResponseWriter, r *http.Request) { handleMikroTik(w, r, token) })
 	mux.HandleFunc("/v1/node/", func(w http.ResponseWriter, r *http.Request) { ProxyNodeAPI(w, r, token) })
@@ -758,4 +760,71 @@ func parsePortField(s string) int {
 		return 0
 	}
 	return n
+}
+
+
+func handleEdgeLuci(w http.ResponseWriter, r *http.Request, token string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	if !requireToken(r, token) {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var body struct {
+		RouterHost   string  `json:"router_host"`
+		RouterUser   string  `json:"router_user"`
+		RouterPass   string  `json:"router_password"`
+		PrimaryKey   string  `json:"primary_key"`
+		KeyPassphrase string `json:"key_passphrase"`
+		Action       string  `json:"action"` // enable|disable|extend|status
+		Hours        float64 `json:"hours"`
+		// via agent (primary online): device_id + enqueue
+		DeviceID string `json:"device_id"`
+		Via      string `json:"via"` // ssh|agent
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	action := strings.ToLower(strings.TrimSpace(body.Action))
+	if action == "" {
+		http.Error(w, "action required", 400)
+		return
+	}
+	hours := body.Hours
+	if hours <= 0 {
+		hours = 1
+	}
+	via := strings.ToLower(strings.TrimSpace(body.Via))
+	if via == "" {
+		via = "ssh"
+	}
+	if via == "agent" && body.DeviceID != "" {
+		arg := fmt.Sprintf("hours=%g", hours)
+		act := "luci_" + action
+		if action == "status" {
+			act = "luci_status"
+		}
+		id := edge.EnqueueCmd(body.DeviceID, act, arg)
+		if id == "" {
+			http.Error(w, "enqueue failed (device not approved or unknown action)", 400)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "via": "agent", "cmd_id": id, "action": act, "hours": hours})
+		return
+	}
+	user := body.RouterUser
+	if user == "" {
+		user = "root"
+	}
+	out, err := deploy.LuciSSH(body.RouterPass, body.PrimaryKey, user, body.RouterHost, action, hours, body.KeyPassphrase)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "via": "ssh", "action": action, "hours": hours, "output": out})
 }

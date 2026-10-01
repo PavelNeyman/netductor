@@ -26,6 +26,8 @@ secondary:
   --primary --primary-key --host --password [--user] [--sni]
   [--primary-key-passphrase] [--secondary-key]
 
+edge-luci:
+  --router --action enable|disable|extend|status [--hours 1] [--password|--key]
 edge:
   --router --id --new-root-password|--skip-root-pass [--password] [--guest-visible] …
   --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
@@ -206,6 +208,39 @@ See: netductor tui → Setup wizard`)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "edge-luci":
+		var host, user, pass, key, action string
+		hours := 1.0
+		user = "root"
+		action = "status"
+		for i := 1; i < len(args); i++ {
+			a := args[i]
+			switch {
+			case a == "--router" && i+1 < len(args):
+				i++; host = args[i]
+			case a == "--user" && i+1 < len(args):
+				i++; user = args[i]
+			case a == "--password" && i+1 < len(args):
+				i++; pass = args[i]
+			case a == "--key" && i+1 < len(args):
+				i++; key = args[i]
+			case a == "--action" && i+1 < len(args):
+				i++; action = args[i]
+			case a == "--hours" && i+1 < len(args):
+				i++
+				fmt.Sscanf(args[i], "%f", &hours)
+			}
+		}
+		if host == "" {
+			fmt.Fprintln(os.Stderr, "edge-luci: --router required")
+			os.Exit(2)
+		}
+		out, err := deploy.LuciSSH(pass, key, user, host, action, hours, "")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(out)
 	case "edge":
 		o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: deploy.Release, AgentArch: "auto"}
 		for i := 1; i < len(args); i++ {

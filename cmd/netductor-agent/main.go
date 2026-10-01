@@ -105,6 +105,7 @@ Commands (from VPS):
 				_ = os.WriteFile(filepath.Join(agentDir(), "applied_template"), []byte(res+"\n"), 0o600)
 			}
 		}
+		luciTickAutoDisable()
 		checkRelayAndFallback()
 		if err := heartbeat(client, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "heartbeat: %v\n", err)
@@ -521,6 +522,8 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return guestCmdRevoke(arg)
 	case "guest_apply_template":
 		return applyTemplate(client, cfg)
+	case "luci_enable", "luci_disable", "luci_extend", "luci_status":
+		return luciCmd(action, arg)
 	case "apply_template", "bootstrap_apply":
 		return applyTemplate(client, cfg)
 	case "mtls_refresh":
