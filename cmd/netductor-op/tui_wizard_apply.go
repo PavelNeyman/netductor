@@ -223,6 +223,15 @@ func wizBuildFields(id string, m *model) []wizField {
 				Detail: ph("Agent starts on boot and enrolls to primary.", "Агент стартует после boot и делает enroll.")},
 			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (primary key)", Secret: true, Short: "Mac key", Detail: ph("If primary key is encrypted.", "Если ключ primary с фразой.")},
 		}
+	case "luci":
+		return []wizField{
+			{Key: "router", Label: "Router LAN IP", Value: "192.168.1.1", Short: "SSH host", Detail: ph("Same LAN as this Mac.", "Та же LAN, что Mac.")},
+			{Key: "user", Label: "SSH user", Value: "root", Short: "user", Detail: "root"},
+			{Key: "password", Label: "Router password", Secret: true, Short: "empty=key", Detail: ph("Or leave empty if key auth works.", "Пусто если уже ключ.")},
+			{Key: "key", Label: "SSH key path", Value: orDefault(s.RemoteKey, "~/.ssh/netductor_primary"), Short: "key", Detail: ph("Operator key on Mac.", "Ключ на Mac.")},
+			{Key: "action", Label: "Action (enable|disable|extend|status)", Value: "enable", Short: "luci", Detail: ph("Default enable 1h TTL.", "Вкл на 1ч по умолчанию.")},
+			{Key: "hours", Label: "Hours", Value: "1", Short: "1/4/24/72", Detail: ph("TTL or extend amount.", "TTL или продление.")},
+		}
 	case "nvr":
 		return []wizField{
 			{Key: "action", Label: "Action (leases|add|probe|rec-start|rec-stop|status)", Value: "status",
@@ -359,6 +368,14 @@ func (m model) runWizardApplyInTUI() string {
 		}
 		return TT(lang, "Edge provisioned: "+edge.DeviceID, "Edge: "+edge.DeviceID)
 
+	case wizLuci:
+		hours := 1.0
+		fmt.Sscanf(m.fieldVal("hours"), "%f", &hours)
+		out, err := deploy.LuciSSH(m.fieldVal("password"), expandHome(m.fieldVal("key")), orDefault(m.fieldVal("user"), "root"), m.fieldVal("router"), m.fieldVal("action"), hours, "")
+		if err != nil {
+			return err.Error()+"\n"+out
+		}
+		return out
 	case wizNVR:
 		mm := &model{remoteHost: s.RemoteHost, remoteUser: s.RemoteUser, remoteKey: s.RemoteKey}
 		switch m.fieldVal("action") {

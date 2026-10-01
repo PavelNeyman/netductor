@@ -20,6 +20,7 @@ const (
 	wizOpenWrt   wizTarget = "openwrt"
 	wizMikroTik  wizTarget = "mikrotik"
 	wizNVR       wizTarget = "nvr"
+	wizLuci      wizTarget = "luci"
 )
 
 type wizStep int
@@ -59,6 +60,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 			{"secondary", "Secondary VPS", "RU entry", "Российский VPS: с Mac — prepare-pack на primary, SSH на secondary (pubkey, agent, sing-box). Пароль только первый вход."},
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
 			{"mikrotik", "MikroTik", "ROS site", "Сайт MikroTik (+ опционально RPi OpenWrt): identity, маршруты, push скриптов через SSH TOFU."},
+			{"luci", "LuCI on router", "LAN SSH / agent", "Вкл/выкл LuCI по SSH в LAN или через agent. TTL 1ч."},
 			{"nvr", "Cameras / NVR", "Камеры", "NVR: leases, add camera, probe, record — через primary после edge."},
 			{"addons", "Дополнения (чек-лист)", "Lampac · TG · go2rtc", "Целевая VPS + чек-лист; TG-токен/admin при выборе бота."},
 		}
@@ -69,6 +71,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		{"secondary", "Secondary VPS", "RU entry", "RU VPS: from Mac — prepare-pack on primary, SSH to secondary (pubkey, agent, sing-box). Password first login only."},
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
+		{"luci", "LuCI on router", "LAN SSH", "Enable/disable LuCI via SSH on LAN or agent. Default TTL 1h."},
 		{"nvr", "Cameras / NVR", "Cameras", "NVR: leases, add camera, probe, record — via primary after edge."},
 		{"addons", "Add-ons (checklist)", "any VPS", "Host/key + [✓] Lampac/TG/go2rtc. TG needs token + admin id. Not primary-only."},
 	}

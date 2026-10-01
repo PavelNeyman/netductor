@@ -1,3 +1,13 @@
+## Edge model (decided, partial code)
+
+**Done (0.9.160+):** LuCI enable/disable/extend/status — agent + SSH LAN + TG Routers + Web + TUI + CLI.
+
+**Decided, not implemented yet:**
+- Private Wi‑Fi → VLESS to secondary; **soft fallback to ISP WAN** if VPN down
+- Agent mTLS always outside user VLESS
+- Per-router VPN peer (not in Users list)
+- Blocky/DNS for LAN via VPN path
+
 ## 0.9.160 LuCI enable/disable (agent + SSH LAN)
 
 - Agent actions: `luci_enable|disable|extend|status` (arg `hours=N`, default **1h** TTL; auto-stop on expire)

@@ -1,3 +1,11 @@
+## LuCI (temporary admin UI)
+
+- Enable/disable **uhttpd** only (package stays).
+- Default TTL **1h**; extend 4/24/72h.
+- **SSH from Mac** (same LAN, no router internet) or **agent queue** on primary.
+- Auto-disable when TTL expires (agent loop).
+- TG: Routers → LuCI; Web/TUI/CLI `edge-luci`.
+
 **EN** · [RU](ru/EDGE-AGENT.md)
 
 # Edge agent
