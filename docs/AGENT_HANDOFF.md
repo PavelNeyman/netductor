@@ -1,3 +1,8 @@
+## 0.9.157 Edge prefill key path
+
+- Fleet localStorage stores SSH path as `key`; edge prefill looked for `primary_key` only → wrong/empty path
+- Prefill order: fleet.primary_key → fleet.key → settings → `~/.ssh/netductor_primary`
+
 ## 0.9.156 Web edge form parity + prefill
 
 - Web OpenWrt: 2.4/5 SSID, WAN dhcp|static|pppoe conditional fields, guest fields, reboot

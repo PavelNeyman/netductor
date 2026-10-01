@@ -245,7 +245,9 @@ function prefillEdgeFromFleet(){
     ph.value = fleet.primary_host || settings.primary_host || settings.remote_host || '';
   }
   if(pk && !pk.value){
-    pk.value = fleet.primary_key || settings.primary_key || settings.key || '~/.ssh/netductor_primary';
+    // Fleet form field is "key"; edge/secondary use "primary_key"; Settings uses "key".
+    pk.value = fleet.primary_key || fleet.key || settings.primary_key || settings.key
+      || '~/.ssh/netductor_primary';
   }
   if(su && !su.value && ph && ph.value){
     const h=(ph.value||'').trim();
