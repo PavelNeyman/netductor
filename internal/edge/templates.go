@@ -281,6 +281,24 @@ func MergeTemplate(id string, body Template, replace bool) (Template, error) {
 		return nil, fmt.Errorf("empty id")
 	}
 	if replace {
+		if vm, ok := body["vpn"].(map[string]any); ok && vm != nil {
+			// Validate policy keys even on full replace (link fields ignored by allowlist).
+			probe := map[string]any{}
+			if err := applyVPNPolicyToMap(probe, vm); err != nil {
+				return nil, err
+			}
+			// Keep non-policy keys from body.vpn (e.g. future metadata) only if already validated path
+			for k, v := range vm {
+				if _, exists := probe[k]; exists {
+					continue
+				}
+				switch k {
+				case "user", "subscription", "vless", "exit", "primary", "primary_host":
+					probe[k] = v
+				}
+			}
+			body["vpn"] = probe
+		}
 		if err := SaveTemplate(id, body); err != nil {
 			return nil, err
 		}

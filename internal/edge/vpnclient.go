@@ -14,20 +14,35 @@ func edgeVPNUser(deviceID string) string {
 	if id == "" {
 		id = "device"
 	}
-	return "edge-" + id
+	name := "edge-" + id
+	// vpn.ValidName: max 64 chars
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	return name
 }
 
 // EnsureVPNClient creates VPN user for device and returns subscription links.
 // Primary VLESS is the online RU relay when available (whitelist-friendly).
 func EnsureVPNClient(deviceID string) (map[string]string, error) {
 	name := edgeVPNUser(deviceID)
-	users, _ := vpn.ListNative()
+	if !vpn.ValidName(name) {
+		return nil, fmt.Errorf("invalid edge vpn name %q", name)
+	}
+	users, err := vpn.ListNative()
+	if err != nil {
+		return nil, fmt.Errorf("list vpn users: %w", err)
+	}
 	found := false
 	var uuid string
 	for _, u := range users {
 		if u.Name == name {
 			found = true
 			uuid = u.UUID
+			if !u.Enabled {
+				// ensure peer is usable for router client
+				_ = vpn.SetEnabledNative(name, true)
+			}
 			break
 		}
 	}

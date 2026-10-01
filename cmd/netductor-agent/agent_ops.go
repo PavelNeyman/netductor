@@ -236,7 +236,7 @@ func applyVPNClient(tmpl map[string]any, cfg config) string {
 	}
 	note := "\nvpn links saved"
 	if vless == "" {
-		return note + "; no vless link in template"
+		return note + "; no vless link in template" + stopEdgeVPN()
 	}
 	if mode == "" {
 		mode = "tun"
