@@ -168,8 +168,9 @@ func VLESSClientConfigOpts(link string, opt ClientOpts) ([]byte, error) {
 		cfg["dns"] = map[string]any{
 			"servers": []any{
 				map[string]any{"type": "udp", "tag": "ya", "server": "77.88.8.8"},
-				map[string]any{"type": "udp", "tag": "remote", "server": "9.9.9.9", "detour": final},
-				map[string]any{"type": "udp", "tag": "remote2", "server": "1.1.1.1", "detour": final},
+				// Cloudflare first: lower latency for many RU paths; Quad9 as backup (malware filter, often higher RTT in RU).
+				map[string]any{"type": "udp", "tag": "remote", "server": "1.1.1.1", "detour": final},
+				map[string]any{"type": "udp", "tag": "remote2", "server": "9.9.9.9", "detour": final},
 			},
 			"rules": []any{
 				map[string]any{"domain_suffix": []string{".ru", ".рф", ".su"}, "server": "ya"},

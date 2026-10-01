@@ -101,3 +101,19 @@ mTLS; rate-limit enroll; revoke/rotate certs — ops. Нет требовани�
 
 Day-2: stack / agent_update вручную, не opkg.
 
+
+
+## Где задаётся `vpn.dns` / soft fallback
+
+| Уровень | Где |
+|---------|-----|
+| **Дефолтный seed** | Код `edge.EnsureDefaultTemplate()` → файл **`/var/lib/netductor/edge/templates/default.json`** (на primary) |
+| **На устройство** | `template_id` + overlay в store устройств; отдача `GET /api/edge/template?device_id=` через `TemplateWithVPN` |
+| **На роутере** | Агент пишет `/etc/netductor-agent/sing-box-client.json` при `apply_template` |
+| **CLI** | `netductor edge template-get [id]` · `netductor edge template-set-vpn [id] dns=vpn mode=tun fallback=wan` |
+| **API** | `POST /api/edge/templates` полным JSON (session); bind — bind-template |
+| **Web Day-2** | Get/bind шаблонов (отдельной формы полей `dns` пока нет — CLI/API или правка JSON) |
+| **TG** | Роутеры → Шаблоны / Bind / Apply; редактора поля `dns` пока нет |
+
+Если в шаблоне нет `vpn.dns`, при `TemplateWithVPN` всё равно подставляется **`dns=vpn`**.
+

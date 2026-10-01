@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -221,6 +222,58 @@ func runEdgeCLI(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(cli18n.T("edge.provisioned"), opts.DeviceID, "→ pending enroll")
+	case "template-get":
+		id := "default"
+		if len(args) > 1 {
+			id = args[1]
+		}
+		edge.EnsureDefaultTemplate()
+		tmpl, err := edge.GetTemplate(id)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		b, _ := json.MarshalIndent(tmpl, "", "  ")
+		fmt.Println(string(b))
+	case "template-set-vpn":
+		// netductor edge template-set-vpn [id] key=value ...
+		// keys: enabled, mode, dns, dns_mode, fallback, soft_fallback
+		id := "default"
+		kvs := args[1:]
+		if len(args) > 1 && !strings.Contains(args[1], "=") {
+			id = args[1]
+			kvs = args[2:]
+		}
+		edge.EnsureDefaultTemplate()
+		tmpl, err := edge.GetTemplate(id)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		vpn, _ := tmpl["vpn"].(map[string]any)
+		if vpn == nil {
+			vpn = map[string]any{}
+		}
+		for _, kv := range kvs {
+			parts := strings.SplitN(kv, "=", 2)
+			if len(parts) != 2 {
+				fmt.Fprintln(os.Stderr, "want key=value, got", kv)
+				os.Exit(2)
+			}
+			k, v := parts[0], parts[1]
+			switch k {
+			case "enabled", "soft_fallback":
+				vpn[k] = v == "1" || strings.EqualFold(v, "true") || v == "yes"
+			default:
+				vpn[k] = v
+			}
+		}
+		tmpl["vpn"] = vpn
+		if err := edge.SaveTemplate(id, tmpl); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("ok", id, "vpn=", vpn)
 	case "templates":
 		edge.EnsureDefaultTemplate()
 		for _, tmpl := range edge.ListTemplates() {

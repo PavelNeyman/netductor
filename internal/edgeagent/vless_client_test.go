@@ -46,7 +46,7 @@ func TestVLESSClientConfigSoftDNS(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	for _, need := range []string{"urltest", "auto", "hijack-dns", "9.9.9.9", "2.27.118.70", "strict_route"} {
+	for _, need := range []string{"urltest", "auto", "hijack-dns", "1.1.1.1", "2.27.118.70", "strict_route"} {
 		if !strings.Contains(s, need) {
 			t.Fatalf("missing %q in %s", need, s)
 		}

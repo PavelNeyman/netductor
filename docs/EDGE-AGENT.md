@@ -294,3 +294,19 @@ Ordered steps inside `deploy.DeployEdge` / `edge.Provision`:
 - Web form: 2.4 + 5 SSID/key, LAN/DHCP, WAN static/pppoe, guest, reboot checkbox.
 - TUI wizard: same field set.
 - CLI: full flags + `--reboot`.
+
+
+## Where `vpn.dns` / soft fallback are set
+
+| Layer | Location |
+|-------|----------|
+| **Default seed** | Code `edge.EnsureDefaultTemplate()` → file **`/var/lib/netductor/edge/templates/default.json`** (on primary) |
+| **Per-device** | Device `template_id` + optional overlay in devices store; served by `GET /api/edge/template?device_id=` via `TemplateWithVPN` |
+| **Runtime on router** | Agent writes `/etc/netductor-agent/sing-box-client.json` on `apply_template` |
+| **CLI** | `netductor edge template-get [id]` · `netductor edge template-set-vpn [id] dns=vpn mode=tun fallback=wan` |
+| **API** | `POST /api/edge/templates` with full JSON body (session); bind via bind-template |
+| **Web Day-2** | Templates get/bind actions (no dedicated form fields yet — use CLI/API or edit JSON) |
+| **TG** | Routers → Templates / Bind / Apply (apply enqueues agent); no field editor for `dns` yet |
+
+If template has no `vpn.dns`, `TemplateWithVPN` still injects **`dns=vpn`** when merging links.
+
