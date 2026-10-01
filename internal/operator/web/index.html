@@ -104,16 +104,41 @@
     <pre class="log" id="mtResult">—</pre>
   </section>
 <section id="panel-edge" class="panel">
-    <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
+    <p class="note" data-i18n="edge_note">OpenWrt / RPi: agent + optional UCI. Primary host/key/URL prefill from Fleet form or Settings when possible.</p>
     <form id="form-edge">
-      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required placeholder="192.168.1.1"/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="auto" placeholder="auto | arm64 | arm | mipsle | amd64 | riscv64"/></div></div>
-      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" placeholder="2.27.118.70 or p.nd…"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_lan">LAN IP (optional)</label><input name="lan_ip"/></div><div><label data-i18n="l_wan">WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>
-      <div class="row"><div><label data-i18n="l_ssid">Wi-Fi SSID</label><input name="wifi_ssid"/></div><div><label data-i18n="l_wifikey">Wi-Fi key</label><input name="wifi_key" type="password"/></div></div>
-      <div class="checks"><label><input type="checkbox" name="net_configure"/> <span data-i18n="c_netcfg">Configure network</span></label>
-      <label><input type="checkbox" name="guest_enable"/> <span data-i18n="c_guest">Guest Wi-Fi</span></label></div>
+      <div class="checks">
+        <label><input type="checkbox" name="net_configure" id="edge_net_cfg"/> <span data-i18n="c_netcfg">Configure network (LAN / Wi‑Fi / WAN via UCI)</span></label>
+        <label><input type="checkbox" name="guest_enable" id="edge_guest"/> <span data-i18n="c_guest">Guest Wi‑Fi (isolated, ISP direct)</span></label>
+        <label><input type="checkbox" name="reboot" id="edge_reboot" checked/> <span data-i18n="c_reboot">Reboot after provision</span></label>
+      </div>
+      <div id="edge_net_fields" hidden>
+        <p class="note" data-i18n="edge_net_help">Applied only if «Configure network» is on. Changes LAN subnet — keep SSH path in mind.</p>
+        <div class="row"><div><label data-i18n="l_lan">LAN IP</label><input name="lan_ip" placeholder="192.168.50.1"/></div><div><label data-i18n="l_lan_mask">LAN mask</label><input name="lan_mask" value="255.255.255.0"/></div></div>
+        <div class="row"><div><label data-i18n="l_dhcp_start">DHCP start</label><input name="dhcp_start" value="100"/></div><div><label data-i18n="l_dhcp_limit">DHCP limit</label><input name="dhcp_limit" value="150"/></div></div>
+        <div class="row"><div><label data-i18n="l_ssid24">Wi‑Fi SSID 2.4</label><input name="wifi_ssid_24"/></div><div><label data-i18n="l_key24">Wi‑Fi key 2.4</label><input name="wifi_key_24" type="password"/></div></div>
+        <div class="row"><div><label data-i18n="l_ssid5">Wi‑Fi SSID 5 (opt)</label><input name="wifi_ssid_5" placeholder="empty = same as 2.4"/></div><div><label data-i18n="l_key5">Wi‑Fi key 5 (opt)</label><input name="wifi_key_5" type="password" placeholder="empty = same as 2.4"/></div></div>
+        <div class="row"><div><label data-i18n="l_wan">WAN proto</label>
+          <select name="wan_proto" id="edge_wan_proto">
+            <option value="dhcp">dhcp</option>
+            <option value="static">static</option>
+            <option value="pppoe">pppoe</option>
+          </select></div><div></div></div>
+        <div id="edge_wan_static" hidden>
+          <div class="row"><div><label data-i18n="l_wan_ip">WAN IP</label><input name="wan_ip"/></div><div><label data-i18n="l_wan_mask">WAN mask</label><input name="wan_mask" value="255.255.255.0"/></div></div>
+          <div class="row"><div><label data-i18n="l_wan_gw">WAN gateway</label><input name="wan_gateway"/></div><div><label data-i18n="l_wan_dns">WAN DNS</label><input name="wan_dns" placeholder="1.1.1.1 or empty"/></div></div>
+        </div>
+        <div id="edge_wan_pppoe" hidden>
+          <div class="row"><div><label data-i18n="l_pppoe_user">PPPoE user</label><input name="pppoe_user"/></div><div><label data-i18n="l_pppoe_pass">PPPoE password</label><input name="pppoe_pass" type="password"/></div></div>
+        </div>
+      </div>
+      <div id="edge_guest_fields" hidden>
+        <div class="row"><div><label data-i18n="l_guest_ssid">Guest SSID</label><input name="guest_ssid" value="Guest"/></div><div><label data-i18n="l_guest_pin">Guest desk PIN</label><input name="guest_pin" placeholder="staff PIN"/></div></div>
+        <div class="row"><div><label data-i18n="l_guest_psk">Guest PSK (opt)</label><input name="guest_psk" type="password"/></div><div></div></div>
+      </div>
       <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
     </form>
   </section>

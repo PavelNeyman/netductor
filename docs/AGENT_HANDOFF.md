@@ -1,3 +1,10 @@
+## 0.9.156 Web edge form parity + prefill
+
+- Web OpenWrt: 2.4/5 SSID, WAN dhcp|static|pppoe conditional fields, guest fields, reboot
+- Prefill primary host/key/mTLS URL from Fleet localStorage + Settings
+- Clarified net_configure vs guest_enable; TUI detail text
+- Backend was already full; Web form was incomplete (user-visible gap)
+
 ## 0.9.155 Edge agent arch probe + multi-arch assets
 
 - **No OpenWrt feed/ipk** (by design): first-boot = SSH probe + pure-Go binary SCP; day-2 = stack/agent_update

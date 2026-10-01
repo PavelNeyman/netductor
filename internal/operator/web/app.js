@@ -34,7 +34,7 @@ en:{
   l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
   l_role:'Role', l_tg_token:'TG bot token', l_tg_admin:'TG admin user id',
   c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot', 
-  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_push:'Push RSC + harden',
+  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', edge_note:'OpenWrt edge: agent then optional UCI. Primary fields prefill from Fleet/Settings.', edge_net_help:'Only if Configure network is on.', l_lan_mask:'LAN mask', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'Wi-Fi SSID 2.4', l_key24:'Wi-Fi key 2.4', l_ssid5:'Wi-Fi SSID 5', l_key5:'Wi-Fi key 5', l_wan_ip:'WAN IP', l_wan_mask:'WAN mask', l_wan_gw:'WAN gateway', l_wan_dns:'WAN DNS', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'Guest desk PIN', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
   tg_note:'Telegram installs on primary only (token + numeric admin id required).',
   btn_fleet:'Fleet deploy', btn_primary:'Deploy primary', btn_secondary:'Deploy secondary',
   btn_edge:'Provision edge', btn_site:'Save / push site', btn_creds:'Collect',
@@ -78,7 +78,7 @@ ru:{
   l_mthost:'Хост MT', l_mtuser:'Пользователь MT', l_mtpass:'Пароль MT', l_mtport:'Порт MT', l_opkey:'Ключ оператора',
   l_role:'Роль', l_tg_token:'Токен TG-бота', l_tg_admin:'TG admin id',
   c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram-бот', 
-  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_push:'Push RSC + harden',
+  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_reboot:'Перезагрузка после provision', edge_note:'OpenWrt edge: агент, затем опционально UCI. Primary подставляется из Fleet/Settings.', edge_net_help:'Только если включено «Настроить сеть».', l_lan_mask:'Маска LAN', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'SSID 2.4', l_key24:'Ключ 2.4', l_ssid5:'SSID 5', l_key5:'Ключ 5', l_wan_ip:'WAN IP', l_wan_mask:'Маска WAN', l_wan_gw:'Шлюз WAN', l_wan_dns:'DNS WAN', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'PIN продавца', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
   tg_note:'Telegram ставится только на primary (нужны token и числовой admin id).',
   btn_fleet:'Деплой флота', btn_primary:'Деплой primary', btn_secondary:'Деплой secondary',
   btn_edge:'Поставить edge', btn_site:'Сохранить / push сайта', btn_creds:'Собрать',
@@ -233,15 +233,60 @@ document.getElementById('form-mt').onsubmit=async e=>{ e.preventDefault(); const
   const res=await fetch('/v1/mikrotik',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
     body:JSON.stringify({host:fd.get('host'),user:fd.get('user'),password:fd.get('password'),port:fd.get('port'),action:fd.get('action')})});
   const j=await res.json(); document.getElementById('mtResult').textContent=j.output||j.error||JSON.stringify(j); };
+function prefillEdgeFromFleet(){
+  const form=document.getElementById('form-edge'); if(!form) return;
+  let fleet={}, settings={};
+  try{ fleet=JSON.parse(localStorage.getItem('nd_op_fleet')||'{}'); }catch(e){}
+  try{ settings=JSON.parse(localStorage.getItem('nd_op_settings')||'{}'); }catch(e){}
+  const ph=form.elements.namedItem('primary_host');
+  const pk=form.elements.namedItem('primary_key');
+  const su=form.elements.namedItem('server_url');
+  if(ph && !ph.value){
+    ph.value = fleet.primary_host || settings.primary_host || settings.remote_host || '';
+  }
+  if(pk && !pk.value){
+    pk.value = fleet.primary_key || settings.primary_key || settings.key || '~/.ssh/netductor_primary';
+  }
+  if(su && !su.value && ph && ph.value){
+    const h=(ph.value||'').trim();
+    if(h) su.value = 'https://'+h.replace(/^https?:\/\//,'').split('/')[0].split(':')[0]+':8789';
+  }
+}
+function syncEdgePanels(){
+  const net=document.getElementById('edge_net_cfg');
+  const g=document.getElementById('edge_guest');
+  const nf=document.getElementById('edge_net_fields');
+  const gf=document.getElementById('edge_guest_fields');
+  if(nf) nf.hidden = !(net && net.checked);
+  if(gf) gf.hidden = !(g && g.checked);
+  const wp=document.getElementById('edge_wan_proto');
+  const st=document.getElementById('edge_wan_static');
+  const pp=document.getElementById('edge_wan_pppoe');
+  const v=wp ? wp.value : 'dhcp';
+  if(st) st.hidden = v!=='static';
+  if(pp) pp.hidden = v!=='pppoe';
+}
+['edge_net_cfg','edge_guest','edge_wan_proto'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('change', syncEdgePanels);
+});
 document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('edge',fd);
   await streamPost('/v1/edge',{
     router_host:fd.get('router_host'), router_password:fd.get('router_password'),
-    device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch'),
+    device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch')||'auto',
     primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
     server_url:fd.get('server_url'), key_passphrase:fd.get('key_passphrase'),
-    lan_ip:fd.get('lan_ip'), wan_proto:fd.get('wan_proto'),
-    wifi_ssid:fd.get('wifi_ssid'), wifi_key:fd.get('wifi_key'),
-    net_configure:fd.get('net_configure')==='on', guest_enable:fd.get('guest_enable')==='on'
+    net_configure:fd.get('net_configure')==='on', guest_enable:fd.get('guest_enable')==='on',
+    reboot:fd.get('reboot')==='on',
+    lan_ip:fd.get('lan_ip'), lan_mask:fd.get('lan_mask'),
+    dhcp_start:fd.get('dhcp_start'), dhcp_limit:fd.get('dhcp_limit'),
+    wifi_ssid_24:fd.get('wifi_ssid_24'), wifi_key_24:fd.get('wifi_key_24'),
+    wifi_ssid_5:fd.get('wifi_ssid_5'), wifi_key_5:fd.get('wifi_key_5'),
+    wan_proto:fd.get('wan_proto')||'dhcp',
+    wan_ip:fd.get('wan_ip'), wan_mask:fd.get('wan_mask'),
+    wan_gateway:fd.get('wan_gateway'), wan_dns:fd.get('wan_dns'),
+    pppoe_user:fd.get('pppoe_user'), pppoe_pass:fd.get('pppoe_pass'),
+    guest_ssid:fd.get('guest_ssid'), guest_pin:fd.get('guest_pin'), guest_psk:fd.get('guest_psk')
   }, e.submitter); };
 
 document.getElementById('form-nvr').onsubmit=async e=>{
@@ -828,6 +873,7 @@ document.getElementById('btnSessionLoad').onclick=async()=>{
 };
 
 ['form-fleet','form-primary','form-secondary','form-edge','form-site','form-nvr','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
+prefillEdgeFromFleet(); syncEdgePanels();
 document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
 document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
 applyI18n();
