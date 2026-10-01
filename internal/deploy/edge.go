@@ -20,7 +20,8 @@ type EdgeOpts struct {
 	RouterHost           string
 	RouterUser           string
 	RouterPass           string
-	NewRootPassword      string // optional set root pass before harden
+	NewRootPassword      string // LuCI/root pass; required unless SkipRootPass
+	SkipRootPass         bool
 	DeviceID             string
 	ServerURL            string
 	AgentArch            string
@@ -31,6 +32,7 @@ type EdgeOpts struct {
 	GuestSSID            string
 	GuestPIN             string
 	GuestPSK             string
+	GuestVisible         bool // false (default) = hidden SSID
 	// Optional first-boot network (applied via UCI on router + edge template)
 	NetConfigure bool
 	LANIP        string
@@ -299,7 +301,7 @@ func applyGuestOnEdge(o EdgeOpts) error {
 				"ssid":     ssid,
 				"desk_pin": pin,
 				"psk":      psk,
-				"hidden":   true,
+				"hidden":   !o.GuestVisible,
 			},
 		})
 		_ = edge.EnqueueCmd(o.DeviceID, "apply_template", "")
@@ -307,6 +309,11 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	cmd := "netductor-agent guest enable --ssid=" + shellQuote(ssid) + " --pin=" + shellQuote(pin)
 	if psk != "" {
 		cmd += " --psk=" + shellQuote(psk)
+	}
+	if o.GuestVisible {
+		cmd += " --hidden=0"
+	} else {
+		cmd += " --hidden=1"
 	}
 	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, cmd, "")
 	if err != nil {

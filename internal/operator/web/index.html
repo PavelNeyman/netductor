@@ -107,8 +107,9 @@
     <p class="note" data-i18n="edge_note">OpenWrt / RPi: agent + optional UCI. Primary host/key/URL prefill from Fleet form or Settings when possible.</p>
     <form id="form-edge">
       <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required placeholder="192.168.1.1"/></div><div><label data-i18n="l_router_pass">Current root password</label><input name="router_password" type="password" placeholder="empty = factory OpenWrt"/></div></div>
-      <div class="checks"><label><input type="checkbox" name="set_root_pass" id="edge_set_root"/> <span data-i18n="c_set_root">Set new root password</span></label></div>
-      <div id="edge_new_root" class="row" hidden><div><label data-i18n="l_new_root">New root password</label><input name="new_root_password" type="password" autocomplete="new-password"/></div><div></div></div>
+      <div id="edge_new_root" class="row"><div><label data-i18n="l_new_root">New root password (LuCI)</label><input name="new_root_password" type="password" autocomplete="new-password" required id="edge_new_root_input"/></div><div></div></div>
+      <div class="checks"><label><input type="checkbox" name="skip_root_pass" id="edge_skip_root"/> <span data-i18n="c_skip_root">Do not set root password (leave empty / factory)</span></label></div>
+      <p class="note" data-i18n="edge_root_help">Required for LuCI web UI. SSH uses the operator key after provision; password login is disabled.</p>
       <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="auto" placeholder="auto | arm64 | arm | mipsle | amd64 | riscv64"/></div></div>
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" placeholder="2.27.118.70 or p.nd…"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
@@ -138,8 +139,13 @@
         </div>
       </div>
       <div id="edge_guest_fields" hidden>
+        <p class="note" data-i18n="edge_guest_help">Isolated guest network, internet via ISP (not VPN). Default: <b>hidden SSID</b> — connect via QR / known network, not visible in scan list.</p>
         <div class="row"><div><label data-i18n="l_guest_ssid">Guest SSID</label><input name="guest_ssid" value="Guest"/></div><div><label data-i18n="l_guest_pin">Guest desk PIN</label><input name="guest_pin" placeholder="staff PIN"/></div></div>
-        <div class="row"><div><label data-i18n="l_guest_psk">Guest PSK (opt)</label><input name="guest_psk" type="password"/></div><div></div></div>
+        <div class="row"><div><label data-i18n="l_guest_psk">Guest PSK (opt)</label><input name="guest_psk" type="password" placeholder="WPA2; empty = open + captive"/></div>
+          <div><label data-i18n="l_guest_visible">SSID visibility</label>
+            <select name="guest_hidden"><option value="1" selected data-i18n="opt_hidden">Hidden (default)</option><option value="0" data-i18n="opt_visible">Visible in scan</option></select>
+          </div>
+        </div>
       </div>
       <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
     </form>

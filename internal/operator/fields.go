@@ -186,15 +186,12 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		RouterHost:           strings.TrimSpace(get("router")),
 		RouterUser:           orDefault(get("user"), "root"),
 		RouterPass:           get("password"),
+		SkipRootPass: yesish(get("skip_root_pass")),
 		NewRootPassword: func() string {
-			if yesish(get("set_root_pass")) {
-				return get("new_root_password")
+			if yesish(get("skip_root_pass")) {
+				return ""
 			}
-			// Web sends new_root_password only when checkbox on; CLI may set directly
-			if v := strings.TrimSpace(get("new_root_password")); v != "" && get("set_root_pass") == "" {
-				return v
-			}
-			return ""
+			return strings.TrimSpace(get("new_root_password"))
 		}(),
 		DeviceID:             strings.TrimSpace(get("id")),
 		AgentArch:            orDefault(get("arch"), "auto"),
@@ -218,6 +215,7 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		PPPoEService:         get("pppoe_service"),
 		PPPoEAC:              get("pppoe_ac"),
 		GuestEnable:          yesish(get("guest")),
+		GuestVisible:         get("guest_hidden") == "0" || get("guest_hidden") == "false",
 		GuestSSID:            strings.TrimSpace(get("guest_ssid")),
 		GuestPIN:             get("guest_pin"),
 		GuestPSK:             get("guest_psk"),

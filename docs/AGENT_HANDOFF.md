@@ -1,3 +1,10 @@
+## 0.9.159 Edge root password default-required; guest SSID visibility
+
+- **New root password** required by default (LuCI). Checkbox/flag **skip** = leave empty (not recommended).
+- Current SSH password still optional (factory empty).
+- Guest SSID: default **hidden**; Web/TUI/CLI can set visible (`guest_hidden=0` / `--guest-visible`).
+- Guest fields appear when «Guest Wi‑Fi» is checked.
+
 ## 0.9.158 Optional root password on edge provision
 
 - Current router password may be **empty** (factory OpenWrt)

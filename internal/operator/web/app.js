@@ -34,7 +34,7 @@ en:{
   l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
   l_role:'Role', l_tg_token:'TG bot token', l_tg_admin:'TG admin user id',
   c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot', 
-  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', c_set_root:'Set new root password', l_new_root:'New root password', edge_note:'OpenWrt edge: agent then optional UCI. Primary fields prefill from Fleet/Settings.', edge_net_help:'Only if Configure network is on.', l_lan_mask:'LAN mask', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'Wi-Fi SSID 2.4', l_key24:'Wi-Fi key 2.4', l_ssid5:'Wi-Fi SSID 5', l_key5:'Wi-Fi key 5', l_wan_ip:'WAN IP', l_wan_mask:'WAN mask', l_wan_gw:'WAN gateway', l_wan_dns:'WAN DNS', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'Guest desk PIN', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
+  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', c_skip_root:'Do not set root password (leave empty)', l_new_root:'New root password (LuCI)', edge_root_help:'Required for LuCI. SSH uses operator key; password SSH is disabled after provision.', edge_guest_help:'Isolated guest, ISP direct (not VPN). Default: hidden SSID.', l_guest_visible:'SSID visibility', opt_hidden:'Hidden (default)', opt_visible:'Visible in scan', edge_note:'OpenWrt edge: agent then optional UCI. Primary fields prefill from Fleet/Settings.', edge_net_help:'Only if Configure network is on.', l_lan_mask:'LAN mask', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'Wi-Fi SSID 2.4', l_key24:'Wi-Fi key 2.4', l_ssid5:'Wi-Fi SSID 5', l_key5:'Wi-Fi key 5', l_wan_ip:'WAN IP', l_wan_mask:'WAN mask', l_wan_gw:'WAN gateway', l_wan_dns:'WAN DNS', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'Guest desk PIN', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
   tg_note:'Telegram installs on primary only (token + numeric admin id required).',
   btn_fleet:'Fleet deploy', btn_primary:'Deploy primary', btn_secondary:'Deploy secondary',
   btn_edge:'Provision edge', btn_site:'Save / push site', btn_creds:'Collect',
@@ -78,7 +78,7 @@ ru:{
   l_mthost:'Хост MT', l_mtuser:'Пользователь MT', l_mtpass:'Пароль MT', l_mtport:'Порт MT', l_opkey:'Ключ оператора',
   l_role:'Роль', l_tg_token:'Токен TG-бота', l_tg_admin:'TG admin id',
   c_do_primary:'Primary', c_do_secondary:'Secondary', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram-бот', 
-  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_reboot:'Перезагрузка после provision', c_set_root:'Задать новый пароль root', l_new_root:'Новый пароль root', edge_note:'OpenWrt edge: агент, затем опционально UCI. Primary подставляется из Fleet/Settings.', edge_net_help:'Только если включено «Настроить сеть».', l_lan_mask:'Маска LAN', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'SSID 2.4', l_key24:'Ключ 2.4', l_ssid5:'SSID 5', l_key5:'Ключ 5', l_wan_ip:'WAN IP', l_wan_mask:'Маска WAN', l_wan_gw:'Шлюз WAN', l_wan_dns:'DNS WAN', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'PIN продавца', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
+  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_reboot:'Перезагрузка после provision', c_skip_root:'Не задавать пароль root (оставить пустым)', l_new_root:'Новый пароль root (LuCI)', edge_root_help:'Нужен для LuCI. SSH — ключ оператора; password SSH после provision отключается.', edge_guest_help:'Гостевая изолирована, интернет через провайдера (не VPN). По умолчанию: скрытый SSID.', l_guest_visible:'Видимость SSID', opt_hidden:'Скрытый (по умолчанию)', opt_visible:'Видимый в списке сетей', edge_note:'OpenWrt edge: агент, затем опционально UCI. Primary подставляется из Fleet/Settings.', edge_net_help:'Только если включено «Настроить сеть».', l_lan_mask:'Маска LAN', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'SSID 2.4', l_key24:'Ключ 2.4', l_ssid5:'SSID 5', l_key5:'Ключ 5', l_wan_ip:'WAN IP', l_wan_mask:'Маска WAN', l_wan_gw:'Шлюз WAN', l_wan_dns:'DNS WAN', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'PIN продавца', l_guest_psk:'Guest PSK', c_push:'Push RSC + harden',
   tg_note:'Telegram ставится только на primary (нужны token и числовой admin id).',
   btn_fleet:'Деплой флота', btn_primary:'Деплой primary', btn_secondary:'Деплой secondary',
   btn_edge:'Поставить edge', btn_site:'Сохранить / push сайта', btn_creds:'Собрать',
@@ -261,9 +261,11 @@ function syncEdgePanels(){
   const gf=document.getElementById('edge_guest_fields');
   if(nf) nf.hidden = !(net && net.checked);
   if(gf) gf.hidden = !(g && g.checked);
-  const sr=document.getElementById('edge_set_root');
+  const sk=document.getElementById('edge_skip_root');
   const nr=document.getElementById('edge_new_root');
-  if(nr) nr.hidden = !(sr && sr.checked);
+  const nri=document.getElementById('edge_new_root_input');
+  if(nr) nr.hidden = !!(sk && sk.checked);
+  if(nri){ nri.required = !(sk && sk.checked); if(sk&&sk.checked) nri.value=''; }
   const wp=document.getElementById('edge_wan_proto');
   const st=document.getElementById('edge_wan_static');
   const pp=document.getElementById('edge_wan_pppoe');
@@ -271,14 +273,16 @@ function syncEdgePanels(){
   if(st) st.hidden = v!=='static';
   if(pp) pp.hidden = v!=='pppoe';
 }
-['edge_net_cfg','edge_guest','edge_wan_proto','edge_set_root'].forEach(id=>{
+['edge_net_cfg','edge_guest','edge_wan_proto','edge_skip_root'].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.addEventListener('change', syncEdgePanels);
 });
 document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('edge',fd);
   await streamPost('/v1/edge',{
     router_host:fd.get('router_host'), router_password:fd.get('router_password')||'',
-    new_root_password:(fd.get('set_root_pass')==='on'?(fd.get('new_root_password')||''):''),
+    new_root_password:(fd.get('skip_root_pass')==='on'?'':(fd.get('new_root_password')||'')),
+    skip_root_pass:fd.get('skip_root_pass')==='on',
+    guest_hidden:fd.get('guest_hidden')||'1',
     device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch')||'auto',
     primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
     server_url:fd.get('server_url'), key_passphrase:fd.get('key_passphrase'),

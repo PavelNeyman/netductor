@@ -27,7 +27,7 @@ secondary:
   [--primary-key-passphrase] [--secondary-key]
 
 edge:
-  --router --id [--password] [--new-root-password] [--user root] [--arch auto|…]
+  --router --id --new-root-password|--skip-root-pass [--password] [--guest-visible] …
   --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
   --guest [--guest-ssid] [--guest-pin] [--guest-psk] [--reboot]
   --configure-net
@@ -232,6 +232,10 @@ See: netductor tui → Setup wizard`)
 			case a == "--new-root-password" && i+1 < len(args):
 				i++
 				o.NewRootPassword = args[i]
+			case a == "--skip-root-pass":
+				o.SkipRootPass = true
+			case a == "--guest-visible":
+				o.GuestVisible = true
 			case a == "--id" && i+1 < len(args):
 				i++
 				o.DeviceID = args[i]
@@ -323,8 +327,15 @@ See: netductor tui → Setup wizard`)
 			o.RouterPass = os.Getenv("NETDUCTOR_SSH_PASSWORD")
 		}
 		if o.RouterHost == "" || o.DeviceID == "" {
-			fmt.Fprintln(os.Stderr, "required: --router --id --password (or NETDUCTOR_SSH_PASSWORD)")
+			fmt.Fprintln(os.Stderr, "required: --router --id")
 			os.Exit(2)
+		}
+		if !o.SkipRootPass && strings.TrimSpace(o.NewRootPassword) == "" {
+			fmt.Fprintln(os.Stderr, "required: --new-root-password (LuCI) or --skip-root-pass")
+			os.Exit(2)
+		}
+		if o.SkipRootPass {
+			o.NewRootPassword = ""
 		}
 		if o.ServerURL == "" && o.PrimaryHost != "" {
 			o.ServerURL = "https://" + o.PrimaryHost + ":8789"
@@ -341,6 +352,7 @@ See: netductor tui → Setup wizard`)
 			WiFiSSID24: o.WiFiSSID24, WiFiKey24: o.WiFiKey24,
 			WiFiSSID5: o.WiFiSSID5, WiFiKey5: o.WiFiKey5,
 			GuestEnable: o.GuestEnable, GuestSSID: o.GuestSSID, GuestPIN: o.GuestPIN, GuestPSK: o.GuestPSK,
+			GuestVisible: o.GuestVisible,
 			WANProto: o.WANProto, WANIP: o.WANIP, WANMask: o.WANMask, WANGateway: o.WANGateway, WANDNS: o.WANDNS,
 			PPPoEUser: o.PPPoEUser, PPPoEPass: o.PPPoEPass, PPPoEService: o.PPPoEService, PPPoEAC: o.PPPoEAC,
 			Reboot: o.Reboot,

@@ -569,6 +569,7 @@ type edgeBody struct {
 	RouterUser   string `json:"router_user"`
 	RouterPass   string `json:"router_password"`
 	NewRootPassword string `json:"new_root_password"`
+	SkipRootPass bool `json:"skip_root_pass"`
 	DeviceID     string `json:"device_id"`
 	PrimaryHost  string `json:"primary_host"`
 	PrimaryUser  string `json:"primary_user"`
@@ -590,6 +591,7 @@ type edgeBody struct {
 	GuestEnable  bool   `json:"guest_enable"`
 	GuestSSID    string `json:"guest_ssid"`
 	GuestPIN     string `json:"guest_pin"`
+	GuestHidden  string `json:"guest_hidden"` // "1" hidden, "0" visible
 	GuestPSK     string `json:"guest_psk"`
 	WANProto     string `json:"wan_proto"`
 	WANIP        string `json:"wan_ip"`
@@ -631,7 +633,7 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 	}
 	spec := EdgeSpec{
 		RouterHost: body.RouterHost, RouterUser: body.RouterUser, RouterPass: body.RouterPass,
-		NewRootPassword: body.NewRootPassword,
+		NewRootPassword: body.NewRootPassword, SkipRootPass: body.SkipRootPass,
 		DeviceID: body.DeviceID, PrimaryHost: body.PrimaryHost, PrimaryUser: body.PrimaryUser,
 		PrimaryKey: body.PrimaryKey, PrimaryKeyPassphrase: body.KeyPass,
 		ServerURL: body.ServerURL, AgentArch: body.AgentArch,
@@ -640,6 +642,7 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 		WiFiSSID24: ssid24, WiFiKey24: key24,
 		WiFiSSID5: body.WiFiSSID5, WiFiKey5: body.WiFiKey5,
 		GuestEnable: body.GuestEnable, GuestSSID: body.GuestSSID, GuestPIN: body.GuestPIN, GuestPSK: body.GuestPSK,
+		GuestVisible: body.GuestHidden == "0" || body.GuestHidden == "false",
 		WANProto: body.WANProto, WANIP: body.WANIP, WANMask: body.WANMask, WANGateway: body.WANGateway, WANDNS: body.WANDNS,
 		PPPoEUser: body.PPPoEUser, PPPoEPass: body.PPPoEPass, PPPoEService: body.PPPoEService, PPPoEAC: body.PPPoEAC,
 		Reboot: body.Reboot,

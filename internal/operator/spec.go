@@ -113,6 +113,7 @@ type EdgeSpec struct {
 	RouterUser                                   string
 	RouterPass                                   string
 	NewRootPassword                              string
+	SkipRootPass                                 bool
 	DeviceID                                     string
 	ServerURL                                    string
 	Version                                      string
@@ -125,6 +126,7 @@ type EdgeSpec struct {
 	WiFiSSID5, WiFiKey5                          string
 	GuestEnable                                  bool
 	GuestSSID, GuestPIN, GuestPSK                string
+	GuestVisible                                 bool
 	WANProto, WANIP, WANMask, WANGateway, WANDNS string
 	PPPoEUser, PPPoEPass, PPPoEService, PPPoEAC  string
 	Reboot                                       bool
@@ -136,6 +138,7 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		PrimaryKeyPassphrase: e.PrimaryKeyPassphrase,
 		RouterHost:           e.RouterHost, RouterUser: e.RouterUser, RouterPass: e.RouterPass,
 		NewRootPassword:      e.NewRootPassword,
+		SkipRootPass:         e.SkipRootPass,
 		DeviceID: e.DeviceID, ServerURL: e.ServerURL, Version: e.Version, AgentArch: e.AgentArch,
 		NetConfigure: e.NetConfigure, LANIP: e.LANIP, LANMask: e.LANMask,
 		DHCPStart: e.DHCPStart, DHCPLimit: e.DHCPLimit,
@@ -143,6 +146,7 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		WiFiSSID24: e.WiFiSSID24, WiFiKey24: e.WiFiKey24,
 		WiFiSSID5: e.WiFiSSID5, WiFiKey5: e.WiFiKey5,
 		GuestEnable: e.GuestEnable, GuestSSID: e.GuestSSID, GuestPIN: e.GuestPIN, GuestPSK: e.GuestPSK,
+		GuestVisible: e.GuestVisible,
 		WANProto: e.WANProto, WANIP: e.WANIP, WANMask: e.WANMask, WANGateway: e.WANGateway, WANDNS: e.WANDNS,
 		PPPoEUser: e.PPPoEUser, PPPoEPass: e.PPPoEPass, PPPoEService: e.PPPoEService, PPPoEAC: e.PPPoEAC,
 		Reboot: e.Reboot,
