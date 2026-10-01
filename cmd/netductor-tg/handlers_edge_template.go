@@ -9,14 +9,19 @@ import (
 )
 
 // handleEdgeTemplateCB — TG UI for edge template vpn.dns / mode / fallback.
-// m:edgetpl | m:edgetpl:show:<id> | m:edgetpl:dns:<id>:<vpn|wan|off> |
-// m:edgetpl:mode:<id>:<tun|off> | m:edgetpl:fb:<id>:<wan|block> | m:edgetpl:soft:<id>:<0|1>
+// m:edgetpl | m:edgetpl:show:<id> | m:edgetpl:pick | m:edgetpl:dns:<id>:<vpn|wan|off> |
+// m:edgetpl:mode:<id>:<tun|off> | m:edgetpl:fb:<id>:<wan|block> | m:edgetpl:soft:<id>:<0|1> | m:edgetpl:en:<id>:<0|1>
 func handleEdgeTemplateCB(token string, chat int64, msgID int, data string) bool {
 	if data != "m:edgetpl" && !strings.HasPrefix(data, "m:edgetpl:") {
 		return false
 	}
 	edge.EnsureDefaultTemplate()
 	id := "default"
+
+	if data == "m:edgetpl:pick" {
+		reply(token, chat, msgID, formatEdgeTplPickHTML(), edgeTplPickKeyboard())
+		return true
+	}
 	if data == "m:edgetpl" || data == "m:edgetpl:show" || strings.HasPrefix(data, "m:edgetpl:show:") {
 		if strings.HasPrefix(data, "m:edgetpl:show:") {
 			id = strings.TrimPrefix(data, "m:edgetpl:show:")
@@ -66,8 +71,6 @@ func handleEdgeTemplateCB(token string, chat int64, msgID int, data string) bool
 	}
 	if len(kvs) > 0 {
 		if _, err := edge.SetTemplateVPN(id, kvs); err != nil {
-			// fallback CLI if package path differs in older builds
-			_ = err
 			args := []string{"edge", "template-set-vpn", id}
 			for k, v := range kvs {
 				args = append(args, fmt.Sprintf("%s=%v", k, v))
@@ -81,6 +84,49 @@ func handleEdgeTemplateCB(token string, chat int64, msgID int, data string) bool
 	}
 	reply(token, chat, msgID, formatEdgeTplVPNHTML(id), edgeTplVPNKeyboard(id))
 	return true
+}
+
+func formatEdgeTplPickHTML() string {
+	nl := "\n"
+	var b strings.Builder
+	b.WriteString("🧩 <b>" + esc(T("edge_tpl_vpn")) + "</b>" + nl)
+	b.WriteString("<i>" + esc(T("edge_tpl_pick_hint")) + "</i>" + nl)
+	list := edge.ListTemplates()
+	if len(list) == 0 {
+		b.WriteString("<p>—</p>")
+		return b.String()
+	}
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>#</th><th>id</th></tr>" + nl)
+	for i, tmpl := range list {
+		tid, _ := tmpl["id"].(string)
+		if tid == "" {
+			continue
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, esc(tid)))
+	}
+	b.WriteString("</table>" + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	n := 0
+	for _, tmpl := range list {
+		tid, _ := tmpl["id"].(string)
+		if tid == "" {
+			continue
+		}
+		n++
+		if n > 8 {
+			break
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:edgetpl:show:%s">%s</tg-button>`, tid, esc(tid)))
+	}
+	b.WriteString(`</tg-button-row>`)
+	return b.String()
+}
+
+func edgeTplPickKeyboard() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("«", "m:cat:routers", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
 }
 
 func formatEdgeTplVPNHTML(id string) string {
@@ -125,50 +171,92 @@ func formatEdgeTplVPNHTML(id string) string {
 			return def
 		}
 	}
+
+	curDNS := get("dns", "vpn")
+	curMode := get("mode", "tun")
+	curFB := get("fallback", "wan")
+	curSoft := boolish("soft_fallback", true)
+	curEn := boolish("enabled", true)
+
+	// Current values table
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
-	b.WriteString("<tr><td>enabled</td><td>" + esc(fmt.Sprint(boolish("enabled", true))) + "</td></tr>" + nl)
-	b.WriteString("<tr><td>dns</td><td><b>" + esc(get("dns", "vpn")) + "</b></td></tr>" + nl)
-	b.WriteString("<tr><td>mode</td><td>" + esc(get("mode", "tun")) + "</td></tr>" + nl)
-	b.WriteString("<tr><td>fallback</td><td>" + esc(get("fallback", "wan")) + "</td></tr>" + nl)
-	b.WriteString("<tr><td>soft_fallback</td><td>" + esc(fmt.Sprint(boolish("soft_fallback", true))) + "</td></tr>" + nl)
+	b.WriteString("<tr><th>" + esc(T("edge_tpl_col_param")) + "</th><th>" + esc(T("edge_tpl_col_value")) + "</th></tr>" + nl)
+	b.WriteString("<tr><td>enabled</td><td><b>" + esc(boolLabel(curEn)) + "</b></td></tr>" + nl)
+	b.WriteString("<tr><td>dns</td><td><b>" + esc(curDNS) + "</b></td></tr>" + nl)
+	b.WriteString("<tr><td>mode</td><td><b>" + esc(curMode) + "</b></td></tr>" + nl)
+	b.WriteString("<tr><td>fallback</td><td><b>" + esc(curFB) + "</b></td></tr>" + nl)
+	b.WriteString("<tr><td>soft_fallback</td><td><b>" + esc(boolLabel(curSoft)) + "</b></td></tr>" + nl)
 	b.WriteString("</table>" + nl)
-	// rich buttons in body
+
+	// Legend / descriptions
+	b.WriteString("<blockquote>" + nl)
+	b.WriteString("<b>enabled</b> — " + esc(T("edge_tpl_desc_enabled")) + nl)
+	b.WriteString("· <code>on</code> — " + esc(T("edge_tpl_en_on")) + nl)
+	b.WriteString("· <code>off</code> — " + esc(T("edge_tpl_en_off")) + nl + nl)
+	b.WriteString("<b>dns</b> — " + esc(T("edge_tpl_desc_dns")) + nl)
+	b.WriteString("· <code>vpn</code> — " + esc(T("edge_tpl_dns_vpn")) + nl)
+	b.WriteString("· <code>wan</code> — " + esc(T("edge_tpl_dns_wan")) + nl)
+	b.WriteString("· <code>off</code> — " + esc(T("edge_tpl_dns_off")) + nl + nl)
+	b.WriteString("<b>mode</b> — " + esc(T("edge_tpl_desc_mode")) + nl)
+	b.WriteString("· <code>tun</code> — " + esc(T("edge_tpl_mode_tun")) + nl)
+	b.WriteString("· <code>off</code> — " + esc(T("edge_tpl_mode_off")) + nl + nl)
+	b.WriteString("<b>fallback</b> — " + esc(T("edge_tpl_desc_fb")) + nl)
+	b.WriteString("· <code>wan</code> — " + esc(T("edge_tpl_fb_wan")) + nl)
+	b.WriteString("· <code>block</code> — " + esc(T("edge_tpl_fb_block")) + nl + nl)
+	b.WriteString("<b>soft_fallback</b> — " + esc(T("edge_tpl_desc_soft")) + nl)
+	b.WriteString("· <code>on</code> — " + esc(T("edge_tpl_soft_on")) + nl)
+	b.WriteString("· <code>off</code> — " + esc(T("edge_tpl_soft_off")) + nl)
+	b.WriteString("</blockquote>" + nl)
+
+	// Buttons: enabled
+	b.WriteString("<p><b>enabled</b></p>" + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:en:%s:1">on</tg-button>`, styleIf(curEn), id))
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:en:%s:0">off</tg-button>`, styleIf(!curEn), id))
+	b.WriteString(`</tg-button-row>`)
+
+	b.WriteString("<p><b>dns</b></p>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
 	for _, d := range []string{"vpn", "wan", "off"} {
-		st := ""
-		if get("dns", "vpn") == d {
-			st = ` style="primary"`
-		}
-		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:dns:%s:%s">dns:%s</tg-button>`, st, id, d, d))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:dns:%s:%s">%s</tg-button>`, styleIf(curDNS == d), id, d, d))
 	}
 	b.WriteString(`</tg-button-row>`)
+
+	b.WriteString("<p><b>mode</b></p>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
 	for _, m := range []string{"tun", "off"} {
-		st := ""
-		if get("mode", "tun") == m {
-			st = ` style="primary"`
-		}
-		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:mode:%s:%s">mode:%s</tg-button>`, st, id, m, m))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:mode:%s:%s">%s</tg-button>`, styleIf(curMode == m), id, m, m))
 	}
 	b.WriteString(`</tg-button-row>`)
+
+	b.WriteString("<p><b>fallback</b></p>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
 	for _, f := range []string{"wan", "block"} {
-		st := ""
-		if get("fallback", "wan") == f {
-			st = ` style="primary"`
-		}
-		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:fb:%s:%s">fb:%s</tg-button>`, st, id, f, f))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:fb:%s:%s">%s</tg-button>`, styleIf(curFB == f), id, f, f))
 	}
-	softOn := boolish("soft_fallback", true)
-	st0, st1 := "", ` style="primary"`
-	if !softOn {
-		st0, st1 = ` style="primary"`, ""
-	}
-	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:soft:%s:1">soft:on</tg-button>`, st1, id))
-	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:soft:%s:0">soft:off</tg-button>`, st0, id))
 	b.WriteString(`</tg-button-row>`)
+
+	b.WriteString("<p><b>soft_fallback</b></p>" + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:soft:%s:1">on</tg-button>`, styleIf(curSoft), id))
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data"%s data="m:edgetpl:soft:%s:0">off</tg-button>`, styleIf(!curSoft), id))
+	b.WriteString(`</tg-button-row>`)
+
 	return b.String()
+}
+
+func styleIf(on bool) string {
+	if on {
+		return ` style="primary"`
+	}
+	return ""
+}
+
+func boolLabel(v bool) string {
+	if v {
+		return "on"
+	}
+	return "off"
 }
 
 func edgeTplVPNKeyboard(id string) map[string]any {
@@ -176,6 +264,6 @@ func edgeTplVPNKeyboard(id string) map[string]any {
 		id = "default"
 	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("🔄", "m:edgetpl:show:"+id, "primary"), btn("«", "m:cat:routers", "primary"), btn(T("main_menu"), "m:menu", "")},
+		{btn("🔄", "m:edgetpl:show:"+id, "primary"), btn("📋", "m:edgetpl:pick", "link"), btn("«", "m:cat:routers", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
 }

@@ -764,6 +764,19 @@ function mountButtons(){
           </select>
         </div>
       </div>
+            <details><summary>Parameter help</summary>
+      <ul>
+        <li><b>enabled</b> — master switch for private Wi‑Fi VLESS client on apply</li>
+        <li><b>dns=vpn</b> — hijack DNS; world resolvers via VLESS; .ru/.рф/.su → Yandex direct</li>
+        <li><b>dns=wan</b> — do not force DNS through VLESS</li>
+        <li><b>dns=off</b> — OpenWrt DNS defaults</li>
+        <li><b>mode=tun</b> — TUN + auto_route for home LAN internet via VLESS</li>
+        <li><b>mode=off</b> — no TUN policy from template</li>
+        <li><b>fallback=wan</b> — if VLESS down, use ISP; <b>block</b> — no ISP fallback</li>
+        <li><b>soft_fallback</b> — urltest so dead VLESS does not blackhole the house</li>
+      </ul>
+      <p class="muted">Save writes the template on primary; run template <b>Apply</b> on the device to push config.</p>
+      </details>
       <button class="primary" type="button" data-act="edge-vpn-get">Load VPN settings</button>
       <button class="primary" type="button" data-act="edge-vpn-set">Save VPN settings</button>
       <div class="row"><div><label>cmd device</label><input id="edgeCmdDid"/></div><div><label>cmd</label><input id="edgeCmdName"/></div></div>
