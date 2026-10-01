@@ -129,6 +129,7 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 			"html": html,
 		},
 	}
+	notify.ApplyThread(payload, "menu")
 	if kb != nil {
 		payload["reply_markup"] = kb
 	}
@@ -150,6 +151,7 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 		}
 	}
 	payload2 := map[string]any{"chat_id": chat, "text": html, "parse_mode": "HTML"}
+	notify.ApplyThread(payload2, "menu")
 	if kb != nil {
 		payload2["reply_markup"] = kb
 	}
@@ -305,6 +307,10 @@ func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string
 	w := multipart.NewWriter(&buf)
 	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
 	_ = w.WriteField("rich_message", string(rmJSON))
+	if th := notify.MediaThread(); th > 0 {
+		_ = w.WriteField("message_thread_id", strconv.Itoa(th))
+		_ = w.WriteField("direct_messages_topic_id", strconv.Itoa(th))
+	}
 	if kb != nil {
 		jb, _ := json.Marshal(kb)
 		_ = w.WriteField("reply_markup", string(jb))
@@ -475,14 +481,25 @@ func editHTML(token string, chat int64, msgID int, text string, kb map[string]an
 }
 
 func reply(token string, chat int64, msgID int, text string, kb map[string]any) {
-	// In-place edit; on failure send new first, then delete old (avoid empty gap).
-	if msgID > 0 {
-		if err := editHTML(token, chat, msgID, text, kb); err == nil {
+	// Singleton Control hub: prefer editing stored hub message over spawning new menus.
+	h := notify.LoadHubMsg()
+	target := msgID
+	if h.ChatID == chat && h.MessageID > 0 {
+		target = h.MessageID
+	}
+	if target > 0 {
+		if err := editHTML(token, chat, target, text, kb); err == nil {
+			notify.SaveHubMsg(chat, target)
 			return
 		}
-		fmt.Fprintln(os.Stderr, "reply edit failed, replace:", msgID)
+		fmt.Fprintln(os.Stderr, "reply edit failed, replace hub:", target)
 		sendHTML(token, chat, text, kb)
-		_ = deleteMessage(token, chat, msgID)
+		if target != msgID && target > 0 {
+			_ = deleteMessage(token, chat, target)
+		}
+		if msgID > 0 && msgID != target {
+			_ = deleteMessage(token, chat, msgID)
+		}
 		return
 	}
 	sendHTML(token, chat, text, kb)
@@ -498,6 +515,10 @@ func sendDocumentFile(token string, chat int64, path, caption string) error {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
+	if th := notify.MediaThread(); th > 0 {
+		_ = w.WriteField("message_thread_id", strconv.Itoa(th))
+		_ = w.WriteField("direct_messages_topic_id", strconv.Itoa(th))
+	}
 	if caption != "" {
 		_ = w.WriteField("caption", caption)
 		_ = w.WriteField("parse_mode", "HTML")

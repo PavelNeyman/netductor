@@ -438,41 +438,18 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
 
-	key := accessCardKey(chat, name)
-	prev := lastAccessMsg[key]
-
-	// Never edit photo↔photo (unstable). Always send a new card, then delete previous Access cards.
-	sendAndTrack := func(newID int) {
-		if newID > 0 {
-			lastAccessMsg[key] = newID
-		}
-		if prev > 0 && prev != newID {
-			_ = deleteMessage(token, chat, prev)
-		}
-		if msgID > 0 && msgID != newID && msgID != prev {
-			_ = deleteMessage(token, chat, msgID)
-		}
+	// Control hub keeps text Access card; QR image goes to 📎 Media topic (does not replace hub).
+	note := ""
+	if getLang() != "en" {
+		note = "\n<i>QR → топик 📎 Media</i>"
+	} else {
+		note = "\n<i>QR → 📎 Media topic</i>"
 	}
+	reply(token, chat, msgID, html+note, kb)
 
 	if uri == "" {
-		// text-only
-		if msgID > 0 {
-			if err := editHTML(token, chat, msgID, html, kb); err == nil {
-				lastAccessMsg[key] = msgID
-				if prev > 0 && prev != msgID {
-					_ = deleteMessage(token, chat, prev)
-				}
-				return
-			}
-		}
-		// sendRich doesn't return id — leave msgID as best effort
-		sendRich(token, chat, html, kb)
-		if prev > 0 {
-			_ = deleteMessage(token, chat, prev)
-		}
 		return
 	}
-
 	qrPath := filepath.Join(dir, "qr-vless.png")
 	switch mode {
 	case "core":
@@ -483,29 +460,12 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	p := ensureQRFile(qrPath, uri)
 	if p == "" {
 		fmt.Fprintln(os.Stderr, "ensureQRFile failed for", name, mode, "uriLen=", len(uri))
-		if msgID > 0 {
-			if err := editHTML(token, chat, msgID, html, kb); err == nil {
-				lastAccessMsg[key] = msgID
-				return
-			}
-		}
-		sendRich(token, chat, html, kb)
 		return
 	}
-	newID, err := sendRichWithPhoto(token, chat, html, p, "qr1", kb)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
-		// text with link must remain
-		if msgID > 0 {
-			if err2 := editHTML(token, chat, msgID, html, kb); err2 == nil {
-				lastAccessMsg[key] = msgID
-				return
-			}
-		}
-		sendRich(token, chat, html, kb)
-		return
+	// Photo in Media topic only; do not track as hub.
+	if _, err := sendRichWithPhoto(token, chat, html, p, "qr1", nil); err != nil {
+		fmt.Fprintln(os.Stderr, "sendRichWithPhoto media:", err)
 	}
-	sendAndTrack(newID)
 }
 
 func sendWorkProfileDocument(token string, chat int64) {

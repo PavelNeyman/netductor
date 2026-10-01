@@ -287,9 +287,9 @@ if strings.HasPrefix(st, "wait_vpn_name:") {
 
 	switch cmd {
 	case "/start", "/menu":
-		sendHTML(token, chat, menuText(), mainKeyboard())
+		reply(token, chat, 0, menuText(), mainKeyboard())
 	case "/help":
-		sendHTML(token, chat, helpText(), mainKeyboard())
+		reply(token, chat, 0, helpText(), mainKeyboard())
 	case "/lang":
 		if arg1 == "en" || arg1 == "ru" {
 			setLang(arg1)

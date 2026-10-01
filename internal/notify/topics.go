@@ -18,6 +18,8 @@ var defaultTopics = []struct {
 	Key  string
 	Name string
 }{
+	{"menu", "🎛 Control"},
+	{"media", "📎 Media"},
 	{"alerts", "🚨 Alerts"},
 	{"warnings", "⚠️ Warnings"},
 	{"service", "🛠 Service"},
@@ -25,7 +27,7 @@ var defaultTopics = []struct {
 }
 
 // TopicKeys is the ordered list of roles.
-var TopicKeys = []string{"alerts", "warnings", "service", "updates"}
+var TopicKeys = []string{"menu", "media", "alerts", "warnings", "service", "updates"}
 
 type topicsFile struct {
 	ChatID    int64          `json:"chat_id"`
@@ -410,3 +412,22 @@ func TopicsStatusHTML(ru bool) string {
 func ResolveThreadIDForMessage(alertKey string) int {
 	return ThreadID(ThreadForAlertKey(alertKey))
 }
+
+// ApplyThread sets message_thread_id + direct_messages_topic_id for private bot topics.
+func ApplyThread(payload map[string]any, role string) {
+	if payload == nil {
+		return
+	}
+	th := ThreadID(role)
+	if th <= 0 {
+		return
+	}
+	payload["message_thread_id"] = th
+	payload["direct_messages_topic_id"] = th
+}
+
+// MenuThread is Control topic id (0 = General fallback).
+func MenuThread() int { return ThreadID("menu") }
+
+// MediaThread is Media topic for QR/documents.
+func MediaThread() int { return ThreadID("media") }

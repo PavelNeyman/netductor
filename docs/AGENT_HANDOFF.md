@@ -1,3 +1,7 @@
+## 0.9.151 Control+Media hub
+
+See docs/TG-MEDIA-TOPICS.md
+
 
 ## 0.9.150 — Versions hub + sub profiles
 

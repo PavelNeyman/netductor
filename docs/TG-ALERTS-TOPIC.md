@@ -20,3 +20,7 @@ From inside a topic: `/topic alerts` (or warnings / service / updates).
 ## Removed
 
 `telegram_alerts_thread_id` secret is **not** used — routing is only via `topics.json`.
+
+
+## Control / Media (0.9.151+)
+See [TG-MEDIA-TOPICS.md](TG-MEDIA-TOPICS.md). Alerts never target `menu` or `media`.

@@ -1,19 +1,25 @@
-# Media / QR topics (design)
+# Control + Media topics (implemented 0.9.151)
 
-## Goal
-Keep the **Control** menu topic as a single editable hub. Large payloads (QR photos, SR config documents, long apply logs) should not permanently sit under the menu.
+## Bootstrap topics
+| Key | Name | Purpose |
+|-----|------|---------|
+| menu | 🎛 Control | Singleton operator hub (edit-in-place) |
+| media | 📎 Media | QR photos, SR Config documents |
+| alerts / warnings / service / updates | … | Notifications only |
 
-## Options
+## Hub singleton
+- State: `/var/lib/netductor/tg/hub_msg.json` (`message_id`, `thread_id`)
+- `reply()` always prefers editing that message
+- `/menu` and main navigation do not spawn a second hub when hub id is known
 
-| Option | Behavior | Pros | Cons |
-|--------|----------|------|------|
-| **A. Ephemeral in Control** | Send photo/doc in menu topic; delete after N min or when user taps Back | Simple | Still flashes in menu thread |
-| **B. Topic `📎 Media`** | All QR/files go to dedicated topic; menu only gets a one-line “sent to Media” | Menu stays clean | User switches topic to open QR |
-| **C. Topic per kind** | `QR`, `Files`, `Logs` | Clear | Topic sprawl |
-| **D. Alerts-style** | QR only on demand in Media; Access screen stays text+links in Control | Best for “static menu” | Extra tap for image |
+## Media
+- `sendRichWithPhoto` / `sendDocumentFile` attach **media** thread
+- Access: text card stays on Control; QR is sent to Media
 
-**Recommendation:** **B** — one `📎 Media` bootstrap topic + Control hub. Access card in Control keeps **links + client buttons**; QR image optionally “show QR → Media topic”. Documents (SR Config) always to Media.
+## Client tips
+1. BotFather: Threaded Mode ON, disallow user-created topics
+2. Open **🎛 Control** for the menu — avoid the aggregate «All / General» view
+3. After upgrade: Topics → Recreate if menu/media missing
 
-## Hub singleton (related)
-- Store `hub_msg_id` + `hub_thread_id` (Control).
-- Navigation = `editMessage`; prompts = edit same hub; never `send` a second menu.
+## Limits
+Telegram may still show cross-topic items in «All». Perfect one-message-only chats are impossible with media; goal is one **control** message + ephemeral media in another topic.

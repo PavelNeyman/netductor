@@ -1,3 +1,9 @@
+## 0.9.151
+
+- Bootstrap topics: 🎛 Control + 📎 Media
+- Singleton Control hub (edit-first via hub_msg.json)
+- QR/documents → Media topic; Access text stays on Control
+
 ## 0.9.150
 
 - TG Versions hub (select primary/secondary → Apply)
