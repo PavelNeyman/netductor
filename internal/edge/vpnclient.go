@@ -68,7 +68,7 @@ func edgeRelayOrCoreLink(name, uuid string) string {
 			}
 			sni := d.SNI
 			if sni == "" {
-				sni = "ya.ru"
+				sni = vpn.DefaultRealitySNI
 			}
 			return vpn.ClientLinkForSecondary(name, uuid, d.PublicIP, d.PBK, d.SID, sni)
 		}

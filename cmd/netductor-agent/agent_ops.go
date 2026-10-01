@@ -186,20 +186,45 @@ func applyTemplate(client *http.Client, cfg config) string {
 	return edgeagent.FormatApplyReport(toSet) + "\n" + strings.Join(toSet, "\n") + vpnNote + gNote
 }
 
+func stopEdgeVPN() string {
+	note := ""
+	if _, err := os.Stat("/etc/init.d/netductor-vpn"); err == nil {
+		_ = exec.Command("/etc/init.d/netductor-vpn", "stop").Run()
+		_ = exec.Command("/etc/init.d/netductor-vpn", "disable").Run()
+		note = "; netductor-vpn stopped"
+	}
+	return note
+}
+
+func vpnFlagTruthy(v any) bool {
+	switch x := v.(type) {
+	case bool:
+		return x
+	case string:
+		s := strings.ToLower(strings.TrimSpace(x))
+		return s == "1" || s == "true" || s == "yes" || s == "on"
+	case float64:
+		return x != 0
+	default:
+		return false
+	}
+}
+
 func applyVPNClient(tmpl map[string]any, cfg config) string {
 	vpn, _ := tmpl["vpn"].(map[string]any)
 	if vpn == nil {
-		return ""
+		return stopEdgeVPN()
 	}
-	enabled := false
-	switch v := vpn["enabled"].(type) {
-	case bool:
-		enabled = v
-	case string:
-		enabled = v == "true" || v == "1"
-	}
-	if !enabled {
-		return ""
+	enabled := vpnFlagTruthy(vpn["enabled"])
+	mode, _ := vpn["mode"].(string)
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	// enabled=false or mode=off → tear down client (do not leave stale TUN/proxy).
+	if !enabled || mode == "off" {
+		why := "disabled"
+		if enabled && mode == "off" {
+			why = "mode=off"
+		}
+		return "\nvpn " + why + stopEdgeVPN()
 	}
 	_ = os.MkdirAll("/etc/netductor-agent", 0o700)
 	if sub, _ := vpn["subscription"].(string); sub != "" {
@@ -211,11 +236,10 @@ func applyVPNClient(tmpl map[string]any, cfg config) string {
 	}
 	note := "\nvpn links saved"
 	if vless == "" {
-		return note
+		return note + "; no vless link in template"
 	}
-	mode, _ := vpn["mode"].(string)
 	if mode == "" {
-		mode = "tun" // default: whole-router VPN; socks/mixed only if template sets mode
+		mode = "tun"
 	}
 	dnsMode, _ := vpn["dns"].(string)
 	if dnsMode == "" {
@@ -230,13 +254,7 @@ func applyVPNClient(tmpl map[string]any, cfg config) string {
 		soft = false
 	}
 	if v, ok := vpn["soft_fallback"]; ok {
-		switch x := v.(type) {
-		case bool:
-			soft = x
-		case string:
-			s := strings.ToLower(strings.TrimSpace(x))
-			soft = s == "1" || s == "true" || s == "yes" || s == "on"
-		}
+		soft = vpnFlagTruthy(v)
 	}
 	primaryHost := ""
 	if ph, _ := vpn["primary_host"].(string); ph != "" {
@@ -267,7 +285,6 @@ func applyVPNClient(tmpl map[string]any, cfg config) string {
 		_ = exec.Command("/etc/init.d/netductor-vpn", "enable").Run()
 		_ = exec.Command("/etc/init.d/netductor-vpn", "restart").Run()
 		note += "; netductor-vpn restarted"
-		// If TUN fails on this board, fall back to socks@127.0.0.1 once.
 		if mode == "tun" {
 			time.Sleep(2 * time.Second)
 			out, _ := exec.Command("/etc/init.d/netductor-vpn", "status").CombinedOutput()
@@ -290,6 +307,7 @@ func applyVPNClient(tmpl map[string]any, cfg config) string {
 	}
 	return note
 }
+
 
 func configRestore(client *http.Client, cfg config, name string) string {
 	name = strings.TrimSpace(name)
