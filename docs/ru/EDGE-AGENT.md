@@ -33,3 +33,16 @@ mTLS; rate-limit enroll; revoke/rotate certs — ops. Нет требовани�
 
 ## Команды / API
 Полные пути HTTP и поля JSON — в EN; CLI `netductor edge …` на primary.
+
+## Архитектура агента (first-boot)
+
+**Репы OpenWrt / ipk нет.** First-boot — pure-Go binary через SCP с Mac.
+
+1. SSH на роутер.
+2. Probe: `uname -m`, openwrt_release, opkg/apk.
+3. Карта asset’ов: arm64, arm, amd64, **mipsle** (Cudy TR1200), riscv64.
+4. Скачать asset → provision.
+5. Поле arch по умолчанию **`auto`**; override только при ошибке probe.
+
+Day-2: stack / agent_update вручную, не opkg.
+

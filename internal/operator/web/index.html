@@ -107,7 +107,7 @@
     <p class="note">OpenWrt / RPi edge agent from Mac (same DeployEdge backend as TUI).</p>
     <form id="form-edge">
       <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required/></div><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div></div>
-      <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="arm64"/></div></div>
+      <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="auto" placeholder="auto | arm64 | arm | mipsle | amd64 | riscv64"/></div></div>
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_lan">LAN IP (optional)</label><input name="lan_ip"/></div><div><label data-i18n="l_wan">WAN proto</label><input name="wan_proto" value="dhcp"/></div></div>

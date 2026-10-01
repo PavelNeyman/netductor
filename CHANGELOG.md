@@ -1,5 +1,13 @@
 ## 0.9.154
 
+## 0.9.155
+
+### Edge
+- Auto-detect router GOARCH via SSH before downloading agent (`auto` default)
+- Release assets: agent linux `amd64` `arm64` `arm` `mipsle` `riscv64` (mipsle softfloat)
+- Explicit decision: no opkg/apk feed; updates remain netductor stack
+
+
 - **Edge Web/TUI parity:** 2.4+5 Wi‑Fi, LAN/DHCP, WAN static/pppoe, guest, **reboot** after provision
 - `DeployEdge` optional reboot; CLI `--reboot`; EDGE-AGENT dry-run checklist
 

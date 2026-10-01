@@ -56,3 +56,4 @@ Latest review: [REVIEW-0.9.75.md](REVIEW-0.9.75.md).
 ## Web UI / Fleet (pending code)
 
 See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — labels, Lampac checkbox, CF proxy, secondary TOFU path on Mac. **Do not implement until prioritized.**
+- ~~OpenWrt opkg feed / ipk for agent~~ — **rejected** (0.9.155): first-boot binary+SCP; day-2 stack/agent_update. Revisit only if fleet needs offline opkg without primary.

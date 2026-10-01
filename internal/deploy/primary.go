@@ -370,6 +370,9 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	if goarch == "" {
 		goarch = "arm64"
 	}
+	if !ValidAgentArch(goarch) || goarch == "auto" {
+		return "", fmt.Errorf("invalid agent arch %q", goarch)
+	}
 	_ = os.MkdirAll(destDir, 0o755)
 	name := "netductor-agent-linux-" + goarch
 	dest := filepath.Join(destDir, name)

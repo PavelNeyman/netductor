@@ -185,7 +185,7 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "id", Label: FormT(lang, "edge_device_id"), Value: orDefault(s.LastEdgeID, "edge-1"),
 				Short:  ph("Stable edge id", "Стабильный id edge"),
 				Detail: ph("Used for enroll/approve on primary.", "Для enroll/approve на primary.")},
-			{Key: "arch", Label: FormT(lang, "agent_arch"), Value: "arm64", Short: "arm64 / armv7 / …", Detail: ph("Match router CPU.", "Под CPU роутера.")},
+			{Key: "arch", Label: FormT(lang, "agent_arch"), Value: "auto", Short: "auto | arm64 | arm | mipsle | amd64 | riscv64", Detail: ph("auto = SSH probe uname -m (Cudy TR1200 → mipsle).", "auto = probe uname -m (Cudy TR1200 → mipsle).")},
 			{Key: "server", Label: FormT(lang, "primary_mtls"), Value: srv,
 				Short:  "https://PRIMARY:8789",
 				Detail: ph("Agent plane. Must be reachable from the router.", "Agent plane. Должен быть доступен с роутера.")},

@@ -71,11 +71,8 @@ func DeployEdge(o EdgeOpts) error {
 	if !validReleaseVersion(o.Version) {
 		return fmt.Errorf("invalid release version %q", o.Version)
 	}
-	if o.AgentArch == "" {
-		o.AgentArch = "arm64"
-	}
-	if !validReleaseVersion(o.AgentArch) { // same charset: arm64, armv7, amd64
-		return fmt.Errorf("invalid agent arch %q", o.AgentArch)
+	if !ValidAgentArch(o.AgentArch) {
+		return fmt.Errorf("invalid agent arch %q (amd64|arm64|arm|mipsle|riscv64|auto)", o.AgentArch)
 	}
 	if o.AgentDir == "" {
 		home, _ := os.UserHomeDir()
@@ -148,6 +145,13 @@ echo KEY:$(b64 "$DIR/client.key")
 			}
 		}
 	}
+
+	// SSH probe first (unless --arch override); Cudy TR1200 = mipsle, not arm64.
+	arch, err := ResolveAgentArch(o.AgentArch, o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "")
+	if err != nil {
+		return err
+	}
+	o.AgentArch = arch
 
 	agent, err := EnsureAgentBinary(o.Version, o.AgentArch, o.AgentDir)
 	if err != nil {

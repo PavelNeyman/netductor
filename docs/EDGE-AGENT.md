@@ -15,6 +15,28 @@ Outbound enroll → approve → template apply. No management VPN between edge a
 After first password bootstrap, provision installs the **operator (Mac) pubkey** and disables dropbear/OpenSSH password auth when possible.
 
 
+
+## Agent architecture (first-boot)
+
+**No OpenWrt package feed.** First-boot always places a pure-Go binary via SCP from the operator machine.
+
+1. SSH to the router (password or key).
+2. Probe: `uname -m`, `/etc/openwrt_release`, `opkg`/`apk` presence.
+3. Map to asset:
+
+| `uname -m` / OpenWrt | Asset |
+|----------------------|-------|
+| `aarch64`, `arm64` | `netductor-agent-linux-arm64` |
+| `armv7*`, `arm` | `netductor-agent-linux-arm` (GOARM=7) |
+| `x86_64` | `netductor-agent-linux-amd64` |
+| `mips` / `mipsel` (e.g. **Cudy TR1200** MT7628) | `netductor-agent-linux-mipsle` (GOMIPS=softfloat) |
+| `riscv64` | `netductor-agent-linux-riscv64` |
+
+4. Download that asset for `deploy.Release`, then `edge.Provision`.
+5. UI/CLI field **arch** defaults to **`auto`**; set explicitly only to override a bad probe.
+
+Day-2 agent upgrades stay on netductor stack / `agent_update` (manual confirm), not `opkg`.
+
 ## Provision (from operator machine / VPS)
 
 ```bash
@@ -172,17 +194,18 @@ Commands: `move left|right|up|down`, `night:on|off|auto`, `privacy:on|off`
 `netductor edge export -o file.json` / Admin Export — include in primary backup drills.
 
 
-## DeployEdge dry-run checklist (0.9.154)
+## DeployEdge dry-run checklist (0.9.155)
 
 Ordered steps inside `deploy.DeployEdge` / `edge.Provision`:
 
 | # | Step | Failure mode |
 |---|------|----------------|
-| 1 | Validate router host, device id, version, arch | Invalid id/arch aborts |
+| 1 | Validate router host, device id, version; arch empty/auto or known GOARCH | Invalid id/arch aborts |
 | 2 | Resolve `ServerURL` → must be `https://…:8789` (never plain :8787) | Wrong URL → TLS fail later |
 | 3 | SSH **primary**: read `edge_bootstrap_token` | No key/token → abort |
 | 4 | SSH primary: `mtls ensure` + `mtls issue-client <device_id>` | Warn if certs missing; agent may fail handshake |
-| 5 | Download `netductor-agent-linux-<arch>` for `deploy.Release` | Missing GitHub asset / arch |
+| 4b | **SSH probe** `uname -m` (+ opkg/apk, DISTRIB_ARCH) → map to GOARCH | Unsupported CPU; override with `--arch` |
+| 5 | Download `netductor-agent-linux-<arch>` (`amd64`/`arm64`/`arm`/`mipsle`/`riscv64`) | Missing GitHub asset / wrong arch |
 | 6 | `edge.Provision`: SCP agent + write config + mTLS material + enable service | SSH to router (password or key) |
 | 7 | Optional `NetConfigure`: UCI LAN/DHCP/Wi‑Fi 2.4+5 / WAN dhcp\|static\|pppoe | Network apply is **warn-only** if fails |
 | 8 | Optional guest Wi‑Fi | Warn-only |

@@ -15,7 +15,9 @@ netductor-release:
 .PHONY: agent-release
 agent-release:
 	mkdir -p dist
-	@for arch in amd64 arm64 arm mipsle; do \
-	  CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" \
+	@for arch in amd64 arm64 arm mipsle riscv64; do \
+	  extra=""; \
+	  case $$arch in mipsle) extra="GOMIPS=softfloat";; arm) extra="GOARM=7";; esac; \
+	  env $$extra CGO_ENABLED=0 GOOS=linux GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" \
 	    -o dist/netductor-agent-linux-$$arch ./cmd/netductor-agent; \
 	done

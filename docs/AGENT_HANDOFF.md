@@ -1,3 +1,11 @@
+## 0.9.155 Edge agent arch probe + multi-arch assets
+
+- **No OpenWrt feed/ipk** (by design): first-boot = SSH probe + pure-Go binary SCP; day-2 = stack/agent_update
+- `DeployEdge`: default arch **`auto`** → SSH `uname -m` / DISTRIB_ARCH before `EnsureAgentBinary`
+- Assets: `amd64`, `arm64`, `arm` (GOARM=7), **`mipsle`** (GOMIPS=softfloat, Cudy TR1200), `riscv64`
+- UI: Web/TUI/CLI arch field default `auto`; override only when needed
+- Packages/repo for edge **not** planned; VPS stays stack binary, not .deb
+
 ## 0.9.154 Edge provision parity + reboot
 
 - Web OpenWrt form matches TUI network fields; reboot checkbox

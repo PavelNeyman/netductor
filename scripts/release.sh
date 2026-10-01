@@ -23,6 +23,12 @@ build() { CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o "dist/$1" "$2"; }
 build netductor-linux-amd64 ./cmd/netductor
 build netductor-tg-linux-amd64 ./cmd/netductor-tg
 build netductor-agent-linux-amd64 ./cmd/netductor-agent
+for arch in arm64 arm mipsle riscv64; do
+  extra=""
+  case $arch in mipsle) extra="GOMIPS=softfloat";; arm) extra="GOARM=7";; esac
+  env $extra CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags='-s -w' \
+    -o "dist/netductor-agent-linux-$arch" ./cmd/netductor-agent
+done
 build netductor-op-linux-amd64 ./cmd/netductor-op
 GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o dist/netductor-op-darwin-arm64 ./cmd/netductor-op
 (cd dist && sha256sum netductor-* > SHA256SUMS)

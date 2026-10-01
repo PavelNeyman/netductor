@@ -187,7 +187,7 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		RouterUser:           orDefault(get("user"), "root"),
 		RouterPass:           get("password"),
 		DeviceID:             strings.TrimSpace(get("id")),
-		AgentArch:            orDefault(get("arch"), "arm64"),
+		AgentArch:            orDefault(get("arch"), "auto"),
 		ServerURL:            strings.TrimSpace(get("server")),
 		NetConfigure:         yesish(get("net")),
 		LANIP:                strings.TrimSpace(get("lan_ip")),

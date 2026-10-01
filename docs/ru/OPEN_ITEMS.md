@@ -27,3 +27,4 @@
 ## Web UI / Fleet (код отложен)
 
 См. [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — подписи, галочка Lampac, CF proxy, TOFU secondary на Mac. **Не реализовывать, пока не приоритет.**
+- ~~OpenWrt opkg feed / ipk for agent~~ — **rejected** (0.9.155): first-boot binary+SCP; day-2 stack/agent_update. Revisit only if fleet needs offline opkg without primary.

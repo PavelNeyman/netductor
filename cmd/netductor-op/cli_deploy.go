@@ -27,7 +27,7 @@ secondary:
   [--primary-key-passphrase] [--secondary-key]
 
 edge:
-  --router --id --password [--user root] [--arch arm64]
+  --router --id --password [--user root] [--arch auto|arm64|arm|mipsle|amd64|riscv64]
   --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
   --guest [--guest-ssid] [--guest-pin] [--guest-psk] [--reboot]
   --configure-net
@@ -207,7 +207,7 @@ See: netductor tui → Setup wizard`)
 			os.Exit(1)
 		}
 	case "edge":
-		o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: deploy.Release, AgentArch: "arm64"}
+		o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: deploy.Release, AgentArch: "auto"}
 		for i := 1; i < len(args); i++ {
 			a := args[i]
 			switch {
