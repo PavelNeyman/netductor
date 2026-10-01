@@ -17,6 +17,17 @@ import (
 
 
 func main() {
+	// version/help before config load (fast path for version.Running probes)
+	if len(os.Args) >= 2 {
+		switch os.Args[1] {
+		case "version", "-v", "--version":
+			fmt.Printf("netductor %s (node)\n", ndver.Release)
+			return
+		case "help", "-h", "--help":
+			printHelp()
+			return
+		}
+	}
 	ndconfig.Load()
 
 	if len(os.Args) < 2 {

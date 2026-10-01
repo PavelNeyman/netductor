@@ -6,6 +6,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
 	"github.com/PavelNeyman/netductor/internal/stack"
+	"github.com/PavelNeyman/netductor/internal/version"
 )
 
 func formatFleetDigestHTML() string {
@@ -21,6 +22,9 @@ func formatFleetDigestHTML() string {
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
 	b.WriteString(fmt.Sprintf("<tr><td>primary</td><td><code>%s</code></td></tr>"+nl, esc(d.PrimaryVersion)))
+	if bin, file, self := version.Detail(); (bin != "" && bin != d.PrimaryVersion) || (file != "" && file != d.PrimaryVersion) || (self != "" && self != d.PrimaryVersion) {
+		b.WriteString(fmt.Sprintf("<tr><td>ver dbg</td><td><code>bin=%s file=%s self=%s</code></td></tr>"+nl, esc(bin), esc(file), esc(self)))
+	}
 	if d.UpdateAvailable {
 		b.WriteString(fmt.Sprintf("<tr><td>update</td><td>🆕 %s</td></tr>"+nl, esc(d.LatestRelease)))
 	} else {

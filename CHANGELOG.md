@@ -1,3 +1,9 @@
+## 0.9.149
+
+- **version.Running:** never prefer probe older than VERSION file; never prefer value older than process Release
+- Fleet shows `ver dbg` (bin/file/self) when sources disagree
+- `netductor version` fast path before config load
+
 ## 0.9.148
 
 - **No spontaneous version changes:** secondary ignores `desired_release` self-update
