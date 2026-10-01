@@ -1,3 +1,10 @@
+## 0.9.146
+
+- Access card: never photo-edit on VLESS↔Sub; track msg id, always new card then delete old
+- redirectBase: secrets/redirect_base fallback
+- SR Config: DNS/conf host → IP-CIDR DIRECT; caption lists node IPs
+- sendRichWithPhoto returns message_id
+
 ## 0.9.134
 
 - **No auto-downgrade:** failed health keeps new binaries (stops 0.9.121 loop)

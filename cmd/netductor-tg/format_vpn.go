@@ -259,9 +259,18 @@ func redirectBase() string {
 			}
 		}
 	}
+	for _, p := range []string{"/etc/netductor/secrets/redirect_base", "/etc/netductor/secrets/REDIRECT_BASE"} {
+		if b, err := os.ReadFile(p); err == nil {
+			v := strings.TrimSpace(string(b))
+			if v != "" {
+				return strings.TrimRight(v, "/")
+			}
+		}
+	}
 	if b, err := os.ReadFile("/etc/netductor/secrets/domain"); err == nil {
 		d := strings.TrimSpace(string(b))
 		if d != "" {
+			// prefer i.nd style if DOMAIN is nd.neyman.top
 			return "https://redirect." + d
 		}
 	}
@@ -403,6 +412,13 @@ func sendAppDeepLink(token string, chat int64, name, mode, client string) {
 
 var accessShowMu sync.Mutex
 
+// lastAccessMsg tracks the live Access card per chat+user so we can delete without racing photo edits.
+var lastAccessMsg = map[string]int{}
+
+func accessCardKey(chat int64, name string) string {
+	return fmt.Sprintf("%d:%s", chat, name)
+}
+
 func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	accessShowMu.Lock()
 	defer accessShowMu.Unlock()
@@ -410,6 +426,7 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		mode = "vless"
 	}
 	uri := accessPayload(name, mode)
+	fmt.Fprintf(os.Stderr, "showUserAccess name=%s mode=%s uriLen=%d base=%q\n", name, mode, len(uri), redirectBase())
 	if uri == "" && mode == "sub" {
 		fmt.Fprintln(os.Stderr, "accessPayload sub empty: redirectBase=", redirectBase(), "name=", name)
 	}
@@ -418,10 +435,41 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
 
+	key := accessCardKey(chat, name)
+	prev := lastAccessMsg[key]
+
+	// Never edit photo↔photo (unstable). Always send a new card, then delete previous Access cards.
+	sendAndTrack := func(newID int) {
+		if newID > 0 {
+			lastAccessMsg[key] = newID
+		}
+		if prev > 0 && prev != newID {
+			_ = deleteMessage(token, chat, prev)
+		}
+		if msgID > 0 && msgID != newID && msgID != prev {
+			_ = deleteMessage(token, chat, msgID)
+		}
+	}
+
 	if uri == "" {
-		reply(token, chat, msgID, html, kb)
+		// text-only
+		if msgID > 0 {
+			if err := editHTML(token, chat, msgID, html, kb); err == nil {
+				lastAccessMsg[key] = msgID
+				if prev > 0 && prev != msgID {
+					_ = deleteMessage(token, chat, prev)
+				}
+				return
+			}
+		}
+		// sendRich doesn't return id — leave msgID as best effort
+		sendRich(token, chat, html, kb)
+		if prev > 0 {
+			_ = deleteMessage(token, chat, prev)
+		}
 		return
 	}
+
 	qrPath := filepath.Join(dir, "qr-vless.png")
 	switch mode {
 	case "core":
@@ -429,20 +477,36 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	case "sub":
 		qrPath = filepath.Join(dir, "qr-sub.png")
 	}
-	if p := ensureQRFile(qrPath, uri); p == "" {
+	p := ensureQRFile(qrPath, uri)
+	if p == "" {
 		fmt.Fprintln(os.Stderr, "ensureQRFile failed for", name, mode, "uriLen=", len(uri))
-		// Still show link text — do not treat as "no links"
-		reply(token, chat, msgID, html, kb)
+		if msgID > 0 {
+			if err := editHTML(token, chat, msgID, html, kb); err == nil {
+				lastAccessMsg[key] = msgID
+				return
+			}
+		}
+		sendRich(token, chat, html, kb)
 		return
 	}
-	replyRichWithPhoto(token, chat, msgID, html, qrPath, "qr1", kb)
+	newID, err := sendRichWithPhoto(token, chat, html, p, "qr1", kb)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "sendRichWithPhoto:", err)
+		// text with link must remain
+		if msgID > 0 {
+			if err2 := editHTML(token, chat, msgID, html, kb); err2 == nil {
+				lastAccessMsg[key] = msgID
+				return
+			}
+		}
+		sendRich(token, chat, html, kb)
+		return
+	}
+	sendAndTrack(newID)
 }
 
-
-
-
 func sendWorkProfileDocument(token string, chat int64) {
-	// Always regenerate from current node IPs + rule generator (stale nd-oc.conf caused hairpin SSH).
+	// Always regenerate from current node IPs + rule generator (never ship embed/stale file).
 	path := "/var/lib/netductor/profiles/nd-oc.conf"
 	if err := vpn.WriteShadowrocketRoutingFile(path); err != nil {
 		path = "/tmp/nd-oc.conf"
@@ -452,8 +516,19 @@ func sendWorkProfileDocument(token string, chat int64) {
 		}
 	}
 	_ = vpn.WriteShadowrocketRoutingFile("/etc/netductor/profiles/nd-oc.conf")
+	body, _ := os.ReadFile(path)
+	cidrs := vpn.AdminNodeDirectCIDRs()
 	nl := string([]byte{10})
-	cap := "📥 <b>SR Config</b>" + nl + "Shadowrocket → Config → import. Global Routing = Config." + nl + "Nodes IP-CIDR DIRECT (no SSH hairpin) + RU DIRECT + FINAL PROXY."
+	cap := "📥 <b>SR Config</b>" + nl + "Shadowrocket → Config → import · Global Routing = <b>Config</b>." + nl
+	if len(cidrs) == 0 {
+		cap += "⚠️ No node IPs found for IP-CIDR DIRECT — set public_ip / secondary devices." + nl
+		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument: AdminNodeDirectCIDRs empty")
+	} else {
+		cap += "DIRECT nodes: <code>" + esc(strings.Join(cidrs, ", ")) + "</code>" + nl
+	}
+	if !strings.Contains(string(body), "IP-CIDR,") {
+		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument: generated file has no IP-CIDR lines, size=", len(body))
+	}
 	if err := sendDocumentFile(token, chat, path, cap); err != nil {
 		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument:", err)
 		sendHTML(token, chat, "❌ Failed to send profile: "+esc(err.Error()), nil)

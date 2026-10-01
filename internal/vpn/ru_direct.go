@@ -129,6 +129,52 @@ func AdminNodeDirectCIDRs() []string {
 			}
 		}
 	}
+	// resolve configured hostnames → IP (p.nd / s.nd / vpn host)
+	for _, rel := range []string{"public_hostname", "vpn_hostname", "secrets/public_hostname", "secrets/vpn_hostname"} {
+		b, err := os.ReadFile(filepath.Join(paths.EtcDir(), rel))
+		if err != nil {
+			continue
+		}
+		host := strings.TrimSpace(strings.Split(string(b), "\n")[0])
+		if host == "" || net.ParseIP(host) != nil {
+			if net.ParseIP(host) != nil {
+				add(host)
+			}
+			continue
+		}
+		if ips, err := net.LookupIP(host); err == nil {
+			for _, ip := range ips {
+				if v4 := ip.To4(); v4 != nil {
+					add(v4.String())
+				}
+			}
+		}
+	}
+	// conf DOMAIN / CORE / VPN hosts
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "netductor.conf")); err == nil {
+		for _, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			for _, pfx := range []string{"DOMAIN=", "NETDUCTOR_DOMAIN=", "PUBLIC_HOSTNAME=", "VPN_HOSTNAME=", "NETDUCTOR_CORE_HOST=", "NETDUCTOR_VPN_HOST="} {
+				if strings.HasPrefix(line, pfx) {
+					host := strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, pfx)), "\"")
+					if host == "" {
+						continue
+					}
+					if net.ParseIP(host) != nil {
+						add(host)
+						continue
+					}
+					if ips, err := net.LookupIP(host); err == nil {
+						for _, ip := range ips {
+							if v4 := ip.To4(); v4 != nil {
+								add(v4.String())
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	return out
 }
 
