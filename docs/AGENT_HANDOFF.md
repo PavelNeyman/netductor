@@ -60,6 +60,13 @@ netductor-op version       # expect 0.9.179
 - Single operator session = full control (no read/destructive session split — optional later).
 - EN/RU docs: **full semantic parity** (AGENTS §7).
 
+
+## Verification plan (phased)
+
+- EN: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md)
+- RU: [ru/VERIFICATION-PLAN.md](ru/VERIFICATION-PLAN.md)
+- Progress checkboxes live in those files. Next code-review session: **Phase B.1** (`deploy` + `edgeagent`).
+
 ## Not done / owner
 
 See [OPEN_ITEMS.md](OPEN_ITEMS.md): live VPS force-update if lagging; hardware e2e; optional CI Formula SHA.

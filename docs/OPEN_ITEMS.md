@@ -40,6 +40,10 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 - [x] TG alert batch + dedupe + hub re-pin throttle (0.9.105)
 
+## Verification plan
+
+Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (RU: [ru/VERIFICATION-PLAN.md](ru/VERIFICATION-PLAN.md)). Mark progress there.
+
 ## Owner next
 
 - [ ] Force-update live VPS/nodes to **≥0.9.181** if lagging — `netductor stack apply v0.9.181` (+ OpenWrt `agent_update`) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
