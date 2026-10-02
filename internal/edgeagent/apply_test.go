@@ -57,6 +57,15 @@ func TestShellApplyStagedNoReload(t *testing.T) {
 	if !strings.Contains(s, "uci commit") {
 		t.Fatal(s)
 	}
+	// ash: unquoted ( ) in echo → syntax error: unexpected "("
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "echo ") && !strings.HasPrefix(line, "echo '") && !strings.HasPrefix(line, `echo "`) {
+			if strings.Contains(line, "(") || strings.Contains(line, ")") {
+				t.Fatalf("unquoted paren in remote echo (ash-unsafe): %s", line)
+			}
+		}
+	}
 	live := ShellApply([]string{"network.lan.ipaddr=10.0.0.1"})
 	if !strings.Contains(live, "network reload") {
 		t.Fatalf("live should reload: %s", live)

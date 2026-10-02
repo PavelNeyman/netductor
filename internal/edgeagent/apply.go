@@ -193,7 +193,7 @@ func shellApply(desired []string, reload bool) string {
 		b.WriteString("/etc/init.d/network reload 2>/dev/null || true\n")
 		b.WriteString("wifi reload 2>/dev/null || true\n")
 	} else {
-		b.WriteString("echo netductor: UCI staged (no network reload; reboot to apply)\n")
+		b.WriteString("echo 'netductor: UCI staged no-reload reboot-to-apply'\n")
 	}
 	return b.String()
 }
