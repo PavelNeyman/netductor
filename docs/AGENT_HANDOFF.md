@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.188** (2026-10-02). OpenWrt no-base64 provision; Dropbear ssh-pipe; mipsle; operator token persist.
+**Stop line: v0.9.189** (2026-10-02). Edge: net/guest before harden; password preferred pre-harden; full agent arches.
 
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
@@ -9,7 +9,7 @@
 
 | Item | State |
 |--|--|
-| **Release** | **v0.9.188** — 11 assets (mipsle/riscv64); Formula SHA OK |
+| **Release** | **v0.9.189** — 11 assets; Formula SHA OK |
 | **Planes** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Only** `internal/operator/web` (embed in op). Legacy `runtime/api/admin` **removed** (0.9.171) |
 | **Edge VPN template** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
@@ -20,6 +20,7 @@
 
 ## Recent versions (short)
 
+- **0.9.189** — edge order: network/guest before harden; SSH prefer password when set
 - **0.9.188** — OpenWrt provision without base64 (mTLS/pass via ssh stdin)
 - **0.9.187** — operator token persist + app.js inject
 - **0.9.186** — Dropbear ssh-pipe for agent; mipsle assets
