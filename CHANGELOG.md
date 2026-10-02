@@ -1,3 +1,7 @@
+## 0.9.179
+
+- fix: agent `guest enable --hidden=1` was ignored after default-visible change (0.9.178)
+
 ## 0.9.178
 
 - Guest SSID **visible by default** (Web/TUI/CLI/agent template); optional hidden

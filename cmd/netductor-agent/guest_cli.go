@@ -70,6 +70,9 @@ func runGuestCLI(args []string) {
 			if a == "--hidden=0" {
 				gc.Hidden = false
 			}
+			if a == "--hidden=1" || a == "--hidden" {
+				gc.Hidden = true
+			}
 		}
 		if gc.SSID == "" {
 			gc.SSID = "Guest"
