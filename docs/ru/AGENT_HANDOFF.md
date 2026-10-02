@@ -1,13 +1,13 @@
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Точка останова: v0.9.182** (2026-10-02). WAN DNS подсказки; guest visible; фикс `--hidden=1`; Web pass/LuCI.
+**Точка останова: v0.9.185** (2026-10-02). Offline pack edge; SSH primary :52222; guest visible.
 
 ## Текущий baseline
 
 | Пункт | Состояние |
 |--|--|
-| **Релиз** | **v0.9.182** — полный набор assets; Formula с проверенными SHA |
+| **Релиз** | **v0.9.185** — assets + Formula SHA |
 | **Плоскости** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Только** `internal/operator/web` (embed в op). Legacy `runtime/api/admin` **удалён** (0.9.171) |
 | **Edge VPN шаблон** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
@@ -17,6 +17,9 @@
 | **Тесты** | `go test ./...` зелёный (0.9.172); уникальные ID opcatalog |
 
 ## Недавние версии (кратко)
+
+- **0.9.185** — offline pubkey/~; cert по device_id
+- **0.9.184** — offline pack Web/CLI
 
 - **0.9.181** — WAN DNS (пробел/запятая) + подсказки
 - **0.9.180** — подсказки guest; handoff; bind template только с device_id
@@ -31,7 +34,7 @@
 ## Apply на живых нодах
 
 ```bash
-netductor stack apply v0.9.182
+netductor stack apply v0.9.185
 # OpenWrt: agent_update + apply_template после Save шаблона
 # Mac
 brew reinstall netductor
