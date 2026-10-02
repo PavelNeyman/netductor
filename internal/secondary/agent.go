@@ -473,9 +473,13 @@ func secondaryMTLSRefresh() (bool, string) {
 	}
 	core = strings.TrimRight(core, "/")
 	client := &http.Client{Timeout: 60 * time.Second}
-	if tlsCfg, err := mtls.ClientTLSConfig(); err == nil {
-		client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
+	// First refresh may still need existing certs; if none, try without client cert only for material endpoint is unsafe —
+	// primary requires mTLS. Surface clear error.
+	tlsCfg, err := mtls.ClientTLSConfig()
+	if err != nil {
+		return false, "mtls client material missing — re-seed from primary deploy/secondary pack: " + err.Error()
 	}
+	client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
 	req, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/mtls/material", nil)
 	if err != nil {
 		return false, err.Error()
@@ -524,9 +528,11 @@ func secondaryBackupPull() (bool, string) {
 	}
 	core = strings.TrimRight(core, "/")
 	client := &http.Client{Timeout: 10 * time.Minute}
-	if tlsCfg, err := mtls.ClientTLSConfig(); err == nil {
-		client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
+	tlsCfg, err := mtls.ClientTLSConfig()
+	if err != nil {
+		return false, "mtls client material missing/unreadable (need secrets/mtls ca+client cert+key): " + err.Error()
 	}
+	client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
 	req, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/latest", nil)
 	if err != nil {
 		return false, err.Error()
