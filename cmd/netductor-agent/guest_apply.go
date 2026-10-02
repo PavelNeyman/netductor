@@ -13,7 +13,8 @@ import (
 
 // applyGuestNetwork writes OpenWrt UCI for guest AP + isolation + captive redirect.
 // Internet for guests is NOT open by zone forwarding — only via nft MAC allow-list.
-func applyGuestNetwork(gc guest.Config) string {
+// stage=true: commit UCI only (no network/wifi reload) — for first-boot deploy before reboot.
+func applyGuestNetwork(gc guest.Config, stage bool) string {
 	if !gc.Enabled {
 		return "guest disabled"
 	}
@@ -40,12 +41,15 @@ func applyGuestNetwork(gc guest.Config) string {
 	// Zone: forward REJECT — WAN only through nft allow set.
 	// No guest→wan forwarding section (would bypass MAC gate).
 	batch := fmt.Sprintf(`
+set network.br_guest=device
+set network.br_guest.name=br-guest
+set network.br_guest.type=bridge
 set network.guest=interface
 set network.guest.proto=static
 set network.guest.ipaddr=%s
 set network.guest.netmask=255.255.255.0
 set network.guest.device=br-guest
-set network.guest.type=bridge
+delete network.guest.type
 set network.guest6=interface
 set network.guest6.proto=none
 set network.guest6.device=@guest
@@ -103,6 +107,9 @@ commit firewall
 	res := uciBatch(batch)
 	_ = installGuestNFTHooks()
 	_ = applyGuestVPNBypass(ip)
+	if stage {
+		return res + " (staged: no network/wifi reload — apply on reboot)"
+	}
 	_ = exec.Command("/etc/init.d/network", "reload").Run()
 	_ = exec.Command("/etc/init.d/dnsmasq", "restart").Run()
 	_ = exec.Command("wifi", "reload").Run()

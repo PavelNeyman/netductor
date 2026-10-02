@@ -1,3 +1,11 @@
+## 0.9.190
+
+- Edge guest first-boot: `--stage` (no network/wifi reload) so SSH survives until harden+reboot
+- Guest UCI: modern `br-guest` device section; full path `/usr/sbin/netductor-agent`
+- Network/guest stage failures abort deploy (no false "done")
+- Probe arch: strip OpenSSH PQ/Warning noise from uname lines
+- Log `psk:` / `join:` after guest stage
+
 ## 0.9.189
 
 - Edge order: provision without harden → network/guest (new root pass) → harden → reboot

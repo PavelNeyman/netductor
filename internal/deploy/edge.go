@@ -233,12 +233,12 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 	if o.NetConfigure {
 		if err := applyNetworkOnEdge(o); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: network stage:", err)
+			return fmt.Errorf("network stage: %w", err)
 		}
 	}
 	if o.GuestEnable {
 		if err := applyGuestOnEdge(o); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: guest stage:", err)
+			return fmt.Errorf("guest stage: %w", err)
 		}
 	}
 
@@ -369,7 +369,8 @@ func applyGuestOnEdge(o EdgeOpts) error {
 		})
 		_ = edge.EnqueueCmd(o.DeviceID, "apply_template", "")
 	}
-	cmd := "netductor-agent guest enable --ssid=" + shellQuote(ssid) + " --pin=" + shellQuote(pin)
+	// First-boot: stage guest UCI without network/wifi reload (keeps SSH until harden+reboot).
+	cmd := "/usr/sbin/netductor-agent guest enable --stage --ssid=" + shellQuote(ssid) + " --pin=" + shellQuote(pin)
 	if psk != "" {
 		cmd += " --psk=" + shellQuote(psk)
 	}
@@ -382,7 +383,13 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, out)
 	}
-	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi enable on", o.RouterHost)
+	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi staged on", o.RouterHost)
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "psk:") || strings.HasPrefix(line, "join:") {
+			fmt.Fprintln(os.Stderr, "==>", line)
+		}
+	}
 	return nil
 }
 

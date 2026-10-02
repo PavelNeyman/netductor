@@ -16,7 +16,7 @@ func runGuestCLI(args []string) {
 		fmt.Print(`netductor-agent guest — guest Wi‑Fi (OpenWrt)
 
   guest status
-  guest enable --ssid=Shop-Guest --pin=1234 [--psk=...] [--hidden=1]
+  guest enable --ssid=Shop-Guest --pin=1234 [--psk=...] [--hidden=1] [--stage]
   guest disable
   guest grant <mac> [minutes]   # default 10, max 1440
   guest revoke <mac>
@@ -51,6 +51,7 @@ func runGuestCLI(args []string) {
 		gc, _ := guest.LoadConfig(guestConfigPath())
 		gc.Enabled = true
 		gc.Hidden = false // default visible SSID
+		stage := false
 		if gc.DeskPort == 0 {
 			gc.DeskPort = 7880
 		}
@@ -73,6 +74,9 @@ func runGuestCLI(args []string) {
 			if a == "--hidden=1" || a == "--hidden" {
 				gc.Hidden = true
 			}
+			if a == "--stage" {
+				stage = true
+			}
 		}
 		if gc.SSID == "" {
 			gc.SSID = "Guest"
@@ -92,8 +96,13 @@ func runGuestCLI(args []string) {
 		}
 		// reload without plaintext pin
 		gc, _ = guest.LoadConfig(guestConfigPath())
-		fmt.Println(applyGuestNetwork(gc))
-		fmt.Println("guest enabled; restart agent to bind desk/captive")
+		fmt.Println(applyGuestNetwork(gc, stage))
+		if stage {
+			fmt.Println("guest UCI staged (no reload); reboot applies Wi‑Fi; agent binds desk/captive after boot")
+		} else {
+			fmt.Println("guest enabled; restart agent to bind desk/captive")
+		}
+		fmt.Println("psk:", gc.PSK)
 		fmt.Println("join:", guest.JoinQR(gc.SSID, gc.PSK, gc.Hidden))
 	case "disable":
 		gc, err := guest.LoadConfig(guestConfigPath())

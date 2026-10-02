@@ -56,11 +56,24 @@ func ProbeRouterArch(password, keyPath, user, host, keyPassphrase string) (goarc
 	if err != nil {
 		return "", "", "", fmt.Errorf("probe router arch: %w\n%s", err, out)
 	}
-	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var lines []string
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "Warning:") || strings.HasPrefix(line, "**") {
+			continue
+		}
+		if strings.Contains(line, "post-quantum") || strings.Contains(line, "openssh.com/pq") {
+			continue
+		}
+		lines = append(lines, line)
+	}
 	if len(lines) == 0 {
 		return "", "", "", fmt.Errorf("probe router arch: empty output")
 	}
-	uname = strings.TrimSpace(lines[0])
+	uname = lines[0]
 	goarch, err = MapUnameToGoArch(uname)
 	if err != nil {
 		// fallback: DISTRIB_ARCH hints

@@ -68,7 +68,7 @@ func applyGuestFromTemplate(tmpl map[string]any) string {
 		return "\nguest config: " + err.Error()
 	}
 	gc, _ = guest.LoadConfig(guestConfigPath())
-	note := applyGuestNetwork(gc)
+	note := applyGuestNetwork(gc, false)
 	return "\nguest enabled: " + note
 }
 

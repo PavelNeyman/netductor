@@ -1,7 +1,7 @@
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Точка останова: v0.9.189** (2026-10-02). Edge: сеть до harden; пароль до harden; полный набор agent.
+**Точка останова: v0.9.190** (2026-10-02). Guest stage без reload; hard-fail сети/guest.
 
 ## Текущий baseline
 
