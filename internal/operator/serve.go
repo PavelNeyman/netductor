@@ -51,7 +51,7 @@ func Serve(o ServeOpts) error {
 	}
 	if token == "" {
 		var err error
-		token, err = randomToken(16)
+		token, err = loadOrCreateOperatorToken()
 		if err != nil {
 			return err
 		}
@@ -84,6 +84,10 @@ func Serve(o ServeOpts) error {
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
+		if name == "app.js" {
+			// Inject same session token as index.html (avoids empty ND_TOKEN if meta lag / cache).
+			b = []byte(strings.Replace(string(b), "/*__ND_TOKEN__*/", token, 1))
+		}
 		_, _ = w.Write(b)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -225,6 +229,28 @@ func isLoopbackHost(h string) bool {
 	}
 	ip := net.ParseIP(h)
 	return ip != nil && ip.IsLoopback()
+}
+
+func loadOrCreateOperatorToken() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return randomToken(16)
+	}
+	dir := filepath.Join(home, ".netductor")
+	_ = os.MkdirAll(dir, 0o700)
+	path := filepath.Join(dir, "operator_token")
+	if b, err := os.ReadFile(path); err == nil {
+		tok := strings.TrimSpace(string(b))
+		if safeOperatorToken(tok) {
+			return tok, nil
+		}
+	}
+	tok, err := randomToken(16)
+	if err != nil {
+		return "", err
+	}
+	_ = os.WriteFile(path, []byte(tok+"\n"), 0o600)
+	return tok, nil
 }
 
 func randomToken(n int) (string, error) {

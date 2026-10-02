@@ -1,3 +1,8 @@
+## 0.9.187
+
+- operator token persisted in ~/.netductor/operator_token (no rotate on every restart)
+- inject token into app.js; clearer 401 in Web stream
+
 ## 0.9.186
 
 - OpenWrt/Dropbear: put agent via ssh stdin (no SFTP subsystem); scp -O fallback

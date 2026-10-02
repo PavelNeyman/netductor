@@ -1,6 +1,11 @@
 const ND_TOKEN = (function(){
+  // Prefer injected literal from /static/app.js; fallback meta on index.html.
+  const injected = '/*__ND_TOKEN__*/';
+  if (injected && injected.indexOf('__ND_TOKEN__') < 0) return injected;
   const m = document.querySelector('meta[name="nd-token"]');
-  return m ? (m.getAttribute('content') || '') : '';
+  const fromMeta = m ? (m.getAttribute('content') || '') : '';
+  if (fromMeta && fromMeta.indexOf('__ND_TOKEN__') < 0) return fromMeta;
+  return '';
 })();
 function settings(){
   try{
@@ -182,7 +187,13 @@ function parseSteps(chunk){ chunk.split('\n').forEach(l=>{ const m=l.match(/^ste
 async function streamPost(url, body, btn){
   btn.disabled=true; resetLog(); line('POST '+url);
   try{
+    if(!ND_TOKEN){ line('unauthorized: empty operator token — hard-refresh the page (Cmd+Shift+R)'); btn.disabled=false; return; }
     const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
+    if(res.status===401){
+      line('unauthorized — operator token mismatch. Restart netductor-op and hard-refresh this tab (Cmd+Shift+R).');
+      btn.disabled=false; return;
+    }
+    if(!res.ok && !res.body){ line('HTTP '+res.status); btn.disabled=false; return; }
     const reader=res.body.getReader(); const dec=new TextDecoder();
     while(true){ const {done,value}=await reader.read(); if(done)break; const t=dec.decode(value); line(t); parseSteps(t); }
   }catch(e){ line('error: '+e); }
