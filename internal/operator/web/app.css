@@ -49,3 +49,8 @@ table th,table td{word-break:break-word;max-width:14rem}
 .pwd-wrap { display:flex; gap:.35rem; align-items:center; }
 .pwd-wrap input { flex:1; }
 .pwd-toggle { font-size:.75rem; padding:.25rem .45rem; white-space:nowrap; }
+
+.pass-wrap{display:flex;gap:.35rem;align-items:center;width:100%}
+.pass-wrap input{flex:1;min-width:0}
+.pass-toggle{flex:0 0 auto;min-width:2.4rem;padding:.4rem .5rem;cursor:pointer;line-height:1.2}
+.hint{font-size:.8rem;opacity:.75;margin:.25rem 0 0;line-height:1.35}
