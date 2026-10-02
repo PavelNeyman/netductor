@@ -38,6 +38,11 @@ func PrepareEdgeOffline(primaryHost, primaryUser, primaryKey, keyPass, deviceID,
 	if primaryHost == "" || primaryKey == "" {
 		return nil, fmt.Errorf("primary host and key required to prepare offline pack")
 	}
+	if strings.HasPrefix(primaryKey, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			primaryKey = filepath.Join(home, primaryKey[2:])
+		}
+	}
 	if primaryUser == "" {
 		primaryUser = "root"
 	}

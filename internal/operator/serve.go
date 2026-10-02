@@ -638,6 +638,7 @@ func handleEdgeOfflinePrep(w http.ResponseWriter, r *http.Request, token string)
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
+	body.PrimaryKey = expandHome(body.PrimaryKey)
 	m, err := deploy.PrepareEdgeOffline(body.PrimaryHost, body.PrimaryUser, body.PrimaryKey, body.KeyPass, body.DeviceID, body.Version)
 	if err != nil {
 		_, _ = w.Write([]byte("step offline-prep ERROR " + err.Error() + "\n"))
@@ -702,15 +703,24 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 		if spec.MTLSCAFile == "" {
 			spec.MTLSCAFile = m.MTLSCAFile
 		}
-		if spec.MTLSCertFile == "" && m.MTLSCertFile != "" {
-			spec.MTLSCertFile = m.MTLSCertFile
+		if m.DeviceID != "" && m.DeviceID != spec.DeviceID {
+			_, _ = fmt.Fprintf(w, "step edge warn offline pack device_id=%s != %s — skip packed client cert\n", m.DeviceID, spec.DeviceID)
+		} else {
+			if spec.MTLSCertFile == "" && m.MTLSCertFile != "" {
+				spec.MTLSCertFile = m.MTLSCertFile
+			}
+			if spec.MTLSKeyFile == "" && m.MTLSKeyFile != "" {
+				spec.MTLSKeyFile = m.MTLSKeyFile
+			}
 		}
-		if spec.MTLSKeyFile == "" && m.MTLSKeyFile != "" {
-			spec.MTLSKeyFile = m.MTLSKeyFile
+		// Keep PrimaryKey for router identity + .pub; DeployEdge skips primary SSH when token set.
+		spec.PrimaryKey = expandHome(spec.PrimaryKey)
+		if spec.OperatorPubKey == "" && spec.PrimaryKey != "" {
+			if b, err := os.ReadFile(spec.PrimaryKey + ".pub"); err == nil {
+				spec.OperatorPubKey = strings.TrimSpace(string(b))
+			}
 		}
-		// Offline: do not SSH primary for token.
-		spec.PrimaryKey = ""
-		_, _ = fmt.Fprintf(w, "step edge offline pack version=%s token_ok=%v\n", m.Version, spec.BootstrapToken != "")
+		_, _ = fmt.Fprintf(w, "step edge offline pack version=%s token_ok=%v pub_ok=%v\n", m.Version, spec.BootstrapToken != "", spec.OperatorPubKey != "")
 	}
 	if spec.RouterUser == "" {
 		spec.RouterUser = "root"

@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
@@ -64,6 +65,13 @@ func DeployEdge(s EdgeSpec) error {
 	}
 	if !s.SkipRootPass && strings.TrimSpace(s.NewRootPassword) == "" {
 		return fmt.Errorf("new root password required for LuCI (or set skip_root_pass / --skip-root-pass)")
+	}
+	s.PrimaryKey = expandHome(s.PrimaryKey)
+	// Prefer operator pubkey for router harden even when PrimaryKey is cleared (offline).
+	if strings.TrimSpace(s.OperatorPubKey) == "" && s.PrimaryKey != "" {
+		if b, err := os.ReadFile(s.PrimaryKey + ".pub"); err == nil {
+			s.OperatorPubKey = strings.TrimSpace(string(b))
+		}
 	}
 	return deploy.DeployEdge(s.toDeploy())
 }

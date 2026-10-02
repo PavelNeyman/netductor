@@ -1,3 +1,7 @@
+## 0.9.185
+
+- fix offline edge: keep PrimaryKey and load .pub for router harden; expand ~ on keys; skip packed client cert when device_id differs
+
 ## 0.9.184
 
 - Edge offline pack: Web Prepare offline + Offline deploy checkbox; CLI deploy offline-prep
