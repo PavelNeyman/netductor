@@ -1,3 +1,9 @@
+## 0.9.177
+
+- Web: password show/hide on page load (Installer + all forms; was Control-only)
+- Web LuCI: prefill primary_key from Fleet/Settings; form load/save; device_id help EN/RU
+- Release assets: agent linux-arm/arm64/amd64, op darwin+linux
+
 ## 0.9.154
 
 ## 0.9.155

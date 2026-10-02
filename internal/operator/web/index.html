@@ -152,8 +152,10 @@
     <h3 data-i18n="h_luci">LuCI (LAN)</h3>
     <p class="note" data-i18n="luci_help">Enable/disable LuCI without uninstall. Default TTL 1h; extend +24h when needed. SSH path works on same LAN even if router has no internet; agent path queues when device is online on primary.</p>
     <form id="form-edge-luci">
+      <p class="note" data-i18n="luci_help">Enable LuCI with TTL (default 1h). SSH on same LAN; agent queues via primary.</p>
       <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" placeholder="192.168.1.1"/></div>
-        <div><label data-i18n="l_device_id">Device id (agent)</label><input name="device_id" placeholder="optional for via=agent"/></div></div>
+        <div><label data-i18n="l_device_id">Device id (agent)</label><input name="device_id" placeholder="site-home1"/>
+        <p class="hint" data-i18n="l_device_id_help">Edge device_id from provision. Required for Via=Agent.</p></div></div>
       <div class="row"><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div>
         <div><label data-i18n="l_pkey">SSH key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_luci_action">Action</label>

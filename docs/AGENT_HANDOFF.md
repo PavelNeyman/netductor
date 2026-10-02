@@ -1,7 +1,9 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
+**Stop line: v0.9.177** (2026-10-02). Web pass toggle + LuCI prefill.
+
+**Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
 ## Current baseline
 
