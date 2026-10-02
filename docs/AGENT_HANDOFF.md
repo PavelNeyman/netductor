@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.185** (2026-10-02). Edge offline pack; primary SSH :52222; guest visible default.
+**Stop line: v0.9.186** (2026-10-02). Dropbear ssh-pipe put agent; mipsle+riscv64 in release; offline pack.
 
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
@@ -9,7 +9,7 @@
 
 | Item | State |
 |--|--|
-| **Release** | **v0.9.185** — assets + Formula SHA verified |
+| **Release** | **v0.9.186** — 11 assets incl. mipsle/riscv64; Formula SHA OK |
 | **Planes** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Only** `internal/operator/web` (embed in op). Legacy `runtime/api/admin` **removed** (0.9.171) |
 | **Edge VPN template** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
@@ -20,6 +20,7 @@
 
 ## Recent versions (short)
 
+- **0.9.186** — OpenWrt Dropbear: agent via ssh stdin; scp -O fallback; mipsle+riscv64 assets
 - **0.9.185** — offline edge pubkey/~ expand; cert device match
 - **0.9.184** — offline pack Web/CLI
 - **0.9.182–183** — primary :52222; bootstrap-token offline path
