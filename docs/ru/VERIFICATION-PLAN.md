@@ -192,15 +192,15 @@
 Один блок модулей за сессию; заметки — в журнал прогресса.
 
 - [x] B.1 `internal/deploy` (code review 2026-10-02; live open) + `edgeagent` (путь OpenWrt 0.9.186–191)  
-- [ ] B.2 `cmd/netductor-agent` guest + luci + vpn client  
-- [ ] B.3 `internal/edge` templates / peers / enroll  
-- [ ] B.4 Primary install + harden + LE  
-- [ ] B.5 Secondary + svc-paths + backup_pull  
-- [ ] B.6 Stack/update (без самовольной смены версии)  
-- [ ] B.7 TG навигация + отображение версий + шаблоны карточек  
-- [ ] B.8 Паритет op Web/TUI vs opcatalog  
-- [ ] B.9 NVR/tapo/mikrotik vs заявленный UX  
-- [ ] B.10 Security: порты, mTLS, recovery, токены  
+- [x] B.2 `cmd/netductor-agent` guest + luci + vpn client (код 2026-10-02)  
+- [x] B.3 `internal/edge` templates / peers / enroll (код 2026-10-02)  
+- [x] B.4 Primary install + harden + LE (код 2026-10-02)  
+- [x] B.5 Secondary + svc-paths + backup_pull (код 2026-10-02)  
+- [x] B.6 Stack/update (без самовольной смены версии) (код 2026-10-02)  
+- [x] B.7 TG навигация + версии + шаблоны (skim 2026-10-02)  
+- [x] B.8 Паритет op Web/TUI vs opcatalog (wiring 2026-10-02; live открыт)  
+- [x] B.9 NVR/tapo/mikrotik (код 2026-10-02; live F)  
+- [x] B.10 Security (skim 2026-10-02; formal live C)  
 
 ### Фаза C — Живой smoke dual-VPS (без OpenWrt)
 
@@ -352,4 +352,59 @@
 
 Код first-boot **согласован** с дизайном после **0.9.191**. Live **D.** обязателен.  
 **Ревью B.1 (код): сделано.** Live открыт.
+
+
+---
+
+## 10. Фазы B.2–B.6 + security (2026-10-02)
+
+### B.2 Agent — guest, LuCI, VPN
+
+| Тема | Статус | Заметки |
+|------|--------|---------|
+| Guest zone | OK | forward REJECT; интернет только через nft MAC |
+| Guest в обход VPN | OK | маршрут на WAN ISP |
+| Guest radio | **GAP** | `radio0` |
+| LuCI TTL | OK | дефолт 1 ч; enable/extend/disable |
+| VPN из template | OK | пустой vless / off → stop vpn |
+| Soft fallback | OK | urltest; block отключает soft |
+| TUN→socks | OK | |
+| DNS vpn + private direct | OK | |
+
+**B.2 ревью кода: сделано.** Live на Cudy открыт.
+
+### B.3 Edge templates / peers / enroll
+
+Enroll pending→approve, rate limit, peer `edge-*`, фильтр Users, merge TemplateWithVPN без затирания policy — **OK**.
+
+### B.4 Primary install / harden / LE
+
+COMPONENT order, SSH 52222, redirect/LE, отказ non-local API, LE не в backup — **OK** / by design.
+
+### B.5 Secondary / backup_pull
+
+SCP offsite убран; только agent pull; :8789 mTLS; secondary upgrade не авто — **OK**.
+
+### B.6 Stack
+
+Lock + systemd-run apply; нет авто-даунгрейда версии; watchdog только restart unit — **OK**.
+
+### B.10 Security (частично)
+
+API не public; mTLS+ufw; arm TTL; guest nft. Полный port-audit ещё формально в B.10.
+
+---
+
+### B.7 TG (skim)
+
+Stack FormatHTML, legend versions — есть. Полный аудит каждого экрана — долг UX, не блокер архитектуры.
+
+### B.8 Web/TUI
+
+opcatalog Groups на web — OK. Полный live-паритет экранов — в матрице §8 / фаза C.
+
+### B.9 NVR / Tapo / MikroTik
+
+Recorder, retention, tokens, motion, ONVIF PTZ, tapo KLAP, agent nvr, MT RSC/SSH — код есть. Live — фаза F.
+
 

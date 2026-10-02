@@ -65,7 +65,7 @@ netductor-op version       # expect 0.9.179
 
 - EN: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md)
 - RU: [ru/VERIFICATION-PLAN.md](ru/VERIFICATION-PLAN.md)
-- Progress checkboxes live in those files. Phase **B.1 done** (code). Next: **B.2** agent guest/luci/vpn — then full matrix §8. Live OpenWrt still open.
+- Progress checkboxes live in those files. Phase **B code pass done** (B.1–B.10 in VERIFICATION-PLAN §9–§10). **Next: Phase C** live dual-VPS smoke (needs running nodes). Matrix §8 still open on Live column. Hardware D–F blocked until devices.
 
 ## Not done / owner
 

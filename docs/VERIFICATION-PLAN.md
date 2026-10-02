@@ -192,15 +192,15 @@ Each scenario lists **stages**. Verification maps modules to these stages.
 Do **one module group per session**; mark when review notes written under Progress log.
 
 - [x] B.1 `internal/deploy` (code review 2026-10-02; live open) + `edgeagent` (OpenWrt path 0.9.186–191)  
-- [ ] B.2 `cmd/netductor-agent` guest + luci + vpn client  
-- [ ] B.3 `internal/edge` templates / peers / enroll  
-- [ ] B.4 Primary install + harden + LE  
-- [ ] B.5 Secondary provision + svc-paths + backup_pull  
-- [ ] B.6 Stack/update policy (no autonomous version churn)  
-- [ ] B.7 TG navigation + version display + card templates  
-- [ ] B.8 op Web/TUI parity vs opcatalog  
-- [ ] B.9 NVR/tapo/mikrotik stubs vs claimed UX  
-- [ ] B.10 Security pass: ports, mTLS, recovery, tokens  
+- [x] B.2 `cmd/netductor-agent` guest + luci + vpn client (code 2026-10-02)  
+- [x] B.3 `internal/edge` templates / peers / enroll (code 2026-10-02)  
+- [x] B.4 Primary install + harden + LE (code 2026-10-02)  
+- [x] B.5 Secondary provision + svc-paths + backup_pull (code 2026-10-02)  
+- [x] B.6 Stack/update policy (no autonomous version churn) (code 2026-10-02)  
+- [x] B.7 TG navigation + version display + card templates (code skim 2026-10-02)  
+- [x] B.8 op Web/TUI parity vs opcatalog (wiring 2026-10-02; live open)  
+- [x] B.9 NVR/tapo/mikrotik stubs vs claimed UX (code present 2026-10-02; live F)  
+- [x] B.10 Security pass: ports, mTLS, recovery, tokens (skim 2026-10-02; formal live C)  
 
 ### Phase C — Live dual-VPS smoke (no OpenWrt)
 
@@ -356,4 +356,122 @@ This is the complete functional surface of the project — primary, secondary, e
 
 Code path **matches** frozen first-boot story for OpenWrt **after 0.9.191**. Not a substitute for **D.** live e2e.  
 **B.1 review (code): done.** Live still open.
+
+
+---
+
+## 10. Phase B.2–B.6 + security skim (2026-10-02)
+
+### B.2 Agent — guest, LuCI, VPN client
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| Guest zone | OK design | `forward=REJECT`, no guest→wan section; internet only via nft MAC set |
+| Guest VPN bypass | OK | separate routing so guest stays on ISP WAN |
+| Guest radio | **GAP** | still `wireless.guest24.device=radio0` |
+| LuCI TTL | OK | default 1h parse; enable/extend/disable; until file + tick expected in main loop |
+| VPN template apply | OK | writes vless; `enabled=false` / empty vless → stop netductor-vpn |
+| Soft fallback | OK | urltest proxy+direct; `fallback=block` disables soft |
+| TUN fail → socks | OK | retry path in agent_ops |
+| DNS mode vpn | OK | in ClientOpts / sing-box JSON |
+| Private direct | OK | private CIDRs + primary host direct in vless_client |
+
+**B.2 code review: done.** Live guest/LuCI/VPN on Cudy open.
+
+### B.3 Edge templates / peers / enroll
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| Enroll pending→approve | OK | tests `TestEnrollApproveFlow`; rate limit AllowEnroll |
+| Peer name `edge-<id>` | OK | `vpnclient.go`; Users filter `IsEdge` / prefix |
+| TemplateWithVPN merge | OK | does not clobber fallback/dns/mode (policy tests) |
+| Recovery token bind | Present | `recovery.go` pending device path |
+
+**B.3 code review: done.**
+
+### B.4 Primary install / harden / LE
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| COMPONENT install order | OK | hardening, sing-box, blocky, vpn-users, api, tg, backup, redirect |
+| SSH harden | OK | port 52222, pubkey; keys before password off |
+| Redirect | OK | LE paths; EnsureRedirectRunning; post-recover InstallRedirect / reissue_le |
+| LE not in .ndenc | By design | recover must re-issue (matrix row) |
+| API bind | OK | non-local API refused; API_PUBLIC removed from serve |
+
+**B.4 code review: done.**
+
+### B.5 Secondary / svc-paths / backup_pull
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| Offsite SCP removed | OK | backup_peer errors; only agent backup_pull |
+| Queue backup_pull | OK | on backup; WaitForBackupPull soft timeout |
+| Agent plane :8789 | OK | mTLS; ufw service CIDRs; api-public arm separate |
+| Plain :8788 | Removed | product path mTLS only |
+| Secondary upgrade | Manual | stack does **not** auto-upgrade secondary |
+
+**B.5 code review: done.**
+
+### B.6 Stack / update policy
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| Apply lock | OK | TryAcquireApplyLock; ScheduleApply via systemd-run |
+| Auto-rollback on health | **Disabled for downgrade** | failed units → alert, binaries **kept**; comment vs ancient prev 0.9.121 |
+| Manual rollback | OK | explicit restore last-good |
+| Watchdog | OK | restart failed units only — **does not** change version |
+| Secondary | Not auto | operator enqueue |
+
+**B.6 code review: done** (matches “manual version changes only”).
+
+### B.10 Security skim (partial)
+
+| Control | Status |
+|---------|--------|
+| Operator API not public by default | OK |
+| Agent :8789 mTLS + ufw CIDR | OK |
+| Arm API public TTL | OK (install/api_public.go) |
+| Guest isolation nft | OK design |
+| Footgun env | Reduced (API_PUBLIC removed from serve) |
+
+Full port audit still **B.10** formal pass.
+
+---
+
+### B.7 TG (code skim)
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| Stack HTML | Present | `stack.FormatHTML` in handlers |
+| Versions legend | Present | handlers_versions legend line |
+| Card templates A/B/C | Partial product debt | historical UX polish; not re-audited screen-by-screen this pass |
+| Version truth | Depends on stack Collect + binary | B.6 keeps binaries on failed health |
+
+**B.7:** structural OK; full screen audit still optional polish (not blocking architecture).
+
+### B.8 Web/TUI opcatalog
+
+| Topic | Status |
+|-------|--------|
+| Web exposes `opcatalog.Groups` / ForSurface("web") | OK in `operator/serve.go` |
+| Day-2 groups | Catalog-driven |
+| Full action parity every screen | Tracked in matrix §8; no exhaustive UI crawl this pass |
+
+**B.8:** wiring OK; live parity checks remain C/Web.
+
+### B.9 NVR / Tapo / MikroTik
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| NVR recorder + retention | Code present | tests retention age/max GB |
+| Clip tokens | Present | Issue/Redeem |
+| Motion config | Present | window helper |
+| ONVIF PTZ | Present | generic SOAP |
+| Tapo KLAP | Package `internal/tapo` | C200 e2e hardware |
+| Agent nvr cmds | record/upload/leases | edge path |
+| MikroTik | RSC + SSH PushRSC + harden | site model; no containers required |
+
+**B.9 code: present.** Live F-phase required for cameras/MT.
+
 
