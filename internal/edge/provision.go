@@ -69,19 +69,17 @@ func Provision(opts ProvisionOpts) error {
 	if useKeyOnly {
 		sshBase = []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
 	}
-	scpArgs := append(append([]string{"scp"}, sshBase...), agent, opts.SSHTarget+":/tmp/netductor-agent")
-	if out, err := sshpassCmd(opts.Password, scpArgs).CombinedOutput(); err != nil {
-		// Fallback: try operator key (router already provisioned once).
+	// OpenWrt/Dropbear: modern OpenSSH scp uses SFTP subsystem → "subsystem request failed".
+	// Prefer ssh + stdin (always works). Fallback: scp -O (legacy SCP protocol).
+	if err := putFileSSH(opts.Password, sshBase, opts.SSHTarget, agent, "/tmp/netductor-agent"); err != nil {
 		if opts.SSHKey != "" && !useKeyOnly {
 			keyBase := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
-			scp2 := append(append([]string{"scp"}, keyBase...), agent, opts.SSHTarget+":/tmp/netductor-agent")
-			if out2, err2 := exec.Command(scp2[0], scp2[1:]...).CombinedOutput(); err2 == nil {
-				sshBase = keyBase
-			} else {
-				return fmt.Errorf("scp: %s %v (key fallback: %s %v); empty password = factory OpenWrt, leave router password blank", out, err, out2, err2)
+			if err2 := putFileSSH("", keyBase, opts.SSHTarget, agent, "/tmp/netductor-agent"); err2 != nil {
+				return fmt.Errorf("put agent: %v (key fallback: %v); empty password = factory OpenWrt, leave router password blank", err, err2)
 			}
+			sshBase = keyBase
 		} else {
-			return fmt.Errorf("scp: %s %v", out, err)
+			return fmt.Errorf("put agent: %w", err)
 		}
 	}
 	cfg := fmt.Sprintf("SERVER=%s\nTOKEN=%s\nDEVICE_ID=%s\nINTERVAL=60\n",
@@ -208,4 +206,34 @@ func sshpassCmd(password string, args []string) *exec.Cmd {
 	cmd := exec.Command(sp, append([]string{"-e"}, args...)...)
 	cmd.Env = append(os.Environ(), "SSHPASS="+password)
 	return cmd
+}
+
+
+// putFileSSH copies localPath to remotePath via ssh stdin (Dropbear-safe; no SFTP subsystem).
+func putFileSSH(password string, sshBase []string, target, localPath, remotePath string) error {
+	f, err := os.Open(localPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	// remote: cat > path (quote path)
+	remoteCmd := "cat > " + shellQuotePath(remotePath)
+	args := append(append([]string{}, sshBase...), target, remoteCmd)
+	cmd := sshpassCmd(password, append([]string{"ssh"}, args...))
+	cmd.Stdin = f
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// last resort: scp -O (OpenSSH 8.7+)
+		scpArgs := append(append([]string{"scp", "-O"}, sshBase...), localPath, target+":"+remotePath)
+		cmd2 := sshpassCmd(password, scpArgs)
+		out2, err2 := cmd2.CombinedOutput()
+		if err2 != nil {
+			return fmt.Errorf("ssh-pipe: %s (%v); scp -O: %s (%v)", strings.TrimSpace(string(out)), err, strings.TrimSpace(string(out2)), err2)
+		}
+	}
+	return nil
+}
+
+func shellQuotePath(p string) string {
+	return "'" + strings.ReplaceAll(p, "'", `'"'"'`) + "'"
 }

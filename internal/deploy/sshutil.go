@@ -184,7 +184,7 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 		if err != nil {
 			return err
 		}
-		args := append([]string{"-e", "scp"}, base...)
+		args := append([]string{"-e", "scp", "-O"}, base...)
 		args = append(args, "--", local, target)
 		cmd := exec.Command(sp, args...)
 		cmd.Env = append(os.Environ(), "SSHPASS="+password)
@@ -199,7 +199,8 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 		return err
 	}
 	defer cleanup()
-	args := append(base, "--", local, target)
+	// -O: legacy SCP (Dropbear / OpenWrt have no SFTP subsystem).
+	args := append(append([]string{"-O"}, base...), "--", local, target)
 	cmd := exec.Command("scp", args...)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()

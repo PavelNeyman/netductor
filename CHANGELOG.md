@@ -1,3 +1,7 @@
+## 0.9.186
+
+- OpenWrt/Dropbear: put agent via ssh stdin (no SFTP subsystem); scp -O fallback
+
 ## 0.9.185
 
 - fix offline edge: keep PrimaryKey and load .pub for router harden; expand ~ on keys; skip packed client cert when device_id differs
