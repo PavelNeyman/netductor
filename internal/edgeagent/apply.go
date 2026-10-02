@@ -159,7 +159,17 @@ func FormatApplyReport(toSet []string) string {
 	return fmt.Sprintf("changing %d keys", len(toSet))
 }
 
+// ShellApply writes UCI and reloads network immediately (may drop SSH if LAN IP changes).
 func ShellApply(desired []string) string {
+	return shellApply(desired, true)
+}
+
+// ShellApplyStaged commits UCI only — network applies on next reboot (safe during provision SSH).
+func ShellApplyStaged(desired []string) string {
+	return shellApply(desired, false)
+}
+
+func shellApply(desired []string, reload bool) string {
 	if len(desired) == 0 {
 		return "true"
 	}
@@ -179,7 +189,11 @@ func ShellApply(desired []string) string {
 	b.WriteString("uci commit network 2>/dev/null || true\n")
 	b.WriteString("uci commit wireless 2>/dev/null || true\n")
 	b.WriteString("uci commit dhcp 2>/dev/null || true\n")
-	b.WriteString("/etc/init.d/network reload 2>/dev/null || true\n")
-	b.WriteString("wifi reload 2>/dev/null || true\n")
+	if reload {
+		b.WriteString("/etc/init.d/network reload 2>/dev/null || true\n")
+		b.WriteString("wifi reload 2>/dev/null || true\n")
+	} else {
+		b.WriteString("echo netductor: UCI staged (no network reload; reboot to apply)\n")
+	}
 	return b.String()
 }

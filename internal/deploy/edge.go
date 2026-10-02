@@ -175,38 +175,46 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 
 	if err := edge.Provision(edge.ProvisionOpts{
-		SSHTarget:      target,
-		DeviceID:       o.DeviceID,
-		ServerURL:      o.ServerURL,
-		AgentBin:       agent,
-		Token:          token,
-		Password:       o.RouterPass,
+		SSHTarget:       target,
+		DeviceID:        o.DeviceID,
+		ServerURL:       o.ServerURL,
+		AgentBin:        agent,
+		Token:           token,
+		Password:        o.RouterPass,
 		NewRootPassword: o.NewRootPassword,
-		SSHKey:         o.PrimaryKey,
-		OperatorPubKey: pub,
-		MTLSCA:         mtlsCA,
-		MTLSCert:       mtlsCert,
-		MTLSKey:        mtlsKey,
+		SSHKey:          o.PrimaryKey,
+		OperatorPubKey:  pub,
+		MTLSCA:          mtlsCA,
+		MTLSCert:        mtlsCert,
+		MTLSKey:         mtlsKey,
 	}); err != nil {
 		return err
 	}
+	// Order: agent+keys first; stage network/guest UCI without reload; one reboot at end.
+	if o.NetConfigure || o.GuestEnable {
+		o.Reboot = true
+		fmt.Fprintln(os.Stderr, "==> network/guest changes staged; reboot forced at end")
+	}
 	if o.NetConfigure {
 		if err := applyNetworkOnEdge(o); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: network apply:", err)
+			fmt.Fprintln(os.Stderr, "warn: network stage:", err)
 		}
 	}
 	if o.GuestEnable {
 		if err := applyGuestOnEdge(o); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: guest enable:", err)
+			fmt.Fprintln(os.Stderr, "warn: guest stage:", err)
 		}
 	}
 	if o.Reboot {
 		fmt.Fprintln(os.Stderr, "==> reboot", o.RouterHost)
+		if o.NetConfigure && o.LANIP != "" {
+			fmt.Fprintln(os.Stderr, "==> after reboot SSH may move to", o.LANIP, "(staged LAN)")
+		}
 		out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn: reboot:", err, out)
 		} else {
-			fmt.Fprintln(os.Stderr, "==> reboot issued; agent will enroll after boot")
+			fmt.Fprintln(os.Stderr, "==> reboot issued; agent enrolls after boot; approve on primary")
 		}
 	}
 	return nil
@@ -278,12 +286,12 @@ func applyNetworkOnEdge(o EdgeOpts) error {
 		_ = edge.EnqueueCmd(o.DeviceID, "apply_template", "")
 	}
 	desired := edgeagent.DesiredUCI(tmpl)
-	script := edgeagent.ShellApply(desired)
+	script := edgeagent.ShellApplyStaged(desired)
 	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, script, "")
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, out)
 	}
-	fmt.Fprintln(os.Stderr, "==> network UCI applied on", o.RouterHost)
+	fmt.Fprintln(os.Stderr, "==> network UCI staged (commit, no reload) on", o.RouterHost)
 	return nil
 }
 

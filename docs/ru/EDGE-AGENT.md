@@ -1,4 +1,6 @@
 
+
+> **Provision order (0.9.176+):** agent + SSH key → stage network/guest UCI (**no** `network reload`) → single reboot. LAN/Wi‑Fi/WAN from the form apply after reboot so SSH is not dropped mid-run.
 ## Маршрут: private IP → всегда `direct`
 
 В клиенте sing-box на edge одно из первых правил:

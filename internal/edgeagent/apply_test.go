@@ -1,6 +1,9 @@
 package edgeagent
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDesiredUCIBandsInherit(t *testing.T) {
 	lines := DesiredUCI(map[string]any{
@@ -43,4 +46,19 @@ func stringIndex(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+
+func TestShellApplyStagedNoReload(t *testing.T) {
+	s := ShellApplyStaged([]string{"network.lan.ipaddr=10.0.0.1"})
+	if strings.Contains(s, "/etc/init.d/network reload") || strings.Contains(s, "wifi reload") {
+		t.Fatalf("staged must not reload: %s", s)
+	}
+	if !strings.Contains(s, "uci commit") {
+		t.Fatal(s)
+	}
+	live := ShellApply([]string{"network.lan.ipaddr=10.0.0.1"})
+	if !strings.Contains(live, "network reload") {
+		t.Fatalf("live should reload: %s", live)
+	}
 }
