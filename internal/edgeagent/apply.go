@@ -35,7 +35,7 @@ func DesiredUCI(tmpl map[string]any) []string {
 				lines = append(lines, "network.wan.gateway="+gw)
 			}
 			if dns := str(net["wan_dns"]); dns != "" {
-				lines = append(lines, "network.wan.dns="+dns)
+				lines = append(lines, "network.wan.dns="+normDNSList(dns))
 			}
 		case "pppoe":
 			if u := str(net["pppoe_user"]); u != "" {
@@ -51,7 +51,7 @@ func DesiredUCI(tmpl map[string]any) []string {
 				lines = append(lines, "network.wan.ac="+ac)
 			}
 			if dns := str(net["wan_dns"]); dns != "" {
-				lines = append(lines, "network.wan.dns="+dns)
+				lines = append(lines, "network.wan.dns="+normDNSList(dns))
 			}
 		}
 	}
@@ -196,4 +196,11 @@ func shellApply(desired []string, reload bool) string {
 		b.WriteString("echo netductor: UCI staged (no network reload; reboot to apply)\n")
 	}
 	return b.String()
+}
+
+func normDNSList(s string) string {
+	s = strings.ReplaceAll(s, ",", " ")
+	s = strings.ReplaceAll(s, ";", " ")
+	parts := strings.Fields(s)
+	return strings.Join(parts, " ")
 }

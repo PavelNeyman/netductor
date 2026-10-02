@@ -132,7 +132,8 @@
           </select></div><div></div></div>
         <div id="edge_wan_static" hidden>
           <div class="row"><div><label data-i18n="l_wan_ip">WAN IP</label><input name="wan_ip"/></div><div><label data-i18n="l_wan_mask">WAN mask</label><input name="wan_mask" value="255.255.255.0"/></div></div>
-          <div class="row"><div><label data-i18n="l_wan_gw">WAN gateway</label><input name="wan_gateway"/></div><div><label data-i18n="l_wan_dns">WAN DNS</label><input name="wan_dns" placeholder="1.1.1.1 or empty"/></div></div>
+          <div class="row"><div><label data-i18n="l_wan_gw">WAN gateway</label><input name="wan_gateway"/></div><div><label data-i18n="l_wan_dns">WAN DNS</label><input name="wan_dns" placeholder="1.1.1.1 9.9.9.9"/>
+        <p class="hint" data-i18n="l_wan_dns_help">Optional. Space or comma separated. Recommended: 1.1.1.1 9.9.9.9. Empty = ISP DHCP DNS. Not the same as edge VPN dns=vpn mode.</p></div></div>
         </div>
         <div id="edge_wan_pppoe" hidden>
           <div class="row"><div><label data-i18n="l_pppoe_user">PPPoE user</label><input name="pppoe_user"/></div><div><label data-i18n="l_pppoe_pass">PPPoE password</label><input name="pppoe_pass" type="password"/></div></div>

@@ -1,3 +1,7 @@
+## 0.9.181
+
+- WAN DNS field: space or comma; normalize to OpenWrt space-list; Web/TUI hints (recommend 1.1.1.1 9.9.9.9)
+
 ## 0.9.180
 
 - Docs/handoff baseline → 0.9.179+

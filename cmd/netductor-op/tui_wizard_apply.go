@@ -213,7 +213,7 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "wan_ip", Label: "WAN static IP", Short: "static IP", Detail: ph("Only if wan_proto=static.", "Только для static.")},
 			{Key: "wan_mask", Label: "WAN netmask", Short: "mask", Detail: ph("Static WAN mask.", "Маска static WAN.")},
 			{Key: "wan_gateway", Label: "WAN gateway", Short: "gw", Detail: ph("Static gateway.", "Шлюз static.")},
-			{Key: "wan_dns", Label: "WAN DNS", Short: "DNS", Detail: ph("Comma-separated or one IP; empty=ISP/default.", "DNS; пусто = провайдер.")},
+			{Key: "wan_dns", Label: "WAN DNS", Short: "DNS", Detail: ph("Space or comma separated. Recommended: 1.1.1.1 9.9.9.9 (CF first). Empty=ISP DHCP DNS.", "Пробел или запятая. Рекомендуем: 1.1.1.1 9.9.9.9 (сначала CF). Пусто=DNS провайдера.")},
 			{Key: "pppoe_user", Label: "PPPoE user", Short: "pppoe", Detail: ph("Only if wan_proto=pppoe.", "Только для pppoe.")},
 			{Key: "pppoe_pass", Label: "PPPoE password", Secret: true, Short: "pppoe pass", Detail: ph("PPPoE password.", "Пароль PPPoE.")},
 			{Key: "guest", Label: "Guest Wi-Fi? (yes/no)", Value: "no", Short: "Guest SSID", Detail: ph("Separate guest SSID: internet only, no LAN, traffic bypasses VPN (ISP direct). Staff PIN/grant flow.", "Отдельный guest SSID: только интернет, без LAN, мимо VPN (провайдер). PIN/grant для продавца.")},
