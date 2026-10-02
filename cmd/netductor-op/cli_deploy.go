@@ -11,7 +11,7 @@ import (
 
 func runDeploy(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, `usage: netductor deploy primary|secondary|edge [flags]
+		fmt.Fprintln(os.Stderr, `usage: netductor deploy primary|secondary|edge|offline-prep [flags]
 
   primary   — bootstrap Debian VPS from this machine (Mac/PC)
   secondary — provision RU entry from Mac (prepare-pack on primary; Mac SSHs to secondary)
@@ -44,6 +44,39 @@ See: netductor tui → Setup wizard`)
 		os.Exit(2)
 	}
 	switch args[0] {
+	case "edge-offline-prep", "offline-prep":
+		var host, user, key, pass, id, ver string
+		user = "root"
+		for i := 1; i < len(args); i++ {
+			a := args[i]
+			switch {
+			case a == "--primary" && i+1 < len(args):
+				i++
+				host = args[i]
+			case a == "--primary-key" && i+1 < len(args):
+				i++
+				key = args[i]
+			case a == "--user" && i+1 < len(args):
+				i++
+				user = args[i]
+			case a == "--primary-key-passphrase" && i+1 < len(args):
+				i++
+				pass = args[i]
+			case a == "--id" && i+1 < len(args):
+				i++
+				id = args[i]
+			case a == "--version" && i+1 < len(args):
+				i++
+				ver = args[i]
+			}
+		}
+		m, err := deploy.PrepareEdgeOffline(host, user, key, pass, id, ver)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("offline pack ok version=%s agents=%d dir=%s\n", m.Version, len(m.Agents), deploy.OfflineEdgeDir())
+		return
 	case "primary":
 		o := operator.PrimarySpec{Version: deploy.Release, SNI: "api.vk.me", User: "root"}
 		for i := 1; i < len(args); i++ {

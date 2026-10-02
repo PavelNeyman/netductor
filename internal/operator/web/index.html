@@ -112,6 +112,13 @@
       <p class="note" data-i18n="edge_root_help">Required for LuCI web UI. SSH uses the operator key after provision; password login is disabled.</p>
       <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="auto" placeholder="auto | arm64 | arm | mipsle | amd64 | riscv64"/></div></div>
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" placeholder="2.27.118.70 or p.nd…"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
+      <div class="row">
+        <div><label><input type="checkbox" name="offline" id="edge_offline"/> <span data-i18n="c_edge_offline">Offline deploy</span></label>
+          <p class="hint" data-i18n="edge_offline_help">Uses pack from Prepare offline (token + agents on disk). No SSH to primary during deploy.</p></div>
+        <div><button type="button" class="secondary" id="btnEdgeOfflinePrep" data-i18n="btn_edge_offline_prep">Prepare offline pack</button>
+          <p class="hint" data-i18n="edge_offline_prep_warn">Needs internet + SSH to primary now. Downloads agent binaries and bootstrap token. Re-run after netductor upgrades or token rotate.</p></div>
+      </div>
+
       <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
       <div class="checks">
         <label><input type="checkbox" name="net_configure" id="edge_net_cfg"/> <span data-i18n="c_netcfg">Configure network (LAN / Wi‑Fi / WAN via UCI)</span></label>

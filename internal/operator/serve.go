@@ -118,7 +118,7 @@ func Serve(o ServeOpts) error {
 			"version":         deploy.Release,
 			"bind":            addr,
 			"credentials_dir": cred,
-			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/edge", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/edge", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
 			"auth":            "X-Netductor-Token",
 		})
 	})
@@ -127,6 +127,7 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
 	mux.HandleFunc("/v1/edge", func(w http.ResponseWriter, r *http.Request) { handleEdge(w, r, token) })
+	mux.HandleFunc("/v1/edge/offline-prep", func(w http.ResponseWriter, r *http.Request) { handleEdgeOfflinePrep(w, r, token) })
 	mux.HandleFunc("/v1/edge/luci", func(w http.ResponseWriter, r *http.Request) { handleEdgeLuci(w, r, token) })
 	mux.HandleFunc("/v1/site", func(w http.ResponseWriter, r *http.Request) { handleSite(w, r, token) })
 	mux.HandleFunc("/v1/mikrotik", func(w http.ResponseWriter, r *http.Request) { handleMikroTik(w, r, token) })
@@ -605,6 +606,45 @@ type edgeBody struct {
 	PPPoEService string `json:"pppoe_service"`
 	PPPoEAC      string `json:"pppoe_ac"`
 	Reboot       bool   `json:"reboot"`
+	Offline         bool   `json:"offline"`
+	BootstrapToken  string `json:"bootstrap_token"`
+	MTLSCAFile      string `json:"mtls_ca_file"`
+	MTLSCertFile    string `json:"mtls_cert_file"`
+	MTLSKeyFile     string `json:"mtls_key_file"`
+}
+
+func handleEdgeOfflinePrep(w http.ResponseWriter, r *http.Request, token string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", 405)
+		return
+	}
+	if !requireToken(r, token) {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var body struct {
+		PrimaryHost string `json:"primary_host"`
+		PrimaryUser string `json:"primary_user"`
+		PrimaryKey  string `json:"primary_key"`
+		KeyPass     string `json:"key_passphrase"`
+		DeviceID    string `json:"device_id"`
+		Version     string `json:"version"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = w.Write([]byte("step offline-prep start (needs internet + SSH primary :52222)\n"))
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	m, err := deploy.PrepareEdgeOffline(body.PrimaryHost, body.PrimaryUser, body.PrimaryKey, body.KeyPass, body.DeviceID, body.Version)
+	if err != nil {
+		_, _ = w.Write([]byte("step offline-prep ERROR " + err.Error() + "\n"))
+		return
+	}
+	_, _ = fmt.Fprintf(w, "step offline-prep ok version=%s agents=%d token=%s\n", m.Version, len(m.Agents), m.TokenFile)
+	_, _ = fmt.Fprintf(w, "note: %s\n", m.Note)
 }
 
 func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
@@ -648,6 +688,29 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 		WANProto: body.WANProto, WANIP: body.WANIP, WANMask: body.WANMask, WANGateway: body.WANGateway, WANDNS: body.WANDNS,
 		PPPoEUser: body.PPPoEUser, PPPoEPass: body.PPPoEPass, PPPoEService: body.PPPoEService, PPPoEAC: body.PPPoEAC,
 		Reboot: body.Reboot,
+		BootstrapToken: body.BootstrapToken, MTLSCAFile: body.MTLSCAFile, MTLSCertFile: body.MTLSCertFile, MTLSKeyFile: body.MTLSKeyFile,
+	}
+	if body.Offline {
+		m, tok, err := deploy.LoadEdgeOfflineManifest()
+		if err != nil {
+			_, _ = w.Write([]byte("step edge ERROR offline: " + err.Error() + "\n"))
+			return
+		}
+		if spec.BootstrapToken == "" {
+			spec.BootstrapToken = tok
+		}
+		if spec.MTLSCAFile == "" {
+			spec.MTLSCAFile = m.MTLSCAFile
+		}
+		if spec.MTLSCertFile == "" && m.MTLSCertFile != "" {
+			spec.MTLSCertFile = m.MTLSCertFile
+		}
+		if spec.MTLSKeyFile == "" && m.MTLSKeyFile != "" {
+			spec.MTLSKeyFile = m.MTLSKeyFile
+		}
+		// Offline: do not SSH primary for token.
+		spec.PrimaryKey = ""
+		_, _ = fmt.Fprintf(w, "step edge offline pack version=%s token_ok=%v\n", m.Version, spec.BootstrapToken != "")
 	}
 	if spec.RouterUser == "" {
 		spec.RouterUser = "root"

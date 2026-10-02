@@ -1,3 +1,8 @@
+## 0.9.184
+
+- Edge offline pack: Web Prepare offline + Offline deploy checkbox; CLI deploy offline-prep
+- Pack: bootstrap token, mTLS CA, optional device cert, all agent arches (refreshed on prep)
+
 ## 0.9.183
 
 - Edge offline path:  + optional ; agent binary uses local cache if present (no re-download)
