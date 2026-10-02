@@ -1,3 +1,10 @@
+## 0.9.180
+
+- Docs/handoff baseline → 0.9.179+
+- Web guest: correct default-visible help; PSK/PIN hints (no open+captive placeholder)
+- applyGuestOnEdge: template bind only with non-empty device_id (SSH remains first-boot SoT)
+- Test: guestSSIDVisible matrix
+
 ## 0.9.179
 
 - fix: agent `guest enable --hidden=1` was ignored after default-visible change (0.9.178)

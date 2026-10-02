@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.177** (2026-10-02). Web pass toggle + LuCI prefill.
+**Stop line: v0.9.180** (2026-10-02). Guest visible default; `--hidden=1` fixed; Web pass/LuCI prefill.
 
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
@@ -9,7 +9,7 @@
 
 | Item | State |
 |--|--|
-| **Release** | **v0.9.172** — assets full; Formula `netductor.rb` + `netductor-op.rb` |
+| **Release** | **v0.9.180** — assets full; Formula `netductor.rb` + `netductor-op.rb` |
 | **Planes** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Only** `internal/operator/web` (embed in op). Legacy `runtime/api/admin` **removed** (0.9.171) |
 | **Edge VPN template** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
@@ -19,6 +19,12 @@
 | **Tests** | `go test ./...` green (0.9.172); opcatalog unique IDs fixed |
 
 ## Recent versions (short)
+
+- **0.9.179** — fix agent `guest enable --hidden=1` after default-visible
+- **0.9.178** — guest SSID **visible by default** (optional hidden); Web/TUI/CLI/agent
+- **0.9.177** — Web password toggle on Installer load; LuCI primary_key prefill + device_id help
+- **0.9.176** — edge UCI stage without reload; force reboot after net/guest
+- **0.9.173–175** — backup_pull mTLS; secondary upgrade node-only; stack smoke
 
 - **0.9.172** — unit tests expansion; opcatalog duplicate IDs
 - **0.9.171** — delete legacy VPS admin UI
@@ -31,11 +37,11 @@
 
 ```bash
 # primary
-netductor stack apply v0.9.172
+netductor stack apply v0.9.180
 # OpenWrt: agent_update to matching release + apply_template after template Save
 # Mac
 brew reinstall netductor   # or Formula netductor-op
-netductor-op version       # expect 0.9.172
+netductor-op version       # expect 0.9.179
 ```
 
 ## Architecture reminders

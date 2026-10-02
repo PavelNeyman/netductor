@@ -302,7 +302,9 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	}
 	pin := o.GuestPIN
 	psk := o.GuestPSK
-	if o.PrimaryHost != "" {
+	// Persist guest into edge template only when we have a device id (day-2 apply_template).
+	// First-boot source of truth is SSH guest enable below.
+	if o.PrimaryHost != "" && strings.TrimSpace(o.DeviceID) != "" {
 		_ = edge.BindTemplate(o.DeviceID, "default", map[string]any{
 			"guest": map[string]any{
 				"enabled":  true,

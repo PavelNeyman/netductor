@@ -139,9 +139,10 @@
         </div>
       </div>
       <div id="edge_guest_fields" hidden>
-        <p class="note" data-i18n="edge_guest_help">Isolated guest network, internet via ISP (not VPN). Default: <b>hidden SSID</b> — connect via QR / known network, not visible in scan list.</p>
-        <div class="row"><div><label data-i18n="l_guest_ssid">Guest SSID</label><input name="guest_ssid" value="Guest"/></div><div><label data-i18n="l_guest_pin">Guest desk PIN</label><input name="guest_pin" placeholder="staff PIN"/></div></div>
-        <div class="row"><div><label data-i18n="l_guest_psk">Guest PSK (opt)</label><input name="guest_psk" type="password" placeholder="WPA2; empty = open + captive"/></div>
+        <p class="note" data-i18n="edge_guest_help">Isolated guest, ISP direct (not VPN). Default: <b>visible SSID</b> (join-QR friendly). Optional hidden. PSK = Wi‑Fi password; desk PIN = staff grant (not the Wi‑Fi key).</p>
+        <div class="row"><div><label data-i18n="l_guest_ssid">Guest SSID</label><input name="guest_ssid" value="Guest"/></div><div><label data-i18n="l_guest_pin">Guest desk PIN</label><input name="guest_pin" placeholder="staff PIN"/><p class="hint" data-i18n="l_guest_pin_help">Staff PIN to grant internet — not the Wi‑Fi password.</p></div></div>
+        <div class="row"><div><label data-i18n="l_guest_psk">Guest PSK (Wi‑Fi)</label><input name="guest_psk" type="password" placeholder="WPA2 required"/>
+        <p class="hint" data-i18n="l_guest_psk_help">Wi‑Fi password (in join QR). Required.</p></div>
           <div><label data-i18n="l_guest_visible">SSID visibility</label>
             <select name="guest_hidden"><option value="0" selected data-i18n="opt_visible">Visible (default)</option><option value="1" data-i18n="opt_hidden">Hidden</option></select>
           </div>
