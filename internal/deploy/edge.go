@@ -200,6 +200,8 @@ echo KEY:$(b64 "$DIR/client.key")
 		fmt.Fprintln(os.Stderr, "warn: no mTLS material — agent may fail TLS handshake until certs are present")
 	}
 
+	// 1) Agent + config (+ optional new root pass) WITHOUT harden — password still works for network/guest.
+	needNet := o.NetConfigure || o.GuestEnable
 	if err := edge.Provision(edge.ProvisionOpts{
 		SSHTarget:       target,
 		DeviceID:        o.DeviceID,
@@ -213,11 +215,19 @@ echo KEY:$(b64 "$DIR/client.key")
 		MTLSCA:          mtlsCA,
 		MTLSCert:        mtlsCert,
 		MTLSKey:         mtlsKey,
+		SkipHarden:      true, // harden after network/guest
 	}); err != nil {
 		return err
 	}
-	// Order: agent+keys first; stage network/guest UCI without reload; one reboot at end.
-	if o.NetConfigure || o.GuestEnable {
+	// After setPass, subsequent SSH must use the NEW root password.
+	sshPass := o.RouterPass
+	if np := strings.TrimSpace(o.NewRootPassword); np != "" {
+		sshPass = np
+	}
+	o.RouterPass = sshPass
+
+	// 2) Stage network/guest while password auth still enabled.
+	if needNet {
 		o.Reboot = true
 		fmt.Fprintln(os.Stderr, "==> network/guest changes staged; reboot forced at end")
 	}
@@ -231,12 +241,29 @@ echo KEY:$(b64 "$DIR/client.key")
 			fmt.Fprintln(os.Stderr, "warn: guest stage:", err)
 		}
 	}
+
+	// 3) Harden (pubkey + disable password) then reboot.
+	if strings.TrimSpace(pub) != "" {
+		fmt.Fprintln(os.Stderr, "==> harden SSH (pubkey, disable password)")
+		if err := edge.Harden(edge.ProvisionOpts{
+			SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: harden:", err)
+		}
+	} else {
+		fmt.Fprintln(os.Stderr, "warn: no operator pubkey — skip harden (password SSH remains)")
+	}
+
 	if o.Reboot {
 		fmt.Fprintln(os.Stderr, "==> reboot", o.RouterHost)
 		if o.NetConfigure && o.LANIP != "" {
 			fmt.Fprintln(os.Stderr, "==> after reboot SSH may move to", o.LANIP, "(staged LAN)")
 		}
-		out, err := runSSHOnPort(factorySSHPort(), o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
+		// Prefer key after harden; password may already be off.
+		out, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
+		if err != nil && sshPass != "" {
+			out, err = runSSHOnPort(factorySSHPort(), sshPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
+		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn: reboot:", err, out)
 		} else {

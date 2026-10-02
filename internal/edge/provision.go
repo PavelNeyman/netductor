@@ -22,6 +22,8 @@ type ProvisionOpts struct {
 	Password       string // current root password; empty = factory OpenWrt (empty password login)
 	NewRootPassword string // optional: set root password before disabling password SSH
 	OperatorPubKey string
+	// SkipHarden: install agent/config only; caller applies network while password still works, then Harden.
+	SkipHarden bool
 	// Optional mTLS client material (from primary EnsureClientFor).
 	MTLSCA   []byte
 	MTLSCert []byte
@@ -121,6 +123,7 @@ fi
 	}
 
 	harden := ""
+	if !opts.SkipHarden {
 	if pub := strings.TrimSpace(opts.OperatorPubKey); pub != "" {
 		esc := strings.ReplaceAll(pub, "'", `'"'"'`)
 		harden = fmt.Sprintf(`
@@ -151,6 +154,7 @@ SSH_EOF
 fi
 `, esc, esc, esc, esc)
 	}
+	} // end !SkipHarden
 
 	script := fmt.Sprintf(`set -e
 mkdir -p /etc/netductor-agent /usr/sbin
@@ -268,4 +272,59 @@ func runSSH(password string, sshBase []string, target, remoteCmd string) error {
 
 func shellQuotePath(p string) string {
 	return "'" + strings.ReplaceAll(p, "'", `'"'"'`) + "'"
+}
+
+
+// Harden installs operator pubkey and disables password SSH (Dropbear/OpenSSH).
+// Call after network/guest staging while password auth still worked for those steps.
+func Harden(opts ProvisionOpts) error {
+	pub := strings.TrimSpace(opts.OperatorPubKey)
+	if pub == "" {
+		return fmt.Errorf("operator pubkey required for harden")
+	}
+	sshBase := []string{
+		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "PreferredAuthentications=password",
+		"-o", "PubkeyAuthentication=no",
+		"-o", "NumberOfPasswordPrompts=3",
+	}
+	if strings.TrimSpace(opts.Password) == "" && opts.SSHKey != "" {
+		sshBase = []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
+	}
+	esc := strings.ReplaceAll(pub, "'", `'"'"'`)
+	script := fmt.Sprintf(`set -e
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+touch /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_keys
+mkdir -p /etc/dropbear
+touch /etc/dropbear/authorized_keys
+chmod 600 /etc/dropbear/authorized_keys
+grep -qxF '%s' /etc/dropbear/authorized_keys || echo '%s' >> /etc/dropbear/authorized_keys
+if [ -f /etc/config/dropbear ] && command -v uci >/dev/null 2>&1; then
+  uci set dropbear.@dropbear[0].PasswordAuth='off' 2>/dev/null || true
+  uci set dropbear.@dropbear[0].RootPasswordAuth='off' 2>/dev/null || true
+  uci commit dropbear 2>/dev/null || true
+  /etc/init.d/dropbear reload 2>/dev/null || /etc/init.d/dropbear restart 2>/dev/null || true
+fi
+if [ -d /etc/ssh ]; then
+  mkdir -p /etc/ssh/sshd_config.d
+  cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'SSH_EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+SSH_EOF
+  /etc/init.d/sshd reload 2>/dev/null || systemctl reload ssh 2>/dev/null || true
+fi
+`, esc, esc, esc, esc)
+	sshArgs := append(append([]string{"ssh"}, sshBase...), opts.SSHTarget, "sh", "-s")
+	cmd := sshpassCmd(opts.Password, sshArgs)
+	cmd.Stdin = strings.NewReader(script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("harden: %s %v", cleanSSHNoise(string(out)), err)
+	}
+	return nil
 }

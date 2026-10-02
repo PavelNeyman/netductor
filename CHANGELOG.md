@@ -1,3 +1,8 @@
+## 0.9.189
+
+- Edge order: provision without harden → network/guest (new root pass) → harden → reboot
+- SSH prefers password when set (fixes publickey denied after setPass)
+
 ## 0.9.188
 
 - OpenWrt provision: no base64 on router — mTLS + root pass via ssh stdin

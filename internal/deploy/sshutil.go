@@ -132,7 +132,9 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	}
 	clearHostKeys(host)
 	target := user + "@" + host
-	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
+	// Prefer password when provided (OpenWrt day-0 after setPass still needs password until harden).
+	// Key-only when password is empty.
+	usePass := password != ""
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
 	base = append([]string{"-p", port}, base...)
 	if usePass {
@@ -176,7 +178,7 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 		port = sshPort()
 	}
 	target := user + "@" + host + ":" + remotePath
-	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
+	usePass := password != "" // prefer password when set (router pre-harden)
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
 	base = append([]string{"-P", port}, base...)
 	if usePass {
