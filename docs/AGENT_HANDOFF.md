@@ -1,7 +1,51 @@
+# AGENT Handoff
 
+**Stop line: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
-- **0.9.171:** Removed legacy VPS admin UI (`runtime/api/admin`). Product Web UI is only `internal/operator/web` (netductor-op). Compared first: legacy was a subset; op had stack/update/github-token and more helpers.
-- **0.9.166:** TemplateWithVPN no longer overwrites `vpn.fallback`/policy; `SetTemplateVPN` allowlist; `POST /api/edge/templates` merges by default (`replace=true` for full replace).
+## Current baseline
+
+| Item | State |
+|--|--|
+| **Release** | **v0.9.172** — assets full; Formula `netductor.rb` + `netductor-op.rb` |
+| **Planes** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
+| **Web UI** | **Only** `internal/operator/web` (embed in op). Legacy `runtime/api/admin` **removed** (0.9.171) |
+| **Edge VPN template** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
+| **Policy safety** | TemplateWithVPN does **not** overwrite fallback/dns/mode; SetTemplateVPN allowlist; merge POST templates |
+| **Agent** | `enabled=false` / `mode=off` / missing vless → stop `netductor-vpn`; fallback=block ⇒ soft off |
+| **/sub/** | Public token sub + **60 req/min/IP** rate limit (0.9.170) |
+| **Tests** | `go test ./...` green (0.9.172); opcatalog unique IDs fixed |
+
+## Recent versions (short)
+
+- **0.9.172** — unit tests expansion; opcatalog duplicate IDs
+- **0.9.171** — delete legacy VPS admin UI
+- **0.9.170** — /sub/ rate-limit; template save mutex; github_token chmod
+- **0.9.166–169** — VPN policy merge fixes; agent stop on disable; ValidName; merge validate
+- **0.9.164–165** — Web+TG Template VPN card + legends
+- **0.9.162–163** — edge LAN VLESS soft WAN; CF-first DNS; template CLI
+
+## Operator apply on live nodes
+
+```bash
+# primary
+netductor stack apply v0.9.172
+# OpenWrt: agent_update to matching release + apply_template after template Save
+# Mac
+brew reinstall netductor   # or Formula netductor-op
+netductor-op version       # expect 0.9.172
+```
+
+## Architecture reminders
+
+- Save template on primary ≠ apply on router (explicit apply_template).
+- Single operator session = full control (no read/destructive session split — optional later).
+- EN/RU docs: **full semantic parity** (AGENTS §7).
+
+## Not done / owner
+
+See [OPEN_ITEMS.md](OPEN_ITEMS.md): live VPS force-update if lagging; hardware e2e; optional CI Formula SHA.
+
+---
 
 ## 0.9.163 Edge DNS order + template CLI
 

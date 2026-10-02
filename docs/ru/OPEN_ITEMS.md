@@ -6,6 +6,14 @@
 
 ## Закрыто
 
+
+## Закрыто недавно (код 0.9.164–172)
+
+- [x] Edge template VPN UI + policy hardening
+- [x] Удалена legacy VPS admin UI
+- [x] Unit-тесты + уникальные ID opcatalog
+- [ ] Force-update живых нод до **≥0.9.172** при отставании
+- [ ] Dual-node smoke после обновления
 - [x] Freeze архитектуры
 - [x] Recover 0.9.70–0.9.75
 - [x] Live recover drill
@@ -13,7 +21,7 @@
 
 ## У владельца
 
-- [ ] Force-update VPS до **0.9.122** (если ещё 111–115) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
+- [ ] Force-update VPS до **0.9.172** (если ещё 111–115) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
 - [ ] Smoke после обновления
 
 - [x] **Показать пароль** (Web + TUI Ctrl+P, 0.9.103) в Web/TUI (одноразовые пароли деплоя) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md). Только план.

@@ -4,18 +4,18 @@ Self-hosted **network control plane** (Debian primary + RU **secondary** VPN ent
 
 - VPN: VLESS+Reality (sing-box)
 - DNS: Blocky (localhost)
-- Admin API + web UI (localhost / via VPN)
+- Admin API (node) + operator Web/TUI on Mac (`netductor-op`; no VPS /admin)
 - Telegram operator bot
 - Edge agent (OpenWrt), secondary agent (RU)
 - Thin git + local OCI registry + optional Lampac
 - Encrypted backups + agent offsite pull to RU + recovery API
 
-**Current release:** **v0.9.163**
+**Current release:** **v0.9.172**
 
 ```bash
 # Mac
 brew install netductor   # or download from Releases
-netductor version        # 0.9.163
+netductor-op version     # 0.9.172
 
 # Full deploy from workstation
 netductor deploy primary --host … --password … --key ~/.ssh/netductor_primary \

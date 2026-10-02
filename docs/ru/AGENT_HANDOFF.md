@@ -1,7 +1,50 @@
+# AGENT Handoff (RU)
 
+**Точка останова: v0.9.172** (2026-10-02). Новый чат: AGENTS.md → этот файл → OPEN_ITEMS → код.
 
-- **0.9.171:** Removed legacy VPS admin UI (`runtime/api/admin`). Product Web UI is only `internal/operator/web` (netductor-op). Compared first: legacy was a subset; op had stack/update/github-token and more helpers.
-- **0.9.166:** TemplateWithVPN no longer overwrites `vpn.fallback`/policy; `SetTemplateVPN` allowlist; `POST /api/edge/templates` merges by default (`replace=true` for full replace).
+## Текущий baseline
+
+| Пункт | Состояние |
+|--|--|
+| **Релиз** | **v0.9.172** — полный набор assets; Formula `netductor.rb` + `netductor-op.rb` |
+| **Плоскости** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
+| **Web UI** | **Только** `internal/operator/web` (embed в op). Legacy `runtime/api/admin` **удалён** (0.9.171) |
+| **Edge VPN шаблон** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
+| **Policy** | TemplateWithVPN **не** затирает fallback/dns/mode; allowlist SetTemplateVPN; merge POST templates |
+| **Агент** | `enabled=false` / `mode=off` / нет vless → stop `netductor-vpn`; fallback=block ⇒ soft off |
+| **/sub/** | Публичный token sub + **60 req/min/IP** (0.9.170) |
+| **Тесты** | `go test ./...` зелёный (0.9.172); уникальные ID opcatalog |
+
+## Недавние версии (кратко)
+
+- **0.9.172** — расширение unit-тестов; дубликаты ID opcatalog
+- **0.9.171** — удаление legacy VPS admin UI
+- **0.9.170** — rate-limit /sub/; mutex SaveTemplate; chmod github_token
+- **0.9.166–169** — merge policy VPN; stop при disable; ValidName
+- **0.9.164–165** — карточка Template VPN в Web/TG
+- **0.9.162–163** — LAN через VLESS + soft WAN; CF-first DNS; CLI шаблона
+
+## Apply на живых нодах
+
+```bash
+netductor stack apply v0.9.172
+# OpenWrt: agent_update + apply_template после Save шаблона
+# Mac
+brew reinstall netductor
+netductor-op version   # 0.9.172
+```
+
+## Напоминания
+
+- Save шаблона на primary ≠ Apply на роутере.
+- Одна operator-сессия = полный контроль (split read/destructive — опционально позже).
+- EN/RU: полная **смысловая** паритетность (AGENTS §7).
+
+## Не сделано / владелец
+
+См. [OPEN_ITEMS.md](OPEN_ITEMS.md) / [ru/OPEN_ITEMS.md](OPEN_ITEMS.md): force-update VPS если отстаёт; hardware e2e; опционально CI SHA Formula.
+
+---
 
 ## 0.9.163 Порядок DNS edge + CLI шаблона
 
