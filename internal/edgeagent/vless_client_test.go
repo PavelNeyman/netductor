@@ -55,3 +55,47 @@ func TestVLESSClientConfigSoftDNS(t *testing.T) {
 		t.Fatalf("soft should set strict_route false: %s", s)
 	}
 }
+
+func TestVLESSClientConfigDomainHostNoIPCIDR(t *testing.T) {
+	link := "vless://11111111-2222-3333-4444-555555555555@s.nd.example.com:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.cloudflare.com&fp=chrome&pbk=PUB&sid=abcd&type=tcp#t"
+	b, err := VLESSClientConfigOpts(link, ClientOpts{Mode: "tun", SoftFallback: false, DNSMode: "vpn", PrimaryHost: "p.nd.example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	if strings.Contains(s, "s.nd.example.com/32") {
+		t.Fatalf("must not use domain/32: %s", s)
+	}
+	if !strings.Contains(s, "s.nd.example.com") {
+		t.Fatalf("domain direct rule missing: %s", s)
+	}
+	if strings.Contains(s, "urltest") {
+		t.Fatalf("soft=false must not urltest: %s", s)
+	}
+}
+
+func TestVLESSClientConfigDNSModes(t *testing.T) {
+	link := "vless://11111111-2222-3333-4444-555555555555@1.2.3.4:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.cloudflare.com&fp=chrome&pbk=PUB&sid=abcd&type=tcp#t"
+	b, err := VLESSClientConfigOpts(link, ClientOpts{Mode: "tun", SoftFallback: true, DNSMode: "off"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	if strings.Contains(s, "hijack-dns") {
+		t.Fatalf("dns=off must not hijack: %s", s)
+	}
+	b2, err := VLESSClientConfigOpts(link, ClientOpts{Mode: "tun", SoftFallback: true, DNSMode: "wan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b2), "hijack-dns") {
+		t.Fatalf("dns=wan must not hijack")
+	}
+}
+
+func TestVLESSClientConfigRejectsNonVLESS(t *testing.T) {
+	_, err := VLESSClientConfigOpts("https://example.com", ClientOpts{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}

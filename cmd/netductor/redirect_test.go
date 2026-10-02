@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"net/http"
 	"testing"
 )
 
@@ -35,5 +36,37 @@ func TestRedirectRoundTripEncoding(t *testing.T) {
 	}
 	if !allowedDeepLink(string(b)) {
 		t.Fatal("decoded not allowed")
+	}
+}
+
+func TestAllowSubRequestRateLimit(t *testing.T) {
+	// isolate map for this IP
+	ip := "203.0.113.50"
+	subRLMu.Lock()
+	delete(subRL, ip)
+	subRLMu.Unlock()
+	for i := 0; i < 60; i++ {
+		if !allowSubRequest(ip) {
+			t.Fatalf("allowed until 60, failed at %d", i+1)
+		}
+	}
+	if allowSubRequest(ip) {
+		t.Fatal("61st must be denied")
+	}
+	// other IP still ok
+	ip2 := "203.0.113.51"
+	subRLMu.Lock()
+	delete(subRL, ip2)
+	subRLMu.Unlock()
+	if !allowSubRequest(ip2) {
+		t.Fatal("other IP should pass")
+	}
+}
+
+func TestSubClientIP(t *testing.T) {
+	r, _ := http.NewRequest("GET", "/sub/x", nil)
+	r.RemoteAddr = "198.51.100.9:12345"
+	if got := subClientIP(r); got != "198.51.100.9" {
+		t.Fatalf("got %q", got)
 	}
 }
