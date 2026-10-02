@@ -1,13 +1,13 @@
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Точка останова: v0.9.186** (2026-10-02). Dropbear ssh-pipe; mipsle в релизе; offline pack.
+**Точка останова: v0.9.188** (2026-10-02). OpenWrt без base64; Dropbear; mipsle; token persist.
 
 ## Текущий baseline
 
 | Пункт | Состояние |
 |--|--|
-| **Релиз** | **v0.9.186** — 11 assets, mipsle/riscv64 |
+| **Релиз** | **v0.9.188** — 11 assets, mipsle/riscv64 |
 | **Плоскости** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Только** `internal/operator/web` (embed в op). Legacy `runtime/api/admin` **удалён** (0.9.171) |
 | **Edge VPN шаблон** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
@@ -17,6 +17,10 @@
 | **Тесты** | `go test ./...` зелёный (0.9.172); уникальные ID opcatalog |
 
 ## Недавние версии (кратко)
+
+- **0.9.188** — OpenWrt без base64
+- **0.9.187** — persist operator token
+- **0.9.186** — Dropbear ssh-pipe; mipsle
 
 - **0.9.186** — Dropbear: agent через ssh stdin; mipsle+riscv64
 
