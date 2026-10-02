@@ -1,4 +1,5 @@
 # AGENT Handoff (RU)
+- **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
 **Точка останова: v0.9.172** (2026-10-02). Новый чат: AGENTS.md → этот файл → OPEN_ITEMS → код.
 
