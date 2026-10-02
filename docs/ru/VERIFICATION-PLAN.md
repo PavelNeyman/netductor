@@ -204,6 +204,9 @@
 
 ### Фаза C — Живой smoke dual-VPS (без OpenWrt)
 
+**Фаза C заблокирована (2026-10-02):** ключ sandbox `artifacts/netductor_primary` отклонён на `2.27.118.70:52222`. Нужен актуальный ключ оператора для live smoke.
+
+
 - [ ] C.1 Primary doctor + unit’ы  
 - [ ] C.2 Secondary agent + VLESS  
 - [ ] C.3 SP/PS health  

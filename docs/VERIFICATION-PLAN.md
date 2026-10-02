@@ -204,6 +204,9 @@ Do **one module group per session**; mark when review notes written under Progre
 
 ### Phase C — Live dual-VPS smoke (no OpenWrt)
 
+**Phase C blocked (2026-10-02):** sandbox key `artifacts/netductor_primary` rejected on `2.27.118.70:52222`. Need current operator key or temporary access to continue live smoke.
+
+
 - [ ] C.1 Primary doctor + units  
 - [ ] C.2 Secondary agent + VLESS  
 - [ ] C.3 SP/PS health  
