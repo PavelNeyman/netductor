@@ -2,6 +2,8 @@
 
 **Purpose:** systematic scenario + module review against real hardware constraints.  
 **Progress:** check boxes as phases complete; do not skip marking.  
+**Deep review:** [DEEP-CODE-REVIEW-2026-10-02.md](DEEP-CODE-REVIEW-2026-10-02.md) (RU twin under docs/ru/).
+
 **Stop line at creation:** v0.9.191 (2026-10-02).  
 **Rule:** EN ↔ RU **full semantic parity** (AGENTS §7).
 
