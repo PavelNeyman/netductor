@@ -31,6 +31,7 @@ edge-luci:
 edge:
   --router --id --new-root-password|--skip-root-pass [--password] [--guest-visible] …
   --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
+  offline: --bootstrap-token TOKEN [--mtls-ca|--mtls-cert|--mtls-key PATH] (skip SSH to primary)
   --guest [--guest-ssid] [--guest-pin] [--guest-psk] [--guest-visible|--guest-hidden] [--reboot]
   --configure-net
   --lan-ip --lan-mask --dhcp-start --dhcp-limit
@@ -283,6 +284,18 @@ See: netductor tui → Setup wizard`)
 			case a == "--guest":
 				o.GuestEnable = true
 				o.GuestVisible = true // default visible SSID
+			case a == "--bootstrap-token" && i+1 < len(args):
+				i++
+				o.BootstrapToken = args[i]
+			case a == "--mtls-ca" && i+1 < len(args):
+				i++
+				o.MTLSCAFile = args[i]
+			case a == "--mtls-cert" && i+1 < len(args):
+				i++
+				o.MTLSCertFile = args[i]
+			case a == "--mtls-key" && i+1 < len(args):
+				i++
+				o.MTLSKeyFile = args[i]
 			case a == "--guest-hidden":
 				o.GuestVisible = false
 			case a == "--reboot":
@@ -390,7 +403,7 @@ See: netductor tui → Setup wizard`)
 			WiFiSSID24: o.WiFiSSID24, WiFiKey24: o.WiFiKey24,
 			WiFiSSID5: o.WiFiSSID5, WiFiKey5: o.WiFiKey5,
 			GuestEnable: o.GuestEnable, GuestSSID: o.GuestSSID, GuestPIN: o.GuestPIN, GuestPSK: o.GuestPSK,
-			GuestVisible: o.GuestVisible,
+			GuestVisible: o.GuestVisible, BootstrapToken: o.BootstrapToken, MTLSCAFile: o.MTLSCAFile, MTLSCertFile: o.MTLSCertFile, MTLSKeyFile: o.MTLSKeyFile,
 			WANProto: o.WANProto, WANIP: o.WANIP, WANMask: o.WANMask, WANGateway: o.WANGateway, WANDNS: o.WANDNS,
 			PPPoEUser: o.PPPoEUser, PPPoEPass: o.PPPoEPass, PPPoEService: o.PPPoEService, PPPoEAC: o.PPPoEAC,
 			Reboot: o.Reboot,

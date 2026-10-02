@@ -17,6 +17,11 @@ type EdgeOpts struct {
 	PrimaryUser          string
 	PrimaryKey           string
 	PrimaryKeyPassphrase string
+	// Offline: skip SSH to primary when BootstrapToken is set (optional local mTLS files).
+	BootstrapToken string
+	MTLSCAFile     string
+	MTLSCertFile   string
+	MTLSKeyFile    string
 	RouterHost           string
 	RouterUser           string
 	RouterPass           string
@@ -103,17 +108,38 @@ func DeployEdge(o EdgeOpts) error {
 		return fmt.Errorf("invalid server URL characters")
 	}
 
-	token := ""
+	token := strings.TrimSpace(o.BootstrapToken)
 	var mtlsCA, mtlsCert, mtlsKey []byte
-	if o.PrimaryHost != "" && o.PrimaryKey != "" {
+	// Local mTLS material (offline / pre-copied from primary).
+	if o.MTLSCAFile != "" {
+		if b, err := os.ReadFile(o.MTLSCAFile); err == nil {
+			mtlsCA = b
+		}
+	}
+	if o.MTLSCertFile != "" {
+		if b, err := os.ReadFile(o.MTLSCertFile); err == nil {
+			mtlsCert = b
+		}
+	}
+	if o.MTLSKeyFile != "" {
+		if b, err := os.ReadFile(o.MTLSKeyFile); err == nil {
+			mtlsKey = b
+		}
+	}
+	// Online: pull bootstrap token from primary over SSH :52222.
+	if token == "" && o.PrimaryHost != "" && o.PrimaryKey != "" {
 		out, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
 			"cat /etc/netductor/secrets/edge_bootstrap_token 2>/dev/null", o.PrimaryKeyPassphrase)
 		if err != nil {
-			return fmt.Errorf("read bootstrap token from primary: %w\n%s", err, out)
+			return fmt.Errorf("read bootstrap token from primary: %w\n%s\n(hint: offline — pass BootstrapToken from a prior pull)", err, out)
 		}
 		token = strings.TrimSpace(out)
-
-		// Issue client cert on primary; print base64 lines (OpenWrt-safe path matching ClientDir).
+	}
+	if token == "" {
+		return fmt.Errorf("edge bootstrap token required (SSH to primary or BootstrapToken / --bootstrap-token)")
+	}
+	// Online: issue client cert on primary unless local mTLS already loaded.
+	if len(mtlsCert) == 0 && o.PrimaryHost != "" && o.PrimaryKey != "" {
 		remote := fmt.Sprintf(`set -e
 netductor mtls ensure >/dev/null 2>&1 || true
 netductor mtls issue-client %s >/dev/null 2>&1
@@ -132,7 +158,7 @@ echo KEY:$(b64 "$DIR/client.key")
 `, shellQuote(o.DeviceID), shellQuote(o.DeviceID))
 		mout, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, remote, o.PrimaryKeyPassphrase)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "warn: mtls material from primary:", err)
+			fmt.Fprintln(os.Stderr, "warn: mTLS material from primary:", err)
 			fmt.Fprintln(os.Stderr, mout)
 		} else {
 			for _, line := range strings.Split(mout, "\n") {

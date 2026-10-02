@@ -1,3 +1,8 @@
+## 0.9.183
+
+- Edge offline path:  + optional ; agent binary uses local cache if present (no re-download)
+- Primary SSH only when token not provided
+
 ## 0.9.182
 
 - DeployEdge: SSH to primary on **:52222** (day2SSHPort); router stays **:22** (factorySSHPort). Fixes bootstrap token read against hardened primary.

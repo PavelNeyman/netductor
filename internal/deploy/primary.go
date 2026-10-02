@@ -376,12 +376,18 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	_ = os.MkdirAll(destDir, 0o755)
 	name := "netductor-agent-linux-" + goarch
 	dest := filepath.Join(destDir, name)
+	// Offline / pre-fetched: reuse cache if non-empty.
+	if st, err := os.Stat(dest); err == nil && st.Size() > 1024 {
+		fmt.Fprintln(os.Stderr, "==> using cached agent", dest)
+		_ = os.Chmod(dest, 0o755)
+		return dest, nil
+	}
 	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/v%s/%s", version, name)
 	fmt.Fprintln(os.Stderr, "==> fetch", url)
 	cmd := exec.Command("curl", "-fsSL", "-o", dest, url)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("download agent %s: %w (check Releases assets)", name, err)
+		return "", fmt.Errorf("download agent %s: %w (pre-place at %s for offline)", name, err, dest)
 	}
 	_ = os.Chmod(dest, 0o755)
 	return dest, nil

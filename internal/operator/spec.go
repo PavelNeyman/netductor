@@ -127,6 +127,8 @@ type EdgeSpec struct {
 	GuestEnable                                  bool
 	GuestSSID, GuestPIN, GuestPSK                string
 	GuestVisible                                 bool
+	BootstrapToken                               string
+	MTLSCAFile, MTLSCertFile, MTLSKeyFile        string
 	WANProto, WANIP, WANMask, WANGateway, WANDNS string
 	PPPoEUser, PPPoEPass, PPPoEService, PPPoEAC  string
 	Reboot                                       bool
@@ -147,6 +149,7 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		WiFiSSID5: e.WiFiSSID5, WiFiKey5: e.WiFiKey5,
 		GuestEnable: e.GuestEnable, GuestSSID: e.GuestSSID, GuestPIN: e.GuestPIN, GuestPSK: e.GuestPSK,
 		GuestVisible: e.GuestVisible,
+		BootstrapToken: e.BootstrapToken, MTLSCAFile: e.MTLSCAFile, MTLSCertFile: e.MTLSCertFile, MTLSKeyFile: e.MTLSKeyFile,
 		WANProto: e.WANProto, WANIP: e.WANIP, WANMask: e.WANMask, WANGateway: e.WANGateway, WANDNS: e.WANDNS,
 		PPPoEUser: e.PPPoEUser, PPPoEPass: e.PPPoEPass, PPPoEService: e.PPPoEService, PPPoEAC: e.PPPoEAC,
 		Reboot: e.Reboot,
