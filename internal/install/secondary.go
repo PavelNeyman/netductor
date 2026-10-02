@@ -30,6 +30,7 @@ func InstallRelay(bundlePath string) error {
 		return fmt.Errorf("invalid bundle")
 	}
 
+	PurgeHostMonitoring()
 	fmt.Fprintln(os.Stderr, "==> secondary: dirs")
 	_ = paths.EnsureLayout()
 	_ = os.MkdirAll("/etc/sing-box/certs", 0o755)

@@ -4,7 +4,7 @@
 **Прогресс:** отмечать `[x]` только после выполнения; не пропускать отметки.  
 **Глубокое ревью:** [DEEP-CODE-REVIEW-2026-10-02.md](../DEEP-CODE-REVIEW-2026-10-02.md).
 
-**Stop line на момент создания:** v0.9.191 (2026-10-02).  
+**Stop line на момент создания:** v0.9.192 (2026-10-03); prior baseline 0.9.191.  
 **Правило:** EN ↔ RU — **полная смысловая** паритетность (AGENTS §7), не «краткий пересказ».
 
 Связанные: [AGENT_HANDOFF.md](../AGENT_HANDOFF.md) · [OPEN_ITEMS.md](../OPEN_ITEMS.md) · [AGENTS.md](../../AGENTS.md) · EN: [VERIFICATION-PLAN.md](../VERIFICATION-PLAN.md)
@@ -261,6 +261,7 @@
 
 | Дата | Пункт | Результат |
 |------|-------|-----------|
+| 2026-10-03 | ops | **0.9.192** zabbix purge + secondary stack/collect/doctor version |
 | 2026-10-02 | A.1 | Создан EN-план; stop **0.9.191**; ash-paren network stage исправлен |
 | 2026-10-02 | A.2 | Создан RU-план (смысловой паритет) |
 | 2026-10-02 | B.1 | Ревью кода deploy+edgeagent; residual radio0 |

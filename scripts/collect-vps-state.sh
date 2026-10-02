@@ -23,13 +23,18 @@ echo
 echo "=== versions ==="
 command -v netductor >/dev/null && netductor version || echo "netductor: missing"
 command -v netductor-tg >/dev/null && netductor-tg version 2>/dev/null || echo "netductor-tg: missing"
-command -v netductor-agent >/dev/null && netductor-agent version 2>/dev/null || echo "netductor-agent: n/a"
+# secondary runs: netductor secondary agent (same node binary)
+if command -v netductor-agent >/dev/null; then netductor-agent version 2>/dev/null
+elif systemctl is-active --quiet netductor-secondary-agent 2>/dev/null; then
+  echo -n "netductor-secondary-agent: "; systemctl show -p ExecStart --value netductor-secondary-agent 2>/dev/null
+  /usr/local/bin/netductor version 2>/dev/null || true
+else echo "netductor-agent: n/a"; fi
 cat /etc/netductor/VERSION 2>/dev/null || echo "VERSION file: missing"
 echo
 
 echo "=== units ==="
 for u in netductor-api netductor-telegram-bot netductor-redirect sing-box blocky netductor-backup.timer \
-         netductor-agent netductor-vpn nd-wss-sp-server nd-wss-sp-client nd-wss-ps-server nd-wss-ps-client \
+         netductor-secondary-agent netductor-agent netductor-vpn nd-wss-sp-server nd-wss-sp-client nd-wss-ps-server nd-wss-ps-client \
          wg-quick@nd-svc-sp wg-quick@nd-svc-ps docker; do
   st=$(systemctl is-active "$u" 2>/dev/null || echo n/a)
   en=$(systemctl is-enabled "$u" 2>/dev/null || echo n/a)
@@ -129,6 +134,11 @@ uptime
 echo
 
 echo "=== recent journal (no secrets filter) ==="
-journalctl -u netductor-api -u netductor-telegram-bot -u sing-box -u netductor-agent --since "24 hours ago" -n 120 --no-pager 2>/dev/null | redact | tail -150
+journalctl -u netductor-api -u netductor-telegram-bot -u sing-box -u netductor-secondary-agent -u netductor-agent --since "24 hours ago" -n 120 --no-pager 2>/dev/null | redact | tail -150
 echo
-echo "=== END ==="
+echo "=== host monitoring (zabbix) ===
+systemctl is-active zabbix-agent zabbix-agent2 zabbix-agentd 2>/dev/null || true
+ss -tlnp 2>/dev/null | grep -E ':10050|:10051' || echo "ports 10050/10051 not listening"
+dpkg -l 'zabbix*' 2>/dev/null | awk '/^ii/{print}' || true
+
+=== END ==="

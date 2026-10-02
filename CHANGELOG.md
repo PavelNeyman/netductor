@@ -1,3 +1,15 @@
+## 0.9.192
+
+### Hardening
+- Idempotent **PurgeHostMonitoring**: disable/mask/remove `zabbix-agent*` packages; deny 10050/10051 if ufw present
+- Called from primary `InstallHardening`, secondary `join`/`InstallRelay`, and remote SSH harden script (secondary provision)
+
+### Ops / diagnostics
+- Doctor `installed_version` uses `version.Running()` (binary + `/etc/netductor/VERSION`), refreshes stale `state/installed_version`
+- Doctor zabbix check includes `zabbix-agentd`
+- `stack status` role-aware: secondary reports sing-box + secondary-agent + SP/PS units (not primary API/TG)
+- `scripts/collect-vps-state.sh`: `netductor-secondary-agent` unit, journal, host-monitoring section
+
 ## 0.9.190
 
 - Edge guest first-boot: `--stage` (no network/wifi reload) so SSH survives until harden+reboot

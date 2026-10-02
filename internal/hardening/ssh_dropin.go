@@ -41,6 +41,18 @@ if command -v ufw >/dev/null 2>&1; then
   ufw delete allow 22/tcp 2>/dev/null || true
   ufw deny 22/tcp comment netductor-no-ssh22 2>/dev/null || true
 fi
+# purge hoster monitoring agents (zabbix)
+for u in zabbix-agent zabbix-agentd zabbix-agent2; do
+  systemctl disable --now "$u" 2>/dev/null || true
+  systemctl mask "$u" 2>/dev/null || true
+done
+export DEBIAN_FRONTEND=noninteractive
+apt-get remove -y --purge zabbix-agent zabbix-agent2 zabbix-release 2>/dev/null || true
+if command -v ufw >/dev/null 2>&1; then
+  ufw deny 10050/tcp 2>/dev/null || true
+  ufw deny 10051/tcp 2>/dev/null || true
+fi
+pkill -f zabbix_agent 2>/dev/null || true
 systemctl stop ssh.socket 2>/dev/null || true
 systemctl disable ssh.socket 2>/dev/null || true
 systemctl stop sshd.socket 2>/dev/null || true

@@ -4,7 +4,7 @@
 **Progress:** check boxes as phases complete; do not skip marking.  
 **Deep review:** [DEEP-CODE-REVIEW-2026-10-02.md](DEEP-CODE-REVIEW-2026-10-02.md) (RU twin under docs/ru/).
 
-**Stop line at creation:** v0.9.191 (2026-10-02).  
+**Stop line at creation:** v0.9.192 (2026-10-03); prior baseline 0.9.191.  
 **Rule:** EN ↔ RU **full semantic parity** (AGENTS §7).
 
 Related: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [OPEN_ITEMS.md](OPEN_ITEMS.md) · [AGENTS.md](../AGENTS.md)
@@ -261,6 +261,7 @@ Do **one module group per session**; mark when review notes written under Progre
 
 | Date | Phase item | Result |
 |------|------------|--------|
+| 2026-10-03 | ops | **0.9.192** zabbix purge + secondary stack/collect/doctor version |
 | 2026-10-02 | A.1 | Plan created (EN); stop **0.9.191**; OpenWrt network stage ash paren fixed |
 | 2026-10-02 | A.2 | RU plan added (semantic parity) |
 | 2026-10-02 | B.1 | Code review deploy+edgeagent; residual radio0/default_radio |

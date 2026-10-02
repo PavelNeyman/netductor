@@ -48,6 +48,7 @@ func InstallHardening() error {
 			fmt.Fprintf(os.Stderr, "fail2ban: %v (continuing)\n", err)
 		}
 	}
+	PurgeHostMonitoring()
 	if err := ensureMTLSAtInstall(); err != nil {
 		fmt.Fprintf(os.Stderr, "mtls ensure: %v (continuing; serve will retry)\n", err)
 	}

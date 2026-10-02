@@ -49,6 +49,36 @@ var PrimaryUnits = []UnitSpec{
 	{Unit: "netductor-backup.timer", Binary: "", Role: "optional"},
 }
 
+// SecondaryUnits — thin RU entry (no control-plane units).
+var SecondaryUnits = []UnitSpec{
+	{Unit: "sing-box", Binary: "/usr/local/bin/sing-box", Role: "core"},
+	{Unit: "netductor-secondary-agent", Binary: "/usr/local/bin/netductor", Role: "core"},
+	{Unit: "nd-wss-sp-client", Binary: "", Role: "optional"},
+	{Unit: "nd-wss-ps-server", Binary: "", Role: "optional"},
+	{Unit: "wg-quick@nd-svc-sp", Binary: "", Role: "optional"},
+	{Unit: "wg-quick@nd-svc-ps", Binary: "", Role: "optional"},
+}
+
+func managedUnits() []UnitSpec {
+	active, _ := unitState("netductor-secondary-agent")
+	if active == "active" || active == "activating" {
+		return SecondaryUnits
+	}
+	// secondary role without agent yet: no primary API
+	pa, _ := unitState("netductor-api")
+	if pa != "active" && pa != "activating" {
+		st, _ := os.Stat("/etc/netductor/secrets/secondary_agent_token")
+		if st == nil {
+			st, _ = os.Stat("/var/lib/netductor/secondary/bundle.json")
+		}
+		if st != nil {
+			return SecondaryUnits
+		}
+	}
+	return PrimaryUnits
+}
+
+
 type UnitStatus struct {
 	Unit    string `json:"unit"`
 	Active  string `json:"active"`
@@ -158,7 +188,7 @@ func Collect() Status {
 	if b, err := os.ReadFile(filepath.Join(prevDir(), "VERSION")); err == nil {
 		st.Prev = strings.TrimPrefix(strings.TrimSpace(string(b)), "v")
 	}
-	for _, u := range PrimaryUnits {
+	for _, u := range managedUnits() {
 		active, sub := unitState(u.Unit)
 		ok := active == "active" || active == "activating"
 		// timers report active when waiting
@@ -167,6 +197,10 @@ func Collect() Status {
 		}
 		// redirect may be inactive without LE — not hard fail
 		if u.Unit == "netductor-redirect" && active == "inactive" {
+			ok = true
+		}
+		// secondary optional path units may be absent on partial bootstrap
+		if u.Role == "optional" && (active == "inactive" || active == "unknown" || active == "") {
 			ok = true
 		}
 		st.Units = append(st.Units, UnitStatus{
@@ -509,7 +543,7 @@ func WatchdogOnce() {
 	// Only cleanup + restart failed units. Never swap binaries here (promote was causing silent version flips).
 	_ = os.RemoveAll(attemptDir())
 	var restarted []string
-	for _, u := range PrimaryUnits {
+	for _, u := range managedUnits() {
 		if u.Role != "core" {
 			continue
 		}

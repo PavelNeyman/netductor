@@ -15,6 +15,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/registry"
 )
 
@@ -201,7 +202,11 @@ func runDoctorNative() int {
 	etc := paths.EtcDir()
 	state := paths.StateDir()
 
-	if b, err := os.ReadFile(filepath.Join(state, "installed_version")); err == nil {
+	// Prefer live VERSION / binary over stale state/installed_version (often left from first install).
+	if ver := version.Running(); ver != "" {
+		doctorPrintf(cli18n.T("doctor.installed_version")+"\n", ver)
+		_ = os.WriteFile(filepath.Join(state, "installed_version"), []byte(ver+"\n"), 0o644)
+	} else if b, err := os.ReadFile(filepath.Join(state, "installed_version")); err == nil {
 		doctorPrintf(cli18n.T("doctor.installed_version")+"\n", strings.TrimSpace(string(b)))
 	}
 	check("debian", exists("/etc/debian_version"))
@@ -227,7 +232,7 @@ func runDoctorNative() int {
 	if os.Getenv("NETDUCTOR_FAIL2BAN") != "0" {
 		warnCheck("fail2ban active", activeUnit("fail2ban"))
 	}
-	warnCheck("no zabbix agent", !activeUnit("zabbix-agent") && !activeUnit("zabbix-agent2") && !listeningOnAll("10050"))
+	warnCheck("no zabbix agent", !activeUnit("zabbix-agent") && !activeUnit("zabbix-agent2") && !activeUnit("zabbix-agentd") && !listeningOnAll("10050"))
 
 	switch role {
 	case "primary":

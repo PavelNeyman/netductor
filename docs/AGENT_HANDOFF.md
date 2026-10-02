@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.191** (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
+**Stop line: v0.9.192** (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
 
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
@@ -9,7 +9,7 @@
 
 | Item | State |
 |--|--|
-| **Release** | **v0.9.191** — 11 assets (mipsle+riscv64); Formula SHA OK |
+| **Release** | **v0.9.192** — 11 assets (mipsle+riscv64); Formula SHA OK |
 | **Planes** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Only** `internal/operator/web` (embed in op). Legacy `runtime/api/admin` **removed** (0.9.171) |
 | **Edge VPN template** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
