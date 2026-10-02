@@ -10,7 +10,7 @@ Self-hosted **network control plane** (Debian primary + RU **secondary** VPN ent
 - Thin git + local OCI registry + optional Lampac
 - Encrypted backups + agent offsite pull to RU + recovery API
 
-**Current release:** **v0.9.181**
+**Current release:** **v0.9.182**
 
 ```bash
 # Mac

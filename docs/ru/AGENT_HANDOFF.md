@@ -1,13 +1,13 @@
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Точка останова: v0.9.181** (2026-10-02). WAN DNS подсказки; guest visible; фикс `--hidden=1`; Web pass/LuCI.
+**Точка останова: v0.9.182** (2026-10-02). WAN DNS подсказки; guest visible; фикс `--hidden=1`; Web pass/LuCI.
 
 ## Текущий baseline
 
 | Пункт | Состояние |
 |--|--|
-| **Релиз** | **v0.9.181** — полный набор assets; Formula с проверенными SHA |
+| **Релиз** | **v0.9.182** — полный набор assets; Formula с проверенными SHA |
 | **Плоскости** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Только** `internal/operator/web` (embed в op). Legacy `runtime/api/admin` **удалён** (0.9.171) |
 | **Edge VPN шаблон** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
@@ -31,7 +31,7 @@
 ## Apply на живых нодах
 
 ```bash
-netductor stack apply v0.9.181
+netductor stack apply v0.9.182
 # OpenWrt: agent_update + apply_template после Save шаблона
 # Mac
 brew reinstall netductor

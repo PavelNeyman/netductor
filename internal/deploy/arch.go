@@ -52,7 +52,7 @@ func MapUnameToGoArch(uname string) (string, error) {
 // Also returns raw uname and a short note (opkg/apk presence).
 func ProbeRouterArch(password, keyPath, user, host, keyPassphrase string) (goarch, uname, note string, err error) {
 	script := `uname -m; command -v opkg >/dev/null && echo PKG=opkg || true; command -v apk >/dev/null && echo PKG=apk || true; [ -f /etc/openwrt_release ] && . /etc/openwrt_release 2>/dev/null; echo DISTRIB_ARCH=${DISTRIB_ARCH:-}; echo DISTRIB_RELEASE=${DISTRIB_RELEASE:-}`
-	out, err := runSSH(password, keyPath, user, host, script, keyPassphrase)
+	out, err := runSSHOnPort(factorySSHPort(), password, keyPath, user, host, script, keyPassphrase)
 	if err != nil {
 		return "", "", "", fmt.Errorf("probe router arch: %w\n%s", err, out)
 	}

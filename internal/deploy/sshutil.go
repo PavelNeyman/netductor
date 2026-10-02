@@ -16,6 +16,22 @@ func sshPort() string {
 	return "22"
 }
 
+// day2SSHPort is SSH after harden (primary/secondary). Default 52222.
+func day2SSHPort() string {
+	if p := strings.TrimSpace(os.Getenv("NETDUCTOR_SSH_PORT")); p != "" {
+		return p
+	}
+	return "52222"
+}
+
+// factorySSHPort is first-login / OpenWrt stock SSH. Default 22.
+func factorySSHPort() string {
+	if p := strings.TrimSpace(os.Getenv("NETDUCTOR_ROUTER_SSH_PORT")); p != "" {
+		return p
+	}
+	return "22"
+}
+
 
 // clearHostKeys drops stale known_hosts entries after VPS reinstall (changed host key).
 func clearHostKeys(host string) {
@@ -104,13 +120,21 @@ func sshEnvWithAskPass(keyPass string) ([]string, func(), error) {
 	return env, cleanup, nil
 }
 
-// runSSH: host password via SSHPASS+sshpass -e; key passphrase via SSH_ASKPASS (never argv).
+// runSSH uses sshPort() (env NETDUCTOR_SSH_PORT or 22). Prefer runSSHOnPort for mixed primary/router hops.
 func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {
+	return runSSHOnPort(sshPort(), password, keyPath, user, host, remoteCmd, keyPassphrase)
+}
+
+// runSSHOnPort: host password via SSHPASS+sshpass -e; key passphrase via SSH_ASKPASS (never argv).
+func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {
+	if port == "" {
+		port = sshPort()
+	}
 	clearHostKeys(host)
 	target := user + "@" + host
 	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
-	base = append([]string{"-p", sshPort()}, base...)
+	base = append([]string{"-p", port}, base...)
 	if usePass {
 		if sp, err := lookSSHPass(); err == nil {
 			args := append([]string{"-e", "ssh"}, base...)
@@ -144,10 +168,17 @@ func runSSH(password, keyPath, user, host, remoteCmd, keyPassphrase string) (str
 }
 
 func runSCP(password, keyPath, user, host, local, remotePath, keyPassphrase string) error {
+	return runSCPOnPort(sshPort(), password, keyPath, user, host, local, remotePath, keyPassphrase)
+}
+
+func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPassphrase string) error {
+	if port == "" {
+		port = sshPort()
+	}
 	target := user + "@" + host + ":" + remotePath
 	usePass := password != "" && (keyPath == "" || !fileExists(keyPath))
 	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
-	base = append([]string{"-P", sshPort()}, base...)
+	base = append([]string{"-P", port}, base...)
 	if usePass {
 		sp, err := lookSSHPass()
 		if err != nil {

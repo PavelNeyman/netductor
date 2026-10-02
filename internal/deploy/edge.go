@@ -106,7 +106,7 @@ func DeployEdge(o EdgeOpts) error {
 	token := ""
 	var mtlsCA, mtlsCert, mtlsKey []byte
 	if o.PrimaryHost != "" && o.PrimaryKey != "" {
-		out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
+		out, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
 			"cat /etc/netductor/secrets/edge_bootstrap_token 2>/dev/null", o.PrimaryKeyPassphrase)
 		if err != nil {
 			return fmt.Errorf("read bootstrap token from primary: %w\n%s", err, out)
@@ -130,7 +130,7 @@ echo CA:$(b64 "$CA")
 echo CERT:$(b64 "$DIR/client.crt")
 echo KEY:$(b64 "$DIR/client.key")
 `, shellQuote(o.DeviceID), shellQuote(o.DeviceID))
-		mout, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, remote, o.PrimaryKeyPassphrase)
+		mout, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, remote, o.PrimaryKeyPassphrase)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn: mtls material from primary:", err)
 			fmt.Fprintln(os.Stderr, mout)
@@ -210,7 +210,7 @@ echo KEY:$(b64 "$DIR/client.key")
 		if o.NetConfigure && o.LANIP != "" {
 			fmt.Fprintln(os.Stderr, "==> after reboot SSH may move to", o.LANIP, "(staged LAN)")
 		}
-		out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
+		out, err := runSSHOnPort(factorySSHPort(), o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn: reboot:", err, out)
 		} else {
@@ -287,7 +287,7 @@ func applyNetworkOnEdge(o EdgeOpts) error {
 	}
 	desired := edgeagent.DesiredUCI(tmpl)
 	script := edgeagent.ShellApplyStaged(desired)
-	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, script, "")
+	out, err := runSSHOnPort(factorySSHPort(), o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, script, "")
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, out)
 	}
@@ -325,7 +325,7 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	} else {
 		cmd += " --hidden=1"
 	}
-	out, err := runSSH(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, cmd, "")
+	out, err := runSSHOnPort(factorySSHPort(), o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, cmd, "")
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, out)
 	}

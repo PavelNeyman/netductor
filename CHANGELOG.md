@@ -1,3 +1,7 @@
+## 0.9.182
+
+- DeployEdge: SSH to primary on **:52222** (day2SSHPort); router stays **:22** (factorySSHPort). Fixes bootstrap token read against hardened primary.
+
 ## 0.9.181
 
 - WAN DNS field: space or comma; normalize to OpenWrt space-list; Web/TUI hints (recommend 1.1.1.1 9.9.9.9)
