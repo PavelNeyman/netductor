@@ -191,7 +191,7 @@ Each scenario lists **stages**. Verification maps modules to these stages.
 
 Do **one module group per session**; mark when review notes written under Progress log.
 
-- [ ] B.1 `internal/deploy` + `edgeagent` (OpenWrt path 0.9.186–191)  
+- [x] B.1 `internal/deploy` (code review 2026-10-02; live open) + `edgeagent` (OpenWrt path 0.9.186–191)  
 - [ ] B.2 `cmd/netductor-agent` guest + luci + vpn client  
 - [ ] B.3 `internal/edge` templates / peers / enroll  
 - [ ] B.4 Primary install + harden + LE  
@@ -258,6 +258,7 @@ Do **one module group per session**; mark when review notes written under Progre
 |------|------------|--------|
 | 2026-10-02 | A.1 | Plan created (EN); stop **0.9.191**; OpenWrt network stage ash paren fixed |
 | 2026-10-02 | A.2 | RU plan added (semantic parity) |
+| 2026-10-02 | B.1 | Code review deploy+edgeagent; residual radio0/default_radio |
 | | | OpenWrt live test deferred (router returned) |
 
 ---
@@ -271,3 +272,88 @@ Before coding from this plan:
 3. Review or test; write Progress log row.  
 4. Tick box; bump docs RU if needed.  
 5. Do **not** mark hardware items done without device evidence.
+
+
+---
+
+## 8. Full product coverage matrix (must all be exercised)
+
+Every row must eventually have a **review** and a **live** outcome (or explicit N/A).  
+This is the complete functional surface of the project — primary, secondary, edge, cameras, operator UIs.
+
+| Area | Capabilities | Scenarios | Live env | Review | Live |
+|------|--------------|-----------|----------|--------|------|
+| **Primary install** | dirs, harden SSH 52222, sing-box, blocky, API, redirect, units | S1 | H-P | [ ] | [ ] |
+| **Primary domain/LE** | p/i hosts, certbot, redirect :8443 healthz | S1.3, S3.3 | H-P | [ ] | [ ] |
+| **Primary TG bot** | menu, i18n, cards A/B/C, topics/alerts, arm API | S2 | H-P | [ ] | [ ] |
+| **VPN users** | add/rename/disable, VLESS links/QR, hide edge-* | S2.2, S9 | H-P/S | [ ] | [ ] |
+| **Redirect / profiles** | url buttons SR/Happ/INCY, nd-oc.conf, REDIRECT_BASE | S9.4 | H-P | [ ] | [ ] |
+| **Secondary provision** | Reality, agent mTLS, harden, no full mirror | S1.5 | H-S | [ ] | [ ] |
+| **Service paths SP/PS** | WG-over-WSS, health, agent on SP, recovery on PS | S1.5, S3 | H-P/S | [ ] | [ ] |
+| **Backup primary** | COMPONENTS list, schedule, encryption .ndenc | S2.4 | H-P | [ ] | [ ] |
+| **backup_pull secondary** | agent pull, peer storage, restore source | S2.4, S3 | H-S | [ ] | [ ] |
+| **Recover primary** | from-secondary, two-pass components, key inject | S3 | H-P | [ ] | [ ] |
+| **Stack / updates** | manual apply only, prev snapshot, secondary queue | S2.3 | H-P/S | [ ] | [ ] |
+| **Doctor / probes** | health units, truthful versions | S2.1 | H-P | [ ] | [ ] |
+| **DNS blocky** | lists UI, AdGuard registry URLs, reload | S2.6 | H-P | [ ] | [ ] |
+| **Fleet / nodes** | registry, rename, roles primary/secondary/edge | S2 | H-P | [ ] | [ ] |
+| **Locations / sites** | groups, inventory | S8 | H-P | [ ] | [ ] |
+| **mTLS agent plane** | :8789 CIDR, enroll pending/approve, revoke | S4–S5 | H-P | [ ] | [ ] |
+| **OpenWrt first-boot** | probe arch, agent put, net/guest stage, harden, reboot | S4 | H-OW | [ ] B.1 partial | [ ] |
+| **OpenWrt template VPN** | edge peer, soft WAN fallback, dns vpn, LAN direct | S4.8 | H-OW | [ ] | [ ] |
+| **Guest Wi‑Fi** | SSID/PSK/captive/desk, TTL grant, isolation | S6 | H-OW | [ ] | [ ] |
+| **LuCI control** | enable 1h default, extend, SSH LAN path | S5.1 | H-OW | [ ] | [ ] |
+| **Edge recovery HTTP** | LAN token page re-bind to new primary | S5.3 | H-OW | [ ] | [ ] |
+| **Offline edge pack** | bootstrap without router WAN | S5.4 | H-Mac/OW | [ ] | [ ] |
+| **NVR core** | cameras CRUD, segments, retention, storage | S7 | H-P | [ ] | [ ] |
+| **NVR edge buffer** | leases, optional record on edge, upload | S7 | H-OW | [ ] | [ ] |
+| **Tapo C200** | RTSP, PTZ, motion/night as implemented | S7 | H-Cam | [ ] | [ ] |
+| **go2rtc / live** | paths, VPN-only view | S7 | H-P | [ ] | [ ] |
+| **MikroTik** | RSC/scripts, site with RPi agent | S8 | H-MT | [ ] | [ ] |
+| **Git / CI / registry** | optional install, list, pipeline, images | S10 | H-P | [ ] | [ ] |
+| **Lampac addon** | install, status in addons UI | S1.6 | H-P | [ ] | [ ] |
+| **Operator Web** | Fleet wizard, day-2 groups, Control | S1–S2 | H-Mac | [ ] | [ ] |
+| **Operator TUI** | master, remote, i18n, settings yaml | S1–S2 | H-Mac | [ ] | [ ] |
+| **Operator CLI** | deploy, edge, stack, recover parity | S1–S3 | H-Mac | [ ] | [ ] |
+| **Client iOS** | secondary default, sub/primary policy | S9 | H-Phone | [ ] | [ ] |
+| **Corp OC + VPN** | SR work profile | S9.3 | H-Corp | [ ] | [ ] |
+| **Security posture** | no public admin, no footgun env, ports | B.10 | all | [ ] | [ ] |
+| **i18n EN/RU** | TG, TUI, docs semantic parity | all | — | [ ] | [ ] |
+
+**Rule:** “полный функционал” = все строки выше закрыты review+live (или N/A с обоснованием), не только OpenWrt.
+
+---
+
+## 9. Phase B.1 notes — `deploy` + `edgeagent` (2026-10-02)
+
+**Reviewed:** `internal/deploy/edge.go`, `sshutil.go`, `internal/edgeagent/apply.go` (+ tests), guest stage hooks in agent (cross-ref).
+
+### Aligned with design
+
+| Topic | Finding |
+|-------|---------|
+| Order | Provision (no harden) → network stage → guest `--stage` → harden → reboot |
+| SSH auth | Prefer password while set (`usePass`); after New root, `sshPass` updated |
+| Staged UCI | `ShellApplyStaged` commits only; no network/wifi reload mid-SSH |
+| Ash safety | Echo without bare `()` (0.9.191); values single-quoted for `uci set` |
+| Dropbear | Historical: ssh stdin / no SFTP (0.9.186–188) |
+| Abort | Network/guest errors fail deploy (not soft `done`) |
+| LuCI vs harden | Harden is SSH-only; root pass set at provision for LuCI |
+
+### Residual risks / gaps
+
+| Risk | Severity | Follow-up |
+|------|----------|-----------|
+| Guest wireless forced `device=radio0` | High on multi-radio / odd board | B.2 / D.6 probe radios |
+| `wireless.default_radio0/1` names | Med if device uses non-default iface names | Probe `uci show wireless` |
+| Multi-line remote script via `ssh … cmd` | Low after ash fix; SSID with `'` handled via quote | Keep quoting discipline |
+| `EnqueueCmd(apply_template)` at first-boot | Low — may no-op until approve | S4.8 day-2 explicit apply |
+| Harden failure only **warn** | Med — password SSH may remain | Consider abort option |
+| No auto reconnect to new LAN IP | Ops | Document only |
+| Flash/RAM on Cudy | High if agent+ffmpeg+guest | NVR buffer policy on edge |
+
+### Verdict B.1
+
+Code path **matches** frozen first-boot story for OpenWrt **after 0.9.191**. Not a substitute for **D.** live e2e.  
+**B.1 review (code): done.** Live still open.
+

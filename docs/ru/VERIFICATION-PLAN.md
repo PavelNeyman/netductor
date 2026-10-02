@@ -191,7 +191,7 @@
 
 Один блок модулей за сессию; заметки — в журнал прогресса.
 
-- [ ] B.1 `internal/deploy` + `edgeagent` (путь OpenWrt 0.9.186–191)  
+- [x] B.1 `internal/deploy` (code review 2026-10-02; live open) + `edgeagent` (путь OpenWrt 0.9.186–191)  
 - [ ] B.2 `cmd/netductor-agent` guest + luci + vpn client  
 - [ ] B.3 `internal/edge` templates / peers / enroll  
 - [ ] B.4 Primary install + harden + LE  
@@ -258,6 +258,7 @@
 |------|-------|-----------|
 | 2026-10-02 | A.1 | Создан EN-план; stop **0.9.191**; ash-paren network stage исправлен |
 | 2026-10-02 | A.2 | Создан RU-план (смысловой паритет) |
+| 2026-10-02 | B.1 | Ревью кода deploy+edgeagent; residual radio0 |
 | | | Живой тест OpenWrt отложен (роутер возвращён) |
 
 ---
@@ -269,3 +270,86 @@
 3. Ревью или тест; строка в журнале.  
 4. Отметить `[x]`; при необходимости синхронизировать EN.  
 5. Пункты с железом **не** закрывать без факта на устройстве.
+
+
+---
+
+## 8. Полная матрица покрытия продукта (нужно прогнать всё)
+
+Каждая строка должна получить итог **ревью** и **живого** прогона (или явный N/A).  
+Это вся функциональная поверхность: primary, secondary, edge, камеры, UI оператора.
+
+| Область | Возможности | Сценарии | Среда | Ревью | Live |
+|---------|-------------|----------|------|-------|------|
+| **Primary install** | dirs, harden 52222, sing-box, blocky, API, redirect | S1 | H-P | [ ] | [ ] |
+| **Domain/LE** | хосты p/i, certbot, redirect :8443 | S1.3, S3.3 | H-P | [ ] | [ ] |
+| **TG bot** | меню, i18n, карточки A/B/C, топики, arm API | S2 | H-P | [ ] | [ ] |
+| **VPN users** | add/rename, QR/ссылки, скрытие edge-* | S2.2, S9 | H-P/S | [ ] | [ ] |
+| **Redirect / profiles** | кнопки SR/Happ/INCY, nd-oc, REDIRECT_BASE | S9.4 | H-P | [ ] | [ ] |
+| **Secondary** | Reality, agent mTLS, harden, не зеркало | S1.5 | H-S | [ ] | [ ] |
+| **SP/PS** | WG-over-WSS, health, agent SP, recovery PS | S1.5, S3 | H-P/S | [ ] | [ ] |
+| **Backup primary** | COMPONENTS, schedule, .ndenc | S2.4 | H-P | [ ] | [ ] |
+| **backup_pull** | pull агентом, peer, источник restore | S2.4, S3 | H-S | [ ] | [ ] |
+| **Recover primary** | from-secondary, два прохода, ключ | S3 | H-P | [ ] | [ ] |
+| **Stack / updates** | только ручной apply, prev, очередь secondary | S2.3 | H-P/S | [ ] | [ ] |
+| **Doctor / probes** | unit’ы, правдивые версии | S2.1 | H-P | [ ] | [ ] |
+| **DNS blocky** | списки, URL registry, reload | S2.6 | H-P | [ ] | [ ] |
+| **Fleet / nodes** | реестр, rename, роли | S2 | H-P | [ ] | [ ] |
+| **Locations / sites** | группы, инвентарь | S8 | H-P | [ ] | [ ] |
+| **mTLS plane** | :8789, enroll/approve/revoke | S4–S5 | H-P | [ ] | [ ] |
+| **OpenWrt first-boot** | probe, agent, net/guest stage, harden, reboot | S4 | H-OW | [ ] B.1 частич. | [ ] |
+| **Template VPN** | edge peer, soft WAN, dns vpn, LAN direct | S4.8 | H-OW | [ ] | [ ] |
+| **Guest Wi‑Fi** | SSID/PSK/captive/desk, TTL, изоляция | S6 | H-OW | [ ] | [ ] |
+| **LuCI** | 1 ч, extend, SSH LAN | S5.1 | H-OW | [ ] | [ ] |
+| **Edge recovery HTTP** | LAN token → новый primary | S5.3 | H-OW | [ ] | [ ] |
+| **Offline pack** | без WAN на роутере | S5.4 | H-Mac/OW | [ ] | [ ] |
+| **NVR core** | камеры, сегменты, retention | S7 | H-P | [ ] | [ ] |
+| **NVR edge** | leases, буфер, upload | S7 | H-OW | [ ] | [ ] |
+| **Tapo C200** | RTSP, PTZ, motion/night | S7 | H-Cam | [ ] | [ ] |
+| **go2rtc / live** | пути, только через VPN | S7 | H-P | [ ] | [ ] |
+| **MikroTik** | RSC, site + RPi agent | S8 | H-MT | [ ] | [ ] |
+| **Git / CI / registry** | optional | S10 | H-P | [ ] | [ ] |
+| **Lampac** | install, status | S1.6 | H-P | [ ] | [ ] |
+| **Web op** | Fleet, day-2, Control | S1–S2 | H-Mac | [ ] | [ ] |
+| **TUI op** | мастер, remote, i18n | S1–S2 | H-Mac | [ ] | [ ] |
+| **CLI op** | deploy, edge, stack, recover | S1–S3 | H-Mac | [ ] | [ ] |
+| **iOS clients** | secondary default, sub/primary | S9 | H-Phone | [ ] | [ ] |
+| **Corp OC + VPN** | SR work | S9.3 | H-Corp | [ ] | [ ] |
+| **Security** | нет public admin, порты, mTLS | B.10 | all | [ ] | [ ] |
+| **i18n EN/RU** | TG, TUI, доки | all | — | [ ] | [ ] |
+
+**Правило:** полный функционал = закрыты **все** строки (review+live или N/A), не только OpenWrt.
+
+---
+
+## 9. Заметки Phase B.1 — `deploy` + `edgeagent` (2026-10-02)
+
+**Просмотрено:** `internal/deploy/edge.go`, `sshutil.go`, `internal/edgeagent/apply.go`, стык guest stage.
+
+### Соответствует задумке
+
+| Тема | Вывод |
+|------|--------|
+| Порядок | Provision без harden → network → guest `--stage` → harden → reboot |
+| SSH | Пароль пока задан; после New root — новый пароль |
+| Staged UCI | Только commit, без reload посреди SSH |
+| Ash | Echo без голых `()` (0.9.191); значения в кавычках |
+| Dropbear | stdin / без SFTP (0.9.186–188) |
+| Abort | Ошибка network/guest валит деплой |
+| LuCI | Пароль на provision; harden только SSH |
+
+### Остаточные риски
+
+| Риск | Уровень | Дальше |
+|------|---------|--------|
+| Guest на `radio0` | Высокий на части плат | B.2 / D.6 |
+| Имена `default_radio0/1` | Средний | probe wireless |
+| `apply_template` на first-boot | Низкий | явный apply после approve |
+| Harden fail = warn | Средний | опция abort |
+| Flash Cudy + NVR на edge | Высокий | политика буфера |
+
+### Вердикт B.1
+
+Код first-boot **согласован** с дизайном после **0.9.191**. Live **D.** обязателен.  
+**Ревью B.1 (код): сделано.** Live открыт.
+

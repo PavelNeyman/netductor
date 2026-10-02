@@ -65,7 +65,7 @@ netductor-op version       # expect 0.9.179
 
 - EN: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md)
 - RU: [ru/VERIFICATION-PLAN.md](ru/VERIFICATION-PLAN.md)
-- Progress checkboxes live in those files. Next code-review session: **Phase B.1** (`deploy` + `edgeagent`).
+- Progress checkboxes live in those files. Phase **B.1 done** (code). Next: **B.2** agent guest/luci/vpn — then full matrix §8. Live OpenWrt still open.
 
 ## Not done / owner
 
