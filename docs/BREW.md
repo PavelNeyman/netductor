@@ -4,6 +4,8 @@
 
 # Homebrew formula (Mac)
 
+**Current Formula version tracks GitHub latest op release** (see `Formula/netductor-op.rb`).
+
 ## Hard rule (locked)
 
 **Never** ship `sha256 :no_check` in `Formula/netductor.rb`.

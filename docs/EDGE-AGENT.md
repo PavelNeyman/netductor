@@ -38,7 +38,7 @@ Template field (default on new templates):
 1. Route rule **`protocol: dns` → `hijack-dns`**: DNS packets seen by sing-box are handled by its DNS module (not leaked “raw” to a random upstream on WAN alone).
 2. DNS servers in client config:
    - **`ya`**: `77.88.8.8` — used for suffixes `.ru` / `.р` / `.su` (no detour through VLESS).
-   - **`remote` / `remote2`**: `9.9.9.9` / `1.1.1.1` with **`detour: auto|proxy`** — resolution for the rest goes **through the VPN path** (secondary). That is the “LAN uses DNS over the same path as web traffic” behaviour; blocky on primary still sits on the control plane — edge does not talk to `127.0.0.1:53` on primary.
+   - **`remote` / `remote2`**: `1.1.1.1` / `9.9.9.9` (CF first) with **`detour: auto|proxy`** — resolution for the rest goes **through the VPN path** (secondary). That is the “LAN uses DNS over the same path as web traffic” behaviour; blocky on primary still sits on the control plane — edge does not talk to `127.0.0.1:53` on primary.
 3. **`dns: wan`**: do not rely on hijack + remote detour (ISP/resolver on WAN).
 4. **`dns: off`**: no dedicated DNS block in client JSON (OpenWrt dnsmasq defaults).
 

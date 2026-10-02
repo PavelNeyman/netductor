@@ -38,7 +38,7 @@
 1. Правило маршрута **`protocol: dns` → `hijack-dns`**: DNS, который видит sing-box, обрабатывается его DNS-модулем (не «сырой» уход на случайный upstream только на WAN).
 2. DNS-серверы в клиентском конфиге:
    - **`ya`**: `77.88.8.8` — для суффиксов `.ru` / `.рф` / `.su` (**без** detour через VLESS).
-   - **`remote` / `remote2`**: `9.9.9.9` / `1.1.1.1` с **`detour: auto|proxy`** — остальное резолвится **по пути VPN** (secondary). Это режим «DNS LAN идёт тем же путём, что и веб»; blocky на primary остаётся на control plane — edge **не** ходит на `127.0.0.1:53` primary.
+   - **`remote` / `remote2`**: `1.1.1.1` / `9.9.9.9` (CF first) с **`detour: auto|proxy`** — остальное резолвится **по пути VPN** (secondary). Это режим «DNS LAN идёт тем же путём, что и веб»; blocky на primary остаётся на control plane — edge **не** ходит на `127.0.0.1:53` primary.
 3. **`dns: wan`**: без упора на hijack + remote detour (резолвер ISP/WAN).
 4. **`dns: off`**: без отдельного DNS-блока в JSON клиента (дефолты dnsmasq OpenWrt).
 

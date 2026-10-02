@@ -42,7 +42,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Owner next
 
-- [ ] Force-update live VPS/nodes to **≥0.9.172** if lagging — `netductor stack apply v0.9.172` (+ OpenWrt `agent_update`) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
+- [ ] Force-update live VPS/nodes to **≥0.9.181** if lagging — `netductor stack apply v0.9.181` (+ OpenWrt `agent_update`) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
 - [ ] Dual-node smoke after update (VPN, bot, stack, secondary, `/sub/` + redirect)
 - [x] Edge template VPN UI + policy hardening (0.9.164–170)
 - [x] Remove legacy VPS admin UI (0.9.171)

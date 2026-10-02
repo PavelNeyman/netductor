@@ -7,7 +7,7 @@
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
 
-**Release baseline: v0.9.172** (operator/node split; edge VPN template UI+hardening; sole op Web UI) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
+**Release baseline: v0.9.181** (guest visible default; WAN DNS hints; op Web sole UI) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
 
 Progress: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 

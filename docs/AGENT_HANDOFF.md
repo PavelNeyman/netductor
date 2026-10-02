@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.180** (2026-10-02). Guest visible default; `--hidden=1` fixed; Web pass/LuCI prefill.
+**Stop line: v0.9.181** (2026-10-02). WAN DNS hints; guest visible default; `--hidden=1`; Web pass/LuCI prefill.
 
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
@@ -9,7 +9,7 @@
 
 | Item | State |
 |--|--|
-| **Release** | **v0.9.180** — assets full; Formula `netductor.rb` + `netductor-op.rb` |
+| **Release** | **v0.9.181** — assets full; Formula `netductor.rb` + `netductor-op.rb` (SHA verified) |
 | **Planes** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Only** `internal/operator/web` (embed in op). Legacy `runtime/api/admin` **removed** (0.9.171) |
 | **Edge VPN template** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
@@ -20,6 +20,8 @@
 
 ## Recent versions (short)
 
+- **0.9.181** — WAN DNS space/comma normalize + Web/TUI hints (recommend 1.1.1.1 9.9.9.9)
+- **0.9.180** — guest UI hints; handoff; template bind needs device_id
 - **0.9.179** — fix agent `guest enable --hidden=1` after default-visible
 - **0.9.178** — guest SSID **visible by default** (optional hidden); Web/TUI/CLI/agent
 - **0.9.177** — Web password toggle on Installer load; LuCI primary_key prefill + device_id help
@@ -37,7 +39,7 @@
 
 ```bash
 # primary
-netductor stack apply v0.9.180
+netductor stack apply v0.9.181
 # OpenWrt: agent_update to matching release + apply_template after template Save
 # Mac
 brew reinstall netductor   # or Formula netductor-op
