@@ -429,23 +429,21 @@ func secondaryUpgrade(tag string) (bool, string) {
 		log.WriteString("updated " + dest + " (" + fmt.Sprintf("%d", st.Size()) + " bytes)\n")
 		return nil
 	}
+	// Secondary unit: ExecStart=/usr/local/bin/netductor secondary agent
+	// OpenWrt netductor-agent binary must not be installed on secondary VPS.
 	nodeAsset := "netductor-linux-" + arch
-	agentAsset := "netductor-agent-linux-" + arch
 	if err := fetch(nodeAsset, "/usr/local/bin/netductor"); err != nil {
 		log.WriteString(err.Error() + "\n")
 		return false, log.String()
 	}
-	if err := fetch(agentAsset, "/usr/local/bin/netductor-agent"); err != nil {
-		log.WriteString("agent: " + err.Error() + "\n")
-		// node already updated; still write VERSION so status is honest
-	}
 	_ = os.WriteFile("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644)
 	_ = exec.Command("systemctl", "try-restart", "sing-box").Run()
+	// Delay restart so reportCmdDone can reach primary first.
 	go func() {
-		time.Sleep(3 * time.Second)
+		time.Sleep(5 * time.Second)
 		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Run()
 	}()
-	log.WriteString("DONE v" + tag + "\n")
+	log.WriteString("DONE v" + tag + " (node binary; unit=netductor secondary agent)\n")
 	return true, log.String()
 }
 
@@ -538,9 +536,21 @@ func secondaryBackupPull() (bool, string) {
 		return false, err.Error()
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, err.Error()
+	var resp *http.Response
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		resp, lastErr = client.Do(req)
+		if lastErr == nil {
+			break
+		}
+		// Primary may restart API during stack apply — brief EOF/reset is common.
+		time.Sleep(time.Duration(attempt*2) * time.Second)
+		// rebuild request (Body was nil; URL reusable)
+		req, _ = http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/latest", nil)
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+	if lastErr != nil {
+		return false, fmt.Sprintf("after retries: %v", lastErr)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
