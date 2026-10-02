@@ -90,8 +90,8 @@ func isLoopback(r *http.Request) bool {
 // MaxBodyBytes default request body limit for JSON APIs.
 const MaxBodyBytes = 16 << 20 // 16 MiB — JSON APIs + modest uploads
 
-// clientIP returns the remote IP (X-Real-IP / X-Forwarded-For first hop / RemoteAddr).
-
+// clientIP returns the peer IP from RemoteAddr only (does not trust X-Forwarded-For / X-Real-IP).
+// Use behind a trusted reverse proxy only if you terminate TLS locally and pass the real peer via the socket.
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

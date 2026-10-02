@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,6 +19,8 @@ func tmplRoot() string {
 
 type Template map[string]any
 
+var tmplMu sync.Mutex // serializes SaveTemplate (read-modify-write); GetTemplate unlocked (atomic rename)
+
 func sanitizeID(id string) string {
 	return strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
@@ -28,6 +31,8 @@ func sanitizeID(id string) string {
 }
 
 func SaveTemplate(id string, t Template) error {
+	tmplMu.Lock()
+	defer tmplMu.Unlock()
 	id = sanitizeID(id)
 	if id == "" {
 		return fmt.Errorf("empty id")

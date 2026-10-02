@@ -5,12 +5,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // runRedirectServe: open-redirect-safe landing for TG url buttons.
@@ -167,10 +169,67 @@ func allowedDeepLink(s string) bool {
 }
 
 
+
+// In-memory rate limit for public /sub/ (does not change URL or auth contract).
+var (
+	subRLMu sync.Mutex
+	subRL   = map[string]struct {
+		n     int
+		until int64
+	}{}
+)
+
+func subClientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// allowSubRequest: max per IP per window (default 60/min). Failed auth still counts.
+func allowSubRequest(ip string) bool {
+	const maxN = 60
+	const window = int64(60) // seconds
+	if ip == "" {
+		ip = "unknown"
+	}
+	now := time.Now().Unix()
+	subRLMu.Lock()
+	defer subRLMu.Unlock()
+	// opportunistic prune
+	if len(subRL) > 10000 {
+		for k, v := range subRL {
+			if now > v.until {
+				delete(subRL, k)
+			}
+		}
+	}
+	a, ok := subRL[ip]
+	if !ok || now > a.until {
+		subRL[ip] = struct {
+			n     int
+			until int64
+		}{n: 1, until: now + window}
+		return true
+	}
+	if a.n >= maxN {
+		return false
+	}
+	a.n++
+	subRL[ip] = a
+	return true
+}
+
 // GET /sub/{token} — base64 subscription body for one VPN user (token auth).
 func handleSubscription(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "method", 405)
+		return
+	}
+	if !allowSubRequest(subClientIP(r)) {
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "rate limited", http.StatusTooManyRequests)
 		return
 	}
 	tok := strings.TrimPrefix(r.URL.Path, "/sub/")
