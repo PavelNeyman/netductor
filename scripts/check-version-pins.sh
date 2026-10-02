@@ -22,7 +22,7 @@ check_file() {
 check_file bootstrap.sh
 check_file Formula/netductor.rb
 check_file README.md
-check_file runtime/api/admin/app.js
+check_file internal/operator/web/app.js
 check_file cmd/netductor-tg/format_sites.go
 check_file internal/secondary/agent.go
 check_file internal/deploy/version.go

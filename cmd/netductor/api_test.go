@@ -29,7 +29,7 @@ func apiEnv(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(root, "etc", "secrets"), 0o700)
 	_ = os.MkdirAll(filepath.Join(root, "etc", "sessions"), 0o700)
 	_ = os.MkdirAll(filepath.Join(root, "state", "edge"), 0o700)
-	_ = os.MkdirAll(filepath.Join(root, "opt", "runtime", "api", "admin"), 0o755)
+	_ = os.MkdirAll(filepath.Join(root, "state"), 0o755)
 	_ = os.WriteFile(filepath.Join(root, "etc", "secrets", "edge_bootstrap_token"),
 		[]byte("boot-token-at-least-32-characters-xx\n"), 0o600)
 }

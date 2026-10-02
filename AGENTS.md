@@ -121,7 +121,7 @@ Simplicity, idempotent installs, no secrets in repo, releases ship binaries, evo
 - Config/secrets: `/etc/netductor`
 - State: `/var/lib/netductor` (devices under `secondary/`; `relay/` read for migration)
 - Binaries: `/usr/local/bin/netductor`, `netductor-tg`
-- Data only under `/opt/netductor`: lampac volume, admin static (`runtime/api/admin`)
+- Data only under `/opt/netductor` / state dirs: lampac volume, profiles, secrets — **no VPS admin static** (UI is `internal/operator/web` in netductor-op)
 
 
 **Forbidden without approval:** replace sing-box/Blocky; default-on Kuma/Beszel/Lampac; secrets in git; multi-tenant SaaS; delete bash without Go replacement.

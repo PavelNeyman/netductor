@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 fail=0
 check() {
   local cmd="$1" pattern="$2"
-  if ! grep -RInq "$pattern" "$ROOT/cmd/netductor-tg" "$ROOT/cmd/netductor/tui"*.go "$ROOT/runtime/api/admin" 2>/dev/null; then
+  if ! grep -RInq "$pattern" "$ROOT/cmd/netductor-tg" "$ROOT/cmd/netductor-op" "$ROOT/internal/operator/web" "$ROOT/cmd/netductor/tui"*.go 2>/dev/null; then
     echo "MISSING UI surface for CLI group: $cmd (pattern $pattern)"
     fail=1
   else

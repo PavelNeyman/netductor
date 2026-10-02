@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/session"
 )
 
@@ -65,10 +64,6 @@ func requireSession(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	return true
-}
-
-func adminRoot() string {
-	return paths.AdminRoot()
 }
 
 func envOr(k, d string) string {
