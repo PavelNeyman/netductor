@@ -48,7 +48,7 @@ func applyGuestFromTemplate(tmpl map[string]any) string {
 	if gc.DeskPIN == "" && gc.DeskPINHash == "" {
 		gc.DeskPIN = "0000"
 	}
-	hidden := true
+	hidden := false // default visible
 	if v, ok := g["hidden"]; ok {
 		switch x := v.(type) {
 		case bool:

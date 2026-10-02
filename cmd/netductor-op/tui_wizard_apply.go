@@ -218,6 +218,7 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "pppoe_pass", Label: "PPPoE password", Secret: true, Short: "pppoe pass", Detail: ph("PPPoE password.", "Пароль PPPoE.")},
 			{Key: "guest", Label: "Guest Wi-Fi? (yes/no)", Value: "no", Short: "Guest SSID", Detail: ph("Separate guest SSID: internet only, no LAN, traffic bypasses VPN (ISP direct). Staff PIN/grant flow.", "Отдельный guest SSID: только интернет, без LAN, мимо VPN (провайдер). PIN/grant для продавца.")},
 			{Key: "guest_ssid", Label: "Guest SSID", Value: "Guest", Short: "guest name", Detail: ph("Guest network name.", "Имя гостевой сети.")},
+			{Key: "guest_hidden", Label: "Hide guest SSID? (yes/no)", Value: "no", Short: ph("Visible by default", "По умолчанию видимый"), Detail: ph("Default visible — better for phone join-QR. Yes = hidden network.", "По умолчанию в эфире — удобнее QR на телефоне. Yes = скрытая сеть.")},
 			{Key: "reboot", Label: "Reboot after provision? (yes/no)", Value: "yes",
 				Short:  ph("Reboot router", "Перезагрузить роутер"),
 				Detail: ph("Agent starts on boot and enrolls to primary.", "Агент стартует после boot и делает enroll.")},

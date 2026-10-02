@@ -644,7 +644,7 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 		WiFiSSID24: ssid24, WiFiKey24: key24,
 		WiFiSSID5: body.WiFiSSID5, WiFiKey5: body.WiFiKey5,
 		GuestEnable: body.GuestEnable, GuestSSID: body.GuestSSID, GuestPIN: body.GuestPIN, GuestPSK: body.GuestPSK,
-		GuestVisible: body.GuestHidden == "0" || body.GuestHidden == "false",
+		GuestVisible: guestSSIDVisible(body.GuestHidden),
 		WANProto: body.WANProto, WANIP: body.WANIP, WANMask: body.WANMask, WANGateway: body.WANGateway, WANDNS: body.WANDNS,
 		PPPoEUser: body.PPPoEUser, PPPoEPass: body.PPPoEPass, PPPoEService: body.PPPoEService, PPPoEAC: body.PPPoEAC,
 		Reboot: body.Reboot,

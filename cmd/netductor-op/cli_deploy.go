@@ -31,7 +31,7 @@ edge-luci:
 edge:
   --router --id --new-root-password|--skip-root-pass [--password] [--guest-visible] …
   --primary --primary-key [--primary-key-passphrase] [--server https://IP:8789]
-  --guest [--guest-ssid] [--guest-pin] [--guest-psk] [--reboot]
+  --guest [--guest-ssid] [--guest-pin] [--guest-psk] [--guest-visible|--guest-hidden] [--reboot]
   --configure-net
   --lan-ip --lan-mask --dhcp-start --dhcp-limit
   --wifi-ssid-24 --wifi-key-24 [--wifi-ssid-5] [--wifi-key-5]
@@ -282,6 +282,9 @@ See: netductor tui → Setup wizard`)
 				o.AgentArch = args[i]
 			case a == "--guest":
 				o.GuestEnable = true
+				o.GuestVisible = true // default visible SSID
+			case a == "--guest-hidden":
+				o.GuestVisible = false
 			case a == "--reboot":
 				o.Reboot = true
 			case a == "--guest-ssid" && i+1 < len(args):

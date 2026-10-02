@@ -32,7 +32,7 @@ type EdgeOpts struct {
 	GuestSSID            string
 	GuestPIN             string
 	GuestPSK             string
-	GuestVisible         bool // false (default) = hidden SSID
+	GuestVisible         bool // true = broadcast SSID (default for forms); false = hidden
 	// Optional first-boot network (applied via UCI on router + edge template)
 	NetConfigure bool
 	LANIP        string

@@ -1,3 +1,8 @@
+## 0.9.178
+
+- Guest SSID **visible by default** (Web/TUI/CLI/agent template); optional hidden
+- Confirmed: DeployEdge SSH arch probe before agent download (already in 0.9.15x+)
+
 ## 0.9.177
 
 - Web: password show/hide on page load (Installer + all forms; was Control-only)

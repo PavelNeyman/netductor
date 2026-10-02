@@ -15,6 +15,17 @@ import (
 // FieldGetter abstracts TUI fieldVal / maps.
 type FieldGetter func(key string) string
 
+func guestSSIDVisible(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	switch v {
+	case "1", "true", "yes", "hidden", "hide":
+		return false
+	default:
+		// empty, "0", "false", "no", "visible" → broadcast SSID
+		return true
+	}
+}
+
 func yesish(s string) bool {
 	s = strings.TrimSpace(strings.ToLower(s))
 	return s == "y" || s == "yes" || s == "1" || s == "true" || s == "on" || s == "да"
@@ -215,7 +226,7 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		PPPoEService:         get("pppoe_service"),
 		PPPoEAC:              get("pppoe_ac"),
 		GuestEnable:          yesish(get("guest")),
-		GuestVisible:         get("guest_hidden") == "0" || get("guest_hidden") == "false",
+		GuestVisible:         guestSSIDVisible(get("guest_hidden")),
 		GuestSSID:            strings.TrimSpace(get("guest_ssid")),
 		GuestPIN:             get("guest_pin"),
 		GuestPSK:             get("guest_psk"),

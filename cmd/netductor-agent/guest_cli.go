@@ -50,7 +50,7 @@ func runGuestCLI(args []string) {
 	case "enable":
 		gc, _ := guest.LoadConfig(guestConfigPath())
 		gc.Enabled = true
-		gc.Hidden = true
+		gc.Hidden = false // default visible SSID
 		if gc.DeskPort == 0 {
 			gc.DeskPort = 7880
 		}
