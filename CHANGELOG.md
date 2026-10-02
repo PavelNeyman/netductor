@@ -1,3 +1,8 @@
+## 0.9.188
+
+- OpenWrt provision: no base64 on router — mTLS + root pass via ssh stdin
+- Filter OpenSSH PQ warnings from edge error text
+
 ## 0.9.187
 
 - operator token persisted in ~/.netductor/operator_token (no rotate on every restart)

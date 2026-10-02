@@ -1,7 +1,7 @@
 package edge
 
 import (
-	"encoding/base64"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -85,31 +85,39 @@ func Provision(opts ProvisionOpts) error {
 	cfg := fmt.Sprintf("SERVER=%s\nTOKEN=%s\nDEVICE_ID=%s\nINTERVAL=60\n",
 		server, boot, opts.DeviceID)
 
+	// OpenWrt often has no base64 applet — push binary material via ssh stdin, not echo|base64 -d.
 	mtlsBlock := ""
 	if len(opts.MTLSCA) > 0 && len(opts.MTLSCert) > 0 && len(opts.MTLSKey) > 0 {
-		enc := func(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
-		mtlsBlock = fmt.Sprintf(`
-mkdir -p /etc/netductor-agent/mtls
-echo '%s' | base64 -d > /etc/netductor-agent/mtls/ca.crt
-echo '%s' | base64 -d > /etc/netductor-agent/mtls/client.crt
-echo '%s' | base64 -d > /etc/netductor-agent/mtls/client.key
-chmod 700 /etc/netductor-agent/mtls
-chmod 600 /etc/netductor-agent/mtls/*
-`, enc(opts.MTLSCA), enc(opts.MTLSCert), enc(opts.MTLSKey))
+		_ = runSSH(opts.Password, sshBase, opts.SSHTarget, "mkdir -p /etc/netductor-agent/mtls && chmod 700 /etc/netductor-agent/mtls")
+		if err := putBytesSSH(opts.Password, sshBase, opts.SSHTarget, opts.MTLSCA, "/etc/netductor-agent/mtls/ca.crt"); err != nil {
+			return fmt.Errorf("put mtls ca: %w", err)
+		}
+		if err := putBytesSSH(opts.Password, sshBase, opts.SSHTarget, opts.MTLSCert, "/etc/netductor-agent/mtls/client.crt"); err != nil {
+			return fmt.Errorf("put mtls cert: %w", err)
+		}
+		if err := putBytesSSH(opts.Password, sshBase, opts.SSHTarget, opts.MTLSKey, "/etc/netductor-agent/mtls/client.key"); err != nil {
+			return fmt.Errorf("put mtls key: %w", err)
+		}
+		mtlsBlock = "chmod 600 /etc/netductor-agent/mtls/* 2>/dev/null || true\n"
 	}
 
-	// Optional root password change before SSH password auth is disabled.
+	// Optional root password: file push avoids base64 and shell metachar issues.
 	setPass := ""
 	if np := strings.TrimSpace(opts.NewRootPassword); np != "" {
-		b64 := base64.StdEncoding.EncodeToString([]byte(np))
-		setPass = fmt.Sprintf(`
-# set root password (optional, before harden)
-NEWP=$(echo '%s' | base64 -d 2>/dev/null) || NEWP=$(echo '%s' | base64 -D 2>/dev/null)
-if [ -n "$NEWP" ]; then
-  printf '%%s\n%%s\n' "$NEWP" "$NEWP" | passwd root 2>/dev/null || \
-    (command -v chpasswd >/dev/null && printf 'root:%%s\n' "$NEWP" | chpasswd) || true
+		if err := putBytesSSH(opts.Password, sshBase, opts.SSHTarget, []byte(np), "/tmp/nd-root-pass"); err != nil {
+			return fmt.Errorf("put root pass: %w", err)
+		}
+		setPass = `
+# set root password (optional, before harden) — no base64 needed
+if [ -f /tmp/nd-root-pass ]; then
+  NEWP=$(cat /tmp/nd-root-pass)
+  rm -f /tmp/nd-root-pass
+  if [ -n "$NEWP" ]; then
+    printf '%s\n%s\n' "$NEWP" "$NEWP" | passwd root 2>/dev/null || \
+      (command -v chpasswd >/dev/null && printf 'root:%s\n' "$NEWP" | chpasswd) || true
+  fi
 fi
-`, b64, b64)
+`
 	}
 
 	harden := ""
@@ -178,9 +186,27 @@ fi
 	cmd.Stdin = strings.NewReader(script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("ssh: %s %v", out, err)
+		return fmt.Errorf("ssh: %s %v", cleanSSHNoise(string(out)), err)
 	}
 	return nil
+}
+
+func cleanSSHNoise(s string) string {
+	var lines []string
+	for _, line := range strings.Split(s, "\n") {
+		l := strings.TrimSpace(line)
+		if l == "" {
+			continue
+		}
+		if strings.Contains(l, "post-quantum key exchange") || strings.Contains(l, "store now, decrypt later") || strings.Contains(l, "openssh.com/pq.html") {
+			continue
+		}
+		if strings.HasPrefix(l, "**") {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
 func forceAgentMTLSURL(server string) string {
@@ -211,25 +237,31 @@ func sshpassCmd(password string, args []string) *exec.Cmd {
 
 // putFileSSH copies localPath to remotePath via ssh stdin (Dropbear-safe; no SFTP subsystem).
 func putFileSSH(password string, sshBase []string, target, localPath, remotePath string) error {
-	f, err := os.Open(localPath)
+	b, err := os.ReadFile(localPath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	// remote: cat > path (quote path)
+	return putBytesSSH(password, sshBase, target, b, remotePath)
+}
+
+func putBytesSSH(password string, sshBase []string, target string, data []byte, remotePath string) error {
 	remoteCmd := "cat > " + shellQuotePath(remotePath)
 	args := append(append([]string{}, sshBase...), target, remoteCmd)
 	cmd := sshpassCmd(password, append([]string{"ssh"}, args...))
-	cmd.Stdin = f
+	cmd.Stdin = bytes.NewReader(data)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		// last resort: scp -O (OpenSSH 8.7+)
-		scpArgs := append(append([]string{"scp", "-O"}, sshBase...), localPath, target+":"+remotePath)
-		cmd2 := sshpassCmd(password, scpArgs)
-		out2, err2 := cmd2.CombinedOutput()
-		if err2 != nil {
-			return fmt.Errorf("ssh-pipe: %s (%v); scp -O: %s (%v)", strings.TrimSpace(string(out)), err, strings.TrimSpace(string(out2)), err2)
-		}
+		return fmt.Errorf("ssh-pipe put %s: %s (%v)", remotePath, strings.TrimSpace(string(out)), err)
+	}
+	return nil
+}
+
+func runSSH(password string, sshBase []string, target, remoteCmd string) error {
+	args := append(append([]string{}, sshBase...), target, remoteCmd)
+	cmd := sshpassCmd(password, append([]string{"ssh"}, args...))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ssh: %s (%v)", strings.TrimSpace(string(out)), err)
 	}
 	return nil
 }
