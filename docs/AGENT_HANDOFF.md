@@ -9,7 +9,7 @@
 
 | Item | State |
 |--|--|
-| **Release** | **v0.9.189** — 11 assets; Formula SHA OK |
+| **Release** | **v0.9.191** — 11 assets (mipsle+riscv64); Formula SHA OK |
 | **Planes** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
 | **Web UI** | **Only** `internal/operator/web` (embed in op). Legacy `runtime/api/admin` **removed** (0.9.171) |
 | **Edge VPN template** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
