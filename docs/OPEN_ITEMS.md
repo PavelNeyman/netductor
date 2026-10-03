@@ -4,6 +4,15 @@
 
 Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
+## Design plans (docs)
+
+- [ ] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) — service catalog + per VPN-user and edge policies (checkboxes all UIs); sing-box enforcement
+- [ ] [HOST-AUDIT](HOST-AUDIT.md) — full hoster audit procedure; `collect-host-audit.sh`; baseline; doctor FAIL (partial 0.9.192–194)
+- [ ] Expand host-audit denylist (RMM/otel/avahi) — keep script ↔ Go in sync
+- [ ] Firewall status in all UIs + alerts
+- [ ] Baseline snapshot at end of install
+
+
 ## Closed
 
 - [x] Architecture freeze (code + docs)

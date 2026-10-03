@@ -3,6 +3,19 @@
 
 **Stop line: v0.9.192** (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
 
+
+## Docs added (2026-10-03)
+
+| Doc | Purpose |
+|--|--|
+| [PLAN-SERVICE-ACCESS-POLICY.md](PLAN-SERVICE-ACCESS-POLICY.md) (+ ru/) | VPN user + OpenWrt edge service access policies (catalog + checkboxes); phased P0–P4 |
+| [HOST-AUDIT.md](HOST-AUDIT.md) (+ ru/) | Hoster agent / listen surface audit; collect logs for offline analysis |
+| `scripts/collect-host-audit.sh` | Full text audit bundle |
+| `scripts/audit-hoster-agents.sh` | Expanded denylist (sync with `host_agents.go`) |
+
+**Next implementer:** HOST-AUDIT operational steps on live VPS; service-policy starts at Phase P0 (no UI before enforcement).
+
+
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
 ## Current baseline

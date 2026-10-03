@@ -1,3 +1,16 @@
+
+## Документы (2026-10-03)
+
+| Док | Зачем |
+|--|--|
+| [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) | Политики доступа user + edge; фазы P0–P4 |
+| [HOST-AUDIT](HOST-AUDIT.md) | Аудит агентов хостера; сбор логов |
+| `scripts/collect-host-audit.sh` | Полный текстовый bundle |
+| `scripts/audit-hoster-agents.sh` | Расширенный denylist |
+
+**Дальше:** прогон HOST-AUDIT на живых VPS; policy — с фазы P0 (UI без enforcement не делать).
+
+
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 

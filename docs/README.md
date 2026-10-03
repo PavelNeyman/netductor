@@ -22,3 +22,9 @@ Full set under `docs/` and `docs/ru/` — architecture, ports, security, backup,
 - Not required to be word-for-word; required to carry **the same meaning completely** (all sections, steps, warnings, parameters).
 - **Never** treat RU as “condensed” or “shorter by design”. If EN has detail, RU must have that detail in meaning.
 - Updating only one language = unfinished work.
+
+## Security & plans
+
+- [HOST-AUDIT.md](HOST-AUDIT.md) — hoster / listen audit
+- [PLAN-SERVICE-ACCESS-POLICY.md](PLAN-SERVICE-ACCESS-POLICY.md) — service access policies
+

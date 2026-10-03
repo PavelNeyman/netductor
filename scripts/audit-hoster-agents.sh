@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Audit VPS for hoster monitoring / remote config-management agents.
+# Audit VPS for hoster monitoring / remote config-management / RMM agents.
 # Safe read-only by default. --purge attempts removal (needs root).
 # Usage:
 #   sudo bash audit-hoster-agents.sh
 #   sudo bash audit-hoster-agents.sh --purge
+# Keep in sync with internal/install/host_agents.go
 set -euo pipefail
 PURGE=0
 [[ "${1:-}" == "--purge" ]] && PURGE=1
@@ -16,19 +17,40 @@ UNITS=(
   puppet puppet-agent pxp-agent
   chef-client landscape-client
   nrpe nagios-nrpe-server snmpd monit glances
-  wazuh-agent ossec anydesk teamviewerd
+  wazuh-agent ossec ossec-hids
+  anydesk teamviewerd
+  otelcol otelcol-contrib
+  filebeat metricbeat elastic-agent
+  avahi-daemon cups cups-browsed rpcbind
+  meshagent tacticalrmm
 )
+
 PKGS=(
   zabbix-agent zabbix-agent2 zabbix-release telegraf datadog-agent
   prometheus-node-exporter collectd netdata
   salt-minion salt-master salt-common puppet-agent chef
   landscape-client nagios-nrpe-server snmpd monit wazuh-agent
+  avahi-daemon cups rpcbind
+  amazon-cloudwatch-agent
 )
-PORTS=(10050 10051 9100 9273 8125 161 162 4505 4506 8140 5666 19999 2812)
-PROCS=(zabbix_agentd zabbix_agent2 salt-minion telegraf datadog-agent node_exporter ossec-agentd wazuh-agentd puppet chef-client)
+
+PORTS=(10050 10051 9100 9273 8125 161 162 4505 4506 8140 5666 19999 2812 5353 631)
+
+PROCS=(
+  zabbix_agentd zabbix_agent2 salt-minion telegraf datadog-agent
+  node_exporter ossec-agentd wazuh-agentd puppet chef-client
+  otelcol filebeat metricbeat
+)
+
+PATHS=(
+  /opt/zabbix /etc/zabbix /etc/salt /etc/puppet /etc/chef
+  /opt/datadog-agent /etc/telegraf /usr/local/nagios
+  /opt/splunkforwarder /etc/ossec /var/ossec
+)
 
 echo "=== hoster agent audit $(hostname) $(date -u +%Y-%m-%dT%H:%MZ) ==="
 echo
+
 echo "-- systemd units --"
 found_u=0
 for u in "${UNITS[@]}"; do
@@ -55,7 +77,7 @@ fi
 [[ $found_p -eq 0 ]] && echo "(none of watched packages installed)"
 
 echo
-echo "-- listening ports --"
+echo "-- listening ports (denylist) --"
 found_port=0
 SS=$(ss -tuln 2>/dev/null || netstat -tuln 2>/dev/null || true)
 for port in "${PORTS[@]}"; do
@@ -72,7 +94,7 @@ echo "-- processes --"
 found_pr=0
 PS=$(ps ax -o comm= 2>/dev/null || true)
 for pr in "${PROCS[@]}"; do
-  if echo "$PS" | grep -qx "$pr" || echo "$PS" | grep -q "$pr"; then
+  if echo "$PS" | grep -qx "$pr" || echo "$PS" | grep -Fq "$pr"; then
     echo "FIND process=$pr"
     found_pr=1
   fi
@@ -80,12 +102,15 @@ done
 [[ $found_pr -eq 0 ]] && echo "(none of watched process names)"
 
 echo
-echo "-- suspicious paths (names only) --"
-for d in /opt/zabbix /etc/zabbix /etc/salt /etc/puppet /etc/chef /opt/datadog-agent /etc/telegraf /usr/local/nagios; do
+echo "-- suspicious paths --"
+found_path=0
+for d in "${PATHS[@]}"; do
   if [[ -e "$d" ]]; then
     echo "FIND path=$d"
+    found_path=1
   fi
 done
+[[ $found_path -eq 0 ]] && echo "(none of watched paths)"
 
 echo
 if [[ $PURGE -eq 1 ]]; then
@@ -105,7 +130,7 @@ else
   echo "or: netductor host-audit --purge"
 fi
 
-if [[ $found_u -eq 1 || $found_p -eq 1 || $found_port -eq 1 || $found_pr -eq 1 ]]; then
+if [[ $found_u -eq 1 || $found_p -eq 1 || $found_port -eq 1 || $found_pr -eq 1 || $found_path -eq 1 ]]; then
   echo
   echo "RESULT: FINDINGS"
   exit 1

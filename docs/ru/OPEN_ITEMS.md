@@ -4,6 +4,15 @@
 
 План: [ARCHITECTURE-PLAN](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md)
 
+## Планы (документы)
+
+- [ ] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) — каталог сервисов + политики VPN-user и edge (галочки во всех UI); enforcement sing-box
+- [ ] [HOST-AUDIT](HOST-AUDIT.md) — полный аудит хостера; `collect-host-audit.sh`; baseline; doctor FAIL (частично 0.9.192–194)
+- [ ] Расширить denylist host-audit (RMM/otel/avahi) — синхрон script ↔ Go
+- [ ] Статус firewall во всех UI + алерты
+- [ ] Baseline snapshot в конце install
+
+
 ## Закрыто
 
 

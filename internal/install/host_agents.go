@@ -24,6 +24,8 @@ var unwantedUnits = []string{
 	"ossec", "wazuh-agent",
 	"besclient", "scaleft-proxy", // rare RMM
 	"anydesk", "teamviewerd",
+	"otelcol", "otelcol-contrib", "filebeat", "elastic-agent",
+	"avahi-daemon", "cups", "cups-browsed", "rpcbind",
 }
 
 var unwantedPackages = []string{
@@ -35,20 +37,24 @@ var unwantedPackages = []string{
 	"landscape-client", "nagios-nrpe-server", "monitoring-plugins",
 	"snmpd", "snmp", "monit",
 	"wazuh-agent", "ossec-hids-agent",
+	"avahi-daemon", "cups", "rpcbind",
+	"amazon-cloudwatch-agent",
 }
 
 // Ports often bound by hoster agents (doctor WARN if listening on non-loopback).
 var unwantedListenPorts = []string{
 	"10050", "10051", // zabbix
-	"9100",           // node_exporter
-	"9273",           // telegraf prom
-	"8125",           // statsd
-	"161", "162",     // snmp
-	"4505", "4506",   // salt
-	"8140",           // puppet
-	"5666",           // nrpe
-	"19999",          // netdata
-	"2812",           // monit
+	"9100",       // node_exporter
+	"9273",       // telegraf prom
+	"8125",       // statsd
+	"161", "162", // snmp
+	"4505", "4506", // salt
+	"8140",  // puppet
+	"5666",  // nrpe
+	"19999", // netdata
+	"2812",  // monit
+	"5353",  // avahi
+	"631",   // cups
 }
 
 // PurgeHostMonitoring removes common VPS-image monitoring + CM agents.
