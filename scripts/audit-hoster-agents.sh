@@ -26,7 +26,7 @@ UNITS=(
 )
 
 PKGS=(
-  zabbix-agent zabbix-agent2 zabbix-release telegraf datadog-agent
+  zabbix-agent zabbix-agent2 zabbix-release zabbix-agent-timeweb telegraf datadog-agent
   prometheus-node-exporter collectd netdata
   salt-minion salt-master salt-common puppet-agent chef
   landscape-client nagios-nrpe-server snmpd monit wazuh-agent
@@ -73,6 +73,26 @@ if command -v dpkg >/dev/null 2>&1; then
       found_p=1
     fi
   done
+fi
+# Substring match (hoster forks e.g. zabbix-agent-timeweb)
+if command -v dpkg-query >/dev/null 2>&1; then
+  while IFS=$'\t' read -r pkg st; do
+    case "$st" in
+      *installed*) ;;
+      *) continue ;;
+    esac
+    low=$(echo "$pkg" | tr '[:upper:]' '[:lower:]')
+    for sub in zabbix telegraf datadog newrelic salt-minion puppet wazuh ossec cloudwatch; do
+      if echo "$low" | grep -q "$sub"; then
+        # skip if already reported exact
+        if ! echo "$pkg" | grep -Eqx "$(echo "${PKGS[*]}" | tr ' ' '|')"; then
+          echo "FIND package=$pkg installed (pattern:$sub)"
+          found_p=1
+        fi
+        break
+      fi
+    done
+  done < <(dpkg-query -W -f='${Package}\t${Status}\n' 2>/dev/null || true)
 fi
 [[ $found_p -eq 0 ]] && echo "(none of watched packages installed)"
 
@@ -124,6 +144,9 @@ if [[ $PURGE -eq 1 ]]; then
   if command -v netductor >/dev/null 2>&1; then
     netductor host-audit --purge 2>/dev/null || true
   fi
+  rm -rf /etc/zabbix /opt/zabbix /var/log/zabbix /etc/telegraf /etc/datadog-agent \
+    /etc/salt /etc/puppet /etc/puppetlabs /etc/chef /etc/ossec /var/ossec \
+    /opt/splunkforwarder /opt/tacticalrmm /opt/meshagent 2>/dev/null || true
   echo "purge done — re-run without --purge to verify"
 else
   echo "read-only. To remove findings: sudo bash $0 --purge"

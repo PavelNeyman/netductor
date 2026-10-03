@@ -234,9 +234,10 @@ func runDoctorNative() int {
 	if os.Getenv("NETDUCTOR_FAIL2BAN") != "0" {
 		warnCheck("fail2ban active", activeUnit("fail2ban"))
 	}
-		// Hoster monitoring / CM agents
+	// Hoster monitoring / CM agents (units, ports, residual packages/paths)
 	hu, hp := install.HostAgentFindings()
-	if len(hu) == 0 && len(hp) == 0 {
+	hpkgs, hpaths := install.HostAgentResidual()
+	if len(hu) == 0 && len(hp) == 0 && len(hpkgs) == 0 && len(hpaths) == 0 {
 		doctorPrintln("OK   no hoster monitoring/CM agents")
 		ok++
 	} else {
@@ -247,6 +248,14 @@ func runDoctorNative() int {
 		if len(hp) > 0 {
 			doctorPrintf("WARN hoster-like ports open: %s\n", strings.Join(hp, ", "))
 			warn++
+		}
+		if len(hpkgs) > 0 {
+			doctorPrintf("FAIL hoster packages installed: %s\n", strings.Join(hpkgs, ", "))
+			fail++
+		}
+		if len(hpaths) > 0 {
+			doctorPrintf("FAIL hoster residual paths: %s\n", strings.Join(hpaths, ", "))
+			fail++
 		}
 	}
 
