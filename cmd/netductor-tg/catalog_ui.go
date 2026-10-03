@@ -225,7 +225,8 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 	case "home", "overview":
 		body := formatStatusPretty()
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🧱 Stack", "m:stack", "primary"), btn("🔄 Updates", "m:versions", "")},
+			{btn("🧱 Stack", "m:stack", "primary"), btn("🔥 FW", "m:fw", "")},
+			{btn("🔄 Updates", "m:versions", "")},
 			{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
 			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 		}}

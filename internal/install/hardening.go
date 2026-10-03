@@ -3,11 +3,9 @@ package install
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/hardening"
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
 func InstallHardening() error {
@@ -23,23 +21,11 @@ func InstallHardening() error {
 		"net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n"), 0o644)
 	_ = run("sysctl", "--system")
 
-	if _, err := exec.LookPath("ufw"); err == nil {
-		sshPort := hardening.SSHPort()
-		_ = run("ufw", "allow", fmt.Sprintf("%d/tcp", sshPort))
-		// keep 22 open during transition so operators are not locked out after Port change
-		_ = run("ufw", "allow", "22/tcp")
-		_ = run("ufw", "allow", "443/tcp")
-		redir := ndconfig.RedirectHTTPSPort()
-		_ = run("ufw", "allow", redir+"/tcp")
-		_ = run("ufw", "allow", redir+"/udp")
-		_ = run("ufw", "delete", "allow", "8788/tcp")
-		_ = run("ufw", "deny", "8788/tcp")
-		_ = ApplyAgentFirewall()
-		out, _ := runOut("ufw", "status")
-		if !strings.Contains(out, "Status: active") {
-			_ = run("bash", "-c", "echo y | ufw --force enable")
-		}
+	// Host firewall: always try ufw install; iptables fallback inside firewall.ApplyRole.
+	if err := firewall.ApplyRole("primary"); err != nil {
+		fmt.Fprintf(os.Stderr, "firewall apply primary: %v\n", err)
 	}
+	_ = ApplyAgentFirewall()
 	if err := EnsureSSHKeyAndHarden(); err != nil {
 		fmt.Fprintf(os.Stderr, "ssh harden: %v (continuing)\n", err)
 	}
@@ -52,6 +38,6 @@ func InstallHardening() error {
 	if err := ensureMTLSAtInstall(); err != nil {
 		fmt.Fprintf(os.Stderr, "mtls ensure: %v (continuing; serve will retry)\n", err)
 	}
-	fmt.Fprintf(os.Stderr, "hardening: ufw + mTLS :8789 + ssh key-only Port %d + fail2ban\n", hardening.SSHPort())
+	fmt.Fprintf(os.Stderr, "hardening: firewall + mTLS :8789 + ssh key-only Port %d + fail2ban\n", hardening.SSHPort())
 	return nil
 }

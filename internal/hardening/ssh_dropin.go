@@ -36,10 +36,32 @@ if [ -f /etc/ssh/sshd_config ]; then
   sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
   sed -i 's/^Port /# Port /' /etc/ssh/sshd_config
 fi
+# Host firewall (secondary): install ufw or leave for netductor secondary join
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y ufw 2>/dev/null || true
 if command -v ufw >/dev/null 2>&1; then
+  ufw default deny incoming 2>/dev/null || true
+  ufw default allow outgoing 2>/dev/null || true
   ufw allow %d/tcp comment netductor-ssh 2>/dev/null || true
+  ufw allow 443/tcp comment netductor-vless 2>/dev/null || true
+  ufw allow 8445/tcp comment nd-wss-ps 2>/dev/null || true
   ufw delete allow 22/tcp 2>/dev/null || true
   ufw deny 22/tcp comment netductor-no-ssh22 2>/dev/null || true
+  ufw deny 10050/tcp 2>/dev/null || true
+  ufw deny 8787/tcp 2>/dev/null || true
+  ufw deny 8788/tcp 2>/dev/null || true
+  ufw deny 8789/tcp 2>/dev/null || true
+  echo y | ufw --force enable 2>/dev/null || true
+elif command -v iptables >/dev/null 2>&1; then
+  iptables -N NETDUCTOR 2>/dev/null || iptables -F NETDUCTOR
+  iptables -C INPUT -j NETDUCTOR 2>/dev/null || iptables -I INPUT 1 -j NETDUCTOR
+  iptables -A NETDUCTOR -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  iptables -A NETDUCTOR -i lo -j ACCEPT
+  iptables -A NETDUCTOR -p tcp --dport %d -j ACCEPT
+  iptables -A NETDUCTOR -p tcp --dport 443 -j ACCEPT
+  iptables -A NETDUCTOR -p tcp --dport 8445 -j ACCEPT
+  iptables -A NETDUCTOR -p tcp --dport 22 -j DROP
+  iptables -A NETDUCTOR -p tcp --dport 10050 -j DROP
 fi
 # purge hoster monitoring agents (zabbix)
 for u in zabbix-agent zabbix-agentd zabbix-agent2; do
@@ -59,5 +81,5 @@ systemctl stop sshd.socket 2>/dev/null || true
 systemctl disable sshd.socket 2>/dev/null || true
 systemctl enable ssh.service 2>/dev/null || systemctl enable sshd.service 2>/dev/null || true
 systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service ssh restart 2>/dev/null || true
-`, DropInConf(), port)
+`, DropInConf(), port, port)
 }

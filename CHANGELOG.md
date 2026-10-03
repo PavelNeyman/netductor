@@ -1,3 +1,17 @@
+## 0.9.193
+
+### Security — host firewall (critical)
+
+- New package `internal/firewall`: **always** try `apt install ufw`; on failure **iptables** `NETDUCTOR` chain fallback
+- Role profiles: **primary** (SSH 52222, 443, redirect, 8444, ACME 80; 8789 only from SP/PS; deny 22/8788/10050) and **secondary** (52222, 443, 8445; deny 22/8787–8789/80/10050)
+- Wired into primary `InstallHardening`, secondary `join`, remote SSH harden script
+- **Doctor FAIL** if firewall backend missing/inactive/incomplete
+- CLI: `netductor firewall status|apply|heal`
+- API: `/api/firewall/status|apply|heal`
+- TG: status card block + Tools → FW
+
+Auto-heal only with `NETDUCTOR_FW_AUTOHEAL=1` or explicit `firewall heal --force` / API force=1 (default off — lockout risk).
+
 ## 0.9.192
 
 ### Hardening

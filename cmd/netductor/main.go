@@ -39,6 +39,8 @@ func main() {
 		fmt.Printf("netductor %s (node)\n", ndver.Release)
 	case "help", "-h", "--help":
 		printHelp()
+	case "firewall":
+		runFirewall(os.Args[2:])
 	case "doctor":
 		if len(os.Args) > 2 && os.Args[2] == "--legacy" {
 			fmt.Fprintln(os.Stderr, "legacy doctor removed")
@@ -193,7 +195,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | doctor | status | vpn | secondary | svc-paths | api-public | edge | mtls | nvr
+  install | serve | firewall | doctor | status | vpn | secondary | svc-paths | api-public | edge | mtls | nvr
   stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

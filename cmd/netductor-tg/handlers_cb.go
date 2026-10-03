@@ -9,6 +9,8 @@ import (
 	"github.com/PavelNeyman/netductor/internal/format"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/vpn"
+
+	"os/exec"
 )
 
 func handleCallback(token string, cq *callbackQuery, admin int64) {
@@ -66,6 +68,22 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if data == "m:fw" || data == "m:firewall" {
+		body := formatFirewallBlock()
+		reply(token, chat, msgID, body, backKeyboard())
+		return
+	}
+	if data == "m:fw:apply" {
+		out, err := exec.Command("netductor", "firewall", "apply").CombinedOutput()
+		msg := string(out)
+		if err != nil {
+			msg = "❌ " + msg + " " + err.Error()
+		} else {
+			msg = "✅ " + msg
+		}
+		reply(token, chat, msgID, esc(msg)+"\n\n"+formatFirewallBlock(), backKeyboard())
+		return
+	}
 	if data == "m:stack" || strings.HasPrefix(data, "m:stack:") {
 		handleStackCB(token, chat, msgID, data)
 		return

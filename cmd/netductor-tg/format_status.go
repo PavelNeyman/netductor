@@ -286,6 +286,10 @@ func formatStatusPretty() string {
 			}
 		}
 	}
+
+	// firewall status (critical)
+	b.WriteString(formatFirewallBlock() + nl)
+
 	if ru {
 		b.WriteString(fmt.Sprintf("🗂 Ноды: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
 	} else {
@@ -300,5 +304,63 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+
+
+func formatFirewallBlock() string {
+	nl := string([]byte{10})
+	ru := getLang() != "en"
+	out, err := exec.Command("netductor", "firewall", "status", "--json").CombinedOutput()
+	title := "🔥 <b>Firewall</b>"
+	if ru {
+		title = "🔥 <b>Файервол</b>"
+	}
+	if err != nil && len(out) == 0 {
+		if ru {
+			return title + nl + "🔴 <b>нет данных</b> (запустите netductor firewall apply)"
+		}
+		return title + nl + "🔴 <b>no data</b> (run netductor firewall apply)"
+	}
+	var st struct {
+		Backend    string   `json:"backend"`
+		Active     bool     `json:"active"`
+		OK         bool     `json:"ok"`
+		Role       string   `json:"role"`
+		OpenWAN    []string `json:"open_wan"`
+		DenyWAN    []string `json:"deny_wan"`
+		Restricted []string `json:"restricted"`
+		Warnings   []string `json:"warnings"`
+		Detail     string   `json:"detail"`
+	}
+	_ = json.Unmarshal(out, &st)
+	icon := "🟢"
+	if !st.OK {
+		icon = "🔴"
+	} else if !st.Active {
+		icon = "🟡"
+	}
+	var b strings.Builder
+	b.WriteString(title + nl)
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+	b.WriteString(fmt.Sprintf("<tr><td>status</td><td>%s ok=%v</td></tr>"+nl, icon, st.OK))
+	b.WriteString(fmt.Sprintf("<tr><td>backend</td><td>%s</td></tr>"+nl, esc(st.Backend)))
+	b.WriteString(fmt.Sprintf("<tr><td>active</td><td>%v</td></tr>"+nl, st.Active))
+	b.WriteString(fmt.Sprintf("<tr><td>role</td><td>%s</td></tr>"+nl, esc(st.Role)))
+	if len(st.OpenWAN) > 0 {
+		b.WriteString(fmt.Sprintf("<tr><td>open WAN</td><td>%s</td></tr>"+nl, esc(strings.Join(st.OpenWAN, ", "))))
+	}
+	if len(st.DenyWAN) > 0 {
+		b.WriteString(fmt.Sprintf("<tr><td>deny WAN</td><td>%s</td></tr>"+nl, esc(strings.Join(st.DenyWAN, ", "))))
+	}
+	if len(st.Restricted) > 0 {
+		b.WriteString(fmt.Sprintf("<tr><td>restricted</td><td>%s</td></tr>"+nl, esc(strings.Join(st.Restricted, "; "))))
+	}
+	b.WriteString("</table>")
+	for _, w := range st.Warnings {
+		b.WriteString(nl + "⚠️ " + esc(w))
+	}
+	return b.String()
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ci"
 	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
@@ -233,6 +234,22 @@ func runDoctorNative() int {
 		warnCheck("fail2ban active", activeUnit("fail2ban"))
 	}
 	warnCheck("no zabbix agent", !activeUnit("zabbix-agent") && !activeUnit("zabbix-agent2") && !activeUnit("zabbix-agentd") && !listeningOnAll("10050"))
+
+	fw := firewall.Collect(role)
+	if fw.OK {
+		doctorPrintf("OK   firewall backend=%s active=%v\n", fw.Backend, fw.Active)
+		ok++
+	} else {
+		doctorPrintf("FAIL firewall backend=%s active=%v detail=%s\n", fw.Backend, fw.Active, fw.Detail)
+		if len(fw.Warnings) > 0 {
+			for _, w := range fw.Warnings {
+				doctorPrintf("WARN firewall: %s\n", w)
+				warn++
+			}
+		}
+		fail++
+	}
+
 
 	switch role {
 	case "primary":

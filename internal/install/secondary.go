@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -31,6 +32,9 @@ func InstallRelay(bundlePath string) error {
 	}
 
 	PurgeHostMonitoring()
+	if err := firewall.ApplyRole("secondary"); err != nil {
+		fmt.Fprintf(os.Stderr, "firewall secondary: %v\n", err)
+	}
 	fmt.Fprintln(os.Stderr, "==> secondary: dirs")
 	_ = paths.EnsureLayout()
 	_ = os.MkdirAll("/etc/sing-box/certs", 0o755)

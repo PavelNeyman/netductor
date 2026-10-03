@@ -245,3 +245,6 @@ Closed checklist item → mark plan + update this handoff + CHANGELOG in the **s
 ## 0.9.128
 - Display version = `version.Running()` + `/etc/netductor/VERSION`
 - After manual binary replace: write VERSION + restart units; Fleet/Stack follow file
+
+## 0.9.193 host firewall mandatory
+- ufw install; iptables fallback; doctor FAIL; TG/API
