@@ -302,8 +302,7 @@ func runDoctorNative() int {
 			doctorPrintln("OK   service-net " + st.Iface + " " + st.Gateway)
 			ok++
 		} else {
-			doctorPrintf("WARN service-net: %s (netductor servicenet apply)
-", st.Detail)
+			doctorPrintf("WARN service-net: %s (netductor servicenet apply)\n", st.Detail)
 			warn++
 		}
 	}
