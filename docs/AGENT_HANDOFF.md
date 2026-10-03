@@ -1,4 +1,5 @@
 # AGENT Handoff
+- **0.9.205:** service-net (`nd-svc` 10.88.0.0/24 + DNAT); `servicenet status|apply`; doctor; policy P4 docs; TG presets via ApplyPreset.
 - **0.9.204:** `host-baseline status|apply` + doctor drift checks; policy presets CLI; doctor policy/catalog integrity (P4 partial).
 - **0.9.201:** safer hoster purge (installed pkgs only, no pkill -f, port parse); apt Pin-Priority -1 block; host-audit --dry-run.
 - **0.9.200:** install/stack apply/secondary upgrade auto EnsureHostBaseline (firewall role file + netductor-stack-watchdog.timer). Role detect fixed in 0.9.199.
@@ -18,7 +19,7 @@
 | `scripts/collect-host-audit.sh` | Full text audit bundle |
 | `scripts/audit-hoster-agents.sh` | Expanded denylist (sync with `host_agents.go`) |
 
-**Next implementer:** dual-node smoke (VPN/bot/policy routes) or P4 (service-net VIP / doctor endpoints). HOST-AUDIT live done 2026-10-03.
+**Next implementer:** dual-node smoke (VPN/bot/policy routes) dual-node smoke (VPN/bot/policy routes) or OpenWrt e2e. HOST-AUDIT + service-net in 0.9.205.
 
 
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.

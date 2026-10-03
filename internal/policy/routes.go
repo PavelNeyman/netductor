@@ -10,22 +10,17 @@ type Subject struct {
 
 // ServiceRouteRules builds sing-box route rules that enforce internal service ACL.
 // Requires inbound VLESS users to include a matching "name" field (auth_user).
-// Rules are ordered to run after sniff/dns; caller prepends those.
 //
-// For each internal catalog endpoint (port):
-//  1. allow auth_user ∈ permitted subjects → continue (no outbound = fall through / direct)
-//  2. reject other users hitting that port
-// Subjects with services_mode=all are permitted to every internal service.
-// Egress (internet) is not fully enforced here when final outbound is shared;
-// allow_internet=false gets a broad reject-after-private rule when possible.
+// For each internal catalog endpoint:
+//  1. allow auth_user ∈ permitted → outbound direct (optional ip + port)
+//  2. reject other users hitting that port (and ip when set)
+// allow_internet=false gets a broad reject for those users after service allows.
 func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 	if cat == nil {
 		cat = DefaultCatalog()
 	}
 	var rules []any
-
-	// private / loopback always ok for system — do not reject RFC1918 wholesale
-	// (would break LAN). Only pin service ports from catalog.
+	seenPort := map[int]bool{}
 
 	for _, svc := range cat.Services {
 		if svc.Disabled || svc.Kind != KindInternal {
@@ -41,8 +36,13 @@ func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 			if proto == "" {
 				proto = "tcp"
 			}
+			// Prefer one rule set per port (loopback + service-net share port)
+			if seenPort[port] {
+				continue
+			}
+			seenPort[port] = true
+
 			if len(allowed) > 0 {
-				// permitted users: explicit pass to direct
 				rule := map[string]any{
 					"auth_user": allowed,
 					"port":      port,
@@ -53,11 +53,10 @@ func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 				}
 				rules = append(rules, rule)
 			}
-			// everyone else: reject this port
 			rej := map[string]any{
 				"port":     port,
 				"action":   "reject",
-				"outbound": "block", // dual style for sing-box variants
+				"outbound": "block",
 			}
 			if proto == "tcp" || proto == "udp" {
 				rej["network"] = proto
@@ -66,7 +65,6 @@ func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 		}
 	}
 
-	// allow_internet=false: reject remaining traffic for those users (after service allows)
 	var noNet []string
 	for _, s := range subjects {
 		s.Policy.Normalize()

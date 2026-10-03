@@ -22,6 +22,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/servicenet"
 )
 
 func detectRole() string {
@@ -291,6 +292,18 @@ func runDoctorNative() int {
 	} else {
 		for _, is := range bl.Issues {
 			doctorPrintf("WARN host baseline: %s\n", is)
+			warn++
+		}
+	}
+	// Service-net (primary VIP plane for internal services)
+	if role == "primary" && servicenet.Enabled() {
+		st := servicenet.Collect()
+		if st.OK {
+			doctorPrintln("OK   service-net " + st.Iface + " " + st.Gateway)
+			ok++
+		} else {
+			doctorPrintf("WARN service-net: %s (netductor servicenet apply)
+", st.Detail)
 			warn++
 		}
 	}

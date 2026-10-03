@@ -201,13 +201,11 @@ func applyPolicyToggle(p policy.AccessPolicy, action string) policy.AccessPolicy
 			p.Services = out
 		}
 	case action == "preset:media":
-		p.AllowInternet = true
-		p.ServicesMode = "list"
-		p.Services = []string{"lampac"}
+		p = policy.ApplyPreset(policy.PresetMedia, p)
 	case action == "preset:full":
-		p.AllowInternet = true
-		p.ServicesMode = "all"
-		p.Services = []string{}
+		p = policy.ApplyPreset(policy.PresetFull, p)
+	case action == "preset:none":
+		p = policy.ApplyPreset(policy.PresetNone, p)
 	}
 	p.Normalize()
 	return p

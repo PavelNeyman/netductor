@@ -229,7 +229,8 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P1 — enforcement
 
-- [x] Interim loopback endpoints in catalog + route by port (service-net later)  
+- [x] Interim loopback endpoints in catalog + route by port
+- [x] Service-net VIP plane (`nd-svc` 10.88.0.0/24 + DNAT; `netductor servicenet apply`)  
 - [x] sing-box route generation from policies (auth_user + port reject)  
 - [x] Apply on policy change via ApplyHook → ApplyConfig  
 - [x] Tests: ServiceRouteRules unit tests  
@@ -249,9 +250,10 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P4 — product polish
 
+- [x] Service-net VIP + DNAT (optional, `NETDUCTOR_SERVICE_NET=0` to disable)
 - [x] Presets (CLI `policy user|edge preset`; Web media/full buttons)  
 - [x] Doctor: warn if policy references missing service endpoints + catalog empty ports  
-- [ ] Docs: CLIENT-PROFILES + EDGE-AGENT cross-links  
+- [x] Docs: CLIENT-PROFILES + EDGE-AGENT cross-links  
 - [ ] Release notes  
 
 ---

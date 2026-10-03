@@ -315,3 +315,8 @@ Ordered steps inside `deploy.DeployEdge` / `edge.Provision`:
 
 If template has no `vpn.dns`, `TemplateWithVPN` still injects **`dns=vpn`** when merging links.
 
+
+
+## Service access policy (edge)
+
+Edge routers have a **separate** policy from human VPN users (`policy edge get|set|preset`). See [PLAN-SERVICE-ACCESS-POLICY.md](PLAN-SERVICE-ACCESS-POLICY.md). Do not put edge peers in the Users list.

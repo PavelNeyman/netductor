@@ -8,6 +8,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/servicenet"
 )
 
 func InstallHardening() error {
@@ -41,6 +42,9 @@ func InstallHardening() error {
 	}
 	if err := ensureWatchdogTimer(); err != nil {
 		fmt.Fprintf(os.Stderr, "watchdog: %v (continuing)\n", err)
+	}
+	if err := servicenet.Ensure(); err != nil {
+		fmt.Fprintf(os.Stderr, "servicenet: %v (continuing)\n", err)
 	}
 	fmt.Fprintf(os.Stderr, "hardening: firewall + mTLS :8789 + ssh key-only Port %d + fail2ban + watchdog\n", hardening.SSHPort())
 	return nil
