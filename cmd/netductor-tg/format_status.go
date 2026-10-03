@@ -110,11 +110,8 @@ func formatEdgeListHTML(raw string) string {
 			icon = "⏳"
 		}
 		b.WriteString(fmt.Sprintf("%s <code>%s</code>\n   %s\n", icon, esc(id), esc(rest)))
-		polLabel := "🔐 Policy"
-		if getLang() != "en" {
-			polLabel = "🔐 Политика"
-		}
-		b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" data="e:policy:%s">%s %s</tg-button></tg-button-row>`+"\n", id, polLabel, esc(id)))
+		polLabel := T("pol_btn")
+				b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" data="e:policy:%s">%s %s</tg-button></tg-button-row>`+"\n", id, polLabel, esc(id)))
 	}
 	return b.String()
 }

@@ -28,21 +28,15 @@ func formatEdgePolicyHTML(id string) string {
 func formatPolicyHTML(kind, id string, p policy.AccessPolicy) string {
 	nl := string([]byte{10})
 	cat, _ := policy.EnsureCatalog()
-	ru := getLang() != "en"
+	p.Normalize()
 	var b strings.Builder
+
+	titleKey := "pol_title_user"
 	if kind == "edge" {
-		if ru {
-			b.WriteString("🔐 <b>Политика edge</b> <code>" + esc(id) + "</code>" + nl)
-		} else {
-			b.WriteString("🔐 <b>Edge policy</b> <code>" + esc(id) + "</code>" + nl)
-		}
-	} else {
-		if ru {
-			b.WriteString("🔐 <b>Политика user</b> <code>" + esc(id) + "</code>" + nl)
-		} else {
-			b.WriteString("🔐 <b>User policy</b> <code>" + esc(id) + "</code>" + nl)
-		}
+		titleKey = "pol_title_edge"
 	}
+	b.WriteString("🔐 <b>" + T(titleKey) + "</b> <code>" + esc(id) + "</code>" + nl)
+
 	inetIcon := "🟢"
 	if !p.AllowInternet {
 		inetIcon = "🔴"
@@ -51,15 +45,17 @@ func formatPolicyHTML(kind, id string, p policy.AccessPolicy) string {
 	if mode == "" {
 		mode = "list"
 	}
+
+	// Same card pattern as users/dns: compact table + in-message buttons
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
-	b.WriteString(fmt.Sprintf("<tr><td>internet</td><td>%s <code>%v</code></td></tr>"+nl, inetIcon, p.AllowInternet))
-	b.WriteString(fmt.Sprintf("<tr><td>services_mode</td><td><code>%s</code></td></tr>"+nl, esc(mode)))
+	b.WriteString("<tr><th>" + T("pol_th_field") + "</th><th>" + T("pol_th_value") + "</th></tr>" + nl)
+	b.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s <code>%v</code></td></tr>"+nl, T("pol_field_internet"), inetIcon, p.AllowInternet))
+	b.WriteString(fmt.Sprintf("<tr><td>%s</td><td><code>%s</code></td></tr>"+nl, T("pol_field_mode"), esc(mode)))
 	svc := strings.Join(p.Services, ", ")
 	if svc == "" {
 		svc = "—"
 	}
-	b.WriteString(fmt.Sprintf("<tr><td>services</td><td><code>%s</code></td></tr>"+nl, esc(svc)))
+	b.WriteString(fmt.Sprintf("<tr><td>%s</td><td><code>%s</code></td></tr>"+nl, T("pol_field_services"), esc(svc)))
 	b.WriteString("</table>" + nl)
 
 	prefix := "u:pol:" + id + ":"
@@ -67,24 +63,21 @@ func formatPolicyHTML(kind, id string, p policy.AccessPolicy) string {
 		prefix = "e:pol:" + id + ":"
 	}
 
-	inetLabel := "Internet ON"
+	inetLabel := T("pol_inet_on")
 	inetData := "inet:0"
-	if ru {
-		inetLabel = "Интернет ВКЛ"
-	}
 	if !p.AllowInternet {
-		inetLabel = "Internet OFF"
+		inetLabel = T("pol_inet_off")
 		inetData = "inet:1"
-		if ru {
-			inetLabel = "Интернет ВЫКЛ"
-		}
 	}
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="%s%s">%s</tg-button>`,
-		map[bool]string{true: "success", false: "danger"}[p.AllowInternet], prefix, inetData, inetLabel))
-	modeLabel := "mode:list"
+	style := "danger"
+	if p.AllowInternet {
+		style = "success"
+	}
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="%s%s">%s</tg-button>`, style, prefix, inetData, inetLabel))
+	modeLabel := T("pol_mode_list")
 	if mode == "all" {
-		modeLabel = "mode:all"
+		modeLabel = T("pol_mode_all")
 	}
 	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="%smode">%s</tg-button>`, prefix, modeLabel))
 	b.WriteString(`</tg-button-row>` + nl)
@@ -131,12 +124,9 @@ func formatPolicyHTML(kind, id string, p policy.AccessPolicy) string {
 	}
 
 	b.WriteString(`<tg-button-row align="left">`)
-	mediaL, fullL := "Preset media", "Preset full"
-	if ru {
-		mediaL, fullL = "Пресет media", "Пресет full"
-	}
-	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="%spreset:media">%s</tg-button>`, prefix, mediaL))
-	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="%spreset:full">%s</tg-button>`, prefix, fullL))
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="%spreset:media">%s</tg-button>`, prefix, T("pol_preset_media")))
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="%spreset:full">%s</tg-button>`, prefix, T("pol_preset_full")))
+	b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="%spreset:none">%s</tg-button>`, prefix, T("pol_preset_none")))
 	b.WriteString(`</tg-button-row>` + nl)
 	return b.String()
 }
@@ -144,7 +134,7 @@ func formatPolicyHTML(kind, id string, p policy.AccessPolicy) string {
 func policyNavKeyboard(kind, id string) map[string]any {
 	if kind == "edge" {
 		return map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("📡 Routers", "m:routers", ""), btn(T("main_menu"), "m:menu", "primary")},
+			{btn(T("routers"), "m:routers", ""), btn(T("main_menu"), "m:menu", "primary")},
 		}}
 	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{

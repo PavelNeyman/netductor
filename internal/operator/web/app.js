@@ -56,7 +56,7 @@ en:{
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
   b_latest:'Latest', b_sessions:'Sessions', b_gh_token:'GitHub token', b_upd:'Статус обновлений', b_gh_token:'GitHub token', b_upd:'Update status', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
   b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
-  l_vpn_policy:'Access policy', l_vpn_policy_help:'User or edge: load, tick services, save.', l_pol_internet:'Internet egress', l_pol_all:'All internal services', b_vpn_pol_load:'Load user policy', b_vpn_pol_save:'Save user policy', b_vpn_pol_media:'Preset: media', b_vpn_pol_full:'Preset: full', l_edge_pol:'Edge device id', b_edge_pol_load:'Load edge policy', b_edge_pol_save:'Save edge policy',
+  l_vpn_policy:'Access policy', l_vpn_policy_help:'User or edge: load, tick services, save.', l_pol_internet:'Internet egress', l_pol_all:'All internal services', b_vpn_pol_load:'Load user policy', b_vpn_pol_save:'Save user policy', b_vpn_pol_media:'Preset: media', b_vpn_pol_full:'Preset: full', b_vpn_pol_none:'Preset: none', l_edge_pol:'Edge device id', b_edge_pol_load:'Load edge policy', b_edge_pol_save:'Save edge policy',
   l_dns_id:'list id', l_dns_en:'enabled', b_dns_set:'Set list', b_dns_on:'on', b_dns_off:'off',
   l_bak_hour:'hour (0-23)', l_bak_min:'minute (0-59)', l_bak_tz:'timezone', b_bak_save:'Save schedule',
   l_git_repo:'repo', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'artifact path',
@@ -101,7 +101,7 @@ ru:{
   b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'Список users', b_vpn_refresh:'Обновить ссылки',
   b_vpn_add:'Добавить user', b_vpn_enable:'Включить', b_vpn_disable:'Выключить', b_vpn_revoke:'Отозвать', b_vpn_link:'Ссылки',
-  l_vpn_policy:'Политика доступа', l_vpn_policy_help:'User или edge: загрузить, галочки, сохранить.', l_pol_internet:'Выход в интернет', l_pol_all:'Все внутренние сервисы', b_vpn_pol_load:'Загрузить user', b_vpn_pol_save:'Сохранить user', b_vpn_pol_media:'Пресет: media', b_vpn_pol_full:'Пресет: full', l_edge_pol:'ID edge', b_edge_pol_load:'Загрузить edge', b_edge_pol_save:'Сохранить edge',
+  l_vpn_policy:'Политика доступа', l_vpn_policy_help:'User или edge: загрузить, галочки, сохранить.', l_pol_internet:'Выход в интернет', l_pol_all:'Все внутренние сервисы', b_vpn_pol_load:'Загрузить user', b_vpn_pol_save:'Сохранить user', b_vpn_pol_media:'Пресет: media', b_vpn_pol_full:'Пресет: full', b_vpn_pol_none:'Пресет: none', l_edge_pol:'ID edge', b_edge_pol_load:'Загрузить edge', b_edge_pol_save:'Сохранить edge',
   l_dns_id:'id списка', l_dns_en:'вкл', b_dns_set:'Применить', b_dns_on:'вкл', b_dns_off:'выкл',
   l_bak_hour:'час (0-23)', l_bak_min:'мин (0-59)', l_bak_tz:'часовой пояс', b_bak_save:'Сохранить расписание',
   l_git_repo:'репо', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'путь артефакта',
@@ -741,6 +741,7 @@ function mountButtons(){
         <button class="primary" type="button" data-act="vpn-policy-save">${t('b_vpn_pol_save')||'Save user policy'}</button>
         <button class="primary" type="button" data-act="vpn-policy-set-media">${t('b_vpn_pol_media')||'Preset: media'}</button>
         <button class="primary" type="button" data-act="vpn-policy-set-full">${t('b_vpn_pol_full')||'Preset: full'}</button>
+        <button class="primary" type="button" data-act="vpn-policy-set-none">${t('b_vpn_pol_none')||'Preset: none'}</button>
         <div class="row" style="margin-top:.5rem"><div><label>${t('l_edge_pol')||'Edge device id'}</label><input id="edgePolId" placeholder="home-owrt-1"/></div>
         <div style="align-self:end"><button class="primary" type="button" data-act="edge-policy-load">${t('b_edge_pol_load')||'Load edge policy'}</button>
         <button class="primary" type="button" data-act="edge-policy-save">${t('b_edge_pol_save')||'Save edge policy'}</button></div></div>
@@ -886,6 +887,10 @@ const special = {
   'vpn-policy-set-full': async()=>{
     const n=document.getElementById('vpnActName').value.trim();
     return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy',{method:'PUT',body:JSON.stringify({allow_internet:true,services_mode:'all'})});
+  },
+  'vpn-policy-set-none': async()=>{
+    const n=document.getElementById('vpnActName').value.trim();
+    return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy',{method:'PUT',body:JSON.stringify({allow_internet:true,services:[],services_mode:'list'})});
   },
   'edge-policy-get': async()=>{
     const id=document.getElementById('edgeId').value.trim();

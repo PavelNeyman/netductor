@@ -179,10 +179,7 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:custom">N</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	polLabel := "🔐 Policy"
-	if getLang() != "en" {
-		polLabel = "🔐 Политика"
-	}
+	polLabel := T("pol_btn")
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:policy:` + name + `">` + polLabel + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
