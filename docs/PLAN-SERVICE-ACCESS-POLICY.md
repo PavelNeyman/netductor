@@ -242,10 +242,10 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P3 — UI
 
-- [x] Web Control: policy get + media/full presets (checkbox matrix still open)  
-- [ ] TUI: same (open)  
-- [ ] TG: toggles + templates (open)  
-- [ ] i18n EN/RU full semantic parity  
+- [x] Web Control: checkbox matrix + media/full presets (same `/api/services` + `/vpn/users/…/policy` + `/api/edge/device-policy`)  
+- [x] TUI: forms → CLI `policy user|edge` / `services list` / `policy apply`  
+- [x] TG: toggles on user card + edge list (same `vpn`/`edge` store; not a parallel policy store)  
+- [x] i18n EN/RU for policy labels  
 
 ### Phase P4 — product polish
 

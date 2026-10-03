@@ -1,6 +1,9 @@
 package main
 
-import "runtime"
+import (
+	"runtime"
+	"strings"
+)
 
 // startActionForm opens in-TUI fields for an action (no tea.Quit / huh).
 func (m *model) startActionForm(action string) {
@@ -68,6 +71,28 @@ func (m *model) startActionForm(action string) {
 	case "session":
 		m.wizFields = []wizField{
 			{Key: "user", Label: "VPN user"},
+		}
+	case "vpn-policy-get":
+		m.wizFields = []wizField{
+			{Key: "name", Label: map[bool]string{true: "VPN user", false: "VPN user"}[ru], Placeholder: "alice"},
+		}
+	case "vpn-policy-set":
+		m.wizFields = []wizField{
+			{Key: "name", Label: map[bool]string{true: "VPN user", false: "VPN user"}[ru], Placeholder: "alice"},
+			{Key: "internet", Label: "allow_internet true|false", Value: "true"},
+			{Key: "mode", Label: "services_mode list|all", Value: "list"},
+			{Key: "services", Label: "services (comma)", Placeholder: "lampac,git"},
+		}
+	case "edge-policy-get":
+		m.wizFields = []wizField{
+			{Key: "id", Label: "edge device id", Placeholder: "home-owrt-1"},
+		}
+	case "edge-policy-set":
+		m.wizFields = []wizField{
+			{Key: "id", Label: "edge device id", Placeholder: "home-owrt-1"},
+			{Key: "internet", Label: "allow_internet true|false", Value: "true"},
+			{Key: "mode", Label: "services_mode list|all", Value: "list"},
+			{Key: "services", Label: "services (comma)", Placeholder: "lampac"},
 		}
 	case "ssh-hosts", "sites-list":
 		m.wizFields = []wizField{
@@ -151,6 +176,50 @@ func (m *model) submitActionForm() string {
 		return m.runNetductor("backup", "peer", m.fieldVal("peer"))
 	case "session":
 		return m.runNetductor("vpn", "session", m.fieldVal("user"))
+	case "vpn-policy-get":
+		name := m.fieldVal("name")
+		if name == "" {
+			return "name required"
+		}
+		return m.runNetductor("policy", "user", "get", name)
+	case "vpn-policy-set":
+		name := m.fieldVal("name")
+		if name == "" {
+			return "name required"
+		}
+		args := []string{"policy", "user", "set", name}
+		if v := m.fieldVal("internet"); v != "" {
+			args = append(args, "--internet", v)
+		}
+		if m.fieldVal("mode") == "all" {
+			args = append(args, "--all")
+		}
+		for _, s := range splitComma(m.fieldVal("services")) {
+			args = append(args, "--service", s)
+		}
+		return m.runNetductor(args...)
+	case "edge-policy-get":
+		id := m.fieldVal("id")
+		if id == "" {
+			return "id required"
+		}
+		return m.runNetductor("policy", "edge", "get", id)
+	case "edge-policy-set":
+		id := m.fieldVal("id")
+		if id == "" {
+			return "id required"
+		}
+		args := []string{"policy", "edge", "set", id}
+		if v := m.fieldVal("internet"); v != "" {
+			args = append(args, "--internet", v)
+		}
+		if m.fieldVal("mode") == "all" {
+			args = append(args, "--all")
+		}
+		for _, s := range splitComma(m.fieldVal("services")) {
+			args = append(args, "--service", s)
+		}
+		return m.runNetductor(args...)
 	case "ssh-hosts":
 		return m.runNetductor("ssh", "hosts")
 	case "sites-list":
@@ -158,4 +227,15 @@ func (m *model) submitActionForm() string {
 	default:
 		return "unknown form"
 	}
+}
+
+func splitComma(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }

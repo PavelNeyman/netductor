@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.195** (service access policy P0+P1: catalog, user/edge policy, API/CLI, sing-box auth_user route rules; UI checkboxes P3 open)
+**Stop line: v0.9.196** (service access policy P0–P3: catalog, enforcement, unified API/CLI, Web/TUI/TG checkboxes)
 
 **Prev stop: v0.9.192** (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
 
@@ -15,7 +15,7 @@
 | `scripts/collect-host-audit.sh` | Full text audit bundle |
 | `scripts/audit-hoster-agents.sh` | Expanded denylist (sync with `host_agents.go`) |
 
-**Next implementer:** HOST-AUDIT operational steps on live VPS; service-policy starts at Phase P0 (no UI before enforcement).
+**Next implementer:** P4 polish (doctor missing endpoints, service-net VIP) or HOST-AUDIT on live VPS.
 
 
 **Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.

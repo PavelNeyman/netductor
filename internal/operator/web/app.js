@@ -56,6 +56,7 @@ en:{
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
   b_latest:'Latest', b_sessions:'Sessions', b_gh_token:'GitHub token', b_upd:'Статус обновлений', b_gh_token:'GitHub token', b_upd:'Update status', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
   b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
+  l_vpn_policy:'Access policy', l_vpn_policy_help:'User or edge: load, tick services, save.', l_pol_internet:'Internet egress', l_pol_all:'All internal services', b_vpn_pol_load:'Load user policy', b_vpn_pol_save:'Save user policy', b_vpn_pol_media:'Preset: media', b_vpn_pol_full:'Preset: full', l_edge_pol:'Edge device id', b_edge_pol_load:'Load edge policy', b_edge_pol_save:'Save edge policy',
   l_dns_id:'list id', l_dns_en:'enabled', b_dns_set:'Set list', b_dns_on:'on', b_dns_off:'off',
   l_bak_hour:'hour (0-23)', l_bak_min:'minute (0-59)', l_bak_tz:'timezone', b_bak_save:'Save schedule',
   l_git_repo:'repo', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'artifact path',
@@ -100,6 +101,7 @@ ru:{
   b_metrics_hist:'История метрик', b_addons:'Дополнения', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'Пресеты SNI',
   b_latest:'Latest', b_sessions:'Sessions', b_vpn_users:'Список users', b_vpn_refresh:'Обновить ссылки',
   b_vpn_add:'Добавить user', b_vpn_enable:'Включить', b_vpn_disable:'Выключить', b_vpn_revoke:'Отозвать', b_vpn_link:'Ссылки',
+  l_vpn_policy:'Политика доступа', l_vpn_policy_help:'User или edge: загрузить, галочки, сохранить.', l_pol_internet:'Выход в интернет', l_pol_all:'Все внутренние сервисы', b_vpn_pol_load:'Загрузить user', b_vpn_pol_save:'Сохранить user', b_vpn_pol_media:'Пресет: media', b_vpn_pol_full:'Пресет: full', l_edge_pol:'ID edge', b_edge_pol_load:'Загрузить edge', b_edge_pol_save:'Сохранить edge',
   l_dns_id:'id списка', l_dns_en:'вкл', b_dns_set:'Применить', b_dns_on:'вкл', b_dns_off:'выкл',
   l_bak_hour:'час (0-23)', l_bak_min:'мин (0-59)', l_bak_tz:'часовой пояс', b_bak_save:'Сохранить расписание',
   l_git_repo:'репо', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'путь артефакта',
@@ -728,9 +730,21 @@ function mountButtons(){
       <button class="primary" type="button" data-act="vpn-disable">${t('b_vpn_disable')}</button>
       <button class="primary" type="button" data-act="vpn-revoke">${t('b_vpn_revoke')}</button>
       <button class="primary" type="button" data-act="vpn-link">${t('b_vpn_link')}</button>
-      <button class="primary" type="button" data-act="vpn-policy-get">Policy get</button>
-      <button class="primary" type="button" data-act="vpn-policy-set-media">Policy media</button>
-      <button class="primary" type="button" data-act="vpn-policy-set-full">Policy full</button>`;
+      <div class="card" style="margin-top:.75rem" id="vpnPolicyCard">
+        <h3>${t('l_vpn_policy')||'Access policy'}</h3>
+        <p class="note">${t('l_vpn_policy_help')||'Load user, then edit checkboxes. Routers use Edge device id field below.'}</p>
+        <div class="row"><div><label>${t('l_vpn_act')||'User'}</label><input id="vpnPolName" placeholder="alice"/></div>
+        <div style="align-self:end"><button class="primary" type="button" data-act="vpn-policy-load">${t('b_vpn_pol_load')||'Load policy'}</button></div></div>
+        <label><input type="checkbox" id="polInternet" checked/> ${t('l_pol_internet')||'Internet egress'}</label>
+        <label style="margin-left:1rem"><input type="checkbox" id="polAll"/> ${t('l_pol_all')||'All internal services'}</label>
+        <div id="polServices" style="margin:.5rem 0;display:flex;flex-wrap:wrap;gap:.5rem"></div>
+        <button class="primary" type="button" data-act="vpn-policy-save">${t('b_vpn_pol_save')||'Save user policy'}</button>
+        <button class="primary" type="button" data-act="vpn-policy-set-media">${t('b_vpn_pol_media')||'Preset: media'}</button>
+        <button class="primary" type="button" data-act="vpn-policy-set-full">${t('b_vpn_pol_full')||'Preset: full'}</button>
+        <div class="row" style="margin-top:.5rem"><div><label>${t('l_edge_pol')||'Edge device id'}</label><input id="edgePolId" placeholder="home-owrt-1"/></div>
+        <div style="align-self:end"><button class="primary" type="button" data-act="edge-policy-load">${t('b_edge_pol_load')||'Load edge policy'}</button>
+        <button class="primary" type="button" data-act="edge-policy-save">${t('b_edge_pol_save')||'Save edge policy'}</button></div></div>
+      </div>`;
     }
     if(sec==='nodes' || sec==='fleet'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_hostname')}</label><input id="nodeHost"/></div><div><label>${t('l_node_id')}</label><input id="nodeId"/></div></div>
@@ -1097,3 +1111,29 @@ document.getElementById('btnEdgeOfflinePrep')?.addEventListener('click', async (
     if(off) off.checked=true;
   } finally { if(btn) btn.disabled=false; }
 });
+
+function collectPolicyForm(){
+  const internet=!!(document.getElementById('polInternet')||{}).checked;
+  const all=!!(document.getElementById('polAll')||{}).checked;
+  const services=[];
+  document.querySelectorAll('#polServices input[type=checkbox][data-sid]').forEach(cb=>{ if(cb.checked) services.push(cb.dataset.sid); });
+  return {allow_internet:internet, services_mode: all?'all':'list', services};
+}
+function renderPolicyCheckboxes(){
+  const box=document.getElementById('polServices');
+  if(!box) return;
+  const cat=window.__ndCatalog||{};
+  const pol=window.__ndPolicy||{};
+  const services=(cat.services||[]).filter(s=>s && s.kind!=='egress' && !s.disabled);
+  const mode=(pol.services_mode||'list');
+  const allowed=new Set(pol.services||[]);
+  const inet=document.getElementById('polInternet');
+  const all=document.getElementById('polAll');
+  if(inet) inet.checked=pol.allow_internet!==false;
+  if(all) all.checked=mode==='all';
+  box.innerHTML = services.map(s=>{
+    const on = mode==='all' || allowed.has(s.id);
+    return `<label style="min-width:9rem"><input type="checkbox" data-sid="${s.id}" ${on?'checked':''}/> ${s.title||s.id}</label>`;
+  }).join('') || '<span class="note">No internal services in catalog</span>';
+}
+

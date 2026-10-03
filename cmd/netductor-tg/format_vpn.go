@@ -179,6 +179,13 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:custom">N</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
+	polLabel := "🔐 Policy"
+	if getLang() != "en" {
+		polLabel = "🔐 Политика"
+	}
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:policy:` + name + `">` + polLabel + `</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="success" data="u:enable:` + name + `">▶</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:disable:` + name + `">⏸</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="danger" data="u:revoke:` + name + `">🗑</tg-button>`)

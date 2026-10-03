@@ -221,6 +221,14 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		handleQuotaCB(token, chat, msgID, data)
 		return
 	}
+	if strings.HasPrefix(data, "u:policy") || strings.HasPrefix(data, "u:pol:") {
+		handleUserPolicyCB(token, chat, msgID, data)
+		return
+	}
+	if strings.HasPrefix(data, "e:policy") || strings.HasPrefix(data, "e:pol:") {
+		handleEdgePolicyCB(token, chat, msgID, data)
+		return
+	}
 	if strings.HasPrefix(data, "u:") {
 		// u:open:name | u:access:name:mode | u:rename:name | u:enable:name | ...
 		parts := strings.Split(data, ":")
