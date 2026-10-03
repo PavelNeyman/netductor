@@ -6,7 +6,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Design plans (docs)
 
-- [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0 done** (catalog + policy fields + API/CLI); P1 sing-box enforcement + P3 UI checkboxes open
+- [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0–P3 done** (catalog, enforcement, API/CLI, Web/TUI/TG checkboxes); P4 polish open
 - [ ] [HOST-AUDIT](HOST-AUDIT.md) — full hoster audit procedure; `collect-host-audit.sh`; baseline; doctor FAIL (partial 0.9.192–194)
 - [ ] Expand host-audit denylist (RMM/otel/avahi) — keep script ↔ Go in sync
 - [ ] Firewall status in all UIs + alerts
