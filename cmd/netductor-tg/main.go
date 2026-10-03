@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"github.com/PavelNeyman/netductor/internal/policy"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"io"
@@ -818,6 +820,8 @@ func main() {
 	}
 
 	ndconfig.Load()
+	// Same as API/CLI: policy toggles must rewrite sing-box routes.
+	policy.ApplyHook = vpn.ApplyAccessPolicies
 
 	token := mustRead(tokenFile)
 	if token == "" {
