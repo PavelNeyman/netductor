@@ -63,6 +63,14 @@ func All() []Action {
 
 		// vpn
 		a("vpn-users", "vpn", "GET", "/vpn/users", "", "vpn list", "List users", "Список users"),
+
+		a("services", "policy", "GET", "/api/services", "", "services list", "Service catalog", "Каталог сервисов"),
+		a("services-set", "policy", "POST", "/api/services", "", "services set", "Upsert service", "Добавить/обновить сервис"),
+		a("vpn-policy-get", "policy", "GET", "/vpn/users/{id}/policy", "", "policy user get", "User access policy", "Политика пользователя"),
+		a("vpn-policy-set", "policy", "PUT", "/vpn/users/{id}/policy", "", "policy user set", "Set user access policy", "Задать политику пользователя"),
+		a("edge-policy-get", "policy", "GET", "/api/edge/device-policy?id=", "", "policy edge get", "Edge access policy", "Политика роутера"),
+		a("edge-policy-set", "policy", "PUT", "/api/edge/device-policy?id=", "", "policy edge set", "Set edge access policy", "Задать политику роутера"),
+		a("policy-apply", "policy", "POST", "/api/policy/apply", "", "policy apply", "Apply policy routes", "Применить маршруты политик"),
 		a("vpn-refresh", "vpn", "POST", "/api/vpn/refresh-links", "{}", "vpn refresh-links", "Refresh links", "Обновить ссылки"),
 
 		// nodes

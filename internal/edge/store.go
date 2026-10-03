@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/policy"
 )
 
 var mu sync.Mutex
@@ -154,6 +155,12 @@ type Device struct {
 	MemPct      float64        `json:"mem_pct,omitempty"`
 	// Extra keeps unknown agent fields without losing them on disk.
 	Extra map[string]any `json:"extra,omitempty"`
+	// Access policy (docs/PLAN-SERVICE-ACCESS-POLICY.md) — not mixed with VPN Users UI.
+	AllowInternet *bool    `json:"allow_internet,omitempty"`
+	Services      []string `json:"services,omitempty"`
+	ServicesMode  string   `json:"services_mode,omitempty"`
+	PolicyAt      string   `json:"policy_updated_at,omitempty"`
+	PolicyBy      string   `json:"policy_updated_by,omitempty"`
 }
 
 func devicesPath() string  { return filepath.Join(paths.EdgeDir(), "devices.json") }
@@ -171,6 +178,16 @@ func loadDevices() map[string]Device {
 	}
 	if json.Unmarshal(b, &wrap) != nil || wrap.Devices == nil {
 		return map[string]Device{}
+	}
+	changed := false
+	for id, d := range wrap.Devices {
+		if migrateDevicePolicy(&d) {
+			wrap.Devices[id] = d
+			changed = true
+		}
+	}
+	if changed {
+		_ = saveDevices(wrap.Devices)
 	}
 	return wrap.Devices
 }
@@ -702,4 +719,90 @@ func randomToken(n int) string {
 	b := make([]byte, n)
 	_, _ = io.ReadFull(rand.Reader, b)
 	return hex.EncodeToString(b)
+}
+
+
+func migrateDevicePolicy(d *Device) bool {
+	changed := false
+	if d.AllowInternet == nil {
+		v := true
+		d.AllowInternet = &v
+		changed = true
+	}
+	if d.Services == nil {
+		d.Services = []string{}
+		changed = true
+	}
+	if d.ServicesMode == "" {
+		d.ServicesMode = "list"
+		changed = true
+	}
+	return changed
+}
+
+// GetDevicePolicy returns access policy for an edge device.
+func GetDevicePolicy(deviceID string) (policy.AccessPolicy, error) {
+	m := loadDevices()
+	d, ok := m[deviceID]
+	if !ok {
+		// try match DeviceID field
+		for id, x := range m {
+			if x.DeviceID == deviceID || id == deviceID {
+				d = x
+				ok = true
+				deviceID = id
+				break
+			}
+		}
+	}
+	if !ok {
+		return policy.AccessPolicy{}, fmt.Errorf("device not found: %s", deviceID)
+	}
+	_ = migrateDevicePolicy(&d)
+	p := policy.DefaultEdgePolicy()
+	if d.AllowInternet != nil {
+		p.AllowInternet = *d.AllowInternet
+	}
+	p.Services = append([]string{}, d.Services...)
+	p.ServicesMode = d.ServicesMode
+	p.UpdatedAt = d.PolicyAt
+	p.UpdatedBy = d.PolicyBy
+	p.Normalize()
+	return p, nil
+}
+
+// SetDevicePolicy stores edge device access policy.
+func SetDevicePolicy(deviceID string, p policy.AccessPolicy, by string) error {
+	cat, _ := policy.EnsureCatalog()
+	p.Normalize()
+	if err := p.Validate(cat); err != nil {
+		return err
+	}
+	p.Touch(by)
+	m := loadDevices()
+	key := deviceID
+	d, ok := m[key]
+	if !ok {
+		for id, x := range m {
+			if x.DeviceID == deviceID || id == deviceID {
+				key, d, ok = id, x, true
+				break
+			}
+		}
+	}
+	if !ok {
+		return fmt.Errorf("device not found: %s", deviceID)
+	}
+	ai := p.AllowInternet
+	d.AllowInternet = &ai
+	d.Services = append([]string{}, p.Services...)
+	d.ServicesMode = p.ServicesMode
+	d.PolicyAt = p.UpdatedAt
+	d.PolicyBy = p.UpdatedBy
+	m[key] = d
+	if err := saveDevices(m); err != nil {
+		return err
+	}
+	_, _ = policy.ApplyRoutes()
+	return nil
 }

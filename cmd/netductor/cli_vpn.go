@@ -35,6 +35,9 @@ func runVPN(args []string) {
 			fmt.Fprintln(os.Stderr, "apply:", err)
 			os.Exit(1)
 		}
+	case "policy":
+		// vpn policy get|set <name> …  (alias of policy user)
+		runPolicyCLI(append([]string{"user"}, rest...))
 	case "list":
 		users, err := vpn.List()
 		if err != nil {

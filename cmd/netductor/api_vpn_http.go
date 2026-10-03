@@ -8,6 +8,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -245,6 +246,28 @@ func registerVPNHTTP(mux *http.ServeMux) {
 				return
 			}
 			writeJSON(w, 200, map[string]any{"ok": true, "output": strings.TrimSpace(out)})
+		case action == "policy" && r.Method == http.MethodGet:
+			pol, err := vpn.GetUserPolicy(name)
+			if err != nil {
+				writeJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "subject_type": "vpn_user", "subject_id": name, "policy": pol})
+		case action == "policy" && (r.Method == http.MethodPut || r.Method == http.MethodPost):
+			body := readJSON(r)
+			pol, err := policyFromBody(body)
+			if err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			if err := vpn.SetUserPolicy(name, pol, "api"); err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			out, _ := vpn.GetUserPolicy(name)
+			st, _ := policy.ApplyRoutes()
+			audit.Log("session", "vpn.policy", name, "")
+			writeJSON(w, 200, map[string]any{"ok": true, "policy": out, "apply": st})
 		default:
 			writeJSON(w, 404, map[string]string{"error": "not found"})
 		}

@@ -14,17 +14,24 @@ import (
 	"github.com/skip2/go-qrcode"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/session"
 )
 
 type UserRecord struct {
-	Name        string `json:"name"`
-	UUID        string `json:"uuid"`
-	Enabled     bool   `json:"enabled"`
-	Note        string `json:"note"`
-	Created     string `json:"created"`
+	Name    string `json:"name"`
+	UUID    string `json:"uuid"`
+	Enabled bool   `json:"enabled"`
+	Note    string `json:"note"`
+	Created string `json:"created"`
 	// SubProfile: secondary (default entry) | primary (core only) | both
-	SubProfile  string `json:"sub_profile,omitempty"`
+	SubProfile string `json:"sub_profile,omitempty"`
+	// Access policy (docs/PLAN-SERVICE-ACCESS-POLICY.md)
+	AllowInternet *bool    `json:"allow_internet,omitempty"`
+	Services      []string `json:"services,omitempty"`
+	ServicesMode  string   `json:"services_mode,omitempty"`
+	PolicyAt      string   `json:"policy_updated_at,omitempty"`
+	PolicyBy      string   `json:"policy_updated_by,omitempty"`
 }
 
 type registry struct {
@@ -65,8 +72,35 @@ func loadRegistry() (*registry, error) {
 	if r.Users == nil {
 		r.Users = []UserRecord{}
 	}
+	changed := migrateUserPolicies(&r)
+	if changed {
+		_ = writeRegistry(&r)
+	}
 	return &r, nil
 }
+
+// migrateUserPolicies sets default allow_internet=true, services=[] when policy fields absent.
+func migrateUserPolicies(r *registry) bool {
+	changed := false
+	for i := range r.Users {
+		u := &r.Users[i]
+		if u.AllowInternet == nil {
+			v := true
+			u.AllowInternet = &v
+			changed = true
+		}
+		if u.Services == nil {
+			u.Services = []string{}
+			changed = true
+		}
+		if u.ServicesMode == "" {
+			u.ServicesMode = "list"
+			changed = true
+		}
+	}
+	return changed
+}
+
 
 func writeRegistry(r *registry) error {
 	b, err := json.MarshalIndent(r, "", "  ")
@@ -361,7 +395,10 @@ func ListNative() ([]User, error) {
 	}
 	users := make([]User, 0, len(r.Users))
 	for _, u := range r.Users {
-		users = append(users, User{Name: u.Name, Enabled: u.Enabled, UUID: u.UUID, Note: u.Note, Created: u.Created})
+		users = append(users, User{
+			Name: u.Name, Enabled: u.Enabled, UUID: u.UUID, Note: u.Note, Created: u.Created,
+			AllowInternet: u.AllowInternet, Services: u.Services, ServicesMode: u.ServicesMode,
+		})
 	}
 	return users, nil
 }
@@ -407,5 +444,66 @@ func RewriteAllLinks() error {
 			return err
 		}
 	}
+	return nil
+}
+
+
+// PolicyFromRecord maps registry fields to policy.AccessPolicy.
+func PolicyFromRecord(u UserRecord) policy.AccessPolicy {
+	p := policy.DefaultUserPolicy()
+	if u.AllowInternet != nil {
+		p.AllowInternet = *u.AllowInternet
+	}
+	if u.Services != nil {
+		p.Services = append([]string{}, u.Services...)
+	}
+	if u.ServicesMode != "" {
+		p.ServicesMode = u.ServicesMode
+	}
+	p.UpdatedAt = u.PolicyAt
+	p.UpdatedBy = u.PolicyBy
+	p.Normalize()
+	return p
+}
+
+// GetUserPolicy returns access policy for a VPN user name.
+func GetUserPolicy(name string) (policy.AccessPolicy, error) {
+	r, err := loadRegistry()
+	if err != nil {
+		return policy.AccessPolicy{}, err
+	}
+	u := findUser(r, name)
+	if u == nil {
+		return policy.AccessPolicy{}, fmt.Errorf("user not found: %s", name)
+	}
+	return PolicyFromRecord(*u), nil
+}
+
+// SetUserPolicy stores policy and optionally triggers ApplyRoutes.
+func SetUserPolicy(name string, p policy.AccessPolicy, by string) error {
+	cat, _ := policy.EnsureCatalog()
+	p.Normalize()
+	if err := p.Validate(cat); err != nil {
+		return err
+	}
+	p.Touch(by)
+	r, err := loadRegistry()
+	if err != nil {
+		return err
+	}
+	u := findUser(r, name)
+	if u == nil {
+		return fmt.Errorf("user not found: %s", name)
+	}
+	ai := p.AllowInternet
+	u.AllowInternet = &ai
+	u.Services = append([]string{}, p.Services...)
+	u.ServicesMode = p.ServicesMode
+	u.PolicyAt = p.UpdatedAt
+	u.PolicyBy = p.UpdatedBy
+	if err := writeRegistry(r); err != nil {
+		return err
+	}
+	_, _ = policy.ApplyRoutes()
 	return nil
 }

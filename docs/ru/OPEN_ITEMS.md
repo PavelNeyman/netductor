@@ -6,7 +6,7 @@
 
 ## Планы (документы)
 
-- [ ] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) — каталог сервисов + политики VPN-user и edge (галочки во всех UI); enforcement sing-box
+- [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0 сделано** (каталог + поля + API/CLI); P1 enforcement + P3 UI открыты
 - [ ] [HOST-AUDIT](HOST-AUDIT.md) — полный аудит хостера; `collect-host-audit.sh`; baseline; doctor FAIL (частично 0.9.192–194)
 - [ ] Расширить denylist host-audit (RMM/otel/avahi) — синхрон script ↔ Go
 - [ ] Статус firewall во всех UI + алерты

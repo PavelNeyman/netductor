@@ -27,11 +27,14 @@ func run(args ...string) (string, error) {
 }
 
 type User struct {
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
-	UUID    string `json:"uuid"`
-	Note    string `json:"note"`
-	Created string `json:"created"`
+	Name          string         `json:"name"`
+	Enabled       bool           `json:"enabled"`
+	UUID          string         `json:"uuid"`
+	Note          string         `json:"note"`
+	Created       string         `json:"created"`
+	AllowInternet *bool          `json:"allow_internet,omitempty"`
+	Services      []string       `json:"services,omitempty"`
+	ServicesMode  string         `json:"services_mode,omitempty"`
 }
 
 func List() ([]User, error) {

@@ -51,6 +51,10 @@ func main() {
 		os.Exit(runDoctorNative())
 	case "vpn":
 		runVPN(os.Args[2:])
+	case "services":
+		runServices(os.Args[2:])
+	case "policy":
+		runPolicyCLI(os.Args[2:])
 	case "ssh-hosts", "known-hosts":
 		runSSHHosts(os.Args[2:])
 	case "sites":
@@ -197,7 +201,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | firewall | host-audit | doctor | status | vpn | secondary | svc-paths | api-public | edge | mtls | nvr
+  install | serve | firewall | host-audit | doctor | status | vpn | services | policy | secondary | svc-paths | api-public | edge | mtls | nvr
   stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

@@ -221,11 +221,11 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P0 — data model
 
-- [ ] Catalog file + load/save + validation  
-- [ ] Default catalog seed (`internet`, `lampac`, `git`, `registry`, `nvr` stubs)  
-- [ ] Policy fields on vpn user + edge device records  
-- [ ] Migration: existing users → `allow_internet=true`, `services=[]`  
-- [ ] Unit tests for validate/merge  
+- [x] Catalog file + load/save + validation  
+- [x] Default catalog seed (`internet`, `lampac`, `git`, `registry`, `nvr` stubs)  
+- [x] Policy fields on vpn user + edge device records  
+- [x] Migration: existing users → allow_internet=true, services=[]  
+- [x] Unit tests for validate/merge  
 
 ### Phase P1 — enforcement
 
@@ -236,9 +236,9 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P2 — API + CLI
 
-- [ ] REST endpoints above  
-- [ ] CLI commands  
-- [ ] opcatalog entries  
+- [x] REST endpoints above (catalog + policy; apply stub)  
+- [x] CLI commands (services, policy)  
+- [x] opcatalog entries  
 
 ### Phase P3 — UI
 
