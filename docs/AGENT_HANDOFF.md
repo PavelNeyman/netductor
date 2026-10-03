@@ -248,3 +248,7 @@ Closed checklist item → mark plan + update this handoff + CHANGELOG in the **s
 
 ## 0.9.193 host firewall mandatory
 - ufw install; iptables fallback; doctor FAIL; TG/API
+
+## 0.9.194 hoster agent audit
+- host-audit CLI + scripts/audit-hoster-agents.sh
+- doctor FAIL on salt/zabbix/telegraf/… units

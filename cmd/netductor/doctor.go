@@ -12,6 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/firewall"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
@@ -233,7 +234,21 @@ func runDoctorNative() int {
 	if os.Getenv("NETDUCTOR_FAIL2BAN") != "0" {
 		warnCheck("fail2ban active", activeUnit("fail2ban"))
 	}
-	warnCheck("no zabbix agent", !activeUnit("zabbix-agent") && !activeUnit("zabbix-agent2") && !activeUnit("zabbix-agentd") && !listeningOnAll("10050"))
+		// Hoster monitoring / CM agents
+	hu, hp := install.HostAgentFindings()
+	if len(hu) == 0 && len(hp) == 0 {
+		doctorPrintln("OK   no hoster monitoring/CM agents")
+		ok++
+	} else {
+		if len(hu) > 0 {
+			doctorPrintf("FAIL hoster units active: %s\n", strings.Join(hu, ", "))
+			fail++
+		}
+		if len(hp) > 0 {
+			doctorPrintf("WARN hoster-like ports open: %s\n", strings.Join(hp, ", "))
+			warn++
+		}
+	}
 
 	fw := firewall.Collect(role)
 	if fw.OK {

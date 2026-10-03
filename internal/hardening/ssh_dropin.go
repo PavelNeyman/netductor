@@ -64,12 +64,12 @@ elif command -v iptables >/dev/null 2>&1; then
   iptables -A NETDUCTOR -p tcp --dport 10050 -j DROP
 fi
 # purge hoster monitoring agents (zabbix)
-for u in zabbix-agent zabbix-agentd zabbix-agent2; do
+for u in zabbix-agent zabbix-agentd zabbix-agent2 telegraf salt-minion node_exporter prometheus-node-exporter datadog-agent snmpd nrpe; do
   systemctl disable --now "$u" 2>/dev/null || true
   systemctl mask "$u" 2>/dev/null || true
 done
 export DEBIAN_FRONTEND=noninteractive
-apt-get remove -y --purge zabbix-agent zabbix-agent2 zabbix-release 2>/dev/null || true
+apt-get remove -y --purge zabbix-agent zabbix-agent2 zabbix-release telegraf salt-minion prometheus-node-exporter snmpd 2>/dev/null || true
 if command -v ufw >/dev/null 2>&1; then
   ufw deny 10050/tcp 2>/dev/null || true
   ufw deny 10051/tcp 2>/dev/null || true

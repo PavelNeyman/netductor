@@ -1,3 +1,12 @@
+## 0.9.194
+
+### Hoster monitoring / CM audit
+- Expanded purge beyond zabbix: telegraf, datadog, salt-minion, puppet, chef, node_exporter, snmpd, nrpe, netdata, …
+- Doctor: FAIL on active unwanted units; WARN on watched ports
+- CLI: `netductor host-audit [--json] [--purge]`
+- Script: `scripts/audit-hoster-agents.sh` (read-only; `--purge` optional)
+- Remote secondary harden: broader unit/package remove list
+
 ## 0.9.193
 
 ### Security — host firewall (critical)
