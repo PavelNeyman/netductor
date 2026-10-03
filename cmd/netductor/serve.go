@@ -12,9 +12,12 @@ import (
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
+	"github.com/PavelNeyman/netductor/internal/policy"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 func buildAPIMux() http.Handler {
+	policy.ApplyHook = vpn.ApplyAccessPolicies
 	edge.EnsureDefaultTemplate()
 	mux := http.NewServeMux()
 

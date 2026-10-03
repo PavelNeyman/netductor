@@ -229,10 +229,10 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P1 — enforcement
 
-- [ ] Service-net design note + minimal VIP publish for Lampac (or interim loopback route)  
-- [ ] sing-box route generation from policies  
-- [ ] Apply on policy change + on `vpn apply` / stack apply  
-- [ ] Tests: golden config snippets for full / media / deny-internal  
+- [x] Interim loopback endpoints in catalog + route by port (service-net later)  
+- [x] sing-box route generation from policies (auth_user + port reject)  
+- [x] Apply on policy change via ApplyHook → ApplyConfig  
+- [x] Tests: ServiceRouteRules unit tests  
 
 ### Phase P2 — API + CLI
 

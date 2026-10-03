@@ -10,6 +10,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/policy"
 )
 
 const singboxConf = "/usr/local/etc/sing-box/config.json"
@@ -28,10 +29,11 @@ func ApplyConfig() error {
 		return err
 	}
 	type vu struct {
+		Name string `json:"name,omitempty"`
 		UUID string `json:"uuid"`
 		Flow string `json:"flow"`
 	}
-		var vusers []vu
+	var vusers []vu
 	for _, u := range r.Users {
 		if !u.Enabled {
 			continue
@@ -41,7 +43,7 @@ func ApplyConfig() error {
 		if u.Name == RelayUplinkName {
 			flow = ""
 		}
-		vusers = append(vusers, vu{UUID: u.UUID, Flow: flow})
+		vusers = append(vusers, vu{Name: u.Name, UUID: u.UUID, Flow: flow})
 	}
 	if vusers == nil {
 		vusers = []vu{}
@@ -202,12 +204,33 @@ func cloneMap(m map[string]any) map[string]any {
 }
 
 
+
+func policyServiceRules() []any {
+	r, err := loadRegistry()
+	if err != nil {
+		return nil
+	}
+	cat, _ := policy.EnsureCatalog()
+	var subjects []policy.Subject
+	for _, u := range r.Users {
+		if !u.Enabled {
+			continue
+		}
+		subjects = append(subjects, policy.Subject{Name: u.Name, Policy: PolicyFromRecord(u)})
+	}
+	return policy.ServiceRouteRules(subjects, cat)
+}
+
 func buildOutboundsAndRoute() (outbounds []any, routeRules []any, finalOut string) {
-	outbounds = []any{map[string]any{"type": "direct", "tag": "direct"}}
+	outbounds = []any{
+		map[string]any{"type": "direct", "tag": "direct"},
+		map[string]any{"type": "block", "tag": "block"},
+	}
 	routeRules = []any{
 		map[string]any{"action": "sniff"},
 		map[string]any{"protocol": "dns", "action": "hijack-dns"},
 	}
+	routeRules = append(routeRules, policyServiceRules()...)
 	finalOut = "direct"
 	exitOn, ip, pbk, sid, sniR := readExitTarget()
 	exitUUID := secret("secondary_exit_uuid")

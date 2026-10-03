@@ -12,7 +12,12 @@ import (
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
+func initPolicyHook() {
+	policy.ApplyHook = vpn.ApplyAccessPolicies
+}
+
 func runServices(args []string) {
+
 	if len(args) == 0 {
 		args = []string{"list"}
 	}

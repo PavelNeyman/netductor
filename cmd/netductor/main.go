@@ -29,6 +29,7 @@ func main() {
 		}
 	}
 	ndconfig.Load()
+	initPolicyHook()
 
 	if len(os.Args) < 2 {
 		printHelp()

@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.195** (service access policy P0: catalog + user/edge policy fields + API/CLI; ApplyRoutes pending P1)
+**Stop line: v0.9.195** (service access policy P0+P1: catalog, user/edge policy, API/CLI, sing-box auth_user route rules; UI checkboxes P3 open)
 
 **Prev stop: v0.9.192** (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
 
