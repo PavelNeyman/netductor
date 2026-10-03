@@ -73,5 +73,10 @@ func EnsureHostBaseline(role string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "host baseline: firewall="+role+" + netductor-stack-watchdog.timer")
 	}
+		if err := WriteHosterAptBlock(); err != nil {
+		fmt.Fprintf(os.Stderr, "hoster apt pin: %v
+", err)
+	}
 	return nil
 }
+
