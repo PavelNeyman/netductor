@@ -4,9 +4,65 @@
 
 How to fully audit a netductor VPS (primary or secondary) for **unwanted monitoring / CM / RMM agents**, unexpected listeners, and drift from a known-good surface. Produce logs you can hand to an operator or AI for analysis.
 
-Related code: `scripts/audit-hoster-agents.sh`, `scripts/collect-host-audit.sh`, `netductor host-audit`, `internal/install/host_agents.go`, firewall role allow-list, [PORTS.md](PORTS.md), [SECURITY.md](SECURITY.md).
+Related code: `scripts/run-host-audit-bundle.sh`, `scripts/audit-hoster-agents.sh`, `scripts/collect-host-audit.sh`, `netductor host-audit`, `internal/install/host_agents.go`, firewall role allow-list, [PORTS.md](PORTS.md), [SECURITY.md](SECURITY.md).
 
 ---
+
+## 0. Operator one-shot (copy-paste on the VPS)
+
+Run **as root** on primary and/or secondary. Read-only collection (no purge). Downloads scripts from GitHub `main` (or pin a tag).
+
+```bash
+# Full bundle → /tmp/nd-host-audit-<host>-<utc>/ + .tar.gz
+curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/run-host-audit-bundle.sh | bash
+```
+
+Pin a release/ref:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/run-host-audit-bundle.sh \
+  | NETDUCTOR_AUDIT_REF=main bash
+```
+
+Then pull the archive to your laptop and send it for review:
+
+```bash
+# on laptop (example)
+scp -P 52222 root@PRIMARY:/tmp/nd-host-audit-*.tar.gz .
+scp -P 52222 root@SECONDARY:/tmp/nd-host-audit-*.tar.gz .
+```
+
+### What the archive contains
+
+| File | Content |
+|------|---------|
+| `host-audit.txt` | Full text bundle (ss, units, packages, firewall, ssh, cron, …) |
+| `hoster-agents.txt` | Denylist probe (zabbix/salt/RMM/…) |
+| `extra-signals.txt` | Top CPU, denylist processes, established TCP sample, failed units, auth tail |
+| `MANIFEST.txt` | host, ref, timestamps |
+| `*.stderr` | Script errors if any |
+
+**Do not** put private keys or backup keys in the bundle (scripts redact / skip them).
+
+### Offline / no GitHub from the VPS
+
+```bash
+# from a machine that has the repo
+scp -P 52222 scripts/run-host-audit-bundle.sh scripts/collect-host-audit.sh scripts/audit-hoster-agents.sh root@HOST:/tmp/nd-audit/
+ssh -p 52222 root@HOST 'bash /tmp/nd-audit/run-host-audit-bundle.sh'
+```
+
+### Destructive purge (only after review)
+
+```bash
+# dry-run style: read-only first (one-shot above)
+# then, only if findings are confirmed:
+netductor host-audit --purge    # if supported on installed version
+# or: bash audit-hoster-agents.sh --purge
+```
+
+---
+
 
 ## 1. Principles
 
@@ -197,7 +253,7 @@ Optional: AIDE init **after** baseline when primary has disk budget.
 - [x] Initial denylist + `audit-hoster-agents.sh` + `host-audit` CLI (0.9.192+)  
 - [x] Firewall module with ufw preferred + iptables fallback direction  
 - [ ] Expand denylist (RMM names, otel, cloudwatch, avahi/cups) — keep in sync script ↔ Go  
-- [ ] `collect-host-audit.sh` full bundle  
+- [x] `collect-host-audit.sh` + `run-host-audit-bundle.sh` one-shot  
 - [ ] Doctor FAIL: foreign agent OR missing fw backend OR denylist port on non-loopback  
 - [ ] TG/Web firewall status block  
 - [ ] Baseline snapshot at end of install  

@@ -4,9 +4,61 @@
 
 Как провести полный аудит VPS netductor (primary или secondary) на **чужой мониторинг / CM / RMM**, лишние listeners и дрейф относительно ожидаемой поверхности. Результат — логи для оператора или ИИ.
 
-Связанный код: `scripts/audit-hoster-agents.sh`, `scripts/collect-host-audit.sh`, `netductor host-audit`, `internal/install/host_agents.go`, allow-list файрвола, [PORTS.md](../PORTS.md), [SECURITY.md](../SECURITY.md).
+Связанный код: `scripts/run-host-audit-bundle.sh`, `scripts/audit-hoster-agents.sh`, `scripts/collect-host-audit.sh`, `netductor host-audit`, `internal/install/host_agents.go`, allow-list файрвола, [PORTS.md](../PORTS.md), [SECURITY.md](../SECURITY.md).
 
 ---
+
+## 0. Одноразовая команда для оператора (на VPS)
+
+Запускать **от root** на primary и/или secondary. Только чтение (без purge). Скрипты тянутся с GitHub `main` (можно закрепить tag).
+
+```bash
+# Полный bundle → /tmp/nd-host-audit-<host>-<utc>/ + .tar.gz
+curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/run-host-audit-bundle.sh | bash
+```
+
+Закрепить ref:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/run-host-audit-bundle.sh \
+  | NETDUCTOR_AUDIT_REF=main bash
+```
+
+Снять архив на ноутбук и отдать на разбор:
+
+```bash
+scp -P 52222 root@PRIMARY:/tmp/nd-host-audit-*.tar.gz .
+scp -P 52222 root@SECONDARY:/tmp/nd-host-audit-*.tar.gz .
+```
+
+### Что внутри архива
+
+| Файл | Содержание |
+|------|------------|
+| `host-audit.txt` | Полный текстовый dump (ss, units, packages, firewall, ssh, cron, …) |
+| `hoster-agents.txt` | Проба denylist (zabbix/salt/RMM/…) |
+| `extra-signals.txt` | Top CPU, процессы denylist, established TCP, failed units, хвост auth |
+| `MANIFEST.txt` | host, ref, время |
+| `*.stderr` | Ошибки скриптов, если были |
+
+**Не** класть в bundle приватные ключи и ключи бэкапа (скрипты редактируют / пропускают).
+
+### Без GitHub с VPS
+
+```bash
+scp -P 52222 scripts/run-host-audit-bundle.sh scripts/collect-host-audit.sh scripts/audit-hoster-agents.sh root@HOST:/tmp/nd-audit/
+ssh -p 52222 root@HOST 'bash /tmp/nd-audit/run-host-audit-bundle.sh'
+```
+
+### Деструктивный purge (только после разбора)
+
+```bash
+netductor host-audit --purge    # если есть в установленной версии
+# или: bash audit-hoster-agents.sh --purge
+```
+
+---
+
 
 ## 1. Принципы
 

@@ -79,6 +79,13 @@ ls /usr/local/bin 2>/dev/null | head -80
 section "docker"
 command -v docker >/dev/null && docker ps -a 2>/dev/null | head -30 || echo "no docker"
 
+section "doctor"
+if command -v netductor >/dev/null; then
+  netductor doctor 2>/dev/null | head -120 || true
+else
+  echo "(netductor binary not in PATH)"
+fi
+
 section "baseline present"
 ls -la /var/lib/netductor/baseline 2>/dev/null || echo "(no baseline dir)"
 
