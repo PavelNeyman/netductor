@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.198** (host-audit apt residual + fleet live CLEAN; policy P0–P3 at 0.9.196)
+**Stop line: v0.9.199** (host-audit apt residual + fleet live CLEAN; policy P0–P3 at 0.9.196)
 
 **Prev stop: v0.9.192** (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
 

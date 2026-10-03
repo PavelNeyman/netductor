@@ -25,16 +25,16 @@ const (
 
 // Status is JSON-friendly for doctor / API / UI.
 type Status struct {
-	Backend     Backend  `json:"backend"`
-	Active      bool     `json:"active"`
-	Role        string   `json:"role"`
-	OK          bool     `json:"ok"`
-	Detail      string   `json:"detail,omitempty"`
-	OpenWAN     []string `json:"open_wan"`     // expected public allows
-	DenyWAN     []string `json:"deny_wan"`     // expected explicit denies
-	Restricted  []string `json:"restricted"`   // CIDR-limited
-	Warnings    []string `json:"warnings,omitempty"`
-	CheckedAt   string   `json:"checked_at"`
+	Backend    Backend  `json:"backend"`
+	Active     bool     `json:"active"`
+	Role       string   `json:"role"`
+	OK         bool     `json:"ok"`
+	Detail     string   `json:"detail,omitempty"`
+	OpenWAN    []string `json:"open_wan"`   // expected public allows
+	DenyWAN    []string `json:"deny_wan"`   // expected explicit denies
+	Restricted []string `json:"restricted"` // CIDR-limited
+	Warnings   []string `json:"warnings,omitempty"`
+	CheckedAt  string   `json:"checked_at"`
 }
 
 // EnsureInstalled tries to install ufw. Returns backend that will be used.
@@ -90,6 +90,7 @@ func ApplyRole(role string) error {
 }
 
 func detectRole() string {
+	// Explicit role file wins (written by install / firewall apply).
 	if b, err := os.ReadFile("/etc/netductor/role"); err == nil {
 		s := strings.TrimSpace(strings.ToLower(string(b)))
 		if s == "secondary" {
@@ -99,13 +100,35 @@ func detectRole() string {
 			return "primary"
 		}
 	}
-	if _, err := os.Stat("/var/lib/netductor/secondary/bundle.json"); err == nil {
-		return "secondary"
-	}
+	// Live secondary agent is definitive.
 	if st, _ := exec.Command("systemctl", "is-active", "netductor-secondary-agent").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
 		return "secondary"
 	}
+	// Primary control-plane markers (bundle.json may exist on primary after export — do NOT treat as secondary).
+	if _, err := os.Stat("/var/lib/netductor/READY.txt"); err == nil {
+		return "primary"
+	}
+	if st, _ := exec.Command("systemctl", "is-active", "netductor-api").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
+		return "primary"
+	}
+	if st, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
+		return "primary"
+	}
+	// Last resort: secondary bundle only if no primary markers above.
+	if _, err := os.Stat("/var/lib/netductor/secondary/bundle.json"); err == nil {
+		return "secondary"
+	}
 	return "primary"
+}
+
+// persistRole writes /etc/netductor/role so status matches last apply.
+func persistRole(role string) {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role != "primary" && role != "secondary" {
+		return
+	}
+	_ = os.MkdirAll("/etc/netductor", 0o755)
+	_ = os.WriteFile("/etc/netductor/role", []byte(role+"\n"), 0o644)
 }
 
 func sshPort() string {
@@ -175,6 +198,7 @@ func applyUFW(role string) error {
 	if err != nil {
 		return fmt.Errorf("ufw enable: %v (%s)", err, truncate(string(out), 200))
 	}
+	persistRole(role)
 	fmt.Fprintf(os.Stderr, "firewall: ufw active role=%s ssh=%s\n", role, sp)
 	return nil
 }

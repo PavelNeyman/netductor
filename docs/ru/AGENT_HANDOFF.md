@@ -14,7 +14,7 @@
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Точка останова: v0.9.198** (host-audit apt residual + live CLEAN primary/secondary; policy P0–P3 в 0.9.196)
+**Точка останова: v0.9.199** (host-audit apt residual + live CLEAN primary/secondary; policy P0–P3 в 0.9.196)
 
 **Пред. stop: v0.9.192** (2026-10-02). Guest stage без reload; hard-fail сети/guest.
 
