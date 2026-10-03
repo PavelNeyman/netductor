@@ -1,4 +1,5 @@
 # AGENT Handoff
+- **0.9.201:** safer hoster purge (installed pkgs only, no pkill -f, port parse); apt Pin-Priority -1 block; host-audit --dry-run.
 - **0.9.200:** install/stack apply/secondary upgrade auto EnsureHostBaseline (firewall role file + netductor-stack-watchdog.timer). Role detect fixed in 0.9.199.
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 

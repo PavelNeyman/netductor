@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -23,13 +24,13 @@ var unwantedUnits = []string{
 	"snmpd", "snmptrapd",
 	"monit", "glances",
 	"ossec", "wazuh-agent",
-	"besclient", "scaleft-proxy", // rare RMM
+	"besclient", "scaleft-proxy",
 	"anydesk", "teamviewerd",
 	"otelcol", "otelcol-contrib", "filebeat", "elastic-agent",
 	"avahi-daemon", "cups", "cups-browsed", "rpcbind",
 }
 
-// Exact package names for apt purge (plus pattern scan for hoster variants).
+// Exact package names preferred for apt purge when installed.
 var unwantedPackages = []string{
 	"zabbix-agent", "zabbix-agent2", "zabbix-release", "zabbix-agent-timeweb",
 	"telegraf", "datadog-agent", "newrelic-infra",
@@ -43,15 +44,42 @@ var unwantedPackages = []string{
 	"amazon-cloudwatch-agent",
 }
 
-// Substrings matched against `dpkg -l` package names (catches hoster forks).
+// Substrings matched against installed package names (hoster forks).
+// Prefer anchors: avoid bare "puppet" matching unrelated names.
 var unwantedPackageSubstr = []string{
-	"zabbix", "telegraf", "datadog", "newrelic", "salt-minion", "salt-master",
-	"puppet", "chef-client", "node-exporter", "node_exporter", "netdata",
-	"collectd", "nrpe", "wazuh", "ossec", "cloudwatch-agent", "otelcol",
+	"zabbix", "telegraf", "datadog", "newrelic",
+	"salt-minion", "salt-master", "salt-common", "salt-api",
+	"puppet-agent", "puppet-common", "pxp-agent",
+	"chef-client", "chef-solo",
+	"node-exporter", "node_exporter", "prometheus-node-exporter",
+	"netdata", "collectd", "nrpe", "nagios-nrpe",
+	"wazuh", "ossec", "cloudwatch-agent", "otelcol",
 	"filebeat", "elastic-agent", "landscape-client",
+	"zabbix-agent-timeweb",
 }
 
-// Residual paths that indicate a prior hoster agent install.
+// packageNameUnwanted reports whether an installed dpkg name looks like a hoster agent.
+func packageNameUnwanted(name string) bool {
+	low := strings.ToLower(strings.TrimSpace(name))
+	if low == "" {
+		return false
+	}
+	if low == "puppet" || strings.HasPrefix(low, "puppet-") {
+		// allow library-style names only if clearly agent/cm
+		if low == "puppet" || strings.Contains(low, "puppet-agent") ||
+			strings.Contains(low, "puppet-common") || strings.Contains(low, "puppetlabs") {
+			return true
+		}
+		return false
+	}
+	for _, sub := range unwantedPackageSubstr {
+		if strings.Contains(low, sub) {
+			return true
+		}
+	}
+	return false
+}
+
 var unwantedPaths = []string{
 	"/etc/zabbix", "/opt/zabbix", "/var/log/zabbix",
 	"/etc/telegraf", "/etc/datadog-agent", "/opt/datadog-agent",
@@ -61,12 +89,9 @@ var unwantedPaths = []string{
 	"/opt/tacticalrmm", "/opt/meshagent",
 }
 
-// APT source/keyring residuals from hoster agent installers (e.g. Timeweb zabbix).
 var unwantedAptGlobs = []string{
 	"/etc/apt/sources.list.d/*zabbix*",
 	"/etc/apt/sources.list.d/*timeweb*",
-	"/etc/apt/sources.list.d/*telegraf*",
-	"/etc/apt/sources.list.d/*datadog*",
 	"/etc/apt/sources.list.d/*salt*",
 	"/etc/apt/keyrings/*zabbix*",
 	"/etc/apt/keyrings/*timeweb*",
@@ -74,56 +99,117 @@ var unwantedAptGlobs = []string{
 	"/etc/apt/trusted.gpg.d/*timeweb*",
 }
 
-// Ports often bound by hoster agents (doctor WARN if listening on non-loopback).
 var unwantedListenPorts = []string{
-	"10050", "10051", // zabbix
-	"9100",       // node_exporter
-	"9273",       // telegraf prom
-	"8125",       // statsd
-	"161", "162", // snmp
-	"4505", "4506", // salt
-	"8140",  // puppet
-	"5666",  // nrpe
-	"19999", // netdata
-	"2812",  // monit
-	"5353",  // avahi
-	"631",   // cups
+	"10050", "10051",
+	"9100",
+	"9273",
+	"8125",
+	"161", "162",
+	"4505", "4506",
+	"8140",
+	"5666",
+	"19999",
+	"2812",
+	"5353",
+	"631",
 }
 
+// watchedProcNames exact process names (ps -o comm= is basename-limited).
+var watchedProcNames = []string{
+	"zabbix_agentd", "zabbix_agent2", "salt-minion", "telegraf",
+	"datadog-agent", "node_exporter", "ossec-agentd", "wazuh-agentd",
+	"puppet", "chef-client",
+}
+
+// aptPinPackages: preferences.d entries with Pin-Priority -1 (block install/upgrade).
+var aptPinPackages = []string{
+	"zabbix-*",
+	"zabbix-agent-timeweb",
+	"telegraf",
+	"datadog-agent",
+	"newrelic-infra",
+	"prometheus-node-exporter",
+	"collectd",
+	"netdata",
+	"salt-minion",
+	"salt-master",
+	"salt-common",
+	"salt-api",
+	"puppet",
+	"puppet-agent",
+	"puppet-common",
+	"chef",
+	"chef-client",
+	"landscape-client",
+	"nagios-nrpe-server",
+	"wazuh-agent",
+	"ossec-hids-agent",
+	"amazon-cloudwatch-agent",
+	"filebeat",
+	"elastic-agent",
+}
+
+const aptPreferencesHoster = "/etc/apt/preferences.d/netductor-block-hoster"
+
 // PurgeHostMonitoring removes common VPS-image monitoring + CM agents.
-// Idempotent; never fails install hard.
+// Idempotent; never fails install hard. Only purges packages that are installed.
 func PurgeHostMonitoring() {
 	for _, u := range unwantedUnits {
 		_ = exec.Command("systemctl", "disable", "--now", u).Run()
 		_ = exec.Command("systemctl", "stop", u).Run()
 		_ = exec.Command("systemctl", "mask", u).Run()
 	}
-	// Exact list + any dpkg names matching hoster substrings (e.g. zabbix-agent-timeweb).
-	pkgs := append([]string{}, unwantedPackages...)
-	pkgs = append(pkgs, scanInstalledUnwantedPackages()...)
-	pkgs = uniqueStrings(pkgs)
+
+	pkgs := scanInstalledUnwantedPackages()
+	// Also intersect exact list against installed (scan already covers substrings).
 	if len(pkgs) > 0 {
 		args := append([]string{"remove", "-y", "--purge"}, pkgs...)
 		cmd := exec.Command("apt-get", args...)
 		cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
-		_ = cmd.Run()
-	}
-	if _, err := exec.LookPath("ufw"); err == nil {
-		for _, p := range unwantedListenPorts {
-			_ = exec.Command("ufw", "deny", p+"/tcp").Run()
-			_ = exec.Command("ufw", "deny", p+"/udp").Run()
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "hoster apt purge: %v (%s)\n", err, strings.TrimSpace(string(out)))
+		} else if len(out) > 0 {
+			fmt.Fprintf(os.Stderr, "hoster apt purge: removed %d package(s)\n", len(pkgs))
 		}
 	}
-	_ = exec.Command("pkill", "-f", "zabbix_agent").Run()
-	_ = exec.Command("pkill", "-f", "salt-minion").Run()
-	// Residual config dirs after apt purge of hoster-custom packages.
+
+	// Prefer role firewall deny list; do not spam ufw with every classic port here.
+
+	// Stop residual processes by exact name (not pkill -f).
+	for _, n := range watchedProcNames {
+		_ = exec.Command("killall", "-q", n).Run()
+	}
+
 	for _, d := range unwantedPaths {
 		_ = os.RemoveAll(d)
 	}
 	for _, f := range scanUnwantedAptResiduals() {
 		_ = os.Remove(f)
 	}
+
+	if err := WriteHosterAptBlock(); err != nil {
+		fmt.Fprintf(os.Stderr, "hoster apt pin: %v\n", err)
+	}
+
 	fmt.Fprintln(os.Stderr, "hardening: hoster monitoring/CM agents purged (if present)")
+}
+
+// WriteHosterAptBlock installs apt preferences that refuse hoster agent packages.
+// Safer than apt-mark hold for packages not currently installed.
+func WriteHosterAptBlock() error {
+	var b strings.Builder
+	b.WriteString("# Managed by netductor — do not edit; hoster monitoring/CM must not reinstall.\n")
+	b.WriteString("# Remove this file only if you intentionally install these agents.\n")
+	for _, pkg := range aptPinPackages {
+		b.WriteString("Package: ")
+		b.WriteString(pkg)
+		b.WriteString("\nPin: release *\nPin-Priority: -1\n\n")
+	}
+	if err := os.MkdirAll("/etc/apt/preferences.d", 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(aptPreferencesHoster, []byte(b.String()), 0o644)
 }
 
 // HostAgentFindings lists active unwanted units and open unwanted ports.
@@ -138,17 +224,44 @@ func HostAgentFindings() (units []string, ports []string) {
 	if err != nil {
 		out, _ = exec.Command("netstat", "-tuln").CombinedOutput()
 	}
-	s := string(out)
-	for _, p := range unwantedListenPorts {
-		if strings.Contains(s, ":"+p+" ") || strings.Contains(s, ":"+p+"\n") || strings.HasSuffix(strings.TrimSpace(s), ":"+p) {
-			ports = append(ports, p)
-			continue
-		}
-		if strings.Contains(s, ":"+p) {
-			ports = append(ports, p)
+	ports = listenPortsFromSS(string(out), unwantedListenPorts)
+	return units, ports
+}
+
+// listenPortsFromSS matches :PORT only as a discrete ss/netstat local port (not substring of larger numbers).
+func listenPortsFromSS(s string, want []string) []string {
+	// :10050 or :10050\n or *:10050 or 0.0.0.0:10050 — not :100500
+	var found []string
+	for _, p := range want {
+		re := regexp.MustCompile(`:` + regexp.QuoteMeta(p) + `([^0-9]|$)`)
+		if re.MatchString(s) {
+			found = append(found, p)
 		}
 	}
-	return units, ports
+	return found
+}
+
+// HostAgentProcs lists watched process names currently running.
+func HostAgentProcs() []string {
+	out, err := exec.Command("ps", "ax", "-o", "comm=").CombinedOutput()
+	if err != nil {
+		return nil
+	}
+	// Build set of running comm names
+	running := map[string]struct{}{}
+	for _, line := range strings.Split(string(out), "\n") {
+		n := strings.TrimSpace(line)
+		if n != "" {
+			running[n] = struct{}{}
+		}
+	}
+	var procs []string
+	for _, name := range watchedProcNames {
+		if _, ok := running[name]; ok {
+			procs = append(procs, name)
+		}
+	}
+	return procs
 }
 
 // HostAgentResidual reports packages and paths that indicate hoster agents
@@ -178,17 +291,17 @@ func scanUnwantedAptResiduals() []string {
 }
 
 // HostMonitoringPresent is true if a known agent unit is active, a classic port is open,
-// or residual hoster packages/paths remain.
+// residual packages/paths remain, or a watched process is running.
 func HostMonitoringPresent() bool {
 	u, p := HostAgentFindings()
 	pkgs, paths := HostAgentResidual()
-	return len(u) > 0 || len(p) > 0 || len(pkgs) > 0 || len(paths) > 0
+	procs := HostAgentProcs()
+	return len(u) > 0 || len(p) > 0 || len(pkgs) > 0 || len(paths) > 0 || len(procs) > 0
 }
 
 func scanInstalledUnwantedPackages() []string {
 	out, err := exec.Command("dpkg-query", "-W", "-f", "${Package}\t${Status}\n").CombinedOutput()
 	if err != nil {
-		// Fallback: dpkg -l
 		out, err = exec.Command("dpkg", "-l").CombinedOutput()
 		if err != nil {
 			return nil
@@ -200,8 +313,6 @@ func scanInstalledUnwantedPackages() []string {
 		if line == "" {
 			continue
 		}
-		// dpkg-query: name\tinstall ok installed
-		// dpkg -l: ii  name ...
 		var name string
 		if strings.Contains(line, "\t") {
 			parts := strings.SplitN(line, "\t", 2)
@@ -218,12 +329,8 @@ func scanInstalledUnwantedPackages() []string {
 		} else {
 			continue
 		}
-		low := strings.ToLower(name)
-		for _, sub := range unwantedPackageSubstr {
-			if strings.Contains(low, sub) {
-				found = append(found, name)
-				break
-			}
+		if packageNameUnwanted(name) {
+			found = append(found, name)
 		}
 	}
 	return uniqueStrings(found)

@@ -266,3 +266,13 @@ Optional: AIDE init **after** baseline when primary has disk budget.
 - `--purge` is destructive to matching packages; run read-only first.  
 - Do not purge `cloud-init` by default (provider rebuild).  
 - Auto-heal of firewall from a timer: **alert first**; apply only on explicit operator action (risk of lockout).
+
+
+## APT block (0.9.201+)
+
+`PurgeHostMonitoring` / `EnsureHostBaseline` write `/etc/apt/preferences.d/netductor-block-hoster` (`Pin-Priority: -1` for zabbix/salt/…).
+
+```bash
+netductor host-audit --dry-run
+netductor host-audit --purge
+```
