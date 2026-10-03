@@ -7,8 +7,8 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 ## Design plans (docs)
 
 - [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0–P3 done** (catalog, enforcement, API/CLI, Web/TUI/TG checkboxes); P4 polish open
-- [x] [HOST-AUDIT](HOST-AUDIT.md) — one-shot `run-host-audit-bundle.sh` + collect scripts (0.9.196); baseline/doctor FAIL still open
-- [ ] Expand host-audit denylist (RMM/otel/avahi) — keep script ↔ Go in sync
+- [x] [HOST-AUDIT](HOST-AUDIT.md) — one-shot bundle + residual packages/paths/apt sources (0.9.197–0.9.198); live primary+secondary CLEAN 2026-10-03
+- [x] Expand host-audit denylist (RMM/otel/avahi + timeweb-zabbix apt) — script ↔ Go in sync (0.9.198)
 - [ ] Firewall status in all UIs + alerts
 - [ ] Baseline snapshot at end of install
 
@@ -55,8 +55,8 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 
 ## Owner next
 
-- [ ] Force-update live VPS/nodes to **≥0.9.181** if lagging — `netductor stack apply v0.9.181` (+ OpenWrt `agent_update`) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
-- [ ] Dual-node smoke after update (VPN, bot, stack, secondary, `/sub/` + redirect)
+- [x] Force-update live VPS to **0.9.197** (primary stack apply + secondary `cmd upgrade:v0.9.197`) 2026-10-03
+- [ ] Dual-node smoke after update (VPN, bot, stack, secondary, `/sub/` + redirect + policy routes)
 - [x] Edge template VPN UI + policy hardening (0.9.164–170)
 - [x] Remove legacy VPS admin UI (0.9.171)
 - [x] Unit test expansion + opcatalog unique IDs (0.9.172)

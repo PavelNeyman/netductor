@@ -10,7 +10,7 @@
 
 ## 0. Одноразовая команда для оператора (на VPS)
 
-Запускать **от root** на primary и/или secondary. Только чтение (без purge). Скрипты тянутся с GitHub `main` (можно закрепить tag).
+Запускать **от root** на primary и/или secondary. Только чтение (без purge). Скрипты тянутся с GitHub `main` (можно закрепить tag). Детект apt residual: `*zabbix*`, `*timeweb*` sources/keyrings (0.9.198).
 
 ```bash
 # Полный bundle → /tmp/nd-host-audit-<host>-<utc>/ + .tar.gz

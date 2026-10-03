@@ -4,7 +4,7 @@
 
 How to fully audit a netductor VPS (primary or secondary) for **unwanted monitoring / CM / RMM agents**, unexpected listeners, and drift from a known-good surface. Produce logs you can hand to an operator or AI for analysis.
 
-Related code: `scripts/run-host-audit-bundle.sh`, `scripts/audit-hoster-agents.sh`, `scripts/collect-host-audit.sh`, `netductor host-audit`, `internal/install/host_agents.go`, firewall role allow-list, [PORTS.md](PORTS.md), [SECURITY.md](SECURITY.md).
+Detects units, packages (incl. hoster forks e.g. `zabbix-agent-timeweb`), residual paths, and **apt sources/keyrings** (`*zabbix*`, `*timeweb*`). Related code: `scripts/run-host-audit-bundle.sh`, `scripts/audit-hoster-agents.sh`, `scripts/collect-host-audit.sh`, `netductor host-audit`, `internal/install/host_agents.go`, firewall role allow-list, [PORTS.md](PORTS.md), [SECURITY.md](SECURITY.md).
 
 ---
 

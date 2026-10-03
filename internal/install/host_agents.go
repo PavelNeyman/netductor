@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -55,9 +56,22 @@ var unwantedPaths = []string{
 	"/etc/zabbix", "/opt/zabbix", "/var/log/zabbix",
 	"/etc/telegraf", "/etc/datadog-agent", "/opt/datadog-agent",
 	"/etc/salt", "/etc/puppet", "/etc/puppetlabs", "/etc/chef",
-	"/etc/ossec", "/var/ossec", "/var/ossec",
+	"/etc/ossec", "/var/ossec",
 	"/opt/splunkforwarder", "/etc/newrelic-infra",
 	"/opt/tacticalrmm", "/opt/meshagent",
+}
+
+// APT source/keyring residuals from hoster agent installers (e.g. Timeweb zabbix).
+var unwantedAptGlobs = []string{
+	"/etc/apt/sources.list.d/*zabbix*",
+	"/etc/apt/sources.list.d/*timeweb*",
+	"/etc/apt/sources.list.d/*telegraf*",
+	"/etc/apt/sources.list.d/*datadog*",
+	"/etc/apt/sources.list.d/*salt*",
+	"/etc/apt/keyrings/*zabbix*",
+	"/etc/apt/keyrings/*timeweb*",
+	"/etc/apt/trusted.gpg.d/*zabbix*",
+	"/etc/apt/trusted.gpg.d/*timeweb*",
 }
 
 // Ports often bound by hoster agents (doctor WARN if listening on non-loopback).
@@ -106,6 +120,9 @@ func PurgeHostMonitoring() {
 	for _, d := range unwantedPaths {
 		_ = os.RemoveAll(d)
 	}
+	for _, f := range scanUnwantedAptResiduals() {
+		_ = os.Remove(f)
+	}
 	fmt.Fprintln(os.Stderr, "hardening: hoster monitoring/CM agents purged (if present)")
 }
 
@@ -143,7 +160,21 @@ func HostAgentResidual() (packages []string, paths []string) {
 			paths = append(paths, d)
 		}
 	}
-	return packages, paths
+	paths = append(paths, scanUnwantedAptResiduals()...)
+	return packages, uniqueStrings(paths)
+}
+
+func scanUnwantedAptResiduals() []string {
+	var found []string
+	for _, g := range unwantedAptGlobs {
+		matches, _ := filepath.Glob(g)
+		for _, m := range matches {
+			if st, err := os.Stat(m); err == nil && !st.IsDir() {
+				found = append(found, m)
+			}
+		}
+	}
+	return found
 }
 
 // HostMonitoringPresent is true if a known agent unit is active, a classic port is open,
@@ -214,4 +245,3 @@ func uniqueStrings(in []string) []string {
 	}
 	return out
 }
-

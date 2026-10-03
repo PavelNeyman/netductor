@@ -133,6 +133,22 @@ done
 [[ $found_path -eq 0 ]] && echo "(none of watched paths)"
 
 echo
+echo "-- apt sources/keyrings (hoster residual) --"
+found_apt=0
+shopt -s nullglob
+for f in /etc/apt/sources.list.d/*zabbix* /etc/apt/sources.list.d/*timeweb* \
+         /etc/apt/sources.list.d/*telegraf* /etc/apt/sources.list.d/*datadog* \
+         /etc/apt/sources.list.d/*salt* \
+         /etc/apt/keyrings/*zabbix* /etc/apt/keyrings/*timeweb* \
+         /etc/apt/trusted.gpg.d/*zabbix* /etc/apt/trusted.gpg.d/*timeweb*; do
+  if [[ -e "$f" ]]; then
+    echo "FIND apt=$f"
+    found_apt=1
+  fi
+done
+[[ $found_apt -eq 0 ]] && echo "(none of watched apt residuals)"
+
+echo
 if [[ $PURGE -eq 1 ]]; then
   echo "==> purge requested"
   for u in "${UNITS[@]}"; do
@@ -147,13 +163,18 @@ if [[ $PURGE -eq 1 ]]; then
   rm -rf /etc/zabbix /opt/zabbix /var/log/zabbix /etc/telegraf /etc/datadog-agent \
     /etc/salt /etc/puppet /etc/puppetlabs /etc/chef /etc/ossec /var/ossec \
     /opt/splunkforwarder /opt/tacticalrmm /opt/meshagent 2>/dev/null || true
+  rm -f /etc/apt/sources.list.d/*zabbix* /etc/apt/sources.list.d/*timeweb* \
+        /etc/apt/sources.list.d/*telegraf* /etc/apt/sources.list.d/*datadog* \
+        /etc/apt/sources.list.d/*salt* \
+        /etc/apt/keyrings/*zabbix* /etc/apt/keyrings/*timeweb* \
+        /etc/apt/trusted.gpg.d/*zabbix* /etc/apt/trusted.gpg.d/*timeweb* 2>/dev/null || true
   echo "purge done — re-run without --purge to verify"
 else
   echo "read-only. To remove findings: sudo bash $0 --purge"
   echo "or: netductor host-audit --purge"
 fi
 
-if [[ $found_u -eq 1 || $found_p -eq 1 || $found_port -eq 1 || $found_pr -eq 1 || $found_path -eq 1 ]]; then
+if [[ $found_u -eq 1 || $found_p -eq 1 || $found_port -eq 1 || $found_pr -eq 1 || $found_path -eq 1 || $found_apt -eq 1 ]]; then
   echo
   echo "RESULT: FINDINGS"
   exit 1

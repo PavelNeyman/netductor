@@ -8,13 +8,15 @@
 | `scripts/collect-host-audit.sh` | Полный текстовый bundle |
 | `scripts/audit-hoster-agents.sh` | Расширенный denylist |
 
-**Дальше:** прогон HOST-AUDIT на живых VPS; policy — с фазы P0 (UI без enforcement не делать).
+**Дальше:** dual-node smoke (VPN/bot/policy routes) или P4 (service-net VIP). HOST-AUDIT live выполнен 2026-10-03.
 
 
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Точка останова: v0.9.190** (2026-10-02). Guest stage без reload; hard-fail сети/guest.
+**Точка останова: v0.9.198** (host-audit apt residual + live CLEAN primary/secondary; policy P0–P3 в 0.9.196)
+
+**Пред. stop: v0.9.192** (2026-10-02). Guest stage без reload; hard-fail сети/guest.
 
 ## Текущий baseline
 
