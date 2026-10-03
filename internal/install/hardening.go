@@ -23,7 +23,6 @@ func InstallHardening() error {
 		"net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n"), 0o644)
 	_ = run("sysctl", "--system")
 
-	// Host firewall: always try ufw install; iptables fallback inside firewall.ApplyRole.
 	if err := firewall.ApplyRole("primary"); err != nil {
 		fmt.Fprintf(os.Stderr, "firewall apply primary: %v\n", err)
 	}
@@ -55,8 +54,8 @@ func ensureWatchdogTimer() error {
 	return nil
 }
 
-// EnsureHostBaseline re-applies role firewall (writes /etc/netductor/role) and stack watchdog timer.
-// Idempotent — safe on install, stack apply, secondary upgrade.
+// EnsureHostBaseline re-applies role firewall (writes /etc/netductor/role), stack watchdog timer,
+// and apt pin block for hoster packages. Idempotent.
 func EnsureHostBaseline(role string) error {
 	role = strings.TrimSpace(strings.ToLower(role))
 	if role == "" {
@@ -73,10 +72,8 @@ func EnsureHostBaseline(role string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "host baseline: firewall="+role+" + netductor-stack-watchdog.timer")
 	}
-		if err := WriteHosterAptBlock(); err != nil {
-		fmt.Fprintf(os.Stderr, "hoster apt pin: %v
-", err)
+	if err := WriteHosterAptBlock(); err != nil {
+		fmt.Fprintf(os.Stderr, "hoster apt pin: %v\n", err)
 	}
 	return nil
 }
-
