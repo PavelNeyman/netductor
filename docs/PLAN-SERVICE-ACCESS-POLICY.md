@@ -242,9 +242,9 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P3 — UI
 
-- [ ] Web: user policy + edge policy checkbox panels  
-- [ ] TUI: same  
-- [ ] TG: toggles + templates  
+- [x] Web Control: policy get + media/full presets (checkbox matrix still open)  
+- [ ] TUI: same (open)  
+- [ ] TG: toggles + templates (open)  
 - [ ] i18n EN/RU full semantic parity  
 
 ### Phase P4 — product polish

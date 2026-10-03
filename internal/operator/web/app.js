@@ -524,6 +524,8 @@ const BTN = {
   vpn:[
     ['vpn-users','b_vpn_users','GET','/vpn/users'],
     ['vpn-refresh','b_vpn_refresh','POST','/api/vpn/refresh-links','{}'],
+    ['services-list','Services','GET','/api/services'],
+    ['policy-apply','Policy apply','POST','/api/policy/apply','{}'],
   ],
   nodes:[
     ['nodes','b_nodes','GET','/api/nodes'],
@@ -725,7 +727,10 @@ function mountButtons(){
       <button class="primary" type="button" data-act="vpn-enable">${t('b_vpn_enable')}</button>
       <button class="primary" type="button" data-act="vpn-disable">${t('b_vpn_disable')}</button>
       <button class="primary" type="button" data-act="vpn-revoke">${t('b_vpn_revoke')}</button>
-      <button class="primary" type="button" data-act="vpn-link">${t('b_vpn_link')}</button>`;
+      <button class="primary" type="button" data-act="vpn-link">${t('b_vpn_link')}</button>
+      <button class="primary" type="button" data-act="vpn-policy-get">Policy get</button>
+      <button class="primary" type="button" data-act="vpn-policy-set-media">Policy media</button>
+      <button class="primary" type="button" data-act="vpn-policy-set-full">Policy full</button>`;
     }
     if(sec==='nodes' || sec==='fleet'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_hostname')}</label><input id="nodeHost"/></div><div><label>${t('l_node_id')}</label><input id="nodeId"/></div></div>
@@ -859,6 +864,20 @@ const special = {
   'vpn-disable': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/disable',{method:'POST',body:'{}'}); },
   'vpn-revoke': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/revoke',{method:'POST',body:'{}'}); },
   'vpn-link': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/link'); },
+  'vpn-policy-get': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy'); },
+  'vpn-policy-set-media': async()=>{
+    const n=document.getElementById('vpnActName').value.trim();
+    return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy',{method:'PUT',body:JSON.stringify({allow_internet:true,services:['lampac'],services_mode:'list'})});
+  },
+  'vpn-policy-set-full': async()=>{
+    const n=document.getElementById('vpnActName').value.trim();
+    return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy',{method:'PUT',body:JSON.stringify({allow_internet:true,services_mode:'all'})});
+  },
+  'edge-policy-get': async()=>{
+    const id=document.getElementById('edgeId').value.trim();
+    return nodeFetch('/api/edge/device-policy?id='+encodeURIComponent(id));
+  },
+
   'nodes-hostname': async()=>{ const hostname=document.getElementById('nodeHost').value.trim(); return nodeFetch('/api/nodes/hostname',{method:'POST',body:JSON.stringify({hostname,id:document.getElementById('nodeId').value.trim()})}); },
   'nodes-restart': async()=>{ return nodeFetch('/api/nodes/restart-service',{method:'POST',body:JSON.stringify({service:document.getElementById('nodeSvc').value.trim(),id:document.getElementById('nodeId').value.trim()})}); },
   'nodes-journal': async()=>{ const u=document.getElementById('nodeJournal').value.trim(); return nodeFetch('/api/nodes/journal'+(u?('?unit='+encodeURIComponent(u)):'')); },
