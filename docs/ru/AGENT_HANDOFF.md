@@ -1,4 +1,5 @@
 
+- **0.9.200:** install/stack apply/secondary upgrade auto EnsureHostBaseline (firewall role file + netductor-stack-watchdog.timer). Role detect fixed in 0.9.199.
 ## Документы (2026-10-03)
 
 | Док | Зачем |

@@ -3,6 +3,8 @@ package install
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/hardening"
@@ -38,6 +40,38 @@ func InstallHardening() error {
 	if err := ensureMTLSAtInstall(); err != nil {
 		fmt.Fprintf(os.Stderr, "mtls ensure: %v (continuing; serve will retry)\n", err)
 	}
-	fmt.Fprintf(os.Stderr, "hardening: firewall + mTLS :8789 + ssh key-only Port %d + fail2ban\n", hardening.SSHPort())
+	if err := ensureWatchdogTimer(); err != nil {
+		fmt.Fprintf(os.Stderr, "watchdog: %v (continuing)\n", err)
+	}
+	fmt.Fprintf(os.Stderr, "hardening: firewall + mTLS :8789 + ssh key-only Port %d + fail2ban + watchdog\n", hardening.SSHPort())
+	return nil
+}
+
+func ensureWatchdogTimer() error {
+	out, err := exec.Command("netductor", "stack", "watchdog-install").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// EnsureHostBaseline re-applies role firewall (writes /etc/netductor/role) and stack watchdog timer.
+// Idempotent — safe on install, stack apply, secondary upgrade.
+func EnsureHostBaseline(role string) error {
+	role = strings.TrimSpace(strings.ToLower(role))
+	if role == "" {
+		role = "primary"
+	}
+	if role != "primary" && role != "secondary" {
+		return fmt.Errorf("role must be primary|secondary, got %q", role)
+	}
+	if err := firewall.ApplyRole(role); err != nil {
+		return err
+	}
+	if err := ensureWatchdogTimer(); err != nil {
+		fmt.Fprintf(os.Stderr, "watchdog-install: %v\n", err)
+	} else {
+		fmt.Fprintln(os.Stderr, "host baseline: firewall="+role+" + netductor-stack-watchdog.timer")
+	}
 	return nil
 }

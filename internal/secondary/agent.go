@@ -443,6 +443,19 @@ func secondaryUpgrade(tag string) (bool, string) {
 		time.Sleep(5 * time.Second)
 		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Run()
 	}()
+	// Day-2: re-assert secondary firewall + watchdog after binary replace.
+	out, err := exec.Command("/usr/local/bin/netductor", "firewall", "apply", "secondary").CombinedOutput()
+	if err != nil {
+		log.WriteString(fmt.Sprintf("firewall apply secondary: %v %s\n", err, strings.TrimSpace(string(out))))
+	} else {
+		log.WriteString("firewall apply secondary ok\n")
+	}
+	out, err = exec.Command("/usr/local/bin/netductor", "stack", "watchdog-install").CombinedOutput()
+	if err != nil {
+		log.WriteString(fmt.Sprintf("watchdog-install: %v %s\n", err, strings.TrimSpace(string(out))))
+	} else {
+		log.WriteString("watchdog-install ok\n")
+	}
 	log.WriteString("DONE v" + tag + " (node binary; unit=netductor secondary agent)\n")
 	return true, log.String()
 }

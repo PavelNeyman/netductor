@@ -1,4 +1,5 @@
 # AGENT Handoff
+- **0.9.200:** install/stack apply/secondary upgrade auto EnsureHostBaseline (firewall role file + netductor-stack-watchdog.timer). Role detect fixed in 0.9.199.
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
 **Stop line: v0.9.199** (host-audit apt residual + fleet live CLEAN; policy P0–P3 at 0.9.196)

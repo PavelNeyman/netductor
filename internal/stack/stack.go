@@ -486,6 +486,10 @@ func ApplyOpts(tag string, noBackup bool) error {
 	msg := "✅ Stack apply ok <code>" + tag + "</code> (secondary: manual upgrade only)"
 	notify.AlertOnce("stack:apply-ok:"+tag, msg)
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
+	// Re-assert host baseline after binary swap (role file + firewall + watchdog).
+	if err := install.EnsureHostBaseline("primary"); err != nil {
+		fmt.Fprintln(os.Stderr, "warn host baseline:", err)
+	}
 	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)
 	_ = snapshotPrev()
 	_ = os.RemoveAll(attemptDir())
