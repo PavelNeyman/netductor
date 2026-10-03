@@ -6,7 +6,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Design plans (docs)
 
-- [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0–P3 done** (catalog, enforcement, API/CLI, Web/TUI/TG checkboxes); P4 polish open
+- [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0–P3 done**; **P4 partial** (presets CLI, doctor catalog/policy integrity, host-baseline) — service-net VIP still open
 - [x] [HOST-AUDIT](HOST-AUDIT.md) — one-shot bundle + residual packages/paths/apt sources (0.9.197–0.9.198); live primary+secondary CLEAN 2026-10-03
 - [x] Expand host-audit denylist (RMM/otel/avahi + timeweb-zabbix apt) — script ↔ Go in sync (0.9.198)
 - [ ] Firewall status in all UIs + alerts

@@ -249,8 +249,8 @@ Mark each item done in PR + OPEN_ITEMS / this doc.
 
 ### Phase P4 — product polish
 
-- [ ] Presets  
-- [ ] Doctor: warn if policy references missing service endpoints  
+- [x] Presets (CLI `policy user|edge preset`; Web media/full buttons)  
+- [x] Doctor: warn if policy references missing service endpoints + catalog empty ports  
 - [ ] Docs: CLIENT-PROFILES + EDGE-AGENT cross-links  
 - [ ] Release notes  
 

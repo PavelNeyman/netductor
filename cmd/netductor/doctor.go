@@ -19,6 +19,9 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/registry"
+	"github.com/PavelNeyman/netductor/internal/policy"
+	"github.com/PavelNeyman/netductor/internal/vpn"
+	"github.com/PavelNeyman/netductor/internal/edge"
 )
 
 func detectRole() string {
@@ -237,7 +240,8 @@ func runDoctorNative() int {
 	// Hoster monitoring / CM agents (units, ports, residual packages/paths)
 	hu, hp := install.HostAgentFindings()
 	hpkgs, hpaths := install.HostAgentResidual()
-	if len(hu) == 0 && len(hp) == 0 && len(hpkgs) == 0 && len(hpaths) == 0 {
+	hprocs := install.HostAgentProcs()
+	if len(hu) == 0 && len(hp) == 0 && len(hpkgs) == 0 && len(hpaths) == 0 && len(hprocs) == 0 {
 		doctorPrintln("OK   no hoster monitoring/CM agents")
 		ok++
 	} else {
@@ -255,6 +259,10 @@ func runDoctorNative() int {
 		}
 		if len(hpaths) > 0 {
 			doctorPrintf("FAIL hoster residual paths: %s\n", strings.Join(hpaths, ", "))
+			fail++
+		}
+		if len(hprocs) > 0 {
+			doctorPrintf("FAIL hoster procs: %s\n", strings.Join(hprocs, ", "))
 			fail++
 		}
 	}
@@ -275,7 +283,54 @@ func runDoctorNative() int {
 	}
 
 
-	switch role {
+	
+	bl := install.CheckHostBaseline()
+	if bl.OK {
+		doctorPrintln("OK   host baseline (role+apt-pin+firewall+watchdog+hoster)")
+		ok++
+	} else {
+		for _, is := range bl.Issues {
+			doctorPrintf("WARN host baseline: %s\n", is)
+			warn++
+		}
+	}
+	// Policy / catalog integrity (primary)
+	if role == "primary" {
+		if cat, err := policy.EnsureCatalog(); err != nil {
+			doctorPrintf("WARN policy catalog: %v\n", err)
+			warn++
+		} else {
+			for _, is := range policy.CheckCatalogIntegrity(cat) {
+				doctorPrintf("WARN catalog %s: %s\n", is.Subject, is.Detail)
+				warn++
+			}
+			if users, err := vpn.ListNative(); err == nil {
+				for _, u := range users {
+					if vpn.IsEdgeUser(u.Name) {
+						continue
+					}
+					p, _ := vpn.GetUserPolicy(u.Name)
+					for _, is := range policy.CheckPolicyAgainstCatalog(u.Name, "user", p, cat) {
+						doctorPrintf("WARN user policy %s: %s\n", is.Subject, is.Detail)
+						warn++
+					}
+				}
+			}
+			// edge devices
+			for _, d := range edge.ListDevices() {
+				p, err := edge.GetDevicePolicy(d.DeviceID)
+				if err != nil {
+					continue
+				}
+				for _, is := range policy.CheckPolicyAgainstCatalog(d.DeviceID, "edge", p, cat) {
+					doctorPrintf("WARN edge policy %s: %s\n", is.Subject, is.Detail)
+					warn++
+				}
+			}
+		}
+	}
+
+switch role {
 	case "primary":
 		check("READY.txt", exists(filepath.Join(etc, "READY.txt")))
 		check("vpn-users.json", exists(filepath.Join(etc, "vpn-users.json")))

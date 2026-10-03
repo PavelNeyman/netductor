@@ -42,6 +42,8 @@ func main() {
 		printHelp()
 	case "host-audit", "hoster-audit":
 		runHostAudit(os.Args[2:])
+	case "host-baseline":
+		runHostBaseline(os.Args[2:])
 	case "firewall":
 		runFirewall(os.Args[2:])
 	case "doctor":
@@ -202,7 +204,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | firewall | host-audit | doctor | status | vpn | services | policy | secondary | svc-paths | api-public | edge | mtls | nvr
+  install | serve | firewall | host-audit | host-baseline | doctor | status | vpn | services | policy | secondary | svc-paths | api-public | edge | mtls | nvr
   stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

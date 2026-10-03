@@ -101,7 +101,7 @@ func runServices(args []string) {
 
 func runPolicyCLI(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: policy apply | policy user get|set <name> | policy edge get|set <id>")
+		fmt.Fprintln(os.Stderr, "usage: policy apply | policy user get|set|preset <name> [media|full|none] | policy edge get|set|preset <id> …")
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -131,7 +131,6 @@ func runPolicyCLI(args []string) {
 		if sub == "set" {
 			p, err := vpn.GetUserPolicy(name)
 			if err != nil {
-				// start from default if we want set-on-create? require existing user
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
@@ -142,6 +141,27 @@ func runPolicyCLI(args []string) {
 			}
 			out, _ := vpn.GetUserPolicy(name)
 			b, _ := json.MarshalIndent(out, "", "  ")
+			fmt.Println(string(b))
+			return
+		}
+		if sub == "preset" {
+			preset := "media"
+			if len(args) > 3 {
+				preset = args[3]
+			}
+			p, err := vpn.GetUserPolicy(name)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			p = policy.ApplyPreset(preset, p)
+			if err := vpn.SetUserPolicy(name, p, "cli"); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			st, _ := policy.ApplyRoutes()
+			out, _ := vpn.GetUserPolicy(name)
+			b, _ := json.MarshalIndent(map[string]any{"policy": out, "apply": st}, "", "  ")
 			fmt.Println(string(b))
 			return
 		}
@@ -175,6 +195,27 @@ func runPolicyCLI(args []string) {
 			}
 			out, _ := edge.GetDevicePolicy(id)
 			b, _ := json.MarshalIndent(out, "", "  ")
+			fmt.Println(string(b))
+			return
+		}
+		if sub == "preset" {
+			preset := "media"
+			if len(args) > 3 {
+				preset = args[3]
+			}
+			p, err := edge.GetDevicePolicy(id)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			p = policy.ApplyPreset(preset, p)
+			if err := edge.SetDevicePolicy(id, p, "cli"); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			st, _ := policy.ApplyRoutes()
+			out, _ := edge.GetDevicePolicy(id)
+			b, _ := json.MarshalIndent(map[string]any{"policy": out, "apply": st}, "", "  ")
 			fmt.Println(string(b))
 			return
 		}
