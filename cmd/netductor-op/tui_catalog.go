@@ -141,6 +141,26 @@ func (m *model) updateCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) runCatalogAction(a opcatalog.Action) {
+	switch a.ID {
+	case "vpn-policy-get":
+		m.startActionForm("vpn-policy-get")
+		return
+	case "vpn-policy-set":
+		m.startActionForm("vpn-policy-set")
+		return
+	case "edge-policy-get":
+		m.startActionForm("edge-policy-get")
+		return
+	case "edge-policy-set":
+		m.startActionForm("edge-policy-set")
+		return
+	case "services":
+		m.output = m.runNetductor("services", "list")
+		return
+	case "policy-apply":
+		m.output = m.runNetductor("policy", "apply")
+		return
+	}
 	cli := strings.TrimSpace(a.CLI)
 	if cli == "" || cli == "—" {
 		m.output = fmt.Sprintf("%s %s\n(no CLI mapping — use Web Control or session API)", a.Method, a.Path)
