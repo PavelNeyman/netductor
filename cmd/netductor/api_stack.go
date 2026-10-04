@@ -20,6 +20,9 @@ func registerStackAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		var body struct {
 			Version string `json:"version"`
 		}
