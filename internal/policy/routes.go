@@ -44,9 +44,11 @@ func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 
 			if len(allowed) > 0 {
 				rule := map[string]any{
-					"auth_user": allowed,
-					"port":      port,
-					"outbound":  "direct",
+					"auth_user":        allowed,
+					"port":             port,
+					"outbound":         "direct",
+					"override_address": "127.0.0.1",
+					"override_port":    port,
 				}
 				if proto == "tcp" || proto == "udp" {
 					rule["network"] = proto
