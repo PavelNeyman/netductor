@@ -16,12 +16,38 @@ const (
 	SRProfileFamily            = "family"
 )
 
-// Defaults aligned with live topology (override via files/env).
+// Defaults aligned with live topology (override via env only when needed).
 const (
-	defaultHomeLAN     = "10.9.8.0/24"
-	defaultServiceNet  = "10.88.0.0/24" // servicenet.CIDR — keep in sync
-	defaultShopCIDR    = "10.120.0.0/16"
+	defaultHomeLAN = "10.9.8.0/24"
+	// Service-net VIP plan: 198.18.88.0/24. Keep 10.88.0.0/24 until primary VIP migrates.
+	defaultServiceNetVIP = "198.18.88.0/24"
+	defaultServiceNetLegacy = "10.88.0.0/24"
+	defaultShopCIDR = "10.120.0.0/16"
 )
+
+// defaultWorkDirectCIDRs — Mac utun9 split-tunnel prefixes (operator snapshot 2026-10).
+// Home 10.9.8.0/24 is NOT included (en0). Baked into generator — no required file.
+var defaultWorkDirectCIDRs = []string{
+	"10.1.253.0/24",
+	"10.2.27.0/24",
+	"172.28.20.0/24",
+	"172.28.70.0/24",
+	"172.28.71.0/24",
+	"172.28.80.0/24",
+	"172.28.81.0/24",
+	"172.30.70.0/24",
+	"172.30.90.0/24",
+	"172.30.170.0/24",
+	"172.80.80.0/24",
+	"192.168.20.0/24",
+	"192.168.40.0/24",
+	"192.168.70.0/24",
+	"192.168.71.0/24",
+	"192.168.80.0/24",
+	"192.168.81.0/24",
+	"134.17.14.99/32",
+	"141.105.71.253/32",
+}
 
 // SRProfileMeta is UI-facing metadata (EN/RU labels + short help).
 type SRProfileMeta struct {
@@ -184,7 +210,7 @@ func homeLANCIDRs() []string {
 	return []string{defaultHomeLAN}
 }
 
-// workDirectCIDRs from NETDUCTOR_WORK_DIRECT_CIDRS or /etc/netductor/work-direct-cidrs.
+// workDirectCIDRs — baked-in utun9 list; optional env/file only to extend/replace.
 func workDirectCIDRs() []string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_WORK_DIRECT_CIDRS")); v != "" {
 		return splitCIDRList(v)
@@ -198,16 +224,19 @@ func workDirectCIDRs() []string {
 			}
 			out = append(out, line)
 		}
-		return out
+		if len(out) > 0 {
+			return out
+		}
 	}
-	return nil
+	return append([]string{}, defaultWorkDirectCIDRs...)
 }
 
 func serviceNetCIDRs() []string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_SERVICE_NET")); v != "" {
 		return splitCIDRList(v)
 	}
-	return []string{defaultServiceNet}
+	// VIP target + legacy live subnet until servicenet migrates off 10.88.
+	return []string{defaultServiceNetVIP, defaultServiceNetLegacy}
 }
 
 func shopCIDRs() []string {
@@ -273,14 +302,16 @@ func ShadowrocketAdsRejectRules() []string {
 	return lines
 }
 
-// ShadowrocketGeneralBlockFor — tighter skip-proxy than full 10/8 (home LAN only + RFC1918 still in tun-excluded for TUN).
+// ShadowrocketGeneralBlockFor — narrow skip/exclude: home LAN only (not 10/8, 172.16/12, 192.168/16).
+// Work + service-net + shops are explicit IP-CIDR rules, not TUN excludes.
 func ShadowrocketGeneralBlockFor(profile string) string {
 	home := defaultHomeLAN
 	if cidrs := homeLANCIDRs(); len(cidrs) > 0 {
 		home = cidrs[0]
 	}
-	// skip-proxy: loopback + home LAN + Apple captive — not entire 10/8 (work/service-net must be rule-driven).
 	skip := fmt.Sprintf("127.0.0.1, %s, localhost, *.local, captive.apple.com", home)
+	// Do NOT exclude 10/8, 172.16/12, 192.168/16 — would block PROXY to 10.120 / 198.18.88 and confuse work rules.
+	excl := fmt.Sprintf("%s,127.0.0.0/8,169.254.0.0/16,224.0.0.0/4,255.255.255.255/32", home)
 	_ = profile
 	return strings.TrimSpace(`
 [General]
@@ -291,7 +322,7 @@ ipv6 = false
 prefer-ipv6 = false
 private-ip-answer = true
 skip-proxy = `+skip+`
-tun-excluded-routes = 10.0.0.0/8,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,172.16.0.0/12,192.0.0.0/24,192.168.0.0/16,224.0.0.0/4,255.255.255.255/32
+tun-excluded-routes = `+excl+`
 icmp-auto-reply = false
 udp-policy-not-supported-behaviour = REJECT
 `) + "\n"
