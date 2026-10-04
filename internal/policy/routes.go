@@ -96,10 +96,8 @@ func subjectsAllowing(subjects []Subject, serviceID string, cat *Catalog) []stri
 			seen[s.Name] = true
 		}
 	}
-	// Secondary path: client is Pavel on secondary, but primary only sees VLESS user relay-uplink.
-	// Without this, service ACL reject rules black-hole lampac/git for the whole fleet path.
-	if !seen["relay-uplink"] {
-		names = append(names, "relay-uplink")
-	}
+	// relay-uplink is internet egress only. Service-net from secondary dials primary
+	// as the real user (uplink-svc-<name>), so ACL stays per-user.
+	_ = seen
 	return names
 }

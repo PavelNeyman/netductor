@@ -148,12 +148,13 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		return fmt.Errorf("relay reality keys required")
 	}
 	type vu struct {
+		Name string `json:"name,omitempty"`
 		UUID string `json:"uuid"`
 		Flow string `json:"flow"`
 	}
 	var users []vu
 	for _, u := range b.Users {
-		users = append(users, vu{UUID: u.UUID, Flow: "xtls-rprx-vision"})
+		users = append(users, vu{Name: u.Name, UUID: u.UUID, Flow: "xtls-rprx-vision"})
 	}
 	if len(users) == 0 {
 		return fmt.Errorf("bundle has no end users — add vpn users on core first")
@@ -200,25 +201,55 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 	// Everything else from relay-in goes uplink → core (foreign exit).
 	// Clients abroad can use exit-in (4443) for RU-IP egress when toggled on.
 	ruSuffixes := RuDirectSuffixes()
+	uplinkTLS := map[string]any{
+		"enabled": true, "server_name": b.CoreSNI,
+		"utls": map[string]any{"enabled": true, "fingerprint": "firefox"},
+		"reality": map[string]any{
+			"enabled":    true,
+			"public_key": b.CorePBK,
+			"short_id":   b.CoreSID,
+		},
+	}
+	// Shared uplink: internet only. Primary sees auth_user=relay-uplink.
 	uplink := map[string]any{
 		"type": "vless", "tag": "uplink",
 		"server": b.CoreIP, "server_port": b.CoreVless,
 		// no vision: required for multiplex (vision ⊕ mux unsupported)
 		"uuid":            b.UplinkUUID,
 		"domain_resolver": "quad9",
-		"tls": map[string]any{
-			"enabled": true, "server_name": b.CoreSNI,
-			"utls": map[string]any{"enabled": true, "fingerprint": "firefox"},
-			"reality": map[string]any{
-				"enabled":    true,
-				"public_key": b.CorePBK,
-				"short_id":   b.CoreSID,
-			},
-		},
+		"tls":             uplinkTLS,
 	}
 	if mx := uplinkMultiplexObject(); mx != nil {
 		uplink["multiplex"] = mx
 	}
+	// Per-user service uplink: dial primary as the real user (vision, no mux)
+	// so ACL sees Pavel, not relay-uplink. Only 10.88.0.0/24 uses these.
+	outbounds := []any{uplink}
+	var svcRules []any
+	for _, u := range b.Users {
+		name := strings.TrimSpace(u.Name)
+		if name == "" || u.UUID == "" {
+			continue
+		}
+		tag := "uplink-svc-" + sanitizeTag(name)
+		outbounds = append(outbounds, map[string]any{
+			"type": "vless", "tag": tag,
+			"server": b.CoreIP, "server_port": b.CoreVless,
+			"uuid":   u.UUID,
+			"flow":   "xtls-rprx-vision",
+			"domain_resolver": "quad9",
+			"tls":    uplinkTLS,
+		})
+		svcRules = append(svcRules, map[string]any{
+			"auth_user": []string{name},
+			"ip_cidr":   []string{"10.88.0.0/24"},
+			"outbound":  tag,
+		})
+	}
+	svcRules = append(svcRules, map[string]any{
+		"ip_cidr":  []string{"10.88.0.0/24"},
+		"outbound": "block",
+	})
 	cfg := map[string]any{
 		"log": map[string]any{"level": "info", "timestamp": true},
 		"dns": map[string]any{
@@ -235,11 +266,10 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 			"final": "quad9",
 		},
 		"inbounds": inbounds,
-		"outbounds": []any{
-			uplink,
+		"outbounds": append(outbounds,
 			map[string]any{"type": "direct", "tag": "direct"},
 			map[string]any{"type": "block", "tag": "block"},
-		},
+		),
 		"route": map[string]any{
 			// domain_suffix list (fast, no download) + geoip-ru rule-set (IP ranges).
 			"rule_set": []any{
@@ -252,19 +282,18 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 					"download_detour": "direct",
 				},
 			},
-			"rules": []any{
+			"rules": append(append([]any{
 				map[string]any{"action": "sniff"},
 				map[string]any{"protocol": "dns", "action": "hijack-dns"},
 				map[string]any{"ip_version": 6, "outbound": "block"},
 				map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
-				// Service-net VIPs live only on primary — must not hit ip_is_private→direct here.
-				map[string]any{"ip_cidr": []string{"10.88.0.0/24"}, "outbound": "uplink"},
+			}, svcRules...),
 				map[string]any{"ip_is_private": true, "outbound": "direct"},
 				map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
 				map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
 				map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
 				map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"},
-			},
+			),
 			"final":                   "uplink",
 			"default_domain_resolver": "quad9",
 			"auto_detect_interface":   true,
@@ -284,6 +313,22 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		return err
 	}
 	return os.Chmod(singboxConf, 0o600)
+}
+
+func sanitizeTag(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	s := strings.Trim(b.String(), "-")
+	if s == "" {
+		return "user"
+	}
+	return s
 }
 
 func ClientLinkForSecondary(name, uuid, relayIP, pbk, sid, sniName string) string {
