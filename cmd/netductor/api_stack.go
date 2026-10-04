@@ -36,6 +36,9 @@ func registerStackAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		if err := stack.Rollback(); err != nil {
 			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 			return
