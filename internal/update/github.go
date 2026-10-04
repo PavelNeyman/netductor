@@ -378,19 +378,22 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 	if os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") != "1" {
 		sums, err := FetchSHA256SUMS(tag)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warn: SHA256SUMS unavailable (%v); set NETDUCTOR_UPDATE_SKIP_VERIFY=1 to silence\n", err)
-		} else if want, ok := sums[name]; !ok {
-			fmt.Fprintf(os.Stderr, "warn: no checksum entry for %s in SHA256SUMS\n", name)
-		} else {
-			got, err := fileSHA256(tmp)
-			if err != nil {
-				_ = os.Remove(tmp)
-				return err
-			}
-			if !strings.EqualFold(got, want) {
-				_ = os.Remove(tmp)
-				return fmt.Errorf("checksum mismatch for %s", name)
-			}
+			_ = os.Remove(tmp)
+			return fmt.Errorf("SHA256SUMS required (%v); set NETDUCTOR_UPDATE_SKIP_VERIFY=1 to bypass", err)
+		}
+		want, ok := sums[name]
+		if !ok || want == "" {
+			_ = os.Remove(tmp)
+			return fmt.Errorf("no checksum entry for %s in SHA256SUMS", name)
+		}
+		got, err := fileSHA256(tmp)
+		if err != nil {
+			_ = os.Remove(tmp)
+			return err
+		}
+		if !strings.EqualFold(got, want) {
+			_ = os.Remove(tmp)
+			return fmt.Errorf("checksum mismatch for %s", name)
 		}
 	}
 	return os.Rename(tmp, destPath)
