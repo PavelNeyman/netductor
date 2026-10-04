@@ -76,3 +76,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Firewall apply/heal already require session (confirmed on disk).
 - F9 `POST /api/update/apply` had no session check. Guard added this pass.
 - Next file: `cmd/netductor/api_nvr.go` clip/token routes.
+
+
+## Pass 1 notes (nvr)
+
+- Camera, config, retention, PTZ, go2rtc, storage, recorder start/stop require operator session.
+- Ingest accepts an approved edge device token or a session. Any approved device can upload a segment for any camera_id. Worth binding camera to site later.
+- Clip download is a one-time token, max TTL 3600, path must stay under the segments root. Token is in the query string, so it can land in access logs for that one request.
+- Next file: `cmd/netductor/api_vpn_http.go`.
