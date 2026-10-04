@@ -307,7 +307,10 @@ func vpnKeyboard() map[string]any {
 }
 
 func addonsKeyboard() map[string]any {
-	return navKeyboard("m:fleet", parentFleet())
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("addons_update"), "m:addons:update", "primary")},
+		{btn("⬅️ "+parentFleet(), "m:fleet", ""), btn(T("main_menu"), "m:menu", "")},
+	}}
 }
 
 func sitesListKeyboard() map[string]any {

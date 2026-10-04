@@ -48,6 +48,7 @@ func All() []Action {
 		a("metrics-hist", "overview", "GET", "/api/metrics/history", "", "—", "Metrics history", "История метрик", SurfWeb, SurfCLI, SurfTUI),
 		a("addons", "overview", "GET", "/api/addons", "", "addons list", "Addons", "Дополнения"),
 		a("addons-lampac", "overview", "GET", "/api/addons/lampac", "", "—", "Lampac", "Lampac"),
+a("addons-update", "overview", "POST", "/api/addons/update", `{"name":"all"}`, "addons update", "Update addons", "Обновить дополнения"),
 		a("sni", "overview", "GET", "/api/sni", "", "—", "SNI", "SNI"),
 		a("sni-presets", "overview", "GET", "/api/sni-presets", "", "—", "SNI presets", "Пресеты SNI"),
 		a("latest", "overview", "GET", "/api/latest", "", "—", "Latest metrics", "Latest"),

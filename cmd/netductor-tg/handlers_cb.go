@@ -547,6 +547,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 	case "m:addons":
 		reply(token, chat, msgID, formatAddonsHTML(), addonsKeyboard())
+	case "m:addons:update":
+		out := runND("addons", "update")
+		reply(token, chat, msgID, formatAddonsHTML()+"\n<pre>"+esc(truncate(out, 1200))+"</pre>", addonsKeyboard())
 	case "m:addon:lampac":
 		pl := "Addons"
 		if getLang() != "en" {
