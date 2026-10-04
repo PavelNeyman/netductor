@@ -246,11 +246,13 @@ func buildOutboundsAndRoute() (outbounds []any, routeRules []any, finalOut strin
 		map[string]any{"type": "direct", "tag": "direct"},
 		map[string]any{"type": "block", "tag": "block"},
 	}
-	routeRules = []any{
+	// Service ACL before sniff: sniff on the vless-svc→lampac path ate the HTTP response
+	// (client saw empty reply while loopback already had 200).
+	routeRules = append([]any{}, policyServiceRules()...)
+	routeRules = append(routeRules,
 		map[string]any{"action": "sniff"},
 		map[string]any{"protocol": "dns", "action": "hijack-dns"},
-	}
-	routeRules = append(routeRules, policyServiceRules()...)
+	)
 	finalOut = "direct"
 	exitOn, ip, pbk, sid, sniR := readExitTarget()
 	exitUUID := secret("secondary_exit_uuid")
