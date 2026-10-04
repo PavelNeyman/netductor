@@ -24,6 +24,9 @@ func registerAddonsAPI(mux *http.ServeMux) {
 			http.Error(w, "method", 405)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		name := r.URL.Query().Get("name")
 		if name == "" {
 			name = "all"

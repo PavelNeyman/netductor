@@ -9,7 +9,7 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 
 - Pass: 1
 - Stopped before: `cmd/netductor/api_*.go` (except session token notes below)
-- Next file: `cmd/netductor/api_session.go`
+- Next file: `cmd/netductor/api_secondary.go`
 - Done packages: none fully
 - Touched: `internal/session/session.go` (token storage only)
 
@@ -42,3 +42,11 @@ Read order:
 ## Resume prompt
 
 Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append findings. Move the marker only after the file is read.
+
+
+## Pass 1 notes (2026-10-04)
+
+- F5 `POST /api/addons/update` had no `requireSession`. Fixed in this pass. API binds 127.0.0.1:8787 by default, so WAN could not hit it, but any local process could recreate containers.
+- F6 `POST /api/stack/apply` and `/api/stack/rollback` also had no session check. Same bind. Guard added. Status route left open on purpose for local health.
+- F7 `api_firewall.go` and `api_update.go` still need a line-by-line auth pass. Marker moves to secondary agent routes next, then back to those two.
+- Legacy session path in `loadMeta` still unread beyond the hash note.
