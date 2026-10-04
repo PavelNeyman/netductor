@@ -178,6 +178,12 @@ func applyUFW(role string) error {
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
 			_ = run("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api")
 		}
+		// Service uplink from secondary only (vless-svc). Not a per-catalog port:
+		// lampac/git/registry stay on loopback; clients reach them via VLESS + DNAT.
+		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
+			_ = run("allow", "from", c, "to", "any", "port", "9443", "proto", "tcp", "comment", "netductor-svc-uplink")
+		}
+		_ = run("deny", "9443/tcp", "comment", "no-svc-uplink-wan")
 		// lampac localhost only
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
