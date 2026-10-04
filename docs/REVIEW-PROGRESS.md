@@ -58,3 +58,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Operator secondary routes (cmd, export, exit) already call requireSession.
 - F8 firewall apply/heal and update github-token/apply had no session check. Guard added this pass. Status/list left open on localhost.
 - Next file: `cmd/netductor/api_edge.go` enroll/cmd routes (agent-shaped, confirm token).
+
+
+## Pass 1 notes (edge)
+
+- `/api/edge/enroll` is not open. It needs a recovery or bootstrap bearer and is rate-limited per IP. A new device lands pending and notifies TG.
+- `/api/edge/commands` and `cmd_result` require the device token and reject a mismatched device_id.
+- `/api/edge/mtls/material` requires the device token.
+- Operator edge routes (templates, approve, rsc) use requireSession.
+- Next file: `cmd/netductor/api_nvr.go` clip/token routes.
