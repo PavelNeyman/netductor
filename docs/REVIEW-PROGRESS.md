@@ -67,3 +67,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - `/api/edge/mtls/material` requires the device token.
 - Operator edge routes (templates, approve, rsc) use requireSession.
 - Next file: `cmd/netductor/api_nvr.go` clip/token routes.
+
+
+## Pass 1 notes (edge)
+
+- `/api/edge/enroll` requires recovery or bootstrap token and is rate-limited by IP. New device stays pending and notifies Telegram.
+- `/api/edge/heartbeat`, `/commands`, `/cmd_result`, `/mtls/material` take the device token and reject a mismatched device_id.
+- Firewall apply/heal already require session (confirmed on disk).
+- F9 `POST /api/update/apply` had no session check. Guard added this pass.
+- Next file: `cmd/netductor/api_nvr.go` clip/token routes.
