@@ -383,6 +383,9 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">` + T("mode_primary") + `</tg-button>`)
 	if showWorkProfileButton(name) {
 		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Config</tg-button>`)
+	} else {
+		// Family SR Config for non-operator users
+		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `:family">📥 SR Family</tg-button>`)
 	}
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
@@ -473,34 +476,93 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 }
 
 func sendWorkProfileDocument(token string, chat int64) {
-	// Always regenerate from current node IPs + rule generator (never ship embed/stale file).
-	path := "/var/lib/netductor/profiles/nd-oc.conf"
-	if err := vpn.WriteShadowrocketRoutingFile(path); err != nil {
-		path = "/tmp/nd-oc.conf"
-		if err2 := vpn.WriteShadowrocketRoutingFile(path); err2 != nil {
+	sendSRProfileDocument(token, chat, vpn.SRProfileOperatorMobile)
+}
+
+func showSRProfilePicker(token string, chat int64, msgID int, userName string) {
+	nl := "\n"
+	ru := getLang() != "en"
+	var b strings.Builder
+	if ru {
+		b.WriteString("📥 <b>SR Config</b> — шаблон" + nl)
+		b.WriteString("<i>Импорт в Shadowrocket → Config · Global Routing = Config. VLESS — отдельно.</i>" + nl + nl)
+	} else {
+		b.WriteString("📥 <b>SR Config</b> — template" + nl)
+		b.WriteString("<i>Import in Shadowrocket → Config · Global Routing = Config. VLESS separate.</i>" + nl + nl)
+	}
+	for _, m := range vpn.SRProfiles() {
+		if m.Operator && !showWorkProfileButton(userName) {
+			continue
+		}
+		label, help := m.LabelEN, m.HelpEN
+		if ru {
+			label, help = m.LabelRU, m.HelpRU
+		}
+		b.WriteString("<b>" + esc(label) + "</b>" + nl + "<i>" + esc(help) + "</i>" + nl)
+		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="u:workcfg:` + userName + `:` + m.ID + `">📥 ` + esc(label) + `</tg-button></tg-button-row>` + nl + nl)
+	}
+	if msgID > 0 {
+		reply(token, chat, msgID, b.String(), nil)
+	} else {
+		sendHTML(token, chat, b.String(), nil)
+	}
+}
+
+
+func sendSRProfileDocument(token string, chat int64, profile string) {
+	profile = vpn.NormalizeSRProfile(profile)
+	fname := "nd-sr-" + profile + ".conf"
+	path := "/var/lib/netductor/profiles/" + fname
+	if err := vpn.WriteShadowrocketRoutingFileProfile(path, profile); err != nil {
+		path = "/tmp/" + fname
+		if err2 := vpn.WriteShadowrocketRoutingFileProfile(path, profile); err2 != nil {
 			sendHTML(token, chat, "❌ SR Config generate failed: "+esc(err2.Error()), nil)
 			return
 		}
 	}
-	_ = vpn.WriteShadowrocketRoutingFile("/etc/netductor/profiles/nd-oc.conf")
+	_ = vpn.WriteShadowrocketRoutingFileProfile("/etc/netductor/profiles/"+fname, profile)
+	// keep legacy name for operator-mobile
+	if profile == vpn.SRProfileOperatorMobile {
+		_ = vpn.WriteShadowrocketRoutingFileProfile("/var/lib/netductor/profiles/nd-oc.conf", profile)
+		_ = vpn.WriteShadowrocketRoutingFileProfile("/etc/netductor/profiles/nd-oc.conf", profile)
+	}
 	body, _ := os.ReadFile(path)
 	cidrs := vpn.AdminNodeDirectCIDRs()
 	nl := string([]byte{10})
-	cap := "📥 <b>SR Config</b>" + nl + "Shadowrocket → Config → import · Global Routing = <b>Config</b>." + nl
+	meta := vpn.SRProfileMeta{}
+	for _, m := range vpn.SRProfiles() {
+		if m.ID == profile {
+			meta = m
+			break
+		}
+	}
+	label := meta.LabelEN
+	help := meta.HelpEN
+	if getLang() != "en" {
+		if meta.LabelRU != "" {
+			label = meta.LabelRU
+		}
+		if meta.HelpRU != "" {
+			help = meta.HelpRU
+		}
+	}
+	cap := "📥 <b>SR Config · " + esc(label) + "</b>" + nl
+	cap += "<i>" + esc(help) + "</i>" + nl
+	cap += "Shadowrocket → Config → import · Global Routing = <b>Config</b>." + nl
 	if len(cidrs) == 0 {
-		cap += "⚠️ No node IPs found for IP-CIDR DIRECT — set public_ip / secondary devices." + nl
-		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument: AdminNodeDirectCIDRs empty")
+		cap += "⚠️ No node IPs for IP-CIDR DIRECT — set public_ip / secondary devices." + nl
 	} else {
 		cap += "DIRECT nodes: <code>" + esc(strings.Join(cidrs, ", ")) + "</code>" + nl
 	}
-	if !strings.Contains(string(body), "IP-CIDR,") {
-		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument: generated file has no IP-CIDR lines, size=", len(body))
+	if !strings.Contains(string(body), "FINAL,PROXY") {
+		fmt.Fprintln(os.Stderr, "sendSRProfileDocument: unexpected body size=", len(body))
 	}
 	if err := sendDocumentFile(token, chat, path, cap); err != nil {
-		fmt.Fprintln(os.Stderr, "sendWorkProfileDocument:", err)
+		fmt.Fprintln(os.Stderr, "sendSRProfileDocument:", err)
 		sendHTML(token, chat, "❌ Failed to send profile: "+esc(err.Error()), nil)
 	}
 }
+
 
 
 

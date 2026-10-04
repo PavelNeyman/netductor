@@ -138,7 +138,42 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(filepath.Join(vpn.Clients(), name))
+	case "sr-config", "sr-profile":
+		// netductor vpn sr-config [operator-mobile|operator-fullproxy|family] [-o path]
+		profile := vpn.SRProfileOperatorMobile
+		outPath := ""
+		for i := 0; i < len(rest); i++ {
+			a := rest[i]
+			if a == "-o" || a == "--output" {
+				if i+1 < len(rest) {
+					i++
+					outPath = rest[i]
+				}
+				continue
+			}
+			if a == "list" {
+				for _, m := range vpn.SRProfiles() {
+					fmt.Printf("%s\t%s\t%s\n", m.ID, m.LabelEN, m.HelpEN)
+				}
+				return
+			}
+			if !strings.HasPrefix(a, "-") {
+				profile = a
+			}
+		}
+		profile = vpn.NormalizeSRProfile(profile)
+		body := vpn.BuildShadowrocketRoutingConfProfile(profile)
+		if outPath != "" {
+			if err := vpn.WriteShadowrocketRoutingFileProfile(outPath, profile); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println(outPath)
+			return
+		}
+		fmt.Print(body)
 	case "link":
+
 		if len(rest) < 1 {
 			os.Exit(2)
 		}

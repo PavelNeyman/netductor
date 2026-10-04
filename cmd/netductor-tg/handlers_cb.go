@@ -236,7 +236,14 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			action, name := parts[1], parts[2]
 			switch action {
 			case "workcfg":
-				sendWorkProfileDocument(token, chat)
+				// u:workcfg:name | u:workcfg:name:profile
+				if len(parts) >= 4 && parts[3] != "" {
+					sendSRProfileDocument(token, chat, parts[3])
+				} else if showWorkProfileButton(name) {
+					showSRProfilePicker(token, chat, msgID, name)
+				} else {
+					sendSRProfileDocument(token, chat, vpn.SRProfileFamily)
+				}
 			case "open":
 				reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
 			case "app":

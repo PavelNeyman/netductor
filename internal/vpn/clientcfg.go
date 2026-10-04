@@ -303,31 +303,18 @@ func WriteClientConfigs(name, uuid string) error {
 	return nil
 }
 
-// BuildShadowrocketRoutingConf returns full SR Config text (General + Rule + FINAL).
+// BuildShadowrocketRoutingConf returns default operator-mobile SR Config.
 func BuildShadowrocketRoutingConf() string {
-	var rb strings.Builder
-	rb.WriteString("# netductor — nodes DIRECT, RU/gov DIRECT, remote RULE-SET, else PROXY\n")
-	rb.WriteString("# Import as Config in Shadowrocket; add VLESS server separately.\n\n")
-	rb.WriteString(ShadowrocketGeneralBlock())
-	rb.WriteString("\n[Rule]\n")
-	for _, line := range ShadowrocketAdminDirectRules() {
-		rb.WriteString(line)
-		rb.WriteByte('\n')
-	}
-	for _, line := range ShadowrocketRemoteRuleSetRules() {
-		rb.WriteString(line)
-		rb.WriteByte('\n')
-	}
-	for _, line := range ShadowrocketRuDirectRules() {
-		rb.WriteString(line)
-		rb.WriteByte('\n')
-	}
-	rb.WriteString("FINAL,PROXY\n")
-	return rb.String()
+	return BuildShadowrocketRoutingConfProfile(SRProfileOperatorMobile)
 }
 
-// WriteShadowrocketRoutingFile writes SR Config to path (used by TG work profile + client dirs).
+// WriteShadowrocketRoutingFile writes default (operator-mobile) SR Config.
 func WriteShadowrocketRoutingFile(path string) error {
+	return WriteShadowrocketRoutingFileProfile(path, SRProfileOperatorMobile)
+}
+
+// WriteShadowrocketRoutingFileProfile writes SR Config for a named profile.
+func WriteShadowrocketRoutingFileProfile(path, profile string) error {
 	_ = os.MkdirAll(filepath.Dir(path), 0o755)
-	return os.WriteFile(path, []byte(BuildShadowrocketRoutingConf()), 0o644)
+	return os.WriteFile(path, []byte(BuildShadowrocketRoutingConfProfile(profile)), 0o644)
 }
