@@ -66,6 +66,17 @@ func formatAddonsHTML() string {
 	} else {
 		b.WriteString("🧩 <b>Addons</b>\n<i>Optional services on primary</i>\n")
 	}
+	st := addons.ListAddons()
+	if vers, ok := st["versions"].(map[string]any); ok {
+		if lp, ok := vers["lampac"].(map[string]any); ok {
+			b.WriteString("\nlampac <code>")
+			b.WriteString(fmt.Sprint(lp["running"]))
+			b.WriteString("</code>")
+			if lp["update_available"] == true {
+				b.WriteString(" · update")
+			}
+		}
+	}
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:addon:lampac">📺 Lampac</tg-button></tg-button-row>`)
 	return b.String()
 }

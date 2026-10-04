@@ -216,7 +216,7 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 	// Shared uplink: internet only. Primary sees auth_user=relay-uplink.
 	uplink := map[string]any{
 		"type": "vless", "tag": "uplink",
-		"server": b.CoreIP, "server_port": b.CoreVless,
+		"server": "10.87.10.1", "server_port": b.CoreVless,
 		// no vision: required for multiplex (vision ⊕ mux unsupported)
 		"uuid":            b.UplinkUUID,
 		"domain_resolver": "quad9",

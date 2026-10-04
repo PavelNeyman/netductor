@@ -123,5 +123,6 @@ func CollectLampac() LampacStatus {
 func ListAddons() map[string]any {
 	return map[string]any{
 		"lampac": CollectLampac(),
+		"versions": Versions(),
 	}
 }
