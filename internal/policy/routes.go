@@ -86,13 +86,20 @@ func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 
 func subjectsAllowing(subjects []Subject, serviceID string, cat *Catalog) []string {
 	var names []string
+	seen := map[string]bool{}
 	for _, s := range subjects {
 		if s.Name == "" {
 			continue
 		}
 		if s.Policy.Allows(serviceID, cat) {
 			names = append(names, s.Name)
+			seen[s.Name] = true
 		}
+	}
+	// Secondary path: client is Pavel on secondary, but primary only sees VLESS user relay-uplink.
+	// Without this, service ACL reject rules black-hole lampac/git for the whole fleet path.
+	if !seen["relay-uplink"] {
+		names = append(names, "relay-uplink")
 	}
 	return names
 }
