@@ -1,7 +1,7 @@
 # AGENT Handoff
 - **0.9.208:** TG bot sets policy.ApplyHook → ApplyAccessPolicies (policy toggles were saving JSON only; sing-box mtime stayed old).
 - **0.9.207:** TG/Web policy UI parity — full T() i18n, preset none, card template aligned with users/dns.
-- **0.9.205:** service-net (`nd-svc` 10.88.0.0/24 + DNAT); `servicenet status|apply`; doctor; policy P4 docs; TG presets via ApplyPreset.
+- **0.9.205:** service-net (`nd-svc` 198.18.88.0/24 + DNAT); `servicenet status|apply`; doctor; policy P4 docs; TG presets via ApplyPreset.
 - **0.9.204:** `host-baseline status|apply` + doctor drift checks; policy presets CLI; doctor policy/catalog integrity (P4 partial).
 - **0.9.201:** safer hoster purge (installed pkgs only, no pkill -f, port parse); apt Pin-Priority -1 block; host-audit --dry-run.
 - **0.9.200:** install/stack apply/secondary upgrade auto EnsureHostBaseline (firewall role file + netductor-stack-watchdog.timer). Role detect fixed in 0.9.199.

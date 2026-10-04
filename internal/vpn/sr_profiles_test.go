@@ -34,9 +34,6 @@ func TestOperatorMobileHasRUAndFamilyHasRU(t *testing.T) {
 	if !strings.Contains(m, "IP-CIDR,198.18.88.0/24,PROXY") {
 		t.Fatal("mobile: expected service-net VIP PROXY")
 	}
-	if !strings.Contains(m, "IP-CIDR,10.88.0.0/24,PROXY") {
-		t.Fatal("mobile: expected legacy service-net PROXY")
-	}
 	if strings.Contains(m, "tun-excluded-routes = 10.0.0.0/8") {
 		t.Fatal("mobile: must not exclude entire 10/8")
 	}
@@ -44,7 +41,7 @@ func TestOperatorMobileHasRUAndFamilyHasRU(t *testing.T) {
 	if !strings.Contains(f, "GEOIP,RU,DIRECT") {
 		t.Fatal("family: expected GEOIP RU")
 	}
-	if strings.Contains(f, "10.88.0.0/24") {
+	if strings.Contains(f, "198.18.88.0/24") || strings.Contains(f, "10.88.0.0/24") {
 		t.Fatal("family: must not include service-net")
 	}
 	full := BuildShadowrocketRoutingConfProfile(SRProfileOperatorFullProxy)

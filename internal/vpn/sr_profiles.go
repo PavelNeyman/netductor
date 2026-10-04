@@ -19,10 +19,8 @@ const (
 // Defaults aligned with live topology (override via env only when needed).
 const (
 	defaultHomeLAN = "10.9.8.0/24"
-	// Service-net VIP plan: 198.18.88.0/24. Keep 10.88.0.0/24 until primary VIP migrates.
 	defaultServiceNetVIP = "198.18.88.0/24"
-	defaultServiceNetLegacy = "10.88.0.0/24"
-	defaultShopCIDR = "10.120.0.0/16"
+	defaultShopCIDR      = "10.120.0.0/16"
 )
 
 // defaultWorkDirectCIDRs — Mac utun9 split-tunnel prefixes (operator snapshot 2026-10).
@@ -235,8 +233,7 @@ func serviceNetCIDRs() []string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_SERVICE_NET")); v != "" {
 		return splitCIDRList(v)
 	}
-	// VIP target + legacy live subnet until servicenet migrates off 10.88.
-	return []string{defaultServiceNetVIP, defaultServiceNetLegacy}
+	return []string{defaultServiceNetVIP}
 }
 
 func shopCIDRs() []string {

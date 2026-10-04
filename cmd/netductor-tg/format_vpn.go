@@ -382,10 +382,9 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	b.WriteString(`<tg-button type="callback_data"` + styleS + ` data="u:access:` + name + `:sub">Sub</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data"` + styleC + ` data="u:access:` + name + `:core">` + T("mode_primary") + `</tg-button>`)
 	if showWorkProfileButton(name) {
-		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">📥 SR Config</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `">` + T("btn_sr_config") + `</tg-button>`)
 	} else {
-		// Family SR Config for non-operator users
-		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `:family">📥 SR Family</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `:family">` + T("btn_sr_family") + `</tg-button>`)
 	}
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
@@ -483,13 +482,8 @@ func showSRProfilePicker(token string, chat int64, msgID int, userName string) {
 	nl := "\n"
 	ru := getLang() != "en"
 	var b strings.Builder
-	if ru {
-		b.WriteString("📥 <b>SR Config</b> — шаблон" + nl)
-		b.WriteString("<i>Импорт в Shadowrocket → Config · Global Routing = Config. VLESS — отдельно.</i>" + nl + nl)
-	} else {
-		b.WriteString("📥 <b>SR Config</b> — template" + nl)
-		b.WriteString("<i>Import in Shadowrocket → Config · Global Routing = Config. VLESS separate.</i>" + nl + nl)
-	}
+	b.WriteString(T("sr_picker_title") + nl)
+	b.WriteString(T("sr_picker_hint") + nl + nl)
 	for _, m := range vpn.SRProfiles() {
 		if m.Operator && !showWorkProfileButton(userName) {
 			continue
@@ -498,7 +492,9 @@ func showSRProfilePicker(token string, chat int64, msgID int, userName string) {
 		if ru {
 			label, help = m.LabelRU, m.HelpRU
 		}
-		b.WriteString("<b>" + esc(label) + "</b>" + nl + "<i>" + esc(help) + "</i>" + nl)
+		// Card-style: title + help, then button row (Access hub pattern)
+		b.WriteString("<b>" + esc(label) + "</b>" + nl)
+		b.WriteString("<i>" + esc(help) + "</i>" + nl)
 		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="u:workcfg:` + userName + `:` + m.ID + `">📥 ` + esc(label) + `</tg-button></tg-button-row>` + nl + nl)
 	}
 	if msgID > 0 {
@@ -508,7 +504,6 @@ func showSRProfilePicker(token string, chat int64, msgID int, userName string) {
 	}
 }
 
-
 func sendSRProfileDocument(token string, chat int64, profile string) {
 	profile = vpn.NormalizeSRProfile(profile)
 	fname := "nd-sr-" + profile + ".conf"
@@ -516,7 +511,7 @@ func sendSRProfileDocument(token string, chat int64, profile string) {
 	if err := vpn.WriteShadowrocketRoutingFileProfile(path, profile); err != nil {
 		path = "/tmp/" + fname
 		if err2 := vpn.WriteShadowrocketRoutingFileProfile(path, profile); err2 != nil {
-			sendHTML(token, chat, "❌ SR Config generate failed: "+esc(err2.Error()), nil)
+			sendHTML(token, chat, T("sr_gen_fail")+esc(err2.Error()), nil)
 			return
 		}
 	}
@@ -548,9 +543,9 @@ func sendSRProfileDocument(token string, chat int64, profile string) {
 	}
 	cap := "📥 <b>SR Config · " + esc(label) + "</b>" + nl
 	cap += "<i>" + esc(help) + "</i>" + nl
-	cap += "Shadowrocket → Config → import · Global Routing = <b>Config</b>." + nl
+	cap += T("sr_doc_hint") + nl
 	if len(cidrs) == 0 {
-		cap += "⚠️ No node IPs for IP-CIDR DIRECT — set public_ip / secondary devices." + nl
+		cap += T("sr_no_nodes") + nl
 	} else {
 		cap += "DIRECT nodes: <code>" + esc(strings.Join(cidrs, ", ")) + "</code>" + nl
 	}
@@ -559,7 +554,7 @@ func sendSRProfileDocument(token string, chat int64, profile string) {
 	}
 	if err := sendDocumentFile(token, chat, path, cap); err != nil {
 		fmt.Fprintln(os.Stderr, "sendSRProfileDocument:", err)
-		sendHTML(token, chat, "❌ Failed to send profile: "+esc(err.Error()), nil)
+		sendHTML(token, chat, T("sr_send_fail")+esc(err.Error()), nil)
 	}
 }
 
