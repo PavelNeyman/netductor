@@ -26,10 +26,15 @@ func InstallLampac() error {
 	data := filepath.Join(paths.OptDir(), "lampac")
 	_ = os.MkdirAll(data, 0o755)
 
+	_ = os.MkdirAll(filepath.Join(data, "ts"), 0o777)
+	_ = os.Chmod(data, 0o777)
+	_ = os.Chmod(filepath.Join(data, "ts"), 0o777)
 	_ = exec.Command("docker", "rm", "-f", "netductor-lampac").Run()
+	// Run as root inside container: TorrServer CreateDirectory on bind-mount fails for non-root.
 	cmd := exec.Command("docker", "run", "-d",
 		"--name", "netductor-lampac",
 		"--restart", "unless-stopped",
+		"--user", "0:0",
 		"--shm-size", "1024m",
 		"-p", publish,
 		"-v", data+":/lampac/data",

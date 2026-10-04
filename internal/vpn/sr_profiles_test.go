@@ -37,6 +37,15 @@ func TestOperatorMobileHasRUAndFamilyHasRU(t *testing.T) {
 	if strings.Contains(m, "tun-excluded-routes = 10.0.0.0/8") {
 		t.Fatal("mobile: must not exclude entire 10/8")
 	}
+	// work CIDRs must be in skip-proxy, NOT tun-excluded (SR would route them to en0)
+	if !strings.Contains(m, "skip-proxy =") || !strings.Contains(m, "10.1.253.0/24") {
+		t.Fatal("mobile: work CIDR should appear in General (skip-proxy)")
+	}
+	for _, line := range strings.Split(m, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "tun-excluded-routes") && strings.Contains(line, "10.1.253") {
+			t.Fatal("mobile: work must NOT be in tun-excluded-routes (overrides OC utun)")
+		}
+	}
 	f := BuildShadowrocketRoutingConfProfile(SRProfileFamily)
 	if !strings.Contains(f, "GEOIP,RU,DIRECT") {
 		t.Fatal("family: expected GEOIP RU")
