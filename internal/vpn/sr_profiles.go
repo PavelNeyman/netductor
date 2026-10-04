@@ -18,7 +18,7 @@ const (
 // Defaults aligned with live topology (override via env only when needed).
 const (
 	defaultHomeLAN = "10.9.8.0/24"
-	defaultServiceNetVIP = "198.18.88.0/24"
+	defaultServiceNetVIP = "10.88.0.0/24"
 	defaultShopCIDR      = "10.120.0.0/16"
 )
 

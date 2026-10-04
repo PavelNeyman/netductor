@@ -1,4 +1,4 @@
-// Package servicenet provides a small primary-only internal net (default 198.18.88.0/24)
+// Package servicenet provides a small primary-only internal net (default 10.88.0.0/24)
 // for policy-controlled access to loopback-bound apps via VIP + DNAT.
 // See docs/PLAN-SERVICE-ACCESS-POLICY.md (service-net / P4).
 package servicenet
@@ -16,20 +16,20 @@ import (
 
 const (
 	Iface   = "nd-svc"
-	Gateway = "198.18.88.1"
+	Gateway = "10.88.0.1"
 	Prefix  = 24
-	CIDR    = "198.18.88.0/24"
+	CIDR    = "10.88.0.0/24"
 )
 
-// LegacyCIDR was used before 0.9.211 (10.88.0.0/24). Ensure removes those addrs.
-const LegacyCIDR = "10.88.0.0/24"
+// LegacyCIDR was briefly used (0.9.211–0.9.213) and collides with Shadowrocket fake-ip 198.18.0.0/16.
+const LegacyCIDR = "198.18.88.0/24"
 
 // DefaultVIP maps catalog service id → VIP on nd-svc (host side DNAT to loopback).
 var DefaultVIP = map[string]string{
-	"lampac":   "198.18.88.10",
-	"git":      "198.18.88.11",
-	"registry": "198.18.88.12",
-	"nvr":      "198.18.88.13",
+	"lampac":   "10.88.0.10",
+	"git":      "10.88.0.11",
+	"registry": "10.88.0.12",
+	"nvr":      "10.88.0.13",
 }
 
 // Status is JSON-friendly.
@@ -220,10 +220,10 @@ func MergeCatalogServiceNet(cat *policy.Catalog) bool {
 		if port == 0 {
 			continue
 		}
-		// Drop legacy 10.88.* service endpoints when migrating VIP plane.
+		// Drop legacy 198.18.88.* endpoints (SR fake-ip collision).
 		var kept []policy.Endpoint
 		for _, ep := range s.Endpoints {
-			if ep.Network == "service" && strings.HasPrefix(ep.Addr, "10.88.") {
+			if ep.Network == "service" && strings.HasPrefix(ep.Addr, "198.18.88.") {
 				changed = true
 				continue
 			}
@@ -252,7 +252,7 @@ func MergeCatalogServiceNet(cat *policy.Catalog) bool {
 	return changed
 }
 
-// dropLegacyAddrs removes pre-0.9.211 10.88.* addresses from nd-svc.
+// dropLegacyAddrs removes 198.18.88.* (SR fake-ip collision) from nd-svc.
 func dropLegacyAddrs() {
 	out, err := exec.Command("ip", "-o", "addr", "show", "dev", Iface).CombinedOutput()
 	if err != nil {
@@ -264,7 +264,7 @@ func dropLegacyAddrs() {
 			if f == "inet" && i+1 < len(fields) {
 				cidr := fields[i+1]
 				ip := strings.Split(cidr, "/")[0]
-				if strings.HasPrefix(ip, "10.88.") {
+				if strings.HasPrefix(ip, "198.18.88.") {
 					_ = exec.Command("ip", "addr", "del", cidr, "dev", Iface).Run()
 					fmt.Fprintf(os.Stderr, "servicenet: removed legacy addr %s\n", cidr)
 				}
