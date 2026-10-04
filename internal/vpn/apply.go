@@ -49,6 +49,14 @@ func ApplyConfig() error {
 		vusers = []vu{}
 	}
 	sniVal := sni()
+
+	// Service uplink from secondary: no mux, no vision. Public :443 stays mux+vision for clients.
+	var svcUsers []vu
+	for _, u := range vusers {
+		su := u
+		su.Flow = ""
+		svcUsers = append(svcUsers, su)
+	}
 	outbounds, routeRules, finalOut := buildOutboundsAndRoute()
 	cfg := map[string]any{
 		"log": map[string]any{"level": "info", "timestamp": true},
@@ -69,6 +77,18 @@ func ApplyConfig() error {
 					"enabled": true,
 					"padding": true,
 				},
+				"tls": map[string]any{
+					"enabled": true, "server_name": sniVal,
+					"reality": map[string]any{
+						"enabled": true,
+						"handshake": map[string]any{"server": sniVal, "server_port": 443},
+						"private_key": priv, "short_id": []string{sid},
+					},
+				},
+			},
+			map[string]any{
+				"type": "vless", "tag": "vless-svc", "listen": "10.87.10.1", "listen_port": 9443,
+				"users": svcUsers,
 				"tls": map[string]any{
 					"enabled": true, "server_name": sniVal,
 					"reality": map[string]any{

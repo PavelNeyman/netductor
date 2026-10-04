@@ -234,9 +234,8 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		tag := "uplink-svc-" + sanitizeTag(name)
 		outbounds = append(outbounds, map[string]any{
 			"type": "vless", "tag": tag,
-			"server": b.CoreIP, "server_port": b.CoreVless,
+			"server": "10.87.10.1", "server_port": 9443,
 			"uuid":   u.UUID,
-			"flow":   "xtls-rprx-vision",
 			"domain_resolver": "quad9",
 			"tls":    uplinkTLS,
 		})
