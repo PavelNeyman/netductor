@@ -257,6 +257,8 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 				map[string]any{"protocol": "dns", "action": "hijack-dns"},
 				map[string]any{"ip_version": 6, "outbound": "block"},
 				map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
+				// Service-net VIPs live only on primary — must not hit ip_is_private→direct here.
+				map[string]any{"ip_cidr": []string{"10.88.0.0/24"}, "outbound": "uplink"},
 				map[string]any{"ip_is_private": true, "outbound": "direct"},
 				map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
 				map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
