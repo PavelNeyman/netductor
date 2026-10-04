@@ -238,6 +238,10 @@ func parsePolicyFlags(args []string, p policy.AccessPolicy) policy.AccessPolicy 
 			}
 		case "--all":
 			p.ServicesMode = "all"
+		case "--none":
+			p.ServicesMode = "list"
+			p.Services = nil
+			servicesSet = true
 		case "--list":
 			p.ServicesMode = "list"
 		case "--service", "--svc":
