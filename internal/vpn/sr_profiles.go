@@ -1,7 +1,6 @@
 package vpn
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -299,17 +298,27 @@ func ShadowrocketAdsRejectRules() []string {
 	return lines
 }
 
-// ShadowrocketGeneralBlockFor — narrow skip/exclude: home LAN only (not 10/8, 172.16/12, 192.168/16).
-// Work + service-net + shops are explicit IP-CIDR rules, not TUN excludes.
+// ShadowrocketGeneralBlockFor — home + work in skip/tun-exclude so OS routes (en0/utun9) win.
+// Service-net 198.18.88 and shops 10.120 stay in TUN so PROXY rules apply.
 func ShadowrocketGeneralBlockFor(profile string) string {
 	home := defaultHomeLAN
 	if cidrs := homeLANCIDRs(); len(cidrs) > 0 {
 		home = cidrs[0]
 	}
-	skip := fmt.Sprintf("127.0.0.1, %s, localhost, *.local, captive.apple.com", home)
-	// Do NOT exclude 10/8, 172.16/12, 192.168/16 — would block PROXY to 10.120 / 198.18.88 and confuse work rules.
-	excl := fmt.Sprintf("%s,127.0.0.0/8,169.254.0.0/16,224.0.0.0/4,255.255.255.255/32", home)
-	_ = profile
+	var parts []string
+	parts = append(parts, "127.0.0.1", home, "localhost", "*.local", "captive.apple.com")
+	// Work prefixes: must leave TUN so corporate OpenConnect/utun9 routes apply in parallel with VLESS.
+	if profile == SRProfileOperatorMobile || profile == SRProfileOperatorFullProxy {
+		for _, c := range workDirectCIDRs() {
+			parts = append(parts, c)
+		}
+	}
+	skip := strings.Join(parts, ", ")
+	exclParts := []string{home, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "255.255.255.255/32"}
+	if profile == SRProfileOperatorMobile || profile == SRProfileOperatorFullProxy {
+		exclParts = append(exclParts, workDirectCIDRs()...)
+	}
+	excl := strings.Join(exclParts, ",")
 	return strings.TrimSpace(`
 [General]
 # DIRECT uses system DNS; PROXY path DNS is on the node (blocky)
