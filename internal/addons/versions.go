@@ -17,10 +17,9 @@ func Versions() map[string]any {
 		notify.AlertOnce("addon-lampac-update", "Lampac image update available: running "+str(lampac["running"])+" desired "+str(lampac["desired"]))
 	}
 	return map[string]any{
-		"note":   "addons are not updated by stack apply; docker pull + recreate",
+		"note": "netductor addons update [name|all] pulls images and recreates; new addons call Register",
+		"items": All(),
 		"lampac": lampac,
-		"git":    map[string]any{"managed_by": "netductor git", "update": "manual"},
-		"registry": map[string]any{"managed_by": "local oci", "update": "manual"},
 	}
 }
 

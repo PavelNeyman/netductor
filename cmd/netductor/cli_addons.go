@@ -19,7 +19,21 @@ func runAddons(args []string) {
 		b, _ := json.MarshalIndent(addons.CollectLampac(), "", "  ")
 		fmt.Println(string(b))
 	default:
-		fmt.Fprintln(os.Stderr, "usage: netductor addons [list|lampac]")
+		if len(args) > 0 && (args[0] == "update" || args[0] == "upgrade") {
+		name := "all"
+		if len(args) > 1 {
+			name = args[1]
+		}
+		out, err := addons.Update(name)
+		b, _ := json.MarshalIndent(out, "", "  ")
+		fmt.Println(string(b))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	fmt.Fprintln(os.Stderr, "usage: netductor addons [list|lampac|update [name|all]]")
 		os.Exit(2)
 	}
 }
