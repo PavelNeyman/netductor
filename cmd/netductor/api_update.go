@@ -28,6 +28,9 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, ndupdate.CheckStatus(ndver.Release))
 	})
 	mux.HandleFunc("/api/update/github-token", func(w http.ResponseWriter, r *http.Request) {
+	if !requireSession(w, r) {
+		return
+	}
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, 200, ndupdate.GetTokenStatus())

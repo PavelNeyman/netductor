@@ -50,3 +50,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - F6 `POST /api/stack/apply` and `/api/stack/rollback` also had no session check. Same bind. Guard added. Status route left open on purpose for local health.
 - F7 `api_firewall.go` and `api_update.go` still need a line-by-line auth pass. Marker moves to secondary agent routes next, then back to those two.
 - Legacy session path in `loadMeta` still unread beyond the hash note.
+
+
+## Pass 1 notes (secondary/firewall/update)
+
+- Agent routes `/api/secondary/agent/*` use device bearer token, not operator session. Backup latest and backup key are available to any valid agent token. That is the peer-restore path; a stolen secondary token can read the backup key.
+- Operator secondary routes (cmd, export, exit) already call requireSession.
+- F8 firewall apply/heal and update github-token/apply had no session check. Guard added this pass. Status/list left open on localhost.
+- Next file: `cmd/netductor/api_edge.go` enroll/cmd routes (agent-shaped, confirm token).
