@@ -41,6 +41,9 @@ func uplinkMultiplexObject() map[string]any {
 	return m
 }
 
+
+// Secondary is trusted for service identity: it dials vless-svc as the end-user UUID.
+// A compromised secondary can present any registered user. Do not treat uplink auth_user as proof beyond that trust boundary.
 const RelayUplinkName = "relay-uplink"
 
 // SecondaryBundle is generated on core and consumed on RU relay VPS.

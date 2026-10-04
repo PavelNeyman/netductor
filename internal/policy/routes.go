@@ -26,6 +26,9 @@ func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 		if svc.Disabled || svc.Kind != KindInternal {
 			continue
 		}
+		if ServiceEnabled != nil && !ServiceEnabled(svc.ID) {
+			continue
+		}
 		allowed := subjectsAllowing(subjects, svc.ID, cat)
 		for _, ep := range svc.Endpoints {
 			if ep.Port <= 0 {
@@ -47,7 +50,7 @@ func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 					"auth_user":        allowed,
 					"port":             port,
 					"outbound":         "direct",
-					"override_address": "127.0.0.1",
+					"override_address": dialAddr(ep.Addr),
 					"override_port":    port,
 				}
 				if proto == "tcp" || proto == "udp" {
@@ -102,4 +105,16 @@ func subjectsAllowing(subjects []Subject, serviceID string, cat *Catalog) []stri
 	// as the real user (uplink-svc-<name>), so ACL stays per-user.
 	_ = seen
 	return names
+}
+
+// ServiceEnabled, when set, drops a catalog service from ACL (no allow, no listen route).
+// NVR uses this so :1984 is not granted while recording is off.
+var ServiceEnabled func(id string) bool
+
+func dialAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return "127.0.0.1"
+	}
+	return addr
 }

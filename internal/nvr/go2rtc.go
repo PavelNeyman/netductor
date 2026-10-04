@@ -17,7 +17,11 @@ func WriteGo2RTCConfig() (string, error) {
 	var b strings.Builder
 	b.WriteString("# netductor-generated — bind to VPN/localhost only; do not expose publicly\n")
 	b.WriteString("# go2rtc -c " + path + "\n")
-	b.WriteString("api:\n  listen: \"127.0.0.1:1984\"\n")
+	if !LoadConfig().RecordEnabled {
+		b.WriteString("# record_enabled=false — do not start go2rtc\napi:\n  listen: \"\"\n")
+	} else {
+		b.WriteString("api:\n  listen: \"127.0.0.1:1984\"\n")
+	}
 	b.WriteString("rtsp:\n  listen: \"127.0.0.1:8554\"\n")
 	b.WriteString("webrtc:\n  listen: \"127.0.0.1:8555\"\n  candidates: []\n")
 	b.WriteString("streams:\n")
