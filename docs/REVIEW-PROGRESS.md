@@ -137,3 +137,10 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - List and desired hostname require operator session. Self-register allows loopback or a session. Loopback is the peer address, not a forwarded header.
 - Hostname apply uses `hostnamectl` with one argument, not a shell. Revoke session requires a valid bearer token.
 - Next file: `cmd/netductor/api_svc_paths.go`.
+
+
+## Pass 1 notes (svc paths)
+
+- F13 status, apply, failover, and failover tick had no session check. Guard added. API remains localhost by default.
+- Bootstrap of keys stays out of this API.
+- Next file: `cmd/netductor/api_fleet.go`.

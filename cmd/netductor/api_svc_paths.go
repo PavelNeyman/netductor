@@ -15,11 +15,17 @@ func registerSvcPathsAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		writeJSON(w, 200, svcpaths.Status())
 	})
 	mux.HandleFunc("/api/svc-paths/apply", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
 			return
 		}
 		msg, err := svcpaths.Apply()
@@ -30,6 +36,9 @@ func registerSvcPathsAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "msg": msg, "status": svcpaths.Status()})
 	})
 	mux.HandleFunc("/api/svc-paths/failover", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, 200, map[string]any{
@@ -59,6 +68,9 @@ func registerSvcPathsAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/svc-paths/failover/tick", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
 			return
 		}
 		s, sum, err := svcpaths.RunSecondaryCycle()
