@@ -62,3 +62,15 @@ func TestRequireSession(t *testing.T) {
 	}
 	_ = json.Valid([]byte(`{}`))
 }
+
+func TestAPIPathExemptFromSession(t *testing.T) {
+	if !apiPathExemptFromSession("/api/edge/heartbeat") {
+		t.Fatal("heartbeat should be exempt")
+	}
+	if !apiPathExemptFromSession("/api/secondary/agent/heartbeat") {
+		t.Fatal("secondary agent should be exempt")
+	}
+	if apiPathExemptFromSession("/api/stack/apply") {
+		t.Fatal("stack apply must require session")
+	}
+}

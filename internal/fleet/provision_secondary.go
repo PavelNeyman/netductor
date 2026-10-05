@@ -23,8 +23,8 @@ type ProvisionSecondaryOpts struct {
 }
 
 // ProvisionSecondary deploys secondary as VPN entry only:
-//  1) secondary provision (sing-box + agent + SSH harden with operator/core pubkey)
-//  2) fleet secondary role + desired hostname nd-secondary
+//  1. secondary provision (sing-box + agent + SSH harden with operator/core pubkey)
+//  2. fleet secondary role + desired hostname nd-secondary
 //
 // Ongoing control plane is agent HTTP to primary — no permanent primary→secondary SSH required.
 func ProvisionSecondary(o ProvisionSecondaryOpts) error {
@@ -41,9 +41,9 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	args := []string{"secondary", "provision",
 		"--host", o.Host,
 		"--user", o.User,
-		"--password", o.Password,
 		"--port", fmt.Sprintf("%d", o.Port),
 	}
+	// R5: password via env, not argv (visible in ps)
 	if strings.TrimSpace(o.SNI) != "" {
 		args = append(args, "--sni", o.SNI)
 	}
@@ -56,6 +56,11 @@ func ProvisionSecondary(o ProvisionSecondaryOpts) error {
 	fmt.Fprintln(os.Stderr, "==> secondary: VPN plane (secondary provision)")
 	cmd := exec.Command("netductor", args...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	env := os.Environ()
+	if pw := strings.TrimSpace(o.Password); pw != "" {
+		env = append(env, "NETDUCTOR_SSH_PASSWORD="+pw)
+	}
+	cmd.Env = env
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("secondary provision: %w", err)
 	}

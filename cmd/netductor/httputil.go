@@ -95,7 +95,6 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-
 // safeAttachmentFilename strips path and header-injection characters from Content-Disposition names.
 func safeAttachmentFilename(name string) string {
 	name = filepath.Base(strings.TrimSpace(name))
@@ -112,4 +111,49 @@ func safeAttachmentFilename(name string) string {
 		name = name[:180]
 	}
 	return name
+}
+
+// withSession wraps a handler that requires a valid operator session (R6).
+func withSession(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		next(w, r)
+	}
+}
+
+// apiSessionGate requires operator session for /api/* except agent/device and health paths.
+// Handlers still do their own checks; this is defense-in-depth against forgotten requireSession (R6).
+func apiSessionGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if apiPathExemptFromSession(path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(path, "/api/") {
+			if !requireSession(w, r) {
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func apiPathExemptFromSession(path string) bool {
+	switch path {
+	case "/health", "/healthz", "/api/health", "/api/bot-status":
+		return true
+	case "/api/edge/enroll", "/api/edge/heartbeat", "/api/edge/commands",
+		"/api/edge/cmd_result", "/api/edge/mtls/material", "/api/edge/metrics",
+		"/api/edge/backup", "/api/edge/template":
+		return true
+	case "/api/nvr/ingest":
+		return true
+	}
+	if strings.HasPrefix(path, "/api/secondary/agent/") {
+		return true
+	}
+	return false
 }

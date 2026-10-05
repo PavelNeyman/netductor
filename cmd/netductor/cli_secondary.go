@@ -157,8 +157,14 @@ func runSecondary(args []string) {
 		if sshKey == "" {
 			sshKey = os.Getenv("NETDUCTOR_SSH_KEY")
 		}
+		if pass == "" {
+			pass = strings.TrimSpace(os.Getenv("NETDUCTOR_SSH_PASSWORD"))
+		}
+		if sshKey == "" {
+			sshKey = strings.TrimSpace(os.Getenv("NETDUCTOR_SSH_KEY"))
+		}
 		if host == "" || (pass == "" && sshKey == "") {
-			fmt.Fprintln(os.Stderr, "required: --host and (--password or --ssh-key / NETDUCTOR_SSH_*)")
+			fmt.Fprintln(os.Stderr, "required: --host and (--password|NETDUCTOR_SSH_PASSWORD or --ssh-key|NETDUCTOR_SSH_KEY)")
 			os.Exit(2)
 		}
 		// Reinstall always changes SSH host key — clear TOFU + OpenSSH known_hosts before dial.
@@ -241,14 +247,14 @@ func runSecondary(args []string) {
 			mtlsCA, mtlsCert, mtlsKey = ca, cert, key
 		}
 		pack := map[string]any{
-			"bundle":       b,
-			"agent_id":     id,
-			"agent_token":  tok,
-			"core_url":     b.CoreAgentURL,
-			"mtls_ca_b64":  base64.StdEncoding.EncodeToString(mtlsCA),
+			"bundle":        b,
+			"agent_id":      id,
+			"agent_token":   tok,
+			"core_url":      b.CoreAgentURL,
+			"mtls_ca_b64":   base64.StdEncoding.EncodeToString(mtlsCA),
 			"mtls_cert_b64": base64.StdEncoding.EncodeToString(mtlsCert),
-			"mtls_key_b64": base64.StdEncoding.EncodeToString(mtlsKey),
-			"sni":          sni,
+			"mtls_key_b64":  base64.StdEncoding.EncodeToString(mtlsKey),
+			"sni":           sni,
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -350,7 +356,6 @@ func runSecondary(args []string) {
 		os.Exit(2)
 	}
 }
-
 
 // sshIdentityArgs: prefer operator_reprovision (deploy left key for post-steps), else default identity.
 func sshIdentityArgs() []string {

@@ -1,3 +1,10 @@
+## 0.9.256
+
+- R5: secondary provision password via NETDUCTOR_SSH_PASSWORD (not argv)
+- R15: stack apply polls API health instead of fixed long sleeps
+- R2: addons Versions single shape (items + compat lampac)
+- R6: apiSessionGate middleware — /api requires session except agent/device paths
+
 ## 0.9.255
 
 - Quick R batch: R11b secondary 10.88 rules before sniff; R12b no subscription artifacts; R13 vpn users native-only; R14 skip-verify needs CONFIRM; R4 local-cmd upgrade via SHA; R10 openssl pass via env; media preset respects ServiceEnabled

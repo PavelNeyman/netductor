@@ -1,8 +1,8 @@
 package main
 
 import (
-	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"fmt"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"net/http"
 	"os"
 	"os/exec"
@@ -52,7 +52,8 @@ func buildAPIMux() http.Handler {
 	// Product UI is netductor-op on Mac — no VPS /admin.
 	mux.HandleFunc("/admin", legacyAdminGone)
 	mux.HandleFunc("/admin/", legacyAdminGone)
-	return mux
+	// R6: session gate for /api (agent paths exempt)
+	return apiSessionGate(mux)
 }
 
 func legacyAdminGone(w http.ResponseWriter, r *http.Request) {

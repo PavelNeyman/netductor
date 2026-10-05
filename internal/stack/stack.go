@@ -11,7 +11,6 @@
 //	Watchdog  = restart failed units only (never swaps binaries).
 //	Promote   = explicit CLI only; verifies prev binary matches VERSION.
 //	Pin       = blocks Apply and Promote while stabilizing.
-//
 package stack
 
 import (
@@ -27,16 +26,16 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/version"
-	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
 // UnitSpec is one managed service.
 type UnitSpec struct {
 	Unit   string `json:"unit"`
 	Binary string `json:"binary,omitempty"` // empty = no binary to swap
-	Role   string `json:"role"`            // core | optional
+	Role   string `json:"role"`             // core | optional
 }
 
 // PrimaryUnits — order matters for start (deps first not strictly required; systemd handles).
@@ -78,7 +77,6 @@ func managedUnits() []UnitSpec {
 	return PrimaryUnits
 }
 
-
 type UnitStatus struct {
 	Unit    string `json:"unit"`
 	Active  string `json:"active"`
@@ -95,8 +93,19 @@ type Status struct {
 	At      int64        `json:"ts"`
 }
 
-
 // apiHTTPHealthy probes local control API (best-effort).
+// waitAPIHealthy polls /healthz up to timeout (R15: avoid fixed long sleep looking like a hang).
+func waitAPIHealthy(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if apiHTTPHealthy() {
+			return true
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return apiHTTPHealthy()
+}
+
 func apiHTTPHealthy() bool {
 	client := &http.Client{Timeout: 3 * time.Second}
 	for _, u := range []string{
@@ -143,7 +152,6 @@ func binVersion(path string) string {
 	}
 	return strings.TrimSpace(string(out))
 }
-
 
 func FormatHTML(st Status) string {
 	var b strings.Builder
@@ -242,8 +250,6 @@ func snapshotBins(dir string) error {
 // snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
 func snapshotPrev() error { return snapshotBins(prevDir()) }
 
-
-
 // verNorm strips leading v.
 func verNorm(s string) string {
 	return strings.TrimPrefix(strings.TrimSpace(s), "v")
@@ -323,7 +329,6 @@ func parseVerField(s string) string {
 	}
 	return strings.TrimSpace(s)
 }
-
 
 // HealVersion: if prev/ is newer than running binary, restore prev (fixes 121 running / 146 prev).
 func HealVersion() error {
@@ -439,7 +444,9 @@ func ApplyOpts(tag string, noBackup bool) error {
 	_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
 	// Bot long-poll / restart is flaky for 10–20s — do NOT hard-fail on telegram-bot alone
 	// (that caused auto-rollback to ancient prev like 0.9.121 after a successful binary replace).
-	time.Sleep(12 * time.Second)
+	// R15: poll API health instead of fixed 12s sleep
+	fmt.Fprintln(os.Stderr, "stack apply: health pending (polling api up to 15s)")
+	_ = waitAPIHealthy(15 * time.Second)
 	st := Collect()
 	var failed []string
 	for _, u := range st.Units {
@@ -451,7 +458,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 		fmt.Fprintln(os.Stderr, "health soft-fail (api), retry restart:", failed)
 		_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
 		_ = exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run()
-		time.Sleep(10 * time.Second)
+		fmt.Fprintln(os.Stderr, "stack apply: health pending (retry poll up to 12s)")
+		_ = waitAPIHealthy(12 * time.Second)
 		st = Collect()
 		failed = nil
 		for _, u := range st.Units {
@@ -469,9 +477,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 	}
 	// Prefer live /healthz over unit state alone (unit can be "active" while API deadlocked).
 	if len(failed) == 0 && !apiHTTPHealthy() {
-		// one soft retry window
-		time.Sleep(8 * time.Second)
-		if !apiHTTPHealthy() {
+		fmt.Fprintln(os.Stderr, "stack apply: health pending (final poll up to 8s)")
+		if !waitAPIHealthy(8 * time.Second) {
 			failed = append(failed, "api-http-health")
 		}
 	}
@@ -602,7 +609,6 @@ WantedBy=timers.target
 	_ = exec.Command("systemctl", "enable", "--now", "netductor-stack-watchdog.timer").Run()
 	return nil
 }
-
 
 // ScheduleApply runs stack apply via systemd-run so API/bot are not mid-request when binaries swap.
 func ScheduleApply(tag string) error {

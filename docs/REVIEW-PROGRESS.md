@@ -411,3 +411,15 @@ R1 route builders · R2 addon status · R3 catalog-only TG · R4 local-cmd upgra
 | media | PresetMedia filters through ServiceEnabled (nvr off → not listed) |
 
 Still open: R1 route split · R2 addon status · R3 catalog TG · R5 password argv · R6 middleware · R7b session API · R11a sing-box pin · R12a crane SHA · R15 apply health UX
+
+
+## R5 R15 R2 R6 closed (0.9.256)
+
+| ID | Change |
+|--|--|
+| R5 | fleet secondary provision: password in NETDUCTOR_SSH_PASSWORD; CLI reads env |
+| R15 | stack ApplyOpts: waitAPIHealthy poll instead of fixed 12/10/8s sleeps |
+| R2 | addons.Versions = note + items (+ lampac compat key) |
+| R6 | apiSessionGate on buildAPIMux; agent edge/secondary/nvr-ingest exempt |
+
+Still open: R1 route split · R3 catalog TG · R7b session API · R11a sing-box pin · R12a crane SHA
