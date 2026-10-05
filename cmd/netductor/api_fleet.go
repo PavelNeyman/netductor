@@ -12,6 +12,9 @@ func registerFleetAPI(mux *http.ServeMux) {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		writeJSON(w, 200, fleet.Build())
 	})
 }

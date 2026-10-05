@@ -144,3 +144,15 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - F13 status, apply, failover, and failover tick had no session check. Guard added. API remains localhost by default.
 - Bootstrap of keys stays out of this API.
 - Next file: `cmd/netductor/api_fleet.go`.
+
+
+## Pass 1 notes (fleet)
+
+- F14 `/api/fleet/digest` had no session check. Guard added. Read-only, localhost by default.
+- API file pass is complete. Next package: `internal/session/session.go` (legacy token path).
+
+## Refactor backlog added this pass
+
+- R4 Auth is copied into each handler. That is why addon update, stack apply, svc-paths, and fleet digest shipped open. One wrapper for operator routes, with an allowlist for agent and health, would stop the misses.
+- R5 `register*API` is split across 18 files with no shared route table. Catalog already lists actions. Generating or checking routes against the catalog would catch a handler that forgot the session check.
+- R6 Status routes (`stack`, `update`, `firewall`) are still open on localhost while their mutations are guarded. Decide one rule: all `/api` except agent and `/health` require a session.
