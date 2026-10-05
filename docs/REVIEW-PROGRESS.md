@@ -92,3 +92,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Subscription GET returns 410. Dead `subscription_legacy_disabled` still served the file to a session holder. Removed this pass.
 - Backup run/list/schedule in the same file also require session.
 - Next file: `cmd/netductor/api_policy.go`.
+
+
+## Pass 1 notes (policy API)
+
+- `/api/services`, delete, `/api/edge/device-policy`, and `/api/policy/apply` all require operator session. Apply is POST only.
+- `SetUserPolicy` validates against the catalog after normalize. Unknown `services_mode` collapses to `list`.
+- Catalog upsert from this route does not accept endpoints, so a new service cannot open a port by itself. Port rules still come from the seeded catalog.
+- Next file: `cmd/netductor/api_git.go`.
