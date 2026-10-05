@@ -8,10 +8,11 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 ## Marker
 
 - Pass: 1
-- Stopped before: `cmd/netductor/api_*.go` (except session token notes below)
-- Next file: `cmd/netductor/api_secondary.go`
-- Done packages: none fully
-- Touched: `internal/session/session.go` (token storage only)
+- Stopped before: rest of `cmd/netductor-tg` handlers after admin gate
+- Next file: `cmd/netductor-tg/handlers_cb.go` (destructive callbacks already partially read)
+- Done packages: API handlers, session, mtls, secondary agent, policy, vpn (secondary_box, apply, registry, users), update, stack, addons
+- Last fix: F18 ScheduleApply shell injection → 0.9.246
+
 
 ## Pass 1 — trust boundaries
 
@@ -243,3 +244,28 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Health fail returns an error after the binary is already replaced. The operator sees failure while the new file is live. Intentional after the 121/132 loop, but the message must stay explicit.
 - R15 health check sleeps in the apply process. A wrapper that reports "installed, health pending" would avoid a long API call looking like a hang.
 - Next file: `internal/addons`.
+
+
+## Pass 1 notes (addons)
+
+- `lampac.go` probes docker inspect/stats and loopback HTTP only. Container name is fixed (`netductor-lampac`). No operator input in paths.
+- `Update(name)` only runs registered updaters (`lampac`, `registry`, `git`) or `all`. Unknown names error. API/TG already session-gated (0.9.230).
+- `updateLampac` / `updateRegistry` pull fixed image refs then reinstall. Supply chain is GHCR/`registry:2`, same class as GeoIP rule-set.
+- `updateGit` runs `apt-get install -y git`. Operator-equivalent on the host.
+- `readTag` joins `EtcDir()/addons/` + name + `.tag`. Call sites only pass registered names. No traversal from operator input today.
+- R2 confirmed: `Versions()` embeds `All()` and a separate `lampac` map; `ListAddons` also reports lampac. One status shape later.
+- Next: `cmd/netductor-tg` (admin gate, then destructive handlers).
+
+
+## Pass 1 notes (stack schedule — found while leaving addons)
+
+- F18 `ScheduleApply` built `bash -c` with the release tag interpolated (`stack apply %s`). A tag with shell metacharacters became command injection. TG `m:updates:apply:` and API schedule feed this path.
+- Fixed: `update.ValidReleaseTag` (digits and dots only, leading `v`), and the tag is passed as argv `$1`, not concatenated into the script text.
+
+
+## Pass 1 notes (tg — start)
+
+- Admin id from secrets file or `NETDUCTOR_TG_ADMIN`. First-message claim only if `NETDUCTOR_TG_CLAIM_FIRST=1`.
+- Callbacks: `cq.From.ID != admin` ignored. Messages: `m.Chat.ID != admin` return.
+- Destructive actions (stack, firewall, backup, edge) go through `exec.Command` with fixed binaries/args after the admin gate.
+- Next file: rest of `cmd/netductor-tg` handlers (certs, edge guest, policy set from buttons).

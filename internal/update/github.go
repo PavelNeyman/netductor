@@ -352,15 +352,27 @@ func fileSHA256(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// DownloadReleaseAsset writes binary to destPath. Verifies against SHA256SUMS unless NETDUCTOR_UPDATE_SKIP_VERIFY=1.
-func DownloadReleaseAsset(tag, component, destPath string) error {
+// ValidReleaseTag normalizes to vMAJOR.MINOR… and rejects anything that is not digits and dots.
+func ValidReleaseTag(tag string) (string, error) {
 	tag = strings.TrimPrefix(strings.TrimSpace(tag), "v")
+	if tag == "" {
+		return "", fmt.Errorf("empty release tag")
+	}
 	for _, r := range tag {
 		if (r < '0' || r > '9') && r != '.' {
-			return fmt.Errorf("invalid release tag")
+			return "", fmt.Errorf("invalid release tag")
 		}
 	}
-	tag = "v" + tag
+	return "v" + tag, nil
+}
+
+// DownloadReleaseAsset writes binary to destPath. Verifies against SHA256SUMS unless NETDUCTOR_UPDATE_SKIP_VERIFY=1.
+func DownloadReleaseAsset(tag, component, destPath string) error {
+	var err error
+	tag, err = ValidReleaseTag(tag)
+	if err != nil {
+		return err
+	}
 	name := assetName(component)
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Get(downloadURL(tag, name))

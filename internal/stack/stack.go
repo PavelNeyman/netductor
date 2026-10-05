@@ -609,9 +609,10 @@ func ScheduleApply(tag string) error {
 	if ok, why := IsPinned(); ok {
 		return fmt.Errorf("stack pinned: %s", why)
 	}
-	tag = strings.TrimSpace(tag)
-	if tag != "" && !strings.HasPrefix(tag, "v") {
-		tag = "v" + tag
+	var err error
+	tag, err = ndupdate.ValidReleaseTag(tag)
+	if err != nil {
+		return err
 	}
 	if busy, cur, _ := ApplyInProgress(); busy {
 		return fmt.Errorf("apply already in progress: %s", cur)
@@ -620,12 +621,11 @@ func ScheduleApply(tag string) error {
 		return fmt.Errorf("apply unit %s still running", applyUnit)
 	}
 	// Do not take apply lock here — child `stack apply` owns the lock.
-	script := fmt.Sprintf(
-		"sleep 2; /usr/local/bin/netductor stack apply %s >>/var/log/netductor-stack-apply.log 2>&1",
-		tag,
-	)
+	// Tag is positional $1 so it cannot break out of the shell script.
 	cmd := exec.Command("systemd-run", "--unit="+applyUnit, "--collect",
-		"/bin/bash", "-c", script)
+		"/bin/bash", "-c",
+		`sleep 2; /usr/local/bin/netductor stack apply "$1" >>/var/log/netductor-stack-apply.log 2>&1`,
+		"netductor-stack-apply", tag)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("systemd-run: %w (%s)", err, strings.TrimSpace(string(out)))
