@@ -1,3 +1,7 @@
+## 0.9.253
+
+- R8: TG/CLI agent_update fills URL|sha256|confirm=yes from release SHA256SUMS + device arch (heartbeat reports arch)
+
 ## 0.9.252
 
 - A: offline agent cache verifies against cached SHA256SUMS (SHA256SUMS / SHA256SUMS-<ver> next to agents); online EnsureAgentBinary writes sums into the cache dir

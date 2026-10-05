@@ -10,7 +10,7 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 - Pass: 1 **COMPLETE** (trust-boundary packages + remainder skim)
 - Next: optional Pass 2 (correctness / tests) or operator-driven fixes from backlog R*
 - Done: API, session, mtls, secondary, policy, vpn, update, stack, addons, TG, operator, agent, install, edge, nvr, deploy (F23), remainder skim (ci/git/registry/fleet/mikrotik/firewall/guest)
-- Last fix: F23 agent download SHA → 0.9.251; **A** offline cache SHA → 0.9.252
+- Last fix: F23 → 0.9.251; **A** offline SHA → 0.9.252; **R8** TG/CLI agent_update+SHA → 0.9.253
 
 
 ## Pass 1 — trust boundaries

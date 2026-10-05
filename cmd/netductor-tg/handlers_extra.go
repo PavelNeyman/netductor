@@ -185,9 +185,9 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 	}
 	if data == "m:backup:keep" {
 		setState(chat, "wait_backup_keep", "")
-		keepMsg := "Keep last N backups (1–90), now: <code>"+strconv.Itoa(install.BackupKeepCount())+"</code>"
+		keepMsg := "Keep last N backups (1–90), now: <code>" + strconv.Itoa(install.BackupKeepCount()) + "</code>"
 		if ru {
-			keepMsg = "Хранить последних N бэкапов (1–90), сейчас: <code>"+strconv.Itoa(install.BackupKeepCount())+"</code>"
+			keepMsg = "Хранить последних N бэкапов (1–90), сейчас: <code>" + strconv.Itoa(install.BackupKeepCount()) + "</code>"
 		}
 		reply(token, chat, msgID, keepMsg, map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("🗓", "m:backup", ""), btn(T("main_menu"), "m:menu", "")},
@@ -197,22 +197,28 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 	if strings.HasPrefix(data, "m:backup:restore:") {
 		name := strings.TrimPrefix(data, "m:backup:restore:")
 		path := filepath.Join("/var/lib/netductor/backups", name)
-				rst := "⏳ Restore <code>"+esc(name)+"</code>…"
-		if ru { rst = "⏳ Восстановление <code>"+esc(name)+"</code>…" }
+		rst := "⏳ Restore <code>" + esc(name) + "</code>…"
+		if ru {
+			rst = "⏳ Восстановление <code>" + esc(name) + "</code>…"
+		}
 		reply(token, chat, msgID, rst, navKeyboard("m:tools", parentTools()))
 		err := install.Restore(path, "")
 		if err != nil {
 			reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:tools", parentTools()))
 			return
 		}
-				done := "✅ Restore done: <code>"+esc(name)+"</code>"
-		if ru { done = "✅ Восстановлено: <code>"+esc(name)+"</code>" }
+		done := "✅ Restore done: <code>" + esc(name) + "</code>"
+		if ru {
+			done = "✅ Восстановлено: <code>" + esc(name) + "</code>"
+		}
 		reply(token, chat, msgID, done, navKeyboard("m:tools", parentTools()))
 		return
 	}
 	if data == "m:backup:run" {
-				st0 := "⏳ Backup starting…"
-		if ru { st0 = "⏳ Запуск бэкапа…" }
+		st0 := "⏳ Backup starting…"
+		if ru {
+			st0 = "⏳ Запуск бэкапа…"
+		}
 		showBackupMenu(token, chat, msgID, s, st0)
 		err := exec.Command("systemctl", "start", "netductor-backup.service").Start()
 		if err != nil {
@@ -360,9 +366,9 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 	if strings.HasPrefix(data, "m:loc:rename:") {
 		id := strings.TrimPrefix(data, "m:loc:rename:")
 		setState(chat, "wait_loc_rename:"+id, "")
-		rnMsg := "Новое имя для <code>"+esc(id)+"</code>:"
+		rnMsg := "Новое имя для <code>" + esc(id) + "</code>:"
 		if !ru {
-			rnMsg = "New name for <code>"+esc(id)+"</code>:"
+			rnMsg = "New name for <code>" + esc(id) + "</code>:"
 		}
 		pl := "Locations"
 		if ru {
@@ -475,16 +481,61 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 		reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
 		return
 	}
-	// m:updates:edge:<device_id> — enqueue agent_update (no auto-rollout)
+	// m:updates:edge:<device_id> — enqueue agent_update with SHA from release SHA256SUMS (R8)
 	if strings.HasPrefix(data, "m:updates:edge:") {
 		did := strings.TrimPrefix(data, "m:updates:edge:")
-		// F20: agent requires URL|sha256|confirm=yes — TG cannot invent SHA without arch.
-		msg := "⚠️ agent_update needs <code>URL|sha256|confirm=yes</code> (CLI). Example:\n<code>netductor edge cmd " + esc(did) + " agent_update 'https://…/netductor-agent-linux-mipsle|HEX|confirm=yes'</code>"
-		if ru {
-			msg = "⚠️ agent_update нужен аргумент <code>URL|sha256|confirm=yes</code> (CLI). Пример:\n<code>netductor edge cmd " + esc(did) + " agent_update 'https://…/netductor-agent-linux-mipsle|HEX|confirm=yes'</code>"
+		d, ok := edge.GetDevice(did)
+		if !ok {
+			msg := "❌ device not found: " + esc(did)
+			if ru {
+				msg = "❌ устройство не найдено: " + esc(did)
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
+			return
 		}
-		_ = did
-		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
+		arch := strings.TrimSpace(d.Arch)
+		if arch == "" && d.Extra != nil {
+			if v, ok := d.Extra["arch"].(string); ok {
+				arch = strings.TrimSpace(v)
+			}
+			if arch == "" {
+				if v, ok := d.Extra["goarch"].(string); ok {
+					arch = strings.TrimSpace(v)
+				}
+			}
+		}
+		if arch == "" {
+			msg := "⚠️ no arch for <code>" + esc(did) + "</code> yet — wait for agent heartbeat (arch in metrics), then retry."
+			if ru {
+				msg = "⚠️ нет arch для <code>" + esc(did) + "</code> — дождитесь heartbeat агента (поле arch), затем снова."
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
+			return
+		}
+		tag, err := ndupdate.LatestReleaseTag()
+		if err != nil {
+			reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:updates", parentTools()))
+			return
+		}
+		arg, err := ndupdate.AgentUpdateArg(tag, arch)
+		if err != nil {
+			reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:updates", parentTools()))
+			return
+		}
+		cid := edge.EnqueueCmd(did, "agent_update", arg)
+		if cid == "" {
+			msg := "❌ enqueue failed (not approved?)"
+			if ru {
+				msg = "❌ enqueue не удался (не approved?)"
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
+			return
+		}
+		msg := "✅ agent_update queued\n<code>" + esc(did) + "</code> " + esc(arch) + " → " + esc(tag) + "\ncmd " + esc(cid)
+		if ru {
+			msg = "✅ agent_update в очереди\n<code>" + esc(did) + "</code> " + esc(arch) + " → " + esc(tag) + "\ncmd " + esc(cid)
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
 		return
 	}
 	// m:updates:apply:v0.9.97 or m:updates:self (latest)
@@ -616,7 +667,7 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 				}
 			}
 			if applyBusy {
-				rows = append(rows, []map[string]any{btnDisabled("⏳ "+label)})
+				rows = append(rows, []map[string]any{btnDisabled("⏳ " + label)})
 			} else {
 				rows = append(rows, []map[string]any{btn("⬆ "+label, "m:updates:apply:"+r.Tag, "primary")})
 			}
@@ -673,7 +724,6 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	})
 	reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 }
-
 
 func trimRunes(s string, n int) string {
 	r := []rune(s)

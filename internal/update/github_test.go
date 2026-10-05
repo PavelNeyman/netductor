@@ -30,3 +30,9 @@ func TestParseSHA256SUMS(t *testing.T) {
 		t.Fatal("expected empty error")
 	}
 }
+
+func TestAgentAssetName(t *testing.T) {
+	if AgentAssetName("mipsle") != "netductor-agent-linux-mipsle" {
+		t.Fatal(AgentAssetName("mipsle"))
+	}
+}

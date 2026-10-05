@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,7 +21,6 @@ import (
 )
 
 var version = "0.9.218"
-
 
 type config struct {
 	Server   string
@@ -319,6 +319,7 @@ func collectMetrics() map[string]any {
 		"hostname": hostname(),
 		"board":    boardName(),
 		"agent":    version,
+		"arch":     runtime.GOARCH,
 		"ts":       time.Now().Unix(),
 	}
 	// uptime

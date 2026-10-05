@@ -14,6 +14,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/sites"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 )
 
 func runEdgeCLI(args []string) {
@@ -70,6 +71,15 @@ func runEdgeCLI(args []string) {
 		arg := ""
 		if len(args) > 3 {
 			arg = strings.Join(args[3:], " ")
+		}
+		// R8: agent_update with bare tag or empty → fill URL|sha|confirm=yes from device arch + SHA256SUMS
+		if args[2] == "agent_update" {
+			built, err := buildAgentUpdateArg(args[1], arg)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			arg = built
 		}
 		id := edge.EnqueueCmd(args[1], args[2], arg)
 		if id == "" {
@@ -324,4 +334,35 @@ func runEdgeList() {
 
 func sitesAttach(siteID, deviceID string) error {
 	return sites.AttachEdge(siteID, deviceID)
+}
+
+// buildAgentUpdateArg expands a release tag (or empty=latest) into URL|sha256|confirm=yes using device arch.
+func buildAgentUpdateArg(deviceID, arg string) (string, error) {
+	arg = strings.TrimSpace(arg)
+	// Already fully specified
+	if strings.Contains(arg, "|") && strings.Contains(arg, "confirm=yes") {
+		return arg, nil
+	}
+	d, ok := edge.GetDevice(deviceID)
+	if !ok {
+		return "", fmt.Errorf("device not found: %s", deviceID)
+	}
+	arch := strings.TrimSpace(d.Arch)
+	if arch == "" && d.Extra != nil {
+		if v, ok := d.Extra["arch"].(string); ok {
+			arch = strings.TrimSpace(v)
+		}
+	}
+	if arch == "" {
+		return "", fmt.Errorf("device %s has no arch yet (wait for heartbeat with arch=)", deviceID)
+	}
+	tag := arg
+	if tag == "" {
+		var err error
+		tag, err = ndupdate.LatestReleaseTag()
+		if err != nil {
+			return "", err
+		}
+	}
+	return ndupdate.AgentUpdateArg(tag, arch)
 }

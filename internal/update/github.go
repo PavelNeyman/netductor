@@ -526,3 +526,45 @@ func CheckStatusCached(local string) Status {
 	}
 	return st
 }
+
+// AgentAssetName is the GitHub release asset for a given GOARCH.
+func AgentAssetName(goarch string) string {
+	return "netductor-agent-linux-" + goarch
+}
+
+// AgentDownloadURL returns the release asset URL for agent arch.
+func AgentDownloadURL(tag, goarch string) (string, error) {
+	tag, err := ValidReleaseTag(tag)
+	if err != nil {
+		return "", err
+	}
+	goarch = strings.TrimSpace(goarch)
+	if goarch == "" || goarch == "auto" {
+		return "", fmt.Errorf("agent arch required")
+	}
+	return downloadURL(tag, AgentAssetName(goarch)), nil
+}
+
+// AgentUpdateArg builds URL|sha256|confirm=yes for edge agent_update / sysupgrade-style downloads.
+// Fetches SHA256SUMS for the tag; fails closed if the arch checksum is missing.
+func AgentUpdateArg(tag, goarch string) (string, error) {
+	tag, err := ValidReleaseTag(tag)
+	if err != nil {
+		return "", err
+	}
+	goarch = strings.TrimSpace(goarch)
+	if goarch == "" || goarch == "auto" {
+		return "", fmt.Errorf("agent arch required (wait for heartbeat with arch=)")
+	}
+	name := AgentAssetName(goarch)
+	sums, err := FetchSHA256SUMS(tag)
+	if err != nil {
+		return "", err
+	}
+	want, ok := sums[name]
+	if !ok || want == "" {
+		return "", fmt.Errorf("no checksum for %s in %s SHA256SUMS", name, tag)
+	}
+	url := downloadURL(tag, name)
+	return url + "|" + want + "|confirm=yes", nil
+}

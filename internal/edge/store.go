@@ -133,7 +133,6 @@ func RequireApproved(auth, deviceID string) bool {
 	return d.Status == StatusApproved && d.DeviceToken != "" && constEq(raw, d.DeviceToken)
 }
 
-
 // Device is a registered edge host (OpenWrt / MikroTik / …).
 type Device struct {
 	DeviceID    string         `json:"device_id,omitempty"`
@@ -151,6 +150,7 @@ type Device struct {
 	LastSeen    int64          `json:"last_seen,omitempty"`
 	Healthy     bool           `json:"healthy,omitempty"`
 	Agent       string         `json:"agent,omitempty"`
+	Arch        string         `json:"arch,omitempty"`
 	UptimeSec   float64        `json:"uptime_sec,omitempty"`
 	MemPct      float64        `json:"mem_pct,omitempty"`
 	// Extra keeps unknown agent fields without losing them on disk.
@@ -243,6 +243,9 @@ func mergePayload(d *Device, payload map[string]any) {
 	if s := strFrom(payload, "agent", "version", "agent_version", "agent_ver"); s != "" {
 		d.Agent = s
 	}
+	if s := strFrom(payload, "arch", "goarch"); s != "" {
+		d.Arch = s
+	}
 	if v := floatFrom(payload, "uptime_sec"); v > 0 {
 		d.UptimeSec = v
 	}
@@ -254,7 +257,7 @@ func mergePayload(d *Device, payload map[string]any) {
 		"device_id": true, "status": true, "device_token": true, "board": true,
 		"hostname": true, "wan_ip": true, "template_id": true, "overlay": true,
 		"enrolled_at": true, "approved_at": true, "denied_at": true, "revoked_at": true,
-		"last_seen": true, "healthy": true, "agent": true, "version": true, "agent_version": true, "agent_ver": true, "uptime_sec": true, "mem_pct": true,
+		"last_seen": true, "healthy": true, "agent": true, "arch": true, "goarch": true, "version": true, "agent_version": true, "agent_ver": true, "uptime_sec": true, "mem_pct": true,
 		"extra": true,
 	}
 	for k, v := range payload {
@@ -413,6 +416,22 @@ func Heartbeat(payload map[string]any) {
 	_ = saveDevices(m)
 }
 
+// GetDevice returns a copy of the device without device_token.
+func GetDevice(deviceID string) (Device, bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	m := loadDevices()
+	d, ok := m[deviceID]
+	if !ok {
+		return Device{}, false
+	}
+	d.DeviceID = deviceID
+	d.DeviceToken = ""
+	now := time.Now().Unix()
+	d.Healthy = d.LastSeen > 0 && (now-d.LastSeen) < 120
+	return d, true
+}
+
 func ListDevices() []Device {
 	mu.Lock()
 	defer mu.Unlock()
@@ -515,7 +534,6 @@ func PollCommands(deviceID string) []map[string]any {
 	return mine
 }
 
-
 // WaitCmdResult polls results log until cmd_id appears or timeout.
 func WaitCmdResult(cmdID string, timeout time.Duration) (map[string]any, error) {
 	if cmdID == "" {
@@ -550,7 +568,6 @@ func FindResult(cmdID string) (map[string]any, bool) {
 	}
 	return last, ok
 }
-
 
 func ListResults() []map[string]any {
 	mu.Lock()
@@ -714,13 +731,11 @@ func randomID() string {
 	return hex.EncodeToString(b[:])
 }
 
-
 func randomToken(n int) string {
 	b := make([]byte, n)
 	_, _ = io.ReadFull(rand.Reader, b)
 	return hex.EncodeToString(b)
 }
-
 
 func migrateDevicePolicy(d *Device) bool {
 	changed := false
