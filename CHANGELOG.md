@@ -1,3 +1,7 @@
+## 0.9.258
+
+- R1 complete: secondary builders (inbounds, outbounds/svc, DNS, route) in secondary_builders.go; WriteSecondarySingBox orchestration-only
+
 ## 0.9.257
 
 - R3: opcatalog Destructive/ByID helpers + tests for TG mutating actions

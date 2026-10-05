@@ -436,3 +436,8 @@ Still open: R1 route split · R3 catalog TG · R7b session API · R11a sing-box 
 | R1 | buildPrimaryInbounds + buildOutboundsAndRoute in route_builders.go; assembleSecondaryRouteRules |
 
 Refactor backlog from Pass 1 is largely closed. Remaining polish only if needed.
+
+
+## R1 complete (0.9.258)
+
+Secondary split finished: `secondary_builders.go` holds inbounds / outbounds+svcRules / DNS / route + assembleSecondaryRouteRules. `WriteSecondarySingBox` only validates and writes JSON.

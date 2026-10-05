@@ -149,145 +149,22 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 	if privKey == "" || shortID == "" {
 		return fmt.Errorf("relay reality keys required")
 	}
-	type vu struct {
-		Name string `json:"name,omitempty"`
-		UUID string `json:"uuid"`
-		Flow string `json:"flow"`
-	}
-	var users []vu
+	var users []secondaryUser
 	for _, u := range b.Users {
-		users = append(users, vu{Name: u.Name, UUID: u.UUID, Flow: "xtls-rprx-vision"})
+		users = append(users, secondaryUser{Name: u.Name, UUID: u.UUID, Flow: "xtls-rprx-vision"})
 	}
 	if len(users) == 0 {
 		return fmt.Errorf("bundle has no end users — add vpn users on core first")
 	}
-	exitPort := b.ExitPort
-	if exitPort <= 0 {
-		exitPort = 4443
-	}
-	inbounds := []any{
-		map[string]any{
-			"type": "vless", "tag": "relay-in", "listen": "::", "listen_port": 443,
-			"users": users,
-			"tls": map[string]any{
-				"enabled": true, "server_name": b.SecondarySNI,
-				"reality": map[string]any{
-					"enabled": true,
-					"handshake": map[string]any{
-						"server": b.SecondarySNI, "server_port": 443,
-					},
-					"private_key": privKey,
-					"short_id":    []string{shortID},
-				},
-			},
-		},
-	}
-	if b.ExitUUID != "" {
-		inbounds = append(inbounds, map[string]any{
-			"type": "vless", "tag": "exit-in", "listen": "::", "listen_port": exitPort,
-			"users": []vu{{UUID: b.ExitUUID, Flow: "xtls-rprx-vision"}},
-			"tls": map[string]any{
-				"enabled": true, "server_name": b.SecondarySNI,
-				"reality": map[string]any{
-					"enabled": true,
-					"handshake": map[string]any{
-						"server": b.SecondarySNI, "server_port": 443,
-					},
-					"private_key": privKey,
-					"short_id":    []string{shortID},
-				},
-			},
-		})
-	}
-	// RU split: these domains + private IP exit direct (RU IP).
-	// Everything else from relay-in goes uplink → core (foreign exit).
-	// Clients abroad can use exit-in (4443) for RU-IP egress when toggled on.
+	// RU split: domain/private → direct (RU IP); else uplink → core.
 	ruSuffixes := RuDirectSuffixes()
-	uplinkTLS := map[string]any{
-		"enabled": true, "server_name": b.CoreSNI,
-		"utls": map[string]any{"enabled": true, "fingerprint": "firefox"},
-		"reality": map[string]any{
-			"enabled":    true,
-			"public_key": b.CorePBK,
-			"short_id":   b.CoreSID,
-		},
-	}
-	// Shared uplink: internet only. Primary sees auth_user=relay-uplink.
-	uplink := map[string]any{
-		"type": "vless", "tag": "uplink",
-		"server": "10.87.10.1", "server_port": b.CoreVless,
-		// no vision: required for multiplex (vision ⊕ mux unsupported)
-		"uuid":            b.UplinkUUID,
-		"domain_resolver": "quad9",
-		"tls":             uplinkTLS,
-	}
-	if mx := uplinkMultiplexObject(); mx != nil {
-		uplink["multiplex"] = mx
-	}
-	// Per-user service uplink: dial primary as the real user (vision, no mux)
-	// so ACL sees Pavel, not relay-uplink. Only 10.88.0.0/24 uses these.
-	outbounds := []any{uplink}
-	var svcRules []any
-	for _, u := range b.Users {
-		name := strings.TrimSpace(u.Name)
-		if name == "" || u.UUID == "" {
-			continue
-		}
-		tag := "uplink-svc-" + sanitizeTag(name)
-		outbounds = append(outbounds, map[string]any{
-			"type": "vless", "tag": tag,
-			"server": "10.87.10.1", "server_port": 9443,
-			"uuid":            u.UUID,
-			"domain_resolver": "quad9",
-			"tls":             uplinkTLS,
-		})
-		svcRules = append(svcRules, map[string]any{
-			"auth_user": []string{name},
-			"ip_cidr":   []string{"10.88.0.0/24"},
-			"outbound":  tag,
-		})
-	}
-	svcRules = append(svcRules, map[string]any{
-		"ip_cidr":  []string{"10.88.0.0/24"},
-		"outbound": "block",
-	})
+	outbounds, svcRules := buildSecondaryOutboundsAndSvcRules(b)
 	cfg := map[string]any{
-		"log": map[string]any{"level": "info", "timestamp": true},
-		"dns": map[string]any{
-			"servers": []any{
-				map[string]any{"type": "udp", "tag": "ru-dns", "server": "77.88.8.8"},
-				map[string]any{"type": "udp", "tag": "quad9", "server": "9.9.9.9"},
-				map[string]any{"type": "udp", "tag": "cf", "server": "1.1.1.1"},
-				map[string]any{"type": "local", "tag": "local"},
-			},
-			"rules": []any{
-				map[string]any{"domain_suffix": ruSuffixes, "server": "ru-dns"},
-				map[string]any{"domain_keyword": RuDirectKeywords(), "server": "ru-dns"},
-			},
-			"final": "quad9",
-		},
-		"inbounds": inbounds,
-		"outbounds": append(outbounds,
-			map[string]any{"type": "direct", "tag": "direct"},
-			map[string]any{"type": "block", "tag": "block"},
-		),
-		"route": map[string]any{
-			// domain_suffix list (fast, no download) + geoip-ru rule-set (IP ranges).
-			"rule_set": []any{
-				map[string]any{
-					"tag":    "geoip-ru",
-					"type":   "remote",
-					"format": "binary",
-					"url":    "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
-					// direct: uplink is Reality (SNI=api.vk.me) and breaks TLS to githubusercontent
-					"download_detour": "direct",
-				},
-			},
-			"rules":                   assembleSecondaryRouteRules(svcRules, ruSuffixes),
-			"final":                   "uplink",
-			"default_domain_resolver": "quad9",
-			"auto_detect_interface":   true,
-		},
+		"log":       map[string]any{"level": "info", "timestamp": true},
+		"dns":       buildSecondaryDNS(ruSuffixes),
+		"inbounds":  buildSecondaryInbounds(b, privKey, shortID, users),
+		"outbounds": outbounds,
+		"route":     buildSecondaryRoute(svcRules, ruSuffixes),
 	}
 	_ = os.MkdirAll(filepath.Dir(singboxConf), 0o755)
 	raw, err := json.MarshalIndent(cfg, "", "  ")
@@ -342,21 +219,4 @@ func ClientLinkForSecondary(name, uuid, relayIP, pbk, sid, sniName string) strin
 		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#%s",
 		uuid, host, sniName, pbk, sid, tag,
 	)
-}
-
-// assembleSecondaryRouteRules keeps rule order explicit (R1 / R11b): service → sniff → DNS → geo → uplink.
-func assembleSecondaryRouteRules(svcRules []any, ruSuffixes []string) []any {
-	rules := append([]any{}, svcRules...)
-	rules = append(rules,
-		map[string]any{"action": "sniff"},
-		map[string]any{"protocol": "dns", "action": "hijack-dns"},
-		map[string]any{"ip_version": 6, "outbound": "block"},
-		map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
-		map[string]any{"ip_is_private": true, "outbound": "direct"},
-		map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
-		map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
-		map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
-		map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"},
-	)
-	return rules
 }
