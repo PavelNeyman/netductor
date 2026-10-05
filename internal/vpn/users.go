@@ -102,7 +102,13 @@ func Revoke(name string) (string, error) {
 }
 
 func ReadClient(name string, candidates ...string) (string, bool) {
+	if !ValidName(name) {
+		return "", false
+	}
 	for _, c := range candidates {
+		if c == "" || strings.Contains(c, "/") || strings.Contains(c, "..") {
+			continue
+		}
 		b, err := os.ReadFile(filepath.Join(Clients(), name, c))
 		if err == nil {
 			return strings.TrimSpace(string(b)), true

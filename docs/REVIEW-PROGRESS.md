@@ -217,3 +217,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Subscription files are still written (`subscription-full.txt`, `qr-subscription.png`) even though the API returns 410. Operator-only on disk.
 - R12 stop writing subscription artifacts, or the 410 story and the disk disagree.
 - Next file: `internal/vpn/users.go`.
+
+
+## Pass 1 notes (users.go)
+
+- Add, note, disable, enable, and revoke go through native registry helpers. `run` is a fallback that execs the same binary with separate args, not a shell.
+- F16 `ReadClient` joined the filename without checking it. A `../` candidate could leave the client dir. Name must now be valid, and the file name cannot contain a slash.
+- R13 native-then-fallback can hide a real registry error and try the CLI path. Prefer one path.
+- Next file: `internal/update`.
