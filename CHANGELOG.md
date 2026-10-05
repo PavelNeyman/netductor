@@ -1,3 +1,7 @@
+## 0.9.251
+
+- F23: EnsureAgentBinary verifies SHA256SUMS after download (offline cache unchanged)
+
 ## 0.9.250
 
 - F22: NVR IssueClipToken/RedeemClipToken enforce PathUnderRoot (defense in depth)

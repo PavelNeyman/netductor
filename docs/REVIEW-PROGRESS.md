@@ -7,11 +7,10 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 
 ## Marker
 
-- Pass: 1
-- Stopped before: remainder (deploy, mikrotik, format, opcatalog, paths, …)
-- Next: skim remainder packages not yet marked; then pass-1 summary
-- Done packages: … install, **internal/edge**, **internal/nvr**
-- Last fix: F22 clip path under root → 0.9.250
+- Pass: 1 **COMPLETE** (trust-boundary packages + remainder skim)
+- Next: optional Pass 2 (correctness / tests) or operator-driven fixes from backlog R*
+- Done: API, session, mtls, secondary, policy, vpn, update, stack, addons, TG, operator, agent, install, edge, nvr, deploy (F23), remainder skim (ci/git/registry/fleet/mikrotik/firewall/guest)
+- Last fix: F23 agent download SHA → 0.9.251
 
 
 ## Pass 1 — trust boundaries
@@ -357,3 +356,29 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 - Clip tokens one-shot, TTL max 3600, file 0600.
 - Recorder: ffmpeg argv; segments under camera id dir 0700.
 - PathUnderRoot resists /var/nvr-evil prefix trap.
+
+
+## Pass 1 notes (remainder skim)
+
+- **ci**: scripts via `bash -c` inside container or host when NETDUCTOR_CI_HOST=1 — operator-equivalent, isolation default on.
+- **git**: rev rejects `-` and `..`; artifact paths cleaned; pipeline name Base only.
+- **registry**: docker/podman fixed names; crane curl without SHA (R12); htpasswd 0600.
+- **fleet**: secondary provision password in argv (same as TG R5).
+- **mikrotik**: golang.org/x/crypto/ssh; harden RSC templates.
+- **firewall**: fixed chain NETDUCTOR; bash -c only for iptables-save redirect (fixed path).
+- **F23**: `EnsureAgentBinary` verifies SHA256SUMS after curl; offline pre-placed cache still accepted without re-hash (operator trust).
+
+## Pass 1 closed findings
+
+| ID | Package | Fix release |
+|--|--|--|
+| F10–F18 | API / stack / TG | ≤0.9.246 |
+| F19 | operator session/issue | 0.9.247 |
+| F20 | agent download | 0.9.248 |
+| F21 | install downloads | 0.9.249 |
+| F22 | nvr clip path | 0.9.250 |
+| F23 | deploy EnsureAgentBinary SHA | 0.9.251 |
+
+## Refactor backlog (still open)
+
+R1 route builders · R2 addon status · R3 catalog-only TG · R4 local-cmd upgrade SHA · R5 password argv · R6 requireToken middleware · R7 session via API · R8 primary agent_update with SHA · R9 shared download helper · R10 openssl pass argv · R11 sing-box pin · R12 crane SHA

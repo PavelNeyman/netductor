@@ -1,12 +1,17 @@
 package deploy
 
 import (
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 )
 
 // PrimaryOpts — bootstrap a clean Debian VPS from operator machine (Mac/PC).
@@ -387,10 +392,42 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	cmd := exec.Command("curl", "-fsSL", "-o", dest, url)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
+		_ = os.Remove(dest)
 		return "", fmt.Errorf("download agent %s: %w (pre-place at %s for offline)", name, err, dest)
+	}
+	// F23: verify against release SHA256SUMS (same as stack/update). Offline pre-placed files skip this path.
+	if os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") != "1" {
+		sums, err := ndupdate.FetchSHA256SUMS("v" + strings.TrimPrefix(version, "v"))
+		if err != nil {
+			_ = os.Remove(dest)
+			return "", fmt.Errorf("SHA256SUMS for agent: %w", err)
+		}
+		want, ok := sums[name]
+		if !ok || want == "" {
+			_ = os.Remove(dest)
+			return "", fmt.Errorf("no checksum for %s in SHA256SUMS", name)
+		}
+		got, err := fileSHA256Hex(dest)
+		if err != nil || !strings.EqualFold(got, want) {
+			_ = os.Remove(dest)
+			return "", fmt.Errorf("agent checksum mismatch for %s", name)
+		}
 	}
 	_ = os.Chmod(dest, 0o755)
 	return dest, nil
+}
+
+func fileSHA256Hex(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func fileEmpty(p string) bool {
