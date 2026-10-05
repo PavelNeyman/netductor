@@ -354,6 +354,13 @@ func fileSHA256(path string) (string, error) {
 
 // DownloadReleaseAsset writes binary to destPath. Verifies against SHA256SUMS unless NETDUCTOR_UPDATE_SKIP_VERIFY=1.
 func DownloadReleaseAsset(tag, component, destPath string) error {
+	tag = strings.TrimPrefix(strings.TrimSpace(tag), "v")
+	for _, r := range tag {
+		if (r < '0' || r > '9') && r != '.' {
+			return fmt.Errorf("invalid release tag")
+		}
+	}
+	tag = "v" + tag
 	name := assetName(component)
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Get(downloadURL(tag, name))

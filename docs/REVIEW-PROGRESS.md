@@ -225,3 +225,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - F16 `ReadClient` joined the filename without checking it. A `../` candidate could leave the client dir. Name must now be valid, and the file name cannot contain a slash.
 - R13 native-then-fallback can hide a real registry error and try the CLI path. Prefer one path.
 - Next file: `internal/update`.
+
+
+## Pass 1 notes (update)
+
+- Download verifies SHA256SUMS unless NETDUCTOR_UPDATE_SKIP_VERIFY=1. Missing sums abort. Mismatch deletes the temp file.
+- Asset name is chosen from a switch, not from the request. Repo is a constant.
+- F17 release tag was concatenated into the GitHub URL. Same class as the secondary upgrade tag. Tag is now digits and dots.
+- R14 skip-verify is an env flag on the host. A local process can set it. Worth requiring the operator session path to refuse the flag.
+- Next file: `internal/stack`.
