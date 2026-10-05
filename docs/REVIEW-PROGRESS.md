@@ -100,3 +100,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - `SetUserPolicy` validates against the catalog after normalize. Unknown `services_mode` collapses to `list`.
 - Catalog upsert from this route does not accept endpoints, so a new service cannot open a port by itself. Port rules still come from the seeded catalog.
 - Next file: `cmd/netductor/api_git.go`.
+
+
+## Pass 1 notes (git)
+
+- All git routes require operator session. Pipeline name is `filepath.Base`, artifact read rejects `..`.
+- F10 `git show` passed `rev` straight to git. A leading `-` could be a flag. Rejected.
+- F11 workflow path could be absolute and read a file outside the checkout. Rejected.
+- Pipeline scripts in the pipeline dir run as the service user. That is operator-equivalent, not a public hole.
+- Next file: `cmd/netductor/api_registry.go`.

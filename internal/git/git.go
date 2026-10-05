@@ -194,6 +194,9 @@ func Show(name, rev string) (string, error) {
 	if rev == "" {
 		rev = "HEAD"
 	}
+	if strings.HasPrefix(rev, "-") || strings.Contains(rev, "..") {
+		return "", fmt.Errorf("invalid rev")
+	}
 	cmd := exec.Command("git", "-C", dir, "show", "--stat", "-p", "--format=fuller", rev)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
@@ -382,6 +385,9 @@ func RunWorkflow(repo, workflowPath string) (string, error) {
 		return string(out), fmt.Errorf("checkout: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	path := workflowPath
+	if strings.Contains(path, "..") || filepath.IsAbs(path) {
+		return "", fmt.Errorf("workflow path must stay inside the checkout")
+	}
 	if path == "" {
 		path, err = gha.FindDefault(wt)
 		if err != nil {
