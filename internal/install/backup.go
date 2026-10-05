@@ -108,8 +108,10 @@ func encryptFile(inPath, outPath, pass string) error {
 // encryptFileOpenSSL streams large archives (openssl enc AES-256-CBC + salt).
 // Format differs from small GCM blobs — decryptFile tries both.
 func encryptFileOpenSSL(inPath, outPath, pass string) error {
+	// R10: pass via env (not argv) so it does not appear in process list
 	cmd := exec.Command("openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
-		"-in", inPath, "-out", outPath, "-pass", "pass:"+pass)
+		"-in", inPath, "-out", outPath, "-pass", "env:NETDUCTOR_BACKUP_PASS")
+	cmd.Env = append(os.Environ(), "NETDUCTOR_BACKUP_PASS="+pass)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("openssl enc: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
@@ -133,15 +135,15 @@ func decryptFile(inPath, outPath, pass string) error {
 			}
 		}
 	}
-	// openssl / large
+	// openssl / large — R10: pass via env, not argv
 	cmd := exec.Command("openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2",
-		"-in", inPath, "-out", outPath, "-pass", "pass:"+pass)
+		"-in", inPath, "-out", outPath, "-pass", "env:NETDUCTOR_BACKUP_PASS")
+	cmd.Env = append(os.Environ(), "NETDUCTOR_BACKUP_PASS="+pass)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("decrypt: gcm and openssl failed: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 	return os.Chmod(outPath, 0o600)
 }
-
 
 // WaitForBackupPull waits up to timeout for online secondaries to report last_cmd backup_pull ok.
 // Returns (acked, pending). Soft signal for pre-upgrade; does not fail hard if timeout.

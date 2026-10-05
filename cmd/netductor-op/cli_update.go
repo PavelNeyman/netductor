@@ -81,6 +81,7 @@ func runOpUpdate(args []string) {
 	}
 	if skip {
 		_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
+		_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM", "yes")
 	}
 	tag := strings.TrimSpace(ver)
 	if tag == "" {

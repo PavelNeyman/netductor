@@ -1,7 +1,6 @@
 package vpn
 
 import (
-
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -101,7 +100,6 @@ func migrateUserPolicies(r *registry) bool {
 	return changed
 }
 
-
 func writeRegistry(r *registry) error {
 	b, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
@@ -121,7 +119,6 @@ func secret(name string) string {
 	}
 	return strings.TrimSpace(string(b))
 }
-
 
 func coreAdvertiseHost() string {
 	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_CORE_HOST")); h != "" {
@@ -151,7 +148,6 @@ func vpnAdvertiseHost() string {
 }
 
 func advertiseHost() string { return coreAdvertiseHost() }
-
 
 func publicIP() string {
 	if v := os.Getenv("PUBLIC_IP"); v != "" {
@@ -193,7 +189,6 @@ func vlessPort() int {
 	return 443
 }
 
-
 func genUUID() string {
 	if Bin() != "" {
 		if out, err := exec.Command(Bin(), "generate", "uuid").Output(); err == nil {
@@ -214,7 +209,6 @@ func genUUID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", raw[0:4], raw[4:6], raw[6:8], raw[8:10], raw[10:16])
 }
 
-
 func VLESSLink(name, uuid string) string {
 	return fmt.Sprintf(
 		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-primary",
@@ -231,7 +225,6 @@ func PreferredVLESSLink(name, uuid string) string {
 	return VLESSLink(name, uuid)
 }
 
-
 func writeArtifacts(name, uuid string) error {
 	dir := filepath.Join(Clients(), name)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -245,17 +238,14 @@ func writeArtifacts(name, uuid string) error {
 	_ = os.WriteFile(filepath.Join(dir, "link.txt"), []byte(vless+nl), 0o600)
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr.png"))
 	_ = qrcode.WriteFile(vless, qrcode.Medium, 512, filepath.Join(dir, "qr-vless.png"))
-	_ = WriteSubscriptionFiles(name)
-	if sub, err := SubscriptionBody(name); err == nil {
-		_ = qrcode.WriteFile(strings.TrimSpace(sub), qrcode.Medium, 512, filepath.Join(dir, "qr-subscription.png"))
-		_ = os.WriteFile(filepath.Join(dir, "subscription-full.txt"), []byte(sub), 0o600)
+	// R12b: subscription URL returns 410 — do not write subscription artifacts (disk ↔ API parity)
+	for _, dead := range []string{"subscription.txt", "subscription.b64", "subscription-full.txt", "qr-subscription.png"} {
+		_ = os.Remove(filepath.Join(dir, dead))
 	}
 	_ = os.Chmod(filepath.Join(dir, "qr.png"), 0o600)
-	_ = os.Chmod(filepath.Join(dir, "qr-subscription.png"), 0o600)
 	_ = WriteClientConfigs(name, uuid)
 	return nil
 }
-
 
 // RenameNative changes display name only. UUID and credentials stay the same; client links keep working.
 func RenameNative(oldName, newName string) error {
@@ -407,7 +397,6 @@ func CreateSession(hours int) (token string, exp int64, err error) {
 	return session.Create(hours, "cli", "")
 }
 
-
 // SetSNI stores Reality SNI and rewrites client links + server config.
 func SetSNI(value string) error {
 	value = strings.TrimSpace(value)
@@ -446,7 +435,6 @@ func RewriteAllLinks() error {
 	}
 	return nil
 }
-
 
 // PolicyFromRecord maps registry fields to policy.AccessPolicy.
 func PolicyFromRecord(u UserRecord) policy.AccessPolicy {

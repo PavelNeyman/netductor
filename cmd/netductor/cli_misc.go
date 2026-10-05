@@ -316,6 +316,7 @@ func runUpdate(restart bool) {
 			doRestart = false
 		case a == "--skip-verify":
 			_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
+			_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM", "yes")
 		case a == "--no-backup":
 			noBackup = true
 		case a == "--help" || a == "-h":

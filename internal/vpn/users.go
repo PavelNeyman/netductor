@@ -2,7 +2,6 @@ package vpn
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -21,84 +20,49 @@ func ValidName(name string) bool {
 	return name != "" && nameRe.MatchString(name)
 }
 
-func run(args ...string) (string, error) {
-	out, err := exec.Command(Bin(), args...).CombinedOutput()
-	return string(out), err
-}
-
 type User struct {
-	Name          string         `json:"name"`
-	Enabled       bool           `json:"enabled"`
-	UUID          string         `json:"uuid"`
-	Note          string         `json:"note"`
-	Created       string         `json:"created"`
-	AllowInternet *bool          `json:"allow_internet,omitempty"`
-	Services      []string       `json:"services,omitempty"`
-	ServicesMode  string         `json:"services_mode,omitempty"`
+	Name          string   `json:"name"`
+	Enabled       bool     `json:"enabled"`
+	UUID          string   `json:"uuid"`
+	Note          string   `json:"note"`
+	Created       string   `json:"created"`
+	AllowInternet *bool    `json:"allow_internet,omitempty"`
+	Services      []string `json:"services,omitempty"`
+	ServicesMode  string   `json:"services_mode,omitempty"`
 }
 
 func List() ([]User, error) {
-	if users, err := ListNative(); err == nil {
-		return users, nil
-	}
-	out, err := run("list")
-	if err != nil {
-		return nil, err
-	}
-	var users []User
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		if line == "" {
-			continue
-		}
-		p := strings.Split(line, "\t")
-		if len(p) < 3 {
-			continue
-		}
-		u := User{Name: p[0], Enabled: p[1] == "on", UUID: p[2]}
-		if len(p) > 3 {
-			u.Note = p[3]
-		}
-		if len(p) > 4 {
-			u.Created = p[4]
-		}
-		users = append(users, u)
-	}
-	if users == nil {
-		users = []User{}
-	}
-	return users, nil
+	// R13: native only — CLI fallback hid real registry errors
+	return ListNative()
 }
 
 func Add(name, note string) (string, error) {
-	if out, err := AddNative(name, note); err == nil || out != "" {
-		return out, err
-	}
-	return run("add", name, note)
+	return AddNative(name, note)
 }
 
 func Note(name, note string) (string, error) {
-	if err := SetNoteNative(name, note); err == nil {
-		return "note updated " + name, nil
+	if err := SetNoteNative(name, note); err != nil {
+		return "", err
 	}
-	return run("note", name, note)
+	return "note updated " + name, nil
 }
 func Disable(name string) (string, error) {
-	if err := SetEnabledNative(name, false); err == nil {
-		return "disabled " + name, nil
+	if err := SetEnabledNative(name, false); err != nil {
+		return "", err
 	}
-	return run("disable", name)
+	return "disabled " + name, nil
 }
 func Enable(name string) (string, error) {
-	if err := SetEnabledNative(name, true); err == nil {
-		return "enabled " + name, nil
+	if err := SetEnabledNative(name, true); err != nil {
+		return "", err
 	}
-	return run("enable", name)
+	return "enabled " + name, nil
 }
 func Revoke(name string) (string, error) {
-	if err := RevokeNative(name); err == nil {
-		return "revoked " + name, nil
+	if err := RevokeNative(name); err != nil {
+		return "", err
 	}
-	return run("revoke", name)
+	return "revoked " + name, nil
 }
 
 func ReadClient(name string, candidates ...string) (string, bool) {
@@ -127,7 +91,6 @@ func Rename(oldName, newName string) (string, error) {
 	}
 	return newName, nil
 }
-
 
 // IsEdgeUser reports VPN accounts created for OpenWrt/edge routers (not human Users UI).
 func IsEdgeUser(name string) bool {

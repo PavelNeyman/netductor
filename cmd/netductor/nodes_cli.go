@@ -10,6 +10,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/deploy"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 )
 
 func syncRelaysIntoNodes() {
@@ -107,18 +108,20 @@ func runNodes(args []string) {
 				}
 				run("apt-get", "update", "-qq")
 				run("apt-get", "-y", "-o", "Dpkg::Options::=--force-confdef", "-o", "Dpkg::Options::=--force-confold", "upgrade")
+				// R4: same SHA path as stack/update (no bare wget)
 				ver := deploy.Release
 				if ver == "" {
 					ver = "0.8.22"
 				}
-				ver = strings.TrimPrefix(ver, "v")
-				base := "https://github.com/PavelNeyman/netductor/releases/download/v" + ver
-				run("wget", "-qO", "/tmp/nd.bin", base+"/netductor-linux-amd64")
-				run("wget", "-qO", "/tmp/nd-tg.bin", base+"/netductor-tg-linux-amd64")
-				if st, err := os.Stat("/tmp/nd.bin"); err == nil && st.Size() > 1000 {
+				tag := "v" + strings.TrimPrefix(ver, "v")
+				if err := ndupdate.DownloadReleaseAsset(tag, "node", "/tmp/nd.bin"); err != nil {
+					logw("node download: " + err.Error())
+				} else {
 					_ = exec.Command("install", "-m", "755", "/tmp/nd.bin", "/usr/local/bin/netductor").Run()
 				}
-				if st, err := os.Stat("/tmp/nd-tg.bin"); err == nil && st.Size() > 1000 {
+				if err := ndupdate.DownloadReleaseAsset(tag, "tg", "/tmp/nd-tg.bin"); err != nil {
+					logw("tg download: " + err.Error())
+				} else {
 					_ = exec.Command("install", "-m", "755", "/tmp/nd-tg.bin", "/opt/netductor/bin/netductor-tg").Run()
 					_ = exec.Command("install", "-m", "755", "/tmp/nd-tg.bin", "/usr/local/bin/netductor-tg").Run()
 				}

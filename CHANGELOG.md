@@ -1,3 +1,7 @@
+## 0.9.255
+
+- Quick R batch: R11b secondary 10.88 rules before sniff; R12b no subscription artifacts; R13 vpn users native-only; R14 skip-verify needs CONFIRM; R4 local-cmd upgrade via SHA; R10 openssl pass via env; media preset respects ServiceEnabled
+
 ## 0.9.254
 
 - R9: shared `internal/download` (https policy, size cap, optional SHA, atomic write); used by install, update, deploy EnsureAgentBinary, agent downloadFile

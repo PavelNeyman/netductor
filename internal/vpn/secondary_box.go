@@ -41,7 +41,6 @@ func uplinkMultiplexObject() map[string]any {
 	return m
 }
 
-
 // Secondary is trusted for service identity: it dials vless-svc as the end-user UUID.
 // A compromised secondary can present any registered user. Do not treat uplink auth_user as proof beyond that trust boundary.
 const RelayUplinkName = "relay-uplink"
@@ -238,9 +237,9 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		outbounds = append(outbounds, map[string]any{
 			"type": "vless", "tag": tag,
 			"server": "10.87.10.1", "server_port": 9443,
-			"uuid":   u.UUID,
+			"uuid":            u.UUID,
 			"domain_resolver": "quad9",
-			"tls":    uplinkTLS,
+			"tls":             uplinkTLS,
 		})
 		svcRules = append(svcRules, map[string]any{
 			"auth_user": []string{name},
@@ -276,20 +275,21 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 			// domain_suffix list (fast, no download) + geoip-ru rule-set (IP ranges).
 			"rule_set": []any{
 				map[string]any{
-					"tag":             "geoip-ru",
-					"type":            "remote",
-					"format":          "binary",
-					"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
+					"tag":    "geoip-ru",
+					"type":   "remote",
+					"format": "binary",
+					"url":    "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
 					// direct: uplink is Reality (SNI=api.vk.me) and breaks TLS to githubusercontent
 					"download_detour": "direct",
 				},
 			},
-			"rules": append(append([]any{
+			// R11b: service 10.88 rules before sniff (match primary) — avoid delay on svc dial
+			"rules": append(append(append([]any{}, svcRules...), []any{
 				map[string]any{"action": "sniff"},
 				map[string]any{"protocol": "dns", "action": "hijack-dns"},
 				map[string]any{"ip_version": 6, "outbound": "block"},
 				map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
-			}, svcRules...),
+			}...),
 				map[string]any{"ip_is_private": true, "outbound": "direct"},
 				map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
 				map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},

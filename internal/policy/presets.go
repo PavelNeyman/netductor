@@ -21,7 +21,15 @@ func ApplyPreset(name string, base AccessPolicy) AccessPolicy {
 	case PresetMedia:
 		p.AllowInternet = true
 		p.ServicesMode = "list"
-		p.Services = []string{"lampac", "nvr"}
+		// Only services that are actually enabled (e.g. nvr when recording on)
+		svcs := []string{}
+		for _, id := range []string{"lampac", "nvr"} {
+			if ServiceEnabled != nil && !ServiceEnabled(id) {
+				continue
+			}
+			svcs = append(svcs, id)
+		}
+		p.Services = svcs
 	case PresetNone, "internet":
 		p.AllowInternet = true
 		p.ServicesMode = "list"

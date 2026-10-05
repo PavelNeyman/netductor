@@ -383,7 +383,7 @@ func ValidReleaseTag(tag string) (string, error) {
 	return "v" + tag, nil
 }
 
-// DownloadReleaseAsset writes binary to destPath. Verifies against SHA256SUMS unless NETDUCTOR_UPDATE_SKIP_VERIFY=1.
+// DownloadReleaseAsset writes binary to destPath. Verifies against SHA256SUMS unless SKIP_VERIFY=1 and SKIP_VERIFY_CONFIRM=yes.
 func DownloadReleaseAsset(tag, component, destPath string) error {
 	var err error
 	tag, err = ValidReleaseTag(tag)
@@ -406,10 +406,10 @@ func DownloadNamedAsset(tag, name, destPath string) error {
 		return fmt.Errorf("invalid asset name")
 	}
 	want := ""
-	if os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") != "1" {
+	if !(os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1" && os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM") == "yes") {
 		sums, err := FetchSHA256SUMS(tag)
 		if err != nil {
-			return fmt.Errorf("SHA256SUMS required (%v); set NETDUCTOR_UPDATE_SKIP_VERIFY=1 to bypass", err)
+			return fmt.Errorf("SHA256SUMS required (%v); set NETDUCTOR_UPDATE_SKIP_VERIFY=1 and NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM=yes to bypass", err)
 		}
 		var ok bool
 		want, ok = sums[name]

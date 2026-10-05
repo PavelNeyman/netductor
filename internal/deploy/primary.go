@@ -383,7 +383,7 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	dest := filepath.Join(destDir, name)
 	ver := strings.TrimPrefix(version, "v")
 	tag := "v" + ver
-	skip := os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1"
+	skip := os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1" && os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM") == "yes"
 
 	// Offline / pre-fetched: reuse cache if non-empty and checksum matches local sums.
 	if st, err := os.Stat(dest); err == nil && st.Size() > 1024 {

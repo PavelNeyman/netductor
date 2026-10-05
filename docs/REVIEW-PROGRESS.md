@@ -10,7 +10,7 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 - Pass: 1 **COMPLETE** (trust-boundary packages + remainder skim)
 - Next: optional Pass 2 (correctness / tests) or operator-driven fixes from backlog R*
 - Done: API, session, mtls, secondary, policy, vpn, update, stack, addons, TG, operator, agent, install, edge, nvr, deploy (F23), remainder skim (ci/git/registry/fleet/mikrotik/firewall/guest)
-- Last fix: F23 → 0.9.251; A → 0.9.252; R8 → 0.9.253; **R9** shared download → 0.9.254
+- Last fix: … R9 → 0.9.254; **quick R batch** R11b/R12b/R13/R14/R4/R10/media → 0.9.255
 
 
 ## Pass 1 — trust boundaries
@@ -396,3 +396,18 @@ R1 route builders · R2 addon status · R3 catalog-only TG · R4 local-cmd upgra
 
 - New `internal/download.Get`: https-only (optional http→private IP), size cap, optional ExpectedSHA256, atomic write.
 - Wired: install, update DownloadReleaseAsset, deploy EnsureAgentBinary, agent downloadFile.
+
+
+## Quick R batch closed (0.9.255)
+
+| ID | Change |
+|--|--|
+| R11b | secondary_box: svc 10.88 rules **before** sniff (match primary) |
+| R12b | registry writeArtifacts: no subscription files; remove leftovers |
+| R13 | vpn users: native only, no CLI fallback |
+| R14 | SKIP_VERIFY requires also SKIP_VERIFY_CONFIRM=yes (CLI --skip-verify sets both) |
+| R4 | nodes local-cmd upgrade → DownloadReleaseAsset + SHA |
+| R10 | openssl backup pass via `env:NETDUCTOR_BACKUP_PASS` |
+| media | PresetMedia filters through ServiceEnabled (nvr off → not listed) |
+
+Still open: R1 route split · R2 addon status · R3 catalog TG · R5 password argv · R6 middleware · R7b session API · R11a sing-box pin · R12a crane SHA · R15 apply health UX
