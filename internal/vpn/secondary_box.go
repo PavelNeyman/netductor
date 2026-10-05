@@ -283,19 +283,7 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 					"download_detour": "direct",
 				},
 			},
-			// R11b: service 10.88 rules before sniff (match primary) — avoid delay on svc dial
-			"rules": append(append(append([]any{}, svcRules...), []any{
-				map[string]any{"action": "sniff"},
-				map[string]any{"protocol": "dns", "action": "hijack-dns"},
-				map[string]any{"ip_version": 6, "outbound": "block"},
-				map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
-			}...),
-				map[string]any{"ip_is_private": true, "outbound": "direct"},
-				map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
-				map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
-				map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
-				map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"},
-			),
+			"rules":                   assembleSecondaryRouteRules(svcRules, ruSuffixes),
 			"final":                   "uplink",
 			"default_domain_resolver": "quad9",
 			"auto_detect_interface":   true,
@@ -354,4 +342,21 @@ func ClientLinkForSecondary(name, uuid, relayIP, pbk, sid, sniName string) strin
 		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#%s",
 		uuid, host, sniName, pbk, sid, tag,
 	)
+}
+
+// assembleSecondaryRouteRules keeps rule order explicit (R1 / R11b): service → sniff → DNS → geo → uplink.
+func assembleSecondaryRouteRules(svcRules []any, ruSuffixes []string) []any {
+	rules := append([]any{}, svcRules...)
+	rules = append(rules,
+		map[string]any{"action": "sniff"},
+		map[string]any{"protocol": "dns", "action": "hijack-dns"},
+		map[string]any{"ip_version": 6, "outbound": "block"},
+		map[string]any{"inbound": []string{"exit-in"}, "outbound": "direct"},
+		map[string]any{"ip_is_private": true, "outbound": "direct"},
+		map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
+		map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
+		map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
+		map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"},
+	)
+	return rules
 }

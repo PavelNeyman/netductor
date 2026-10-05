@@ -48,7 +48,7 @@ func All() []Action {
 		a("metrics-hist", "overview", "GET", "/api/metrics/history", "", "—", "Metrics history", "История метрик", SurfWeb, SurfCLI, SurfTUI),
 		a("addons", "overview", "GET", "/api/addons", "", "addons list", "Addons", "Дополнения"),
 		a("addons-lampac", "overview", "GET", "/api/addons/lampac", "", "—", "Lampac", "Lampac"),
-a("addons-update", "overview", "POST", "/api/addons/update", `{"name":"all"}`, "addons update", "Update addons", "Обновить дополнения"),
+		a("addons-update", "overview", "POST", "/api/addons/update", `{"name":"all"}`, "addons update", "Update addons", "Обновить дополнения"),
 		a("sni", "overview", "GET", "/api/sni", "", "—", "SNI", "SNI"),
 		a("sni-presets", "overview", "GET", "/api/sni-presets", "", "—", "SNI presets", "Пресеты SNI"),
 		a("latest", "overview", "GET", "/api/latest", "", "—", "Latest metrics", "Latest"),
@@ -231,4 +231,18 @@ func MatrixMarkdown() string {
 	b.WriteString("| Deploy fleet/primary/… | TG | Day-2 only on node; deploy = Mac op |\n")
 	b.WriteString("\n**Rule:** new day-2 capability → entry in `internal/opcatalog` **before** UI-only code. `—` in matrix without a row above = real parity debt.\n")
 	return b.String()
+}
+
+// ByID is an alias of Get (R3).
+func ByID(id string) (Action, bool) { return Get(id) }
+
+// Destructive returns POST (mutating) actions for a surface — TG/Web should only expose these from catalog (R3).
+func Destructive(surface string) []Action {
+	var out []Action
+	for _, a := range ForSurface(surface) {
+		if strings.EqualFold(a.Method, "POST") || strings.EqualFold(a.Method, "PUT") || strings.EqualFold(a.Method, "DELETE") {
+			out = append(out, a)
+		}
+	}
+	return out
 }

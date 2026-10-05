@@ -53,3 +53,27 @@ func TestForSurfaceTGHasDoctor(t *testing.T) {
 		t.Fatal("doctor missing on tg")
 	}
 }
+
+func TestDestructiveTG(t *testing.T) {
+	d := Destructive(SurfTG)
+	if len(d) < 3 {
+		t.Fatalf("expected several TG destructive actions, got %d", len(d))
+	}
+	for _, a := range d {
+		if a.Path == "" || a.ID == "" {
+			t.Fatalf("incomplete: %+v", a)
+		}
+		if !strings.HasPrefix(a.Path, "/api/") && a.Path != "/health" {
+			// allow /api only for mutations
+			if a.Method == "POST" && !strings.HasPrefix(a.Path, "/api/") {
+				t.Logf("warn non-api POST %s %s", a.ID, a.Path)
+			}
+		}
+	}
+}
+
+func TestByID(t *testing.T) {
+	if _, ok := ByID("addons-update"); !ok {
+		t.Fatal("addons-update should be in catalog")
+	}
+}

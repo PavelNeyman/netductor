@@ -1,6 +1,8 @@
 package install
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +17,22 @@ import (
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
+// pinnedSingBoxTag is the default install target (R11a). Override with /etc/netductor/addons/singbox.tag
+// or NETDUCTOR_SINGBOX_TAG. Floating "latest" is no longer used by default.
+const pinnedSingBoxTag = "v1.11.15"
+
+func resolveSingBoxTag() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_SINGBOX_TAG")); v != "" {
+		return v
+	}
+	if b, err := os.ReadFile("/etc/netductor/addons/singbox.tag"); err == nil {
+		if s := strings.TrimSpace(string(b)); s != "" {
+			return s
+		}
+	}
+	return pinnedSingBoxTag
+}
+
 func InstallSingBox() error {
 	_ = aptInstall("curl", "tar", "openssl", "ca-certificates")
 	binDir := "/usr/local/bin"
@@ -22,10 +40,8 @@ func InstallSingBox() error {
 	_ = os.MkdirAll(confDir, 0o755)
 	_ = os.MkdirAll("/etc/sing-box/certs", 0o755)
 
-	tag, err := latestTag("SagerNet/sing-box")
-	if err != nil {
-		return err
-	}
+	tag := resolveSingBoxTag()
+	fmt.Fprintln(os.Stderr, "sing-box pin:", tag)
 	if stateVersion("singbox") == tag {
 		if _, err := os.Stat("/usr/local/bin/sing-box"); err == nil {
 			fmt.Fprintf(os.Stderr, "sing-box %s already installed — skip download\n", tag)
@@ -36,6 +52,8 @@ func InstallSingBox() error {
 		return err
 	}
 	writeStateVersion("singbox", tag)
+	_ = os.MkdirAll("/etc/netductor/addons", 0o755)
+	_ = os.WriteFile("/etc/netductor/addons/singbox.tag", []byte(tag+"\n"), 0o644)
 afterBin:
 	shortID := readSecret("singbox_short_id")
 	if shortID == "" {
@@ -101,11 +119,7 @@ WantedBy=multi-user.target
 }
 
 func downloadSingBox(dest string) error {
-	tag, err := latestTag("SagerNet/sing-box")
-	if err != nil {
-		return err
-	}
-	return downloadSingBoxVersion(dest, tag)
+	return downloadSingBoxVersion(dest, resolveSingBoxTag())
 }
 
 func downloadSingBoxVersion(dest, tag string) error {
@@ -119,6 +133,20 @@ func downloadSingBoxVersion(dest, tag string) error {
 	tgz := filepath.Join(tmp, "sb.tgz")
 	if err := httpDownload(url, tgz); err != nil {
 		return err
+	}
+	// R11a: optional pin of tarball SHA via NETDUCTOR_SINGBOX_SHA256
+	if want := strings.TrimSpace(os.Getenv("NETDUCTOR_SINGBOX_SHA256")); want != "" {
+		got, err := fileSHA256Hex(tgz)
+		if err != nil {
+			return err
+		}
+		if !strings.EqualFold(got, want) {
+			return fmt.Errorf("sing-box tarball SHA mismatch got=%s want=%s", got, want)
+		}
+	} else {
+		if got, err := fileSHA256Hex(tgz); err == nil {
+			fmt.Fprintln(os.Stderr, "sing-box tarball sha256:", got, "(set NETDUCTOR_SINGBOX_SHA256 to enforce)")
+		}
 	}
 	if err := run("tar", "-xzf", tgz, "-C", tmp); err != nil {
 		return err
@@ -201,4 +229,17 @@ func env(k, d string) string {
 		return v
 	}
 	return d
+}
+
+func fileSHA256Hex(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

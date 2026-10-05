@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/nodes"
@@ -66,6 +67,39 @@ func registerNodesAPI(mux *http.ServeMux) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "node": n})
+	})
+
+	// R7b: issue session from loopback only (op SSH tunnel / local curl) — no hours in shell string on node.
+	mux.HandleFunc("/api/session/issue", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		if !isLoopback(r) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "loopback_only"})
+			return
+		}
+		body := readJSON(r)
+		hours := 8
+		if v, ok := body["hours"].(float64); ok {
+			hours = int(v)
+		}
+		if v, ok := body["hours"].(string); ok {
+			if n, err := strconv.Atoi(v); err == nil {
+				hours = n
+			}
+		}
+		label, _ := body["label"].(string)
+		if label == "" {
+			label = "op-issue"
+		}
+		tok, exp, err := session.Create(hours, label, clientIP(r))
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		audit.Log("session", "session.issue", label, "")
+		writeJSON(w, 200, map[string]any{"ok": true, "token": tok, "expires_unix": exp, "hours": hours})
 	})
 
 	mux.HandleFunc("/api/session/revoke", func(w http.ResponseWriter, r *http.Request) {

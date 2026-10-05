@@ -143,7 +143,7 @@ func apiSessionGate(next http.Handler) http.Handler {
 
 func apiPathExemptFromSession(path string) bool {
 	switch path {
-	case "/health", "/healthz", "/api/health", "/api/bot-status":
+	case "/health", "/healthz", "/api/health", "/api/bot-status", "/api/session/issue":
 		return true
 	case "/api/edge/enroll", "/api/edge/heartbeat", "/api/edge/commands",
 		"/api/edge/cmd_result", "/api/edge/mtls/material", "/api/edge/metrics",

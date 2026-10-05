@@ -4,6 +4,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/download"
 	"net"
 	"net/http"
 	"os"
@@ -243,12 +244,17 @@ func EnsureCrane() (string, error) {
 	case "arm64", "aarch64":
 		goarch = "arm64"
 	}
-	ver := "v0.22.1"
+	ver := "v0.22.1" // pinned (R12a)
 	name := fmt.Sprintf("go-containerregistry_%s_%s.tar.gz", goos, goarch)
 	url := fmt.Sprintf("https://github.com/google/go-containerregistry/releases/download/%s/%s", ver, name)
 	tmp := filepath.Join(os.TempDir(), name)
-	if out, err := exec.Command("curl", "-fsSL", "-o", tmp, url).CombinedOutput(); err != nil {
-		return "", fmt.Errorf("download crane: %w: %s", err, strings.TrimSpace(string(out)))
+	want := strings.TrimSpace(os.Getenv("NETDUCTOR_CRANE_SHA256"))
+	if err := download.Get(url, tmp, download.Options{
+		MaxBytes:       64 << 20,
+		UserAgent:      "netductor-registry",
+		ExpectedSHA256: want,
+	}); err != nil {
+		return "", fmt.Errorf("download crane: %w", err)
 	}
 	destDir := "/usr/local/bin"
 	_ = os.MkdirAll(destDir, 0o755)

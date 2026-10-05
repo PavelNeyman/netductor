@@ -1,3 +1,11 @@
+## 0.9.257
+
+- R3: opcatalog Destructive/ByID helpers + tests for TG mutating actions
+- R7b: POST /api/session/issue (loopback); op session issue via curl JSON not `vpn session hours` shell
+- R11a: sing-box pinned tag (default v1.11.15); optional NETDUCTOR_SINGBOX_SHA256
+- R12a: crane via download.Get; pin v0.22.1; optional NETDUCTOR_CRANE_SHA256
+- R1: route_builders.go (primary inbounds + outbounds/route); secondary assembleSecondaryRouteRules
+
 ## 0.9.256
 
 - R5: secondary provision password via NETDUCTOR_SSH_PASSWORD (not argv)

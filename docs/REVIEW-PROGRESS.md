@@ -423,3 +423,16 @@ Still open: R1 route split · R2 addon status · R3 catalog TG · R5 password ar
 | R6 | apiSessionGate on buildAPIMux; agent edge/secondary/nvr-ingest exempt |
 
 Still open: R1 route split · R3 catalog TG · R7b session API · R11a sing-box pin · R12a crane SHA
+
+
+## R3 R7b R11a R12a R1 closed (0.9.257)
+
+| ID | Change |
+|--|--|
+| R3 | Destructive(surface), ByID; test TG POST actions in catalog |
+| R7b | /api/session/issue loopback-only; op uses curl+JSON over SSH |
+| R11a | pinnedSingBoxTag; env/file override; optional tarball SHA |
+| R12a | crane download.Get + optional SHA |
+| R1 | buildPrimaryInbounds + buildOutboundsAndRoute in route_builders.go; assembleSecondaryRouteRules |
+
+Refactor backlog from Pass 1 is largely closed. Remaining polish only if needed.
