@@ -199,3 +199,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - GeoIP rule-set is downloaded direct from GitHub, not through the Reality uplink. A bad rule-set can change RU split. Expected, but it is a supply-chain input.
 - R11 secondary still sniffs before the 10.88 rules. Primary already moved service rules above sniff. Same order here would keep service dials from waiting on sniff.
 - Next file: `internal/vpn/apply.go`.
+
+
+## Pass 1 notes (apply.go)
+
+- Public inbound listens on `::` and the VLESS port, mux on, vision for users, no vision for relay-uplink. Service inbound listens only on 10.87.10.1:9443, no mux, no vision.
+- Service rules are built before sniff. Disabled users are omitted. Config is written 0600 via a temp file.
+- vless-svc still lists every enabled user, including relay-uplink. ACL, not the inbound user list, is what blocks services. A relay-uplink connection to :9443 is accepted and then rejected by route.
+- R1 still stands: inbound build, route build, and exit outbound share this file. Split when the next edit touches it.
+- Next file: `internal/vpn/registry.go`.
