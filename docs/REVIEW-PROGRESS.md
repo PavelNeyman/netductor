@@ -130,3 +130,10 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 
 - List, forget, and clear require operator session. Clear is POST. Forget deletes a map key, not a path.
 - Next file: `cmd/netductor/api_nodes.go`.
+
+
+## Pass 1 notes (nodes)
+
+- List and desired hostname require operator session. Self-register allows loopback or a session. Loopback is the peer address, not a forwarded header.
+- Hostname apply uses `hostnamectl` with one argument, not a shell. Revoke session requires a valid bearer token.
+- Next file: `cmd/netductor/api_svc_paths.go`.
