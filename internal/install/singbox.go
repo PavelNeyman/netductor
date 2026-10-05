@@ -1,16 +1,18 @@
 package install
 
 import (
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -167,22 +169,39 @@ func latestTag(repo string) (string, error) {
 	return m.Tag, nil
 }
 
-func httpDownload(url, dest string) error {
-	resp, err := http.Get(url)
+func httpDownload(rawURL, dest string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return fmt.Errorf("httpDownload: only https URLs allowed")
+	}
+	client := &http.Client{Timeout: 10 * time.Minute}
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "netductor-install")
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("HTTP %d %s", resp.StatusCode, url)
+		return fmt.Errorf("HTTP %d %s", resp.StatusCode, rawURL)
 	}
 	f, err := os.Create(dest)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	_, err = io.Copy(f, resp.Body)
-	return err
+	n, err := io.Copy(f, io.LimitReader(resp.Body, 512<<20))
+	if err != nil {
+		return err
+	}
+	if n >= 512<<20 {
+		_ = os.Remove(dest)
+		return fmt.Errorf("download exceeds 512MiB limit")
+	}
+	return nil
 }
 
 func randomHex(n int) string {

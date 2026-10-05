@@ -8,10 +8,10 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 ## Marker
 
 - Pass: 1
-- Stopped before: `internal/install` (next after agent)
-- Next file: `internal/install/` package entry
-- Done packages: … TG, operator, **cmd/netductor-agent**
-- Last fix: F20 agent download require SHA + https; TG no empty agent_update → 0.9.248
+- Stopped before: `internal/edge` (provision / store already partially covered via agent)
+- Next file: `internal/edge/provision.go` remaining + `internal/nvr`
+- Done packages: … agent, **internal/install**
+- Last fix: F21 install downloads verify → 0.9.249
 
 
 ## Pass 1 — trust boundaries
@@ -333,3 +333,12 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 
 - R8 primary should resolve device arch + SHA256SUMS and enqueue full agent_update arg from Releases.
 - R9 downloadFile shared helper with update package.
+
+
+## Pass 1 notes (install)
+
+- SSH harden: PasswordAuthentication no, Port 52222, operator key expected before harden; generates local key only if authorized_keys empty (lockout risk if mis-ordered — recover path fixed earlier).
+- Backup: AES-GCM / openssl for large; key file 0600; openssl pass via argv (R10).
+- F21: `httpDownload` https-only, 512MiB cap; blocky verifies `blocky_checksums.txt`; `InstallTelegram` uses `DownloadReleaseAsset` + SHA256SUMS.
+- sing-box still no upstream checksum file — HTTPS only + pinned tag from GitHub API (R11 pin+digest later).
+- Host agent purge: package name allowlist style removal of zabbix etc.

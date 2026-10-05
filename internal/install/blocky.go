@@ -1,7 +1,10 @@
 package install
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,6 +39,9 @@ func InstallBlocky() error {
 		if err2 := httpDownload(url, tgz); err2 != nil {
 			return err
 		}
+	}
+	if err := verifyBlockyChecksum(tag, tgz, filepath.Base(url)); err != nil {
+		return err
 	}
 	if err := run("tar", "-xzf", tgz, "-C", tmp); err != nil {
 		return err
@@ -100,4 +106,51 @@ WantedBy=multi-user.target
 	// optional resolv.conf - only if not exists conflict
 	_ = strings.TrimSpace
 	return enableStart("blocky")
+}
+
+func verifyBlockyChecksum(tag, archivePath, assetName string) error {
+	sumURL := fmt.Sprintf("https://github.com/0xERR0R/blocky/releases/download/%s/blocky_checksums.txt", tag)
+	tmp, err := os.CreateTemp("", "blocky-sum-")
+	if err != nil {
+		return err
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+	if err := httpDownload(sumURL, tmp.Name()); err != nil {
+		return fmt.Errorf("blocky checksums: %w", err)
+	}
+	b, err := os.ReadFile(tmp.Name())
+	if err != nil {
+		return err
+	}
+	want := ""
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && (fields[1] == assetName || strings.HasSuffix(fields[1], "/"+assetName)) {
+			want = fields[0]
+			break
+		}
+		if len(fields) >= 2 && strings.Contains(fields[len(fields)-1], assetName) {
+			want = fields[0]
+			break
+		}
+	}
+	if want == "" {
+		return fmt.Errorf("blocky: no checksum for %s", assetName)
+	}
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+	got := hex.EncodeToString(h.Sum(nil))
+	if !strings.EqualFold(got, want) {
+		return fmt.Errorf("blocky checksum mismatch")
+	}
+	return nil
 }

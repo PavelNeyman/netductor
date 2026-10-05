@@ -7,8 +7,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -147,14 +148,13 @@ func InstallTelegram() error {
 		a = "arm64" // best effort
 	}
 	ver := version.Release
-	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/v%s/netductor-tg-linux-%s", ver, a)
 	// Always install a real binary at /usr/local/bin/netductor-tg (never symlink to self).
 	dest := "/usr/local/bin/netductor-tg"
 	_ = os.MkdirAll(filepath.Dir(dest), 0o755)
-	tmp := dest + ".new"
 	haveBin := false
-	if err := httpDownload(url, tmp); err != nil {
+	if err := ndupdate.DownloadReleaseAsset("v"+ver, "tg", dest); err != nil {
 		fmt.Fprintf(os.Stderr, "telegram binary download: %v — trying local/fallback\n", err)
+		tmp := dest + ".new"
 		for _, src := range []string{
 			"/tmp/netductor-tg.bin",
 			filepath.Join(paths.BinDir(), "netductor-tg.real"),
@@ -172,17 +172,16 @@ func InstallTelegram() error {
 		if !haveBin {
 			return fmt.Errorf("telegram: netductor-tg binary missing for %s — publish netductor-tg-linux-%s on release v%s, then: netductor install telegram", a, a, ver)
 		}
+		_ = os.Chmod(tmp, 0o755)
+		_ = os.Remove(dest)
+		if err := os.Rename(tmp, dest); err != nil {
+			return fmt.Errorf("telegram install binary: %w", err)
+		}
 	} else {
 		haveBin = true
 	}
 	if !haveBin {
 		return nil
-	}
-	_ = os.Chmod(tmp, 0o755)
-	// Replace any broken self-symlink
-	_ = os.Remove(dest)
-	if err := os.Rename(tmp, dest); err != nil {
-		return fmt.Errorf("telegram install binary: %w", err)
 	}
 	unit := fmt.Sprintf(`[Unit]
 Description=Netductor Telegram bot

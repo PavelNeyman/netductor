@@ -1,3 +1,7 @@
+## 0.9.249
+
+- F21: install httpDownload https-only + size cap; blocky checksums; telegram via DownloadReleaseAsset (SHA256SUMS)
+
 ## 0.9.248
 
 - F20: agent_update/sysupgrade require SHA256; download http(s) only (http→private IP); size cap; TG no empty agent_update
