@@ -1,3 +1,7 @@
+## 0.9.247
+
+- F19: operator session/issue — sanitize hours (1–168 digits) and SSH user/host; shorten token log
+
 ## 0.9.194
 
 ### Hoster monitoring / CM audit

@@ -8,10 +8,10 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 ## Marker
 
 - Pass: 1
-- Stopped before: `cmd/netductor-op` (operator Web/TUI backend)
-- Next file: `cmd/netductor-op/main.go` then `internal/operator/`
-- Done packages: API handlers, session, mtls, secondary agent, policy, vpn, update, stack, addons, **cmd/netductor-tg** (all handlers)
-- Last fix: F18 ScheduleApply shell injection → 0.9.246
+- Stopped before: `cmd/netductor-agent`
+- Next file: `cmd/netductor-agent/main.go`
+- Done packages: API, session, mtls, secondary, policy, vpn, update, stack, addons, TG, **operator (serve/proxy/session/tunnel/deploy/site)**
+- Last fix: F19 session issue hours/host injection → 0.9.247
 
 
 ## Pass 1 — trust boundaries
@@ -302,3 +302,18 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 - R4 primary `nodes local-cmd upgrade` should reuse `stack`/`update` download+SHA path instead of wget of fixed Release.
 - R3 still: prefer catalog for all TG destructive buttons where possible.
 - R5 secondary provision password: prefer SSH key or env-file for sshpass, not argv.
+
+
+## Pass 1 notes (operator)
+
+- Serve binds loopback only; token persisted `~/.netductor/operator_token`; injected into HTML/JS.
+- Deploy/edge/fleet/site/credentials/tunnel/session require `X-Netductor-Token`. Catalog/meta/health open on loopback only (no secrets in catalog).
+- `ProxyNodeAPI`: base must be loopback; path rejects `..`; node session via Bearer.
+- F19: `session/issue` put `hours` into remote SSH command string. Now digits 1–168 only; user/host charset filtered. Token print on stderr shortened.
+- Credentials written under `~/.netductor/credentials` (0600 expected — verify on write path).
+- Tunnel: SSH LocalForward; PreferVPN when reachable.
+
+### Refactor
+
+- R6 single middleware for requireToken on operator mux instead of per-handler.
+- R7 session issue should call node API over tunnel with session, not SSH string if possible.

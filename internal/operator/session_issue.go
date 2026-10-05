@@ -7,8 +7,47 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
+
+// sanitizeSessionHours allows only 1–168 digit hours for remote "vpn session <n>".
+func sanitizeSessionHours(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "72", nil
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return "", fmt.Errorf("hours must be digits only")
+		}
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 || n > 168 {
+		return "", fmt.Errorf("hours must be 1–168")
+	}
+	return strconv.Itoa(n), nil
+}
+
+// sanitizeSSHTargetUserHost rejects shell metacharacters in user@host pieces.
+func sanitizeSSHTargetUserHost(user, host string) (string, string, error) {
+	user = strings.TrimSpace(user)
+	host = strings.TrimSpace(host)
+	if user == "" {
+		user = "root"
+	}
+	if host == "" {
+		return "", "", fmt.Errorf("host required")
+	}
+	for _, r := range user + host {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '.' || r == '-' || r == '_' || r == ':' {
+			continue
+		}
+		return "", "", fmt.Errorf("invalid user/host character")
+	}
+	return user, host, nil
+}
 
 func handleSessionIssue(opToken string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -29,19 +68,22 @@ func handleSessionIssue(opToken string) http.HandlerFunc {
 		if !decodeJSON(w, r, &body) {
 			return
 		}
-		host := strings.TrimSpace(body.Host)
-		if host == "" {
-			http.Error(w, "host required", 400)
+		user, host, err := sanitizeSSHTargetUserHost(orDefault(body.User, "root"), body.Host)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
 			return
 		}
-		user := orDefault(body.User, "root")
 		key := expandKeyPath(body.Key)
-		hours := orDefault(body.Hours, "72")
+		hours, err := sanitizeSessionHours(orDefault(body.Hours, "72"))
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		sshPort := strings.TrimSpace(os.Getenv("NETDUCTOR_SSH_PORT"))
 		if sshPort == "" {
 			sshPort = "52222"
 		}
-		remote := fmt.Sprintf("netductor vpn session %s", hours)
+		remote := "netductor vpn session " + hours
 		cmd := exec.Command("ssh", "-p", sshPort, "-i", key, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
 			"--", user+"@"+host, remote)
 		out, err := cmd.Output()
@@ -56,7 +98,7 @@ func handleSessionIssue(opToken string) http.HandlerFunc {
 			return
 		}
 		tok := strings.TrimSpace(string(out))
-		if i := strings.IndexByte(tok, '\n'); i >= 0 {
+		if i := strings.IndexByte(tok, 10); i >= 0 {
 			tok = strings.TrimSpace(tok[:i])
 		}
 		home, _ := os.UserHomeDir()

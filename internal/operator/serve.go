@@ -201,7 +201,11 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/session/local", handleSessionLocal(token))
 
 	fmt.Fprintf(os.Stderr, "operator serve: http://%s/  (loopback only)\n", addr)
-	fmt.Fprintf(os.Stderr, "operator token: %s  (header X-Netductor-Token)\n", token)
+	hint := token
+	if len(hint) > 8 {
+		hint = hint[:8]
+	}
+	fmt.Fprintf(os.Stderr, "operator token: %s... (header X-Netductor-Token; full in ~/.netductor/operator_token)\n", hint)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
