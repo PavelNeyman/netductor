@@ -8,9 +8,9 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 ## Marker
 
 - Pass: 1
-- Stopped before: rest of `cmd/netductor-tg` handlers after admin gate
-- Next file: `cmd/netductor-tg/handlers_cb.go` (destructive callbacks already partially read)
-- Done packages: API handlers, session, mtls, secondary agent, policy, vpn (secondary_box, apply, registry, users), update, stack, addons
+- Stopped before: `cmd/netductor-op` (operator Web/TUI backend)
+- Next file: `cmd/netductor-op/main.go` then `internal/operator/`
+- Done packages: API handlers, session, mtls, secondary agent, policy, vpn, update, stack, addons, **cmd/netductor-tg** (all handlers)
 - Last fix: F18 ScheduleApply shell injection → 0.9.246
 
 
@@ -269,3 +269,36 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Callbacks: `cq.From.ID != admin` ignored. Messages: `m.Chat.ID != admin` return.
 - Destructive actions (stack, firewall, backup, edge) go through `exec.Command` with fixed binaries/args after the admin gate.
 - Next file: rest of `cmd/netductor-tg` handlers (certs, edge guest, policy set from buttons).
+
+
+## Pass 1 notes (telegram bot)
+
+Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.go`, `handlers_extra.go`, `handlers_versions.go`, `handlers_stack.go`, `handlers_certs.go`, `handlers_mtls.go`, `handlers_policy.go`, `handlers_git.go`, `handlers_registry.go`, `handlers_nvr.go`, `handlers_edge_guest.go`, `handlers_edge_template.go`, `handlers_edge_luci.go`, `catalog_ui.go`, `format_*.go`, `keyboards.go`, `i18n.go`.
+
+### Trust
+
+- Admin id from file / `NETDUCTOR_TG_ADMIN`. Callbacks require `cq.From.ID == admin`. Messages require `m.Chat.ID == admin`.
+- Claim only if `NETDUCTOR_TG_CLAIM_FIRST=1` on `/start`. Default: no open claim.
+- Destructive work uses `exec.Command(netductorBin(), args...)` (argv), not shell — except F18 which was fixed in 0.9.246 (`ScheduleApply` + `ValidReleaseTag`).
+
+### Destructive operator power (by design)
+
+- Node card: reboot / upgrade secondary via agent allowlist; primary `local-cmd reboot|upgrade` can reboot this VPS or run apt + wget of **embedded** `deploy.Release` binaries (not latest GH tag, no SHA in that path). Operator-only.
+- Stack heal / rollback / schedule apply from TG.
+- Secondary provision: password is a CLI argv briefly (visible in process list to root on the same host).
+
+### Catalog
+
+- `m:op:<id>` only runs IDs present in `opcatalog`. Session is created for localhost API and revoked after the request.
+- Edge `EnqueueCmd` rejects unknown actions (`allowedEdgeActions`); guest_status/grant/revoke allowed.
+
+### No new open hole this pass
+
+- F18 already closed.
+- No additional public or non-admin injection found in TG handlers.
+
+### Refactor backlog (append)
+
+- R4 primary `nodes local-cmd upgrade` should reuse `stack`/`update` download+SHA path instead of wget of fixed Release.
+- R3 still: prefer catalog for all TG destructive buttons where possible.
+- R5 secondary provision password: prefer SSH key or env-file for sshpass, not argv.
