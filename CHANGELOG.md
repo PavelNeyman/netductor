@@ -1,3 +1,7 @@
+## 0.9.252
+
+- A: offline agent cache verifies against cached SHA256SUMS (SHA256SUMS / SHA256SUMS-<ver> next to agents); online EnsureAgentBinary writes sums into the cache dir
+
 ## 0.9.251
 
 - F23: EnsureAgentBinary verifies SHA256SUMS after download (offline cache unchanged)

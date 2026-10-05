@@ -16,31 +16,31 @@ import (
 
 // PrimaryOpts — bootstrap a clean Debian VPS from operator machine (Mac/PC).
 type PrimaryOpts struct {
-	Host            string
-	User            string
-	Password        string // first-login only
-	SSHPrivateKey   string // path; empty + GenerateKey => ~/.ssh/netductor_primary
-	GenerateKey     bool
-	KeyPassphrase  string // optional; empty = no passphrase on generated/used key
-	Version         string // e.g. 0.8.1
-	TelegramToken   string
-	TelegramAdminID string
-	SNI             string
-	DomainBase      string // e.g. netductor.neyman.top → domain set on host
-	DomainHTTP      bool   // http redirect base (ignored if DomainLE)
-	DomainLE        bool   // Let's Encrypt after domain set
-	DomainCFProxy   bool   // CF orange on i. → REDIRECT_BASE without :8443
-	DomainEmail     string
-	DomainPrimary   string // explicit e.g. p2.nd.example.com (overrides base primary label)
-	DomainVPN       string // explicit VPN host e.g. s.nd.example.com
-	DomainRedirect  string // full REDIRECT_BASE e.g. https://i2.nd.example.com:8443
-	SSHPort         int    // 0 → default 52222
+	Host              string
+	User              string
+	Password          string // first-login only
+	SSHPrivateKey     string // path; empty + GenerateKey => ~/.ssh/netductor_primary
+	GenerateKey       bool
+	KeyPassphrase     string // optional; empty = no passphrase on generated/used key
+	Version           string // e.g. 0.8.1
+	TelegramToken     string
+	TelegramAdminID   string
+	SNI               string
+	DomainBase        string // e.g. netductor.neyman.top → domain set on host
+	DomainHTTP        bool   // http redirect base (ignored if DomainLE)
+	DomainLE          bool   // Let's Encrypt after domain set
+	DomainCFProxy     bool   // CF orange on i. → REDIRECT_BASE without :8443
+	DomainEmail       string
+	DomainPrimary     string // explicit e.g. p2.nd.example.com (overrides base primary label)
+	DomainVPN         string // explicit VPN host e.g. s.nd.example.com
+	DomainRedirect    string // full REDIRECT_BASE e.g. https://i2.nd.example.com:8443
+	SSHPort           int    // 0 → default 52222
 	RedirectHTTPSPort string
-	AgentMTLSPort   string
-	LampacPort      string
-	SkipInstall     bool
-	WithLampac      bool
-	WithGitRegistry bool // optional thin git + local registry (addon)
+	AgentMTLSPort     string
+	LampacPort        string
+	SkipInstall       bool
+	WithLampac        bool
+	WithGitRegistry   bool // optional thin git + local registry (addon)
 }
 
 // DeployPrimary installs netductor on a remote VPS over SSH.
@@ -199,7 +199,6 @@ chmod 755 /usr/local/bin/netductor
 		}
 	}
 
-
 	fmt.Fprintln(os.Stderr, "==> set SNI", o.SNI)
 	out, err = runSSH("", keyPath, o.User, o.Host, "netductor vpn set-sni "+shellQuote(o.SNI), o.KeyPassphrase)
 	fmt.Print(out)
@@ -208,7 +207,7 @@ chmod 755 /usr/local/bin/netductor
 	if o.DomainLE && strings.TrimSpace(o.DomainPrimary) == "" {
 		return fmt.Errorf("domain LE requires explicit --domain-primary (and usually --domain-redirect); no p./i. invent from --domain-base")
 	}
-		hasDomain := strings.TrimSpace(o.DomainBase) != "" || strings.TrimSpace(o.DomainPrimary) != "" || strings.TrimSpace(o.DomainRedirect) != ""
+	hasDomain := strings.TrimSpace(o.DomainBase) != "" || strings.TrimSpace(o.DomainPrimary) != "" || strings.TrimSpace(o.DomainRedirect) != ""
 	if hasDomain {
 		fmt.Fprintln(os.Stderr, "==> domain set")
 		var cmd string
@@ -343,7 +342,6 @@ func safeConfKey(k string) bool {
 	return true
 }
 
-
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
@@ -363,8 +361,9 @@ func validReleaseVersion(v string) bool {
 	return true
 }
 
-
 // EnsureAgentBinary downloads netductor-agent for arch into destDir, returns path.
+// Online: curl + SHA256SUMS from GitHub, then cache SHA256SUMS next to the binary.
+// Offline: reuse cache only if local SHA256SUMS (or SHA256SUMS-<ver>) verifies the file.
 func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	if version == "" {
 		version = Release
@@ -381,13 +380,26 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	_ = os.MkdirAll(destDir, 0o755)
 	name := "netductor-agent-linux-" + goarch
 	dest := filepath.Join(destDir, name)
-	// Offline / pre-fetched: reuse cache if non-empty.
+	ver := strings.TrimPrefix(version, "v")
+	tag := "v" + ver
+	skip := os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1"
+
+	// Offline / pre-fetched: reuse cache if non-empty and checksum matches local sums.
 	if st, err := os.Stat(dest); err == nil && st.Size() > 1024 {
+		if skip {
+			fmt.Fprintln(os.Stderr, "==> using cached agent (verify skipped)", dest)
+			_ = os.Chmod(dest, 0o755)
+			return dest, nil
+		}
+		if err := verifyAgentAgainstLocalSums(destDir, ver, name, dest); err != nil {
+			return "", fmt.Errorf("cached agent %s: %w (re-run offline-prep or remove cache)", name, err)
+		}
 		fmt.Fprintln(os.Stderr, "==> using cached agent", dest)
 		_ = os.Chmod(dest, 0o755)
 		return dest, nil
 	}
-	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/v%s/%s", version, name)
+
+	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/%s/%s", tag, name)
 	fmt.Fprintln(os.Stderr, "==> fetch", url)
 	cmd := exec.Command("curl", "-fsSL", "-o", dest, url)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
@@ -395,9 +407,9 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 		_ = os.Remove(dest)
 		return "", fmt.Errorf("download agent %s: %w (pre-place at %s for offline)", name, err, dest)
 	}
-	// F23: verify against release SHA256SUMS (same as stack/update). Offline pre-placed files skip this path.
-	if os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") != "1" {
-		sums, err := ndupdate.FetchSHA256SUMS("v" + strings.TrimPrefix(version, "v"))
+	// F23 + A: verify against release SHA256SUMS and cache sums for offline reuse.
+	if !skip {
+		sums, _, err := fetchAndCacheSHA256SUMS(tag, destDir, ver)
 		if err != nil {
 			_ = os.Remove(dest)
 			return "", fmt.Errorf("SHA256SUMS for agent: %w", err)
@@ -415,6 +427,70 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 	}
 	_ = os.Chmod(dest, 0o755)
 	return dest, nil
+}
+
+// agentSumsPaths returns candidate local SHA256SUMS paths (versioned first, then generic).
+func agentSumsPaths(destDir, ver string) []string {
+	out := []string{}
+	if ver != "" {
+		out = append(out, filepath.Join(destDir, "SHA256SUMS-"+ver))
+		out = append(out, filepath.Join(destDir, "SHA256SUMS-v"+ver))
+	}
+	out = append(out, filepath.Join(destDir, "SHA256SUMS"))
+	return out
+}
+
+func loadLocalAgentSums(destDir, ver string) (map[string]string, string, error) {
+	var lastErr error
+	for _, p := range agentSumsPaths(destDir, ver) {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		sums, err := ndupdate.ParseSHA256SUMS(b)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return sums, p, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no SHA256SUMS in %s", destDir)
+	}
+	return nil, "", lastErr
+}
+
+func verifyAgentAgainstLocalSums(destDir, ver, name, dest string) error {
+	sums, path, err := loadLocalAgentSums(destDir, ver)
+	if err != nil {
+		return fmt.Errorf("missing local SHA256SUMS: %w", err)
+	}
+	want, ok := sums[name]
+	if !ok || want == "" {
+		return fmt.Errorf("no checksum for %s in %s", name, path)
+	}
+	got, err := fileSHA256Hex(dest)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(got, want) {
+		return fmt.Errorf("checksum mismatch (got %s want %s from %s)", got, want, path)
+	}
+	return nil
+}
+
+// fetchAndCacheSHA256SUMS downloads release sums and writes SHA256SUMS + SHA256SUMS-<ver> under destDir.
+func fetchAndCacheSHA256SUMS(tag, destDir, ver string) (map[string]string, []byte, error) {
+	raw, sums, err := ndupdate.FetchSHA256SUMSRaw(tag)
+	if err != nil {
+		return nil, nil, err
+	}
+	_ = os.WriteFile(filepath.Join(destDir, "SHA256SUMS"), raw, 0o644)
+	if ver != "" {
+		_ = os.WriteFile(filepath.Join(destDir, "SHA256SUMS-"+ver), raw, 0o644)
+	}
+	return sums, raw, nil
 }
 
 func fileSHA256Hex(path string) (string, error) {

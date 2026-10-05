@@ -303,21 +303,8 @@ func downloadURL(tag, name string) string {
 	return fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", Repo, tag, name)
 }
 
-// FetchSHA256SUMS returns map basename -> hex digest from release SHA256SUMS file.
-func FetchSHA256SUMS(tag string) (map[string]string, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(downloadURL(tag, "SHA256SUMS"))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("SHA256SUMS HTTP %d", resp.StatusCode)
-	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return nil, err
-	}
+// ParseSHA256SUMS parses GNU-style SHA256SUMS body into basename -> hex digest.
+func ParseSHA256SUMS(b []byte) (map[string]string, error) {
 	out := map[string]string{}
 	for _, line := range strings.Split(string(b), "\n") {
 		line = strings.TrimSpace(line)
@@ -337,6 +324,34 @@ func FetchSHA256SUMS(tag string) (map[string]string, error) {
 		return nil, fmt.Errorf("empty SHA256SUMS")
 	}
 	return out, nil
+}
+
+// FetchSHA256SUMS returns map basename -> hex digest from release SHA256SUMS file.
+func FetchSHA256SUMS(tag string) (map[string]string, error) {
+	_, sums, err := FetchSHA256SUMSRaw(tag)
+	return sums, err
+}
+
+// FetchSHA256SUMSRaw returns the raw file body and parsed map.
+func FetchSHA256SUMSRaw(tag string) ([]byte, map[string]string, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(downloadURL(tag, "SHA256SUMS"))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, nil, fmt.Errorf("SHA256SUMS HTTP %d", resp.StatusCode)
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, nil, err
+	}
+	sums, err := ParseSHA256SUMS(b)
+	if err != nil {
+		return nil, nil, err
+	}
+	return b, sums, nil
 }
 
 func fileSHA256(path string) (string, error) {

@@ -13,3 +13,20 @@ func TestNewer(t *testing.T) {
 		t.Fatal("older")
 	}
 }
+
+func TestParseSHA256SUMS(t *testing.T) {
+	body := []byte("abc123  netductor-agent-linux-arm64\ndef456 *netductor-agent-linux-amd64\n# comment\n\n")
+	m, err := ParseSHA256SUMS(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m["netductor-agent-linux-arm64"] != "abc123" {
+		t.Fatalf("arm64: %v", m)
+	}
+	if m["netductor-agent-linux-amd64"] != "def456" {
+		t.Fatalf("amd64: %v", m)
+	}
+	if _, err := ParseSHA256SUMS([]byte("# only\n")); err == nil {
+		t.Fatal("expected empty error")
+	}
+}

@@ -10,7 +10,7 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 - Pass: 1 **COMPLETE** (trust-boundary packages + remainder skim)
 - Next: optional Pass 2 (correctness / tests) or operator-driven fixes from backlog R*
 - Done: API, session, mtls, secondary, policy, vpn, update, stack, addons, TG, operator, agent, install, edge, nvr, deploy (F23), remainder skim (ci/git/registry/fleet/mikrotik/firewall/guest)
-- Last fix: F23 agent download SHA → 0.9.251
+- Last fix: F23 agent download SHA → 0.9.251; **A** offline cache SHA → 0.9.252
 
 
 ## Pass 1 — trust boundaries
@@ -366,7 +366,7 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 - **fleet**: secondary provision password in argv (same as TG R5).
 - **mikrotik**: golang.org/x/crypto/ssh; harden RSC templates.
 - **firewall**: fixed chain NETDUCTOR; bash -c only for iptables-save redirect (fixed path).
-- **F23**: `EnsureAgentBinary` verifies SHA256SUMS after curl; offline pre-placed cache still accepted without re-hash (operator trust).
+- **F23**: `EnsureAgentBinary` verifies SHA256SUMS after curl; offline cache now re-hashes vs local SHA256SUMS (A → 0.9.252).
 
 ## Pass 1 closed findings
 
@@ -378,6 +378,14 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 | F21 | install downloads | 0.9.249 |
 | F22 | nvr clip path | 0.9.250 |
 | F23 | deploy EnsureAgentBinary SHA | 0.9.251 |
+| A | offline agent cache + local SHA256SUMS | 0.9.252 |
+
+## Offline integrity (A, 0.9.252)
+
+- Online `EnsureAgentBinary`: after curl, verify vs GitHub SHA256SUMS and write `SHA256SUMS` + `SHA256SUMS-<ver>` under `~/.cache/netductor/agents/`.
+- Offline/cached path: require local sums; mismatch or missing → refuse (not silent trust disk).
+- Not anti-compromise of the operator Mac (same user can replace sums); catches corruption / wrong file / symmetry with online.
+- `NETDUCTOR_UPDATE_SKIP_VERIFY=1` still bypasses (ops escape hatch).
 
 ## Refactor backlog (still open)
 
