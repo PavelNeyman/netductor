@@ -180,15 +180,6 @@ func registerVPNHTTP(mux *http.ServeMux) {
 		case action == "subscription" && r.Method == http.MethodGet:
 			writeJSON(w, 410, map[string]string{"error": "subscription removed; use vless/core/hy2 links"})
 			return
-		case action == "subscription_legacy_disabled" && r.Method == http.MethodGet:
-			sub, ok := vpn.ReadClient(name, "subscription.txt", "link.txt")
-			if !ok {
-				writeJSON(w, 404, map[string]string{"error": "not found"})
-				return
-			}
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.WriteHeader(200)
-			_, _ = w.Write([]byte(sub + "\n"))
 		case action == "link" && r.Method == http.MethodGet:
 			users, _ := vpn.ListNative()
 			var uuid string

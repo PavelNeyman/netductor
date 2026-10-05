@@ -84,3 +84,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Ingest accepts an approved edge device token or a session. Any approved device can upload a segment for any camera_id. Worth binding camera to site later.
 - Clip download is a one-time token, max TTL 3600, path must stay under the segments root. Token is in the query string, so it can land in access logs for that one request.
 - Next file: `cmd/netductor/api_vpn_http.go`.
+
+
+## Pass 1 notes (vpn http)
+
+- `/vpn/users` and `/vpn/users/{name}/...` require operator session. Create, revoke, QR, links, and policy set are behind it. Names go through `vpn.ValidName`.
+- Subscription GET returns 410. Dead `subscription_legacy_disabled` still served the file to a session holder. Removed this pass.
+- Backup run/list/schedule in the same file also require session.
+- Next file: `cmd/netductor/api_policy.go`.
