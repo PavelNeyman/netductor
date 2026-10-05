@@ -1,3 +1,7 @@
+## 0.9.248
+
+- F20: agent_update/sysupgrade require SHA256; download http(s) only (http→private IP); size cap; TG no empty agent_update
+
 ## 0.9.247
 
 - F19: operator session/issue — sanitize hours (1–168 digits) and SSH user/host; shorten token log

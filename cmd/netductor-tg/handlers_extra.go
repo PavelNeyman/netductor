@@ -478,14 +478,12 @@ func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	// m:updates:edge:<device_id> — enqueue agent_update (no auto-rollout)
 	if strings.HasPrefix(data, "m:updates:edge:") {
 		did := strings.TrimPrefix(data, "m:updates:edge:")
-		cid := edge.EnqueueCmd(did, "agent_update", "")
-		msg := "✅ queued agent_update for <code>" + esc(did) + "</code> cmd=<code>" + esc(cid) + "</code>"
+		// F20: agent requires URL|sha256|confirm=yes — TG cannot invent SHA without arch.
+		msg := "⚠️ agent_update needs <code>URL|sha256|confirm=yes</code> (CLI). Example:\n<code>netductor edge cmd " + esc(did) + " agent_update 'https://…/netductor-agent-linux-mipsle|HEX|confirm=yes'</code>"
 		if ru {
-			msg = "✅ agent_update в очереди для <code>" + esc(did) + "</code> cmd=<code>" + esc(cid) + "</code>"
+			msg = "⚠️ agent_update нужен аргумент <code>URL|sha256|confirm=yes</code> (CLI). Пример:\n<code>netductor edge cmd " + esc(did) + " agent_update 'https://…/netductor-agent-linux-mipsle|HEX|confirm=yes'</code>"
 		}
-		if cid == "" {
-			msg = "❌ enqueue failed"
-		}
+		_ = did
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	}

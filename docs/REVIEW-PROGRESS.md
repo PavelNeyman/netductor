@@ -8,10 +8,10 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 ## Marker
 
 - Pass: 1
-- Stopped before: `cmd/netductor-agent`
-- Next file: `cmd/netductor-agent/main.go`
-- Done packages: API, session, mtls, secondary, policy, vpn, update, stack, addons, TG, **operator (serve/proxy/session/tunnel/deploy/site)**
-- Last fix: F19 session issue hours/host injection → 0.9.247
+- Stopped before: `internal/install` (next after agent)
+- Next file: `internal/install/` package entry
+- Done packages: … TG, operator, **cmd/netductor-agent**
+- Last fix: F20 agent download require SHA + https; TG no empty agent_update → 0.9.248
 
 
 ## Pass 1 — trust boundaries
@@ -317,3 +317,19 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 
 - R6 single middleware for requireToken on operator mux instead of per-handler.
 - R7 session issue should call node API over tunnel with session, not SSH string if possible.
+
+
+## Pass 1 notes (netductor-agent)
+
+- Commands only from primary poll after device token; unknown action → denied.
+- Destructive: reboot/agent_update need confirm=yes; sysupgrade same.
+- F20: agent_update and sysupgrade **require** 64-hex SHA; download only http(s) (http only to private IP literal); 256MiB cap.
+- Recovery/guest HTTP bind private iface; client must be private/loopback unless NETDUCTOR_RECOVERY_ALLOW_ANY=1.
+- uci_* from primary trusted; batch is path=value lines only.
+- NVR/PTZ argv-safe; passwords in args (operator path).
+- TG edge agent_update button no longer enqueues empty arg (would fail SHA check).
+
+### Refactor
+
+- R8 primary should resolve device arch + SHA256SUMS and enqueue full agent_update arg from Releases.
+- R9 downloadFile shared helper with update package.

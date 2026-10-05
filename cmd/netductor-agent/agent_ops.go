@@ -1,13 +1,14 @@
 package main
 
 import (
-	"net/url"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,18 +58,19 @@ func configBackup(client *http.Client, cfg config) string {
 func agentUpdate(arg string) string {
 	url, wantSHA, _ := edgeagent.SplitArg(arg)
 	if url == "" {
-		return "agent_update: need URL or URL|sha256"
+		return "agent_update: need URL|sha256|confirm=yes"
+	}
+	if err := requireSHA256Hex(wantSHA); err != nil {
+		return "agent_update: " + err.Error()
 	}
 	tmp := filepath.Join(os.TempDir(), "netductor-agent.new")
 	if err := downloadFile(url, tmp); err != nil {
 		return "download: " + err.Error()
 	}
-	if wantSHA != "" {
-		sum, err := fileSHA256(tmp)
-		if err != nil || !strings.EqualFold(sum, wantSHA) {
-			_ = os.Remove(tmp)
-			return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
-		}
+	sum, err := fileSHA256(tmp)
+	if err != nil || !strings.EqualFold(sum, wantSHA) {
+		_ = os.Remove(tmp)
+		return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
 	}
 	_ = os.Chmod(tmp, 0o755)
 	dest := "/usr/sbin/netductor-agent"
@@ -95,6 +97,9 @@ func doSysupgrade(arg string) string {
 	if !edgeagent.SysupgradeAllowed(arg) {
 		return "sysupgrade refused: add confirm=yes"
 	}
+	if err := requireSHA256Hex(wantSHA); err != nil {
+		return "sysupgrade: " + err.Error()
+	}
 	_ = rest
 	if _, err := exec.LookPath("sysupgrade"); err != nil {
 		return "sysupgrade binary not found"
@@ -103,12 +108,10 @@ func doSysupgrade(arg string) string {
 	if err := downloadFile(url, img); err != nil {
 		return "download: " + err.Error()
 	}
-	if wantSHA != "" {
-		sum, err := fileSHA256(img)
-		if err != nil || !strings.EqualFold(sum, wantSHA) {
-			_ = os.Remove(img)
-			return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
-		}
+	sum, err := fileSHA256(img)
+	if err != nil || !strings.EqualFold(sum, wantSHA) {
+		_ = os.Remove(img)
+		return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
 	}
 	// -n keep config by default
 	go func() {
@@ -118,8 +121,25 @@ func doSysupgrade(arg string) string {
 	return "sysupgrade scheduled (keep config flags: default -n keep; image " + img + ")"
 }
 
-func downloadFile(url, dest string) error {
-	resp, err := http.Get(url)
+func downloadFile(rawURL, dest string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("bad url")
+	}
+	switch u.Scheme {
+	case "https":
+		// ok
+	case "http":
+		// only literal private/loopback IP (no DNS redirect to public)
+		ip := net.ParseIP(u.Hostname())
+		if ip == nil || !(ip.IsPrivate() || ip.IsLoopback()) {
+			return fmt.Errorf("http only allowed to private/loopback IP")
+		}
+	default:
+		return fmt.Errorf("only http/https URLs")
+	}
+	client := &http.Client{Timeout: 10 * time.Minute}
+	resp, err := client.Get(u.String())
 	if err != nil {
 		return err
 	}
@@ -132,8 +152,29 @@ func downloadFile(url, dest string) error {
 		return err
 	}
 	defer f.Close()
-	_, err = io.Copy(f, resp.Body)
-	return err
+	// firmware can be large; hard cap 256 MiB
+	n, err := io.Copy(f, io.LimitReader(resp.Body, 256<<20))
+	if err != nil {
+		return err
+	}
+	if n >= 256<<20 {
+		_ = os.Remove(dest)
+		return fmt.Errorf("download exceeds 256MiB limit")
+	}
+	return nil
+}
+
+func requireSHA256Hex(s string) error {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if len(s) != 64 {
+		return fmt.Errorf("sha256 required (64 hex chars)")
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return fmt.Errorf("sha256 must be hex")
+		}
+	}
+	return nil
 }
 
 func fileSHA256(path string) (string, error) {
