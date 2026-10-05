@@ -190,3 +190,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Integrity check warns on internal services with no port. It does not block apply.
 - R10 media preset lists nvr even when recording is off. Route generation skips it via ServiceEnabled, so the card and the sing-box rule can disagree. One gate should feed both.
 - Next file: `internal/vpn/secondary_box.go` uplink and identity.
+
+
+## Pass 1 notes (secondary_box)
+
+- Internet uplink dials 10.87.10.1:443 as relay-uplink, with mux and no vision. Service net dials 10.87.10.1:9443 as the real user UUID, no mux. Unmatched 10.88.0.0/24 is blocked.
+- Tags are sanitized to letters and digits. User name goes into JSON, not a shell string.
+- GeoIP rule-set is downloaded direct from GitHub, not through the Reality uplink. A bad rule-set can change RU split. Expected, but it is a supply-chain input.
+- R11 secondary still sniffs before the 10.88 rules. Primary already moved service rules above sniff. Same order here would keep service dials from waiting on sniff.
+- Next file: `internal/vpn/apply.go`.
