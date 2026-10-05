@@ -295,6 +295,23 @@ func runDoctorNative() int {
 			warn++
 		}
 	}
+
+	drift := install.DiffHostBaseline()
+	if !drift.HaveSnapshot {
+		doctorPrintln("INFO no host snapshot yet (written at install / host-baseline apply)")
+	} else if len(drift.NewPorts) == 0 && len(drift.NewUnits) == 0 {
+		doctorPrintf("OK   host snapshot matches (%s)\n", drift.Created)
+		ok++
+	} else {
+		if len(drift.NewPorts) > 0 {
+			doctorPrintf("WARN snapshot new listen: %s\n", strings.Join(drift.NewPorts, ", "))
+			warn++
+		}
+		if len(drift.NewUnits) > 0 {
+			doctorPrintf("WARN snapshot new units: %s\n", strings.Join(drift.NewUnits, ", "))
+			warn++
+		}
+	}
 	// Service-net (primary VIP plane for internal services)
 	if role == "primary" && servicenet.Enabled() {
 		st := servicenet.Collect()

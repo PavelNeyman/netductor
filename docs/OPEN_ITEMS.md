@@ -10,7 +10,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 - [x] [HOST-AUDIT](HOST-AUDIT.md) — one-shot bundle + residual packages/paths/apt sources (0.9.197–0.9.198); live primary+secondary CLEAN 2026-10-03
 - [x] Expand host-audit denylist (RMM/otel/avahi + timeweb-zabbix apt) — script ↔ Go in sync (0.9.198)
 - [x] Firewall status in all UIs + alerts (0.9.259: metrics/digest/TG AlertOnce)
-- [x] Baseline snapshot at end of install (0.9.259 SnapshotHostBaseline)
+- [x] Baseline snapshot at end of install (0.9.259) + doctor auto-diff listen/units (0.9.260)
 
 
 ## Closed
