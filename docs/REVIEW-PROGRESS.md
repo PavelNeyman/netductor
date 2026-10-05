@@ -164,3 +164,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - F2 `loadMeta` still accepted a legacy file whose name was the raw token. Removed. Revoke still deletes that leftover name.
 - Cookie `nd_session` is accepted as a bearer equivalent. Flag and Secure are set by the caller, not here.
 - R7 two session formats in one lookup. Now one. Next file: `internal/mtls`.
+
+
+## Pass 1 notes (mtls)
+
+- Agent plane requires a client cert, TLS 1.3, and checks the serial against the revoke list. Node id is sanitized before it becomes a directory name.
+- Any cert from this CA is accepted. The callback does not bind the cert CN to a node id. Revocation is the cut-off. That matches a private CA, not per-node pin.
+- R8 `VerifyPeerCertificate` only checks revoke. A later pass can require the cert subject to match a known node if we want stolen-but-not-revoked certs to fail closed.
+- Next file: `internal/secondary`.
