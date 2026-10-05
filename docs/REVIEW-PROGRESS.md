@@ -181,3 +181,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Agent token is sent as Bearer. Backup key fetch still uses that token (noted earlier).
 - R9 command dispatch is a growing switch. A table of name to handler would make the allowlist obvious.
 - Next file: `internal/policy` (routes already touched; read remaining files).
+
+
+## Pass 1 notes (policy package)
+
+- Validate rejects unknown service ids unless mode is all. Normalize collapses any other mode to list, so a bad mode cannot become all.
+- Presets: full = all internal, media = lampac+nvr, none = internet only. Unknown preset leaves the current policy.
+- Integrity check warns on internal services with no port. It does not block apply.
+- R10 media preset lists nvr even when recording is off. Route generation skips it via ServiceEnabled, so the card and the sing-box rule can disagree. One gate should feed both.
+- Next file: `internal/vpn/secondary_box.go` uplink and identity.
