@@ -1,3 +1,5 @@
+> **0.9.259:** remaining wording (Primary domain, CF advanced). Earlier 0.9.93–94 labels/Lampac/TOFU.
+
 > **0.9.94:** checkbox visibility — `input{width:100%}` no longer applies to checkboxes.
 
 > **IMPLEMENTED in 0.9.93** (TOFU path, labels, CF removed from main form; Lampac checkbox kept).
@@ -6,7 +8,7 @@
 
 # Web UI / Fleet deploy — pending fixes
 
-Status: **recorded only** — do not implement until operator prioritizes.  
+Status: **implemented** (0.9.93–94 + 0.9.259 wording). Historical analysis kept below.  
 Related error analysis below; code changes deferred.
 
 ## Labels & placeholders (Installer → Fleet / Primary)

@@ -1,20 +1,21 @@
 package main
 
 import (
-	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"fmt"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"os"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
 // Node control-plane binary (VPS). No deploy/TUI/operator serve.
-
 
 func main() {
 	// version/help before config load (fast path for version.Running probes)
@@ -30,6 +31,7 @@ func main() {
 	}
 	ndconfig.Load()
 	initPolicyHook()
+	firewall.AlertFunc = notify.AlertOnce
 
 	if len(os.Args) < 2 {
 		printHelp()

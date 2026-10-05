@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -40,6 +41,10 @@ func Collect() map[string]any {
 	}
 	out["services"] = svcs
 	out["containers"] = dockerPS()
+	fw := firewall.AlertIfUnhealthy()
+	out["firewall"] = map[string]any{
+		"backend": string(fw.Backend), "active": fw.Active, "ok": fw.OK, "role": fw.Role, "warnings": fw.Warnings,
+	}
 	return out
 }
 
@@ -271,8 +276,8 @@ func ProbeUptime(limit int) map[string]any {
 			total = 1
 		}
 		out[name] = map[string]any{
-			"ok":      st[0],
-			"total":   st[1],
+			"ok":         st[0],
+			"total":      st[1],
 			"uptime_pct": float64(st[0]) / float64(total) * 100,
 		}
 	}

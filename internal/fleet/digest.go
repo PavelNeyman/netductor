@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -28,9 +29,11 @@ type Digest struct {
 	BackupAgeHours  *float64          `json:"backup_age_hours,omitempty"`
 	LEHosts         []string          `json:"le_hosts,omitempty"`
 	VPNUsers        int               `json:"vpn_users"`
-	VPNQuiet        []string          `json:"vpn_quiet,omitempty"`  // no activity hint
+	VPNQuiet        []string          `json:"vpn_quiet,omitempty"` // no activity hint
 	VPNNearQuota    []string          `json:"vpn_near_quota,omitempty"`
 	Notes           []string          `json:"notes,omitempty"`
+	FirewallOK      *bool             `json:"firewall_ok,omitempty"`
+	FirewallBackend string            `json:"firewall_backend,omitempty"`
 }
 
 // SecRow is one secondary agent line.
@@ -58,6 +61,15 @@ func Build() Digest {
 			st = "unknown"
 		}
 		d.Services[u] = st
+	}
+	{
+		fw := firewall.AlertIfUnhealthy()
+		ok := fw.OK
+		d.FirewallOK = &ok
+		d.FirewallBackend = string(fw.Backend)
+		if !fw.OK {
+			d.Notes = append(d.Notes, "firewall not OK: "+string(fw.Backend))
+		}
 	}
 	st := ndupdate.CheckStatus(version.Running())
 	if st.Error == "" {

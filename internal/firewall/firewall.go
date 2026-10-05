@@ -353,3 +353,26 @@ func HealIfNeeded(role string, force bool) (healed bool, err error) {
 	}
 	return true, nil
 }
+
+// AlertFunc optional hook (wired from main/metrics to notify.AlertOnce) to avoid import cycles.
+var AlertFunc func(key, msg string)
+
+// AlertIfUnhealthy reports Collect() and alerts when !OK (cooldown via AlertFunc).
+func AlertIfUnhealthy() Status {
+	st := Collect("")
+	if st.OK || AlertFunc == nil {
+		return st
+	}
+	msg := "🔥 Firewall not OK: backend=" + string(st.Backend) + " active="
+	if st.Active {
+		msg += "true"
+	} else {
+		msg += "false"
+	}
+	msg += " role=" + st.Role
+	if len(st.Warnings) > 0 {
+		msg += " — " + st.Warnings[0]
+	}
+	AlertFunc("firewall:not-ok", msg)
+	return st
+}

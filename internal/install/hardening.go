@@ -47,6 +47,7 @@ func InstallHardening() error {
 		fmt.Fprintf(os.Stderr, "servicenet: %v (continuing)\n", err)
 	}
 	fmt.Fprintf(os.Stderr, "hardening: firewall + mTLS :8789 + ssh key-only Port %d + fail2ban + watchdog\n", hardening.SSHPort())
+	_ = SnapshotHostBaseline()
 	return nil
 }
 
@@ -78,6 +79,9 @@ func EnsureHostBaseline(role string) error {
 	}
 	if err := WriteHosterAptBlock(); err != nil {
 		fmt.Fprintf(os.Stderr, "hoster apt pin: %v\n", err)
+	}
+	if err := SnapshotHostBaseline(); err != nil {
+		fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
 	}
 	return nil
 }

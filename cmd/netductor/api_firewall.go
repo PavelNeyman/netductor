@@ -14,7 +14,10 @@ func registerFirewallAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
-		st := firewall.Collect("")
+		if !requireSession(w, r) {
+			return
+		}
+		st := firewall.AlertIfUnhealthy()
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(st)
 	})

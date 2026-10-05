@@ -255,8 +255,8 @@ Optional: AIDE init **after** baseline when primary has disk budget.
 - [ ] Expand denylist (RMM names, otel, cloudwatch, avahi/cups) — keep in sync script ↔ Go  
 - [x] `collect-host-audit.sh` + `run-host-audit-bundle.sh` one-shot  
 - [ ] Doctor FAIL: foreign agent OR missing fw backend OR denylist port on non-loopback  
-- [ ] TG/Web firewall status block  
-- [ ] Baseline snapshot at end of install  
+- [x] TG/Web firewall status block (TG status + metrics/digest 0.9.259)  
+- [x] Baseline snapshot at end of install (`install.SnapshotHostBaseline` 0.9.259)  
 - [ ] Document qemu-ga policy explicitly in SECURITY.md  
 
 ---

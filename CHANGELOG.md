@@ -1,3 +1,9 @@
+## 0.9.259
+
+- Baseline snapshot at end of install/EnsureHostBaseline → /var/lib/netductor/baseline/{ss,units,dpkg,ufw}
+- Firewall status in metrics + fleet digest; TG alert when !OK; /api/firewall/status requires session
+- WEB-UI: Primary domain wording; CF proxy marked advanced
+
 ## 0.9.258
 
 - R1 complete: secondary builders (inbounds, outbounds/svc, DNS, route) in secondary_builders.go; WriteSecondarySingBox orchestration-only

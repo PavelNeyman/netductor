@@ -85,8 +85,8 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "le_email", Label: FormT(lang, "le_email"), Value: "",
 				Short:  ph("Let's Encrypt email", "Email Let's Encrypt"),
 				Detail: ph("Requires domain_primary (+ redirect). Empty = skip LE.", "Нужен domain_primary. Пусто = без LE.")},
-			{Key: "cf_proxy", Label: FormT(lang, "cf_proxy"), Value: "no", Toggle: true,
-				Short: ph("Cloudflare orange on i.", "CF orange на i."),
+			{Key: "cf_proxy", Label: FormT(lang, "cf_proxy") + " (advanced)", Value: "no", Toggle: true,
+				Short: ph("Usually no — DNS-only grey cloud", "Обычно no — серое облако"),
 				Detail: ph("Usually no. CF free SSL only covers one subdomain level (*.neyman.top), not i.netductor.neyman.top. Keep DNS-only (grey) and :8443.",
 					"Обычно no. Бесплатный SSL CF не покрывает i.netductor.… (два уровня). Серое облако + :8443.")},
 			{Key: "with_lampac", Label: FormT(lang, "with_lampac_primary"), Value: "no", Toggle: true,
@@ -137,7 +137,7 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "lampac_port", Label: FormT(lang, "lampac_port"), Value: "9118",
 				Short: "LAMPAC_PORT", Detail: "Lampac"},
 			{Key: "domain_primary", Label: FormT(lang, "domain_primary"), Value: "",
-				Short: ph("CORE FQDN explicit", "CORE FQDN явно"), Detail: ph("e.g. p2.nd.example.com — required for LE", "Напр. p2.nd… — для LE")},
+				Short: ph("Primary domain (FQDN)", "Домен primary (FQDN)"), Detail: ph("DNS A → primary IP; required for LE (e.g. p2.example.com)", "DNS A → IP primary; нужен для LE")},
 			{Key: "domain_vpn", Label: FormT(lang, "domain_vpn"), Value: "",
 				Short: ph("VPN entry FQDN", "VPN entry FQDN"), Detail: ph("e.g. s.nd.example.com", "Напр. s.nd…")},
 			{Key: "domain_redirect", Label: FormT(lang, "domain_redirect"), Value: "",
@@ -374,7 +374,7 @@ func (m model) runWizardApplyInTUI() string {
 		fmt.Sscanf(m.fieldVal("hours"), "%f", &hours)
 		out, err := deploy.LuciSSH(m.fieldVal("password"), expandHome(m.fieldVal("key")), orDefault(m.fieldVal("user"), "root"), m.fieldVal("router"), m.fieldVal("action"), hours, "")
 		if err != nil {
-			return err.Error()+"\n"+out
+			return err.Error() + "\n" + out
 		}
 		return out
 	case wizNVR:
