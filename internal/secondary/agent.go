@@ -390,6 +390,11 @@ func secondaryUpgrade(tag string) (bool, string) {
 		tag = version.Release
 	}
 	tag = strings.TrimPrefix(tag, "v")
+	for _, r := range tag {
+		if (r < '0' || r > '9') && r != '.' {
+			return false, "upgrade denied: tag must be a version"
+		}
+	}
 	arch := runtime.GOARCH
 	if arch != "amd64" && arch != "arm64" {
 		arch = "amd64"

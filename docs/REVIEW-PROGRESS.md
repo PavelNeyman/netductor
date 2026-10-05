@@ -172,3 +172,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Any cert from this CA is accepted. The callback does not bind the cert CN to a node id. Revocation is the cut-off. That matches a private CA, not per-node pin.
 - R8 `VerifyPeerCertificate` only checks revoke. A later pass can require the cert subject to match a known node if we want stolen-but-not-revoked certs to fail closed.
 - Next file: `internal/secondary`.
+
+
+## Pass 1 notes (secondary agent)
+
+- Command switch is an allowlist: reboot, upgrade, journal, backup, mtls refresh, restart of named units. Unknown commands are rejected.
+- F15 `upgrade:<tag>` was concatenated into the GitHub URL. A tag with `/` could leave the release path. Tag is now digits and dots only.
+- Agent token is sent as Bearer. Backup key fetch still uses that token (noted earlier).
+- R9 command dispatch is a growing switch. A table of name to handler would make the allowlist obvious.
+- Next file: `internal/policy` (routes already touched; read remaining files).
