@@ -1,6 +1,8 @@
 package update
 
 import (
+	"github.com/PavelNeyman/netductor/internal/download"
+
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -389,48 +391,39 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 		return err
 	}
 	name := assetName(component)
-	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Get(downloadURL(tag, name))
+	return DownloadNamedAsset(tag, name, destPath)
+}
+
+// DownloadNamedAsset downloads a release asset by exact basename (e.g. netductor-agent-linux-mipsle).
+func DownloadNamedAsset(tag, name, destPath string) error {
+	var err error
+	tag, err = ValidReleaseTag(tag)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("download %s: HTTP %d", name, resp.StatusCode)
+	name = filepath.Base(name)
+	if name == "" || name == "." || strings.Contains(name, "..") {
+		return fmt.Errorf("invalid asset name")
 	}
-	tmp := destPath + ".new"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(f, resp.Body)
-	f.Close()
-	if err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
+	want := ""
 	if os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") != "1" {
 		sums, err := FetchSHA256SUMS(tag)
 		if err != nil {
-			_ = os.Remove(tmp)
 			return fmt.Errorf("SHA256SUMS required (%v); set NETDUCTOR_UPDATE_SKIP_VERIFY=1 to bypass", err)
 		}
-		want, ok := sums[name]
+		var ok bool
+		want, ok = sums[name]
 		if !ok || want == "" {
-			_ = os.Remove(tmp)
 			return fmt.Errorf("no checksum entry for %s in SHA256SUMS", name)
 		}
-		got, err := fileSHA256(tmp)
-		if err != nil {
-			_ = os.Remove(tmp)
-			return err
-		}
-		if !strings.EqualFold(got, want) {
-			_ = os.Remove(tmp)
-			return fmt.Errorf("checksum mismatch for %s", name)
-		}
 	}
-	return os.Rename(tmp, destPath)
+	return download.Get(downloadURL(tag, name), destPath, download.Options{
+		MaxBytes:       512 << 20,
+		Timeout:        120 * time.Second,
+		UserAgent:      "netductor-update",
+		ExpectedSHA256: want,
+		FileMode:       0o755,
+	})
 }
 
 // ApplyTag downloads a specific release tag asset to destPath (atomic .new + rename).

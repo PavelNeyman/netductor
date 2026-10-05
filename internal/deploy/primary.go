@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/download"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 )
@@ -401,31 +402,28 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 
 	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/%s/%s", tag, name)
 	fmt.Fprintln(os.Stderr, "==> fetch", url)
-	cmd := exec.Command("curl", "-fsSL", "-o", dest, url)
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	if err := cmd.Run(); err != nil {
-		_ = os.Remove(dest)
-		return "", fmt.Errorf("download agent %s: %w (pre-place at %s for offline)", name, err, dest)
-	}
-	// F23 + A: verify against release SHA256SUMS and cache sums for offline reuse.
+	// R9: shared download.Get (https + size + optional SHA). Cache sums for offline A.
+	want := ""
 	if !skip {
 		sums, _, err := fetchAndCacheSHA256SUMS(tag, destDir, ver)
 		if err != nil {
-			_ = os.Remove(dest)
 			return "", fmt.Errorf("SHA256SUMS for agent: %w", err)
 		}
-		want, ok := sums[name]
+		var ok bool
+		want, ok = sums[name]
 		if !ok || want == "" {
-			_ = os.Remove(dest)
 			return "", fmt.Errorf("no checksum for %s in SHA256SUMS", name)
 		}
-		got, err := fileSHA256Hex(dest)
-		if err != nil || !strings.EqualFold(got, want) {
-			_ = os.Remove(dest)
-			return "", fmt.Errorf("agent checksum mismatch for %s", name)
-		}
 	}
-	_ = os.Chmod(dest, 0o755)
+	if err := download.Get(url, dest, download.Options{
+		MaxBytes:       512 << 20,
+		UserAgent:      "netductor-deploy",
+		ExpectedSHA256: want,
+		FileMode:       0o755,
+	}); err != nil {
+		_ = os.Remove(dest)
+		return "", fmt.Errorf("download agent %s: %w (pre-place at %s for offline)", name, err, dest)
+	}
 	return dest, nil
 }
 

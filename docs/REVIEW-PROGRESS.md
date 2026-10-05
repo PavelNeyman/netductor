@@ -10,7 +10,7 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 - Pass: 1 **COMPLETE** (trust-boundary packages + remainder skim)
 - Next: optional Pass 2 (correctness / tests) or operator-driven fixes from backlog R*
 - Done: API, session, mtls, secondary, policy, vpn, update, stack, addons, TG, operator, agent, install, edge, nvr, deploy (F23), remainder skim (ci/git/registry/fleet/mikrotik/firewall/guest)
-- Last fix: F23 → 0.9.251; **A** offline SHA → 0.9.252; **R8** TG/CLI agent_update+SHA → 0.9.253
+- Last fix: F23 → 0.9.251; A → 0.9.252; R8 → 0.9.253; **R9** shared download → 0.9.254
 
 
 ## Pass 1 — trust boundaries
@@ -389,4 +389,10 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 
 ## Refactor backlog (still open)
 
-R1 route builders · R2 addon status · R3 catalog-only TG · R4 local-cmd upgrade SHA · R5 password argv · R6 requireToken middleware · R7 session via API · R8 primary agent_update with SHA · R9 shared download helper · R10 openssl pass argv · R11 sing-box pin · R12 crane SHA
+R1 route builders · R2 addon status · R3 catalog-only TG · R4 local-cmd upgrade SHA · R5 password argv · R6 requireToken middleware · R7 session via API · R8 primary agent_update with SHA · ~~R9 shared download~~ · R10 openssl pass argv · R11 sing-box pin · R12 crane SHA
+
+
+## R9 closed (0.9.254)
+
+- New `internal/download.Get`: https-only (optional http→private IP), size cap, optional ExpectedSHA256, atomic write.
+- Wired: install, update DownloadReleaseAsset, deploy EnsureAgentBinary, agent downloadFile.

@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/PavelNeyman/netductor/internal/download"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -70,7 +69,7 @@ afterBin:
 		sni = ndconfig.DefaultSNI()
 	}
 	_ = writeSecret("singbox_reality_sni", sni)
-		// minimal empty config; users via vpn.ApplyConfig
+	// minimal empty config; users via vpn.ApplyConfig
 	if err := vpn.EnsureDirs(); err != nil {
 		return err
 	}
@@ -138,8 +137,8 @@ func writeEmptySingBox(confDir, priv, sid, sni string) error {
 				"tls": map[string]any{
 					"enabled": true, "server_name": sni,
 					"reality": map[string]any{
-						"enabled": true,
-						"handshake": map[string]any{"server": sni, "server_port": 443},
+						"enabled":     true,
+						"handshake":   map[string]any{"server": sni, "server_port": 443},
 						"private_key": priv, "short_id": []string{sid},
 					},
 				},
@@ -170,38 +169,10 @@ func latestTag(repo string) (string, error) {
 }
 
 func httpDownload(rawURL, dest string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil || u.Scheme != "https" || u.Host == "" {
-		return fmt.Errorf("httpDownload: only https URLs allowed")
-	}
-	client := &http.Client{Timeout: 10 * time.Minute}
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("User-Agent", "netductor-install")
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("HTTP %d %s", resp.StatusCode, rawURL)
-	}
-	f, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	n, err := io.Copy(f, io.LimitReader(resp.Body, 512<<20))
-	if err != nil {
-		return err
-	}
-	if n >= 512<<20 {
-		_ = os.Remove(dest)
-		return fmt.Errorf("download exceeds 512MiB limit")
-	}
-	return nil
+	return download.Get(rawURL, dest, download.Options{
+		MaxBytes:  512 << 20,
+		UserAgent: "netductor-install",
+	})
 }
 
 func randomHex(n int) string {

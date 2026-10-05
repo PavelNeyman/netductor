@@ -1,3 +1,7 @@
+## 0.9.254
+
+- R9: shared `internal/download` (https policy, size cap, optional SHA, atomic write); used by install, update, deploy EnsureAgentBinary, agent downloadFile
+
 ## 0.9.253
 
 - R8: TG/CLI agent_update fills URL|sha256|confirm=yes from release SHA256SUMS + device arch (heartbeat reports arch)

@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/download"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -122,46 +122,11 @@ func doSysupgrade(arg string) string {
 }
 
 func downloadFile(rawURL, dest string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil || u.Host == "" {
-		return fmt.Errorf("bad url")
-	}
-	switch u.Scheme {
-	case "https":
-		// ok
-	case "http":
-		// only literal private/loopback IP (no DNS redirect to public)
-		ip := net.ParseIP(u.Hostname())
-		if ip == nil || !(ip.IsPrivate() || ip.IsLoopback()) {
-			return fmt.Errorf("http only allowed to private/loopback IP")
-		}
-	default:
-		return fmt.Errorf("only http/https URLs")
-	}
-	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Get(u.String())
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-	f, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	// firmware can be large; hard cap 256 MiB
-	n, err := io.Copy(f, io.LimitReader(resp.Body, 256<<20))
-	if err != nil {
-		return err
-	}
-	if n >= 256<<20 {
-		_ = os.Remove(dest)
-		return fmt.Errorf("download exceeds 256MiB limit")
-	}
-	return nil
+	return download.Get(rawURL, dest, download.Options{
+		MaxBytes:         256 << 20, // firmware can be large but hard-capped
+		AllowHTTPPrivate: true,      // F20: http only to private/loopback IP
+		UserAgent:        "netductor-agent",
+	})
 }
 
 func requireSHA256Hex(s string) error {
@@ -349,7 +314,6 @@ func applyVPNClient(tmpl map[string]any, cfg config) string {
 	return note
 }
 
-
 func configRestore(client *http.Client, cfg config, name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -393,4 +357,3 @@ func configRestore(client *http.Client, cfg config, name string) string {
 	_ = exec.Command("uci", "commit").Run()
 	return "restored " + name + " + uci commit"
 }
-
