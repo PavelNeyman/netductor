@@ -234,3 +234,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - F17 release tag was concatenated into the GitHub URL. Same class as the secondary upgrade tag. Tag is now digits and dots.
 - R14 skip-verify is an env flag on the host. A local process can set it. Worth requiring the operator session path to refuse the flag.
 - Next file: `internal/stack`.
+
+
+## Pass 1 notes (stack)
+
+- Apply refuses a tag older than the running version, takes a lock, deletes attempt/, and does not auto-downgrade on health fail. New binaries stay, prev/ is not updated.
+- Pin blocks apply and rollback. Secondary is not upgraded by stack apply.
+- Health fail returns an error after the binary is already replaced. The operator sees failure while the new file is live. Intentional after the 121/132 loop, but the message must stay explicit.
+- R15 health check sleeps in the apply process. A wrapper that reports "installed, health pending" would avoid a long API call looking like a hang.
+- Next file: `internal/addons`.
