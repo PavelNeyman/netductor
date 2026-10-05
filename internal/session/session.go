@@ -92,17 +92,7 @@ func loadMeta(token string) (Meta, bool) {
 	if token == "" || len(token) > 128 || strings.Contains(token, "/") || strings.Contains(token, "..") {
 		return Meta{}, false
 	}
-	// support legacy plaintext-filename sessions during one release
-	legacy := filepath.Join(Dir(), token)
-	if b, err := os.ReadFile(legacy); err == nil {
-		var exp int64
-		fmt.Sscanf(strings.TrimSpace(string(b)), "%d", &exp)
-		if exp >= time.Now().Unix() {
-			return Meta{Exp: exp}, true
-		}
-		_ = os.Remove(legacy)
-		return Meta{}, false
-	}
+	_ = os.Remove(filepath.Join(Dir(), token)) // drop leftover plaintext-name files
 	b, err := os.ReadFile(pathForHash(hashToken(token)))
 	if err != nil {
 		return Meta{}, false

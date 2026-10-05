@@ -156,3 +156,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - R4 Auth is copied into each handler. That is why addon update, stack apply, svc-paths, and fleet digest shipped open. One wrapper for operator routes, with an allowlist for agent and health, would stop the misses.
 - R5 `register*API` is split across 18 files with no shared route table. Catalog already lists actions. Generating or checking routes against the catalog would catch a handler that forgot the session check.
 - R6 Status routes (`stack`, `update`, `firewall`) are still open on localhost while their mutations are guarded. Decide one rule: all `/api` except agent and `/health` require a session.
+
+
+## Pass 1 notes (session)
+
+- New sessions store only sha256 in `<hash>.json`, mode 0600. Token is 32 random bytes. Hours are clamped to 72.
+- F2 `loadMeta` still accepted a legacy file whose name was the raw token. Removed. Revoke still deletes that leftover name.
+- Cookie `nd_session` is accepted as a bearer equivalent. Flag and Secure are set by the caller, not here.
+- R7 two session formats in one lookup. Now one. Next file: `internal/mtls`.
