@@ -109,3 +109,11 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - F11 workflow path could be absolute and read a file outside the checkout. Rejected.
 - Pipeline scripts in the pipeline dir run as the service user. That is operator-equivalent, not a public hole.
 - Next file: `cmd/netductor/api_registry.go`.
+
+
+## Pass 1 notes (registry)
+
+- status, ensure, stop, crane, auth, and catalog all require operator session. Mutations are POST.
+- Registry process binds `127.0.0.1:5000` unless `NETDUCTOR_REGISTRY_ADDR` overrides it. Auth is optional and only on if htpasswd exists.
+- If the addr override is not loopback and auth is off, the catalog is open on that interface. Default install is loopback.
+- Next file: `cmd/netductor/api_dns.go`.
