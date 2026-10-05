@@ -208,3 +208,12 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - vless-svc still lists every enabled user, including relay-uplink. ACL, not the inbound user list, is what blocks services. A relay-uplink connection to :9443 is accepted and then rejected by route.
 - R1 still stands: inbound build, route build, and exit outbound share this file. Split when the next edit touches it.
 - Next file: `internal/vpn/registry.go`.
+
+
+## Pass 1 notes (registry)
+
+- Users file and link files are written 0600 via a temp file and rename. UUID comes from sing-box or kernel random. Name must match `^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,63}$`.
+- Add writes the registry before artifacts. A failed artifact write leaves a user without links. Not a security hole.
+- Subscription files are still written (`subscription-full.txt`, `qr-subscription.png`) even though the API returns 410. Operator-only on disk.
+- R12 stop writing subscription artifacts, or the 410 story and the disk disagree.
+- Next file: `internal/vpn/users.go`.
