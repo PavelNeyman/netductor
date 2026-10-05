@@ -1,6 +1,7 @@
 package nvr
 
 import (
+	"fmt"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -57,12 +58,18 @@ func saveTokens(list []clipToken) error {
 }
 
 // IssueClipToken creates a short-lived token for one segment path (TTL seconds).
+// Path must stay under the configured NVR segments root (defense in depth; API also checks).
 func IssueClipToken(cameraID, absPath string, ttlSec int) (string, error) {
 	if ttlSec <= 0 {
 		ttlSec = 120
 	}
 	if ttlSec > 3600 {
 		ttlSec = 3600
+	}
+	absPath = filepath.Clean(absPath)
+	root := filepath.Clean(LoadConfig().Path)
+	if root == "" || !PathUnderRoot(root, absPath) {
+		return "", fmt.Errorf("clip path outside nvr root")
 	}
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
@@ -100,6 +107,10 @@ func RedeemClipToken(token string) (path string, ok bool) {
 	}
 	_ = saveTokens(out)
 	if found == "" {
+		return "", false
+	}
+	root := filepath.Clean(LoadConfig().Path)
+	if root == "" || !PathUnderRoot(root, found) {
 		return "", false
 	}
 	return found, true

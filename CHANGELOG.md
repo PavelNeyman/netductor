@@ -1,3 +1,7 @@
+## 0.9.250
+
+- F22: NVR IssueClipToken/RedeemClipToken enforce PathUnderRoot (defense in depth)
+
 ## 0.9.249
 
 - F21: install httpDownload https-only + size cap; blocky checksums; telegram via DownloadReleaseAsset (SHA256SUMS)

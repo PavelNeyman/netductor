@@ -8,10 +8,10 @@ Inventory at start: 373 Go files, ~60316 lines. VERSION 0.9.229.
 ## Marker
 
 - Pass: 1
-- Stopped before: `internal/edge` (provision / store already partially covered via agent)
-- Next file: `internal/edge/provision.go` remaining + `internal/nvr`
-- Done packages: … agent, **internal/install**
-- Last fix: F21 install downloads verify → 0.9.249
+- Stopped before: remainder (deploy, mikrotik, format, opcatalog, paths, …)
+- Next: skim remainder packages not yet marked; then pass-1 summary
+- Done packages: … install, **internal/edge**, **internal/nvr**
+- Last fix: F22 clip path under root → 0.9.250
 
 
 ## Pass 1 — trust boundaries
@@ -342,3 +342,18 @@ Files read: `main.go` (admin gate, long-poll), `handlers_cb.go`, `handlers_msg.g
 - F21: `httpDownload` https-only, 512MiB cap; blocky verifies `blocky_checksums.txt`; `InstallTelegram` uses `DownloadReleaseAsset` + SHA256SUMS.
 - sing-box still no upstream checksum file — HTTPS only + pinned tag from GitHub API (R11 pin+digest later).
 - Host agent purge: package name allowlist style removal of zabbix etc.
+
+
+## Pass 1 notes (edge)
+
+- Enroll pending until Approve; device token 32 random; recovery codes 16B hex, one-shot, constEq.
+- EnqueueCmd allowlist; unknown rejected.
+- Provision: sshpass via env; putBytesSSH stdin; harden pubkey + password off (Dropbear/OpenSSH).
+- Recovery HTTP on agent: private bind (covered in agent pass).
+
+## Pass 1 notes (nvr)
+
+- F22: IssueClipToken/Redeem require PathUnderRoot(config.Path). API already checked; package now enforces.
+- Clip tokens one-shot, TTL max 3600, file 0600.
+- Recorder: ffmpeg argv; segments under camera id dir 0700.
+- PathUnderRoot resists /var/nvr-evil prefix trap.
