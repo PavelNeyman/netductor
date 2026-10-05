@@ -85,9 +85,9 @@ func Catalog() []ListEntry {
 }
 
 func SetEnabled(idOrURL string, on bool) error {
-	url := idOrURL
-	if u, ok := AdGuardStyleLists[idOrURL]; ok {
-		url = u
+	url, ok := AdGuardStyleLists[idOrURL]
+	if !ok {
+		return fmt.Errorf("unknown list id")
 	}
 	b, err := os.ReadFile(blockyConfig)
 	if err != nil {

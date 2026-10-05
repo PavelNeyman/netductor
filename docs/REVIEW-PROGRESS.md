@@ -117,3 +117,10 @@ Read `docs/REVIEW-PROGRESS.md`. Continue from the marker. Do not restart. Append
 - Registry process binds `127.0.0.1:5000` unless `NETDUCTOR_REGISTRY_ADDR` overrides it. Auth is optional and only on if htpasswd exists.
 - If the addr override is not loopback and auth is off, the catalog is open on that interface. Default install is loopback.
 - Next file: `cmd/netductor/api_dns.go`.
+
+
+## Pass 1 notes (dns)
+
+- list, set, and reload require operator session. Mutations are POST and audited.
+- F12 `dns set` treated an unknown id as a URL and wrote it into blocky YAML. Restricted to catalog ids.
+- Next file: `cmd/netductor/api_sshhosts.go`.
