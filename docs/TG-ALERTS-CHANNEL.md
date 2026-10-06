@@ -30,3 +30,17 @@ systemctl restart netductor-telegram-bot
 ## Topics mode (legacy)
 
 If `telegram_alerts_chat_id` is empty, routing falls back to forum topics in `topics.json` (see [TG-ALERTS-TOPIC.md](TG-ALERTS-TOPIC.md)).
+
+
+## Configure from UI / CLI
+
+```bash
+netductor tg-alerts status
+netductor tg-alerts set -100xxxxxxxxxx
+netductor tg-alerts test
+netductor tg-alerts clear
+```
+
+- API: `GET/POST /api/telegram/alerts-chat` with session (`{"chat_id":"-100…"}` or `{"clear":true}`)
+- TG: Topics screen → **Channel** / `/alerts_chat -100…`
+- op TUI: Telegram install → **TG alerts channel id**

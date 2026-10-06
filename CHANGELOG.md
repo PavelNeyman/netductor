@@ -1,3 +1,7 @@
+## 0.9.263
+
+- Configure alerts channel in all UIs: CLI `tg-alerts`, API `/api/telegram/alerts-chat`, TG Topics + `/alerts_chat`, op TUI field
+
 ## 0.9.262
 
 - cleanup: brew-style `netductor cleanup [--apply]` (attempt, nd-sb temps, legacy WG); auto after stack apply; API + TG Tools; docs/CLEANUP.md

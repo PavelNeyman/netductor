@@ -39,6 +39,7 @@ func buildAPIMux() http.Handler {
 	registerUpdateAPI(mux)
 	registerFleetAPI(mux)
 	registerCleanupAPI(mux)
+	registerTGAlertsAPI(mux)
 	registerPolicyAPI(mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

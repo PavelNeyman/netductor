@@ -330,6 +330,25 @@ func handleMessage(token string, m *message, admin int64) {
 		sendHTML(token, chat, "✅ <pre>"+esc(runVPN("enable", arg1))+"</pre>", backKeyboard())
 	case "/vpn_revoke":
 		sendHTML(token, chat, "🗑 <pre>"+esc(runVPN("revoke", arg1))+"</pre>", backKeyboard())
+	case "/alerts_chat":
+		arg := strings.TrimSpace(arg1)
+		switch {
+		case arg == "" || arg == "status":
+			sendHTML(token, chat, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+		case arg == "clear":
+			_ = notify.ClearAlertsChatID()
+			sendHTML(token, chat, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+		case arg == "test":
+			notify.AlertOnce("test:alerts-channel", "🔔 test alert routing")
+			_ = notify.FlushAlerts(true)
+			sendHTML(token, chat, "✅ test queued\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+		default:
+			if err := notify.SetAlertsChatID(arg); err != nil {
+				sendHTML(token, chat, "❌ "+esc(err.Error()), topicsKeyboard())
+			} else {
+				sendHTML(token, chat, "✅ channel set\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+			}
+		}
 	case "/topic":
 		// Assign current private topic to a role. Must be sent *inside* the topic.
 		key := "alerts"

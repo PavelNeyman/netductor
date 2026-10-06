@@ -39,6 +39,8 @@ func All() []Action {
 		// overview
 		a("health", "overview", "GET", "/health", "", "—", "Health", "Health"),
 		a("cleanup", "overview", "GET", "/api/cleanup", "", "cleanup", "Cleanup dry-run", "Очистка (dry-run)"),
+		a("tg-alerts", "overview", "GET", "/api/telegram/alerts-chat", "", "tg-alerts status", "TG alerts channel", "TG канал алертов"),
+		a("tg-alerts-set", "overview", "POST", "/api/telegram/alerts-chat", `{"chat_id":"-100…"}`, "tg-alerts set", "Set TG alerts channel", "Задать канал алертов"),
 		a("cleanup-apply", "overview", "POST", "/api/cleanup", `{"apply":true}`, "cleanup --apply", "Cleanup apply", "Очистка применить"),
 		a("doctor", "overview", "GET", "/api/doctor", "", "doctor", "Doctor", "Doctor"),
 		a("domain", "overview", "GET", "/api/domain", "", "domain show", "Domain", "Домен"),

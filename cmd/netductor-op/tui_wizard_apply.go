@@ -156,6 +156,9 @@ func wizBuildFields(id string, m *model) []wizField {
 				Short: "TG bot", Detail: "Optional"},
 			{Key: "tg_admin", Label: FormT(lang, "tg_admin_id"), Value: "",
 				Short: "TG admin id", Detail: "Optional"},
+			{Key: "tg_alerts_chat", Label: "TG alerts channel id", Value: "",
+				Short:  ph("Channel -100… for alerts", "Канал -100… для алертов"),
+				Detail: ph("Bot must be channel admin. Menu stays in DM.", "Бот = админ канала. Меню в личке.")},
 		}
 
 	case "secondary":
@@ -270,6 +273,8 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "tg_token", Label: FormT(lang, "tg_token"), Secret: true,
 				Short:  ph("Required if installing Telegram", "Нужен при установке Telegram"),
 				Detail: ph("BotFather token written to /etc/netductor/secrets on target.", "Пишется в secrets на целевой VPS.")},
+			{Key: "tg_alerts_chat", Label: "TG alerts channel", Value: "",
+				Short: "-100…", Detail: ph("Alerts channel id", "Id канала алертов")},
 			{Key: "tg_admin", Label: FormT(lang, "tg_admin"),
 				Short:  ph("Telegram numeric user id", "Числовой Telegram user id"),
 				Detail: ph("Admin allowed to control the bot.", "Админ бота.")},
@@ -421,6 +426,9 @@ func (m model) runWizardApplyInTUI() string {
 			}
 			if adm != "" {
 				script += fmt.Sprintf("printf '%%s\n' %s > /etc/netductor/secrets/telegram_admin_id; ", strconv.Quote(adm))
+			}
+			if ac := strings.TrimSpace(m.fieldVal("tg_alerts_chat")); ac != "" {
+				script += fmt.Sprintf("printf '%%s\n' %s > /etc/netductor/secrets/telegram_alerts_chat_id; ", strconv.Quote(ac))
 			}
 			script += "chmod 600 /etc/netductor/secrets/* 2>/dev/null || true; "
 			script += "netductor install telegram; systemctl restart netductor-telegram-bot || true; systemctl is-active netductor-telegram-bot || true"

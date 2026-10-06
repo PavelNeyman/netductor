@@ -161,7 +161,7 @@ func FlushAlerts(force bool) error {
 		batchMu.Unlock()
 		return err
 	}
-	if doHub && strings.TrimSpace(secret("telegram_alerts_chat_id")) == "" {
+	if doHub && !AlertsChannelConfigured() {
 		// Only re-pin compact hub when alerts share the operator chat (topic mode).
 		_ = repinHub()
 	}
@@ -172,7 +172,7 @@ func sendTelegramHTML(msg string, threadID int) error {
 	tok := secret("telegram_bot_token")
 	chat := secret("telegram_admin_id")
 	// Dedicated alerts channel (preferred over forum topics): no message_thread_id.
-	if ac := strings.TrimSpace(secret("telegram_alerts_chat_id")); ac != "" {
+	if ac := AlertsChatID(); ac != "" {
 		chat = ac
 		threadID = 0
 	}

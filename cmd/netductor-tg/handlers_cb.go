@@ -386,7 +386,17 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	case "m:topics":
-		reply(token, chat, msgID, notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())
+		body := notify.AlertsRoutingHTML(getLang() != "en") + "\n\n" + notify.TopicsStatusHTML(getLang() != "en")
+		reply(token, chat, msgID, body, topicsKeyboard())
+	case "m:alerts-chat":
+		reply(token, chat, msgID, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+	case "m:alerts-chat:clear":
+		_ = notify.ClearAlertsChatID()
+		reply(token, chat, msgID, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+	case "m:alerts-chat:test":
+		notify.AlertOnce("test:alerts-channel", "🔔 test alert routing")
+		_ = notify.FlushAlerts(true)
+		reply(token, chat, msgID, "✅ test queued\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
 	case "m:topics:reconcile":
 		admin := chat
 		if err := notify.ReconcileTopics(token, admin); err != nil {
