@@ -1,7 +1,9 @@
 package notify
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,7 +28,6 @@ func htmlEsc(s string) string {
 	return s
 }
 
-
 func postTG(tok string, method string, vals url.Values) error {
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/%s", tok, method)
 	resp, err := http.PostForm(u, vals)
@@ -34,8 +35,18 @@ func postTG(tok string, method string, vals url.Values) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("telegram HTTP %d", resp.StatusCode)
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	var wr struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	_ = json.Unmarshal(b, &wr)
+	if resp.StatusCode >= 300 || !wr.OK {
+		desc := wr.Description
+		if desc == "" {
+			desc = strings.TrimSpace(string(b))
+		}
+		return fmt.Errorf("telegram HTTP %d: %s", resp.StatusCode, desc)
 	}
 	return nil
 }

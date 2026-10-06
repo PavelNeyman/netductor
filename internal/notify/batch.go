@@ -171,28 +171,31 @@ func FlushAlerts(force bool) error {
 func sendTelegramHTML(msg string, threadID int) error {
 	tok := secret("telegram_bot_token")
 	chat := secret("telegram_admin_id")
-	// Dedicated alerts channel (preferred over forum topics): no message_thread_id.
+	channelMode := false
 	if ac := AlertsChatID(); ac != "" {
 		chat = ac
 		threadID = 0
+		channelMode = true
 	}
 	if tok == "" || chat == "" {
 		return fmt.Errorf("telegram secrets not configured")
 	}
-	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
-	body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
-	if threadID > 0 {
-		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"rich_message":{"html":%q}}`, chat, threadID, msg)
-		// private DM topics: also set direct_messages_topic_id (Bot API 10+ quirk)
-		if chatIDPositive(chat) {
-			body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"direct_messages_topic_id":%d,"rich_message":{"html":%q}}`, chat, threadID, threadID, msg)
+	// Channels: skip sendRichMessage (often unsupported); use sendMessage.
+	if !channelMode {
+		u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
+		body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
+		if threadID > 0 {
+			body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"rich_message":{"html":%q}}`, chat, threadID, msg)
+			if chatIDPositive(chat) {
+				body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"direct_messages_topic_id":%d,"rich_message":{"html":%q}}`, chat, threadID, threadID, msg)
+			}
 		}
-	}
-	resp, err := http.Post(u, "application/json", strings.NewReader(body))
-	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode < 300 {
-			return nil
+		resp, err := http.Post(u, "application/json", strings.NewReader(body))
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode < 300 {
+				return nil
+			}
 		}
 	}
 	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
@@ -202,7 +205,10 @@ func sendTelegramHTML(msg string, threadID int) error {
 			vals.Set("direct_messages_topic_id", fmt.Sprintf("%d", threadID))
 		}
 	}
-	return postTG(tok, "sendMessage", vals)
+	if err := postTG(tok, "sendMessage", vals); err != nil {
+		return fmt.Errorf("sendMessage chat=%s: %w", chat, err)
+	}
+	return nil
 }
 
 func chatIDPositive(chat string) bool {

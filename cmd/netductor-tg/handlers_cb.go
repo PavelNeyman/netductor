@@ -68,6 +68,11 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if strings.HasPrefix(data, "m:alerts-chat:pick:") {
+		id := strings.TrimPrefix(data, "m:alerts-chat:pick:")
+		applyAlertsChatID(token, chat, msgID, id)
+		return
+	}
 	if data == "m:cleanup" {
 		out, _ := exec.Command("netductor", "cleanup", "--json").CombinedOutput()
 		reply(token, chat, msgID, "<pre>"+esc(string(out))+"</pre>\n<code>netductor cleanup --apply</code>", backKeyboard())
@@ -402,13 +407,12 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		_ = notify.ClearAlertsChatID()
 		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 	case "m:alerts-chat:test":
+		notify.ClearAlert("test:alerts-channel")
 		notify.AlertOnce("test:alerts-channel", "🔔 test alert routing")
-		_ = notify.FlushAlerts(true)
-		reply(token, chat, msgID, "✅ test queued\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
-		if strings.HasPrefix(data, "m:alerts-chat:pick:") {
-			id := strings.TrimPrefix(data, "m:alerts-chat:pick:")
-			applyAlertsChatID(token, chat, msgID, id)
-			return
+		if err := notify.FlushAlerts(true); err != nil {
+			reply(token, chat, msgID, "❌ test send: "+esc(err.Error())+"\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
+		} else {
+			reply(token, chat, msgID, "✅ test sent → <code>"+esc(notify.AlertsChatID())+"</code>\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 		}
 	case "m:topics:reconcile":
 		admin := chat

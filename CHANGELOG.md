@@ -1,3 +1,8 @@
+## 0.9.266
+
+- Fix alerts-chat pick callback (was nested under test case → unknown action)
+- Channel alerts: sendMessage only; surface TG API errors; test clears cooldown and reports result
+
 ## 0.9.265
 
 - Flat DM menu when alerts channel is set or topics disabled: no message_thread_id to deleted Control topic; /menu force works in private chat
