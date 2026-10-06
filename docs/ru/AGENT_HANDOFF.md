@@ -1,3 +1,7 @@
+**Стоп: v0.9.261** (2026-10-06). Новый чат: AGENTS.md → docs/AGENT_HANDOFF.md → OPEN_ITEMS.
+
+Обновление бинаря не переписывает sing-box. Новый конфиг только после vpn apply или secondary sync. Formula только netductor-op.
+
 
 - **0.9.217:** service-net 10.88 from secondary dials primary as the real VLESS user (uplink-svc-<name>, vision, no mux). Shared relay-uplink is internet only. ACL no longer auto-allows relay-uplink.
 - **0.9.208:** TG bot sets policy.ApplyHook → ApplyAccessPolicies (policy toggles were saving JSON only; sing-box mtime stayed old).

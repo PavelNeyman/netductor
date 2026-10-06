@@ -37,8 +37,9 @@ GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o di
 SHA_ARM=$(sha256sum dist/netductor-op-darwin-arm64 | awk '{print $1}')
 SHA_AMD=$(sha256sum dist/netductor-op-darwin-amd64 | awk '{print $1}')
 SHA_LIN=$(sha256sum dist/netductor-op-linux-amd64 | awk '{print $1}')
-cat > Formula/netductor.rb << FORM
-class Netductor < Formula
+rm -f Formula/netductor.rb
+cat > Formula/netductor-op.rb << FORM
+class NetductorOp < Formula
   desc "Netductor operator (Mac client) — netductor-op only"
   homepage "https://github.com/PavelNeyman/netductor"
   version "$VER"

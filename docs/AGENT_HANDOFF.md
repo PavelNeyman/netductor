@@ -1,4 +1,28 @@
 # AGENT Handoff
+
+**Stop line: v0.9.261** (2026-10-06). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+
+## Where we stopped
+
+Pass 1 security review and R1–R15 refactor are in main. Last product change: doctor auto-diff of the install snapshot (listen ports and enabled units).
+
+| Topic | State |
+|--|--|
+| Release | **v0.9.261** — node, tg, agent, op darwin/linux. Formula is **netductor-op only** |
+| Tap | `Formula/netductor.rb` removed. `brew install netductor` was the same op binary and confused the node |
+| VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
+| Open | dual-node smoke and hardware e2e (OpenWrt/Tapo/MikroTik). Not code |
+
+## Review of 0.9.230–0.9.261
+
+Checked, still present: session on addon update, stack apply/rollback, firewall apply, update token/apply, svc-paths, fleet digest. Release tags are digits and dots. Client file reads stay in the user dir. Legacy plaintext session filenames are not accepted. Snapshot diff is WARN, not FAIL.
+
+Fixed in this pass: op `version` was hardcoded `0.9.128`. Release script wrote `Formula/netductor.rb` again; it now writes only `netductor-op.rb`.
+
+Do not stack-apply 0.9.230–0.9.239 for the session guards; use **0.9.261**.
+
+
+# AGENT Handoff
 - **0.9.217:** service-net 10.88 from secondary dials primary as the real VLESS user (uplink-svc-<name>, vision, no mux). Shared relay-uplink is internet only. ACL no longer auto-allows relay-uplink.
 - **0.9.208:** TG bot sets policy.ApplyHook → ApplyAccessPolicies (policy toggles were saving JSON only; sing-box mtime stayed old).
 - **0.9.207:** TG/Web policy UI parity — full T() i18n, preset none, card template aligned with users/dns.
