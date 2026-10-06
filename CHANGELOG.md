@@ -1,3 +1,9 @@
+## 0.9.271
+
+- Edge agent: detect OpenWrt wifi-device radios via UCI (guest AP not hard-coded to radio0/Cudy)
+- docs/OPENWRT-LAB.md — Mac/VPS lab for deploy e2e
+- Git tags pruned to latest pair (ops)
+
 ## 0.9.270
 
 - TG: remaining Topics buttons → Alerts; comments; unit tests for channel secret

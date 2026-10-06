@@ -58,15 +58,7 @@ set dhcp.guest.interface=guest
 set dhcp.guest.start=100
 set dhcp.guest.limit=100
 set dhcp.guest.leasetime=1h
-set wireless.guest24=wifi-iface
-set wireless.guest24.device=radio0
-set wireless.guest24.mode=ap
-set wireless.guest24.network=guest
-set wireless.guest24.ssid=%s
-set wireless.guest24.encryption=psk2
-set wireless.guest24.key=%s
-set wireless.guest24.hidden=%s
-set wireless.guest24.isolate=1
+%s
 set firewall.guest=zone
 set firewall.guest.name=guest
 set firewall.guest.network=guest
@@ -103,7 +95,7 @@ commit network
 commit dhcp
 commit wireless
 commit firewall
-`, ip, uciQuote(ssid), uciQuote(psk), hidden, capPort, capPort)
+`, ip, buildGuestWifiUCI(ssid, psk, hidden), capPort, capPort)
 	res := uciBatch(batch)
 	_ = installGuestNFTHooks()
 	_ = applyGuestVPNBypass(ip)
@@ -282,4 +274,36 @@ func startGuestExpireLoop(store *guest.Store) {
 			_ = applyGuestFirewallAllow(store)
 		}
 	}()
+}
+
+// buildGuestWifiUCI emits UCI lines for guest AP on each detected radio (not Cudy-only radio0).
+func buildGuestWifiUCI(ssid, psk, hidden string) string {
+	radios := guestRadioTargets()
+	var b strings.Builder
+	for i, r := range radios {
+		sec := "guest24"
+		if i > 0 {
+			if r.Band == "5g" {
+				sec = "guest5"
+			} else {
+				sec = fmt.Sprintf("guest%d", i)
+			}
+		} else if r.Band == "5g" {
+			sec = "guest5"
+		}
+		// unique section names when multiple unknown band
+		if i > 0 && r.Band != "5g" && r.Band != "2g" {
+			sec = fmt.Sprintf("guest_r%d", i)
+		}
+		b.WriteString(fmt.Sprintf("set wireless.%s=wifi-iface\n", sec))
+		b.WriteString(fmt.Sprintf("set wireless.%s.device=%s\n", sec, r.Name))
+		b.WriteString(fmt.Sprintf("set wireless.%s.mode=ap\n", sec))
+		b.WriteString(fmt.Sprintf("set wireless.%s.network=guest\n", sec))
+		b.WriteString(fmt.Sprintf("set wireless.%s.ssid=%s\n", sec, uciQuote(ssid)))
+		b.WriteString(fmt.Sprintf("set wireless.%s.encryption=psk2\n", sec))
+		b.WriteString(fmt.Sprintf("set wireless.%s.key=%s\n", sec, uciQuote(psk)))
+		b.WriteString(fmt.Sprintf("set wireless.%s.hidden=%s\n", sec, hidden))
+		b.WriteString(fmt.Sprintf("set wireless.%s.isolate=1\n", sec))
+	}
+	return b.String()
 }
