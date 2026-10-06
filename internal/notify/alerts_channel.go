@@ -10,7 +10,7 @@ import (
 
 const alertsChatSecret = "telegram_alerts_chat_id"
 
-// AlertsChatID returns dedicated alerts channel id (empty = admin chat + optional topics).
+// AlertsChatID returns dedicated alerts channel id (empty = admin DM).
 func AlertsChatID() string {
 	if v := strings.TrimSpace(secret(alertsChatSecret)); v != "" {
 		return v
@@ -18,7 +18,7 @@ func AlertsChatID() string {
 	return strings.TrimSpace(os.Getenv("NETDUCTOR_TG_ALERTS_CHAT"))
 }
 
-// AlertsChannelConfigured is true when alerts go to a separate chat (no topic routing).
+// AlertsChannelConfigured is true when alerts go to a separate channel.
 func AlertsChannelConfigured() bool {
 	return AlertsChatID() != ""
 }

@@ -1,3 +1,8 @@
+## 0.9.270
+
+- TG: remaining Topics buttons → Alerts; comments; unit tests for channel secret
+- GitHub: prune historical releases (keep latest pair only)
+
 ## 0.9.269
 
 - Remove TG private/forum topics entirely; alerts channel + flat admin DM only
