@@ -1,12 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"strings"
 )
-
 
 func formatRelayOneline() string {
 	_ = runND("secondary", "export", "-o", "/tmp/nd-secondary-bundle.json", "--sni", "ya.ru")
@@ -22,8 +21,6 @@ func formatRelayOneline() string {
 	}
 	return "🧾 <b>One command on RU VPS</b>" + nl + nl + "<code>" + esc(cmd) + "</code>"
 }
-
-
 
 func formatSitesHTML() string {
 	out := strings.TrimSpace(runND("sites", "list"))

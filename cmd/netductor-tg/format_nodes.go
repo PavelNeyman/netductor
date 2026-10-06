@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"strings"
 
-	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
 
 func formatRelayListHTML() string {
@@ -17,10 +17,6 @@ func formatRelayListHTML() string {
 	body := formatNodesListHTML()
 	return "📡 <b>Nodes / secondary</b>" + nl + "RU exit: <code>" + esc(ex) + "</code>" + nl + nl + body + nl + formatRelayActionsHTML()
 }
-
-
-
-
 
 // nodeCard is the single view-model for TG node screens (primary, secondary, edge).
 type nodeCard struct {
@@ -270,7 +266,7 @@ func formatCmdQueuedHTML(kind, nodeID, raw string) string {
 	b.WriteString("<tr><td>status</td><td>queued</td></tr>" + nl)
 	b.WriteString("</table>" + nl)
 	b.WriteString("<i>" + T("cmd_wait_hint") + "</i>")
-		b.WriteString(formatRelayActionsHTML())
+	b.WriteString(formatRelayActionsHTML())
 	return b.String()
 }
 
@@ -316,5 +312,3 @@ func restartSingBox(id string) string {
 	}
 	return "ok\n" + string(b)
 }
-
-

@@ -82,7 +82,7 @@ func formatFleetDigestHTML() string {
 			b.WriteString(nl + "<i>Soft limit set: " + esc(strings.Join(d.VPNNearQuota, ", ")) + "</i>" + nl)
 		}
 	}
-		// stack units
+	// stack units
 	st := stack.Collect()
 	b.WriteString(nl + stack.FormatHTML(st) + nl)
 	var bad []string
@@ -105,7 +105,7 @@ func formatFleetDigestHTML() string {
 		b.WriteString(`<tg-button-row><tg-button type="callback_data" data="m:stack">🧱 Stack</tg-button></tg-button-row>` + nl)
 	}
 
-// disaster path short
+	// disaster path short
 	if ru {
 		b.WriteString(nl + "<i>DR: netductor recover --from-secondary … · Updates · doctor</i>")
 	} else {

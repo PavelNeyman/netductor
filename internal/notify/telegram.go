@@ -51,38 +51,9 @@ func postTG(tok string, method string, vals url.Values) error {
 	return nil
 }
 
-// Telegram sends via sendRichMessage when possible.
+// Telegram sends HTML to alerts channel if set, else admin DM (no topics).
 func Telegram(msg string) error {
-	tok := secret("telegram_bot_token")
-	chat := secret("telegram_admin_id")
-	if tok == "" || chat == "" {
-		return fmt.Errorf("telegram secrets not configured")
-	}
-	// try rich
-	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
-	th := ThreadID("alerts")
-	body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
-	if th > 0 {
-		body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"rich_message":{"html":%q}}`, chat, th, msg)
-		if th > 0 {
-			var n int64
-			if _, e := fmt.Sscanf(strings.TrimSpace(chat), "%d", &n); e == nil && n > 0 {
-				body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"direct_messages_topic_id":%d,"rich_message":{"html":%q}}`, chat, th, th, msg)
-			}
-		}
-	}
-	resp, err := http.Post(u, "application/json", strings.NewReader(body))
-	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode < 300 {
-			return nil
-		}
-	}
-	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
-	if th := ThreadID("alerts"); th > 0 {
-		vals.Set("message_thread_id", fmt.Sprintf("%d", th))
-	}
-	return postTG(tok, "sendMessage", vals)
+	return sendTelegramHTML(msg)
 }
 
 // TelegramCmd reports a finished node command with a small table.

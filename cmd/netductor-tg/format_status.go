@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/format"
-	"github.com/PavelNeyman/netductor/internal/metrics"
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/addons"
+	"github.com/PavelNeyman/netductor/internal/format"
+	"github.com/PavelNeyman/netductor/internal/metrics"
 	"os"
 	"os/exec"
 	"strings"
-	"github.com/PavelNeyman/netductor/internal/addons"
 )
 
 func yn(ok bool, good, bad string) string {
@@ -56,7 +56,6 @@ func formatLampacHTML() string {
 	}
 	return b.String()
 }
-
 
 func formatAddonsHTML() string {
 	ru := getLang() != "en"
@@ -122,7 +121,7 @@ func formatEdgeListHTML(raw string) string {
 		}
 		b.WriteString(fmt.Sprintf("%s <code>%s</code>\n   %s\n", icon, esc(id), esc(rest)))
 		polLabel := T("pol_btn")
-				b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" data="e:policy:%s">%s %s</tg-button></tg-button-row>`+"\n", id, polLabel, esc(id)))
+		b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" data="e:policy:%s">%s %s</tg-button></tg-button-row>`+"\n", id, polLabel, esc(id)))
 	}
 	return b.String()
 }
@@ -138,10 +137,10 @@ func formatPendingHTML(raw string) string {
 	}
 	if raw == "" {
 		if getLang() != "en" {
-		b.WriteString("<i>Список пуст</i>")
-	} else {
-		b.WriteString("<i>Empty</i>")
-	}
+			b.WriteString("<i>Список пуст</i>")
+		} else {
+			b.WriteString("<i>Empty</i>")
+		}
 		return b.String()
 	}
 	var ids []string
@@ -245,9 +244,6 @@ func isHexish(s string) bool {
 	return true
 }
 
-
-
-
 func formatStatusPretty() string {
 	nl := string([]byte{10})
 	ru := getLang() != "en"
@@ -311,15 +307,12 @@ func formatStatusPretty() string {
 	return b.String()
 }
 
-
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
 	return s[:n] + "…"
 }
-
-
 
 func formatFirewallBlock() string {
 	nl := string([]byte{10})
@@ -376,4 +369,3 @@ func formatFirewallBlock() string {
 	}
 	return b.String()
 }
-

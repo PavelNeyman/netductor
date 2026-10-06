@@ -129,7 +129,6 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 			"html": html,
 		},
 	}
-	notify.ApplyThread(payload, "menu")
 	if kb != nil {
 		payload["reply_markup"] = kb
 	}
@@ -151,7 +150,6 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 		}
 	}
 	payload2 := map[string]any{"chat_id": chat, "text": html, "parse_mode": "HTML"}
-	notify.ApplyThread(payload2, "menu")
 	if kb != nil {
 		payload2["reply_markup"] = kb
 	}
@@ -193,32 +191,6 @@ func editRich(token string, chat int64, msgID int, html string, kb map[string]an
 }
 
 var topicsLastReconcile time.Time
-
-func ensureTopicsOnce(token string, admin int64) {
-	if admin == 0 || token == "" {
-		return
-	}
-	// Channel / flat-DM mode: do not recreate private topics or pin menu into Control.
-	if !notify.TopicsForMenuEnabled() {
-		return
-	}
-	// Full reconcile at most every 6h (also runs soon after process start).
-	if !topicsLastReconcile.IsZero() && time.Since(topicsLastReconcile) < 6*time.Hour {
-		return
-	}
-	topicsLastReconcile = time.Now()
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Fprintln(os.Stderr, "topics panic:", r)
-		}
-	}()
-	if err := notify.ReconcileTopics(token, admin); err != nil {
-		fmt.Fprintln(os.Stderr, "topics:", err)
-		topicsLastReconcile = time.Time{} // retry next update
-		return
-	}
-	fmt.Fprintln(os.Stderr, "topics: reconciled bootstrap + backup")
-}
 
 func sendHTML(token string, chat int64, text string, kb map[string]any) {
 	sendRich(token, chat, text, kb)
@@ -308,10 +280,6 @@ func sendRichWithPhoto(token string, chat int64, html, photoPath, photoID string
 	w := multipart.NewWriter(&buf)
 	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
 	_ = w.WriteField("rich_message", string(rmJSON))
-	if th := notify.MediaThread(); th > 0 {
-		_ = w.WriteField("message_thread_id", strconv.Itoa(th))
-		_ = w.WriteField("direct_messages_topic_id", strconv.Itoa(th))
-	}
 	if kb != nil {
 		jb, _ := json.Marshal(kb)
 		_ = w.WriteField("reply_markup", string(jb))
@@ -527,10 +495,6 @@ func sendDocumentFile(token string, chat int64, path, caption string, kb map[str
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
-	if th := notify.MediaThread(); th > 0 {
-		_ = w.WriteField("message_thread_id", strconv.Itoa(th))
-		_ = w.WriteField("direct_messages_topic_id", strconv.Itoa(th))
-	}
 	if caption != "" {
 		_ = w.WriteField("caption", caption)
 		_ = w.WriteField("parse_mode", "HTML")
@@ -851,11 +815,7 @@ func main() {
 	}
 	setBotCommands(token)
 	offset := 0
-	if !notify.TopicsForMenuEnabled() {
-		notify.ClearHubMsg()
-		_ = notify.DisablePrivateTopics()
-		fmt.Fprintln(os.Stderr, "tg: flat DM menu (alerts channel or topics disabled)")
-	}
+	notify.MigrateAwayFromTopics()
 
 	for {
 		v := url.Values{}
@@ -893,7 +853,6 @@ func main() {
 				if admin == 0 {
 					continue
 				}
-				ensureTopicsOnce(token, admin)
 				handleCallback(token, u.CallbackQuery, admin)
 				continue
 			}
@@ -915,7 +874,6 @@ func main() {
 					sendHTML(token, u.Message.Chat.ID, T("operator_not_cfg"), nil)
 					continue
 				}
-				ensureTopicsOnce(token, admin)
 				handleMessage(token, u.Message, admin)
 			}
 		}

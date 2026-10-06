@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	qrcode "github.com/skip2/go-qrcode"
 	"net/url"
@@ -438,16 +437,7 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	dir := filepath.Join("/etc/netductor/clients", name)
 	_ = os.MkdirAll(dir, 0o700)
 
-	// Control hub keeps text Access card; QR image goes to 📎 Media topic (does not replace hub).
-	note := ""
-	if notify.TopicsForMenuEnabled() {
-		if getLang() != "en" {
-			note = "\n<i>QR → топик 📎 Media</i>"
-		} else {
-			note = "\n<i>QR → 📎 Media topic</i>"
-		}
-	}
-	reply(token, chat, msgID, html+note, kb)
+	reply(token, chat, msgID, html, kb)
 
 	if uri == "" {
 		return

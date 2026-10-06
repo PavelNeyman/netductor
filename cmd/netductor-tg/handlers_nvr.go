@@ -1,9 +1,9 @@
 package main
 
 import (
-	"os/exec"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -212,7 +212,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		cams := nvr.ListCameras()
 		nl := string([]byte{10})
 		var b strings.Builder
-		b.WriteString("📷 <b>"+T("nvr_cams_title")+"</b>" + nl)
+		b.WriteString("📷 <b>" + T("nvr_cams_title") + "</b>" + nl)
 		if getLang() != "en" {
 			b.WriteString("<i># · P probe · R record · S stop · ◀▶▲▼ PTZ</i>" + nl)
 		} else {
@@ -387,7 +387,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		raw, _ := json.MarshalIndent(mc, "", "  ")
 		inw := nvr.InMotionWindow(mc, time.Now())
 		r := format.API("nvr-config", raw, catalogLang())
-		hint := "in_window="+fmt.Sprintf("%v", inw)
+		hint := "in_window=" + fmt.Sprintf("%v", inw)
 		reply(token, chat, msgID, "👁 <b>Motion</b>\n"+r.HTML+"\n"+hint, nvrSubKeyboard())
 	case data == "m:nvr:cfg":
 		cfg := nvr.LoadConfig()

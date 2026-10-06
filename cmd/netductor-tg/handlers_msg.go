@@ -355,42 +355,24 @@ func handleMessage(token string, m *message, admin int64) {
 		arg := strings.TrimSpace(arg1)
 		switch {
 		case arg == "" || arg == "status":
-			sendHTML(token, chat, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+			sendHTML(token, chat, notify.AlertsRoutingHTML(getLang() != "en"), alertsChatKeyboard())
 		case arg == "clear":
 			_ = notify.ClearAlertsChatID()
-			sendHTML(token, chat, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+			sendHTML(token, chat, notify.AlertsRoutingHTML(getLang() != "en"), alertsChatKeyboard())
 		case arg == "test":
 			if err := notify.SendTestAlert("🔔 test alert routing"); err != nil {
-				sendHTML(token, chat, "❌ "+esc(err.Error()), topicsKeyboard())
+				sendHTML(token, chat, "❌ "+esc(err.Error()), alertsChatKeyboard())
 			} else {
-				sendHTML(token, chat, "✅ test sent\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+				sendHTML(token, chat, "✅ test sent\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), alertsChatKeyboard())
 			}
 		default:
 			if err := notify.SetAlertsChatID(arg); err != nil {
-				sendHTML(token, chat, "❌ "+esc(err.Error()), topicsKeyboard())
+				sendHTML(token, chat, "❌ "+esc(err.Error()), alertsChatKeyboard())
 			} else {
-				sendHTML(token, chat, "✅ channel set\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+				sendHTML(token, chat, "✅ channel set\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), alertsChatKeyboard())
 			}
 		}
-	case "/topic":
-		// Assign current private topic to a role. Must be sent *inside* the topic.
-		key := "alerts"
-		if arg1 != "" {
-			key = arg1
-		}
-		if m.MessageThreadID <= 0 {
-			msg := "Send /topic from inside a topic (Threaded Mode in BotFather)."
-			if getLang() != "en" {
-				msg = "Отправьте /topic изнутри темы (Threaded Mode в BotFather)."
-			}
-			sendHTML(token, chat, "❌ "+msg+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), mainKeyboard())
-			return
-		}
-		if err := notify.AssignTopic(chat, key, m.MessageThreadID); err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), mainKeyboard())
-			return
-		}
-		sendHTML(token, chat, "✅ <code>"+esc(key)+"</code> → thread <code>"+fmt.Sprintf("%d", m.MessageThreadID)+"</code>\n\n"+notify.TopicsStatusHTML(getLang() != "en"), mainKeyboard())
+
 	case "/session":
 		h := "72"
 		if arg1 != "" {

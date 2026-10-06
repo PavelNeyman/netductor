@@ -1,3 +1,8 @@
+## 0.9.269
+
+- Remove TG private/forum topics entirely; alerts channel + flat admin DM only
+- MigrateAwayFromTopics clears topics.json; Topics UI → Alerts channel screen
+
 ## 0.9.268
 
 - TG: SR Config document + picker always get Menu/back keyboards; QR photo keeps access nav; flat-DM note without Media topic

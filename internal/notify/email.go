@@ -10,11 +10,12 @@ import (
 )
 
 // SMTP settings from env (also loadable via netductor.conf → env):
-//   NETDUCTOR_SMTP_HOST=mail.example.com:587
-//   NETDUCTOR_SMTP_USER=...
-//   NETDUCTOR_SMTP_PASS=...
-//   NETDUCTOR_SMTP_FROM=netductor@example.com
-//   NETDUCTOR_SMTP_TO=you@example.com   (comma-separated)
+//
+//	NETDUCTOR_SMTP_HOST=mail.example.com:587
+//	NETDUCTOR_SMTP_USER=...
+//	NETDUCTOR_SMTP_PASS=...
+//	NETDUCTOR_SMTP_FROM=netductor@example.com
+//	NETDUCTOR_SMTP_TO=you@example.com   (comma-separated)
 func smtpConfigured() bool {
 	return strings.TrimSpace(os.Getenv("NETDUCTOR_SMTP_HOST")) != "" &&
 		strings.TrimSpace(os.Getenv("NETDUCTOR_SMTP_TO")) != ""

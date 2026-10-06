@@ -144,13 +144,7 @@ func FlushAlerts(force bool) error {
 			b.WriteString(fmt.Sprintf("<b>%d.</b> %s\n\n", i+1, p))
 		}
 	}
-	threadID := 0
-	if len(keys) == 1 {
-		threadID = ResolveThreadIDForMessage(keys[0])
-	} else {
-		threadID = ThreadID("alerts")
-	}
-	if err := sendTelegramHTML(b.String(), threadID); err != nil {
+	if err := sendTelegramHTML(b.String()); err != nil {
 		// put back on failure (best-effort, may duplicate later)
 		batchMu.Lock()
 		for i, k := range keys {
@@ -168,28 +162,21 @@ func FlushAlerts(force bool) error {
 	return nil
 }
 
-func sendTelegramHTML(msg string, threadID int) error {
+func sendTelegramHTML(msg string) error {
 	tok := secret("telegram_bot_token")
 	chat := secret("telegram_admin_id")
 	channelMode := false
 	if ac := AlertsChatID(); ac != "" {
 		chat = ac
-		threadID = 0
 		channelMode = true
 	}
 	if tok == "" || chat == "" {
 		return fmt.Errorf("telegram secrets not configured")
 	}
-	// Channels: skip sendRichMessage (often unsupported); use sendMessage.
+	// Channels: sendMessage only. Admin DM: try rich, then sendMessage.
 	if !channelMode {
 		u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
 		body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
-		if threadID > 0 {
-			body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"rich_message":{"html":%q}}`, chat, threadID, msg)
-			if chatIDPositive(chat) {
-				body = fmt.Sprintf(`{"chat_id":%s,"message_thread_id":%d,"direct_messages_topic_id":%d,"rich_message":{"html":%q}}`, chat, threadID, threadID, msg)
-			}
-		}
 		resp, err := http.Post(u, "application/json", strings.NewReader(body))
 		if err == nil {
 			defer resp.Body.Close()
@@ -199,12 +186,6 @@ func sendTelegramHTML(msg string, threadID int) error {
 		}
 	}
 	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
-	if threadID > 0 {
-		vals.Set("message_thread_id", fmt.Sprintf("%d", threadID))
-		if chatIDPositive(chat) {
-			vals.Set("direct_messages_topic_id", fmt.Sprintf("%d", threadID))
-		}
-	}
 	if err := postTG(tok, "sendMessage", vals); err != nil {
 		return fmt.Errorf("sendMessage chat=%s: %w", chat, err)
 	}

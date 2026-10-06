@@ -1,6 +1,6 @@
 # Alerts → separate Telegram channel
 
-Preferred over forum **topics** (topics are awkward for operators).
+Canonical alert routing (private TG topics removed).
 
 ## Setup
 
@@ -29,7 +29,6 @@ systemctl restart netductor-telegram-bot
 
 ## Topics mode (legacy)
 
-If `telegram_alerts_chat_id` is empty, routing falls back to forum topics in `topics.json` (see [TG-ALERTS-TOPIC.md](TG-ALERTS-TOPIC.md)).
 
 
 ## Configure from UI / CLI

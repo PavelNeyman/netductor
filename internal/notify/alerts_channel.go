@@ -42,12 +42,7 @@ func SetAlertsChatID(id string) error {
 			return fmt.Errorf("chat id must be numeric (got %q)", id)
 		}
 	}
-	if err := paths.WriteSecret(alertsChatSecret, id); err != nil {
-		return err
-	}
-	// Channel mode: menu/QR in plain DM (stale Control topic ids would swallow messages).
-	_ = DisablePrivateTopics()
-	return nil
+	return paths.WriteSecret(alertsChatSecret, id)
 }
 
 // ClearAlertsChatID removes the secret file.
@@ -59,7 +54,7 @@ func ClearAlertsChatID() error {
 
 // AlertsRoutingStatus is JSON/UI friendly.
 type AlertsRoutingStatus struct {
-	Mode         string `json:"mode"` // channel | topics | admin_only
+	Mode         string `json:"mode"` // channel | admin_only
 	AlertsChatID string `json:"alerts_chat_id,omitempty"`
 	AdminChatID  string `json:"admin_chat_id,omitempty"`
 	ChannelSet   bool   `json:"channel_set"`
@@ -76,12 +71,9 @@ func GetAlertsRoutingStatus() AlertsRoutingStatus {
 	if st.ChannelSet {
 		st.Mode = "channel"
 		st.Hint = "Alerts → channel; menu/VPN cards stay in operator DM"
-	} else if ThreadID("alerts") > 0 {
-		st.Mode = "topics"
-		st.Hint = "Alerts → forum topics in admin chat (set telegram_alerts_chat_id for a channel)"
 	} else {
 		st.Mode = "admin_only"
-		st.Hint = "Alerts → admin chat General; set telegram_alerts_chat_id for a dedicated channel"
+		st.Hint = "Alerts → admin DM; set telegram_alerts_chat_id for a dedicated channel"
 	}
 	return st
 }

@@ -1,6 +1,6 @@
 # Plan: Remove Telegram private-topics functionality
 
-**Status:** planned (not implemented)  
+**Status:** implemented (0.9.269)  
 **Goal:** Delete forum/private **topics** support from netductor-tg / notify.  
 **Must not break:** alerts **channel** (`telegram_alerts_chat_id`), operator **DM menu**, VPN cards, QR, SR Config, batch alerts.
 

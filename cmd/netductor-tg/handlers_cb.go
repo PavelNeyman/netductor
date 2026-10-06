@@ -390,9 +390,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
-	case "m:topics":
-		body := alertsChatPromptHTML(getLang() != "en") + "\n\n" + notify.TopicsStatusHTML(getLang() != "en")
-		reply(token, chat, msgID, body, topicsKeyboard())
+	case "m:topics", "m:topics:reconcile", "m:topics:recreate", "m:topics:flat":
+		// Topics removed — channel / flat DM only.
+		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 	case "m:alerts-chat":
 		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 	case "m:alerts-chat:set":
@@ -416,35 +416,6 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			}
 			reply(token, chat, msgID, "✅ test sent → <code>"+esc(dest)+"</code>\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 		}
-	case "m:topics:reconcile":
-		admin := chat
-		if err := notify.ReconcileTopics(token, admin); err != nil {
-			reply(token, chat, msgID, "❌ "+esc(err.Error()), topicsKeyboard())
-		} else {
-			ok := "✅ Topics reconciled"
-			if getLang() != "en" {
-				ok = "✅ Топики сверены"
-			}
-			reply(token, chat, msgID, ok+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())
-		}
-	case "m:topics:recreate":
-		admin := chat
-		if err := notify.ForceRecreateTopics(token, admin); err != nil {
-			reply(token, chat, msgID, "❌ "+esc(err.Error()), topicsKeyboard())
-		} else {
-			// New threads → old hub message_id is stale; always force a fresh Control hub.
-			notify.ClearHubMsg()
-			ok := "✅ Topics recreated (bootstrap)"
-			if getLang() != "en" {
-				ok = "✅ Топики пересозданы (bootstrap)"
-			}
-			sendHTML(token, chat, ok+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())
-			forceHub(token, chat, menuText(), mainKeyboard())
-		}
-	case "m:topics:flat":
-		_ = notify.DisablePrivateTopics()
-		forceHub(token, chat, menuText(), mainKeyboard())
-		return
 	case "m:hub:reset":
 		// Explicit singleton reset (user deleted hub "for me" / cleared chat).
 		forceHub(token, chat, menuText(), mainKeyboard())
