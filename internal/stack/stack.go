@@ -410,6 +410,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return fmt.Errorf("apply already in progress: %s", cur)
 	}
 	defer ClearApplyLock()
+	defer func() { _ = notify.FlushAlerts(true) }()
 	cur := verNorm(version.Running())
 	want := verNorm(tag)
 	if cur != "" && want != "" && verLess(want, cur) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
 	"github.com/PavelNeyman/netductor/internal/nodes"
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 )
@@ -84,7 +85,11 @@ func runNodes(args []string) {
 			logf := "/var/lib/netductor/core-upgrade.log"
 			_ = os.MkdirAll("/var/lib/netductor", 0o755)
 			_ = os.WriteFile(logf, []byte("started\n"), 0o600)
+			host, _ := os.Hostname()
+			notify.AlertOnce("node:upgrade:"+host, "⬆️ Node apt/core upgrade started on <code>"+host+"</code>")
+			_ = notify.FlushAlerts(true)
 			go func() {
+
 				f, _ := os.OpenFile(logf, os.O_APPEND|os.O_WRONLY, 0o600)
 				defer func() {
 					if f != nil {
@@ -128,6 +133,8 @@ func runNodes(args []string) {
 				_ = exec.Command("systemctl", "restart", "sing-box").Run()
 				_ = exec.Command("systemctl", "restart", "netductor-api").Run()
 				logw("CORE_UPGRADE_DONE")
+				notify.AlertOnce("node:upgrade-ok:"+host, "✅ Node upgrade done on <code>"+host+"</code>")
+				_ = notify.FlushAlerts(true)
 				// restart bot last so this process can exit cleanly
 				go func() {
 					time.Sleep(2 * time.Second)

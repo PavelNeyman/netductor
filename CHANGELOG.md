@@ -1,3 +1,8 @@
+## 0.9.272
+
+- Fix: stack apply / node upgrade flush TG alerts before CLI exit (were queued 25s and lost)
+- nodes upgrade: start/done alerts to channel
+
 ## 0.9.271
 
 - Edge agent: detect OpenWrt wifi-device radios via UCI (guest AP not hard-coded to radio0/Cudy)
