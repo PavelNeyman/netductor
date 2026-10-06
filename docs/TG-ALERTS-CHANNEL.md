@@ -44,3 +44,14 @@ netductor tg-alerts clear
 - API: `GET/POST /api/telegram/alerts-chat` with session (`{"chat_id":"-100…"}` or `{"clear":true}`)
 - TG: Topics screen → **Channel** / `/alerts_chat -100…`
 - op TUI: Telegram install → **TG alerts channel id**
+
+
+## Interactive (Telegram)
+
+Topics → **Channel** → **Set**:
+
+1. Add bot as **channel admin**.
+2. **Forward** any post from the channel into the bot DM (recommended), **or** type `-100…`.
+3. Or tap a **known chat** button (bot remembers channels from `my_chat_member` / posts / forwards).
+
+Bots **cannot** list all channels where they are admin — only chats that produced an update.

@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
-	"github.com/PavelNeyman/netductor/internal/policy"
-	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/policy"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -846,7 +846,7 @@ func main() {
 		v := url.Values{}
 		v.Set("timeout", "30")
 		v.Set("offset", strconv.Itoa(offset))
-		v.Set("allowed_updates", `["message","callback_query"]`)
+		v.Set("allowed_updates", `["message","callback_query","channel_post","my_chat_member"]`)
 		body, err := apiGet(token, "getUpdates", v)
 		if err != nil {
 			time.Sleep(3 * time.Second)
@@ -866,6 +866,14 @@ func main() {
 				continue
 			}
 			offset = u.UpdateID + 1
+			if u.MyChatMember != nil {
+				rememberFromChatMember(u.MyChatMember)
+				continue
+			}
+			if u.ChannelPost != nil {
+				rememberFromMessage(u.ChannelPost)
+				continue
+			}
 			if u.CallbackQuery != nil {
 				if admin == 0 {
 					continue

@@ -1,3 +1,7 @@
+## 0.9.264
+
+- TG alerts channel UX: Set → forward post or type id; list known chats (my_chat_member/channel_post/forward); pick buttons
+
 ## 0.9.263
 
 - Configure alerts channel in all UIs: CLI `tg-alerts`, API `/api/telegram/alerts-chat`, TG Topics + `/alerts_chat`, op TUI field

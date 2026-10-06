@@ -16,6 +16,7 @@ func handleMessage(token string, m *message, admin int64) {
 		return
 	}
 	chat := m.Chat.ID
+	rememberFromMessage(m)
 	text := strings.TrimSpace(m.Text)
 
 	if handleNVRMessage(token, chat, text) {
@@ -32,6 +33,26 @@ func handleMessage(token string, m *message, admin int64) {
 	}
 
 	st := chatState[chat]
+
+	if st == "wait_alerts_chat" {
+		rememberFromMessage(m)
+		if fid, title := extractForwardedChannelID(m); fid != 0 {
+			setState(chat, "", "")
+			notify.RememberChat(fid, title, "channel")
+			applyAlertsChatID(token, chat, 0, strconv.FormatInt(fid, 10))
+			return
+		}
+		text := strings.TrimSpace(m.Text)
+		if text == "" || text == "/cancel" {
+			setState(chat, "", "")
+			sendHTML(token, chat, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
+			return
+		}
+		// numeric id
+		setState(chat, "", "")
+		applyAlertsChatID(token, chat, 0, text)
+		return
+	}
 	if st == "wait_github_token" {
 		setState(chat, "", "")
 		tok := strings.TrimSpace(text)

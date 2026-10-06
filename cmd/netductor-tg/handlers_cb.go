@@ -386,17 +386,30 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
 	case "m:topics":
-		body := notify.AlertsRoutingHTML(getLang() != "en") + "\n\n" + notify.TopicsStatusHTML(getLang() != "en")
+		body := alertsChatPromptHTML(getLang() != "en") + "\n\n" + notify.TopicsStatusHTML(getLang() != "en")
 		reply(token, chat, msgID, body, topicsKeyboard())
 	case "m:alerts-chat":
-		reply(token, chat, msgID, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
+	case "m:alerts-chat:set":
+		setState(chat, "wait_alerts_chat", "")
+		ru := getLang() != "en"
+		hint := "Send the channel id (−100…) or <b>forward a post</b> from the channel."
+		if ru {
+			hint = "Пришлите id канала (−100…) или <b>перешлите пост</b> из канала."
+		}
+		reply(token, chat, msgID, "✏️ "+hint, alertsChatKeyboard())
 	case "m:alerts-chat:clear":
 		_ = notify.ClearAlertsChatID()
-		reply(token, chat, msgID, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 	case "m:alerts-chat:test":
 		notify.AlertOnce("test:alerts-channel", "🔔 test alert routing")
 		_ = notify.FlushAlerts(true)
-		reply(token, chat, msgID, "✅ test queued\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+		reply(token, chat, msgID, "✅ test queued\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
+		if strings.HasPrefix(data, "m:alerts-chat:pick:") {
+			id := strings.TrimPrefix(data, "m:alerts-chat:pick:")
+			applyAlertsChatID(token, chat, msgID, id)
+			return
+		}
 	case "m:topics:reconcile":
 		admin := chat
 		if err := notify.ReconcileTopics(token, admin); err != nil {
