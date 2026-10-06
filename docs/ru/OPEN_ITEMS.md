@@ -39,7 +39,7 @@
 - [ ] Hardware e2e
 - [ ] CI SHA Formula (опционально)
 
-Ревью: [REVIEW-0.9.75](REVIEW-0.9.75.md).
+Ревью: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md).
 
 ## Web UI / Fleet (код отложен)
 

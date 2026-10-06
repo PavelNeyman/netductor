@@ -1,3 +1,5 @@
+> Prefer a dedicated alerts **channel**: [TG-ALERTS-CHANNEL.md](TG-ALERTS-CHANNEL.md).
+
 # Alert topics
 
 ## Bootstrap (automatic)

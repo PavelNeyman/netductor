@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/cleanup"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -500,6 +501,10 @@ func ApplyOpts(tag string, noBackup bool) error {
 	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)
 	_ = snapshotPrev()
 	_ = os.RemoveAll(attemptDir())
+	// brew-style: drop upgrade leftovers (dry nothing left is fine)
+	if rep := cleanup.Run(true); len(rep.Items) > 0 {
+		fmt.Fprintln(os.Stderr, "stack cleanup:", rep.FreedHuman, len(rep.Items), "item(s)")
+	}
 	return nil
 }
 

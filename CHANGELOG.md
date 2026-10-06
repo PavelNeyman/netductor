@@ -1,3 +1,10 @@
+## 0.9.262
+
+- cleanup: brew-style `netductor cleanup [--apply]` (attempt, nd-sb temps, legacy WG); auto after stack apply; API + TG Tools; docs/CLEANUP.md
+- notify: optional `telegram_alerts_chat_id` channel for alerts (no topics); skip hub re-pin when set; hub text simplified
+- OPEN_ITEMS: dual-node smoke 0.9.261 marked done 2026-10-06
+- docs: drop obsolete REVIEW-0.9.73/75, B3-B4, BACKBONE-WG; TG-ALERTS-CHANNEL.md
+
 ## 0.9.259
 
 - Baseline snapshot at end of install/EnsureHostBaseline → /var/lib/netductor/baseline/{ss,units,dpkg,ufw}

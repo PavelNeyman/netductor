@@ -37,7 +37,6 @@ func toolsHubHTML() string {
 		`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">Stack status</tg-button></tg-button-row>`
 }
 
-
 func catalogSectionKeyboard(sec string) map[string]any {
 	// Navigation only — actions live in HTML body (TG-UI pattern).
 	return map[string]any{"inline_keyboard": [][]map[string]any{
@@ -213,8 +212,6 @@ func formatToolsFromGroups() string {
 	return b.String()
 }
 
-
-
 // handleCatGroup maps opcatalog.Groups() IDs to real TG screens (not unknown → main menu).
 func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 	ru := getLang() != "en"
@@ -226,6 +223,7 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 		body := formatStatusPretty()
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("🧱 Stack", "m:stack", "primary"), btn("🔥 FW", "m:fw", "")},
+			{btn("🧹 Cleanup", "m:cleanup", ""), btn("🧹 Apply", "m:cleanup:apply", "")},
 			{btn("🔄 Updates", "m:versions", "")},
 			{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
 			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
@@ -277,4 +275,3 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 		reply(token, chat, msgID, catalogSectionTitle(groupID), catalogSectionKeyboard(groupID))
 	}
 }
-

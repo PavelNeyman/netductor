@@ -38,6 +38,8 @@ func All() []Action {
 	return []Action{
 		// overview
 		a("health", "overview", "GET", "/health", "", "—", "Health", "Health"),
+		a("cleanup", "overview", "GET", "/api/cleanup", "", "cleanup", "Cleanup dry-run", "Очистка (dry-run)"),
+		a("cleanup-apply", "overview", "POST", "/api/cleanup", `{"apply":true}`, "cleanup --apply", "Cleanup apply", "Очистка применить"),
 		a("doctor", "overview", "GET", "/api/doctor", "", "doctor", "Doctor", "Doctor"),
 		a("domain", "overview", "GET", "/api/domain", "", "domain show", "Domain", "Домен"),
 		a("bot", "overview", "GET", "/api/bot-status", "", "—", "Bot status", "Статус бота"),

@@ -56,7 +56,7 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 ## Owner next
 
 - [x] Force-update live VPS to **0.9.197** (primary stack apply + secondary `cmd upgrade:v0.9.197`) 2026-10-03
-- [ ] Dual-node smoke after update (VPN, bot, stack, secondary, `/sub/` + redirect + policy routes)
+- [x] Dual-node smoke after update (VPN, bot, stack, secondary, policy) — live 0.9.261 **2026-10-06**
 - [x] Edge template VPN UI + policy hardening (0.9.164–170)
 - [x] Remove legacy VPS admin UI (0.9.171)
 - [x] Unit test expansion + opcatalog unique IDs (0.9.172)
@@ -67,9 +67,9 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
 - [ ] Optional: CI Formula SHA automation
 
-Latest review: [REVIEW-0.9.75.md](REVIEW-0.9.75.md).
+Latest review: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md).
 
-## Web UI / Fleet (pending code)
+## Web UI / Fleet
 
-See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — labels, Lampac checkbox, CF proxy, secondary TOFU path on Mac. **Do not implement until prioritized.**
+See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259.
 - ~~OpenWrt opkg feed / ipk for agent~~ — **rejected** (0.9.155): first-boot binary+SCP; day-2 stack/agent_update. Revisit only if fleet needs offline opkg without primary.

@@ -68,6 +68,16 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if data == "m:cleanup" {
+		out, _ := exec.Command("netductor", "cleanup", "--json").CombinedOutput()
+		reply(token, chat, msgID, "<pre>"+esc(string(out))+"</pre>\n<code>netductor cleanup --apply</code>", backKeyboard())
+		return
+	}
+	if data == "m:cleanup:apply" {
+		out, _ := exec.Command("netductor", "cleanup", "--apply").CombinedOutput()
+		reply(token, chat, msgID, "<pre>"+esc(string(out))+"</pre>", backKeyboard())
+		return
+	}
 	if data == "m:fw" || data == "m:firewall" {
 		body := formatFirewallBlock()
 		reply(token, chat, msgID, body, backKeyboard())

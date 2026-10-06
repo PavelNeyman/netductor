@@ -161,7 +161,8 @@ func FlushAlerts(force bool) error {
 		batchMu.Unlock()
 		return err
 	}
-	if doHub {
+	if doHub && strings.TrimSpace(secret("telegram_alerts_chat_id")) == "" {
+		// Only re-pin compact hub when alerts share the operator chat (topic mode).
 		_ = repinHub()
 	}
 	return nil
@@ -170,6 +171,11 @@ func FlushAlerts(force bool) error {
 func sendTelegramHTML(msg string, threadID int) error {
 	tok := secret("telegram_bot_token")
 	chat := secret("telegram_admin_id")
+	// Dedicated alerts channel (preferred over forum topics): no message_thread_id.
+	if ac := strings.TrimSpace(secret("telegram_alerts_chat_id")); ac != "" {
+		chat = ac
+		threadID = 0
+	}
 	if tok == "" || chat == "" {
 		return fmt.Errorf("telegram secrets not configured")
 	}
@@ -221,7 +227,7 @@ func repinHub() error {
 	}
 	// Compact hub — callbacks match netductor-tg handlers.
 	kb := `{"inline_keyboard":[[{"text":"Users","callback_data":"m:users"},{"text":"Fleet","callback_data":"m:cat:nodes"}],[{"text":"Tools","callback_data":"m:tools"},{"text":"Status","callback_data":"m:status"}],[{"text":"📋 Menu","callback_data":"m:menu"}]]}`
-	html := "📋 <b>Menu</b>\n<i>Alerts above · menu stays at the bottom</i>"
+	html := hubMenuHTML()
 	// sendMessage returns message_id — parse and SaveHubMsg
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", tok)
 	payload := fmt.Sprintf(`{"chat_id":%s,"text":%q,"parse_mode":"HTML","reply_markup":%s}`, chat, html, kb)
@@ -246,4 +252,9 @@ func repinHub() error {
 		SaveHubMsg(cid, wr.Result.MessageID)
 	}
 	return nil
+}
+
+func hubMenuHTML() string {
+	// Neutral; operator language is not always known from notify package.
+	return "📋 <b>Menu</b> / <b>Меню</b>"
 }

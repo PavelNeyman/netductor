@@ -70,7 +70,7 @@ func main() {
 		runNodes(os.Args[2:])
 	case "mtls":
 		runMTLS(os.Args[2:])
-	case "cleanup-legacy":
+	case "cleanup", "cleanup-legacy":
 		runCleanupLegacy(os.Args[2:])
 	case "api-public":
 		runAPIPublic(os.Args[2:])
@@ -208,7 +208,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | firewall | host-audit | host-baseline | servicenet | doctor | status | vpn | services | policy | secondary | svc-paths | api-public | edge | mtls | nvr
+  install | serve | firewall | host-audit | host-baseline | cleanup | servicenet | doctor | status | vpn | services | policy | secondary | svc-paths | api-public | edge | mtls | nvr
   stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

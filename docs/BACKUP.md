@@ -2,7 +2,10 @@
 
 **Baseline: v0.8.49**
 
-# Backups (RU + EN)
+# Backup
+
+**Rotation:** local archives under `/var/lib/netductor/backups/` are pruned to **BackupKeepCount** (default **14**, max 90; file `backup_keep.json`). Peer copies under `backups/peers/core` use the same keep count.
+s (RU + EN)
 
 ## Concept
 
