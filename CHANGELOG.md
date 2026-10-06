@@ -1,3 +1,7 @@
+## 0.9.268
+
+- TG: SR Config document + picker always get Menu/back keyboards; QR photo keeps access nav; flat-DM note without Media topic
+
 ## 0.9.267
 
 - Test alert bypasses AlertOnce cooldown (ClearAlert rearm was blocking tests for 5m)

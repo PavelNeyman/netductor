@@ -120,7 +120,7 @@ func handleMessage(token string, m *message, admin int64) {
 		setState(chat, "", "")
 		s, ok := sites.Get(id)
 		if !ok {
-			sendHTML(token, chat, "❌ not found", nil)
+			sendHTML(token, chat, "❌ not found", backKeyboard())
 			return
 		}
 		s.Name = strings.TrimSpace(text)
@@ -136,7 +136,7 @@ func handleMessage(token string, m *message, admin int64) {
 		setState(chat, "", "")
 		gb, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
 		if err != nil || gb < 0 {
-			sendHTML(token, chat, "❌ Число GiB, например 100", nil)
+			sendHTML(token, chat, "❌ Число GiB, например 100", backKeyboard())
 			return
 		}
 		_ = vpn.SetSoftLimitGB(name, gb)
@@ -147,7 +147,7 @@ func handleMessage(token string, m *message, admin int64) {
 		setState(chat, "", "")
 		n, err := strconv.Atoi(strings.TrimSpace(text))
 		if err != nil {
-			sendHTML(token, chat, "❌ number 1–90", nil)
+			sendHTML(token, chat, "❌ number 1–90", backKeyboard())
 			return
 		}
 		_ = install.SetBackupKeepCount(n)

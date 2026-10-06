@@ -518,7 +518,7 @@ func forceHub(token string, chat int64, text string, kb map[string]any) {
 	sendHTML(token, chat, text, kb)
 }
 
-func sendDocumentFile(token string, chat int64, path, caption string) error {
+func sendDocumentFile(token string, chat int64, path, caption string, kb map[string]any) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -534,6 +534,11 @@ func sendDocumentFile(token string, chat int64, path, caption string) error {
 	if caption != "" {
 		_ = w.WriteField("caption", caption)
 		_ = w.WriteField("parse_mode", "HTML")
+	}
+	if kb != nil {
+		if jb, err := json.Marshal(kb); err == nil {
+			_ = w.WriteField("reply_markup", string(jb))
+		}
 	}
 	part, err := w.CreateFormFile("document", filepath.Base(path))
 	if err != nil {

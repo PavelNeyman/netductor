@@ -1,15 +1,16 @@
 package main
 
 import (
-	"sync"
-	"github.com/PavelNeyman/netductor/internal/vpn"
 	"encoding/base64"
-	"net/url"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/vpn"
+	qrcode "github.com/skip2/go-qrcode"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	qrcode "github.com/skip2/go-qrcode"
+	"sync"
 )
 
 func formatVPNListPretty(raw string) string {
@@ -49,7 +50,6 @@ func formatVPNListPretty(raw string) string {
 	return b.String()
 }
 
-
 func ensureQRFile(path, payload string) string {
 	if payload == "" {
 		return ""
@@ -62,7 +62,6 @@ func ensureQRFile(path, payload string) string {
 	_ = os.Chmod(path, 0o600)
 	return path
 }
-
 
 func formatUsersListHTML() string {
 	nl := string([]byte{10})
@@ -190,8 +189,6 @@ func formatUserHubHTML(name string) string {
 	return b.String()
 }
 
-
-
 func accessPayload(name, mode string) (payload string) {
 	switch mode {
 	case "sub":
@@ -297,7 +294,6 @@ func importRedirectURL(deep string) string {
 	return strings.TrimRight(base, "/") + "/r?u=" + enc
 }
 
-
 // showWorkProfileButton: SR Config Mac+OC profile is for the fleet operator account.
 // Install used name "Pavel", not "operator".
 func showWorkProfileButton(name string) bool {
@@ -310,7 +306,6 @@ func showWorkProfileButton(name string) bool {
 	}
 	return false
 }
-
 
 func formatAccessRichHTML(name, mode, uri string) string {
 	nl := "\n"
@@ -390,11 +385,10 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	return b.String()
 }
 
-
 func sendAppDeepLink(token string, chat int64, name, mode, client string) {
 	uri := accessPayload(name, mode)
 	if uri == "" {
-		sendHTML(token, chat, "❌ "+T("no_links"), nil)
+		sendHTML(token, chat, "❌ "+T("no_links"), backKeyboard())
 		return
 	}
 	enc := url.PathEscape(uri)
@@ -411,12 +405,12 @@ func sendAppDeepLink(token string, chat int64, name, mode, client string) {
 	if link := importRedirectURL(deep); link != "" {
 		msg := "📲 <b>" + esc(label) + "</b>\n"
 		msg += `<tg-button-row><tg-button type="url" url="` + strings.ReplaceAll(link, "&", "&amp;") + `">` + esc(label) + `</tg-button></tg-button-row>`
-		sendHTML(token, chat, msg, nil)
+		sendHTML(token, chat, msg, backKeyboard())
 		return
 	}
 	msg := "📲 <b>" + esc(label) + "</b>\n<pre><code>" + esc(deep) + "</code></pre>\n"
 	msg += "<i>Скопируйте и откройте на телефоне.</i>"
-	sendHTML(token, chat, msg, nil)
+	sendHTML(token, chat, msg, backKeyboard())
 }
 
 var accessShowMu sync.Mutex
@@ -446,10 +440,12 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 
 	// Control hub keeps text Access card; QR image goes to 📎 Media topic (does not replace hub).
 	note := ""
-	if getLang() != "en" {
-		note = "\n<i>QR → топик 📎 Media</i>"
-	} else {
-		note = "\n<i>QR → 📎 Media topic</i>"
+	if notify.TopicsForMenuEnabled() {
+		if getLang() != "en" {
+			note = "\n<i>QR → топик 📎 Media</i>"
+		} else {
+			note = "\n<i>QR → 📎 Media topic</i>"
+		}
 	}
 	reply(token, chat, msgID, html+note, kb)
 
@@ -469,7 +465,7 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		return
 	}
 	// Photo in Media topic only; do not track as hub.
-	if _, err := sendRichWithPhoto(token, chat, html, p, "qr1", nil); err != nil {
+	if _, err := sendRichWithPhoto(token, chat, html, p, "qr1", kb); err != nil {
 		fmt.Fprintln(os.Stderr, "sendRichWithPhoto media:", err)
 	}
 }
@@ -497,10 +493,11 @@ func showSRProfilePicker(token string, chat int64, msgID int, userName string) {
 		b.WriteString("<i>" + esc(help) + "</i>" + nl)
 		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="u:workcfg:` + userName + `:` + m.ID + `">📥 ` + esc(label) + `</tg-button></tg-button-row>` + nl + nl)
 	}
+	kb := userHubKeyboard(userName)
 	if msgID > 0 {
-		reply(token, chat, msgID, b.String(), nil)
+		reply(token, chat, msgID, b.String(), kb)
 	} else {
-		sendHTML(token, chat, b.String(), nil)
+		sendHTML(token, chat, b.String(), kb)
 	}
 }
 
@@ -511,7 +508,7 @@ func sendSRProfileDocument(token string, chat int64, profile string) {
 	if err := vpn.WriteShadowrocketRoutingFileProfile(path, profile); err != nil {
 		path = "/tmp/" + fname
 		if err2 := vpn.WriteShadowrocketRoutingFileProfile(path, profile); err2 != nil {
-			sendHTML(token, chat, T("sr_gen_fail")+esc(err2.Error()), nil)
+			sendHTML(token, chat, T("sr_gen_fail")+esc(err2.Error()), backKeyboard())
 			return
 		}
 	}
@@ -552,13 +549,12 @@ func sendSRProfileDocument(token string, chat int64, profile string) {
 	if !strings.Contains(string(body), "FINAL,PROXY") {
 		fmt.Fprintln(os.Stderr, "sendSRProfileDocument: unexpected body size=", len(body))
 	}
-	if err := sendDocumentFile(token, chat, path, cap); err != nil {
+	nav := backKeyboard()
+	if err := sendDocumentFile(token, chat, path, cap, nav); err != nil {
 		fmt.Fprintln(os.Stderr, "sendSRProfileDocument:", err)
-		sendHTML(token, chat, T("sr_send_fail")+esc(err.Error()), nil)
+		sendHTML(token, chat, T("sr_send_fail")+esc(err.Error()), nav)
+		return
 	}
+	// Document may omit inline keys on some clients — follow-up nav message.
+	sendHTML(token, chat, "📥 <b>SR Config</b> · "+esc(profile)+"\n<i>file above · use buttons below</i>", nav)
 }
-
-
-
-
-
