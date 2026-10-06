@@ -65,6 +65,7 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 - [x] Day-2 groups in opcatalog (`Groups()`) → Web tabs / TG Tools / TUI catalog (0.9.104)
 - [x] Full dual-node smoke (primary + secondary) — live deploy 2026-09-29 (LE, bot, SP, secondary)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
+- [ ] Remove TG private topics (keep alerts channel) — [PLAN-REMOVE-TG-TOPICS.md](PLAN-REMOVE-TG-TOPICS.md)
 - [ ] Optional: CI Formula SHA automation
 
 Latest review: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md).
