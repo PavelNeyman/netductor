@@ -198,6 +198,10 @@ func ensureTopicsOnce(token string, admin int64) {
 	if admin == 0 || token == "" {
 		return
 	}
+	// Channel / flat-DM mode: do not recreate private topics or pin menu into Control.
+	if !notify.TopicsForMenuEnabled() {
+		return
+	}
 	// Full reconcile at most every 6h (also runs soon after process start).
 	if !topicsLastReconcile.IsZero() && time.Since(topicsLastReconcile) < 6*time.Hour {
 		return
@@ -842,6 +846,12 @@ func main() {
 	}
 	setBotCommands(token)
 	offset := 0
+	if !notify.TopicsForMenuEnabled() {
+		notify.ClearHubMsg()
+		_ = notify.DisablePrivateTopics()
+		fmt.Fprintln(os.Stderr, "tg: flat DM menu (alerts channel or topics disabled)")
+	}
+
 	for {
 		v := url.Values{}
 		v.Set("timeout", "30")

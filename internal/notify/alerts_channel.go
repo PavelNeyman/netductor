@@ -42,7 +42,12 @@ func SetAlertsChatID(id string) error {
 			return fmt.Errorf("chat id must be numeric (got %q)", id)
 		}
 	}
-	return paths.WriteSecret(alertsChatSecret, id)
+	if err := paths.WriteSecret(alertsChatSecret, id); err != nil {
+		return err
+	}
+	// Channel mode: menu/QR in plain DM (stale Control topic ids would swallow messages).
+	_ = DisablePrivateTopics()
+	return nil
 }
 
 // ClearAlertsChatID removes the secret file.

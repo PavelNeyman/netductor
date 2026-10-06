@@ -1,3 +1,7 @@
+## 0.9.265
+
+- Flat DM menu when alerts channel is set or topics disabled: no message_thread_id to deleted Control topic; /menu force works in private chat
+
 ## 0.9.264
 
 - TG alerts channel UX: Set → forward post or type id; list known chats (my_chat_member/channel_post/forward); pick buttons

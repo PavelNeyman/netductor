@@ -140,16 +140,19 @@ func topicsKeyboard() map[string]any {
 	refresh, recreate, recon, menu := "🔄 Refresh", "♻️ Recreate topics", "🔁 Reconcile", T("main_menu")
 	resetHub := "📌 Reset hub"
 	chStatus, chClear, chTest := "📢 Channel", "🗑 Clear channel", "🔔 Test alert"
+	flat := "💬 Flat DM menu"
 	if ru {
 		refresh, recreate, recon = "🔄 Обновить", "♻️ Пересоздать топики", "🔁 Сверить"
 		resetHub = "📌 Сброс меню"
 		chStatus, chClear, chTest = "📢 Канал", "🗑 Сбросить канал", "🔔 Тест алерта"
+		flat = "💬 Меню в личке"
 	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(chStatus, "m:alerts-chat", "primary"), btn(chTest, "m:alerts-chat:test", "")},
 		{btn(chClear, "m:alerts-chat:clear", "")},
 		{btn(recreate, "m:topics:recreate", "primary"), btn(recon, "m:topics:reconcile", "")},
 		{btn(resetHub, "m:hub:reset", "primary"), btn(refresh, "m:topics", "")},
+		{btn(flat, "m:topics:flat", "")},
 		{btn(menu, "m:menu", "")},
 	}}
 }

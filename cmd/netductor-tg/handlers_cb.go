@@ -435,6 +435,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			sendHTML(token, chat, ok+"\n\n"+notify.TopicsStatusHTML(getLang() != "en"), topicsKeyboard())
 			forceHub(token, chat, menuText(), mainKeyboard())
 		}
+	case "m:topics:flat":
+		_ = notify.DisablePrivateTopics()
+		forceHub(token, chat, menuText(), mainKeyboard())
+		return
 	case "m:hub:reset":
 		// Explicit singleton reset (user deleted hub "for me" / cleared chat).
 		forceHub(token, chat, menuText(), mainKeyboard())

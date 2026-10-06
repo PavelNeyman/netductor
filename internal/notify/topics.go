@@ -417,9 +417,53 @@ func ResolveThreadIDForMessage(alertKey string) int {
 	return ThreadID(ThreadForAlertKey(alertKey))
 }
 
+// TopicsForMenuEnabled is false when alerts go to a channel or operator disabled private topics.
+// Menu/QR must land in the plain private chat (no message_thread_id).
+func TopicsForMenuEnabled() bool {
+	if AlertsChannelConfigured() {
+		return false
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.StateDir(), "tg", "topics_disabled")); err == nil {
+		if strings.TrimSpace(string(b)) == "1" {
+			return false
+		}
+	}
+	return true
+}
+
+// DisablePrivateTopics stops using Control/Media thread ids (flat DM menu).
+func DisablePrivateTopics() error {
+	_ = os.MkdirAll(filepath.Join(paths.StateDir(), "tg"), 0o700)
+	if err := os.WriteFile(filepath.Join(paths.StateDir(), "tg", "topics_disabled"), []byte("1\n"), 0o600); err != nil {
+		return err
+	}
+	// Drop stale thread ids so we never send to deleted Control topic.
+	topicMu.Lock()
+	defer topicMu.Unlock()
+	t := loadTopics()
+	if t.Topics == nil {
+		t.Topics = map[string]int{}
+	}
+	for _, k := range []string{"menu", "media"} {
+		delete(t.Topics, k)
+	}
+	_ = saveTopics(t)
+	ClearHubMsg()
+	return nil
+}
+
+// EnablePrivateTopics re-allows EnsureTopics / menu thread routing.
+func EnablePrivateTopics() error {
+	_ = os.Remove(filepath.Join(paths.StateDir(), "tg", "topics_disabled"))
+	return nil
+}
+
 // ApplyThread sets message_thread_id + direct_messages_topic_id for private bot topics.
 func ApplyThread(payload map[string]any, role string) {
 	if payload == nil {
+		return
+	}
+	if (role == "menu" || role == "media") && !TopicsForMenuEnabled() {
 		return
 	}
 	th := ThreadID(role)
@@ -430,8 +474,18 @@ func ApplyThread(payload map[string]any, role string) {
 	payload["direct_messages_topic_id"] = th
 }
 
-// MenuThread is Control topic id (0 = General fallback).
-func MenuThread() int { return ThreadID("menu") }
+// MenuThread is Control topic id (0 = plain private chat).
+func MenuThread() int {
+	if !TopicsForMenuEnabled() {
+		return 0
+	}
+	return ThreadID("menu")
+}
 
-// MediaThread is Media topic for QR/documents.
-func MediaThread() int { return ThreadID("media") }
+// MediaThread is Media topic for QR/documents (0 = same chat as menu).
+func MediaThread() int {
+	if !TopicsForMenuEnabled() {
+		return 0
+	}
+	return ThreadID("media")
+}
