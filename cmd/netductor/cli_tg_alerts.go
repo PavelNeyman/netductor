@@ -51,9 +51,11 @@ Channel id is usually -100… (bot must be channel admin).
 		}
 		fmt.Println("cleared")
 	case "test":
-		notify.AlertOnce("test:alerts-channel", "🔔 test alert routing (netductor tg-alerts test)")
-		_ = notify.FlushAlerts(true)
-		fmt.Println("queued test alert →", notify.AlertsChatID())
+		if err := notify.SendTestAlert("🔔 test alert routing (netductor tg-alerts test)"); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("sent test alert →", notify.AlertsChatID())
 	default:
 		fmt.Fprintln(os.Stderr, "unknown:", args[0])
 		os.Exit(2)

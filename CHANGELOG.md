@@ -1,3 +1,7 @@
+## 0.9.267
+
+- Test alert bypasses AlertOnce cooldown (ClearAlert rearm was blocking tests for 5m)
+
 ## 0.9.266
 
 - Fix alerts-chat pick callback (was nested under test case → unknown action)

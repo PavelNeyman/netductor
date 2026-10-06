@@ -407,12 +407,14 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		_ = notify.ClearAlertsChatID()
 		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 	case "m:alerts-chat:test":
-		notify.ClearAlert("test:alerts-channel")
-		notify.AlertOnce("test:alerts-channel", "🔔 test alert routing")
-		if err := notify.FlushAlerts(true); err != nil {
+		if err := notify.SendTestAlert("🔔 test alert routing"); err != nil {
 			reply(token, chat, msgID, "❌ test send: "+esc(err.Error())+"\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 		} else {
-			reply(token, chat, msgID, "✅ test sent → <code>"+esc(notify.AlertsChatID())+"</code>\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
+			dest := notify.AlertsChatID()
+			if dest == "" {
+				dest = "admin DM"
+			}
+			reply(token, chat, msgID, "✅ test sent → <code>"+esc(dest)+"</code>\n\n"+alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 		}
 	case "m:topics:reconcile":
 		admin := chat

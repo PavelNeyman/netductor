@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	alertMu   sync.Mutex
-	lastSent  = map[string]time.Time{}
-	clearedAt = map[string]time.Time{}
-	cooldown  = 15 * time.Minute
+	alertMu    sync.Mutex
+	lastSent   = map[string]time.Time{}
+	clearedAt  = map[string]time.Time{}
+	cooldown   = 15 * time.Minute
 	rearmAfter = 5 * time.Minute // after ClearAlert, do not re-alert sooner
 )
 
@@ -102,4 +102,11 @@ func ClearAlert(key string) {
 	disk := loadSent()
 	delete(disk, key)
 	saveSent(disk)
+}
+
+// SendTestAlert queues a one-off message and flushes immediately (bypasses AlertOnce cooldown).
+func SendTestAlert(msg string) error {
+	key := fmt.Sprintf("test:manual:%d", time.Now().UnixNano())
+	EnqueueAlert(key, msg)
+	return FlushAlerts(true)
 }

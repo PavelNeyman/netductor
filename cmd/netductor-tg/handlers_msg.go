@@ -360,9 +360,11 @@ func handleMessage(token string, m *message, admin int64) {
 			_ = notify.ClearAlertsChatID()
 			sendHTML(token, chat, notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
 		case arg == "test":
-			notify.AlertOnce("test:alerts-channel", "🔔 test alert routing")
-			_ = notify.FlushAlerts(true)
-			sendHTML(token, chat, "✅ test queued\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+			if err := notify.SendTestAlert("🔔 test alert routing"); err != nil {
+				sendHTML(token, chat, "❌ "+esc(err.Error()), topicsKeyboard())
+			} else {
+				sendHTML(token, chat, "✅ test sent\n\n"+notify.AlertsRoutingHTML(getLang() != "en"), topicsKeyboard())
+			}
 		default:
 			if err := notify.SetAlertsChatID(arg); err != nil {
 				sendHTML(token, chat, "❌ "+esc(err.Error()), topicsKeyboard())
