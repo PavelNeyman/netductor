@@ -297,6 +297,7 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 
 - [x] SSH/local probe implementing Facts (`internal/deploy/facts_probe.go`) (uci + ip link + board.json / os-release)
 - [x] `netductor deploy edge --dry-run` prints plan
+- [x] `--dry-run --json` → PlanResponse JSON (same as API)
 - [x] Agent optional `facts` in status payload (non-blocking)
 
 ### P2 — wire modules into DeployEdge
@@ -308,9 +309,9 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 ### P3 — polish
 
 - [x] Auto-preset from facts (single eth → sbc-lab hint)
-- [ ] Offline template cache next to agents
-- [ ] Docs: OPENWRT-LAB + operator deploy contract
-- [ ] MikroTik called out as separate track
+- [x] Offline template cache next to agents (`agents/templates`, offline-prep)
+- [x] Docs: OPENWRT-LAB + operator deploy contract
+- [x] MikroTik called out as separate track (OPENWRT-LAB + this plan)
 
 ## Acceptance
 

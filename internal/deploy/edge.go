@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -65,6 +66,7 @@ type EdgeOpts struct {
 	Preset string // travel-router | sbc-lab | sbc-dual-nic | empty=suggest
 	DryRun bool   // probe facts + print plan, no provision
 	Selection edge.ModuleSelection // optional UI/operator module toggles
+	DryRunJSON bool // with DryRun: print PlanResponse JSON (thin UI contract)
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -149,6 +151,14 @@ func DeployEdge(o EdgeOpts) error {
 			o.Preset = plan.Preset
 			if o.DryRun {
 				fmt.Fprintln(os.Stderr, "==> dry-run: no provision")
+				if o.DryRunJSON {
+					resp := edge.PlanResponse{
+						Preset: plan.Preset, Suggested: edge.SuggestPreset(facts),
+						Facts: facts, Plan: plan, Card: edge.CardFromFacts(facts),
+					}
+					b, _ := json.MarshalIndent(resp, "", "  ")
+					fmt.Println(string(b))
+				}
 				_ = raw
 				return nil
 			}

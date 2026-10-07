@@ -157,6 +157,16 @@ echo KEY:$(b64 "$DIR/client.key")
 	if err := os.WriteFile(manPath, b, 0o600); err != nil {
 		return nil, err
 	}
+	// Template cache next to agents (offline intent for deploy plan).
+	if n, err := PullTemplatesFromPrimary(primaryHost, primaryUser, primaryKey, keyPass, agentDir); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: pull templates:", err)
+		if p, err2 := CacheDefaultTemplates(agentDir); err2 == nil {
+			fmt.Fprintln(os.Stderr, "==> cached default template", p)
+		}
+	} else {
+		fmt.Fprintln(os.Stderr, "==> cached templates:", n, "in", TemplateCacheDir(agentDir))
+	}
+
 	fmt.Fprintln(os.Stderr, "==> offline pack ready:", manPath)
 	return m, nil
 }

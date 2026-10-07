@@ -41,6 +41,7 @@ edge:
   --pppoe-user --pppoe-pass [--pppoe-service] [--pppoe-ac]
   --preset travel-router|sbc-lab|sbc-dual-nic  (default: suggest from facts)
   --dry-run   probe facts + print plan only (no provision)
+  --json      with --dry-run: print PlanResponse JSON (card+plan, same as API)
 
 See: netductor tui → Setup wizard`)
 		os.Exit(2)
@@ -337,6 +338,8 @@ See: netductor tui → Setup wizard`)
 				o.Reboot = true
 			case a == "--dry-run":
 				o.DryRun = true
+			case a == "--json":
+				o.DryRunJSON = true
 			case a == "--preset" && i+1 < len(args):
 				i++
 				o.Preset = args[i]
@@ -447,7 +450,7 @@ See: netductor tui → Setup wizard`)
 			WANProto: o.WANProto, WANIP: o.WANIP, WANMask: o.WANMask, WANGateway: o.WANGateway, WANDNS: o.WANDNS,
 			PPPoEUser: o.PPPoEUser, PPPoEPass: o.PPPoEPass, PPPoEService: o.PPPoEService, PPPoEAC: o.PPPoEAC,
 			Reboot: o.Reboot,
-			Preset: o.Preset, DryRun: o.DryRun,
+			Preset: o.Preset, DryRun: o.DryRun, DryRunJSON: o.DryRunJSON,
 		}); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

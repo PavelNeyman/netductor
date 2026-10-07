@@ -95,3 +95,35 @@ Gaps to close in code/product if still manual today (track in OPEN_ITEMS): any s
 
 On hardware, `detectWifiDevices()` + guest apply; no Cudy-only hardcode.  
 On VM without `wifi-device`, guest UCI may reference `radio0` fallback — harmless until real radios exist.
+
+
+## Operator deploy contract (hybrid)
+
+Shared backend: `internal/edge` (Facts/Plan/Selection) + `internal/deploy` (SSH probe/apply).  
+Thin UIs: op CLI/TUI and Web call the same shapes (`PlanResponse` / `/api/edge/plan`). **No Telegram deploy.**
+
+### Factory (device may have no internet)
+
+```bash
+# On LAN host that can reach root@192.168.1.1
+netductor-op deploy edge --router 192.168.1.1 --id SITE \
+  --preset sbc-lab|travel-router \
+  --configure-net --guest \
+  --dry-run --json          # same JSON as POST /api/edge/plan
+
+netductor-op deploy edge ...   # real provision over SSH
+```
+
+- Probe → plan → modules over **SSH only**.
+- Empty `--preset` → auto from facts (single NIC → `sbc-lab`).
+- Offline: `deploy offline-prep` caches agents, token, mTLS, **templates** under `~/.cache/netductor/agents/templates/`.
+
+### Day-2 (agent online)
+
+- Primary: `GET /api/edge/card?id=`, `POST /api/edge/plan`, `POST /api/edge/facts`.
+- Agent heartbeat carries `facts` for the card.
+
+### MikroTik
+
+**Not** in this OpenWrt UCI path. Separate track (ROS SSH/API, shared site labels only). Do not force OpenWrt presets onto RouterOS.
+
