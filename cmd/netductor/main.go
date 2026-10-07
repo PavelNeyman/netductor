@@ -31,7 +31,7 @@ func main() {
 	}
 	ndconfig.Load()
 	initPolicyHook()
-	firewall.AlertFunc = notify.AlertOnce
+	firewall.AlertFunc = func(key, msg string) { notify.AlertOnce(key, msg) }
 
 	if len(os.Args) < 2 {
 		printHelp()

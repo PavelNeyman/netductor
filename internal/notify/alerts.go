@@ -61,11 +61,11 @@ func alertsSuppressed() bool {
 }
 
 // AlertOnce sends Telegram at most once per key within cooldown.
-func AlertOnce(key, msg string) {
+func AlertOnce(key, msg string) bool {
 	alertMu.Lock()
 	defer alertMu.Unlock()
 	if alertsSuppressed() {
-		return
+		return false
 	}
 	now := time.Now()
 	cd := cooldown
@@ -73,25 +73,23 @@ func AlertOnce(key, msg string) {
 		cd = 24 * time.Hour // one reminder per day per release tag
 	}
 	if t, ok := lastSent[key]; ok && now.Sub(t) < cd {
-		return
+		return false
 	}
 	if t, ok := clearedAt[key]; ok && now.Sub(t) < rearmAfter {
-		return
+		return false
 	}
 	disk := loadSent()
 	if ts, ok := disk[key]; ok && now.Unix()-ts < int64(cd.Seconds()) {
-		return
+		return false
 	}
-	// Queue + batch (dedupe by key, single TG message, optional hub re-pin).
 	EnqueueAlert(key, msg)
 	if smtpConfigured() {
 		_ = Email("netductor: "+key, stripTags(msg))
 	}
-	// mark sent even if flush is deferred — cooldown still applies
-
 	lastSent[key] = now
 	disk[key] = now.Unix()
 	saveSent(disk)
+	return true
 }
 
 func ClearAlert(key string) {

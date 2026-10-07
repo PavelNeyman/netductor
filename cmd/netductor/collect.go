@@ -10,19 +10,28 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/channels"
-	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/notify"
-	ndupdate "github.com/PavelNeyman/netductor/internal/update"
-	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
+
+func attachLogs(key, caption string) {
+	if !notify.AlertOnce(key+":log", caption) {
+		return
+	}
+	if path, err := logs.ExportHours(1); err == nil {
+		_ = notify.SendDocument(path, caption)
+	}
+}
 
 func runCollect() int {
 	dir := paths.MetricsDir()
@@ -256,32 +265,30 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 				notify.ClearAlert(keyU)
 			}
 		}
-		// Reality invalid from secondary IP = uplink path noise / flap
-		if ch.RealityInvalidFromSec15m >= 30 {
-			notify.AlertOnce("channel:reality-sec",
-				fmt.Sprintf("⚠️ Reality invalid from secondary IPs: <b>%d</b> in 15m (uplink path noise)", ch.RealityInvalidFromSec15m))
+		// Secondary public IP hitting vless-reality is expected mux noise while uplink is up.
+		uplinkDown := false
+		for _, s := range ch.Secondaries {
+			if s.Online && !s.UplinkOK {
+				uplinkDown = true
+			}
+		}
+		if uplinkDown && ch.RealityInvalidFromSec15m >= 30 {
+			if notify.AlertOnce("channel:reality-sec",
+				fmt.Sprintf("⚠️ Reality invalid from secondary while uplink down: <b>%d</b> in 15m", ch.RealityInvalidFromSec15m)) {
+				attachLogs("channel:reality-sec", "📎 channel incident logs (last 1h)")
+			}
 		} else {
 			notify.ClearAlert("channel:reality-sec")
 		}
-		if ch.RealityInvalidTotal15m >= 80 {
+		if ch.RealityInvalidTotal15m >= 250 {
 			notify.AlertOnce("channel:reality-total",
 				fmt.Sprintf("⚠️ Reality invalid total: <b>%d</b> in 15m (scanners + clients)", ch.RealityInvalidTotal15m))
 		} else {
 			notify.ClearAlert("channel:reality-total")
 		}
-		// Attach last-1h journals when channel degraded (best-effort, once per alert key cooldown)
-		needAttach := false
 		for _, s := range ch.Secondaries {
 			if s.Online && ((s.PublicIP != "" && !s.TCP443OK) || !s.UplinkOK) {
-				needAttach = true
-			}
-		}
-		if ch.RealityInvalidFromSec15m >= 30 || ch.RealityInvalidTotal15m >= 80 {
-			needAttach = true
-		}
-		if needAttach {
-			if path, err := logs.ExportHours(1); err == nil {
-				_ = notify.SendDocument(path, "📎 channel incident logs (last 1h)")
+				attachLogs("channel:down:"+s.ID, "📎 channel down logs (last 1h)")
 			}
 		}
 	}
@@ -291,9 +298,8 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		st10 := vpn.CollectMismatch(10)
 		if st10.Total >= 15 || st.Total >= 25 {
 			msg := fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b>/10m, <b>%d</b>/30m\n<code>%s</code>\n<i>Server expects vision; client sent empty flow</i>", st10.Total, st.Total, vpn.FormatMismatchText(st10))
-			notify.AlertOnce("mismatch:core", msg)
-			if path, err := logs.ExportHours(1); err == nil {
-				_ = notify.SendDocument(path, "📎 flow mismatch logs (last 1h)")
+			if notify.AlertOnce("mismatch:core", msg) {
+				attachLogs("mismatch:core", "📎 flow mismatch logs (last 1h)")
 			}
 		} else {
 			notify.ClearAlert("mismatch:core")

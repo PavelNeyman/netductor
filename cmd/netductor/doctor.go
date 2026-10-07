@@ -578,7 +578,7 @@ switch role {
 				doctorPrintf("OK   channel %s online tcp443=%.0fms uplink=ok\n", s.Name, s.TCP443ms)
 			}
 		}
-		if ch.RealityInvalidFromSec15m >= 30 {
+		if ch.RealityInvalidFromSec15m >= 200 {
 			doctorPrintf("WARN reality invalid from secondary: %d/15m\n", ch.RealityInvalidFromSec15m)
 		}
 		if ch.MismatchLocal30m >= 25 {
