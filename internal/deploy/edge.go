@@ -61,6 +61,9 @@ type EdgeOpts struct {
 	PPPoEAC      string
 	// Reboot router after provision (agent init + optional network).
 	Reboot bool
+	// Hybrid deploy plan (P1+).
+	Preset string // travel-router | sbc-lab | sbc-dual-nic | empty=suggest
+	DryRun bool   // probe facts + print plan, no provision
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -90,7 +93,11 @@ func DeployEdge(o EdgeOpts) error {
 		o.ServerURL = "https://" + o.PrimaryHost + ":" + mtls.AgentTLSPort
 	}
 	if o.ServerURL == "" {
-		return fmt.Errorf("server URL or primary host required")
+		if o.DryRun {
+		o.ServerURL = "https://dry-run.invalid:8789"
+		} else {
+			return fmt.Errorf("server URL or primary host required")
+		}
 	}
 	// Never use plain public admin :8787 for edge control.
 	if strings.HasPrefix(o.ServerURL, "http://") {
@@ -106,6 +113,55 @@ func DeployEdge(o EdgeOpts) error {
 	}
 	if serverURLUnsafe(o.ServerURL) {
 		return fmt.Errorf("invalid server URL characters")
+	}
+
+	// Hybrid plan: probe facts (SSH), build module plan. Dry-run stops here.
+	{
+		preset := strings.TrimSpace(o.Preset)
+		if preset != "" && !edge.ValidPreset(preset) {
+			return fmt.Errorf("unknown preset %q (travel-router|sbc-lab|sbc-dual-nic)", preset)
+		}
+		facts, raw, perr := ProbeDeviceFacts(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "")
+		if perr != nil {
+			fmt.Fprintln(os.Stderr, "warn: facts probe:", perr)
+			if o.DryRun {
+				return fmt.Errorf("dry-run requires successful facts probe: %w", perr)
+			}
+		} else {
+			intent := edge.DeployIntent{
+				ConfigureNet: o.NetConfigure,
+				GuestEnable:  o.GuestEnable,
+				VPNEnable:    false, // template-driven later; deploy flags do not enable vpn yet
+				WiFiSSID:     firstNonEmpty(o.WiFiSSID24, o.WiFiSSID, o.WiFiSSID5),
+			}
+			if preset == "" {
+				preset = edge.SuggestPreset(facts)
+			}
+			plan := edge.BuildPlan(preset, facts, intent)
+			fmt.Fprintln(os.Stderr, "==> deploy plan")
+			fmt.Fprint(os.Stderr, FormatPlanHuman(preset, facts, plan))
+			o.Preset = plan.Preset
+			if o.DryRun {
+				fmt.Fprintln(os.Stderr, "==> dry-run: no provision")
+				_ = raw
+				return nil
+			}
+			// Gate network apply by plan: if wan module skipped, clear wan proto so applyNetwork does not assume wan.
+			wanApply := false
+			for _, s := range plan.Steps {
+				if s.Module == edge.ModWANBaseline && s.Action == "apply" {
+					wanApply = true
+				}
+			}
+			if o.NetConfigure && !wanApply {
+				fmt.Fprintln(os.Stderr, "==> plan: skip wan UCI (no wan capability)")
+				// leave LAN/wifi flags; applyNetworkOnEdge should tolerate empty WANProto
+				if o.WANProto != "" {
+					fmt.Fprintln(os.Stderr, "==> ignoring --wan-proto (not in plan)")
+					o.WANProto = ""
+				}
+			}
+		}
 	}
 
 	token := strings.TrimSpace(o.BootstrapToken)
@@ -401,4 +457,13 @@ func serverURLUnsafe(u string) bool {
 		}
 	}
 	return false
+}
+
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if strings.TrimSpace(s) != "" {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
 }

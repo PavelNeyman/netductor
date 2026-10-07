@@ -39,6 +39,8 @@ edge:
   --wan-proto dhcp|static|pppoe
   --wan-ip --wan-mask --wan-gateway --wan-dns
   --pppoe-user --pppoe-pass [--pppoe-service] [--pppoe-ac]
+  --preset travel-router|sbc-lab|sbc-dual-nic  (default: suggest from facts)
+  --dry-run   probe facts + print plan only (no provision)
 
 See: netductor tui → Setup wizard`)
 		os.Exit(2)
@@ -333,6 +335,11 @@ See: netductor tui → Setup wizard`)
 				o.GuestVisible = false
 			case a == "--reboot":
 				o.Reboot = true
+			case a == "--dry-run":
+				o.DryRun = true
+			case a == "--preset" && i+1 < len(args):
+				i++
+				o.Preset = args[i]
 			case a == "--guest-ssid" && i+1 < len(args):
 				i++
 				o.GuestSSID = args[i]
@@ -414,7 +421,7 @@ See: netductor tui → Setup wizard`)
 			fmt.Fprintln(os.Stderr, "required: --router --id")
 			os.Exit(2)
 		}
-		if !o.SkipRootPass && strings.TrimSpace(o.NewRootPassword) == "" {
+		if !o.DryRun && !o.SkipRootPass && strings.TrimSpace(o.NewRootPassword) == "" {
 			fmt.Fprintln(os.Stderr, "required: --new-root-password (LuCI) or --skip-root-pass")
 			os.Exit(2)
 		}
@@ -440,11 +447,16 @@ See: netductor tui → Setup wizard`)
 			WANProto: o.WANProto, WANIP: o.WANIP, WANMask: o.WANMask, WANGateway: o.WANGateway, WANDNS: o.WANDNS,
 			PPPoEUser: o.PPPoEUser, PPPoEPass: o.PPPoEPass, PPPoEService: o.PPPoEService, PPPoEAC: o.PPPoEAC,
 			Reboot: o.Reboot,
+			Preset: o.Preset, DryRun: o.DryRun,
 		}); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("edge provisioned; approve on primary: netductor edge pending / edge approve", o.DeviceID)
+		if o.DryRun {
+			fmt.Println("edge dry-run ok")
+		} else {
+			fmt.Println("edge provisioned; approve on primary: netductor edge pending / edge approve", o.DeviceID)
+		}
 	default:
 		fmt.Fprintln(os.Stderr, "unknown deploy target", args[0])
 		os.Exit(2)

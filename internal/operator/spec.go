@@ -133,6 +133,8 @@ type EdgeSpec struct {
 	WANProto, WANIP, WANMask, WANGateway, WANDNS string
 	PPPoEUser, PPPoEPass, PPPoEService, PPPoEAC  string
 	Reboot                                       bool
+	Preset                                       string
+	DryRun                                       bool
 }
 
 func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
@@ -155,5 +157,6 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		WANProto: e.WANProto, WANIP: e.WANIP, WANMask: e.WANMask, WANGateway: e.WANGateway, WANDNS: e.WANDNS,
 		PPPoEUser: e.PPPoEUser, PPPoEPass: e.PPPoEPass, PPPoEService: e.PPPoEService, PPPoEAC: e.PPPoEAC,
 		Reboot: e.Reboot,
+		Preset: e.Preset, DryRun: e.DryRun,
 	}
 }

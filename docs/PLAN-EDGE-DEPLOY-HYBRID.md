@@ -124,22 +124,22 @@ netductor deploy edge --router 192.168.1.1 --id SITE --preset sbc-lab|travel-rou
 
 ### P0 — foundation (this iteration)
 
-- [ ] `docs/PLAN-EDGE-DEPLOY-HYBRID.md` (this file)
-- [ ] `internal/edge/facts.go` — Facts types, JSON marshal
-- [ ] `internal/edge/preset.go` — preset IDs, default module lists
-- [ ] `internal/edge/plan.go` — `BuildPlan(preset, facts, intent) []Step`
-- [ ] Unit tests for RPi-like vs Cudy-like facts → expected skips
-- [ ] OPEN_ITEMS pointer
+- [x] `docs/PLAN-EDGE-DEPLOY-HYBRID.md` (this file)
+- [x] `internal/edge/facts.go` — Facts types, JSON marshal
+- [x] `internal/edge/preset.go` — preset IDs, default module lists
+- [x] `internal/edge/plan.go` — `BuildPlan(preset, facts, intent) []Step`
+- [x] Unit tests for RPi-like vs Cudy-like facts → expected skips
+- [x] OPEN_ITEMS pointer
 
 ### P1 — probe + dry-run
 
-- [ ] SSH/local probe implementing Facts (uci + ip link + board.json / os-release)
-- [ ] `netductor deploy edge --dry-run` prints plan
+- [x] SSH/local probe implementing Facts (`internal/deploy/facts_probe.go`) (uci + ip link + board.json / os-release)
+- [x] `netductor deploy edge --dry-run` prints plan
 - [ ] Agent optional `facts` in status payload (non-blocking)
 
 ### P2 — wire modules into DeployEdge
 
-- [ ] Gate `--configure-net` wan section on `wan_present` / plan
+- [x] Gate wan proto when plan skips wan (P1 partial)
 - [ ] `--preset` flag on CLI + TUI label
 - [ ] Explicit skip logs in deploy output
 

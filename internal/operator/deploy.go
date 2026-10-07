@@ -63,7 +63,7 @@ func DeployEdge(s EdgeSpec) error {
 	if !ValidUser(s.RouterUser) || !ValidUser(s.PrimaryUser) {
 		return fmt.Errorf("invalid ssh user")
 	}
-	if !s.SkipRootPass && strings.TrimSpace(s.NewRootPassword) == "" {
+	if !s.DryRun && !s.SkipRootPass && strings.TrimSpace(s.NewRootPassword) == "" {
 		return fmt.Errorf("new root password required for LuCI (or set skip_root_pass / --skip-root-pass)")
 	}
 	s.PrimaryKey = expandHome(s.PrimaryKey)
