@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
+	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
 )
@@ -76,6 +77,9 @@ func EnsureHostBaseline(role string) error {
 		fmt.Fprintf(os.Stderr, "watchdog-install: %v\n", err)
 	} else {
 		fmt.Fprintln(os.Stderr, "host baseline: firewall="+role+" + netductor-stack-watchdog.timer")
+	}
+	if err := logs.EnsureTimer(); err != nil {
+		fmt.Fprintf(os.Stderr, "logs-rotate timer: %v\n", err)
 	}
 	if err := WriteHosterAptBlock(); err != nil {
 		fmt.Fprintf(os.Stderr, "hoster apt pin: %v\n", err)

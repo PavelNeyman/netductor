@@ -15,7 +15,7 @@ const (
 // Action is one session-API operation exposed on operator surfaces.
 type Action struct {
 	ID       string   `json:"id"`
-	Section  string   `json:"section"` // overview|vpn|nodes|edge|nvr|git|backup|dns|probes
+	Section  string   `json:"section"` // overview|vpn|nodes|edge|nvr|git|backup|logs|dns|probes
 	Method   string   `json:"method"`  // GET|POST
 	Path     string   `json:"path"`
 	Body     string   `json:"body,omitempty"`
@@ -129,6 +129,11 @@ func All() []Action {
 		a("backup-peer", "backup", "GET", "/api/backup/peer", "", "—", "Peer", "Peer"),
 		a("backup-run", "backup", "POST", "/api/backup/run", "{}", "backup now", "Run now", "Бэкап сейчас"),
 		a("sec-export", "backup", "GET", "/api/secondary/export", "", "—", "Secondary export", "Secondary export"),
+		// logs (channel incident + journal retention)
+		a("logs-schedule", "logs", "GET", "/api/logs/schedule", "", "logs schedule", "Log rotation schedule", "Расписание ротации логов"),
+		a("logs-schedule-set", "logs", "POST", "/api/logs/schedule", `{"hour":1,"minute":0,"utc":true,"keep_hours":24}`, "logs schedule set", "Set log schedule (04:00 MSK)", "Задать ротацию (04:00 МСК)"),
+		a("logs-rotate", "logs", "POST", "/api/logs/rotate", "{}", "logs rotate", "Rotate logs now", "Ротация логов сейчас"),
+		a("logs-export", "logs", "GET", "/api/logs/export?hours=1&meta=1", "", "logs export 1h", "Export last 1h (path)", "Экспорт логов за 1ч"),
 
 		// probes / audit
 		a("probes", "probes", "GET", "/api/probes", "", "probe", "Probes", "Probes"),
@@ -193,7 +198,7 @@ func Get(id string) (Action, bool) {
 
 // Sections returns unique section names in stable order.
 func Sections() []string {
-	order := []string{"overview", "updates", "vpn", "nodes", "edge", "nvr", "git", "dns", "backup", "probes"}
+	order := []string{"overview", "updates", "vpn", "nodes", "edge", "nvr", "git", "dns", "backup", "logs", "probes"}
 	have := map[string]bool{}
 	for _, a := range All() {
 		have[a.Section] = true

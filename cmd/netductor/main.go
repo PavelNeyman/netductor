@@ -84,6 +84,8 @@ func main() {
 		runTLS(os.Args[2:])
 	case "redirect-serve", "import-redirect":
 		runRedirectServe(os.Args[2:])
+	case "logs":
+		runLogs(os.Args[2:])
 	case "channel", "channels":
 		runChannel(os.Args[2:])
 	case "secondary":
@@ -212,7 +214,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | firewall | host-audit | host-baseline | cleanup | tg-alerts | servicenet | doctor | status | vpn | services | policy | channel | secondary | svc-paths | api-public | edge | mtls | nvr
+  install | serve | firewall | host-audit | host-baseline | cleanup | tg-alerts | servicenet | doctor | status | vpn | services | policy | logs | channel | secondary | svc-paths | api-public | edge | mtls | nvr
   stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

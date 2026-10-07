@@ -21,7 +21,7 @@ func Groups() []Group {
 		{ID: "fleet", LabelEN: "Fleet", LabelRU: "Флот", Sections: []string{"nodes"}, Surfaces: all},
 		{ID: "edge", LabelEN: "Edge", LabelRU: "Edge", Sections: []string{"edge"}, Surfaces: all},
 		{ID: "media", LabelEN: "Media", LabelRU: "Медиа", Sections: []string{"nvr"}, Surfaces: all},
-		{ID: "data", LabelEN: "Data", LabelRU: "Данные", Sections: []string{"backup", "dns", "git"}, Surfaces: all},
+		{ID: "data", LabelEN: "Data", LabelRU: "Данные", Sections: []string{"backup", "logs", "dns", "git"}, Surfaces: all},
 		{ID: "adv", LabelEN: "Advanced", LabelRU: "Ещё", Sections: []string{"probes"}, Surfaces: all},
 	}
 }

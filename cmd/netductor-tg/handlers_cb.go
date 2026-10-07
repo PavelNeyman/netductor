@@ -224,6 +224,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		handleDNSCB(token, chat, msgID, data)
 		return
 	}
+	if data == "m:logs" || strings.HasPrefix(data, "m:logs:") {
+		handleLogsCB(token, chat, msgID, data)
+		return
+	}
 	if data == "m:backup" || strings.HasPrefix(data, "m:backup:") {
 		handleBackupCB(token, chat, msgID, data)
 		return

@@ -81,5 +81,5 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 
 - [x] Alert batch: solo ~2s flush; multi coalesce ≤8s; same key one (0.9.274)
 - [x] Channel probes + CLI/doctor/collect alerts (0.9.275)
-- [ ] Ring buffer / journal export last 1h on alert + UI download
-- [ ] Log retention timer (default 04:00 Europe/Moscow), UI like backup schedule
+- [x] Journal export last 1h on alert + API/UI download (0.9.276)
+- [x] Log retention timer (default 04:00 MSK / 01:00 UTC), API+TG+catalog (0.9.276)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/channels"
+	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/metrics"
@@ -268,6 +269,21 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		} else {
 			notify.ClearAlert("channel:reality-total")
 		}
+		// Attach last-1h journals when channel degraded (best-effort, once per alert key cooldown)
+		needAttach := false
+		for _, s := range ch.Secondaries {
+			if s.Online && ((s.PublicIP != "" && !s.TCP443OK) || !s.UplinkOK) {
+				needAttach = true
+			}
+		}
+		if ch.RealityInvalidFromSec15m >= 30 || ch.RealityInvalidTotal15m >= 80 {
+			needAttach = true
+		}
+		if needAttach {
+			if path, err := logs.ExportHours(1); err == nil {
+				_ = notify.SendDocument(path, "📎 channel incident logs (last 1h)")
+			}
+		}
 	}
 
 	if enabled("mismatch_spike") {
@@ -276,6 +292,9 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		if st10.Total >= 15 || st.Total >= 25 {
 			msg := fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b>/10m, <b>%d</b>/30m\n<code>%s</code>\n<i>Server expects vision; client sent empty flow</i>", st10.Total, st.Total, vpn.FormatMismatchText(st10))
 			notify.AlertOnce("mismatch:core", msg)
+			if path, err := logs.ExportHours(1); err == nil {
+				_ = notify.SendDocument(path, "📎 flow mismatch logs (last 1h)")
+			}
 		} else {
 			notify.ClearAlert("mismatch:core")
 		}
