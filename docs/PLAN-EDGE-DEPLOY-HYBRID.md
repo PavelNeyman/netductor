@@ -9,6 +9,87 @@ Goal: factory OpenWrt (Cudy, RPi, …) → one operator deploy → ready device,
 - RouterOS/MikroTik in the same UCI apply path (separate executor later; shared intent labels only).
 - Changing runtime model: after uplink, agent↔primary remains the control plane.
 
+
+## Architecture: one backend, thin UIs
+
+**Rule:** domain logic and deploy orchestration live in shared packages / primary API.  
+CLI, TUI, Web only call APIs or the same library wrappers — no business rules forked per UI.  
+**Telegram: no edge deploy** (alerts/status only). Optional future TG-assisted flow is out of scope until explicitly designed; do not implement deploy in TG now.
+
+### Layers
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  Thin UIs                                                │
+│  • netductor-op CLI/TUI   • Web UI   • (not TG deploy) │
+└───────────────────────────┬─────────────────────────────┘
+                            │ HTTP session API  and/or
+                            │ local library call (same types)
+┌───────────────────────────▼─────────────────────────────┐
+│  Backend                                                 │
+│  • internal/edge  — Facts, Preset, Plan, ModuleSelection │
+│  • internal/deploy — ProbeDeviceFacts, DeployEdge, SSH   │
+│  • primary HTTP   — templates, device record, day-2 cmd  │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Why SSH probe is not “only on primary”
+
+Factory device is often **only on site LAN** (`192.168.1.1`); primary VPS cannot reach it.  
+First-boot **probe + SSH apply** must run on a host that has L2/L3 to the device — typically the **operator machine**.
+
+That does **not** split the backend:
+
+| Concern | Where |
+|--|--|
+| Facts / Plan / Selection types & rules | `internal/edge` (shared) |
+| SSH probe script + parse | `internal/deploy.ProbeDeviceFacts` (shared) |
+| Module apply over SSH | `internal/deploy` / `edge.Provision` (shared) |
+| Persist device, templates, enroll, remote cmds | **primary** `/api/edge/*` |
+| UI render card / toggles | op TUI, Web — **display only** |
+
+Op is a **thin client that can execute the shared deploy library locally** (LAN), not a second product.  
+Web uses the **same JSON shapes** (`DeviceFacts`, `DeployPlan`, `ModuleSelection`).
+
+### API surface (target)
+
+**Local / op (library or future local HTTP):**
+
+| Call | Role |
+|--|--|
+| `ProbeDeviceFacts(ssh…)` | card data |
+| `BuildPlan` + `ApplySelection` | module list |
+| `DeployEdge(opts)` | run plan over SSH |
+
+**Primary (session auth), day-2 and shared state:**
+
+| Route (illustrative) | Role |
+|--|--|
+| existing `/api/edge/*` | enroll, templates, commands, devices |
+| `POST /api/edge/facts` or heartbeat fields | store last facts from agent |
+| `GET /api/edge/devices/:id` | card from stored facts + template |
+| `POST /api/edge/plan` | body: facts + preset + selection → plan JSON |
+| `POST /api/edge/apply` | enqueue module applies via agent (device online) |
+
+Factory path: UI → op library (SSH).  
+Online path: UI → primary API → agent commands.  
+**Same plan/module IDs and JSON** in both paths.
+
+### UI matrix
+
+| UI | Factory (no uplink) | Day-2 (agent online) | Deploy? |
+|--|--|--|--|
+| **op CLI/TUI** | yes (LAN SSH + shared lib) | yes (API or SSH) | yes |
+| **Web** | via op session / documented “use op on LAN” **or** later local helper; not a second implementation | yes (primary API) | yes |
+| **Telegram** | no | no deploy; alerts/status only | **no** |
+
+Web must not reimplement probe/plan in JS — only render API/library results.
+
+### Future (not now)
+
+Fully TG-driven commission without op would need a bridge (e.g. temporary LAN helper, or user-forwarded facts). Explicitly **deferred**; no TG deploy code until a separate design.
+
+
 ## Architecture (agreed)
 
 ### Transport split
@@ -124,7 +205,7 @@ netductor deploy edge --router 192.168.1.1 --id SITE --preset sbc-lab|travel-rou
 
 ## UI: device card + module picker (op TUI / future web)
 
-**Yes — doable.** Deploy stays op→SSH; UI is a staged wizard on top of Facts + Plan, not a second transport.
+**Yes — doable.** Domain in shared backend; **op TUI and Web** only visualize Facts/Plan/Selection APIs. Factory SSH runs via shared deploy lib on a LAN host (op). **No TG deploy.**
 
 ### Flow
 
@@ -184,7 +265,7 @@ Not a flat flag soup — sections:
 4. **Details** — form for selected modules only  
 5. **Footer** — Dry-run / Apply / Back  
 
-Web UI later can mirror the same JSON (`facts` + `plan` + `selection`).
+Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary API and/or op; no parallel logic.
 
 ### Implementation phases (UI)
 
@@ -250,6 +331,7 @@ Web UI later can mirror the same JSON (`facts` + `plan` + `selection`).
 - [ ] `ModuleSelection` type (enabled map + advanced flag)
 - [ ] export facts+plan JSON for TUI
 
-### U1–U4 — TUI card / picker / non-destructive / overlay
+### U1–U4 — thin UI card / picker (op TUI + Web), non-destructive / overlay
 
-See section **UI: device card + module picker**.
+Same API JSON for all UIs. See **UI: device card** and **Architecture: one backend, thin UIs**. No TG deploy.
+
