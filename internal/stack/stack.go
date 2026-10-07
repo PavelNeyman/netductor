@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/cleanup"
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -496,7 +497,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 	notify.AlertOnce("stack:apply-ok:"+tag, msg)
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
 	// Re-assert host baseline after binary swap (role file + firewall + watchdog).
-	if err := install.EnsureHostBaseline("primary"); err != nil {
+	// Never hardcode primary: secondary node binary can run stack paths; DetectRole uses agent unit.
+	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
 		fmt.Fprintln(os.Stderr, "warn host baseline:", err)
 	}
 	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)

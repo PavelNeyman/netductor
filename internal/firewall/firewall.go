@@ -89,8 +89,16 @@ func ApplyRole(role string) error {
 	}
 }
 
+// DetectRole returns primary|secondary for baseline/firewall/doctor.
+// Live secondary agent wins over a stale role file (stack apply used to force primary).
+func DetectRole() string { return detectRole() }
+
 func detectRole() string {
-	// Explicit role file wins (written by install / firewall apply).
+	// Live secondary agent is definitive — prevents wrong role=primary after node upgrade paths.
+	if st, _ := exec.Command("systemctl", "is-active", "netductor-secondary-agent").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
+		return "secondary"
+	}
+	// Explicit role file (written by install / firewall apply).
 	if b, err := os.ReadFile("/etc/netductor/role"); err == nil {
 		s := strings.TrimSpace(strings.ToLower(string(b)))
 		if s == "secondary" {
@@ -99,10 +107,6 @@ func detectRole() string {
 		if s == "primary" || s == "core" {
 			return "primary"
 		}
-	}
-	// Live secondary agent is definitive.
-	if st, _ := exec.Command("systemctl", "is-active", "netductor-secondary-agent").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
-		return "secondary"
 	}
 	// Primary control-plane markers (bundle.json may exist on primary after export — do NOT treat as secondary).
 	if _, err := os.Stat("/var/lib/netductor/READY.txt"); err == nil {
