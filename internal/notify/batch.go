@@ -15,26 +15,29 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
-// Alert batching: collect unique keys, flush as one Telegram message,
-// then optionally re-pin a compact hub so the interactive menu stays at the bottom.
-//
-// Guards against storm:
-//   - one flush per flushInterval
-//   - max maxBatch items per message
-//   - hub re-pin at most once per hubRepinMin
+// Alert batching policy:
+//   - same key: overwrite (one message per key)
+//   - solitary alert: flush after soloDelay (fast path — no 25s wait)
+//   - several different keys in a short window: coalesce up to batchWindow, then one TG message
+//   - queue ≥ maxBatch: flush immediately
+//   - FlushAlerts(true): always send now (stack apply, tests)
 
 const (
-	flushInterval = 25 * time.Second
+	soloDelay     = 2 * time.Second
+	batchWindow   = 8 * time.Second
 	maxBatch      = 8
 	hubRepinMin   = 90 * time.Second
+	tickerPeriod  = 2 * time.Second
 )
 
 var (
-	batchMu    sync.Mutex
-	pending    = map[string]string{} // key → html body
-	flushOnce  sync.Once
-	lastFlush  time.Time
-	lastHubPin time.Time
+	batchMu       sync.Mutex
+	pending       = map[string]string{} // key → html body
+	flushOnce     sync.Once
+	lastFlush     time.Time
+	lastHubPin    time.Time
+	firstPending  time.Time // when current batch started filling
+	soloTimer     *time.Timer
 )
 
 func hubStatePath() string {
@@ -77,7 +80,7 @@ func ClearHubMsg() {
 func startFlusher() {
 	flushOnce.Do(func() {
 		go func() {
-			t := time.NewTicker(flushInterval)
+			t := time.NewTicker(tickerPeriod)
 			defer t.Stop()
 			for range t.C {
 				_ = FlushAlerts(false)
@@ -93,29 +96,58 @@ func EnqueueAlert(key, msg string) {
 		return
 	}
 	batchMu.Lock()
+	if len(pending) == 0 {
+		firstPending = time.Now()
+	}
 	pending[key] = msg
 	n := len(pending)
 	batchMu.Unlock()
 	startFlusher()
-	// flush early if queue is full
+
 	if n >= maxBatch {
 		_ = FlushAlerts(false)
+		return
+	}
+	// Solitary: schedule near-immediate flush (cancelled if more arrive).
+	if n == 1 {
+		batchMu.Lock()
+		if soloTimer != nil {
+			soloTimer.Stop()
+		}
+		soloTimer = time.AfterFunc(soloDelay, func() {
+			_ = FlushAlerts(false)
+		})
+		batchMu.Unlock()
 	}
 }
 
-// FlushAlerts sends pending alerts as one message. force ignores min interval.
+// FlushAlerts sends pending alerts as one message. force ignores timing windows.
 func FlushAlerts(force bool) error {
 	batchMu.Lock()
-	if !force && time.Since(lastFlush) < flushInterval && len(pending) < maxBatch {
+	n := len(pending)
+	if n == 0 {
 		batchMu.Unlock()
 		return nil
 	}
-	if len(pending) == 0 {
-		batchMu.Unlock()
-		return nil
+	age := time.Since(firstPending)
+	// Adaptive gate:
+	//  force → always
+	//  n >= maxBatch → always
+	//  n == 1 → after soloDelay
+	//  n > 1 → after batchWindow (coalesce storm of different keys)
+	if !force {
+		if n >= maxBatch {
+			// ok
+		} else if n == 1 && age < soloDelay {
+			batchMu.Unlock()
+			return nil
+		} else if n > 1 && age < batchWindow {
+			batchMu.Unlock()
+			return nil
+		}
 	}
-	// take snapshot
-	keys := make([]string, 0, len(pending))
+
+	keys := make([]string, 0, n)
 	for k := range pending {
 		keys = append(keys, k)
 	}
@@ -128,10 +160,19 @@ func FlushAlerts(force bool) error {
 		parts = append(parts, pending[k])
 		delete(pending, k)
 	}
+	if len(pending) == 0 {
+		firstPending = time.Time{}
+	} else {
+		firstPending = time.Now()
+	}
 	lastFlush = time.Now()
 	doHub := time.Since(lastHubPin) >= hubRepinMin
 	if doHub {
 		lastHubPin = time.Now()
+	}
+	if soloTimer != nil {
+		soloTimer.Stop()
+		soloTimer = nil
 	}
 	batchMu.Unlock()
 
@@ -145,18 +186,19 @@ func FlushAlerts(force bool) error {
 		}
 	}
 	if err := sendTelegramHTML(b.String()); err != nil {
-		// put back on failure (best-effort, may duplicate later)
 		batchMu.Lock()
 		for i, k := range keys {
 			if i < len(parts) {
 				pending[k] = parts[i]
 			}
 		}
+		if firstPending.IsZero() {
+			firstPending = time.Now()
+		}
 		batchMu.Unlock()
 		return err
 	}
 	if doHub && !AlertsChannelConfigured() {
-		// Only re-pin compact hub when alerts share the operator chat (topic mode).
 		_ = repinHub()
 	}
 	return nil
@@ -173,7 +215,6 @@ func sendTelegramHTML(msg string) error {
 	if tok == "" || chat == "" {
 		return fmt.Errorf("telegram secrets not configured")
 	}
-	// Channels: sendMessage only. Admin DM: try rich, then sendMessage.
 	if !channelMode {
 		u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
 		body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
@@ -212,10 +253,8 @@ func repinHub() error {
 			"message_id": {fmt.Sprintf("%d", h.MessageID)},
 		})
 	}
-	// Compact hub — callbacks match netductor-tg handlers.
 	kb := `{"inline_keyboard":[[{"text":"Users","callback_data":"m:users"},{"text":"Fleet","callback_data":"m:cat:nodes"}],[{"text":"Tools","callback_data":"m:tools"},{"text":"Status","callback_data":"m:status"}],[{"text":"📋 Menu","callback_data":"m:menu"}]]}`
 	html := hubMenuHTML()
-	// sendMessage returns message_id — parse and SaveHubMsg
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", tok)
 	payload := fmt.Sprintf(`{"chat_id":%s,"text":%q,"parse_mode":"HTML","reply_markup":%s}`, chat, html, kb)
 	resp, err := http.Post(u, "application/json", strings.NewReader(payload))
@@ -242,6 +281,5 @@ func repinHub() error {
 }
 
 func hubMenuHTML() string {
-	// Neutral; operator language is not always known from notify package.
 	return "📋 <b>Menu</b> / <b>Меню</b>"
 }

@@ -495,6 +495,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 	// Secondary is NOT auto-upgraded — operator must enqueue upgrade explicitly.
 	msg := "✅ Stack apply ok <code>" + tag + "</code> (secondary: manual upgrade only)"
 	notify.AlertOnce("stack:apply-ok:"+tag, msg)
+	_ = notify.FlushAlerts(true)
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
 	// Re-assert host baseline after binary swap (role file + firewall + watchdog).
 	// Never hardcode primary: secondary node binary can run stack paths; DetectRole uses agent unit.

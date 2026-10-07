@@ -76,3 +76,10 @@ Latest review: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md).
 
 See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259.
 - ~~OpenWrt opkg feed / ipk for agent~~ — **rejected** (0.9.155): first-boot binary+SCP; day-2 stack/agent_update. Revisit only if fleet needs offline opkg without primary.
+
+## Channel health + incident logs (2026-10-07)
+
+- [x] Alert batch: solo ~2s flush; multi coalesce ≤8s; same key one (0.9.274)
+- [ ] Channel probes: client→secondary:443, secondary→primary Reality/uplink, mTLS 8789, optional ICMP
+- [ ] Ring buffer / journal export last 1h on alert + UI download
+- [ ] Log retention timer (default 04:00 Europe/Moscow), UI like backup schedule
