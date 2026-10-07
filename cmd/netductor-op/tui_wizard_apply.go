@@ -197,6 +197,21 @@ func wizBuildFields(id string, m *model) []wizField {
 				Short:  ph("Stable edge id", "Стабильный id edge"),
 				Detail: ph("Used for enroll/approve on primary.", "Для enroll/approve на primary.")},
 			{Key: "arch", Label: FormT(lang, "agent_arch"), Value: "auto", Short: "auto | arm64 | arm | mipsle | amd64 | riscv64", Detail: ph("auto = SSH probe uname -m (Cudy TR1200 → mipsle).", "auto = probe uname -m (Cudy TR1200 → mipsle).")},
+			{Key: "preset", Label: "Preset", Value: "",
+				Short:  "empty=auto | travel-router | sbc-lab | sbc-dual-nic",
+				Detail: ph("From device facts if empty. RPi single-NIC → sbc-lab.", "Пусто = из facts. RPi один NIC → sbc-lab.")},
+			{Key: "dry_run", Label: "Dry-run only? (yes/no)", Value: "no",
+				Short:  ph("Probe + plan, no provision", "Probe + plan, без установки"),
+				Detail: ph("Same plan as Web preview / API.", "Тот же plan, что Web preview / API.")},
+			{Key: "advanced", Label: "Advanced modules? (yes/no)", Value: "no",
+				Short:  ph("Force modules despite detect", "Форс модулей мимо детекта"),
+				Detail: ph("Unlock wan/wifi/etc when probe is wrong.", "Снять ограничения, если probe ошибся.")},
+			{Key: "expand_fs", Label: "Expand root FS on mmc? (yes/no)", Value: "no",
+				Short:  ph("Optional fs_expand module", "Опциональный fs_expand"),
+				Detail: ph("When card/image root is small.", "Если root на карте маленький.")},
+			{Key: "overlay_ext", Label: "External overlay? (yes/no)", Value: "no",
+				Short:  ph("Optional overlay_ext", "Опциональный overlay_ext"),
+				Detail: ph("Offer only if USB/mmc present.", "Только если есть USB/mmc.")},
 			{Key: "server", Label: FormT(lang, "primary_mtls"), Value: srv,
 				Short:  "https://PRIMARY:8789",
 				Detail: ph("Agent plane from router. Prefills from Settings→primary host. SSH to primary uses Settings key (set after Fleet).", "Agent plane с роутера. Prefill из Настройки→primary. SSH на primary — ключ из Настроек (после Fleet).")},
@@ -364,6 +379,20 @@ func (m model) runWizardApplyInTUI() string {
 		edge.Version = deploy.Release
 		if edge.RouterUser == "" {
 			edge.RouterUser = "root"
+		}
+		if edge.DryRun {
+			prev, err := operator.PreviewEdge(edge)
+			if err != nil {
+				return fmt.Sprintf("preview: %v", err)
+			}
+			var b strings.Builder
+			fmt.Fprintf(&b, "preset=%s suggested=%s\n", prev.Preset, prev.Suggested)
+			fmt.Fprintf(&b, "card model=%s arch=%s wan_capable=%v eth=%d bands=%v\n",
+				prev.Card.Model, prev.Card.Arch, prev.Card.WANCapable, prev.Card.EthCount, prev.Card.Bands)
+			for _, s := range prev.Plan.Steps {
+				fmt.Fprintf(&b, "  %-16s %-5s %s\n", s.Module, s.Action, s.Reason)
+			}
+			return b.String()
 		}
 		if err := operator.DeployEdge(edge); err != nil {
 			return err.Error()

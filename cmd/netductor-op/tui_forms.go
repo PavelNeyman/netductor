@@ -35,7 +35,8 @@ func (m *model) startActionForm(action string) {
 			{Key: "user", Label: "SSH user", Value: "root"},
 			{Key: "pass", Label: "SSH password", Secret: true},
 			{Key: "id", Label: "Device ID", Value: "home-owrt-1"},
-			{Key: "server", Label: "Primary API", Value: "http://127.0.0.1:8787", Placeholder: "http://PRIMARY:8787"},
+			{Key: "server", Label: "Agent URL", Value: "https://PRIMARY:8789", Placeholder: "https://primary:8789"},
+			{Key: "preset", Label: "Preset", Placeholder: "auto|travel-router|sbc-lab"},
 		}
 	case "edge-register":
 		m.wizFields = []wizField{
@@ -132,17 +133,25 @@ func (m *model) submitActionForm() string {
 	case "build":
 		return m.runNetductor("build", "--goos", orDefault(m.fieldVal("goos"), "linux"), "--goarch", orDefault(m.fieldVal("goarch"), "amd64"))
 	case "owrt-install":
+		// Prefer Setup wizard (OpenWrt) for full modular plan. This form keeps a short path.
 		host := m.fieldVal("host")
-		user := orDefault(m.fieldVal("user"), "root")
 		if host == "" {
 			return "host required"
 		}
-		args := []string{"edge", "provision", user + "@" + host, "--id", orDefault(m.fieldVal("id"), "home-owrt-1"), "--server", orDefault(m.fieldVal("server"), "http://127.0.0.1:8787")}
+		args := []string{"deploy", "edge",
+			"--router", host,
+			"--id", orDefault(m.fieldVal("id"), "home-owrt-1"),
+			"--user", orDefault(m.fieldVal("user"), "root"),
+			"--server", orDefault(m.fieldVal("server"), "https://127.0.0.1:8789"),
+			"--skip-root-pass",
+		}
 		if p := m.fieldVal("pass"); p != "" {
 			args = append(args, "--password", p)
 		}
-		// edge provision is local SSH to router, not remote netductor
-		return m.runNetductor(args...)
+		if pr := m.fieldVal("preset"); pr != "" {
+			args = append(args, "--preset", pr)
+		}
+		return m.runLocalOp(args...)
 	case "edge-register":
 		id := m.fieldVal("id")
 		if id == "" {

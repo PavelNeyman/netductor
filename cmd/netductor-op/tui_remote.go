@@ -90,3 +90,18 @@ func loadRemoteFromEnv() (host, user string) {
 	}
 	return host, user
 }
+
+// runLocalOp runs this operator binary (never remote netductor) — for LAN edge deploy.
+func (m *model) runLocalOp(args ...string) string {
+	exe, err := os.Executable()
+	if err != nil || exe == "" {
+		exe = "netductor-op"
+	}
+	cmd := exec.Command(exe, args...)
+	out, err := cmd.CombinedOutput()
+	s := string(out)
+	if err != nil {
+		s += fmt.Sprintf("\n[%v]\n", err)
+	}
+	return s
+}

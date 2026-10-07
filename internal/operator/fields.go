@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
 
@@ -232,6 +233,11 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		GuestPSK:             get("guest_psk"),
 		PrimaryKeyPassphrase: get("key_pass"),
 		Reboot:               yesish(get("reboot")),
+		Preset:               strings.TrimSpace(get("preset")),
+		DryRun:               yesish(get("dry_run")),
+		ExpandFS:             yesish(get("expand_fs")),
+		OverlayExt:           yesish(get("overlay_ext")),
+		Selection: edge.ModuleSelection{Advanced: yesish(get("advanced"))},
 	}
 }
 

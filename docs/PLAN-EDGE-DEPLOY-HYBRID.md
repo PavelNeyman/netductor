@@ -339,7 +339,7 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 - [x] U1/U2 web op modular wizard (card + modules + advanced + details)
 - [x] U3 non-destructive network map (only set operator keys; module-gated LAN/WAN/WiFi)
 - [x] U4 fs_expand + overlay_ext modules (plan + optional apply; expand_hint probe)
-- [ ] op TUI parity with same `/v1/edge/preview` JSON
+- [x] op TUI: preset/dry-run/advanced/expand fields + PreviewEdge (same plan as API)
 
 Same API JSON for all UIs. No TG deploy.
 

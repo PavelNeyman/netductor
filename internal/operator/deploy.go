@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/edge"
 )
 
 // DeployPrimary bootstraps a primary VPS (operator machine → SSH).
@@ -41,6 +42,38 @@ func DeploySecondary(s SecondarySpec) error {
 		return fmt.Errorf("invalid ssh user")
 	}
 	return deploy.DeploySecondary(s.toDeploy())
+}
+
+
+// PreviewEdge probes the router over SSH and returns the same PlanResponse as /v1/edge/preview and primary /api/edge/plan.
+func PreviewEdge(s EdgeSpec) (edge.PlanResponse, error) {
+	if s.RouterUser == "" {
+		s.RouterUser = "root"
+	}
+	s.PrimaryKey = expandHome(s.PrimaryKey)
+	facts, _, err := deploy.ProbeDeviceFacts(s.RouterPass, s.PrimaryKey, s.RouterUser, s.RouterHost, s.PrimaryKeyPassphrase)
+	if err != nil {
+		return edge.PlanResponse{}, err
+	}
+	ssid := strings.TrimSpace(s.WiFiSSID24)
+	if ssid == "" {
+		ssid = strings.TrimSpace(s.WiFiSSID)
+	}
+	if ssid == "" {
+		ssid = strings.TrimSpace(s.WiFiSSID5)
+	}
+	return edge.ResolvePlan(edge.PlanRequest{
+		Preset: s.Preset,
+		Facts:  &facts,
+		Intent: edge.DeployIntent{
+			ConfigureNet: s.NetConfigure,
+			GuestEnable:  s.GuestEnable,
+			WiFiSSID:     ssid,
+			ExpandFS:     s.ExpandFS,
+			OverlayExt:   s.OverlayExt,
+		},
+		Selection: s.Selection,
+	})
 }
 
 // DeployEdge provisions OpenWrt/RPi agent from the operator machine (Mac-direct).

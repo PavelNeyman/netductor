@@ -138,6 +138,8 @@ type EdgeSpec struct {
 	DryRun                                       bool
 	DryRunJSON                                   bool
 	Selection                                    edge.ModuleSelection
+	ExpandFS                                     bool
+	OverlayExt                                   bool
 }
 
 func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
@@ -160,6 +162,6 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		WANProto: e.WANProto, WANIP: e.WANIP, WANMask: e.WANMask, WANGateway: e.WANGateway, WANDNS: e.WANDNS,
 		PPPoEUser: e.PPPoEUser, PPPoEPass: e.PPPoEPass, PPPoEService: e.PPPoEService, PPPoEAC: e.PPPoEAC,
 		Reboot: e.Reboot,
-		Preset: e.Preset, DryRun: e.DryRun, DryRunJSON: e.DryRunJSON, Selection: e.Selection,
+		Preset: e.Preset, DryRun: e.DryRun, DryRunJSON: e.DryRunJSON, Selection: e.Selection, ExpandFS: e.ExpandFS, OverlayExt: e.OverlayExt,
 	}
 }
