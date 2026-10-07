@@ -22,19 +22,47 @@ type RadioFact struct {
 type UCINetFacts struct {
 	LANDevice  string `json:"lan_device,omitempty"`
 	LANIP      string `json:"lan_ip,omitempty"`
+	LANProto   string `json:"lan_proto,omitempty"`
 	WANPresent bool   `json:"wan_present"`
 	WANProto   string `json:"wan_proto,omitempty"`
+	WANIP      string `json:"wan_ip,omitempty"`
 }
 
-// DeviceFacts is the capability snapshot used to build a deploy plan.
+// WiFiSSIDFact is a configured AP iface (current state).
+type WiFiSSIDFact struct {
+	Section string `json:"section,omitempty"` // e.g. default_radio0
+	Device  string `json:"device,omitempty"`  // radio0
+	SSID    string `json:"ssid,omitempty"`
+	Mode    string `json:"mode,omitempty"` // ap | sta
+	Disabled bool  `json:"disabled,omitempty"`
+}
+
+// StorageFacts best-effort disk / overlay signals for UI offers.
+type StorageFacts struct {
+	OverlayTotalKB int64  `json:"overlay_total_kb,omitempty"`
+	OverlayFreeKB  int64  `json:"overlay_free_kb,omitempty"`
+	RootFreeKB     int64  `json:"root_free_kb,omitempty"`
+	HasMMC         bool   `json:"has_mmc,omitempty"`
+	HasUSBDisk     bool   `json:"has_usb_disk,omitempty"`
+	ExpandHint     bool   `json:"expand_hint,omitempty"` // free space after root partition likely
+	OverlayNote    string `json:"overlay_note,omitempty"`
+}
+
+// DeviceFacts is the capability snapshot used to build a deploy plan and UI card.
 type DeviceFacts struct {
-	Arch    string      `json:"arch,omitempty"`
-	Board   string      `json:"board,omitempty"`
-	OS      string      `json:"os,omitempty"` // openwrt | other
-	Ifaces  []NetIface  `json:"ifaces,omitempty"`
-	Radios  []RadioFact `json:"radios,omitempty"`
-	UCI     UCINetFacts `json:"uci"`
-	FlashMB int         `json:"flash_mb,omitempty"`
+	Arch     string         `json:"arch,omitempty"`
+	Board    string         `json:"board,omitempty"`
+	Model    string         `json:"model,omitempty"`
+	Serial   string         `json:"serial,omitempty"`
+	OS       string         `json:"os,omitempty"` // openwrt | other
+	Ifaces   []NetIface     `json:"ifaces,omitempty"`
+	Radios   []RadioFact    `json:"radios,omitempty"`
+	SSIDs    []WiFiSSIDFact `json:"ssids,omitempty"`
+	UCI      UCINetFacts    `json:"uci"`
+	MemTotalKB int64        `json:"mem_total_kb,omitempty"`
+	MemAvailKB int64        `json:"mem_avail_kb,omitempty"`
+	Storage  StorageFacts   `json:"storage"`
+	FlashMB  int            `json:"flash_mb,omitempty"`
 }
 
 func (f DeviceFacts) EthernetCount() int {
@@ -55,8 +83,23 @@ func (f DeviceFacts) WANCapable() bool {
 	if f.UCI.WANPresent {
 		return true
 	}
-	// Heuristic: two or more ethernet ports often means lan+wan class hardware.
 	return f.EthernetCount() >= 2
+}
+
+func (f DeviceFacts) Bands() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, r := range f.Radios {
+		b := strings.ToLower(r.Band)
+		if b == "" {
+			b = "unknown"
+		}
+		if !seen[b] {
+			seen[b] = true
+			out = append(out, b)
+		}
+	}
+	return out
 }
 
 func FactsToJSON(f DeviceFacts) string {
@@ -92,4 +135,36 @@ func NormalizeArch(unameM string) string {
 	default:
 		return u
 	}
+}
+
+// ModuleSelection is the UI/operator choice of which modules to run.
+type ModuleSelection struct {
+	Advanced bool            `json:"advanced"` // unlock all modules despite facts
+	Enabled  map[string]bool `json:"enabled"`  // module id → on/off
+}
+
+// ApplySelection filters a plan: disabled modules become skip; Advanced can force-apply wan/wifi/etc.
+func ApplySelection(plan DeployPlan, sel ModuleSelection, facts DeviceFacts) DeployPlan {
+	if sel.Enabled == nil {
+		return plan
+	}
+	var steps []PlanStep
+	for _, s := range plan.Steps {
+		en, ok := sel.Enabled[s.Module]
+		if ok && !en {
+			s.Action = "skip"
+			s.Reason = "disabled by operator"
+			steps = append(steps, s)
+			continue
+		}
+		if ok && en && s.Action == "skip" && sel.Advanced {
+			s.Action = "apply"
+			s.Reason = "forced (advanced)"
+			steps = append(steps, s)
+			continue
+		}
+		steps = append(steps, s)
+	}
+	plan.Steps = steps
+	return plan
 }

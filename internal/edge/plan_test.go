@@ -70,3 +70,33 @@ func TestSuggestPreset(t *testing.T) {
 		t.Fatalf("cudy suggest %s", g)
 	}
 }
+
+func TestApplySelection_AdvancedForcesWAN(t *testing.T) {
+	facts := DeviceFacts{
+		Ifaces: []NetIface{{Name: "eth0", Type: "ethernet"}},
+		UCI:    UCINetFacts{WANPresent: false},
+	}
+	plan := BuildPlan(PresetSBCLab, facts, DeployIntent{ConfigureNet: true})
+	sel := ModuleSelection{Advanced: true, Enabled: map[string]bool{ModWANBaseline: true}}
+	plan2 := ApplySelection(plan, sel, facts)
+	found := false
+	for _, s := range plan2.Steps {
+		if s.Module == ModWANBaseline {
+			found = true
+			if s.Action != "apply" {
+				t.Fatalf("advanced should force wan apply, got %s (%s)", s.Action, s.Reason)
+			}
+		}
+	}
+	if !found {
+		// sbc-lab preset may omit wan entirely — force by rebuilding travel + selection
+		plan = BuildPlan(PresetTravelRouter, facts, DeployIntent{ConfigureNet: true})
+		plan2 = ApplySelection(plan, sel, facts)
+		for _, s := range plan2.Steps {
+			if s.Module == ModWANBaseline && s.Action == "apply" {
+				return
+			}
+		}
+		t.Fatal("wan not forced")
+	}
+}
