@@ -44,7 +44,10 @@ func ProbeHealth() error {
 	}
 	vless := 0
 	if role == "secondary" {
-		if probeTCP(publicPrimaryHost(), "443", 3*time.Second) {
+		// Prefer SP reachability. Bare TCP to public Reality :443 creates invalid-handshake noise on primary.
+		if pingOK(AddrP_SP) {
+			vless = 1
+		} else if h := publicPrimaryHost(); h != "" && probeTCP(h, "443", 3*time.Second) {
 			vless = 1
 		}
 	}

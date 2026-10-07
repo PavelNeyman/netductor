@@ -116,21 +116,26 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").Output(); err == nil {
 		sbOK = strings.TrimSpace(string(out)) == "active"
 	}
-	// Probe public primary:443 (VLESS Reality path), not agent mTLS host
-	pubHost := ""
-	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url.public"); err == nil {
-		s := strings.TrimSpace(string(b))
-		s = strings.TrimPrefix(strings.TrimPrefix(s, "https://"), "http://")
-		if i := strings.IndexAny(s, ":/"); i > 0 {
-			s = s[:i]
-		}
-		pubHost = s
-	}
+	// Uplink health: prefer SP gateway (no bare TCP to Reality :443 — that floods primary with
+	// "REALITY: processed invalid connection"). Public :443 probe only when SP is down.
 	upOK := false
-	if pubHost != "" {
-		upOK = probePrimaryUplink("https://" + pubHost + ":8789")
+	if exec.Command("ping", "-c", "1", "-W", "2", "10.87.10.1").Run() == nil {
+		upOK = true
 	} else {
-		upOK = probePrimaryUplink(coreBase)
+		pubHost := ""
+		if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url.public"); err == nil {
+			s := strings.TrimSpace(string(b))
+			s = strings.TrimPrefix(strings.TrimPrefix(s, "https://"), "http://")
+			if i := strings.IndexAny(s, ":/"); i > 0 {
+				s = s[:i]
+			}
+			pubHost = s
+		}
+		if pubHost != "" {
+			upOK = probePrimaryUplink("https://" + pubHost + ":8789")
+		} else {
+			upOK = probePrimaryUplink(coreBase)
+		}
 	}
 	if upOK {
 		uplinkFailStreak = 0

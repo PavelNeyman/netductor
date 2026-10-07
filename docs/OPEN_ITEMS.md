@@ -83,3 +83,4 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 - [x] Channel probes + CLI/doctor/collect alerts (0.9.275)
 - [x] Journal export last 1h on alert + API/UI download (0.9.276)
 - [x] Log retention timer (default 04:00 MSK / 01:00 UTC), API+TG+catalog (0.9.276)
+- [ ] Internal releases: see docs/PLAN-INTERNAL-RELEASES.md
