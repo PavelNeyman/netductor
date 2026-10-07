@@ -161,6 +161,9 @@ type Device struct {
 	ServicesMode  string   `json:"services_mode,omitempty"`
 	PolicyAt      string   `json:"policy_updated_at,omitempty"`
 	PolicyBy      string   `json:"policy_updated_by,omitempty"`
+	// Facts is last probed/reported capability snapshot (UI card + plan).
+	Facts   *DeviceFacts `json:"facts,omitempty"`
+	FactsAt int64        `json:"facts_at,omitempty"`
 }
 
 func devicesPath() string  { return filepath.Join(paths.EdgeDir(), "devices.json") }
@@ -252,13 +255,29 @@ func mergePayload(d *Device, payload map[string]any) {
 	if v := floatFrom(payload, "mem_pct"); v > 0 {
 		d.MemPct = v
 	}
+	if raw, ok := payload["facts"]; ok && raw != nil {
+		b, err := json.Marshal(raw)
+		if err == nil {
+			var f DeviceFacts
+			if json.Unmarshal(b, &f) == nil {
+				d.Facts = &f
+				d.FactsAt = time.Now().Unix()
+				if f.Board != "" && d.Board == "" {
+					d.Board = f.Board
+				}
+				if f.Arch != "" && d.Arch == "" {
+					d.Arch = f.Arch
+				}
+			}
+		}
+	}
 	// stash unknown keys
 	known := map[string]bool{
 		"device_id": true, "status": true, "device_token": true, "board": true,
 		"hostname": true, "wan_ip": true, "template_id": true, "overlay": true,
 		"enrolled_at": true, "approved_at": true, "denied_at": true, "revoked_at": true,
 		"last_seen": true, "healthy": true, "agent": true, "arch": true, "goarch": true, "version": true, "agent_version": true, "agent_ver": true, "uptime_sec": true, "mem_pct": true,
-		"extra": true,
+		"extra": true, "facts": true, "facts_at": true,
 	}
 	for k, v := range payload {
 		if known[k] {

@@ -68,7 +68,9 @@ Web uses the **same JSON shapes** (`DeviceFacts`, `DeployPlan`, `ModuleSelection
 | existing `/api/edge/*` | enroll, templates, commands, devices |
 | `POST /api/edge/facts` or heartbeat fields | store last facts from agent |
 | `GET /api/edge/devices/:id` | card from stored facts + template |
-| `POST /api/edge/plan` | body: facts + preset + selection → plan JSON |
+| `POST /api/edge/plan` | body: facts + preset + selection → plan JSON — **done** |
+| `POST /api/edge/facts` | store/get facts + card — **done** |
+| `GET /api/edge/card?id=` | device card view-model — **done** |
 | `POST /api/edge/apply` | enqueue module applies via agent (device online) |
 
 Factory path: UI → op library (SSH).  
@@ -329,7 +331,7 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 
 - [ ] mem_total_kb / mem_avail_kb, serial/mac, storage/overlay signals, current ssids
 - [ ] `ModuleSelection` type (enabled map + advanced flag)
-- [ ] export facts+plan JSON for TUI
+- [x] export facts+plan JSON (`ResolvePlan`, `/api/edge/plan`, `/api/edge/card`)
 
 ### U1–U4 — thin UI card / picker (op TUI + Web), non-destructive / overlay
 

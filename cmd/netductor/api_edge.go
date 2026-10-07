@@ -601,6 +601,95 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})
+
+	// Shared plan/card API for all thin UIs (op TUI, Web). No TG deploy.
+	mux.HandleFunc("/api/edge/plan", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		var req edge.PlanRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, 400, map[string]string{"error": "bad json"})
+			return
+		}
+		resp, err := edge.ResolvePlan(req)
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, resp)
+	})
+	mux.HandleFunc("/api/edge/facts", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodPost:
+			body := readJSON(r)
+			did, _ := body["device_id"].(string)
+			if did == "" {
+				writeJSON(w, 400, map[string]string{"error": "device_id required"})
+				return
+			}
+			raw, _ := json.Marshal(body["facts"])
+			if body["facts"] == nil {
+				// allow top-level facts fields
+				raw, _ = json.Marshal(body)
+			}
+			var f edge.DeviceFacts
+			if err := json.Unmarshal(raw, &f); err != nil {
+				writeJSON(w, 400, map[string]string{"error": "bad facts"})
+				return
+			}
+			if err := edge.SetDeviceFacts(did, f); err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "card": edge.CardFromFacts(f)})
+		case http.MethodGet:
+			did := r.URL.Query().Get("id")
+			if did == "" {
+				did = r.URL.Query().Get("device_id")
+			}
+			d, ok := edge.GetDevice(did)
+			if !ok {
+				writeJSON(w, 404, map[string]string{"error": "not found"})
+				return
+			}
+			out := map[string]any{"device_id": did, "facts_at": d.FactsAt}
+			if d.Facts != nil {
+				out["facts"] = d.Facts
+				out["card"] = edge.CardFromFacts(*d.Facts)
+			}
+			writeJSON(w, 200, out)
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+		}
+	})
+	mux.HandleFunc("/api/edge/card", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		did := r.URL.Query().Get("id")
+		if did == "" {
+			did = r.URL.Query().Get("device_id")
+		}
+		d, ok := edge.GetDevice(did)
+		if !ok {
+			writeJSON(w, 404, map[string]string{"error": "not found"})
+			return
+		}
+		out := map[string]any{
+			"device_id": did, "board": d.Board, "arch": d.Arch, "hostname": d.Hostname,
+			"wan_ip": d.WANIP, "agent": d.Agent, "healthy": d.Healthy, "facts_at": d.FactsAt,
+		}
+		if d.Facts != nil {
+			out["card"] = edge.CardFromFacts(*d.Facts)
+			out["facts"] = d.Facts
+		}
+		writeJSON(w, 200, out)
+	})
+
 	mux.HandleFunc("/api/edge/export", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !requireSession(w, r) {
 			return
