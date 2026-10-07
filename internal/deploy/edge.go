@@ -64,6 +64,7 @@ type EdgeOpts struct {
 	// Hybrid deploy plan (P1+).
 	Preset string // travel-router | sbc-lab | sbc-dual-nic | empty=suggest
 	DryRun bool   // probe facts + print plan, no provision
+	Selection edge.ModuleSelection // optional UI/operator module toggles
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -136,30 +137,37 @@ func DeployEdge(o EdgeOpts) error {
 			}
 			if preset == "" {
 				preset = edge.SuggestPreset(facts)
+				fmt.Fprintln(os.Stderr, "==> auto-preset:", preset)
 			}
 			plan := edge.BuildPlan(preset, facts, intent)
+			plan = edge.ApplySelection(plan, o.Selection, facts)
 			fmt.Fprintln(os.Stderr, "==> deploy plan")
 			fmt.Fprint(os.Stderr, FormatPlanHuman(preset, facts, plan))
+			for _, s := range plan.Steps {
+				fmt.Fprintf(os.Stderr, "==> module %-16s %-5s %s\n", s.Module, s.Action, s.Reason)
+			}
 			o.Preset = plan.Preset
 			if o.DryRun {
 				fmt.Fprintln(os.Stderr, "==> dry-run: no provision")
 				_ = raw
 				return nil
 			}
-			// Gate network apply by plan: if wan module skipped, clear wan proto so applyNetwork does not assume wan.
-			wanApply := false
-			for _, s := range plan.Steps {
-				if s.Module == edge.ModWANBaseline && s.Action == "apply" {
-					wanApply = true
-				}
-			}
-			if o.NetConfigure && !wanApply {
-				fmt.Fprintln(os.Stderr, "==> plan: skip wan UCI (no wan capability)")
-				// leave LAN/wifi flags; applyNetworkOnEdge should tolerate empty WANProto
+			// Gate network modules by plan.
+			if o.NetConfigure && !planStepApply(plan, edge.ModWANBaseline) {
+				fmt.Fprintln(os.Stderr, "==> plan: skip wan UCI")
 				if o.WANProto != "" {
 					fmt.Fprintln(os.Stderr, "==> ignoring --wan-proto (not in plan)")
 					o.WANProto = ""
 				}
+			}
+			if o.GuestEnable && !planStepApply(plan, edge.ModGuest) {
+				fmt.Fprintln(os.Stderr, "==> plan: skip guest (no radios or disabled)")
+				o.GuestEnable = false
+			}
+			if o.NetConfigure && !planStepApply(plan, edge.ModLANBaseline) && !planStepApply(plan, edge.ModWiFiAP) {
+				// No lan/wifi modules — do not stage network UCI at all.
+				fmt.Fprintln(os.Stderr, "==> plan: skip network stage (no lan/wifi apply)")
+				o.NetConfigure = false
 			}
 		}
 	}
@@ -466,4 +474,14 @@ func firstNonEmpty(ss ...string) string {
 		}
 	}
 	return ""
+}
+
+
+func planStepApply(plan edge.DeployPlan, mod string) bool {
+	for _, s := range plan.Steps {
+		if s.Module == mod && s.Action == "apply" {
+			return true
+		}
+	}
+	return false
 }

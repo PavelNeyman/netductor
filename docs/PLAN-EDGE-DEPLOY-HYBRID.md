@@ -297,17 +297,17 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 
 - [x] SSH/local probe implementing Facts (`internal/deploy/facts_probe.go`) (uci + ip link + board.json / os-release)
 - [x] `netductor deploy edge --dry-run` prints plan
-- [ ] Agent optional `facts` in status payload (non-blocking)
+- [x] Agent optional `facts` in status payload (non-blocking)
 
 ### P2 — wire modules into DeployEdge
 
 - [x] Gate wan proto when plan skips wan (P1 partial)
-- [ ] `--preset` flag on CLI + TUI label
-- [ ] Explicit skip logs in deploy output
+- [x] `--preset` flag on CLI (+ auto-preset from facts); TUI label later
+- [x] Explicit skip logs in deploy output (`==> module … apply|skip`)
 
 ### P3 — polish
 
-- [ ] Auto-preset from facts (single eth → sbc-lab hint)
+- [x] Auto-preset from facts (single eth → sbc-lab hint)
 - [ ] Offline template cache next to agents
 - [ ] Docs: OPENWRT-LAB + operator deploy contract
 - [ ] MikroTik called out as separate track
@@ -329,8 +329,8 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 
 ### U0 — richer facts for UI card
 
-- [ ] mem_total_kb / mem_avail_kb, serial/mac, storage/overlay signals, current ssids
-- [ ] `ModuleSelection` type (enabled map + advanced flag)
+- [x] mem_total_kb / mem_avail_kb, serial/mac, storage/overlay signals, current ssids
+- [x] `ModuleSelection` type (enabled map + advanced flag)
 - [x] export facts+plan JSON (`ResolvePlan`, `/api/edge/plan`, `/api/edge/card`)
 
 ### U1–U4 — thin UI card / picker (op TUI + Web), non-destructive / overlay

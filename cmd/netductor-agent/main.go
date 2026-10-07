@@ -368,6 +368,8 @@ func collectMetrics() map[string]any {
 	if out, err := exec.Command("iwinfo").Output(); err == nil {
 		m["iwinfo"] = truncate(string(out), 1500)
 	}
+	// Capability snapshot for primary UI card / plan (edge.DeviceFacts JSON).
+	m["facts"] = collectDeviceFacts()
 	return m
 }
 
