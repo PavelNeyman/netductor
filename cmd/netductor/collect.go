@@ -25,15 +25,22 @@ import (
 )
 
 func attachLogs(key, caption string) {
+	// Document send is independent of text-batch queue; still de-dupe via AlertOnce.
 	if !notify.AlertOnce(key+":log", caption) {
 		return
 	}
-	if path, err := logs.ExportHours(1); err == nil {
-		_ = notify.SendDocument(path, caption)
+	path, err := logs.ExportHours(1)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "attachLogs export:", err)
+		return
+	}
+	if err := notify.SendDocument(path, caption); err != nil {
+		fmt.Fprintln(os.Stderr, "attachLogs send:", err)
 	}
 }
 
 func runCollect() int {
+	defer func() { _ = notify.FlushAlerts(true) }()
 	dir := paths.MetricsDir()
 	_ = os.MkdirAll(dir, 0o755)
 

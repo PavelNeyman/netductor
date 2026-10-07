@@ -47,6 +47,12 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "tg callback: chat=%d msg=%d data=%q\n", chat, msgID, data)
+	defer func() {
+		if rec := recover(); rec != nil {
+			fmt.Fprintf(os.Stderr, "tg callback panic data=%q: %v\n", data, rec)
+			reply(token, chat, msgID, "❌ internal error (see bot log)", backKeyboard())
+		}
+	}()
 
 	if strings.HasPrefix(data, "e:appr:") {
 		id := strings.TrimPrefix(data, "e:appr:")

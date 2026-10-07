@@ -556,7 +556,7 @@ func formatNodesRenameHTML() string {
 }
 
 func routersKeyboard() map[string]any {
-	return navKeyboard("m:fleet", parentFleet())
+	return navKeyboard("m:tools", parentTools())
 }
 
 func routersHubHTML() string {
@@ -569,11 +569,14 @@ func routersHubHTML() string {
 		`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" style="primary" data="m:routers">` + T("devices") + `</tg-button>` +
 		`<tg-button type="callback_data" style="primary" data="m:pending">` + T("pending") + `</tg-button>` +
+		`</tg-button-row><tg-button-row align="left">` +
 		`<tg-button type="callback_data" data="m:edge_recovery">` + T("edge_recovery") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:edge_register">` + T("edge_register") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:templates">` + T("templates") + `</tg-button>` +
+		`</tg-button-row><tg-button-row align="left">` +
 		`<tg-button type="callback_data" data="m:edge_bind">` + T("bind_tmpl") + `</tg-button>` +
 		`<tg-button type="callback_data" style="primary" data="m:edge_apply">` + T("apply_tmpl") + `</tg-button>` +
+		`</tg-button-row><tg-button-row align="left">` +
 		`<tg-button type="callback_data" data="m:edgeguest">` + T("edge_guest_wifi") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:edgeluci">` + T("edge_luci") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:edgetpl">` + T("edge_tpl_vpn") + `</tg-button>` +

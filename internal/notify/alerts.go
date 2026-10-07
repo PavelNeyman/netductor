@@ -72,6 +72,10 @@ func AlertOnce(key, msg string) bool {
 	if strings.HasPrefix(key, "update:available:") {
 		cd = 24 * time.Hour // one reminder per day per release tag
 	}
+	// Channel / mismatch: shorter re-notify while incident is ongoing (still not spam every tick).
+	if strings.HasPrefix(key, "channel:") || strings.HasPrefix(key, "mismatch:") {
+		cd = 5 * time.Minute
+	}
 	if t, ok := lastSent[key]; ok && now.Sub(t) < cd {
 		return false
 	}
