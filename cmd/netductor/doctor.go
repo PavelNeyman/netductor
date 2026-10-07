@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/channels"
 	"github.com/PavelNeyman/netductor/internal/ci"
 	"github.com/PavelNeyman/netductor/internal/cli18n"
 	"github.com/PavelNeyman/netductor/internal/git"
@@ -561,6 +562,28 @@ switch role {
 	}
 	if r, ok := nvr.LastRetentionReport(); ok {
 		doctorPrintf(cli18n.T("doctor.nvr_retention")+"\n", r.Deleted, r.Kept, r.At)
+	}
+
+	
+	if role == "primary" {
+		ch := channels.Collect()
+		for _, s := range ch.Secondaries {
+			if !s.Online {
+				doctorPrintf("WARN channel %s offline (hb_age=%ds)\n", s.Name, s.HeartbeatAgeSec)
+			} else if !s.TCP443OK {
+				doctorPrintf("WARN channel %s tcp443 fail ip=%s\n", s.Name, s.PublicIP)
+			} else if !s.UplinkOK {
+				doctorPrintf("WARN channel %s uplink_ok=false\n", s.Name)
+			} else {
+				doctorPrintf("OK   channel %s online tcp443=%.0fms uplink=ok\n", s.Name, s.TCP443ms)
+			}
+		}
+		if ch.RealityInvalidFromSec15m >= 30 {
+			doctorPrintf("WARN reality invalid from secondary: %d/15m\n", ch.RealityInvalidFromSec15m)
+		}
+		if ch.MismatchLocal30m >= 25 {
+			doctorPrintf("WARN flow mismatch local: %d/30m\n", ch.MismatchLocal30m)
+		}
 	}
 
 	doctorPrintf(cli18n.T("doctor.summary")+"\n", ok, fail, warn)

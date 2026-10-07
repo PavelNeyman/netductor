@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/channels"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/metrics"
@@ -87,6 +88,9 @@ func runCollect() int {
 		live = append(live, res...)
 	}
 	m["probes"] = live
+
+	ch := channels.Collect()
+	m["channels"] = ch
 
 	// history
 	hist := filepath.Join(dir, "history.jsonl")
@@ -235,10 +239,42 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 		_ = ms
 	}
+	if enabled("channel_health") {
+		ch := channels.Collect()
+		for _, s := range ch.Secondaries {
+			key := "channel:tcp443:" + s.ID
+			if s.Online && s.PublicIP != "" && !s.TCP443OK {
+				notify.AlertOnce(key, fmt.Sprintf("🔴 Channel <b>%s</b>: primary→secondary:443 TCP fail (ip %s)", s.Name, s.PublicIP))
+			} else {
+				notify.ClearAlert(key)
+			}
+			keyU := "channel:uplink:" + s.ID
+			if s.Online && !s.UplinkOK {
+				notify.AlertOnce(keyU, fmt.Sprintf("⚠️ Channel <b>%s</b>: secondary→primary:443 uplink probe failed", s.Name))
+			} else {
+				notify.ClearAlert(keyU)
+			}
+		}
+		// Reality invalid from secondary IP = uplink path noise / flap
+		if ch.RealityInvalidFromSec15m >= 30 {
+			notify.AlertOnce("channel:reality-sec",
+				fmt.Sprintf("⚠️ Reality invalid from secondary IPs: <b>%d</b> in 15m (uplink path noise)", ch.RealityInvalidFromSec15m))
+		} else {
+			notify.ClearAlert("channel:reality-sec")
+		}
+		if ch.RealityInvalidTotal15m >= 80 {
+			notify.AlertOnce("channel:reality-total",
+				fmt.Sprintf("⚠️ Reality invalid total: <b>%d</b> in 15m (scanners + clients)", ch.RealityInvalidTotal15m))
+		} else {
+			notify.ClearAlert("channel:reality-total")
+		}
+	}
+
 	if enabled("mismatch_spike") {
 		st := vpn.CollectMismatch(30)
-		if st.Total >= 20 {
-			msg := fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b> in 30m\n<code>%s</code>\n<i>Usually clients without vision flow (old link / phone without config)</i>", st.Total, vpn.FormatMismatchText(st))
+		st10 := vpn.CollectMismatch(10)
+		if st10.Total >= 15 || st.Total >= 25 {
+			msg := fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b>/10m, <b>%d</b>/30m\n<code>%s</code>\n<i>Server expects vision; client sent empty flow</i>", st10.Total, st.Total, vpn.FormatMismatchText(st10))
 			notify.AlertOnce("mismatch:core", msg)
 		} else {
 			notify.ClearAlert("mismatch:core")

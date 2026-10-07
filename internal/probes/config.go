@@ -23,6 +23,8 @@ func Default() map[string]any {
 			"cpu_pct": 90, "mem_pct": 92, "disk_pct": 90,
 			"service_not_active": true, "probe_fail": true,
 			"service_down": true, "relay_offline": true,
+			"secondary_offline": true, "svc_path_down": true,
+			"sni_health": true, "mismatch_spike": true, "channel_health": true,
 			"cooldown_sec": 900,
 		},
 	}
