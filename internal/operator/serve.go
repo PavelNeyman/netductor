@@ -122,7 +122,7 @@ func Serve(o ServeOpts) error {
 			"version":         deploy.Release,
 			"bind":            addr,
 			"credentials_dir": cred,
-			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/edge", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
 			"auth":            "X-Netductor-Token",
 		})
 	})
@@ -131,6 +131,7 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
 	mux.HandleFunc("/v1/edge", func(w http.ResponseWriter, r *http.Request) { handleEdge(w, r, token) })
+	mux.HandleFunc("/v1/edge/preview", func(w http.ResponseWriter, r *http.Request) { handleEdgePreview(w, r, token) })
 	mux.HandleFunc("/v1/edge/offline-prep", func(w http.ResponseWriter, r *http.Request) { handleEdgeOfflinePrep(w, r, token) })
 	mux.HandleFunc("/v1/edge/luci", func(w http.ResponseWriter, r *http.Request) { handleEdgeLuci(w, r, token) })
 	mux.HandleFunc("/v1/site", func(w http.ResponseWriter, r *http.Request) { handleSite(w, r, token) })
@@ -637,10 +638,85 @@ type edgeBody struct {
 	PPPoEAC      string `json:"pppoe_ac"`
 	Reboot       bool   `json:"reboot"`
 	Offline         bool   `json:"offline"`
+	Preset          string `json:"preset"`
+	Advanced        bool   `json:"advanced"`
+	Modules         map[string]bool `json:"modules"`
 	BootstrapToken  string `json:"bootstrap_token"`
 	MTLSCAFile      string `json:"mtls_ca_file"`
 	MTLSCertFile    string `json:"mtls_cert_file"`
 	MTLSKeyFile     string `json:"mtls_key_file"`
+}
+
+
+func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", 405)
+		return
+	}
+	if !requireToken(r, token) {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var body struct {
+		RouterHost   string          `json:"router_host"`
+		RouterUser   string          `json:"router_user"`
+		RouterPass   string          `json:"router_password"`
+		PrimaryKey   string          `json:"primary_key"`
+		KeyPass      string          `json:"key_passphrase"`
+		Preset       string          `json:"preset"`
+		NetConfigure bool            `json:"net_configure"`
+		GuestEnable  bool            `json:"guest_enable"`
+		WiFiSSID24   string          `json:"wifi_ssid_24"`
+		WiFiSSID     string          `json:"wifi_ssid"`
+		WiFiSSID5    string          `json:"wifi_ssid_5"`
+		Advanced     bool            `json:"advanced"`
+		Modules      map[string]bool `json:"modules"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if strings.TrimSpace(body.RouterHost) == "" {
+		http.Error(w, "router_host required", 400)
+		return
+	}
+	if body.RouterUser == "" {
+		body.RouterUser = "root"
+	}
+	key := expandHome(body.PrimaryKey)
+	facts, _, err := deploy.ProbeDeviceFacts(body.RouterPass, key, body.RouterUser, body.RouterHost, body.KeyPass)
+	if err != nil {
+		writeJSONOp(w, 400, map[string]string{"error": err.Error()})
+		return
+	}
+	ssid := strings.TrimSpace(body.WiFiSSID24)
+	if ssid == "" {
+		ssid = strings.TrimSpace(body.WiFiSSID)
+	}
+	if ssid == "" {
+		ssid = strings.TrimSpace(body.WiFiSSID5)
+	}
+	req := edge.PlanRequest{
+		Preset: body.Preset,
+		Facts:  &facts,
+		Intent: edge.DeployIntent{
+			ConfigureNet: body.NetConfigure,
+			GuestEnable:  body.GuestEnable,
+			WiFiSSID:     ssid,
+		},
+		Selection: edge.ModuleSelection{Advanced: body.Advanced, Enabled: body.Modules},
+	}
+	resp, err := edge.ResolvePlan(req)
+	if err != nil {
+		writeJSONOp(w, 400, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSONOp(w, 200, resp)
+}
+
+func writeJSONOp(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func handleEdgeOfflinePrep(w http.ResponseWriter, r *http.Request, token string) {
@@ -761,6 +837,8 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 	if strings.TrimSpace(spec.AgentArch) == "" {
 		spec.AgentArch = "auto"
 	}
+	spec.Preset = body.Preset
+	spec.Selection = edge.ModuleSelection{Advanced: body.Advanced, Enabled: body.Modules}
 	if err := DeployEdge(spec); err != nil {
 		_, _ = w.Write([]byte("step edge ERROR " + err.Error() + "\n"))
 		return

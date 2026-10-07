@@ -104,80 +104,187 @@
     <pre class="log" id="mtResult">—</pre>
   </section>
 <section id="panel-edge" class="panel">
-    <p class="note" data-i18n="edge_note">OpenWrt / RPi: agent + optional UCI. Primary host/key/URL prefill from Fleet form or Settings when possible.</p>
-    <form id="form-edge">
-      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" required placeholder="192.168.1.1"/></div><div><label data-i18n="l_router_pass">Current root password</label><input name="router_password" type="password" placeholder="empty = factory OpenWrt"/></div></div>
-      <div id="edge_new_root" class="row"><div><label data-i18n="l_new_root">New root password (LuCI)</label><input name="new_root_password" type="password" autocomplete="new-password" required id="edge_new_root_input"/></div><div></div></div>
-      <div class="checks"><label><input type="checkbox" name="skip_root_pass" id="edge_skip_root"/> <span data-i18n="c_skip_root">Do not set root password (leave empty / factory)</span></label></div>
-      <p class="note" data-i18n="edge_root_help">Required for LuCI web UI. SSH uses the operator key after provision; password login is disabled.</p>
-      <div class="row"><div><label data-i18n="l_device_id">Device id</label><input name="device_id" required placeholder="site-cudy-1"/></div><div><label data-i18n="l_arch">Agent arch</label><input name="agent_arch" value="auto" placeholder="auto | arm64 | arm | mipsle | amd64 | riscv64"/></div></div>
-      <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" placeholder="2.27.118.70 or p.nd…"/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
-      <div class="row">
-        <div><label><input type="checkbox" name="offline" id="edge_offline"/> <span data-i18n="c_edge_offline">Offline deploy</span></label>
-          <p class="hint" data-i18n="edge_offline_help">Uses pack from Prepare offline (token + agents on disk). No SSH to primary during deploy.</p></div>
-        <div><button type="button" class="secondary" id="btnEdgeOfflinePrep" data-i18n="btn_edge_offline_prep">Prepare offline pack</button>
-          <p class="hint" data-i18n="edge_offline_prep_warn">Needs internet + SSH to primary now. Downloads agent binaries and bootstrap token. Re-run after netductor upgrades or token rotate.</p></div>
-      </div>
+    <p class="note" data-i18n="edge_note">OpenWrt / RPi: probe → card → modules → provision. Same plan as API. No Telegram deploy.</p>
 
-      <div class="row"><div><label data-i18n="l_server_url">Server URL (mTLS)</label><input name="server_url" placeholder="https://PRIMARY:8789"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password"/></div></div>
-      <div class="checks">
-        <label><input type="checkbox" name="net_configure" id="edge_net_cfg"/> <span data-i18n="c_netcfg">Configure network (LAN / Wi‑Fi / WAN via UCI)</span></label>
-        <label><input type="checkbox" name="guest_enable" id="edge_guest"/> <span data-i18n="c_guest">Guest Wi‑Fi (isolated, ISP direct)</span></label>
-        <label><input type="checkbox" name="reboot" id="edge_reboot" checked/> <span data-i18n="c_reboot">Reboot after provision</span></label>
-      </div>
-      <div id="edge_net_fields" hidden>
-        <p class="note" data-i18n="edge_net_help">Applied only if «Configure network» is on. Changes LAN subnet — keep SSH path in mind.</p>
-        <div class="row"><div><label data-i18n="l_lan">LAN IP</label><input name="lan_ip" placeholder="192.168.50.1"/></div><div><label data-i18n="l_lan_mask">LAN mask</label><input name="lan_mask" value="255.255.255.0"/></div></div>
-        <div class="row"><div><label data-i18n="l_dhcp_start">DHCP start</label><input name="dhcp_start" value="100"/></div><div><label data-i18n="l_dhcp_limit">DHCP limit</label><input name="dhcp_limit" value="150"/></div></div>
-        <div class="row"><div><label data-i18n="l_ssid24">Wi‑Fi SSID 2.4</label><input name="wifi_ssid_24"/></div><div><label data-i18n="l_key24">Wi‑Fi key 2.4</label><input name="wifi_key_24" type="password"/></div></div>
-        <div class="row"><div><label data-i18n="l_ssid5">Wi‑Fi SSID 5 (opt)</label><input name="wifi_ssid_5" placeholder="empty = same as 2.4"/></div><div><label data-i18n="l_key5">Wi‑Fi key 5 (opt)</label><input name="wifi_key_5" type="password" placeholder="empty = same as 2.4"/></div></div>
-        <div class="row"><div><label data-i18n="l_wan">WAN proto</label>
-          <select name="wan_proto" id="edge_wan_proto">
-            <option value="dhcp">dhcp</option>
-            <option value="static">static</option>
-            <option value="pppoe">pppoe</option>
-          </select></div><div></div></div>
-        <div id="edge_wan_static" hidden>
-          <div class="row"><div><label data-i18n="l_wan_ip">WAN IP</label><input name="wan_ip"/></div><div><label data-i18n="l_wan_mask">WAN mask</label><input name="wan_mask" value="255.255.255.0"/></div></div>
-          <div class="row"><div><label data-i18n="l_wan_gw">WAN gateway</label><input name="wan_gateway"/></div><div><label data-i18n="l_wan_dns">WAN DNS</label><input name="wan_dns" placeholder="1.1.1.1 9.9.9.9"/>
-        <p class="hint" data-i18n="l_wan_dns_help">Optional. Space or comma separated. Recommended: 1.1.1.1 9.9.9.9. Empty = ISP DHCP DNS. Not the same as edge VPN dns=vpn mode.</p></div></div>
+    <div class="edge-steps" id="edge_steps">
+      <span class="estep active" data-step="1">1 · Connect</span>
+      <span class="estep" data-step="2">2 · Device</span>
+      <span class="estep" data-step="3">3 · Modules</span>
+      <span class="estep" data-step="4">4 · Details</span>
+    </div>
+
+    <form id="form-edge">
+      <!-- CONNECT -->
+      <div class="edge-block" id="edge_blk_connect">
+        <h3 class="edge-h" data-i18n="edge_h_connect">Connection</h3>
+        <div class="row">
+          <div><label data-i18n="l_router">Router (SSH)</label><input name="router_host" placeholder="192.168.1.1" required autocomplete="off"/></div>
+          <div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password" placeholder="empty = factory" autocomplete="current-password"/></div>
         </div>
-        <div id="edge_wan_pppoe" hidden>
-          <div class="row"><div><label data-i18n="l_pppoe_user">PPPoE user</label><input name="pppoe_user"/></div><div><label data-i18n="l_pppoe_pass">PPPoE password</label><input name="pppoe_pass" type="password"/></div></div>
-        </div>
-      </div>
-      <div id="edge_guest_fields" hidden>
-        <p class="note" data-i18n="edge_guest_help">Isolated guest, ISP direct (not VPN). Default: <b>visible SSID</b> (join-QR friendly). Optional hidden. PSK = Wi‑Fi password; desk PIN = staff grant (not the Wi‑Fi key).</p>
-        <div class="row"><div><label data-i18n="l_guest_ssid">Guest SSID</label><input name="guest_ssid" value="Guest"/></div><div><label data-i18n="l_guest_pin">Guest desk PIN</label><input name="guest_pin" placeholder="staff PIN"/><p class="hint" data-i18n="l_guest_pin_help">Staff PIN to grant internet — not the Wi‑Fi password.</p></div></div>
-        <div class="row"><div><label data-i18n="l_guest_psk">Guest PSK (Wi‑Fi)</label><input name="guest_psk" type="password" placeholder="WPA2 required"/>
-        <p class="hint" data-i18n="l_guest_psk_help">Wi‑Fi password (in join QR). Required.</p></div>
-          <div><label data-i18n="l_guest_visible">SSID visibility</label>
-            <select name="guest_hidden"><option value="0" selected data-i18n="opt_visible">Visible (default)</option><option value="1" data-i18n="opt_hidden">Hidden</option></select>
+        <div class="row">
+          <div><label data-i18n="l_device_id">Device ID</label><input name="device_id" placeholder="home-owrt-1" required/></div>
+          <div><label data-i18n="l_arch">Agent arch</label>
+            <select name="agent_arch"><option value="auto">auto</option><option>amd64</option><option>arm64</option><option>arm</option><option>mipsle</option></select>
           </div>
         </div>
+        <div class="row">
+          <div><label data-i18n="l_primary">Primary host</label><input name="primary_host" placeholder="vps.example"/></div>
+          <div><label data-i18n="l_pkey">Primary / operator key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div>
+        </div>
+        <div class="row">
+          <div><label data-i18n="l_server">Agent server URL</label><input name="server_url" placeholder="https://primary:8789"/></div>
+          <div><label data-i18n="l_key_pass">Key passphrase</label><input name="key_passphrase" type="password" autocomplete="off"/></div>
+        </div>
+        <div id="edge_new_root" class="row"><div><label data-i18n="l_new_root">New root password (LuCI)</label><input name="new_root_password" type="password" autocomplete="new-password" id="edge_new_root_input"/></div><div></div></div>
+        <div class="checks">
+          <label><input type="checkbox" name="skip_root_pass" id="edge_skip_root"/> <span data-i18n="c_skip_root">Leave root password empty (factory)</span></label>
+          <label><input type="checkbox" name="offline" id="edge_offline"/> <span data-i18n="c_edge_offline">Offline deploy</span></label>
+          <label><input type="checkbox" name="reboot" id="edge_reboot" checked/> <span data-i18n="c_reboot">Reboot after provision</span></label>
+        </div>
+        <div class="edge-actions">
+          <button type="button" class="secondary" id="btnEdgeOfflinePrep" data-i18n="btn_edge_offline_prep">Prepare offline pack</button>
+          <button type="button" class="primary" id="btnEdgeProbe" data-i18n="btn_edge_probe">Probe device →</button>
+        </div>
       </div>
-      <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
+
+      <!-- CARD -->
+      <div class="edge-block hidden" id="edge_blk_card">
+        <h3 class="edge-h" data-i18n="edge_h_card">Device card</h3>
+        <div class="edge-card" id="edge_card">
+          <div class="edge-card-top">
+            <div>
+              <div class="edge-model" id="edge_card_model">—</div>
+              <div class="edge-meta" id="edge_card_meta"></div>
+            </div>
+            <div class="edge-badge" id="edge_card_preset"></div>
+          </div>
+          <div class="edge-chips" id="edge_card_chips"></div>
+          <div class="edge-stats" id="edge_card_stats"></div>
+        </div>
+        <div class="edge-actions">
+          <button type="button" class="secondary" id="btnEdgeBack1" data-i18n="btn_back">← Back</button>
+          <button type="button" class="primary" id="btnEdgeToModules" data-i18n="btn_edge_modules">Modules →</button>
+        </div>
+      </div>
+
+      <!-- MODULES -->
+      <div class="edge-block hidden" id="edge_blk_modules">
+        <div class="edge-mod-head">
+          <h3 class="edge-h" data-i18n="edge_h_modules">Modules</h3>
+          <label class="edge-adv"><input type="checkbox" id="edge_advanced"/> <span data-i18n="c_advanced">Advanced (force any module)</span></label>
+        </div>
+        <p class="hint" data-i18n="edge_mod_help">Only capabilities detected on the device are enabled by default. Advanced unlocks skipped modules at your risk.</p>
+        <div class="edge-mod-list" id="edge_mod_list"></div>
+        <div class="row" style="margin-top:.75rem">
+          <div><label data-i18n="l_preset">Preset</label>
+            <select name="preset" id="edge_preset">
+              <option value="">auto from facts</option>
+              <option value="travel-router">travel-router (Cudy-like)</option>
+              <option value="sbc-lab">sbc-lab (RPi single-NIC)</option>
+              <option value="sbc-dual-nic">sbc-dual-nic</option>
+            </select>
+          </div>
+          <div></div>
+        </div>
+        <div class="edge-actions">
+          <button type="button" class="secondary" id="btnEdgeBack2" data-i18n="btn_back">← Back</button>
+          <button type="button" class="secondary" id="btnEdgeReplan" data-i18n="btn_edge_replan">Refresh plan</button>
+          <button type="button" class="primary" id="btnEdgeToDetails" data-i18n="btn_edge_details">Details →</button>
+        </div>
+      </div>
+
+      <!-- DETAILS -->
+      <div class="edge-block hidden" id="edge_blk_details">
+        <h3 class="edge-h" data-i18n="edge_h_details">Module parameters</h3>
+        <p class="hint" data-i18n="edge_details_help">Prefills from current device settings when known. Only modules you enabled are applied (merge, not full reset).</p>
+
+        <div class="edge-detail" id="edge_det_lan">
+          <h4>LAN</h4>
+          <div class="row">
+            <div><label>LAN IP</label><input name="lan_ip" id="edge_lan_ip" placeholder="192.168.1.1"/></div>
+            <div><label>Mask</label><input name="lan_mask" placeholder="255.255.255.0"/></div>
+          </div>
+          <div class="row">
+            <div><label>DHCP start</label><input name="dhcp_start" placeholder="100"/></div>
+            <div><label>DHCP limit</label><input name="dhcp_limit" placeholder="150"/></div>
+          </div>
+        </div>
+
+        <div class="edge-detail" id="edge_det_wan">
+          <h4>WAN / uplink</h4>
+          <div class="row">
+            <div><label>Protocol</label>
+              <select name="wan_proto" id="edge_wan_proto">
+                <option value="dhcp">dhcp</option>
+                <option value="static">static</option>
+                <option value="pppoe">pppoe</option>
+              </select>
+            </div>
+            <div></div>
+          </div>
+          <div id="edge_wan_static" hidden class="row">
+            <div><label>WAN IP</label><input name="wan_ip"/></div>
+            <div><label>Gateway</label><input name="wan_gateway"/></div>
+          </div>
+          <div class="row"><div><label>DNS</label><input name="wan_dns" placeholder="1.1.1.1 9.9.9.9"/><p class="hint">Optional</p></div>
+            <div><label>Mask</label><input name="wan_mask"/></div></div>
+          <div id="edge_wan_pppoe" hidden class="row">
+            <div><label>PPPoE user</label><input name="pppoe_user"/></div>
+            <div><label>PPPoE pass</label><input name="pppoe_pass" type="password"/></div>
+          </div>
+        </div>
+
+        <div class="edge-detail" id="edge_det_wifi">
+          <h4>Wi‑Fi AP</h4>
+          <div class="row">
+            <div><label>2.4 GHz SSID</label><input name="wifi_ssid_24" id="edge_wifi_24"/></div>
+            <div><label>2.4 GHz key</label><input name="wifi_key_24" type="password"/></div>
+          </div>
+          <div class="row" id="edge_wifi5_row">
+            <div><label>5 GHz SSID</label><input name="wifi_ssid_5" id="edge_wifi_5"/></div>
+            <div><label>5 GHz key</label><input name="wifi_key_5" type="password"/></div>
+          </div>
+        </div>
+
+        <div class="edge-detail" id="edge_det_guest">
+          <h4>Guest</h4>
+          <div class="row">
+            <div><label>Guest SSID</label><input name="guest_ssid" placeholder="Guest"/></div>
+            <div><label>Guest PSK</label><input name="guest_psk" type="password"/></div>
+          </div>
+          <div class="row">
+            <div><label>Desk PIN</label><input name="guest_pin"/></div>
+            <div><label><input type="checkbox" name="guest_hidden" value="1"/> Hidden SSID</label></div>
+          </div>
+        </div>
+
+        <!-- hidden intent flags driven by modules -->
+        <input type="hidden" name="net_configure" id="edge_net_cfg" value=""/>
+        <input type="checkbox" name="guest_enable" id="edge_guest" class="hidden" tabindex="-1"/>
+
+        <div class="edge-plan-summary" id="edge_plan_summary"></div>
+
+        <div class="edge-actions">
+          <button type="button" class="secondary" id="btnEdgeBack3" data-i18n="btn_back">← Back</button>
+          <button type="button" class="secondary" id="btnEdgeDryRun" data-i18n="btn_edge_dry">Dry-run plan</button>
+          <button class="primary" type="submit" data-i18n="btn_edge">Provision edge</button>
+        </div>
+      </div>
     </form>
-    <h3 data-i18n="h_luci">LuCI (LAN)</h3>
-    <p class="note" data-i18n="luci_help">Enable/disable LuCI without uninstall. Default TTL 1h; extend +24h when needed. SSH path works on same LAN even if router has no internet; agent path queues when device is online on primary.</p>
-    <form id="form-edge-luci">
-      <p class="note" data-i18n="luci_help">Enable LuCI with TTL (default 1h). SSH on same LAN; agent queues via primary.</p>
-      <div class="row"><div><label data-i18n="l_router_host">Router host</label><input name="router_host" placeholder="192.168.1.1"/></div>
-        <div><label data-i18n="l_device_id">Device id (agent)</label><input name="device_id" placeholder="site-home1"/>
-        <p class="hint" data-i18n="l_device_id_help">Edge device_id from provision. Required for Via=Agent.</p></div></div>
-      <div class="row"><div><label data-i18n="l_router_pass">Router password</label><input name="router_password" type="password"/></div>
-        <div><label data-i18n="l_pkey">SSH key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
-      <div class="row"><div><label data-i18n="l_luci_action">Action</label>
-        <select name="action"><option value="enable">enable</option><option value="disable">disable</option><option value="extend">extend</option><option value="status">status</option></select></div>
-        <div><label data-i18n="l_luci_hours">Hours</label>
-        <select name="hours"><option value="1" selected>1</option><option value="4">4</option><option value="24">24</option><option value="72">72</option></select></div></div>
-      <div class="row"><div><label data-i18n="l_luci_via">Via</label>
-        <select name="via"><option value="ssh" selected>SSH (LAN)</option><option value="agent">Agent (primary queue)</option></select></div><div></div></div>
-      <button class="primary" type="submit" data-i18n="btn_luci">LuCI control</button>
+
+    <form id="form-edge-luci" style="margin-top:1.5rem;border-top:1px solid var(--border, #333);padding-top:1rem">
+      <h3 class="edge-h">LuCI control</h3>
+      <div class="row">
+        <div><label data-i18n="l_device_id">Edge device id</label><input name="device_id" placeholder="home-owrt-1"/><p class="hint" data-i18n="l_device_id_help">Via agent after enroll.</p></div>
+        <div><label data-i18n="l_action">Action</label>
+          <select name="action"><option value="status">status</option><option value="enable">enable</option><option value="disable">disable</option></select>
+        </div>
+      </div>
+      <button class="secondary" type="submit">LuCI</button>
     </form>
   </section>
-  
-  <section id="panel-nvr" class="panel">
+
+<section id="panel-nvr" class="panel">
     <p class="note" data-i18n="nvr_note">Day-2 NVR via node session (start tunnel + session first). Same ops as TUI NVR wizard.</p>
     <form id="form-nvr">
       <div class="row"><div><label data-i18n="l_nvr_action">Action</label>

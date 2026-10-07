@@ -289,7 +289,7 @@ function prefillEdgeFromFleet(){
     }
   }
 }
-function syncEdgePanels(){
+function syncEdgePanels(){ if(!document.getElementById('edge_net_fields')) return; // legacy
   const net=document.getElementById('edge_net_cfg');
   const g=document.getElementById('edge_guest');
   const nf=document.getElementById('edge_net_fields');
@@ -1142,3 +1142,232 @@ function renderPolicyCheckboxes(){
   }).join('') || '<span class="note">No internal services in catalog</span>';
 }
 
+
+
+
+/* ===== Edge modular wizard (probe → card → modules → details) ===== */
+window.__edgePreview = null;
+
+function edgeSetStep(n){
+  document.querySelectorAll('#edge_steps .estep').forEach(el=>{
+    el.classList.toggle('active', Number(el.dataset.step)===n);
+  });
+  ['connect','card','modules','details'].forEach((name,i)=>{
+    const blk=document.getElementById('edge_blk_'+name);
+    if(blk) blk.classList.toggle('hidden', i!==n-1);
+  });
+}
+
+function edgeCollectModules(){
+  const mods={};
+  document.querySelectorAll('#edge_mod_list input[data-mod]').forEach(inp=>{
+    mods[inp.dataset.mod]=!!inp.checked;
+  });
+  return mods;
+}
+
+function edgeIntentFromModules(mods){
+  const net = !!(mods.lan_baseline || mods.wan_baseline || mods.wifi_ap);
+  const guest = !!mods.guest;
+  const netEl=document.getElementById('edge_net_cfg');
+  const gEl=document.getElementById('edge_guest');
+  if(netEl) netEl.value = net ? 'on' : '';
+  if(gEl) gEl.checked = guest;
+  return {net_configure:net, guest_enable:guest};
+}
+
+function edgeRenderCard(resp){
+  const c=resp.card||{};
+  const model=document.getElementById('edge_card_model');
+  const meta=document.getElementById('edge_card_meta');
+  const badge=document.getElementById('edge_card_preset');
+  const chips=document.getElementById('edge_card_chips');
+  const stats=document.getElementById('edge_card_stats');
+  if(model) model.textContent = c.model || c.board || 'OpenWrt device';
+  if(meta) meta.textContent = [c.serial&&('S/N '+c.serial), c.arch, c.os].filter(Boolean).join(' · ');
+  if(badge) badge.textContent = (resp.preset||resp.suggested_preset||'') + (resp.suggested_preset&&resp.preset!==resp.suggested_preset ? ' (suggested '+resp.suggested_preset+')' : '');
+  if(chips){
+    chips.innerHTML='';
+    const add=(label,on,warn)=>{
+      const s=document.createElement('span');
+      s.className='edge-chip'+(on?' on':'')+(warn?' warn':'');
+      s.textContent=label;
+      chips.appendChild(s);
+    };
+    add('LAN '+(c.lan_ip||'—'), !!c.lan_ip);
+    add(c.wan_capable ? 'WAN capable' : 'No WAN', c.wan_capable, !c.wan_capable);
+    add('Eth ×'+(c.eth_count||0), c.eth_count>0);
+    (c.bands||[]).forEach(b=>add('Wi‑Fi '+b, true));
+    if(!(c.bands||[]).length) add('No radio', false, true);
+    (c.ssid_now||[]).forEach(s=>add('SSID '+s, true));
+  }
+  if(stats){
+    const mem = c.mem_total_kb ? Math.round((c.mem_avail_kb||0)/1024)+' / '+Math.round(c.mem_total_kb/1024)+' MiB' : '—';
+    stats.innerHTML =
+      '<div class="edge-stat"><b>Memory free</b>'+mem+'</div>'+
+      '<div class="edge-stat"><b>Storage</b>'+(c.has_mmc?'mmc ':'')+(c.has_usb_disk?'usb':'')+(!(c.has_mmc||c.has_usb_disk)?'—':'')+'</div>'+
+      '<div class="edge-stat"><b>Expand hint</b>'+(c.expand_hint?'yes':'no')+'</div>';
+  }
+  // prefill lan from facts
+  const f=resp.facts||{};
+  const uci=f.uci||{};
+  const lip=document.getElementById('edge_lan_ip');
+  if(lip && uci.lan_ip && !lip.value) lip.value=uci.lan_ip;
+  const bands=c.bands||[];
+  const w5=document.getElementById('edge_wifi5_row');
+  if(w5) w5.classList.toggle('hidden', !(bands.includes('5g')||bands.includes('6g')));
+}
+
+function edgeRenderModules(resp){
+  const list=document.getElementById('edge_mod_list');
+  if(!list) return;
+  list.innerHTML='';
+  const adv=!!document.getElementById('edge_advanced')?.checked;
+  const labels={
+    agent_install:'Agent install', lan_baseline:'LAN baseline', wan_baseline:'WAN / uplink',
+    wifi_ap:'Wi‑Fi AP', guest:'Guest Wi‑Fi', vpn_client:'VPN client', ssh_harden:'SSH harden'
+  };
+  (resp.plan?.steps||[]).forEach(s=>{
+    const row=document.createElement('label');
+    const can = s.action==='apply' || adv;
+    row.className='edge-mod'+(can?'':' dim');
+    const checked = s.action==='apply';
+    row.innerHTML = '<input type="checkbox" data-mod="'+s.module+'" '+(checked?'checked':'')+' '+(can?'':'disabled')+'/>'+
+      '<div><div class="edge-mod-title">'+(labels[s.module]||s.module)+'</div>'+
+      '<div class="edge-mod-reason">'+s.action+(s.reason?(' — '+s.reason):'')+'</div></div>';
+    list.appendChild(row);
+  });
+  edgeSyncDetailVisibility();
+}
+
+function edgeSyncDetailVisibility(){
+  const mods=edgeCollectModules();
+  const map={edge_det_lan:'lan_baseline', edge_det_wan:'wan_baseline', edge_det_wifi:'wifi_ap', edge_det_guest:'guest'};
+  Object.entries(map).forEach(([id,mod])=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.toggle('hidden', !mods[mod]);
+  });
+  edgeIntentFromModules(mods);
+  const sum=document.getElementById('edge_plan_summary');
+  if(sum && window.__edgePreview){
+    const steps=(window.__edgePreview.plan?.steps||[]).map(s=>{
+      const en=mods[s.module];
+      const act = en===false ? 'skip (user)' : (en || s.action==='apply' ? 'apply' : s.action);
+      return act.padEnd(6)+' '+s.module+(s.reason?'  '+s.reason:'');
+    });
+    sum.textContent = steps.join('\n');
+  }
+}
+
+async function edgePreview(){
+  const form=document.getElementById('form-edge');
+  const fd=new FormData(form);
+  const body={
+    router_host:fd.get('router_host'),
+    router_password:fd.get('router_password')||'',
+    primary_key:fd.get('primary_key')||'',
+    key_passphrase:fd.get('key_passphrase')||'',
+    preset:fd.get('preset')||'',
+    net_configure:true,
+    guest_enable:true,
+    wifi_ssid_24:fd.get('wifi_ssid_24')||'',
+    wifi_ssid_5:fd.get('wifi_ssid_5')||'',
+    advanced:!!document.getElementById('edge_advanced')?.checked,
+    modules: edgeCollectModules()
+  };
+  const res=await fetch('/v1/edge/preview',{
+    method:'POST',
+    headers:{'Content-Type':'application/json',...(window.ND_TOKEN?{Authorization:'Bearer '+window.ND_TOKEN}:{})},
+    body:JSON.stringify(body)
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||res.statusText||'preview failed');
+  window.__edgePreview=data;
+  edgeRenderCard(data);
+  edgeRenderModules(data);
+  const ps=document.getElementById('edge_preset');
+  if(ps && data.preset && !ps.value) ps.value=data.preset;
+  return data;
+}
+
+document.getElementById('btnEdgeProbe')?.addEventListener('click', async ev=>{
+  const btn=ev.currentTarget; btn.disabled=true;
+  try{
+    await edgePreview();
+    edgeSetStep(2);
+  }catch(e){ alert(e.message||e); }
+  finally{ btn.disabled=false; }
+});
+document.getElementById('btnEdgeToModules')?.addEventListener('click', ()=>edgeSetStep(3));
+document.getElementById('btnEdgeToDetails')?.addEventListener('click', ()=>{
+  edgeSyncDetailVisibility();
+  edgeSetStep(4);
+});
+document.getElementById('btnEdgeBack1')?.addEventListener('click', ()=>edgeSetStep(1));
+document.getElementById('btnEdgeBack2')?.addEventListener('click', ()=>edgeSetStep(2));
+document.getElementById('btnEdgeBack3')?.addEventListener('click', ()=>edgeSetStep(3));
+document.getElementById('btnEdgeReplan')?.addEventListener('click', async ev=>{
+  const btn=ev.currentTarget; btn.disabled=true;
+  try{ await edgePreview(); }catch(e){ alert(e.message||e); }
+  finally{ btn.disabled=false; }
+});
+document.getElementById('edge_advanced')?.addEventListener('change', async ()=>{
+  try{ await edgePreview(); }catch(_){}
+});
+document.getElementById('edge_mod_list')?.addEventListener('change', edgeSyncDetailVisibility);
+document.getElementById('edge_preset')?.addEventListener('change', async ()=>{
+  try{ await edgePreview(); }catch(_){}
+});
+document.getElementById('edge_wan_proto')?.addEventListener('change', ()=>{
+  const v=document.getElementById('edge_wan_proto')?.value;
+  const st=document.getElementById('edge_wan_static');
+  const pp=document.getElementById('edge_wan_pppoe');
+  if(st) st.hidden = v!=='static';
+  if(pp) pp.hidden = v!=='pppoe';
+});
+document.getElementById('btnEdgeDryRun')?.addEventListener('click', async ()=>{
+  try{
+    const data=await edgePreview();
+    edgeSyncDetailVisibility();
+    alert('Plan refreshed — see summary below.');
+  }catch(e){ alert(e.message||e); }
+});
+
+// Patch form-edge submit to include modules/preset/advanced
+(function(){
+  const form=document.getElementById('form-edge');
+  if(!form) return;
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const fd=new FormData(e.target);
+    saveForm('edge',fd);
+    const mods=edgeCollectModules();
+    const intent=edgeIntentFromModules(mods);
+    await streamPost('/v1/edge',{
+      offline:!!document.getElementById('edge_offline')?.checked,
+      router_host:fd.get('router_host'), router_password:fd.get('router_password')||'',
+      new_root_password:(fd.get('skip_root_pass')==='on'?'':(fd.get('new_root_password')||'')),
+      skip_root_pass:fd.get('skip_root_pass')==='on',
+      guest_hidden:fd.get('guest_hidden')||'0',
+      device_id:fd.get('device_id'), agent_arch:fd.get('agent_arch')||'auto',
+      primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
+      server_url:fd.get('server_url'), key_passphrase:fd.get('key_passphrase'),
+      net_configure:intent.net_configure, guest_enable:intent.guest_enable,
+      reboot:fd.get('reboot')==='on',
+      preset:fd.get('preset')||'',
+      advanced:!!document.getElementById('edge_advanced')?.checked,
+      modules:mods,
+      lan_ip:fd.get('lan_ip'), lan_mask:fd.get('lan_mask'),
+      dhcp_start:fd.get('dhcp_start'), dhcp_limit:fd.get('dhcp_limit'),
+      wifi_ssid_24:fd.get('wifi_ssid_24'), wifi_key_24:fd.get('wifi_key_24'),
+      wifi_ssid_5:fd.get('wifi_ssid_5'), wifi_key_5:fd.get('wifi_key_5'),
+      wan_proto:fd.get('wan_proto')||'dhcp',
+      wan_ip:fd.get('wan_ip'), wan_mask:fd.get('wan_mask'),
+      wan_gateway:fd.get('wan_gateway'), wan_dns:fd.get('wan_dns'),
+      pppoe_user:fd.get('pppoe_user'), pppoe_pass:fd.get('pppoe_pass'),
+      guest_ssid:fd.get('guest_ssid'), guest_pin:fd.get('guest_pin'), guest_psk:fd.get('guest_psk')
+    }, e.submitter);
+  };
+})();
+
+edgeSetStep(1);

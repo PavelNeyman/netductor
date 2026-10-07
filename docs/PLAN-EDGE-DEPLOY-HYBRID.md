@@ -272,8 +272,8 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 ### Implementation phases (UI)
 
 | U0 | Richer facts (mem, serial, storage, current wifi/wan) + JSON API for TUI |
-| U1 | TUI step “Probe → card” (read-only) after owrt connect |
-| U2 | Module checklist bound to plan; Advanced toggle |
+| U1 | Web op: Probe → card (read-only) — **done** (`/v1/edge/preview`) |
+| U2 | Web op: module checklist + Advanced — **done** |
 | U3 | Prefill + non-destructive apply paths per module |
 | U4 | Overlay / FS expand module (detect + offer) |
 
@@ -336,5 +336,10 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 
 ### U1–U4 — thin UI card / picker (op TUI + Web), non-destructive / overlay
 
-Same API JSON for all UIs. See **UI: device card** and **Architecture: one backend, thin UIs**. No TG deploy.
+- [x] U1/U2 web op modular wizard (card + modules + advanced + details)
+- [ ] U3 non-destructive merge polish per module
+- [ ] U4 overlay / FS expand module UI
+- [ ] op TUI parity with same `/v1/edge/preview` JSON
+
+Same API JSON for all UIs. No TG deploy.
 
