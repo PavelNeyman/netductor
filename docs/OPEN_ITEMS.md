@@ -1,3 +1,4 @@
+- [ ] Edge deploy hybrid (op-SSH plan, presets, facts) — [PLAN-EDGE-DEPLOY-HYBRID.md](PLAN-EDGE-DEPLOY-HYBRID.md) P0 types done
 **EN** · [RU](ru/OPEN_ITEMS.md)
 
 # Open items
