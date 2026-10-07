@@ -67,6 +67,9 @@ type EdgeOpts struct {
 	DryRun bool   // probe facts + print plan, no provision
 	Selection edge.ModuleSelection // optional UI/operator module toggles
 	DryRunJSON bool // with DryRun: print PlanResponse JSON (thin UI contract)
+	// Set by plan (module gates); empty = legacy NetConfigure behavior.
+	ApplyLAN, ApplyWAN, ApplyWiFi, ApplyExpand, ApplyOverlay bool
+	ExpandFS, OverlayExt bool // operator intent for optional storage modules
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -136,6 +139,8 @@ func DeployEdge(o EdgeOpts) error {
 				GuestEnable:  o.GuestEnable,
 				VPNEnable:    false, // template-driven later; deploy flags do not enable vpn yet
 				WiFiSSID:     firstNonEmpty(o.WiFiSSID24, o.WiFiSSID, o.WiFiSSID5),
+				ExpandFS:     o.ExpandFS,
+				OverlayExt:   o.OverlayExt,
 			}
 			if preset == "" {
 				preset = edge.SuggestPreset(facts)
@@ -174,9 +179,13 @@ func DeployEdge(o EdgeOpts) error {
 				fmt.Fprintln(os.Stderr, "==> plan: skip guest (no radios or disabled)")
 				o.GuestEnable = false
 			}
-			if o.NetConfigure && !planStepApply(plan, edge.ModLANBaseline) && !planStepApply(plan, edge.ModWiFiAP) {
-				// No lan/wifi modules — do not stage network UCI at all.
-				fmt.Fprintln(os.Stderr, "==> plan: skip network stage (no lan/wifi apply)")
+			o.ApplyLAN = planStepApply(plan, edge.ModLANBaseline)
+			o.ApplyWAN = planStepApply(plan, edge.ModWANBaseline)
+			o.ApplyWiFi = planStepApply(plan, edge.ModWiFiAP)
+			o.ApplyExpand = planStepApply(plan, edge.ModFSExpand)
+			o.ApplyOverlay = planStepApply(plan, edge.ModOverlay)
+			if o.NetConfigure && !o.ApplyLAN && !o.ApplyWiFi && !o.ApplyWAN {
+				fmt.Fprintln(os.Stderr, "==> plan: skip network stage (no lan/wan/wifi apply)")
 				o.NetConfigure = false
 			}
 		}
@@ -315,6 +324,11 @@ echo KEY:$(b64 "$DIR/client.key")
 			return fmt.Errorf("guest stage: %w", err)
 		}
 	}
+	if o.ApplyExpand {
+		if err := applyFSExpandOnEdge(o); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: fs expand:", err)
+		}
+	}
 
 	// 3) Harden (pubkey + disable password) then reboot.
 	if strings.TrimSpace(pub) != "" {
@@ -348,59 +362,104 @@ echo KEY:$(b64 "$DIR/client.key")
 }
 
 func networkTemplateMap(o EdgeOpts) map[string]any {
+	// Non-destructive: only emit keys the operator set. WAN defaults to dhcp only when WAN module applies.
 	m := map[string]any{}
 	net := map[string]any{}
-	if o.LANIP != "" {
-		net["lan_ip"] = o.LANIP
+	allowLAN, allowWAN, allowWiFi := o.ApplyLAN, o.ApplyWAN, o.ApplyWiFi
+	if !o.ApplyLAN && !o.ApplyWAN && !o.ApplyWiFi && o.NetConfigure {
+		// Legacy path before plan flags: configure all requested via flags.
+		allowLAN, allowWAN, allowWiFi = true, true, true
 	}
-	if o.LANMask != "" {
-		net["lan_mask"] = o.LANMask
-	} else if o.LANIP != "" {
-		net["lan_mask"] = "255.255.255.0"
-	}
-	proto := strings.ToLower(strings.TrimSpace(o.WANProto))
-	if proto == "" {
-		proto = "dhcp"
-	}
-	net["wan_proto"] = proto
-	if proto == "static" {
-		net["wan_ip"] = o.WANIP
-		net["wan_mask"] = o.WANMask
-		if o.WANMask == "" {
-			net["wan_mask"] = "255.255.255.0"
+
+	if allowLAN {
+		if o.LANIP != "" {
+			net["lan_ip"] = o.LANIP
 		}
-		net["wan_gateway"] = o.WANGateway
-		net["wan_dns"] = o.WANDNS
+		if o.LANMask != "" {
+			net["lan_mask"] = o.LANMask
+		} else if o.LANIP != "" {
+			net["lan_mask"] = "255.255.255.0"
+		}
 	}
-	if proto == "pppoe" {
-		net["pppoe_user"] = o.PPPoEUser
-		net["pppoe_pass"] = o.PPPoEPass
-		net["pppoe_service"] = o.PPPoEService
-		net["pppoe_ac"] = o.PPPoEAC
-		if o.WANDNS != "" {
-			net["wan_dns"] = o.WANDNS
+	if allowWAN {
+		proto := strings.ToLower(strings.TrimSpace(o.WANProto))
+		if proto == "" {
+			proto = "dhcp"
+		}
+		net["wan_proto"] = proto
+		if proto == "static" {
+			if o.WANIP != "" {
+				net["wan_ip"] = o.WANIP
+			}
+			if o.WANMask != "" {
+				net["wan_mask"] = o.WANMask
+			} else if o.WANIP != "" {
+				net["wan_mask"] = "255.255.255.0"
+			}
+			if o.WANGateway != "" {
+				net["wan_gateway"] = o.WANGateway
+			}
+			if o.WANDNS != "" {
+				net["wan_dns"] = o.WANDNS
+			}
+		}
+		if proto == "pppoe" {
+			if o.PPPoEUser != "" {
+				net["pppoe_user"] = o.PPPoEUser
+			}
+			if o.PPPoEPass != "" {
+				net["pppoe_pass"] = o.PPPoEPass
+			}
+			if o.PPPoEService != "" {
+				net["pppoe_service"] = o.PPPoEService
+			}
+			if o.PPPoEAC != "" {
+				net["pppoe_ac"] = o.PPPoEAC
+			}
+			if o.WANDNS != "" {
+				net["wan_dns"] = o.WANDNS
+			}
 		}
 	}
 	if len(net) > 0 {
 		m["network"] = net
 	}
-	if o.DHCPStart != "" || o.DHCPLimit != "" {
+	if allowLAN && (o.DHCPStart != "" || o.DHCPLimit != "") {
 		m["dhcp"] = map[string]any{"start": o.DHCPStart, "limit": o.DHCPLimit}
 	}
-	wifi := map[string]any{"encryption": "psk2"}
-	if o.WiFiSSID24 != "" || o.WiFiKey24 != "" || o.WiFiSSID5 != "" || o.WiFiKey5 != "" {
-		wifi["ssid_24"] = o.WiFiSSID24
-		wifi["key_24"] = o.WiFiKey24
-		wifi["ssid_5"] = o.WiFiSSID5
-		wifi["key_5"] = o.WiFiKey5
-	} else if o.WiFiSSID != "" {
-		wifi["ssid"] = o.WiFiSSID
-		wifi["key"] = o.WiFiKey
-	}
-	if o.WiFiSSID24 != "" || o.WiFiSSID5 != "" || o.WiFiSSID != "" {
-		m["wifi"] = wifi
+	if allowWiFi {
+		wifi := map[string]any{"encryption": "psk2"}
+		if o.WiFiSSID24 != "" || o.WiFiKey24 != "" || o.WiFiSSID5 != "" || o.WiFiKey5 != "" {
+			wifi["ssid_24"] = o.WiFiSSID24
+			wifi["key_24"] = o.WiFiKey24
+			wifi["ssid_5"] = o.WiFiSSID5
+			wifi["key_5"] = o.WiFiKey5
+		} else if o.WiFiSSID != "" {
+			wifi["ssid"] = o.WiFiSSID
+			wifi["key"] = o.WiFiKey
+		}
+		if o.WiFiSSID24 != "" || o.WiFiSSID5 != "" || o.WiFiSSID != "" {
+			m["wifi"] = wifi
+		}
 	}
 	return m
+}
+
+func applyFSExpandOnEdge(o EdgeOpts) error {
+	script := `set +e
+if ! ls /dev/mmcblk0 >/dev/null 2>&1; then echo "no mmc"; exit 0; fi
+if command -v resize2fs >/dev/null 2>&1; then
+  ROOT=$(findmnt -n -o SOURCE / 2>/dev/null)
+  echo "expand attempt root=$ROOT"
+  resize2fs "$ROOT" 2>/dev/null && echo "resize2fs ok" || echo "resize2fs skipped"
+else
+  echo "resize2fs not installed"
+fi
+true
+`
+	out, err := runSSHOnPort(factorySSHPort(), o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, script, "")
+	fmt.Fprintln(os.Stderr, "==> fs expand:", strings.TrimSpace(out))
+	return err
 }
 
 func applyNetworkOnEdge(o EdgeOpts) error {

@@ -695,6 +695,11 @@ func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
 	if ssid == "" {
 		ssid = strings.TrimSpace(body.WiFiSSID5)
 	}
+	expand, overlay := false, false
+	if body.Modules != nil {
+		expand = body.Modules[edge.ModFSExpand]
+		overlay = body.Modules[edge.ModOverlay]
+	}
 	req := edge.PlanRequest{
 		Preset: body.Preset,
 		Facts:  &facts,
@@ -702,6 +707,8 @@ func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
 			ConfigureNet: body.NetConfigure,
 			GuestEnable:  body.GuestEnable,
 			WiFiSSID:     ssid,
+			ExpandFS:     expand,
+			OverlayExt:   overlay,
 		},
 		Selection: edge.ModuleSelection{Advanced: body.Advanced, Enabled: body.Modules},
 	}

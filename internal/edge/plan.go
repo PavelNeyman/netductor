@@ -8,6 +8,8 @@ type DeployIntent struct {
 	GuestEnable  bool
 	VPNEnable    bool // template vpn.enabled
 	WiFiSSID     string
+	ExpandFS     bool // operator asked to expand root filesystem
+	OverlayExt   bool // operator asked extroot/overlay on external disk
 }
 
 // PlanStep is one module decision for deploy-time SSH apply.
@@ -84,6 +86,22 @@ func decideStep(mod string, facts DeviceFacts, intent DeployIntent) PlanStep {
 			return PlanStep{Module: mod, Action: "skip", Reason: "no uplink path at plan time"}
 		}
 		return PlanStep{Module: mod, Action: "apply", Reason: "may need default route after wan"}
+	case ModFSExpand:
+		if !facts.Storage.ExpandHint && !facts.Storage.HasMMC {
+			return PlanStep{Module: mod, Action: "skip", Reason: "no expand candidate (no mmc / hint)"}
+		}
+		if !intent.ExpandFS {
+			return PlanStep{Module: mod, Action: "skip", Reason: "optional — enable to resize root on storage"}
+		}
+		return PlanStep{Module: mod, Action: "apply", Reason: "operator requested fs expand"}
+	case ModOverlay:
+		if !facts.Storage.HasUSBDisk && !facts.Storage.HasMMC {
+			return PlanStep{Module: mod, Action: "skip", Reason: "no external/mmc storage"}
+		}
+		if !intent.OverlayExt {
+			return PlanStep{Module: mod, Action: "skip", Reason: "optional — enable for extroot/overlay"}
+		}
+		return PlanStep{Module: mod, Action: "apply"}
 	case ModSSHHarden:
 		return PlanStep{Module: mod, Action: "apply"}
 	default:

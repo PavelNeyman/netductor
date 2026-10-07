@@ -337,8 +337,8 @@ Web UI consumes the **same JSON** (`facts` + `plan` + `selection`) from primary 
 ### U1–U4 — thin UI card / picker (op TUI + Web), non-destructive / overlay
 
 - [x] U1/U2 web op modular wizard (card + modules + advanced + details)
-- [ ] U3 non-destructive merge polish per module
-- [ ] U4 overlay / FS expand module UI
+- [x] U3 non-destructive network map (only set operator keys; module-gated LAN/WAN/WiFi)
+- [x] U4 fs_expand + overlay_ext modules (plan + optional apply; expand_hint probe)
 - [ ] op TUI parity with same `/v1/edge/preview` JSON
 
 Same API JSON for all UIs. No TG deploy.

@@ -66,7 +66,16 @@ fi
 ls /dev/mmcblk* >/dev/null 2>&1 && echo HAS_MMC=1 || echo HAS_MMC=0
 ls /dev/sd[a-z] >/dev/null 2>&1 && echo HAS_USB_DISK=1 || echo HAS_USB_DISK=0
 # crude expand hint: mmc present and root free looks tiny vs typical card (heuristic only)
-echo EXPAND_HINT=0
+# expand hint: mmc present and root looks like small image (free+used < ~3GB and mmc larger — best-effort)
+EXPAND_HINT=0
+if ls /dev/mmcblk0 >/dev/null 2>&1; then
+  root_k=$(df -k / 2>/dev/null | tail -1 | awk '{print $2}')
+  # if reported root size under ~1.5GiB, suggest expand on typical 8GB+ cards
+  if [ -n "$root_k" ] && [ "$root_k" -lt 1600000 ] 2>/dev/null; then
+    EXPAND_HINT=1
+  fi
+fi
+echo EXPAND_HINT=$EXPAND_HINT
 # interfaces
 ip -o link 2>/dev/null | while read -r idx rest; do
   name=$(echo "$rest" | cut -d: -f1 | tr -d ' ')

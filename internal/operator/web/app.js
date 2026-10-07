@@ -1225,7 +1225,7 @@ function edgeRenderModules(resp){
   const adv=!!document.getElementById('edge_advanced')?.checked;
   const labels={
     agent_install:'Agent install', lan_baseline:'LAN baseline', wan_baseline:'WAN / uplink',
-    wifi_ap:'Wi‑Fi AP', guest:'Guest Wi‑Fi', vpn_client:'VPN client', ssh_harden:'SSH harden'
+    wifi_ap:'Wi‑Fi AP', guest:'Guest Wi‑Fi', vpn_client:'VPN client', fs_expand:'Expand root FS (SD/mmc)', overlay_ext:'External overlay / extroot', ssh_harden:'SSH harden'
   };
   (resp.plan?.steps||[]).forEach(s=>{
     const row=document.createElement('label');

@@ -157,11 +157,17 @@ func ApplySelection(plan DeployPlan, sel ModuleSelection, facts DeviceFacts) Dep
 			steps = append(steps, s)
 			continue
 		}
-		if ok && en && s.Action == "skip" && sel.Advanced {
-			s.Action = "apply"
-			s.Reason = "forced (advanced)"
-			steps = append(steps, s)
-			continue
+		if ok && en && s.Action == "skip" {
+			if sel.Advanced || s.Module == ModFSExpand || s.Module == ModOverlay {
+				s.Action = "apply"
+				if sel.Advanced {
+					s.Reason = "forced (advanced)"
+				} else {
+					s.Reason = "enabled by operator"
+				}
+				steps = append(steps, s)
+				continue
+			}
 		}
 		steps = append(steps, s)
 	}
