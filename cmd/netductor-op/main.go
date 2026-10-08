@@ -6,7 +6,7 @@ import (
 )
 
 // Operator workstation binary (Mac/PC). Does not embed node plane (install/serve/vpn).
-var version = "0.9.284"
+var version = "0.9.296"
 
 
 func main() {
@@ -51,7 +51,7 @@ func printOpHelp() {
 
 
   deploy primary|secondary|fleet|edge   bootstrap nodes over SSH
-  operator serve [--bind 127.0.9.284] [--port 7373] [--token SECRET]
+  operator serve [--bind 127.0.9.296] [--port 7373] [--token SECRET]
   credentials collect                   secrets -> ~/.netductor/credentials
   tui|menu                              Setup wizard / fleet UI
   release list-local|tags|mirror-fetch|build <tag>
