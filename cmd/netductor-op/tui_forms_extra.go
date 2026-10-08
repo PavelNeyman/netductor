@@ -63,6 +63,8 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		menuItem{TT(lang, "Edge recovery code", "Код recovery"), "", "edge-recovery"},
 		menuItem{TT(lang, "NVR status", "NVR статус"), "cameras / storage", "nvr-status"},
 		menuItem{TT(lang, "NVR go2rtc", "NVR go2rtc"), "write config", "nvr-go2rtc"},
+		menuItem{TT(lang, "NVR cameras", "NVR камеры"), "list", "nvr-cameras"},
+		menuItem{TT(lang, "NVR storage", "NVR storage"), "disk", "nvr-storage"},
 		menuItem{TT(lang, "Git repos", "Git репозитории"), "list", "git-repos"},
 		menuItem{TT(lang, "Git pipelines", "Git pipelines"), "list", "git-pipelines"},
 		menuItem{TT(lang, "Registry status", "Registry"), "", "registry-status"},

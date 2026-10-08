@@ -48,6 +48,7 @@ func nvrHubHTML() string {
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:events">⚡ События</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:motion">👁 Движение</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:go2rtc">📡 go2rtc</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:live">▶ Live</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
 	} else {
 		b.WriteString(`<tg-button-row align="left">`)
@@ -394,6 +395,22 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		raw, _ := json.MarshalIndent(cfg, "", "  ")
 		r := format.API("nvr-config", raw, catalogLang())
 		reply(token, chat, msgID, "⚙️ <b>NVR config</b>\n"+r.HTML, nvrSubKeyboard())
+	case data == "m:nvr:live":
+		nl := string([]byte{10})
+		msg := "▶ <b>Live / Talk</b>" + nl
+		msg += "go2rtc listens <code>127.0.0.1:1984</code> (API) / <code>:8554</code> RTSP — <b>VPN only</b>." + nl
+		msg += "1) <code>netductor nvr go2rtc</code> (or button 📡)" + nl
+		msg += "2) Open via VPN: <code>http://127.0.0.1:1984</code> on primary (SSH tunnel) or VPN host route." + nl
+		msg += "Talk: store cloud pass as secret <code>&lt;cam_id&gt;_cloud</code> then rewrite go2rtc (tapo://)." + nl
+		msg += "No public bind — by design." + nl
+		if getLang() != "en" {
+			msg = "▶ <b>Live / Talk</b>" + nl
+			msg += "go2rtc: <code>127.0.0.1:1984</code> / <code>:8554</code> — <b>только VPN</b>." + nl
+			msg += "1) Сгенерировать yaml (📡 go2rtc)" + nl
+			msg += "2) Открыть через VPN/туннель, не публиковать порт." + nl
+			msg += "Talk: секрет <code>&lt;id&gt;_cloud</code> + пересобрать go2rtc." + nl
+		}
+		reply(token, chat, msgID, msg, nvrSubKeyboard())
 	case data == "m:nvr:rotate":
 		rep, err := nvr.RunRetention(nvr.LoadConfig())
 		if err != nil {

@@ -259,6 +259,10 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.showCmd("nvr", "status")
 	case "nvr-go2rtc":
 		m.showCmd("nvr", "go2rtc")
+	case "nvr-cameras":
+		m.showCmd("nvr", "cameras", "list")
+	case "nvr-storage":
+		m.showCmd("nvr", "storage")
 	case "git-repos":
 		m.showCmd("git", "list")
 	case "git-pipelines":

@@ -195,3 +195,10 @@ Later:              Phase 4 SD pull if needed
 ### 2026-10-08 (later)
 - Replaced Python TPAP helper with pure Go in `internal/tapo/tpap.go` + `ccm.go`.
 - `scripts/tapo_v4` kept as protocol reference only.
+
+### 2026-10-08 UI surface (no new product invent)
+- opcatalog/Web: cameras add/delete, record start/stop, PTZ, clip token, motion (existing API only).
+- Camera POST accepts `cloud_password` → secret `<id>_cloud` for TPAP/talk.
+- TG: Live/Talk help (VPN-only go2rtc), existing cam probe/record/PTZ kept.
+- TUI: cameras list + storage shortcuts.
+- **Not in repo as detailed UX:** full camera card SPA, embedded WebRTC player, multi-step add wizard beyond DHCP lease → RTSP password. Discuss if needed.

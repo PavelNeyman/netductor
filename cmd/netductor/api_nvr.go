@@ -56,6 +56,14 @@ func registerNVRAPI(mux *http.ServeMux) {
 				}
 				_ = nvr.SetSecret(ref, pass)
 			}
+			// TP-Link cloud password for TPAP control + go2rtc talk (tapo://), not RTSP.
+			if cloud := nvrStr(body["cloud_password"]); cloud != "" {
+				ref := out.SecretRef
+				if ref == "" {
+					ref = out.ID
+				}
+				_ = nvr.SetSecret(ref+"_cloud", cloud)
+			}
 			writeJSON(w, 200, map[string]any{"ok": true, "camera": out})
 		default:
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})

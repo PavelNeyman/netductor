@@ -114,6 +114,13 @@ func All() []Action {
 
 		// nvr
 		a("nvr-cameras", "nvr", "GET", "/api/nvr/cameras", "", "nvr cameras", "Cameras", "Cameras"),
+		a("nvr-cameras-add", "nvr", "POST", "/api/nvr/cameras", `{"name":"cam1","lan_ip":"192.168.1.50","rtsp_user":"cam","rtsp_password":"","cloud_password":"","rtsp_path":"/stream1","enabled":true,"record":true}`, "nvr cam add", "Add camera", "Добавить камеру"),
+		a("nvr-cameras-del", "nvr", "POST", "/api/nvr/cameras/delete", `{"id":""}`, "—", "Delete camera", "Удалить камеру"),
+		a("nvr-rec-start", "nvr", "POST", "/api/nvr/recorder/start", `{"id":""}`, "—", "Record start", "Запись вкл"),
+		a("nvr-rec-stop", "nvr", "POST", "/api/nvr/recorder/stop", `{"id":""}`, "—", "Record stop", "Запись выкл"),
+		a("nvr-ptz", "nvr", "POST", "/api/nvr/ptz", `{"id":"","dir":"left"}`, "—", "PTZ", "PTZ"),
+		a("nvr-clip", "nvr", "POST", "/api/nvr/clip/token", `{"camera_id":"","path":""}`, "—", "Clip token", "Клип"),
+		a("nvr-motion", "nvr", "GET", "/api/nvr/motion", "", "—", "Motion", "Движение"),
 		a("nvr-config", "nvr", "GET", "/api/nvr/config", "", "nvr status", "Config", "Config"),
 		a("nvr-storage", "nvr", "GET", "/api/nvr/storage", "", "—", "Storage", "Storage"),
 		a("nvr-events", "nvr", "GET", "/api/nvr/events", "", "—", "Events", "Events"),

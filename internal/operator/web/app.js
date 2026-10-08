@@ -562,6 +562,13 @@ const BTN = {
   ],
   nvr:[
     ['nvr-cameras','Cameras','GET','/api/nvr/cameras'],
+    ['nvr-cameras-add','Add camera','POST','/api/nvr/cameras','{"name":"cam1","lan_ip":"","rtsp_user":"","rtsp_password":"","cloud_password":"","rtsp_path":"/stream1","enabled":true,"record":true}'],
+    ['nvr-cameras-del','Delete camera','POST','/api/nvr/cameras/delete','{"id":""}'],
+    ['nvr-rec-start','Record start','POST','/api/nvr/recorder/start','{"id":""}'],
+    ['nvr-rec-stop','Record stop','POST','/api/nvr/recorder/stop','{"id":""}'],
+    ['nvr-ptz','PTZ','POST','/api/nvr/ptz','{"id":"","dir":"left"}'],
+    ['nvr-clip','Clip token','POST','/api/nvr/clip/token','{"camera_id":"","path":""}'],
+    ['nvr-motion','Motion','GET','/api/nvr/motion'],
     ['nvr-config','Config','GET','/api/nvr/config'],
     ['nvr-storage','Storage','GET','/api/nvr/storage'],
     ['nvr-events','Events','GET','/api/nvr/events'],
