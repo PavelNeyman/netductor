@@ -23,21 +23,21 @@ import (
 //   - FlushAlerts(true): always send now (stack apply, tests)
 
 const (
-	soloDelay     = 2 * time.Second
-	batchWindow   = 8 * time.Second
-	maxBatch      = 8
-	hubRepinMin   = 90 * time.Second
-	tickerPeriod  = 2 * time.Second
+	soloDelay    = 2 * time.Second
+	batchWindow  = 8 * time.Second
+	maxBatch     = 8
+	hubRepinMin  = 90 * time.Second
+	tickerPeriod = 2 * time.Second
 )
 
 var (
-	batchMu       sync.Mutex
-	pending       = map[string]string{} // key → html body
-	flushOnce     sync.Once
-	lastFlush     time.Time
-	lastHubPin    time.Time
-	firstPending  time.Time // when current batch started filling
-	soloTimer     *time.Timer
+	batchMu      sync.Mutex
+	pending      = map[string]string{} // key → html body
+	flushOnce    sync.Once
+	lastFlush    time.Time
+	lastHubPin   time.Time
+	firstPending time.Time // when current batch started filling
+	soloTimer    *time.Timer
 )
 
 func hubStatePath() string {
