@@ -1,6 +1,6 @@
 # Plan: internal releases (bare git + CI + registry) + op source build
 
-**Status:** planned  
+**Status:** P0 done (0.9.279); P1 build-local in progress  
 **Context:** GitHub remains the development remote (agent access). Day-2 artifacts should not depend on uploading every tag to GitHub Releases. Primary already has bare git, isolated CI (docker), and local OCI registry (`127.0.0.1:5000`).
 
 ## Goals
@@ -137,3 +137,11 @@ GitHub (dev) ──fetch/mirror──► bare git on primary
 - SHA256SUMS required for local same as GH (unless explicit skip).
 - Import only from operator path (CLI/API session), not anonymous.
 - Registry remains loopback; if auth later, htpasswd already supported in `internal/registry`.
+
+
+### P1 status (implemented in tree)
+
+- `netductor release build <tag> [--skip-darwin]` → `internal/update.BuildLocal`
+- Isolated via `ci.Exec` + `ImageForGo()`; artifacts → `ImportReleaseDir`
+- TG alerts: `release:built:*` / `release:build-fail:*`
+- Source: shallow `git clone --branch <tag>` (GitHub); bare-git checkout can replace later (P2)
