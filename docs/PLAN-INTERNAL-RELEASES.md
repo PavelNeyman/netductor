@@ -1,6 +1,6 @@
 # Plan: internal releases (bare git + CI + registry) + op source build
 
-**Status:** P0 done (0.9.279); P1 build-local in progress  
+**Status:** P0+P1 done; P2 mirror-fetch in tree  
 **Context:** GitHub remains the development remote (agent access). Day-2 artifacts should not depend on uploading every tag to GitHub Releases. Primary already has bare git, isolated CI (docker), and local OCI registry (`127.0.0.1:5000`).
 
 ## Goals
@@ -145,3 +145,11 @@ GitHub (dev) ──fetch/mirror──► bare git on primary
 - Isolated via `ci.Exec` + `ImageForGo()`; artifacts → `ImportReleaseDir`
 - TG alerts: `release:built:*` / `release:build-fail:*`
 - Source: shallow `git clone --branch <tag>` (GitHub); bare-git checkout can replace later (P2)
+
+
+### P2 status (implemented in tree)
+
+- `netductor git mirror-ensure [name] [url]` — bare repo + origin
+- `netductor git mirror-fetch [name]` — fetch heads+tags from origin
+- `netductor git tags [name]` — list tags from local mirror
+- `release build` prefers `CheckoutTag` from bare `netductor.git`, falls back to GitHub clone

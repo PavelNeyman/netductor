@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/ci"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -50,10 +51,13 @@ func BuildLocal(o BuildOpts) (string, error) {
 		defer func() { _ = os.RemoveAll(work) }()
 	}
 
-	// Prefer existing checkout; else shallow clone tag
+	// Prefer existing checkout; else local bare mirror; else shallow clone from upstream.
 	if _, err := os.Stat(filepath.Join(work, "go.mod")); err != nil {
-		if err := cloneTag(src, tag, work); err != nil {
-			return "", err
+		if err := gitstore.CheckoutTag("netductor", tag, work); err != nil {
+			// mirror miss → clone from GitHub (or SourceURL)
+			if err2 := cloneTag(src, tag, work); err2 != nil {
+				return "", fmt.Errorf("mirror: %v; upstream: %w", err, err2)
+			}
 		}
 	}
 

@@ -21,7 +21,10 @@ func runGit(args []string) int {
   netductor git delete <name>
   netductor git root
   netductor git artifacts [repo]
-  netductor git artifact <rel-path>`)
+  netductor git artifact <rel-path>
+  netductor git mirror-ensure [name] [upstream-url]
+  netductor git mirror-fetch [name]
+  netductor git tags [name]`)
 		return 2
 	}
 	switch args[0] {
@@ -53,6 +56,47 @@ func runGit(args []string) int {
 		return 0
 	case "root":
 		fmt.Println(gitstore.Root())
+		return 0
+	case "mirror-ensure":
+		name, up := "netductor", ""
+		if len(args) >= 2 {
+			name = args[1]
+		}
+		if len(args) >= 3 {
+			up = args[2]
+		}
+		dir, err := gitstore.MirrorEnsure(name, up)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println(dir)
+		return 0
+	case "mirror-fetch":
+		name := "netductor"
+		if len(args) >= 2 {
+			name = args[1]
+		}
+		out, err := gitstore.MirrorFetch(name)
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	case "tags":
+		name := "netductor"
+		if len(args) >= 2 {
+			name = args[1]
+		}
+		tags, err := gitstore.ListTags(name)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		for _, t := range tags {
+			fmt.Println(t)
+		}
 		return 0
 	case "delete":
 		if len(args) < 2 {
