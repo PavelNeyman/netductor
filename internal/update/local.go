@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -46,6 +47,7 @@ func ListLocalTags() ([]string, error) {
 			out = append(out, e.Name())
 		}
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i] > out[j] })
 	return out, nil
 }
 
@@ -135,4 +137,30 @@ func ImportReleaseDir(tag, srcDir string) (string, error) {
 		return "", fmt.Errorf("no files in %s", srcDir)
 	}
 	return dst, nil
+}
+
+// PruneLocal keeps the newest keep tags (by semver-ish name sort reverse), deletes the rest.
+func PruneLocal(keep int) (removed []string, err error) {
+	if keep < 1 {
+		keep = 3
+	}
+	tags, err := ListLocalTags()
+	if err != nil {
+		return nil, err
+	}
+	if len(tags) <= keep {
+		return nil, nil
+	}
+	// tags already from ReadDir — sort reverse version-ish
+	sort.Slice(tags, func(i, j int) bool {
+		return tags[i] > tags[j]
+	})
+	for _, t := range tags[keep:] {
+		dir := LocalTagDir(t)
+		if err := os.RemoveAll(dir); err != nil {
+			return removed, err
+		}
+		removed = append(removed, t)
+	}
+	return removed, nil
 }

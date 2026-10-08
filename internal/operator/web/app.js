@@ -526,6 +526,8 @@ const BTN = {
     ['release-git-tags','b_rel_tags','GET','/api/release/git-tags'],
     ['release-mirror','b_rel_mirror','POST','/api/release/mirror-fetch','{}'],
     ['release-build','b_rel_build','POST','/api/release/build','{"tag":"","skip_darwin":true}'],
+    ['release-build-st','Build status','GET','/api/release/build-status'],
+    ['release-prune','Prune local','POST','/api/release/prune','{"keep":5}'],
   ],
   vpn:[
     ['vpn-users','b_vpn_users','GET','/vpn/users'],

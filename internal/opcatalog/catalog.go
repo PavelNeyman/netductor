@@ -96,6 +96,8 @@ func All() []Action {
 		a("release-git-tags", "updates", "GET", "/api/release/git-tags", "", "git tags", "Git mirror tags", "Теги git mirror"),
 		a("release-mirror-fetch", "updates", "POST", "/api/release/mirror-fetch", "{}", "git mirror-fetch", "Mirror fetch", "Обновить git mirror"),
 		a("release-build", "updates", "POST", "/api/release/build", `{"tag":"v0.9.280","skip_darwin":true}`, "release build", "Build release local", "Собрать релиз локально"),
+		a("release-build-status", "updates", "GET", "/api/release/build-status", "", "—", "Release build status", "Статус сборки релиза"),
+		a("release-prune", "updates", "POST", "/api/release/prune", `{"keep":5}`, "release prune", "Prune local releases", "Очистить старые релизы"),
 		a("release-import", "updates", "POST", "/api/release/import", `{"tag":"v0.9.280","dir":"/path/to/dist"}`, "release import", "Import release dir", "Импорт релиза"),
 
 		a("update-gh-token", "updates", "GET", "/api/update/github-token", "", "update github-token status", "GitHub token status", "Статус GitHub token"),

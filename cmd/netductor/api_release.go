@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -160,4 +161,50 @@ func registerReleaseAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "dir": dst})
 	})
+
+	mux.HandleFunc("/api/release/build-status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		logPath := "/var/log/netductor-release-build.log"
+		b, err := os.ReadFile(logPath)
+		active := false
+		if out, e := exec.Command("systemctl", "is-active", "netductor-release-build.service").CombinedOutput(); e == nil {
+			active = strings.TrimSpace(string(out)) == "active"
+		}
+		tail := ""
+		if err == nil && len(b) > 0 {
+			s := string(b)
+			if len(s) > 4000 {
+				s = s[len(s)-4000:]
+			}
+			tail = s
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "active": active, "log": logPath, "tail": tail})
+	})
+
+	mux.HandleFunc("/api/release/prune", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
+			return
+		}
+		var body struct {
+			Keep int `json:"keep"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.Keep < 1 {
+			body.Keep = 5
+		}
+		removed, err := ndupdate.PruneLocal(body.Keep)
+		if err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "removed": removed, "keep": body.Keep})
+	})
+
 }

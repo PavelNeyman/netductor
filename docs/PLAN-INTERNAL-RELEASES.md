@@ -1,6 +1,6 @@
 # Plan: internal releases (bare git + CI + registry) + op source build
 
-**Status:** P0–P2 + API/UI surfaces (0.9.281)  
+**Status:** P0–P4 core done (0.9.282): host build, prune, doctor, TG apply  
 **Context:** GitHub remains the development remote (agent access). Day-2 artifacts should not depend on uploading every tag to GitHub Releases. Primary already has bare git, isolated CI (docker), and local OCI registry (`127.0.0.1:5000`).
 
 ## Goals
@@ -97,10 +97,10 @@ GitHub (dev) ──fetch/mirror──► bare git on primary
 
 ## Acceptance
 
-- [ ] `stack apply vX` works with **only** local `releases/vX` present (no GH).
-- [ ] `release build vX` on primary produces SHA256SUMS-matching matrix in docker.
-- [ ] Op can produce agent binary for offline edge without GH Release upload.
-- [ ] GitHub Releases remain optional fallback.
+- [x] `stack apply vX` works with **only** local `releases/vX` present (no GH) — prefer-local in DownloadNamedAsset.
+- [x] `release build vX` on primary produces SHA256SUMS-matching matrix in docker.
+- [x] Op can produce agent binary for offline edge without GH Release upload (`release build-host`).
+- [x] GitHub Releases remain optional fallback.
 
 
 ## Distribution: how secondaries / op get builds
@@ -165,3 +165,11 @@ GitHub (dev) ──fetch/mirror──► bare git on primary
 | **TG Tools** | 📦 Releases hub (`m:release`) |
 | **CLI node** | `netductor release …` / `git mirror-*` |
 | **CLI op** | `netductor-op release …` → SSH → node CLI |
+
+
+### P3 status
+
+- `release build-host` / `netductor-op release build-host` — local `go` toolchain → `LocalReleasesDir()` (on Mac: `~/.netductor/releases`)
+- `release prune --keep N` + API `POST /api/release/prune`
+- doctor: `local releases N (latest …)`
+- TG: apply buttons for top local tags + build status

@@ -20,6 +20,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/registry"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"github.com/PavelNeyman/netductor/internal/edge"
@@ -472,6 +473,13 @@ switch role {
 		// self-host git + registry + isolated CI (optional components)
 		if st, err := os.Stat(gitstore.Root()); err == nil && st.IsDir() {
 			doctorPrintf("OK   git root %s\n", gitstore.Root())
+			if tags, err := ndupdate.ListLocalTags(); err == nil {
+				if len(tags) == 0 {
+					doctorPrintf("INFO local releases empty (%s)\n", ndupdate.LocalReleasesDir())
+				} else {
+					doctorPrintf("OK   local releases %d (latest %s)\n", len(tags), tags[0])
+				}
+			}
 			ok++
 		} else {
 			doctorPrintf("INFO git root absent (%s) — netductor git init <name>\n", gitstore.Root())
