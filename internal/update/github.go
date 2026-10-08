@@ -20,6 +20,8 @@ import (
 
 const Repo = "PavelNeyman/netductor"
 
+func GithubTokenForAPI() string { return githubToken() }
+
 func githubToken() string {
 	for _, k := range []string{"NETDUCTOR_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"} {
 		if t := strings.TrimSpace(os.Getenv(k)); t != "" {

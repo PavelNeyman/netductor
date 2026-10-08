@@ -35,7 +35,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		}
 		if len(projs) == 0 {
 			if ru {
-				b.WriteString("<i>Пусто — ➕ Добавить проект</i>" + nl)
+				b.WriteString("<i>Пусто — ➕ или CLI: git project migrate-from-gh OWNER --sync</i>" + nl)
 			} else {
 				b.WriteString("<i>Empty — ➕ Add project</i>" + nl)
 			}
@@ -89,7 +89,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			if err != nil {
 				b.WriteString(esc(err.Error()))
 			} else if len(projs) == 0 {
-				b.WriteString("<i>Empty. CLI: netductor git project add name org/repo</i>" + nl)
+				b.WriteString("<i>Empty — ➕ or CLI: git project migrate-from-gh OWNER --sync</i>" + nl)
 			} else {
 				for _, pr := range projs {
 					b.WriteString("• <code>" + esc(pr.Name) + "</code> " + esc(pr.Upstream) + nl)

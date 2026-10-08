@@ -231,7 +231,7 @@ func runGitProject(args []string) int {
 			return 1
 		}
 		for _, p := range list {
-			fmt.Printf("%s\t%s\twf=%s\tpipe=%s\ton_fetch=%v\n", p.Name, p.Upstream, p.Workflow, p.Pipeline, p.BuildOnFetch)
+			fmt.Printf("%s\t%s\thost=%s\twf=%s\tpipe=%s\ton_fetch=%v\n", p.Name, p.Upstream, p.Host, p.Workflow, p.Pipeline, p.BuildOnFetch)
 		}
 		return 0
 	case "add":

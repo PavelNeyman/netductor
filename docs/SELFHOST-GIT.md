@@ -146,3 +146,22 @@ netductor git project sync NAME
 netductor git project build NAME
 # Mac: remote nd → ssh://root@PRIMARY:52222/var/lib/netductor/git/NAME.git
 ```
+
+
+## Bulk migrate from GitHub (CLI)
+
+Requires `secrets/github_token` (or `GITHUB_TOKEN`) for **private** repos.
+
+```bash
+# preview
+netductor git project migrate-from-gh PavelNeyman --dry-run
+
+# register + mirror-fetch (no build_on_fetch; Swift/iOS → host=mac)
+netductor git project migrate-from-gh PavelNeyman --sync
+
+netductor git project list
+# optional one-shot build for a Go project:
+netductor git project build M4tg_bot
+```
+
+Skips `netductor` by default (use release/mirror path). Does **not** enable `build_on_fetch`.
