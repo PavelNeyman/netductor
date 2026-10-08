@@ -60,17 +60,14 @@ func BuildLocal(o BuildOpts) (string, error) {
 	// Pin version in worktree for ldflags/embed consistency
 	_ = os.WriteFile(filepath.Join(work, "VERSION"), []byte(ver+"\n"), 0o644)
 	if b, err := os.ReadFile(filepath.Join(work, "internal/version/version.go")); err == nil {
-		lines := strings.Split(string(b), "
-")
+		lines := strings.Split(string(b), "\n")
 		for i, line := range lines {
 			if strings.Contains(line, "const Release") {
 				lines[i] = fmt.Sprintf("const Release = %q", ver)
 			}
 		}
-		_ = os.WriteFile(filepath.Join(work, "internal/version/version.go"), []byte(strings.Join(lines, "
-")), 0o644)
+		_ = os.WriteFile(filepath.Join(work, "internal/version/version.go"), []byte(strings.Join(lines, "\n")), 0o644)
 	}
-
 	script := buildScript(ver, o.SkipDarwin)
 	log, err := ci.Exec(ci.ExecOpts{
 		Image:   ci.ImageForGo(),
