@@ -165,3 +165,21 @@ netductor git project build M4tg_bot
 ```
 
 Skips `netductor` by default (use release/mirror path). Does **not** enable `build_on_fetch`.
+
+
+## Private GitHub repos
+
+All upstreams can be **private**. Netductor needs a PAT with scope **`repo`** (classic) or fine-grained **Contents: Read** on those repos.
+
+| Path | Role |
+|--|--|
+| `/etc/netductor/secrets/github_token` | written by UI/CLI, mode 0600 |
+| env `NETDUCTOR_GITHUB_TOKEN` / `GITHUB_TOKEN` | override |
+| TG | Updates → GitHub token, or Git → 🔑 |
+| Web | Updates / GitHub token |
+
+Mirror fetch rewrites `origin` to `https://x-access-token:…@github.com/…` for the duration of remote URL config. Token is never returned by API (status shows masked hint only).
+
+Without a token: public repos work; private `sync` / `migrate-from-gh` fail with auth errors.
+
+Making GH repos private does **not** break day-2 if primary already has a full mirror and you push via SSH to bare git on VPS — token is only needed to **pull from GitHub**.

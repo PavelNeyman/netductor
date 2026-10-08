@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 )
@@ -149,18 +148,3 @@ func guessWorkflow(lang string) string {
 }
 
 
-func githubTokenLocal() string {
-	if v := os.Getenv("NETDUCTOR_GITHUB_TOKEN"); v != "" {
-		return strings.TrimSpace(v)
-	}
-	if v := os.Getenv("GITHUB_TOKEN"); v != "" {
-		return strings.TrimSpace(v)
-	}
-	for _, p := range []string{"/etc/netductor/secrets/github_token", "/etc/netductor/github_token"} {
-		b, err := os.ReadFile(p)
-		if err == nil {
-			return strings.TrimSpace(string(b))
-		}
-	}
-	return ""
-}

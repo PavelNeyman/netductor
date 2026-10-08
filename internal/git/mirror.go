@@ -2,6 +2,7 @@ package gitstore
 
 import (
 	"fmt"
+	"net/url"
 
 	"os"
 	"os/exec"
@@ -30,11 +31,11 @@ func MirrorEnsure(name, upstreamURL string) (string, error) {
 			return "", err
 		}
 	}
-	// set/update origin
+	// set/update origin (token injected for private GH; not written to logs)
+	url := withGitHubAuth(upstreamURL)
 	_ = exec.Command("git", "-C", dir, "remote", "remove", "origin").Run()
-	if out, err := exec.Command("git", "-C", dir, "remote", "add", "origin", upstreamURL).CombinedOutput(); err != nil {
-		// may already exist after failed remove
-		_ = exec.Command("git", "-C", dir, "remote", "set-url", "origin", upstreamURL).Run()
+	if out, err := exec.Command("git", "-C", dir, "remote", "add", "origin", url).CombinedOutput(); err != nil {
+		_ = exec.Command("git", "-C", dir, "remote", "set-url", "origin", url).Run()
 		_ = out
 	}
 	return dir, nil
@@ -51,6 +52,19 @@ func MirrorFetch(name string) (string, error) {
 		dir, err = repoDir(name)
 		if err != nil {
 			return "", err
+		}
+	}
+	// refresh origin URL with current token (private repos / rotated PAT)
+	if out, err := exec.Command("git", "-C", dir, "remote", "get-url", "origin").CombinedOutput(); err == nil {
+		cur := strings.TrimSpace(string(out))
+		// strip existing userinfo then re-apply
+		plain := cur
+		if u, e := parseMaybeURL(cur); e == nil && u.User != nil {
+			u.User = nil
+			plain = u.String()
+		}
+		if auth := withGitHubAuth(plain); auth != cur {
+			_ = exec.Command("git", "-C", dir, "remote", "set-url", "origin", auth).Run()
 		}
 	}
 	cmd := exec.Command("git", "-C", dir, "fetch", "--tags", "--prune", "origin", "+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*")
@@ -98,4 +112,9 @@ func CheckoutTag(name, tag, workDir string) error {
 		return fmt.Errorf("checkout %s: %w\n%s", tag, err, string(out))
 	}
 	return nil
+}
+
+
+func parseMaybeURL(raw string) (*url.URL, error) {
+	return url.Parse(raw)
 }

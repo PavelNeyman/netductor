@@ -73,6 +73,11 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				btn("▶️", "m:git:proj:build:"+pr.Name, ""),
 			})
 		}
+		tokLab := "🔑 GitHub token"
+		if ru {
+			tokLab = "🔑 GitHub token"
+		}
+		rows = append(rows, []map[string]any{btn(tokLab, "m:upd:gh-token", "")})
 		rows = append(rows, []map[string]any{btn("⬅️ "+parentTools(), "m:tools", ""), btn(T("main_menu"), "m:menu", "")})
 		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 		return true
