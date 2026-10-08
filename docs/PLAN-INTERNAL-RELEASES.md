@@ -173,3 +173,21 @@ GitHub (dev) ──fetch/mirror──► bare git on primary
 - `release prune --keep N` + API `POST /api/release/prune`
 - doctor: `local releases N (latest …)`
 - TG: apply buttons for top local tags + build status
+
+### Multi-repo projects (GH + GHA-subset YAML)
+
+Register any GitHub repo as a **project** (not only netductor):
+
+```bash
+netductor git project add myapp org/myapp
+# or full URL; optional:
+netductor git project add myapp org/myapp --workflow .github/workflows/ci.yml
+netductor git project add legacy org/legacy --pipeline go-test
+netductor git project sync myapp
+netductor git project build myapp
+```
+
+**Build order:** explicit `workflow` → first `.github/workflows/*.yml` (existing GHA subset in `internal/gha`) → shell `pipeline` under `/etc/netductor/git-pipelines` → default workflow discovery.
+
+Same API/UI: Web Git form, TG **📁 Projects**, opcatalog `git-project-*`.
+Store: `/var/lib/netductor/git-projects.json` + bare mirrors under `git/<name>.git`.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -157,4 +158,73 @@ func registerGitAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"path": path, "body": out})
 	})
+
+	mux.HandleFunc("/api/git/projects", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			list, err := gitstore.LoadProjects()
+			if err != nil {
+				writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "projects": list})
+		case http.MethodPost:
+			var body gitstore.Project
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			fetch := r.URL.Query().Get("fetch") != "0"
+			if err := gitstore.AddProject(body, fetch); err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "project": body})
+		case http.MethodDelete:
+			name := r.URL.Query().Get("name")
+			if name == "" {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": "name required"})
+				return
+			}
+			if err := gitstore.RemoveProject(name); err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true})
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/git/projects/sync", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		var body struct {
+			Name string `json:"name"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		out, err := gitstore.SyncProject(body.Name)
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error(), "log": out})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "log": out})
+	})
+	mux.HandleFunc("/api/git/projects/build", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		var body struct {
+			Name string `json:"name"`
+			Ref  string `json:"ref"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		out, err := gitstore.BuildProject(body.Name, body.Ref)
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error(), "log": out})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "log": out})
+	})
+
 }

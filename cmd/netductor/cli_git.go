@@ -24,7 +24,10 @@ func runGit(args []string) int {
   netductor git artifact <rel-path>
   netductor git mirror-ensure [name] [upstream-url]
   netductor git mirror-fetch [name]
-  netductor git tags [name]`)
+  netductor git tags [name]
+  netductor git project list|add|rm|sync|build
+    add <name> <url|org/repo> [--workflow path] [--pipeline name] [--build-on-fetch]
+    sync <name> | build <name> [ref] | rm <name>`)
 		return 2
 	}
 	switch args[0] {
@@ -57,6 +60,8 @@ func runGit(args []string) int {
 	case "root":
 		fmt.Println(gitstore.Root())
 		return 0
+	case "project", "projects":
+		return runGitProject(args[1:])
 	case "mirror-ensure":
 		name, up := "netductor", ""
 		if len(args) >= 2 {
@@ -205,6 +210,95 @@ func runGit(args []string) int {
 		return 0
 	default:
 		fmt.Fprintln(os.Stderr, "unknown git subcommand")
+		return 2
+	}
+}
+
+func runGitProject(args []string) int {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|build")
+		return 2
+	}
+	switch args[0] {
+	case "list", "ls":
+		list, err := gitstore.LoadProjects()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		for _, p := range list {
+			fmt.Printf("%s\t%s\twf=%s\tpipe=%s\ton_fetch=%v\n", p.Name, p.Upstream, p.Workflow, p.Pipeline, p.BuildOnFetch)
+		}
+		return 0
+	case "add":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git project add <name> <url|org/repo> [--workflow p] [--pipeline n] [--build-on-fetch]")
+			return 2
+		}
+		p := gitstore.Project{Name: args[1], Upstream: args[2]}
+		for i := 3; i < len(args); i++ {
+			switch args[i] {
+			case "--workflow":
+				if i+1 < len(args) {
+					p.Workflow = args[i+1]
+					i++
+				}
+			case "--pipeline":
+				if i+1 < len(args) {
+					p.Pipeline = args[i+1]
+					i++
+				}
+			case "--build-on-fetch":
+				p.BuildOnFetch = true
+			}
+		}
+		if err := gitstore.AddProject(p, true); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("ok", p.Name, p.Upstream)
+		return 0
+	case "rm", "delete", "remove":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git project rm <name>")
+			return 2
+		}
+		if err := gitstore.RemoveProject(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("removed", args[1])
+		return 0
+	case "sync":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git project sync <name>")
+			return 2
+		}
+		out, err := gitstore.SyncProject(args[1])
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	case "build":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git project build <name> [ref]")
+			return 2
+		}
+		ref := ""
+		if len(args) >= 3 {
+			ref = args[2]
+		}
+		out, err := gitstore.BuildProject(args[1], ref)
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	default:
+		fmt.Fprintln(os.Stderr, "unknown project subcommand")
 		return 2
 	}
 }

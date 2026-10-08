@@ -567,6 +567,7 @@ const BTN = {
   ],
   git:[
     ['git-repos','Repos','GET','/api/git/repos'],
+    ['git-projects','Projects','GET','/api/git/projects'],
     ['release-local-g','Local releases','GET','/api/release/local'],
     ['release-tags-g','Git tags','GET','/api/release/git-tags'],
     ['release-mirror-g','Mirror fetch','POST','/api/release/mirror-fetch','{}'],
@@ -974,6 +975,12 @@ const special = {
   'nvr-clip-token': async()=>{ return nodeFetch('/api/nvr/clip/token',{method:'POST',body:JSON.stringify({path:document.getElementById('nvrClip').value.trim()})}); },
   'git-run': async()=>{ return nodeFetch('/api/git/pipeline',{method:'POST',body:JSON.stringify({repo:document.getElementById('gitRepo').value.trim(),pipeline:document.getElementById('gitPipe').value.trim()})}); },
   'git-init': async()=>{ const name=document.getElementById('gitRepo').value.trim(); if(!name) return {error:'repo name'}; return nodeFetch('/api/git/repos',{method:'POST',body:JSON.stringify({name})}); },
+  'git-proj-list': async()=> nodeFetch('/api/git/projects'),
+  'git-proj-add': async()=>{ const name=document.getElementById('gitProjName').value.trim(); const upstream=document.getElementById('gitProjUp').value.trim();
+    if(!name||!upstream) return {error:'name and upstream'}; const workflow=document.getElementById('gitProjWf').value.trim(); const pipeline=document.getElementById('gitProjPipe').value.trim();
+    return nodeFetch('/api/git/projects',{method:'POST',body:JSON.stringify({name,upstream,workflow,pipeline})}); },
+  'git-proj-sync': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/sync',{method:'POST',body:JSON.stringify({name})}); },
+  'git-proj-build': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/build',{method:'POST',body:JSON.stringify({name})}); },
   'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?name='+encodeURIComponent(r)):'')); },
   'git-show': async()=>{
     const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim();

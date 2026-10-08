@@ -35,7 +35,11 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				b.WriteString("CLI: <code>netductor git init myrepo</code>" + nl)
 				b.WriteString("Path: <code>/var/lib/netductor/git/</code>")
 			}
-			reply(token, chat, msgID, b.String(), navKeyboard("m:tools", parentTools()))
+			kbEmpty := map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("📁 Projects", "m:git:proj:list", "primary"), btn("⬅️ "+parentTools(), "m:tools", "")},
+				{btn(T("main_menu"), "m:menu", "")},
+			}}
+			reply(token, chat, msgID, b.String(), kbEmpty)
 			return true
 		}
 		if ru {
@@ -63,7 +67,60 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		return true
 	}
 	rest := strings.TrimPrefix(data, "m:git:")
-	if strings.HasPrefix(rest, "repo:") {
+	
+	if strings.HasPrefix(rest, "proj:") {
+		sub := strings.TrimPrefix(rest, "proj:")
+		if sub == "list" || sub == "" {
+			projs, err := gitstore.LoadProjects()
+			var b strings.Builder
+			nl := string([]byte{10})
+			b.WriteString("📁 <b>Projects</b> (GH mirror + workflow/pipeline)" + nl)
+			if err != nil {
+				b.WriteString(esc(err.Error()))
+			} else if len(projs) == 0 {
+				b.WriteString("<i>Empty. CLI: netductor git project add name org/repo</i>" + nl)
+			} else {
+				for _, pr := range projs {
+					b.WriteString("• <code>" + esc(pr.Name) + "</code> " + esc(pr.Upstream) + nl)
+				}
+			}
+			rows := [][]map[string]any{}
+			for _, pr := range projs {
+				rows = append(rows, []map[string]any{
+					btn("⬇️ "+pr.Name, "m:git:proj:sync:"+pr.Name, ""),
+					btn("▶️ "+pr.Name, "m:git:proj:build:"+pr.Name, "primary"),
+				})
+			}
+			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
+			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+			return true
+		}
+		if strings.HasPrefix(sub, "sync:") {
+			name := strings.TrimPrefix(sub, "sync:")
+			out, err := gitstore.SyncProject(name)
+			msg := "<pre>" + esc(truncateRunes(out, 3000)) + "</pre>"
+			if err != nil {
+				msg = "⚠️ " + esc(err.Error()) + "\n" + msg
+			} else {
+				msg = "✅ sync\n"+msg
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:list", "Projects"))
+			return true
+		}
+		if strings.HasPrefix(sub, "build:") {
+			name := strings.TrimPrefix(sub, "build:")
+			out, err := gitstore.BuildProject(name, "")
+			msg := "<pre>" + esc(truncateRunes(out, 3000)) + "</pre>"
+			if err != nil {
+				msg = "❌ " + esc(err.Error()) + "\n" + msg
+			} else {
+				msg = "✅ build\n" + msg
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:list", "Projects"))
+			return true
+		}
+	}
+		if strings.HasPrefix(rest, "repo:") {
 		name := strings.TrimPrefix(rest, "repo:")
 		nl := string([]byte{10})
 		var b strings.Builder
