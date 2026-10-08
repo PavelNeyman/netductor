@@ -1,6 +1,6 @@
 # Plan: internal releases (bare git + CI + registry) + op source build
 
-**Status:** P0+P1 done; P2 mirror-fetch in tree  
+**Status:** P0–P2 + API/UI surfaces (0.9.281)  
 **Context:** GitHub remains the development remote (agent access). Day-2 artifacts should not depend on uploading every tag to GitHub Releases. Primary already has bare git, isolated CI (docker), and local OCI registry (`127.0.0.1:5000`).
 
 ## Goals
@@ -153,3 +153,15 @@ GitHub (dev) ──fetch/mirror──► bare git on primary
 - `netductor git mirror-fetch [name]` — fetch heads+tags from origin
 - `netductor git tags [name]` — list tags from local mirror
 - `release build` prefers `CheckoutTag` from bare `netductor.git`, falls back to GitHub clone
+
+
+### UI / API surfaces (thin UI)
+
+| Surface | How |
+|--|--|
+| **API** | `GET /api/release/local`, `.../detail`, `GET /api/release/git-tags`, `POST /api/release/build` (async systemd-run), `POST /api/release/mirror-fetch`, `POST /api/release/import` |
+| **opcatalog** | actions `release-*` section updates — TUI/TG/Web catalog |
+| **Web Control** | Overview + Git buttons for local/tags/mirror/build |
+| **TG Tools** | 📦 Releases hub (`m:release`) |
+| **CLI node** | `netductor release …` / `git mirror-*` |
+| **CLI op** | `netductor-op release …` → SSH → node CLI |

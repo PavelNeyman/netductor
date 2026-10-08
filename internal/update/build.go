@@ -142,3 +142,27 @@ func trimLog(s string, n int) string {
 	}
 	return s[len(s)-n:]
 }
+
+// ScheduleBuild runs release build via systemd-run (API must not block 10m).
+func ScheduleBuild(tag string, skipDarwin bool) error {
+	tag, err := ValidReleaseTag(tag)
+	if err != nil {
+		return err
+	}
+	unit := "netductor-release-build"
+	if out, err := exec.Command("systemctl", "is-active", unit+".service").CombinedOutput(); err == nil && strings.TrimSpace(string(out)) == "active" {
+		return fmt.Errorf("build already running (%s)", unit)
+	}
+	args := []string{"--unit=" + unit, "--collect", "/bin/bash", "-c"}
+	script := `sleep 1; /usr/local/bin/netductor release build "$1"`
+	if skipDarwin {
+		script += ` --skip-darwin`
+	}
+	script += ` >>/var/log/netductor-release-build.log 2>&1`
+	cmd := exec.Command("systemd-run", append(args, script, "netductor-release-build", tag)...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("systemd-run: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}

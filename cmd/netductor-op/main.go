@@ -35,6 +35,8 @@ func main() {
 		runTunnel(os.Args[2:])
 	case "session":
 		runSession(os.Args[2:])
+	case "release":
+		os.Exit(runOpRelease(os.Args[2:]))
 	case "update":
 		runOpUpdate(os.Args[2:])
 	default:
@@ -52,6 +54,7 @@ func printOpHelp() {
   operator serve [--bind 127.0.9.280] [--port 7373] [--token SECRET]
   credentials collect                   secrets -> ~/.netductor/credentials
   tui|menu                              Setup wizard / fleet UI
+  release list-local|tags|mirror-fetch|build <tag>
   update [--version X] [--skip-verify]   self-update from GitHub Release
   version | help
 

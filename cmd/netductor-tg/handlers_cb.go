@@ -196,6 +196,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		handleNVRCB(token, chat, msgID, data)
 		return
 	}
+	if data == "m:release" || strings.HasPrefix(data, "m:release:") {
+		handleReleaseCB(token, chat, msgID, data)
+		return
+	}
 	if data == "m:updates" || data == "m:versions" || strings.HasPrefix(data, "m:ver:") {
 		handleVersionsCB(token, chat, msgID, data)
 		return

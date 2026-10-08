@@ -211,8 +211,13 @@ func formatToolsFromGroups() string {
 	if lang == "ru" {
 		logsLab = "📋 Логи"
 	}
+	relLab := "📦 Releases"
+	if lang == "ru" {
+		relLab = "📦 Релизы"
+	}
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:versions">` + upd + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:alerts-chat">` + top + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:release">` + relLab + `</tg-button></tg-button-row>`)
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:alerts-chat">` + top + `</tg-button>` +
 		`<tg-button type="callback_data" style="primary" data="m:logs">` + logsLab + `</tg-button></tg-button-row>`)
 	return b.String()
 }

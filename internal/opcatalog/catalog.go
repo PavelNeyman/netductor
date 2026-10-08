@@ -91,6 +91,13 @@ func All() []Action {
 		a("ssh-clear", "nodes", "POST", "/api/ssh-hosts/clear", "{}", "ssh-hosts clear", "SSH hosts clear", "Очистить SSH hosts"),
 		a("update-status-updates", "updates", "GET", "/api/update/status", "", "update check", "Update status", "Статус обновлений"),
 		a("update-releases-2", "updates", "GET", "/api/update/releases", "", "update list", "Release list", "Список релизов"),
+		a("release-local", "updates", "GET", "/api/release/local", "", "release list-local", "Local releases", "Локальные релизы"),
+		a("release-local-detail", "updates", "GET", "/api/release/local/detail?tag=v0.9.280", "", "release path", "Local release detail", "Детали локального релиза"),
+		a("release-git-tags", "updates", "GET", "/api/release/git-tags", "", "git tags", "Git mirror tags", "Теги git mirror"),
+		a("release-mirror-fetch", "updates", "POST", "/api/release/mirror-fetch", "{}", "git mirror-fetch", "Mirror fetch", "Обновить git mirror"),
+		a("release-build", "updates", "POST", "/api/release/build", `{"tag":"v0.9.280","skip_darwin":true}`, "release build", "Build release local", "Собрать релиз локально"),
+		a("release-import", "updates", "POST", "/api/release/import", `{"tag":"v0.9.280","dir":"/path/to/dist"}`, "release import", "Import release dir", "Импорт релиза"),
+
 		a("update-gh-token", "updates", "GET", "/api/update/github-token", "", "update github-token status", "GitHub token status", "Статус GitHub token"),
 		a("update-gh-token-set", "updates", "POST", "/api/update/github-token", `{"token":"ghp_..."}`, "update github-token set", "Set GitHub token", "Задать GitHub token"),
 		a("update-gh-token-clear", "updates", "POST", "/api/update/github-token", `{"clear":true}`, "update github-token clear", "Clear GitHub token", "Удалить GitHub token"),
