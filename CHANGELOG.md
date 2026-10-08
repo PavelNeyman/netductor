@@ -1,3 +1,8 @@
+## 0.9.290
+
+- Alerts: drop channel:reality-total pages (scanner noise on :443); keep reality-sec only when uplink is down
+- Metrics still record reality_invalid_total for channel status / history
+
 ## 0.9.289
 
 - TG Status: no triple-button to same Updates screen; digest is fleet digest; Updates only under Tools

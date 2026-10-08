@@ -1,3 +1,5 @@
+**0.9.290:** no TG page on Reality invalid *total* (scanners); reality-sec only if uplink down.
+
 **0.9.288:** PLAN-TG-MENU implemented — hub Status/Users/Fleet/Tools/Operator; Tools without Status clone; Stack+Alerts under Operator.
 
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).

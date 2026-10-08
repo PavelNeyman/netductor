@@ -285,6 +285,8 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 				uplinkDown = true
 			}
 		}
+		// Secondary-sourced REALITY invalid only matters when uplink is already down
+		// (mux path broken). While uplink is up, secondary dials to primary:443 are noise.
 		if uplinkDown && ch.RealityInvalidFromSec15m >= 30 {
 			if notify.AlertOnce("channel:reality-sec",
 				fmt.Sprintf("⚠️ Reality invalid from secondary while uplink down: <b>%d</b> in 15m", ch.RealityInvalidFromSec15m)) {
@@ -293,12 +295,9 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		} else {
 			notify.ClearAlert("channel:reality-sec")
 		}
-		if ch.RealityInvalidTotal15m >= 250 {
-			notify.AlertOnce("channel:reality-total",
-				fmt.Sprintf("⚠️ Reality invalid total: <b>%d</b> in 15m (scanners + clients)", ch.RealityInvalidTotal15m))
-		} else {
-			notify.ClearAlert("channel:reality-total")
-		}
+		// Do NOT page on RealityInvalidTotal alone: public :443 scanners dominate
+		// (e.g. 300/15m with from_sec=0 and uplink OK). Metrics still expose the counter.
+		notify.ClearAlert("channel:reality-total")
 		// Attach logs only on real data-plane trouble (uplink), not public-face TCP alone.
 		for _, s := range ch.Secondaries {
 			if s.Online && !s.UplinkOK {
