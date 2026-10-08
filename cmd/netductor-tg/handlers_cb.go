@@ -438,8 +438,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:hub:reset":
 		// Explicit singleton reset (user deleted hub "for me" / cleared chat).
 		forceHub(token, chat, menuText(), mainKeyboard())
-	case "m:digest", "m:versions":
-		handleVersionsCB(token, chat, msgID, "m:versions")
+	case "m:digest":
+		// Fleet digest card (not Updates). Parent = Status.
+		reply(token, chat, msgID, formatFleetDigestHTML(), statusKeyboard())
 	case "m:dr":
 		reply(token, chat, msgID, formatDisasterHTML(), mainKeyboard())
 	case "m:menu", "m:help":

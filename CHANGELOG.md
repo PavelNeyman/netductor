@@ -1,3 +1,8 @@
+## 0.9.289
+
+- TG Status: no triple-button to same Updates screen; digest is fleet digest; Updates only under Tools
+- Git project add parity: Web form (name/upstream/workflow), TG multi-step, opcatalog actions
+
 ## 0.9.288
 
 - TG menu (PLAN-TG-MENU): five hubs Status / Users / Fleet / Tools / Operator

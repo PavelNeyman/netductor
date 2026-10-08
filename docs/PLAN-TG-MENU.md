@@ -1,6 +1,6 @@
 # PLAN: Telegram menu categories
 
-**Status:** implemented in **v0.9.288** (2026-10-08).
+**Status:** implemented in **v0.9.288**, nav fix **v0.9.289** (2026-10-08).
 
 ## Problem
 
@@ -38,3 +38,9 @@ Rich-text buttons and the reply keyboard both grew. After updates the hub stays 
 - [x] After an alert, one hub sits at the bottom (existing `repinHub` + batch)
 - [x] Tools has no Status/Users duplicate
 - [x] Checklist marked against the callback list
+
+
+### 0.9.289 nav fix
+- Status keyboard: Channel + Refresh only (not Versions/Digest→same Updates).
+- `m:digest` → real fleet digest, parent Status.
+- Updates only under Tools (`m:versions` / `m:updates`), back → Tools.

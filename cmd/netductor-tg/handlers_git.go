@@ -91,8 +91,22 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 					btn("▶️ "+pr.Name, "m:git:proj:build:"+pr.Name, "primary"),
 				})
 			}
+			addLab := "➕ Add project"
+			if ru {
+				addLab = "➕ Добавить проект"
+			}
+			rows = append(rows, []map[string]any{btn(addLab, "m:git:proj:add", "primary")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+			return true
+		}
+		if sub == "add" {
+			setState(chat, "wait_git_proj_name", "")
+			msg := "Project <b>name</b> (e.g. M4tg_bot):"
+			if ru {
+				msg = "Имя проекта (напр. M4tg_bot):"
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
 		if strings.HasPrefix(sub, "sync:") {

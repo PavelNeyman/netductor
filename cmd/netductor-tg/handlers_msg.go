@@ -5,6 +5,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/sites"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"strconv"
@@ -70,6 +71,61 @@ func handleMessage(token string, m *message, admin int64) {
 			msg = "✅ GitHub token сохранён: <code>" + esc(stt.Hint) + "</code>"
 		}
 		sendHTML(token, chat, msg, navKeyboard("m:updates", parentTools()))
+		return
+	}
+	// git project add: name → upstream → optional workflow path
+	if st == "wait_git_proj_name" {
+		name := strings.Fields(text)
+		if len(name) == 0 {
+			sendHTML(token, chat, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
+			return
+		}
+		setState(chat, "wait_git_proj_up", name[0])
+		msg := "Upstream <b>org/repo</b> or URL:"
+		if getLang() != "en" {
+			msg = "Upstream <b>org/repo</b> или URL:"
+		}
+		sendHTML(token, chat, msg, navKeyboard("m:git:proj:list", "Projects"))
+		return
+	}
+	if st == "wait_git_proj_up" {
+		name := chatExtra[chat]
+		up := strings.TrimSpace(text)
+		if name == "" || up == "" {
+			setState(chat, "", "")
+			sendHTML(token, chat, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
+			return
+		}
+		setState(chat, "wait_git_proj_wf", name+"\x1f"+up)
+		msg := "Workflow path (e.g. <code>ci/netductor.yml</code>) or <code>-</code> to skip:"
+		if getLang() != "en" {
+			msg = "Путь workflow (напр. <code>ci/netductor.yml</code>) или <code>-</code>:"
+		}
+		sendHTML(token, chat, msg, navKeyboard("m:git:proj:list", "Projects"))
+		return
+	}
+	if st == "wait_git_proj_wf" {
+		parts := strings.SplitN(chatExtra[chat], "\x1f", 2)
+		setState(chat, "", "")
+		if len(parts) != 2 {
+			sendHTML(token, chat, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
+			return
+		}
+		name, up := parts[0], parts[1]
+		wf := strings.TrimSpace(text)
+		if wf == "-" || wf == "" {
+			wf = ""
+		}
+		pr := gitstore.Project{Name: name, Upstream: up, Workflow: wf}
+		if err := gitstore.AddProject(pr, true); err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:git:proj:list", "Projects"))
+			return
+		}
+		msg := "✅ project <code>" + esc(name) + "</code> → " + esc(up)
+		if wf != "" {
+			msg += " wf=<code>" + esc(wf) + "</code>"
+		}
+		sendHTML(token, chat, msg, navKeyboard("m:git:proj:list", "Projects"))
 		return
 	}
 	if handleEdgeGuestText(token, chat, text) {

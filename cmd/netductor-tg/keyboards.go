@@ -110,15 +110,15 @@ func mainKeyboard() map[string]any {
 	}
 }
 
-// statusKeyboard — Status screen nav (digest / channel / versions stay here, not under Tools).
+// statusKeyboard — Status only. Updates live under Tools; digest is content on the Status card, not a second Updates entry.
 func statusKeyboard() map[string]any {
 	ru := getLang() != "en"
-	dig, ch, ver := "📡 Digest", "📶 Channel", "🔄 Versions"
+	ch, ref := "📶 Channel", "🔄 Refresh"
 	if ru {
-		dig, ch, ver = "📡 Digest", "📶 Канал", "🔄 Версии"
+		ch, ref = "📶 Канал", "🔄 Обновить"
 	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(dig, "m:digest", ""), btn(ch, "m:channel", ""), btn(ver, "m:versions", "")},
+		{btn(ch, "m:channel", ""), btn(ref, "m:status", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }

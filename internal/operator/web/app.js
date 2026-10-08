@@ -60,7 +60,9 @@ en:{
   l_dns_id:'list id', l_dns_en:'enabled', b_dns_set:'Set list', b_dns_on:'on', b_dns_off:'off',
   l_bak_hour:'hour (0-23)', l_bak_min:'minute (0-59)', l_bak_tz:'timezone', b_bak_save:'Save schedule',
   l_git_repo:'repo', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'artifact path',
+  l_git_proj:'Projects (mirror)', l_git_proj_name:'name', l_git_proj_up:'upstream (org/repo)', l_git_proj_wf:'workflow path', l_git_proj_pipe:'pipeline',
   b_git_run:'Run pipeline', b_git_init:'Init repo', b_git_log:'Log', b_git_show:'Show', b_git_art:'Get artifact',
+  b_git_proj_list:'List projects', b_git_proj_add:'Add project', b_git_proj_sync:'Sync', b_git_proj_build:'Build',
   b_nodes:'Nodes', b_self:'Self', b_sec_st:'Secondary status', b_sec_links:'Secondary links',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'SSH hosts clear', b_mtls:'mTLS certs', b_sites:'Sites',
   b_hostname:'Set hostname', b_svc_restart:'Restart service', b_journal:'Journal',
@@ -105,7 +107,9 @@ ru:{
   l_dns_id:'id списка', l_dns_en:'вкл', b_dns_set:'Применить', b_dns_on:'вкл', b_dns_off:'выкл',
   l_bak_hour:'час (0-23)', l_bak_min:'мин (0-59)', l_bak_tz:'часовой пояс', b_bak_save:'Сохранить расписание',
   l_git_repo:'репо', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'путь артефакта',
+  l_git_proj:'Проекты (mirror)', l_git_proj_name:'имя', l_git_proj_up:'upstream (org/repo)', l_git_proj_wf:'путь workflow', l_git_proj_pipe:'pipeline',
   b_git_run:'Запуск pipeline', b_git_init:'Init репо', b_git_log:'Log', b_git_show:'Show', b_git_art:'Артефакт',
+  b_git_proj_list:'Список проектов', b_git_proj_add:'Добавить проект', b_git_proj_sync:'Sync', b_git_proj_build:'Build'
   b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты', b_upd:'Статус обновлений', b_rel_local:'Локальные релизы', b_rel_tags:'Git теги', b_rel_mirror:'Mirror fetch', b_rel_build:'Сборка local',
   b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
@@ -871,6 +875,15 @@ function mountButtons(){
       <div><label>${t('l_git_pipe')}</label><input id="gitPipe" placeholder="build.yml"/></div></div>
       <button class="primary" type="button" data-act="git-run">${t('b_git_run')}</button>
       <button class="primary" type="button" data-act="git-init">${t('b_git_init')}</button>
+      <h4 style="margin:.75rem 0 .25rem">${t('l_git_proj')}</h4>
+      <div class="row"><div><label>${t('l_git_proj_name')}</label><input id="gitProjName" placeholder="M4tg_bot"/></div>
+      <div><label>${t('l_git_proj_up')}</label><input id="gitProjUp" placeholder="PavelNeyman/M4tg_bot"/></div></div>
+      <div class="row"><div><label>${t('l_git_proj_wf')}</label><input id="gitProjWf" placeholder="ci/netductor.yml"/></div>
+      <div><label>${t('l_git_proj_pipe')}</label><input id="gitProjPipe" placeholder="(optional pipeline)"/></div></div>
+      <button class="primary" type="button" data-act="git-proj-list">${t('b_git_proj_list')}</button>
+      <button class="primary" type="button" data-act="git-proj-add">${t('b_git_proj_add')}</button>
+      <button class="primary" type="button" data-act="git-proj-sync">${t('b_git_proj_sync')}</button>
+      <button class="primary" type="button" data-act="git-proj-build">${t('b_git_proj_build')}</button>
       <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
       <div><label>${t('l_git_rev')}</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
       <button class="primary" type="button" data-act="git-log">${t('b_git_log')}</button>
