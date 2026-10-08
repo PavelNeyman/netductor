@@ -22,6 +22,8 @@ type Project struct {
 	Workflow     string `json:"workflow,omitempty"` // relative path e.g. .github/workflows/ci.yml
 	Pipeline     string `json:"pipeline,omitempty"` // shell pipeline name under PipelineDir
 	BuildOnFetch bool   `json:"build_on_fetch,omitempty"`
+	// Host: "vps" (default, build on primary) or "mac" (op builds, release import only).
+	Host         string `json:"host,omitempty"`
 	CreatedAt    string `json:"created_at,omitempty"`
 }
 
@@ -261,4 +263,42 @@ func checkoutRef(name, ref, workDir string) error {
 		return fmt.Errorf("checkout %s: %w (%s)", ref, err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+
+// ProjectDetail is card payload for UI (thin clients).
+type ProjectDetail struct {
+	Project
+	Tags      []string `json:"tags"`
+	Artifacts []string `json:"artifacts"`
+	BarePath  string   `json:"bare_path,omitempty"`
+	Note      string   `json:"note,omitempty"`
+}
+
+func ProjectDetailOf(name string) (*ProjectDetail, error) {
+	p, err := GetProject(name)
+	if err != nil {
+		return nil, err
+	}
+	d := &ProjectDetail{Project: *p}
+	if d.Host == "" {
+		d.Host = "vps"
+	}
+	if dir, err := repoDir(p.Name); err == nil {
+		d.BarePath = dir
+	}
+	d.Tags, _ = ListTags(p.Name)
+	if len(d.Tags) > 12 {
+		d.Tags = d.Tags[:12]
+	}
+	d.Artifacts, _ = ListArtifacts(p.Name)
+	if len(d.Artifacts) > 20 {
+		d.Artifacts = d.Artifacts[len(d.Artifacts)-20:]
+	}
+	if d.Host == "mac" {
+		d.Note = "host=mac: build on operator; import artifacts via release import / scp"
+	} else if d.BuildOnFetch {
+		d.Note = "build_on_fetch: SyncProject runs Build after fetch (heavy — use sparingly)"
+	}
+	return d, nil
 }

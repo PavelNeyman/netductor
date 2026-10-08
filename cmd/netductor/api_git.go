@@ -195,6 +195,24 @@ func registerGitAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 		}
 	})
+	
+	mux.HandleFunc("/api/git/projects/detail", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		name := r.URL.Query().Get("name")
+		if name == "" {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "name required"})
+			return
+		}
+		d, err := gitstore.ProjectDetailOf(name)
+		if err != nil {
+			writeJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "project": d})
+	})
+
 	mux.HandleFunc("/api/git/projects/sync", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return

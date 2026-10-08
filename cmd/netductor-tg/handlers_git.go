@@ -87,8 +87,11 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			rows := [][]map[string]any{}
 			for _, pr := range projs {
 				rows = append(rows, []map[string]any{
-					btn("⬇️ "+pr.Name, "m:git:proj:sync:"+pr.Name, ""),
-					btn("▶️ "+pr.Name, "m:git:proj:build:"+pr.Name, "primary"),
+					btn("📋 "+pr.Name, "m:git:proj:card:"+pr.Name, "primary"),
+				})
+				rows = append(rows, []map[string]any{
+					btn("⬇️", "m:git:proj:sync:"+pr.Name, ""),
+					btn("▶️", "m:git:proj:build:"+pr.Name, ""),
 				})
 			}
 			addLab := "➕ Add project"
@@ -107,6 +110,56 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				msg = "Имя проекта (напр. M4tg_bot):"
 			}
 			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:list", "Projects"))
+			return true
+		}
+		if strings.HasPrefix(sub, "card:") {
+			name := strings.TrimPrefix(sub, "card:")
+			d, err := gitstore.ProjectDetailOf(name)
+			if err != nil {
+				reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:git:proj:list", "Projects"))
+				return true
+			}
+			nl := string([]byte{10})
+			var b strings.Builder
+			b.WriteString("📋 <b>" + esc(d.Name) + "</b>" + nl)
+			b.WriteString("upstream: <code>" + esc(d.Upstream) + "</code>" + nl)
+			host := d.Host
+			if host == "" {
+				host = "vps"
+			}
+			b.WriteString("host: <code>" + esc(host) + "</code>")
+			if d.BuildOnFetch {
+				b.WriteString(" · build_on_fetch")
+			}
+			b.WriteString(nl)
+			if d.Workflow != "" {
+				b.WriteString("workflow: <code>" + esc(d.Workflow) + "</code>" + nl)
+			}
+			if d.Pipeline != "" {
+				b.WriteString("pipeline: <code>" + esc(d.Pipeline) + "</code>" + nl)
+			}
+			if d.Note != "" {
+				b.WriteString("<i>" + esc(d.Note) + "</i>" + nl)
+			}
+			if len(d.Tags) > 0 {
+				b.WriteString(nl + "<b>tags</b>" + nl)
+				for _, tg := range d.Tags {
+					b.WriteString("· <code>" + esc(tg) + "</code>" + nl)
+				}
+			} else {
+				b.WriteString(nl + "<i>no tags in mirror — sync first</i>" + nl)
+			}
+			if len(d.Artifacts) > 0 {
+				b.WriteString(nl + "<b>artifacts</b> (last)" + nl)
+				for _, a := range d.Artifacts {
+					b.WriteString("· <code>" + esc(a) + "</code>" + nl)
+				}
+			}
+			kb := map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("⬇️ Sync", "m:git:proj:sync:"+name, ""), btn("▶️ Build", "m:git:proj:build:"+name, "primary")},
+				{btn("⬅️ Projects", "m:git:proj:list", "primary"), btn(T("main_menu"), "m:menu", "")},
+			}}
+			reply(token, chat, msgID, b.String(), kb)
 			return true
 		}
 		if strings.HasPrefix(sub, "sync:") {

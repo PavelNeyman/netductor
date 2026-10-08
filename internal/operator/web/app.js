@@ -880,8 +880,11 @@ function mountButtons(){
       <div><label>${t('l_git_proj_up')}</label><input id="gitProjUp" placeholder="PavelNeyman/M4tg_bot"/></div></div>
       <div class="row"><div><label>${t('l_git_proj_wf')}</label><input id="gitProjWf" placeholder="ci/netductor.yml"/></div>
       <div><label>${t('l_git_proj_pipe')}</label><input id="gitProjPipe" placeholder="(optional pipeline)"/></div></div>
+      <label><input type="checkbox" id="gitProjMac"/> host=mac (build on Mac, not VPS)</label>
+      <label><input type="checkbox" id="gitProjOnFetch"/> build_on_fetch (auto build after sync — heavy)</label>
       <button class="primary" type="button" data-act="git-proj-list">${t('b_git_proj_list')}</button>
       <button class="primary" type="button" data-act="git-proj-add">${t('b_git_proj_add')}</button>
+      <button class="primary" type="button" data-act="git-proj-detail">Project card</button>
       <button class="primary" type="button" data-act="git-proj-sync">${t('b_git_proj_sync')}</button>
       <button class="primary" type="button" data-act="git-proj-build">${t('b_git_proj_build')}</button>
       <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
@@ -991,7 +994,7 @@ const special = {
   'git-proj-list': async()=> nodeFetch('/api/git/projects'),
   'git-proj-add': async()=>{ const name=document.getElementById('gitProjName').value.trim(); const upstream=document.getElementById('gitProjUp').value.trim();
     if(!name||!upstream) return {error:'name and upstream'}; const workflow=document.getElementById('gitProjWf').value.trim(); const pipeline=document.getElementById('gitProjPipe').value.trim();
-    return nodeFetch('/api/git/projects',{method:'POST',body:JSON.stringify({name,upstream,workflow,pipeline})}); },
+    const host=document.getElementById('gitProjMac')&&document.getElementById('gitProjMac').checked?'mac':'vps'; const build_on_fetch=!!(document.getElementById('gitProjOnFetch')&&document.getElementById('gitProjOnFetch').checked); return nodeFetch('/api/git/projects',{method:'POST',body:JSON.stringify({name,upstream,workflow,pipeline,host,build_on_fetch})}); },
   'git-proj-sync': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/sync',{method:'POST',body:JSON.stringify({name})}); },
   'git-proj-build': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/build',{method:'POST',body:JSON.stringify({name})}); },
   'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?name='+encodeURIComponent(r)):'')); },

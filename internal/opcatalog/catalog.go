@@ -124,6 +124,7 @@ func All() []Action {
 		// git
 		a("git-repos", "git", "GET", "/api/git/repos", "", "git list", "Repos", "Repos"),
 		a("git-projects", "git", "GET", "/api/git/projects", "", "git project list", "Git projects", "Git проекты"),
+		a("git-project-detail", "git", "GET", "/api/git/projects/detail?name=", "", "git project detail", "Git project card", "Карточка git-проекта"),
 		a("git-project-add", "git", "POST", "/api/git/projects", `{"name":"","upstream":"","workflow":"ci/netductor.yml"}`, "git project add", "Add git project", "Добавить git-проект"),
 		a("git-project-sync", "git", "POST", "/api/git/projects/sync", `{"name":""}`, "git project sync", "Sync git project", "Sync git-проект"),
 		a("git-project-build", "git", "POST", "/api/git/projects/build", `{"name":"","ref":""}`, "git project build", "Build git project", "Build git-проект"),
