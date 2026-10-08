@@ -207,6 +207,11 @@ func formatToolsFromGroups() string {
 		}
 	}
 	b.WriteString(`</tg-button-row>`)
+	gitLab := "📦 Git / Projects"
+	if lang == "ru" {
+		gitLab = "📦 Git / Проекты"
+	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:git">` + gitLab + `</tg-button></tg-button-row>`)
 	upd := "🔄 Updates"
 	logsLab := "📋 Logs"
 	if lang == "ru" {
@@ -242,6 +247,9 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 		reply(token, chat, msgID, formatSitesHTML(), sitesListKeyboard())
 	case "media", "nvr":
 		reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
+	case "git":
+		handleGitCB(token, chat, msgID, "m:git")
+		return
 	case "data":
 		title := "📦 <b>Data</b>"
 		if ru {
@@ -251,7 +259,7 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 			`<tg-button-row align="left">` +
 			`<tg-button type="callback_data" data="m:ops:dns">DNS</tg-button>` +
 			`<tg-button type="callback_data" data="m:ops:backup">Backup</tg-button>` +
-			`<tg-button type="callback_data" data="m:ops:git">Git</tg-button>` +
+			`<tg-button type="callback_data" data="m:ops:git">Git / Projects</tg-button>` +
 			`</tg-button-row>`
 		reply(token, chat, msgID, body, back)
 	case "adv", "probes", "updates":

@@ -13,11 +13,9 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 	}
 	ru := getLang() != "en"
 	if data == "m:git" {
+		ru := getLang() != "en"
 		list, err := gitstore.List()
-		if err != nil {
-			reply(token, chat, msgID, esc(err.Error()), navKeyboard("m:tools", parentTools()))
-			return true
-		}
+		projs, _ := gitstore.LoadProjects()
 		nl := string([]byte{10})
 		var b strings.Builder
 		if ru {
@@ -25,45 +23,58 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		} else {
 			b.WriteString("📦 <b>Git</b>" + nl)
 		}
-		if len(list) == 0 {
-			if ru {
-				b.WriteString("<i>Пока пусто — это нормально, пока не создали bare-repo на primary.</i>" + nl)
-				b.WriteString("CLI: <code>netductor git init myrepo</code>" + nl)
-				b.WriteString("Путь: <code>/var/lib/netductor/git/</code>")
-			} else {
-				b.WriteString("<i>Empty is OK until you create a bare repo on primary.</i>" + nl)
-				b.WriteString("CLI: <code>netductor git init myrepo</code>" + nl)
-				b.WriteString("Path: <code>/var/lib/netductor/git/</code>")
-			}
-			kbEmpty := map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("📁 Projects", "m:git:proj:list", "primary"), btn("⬅️ "+parentTools(), "m:tools", "")},
-				{btn(T("main_menu"), "m:menu", "")},
-			}}
-			reply(token, chat, msgID, b.String(), kbEmpty)
-			return true
+		if err != nil {
+			b.WriteString(esc(err.Error()) + nl)
 		}
+		// Projects first (GH mirrors) — primary UX
+		b.WriteString(nl)
 		if ru {
-			b.WriteString("<i># открыть репозиторий</i>" + nl)
+			b.WriteString("<b>Проекты</b> (mirror GitHub)" + nl)
 		} else {
-			b.WriteString("<i># open repo</i>" + nl)
+			b.WriteString("<b>Projects</b> (GitHub mirror)" + nl)
 		}
-		b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>repo</th></tr>" + nl)
-		for i, n := range list {
-			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td></tr>"+nl, i+1, esc(n)))
-		}
-		b.WriteString("</table>" + nl)
-		const per = 5
-		for i, n := range list {
-			if i%per == 0 {
-				if i > 0 {
-					b.WriteString(`</tg-button-row>` + nl)
-				}
-				b.WriteString(`<tg-button-row align="left">`)
+		if len(projs) == 0 {
+			if ru {
+				b.WriteString("<i>Пусто — ➕ Добавить проект</i>" + nl)
+			} else {
+				b.WriteString("<i>Empty — ➕ Add project</i>" + nl)
 			}
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:git:repo:%s">%d</tg-button>`, n, i+1))
+		} else {
+			for _, pr := range projs {
+				b.WriteString("• <code>" + esc(pr.Name) + "</code> " + esc(pr.Upstream) + nl)
+			}
 		}
-		b.WriteString(`</tg-button-row>` + nl)
-		reply(token, chat, msgID, b.String(), navKeyboard("m:tools", parentTools()))
+		if len(list) > 0 {
+			b.WriteString(nl)
+			if ru {
+				b.WriteString("<b>Bare repos</b>" + nl)
+			} else {
+				b.WriteString("<b>Bare repos</b>" + nl)
+			}
+			for i, n := range list {
+				b.WriteString(fmt.Sprintf("%d. <code>%s</code>"+nl, i+1, esc(n)))
+			}
+		}
+		rows := [][]map[string]any{}
+		addLab := "➕ Add project"
+		allLab := "📁 All projects"
+		if ru {
+			addLab = "➕ Добавить проект"
+			allLab = "📁 Все проекты"
+		}
+		rows = append(rows, []map[string]any{btn(allLab, "m:git:proj:list", "primary"), btn(addLab, "m:git:proj:add", "")})
+		for _, pr := range projs {
+			if len(rows) > 8 {
+				break
+			}
+			rows = append(rows, []map[string]any{
+				btn("📋 "+pr.Name, "m:git:proj:card:"+pr.Name, "primary"),
+				btn("⬇️", "m:git:proj:sync:"+pr.Name, ""),
+				btn("▶️", "m:git:proj:build:"+pr.Name, ""),
+			})
+		}
+		rows = append(rows, []map[string]any{btn("⬅️ "+parentTools(), "m:tools", ""), btn(T("main_menu"), "m:menu", "")})
+		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 		return true
 	}
 	rest := strings.TrimPrefix(data, "m:git:")
