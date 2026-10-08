@@ -1,3 +1,5 @@
+**0.9.291:** Edge hybrid plan → done; internal-releases migration runbook (GH→primary git+build).
+
 **0.9.290:** no TG page on Reality invalid *total* (scanners); reality-sec only if uplink down.
 
 **0.9.288:** PLAN-TG-MENU implemented — hub Status/Users/Fleet/Tools/Operator; Tools without Status clone; Stack+Alerts under Operator.

@@ -1,6 +1,6 @@
 # PLAN: Edge deploy hybrid (op-SSH + presets + facts + modules)
 
-Status: **in progress**  
+Status: **done** (code 0.9.x; lab hardware e2e still OPEN_ITEMS)  
 Goal: factory OpenWrt (Cudy, RPi, …) → one operator deploy → ready device, without assuming Cudy-only topology or device→primary connectivity during install.
 
 ## Non-goals

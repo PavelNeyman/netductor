@@ -1,3 +1,8 @@
+## 0.9.291
+
+- Docs: Edge deploy hybrid marked done; migrate-from-GitHub runbook (SELFHOST-GIT + PLAN-INTERNAL-RELEASES)
+- OPEN_ITEMS: edge hybrid closed (lab e2e remains)
+
 ## 0.9.290
 
 - Alerts: drop channel:reality-total pages (scanner noise on :443); keep reality-sec only when uplink is down

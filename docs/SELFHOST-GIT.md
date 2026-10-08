@@ -134,3 +134,15 @@ Escape hatch (discouraged): `NETDUCTOR_CI_HOST=1`.
 
 Images: `NETDUCTOR_CI_IMAGE_GO`, `_NODE`, `_RUST`, `_PYTHON`, or `NETDUCTOR_CI_IMAGE` generic.
 
+
+
+## Migrate from GitHub
+
+See [PLAN-INTERNAL-RELEASES.md](PLAN-INTERNAL-RELEASES.md) § *Migrate projects off GitHub*.
+
+```bash
+netductor git project add NAME org/repo --workflow ci/netductor.yml
+netductor git project sync NAME
+netductor git project build NAME
+# Mac: remote nd → ssh://root@PRIMARY:52222/var/lib/netductor/git/NAME.git
+```

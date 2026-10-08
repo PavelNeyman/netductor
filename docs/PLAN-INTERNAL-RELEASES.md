@@ -191,3 +191,56 @@ netductor git project build myapp
 
 Same API/UI: Web Git form, TG **📁 Projects**, opcatalog `git-project-*`.
 Store: `/var/lib/netductor/git-projects.json` + bare mirrors under `git/<name>.git`.
+
+
+## Migrate projects off GitHub (operator runbook)
+
+Goal: **copies + CI/build on primary**; GitHub optional mirror only.
+
+### Model
+
+```text
+Mac ──push──► primary bare git (/var/lib/netductor/git/<name>.git)
+                │
+                ├─ post-receive / git project build → GHA-subset workflow or pipeline
+                ├─ artifacts → /var/lib/netductor/git-artifacts/
+                └─ (netductor only) release build/import → /var/lib/netductor/releases/
+Optional: still fetch from github.com as upstream (mirror), or drop GH after first sync.
+```
+
+### One project
+
+```bash
+# on primary (or via TG/Web git project add)
+netductor git project add M4tg_bot PavelNeyman/M4tg_bot --workflow ci/netductor.yml
+netductor git project sync M4tg_bot          # fetch from GH into bare
+netductor git project build M4tg_bot         # RunWorkflow / pipeline
+
+# day-2: Mac pushes to VPS as primary remote
+git remote add nd ssh://root@PRIMARY:52222/var/lib/netductor/git/M4tg_bot.git
+git push -u nd main
+# optional: stop depending on origin GH
+```
+
+### Bulk (all GH repos you own)
+
+1. List repos (gh cli on Mac): `gh repo list PavelNeyman --limit 100 --json name -q '.[].name'`
+2. For each: `git project add <name> PavelNeyman/<name> [--workflow ci/netductor.yml]`
+3. `git project sync <name>` then `build` once
+4. Point local clones at `ssh://…/git/<name>.git`
+5. Keep GH as read-only upstream only if you still want public mirror; prod builds must not require GH API
+
+### netductor itself
+
+```bash
+netductor git mirror-ensure netductor https://github.com/PavelNeyman/netductor.git
+netductor git mirror-fetch netductor
+netductor release build vX.Y.Z   # or import from Mac dist/
+netductor stack apply vX.Y.Z     # prefers local store
+```
+
+### Not in scope (deliberate)
+
+- Full Forgejo/Gitea UI
+- Auto-upload every project release to GitHub
+- Public HTTPS of `/var/lib/netductor/releases` (use VPN / mTLS / op offline cache)
