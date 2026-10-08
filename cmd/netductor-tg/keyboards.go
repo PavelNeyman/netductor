@@ -98,16 +98,29 @@ func formatRelayActionsHTML() string {
 }
 
 func mainKeyboard() map[string]any {
-	// Flat top: 4 clear areas. No VPN-tools duplicate.
+	// PLAN-TG-MENU: five hubs — Status, Users, Fleet, Tools, Operator.
+	// Alerts chat lives under Operator only (not a sixth top-level or Tools row).
 	return map[string]any{
 		"inline_keyboard": [][]map[string]any{
-			{btn(T("status"), "m:status", "primary"), btn("📡", "m:digest", "")},
-			{btn(T("users"), "m:users", "primary")},
-			{btn(T("fleet"), "m:fleet", "primary")},
-			{btn(T("tools"), "m:tools", ""), btn(T("operator"), "m:operator", ""), btn("📢 Alerts", "m:alerts-chat", "")},
+			{btn(T("status"), "m:status", "primary"), btn(T("users"), "m:users", "primary")},
+			{btn(T("fleet"), "m:fleet", "primary"), btn(T("tools"), "m:tools", "")},
+			{btn(T("operator"), "m:operator", "primary")},
 			{btn(T("lang"), "m:lang", ""), btn(T("help"), "m:help", "")},
 		},
 	}
+}
+
+// statusKeyboard — Status screen nav (digest / channel / versions stay here, not under Tools).
+func statusKeyboard() map[string]any {
+	ru := getLang() != "en"
+	dig, ch, ver := "📡 Digest", "📶 Channel", "🔄 Versions"
+	if ru {
+		dig, ch, ver = "📡 Digest", "📶 Канал", "🔄 Версии"
+	}
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(dig, "m:digest", ""), btn(ch, "m:channel", ""), btn(ver, "m:versions", "")},
+		{btn(T("main_menu"), "m:menu", "primary")},
+	}}
 }
 
 // fleet = nodes + routers + sites
@@ -192,8 +205,10 @@ func operatorHubHTML() string {
 	}
 
 	session, help, sessions, audit, refresh := "🔑 Session", "ℹ️ Mac Admin", "📋 Sessions", "📜 Audit", "🔄 Refresh VPN links"
+	stackLab := "🧱 Stack"
 	if ru {
 		session, help, sessions, audit, refresh = "🔑 Сессия", "ℹ️ Админ на Mac", "📋 Сессии", "📜 Аудит", "🔄 Обновить ссылки VPN"
+		stackLab = "🧱 Стек"
 	}
 	apiToggle := "🔓 API public"
 	usersToggle := "👥 Users→SP"
@@ -281,6 +296,7 @@ func operatorHubHTML() string {
 		`<tg-button type="callback_data" data="m:audit">` + audit + `</tg-button>` +
 		`</tg-button-row>` +
 		`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:stack">` + stackLab + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:vpn_refresh">` + refresh + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:admin">` + help + `</tg-button>` +
 		`</tg-button-row>` +

@@ -1,3 +1,9 @@
+## 0.9.288
+
+- TG menu (PLAN-TG-MENU): five hubs Status / Users / Fleet / Tools / Operator
+- Tools = day-2 only (no Status/Users/Fleet/Alerts clone); Stack under Operator
+- Status: channel one-liner + digest/channel/versions nav
+
 ## 0.9.272
 
 - Fix: stack apply / node upgrade flush TG alerts before CLI exit (were queued 25s and lost)

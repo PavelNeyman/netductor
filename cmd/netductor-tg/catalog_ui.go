@@ -28,13 +28,8 @@ func toolsKeyboard() map[string]any {
 }
 
 func toolsHubHTML() string {
-	base := formatToolsFromGroups()
-	if getLang() != "en" {
-		return base + "\n\n🧱 <b>Стек</b>\n" +
-			`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">Stack status</tg-button></tg-button-row>`
-	}
-	return base + "\n\n🧱 <b>Stack</b>\n" +
-		`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">Stack status</tg-button></tg-button-row>`
+	// Stack apply lives under Operator; Tools is day-2 catalog only (PLAN-TG-MENU).
+	return formatToolsFromGroups()
 }
 
 func catalogSectionKeyboard(sec string) map[string]any {
@@ -178,16 +173,29 @@ func replyCatalog(token string, chat int64, msgID int, html string, kb map[strin
 	sendHTML(token, chat, html, kb)
 }
 
+func toolsDay2Groups() []opcatalog.Group {
+	// PLAN-TG-MENU: Tools = day-2 only. Status/Users/Fleet are top-level hubs.
+	skip := map[string]bool{"home": true, "users": true, "fleet": true, "overview": true, "vpn": true, "nodes": true}
+	var out []opcatalog.Group
+	for _, g := range opcatalog.Groups() {
+		if skip[g.ID] {
+			continue
+		}
+		out = append(out, g)
+	}
+	return out
+}
+
 func formatToolsFromGroups() string {
 	lang := catalogLang()
 	var b strings.Builder
 	if lang == "ru" {
-		b.WriteString("🛠 <b>Tools</b>\n<i>Группы Day-2 = Web / TUI (opcatalog.Groups).</i>\n")
+		b.WriteString("🛠 <b>Tools</b>\n<i>Day-2: Edge, Media, Data, Advanced — без Status/Users/Fleet.</i>\n")
 	} else {
-		b.WriteString("🛠 <b>Tools</b>\n<i>Day-2 groups = Web / TUI (opcatalog.Groups).</i>\n")
+		b.WriteString("🛠 <b>Tools</b>\n<i>Day-2: Edge, Media, Data, Advanced — no Status/Users/Fleet.</i>\n")
 	}
 	b.WriteString(`<tg-button-row align="left">`)
-	groups := opcatalog.Groups()
+	groups := toolsDay2Groups()
 	for i, g := range groups {
 		lab := g.LabelEN
 		if lang == "ru" {
@@ -200,24 +208,12 @@ func formatToolsFromGroups() string {
 	}
 	b.WriteString(`</tg-button-row>`)
 	upd := "🔄 Updates"
-	if lang == "ru" {
-		upd = "🔄 Обновления"
-	}
-	top := "📢 Alerts"
-	if lang == "ru" {
-		top = "📢 Алерты"
-	}
 	logsLab := "📋 Logs"
 	if lang == "ru" {
+		upd = "🔄 Обновления"
 		logsLab = "📋 Логи"
 	}
-	relLab := "📦 Releases"
-	if lang == "ru" {
-		relLab = "📦 Релизы"
-	}
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:versions">` + upd + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:release">` + relLab + `</tg-button></tg-button-row>`)
-	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:alerts-chat">` + top + `</tg-button>` +
 		`<tg-button type="callback_data" style="primary" data="m:logs">` + logsLab + `</tg-button></tg-button-row>`)
 	return b.String()
 }
@@ -230,28 +226,13 @@ func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 	}}
 	switch groupID {
 	case "home", "overview":
-		body := formatStatusPretty()
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🧱 Stack", "m:stack", "primary"), btn("🔥 FW", "m:fw", "")},
-			{btn("🧹 Cleanup", "m:cleanup", ""), btn("🧹 Apply", "m:cleanup:apply", "")},
-			{btn("🔄 Updates", "m:versions", "")},
-			{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
-			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-		}}
-		if ru {
-			kb = map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("🧱 Стек", "m:stack", "primary"), btn("🔄 Обновления", "m:versions", "")},
-				{btn("📡 Digest", "m:digest", ""), btn("🛟 DR", "m:dr", "")},
-				{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-			}}
-		}
-		reply(token, chat, msgID, body, kb)
+		// Status is a top-level hub — do not clone under Tools (PLAN-TG-MENU).
+		reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
 	case "users", "vpn":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "fleet", "nodes":
-		// fleet hub or nodes list — both valid
 		if groupID == "nodes" {
-			reply(token, chat, msgID, formatNodesListHTML(), nodesKeyboard())
+			reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
 		} else {
 			reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
 		}

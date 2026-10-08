@@ -124,13 +124,18 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}}
 		switch sec {
 		case "overview", "home":
-			reply(token, chat, msgID, formatStatusPretty(), backTools)
+			// PLAN-TG-MENU: Status is top-level, not under Tools.
+			reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
 			return
 		case "vpn", "users":
 			reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 			return
 		case "nodes", "fleet":
-			reply(token, chat, msgID, formatNodesListHTML(), nodesKeyboard())
+			if sec == "fleet" {
+				reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
+			} else {
+				reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
+			}
 			return
 		case "edge", "routers":
 			reply(token, chat, msgID, routersHubHTML(), routersKeyboard())
@@ -585,7 +590,17 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, formatLampacHTML(), navKeyboard("m:addons", pl))
 	case "m:status":
-		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
+		reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
+	case "m:channel":
+		out := runND("channel", "status")
+		if strings.TrimSpace(out) == "" {
+			out = "(no channel data)"
+		}
+		title := "📶 <b>Channel</b>\n"
+		if getLang() != "en" {
+			title = "📶 <b>Канал</b>\n"
+		}
+		reply(token, chat, msgID, title+"<pre>"+esc(truncate(out, 3500))+"</pre>", statusKeyboard())
 	case "m:users", "m:vpn_list":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:vpn_list_legacy":

@@ -304,6 +304,21 @@ func formatStatusPretty() string {
 	} else {
 		b.WriteString(fmt.Sprintf("🗂 Nodes: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
 	}
+
+	// Channel one-liner (full detail: m:channel)
+	chOut := strings.TrimSpace(runND("channel", "status"))
+	if chOut != "" {
+		chTitle := "📶 <b>Channel</b>"
+		if ru {
+			chTitle = "📶 <b>Канал</b>"
+		}
+		// first non-empty line only for the card
+		first := chOut
+		if i := strings.IndexByte(chOut, '\n'); i >= 0 {
+			first = chOut[:i]
+		}
+		b.WriteString(nl + chTitle + nl + "<code>" + esc(truncate(first, 200)) + "</code>" + nl)
+	}
 	return b.String()
 }
 

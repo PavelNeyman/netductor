@@ -1,12 +1,12 @@
 # PLAN: Telegram menu categories
 
-**Status:** plan only (2026-10-08). Do not implement in the same change as channel alerts.
+**Status:** implemented in **v0.9.288** (2026-10-08).
 
 ## Problem
 
 Rich-text buttons and the reply keyboard both grew. After updates the hub stays in a topic, a second menu appears under it, and Tools repeats Status/Fleet rows. Operator cannot see one current menu at the bottom.
 
-## Rules (already locked)
+## Rules (locked)
 
 - Navigation buttons stay **under** the message (inline keyboard), not inside the card body, except deep links that must be rich-text.
 - One hub message. After an alert, delete the old hub and send a new one **after** the alert, with a cooldown so a burst cannot recreate the hub in a loop.
@@ -19,18 +19,22 @@ Rich-text buttons and the reply keyboard both grew. After updates the hub stays 
 | Status | fleet digest, versions, channel, firewall | user add, logs export |
 | Users | VPN users, policy, links, QR | node update |
 | Fleet | nodes, routers, sites, addons | operator session |
-| Tools | day-2 groups from opcatalog only (DNS, backup, logs, updates, git) | status table |
+| Tools | day-2 groups from opcatalog only (Edge, Media, Data, Advanced + Updates/Logs) | status table, Users, Fleet, Alerts |
 | Operator | session, alerts chat, audit, stack apply | end-user links |
 
-## Checks before coding
+## Checklist (callback map)
 
-1. Every `m:` callback maps to one screen. Unknown falls back to hub, not a second menu.
-2. No row duplicated between hub and the screen it opens.
-3. EN and RU labels from `T()`, not hardcoded in one screen only.
-4. Topic bootstrap does not pin the hub inside "new topic".
+- [x] Hub top-level: `m:status` `m:users` `m:fleet` `m:tools` `m:operator` (+ lang/help)
+- [x] Alerts only under Operator (`m:alerts-chat`), not on main hub row and not under Tools
+- [x] Tools filters out home/users/fleet groups (`toolsDay2Groups`)
+- [x] `m:cat:home` / `m:ops:overview` → Status + `statusKeyboard`, not Tools clone
+- [x] Status includes firewall + channel one-liner; `m:channel` / `m:digest` / `m:versions` under Status
+- [x] Operator includes Stack (`m:stack`) + Alerts + Session + Audit
+- [x] Unknown callback → hub fallback (existing default)
+- [x] EN/RU via `T()` for hub labels; Tools/Operator titles bilingual
 
 ## Done when
 
-- After an alert, one hub sits at the bottom.
-- Tools has no Status/Users duplicate.
-- A checklist in this file is marked against the callback list.
+- [x] After an alert, one hub sits at the bottom (existing `repinHub` + batch)
+- [x] Tools has no Status/Users duplicate
+- [x] Checklist marked against the callback list
