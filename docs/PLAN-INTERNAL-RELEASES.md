@@ -101,3 +101,39 @@ GitHub (dev) ──fetch/mirror──► bare git on primary
 - [ ] `release build vX` on primary produces SHA256SUMS-matching matrix in docker.
 - [ ] Op can produce agent binary for offline edge without GH Release upload.
 - [ ] GitHub Releases remain optional fallback.
+
+
+## Distribution: how secondaries / op get builds
+
+| Channel | How | Pros | Risks |
+|--|--|--|--|
+| **A. GitHub Releases (optional)** | `release.sh` upload as today | Works from anywhere; agent/CI already use it | Public binaries; token for private repo; rate limits |
+| **B. Local store only + VPN** | Artifacts on primary under `releases/`; secondary/op pull via **agent mTLS :8789** or existing stack path over tunnel | No new public port; same trust as agent plane | Secondary must reach primary control plane; pure offline edge needs op cache |
+| **C. Public HTTPS hole** | nginx/caddy `:443/path` → releases | Simple curl | **Avoid**: expands attack surface, needs auth or secret URLs, leaks versioning |
+
+**Decision (default):** **B first**, **A optional mirror**.
+
+- Primary `stack apply` / `update apply`: read `/var/lib/netductor/releases/<tag>/` before GitHub.
+- Secondary agent upgrade command: primary **pushes** or agent **pulls through existing mTLS API** (same as today agent_update), not a new open port.
+- Op offline: build/import on Mac → `~/.cache/netductor/agents` or `scp` into primary `release import`.
+- Do **not** expose registry `5000` or releases dir on WAN.
+
+### Automation later
+
+1. Hook: tag on bare git → CI build job → write `releases/<tag>` → `notify.AlertOnce("release:built:"+tag, …)`.
+2. Doctor/metrics: `local_release_latest`, age of mirror, last build status.
+3. TG Tools → Releases: list-local, apply (calls stack with local prefer).
+4. Optional: after successful local build, **optional** GH upload (flag), not required for prod.
+
+### Prod rollout of this feature
+
+1. Ship node with local-prefer (`DownloadNamedAsset`).
+2. Import current GH release once: `release import vX ./dist`.
+3. Alerts already cover stack apply / agent update failures — reuse, add `release:import` / `release:build` keys.
+4. Monitor: disk under `releases/` (retention: keep last N tags), CI job fail → TG.
+
+### Security notes
+
+- SHA256SUMS required for local same as GH (unless explicit skip).
+- Import only from operator path (CLI/API session), not anonymous.
+- Registry remains loopback; if auth later, htpasswd already supported in `internal/registry`.

@@ -198,6 +198,8 @@ func main() {
 		runSelfInstall()
 	case "stack":
 		runStack(os.Args[2:])
+	case "release":
+		os.Exit(runRelease(os.Args[2:]))
 	case "update":
 		runUpdate(true)
 	case "serve":

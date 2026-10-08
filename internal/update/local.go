@@ -1,0 +1,138 @@
+package update
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/paths"
+)
+
+// LocalReleasesDir is /var/lib/netductor/releases (override NETDUCTOR_RELEASES_DIR).
+func LocalReleasesDir() string {
+	if d := strings.TrimSpace(os.Getenv("NETDUCTOR_RELEASES_DIR")); d != "" {
+		return d
+	}
+	return filepath.Join(paths.StateDir(), "releases")
+}
+
+// LocalTagDir returns releases/<tag>/ (tag normalized with v prefix when possible).
+func LocalTagDir(tag string) string {
+	tag = strings.TrimSpace(tag)
+	if tag != "" && !strings.HasPrefix(tag, "v") {
+		if t, err := ValidReleaseTag(tag); err == nil {
+			tag = t
+		} else {
+			tag = "v" + strings.TrimPrefix(tag, "v")
+		}
+	}
+	return filepath.Join(LocalReleasesDir(), tag)
+}
+
+// ListLocalTags returns tag directory names under the local store.
+func ListLocalTags() ([]string, error) {
+	root := LocalReleasesDir()
+	ents, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var out []string
+	for _, e := range ents {
+		if e.IsDir() && strings.HasPrefix(e.Name(), "v") {
+			out = append(out, e.Name())
+		}
+	}
+	return out, nil
+}
+
+// TryLocalReleaseAsset copies component binary from local store when present.
+func TryLocalReleaseAsset(tag, component, destPath string) (bool, error) {
+	tag, err := ValidReleaseTag(tag)
+	if err != nil {
+		return false, err
+	}
+	return tryLocalNamedAsset(tag, assetName(component), destPath)
+}
+
+func tryLocalNamedAsset(tag, name, destPath string) (bool, error) {
+	name = filepath.Base(name)
+	dir := LocalTagDir(tag)
+	src := filepath.Join(dir, name)
+	if _, err := os.Stat(src); err != nil {
+		return false, nil
+	}
+	sumsPath := filepath.Join(dir, "SHA256SUMS")
+	if b, err := os.ReadFile(sumsPath); err == nil {
+		sums, err := ParseSHA256SUMS(b)
+		if err != nil {
+			return false, fmt.Errorf("local SHA256SUMS: %w", err)
+		}
+		want, ok := sums[name]
+		if !ok {
+			return false, fmt.Errorf("local SHA256SUMS: no entry for %s", name)
+		}
+		got, err := fileSHA256(src)
+		if err != nil {
+			return false, err
+		}
+		if !strings.EqualFold(got, want) {
+			return false, fmt.Errorf("local %s sha mismatch", name)
+		}
+	}
+	in, err := os.ReadFile(src)
+	if err != nil {
+		return false, err
+	}
+	tmp := destPath + ".tmp"
+	if err := os.WriteFile(tmp, in, 0o755); err != nil {
+		return false, err
+	}
+	if err := os.Rename(tmp, destPath); err != nil {
+		_ = os.Remove(tmp)
+		return false, err
+	}
+	_ = os.Chmod(destPath, 0o755)
+	return true, nil
+}
+
+// ImportReleaseDir copies all files from srcDir into LocalTagDir(tag).
+func ImportReleaseDir(tag, srcDir string) (string, error) {
+	tag, err := ValidReleaseTag(tag)
+	if err != nil {
+		return "", err
+	}
+	dst := LocalTagDir(tag)
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return "", err
+	}
+	ents, err := os.ReadDir(srcDir)
+	if err != nil {
+		return "", err
+	}
+	n := 0
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(srcDir, e.Name()))
+		if err != nil {
+			return "", err
+		}
+		mode := os.FileMode(0o644)
+		if strings.HasPrefix(e.Name(), "netductor") {
+			mode = 0o755
+		}
+		if err := os.WriteFile(filepath.Join(dst, e.Name()), b, mode); err != nil {
+			return "", err
+		}
+		n++
+	}
+	if n == 0 {
+		return "", fmt.Errorf("no files in %s", srcDir)
+	}
+	return dst, nil
+}

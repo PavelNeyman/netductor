@@ -405,6 +405,13 @@ func DownloadNamedAsset(tag, name, destPath string) error {
 	if name == "" || name == "." || strings.Contains(name, "..") {
 		return fmt.Errorf("invalid asset name")
 	}
+	// P0: prefer local artifact store (/var/lib/netductor/releases/<tag>/).
+	if ok, err := tryLocalNamedAsset(tag, name, destPath); err != nil {
+		return err
+	} else if ok {
+		fmt.Fprintf(os.Stderr, "release: local %s/%s\n", tag, name)
+		return nil
+	}
 	want := ""
 	if !(os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1" && os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM") == "yes") {
 		sums, err := FetchSHA256SUMS(tag)
