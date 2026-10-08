@@ -7,6 +7,18 @@ import (
 )
 
 func githubTokenLocal() string {
+	// Prefer dedicated repos token, then shared releases token / env.
+	if v := os.Getenv("NETDUCTOR_GITHUB_TOKEN_REPOS"); v != "" {
+		return strings.TrimSpace(v)
+	}
+	for _, p := range []string{"/etc/netductor/secrets/github_token_repos"} {
+		b, err := os.ReadFile(p)
+		if err == nil {
+			if t := strings.TrimSpace(string(b)); t != "" {
+				return t
+			}
+		}
+	}
 	if v := os.Getenv("NETDUCTOR_GITHUB_TOKEN"); v != "" {
 		return strings.TrimSpace(v)
 	}
@@ -19,14 +31,15 @@ func githubTokenLocal() string {
 	for _, p := range []string{"/etc/netductor/secrets/github_token", "/etc/netductor/github_token"} {
 		b, err := os.ReadFile(p)
 		if err == nil {
-			return strings.TrimSpace(string(b))
+			if t := strings.TrimSpace(string(b)); t != "" {
+				return t
+			}
 		}
 	}
 	return ""
 }
 
 // withGitHubAuth embeds token for private HTTPS GitHub remotes.
-// Prefer x-access-token for PATs. Non-GitHub URLs unchanged.
 func withGitHubAuth(raw string) string {
 	tok := githubTokenLocal()
 	if tok == "" || raw == "" {
@@ -40,7 +53,6 @@ func withGitHubAuth(raw string) string {
 	if host != "github.com" && host != "www.github.com" {
 		return raw
 	}
-	// already has userinfo
 	if u.User != nil && u.User.Username() != "" {
 		return raw
 	}

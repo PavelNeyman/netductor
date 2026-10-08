@@ -465,37 +465,63 @@ func mustStatMod(dir, name string) time.Time {
 
 func runUpdateGitHubToken(args []string) {
 	if len(args) == 0 || args[0] == "status" || args[0] == "check" {
-		st := ndupdate.GetTokenStatus()
+		st := ndupdate.GetTokensStatus()
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(st)
 		return
 	}
+	kind := ndupdate.TokenKindReleases
 	switch args[0] {
 	case "clear", "delete", "rm":
-		if err := ndupdate.ClearToken(); err != nil {
+		if len(args) > 1 && (args[1] == "repos" || args[1] == "releases") {
+			kind = args[1]
+		}
+		if err := ndupdate.ClearTokenKind(kind); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("github token cleared")
-	case "set":
-		tok := ""
-		if len(args) > 1 {
-			tok = strings.Join(args[1:], " ")
-		}
-		tok = strings.TrimSpace(tok)
+		fmt.Println("github token cleared kind=", kind)
+	case "set-repos":
+		kind = ndupdate.TokenKindRepos
+		tok := strings.TrimSpace(strings.Join(args[1:], " "))
 		if tok == "" {
-			fmt.Fprintln(os.Stderr, "usage: netductor update github-token set <token>")
+			fmt.Fprintln(os.Stderr, "usage: netductor update github-token set-repos <token>")
 			os.Exit(1)
 		}
-		if err := ndupdate.SetToken(tok); err != nil {
+		if err := ndupdate.SetTokenKind(kind, tok); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		st := ndupdate.GetTokenStatus()
-		fmt.Println("github token saved:", st.Hint, "source=", st.Source)
+		st := ndupdate.GetTokensStatus()
+		fmt.Printf("ok repos=%v releases=%v\n", st.Repos.Configured, st.Releases.Configured)
+	case "set-releases", "set":
+		if args[0] == "set-releases" {
+			kind = ndupdate.TokenKindReleases
+			args = append([]string{"set"}, args[1:]...)
+		}
+		rest := args[1:]
+		for i := 0; i < len(rest); i++ {
+			if rest[i] == "--kind" && i+1 < len(rest) {
+				kind = rest[i+1]
+				rest = append(rest[:i], rest[i+2:]...)
+				break
+			}
+		}
+		tok := strings.TrimSpace(strings.Join(rest, " "))
+		if tok == "" {
+			fmt.Fprintln(os.Stderr, "usage: netductor update github-token set [--kind releases|repos] <token>")
+			os.Exit(1)
+		}
+		if err := ndupdate.SetTokenKind(kind, tok); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		st := ndupdate.GetTokensStatus()
+		fmt.Printf("ok kind=%s releases=%v repos=%v\n", kind, st.Releases.Configured, st.Repos.Configured)
 	default:
-		fmt.Fprintln(os.Stderr, "usage: netductor update github-token status|set <token>|clear")
+		fmt.Fprintln(os.Stderr, "usage: netductor update github-token status|set [--kind releases|repos] <token>|set-repos <token>|clear [repos|releases]")
 		os.Exit(1)
 	}
 }
+

@@ -183,3 +183,20 @@ Mirror fetch rewrites `origin` to `https://x-access-token:…@github.com/…` fo
 Without a token: public repos work; private `sync` / `migrate-from-gh` fail with auth errors.
 
 Making GH repos private does **not** break day-2 if primary already has a full mirror and you push via SSH to bare git on VPS — token is only needed to **pull from GitHub**.
+
+
+## Two GitHub tokens
+
+| File | Kind | Use |
+|--|--|--|
+| `/etc/netductor/secrets/github_token` | **releases** | List/download netductor Releases |
+| `/etc/netductor/secrets/github_token_repos` | **repos** | Private `git project sync` / migrate |
+
+```bash
+netductor update github-token status
+netductor update github-token set-releases ghp_...
+netductor update github-token set-repos ghp_...
+netductor update github-token clear repos
+```
+
+If **repos** is empty, mirror falls back to **releases** token.

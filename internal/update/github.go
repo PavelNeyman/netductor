@@ -20,23 +20,6 @@ import (
 
 const Repo = "PavelNeyman/netductor"
 
-func GithubTokenForAPI() string { return githubToken() }
-
-func githubToken() string {
-	for _, k := range []string{"NETDUCTOR_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"} {
-		if t := strings.TrimSpace(os.Getenv(k)); t != "" {
-			return t
-		}
-	}
-	for _, p := range []string{"/etc/netductor/secrets/github_token", "/etc/netductor/github_token"} {
-		if b, err := os.ReadFile(p); err == nil {
-			if t := strings.TrimSpace(string(b)); t != "" {
-				return t
-			}
-		}
-	}
-	return ""
-}
 
 func setGitHubHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/vnd.github+json")

@@ -1093,7 +1093,7 @@ async function refreshGhTokenStatus(){
   if(save) save.onclick=async()=>{
     const tok=(document.getElementById('set_github_token')||{}).value||'';
     if(!tok.trim()){ alert('token required'); return; }
-    const r=await nodeFetch('/api/update/github-token',{method:'POST',body:JSON.stringify({token:tok.trim()})});
+    const kind=(document.getElementById('ghTokKind')||{}).value||'releases'; const r=await nodeFetch('/api/update/github-token',{method:'POST',body:JSON.stringify({token:tok.trim(),kind})});
     if(!r.ok) alert(JSON.stringify(r.data));
     document.getElementById('set_github_token').value='';
     await refreshGhTokenStatus();

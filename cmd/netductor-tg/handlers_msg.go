@@ -54,21 +54,29 @@ func handleMessage(token string, m *message, admin int64) {
 		applyAlertsChatID(token, chat, 0, text)
 		return
 	}
-	if st == "wait_github_token" {
+	if st == "wait_github_token" || strings.HasPrefix(st, "wait_github_token:") {
 		setState(chat, "", "")
 		tok := strings.TrimSpace(text)
 		if tok == "" || tok == "-" {
 			sendHTML(token, chat, T("cancelled"), navKeyboard("m:updates", parentTools()))
 			return
 		}
-		if err := ndupdate.SetToken(tok); err != nil {
+		kind := ndupdate.TokenKindReleases
+		if strings.HasPrefix(st, "wait_github_token:") {
+			kind = strings.TrimPrefix(st, "wait_github_token:")
+		}
+		if err := ndupdate.SetTokenKind(kind, tok); err != nil {
 			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:updates", parentTools()))
 			return
 		}
-		stt := ndupdate.GetTokenStatus()
-		msg := "✅ GitHub token saved: <code>" + esc(stt.Hint) + "</code>"
+		stt := ndupdate.GetTokensStatus()
+		hint := stt.Releases.Hint
+		if kind == ndupdate.TokenKindRepos {
+			hint = stt.Repos.Hint
+		}
+		msg := "✅ GitHub token (" + kind + ") saved: <code>" + esc(hint) + "</code>"
 		if getLang() != "en" {
-			msg = "✅ GitHub token сохранён: <code>" + esc(stt.Hint) + "</code>"
+			msg = "✅ GitHub token (" + kind + ") сохранён: <code>" + esc(hint) + "</code>"
 		}
 		sendHTML(token, chat, msg, navKeyboard("m:updates", parentTools()))
 		return

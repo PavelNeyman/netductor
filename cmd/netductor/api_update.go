@@ -28,26 +28,26 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, ndupdate.CheckStatus(ndver.Release))
 	})
 	mux.HandleFunc("/api/update/github-token", func(w http.ResponseWriter, r *http.Request) {
-	if !requireSession(w, r) {
-		return
-	}
+		if !requireSession(w, r) {
+			return
+		}
 		switch r.Method {
 		case http.MethodGet:
-			writeJSON(w, 200, ndupdate.GetTokenStatus())
+			writeJSON(w, 200, ndupdate.GetTokensStatus())
 		case http.MethodPost:
 			var body struct {
 				Token string `json:"token"`
 				Clear bool   `json:"clear"`
+				Kind  string `json:"kind"` // releases | repos
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body.Clear || strings.TrimSpace(body.Token) == "" && body.Clear {
-				_ = ndupdate.ClearToken()
-				writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
-				return
+			kind := body.Kind
+			if kind == "" {
+				kind = ndupdate.TokenKindReleases
 			}
 			if body.Clear {
-				_ = ndupdate.ClearToken()
-				writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
+				_ = ndupdate.ClearTokenKind(kind)
+				writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokensStatus()})
 				return
 			}
 			tok := strings.TrimSpace(body.Token)
@@ -55,14 +55,18 @@ func registerUpdateAPI(mux *http.ServeMux) {
 				writeJSON(w, 400, map[string]string{"error": "token required (or clear:true)"})
 				return
 			}
-			if err := ndupdate.SetToken(tok); err != nil {
+			if err := ndupdate.SetTokenKind(kind, tok); err != nil {
 				writeJSON(w, 500, map[string]string{"error": err.Error()})
 				return
 			}
-			writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
+			writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokensStatus()})
 		case http.MethodDelete:
-			_ = ndupdate.ClearToken()
-			writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokenStatus()})
+			kind := r.URL.Query().Get("kind")
+			if kind == "" {
+				kind = ndupdate.TokenKindReleases
+			}
+			_ = ndupdate.ClearTokenKind(kind)
+			writeJSON(w, 200, map[string]any{"ok": true, "status": ndupdate.GetTokensStatus()})
 		default:
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 		}

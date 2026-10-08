@@ -463,24 +463,74 @@ func handleQuotaCB(token string, chat int64, msgID int, data string) {
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	// m:updates:token:set|clear
-	if data == "m:updates:token:set" {
-		setState(chat, "wait_github_token", "")
-		msg := "🔑 <b>GitHub token</b>\n\nSend a <b>classic PAT</b> (repo read) or fine-grained token with Releases read.\n<code>/cancel</code> to abort."
-		if ru {
-			msg = "🔑 <b>GitHub token</b>\n\nПришлите <b>classic PAT</b> (чтение репо) или fine-grained с доступом к Releases.\n<code>/cancel</code> — отмена."
+	if data == "m:updates:token:set" || data == "m:updates:token" {
+		st := ndupdate.GetTokensStatus()
+		nl := string([]byte{10})
+		msg := "🔑 <b>GitHub tokens</b>" + nl
+		msg += "releases: "
+		if st.Releases.Configured {
+			msg += "✅ <code>" + esc(st.Releases.Hint) + "</code>"
+		} else {
+			msg += "❌"
 		}
+		msg += nl + "repos: "
+		if st.Repos.Configured {
+			msg += "✅ <code>" + esc(st.Repos.Hint) + "</code>"
+		} else {
+			msg += "❌ (fallback to releases if set)"
+		}
+		msg += nl + nl + "Pick which token to set:"
+		if ru {
+			msg = "🔑 <b>GitHub tokens</b>" + nl
+			msg += "releases: "
+			if st.Releases.Configured {
+				msg += "✅ <code>" + esc(st.Releases.Hint) + "</code>"
+			} else {
+				msg += "❌"
+			}
+			msg += nl + "repos: "
+			if st.Repos.Configured {
+				msg += "✅ <code>" + esc(st.Repos.Hint) + "</code>"
+			} else {
+				msg += "❌ (иначе = releases)"
+			}
+			msg += nl + nl + "Какой токен задать:"
+		}
+		kb := map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("Releases API", "m:updates:token:set:releases", "primary"), btn("Repos mirror", "m:updates:token:set:repos", "")},
+			{btn("Clear releases", "m:updates:token:clear:releases", ""), btn("Clear repos", "m:updates:token:clear:repos", "")},
+			{btn("⬅️", "m:updates", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}}
+		reply(token, chat, msgID, msg, kb)
+		return
+	}
+	if strings.HasPrefix(data, "m:updates:token:set:") {
+		kind := strings.TrimPrefix(data, "m:updates:token:set:")
+		setState(chat, "wait_github_token:"+kind, "")
+		msg := "🔑 Send PAT for <b>" + esc(kind) + "</b>\n<code>/cancel</code>"
+		if ru {
+			msg = "🔑 Пришлите PAT для <b>" + esc(kind) + "</b>\n<code>/cancel</code>"
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
+		return
+	}
+	if strings.HasPrefix(data, "m:updates:token:clear:") {
+		kind := strings.TrimPrefix(data, "m:updates:token:clear:")
+		_ = ndupdate.ClearTokenKind(kind)
+		msg := "✅ cleared " + kind
 		reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
 		return
 	}
 	if data == "m:updates:token:clear" {
-		_ = ndupdate.ClearToken()
-		msg := "✅ GitHub token cleared"
+		_ = ndupdate.ClearTokenKind(ndupdate.TokenKindReleases)
+		msg := "✅ GitHub releases token cleared"
 		if ru {
-			msg = "✅ GitHub token удалён"
+			msg = "✅ GitHub releases token удалён"
 		}
 		reply(token, chat, msgID, msg, navKeyboard("m:updates", parentTools()))
 		return
 	}
+
 	// m:updates:edge:<device_id> — enqueue agent_update with SHA from release SHA256SUMS (R8)
 	if strings.HasPrefix(data, "m:updates:edge:") {
 		did := strings.TrimPrefix(data, "m:updates:edge:")
