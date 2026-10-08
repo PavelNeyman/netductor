@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -30,11 +31,12 @@ const (
 
 // Client holds a short-lived session to a Tapo camera.
 type Client struct {
-	Host     string
-	User     string
-	Password string
-	Port     int // control port, default 443
-	ChildID  string // optional hub child device_id
+	Host          string
+	User          string
+	Password      string // Camera Account (RTSP / classic control)
+	CloudPassword string // TP-Link cloud password for TPAP/V4 (optional)
+	Port          int    // control port, default 443
+	ChildID       string // optional hub child device_id
 
 	http *http.Client
 	stok string
@@ -45,11 +47,18 @@ type Client struct {
 	hash   hashMethod
 	secure bool
 	klap   *klapSession
+	tpap   bool // session established via TPAP helper
 	hashedMD5    string
 	hashedSHA256 string
 }
 
 // New creates a client (does not login yet).
+func NewWithCloud(host, user, password, cloudPassword string) *Client {
+	c := New(host, user, password)
+	c.CloudPassword = cloudPassword
+	return c
+}
+
 func New(host, user, password string) *Client {
 	return &Client{
 		Host:         host,
@@ -87,14 +96,18 @@ func (c *Client) hashedPassword() string {
 	return c.hashedMD5
 }
 
-// Login performs stok handshake (secure encrypt_type 3 or legacy hashed password).
-// If the camera speaks KLAP (newer FW), uses KLAP instead.
+// Login order: KLAP → secure/legacy → TPAP (V4 SPAKE2+, needs CloudPassword or Password).
 func (c *Client) Login() error {
 	if probeKLAP(c.Host, c.Port) || probeKLAP(c.Host, 80) {
 		if err := c.loginKLAP(); err == nil {
 			return nil
 		}
-		// fall through to classic
+	}
+	// Newer FW (encrypt_type 4 / -40211): try TPAP before classic loops
+	if c.CloudPassword != "" || os.Getenv("NETDUCTOR_TAPO_TPAP") == "1" {
+		if err := c.loginTPAP(); err == nil {
+			return nil
+		}
 	}
 	c.secure = c.probeSecure()
 	c.cnonce = nonce8()
@@ -135,7 +148,7 @@ func (c *Client) Login() error {
 			return fmt.Errorf("tapo: secure login missing nonce/confirm: %v", res)
 		}
 		if !c.validateConfirm(nonce, devConf) {
-			return fmt.Errorf("tapo: device_confirm mismatch (wrong password or Third-Party Compatibility off)")
+			return c.tryTPAPFallback(fmt.Errorf("tapo: device_confirm mismatch (wrong password or Third-Party Compatibility off)"))
 		}
 		digest := strings.ToUpper(fmt.Sprintf("%x", sha256.Sum256([]byte(c.hashedPassword()+c.cnonce+nonce))))
 		digestPasswd := digest + c.cnonce + nonce
@@ -158,7 +171,7 @@ func (c *Client) Login() error {
 			if e2 := c.loginKLAP(); e2 == nil {
 				return nil
 			}
-			return fmt.Errorf("tapo: no stok after digest login: %v", res2)
+			return c.tryTPAPFallback(fmt.Errorf("tapo: no stok after digest login: %v", res2))
 		}
 		c.stok = stok
 		if ss, ok := r2["start_seq"].(float64); ok {
@@ -176,7 +189,7 @@ func (c *Client) Login() error {
 		if e2 := c.loginKLAP(); e2 == nil {
 			return nil
 		}
-		return fmt.Errorf("tapo: legacy login failed: %v", res)
+		return c.tryTPAPFallback(fmt.Errorf("tapo: legacy login failed: %v", res))
 	}
 	c.stok = stok
 	return nil
@@ -286,6 +299,9 @@ func (c *Client) tag(requestJSON []byte) string {
 
 // Execute sends a multipleRequest-style method via securePassthrough or plain stok.
 func (c *Client) Execute(method string, params map[string]any) (map[string]any, error) {
+	if c.tpap {
+		return c.executeTPAP(method, params)
+	}
 	if c.klap == nil && c.stok == "" {
 		if err := c.Login(); err != nil {
 			return nil, err
@@ -471,4 +487,16 @@ func (c *Client) SetPrivacy(on bool) (map[string]any, error) {
 			"lens_mask_info": map[string]any{"enabled": en},
 		},
 	})
+}
+
+
+func (c *Client) tryTPAPFallback(prior error) error {
+	err := c.loginTPAP()
+	if err == nil {
+		return nil
+	}
+	if prior != nil {
+		return fmt.Errorf("%v; tpap: %w", prior, err)
+	}
+	return err
 }

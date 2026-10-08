@@ -2,7 +2,8 @@
 
 # PLAN: NVR implementation (next steps)
 
-**Status:** active plan (2026-10-08)  
+**Status:** active — Phase 1 started in code (2026-10-08)
+**Upstream primary:** [pytapo](https://github.com/JurajNyiri/pytapo) + [freeKC/tapo-v4-protocol](https://github.com/freeKC/tapo-v4-protocol) (MIT, PROTOCOL.md)  
 **Baseline:** MVP marked done ~0.7.32–0.7.33 in [PLAN-NVR-TAPO.md](PLAN-NVR-TAPO.md); product code still on primary (`internal/nvr`, `internal/tapo`, TG/Web/API).  
 **Upstream watch:** [pytapo](https://github.com/JurajNyiri/pytapo) **3.4.26** (2026-09-28), [HomeAssistant-Tapo-Control](https://github.com/JurajNyiri/HomeAssistant-Tapo-Control) **7.2.x** (pytapo pin 3.4.26).
 
@@ -177,3 +178,15 @@ Later:              Phase 4 SD pull if needed
 - pytapo releases: https://github.com/JurajNyiri/pytapo/releases (3.4.20 TPAP; 3.4.25–26 fixes)  
 - HA Tapo-Control 7.2.x: recording previews, media sync, pytapo 3.4.22+  
 - go2rtc Tapo talk: community `tapo://` source (AlexxIT)  
+
+
+## Implementation log
+
+### 2026-10-08
+- Vendored **freeKC** `tapo_v4` under `scripts/tapo_v4/` (MIT) + `cli.py` helper.
+- `internal/tapo`: `CloudPassword`, Login order **KLAP → TPAP (if cloud) → classic**, TPAP fallback on confirm/stok fail.
+- TPAP execute via python helper (`multipleRequest` /ds).
+- Extended actions: person detect, smart track, OSD, flip, alarm test, record plan, daynight get.
+- CLI: `TAPO_CLOUD_PASSWORD=… netductor nvr tapo …`; action `tpap_ping`.
+- go2rtc: ffmpeg aac/opus + optional `tapo://admin:SHA256UP@ip` when secret `<ref>_cloud` or `tapo_cloud` set.
+- Still need: pure-Go SPAKE2+ (no python on OpenWrt agent), media 8800 SD pull, hardware e2e.

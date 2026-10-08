@@ -3,6 +3,7 @@ package tapo
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -119,6 +120,9 @@ func Control(host, user, password, dir string, step int) string {
 		step = 10
 	}
 	cl := New(host, user, password)
+	if cp := strings.TrimSpace(os.Getenv("TAPO_CLOUD_PASSWORD")); cp != "" {
+		cl.CloudPassword = cp
+	}
 	if err := cl.Login(); err != nil {
 		return "tapo-go:login:" + err.Error()
 	}
@@ -183,8 +187,41 @@ func Control(host, user, password, dir string, step int) string {
 	case dir == "stop":
 		_, _ = cl.CruiseStop()
 		return "tapo-go:stop:ok"
+	case dir == "daynight_get":
+		return resultJSON(cl.GetDayNight())
+	case dir == "osd":
+		return resultJSON(cl.GetOSD())
+	case strings.HasPrefix(dir, "osd_date:"):
+		on := strings.TrimPrefix(dir, "osd_date:")
+		return resultJSON(cl.SetOSDDate(on == "on" || on == "1"))
+	case dir == "person_get":
+		return resultJSON(cl.GetPersonDetection())
+	case strings.HasPrefix(dir, "person:"):
+		on := strings.TrimPrefix(dir, "person:")
+		return resultJSON(cl.SetPersonDetection(on == "on" || on == "1"))
+	case strings.HasPrefix(dir, "track:"):
+		on := strings.TrimPrefix(dir, "track:")
+		return resultJSON(cl.SetSmartTrack(on == "on" || on == "1"))
+	case strings.HasPrefix(dir, "flip:"):
+		return resultJSON(cl.SetRotation(strings.TrimPrefix(dir, "flip:")))
+	case dir == "alarm_test":
+		return resultJSON(cl.AlertTest())
+	case dir == "alarm_stop":
+		return resultJSON(cl.AlertStop())
+	case dir == "record_plan":
+		return resultJSON(cl.GetRecordPlan())
+	case dir == "tpap_ping":
+		// force TPAP path for diagnostics
+		cl2 := NewWithCloud(host, user, password, cl.CloudPassword)
+		if cl2.CloudPassword == "" {
+			cl2.CloudPassword = password
+		}
+		if err := cl2.loginTPAP(); err != nil {
+			return "tapo-go:tpap:" + err.Error()
+		}
+		return resultJSON(cl2.GetBasicInfo())
 	default:
-		return "tapo-go:error:dir"
+		return "tapo-go:error:dir:" + dir
 	}
 }
 
@@ -264,5 +301,97 @@ func (c *Client) GetChildDeviceList() (map[string]any, error) {
 func (c *Client) GetSmartTrack() (map[string]any, error) {
 	return c.Execute("getSmartTrackConfig", map[string]any{
 		"smart_track": map[string]any{"name": "smart_track_info"},
+	})
+}
+
+// --- extended control surface (pytapo / C200+) ---
+
+// SetSmartTrack enables person auto-track.
+func (c *Client) SetSmartTrack(on bool) (map[string]any, error) {
+	en := "off"
+	if on {
+		en = "on"
+	}
+	return c.Execute("setSmartTrackConfig", map[string]any{
+		"smart_track": map[string]any{"smart_track_info": map[string]any{"enabled": en}},
+	})
+}
+
+// GetMotionDetection config.
+func (c *Client) GetPersonDetection() (map[string]any, error) {
+	return c.Execute("getPersonDetectionConfig", map[string]any{
+		"person_detection": map[string]any{"name": "detection"},
+	})
+}
+
+// SetPersonDetection enable.
+func (c *Client) SetPersonDetection(on bool) (map[string]any, error) {
+	en := "off"
+	if on {
+		en = "on"
+	}
+	return c.Execute("setPersonDetectionConfig", map[string]any{
+		"person_detection": map[string]any{"detection": map[string]any{"enabled": en}},
+	})
+}
+
+// FlipImage vertical/horizontal as enabled on/off (camera dependent).
+func (c *Client) SetRotation(degree string) (map[string]any, error) {
+	// "0" or "180" common
+	return c.Execute("setRotationStatus", map[string]any{
+		"image": map[string]any{"switch": map[string]any{"flip_type": degree}},
+	})
+}
+
+// GetOSD text overlay.
+func (c *Client) GetOSD() (map[string]any, error) {
+	return c.Execute("getOsd", map[string]any{
+		"OSD": map[string]any{"name": []string{"logo", "date", "week", "font"}},
+	})
+}
+
+// SetOSDDate enable date overlay.
+func (c *Client) SetOSDDate(on bool) (map[string]any, error) {
+	en := "off"
+	if on {
+		en = "on"
+	}
+	return c.Execute("setOsd", map[string]any{
+		"OSD": map[string]any{
+			"date": map[string]any{"enabled": en, "x_coor": "0", "y_coor": "0"},
+		},
+	})
+}
+
+// GetLensMask privacy state.
+func (c *Client) GetDayNight() (map[string]any, error) {
+	return c.Execute("getDayNightModeConfig", map[string]any{
+		"image": map[string]any{"name": "common"},
+	})
+}
+
+// GetDeviceInfo alias basic.
+func (c *Client) GetDeviceInfo() (map[string]any, error) {
+	return c.GetBasicInfo()
+}
+
+// AlertTest sounds/flashes alarm briefly if supported.
+func (c *Client) AlertTest() (map[string]any, error) {
+	return c.Execute("msgAlarmManual", map[string]any{
+		"msg_alarm": map[string]any{"manual": map[string]any{"action": "start"}},
+	})
+}
+
+// AlertStop stops manual alarm.
+func (c *Client) AlertStop() (map[string]any, error) {
+	return c.Execute("msgAlarmManual", map[string]any{
+		"msg_alarm": map[string]any{"manual": map[string]any{"action": "stop"}},
+	})
+}
+
+// GetRecordPlan on-camera schedule (SD).
+func (c *Client) GetRecordPlan() (map[string]any, error) {
+	return c.Execute("getRecordPlan", map[string]any{
+		"record_plan": map[string]any{"name": "chn1_channel"},
 	})
 }

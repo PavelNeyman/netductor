@@ -1,6 +1,8 @@
 package nvr
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -39,6 +41,11 @@ func WriteGo2RTCConfig() (string, error) {
 			name = c.Name
 		}
 		b.WriteString(fmt.Sprintf("  %s:\n    - \"%s\"\n", yamlKey(name), url))
+		b.WriteString(fmt.Sprintf("    - ffmpeg:%s#audio=aac\n", yamlKey(name)))
+		b.WriteString(fmt.Sprintf("    - ffmpeg:%s#audio=opus\n", yamlKey(name)))
+		if talk := tapoTalkURL(c); talk != "" {
+			b.WriteString(fmt.Sprintf("    - \"%s\"\n", talk))
+		}
 	}
 	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		return "", err
@@ -57,4 +64,24 @@ func yamlKey(s string) string {
 		return "cam"
 	}
 	return s
+}
+
+
+func tapoTalkURL(c Camera) string {
+	if c.LANIP == "" {
+		return ""
+	}
+	pass := ""
+	if c.SecretRef != "" {
+		pass = GetSecret(c.SecretRef + "_cloud")
+	}
+	if pass == "" {
+		pass = GetSecret("tapo_cloud")
+	}
+	if pass == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(pass))
+	hexUp := strings.ToUpper(hex.EncodeToString(sum[:]))
+	return "tapo://admin:" + hexUp + "@" + c.LANIP
 }
