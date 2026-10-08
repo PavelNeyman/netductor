@@ -12,6 +12,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/update"
 )
 
 var Services = []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"}
@@ -45,6 +46,13 @@ func Collect() map[string]any {
 	out["firewall"] = map[string]any{
 		"backend": string(fw.Backend), "active": fw.Active, "ok": fw.OK, "role": fw.Role, "warnings": fw.Warnings,
 	}
+	tags, _ := update.ListLocalTags()
+	latest := ""
+	if len(tags) > 0 {
+		latest = tags[0]
+	}
+	out["local_release_latest"] = latest
+	out["local_release_count"] = len(tags)
 	return out
 }
 

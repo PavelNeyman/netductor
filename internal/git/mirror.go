@@ -2,6 +2,7 @@ package gitstore
 
 import (
 	"fmt"
+
 	"os"
 	"os/exec"
 	"path/filepath"

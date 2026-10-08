@@ -107,6 +107,9 @@ func registerReleaseAPI(mux *http.ServeMux) {
 			return
 		}
 		out, err := gitstore.MirrorFetch(name)
+		if err == nil && (name == "netductor" || name == "") {
+			_ = update.MaybeAutoBuildNewest()
+		}
 		if err != nil {
 			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error(), "log": out})
 			return

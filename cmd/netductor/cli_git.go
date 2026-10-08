@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/update"
 	"os"
 	"strconv"
 
-	"github.com/PavelNeyman/netductor/internal/hardening"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/hardening"
 )
 
 func runGit(args []string) int {
@@ -83,6 +84,9 @@ func runGit(args []string) int {
 			name = args[1]
 		}
 		out, err := gitstore.MirrorFetch(name)
+		if err == nil && (name == "netductor" || name == "") {
+			_ = update.MaybeAutoBuildNewest()
+		}
 		fmt.Print(out)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)

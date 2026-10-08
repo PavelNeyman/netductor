@@ -3,6 +3,7 @@ package update
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -163,4 +164,37 @@ func PruneLocal(keep int) (removed []string, err error) {
 		removed = append(removed, t)
 	}
 	return removed, nil
+}
+
+// MaybeAutoBuildNewest schedules a local release build when the newest mirror tag is not in the local store.
+func MaybeAutoBuildNewest() error {
+	tags, err := listMirrorTags("netductor")
+	if err != nil || len(tags) == 0 {
+		return err
+	}
+	newest := tags[0]
+	local, _ := ListLocalTags()
+	for _, t := range local {
+		if t == newest || "v"+t == newest || t == strings.TrimPrefix(newest, "v") {
+			return nil
+		}
+	}
+	return ScheduleBuild(newest, true)
+}
+
+func listMirrorTags(name string) ([]string, error) {
+	dir := filepath.Join(paths.StateDir(), "git", name+".git")
+	cmd := exec.Command("git", "-C", dir, "tag", "-l", "--sort=-v:refname")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	var tags []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "v") {
+			tags = append(tags, line)
+		}
+	}
+	return tags, nil
 }
