@@ -215,43 +215,87 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		var b strings.Builder
 		b.WriteString("📷 <b>" + T("nvr_cams_title") + "</b>" + nl)
 		if getLang() != "en" {
-			b.WriteString("<i># · P probe · R record · S stop · ◀▶▲▼ PTZ</i>" + nl)
+			b.WriteString("<i>Выберите камеру → карточка (probe/record/PTZ/Live)</i>" + nl)
 		} else {
-			b.WriteString("<i># · P probe · R record · S stop · ◀▶▲▼ PTZ</i>" + nl)
+			b.WriteString("<i>Pick a camera → card (probe/record/PTZ/Live)</i>" + nl)
 		}
 		payload, _ := json.Marshal(cams)
 		setState(chat, "nvr_cam_cache", string(payload))
-		b.WriteString("<table bordered striped compact>" + nl)
-		b.WriteString("<tr><th>#</th><th>name</th><th>ip</th><th>rec</th></tr>" + nl)
-		n := len(cams)
-		if n > 10 {
-			n = 10
-		}
-		for i := 0; i < n; i++ {
-			c := cams[i]
-			rec := "—"
-			if c.Record {
-				rec = "🟢"
-			}
-			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>"+nl,
-				i+1, esc(c.Name), esc(c.LANIP), rec))
-		}
-		b.WriteString("</table>" + nl)
-		for i := 0; i < n; i++ {
-			b.WriteString(`<tg-button-row align="left">`)
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:probe:%d">P%d</tg-button>`, i, i+1))
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:rec:%d">R%d</tg-button>`, i, i+1))
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:stop:%d">S%d</tg-button>`, i, i+1))
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:left">%d◀</tg-button>`, i, i+1))
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:right">%d▶</tg-button>`, i, i+1))
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:up">%d▲</tg-button>`, i, i+1))
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:down">%d▼</tg-button>`, i, i+1))
-			b.WriteString(`</tg-button-row>` + nl)
-		}
 		if len(cams) == 0 {
 			b.WriteString(T("nvr_empty") + nl)
 		}
+		for i, c := range cams {
+			if i >= 12 {
+				b.WriteString(fmt.Sprintf("… +%d"+nl, len(cams)-12))
+				break
+			}
+			rec := "—"
+			if c.Record {
+				rec = "rec"
+			}
+			label := fmt.Sprintf("%s · %s · %s", c.Name, c.LANIP, rec)
+			if label == " ·  · —" {
+				label = c.ID
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:nvr:card:%d">%s</tg-button></tg-button-row>`+nl, i, esc(label)))
+		}
 		reply(token, chat, msgID, b.String(), nvrSubKeyboard())
+	case strings.HasPrefix(data, "m:nvr:card:"):
+		idxStr := strings.TrimPrefix(data, "m:nvr:card:")
+		idx := 0
+		fmt.Sscanf(idxStr, "%d", &idx)
+		cams := nvr.ListCameras()
+		if idx < 0 || idx >= len(cams) {
+			reply(token, chat, msgID, "camera?", nvrSubKeyboard())
+			return
+		}
+		c := cams[idx]
+		nl := string([]byte{10})
+		var b strings.Builder
+		b.WriteString(fmt.Sprintf("📷 <b>%s</b>"+nl, esc(c.Name)))
+		b.WriteString(fmt.Sprintf("<code>%s</code> · %s"+nl, esc(c.ID), esc(c.LANIP)))
+		b.WriteString(fmt.Sprintf("record=%v enabled=%v"+nl, c.Record, c.Enabled))
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:probe:%d">Probe</tg-button>`, idx))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:rec:%d">Record</tg-button>`, idx))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:stop:%d">Stop</tg-button>`, idx))
+		b.WriteString(`</tg-button-row>` + nl)
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:left">◀</tg-button>`, idx))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:right">▶</tg-button>`, idx))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:up">▲</tg-button>`, idx))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:nvr:ptz:%d:down">▼</tg-button>`, idx))
+		b.WriteString(`</tg-button-row>` + nl)
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="m:nvr:livecam:%d">▶ Live</tg-button>`, idx))
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:cams">⬅️</tg-button>`)
+		b.WriteString(`</tg-button-row>` + nl)
+		reply(token, chat, msgID, b.String(), nvrSubKeyboard())
+	case strings.HasPrefix(data, "m:nvr:livecam:"):
+		idxStr := strings.TrimPrefix(data, "m:nvr:livecam:")
+		idx := 0
+		fmt.Sscanf(idxStr, "%d", &idx)
+		cams := nvr.ListCameras()
+		if idx < 0 || idx >= len(cams) {
+			reply(token, chat, msgID, "camera?", nvrSubKeyboard())
+			return
+		}
+		c := cams[idx]
+		key := c.ID
+		if key == "" {
+			key = c.Name
+		}
+		nl := string([]byte{10})
+		msg := "▶ <b>Live</b> " + esc(c.Name) + nl
+		msg += "Open on VPN / op Web Control → NVR → Play stream." + nl
+		msg += "<code>/api/nvr/stream?id=" + esc(key) + "</code>" + nl
+		msg += "go2rtc must be running on primary (localhost)." + nl
+		if getLang() != "en" {
+			msg = "▶ <b>Live</b> " + esc(c.Name) + nl
+			msg += "Web Control → NVR → Play (через VPN/session)." + nl
+			msg += "<code>/api/nvr/stream?id=" + esc(key) + "</code>" + nl
+		}
+		reply(token, chat, msgID, msg, nvrSubKeyboard())
 	case strings.HasPrefix(data, "m:nvr:probe:"), strings.HasPrefix(data, "m:nvr:rec:"), strings.HasPrefix(data, "m:nvr:stop:"):
 		parts := strings.Split(data, ":")
 		if len(parts) < 4 {

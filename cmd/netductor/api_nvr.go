@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
@@ -437,6 +439,81 @@ func registerNVRAPI(mux *http.ServeMux) {
 		body := readJSON(r)
 		nvr.StopRecorder(nvrStr(body["id"]))
 		writeJSON(w, 200, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("/api/nvr/live", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" {
+			writeJSON(w, 400, map[string]string{"error": "id required"})
+			return
+		}
+		c, ok := nvr.GetCamera(id)
+		if !ok {
+			for _, x := range nvr.ListCameras() {
+				if x.Name == id || x.ID == id {
+					c, ok = x, true
+					break
+				}
+			}
+		}
+		if !ok {
+			writeJSON(w, 404, map[string]string{"error": "camera not found"})
+			return
+		}
+		key := c.ID
+		if key == "" {
+			key = c.Name
+		}
+		writeJSON(w, 200, map[string]any{
+			"ok":          true,
+			"camera":      c.ID,
+			"name":        c.Name,
+			"stream_path": "/api/nvr/stream?id=" + url.QueryEscape(key),
+			"live_path":   "/api/nvr/live?id=" + url.QueryEscape(key),
+			"rtsp_hint":   "rtsp://127.0.0.1:8554/" + key,
+			"go2rtc_api":  "http://127.0.0.1:1984",
+			"note":        "Use stream_path via session tunnel; go2rtc remains localhost-only",
+		})
+	})
+	mux.HandleFunc("/api/nvr/stream", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" {
+			http.Error(w, "id required", http.StatusBadRequest)
+			return
+		}
+		src := id
+		if c, ok := nvr.GetCamera(id); ok {
+			if c.ID != "" {
+				src = c.ID
+			} else if c.Name != "" {
+				src = c.Name
+			}
+		}
+		u := "http://127.0.0.1:1984/api/stream.mp4?src=" + url.QueryEscape(src)
+		client := &http.Client{Timeout: 0} // streaming
+		req, err := http.NewRequest(http.MethodGet, u, nil)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "go2rtc unreachable: "+err.Error()+"; generate yaml (nvr go2rtc) and run go2rtc on primary", http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		if ct := resp.Header.Get("Content-Type"); ct != "" {
+			w.Header().Set("Content-Type", ct)
+		} else {
+			w.Header().Set("Content-Type", "video/mp4")
+		}
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
 	})
 }
 

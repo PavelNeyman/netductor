@@ -127,6 +127,7 @@ func All() []Action {
 		a("nvr-segments", "nvr", "GET", "/api/nvr/segments", "", "—", "Segments", "Segments"),
 		a("nvr-retention", "nvr", "POST", "/api/nvr/retention/run", "{}", "—", "Retention run", "Retention"),
 		a("nvr-go2rtc", "nvr", "POST", "/api/nvr/go2rtc", "{}", "nvr go2rtc", "go2rtc write", "go2rtc"),
+		a("nvr-live", "nvr", "GET", "/api/nvr/live?id=", "", "—", "Live info", "Live info"),
 
 		// git
 		a("git-repos", "git", "GET", "/api/git/repos", "", "git list", "Repos", "Repos"),

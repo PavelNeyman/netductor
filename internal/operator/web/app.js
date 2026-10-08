@@ -109,7 +109,7 @@ ru:{
   l_git_repo:'репо', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'путь артефакта',
   l_git_proj:'Проекты (mirror)', l_git_proj_name:'имя', l_git_proj_up:'upstream (org/repo)', l_git_proj_wf:'путь workflow', l_git_proj_pipe:'pipeline',
   b_git_run:'Запуск pipeline', b_git_init:'Init репо', b_git_log:'Log', b_git_show:'Show', b_git_art:'Артефакт',
-  b_git_proj_list:'Список проектов', b_git_proj_add:'Добавить проект', b_git_proj_sync:'Sync', b_git_proj_build:'Build'
+  b_git_proj_list:'Список проектов', b_git_proj_add:'Добавить проект', b_git_proj_sync:'Sync', b_git_proj_build:'Build',
   b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты', b_upd:'Статус обновлений', b_rel_local:'Локальные релизы', b_rel_tags:'Git теги', b_rel_mirror:'Mirror fetch', b_rel_build:'Сборка local',
   b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
@@ -861,21 +861,34 @@ function mountButtons(){
       <button class="primary" type="button" data-act="edge-backup">Trigger backup</button>`;
     }
     if(sec==='nvr' || sec==='media'){
-      h+=`<div class="row" style="margin-top:.75rem"><div><label>camera id</label><input id="nvrCamId"/></div>
-      <div><label>PTZ dir</label><select id="nvrPtzDir"><option>left</option><option>right</option><option>up</option><option>down</option><option>stop</option></select></div></div>
-      <button class="primary" type="button" data-act="nvr-ptz">PTZ</button>
-      <button class="primary" type="button" data-act="nvr-rec-start">Rec start</button>
-      <button class="primary" type="button" data-act="nvr-rec-stop">Rec stop</button>
-      <button class="primary" type="button" data-act="nvr-cam-del">Delete camera</button>
-      <div class="row"><div><label>site device</label><input id="nvrSiteDid"/></div><div></div></div>
-      <button class="primary" type="button" data-act="nvr-leases">Leases</button>
-      <button class="primary" type="button" data-act="nvr-wifi">Wi‑Fi clients</button>
-      <div class="row"><div><label>dhcp did</label><input id="dhcpDid"/></div><div><label>mac</label><input id="dhcpMac"/></div></div>
-      <div class="row"><div><label>ip</label><input id="dhcpIp"/></div><div><label>name</label><input id="dhcpName"/></div></div>
-      <button class="primary" type="button" data-act="nvr-dhcp">DHCP static</button>
-      <div class="row"><div><label>clip path</label><input id="nvrClip"/></div><div></div></div>
-      <button class="primary" type="button" data-act="nvr-clip-token">Clip token</button>
-      <button class="primary" type="button" data-act="nvr-motion">Motion cfg GET/POST via adv</button>`;
+      h+=`<h4>Cameras</h4>
+      <div class="row"><button type="button" class="primary" data-act="nvr-cam-refresh">Refresh table</button>
+      <button type="button" class="primary" data-act="nvr-go2rtc">Write go2rtc.yaml</button></div>
+      <div id="nvrCamTable" class="note">—</div>
+      <h4>Add camera</h4>
+      <div class="row"><div><label>name</label><input id="nvrAddName"/></div><div><label>LAN IP</label><input id="nvrAddIp"/></div></div>
+      <div class="row"><div><label>RTSP user</label><input id="nvrAddUser" value=""/></div><div><label>RTSP password</label><input id="nvrAddPass" type="password"/></div></div>
+      <div class="row"><div><label>cloud password (TPAP/talk)</label><input id="nvrAddCloud" type="password"/></div><div><label>path</label><input id="nvrAddPath" value="/stream1"/></div></div>
+      <div class="row"><div><label>site_id</label><input id="nvrAddSite"/></div><div></div></div>
+      <button type="button" class="primary" data-act="nvr-cam-add">Add / upsert</button>
+      <h4>Wizard (DHCP lease → camera)</h4>
+      <div class="row"><div><label>edge device_id</label><input id="nvrWizDid"/></div>
+        <button type="button" class="primary" data-act="nvr-wiz-leases">1. Load leases</button></div>
+      <pre class="log" id="nvrWizLeases" style="max-height:8rem"></pre>
+      <div class="row"><div><label>mac</label><input id="nvrWizMac"/></div><div><label>ip from lease</label><input id="nvrWizIp"/></div></div>
+      <div class="row"><div><label>name</label><input id="nvrWizName"/></div><div><label>RTSP password</label><input id="nvrWizPass" type="password"/></div></div>
+      <button type="button" class="primary" data-act="nvr-wiz-add">2. Add from lease</button>
+      <h4>Live</h4>
+      <div class="row"><div><label>camera id</label><input id="nvrCamId"/></div>
+        <button type="button" class="primary" data-act="nvr-live-info">Live info</button>
+        <button type="button" class="primary" data-act="nvr-live-play">Play stream</button></div>
+      <video id="nvrVideo" controls playsinline style="max-width:100%;max-height:320px;background:#111"></video>
+      <div class="row"><div><label>PTZ</label><select id="nvrPtzDir"><option>left</option><option>right</option><option>up</option><option>down</option><option>stop</option></select></div>
+        <button type="button" class="primary" data-act="nvr-ptz">PTZ</button>
+        <button type="button" class="primary" data-act="nvr-rec-start">Record</button>
+        <button type="button" class="primary" data-act="nvr-rec-stop">Stop</button>
+        <button type="button" class="primary" data-act="nvr-cam-del">Delete</button></div>
+      <p class="muted">Live uses session proxy to go2rtc on primary (localhost). Start go2rtc after writing yaml.</p>`;
     }
     if(sec==='git'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_git_repo')}</label><input id="gitRepo" placeholder="my-repo"/></div>
@@ -987,6 +1000,69 @@ const special = {
     if(isNaN(hour)||hour<0||hour>23) return {error:'hour 0-23'};
     if(isNaN(minute)||minute<0||minute>59) return {error:'minute 0-59'};
     return nodeFetch('/api/backup/schedule',{method:'POST',body:JSON.stringify({hour,minute,utc})});
+  },
+  
+  'nvr-cam-refresh': async()=>{
+    const j=await nodeFetch('/api/nvr/cameras');
+    const box=document.getElementById('nvrCamTable');
+    if(!box) return j;
+    const cams=(j&&j.cameras)||[];
+    if(!cams.length){ box.innerHTML='<p class="muted">No cameras</p>'; return j; }
+    let h='<table class="striped"><tr><th>id</th><th>name</th><th>ip</th><th>rec</th><th></th></tr>';
+    cams.forEach(c=>{
+      h+=`<tr><td><code>${c.id||''}</code></td><td>${c.name||''}</td><td>${c.lan_ip||''}</td><td>${c.record?'🟢':'—'}</td>`+
+        `<td><button type="button" data-cam="${c.id}" class="nvr-pick">Select</button></td></tr>`;
+    });
+    h+='</table>';
+    box.innerHTML=h;
+    box.querySelectorAll('.nvr-pick').forEach(btn=>{
+      btn.onclick=()=>{ const id=btn.getAttribute('data-cam'); const el=document.getElementById('nvrCamId'); if(el) el.value=id; };
+    });
+    return j;
+  },
+  'nvr-cam-add': async()=>{
+    const body={
+      name:document.getElementById('nvrAddName').value.trim(),
+      lan_ip:document.getElementById('nvrAddIp').value.trim(),
+      rtsp_user:document.getElementById('nvrAddUser').value.trim(),
+      rtsp_password:document.getElementById('nvrAddPass').value,
+      cloud_password:document.getElementById('nvrAddCloud').value,
+      rtsp_path:document.getElementById('nvrAddPath').value.trim()||'/stream1',
+      site_id:document.getElementById('nvrAddSite').value.trim(),
+      enabled:true, record:true
+    };
+    return nodeFetch('/api/nvr/cameras',{method:'POST',body:JSON.stringify(body)});
+  },
+  'nvr-wiz-leases': async()=>{
+    const did=document.getElementById('nvrWizDid').value.trim();
+    if(!did) return {error:'device_id'};
+    const j=await nodeFetch('/api/nvr/site/leases',{method:'POST',body:JSON.stringify({device_id:did})});
+    const pre=document.getElementById('nvrWizLeases');
+    if(pre) pre.textContent=JSON.stringify(j,null,2);
+    return j;
+  },
+  'nvr-wiz-add': async()=>{
+    const body={
+      name:document.getElementById('nvrWizName').value.trim(),
+      lan_ip:document.getElementById('nvrWizIp').value.trim(),
+      mac:document.getElementById('nvrWizMac').value.trim(),
+      rtsp_password:document.getElementById('nvrWizPass').value,
+      site_id:document.getElementById('nvrWizDid').value.trim(),
+      enabled:true, record:true, rtsp_path:'/stream1'
+    };
+    return nodeFetch('/api/nvr/cameras',{method:'POST',body:JSON.stringify(body)});
+  },
+  'nvr-live-info': async()=>{
+    const id=document.getElementById('nvrCamId').value.trim();
+    if(!id) return {error:'camera id'};
+    return nodeFetch('/api/nvr/live?id='+encodeURIComponent(id));
+  },
+  'nvr-live-play': async()=>{
+    const id=document.getElementById('nvrCamId').value.trim();
+    if(!id) return {error:'camera id'};
+    const v=document.getElementById('nvrVideo');
+    if(v){ v.src='/api/nvr/stream?id='+encodeURIComponent(id); v.play().catch(()=>{}); }
+    return {ok:true, stream:'/api/nvr/stream?id='+id};
   },
   'nvr-ptz': async()=>{ return nodeFetch('/api/nvr/ptz',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim(),dir:document.getElementById('nvrPtzDir').value})}); },
   'nvr-rec-start': async()=>{ return nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },
