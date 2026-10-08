@@ -344,7 +344,7 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		if st.Error == "" && st.Update && st.Latest != "" {
 			key := "update:available:" + st.Latest
 			notify.AlertOnce(key, fmt.Sprintf(
-				"🆕 <b>Netductor update</b>\nlocal <code>%s</code> → latest <code>%s</code>\n<tg-button-row><tg-button type=\"callback_data\" style=\"primary\" data=\"m:updates\">Update</tg-button></tg-button-row>","
+				"🆕 <b>Netductor update</b>\nlocal <code>%s</code> → latest <code>%s</code>\n<tg-button-row><tg-button type=\"callback_data\" style=\"primary\" data=\"m:updates\">Update</tg-button></tg-button-row>",
 				st.Local, st.Latest))
 		} else if st.Error == "" && !st.Update {
 			// clear any prior version keys is hard; clear generic
