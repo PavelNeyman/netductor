@@ -1,3 +1,4 @@
+- [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283); channel face vs uplink alerts (0.9.284); see [CI-WORKFLOWS.md](CI-WORKFLOWS.md)
 - [ ] Edge deploy hybrid (shared backend + thin UI; op-SSH factory; no TG deploy) — [PLAN-EDGE-DEPLOY-HYBRID.md](PLAN-EDGE-DEPLOY-HYBRID.md) P0 types done
 **EN** · [RU](ru/OPEN_ITEMS.md)
 
