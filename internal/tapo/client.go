@@ -47,7 +47,8 @@ type Client struct {
 	hash   hashMethod
 	secure bool
 	klap   *klapSession
-	tpap   bool // session established via TPAP helper
+	tpap     bool // session via pure-Go TPAP/SPAKE2+
+	tpapSess *tpapSession
 	hashedMD5    string
 	hashedSHA256 string
 }

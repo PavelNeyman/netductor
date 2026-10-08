@@ -185,8 +185,13 @@ Later:              Phase 4 SD pull if needed
 ### 2026-10-08
 - Vendored **freeKC** `tapo_v4` under `scripts/tapo_v4/` (MIT) + `cli.py` helper.
 - `internal/tapo`: `CloudPassword`, Login order **KLAP → TPAP (if cloud) → classic**, TPAP fallback on confirm/stok fail.
-- TPAP execute via python helper (`multipleRequest` /ds).
+- TPAP **pure Go** SPAKE2+ + AES-CCM (no Python runtime).
 - Extended actions: person detect, smart track, OSD, flip, alarm test, record plan, daynight get.
 - CLI: `TAPO_CLOUD_PASSWORD=… netductor nvr tapo …`; action `tpap_ping`.
 - go2rtc: ffmpeg aac/opus + optional `tapo://admin:SHA256UP@ip` when secret `<ref>_cloud` or `tapo_cloud` set.
-- Still need: pure-Go SPAKE2+ (no python on OpenWrt agent), media 8800 SD pull, hardware e2e.
+- Still need: media 8800 SD pull, hardware e2e, optional native media path.
+- Removed Python runtime dependency for TPAP (scripts/tapo_v4 = reference only).
+
+### 2026-10-08 (later)
+- Replaced Python TPAP helper with pure Go in `internal/tapo/tpap.go` + `ccm.go`.
+- `scripts/tapo_v4` kept as protocol reference only.
