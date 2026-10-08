@@ -22,7 +22,7 @@ type SecondaryPath struct {
 	HeartbeatAgeSec int     `json:"heartbeat_age_sec"`
 	SingBoxOK       bool    `json:"singbox_ok"`
 	UplinkOK        bool    `json:"uplink_ok"` // agent: primary:443 reachable from secondary
-	TCP443OK        bool    `json:"tcp443_ok"` // primary → secondary:443
+	TCP443OK        bool    `json:"tcp443_ok"` // primary → secondary public:443 (face only; uplink is data-plane)
 	TCP443ms        float64 `json:"tcp443_ms,omitempty"`
 	Mismatch30m     int     `json:"mismatch_30m"` // as reported by agent heartbeat
 }

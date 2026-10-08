@@ -259,15 +259,21 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	if enabled("channel_health") {
 		ch := channels.Collect()
 		for _, s := range ch.Secondaries {
+			// Public :443 face-check (primary→secondary). Secondary signal only — not data-plane.
 			key := "channel:tcp443:" + s.ID
 			if s.Online && s.PublicIP != "" && !s.TCP443OK {
-				notify.AlertOnce(key, fmt.Sprintf("🔴 Channel <b>%s</b>: primary→secondary:443 TCP fail (ip %s)", s.Name, s.PublicIP))
+				if s.UplinkOK {
+					// Uplink (mux) is the real path; public face may be firewalled or transient.
+					notify.AlertOnce(key, fmt.Sprintf("⚠️ Channel <b>%s</b>: public :443 face unreachable (ip %s) — uplink OK, not a data-plane outage", s.Name, s.PublicIP))
+				} else {
+					notify.AlertOnce(key, fmt.Sprintf("🔴 Channel <b>%s</b>: primary→secondary:443 TCP fail (ip %s) and uplink down", s.Name, s.PublicIP))
+				}
 			} else {
 				notify.ClearAlert(key)
 			}
 			keyU := "channel:uplink:" + s.ID
 			if s.Online && !s.UplinkOK {
-				notify.AlertOnce(keyU, fmt.Sprintf("⚠️ Channel <b>%s</b>: secondary→primary:443 uplink probe failed", s.Name))
+				notify.AlertOnce(keyU, fmt.Sprintf("🔴 Channel <b>%s</b>: secondary→primary uplink failed (data-plane)", s.Name))
 			} else {
 				notify.ClearAlert(keyU)
 			}
@@ -293,8 +299,9 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		} else {
 			notify.ClearAlert("channel:reality-total")
 		}
+		// Attach logs only on real data-plane trouble (uplink), not public-face TCP alone.
 		for _, s := range ch.Secondaries {
-			if s.Online && ((s.PublicIP != "" && !s.TCP443OK) || !s.UplinkOK) {
+			if s.Online && !s.UplinkOK {
 				attachLogs("channel:down:"+s.ID, "📎 channel down logs (last 1h)")
 			}
 		}
