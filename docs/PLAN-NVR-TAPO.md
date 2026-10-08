@@ -2,7 +2,9 @@
 
 # PLAN: Tapo C200 cameras → OpenWrt agent → primary NVR
 
-**Status:** draft / research (2026-09-18)  
+**Status:** design lock + MVP code (see implementation plan)
+**Next:** [PLAN-NVR-IMPLEMENTATION.md](PLAN-NVR-IMPLEMENTATION.md) (2026-10-08)
+**Research date:** 2026-09-18  
 **Scope:** 2× TP-Link Tapo C200 (Wi‑Fi, RTSP) behind Cudy OpenWrt; record & manage on netductor **primary**; UI in Admin / TG / TUI; optional encryption at rest.
 
 

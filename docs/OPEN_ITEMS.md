@@ -67,6 +67,7 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 - [x] Day-2 groups in opcatalog (`Groups()`) → Web tabs / TG Tools / TUI catalog (0.9.104)
 - [x] Full dual-node smoke (primary + secondary) — live deploy 2026-09-29 (LE, bot, SP, secondary)
 - [ ] Edge stock-OpenWrt contract: factory reset → one deploy → fully configured (lab = dual-NIC, no manual UCI) — [OPENWRT-LAB.md](OPENWRT-LAB.md)
+- [ ] NVR next steps — [PLAN-NVR-IMPLEMENTATION.md](PLAN-NVR-IMPLEMENTATION.md) (TPAP, hardware e2e, two-way audio)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik) — lab notes [OPENWRT-LAB.md](OPENWRT-LAB.md); radio detect shipped 0.9.271
 - [x] Remove TG private topics (keep alerts channel) — [PLAN-REMOVE-TG-TOPICS.md](PLAN-REMOVE-TG-TOPICS.md) (0.9.269)
 - [ ] Optional: CI Formula SHA automation
