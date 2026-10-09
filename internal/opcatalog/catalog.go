@@ -165,6 +165,10 @@ func All() []Action {
 		a("probes", "probes", "GET", "/api/probes", "", "probe", "Probes", "Probes"),
 		a("probes-cfg", "probes", "GET", "/api/probes/config", "", "—", "Probes config", "Probes config"),
 		a("audit", "probes", "GET", "/api/audit", "", "audit tail", "Audit", "Audit"),
+		a("policy-presets", "vpn", "GET", "/api/policy/presets", "", "policy presets", "Policy presets", "Пресеты политики"),
+		a("policy-preset-add", "vpn", "POST", "/api/policy/presets", `{"title":"Family","allow_internet":true,"services_mode":"list","services":["lampac"]}`, "policy preset add", "Create policy preset", "Создать пресет"),
+		a("devices", "vpn", "GET", "/api/devices?refresh=1", "", "vpn devices", "VPN devices", "Устройства VPN"),
+		a("incident-collect", "probes", "POST", "/api/incident/collect", `{"hours":1}`, "incident collect", "Incident pack", "Пакет инцидента"),
 	}
 }
 

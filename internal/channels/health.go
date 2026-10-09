@@ -32,6 +32,7 @@ type Report struct {
 	TS                         time.Time       `json:"ts"`
 	Secondaries                []SecondaryPath `json:"secondaries"`
 	MismatchLocal30m           int             `json:"mismatch_local_30m"` // primary journal flow mismatch
+	Path                       []PathE2E       `json:"path_e2e,omitempty"`
 	RealityInvalidFromSec15m   int             `json:"reality_invalid_from_secondary_15m"`
 	RealityInvalidTotal15m     int             `json:"reality_invalid_total_15m"`
 	Notes                      []string        `json:"notes,omitempty"`
@@ -71,6 +72,7 @@ func Collect() Report {
 		rep.Secondaries = append(rep.Secondaries, sp)
 	}
 	_ = secIPs
+	rep.Path = CollectPathE2E()
 	return rep
 }
 
@@ -136,5 +138,6 @@ func FormatText(r Report) string {
 		b.WriteString(fmt.Sprintf("  %s ip=%s online=%v hb_age=%ds sb=%v uplink=%v tcp443=%v (%.0fms) mismatch30m=%d\n",
 			s.Name, s.PublicIP, s.Online, s.HeartbeatAgeSec, s.SingBoxOK, s.UplinkOK, s.TCP443OK, s.TCP443ms, s.Mismatch30m))
 	}
+	b.WriteString(FormatPathE2E(r.Path))
 	return b.String()
 }

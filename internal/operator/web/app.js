@@ -673,6 +673,9 @@ const BTN = {
     ['probes-cfg','Probes config','GET','/api/probes/config'],
     ['probes-uptime','Uptime','GET','/api/probes/uptime'],
     ['audit','Audit','GET','/api/audit'],
+    ['devices','VPN devices','GET','/api/devices?refresh=1'],
+    ['incident','Incident pack','POST','/api/incident/collect','{"hours":1}'],
+    ['presets','Policy presets','GET','/api/policy/presets'],
   ],
 };
 

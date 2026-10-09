@@ -43,6 +43,9 @@ func buildAPIMux() http.Handler {
 	registerCleanupAPI(mux)
 	registerTGAlertsAPI(mux)
 	registerPolicyAPI(mux)
+	registerDevicesAPI(mux)
+	registerIncidentAPI(mux)
+	registerOnboardAPI(mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"ok": true, "service": "netductor", "version": ndver.Release, "time": time.Now().UTC().Format(time.RFC3339)})

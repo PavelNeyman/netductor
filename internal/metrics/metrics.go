@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/channels"
+	"github.com/PavelNeyman/netductor/internal/devices"
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/update"
@@ -63,6 +65,17 @@ func Collect() map[string]any {
 			out["local_release_age_sec"] = int(time.Since(fi.ModTime()).Seconds())
 		}
 	}
+	// path + devices (lightweight; full collect does journal)
+	ch := channels.Collect()
+	pathOK := 0
+	for _, p := range ch.Path {
+		if p.PathOK {
+			pathOK++
+		}
+	}
+	out["path_e2e_ok"] = pathOK
+	out["path_e2e_total"] = len(ch.Path)
+	out["vpn_devices"] = len(devices.List())
 	return out
 }
 
