@@ -2,46 +2,43 @@
 
 # Открытые пункты
 
-План: [ARCHITECTURE-PLAN](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md)
+План: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
 ## Планы (документы)
 
-- [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0 сделано** (каталог + поля + API/CLI); P1 enforcement + P3 UI открыты
-- [x] [HOST-AUDIT](HOST-AUDIT.md) — one-shot bundle + residual packages/paths/apt (0.9.197–0.9.198); live primary+secondary CLEAN 2026-10-03
-- [ ] Расширить denylist host-audit (RMM/otel/avahi) — синхрон script ↔ Go
-- [ ] Статус firewall во всех UI + алерты
-- [ ] Baseline snapshot в конце install
+- [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0–P4** поверхность политики; dual-node smoke — на операторе
+- [x] [HOST-AUDIT](HOST-AUDIT.md) — one-shot + residual (0.9.197–0.9.198); live CLEAN 2026-10-03
+- [x] Denylist host-audit (RMM/otel/avahi + timeweb-zabbix) — script ↔ Go (0.9.198)
+- [x] Firewall status во всех UI + алерты (0.9.259)
+- [x] Baseline snapshot install + doctor auto-diff (0.9.259–0.9.260)
 
+## Закрыто (ядро)
 
-## Закрыто
+- [x] Architecture freeze
+- [x] Recover automation + live drill
+- [x] Доки EN/RU
+- [x] Updates (node/TG/Web/TUI) + secondary pre-backup wait
+- [x] TG menu categories (0.9.288–289) — [PLAN-TG-MENU.md](PLAN-TG-MENU.md)
+- [x] Site rooms (0.9.305) — [PLAN-SITE-ROOMS.md](PLAN-SITE-ROOMS.md)
+- [x] NVR UI + doctor + retention alerts (код; e2e железо отдельно)
+- [x] Channel health + export логов 1h + ротация (0.9.275–0.9.276)
+- [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283)
+- [x] Channel face vs uplink alerts (0.9.284)
+- [x] Private GH runbook — [GH-PRIVATE-SETUP.md](GH-PRIVATE-SETUP.md)
+- [x] Workflow resolve только `.github/workflows/<Name>.yml` (0.9.307–0.9.308); `ci/` убран
+- [x] Mac queue + TG/CLI (0.9.307); op `project build` (0.9.309)
 
+## У владельца / лаб
 
-## Закрыто недавно (код 0.9.164–172)
+- [ ] Edge stock-OpenWrt **lab e2e** (код hybrid готов) — [OPENWRT-LAB.md](OPENWRT-LAB.md)
+- [ ] NVR hardware e2e (C200 record/live/clip) — [PLAN-NVR-IMPLEMENTATION.md](PLAN-NVR-IMPLEMENTATION.md)
+- [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
+- [ ] Optional: Homebrew Formula SHA automation — [BREW.md](BREW.md)
+- [ ] Internal releases «later»: auto-build on mirror-fetch, metrics `local_release_latest` — [PLAN-INTERNAL-RELEASES.md](PLAN-INTERNAL-RELEASES.md)
 
-- [x] Edge template VPN UI + policy hardening
-- [x] Удалена legacy VPS admin UI
-- [x] Unit-тесты + уникальные ID opcatalog
-- [ ] Force-update живых нод до **≥0.9.181** при отставании
-- [ ] Dual-node smoke после обновления
-- [x] Freeze архитектуры
-- [x] Recover 0.9.70–0.9.75
-- [x] Live recover drill
-- [x] Доки EN/RU (42)
+## Channel / CI (справка)
 
-## У владельца
-
-- [ ] Force-update VPS до **0.9.181** (если ещё 111–115) — [RUNBOOK-FORCE-UPDATE.md](RUNBOOK-FORCE-UPDATE.md)
-- [ ] Smoke после обновления
-
-- [x] **Показать пароль** (Web + TUI Ctrl+P, 0.9.103) в Web/TUI (одноразовые пароли деплоя) — [WEB-UI-FIXES.md](WEB-UI-FIXES.md). Только план.
-- [x] Web Updates; полное упрощение Day-2 отложено — много вкладок/кнопок; [WEB-UI-FIXES.md](WEB-UI-FIXES.md) § Day-2. Только план.
-- [x] Dual-node smoke
-- [ ] Hardware e2e
-- [ ] CI SHA Formula (опционально)
+- [x] Alert batch adaptive (0.9.274)
+- [x] 10 реп: default `main`, Actions off, entry yaml по имени репы
 
 Ревью: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md).
-
-## Web UI / Fleet (код отложен)
-
-См. [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — подписи, галочка Lampac, CF proxy, TOFU secondary на Mac. **Не реализовывать, пока не приоритет.**
-- ~~OpenWrt opkg feed / ipk for agent~~ — **rejected** (0.9.155): first-boot binary+SCP; day-2 stack/agent_update. Revisit only if fleet needs offline opkg without primary.
