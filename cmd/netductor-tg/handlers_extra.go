@@ -322,8 +322,12 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:keep">N</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="success" data="m:backup:verify">✔ Verify</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:verify-install">⏱ Verify timer</tg-button>`)
+	ver, vert := "✔ Verify", "⏱ Verify timer"
+	if ru {
+		ver, vert = "✔ Проверить", "⏱ Таймер verify"
+	}
+	b.WriteString(`<tg-button type="callback_data" style="success" data="m:backup:verify">` + ver + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:verify-install">` + vert + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},

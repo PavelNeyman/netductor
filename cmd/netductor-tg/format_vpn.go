@@ -128,11 +128,14 @@ func formatUsersListHTML() string {
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:vpn_add">➕</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
+	pres, can, dev := "📋 Presets", "🐦 Canary", "📱 Devices"
+	if getLang() != "en" {
+		pres, can, dev = "📋 Пресеты", "🐦 Canary", "📱 Устройства"
+	}
 	b.WriteString(`<tg-button-row align="left">` +
-		`<tg-button type="callback_data" data="m:presets">📋 Presets</tg-button>` +
-		`<tg-button type="callback_data" data="m:canary">🐦 Canary</tg-button>` +
-		`<tg-button type="callback_data" data="m:devices">📱 Devices</tg-button>` +
-		`<tg-button type="callback_data" data="m:incident">📦 Incident</tg-button>` +
+		`<tg-button type="callback_data" data="m:presets">` + pres + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:canary">` + can + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:devices">` + dev + `</tg-button>` +
 		`</tg-button-row>`)
 	return b.String()
 }
@@ -186,8 +189,14 @@ func formatUserHubHTML(name string) string {
 	polLabel := T("pol_btn")
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:policy:` + name + `">` + polLabel + `</tg-button>`)
 	canaryLabel := "🐦 canary +"
+	if getLang() != "en" {
+		canaryLabel = "🐦 canary +"
+	}
 	if vpn.IsCanary(name) {
 		canaryLabel = "🐦 canary −"
+		if getLang() != "en" {
+			canaryLabel = "🐦 canary −"
+		}
 	}
 	b.WriteString(`<tg-button type="callback_data" data="u:canary:` + name + `">` + canaryLabel + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)

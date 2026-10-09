@@ -1,16 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
-	"os/exec"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/PavelNeyman/netductor/internal/devices"
+	"github.com/PavelNeyman/netductor/internal/incident"
 	"github.com/PavelNeyman/netductor/internal/onboard"
-	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
 func registerDevicesAPI(mux *http.ServeMux) {
@@ -44,17 +40,12 @@ func registerIncidentAPI(mux *http.ServeMux) {
 		if v, ok := body["hours"].(float64); ok && v >= 1 && v <= 24 {
 			hours = int(v)
 		}
-		outDir := filepath.Join(paths.StateDir(), "incidents", time.Now().UTC().Format("20060102T150405Z"))
-		_ = exec.Command("mkdir", "-p", outDir).Run()
-			since := fmt.Sprintf("%d hours ago", hours)
-		_ = exec.Command("bash", "-c",
-			"journalctl -u sing-box -u netductor-api -u netductor-telegram-bot --since '"+since+"' --no-pager > '"+outDir+"/journal.txt' 2>&1; "+
-				"/usr/local/bin/netductor channel status > '"+outDir+"/channel.txt' 2>&1; "+
-				"/usr/local/bin/netductor doctor > '"+outDir+"/doctor.txt' 2>&1; "+
-				"ss -tulnp > '"+outDir+"/ss.txt' 2>&1").Run()
-		tar := outDir + ".tar.gz"
-		_ = exec.Command("tar", "-C", filepath.Dir(outDir), "-czf", tar, filepath.Base(outDir)).Run()
-		writeJSON(w, 200, map[string]any{"ok": true, "dir": outDir, "archive": tar})
+		dir, arch, err := incident.Collect(hours)
+		if err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error(), "dir": dir})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "dir": dir, "archive": arch})
 	})
 }
 

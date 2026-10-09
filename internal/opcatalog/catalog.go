@@ -170,6 +170,9 @@ func All() []Action {
 		a("policy-presets", "vpn", "GET", "/api/policy/presets", "", "policy presets", "Policy presets", "Пресеты политики"),
 		a("policy-preset-add", "vpn", "POST", "/api/policy/presets", `{"title":"Family","allow_internet":true,"services_mode":"list","services":["lampac"]}`, "policy preset add", "Create policy preset", "Создать пресет"),
 		a("devices", "vpn", "GET", "/api/devices?refresh=1", "", "vpn devices", "VPN devices", "Устройства VPN"),
+		a("canary-get", "vpn", "GET", "/api/canary", "", "canary status", "Canary users", "Canary пользователи"),
+		a("canary-toggle", "vpn", "POST", "/api/canary", `{"toggle":"Pavel"}`, "canary toggle", "Toggle canary user", "Toggle canary"),
+		a("smoke-dual", "probes", "GET", "/api/smoke?mode=dual", "", "smoke dual", "Smoke dual-node", "Smoke dual-node"),
 		a("incident-collect", "probes", "POST", "/api/incident/collect", `{"hours":1}`, "incident collect", "Incident pack", "Пакет инцидента"),
 	}
 }

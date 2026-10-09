@@ -187,43 +187,47 @@ func toolsDay2Groups() []opcatalog.Group {
 }
 
 func formatToolsFromGroups() string {
+	// PLAN-TG-MENU: Tools is day-2 only — no Status/Users/Fleet clones.
 	lang := catalogLang()
+	nl := "\n"
 	var b strings.Builder
 	if lang == "ru" {
-		b.WriteString("🛠 <b>Tools</b>\n<i>Day-2: Edge, Media, Data, Advanced — без Status/Users/Fleet.</i>\n")
+		b.WriteString("🧰 <b>Инструменты</b>" + nl)
+		b.WriteString("<i>DNS, бэкап, edge, медиа, probes — без дублей главных хабов</i>" + nl)
 	} else {
-		b.WriteString("🛠 <b>Tools</b>\n<i>Day-2: Edge, Media, Data, Advanced — no Status/Users/Fleet.</i>\n")
+		b.WriteString("🧰 <b>Tools</b>" + nl)
+		b.WriteString("<i>DNS, backup, edge, media, probes — no top-hub duplicates</i>" + nl)
 	}
 	b.WriteString(`<tg-button-row align="left">`)
-	groups := toolsDay2Groups()
-	for i, g := range groups {
+	skip := map[string]bool{"home": true, "users": true, "fleet": true}
+	groups := opcatalog.Groups()
+	shown := 0
+	for _, g := range groups {
+		if skip[g.ID] {
+			continue
+		}
 		lab := g.LabelEN
 		if lang == "ru" {
 			lab = g.LabelRU
 		}
-		b.WriteString(`<tg-button type="callback_data" data="m:cat:` + g.ID + `">` + lab + `</tg-button>`)
-		if (i+1)%4 == 0 && i+1 < len(groups) {
+		if shown > 0 && shown%4 == 0 {
 			b.WriteString(`</tg-button-row><tg-button-row align="left">`)
 		}
+		b.WriteString(`<tg-button type="callback_data" data="m:cat:` + g.ID + `">` + lab + `</tg-button>`)
+		shown++
 	}
 	b.WriteString(`</tg-button-row>`)
-	gitLab := "📦 Git / Projects"
+	gitLab, upd, logsLab := "📦 Git / Projects", "🔄 Updates", "📋 Logs"
 	if lang == "ru" {
-		gitLab = "📦 Git / Проекты"
+		gitLab, upd, logsLab = "📦 Git / Проекты", "🔄 Обновления", "📋 Логи"
 	}
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:git">` + gitLab + `</tg-button></tg-button-row>`)
-	upd := "🔄 Updates"
-	logsLab := "📋 Logs"
-	if lang == "ru" {
-		upd = "🔄 Обновления"
-		logsLab = "📋 Логи"
-	}
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:versions">` + upd + `</tg-button>` +
 		`<tg-button type="callback_data" style="primary" data="m:logs">` + logsLab + `</tg-button></tg-button-row>`)
 	return b.String()
 }
 
-// handleCatGroup maps opcatalog.Groups() IDs to real TG screens (not unknown → main menu).
+
 func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 	ru := getLang() != "en"
 	back := map[string]any{"inline_keyboard": [][]map[string]any{

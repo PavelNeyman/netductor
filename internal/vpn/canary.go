@@ -83,3 +83,26 @@ func ToggleCanary(name string) (bool, error) {
 	}
 	return !found, nil
 }
+
+
+// EnsureCanarySeed writes canary-users.json once if missing, with non-system VPN users.
+func EnsureCanarySeed() error {
+	if _, err := os.Stat(canaryPath()); err == nil {
+		return nil
+	}
+	users, err := ListNative()
+	if err != nil {
+		return err
+	}
+	var names []string
+	for _, u := range users {
+		if u.Name == "" || u.Name == "relay-uplink" || IsEdgeUser(u.Name) {
+			continue
+		}
+		names = append(names, u.Name)
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	return SaveCanaryUsers(names)
+}

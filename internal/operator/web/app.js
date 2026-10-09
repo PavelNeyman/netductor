@@ -676,6 +676,8 @@ const BTN = {
     ['probes-uptime','Uptime','GET','/api/probes/uptime'],
     ['audit','Audit','GET','/api/audit'],
     ['devices','VPN devices','GET','/api/devices?refresh=1'],
+    ['canary','Canary','GET','/api/canary'],
+    ['smoke-dual','Smoke dual','GET','/api/smoke?mode=dual'],
     ['incident','Incident pack','POST','/api/incident/collect','{"hours":1}'],
     ['presets','Policy presets','GET','/api/policy/presets'],
   ],

@@ -17,7 +17,7 @@ func Groups() []Group {
 	all := allSurfaces()
 	return []Group{
 		{ID: "home", LabelEN: "Home", LabelRU: "Главное", Sections: []string{"overview", "updates"}, Surfaces: all},
-		{ID: "users", LabelEN: "Users", LabelRU: "Users", Sections: []string{"vpn"}, Surfaces: all},
+		{ID: "users", LabelEN: "Users", LabelRU: "Пользователи", Sections: []string{"vpn"}, Surfaces: all},
 		{ID: "fleet", LabelEN: "Fleet", LabelRU: "Флот", Sections: []string{"nodes"}, Surfaces: all},
 		{ID: "edge", LabelEN: "Edge", LabelRU: "Edge", Sections: []string{"edge"}, Surfaces: all},
 		{ID: "media", LabelEN: "Media", LabelRU: "Медиа", Sections: []string{"nvr"}, Surfaces: all},

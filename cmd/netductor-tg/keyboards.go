@@ -117,8 +117,13 @@ func statusKeyboard() map[string]any {
 	if ru {
 		ch, ref = "📶 Канал", "🔄 Обновить"
 	}
+	inc := "📦 Incident"
+	if ru {
+		inc = "📦 Инцидент"
+	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(ch, "m:channel", ""), btn(ref, "m:status", "")},
+		{btn(inc, "m:incident", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }

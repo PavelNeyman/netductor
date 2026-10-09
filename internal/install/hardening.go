@@ -10,6 +10,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 func InstallHardening() error {
@@ -49,6 +50,10 @@ func InstallHardening() error {
 	}
 	fmt.Fprintf(os.Stderr, "hardening: firewall + mTLS :8789 + ssh key-only Port %d + fail2ban + watchdog\n", hardening.SSHPort())
 	_ = SnapshotHostBaseline()
+	if err := vpn.EnsureCanarySeed(); err != nil {
+		fmt.Fprintf(os.Stderr, "canary seed: %v\n", err)
+	}
+	_ = InstallBackupVerifyTimer()
 	return nil
 }
 
@@ -86,6 +91,9 @@ func EnsureHostBaseline(role string) error {
 	}
 	if err := SnapshotHostBaseline(); err != nil {
 		fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
+	}
+		if role == "primary" {
+		_ = vpn.EnsureCanarySeed()
 	}
 	return nil
 }

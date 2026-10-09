@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/devices"
+	"github.com/PavelNeyman/netductor/internal/incident"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -281,15 +282,37 @@ func handleDevicesCB(token string, chat int64, msgID int, data string) bool {
 }
 
 func handleIncidentCB(token string, chat int64, msgID int, data string) bool {
-	if data != "m:incident" {
+	if data != "m:incident" && data != "m:incident:1h" {
 		return false
 	}
-	out := runND("channel", "status")
-	msg := "📦 <b>Incident snapshot</b>\n<pre>" + esc(trimRun(out, 2500)) + "</pre>\n"
-	msg += "Full pack: API <code>/api/incident/collect</code>\n"
-	reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("Channel", "m:channel", ""), btn(T("main_menu"), "m:menu", "")},
+	ru := getLang() != "en"
+	wait := "📦 Collecting incident pack…"
+	if ru {
+		wait = "📦 Собираю пакет инцидента…"
+	}
+	reply(token, chat, msgID, wait, map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("main_menu"), "m:menu", "")},
 	}})
+	dir, arch, err := incident.Collect(1)
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("📶", "m:channel", ""), btn("🔄", "m:incident", ""), btn(T("main_menu"), "m:menu", "")},
+	}}
+	if err != nil {
+		msg := "❌ " + err.Error()
+		if dir != "" {
+			msg += "\n<code>" + esc(dir) + "</code>"
+		}
+		reply(token, chat, msgID, msg, kb)
+		return true
+	}
+	cap := "Incident pack 1h"
+	if ru {
+		cap = "Пакет инцидента 1ч"
+	}
+	if err := sendDocumentFile(token, chat, arch, cap+"\n"+arch, kb); err != nil {
+		reply(token, chat, msgID, "✅ <code>"+esc(arch)+"</code>\n⚠️ sendDocument: "+esc(err.Error()), kb)
+		return true
+	}
 	return true
 }
 
