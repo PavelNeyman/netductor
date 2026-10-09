@@ -12,14 +12,13 @@ func TestResolveProjectWorkflow(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	must := func(dir, name, body string) {
-		_ = os.MkdirAll(dir, 0o755)
+	must := func(name, body string) {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	must(dir, "ci.yml", "name: ci\njobs:\n  t:\n    steps:\n      - run: echo x\n")
-	must(dir, "larvatus.yml", "name: larvatus\njobs:\n  t:\n    steps:\n      - run: echo y\n")
+	must("ci.yml", "name: ci\njobs:\n  t:\n    steps:\n      - run: echo x\n")
+	must("larvatus.yml", "name: larvatus\njobs:\n  t:\n    steps:\n      - run: echo y\n")
 	path, err := ResolveProjectWorkflow(root, "larvatus")
 	if err != nil {
 		t.Fatal(err)
@@ -30,11 +29,11 @@ func TestResolveProjectWorkflow(t *testing.T) {
 	if _, err := ResolveProjectWorkflow(root, "missing"); err == nil {
 		t.Fatal("expected error")
 	}
-	// ci fallback
+	// ci/ must NOT resolve
 	root2 := t.TempDir()
-	must(filepath.Join(root2, "ci"), "paenn.yml", "name: paenn\njobs:\n  t:\n    steps:\n      - run: echo z\n")
-	path, err = ResolveProjectWorkflow(root2, "paenn")
-	if err != nil || filepath.Base(path) != "paenn.yml" {
-		t.Fatalf("ci fallback %v %s", err, path)
+	_ = os.MkdirAll(filepath.Join(root2, "ci"), 0o755)
+	_ = os.WriteFile(filepath.Join(root2, "ci", "paenn.yml"), []byte("name: paenn\njobs:\n  t:\n    steps:\n      - run: echo z\n"), 0o644)
+	if _, err := ResolveProjectWorkflow(root2, "paenn"); err == nil {
+		t.Fatal("ci/ fallback must not resolve")
 	}
 }

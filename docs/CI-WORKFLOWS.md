@@ -1,17 +1,4 @@
 
-## GitHub PAT and workflow files
-
-Writing under **`.github/workflows/`** requires a token with the **`workflow`** scope.
-Classic `repo`-only PAT is rejected by GitHub for those paths.
-
-Until tokens include `workflow`:
-
-| Path | Works without `workflow` scope |
-|--|--|
-| `ci/<Name>.yml` | **yes** — netductor resolve accepts this fallback |
-| `.github/workflows/<Name>.yml` | preferred when you can push it |
-
-Resolve order: `.github/workflows/<Name>.yml` → `ci/<Name>.yml`.
 
 # CI workflows (netductor VPS)
 
@@ -21,8 +8,8 @@ Resolve order: `.github/workflows/<Name>.yml` → `ci/<Name>.yml`.
 |--|--|
 | Directory | **`.github/workflows/`** only |
 | File + `name:` | **= project name = GitHub repo name** (`larvatus.yml`, `name: larvatus`) |
-| Resolve | exact `.github/workflows/<Name>.yml` or `.yaml` — **no** guessing first alphabetical file |
-| `ci/` folder | **not used** (removed) |
+| Resolve | exact `.github/workflows/<Name>.yml` or `.yaml` only — **no** `ci/`, **no** first-alphabetical |
+| `ci/` folder | **removed** — not resolved |
 | `git project add` | Name = repo name; default workflow path set automatically |
 | host | `vps` (default) builds on primary; `mac` → **queue + TG/CLI**, no compile on VPS |
 | Windows | `GOOS=windows GOARCH=amd64` inside linux container job (Go); no MSI/WiX on VPS |

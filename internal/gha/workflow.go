@@ -131,27 +131,22 @@ func Run(w *Workflow, workDir string, extraEnv []string) (log string, err error)
 	return b.String(), nil
 }
 
-// ResolveProjectWorkflow returns the entry workflow for a project name (= repo name).
-// Prefer .github/workflows/<Name>.yml|yaml; fallback ci/<Name>.yml|yaml
-// (ci/ is allowed until PAT has "workflow" scope to write under .github/workflows).
+// ResolveProjectWorkflow returns .github/workflows/<projectName>.yml|yaml only.
+// Project name must match the repo name (convention). No ci/ fallback.
 func ResolveProjectWorkflow(root, projectName string) (string, error) {
 	name := strings.TrimSpace(projectName)
 	if name == "" {
 		return "", fmt.Errorf("project name required for workflow resolve")
 	}
 	name = filepath.Base(name)
-	candidates := []string{
-		filepath.Join(root, ".github", "workflows", name+".yml"),
-		filepath.Join(root, ".github", "workflows", name+".yaml"),
-		filepath.Join(root, "ci", name+".yml"),
-		filepath.Join(root, "ci", name+".yaml"),
-	}
-	for _, cand := range candidates {
+	dir := filepath.Join(root, ".github", "workflows")
+	for _, ext := range []string{".yml", ".yaml"} {
+		cand := filepath.Join(dir, name+ext)
 		if st, err := os.Stat(cand); err == nil && !st.IsDir() {
 			return cand, nil
 		}
 	}
-	return "", fmt.Errorf("workflow not found: .github/workflows/%s.yml or ci/%s.yml", name, name)
+	return "", fmt.Errorf("workflow not found: .github/workflows/%s.yml (or .yaml)", name)
 }
 
 // FindDefault is deprecated for product builds: prefer ResolveProjectWorkflow.
