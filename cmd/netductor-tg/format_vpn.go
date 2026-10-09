@@ -128,6 +128,11 @@ func formatUsersListHTML() string {
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:vpn_add">➕</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" data="m:presets">📋 Presets</tg-button>` +
+		`<tg-button type="callback_data" data="m:devices">📱 Devices</tg-button>` +
+		`<tg-button type="callback_data" data="m:incident">📦 Incident</tg-button>` +
+		`</tg-button-row>`)
 	return b.String()
 }
 

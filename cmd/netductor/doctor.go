@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/PavelNeyman/netductor/internal/upstream"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"os"
@@ -478,6 +479,17 @@ func runDoctorNative() int {
 					doctorPrintf("INFO local releases empty (%s)\n", ndupdate.LocalReleasesDir())
 				} else {
 					doctorPrintf("OK   local releases %d (latest %s)\n", len(tags), tags[0])
+					for _, line := range upstream.Check() {
+						if strings.HasPrefix(line, "OK ") {
+							doctorPrintln(line)
+							ok++
+						} else if strings.HasPrefix(line, "WARN ") {
+							doctorPrintln(line)
+							warn++
+						} else {
+							doctorPrintln(line)
+						}
+					}
 					if st := ndupdate.ReadReleaseBuildStatus(); st.State != "" {
 						doctorPrintf("INFO release build status=%s tag=%s at=%s\n", st.State, st.Tag, st.At)
 					}

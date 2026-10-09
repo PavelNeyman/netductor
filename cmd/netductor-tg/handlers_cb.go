@@ -69,6 +69,15 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if handlePresetsCB(token, chat, msgID, data) {
+		return
+	}
+	if handleDevicesCB(token, chat, msgID, data) {
+		return
+	}
+	if handleIncidentCB(token, chat, msgID, data) {
+		return
+	}
 	if data == "m:mtls" || strings.HasPrefix(data, "m:mtls:") {
 		handleMtlsCB(token, chat, msgID, data)
 		return

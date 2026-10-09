@@ -7,6 +7,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/sites"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"strconv"
 	"strings"
@@ -20,6 +21,21 @@ func handleMessage(token string, m *message, admin int64) {
 	rememberFromMessage(m)
 	text := strings.TrimSpace(m.Text)
 
+	if handlePresetNameText(token, chat, text) {
+		return
+	}
+	if chatState[chat] == "wait_guest_revoke_mac" {
+		id := chatExtra[chat]
+		mac := strings.TrimSpace(text)
+		setState(chat, "", "")
+		if mac == "" {
+			sendHTML(token, chat, T("cancelled"), mainKeyboard())
+			return
+		}
+		cmdID := edge.EnqueueCmd(id, "guest_revoke", mac)
+		sendHTML(token, chat, "✅ revoke queued <code>"+esc(cmdID)+"</code> mac=<code>"+esc(mac)+"</code>", navKeyboard("m:edgeguest:dev:"+id, "Guest"))
+		return
+	}
 	if handleNVRMessage(token, chat, text) {
 		return
 	}

@@ -12,11 +12,13 @@ var reMismatchIP = regexp.MustCompile(`from ([0-9.]+):`)
 
 // MismatchStats is flow-mismatch summary from local sing-box journal.
 type MismatchStats struct {
-	WindowMin int            `json:"window_min"`
-	Total     int            `json:"total"`
-	ByIP      map[string]int `json:"by_ip"`
-	Top       []MismatchIP   `json:"top"`
-	Note      string         `json:"note,omitempty"`
+	WindowMin   int            `json:"window_min"`
+	Total       int            `json:"total"`
+	CanaryTotal int            `json:"canary_total"` // lines mentioning canary user names
+	OtherTotal  int            `json:"other_total"`
+	ByIP        map[string]int `json:"by_ip"`
+	Top         []MismatchIP   `json:"top"`
+	Note        string         `json:"note,omitempty"`
 }
 
 // MismatchIP one source address.
@@ -52,6 +54,18 @@ func CollectMismatch(windowMin int) MismatchStats {
 		} else if strings.Contains(line, "relay-in") {
 			st.Note = "secondary inbound"
 		}
+		canaryHit := false
+		for _, u := range LoadCanaryUsers() {
+			if u != "" && strings.Contains(line, "["+u+"]") {
+				canaryHit = true
+				break
+			}
+		}
+		if canaryHit {
+			st.CanaryTotal++
+		} else {
+			st.OtherTotal++
+		}
 		m := reMismatchIP.FindStringSubmatch(line)
 		if len(m) > 1 {
 			st.ByIP[m[1]]++
@@ -82,7 +96,7 @@ func FormatMismatchText(st MismatchStats) string {
 		return fmt.Sprintf("flow mismatch (last %dm): 0", st.WindowMin)
 	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("flow mismatch (last %dm): %d", st.WindowMin, st.Total))
+	b.WriteString(fmt.Sprintf("flow mismatch (last %dm): %d (canary=%d other=%d)", st.WindowMin, st.Total, st.CanaryTotal, st.OtherTotal))
 	for _, t := range st.Top {
 		b.WriteString(fmt.Sprintf("%s  %s × %d", nl, t.IP, t.Count))
 	}

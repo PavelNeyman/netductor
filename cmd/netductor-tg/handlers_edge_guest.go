@@ -75,6 +75,12 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 		b.WriteString(`<tg-button-row align="left">`)
 		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:edgeguest:st:%s">%s</tg-button>`, id, stLabel))
 		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="m:edgeguest:g:%s">%s</tg-button>`, id, grLabel))
+		rvLabel, factsLabel := "🚫 Revoke MAC", "📋 Facts"
+		if ru {
+			rvLabel, factsLabel = "🚫 Отозвать MAC", "📋 Facts"
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="m:edgeguest:rvask:%s">%s</tg-button>`, id, rvLabel))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="m:edgeguest:facts:%s">%s</tg-button>`, id, factsLabel))
 		b.WriteString(`</tg-button-row>`)
 		reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("⬅️ Guest Wi‑Fi", "m:edgeguest", "primary"), btn(T("main_menu"), "m:menu", "")},

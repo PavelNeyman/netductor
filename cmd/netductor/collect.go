@@ -333,8 +333,17 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	if enabled("mismatch_spike") {
 		st := vpn.CollectMismatch(30)
 		st10 := vpn.CollectMismatch(10)
-		if st10.Total >= 15 || st.Total >= 25 {
-			msg := fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b>/10m, <b>%d</b>/30m\n<code>%s</code>\n<i>Server expects vision; client sent empty flow</i>", st10.Total, st.Total, vpn.FormatMismatchText(st10))
+		// Prefer canary users when configured; otherwise total thresholds.
+		canary := len(vpn.LoadCanaryUsers()) > 0
+		spike := false
+		if canary {
+			spike = st10.CanaryTotal >= 5 || st.CanaryTotal >= 10
+		} else {
+			spike = st10.Total >= 15 || st.Total >= 25
+		}
+		if spike {
+			msg := fmt.Sprintf("⚠️ Flow mismatch spike: <b>%d</b>/10m (canary <b>%d</b>), <b>%d</b>/30m (canary <b>%d</b>)\n<code>%s</code>\n<i>Server expects vision; client sent empty flow</i>",
+				st10.Total, st10.CanaryTotal, st.Total, st.CanaryTotal, vpn.FormatMismatchText(st10))
 			if notify.AlertOnce("mismatch:core", msg) {
 				attachLogs("mismatch:core", "📎 flow mismatch logs (last 1h)")
 			}
