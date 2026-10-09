@@ -15,7 +15,7 @@ import (
 )
 
 // Project is a registered upstream (usually GitHub) mirrored into bare git.
-// Build order: Workflow path in repo → first .github/workflows/*.yml → shell Pipeline → ci detect+test.
+// Build order: host=mac → queue; explicit Workflow → .github/workflows/<Name>.yml → pipeline → detect.
 type Project struct {
 	Name         string `json:"name"`
 	Upstream     string `json:"upstream"` // https://github.com/org/repo.git
@@ -90,6 +90,15 @@ func AddProject(p Project, fetch bool) error {
 	}
 	for i := range list {
 		if list[i].Name == p.Name {
+			if strings.TrimSpace(p.Workflow) == "" {
+				p.Workflow = ".github/workflows/" + p.Name + ".yml"
+			}
+			if strings.TrimSpace(p.Host) == "" {
+				p.Host = list[i].Host
+				if p.Host == "" {
+					p.Host = "vps"
+				}
+			}
 			list[i] = p
 			list[i].CreatedAt = list[i].CreatedAt
 			if list[i].CreatedAt == "" {
@@ -101,6 +110,12 @@ func AddProject(p Project, fetch bool) error {
 			_, err := MirrorEnsure(p.Name, p.Upstream)
 			return err
 		}
+	}
+	if strings.TrimSpace(p.Workflow) == "" {
+		p.Workflow = ".github/workflows/" + p.Name + ".yml"
+	}
+	if strings.TrimSpace(p.Host) == "" {
+		p.Host = "vps"
 	}
 	p.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 	list = append(list, p)
@@ -183,7 +198,17 @@ func BuildProject(name, ref string) (string, error) {
 	}
 
 	var log strings.Builder
-	fmt.Fprintf(&log, "project %s ref=%s work=%s\n", p.Name, ref, work)
+	fmt.Fprintf(&log, "project %s ref=%s work=%s host=%s\n", p.Name, ref, work, p.Host)
+
+	// host=mac: never compile on VPS — enqueue + notify operator
+	if isMacHost(p.Host) {
+		job, err := EnqueueMacBuild(p.Name, ref)
+		fmt.Fprintf(&log, "mac-queue id=%s status=%s\ncli: %s\n", job.ID, job.Status, job.CLI)
+		if err != nil {
+			return log.String(), err
+		}
+		return log.String(), nil
+	}
 
 	// 1) explicit workflow
 	if wf := strings.TrimSpace(p.Workflow); wf != "" {
@@ -205,8 +230,8 @@ func BuildProject(name, ref string) (string, error) {
 		return log.String(), nil
 	}
 
-	// 2) first .github/workflows/*.yml
-	if path, ferr := gha.FindDefault(work); ferr == nil {
+	// 2) exact .github/workflows/<Name>.yml (project name = repo name)
+	if path, ferr := gha.ResolveProjectWorkflow(work, p.Name); ferr == nil {
 		data, rerr := os.ReadFile(path)
 		if rerr == nil {
 			if w, perr := gha.Parse(data); perr == nil {
@@ -221,6 +246,8 @@ func BuildProject(name, ref string) (string, error) {
 				return log.String(), nil
 			}
 		}
+	} else {
+		fmt.Fprintf(&log, "workflow resolve: %v\n", ferr)
 	}
 
 	// 3) shell pipeline

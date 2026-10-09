@@ -1,3 +1,49 @@
+
+## GitHub PAT and workflow files
+
+Writing under **`.github/workflows/`** requires a token with the **`workflow`** scope.
+Classic `repo`-only PAT is rejected by GitHub for those paths.
+
+Until tokens include `workflow`:
+
+| Path | Works without `workflow` scope |
+|--|--|
+| `ci/<Name>.yml` | **yes** — netductor resolve accepts this fallback |
+| `.github/workflows/<Name>.yml` | preferred when you can push it |
+
+Resolve order: `.github/workflows/<Name>.yml` → `ci/<Name>.yml`.
+
+# CI workflows (netductor VPS)
+
+## Resolve path (locked)
+
+| Rule | |
+|--|--|
+| Directory | **`.github/workflows/`** only |
+| File + `name:` | **= project name = GitHub repo name** (`larvatus.yml`, `name: larvatus`) |
+| Resolve | exact `.github/workflows/<Name>.yml` or `.yaml` — **no** guessing first alphabetical file |
+| `ci/` folder | **not used** (removed) |
+| `git project add` | Name = repo name; default workflow path set automatically |
+| host | `vps` (default) builds on primary; `mac` → **queue + TG/CLI**, no compile on VPS |
+| Windows | `GOOS=windows GOARCH=amd64` inside linux container job (Go); no MSI/WiX on VPS |
+
+Mac queue CLI:
+
+```bash
+netductor git project build niimbot-ios v1.2.3   # enqueues if host=mac
+netductor git project queue list
+netductor git project queue done <id>
+```
+
+Operator Mac (from TG notification):
+
+```bash
+netductor-op project build niimbot-ios --ref v1.2.3
+# then import artifacts to VPS (release import / scp)
+```
+
+---
+
 # Netductor CI workflows (GHA-compatible subset)
 
 **Audience:** humans and other AI agents adding CI to a repo that will be built on a netductor primary (`netductor git project build` / post-receive / `git workflow`).

@@ -220,7 +220,7 @@ func runGit(args []string) int {
 
 func runGitProject(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|build")
+		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|build|queue")
 		return 2
 	}
 	switch args[0] {
@@ -236,7 +236,7 @@ func runGitProject(args []string) int {
 		return 0
 	case "add":
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: netductor git project add <name> <url|org/repo> [--workflow p] [--pipeline n] [--build-on-fetch]")
+			fmt.Fprintln(os.Stderr, "usage: netductor git project add <name> <url|org/repo> [--workflow p] [--pipeline n] [--host vps|mac] [--build-on-fetch]")
 			return 2
 		}
 		p := gitstore.Project{Name: args[1], Upstream: args[2]}
@@ -254,6 +254,11 @@ func runGitProject(args []string) int {
 				}
 			case "--build-on-fetch":
 				p.BuildOnFetch = true
+			case "--host":
+				if i+1 < len(args) {
+					p.Host = args[i+1]
+					i++
+				}
 			}
 		}
 		if err := gitstore.AddProject(p, true); err != nil {
@@ -301,6 +306,49 @@ func runGitProject(args []string) int {
 			return 1
 		}
 		return 0
+	case "queue":
+		// list | done <id> | cancel <id>
+		sub := "list"
+		if len(args) >= 2 {
+			sub = args[1]
+		}
+		switch sub {
+		case "list", "ls", "":
+			for _, j := range gitstore.ListMacQueue(false) {
+				fmt.Printf("%s	%s	%s	%s	%s\n", j.ID, j.Status, j.Project, j.Ref, j.CLI)
+			}
+			return 0
+		case "pending":
+			for _, j := range gitstore.ListMacQueue(true) {
+				fmt.Printf("%s	%s	%s	%s\n", j.ID, j.Project, j.Ref, j.CLI)
+			}
+			return 0
+		case "done", "complete":
+			if len(args) < 3 {
+				fmt.Fprintln(os.Stderr, "usage: netductor git project queue done <id>")
+				return 2
+			}
+			if err := gitstore.CompleteMacBuild(args[2]); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			fmt.Println("done", args[2])
+			return 0
+		case "cancel":
+			if len(args) < 3 {
+				fmt.Fprintln(os.Stderr, "usage: netductor git project queue cancel <id>")
+				return 2
+			}
+			if err := gitstore.CancelMacBuild(args[2]); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			fmt.Println("cancelled", args[2])
+			return 0
+		default:
+			fmt.Fprintln(os.Stderr, "usage: netductor git project queue list|pending|done|cancel")
+			return 2
+		}
 	default:
 		fmt.Fprintln(os.Stderr, "unknown project subcommand")
 		return 2

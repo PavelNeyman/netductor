@@ -245,4 +245,38 @@ func registerGitAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "log": out})
 	})
 
+	mux.HandleFunc("/api/git/projects/queue", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			pending := r.URL.Query().Get("pending") == "1"
+			writeJSON(w, 200, map[string]any{"ok": true, "jobs": gitstore.ListMacQueue(pending)})
+		case http.MethodPost:
+			var body struct {
+				Action string `json:"action"` // done|cancel
+				ID     string `json:"id"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			var err error
+			switch body.Action {
+			case "done", "complete":
+				err = gitstore.CompleteMacBuild(body.ID)
+			case "cancel":
+				err = gitstore.CancelMacBuild(body.ID)
+			default:
+				writeJSON(w, 400, map[string]any{"ok": false, "error": "action done|cancel"})
+				return
+			}
+			if err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true})
+		default:
+			writeJSON(w, 405, map[string]any{"ok": false, "error": "method"})
+		}
+	})
+
 }

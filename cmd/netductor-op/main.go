@@ -37,6 +37,8 @@ func main() {
 		runSession(os.Args[2:])
 	case "release":
 		os.Exit(runOpRelease(os.Args[2:]))
+	case "project":
+		os.Exit(runProjectBuild(os.Args[2:]))
 	case "update":
 		runOpUpdate(os.Args[2:])
 	default:
