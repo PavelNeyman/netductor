@@ -356,7 +356,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.wizStep = wizStepFields
 		m.screen = screenWizard
 		return m, nil
-	case "hostname", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub", "vpn-rename", "sites-list":
+	case "hostname", "sni-live", "ssh-hosts", "session", "backup-peer", "vpn-sub", "vpn-rename", "sites-list", "rooms-list":
 		m.startActionForm(id)
 		return m, nil
 	default:

@@ -105,6 +105,9 @@ func All() []Action {
 		a("update-gh-token-clear", "updates", "POST", "/api/update/github-token", `{"clear":true}`, "update github-token clear", "Clear GitHub token", "Удалить GitHub token"),
 		a("mtls-certs", "nodes", "GET", "/api/mtls/certs", "", "mtls list", "mTLS certs", "mTLS сертификаты"),
 		a("sites", "nodes", "GET", "/api/sites", "", "—", "Sites", "Сайты"),
+		a("sites-rooms", "nodes", "GET", "/api/sites/rooms?site=", "", "—", "Rooms", "Комнаты"),
+		a("sites-room-add", "nodes", "POST", "/api/sites/rooms", `{"site_id":"home","id":"kitchen","name":"Kitchen","camera_ids":[]}`, "—", "Room upsert", "Комната"),
+		a("sites-room-del", "nodes", "POST", "/api/sites/rooms/delete", `{"site_id":"home","id":"kitchen"}`, "—", "Room delete", "Удалить комнату"),
 
 		// edge
 		a("edge-pending", "edge", "GET", "/api/edge/pending", "", "edge pending", "Pending", "Pending"),

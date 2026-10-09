@@ -352,7 +352,23 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 		}})
 		return
 	}
-	if strings.HasPrefix(data, "m:loc:open:") {
+	
+	if strings.HasPrefix(data, "m:loc:rooms:") {
+		siteID := strings.TrimPrefix(data, "m:loc:rooms:")
+		showRoomsList(token, chat, msgID, siteID)
+		return
+	}
+	if strings.HasPrefix(data, "m:loc:room:") {
+		rest := strings.TrimPrefix(data, "m:loc:room:")
+		parts := strings.SplitN(rest, ":", 2)
+		if len(parts) != 2 {
+			reply(token, chat, msgID, "bad room", mainKeyboard())
+			return
+		}
+		showRoomCard(token, chat, msgID, parts[0], parts[1])
+		return
+	}
+if strings.HasPrefix(data, "m:loc:open:") {
 		id := strings.TrimPrefix(data, "m:loc:open:")
 		showLocationCard(token, chat, msgID, id)
 		return
@@ -433,6 +449,7 @@ func showLocationCard(token string, chat int64, msgID int, id string) {
 		b.WriteString("<i>✏️ rename · 🗑 delete</i>" + nl)
 	}
 	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:loc:rooms:` + id + `">🚪 Rooms</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:loc:rename:` + id + `">✏️</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="danger" data="m:loc:del:` + id + `">🗑</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
@@ -781,4 +798,74 @@ func trimRunes(s string, n int) string {
 		return s
 	}
 	return string(r[:n]) + "…"
+}
+
+
+func showRoomsList(token string, chat int64, msgID int, siteID string) {
+	ru := getLang() != "en"
+	list, err := sites.ListRooms(siteID)
+	nl := "\n"
+	var b strings.Builder
+	if ru {
+		b.WriteString("🚪 <b>Комнаты</b> · <code>" + esc(siteID) + "</code>" + nl)
+	} else {
+		b.WriteString("🚪 <b>Rooms</b> · <code>" + esc(siteID) + "</code>" + nl)
+	}
+	if err != nil {
+		b.WriteString(esc(err.Error()) + nl)
+	}
+	if len(list) == 0 {
+		if ru {
+			b.WriteString("<i>Пусто — добавьте через CLI/Web: sites rooms add</i>" + nl)
+		} else {
+			b.WriteString("<i>Empty — add via CLI/Web: sites rooms add</i>" + nl)
+		}
+	}
+	for i, r := range list {
+		if i >= 12 {
+			break
+		}
+		label := r.Name
+		if label == "" {
+			label = r.ID
+		}
+		label = fmt.Sprintf("%s · %d📷", label, r.PhotoCount)
+		b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:loc:room:%s:%s">%s</tg-button></tg-button-row>`+nl, siteID, r.ID, esc(label)))
+	}
+	reply(token, chat, msgID, b.String(), navKeyboard("m:loc:open:"+siteID, siteID))
+}
+
+func showRoomCard(token string, chat int64, msgID int, siteID, roomID string) {
+	ru := getLang() != "en"
+	r, ok := sites.GetRoom(siteID, roomID)
+	if !ok {
+		reply(token, chat, msgID, "room not found", navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+		return
+	}
+	nl := "\n"
+	var b strings.Builder
+	b.WriteString("🚪 <b>" + esc(r.Name) + "</b>" + nl)
+	b.WriteString("<code>" + esc(r.ID) + "</code> · photos " + strconv.Itoa(r.PhotoCount) + "/" + strconv.Itoa(sites.MaxRoomPhotos) + nl)
+	if r.Description != "" {
+		b.WriteString(esc(r.Description) + nl)
+	}
+	if len(r.CameraIDs) > 0 {
+		b.WriteString("<b>cams</b> " + esc(strings.Join(r.CameraIDs, ", ")) + nl)
+	}
+	if r.Notes != "" {
+		b.WriteString(esc(r.Notes) + nl)
+	}
+	// send photos as separate messages (max 5)
+	for i := 0; i < r.PhotoCount && i < sites.MaxRoomPhotos; i++ {
+		data, err := sites.GetPhoto(siteID, roomID, i)
+		if err != nil {
+			continue
+		}
+		_ = sendPhotoBytes(token, chat, data, fmt.Sprintf("%s/%s #%d", siteID, roomID, i))
+	}
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:loc:rooms:` + siteID + `">⬅️</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	_ = ru
+	reply(token, chat, msgID, b.String(), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
 }

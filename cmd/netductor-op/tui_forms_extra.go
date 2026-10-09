@@ -77,6 +77,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		menuItem{TT(lang, "SSH known hosts", "SSH known hosts"), "TOFU", "ssh-hosts"},
 		menuItem{TT(lang, "Audit tail", "Audit"), "events", "audit-tail"},
 		menuItem{TT(lang, "Sites list", "Сайты"), "", "sites-list"},
+		menuItem{TT(lang, "Rooms list", "Комнаты"), "site id in form", "rooms-list"},
 		menuItem{"change-mode", "", "change-mode"},
 		menuItem{"quit", "", "quit"},
 	)

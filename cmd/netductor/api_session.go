@@ -2,7 +2,10 @@ package main
 
 import (
 	ndver "github.com/PavelNeyman/netductor/internal/version"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -244,6 +247,157 @@ func registerSessionAPI(mux *http.ServeMux) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"ok": true})
+	})
+
+
+	mux.HandleFunc("/api/sites/rooms", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			siteID := strings.TrimSpace(r.URL.Query().Get("site"))
+			if siteID == "" {
+				writeJSON(w, 400, map[string]string{"error": "site query required"})
+				return
+			}
+			list, err := sites.ListRooms(siteID)
+			if err != nil {
+				writeJSON(w, 500, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"site": siteID, "rooms": list})
+		case http.MethodPost:
+			var body struct {
+				ID          string   `json:"id"`
+				SiteID      string   `json:"site_id"`
+				Name        string   `json:"name"`
+				Description string   `json:"description"`
+				Tags        []string `json:"tags"`
+				CameraIDs   []string `json:"camera_ids"`
+				EdgeIDs     []string `json:"edge_ids"`
+				Notes       string   `json:"notes"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			out, err := sites.UpsertRoom(sites.Room{
+				ID: body.ID, SiteID: body.SiteID, Name: body.Name, Description: body.Description,
+				Tags: body.Tags, CameraIDs: body.CameraIDs, EdgeIDs: body.EdgeIDs, Notes: body.Notes,
+			})
+			if err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "room": out})
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/sites/rooms/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		var body struct {
+			SiteID string `json:"site_id"`
+			ID     string `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := sites.DeleteRoom(body.SiteID, body.ID); err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("/api/sites/rooms/photo", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			siteID := strings.TrimSpace(r.URL.Query().Get("site"))
+			roomID := strings.TrimSpace(r.URL.Query().Get("id"))
+			idx := 0
+			fmt.Sscanf(r.URL.Query().Get("idx"), "%d", &idx)
+			b, err := sites.GetPhoto(siteID, roomID, idx)
+			if err != nil {
+				http.Error(w, err.Error(), 404)
+				return
+			}
+			ct := "image/jpeg"
+			if len(b) >= 2 && b[0] == 0x89 && b[1] == 'P' {
+				ct = "image/png"
+			}
+			w.Header().Set("Content-Type", ct)
+			w.Header().Set("Cache-Control", "private, max-age=60")
+			_, _ = w.Write(b)
+		case http.MethodPost:
+			// JSON: {site_id,id,data_base64} or multipart file
+			ct := r.Header.Get("Content-Type")
+			if strings.HasPrefix(ct, "multipart/") {
+				if err := r.ParseMultipartForm(3 << 20); err != nil {
+					writeJSON(w, 400, map[string]string{"error": err.Error()})
+					return
+				}
+				siteID := r.FormValue("site_id")
+				roomID := r.FormValue("id")
+				f, hdr, err := r.FormFile("file")
+				if err != nil {
+					writeJSON(w, 400, map[string]string{"error": "file required"})
+					return
+				}
+				defer f.Close()
+				data, err := io.ReadAll(io.LimitReader(f, 2<<20+1))
+				if err != nil {
+					writeJSON(w, 400, map[string]string{"error": err.Error()})
+					return
+				}
+				idx, err := sites.AddPhoto(siteID, roomID, data, hdr.Header.Get("Content-Type"))
+				if err != nil {
+					writeJSON(w, 400, map[string]string{"error": err.Error()})
+					return
+				}
+				writeJSON(w, 200, map[string]any{"ok": true, "index": idx})
+				return
+			}
+			var body struct {
+				SiteID     string `json:"site_id"`
+				ID         string `json:"id"`
+				DataBase64 string `json:"data_base64"`
+				ContentType string `json:"content_type"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			data, err := base64.StdEncoding.DecodeString(body.DataBase64)
+			if err != nil {
+				writeJSON(w, 400, map[string]string{"error": "bad base64"})
+				return
+			}
+			idx, err := sites.AddPhoto(body.SiteID, body.ID, data, body.ContentType)
+			if err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "index": idx})
+		case http.MethodDelete:
+			siteID := strings.TrimSpace(r.URL.Query().Get("site"))
+			roomID := strings.TrimSpace(r.URL.Query().Get("id"))
+			idx := 0
+			fmt.Sscanf(r.URL.Query().Get("idx"), "%d", &idx)
+			if err := sites.DeletePhoto(siteID, roomID, idx); err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true})
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
 	})
 
 	mux.HandleFunc("/api/session", func(w http.ResponseWriter, r *http.Request) {

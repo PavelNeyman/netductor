@@ -592,6 +592,22 @@ func sendPhotoFile(token string, chat int64, path, caption string, kb map[string
 	return nil
 }
 
+func sendPhotoBytes(token string, chat int64, data []byte, caption string) error {
+	if len(data) == 0 {
+		return fmt.Errorf("empty photo")
+	}
+	f, err := os.CreateTemp("", "nd-room-*.jpg")
+	if err != nil {
+		return err
+	}
+	path := f.Name()
+	_, _ = f.Write(data)
+	_ = f.Close()
+	defer os.Remove(path)
+	return sendPhotoFile(token, chat, path, caption, nil)
+}
+
+
 func deleteMessage(token string, chat int64, msgID int) error {
 	return apiPOST(token, "deleteMessage", map[string]any{
 		"chat_id": chat, "message_id": msgID,

@@ -233,6 +233,8 @@ func (m *model) submitActionForm() string {
 		return m.runNetductor("ssh", "hosts")
 	case "sites-list":
 		return m.runNetductor("sites", "list")
+	case "rooms-list":
+		return m.runNetductor("sites", "rooms", "list", m.fieldVal("site_id"))
 	default:
 		return "unknown form"
 	}

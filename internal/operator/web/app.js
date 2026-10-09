@@ -834,6 +834,19 @@ function mountButtons(){
       </div>`;
     }
     if(sec==='nodes' || sec==='fleet'){
+      h+=`<h3>Rooms</h3>
+      <div class="row"><div><label>site_id</label><input id="roomSite" placeholder="home"/></div>
+        <button type="button" class="primary" data-act="rooms-list">List rooms</button></div>
+      <div id="roomsTable" class="note">—</div>
+      <div class="row"><div><label>room id</label><input id="roomId" placeholder="kitchen"/></div>
+        <div><label>name</label><input id="roomName" placeholder="Kitchen"/></div></div>
+      <div class="row"><div><label>camera_ids (comma)</label><input id="roomCams"/></div>
+        <div><label>notes</label><input id="roomNotes"/></div></div>
+      <button type="button" class="primary" data-act="rooms-add">Upsert room</button>
+      <button type="button" class="primary" data-act="rooms-del">Delete room</button>
+      <div class="row"><div><label>photo file</label><input id="roomPhoto" type="file" accept="image/jpeg,image/png"/></div>
+        <button type="button" class="primary" data-act="rooms-photo">Add photo (max 5)</button></div>
+      <p class="muted">Photos: max 5 per room, ≤2 MiB jpeg/png. Session only.</p>`;
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_hostname')}</label><input id="nodeHost"/></div><div><label>${t('l_node_id')}</label><input id="nodeId"/></div></div>
       <button class="primary" type="button" data-act="nodes-hostname">${t('b_hostname')}</button>
       <div class="row"><div><label>${t('l_svc')}</label><input id="nodeSvc" placeholder="sing-box"/></div><div><label>${t('l_journal')}</label><input id="nodeJournal"/></div></div>
@@ -1150,6 +1163,55 @@ const special = {
     const v=document.getElementById('nvrVideo');
     if(v){ v.src='/api/nvr/stream?id='+encodeURIComponent(id); v.play().catch(()=>{}); }
     return {ok:true, stream:'/api/nvr/stream?id='+id};
+  },
+  
+  'rooms-list': async()=>{
+    const site=(document.getElementById('roomSite')?.value||'').trim();
+    if(!site) return {error:'site_id'};
+    const j=await nodeFetch('/api/sites/rooms?site='+encodeURIComponent(site));
+    const box=document.getElementById('roomsTable');
+    const rooms=(j&&j.rooms)||[];
+    if(box){
+      if(!rooms.length) box.innerHTML='<p class="muted">No rooms</p>';
+      else {
+        let h='<table class="striped"><tr><th>id</th><th>name</th><th>cams</th><th>photos</th><th></th></tr>';
+        rooms.forEach(r=>{
+          h+=`<tr><td><code>${r.id}</code></td><td>${r.name||''}</td><td>${(r.camera_ids||[]).join(', ')}</td><td>${r.photo_count||0}/5</td>`+
+            `<td><button type="button" class="room-pick" data-id="${r.id}">Select</button></td></tr>`;
+        });
+        h+='</table>';
+        box.innerHTML=h;
+        box.querySelectorAll('.room-pick').forEach(btn=>{
+          btn.onclick=()=>{ const el=document.getElementById('roomId'); if(el) el.value=btn.getAttribute('data-id'); };
+        });
+      }
+    }
+    return j;
+  },
+  'rooms-add': async()=>{
+    const site=(document.getElementById('roomSite')?.value||'').trim();
+    const id=(document.getElementById('roomId')?.value||'').trim();
+    const name=(document.getElementById('roomName')?.value||'').trim();
+    const cams=(document.getElementById('roomCams')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const notes=(document.getElementById('roomNotes')?.value||'').trim();
+    return nodeFetch('/api/sites/rooms',{method:'POST',body:JSON.stringify({site_id:site,id,name,camera_ids:cams,notes})});
+  },
+  'rooms-del': async()=>{
+    const site=(document.getElementById('roomSite')?.value||'').trim();
+    const id=(document.getElementById('roomId')?.value||'').trim();
+    return nodeFetch('/api/sites/rooms/delete',{method:'POST',body:JSON.stringify({site_id:site,id})});
+  },
+  'rooms-photo': async()=>{
+    const site=(document.getElementById('roomSite')?.value||'').trim();
+    const id=(document.getElementById('roomId')?.value||'').trim();
+    const inp=document.getElementById('roomPhoto');
+    if(!inp||!inp.files||!inp.files[0]) return {error:'choose file'};
+    const file=inp.files[0];
+    const buf=await file.arrayBuffer();
+    const bytes=new Uint8Array(buf);
+    let bin=''; for(let i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+    const b64=btoa(bin);
+    return nodeFetch('/api/sites/rooms/photo',{method:'POST',body:JSON.stringify({site_id:site,id,data_base64:b64,content_type:file.type||'image/jpeg'})});
   },
   'nvr-ptz': async()=>{ return nodeFetch('/api/nvr/ptz',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim(),dir:document.getElementById('nvrPtzDir').value})}); },
   'nvr-rec-start': async()=>{ return nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:document.getElementById('nvrCamId').value.trim()})}); },

@@ -2,12 +2,12 @@
 
 # Plan: Site rooms / zones
 
-**Status:** planned (2026-10-09) — implement after this doc is accepted.  
+**Status:** implementing (2026-10-09) — max **5** photos per room — implement after this doc is accepted.  
 **Architecture:** single backend API + thin UIs (Web / TG / TUI / CLI). No second store. No public photo URLs.
 
 ## Goal
 
-Inside an existing **Site** (location: home / flat / office — already `internal/sites`), group **rooms** (kitchen, yard, office) with optional notes, tags, one photo, and **links** to NVR cameras / edge device ids. Rooms are inventory + navigation, **not** a new recorder or live stack.
+Inside an existing **Site** (location: home / flat / office — already `internal/sites`), group **rooms** (kitchen, yard, office) with optional notes, tags, up to 5 photos, and **links** to NVR cameras / edge device ids. Rooms are inventory + navigation, **not** a new recorder or live stack.
 
 ## Non-goals
 
@@ -48,8 +48,8 @@ Path: `/var/lib/netductor/sites/<site_id>/rooms/<room_id>.json`
 }
 ```
 
-Photo (optional): `/var/lib/netductor/sites/<site_id>/rooms/<room_id>.jpg` (or `.png`).  
-**Id:** `[a-z0-9-]{1,32}`. Max photo **2 MiB**, jpeg/png only.
+Photos (optional, max 5): `/var/lib/netductor/sites/<site_id>/rooms/<room_id>.jpg` (or `.png`).  
+**Id:** `[a-z0-9-]{1,32}`. Each photo **≤2 MiB**, jpeg/png only.
 
 Site registry stays in `sites.json`. Rooms never invent a Site.
 
@@ -93,7 +93,7 @@ Same pattern as NVR: **list → card**, no duplicate stores.
 | Surface | Behavior |
 |--|--|
 | **Web Control** | Site picker → rooms table → form add/edit (name, tags, camera multi-select from `/api/nvr/cameras`) → photo upload → delete. Photo via session GET. |
-| **TG** | Fleet → Sites → site card → **Rooms** → list buttons → room card: name, tags, **one photo** (sendPhoto with bytes from API/file, not public URL), buttons → linked cams (`m:nvr:card` / live link). |
+| **TG** | Fleet → Sites → site card → **Rooms** → list buttons → room card: name, tags, **up to 5 photos** (sendPhoto with bytes from API/file, not public URL), buttons → linked cams (`m:nvr:card` / live link). |
 | **TUI** | list / add name+id / delete — no photo binary in TUI. |
 | **Installer tab** | optional later; Control is enough for v1. |
 
@@ -168,3 +168,10 @@ Room does **not** embed players. Links only:
 ---
 
 **Next:** implement Phase 0 → 1 → 2 → 3 when operator says **делай**.
+
+## Implementation notes (2026-10-09)
+
+- `MaxRoomPhotos = 5`; files `rooms/<id>/0.jpg`…`4.jpg`; compact on delete.
+- API: `/api/sites/rooms`, `/delete`, `/photo` (GET/POST/DELETE).
+- CLI: `netductor sites rooms list|add|delete|photo`.
+- Web Control → Nodes: Rooms panel; TG Location → Rooms → card + sendPhoto.
