@@ -78,8 +78,17 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   UP=$(python3 -c 'import json;print(json.load(open("/tmp/nd-rel.json")).get("upload_url","").split("{")[0])')
   for f in dist/*; do
     name=$(basename "$f")
-    curl -fsSL -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" \
-      "${UP}?name=${name}" --data-binary @"$f" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("name"), d.get("state",d.get("message")))'
+    code=$(curl -sS -o /tmp/nd-asset-up.json -w "%{http_code}" -X POST \
+      -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" \
+      "${UP}?name=${name}" --data-binary @"$f" || echo 000)
+    if [ "$code" = "201" ] || [ "$code" = "200" ]; then
+      python3 -c 'import json;d=json.load(open("/tmp/nd-asset-up.json"));print(d.get("name"), d.get("state","ok"))' 2>/dev/null || echo "$name ok"
+    elif [ "$code" = "422" ]; then
+      echo "$name already exists (skip)"
+    else
+      echo "$name upload HTTP $code" >&2
+      head -c 240 /tmp/nd-asset-up.json 2>/dev/null; echo >&2
+    fi
   done
   echo "==> uploaded $TAG"
 else

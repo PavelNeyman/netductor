@@ -35,6 +35,46 @@ func handleMessage(token string, m *message, admin int64) {
 
 	st := chatState[chat]
 
+	if st == "wait_room_id" {
+		siteID := chatExtra[chat]
+		id := strings.ToLower(strings.TrimSpace(text))
+		if id == "" || id == "-" {
+			setState(chat, "", "")
+			sendHTML(token, chat, T("cancelled"), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+			return
+		}
+		if err := sites.ValidateRoomID(id); err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+			return
+		}
+		setState(chat, "wait_room_name", siteID+""+id)
+		msg := "Room display name (or - for same as id):"
+		if getLang() != "en" {
+			msg = "Имя комнаты (или - = как id):"
+		}
+		sendHTML(token, chat, msg, navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+		return
+	}
+	if st == "wait_room_name" {
+		parts := strings.SplitN(chatExtra[chat], "", 2)
+		siteID, roomID := "", ""
+		if len(parts) == 2 {
+			siteID, roomID = parts[0], parts[1]
+		}
+		name := strings.TrimSpace(text)
+		if name == "" || name == "-" {
+			name = roomID
+		}
+		setState(chat, "", "")
+		out, err := sites.UpsertRoom(sites.Room{SiteID: siteID, ID: roomID, Name: name})
+		if err != nil {
+			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+			return
+		}
+		sendHTML(token, chat, "✅ room <code>"+esc(out.ID)+"</code>", navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+		return
+	}
+
 	if st == "wait_alerts_chat" {
 		rememberFromMessage(m)
 		if fid, title := extractForwardedChannelID(m); fid != 0 {

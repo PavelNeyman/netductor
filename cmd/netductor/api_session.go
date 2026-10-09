@@ -21,6 +21,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/session"
+	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -290,7 +291,22 @@ func registerSessionAPI(mux *http.ServeMux) {
 				writeJSON(w, 400, map[string]string{"error": err.Error()})
 				return
 			}
-			writeJSON(w, 200, map[string]any{"ok": true, "room": out})
+			var unknown []string
+			if len(body.CameraIDs) > 0 {
+				known := map[string]bool{}
+				for _, c := range nvr.ListCameras() {
+					known[c.ID] = true
+					if c.Name != "" {
+						known[c.Name] = true
+					}
+				}
+				for _, id := range body.CameraIDs {
+					if id != "" && !known[id] {
+						unknown = append(unknown, id)
+					}
+				}
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "room": out, "unknown_cameras": unknown})
 		default:
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 		}

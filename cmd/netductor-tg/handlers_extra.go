@@ -353,6 +353,18 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 		return
 	}
 	
+	
+	if strings.HasPrefix(data, "m:loc:roomadd:") {
+		siteID := strings.TrimPrefix(data, "m:loc:roomadd:")
+		setState(chat, "wait_room_id", siteID)
+		chatExtra[chat] = siteID
+		msg := "Room id (a-z0-9-, max 32), e.g. kitchen"
+		if getLang() != "en" {
+			msg = "Id комнаты (a-z0-9-, до 32), например kitchen"
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+		return
+	}
 	if strings.HasPrefix(data, "m:loc:rooms:") {
 		siteID := strings.TrimPrefix(data, "m:loc:rooms:")
 		showRoomsList(token, chat, msgID, siteID)
@@ -832,6 +844,7 @@ func showRoomsList(token string, chat int64, msgID int, siteID string) {
 		label = fmt.Sprintf("%s · %d📷", label, r.PhotoCount)
 		b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:loc:room:%s:%s">%s</tg-button></tg-button-row>`+nl, siteID, r.ID, esc(label)))
 	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:loc:roomadd:` + siteID + `">➕</tg-button></tg-button-row>` + nl)
 	reply(token, chat, msgID, b.String(), navKeyboard("m:loc:open:"+siteID, siteID))
 }
 

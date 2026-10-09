@@ -20,6 +20,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/registry"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
@@ -606,6 +607,25 @@ func runDoctorNative() int {
 	}
 	if stN.Exists && cfgN.MinFreeGB > 0 && stN.FreeGB > 0 && stN.FreeGB < cfgN.MinFreeGB {
 		warnCheck("nvr free < MinFreeGB", false)
+	}
+
+	// Sites / rooms inventory
+	if list, err := sites.List(); err != nil {
+		warnCheck("sites list", false)
+	} else {
+		doctorPrintf("INFO sites count=%d\n", len(list))
+		roomsN := 0
+		for _, s := range list {
+			rs, _ := sites.ListRooms(s.ID)
+			roomsN += len(rs)
+		}
+		doctorPrintf("INFO sites rooms total=%d\n", roomsN)
+		sdir := filepath.Join(paths.StateDir(), "sites")
+		if st, err := os.Stat(sdir); err != nil {
+			doctorPrintf("INFO sites dir not yet created\n")
+		} else if st.IsDir() {
+			check("sites state dir", true)
+		}
 	}
 
 	if role == "primary" {

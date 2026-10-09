@@ -108,31 +108,31 @@ Room does **not** embed players. Links only:
 
 ### Phase 0 — Store + CLI (no UI)
 
-- [ ] `Room` type + load/save under `sites/<id>/rooms/`  
-- [ ] CLI list/add/delete/photo  
-- [ ] Unit tests: id validation, photo size reject  
+- [x] `Room` type + load/save under `sites/<id>/rooms/`  
+- [x] CLI list/add/delete/photo  
+- [x] Unit tests: id validation, photo size reject  
 
 **Exit:** `netductor sites rooms list home` works on primary.
 
 ### Phase 1 — API + opcatalog
 
-- [ ] Register routes under session mux  
-- [ ] opcatalog: rooms list / upsert / delete / photo  
-- [ ] Doctor optional: sites dir writable  
+- [x] Register routes under session mux  
+- [x] opcatalog: rooms list / upsert / delete / photo  
+- [x] Doctor optional: sites dir writable  
 
 **Exit:** curl/session can CRUD a room + fetch photo.
 
 ### Phase 2 — Web
 
-- [ ] Control: Sites/Rooms panel (table + form + photo)  
-- [ ] Camera multi-select from NVR list  
+- [x] Control: Sites/Rooms panel (table + form + photo)  
+- [x] Camera multi-select from NVR list  
 
 **Exit:** operator manages rooms without CLI.
 
 ### Phase 3 — TG + TUI
 
-- [ ] Site card → Rooms → room card + photo  
-- [ ] TUI list/add/delete  
+- [x] Site card → Rooms → room card + photo  
+- [x] TUI list/add/delete  
 
 **Exit:** parity of **data**; Web remains richest for photo upload.
 
