@@ -68,7 +68,7 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 - [x] Full dual-node smoke (primary + secondary) — live deploy 2026-09-29 (LE, bot, SP, secondary)
 - [ ] Edge stock-OpenWrt contract: factory reset → one deploy → fully configured (lab = dual-NIC, no manual UCI) — [OPENWRT-LAB.md](OPENWRT-LAB.md)
 - [x] Site rooms UI — [PLAN-SITE-ROOMS.md](PLAN-SITE-ROOMS.md) (store/API/Web/TG; max 5 photos, 2026-10-09)
-- [ ] NVR next steps — [PLAN-NVR-IMPLEMENTATION.md](PLAN-NVR-IMPLEMENTATION.md) (TPAP, hardware e2e, two-way audio)
+- [ ] NVR hardware e2e (C200 record/live/clip) — code: TPAP Go, UI, doctor, retention alerts done; [PLAN-NVR-IMPLEMENTATION.md](PLAN-NVR-IMPLEMENTATION.md)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik) — lab notes [OPENWRT-LAB.md](OPENWRT-LAB.md); radio detect shipped 0.9.271
 - [x] Remove TG private topics (keep alerts channel) — [PLAN-REMOVE-TG-TOPICS.md](PLAN-REMOVE-TG-TOPICS.md) (0.9.269)
 - [ ] Optional: CI Formula SHA automation

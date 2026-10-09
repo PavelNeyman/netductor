@@ -2,9 +2,12 @@ package nvr
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"sort"
 	"strings"
 	"syscall"
@@ -21,14 +24,14 @@ type SegmentFile struct {
 
 // RetentionReport is the result of a rotate pass.
 type RetentionReport struct {
-	Deleted       int     `json:"deleted"`
-	DeletedBytes  int64   `json:"deleted_bytes"`
-	Kept          int     `json:"kept"`
-	TotalBytes    int64   `json:"total_bytes"`
-	FreeBytes     int64   `json:"free_bytes,omitempty"`
-	Reasons       []string `json:"reasons,omitempty"`
-	Path          string  `json:"path"`
-	At            int64   `json:"at"`
+	Deleted      int      `json:"deleted"`
+	DeletedBytes int64    `json:"deleted_bytes"`
+	Kept         int      `json:"kept"`
+	TotalBytes   int64    `json:"total_bytes"`
+	FreeBytes    int64    `json:"free_bytes,omitempty"`
+	Reasons      []string `json:"reasons,omitempty"`
+	Path         string   `json:"path"`
+	At           int64    `json:"at"`
 }
 
 // ListSegmentFiles walks Path for media files.
@@ -163,6 +166,7 @@ func RunRetention(cfg Config) (RetentionReport, error) {
 
 	// persist last report
 	_ = saveRetentionReport(rep)
+	maybeRetentionAlerts(cfg, rep)
 	return rep, nil
 }
 
@@ -190,4 +194,18 @@ func LastRetentionReport() (RetentionReport, bool) {
 		return RetentionReport{}, false
 	}
 	return r, true
+}
+
+func maybeRetentionAlerts(cfg Config, rep RetentionReport) {
+	st := GetStorageStatus()
+	if cfg.MaxGB > 0 && st.SegmentGB >= cfg.MaxGB*0.9 {
+		notify.AlertOnce("nvr_disk_high", fmt.Sprintf("⚠️ NVR storage high: segments %.1fGB / max %.0fGB", st.SegmentGB, cfg.MaxGB))
+	}
+	if cfg.MinFreeGB > 0 && st.FreeGB > 0 && st.FreeGB < cfg.MinFreeGB {
+		notify.AlertOnce("nvr_disk_low", fmt.Sprintf("⚠️ NVR free space low: %.1fGB (min %.0fGB)", st.FreeGB, cfg.MinFreeGB))
+	}
+	if rep.Deleted > 0 {
+		key := fmt.Sprintf("nvr_retention_%d", rep.At/3600)
+		notify.AlertOnce(key, fmt.Sprintf("🗜 NVR retention: deleted %d kept %d", rep.Deleted, rep.Kept))
+	}
 }

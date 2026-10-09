@@ -167,8 +167,8 @@ Later:              Phase 4 SD pull if needed
 - [ ] PTZ/night/privacy via netductor (Go or fallback) after any FW that needs TPAP  
 - [ ] Live view over VPN only  
 - [ ] Clip to TG works  
-- [ ] Doctor surfaces NVR path / stale segments  
-- [ ] Optional talk documented; no public ports  
+- [x] Doctor surfaces NVR path / stale segments / go2rtc listen (0.9.306)  
+- [x] Optional talk documented; no public ports (go2rtc tapo:// + PLAN)  
 
 ---
 

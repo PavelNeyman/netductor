@@ -1,30 +1,31 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/channels"
 	"github.com/PavelNeyman/netductor/internal/ci"
 	"github.com/PavelNeyman/netductor/internal/cli18n"
-	"github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/firewall"
-	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/version"
-	"github.com/PavelNeyman/netductor/internal/registry"
-	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/policy"
-	"github.com/PavelNeyman/netductor/internal/vpn"
-	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/registry"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	"github.com/PavelNeyman/netductor/internal/version"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 func detectRole() string {
@@ -252,8 +253,6 @@ func runDoctorNative() int {
 		fail++
 	}
 
-
-	
 	bl := install.CheckHostBaseline()
 	if bl.OK {
 		doctorPrintln("OK   host baseline (role+apt-pin+firewall+watchdog+hoster)")
@@ -328,7 +327,7 @@ func runDoctorNative() int {
 		}
 	}
 
-switch role {
+	switch role {
 	case "primary":
 		check("READY.txt", exists(filepath.Join(etc, "READY.txt")))
 		check("vpn-users.json", exists(filepath.Join(etc, "vpn-users.json")))
@@ -571,8 +570,44 @@ switch role {
 	if r, ok := nvr.LastRetentionReport(); ok {
 		doctorPrintf(cli18n.T("doctor.nvr_retention")+"\n", r.Deleted, r.Kept, r.At)
 	}
+	cams := nvr.ListCameras()
+	doctorPrintf("INFO nvr cameras=%d\n", len(cams))
+	{
+		files, _ := nvr.ListSegmentFiles(cfgN.Path)
+		if len(files) > 0 {
+			newest := files[0].ModTime
+			for _, f := range files {
+				if f.ModTime.After(newest) {
+					newest = f.ModTime
+				}
+			}
+			age := time.Since(newest)
+			doctorPrintf("INFO nvr last_segment_age=%s\n", age.Truncate(time.Second))
+			if cfgN.RecordEnabled && age > 2*time.Hour {
+				warnCheck("nvr segments stale (>2h)", false)
+			}
+		} else if cfgN.RecordEnabled && len(cams) > 0 {
+			warnCheck("nvr has cameras but no segments", false)
+		}
+	}
+	go2path := filepath.Join(paths.StateDir(), "nvr", "go2rtc.yaml")
+	if _, err := os.Stat(go2path); err == nil {
+		doctorPrintf("OK   nvr go2rtc.yaml present\n")
+	} else {
+		doctorPrintf("INFO nvr go2rtc.yaml not written (netductor nvr go2rtc)\n")
+	}
+	if nvr.Go2RTCListening() {
+		check("nvr go2rtc :1984", true)
+	} else {
+		doctorPrintf("INFO nvr go2rtc not listening on 127.0.0.1:1984\n")
+	}
+	if stN.Exists && cfgN.MaxGB > 0 && stN.SegmentGB >= cfgN.MaxGB*0.9 {
+		warnCheck("nvr segment usage ≥90% MaxGB", false)
+	}
+	if stN.Exists && cfgN.MinFreeGB > 0 && stN.FreeGB > 0 && stN.FreeGB < cfgN.MinFreeGB {
+		warnCheck("nvr free < MinFreeGB", false)
+	}
 
-	
 	if role == "primary" {
 		ch := channels.Collect()
 		for _, s := range ch.Secondaries {

@@ -4,9 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // WriteGo2RTCConfig writes a go2rtc YAML for live (VPN-only consumers).
@@ -66,7 +68,6 @@ func yamlKey(s string) string {
 	return s
 }
 
-
 func tapoTalkURL(c Camera) string {
 	if c.LANIP == "" {
 		return ""
@@ -84,4 +85,14 @@ func tapoTalkURL(c Camera) string {
 	sum := sha256.Sum256([]byte(pass))
 	hexUp := strings.ToUpper(hex.EncodeToString(sum[:]))
 	return "tapo://admin:" + hexUp + "@" + c.LANIP
+}
+
+// Go2RTCListening reports whether something accepts TCP on 127.0.0.1:1984 (go2rtc API).
+func Go2RTCListening() bool {
+	c, err := net.DialTimeout("tcp", "127.0.0.1:1984", 400*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = c.Close()
+	return true
 }
