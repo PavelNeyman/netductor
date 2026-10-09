@@ -2,6 +2,7 @@ package vpn
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,4 +45,41 @@ func SaveCanaryUsers(users []string) error {
 	c := CanaryConfig{Users: users}
 	b, _ := json.MarshalIndent(c, "", "  ")
 	return os.WriteFile(canaryPath(), append(b, '\n'), 0o600)
+}
+
+
+// IsCanary reports whether name is in the canary list.
+func IsCanary(name string) bool {
+	name = strings.TrimSpace(name)
+	for _, u := range LoadCanaryUsers() {
+		if u == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ToggleCanary adds or removes name; returns new membership.
+func ToggleCanary(name string) (bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "relay-uplink" {
+		return false, fmt.Errorf("invalid user")
+	}
+	cur := LoadCanaryUsers()
+	var next []string
+	found := false
+	for _, u := range cur {
+		if u == name {
+			found = true
+			continue
+		}
+		next = append(next, u)
+	}
+	if !found {
+		next = append(next, name)
+	}
+	if err := SaveCanaryUsers(next); err != nil {
+		return false, err
+	}
+	return !found, nil
 }

@@ -69,6 +69,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if handleCanaryCB(token, chat, msgID, data) {
+		return
+	}
 	if handlePresetsCB(token, chat, msgID, data) {
 		return
 	}

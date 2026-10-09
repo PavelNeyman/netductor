@@ -130,6 +130,7 @@ func formatUsersListHTML() string {
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" data="m:presets">📋 Presets</tg-button>` +
+		`<tg-button type="callback_data" data="m:canary">🐦 Canary</tg-button>` +
 		`<tg-button type="callback_data" data="m:devices">📱 Devices</tg-button>` +
 		`<tg-button type="callback_data" data="m:incident">📦 Incident</tg-button>` +
 		`</tg-button-row>`)
@@ -184,6 +185,11 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(`<tg-button-row align="left">`)
 	polLabel := T("pol_btn")
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:policy:` + name + `">` + polLabel + `</tg-button>`)
+	canaryLabel := "🐦 canary +"
+	if vpn.IsCanary(name) {
+		canaryLabel = "🐦 canary −"
+	}
+	b.WriteString(`<tg-button type="callback_data" data="u:canary:` + name + `">` + canaryLabel + `</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="success" data="u:enable:` + name + `">▶</tg-button>`)
