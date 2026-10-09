@@ -109,3 +109,13 @@ WantedBy=timers.target
 	_ = run("systemctl", "enable", "--now", "netductor-backup-verify.timer")
 	return nil
 }
+
+
+// LastBackupVerify returns last verify status file contents.
+func LastBackupVerify() string {
+	b, err := os.ReadFile(filepath.Join(paths.StateDir(), "backup-verify", "last.txt"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}

@@ -664,6 +664,8 @@ const BTN = {
   backup:[
     ['backup-peer','Peer','GET','/api/backup/peer'],
     ['backup-run','Run now','POST','/api/backup/run','{}'],
+    ['backup-verify','Verify latest','POST','/api/backup/verify','{}'],
+    ['backup-verify-timer','Verify timer','POST','/api/backup/verify-install','{}'],
     ['backup-schedule','Schedule','GET','/api/backup/schedule'],
     ['backup-list','Files','GET','/api/backup/list'],
     ['sec-export','Secondary export','GET','/api/secondary/export'],

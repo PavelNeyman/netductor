@@ -107,6 +107,36 @@ func registerVPNHTTP(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"files": install.ListBackupFiles()})
 	})
+	mux.HandleFunc("/api/backup/verify", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			writeJSON(w, 405, map[string]string{"error": "method"})
+			return
+		}
+		msg, err := install.VerifyLatestBackup()
+		if err != nil {
+			install.AlertVerifyFailure(err)
+			audit.Log("session", "backup.verify", "fail", err.Error())
+			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		install.AlertVerifyFailure(nil)
+		audit.Log("session", "backup.verify", "ok", msg)
+		writeJSON(w, 200, map[string]any{"ok": true, "message": msg, "last": install.LastBackupVerify()})
+	})
+	mux.HandleFunc("/api/backup/verify-install", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		if err := install.InstallBackupVerifyTimer(); err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		audit.Log("session", "backup.verify-install", "timer", "Sun 03:15 UTC")
+		writeJSON(w, 200, map[string]any{"ok": true, "timer": "Sun 03:15 UTC"})
+	})
 
 	mux.HandleFunc("/vpn/users", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {

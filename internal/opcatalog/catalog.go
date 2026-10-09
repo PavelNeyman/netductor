@@ -154,6 +154,8 @@ func All() []Action {
 		a("backup-list", "backup", "GET", "/api/backup/list", "", "backup list", "Backup files", "Файлы бэкапа"),
 		a("backup-peer", "backup", "GET", "/api/backup/peer", "", "—", "Peer", "Peer"),
 		a("backup-run", "backup", "POST", "/api/backup/run", "{}", "backup now", "Run now", "Бэкап сейчас"),
+		a("backup-verify", "backup", "POST", "/api/backup/verify", "{}", "backup verify", "Verify latest", "Проверить последний"),
+		a("backup-verify-install", "backup", "POST", "/api/backup/verify-install", "{}", "backup verify timer", "Verify timer", "Таймер verify"),
 		a("sec-export", "backup", "GET", "/api/secondary/export", "", "—", "Secondary export", "Secondary export"),
 		// logs (channel incident + journal retention)
 		a("logs-schedule", "logs", "GET", "/api/logs/schedule", "", "logs schedule", "Log rotation schedule", "Расписание ротации логов"),

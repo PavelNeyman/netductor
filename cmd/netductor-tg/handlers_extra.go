@@ -214,6 +214,25 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 		reply(token, chat, msgID, done, navKeyboard("m:tools", parentTools()))
 		return
 	}
+	if data == "m:backup:verify" {
+		msg, err := install.VerifyLatestBackup()
+		if err != nil {
+			install.AlertVerifyFailure(err)
+			showBackupMenu(token, chat, msgID, install.LoadBackupSchedule(), "❌ verify: "+err.Error())
+			return
+		}
+		install.AlertVerifyFailure(nil)
+		showBackupMenu(token, chat, msgID, install.LoadBackupSchedule(), "✅ verify: "+msg)
+		return
+	}
+	if data == "m:backup:verify-install" {
+		if err := install.InstallBackupVerifyTimer(); err != nil {
+			showBackupMenu(token, chat, msgID, install.LoadBackupSchedule(), "❌ "+err.Error())
+			return
+		}
+		showBackupMenu(token, chat, msgID, install.LoadBackupSchedule(), "✅ verify timer Sun 03:15 UTC")
+		return
+	}
 	if data == "m:backup:run" {
 		st0 := "⏳ Backup starting…"
 		if ru {
@@ -294,9 +313,17 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:custom">⏱</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	b.WriteString(`<tg-button-row align="left">`)
+	if last := install.LastBackupVerify(); last != "" {
+		b.WriteString("<p><code>" + esc(last) + "</code></p>" + nl)
+	}
+	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:backup:run">▶</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:list">📋</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:keep">N</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" style="success" data="m:backup:verify">✔ Verify</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:verify-install">⏱ Verify timer</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
