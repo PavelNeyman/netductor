@@ -22,3 +22,8 @@ Agreed with operator. Backend unchanged in spirit: **API-first**, thin UIs.
 ## Out of scope here
 
 - Public WebRTC, embedded TG video, Frigate UI clone
+
+## Done 2026-10-09
+- `/api/nvr/site/leases` waits by default (`wait:true`), returns parsed `leases[]` for autofill.
+- Web Control + Installer NVR: table, add form, wizard with **Use** on lease rows, live play.
+- TG already had wait+parse for DHCP (cards for cameras).

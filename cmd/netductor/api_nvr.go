@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/nvr"
@@ -100,7 +101,35 @@ func registerNVRAPI(mux *http.ServeMux) {
 			writeJSON(w, 400, map[string]string{"error": "enqueue failed (device not approved?)"})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "cmd_id": id, "hint": "poll /api/edge/results"})
+		// Default: wait for agent result and parse leases for UI autofill.
+		// Body wait=false → only cmd_id (async).
+		wait := true
+		if v, ok := body["wait"]; ok {
+			wait = nvrTruthy(v, true)
+		}
+		if !wait {
+			writeJSON(w, 200, map[string]any{"ok": true, "cmd_id": id, "hint": "poll /api/edge/results"})
+			return
+		}
+		timeout := 90 * time.Second
+		if v, ok := body["timeout_sec"].(float64); ok && v > 0 {
+			timeout = time.Duration(v) * time.Second
+		}
+		res, err := edge.WaitCmdResult(id, timeout)
+		if err != nil {
+			writeJSON(w, 200, map[string]any{"ok": false, "cmd_id": id, "error": err.Error(), "hint": "poll /api/edge/results"})
+			return
+		}
+		raw := ""
+		if s, ok := res["result"].(string); ok {
+			raw = s
+		} else if s, ok := res["output"].(string); ok {
+			raw = s
+		}
+		leases := nvr.ParseLeasesResult(raw)
+		writeJSON(w, 200, map[string]any{
+			"ok": true, "cmd_id": id, "leases": leases, "raw": raw, "result": res,
+		})
 	})
 
 	mux.HandleFunc("/api/nvr/site/wifi_clients", func(w http.ResponseWriter, r *http.Request) {

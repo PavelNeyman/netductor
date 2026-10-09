@@ -285,19 +285,43 @@
   </section>
 
 <section id="panel-nvr" class="panel">
-    <p class="note" data-i18n="nvr_note">Day-2 NVR via node session (start tunnel + session first). Same ops as TUI NVR wizard.</p>
-    <form id="form-nvr">
-      <div class="row"><div><label data-i18n="l_nvr_action">Action</label>
-        <select name="action"><option value="status">status</option><option value="list">list cameras</option>
-        <option value="leases">leases</option><option value="add">add camera</option>
-        <option value="rec-start">record start</option><option value="rec-stop">record stop</option></select></div>
-        <div><label data-i18n="l_edge_id">Edge device id</label><input name="device_id" placeholder="site-cudy-1"/></div></div>
-      <div class="row"><div><label data-i18n="l_cam_name">Camera name/id</label><input name="cam_name"/></div>
-        <div><label data-i18n="l_cam_ip">Camera LAN IP</label><input name="cam_ip"/></div></div>
-      <div class="row"><div><label data-i18n="l_cam_pass">Camera password</label><input name="cam_pass" type="password"/></div>
-        <div><label data-i18n="l_site_id">Site id</label><input name="site_id"/></div></div>
-      <button class="primary" type="submit" data-i18n="btn_nvr">Run NVR</button>
-    </form>
+    <p class="note" data-i18n="nvr_note">Requires Control tunnel + session. Table / wizard / live match Control → NVR.</p>
+    <div class="card">
+      <h3>Cameras</h3>
+      <button type="button" class="primary" id="instNvrRefresh">Refresh</button>
+      <div id="instNvrTable" class="note">—</div>
+    </div>
+    <div class="card">
+      <h3>Add camera</h3>
+      <form id="form-nvr">
+        <div class="row"><div><label>name</label><input name="cam_name" id="instNvrName"/></div>
+          <div><label>LAN IP</label><input name="cam_ip" id="instNvrIp"/></div></div>
+        <div class="row"><div><label>RTSP password</label><input name="cam_pass" type="password" id="instNvrPass"/></div>
+          <div><label>cloud password</label><input name="cloud_pass" type="password" id="instNvrCloud"/></div></div>
+        <div class="row"><div><label>RTSP user</label><input name="rtsp_user" id="instNvrUser"/></div>
+          <div><label>path</label><input name="rtsp_path" value="/stream1" id="instNvrPath"/></div></div>
+        <div class="row"><div><label>edge device_id</label><input name="device_id" id="instNvrDid" placeholder="approved edge id"/></div>
+          <div><label>site_id</label><input name="site_id" id="instNvrSite"/></div></div>
+        <button class="primary" type="submit">Add camera</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Wizard · DHCP leases</h3>
+      <div class="row"><div><label>edge device_id</label><input id="instWizDid"/></div>
+        <button type="button" class="primary" id="instWizLeases">Load leases (wait)</button></div>
+      <div id="instWizList" class="note">—</div>
+      <div class="row"><div><label>name</label><input id="instWizName"/></div><div><label>IP</label><input id="instWizIp"/></div></div>
+      <div class="row"><div><label>MAC</label><input id="instWizMac"/></div><div><label>RTSP password</label><input id="instWizPass" type="password"/></div></div>
+      <button type="button" class="primary" id="instWizAdd">Add from lease</button>
+    </div>
+    <div class="card">
+      <h3>Live / record</h3>
+      <div class="row"><div><label>camera id</label><input id="instNvrCamId"/></div>
+        <button type="button" class="primary" id="instNvrPlay">Play</button>
+        <button type="button" class="primary" id="instNvrRec">Record</button>
+        <button type="button" class="primary" id="instNvrStop">Stop</button></div>
+      <video id="instNvrVideo" controls playsinline style="max-width:100%;max-height:280px;background:#111"></video>
+    </div>
   </section>
 <section id="panel-creds" class="panel">
     <form id="form-creds">

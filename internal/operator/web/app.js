@@ -339,35 +339,100 @@ document.getElementById('form-edge').onsubmit=async e=>{ e.preventDefault(); con
     guest_ssid:fd.get('guest_ssid'), guest_pin:fd.get('guest_pin'), guest_psk:fd.get('guest_psk')
   }, e.submitter); };
 
-document.getElementById('form-nvr').onsubmit=async e=>{
+async function instNvrRefreshTable(){
+  const j=await nodeFetch('/api/nvr/cameras');
+  const box=document.getElementById('instNvrTable');
+  if(!box) return j;
+  const cams=(j&&j.cameras)||[];
+  if(!cams.length){ box.innerHTML='<p class="muted">No cameras</p>'; return j; }
+  let h='<table class="striped"><tr><th>id</th><th>name</th><th>ip</th><th>rec</th><th></th></tr>';
+  cams.forEach(c=>{
+    h+=`<tr><td><code>${c.id||''}</code></td><td>${c.name||''}</td><td>${c.lan_ip||''}</td><td>${c.record?'🟢':'—'}</td>`+
+      `<td><button type="button" data-cam="${c.id}" class="inst-nvr-pick">Select</button></td></tr>`;
+  });
+  h+='</table>';
+  box.innerHTML=h;
+  box.querySelectorAll('.inst-nvr-pick').forEach(btn=>{
+    btn.onclick=()=>{ const el=document.getElementById('instNvrCamId'); if(el) el.value=btn.getAttribute('data-cam'); };
+  });
+  return j;
+}
+document.getElementById('form-nvr')&&(document.getElementById('form-nvr').onsubmit=async e=>{
   e.preventDefault(); const fd=new FormData(e.target); saveForm('nvr',fd);
-  const act=(fd.get('action')||'status').trim();
   const btn=e.submitter; if(btn) btn.disabled=true;
   try{
-    let res;
-    if(act==='status'||act==='list'){
-      res = await nodeFetch('/api/nvr/cameras');
-      if(act==='status'){ const st=await nodeFetch('/api/nvr/storage'); res={cameras:res, storage:st}; }
-    } else if(act==='leases'){
-      res = await nodeFetch('/api/nvr/site/leases',{method:'POST',body:JSON.stringify({device_id:(fd.get('device_id')||'').trim()})});
-    } else if(act==='add'){
-      res = await nodeFetch('/api/nvr/cameras',{method:'POST',body:JSON.stringify({
-        name:(fd.get('cam_name')||'').trim(), site_id:(fd.get('site_id')||'').trim(),
-        lan_ip:(fd.get('cam_ip')||'').trim(), rtsp_password:(fd.get('cam_pass')||'').trim(), enabled:true, record:true
-      })});
-    } else if(act==='rec-start'){
-      res = await nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id:(fd.get('cam_name')||'').trim()})});
-    } else if(act==='rec-stop'){
-      res = await nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id:(fd.get('cam_name')||'').trim()})});
-    } else {
-      res = {error:'unknown action'};
-    }
+    const res=await nodeFetch('/api/nvr/cameras',{method:'POST',body:JSON.stringify({
+      name:(fd.get('cam_name')||'').trim(), site_id:(fd.get('site_id')||fd.get('device_id')||'').trim(),
+      lan_ip:(fd.get('cam_ip')||'').trim(), rtsp_user:(fd.get('rtsp_user')||'').trim(),
+      rtsp_password:(fd.get('cam_pass')||'').trim(), cloud_password:(fd.get('cloud_pass')||'').trim(),
+      rtsp_path:(fd.get('rtsp_path')||'/stream1').trim(), enabled:true, record:true
+    })});
     showControl(res);
-    // switch to control result visibility
-    document.querySelector('[data-main="control"]')?.click?.();
+    await instNvrRefreshTable();
   }catch(err){ showControl({error:String(err)}); }
   if(btn) btn.disabled=false;
-};
+});
+document.getElementById('instNvrRefresh')?.addEventListener('click', async()=>{
+  try{ showControl(await instNvrRefreshTable()); }catch(e){ showControl({error:String(e)}); }
+});
+document.getElementById('instWizLeases')?.addEventListener('click', async()=>{
+  const did=(document.getElementById('instWizDid')?.value||document.getElementById('instNvrDid')?.value||'').trim();
+  const box=document.getElementById('instWizList');
+  if(!did){ showControl({error:'device_id'}); return; }
+  if(box) box.textContent='waiting for dhcp_leases…';
+  try{
+    const j=await nodeFetch('/api/nvr/site/leases',{method:'POST',body:JSON.stringify({device_id:did,wait:true,timeout_sec:90})});
+    const leases=(j&&j.leases)||[];
+    if(!box){ showControl(j); return; }
+    if(!leases.length){ box.textContent=JSON.stringify(j,null,2); return; }
+    let h='<table class="striped"><tr><th>host</th><th>ip</th><th>mac</th><th></th></tr>';
+    leases.forEach((L,i)=>{
+      h+=`<tr><td>${L.hostname||'—'}</td><td>${L.ip||''}</td><td><code>${L.mac||''}</code></td>`+
+        `<td><button type="button" data-i="${i}" class="inst-lease-use">Use</button></td></tr>`;
+    });
+    h+='</table>';
+    box.innerHTML=h;
+    box.querySelectorAll('.inst-lease-use').forEach(btn=>{
+      btn.onclick=()=>{
+        const L=leases[+btn.getAttribute('data-i')];
+        if(!L) return;
+        const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
+        set('instWizIp', L.ip); set('instWizMac', L.mac);
+        set('instWizName', (L.hostname&&L.hostname!=='*')?L.hostname:('cam-'+(L.mac||'').replace(/:/g,'').slice(-6)));
+        set('instNvrIp', L.ip); set('instNvrName', document.getElementById('instWizName').value);
+      };
+    });
+    showControl({ok:true, count:leases.length, cmd_id:j.cmd_id});
+  }catch(e){ showControl({error:String(e)}); }
+});
+document.getElementById('instWizAdd')?.addEventListener('click', async()=>{
+  try{
+    const res=await nodeFetch('/api/nvr/cameras',{method:'POST',body:JSON.stringify({
+      name:(document.getElementById('instWizName')?.value||'').trim(),
+      lan_ip:(document.getElementById('instWizIp')?.value||'').trim(),
+      mac:(document.getElementById('instWizMac')?.value||'').trim(),
+      rtsp_password:(document.getElementById('instWizPass')?.value||'').trim(),
+      site_id:(document.getElementById('instWizDid')?.value||document.getElementById('instNvrDid')?.value||'').trim(),
+      enabled:true, record:true, rtsp_path:'/stream1'
+    })});
+    showControl(res); await instNvrRefreshTable();
+  }catch(e){ showControl({error:String(e)}); }
+});
+document.getElementById('instNvrPlay')?.addEventListener('click', ()=>{
+  const id=(document.getElementById('instNvrCamId')?.value||'').trim();
+  const v=document.getElementById('instNvrVideo');
+  if(!id||!v) return;
+  v.src='/api/nvr/stream?id='+encodeURIComponent(id);
+  v.play().catch(()=>{});
+});
+document.getElementById('instNvrRec')?.addEventListener('click', async()=>{
+  const id=(document.getElementById('instNvrCamId')?.value||'').trim();
+  try{ showControl(await nodeFetch('/api/nvr/recorder/start',{method:'POST',body:JSON.stringify({id})})); }catch(e){ showControl({error:String(e)}); }
+});
+document.getElementById('instNvrStop')?.addEventListener('click', async()=>{
+  const id=(document.getElementById('instNvrCamId')?.value||'').trim();
+  try{ showControl(await nodeFetch('/api/nvr/recorder/stop',{method:'POST',body:JSON.stringify({id})})); }catch(e){ showControl({error:String(e)}); }
+});
 
 document.getElementById('form-creds').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('creds',fd); const btn=e.submitter; btn.disabled=true;
   try{ const res=await fetch('/v1/credentials',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({role:fd.get('role'),host:fd.get('host'),key:fd.get('key'),key_passphrase:fd.get('key_passphrase')})});
@@ -1036,9 +1101,31 @@ const special = {
   'nvr-wiz-leases': async()=>{
     const did=document.getElementById('nvrWizDid').value.trim();
     if(!did) return {error:'device_id'};
-    const j=await nodeFetch('/api/nvr/site/leases',{method:'POST',body:JSON.stringify({device_id:did})});
     const pre=document.getElementById('nvrWizLeases');
-    if(pre) pre.textContent=JSON.stringify(j,null,2);
+    if(pre) pre.textContent='waiting for edge dhcp_leases…';
+    const j=await nodeFetch('/api/nvr/site/leases',{method:'POST',body:JSON.stringify({device_id:did,wait:true,timeout_sec:90})});
+    if(pre){
+      const leases=(j&&j.leases)||[];
+      if(!leases.length){ pre.textContent=JSON.stringify(j,null,2); return j; }
+      let h='<table class="striped"><tr><th>host</th><th>ip</th><th>mac</th><th></th></tr>';
+      leases.forEach((L,i)=>{
+        const host=L.hostname||'—';
+        h+=`<tr><td>${host}</td><td>${L.ip||''}</td><td><code>${L.mac||''}</code></td>`+
+          `<td><button type="button" class="nvr-lease-pick" data-i="${i}">Use</button></td></tr>`;
+      });
+      h+='</table>';
+      pre.innerHTML=h;
+      pre.querySelectorAll('.nvr-lease-pick').forEach(btn=>{
+        btn.onclick=()=>{
+          const L=leases[+btn.getAttribute('data-i')];
+          if(!L) return;
+          const ip=document.getElementById('nvrWizIp'); if(ip) ip.value=L.ip||'';
+          const mac=document.getElementById('nvrWizMac'); if(mac) mac.value=L.mac||'';
+          const name=document.getElementById('nvrWizName');
+          if(name && !name.value) name.value=(L.hostname&&L.hostname!=='*')?L.hostname:('cam-'+(L.mac||'').replace(/:/g,'').slice(-6));
+        };
+      });
+    }
     return j;
   },
   'nvr-wiz-add': async()=>{
