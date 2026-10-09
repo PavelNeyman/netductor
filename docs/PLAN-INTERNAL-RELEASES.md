@@ -1,6 +1,6 @@
 # Plan: internal releases (bare git + CI + registry) + op source build
 
-**Status:** P0–P4 core done (0.9.282): host build, prune, doctor, TG apply  
+**Status:** P0–P4 core done (0.9.282); **later** auto-build + metrics (0.9.310)  
 **Context:** GitHub remains the development remote (agent access). Day-2 artifacts should not depend on uploading every tag to GitHub Releases. Primary already has bare git, isolated CI (docker), and local OCI registry (`127.0.0.1:5000`).
 
 ## Goals

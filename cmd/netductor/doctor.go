@@ -478,6 +478,9 @@ func runDoctorNative() int {
 					doctorPrintf("INFO local releases empty (%s)\n", ndupdate.LocalReleasesDir())
 				} else {
 					doctorPrintf("OK   local releases %d (latest %s)\n", len(tags), tags[0])
+					if st := ndupdate.ReadReleaseBuildStatus(); st.State != "" {
+						doctorPrintf("INFO release build status=%s tag=%s at=%s\n", st.State, st.Tag, st.At)
+					}
 				}
 			}
 			ok++

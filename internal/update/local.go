@@ -1,13 +1,16 @@
 package update
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -167,7 +170,12 @@ func PruneLocal(keep int) (removed []string, err error) {
 }
 
 // MaybeAutoBuildNewest schedules a local release build when the newest mirror tag is not in the local store.
+// Disable with NETDUCTOR_RELEASE_AUTO_BUILD=0.
 func MaybeAutoBuildNewest() error {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_RELEASE_AUTO_BUILD")); v == "0" || strings.EqualFold(v, "false") {
+		WriteReleaseBuildStatus("skipped", "", "auto-build disabled")
+		return nil
+	}
 	tags, err := listMirrorTags("netductor")
 	if err != nil || len(tags) == 0 {
 		return err
@@ -176,10 +184,45 @@ func MaybeAutoBuildNewest() error {
 	local, _ := ListLocalTags()
 	for _, t := range local {
 		if t == newest || "v"+t == newest || t == strings.TrimPrefix(newest, "v") {
+			WriteReleaseBuildStatus("uptodate", newest, "local store already has newest mirror tag")
 			return nil
 		}
 	}
+	WriteReleaseBuildStatus("scheduled", newest, "auto-build after mirror-fetch")
+	_ = notify.Telegram(fmt.Sprintf("🔨 Auto release build scheduled: <code>%s</code>", newest))
 	return ScheduleBuild(newest, true)
+}
+
+// ReleaseBuildStatus is written for metrics/doctor.
+type ReleaseBuildStatus struct {
+	State   string `json:"state"` // scheduled|uptodate|skipped|ok|fail
+	Tag     string `json:"tag,omitempty"`
+	Detail  string `json:"detail,omitempty"`
+	At      string `json:"at"`
+}
+
+func releaseStatusPath() string {
+	return filepath.Join(paths.StateDir(), "release-build-status.json")
+}
+
+func WriteReleaseBuildStatus(state, tag, detail string) {
+	st := ReleaseBuildStatus{
+		State: state, Tag: tag, Detail: detail,
+		At: time.Now().UTC().Format(time.RFC3339),
+	}
+	_ = os.MkdirAll(filepath.Dir(releaseStatusPath()), 0o755)
+	b, _ := json.MarshalIndent(st, "", "  ")
+	_ = os.WriteFile(releaseStatusPath(), append(b, '\n'), 0o644)
+}
+
+func ReadReleaseBuildStatus() ReleaseBuildStatus {
+	b, err := os.ReadFile(releaseStatusPath())
+	if err != nil {
+		return ReleaseBuildStatus{}
+	}
+	var st ReleaseBuildStatus
+	_ = json.Unmarshal(b, &st)
+	return st
 }
 
 func listMirrorTags(name string) ([]string, error) {

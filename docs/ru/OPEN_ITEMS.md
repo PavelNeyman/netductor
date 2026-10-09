@@ -33,8 +33,8 @@
 - [ ] Edge stock-OpenWrt **lab e2e** (код hybrid готов) — [OPENWRT-LAB.md](OPENWRT-LAB.md)
 - [ ] NVR hardware e2e (C200 record/live/clip) — [PLAN-NVR-IMPLEMENTATION.md](PLAN-NVR-IMPLEMENTATION.md)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
-- [ ] Optional: Homebrew Formula SHA automation — [BREW.md](BREW.md)
-- [ ] Internal releases «later»: auto-build on mirror-fetch, metrics `local_release_latest` — [PLAN-INTERNAL-RELEASES.md](PLAN-INTERNAL-RELEASES.md)
+- [x] Homebrew Formula SHA (`release.sh` + `update-formula-sha.sh`) (0.9.310)
+- [x] Internal releases «later»: auto-build on mirror-fetch, metrics local_release_* (0.9.310)
 
 ## Channel / CI (справка)
 

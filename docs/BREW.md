@@ -30,3 +30,15 @@ After harden, **both** VPS use:
 - Key **`~/.ssh/netductor_primary`** (Mac private key; pubkey on both hosts)
 
 Bootstrap only: secondary first password login may still be **:22**; after deploy, day-2 is **:52222**.
+
+## Automation
+
+```bash
+# after assets are on GitHub Release:
+./scripts/update-formula-sha.sh v0.9.309
+# or from local dist/ produced by release.sh:
+./scripts/update-formula-sha.sh v0.9.309 ./dist
+git add Formula/netductor-op.rb && git commit -m "brew: formula $VER"
+```
+
+`scripts/release.sh` already rewrites Formula when it builds dist/. Prefer committing Formula in the same PR/tag push.

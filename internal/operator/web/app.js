@@ -644,9 +644,11 @@ const BTN = {
   git:[
     ['git-repos','Repos','GET','/api/git/repos'],
     ['git-projects','Projects','GET','/api/git/projects'],
+    ['git-project-queue','Mac queue','GET','/api/git/projects/queue?pending=1'],
     ['release-local-g','Local releases','GET','/api/release/local'],
     ['release-tags-g','Git tags','GET','/api/release/git-tags'],
-    ['release-mirror-g','Mirror fetch','POST','/api/release/mirror-fetch','{}'],
+    ['release-mirror-g','Mirror fetch (+auto build)','POST','/api/release/mirror-fetch','{}'],
+    ['release-build-g','Build local tag','POST','/api/release/build','{"tag":"","skip_darwin":true}'],
     ['git-pipelines','Pipelines','GET','/api/git/pipelines'],
     ['git-artifacts','Artifacts','GET','/api/git/artifacts'],
     ['reg-status','Registry status','GET','/api/registry/status'],

@@ -84,6 +84,7 @@ func BuildLocal(o BuildOpts) (string, error) {
 	_ = os.MkdirAll(filepath.Dir(logPath), 0o755)
 	_ = os.WriteFile(logPath, []byte(log), 0o600)
 	if err != nil {
+		WriteReleaseBuildStatus("fail", tag, "build local fail")
 		notify.AlertOnce("release:build-fail:"+tag, fmt.Sprintf("🔴 Release build <code>%s</code> failed — see %s", tag, logPath))
 		return logPath, fmt.Errorf("build: %w\n%s", err, trimLog(log, 4000))
 	}
@@ -91,9 +92,11 @@ func BuildLocal(o BuildOpts) (string, error) {
 	dist := filepath.Join(work, "dist")
 	dst, err := ImportReleaseDir(tag, dist)
 	if err != nil {
+		WriteReleaseBuildStatus("fail", tag, "import fail")
 		notify.AlertOnce("release:import-fail:"+tag, fmt.Sprintf("🔴 Release import <code>%s</code>: %v", tag, err))
 		return logPath, err
 	}
+	WriteReleaseBuildStatus("ok", tag, "build local ok")
 	notify.AlertOnce("release:built:"+tag, fmt.Sprintf("✅ Release <code>%s</code> built → <code>%s</code> (local store)", tag, dst))
 	return dst, nil
 }

@@ -75,7 +75,7 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 - [x] release.sh idempotent asset upload (422 skip)
 - [x] Edge plan golden: Cudy-like dual-NIC + RPi fixtures
 - [x] netductor-op project build (clone/detect/build/dist/--upload) (0.9.309)
-- [ ] Optional: CI Formula SHA automation
+- [x] Formula SHA automation (`release.sh` + `scripts/update-formula-sha.sh`) (0.9.310)
 
 Latest review: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md).
 
@@ -90,4 +90,4 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 - [x] Channel probes + CLI/doctor/collect alerts (0.9.275)
 - [x] Journal export last 1h on alert + API/UI download (0.9.276)
 - [x] Log retention timer (default 04:00 MSK / 01:00 UTC), API+TG+catalog (0.9.276)
-- [x] Internal releases P0–P4 core (see PLAN-INTERNAL-RELEASES); optional later: auto-build on fetch + local_release_latest metric
+- [x] Internal releases P0–P4 + later: auto-build on mirror-fetch, metrics local_release_* + build status (0.9.310)

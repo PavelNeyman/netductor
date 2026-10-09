@@ -53,6 +53,16 @@ func Collect() map[string]any {
 	}
 	out["local_release_latest"] = latest
 	out["local_release_count"] = len(tags)
+	st := update.ReadReleaseBuildStatus()
+	out["local_release_build"] = map[string]any{
+		"state": st.State, "tag": st.Tag, "detail": st.Detail, "at": st.At,
+	}
+	if latest != "" {
+		if fi, err := os.Stat(update.LocalTagDir(latest)); err == nil {
+			out["local_release_mtime"] = fi.ModTime().UTC().Format(time.RFC3339)
+			out["local_release_age_sec"] = int(time.Since(fi.ModTime()).Seconds())
+		}
+	}
 	return out
 }
 
