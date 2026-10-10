@@ -155,3 +155,52 @@ func verifyBlockyChecksum(tag, archivePath, assetName string) error {
 	}
 	return nil
 }
+
+
+// EnsureBlockyDoT upgrades existing /etc/blocky/config.yml upstreams to prefer DoT (tcp-tls :853)
+// while keeping a plaintext fallback. Idempotent if tcp-tls already present.
+func EnsureBlockyDoT() error {
+	cfg := "/etc/blocky/config.yml"
+	b, err := os.ReadFile(cfg)
+	if err != nil {
+		return err
+	}
+	s := string(b)
+	if strings.Contains(s, "tcp-tls:dns.quad9.net") || strings.Contains(s, "tcp-tls:cloudflare-dns.com") {
+		return nil
+	}
+	// naive: replace simple upstream list under default: if present
+	dotBlock := `    default:
+      - tcp-tls:dns.quad9.net:853
+      - tcp-tls:cloudflare-dns.com:853
+      - 9.9.9.9
+`
+	// If we find "groups:" and "default:", try to rewrite first default list only via marker
+	if !strings.Contains(s, "upstreams:") {
+		// prepend upstreams section
+		s = "upstreams:\n  groups:\n" + dotBlock + "  strategy: parallel_best\n" + s
+	} else if strings.Contains(s, "default:") {
+		// leave structure; append note file for operator — safer than brittle YAML rewrite
+		_ = os.WriteFile("/etc/blocky/netductor-dot.snippet.yml", []byte(
+			"# Suggested upstreams (merge into config.yml, then systemctl restart blocky):\n"+
+				"upstreams:\n  groups:\n"+dotBlock+"  strategy: parallel_best\n"), 0o644)
+		fmt.Fprintln(os.Stderr, "blocky: existing config kept; wrote /etc/blocky/netductor-dot.snippet.yml — merge DoT upstreams manually or set NETDUCTOR_BLOCKY_DOT=1 force")
+		if os.Getenv("NETDUCTOR_BLOCKY_DOT") != "1" {
+			return nil
+		}
+	}
+	// Force path: backup and write minimal merge is risky — only if env set, replace upstreams section with sed-like
+	if os.Getenv("NETDUCTOR_BLOCKY_DOT") == "1" {
+		_ = os.WriteFile(cfg+".bak-dot", b, 0o644)
+		// Very small configs only: if original default template shape
+		if strings.Contains(s, "- 9.9.9.9") && strings.Contains(s, "- 1.1.1.1") {
+			s = strings.Replace(s, "      - 9.9.9.9\n      - 1.1.1.1", "      - tcp-tls:dns.quad9.net:853\n      - tcp-tls:cloudflare-dns.com:853\n      - 9.9.9.9", 1)
+			if err := os.WriteFile(cfg, []byte(s), 0o644); err != nil {
+				return err
+			}
+			_ = run("systemctl", "restart", "blocky")
+			fmt.Fprintln(os.Stderr, "blocky: DoT upstreams applied (NETDUCTOR_BLOCKY_DOT=1)")
+		}
+	}
+	return nil
+}

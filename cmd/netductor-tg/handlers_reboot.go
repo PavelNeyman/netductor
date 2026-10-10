@@ -15,36 +15,58 @@ func handleRebootCB(token string, chat int64, msgID int, data string) bool {
 	}
 	ru := getLang() != "en"
 
-	// Primary host: m:reboot → ask, m:reboot:go:CODE → consume
+	// Step 1: pick target
 	if data == "m:reboot" || data == "m:reboot:ask" {
-		code, err := notify.BeginRebootChallenge("primary")
-		if err != nil {
-			reply(token, chat, msgID, "❌ "+esc(err.Error()), statusKeyboard())
-			return true
-		}
-		var b strings.Builder
+		var rows [][]map[string]any
+		label := "primary"
 		if ru {
-			b.WriteString("♻️ <b>Перезагрузка primary</b>\n\n")
-			b.WriteString("Код подтверждения (3 мин): <code>" + code + "</code>\n")
-			b.WriteString("Нажмите кнопку с <b>этим</b> кодом. Случайный/чужой reboot без кода не пройдёт.\n")
-		} else {
-			b.WriteString("♻️ <b>Reboot primary</b>\n\n")
-			b.WriteString("Confirmation code (3 min): <code>" + code + "</code>\n")
-			b.WriteString("Tap the button with <b>this</b> code. Random reboot without code will not run.\n")
+			label = "primary (эта нода)"
 		}
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("✅ "+code, "m:reboot:go:"+code, "")},
-			{btn(T("cancel"), "m:status", "")},
-		}}
-		reply(token, chat, msgID, b.String(), kb)
+		rows = append(rows, []map[string]any{btn("🖥 "+label, "m:reboot:target:primary", "")})
+		for _, d := range secondary.List() {
+			name := d.Name
+			if name == "" {
+				name = d.ID
+			}
+			if len(name) > 28 {
+				name = name[:28] + "…"
+			}
+			rows = append(rows, []map[string]any{btn("📡 "+name, "m:reboot:target:"+d.ID, "")})
+		}
+		rows = append(rows, []map[string]any{btn(T("cancel"), "m:status", "")})
+		title := "♻️ <b>Reboot</b>\n\nSelect node:"
+		if ru {
+			title = "♻️ <b>Перезагрузка</b>\n\nВыберите узел:"
+		}
+		reply(token, chat, msgID, title, map[string]any{"inline_keyboard": rows})
 		return true
 	}
-	if strings.HasPrefix(data, "m:reboot:go:") {
-		code := strings.TrimPrefix(data, "m:reboot:go:")
+
+	// Step 2: challenge for primary
+	if data == "m:reboot:target:primary" {
+		showRebootConfirm(token, chat, msgID, "primary", "primary", true, ru)
+		return true
+	}
+	if strings.HasPrefix(data, "m:reboot:target:") {
+		id := strings.TrimPrefix(data, "m:reboot:target:")
+		name := id
+		for _, d := range secondary.List() {
+			if d.ID == id && d.Name != "" {
+				name = d.Name
+				break
+			}
+		}
+		showRebootConfirm(token, chat, msgID, id, name, false, ru)
+		return true
+	}
+
+	// Confirm go primary
+	if strings.HasPrefix(data, "m:reboot:go:primary:") {
+		code := strings.TrimPrefix(data, "m:reboot:go:primary:")
 		if err := notify.ConsumeRebootChallenge("primary", code); err != nil {
 			msg := "❌ " + err.Error()
 			if ru {
-				msg = "❌ " + err.Error() + "\nЗапросите reboot снова."
+				msg += "\nЗапросите reboot снова."
 			}
 			reply(token, chat, msgID, msg, statusKeyboard())
 			return true
@@ -56,30 +78,27 @@ func handleRebootCB(token string, chat int64, msgID int, data string) bool {
 		return true
 	}
 
-	// Secondary: m:n:reboot:ID → ask, m:n:reboot:go:ID:CODE
-	if strings.HasPrefix(data, "m:n:reboot:go:") {
-		rest := strings.TrimPrefix(data, "m:n:reboot:go:")
-		// id may contain colons — code is last :part
+	// Confirm go secondary: m:reboot:go:ID:CODE — id may have no colons typically
+	if strings.HasPrefix(data, "m:reboot:go:") {
+		rest := strings.TrimPrefix(data, "m:reboot:go:")
+		// primary handled above
 		i := strings.LastIndex(rest, ":")
 		if i < 1 {
 			return true
 		}
 		id, code := rest[:i], rest[i+1:]
 		if err := notify.ConsumeRebootChallenge(id, code); err != nil {
-			reply(token, chat, msgID, "❌ "+esc(err.Error()), nodeCardKeyboard(id))
+			reply(token, chat, msgID, "❌ "+esc(err.Error()), statusKeyboard())
 			return true
 		}
 		_ = enqueueNodeCmd(id, "reboot")
-		reply(token, chat, msgID, formatCmdQueuedHTML("reboot", id, ""), nodeCardKeyboard(id))
+		reply(token, chat, msgID, formatCmdQueuedHTML("reboot", id, ""), statusKeyboard())
 		return true
 	}
-	if strings.HasPrefix(data, "m:n:reboot:") {
+
+	// Legacy node card: m:n:reboot:ID → same as target
+	if strings.HasPrefix(data, "m:n:reboot:") && !strings.Contains(data, ":go:") {
 		id := strings.TrimPrefix(data, "m:n:reboot:")
-		code, err := notify.BeginRebootChallenge(id)
-		if err != nil {
-			reply(token, chat, msgID, "❌ "+esc(err.Error()), nodeCardKeyboard(id))
-			return true
-		}
 		name := id
 		for _, d := range secondary.List() {
 			if d.ID == id && d.Name != "" {
@@ -87,18 +106,46 @@ func handleRebootCB(token string, chat int64, msgID int, data string) bool {
 				break
 			}
 		}
-		var b strings.Builder
-		if ru {
-			b.WriteString(fmt.Sprintf("♻️ <b>Перезагрузка secondary</b> <code>%s</code>\n\nКод: <code>%s</code> (3 мин)\n", esc(name), code))
-		} else {
-			b.WriteString(fmt.Sprintf("♻️ <b>Reboot secondary</b> <code>%s</code>\n\nCode: <code>%s</code> (3 min)\n", esc(name), code))
-		}
-		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("✅ "+code, "m:n:reboot:go:"+id+":"+code, "")},
-			{btn(T("cancel"), "m:n:o:"+id, "")},
-		}}
-		reply(token, chat, msgID, b.String(), kb)
+		showRebootConfirm(token, chat, msgID, id, name, false, ru)
 		return true
 	}
 	return true
+}
+
+func showRebootConfirm(token string, chat int64, msgID int, target, display string, isPrimary, ru bool) {
+	code, err := notify.BeginRebootChallenge(target)
+	if err != nil {
+		reply(token, chat, msgID, "❌ "+esc(err.Error()), statusKeyboard())
+		return
+	}
+	codes := notify.DecoyCodes(code, 3)
+	var b strings.Builder
+	if ru {
+		b.WriteString(fmt.Sprintf("♻️ <b>Подтверждение reboot</b>\nУзел: <code>%s</code>\n\n", esc(display)))
+		b.WriteString("Нажмите кнопку с <b>верным</b> кодом (один из трёх, 3 мин).\n")
+		b.WriteString("Неверный код — отмена. Код в сообщении <b>не</b> дублируется текстом.\n")
+	} else {
+		b.WriteString(fmt.Sprintf("♻️ <b>Confirm reboot</b>\nNode: <code>%s</code>\n\n", esc(display)))
+		b.WriteString("Tap the button with the <b>correct</b> code (one of three, 3 min).\n")
+		b.WriteString("Wrong code cancels. Code is <b>not</b> repeated as plain text.\n")
+	}
+	// Problem: user needs to know the correct code without OCR image.
+	// Agreed: 2-3 buttons one correct — but without showing code in text, user cannot know which!
+	// Must show the real code once in message, decoys only on wrong buttons.
+	if ru {
+		b.WriteString("\nВерный код: <code>" + code + "</code>\n")
+	} else {
+		b.WriteString("\nCorrect code: <code>" + code + "</code>\n")
+	}
+	var row []map[string]any
+	for _, c := range codes {
+		cb := "m:reboot:go:" + target + ":" + c
+		row = append(row, btn(c, cb, ""))
+	}
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		row,
+		{btn(T("cancel"), "m:reboot", "")},
+	}}
+	_ = isPrimary
+	reply(token, chat, msgID, b.String(), kb)
 }

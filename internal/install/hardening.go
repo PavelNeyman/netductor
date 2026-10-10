@@ -51,6 +51,7 @@ func InstallHardening() error {
 	fmt.Fprintf(os.Stderr, "hardening: firewall + mTLS :8789 + ssh key-only Port %d + fail2ban + watchdog\n", hardening.SSHPort())
 	_ = SnapshotHostBaseline()
 	_ = EnsureUnattendedSecurity()
+	_ = EnsureBlockyDoT()
 	if err := vpn.EnsureCanarySeed(); err != nil {
 		fmt.Fprintf(os.Stderr, "canary seed: %v\n", err)
 	}
