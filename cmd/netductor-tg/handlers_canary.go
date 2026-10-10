@@ -80,7 +80,7 @@ func formatCanaryHub() string {
 
 func canaryHubKB() map[string]any {
 	rows := [][]map[string]any{
-		{btn("🔄", "m:canary:refresh", ""), btn("« Users", "m:users", ""), btn(T("main_menu"), "m:menu", "")},
+		{btn(T("refresh_btn"), "m:canary:refresh", ""), btn(T("users_back"), "m:users", ""), btn(T("main_menu"), "m:menu", "")},
 	}
 	users, _ := vpn.List()
 	in := map[string]bool{}

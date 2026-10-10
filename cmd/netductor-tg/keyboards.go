@@ -112,18 +112,9 @@ func mainKeyboard() map[string]any {
 
 // statusKeyboard — Status only. Updates live under Tools; digest is content on the Status card, not a second Updates entry.
 func statusKeyboard() map[string]any {
-	ru := getLang() != "en"
-	ch, ref := "📶 Channel", "🔄 Refresh"
-	if ru {
-		ch, ref = "📶 Канал", "🔄 Обновить"
-	}
-	inc := "📦 Incident"
-	if ru {
-		inc = "📦 Инцидент"
-	}
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn(ch, "m:channel", ""), btn(ref, "m:status", "")},
-		{btn(inc, "m:incident", "")},
+		{btn(T("channel_btn"), "m:channel", ""), btn(T("refresh_btn"), "m:status", "")},
+		{btn(T("incident_btn"), "m:incident", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }
@@ -690,25 +681,14 @@ func usersListKeyboard() map[string]any {
 }
 
 func helpHubHTML() string {
-	ru := getLang() != "en"
 	body := helpText()
-	if ru {
-		body += "\n" + `<tg-button-row align="left">` +
-			`<tg-button type="callback_data" style="primary" data="m:status">📊 Статус</tg-button>` +
-			`<tg-button type="callback_data" data="m:digest">📡 Fleet</tg-button>` +
-			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
-			`<tg-button type="callback_data" data="m:fleet">🌐 Флот</tg-button>` +
-			`<tg-button type="callback_data" data="m:tools">🧰 Tools</tg-button>` +
-			`</tg-button-row>`
-	} else {
-		body += "\n" + `<tg-button-row align="left">` +
-			`<tg-button type="callback_data" style="primary" data="m:status">📊 Status</tg-button>` +
-			`<tg-button type="callback_data" data="m:digest">📡 Fleet</tg-button>` +
-			`<tg-button type="callback_data" data="m:users">👥 Users</tg-button>` +
-			`<tg-button type="callback_data" data="m:fleet">🌐 Fleet</tg-button>` +
-			`<tg-button type="callback_data" data="m:tools">🧰 Tools</tg-button>` +
-			`</tg-button-row>`
-	}
+	body += "\n" + `<tg-button-row align="left">` +
+		`<tg-button type="callback_data" style="primary" data="m:status">` + T("status") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:digest">` + T("digest_btn") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:users">` + T("users") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:fleet">` + T("fleet") + `</tg-button>` +
+		`<tg-button type="callback_data" data="m:tools">` + T("tools") + `</tg-button>` +
+		`</tg-button-row>`
 	return body
 }
 

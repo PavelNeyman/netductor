@@ -130,7 +130,11 @@ func formatPresetsHub() string {
 		b.WriteString("📋 <b>Access presets</b>\nBuilt-in: full, media, none\n")
 	}
 	if len(list) == 0 {
-		b.WriteString("<i>No custom presets yet.</i>\n")
+		if getLang() != "en" {
+			b.WriteString("<i>Своих пресетов пока нет.</i>\n")
+		} else {
+			b.WriteString("<i>No custom presets yet.</i>\n")
+		}
 	}
 	for _, p := range list {
 		b.WriteString(fmt.Sprintf("• <code>%s</code> — %s (net=%v mode=%s svc=%v)\n",
@@ -147,13 +151,21 @@ func formatPresetDraft(d presetDraft) string {
 		b.WriteString("🛠 <b>Preset draft</b>\n")
 	}
 	b.WriteString(fmt.Sprintf("internet=%v mode=%s services=%v\n", d.AllowInternet, d.ServicesMode, d.Services))
-	b.WriteString("<i>Toggle services, then Save → send name</i>")
+	if getLang() != "en" {
+		b.WriteString("<i>Галочки сервисов, затем Save → имя</i>")
+	} else {
+		b.WriteString("<i>Toggle services, then Save → send name</i>")
+	}
 	return b.String()
 }
 
 func presetsHubKB() map[string]any {
+	newLab := "➕ New"
+	if getLang() != "en" {
+		newLab = "➕ Новый"
+	}
 	rows := [][]map[string]any{
-		{btn("➕ New", "m:presets:new", "primary"), btn("🔄", "m:presets", "")},
+		{btn(newLab, "m:presets:new", "primary"), btn(T("refresh_btn"), "m:presets", "")},
 	}
 	list, _ := policy.LoadCustomPresets()
 	for _, p := range list {

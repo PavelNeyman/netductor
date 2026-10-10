@@ -6,6 +6,21 @@
 
 Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
+## Stop line
+
+**v0.9.319** (2026-10-10) — post-review F1–F4 closed (0.9.316–0.9.318); TG i18n/hub polish; UI parity canary/incident/smoke/presets.
+
+### Closed in 0.9.310–0.9.318 (ops / security)
+
+- [x] Path e2e, custom policy presets, devices, canary mismatch, incident pack
+- [x] Backup verify CLI/timer + TG/Web/API
+- [x] Post-review: verify caps, incident no shell, update session, decrypt RAM, stream tar
+- [x] Clip share token works without op session (`GET /api/nvr/clip` exempt)
+- [x] Release GET handlers requireSession; nvr secrets/go2rtc perms in doctor
+- [x] TG Day2 Tools (no Status/Users/Fleet clones); hub labels via `T()`
+
+### Still open (lab / product, not code blockers)
+
 ## Design plans (docs)
 
 - [x] [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) **P0–P3 done**; **P0–P4 done** for policy product surface (catalog, routes, UI, presets, doctor, service-net VIP); dual-node smoke still operator

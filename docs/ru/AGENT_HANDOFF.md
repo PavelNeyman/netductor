@@ -1,3 +1,9 @@
+**Стоп-линия: v0.9.319** (2026-10-10). Новый чат: AGENTS.md → этот файл → OPEN_ITEMS.
+
+Сводка 0.9.310–0.9.319: releases/CI, NVR/Tapo, rooms, canary/incident, post-review security, TG i18n hubs.
+
+---
+
 **Стоп: v0.9.261** (2026-10-06). Новый чат: AGENTS.md → docs/AGENT_HANDOFF.md → OPEN_ITEMS.
 
 Обновление бинаря не переписывает sing-box. Новый конфиг только после vpn apply или secondary sync. Formula только netductor-op.

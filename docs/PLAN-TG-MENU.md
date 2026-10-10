@@ -44,3 +44,10 @@ Rich-text buttons and the reply keyboard both grew. After updates the hub stays 
 - Status keyboard: Channel + Refresh only (not Versions/Digest→same Updates).
 - `m:digest` → real fleet digest, parent Status.
 - Updates only under Tools (`m:versions` / `m:updates`), back → Tools.
+
+
+### 0.9.319 TG polish
+- Help hub buttons use `T()` (no mixed EN/RU labels).
+- Status: channel/refresh/incident via i18n keys.
+- Users: presets/canary/devices via `T()`; canary hub back label bilingual.
+- No extra top-level hubs; Tools remains Day2 only.

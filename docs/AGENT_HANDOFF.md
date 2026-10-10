@@ -7,7 +7,19 @@
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
 # AGENT Handoff
 
-**Stop line: v0.9.261** (2026-10-06). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+**Stop line: v0.9.319** (2026-10-10). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+
+### 0.9.310–0.9.319 (summary)
+
+- Internal releases, multi-repo CI workflows, mac build queue
+- NVR/Tapo TPAP pure-Go, site rooms, channel face/uplink, TG five hubs
+- Policy presets, canary, devices, incident pack, backup verify
+- Security: session gates, clip share, verify DoS caps, nvr secret perms doctor
+- UI: TG hub `T()` i18n, Day2 Tools, Web/API/opcatalog canary+incident+smoke
+
+Live apply: `netductor stack apply v0.9.319` then secondary `upgrade:v0.9.319`.
+
+
 
 ## Where we stopped
 
