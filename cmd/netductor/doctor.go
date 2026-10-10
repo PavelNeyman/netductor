@@ -18,6 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -282,6 +283,22 @@ func runDoctorNative() int {
 			warn++
 		}
 	}
+
+	idrift := integrity.Check()
+	if !idrift.HaveManifest {
+		doctorPrintln("INFO no integrity manifest yet (host-baseline apply / stack apply)")
+	} else if idrift.OK {
+		doctorPrintln("OK   integrity manifest matches (files + SSH keys)")
+		ok++
+	} else {
+		doctorPrintf("WARN integrity drift files=%d new_ssh=%d\n", len(idrift.ChangedFiles), len(idrift.NewSSH))
+		warn++
+	}
+	if rok, _ := install.RebootRequired(); rok {
+		doctorPrintln("WARN reboot required (/var/run/reboot-required)")
+		warn++
+	}
+
 	// Service-net (primary VIP plane for internal services)
 	if role == "primary" && servicenet.Enabled() {
 		st := servicenet.Collect()

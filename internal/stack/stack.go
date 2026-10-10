@@ -28,6 +28,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/version"
@@ -497,6 +498,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 	notify.AlertOnce("stack:apply-ok:"+tag, msg)
 	_ = notify.FlushAlerts(true)
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
+	_ = integrity.WriteManifest()
 	// Re-assert host baseline after binary swap (role file + firewall + watchdog).
 	// Never hardcode primary: secondary node binary can run stack paths; DetectRole uses agent unit.
 	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {

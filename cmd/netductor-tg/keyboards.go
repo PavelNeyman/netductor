@@ -114,7 +114,7 @@ func mainKeyboard() map[string]any {
 func statusKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("channel_btn"), "m:channel", ""), btn(T("refresh_btn"), "m:status", "")},
-		{btn(T("incident_btn"), "m:incident", "")},
+		{btn(T("incident_btn"), "m:incident", ""), btn(T("node_reboot"), "m:reboot", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }

@@ -67,8 +67,9 @@ func InstallBlocky() error {
 		content := `upstreams:
   groups:
     default:
+      - tcp-tls:dns.quad9.net:853
+      - tcp-tls:cloudflare-dns.com:853
       - 9.9.9.9
-      - 1.1.1.1
   strategy: parallel_best
 blocking:
   denylists:

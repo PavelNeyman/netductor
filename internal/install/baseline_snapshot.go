@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -42,6 +43,9 @@ func SnapshotHostBaseline() error {
 	_ = os.WriteFile(filepath.Join(dir, "created"),
 		[]byte(time.Now().UTC().Format(time.RFC3339)+"\n"), 0o644)
 	fmt.Fprintln(os.Stderr, "host baseline snapshot →", dir)
+	if err := integrity.WriteManifest(); err != nil {
+		fmt.Fprintf(os.Stderr, "integrity manifest: %v\n", err)
+	}
 	return nil
 }
 

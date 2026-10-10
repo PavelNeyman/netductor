@@ -11,6 +11,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/channels"
 	"github.com/PavelNeyman/netductor/internal/devices"
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/logs"
@@ -371,6 +372,60 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 	}
 
+	// File + SSH key integrity vs baseline manifest
+	{
+		d := integrity.Check()
+		if d.HaveManifest && !d.OK {
+			msg := "🔐 <b>Integrity drift</b>"
+			if len(d.ChangedFiles) > 0 {
+				msg += "\nfiles: <code>" + strings.Join(d.ChangedFiles, ", ") + "</code>"
+			}
+			if len(d.NewSSH) > 0 {
+				msg += "\nnew SSH keys:\n<code>" + strings.Join(d.NewSSH, "\n") + "</code>"
+			}
+			notify.AlertOnce("integrity:drift", msg)
+		} else if d.HaveManifest {
+			notify.ClearAlert("integrity:drift")
+		}
+	}
+	// Backup age: newest .ndenc under backups/
+	{
+		dir := filepath.Join(paths.StateDir(), "backups")
+		newest := time.Time{}
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info == nil || info.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(info.Name(), ".ndenc") || strings.HasSuffix(info.Name(), ".tar.gz") {
+				if info.ModTime().After(newest) {
+					newest = info.ModTime()
+				}
+			}
+			return nil
+		})
+		if !newest.IsZero() && time.Since(newest) > 72*time.Hour {
+			notify.AlertOnce("backup:age", fmt.Sprintf("⚠️ Backup age: newest <b>%s</b> ago (%s)",
+				time.Since(newest).Round(time.Hour), newest.UTC().Format(time.RFC3339)))
+		} else if !newest.IsZero() {
+			notify.ClearAlert("backup:age")
+		}
+	}
+	// DNS SERVFAIL spike from sing-box journal (15m)
+	{
+		n := countJournalMatches("sing-box", 15, "SERVFAIL")
+		if n >= 40 {
+			notify.AlertOnce("dns:servfail", fmt.Sprintf("⚠️ DNS SERVFAIL spike: <b>%d</b> in 15m (sing-box journal)", n))
+		} else {
+			notify.ClearAlert("dns:servfail")
+		}
+	}
+	// Kernel/security reboot-required (unattended-upgrades)
+	if ok, detail := install.RebootRequired(); ok {
+		notify.AlertOnce("host:reboot-required", "♻️ <b>Reboot required</b> (security updates)\n<code>"+detail+"</code>\nUse TG → confirm code to reboot")
+	} else {
+		notify.ClearAlert("host:reboot-required")
+	}
+
 	// GitHub release newer than local node — notify once per remote tag
 	if enabled("release_update") {
 		st := ndupdate.CheckStatus(ndver.Release)
@@ -385,4 +440,24 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 	}
 	_ = m
+}
+
+
+func countJournalMatches(unit string, windowMin int, substr string) int {
+	if windowMin < 1 {
+		windowMin = 15
+	}
+	out, err := exec.Command("journalctl", "-u", unit,
+		"--since", fmt.Sprintf("%d min ago", windowMin),
+		"-o", "cat", "--no-pager").CombinedOutput()
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.Contains(line, substr) {
+			n++
+		}
+	}
+	return n
 }

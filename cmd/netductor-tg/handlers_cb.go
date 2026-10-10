@@ -366,9 +366,8 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			case "u": // upgrade
 				_ = enqueueNodeCmd(id, "upgrade")
 				reply(token, chat, msgID, formatCmdQueuedHTML("upgrade", id, ""), nodeCardKeyboard(id))
-			case "r": // reboot
-				_ = enqueueNodeCmd(id, "reboot")
-				reply(token, chat, msgID, formatCmdQueuedHTML("reboot", id, ""), nodeCardKeyboard(id))
+			case "r": // reboot — challenge code
+				handleRebootCB(token, chat, msgID, "m:n:reboot:"+id)
 			case "j": // journal
 				reply(token, chat, msgID, formatJournalHTML(id), nodeCardKeyboard(id))
 			case "s": // restart sing-box

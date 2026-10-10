@@ -186,6 +186,26 @@ func recoveryMessage(key string) string {
 			return "✅ Backup verify снова OK"
 		}
 		return "✅ Backup verify OK again"
+	case key == "integrity:drift":
+		if ru {
+			return "✅ Integrity снова совпадает с baseline"
+		}
+		return "✅ Integrity matches baseline again"
+	case key == "backup:age":
+		if ru {
+			return "✅ Backup age снова в норме"
+		}
+		return "✅ Backup age OK again"
+	case key == "dns:servfail":
+		if ru {
+			return "✅ DNS SERVFAIL spike спал"
+		}
+		return "✅ DNS SERVFAIL spike cleared"
+	case key == "host:reboot-required":
+		if ru {
+			return "✅ Reboot-required снят"
+		}
+		return "✅ Reboot-required cleared"
 	case key == "firewall:not-ok":
 		if ru {
 			return "✅ Файервол снова в норме"
