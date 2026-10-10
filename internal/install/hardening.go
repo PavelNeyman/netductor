@@ -53,7 +53,7 @@ func InstallHardening() error {
 	if err := vpn.EnsureCanarySeed(); err != nil {
 		fmt.Fprintf(os.Stderr, "canary seed: %v\n", err)
 	}
-	_ = InstallBackupVerifyTimer()
+	_ = InstallBackupVerifyTimer() // primary install path only
 	return nil
 }
 
@@ -94,6 +94,7 @@ func EnsureHostBaseline(role string) error {
 	}
 		if role == "primary" {
 		_ = vpn.EnsureCanarySeed()
+		_ = InstallBackupVerifyTimer()
 	}
 	return nil
 }

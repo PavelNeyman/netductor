@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -13,6 +14,10 @@ func runSmoke(args []string) int {
 	mode := "dual"
 	if len(args) > 0 {
 		mode = args[0]
+	}
+	bin := "netductor"
+	if b, err := os.Executable(); err == nil && b != "" {
+		bin = b
 	}
 	fail := 0
 	check := func(name, cmd string, argv ...string) {
@@ -29,7 +34,7 @@ func runSmoke(args []string) int {
 		fmt.Printf("OK   %s: %s\n", name, line)
 	}
 	fmt.Printf("smoke mode=%s ts=%s\n", mode, time.Now().UTC().Format(time.RFC3339))
-	check("version", "netductor", "version")
+	check("version", bin, "version")
 	check("api-health", "curl", "-sf", "--max-time", "3", "http://127.0.0.1:8787/health")
 	if mode == "dual" || mode == "secondary" {
 		list := secondary.List()
@@ -46,7 +51,7 @@ func runSmoke(args []string) int {
 				}
 			}
 		}
-		check("channel", "netductor", "channel", "status")
+		check("channel", bin, "channel", "status")
 	}
 	check("sing-box", "systemctl", "is-active", "sing-box")
 	if fail > 0 {

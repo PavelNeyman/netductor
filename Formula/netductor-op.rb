@@ -1,22 +1,22 @@
 class NetductorOp < Formula
   desc "Netductor operator (Mac client) — netductor-op only"
   homepage "https://github.com/PavelNeyman/netductor"
-  version "0.9.310"
+  version "0.9.316"
   license "MIT"
   on_macos do
     on_arm do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.310/netductor-op-darwin-arm64"
-      sha256 "1d4a4d038ffdc21242c45350221e6227c07b7c1768eec2cdfc4113f770158e80"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.316/netductor-op-darwin-arm64"
+      sha256 "4d12aa7349b313625fce4a737de30c87c8cbb53831565e043059b2689f5b0554"
     end
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.310/netductor-op-darwin-amd64"
-      sha256 "435d6a728d03a21706cb047ebb4e3e56951200df55f3f5d84b9f2bc1c873eb9b"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.316/netductor-op-darwin-amd64"
+      sha256 "49349e43d7d204f455e077e151e14fa810535ab26a75589242f9416ba2bb19f7"
     end
   end
   on_linux do
     on_intel do
-      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.310/netductor-op-linux-amd64"
-      sha256 "0390ac3348512dfa402cb009bfc957b96a8a79e824cabc279b71f3a1d8d8fea2"
+      url "https://github.com/PavelNeyman/netductor/releases/download/v0.9.316/netductor-op-linux-amd64"
+      sha256 "2c5db35c99930fb17ddd4201493e71c89eaacafe0b6fece2fa94167418553414"
     end
   end
   def install

@@ -61,7 +61,6 @@ func EnqueueMacBuild(project, ref string) (MacBuildJob, error) {
 	}
 	project = sanitize(project)
 	list := loadMacQueue()
-	// dedupe pending same project+ref
 	for _, j := range list {
 		if j.Status == "pending" && j.Project == project && j.Ref == ref {
 			return j, nil
@@ -79,19 +78,23 @@ func EnqueueMacBuild(project, ref string) (MacBuildJob, error) {
 		Note:      "host=mac — build on operator Mac, then release import / scp to VPS",
 	}
 	list = append(list, job)
-	// keep last 50
 	if len(list) > 50 {
 		list = list[len(list)-50:]
 	}
 	if err := saveMacQueue(list); err != nil {
 		return job, err
 	}
+	pending := 0
+	for _, j := range list {
+		if j.Status == "pending" {
+			pending++
+		}
+	}
 	msg := fmt.Sprintf(
-		"🔨 <b>Build required</b>: <code>%s</code> @ <code>%s</code>\nhost=mac · queue_id=<code>%s</code>\nCLI:\n<pre>%s</pre>",
-		project, ref, id, cli,
+		"🔨 <b>Mac builds pending</b>: %d\nLatest: <code>%s</code> @ <code>%s</code> · id=<code>%s</code>\nCLI:\n<pre>%s</pre>",
+		pending, project, ref, id, cli,
 	)
-	notify.AlertOnce("git:mac-build:"+id, msg)
-	_ = notify.Telegram(msg) // also try immediate (AlertOnce may batch)
+	notify.AlertOnce("git:mac-build-pending", msg)
 	return job, nil
 }
 
@@ -129,7 +132,11 @@ func CompleteMacBuild(id string) error {
 	if !found {
 		return fmt.Errorf("mac queue job not found: %s", id)
 	}
-	return saveMacQueue(list)
+	if err := saveMacQueue(list); err != nil {
+		return err
+	}
+	clearMacPendingAlert(list)
+	return nil
 }
 
 // CancelMacBuild marks cancelled.
@@ -149,7 +156,21 @@ func CancelMacBuild(id string) error {
 	if !found {
 		return fmt.Errorf("mac queue job not found: %s", id)
 	}
-	return saveMacQueue(list)
+	if err := saveMacQueue(list); err != nil {
+		return err
+	}
+	clearMacPendingAlert(list)
+	return nil
+}
+
+
+func clearMacPendingAlert(list []MacBuildJob) {
+	for _, j := range list {
+		if j.Status == "pending" {
+			return
+		}
+	}
+	notify.ClearAlert("git:mac-build-pending")
 }
 
 func isMacHost(h string) bool {

@@ -441,3 +441,20 @@ Refactor backlog from Pass 1 is largely closed. Remaining polish only if needed.
 ## R1 complete (0.9.258)
 
 Secondary split finished: `secondary_builders.go` holds inbounds / outbounds+svcRules / DNS / route + assembleSecondaryRouteRules. `WriteSecondarySingBox` only validates and writes JSON.
+
+
+## Pass 1.1 — post-feature review (0.9.311–0.9.315 → fixes 0.9.316)
+
+Scope: canary, mismatch, backup verify, incident, devices, path e2e, presets, mac queue, dual tokens, rooms.
+
+Findings fixed in **0.9.316**:
+- S1 verify size caps
+- S2 incident no bash -c
+- S3 session on update status/releases
+- S4 mac sticky alert
+- S5 devices cap 500
+- S6 canary known users
+- S7 photo magic
+- S8 verify timer primary-oriented
+- C1 formula bump with release
+- C5 smoke uses os.Executable

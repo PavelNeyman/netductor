@@ -20,6 +20,9 @@ func registerUpdateAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		force := r.URL.Query().Get("force") == "1" || r.URL.Query().Get("refresh") == "1"
 		if force {
 			writeJSON(w, 200, ndupdate.CheckStatusForce(ndver.Release))
@@ -75,6 +78,9 @@ func registerUpdateAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/update/releases", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
 			return
 		}
 		limit := 15

@@ -12,6 +12,12 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
+// Limits for verify (decrypt + tar list) — avoid disk/IO DoS on huge archives.
+const (
+	maxVerifyArchiveBytes = 4 << 30 // 4 GiB
+	maxVerifyTarMembers   = 50000
+)
+
 // VerifyLatestBackup decrypts the newest .ndenc (or lists .tar.gz) and runs tar -tf.
 // Does not restore to live paths.
 func VerifyLatestBackup() (string, error) {
@@ -22,6 +28,7 @@ func VerifyLatestBackup() (string, error) {
 	}
 	var newest string
 	var newestT time.Time
+	var newestSize int64
 	for _, e := range ents {
 		n := e.Name()
 		if !strings.HasSuffix(n, ".ndenc") && !strings.HasSuffix(n, ".tar.gz") {
@@ -34,10 +41,14 @@ func VerifyLatestBackup() (string, error) {
 		if newest == "" || info.ModTime().After(newestT) {
 			newest = filepath.Join(dir, n)
 			newestT = info.ModTime()
+			newestSize = info.Size()
 		}
 	}
 	if newest == "" {
 		return "", fmt.Errorf("no backup files in %s", dir)
+	}
+	if newestSize > maxVerifyArchiveBytes {
+		return "", fmt.Errorf("archive too large for verify: %s size=%d max=%d", filepath.Base(newest), newestSize, maxVerifyArchiveBytes)
 	}
 	src := newest
 	tmp := ""
@@ -54,6 +65,9 @@ func VerifyLatestBackup() (string, error) {
 			return "", fmt.Errorf("decrypt %s: %w", filepath.Base(newest), err)
 		}
 		defer os.Remove(tmp)
+		if st, err := os.Stat(tmp); err == nil && st.Size() > maxVerifyArchiveBytes {
+			return "", fmt.Errorf("decrypted archive too large: %d", st.Size())
+		}
 		src = tmp
 	}
 	out, err := exec.Command("tar", "-tzf", src).CombinedOutput()
@@ -62,10 +76,13 @@ func VerifyLatestBackup() (string, error) {
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	n := len(lines)
-	if n > 5000 {
-		// still ok
+	if n == 1 && lines[0] == "" {
+		n = 0
 	}
-	msg := fmt.Sprintf("ok file=%s members=%d age=%s", filepath.Base(newest), n, time.Since(newestT).Round(time.Minute))
+	if n > maxVerifyTarMembers {
+		return "", fmt.Errorf("too many tar members: %d max=%d", n, maxVerifyTarMembers)
+	}
+	msg := fmt.Sprintf("ok file=%s members=%d age=%s size=%d", filepath.Base(newest), n, time.Since(newestT).Round(time.Minute), newestSize)
 	_ = os.MkdirAll(filepath.Join(paths.StateDir(), "backup-verify"), 0o700)
 	_ = os.WriteFile(filepath.Join(paths.StateDir(), "backup-verify", "last.txt"), []byte(msg+"\n"+time.Now().UTC().Format(time.RFC3339)+"\n"), 0o600)
 	return msg, nil
@@ -80,7 +97,7 @@ func AlertVerifyFailure(err error) {
 	notify.AlertOnce("backup:verify", fmt.Sprintf("🔴 Backup verify failed: %v", err))
 }
 
-// InstallBackupVerifyTimer weekly Sunday 03:15 UTC.
+// InstallBackupVerifyTimer weekly Sunday 03:15 UTC (primary only recommended).
 func InstallBackupVerifyTimer() error {
 	bin, _ := os.Executable()
 	if bin == "" {
@@ -109,7 +126,6 @@ WantedBy=timers.target
 	_ = run("systemctl", "enable", "--now", "netductor-backup-verify.timer")
 	return nil
 }
-
 
 // LastBackupVerify returns last verify status file contents.
 func LastBackupVerify() string {

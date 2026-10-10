@@ -41,6 +41,7 @@ func LoadCanaryUsers() []string {
 
 // SaveCanaryUsers writes list.
 func SaveCanaryUsers(users []string) error {
+	users = FilterKnownVPNUsers(users)
 	_ = os.MkdirAll(filepath.Dir(canaryPath()), 0o700)
 	c := CanaryConfig{Users: users}
 	b, _ := json.MarshalIndent(c, "", "  ")
@@ -62,8 +63,14 @@ func IsCanary(name string) bool {
 // ToggleCanary adds or removes name; returns new membership.
 func ToggleCanary(name string) (bool, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || name == "relay-uplink" {
+	if name == "" || name == "relay-uplink" || IsEdgeUser(name) {
 		return false, fmt.Errorf("invalid user")
+	}
+	if filtered := FilterKnownVPNUsers([]string{name}); len(filtered) == 0 {
+		// registry available and name unknown
+		if users, err := ListNative(); err == nil && len(users) > 0 {
+			return false, fmt.Errorf("unknown vpn user: %s", name)
+		}
 	}
 	cur := LoadCanaryUsers()
 	var next []string
@@ -105,4 +112,32 @@ func EnsureCanarySeed() error {
 		return nil
 	}
 	return SaveCanaryUsers(names)
+}
+
+
+// FilterKnownVPNUsers drops names not in vpn-users (and system accounts).
+func FilterKnownVPNUsers(names []string) []string {
+	users, err := ListNative()
+	known := map[string]bool{}
+	if err == nil {
+		for _, u := range users {
+			if u.Name != "" && u.Name != "relay-uplink" && !IsEdgeUser(u.Name) {
+				known[u.Name] = true
+			}
+		}
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, n := range names {
+		n = strings.TrimSpace(n)
+		if n == "" || seen[n] {
+			continue
+		}
+		if len(known) > 0 && !known[n] {
+			continue
+		}
+		seen[n] = true
+		out = append(out, n)
+	}
+	return out
 }

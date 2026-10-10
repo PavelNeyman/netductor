@@ -94,13 +94,18 @@ func RefreshFromJournal(windowMin int) ([]Device, error) {
 			cur = append(cur, d)
 		}
 	}
-	// prune > 30d
+	// prune > 30d and cap entries
 	cut := now.Add(-30 * 24 * time.Hour)
 	kept := cur[:0]
 	for _, d := range cur {
 		if d.LastSeen.After(cut) {
 			kept = append(kept, d)
 		}
+	}
+	const maxDeviceEntries = 500
+	if len(kept) > maxDeviceEntries {
+		sort.Slice(kept, func(i, j int) bool { return kept[i].LastSeen.After(kept[j].LastSeen) })
+		kept = kept[:maxDeviceEntries]
 	}
 	_ = saveUnlocked(kept)
 	return kept, nil

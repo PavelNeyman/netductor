@@ -166,6 +166,9 @@ func AddPhoto(siteID, roomID string, data []byte, contentType string) (int, erro
 	if len(data) > 2<<20 {
 		return -1, fmt.Errorf("photo too large (max 2 MiB)")
 	}
+	if !isImageBytes(data) {
+		return -1, fmt.Errorf("photo must be JPEG/PNG/GIF/WebP")
+	}
 	ct := strings.ToLower(contentType)
 	if ct != "" && !strings.Contains(ct, "jpeg") && !strings.Contains(ct, "jpg") && !strings.Contains(ct, "png") {
 		return -1, fmt.Errorf("only jpeg/png allowed")
@@ -243,4 +246,27 @@ func DeletePhoto(siteID, roomID string, idx int) error {
 		_ = os.WriteFile(roomJSONPath(siteID, roomID), append(raw, '\n'), 0o600)
 	}
 	return nil
+}
+
+func isImageBytes(data []byte) bool {
+	if len(data) < 3 {
+		return false
+	}
+	// JPEG
+	if data[0] == 0xff && data[1] == 0xd8 {
+		return true
+	}
+	// PNG
+	if len(data) >= 8 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4e && data[3] == 0x47 {
+		return true
+	}
+	// GIF
+	if len(data) >= 6 && (string(data[:6]) == "GIF87a" || string(data[:6]) == "GIF89a") {
+		return true
+	}
+	// WebP RIFF....WEBP
+	if len(data) >= 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP" {
+		return true
+	}
+	return false
 }
