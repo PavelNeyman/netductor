@@ -18,3 +18,10 @@ On primary install/baseline, if `canary-users.json` is missing, it is filled wit
 
 ## Formula
 Homebrew `netductor-op` bumped with release assets.
+
+
+## Follow-up 0.9.317
+- decryptFile: no full ReadFile for archives ≥64 MiB (openssl stream path)
+- backup verify: streaming tar member count (no CombinedOutput dump)
+- mac queue: AlertRefresh + 2m cooldown for git:mac-build*
+- opcatalog.Day2Groups shared by TG Tools

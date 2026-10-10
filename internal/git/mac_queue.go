@@ -94,7 +94,7 @@ func EnqueueMacBuild(project, ref string) (MacBuildJob, error) {
 		"🔨 <b>Mac builds pending</b>: %d\nLatest: <code>%s</code> @ <code>%s</code> · id=<code>%s</code>\nCLI:\n<pre>%s</pre>",
 		pending, project, ref, id, cli,
 	)
-	notify.AlertOnce("git:mac-build-pending", msg)
+	notify.AlertRefresh("git:mac-build-pending", msg)
 	return job, nil
 }
 

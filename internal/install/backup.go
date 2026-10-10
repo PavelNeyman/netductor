@@ -119,12 +119,17 @@ func encryptFileOpenSSL(inPath, outPath, pass string) error {
 }
 
 func decryptFile(inPath, outPath, pass string) error {
-	// Try legacy in-memory GCM first (small archives).
-	in, err := os.ReadFile(inPath)
+	const gcmTryMax = 64 << 20 // never ReadFile multi-GB into RAM
+	st, err := os.Stat(inPath)
 	if err != nil {
 		return err
 	}
-	if len(in) < 64<<20 {
+	// Try legacy in-memory GCM only for small archives.
+	if st.Size() > 0 && st.Size() < gcmTryMax {
+		in, err := os.ReadFile(inPath)
+		if err != nil {
+			return err
+		}
 		block, err := aes.NewCipher(keyBytes(pass))
 		if err == nil {
 			if gcm, err2 := cipher.NewGCM(block); err2 == nil && len(in) >= gcm.NonceSize() {
@@ -135,7 +140,7 @@ func decryptFile(inPath, outPath, pass string) error {
 			}
 		}
 	}
-	// openssl / large — R10: pass via env, not argv
+	// openssl / large or GCM miss — R10: pass via env, not argv
 	cmd := exec.Command("openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2",
 		"-in", inPath, "-out", outPath, "-pass", "env:NETDUCTOR_BACKUP_PASS")
 	cmd.Env = append(os.Environ(), "NETDUCTOR_BACKUP_PASS="+pass)

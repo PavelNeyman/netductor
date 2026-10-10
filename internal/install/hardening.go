@@ -92,7 +92,7 @@ func EnsureHostBaseline(role string) error {
 	if err := SnapshotHostBaseline(); err != nil {
 		fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
 	}
-		if role == "primary" {
+	if role == "primary" {
 		_ = vpn.EnsureCanarySeed()
 		_ = InstallBackupVerifyTimer()
 	}

@@ -1,6 +1,7 @@
 package install
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -70,17 +71,31 @@ func VerifyLatestBackup() (string, error) {
 		}
 		src = tmp
 	}
-	out, err := exec.Command("tar", "-tzf", src).CombinedOutput()
+	cmd := exec.Command("tar", "-tzf", src)
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return "", fmt.Errorf("tar list: %w (%s)", err, strings.TrimSpace(string(out)))
+		return "", err
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	n := len(lines)
-	if n == 1 && lines[0] == "" {
-		n = 0
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("tar list start: %w", err)
 	}
-	if n > maxVerifyTarMembers {
-		return "", fmt.Errorf("too many tar members: %d max=%d", n, maxVerifyTarMembers)
+	n := 0
+	sc := bufio.NewScanner(stdout)
+	buf := make([]byte, 0, 64*1024)
+	sc.Buffer(buf, 1024*1024)
+	for sc.Scan() {
+		n++
+		if n > maxVerifyTarMembers {
+			_ = cmd.Process.Kill()
+			 _ = cmd.Wait()
+			return "", fmt.Errorf("too many tar members: max=%d", maxVerifyTarMembers)
+		}
+	}
+	if err := cmd.Wait(); err != nil {
+		return "", fmt.Errorf("tar list: %w", err)
+	}
+	if err := sc.Err(); err != nil {
+		return "", fmt.Errorf("tar scan: %w", err)
 	}
 	msg := fmt.Sprintf("ok file=%s members=%d age=%s size=%d", filepath.Base(newest), n, time.Since(newestT).Round(time.Minute), newestSize)
 	_ = os.MkdirAll(filepath.Join(paths.StateDir(), "backup-verify"), 0o700)

@@ -174,16 +174,7 @@ func replyCatalog(token string, chat int64, msgID int, html string, kb map[strin
 }
 
 func toolsDay2Groups() []opcatalog.Group {
-	// PLAN-TG-MENU: Tools = day-2 only. Status/Users/Fleet are top-level hubs.
-	skip := map[string]bool{"home": true, "users": true, "fleet": true, "overview": true, "vpn": true, "nodes": true}
-	var out []opcatalog.Group
-	for _, g := range opcatalog.Groups() {
-		if skip[g.ID] {
-			continue
-		}
-		out = append(out, g)
-	}
-	return out
+	return opcatalog.Day2Groups()
 }
 
 func formatToolsFromGroups() string {
@@ -199,13 +190,10 @@ func formatToolsFromGroups() string {
 		b.WriteString("<i>DNS, backup, edge, media, probes — no top-hub duplicates</i>" + nl)
 	}
 	b.WriteString(`<tg-button-row align="left">`)
-	skip := map[string]bool{"home": true, "users": true, "fleet": true}
-	groups := opcatalog.Groups()
+	groups := opcatalog.Day2Groups()
 	shown := 0
 	for _, g := range groups {
-		if skip[g.ID] {
-			continue
-		}
+
 		lab := g.LabelEN
 		if lang == "ru" {
 			lab = g.LabelRU

@@ -80,3 +80,17 @@ func ByGroup(surface string) map[string][]Action {
 func GroupSectionsCSV(g Group) string {
 	return strings.Join(g.Sections, ", ")
 }
+
+
+// Day2Groups is Tools-only IA (no Status/Users/Fleet top hubs).
+func Day2Groups() []Group {
+	skip := map[string]bool{"home": true, "users": true, "fleet": true}
+	var out []Group
+	for _, g := range Groups() {
+		if skip[g.ID] {
+			continue
+		}
+		out = append(out, g)
+	}
+	return out
+}

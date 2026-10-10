@@ -76,6 +76,9 @@ func AlertOnce(key, msg string) bool {
 	if strings.HasPrefix(key, "channel:") || strings.HasPrefix(key, "mismatch:") {
 		cd = 5 * time.Minute
 	}
+	if strings.HasPrefix(key, "git:mac-build") {
+		cd = 2 * time.Minute
+	}
 	if t, ok := lastSent[key]; ok && now.Sub(t) < cd {
 		return false
 	}
@@ -94,6 +97,18 @@ func AlertOnce(key, msg string) bool {
 	disk[key] = now.Unix()
 	saveSent(disk)
 	return true
+}
+
+// AlertRefresh clears cooldown for key then AlertOnce (ops status text updates).
+func AlertRefresh(key, msg string) bool {
+	alertMu.Lock()
+	delete(lastSent, key)
+	delete(clearedAt, key)
+	disk := loadSent()
+	delete(disk, key)
+	saveSent(disk)
+	alertMu.Unlock()
+	return AlertOnce(key, msg)
 }
 
 func ClearAlert(key string) {
