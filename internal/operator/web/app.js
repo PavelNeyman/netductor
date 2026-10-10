@@ -842,6 +842,20 @@ function mountButtons(){
         <button class="primary" type="button" data-act="edge-policy-save">${t('b_edge_pol_save')||'Save edge policy'}</button></div></div>
       </div>`;
     }
+    
+    if(sec==='adv' || sec==='probes'){
+      h+=`<h3>${t('ssh_title')||'SSH allowlist'}</h3>
+      <p class="note">${t('ssh_note')||'Inventory → select fingerprints → Save (no live change) / Merge / Enforce (replaces authorized_keys). Probe secondary first.'}</p>
+      <button class="primary" type="button" data-act="ssh-keys">${t('ssh_inv')||'Inventory'}</button>
+      <button class="primary" type="button" data-act="ssh-probe-sec">${t('ssh_probe')||'Probe secondary'}</button>
+      <button class="primary" type="button" data-act="ssh-allowlist-get">${t('ssh_status')||'Allowlist status'}</button>
+      <label>${t('ssh_fps')||'Fingerprints (one per line, from inventory)'}</label>
+      <textarea id="sshFpList" class="adv-body" rows="6" placeholder="SHA256:...."></textarea>
+      <button class="primary" type="button" data-act="ssh-allowlist-save-form">${t('ssh_save')||'Save allowlist'}</button>
+      <button class="primary" type="button" data-act="ssh-allowlist-merge-form">${t('ssh_merge')||'Merge'}</button>
+      <button class="primary" type="button" data-act="ssh-allowlist-enforce-form">${t('ssh_enf')||'Enforce + secondary'}</button>`;
+    }
+
     if(sec==='nodes' || sec==='fleet'){
       h+=`<h3>Rooms</h3>
       <div class="row"><div><label>site_id</label><input id="roomSite" placeholder="home"/></div>

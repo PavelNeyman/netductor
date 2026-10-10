@@ -149,6 +149,15 @@ func All() []Action {
 		a("dns-set", "dns", "POST", "/api/dns/set", `{"id":"","enabled":true}`, "dns set", "DNS set list", "DNS вкл/выкл список"),
 		a("dns-reload", "dns", "POST", "/api/dns/reload", "{}", "dns reload", "DNS reload", "DNS reload"),
 
+		// SSH allowlist (security)
+		a("ssh-keys", "probes", "GET", "/api/security/ssh-keys", "", "—", "SSH keys inventory", "SSH ключи (inventory)"),
+		a("ssh-probe-sec", "probes", "POST", "/api/security/ssh-keys/probe-secondary", "{}", "—", "Probe secondary SSH keys", "Probe SSH на secondary"),
+		a("ssh-allowlist-get", "probes", "GET", "/api/security/ssh-allowlist", "", "—", "SSH allowlist status", "SSH allowlist статус"),
+		a("ssh-allowlist-save", "probes", "POST", "/api/security/ssh-allowlist", `{"fingerprints":[],"enforce":false,"merge":false,"push_secondary":false}`, "—", "SSH allowlist save", "SSH allowlist сохранить"),
+		a("ssh-allowlist-merge", "probes", "POST", "/api/security/ssh-allowlist", `{"fingerprints":[],"merge":true}`, "—", "SSH allowlist merge", "SSH allowlist merge"),
+		a("ssh-allowlist-enforce", "probes", "POST", "/api/security/ssh-allowlist", `{"fingerprints":[],"enforce":true,"push_secondary":true}`, "—", "SSH allowlist enforce", "SSH enforce"),
+
+
 		// backup
 		a("backup-schedule", "backup", "GET", "/api/backup/schedule", "", "backup schedule", "Backup schedule", "Расписание бэкапа"),
 		a("backup-list", "backup", "GET", "/api/backup/list", "", "backup list", "Backup files", "Файлы бэкапа"),
