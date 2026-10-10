@@ -144,56 +144,121 @@ func recoveryMessage(key string) string {
 	if key == "" || strings.HasPrefix(key, "ok:") {
 		return ""
 	}
+	ru := alertLangRU()
 	switch {
 	case key == "svcpath:sp":
+		if ru {
+			return "✅ Service path <b>SP</b> восстановлен (nd-svc-sp up)"
+		}
 		return "✅ Service path <b>SP</b> recovered (nd-svc-sp up)"
 	case key == "svcpath:ps":
+		if ru {
+			return "✅ Service path <b>PS</b> восстановлен (nd-svc-ps up)"
+		}
 		return "✅ Service path <b>PS</b> recovered (nd-svc-ps up)"
 	case key == "sni:down":
+		if ru {
+			return "✅ Порт VLESS снова доступен"
+		}
 		return "✅ VLESS port reachable again"
 	case key == "channel:reality-sec":
+		if ru {
+			return "✅ Reality invalid (со secondary) в норме"
+		}
 		return "✅ Reality invalid (from secondary) back to normal"
 	case key == "channel:reality-total":
+		if ru {
+			return "✅ Reality invalid total в норме"
+		}
 		return "✅ Reality invalid total back to normal"
 	case key == "mismatch:core":
+		if ru {
+			return "✅ Всплеск flow mismatch спал"
+		}
 		return "✅ Flow mismatch spike cleared"
 	case key == "backup:offsite":
+		if ru {
+			return "✅ Offsite backup снова OK"
+		}
 		return "✅ Offsite backup path OK again"
 	case key == "backup:verify":
+		if ru {
+			return "✅ Backup verify снова OK"
+		}
 		return "✅ Backup verify OK again"
 	case key == "firewall:not-ok":
+		if ru {
+			return "✅ Файервол снова в норме"
+		}
 		return "✅ Firewall healthy again"
 	case key == "git:mac-build-pending":
+		if ru {
+			return "✅ Очередь Mac build пуста"
+		}
 		return "✅ Mac build queue empty"
 	case strings.HasPrefix(key, "probe:"):
-		return "✅ Probe <b>" + escAlert(strings.TrimPrefix(key, "probe:")) + "</b> OK"
+		name := escAlert(strings.TrimPrefix(key, "probe:"))
+		if ru {
+			return "✅ Probe <b>" + name + "</b> OK"
+		}
+		return "✅ Probe <b>" + name + "</b> OK"
 	case strings.HasPrefix(key, "svc:"):
-		return "✅ Service <b>" + escAlert(strings.TrimPrefix(key, "svc:")) + "</b> active"
+		name := escAlert(strings.TrimPrefix(key, "svc:"))
+		if ru {
+			return "✅ Сервис <b>" + name + "</b> active"
+		}
+		return "✅ Service <b>" + name + "</b> active"
 	case strings.HasPrefix(key, "secondary:") && strings.HasSuffix(key, ":uplink"):
-		id := strings.TrimSuffix(strings.TrimPrefix(key, "secondary:"), ":uplink")
-		return "✅ Secondary uplink recovered: <code>" + escAlert(id) + "</code>"
+		id := escAlert(strings.TrimSuffix(strings.TrimPrefix(key, "secondary:"), ":uplink"))
+		if ru {
+			return "✅ Uplink secondary восстановлен: <code>" + id + "</code>"
+		}
+		return "✅ Secondary uplink recovered: <code>" + id + "</code>"
 	case strings.HasPrefix(key, "secondary:") && strings.HasSuffix(key, ":sb"):
-		id := strings.TrimSuffix(strings.TrimPrefix(key, "secondary:"), ":sb")
-		return "✅ Secondary sing-box active: <code>" + escAlert(id) + "</code>"
+		id := escAlert(strings.TrimSuffix(strings.TrimPrefix(key, "secondary:"), ":sb"))
+		if ru {
+			return "✅ sing-box secondary active: <code>" + id + "</code>"
+		}
+		return "✅ Secondary sing-box active: <code>" + id + "</code>"
 	case strings.HasPrefix(key, "secondary:"):
-		id := strings.TrimPrefix(key, "secondary:")
-		return "✅ Secondary online: <code>" + escAlert(id) + "</code>"
+		id := escAlert(strings.TrimPrefix(key, "secondary:"))
+		if ru {
+			return "✅ Secondary online: <code>" + id + "</code>"
+		}
+		return "✅ Secondary online: <code>" + id + "</code>"
 	case strings.HasPrefix(key, "channel:"):
+		if ru {
+			return "✅ Канал восстановлен: <code>" + escAlert(key) + "</code>"
+		}
 		return "✅ Channel recovered: <code>" + escAlert(key) + "</code>"
 	case strings.HasPrefix(key, "path:e2e:"):
-		return "✅ Path e2e OK: <code>" + escAlert(strings.TrimPrefix(key, "path:e2e:")) + "</code>"
+		id := escAlert(strings.TrimPrefix(key, "path:e2e:"))
+		if ru {
+			return "✅ Path e2e OK: <code>" + id + "</code>"
+		}
+		return "✅ Path e2e OK: <code>" + id + "</code>"
 	case strings.HasPrefix(key, "git:mac-build:"):
-		return "✅ Mac build job done: <code>" + escAlert(strings.TrimPrefix(key, "git:mac-build:")) + "</code>"
+		return "✅ Mac build: <code>" + escAlert(strings.TrimPrefix(key, "git:mac-build:")) + "</code>"
 	case strings.HasPrefix(key, "git:build-fail:"):
-		return "✅ Project build recovered: <code>" + escAlert(strings.TrimPrefix(key, "git:build-fail:")) + "</code>"
+		return "✅ Project build OK: <code>" + escAlert(strings.TrimPrefix(key, "git:build-fail:")) + "</code>"
 	case strings.HasPrefix(key, "addon-update-fail"):
-		return "✅ Addon update path OK: <code>" + escAlert(key) + "</code>"
+		return "✅ Addon update OK: <code>" + escAlert(key) + "</code>"
 	case strings.HasSuffix(key, ":log"):
-		// log-attach companion keys — no separate recovery spam
 		return ""
 	default:
+		if ru {
+			return "✅ Восстановлено: <code>" + escAlert(key) + "</code>"
+		}
 		return "✅ Recovered: <code>" + escAlert(key) + "</code>"
 	}
+}
+
+func alertLangRU() bool {
+	b, err := os.ReadFile("/etc/netductor/telegram_lang")
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(strings.ToLower(string(b))) == "ru"
 }
 
 func escAlert(s string) string {

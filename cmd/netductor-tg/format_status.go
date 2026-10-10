@@ -305,20 +305,8 @@ func formatStatusPretty() string {
 		b.WriteString(fmt.Sprintf("🗂 Nodes: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
 	}
 
-	// Channel one-liner (full detail: m:channel)
-	chOut := strings.TrimSpace(runND("channel", "status"))
-	if chOut != "" {
-		chTitle := "📶 <b>Channel</b>"
-		if ru {
-			chTitle = "📶 <b>Канал</b>"
-		}
-		// first non-empty line only for the card
-		first := chOut
-		if i := strings.IndexByte(chOut, '\n'); i >= 0 {
-			first = chOut[:i]
-		}
-		b.WriteString(nl + chTitle + nl + "<code>" + esc(truncate(first, 200)) + "</code>" + nl)
-	}
+	// Channel summary (detail screen: m:channel → tables)
+	b.WriteString(nl + formatChannelSummaryHTML() + nl)
 	return b.String()
 }
 
@@ -382,5 +370,165 @@ func formatFirewallBlock() string {
 	for _, w := range st.Warnings {
 		b.WriteString(nl + "⚠️ " + esc(w))
 	}
+	return b.String()
+}
+
+
+// formatChannelSummaryHTML — compact Status-card block (no raw dump).
+func formatChannelSummaryHTML() string {
+	ru := getLang() != "en"
+	title := "📶 <b>Channel</b>"
+	if ru {
+		title = "📶 <b>Канал</b>"
+	}
+	rep, err := loadChannelReport()
+	if err != nil {
+		if ru {
+			return title + "\n<i>нет данных</i>"
+		}
+		return title + "\n<i>no data</i>"
+	}
+	okN, total := 0, len(rep.Secondaries)
+	for _, s := range rep.Secondaries {
+		if s.Online && s.UplinkOK {
+			okN++
+		}
+	}
+	pathOK, pathT := 0, len(rep.Path)
+	for _, p := range rep.Path {
+		if p.PathOK {
+			pathOK++
+		}
+	}
+	nl := "\n"
+	var b strings.Builder
+	b.WriteString(title + nl)
+	if ru {
+		b.WriteString(fmt.Sprintf("• secondary uplink: <b>%d</b>/%d · path e2e: <b>%d</b>/%d"+nl, okN, total, pathOK, pathT))
+		b.WriteString(fmt.Sprintf("• mismatch 30m: <b>%d</b> · reality 15m: <b>%d</b> (sec <b>%d</b>)"+nl, rep.MismatchLocal30m, rep.RealityInvalidTotal15m, rep.RealityInvalidFromSec15m))
+	} else {
+		b.WriteString(fmt.Sprintf("• secondary uplink: <b>%d</b>/%d · path e2e: <b>%d</b>/%d"+nl, okN, total, pathOK, pathT))
+		b.WriteString(fmt.Sprintf("• mismatch 30m: <b>%d</b> · reality 15m: <b>%d</b> (from sec <b>%d</b>)"+nl, rep.MismatchLocal30m, rep.RealityInvalidTotal15m, rep.RealityInvalidFromSec15m))
+	}
+	return b.String()
+}
+
+type channelReportJSON struct {
+	TS                       string `json:"ts"`
+	MismatchLocal30m         int    `json:"mismatch_local_30m"`
+	RealityInvalidFromSec15m int    `json:"reality_invalid_from_secondary_15m"`
+	RealityInvalidTotal15m   int    `json:"reality_invalid_total_15m"`
+	Secondaries              []struct {
+		ID              string  `json:"id"`
+		Name            string  `json:"name"`
+		PublicIP        string  `json:"public_ip"`
+		Online          bool    `json:"online"`
+		HeartbeatAgeSec int     `json:"heartbeat_age_sec"`
+		SingBoxOK       bool    `json:"singbox_ok"`
+		UplinkOK        bool    `json:"uplink_ok"`
+		TCP443OK        bool    `json:"tcp443_ok"`
+		TCP443ms        float64 `json:"tcp443_ms"`
+		Mismatch30m     int     `json:"mismatch_30m"`
+	} `json:"secondaries"`
+	Path []struct {
+		SecondaryID string  `json:"secondary_id"`
+		Name        string  `json:"name"`
+		Online      bool    `json:"online"`
+		Face443     bool    `json:"face_443"`
+		Face443ms   float64 `json:"face_443_ms"`
+		UplinkOK    bool    `json:"uplink_ok"`
+		SingBoxOK   bool    `json:"singbox_ok"`
+		SSH52222    bool    `json:"ssh_52222"`
+		ICMP        bool    `json:"icmp_ok"`
+		PathOK      bool    `json:"path_ok"`
+		MgmtOK      bool    `json:"mgmt_ok"`
+		Note        string  `json:"note"`
+	} `json:"path_e2e"`
+}
+
+func loadChannelReport() (*channelReportJSON, error) {
+	out, err := exec.Command(netductorBin(), "channel", "status", "--json").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		return nil, err
+	}
+	var rep channelReportJSON
+	if json.Unmarshal(out, &rep) != nil {
+		return nil, fmt.Errorf("parse channel json")
+	}
+	return &rep, nil
+}
+
+func markOK(ok bool) string {
+	if ok {
+		return "✅"
+	}
+	return "🔴"
+}
+
+// formatChannelDetailHTML — full Channel screen: tables, no raw text dump.
+func formatChannelDetailHTML() string {
+	ru := getLang() != "en"
+	nl := "\n"
+	title := "📶 <b>Channel</b>"
+	if ru {
+		title = "📶 <b>Канал</b>"
+	}
+	rep, err := loadChannelReport()
+	if err != nil {
+		if ru {
+			return title + nl + "<i>нет данных (channel status --json)</i>"
+		}
+		return title + nl + "<i>no data (channel status --json)</i>"
+	}
+	var b strings.Builder
+	b.WriteString(title + nl)
+	if ru {
+		b.WriteString(fmt.Sprintf("<i>mismatch 30m local=<b>%d</b> · reality 15m total=<b>%d</b> / from secondary=<b>%d</b></i>"+nl+nl, rep.MismatchLocal30m, rep.RealityInvalidTotal15m, rep.RealityInvalidFromSec15m))
+	} else {
+		b.WriteString(fmt.Sprintf("<i>mismatch 30m local=<b>%d</b> · reality 15m total=<b>%d</b> / from secondary=<b>%d</b></i>"+nl+nl, rep.MismatchLocal30m, rep.RealityInvalidTotal15m, rep.RealityInvalidFromSec15m))
+	}
+
+	// Secondaries table
+	h1 := "Secondary"
+	if ru {
+		h1 = "Secondary"
+	}
+	b.WriteString("<b>" + h1 + "</b>" + nl)
+	b.WriteString(`<table bordered striped compact><tr><th>name</th><th>online</th><th>uplink</th><th>face:443</th><th>sb</th><th>hb</th></tr>`)
+	for _, s := range rep.Secondaries {
+		name := s.Name
+		if name == "" {
+			name = s.ID
+		}
+		if s.PublicIP != "" {
+			name = name + "\n" + s.PublicIP
+		}
+		face := markOK(s.TCP443OK)
+		if s.TCP443OK && s.TCP443ms > 0 {
+			face = fmt.Sprintf("%s %.0fms", markOK(true), s.TCP443ms)
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%ds</td></tr>",
+			esc(name), markOK(s.Online), markOK(s.UplinkOK), face, markOK(s.SingBoxOK), s.HeartbeatAgeSec))
+	}
+	if len(rep.Secondaries) == 0 {
+		b.WriteString(`<tr><td colspan="6"><i>—</i></td></tr>`)
+	}
+	b.WriteString(`</table>` + nl + nl)
+
+	// Path e2e table
+	b.WriteString("<b>Path e2e</b>" + nl)
+	b.WriteString(`<table bordered striped compact><tr><th>name</th><th>path</th><th>mgmt</th><th>face</th><th>ssh</th><th>note</th></tr>`)
+	for _, p := range rep.Path {
+		name := p.Name
+		if name == "" {
+			name = p.SecondaryID
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
+			esc(name), markOK(p.PathOK), markOK(p.MgmtOK), markOK(p.Face443), markOK(p.SSH52222), esc(p.Note)))
+	}
+	if len(rep.Path) == 0 {
+		b.WriteString(`<tr><td colspan="6"><i>—</i></td></tr>`)
+	}
+	b.WriteString(`</table>`)
 	return b.String()
 }

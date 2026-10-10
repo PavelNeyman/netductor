@@ -605,15 +605,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:status":
 		reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
 	case "m:channel":
-		out := runND("channel", "status")
-		if strings.TrimSpace(out) == "" {
-			out = "(no channel data)"
-		}
-		title := "📶 <b>Channel</b>\n"
-		if getLang() != "en" {
-			title = "📶 <b>Канал</b>\n"
-		}
-		reply(token, chat, msgID, title+"<pre>"+esc(truncate(out, 3500))+"</pre>", statusKeyboard())
+		reply(token, chat, msgID, formatChannelDetailHTML(), statusKeyboard())
 	case "m:users", "m:vpn_list":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:vpn_list_legacy":

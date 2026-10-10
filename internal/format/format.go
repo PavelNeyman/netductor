@@ -125,7 +125,7 @@ func formatMetrics(v any, ru bool) Result {
 	b.WriteString("<b>" + title + "</b><br>")
 	b.WriteString("<table bordered striped compact><tr><th>key</th><th>value</th></tr>")
 	// stable order for known keys first
-	order := []string{"hostname", "cpu_pct", "loadavg", "mem", "disk", "net", "services", "containers", "firewall", "path_e2e_ok", "path_e2e_total", "vpn_endpoints", "vpn_devices", "ts"}
+	order := []string{"hostname", "cpu_pct", "loadavg", "mem", "disk", "net", "services", "containers", "firewall", "path_e2e_ok", "path_e2e_total", "vpn_endpoints", "ts"}
 	seen := map[string]bool{}
 	row := func(k, val string) {
 		b.WriteString("<tr><td>" + esc(k) + "</td><td>" + val + "</td></tr>")
@@ -188,8 +188,10 @@ func formatMetrics(v any, ru bool) Result {
 			row(k, cellValue(val))
 		case "firewall":
 			row(k, cellValue(val))
-		case "vpn_endpoints", "vpn_devices":
-			row(k, fmt.Sprintf("<b>%d</b> <i>unique user|IP (history)</i>", int(asFloat(val))))
+		case "vpn_endpoints":
+			row(k, fmt.Sprintf("<b>%d</b> <i>unique user|IP history</i>", int(asFloat(val))))
+		case "vpn_devices":
+			seen[k] = true // alias of vpn_endpoints — hide duplicate row
 		case "path_e2e_ok", "path_e2e_total":
 			row(k, "<b>"+esc(fmt.Sprintf("%.0f", asFloat(val)))+"</b>")
 		case "ts":
