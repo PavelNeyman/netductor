@@ -607,10 +607,25 @@ func runDoctorNative() int {
 		}
 	}
 	go2path := filepath.Join(paths.StateDir(), "nvr", "go2rtc.yaml")
-	if _, err := os.Stat(go2path); err == nil {
-		doctorPrintf("OK   nvr go2rtc.yaml present\n")
+	if st, err := os.Stat(go2path); err == nil {
+		mode := st.Mode().Perm()
+		if mode&0o077 != 0 {
+			warnCheck("nvr go2rtc.yaml perms (want 0600)", false)
+			doctorPrintf("WARN nvr go2rtc.yaml mode=%04o (may contain stream secrets)\n", mode)
+		} else {
+			doctorPrintf("OK   nvr go2rtc.yaml present mode=%04o\n", mode)
+		}
 	} else {
 		doctorPrintf("INFO nvr go2rtc.yaml not written (netductor nvr go2rtc)\n")
+	}
+	secPath := filepath.Join(paths.StateDir(), "nvr", "secrets.json")
+	if st, err := os.Stat(secPath); err == nil {
+		mode := st.Mode().Perm()
+		if mode&0o077 != 0 {
+			warnCheck("nvr secrets.json perms (want 0600)", false)
+		} else {
+			doctorPrintf("OK   nvr secrets.json mode=%04o\n", mode)
+		}
 	}
 	if nvr.Go2RTCListening() {
 		check("nvr go2rtc :1984", true)

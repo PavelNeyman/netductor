@@ -73,4 +73,10 @@ func TestAPIPathExemptFromSession(t *testing.T) {
 	if apiPathExemptFromSession("/api/stack/apply") {
 		t.Fatal("stack apply must require session")
 	}
+	if !apiPathExemptFromSession("/api/nvr/clip") {
+		t.Fatal("clip token GET must be exempt (share without op session)")
+	}
+	if apiPathExemptFromSession("/api/nvr/clip/token") {
+		t.Fatal("clip token mint must require session")
+	}
 }

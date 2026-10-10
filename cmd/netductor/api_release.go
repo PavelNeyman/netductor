@@ -18,6 +18,9 @@ func registerReleaseAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		tags, err := ndupdate.ListLocalTags()
 		if err != nil {
 			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
@@ -33,6 +36,9 @@ func registerReleaseAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/release/local/detail", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
 			return
 		}
 		tag := strings.TrimSpace(r.URL.Query().Get("tag"))
@@ -123,6 +129,9 @@ func registerReleaseAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
+		if !requireSession(w, r) {
+			return
+		}
 		name := r.URL.Query().Get("name")
 		if name == "" {
 			name = "netductor"
@@ -168,6 +177,9 @@ func registerReleaseAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/release/build-status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
 			return
 		}
 		logPath := "/var/log/netductor-release-build.log"

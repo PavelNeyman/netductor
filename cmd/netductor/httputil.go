@@ -151,6 +151,9 @@ func apiPathExemptFromSession(path string) bool {
 		return true
 	case "/api/nvr/ingest":
 		return true
+	// One-shot clip share token (mint still requires session + PathUnderRoot).
+	case "/api/nvr/clip":
+		return true
 	}
 	if strings.HasPrefix(path, "/api/secondary/agent/") {
 		return true
