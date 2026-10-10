@@ -75,7 +75,11 @@ func Collect() map[string]any {
 	}
 	out["path_e2e_ok"] = pathOK
 	out["path_e2e_total"] = len(ch.Path)
-	out["vpn_devices"] = len(devices.List())
+	// Historical unique VPN client endpoints (user|srcIP), not "online now".
+	// Used for locator-style attribution and incident context; pruned ~30d.
+	devs := devices.List()
+	out["vpn_endpoints"] = len(devs)
+	out["vpn_devices"] = len(devs) // alias kept for older UIs
 	return out
 }
 

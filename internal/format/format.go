@@ -125,7 +125,7 @@ func formatMetrics(v any, ru bool) Result {
 	b.WriteString("<b>" + title + "</b><br>")
 	b.WriteString("<table bordered striped compact><tr><th>key</th><th>value</th></tr>")
 	// stable order for known keys first
-	order := []string{"hostname", "cpu_pct", "loadavg", "mem", "disk", "net", "services", "containers", "ts"}
+	order := []string{"hostname", "cpu_pct", "loadavg", "mem", "disk", "net", "services", "containers", "firewall", "path_e2e_ok", "path_e2e_total", "vpn_endpoints", "vpn_devices", "ts"}
 	seen := map[string]bool{}
 	row := func(k, val string) {
 		b.WriteString("<tr><td>" + esc(k) + "</td><td>" + val + "</td></tr>")
@@ -184,6 +184,14 @@ func formatMetrics(v any, ru bool) Result {
 				}
 				row(k, strings.Join(parts, " "))
 			}
+		case "containers":
+			row(k, cellValue(val))
+		case "firewall":
+			row(k, cellValue(val))
+		case "vpn_endpoints", "vpn_devices":
+			row(k, fmt.Sprintf("<b>%d</b> <i>unique user|IP (history)</i>", int(asFloat(val))))
+		case "path_e2e_ok", "path_e2e_total":
+			row(k, "<b>"+esc(fmt.Sprintf("%.0f", asFloat(val)))+"</b>")
 		case "ts":
 			row(k, "<code>"+esc(fmt.Sprintf("%.0f", asFloat(val)))+"</code>")
 		default:
@@ -661,6 +669,29 @@ func summarizeMetricMap(t map[string]any) string {
 			return strings.Join(parts, " ")
 		}
 	}
+	// firewall summary from metrics.Collect
+	if _, hasB := t["backend"]; hasB {
+		if _, hasOK := t["ok"]; hasOK {
+			em := "🚫"
+			if t["ok"] == true {
+				em = "✅"
+			}
+			role := firstStr(t, "role")
+			backend := firstStr(t, "backend")
+			act := "off"
+			if t["active"] == true {
+				act = "on"
+			}
+			s := fmt.Sprintf("%s <code>%s</code> %s", em, esc(backend), act)
+			if role != "" {
+				s += " role=<code>" + esc(role) + "</code>"
+			}
+			if w, ok := t["warnings"].([]any); ok && len(w) > 0 {
+				s += fmt.Sprintf(" warn=%d", len(w))
+			}
+			return s
+		}
+	}
 	return ""
 }
 
@@ -687,7 +718,31 @@ func cellValue(v any) string {
 		}
 		return "<code>{" + fmt.Sprintf("%d keys", len(t)) + "}</code>"
 	case []any:
-		return "<code>[" + fmt.Sprintf("%d", len(t)) + "]</code>"
+		if len(t) == 0 {
+			return "<code>0</code>"
+		}
+		// docker containers: [{name,status}, ...]
+		names := make([]string, 0, len(t))
+		for _, it := range t {
+			if m, ok := it.(map[string]any); ok {
+				n := firstStr(m, "name", "Names", "id")
+				if n != "" {
+					names = append(names, n)
+				}
+			}
+		}
+		if len(names) > 0 {
+			shown := names
+			if len(shown) > 4 {
+				shown = shown[:4]
+			}
+			s := fmt.Sprintf("<b>%d</b> <code>%s</code>", len(t), esc(strings.Join(shown, ", ")))
+			if len(names) > 4 {
+				s += "…"
+			}
+			return s
+		}
+		return fmt.Sprintf("<b>%d</b>", len(t))
 	default:
 		return "<code>" + esc(truncate(fmt.Sprint(t), 100)) + "</code>"
 	}
