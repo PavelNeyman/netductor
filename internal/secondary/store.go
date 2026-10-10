@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
@@ -217,6 +218,9 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 		r.Devices[i].MismatchTotal = in.MismatchTotal
 		r.Devices[i].MismatchByIP = in.MismatchByIP
 		if in.CmdDone != "" {
+			if in.CmdDone == "ssh_keys" && in.CmdOK {
+				_ = integrity.CacheSecondaryKeys(r.Devices[i].ID, in.CmdLog)
+			}
 			r.Devices[i].LastCmd = in.CmdDone
 			r.Devices[i].LastCmdOK = in.CmdOK
 			r.Devices[i].LastCmdLog = in.CmdLog

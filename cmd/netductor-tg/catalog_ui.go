@@ -212,6 +212,11 @@ func formatToolsFromGroups() string {
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" style="primary" data="m:git">` + gitLab + `</tg-button></tg-button-row>`)
 	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:versions">` + upd + `</tg-button>` +
 		`<tg-button type="callback_data" style="primary" data="m:logs">` + logsLab + `</tg-button></tg-button-row>`)
+	sshLab := "🔐 SSH keys"
+	if lang == "ru" {
+		sshLab = "🔐 SSH ключи"
+	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:ssh">` + sshLab + `</tg-button></tg-button-row>`)
 	return b.String()
 }
 

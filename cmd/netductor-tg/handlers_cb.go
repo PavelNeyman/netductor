@@ -407,6 +407,12 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 
+	if handleRebootCB(token, chat, msgID, data) {
+		return
+	}
+	if handleSSHCB(token, chat, msgID, data) {
+		return
+	}
 	switch data {
 	case "m:noop":
 		// Disabled / busy button — brief toast

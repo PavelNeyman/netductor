@@ -18,6 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -339,9 +340,22 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 	case "journal":
 		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-secondary-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
 		return err == nil || len(out) > 0, string(out)
+	case "ssh_keys":
+		body := integrity.AuthorizedKeysBody()
+		if body == "" {
+			return false, "no authorized_keys"
+		}
+		return true, body
 	default:
 		if strings.HasPrefix(cmd, "upgrade:") {
 			return secondaryUpgrade(strings.TrimPrefix(cmd, "upgrade:"))
+		}
+		if strings.HasPrefix(cmd, "ssh_allowlist:") {
+			b64 := strings.TrimPrefix(cmd, "ssh_allowlist:")
+			if err := integrity.ApplyAllowlistFromB64(b64); err != nil {
+				return false, err.Error()
+			}
+			return true, "ssh allowlist applied + enforced"
 		}
 		if cmd == "backup_local" {
 			path, err := secondaryBackupLocal()
