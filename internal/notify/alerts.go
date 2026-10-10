@@ -111,14 +111,96 @@ func AlertRefresh(key, msg string) bool {
 	return AlertOnce(key, msg)
 }
 
+// ClearAlert marks key healthy. If we previously sent a negative alert for this key,
+// enqueue a single ✅ recovery message (ok:<key>) so TG is not only "everything is bad".
 func ClearAlert(key string) {
+	key = strings.TrimSpace(key)
+	if key == "" || strings.HasPrefix(key, "ok:") {
+		return
+	}
 	alertMu.Lock()
-	defer alertMu.Unlock()
+	_, wasMem := lastSent[key]
+	disk := loadSent()
+	_, wasDisk := disk[key]
+	was := wasMem || wasDisk
 	delete(lastSent, key)
 	clearedAt[key] = time.Now()
-	disk := loadSent()
 	delete(disk, key)
 	saveSent(disk)
+	alertMu.Unlock()
+
+	if !was {
+		return
+	}
+	msg := recoveryMessage(key)
+	if msg == "" {
+		return
+	}
+	// Separate key so batch overwrite does not fight the original; no AlertOnce cooldown.
+	EnqueueAlert("ok:"+key, msg)
+}
+
+func recoveryMessage(key string) string {
+	if key == "" || strings.HasPrefix(key, "ok:") {
+		return ""
+	}
+	switch {
+	case key == "svcpath:sp":
+		return "✅ Service path <b>SP</b> recovered (nd-svc-sp up)"
+	case key == "svcpath:ps":
+		return "✅ Service path <b>PS</b> recovered (nd-svc-ps up)"
+	case key == "sni:down":
+		return "✅ VLESS port reachable again"
+	case key == "channel:reality-sec":
+		return "✅ Reality invalid (from secondary) back to normal"
+	case key == "channel:reality-total":
+		return "✅ Reality invalid total back to normal"
+	case key == "mismatch:core":
+		return "✅ Flow mismatch spike cleared"
+	case key == "backup:offsite":
+		return "✅ Offsite backup path OK again"
+	case key == "backup:verify":
+		return "✅ Backup verify OK again"
+	case key == "firewall:not-ok":
+		return "✅ Firewall healthy again"
+	case key == "git:mac-build-pending":
+		return "✅ Mac build queue empty"
+	case strings.HasPrefix(key, "probe:"):
+		return "✅ Probe <b>" + escAlert(strings.TrimPrefix(key, "probe:")) + "</b> OK"
+	case strings.HasPrefix(key, "svc:"):
+		return "✅ Service <b>" + escAlert(strings.TrimPrefix(key, "svc:")) + "</b> active"
+	case strings.HasPrefix(key, "secondary:") && strings.HasSuffix(key, ":uplink"):
+		id := strings.TrimSuffix(strings.TrimPrefix(key, "secondary:"), ":uplink")
+		return "✅ Secondary uplink recovered: <code>" + escAlert(id) + "</code>"
+	case strings.HasPrefix(key, "secondary:") && strings.HasSuffix(key, ":sb"):
+		id := strings.TrimSuffix(strings.TrimPrefix(key, "secondary:"), ":sb")
+		return "✅ Secondary sing-box active: <code>" + escAlert(id) + "</code>"
+	case strings.HasPrefix(key, "secondary:"):
+		id := strings.TrimPrefix(key, "secondary:")
+		return "✅ Secondary online: <code>" + escAlert(id) + "</code>"
+	case strings.HasPrefix(key, "channel:"):
+		return "✅ Channel recovered: <code>" + escAlert(key) + "</code>"
+	case strings.HasPrefix(key, "path:e2e:"):
+		return "✅ Path e2e OK: <code>" + escAlert(strings.TrimPrefix(key, "path:e2e:")) + "</code>"
+	case strings.HasPrefix(key, "git:mac-build:"):
+		return "✅ Mac build job done: <code>" + escAlert(strings.TrimPrefix(key, "git:mac-build:")) + "</code>"
+	case strings.HasPrefix(key, "git:build-fail:"):
+		return "✅ Project build recovered: <code>" + escAlert(strings.TrimPrefix(key, "git:build-fail:")) + "</code>"
+	case strings.HasPrefix(key, "addon-update-fail"):
+		return "✅ Addon update path OK: <code>" + escAlert(key) + "</code>"
+	case strings.HasSuffix(key, ":log"):
+		// log-attach companion keys — no separate recovery spam
+		return ""
+	default:
+		return "✅ Recovered: <code>" + escAlert(key) + "</code>"
+	}
+}
+
+func escAlert(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
 }
 
 // SendTestAlert queues a one-off message and flushes immediately (bypasses AlertOnce cooldown).
