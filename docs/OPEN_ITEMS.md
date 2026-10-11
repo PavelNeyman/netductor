@@ -8,9 +8,12 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Stop line
 
-**v0.9.328** (2026-10-11) — host security track + SSH allowlist wizard + UI parity; prior 0.9.319 post-review.
+Full review complex: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md).
 
-### Closed in 0.9.320–0.9.328 (security / DNS / SSH)
+
+**v0.9.329** (2026-10-11) — host security track + SSH allowlist wizard + UI parity; prior 0.9.319 post-review.
+
+### Closed in 0.9.320–0.9.329 (security / DNS / SSH)
 
 - [x] Metrics display + channel HTML tables + recovery alerts EN/RU
 - [x] unattended-upgrades (security-only), integrity manifest, backup age, SERVFAIL alerts

@@ -1,3 +1,5 @@
+
+| [REVIEW-SUITE.md](REVIEW-SUITE.md) | [EN](../REVIEW-SUITE.md) | Полный комплекс ревью (тесты, UI, i18n, доки) |
 **RU** · [EN](../README.md)
 
 # Документация netductor

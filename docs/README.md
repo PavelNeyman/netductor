@@ -6,6 +6,8 @@
 | EN | RU |
 |----|-----|
 | [AGENT_HANDOFF.md](AGENT_HANDOFF.md) | [ru/AGENT_HANDOFF.md](ru/AGENT_HANDOFF.md) |
+
+| [REVIEW-SUITE.md](REVIEW-SUITE.md) | [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md) | Full review suite (tests, UI, i18n, docs) |
 | [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | [ru/](ru/ARCHITECTURE-FREEZE.md) |
 | [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
 | [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |

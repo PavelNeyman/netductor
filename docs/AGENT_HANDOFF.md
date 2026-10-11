@@ -7,9 +7,9 @@
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
 # AGENT Handoff
 
-**Stop line: v0.9.328** (2026-10-11). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+**Stop line: v0.9.329** (2026-10-11). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
 
-### 0.9.320–0.9.328 (summary)
+### 0.9.320–0.9.329 (summary)
 
 - Metrics UI: containers count, firewall one-liner, vpn endpoints (not inflated device history)
 - TG recovery alerts on ClearAlert (EN/RU); channel status HTML tables (no raw dump)
@@ -20,7 +20,7 @@
 - Callback prefix **m:sshkeys:** (not m:ssh:) to avoid clash with SSH hosts TOFU
 - Reboot challenge also via API/Web/opcatalog (`/api/security/reboot/*`)
 
-Live apply: `netductor stack apply v0.9.328` then secondary `upgrade:v0.9.328`.
+Live apply: `netductor stack apply v0.9.329` then secondary `upgrade:v0.9.329`.
 
 ## Where we stopped
 
@@ -28,7 +28,7 @@ Security/DNS/SSH allowlist track closed in code. Reboot challenge: TG + session 
 
 | Topic | State |
 |--|--|
-| Release | **v0.9.328** — node, tg, agent, op darwin/linux. Formula **netductor-op only** |
+| Release | **v0.9.329** — node, tg, agent, op darwin/linux. Formula **netductor-op only** |
 | VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
 | Open | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik), lab checklist |
 

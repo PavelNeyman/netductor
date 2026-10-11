@@ -45,6 +45,9 @@ Progress: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 # Documentation & checklist discipline (**mandatory for AI**)
 
+**Full review complex:** [docs/REVIEW-SUITE.md](docs/REVIEW-SUITE.md) · [docs/ru/REVIEW-SUITE.md](docs/ru/REVIEW-SUITE.md). When the operator asks for «весь комплекс» / full review, execute that suite — do not invent a shorter list.
+
+
 This rule is **strict and non-negotiable**:
 
 1. Work follows [docs/ARCHITECTURE-PLAN.md](docs/ARCHITECTURE-PLAN.md) and [docs/OPEN_ITEMS.md](docs/OPEN_ITEMS.md).
