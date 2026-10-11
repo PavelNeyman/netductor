@@ -1,14 +1,33 @@
-**Стоп-линия v0.9.327.** Закрыто: path e2e, presets, canary, incident, backup verify, clip token, session на release GET, doctor perms nvr.
-
-Открыто (lab): OpenWrt/Tapo/MikroTik hardware e2e — см. OPENWRT-LAB.md.
-
----
-
 **RU** · [EN](../OPEN_ITEMS.md)
 
 # Открытые пункты
 
 План: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
+
+## Стоп-линия
+
+Полный комплекс ревью: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [../REVIEW-SUITE.md](../REVIEW-SUITE.md).
+
+**v0.9.331** (2026-10-11) — host security + SSH allowlist wizard + паритет UI; ранее post-review 0.9.319.
+
+### Закрыто в 0.9.320–0.9.331 (security / DNS / SSH)
+
+- [x] Metrics UI + HTML-таблицы channel + recovery-алерты EN/RU
+- [x] unattended-upgrades (только security), integrity manifest, backup age, SERVFAIL-алерты
+- [x] TG reboot: выбор ноды + one-shot коды; Blocky DoT (primary)
+- [x] SSH allowlist: TG Tools, API, agent, Web Advanced, opcatalog (`m:sshkeys:`)
+- [x] Reboot challenge: паритет API + Web Advanced + opcatalog (те же коды, что TG)
+
+### Закрыто в 0.9.310–0.9.318 (ops / security)
+
+- [x] Path e2e, custom policy presets, devices, canary mismatch, incident pack
+- [x] Backup verify CLI/timer + TG/Web/API
+- [x] Post-review: verify caps, incident без shell, update session, decrypt RAM, stream tar
+- [x] Clip share token без op-сессии (`GET /api/nvr/clip` exempt)
+- [x] Release GET — requireSession; perms nvr secrets/go2rtc в doctor
+- [x] TG Day2 Tools (без клонов Status/Users/Fleet); подписи хабов через `T()`
+
+### Открыто (lab / продукт, не code blockers)
 
 ## Планы (документы)
 
@@ -33,6 +52,7 @@
 - [x] Private GH runbook — [GH-PRIVATE-SETUP.md](GH-PRIVATE-SETUP.md)
 - [x] Workflow resolve только `.github/workflows/<Name>.yml` (0.9.307–0.9.308); `ci/` убран
 - [x] Mac queue + TG/CLI (0.9.307); op `project build` (0.9.309)
+- [x] REVIEW-SUITE EN/RU + unit-test debt P0/P1 (0.9.329–0.9.331)
 
 ## У владельца / лаб
 
@@ -47,4 +67,4 @@
 - [x] Alert batch adaptive (0.9.274)
 - [x] 10 реп: default `main`, Actions off, entry yaml по имени репы
 
-Ревью: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md).
+Ревью: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md) · комплекс: [REVIEW-SUITE.md](REVIEW-SUITE.md).
