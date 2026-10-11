@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/policy"
@@ -30,6 +31,7 @@ func buildAPIMux() http.Handler {
 	nvr.StartBackground()
 	registerSessionAPI(mux)
 	registerGitAPI(mux)
+	gitstore.StartVpsBuildWorker()
 	registerDNSAPI(mux)
 	registerRegistryAPI(mux)
 	registerVPNHTTP(mux)

@@ -142,6 +142,7 @@ func All() []Action {
 		a("git-project-build-all", "git", "POST", "/api/git/projects/build-all", `{"include_mac":false}`, "git project build-all", "Build all VPS projects", "Build всех VPS-проектов"),
 		a("git-project-build", "git", "POST", "/api/git/projects/build", `{"name":"","ref":""}`, "git project build", "Build git project", "Build git-проект"),
 		a("git-project-queue", "git", "GET", "/api/git/projects/queue?pending=1", "", "git project queue", "Mac build queue", "Очередь Mac-сборок"),
+		a("git-project-vps-queue", "git", "GET", "/api/git/projects/vps-queue", "", "git project queue vps", "VPS build queue", "Очередь VPS-сборок"),
 		a("git-project-migrate", "git", "POST", "/api/git/projects/migrate", `{"owner":"PavelNeyman","dry_run":true,"sync":false}`, "git project migrate-from-gh", "Migrate GH repos", "Миграция реп с GH"),
 		a("git-pipelines", "git", "GET", "/api/git/pipelines", "", "git pipelines", "Pipelines", "Pipelines"),
 		a("reg-status", "git", "GET", "/api/registry/status", "", "registry status", "Registry status", "Registry"),

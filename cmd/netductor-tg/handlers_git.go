@@ -126,8 +126,35 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				buildAll = "▶️ Build все (vps)"
 			}
 			rows = append(rows, []map[string]any{btn(syncAll, "m:git:proj:sync-all", ""), btn(buildAll, "m:git:proj:build-all", "")})
+			qLab := "📋 VPS queue"
+			if ru {
+				qLab = "📋 Очередь VPS"
+			}
+			rows = append(rows, []map[string]any{btn(qLab, "m:git:proj:vps-queue", "")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+			return true
+		}
+		if sub == "vps-queue" {
+			jobs := gitstore.ListVpsQueue(false)
+			var b strings.Builder
+			nl := string([]byte{10})
+			b.WriteString("📋 <b>VPS build queue</b> (one at a time)" + nl)
+			if len(jobs) == 0 {
+				b.WriteString("<i>empty</i>" + nl)
+			}
+			for _, j := range jobs {
+				line := fmt.Sprintf("%s %s %s %s", j.Status, j.Kind, j.Project, j.ID)
+				if j.Error != "" {
+					line += " — " + j.Error
+				}
+				if len(b.String())+len(line) > 3500 {
+					b.WriteString("…" + nl)
+					break
+				}
+				b.WriteString(esc(line) + nl)
+			}
+			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
 		if sub == "sync-all" {

@@ -300,6 +300,34 @@ func registerGitAPI(mux *http.ServeMux) {
 		})
 	})
 
+	mux.HandleFunc("/api/git/projects/vps-queue", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			pending := r.URL.Query().Get("pending") == "1"
+			writeJSON(w, 200, map[string]any{"ok": true, "jobs": gitstore.ListVpsQueue(pending)})
+		case http.MethodPost:
+			var body struct {
+				Action string `json:"action"` // cancel
+				ID     string `json:"id"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.Action == "cancel" && body.ID != "" {
+				if err := gitstore.CancelVpsJob(body.ID); err != nil {
+					writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+					return
+				}
+				writeJSON(w, 200, map[string]any{"ok": true})
+				return
+			}
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "action cancel + id required"})
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/api/git/projects/queue", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return

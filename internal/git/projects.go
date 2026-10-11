@@ -177,7 +177,41 @@ func SyncProject(name string) (string, error) {
 }
 
 // BuildProject checks out ref (default HEAD/main/master) and runs workflow or pipeline.
+
+// BuildProject for host=mac enqueues Mac queue; for VPS enqueues sequential VPS queue and waits.
+// Set NETDUCTOR_GIT_BUILD_DIRECT=1 to run VPS build in-process (debug).
 func BuildProject(name, ref string) (string, error) {
+	p, err := GetProject(name)
+	if err != nil {
+		return "", err
+	}
+	if isMacHost(p.Host) {
+		return runBuildProjectNow(name, ref)
+	}
+	if os.Getenv("NETDUCTOR_GIT_BUILD_DIRECT") == "1" {
+		return runBuildProjectNow(name, ref)
+	}
+	job, err := EnqueueVpsJob(p.Name, ref, "build")
+	if err != nil {
+		return "", err
+	}
+	var log strings.Builder
+	fmt.Fprintf(&log, "vps-queue id=%s status=%s project=%s (one build at a time)\n", job.ID, job.Status, job.Project)
+	done, err := WaitVpsJob(job.ID, 2*time.Hour)
+	fmt.Fprintf(&log, "vps-queue final status=%s\n", done.Status)
+	if done.LogTail != "" {
+		log.WriteString(done.LogTail)
+		if !strings.HasSuffix(done.LogTail, "\n") {
+			log.WriteString("\n")
+		}
+	}
+	if err != nil {
+		return log.String(), err
+	}
+	return log.String(), nil
+}
+
+func runBuildProjectNow(name, ref string) (string, error) {
 	p, err := GetProject(name)
 	if err != nil {
 		return "", err
@@ -344,32 +378,20 @@ func SyncAll() (results []SyncAllResult, okN, failN int) {
 	return results, okN, failN
 }
 
-// BuildAll runs BuildProject for each project.
-// vpsOnly skips host=mac (queue would spam; use explicit build for those).
+// BuildAll enqueues sequential VPS builds (one worker). Does not wait for completion.
+// vpsOnly skips host=mac (those go to mac-queue if include via !vpsOnly path in EnqueueBuildAll).
 func BuildAll(vpsOnly bool) (results []SyncAllResult, okN, failN, skipN int) {
-	list, err := LoadProjects()
-	if err != nil {
-		return []SyncAllResult{{Name: "*", OK: false, Error: err.Error()}}, 0, 1, 0
+	jobs, skipped := EnqueueBuildAll(vpsOnly)
+	for _, j := range jobs {
+		results = append(results, SyncAllResult{
+			Name: j.Project, Host: "vps", OK: true,
+			Output: fmt.Sprintf("queued id=%s kind=%s status=%s", j.ID, j.Kind, j.Status),
+		})
+		okN++
 	}
-	for _, p := range list {
-		host := strings.TrimSpace(p.Host)
-		if host == "" {
-			host = "vps"
-		}
-		if vpsOnly && strings.EqualFold(host, "mac") {
-			results = append(results, SyncAllResult{Name: p.Name, Host: host, OK: true, Skipped: true, Output: "skip host=mac"})
-			skipN++
-			continue
-		}
-		out, err := BuildProject(p.Name, "")
-		r := SyncAllResult{Name: p.Name, Host: host, Output: out, OK: err == nil}
-		if err != nil {
-			r.Error = err.Error()
-			failN++
-		} else {
-			okN++
-		}
-		results = append(results, r)
+	for _, s := range skipped {
+		results = append(results, SyncAllResult{Name: s, OK: true, Skipped: true, Output: "skipped"})
+		skipN++
 	}
 	return results, okN, failN, skipN
 }

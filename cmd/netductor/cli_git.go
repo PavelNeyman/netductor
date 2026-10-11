@@ -356,13 +356,31 @@ func runGitProject(args []string) int {
 		}
 		switch sub {
 		case "list", "ls", "":
+			fmt.Println("== vps ==")
+			for _, j := range gitstore.ListVpsQueue(false) {
+				fmt.Printf("%s	%s	%s	%s	%s\n", j.ID, j.Status, j.Kind, j.Project, j.Ref)
+			}
+			fmt.Println("== mac ==")
 			for _, j := range gitstore.ListMacQueue(false) {
 				fmt.Printf("%s	%s	%s	%s	%s\n", j.ID, j.Status, j.Project, j.Ref, j.CLI)
 			}
 			return 0
+		case "vps":
+			for _, j := range gitstore.ListVpsQueue(false) {
+				fmt.Printf("%s	%s	%s	%s	%s\n", j.ID, j.Status, j.Kind, j.Project, j.Ref)
+				if j.Error != "" {
+					fmt.Printf("  %s\n", j.Error)
+				}
+			}
+			return 0
 		case "pending":
+			fmt.Println("== vps ==")
+			for _, j := range gitstore.ListVpsQueue(true) {
+				fmt.Printf("%s\t%s\t%s\t%s\n", j.ID, j.Status, j.Kind, j.Project)
+			}
+			fmt.Println("== mac ==")
 			for _, j := range gitstore.ListMacQueue(true) {
-				fmt.Printf("%s	%s	%s	%s\n", j.ID, j.Project, j.Ref, j.CLI)
+				fmt.Printf("%s\t%s\t%s\t%s\n", j.ID, j.Project, j.Ref, j.CLI)
 			}
 			return 0
 		case "done", "complete":
@@ -381,7 +399,11 @@ func runGitProject(args []string) int {
 				fmt.Fprintln(os.Stderr, "usage: netductor git project queue cancel <id>")
 				return 2
 			}
-			if err := gitstore.CancelMacBuild(args[2]); err != nil {
+			err := gitstore.CancelVpsJob(args[2])
+			if err != nil {
+				err = gitstore.CancelMacBuild(args[2])
+			}
+			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				return 1
 			}
