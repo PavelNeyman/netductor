@@ -167,6 +167,16 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
+		if strings.HasPrefix(sub, "vps-cancel:") {
+			id := strings.TrimPrefix(sub, "vps-cancel:")
+			err := gitstore.CancelVpsJob(id)
+			msg := "✅ cancelled " + esc(id)
+			if err != nil {
+				msg = "❌ " + esc(err.Error())
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:vps-queue", "VPS queue"))
+			return true
+		}
 		if sub == "vps-queue" {
 			jobs := gitstore.ListVpsQueue(false)
 			var b strings.Builder
@@ -175,18 +185,23 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			if len(jobs) == 0 {
 				b.WriteString("<i>empty</i>" + nl)
 			}
+			rows := [][]map[string]any{}
 			for _, j := range jobs {
 				line := fmt.Sprintf("%s %s %s %s", j.Status, j.Kind, j.Project, j.ID)
 				if j.Error != "" {
 					line += " — " + j.Error
 				}
-				if len(b.String())+len(line) > 3500 {
+				if len(b.String())+len(line) > 3000 {
 					b.WriteString("…" + nl)
 					break
 				}
 				b.WriteString(esc(line) + nl)
+				if j.Status == "pending" || j.Status == "running" {
+					rows = append(rows, []map[string]any{btn("🛑 "+j.Project, "m:git:proj:vps-cancel:"+j.ID, "")})
+				}
 			}
-			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
+			rows = append(rows, []map[string]any{btn("⬅️ Projects", "m:git:proj:list", "primary"), btn(T("main_menu"), "m:menu", "")})
+			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 			return true
 		}
 		if sub == "sync-all" {
@@ -335,6 +350,19 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			}
 			if d.Note != "" {
 				b.WriteString("<i>" + esc(d.Note) + "</i>" + nl)
+			}
+			if d.LastVpsStatus != "" {
+				b.WriteString(nl + "<b>last VPS</b> " + esc(d.LastVpsStatus))
+				if d.LastVpsKind != "" {
+					b.WriteString(" · " + esc(d.LastVpsKind))
+				}
+				if d.LastVpsAt != "" {
+					b.WriteString(" · " + esc(d.LastVpsAt))
+				}
+				b.WriteString(nl)
+				if d.LastVpsError != "" {
+					b.WriteString("❌ " + esc(d.LastVpsError) + nl)
+				}
 			}
 			if len(d.Tags) > 0 {
 				b.WriteString(nl + "<b>tags</b>" + nl)

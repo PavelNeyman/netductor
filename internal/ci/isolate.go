@@ -26,11 +26,11 @@ func Engine() string {
 
 // Default images when job has no container: (override via NETDUCTOR_CI_IMAGE_*)
 var defaultImages = map[string]string{
-	"go":     "golang:1.22-bookworm",
-	"node":   "node:20-bookworm",
-	"rust":   "rust:1.81-bookworm",
-	"python": "python:3.12-bookworm",
-	"docker": "docker:27-cli", // docker-in-docker needs privileged — oci uses host docker build
+	"go":      "golang:1.22-bookworm",
+	"node":    "node:20-bookworm",
+	"rust":    "rust:1.81-bookworm",
+	"python":  "python:3.12-bookworm",
+	"docker":  "docker:27-cli", // docker-in-docker needs privileged — oci uses host docker build
 	"generic": "debian:bookworm-slim",
 }
 
@@ -130,6 +130,10 @@ func Exec(opts ExecOpts) (string, error) {
 		"-v", opts.WorkDir + ":/workspace:rw",
 		"-w", "/workspace",
 		"--network", net,
+	}
+	if cname := strings.TrimSpace(os.Getenv("NETDUCTOR_CI_CONTAINER")); cname != "" {
+		// allow cancel via: docker kill <name>
+		args = append(args, "--name", cname)
 	}
 	for _, e := range opts.Env {
 		args = append(args, "-e", e)

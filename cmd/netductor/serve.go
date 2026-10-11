@@ -32,6 +32,7 @@ func buildAPIMux() http.Handler {
 	registerSessionAPI(mux)
 	registerGitAPI(mux)
 	gitstore.StartVpsBuildWorker()
+	_ = gitstore.EnsureGitOpsTimers()
 	registerDNSAPI(mux)
 	registerRegistryAPI(mux)
 	registerVPNHTTP(mux)

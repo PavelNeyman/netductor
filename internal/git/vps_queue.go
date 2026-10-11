@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -93,11 +94,18 @@ func claimNextVpsJob() (VpsBuildJob, bool) {
 func runClaimedVpsJob(job VpsBuildJob) {
 	var out string
 	var err error
+	// named container so cancel can docker kill
+	os.Setenv("NETDUCTOR_CI_CONTAINER", ciContainerName(job.ID))
+	defer os.Unsetenv("NETDUCTOR_CI_CONTAINER")
 	switch job.Kind {
 	case "sync":
 		out, err = SyncProject(job.Project)
 	default:
 		out, err = runBuildProjectNow(job.Project, job.Ref)
+	}
+	// if cancelled while running, prefer cancelled status
+	if isVpsJobCancelled(job.ID) {
+		err = fmt.Errorf("cancelled")
 	}
 	tail := out
 	if len(tail) > 4000 {
@@ -218,19 +226,69 @@ func WaitVpsJob(id string, timeout time.Duration) (VpsBuildJob, error) {
 	return VpsBuildJob{}, fmt.Errorf("timeout waiting for job %s", id)
 }
 
-// CancelVpsJob marks a pending job cancelled.
+// ciContainerName is a docker-safe name for a queue job.
+func isVpsJobCancelled(id string) bool {
+	vpsMu.Lock()
+	defer vpsMu.Unlock()
+	for _, j := range loadVpsQueue() {
+		if j.ID == id && j.Status == "cancelled" {
+			return true
+		}
+	}
+	return false
+}
+
+func ciContainerName(jobID string) string {
+	s := "nd-ci-" + jobID
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '.' || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	out := b.String()
+	if len(out) > 63 {
+		out = out[:63]
+	}
+	return out
+}
+
+// killCIContainer best-effort stops a running CI container for job id.
+func killCIContainer(jobID string) {
+	name := ciContainerName(jobID)
+	for _, eng := range []string{"docker", "podman"} {
+		if _, err := exec.LookPath(eng); err != nil {
+			continue
+		}
+		_ = exec.Command(eng, "kill", name).Run()
+		_ = exec.Command(eng, "rm", "-f", name).Run()
+	}
+}
+
+// CancelVpsJob cancels pending or running jobs. Running → docker kill.
 func CancelVpsJob(id string) error {
 	vpsMu.Lock()
 	defer vpsMu.Unlock()
 	list := loadVpsQueue()
 	for i := range list {
-		if list[i].ID == id && list[i].Status == "pending" {
+		if list[i].ID != id {
+			continue
+		}
+		st := list[i].Status
+		if st == "pending" || st == "running" {
+			if st == "running" {
+				killCIContainer(id)
+			}
 			list[i].Status = "cancelled"
 			list[i].DoneAt = time.Now().UTC().Format(time.RFC3339)
+			list[i].Error = "cancelled"
 			return saveVpsQueue(list)
 		}
+		return fmt.Errorf("vps queue job not cancellable (status=%s): %s", st, id)
 	}
-	return fmt.Errorf("vps queue job not found or not pending: %s", id)
+	return fmt.Errorf("vps queue job not found: %s", id)
 }
 
 // EnqueueBuildAll queues build for each project (vpsOnly skips mac).

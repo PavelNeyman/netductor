@@ -220,7 +220,7 @@ func runGit(args []string) int {
 
 func runGitProject(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|sync-all|build|build-all|mirror-push|queue|migrate-from-gh")
+		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|sync-all|build|build-all|mirror-push|queue|timers|migrate-from-gh")
 		return 2
 	}
 	switch args[0] {
@@ -444,6 +444,13 @@ func runGitProject(args []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
+		return 0
+	case "timers":
+		if err := gitstore.EnsureGitOpsTimers(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("ok timers: sync-all (6h) + cleanup weekly")
 		return 0
 	case "migrate-from-gh", "migrate":
 		if len(args) < 2 {

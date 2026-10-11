@@ -28,6 +28,9 @@ Requires GitHub token with **Contents: Read and write** on mirrored repos (`gith
 | P3 | Project card last build | done 0.9.337 |
 | P4 | Mirror primary→GH auto | this drop |
 | P5 | Lab e2e | OPEN_ITEMS |
+| P6 | Cancel running + docker kill | 0.9.339 |
+| P7 | Timers sync-all 6h + cleanup weekly | 0.9.339 |
+| P8 | TG/Web last VPS + cancel | 0.9.339 |
 
 ## CLI
 
