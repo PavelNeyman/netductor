@@ -7,39 +7,29 @@
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
 # AGENT Handoff
 
-**Stop line: v0.9.319** (2026-10-10). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+**Stop line: v0.9.327** (2026-10-11). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
 
-### 0.9.310–0.9.319 (summary)
+### 0.9.320–0.9.327 (summary)
 
-- Internal releases, multi-repo CI workflows, mac build queue
-- NVR/Tapo TPAP pure-Go, site rooms, channel face/uplink, TG five hubs
-- Policy presets, canary, devices, incident pack, backup verify
-- Security: session gates, clip share, verify DoS caps, nvr secret perms doctor
-- UI: TG hub `T()` i18n, Day2 Tools, Web/API/opcatalog canary+incident+smoke
+- Metrics UI: containers count, firewall one-liner, vpn endpoints (not inflated device history)
+- TG recovery alerts on ClearAlert (EN/RU); channel status HTML tables (no raw dump)
+- Host security: unattended-upgrades (security-only), integrity manifest (binaries+SSH fps), backup age + DNS SERVFAIL alerts
+- TG reboot: pick node → 3 one-shot code buttons (3 min)
+- Blocky DoT defaults + snippet for existing installs; primary DoT verified in prod
+- SSH allowlist wizard: TG Tools, API, agent `ssh_keys`/`ssh_allowlist`, Web Advanced, opcatalog
+- Callback prefix **m:sshkeys:** (not m:ssh:) to avoid clash with SSH hosts TOFU
 
-Live apply: `netductor stack apply v0.9.319` then secondary `upgrade:v0.9.319`.
-
-
+Live apply: `netductor stack apply v0.9.327` then secondary `upgrade:v0.9.327`.
 
 ## Where we stopped
 
-Pass 1 security review and R1–R15 refactor are in main. Last product change: doctor auto-diff of the install snapshot (listen ports and enabled units).
+Security/DNS/SSH allowlist track closed in code. Reboot challenge is **TG-first** (destructive).
 
 | Topic | State |
 |--|--|
-| Release | **v0.9.261** — node, tg, agent, op darwin/linux. Formula is **netductor-op only** |
-| Tap | `Formula/netductor.rb` removed. `brew install netductor` was the same op binary and confused the node |
+| Release | **v0.9.327** — node, tg, agent, op darwin/linux. Formula **netductor-op only** |
 | VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
-| Open | dual-node smoke and hardware e2e (OpenWrt/Tapo/MikroTik). Not code |
-
-## Review of 0.9.230–0.9.261
-
-Checked, still present: session on addon update, stack apply/rollback, firewall apply, update token/apply, svc-paths, fleet digest. Release tags are digits and dots. Client file reads stay in the user dir. Legacy plaintext session filenames are not accepted. Snapshot diff is WARN, not FAIL.
-
-Fixed in this pass: op `version` was hardcoded `0.9.128`. Release script wrote `Formula/netductor.rb` again; it now writes only `netductor-op.rb`.
-
-Do not stack-apply 0.9.230–0.9.239 for the session guards; use **0.9.261**.
-
+| Open | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik), lab checklist |
 
 # AGENT Handoff
 - **0.9.217:** service-net 10.88 from secondary dials primary as the real VLESS user (uplink-svc-<name>, vision, no mux). Shared relay-uplink is internet only. ACL no longer auto-allows relay-uplink.

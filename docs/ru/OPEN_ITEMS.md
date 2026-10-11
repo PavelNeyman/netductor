@@ -1,4 +1,4 @@
-**Стоп-линия v0.9.319.** Закрыто: path e2e, presets, canary, incident, backup verify, clip token, session на release GET, doctor perms nvr.
+**Стоп-линия v0.9.327.** Закрыто: path e2e, presets, canary, incident, backup verify, clip token, session на release GET, doctor perms nvr.
 
 Открыто (lab): OpenWrt/Tapo/MikroTik hardware e2e — см. OPENWRT-LAB.md.
 

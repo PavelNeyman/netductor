@@ -216,7 +216,7 @@ func formatToolsFromGroups() string {
 	if lang == "ru" {
 		sshLab = "🔐 SSH ключи"
 	}
-	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:ssh">` + sshLab + `</tg-button></tg-button-row>`)
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:sshkeys">` + sshLab + `</tg-button></tg-button-row>`)
 	return b.String()
 }
 

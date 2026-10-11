@@ -1,10 +1,27 @@
-**Стоп-линия: v0.9.319** (2026-10-10). Новый чат: AGENTS.md → этот файл → OPEN_ITEMS.
+# AGENT Handoff (RU)
+
+**Стоп-линия: v0.9.327** (2026-10-11). Новый чат: AGENTS.md → docs/AGENT_HANDOFF.md → OPEN_ITEMS.
+
+### Сводка 0.9.320–0.9.327
+
+- Metrics UI, recovery-алерты EN/RU, таблицы Channel
+- unattended-upgrades, integrity (+SSH), backup age, SERVFAIL
+- Reboot: выбор узла → 3 кода; Blocky DoT на primary
+- SSH allowlist: TG / API / agent / Web / opcatalog; callback **m:sshkeys:**
+
+Apply: `netductor stack apply v0.9.327` + secondary `upgrade:v0.9.327`.
+
+Открыто (не код): dual-node smoke, железо OpenWrt/Tapo/MikroTik.
+
+---
+
+*(hist) stop was v0.9.319* (2026-10-10). Новый чат: AGENTS.md → этот файл → OPEN_ITEMS.
 
 Сводка 0.9.310–0.9.319: releases/CI, NVR/Tapo, rooms, canary/incident, post-review security, TG i18n hubs.
 
 ---
 
-**Стоп: v0.9.261** (2026-10-06). Новый чат: AGENTS.md → docs/AGENT_HANDOFF.md → OPEN_ITEMS.
+*(hist) stop was v0.9.261* (2026-10-06). Новый чат: AGENTS.md → docs/AGENT_HANDOFF.md → OPEN_ITEMS.
 
 Обновление бинаря не переписывает sing-box. Новый конфиг только после vpn apply или secondary sync. Formula только netductor-op.
 
@@ -31,7 +48,7 @@
 # AGENT Handoff (RU)
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Точка останова: v0.9.199** (host-audit apt residual + live CLEAN primary/secondary; policy P0–P3 в 0.9.196)
+*(hist) stop was v0.9.199* (host-audit apt residual + live CLEAN primary/secondary; policy P0–P3 в 0.9.196)
 
 **Пред. stop: v0.9.192** (2026-10-02). Guest stage без reload; hard-fail сети/guest.
 
