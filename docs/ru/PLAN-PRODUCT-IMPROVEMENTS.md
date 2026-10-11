@@ -9,7 +9,7 @@
 
 ## 1. Наблюдаемость и эксплуатация
 
-- [ ] Endpoint Prometheus/OpenMetrics (`/metrics` или отдельный порт): vpn, channel, backup age, firewall, heartbeat агентов.
+- [x] Endpoint Prometheus/OpenMetrics (`/metrics` или отдельный порт): vpn, channel, backup age, firewall, heartbeat агентов.
 - [ ] Единая карточка таймлайна инцидента (Web + TG) со скачиванием journal 1h в одном месте.
 - [ ] Один overview флота в Web (primary/secondary/edge + channel + backup age + последнее обновление).
 

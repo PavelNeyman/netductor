@@ -437,6 +437,13 @@ func registerSessionAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, metrics.Collect())
 	})
+	mux.HandleFunc("/metrics/prometheus", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		_, _ = w.Write([]byte(metrics.PrometheusText()))
+	})
 	mux.HandleFunc("/api/metrics/history", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
