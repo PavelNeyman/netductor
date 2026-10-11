@@ -1020,6 +1020,8 @@ function mountButtons(){
       <div class="row"><div><label>migrate owner</label><input id="gitMigOwner" placeholder="PavelNeyman" value="PavelNeyman"/></div>
         <div><label>mode</label><select id="gitMigMode"><option value="dry">dry-run</option><option value="sync">add+sync</option><option value="add">add only</option></select></div></div>
       <button class="primary" type="button" data-act="git-proj-migrate">Migrate from GH</button>
+      <button class="primary" type="button" data-act="git-proj-sync-all">Sync all</button>
+      <button class="primary" type="button" data-act="git-proj-build-all">Build all (vps)</button>
       <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
       <div><label>${t('l_git_rev')}</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
       <button class="primary" type="button" data-act="git-log">${t('b_git_log')}</button>
@@ -1271,6 +1273,9 @@ const special = {
     const sync=mode==='sync';
     return nodeFetch('/api/git/projects/migrate',{method:'POST',body:JSON.stringify({owner,dry_run,sync})});
   },
+  'git-proj-sync-all': async()=> nodeFetch('/api/git/projects/sync-all',{method:'POST',body:JSON.stringify({})}),
+  'git-proj-build-all': async()=> nodeFetch('/api/git/projects/build-all',{method:'POST',body:JSON.stringify({include_mac:false})}),
+
   'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?name='+encodeURIComponent(r)):'')); },
   'git-show': async()=>{
     const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim();

@@ -220,7 +220,7 @@ func runGit(args []string) int {
 
 func runGitProject(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|build|queue|migrate-from-gh")
+		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|sync-all|build|build-all|queue|migrate-from-gh")
 		return 2
 	}
 	switch args[0] {
@@ -290,6 +290,23 @@ func runGitProject(args []string) int {
 			return 1
 		}
 		return 0
+	case "sync-all", "syncall":
+		results, okN, failN := gitstore.SyncAll()
+		for _, r := range results {
+			status := "ok"
+			if !r.OK {
+				status = "FAIL"
+			}
+			fmt.Printf("%s\t%s\thost=%s\n", status, r.Name, r.Host)
+			if r.Error != "" {
+				fmt.Printf("  %s\n", r.Error)
+			}
+		}
+		fmt.Printf("summary ok=%d fail=%d\n", okN, failN)
+		if failN > 0 {
+			return 1
+		}
+		return 0
 	case "build":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor git project build <name> [ref]")
@@ -303,6 +320,31 @@ func runGitProject(args []string) int {
 		fmt.Print(out)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	case "build-all", "buildall":
+		vpsOnly := true
+		for _, a := range args[1:] {
+			if a == "--all-hosts" || a == "--include-mac" {
+				vpsOnly = false
+			}
+		}
+		results, okN, failN, skipN := gitstore.BuildAll(vpsOnly)
+		for _, r := range results {
+			status := "ok"
+			if r.Skipped {
+				status = "skip"
+			} else if !r.OK {
+				status = "FAIL"
+			}
+			fmt.Printf("%s	%s	host=%s\n", status, r.Name, r.Host)
+			if r.Error != "" {
+				fmt.Printf("  %s\n", r.Error)
+			}
+		}
+		fmt.Printf("summary ok=%d fail=%d skip=%d\n", okN, failN, skipN)
+		if failN > 0 {
 			return 1
 		}
 		return 0

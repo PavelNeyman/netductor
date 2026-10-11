@@ -83,7 +83,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		return true
 	}
 	rest := strings.TrimPrefix(data, "m:git:")
-	
+
 	if strings.HasPrefix(rest, "proj:") {
 		sub := strings.TrimPrefix(rest, "proj:")
 		if sub == "list" || sub == "" {
@@ -119,8 +119,63 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				migLab = "📥 Миграция GH"
 			}
 			rows = append(rows, []map[string]any{btn(addLab, "m:git:proj:add", "primary"), btn(migLab, "m:git:proj:migrate", "")})
+			syncAll := "⬇️ Sync all"
+			buildAll := "▶️ Build all (vps)"
+			if ru {
+				syncAll = "⬇️ Sync все"
+				buildAll = "▶️ Build все (vps)"
+			}
+			rows = append(rows, []map[string]any{btn(syncAll, "m:git:proj:sync-all", ""), btn(buildAll, "m:git:proj:build-all", "")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+			return true
+		}
+		if sub == "sync-all" {
+			results, okN, failN := gitstore.SyncAll()
+			var b strings.Builder
+			nl := string([]byte{10})
+			b.WriteString(fmt.Sprintf("sync-all ok=%d fail=%d%s", okN, failN, nl))
+			for _, r := range results {
+				st := "✅"
+				if !r.OK {
+					st = "❌"
+				}
+				line := st + " " + esc(r.Name)
+				if r.Error != "" {
+					line += " — " + esc(r.Error)
+				}
+				if len(b.String())+len(line) > 3500 {
+					b.WriteString("…" + nl)
+					break
+				}
+				b.WriteString(line + nl)
+			}
+			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
+			return true
+		}
+		if sub == "build-all" {
+			results, okN, failN, skipN := gitstore.BuildAll(true)
+			var b strings.Builder
+			nl := string([]byte{10})
+			b.WriteString(fmt.Sprintf("build-all ok=%d fail=%d skip=%d%s", okN, failN, skipN, nl))
+			for _, r := range results {
+				st := "✅"
+				if r.Skipped {
+					st = "⏭"
+				} else if !r.OK {
+					st = "❌"
+				}
+				line := st + " " + esc(r.Name)
+				if r.Error != "" {
+					line += " — " + esc(r.Error)
+				}
+				if len(b.String())+len(line) > 3500 {
+					b.WriteString("…" + nl)
+					break
+				}
+				b.WriteString(line + nl)
+			}
+			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
 		if sub == "migrate" || strings.HasPrefix(sub, "migrate:") {
@@ -250,7 +305,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			if err != nil {
 				msg = "⚠️ " + esc(err.Error()) + "\n" + msg
 			} else {
-				msg = "✅ sync\n"+msg
+				msg = "✅ sync\n" + msg
 			}
 			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:list", "Projects"))
 			return true
@@ -268,7 +323,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			return true
 		}
 	}
-		if strings.HasPrefix(rest, "repo:") {
+	if strings.HasPrefix(rest, "repo:") {
 		name := strings.TrimPrefix(rest, "repo:")
 		nl := string([]byte{10})
 		var b strings.Builder

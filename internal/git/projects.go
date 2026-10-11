@@ -314,6 +314,66 @@ func checkoutRef(name, ref, workDir string) error {
 	return fmt.Errorf("checkout %v: %w (%s)", candidates, lastErr, strings.TrimSpace(string(lastOut)))
 }
 
+// SyncAllResult is one project outcome for bulk sync/build.
+type SyncAllResult struct {
+	Name    string `json:"name"`
+	Host    string `json:"host,omitempty"`
+	OK      bool   `json:"ok"`
+	Output  string `json:"output,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Skipped bool   `json:"skipped,omitempty"`
+}
+
+// SyncAll mirrors every registered project. Continues on individual errors.
+func SyncAll() (results []SyncAllResult, okN, failN int) {
+	list, err := LoadProjects()
+	if err != nil {
+		return []SyncAllResult{{Name: "*", OK: false, Error: err.Error()}}, 0, 1
+	}
+	for _, p := range list {
+		out, err := SyncProject(p.Name)
+		r := SyncAllResult{Name: p.Name, Host: p.Host, Output: out, OK: err == nil}
+		if err != nil {
+			r.Error = err.Error()
+			failN++
+		} else {
+			okN++
+		}
+		results = append(results, r)
+	}
+	return results, okN, failN
+}
+
+// BuildAll runs BuildProject for each project.
+// vpsOnly skips host=mac (queue would spam; use explicit build for those).
+func BuildAll(vpsOnly bool) (results []SyncAllResult, okN, failN, skipN int) {
+	list, err := LoadProjects()
+	if err != nil {
+		return []SyncAllResult{{Name: "*", OK: false, Error: err.Error()}}, 0, 1, 0
+	}
+	for _, p := range list {
+		host := strings.TrimSpace(p.Host)
+		if host == "" {
+			host = "vps"
+		}
+		if vpsOnly && strings.EqualFold(host, "mac") {
+			results = append(results, SyncAllResult{Name: p.Name, Host: host, OK: true, Skipped: true, Output: "skip host=mac"})
+			skipN++
+			continue
+		}
+		out, err := BuildProject(p.Name, "")
+		r := SyncAllResult{Name: p.Name, Host: host, Output: out, OK: err == nil}
+		if err != nil {
+			r.Error = err.Error()
+			failN++
+		} else {
+			okN++
+		}
+		results = append(results, r)
+	}
+	return results, okN, failN, skipN
+}
+
 // ProjectDetail is card payload for UI (thin clients).
 type ProjectDetail struct {
 	Project

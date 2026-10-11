@@ -138,6 +138,8 @@ func All() []Action {
 		a("git-project-detail", "git", "GET", "/api/git/projects/detail?name=", "", "git project detail", "Git project card", "Карточка git-проекта"),
 		a("git-project-add", "git", "POST", "/api/git/projects", `{"name":"","upstream":"","workflow":".github/workflows/netductor.yml"}`, "git project add", "Add git project", "Добавить git-проект"),
 		a("git-project-sync", "git", "POST", "/api/git/projects/sync", `{"name":""}`, "git project sync", "Sync git project", "Sync git-проект"),
+		a("git-project-sync-all", "git", "POST", "/api/git/projects/sync-all", `{}`, "git project sync-all", "Sync all git projects", "Sync всех git-проектов"),
+		a("git-project-build-all", "git", "POST", "/api/git/projects/build-all", `{"include_mac":false}`, "git project build-all", "Build all VPS projects", "Build всех VPS-проектов"),
 		a("git-project-build", "git", "POST", "/api/git/projects/build", `{"name":"","ref":""}`, "git project build", "Build git project", "Build git-проект"),
 		a("git-project-queue", "git", "GET", "/api/git/projects/queue?pending=1", "", "git project queue", "Mac build queue", "Очередь Mac-сборок"),
 		a("git-project-migrate", "git", "POST", "/api/git/projects/migrate", `{"owner":"PavelNeyman","dry_run":true,"sync":false}`, "git project migrate-from-gh", "Migrate GH repos", "Миграция реп с GH"),

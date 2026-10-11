@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
-	"github.com/PavelNeyman/netductor/internal/hardening"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/hardening"
 )
 
 func registerGitAPI(mux *http.ServeMux) {
@@ -195,7 +195,7 @@ func registerGitAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 		}
 	})
-	
+
 	mux.HandleFunc("/api/git/projects/detail", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !requireSession(w, r) {
 			return
@@ -211,6 +211,31 @@ func registerGitAPI(mux *http.ServeMux) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "project": d})
+	})
+
+	mux.HandleFunc("/api/git/projects/sync-all", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method", http.StatusMethodNotAllowed)
+			}
+			return
+		}
+		results, okN, failN := gitstore.SyncAll()
+		writeJSON(w, 200, map[string]any{"ok": failN == 0, "ok_n": okN, "fail_n": failN, "results": results})
+	})
+	mux.HandleFunc("/api/git/projects/build-all", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method", http.StatusMethodNotAllowed)
+			}
+			return
+		}
+		var body struct {
+			IncludeMac bool `json:"include_mac"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		results, okN, failN, skipN := gitstore.BuildAll(!body.IncludeMac)
+		writeJSON(w, 200, map[string]any{"ok": failN == 0, "ok_n": okN, "fail_n": failN, "skip_n": skipN, "results": results})
 	})
 
 	mux.HandleFunc("/api/git/projects/sync", func(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +270,6 @@ func registerGitAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "log": out})
 	})
 
-	
 	mux.HandleFunc("/api/git/projects/migrate", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			if r.Method != http.MethodPost {
