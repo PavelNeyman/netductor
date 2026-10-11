@@ -100,9 +100,9 @@ func formatFleetDigestHTML() string {
 		} else {
 			b.WriteString("⚠️ <b>Core units</b>: <code>" + esc(strings.Join(bad, ", ")) + "</code>" + nl)
 		}
-		b.WriteString(`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">Stack</tg-button><tg-button type="callback_data" data="m:stack:watchdog">WD</tg-button></tg-button-row>` + nl)
+		b.WriteString(`<tg-button-row><tg-button type="callback_data" style="primary" data="m:stack">` + T("stack_btn") + `</tg-button><tg-button type="callback_data" data="m:stack:watchdog">WD</tg-button></tg-button-row>` + nl)
 	} else {
-		b.WriteString(`<tg-button-row><tg-button type="callback_data" data="m:stack">🧱 Stack</tg-button></tg-button-row>` + nl)
+		b.WriteString(`<tg-button-row><tg-button type="callback_data" data="m:stack">🧱 ` + T("stack_btn") + `</tg-button></tg-button-row>` + nl)
 	}
 
 	// disaster path short
@@ -112,9 +112,9 @@ func formatFleetDigestHTML() string {
 		b.WriteString(nl + "<i>DR: netductor recover --from-secondary … · Updates · doctor</i>")
 	}
 	b.WriteString(nl + `<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:digest">🔄</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:updates">Updates</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:dr">DR</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:digest">` + T("refresh_btn") + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:updates">` + T("updates_btn") + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:dr">` + T("dr_btn") + `</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }
@@ -143,8 +143,8 @@ func formatDisasterHTML() string {
 		b.WriteString("☐ 5. Update apply if needed" + nl)
 	}
 	b.WriteString(nl + `<tg-button-row align="left">`)
-	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:digest">Fleet</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="m:menu">Menu</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" style="primary" data="m:digest">` + T("digest_btn") + `</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:menu">` + T("main_menu") + `</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }

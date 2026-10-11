@@ -51,3 +51,23 @@ Rich-text buttons and the reply keyboard both grew. After updates the hub stays 
 - Status: channel/refresh/incident via i18n keys.
 - Users: presets/canary/devices via `T()`; canary hub back label bilingual.
 - No extra top-level hubs; Tools remains Day2 only.
+
+## Structure pass (2026-10-12)
+
+Inventory of `m:` callbacks and hub map. Findings and fixes:
+
+| Issue | Fix |
+|--|--|
+| DR screen button labeled **Fleet** but callback `m:digest` (misleading duplicate destination) | Label → `T("digest_btn")` |
+| Digest/DR action buttons hardcoded EN (`Updates`, `DR`, `Stack`, `Menu`) | Switched to `T("updates_btn")`, `T("dr_btn")`, `T("stack_btn")`, `T("main_menu")`, `T("refresh_btn")` |
+| `m:updates` and `m:versions` both open Updates | Intentional alias (Tools uses `m:versions`; digest shortcut uses `m:updates`). Same screen, different entry points — kept. |
+| `topicsKeyboard` still exists | Redirects to alerts chat (legacy callbacks). Kept for old messages. |
+| Tools | Still day-2 only via `Day2Groups()` (skips home/users/fleet). No Status clone. |
+| Hubs | Status / Users / Fleet / Tools / Operator unchanged. Alerts under Operator. |
+
+Checklist:
+- [x] Inventory all `m:` callbacks and handlers
+- [x] Map button → screen; flag duplicates
+- [x] Remove/fix misleading path (DR “Fleet” → digest)
+- [x] Back/menu present on hub keyboards (`m:menu`)
+- [x] User-visible labels on fixed screens via `T()`

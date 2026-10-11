@@ -62,11 +62,11 @@ Rules:
 - After changes, update [PLAN-TG-MENU.md](PLAN-TG-MENU.md) callback map if prefixes move.
 
 Checklist:
-- [ ] Inventory all `m:` callbacks and their handlers.
-- [ ] Map button → screen; flag duplicates and dead ends.
-- [ ] Remove or merge redundant paths.
-- [ ] Verify back/menu keys always present and correct.
-- [ ] EN/RU labels via `T()` where user-visible.
+- [x] Inventory all `m:` callbacks and their handlers.
+- [x] Map button → screen; flag duplicates and dead ends.
+- [x] Remove or merge redundant paths.
+- [x] Verify back/menu keys always present and correct.
+- [x] EN/RU labels via `T()` where user-visible.
 
 ---
 
