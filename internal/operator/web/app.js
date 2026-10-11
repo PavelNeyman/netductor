@@ -62,7 +62,7 @@ en:{
   l_git_repo:'repo', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'artifact path',
   l_git_proj:'Projects (mirror)', l_git_proj_name:'name', l_git_proj_up:'upstream (org/repo)', l_git_proj_wf:'workflow path', l_git_proj_pipe:'pipeline',
   b_git_run:'Run pipeline', b_git_init:'Init repo', b_git_log:'Log', b_git_show:'Show', b_git_art:'Get artifact',
-  b_git_proj_list:'List projects', b_git_proj_add:'Add project', b_git_proj_sync:'Sync', b_git_proj_build:'Build', b_git_proj_detail:'Project card', b_git_proj_migrate:'Migrate from GH', b_git_proj_sync_all:'Sync all', b_git_proj_build_all:'Build all (vps)', b_git_proj_vps_queue:'VPS queue', b_git_proj_vps_cancel:'Cancel VPS job', b_git_proj_mirror_all:'Mirror→GH all',
+  b_git_proj_list:'List projects', b_git_proj_add:'Add project', b_git_proj_sync:'Sync', b_git_proj_build:'Build', b_git_proj_detail:'Project card', b_git_proj_migrate:'Migrate from GH', b_git_proj_sync_all:'Sync all', b_git_proj_build_all:'Build all (vps)', b_git_proj_vps_queue:'VPS queue', b_git_proj_vps_cancel:'Cancel VPS job', b_git_proj_mirror_all:'Mirror→GH all', l_git_mig_owner:'migrate owner', l_git_mig_mode:'mode',
   b_nodes:'Nodes', b_self:'Self', b_sec_st:'Secondary status', b_sec_links:'Secondary links',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'SSH hosts clear', b_mtls:'mTLS certs', b_sites:'Sites',
   b_hostname:'Set hostname', b_svc_restart:'Restart service', b_journal:'Journal',
@@ -111,7 +111,7 @@ ru:{
   l_git_repo:'репо', l_git_pipe:'pipeline', l_git_rev:'rev / path', l_git_art:'путь артефакта',
   l_git_proj:'Проекты (mirror)', l_git_proj_name:'имя', l_git_proj_up:'upstream (org/repo)', l_git_proj_wf:'путь workflow', l_git_proj_pipe:'pipeline',
   b_git_run:'Запуск pipeline', b_git_init:'Init репо', b_git_log:'Log', b_git_show:'Show', b_git_art:'Артефакт',
-  b_git_proj_list:'Список проектов', b_git_proj_add:'Добавить проект', b_git_proj_sync:'Sync', b_git_proj_build:'Build', b_git_proj_detail:'Карточка проекта', b_git_proj_migrate:'Миграция с GH', b_git_proj_sync_all:'Sync все', b_git_proj_build_all:'Build все (vps)', b_git_proj_vps_queue:'Очередь VPS', b_git_proj_vps_cancel:'Отменить VPS job', b_git_proj_mirror_all:'Mirror→GH все',
+  b_git_proj_list:'Список проектов', b_git_proj_add:'Добавить проект', b_git_proj_sync:'Sync', b_git_proj_build:'Build', b_git_proj_detail:'Карточка проекта', b_git_proj_migrate:'Миграция с GH', b_git_proj_sync_all:'Sync все', b_git_proj_build_all:'Build все (vps)', b_git_proj_vps_queue:'Очередь VPS', b_git_proj_vps_cancel:'Отменить VPS job', b_git_proj_mirror_all:'Mirror→GH все', l_git_mig_owner:'владелец миграции', l_git_mig_mode:'режим',
   b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
   b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты', b_upd:'Статус обновлений', b_rel_local:'Локальные релизы', b_rel_tags:'Git теги', b_rel_mirror:'Mirror fetch', b_rel_build:'Сборка local',
   b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
@@ -923,7 +923,7 @@ function mountButtons(){
         </div>
       </div>
       <div class="row">
-        <div><label>mode</label>
+        <div><label>${t('l_git_mig_mode')}</label>
           <select id="edgeVpnMode">
             <option value="tun">tun</option>
             <option value="off">off</option>
@@ -1018,7 +1018,7 @@ function mountButtons(){
       <button class="primary" type="button" data-act="git-proj-detail">${t('b_git_proj_detail')}</button>
       <button class="primary" type="button" data-act="git-proj-sync">${t('b_git_proj_sync')}</button>
       <button class="primary" type="button" data-act="git-proj-build">${t('b_git_proj_build')}</button>
-      <div class="row"><div><label>migrate owner</label><input id="gitMigOwner" placeholder="PavelNeyman" value="PavelNeyman"/></div>
+      <div class="row"><div><label>${t('l_git_mig_owner')}</label><input id="gitMigOwner" placeholder="PavelNeyman" value="PavelNeyman"/></div>
         <div><label>mode</label><select id="gitMigMode"><option value="dry">dry-run</option><option value="sync">add+sync</option><option value="add">add only</option></select></div></div>
       <button class="primary" type="button" data-act="git-proj-migrate">${t('b_git_proj_migrate')}</button>
       <button class="primary" type="button" data-act="git-proj-sync-all">${t('b_git_proj_sync_all')}</button>
