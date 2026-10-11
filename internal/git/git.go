@@ -26,7 +26,6 @@ func PipelineDir() string {
 	return filepath.Join(paths.EtcDir(), "git-pipelines")
 }
 
-
 func ArtifactDir() string {
 	if v := os.Getenv("NETDUCTOR_GIT_ARTIFACTS"); v != "" {
 		return v
@@ -318,7 +317,6 @@ echo pushed "$REG/$IMG"
 	return nil
 }
 
-
 func RemoteHint(name string, sshPort int) string {
 	name = sanitize(name)
 	if sshPort <= 0 {
@@ -366,8 +364,6 @@ func ListInfo() ([]Info, error) {
 	return out, nil
 }
 
-
-
 // RunWorkflow checks out HEAD to a temp worktree and runs a GHA-subset YAML workflow.
 // workflowPath relative to worktree or absolute; empty = first .github/workflows/*.yml
 func RunWorkflow(repo, workflowPath string) (string, error) {
@@ -380,10 +376,16 @@ func RunWorkflow(repo, workflowPath string) (string, error) {
 		return "", err
 	}
 	defer os.RemoveAll(wt)
-	cmd := exec.Command("git", "--git-dir="+dir, "--work-tree="+wt, "checkout", "-f", "HEAD")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return string(out), fmt.Errorf("checkout: %w: %s", err, strings.TrimSpace(string(out)))
+	_ = setBareHEAD(dir)
+	out, err := exec.Command("git", "--git-dir="+dir, "--work-tree="+wt, "checkout", "-f", "HEAD").CombinedOutput()
+	if err != nil {
+		out2, err2 := exec.Command("git", "--git-dir="+dir, "--work-tree="+wt, "checkout", "-f", "main").CombinedOutput()
+		if err2 != nil {
+			return string(out) + string(out2), fmt.Errorf("checkout: %w: %s", err, strings.TrimSpace(string(out)))
+		}
+		out = out2
 	}
+	_ = out
 	path := workflowPath
 	if strings.Contains(path, "..") || filepath.IsAbs(path) {
 		return "", fmt.Errorf("workflow path must stay inside the checkout")

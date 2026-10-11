@@ -69,7 +69,33 @@ func MirrorFetch(name string) (string, error) {
 	}
 	cmd := exec.Command("git", "-C", dir, "fetch", "--tags", "--prune", "origin", "+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*")
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	if err != nil {
+		return string(out), err
+	}
+	_ = setBareHEAD(dir)
+	return string(out), nil
+}
+
+// setBareHEAD points HEAD at main, master, or first refs/heads/* so checkout HEAD works.
+func setBareHEAD(dir string) error {
+	for _, b := range []string{"main", "master"} {
+		ref := "refs/heads/" + b
+		if _, err := os.Stat(filepath.Join(dir, ref)); err == nil {
+			if out, err := exec.Command("git", "-C", dir, "symbolic-ref", "HEAD", ref).CombinedOutput(); err != nil {
+				return fmt.Errorf("symbolic-ref HEAD %s: %w (%s)", ref, err, strings.TrimSpace(string(out)))
+			}
+			return nil
+		}
+	}
+	// first branch under refs/heads
+	hosts, _ := filepath.Glob(filepath.Join(dir, "refs", "heads", "*"))
+	if len(hosts) > 0 {
+		b := filepath.Base(hosts[0])
+		ref := "refs/heads/" + b
+		_, err := exec.Command("git", "-C", dir, "symbolic-ref", "HEAD", ref).CombinedOutput()
+		return err
+	}
+	return nil
 }
 
 // ListTags returns tag names (newest first when possible).
@@ -113,7 +139,6 @@ func CheckoutTag(name, tag, workDir string) error {
 	}
 	return nil
 }
-
 
 func parseMaybeURL(raw string) (*url.URL, error) {
 	return url.Parse(raw)

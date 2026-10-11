@@ -18,13 +18,13 @@ import (
 // Build order: host=mac → queue; explicit Workflow → .github/workflows/<Name>.yml → pipeline → detect.
 type Project struct {
 	Name         string `json:"name"`
-	Upstream     string `json:"upstream"` // https://github.com/org/repo.git
+	Upstream     string `json:"upstream"`           // https://github.com/org/repo.git
 	Workflow     string `json:"workflow,omitempty"` // relative path e.g. .github/workflows/ci.yml
 	Pipeline     string `json:"pipeline,omitempty"` // shell pipeline name under PipelineDir
 	BuildOnFetch bool   `json:"build_on_fetch,omitempty"`
 	// Host: "vps" (default, build on primary) or "mac" (op builds, release import only).
-	Host         string `json:"host,omitempty"`
-	CreatedAt    string `json:"created_at,omitempty"`
+	Host      string `json:"host,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
 }
 
 func projectsPath() string {
@@ -281,17 +281,32 @@ func checkoutRef(name, ref, workDir string) error {
 	if err := os.MkdirAll(workDir, 0o755); err != nil {
 		return err
 	}
-	if ref == "" {
-		ref = "HEAD"
+	_ = setBareHEAD(dir)
+	candidates := []string{}
+	if ref != "" {
+		candidates = append(candidates, ref)
 	}
-	cmd := exec.Command("git", "--git-dir="+dir, "--work-tree="+workDir, "checkout", "-f", ref)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("checkout %s: %w (%s)", ref, err, strings.TrimSpace(string(out)))
+	candidates = append(candidates, "HEAD", "main", "master")
+	var lastOut []byte
+	var lastErr error
+	seen := map[string]bool{}
+	for _, r := range candidates {
+		if r == "" || seen[r] {
+			continue
+		}
+		seen[r] = true
+		cmd := exec.Command("git", "--git-dir="+dir, "--work-tree="+workDir, "checkout", "-f", r)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			return nil
+		}
+		lastOut, lastErr = out, err
 	}
-	return nil
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no ref")
+	}
+	return fmt.Errorf("checkout %v: %w (%s)", candidates, lastErr, strings.TrimSpace(string(lastOut)))
 }
-
 
 // ProjectDetail is card payload for UI (thin clients).
 type ProjectDetail struct {
