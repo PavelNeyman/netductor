@@ -1266,6 +1266,7 @@ const special = {
   'git-run': async()=>{ return nodeFetch('/api/git/pipeline',{method:'POST',body:JSON.stringify({repo:document.getElementById('gitRepo').value.trim(),pipeline:document.getElementById('gitPipe').value.trim()})}); },
   'git-init': async()=>{ const name=document.getElementById('gitRepo').value.trim(); if(!name) return {error:'repo name'}; return nodeFetch('/api/git/repos',{method:'POST',body:JSON.stringify({name})}); },
   'git-proj-list': async()=> nodeFetch('/api/git/projects'),
+  'git-proj-detail': async()=>{ const name=(document.getElementById('gitProjName')?.value||'').trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/detail?name='+encodeURIComponent(name)); },
   'git-proj-add': async()=>{ const name=document.getElementById('gitProjName').value.trim(); const upstream=document.getElementById('gitProjUp').value.trim();
     if(!name||!upstream) return {error:'name and upstream'}; const workflow=document.getElementById('gitProjWf').value.trim(); const pipeline=document.getElementById('gitProjPipe').value.trim();
     const host=document.getElementById('gitProjMac')&&document.getElementById('gitProjMac').checked?'mac':'vps'; const build_on_fetch=!!(document.getElementById('gitProjOnFetch')&&document.getElementById('gitProjOnFetch').checked); return nodeFetch('/api/git/projects',{method:'POST',body:JSON.stringify({name,upstream,workflow,pipeline,host,build_on_fetch})}); },
