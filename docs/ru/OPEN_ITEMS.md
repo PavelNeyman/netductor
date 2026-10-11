@@ -6,6 +6,9 @@
 
 ## Стоп-линия
 
+- [x] План улучшений продукта (без железа e2e) — [PLAN-PRODUCT-IMPROVEMENTS.md](PLAN-PRODUCT-IMPROVEMENTS.md) **закрыт** (2026-10-12); включает проход по структуре TG-меню
+
+
 Полный комплекс ревью: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [../REVIEW-SUITE.md](../REVIEW-SUITE.md).
 
 **v0.9.339** (2026-10-11) — host security + SSH allowlist wizard + паритет UI; ранее post-review 0.9.319.

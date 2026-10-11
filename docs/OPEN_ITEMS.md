@@ -8,6 +8,9 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Stop line
 
+- [x] Product improvements plan (no hardware e2e) — [PLAN-PRODUCT-IMPROVEMENTS.md](PLAN-PRODUCT-IMPROVEMENTS.md) **closed** (2026-10-12); TG menu structure pass included
+
+
 Full review complex: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md).
 
 
