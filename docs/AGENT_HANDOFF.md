@@ -7,7 +7,7 @@
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
 # AGENT Handoff
 
-**Stop line: v0.9.331** (2026-10-11). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+**Stop line: v0.9.339** (2026-10-11). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
 
 ### 0.9.320–0.9.331 (summary)
 
@@ -20,7 +20,7 @@
 - Callback prefix **m:sshkeys:** (not m:ssh:) to avoid clash with SSH hosts TOFU
 - Reboot challenge also via API/Web/opcatalog (`/api/security/reboot/*`)
 
-Live apply: `netductor stack apply v0.9.331` then secondary `upgrade:v0.9.331`.
+Live apply: `netductor stack apply v0.9.339` then secondary `upgrade:v0.9.339`.
 
 ## Where we stopped
 
@@ -28,7 +28,7 @@ Security/DNS/SSH allowlist track closed in code. Reboot challenge: TG + session 
 
 | Topic | State |
 |--|--|
-| Release | **v0.9.331** — node, tg, agent, op darwin/linux. Formula **netductor-op only** |
+| Release | **v0.9.339** tip; last GitHub release **v0.9.337**. Formula **netductor-op only** |
 | VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
 | Open | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik), lab checklist |
 
