@@ -52,15 +52,21 @@ Update this table when adding tests (checkboxes → done in OPEN_ITEMS or here).
 | `internal/notify` reboot challenge | **P0** | one-shot codes — **tests added 0.9.329** |
 | `internal/firewall` | P1 | truncate/firstLines/detectRole — **tests 0.9.330** |
 | `internal/channels` | P1 | FormatPathE2E/FormatText — **tests 0.9.330** |
-| `internal/logs` | P2 | schedule parse |
-| `internal/servicenet` | P2 | VIP helpers |
-| `internal/svcpaths` | P2 | health file parse |
-| `internal/devices` | P2 | device registry |
-| `internal/incident` | P2 | pack assembly |
+| `internal/logs` | P2 | schedule format — **tests 0.9.331** |
+| `internal/servicenet` | P2 | Enabled/Collect smoke — **tests 0.9.331** |
+| `internal/svcpaths` | P2 | peerOf / DefaultPolicy — **tests 0.9.331** |
+| `internal/devices` | P2 | List empty — **tests 0.9.331** |
+| `internal/incident` | P2 | Collect smoke — **tests 0.9.331** |
 | `internal/hardening` | P1 | DropInConf/RemoteHardenScript/SSHPort — **tests 0.9.330** |
-| `internal/dnsblock` | P2 | list URL allow |
-| `internal/cli18n` | P3 | key presence EN/RU |
+| `internal/dnsblock` | P2 | defaults/catalog — **tests 0.9.331** |
+| `internal/cli18n` | P3 | T/Lang — **tests 0.9.331** |
 | `internal/version` | P3 | non-empty Release |
+| `internal/fleet` | P2 | empty/defaultPolicy — **tests 0.9.331** |
+| `internal/onboard` | P2 | defaultItems — **tests 0.9.331** |
+| `internal/cleanup` | P2 | humanBytes/FormatText — **tests 0.9.331** |
+| `internal/upstream` | P2 | defaultPins — **tests 0.9.331** |
+| `internal/addons` | P3 | str helper — **tests 0.9.331** |
+| `internal/tlsle` | P3 | findLiveCert empty — **tests 0.9.331** |
 | `cmd/netductor-op` | P2 | catalog smoke — **tests 0.9.330** |
 
 **Obligation:** each full suite run must either (a) add tests for at least one P0/P1 debt row still open, or (b) state that no P0/P1 debt remains for the changed packages.
@@ -164,29 +170,68 @@ Not a substitute for §1. Run when touching VPN, agent, firewall, or SSH.
 
 ---
 
-## 9. Code review focus (recent diff)
+## 9. Deep code review (recent diff + touched packages)
 
-| Focus | Pass criteria |
+Mandatory on **Full** suite. Scope: commits since last stop line (or explicit range).
+
+| Check | Pass criteria |
 |--|--|
-| Trust boundaries | session, mTLS, agent cmd allowlist |
-| Download / update | SHA required unless explicit env footgun documented |
-| Path containment | clips, git artifacts, NVR paths stay under roots |
-| Secrets | 0600 paths; no tokens in handoff |
-| Error handling | no silent swallow on security checks |
+| Correctness | Logic matches product rules; edge cases (empty lists, stale role, offline secondary) handled |
+| API contracts | JSON fields stable or versioned; errors use consistent `{ok,error}` / HTTP codes |
+| Concurrency | No data races on shared maps/files without lock; agent registry and session stores safe |
+| Idempotency | Apply/firewall/allowlist/baseline safe to re-run |
+| Observability | Failures surface to doctor/alerts/logs; no silent ignore on security-critical paths |
+| Dependencies | No new heavy deps without reason; `go.mod` tidy |
+| Tests | New logic covered per §1.2 |
+
+**How:** read changed files fully in touched packages; do not mark "reviewed" from commit message alone.
 
 ---
 
-## 10. Output template (operator reply)
+## 10. Security review
 
-Use this structure when reporting a full suite:
+| Check | Pass criteria |
+|--|--|
+| Authn/Authz | Operator session on mutating API; TG operator-only; no unauthenticated destructive routes |
+| Agent plane | Cmd allowlist only; payloads size-bounded where practical; mTLS on 8789 |
+| Trust boundaries | Secondary naming on :9443 documented; client cannot escalate to host root via API |
+| Secrets | Files 0600 under etc/state; tokens not in docs/git; reboot challenge one-shot + TTL |
+| Supply chain | Release downloads verify SHA256; tag characters restricted; `NETDUCTOR_UPDATE_SKIP_VERIFY` is footgun |
+| Injection | No shell from user-controlled strings without allowlist; paths cleaned / contained |
+| SSH | Allowlist detect vs enforce clear; enforce warns about hoster keys |
+| Network exposure | API :8787 localhost; agent plain :8788 not on WAN; doctor/host-audit clean of hoster agents |
 
-1. **Tip / release** — version, assets OK?  
-2. **Tests** — `go test` result; new tests added?  
-3. **Handoff / OPEN_ITEMS / docs EN+RU**  
-4. **UI parity table** (only deltas)  
-5. **TG cards / i18n**  
-6. **Findings** — severity + fix-now vs defer  
-7. **Apply commands** if tip moved  
+**Severity labels for findings:** Critical (exploit/data loss) · High · Medium · Low · Info.
+
+---
+
+## 11. Refactoring necessity
+
+| Check | Pass criteria |
+|--|--|
+| Duplication | Same logic in TG/Web/CLI without shared helper → note R-item or fix if small |
+| File size / god functions | New oversized functions or packages that mix unrelated concerns → backlog with reason |
+| Dead code | Unreachable handlers, unused flags after feature removal → delete or ticket |
+| Naming | Confusing prefixes (`m:ssh` vs allowlist) already fixed pattern — do not reintroduce |
+| Layering | UI must not embed policy that belongs in `internal/` (API source of truth) |
+| Prior R-items | Check `docs/REVIEW-PROGRESS.md` / OPEN_ITEMS; do not reopen closed R* without new evidence |
+
+**Rule:** Full suite **must** either (a) list concrete refactor follow-ups with severity, or (b) state **no refactor required** for the diff. "Looks fine" without this sentence is incomplete.
+
+---
+
+## 12. Output template (operator reply)
+
+1. **Tip / release** — version, assets OK?
+2. **Tests** — `go test` result; new tests added? debt table?
+3. **Handoff / OPEN_ITEMS / docs EN+RU**
+4. **UI parity** (deltas)
+5. **TG cards / i18n**
+6. **Code review** (§9) — issues or clean
+7. **Security review** (§10) — issues or clean
+8. **Refactoring** (§11) — follow-ups or "no refactor required"
+9. **Findings** — severity + fix-now vs defer
+10. **Apply commands** if tip moved
 
 ---
 
@@ -194,5 +239,6 @@ Use this structure when reporting a full suite:
 
 | Version | Change |
 |--|--|
+| 0.9.331 | Expanded §9–§11: deep code review, security review, refactoring necessity; remaining package unit tests |
+| 0.9.330 | P1/P2 tests: firewall, channels, hardening, op catalog |
 | 0.9.329 | Initial suite doc EN+RU; integrity + reboot challenge tests; mandatory full-complex reference |
-

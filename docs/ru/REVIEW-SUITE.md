@@ -50,15 +50,21 @@ go test ./cmd/... -count=1
 | `internal/notify` reboot | **P0** | **тесты 0.9.329** |
 | `internal/firewall` | P1 | truncate/firstLines/detectRole — **тесты 0.9.330** |
 | `internal/channels` | P1 | FormatPathE2E/FormatText — **тесты 0.9.330** |
-| `internal/logs` | P2 | schedule |
-| `internal/servicenet` | P2 | VIP |
-| `internal/svcpaths` | P2 | health file |
-| `internal/devices` | P2 | registry |
-| `internal/incident` | P2 | pack |
+| `internal/logs` | P2 | schedule — **тесты 0.9.331** |
+| `internal/servicenet` | P2 | Enabled/Collect — **тесты 0.9.331** |
+| `internal/svcpaths` | P2 | peerOf — **тесты 0.9.331** |
+| `internal/devices` | P2 | List — **тесты 0.9.331** |
+| `internal/incident` | P2 | Collect — **тесты 0.9.331** |
 | `internal/hardening` | P1 | DropInConf/RemoteHardenScript/SSHPort — **тесты 0.9.330** |
-| `internal/dnsblock` | P2 | URL allow |
-| `internal/cli18n` | P3 | ключи EN/RU |
+| `internal/dnsblock` | P2 | catalog — **тесты 0.9.331** |
+| `internal/cli18n` | P3 | T/Lang — **тесты 0.9.331** |
 | `internal/version` | P3 | Release |
+| `internal/fleet` | P2 | **тесты 0.9.331** |
+| `internal/onboard` | P2 | **тесты 0.9.331** |
+| `internal/cleanup` | P2 | **тесты 0.9.331** |
+| `internal/upstream` | P2 | **тесты 0.9.331** |
+| `internal/addons` | P3 | **тесты 0.9.331** |
+| `internal/tlsle` | P3 | **тесты 0.9.331** |
 | `cmd/netductor-op` | P2 | catalog smoke — **тесты 0.9.330** |
 
 **Обязательство:** каждый полный прогон либо (a) добавляет тест по открытому P0/P1 в затронутых пакетах, либо (b) явно пишет, что для diff P0/P1 долга нет.
@@ -162,27 +168,68 @@ go test ./cmd/... -count=1
 
 ---
 
-## 9. Фокус code review (свежий diff)
+## 9. Глубокое code review (diff + затронутые пакеты)
 
-| Фокус | Критерий |
+Обязательно на **полном** комплексе. Объём: коммиты с прошлой stop line (или явный range).
+
+| Проверка | Критерий |
 |--|--|
-| Trust boundaries | session, mTLS, agent cmd allowlist |
-| Download / update | SHA обязателен, если нет явного env footgun |
-| Path containment | clip/git/NVR под корнями |
-| Secrets | 0600; токены не в handoff |
-| Ошибки | не глотать security-check |
+| Корректность | Логика = продуктовые правила; edge cases обработаны |
+| Контракты API | JSON стабилен или версионирован; единый стиль ошибок |
+| Concurrency | Нет гонок на shared map/file без lock |
+| Идемпотентность | apply/firewall/allowlist/baseline безопасно повторять |
+| Наблюдаемость | Сбои в doctor/alerts/logs; не глотать security-критичное |
+| Зависимости | Без лишних тяжёлых deps; `go.mod` tidy |
+| Тесты | Новая логика по §1.2 |
+
+**Как:** читать изменённые файлы целиком в пакетах; не считать «просмотрено» по одному commit message.
 
 ---
 
-## 10. Шаблон ответа оператору
+## 10. Security review
 
-1. **Tip / release**  
-2. **Тесты** — результат; что добавили  
-3. **Handoff / OPEN_ITEMS / доки EN+RU**  
-4. **Паритет UI** (дельты)  
-5. **TG / i18n**  
-6. **Находки** — severity + сейчас / отложить  
-7. **Команды apply**, если tip сдвинут  
+| Проверка | Критерий |
+|--|--|
+| Authn/Authz | Session на mutating API; TG только operator; нет голых destructive routes |
+| Agent plane | Только allowlist cmd; mTLS :8789 |
+| Trust boundaries | Доверие secondary на :9443 задокументировано |
+| Secrets | 0600; токены не в docs/git; reboot challenge one-shot + TTL |
+| Supply chain | SHA256 на download; ограниченный tag; skip-verify = footgun |
+| Injection | Нет shell из user input без allowlist; path containment |
+| SSH | Detect vs enforce; enforce предупреждает про ключи хостера |
+| Экспозиция сети | API :8787 localhost; plain agent не на WAN; host-audit CLEAN |
+
+**Severity:** Critical · High · Medium · Low · Info.
+
+---
+
+## 11. Необходимость рефакторинга
+
+| Проверка | Критерий |
+|--|--|
+| Дубли | Одна логика в TG/Web/CLI без helper → R-item или мелкий fix |
+| God-функции | Новые огромные функции / смешение concern → backlog |
+| Мёртвый код | Удалить или ticket |
+| Именование | Не возвращать двусмысленные callback-префиксы |
+| Слои | UI не тащит policy — только `internal/` / API |
+| Старые R-items | `REVIEW-PROGRESS` / OPEN_ITEMS; не открывать закрытое без новых фактов |
+
+**Правило:** полный комплекс **обязан** либо перечислить follow-up рефакторинга, либо явно написать **«рефакторинг не требуется»** для diff. Фразы «вроде ок» без этого — неполный отчёт.
+
+---
+
+## 12. Шаблон ответа оператору
+
+1. **Tip / release**
+2. **Тесты**
+3. **Handoff / OPEN_ITEMS / доки EN+RU**
+4. **Паритет UI**
+5. **TG / i18n**
+6. **Code review** (§9)
+7. **Security review** (§10)
+8. **Рефакторинг** (§11)
+9. **Находки**
+10. **Команды apply**
 
 ---
 
@@ -190,5 +237,6 @@ go test ./cmd/... -count=1
 
 | Версия | Изменение |
 |--|--|
-| 0.9.329 | Первый полный комплекс EN+RU; тесты integrity + reboot; ссылка из handoff/AGENTS |
-
+| 0.9.331 | §9–§11: code / security / рефакторинг; unit-тесты оставшихся пакетов |
+| 0.9.330 | P1/P2: firewall, channels, hardening, op catalog |
+| 0.9.329 | Первый полный комплекс EN+RU; integrity + reboot |
