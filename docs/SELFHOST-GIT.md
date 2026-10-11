@@ -204,4 +204,4 @@ If **repos** is empty, mirror falls back to **releases** token.
 
 ## Ops plan
 
-See [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md) (Go parity, docker cleanup, queue, card status).
+See [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md). Primary→GH: `git project mirror-push` (auto after bare push + successful VPS build; `NETDUCTOR_GIT_MIRROR_PUSH=0` disables). (Go parity, docker cleanup, queue, card status).

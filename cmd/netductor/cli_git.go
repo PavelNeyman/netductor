@@ -220,7 +220,7 @@ func runGit(args []string) int {
 
 func runGitProject(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|sync-all|build|build-all|queue|migrate-from-gh")
+		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|sync-all|build|build-all|mirror-push|queue|migrate-from-gh")
 		return 2
 	}
 	switch args[0] {
@@ -413,6 +413,38 @@ func runGitProject(args []string) int {
 			fmt.Fprintln(os.Stderr, "usage: netductor git project queue list|pending|done|cancel")
 			return 2
 		}
+	case "mirror-push", "push-gh":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git project mirror-push <name>|all")
+			return 2
+		}
+		if args[1] == "all" {
+			list, err := gitstore.LoadProjects()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			fail := 0
+			for _, pr := range list {
+				out, err := gitstore.MirrorPush(pr.Name)
+				fmt.Printf("== %s ==\n%s", pr.Name, out)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					fail++
+				}
+			}
+			if fail > 0 {
+				return 1
+			}
+			return 0
+		}
+		out, err := gitstore.MirrorPush(args[1])
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
 	case "migrate-from-gh", "migrate":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor git project migrate-from-gh <owner> [--dry-run] [--sync]")

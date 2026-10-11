@@ -3,7 +3,7 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: golang:1.25-bookworm
+    container: golang:1.26-bookworm
     env:
       CGO_ENABLED: "0"
       GOTOOLCHAIN: auto
@@ -39,7 +39,7 @@ jobs:
           /tmp/netductor version | grep -q node
   windows-cross:
     runs-on: ubuntu-latest
-    container: golang:1.25-bookworm
+    container: golang:1.26-bookworm
     env:
       CGO_ENABLED: "0"
       GOTOOLCHAIN: auto

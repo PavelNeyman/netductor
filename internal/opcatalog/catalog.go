@@ -138,6 +138,7 @@ func All() []Action {
 		a("git-project-detail", "git", "GET", "/api/git/projects/detail?name=", "", "git project detail", "Git project card", "Карточка git-проекта"),
 		a("git-project-add", "git", "POST", "/api/git/projects", `{"name":"","upstream":"","workflow":".github/workflows/netductor.yml"}`, "git project add", "Add git project", "Добавить git-проект"),
 		a("git-project-sync", "git", "POST", "/api/git/projects/sync", `{"name":""}`, "git project sync", "Sync git project", "Sync git-проект"),
+		a("git-project-mirror-push", "git", "POST", "/api/git/projects/mirror-push", `{"name":"","all":false}`, "git project mirror-push", "Mirror push to GH", "Push mirror на GH"),
 		a("git-project-sync-all", "git", "POST", "/api/git/projects/sync-all", `{}`, "git project sync-all", "Sync all git projects", "Sync всех git-проектов"),
 		a("git-project-build-all", "git", "POST", "/api/git/projects/build-all", `{"include_mac":false}`, "git project build-all", "Build all VPS projects", "Build всех VPS-проектов"),
 		a("git-project-build", "git", "POST", "/api/git/projects/build", `{"name":"","ref":""}`, "git project build", "Build git project", "Build git-проект"),

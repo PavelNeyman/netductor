@@ -120,6 +120,13 @@ func runClaimedVpsJob(job VpsBuildJob) {
 			list[i].Status = "done"
 			list[i].Error = ""
 			notify.AlertOnce("git:vps-build-ok:"+job.Project, fmt.Sprintf("✅ VPS build <code>%s</code> ok", job.Project))
+			if MirrorPushEnabled() && job.Kind == "build" {
+				if pout, perr := MirrorPush(job.Project); perr != nil {
+					list[i].LogTail = list[i].LogTail + "\nmirror-push: " + perr.Error() + "\n" + pout
+				} else if strings.TrimSpace(pout) != "" {
+					list[i].LogTail = list[i].LogTail + "\nmirror-push:\n" + pout
+				}
+			}
 		}
 		break
 	}

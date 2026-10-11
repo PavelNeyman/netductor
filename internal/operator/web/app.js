@@ -1023,6 +1023,7 @@ function mountButtons(){
       <button class="primary" type="button" data-act="git-proj-sync-all">Sync all</button>
       <button class="primary" type="button" data-act="git-proj-build-all">Build all (vps)</button>
       <button class="primary" type="button" data-act="git-proj-vps-queue">VPS queue</button>
+      <button class="primary" type="button" data-act="git-proj-mirror-all">Mirror→GH all</button>
       <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
       <div><label>${t('l_git_rev')}</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
       <button class="primary" type="button" data-act="git-log">${t('b_git_log')}</button>
@@ -1277,6 +1278,8 @@ const special = {
   'git-proj-sync-all': async()=> nodeFetch('/api/git/projects/sync-all',{method:'POST',body:JSON.stringify({})}),
   'git-proj-build-all': async()=> nodeFetch('/api/git/projects/build-all',{method:'POST',body:JSON.stringify({include_mac:false})}),
   'git-proj-vps-queue': async()=> nodeFetch('/api/git/projects/vps-queue?pending=0'),
+  'git-proj-mirror-all': async()=> nodeFetch('/api/git/projects/mirror-push',{method:'POST',body:JSON.stringify({all:true})}),
+
 
 
   'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?name='+encodeURIComponent(r)):'')); },

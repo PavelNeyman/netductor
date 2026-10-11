@@ -122,6 +122,25 @@ func List() ([]string, error) {
 	return out, nil
 }
 
+func installPostReceiveHook(name, dir string) error {
+	hook := filepath.Join(dir, "hooks", "post-receive")
+	hookBody := "#!/bin/sh\n" +
+		"command -v netductor >/dev/null 2>&1 || exit 0\n" +
+		"if [ -n \"$NETDUCTOR_GIT_WORKFLOW\" ]; then\n" +
+		"  if [ \"$NETDUCTOR_GIT_WORKFLOW\" = \"1\" ]; then\n" +
+		"    netductor git workflow " + name + " || exit $?\n" +
+		"  else\n" +
+		"    netductor git workflow " + name + " \"$NETDUCTOR_GIT_WORKFLOW\" || exit $?\n" +
+		"  fi\n" +
+		"elif [ -n \"$NETDUCTOR_GIT_PIPELINE\" ]; then\n" +
+		"  netductor git pipeline " + name + " \"$NETDUCTOR_GIT_PIPELINE\" || exit $?\n" +
+		"fi\n" +
+		"if [ \"${NETDUCTOR_GIT_MIRROR_PUSH:-1}\" != \"0\" ]; then\n" +
+		"  netductor git project mirror-push " + name + " || true\n" +
+		"fi\nexit 0\n"
+	return os.WriteFile(hook, []byte(hookBody), 0o755)
+}
+
 func Init(name string) (string, error) {
 	name = sanitize(name)
 	if name == "" {
@@ -142,21 +161,7 @@ func Init(name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
-	// post-receive: optional auto pipeline via NETDUCTOR_GIT_PIPELINE
-	hook := filepath.Join(dir, "hooks", "post-receive")
-	hookBody := "#!/bin/sh\n" +
-		"command -v netductor >/dev/null 2>&1 || exit 0\n" +
-		"if [ -n \"$NETDUCTOR_GIT_WORKFLOW\" ]; then\n" +
-		"  # 1 = default .github/workflows; else path relative to repo root\n" +
-		"  if [ \"$NETDUCTOR_GIT_WORKFLOW\" = \"1\" ]; then\n" +
-		"    netductor git workflow " + name + " || exit $?\n" +
-		"  else\n" +
-		"    netductor git workflow " + name + " \"$NETDUCTOR_GIT_WORKFLOW\" || exit $?\n" +
-		"  fi\n" +
-		"elif [ -n \"$NETDUCTOR_GIT_PIPELINE\" ]; then\n" +
-		"  netductor git pipeline " + name + " \"$NETDUCTOR_GIT_PIPELINE\" || exit $?\n" +
-		"fi\nexit 0\n"
-	_ = os.WriteFile(hook, []byte(hookBody), 0o755)
+	_ = installPostReceiveHook(name, dir)
 	return dir, nil
 }
 

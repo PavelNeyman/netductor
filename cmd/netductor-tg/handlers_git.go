@@ -131,8 +131,40 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				qLab = "📋 Очередь VPS"
 			}
 			rows = append(rows, []map[string]any{btn(qLab, "m:git:proj:vps-queue", "")})
+			mpLab := "⬆ Mirror→GH all"
+			if ru {
+				mpLab = "⬆ Mirror→GH все"
+			}
+			rows = append(rows, []map[string]any{btn(mpLab, "m:git:proj:mirror-all", "")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+			return true
+		}
+		if sub == "mirror-all" {
+			list, err := gitstore.LoadProjects()
+			var b strings.Builder
+			nl := string([]byte{10})
+			if err != nil {
+				reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:git:proj:list", "Projects"))
+				return true
+			}
+			fail := 0
+			for _, pr := range list {
+				out, err := gitstore.MirrorPush(pr.Name)
+				line := "✅ " + pr.Name
+				if err != nil {
+					fail++
+					line = "❌ " + pr.Name + " — " + err.Error()
+				}
+				if len(b.String())+len(line) > 3500 {
+					b.WriteString("…" + nl)
+					break
+				}
+				b.WriteString(esc(line) + nl)
+				_ = out
+			}
+			b.WriteString(fmt.Sprintf("fail=%d%s", fail, nl))
+			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
 		if sub == "vps-queue" {

@@ -38,6 +38,7 @@ func MirrorEnsure(name, upstreamURL string) (string, error) {
 		_ = exec.Command("git", "-C", dir, "remote", "set-url", "origin", url).Run()
 		_ = out
 	}
+	_ = installPostReceiveHook(name, dir)
 	return dir, nil
 }
 
@@ -144,6 +145,40 @@ func MirrorHealEmptyOrBroken(name, upstreamURL string) (string, error) {
 		return "", err
 	}
 	return MirrorFetch(name)
+}
+
+// MirrorPush pushes local bare heads+tags to origin (primary → GitHub).
+// Requires a token with Contents write on the upstream repo.
+// Set NETDUCTOR_GIT_MIRROR_PUSH=0 to disable callers.
+func MirrorPush(name string) (string, error) {
+	if os.Getenv("NETDUCTOR_GIT_MIRROR_PUSH") == "0" {
+		return "mirror-push disabled (NETDUCTOR_GIT_MIRROR_PUSH=0)\n", nil
+	}
+	dir, err := repoDir(name)
+	if err != nil {
+		return "", err
+	}
+	// refresh auth on origin
+	if out, err := exec.Command("git", "-C", dir, "remote", "get-url", "origin").CombinedOutput(); err == nil {
+		cur := strings.TrimSpace(string(out))
+		plain := cur
+		if u, e := parseMaybeURL(cur); e == nil && u.User != nil {
+			u.User = nil
+			plain = u.String()
+		}
+		if auth := withGitHubAuth(plain); auth != "" {
+			_ = exec.Command("git", "-C", dir, "remote", "set-url", "origin", auth).Run()
+		}
+	}
+	_ = setBareHEAD(dir)
+	cmd := exec.Command("git", "-C", dir, "push", "--prune", "origin", "+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*")
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// MirrorPushEnabled is true unless explicitly disabled.
+func MirrorPushEnabled() bool {
+	return os.Getenv("NETDUCTOR_GIT_MIRROR_PUSH") != "0"
 }
 
 // ListTags returns tag names (newest first when possible).

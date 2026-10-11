@@ -163,7 +163,6 @@ func CancelMacBuild(id string) error {
 	return nil
 }
 
-
 func clearMacPendingAlert(list []MacBuildJob) {
 	for _, j := range list {
 		if j.Status == "pending" {
