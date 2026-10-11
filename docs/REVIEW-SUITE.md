@@ -50,18 +50,18 @@ Update this table when adding tests (checkboxes → done in OPEN_ITEMS or here).
 |--|--|--|
 | `internal/integrity` | **P0** | baseline + SSH parse — **tests added 0.9.329** |
 | `internal/notify` reboot challenge | **P0** | one-shot codes — **tests added 0.9.329** |
-| `internal/firewall` | P1 | role detect, ufw apply pure helpers |
-| `internal/channels` | P1 | face/uplink classification |
+| `internal/firewall` | P1 | truncate/firstLines/detectRole — **tests 0.9.330** |
+| `internal/channels` | P1 | FormatPathE2E/FormatText — **tests 0.9.330** |
 | `internal/logs` | P2 | schedule parse |
 | `internal/servicenet` | P2 | VIP helpers |
 | `internal/svcpaths` | P2 | health file parse |
 | `internal/devices` | P2 | device registry |
 | `internal/incident` | P2 | pack assembly |
-| `internal/hardening` | P1 | pure path checks |
+| `internal/hardening` | P1 | DropInConf/RemoteHardenScript/SSHPort — **tests 0.9.330** |
 | `internal/dnsblock` | P2 | list URL allow |
 | `internal/cli18n` | P3 | key presence EN/RU |
 | `internal/version` | P3 | non-empty Release |
-| `cmd/netductor-op` | P2 | catalog wiring smoke if practical |
+| `cmd/netductor-op` | P2 | catalog smoke — **tests 0.9.330** |
 
 **Obligation:** each full suite run must either (a) add tests for at least one P0/P1 debt row still open, or (b) state that no P0/P1 debt remains for the changed packages.
 

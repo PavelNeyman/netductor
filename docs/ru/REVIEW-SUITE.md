@@ -48,18 +48,18 @@ go test ./cmd/... -count=1
 |--|--|--|
 | `internal/integrity` | **P0** | **тесты 0.9.329** |
 | `internal/notify` reboot | **P0** | **тесты 0.9.329** |
-| `internal/firewall` | P1 | role/ufw helpers |
-| `internal/channels` | P1 | face/uplink |
+| `internal/firewall` | P1 | truncate/firstLines/detectRole — **тесты 0.9.330** |
+| `internal/channels` | P1 | FormatPathE2E/FormatText — **тесты 0.9.330** |
 | `internal/logs` | P2 | schedule |
 | `internal/servicenet` | P2 | VIP |
 | `internal/svcpaths` | P2 | health file |
 | `internal/devices` | P2 | registry |
 | `internal/incident` | P2 | pack |
-| `internal/hardening` | P1 | path checks |
+| `internal/hardening` | P1 | DropInConf/RemoteHardenScript/SSHPort — **тесты 0.9.330** |
 | `internal/dnsblock` | P2 | URL allow |
 | `internal/cli18n` | P3 | ключи EN/RU |
 | `internal/version` | P3 | Release |
-| `cmd/netductor-op` | P2 | catalog smoke |
+| `cmd/netductor-op` | P2 | catalog smoke — **тесты 0.9.330** |
 
 **Обязательство:** каждый полный прогон либо (a) добавляет тест по открытому P0/P1 в затронутых пакетах, либо (b) явно пишет, что для diff P0/P1 долга нет.
 
