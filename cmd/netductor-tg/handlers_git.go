@@ -110,32 +110,10 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 					btn("▶️", "m:git:proj:build:"+pr.Name, ""),
 				})
 			}
-			addLab := "➕ Add project"
-			if ru {
-				addLab = "➕ Добавить проект"
-			}
-			migLab := "📥 Migrate GH"
-			if ru {
-				migLab = "📥 Миграция GH"
-			}
-			rows = append(rows, []map[string]any{btn(addLab, "m:git:proj:add", "primary"), btn(migLab, "m:git:proj:migrate", "")})
-			syncAll := "⬇️ Sync all"
-			buildAll := "▶️ Build all (vps)"
-			if ru {
-				syncAll = "⬇️ Sync все"
-				buildAll = "▶️ Build все (vps)"
-			}
-			rows = append(rows, []map[string]any{btn(syncAll, "m:git:proj:sync-all", ""), btn(buildAll, "m:git:proj:build-all", "")})
-			qLab := "📋 VPS queue"
-			if ru {
-				qLab = "📋 Очередь VPS"
-			}
-			rows = append(rows, []map[string]any{btn(qLab, "m:git:proj:vps-queue", "")})
-			mpLab := "⬆ Mirror→GH all"
-			if ru {
-				mpLab = "⬆ Mirror→GH все"
-			}
-			rows = append(rows, []map[string]any{btn(mpLab, "m:git:proj:mirror-all", "")})
+			rows = append(rows, []map[string]any{btn(T("git_add_proj"), "m:git:proj:add", "primary"), btn(T("git_migrate"), "m:git:proj:migrate", "")})
+			rows = append(rows, []map[string]any{btn(T("git_sync_all"), "m:git:proj:sync-all", ""), btn(T("git_build_all"), "m:git:proj:build-all", "")})
+			rows = append(rows, []map[string]any{btn(T("git_vps_queue"), "m:git:proj:vps-queue", "")})
+			rows = append(rows, []map[string]any{btn(T("git_mirror_all"), "m:git:proj:mirror-all", "")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 			return true

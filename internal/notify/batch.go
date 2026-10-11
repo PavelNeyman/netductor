@@ -253,7 +253,7 @@ func repinHub() error {
 			"message_id": {fmt.Sprintf("%d", h.MessageID)},
 		})
 	}
-	kb := `{"inline_keyboard":[[{"text":"Users","callback_data":"m:users"},{"text":"Fleet","callback_data":"m:cat:nodes"}],[{"text":"Tools","callback_data":"m:tools"},{"text":"Status","callback_data":"m:status"}],[{"text":"📋 Menu","callback_data":"m:menu"}]]}`
+	kb := `{"inline_keyboard":[[{"text":"Users / Пользователи","callback_data":"m:users"},{"text":"Fleet / Флот","callback_data":"m:cat:nodes"}],[{"text":"Tools / Инструменты","callback_data":"m:tools"},{"text":"Status / Статус","callback_data":"m:status"}],[{"text":"📋 Menu / Меню","callback_data":"m:menu"}]]}`
 	html := hubMenuHTML()
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", tok)
 	payload := fmt.Sprintf(`{"chat_id":%s,"text":%q,"parse_mode":"HTML","reply_markup":%s}`, chat, html, kb)
