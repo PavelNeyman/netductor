@@ -53,3 +53,8 @@ func TestReadArtifactNoEscape(t *testing.T) {
 		t.Fatal("expected error abs")
 	}
 }
+
+func TestMain(m *testing.M) {
+	os.Setenv("NETDUCTOR_DISABLE_VPS_WORKER", "1")
+	os.Exit(m.Run())
+}
