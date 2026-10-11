@@ -17,4 +17,18 @@ func registerFleetAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, fleet.Build())
 	})
+	mux.HandleFunc("/api/fleet/overview", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		if !requireSession(w, r) {
+			return
+		}
+		d := fleet.Build()
+		writeJSON(w, 200, map[string]any{
+			"digest": d,
+			"hint":   "primary/secondary/edge summary + backup age + versions",
+		})
+	})
 }

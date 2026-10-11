@@ -11,7 +11,7 @@
 
 - [x] Endpoint Prometheus/OpenMetrics (`/metrics` или отдельный порт): vpn, channel, backup age, firewall, heartbeat агентов.
 - [ ] Единая карточка таймлайна инцидента (Web + TG) со скачиванием journal 1h в одном месте.
-- [ ] Один overview флота в Web (primary/secondary/edge + channel + backup age + последнее обновление).
+- [x] Один overview флота в Web (primary/secondary/edge + channel + backup age + последнее обновление).
 
 ## 2. Git / CI / внутренние релизы
 
@@ -27,7 +27,7 @@
 
 ## 4. UX и паритет поверхностей
 
-- [ ] Обновить README до текущего tip (v0.9.339+) и актуальных команд.
+- [x] Обновить README до текущего tip (v0.9.339+) и актуальных команд.
 - [ ] Добить оставшиеся хардкоды i18n в Web (migrate owner/mode и подобное).
 - [ ] Более компактные TG status-карточки; меньше длинных HTML-дампов.
 
