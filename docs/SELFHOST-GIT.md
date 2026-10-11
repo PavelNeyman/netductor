@@ -200,3 +200,8 @@ netductor update github-token clear repos
 ```
 
 If **repos** is empty, mirror falls back to **releases** token.
+
+
+## Ops plan
+
+See [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md) (Go parity, docker cleanup, queue, card status).

@@ -108,6 +108,30 @@ func Run(apply bool) Report {
 		}
 	}
 
+	// Docker CI leftovers (dangling images / stopped containers from gha runner)
+	if _, err := exec.LookPath("docker"); err == nil {
+		if apply {
+			out, _ := exec.Command("docker", "image", "prune", "-f").CombinedOutput()
+			r.Notes = append(r.Notes, "docker image prune -f: "+strings.TrimSpace(string(out)))
+			out2, _ := exec.Command("docker", "container", "prune", "-f").CombinedOutput()
+			r.Notes = append(r.Notes, "docker container prune -f: "+strings.TrimSpace(string(out2)))
+		} else {
+			// dry-run: report dangling count best-effort
+			out, err := exec.Command("docker", "images", "-f", "dangling=true", "-q").CombinedOutput()
+			n := 0
+			for _, line := range strings.Split(string(out), "\n") {
+				if strings.TrimSpace(line) != "" {
+					n++
+				}
+			}
+			if err == nil && n > 0 {
+				r.Notes = append(r.Notes, fmt.Sprintf("docker: %d dangling image(s) — cleanup --apply runs image/container prune", n))
+			} else if err == nil {
+				r.Notes = append(r.Notes, "docker: no dangling images")
+			}
+		}
+	}
+
 	r.FreedHuman = humanBytes(r.FreedBytes)
 	if !apply {
 		r.Notes = append(r.Notes, "dry-run; pass --apply to remove")

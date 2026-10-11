@@ -3,10 +3,15 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: golang:1.22-bookworm
+    container: golang:1.25-bookworm
     env:
       CGO_ENABLED: "0"
+      GOTOOLCHAIN: auto
     steps:
+      - name: deps
+        run: |
+          set -euo pipefail
+          go mod download
       - name: version pins
         run: |
           set -euo pipefail
@@ -34,10 +39,15 @@ jobs:
           /tmp/netductor version | grep -q node
   windows-cross:
     runs-on: ubuntu-latest
-    container: golang:1.22-bookworm
+    container: golang:1.25-bookworm
     env:
       CGO_ENABLED: "0"
+      GOTOOLCHAIN: auto
     steps:
+      - name: deps
+        run: |
+          set -euo pipefail
+          go mod download
       - name: windows amd64 cross
         run: |
           set -euo pipefail

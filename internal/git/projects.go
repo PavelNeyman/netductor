@@ -403,6 +403,12 @@ type ProjectDetail struct {
 	Artifacts []string `json:"artifacts"`
 	BarePath  string   `json:"bare_path,omitempty"`
 	Note      string   `json:"note,omitempty"`
+	// Last VPS queue outcome (if any)
+	LastVpsStatus string `json:"last_vps_status,omitempty"`
+	LastVpsKind   string `json:"last_vps_kind,omitempty"`
+	LastVpsAt     string `json:"last_vps_at,omitempty"`
+	LastVpsError  string `json:"last_vps_error,omitempty"`
+	LastVpsID     string `json:"last_vps_id,omitempty"`
 }
 
 func ProjectDetailOf(name string) (*ProjectDetail, error) {
@@ -418,6 +424,23 @@ func ProjectDetailOf(name string) (*ProjectDetail, error) {
 		d.BarePath = dir
 	}
 	d.Tags, _ = ListTags(p.Name)
+	for _, j := range ListVpsQueue(false) {
+		if j.Project != p.Name {
+			continue
+		}
+		// list is chronological append; keep last match
+		d.LastVpsStatus = j.Status
+		d.LastVpsKind = j.Kind
+		d.LastVpsID = j.ID
+		if j.DoneAt != "" {
+			d.LastVpsAt = j.DoneAt
+		} else if j.StartedAt != "" {
+			d.LastVpsAt = j.StartedAt
+		} else {
+			d.LastVpsAt = j.CreatedAt
+		}
+		d.LastVpsError = j.Error
+	}
 	if len(d.Tags) > 12 {
 		d.Tags = d.Tags[:12]
 	}
