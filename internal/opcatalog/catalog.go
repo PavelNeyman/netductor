@@ -140,6 +140,7 @@ func All() []Action {
 		a("git-project-sync", "git", "POST", "/api/git/projects/sync", `{"name":""}`, "git project sync", "Sync git project", "Sync git-проект"),
 		a("git-project-build", "git", "POST", "/api/git/projects/build", `{"name":"","ref":""}`, "git project build", "Build git project", "Build git-проект"),
 		a("git-project-queue", "git", "GET", "/api/git/projects/queue?pending=1", "", "git project queue", "Mac build queue", "Очередь Mac-сборок"),
+		a("git-project-migrate", "git", "POST", "/api/git/projects/migrate", `{"owner":"PavelNeyman","dry_run":true,"sync":false}`, "git project migrate-from-gh", "Migrate GH repos", "Миграция реп с GH"),
 		a("git-pipelines", "git", "GET", "/api/git/pipelines", "", "git pipelines", "Pipelines", "Pipelines"),
 		a("reg-status", "git", "GET", "/api/registry/status", "", "registry status", "Registry status", "Registry"),
 		a("reg-ensure", "git", "POST", "/api/registry/ensure", "{}", "—", "Registry ensure", "Registry ensure"),

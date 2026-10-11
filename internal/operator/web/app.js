@@ -1017,6 +1017,9 @@ function mountButtons(){
       <button class="primary" type="button" data-act="git-proj-detail">Project card</button>
       <button class="primary" type="button" data-act="git-proj-sync">${t('b_git_proj_sync')}</button>
       <button class="primary" type="button" data-act="git-proj-build">${t('b_git_proj_build')}</button>
+      <div class="row"><div><label>migrate owner</label><input id="gitMigOwner" placeholder="PavelNeyman" value="PavelNeyman"/></div>
+        <div><label>mode</label><select id="gitMigMode"><option value="dry">dry-run</option><option value="sync">add+sync</option><option value="add">add only</option></select></div></div>
+      <button class="primary" type="button" data-act="git-proj-migrate">Migrate from GH</button>
       <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
       <div><label>${t('l_git_rev')}</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
       <button class="primary" type="button" data-act="git-log">${t('b_git_log')}</button>
@@ -1261,6 +1264,13 @@ const special = {
     const host=document.getElementById('gitProjMac')&&document.getElementById('gitProjMac').checked?'mac':'vps'; const build_on_fetch=!!(document.getElementById('gitProjOnFetch')&&document.getElementById('gitProjOnFetch').checked); return nodeFetch('/api/git/projects',{method:'POST',body:JSON.stringify({name,upstream,workflow,pipeline,host,build_on_fetch})}); },
   'git-proj-sync': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/sync',{method:'POST',body:JSON.stringify({name})}); },
   'git-proj-build': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/build',{method:'POST',body:JSON.stringify({name})}); },
+  'git-proj-migrate': async()=>{
+    const owner=(document.getElementById('gitMigOwner')?.value||'PavelNeyman').trim();
+    const mode=(document.getElementById('gitMigMode')?.value||'dry');
+    const dry_run=mode==='dry';
+    const sync=mode==='sync';
+    return nodeFetch('/api/git/projects/migrate',{method:'POST',body:JSON.stringify({owner,dry_run,sync})});
+  },
   'git-log': async()=>{ const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim(); return nodeFetch('/api/git/log'+(r?('?name='+encodeURIComponent(r)):'')); },
   'git-show': async()=>{
     const r=document.getElementById('gitLogRepo').value.trim()||document.getElementById('gitRepo').value.trim();

@@ -114,9 +114,74 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			if ru {
 				addLab = "➕ Добавить проект"
 			}
-			rows = append(rows, []map[string]any{btn(addLab, "m:git:proj:add", "primary")})
+			migLab := "📥 Migrate GH"
+			if ru {
+				migLab = "📥 Миграция GH"
+			}
+			rows = append(rows, []map[string]any{btn(addLab, "m:git:proj:add", "primary"), btn(migLab, "m:git:proj:migrate", "")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
+			return true
+		}
+		if sub == "migrate" || strings.HasPrefix(sub, "migrate:") {
+			owner := "PavelNeyman"
+			dry, sync := true, false
+			if strings.HasPrefix(sub, "migrate:") {
+				rest := strings.TrimPrefix(sub, "migrate:")
+				// migrate:dry | migrate:sync | migrate:owner:NAME
+				switch rest {
+				case "dry":
+					dry, sync = true, false
+				case "sync":
+					dry, sync = false, true
+				default:
+					if strings.HasPrefix(rest, "owner:") {
+						owner = strings.TrimPrefix(rest, "owner:")
+					}
+				}
+			}
+			// confirm menu
+			if sub == "migrate" {
+				var b strings.Builder
+				nl := string([]byte{10})
+				if ru {
+					b.WriteString("📥 <b>Миграция с GitHub</b>" + nl)
+					b.WriteString("owner: <code>" + esc(owner) + "</code>" + nl)
+					b.WriteString("netductor пропускается. Swift/iOS → host=mac." + nl)
+				} else {
+					b.WriteString("📥 <b>Migrate from GitHub</b>" + nl)
+					b.WriteString("owner: <code>" + esc(owner) + "</code>" + nl)
+					b.WriteString("Skips netductor. Swift/iOS → host=mac." + nl)
+				}
+				kb := map[string]any{"inline_keyboard": [][]map[string]any{
+					{btn("👁 dry-run", "m:git:proj:migrate:dry", "primary"), btn("✅ sync", "m:git:proj:migrate:sync", "")},
+					{btn("⬅️ Projects", "m:git:proj:list", ""), btn(T("main_menu"), "m:menu", "")},
+				}}
+				reply(token, chat, msgID, b.String(), kb)
+				return true
+			}
+			added, skipped, err := gitstore.MigrateFromGitHub(gitstore.MigrateOpts{Owner: owner, DryRun: dry, Sync: sync})
+			var b strings.Builder
+			nl := string([]byte{10})
+			if err != nil {
+				reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:git:proj:list", "Projects"))
+				return true
+			}
+			b.WriteString(fmt.Sprintf("added=%d skipped=%d dry=%v sync=%v%s", len(added), len(skipped), dry, sync, nl))
+			for _, a := range added {
+				if len(b.String()) > 3500 {
+					b.WriteString("…" + nl)
+					break
+				}
+				b.WriteString("+ " + esc(a) + nl)
+			}
+			for _, s := range skipped {
+				if len(b.String()) > 3500 {
+					break
+				}
+				b.WriteString("- " + esc(s) + nl)
+			}
+			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
 		if sub == "add" {

@@ -148,7 +148,7 @@ netductor git project build NAME
 ```
 
 
-## Bulk migrate from GitHub (CLI)
+## Bulk migrate from GitHub (CLI + API + TG + Web)
 
 Requires `secrets/github_token` (or `GITHUB_TOKEN`) for **private** repos.
 

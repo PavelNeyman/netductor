@@ -123,7 +123,7 @@ func MigrateFromGitHub(o MigrateOpts) (added, skipped []string, err error) {
 			Name:     name,
 			Upstream: up,
 			Host:     host,
-			Workflow: guessWorkflow(lang),
+			Workflow: ".github/workflows/" + name + ".yml",
 		}
 		if o.DryRun {
 			added = append(added, fmt.Sprintf("%s\thost=%s\t%s", name, host, up))
@@ -137,14 +137,3 @@ func MigrateFromGitHub(o MigrateOpts) (added, skipped []string, err error) {
 	}
 	return added, skipped, nil
 }
-
-func guessWorkflow(lang string) string {
-	switch lang {
-	case "go":
-		return "ci/netductor.yml" // preferred if present; else FindDefault on build
-	default:
-		return "" // auto .github/workflows
-	}
-}
-
-

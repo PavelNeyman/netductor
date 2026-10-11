@@ -245,6 +245,37 @@ func registerGitAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "log": out})
 	})
 
+	
+	mux.HandleFunc("/api/git/projects/migrate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method", http.StatusMethodNotAllowed)
+			}
+			return
+		}
+		var body struct {
+			Owner  string `json:"owner"`
+			DryRun bool   `json:"dry_run"`
+			Sync   bool   `json:"sync"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.Owner == "" {
+			body.Owner = "PavelNeyman"
+		}
+		added, skipped, err := gitstore.MigrateFromGitHub(gitstore.MigrateOpts{
+			Owner: body.Owner, DryRun: body.DryRun, Sync: body.Sync,
+		})
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{
+			"ok": true, "owner": body.Owner, "dry_run": body.DryRun, "sync": body.Sync,
+			"added": added, "skipped": skipped,
+			"added_n": len(added), "skipped_n": len(skipped),
+		})
+	})
+
 	mux.HandleFunc("/api/git/projects/queue", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return

@@ -26,7 +26,7 @@ func runGit(args []string) int {
   netductor git mirror-ensure [name] [upstream-url]
   netductor git mirror-fetch [name]
   netductor git tags [name]
-  netductor git project list|add|rm|sync|build
+  netductor git project list|add|rm|sync|build|queue|migrate-from-gh
     add <name> <url|org/repo> [--workflow path] [--pipeline name] [--build-on-fetch]
     sync <name> | build <name> [ref] | rm <name>`)
 		return 2
@@ -220,7 +220,7 @@ func runGit(args []string) int {
 
 func runGitProject(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|build|queue")
+		fmt.Fprintln(os.Stderr, "usage: netductor git project list|add|rm|sync|build|queue|migrate-from-gh")
 		return 2
 	}
 	switch args[0] {
@@ -349,6 +349,33 @@ func runGitProject(args []string) int {
 			fmt.Fprintln(os.Stderr, "usage: netductor git project queue list|pending|done|cancel")
 			return 2
 		}
+	case "migrate-from-gh", "migrate":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor git project migrate-from-gh <owner> [--dry-run] [--sync]")
+			return 2
+		}
+		opts := gitstore.MigrateOpts{Owner: args[1]}
+		for i := 2; i < len(args); i++ {
+			switch args[i] {
+			case "--dry-run":
+				opts.DryRun = true
+			case "--sync":
+				opts.Sync = true
+			}
+		}
+		added, skipped, err := gitstore.MigrateFromGitHub(opts)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Printf("added=%d skipped=%d dry_run=%v sync=%v\n", len(added), len(skipped), opts.DryRun, opts.Sync)
+		for _, a := range added {
+			fmt.Println("+", a)
+		}
+		for _, s := range skipped {
+			fmt.Println("-", s)
+		}
+		return 0
 	default:
 		fmt.Fprintln(os.Stderr, "unknown project subcommand")
 		return 2
