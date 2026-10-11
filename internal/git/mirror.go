@@ -72,30 +72,78 @@ func MirrorFetch(name string) (string, error) {
 	if err != nil {
 		return string(out), err
 	}
-	_ = setBareHEAD(dir)
+	if err := setBareHEAD(dir); err != nil || !bareHasResolvableHEAD(dir) {
+		// empty or broken (e.g. HEAD→master after only main fetched; packed-refs missed by old code)
+		up := ""
+		if o, e := exec.Command("git", "-C", dir, "remote", "get-url", "origin").CombinedOutput(); e == nil {
+			up = stripGitHubAuth(strings.TrimSpace(string(o)))
+		}
+		if up == "" {
+			up = DefaultUpstream
+		}
+		out2, err2 := MirrorHealEmptyOrBroken(name, up)
+		return string(out) + "\nheal: " + out2, err2
+	}
 	return string(out), nil
 }
 
-// setBareHEAD points HEAD at main, master, or first refs/heads/* so checkout HEAD works.
-func setBareHEAD(dir string) error {
-	for _, b := range []string{"main", "master"} {
-		ref := "refs/heads/" + b
-		if _, err := os.Stat(filepath.Join(dir, ref)); err == nil {
-			if out, err := exec.Command("git", "-C", dir, "symbolic-ref", "HEAD", ref).CombinedOutput(); err != nil {
-				return fmt.Errorf("symbolic-ref HEAD %s: %w (%s)", ref, err, strings.TrimSpace(string(out)))
-			}
-			return nil
+// listBareHeads returns local branch names in a bare repo (works with packed-refs).
+func listBareHeads(dir string) []string {
+	out, err := exec.Command("git", "-C", dir, "for-each-ref", "--format=%(refname:short)", "refs/heads").CombinedOutput()
+	if err != nil {
+		return nil
+	}
+	var heads []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			heads = append(heads, line)
 		}
 	}
-	// first branch under refs/heads
-	hosts, _ := filepath.Glob(filepath.Join(dir, "refs", "heads", "*"))
-	if len(hosts) > 0 {
-		b := filepath.Base(hosts[0])
-		ref := "refs/heads/" + b
-		_, err := exec.Command("git", "-C", dir, "symbolic-ref", "HEAD", ref).CombinedOutput()
-		return err
+	return heads
+}
+
+// setBareHEAD points HEAD at main, master, or first refs/heads/* so checkout HEAD works.
+// Uses for-each-ref (packed-refs safe), not loose files under refs/heads.
+func setBareHEAD(dir string) error {
+	heads := listBareHeads(dir)
+	if len(heads) == 0 {
+		return fmt.Errorf("no heads in %s", dir)
+	}
+	chosen := heads[0]
+	for _, p := range []string{"main", "master"} {
+		for _, h := range heads {
+			if h == p {
+				chosen = p
+				break
+			}
+		}
+		if chosen == p {
+			break
+		}
+	}
+	ref := "refs/heads/" + chosen
+	if out, err := exec.Command("git", "-C", dir, "symbolic-ref", "HEAD", ref).CombinedOutput(); err != nil {
+		return fmt.Errorf("symbolic-ref HEAD %s: %w (%s)", ref, err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// bareHasResolvableHEAD is true when git rev-parse HEAD succeeds.
+func bareHasResolvableHEAD(dir string) bool {
+	return exec.Command("git", "-C", dir, "rev-parse", "--verify", "HEAD").Run() == nil
+}
+
+// MirrorHealEmptyOrBroken removes an empty/broken bare mirror and re-inits from upstream.
+// Used when fetch left no heads or HEAD cannot be resolved after sync.
+func MirrorHealEmptyOrBroken(name, upstreamURL string) (string, error) {
+	name = sanitize(name)
+	dir := filepath.Join(Root(), name+".git")
+	_ = os.RemoveAll(dir)
+	if _, err := MirrorEnsure(name, upstreamURL); err != nil {
+		return "", err
+	}
+	return MirrorFetch(name)
 }
 
 // ListTags returns tag names (newest first when possible).
@@ -138,6 +186,15 @@ func CheckoutTag(name, tag, workDir string) error {
 		return fmt.Errorf("checkout %s: %w\n%s", tag, err, string(out))
 	}
 	return nil
+}
+
+func stripGitHubAuth(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	u.User = nil
+	return u.String()
 }
 
 func parseMaybeURL(raw string) (*url.URL, error) {

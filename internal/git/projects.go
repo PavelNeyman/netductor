@@ -194,7 +194,13 @@ func BuildProject(name, ref string) (string, error) {
 		}
 	}
 	if err := checkoutRef(p.Name, ref, work); err != nil {
-		return "", err
+		// self-heal: re-sync (fixes HEAD / empty bare from earlier migrate)
+		if _, serr := SyncProject(p.Name); serr == nil {
+			err = checkoutRef(p.Name, ref, work)
+		}
+		if err != nil {
+			return "", fmt.Errorf("%w (after sync heal)", err)
+		}
 	}
 
 	var log strings.Builder
