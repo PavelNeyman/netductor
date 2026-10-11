@@ -1,186 +1,26 @@
 # AGENT Handoff (RU)
 
-**Стоп-линия: v0.9.327** (2026-10-11). Новый чат: AGENTS.md → docs/AGENT_HANDOFF.md → OPEN_ITEMS.
+**Стоп-линия: v0.9.328** (2026-10-11). Новый чат: AGENTS.md → [EN AGENT_HANDOFF](../AGENT_HANDOFF.md) → OPEN_ITEMS.
 
-### Сводка 0.9.320–0.9.327
+### Сводка 0.9.320–0.9.328
 
 - Metrics UI, recovery-алерты EN/RU, таблицы Channel
 - unattended-upgrades, integrity (+SSH), backup age, SERVFAIL
-- Reboot: выбор узла → 3 кода; Blocky DoT на primary
-- SSH allowlist: TG / API / agent / Web / opcatalog; callback **m:sshkeys:**
+- Reboot: TG + **API/Web/opcatalog** (код 3 мин, one-shot)
+- Blocky DoT на primary
+- SSH allowlist: TG (`m:sshkeys:`) / API / agent / Web / opcatalog
 
-Apply: `netductor stack apply v0.9.327` + secondary `upgrade:v0.9.327`.
-
-Открыто (не код): dual-node smoke, железо OpenWrt/Tapo/MikroTik.
-
----
-
-*(hist) stop was v0.9.319* (2026-10-10). Новый чат: AGENTS.md → этот файл → OPEN_ITEMS.
-
-Сводка 0.9.310–0.9.319: releases/CI, NVR/Tapo, rooms, canary/incident, post-review security, TG i18n hubs.
-
----
-
-*(hist) stop was v0.9.261* (2026-10-06). Новый чат: AGENTS.md → docs/AGENT_HANDOFF.md → OPEN_ITEMS.
-
-Обновление бинаря не переписывает sing-box. Новый конфиг только после vpn apply или secondary sync. Formula только netductor-op.
-
-
-- **0.9.217:** service-net 10.88 from secondary dials primary as the real VLESS user (uplink-svc-<name>, vision, no mux). Shared relay-uplink is internet only. ACL no longer auto-allows relay-uplink.
-- **0.9.208:** TG bot sets policy.ApplyHook → ApplyAccessPolicies (policy toggles were saving JSON only; sing-box mtime stayed old).
-- **0.9.207:** TG/Web policy UI parity — full T() i18n, preset none, card template aligned with users/dns.
-- **0.9.205:** service-net (`nd-svc` 198.18.88.0/24 + DNAT); `servicenet status|apply`; doctor; policy P4 docs; TG presets via ApplyPreset.
-- **0.9.204:** `host-baseline status|apply` + doctor drift checks; policy presets CLI; doctor policy/catalog integrity (P4 partial).
-- **0.9.201:** safer hoster purge (installed pkgs only, no pkill -f, port parse); apt Pin-Priority -1 block; host-audit --dry-run.
-- **0.9.200:** install/stack apply/secondary upgrade auto EnsureHostBaseline (firewall role file + netductor-stack-watchdog.timer). Role detect fixed in 0.9.199.
-## Документы (2026-10-03)
-
-| Док | Зачем |
-|--|--|
-| [PLAN-SERVICE-ACCESS-POLICY](PLAN-SERVICE-ACCESS-POLICY.md) | Политики доступа user + edge; фазы P0–P4 |
-| [HOST-AUDIT](HOST-AUDIT.md) | Аудит агентов хостера; сбор логов |
-| `scripts/collect-host-audit.sh` | Полный текстовый bundle |
-| `scripts/audit-hoster-agents.sh` | Расширенный denylist |
-
-**Дальше:** dual-node smoke (VPN/bot/policy routes) или P4 (service-net VIP). HOST-AUDIT live выполнен 2026-10-03.
-
-
-# AGENT Handoff (RU)
-- **0.9.175:** test release (version bump only) for TG/stack update smoke.
-
-*(hist) stop was v0.9.199* (host-audit apt residual + live CLEAN primary/secondary; policy P0–P3 в 0.9.196)
-
-**Пред. stop: v0.9.192** (2026-10-02). Guest stage без reload; hard-fail сети/guest.
-
-## Текущий baseline
-
-| Пункт | Состояние |
-|--|--|
-| **Релиз** | **v0.9.189** — 11 assets |
-| **Плоскости** | `netductor-op` (Mac) · `netductor` + `netductor-tg` (node) · `netductor-agent` (OpenWrt/secondary) |
-| **Web UI** | **Только** `internal/operator/web` (embed в op). Legacy `runtime/api/admin` **удалён** (0.9.171) |
-| **Edge VPN шаблон** | UI TG/Web + API `GET|POST /api/edge/templates/vpn`; CLI `template-get` / `template-set-vpn` |
-| **Policy** | TemplateWithVPN **не** затирает fallback/dns/mode; allowlist SetTemplateVPN; merge POST templates |
-| **Агент** | `enabled=false` / `mode=off` / нет vless → stop `netductor-vpn`; fallback=block ⇒ soft off |
-| **/sub/** | Публичный token sub + **60 req/min/IP** (0.9.170) |
-| **Тесты** | `go test ./...` зелёный (0.9.172); уникальные ID opcatalog |
-
-## Недавние версии (кратко)
-
-- **0.9.189** — сеть/guest до harden; SSH с паролем до harden
-
-- **0.9.188** — OpenWrt без base64
-- **0.9.187** — persist operator token
-- **0.9.186** — Dropbear ssh-pipe; mipsle
-
-- **0.9.186** — Dropbear: agent через ssh stdin; mipsle+riscv64
-
-- **0.9.185** — offline pubkey/~; cert по device_id
-- **0.9.184** — offline pack Web/CLI
-
-- **0.9.181** — WAN DNS (пробел/запятая) + подсказки
-- **0.9.180** — подсказки guest; handoff; bind template только с device_id
-
-- **0.9.172** — расширение unit-тестов; дубликаты ID opcatalog
-- **0.9.171** — удаление legacy VPS admin UI
-- **0.9.170** — rate-limit /sub/; mutex SaveTemplate; chmod github_token
-- **0.9.166–169** — merge policy VPN; stop при disable; ValidName
-- **0.9.164–165** — карточка Template VPN в Web/TG
-- **0.9.162–163** — LAN через VLESS + soft WAN; CF-first DNS; CLI шаблона
-
-## Apply на живых нодах
+Apply:
 
 ```bash
-netductor stack apply v0.9.185
-# OpenWrt: agent_update + apply_template после Save шаблона
-# Mac
-brew reinstall netductor
-netductor-op version   # 0.9.179
+netductor stack apply v0.9.328
+netductor secondary cmd <id> upgrade:v0.9.328
 ```
 
-## Напоминания
+### Открыто (не код)
 
-- Save шаблона на primary ≠ Apply на роутере.
-- Одна operator-сессия = полный контроль (split read/destructive — опционально позже).
-- EN/RU: полная **смысловая** паритетность (AGENTS §7).
+- dual-node smoke (оператор)
+- железо e2e: OpenWrt / Tapo / MikroTik
+- lab checklist
 
-## Не сделано / владелец
-
-См. [OPEN_ITEMS.md](OPEN_ITEMS.md) / [ru/OPEN_ITEMS.md](OPEN_ITEMS.md): force-update VPS если отстаёт; hardware e2e; опционально CI SHA Formula.
-
----
-
-## 0.9.163 Порядок DNS edge + CLI шаблона
-
-- Удалённый DNS: сначала **1.1.1.1**, затем **9.9.9.9**.
-- CLI: `edge template-get` / `template-set-vpn`. Web/TG: Template VPN/DNS → `GET|POST /api/edge/templates/vpn`.
-## Документация EN/RU
-
-**Жёсткое правило:** полный **смысловой** паритет `docs/` ↔ `docs/ru/` (не краткий пересказ). См. AGENTS.md §7, docs/I18N.md.
-
-## 0.9.162 LAN через VLESS (мягкий fallback WAN)
-
-- Шаблон: VPN вкл, tun, fallback=wan, dns=vpn
-- Peer `edge-<id>` не в списке Users
-- Soft fallback + DNS через secondary; агент к primary — direct
-
-## Модель edge (решено, код частично)
-
-**Сделано (0.9.160+):** LuCI вкл/выкл/продление/статус — агент + SSH в LAN + TG Роутеры + Web + TUI + CLI.
-
-**Решено, ещё не в коде:**
-- Private Wi‑Fi → VLESS на secondary; мягкий fallback на WAN ISP
-- Агент mTLS вне user VLESS
-- VPN-peer на каждый роутер (не в Users)
-- Blocky/DNS для LAN через VPN
-
-## 0.9.160–0.9.161 LuCI
-
-- Действия агента: `luci_enable|disable|extend|status` (hours=, дефолт **1ч**)
-- Оператор: `POST /v1/edge/luci` via ssh|agent
-- Пакет не удаляется — только uhttpd
-
-## 0.9.151 Control+Media hub
-
-See docs/TG-MEDIA-TOPICS.md
-
-
-## 0.9.150 — Versions hub + sub profiles
-
-- TG **Versions** merges Fleet digest + Updates; multi-select primary/secondary Apply
-- VPN **sub_profile**: `secondary` (default) | `primary` | `both` — subscription URL body replaced (client refresh)
-- Operator unset profile → both; others → secondary
-- Design: [TG-MEDIA-TOPICS.md](TG-MEDIA-TOPICS.md)
-
-
-## Version policy (0.9.148+)
-
-- **No auto upgrade/rollback** of node/tg/agent binaries.
-- Operator chooses version (TG Updates / CLI `stack apply` / `stack rollback` / `stack heal`).
-- Secondary: only explicit queue `upgrade` / `upgrade:vX` — not `desired_release` heartbeat.
-- Watchdog: unit restart only, never swaps binaries.
-
-**RU** · [EN](../AGENT_HANDOFF.md)
-
-# Handoff для агента
-
-**Репозиторий:** https://github.com/PavelNeyman/netductor  
-**Версия:** **v0.9.122**
-
-Читать: [ARCHITECTURE-FREEZE](ARCHITECTURE-FREEZE.md) · [RUNBOOK-FORCE-UPDATE](RUNBOOK-FORCE-UPDATE.md) · [RECOVER-DRILL](RECOVER-DRILL.md) · [BREW](BREW.md)
-
-## Канон
-
-primary + secondary · VLESS Reality · SP/PS · mTLS **:8789** · SSH **52222** · op только на Mac · redirect **:8443**
-
-## Оркестратор (0.9.116–121)
-
-stack status/apply/rollback/watchdog · pre-backup · secondary `upgrade:vX` · DR secondary без API primary · Web/TG Stack
-
-Сломанный узел (0.9.111 и т.п.): [RUNBOOK-FORCE-UPDATE](RUNBOOK-FORCE-UPDATE.md) — ручная подмена бинарников, не in-process update.
-
-## Дальше (владелец)
-
-1. Обновить живые VPS до **0.9.122**  
-2. Smoke  
-3. Hardware e2e  
+Полная EN-история и детали: [AGENT_HANDOFF.md](../AGENT_HANDOFF.md).

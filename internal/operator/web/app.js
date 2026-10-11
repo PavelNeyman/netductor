@@ -71,7 +71,8 @@ en:{
   nvr_note:'Day-2 NVR via node session (tunnel + session). Same ops as TUI wizard.',
   l_nvr_action:'Action', l_edge_id:'Edge device id', l_cam_name:'Camera name/id', l_cam_ip:'Camera LAN IP', l_cam_pass:'Camera password',
   btn_nvr:'Run NVR', c_adv:'Show Advanced (full session API)', sub_nvr:'NVR',
-  ssh_title:'SSH allowlist', ssh_note:'Inventory → fingerprints → Save (no live change) / Merge / Enforce. Probe secondary first.', ssh_inv:'Inventory', ssh_probe:'Probe secondary', ssh_status:'Allowlist status', ssh_fps:'Fingerprints (one per line)', ssh_save:'Save allowlist', ssh_merge:'Merge', ssh_enf:'Enforce + secondary'
+  ssh_title:'SSH allowlist', ssh_note:'Inventory → fingerprints → Save (no live change) / Merge / Enforce. Probe secondary first.', ssh_inv:'Inventory', ssh_probe:'Probe secondary', ssh_status:'Allowlist status', ssh_fps:'Fingerprints (one per line)', ssh_save:'Save allowlist', ssh_merge:'Merge', ssh_enf:'Enforce + secondary',
+  reboot_title:'Reboot (challenge)', reboot_note:'Request code → enter correct code within 3 min. Primary: shutdown +1min. Secondary: agent queue.', reboot_target:'Target (primary or secondary id)', reboot_challenge:'Get code', reboot_code:'Code', reboot_confirm:'Confirm reboot'
 },
 ru:{
   app_title:'netductor-op', meta_line:'Клиент Mac · API ноды',
@@ -118,7 +119,7 @@ ru:{
   l_svc:'restart сервиса', l_journal:'journal unit', yes:'да', no:'нет',
   nvr_note:'NVR day-2 через session (туннель + session). Те же операции, что TUI.',
   l_nvr_action:'Операция', l_edge_id:'Edge device id', l_cam_name:'Имя/id камеры', l_cam_ip:'LAN IP камеры', l_cam_pass:'Пароль камеры',
-  btn_nvr:'Выполнить NVR', c_adv:'Показать Advanced (полный session API)', ssh_title:'SSH allowlist', ssh_note:'Inventory → fingerprints → Save / Merge / Enforce. Сначала Probe secondary.', ssh_inv:'Inventory', ssh_probe:'Probe secondary', ssh_status:'Статус allowlist', ssh_fps:'Fingerprints (по строке)', ssh_save:'Сохранить allowlist', ssh_merge:'Merge', ssh_enf:'Enforce + secondary', sub_nvr:'NVR'
+  btn_nvr:'Выполнить NVR', c_adv:'Показать Advanced (полный session API)', ssh_title:'SSH allowlist', ssh_note:'Список ключей → fingerprints → Сохранить (без смены live) / Merge / Enforce. Сначала опрос secondary.', ssh_inv:'Список ключей', ssh_probe:'Опрос secondary', ssh_status:'Статус allowlist', ssh_fps:'Fingerprints (по строке)', ssh_save:'Сохранить allowlist', ssh_merge:'Добавить (merge)', ssh_enf:'Enforce + secondary', reboot_title:'Перезагрузка (код)', reboot_note:'Запросить код → ввести верный за 3 мин. Primary: shutdown +1мин. Secondary: очередь агента.', reboot_target:'Цель (primary или id secondary)', reboot_challenge:'Получить код', reboot_code:'Код', reboot_confirm:'Подтвердить reboot', sub_nvr:'NVR'
 }};
 function t(k){ const d=I18N[uiLang]||I18N.en; return (d&&d[k])||(I18N.en[k])||k; }
 let uiLang=localStorage.getItem('nd_op_lang')||((navigator.language||'').startsWith('ru')?'ru':'en');
@@ -854,7 +855,14 @@ function mountButtons(){
       <textarea id="sshFpList" class="adv-body" rows="6" placeholder="SHA256:...."></textarea>
       <button class="primary" type="button" data-act="ssh-allowlist-save-form">${t('ssh_save')||'Save allowlist'}</button>
       <button class="primary" type="button" data-act="ssh-allowlist-merge-form">${t('ssh_merge')||'Merge'}</button>
-      <button class="primary" type="button" data-act="ssh-allowlist-enforce-form">${t('ssh_enf')||'Enforce + secondary'}</button>`;
+      <button class="primary" type="button" data-act="ssh-allowlist-enforce-form">${t('ssh_enf')||'Enforce + secondary'}</button>
+      <h3>${t('reboot_title')||'Reboot'}</h3>
+      <p class="note">${t('reboot_note')||''}</p>
+      <div class="row"><div><label>${t('reboot_target')||'Target'}</label><input id="rebootTarget" value="primary"/></div>
+      <div style="align-self:end"><button class="primary" type="button" data-act="reboot-challenge-form">${t('reboot_challenge')||'Get code'}</button></div></div>
+      <div class="row"><div><label>${t('reboot_code')||'Code'}</label><input id="rebootCode" placeholder="1234"/></div>
+      <div style="align-self:end"><button class="primary" type="button" data-act="reboot-confirm-form">${t('reboot_confirm')||'Confirm reboot'}</button></div></div>
+      <pre class="log" id="rebootChallengeOut"></pre>`;
     }
 
     if(sec==='nodes' || sec==='fleet'){

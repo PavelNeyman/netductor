@@ -155,6 +155,8 @@ func All() []Action {
 		a("ssh-allowlist-get", "probes", "GET", "/api/security/ssh-allowlist", "", "—", "SSH allowlist status", "SSH allowlist статус"),
 		a("ssh-allowlist-save", "probes", "POST", "/api/security/ssh-allowlist", `{"fingerprints":[],"enforce":false,"merge":false,"push_secondary":false}`, "—", "SSH allowlist save", "SSH allowlist сохранить"),
 		a("ssh-allowlist-merge", "probes", "POST", "/api/security/ssh-allowlist", `{"fingerprints":[],"merge":true}`, "—", "SSH allowlist merge", "SSH allowlist merge"),
+		a("reboot-challenge", "probes", "POST", "/api/security/reboot/challenge", `{"target":"primary"}`, "—", "Reboot challenge", "Reboot: запрос кода"),
+		a("reboot-confirm", "probes", "POST", "/api/security/reboot/confirm", `{"target":"primary","code":"0000"}`, "—", "Reboot confirm", "Reboot: подтвердить код"),
 		a("ssh-allowlist-enforce", "probes", "POST", "/api/security/ssh-allowlist", `{"fingerprints":[],"enforce":true,"push_secondary":true}`, "—", "SSH allowlist enforce", "SSH enforce"),
 
 

@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"os/exec"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/integrity"
+	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
@@ -23,11 +26,11 @@ func registerSecurityAPI(mux *http.ServeMux) {
 		}
 		st := integrity.ReadAllowlistState()
 		writeJSON(w, 200, map[string]any{
-			"primary": keys,
-			"secondaries": secs,
+			"primary":         keys,
+			"secondaries":     secs,
 			"allowlist_lines": len(integrity.ReadAllowlistLines()),
-			"enforce": st.Enforce,
-			"updated_at": st.UpdatedAt,
+			"enforce":         st.Enforce,
+			"updated_at":      st.UpdatedAt,
 		})
 	})
 	mux.HandleFunc("/api/security/ssh-keys/probe-secondary", func(w http.ResponseWriter, r *http.Request) {
@@ -55,8 +58,8 @@ func registerSecurityAPI(mux *http.ServeMux) {
 		if r.Method == http.MethodGet {
 			st := integrity.ReadAllowlistState()
 			writeJSON(w, 200, map[string]any{
-				"lines": integrity.ReadAllowlistLines(),
-				"enforce": st.Enforce,
+				"lines":      integrity.ReadAllowlistLines(),
+				"enforce":    st.Enforce,
 				"updated_at": st.UpdatedAt,
 				"updated_by": st.UpdatedBy,
 			})
@@ -67,10 +70,10 @@ func registerSecurityAPI(mux *http.ServeMux) {
 			return
 		}
 		var in struct {
-			Fingerprints []string `json:"fingerprints"`
-			Enforce      bool     `json:"enforce"`
-			Merge        bool     `json:"merge"`
-			PushSecondary bool    `json:"push_secondary"`
+			Fingerprints  []string `json:"fingerprints"`
+			Enforce       bool     `json:"enforce"`
+			Merge         bool     `json:"merge"`
+			PushSecondary bool     `json:"push_secondary"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 			http.Error(w, err.Error(), 400)
@@ -101,5 +104,61 @@ func registerSecurityAPI(mux *http.ServeMux) {
 			}
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "enforce": in.Enforce, "secondary_queued": pushed})
+	})
+
+	// Reboot with same one-shot code challenge as TG (session required).
+	mux.HandleFunc("/api/security/reboot/challenge", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		var in struct {
+			Target string `json:"target"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.Target == "" {
+			in.Target = "primary"
+		}
+		code, err := notify.BeginRebootChallenge(in.Target)
+		if err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{
+			"ok": true, "target": in.Target, "code": code,
+			"choices": notify.DecoyCodes(code, 3), "ttl_sec": 180,
+		})
+	})
+	mux.HandleFunc("/api/security/reboot/confirm", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		var in struct {
+			Target string `json:"target"`
+			Code   string `json:"code"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if in.Target == "" {
+			in.Target = "primary"
+		}
+		if err := notify.ConsumeRebootChallenge(in.Target, in.Code); err != nil {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		if in.Target == "primary" {
+			go func() {
+				time.Sleep(500 * time.Millisecond)
+				_ = exec.Command("shutdown", "-r", "+1", "netductor API reboot").Run()
+			}()
+			writeJSON(w, 200, map[string]any{"ok": true, "queued": "primary", "when": "+1min"})
+			return
+		}
+		if err := secondary.EnqueueCmd(in.Target, "reboot"); err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "queued": in.Target})
 	})
 }
