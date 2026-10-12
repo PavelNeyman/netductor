@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/addons"
-	"github.com/PavelNeyman/netductor/internal/format"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"os"
 	"os/exec"
@@ -20,8 +19,9 @@ func yn(ok bool, good, bad string) string {
 
 func formatLampacHTML() string {
 	ru := getLang() != "en"
+	nl := "\n"
 	st := addons.CollectLampac()
-	nl := string([]byte{10})
+	
 	var b strings.Builder
 	b.WriteString("📺 <b>Lampac</b>" + nl)
 	b.WriteString("<table bordered striped compact>" + nl)
@@ -127,8 +127,9 @@ func formatEdgeListHTML(raw string) string {
 }
 
 func formatPendingHTML(raw string) string {
+	nl := "\n"
 	raw = strings.TrimSpace(raw)
-	nl := string([]byte{10})
+	
 	var b strings.Builder
 	if getLang() != "en" {
 		b.WriteString("⏳ <b>Ожидают approve</b>" + nl)
@@ -246,6 +247,7 @@ func isHexish(s string) bool {
 
 func formatStatusPretty() string {
 	nl := string([]byte{10})
+	
 	ru := getLang() != "en"
 	host, _ := os.Hostname()
 	title := "📊 <b>Primary</b>"
@@ -332,7 +334,7 @@ func formatStatusPretty() string {
 }
 
 func formatFirewallCompact() string {
-	nl := string([]byte{10})
+	
 	ru := getLang() != "en"
 	out, err := exec.Command("netductor", "firewall", "status", "--json").CombinedOutput()
 	if err != nil && len(out) == 0 {
@@ -375,6 +377,7 @@ func truncate(s string, n int) string {
 
 func formatFirewallBlock() string {
 	nl := string([]byte{10})
+	
 	ru := getLang() != "en"
 	out, err := exec.Command("netductor", "firewall", "status", "--json").CombinedOutput()
 	title := "🔥 <b>Firewall</b>"
