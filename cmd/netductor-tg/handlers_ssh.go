@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -15,7 +16,6 @@ func handleSSHCB(token string, chat int64, msgID int, data string) bool {
 	if data != "m:sshkeys" && !strings.HasPrefix(data, "m:sshkeys:") {
 		return false
 	}
-	ru := getLang() != "en"
 
 	if data == "m:sshkeys" || data == "m:sshkeys:hub" {
 		reply(token, chat, msgID, formatSSHHubHTML(), sshHubKB())
@@ -75,7 +75,8 @@ func handleSSHCB(token string, chat int64, msgID int, data string) bool {
 	}
 	if data == "m:sshkeys:enforce-ask" {
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn(T("sshkeys_enforce_btn"), "m:sshkeys:enforce", ""), btn(T("cancel"), "m:sshkeys", "")},
+			{btn(T("sshkeys_enforce_btn"), "m:sshkeys:enforce", "")},
+			{btn(T("cancel"), "m:sshkeys", "")},
 		}}
 		reply(token, chat, msgID, T("sshkeys_enforce_warn"), kb)
 		return true
@@ -102,11 +103,9 @@ func handleSSHCB(token string, chat int64, msgID int, data string) bool {
 			}
 			msg += " · " + T("sshkeys_sec_queued")
 		}
-		_ = ru
 		reply(token, chat, msgID, formatSSHHubHTML()+"\n\n"+msg, sshHubKB())
 		return true
 	}
-	// unknown m:sshkeys:* — show hub, do not claim success
 	reply(token, chat, msgID, formatSSHHubHTML(), sshHubKB())
 	return true
 }
@@ -129,62 +128,128 @@ func selectedFPs() []string {
 	return out
 }
 
+func keyLabel(k integrity.LiveKey) string {
+	c := strings.TrimSpace(k.Comment)
+	if c == "" {
+		c = k.Fingerprint
+		if len(c) > 20 {
+			c = c[:20] + "…"
+		}
+	}
+	if len(c) > 28 {
+		c = c[:28] + "…"
+	}
+	return c
+}
+
 func formatSSHHubHTML() string {
 	st := integrity.ReadAllowlistState()
+	nl := "\n"
 	var b strings.Builder
-	b.WriteString(T("sshkeys_title") + "\n")
-	b.WriteString(T("sshkeys_path") + "\n")
-	b.WriteString(fmt.Sprintf(T("sshkeys_meta"), st.Enforce, len(integrity.ReadAllowlistLines())) + "\n\n")
-	keys := allCandidateKeys()
-	if len(keys) == 0 {
-		b.WriteString("<i>" + T("sshkeys_empty") + "</i>\n")
+	b.WriteString(T("sshkeys_title") + nl)
+	b.WriteString(T("sshkeys_what") + nl + nl)
+
+	prot := T("sshkeys_prot_off")
+	if st.Enforce {
+		prot = T("sshkeys_prot_on")
 	}
-	for _, k := range keys {
-		mark := "☐"
-		if sshWizardSelected[k.Fingerprint] {
-			mark = "☑"
+	nAllow := len(integrity.ReadAllowlistLines())
+	nSel := len(selectedFPs())
+	b.WriteString(fmt.Sprintf(T("sshkeys_status"), prot, nAllow, nSel) + nl)
+	b.WriteString(T("sshkeys_path") + nl + nl)
+
+	// Primary
+	pk := integrity.LiveKeysPrimary()
+	b.WriteString("<b>" + T("sshkeys_host_primary") + "</b>" + nl)
+	if len(pk) == 0 {
+		b.WriteString("<i>" + T("sshkeys_no_primary") + "</i>" + nl)
+	} else {
+		for _, k := range pk {
+			b.WriteString(formatKeyLine(k) + nl)
 		}
-		al := ""
-		if k.InAllowlist {
-			al = " · allowlist"
-		}
-		c := k.Comment
-		if c == "" {
-			c = k.Fingerprint
-			if len(c) > 24 {
-				c = c[:24] + "…"
+	}
+
+	// Secondaries
+	secs := secondary.List()
+	if len(secs) == 0 {
+		b.WriteString(nl + "<i>" + T("sshkeys_no_secondary") + "</i>" + nl)
+	} else {
+		for _, d := range secs {
+			name := d.Name
+			if name == "" {
+				name = d.ID
+			}
+			on := secondary.Online(d, 2*time.Minute)
+			onLab := T("sshkeys_offline")
+			if on {
+				onLab = T("sshkeys_online")
+			}
+			b.WriteString(nl + "<b>" + T("sshkeys_host_secondary") + " " + esc(name) + "</b> · " + onLab + nl)
+			sk := integrity.LiveKeysSecondaryCached(d.ID)
+			if len(sk) == 0 {
+				b.WriteString("<i>" + T("sshkeys_sec_empty") + "</i>" + nl)
+			} else {
+				for _, k := range sk {
+					b.WriteString(formatKeyLine(k) + nl)
+				}
 			}
 		}
-		b.WriteString(fmt.Sprintf("%s <code>%s</code> <i>%s</i>%s\n", mark, esc(c), esc(k.Host), al))
 	}
-	b.WriteString("\n<i>" + T("sshkeys_hint") + "</i>")
+
+	b.WriteString(nl + T("sshkeys_steps") + nl)
+	b.WriteString("<i>" + T("sshkeys_hint") + "</i>")
 	return b.String()
+}
+
+func formatKeyLine(k integrity.LiveKey) string {
+	mark := "☐"
+	if sshWizardSelected[k.Fingerprint] {
+		mark = "☑"
+	}
+	al := ""
+	if k.InAllowlist {
+		al = " · " + T("sshkeys_in_baseline")
+	}
+	return fmt.Sprintf("%s <code>%s</code>%s", mark, esc(keyLabel(k)), al)
 }
 
 func sshHubKB() map[string]any {
 	var rows [][]map[string]any
+	// Toggle keys: label includes host so primary vs secondary is obvious
 	for _, k := range allCandidateKeys() {
-		label := k.Comment
-		if label == "" {
-			label = k.Fingerprint
-		}
-		if len(label) > 24 {
-			label = label[:24] + "…"
-		}
 		mark := "☐"
 		if sshWizardSelected[k.Fingerprint] {
 			mark = "☑"
 		}
-		rows = append(rows, []map[string]any{btn(mark+" "+label, "m:sshkeys:tog:"+k.Fingerprint, "")})
+		host := k.Host
+		if host == "" {
+			host = "?"
+		}
+		if len(host) > 12 {
+			host = host[:12]
+		}
+		label := mark + " " + host + ": " + keyLabel(k)
+		if len(label) > 56 {
+			label = label[:56] + "…"
+		}
+		rows = append(rows, []map[string]any{btn(label, "m:sshkeys:tog:"+k.Fingerprint, "")})
 	}
+
 	rows = append(rows, []map[string]any{
 		btn(T("sshkeys_probe"), "m:sshkeys:probe", ""),
+		btn(T("sshkeys_refresh"), "m:sshkeys:hub", ""),
+	})
+	rows = append(rows, []map[string]any{
 		btn(T("sshkeys_all"), "m:sshkeys:all", ""),
 		btn(T("sshkeys_clear"), "m:sshkeys:clear-sel", ""),
 	})
 	rows = append(rows, []map[string]any{
-		btn(T("sshkeys_save"), "m:sshkeys:save", ""),
+		btn(T("sshkeys_save"), "m:sshkeys:save", "primary"),
+	})
+	rows = append(rows, []map[string]any{
 		btn(T("sshkeys_merge"), "m:sshkeys:merge", ""),
+	})
+	rows = append(rows, []map[string]any{
 		btn(T("sshkeys_enforce"), "m:sshkeys:enforce-ask", ""),
 	})
 	rows = append(rows, []map[string]any{btn(T("main_menu"), "m:menu", "primary")})
