@@ -210,7 +210,98 @@ func formatKeyLine(k integrity.LiveKey) string {
 	if k.InAllowlist {
 		al = " · " + T("sshkeys_in_baseline")
 	}
-	return fmt.Sprintf("%s <code>%s</code>%s", mark, esc(keyLabel(k)), al)
+	// comment + short fingerprint ends so two similar comments stay distinguishable
+	return fmt.Sprintf("%s <code>%s</code> <i>%s</i>%s", mark, esc(keyLabel(k)), esc(fpShort(k.Fingerprint)), al)
+}
+
+func fpShort(fp string) string {
+	fp = strings.TrimPrefix(fp, "SHA256:")
+	fp = strings.TrimSpace(fp)
+	if len(fp) <= 14 {
+		return fp
+	}
+	return fp[:6] + "…" + fp[len(fp)-6:]
+}
+
+func pubKeyEnds(line string) (head, tail string) {
+	parts := strings.Fields(strings.TrimSpace(line))
+	if len(parts) < 2 {
+		s := strings.TrimSpace(line)
+		if len(s) <= 24 {
+			return s, ""
+		}
+		return s[:12], s[len(s)-12:]
+	}
+	blob := parts[1] // base64 body
+	if len(blob) <= 20 {
+		return blob, ""
+	}
+	return blob[:10], blob[len(blob)-10:]
+}
+
+func formatSSHKeysDetailHTML() string {
+	nl := "\n"
+	var b strings.Builder
+	b.WriteString(T("sshkeys_show_title") + nl)
+	b.WriteString("<i>" + T("sshkeys_show_hint") + "</i>" + nl + nl)
+	keys := allCandidateKeys()
+	if len(keys) == 0 {
+		b.WriteString("<i>" + T("sshkeys_empty") + "</i>")
+		return b.String()
+	}
+	for i, k := range keys {
+		b.WriteString(formatOneKeyBlock(i+1, k))
+		b.WriteString(nl)
+	}
+	return b.String()
+}
+
+func formatOneSSHKeyDetailHTML(fp string) string {
+	nl := "\n"
+	for _, k := range allCandidateKeys() {
+		if k.Fingerprint == fp {
+			var b strings.Builder
+			b.WriteString(T("sshkeys_show_title") + nl)
+			b.WriteString(formatOneKeyBlock(1, k))
+			return b.String()
+		}
+	}
+	return T("sshkeys_show_title") + nl + "<i>" + T("sshkeys_empty") + "</i>"
+}
+
+func formatOneKeyBlock(n int, k integrity.LiveKey) string {
+	nl := "\n"
+	mark := "☐"
+	if sshWizardSelected[k.Fingerprint] {
+		mark = "☑"
+	}
+	al := ""
+	if k.InAllowlist {
+		al = " · " + T("sshkeys_in_baseline")
+	}
+	head, tail := pubKeyEnds(k.Line)
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("<b>%d.</b> %s <code>%s</code>%s%s", n, mark, esc(keyLabel(k)), al, nl))
+	b.WriteString(fmt.Sprintf("· host: <code>%s</code>%s", esc(k.Host), nl))
+	if k.Type != "" {
+		b.WriteString(fmt.Sprintf("· type: <code>%s</code>%s", esc(k.Type), nl))
+	}
+	b.WriteString(fmt.Sprintf("· fp: <code>%s</code>%s", esc(k.Fingerprint), nl))
+	if head != "" {
+		if tail != "" {
+			b.WriteString(fmt.Sprintf("· key: <code>%s…%s</code>%s", esc(head), esc(tail), nl))
+		} else {
+			b.WriteString(fmt.Sprintf("· key: <code>%s</code>%s", esc(head), nl))
+		}
+	}
+	return b.String()
+}
+
+func sshDetailKB() map[string]any {
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(T("sshkeys_refresh"), "m:sshkeys:hub", ""), btn(T("sshkeys_show"), "m:sshkeys:show", "")},
+		{btn(T("main_menu"), "m:menu", "primary")},
+	}}
 }
 
 func sshHubKB() map[string]any {
@@ -228,16 +319,22 @@ func sshHubKB() map[string]any {
 		if len(host) > 12 {
 			host = host[:12]
 		}
-		label := mark + " " + host + ": " + keyLabel(k)
-		if len(label) > 56 {
-			label = label[:56] + "…"
+		label := mark + " " + host + ": " + keyLabel(k) + " " + fpShort(k.Fingerprint)
+		if len(label) > 48 {
+			label = label[:48] + "…"
 		}
-		rows = append(rows, []map[string]any{btn(label, "m:sshkeys:tog:"+k.Fingerprint, "")})
+		rows = append(rows, []map[string]any{
+			btn(label, "m:sshkeys:tog:"+k.Fingerprint, ""),
+			btn("👁", "m:sshkeys:show:"+k.Fingerprint, ""),
+		})
 	}
 
 	rows = append(rows, []map[string]any{
 		btn(T("sshkeys_probe"), "m:sshkeys:probe", ""),
 		btn(T("sshkeys_refresh"), "m:sshkeys:hub", ""),
+	})
+	rows = append(rows, []map[string]any{
+		btn(T("sshkeys_show"), "m:sshkeys:show", "primary"),
 	})
 	rows = append(rows, []map[string]any{
 		btn(T("sshkeys_all"), "m:sshkeys:all", ""),

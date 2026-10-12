@@ -7,7 +7,7 @@
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
 # AGENT Handoff
 
-**Stop line: v0.9.345** (2026-10-12). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+**Stop line: v0.9.346** (2026-10-12). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
 
 ### 0.9.320–0.9.331 (summary)
 
@@ -20,7 +20,7 @@
 - Callback prefix **m:sshkeys:** (not m:ssh:) to avoid clash with SSH hosts TOFU
 - Reboot challenge also via API/Web/opcatalog (`/api/security/reboot/*`)
 
-### 0.9.341–0.9.345 (summary)
+### 0.9.341–0.9.346 (summary)
 
 - Status **Action required** + `GET /api/fleet/actions`; Sessions on Status
 - `stack preflight` (release + SHA256SUMS) gates `stack apply` unless `NETDUCTOR_STACK_SKIP_PREFLIGHT=1`
@@ -31,16 +31,16 @@
 Live apply (after this release is published):
 
 ```bash
-netductor stack preflight v0.9.345
-netductor stack apply v0.9.345
-netductor secondary cmd <id> upgrade:v0.9.345
+netductor stack preflight v0.9.346
+netductor stack apply v0.9.346
+netductor secondary cmd <id> upgrade:v0.9.346
 ```
 
 ## Where we stopped
 
 | Topic | State |
 |--|--|
-| Release | **v0.9.345** tip + GitHub assets (this ship). Formula **netductor-op only** |
+| Release | **v0.9.346** tip + GitHub assets (this ship). Formula **netductor-op only** |
 | VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
 | Deferred | read-only guest op session; OIDC (design only) |
 | Open lab | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik) |
