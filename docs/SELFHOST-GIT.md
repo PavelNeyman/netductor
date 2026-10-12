@@ -205,3 +205,23 @@ If **repos** is empty, mirror falls back to **releases** token.
 ## Ops plan
 
 See [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md). Primary→GH: `git project mirror-push` (auto after bare push + successful VPS build; `NETDUCTOR_GIT_MIRROR_PUSH=0` disables). (Go parity, docker cleanup, queue, card status).
+
+
+## VPS-first releases (no GitHub required)
+
+Store: `/var/lib/netductor/releases/<tag>/` (binaries + SHA256SUMS).
+
+```bash
+# build matrix on primary (docker) into local store
+netductor release build v0.9.351
+# or import from Mac dist/
+netductor release import v0.9.351 ./dist
+
+netductor release list-local
+netductor stack apply v0.9.351   # DownloadNamedAsset uses local first
+# secondary:
+netductor secondary cmd <id> upgrade:v0.9.351
+```
+
+`stack apply` without tag uses **local latest** when present (0.9.351+), else GitHub.
+Op on Mac still defaults to GitHub unless you `release import` on Mac cache or download assets via VPN from primary (scp).

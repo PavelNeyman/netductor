@@ -55,6 +55,16 @@ func ListLocalTags() ([]string, error) {
 	return out, nil
 }
 
+
+// LocalLatestTag is the newest v* directory under LocalReleasesDir, or "".
+func LocalLatestTag() string {
+	tags, err := ListLocalTags()
+	if err != nil || len(tags) == 0 {
+		return ""
+	}
+	return tags[0]
+}
+
 // TryLocalReleaseAsset copies component binary from local store when present.
 func TryLocalReleaseAsset(tag, component, destPath string) (bool, error) {
 	tag, err := ValidReleaseTag(tag)

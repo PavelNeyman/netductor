@@ -70,7 +70,7 @@ func DetectImage(workDir string) string {
 // DetectTestCommand returns a default test command for the worktree.
 func DetectTestCommand(workDir string) string {
 	if _, err := os.Stat(filepath.Join(workDir, "go.mod")); err == nil {
-		return "go test ./..."
+		return "go test -p 1 -parallel 1 ./..."
 	}
 	if _, err := os.Stat(filepath.Join(workDir, "package.json")); err == nil {
 		return "npm test"
@@ -131,12 +131,38 @@ func Exec(opts ExecOpts) (string, error) {
 		"-w", "/workspace",
 		"--network", net,
 	}
+	// Protect small VPS: sequential tests still need a hard cap (OOM killed bot).
+	mem := strings.TrimSpace(os.Getenv("NETDUCTOR_CI_MEMORY"))
+	if mem == "" {
+		mem = "1536m"
+	}
+	if mem != "0" && mem != "none" {
+		args = append(args, "--memory", mem)
+	}
+	cpus := strings.TrimSpace(os.Getenv("NETDUCTOR_CI_CPUS"))
+	if cpus == "" {
+		cpus = "1.5"
+	}
+	if cpus != "0" && cpus != "none" {
+		args = append(args, "--cpus", cpus)
+	}
 	if cname := strings.TrimSpace(os.Getenv("NETDUCTOR_CI_CONTAINER")); cname != "" {
 		// allow cancel via: docker kill <name>
 		args = append(args, "--name", cname)
 	}
 	for _, e := range opts.Env {
 		args = append(args, "-e", e)
+	}
+	// Default GOMAXPROCS=1 unless caller set it (keeps go test packages from thrashing).
+	hasGOMAX := false
+	for _, e := range opts.Env {
+		if strings.HasPrefix(e, "GOMAXPROCS=") {
+			hasGOMAX = true
+			break
+		}
+	}
+	if !hasGOMAX {
+		args = append(args, "-e", "GOMAXPROCS=1")
 	}
 	// pass through common CI env
 	for _, k := range []string{"CI", "REPO_NAME", "GITHUB_WORKSPACE"} {

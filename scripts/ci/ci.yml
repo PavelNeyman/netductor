@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: "1.22.x" }
       - run: bash scripts/check-version-pins.sh
-      - run: go test ./...
+      - run: go test -p 1 -parallel 1 ./...
       - name: go build
         run: |
           go build -o /tmp/netductor ./cmd/netductor

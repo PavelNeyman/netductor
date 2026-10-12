@@ -275,7 +275,7 @@ set -e
 WT=$(mktemp -d)
 trap 'rm -rf "$WT"' EXIT
 git --git-dir="$REPO_PATH" --work-tree="$WT" checkout -f HEAD 2>/dev/null || true
-netductor ci exec --image "${NETDUCTOR_CI_IMAGE_GO:-golang:1.22-bookworm}" --workdir "$WT" -- "go test ./..."
+netductor ci exec --image "${NETDUCTOR_CI_IMAGE_GO:-golang:1.22-bookworm}" --workdir "$WT" -- "go test -p 1 -parallel 1 ./..."
 `,
 		"oci-push": `#!/bin/sh
 # netductor-managed-pipeline — docker build on host engine, push to local registry

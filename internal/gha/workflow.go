@@ -110,11 +110,12 @@ func Run(w *Workflow, workDir string, extraEnv []string) (log string, err error)
 			for k, v := range st.Env {
 				env = append(env, k+"="+v)
 			}
+			script := softenCIScript(st.Run)
 			out, e := ci.Exec(ci.ExecOpts{
 				Image:   img,
 				WorkDir: dir,
 				Shell:   shell,
-				Script:  st.Run,
+				Script:  script,
 				Env:     env,
 			})
 			b.WriteString(out)
@@ -172,4 +173,18 @@ func FindDefault(root string) (string, error) {
 	}
 	sort.Strings(files)
 	return files[0], nil
+}
+
+// softenCIScript makes heavy go test safe on small VPS (sequential packages).
+func softenCIScript(script string) string {
+	s := script
+	// exact common forms
+	repls := []struct{ old, new string }{
+		{"go test ./...", "go test -p 1 -parallel 1 ./..."},
+		{"go test ./…", "go test -p 1 -parallel 1 ./..."},
+	}
+	for _, r := range repls {
+		s = strings.ReplaceAll(s, r.old, r.new)
+	}
+	return s
 }

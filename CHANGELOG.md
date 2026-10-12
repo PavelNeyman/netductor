@@ -1,3 +1,14 @@
+## 0.9.352
+
+- CI runner: auto-rewrite `go test ./...` → sequential even if workflow YAML is old
+- Same as 0.9.351: docker mem/cpu caps, local releases preferred
+
+## 0.9.351
+
+- CI: `go test -p 1 -parallel 1` (sequential packages); docker `--memory=1536m --cpus=1.5`, GOMAXPROCS=1 (protect VPS/bot from OOM)
+- Updates: LatestReleaseTag / ListReleases prefer local `/var/lib/netductor/releases` when present
+- Docs: VPS-first release + apply without GitHub
+
 ## 0.9.350
 
 - TG: user profile card button rows ≤5 (Telegram limit) — menu no longer drops on profile select

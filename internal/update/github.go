@@ -119,11 +119,37 @@ func latestViaRedirect() (string, error) {
 	return "", fmt.Errorf("github redirect HTTP %d", resp.StatusCode)
 }
 
-// LatestReleaseTag from GitHub (no auth). Empty on error.
+// LatestReleaseTag prefers the newest *local* release under /var/lib/netductor/releases
+// when present; otherwise GitHub (no auth). Empty on error.
+// Explicit stack apply vX always uses that tag via DownloadNamedAsset (local first).
 func LatestReleaseTag() (string, error) {
+	if loc := LocalLatestTag(); loc != "" {
+		// Prefer local when GH is unreachable or older; still allow cache short-circuit for GH-only hosts.
+		if c, ok := loadReleaseCache(30 * time.Minute); ok && c.Latest != "" {
+			if !Newer(c.Latest, loc) {
+				return loc, nil
+			}
+			// GH cache newer than local — return GH (operator may not have imported yet)
+			return c.Latest, nil
+		}
+		// No cache: try GH once; if fails or older, local wins.
+		gh, err := latestFromGitHub()
+		if err != nil || gh == "" {
+			return loc, nil
+		}
+		if Newer(gh, loc) {
+			saveReleaseCache(gh, nil)
+			return gh, nil
+		}
+		return loc, nil
+	}
 	if c, ok := loadReleaseCache(30 * time.Minute); ok && c.Latest != "" {
 		return c.Latest, nil
 	}
+	return latestFromGitHub()
+}
+
+func latestFromGitHub() (string, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
 	setGitHubHeaders(req)
@@ -166,6 +192,27 @@ func LatestReleaseTag() (string, error) {
 	return tag, nil
 }
 
+
+func mergeLocalIntoReleases(list []ReleaseInfo) []ReleaseInfo {
+	seen := map[string]bool{}
+	var out []ReleaseInfo
+	for _, t := range func() []string { x, _ := ListLocalTags(); return x }() {
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, ReleaseInfo{Tag: t, Name: t + " (local)"})
+	}
+	for _, r := range list {
+		if r.Tag == "" || seen[r.Tag] {
+			continue
+		}
+		seen[r.Tag] = true
+		out = append(out, r)
+	}
+	return out
+}
+
 // ReleaseInfo is a GitHub release list entry (tag + optional name/date).
 type ReleaseInfo struct {
 	Tag         string `json:"tag"`
@@ -175,6 +222,7 @@ type ReleaseInfo struct {
 }
 
 // ListReleases returns up to limit recent releases (newest first). limit<=0 → 15.
+// Local store tags are merged in (source of truth on primary).
 func ListReleases(limit int) ([]ReleaseInfo, error) {
 	if limit <= 0 {
 		limit = 15
@@ -183,10 +231,11 @@ func ListReleases(limit int) ([]ReleaseInfo, error) {
 		limit = 50
 	}
 	if c, ok := loadReleaseCache(30 * time.Minute); ok && len(c.Releases) > 0 {
-		if len(c.Releases) > limit {
-			return c.Releases[:limit], nil
+		list := mergeLocalIntoReleases(c.Releases)
+		if len(list) > limit {
+			return list[:limit], nil
 		}
-		return c.Releases, nil
+		return list, nil
 	}
 	client := &http.Client{Timeout: 20 * time.Second}
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=%d", Repo, limit)
@@ -233,21 +282,31 @@ func ListReleases(limit int) ([]ReleaseInfo, error) {
 		latest = out[0].Tag
 	}
 	saveReleaseCache(latest, out)
+	out = mergeLocalIntoReleases(out)
 	return out, nil
 }
 
 func listReleasesFallback(limit int) ([]ReleaseInfo, error) {
 	if c, ok := loadReleaseCache(24 * time.Hour); ok && len(c.Releases) > 0 {
-		if len(c.Releases) > limit {
-			return c.Releases[:limit], nil
+		list := mergeLocalIntoReleases(c.Releases)
+		if len(list) > limit {
+			return list[:limit], nil
 		}
-		return c.Releases, nil
+		return list, nil
 	}
 	tag, err := latestViaRedirect()
 	if err != nil {
-		return nil, err
+		// Offline: local store only
+		list := mergeLocalIntoReleases(nil)
+		if len(list) == 0 {
+			return nil, err
+		}
+		if len(list) > limit {
+			return list[:limit], nil
+		}
+		return list, nil
 	}
-	list := []ReleaseInfo{{Tag: tag}}
+	list := mergeLocalIntoReleases([]ReleaseInfo{{Tag: tag}})
 	saveReleaseCache(tag, list)
 	return list, nil
 }
