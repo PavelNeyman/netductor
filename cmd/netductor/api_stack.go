@@ -8,6 +8,25 @@ import (
 )
 
 func registerStackAPI(mux *http.ServeMux) {
+		mux.HandleFunc("/api/stack/preflight", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
+			return
+		}
+		tag := r.URL.Query().Get("tag")
+		if tag == "" {
+			tag = r.URL.Query().Get("version")
+		}
+		pf := stack.Preflight(tag)
+		code := 200
+		if !pf.OK {
+			code = 409
+		}
+		writeJSON(w, code, pf)
+	})
 	mux.HandleFunc("/api/stack/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)

@@ -360,6 +360,8 @@ var dict = map[string]map[string]string{
 		"git_add_proj":   "➕ Добавить проект",
 		"channel_btn":    "📶 Канал",
 		"cancel": "Отмена",
+		"actions_btn":    "⚠️ Внимание",
+		"vpn_devices_btn": "📺 Профили устройств",
 		"refresh_btn":    "🔄 Обновить",
 		"incident_btn":   "📦 Инцидент",
 		"digest_btn":     "📡 Digest",

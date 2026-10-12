@@ -1,6 +1,6 @@
 # 0.9.342
 
-- Auto **recover-drill** mark after successful `Recover` / `RecoverFromSecondary` (`MarkRecoverDrill`); CLI `backup drill-mark` uses same helper
-- Action required: backup verify **missing** / **stale ≥14d** (in addition to fail)
-- OPEN_ITEMS: guest read-only session + OIDC deferred
-- SR family/operator already shipped (TG `btn_sr_config` / `btn_sr_family`) — no change
+- Auto **recover-drill** mark after successful `Recover` (`MarkRecoverDrill`); CLI uses same helper
+- Action required: backup verify missing / stale ≥14d
+- Suite follow-up: RU `actions_btn` / `vpn_devices_btn`; handoff EN+RU stop aligned; API `GET /api/stack/preflight`; opcatalog fleet-actions + stack-preflight
+- OPEN_ITEMS: guest session + OIDC deferred

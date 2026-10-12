@@ -20,17 +20,30 @@
 - Callback prefix **m:sshkeys:** (not m:ssh:) to avoid clash with SSH hosts TOFU
 - Reboot challenge also via API/Web/opcatalog (`/api/security/reboot/*`)
 
-Live apply: `netductor stack apply v0.9.339` then secondary `upgrade:v0.9.339`.
+### 0.9.341–0.9.342 (summary)
+
+- Status **Action required** + `GET /api/fleet/actions`; Sessions on Status
+- `stack preflight` (release + SHA256SUMS) gates `stack apply` unless `NETDUCTOR_STACK_SKIP_PREFLIGHT=1`
+- VPN profile **kind** user|device (`vpn kind`, TG device profiles, API)
+- Auto **recover-drill** mark after successful Recover; backup-verify missing/stale in Action required
+- Local release build: `go test` gate before matrix
+
+Live apply (after this release is published):
+
+```bash
+netductor stack preflight v0.9.342
+netductor stack apply v0.9.342
+netductor secondary cmd <id> upgrade:v0.9.342
+```
 
 ## Where we stopped
 
-Security/DNS/SSH allowlist track closed in code. Reboot challenge: TG + session API/Web (same one-shot codes).
-
 | Topic | State |
 |--|--|
-| Release | **v0.9.339** tip; last GitHub release **v0.9.337**. Formula **netductor-op only** |
+| Release | **v0.9.342** tip + GitHub assets (this ship). Formula **netductor-op only** |
 | VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
-| Open | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik), lab checklist |
+| Deferred | read-only guest op session; OIDC (design only) |
+| Open lab | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik) |
 
 # AGENT Handoff
 - **0.9.217:** service-net 10.88 from secondary dials primary as the real VLESS user (uplink-svc-<name>, vision, no mux). Shared relay-uplink is internet only. ACL no longer auto-allows relay-uplink.

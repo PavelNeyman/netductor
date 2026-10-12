@@ -47,6 +47,8 @@ func All() []Action {
 		a("bot", "overview", "GET", "/api/bot-status", "", "—", "Bot status", "Статус бота"),
 		a("status", "overview", "GET", "/api/status", "", "status", "Status", "Статус"),
 		a("fleet-digest", "overview", "GET", "/api/fleet/digest", "", "fleet digest", "Fleet digest", "Fleet digest"),
+		a("fleet-actions", "overview", "GET", "/api/fleet/actions", "", "action required", "Action required", "Требует внимания"),
+		a("stack-preflight", "stack", "GET", "/api/stack/preflight?tag=", "", "stack preflight", "Stack preflight", "Preflight стека"),
 		// metrics: Web/CLI/TUI; TG uses Status (no duplicate button)
 		a("metrics", "overview", "GET", "/api/metrics", "", "—", "Metrics", "Метрики", SurfWeb, SurfCLI, SurfTUI),
 		a("metrics-hist", "overview", "GET", "/api/metrics/history", "", "—", "Metrics history", "История метрик", SurfWeb, SurfCLI, SurfTUI),
