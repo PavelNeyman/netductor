@@ -387,6 +387,7 @@ func ShadowrocketGeneralBlockFor(profile string) string {
 bypass-system = true
 dns-server = system
 fallback-dns-server = system
+dns-direct-fallback-proxy = false
 ipv6 = false
 prefer-ipv6 = false
 private-ip-answer = true
