@@ -202,6 +202,8 @@ func main() {
 		runStack(os.Args[2:])
 	case "project", "projects":
 		os.Exit(runProject(os.Args[2:]))
+	case "build-host", "buildhost":
+		os.Exit(runBuildHost(os.Args[2:]))
 	case "release":
 		os.Exit(runRelease(os.Args[2:]))
 	case "update":

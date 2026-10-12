@@ -526,6 +526,7 @@ func runDoctorNative() int {
 		}
 		doctorPrintf("INFO ci %s\n", ci.StatusLine())
 		doctorPrintln("INFO "+gitstore.FormatCacheInfo())
+		doctorPrintln("INFO "+gitstore.BuildHostStatusLine())
 		if ci.IsolationEnabled() && ci.Engine() == "" {
 			doctorPrintln("WARN ci isolation on but no docker/podman")
 			warn++

@@ -502,3 +502,26 @@ func ShouldAutoShip(p *Project, changedPaths []string) bool {
 	}
 	return !allIgn
 }
+
+
+// prepareProjectWorktree checks out ref into a temp work dir (caller removes).
+func prepareProjectWorktree(name, ref string) (string, error) {
+	p, err := GetProject(name)
+	if err != nil {
+		return "", err
+	}
+	work := filepath.Join(paths.StateDir(), "ci", "remote-"+p.Name+"-"+time.Now().UTC().Format("150405"))
+	_ = os.RemoveAll(work)
+	if ref == "" {
+		ref = "HEAD"
+	}
+	if err := checkoutRef(p.Name, ref, work); err != nil {
+		if _, serr := SyncProject(p.Name); serr == nil {
+			err = checkoutRef(p.Name, ref, work)
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+	return work, nil
+}

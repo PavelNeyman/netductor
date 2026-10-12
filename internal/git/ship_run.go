@@ -229,10 +229,32 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
 	os.Setenv("NETDUCTOR_GIT_BUILD_DIRECT", "1")
 	defer os.Unsetenv("NETDUCTOR_GIT_BUILD_DIRECT")
-	// secrets + cache env for child processes
 	for _, kv := range LoadCISecretsEnv(j.Project) {
 		if i := strings.IndexByte(kv, '='); i > 0 {
 			_ = os.Setenv(kv[:i], kv[i+1:])
+		}
+	}
+	if BuildHostEnabled() {
+		work, err := prepareProjectWorktree(j.Project, j.Ref)
+		if err != nil {
+			if os.Getenv("NETDUCTOR_BUILD_HOST_FALLBACK") == "1" {
+				fmt.Fprintf(logb, "build-host prepare failed (%v); fallback local\n", err)
+			} else {
+				return fmt.Errorf("build-host prepare: %w", err)
+			}
+		} else {
+			defer os.RemoveAll(work)
+			if err := RunRemoteTestBuild(j, work, logb); err != nil {
+				if os.Getenv("NETDUCTOR_BUILD_HOST_FALLBACK") == "1" {
+					fmt.Fprintf(logb, "build-host failed (%v); fallback local\n", err)
+				} else {
+					AppendShipLog(j.ID, logb.String())
+					return err
+				}
+			} else {
+				AppendShipLog(j.ID, logb.String())
+				return nil
+			}
 		}
 	}
 	out, err := runBuildProjectNow(j.Project, j.Ref)

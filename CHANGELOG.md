@@ -1,3 +1,9 @@
+## 0.9.361
+
+- Optional **build-host** VPS: control on primary, test_build via SSH
+- CLI `build-host show|set|test|enable|disable|clear`; API GET/POST `/api/git/build-host`
+- `NETDUCTOR_BUILD_HOST_FALLBACK=1` to fall back to local CI on remote failure
+
 ## 0.9.360
 
 - CI next: step timeout (45m), step duration, ship job log file

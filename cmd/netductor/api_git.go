@@ -385,6 +385,28 @@ func registerGitAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "async": true, "job": job})
 	})
 
+	
+	mux.HandleFunc("/api/git/build-host", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			c := gitstore.LoadBuildHost()
+			writeJSON(w, 200, map[string]any{"ok": true, "config": c, "status": gitstore.BuildHostStatusLine()})
+		case http.MethodPost:
+			var body gitstore.BuildHostConfig
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if err := gitstore.SaveBuildHost(body); err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "status": gitstore.BuildHostStatusLine()})
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/api/git/projects/ship-jobs", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
