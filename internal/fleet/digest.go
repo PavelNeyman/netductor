@@ -2,6 +2,7 @@
 package fleet
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -27,6 +29,8 @@ type Digest struct {
 	SPOK            *bool             `json:"sp_ok,omitempty"`
 	PSOK            *bool             `json:"ps_ok,omitempty"`
 	BackupAgeHours  *float64          `json:"backup_age_hours,omitempty"`
+	BackupVerify    string            `json:"backup_verify,omitempty"`
+	RecoverDrillDays *int             `json:"recover_drill_days,omitempty"`
 	LEHosts         []string          `json:"le_hosts,omitempty"`
 	VPNUsers        int               `json:"vpn_users"`
 	VPNQuiet        []string          `json:"vpn_quiet,omitempty"` // no activity hint
@@ -115,6 +119,18 @@ func Build() Digest {
 	if !newest.IsZero() {
 		h := time.Since(newest).Hours()
 		d.BackupAgeHours = &h
+	}
+	// backup verify last status
+	if v := install.LastBackupVerify(); v != "" {
+		d.BackupVerify = v
+	}
+	// recover-drill age
+	if b, err := os.ReadFile(filepath.Join(paths.StateDir(), "recover-drill-last.txt")); err == nil {
+		var ts int64
+		if _, err := fmt.Sscanf(strings.TrimSpace(string(b)), "%d", &ts); err == nil && ts > 0 {
+			days := int(time.Since(time.Unix(ts, 0)).Hours() / 24)
+			d.RecoverDrillDays = &days
+		}
 	}
 	// LE live certs
 	live := "/etc/letsencrypt/live"

@@ -33,9 +33,9 @@ Related: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md
 
 ## 5. Backup / DR
 
-- [ ] Backup verify status in fleet digest and Web (CLI/timer already exist).
-- [ ] Recover-drill reminder (“last successful recover-test N days ago”).
-- [ ] Restore preview before real recover.
+- [x] Backup verify status in fleet digest and Web (CLI/timer already exist).
+- [x] Recover-drill reminder (“last successful recover-test N days ago”).
+- [x] Restore preview before real recover.
 
 ## 6. Product clarity
 

@@ -33,9 +33,9 @@
 
 ## 5. Backup / DR
 
-- [ ] Статус backup verify в fleet digest и Web (CLI/timer уже есть).
-- [ ] Напоминание о recover-drill («последний успешный тест N дней назад»).
-- [ ] Preview восстановления перед реальным recover.
+- [x] Статус backup verify в fleet digest и Web (CLI/timer уже есть).
+- [x] Напоминание о recover-drill («последний успешный тест N дней назад»).
+- [x] Preview восстановления перед реальным recover.
 
 ## 6. Ясность продукта
 
