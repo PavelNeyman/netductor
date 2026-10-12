@@ -1,5 +1,7 @@
 ## 0.9.340
 
+- recover-drill: `netductor backup drill-mark` writes timestamp for digest age
+
 - Incident timeline (alert/recovery) for API, TG, Web
 - Clearer build_on_fetch UX + visible weekly CI cleanup policy
 - Explicit operator session TTL; audit viewer notes; OIDC design

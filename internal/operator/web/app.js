@@ -821,7 +821,7 @@ function mountButtons(){
       <div><label>${t('l_bak_min')}</label><input id="bakMin" type="number" min="0" max="59" value="0"/></div></div>
       <div class="row"><div><label>${t('l_bak_tz')}</label><select id="bakUtc"><option value="1">UTC</option><option value="0">local</option></select></div><div></div></div>
       <button class="primary" type="button" data-act="backup-schedule-set">${t('b_bak_save')}</button>
-      <p class="muted">Verify status and recover-drill age appear in Fleet overview (backup_verify, recover_drill_days). Write state/recover-drill-last.txt (unix ts) after a successful drill.</p>`;
+      <p class="muted">Verify status and recover-drill age appear in Fleet overview (backup_verify, recover_drill_days). Run <code>netductor backup drill-mark</code> after a successful drill.</p>`;
     }
     if(sec==='vpn' || sec==='users'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_vpn_name')}</label><input id="vpnName"/></div><div><label>${t('l_vpn_note')}</label><input id="vpnNote"/></div></div>

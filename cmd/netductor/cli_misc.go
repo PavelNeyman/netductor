@@ -98,6 +98,16 @@ func runBackupCmd(args []string) {
 			}
 			fmt.Println("secondary local backup timer enabled")
 			return
+		case "drill-mark":
+			p := filepath.Join(paths.StateDir(), "recover-drill-last.txt")
+			_ = os.MkdirAll(filepath.Dir(p), 0o700)
+			ts := fmt.Sprintf("%d\n", time.Now().Unix())
+			if err := os.WriteFile(p, []byte(ts), 0o600); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("ok recover-drill marked", ts)
+			return
 		case "secondary-local", "local-secondary":
 			path, err := install.BackupSecondaryLocal()
 			if err != nil {
