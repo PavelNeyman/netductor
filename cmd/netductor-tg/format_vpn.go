@@ -28,7 +28,7 @@ func formatVPNListPretty(raw string) string {
 			parts = strings.Fields(line)
 		}
 		name := parts[0]
-		if name == "relay-uplink" || vpn.IsEdgeUser(name) {
+		if name == "relay-uplink" || vpn.IsEdgeUser(name) || vpn.IsDeviceProfile(name) {
 			continue
 		}
 		en := ""
@@ -76,7 +76,7 @@ func formatUsersListHTML() string {
 		if len(parts) < 1 {
 			parts = strings.Fields(line)
 		}
-		if len(parts) < 1 || parts[0] == "" || parts[0] == "relay-uplink" || vpn.IsEdgeUser(parts[0]) {
+		if len(parts) < 1 || parts[0] == "" || parts[0] == "relay-uplink" || vpn.IsEdgeUser(parts[0]) || vpn.IsDeviceProfile(parts[0]) {
 			continue
 		}
 		en := ""

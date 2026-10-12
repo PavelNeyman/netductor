@@ -331,6 +331,16 @@ func runVPN(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println(cli18n.T("vpn.config_applied"))
+	case "kind":
+		if len(rest) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor vpn kind <name> user|device")
+			os.Exit(2)
+		}
+		if err := vpn.SetKind(rest[0], rest[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("kind", rest[0], "=", rest[1], "(uuid unchanged)")
 	case "session":
 		if len(rest) > 0 && (rest[0] == "list" || rest[0] == "ls") {
 			for _, s := range session.List() {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/fleet"
 	"github.com/PavelNeyman/netductor/internal/format"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -607,10 +608,28 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			pl = "Аддоны"
 		}
 		reply(token, chat, msgID, formatLampacHTML(), navKeyboard("m:addons", pl))
+	case "m:actions":
+		reply(token, chat, msgID, fleet.FormatActionsHTML(getLang() != "en"), statusKeyboard())
 	case "m:status":
 		reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
 	case "m:channel":
 		reply(token, chat, msgID, formatChannelDetailHTML(), statusKeyboard())
+	case "m:vpn_devices":
+		names := vpn.ListDeviceNames(false)
+		ru := getLang() != "en"
+		title := "📺 <b>Device profiles</b> (VLESS; hidden from Users)\n"
+		if ru {
+			title = "📺 <b>Профили устройств</b> (VLESS; не в Users)\n"
+		}
+		title += "<i>uuid сохраняется при kind user↔device</i>\n"
+		if len(names) == 0 {
+			title += "(empty)\n"
+		}
+		for i, n := range names {
+			title += fmt.Sprintf("%d. <code>%s</code> · <tg-button type=\"callback_data\" data=\"u:open:%s\">card</tg-button>\n", i+1, esc(n), n)
+		}
+		title += `<tg-button-row><tg-button type="callback_data" data="m:users">« Users</tg-button></tg-button-row>`
+		reply(token, chat, msgID, title, usersListKeyboard())
 	case "m:users", "m:vpn_list":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:vpn_list_legacy":

@@ -120,6 +120,8 @@ func buildScript(ver string, skipDarwin bool) string {
 	b.WriteString("set -euo pipefail\n")
 	b.WriteString("export CGO_ENABLED=0\n")
 	b.WriteString("mkdir -p dist\n")
+	b.WriteString("echo '==> go test (release gate)'\n")
+	b.WriteString("go test ./internal/... ./cmd/... -count=1\n")
 	b.WriteString(fmt.Sprintf("LDFLAGS='-s -w -X main.version=%s'\n", ver))
 	b.WriteString("build() { GOOS=${1:-linux} GOARCH=${2:-amd64} go build -trimpath -ldflags \"$LDFLAGS\" -o \"dist/$3\" \"$4\"; }\n")
 	b.WriteString("build linux amd64 netductor-linux-amd64 ./cmd/netductor\n")

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/addons"
+	"github.com/PavelNeyman/netductor/internal/fleet"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"os"
 	"os/exec"
@@ -256,6 +257,8 @@ func formatStatusPretty() string {
 	}
 	var b strings.Builder
 	b.WriteString(title + " · <code>" + esc(host) + "</code>" + nl)
+
+	b.WriteString(fleet.FormatActionsHTML(ru) + nl + nl)
 
 	// Compact metrics one-liners (full table lives under Tools / metrics button)
 	m := metrics.Collect()

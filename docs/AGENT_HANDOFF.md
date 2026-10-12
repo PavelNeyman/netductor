@@ -7,7 +7,7 @@
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
 # AGENT Handoff
 
-**Stop line: v0.9.340** (2026-10-12). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+**Stop line: v0.9.341** (2026-10-12). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
 
 ### 0.9.320–0.9.331 (summary)
 

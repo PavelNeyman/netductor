@@ -25,6 +25,8 @@ type UserRecord struct {
 	Created string `json:"created"`
 	// SubProfile: secondary (default entry) | primary (core only) | both
 	SubProfile string `json:"sub_profile,omitempty"`
+	// Kind: user (default) | device — device profiles (Apple TV, etc.) stay out of Users list
+	Kind string `json:"kind,omitempty"`
 	// Access policy (docs/PLAN-SERVICE-ACCESS-POLICY.md)
 	AllowInternet *bool    `json:"allow_internet,omitempty"`
 	Services      []string `json:"services,omitempty"`
@@ -388,6 +390,7 @@ func ListNative() ([]User, error) {
 		users = append(users, User{
 			Name: u.Name, Enabled: u.Enabled, UUID: u.UUID, Note: u.Note, Created: u.Created,
 			AllowInternet: u.AllowInternet, Services: u.Services, ServicesMode: u.ServicesMode,
+			Kind: u.Kind,
 		})
 	}
 	return users, nil

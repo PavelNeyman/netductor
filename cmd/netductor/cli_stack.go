@@ -30,6 +30,17 @@ netductor stack schedule [vX.Y.Z]
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(st)
+	case "preflight":
+		tag := ""
+		if len(args) > 1 {
+			tag = args[1]
+		}
+		pf := stack.Preflight(tag)
+		fmt.Print(stack.FormatPreflight(pf))
+		if !pf.OK {
+			os.Exit(1)
+		}
+		return
 	case "apply":
 		tag := ""
 		if len(args) > 1 {

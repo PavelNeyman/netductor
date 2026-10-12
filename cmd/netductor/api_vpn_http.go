@@ -150,16 +150,31 @@ func registerVPNHTTP(mux *http.ServeMux) {
 				return
 			}
 			includeEdge := r.URL.Query().Get("include_edge") == "1"
-			if !includeEdge {
-				filtered := users[:0]
-				for _, u := range users {
-					if vpn.IsEdgeUser(u.Name) {
+			kindQ := r.URL.Query().Get("kind") // user|device|all
+			filtered := users[:0]
+			for _, u := range users {
+				if u.Name == "relay-uplink" {
+					continue
+				}
+				if !includeEdge && vpn.IsEdgeUser(u.Name) {
+					continue
+				}
+				isDev := vpn.IsDeviceProfile(u.Name)
+				switch kindQ {
+				case "device":
+					if !isDev {
 						continue
 					}
-					filtered = append(filtered, u)
+				case "all":
+					// keep
+				default: // user list
+					if isDev {
+						continue
+					}
 				}
-				users = filtered
+				filtered = append(filtered, u)
 			}
+			users = filtered
 			writeJSON(w, 200, map[string]any{"users": users})
 		case http.MethodPost:
 			body := readJSON(r)
@@ -197,6 +212,14 @@ func registerVPNHTTP(mux *http.ServeMux) {
 			return
 		}
 		switch {
+		case action == "kind" && r.Method == http.MethodPost:
+			body := readJSON(r)
+			k, _ := body["kind"].(string)
+			if err := vpn.SetKind(name, k); err != nil {
+				writeJSON(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "name": name, "kind": k})
 		case action == "qr" && r.Method == http.MethodGet:
 			qp := vpn.QRPath(name)
 			b, err := os.ReadFile(qp)

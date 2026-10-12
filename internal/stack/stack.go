@@ -418,6 +418,13 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if cur != "" && want != "" && verLess(want, cur) {
 		return fmt.Errorf("refuse downgrade: running %s > target %s (use manual binary replace if intentional)", cur, want)
 	}
+	if os.Getenv("NETDUCTOR_STACK_SKIP_PREFLIGHT") != "1" {
+		pf := Preflight(tag)
+		fmt.Fprint(os.Stderr, FormatPreflight(pf))
+		if !pf.OK {
+			return fmt.Errorf("preflight failed for %s (set NETDUCTOR_STACK_SKIP_PREFLIGHT=1 to override)", tag)
+		}
+	}
 	// Never keep attempt/ — old builds restored it on health fail and fought prev/ (121↔132 loops).
 	_ = os.RemoveAll(attemptDir())
 	if !noBackup {
