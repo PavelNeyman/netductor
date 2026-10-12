@@ -1,3 +1,5 @@
+**PLAN-PROJECT-SHIP decisions locked** (2026-10-12): no timeout; job rm; resume no redo ok steps; project ship only; hard cut old CLI; implement S0→S6.
+
 **Plan:** unified project ship / smart pause / multi Mac-wait — [PLAN-PROJECT-SHIP.md](PLAN-PROJECT-SHIP.md) (design only, 0.9.354).
 
 **0.9.354:** release ship (test+matrix), auto next tag, artifact prune.

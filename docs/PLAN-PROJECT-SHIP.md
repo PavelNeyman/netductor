@@ -3,6 +3,22 @@
 **Status:** agreed design · **not implemented** (as of 0.9.354)  
 **EN** · related: [PLAN-INTERNAL-RELEASES.md](PLAN-INTERNAL-RELEASES.md), [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md), [SELFHOST-GIT.md](SELFHOST-GIT.md)
 
+
+## Decisions (locked 2026-10-12)
+
+| # | Decision |
+|--|--|
+| D1 | **No job timeout.** Jobs may wait indefinitely. Operator deletes explicitly. |
+| D2 | **`project job rm <id>`** (CLI + UI): drop snapshot + job-bound artifacts. Doctor may INFO count/age of waiting jobs (not alert spam). |
+| D3 | **Resume = continue, do not redo ok steps.** Cursor advances only over pending steps. Completed step outputs kept under job id when needed for publish. |
+| D4 | **Mac / external:** publish needs uploaded artifacts (`complete --from`); no silent rebuild on VPS for host=mac. |
+| D5 | **VPS build steps:** if output files still present after pause, reuse; only re-run step if outputs missing (corruption/rm). Prefer not to re-test/re-build when status=ok. |
+| D6 | **One product command** for the full cycle: tests → build → version bump → publish (+ optional middle steps). Name: **`project ship`** (primary). No parallel “build without publish” as a first-class flow. |
+| D7 | **No long-lived aliases.** Do not keep `release ship` / `git project build` as wrappers. Replace call sites (TG/Web/docs) with `project ship` in the same change set. Old subcommands may print one-line “use project ship” and exit 2 for a short period only if needed for safety — prefer hard cut in implementing release. |
+| D8 | **Auto version** patch+1 per project; `--tag` override. |
+| D9 | **VPS slot max 1** for running/publishing; unlimited paused/waiting_external. |
+| D10 | Implementation order **S0→S6** after this lock; no parallel feature work in this track. |
+
 ## Goal
 
 One operator command / UI action for **any** registered project:
@@ -46,7 +62,7 @@ queued
 
 **Pause request** (user or system): do **not** kill the current step. Finish current step → persist snapshot → remove containers/worktree → `paused` or `waiting_external`.
 
-**Resume / external complete**: acquire VPS slot → restore checkout or cached outputs → continue from `cursor` step.
+**Resume / external complete**: acquire VPS slot → **do not re-run steps with status=ok** (D3) → use cached outputs when present → run only pending steps from `cursor`.
 
 ### Snapshot (minimal disk)
 
@@ -166,7 +182,7 @@ Per project (not only netductor):
 | `ship-jobs/*.json` | keep done/failed N days or last K per project |
 | `git-artifacts/` | `release prune-artifacts --keep 20` (exists); ship auto-prune after job |
 | `releases/` | `release prune --keep 5` (exists) |
-| Job timeout | e.g. 7d in `waiting_external` → failed + TG alert |
+| Job timeout | **none** (D1). Delete via `project job rm`. |
 
 Wire into `netductor cleanup` dry-run/apply.
 
@@ -228,16 +244,18 @@ Dependency: existing `gha.Run` step loop, `vps_queue`, `mac_queue`, `release shi
 4. Two+ Mac waits pending; complete out of order; each publishes once.
 5. User pause during long test: current test finishes; containers gone; resume continues next step.
 6. Doctor/cleanup reports ship job + artifact sizes; prune does not delete `waiting_*` outputs still referenced.
+7. `project job rm` removes snapshot and job-bound artifacts; no automatic timeout failure.
 
 ---
 
-## 12. Relation to current CLI (transition)
+## 12. CLI naming (hard cut — D6, D7)
 
-| Today | After |
+| Command | Role |
 |--|--|
-| `release ship` | alias → `project ship netductor` |
-| `release next` | + `project next <name>` |
-| `git project build` | becomes “run CI steps without publish” or thin wrapper to ship `--no-publish` |
-| `mac-queue` | merged into ship jobs with `reason=mac` |
+| **`project ship <name>`** | Full cycle: test → build → version → publish |
+| **`project next <name>`** | Print next auto tag |
+| **`project jobs`** | List running / paused / waiting |
+| **`project pause\|resume\|rm <id>`** | Control |
+| **`project complete <id> --from <dir>`** | External/Mac artifact handoff |
 
-Keep old commands as wrappers for one release cycle to avoid breaking TG/scripts.
+`release ship`, `git project build` as product entry points are **removed** in the implementing release (or exit 2 with message once). Mac queue merges into ship jobs (`reason=mac`). Docs/TG/Web updated in the same PR.
