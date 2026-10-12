@@ -1,3 +1,5 @@
+**0.9.358:** PLAN-PROJECT-SHIP UI parity — TG Ship/Jobs, API ship + ship-jobs, Web actions.
+
 **0.9.357:** PLAN-PROJECT-SHIP S3–S6 — pause/resume/complete, auto tag, doctor ship counts.
 
 **0.9.356:** PLAN-PROJECT-SHIP **S1** — `project ship` for host=vps + mac wait; netductor→Ship matrix.

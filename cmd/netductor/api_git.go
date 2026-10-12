@@ -7,6 +7,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 )
 
@@ -296,20 +297,153 @@ func registerGitAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "log": out})
 	})
 	mux.HandleFunc("/api/git/projects/build", func(w http.ResponseWriter, r *http.Request) {
+		// hard cut: same as ship
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return
 		}
 		var body struct {
 			Name string `json:"name"`
 			Ref  string `json:"ref"`
+			Tag  string `json:"tag"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		out, err := gitstore.BuildProject(body.Name, body.Ref)
-		if err != nil {
-			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error(), "log": out})
+		if body.Name == "netductor" {
+			got, dst, logPath, err := ndupdate.Ship(ndupdate.ShipOpts{Tag: body.Tag})
+			if err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error(), "log": logPath})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "tag": got, "path": dst})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "log": out})
+		tag := body.Tag
+		if tag == "" {
+			tag = gitstore.NextProjectTag(body.Name)
+		}
+		job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
+		resp := map[string]any{"ok": err == nil, "log": out}
+		if job != nil {
+			resp["job"] = job
+		}
+		if err != nil {
+			resp["error"] = err.Error()
+			writeJSON(w, 400, resp)
+			return
+		}
+		writeJSON(w, 200, resp)
+	})
+
+	mux.HandleFunc("/api/git/projects/ship", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		var body struct {
+			Name string `json:"name"`
+			Ref  string `json:"ref"`
+			Tag  string `json:"tag"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.Name == "" {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "name required"})
+			return
+		}
+		if body.Name == "netductor" {
+			got, dst, logPath, err := ndupdate.Ship(ndupdate.ShipOpts{Tag: body.Tag})
+			if err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error(), "log": logPath})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "tag": got, "path": dst})
+			return
+		}
+		tag := body.Tag
+		if tag == "" {
+			tag = gitstore.NextProjectTag(body.Name)
+		}
+		job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
+		resp := map[string]any{"ok": err == nil, "log": out}
+		if job != nil {
+			resp["job"] = job
+		}
+		if err != nil {
+			resp["error"] = err.Error()
+			writeJSON(w, 400, resp)
+			return
+		}
+		writeJSON(w, 200, resp)
+	})
+
+	mux.HandleFunc("/api/git/projects/ship-jobs", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			jobs, err := gitstore.ListShipJobs()
+			if err != nil {
+				writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			state := r.URL.Query().Get("state")
+			if state != "" {
+				var f []gitstore.ShipJob
+				for _, j := range jobs {
+					if j.State == state {
+						f = append(f, j)
+					}
+				}
+				jobs = f
+			}
+			writeJSON(w, 200, map[string]any{"ok": true, "jobs": jobs, "vps_slot": gitstore.VpsSlotTaken(), "counts": gitstore.CountShipJobsByState()})
+		case http.MethodPost:
+			var body struct {
+				Action string `json:"action"` // pause|resume|rm|complete
+				ID     string `json:"id"`
+				From   string `json:"from"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.ID == "" {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": "id required"})
+				return
+			}
+			switch body.Action {
+			case "pause":
+				err := gitstore.RequestShipPause(body.ID)
+				if err != nil {
+					writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+					return
+				}
+				writeJSON(w, 200, map[string]any{"ok": true})
+			case "resume":
+				job, out, err := gitstore.ResumeShip(body.ID)
+				resp := map[string]any{"ok": err == nil, "log": out, "job": job}
+				if err != nil {
+					resp["error"] = err.Error()
+					writeJSON(w, 400, resp)
+					return
+				}
+				writeJSON(w, 200, resp)
+			case "rm", "delete":
+				if err := gitstore.RemoveShipJob(body.ID); err != nil {
+					writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+					return
+				}
+				writeJSON(w, 200, map[string]any{"ok": true})
+			case "complete":
+				job, out, err := gitstore.CompleteShip(body.ID, body.From)
+				resp := map[string]any{"ok": err == nil, "log": out, "job": job}
+				if err != nil {
+					resp["error"] = err.Error()
+					writeJSON(w, 400, resp)
+					return
+				}
+				writeJSON(w, 200, resp)
+			default:
+				writeJSON(w, 400, map[string]any{"ok": false, "error": "action pause|resume|rm|complete"})
+			}
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
 	})
 
 	mux.HandleFunc("/api/git/projects/migrate", func(w http.ResponseWriter, r *http.Request) {

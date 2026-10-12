@@ -1,3 +1,8 @@
+## 0.9.358
+
+- TG/Web parity: project **Ship** (not Build), ship jobs board, pause/resume/rm
+- API: `/api/git/projects/ship`, `/api/git/projects/ship-jobs`
+
 ## 0.9.357
 
 - S3/S4: project pause (after step), resume (no redo ok), complete --from

@@ -70,7 +70,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			rows = append(rows, []map[string]any{
 				btn("📋 "+pr.Name, "m:git:proj:card:"+pr.Name, "primary"),
 				btn("⬇️", "m:git:proj:sync:"+pr.Name, ""),
-				btn("▶️", "m:git:proj:build:"+pr.Name, ""),
+				btn("🚀", "m:git:proj:ship:"+pr.Name, ""),
 			})
 		}
 		tokLab := "🔑 GitHub token"
@@ -83,6 +83,104 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		return true
 	}
 	rest := strings.TrimPrefix(data, "m:git:")
+
+	if strings.HasPrefix(rest, "ship:") {
+		shipSub := strings.TrimPrefix(rest, "ship:")
+		nl := string([]byte{10})
+		if shipSub == "jobs" {
+			jobs, _ := gitstore.ListShipJobs()
+			var b strings.Builder
+			b.WriteString("🚀 <b>Ship jobs</b>" + nl)
+			if len(jobs) == 0 {
+				b.WriteString("<i>(empty)</i>" + nl)
+			}
+			b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>project</th><th>state</th></tr>" + nl)
+			n := 0
+			for _, j := range jobs {
+				if n >= 15 {
+					break
+				}
+				n++
+				b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, n, esc(j.Project), esc(j.State)))
+			}
+			b.WriteString("</table>" + nl)
+			b.WriteString(`<tg-button-row align="left">`)
+			for i, j := range jobs {
+				if i >= 12 {
+					break
+				}
+				b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="m:git:ship:job:%s">%d</tg-button>`, j.ID, i+1))
+			}
+			if len(jobs) > 0 {
+				b.WriteString(`</tg-button-row>` + nl)
+			}
+			kb := map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("🔄", "m:git:ship:jobs", ""), btn("⬅️ Projects", "m:git:proj:list", "primary")},
+				{btn(T("main_menu"), "m:menu", "")},
+			}}
+			reply(token, chat, msgID, b.String(), kb)
+			return true
+		}
+		if strings.HasPrefix(shipSub, "job:") {
+			id := strings.TrimPrefix(shipSub, "job:")
+			j, err := gitstore.GetShipJob(id)
+			if err != nil {
+				reply(token, chat, msgID, "❌ "+esc(err.Error()), navKeyboard("m:git:ship:jobs", "Jobs"))
+				return true
+			}
+			var b strings.Builder
+			b.WriteString("🚀 <b>" + esc(j.ID) + "</b>" + nl)
+			b.WriteString("project <code>" + esc(j.Project) + "</code> state <code>" + esc(j.State) + "</code>" + nl)
+			b.WriteString(fmt.Sprintf("cursor=%d slot=%v tag=%s"+nl, j.Cursor, j.VpsSlot, esc(j.Tag)))
+			for i, s := range j.Steps {
+				b.WriteString(fmt.Sprintf("%d. %s — %s"+nl, i, esc(s.Name), esc(s.Status)))
+			}
+			if j.Error != "" {
+				b.WriteString("❌ " + esc(j.Error) + nl)
+			}
+			kb := map[string]any{"inline_keyboard": [][]map[string]any{
+				{btn("⏸", "m:git:ship:pause:"+id, ""), btn("▶️", "m:git:ship:resume:"+id, "primary")},
+				{btn("🗑", "m:git:ship:rm:"+id, "danger"), btn("⬅️ Jobs", "m:git:ship:jobs", "")},
+				{btn(T("main_menu"), "m:menu", "")},
+			}}
+			reply(token, chat, msgID, b.String(), kb)
+			return true
+		}
+		if strings.HasPrefix(shipSub, "pause:") {
+			id := strings.TrimPrefix(shipSub, "pause:")
+			err := gitstore.RequestShipPause(id)
+			msg := "✅ pause requested"
+			if err != nil {
+				msg = "❌ " + err.Error()
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:ship:jobs", "Jobs"))
+			return true
+		}
+		if strings.HasPrefix(shipSub, "resume:") {
+			id := strings.TrimPrefix(shipSub, "resume:")
+			job, out, err := gitstore.ResumeShip(id)
+			msg := "<pre>" + esc(truncateRunes(out, 2500)) + "</pre>"
+			if job != nil {
+				msg = "state <code>" + esc(job.State) + "</code>\n" + msg
+			}
+			if err != nil {
+				msg = "❌ " + esc(err.Error()) + "\n" + msg
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:ship:jobs", "Jobs"))
+			return true
+		}
+		if strings.HasPrefix(shipSub, "rm:") {
+			id := strings.TrimPrefix(shipSub, "rm:")
+			err := gitstore.RemoveShipJob(id)
+			msg := "✅ removed " + id
+			if err != nil {
+				msg = "❌ " + err.Error()
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:ship:jobs", "Jobs"))
+			return true
+		}
+	}
+
 
 	if strings.HasPrefix(rest, "proj:") {
 		sub := strings.TrimPrefix(rest, "proj:")
@@ -107,12 +205,12 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				})
 				rows = append(rows, []map[string]any{
 					btn("⬇️", "m:git:proj:sync:"+pr.Name, ""),
-					btn("▶️", "m:git:proj:build:"+pr.Name, ""),
+					btn("🚀", "m:git:proj:ship:"+pr.Name, ""),
 				})
 			}
 			rows = append(rows, []map[string]any{btn(T("git_add_proj"), "m:git:proj:add", "primary"), btn(T("git_migrate"), "m:git:proj:migrate", "")})
 			rows = append(rows, []map[string]any{btn(T("git_sync_all"), "m:git:proj:sync-all", ""), btn(T("git_build_all"), "m:git:proj:build-all", "")})
-			rows = append(rows, []map[string]any{btn(T("git_vps_queue"), "m:git:proj:vps-queue", "")})
+			rows = append(rows, []map[string]any{btn(T("git_vps_queue"), "m:git:proj:vps-queue", ""), btn("🚀 Jobs", "m:git:ship:jobs", "primary")})
 			rows = append(rows, []map[string]any{btn(T("git_mirror_all"), "m:git:proj:mirror-all", "")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
@@ -357,7 +455,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				}
 			}
 			kb := map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("⬇️ Sync", "m:git:proj:sync:"+name, ""), btn("▶️ Build", "m:git:proj:build:"+name, "primary")},
+				{btn("⬇️ Sync", "m:git:proj:sync:"+name, ""), btn("🚀 Ship", "m:git:proj:ship:"+name, "primary")},
 				{btn("⬅️ Projects", "m:git:proj:list", "primary"), btn(T("main_menu"), "m:menu", "")},
 			}}
 			reply(token, chat, msgID, b.String(), kb)
@@ -375,17 +473,32 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
-		if strings.HasPrefix(sub, "build:") {
+		if strings.HasPrefix(sub, "build:") || strings.HasPrefix(sub, "ship:") {
 			name := strings.TrimPrefix(sub, "build:")
-			out, err := gitstore.BuildProject(name, "")
-			msg := "<pre>" + esc(truncateRunes(out, 3000)) + "</pre>"
+			name = strings.TrimPrefix(name, "ship:")
+			tag := gitstore.NextProjectTag(name)
+			job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: name, Ref: "", Tag: tag})
+			msg := "<pre>" + esc(truncateRunes(out, 2800)) + "</pre>"
+			if job != nil {
+				msg = "job <code>" + esc(job.ID) + "</code> state=<code>" + esc(job.State) + "</code>\n" + msg
+			}
 			if err != nil {
 				msg = "❌ " + esc(err.Error()) + "\n" + msg
 			} else {
-				msg = "✅ build\n" + msg
+				msg = "🚀 ship\n" + msg
 			}
-			reply(token, chat, msgID, msg, navKeyboard("m:git:proj:list", "Projects"))
+			kb := navKeyboard("m:git:proj:list", "Projects")
+			if job != nil {
+				kb = map[string]any{"inline_keyboard": [][]map[string]any{
+					{btn("📋 Jobs", "m:git:ship:jobs", "primary"), btn("⬅️ Projects", "m:git:proj:list", "")},
+					{btn(T("main_menu"), "m:menu", "")},
+				}}
+			}
+			reply(token, chat, msgID, msg, kb)
 			return true
+		}
+		if sub == "ship-jobs" || sub == "jobs" {
+			// fallthrough handled below via m:git:ship
 		}
 	}
 	if strings.HasPrefix(rest, "repo:") {

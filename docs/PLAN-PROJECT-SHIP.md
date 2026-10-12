@@ -1,6 +1,6 @@
 # PLAN: Unified project ship (CI → pause → publish)
 
-**Status:** S0–S6 core done (0.9.357); TG/Web UI parity optional next  
+**Status:** S0–S6 core done (0.9.357); TG/Web UI parity **done 0.9.358**  
 **EN** · related: [PLAN-INTERNAL-RELEASES.md](PLAN-INTERNAL-RELEASES.md), [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md), [SELFHOST-GIT.md](SELFHOST-GIT.md)
 
 

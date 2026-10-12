@@ -658,6 +658,7 @@ const BTN = {
     ['git-repos','Repos','GET','/api/git/repos'],
     ['git-projects','Projects','GET','/api/git/projects'],
     ['git-project-queue','Mac queue','GET','/api/git/projects/queue?pending=1'],
+    ['git-ship-jobs','Ship jobs','GET','/api/git/projects/ship-jobs'],
     ['release-local-g','Local releases','GET','/api/release/local'],
     ['release-tags-g','Git tags','GET','/api/release/git-tags'],
     ['release-mirror-g','Mirror fetch (+auto build)','POST','/api/release/mirror-fetch','{}'],
@@ -1286,7 +1287,12 @@ const special = {
     if(!name||!upstream) return {error:'name and upstream'}; const workflow=document.getElementById('gitProjWf').value.trim(); const pipeline=document.getElementById('gitProjPipe').value.trim();
     const host=document.getElementById('gitProjMac')&&document.getElementById('gitProjMac').checked?'mac':'vps'; const build_on_fetch=!!(document.getElementById('gitProjOnFetch')&&document.getElementById('gitProjOnFetch').checked); return nodeFetch('/api/git/projects',{method:'POST',body:JSON.stringify({name,upstream,workflow,pipeline,host,build_on_fetch})}); },
   'git-proj-sync': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/sync',{method:'POST',body:JSON.stringify({name})}); },
-  'git-proj-build': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/build',{method:'POST',body:JSON.stringify({name})}); },
+  'git-proj-build': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/ship',{method:'POST',body:JSON.stringify({name})}); },
+  'git-proj-ship': async()=>{ const name=document.getElementById('gitProjName').value.trim(); if(!name) return {error:'name'}; return nodeFetch('/api/git/projects/ship',{method:'POST',body:JSON.stringify({name})}); },
+  'git-ship-jobs': async()=> nodeFetch('/api/git/projects/ship-jobs'),
+  'git-ship-pause': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'pause',id})}); },
+  'git-ship-resume': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'resume',id})}); },
+  'git-ship-rm': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'rm',id})}); },
   'git-proj-migrate': async()=>{
     const owner=(document.getElementById('gitMigOwner')?.value||'PavelNeyman').trim();
     const mode=(document.getElementById('gitMigMode')?.value||'dry');
