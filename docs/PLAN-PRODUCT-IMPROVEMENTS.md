@@ -21,9 +21,9 @@ Related: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md
 
 ## 3. Security & access
 
-- [ ] Active operator sessions list with explicit TTL (Web + TG).
-- [ ] Audit log viewer (stack apply / SSH enforce / reboot) in TG/Web.
-- [ ] Optional OIDC/SSO hook for Web (future multi-operator; design only for now).
+- [x] Active operator sessions list with explicit TTL (Web + TG).
+- [x] Audit log viewer (stack apply / SSH enforce / reboot) in TG/Web.
+- [x] Optional OIDC/SSO hook for Web (future multi-operator; design only for now).
 
 ## 4. UX & surface parity
 

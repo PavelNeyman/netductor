@@ -21,9 +21,9 @@
 
 ## 3. Безопасность и доступ
 
-- [ ] Список активных operator-сессий с явным TTL (Web + TG).
-- [ ] Просмотр audit log (stack apply / SSH enforce / reboot) в TG/Web.
-- [ ] Опциональный OIDC/SSO для Web (на будущее; пока только дизайн).
+- [x] Список активных operator-сессий с явным TTL (Web + TG).
+- [x] Просмотр audit log (stack apply / SSH enforce / reboot) в TG/Web.
+- [x] Опциональный OIDC/SSO для Web (на будущее; пока только дизайн).
 
 ## 4. UX и паритет поверхностей
 

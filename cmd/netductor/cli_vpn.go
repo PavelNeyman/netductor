@@ -334,7 +334,7 @@ func runVPN(args []string) {
 	case "session":
 		if len(rest) > 0 && (rest[0] == "list" || rest[0] == "ls") {
 			for _, s := range session.List() {
-				fmt.Printf("%s\texp=%d\tlabel=%s\tip=%s\n", s.HashPrefix, s.Exp, s.Label, s.IP)
+				fmt.Printf("%s\tremaining=%s\texp=%d\tlabel=%s\tip=%s\n", s.HashPrefix, s.Remaining, s.Exp, s.Label, s.IP)
 			}
 			return
 		}

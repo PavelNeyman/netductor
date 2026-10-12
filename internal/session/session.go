@@ -151,6 +151,7 @@ type SessionInfo struct {
 	Created    int64  `json:"created,omitempty"`
 	Label      string `json:"label,omitempty"`
 	IP         string `json:"ip,omitempty"`
+	Remaining  string `json:"remaining,omitempty"` // human TTL
 }
 
 // List returns active (non-expired) sessions from disk.
@@ -187,7 +188,20 @@ func List() []SessionInfo {
 		if len(pref) > 12 {
 			pref = pref[:12]
 		}
-		out = append(out, SessionInfo{HashPrefix: pref, Exp: m.Exp, Created: m.Created, Label: m.Label, IP: m.IP})
+		rem := formatRemaining(m.Exp - now)
+		out = append(out, SessionInfo{HashPrefix: pref, Exp: m.Exp, Created: m.Created, Label: m.Label, IP: m.IP, Remaining: rem})
 	}
 	return out
+}
+
+func formatRemaining(secs int64) string {
+	if secs <= 0 {
+		return "expired"
+	}
+	h := secs / 3600
+	m := (secs % 3600) / 60
+	if h > 0 {
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	return fmt.Sprintf("%dm", m)
 }

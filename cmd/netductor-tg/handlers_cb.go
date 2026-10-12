@@ -626,9 +626,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		if strings.TrimSpace(out) == "" {
 			out = "(empty)"
 		}
-		title := "📋 <b>Audit</b>\n"
+		title := "📋 <b>Audit</b> (last 100; includes stack/SSH/reboot)\n"
 		if getLang() != "en" {
-			title = "📋 <b>Аудит</b>\n"
+			title = "📋 <b>Аудит</b> (последние 100; stack/SSH/reboot)\n"
 		}
 		reply(token, chat, msgID, title+"<pre>"+esc(truncate(out, 3500))+"</pre>", operatorSubKeyboard())
 	case "m:sessions":
