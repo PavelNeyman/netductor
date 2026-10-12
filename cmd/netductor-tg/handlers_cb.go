@@ -342,6 +342,21 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			case "revoke":
 				out := runVPN("revoke", name)
 				reply(token, chat, msgID, "🗑 <pre>"+esc(out)+"</pre>", usersListKeyboard())
+			case "kind":
+				// u:kind:name:user|device
+				k := "user"
+				if len(parts) >= 4 && parts[3] != "" {
+					k = parts[3]
+				}
+				if err := vpn.SetKind(name, k); err != nil {
+					reply(token, chat, msgID, "❌ "+esc(err.Error()), userHubKeyboard(name))
+					return
+				}
+				msg := "✅ kind → <code>" + esc(k) + "</code>"
+				if getLang() != "en" {
+					msg = "✅ тип → <code>" + esc(k) + "</code>"
+				}
+				reply(token, chat, msgID, msg+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
 			}
 		}
 		return
@@ -617,19 +632,30 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:vpn_devices":
 		names := vpn.ListDeviceNames(false)
 		ru := getLang() != "en"
-		title := "📺 <b>Device profiles</b> (VLESS; hidden from Users)\n"
+		var b strings.Builder
 		if ru {
-			title = "📺 <b>Профили устройств</b> (VLESS; не в Users)\n"
+			b.WriteString("📺 <b>Профили устройств</b>\n")
+			b.WriteString("<i>Отдельные VLESS/sub-профили (Apple TV и т.п.). Не показываются в Users. UUID не меняется при смене kind.</i>\n")
+		} else {
+			b.WriteString("📺 <b>Device profiles</b>\n")
+			b.WriteString("<i>Separate VLESS/sub profiles (Apple TV, etc.). Hidden from Users. UUID kept when kind switches.</i>\n")
 		}
-		title += "<i>uuid сохраняется при kind user↔device</i>\n"
 		if len(names) == 0 {
-			title += "(empty)\n"
+			b.WriteString("<i>(empty — open a user card → mark as device)</i>\n")
 		}
 		for i, n := range names {
-			title += fmt.Sprintf("%d. <code>%s</code> · <tg-button type=\"callback_data\" data=\"u:open:%s\">card</tg-button>\n", i+1, esc(n), n)
+			b.WriteString(fmt.Sprintf("%d. <code>%s</code>\n", i+1, esc(n)))
 		}
-		title += `<tg-button-row><tg-button type="callback_data" data="m:users">« Users</tg-button></tg-button-row>`
-		reply(token, chat, msgID, title, usersListKeyboard())
+		b.WriteString(`<tg-button-row align="left">`)
+		for i, n := range names {
+			if i >= 12 {
+				break
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="u:open:%s">%d</tg-button>`, n, i+1))
+		}
+		b.WriteString(`</tg-button-row>`)
+		b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:users">« Users</tg-button></tg-button-row>`)
+		reply(token, chat, msgID, b.String(), usersListKeyboard())
 	case "m:users", "m:vpn_list":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:vpn_list_legacy":

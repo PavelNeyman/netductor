@@ -475,6 +475,15 @@ func reply(token string, chat int64, msgID int, text string, kb map[string]any) 
 	sendHTML(token, chat, text, kb)
 }
 
+// completeInput finishes a text wait: delete the user's reply if possible, then edit the singleton hub.
+// Avoids orphan "prompt" hub + user text + new menu stack.
+func completeInput(token string, chat int64, userMsgID int, text string, kb map[string]any) {
+	if userMsgID > 0 {
+		_ = deleteMessage(token, chat, userMsgID)
+	}
+	reply(token, chat, 0, text, kb)
+}
+
 // forceHub clears singleton state, tries to delete the old hub message, and always sends a new menu.
 // Use after user deleted hub "for me", cleared chat, or Topics recreate.
 func forceHub(token string, chat int64, text string, kb map[string]any) {

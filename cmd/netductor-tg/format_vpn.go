@@ -131,6 +131,9 @@ func formatUsersListHTML() string {
 	b.WriteString(`<tg-button-row align="left">` +
 		`<tg-button type="callback_data" data="m:presets">` + T("presets_btn") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:canary">` + T("canary_btn") + `</tg-button>` +
+		`</tg-button-row>`)
+	b.WriteString(`<tg-button-row align="left">` +
+		`<tg-button type="callback_data" data="m:vpn_devices">` + T("vpn_devices_btn") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:devices">` + T("devices_btn") + `</tg-button>` +
 		`</tg-button-row>`)
 	return b.String()
@@ -170,11 +173,20 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(fmt.Sprintf("<tr><td>limit</td><td><code>%.0f</code> GiB</td></tr>"+nl, lim))
 	prof := vpn.SubProfileOf(name)
 	b.WriteString(fmt.Sprintf("<tr><td>sub profile</td><td><code>%s</code></td></tr>"+nl, esc(prof)))
+
+	kind := "user"
+	if vpn.IsDeviceProfile(name) {
+		kind = "device"
+	}
+	b.WriteString(fmt.Sprintf("<tr><td>kind</td><td><code>%s</code></td></tr>"+nl, kind))
+
 	b.WriteString("</table>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">` + T("btn_link") + `</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:sub">` + T("btn_sub") + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="u:subprof:` + name + `">📡 sub</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="u:subprof:` + name + `">📡 sub</tg-button>` +
+	` <tg-button type="callback_data" data="u:kind:` + name + `:device">📺 device</tg-button>` +
+	` <tg-button type="callback_data" data="u:kind:` + name + `:user">👤 user</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="u:rename:` + name + `">✏️</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:50">50</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:200">200</tg-button>`)

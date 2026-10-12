@@ -18,6 +18,7 @@ func handleMessage(token string, m *message, admin int64) {
 		return
 	}
 	chat := m.Chat.ID
+	uid := m.MessageID
 	rememberFromMessage(m)
 	text := strings.TrimSpace(m.Text)
 
@@ -29,11 +30,11 @@ func handleMessage(token string, m *message, admin int64) {
 		mac := strings.TrimSpace(text)
 		setState(chat, "", "")
 		if mac == "" {
-			sendHTML(token, chat, T("cancelled"), mainKeyboard())
+			completeInput(token, chat, uid, T("cancelled"), mainKeyboard())
 			return
 		}
 		cmdID := edge.EnqueueCmd(id, "guest_revoke", mac)
-		sendHTML(token, chat, "✅ revoke queued <code>"+esc(cmdID)+"</code> mac=<code>"+esc(mac)+"</code>", navKeyboard("m:edgeguest:dev:"+id, "Guest"))
+		completeInput(token, chat, uid, "✅ revoke queued <code>"+esc(cmdID)+"</code> mac=<code>"+esc(mac)+"</code>", navKeyboard("m:edgeguest:dev:"+id, "Guest"))
 		return
 	}
 	if handleNVRMessage(token, chat, text) {
@@ -45,7 +46,7 @@ func handleMessage(token string, m *message, admin int64) {
 
 	if text == "/cancel" {
 		setState(chat, "", "")
-		sendHTML(token, chat, T("cancelled"), mainKeyboard())
+		completeInput(token, chat, uid, T("cancelled"), mainKeyboard())
 		return
 	}
 
@@ -56,11 +57,11 @@ func handleMessage(token string, m *message, admin int64) {
 		id := strings.ToLower(strings.TrimSpace(text))
 		if id == "" || id == "-" {
 			setState(chat, "", "")
-			sendHTML(token, chat, T("cancelled"), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+			completeInput(token, chat, uid, T("cancelled"), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
 			return
 		}
 		if err := sites.ValidateRoomID(id); err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
 			return
 		}
 		setState(chat, "wait_room_name", siteID+""+id)
@@ -68,7 +69,7 @@ func handleMessage(token string, m *message, admin int64) {
 		if getLang() != "en" {
 			msg = "Имя комнаты (или - = как id):"
 		}
-		sendHTML(token, chat, msg, navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+		completeInput(token, chat, uid, msg, navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
 		return
 	}
 	if st == "wait_room_name" {
@@ -84,10 +85,10 @@ func handleMessage(token string, m *message, admin int64) {
 		setState(chat, "", "")
 		out, err := sites.UpsertRoom(sites.Room{SiteID: siteID, ID: roomID, Name: name})
 		if err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
 			return
 		}
-		sendHTML(token, chat, "✅ room <code>"+esc(out.ID)+"</code>", navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
+		completeInput(token, chat, uid, "✅ room <code>"+esc(out.ID)+"</code>", navKeyboard("m:loc:rooms:"+siteID, "Rooms"))
 		return
 	}
 
@@ -102,7 +103,7 @@ func handleMessage(token string, m *message, admin int64) {
 		text := strings.TrimSpace(m.Text)
 		if text == "" || text == "/cancel" {
 			setState(chat, "", "")
-			sendHTML(token, chat, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
+			completeInput(token, chat, uid, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 			return
 		}
 		// numeric id
@@ -114,7 +115,7 @@ func handleMessage(token string, m *message, admin int64) {
 		setState(chat, "", "")
 		tok := strings.TrimSpace(text)
 		if tok == "" || tok == "-" {
-			sendHTML(token, chat, T("cancelled"), navKeyboard("m:updates", parentTools()))
+			completeInput(token, chat, uid, T("cancelled"), navKeyboard("m:updates", parentTools()))
 			return
 		}
 		kind := ndupdate.TokenKindReleases
@@ -122,7 +123,7 @@ func handleMessage(token string, m *message, admin int64) {
 			kind = strings.TrimPrefix(st, "wait_github_token:")
 		}
 		if err := ndupdate.SetTokenKind(kind, tok); err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:updates", parentTools()))
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), navKeyboard("m:updates", parentTools()))
 			return
 		}
 		stt := ndupdate.GetTokensStatus()
@@ -134,14 +135,14 @@ func handleMessage(token string, m *message, admin int64) {
 		if getLang() != "en" {
 			msg = "✅ GitHub token (" + kind + ") сохранён: <code>" + esc(hint) + "</code>"
 		}
-		sendHTML(token, chat, msg, navKeyboard("m:updates", parentTools()))
+		completeInput(token, chat, uid, msg, navKeyboard("m:updates", parentTools()))
 		return
 	}
 	// git project add: name → upstream → optional workflow path
 	if st == "wait_git_proj_name" {
 		name := strings.Fields(text)
 		if len(name) == 0 {
-			sendHTML(token, chat, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
+			completeInput(token, chat, uid, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
 			return
 		}
 		setState(chat, "wait_git_proj_up", name[0])
@@ -149,7 +150,7 @@ func handleMessage(token string, m *message, admin int64) {
 		if getLang() != "en" {
 			msg = "Upstream <b>org/repo</b> или URL:"
 		}
-		sendHTML(token, chat, msg, navKeyboard("m:git:proj:list", "Projects"))
+		completeInput(token, chat, uid, msg, navKeyboard("m:git:proj:list", "Projects"))
 		return
 	}
 	if st == "wait_git_proj_up" {
@@ -157,7 +158,7 @@ func handleMessage(token string, m *message, admin int64) {
 		up := strings.TrimSpace(text)
 		if name == "" || up == "" {
 			setState(chat, "", "")
-			sendHTML(token, chat, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
+			completeInput(token, chat, uid, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
 			return
 		}
 		setState(chat, "wait_git_proj_wf", name+"\x1f"+up)
@@ -165,14 +166,14 @@ func handleMessage(token string, m *message, admin int64) {
 		if getLang() != "en" {
 			msg = "Путь workflow (напр. <code>ci/netductor.yml</code>) или <code>-</code>:"
 		}
-		sendHTML(token, chat, msg, navKeyboard("m:git:proj:list", "Projects"))
+		completeInput(token, chat, uid, msg, navKeyboard("m:git:proj:list", "Projects"))
 		return
 	}
 	if st == "wait_git_proj_wf" {
 		parts := strings.SplitN(chatExtra[chat], "\x1f", 2)
 		setState(chat, "", "")
 		if len(parts) != 2 {
-			sendHTML(token, chat, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
+			completeInput(token, chat, uid, T("cancelled"), navKeyboard("m:git:proj:list", "Projects"))
 			return
 		}
 		name, up := parts[0], parts[1]
@@ -182,14 +183,14 @@ func handleMessage(token string, m *message, admin int64) {
 		}
 		pr := gitstore.Project{Name: name, Upstream: up, Workflow: wf}
 		if err := gitstore.AddProject(pr, true); err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), navKeyboard("m:git:proj:list", "Projects"))
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), navKeyboard("m:git:proj:list", "Projects"))
 			return
 		}
 		msg := "✅ project <code>" + esc(name) + "</code> → " + esc(up)
 		if wf != "" {
 			msg += " wf=<code>" + esc(wf) + "</code>"
 		}
-		sendHTML(token, chat, msg, navKeyboard("m:git:proj:list", "Projects"))
+		completeInput(token, chat, uid, msg, navKeyboard("m:git:proj:list", "Projects"))
 		return
 	}
 	if handleEdgeGuestText(token, chat, text) {
@@ -200,20 +201,20 @@ func handleMessage(token string, m *message, admin int64) {
 		newName := strings.Fields(text)
 		setState(chat, "", "")
 		if id == "" || len(newName) == 0 {
-			sendHTML(token, chat, T("nodes_rename"), nodesRenameKeyboard())
+			completeInput(token, chat, uid, T("nodes_rename"), nodesRenameKeyboard())
 			return
 		}
 		out := runND("nodes", "rename", id, newName[0])
 		// try apply on local if this is the VPS
 		_ = runND("nodes", "sync-local")
-		sendHTML(token, chat, fmt.Sprintf(T("nodes_done"), esc(id), esc(newName[0]))+string([]byte{10, 10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatNodesListHTML(), nodesKeyboard())
+		completeInput(token, chat, uid, fmt.Sprintf(T("nodes_done"), esc(id), esc(newName[0]))+string([]byte{10, 10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10})+formatNodesListHTML(), nodesKeyboard())
 		return
 	}
 	if st == "wait_edge_register" {
 		setState(chat, "", "")
 		f := strings.Fields(text)
 		if len(f) < 1 {
-			sendHTML(token, chat, T("edge_register_prompt"), routersKeyboard())
+			completeInput(token, chat, uid, T("edge_register_prompt"), routersKeyboard())
 			return
 		}
 		args := []string{"edge", "register", f[0]}
@@ -221,18 +222,18 @@ func handleMessage(token string, m *message, admin int64) {
 			args = append(args, "--site", f[1])
 		}
 		out := runND(args...)
-		sendHTML(token, chat, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
+		completeInput(token, chat, uid, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
 		return
 	}
 	if st == "wait_edge_set_site" {
 		setState(chat, "", "")
 		f := strings.Fields(text)
 		if len(f) < 2 {
-			sendHTML(token, chat, T("edge_set_site_prompt"), routersKeyboard())
+			completeInput(token, chat, uid, T("edge_set_site_prompt"), routersKeyboard())
 			return
 		}
 		out := runND("edge", "set-site", f[0], f[1])
-		sendHTML(token, chat, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
+		completeInput(token, chat, uid, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
 		return
 	}
 	if strings.HasPrefix(st, "wait_loc_rename:") {
@@ -240,15 +241,15 @@ func handleMessage(token string, m *message, admin int64) {
 		setState(chat, "", "")
 		s, ok := sites.Get(id)
 		if !ok {
-			sendHTML(token, chat, "❌ not found", backKeyboard())
+			completeInput(token, chat, uid, "❌ not found", backKeyboard())
 			return
 		}
 		s.Name = strings.TrimSpace(text)
 		if _, err := sites.Upsert(s); err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), nil)
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), nil)
 			return
 		}
-		sendHTML(token, chat, "✅ "+esc(s.Name), map[string]any{"inline_keyboard": [][]map[string]any{{btn("📍", "m:loc:open:"+id, ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		completeInput(token, chat, uid, "✅ "+esc(s.Name), map[string]any{"inline_keyboard": [][]map[string]any{{btn("📍", "m:loc:open:"+id, ""), btn(T("main_menu"), "m:menu", "primary")}}})
 		return
 	}
 	if strings.HasPrefix(st, "wait_quota:") {
@@ -256,50 +257,50 @@ func handleMessage(token string, m *message, admin int64) {
 		setState(chat, "", "")
 		gb, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
 		if err != nil || gb < 0 {
-			sendHTML(token, chat, "❌ Число GiB, например 100", backKeyboard())
+			completeInput(token, chat, uid, "❌ Число GiB, например 100", backKeyboard())
 			return
 		}
 		_ = vpn.SetSoftLimitGB(name, gb)
-		sendHTML(token, chat, formatUserHubHTML(name), userHubKeyboard(name))
+		completeInput(token, chat, uid, formatUserHubHTML(name), userHubKeyboard(name))
 		return
 	}
 	if st == "wait_backup_keep" {
 		setState(chat, "", "")
 		n, err := strconv.Atoi(strings.TrimSpace(text))
 		if err != nil {
-			sendHTML(token, chat, "❌ number 1–90", backKeyboard())
+			completeInput(token, chat, uid, "❌ number 1–90", backKeyboard())
 			return
 		}
 		_ = install.SetBackupKeepCount(n)
-		sendHTML(token, chat, "✅ keep="+strconv.Itoa(install.BackupKeepCount()), map[string]any{"inline_keyboard": [][]map[string]any{{btn("🗓", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		completeInput(token, chat, uid, "✅ keep="+strconv.Itoa(install.BackupKeepCount()), map[string]any{"inline_keyboard": [][]map[string]any{{btn("🗓", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 		return
 	}
 	if st == "wait_backup_time" {
 		setState(chat, "", "")
 		h, m, err := install.ParseHHMM(text)
 		if err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), nil)
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), nil)
 			return
 		}
 		s := install.BackupSchedule{Hour: h, Minute: m, UTC: true}
 		if err := install.SaveBackupSchedule(s); err != nil {
-			sendHTML(token, chat, "❌ "+esc(err.Error()), nil)
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), nil)
 			return
 		}
-		sendHTML(token, chat, "✅ Backup schedule: <code>"+install.FormatBackupSchedule(s)+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{{btn("🗓 Backup", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")}}})
+		completeInput(token, chat, uid, "✅ Backup schedule: <code>"+install.FormatBackupSchedule(s)+"</code>", map[string]any{"inline_keyboard": [][]map[string]any{{btn("🗓 Backup", "m:backup", ""), btn(T("main_menu"), "m:menu", "primary")}}})
 		return
 	}
 	if st == "wait_ssh_forget" {
 		id := strings.Fields(text)[0]
 		out := runND("ssh-hosts", "forget", id)
 		setState(chat, "", "")
-		sendHTML(token, chat, fmt.Sprintf(T("ssh_forgot"), esc(id))+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
+		completeInput(token, chat, uid, fmt.Sprintf(T("ssh_forgot"), esc(id))+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
 		return
 	}
 	if st == "wait_backup_peer" {
 		setState(chat, "", "")
 		out := runND("backup", "peer-set", strings.TrimSpace(text))
-		sendHTML(token, chat, "💾 <pre>"+esc(out)+"</pre>", nodesKeyboard())
+		completeInput(token, chat, uid, "💾 <pre>"+esc(out)+"</pre>", nodesKeyboard())
 		return
 	}
 	if strings.HasPrefix(st, "wait_rename_new:") {
@@ -307,40 +308,41 @@ func handleMessage(token string, m *message, admin int64) {
 		newName := strings.Fields(text)
 		setState(chat, "", "")
 		if len(newName) < 1 {
-			sendHTML(token, chat, Tf("rename_new_hint", old), userHubKeyboard(old))
+			completeInput(token, chat, uid, Tf("rename_new_hint", old), userHubKeyboard(old))
 			return
 		}
 		out := runVPN("rename", old, newName[0])
-		sendHTML(token, chat, "✏️ <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(newName[0]), userHubKeyboard(newName[0]))
+		completeInput(token, chat, uid, "✏️ <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(newName[0]), userHubKeyboard(newName[0]))
 		return
 	}
 	if st == "wait_vpn_rename" {
 		fields := strings.Fields(text)
 		setState(chat, "", "")
 		if len(fields) < 2 {
-			sendHTML(token, chat, T("vpn_rename_hint"), vpnKeyboard())
+			completeInput(token, chat, uid, T("vpn_rename_hint"), usersListKeyboard())
 			return
 		}
 		out := runVPN("rename", fields[0], fields[1])
-		sendHTML(token, chat, "✏️ <pre>"+esc(out)+"</pre>", vpnKeyboard())
+		completeInput(token, chat, uid, "✏️ <pre>"+esc(out)+"</pre>\n\n"+formatUsersListHTML(), usersListKeyboard())
 		return
 	}
 	if st == "wait_vpn_add_name" {
 		fields := strings.Fields(text)
 		if len(fields) == 0 {
-			sendHTML(token, chat, T("vpn_add"), backKeyboard())
+			completeInput(token, chat, uid, T("add_prompt"), backTo("users"))
 			return
 		}
 		name := fields[0]
 		out := runVPN("add", name)
 		setState(chat, "", "")
 		sub := runVPN("link", name)
-		sendHTML(token, chat, "✅ <pre>"+esc(out)+"</pre>\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
+		body := "✅ <pre>" + esc(out) + "</pre>\n\n<pre>" + esc(sub) + "</pre>\n\n" + formatUserHubHTML(name)
+		completeInput(token, chat, uid, body, userHubKeyboard(name))
 		return
 	}
 	if st == "wait_relay_host" {
 		setState(chat, "wait_relay_user:"+text, "")
-		sendHTML(token, chat, T("enroll_user"), backTo("nodes"))
+		completeInput(token, chat, uid, T("enroll_user"), backTo("nodes"))
 		return
 	}
 	if strings.HasPrefix(st, "wait_relay_user:") {
@@ -350,7 +352,7 @@ func handleMessage(token string, m *message, admin int64) {
 			user = "root"
 		}
 		setState(chat, "wait_relay_pass:"+host+"|"+user, "")
-		sendHTML(token, chat, T("enroll_pass"), backTo("nodes"))
+		completeInput(token, chat, uid, T("enroll_pass"), backTo("nodes"))
 		return
 	}
 	if strings.HasPrefix(st, "wait_relay_pass:") {
@@ -362,9 +364,9 @@ func handleMessage(token string, m *message, admin int64) {
 		}
 		pass := text
 		setState(chat, "", "")
-		sendHTML(token, chat, fmt.Sprintf(T("enroll_wait"), esc(host)), nil)
+		completeInput(token, chat, uid, fmt.Sprintf(T("enroll_wait"), esc(host)), nil)
 		out := runND("secondary", "provision", "--host", host, "--user", user, "--password", pass, "--sni", "ya.ru")
-		sendHTML(token, chat, "✅ <b>Relay</b>"+string([]byte{10})+"<pre>"+esc(truncate(out, 3500))+"</pre>"+string([]byte{10})+formatRelayListHTML(), relayKeyboard())
+		completeInput(token, chat, uid, "✅ <b>Relay</b>"+string([]byte{10})+"<pre>"+esc(truncate(out, 3500))+"</pre>"+string([]byte{10})+formatRelayListHTML(), relayKeyboard())
 		return
 	}
 
@@ -373,7 +375,7 @@ func handleMessage(token string, m *message, admin int64) {
 		fields := strings.Fields(text)
 		if len(fields) == 0 {
 			setState(chat, "", "")
-			sendHTML(token, chat, T("unknown"), mainKeyboard())
+			completeInput(token, chat, uid, T("unknown"), mainKeyboard())
 			return
 		}
 		name := fields[0]
@@ -381,15 +383,15 @@ func handleMessage(token string, m *message, admin int64) {
 		switch action {
 		case "vpn_link":
 			sub := runVPN("link", name, "vless")
-			sendHTML(token, chat, "🔗 <b>"+esc(name)+"</b>\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
+			completeInput(token, chat, uid, "🔗 <b>"+esc(name)+"</b>\n\n<pre>"+esc(sub)+"</pre>", userCardKeyboard(name, strings.TrimSpace(sub)))
 		case "vpn_sub":
-			sendHTML(token, chat, "ℹ️ Subscription removed. Open user → Access.", userHubKeyboard(name))
+			completeInput(token, chat, uid, "ℹ️ Subscription removed. Open user → Access.", userHubKeyboard(name))
 		case "vpn_disable":
-			sendHTML(token, chat, "🚫 <pre>"+esc(runVPN("disable", name))+"</pre>", backKeyboard())
+			completeInput(token, chat, uid, "🚫 <pre>"+esc(runVPN("disable", name))+"</pre>", backKeyboard())
 		case "vpn_enable":
-			sendHTML(token, chat, "✅ <pre>"+esc(runVPN("enable", name))+"</pre>", backKeyboard())
+			completeInput(token, chat, uid, "✅ <pre>"+esc(runVPN("enable", name))+"</pre>", backKeyboard())
 		case "vpn_revoke":
-			sendHTML(token, chat, "🗑 <pre>"+esc(runVPN("revoke", name))+"</pre>", backKeyboard())
+			completeInput(token, chat, uid, "🗑 <pre>"+esc(runVPN("revoke", name))+"</pre>", backKeyboard())
 		}
 		return
 	}
@@ -417,7 +419,7 @@ func handleMessage(token string, m *message, admin int64) {
 
 	parts := strings.Fields(text)
 	if len(parts) == 0 {
-		sendHTML(token, chat, menuText(), mainKeyboard())
+		completeInput(token, chat, uid, menuText(), mainKeyboard())
 		return
 	}
 	cmd := parts[0]
