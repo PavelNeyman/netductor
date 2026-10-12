@@ -1,3 +1,8 @@
+## 0.9.350
+
+- TG: user profile card button rows ≤5 (Telegram limit) — menu no longer drops on profile select
+- Web op: edge form prefill from operator config restored
+
 ## 0.9.340
 
 - recover-drill: `netductor backup drill-mark` writes timestamp for digest age

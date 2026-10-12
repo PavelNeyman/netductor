@@ -1,3 +1,5 @@
+**0.9.350:** TG user card ≤5 btn rows; Web edge form prefill from operator config.
+
 **0.9.291:** Edge hybrid plan → done; internal-releases migration runbook (GH→primary git+build).
 
 **0.9.290:** no TG page on Reality invalid *total* (scanners); reality-sec only if uplink down.
