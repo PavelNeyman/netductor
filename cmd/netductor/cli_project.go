@@ -137,8 +137,50 @@ Ship job store: PLAN-PROJECT-SHIP S0`)
 		fmt.Println("v0.0.1")
 		return 0
 	case "ship":
-		fmt.Fprintln(os.Stderr, "project ship: implement in S1 (job store is S0). See docs/PLAN-PROJECT-SHIP.md")
-		return 2
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor project ship <name> [--ref REF] [--tag vX.Y.Z]")
+			return 2
+		}
+		name := args[1]
+		ref, tag := "", ""
+		for i := 2; i < len(args); i++ {
+			switch args[i] {
+			case "--ref":
+				if i+1 < len(args) {
+					ref = args[i+1]
+					i++
+				}
+			case "--tag":
+				if i+1 < len(args) {
+					tag = args[i+1]
+					i++
+				}
+			}
+		}
+		// netductor product matrix → update.Ship (S2 fold-in)
+		if name == "netductor" {
+			fmt.Fprintln(os.Stderr, "project ship netductor: use release path via update.Ship…")
+			got, dst, logPath, err := ndupdate.Ship(ndupdate.ShipOpts{Tag: tag, SkipDarwin: false})
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				if logPath != "" {
+					fmt.Fprintln(os.Stderr, "log", logPath)
+				}
+				return 1
+			}
+			fmt.Println("ok", got, "→", dst)
+			return 0
+		}
+		job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: name, Ref: ref, Tag: tag})
+		fmt.Print(out)
+		if job != nil {
+			fmt.Printf("job id=%s state=%s\n", job.ID, job.State)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
 	case "pause", "resume", "complete":
 		fmt.Fprintln(os.Stderr, "project", args[0]+": implement in S3/S4. Job store: project jobs | project job rm")
 		return 2

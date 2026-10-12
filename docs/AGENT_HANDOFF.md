@@ -1,3 +1,5 @@
+**0.9.356:** PLAN-PROJECT-SHIP **S1** — `project ship` for host=vps + mac wait; netductor→Ship matrix.
+
 **0.9.355:** PLAN-PROJECT-SHIP **S0** — job store + `netductor project jobs|job rm|next`. Ship runner S1 next.
 
 **PLAN-PROJECT-SHIP decisions locked** (2026-10-12): no timeout; job rm; resume no redo ok steps; project ship only; hard cut old CLI; implement S0→S6.

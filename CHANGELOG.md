@@ -1,3 +1,9 @@
+## 0.9.356
+
+- S1: `netductor project ship <name>` — job + VPS slot + build + publish artifacts (host=mac → waiting_external)
+- `project ship netductor` → update.Ship (releases matrix)
+- `git project build` removed (use project ship)
+
 ## 0.9.355
 
 - S0 PLAN-PROJECT-SHIP: ship job store (`ship-jobs/`), states, vps_slot, CLI `project jobs|job|job rm|next`

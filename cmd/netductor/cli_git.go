@@ -308,6 +308,9 @@ func runGitProject(args []string) int {
 		}
 		return 0
 	case "build":
+		fmt.Fprintln(os.Stderr, "git project build removed — use: netductor project ship <name> [--ref REF] [--tag vX]")
+		return 2
+		// unreachable legacy:
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor git project build <name> [ref]")
 			return 2
