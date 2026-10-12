@@ -1,3 +1,8 @@
+## 0.9.355
+
+- S0 PLAN-PROJECT-SHIP: ship job store (`ship-jobs/`), states, vps_slot, CLI `project jobs|job|job rm|next`
+- `project ship` / pause / resume / complete → later phases
+
 ## 0.9.354
 
 - release ship: tests → matrix → local releases (failed tests do not publish)

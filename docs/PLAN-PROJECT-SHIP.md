@@ -1,6 +1,6 @@
 # PLAN: Unified project ship (CI → pause → publish)
 
-**Status:** agreed design · **not implemented** (as of 0.9.354)  
+**Status:** S0 done (0.9.355) · S1+ pending  
 **EN** · related: [PLAN-INTERNAL-RELEASES.md](PLAN-INTERNAL-RELEASES.md), [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md), [SELFHOST-GIT.md](SELFHOST-GIT.md)
 
 
@@ -205,7 +205,7 @@ One backend; thin UIs (existing architecture rule).
 
 | Phase | Deliverable |
 |--|--|
-| **S0** | Job JSON schema + store; states; `vps_slot`; list/status CLI |
+| **S0** | Job JSON schema + store; states; `vps_slot`; list/status CLI | **done 0.9.355** |
 | **S1** | VPS worker respects slot; `project ship` for `host=vps` + `publish=artifacts` (generic) |
 | **S2** | Fold **netductor** `release ship` into `project ship netductor` (`publish=releases`) |
 | **S3** | Pause after step + resume; no container while paused |
