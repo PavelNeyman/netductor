@@ -6,17 +6,23 @@ import (
 	"strings"
 
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 )
 
 func runRelease(args []string) int {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, `usage:
   netductor release list-local
-  netductor release import <tag> <dir>   # copy assets into /var/lib/netductor/releases/<tag>
-  netductor release path [tag]           # print store root or tag dir
-  netductor release build <tag> [--skip-darwin]  # docker golang → local store
-  netductor release build-host <tag> [--skip-darwin]  # local go (op/Mac)
-  netductor release prune [--keep N]  # keep newest N local tags (default 5)`)
+  netductor release next              # print next auto tag (patch +1)
+  netductor release ship [tag] [--skip-test] [--skip-darwin]
+       # full cycle: tests → matrix → /var/lib/netductor/releases/<tag>
+       # tag empty → auto next
+  netductor release build [tag] [--skip-darwin]  # matrix only (no tests); tag empty → auto next
+  netductor release build-host <tag> [--skip-darwin]
+  netductor release import <tag> <dir>
+  netductor release path [tag]
+  netductor release prune [--keep N]
+  netductor release prune-artifacts [--keep N]  # CI logs under git-artifacts`)
 		return 2
 	}
 	switch args[0] {
@@ -33,6 +39,14 @@ func runRelease(args []string) int {
 		for _, t := range tags {
 			fmt.Println(t)
 		}
+		return 0
+	case "next":
+		t, err := ndupdate.NextReleaseTag()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println(t)
 		return 0
 	case "path":
 		if len(args) >= 2 {
@@ -74,6 +88,20 @@ func runRelease(args []string) int {
 			fmt.Println("removed", t)
 		}
 		return 0
+	case "prune-artifacts":
+		keep := 20
+		for i := 1; i < len(args); i++ {
+			if args[i] == "--keep" && i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%d", &keep)
+				i++
+			}
+		}
+		if err := gitstore.PruneArtifacts(keep); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("ok artifacts keep", keep, gitstore.ArtifactDir())
+		return 0
 	case "build-host":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor release build-host <tag> [--skip-darwin]")
@@ -94,23 +122,67 @@ func runRelease(args []string) int {
 		fmt.Println("ok", dst)
 		return 0
 	case "build":
-		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor release build <tag> [--skip-darwin]")
-			return 2
-		}
+		tag := ""
 		skipD := false
-		for _, a := range args[2:] {
+		for _, a := range args[1:] {
 			if a == "--skip-darwin" {
 				skipD = true
+				continue
 			}
+			if strings.HasPrefix(a, "-") {
+				continue
+			}
+			tag = a
 		}
-		fmt.Fprintln(os.Stderr, "release build", args[1], "(docker golang; may take several minutes)")
-		dst, err := ndupdate.BuildLocal(ndupdate.BuildOpts{Tag: args[1], SkipDarwin: skipD})
+		if tag == "" {
+			var err error
+			tag, err = ndupdate.NextReleaseTag()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			fmt.Fprintln(os.Stderr, "auto tag", tag)
+		}
+		fmt.Fprintln(os.Stderr, "release build", tag, "(matrix only; use 'release ship' for tests+matrix)")
+		dst, err := ndupdate.BuildLocal(ndupdate.BuildOpts{Tag: tag, SkipDarwin: skipD})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 		fmt.Println("ok", dst)
+		return 0
+	case "ship":
+		tag := ""
+		skipT, skipD := false, false
+		for _, a := range args[1:] {
+			switch a {
+			case "--skip-test":
+				skipT = true
+			case "--skip-darwin":
+				skipD = true
+			default:
+				if !strings.HasPrefix(a, "-") {
+					tag = a
+				}
+			}
+		}
+		if tag == "" {
+			fmt.Fprintln(os.Stderr, "ship auto-tag…")
+		} else {
+			fmt.Fprintln(os.Stderr, "ship", tag)
+		}
+		got, dst, logPath, err := ndupdate.Ship(ndupdate.ShipOpts{Tag: tag, SkipTest: skipT, SkipDarwin: skipD})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			if logPath != "" {
+				fmt.Fprintln(os.Stderr, "log", logPath)
+			}
+			return 1
+		}
+		fmt.Println("ok", got, "→", dst)
+		if logPath != "" {
+			fmt.Println("log", logPath)
+		}
 		return 0
 	default:
 		fmt.Fprintln(os.Stderr, "unknown release subcommand:", args[0])

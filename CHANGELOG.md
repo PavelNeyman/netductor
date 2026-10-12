@@ -1,3 +1,9 @@
+## 0.9.354
+
+- release ship: tests → matrix → local releases (failed tests do not publish)
+- release next / build without tag: auto patch bump
+- git-artifacts prune (release prune-artifacts; keep 20 after ship)
+
 ## 0.9.353
 
 - TG: device profiles list uses same table + # buttons pattern as Users

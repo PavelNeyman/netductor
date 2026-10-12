@@ -225,3 +225,20 @@ netductor secondary cmd <id> upgrade:v0.9.351
 
 `stack apply` without tag uses **local latest** when present (0.9.351+), else GitHub.
 Op on Mac still defaults to GitHub unless you `release import` on Mac cache or download assets via VPN from primary (scp).
+
+
+## Unified release cycle (`release ship`)
+
+```bash
+netductor release next          # e.g. v0.9.354
+netductor release ship          # auto next: tests → matrix → releases/<tag>
+netductor release ship v1.0.0   # explicit tag (skip auto)
+netductor release ship --skip-test   # matrix only (not recommended)
+
+netductor release list-local
+netductor stack apply           # uses local latest when present
+```
+
+- **git project build** — CI for *any* project (tests/logs → `git-artifacts/`, pruned).
+- **release ship** — netductor product cycle; failed tests **do not** publish to `releases/`.
+- **release build** — matrix only (legacy/debug); prefer **ship**.

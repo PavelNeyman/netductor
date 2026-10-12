@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -423,4 +424,36 @@ func RunWorkflow(repo, workflowPath string) (string, error) {
 		log = log + "\n# artifact: " + ap + "\n"
 	}
 	return log, err
+}
+
+
+// PruneArtifacts keeps the newest keep files under ArtifactDir (recursive), deletes older.
+func PruneArtifacts(keep int) error {
+	if keep < 1 {
+		keep = 20
+	}
+	root := ArtifactDir()
+	var files []string
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
+	sort.Slice(files, func(i, j int) bool {
+		si, _ := os.Stat(files[i])
+		sj, _ := os.Stat(files[j])
+		if si == nil || sj == nil {
+			return files[i] > files[j]
+		}
+		return si.ModTime().After(sj.ModTime())
+	})
+	for i, f := range files {
+		if i < keep {
+			continue
+		}
+		_ = os.Remove(f)
+	}
+	return nil
 }

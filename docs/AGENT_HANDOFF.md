@@ -1,3 +1,5 @@
+**0.9.354:** release ship (test+matrix), auto next tag, artifact prune.
+
 **0.9.353:** TG device profiles table parity with Users.
 
 **0.9.351:** CI sequential tests + mem limits; local releases preferred for stack/update.

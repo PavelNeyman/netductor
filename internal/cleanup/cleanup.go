@@ -71,6 +71,15 @@ func Run(apply bool) Report {
 	// Stack attempt after successful apply
 	addFile("dir", filepath.Join(paths.StateDir(), "stack", "attempt"), "stack apply scratch")
 
+	// CI workflow logs / project build artifacts
+	art := filepath.Join(paths.StateDir(), "git-artifacts")
+	if ents, err := os.ReadDir(art); err == nil {
+		for _, e := range ents {
+			addFile("dir", filepath.Join(art, e.Name()), "git CI artifact (prune with release prune-artifacts)")
+		}
+	}
+
+
 	// sing-box atomic tmp
 	addFile("file", "/usr/local/etc/sing-box/config.json.tmp", "incomplete sing-box write")
 
