@@ -1,5 +1,7 @@
 # PLAN: Product improvements (post-0.9.339)
 
+**Policy:** new PLAN documents ship as EN+RU pair, or are explicitly marked "EN-only draft".
+
 **Status:** proposed → **closed** (recorded 2026-10-12).  
 Hardware e2e (OpenWrt / Tapo / MikroTik / NVR lab) intentionally excluded — remains in OPEN_ITEMS as lab-only.
 
@@ -44,9 +46,9 @@ Related: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md
 
 ## 7. DX / docs
 
-- [ ] Document “fast” test profile and how to run suite on ~2 GiB (skip heavy packages).
-- [ ] `doctor` or pre-check: VERSION matches latest GitHub tag.
-- [ ] Policy: new PLAN docs ship EN+RU or are marked EN-only draft.
+- [x] Document “fast” test profile and how to run suite on ~2 GiB (skip heavy packages).
+- [x] `doctor` or pre-check: VERSION matches latest GitHub tag.
+- [x] Policy: new PLAN docs ship EN+RU or are marked EN-only draft.
 
 ## 8. Telegram menu structure & logic (new)
 

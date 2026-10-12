@@ -730,6 +730,20 @@ func runDoctorNative() int {
 		Detail: "client → VPN → blocky (ads/YouTube filtering) or direct system DNS. PROXY path uses node blocky; DIRECT uses client DNS.",
 	})
 	doctorPrintln("INFO dns-path: client→VPN→blocky vs direct (see detail)")
+	// VERSION vs latest GitHub tag (best-effort)
+	ver := strings.TrimSpace(string(mustReadFile("VERSION")))
+	if ver == "" {
+		ver = version.Running()
+	}
+	latest := latestGitHubTag()
+	if latest != "" && latest != ver && latest != "v"+ver {
+		warnCheck("VERSION matches latest GitHub tag", false)
+		lastDoctorReport.Checks = append(lastDoctorReport.Checks, DoctorCheck{
+			ID: "version-tag", Status: "warn", Detail: "local="+ver+" latest="+latest,
+		})
+	} else if latest != "" {
+		check("VERSION matches latest GitHub tag", true)
+	}
 	lastDoctorReport.Summary.OK = ok
 	lastDoctorReport.Summary.Fail = fail
 	lastDoctorReport.Summary.Warn = warn
@@ -752,4 +766,33 @@ func dockerLampacHealthy() bool {
 	}
 	s := strings.TrimSpace(string(out))
 	return s == "healthy" || s == ""
+}
+
+func mustReadFile(name string) []byte {
+	b, err := os.ReadFile(name)
+	if err != nil {
+		return nil
+	}
+	return b
+}
+
+func latestGitHubTag() string {
+	// Best-effort: try gh or curl to GitHub API. Silent on failure.
+	if out, err := exec.Command("gh", "api", "repos/PavelNeyman/netductor/releases/latest", "--jq", ".tag_name").CombinedOutput(); err == nil {
+		return strings.TrimSpace(string(out))
+	}
+	if out, err := exec.Command("curl", "-fsS", "--max-time", "5", "https://api.github.com/repos/PavelNeyman/netductor/releases/latest").CombinedOutput(); err == nil {
+		// crude parse
+		s := string(out)
+		if i := strings.Index(s, `"tag_name":`); i >= 0 {
+			rest := s[i+len(`"tag_name":`):]
+			if j := strings.Index(rest, `"`); j >= 0 {
+				rest = rest[j+1:]
+				if k := strings.Index(rest, `"`); k >= 0 {
+					return rest[:k]
+				}
+			}
+		}
+	}
+	return ""
 }
