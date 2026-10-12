@@ -71,3 +71,7 @@
 - [x] 10 реп: default `main`, Actions off, entry yaml по имени репы
 
 Ревью: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md) · комплекс: [REVIEW-SUITE.md](REVIEW-SUITE.md).
+
+
+- [ ] Read-only guest operator session — будущее
+- [ ] OIDC operator login — [OIDC-DESIGN](../OIDC-DESIGN.md); когда появится IdP

@@ -3,6 +3,7 @@ package fleet
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/channels"
 )
@@ -52,6 +53,19 @@ func ActionRequired() []Action {
 			ID: "backup-verify", Severity: "warn",
 			Title: "Backup verify failed", TitleRU: "Backup verify не прошёл",
 			Hint: d.BackupVerify,
+		})
+	} else if d.BackupVerify == "" {
+		add(Action{
+			ID: "backup-verify-missing", Severity: "info",
+			Title: "No backup verify yet", TitleRU: "Backup verify ещё не запускали",
+			Hint: "netductor backup verify · timer InstallBackupVerifyTimer",
+		})
+	} else if age := backupVerifyAgeDays(d.BackupVerify); age >= 14 {
+		add(Action{
+			ID: "backup-verify-stale", Severity: "warn",
+			Title: fmt.Sprintf("Backup verify %dd ago", age),
+			TitleRU: fmt.Sprintf("Backup verify %d дн. назад", age),
+			Hint: "weekly timer or: netductor backup verify",
 		})
 	}
 	if d.RecoverDrillDays != nil && *d.RecoverDrillDays > 90 {
@@ -111,4 +125,20 @@ func FormatActionsHTML(ru bool) string {
 		}
 	}
 	return b.String()
+}
+
+
+// backupVerifyAgeDays parses last.txt second line RFC3339; -1 if unknown.
+func backupVerifyAgeDays(raw string) int {
+	lines := strings.Split(raw, "\n")
+	for _, ln := range lines {
+		ln = strings.TrimSpace(ln)
+		if ln == "" || strings.HasPrefix(ln, "ok ") || strings.HasPrefix(ln, "fail") {
+			continue
+		}
+		if ts, err := time.Parse(time.RFC3339, ln); err == nil {
+			return int(time.Since(ts).Hours() / 24)
+		}
+	}
+	return -1
 }

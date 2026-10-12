@@ -428,6 +428,12 @@ func Recover(archive, keyArg string) error {
 	// Agent plane: allow known secondary public IPs on :8789 (restored registry + api-allow.cidr)
 	_ = SyncAgentAllowFromSecondaryRegistry()
 	_ = ApplyAgentFirewall()
+	if err := MarkRecoverDrill(); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: drill-mark: %v\n", err)
+	} else {
+		fmt.Fprintln(os.Stderr, "recover: drill-mark OK (recover-drill-last.txt)")
+		notify.AlertOnce("backup:drill-ok", "✅ Recover drill marked (auto after successful recover)")
+	}
 	fmt.Fprintln(os.Stderr, "recover: done")
 	return nil
 }
@@ -499,6 +505,17 @@ func pruneBackups(dir string, keep int) {
 // PrunePeerBackups trims secondary offsite copies under peers/core.
 func PrunePeerBackups(keep int) {
 	pruneBackups("/var/lib/netductor/backups/peers/core", keep)
+}
+
+
+// MarkRecoverDrill records a successful recovery/restore drill timestamp for fleet digest.
+func MarkRecoverDrill() error {
+	p := filepath.Join(paths.StateDir(), "recover-drill-last.txt")
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		return err
+	}
+	line := fmt.Sprintf("%d\n", time.Now().Unix())
+	return os.WriteFile(p, []byte(line), 0o600)
 }
 
 // RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().

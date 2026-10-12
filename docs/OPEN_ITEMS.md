@@ -14,7 +14,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 Full review complex: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md).
 
 
-**v0.9.341** (2026-10-12) — product improvements PLAN closed; prior 0.9.339 host security.
+**v0.9.342** (2026-10-12) — product improvements PLAN closed; prior 0.9.339 host security.
 
 ### Closed in 0.9.320–0.9.331 (security / DNS / SSH)
 
@@ -34,6 +34,10 @@ Full review complex: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/REVIEW-SUITE.md](
 - [x] TG Day2 Tools (no Status/Users/Fleet clones); hub labels via `T()`
 
 ### Still open (lab / product, not code blockers)
+
+- [ ] **Read-only guest operator session** (status/users view only; no stack/firewall/reboot) — future
+- [ ] **OIDC operator login** — design in [OIDC-DESIGN.md](OIDC-DESIGN.md); implement when external IdP exists — future
+
 
 ## Design plans (docs)
 
