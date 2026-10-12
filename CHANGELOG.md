@@ -1,3 +1,14 @@
+## 0.9.340
+
+- Incident timeline (alert/recovery) for API, TG, Web
+- Clearer build_on_fetch UX + visible weekly CI cleanup policy
+- Explicit operator session TTL; audit viewer notes; OIDC design
+- Compact TG primary status card
+- Backup verify status + recover-drill age in fleet digest
+- Explicit DNS path note in doctor + Web
+- Fast-test profile docs (~2 GiB); doctor VERSION vs GitHub tag; PLAN EN+RU policy
+
+
 ## 0.9.291
 
 - Docs: Edge deploy hybrid marked done; migrate-from-GitHub runbook (SELFHOST-GIT + PLAN-INTERNAL-RELEASES)
