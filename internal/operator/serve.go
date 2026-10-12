@@ -126,6 +126,33 @@ func Serve(o ServeOpts) error {
 			"auth":            "X-Netductor-Token",
 		})
 	})
+	mux.HandleFunc("/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "GET only", 405)
+			return
+		}
+		home, _ := os.UserHomeDir()
+		cfgPath := filepath.Join(home, ".config", "netductor", "tui.yaml")
+		out := map[string]string{}
+		if b, err := os.ReadFile(cfgPath); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				if i := strings.Index(line, ":"); i > 0 {
+					k := strings.TrimSpace(line[:i])
+					v := strings.Trim(strings.TrimSpace(line[i+1:]), `"'`)
+					switch k {
+					case "remote_host", "remote_key", "remote_user", "secondary_host", "last_edge_id":
+						out[k] = v
+					}
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(out)
+	})
 	mux.HandleFunc("/v1/fleet", func(w http.ResponseWriter, r *http.Request) { handleFleet(w, r, token) })
 	mux.HandleFunc("/v1/primary", func(w http.ResponseWriter, r *http.Request) { handlePrimary(w, r, token) })
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })

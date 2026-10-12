@@ -181,13 +181,18 @@ func formatUserHubHTML(name string) string {
 	b.WriteString(fmt.Sprintf("<tr><td>kind</td><td><code>%s</code></td></tr>"+nl, kind))
 
 	b.WriteString("</table>" + nl)
+	// Rows of ≤5 buttons (TG limit ~8; dense rows drop the message).
 	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:vless">` + T("btn_link") + `</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="primary" data="u:access:` + name + `:sub">` + T("btn_sub") + `</tg-button>`)
-	b.WriteString(`<tg-button type="callback_data" data="u:subprof:` + name + `">📡 sub</tg-button>` +
-	` <tg-button type="callback_data" data="u:kind:` + name + `:device">📺 device</tg-button>` +
-	` <tg-button type="callback_data" data="u:kind:` + name + `:user">👤 user</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="u:subprof:` + name + `">📡 sub</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" data="u:kind:` + name + `:device">📺 device</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="u:kind:` + name + `:user">👤 user</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="u:rename:` + name + `">✏️</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(`<tg-button-row align="left">`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:50">50</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:200">200</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:quota:` + name + `:0">∞</tg-button>`)

@@ -263,34 +263,44 @@ function defaultPrimaryKey(fleet, settings){
   return fleet.primary_key || fleet.key || settings.primary_key || settings.key
     || '~/.ssh/netductor_primary';
 }
-function prefillEdgeFromFleet(){
+async function prefillEdgeFromFleet(){
   const {fleet, settings}=fleetSettings();
+  let cfg={};
+  try{
+    const r=await fetch('/v1/config',{headers:{'X-Netductor-Token':ND_TOKEN}});
+    if(r.ok) cfg=await r.json();
+  }catch(e){}
   const form=document.getElementById('form-edge');
   if(form){
     const ph=form.elements.namedItem('primary_host');
     const pk=form.elements.namedItem('primary_key');
     const su=form.elements.namedItem('server_url');
+    const did=form.elements.namedItem('device_id');
     if(ph && !ph.value){
-      ph.value = fleet.primary_host || settings.primary_host || settings.remote_host || '';
+      ph.value = fleet.primary_host || settings.primary_host || settings.remote_host || cfg.remote_host || '';
     }
     if(pk && !pk.value){
-      pk.value = defaultPrimaryKey(fleet, settings);
+      pk.value = defaultPrimaryKey(fleet, settings) || cfg.remote_key || '';
     }
     if(su && !su.value && ph && ph.value){
       const h=(ph.value||'').trim();
       if(h) su.value = 'https://'+h.replace(/^https?:\/\//,'').split('/')[0].split(':')[0]+':8789';
+    }
+    if(did && !did.value && cfg.last_edge_id){
+      did.value = cfg.last_edge_id;
     }
   }
   // LuCI (LAN) — same primary key / optional device id from last edge form save
   const luci=document.getElementById('form-edge-luci');
   if(luci){
     const pk=luci.elements.namedItem('primary_key');
-    if(pk && !pk.value) pk.value = defaultPrimaryKey(fleet, settings);
+    if(pk && !pk.value) pk.value = defaultPrimaryKey(fleet, settings) || cfg.remote_key || '';
     const did=luci.elements.namedItem('device_id');
     if(did && !did.value){
       try{
         const edge=JSON.parse(localStorage.getItem('nd_op_edge')||'{}');
         if(edge.device_id) did.value=edge.device_id;
+        else if(cfg.last_edge_id) did.value=cfg.last_edge_id;
       }catch(e){}
     }
   }
