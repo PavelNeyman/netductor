@@ -11,7 +11,7 @@
 
 Полный комплекс ревью: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [../REVIEW-SUITE.md](../REVIEW-SUITE.md).
 
-**v0.9.339** (2026-10-11) — host security + SSH allowlist wizard + паритет UI; ранее post-review 0.9.319.
+**v0.9.340** (2026-10-12) — план улучшений продукта закрыт; ранее 0.9.339 host security.
 
 ### Закрыто в 0.9.320–0.9.331 (security / DNS / SSH)
 
