@@ -8,6 +8,9 @@ import (
 func TestOperatorSRIncludesWorkDomains(t *testing.T) {
 	s := BuildShadowrocketRoutingConfProfile(SRProfileOperatorMobile)
 	for _, want := range []string{
+		"bypass-system = true",
+		"dns-direct-fallback-proxy = false",
+		"udp-policy-not-supported-behaviour = DIRECT",
 		"DOMAIN-SUFFIX,tealpos.ru,DIRECT",
 		"192.168.70.250/32",
 		"*.tealpos.ru",

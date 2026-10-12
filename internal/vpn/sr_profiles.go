@@ -381,6 +381,10 @@ func ShadowrocketGeneralBlockFor(profile string) string {
 [General]
 # DIRECT uses system DNS; PROXY path DNS is on the node (blocky)
 # Parallel work VPN: prefer connect SR first, then OpenConnect; use HTTPS not HTTP.
+# bypass-system: leave Apple system traffic alone (push etc.)
+# dns-direct-fallback-proxy=false: work DNS miss must not fall through to VLESS
+# udp-policy DIRECT: less breakage for QUIC/UDP on DIRECT vs work tunnel
+bypass-system = true
 dns-server = system
 fallback-dns-server = system
 ipv6 = false
@@ -389,6 +393,6 @@ private-ip-answer = true
 skip-proxy = `+skip+`
 tun-excluded-routes = `+excl+`
 icmp-auto-reply = false
-udp-policy-not-supported-behaviour = REJECT
+udp-policy-not-supported-behaviour = DIRECT
 `) + "\n"
 }
