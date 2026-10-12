@@ -71,6 +71,21 @@ go test ./cmd/... -count=1
 
 ---
 
+
+### 1.4 Инварианты TG UX (блокер — `cmd/netductor-tg`)
+
+Ловят **регрессии чата**, которые API/i18n-ревью не видит. Гонять вместе с §1.1 (`go test ./cmd/...`).
+
+| Инвариант | Зачем | Тест |
+|--|--|--|
+| `/menu` и `/start` → **`forceHub`** (не `reply` по сохранённому id) | После очистки истории edit бьёт в **невидимое** сообщение | `TestMenuCommandsUseForceHub` |
+| `wait_*` → **`completeInput`** (не `sendHTML`) | Иначе prompt + текст пользователя + новое меню | `TestWaitHandlersPreferCompleteInput` |
+| Users: **`m:vpn_devices`** + `vpn_devices_btn` | kind=device ≠ локатор IP (`m:devices`) | `TestUsersListWiresVpnDevicesCallback` |
+| Критичные callback обрабатываются | Мёртвые кнопки | `TestNoObviousOrphanMenuCallbacks` |
+
+**Ручной smoke:** один раз создать VPN user из TG на мажорном TG-релизе; `/menu` после clear chat.
+
+
 ## 2. Tip, релизы, formula
 
 | Проверка | Критерий |
@@ -140,6 +155,11 @@ go test ./cmd/... -count=1
 | Дубли | Одно действие не в двух хабах без причины |
 
 ---
+
+
+| Инварианты TG UX (§1.4) | **обязаны** пройти на том же tip |
+| Singleton hub | Callbacks **edit**; `/menu` **forceHub**; ввод текста **completeInput** |
+| Профили устройств vs IP | `m:vpn_devices` ≠ `m:devices` — обе подписи в Users |
 
 ## 7. Двуязычность UI (EN/RU)
 
@@ -234,6 +254,8 @@ go test ./cmd/... -count=1
 ---
 
 ## История документа
+
+- **0.9.344+:** §1.4 инварианты TG UX + тесты `cmd/netductor-tg`.
 
 | Версия | Изменение |
 |--|--|

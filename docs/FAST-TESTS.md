@@ -36,3 +36,11 @@ go test ./internal/fleet -count=1 -timeout 60s
 - Worker infinite-loop fix is already in main (`NETDUCTOR_DISABLE_VPS_WORKER=1`).
 - After a successful package batch, a green doctor + VERSION tag check is sufficient for most changes.
 - For CI or larger hosts, the normal `go test ./...` remains fine.
+
+## TG UX invariants
+
+```bash
+go test ./cmd/netductor-tg -count=1 -run 'TestMenu|TestWait|TestUsers|TestNoObvious'
+```
+
+See [REVIEW-SUITE §1.4](REVIEW-SUITE.md).

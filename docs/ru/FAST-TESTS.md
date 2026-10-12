@@ -36,3 +36,11 @@ go test ./internal/fleet -count=1 -timeout 60s
 - Фикс бесконечного цикла worker уже в main (`NETDUCTOR_DISABLE_VPS_WORKER=1`).
 - После зелёного батча + doctor (включая проверку VERSION vs tag) обычно достаточно.
 - На CI или больших хостах нормальный `go test ./...` остаётся предпочтительным.
+
+## Инварианты TG UX
+
+```bash
+go test ./cmd/netductor-tg -count=1 -run 'TestMenu|TestWait|TestUsers|TestNoObvious'
+```
+
+См. [REVIEW-SUITE §1.4](REVIEW-SUITE.md).

@@ -430,12 +430,10 @@ func handleMessage(token string, m *message, admin int64) {
 
 	switch cmd {
 	case "/start", "/menu":
-		// /menu force|new|reset — drop singleton and send a visible new hub
-		if arg1 == "force" || arg1 == "new" || arg1 == "reset" {
-			forceHub(token, chat, menuText(), mainKeyboard())
-		} else {
-			reply(token, chat, 0, menuText(), mainKeyboard())
-		}
+		// Always forceHub: after clear history the stored message_id edits an invisible message.
+		// force|new|reset remain aliases.
+		_ = arg1
+		forceHub(token, chat, menuText(), mainKeyboard())
 	case "/help":
 		reply(token, chat, 0, helpText(), mainKeyboard())
 	case "/lang":

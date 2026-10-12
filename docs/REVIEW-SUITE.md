@@ -71,6 +71,21 @@ Update this table when adding tests (checkboxes → done in OPEN_ITEMS or here).
 
 **Obligation:** each full suite run must either (a) add tests for at least one P0/P1 debt row still open, or (b) state that no P0/P1 debt remains for the changed packages.
 
+
+### 1.4 TG UX invariants (blocking — `cmd/netductor-tg`)
+
+These catch **chat UX regressions** that pure API/i18n review misses. Run with §1.1 (`go test ./cmd/...`).
+
+| Invariant | Why | Test |
+|--|--|--|
+| `/menu` and `/start` call **`forceHub`** (not `reply` on stored id) | After “clear history” / delete-for-me, edit targets an **invisible** message — bot looks dead | `TestMenuCommandsUseForceHub` |
+| `wait_*` text paths use **`completeInput`** (not `sendHTML`) | `sendHTML` stacks prompt + user text + new menu | `TestWaitHandlersPreferCompleteInput` |
+| Users list exposes **`m:vpn_devices`** + `vpn_devices_btn` | kind=device profiles must not be confused with online-IP locator (`m:devices`) | `TestUsersListWiresVpnDevicesCallback` |
+| Critical menu callbacks are handled | Dead buttons after refactors | `TestNoObviousOrphanMenuCallbacks` (critical subset) |
+
+**Manual smoke (still useful):** add VPN user from TG once per major TG release; `/menu` after clearing chat.
+
+
 ---
 
 ## 2. Tip, releases, formula
@@ -142,6 +157,11 @@ Surfaces: **API** · **TG** · **Web (op control)** · **op TUI / opcatalog** ·
 | Duplicates | Same action not under two hubs without reason |
 
 ---
+
+
+| TG UX invariants (§1.4) | **must pass** on the same tip |
+| Singleton hub | Callbacks **edit** one hub; `/menu` **forceHub**; text waits **completeInput** |
+| Device profiles vs online IPs | `m:vpn_devices` (kind) ≠ `m:devices` (log IPs) — both labeled in Users |
 
 ## 7. Bilingual UI (EN/RU)
 
@@ -236,6 +256,8 @@ Mandatory on **Full** suite. Scope: commits since last stop line (or explicit ra
 ---
 
 ## Changelog of this suite
+
+- **0.9.344+:** §1.4 TG UX invariants (`forceHub`, `completeInput`, `m:vpn_devices`) + tests in `cmd/netductor-tg`.
 
 | Version | Change |
 |--|--|
