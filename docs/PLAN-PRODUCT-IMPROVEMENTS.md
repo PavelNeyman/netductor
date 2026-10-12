@@ -29,7 +29,7 @@ Related: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md
 
 - [x] Update README to current tip (v0.9.339+) and accurate commands.
 - [x] Finish remaining Web i18n hardcodes (migrate owner/mode labels and similar).
-- [ ] More compact TG status cards; fewer long HTML dumps.
+- [x] More compact TG status cards; fewer long HTML dumps.
 
 ## 5. Backup / DR
 

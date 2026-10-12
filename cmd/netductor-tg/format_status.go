@@ -248,26 +248,42 @@ func formatStatusPretty() string {
 	nl := string([]byte{10})
 	ru := getLang() != "en"
 	host, _ := os.Hostname()
-	title := "📊 <b>Primary status</b>"
+	title := "📊 <b>Primary</b>"
 	if ru {
-		title = "📊 <b>Статус primary</b>"
+		title = "📊 <b>Primary</b>"
 	}
 	var b strings.Builder
-	b.WriteString(title + nl)
-	b.WriteString("<code>" + esc(host) + "</code>" + nl + nl)
+	b.WriteString(title + " · <code>" + esc(host) + "</code>" + nl)
 
-	// metrics once (not repeated under Tools)
-	raw, _ := json.Marshal(metrics.Collect())
-	r := format.API("metrics", raw, catalogLang())
-	b.WriteString(r.HTML + nl + nl)
-
-	// services table
-	svcTitle := "⚙️ <b>Services</b>"
-	if ru {
-		svcTitle = "⚙️ <b>Сервисы</b>"
+	// Compact metrics one-liners (full table lives under Tools / metrics button)
+	m := metrics.Collect()
+	cpu := "—"
+	if c, ok := m["cpu_pct"].(float64); ok {
+		cpu = fmt.Sprintf("%.0f%%", c)
 	}
-	b.WriteString(svcTitle + nl)
-	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>unit</th><th>st</th></tr>" + nl)
+	load := "—"
+	if la, ok := m["loadavg"].(map[string]any); ok {
+		load = fmt.Sprintf("%.1f", asFloat(la["1"]))
+	}
+	mem := "—"
+	if mm, ok := m["mem"].(map[string]any); ok {
+		used, total := asFloat(mm["used"]), asFloat(mm["total"])
+		if total > 0 {
+			mem = fmt.Sprintf("%.0f%%", used/total*100)
+		}
+	}
+	disk := "—"
+	if dd, ok := m["disk"].(map[string]any); ok {
+		disk = fmt.Sprintf("%v%%", dd["use_pct"])
+	}
+	if ru {
+		b.WriteString(fmt.Sprintf("🖥 CPU <b>%s</b> · load <b>%s</b> · mem <b>%s</b> · disk <b>%s</b>"+nl, cpu, load, mem, disk))
+	} else {
+		b.WriteString(fmt.Sprintf("🖥 CPU <b>%s</b> · load <b>%s</b> · mem <b>%s</b> · disk <b>%s</b>"+nl, cpu, load, mem, disk))
+	}
+
+	// services one-liner
+	var svcParts []string
 	for _, u := range []string{"sing-box", "netductor-api", "netductor-telegram-bot"} {
 		out, _ := exec.Command("systemctl", "is-active", u).CombinedOutput()
 		st := strings.TrimSpace(string(out))
@@ -275,11 +291,17 @@ func formatStatusPretty() string {
 		if st == "active" {
 			icon = "🟢"
 		}
-		b.WriteString("<tr><td>" + esc(u) + "</td><td>" + icon + " " + esc(st) + "</td></tr>" + nl)
+		short := u
+		if u == "netductor-telegram-bot" {
+			short = "tg-bot"
+		} else if u == "netductor-api" {
+			short = "api"
+		}
+		svcParts = append(svcParts, icon+" "+short)
 	}
-	b.WriteString("</table>" + nl + nl)
+	b.WriteString("⚙️ " + strings.Join(svcParts, " · ") + nl)
 
-	// short fleet summary — no full lists (Fleet / Users are separate)
+	// short fleet summary
 	rows := parseNodesList()
 	online := 0
 	for _, r := range rows {
@@ -295,19 +317,53 @@ func formatStatusPretty() string {
 			}
 		}
 	}
-
-	// firewall status (critical)
-	b.WriteString(formatFirewallBlock() + nl)
-
 	if ru {
-		b.WriteString(fmt.Sprintf("🗂 Ноды: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
+		b.WriteString(fmt.Sprintf("🗂 Ноды <b>%d</b>/%d · 👥 VPN <b>%d</b>"+nl, online, len(rows), vpnN))
 	} else {
-		b.WriteString(fmt.Sprintf("🗂 Nodes: <b>%d</b> online / %d · 👥 VPN: <b>%d</b>"+nl, online, len(rows), vpnN))
+		b.WriteString(fmt.Sprintf("🗂 Nodes <b>%d</b>/%d · 👥 VPN <b>%d</b>"+nl, online, len(rows), vpnN))
 	}
 
+	// Compact firewall (one line if OK, expand only on problems)
+	b.WriteString(formatFirewallCompact() + nl)
+
 	// Channel summary (detail screen: m:channel → tables)
-	b.WriteString(nl + formatChannelSummaryHTML() + nl)
+	b.WriteString(formatChannelSummaryHTML())
 	return b.String()
+}
+
+func formatFirewallCompact() string {
+	nl := string([]byte{10})
+	ru := getLang() != "en"
+	out, err := exec.Command("netductor", "firewall", "status", "--json").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		if ru {
+			return "🔥 🔴 нет данных"
+		}
+		return "🔥 🔴 no data"
+	}
+	var st struct {
+		OK       bool     `json:"ok"`
+		Active   bool     `json:"active"`
+		Backend  string   `json:"backend"`
+		Warnings []string `json:"warnings"`
+	}
+	_ = json.Unmarshal(out, &st)
+	icon := "🟢"
+	if !st.OK {
+		icon = "🔴"
+	} else if !st.Active {
+		icon = "🟡"
+	}
+	base := fmt.Sprintf("🔥 %s %s", icon, esc(st.Backend))
+	if len(st.Warnings) == 0 && st.OK {
+		return base
+	}
+	// problems: show first warning
+	w := ""
+	if len(st.Warnings) > 0 {
+		w = " · ⚠️ " + esc(st.Warnings[0])
+	}
+	return base + w
 }
 
 func truncate(s string, n int) string {
@@ -531,4 +587,22 @@ func formatChannelDetailHTML() string {
 	}
 	b.WriteString(`</table>`)
 	return b.String()
+}
+
+func asFloat(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case json.Number:
+		f, _ := n.Float64()
+		return f
+	default:
+		return 0
+	}
 }
