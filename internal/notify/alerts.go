@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/incident"
 )
 
 var (
@@ -90,6 +91,7 @@ func AlertOnce(key, msg string) bool {
 		return false
 	}
 	EnqueueAlert(key, msg)
+	incident.AppendEvent("alert", key, msg)
 	if smtpConfigured() {
 		_ = Email("netductor: "+key, stripTags(msg))
 	}
@@ -138,6 +140,7 @@ func ClearAlert(key string) {
 	}
 	// Separate key so batch overwrite does not fight the original; no AlertOnce cooldown.
 	EnqueueAlert("ok:"+key, msg)
+	incident.AppendEvent("recovery", "ok:"+key, msg)
 }
 
 func recoveryMessage(key string) string {
@@ -292,5 +295,6 @@ func escAlert(s string) string {
 func SendTestAlert(msg string) error {
 	key := fmt.Sprintf("test:manual:%d", time.Now().UnixNano())
 	EnqueueAlert(key, msg)
+	incident.AppendEvent("alert", key, msg)
 	return FlushAlerts(true)
 }

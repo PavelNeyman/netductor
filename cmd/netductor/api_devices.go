@@ -47,6 +47,12 @@ func registerIncidentAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "dir": dir, "archive": arch})
 	})
+	mux.HandleFunc("/api/incident/timeline", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !requireSession(w, r) {
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "events": incident.ListEvents(40)})
+	})
 }
 
 func registerOnboardAPI(mux *http.ServeMux) {

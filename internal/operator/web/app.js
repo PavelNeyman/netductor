@@ -682,6 +682,7 @@ const BTN = {
     ['canary','Canary','GET','/api/canary'],
     ['smoke-dual','Smoke dual','GET','/api/smoke?mode=dual'],
     ['incident','Incident pack','POST','/api/incident/collect','{"hours":1}'],
+    ['incident-tl','Incident timeline','GET','/api/incident/timeline'],
     ['presets','Policy presets','GET','/api/policy/presets'],
   ],
 };

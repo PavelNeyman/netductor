@@ -10,7 +10,7 @@ Related: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md
 ## 1. Observability & operations
 
 - [x] Prometheus/OpenMetrics endpoint (`/metrics` or dedicated port) with vpn, channel, backup age, firewall, agent heartbeats.
-- [ ] Unified incident timeline card (Web + TG) with 1h journal download in one place.
+- [x] Unified incident timeline card (Web + TG) with 1h journal download in one place.
 - [x] Single fleet overview landing in Web (primary/secondary/edge + channel + backup age + last update).
 
 ## 2. Git / CI / internal releases

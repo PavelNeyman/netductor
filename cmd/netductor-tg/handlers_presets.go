@@ -294,7 +294,10 @@ func handleDevicesCB(token string, chat int64, msgID int, data string) bool {
 }
 
 func handleIncidentCB(token string, chat int64, msgID int, data string) bool {
-	if data != "m:incident" && data != "m:incident:1h" {
+	if data == "m:incident" || data == "m:incident:timeline" {
+		return replyIncidentTimeline(token, chat, msgID)
+	}
+	if data != "m:incident:1h" {
 		return false
 	}
 	ru := getLang() != "en"
@@ -334,4 +337,37 @@ func trimRun(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+func replyIncidentTimeline(token string, chat int64, msgID int) bool {
+	ru := getLang() != "en"
+	nl := "\n"
+	var b strings.Builder
+	if ru {
+		b.WriteString("📦 <b>Таймлайн инцидента</b>" + nl)
+		b.WriteString("<i>Алерты и восстановления. Пакет 1ч — кнопка ниже.</i>" + nl + nl)
+	} else {
+		b.WriteString("📦 <b>Incident timeline</b>" + nl)
+		b.WriteString("<i>Alerts and recoveries. 1h pack — button below.</i>" + nl + nl)
+	}
+	evs := incident.ListEvents(20)
+	if len(evs) == 0 {
+		if ru {
+			b.WriteString("<i>пусто</i>")
+		} else {
+			b.WriteString("<i>empty</i>")
+		}
+	}
+	for _, e := range evs {
+		mark := "⚠️"
+		if e.Kind == "recovery" {
+			mark = "✅"
+		}
+		b.WriteString(mark + " <code>" + esc(e.Key) + "</code> " + esc(e.Text) + nl)
+	}
+	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("📦 1h", "m:incident:1h", "primary"), btn("🔄", "m:incident:timeline", ""), btn(T("main_menu"), "m:menu", "")},
+	}}
+	reply(token, chat, msgID, b.String(), kb)
+	return true
 }
