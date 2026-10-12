@@ -93,7 +93,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	}
 	if data == "m:cleanup" {
 		out, _ := exec.Command("netductor", "cleanup", "--json").CombinedOutput()
-		reply(token, chat, msgID, "<pre>"+esc(string(out))+"</pre>\n<code>netductor cleanup --apply</code>", backKeyboard())
+		reply(token, chat, msgID, "<pre>"+esc(string(out))+"</pre>\n<i>Weekly timer: Sun 04:30 UTC (docker prune + leftovers)</i>\n<code>netductor cleanup --apply</code>", backKeyboard())
 		return
 	}
 	if data == "m:cleanup:apply" {

@@ -317,7 +317,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			}
 			b.WriteString("host: <code>" + esc(host) + "</code>")
 			if d.BuildOnFetch {
-				b.WriteString(" · build_on_fetch")
+				b.WriteString(" · ⚠️ <b>build_on_fetch ON</b> (heavy)")
 			}
 			b.WriteString(nl)
 			if d.Workflow != "" {

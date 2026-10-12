@@ -16,8 +16,8 @@ Related: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md
 ## 2. Git / CI / internal releases
 
 - [x] Web project card with last build status + Cancel button (parity with TG `m:git:proj:vps-cancel:`).
-- [ ] Clearer UX for per-repo `build_on_fetch` (default off stays; make enable obvious).
-- [ ] Visible CI artifact / container cleanup policy in UI (timers already exist).
+- [x] Clearer UX for per-repo `build_on_fetch` (default off stays; make enable obvious).
+- [x] Visible CI artifact / container cleanup policy in UI (timers already exist).
 
 ## 3. Security & access
 

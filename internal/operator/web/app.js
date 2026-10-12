@@ -1013,7 +1013,7 @@ function mountButtons(){
       <div class="row"><div><label>${t('l_git_proj_wf')}</label><input id="gitProjWf" placeholder="ci/netductor.yml"/></div>
       <div><label>${t('l_git_proj_pipe')}</label><input id="gitProjPipe" placeholder="(optional pipeline)"/></div></div>
       <label><input type="checkbox" id="gitProjMac"/> host=mac (build on Mac, not VPS)</label>
-      <label><input type="checkbox" id="gitProjOnFetch"/> build_on_fetch (auto build after sync — heavy)</label>
+      <label style="color:#c00"><input type="checkbox" id="gitProjOnFetch"/> ⚠️ build_on_fetch <b>OFF by default</b> — auto-build after every sync (heavy CPU/disk; enable only when needed)</label>
       <button class="primary" type="button" data-act="git-proj-list">${t('b_git_proj_list')}</button>
       <button class="primary" type="button" data-act="git-proj-add">${t('b_git_proj_add')}</button>
       <button class="primary" type="button" data-act="git-proj-detail">${t('b_git_proj_detail')}</button>
@@ -1028,6 +1028,8 @@ function mountButtons(){
       <div class="row"><div><label>vps job id</label><input id="gitVpsJobId" placeholder="build-…"/></div></div>
       <button type="button" data-act="git-proj-vps-cancel">${t('b_git_proj_vps_cancel')}</button>
       <button class="primary" type="button" data-act="git-proj-mirror-all">${t('b_git_proj_mirror_all')}</button>
+      <p class="muted" style="margin:.5rem 0">CI cleanup policy: weekly timer <code>Sun 04:30 UTC</code> (docker prune + leftovers). Dry-run below.</p>
+      <button type="button" data-act="cleanup-status">🧹 Cleanup status (dry-run)</button>
       <div class="row"><div><label>${t('l_git_repo')} (log/show)</label><input id="gitLogRepo" placeholder="my-repo"/></div>
       <div><label>${t('l_git_rev')}</label><input id="gitShowPath" placeholder="HEAD"/></div></div>
       <button class="primary" type="button" data-act="git-log">${t('b_git_log')}</button>
@@ -1286,6 +1288,7 @@ const special = {
   'git-proj-vps-cancel': async()=>{ const id=(document.getElementById('gitVpsJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/vps-queue',{method:'POST',body:JSON.stringify({action:'cancel',id})}); },
 
   'git-proj-mirror-all': async()=> nodeFetch('/api/git/projects/mirror-push',{method:'POST',body:JSON.stringify({all:true})}),
+  'cleanup-status': async()=> nodeFetch('/api/cleanup'),
 
 
 
