@@ -281,3 +281,52 @@ func LiveKeysSecondaryCached(id string) []LiveKey {
 	}
 	return ParseKeysFromText(id, string(b))
 }
+
+
+// SummarizeAuthorizedKeysForNotify builds a TG-safe summary (no full public key material).
+// Full authorized_keys lines never appear in the result — only type, short fp/mask, comment.
+func SummarizeAuthorizedKeysForNotify(body string) string {
+	var lines []string
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) >= 2 && (strings.HasPrefix(parts[0], "ssh-") || strings.HasPrefix(parts[0], "ecdsa-") || strings.HasPrefix(parts[0], "sk-")) {
+			typ := parts[0]
+			comment := ""
+			if len(parts) >= 3 {
+				comment = parts[len(parts)-1]
+			}
+			fp, _, c2 := keyFingerprint(line)
+			if c2 != "" {
+				comment = c2
+			}
+			if fp != "" {
+				if len(fp) > 28 {
+					fp = fp[:12] + "…" + fp[len(fp)-8:]
+				}
+				lines = append(lines, fmt.Sprintf("%s %s %s", typ, fp, comment))
+			} else {
+				blob := parts[1]
+				if len(blob) > 16 {
+					blob = blob[:8] + "…" + blob[len(blob)-6:]
+				}
+				lines = append(lines, fmt.Sprintf("%s %s %s", typ, blob, comment))
+			}
+			continue
+		}
+		if len(line) > 120 {
+			line = line[:120] + "…"
+		}
+		lines = append(lines, line)
+	}
+	if len(lines) == 0 {
+		return "(no keys)"
+	}
+	if len(lines) > 12 {
+		lines = append(lines[:12], "…")
+	}
+	return fmt.Sprintf("%d key(s)\n%s", len(lines), strings.Join(lines, "\n"))
+}

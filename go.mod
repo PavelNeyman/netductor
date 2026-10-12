@@ -1,6 +1,6 @@
 module github.com/PavelNeyman/netductor
 
-go 1.26
+go 1.22
 
 require (
 	github.com/atotto/clipboard v0.1.4

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/httpx"
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
@@ -193,10 +194,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		if !in.CmdOK {
 			ok = "❌"
 		}
-		log := in.CmdLog
-		if len(log) > 800 {
-			log = log[len(log)-800:]
-		}
+		log := redactSecondaryCmdLog(in.CmdDone, in.CmdLog)
 		_ = notify.Telegram(fmt.Sprintf("%s <b>Secondary cmd</b> <code>%s</code> on <code>%s</code>\n<pre>%s</pre>", ok, in.CmdDone, d.ID, log))
 	}
 	// Register as node role=secondary so rename / fleet UI work
@@ -384,4 +382,22 @@ func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	_, _ = w.Write(b)
+}
+
+
+// redactSecondaryCmdLog keeps TG alerts free of full authorized_keys lines.
+func redactSecondaryCmdLog(cmd, log string) string {
+	cmd = strings.TrimSpace(cmd)
+	base := cmd
+	if i := strings.IndexByte(cmd, ':'); i > 0 {
+		base = cmd[:i]
+	}
+	switch base {
+	case "ssh_keys", "ssh_allowlist":
+		return integrity.SummarizeAuthorizedKeysForNotify(log)
+	}
+	if len(log) > 800 {
+		return log[len(log)-800:]
+	}
+	return log
 }
