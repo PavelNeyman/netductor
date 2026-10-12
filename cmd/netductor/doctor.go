@@ -723,6 +723,13 @@ func runDoctorNative() int {
 		warn++
 		fmt.Println("WARN netductor-stack-watchdog.timer inactive (netductor stack watchdog-install)")
 	}
+	// DNS path note (client → VPN → blocky vs direct)
+	lastDoctorReport.Checks = append(lastDoctorReport.Checks, DoctorCheck{
+		ID:     "dns-path",
+		Status: "info",
+		Detail: "client → VPN → blocky (ads/YouTube filtering) or direct system DNS. PROXY path uses node blocky; DIRECT uses client DNS.",
+	})
+	doctorPrintln("INFO dns-path: client→VPN→blocky vs direct (see detail)")
 	lastDoctorReport.Summary.OK = ok
 	lastDoctorReport.Summary.Fail = fail
 	lastDoctorReport.Summary.Warn = warn

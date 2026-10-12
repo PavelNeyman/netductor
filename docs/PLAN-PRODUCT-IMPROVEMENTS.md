@@ -39,8 +39,8 @@ Related: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md
 
 ## 6. Product clarity
 
-- [ ] Doctor/UI explicit DNS path note: client → VPN → blocky vs direct (YouTube/ads case).
-- [ ] Mark NVR/Tapo as lab-only in main roadmap if not prioritized (already open in OPEN_ITEMS).
+- [x] Doctor/UI explicit DNS path note: client → VPN → blocky vs direct (YouTube/ads case).
+- [x] Mark NVR/Tapo as lab-only in main roadmap if not prioritized (already open in OPEN_ITEMS).
 
 ## 7. DX / docs
 

@@ -39,8 +39,8 @@
 
 ## 6. Ясность продукта
 
-- [ ] В doctor/UI явно показывать DNS-путь: client → VPN → blocky vs direct (кейс YouTube/рекламы).
-- [ ] NVR/Tapo пометить как lab-only в основном roadmap, если не приоритет (уже открыто в OPEN_ITEMS).
+- [x] В doctor/UI явно показывать DNS-путь: client → VPN → blocky vs direct (кейс YouTube/рекламы).
+- [x] NVR/Tapo пометить как lab-only в основном roadmap, если не приоритет (уже открыто в OPEN_ITEMS).
 
 ## 7. DX / доки
 

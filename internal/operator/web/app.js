@@ -813,7 +813,8 @@ function mountButtons(){
     if(sec==='dns' || sec==='data'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_dns_id')}</label><input id="dnsId" placeholder="adguard"/></div>
       <div><label>${t('l_dns_en')}</label><select id="dnsOn"><option value="1">${t('b_dns_on')}</option><option value="0">${t('b_dns_off')}</option></select></div></div>
-      <button class="primary" type="button" data-act="dns-set">${t('b_dns_set')}</button>`;
+      <button class="primary" type="button" data-act="dns-set">${t('b_dns_set')}</button>
+      <p class="muted">DNS path: client → VPN → blocky (ads/YouTube filtering on PROXY) vs direct system DNS (DIRECT). See doctor check dns-path.</p>`;
     }
     if(sec==='backup'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_bak_hour')}</label><input id="bakHour" type="number" min="0" max="23" value="1"/></div>
