@@ -659,6 +659,7 @@ const BTN = {
     ['git-projects','Projects','GET','/api/git/projects'],
     ['git-project-queue','Mac queue','GET','/api/git/projects/queue?pending=1'],
     ['git-ship-jobs','Ship jobs','GET','/api/git/projects/ship-jobs'],
+    ['build-host-status','Build host','GET','/api/build-host/status'],
     ['release-local-g','Local releases','GET','/api/release/local'],
     ['release-tags-g','Git tags','GET','/api/release/git-tags'],
     ['release-mirror-g','Mirror fetch (+auto build)','POST','/api/release/mirror-fetch','{}'],
@@ -1297,6 +1298,8 @@ const special = {
   'git-ship-jobs': async()=> nodeFetch('/api/git/projects/ship-jobs'),
   'git-ship-pause': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'pause',id})}); },
   'git-ship-resume': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'resume',id})}); },
+  'build-host-status': async()=> nodeFetch('/api/build-host/status'),
+  'build-host-deploy': async()=>{ const host=(document.getElementById('buildHostIP')?.value||'').trim(); const password=(document.getElementById('buildHostPass')?.value||''); if(!host) return {error:'host'}; return nodeFetch('/api/build-host/deploy',{method:'POST',body:JSON.stringify({host,password})}); },
   'git-ship-rm': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'rm',id})}); },
   'git-proj-migrate': async()=>{
     const owner=(document.getElementById('gitMigOwner')?.value||'PavelNeyman').trim();

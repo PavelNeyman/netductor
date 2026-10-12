@@ -527,6 +527,13 @@ func runDoctorNative() int {
 		doctorPrintf("INFO ci %s\n", ci.StatusLine())
 		doctorPrintln("INFO "+gitstore.FormatCacheInfo())
 		doctorPrintln("INFO "+gitstore.BuildHostStatusLine())
+		for _, s := range gitstore.ListBuildHostStates() {
+			on := "offline"
+			if s.Online {
+				on = "online"
+			}
+			doctorPrintf("INFO build-host %s %s %s disk=%.1fG\n", s.ID, s.Label, on, s.DiskFreeGB)
+		}
 		if ci.IsolationEnabled() && ci.Engine() == "" {
 			doctorPrintln("WARN ci isolation on but no docker/podman")
 			warn++

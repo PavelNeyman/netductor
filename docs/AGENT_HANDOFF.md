@@ -1,3 +1,5 @@
+**0.9.362:** Build-host prod deploy + agent ROLE=build + alerts + UI parity.
+
 **0.9.361:** PLAN-BUILD-HOST foundation — optional SSH build VPS, primary keeps jobs/publish.
 
 **0.9.360:** CI improvements — timeout, secrets, cache, job log, path_ignore, SHA256SUMS.

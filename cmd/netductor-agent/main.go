@@ -20,13 +20,14 @@ import (
 	"time"
 )
 
-var version = "0.9.218"
+var version = "0.9.362"
 
 type config struct {
 	Server   string
 	Token    string
 	DeviceID string
 	Interval int
+	Role     string // edge (default) | build
 	NVRDir   string // buffer path; default /tmp/netductor-nvr (tmpfs)
 	NVRMaxMB int    // max buffer size MB; default 24 on tmpfs
 }
@@ -69,6 +70,10 @@ Commands (from VPS):
 		os.Exit(1)
 	}
 	cfg.Server = normalizeServerURL(cfg.Server)
+	if strings.EqualFold(cfg.Role, "build") {
+		runBuildAgent(cfg)
+		return
+	}
 	client := agentHTTPClient()
 	startRecoveryHTTP(&cfg)
 	startGuestHTTP(&cfg)
@@ -260,6 +265,8 @@ func parseKV(s string, c *config) {
 			c.Token = strings.TrimSpace(v)
 		case "DEVICE_ID":
 			c.DeviceID = strings.TrimSpace(v)
+		case "ROLE":
+			c.Role = strings.TrimSpace(v)
 		case "INTERVAL":
 			if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
 				c.Interval = n

@@ -1,6 +1,6 @@
 # PLAN-BUILD-HOST — dedicated CI VPS (control stays on primary)
 
-Status: **foundation 0.9.361** (SSH executor). Agent-pull mode — later if needed.
+Status: **foundation 0.9.361, **prod deploy 0.9.362**** (SSH executor). Agent-pull mode — later if needed.
 
 ## Goal
 
@@ -82,3 +82,13 @@ Optional later: install `netductor-agent` with `role=build` for heartbeat + cmd 
 - Parallel multi-host load balancing
 - Build host as secondary VPN exit
 - Replacing Mac external wait (darwin still Mac)
+
+
+## Prod deploy
+
+```bash
+netductor stack apply v0.9.362
+netductor build-host deploy --host IP --pass FIRST --key /root/.ssh/id_ed25519 --label build-1
+netductor build-host list
+netductor build-host watch
+```

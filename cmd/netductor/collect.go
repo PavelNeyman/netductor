@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/channels"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/devices"
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/hardening"
@@ -439,6 +440,7 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 			notify.ClearAlert("update:available")
 		}
 	}
+	gitstore.WatchBuildHosts()
 	_ = m
 }
 

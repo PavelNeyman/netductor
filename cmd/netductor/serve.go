@@ -31,6 +31,7 @@ func buildAPIMux() http.Handler {
 	nvr.StartBackground()
 	registerSessionAPI(mux)
 	registerGitAPI(mux)
+	registerBuildHostAPI(mux)
 	gitstore.StartVpsBuildWorker()
 	gitstore.StartShipWorker()
 	_ = gitstore.EnsureGitOpsTimers()

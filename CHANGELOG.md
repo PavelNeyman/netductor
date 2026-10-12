@@ -1,3 +1,9 @@
+## 0.9.362
+
+- Build-host **production deploy** from primary (`build-host deploy`)
+- Agent ROLE=build + heartbeat API; SSH probe/alerts offline/disk/agent
+- UI: CLI list/watch/deploy, API, TG Git→Build-host, Web deploy+status
+
 ## 0.9.361
 
 - Optional **build-host** VPS: control on primary, test_build via SSH

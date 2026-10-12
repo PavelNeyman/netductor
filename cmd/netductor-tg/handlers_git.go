@@ -84,6 +84,36 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 	}
 	rest := strings.TrimPrefix(data, "m:git:")
 
+	if rest == "build-host" || strings.HasPrefix(rest, "build-host:") {
+		list := gitstore.ListBuildHostStates()
+		cfg := gitstore.LoadBuildHost()
+		nl := string([]byte{10})
+		var b strings.Builder
+		b.WriteString("🏗 <b>Build-host</b>" + nl)
+		b.WriteString(esc(gitstore.BuildHostStatusLine()) + nl)
+		if len(list) == 0 {
+			b.WriteString("<i>none registered — CLI: netductor build-host deploy --host IP</i>" + nl)
+		}
+		for _, s := range list {
+			on := "offline"
+			if s.Online {
+				on = "online"
+			}
+			b.WriteString(fmt.Sprintf("• <code>%s</code> %s <b>%s</b> disk=%.1fG docker=%v%s", esc(s.ID), esc(s.Label), on, s.DiskFreeGB, s.Docker, nl))
+		}
+		kb := map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("🔄 Probe", "m:git:build-host:watch", "primary"), btn("⬅️ Git", "m:git", "")},
+			{btn(T("main_menu"), "m:menu", "")},
+		}}
+		if strings.HasPrefix(rest, "build-host:watch") {
+			gitstore.WatchBuildHosts()
+			b.WriteString(nl + "<i>probed</i>")
+		}
+		_ = cfg
+		reply(token, chat, msgID, b.String(), kb)
+		return true
+	}
+
 	if strings.HasPrefix(rest, "ship:") {
 		shipSub := strings.TrimPrefix(rest, "ship:")
 		nl := string([]byte{10})
@@ -225,6 +255,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			rows = append(rows, []map[string]any{btn(T("git_add_proj"), "m:git:proj:add", "primary"), btn(T("git_migrate"), "m:git:proj:migrate", "")})
 			rows = append(rows, []map[string]any{btn(T("git_sync_all"), "m:git:proj:sync-all", ""), btn(T("git_build_all"), "m:git:proj:build-all", "")})
 			rows = append(rows, []map[string]any{btn(T("git_vps_queue"), "m:git:proj:vps-queue", ""), btn("🚀 Jobs", "m:git:ship:jobs", "primary")})
+			rows = append(rows, []map[string]any{btn("🏗 Build-host", "m:git:build-host", "")})
 			rows = append(rows, []map[string]any{btn(T("git_mirror_all"), "m:git:proj:mirror-all", "")})
 			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
