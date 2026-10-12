@@ -525,6 +525,7 @@ func runDoctorNative() int {
 			doctorPrintf(" vps_slot=%v\n", gitstore.VpsSlotTaken())
 		}
 		doctorPrintf("INFO ci %s\n", ci.StatusLine())
+		doctorPrintln("INFO "+gitstore.FormatCacheInfo())
 		if ci.IsolationEnabled() && ci.Engine() == "" {
 			doctorPrintln("WARN ci isolation on but no docker/podman")
 			warn++

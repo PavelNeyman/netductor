@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 )
 
 // Item is one removable leftover.
@@ -77,6 +78,15 @@ func Run(apply bool) Report {
 		for _, e := range ents {
 			addFile("dir", filepath.Join(art, e.Name()), "git CI artifact (prune with release prune-artifacts)")
 		}
+	}
+	// dependency caches (always age-prune when apply; report size when dry)
+	if apply {
+		n, _ := gitstore.PruneCICache(14)
+		if n > 0 {
+			r.Items = append(r.Items, Item{Kind: "dir", Path: filepath.Join(paths.StateDir(), "ci-cache"), Detail: fmt.Sprintf("pruned %d stale ci-cache entries", n)})
+		}
+	} else {
+		r.Items = append(r.Items, Item{Kind: "dir", Path: filepath.Join(paths.StateDir(), "ci-cache"), Detail: gitstore.FormatCacheInfo()})
 	}
 
 

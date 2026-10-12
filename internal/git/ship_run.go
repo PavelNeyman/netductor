@@ -1,10 +1,14 @@
 package gitstore
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/notify"
 )
@@ -152,34 +156,59 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 			continue
 		}
 
-		step.Status = "running"
+		start := time.Now().UTC()
+		j.Steps[j.Cursor].Status = "running"
+		j.Steps[j.Cursor].StartedAt = start.Format(time.RFC3339)
 		_ = SaveShipJob(j)
 		fmt.Fprintf(logb, "==> step %s\n", step.Name)
+		AppendShipLog(id, fmt.Sprintf("==> step %s at %s", step.Name, start.Format(time.RFC3339)))
 
 		var stepErr error
-		switch step.Name {
-		case "test_build":
-			stepErr = runShipTestBuild(j, logb)
-		case "publish":
-			stepErr = runShipPublish(j, logb)
-		default:
-			stepErr = fmt.Errorf("unknown step %s", step.Name)
+		done := make(chan error, 1)
+		go func() {
+			var e error
+			switch step.Name {
+			case "test_build":
+				e = runShipTestBuild(j, logb)
+			case "publish":
+				e = runShipPublish(j, logb)
+			default:
+				e = fmt.Errorf("unknown step %s", step.Name)
+			}
+			done <- e
+		}()
+		timeout := shipStepTimeout()
+		select {
+		case stepErr = <-done:
+		case <-time.After(timeout):
+			stepErr = fmt.Errorf("step %s timeout after %s", step.Name, timeout)
 		}
 
+		fin := time.Now().UTC()
 		j, _ = GetShipJob(id)
+		if j.Cursor < len(j.Steps) {
+			j.Steps[j.Cursor].FinishedAt = fin.Format(time.RFC3339)
+			j.Steps[j.Cursor].DurationSec = int(fin.Sub(start).Seconds())
+		}
 		if stepErr != nil {
-			j.Steps[j.Cursor].Status = "failed"
+			if j.Cursor < len(j.Steps) {
+				j.Steps[j.Cursor].Status = "failed"
+			}
 			j.State = ShipFailed
 			j.VpsSlot = false
 			j.Error = stepErr.Error()
 			j.LogTail = trimTail(logb.String(), 2000)
 			_ = SaveShipJob(j)
+			AppendShipLog(id, "FAIL: "+stepErr.Error())
 			notify.AlertOnce("ship:fail:"+id, fmt.Sprintf("🔴 Ship job <code>%s</code> failed at %s", j.Project, step.Name))
 			return j, logb.String(), stepErr
 		}
-		j.Steps[j.Cursor].Status = "ok"
+		if j.Cursor < len(j.Steps) {
+			j.Steps[j.Cursor].Status = "ok"
+		}
 		j.Cursor++
 		_ = SaveShipJob(j)
+		AppendShipLog(id, fmt.Sprintf("ok step duration=%ds", int(fin.Sub(start).Seconds())))
 
 		// pause after successful step if requested
 		j, _ = GetShipJob(id)
@@ -200,8 +229,15 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
 	os.Setenv("NETDUCTOR_GIT_BUILD_DIRECT", "1")
 	defer os.Unsetenv("NETDUCTOR_GIT_BUILD_DIRECT")
+	// secrets + cache env for child processes
+	for _, kv := range LoadCISecretsEnv(j.Project) {
+		if i := strings.IndexByte(kv, '='); i > 0 {
+			_ = os.Setenv(kv[:i], kv[i+1:])
+		}
+	}
 	out, err := runBuildProjectNow(j.Project, j.Ref)
 	logb.WriteString(out)
+	AppendShipLog(j.ID, out)
 	return err
 }
 
@@ -214,6 +250,7 @@ func runShipPublish(j *ShipJob, logb *strings.Builder) error {
 	_ = os.MkdirAll(dst, 0o755)
 	logPath := filepath.Join(dst, "ship.log")
 	_ = os.WriteFile(logPath, []byte(logb.String()), 0o600)
+	AppendShipLog(j.ID, "publish log → "+logPath)
 
 	srcArt := ShipJobArtifactsDir(j.ID)
 	if ents, e := os.ReadDir(srcArt); e == nil {
@@ -221,7 +258,9 @@ func runShipPublish(j *ShipJob, logb *strings.Builder) error {
 			_ = copyFileOrDir(filepath.Join(srcArt, ent.Name()), filepath.Join(dst, ent.Name()))
 		}
 	}
+	_ = writeArtifactSHA256SUMS(dst)
 	fmt.Fprintf(logb, "publish → %s\n", dst)
+	AppendShipLog(j.ID, "publish → "+dst)
 
 	j2, err := GetShipJob(j.ID)
 	if err != nil {
@@ -244,6 +283,18 @@ func runShipPublish(j *ShipJob, logb *strings.Builder) error {
 	notify.AlertOnce("ship:ok:"+j.ID, fmt.Sprintf("✅ Ship <code>%s</code> → <code>%s</code>", j.Project, dst))
 	_ = PruneArtifacts(20)
 	return nil
+}
+
+func shipStepTimeout() time.Duration {
+	// default 45m; NETDUCTOR_SHIP_STEP_TIMEOUT=30m|1h|900s
+	v := strings.TrimSpace(os.Getenv("NETDUCTOR_SHIP_STEP_TIMEOUT"))
+	if v == "" {
+		return 45 * time.Minute
+	}
+	if d, err := time.ParseDuration(v); err == nil && d > 0 {
+		return d
+	}
+	return 45 * time.Minute
 }
 
 func trimTail(s string, n int) string {
@@ -287,4 +338,41 @@ func copyDir(src, dst string) error {
 		}
 	}
 	return nil
+}
+
+
+func writeArtifactSHA256SUMS(dir string) error {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	var b strings.Builder
+	for _, e := range ents {
+		if e.IsDir() || e.Name() == "SHA256SUMS" || e.Name() == "ship.log" {
+			continue
+		}
+		p := filepath.Join(dir, e.Name())
+		sum, err := fileSHA256(p)
+		if err != nil {
+			continue
+		}
+		fmt.Fprintf(&b, "%s  %s\n", sum, e.Name())
+	}
+	if b.Len() == 0 {
+		return nil
+	}
+	return os.WriteFile(filepath.Join(dir, "SHA256SUMS"), []byte(b.String()), 0o644)
+}
+
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

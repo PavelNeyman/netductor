@@ -1,3 +1,11 @@
+## 0.9.360
+
+- CI next: step timeout (45m), step duration, ship job log file
+- Project CI secrets (`project secret set|list|rm`)
+- Dependency ci-cache (GOCACHE/GOMODCACHE/npm) + prune 14d
+- Auto-ship: on_push/on_tag/path_ignore; SHA256SUMS on publish
+- TG 📜 job log; doctor ci-cache line
+
 ## 0.9.359
 
 - Ship worker: async queue (API/TG enqueue; one VPS job at a time)

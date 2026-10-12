@@ -133,15 +133,19 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			b.WriteString("project <code>" + esc(j.Project) + "</code> state <code>" + esc(j.State) + "</code>" + nl)
 			b.WriteString(fmt.Sprintf("cursor=%d slot=%v tag=%s"+nl, j.Cursor, j.VpsSlot, esc(j.Tag)))
 			for i, s := range j.Steps {
-				b.WriteString(fmt.Sprintf("%d. %s — %s"+nl, i, esc(s.Name), esc(s.Status)))
+				b.WriteString(fmt.Sprintf("%d. %s — %s", i, esc(s.Name), esc(s.Status)))
+				if s.DurationSec > 0 {
+					b.WriteString(fmt.Sprintf(" (%ds)", s.DurationSec))
+				}
+				b.WriteString(nl)
 			}
 			if j.Error != "" {
 				b.WriteString("❌ " + esc(j.Error) + nl)
 			}
 			kb := map[string]any{"inline_keyboard": [][]map[string]any{
 				{btn("⏸", "m:git:ship:pause:"+id, ""), btn("▶️", "m:git:ship:resume:"+id, "primary")},
-				{btn("🗑", "m:git:ship:rm:"+id, "danger"), btn("⬅️ Jobs", "m:git:ship:jobs", "")},
-				{btn(T("main_menu"), "m:menu", "")},
+				{btn("📜", "m:git:ship:log:"+id, ""), btn("🗑", "m:git:ship:rm:"+id, "danger")},
+				{btn("⬅️ Jobs", "m:git:ship:jobs", ""), btn(T("main_menu"), "m:menu", "")},
 			}}
 			reply(token, chat, msgID, b.String(), kb)
 			return true
@@ -167,6 +171,16 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				msg = "❌ " + esc(err.Error()) + "\n" + msg
 			}
 			reply(token, chat, msgID, msg, navKeyboard("m:git:ship:jobs", "Jobs"))
+			return true
+		}
+		if strings.HasPrefix(shipSub, "log:") {
+			id := strings.TrimPrefix(shipSub, "log:")
+			s, err := gitstore.ReadShipLog(id, 3500)
+			msg := "<pre>" + esc(s) + "</pre>"
+			if err != nil {
+				msg = "❌ " + esc(err.Error())
+			}
+			reply(token, chat, msgID, msg, navKeyboard("m:git:ship:job:"+id, "Job"))
 			return true
 		}
 		if strings.HasPrefix(shipSub, "rm:") {

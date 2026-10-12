@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -19,7 +20,9 @@ func runProject(args []string) int {
   netductor project ship <name> [--ref REF] [--tag vX]
   netductor project pause <id>
   netductor project resume <id>
-  netductor project complete <id> --from <dir>`)
+  netductor project complete <id> --from <dir>
+  netductor project job log <id> [--tail N]
+  netductor project secret list|set|rm <project> [key] [value]`)
 		return 2
 	}
 	switch args[0] {
@@ -71,6 +74,33 @@ func runProject(args []string) int {
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor project job <id> [--json] | job rm <id>")
 			return 2
+		}
+		if args[1] == "log" {
+			if len(args) < 3 {
+				fmt.Fprintln(os.Stderr, "usage: project job log <id> [--tail N]")
+				return 2
+			}
+			tail := 0
+			for i := 3; i < len(args); i++ {
+				if args[i] == "--tail" && i+1 < len(args) {
+					fmt.Sscanf(args[i+1], "%d", &tail)
+					i++
+				}
+			}
+			max := 0
+			if tail > 0 {
+				max = tail
+			}
+			s, err := gitstore.ReadShipLog(args[2], max)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			fmt.Print(s)
+			if !strings.HasSuffix(s, "\n") {
+				fmt.Println()
+			}
+			return 0
 		}
 		if args[1] == "rm" || args[1] == "delete" || args[1] == "remove" {
 			if len(args) < 3 {
@@ -234,6 +264,49 @@ func runProject(args []string) int {
 			return 1
 		}
 		return 0
+	case "secret", "secrets":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: project secret list <proj> | set <proj> <KEY> <value> | rm <proj> <KEY>")
+			return 2
+		}
+		switch args[1] {
+		case "list", "ls":
+			if len(args) < 3 {
+				return 2
+			}
+			keys, err := gitstore.ListCISecretKeys(args[2])
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			for _, k := range keys {
+				fmt.Println(k)
+			}
+			return 0
+		case "set":
+			if len(args) < 5 {
+				fmt.Fprintln(os.Stderr, "usage: project secret set <proj> KEY value")
+				return 2
+			}
+			if err := gitstore.SetCISecret(args[2], args[3], args[4]); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			fmt.Println("ok", args[3])
+			return 0
+		case "rm", "delete":
+			if len(args) < 4 {
+				return 2
+			}
+			if err := gitstore.DeleteCISecret(args[2], args[3]); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			fmt.Println("removed", args[3])
+			return 0
+		default:
+			return 2
+		}
 	default:
 		fmt.Fprintln(os.Stderr, "unknown project subcommand:", args[0])
 		return 2

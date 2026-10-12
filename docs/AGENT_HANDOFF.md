@@ -1,3 +1,5 @@
+**0.9.360:** CI improvements — timeout, secrets, cache, job log, path_ignore, SHA256SUMS.
+
 **0.9.359:** ship topic complete — async worker, UI/API/TG parity, build-all→ship.
 
 **0.9.358:** PLAN-PROJECT-SHIP UI parity — TG Ship/Jobs, API ship + ship-jobs, Web actions.

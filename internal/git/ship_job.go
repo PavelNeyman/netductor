@@ -26,10 +26,13 @@ const (
 
 // ShipStep is one pipeline step with status and optional log/output paths.
 type ShipStep struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"` // pending|running|ok|failed|skipped
-	Log     string `json:"log,omitempty"`
-	Outputs string `json:"outputs,omitempty"` // dir or file under job artifacts
+	Name        string `json:"name"`
+	Status      string `json:"status"` // pending|running|ok|failed|skipped
+	Log         string `json:"log,omitempty"`
+	Outputs     string `json:"outputs,omitempty"`
+	StartedAt   string `json:"started_at,omitempty"`
+	FinishedAt  string `json:"finished_at,omitempty"`
+	DurationSec int    `json:"duration_sec,omitempty"`
 }
 
 // ShipJob is a durable snapshot of a project ship (minimal disk while paused/waiting).
@@ -342,4 +345,47 @@ func shouldPauseAfterStep(j *ShipJob) bool {
 	}
 	j.PauseRequested = false
 	return true
+}
+
+
+// ShipJobLogPath is the full log file for a job (appended during run).
+func ShipJobLogPath(id string) string {
+	return filepath.Join(ShipJobsDir(), sanitize(id), "ship.log")
+}
+
+// AppendShipLog writes to job log file.
+func AppendShipLog(id, chunk string) {
+	if chunk == "" {
+		return
+	}
+	p := ShipJobLogPath(id)
+	_ = os.MkdirAll(filepath.Dir(p), 0o700)
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.WriteString(chunk)
+	if !strings.HasSuffix(chunk, "\n") {
+		_, _ = f.WriteString("\n")
+	}
+}
+
+// ReadShipLog returns full or tailed log.
+func ReadShipLog(id string, maxBytes int) (string, error) {
+	b, err := os.ReadFile(ShipJobLogPath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			j, e2 := GetShipJob(id)
+			if e2 == nil && j.LogTail != "" {
+				return j.LogTail, nil
+			}
+			return "", err
+		}
+		return "", err
+	}
+	if maxBytes > 0 && len(b) > maxBytes {
+		return string(b[len(b)-maxBytes:]), nil
+	}
+	return string(b), nil
 }

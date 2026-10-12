@@ -23,8 +23,13 @@ type Project struct {
 	Pipeline     string `json:"pipeline,omitempty"` // shell pipeline name under PipelineDir
 	BuildOnFetch bool   `json:"build_on_fetch,omitempty"`
 	// Host: "vps" (default, build on primary) or "mac" (op builds, release import only).
-	Host      string `json:"host,omitempty"`
-	CreatedAt string `json:"created_at,omitempty"`
+	Host string `json:"host,omitempty"`
+	// OnPush / OnTag: auto-enqueue ship (OnPush aliases BuildOnFetch behavior).
+	OnPush bool `json:"on_push,omitempty"`
+	OnTag  bool `json:"on_tag,omitempty"`
+	// PathIgnore: skip auto-ship when all changed paths match these prefixes.
+	PathIgnore []string `json:"path_ignore,omitempty"`
+	CreatedAt  string   `json:"created_at,omitempty"`
 }
 
 func projectsPath() string {
@@ -166,7 +171,7 @@ func SyncProject(name string) (string, error) {
 	if err != nil {
 		return out, err
 	}
-	if p.BuildOnFetch {
+	if ShouldAutoShip(p, nil) {
 		job, berr := EnqueueShipJob(ShipOpts{Project: p.Name})
 		_ = job
 		blog := ""
@@ -244,6 +249,13 @@ func runBuildProjectNow(name, ref string) (string, error) {
 
 	var log strings.Builder
 	fmt.Fprintf(&log, "project %s ref=%s work=%s host=%s\n", p.Name, ref, work, p.Host)
+	cacheDir, cacheEnv := EnsureCICache(p.Name, work)
+	fmt.Fprintf(&log, "ci-cache %s\n", cacheDir)
+	for _, kv := range append(cacheEnv, LoadCISecretsEnv(p.Name)...) {
+		if i := strings.IndexByte(kv, '='); i > 0 {
+			_ = os.Setenv(kv[:i], kv[i+1:])
+		}
+	}
 
 	// host=mac: never compile on VPS — enqueue + notify operator
 	if isMacHost(p.Host) {
@@ -459,4 +471,34 @@ func ProjectDetailOf(name string) (*ProjectDetail, error) {
 		d.Note = "build_on_fetch: SyncProject runs Build after fetch (heavy — use sparingly)"
 	}
 	return d, nil
+}
+
+
+// ShouldAutoShip reports whether fetch should enqueue ship.
+func ShouldAutoShip(p *Project, changedPaths []string) bool {
+	if p == nil {
+		return false
+	}
+	if !p.BuildOnFetch && !p.OnPush && !p.OnTag {
+		return false
+	}
+	if len(p.PathIgnore) == 0 || len(changedPaths) == 0 {
+		return true
+	}
+	allIgn := true
+	for _, path := range changedPaths {
+		ign := false
+		for _, pref := range p.PathIgnore {
+			pref = strings.TrimSpace(pref)
+			if pref != "" && (strings.HasPrefix(path, pref) || path == pref) {
+				ign = true
+				break
+			}
+		}
+		if !ign {
+			allIgn = false
+			break
+		}
+	}
+	return !allIgn
 }
