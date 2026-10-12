@@ -1,3 +1,7 @@
+## 0.9.353
+
+- TG: device profiles list uses same table + # buttons pattern as Users
+
 ## 0.9.352
 
 - CI runner: auto-rewrite `go test ./...` → sequential even if workflow YAML is old

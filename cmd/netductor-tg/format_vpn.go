@@ -139,6 +139,78 @@ func formatUsersListHTML() string {
 	return b.String()
 }
 
+
+func formatDevicesListHTML() string {
+	nl := string([]byte{10})
+	names := vpn.ListDeviceNames(false)
+	// state from vpn list
+	state := map[string]string{}
+	for _, line := range strings.Split(runVPN("list"), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 1 {
+			parts = strings.Fields(line)
+		}
+		if len(parts) < 1 {
+			continue
+		}
+		en := ""
+		if len(parts) > 1 {
+			en = parts[1]
+		}
+		state[parts[0]] = en
+	}
+	var b strings.Builder
+	b.WriteString("📺 <b>" + esc(T("vpn_devices_btn")) + "</b>" + nl)
+	if getLang() != "en" {
+		b.WriteString("<i>Отдельные VLESS/sub (Apple TV…). Не в Users. UUID при смене kind не меняется. # — карточка</i>" + nl)
+	} else {
+		b.WriteString("<i>Separate VLESS/sub (Apple TV…). Hidden from Users. UUID kept on kind change. # opens card</i>" + nl)
+	}
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>#</th><th>device</th><th></th></tr>" + nl)
+	for i, n := range names {
+		if i >= 25 {
+			break
+		}
+		en := state[n]
+		icon := "🟢"
+		if en == "off" {
+			icon = "🔴"
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, i+1, esc(n), icon))
+	}
+	if len(names) == 0 {
+		b.WriteString("<tr><td>—</td><td>—</td><td>—</td></tr>" + nl)
+	}
+	b.WriteString("</table>" + nl)
+	const per = 5
+	for i, n := range names {
+		if i >= 12 {
+			break
+		}
+		if i%per == 0 {
+			if i > 0 {
+				b.WriteString(`</tg-button-row>` + nl)
+			}
+			b.WriteString(`<tg-button-row align="left">`)
+		}
+		style := "link"
+		if state[n] != "off" {
+			style = "success"
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="u:open:%s">%d</tg-button>`, style, n, i+1))
+	}
+	if len(names) > 0 {
+		b.WriteString(`</tg-button-row>` + nl)
+	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:users">« Users</tg-button></tg-button-row>`)
+	return b.String()
+}
+
 func formatUserHubHTML(name string) string {
 	nl := string([]byte{10})
 	raw := runVPN("list")

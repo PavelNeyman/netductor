@@ -1,3 +1,5 @@
+**0.9.353:** TG device profiles table parity with Users.
+
 **0.9.351:** CI sequential tests + mem limits; local releases preferred for stack/update.
 
 **0.9.350:** TG user card ≤5 btn rows; Web edge form prefill from operator config.
