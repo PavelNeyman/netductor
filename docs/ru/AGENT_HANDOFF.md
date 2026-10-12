@@ -1,8 +1,8 @@
 # AGENT Handoff (RU)
 
-**Стоп-линия: v0.9.347** (2026-10-12). Комплекс ревью: [REVIEW-SUITE](REVIEW-SUITE.md). Новый чат: AGENTS.md → [EN AGENT_HANDOFF](../AGENT_HANDOFF.md) → OPEN_ITEMS.
+**Стоп-линия: v0.9.348** (2026-10-12). Комплекс ревью: [REVIEW-SUITE](REVIEW-SUITE.md). Новый чат: AGENTS.md → [EN AGENT_HANDOFF](../AGENT_HANDOFF.md) → OPEN_ITEMS.
 
-### Сводка 0.9.320–0.9.347
+### Сводка 0.9.320–0.9.348
 
 - Metrics UI, recovery-алерты EN/RU, таблицы Channel
 - unattended-upgrades, integrity (+SSH), backup age, SERVFAIL
@@ -14,9 +14,9 @@
 Apply (после публикации assets):
 
 ```bash
-netductor stack preflight v0.9.347
-netductor stack apply v0.9.347
-netductor secondary cmd <id> upgrade:v0.9.347
+netductor stack preflight v0.9.348
+netductor stack apply v0.9.348
+netductor secondary cmd <id> upgrade:v0.9.348
 ```
 
 ### Открыто (не код-блокеры)

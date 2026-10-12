@@ -44,6 +44,15 @@ var defaultWorkDirectCIDRs = []string{
 	"192.168.81.0/24",
 	"134.17.14.99/32",
 	"141.105.71.253/32",
+	// work DNS (OpenConnect split DNS) — also in skip-proxy as /32
+	"192.168.70.250/32",
+	"192.168.80.250/32",
+}
+
+// defaultWorkDirectDomains — browser/SR match by name (CIDR-only skip-proxy is not enough:
+// Safari/Chrome hit SR by hostname; curl to resolved IP followed utun work and looked "fine").
+var defaultWorkDirectDomains = []string{
+	"tealpos.ru",
 }
 
 // SRProfileMeta is UI-facing metadata (EN/RU labels + short help).
@@ -121,6 +130,7 @@ func BuildShadowrocketRoutingConfProfile(profile string) string {
 	case SRProfileOperatorMobile:
 		writeCIDRRules(&rb, "# home LAN", homeLANCIDRs(), "DIRECT")
 		writeCIDRRules(&rb, "# work VPN / corporate (utun) — do not send via VLESS", workDirectCIDRs(), "DIRECT")
+		writeDomainSuffixRules(&rb, "# work DNS names (browser path)", workDirectDomains(), "DIRECT")
 		for _, line := range ShadowrocketAdsRejectRules() {
 			rb.WriteString(line)
 			rb.WriteByte('\n')
@@ -138,6 +148,7 @@ func BuildShadowrocketRoutingConfProfile(profile string) string {
 	case SRProfileOperatorFullProxy:
 		writeCIDRRules(&rb, "# home LAN", homeLANCIDRs(), "DIRECT")
 		writeCIDRRules(&rb, "# work VPN / corporate — required on any Wi‑Fi", workDirectCIDRs(), "DIRECT")
+		writeDomainSuffixRules(&rb, "# work DNS names (browser path)", workDirectDomains(), "DIRECT")
 		// No client RU DIRECT — secondary split+DNS handles RU for tunnel traffic.
 		// REJECT ads optional; keep light list (duplicates blocky for non-PROXY edge cases).
 		for _, line := range ShadowrocketAdsRejectRules() {
@@ -208,6 +219,46 @@ func homeLANCIDRs() []string {
 }
 
 // workDirectCIDRs — baked-in utun9 list; optional env/file only to extend/replace.
+
+func workDirectDomains() []string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_WORK_DIRECT_DOMAINS")); v != "" {
+		return splitCIDRList(v)
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "work-direct-domains")); err == nil {
+		var out []string
+		for _, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			out = append(out, line)
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return append([]string{}, defaultWorkDirectDomains...)
+}
+
+func writeDomainSuffixRules(rb *strings.Builder, comment string, domains []string, policy string) {
+	if len(domains) == 0 {
+		return
+	}
+	if comment != "" {
+		rb.WriteString(comment)
+		rb.WriteByte('\n')
+	}
+	for _, d := range domains {
+		d = strings.TrimSpace(d)
+		d = strings.TrimPrefix(d, "*.")
+		if d == "" {
+			continue
+		}
+		rb.WriteString("DOMAIN-SUFFIX," + d + "," + policy)
+		rb.WriteByte('\n')
+	}
+}
+
 func workDirectCIDRs() []string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_WORK_DIRECT_CIDRS")); v != "" {
 		return splitCIDRList(v)
@@ -314,6 +365,14 @@ func ShadowrocketGeneralBlockFor(profile string) string {
 		for _, c := range workDirectCIDRs() {
 			parts = append(parts, c)
 		}
+		for _, d := range workDirectDomains() {
+			d = strings.TrimSpace(d)
+			d = strings.TrimPrefix(d, "*.")
+			if d == "" {
+				continue
+			}
+			parts = append(parts, d, "*."+d)
+		}
 	}
 	skip := strings.Join(parts, ", ")
 	// Home only in tun-exclude (LAN via en0 is intended). Work must NOT be here.
@@ -321,6 +380,7 @@ func ShadowrocketGeneralBlockFor(profile string) string {
 	return strings.TrimSpace(`
 [General]
 # DIRECT uses system DNS; PROXY path DNS is on the node (blocky)
+# Parallel work VPN: prefer connect SR first, then OpenConnect; use HTTPS not HTTP.
 dns-server = system
 fallback-dns-server = system
 ipv6 = false
