@@ -1,3 +1,5 @@
+**Plan:** unified project ship / smart pause / multi Mac-wait — [PLAN-PROJECT-SHIP.md](PLAN-PROJECT-SHIP.md) (design only, 0.9.354).
+
 **0.9.354:** release ship (test+matrix), auto next tag, artifact prune.
 
 **0.9.353:** TG device profiles table parity with Users.
