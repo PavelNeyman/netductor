@@ -1,3 +1,5 @@
+**0.9.357:** PLAN-PROJECT-SHIP S3–S6 — pause/resume/complete, auto tag, doctor ship counts.
+
 **0.9.356:** PLAN-PROJECT-SHIP **S1** — `project ship` for host=vps + mac wait; netductor→Ship matrix.
 
 **0.9.355:** PLAN-PROJECT-SHIP **S0** — job store + `netductor project jobs|job rm|next`. Ship runner S1 next.

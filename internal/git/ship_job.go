@@ -47,7 +47,9 @@ type ShipJob struct {
 	UpdatedAt string     `json:"updated_at"`
 	WaitSince string     `json:"wait_since,omitempty"`
 	Error     string     `json:"error,omitempty"`
-	LogTail   string     `json:"log_tail,omitempty"`
+	LogTail        string `json:"log_tail,omitempty"`
+	PauseRequested bool   `json:"pause_requested,omitempty"`
+	PublishTarget  string `json:"publish_target,omitempty"` // artifacts path when done
 }
 
 var shipMu sync.Mutex
@@ -315,4 +317,29 @@ func FormatShipJobsText(jobs []ShipJob) string {
 			j.ID, j.Project, j.State, slot, j.Tag, j.Ref, j.UpdatedAt)
 	}
 	return b.String()
+}
+
+
+// RequestShipPause sets pause_requested; applied after the current step finishes.
+func RequestShipPause(id string) error {
+	shipMu.Lock()
+	defer shipMu.Unlock()
+	j, err := getShipJobUnlocked(id)
+	if err != nil {
+		return err
+	}
+	if j.State == ShipDone || j.State == ShipFailed {
+		return fmt.Errorf("job %s is %s", id, j.State)
+	}
+	j.PauseRequested = true
+	return saveShipJobUnlocked(j)
+}
+
+// shouldPauseAfterStep returns true if pause was requested (clears flag when applying).
+func shouldPauseAfterStep(j *ShipJob) bool {
+	if j == nil || !j.PauseRequested {
+		return false
+	}
+	j.PauseRequested = false
+	return true
 }

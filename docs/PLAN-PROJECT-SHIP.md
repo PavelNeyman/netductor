@@ -1,6 +1,6 @@
 # PLAN: Unified project ship (CI → pause → publish)
 
-**Status:** S0–S1 done (0.9.356) · S2+ pending  
+**Status:** S0–S6 core done (0.9.357); TG/Web UI parity optional next  
 **EN** · related: [PLAN-INTERNAL-RELEASES.md](PLAN-INTERNAL-RELEASES.md), [PLAN-GIT-CI-OPS.md](PLAN-GIT-CI-OPS.md), [SELFHOST-GIT.md](SELFHOST-GIT.md)
 
 
@@ -259,3 +259,6 @@ Dependency: existing `gha.Run` step loop, `vps_queue`, `mac_queue`, `release shi
 | **`project complete <id> --from <dir>`** | External/Mac artifact handoff |
 
 `release ship`, `git project build` as product entry points are **removed** in the implementing release (or exit 2 with message once). Mac queue merges into ship jobs (`reason=mac`). Docs/TG/Web updated in the same PR.
+
+
+**Implemented through 0.9.357:** S0 store, S1 ship, S3 pause/resume, S4 complete, S5 next/auto tag, S6 doctor counts. TG/Web job board still open.

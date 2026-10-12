@@ -15,10 +15,11 @@ func runProject(args []string) int {
   netductor project jobs [--json] [--state S]
   netductor project job <id> [--json]
   netductor project job rm <id>
-  netductor project next <name>     # next auto tag (product/local)
-  netductor project ship <name> …   # S1+ (not in this drop if stub)
-
-Ship job store: PLAN-PROJECT-SHIP S0`)
+  netductor project next [name]
+  netductor project ship <name> [--ref REF] [--tag vX]
+  netductor project pause <id>
+  netductor project resume <id>
+  netductor project complete <id> --from <dir>`)
 		return 2
 	}
 	switch args[0] {
@@ -101,14 +102,17 @@ Ship job store: PLAN-PROJECT-SHIP S0`)
 			_ = enc.Encode(j)
 			return 0
 		}
-		fmt.Printf("id=%s project=%s state=%s vps_slot=%v tag=%s ref=%s cursor=%d reason=%s\n",
-			j.ID, j.Project, j.State, j.VpsSlot, j.Tag, j.Ref, j.Cursor, j.Reason)
+		fmt.Printf("id=%s project=%s state=%s vps_slot=%v tag=%s ref=%s cursor=%d reason=%s pause_req=%v\n",
+			j.ID, j.Project, j.State, j.VpsSlot, j.Tag, j.Ref, j.Cursor, j.Reason, j.PauseRequested)
 		for i, s := range j.Steps {
 			mark := " "
 			if i == j.Cursor {
 				mark = "*"
 			}
 			fmt.Printf("  %s%d. %s\t%s\n", mark, i, s.Name, s.Status)
+		}
+		if j.PublishTarget != "" {
+			fmt.Println("publish:", j.PublishTarget)
 		}
 		if j.Error != "" {
 			fmt.Println("error:", j.Error)
@@ -119,7 +123,6 @@ Ship job store: PLAN-PROJECT-SHIP S0`)
 		fmt.Println("updated:", j.UpdatedAt)
 		return 0
 	case "next":
-		// Per-project next: for now product next when name is netductor; else v0.0.1 baseline
 		name := ""
 		if len(args) >= 2 {
 			name = args[1]
@@ -133,8 +136,7 @@ Ship job store: PLAN-PROJECT-SHIP S0`)
 			fmt.Println(t)
 			return 0
 		}
-		// generic: look for tags under artifacts later; patch from 0.0.0
-		fmt.Println("v0.0.1")
+		fmt.Println(gitstore.NextProjectTag(name))
 		return 0
 	case "ship":
 		if len(args) < 2 {
@@ -157,10 +159,8 @@ Ship job store: PLAN-PROJECT-SHIP S0`)
 				}
 			}
 		}
-		// netductor product matrix → update.Ship (S2 fold-in)
 		if name == "netductor" {
-			fmt.Fprintln(os.Stderr, "project ship netductor: use release path via update.Ship…")
-			got, dst, logPath, err := ndupdate.Ship(ndupdate.ShipOpts{Tag: tag, SkipDarwin: false})
+			got, dst, logPath, err := ndupdate.Ship(ndupdate.ShipOpts{Tag: tag})
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				if logPath != "" {
@@ -170,6 +170,10 @@ Ship job store: PLAN-PROJECT-SHIP S0`)
 			}
 			fmt.Println("ok", got, "→", dst)
 			return 0
+		}
+		if tag == "" {
+			tag = gitstore.NextProjectTag(name)
+			fmt.Fprintln(os.Stderr, "auto tag", tag)
 		}
 		job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: name, Ref: ref, Tag: tag})
 		fmt.Print(out)
@@ -181,9 +185,55 @@ Ship job store: PLAN-PROJECT-SHIP S0`)
 			return 1
 		}
 		return 0
-	case "pause", "resume", "complete":
-		fmt.Fprintln(os.Stderr, "project", args[0]+": implement in S3/S4. Job store: project jobs | project job rm")
-		return 2
+	case "pause":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor project pause <id>")
+			return 2
+		}
+		if err := gitstore.RequestShipPause(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("pause requested", args[1], "(applies after current step)")
+		return 0
+	case "resume":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor project resume <id>")
+			return 2
+		}
+		job, out, err := gitstore.ResumeShip(args[1])
+		fmt.Print(out)
+		if job != nil {
+			fmt.Printf("job id=%s state=%s\n", job.ID, job.State)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	case "complete":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor project complete <id> --from <dir>")
+			return 2
+		}
+		id := args[1]
+		from := ""
+		for i := 2; i < len(args); i++ {
+			if args[i] == "--from" && i+1 < len(args) {
+				from = args[i+1]
+				i++
+			}
+		}
+		job, out, err := gitstore.CompleteShip(id, from)
+		fmt.Print(out)
+		if job != nil {
+			fmt.Printf("job id=%s state=%s\n", job.ID, job.State)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
 	default:
 		fmt.Fprintln(os.Stderr, "unknown project subcommand:", args[0])
 		return 2

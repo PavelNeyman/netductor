@@ -57,3 +57,19 @@ func TestShipJobStoreSlotAndRm(t *testing.T) {
 		// dir may not exist if never created — ok
 	}
 }
+
+func TestShipPauseRequest(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_SHIP_JOBS", dir)
+	j, err := CreateShipJob("p1", "HEAD", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := RequestShipPause(j.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := GetShipJob(j.ID)
+	if !got.PauseRequested {
+		t.Fatal("expected pause_requested")
+	}
+}

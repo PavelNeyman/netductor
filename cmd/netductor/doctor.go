@@ -516,6 +516,14 @@ func runDoctorNative() int {
 		} else {
 			doctorPrintf("INFO git root absent (%s) — netductor git init <name>\n", gitstore.Root())
 		}
+		// ship jobs (PLAN-PROJECT-SHIP)
+		if sc := gitstore.CountShipJobsByState(); len(sc) > 0 {
+			doctorPrintf("INFO ship jobs")
+			for k, v := range sc {
+				doctorPrintf(" %s=%d", k, v)
+			}
+			doctorPrintf(" vps_slot=%v\n", gitstore.VpsSlotTaken())
+		}
 		doctorPrintf("INFO ci %s\n", ci.StatusLine())
 		if ci.IsolationEnabled() && ci.Engine() == "" {
 			doctorPrintln("WARN ci isolation on but no docker/podman")

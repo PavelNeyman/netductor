@@ -88,7 +88,7 @@ Full review complex: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/REVIEW-SUITE.md](
 
 Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (RU: [ru/VERIFICATION-PLAN.md](ru/VERIFICATION-PLAN.md)). Mark progress there.
 
-- [ ] Unified **project ship** (decisions locked — implement S0→S6) (pause/wait no VPS slot; Mac multi-wait; auto tag) — [PLAN-PROJECT-SHIP.md](PLAN-PROJECT-SHIP.md)
+- [x] Unified **project ship** S0–S6 core (0.9.357); UI parity TG/Web open (pause/wait no VPS slot; Mac multi-wait; auto tag) — [PLAN-PROJECT-SHIP.md](PLAN-PROJECT-SHIP.md)
 
 ## Owner next
 

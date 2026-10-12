@@ -1,3 +1,9 @@
+## 0.9.357
+
+- S3/S4: project pause (after step), resume (no redo ok), complete --from
+- S5: auto tag per project on ship; project next <name>
+- S6: doctor INFO ship job counts + vps_slot
+
 ## 0.9.356
 
 - S1: `netductor project ship <name>` — job + VPS slot + build + publish artifacts (host=mac → waiting_external)
