@@ -14,9 +14,7 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
 		}
-		auth := r.Header.Get("Authorization")
-		token := strings.TrimPrefix(auth, "Bearer ")
-		token = strings.TrimSpace(token)
+		token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 		if token == "" {
 			writeJSON(w, 401, map[string]any{"ok": false, "error": "token"})
 			return
@@ -29,42 +27,28 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})
-
 	mux.HandleFunc("/api/build-host/status", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
 		list := gitstore.ListBuildHostStates()
-		// redact tokens
 		for i := range list {
 			list[i].Token = ""
 		}
-		writeJSON(w, 200, map[string]any{
-			"ok": true,
-			"hosts": list,
-			"config": gitstore.LoadBuildHost(),
-			"status": gitstore.BuildHostStatusLine(),
-		})
+		writeJSON(w, 200, map[string]any{"ok": true, "hosts": list, "config": gitstore.LoadBuildHost(), "status": gitstore.BuildHostStatusLine()})
 	})
-
 	mux.HandleFunc("/api/build-host/deploy", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {
 			return
 		}
 		var body struct {
-			Host     string `json:"host"`
-			User     string `json:"user"`
-			Port     int    `json:"port"`
-			Password string `json:"password"`
-			KeyPath  string `json:"key_path"`
-			Label    string `json:"label"`
-			PrimaryURL string `json:"primary_url"`
+			Host, User, Password, KeyPath, Label, PrimaryURL string
+			Port int
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		log, err := gitstore.DeployBuildHost(gitstore.DeployBuildHostOpts{
-			Host: body.Host, User: body.User, Port: body.Port,
-			Password: body.Password, KeyPath: body.KeyPath, Label: body.Label,
-			PrimaryURL: body.PrimaryURL,
+			Host: body.Host, User: body.User, Port: body.Port, Password: body.Password,
+			KeyPath: body.KeyPath, Label: body.Label, PrimaryURL: body.PrimaryURL,
 		})
 		if err != nil {
 			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error(), "log": log})
