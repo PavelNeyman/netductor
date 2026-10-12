@@ -242,3 +242,13 @@ netductor stack apply           # uses local latest when present
 - **git project build** — CI for *any* project (tests/logs → `git-artifacts/`, pruned).
 - **release ship** — netductor product cycle; failed tests **do not** publish to `releases/`.
 - **release build** — matrix only (legacy/debug); prefer **ship**.
+
+
+## Project ship
+
+```bash
+netductor project ship NAME
+netductor project jobs
+netductor project pause|resume|complete|job rm ID
+```
+API async by default; `?wait=1` for sync. Worker: one VPS ship at a time.

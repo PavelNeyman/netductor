@@ -327,27 +327,16 @@ func runGitProject(args []string) int {
 		}
 		return 0
 	case "build-all", "buildall":
-		vpsOnly := true
-		for _, a := range args[1:] {
-			if a == "--all-hosts" || a == "--include-mac" {
-				vpsOnly = false
-			}
+		fmt.Fprintln(os.Stderr, "git project build-all removed — use project ship per name, or API ship-all")
+		queued, skipped, err := gitstore.ShipAllVPS()
+		for _, id := range queued {
+			fmt.Println("queued", id)
 		}
-		results, okN, failN, skipN := gitstore.BuildAll(vpsOnly)
-		for _, r := range results {
-			status := "ok"
-			if r.Skipped {
-				status = "skip"
-			} else if !r.OK {
-				status = "FAIL"
-			}
-			fmt.Printf("%s	%s	host=%s\n", status, r.Name, r.Host)
-			if r.Error != "" {
-				fmt.Printf("  %s\n", r.Error)
-			}
+		for _, s := range skipped {
+			fmt.Println("skip", s)
 		}
-		fmt.Printf("summary ok=%d fail=%d skip=%d\n", okN, failN, skipN)
-		if failN > 0 {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 		return 0

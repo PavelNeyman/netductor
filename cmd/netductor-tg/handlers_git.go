@@ -303,7 +303,25 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			reply(token, chat, msgID, b.String(), navKeyboard("m:git:proj:list", "Projects"))
 			return true
 		}
-		if sub == "build-all" {
+		if sub == "build-all" || sub == "ship-all" {
+			queued, skipped, err := gitstore.ShipAllVPS()
+			nl := string([]byte{10})
+			var b strings.Builder
+			if err != nil {
+				b.WriteString("❌ " + esc(err.Error()))
+			} else {
+				b.WriteString(fmt.Sprintf("🚀 ship-all queued=%d skipped=%d%s", len(queued), len(skipped), nl))
+				for _, id := range queued {
+					b.WriteString("· <code>" + esc(id) + "</code>" + nl)
+				}
+				for _, s := range skipped {
+					b.WriteString("skip " + esc(s) + nl)
+				}
+			}
+			reply(token, chat, msgID, b.String(), navKeyboard("m:git:ship:jobs", "Jobs"))
+			return true
+		}
+		if sub == "build-all-legacy-disabled" {
 			results, okN, failN, skipN := gitstore.BuildAll(true)
 			var b strings.Builder
 			nl := string([]byte{10})
@@ -477,15 +495,13 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			name := strings.TrimPrefix(sub, "build:")
 			name = strings.TrimPrefix(name, "ship:")
 			tag := gitstore.NextProjectTag(name)
-			job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: name, Ref: "", Tag: tag})
-			msg := "<pre>" + esc(truncateRunes(out, 2800)) + "</pre>"
+			job, err := gitstore.EnqueueShipJob(gitstore.ShipOpts{Project: name, Ref: "", Tag: tag})
+			msg := ""
 			if job != nil {
-				msg = "job <code>" + esc(job.ID) + "</code> state=<code>" + esc(job.State) + "</code>\n" + msg
+				msg = "🚀 ship queued\njob <code>" + esc(job.ID) + "</code> state=<code>" + esc(job.State) + "</code> tag=<code>" + esc(job.Tag) + "</code>"
 			}
 			if err != nil {
-				msg = "❌ " + esc(err.Error()) + "\n" + msg
-			} else {
-				msg = "🚀 ship\n" + msg
+				msg = "❌ " + esc(err.Error())
 			}
 			kb := navKeyboard("m:git:proj:list", "Projects")
 			if job != nil {

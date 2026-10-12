@@ -1,3 +1,5 @@
+**0.9.359:** ship topic complete — async worker, UI/API/TG parity, build-all→ship.
+
 **0.9.358:** PLAN-PROJECT-SHIP UI parity — TG Ship/Jobs, API ship + ship-jobs, Web actions.
 
 **0.9.357:** PLAN-PROJECT-SHIP S3–S6 — pause/resume/complete, auto tag, doctor ship counts.

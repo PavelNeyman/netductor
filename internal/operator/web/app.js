@@ -1031,12 +1031,17 @@ function mountButtons(){
       <button class="primary" type="button" data-act="git-proj-add">${t('b_git_proj_add')}</button>
       <button class="primary" type="button" data-act="git-proj-detail">${t('b_git_proj_detail')}</button>
       <button class="primary" type="button" data-act="git-proj-sync">${t('b_git_proj_sync')}</button>
-      <button class="primary" type="button" data-act="git-proj-build">${t('b_git_proj_build')}</button>
+      <button class="primary" type="button" data-act="git-proj-build">Ship</button>
+      <button type="button" data-act="git-ship-jobs">Ship jobs</button>
+      <input id="gitShipJobId" placeholder="ship job id" style="min-width:12rem"/>
+      <button type="button" data-act="git-ship-pause">Pause</button>
+      <button type="button" data-act="git-ship-resume">Resume</button>
+      <button type="button" data-act="git-ship-rm">Rm job</button>
       <div class="row"><div><label>${t('l_git_mig_owner')}</label><input id="gitMigOwner" placeholder="PavelNeyman" value="PavelNeyman"/></div>
         <div><label>mode</label><select id="gitMigMode"><option value="dry">dry-run</option><option value="sync">add+sync</option><option value="add">add only</option></select></div></div>
       <button class="primary" type="button" data-act="git-proj-migrate">${t('b_git_proj_migrate')}</button>
       <button class="primary" type="button" data-act="git-proj-sync-all">${t('b_git_proj_sync_all')}</button>
-      <button class="primary" type="button" data-act="git-proj-build-all">${t('b_git_proj_build_all')}</button>
+      <button class="primary" type="button" data-act="git-proj-build-all">Ship all</button>
       <button class="primary" type="button" data-act="git-proj-vps-queue">${t('b_git_proj_vps_queue')}</button>
       <div class="row"><div><label>vps job id</label><input id="gitVpsJobId" placeholder="build-…"/></div></div>
       <button type="button" data-act="git-proj-vps-cancel">${t('b_git_proj_vps_cancel')}</button>

@@ -167,7 +167,12 @@ func SyncProject(name string) (string, error) {
 		return out, err
 	}
 	if p.BuildOnFetch {
-		blog, berr := BuildProject(p.Name, "")
+		job, berr := EnqueueShipJob(ShipOpts{Project: p.Name})
+		_ = job
+		blog := ""
+		if job != nil {
+			blog = "enqueued ship " + job.ID
+		}
 		out += "\n" + blog
 		if berr != nil {
 			return out, berr

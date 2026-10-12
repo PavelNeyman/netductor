@@ -231,12 +231,12 @@ func registerGitAPI(mux *http.ServeMux) {
 			}
 			return
 		}
-		var body struct {
-			IncludeMac bool `json:"include_mac"`
+		queued, skipped, err := gitstore.ShipAllVPS()
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		results, okN, failN, skipN := gitstore.BuildAll(!body.IncludeMac)
-		writeJSON(w, 200, map[string]any{"ok": failN == 0, "ok_n": okN, "fail_n": failN, "skip_n": skipN, "results": results})
+		writeJSON(w, 200, map[string]any{"ok": true, "queued": queued, "skipped": skipped, "queued_n": len(queued), "skipped_n": len(skipped)})
 	})
 
 	mux.HandleFunc("/api/git/projects/mirror-push", func(w http.ResponseWriter, r *http.Request) {
@@ -320,17 +320,23 @@ func registerGitAPI(mux *http.ServeMux) {
 		if tag == "" {
 			tag = gitstore.NextProjectTag(body.Name)
 		}
-		job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
-		resp := map[string]any{"ok": err == nil, "log": out}
-		if job != nil {
-			resp["job"] = job
-		}
-		if err != nil {
-			resp["error"] = err.Error()
-			writeJSON(w, 400, resp)
+		if r.URL.Query().Get("wait") == "1" {
+			job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
+			resp := map[string]any{"ok": err == nil, "log": out, "job": job}
+			if err != nil {
+				resp["error"] = err.Error()
+				writeJSON(w, 400, resp)
+				return
+			}
+			writeJSON(w, 200, resp)
 			return
 		}
-		writeJSON(w, 200, resp)
+		job, err := gitstore.EnqueueShipJob(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "async": true, "job": job})
 	})
 
 	mux.HandleFunc("/api/git/projects/ship", func(w http.ResponseWriter, r *http.Request) {
@@ -360,17 +366,23 @@ func registerGitAPI(mux *http.ServeMux) {
 		if tag == "" {
 			tag = gitstore.NextProjectTag(body.Name)
 		}
-		job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
-		resp := map[string]any{"ok": err == nil, "log": out}
-		if job != nil {
-			resp["job"] = job
-		}
-		if err != nil {
-			resp["error"] = err.Error()
-			writeJSON(w, 400, resp)
+		if r.URL.Query().Get("wait") == "1" {
+			job, out, err := gitstore.ShipProject(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
+			resp := map[string]any{"ok": err == nil, "log": out, "job": job}
+			if err != nil {
+				resp["error"] = err.Error()
+				writeJSON(w, 400, resp)
+				return
+			}
+			writeJSON(w, 200, resp)
 			return
 		}
-		writeJSON(w, 200, resp)
+		job, err := gitstore.EnqueueShipJob(gitstore.ShipOpts{Project: body.Name, Ref: body.Ref, Tag: tag})
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "async": true, "job": job})
 	})
 
 	mux.HandleFunc("/api/git/projects/ship-jobs", func(w http.ResponseWriter, r *http.Request) {

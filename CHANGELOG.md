@@ -1,3 +1,9 @@
+## 0.9.359
+
+- Ship worker: async queue (API/TG enqueue; one VPS job at a time)
+- build-all / BuildOnFetch → ship; opcatalog + i18n Ship
+- Web: Ship jobs controls; hard-cut messaging on release ship / git build
+
 ## 0.9.358
 
 - TG/Web parity: project **Ship** (not Build), ship jobs board, pause/resume/rm

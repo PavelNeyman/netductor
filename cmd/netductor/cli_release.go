@@ -152,6 +152,8 @@ func runRelease(args []string) int {
 		fmt.Println("ok", dst)
 		return 0
 	case "ship":
+		fmt.Fprintln(os.Stderr, "release ship removed — use: netductor project ship netductor [--tag vX]")
+		// still runs matrix for transition:
 		tag := ""
 		skipT, skipD := false, false
 		for _, a := range args[1:] {
