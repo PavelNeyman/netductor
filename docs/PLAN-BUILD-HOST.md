@@ -23,7 +23,7 @@ On secondary today:
 - Public URL kept as **fallback** file for emergency
 - Failover tick switches agent URL tunnel↔public and can move users SP on VLESS down
 
-**Build-host differs:** **no public agent fallback**. Only PB/BP. If both paths down → offline + alert (operator SSH still possible on :52222).
+**Secondary and build-host:** **tunnel-only** (0.9.365+). Secondary agent uses SP then PS (`10.87.10.1` / `10.87.11.1 :8789`). Never public WAN :8789. Build-host: PB then BP. If both paths down → offline + alert (operator SSH :52222 only).
 
 ## Dual paths PB / BP
 

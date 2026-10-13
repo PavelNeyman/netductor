@@ -1,3 +1,5 @@
+**0.9.365:** Secondary tunnel-only (SP→PS). No public agent fallback. Build-host same model PB→BP.
+
 **0.9.364:** Build-host plan locked (op/agent/tunnel-only). Node deploy removed. See docs/PLAN-BUILD-HOST.md.
 
 **0.9.363:** Build-host deploy from op only; wizard; PB/BP tunnels like SP/PS.

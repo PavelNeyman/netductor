@@ -110,16 +110,10 @@ func EnforceState(s State) error {
 
 func applyAgentURL(mode string) error {
 	_ = os.MkdirAll(filepath.Dir(coreURLPath), 0o700)
-	pub := strings.TrimSpace(string(mustRead(coreURLPublic)))
-	if pub == "" {
-		if h := publicPrimaryHost(); h != "" {
-			pub = "https://" + h + ":8789"
-		}
-	}
-	tunnel := "https://" + AddrP_SP + ":8789"
-	want := tunnel
-	if mode == "public" && pub != "" {
-		want = pub
+	// Tunnel-only: SP default, PS when SP path is down. Never public WAN :8789.
+	want := "https://" + AddrP_SP + ":8789"
+	if mode == "public" || mode == "ps" || mode == "tunnel_ps" {
+		want = "https://" + AddrP_PS + ":8789"
 	}
 	cur := strings.TrimSpace(string(mustRead(coreURLPath)))
 	if cur == want {
@@ -128,7 +122,7 @@ func applyAgentURL(mode string) error {
 	if err := os.WriteFile(coreURLPath, []byte(want+"\n"), 0o600); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "svc-paths apply: agent URL → %s\n", want)
+	fmt.Fprintf(os.Stderr, "svc-paths apply: agent URL → %s (tunnel-only)\n", want)
 	return nil
 }
 

@@ -81,7 +81,7 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 }
 
 func agentTick(client *http.Client, coreBase, token string, applied *int, lastDone *string, lastOK *bool, lastLog *string) error {
-	// Re-read preferred core URL each tick (failover may switch tunnel↔public)
+	// Re-read preferred core URL each tick (failover may switch SP↔PS tunnel)
 	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url"); err == nil {
 		if s := strings.TrimSpace(string(b)); s != "" {
 			coreBase = s
@@ -117,26 +117,12 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").Output(); err == nil {
 		sbOK = strings.TrimSpace(string(out)) == "active"
 	}
-	// Uplink health: prefer SP gateway (no bare TCP to Reality :443 — that floods primary with
-	// "REALITY: processed invalid connection"). Public :443 probe only when SP is down.
+	// Uplink health: tunnel-only — SP then PS. Never public WAN agent plane.
 	upOK := false
 	if exec.Command("ping", "-c", "1", "-W", "2", "10.87.10.1").Run() == nil {
 		upOK = true
-	} else {
-		pubHost := ""
-		if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url.public"); err == nil {
-			s := strings.TrimSpace(string(b))
-			s = strings.TrimPrefix(strings.TrimPrefix(s, "https://"), "http://")
-			if i := strings.IndexAny(s, ":/"); i > 0 {
-				s = s[:i]
-			}
-			pubHost = s
-		}
-		if pubHost != "" {
-			upOK = probePrimaryUplink("https://" + pubHost + ":8789")
-		} else {
-			upOK = probePrimaryUplink(coreBase)
-		}
+	} else if exec.Command("ping", "-c", "1", "-W", "2", "10.87.11.1").Run() == nil {
+		upOK = true
 	}
 	if upOK {
 		uplinkFailStreak = 0

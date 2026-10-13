@@ -206,3 +206,34 @@ func BuildPathsStatus() string {
 	}
 	return "build-paths: " + strings.Join(up, ",")
 }
+
+// ApplyBuildAgentURL sets tunnel-only core URL for ROLE=build agent (PB preferred, BP fallback).
+func ApplyBuildAgentURL(preferPB bool) error {
+	path := "/etc/netductor/secrets/build_core_url"
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	want := "https://" + AddrP_PB + ":8789"
+	if !preferPB {
+		want = "https://" + AddrP_BP + ":8789"
+	}
+	return os.WriteFile(path, []byte(want+"\n"), 0o600)
+}
+
+// ProbeBuildPaths returns pbUp, bpUp via ping to peer VIP from this host.
+func ProbeBuildPaths() (pbUp, bpUp bool) {
+	pbUp = exec.Command("ping", "-c", "1", "-W", "2", AddrP_PB).Run() == nil ||
+		exec.Command("ping", "-c", "1", "-W", "2", AddrB_PB).Run() == nil
+	bpUp = exec.Command("ping", "-c", "1", "-W", "2", AddrP_BP).Run() == nil ||
+		exec.Command("ping", "-c", "1", "-W", "2", AddrB_BP).Run() == nil
+	return
+}
+
+// TickBuildPathsFailover on primary or build: update agent URL file + return summary.
+func TickBuildPathsFailover() string {
+	pb, bp := ProbeBuildPaths()
+	preferPB := pb
+	if !pb && bp {
+		preferPB = false
+	}
+	_ = ApplyBuildAgentURL(preferPB)
+	return fmt.Sprintf("pb_up=%v bp_up=%v prefer_pb=%v", pb, bp, preferPB)
+}

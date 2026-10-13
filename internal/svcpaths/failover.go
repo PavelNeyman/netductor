@@ -69,7 +69,7 @@ type State struct {
 	PSDown     bool      `json:"ps_down"`
 	VLESSDown  bool      `json:"vless_down"`
 	UserPath   string    `json:"user_path"` // "vless" | "sp" | "degraded"
-	AgentURLMode string  `json:"agent_url_mode"` // "tunnel" | "public"
+	AgentURLMode string  `json:"agent_url_mode"` // "tunnel" (SP) | "ps" (PS) — never public
 	UpdatedAt  time.Time `json:"updated_at"`
 	LastAction string    `json:"last_action,omitempty"`
 }
@@ -165,10 +165,12 @@ func Tick() (State, string, error) {
 		action = fmt.Sprintf("user_path %s→%s", prevUser, s.UserPath)
 	}
 
-	// Agent URL mode (secondary reads this via desired file)
+	// Agent URL: tunnel-only. SP preferred; PS when SP down. Never public WAN.
 	prevAgent := s.AgentURLMode
-	if s.SPDown {
-		s.AgentURLMode = "public"
+	if s.SPDown && !s.PSDown {
+		s.AgentURLMode = "ps"
+	} else if s.SPDown && s.PSDown {
+		s.AgentURLMode = "ps" // still PS VIP; both down → agent offline alerts
 	} else {
 		s.AgentURLMode = "tunnel"
 	}

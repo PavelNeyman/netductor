@@ -1,3 +1,9 @@
+## 0.9.365
+
+- Secondary agent plane **tunnel-only**: SP preferred, PS failover — never public :8789
+- Build-host: build_core_url + PB/BP prefer; agent re-reads each tick
+- PLAN updated
+
 ## 0.9.364
 
 - PLAN-BUILD-HOST locked: op-only deploy, agent-only CI, tunnel-only B, PB/BP failover, multi-host, fleet last

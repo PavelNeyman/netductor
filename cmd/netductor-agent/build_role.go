@@ -29,6 +29,12 @@ func runBuildAgent(cfg config) {
 }
 
 func buildHeartbeat(client *http.Client, cfg config) error {
+	if b, err := os.ReadFile("/etc/netductor/secrets/build_core_url"); err == nil {
+		if s := strings.TrimSpace(string(b)); s != "" {
+			cfg.Server = s
+		}
+	}
+
 	docker := false
 	if _, err := exec.LookPath("docker"); err == nil {
 		docker = true
