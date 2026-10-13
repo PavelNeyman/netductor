@@ -79,6 +79,54 @@ func buildHeartbeat(client *http.Client, cfg config) error {
 	if res.StatusCode >= 300 {
 		return fmt.Errorf("status %d", res.StatusCode)
 	}
+	var hb struct {
+		OK   bool     `json:"ok"`
+		Cmds []string `json:"cmds"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&hb)
+	for _, c := range hb.Cmds {
+		if c == "backup_pull" {
+			if err := buildBackupPull(client, cfg); err != nil {
+				fmt.Fprintf(os.Stderr, "backup_pull: %v\n", err)
+			}
+		}
+	}
+	return nil
+}
+
+func buildBackupPull(client *http.Client, cfg config) error {
+	base := strings.TrimRight(cfg.Server, "/")
+	url := base + "/api/build-host/backup/latest"
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		return fmt.Errorf("status %d", res.StatusCode)
+	}
+	dir := "/var/lib/netductor-build/backups/peers/core"
+	_ = os.MkdirAll(dir, 0o700)
+	name := res.Header.Get("X-Backup-Name")
+	if name == "" {
+		name = "backup-latest.ndenc"
+	}
+	dst := filepath.Join(dir, name)
+	f, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, res.Body)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "backup_pull saved %s\n", dst)
 	return nil
 }
 

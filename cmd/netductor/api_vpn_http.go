@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -57,6 +58,7 @@ func registerVPNHTTP(mux *http.ServeMux) {
 			writeJSON(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
+		_, _ = gitstore.EnqueueBackupPullAllBuildHosts()
 		writeJSON(w, 200, map[string]any{"ok": true, "path": path})
 	})
 

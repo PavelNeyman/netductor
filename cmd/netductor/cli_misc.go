@@ -14,6 +14,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/stack"
@@ -230,6 +231,9 @@ func runBackupCmd(args []string) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+	if n, e := gitstore.EnqueueBackupPullAllBuildHosts(); e == nil {
+		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d build-host(s)\n", n)
 	}
 	fmt.Println(path)
 }

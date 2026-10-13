@@ -122,7 +122,7 @@ func Serve(o ServeOpts) error {
 			"version":         deploy.Release,
 			"bind":            addr,
 			"credentials_dir": cred,
-			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/build-host", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
 			"auth":            "X-Netductor-Token",
 		})
 	})
@@ -155,6 +155,7 @@ func Serve(o ServeOpts) error {
 	})
 	mux.HandleFunc("/v1/fleet", func(w http.ResponseWriter, r *http.Request) { handleFleet(w, r, token) })
 	mux.HandleFunc("/v1/primary", func(w http.ResponseWriter, r *http.Request) { handlePrimary(w, r, token) })
+	mux.HandleFunc("/v1/build-host", func(w http.ResponseWriter, r *http.Request) { handleBuildHost(w, r, token) })
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
 	mux.HandleFunc("/v1/edge", func(w http.ResponseWriter, r *http.Request) { handleEdge(w, r, token) })
@@ -594,6 +595,57 @@ func handleSecondary(w http.ResponseWriter, r *http.Request, token string) {
 		return
 	}
 	reportDone(rep, "secondary", "secondary ok")
+	_, _ = io.WriteString(w, "OK\n")
+}
+
+
+func handleBuildHost(w http.ResponseWriter, r *http.Request, token string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", 405)
+		return
+	}
+	if !requireToken(r, token) {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var body struct {
+		Host        string `json:"host"`
+		Password    string `json:"password"`
+		User        string `json:"user"`
+		Port        int    `json:"port"`
+		PrimaryHost string `json:"primary_host"`
+		PrimaryKey  string `json:"primary_key"`
+		Label       string `json:"label"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if strings.TrimSpace(body.Host) == "" || strings.TrimSpace(body.PrimaryHost) == "" {
+		http.Error(w, "host and primary_host required", 400)
+		return
+	}
+	key := expandHome(orDefault(body.PrimaryKey, "~/.ssh/netductor_primary"))
+	if !tryLockDeploy(w) {
+		return
+	}
+	defer fleetMu.Unlock()
+	fl, okf := streamStart(w)
+	rep := streamRep(w, fl, okf)
+	rep(Step{ID: "build-host", Message: "deploy build-host"})
+	err := deploy.DeployBuildHost(deploy.BuildHostOpts{
+		PrimaryHost: body.PrimaryHost,
+		PrimaryKey:  key,
+		BuildHost:   body.Host,
+		BuildUser:   orDefault(body.User, "root"),
+		BuildPass:   body.Password,
+		Label:       orDefault(body.Label, "build-1"),
+	})
+	if err != nil {
+		reportErr(rep, "build-host", err)
+		_, _ = fmt.Fprintf(w, "ERROR: %v\n", err)
+		return
+	}
+	reportDone(rep, "build-host", "build-host ok")
 	_, _ = io.WriteString(w, "OK\n")
 }
 

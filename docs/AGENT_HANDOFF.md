@@ -1,3 +1,5 @@
+**0.9.368:** Build-host backup_pull; Web /v1/build-host deploy.
+
 **0.9.367:** Agent→P artifacts; multi-host job counters; backup-mirror stage.
 
 **0.9.366:** Agent-only ship build (claim/result). PB/BP health tick. Secondary remains tunnel-only.

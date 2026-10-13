@@ -9,6 +9,34 @@ import (
 )
 
 func registerBuildHostAPI(mux *http.ServeMux) {
+	mux.HandleFunc("/api/build-host/backup/latest", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+		okTok := false
+		for _, s := range gitstore.ListBuildHostStates() {
+			if full, e := gitstore.LoadBuildHostState(s.ID); e == nil && full.Token == token {
+				okTok = true
+				break
+			}
+		}
+		if !okTok {
+			writeJSON(w, 401, map[string]any{"ok": false, "error": "token"})
+			return
+		}
+		_ = gitstore.QueueBuildHostBackupMirror()
+		name, path, err := gitstore.LatestBuildBackupMirror()
+		if err != nil {
+			writeJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		w.Header().Set("X-Backup-Name", name)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		http.ServeFile(w, r, path)
+	})
+
 	mux.HandleFunc("/api/build-host/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
@@ -25,7 +53,22 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 			writeJSON(w, 401, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true})
+		hostID := ""
+		if facts != nil {
+			if v, ok := facts["device_id"].(string); ok {
+				hostID = v
+			}
+		}
+		if hostID == "" {
+			for _, s := range gitstore.ListBuildHostStates() {
+				if full, e := gitstore.LoadBuildHostState(s.ID); e == nil && full.Token == token {
+					hostID = full.ID
+					break
+				}
+			}
+		}
+		cmds := gitstore.TakeBuildHostCmds(hostID)
+		writeJSON(w, 200, map[string]any{"ok": true, "cmds": cmds})
 	})
 	mux.HandleFunc("/api/build-host/status", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {

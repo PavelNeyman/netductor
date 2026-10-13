@@ -1,3 +1,9 @@
+## 0.9.368
+
+- Build-host backup triangle phase: mirror + agent backup_pull over tunnel
+- Heartbeat returns cmds; GET /api/build-host/backup/latest
+- Web op Installer tab Build-host + POST /v1/build-host
+
 ## 0.9.367
 
 - Agent uploads dist.tgz → primary job artifacts; publish unpacks it
