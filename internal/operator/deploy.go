@@ -152,3 +152,15 @@ func RunRemote(user, host, keyPath, keyPass, cmd string) (string, error) {
 	}
 	return deploy.RunOnPrimary(host, user, keyPath, keyPass, cmd)
 }
+
+
+// DeployBuildHost provisions build VPS from operator (Mac-direct).
+func DeployBuildHost(s BuildHostSpec) error {
+	if s.PrimaryUser == "" {
+		s.PrimaryUser = "root"
+	}
+	if s.BuildUser == "" {
+		s.BuildUser = "root"
+	}
+	return deploy.DeployBuildHost(s.toDeploy())
+}

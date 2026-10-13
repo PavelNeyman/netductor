@@ -1,3 +1,10 @@
+## 0.9.363
+
+- Build-host deploy moved to **operator (Mac)** — not primary
+- Wizard: Build-host VPS (creds → harden → agent → PB/BP tunnels)
+- svc-paths PB/BP dual WG (10.87.12/13) analogous to SP/PS
+- CLI: netductor-op deploy build-host; primary deploy removed
+
 ## 0.9.362
 
 - Build-host **production deploy** from primary (`build-host deploy`)

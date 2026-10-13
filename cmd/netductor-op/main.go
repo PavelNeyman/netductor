@@ -26,6 +26,9 @@ func main() {
 	case "tui", "menu":
 		runTUI(os.Args[2:])
 	case "deploy":
+		if len(os.Args) > 2 && (os.Args[2] == "build-host" || os.Args[2] == "buildhost") {
+			os.Exit(runDeployBuildHost(os.Args[3:]))
+		}
 		runDeploy(os.Args[2:])
 	case "operator":
 		runOperator(os.Args[2:])

@@ -110,6 +110,11 @@ func runBuildHost(args []string) int {
 		fmt.Println("probed")
 		return 0
 	case "deploy":
+		fmt.Fprintln(os.Stderr, "build-host deploy from primary is removed — use operator (Mac):")
+		fmt.Fprintln(os.Stderr, "  netductor-op tui → Wizard → Build-host VPS")
+		fmt.Fprintln(os.Stderr, "  or: netductor-op deploy build-host --help")
+		return 2
+	case "deploy-legacy-disabled":
 		var o gitstore.DeployBuildHostOpts
 		o.Port = 22
 		o.User = "root"

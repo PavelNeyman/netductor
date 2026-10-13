@@ -161,6 +161,26 @@ func wizBuildFields(id string, m *model) []wizField {
 				Detail: ph("Bot must be channel admin. Menu stays in DM.", "Бот = админ канала. Меню в личке.")},
 		}
 
+	case "build", "buildhost", "build-host":
+		s := loadTUISettings()
+		return []wizField{
+			{Key: "primary_host", Label: FormT(lang, "primary_host"), Value: s.RemoteHost, Placeholder: "x.x.x.x",
+				Short: ph("Primary already deployed", "Primary уже развёрнут"),
+				Detail: ph("Build-host is managed from op; primary receives PB/BP paths.", "Build-host с op; на primary поднимаются пути PB/BP.")},
+			{Key: "primary_key", Label: FormT(lang, "ssh_key_path"), Value: orDefault(s.RemoteKey, "~/.ssh/netductor_primary"),
+				Short: ph("Operator key (same as primary)", "Ключ op (как для primary)")},
+			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (empty=none)", Secret: true},
+			{Key: "host", Label: ph("Build VPS host", "Хост build VPS"), Placeholder: "x.x.x.x",
+				Short: ph("New CI server public IP", "Публичный IP CI-сервера"),
+				Detail: ph("Fresh Debian. First SSH :22 with password, then harden 52222.", "Чистый Debian. Сначала :22 пароль, потом harden 52222.")},
+			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root"},
+			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true,
+				Short: ph("First login only", "Только первый вход")},
+			{Key: "label", Label: ph("Label", "Метка"), Value: "build-1"},
+			{Key: "primary_url", Label: ph("Primary API URL (optional)", "URL API primary (опц.)"),
+				Placeholder: "https://p.example:8787",
+				Short: ph("Agent SERVER= for heartbeat", "SERVER= агента для heartbeat")},
+		}
 	case "secondary":
 		return []wizField{
 			{Key: "host", Label: FormT(lang, "secondary_host"),
@@ -356,6 +376,22 @@ func (m model) runWizardApplyInTUI() string {
 		}
 		return TT(lang, "Fleet deploy finished", "Fleet готов")
 
+	case wizBuild:
+		if s.RemoteHost == "" || s.RemoteKey == "" {
+			return FormT(lang, "set_primary_first")
+		}
+		bh := operator.BuildHostFromFields(m.fieldVal)
+		bh.PrimaryHost = s.RemoteHost
+		bh.PrimaryUser = orDefault(s.RemoteUser, "root")
+		bh.PrimaryKey = s.RemoteKey
+		bh.PrimaryKeyPassphrase = m.fieldVal("key_pass")
+		if bh.BuildHost == "" {
+			return "build host required"
+		}
+		if err := operator.DeployBuildHost(bh); err != nil {
+			return err.Error()
+		}
+		return TT(lang, "Build-host deploy finished", "Build-host готов")
 	case wizSecondary:
 		if s.RemoteHost == "" || s.RemoteKey == "" {
 			return FormT(lang, "set_primary_first")

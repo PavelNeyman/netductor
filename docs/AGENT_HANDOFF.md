@@ -1,3 +1,5 @@
+**0.9.363:** Build-host deploy from op only; wizard; PB/BP tunnels like SP/PS.
+
 **0.9.362:** Build-host prod deploy + agent ROLE=build + alerts + UI parity.
 
 **0.9.361:** PLAN-BUILD-HOST foundation — optional SSH build VPS, primary keeps jobs/publish.

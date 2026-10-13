@@ -248,3 +248,21 @@ func atoiDefault(s string, def int) int {
 	}
 	return n
 }
+
+
+// BuildHostFromFields maps wizard keys → BuildHostSpec.
+func BuildHostFromFields(get FieldGetter) BuildHostSpec {
+	return BuildHostSpec{
+		PrimaryHost:          strings.TrimSpace(get("primary_host")),
+		PrimaryUser:          orDefault(get("primary_user"), "root"),
+		PrimaryKey:           expandHome(orDefault(get("primary_key"), get("key_path"))),
+		PrimaryKeyPassphrase: get("key_pass"),
+		BuildHost:            strings.TrimSpace(get("host")),
+		BuildUser:            orDefault(get("user"), "root"),
+		BuildPass:            get("password"),
+		BuildSSHKey:          expandHome(get("build_key")),
+		Label:                orDefault(get("label"), "build-1"),
+		OperatorPubKey:       strings.TrimSpace(get("operator_pub")),
+		PrimaryURL:           strings.TrimSpace(get("primary_url")),
+	}
+}

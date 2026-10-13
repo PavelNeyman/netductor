@@ -104,6 +104,31 @@ func ApplyDomainFlags(p *PrimarySpec) {
 	}
 }
 
+// BuildHostSpec — dedicated CI VPS from operator machine (not from primary).
+type BuildHostSpec struct {
+	PrimaryHost          string
+	PrimaryUser          string
+	PrimaryKey           string
+	PrimaryKeyPassphrase string
+	BuildHost            string
+	BuildUser            string
+	BuildPass            string
+	BuildSSHKey          string
+	Label                string
+	OperatorPubKey       string
+	PrimaryURL           string
+}
+
+func (s BuildHostSpec) toDeploy() deploy.BuildHostOpts {
+	return deploy.BuildHostOpts{
+		PrimaryHost: s.PrimaryHost, PrimaryUser: s.PrimaryUser,
+		PrimaryKey: s.PrimaryKey, PrimaryKeyPassphrase: s.PrimaryKeyPassphrase,
+		BuildHost: s.BuildHost, BuildUser: s.BuildUser, BuildPass: s.BuildPass,
+		BuildSSHKey: s.BuildSSHKey, Label: s.Label, OperatorPubKey: s.OperatorPubKey,
+		PrimaryURL: s.PrimaryURL,
+	}
+}
+
 // EdgeSpec — OpenWrt / RPi from operator machine.
 type EdgeSpec struct {
 	PrimaryHost                                  string

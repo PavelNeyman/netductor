@@ -115,6 +115,24 @@ func runSvcPaths(args []string) {
 		fmt.Println("svc-paths secondary OK")
 	case "failover":
 		runSvcFailover(args[1:])
+	case "bootstrap-primary-build":
+		path := flagMaterial(args)
+		if path == "" { fmt.Fprintln(os.Stderr, "need --material"); os.Exit(2) }
+		b, err := os.ReadFile(path)
+		if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+		var m svcpaths.BuildMaterial
+		if err := json.Unmarshal(b, &m); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+		if err := svcpaths.BootstrapPrimaryBuild(&m); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+		fmt.Println("svc-paths primary-build OK")
+	case "bootstrap-build":
+		path := flagMaterial(args)
+		if path == "" { fmt.Fprintln(os.Stderr, "need --material"); os.Exit(2) }
+		b, err := os.ReadFile(path)
+		if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+		var m svcpaths.BuildMaterial
+		if err := json.Unmarshal(b, &m); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+		if err := svcpaths.BootstrapBuildHost(&m); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+		fmt.Println("svc-paths build-host OK")
 	default:
 		fmt.Fprintln(os.Stderr, "unknown svc-paths subcommand")
 		os.Exit(2)
@@ -178,4 +196,13 @@ func runSvcFailover(args []string) {
 		fmt.Fprintln(os.Stderr, "unknown failover subcommand")
 		os.Exit(2)
 	}
+}
+
+func flagMaterial(args []string) string {
+	for i := 1; i < len(args); i++ {
+		if args[i] == "--material" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
 }

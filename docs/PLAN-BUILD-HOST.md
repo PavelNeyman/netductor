@@ -92,3 +92,13 @@ netductor build-host deploy --host IP --pass FIRST --key /root/.ssh/id_ed25519 -
 netductor build-host list
 netductor build-host watch
 ```
+
+## 0.9.363 correction
+
+Orchestrator = **operator (Mac)**, same as primary/secondary.
+Primary only receives: build-host config, PB/BP tunnel ends, optional heartbeat.
+
+```bash
+netductor-op tui  # Wizard → Build-host VPS
+netductor-op deploy build-host --host BUILD_IP --pass '…' --primary PRIMARY_IP --key ~/.ssh/netductor_primary
+```

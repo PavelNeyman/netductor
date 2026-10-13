@@ -56,6 +56,15 @@ func wizStepsForTarget(target wizTarget, lang tuiLang) []wizProgStep {
 			{ID: "done", Label: L("Finish", "Готово")},
 		}
 
+	case wizBuild:
+		return []wizProgStep{
+			{ID: "connect", Label: L("SSH to build-host", "SSH build-host"), Active: true},
+			{ID: "bootstrap", Label: L("Packages + docker", "Пакеты + docker")},
+			{ID: "paths", Label: L("PB/BP tunnels", "Туннели PB/BP")},
+			{ID: "harden", Label: L("SSH harden :52222", "SSH harden :52222")},
+			{ID: "agent", Label: L("Build agent", "Build agent")},
+			{ID: "done", Label: L("Finish", "Готово")},
+		}
 	case wizSecondary:
 		return []wizProgStep{
 			{ID: "connect", Label: L("SSH to secondary", "SSH secondary"), Active: true},
