@@ -11,7 +11,7 @@
 
 Полный комплекс ревью: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [../REVIEW-SUITE.md](../REVIEW-SUITE.md).
 
-**v0.9.340** (2026-10-12) — план улучшений продукта закрыт; ранее 0.9.339 host security.
+**v0.9.371** (2026-10-13) — build-host recover + fleet optional; ранее 0.9.349 SR General.
 
 ### Закрыто в 0.9.320–0.9.331 (security / DNS / SSH)
 

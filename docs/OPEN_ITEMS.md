@@ -15,7 +15,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 Full review complex: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md).
 
 
-**v0.9.342** (2026-10-12) — product improvements PLAN closed; prior 0.9.339 host security.
+**v0.9.371** (2026-10-13) — build-host recover + fleet optional; prior 0.9.349 SR General.
 
 ### Closed in 0.9.320–0.9.331 (security / DNS / SSH)
 
