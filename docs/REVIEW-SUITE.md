@@ -264,3 +264,11 @@ Mandatory on **Full** suite. Scope: commits since last stop line (or explicit ra
 | 0.9.331 | Expanded §9–§11: deep code review, security review, refactoring necessity; remaining package unit tests |
 | 0.9.330 | P1/P2 tests: firewall, channels, hardening, op catalog |
 | 0.9.329 | Initial suite doc EN+RU; integrity + reboot challenge tests; mandatory full-complex reference |
+
+## Web UI static guards
+
+```bash
+./scripts/check-web-ui.sh
+```
+
+Catches `.hidden !important` vs `style.display`, `window.ND_TOKEN`, basic i18n keys.

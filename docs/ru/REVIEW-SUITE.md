@@ -262,3 +262,11 @@ go test ./cmd/... -count=1
 | 0.9.331 | §9–§11: code / security / рефакторинг; unit-тесты оставшихся пакетов |
 | 0.9.330 | P1/P2: firewall, channels, hardening, op catalog |
 | 0.9.329 | Первый полный комплекс EN+RU; integrity + reboot |
+
+## Статические проверки Web UI
+
+```bash
+./scripts/check-web-ui.sh
+```
+
+Ловит `.hidden !important` vs `style.display`, `window.ND_TOKEN`, базовые ключи i18n.

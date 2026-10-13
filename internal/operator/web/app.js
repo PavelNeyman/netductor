@@ -157,12 +157,28 @@ function applyI18n(){
 
 
 function showMain(name){
-  document.getElementById('main-installer').style.display = name==='installer'?'block':'none';
-  document.getElementById('main-control').style.display = name==='control'?'block':'none';
-  document.getElementById('main-settings').style.display = name==='settings'?'block':'none';
-  document.getElementById('subInstaller').style.display = name==='installer'?'flex':'none';
-  document.getElementById('deployLogSec').style.display = name==='installer'?'block':'none';
+  // .hidden uses display:none !important — must toggle class, not only style.display
+  const setVis = (id, on, display)=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.classList.toggle('hidden', !on);
+    el.style.display = on ? display : 'none';
+  };
+  setVis('main-installer', name==='installer', 'block');
+  setVis('main-control', name==='control', 'block');
+  setVis('main-settings', name==='settings', 'block');
+  setVis('subInstaller', name==='installer', 'flex');
+  setVis('deployLogSec', name==='installer', 'block');
   document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
+  if(name==='control'){
+    updateTunnelHint();
+    try{ fillUpdateUI(); }catch(e){}
+    try{ wirePasswordToggles(); }catch(e){}
+    ensureTunnel().then(()=>{ refreshTunnelBadge(); fillUpdateUI(); });
+  }
+  if(name==='settings') loadSettingsForm();
+}
+
+document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
   if(name==='control'){ updateTunnelHint();
 try{ fillUpdateUI(); }catch(e){}
 try{ wirePasswordToggles(); }catch(e){}
