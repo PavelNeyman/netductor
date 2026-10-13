@@ -2,6 +2,7 @@ package gitstore
 
 import (
 	"os"
+	"time"
 	"path/filepath"
 	"testing"
 )
@@ -18,7 +19,14 @@ func TestBuildHostEnabledFromRegistry(t *testing.T) {
 	if err := SaveBuildHostState(st); err != nil {
 		t.Fatal(err)
 	}
+	if BuildHostEnabled() {
+		t.Fatal("stale offline registry must not enable ship")
+	}
+	st.LastSeen = time.Now().UTC().Format(time.RFC3339)
+	if err := SaveBuildHostState(st); err != nil {
+		t.Fatal(err)
+	}
 	if !BuildHostEnabled() {
-		t.Fatal("expected enabled when registry has host")
+		t.Fatal("expected enabled when registry has online host")
 	}
 }

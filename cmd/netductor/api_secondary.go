@@ -278,6 +278,7 @@ func StartAgentPlane() {
 		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
 	})
 	registerEdgeAPI(mux)
+	registerBuildHostAgentAPI(mux) // build-host agent routes on :8789
 	registerNVRAPI(mux)
 
 	// Ensure certs exist (auto-generate CA/server/client if missing).

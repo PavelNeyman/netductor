@@ -8,6 +8,11 @@ import (
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 )
 
+func registerBuildHostAgentAPI(mux *http.ServeMux) {
+	// Agent plane (:8789): same handlers; token auth inside agent routes.
+	registerBuildHostAPI(mux)
+}
+
 func registerBuildHostAPI(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/build-host/backup-mirror", func(w http.ResponseWriter, r *http.Request) {
@@ -177,10 +182,18 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/build-host/jobs/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/build-host/jobs/")
-		token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+		hostID, ok := authBuildHost(r)
+		if !ok {
+			writeJSON(w, 401, map[string]any{"ok": false, "error": "token"})
+			return
+		}
 		if strings.HasSuffix(path, "/work.tgz") && r.Method == http.MethodGet {
 			id := strings.TrimSuffix(path, "/work.tgz")
 			id = strings.TrimSuffix(id, "/")
+			if !jobOwnedBy(id, hostID) {
+				writeJSON(w, 403, map[string]any{"ok": false, "error": "not claimed by this host"})
+				return
+			}
 			p := gitstore.ShipJobArtifactsDir(id) + "/work.tgz"
 			http.ServeFile(w, r, p)
 			return
@@ -188,6 +201,10 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		if strings.HasSuffix(path, "/artifacts") && r.Method == http.MethodPost {
 			id := strings.TrimSuffix(path, "/artifacts")
 			id = strings.Trim(id, "/")
+			if !jobOwnedBy(id, hostID) {
+				writeJSON(w, 403, map[string]any{"ok": false, "error": "not claimed by this host"})
+				return
+			}
 			if err := gitstore.StoreAgentArtifacts(id, r.Body); err != nil {
 				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 				return
@@ -205,8 +222,11 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 				Host  string `json:"host_id"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			_ = token
-			if err := gitstore.CompleteAgentBuild(id, body.Host, body.OK, body.Log, body.Error); err != nil {
+			if body.Host != "" && body.Host != hostID {
+				writeJSON(w, 403, map[string]any{"ok": false, "error": "host mismatch"})
+				return
+			}
+			if err := gitstore.CompleteAgentBuild(id, hostID, body.OK, body.Log, body.Error); err != nil {
 				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
 				return
 			}
@@ -222,4 +242,14 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 			"error": "build-host deploy only from operator (netductor-op tui / deploy build-host)",
 		})
 	})
+}
+
+func authBuildHost(r *http.Request) (string, bool) {
+	token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	return gitstore.AuthBuildHostToken(token)
+}
+
+func jobOwnedBy(jobID, hostID string) bool {
+	m := gitstore.LoadAgentMeta(jobID)
+	return m.HostID != "" && m.HostID == hostID
 }

@@ -1,3 +1,13 @@
+
+## Статус (0.9.374)
+
+- Agent plane **:8789** отдаёт `/api/build-host/*`
+- Job-маршруты: Bearer + host ownership
+- Enabled = online agent (stale registry не ломает ship)
+- TTL онлайн 3 мин
+- `build-host test` — статус, без SSH с primary
+- `build-host remove <id>`
+
 # PLAN-BUILD-HOST — отдельный VPS под сборку
 
 **0.9.373:** removed primary-side `gitstore.DeployBuildHost`/SSH probe; WatchBuildHosts uses heartbeat only.

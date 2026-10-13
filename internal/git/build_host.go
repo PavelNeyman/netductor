@@ -70,7 +70,8 @@ func SaveBuildHost(c BuildHostConfig) error {
 // Prefer the state registry written by Mac deploy (build-hosts/*.json); fall back to
 // legacy /etc/netductor/build-host.json Enabled+SSHHost.
 func BuildHostEnabled() bool {
-	if len(ListBuildHostStates()) > 0 {
+	// Online agent wins. Stale registry alone must not hard-fail ship.
+	if PrimaryBuildHostOnline() {
 		return true
 	}
 	c := LoadBuildHost()
@@ -95,18 +96,27 @@ func (c BuildHostConfig) sshArgs(extra ...string) []string {
 	return args
 }
 
-// TestBuildHost SSH connectivity + remote mkdir.
+// TestBuildHost probes agent plane status (no SSH from primary).
+// Legacy SSH probe removed — policy: primary never SSHs to build-host.
 func TestBuildHost() (string, error) {
-	c := LoadBuildHost()
-	if strings.TrimSpace(c.SSHHost) == "" {
-		return "", fmt.Errorf("build-host host not set")
+	list := ListBuildHostStates()
+	if len(list) == 0 {
+		return "", fmt.Errorf("no build-host in registry (deploy from op)")
 	}
-	cmd := fmt.Sprintf("mkdir -p %s && uname -a && (command -v docker || command -v podman || echo 'no-container-engine')", shellQuote(c.RemoteDir))
-	out, err := c.runSSH(cmd)
-	if err != nil {
-		return out, err
+	online := 0
+	var b strings.Builder
+	for _, s := range list {
+		st := "offline"
+		if s.Online {
+			st = "online"
+			online++
+		}
+		fmt.Fprintf(&b, "%s  %s  last=%s\n", s.ID, st, s.LastSeen)
 	}
-	return out, nil
+	if online == 0 {
+		return b.String(), fmt.Errorf("no online build-host agent (heartbeat over :8789)")
+	}
+	return b.String(), nil
 }
 
 func (c BuildHostConfig) runSSH(remoteCmd string) (string, error) {

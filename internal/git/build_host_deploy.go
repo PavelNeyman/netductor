@@ -88,7 +88,7 @@ func ListBuildHostStates() []BuildHostState {
 		}
 		s.Online = false
 		if s.LastSeen != "" {
-			if t, err := time.Parse(time.RFC3339, s.LastSeen); err == nil && now.Sub(t) < 90*time.Second {
+			if t, err := time.Parse(time.RFC3339, s.LastSeen); err == nil && now.Sub(t) < 3*time.Minute {
 				s.Online = true
 			}
 		}
@@ -149,4 +149,29 @@ func WatchBuildHosts() {
 		}
 		_ = SaveBuildHostState(full)
 	}
+}
+
+// AuthBuildHostToken returns the host id for a valid agent token.
+func AuthBuildHostToken(token string) (id string, ok bool) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", false
+	}
+	for _, s := range ListBuildHostStates() {
+		full, err := LoadBuildHostState(s.ID)
+		if err == nil && full.Token != "" && full.Token == token {
+			return full.ID, true
+		}
+	}
+	return "", false
+}
+
+// RemoveBuildHostState deletes a registry entry (stale offline host).
+func RemoveBuildHostState(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("id required")
+	}
+	p := filepath.Join(buildHostsStateDir(), id+".json")
+	return os.Remove(p)
 }

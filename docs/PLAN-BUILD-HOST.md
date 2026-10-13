@@ -1,3 +1,12 @@
+## Status (0.9.374)
+
+- Agent plane **:8789** mounts `/api/build-host/*` (heartbeat/claim/work/result)
+- Job routes require Bearer token + host ownership (work.tgz / artifacts / result)
+- `BuildHostEnabled` = online agent (stale registry does not hard-fail ship)
+- Online TTL unified to 3 min
+- `build-host test` is status probe (no SSH from primary)
+- `build-host remove <id>` drops stale registry entry
+
 ## Status (0.9.373)
 
 **0.9.372:** `BuildHostEnabled` uses build-hosts registry (Mac deploy); legacy primary SSH deploy path removed from CLI; `RunRemoteTestBuild` stubbed; Web/TG i18n polish.

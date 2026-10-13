@@ -18,6 +18,7 @@ func runBuildHost(args []string) int {
   netductor build-host test
   netductor build-host enable|disable|clear
   netductor build-host list [--json]
+  netductor build-host remove <id>
   netductor build-host recovery-arm | backup-mirror | watch
   (deploy only from Mac: netductor-op deploy build-host / TUI Wizard)`)
 		return 2
@@ -74,6 +75,17 @@ func runBuildHost(args []string) int {
 		c := gitstore.BuildHostConfig{}
 		_ = gitstore.SaveBuildHost(c)
 		fmt.Println("cleared (disabled empty config)")
+		return 0
+	case "remove", "rm":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor build-host remove <id>")
+			return 2
+		}
+		if err := gitstore.RemoveBuildHostState(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("removed", args[1])
 		return 0
 	case "list":
 		list := gitstore.ListBuildHostStates()
