@@ -52,14 +52,13 @@ func runOpUpdate(args []string) {
 			}
 			return
 		case "help", "--help", "-h":
-			fmt.Println("netductor-op update check|list [--refresh|--force]")
-			fmt.Println("netductor-op update [--version X] [--skip-verify]")
-			fmt.Println("Homebrew installs: use brew upgrade netductor-op (self-update refuses brew paths).")
+			printUpdateHelp()
 			return
 		}
 	}
 	ver := ""
 	skip := false
+	viaBrew := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch a {
@@ -70,17 +69,21 @@ func runOpUpdate(args []string) {
 			}
 		case "--skip-verify":
 			skip = true
+		case "--via-brew":
+			// Optional: force Homebrew formula path instead of GitHub self-update.
+			viaBrew = true
 		case "--help", "-h":
-			fmt.Println("netductor-op update check|list")
-			fmt.Println("netductor-op update [--version X] [--skip-verify]")
-			fmt.Println("Downloads netductor-op-<goos>-<goarch> from GitHub Releases.")
-			fmt.Println("If this binary is from Homebrew, self-update is disabled — use brew upgrade.")
+			printUpdateHelp()
 			return
 		default:
 			if !strings.HasPrefix(a, "-") && ver == "" {
 				ver = a
 			}
 		}
+	}
+	if viaBrew || os.Getenv("NETDUCTOR_OP_UPDATE_VIA_BREW") == "1" {
+		runUpdateViaBrew()
+		return
 	}
 	if skip {
 		_ = os.Setenv("NETDUCTOR_UPDATE_SKIP_VERIFY", "1")
@@ -98,40 +101,17 @@ func runOpUpdate(args []string) {
 	if !strings.HasPrefix(tag, "v") {
 		tag = "v" + tag
 	}
-	exe, err := os.Executable()
+
+	dest, how, err := resolveOpUpdateDest()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	// Resolve symlinks (Homebrew bin → Cellar).
-	resolved := exe
-	if r, err := filepath.EvalSymlinks(exe); err == nil && r != "" {
-		resolved = r
-	}
-	dest := resolved
-	if base := filepath.Base(dest); base != "netductor-op" && base != "netductor" {
-		dest = filepath.Join(filepath.Dir(dest), "netductor-op")
-	}
-
-	if brewManagedPath(exe, resolved) {
-		prefix := brewPrefix()
-		fmt.Fprintln(os.Stderr, "netductor-op is Homebrew-managed — refusing self-update into brew paths.")
-		fmt.Fprintln(os.Stderr, "Self-update previously left a plain file in bin/ that shadows Cellar and breaks `brew link`.")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Fix + upgrade:")
-		fmt.Fprintf(os.Stderr, "  rm -f %s/bin/netductor-op\n", prefix)
-		fmt.Fprintln(os.Stderr, "  brew update && brew upgrade netductor-op")
-		fmt.Fprintln(os.Stderr, "  brew link --overwrite netductor-op")
-		fmt.Fprintln(os.Stderr, "  hash -r && netductor-op version")
-		os.Exit(2)
-	}
-
-	fmt.Fprintf(os.Stderr, "==> update operator %s/%s %s → %s\n", runtime.GOOS, runtime.GOARCH, tag, dest)
+	fmt.Fprintf(os.Stderr, "==> update operator %s/%s %s → %s (%s)\n", runtime.GOOS, runtime.GOARCH, tag, dest, how)
 	if err := ndupdate.DownloadReleaseAsset(tag, "op", dest); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	// Confirm on-disk version (avoid "updated" while PATH still hits another binary).
 	got := opVersionOf(dest)
 	fmt.Println("updated", dest, tag)
 	if got != "" {
@@ -142,6 +122,82 @@ func runOpUpdate(args []string) {
 	if which != "" && !sameFile(which, dest) {
 		fmt.Fprintf(os.Stderr, "WARN: PATH netductor-op is %s (not the file just updated). hash -r or check PATH.\n", which)
 	}
+}
+
+func printUpdateHelp() {
+	fmt.Println("netductor-op update check|list [--refresh|--force]")
+	fmt.Println("netductor-op update [--version X] [--skip-verify] [--via-brew]")
+	fmt.Println("")
+	fmt.Println("Model (cask-like):")
+	fmt.Println("  • brew install/upgrade  — optional entry / first install")
+	fmt.Println("  • netductor-op update   — day-to-day: GitHub Release + SHA256 (default)")
+	fmt.Println("  • --via-brew            — only bump Homebrew formula (may lag tip)")
+	fmt.Println("")
+	fmt.Println("When installed via brew, self-update writes into the Cellar binary")
+	fmt.Println("(resolved path). The bin/ symlink is never replaced with a plain file.")
+}
+
+// resolveOpUpdateDest picks where to write the new binary.
+// Critical: never overwrite a Homebrew bin/ symlink — that leaves a plain file and breaks brew link.
+func resolveOpUpdateDest() (dest, how string, err error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", "", err
+	}
+	resolved := exe
+	if r, e := filepath.EvalSymlinks(exe); e == nil && r != "" {
+		resolved = r
+	}
+	resolved = filepath.Clean(resolved)
+	exe = filepath.Clean(exe)
+
+	prefix := brewPrefix()
+	binLink := filepath.Join(prefix, "bin", "netductor-op")
+	cellarRoot := filepath.Join(prefix, "Cellar", "netductor-op")
+
+	// Broken state from older self-update: plain file in bin/ shadows Cellar.
+	if fi, e := os.Lstat(binLink); e == nil && fi.Mode()&os.ModeSymlink == 0 && !fi.IsDir() {
+		fmt.Fprintf(os.Stderr, "note: %s is a plain file (old self-update broke brew link).\n", binLink)
+		fmt.Fprintf(os.Stderr, "      Will update that file in place. Prefer after: brew link --overwrite netductor-op\n")
+		return binLink, "brew-bin-plain-file", nil
+	}
+
+	// Healthy brew: bin is symlink → Cellar/.../bin/netductor-op
+	if strings.HasPrefix(resolved, cellarRoot+string(os.PathSeparator)) {
+		return resolved, "homebrew-cellar", nil
+	}
+
+	// Running via bin path that is a symlink — resolve already done; if still bin, prefer EvalSymlinks of bin
+	if exe == binLink || resolved == binLink {
+		if r, e := filepath.EvalSymlinks(binLink); e == nil && r != "" && r != binLink {
+			return filepath.Clean(r), "homebrew-cellar-via-bin", nil
+		}
+	}
+
+	dest = resolved
+	if base := filepath.Base(dest); base != "netductor-op" && base != "netductor" {
+		dest = filepath.Join(filepath.Dir(dest), "netductor-op")
+	}
+	return dest, "direct", nil
+}
+
+func runUpdateViaBrew() {
+	if _, err := exec.LookPath("brew"); err != nil {
+		fmt.Fprintln(os.Stderr, "brew not found; use plain: netductor-op update")
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stderr, "==> brew update && brew upgrade netductor-op")
+	_ = exec.Command("brew", "update").Run()
+	cmd := exec.Command("brew", "upgrade", "netductor-op")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		// link may fail if plain file in bin
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "If link failed:\n  rm -f %s/bin/netductor-op\n  brew link --overwrite netductor-op\n", brewPrefix())
+		os.Exit(1)
+	}
+	fmt.Println("re-run: hash -r && netductor-op version")
 }
 
 func brewPrefix() string {
@@ -157,34 +213,6 @@ func brewPrefix() string {
 		return "/opt/homebrew"
 	}
 	return "/usr/local"
-}
-
-// brewManagedPath: Cellar install or a binary sitting in Homebrew's bin/ (incl. broken plain file).
-func brewManagedPath(exe, resolved string) bool {
-	p := brewPrefix()
-	cellar := filepath.Join(p, "Cellar", "netductor-op")
-	bin := filepath.Join(p, "bin", "netductor-op")
-	for _, s := range []string{exe, resolved} {
-		s = filepath.Clean(s)
-		if strings.HasPrefix(s, cellar+string(os.PathSeparator)) || s == cellar {
-			return true
-		}
-		if s == bin {
-			return true
-		}
-		if strings.Contains(s, "/Cellar/netductor-op/") {
-			return true
-		}
-	}
-	// Symlink in bin pointing at Cellar
-	if fi, err := os.Lstat(bin); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		if t, err := os.Readlink(bin); err == nil && strings.Contains(t, "Cellar/netductor-op") {
-			if filepath.Clean(exe) == bin || filepath.Clean(resolved) == filepath.Clean(filepath.Join(filepath.Dir(bin), t)) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func opVersionOf(path string) string {
