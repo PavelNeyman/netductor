@@ -227,8 +227,19 @@ func ProbeBuildPaths() (pbUp, bpUp bool) {
 	return
 }
 
+// BuildPathsExpected is true when PB/BP were bootstrapped (material on disk).
+// Without material there is no build VPS path to monitor — do not alert.
+func BuildPathsExpected() bool {
+	_, err := os.Stat(filepath.Join(KeysDir, "build-material.json"))
+	return err == nil
+}
+
 // TickBuildPathsFailover on primary or build: update agent URL file + return summary.
+// Empty string when paths were never configured (no build-host deploy).
 func TickBuildPathsFailover() string {
+	if !BuildPathsExpected() {
+		return ""
+	}
 	pb, bp := ProbeBuildPaths()
 	preferPB := pb
 	if !pb && bp {

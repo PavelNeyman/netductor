@@ -441,9 +441,14 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 	}
 	gitstore.WatchBuildHosts()
-	sum := svcpaths.TickBuildPathsFailover()
+	// PB/BP alerts only when a build-host is in play: material (paths bootstrapped)
+	// and/or registry entry from Mac deploy. Fleet with only P+S must stay quiet.
+	expectBuild := svcpaths.BuildPathsExpected() || len(gitstore.ListBuildHostStates()) > 0
+	sum := ""
+	if expectBuild {
+		sum = svcpaths.TickBuildPathsFailover()
+	}
 	if sum != "" {
-		// light: alert only when both down
 		if strings.Contains(sum, "pb_up=false") && strings.Contains(sum, "bp_up=false") {
 			notify.AlertOnce("build-paths:both-down", "⚠️ Build paths PB and BP both down")
 		} else if strings.Contains(sum, "pb_up=false") {
@@ -452,6 +457,9 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 			notify.ClearAlert("build-paths:pb-down")
 			notify.ClearAlert("build-paths:both-down")
 		}
+	} else {
+		notify.ClearAlert("build-paths:pb-down")
+		notify.ClearAlert("build-paths:both-down")
 	}
 	_ = sum
 	_ = m
