@@ -1,6 +1,6 @@
 # AGENT Handoff (RU)
 
-**Стоп-линия: v0.9.372** (2026-10-13). Комплекс ревью: [REVIEW-SUITE](REVIEW-SUITE.md). Новый чат: AGENTS.md → [EN AGENT_HANDOFF](../AGENT_HANDOFF.md) → OPEN_ITEMS.
+**Стоп-линия: v0.9.373** (2026-10-13). Комплекс ревью: [REVIEW-SUITE](REVIEW-SUITE.md). Новый чат: AGENTS.md → [EN AGENT_HANDOFF](../AGENT_HANDOFF.md) → OPEN_ITEMS.
 
 ### Сводка 0.9.320–0.9.349
 

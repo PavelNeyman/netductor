@@ -1,4 +1,4 @@
-**0.9.372:** Fleet optional build-host step (TUI/Web/API).
+**0.9.373:** build-host dead deploy removed; Watch via heartbeat; registry Enabled; TG ship i18n; release assets.
 
 **0.9.370:** Build-host UI i18n (Web/TG). Fleet still deferred.
 
@@ -53,7 +53,7 @@
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
 # AGENT Handoff
 
-**Stop line: v0.9.372** (2026-10-13). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+**Stop line: v0.9.373** (2026-10-13). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
 
 ### 0.9.320–0.9.331 (summary)
 

@@ -1,4 +1,4 @@
-## Status (0.9.369)
+## Status (0.9.373)
 
 **0.9.372:** `BuildHostEnabled` uses build-hosts registry (Mac deploy); legacy primary SSH deploy path removed from CLI; `RunRemoteTestBuild` stubbed; Web/TG i18n polish.
 

@@ -120,7 +120,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		if shipSub == "jobs" {
 			jobs, _ := gitstore.ListShipJobs()
 			var b strings.Builder
-			b.WriteString("🚀 <b>Ship jobs</b>" + nl)
+			b.WriteString("🚀 <b>" + T("ship_jobs_title") + "</b>" + nl)
 			if len(jobs) == 0 {
 				b.WriteString("<i>(empty)</i>" + nl)
 			}
@@ -145,7 +145,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				b.WriteString(`</tg-button-row>` + nl)
 			}
 			kb := map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("🔄", "m:git:ship:jobs", ""), btn("⬅️ Projects", "m:git:proj:list", "primary")},
+				{btn("🔄", "m:git:ship:jobs", ""), btn(T("projects_back"), "m:git:proj:list", "primary")},
 				{btn(T("main_menu"), "m:menu", "")},
 			}}
 			reply(token, chat, msgID, b.String(), kb)
@@ -175,7 +175,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			kb := map[string]any{"inline_keyboard": [][]map[string]any{
 				{btn("⏸", "m:git:ship:pause:"+id, ""), btn("▶️", "m:git:ship:resume:"+id, "primary")},
 				{btn("📜", "m:git:ship:log:"+id, ""), btn("🗑", "m:git:ship:rm:"+id, "danger")},
-				{btn("⬅️ Jobs", "m:git:ship:jobs", ""), btn(T("main_menu"), "m:menu", "")},
+				{btn(T("jobs_back"), "m:git:ship:jobs", ""), btn(T("main_menu"), "m:menu", "")},
 			}}
 			reply(token, chat, msgID, b.String(), kb)
 			return true
@@ -320,7 +320,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 					rows = append(rows, []map[string]any{btn("🛑 "+j.Project, "m:git:proj:vps-cancel:"+j.ID, "")})
 				}
 			}
-			rows = append(rows, []map[string]any{btn("⬅️ Projects", "m:git:proj:list", "primary"), btn(T("main_menu"), "m:menu", "")})
+			rows = append(rows, []map[string]any{btn(T("projects_back"), "m:git:proj:list", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 			return true
 		}
@@ -422,7 +422,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				}
 				kb := map[string]any{"inline_keyboard": [][]map[string]any{
 					{btn("👁 dry-run", "m:git:proj:migrate:dry", "primary"), btn("✅ sync", "m:git:proj:migrate:sync", "")},
-					{btn("⬅️ Projects", "m:git:proj:list", ""), btn(T("main_menu"), "m:menu", "")},
+					{btn(T("projects_back"), "m:git:proj:list", ""), btn(T("main_menu"), "m:menu", "")},
 				}}
 				reply(token, chat, msgID, b.String(), kb)
 				return true
@@ -517,8 +517,8 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 				}
 			}
 			kb := map[string]any{"inline_keyboard": [][]map[string]any{
-				{btn("⬇️ Sync", "m:git:proj:sync:"+name, ""), btn("🚀 Ship", "m:git:proj:ship:"+name, "primary")},
-				{btn("⬅️ Projects", "m:git:proj:list", "primary"), btn(T("main_menu"), "m:menu", "")},
+				{btn("⬇️ Sync", "m:git:proj:sync:"+name, ""), btn(T("ship_btn"), "m:git:proj:ship:"+name, "primary")},
+				{btn(T("projects_back"), "m:git:proj:list", "primary"), btn(T("main_menu"), "m:menu", "")},
 			}}
 			reply(token, chat, msgID, b.String(), kb)
 			return true
@@ -550,7 +550,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			kb := navKeyboard("m:git:proj:list", "Projects")
 			if job != nil {
 				kb = map[string]any{"inline_keyboard": [][]map[string]any{
-					{btn("📋 Jobs", "m:git:ship:jobs", "primary"), btn("⬅️ Projects", "m:git:proj:list", "")},
+					{btn("📋 Jobs", "m:git:ship:jobs", "primary"), btn(T("projects_back"), "m:git:proj:list", "")},
 					{btn(T("main_menu"), "m:menu", "")},
 				}}
 			}

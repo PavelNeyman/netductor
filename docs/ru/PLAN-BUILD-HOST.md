@@ -1,5 +1,8 @@
 # PLAN-BUILD-HOST — отдельный VPS под сборку
 
+**0.9.373:** removed primary-side `gitstore.DeployBuildHost`/SSH probe; WatchBuildHosts uses heartbeat only.
+
+
 **0.9.372:** `BuildHostEnabled` uses build-hosts registry (Mac deploy); legacy primary SSH deploy path removed from CLI; `RunRemoteTestBuild` stubbed; Web/TG i18n polish.
 
 

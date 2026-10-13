@@ -149,12 +149,6 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// RunRemoteTestBuild is removed: primary no longer SSHs to build-host.
-// Ship uses agent claim (PrepareAgentBuild) over PB/BP tunnel.
-func RunRemoteTestBuild(job *ShipJob, workDir string, logb *strings.Builder) error {
-	return fmt.Errorf("RunRemoteTestBuild removed — use build-host agent (ROLE=build); enable via Mac deploy or registered build-hosts state")
-}
-
 // StatusLine for doctor/CLI.
 func BuildHostStatusLine() string {
 	states := ListBuildHostStates()

@@ -393,7 +393,12 @@ func registerGitAPI(mux *http.ServeMux) {
 		switch r.Method {
 		case http.MethodGet:
 			c := gitstore.LoadBuildHost()
-			writeJSON(w, 200, map[string]any{"ok": true, "config": c, "status": gitstore.BuildHostStatusLine()})
+			writeJSON(w, 200, map[string]any{
+				"ok": true,
+				"config": c,
+				"status": gitstore.BuildHostStatusLine(),
+				"agents": gitstore.ListBuildHostStates(),
+			})
 		case http.MethodPost:
 			var body gitstore.BuildHostConfig
 			_ = json.NewDecoder(r.Body).Decode(&body)
