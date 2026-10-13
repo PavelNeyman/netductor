@@ -518,6 +518,11 @@ func MarkRecoverDrill() error {
 	return os.WriteFile(p, []byte(line), 0o600)
 }
 
+// RecoverFromBuildHost downloads latest .ndenc from build-host recovery API then Recover().
+func RecoverFromBuildHost(baseURL, recoveryToken, keyArg string) error {
+	return RecoverFromSecondary(baseURL, recoveryToken, keyArg)
+}
+
 // RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().
 func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")

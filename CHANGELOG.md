@@ -1,3 +1,10 @@
+## 0.9.369
+
+- recover --from-build-host (same API as secondary recovery)
+- Build agent: recovery_arm → :8790 temporary serve of peer backups
+- CLI/API: build-host recovery-arm, backup-mirror; opcatalog entries
+- Web i18n build-host RU/EN notes
+
 ## 0.9.368
 
 - Build-host backup triangle phase: mirror + agent backup_pull over tunnel

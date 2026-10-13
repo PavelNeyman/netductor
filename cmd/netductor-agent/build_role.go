@@ -90,6 +90,9 @@ func buildHeartbeat(client *http.Client, cfg config) error {
 				fmt.Fprintf(os.Stderr, "backup_pull: %v\n", err)
 			}
 		}
+		if c == "recovery_arm" {
+			armBuildRecovery(30 * time.Minute)
+		}
 	}
 	return nil
 }

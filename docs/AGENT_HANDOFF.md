@@ -1,3 +1,5 @@
+**0.9.369:** recover from build-host; agent recovery_arm :8790.
+
 **0.9.368:** Build-host backup_pull; Web /v1/build-host deploy.
 
 **0.9.367:** Agent→P artifacts; multi-host job counters; backup-mirror stage.

@@ -105,6 +105,18 @@ func runBuildHost(args []string) int {
 				s.ID, s.Label, on, s.SSHUser, s.SSHHost, s.SSHPort, s.Docker, s.DiskFreeGB, s.AgentVersion)
 		}
 		return 0
+	case "recovery-arm":
+		n := 0
+		for _, s := range gitstore.ListBuildHostStates() {
+			if !s.Online {
+				continue
+			}
+			if err := gitstore.EnqueueBuildHostCmd(s.ID, "recovery_arm"); err == nil {
+				n++
+			}
+		}
+		fmt.Printf("queued recovery_arm on %d build-host(s)\n", n)
+		return 0
 	case "backup-mirror":
 		if err := gitstore.QueueBuildHostBackupMirror(); err != nil {
 			fmt.Fprintln(os.Stderr, err)

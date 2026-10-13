@@ -156,7 +156,7 @@ func main() {
 		}
 		fmt.Println("restored")
 	case "recover":
-		key, arch, fromSec, recTok := "", "", "", ""
+		key, arch, fromSec, fromBuild, recTok := "", "", "", "", ""
 		for i := 2; i < len(os.Args); i++ {
 			a := os.Args[i]
 			if a == "--key" && i+1 < len(os.Args) {
@@ -169,6 +169,11 @@ func main() {
 				fromSec = os.Args[i]
 				continue
 			}
+			if a == "--from-build-host" && i+1 < len(os.Args) {
+				i++
+				fromBuild = os.Args[i]
+				continue
+			}
 			if a == "--recovery-token" && i+1 < len(os.Args) {
 				i++
 				recTok = os.Args[i]
@@ -177,6 +182,14 @@ func main() {
 			if !strings.HasPrefix(a, "-") && arch == "" {
 				arch = a
 			}
+		}
+		if fromBuild != "" {
+			if err := install.RecoverFromBuildHost(fromBuild, recTok, key); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("recovered from build-host")
+			return
 		}
 		if fromSec != "" {
 			if err := install.RecoverFromSecondary(fromSec, recTok, key); err != nil {
@@ -188,7 +201,8 @@ func main() {
 		}
 		if arch == "" {
 			fmt.Fprintln(os.Stderr, "usage: netductor recover --key KEY (required; offline) <archive.ndenc>")
-			fmt.Fprintln(os.Stderr, "   or: netductor recover --from-secondary http://SECONDARY:8790 --recovery-token TOKEN --key KEY")
+			fmt.Fprintln(os.Stderr, "   or: netductor recover --from-secondary URL --recovery-token TOKEN --key KEY")
+			fmt.Fprintln(os.Stderr, "   or: netductor recover --from-build-host URL --recovery-token TOKEN --key KEY")
 			os.Exit(2)
 		}
 		if err := install.Recover(arch, key); err != nil {

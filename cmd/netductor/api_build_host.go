@@ -9,6 +9,41 @@ import (
 )
 
 func registerBuildHostAPI(mux *http.ServeMux) {
+
+	mux.HandleFunc("/api/build-host/backup-mirror", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method", 405)
+			return
+		}
+		if err := gitstore.QueueBuildHostBackupMirror(); err != nil {
+			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		n, _ := gitstore.EnqueueBackupPullAllBuildHosts()
+		writeJSON(w, 200, map[string]any{"ok": true, "queued_pull": n})
+	})
+	mux.HandleFunc("/api/build-host/recovery-arm", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method", 405)
+			return
+		}
+		n := 0
+		for _, s := range gitstore.ListBuildHostStates() {
+			if s.Online {
+				if gitstore.EnqueueBuildHostCmd(s.ID, "recovery_arm") == nil {
+					n++
+				}
+			}
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "queued": n})
+	})
+
 	mux.HandleFunc("/api/build-host/backup/latest", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
