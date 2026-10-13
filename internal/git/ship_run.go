@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -278,6 +279,12 @@ func runShipPublish(j *ShipJob, logb *strings.Builder) error {
 	AppendShipLog(j.ID, "publish log → "+logPath)
 
 	srcArt := ShipJobArtifactsDir(j.ID)
+	// Prefer agent-uploaded dist.tgz
+	if distTGZ := filepath.Join(srcArt, "dist.tgz"); fileExists(distTGZ) {
+		_ = exec.Command("tar", "-xzf", distTGZ, "-C", dst).Run()
+		AppendShipLog(j.ID, "unpacked agent dist.tgz → "+dst)
+	}
+
 	if ents, e := os.ReadDir(srcArt); e == nil {
 		for _, ent := range ents {
 			_ = copyFileOrDir(filepath.Join(srcArt, ent.Name()), filepath.Join(dst, ent.Name()))
@@ -401,3 +408,5 @@ func fileSHA256(path string) (string, error) {
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
+
+func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }

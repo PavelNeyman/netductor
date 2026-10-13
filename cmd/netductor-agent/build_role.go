@@ -123,6 +123,13 @@ func buildClaimAndRun(client *http.Client, cfg config) error {
 	if err != nil {
 		errMsg = err.Error()
 	}
+	if ok {
+		distTGZ := filepath.Join(workDir, "dist.tgz")
+		_ = exec.Command("bash", "-lc", "cd '"+workDir+"' && tar -czf dist.tgz -C dist . 2>/dev/null || tar -czf dist.tgz outbin 2>/dev/null || true").Run()
+		if st, e := os.Stat(distTGZ); e == nil && st.Size() > 0 {
+			_ = uploadArtifacts(client, cfg, out.Job.ID, distTGZ)
+		}
+	}
 	return reportResult(client, cfg, out.Job.ID, ok, log, errMsg)
 }
 
@@ -183,6 +190,31 @@ func reportResult(client *http.Client, cfg config, jobID string, ok bool, log, e
 	defer res.Body.Close()
 	if res.StatusCode >= 300 {
 		return fmt.Errorf("result status %d", res.StatusCode)
+	}
+	return nil
+}
+
+
+func uploadArtifacts(client *http.Client, cfg config, jobID, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	base := strings.TrimRight(cfg.Server, "/")
+	req, err := http.NewRequest(http.MethodPost, base+"/api/build-host/jobs/"+jobID+"/artifacts", f)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Content-Type", "application/gzip")
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		return fmt.Errorf("artifacts status %d", res.StatusCode)
 	}
 	return nil
 }

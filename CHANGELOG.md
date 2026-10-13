@@ -1,3 +1,10 @@
+## 0.9.367
+
+- Agent uploads dist.tgz → primary job artifacts; publish unpacks it
+- Build-host last_job / jobs_done; API waiting_build count
+- build-host backup-mirror (stage primary backup for triangle)
+- TG build-host shows jobs stats
+
 ## 0.9.366
 
 - Build-host **agent job queue**: claim / work.tgz / result (no SSH CI)

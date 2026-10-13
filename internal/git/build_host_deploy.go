@@ -31,6 +31,8 @@ type BuildHostState struct {
 	DiskFreeGB   float64 `json:"disk_free_gb,omitempty"`
 	LastError    string  `json:"last_error,omitempty"`
 	DeployedAt   string  `json:"deployed_at,omitempty"`
+	LastJobID    string  `json:"last_job_id,omitempty"`
+	JobsDone     int     `json:"jobs_done,omitempty"`
 }
 
 func buildHostsStateDir() string {

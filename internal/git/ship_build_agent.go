@@ -148,6 +148,10 @@ func ClaimAgentBuildJob(hostID string) (*ShipJob, string, error) {
 		m.HostID = hostID
 		m.ClaimedAt = time.Now().UTC().Format(time.RFC3339)
 		_ = SaveAgentMeta(j.ID, m)
+		if st, err := LoadBuildHostState(hostID); err == nil {
+			st.LastJobID = j.ID
+			_ = SaveBuildHostState(st)
+		}
 		tarPath := filepath.Join(ShipJobArtifactsDir(j.ID), "work.tgz")
 		return &j, tarPath, nil
 	}
@@ -173,6 +177,10 @@ func CompleteAgentBuild(jobID, hostID string, ok bool, logText, errMsg string) e
 	if ok {
 		m.Status = AgentDone
 		m.Error = ""
+		if st, err := LoadBuildHostState(hostID); err == nil {
+			st.JobsDone++
+			_ = SaveBuildHostState(st)
+		}
 		for i := range j.Steps {
 			n := j.Steps[i].Name
 			if n == "test_build" || n == "build" || strings.Contains(n, "build") {
@@ -230,4 +238,18 @@ func ExtractAndBuild(workTGZ, outDir string) (log string, err error) {
 	_ = os.MkdirAll(filepath.Join(outDir, "dist"), 0o755)
 	_ = exec.Command("bash", "-lc", "cp -a "+work+"/dist/* "+outDir+"/dist/ 2>/dev/null || true").Run()
 	return b.String(), nil
+}
+
+
+// StoreAgentArtifacts writes agent-uploaded dist.tgz into job artifacts.
+func StoreAgentArtifacts(jobID string, r io.Reader) error {
+	dir := ShipJobArtifactsDir(jobID)
+	_ = os.MkdirAll(dir, 0o755)
+	f, err := os.Create(filepath.Join(dir, "dist.tgz"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	return err
 }

@@ -105,6 +105,13 @@ func runBuildHost(args []string) int {
 				s.ID, s.Label, on, s.SSHUser, s.SSHHost, s.SSHPort, s.Docker, s.DiskFreeGB, s.AgentVersion)
 		}
 		return 0
+	case "backup-mirror":
+		if err := gitstore.QueueBuildHostBackupMirror(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("build-backup-mirror updated")
+		return 0
 	case "watch":
 		gitstore.WatchBuildHosts()
 		fmt.Println("probed")

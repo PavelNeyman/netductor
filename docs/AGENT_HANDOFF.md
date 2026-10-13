@@ -1,3 +1,5 @@
+**0.9.367:** Agent→P artifacts; multi-host job counters; backup-mirror stage.
+
 **0.9.366:** Agent-only ship build (claim/result). PB/BP health tick. Secondary remains tunnel-only.
 
 **0.9.365:** Secondary tunnel-only (SP→PS). No public agent fallback. Build-host same model PB→BP.

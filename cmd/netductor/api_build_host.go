@@ -35,7 +35,15 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		for i := range list {
 			list[i].Token = ""
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "hosts": list, "config": gitstore.LoadBuildHost(), "status": gitstore.BuildHostStatusLine()})
+		waiting := 0
+		if jobs, err := gitstore.ListShipJobs(); err == nil {
+			for _, j := range jobs {
+				if j.State == gitstore.ShipWaitingExternal && j.Reason == gitstore.ReasonBuildAgent {
+					waiting++
+				}
+			}
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "hosts": list, "config": gitstore.LoadBuildHost(), "status": gitstore.BuildHostStatusLine(), "waiting_build": waiting})
 	})
 		mux.HandleFunc("/api/build-host/jobs/claim", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -97,6 +105,16 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 			id = strings.TrimSuffix(id, "/")
 			p := gitstore.ShipJobArtifactsDir(id) + "/work.tgz"
 			http.ServeFile(w, r, p)
+			return
+		}
+		if strings.HasSuffix(path, "/artifacts") && r.Method == http.MethodPost {
+			id := strings.TrimSuffix(path, "/artifacts")
+			id = strings.Trim(id, "/")
+			if err := gitstore.StoreAgentArtifacts(id, r.Body); err != nil {
+				writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"ok": true})
 			return
 		}
 		if strings.HasSuffix(path, "/result") && r.Method == http.MethodPost {

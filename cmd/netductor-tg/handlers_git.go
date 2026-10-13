@@ -99,7 +99,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			if s.Online {
 				on = "online"
 			}
-			b.WriteString(fmt.Sprintf("• <code>%s</code> %s <b>%s</b> disk=%.1fG docker=%v%s", esc(s.ID), esc(s.Label), on, s.DiskFreeGB, s.Docker, nl))
+			b.WriteString(fmt.Sprintf("• <code>%s</code> %s <b>%s</b> disk=%.1fG docker=%v jobs=%d last=%s%s", esc(s.ID), esc(s.Label), on, s.DiskFreeGB, s.Docker, s.JobsDone, esc(s.LastJobID), nl))
 		}
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("🔄 Probe", "m:git:build-host:watch", "primary"), btn("⬅️ Git", "m:git", "")},
