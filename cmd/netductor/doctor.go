@@ -527,6 +527,7 @@ func runDoctorNative() int {
 		doctorPrintf("INFO ci %s\n", ci.StatusLine())
 		doctorPrintln("INFO "+gitstore.FormatCacheInfo())
 		doctorPrintln("INFO "+gitstore.BuildHostStatusLine())
+		doctorPrintln("INFO "+svcpaths.BuildPathsStatus())
 		for _, s := range gitstore.ListBuildHostStates() {
 			on := "offline"
 			if s.Online {

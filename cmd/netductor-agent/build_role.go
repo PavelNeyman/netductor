@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -21,20 +23,26 @@ func runBuildAgent(cfg config) {
 		iv = 30
 	}
 	for {
+		refreshBuildServer(&cfg)
 		if err := buildHeartbeat(client, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "build heartbeat: %v\n", err)
+		}
+		if err := buildClaimAndRun(client, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "build claim: %v\n", err)
 		}
 		time.Sleep(time.Duration(iv) * time.Second)
 	}
 }
 
-func buildHeartbeat(client *http.Client, cfg config) error {
+func refreshBuildServer(cfg *config) {
 	if b, err := os.ReadFile("/etc/netductor/secrets/build_core_url"); err == nil {
 		if s := strings.TrimSpace(string(b)); s != "" {
 			cfg.Server = s
 		}
 	}
+}
 
+func buildHeartbeat(client *http.Client, cfg config) error {
 	docker := false
 	if _, err := exec.LookPath("docker"); err == nil {
 		docker = true
@@ -70,6 +78,111 @@ func buildHeartbeat(client *http.Client, cfg config) error {
 	defer res.Body.Close()
 	if res.StatusCode >= 300 {
 		return fmt.Errorf("status %d", res.StatusCode)
+	}
+	return nil
+}
+
+func buildClaimAndRun(client *http.Client, cfg config) error {
+	base := strings.TrimRight(cfg.Server, "/")
+	body, _ := json.Marshal(map[string]any{"device_id": cfg.DeviceID})
+	req, err := http.NewRequest(http.MethodPost, base+"/api/build-host/jobs/claim", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	var out struct {
+		OK  bool `json:"ok"`
+		Job *struct {
+			ID      string `json:"id"`
+			Project string `json:"project"`
+			Ref     string `json:"ref"`
+			WorkURL string `json:"work_url"`
+		} `json:"job"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&out)
+	if out.Job == nil || out.Job.ID == "" {
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "claimed job %s project=%s\n", out.Job.ID, out.Job.Project)
+	workDir := filepath.Join(os.TempDir(), "nd-build-"+out.Job.ID)
+	_ = os.RemoveAll(workDir)
+	_ = os.MkdirAll(workDir, 0o755)
+	tgz := filepath.Join(workDir, "work.tgz")
+	if err := buildDownloadFile(client, base+out.Job.WorkURL, cfg.Token, tgz); err != nil {
+		return reportResult(client, cfg, out.Job.ID, false, "", err.Error())
+	}
+	log, err := extractAndGoBuild(tgz, workDir)
+	ok := err == nil
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+	}
+	return reportResult(client, cfg, out.Job.ID, ok, log, errMsg)
+}
+
+func buildDownloadFile(client *http.Client, url, token, dst string) error {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		return fmt.Errorf("download %d", res.StatusCode)
+	}
+	f, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, res.Body)
+	return err
+}
+
+func extractAndGoBuild(tgz, workDir string) (string, error) {
+	var b strings.Builder
+	src := filepath.Join(workDir, "src")
+	_ = os.MkdirAll(src, 0o755)
+	cmd := exec.Command("tar", "-xzf", tgz, "-C", src)
+	out, err := cmd.CombinedOutput()
+	b.Write(out)
+	if err != nil {
+		return b.String(), err
+	}
+	cmd = exec.Command("bash", "-lc", "cd '"+src+"' && go test ./... 2>&1; CGO_ENABLED=0 go build -o '"+workDir+"/outbin' ./... 2>&1 || CGO_ENABLED=0 go build -o '"+workDir+"/outbin' . 2>&1")
+	out, err = cmd.CombinedOutput()
+	b.Write(out)
+	return b.String(), err
+}
+
+func reportResult(client *http.Client, cfg config, jobID string, ok bool, log, errMsg string) error {
+	base := strings.TrimRight(cfg.Server, "/")
+	body, _ := json.Marshal(map[string]any{
+		"ok": ok, "log": log, "error": errMsg, "host_id": cfg.DeviceID,
+	})
+	req, err := http.NewRequest(http.MethodPost, base+"/api/build-host/jobs/"+jobID+"/result", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		return fmt.Errorf("result status %d", res.StatusCode)
 	}
 	return nil
 }

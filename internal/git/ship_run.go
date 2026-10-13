@@ -203,6 +203,14 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 			notify.AlertOnce("ship:fail:"+id, fmt.Sprintf("🔴 Ship job <code>%s</code> failed at %s", j.Project, step.Name))
 			return j, logb.String(), stepErr
 		}
+		// Agent took the build step — do not advance; worker will resume after CompleteAgentBuild.
+		j, _ = GetShipJob(id)
+		if j.State == ShipWaitingExternal {
+			j.VpsSlot = false
+			_ = SaveShipJob(j)
+			AppendShipLog(id, "waiting_external — release VPS slot")
+			return j, logb.String(), nil
+		}
 		if j.Cursor < len(j.Steps) {
 			j.Steps[j.Cursor].Status = "ok"
 		}
@@ -235,7 +243,6 @@ func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
 		}
 	}
 	if BuildHostEnabled() {
-		// Builds only via build-host agent over PB/BP — no primary→B SSH for CI.
 		if os.Getenv("NETDUCTOR_BUILD_HOST_FALLBACK") == "1" {
 			fmt.Fprintf(logb, "WARN NETDUCTOR_BUILD_HOST_FALLBACK=1 — local build on primary\n")
 		} else if !PrimaryBuildHostOnline() {
@@ -243,9 +250,14 @@ func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
 			AppendShipLog(j.ID, err.Error())
 			return err
 		} else {
-			err := fmt.Errorf("build-host agent job queue pending (P2); no SSH CI")
-			AppendShipLog(j.ID, err.Error())
-			return err
+			if err := PrepareAgentBuild(j); err != nil {
+				AppendShipLog(j.ID, "agent prepare: "+err.Error())
+				return err
+			}
+			fmt.Fprintf(logb, "handed to build-host agent (waiting_external)\n")
+			AppendShipLog(j.ID, "waiting_external build_agent")
+			notify.AlertOnce("ship:agent:"+j.ID, fmt.Sprintf("🏗 Ship <code>%s</code> waiting build-host agent", j.Project))
+			return nil // parked; agent claim continues
 		}
 	}
 		out, err := runBuildProjectNow(j.Project, j.Ref)

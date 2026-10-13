@@ -1,3 +1,9 @@
+## 0.9.366
+
+- Build-host **agent job queue**: claim / work.tgz / result (no SSH CI)
+- Ship parks test_build as waiting_external build_agent; agent completes → re-queue publish
+- PB/BP tick in metrics + doctor; alerts both-down / pb-down
+
 ## 0.9.365
 
 - Secondary agent plane **tunnel-only**: SP preferred, PS failover — never public :8789
