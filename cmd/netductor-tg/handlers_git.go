@@ -102,7 +102,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			b.WriteString(fmt.Sprintf("• <code>%s</code> %s <b>%s</b> disk=%.1fG docker=%v jobs=%d last=%s%s", esc(s.ID), esc(s.Label), on, s.DiskFreeGB, s.Docker, s.JobsDone, esc(s.LastJobID), nl))
 		}
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("🔄 "+T("probe"), "m:git:build-host:watch", "primary"), btn("⬅️ Git", "m:git", "")},
+			{btn("🔄 "+T("probe"), "m:git:build-host:watch", "primary"), btn(T("git_back"), "m:git", "")},
 			{btn(T("main_menu"), "m:menu", "")},
 		}}
 		if strings.HasPrefix(rest, "build-host:watch") {
@@ -225,7 +225,6 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		}
 	}
 
-
 	if strings.HasPrefix(rest, "proj:") {
 		sub := strings.TrimPrefix(rest, "proj:")
 		if sub == "list" || sub == "" {
@@ -254,10 +253,10 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 			}
 			rows = append(rows, []map[string]any{btn(T("git_add_proj"), "m:git:proj:add", "primary"), btn(T("git_migrate"), "m:git:proj:migrate", "")})
 			rows = append(rows, []map[string]any{btn(T("git_sync_all"), "m:git:proj:sync-all", ""), btn(T("git_build_all"), "m:git:proj:build-all", "")})
-			rows = append(rows, []map[string]any{btn(T("git_vps_queue"), "m:git:proj:vps-queue", ""), btn("🚀 Jobs", "m:git:ship:jobs", "primary")})
-			rows = append(rows, []map[string]any{btn("🏗 Build-host", "m:git:build-host", "")})
+			rows = append(rows, []map[string]any{btn(T("git_vps_queue"), "m:git:proj:vps-queue", ""), btn(T("ship_jobs"), "m:git:ship:jobs", "primary")})
+			rows = append(rows, []map[string]any{btn(T("build_host_btn"), "m:git:build-host", "")})
 			rows = append(rows, []map[string]any{btn(T("git_mirror_all"), "m:git:proj:mirror-all", "")})
-			rows = append(rows, []map[string]any{btn("⬅️ Git", "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
+			rows = append(rows, []map[string]any{btn(T("git_back"), "m:git", "primary"), btn(T("main_menu"), "m:menu", "")})
 			reply(token, chat, msgID, b.String(), map[string]any{"inline_keyboard": rows})
 			return true
 		}

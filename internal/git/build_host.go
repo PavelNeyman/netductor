@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -67,8 +66,13 @@ func SaveBuildHost(c BuildHostConfig) error {
 	return os.WriteFile(buildHostPath(), append(b, '\n'), 0o600)
 }
 
-// BuildHostEnabled is true when remote executor should be used for VPS ship test_build.
+// BuildHostEnabled is true when ship should hand test_build to a build-host agent.
+// Prefer the state registry written by Mac deploy (build-hosts/*.json); fall back to
+// legacy /etc/netductor/build-host.json Enabled+SSHHost.
 func BuildHostEnabled() bool {
+	if len(ListBuildHostStates()) > 0 {
+		return true
+	}
 	c := LoadBuildHost()
 	return c.Enabled && strings.TrimSpace(c.SSHHost) != ""
 }
@@ -145,91 +149,27 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// RunRemoteTestBuild packs worktree on primary, builds on host, pulls artifacts.
+// RunRemoteTestBuild is removed: primary no longer SSHs to build-host.
+// Ship uses agent claim (PrepareAgentBuild) over PB/BP tunnel.
 func RunRemoteTestBuild(job *ShipJob, workDir string, logb *strings.Builder) error {
-	c := LoadBuildHost()
-	if !c.Enabled || c.SSHHost == "" {
-		return fmt.Errorf("build-host not enabled")
-	}
-	fmt.Fprintf(logb, "build-host %s@%s:%d label=%s\n", c.SSHUser, c.SSHHost, c.SSHPort, c.Label)
-
-	remoteJob := filepath.Join(c.RemoteDir, "jobs", sanitize(job.ID))
-	remoteSrc := filepath.Join(remoteJob, "src")
-	remoteArt := filepath.Join(remoteJob, "artifacts")
-	_, _ = c.runSSH(fmt.Sprintf("rm -rf %s && mkdir -p %s %s", shellQuote(remoteJob), shellQuote(remoteSrc), shellQuote(remoteArt)))
-
-	// pack source
-	tarPath := filepath.Join(os.TempDir(), "nd-ship-"+sanitize(job.ID)+".tar.gz")
-	defer os.Remove(tarPath)
-	pack := exec.Command("tar", "-czf", tarPath, "-C", workDir, ".")
-	if b, err := pack.CombinedOutput(); err != nil {
-		return fmt.Errorf("pack worktree: %w: %s", err, string(b))
-	}
-	if err := c.scpTo(tarPath, filepath.Join(remoteJob, "src.tar.gz")); err != nil {
-		return err
-	}
-	_, err := c.runSSH(fmt.Sprintf("tar -xzf %s -C %s", shellQuote(filepath.Join(remoteJob, "src.tar.gz")), shellQuote(remoteSrc)))
-	if err != nil {
-		return fmt.Errorf("remote extract: %w", err)
-	}
-
-	// secrets env file (remote, deleted after)
-	var envLines []string
-	envLines = append(envLines, LoadCISecretsEnv(job.Project)...)
-	envFile := filepath.Join(os.TempDir(), "nd-env-"+sanitize(job.ID))
-	_ = os.WriteFile(envFile, []byte(strings.Join(envLines, "\n")+"\n"), 0o600)
-	defer os.Remove(envFile)
-	_ = c.scpTo(envFile, filepath.Join(remoteJob, "env"))
-
-	// remote build script: prefer docker golang image if Dockerfile absent
-	script := fmt.Sprintf(`set -e
-cd %s
-if [ -f Dockerfile ]; then
-  docker build -t nd-ship-%s . 2>&1 | tail -20
-elif [ -f go.mod ]; then
-  docker run --rm -v "$PWD":/src -w /src -e GOCACHE=/tmp/gocache -e GOMODCACHE=/tmp/gomod golang:1.22-bookworm bash -lc 'go test ./... && go build -o /src/artifacts/ ./...' 2>&1
-  mkdir -p artifacts
-  cp -a bin/. artifacts/ 2>/dev/null || true
-  ls -la artifacts || true
-else
-  # generic: run make test/build if present
-  if [ -f Makefile ]; then make test all 2>&1 || make 2>&1; fi
-  mkdir -p artifacts
-  find . -maxdepth 2 -type f -executable -path ./bin/\* -exec cp -a {} artifacts/ \; 2>/dev/null || true
-fi
-`, shellQuote(remoteSrc), sanitize(job.ID)[:12])
-
-	scriptPath := filepath.Join(os.TempDir(), "nd-build-"+sanitize(job.ID)+".sh")
-	_ = os.WriteFile(scriptPath, []byte(script), 0o700)
-	defer os.Remove(scriptPath)
-	_ = c.scpTo(scriptPath, filepath.Join(remoteJob, "run.sh"))
-
-	out, err := c.runSSH(fmt.Sprintf("chmod +x %s && set -a && [ -f %s ] && . %s; set +a; bash %s",
-		shellQuote(filepath.Join(remoteJob, "run.sh")),
-		shellQuote(filepath.Join(remoteJob, "env")),
-		shellQuote(filepath.Join(remoteJob, "env")),
-		shellQuote(filepath.Join(remoteJob, "run.sh")),
-	))
-	logb.WriteString(out)
-	if err != nil {
-		return fmt.Errorf("remote build: %w", err)
-	}
-
-	// pull artifacts
-	localArt := ShipJobArtifactsDir(job.ID)
-	_ = os.MkdirAll(localArt, 0o755)
-	_ = c.scpFrom(remoteArt+"/.", localArt+"/")
-	// cleanup remote job dir (keep last fails optional)
-	_, _ = c.runSSH(fmt.Sprintf("rm -rf %s", shellQuote(remoteJob)))
-	fmt.Fprintf(logb, "build-host artifacts → %s at %s\n", localArt, time.Now().UTC().Format(time.RFC3339))
-	return nil
+	return fmt.Errorf("RunRemoteTestBuild removed — use build-host agent (ROLE=build); enable via Mac deploy or registered build-hosts state")
 }
 
 // StatusLine for doctor/CLI.
 func BuildHostStatusLine() string {
+	states := ListBuildHostStates()
+	if len(states) > 0 {
+		online := 0
+		for _, s := range states {
+			if s.Online {
+				online++
+			}
+		}
+		return fmt.Sprintf("build-host agents=%d online=%d (registry)", len(states), online)
+	}
 	c := LoadBuildHost()
 	if !c.Enabled || c.SSHHost == "" {
 		return "build-host disabled (local CI)"
 	}
-	return fmt.Sprintf("build-host enabled %s@%s:%d remote=%s", c.SSHUser, c.SSHHost, c.SSHPort, c.RemoteDir)
+	return fmt.Sprintf("build-host config %s@%s:%d remote=%s (legacy)", c.SSHUser, c.SSHHost, c.SSHPort, c.RemoteDir)
 }

@@ -1,5 +1,8 @@
 ## Status (0.9.369)
 
+**0.9.372:** `BuildHostEnabled` uses build-hosts registry (Mac deploy); legacy primary SSH deploy path removed from CLI; `RunRemoteTestBuild` stubbed; Web/TG i18n polish.
+
+
 - Op deploy wizard (TUI + Web `/v1/build-host`)
 - Agent job claim/result + dist.tgz
 - PB/BP health, tunnel-only

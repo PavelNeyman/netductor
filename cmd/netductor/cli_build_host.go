@@ -17,9 +17,9 @@ func runBuildHost(args []string) int {
   netductor build-host set --host IP [--port 52222] [--user root] [--key PATH] [--label NAME] [--enable|--disable]
   netductor build-host test
   netductor build-host enable|disable|clear
-  netductor build-host deploy --host IP [--pass PASS] [--port 22] [--user root] [--key PATH] [--label NAME]
   netductor build-host list [--json]
-  netductor build-host watch`)
+  netductor build-host recovery-arm | backup-mirror | watch
+  (deploy only from Mac: netductor-op deploy build-host / TUI Wizard)`)
 		return 2
 	}
 	switch args[0] {
@@ -133,65 +133,6 @@ func runBuildHost(args []string) int {
 		fmt.Fprintln(os.Stderr, "  netductor-op tui → Wizard → Build-host VPS")
 		fmt.Fprintln(os.Stderr, "  or: netductor-op deploy build-host --help")
 		return 2
-	case "deploy-legacy-disabled":
-		var o gitstore.DeployBuildHostOpts
-		o.Port = 22
-		o.User = "root"
-		for i := 1; i < len(args); i++ {
-			switch args[i] {
-			case "--host":
-				if i+1 < len(args) {
-					o.Host = args[i+1]
-					i++
-				}
-			case "--pass", "--password":
-				if i+1 < len(args) {
-					o.Password = args[i+1]
-					i++
-				}
-			case "--port":
-				if i+1 < len(args) {
-					o.Port, _ = strconv.Atoi(args[i+1])
-					i++
-				}
-			case "--user":
-				if i+1 < len(args) {
-					o.User = args[i+1]
-					i++
-				}
-			case "--key":
-				if i+1 < len(args) {
-					o.KeyPath = args[i+1]
-					i++
-				}
-			case "--label":
-				if i+1 < len(args) {
-					o.Label = args[i+1]
-					i++
-				}
-			case "--primary-url":
-				if i+1 < len(args) {
-					o.PrimaryURL = args[i+1]
-					i++
-				}
-			}
-		}
-		if o.Host == "" {
-			fmt.Fprintln(os.Stderr, "--host required")
-			return 2
-		}
-		if o.KeyPath == "" {
-			if _, err := os.Stat("/root/.ssh/id_ed25519"); err == nil {
-				o.KeyPath = "/root/.ssh/id_ed25519"
-			}
-		}
-		log, err := gitstore.DeployBuildHost(o)
-		fmt.Print(log)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 1
-		}
-		return 0
 	case "set":
 		c := gitstore.LoadBuildHost()
 		for i := 1; i < len(args); i++ {
