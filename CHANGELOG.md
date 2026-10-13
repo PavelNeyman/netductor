@@ -1,3 +1,10 @@
+## 0.9.364
+
+- PLAN-BUILD-HOST locked: op-only deploy, agent-only CI, tunnel-only B, PB/BP failover, multi-host, fleet last
+- Node /api/build-host/deploy → 410; Web node deploy removed
+- Agent SERVER= PB VIP 10.87.12.1:8789; real token at deploy
+- Ship: no SSH CI when build-host enabled (agent queue next)
+
 ## 0.9.363
 
 - Build-host deploy moved to **operator (Mac)** — not primary

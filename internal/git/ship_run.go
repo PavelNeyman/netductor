@@ -235,29 +235,20 @@ func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
 		}
 	}
 	if BuildHostEnabled() {
-		work, err := prepareProjectWorktree(j.Project, j.Ref)
-		if err != nil {
-			if os.Getenv("NETDUCTOR_BUILD_HOST_FALLBACK") == "1" {
-				fmt.Fprintf(logb, "build-host prepare failed (%v); fallback local\n", err)
-			} else {
-				return fmt.Errorf("build-host prepare: %w", err)
-			}
+		// Builds only via build-host agent over PB/BP — no primary→B SSH for CI.
+		if os.Getenv("NETDUCTOR_BUILD_HOST_FALLBACK") == "1" {
+			fmt.Fprintf(logb, "WARN NETDUCTOR_BUILD_HOST_FALLBACK=1 — local build on primary\n")
+		} else if !PrimaryBuildHostOnline() {
+			err := fmt.Errorf("build-host enabled but no online agent (deploy from op; ROLE=build over tunnel)")
+			AppendShipLog(j.ID, err.Error())
+			return err
 		} else {
-			defer os.RemoveAll(work)
-			if err := RunRemoteTestBuild(j, work, logb); err != nil {
-				if os.Getenv("NETDUCTOR_BUILD_HOST_FALLBACK") == "1" {
-					fmt.Fprintf(logb, "build-host failed (%v); fallback local\n", err)
-				} else {
-					AppendShipLog(j.ID, logb.String())
-					return err
-				}
-			} else {
-				AppendShipLog(j.ID, logb.String())
-				return nil
-			}
+			err := fmt.Errorf("build-host agent job queue pending (P2); no SSH CI")
+			AppendShipLog(j.ID, err.Error())
+			return err
 		}
 	}
-	out, err := runBuildProjectNow(j.Project, j.Ref)
+		out, err := runBuildProjectNow(j.Project, j.Ref)
 	logb.WriteString(out)
 	AppendShipLog(j.ID, out)
 	return err

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
 )
@@ -165,20 +166,30 @@ sshd -t && (systemctl reload sshd || systemctl reload ssh) || true
 	out, _ = runSSH(pass, keyForBuild, o.BuildUser, o.BuildHost, hard, o.PrimaryKeyPassphrase)
 	fmt.Fprint(os.Stderr, out)
 
-	// Register on primary: write build-host.json + state via CLI
-	reg := fmt.Sprintf(`netductor build-host set --host %s --port 52222 --user %s --label %s --enable --key /root/.ssh/id_ed25519 2>/dev/null || true
-mkdir -p /var/lib/netductor/build-hosts
-`, ShellQuote(o.BuildHost), ShellQuote(o.BuildUser), ShellQuote(o.Label))
+	// Token + tunnel-only agent URL (PB VIP). No public API.
 	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+	tokOut, _ := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, "openssl rand -hex 16", o.PrimaryKeyPassphrase)
+	token := strings.TrimSpace(tokOut)
+	if len(token) < 16 {
+		token = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	deviceID := strings.ReplaceAll(o.BuildHost, ".", "-")
+	primaryURL := o.PrimaryURL
+	if primaryURL == "" {
+		primaryURL = "https://10.87.12.1:8789" // PB; failover to 10.87.13.1 on path switch
+	}
+	reg := fmt.Sprintf(`netductor build-host set --host %s --port 52222 --user %s --label %s --enable 2>/dev/null || true
+mkdir -p /var/lib/netductor/build-hosts
+cat > /var/lib/netductor/build-hosts/%s.json << EOF
+{"id":"%s","label":"%s","ssh_host":"%s","ssh_port":52222,"ssh_user":"%s","token":"%s","online":false,"deployed_at":"%s"}
+EOF
+chmod 600 /var/lib/netductor/build-hosts/%s.json
+`, ShellQuote(o.BuildHost), ShellQuote(o.BuildUser), ShellQuote(o.Label),
+		deviceID, deviceID, o.Label, o.BuildHost, o.BuildUser, token, time.Now().UTC().Format(time.RFC3339), deviceID)
 	out, err = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, reg, o.PrimaryKeyPassphrase)
 	fmt.Fprint(os.Stderr, out)
 
-	// Agent config pointing at primary public API if known — agent may use tunnel later
-	primaryURL := o.PrimaryURL
-	if primaryURL == "" {
-		primaryURL = "https://" + o.PrimaryHost + ":8787"
-	}
-	agentCfg := fmt.Sprintf("SERVER=%s\nTOKEN=op-deploy\nDEVICE_ID=%s\nROLE=build\nINTERVAL=30\n", primaryURL, strings.ReplaceAll(o.BuildHost, ".", "-"))
+	agentCfg := fmt.Sprintf("SERVER=%s\nTOKEN=%s\nDEVICE_ID=%s\nROLE=build\nINTERVAL=30\n", primaryURL, token, deviceID)
 	tmpCfg := filepath.Join(os.TempDir(), "nd-bh-agent.conf")
 	_ = os.WriteFile(tmpCfg, []byte(agentCfg), 0o600)
 	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")

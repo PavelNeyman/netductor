@@ -37,23 +37,11 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "hosts": list, "config": gitstore.LoadBuildHost(), "status": gitstore.BuildHostStatusLine()})
 	})
-	mux.HandleFunc("/api/build-host/deploy", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || !requireSession(w, r) {
-			return
-		}
-		var body struct {
-			Host, User, Password, KeyPath, Label, PrimaryURL string
-			Port int
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		log, err := gitstore.DeployBuildHost(gitstore.DeployBuildHostOpts{
-			Host: body.Host, User: body.User, Port: body.Port, Password: body.Password,
-			KeyPath: body.KeyPath, Label: body.Label, PrimaryURL: body.PrimaryURL,
+		mux.HandleFunc("/api/build-host/deploy", func(w http.ResponseWriter, r *http.Request) {
+		// Deploy is operator-only (Mac). Node must not orchestrate build-host.
+		writeJSON(w, 410, map[string]any{
+			"ok": false,
+			"error": "build-host deploy only from operator (netductor-op tui / deploy build-host)",
 		})
-		if err != nil {
-			writeJSON(w, 400, map[string]any{"ok": false, "error": err.Error(), "log": log})
-			return
-		}
-		writeJSON(w, 200, map[string]any{"ok": true, "log": log})
 	})
 }

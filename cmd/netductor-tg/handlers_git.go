@@ -92,7 +92,7 @@ func handleGitCB(token string, chat int64, msgID int, data string) bool {
 		b.WriteString("🏗 <b>Build-host</b>" + nl)
 		b.WriteString(esc(gitstore.BuildHostStatusLine()) + nl)
 		if len(list) == 0 {
-			b.WriteString("<i>none registered — CLI: netductor build-host deploy --host IP</i>" + nl)
+			b.WriteString("<i>none registered — deploy from Mac: netductor-op tui → Build-host</i>" + nl)
 		}
 		for _, s := range list {
 			on := "offline"

@@ -60,6 +60,15 @@ func LoadBuildHostState(id string) (BuildHostState, error) {
 	return s, err
 }
 
+func PrimaryBuildHostOnline() bool {
+	for _, s := range ListBuildHostStates() {
+		if s.Online {
+			return true
+		}
+	}
+	return false
+}
+
 func ListBuildHostStates() []BuildHostState {
 	ents, err := os.ReadDir(buildHostsStateDir())
 	if err != nil {

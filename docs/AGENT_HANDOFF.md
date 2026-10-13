@@ -1,3 +1,5 @@
+**0.9.364:** Build-host plan locked (op/agent/tunnel-only). Node deploy removed. See docs/PLAN-BUILD-HOST.md.
+
 **0.9.363:** Build-host deploy from op only; wizard; PB/BP tunnels like SP/PS.
 
 **0.9.362:** Build-host prod deploy + agent ROLE=build + alerts + UI parity.

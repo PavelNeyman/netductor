@@ -1299,7 +1299,7 @@ const special = {
   'git-ship-pause': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'pause',id})}); },
   'git-ship-resume': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'resume',id})}); },
   'build-host-status': async()=> nodeFetch('/api/build-host/status'),
-  'build-host-deploy': async()=>{ const host=(document.getElementById('buildHostIP')?.value||'').trim(); const password=(document.getElementById('buildHostPass')?.value||''); if(!host) return {error:'host'}; return nodeFetch('/api/build-host/deploy',{method:'POST',body:JSON.stringify({host,password})}); },
+  'build-host-deploy': async()=>({ error: 'Deploy build-host only from operator (Mac TUI / netductor-op deploy build-host), not from node Web' }),
   'git-ship-rm': async()=>{ const id=(document.getElementById('gitShipJobId')?.value||'').trim(); if(!id) return {error:'id'}; return nodeFetch('/api/git/projects/ship-jobs',{method:'POST',body:JSON.stringify({action:'rm',id})}); },
   'git-proj-migrate': async()=>{
     const owner=(document.getElementById('gitMigOwner')?.value||'PavelNeyman').trim();
