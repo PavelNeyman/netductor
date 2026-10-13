@@ -1,3 +1,9 @@
+## 0.9.370
+
+- Web i18n: clean Build-host tab labels (EN/RU), build_note RU
+- TG Build-host card via T() (title/none/probe/online)
+- PLAN-BUILD-HOST status through 0.9.369
+
 ## 0.9.369
 
 - recover --from-build-host (same API as secondary recovery)

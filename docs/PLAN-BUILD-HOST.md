@@ -1,3 +1,12 @@
+## Status (0.9.369)
+
+- Op deploy wizard (TUI + Web `/v1/build-host`)
+- Agent job claim/result + dist.tgz
+- PB/BP health, tunnel-only
+- Backup mirror + backup_pull on B
+- `recover --from-build-host` + agent `recovery_arm`
+- Fleet: **not** yet (deferred)
+
 # PLAN: Build-host (locked 0.9.364+)
 
 ## Model (non-negotiable)
