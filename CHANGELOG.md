@@ -1,3 +1,11 @@
+## 0.9.374
+
+- Build-host agent routes on :8789 (heartbeat/claim/work/result)
+- Job routes require Bearer + host ownership; claim binds host to token
+- BuildHostEnabled = online agent only (stale registry does not hard-fail)
+- Online TTL unified to 3 min; build-host test is status probe; remove <id>
+
+
 ## 0.9.371
 
 - Fleet: optional **build-host** (do_build) after primary/secondary

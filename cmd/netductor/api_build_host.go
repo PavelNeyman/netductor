@@ -146,19 +146,9 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 				hostID = v
 			}
 		}
-		// validate token belongs to a build host
-		okTok := false
-		for _, s := range gitstore.ListBuildHostStates() {
-			full, err := gitstore.LoadBuildHostState(s.ID)
-			if err == nil && full.Token == token {
-				okTok = true
-				if hostID == "" {
-					hostID = full.ID
-				}
-				break
-			}
-		}
-		if !okTok {
+		// Bind host strictly to the token. Ignore client device_id.
+		hostID, okTok := gitstore.AuthBuildHostToken(token)
+		if !okTok || hostID == "" {
 			writeJSON(w, 401, map[string]any{"ok": false, "error": "token"})
 			return
 		}

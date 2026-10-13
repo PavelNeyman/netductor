@@ -70,12 +70,9 @@ func SaveBuildHost(c BuildHostConfig) error {
 // Prefer the state registry written by Mac deploy (build-hosts/*.json); fall back to
 // legacy /etc/netductor/build-host.json Enabled+SSHHost.
 func BuildHostEnabled() bool {
-	// Online agent wins. Stale registry alone must not hard-fail ship.
-	if PrimaryBuildHostOnline() {
-		return true
-	}
-	c := LoadBuildHost()
-	return c.Enabled && strings.TrimSpace(c.SSHHost) != ""
+	// Hand off to agent only when one is online.
+	// Stale registry or leftover SSH config must not hard-fail ship.
+	return PrimaryBuildHostOnline()
 }
 
 func (c BuildHostConfig) target() string {
