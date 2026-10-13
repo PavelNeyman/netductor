@@ -108,6 +108,11 @@ func FleetFromFields(get FieldGetter) FleetSpec {
 	return FleetSpec{
 		DoPrimary:   yesish(orDefault(get("do_primary"), "yes")),
 		DoSecondary: yesish(orDefault(get("do_secondary"), "yes")),
+		DoBuild:     yesish(orDefault(get("do_build"), "no")),
+		Build: BuildHostFleetSpec{
+			Host: get("build_host"), User: orDefault(get("build_user"), "root"),
+			Password: get("build_password"), Label: orDefault(get("build_label"), "build-1"),
+		},
 		Primary:     p,
 		Secondary:   sec,
 	}

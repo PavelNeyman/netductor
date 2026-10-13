@@ -1,3 +1,8 @@
+## 0.9.371
+
+- Fleet: optional **build-host** (do_build) after primary/secondary
+- TUI/Web/API: do_build + build_host/password/label; DeployBuildHost in FleetDeployWithReport
+
 ## 0.9.370
 
 - Web i18n: clean Build-host tab labels (EN/RU), build_note RU

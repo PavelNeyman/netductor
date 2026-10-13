@@ -56,7 +56,7 @@ func (m *model) startWizard() {
 func wizTargetEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
-			{"fleet", "Fleet (primary+secondary)", "Один сценарий", "Primary → secondary → domain/LE → add-ons → credentials на Mac."},
+			{"fleet", "Fleet (primary+secondary[+build])", "Один сценарий", "Primary → secondary → optional build-host → domain/LE → add-ons → credentials на Mac."},
 			{"primary", "Primary VPS", "Зарубежный control plane", "Чистый Debian/VPS за границей: install стека, Reality SNI, bootstrap fleet, doctor. После этого обычно настраивают Secondary."},
 			{"secondary", "Secondary VPS", "RU entry", "Российский VPS: с Mac — prepare-pack на primary, SSH на secondary (pubkey, agent, sing-box). Пароль только первый вход."},
 			{"build", "Build-host VPS", "CI server", "Отдельный VPS под сборки: с Mac (op) — SSH, harden, agent ROLE=build, туннели PB/BP к primary. Не VPN-exit."},
@@ -68,7 +68,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		}
 	}
 	return []menuEntry{
-		{"fleet", "Fleet (primary+secondary)", "Full auto", "Primary → secondary → domain/LE → add-ons → credentials on Mac."},
+		{"fleet", "Fleet (primary+secondary[+build])", "Full auto", "Primary → secondary → optional build-host → domain/LE → add-ons → credentials on Mac."},
 		{"primary", "Primary VPS", "Abroad control plane", "Clean Debian/VPS abroad: stack install, Reality SNI, fleet bootstrap, doctor. Usually followed by Secondary."},
 		{"secondary", "Secondary VPS", "RU entry", "RU VPS: from Mac — prepare-pack on primary, SSH to secondary (pubkey, agent, sing-box). Password first login only."},
 		{"build", "Build-host VPS", "CI server", "Dedicated CI VPS: from Mac (op) — SSH, harden, agent ROLE=build, PB/BP tunnels to primary. Not a VPN exit."},

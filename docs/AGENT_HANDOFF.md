@@ -1,3 +1,5 @@
+**0.9.371:** Fleet optional build-host step (TUI/Web/API).
+
 **0.9.370:** Build-host UI i18n (Web/TG). Fleet still deferred.
 
 **0.9.369:** recover from build-host; agent recovery_arm :8790.

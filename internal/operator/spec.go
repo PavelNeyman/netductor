@@ -56,8 +56,18 @@ type SecondarySpec struct {
 type FleetSpec struct {
 	DoPrimary   bool
 	DoSecondary bool
+	DoBuild     bool
 	Primary     PrimarySpec
 	Secondary   SecondarySpec
+	Build       BuildHostFleetSpec
+}
+
+// BuildHostFleetSpec is optional CI host in fleet deploy.
+type BuildHostFleetSpec struct {
+	Host     string
+	User     string
+	Password string
+	Label    string
 }
 
 func (p PrimarySpec) toDeploy() deploy.PrimaryOpts {

@@ -351,6 +351,11 @@ func streamRep(w http.ResponseWriter, flusher http.Flusher, okFlush bool) Report
 type fleetJSON struct {
 	DoPrimary         bool   `json:"do_primary"`
 	DoSecondary       bool   `json:"do_secondary"`
+	DoBuild           bool   `json:"do_build"`
+	BuildHost         string `json:"build_host"`
+	BuildUser         string `json:"build_user"`
+	BuildPassword     string `json:"build_password"`
+	BuildLabel        string `json:"build_label"`
 	PrimaryHost       string `json:"primary_host"`
 	PrimaryUser       string `json:"primary_user"`
 	PrimaryPassword   string `json:"primary_password"`
@@ -460,8 +465,12 @@ func handleFleet(w http.ResponseWriter, r *http.Request, token string) {
 		http.Error(w, "secondary_host required", 400)
 		return
 	}
-	if !body.DoPrimary && !body.DoSecondary {
-		http.Error(w, "do_primary and/or do_secondary required", 400)
+	if body.DoBuild && strings.TrimSpace(body.BuildHost) == "" {
+		http.Error(w, "build_host required when do_build", 400)
+		return
+	}
+	if !body.DoPrimary && !body.DoSecondary && !body.DoBuild {
+		http.Error(w, "do_primary and/or do_secondary and/or do_build required", 400)
 		return
 	}
 	if body.WithTelegram || strings.TrimSpace(body.TelegramToken) != "" || strings.TrimSpace(body.TelegramAdminID) != "" {
@@ -484,6 +493,11 @@ func handleFleet(w http.ResponseWriter, r *http.Request, token string) {
 	f := FleetSpec{
 		DoPrimary:   body.DoPrimary,
 		DoSecondary: body.DoSecondary,
+		DoBuild:     body.DoBuild,
+		Build: BuildHostFleetSpec{
+			Host: body.BuildHost, User: orDefault(body.BuildUser, "root"),
+			Password: body.BuildPassword, Label: orDefault(body.BuildLabel, "build-1"),
+		},
 		Primary: PrimarySpec{
 			Host: body.PrimaryHost, User: pu, Password: body.PrimaryPassword,
 			SNI: orDefault(body.SNI, "api.vk.me"), DomainBase: body.DomainBase, DomainPrimary: body.DomainPrimary, DomainVPN: body.DomainVPN, DomainRedirect: body.DomainRedirect, DomainEmail: body.LEEmail, SSHPort: parsePortField(body.SSHPort), RedirectHTTPSPort: body.RedirectHTTPSPort, AgentMTLSPort: body.AgentMTLSPort, LampacPort: body.LampacPort,

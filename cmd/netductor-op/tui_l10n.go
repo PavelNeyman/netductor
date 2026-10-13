@@ -287,6 +287,7 @@ var formDict = map[string][2]string{
 	"tg_admin_id": {"Telegram admin id", "TG admin id"},
 	"fleet_do_primary": {"Deploy primary", "Деплоить primary"},
 	"fleet_do_secondary": {"Deploy secondary", "Деплоить secondary"},
+	"fleet_do_build": {"Deploy build-host", "Деплоить build-host"},
 	"domain_base":        {"Domain label (optional)", "Метка DOMAIN (опц.)"},
 	"domain_primary":     {"Primary domain (FQDN)", "Домен primary (FQDN)"},
 	"domain_vpn":         {"Secondary domain (FQDN)", "Домен secondary (FQDN)"},

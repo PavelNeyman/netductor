@@ -5,7 +5,7 @@
 - PB/BP health, tunnel-only
 - Backup mirror + backup_pull on B
 - `recover --from-build-host` + agent `recovery_arm`
-- Fleet: **not** yet (deferred)
+- Fleet: optional do_build (0.9.371)
 
 # PLAN: Build-host (locked 0.9.364+)
 

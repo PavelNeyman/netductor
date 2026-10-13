@@ -36,7 +36,13 @@
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_ppass">Primary password</label><input name="primary_password" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host"/></div><div><label data-i18n="l_spass">Secondary password</label><input name="secondary_password" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="FQDN primary (DNS A → primary IP)" title="Primary host domain for LE / conf"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="FQDN secondary (DNS A → secondary IP)" title="Secondary / VPN entry domain"/></div></div>
-      <div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://FQDN:8443" title="Redirect base URL (LE host is hostname without port)"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base" placeholder="optional org label" title="Optional DOMAIN= in conf only; does not invent p./i. names"/></div></div>
+      
+      <div class="row build-fields" id="fleet_build_fields">
+        <div><label data-i18n="l_build_host">Build host</label><input name="build_host" placeholder="build VPS IP"/></div>
+        <div><label data-i18n="l_build_pass">Build password</label><input name="build_password" type="password"/></div>
+      </div>
+      <div class="row"><div><label data-i18n="l_build_label">Build label</label><input name="build_label" value="build-1"/></div><div></div></div>
+<div class="row"><div><label data-i18n="l_domain_redirect">Redirect URL</label><input name="domain_redirect" placeholder="https://FQDN:8443" title="Redirect base URL (LE host is hostname without port)"/></div><div><label data-i18n="l_domain">Domain label</label><input name="domain_base" placeholder="optional org label" title="Optional DOMAIN= in conf only; does not invent p./i. names"/></div></div>
       <div class="row"><div><label data-i18n="l_le">LE email</label><input name="le_email" type="email"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me" title="Reality TLS camouflage name (DEFAULT_SNI)"/></div></div>
       <div class="row"><div><label data-i18n="l_ssh_port">SSH port</label><input name="ssh_port" value="52222"/></div><div><label data-i18n="l_redir_port">Redirect HTTPS</label><input name="redirect_https_port" value="8443"/></div></div>
       <div class="row"><div><label data-i18n="l_mtls_port">Agent mTLS</label><input name="agent_mtls_port" value="8789"/></div><div><label data-i18n="l_lampac_port">Lampac</label><input name="lampac_port" value="9118"/></div></div>
@@ -44,6 +50,7 @@
       <div class="checks">
         <label><input type="checkbox" name="do_primary" checked/> <span data-i18n="c_do_primary">Primary</span></label>
         <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="c_do_secondary">Secondary</span></label>
+        <label><input type="checkbox" name="do_build"/> <span data-i18n="c_do_build">Build-host</span></label>
         <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
         <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label>
         <label><input type="checkbox" name="with_telegram" id="fleet_with_tg"/> <span data-i18n="c_tg">Telegram bot</span></label>
