@@ -263,6 +263,23 @@ go test ./cmd/... -count=1
 | 0.9.330 | P1/P2: firewall, channels, hardening, op catalog |
 | 0.9.329 | Первый полный комплекс EN+RU; integrity + reboot |
 
+
+
+## Web UI + версии (обязательно)
+
+Перед релизом с `netductor-op` или `internal/operator/web/`:
+
+```bash
+./scripts/check-versions.sh
+./scripts/check-web-ui.sh
+```
+
+Browser smoke: [ru/SMOKE-WEB-OP.md](SMOKE-WEB-OP.md).
+
+**Правило:** дифф web без static + пометки smoke = **неполный suite**.
+
+**Класс ошибок:** `var version = "x.y.z"` в `cmd/*/main.go` — только `ndver.Release`.
+
 ## Статические проверки Web UI
 
 ```bash

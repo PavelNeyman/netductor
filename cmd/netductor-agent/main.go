@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
+	 "encoding/pem"
 	"fmt"
 	"io"
 	"net"
@@ -18,9 +18,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
 
-var version = "0.9.362"
+// Follow internal/version.Release — never hardcode.
+var version = ndver.Release
 
 type config struct {
 	Server   string

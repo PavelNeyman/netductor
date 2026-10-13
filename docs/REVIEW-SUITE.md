@@ -265,6 +265,23 @@ Mandatory on **Full** suite. Scope: commits since last stop line (or explicit ra
 | 0.9.330 | P1/P2 tests: firewall, channels, hardening, op catalog |
 | 0.9.329 | Initial suite doc EN+RU; integrity + reboot challenge tests; mandatory full-complex reference |
 
+
+
+## Web UI + version gates (mandatory)
+
+Before any release that includes `netductor-op` or `internal/operator/web/`:
+
+```bash
+./scripts/check-versions.sh   # VERSION == Release; no hardcoded cmd version
+./scripts/check-web-ui.sh     # .hidden, ND_TOKEN, i18n heuristics
+```
+
+Browser smoke: [SMOKE-WEB-OP.md](SMOKE-WEB-OP.md) (RU: [ru/SMOKE-WEB-OP.md](ru/SMOKE-WEB-OP.md)).
+
+**Rule:** Diff touching web UI without static scripts + smoke note is **incomplete suite**.
+
+**Known failure class:** `var version = "x.y.z"` in `cmd/*/main.go` — always `ndver.Release`.
+
 ## Web UI static guards
 
 ```bash

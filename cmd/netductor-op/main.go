@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
 
 // Operator workstation binary (Mac/PC). Does not embed node plane (install/serve/vpn).
-var version = "0.9.374"
+// Always follow internal/version.Release (never hardcode).
+var version = ndver.Release
 
 
 func main() {
