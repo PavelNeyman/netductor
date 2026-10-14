@@ -118,10 +118,12 @@ func uciQuote(s string) string {
 }
 
 func installGuestNFTHooks() error {
-	dir := "/etc/nftables.d"
-	_ = os.MkdirAll(dir, 0o755)
-	// fw4 include: drop guest→wan unless ether saddr in set (populated by sync).
+	// Do NOT write a full "table" into /etc/nftables.d/ — fw4 includes those
+	// snippets inside its own table and dies with "unexpected table", which
+	// stops the whole firewall. Load our table separately via nft -f.
+	_ = os.Remove("/etc/nftables.d/90-netductor-guest.nft")
 	nft := `# netductor guest MAC gate — managed by netductor-agent
+# Applied with: nft -f (not an fw4 include)
 table inet netductor_guest {
 	set allowed {
 		type ether_addr
@@ -136,12 +138,10 @@ table inet netductor_guest {
 	}
 }
 `
-	path := filepath.Join(dir, "90-netductor-guest.nft")
-	if err := os.WriteFile(path, []byte(nft), 0o644); err != nil {
-		// fallback agent dir (read by sync script applying nft -f)
-		alt := filepath.Join(agentDir(), "guest", "90-netductor-guest.nft")
-		_ = os.MkdirAll(filepath.Dir(alt), 0o700)
-		_ = os.WriteFile(alt, []byte(nft), 0o644)
+	alt := filepath.Join(agentDir(), "guest", "90-netductor-guest.nft")
+	_ = os.MkdirAll(filepath.Dir(alt), 0o700)
+	if err := os.WriteFile(alt, []byte(nft), 0o644); err != nil {
+		return err
 	}
 	script := `#!/bin/sh
 # Sync guest allow-list into nft set netductor_guest.allowed
@@ -151,9 +151,9 @@ FILE="${1:-/etc/netductor-agent/guest/allowed.mac}"
 TABLE=inet
 # Ensure table/set exist
 if ! nft list table inet netductor_guest >/dev/null 2>&1; then
-  if [ -f /etc/nftables.d/90-netductor-guest.nft ]; then
-    nft -f /etc/nftables.d/90-netductor-guest.nft 2>/dev/null || true
-  elif [ -f /etc/netductor-agent/guest/90-netductor-guest.nft ]; then
+  if [ -f /etc/netductor-agent/guest/90-netductor-guest.nft ]; then
+    nft -f /etc/netductor-agent/guest/90-netductor-guest.nft 2>/dev/null || true
+  elif [ -f /etc/nftables.d/90-netductor-guest.nft ]; then
     nft -f /etc/netductor-agent/guest/90-netductor-guest.nft 2>/dev/null || true
   fi
 fi
@@ -184,7 +184,7 @@ done < "$FILE"
 		_ = os.WriteFile(alt, []byte(script), 0o755)
 	}
 	// try load table now
-	_ = exec.Command("nft", "-f", path).Run()
+	_ = exec.Command("nft", "-f", alt).Run()
 	return nil
 }
 

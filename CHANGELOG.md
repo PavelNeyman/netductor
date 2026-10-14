@@ -1,3 +1,8 @@
+## 0.9.393
+
+- Edge: guest nft no longer written to /etc/nftables.d (fw4 include broke firewall with "unexpected table")
+
+
 ## 0.9.374
 
 - Build-host agent routes on :8789 (heartbeat/claim/work/result)
