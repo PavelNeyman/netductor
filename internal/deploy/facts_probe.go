@@ -60,8 +60,13 @@ if command -v df >/dev/null; then
   line=$(df -k / 2>/dev/null | tail -1)
   if [ -n "$line" ]; then
     set -- $line
+    echo ROOT_TOTAL_KB=$2
     echo ROOT_FREE_KB=$4
   fi
+fi
+# flash size from /proc/mtd if present (NOR/NAND sum)
+if [ -f /proc/mtd ]; then
+  awk 'NR>1 {gsub(/["]/,$4); sum+=$2} END{if(sum>0) printf "FLASH_KB=%d\n", sum/2}' /proc/mtd 2>/dev/null
 fi
 ls /dev/mmcblk* >/dev/null 2>&1 && echo HAS_MMC=1 || echo HAS_MMC=0
 ls /dev/sd[a-z] >/dev/null 2>&1 && echo HAS_USB_DISK=1 || echo HAS_USB_DISK=0
@@ -76,18 +81,24 @@ if ls /dev/mmcblk0 >/dev/null 2>&1; then
   fi
 fi
 echo EXPAND_HINT=$EXPAND_HINT
-# interfaces
+# interfaces (physical-ish only; never lo/bridges/tunnels/usb-tether as "ethernet ports")
 ip -o link 2>/dev/null | while read -r idx rest; do
   name=$(echo "$rest" | cut -d: -f1 | tr -d ' ')
   case "$name" in
-    lo|br-*|docker*|veth*|tun*|wg*|nd-*) continue ;;
+    lo|br-*|docker*|veth*|tun*|wg*|nd-*|ifb*|dummy*|sit*|gre*|teql*|bond*) continue ;;
+  esac
+  # skip VLAN/alias eth0.1 eth0@eth1
+  case "$name" in
+    *.*|*@*) continue ;;
   esac
   [ -z "$name" ] && continue
   up=0
   echo "$rest" | grep -q 'state UP' && up=1
   type=other
   case "$name" in
-    eth*|lan*|wan*|usb*) type=ethernet ;;
+    eth*|wan|wan[0-9]*|lan[0-9]*) type=ethernet ;;
+    lan) type=ethernet ;;
+    usb*|wwan*) type=usb ;;
     wlan*|wl*|ra*|rax*|phy*) type=wireless ;;
   esac
   echo IFACE $name $type $up
@@ -176,8 +187,15 @@ func parseFactsProbe(out string) edge.DeviceFacts {
 			f.Storage.OverlayTotalKB = atoi64(strings.TrimPrefix(line, "OVERLAY_TOTAL_KB="))
 		case strings.HasPrefix(line, "OVERLAY_FREE_KB="):
 			f.Storage.OverlayFreeKB = atoi64(strings.TrimPrefix(line, "OVERLAY_FREE_KB="))
+		case strings.HasPrefix(line, "ROOT_TOTAL_KB="):
+			f.Storage.RootTotalKB = atoi64(strings.TrimPrefix(line, "ROOT_TOTAL_KB="))
 		case strings.HasPrefix(line, "ROOT_FREE_KB="):
 			f.Storage.RootFreeKB = atoi64(strings.TrimPrefix(line, "ROOT_FREE_KB="))
+		case strings.HasPrefix(line, "FLASH_KB="):
+			f.Storage.FlashKB = atoi64(strings.TrimPrefix(line, "FLASH_KB="))
+			if f.FlashMB == 0 && f.Storage.FlashKB > 0 {
+				f.FlashMB = int(f.Storage.FlashKB / 1024)
+			}
 		case strings.HasPrefix(line, "HAS_MMC="):
 			f.Storage.HasMMC = strings.TrimPrefix(line, "HAS_MMC=") == "1"
 		case strings.HasPrefix(line, "HAS_USB_DISK="):

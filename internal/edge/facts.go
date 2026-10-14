@@ -41,7 +41,9 @@ type WiFiSSIDFact struct {
 type StorageFacts struct {
 	OverlayTotalKB int64  `json:"overlay_total_kb,omitempty"`
 	OverlayFreeKB  int64  `json:"overlay_free_kb,omitempty"`
+	RootTotalKB    int64  `json:"root_total_kb,omitempty"`
 	RootFreeKB     int64  `json:"root_free_kb,omitempty"`
+	FlashKB        int64  `json:"flash_kb,omitempty"` // from /proc/mtd when present
 	HasMMC         bool   `json:"has_mmc,omitempty"`
 	HasUSBDisk     bool   `json:"has_usb_disk,omitempty"`
 	ExpandHint     bool   `json:"expand_hint,omitempty"` // free space after root partition likely
@@ -68,7 +70,20 @@ type DeviceFacts struct {
 func (f DeviceFacts) EthernetCount() int {
 	n := 0
 	for _, i := range f.Ifaces {
-		if i.Type == "ethernet" {
+		name := strings.ToLower(strings.TrimSpace(i.Name))
+		if name == "" || strings.Contains(name, ".") || strings.Contains(name, "@") {
+			continue
+		}
+		// usb tether is type=usb; ignore non-ethernet
+		if i.Type != "ethernet" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(name, "eth"):
+			n++
+		case name == "wan" || strings.HasPrefix(name, "wan"):
+			n++
+		case strings.HasPrefix(name, "lan"): // lan, lan1, lan2 (DSA)
 			n++
 		}
 	}

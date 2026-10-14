@@ -39,9 +39,14 @@ type DeviceCard struct {
 	SSIDNow    []string `json:"ssid_now,omitempty"`
 	MemAvailKB int64    `json:"mem_avail_kb,omitempty"`
 	MemTotalKB int64    `json:"mem_total_kb,omitempty"`
-	HasMMC     bool     `json:"has_mmc,omitempty"`
-	HasUSBDisk bool     `json:"has_usb_disk,omitempty"`
-	ExpandHint bool     `json:"expand_hint,omitempty"`
+	HasMMC         bool  `json:"has_mmc,omitempty"`
+	HasUSBDisk     bool  `json:"has_usb_disk,omitempty"`
+	ExpandHint     bool  `json:"expand_hint,omitempty"`
+	OverlayTotalKB int64 `json:"overlay_total_kb,omitempty"`
+	OverlayFreeKB  int64 `json:"overlay_free_kb,omitempty"`
+	RootTotalKB    int64 `json:"root_total_kb,omitempty"`
+	RootFreeKB     int64 `json:"root_free_kb,omitempty"`
+	FlashKB        int64 `json:"flash_kb,omitempty"`
 }
 
 // CardFromFacts builds UI card from facts.
@@ -52,6 +57,8 @@ func CardFromFacts(f DeviceFacts) DeviceCard {
 		EthCount: f.EthernetCount(), Bands: f.Bands(),
 		MemAvailKB: f.MemAvailKB, MemTotalKB: f.MemTotalKB,
 		HasMMC: f.Storage.HasMMC, HasUSBDisk: f.Storage.HasUSBDisk, ExpandHint: f.Storage.ExpandHint,
+		OverlayTotalKB: f.Storage.OverlayTotalKB, OverlayFreeKB: f.Storage.OverlayFreeKB,
+		RootTotalKB: f.Storage.RootTotalKB, RootFreeKB: f.Storage.RootFreeKB, FlashKB: f.Storage.FlashKB,
 	}
 	if c.Model == "" {
 		c.Model = f.Board
