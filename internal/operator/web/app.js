@@ -47,7 +47,7 @@ en:{
   btn_raw:'Raw JSON', btn_send:'Send',
   set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
   set_api_port:'API local port', set_api_base:'API base', set_sec_host:'Secondary host', set_session:'Node session (sessionStorage)',
-  set_session_note:'Not stored in localStorage',
+  set_session_note:'Not stored in localStorage', set_disk_note:'Save writes ~/.config/netductor/tui.yaml (shared with TUI). Empty fields get values from file on load.',
   save:'Save', set_gh:'GitHub token (on primary)', set_gh_note:'Stored on node as secrets/github_token. Avoids release-list 403.', set_gh_tok:'Token', set_gh_st:'Status', set_gh_save:'Save on primary', set_gh_clear:'Clear', set_gh_refresh:'Refresh status', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
   result:'Result', tunnel:'Tunnel', idle:'idle',
   sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
@@ -96,7 +96,7 @@ ru:{
   btn_raw:'Сырой JSON', btn_send:'Отправить',
   set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
   set_api_port:'Локальный порт API', set_api_base:'База API', set_sec_host:'Хост secondary', set_session:'Session ноды (sessionStorage)',
-  set_session_note:'Не хранится в localStorage',
+  set_session_note:'Не хранится в localStorage', set_disk_note:'Save пишет ~/.config/netductor/tui.yaml (общий с TUI). Пустые поля подставляются из файла.',
   save:'Сохранить', set_gh:'GitHub token (на primary)', set_gh_note:'Файл secrets/github_token на ноде. Снимает 403 при списке релизов.', set_gh_tok:'Токен', set_gh_st:'Статус', set_gh_save:'Сохранить на primary', set_gh_clear:'Удалить', set_gh_refresh:'Обновить статус', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
   result:'Результат', tunnel:'Туннель', idle:'ожидание',
   sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
@@ -286,48 +286,103 @@ function defaultPrimaryKey(fleet, settings){
   return fleet.primary_key || fleet.key || settings.primary_key || settings.key
     || '~/.ssh/netductor_primary';
 }
-async function prefillEdgeFromFleet(){
+async function prefillAllFromConfig(){
   const {fleet, settings}=fleetSettings();
   let cfg={};
   try{
     const r=await fetch('/v1/config',{headers:{'X-Netductor-Token':ND_TOKEN}});
     if(r.ok) cfg=await r.json();
   }catch(e){}
+  const host = (fleet.primary_host || settings.primary_host || cfg.remote_host || '').trim();
+  const key = (defaultPrimaryKey(fleet, settings) || cfg.remote_key || '').trim();
+  const user = (settings.user || cfg.remote_user || 'root').trim();
+  const sec = (fleet.secondary_host || settings.secondary_host || cfg.secondary_host || '').trim();
+  const edgeId = (cfg.last_edge_id || '').trim();
+
+  function setEmpty(form, name, val){
+    if(!form || val==null || val==='') return;
+    const el=form.elements.namedItem(name);
+    if(!el) return;
+    if(el.type==='checkbox') return;
+    if(String(el.value||'').trim()==='') el.value=val;
+  }
+  function setEmptyId(id, val){
+    if(val==null || val==='') return;
+    const el=document.getElementById(id);
+    if(el && String(el.value||'').trim()==='') el.value=val;
+  }
+
+  // Settings tab
+  setEmptyId('set_primary_host', host);
+  setEmptyId('set_key', key);
+  setEmptyId('set_user', user);
+  setEmptyId('set_secondary_host', sec);
+
+  // Fleet / Primary / Secondary / Build / Edge / LuCI / Creds
+  const maps = [
+    ['form-fleet', {primary_host:host, secondary_host:sec, key:key}],
+    ['form-primary', {host:host, key:key}],
+    ['form-secondary', {primary_host:host, primary_key:key, secondary_host:sec}],
+    ['form-build', {primary_host:host, primary_key:key}],
+    ['form-edge', {primary_host:host, primary_key:key, device_id:edgeId}],
+    ['form-edge-luci', {primary_key:key, device_id:edgeId}],
+    ['form-creds', {host:host, key:key}],
+  ];
+  for(const [fid, fields] of maps){
+    const form=document.getElementById(fid);
+    if(!form) continue;
+    for(const [n,v] of Object.entries(fields)) setEmpty(form, n, v);
+  }
+  // edge server_url from primary host
   const form=document.getElementById('form-edge');
   if(form){
-    const ph=form.elements.namedItem('primary_host');
-    const pk=form.elements.namedItem('primary_key');
     const su=form.elements.namedItem('server_url');
-    const did=form.elements.namedItem('device_id');
-    if(ph && !ph.value){
-      ph.value = fleet.primary_host || settings.primary_host || settings.remote_host || cfg.remote_host || '';
-    }
-    if(pk && !pk.value){
-      pk.value = defaultPrimaryKey(fleet, settings) || cfg.remote_key || '';
-    }
+    const ph=form.elements.namedItem('primary_host');
     if(su && !su.value && ph && ph.value){
-      const h=(ph.value||'').trim();
-      if(h) su.value = 'https://'+h.replace(/^https?:\/\//,'').split('/')[0].split(':')[0]+':8789';
-    }
-    if(did && !did.value && cfg.last_edge_id){
-      did.value = cfg.last_edge_id;
+      const h=(ph.value||'').trim().replace(/^https?:\/\//,'').split('/')[0].split(':')[0];
+      if(h) su.value='https://'+h+':8789';
     }
   }
-  // LuCI (LAN) — same primary key / optional device id from last edge form save
-  const luci=document.getElementById('form-edge-luci');
-  if(luci){
-    const pk=luci.elements.namedItem('primary_key');
-    if(pk && !pk.value) pk.value = defaultPrimaryKey(fleet, settings) || cfg.remote_key || '';
-    const did=luci.elements.namedItem('device_id');
-    if(did && !did.value){
-      try{
-        const edge=JSON.parse(localStorage.getItem('nd_op_edge')||'{}');
-        if(edge.device_id) did.value=edge.device_id;
-        else if(cfg.last_edge_id) did.value=cfg.last_edge_id;
-      }catch(e){}
-    }
+  // lang from file if no explicit localStorage choice yet and lang is ru|en
+  if(!localStorage.getItem('nd_op_lang') && (cfg.lang==='ru'||cfg.lang==='en')){
+    uiLang=cfg.lang;
+    try{ applyI18n(); }catch(e){}
+  }
+  // mirror into local settings for tunnel helpers
+  if(host || key){
+    const s=settings||{};
+    if(host && !s.primary_host) s.primary_host=host;
+    if(key && !s.key) s.key=key;
+    if(user && !s.user) s.user=user;
+    if(sec && !s.secondary_host) s.secondary_host=sec;
+    try{ saveSettingsObj(s); }catch(e){}
   }
 }
+
+async function saveConfigToDisk(extra){
+  const s=settings();
+  const body=Object.assign({
+    remote_host: s.primary_host||'',
+    remote_key: s.key||'',
+    remote_user: s.user||'root',
+    secondary_host: s.secondary_host||'',
+    lang: uiLang||'auto'
+  }, extra||{});
+  // also from settings form if present
+  const fh=document.getElementById('set_primary_host');
+  const fk=document.getElementById('set_key');
+  const fu=document.getElementById('set_user');
+  const fs=document.getElementById('set_secondary_host');
+  if(fh&&fh.value) body.remote_host=fh.value.trim();
+  if(fk&&fk.value) body.remote_key=fk.value.trim();
+  if(fu&&fu.value) body.remote_user=fu.value.trim();
+  if(fs&&fs.value) body.secondary_host=fs.value.trim();
+  const res=await fetch('/v1/config',{method:'PUT',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  return j;
+}
+
 function syncEdgePanels(){ if(!document.getElementById('edge_net_fields')) return; // legacy
   const net=document.getElementById('edge_net_cfg');
   const g=document.getElementById('edge_guest');
@@ -481,13 +536,27 @@ function loadSettingsForm(){
   const pv=document.getElementById('set_prefer_vpn'); if(pv) pv.value=(s.prefer_vpn==='0'?'0':'1');
 }
 (function(){ const el=document.getElementById('set_show_advanced'); if(el){ el.checked=!!(settings().show_advanced===true||settings().show_advanced==='1'); } })();
-document.getElementById('form-settings').onsubmit=e=>{
+document.getElementById('form-settings').onsubmit=async e=>{
   e.preventDefault(); const fd=new FormData(e.target);
   saveSettingsObj({ show_advanced: fd.get('show_advanced')==='on', primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
     api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
     vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session') });
-  document.getElementById('settingsSaved').textContent='OK'; updateTunnelHint();
- applyAdvancedVisibility(); };
+  const el=document.getElementById('settingsSaved');
+  try{
+    const j=await saveConfigToDisk({
+      remote_host: fd.get('primary_host')||'',
+      remote_key: fd.get('key')||'',
+      remote_user: fd.get('user')||'root',
+      secondary_host: fd.get('secondary_host')||'',
+      lang: uiLang||'auto'
+    });
+    el.textContent='OK → '+(j.path||'tui.yaml');
+  }catch(err){
+    el.textContent='local OK; disk: '+String(err);
+  }
+  updateTunnelHint();
+  applyAdvancedVisibility();
+};
 function updateTunnelHint(){
   const s=settings();
   document.getElementById('tunnelCmd').textContent='host='+(s.primary_host||'—')+' vpn='+(s.vpn_host||'—')+' key='+(s.key||'~/.ssh/netductor_primary');
@@ -1411,7 +1480,7 @@ document.getElementById('btnSessionLoad').onclick=async()=>{
 };
 
 ['form-fleet','form-primary','form-build','form-secondary','form-edge','form-edge-luci','form-site','form-nvr','form-creds'].forEach(id=>{ const f=document.getElementById(id); if(f) loadForm(id.replace('form-',''),f); });
-prefillEdgeFromFleet(); wirePasswordToggles(); syncEdgePanels();
+prefillAllFromConfig(); wirePasswordToggles(); syncEdgePanels();
 document.getElementById('langEn').onclick=()=>{uiLang='en';localStorage.setItem('nd_op_lang','en');applyI18n()};
 document.getElementById('langRu').onclick=()=>{uiLang='ru';localStorage.setItem('nd_op_lang','ru');applyI18n()};
 applyI18n();

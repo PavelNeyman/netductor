@@ -1,32 +1,27 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/opconfig"
 )
 
-// TUI settings: ~/.config/netductor/tui.yaml (hand-editable)
+// TUI settings: ~/.config/netductor/tui.yaml — shared with Web via internal/opconfig.
 
 type tuiSettings struct {
-	RemoteHost     string // remote_host — day-2 primary
-	RemoteUser     string // remote_user
-	RemoteKey      string // remote_key — SSH private key for primary
-	RemotePassword string // remote_password — only for first deploy; prefer empty after
-	Lang           string // lang: auto|ru|en
-	SecondaryHost  string // secondary_host
-	LastEdgeID     string // last_edge_id
-	Mode           string // mode: vps|workstation|openwrt|operator
+	RemoteHost     string
+	RemoteUser     string
+	RemoteKey      string
+	RemotePassword string
+	Lang           string
+	SecondaryHost  string
+	LastEdgeID     string
+	Mode           string
 }
 
-func tuiConfigPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return ""
-	}
-	return filepath.Join(home, ".config", "netductor", "tui.yaml")
-}
+func tuiConfigPath() string { return opconfig.Path() }
 
 func tuiConfigPathLegacyJSON() string {
 	home, err := os.UserHomeDir()
@@ -36,97 +31,47 @@ func tuiConfigPathLegacyJSON() string {
 	return filepath.Join(home, ".config", "netductor", "tui.json")
 }
 
-func loadTUISettings() tuiSettings {
-	s := tuiSettings{RemoteUser: "root", Lang: "auto"}
-	path := tuiConfigPath()
-	if path != "" {
-		if b, err := os.ReadFile(path); err == nil {
-			parseSimpleYAML(string(b), &s)
-			if s.RemoteUser == "" {
-				s.RemoteUser = "root"
-			}
-			if s.Lang == "" {
-				s.Lang = "auto"
-			}
-			return s
-		}
+func fromOp(s opconfig.TUI) tuiSettings {
+	return tuiSettings{
+		RemoteHost: s.RemoteHost, RemoteUser: s.RemoteUser, RemoteKey: s.RemoteKey,
+		RemotePassword: s.RemotePassword, Lang: s.Lang, SecondaryHost: s.SecondaryHost,
+		LastEdgeID: s.LastEdgeID, Mode: s.Mode,
 	}
-	// one-time migrate from json if present
-	if jp := tuiConfigPathLegacyJSON(); jp != "" {
-		if b, err := os.ReadFile(jp); err == nil {
-			// minimal: extract quoted values by key
-			migrateJSONish(string(b), &s)
-			_ = saveTUISettings(s)
-		}
-	}
-	return s
 }
 
-func saveTUISettings(s tuiSettings) error {
-	path := tuiConfigPath()
-	if path == "" {
-		return os.ErrInvalid
+func toOp(s tuiSettings) opconfig.TUI {
+	return opconfig.TUI{
+		RemoteHost: s.RemoteHost, RemoteUser: s.RemoteUser, RemoteKey: s.RemoteKey,
+		RemotePassword: s.RemotePassword, Lang: s.Lang, SecondaryHost: s.SecondaryHost,
+		LastEdgeID: s.LastEdgeID, Mode: s.Mode,
 	}
-	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+}
+
+func loadTUISettings() tuiSettings {
+	s := fromOp(opconfig.Load())
 	if s.RemoteUser == "" {
 		s.RemoteUser = "root"
 	}
 	if s.Lang == "" {
 		s.Lang = "auto"
 	}
-	body := fmt.Sprintf(`# netductor TUI settings — edit freely
-# lang: auto | ru | en  (auto = system locale)
-# mode: vps | workstation | openwrt | operator
-# After primary deploy, remote_key is the SSH key; remote_password should be empty.
-remote_host: %q
-remote_user: %q
-remote_key: %q
-remote_password: %q
-secondary_host: %q
-last_edge_id: %q
-lang: %q
-mode: %q
-`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.SecondaryHost, s.LastEdgeID, s.Lang, s.Mode)
-	return os.WriteFile(path, []byte(body), 0o600)
-}
-
-func parseSimpleYAML(text string, s *tuiSettings) {
-	for _, line := range strings.Split(text, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		i := strings.IndexByte(line, ':')
-		if i < 0 {
-			continue
-		}
-		k := strings.TrimSpace(line[:i])
-		v := strings.TrimSpace(line[i+1:])
-		v = strings.Trim(v, `"'`)
-		switch k {
-		case "remote_host":
-			s.RemoteHost = v
-		case "remote_user":
-			s.RemoteUser = v
-		case "remote_key":
-			s.RemoteKey = v
-		case "remote_password":
-			s.RemotePassword = v
-		case "lang":
-			s.Lang = v
-		case "secondary_host":
-			s.SecondaryHost = v
-		case "last_edge_id":
-			s.LastEdgeID = v
-		case "mode":
-			s.Mode = v
+	if s.RemoteHost == "" {
+		if jp := tuiConfigPathLegacyJSON(); jp != "" {
+			if b, err := os.ReadFile(jp); err == nil {
+				migrateJSONish(string(b), &s)
+				_ = saveTUISettings(s)
+			}
 		}
 	}
+	return s
+}
+
+func saveTUISettings(s tuiSettings) error {
+	return opconfig.Save(toOp(s))
 }
 
 func migrateJSONish(text string, s *tuiSettings) {
-	// best-effort extract "key": "value"
-	for _, key := range []string{"remote_host", "remote_user", "remote_key", "remote_password", "lang"} {
+	for _, key := range []string{"remote_host", "remote_user", "remote_key", "remote_password", "lang", "secondary_host"} {
 		pat := `"` + key + `"`
 		i := strings.Index(text, pat)
 		if i < 0 {
@@ -154,6 +99,8 @@ func migrateJSONish(text string, s *tuiSettings) {
 			s.RemotePassword = v
 		case "lang":
 			s.Lang = v
+		case "secondary_host":
+			s.SecondaryHost = v
 		}
 	}
 }
@@ -175,7 +122,7 @@ func (m *model) applySettings(s tuiSettings) {
 		m.lang = langRU
 	case "en":
 		m.lang = langEN
-	default: // auto / empty
+	default:
 		m.lang = detectLang()
 		m.langPref = "auto"
 	}
@@ -186,7 +133,6 @@ func (m model) snapshotSettings() tuiSettings {
 	if lang == "" {
 		lang = "auto"
 	}
-	// if user toggled with `l`, prefer explicit
 	if lang != "auto" {
 		if m.lang == langRU {
 			lang = "ru"
@@ -194,9 +140,10 @@ func (m model) snapshotSettings() tuiSettings {
 			lang = "en"
 		}
 	}
+	prev := loadTUISettings()
 	return tuiSettings{
 		RemoteHost: m.remoteHost, RemoteUser: orDefault(m.remoteUser, "root"),
 		RemoteKey: m.remoteKey, RemotePassword: m.remotePassword, Lang: lang,
-		Mode: string(m.mode),
+		Mode: string(m.mode), SecondaryHost: prev.SecondaryHost, LastEdgeID: prev.LastEdgeID,
 	}
 }

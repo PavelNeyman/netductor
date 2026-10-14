@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	"github.com/PavelNeyman/netductor/internal/opconfig"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"github.com/PavelNeyman/netductor/internal/operator/web"
@@ -127,31 +128,74 @@ func Serve(o ServeOpts) error {
 		})
 	})
 	mux.HandleFunc("/v1/config", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "GET only", 405)
-			return
-		}
-		home, _ := os.UserHomeDir()
-		cfgPath := filepath.Join(home, ".config", "netductor", "tui.yaml")
-		out := map[string]string{}
-		if b, err := os.ReadFile(cfgPath); err == nil {
-			for _, line := range strings.Split(string(b), "\n") {
-				line = strings.TrimSpace(line)
-				if line == "" || strings.HasPrefix(line, "#") {
-					continue
-				}
-				if i := strings.Index(line, ":"); i > 0 {
-					k := strings.TrimSpace(line[:i])
-					v := strings.Trim(strings.TrimSpace(line[i+1:]), `"'`)
-					switch k {
-					case "remote_host", "remote_key", "remote_user", "secondary_host", "last_edge_id":
-						out[k] = v
-					}
-				}
+		switch r.Method {
+		case http.MethodGet:
+			if !requireToken(r, token) {
+				http.Error(w, "unauthorized", 401)
+				return
 			}
+			s := opconfig.Load()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"path":           opconfig.Path(),
+				"remote_host":    s.RemoteHost,
+				"remote_user":    s.RemoteUser,
+				"remote_key":     s.RemoteKey,
+				"secondary_host": s.SecondaryHost,
+				"last_edge_id":   s.LastEdgeID,
+				"lang":           s.Lang,
+				"mode":           s.Mode,
+			})
+		case http.MethodPut, http.MethodPost:
+			if !requireToken(r, token) {
+				http.Error(w, "unauthorized", 401)
+				return
+			}
+			var body struct {
+				RemoteHost     string `json:"remote_host"`
+				RemoteUser     string `json:"remote_user"`
+				RemoteKey      string `json:"remote_key"`
+				RemotePassword string `json:"remote_password"`
+				SecondaryHost  string `json:"secondary_host"`
+				LastEdgeID     string `json:"last_edge_id"`
+				Lang           string `json:"lang"`
+				Mode           string `json:"mode"`
+				ClearPassword  bool   `json:"clear_password"`
+				PrimaryHost    string `json:"primary_host"`
+				Key            string `json:"key"`
+				User           string `json:"user"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, "bad json", 400)
+				return
+			}
+			pick := func(a, b string) string {
+				a, b = strings.TrimSpace(a), strings.TrimSpace(b)
+				if a != "" {
+					return a
+				}
+				return b
+			}
+			patch := opconfig.TUI{
+				RemoteHost:     pick(body.RemoteHost, body.PrimaryHost),
+				RemoteUser:     pick(body.RemoteUser, body.User),
+				RemoteKey:      pick(body.RemoteKey, body.Key),
+				RemotePassword: body.RemotePassword,
+				SecondaryHost:  body.SecondaryHost,
+				LastEdgeID:     body.LastEdgeID,
+				Lang:           body.Lang,
+				Mode:           body.Mode,
+			}
+			merged := opconfig.Merge(opconfig.Load(), patch, body.ClearPassword)
+			if err := opconfig.Save(merged); err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "path": opconfig.Path()})
+		default:
+			http.Error(w, "GET or PUT", 405)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(out)
 	})
 	mux.HandleFunc("/v1/fleet", func(w http.ResponseWriter, r *http.Request) { handleFleet(w, r, token) })
 	mux.HandleFunc("/v1/primary", func(w http.ResponseWriter, r *http.Request) { handlePrimary(w, r, token) })
