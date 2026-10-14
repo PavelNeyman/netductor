@@ -111,17 +111,17 @@ func modeEntries(lang tuiLang) []menuEntry {
 func settingsEntries(lang tuiLang) []menuEntry {
 	if lang == langRU {
 		return []menuEntry{
-			{"cfg-remote", "Подключение к VPS", "SSH target", "Адрес, пользователь, ключ и/или пароль. Сохраняется в ~/.config/netductor/tui.yaml."},
+			{"cfg-remote", "Подключение к VPS", "SSH target", "Адрес, пользователь, ключ и/или пароль. Сохраняется в ~/.config/netductor/operator.yaml (legacy tui.yaml still read)."},
 			{"cfg-lang", "Язык интерфейса", "auto → ru/en", "По умолчанию язык системы (LANG/AppleLocale). Клавиша l или этот пункт — явно ru/en."},
-			{"cfg-save", "Сохранить настройки", "tui.yaml", "Записать текущие параметры на диск."},
+			{"cfg-save", "Сохранить настройки", "operator.yaml (legacy tui.yaml still read)", "Записать текущие параметры на диск."},
 			{"cfg-clear-remote", "Сбросить remote", "Local only", "Убрать SSH target — команды только локально."},
 			{"change-mode", "Сменить режим", "Mode", "VPS / Workstation / OpenWrt / Управление."},
 		}
 	}
 	return []menuEntry{
-		{"cfg-remote", "VPS connection", "SSH target", "Host, user, key and/or password. Saved to ~/.config/netductor/tui.yaml."},
+		{"cfg-remote", "VPS connection", "SSH target", "Host, user, key and/or password. Saved to ~/.config/netductor/operator.yaml (legacy tui.yaml still read)."},
 		{"cfg-lang", "UI language", "auto → ru/en", "Default: system locale (LANG/AppleLocale). Key l or this item forces ru/en."},
-		{"cfg-save", "Save settings", "tui.yaml", "Write current settings to disk."},
+		{"cfg-save", "Save settings", "operator.yaml (legacy tui.yaml still read)", "Write current settings to disk."},
 		{"cfg-clear-remote", "Clear remote", "Local only", "Drop SSH target — local commands only."},
 		{"change-mode", "Change mode", "Mode", "VPS / Workstation / OpenWrt / Manage."},
 	}

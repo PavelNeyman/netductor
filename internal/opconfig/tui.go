@@ -1,4 +1,8 @@
-// Package opconfig — operator workstation config (~/.config/netductor/tui.yaml).
+// Package opconfig — operator workstation config (Mac/PC).
+// Preferred: ~/.config/netductor/operator.yaml
+// Legacy:    ~/.config/netductor/tui.yaml (auto-migrated on Save)
+//
+// Not the same as node /etc/netductor/netductor.conf (KEY=value product env on VPS).
 package opconfig
 
 import (
@@ -9,36 +13,58 @@ import (
 )
 
 // TUI is the on-disk operator connection profile (shared by TUI + Web).
+// Name kept for history; file is operator.yaml.
 type TUI struct {
 	RemoteHost     string `json:"remote_host"`
 	RemoteUser     string `json:"remote_user"`
 	RemoteKey      string `json:"remote_key"`
-	RemotePassword string `json:"remote_password"` // first deploy only; prefer empty
-	Lang           string `json:"lang"`           // auto|ru|en
+	RemotePassword string `json:"remote_password"`
+	Lang           string `json:"lang"`
 	SecondaryHost  string `json:"secondary_host"`
 	LastEdgeID     string `json:"last_edge_id"`
 	Mode           string `json:"mode"`
 }
 
-func Path() string {
+func configDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return ""
 	}
-	return filepath.Join(home, ".config", "netductor", "tui.yaml")
+	return filepath.Join(home, ".config", "netductor")
+}
+
+// Path is the preferred write path (operator.yaml).
+func Path() string {
+	dir := configDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "operator.yaml")
+}
+
+// LegacyPath is the pre-0.9.382 TUI-only filename.
+func LegacyPath() string {
+	dir := configDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "tui.yaml")
 }
 
 func Load() TUI {
 	s := TUI{RemoteUser: "root", Lang: "auto"}
-	path := Path()
-	if path == "" {
-		return s
+	// Prefer operator.yaml; fall back to tui.yaml
+	for _, path := range []string{Path(), LegacyPath()} {
+		if path == "" {
+			continue
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		parseYAML(string(b), &s)
+		break
 	}
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return s
-	}
-	parseYAML(string(b), &s)
 	if s.RemoteUser == "" {
 		s.RemoteUser = "root"
 	}
@@ -48,7 +74,7 @@ func Load() TUI {
 	return s
 }
 
-// Save writes the full profile (0600).
+// Save writes operator.yaml (0600). Does not delete legacy tui.yaml.
 func Save(s TUI) error {
 	path := Path()
 	if path == "" {
@@ -63,7 +89,12 @@ func Save(s TUI) error {
 	if s.Lang == "" {
 		s.Lang = "auto"
 	}
-	body := fmt.Sprintf(`# netductor operator settings (TUI + Web) — edit freely
+	body := fmt.Sprintf(`# netductor operator settings (TUI + Web)
+# Preferred path: ~/.config/netductor/operator.yaml
+# Legacy (still read): ~/.config/netductor/tui.yaml
+#
+# This is NOT /etc/netductor/netductor.conf on the VPS (node product KEY=value).
+#
 # lang: auto | ru | en
 # mode: vps | workstation | openwrt | operator
 remote_host: %q
@@ -78,8 +109,6 @@ mode: %q
 	return os.WriteFile(path, []byte(body), 0o600)
 }
 
-// Merge applies non-empty fields from patch onto base. Empty patch strings leave base.
-// If clearPassword is true, remote_password is cleared even when empty in patch.
 func Merge(base, patch TUI, clearPassword bool) TUI {
 	out := base
 	if patch.RemoteHost != "" {
@@ -122,8 +151,7 @@ func parseYAML(text string, s *TUI) {
 			continue
 		}
 		k := strings.TrimSpace(line[:i])
-		v := strings.TrimSpace(line[i+1:])
-		v = strings.Trim(v, `"'`)
+		v := strings.Trim(strings.TrimSpace(line[i+1:]), `"'`)
 		switch k {
 		case "remote_host":
 			s.RemoteHost = v
