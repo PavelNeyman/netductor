@@ -235,6 +235,7 @@
 
         <div class="edge-detail" id="edge_det_wan">
           <h4>WAN / uplink</h4>
+          <p class="hint" data-i18n="edge_wan_hint">Uplink to ISP. DNS optional (e.g. 1.1.1.1 9.9.9.9). Not the same as VPN DNS mode on the client.</p>
           <div class="row">
             <div><label>Protocol</label>
               <select name="wan_proto" id="edge_wan_proto">
@@ -257,20 +258,23 @@
           </div>
         </div>
 
-        <div class="edge-detail" id="edge_det_wifi">
-          <h4>Wi‑Fi AP</h4>
+                <div class="edge-detail" id="edge_det_wifi">
+          <h4 data-i18n="edge_h_wifi">Wi‑Fi AP</h4>
+          <p class="hint" data-i18n="edge_wifi_hint">Fill 2.4 GHz only if you want — empty 5 GHz SSID/key is copied from 2.4 (and the other way around). Both bands applied when radios exist.</p>
           <div class="row">
-            <div><label>2.4 GHz SSID</label><input name="wifi_ssid_24" id="edge_wifi_24"/></div>
-            <div><label>2.4 GHz key</label><input name="wifi_key_24" type="password"/></div>
+            <div><label data-i18n="l_ssid24">2.4 GHz SSID</label><input name="wifi_ssid_24" id="edge_wifi_24"/></div>
+            <div><label data-i18n="l_key24">2.4 GHz key</label><input name="wifi_key_24" type="password"/></div>
           </div>
           <div class="row" id="edge_wifi5_row">
-            <div><label>5 GHz SSID</label><input name="wifi_ssid_5" id="edge_wifi_5"/></div>
-            <div><label>5 GHz key</label><input name="wifi_key_5" type="password"/></div>
+            <div><label data-i18n="l_ssid5">5 GHz SSID</label><input name="wifi_ssid_5" id="edge_wifi_5" placeholder=""/></div>
+            <div><label data-i18n="l_key5">5 GHz key</label><input name="wifi_key_5" type="password" placeholder=""/></div>
           </div>
         </div>
 
         <div class="edge-detail" id="edge_det_guest">
+
           <h4>Guest</h4>
+          <p class="hint" data-i18n="edge_guest_detail_hint">Isolated SSID; clients use ISP (not router VLESS). PSK = Wi‑Fi password; desk PIN = staff grant.</p>
           <div class="row">
             <div><label>Guest SSID</label><input name="guest_ssid" placeholder="Guest"/></div>
             <div><label>Guest PSK</label><input name="guest_psk" type="password"/></div>
@@ -287,6 +291,7 @@
 
         <div class="edge-plan-summary" id="edge_plan_summary"></div>
 
+        <div id="edgeRunStatus" class="edge-run-status" hidden></div>
         <div class="edge-actions">
           <button type="button" class="secondary" id="btnEdgeBack3" data-i18n="btn_back">← Back</button>
           <button type="button" class="secondary" id="btnEdgeDryRun" data-i18n="btn_edge_dry">Dry-run plan</button>
@@ -425,6 +430,7 @@
 </form>
 </div>
 <div class="sec" id="deployLogSec">
+  <h3 class="edge-h" data-i18n="deploy_log_title">Deploy log</h3>
   <div class="steps" id="steps"></div>
   <pre class="log" id="log" data-i18n="idle">idle</pre>
 </div>
