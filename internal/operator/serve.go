@@ -20,6 +20,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/deploy"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/opconfig"
+	"github.com/PavelNeyman/netductor/internal/netmap"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
 	"github.com/PavelNeyman/netductor/internal/operator/web"
@@ -197,6 +198,20 @@ func Serve(o ServeOpts) error {
 		default:
 			http.Error(w, "GET or PUT", 405)
 		}
+	})
+	mux.HandleFunc("/v1/netmap", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "GET only", 405)
+			return
+		}
+		ru := strings.HasPrefix(strings.ToLower(r.Header.Get("Accept-Language")), "ru")
+		if q := r.URL.Query().Get("lang"); q == "ru" {
+			ru = true
+		} else if q == "en" {
+			ru = false
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "rows": netmap.Export(ru), "html": netmap.HTMLTable(ru)})
 	})
 	mux.HandleFunc("/v1/fleet", func(w http.ResponseWriter, r *http.Request) { handleFleet(w, r, token) })
 	mux.HandleFunc("/v1/primary", func(w http.ResponseWriter, r *http.Request) { handlePrimary(w, r, token) })

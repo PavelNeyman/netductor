@@ -627,6 +627,8 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, fleet.FormatActionsHTML(getLang() != "en"), statusKeyboard())
 	case "m:status":
 		reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
+	case "m:netmap":
+		reply(token, chat, msgID, formatNetmapHTML(), statusKeyboard())
 	case "m:channel":
 		reply(token, chat, msgID, formatChannelDetailHTML(), statusKeyboard())
 	case "m:vpn_devices":

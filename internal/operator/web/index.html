@@ -221,7 +221,8 @@
         <p class="hint" data-i18n="edge_details_help">Prefills from current device settings when known. Only modules you enabled are applied (merge, not full reset).</p>
 
         <div class="edge-detail" id="edge_det_lan">
-          <h4>LAN</h4>
+          <h4 data-i18n="edge_h_lan">LAN</h4>
+          <p class="hint" data-i18n="edge_lan_hint">Shops: prefer 10.120.&lt;N&gt;.0/24 (see Network map in Settings). Avoid 10.9.8 home and 10.88 service-net.</p>
           <div class="row">
             <div><label>LAN IP</label><input name="lan_ip" id="edge_lan_ip" placeholder="192.168.1.1"/></div>
             <div><label>Mask</label><input name="lan_mask" placeholder="255.255.255.0"/></div>
@@ -404,6 +405,11 @@
       <div class="checks"><label><input type="checkbox" name="show_advanced" id="set_show_advanced"/> <span data-i18n="c_adv">Show Advanced (full session API)</span></label></div>
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <p class="note" data-i18n="set_disk_note">Save writes ~/.config/netductor/operator.conf (same as TUI). Prefills all installer tabs.</p>
+      
+      <h3 data-i18n="netmap_title">Network map</h3>
+      <p class="note" data-i18n="netmap_note">Canonical CIDRs — SR routing and edge LAN planning.</p>
+      <div id="netmapBox" class="netmap-wrap"><p class="note">…</p></div>
+
       <pre class="log" id="settingsSaved" class="log settings-log"></pre>
     </div>
   
