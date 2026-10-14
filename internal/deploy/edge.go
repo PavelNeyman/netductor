@@ -331,6 +331,10 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 
+	if o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient] {
+		fmt.Fprintln(os.Stderr, "==> vpn_client: deferred until agent online + template (sing-box not installed at first boot)")
+	}
+
 	// 3) Safe SSH transition: keys → verify key login → password-off (no daemon reload) → reboot → poll.
 	keyOK := false
 	if strings.TrimSpace(pub) != "" && o.PrimaryKey != "" {
@@ -568,6 +572,10 @@ func applyGuestOnEdge(o EdgeOpts) error {
 		return fmt.Errorf("%w: %s", err, out)
 	}
 	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi staged on", o.RouterHost, "(credentials not logged)")
+	// Legacy agents wrote a full nft table into fw4 include dir and broke firewall.
+	_, _ = runSSHOnPort(factorySSHPort(), o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost,
+		"rm -f /etc/nftables.d/90-netductor-guest.nft; true", "")
+
 	_ = out
 	return nil
 }

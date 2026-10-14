@@ -150,10 +150,9 @@ set -e
 FILE="${1:-/etc/netductor-agent/guest/allowed.mac}"
 TABLE=inet
 # Ensure table/set exist
+rm -f /etc/nftables.d/90-netductor-guest.nft
 if ! nft list table inet netductor_guest >/dev/null 2>&1; then
   if [ -f /etc/netductor-agent/guest/90-netductor-guest.nft ]; then
-    nft -f /etc/netductor-agent/guest/90-netductor-guest.nft 2>/dev/null || true
-  elif [ -f /etc/nftables.d/90-netductor-guest.nft ]; then
     nft -f /etc/netductor-agent/guest/90-netductor-guest.nft 2>/dev/null || true
   fi
 fi
