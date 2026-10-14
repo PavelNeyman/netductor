@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-
 func sshPort() string {
 	if p := strings.TrimSpace(os.Getenv("NETDUCTOR_SSH_PORT")); p != "" {
 		return p
@@ -32,7 +31,6 @@ func factorySSHPort() string {
 	}
 	return "22"
 }
-
 
 // clearHostKeys drops stale known_hosts entries after VPS reinstall (changed host key).
 func clearHostKeys(host string) {
@@ -61,7 +59,7 @@ func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool) []string {
 		"-o", "ConnectTimeout=20",
 	}
 	if keyPath != "" {
-		args = append(args, "-i", keyPath)
+		args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
 	}
 	if passwordAuth {
 		args = append(args, "-o", "PreferredAuthentications=password", "-o", "PubkeyAuthentication=no")
@@ -264,11 +262,10 @@ func scpTo(keyPath, localPath, remoteSpec, keyPassphrase string) error {
 	return nil
 }
 
-
 // waitEdgeSSH polls hosts with key-only SSH until one answers or timeout.
-func waitEdgeSSH(hosts []string, keyPath, user string, timeout time.Duration) string {
+func waitEdgeSSH(hosts []string, keyPath, user, keyPassphrase string, timeout time.Duration) string {
 	if timeout <= 0 {
-		timeout = 60 * time.Second
+		timeout = 180 * time.Second
 	}
 	deadline := time.Now().Add(timeout)
 	port := factorySSHPort()
@@ -278,7 +275,7 @@ func waitEdgeSSH(hosts []string, keyPath, user string, timeout time.Duration) st
 			if h == "" {
 				continue
 			}
-			if _, err := runSSHOnPort(port, "", keyPath, user, h, "echo nd-up", ""); err == nil {
+			if _, err := runSSHOnPort(port, "", keyPath, user, h, "echo nd-up", keyPassphrase); err == nil {
 				return h
 			}
 		}

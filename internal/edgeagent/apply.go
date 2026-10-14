@@ -71,6 +71,8 @@ func DesiredUCI(tmpl map[string]any) []string {
 		}
 		if ssid24 != "" {
 			lines = append(lines,
+				"wireless.radio0.disabled=0",
+				"wireless.default_radio0.disabled=0",
 				"wireless.default_radio0.ssid="+ssid24,
 				"wireless.default_radio0.encryption="+enc,
 			)
@@ -80,6 +82,8 @@ func DesiredUCI(tmpl map[string]any) []string {
 		}
 		if ssid5 != "" {
 			lines = append(lines,
+				"wireless.radio1.disabled=0",
+				"wireless.default_radio1.disabled=0",
 				"wireless.default_radio1.ssid="+ssid5,
 				"wireless.default_radio1.encryption="+enc,
 			)

@@ -297,7 +297,9 @@ func buildGuestWifiUCI(ssid, psk, hidden string) string {
 		}
 		b.WriteString(fmt.Sprintf("set wireless.%s=wifi-iface\n", sec))
 		b.WriteString(fmt.Sprintf("set wireless.%s.device=%s\n", sec, r.Name))
+		b.WriteString(fmt.Sprintf("set wireless.%s.disabled=0\n", r.Name))
 		b.WriteString(fmt.Sprintf("set wireless.%s.mode=ap\n", sec))
+		b.WriteString(fmt.Sprintf("set wireless.%s.disabled=0\n", sec))
 		b.WriteString(fmt.Sprintf("set wireless.%s.network=guest\n", sec))
 		b.WriteString(fmt.Sprintf("set wireless.%s.ssid=%s\n", sec, uciQuote(ssid)))
 		b.WriteString(fmt.Sprintf("set wireless.%s.encryption=psk2\n", sec))

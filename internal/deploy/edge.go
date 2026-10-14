@@ -20,26 +20,26 @@ type EdgeOpts struct {
 	PrimaryKey           string
 	PrimaryKeyPassphrase string
 	// Offline: skip SSH to primary when BootstrapToken is set (optional local mTLS files).
-	BootstrapToken string
-	MTLSCAFile     string
-	MTLSCertFile   string
-	MTLSKeyFile    string
-	RouterHost           string
-	RouterUser           string
-	RouterPass           string
-	NewRootPassword      string // LuCI/root pass; required unless SkipRootPass
-	SkipRootPass         bool
-	DeviceID             string
-	ServerURL            string
-	AgentArch            string
-	Version              string
-	AgentDir             string
-	OperatorPubKey       string
-	GuestEnable          bool
-	GuestSSID            string
-	GuestPIN             string
-	GuestPSK             string
-	GuestVisible         bool // true = broadcast SSID (default for forms); false = hidden
+	BootstrapToken  string
+	MTLSCAFile      string
+	MTLSCertFile    string
+	MTLSKeyFile     string
+	RouterHost      string
+	RouterUser      string
+	RouterPass      string
+	NewRootPassword string // LuCI/root pass; required unless SkipRootPass
+	SkipRootPass    bool
+	DeviceID        string
+	ServerURL       string
+	AgentArch       string
+	Version         string
+	AgentDir        string
+	OperatorPubKey  string
+	GuestEnable     bool
+	GuestSSID       string
+	GuestPIN        string
+	GuestPSK        string
+	GuestVisible    bool // true = broadcast SSID (default for forms); false = hidden
 	// Optional first-boot network (applied via UCI on router + edge template)
 	NetConfigure bool
 	LANIP        string
@@ -64,13 +64,13 @@ type EdgeOpts struct {
 	// Reboot router after provision (agent init + optional network).
 	Reboot bool
 	// Hybrid deploy plan (P1+).
-	Preset string // travel-router | sbc-lab | sbc-dual-nic | empty=suggest
-	DryRun bool   // probe facts + print plan, no provision
-	Selection edge.ModuleSelection // optional UI/operator module toggles
-	DryRunJSON bool // with DryRun: print PlanResponse JSON (thin UI contract)
+	Preset     string               // travel-router | sbc-lab | sbc-dual-nic | empty=suggest
+	DryRun     bool                 // probe facts + print plan, no provision
+	Selection  edge.ModuleSelection // optional UI/operator module toggles
+	DryRunJSON bool                 // with DryRun: print PlanResponse JSON (thin UI contract)
 	// Set by plan (module gates); empty = legacy NetConfigure behavior.
 	ApplyLAN, ApplyWAN, ApplyWiFi, ApplyExpand, ApplyOverlay bool
-	ExpandFS, OverlayExt bool // operator intent for optional storage modules
+	ExpandFS, OverlayExt                                     bool // operator intent for optional storage modules
 }
 
 func DeployEdge(o EdgeOpts) error {
@@ -101,7 +101,7 @@ func DeployEdge(o EdgeOpts) error {
 	}
 	if o.ServerURL == "" {
 		if o.DryRun {
-		o.ServerURL = "https://dry-run.invalid:8789"
+			o.ServerURL = "https://dry-run.invalid:8789"
 		} else {
 			return fmt.Errorf("server URL or primary host required")
 		}
@@ -341,7 +341,7 @@ echo KEY:$(b64 "$DIR/client.key")
 			fmt.Fprintln(os.Stderr, "warn: install keys:", err)
 		} else {
 			fmt.Fprintln(os.Stderr, "==> verify key login before disabling password")
-			if _, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "echo nd-key-ok", ""); err != nil {
+			if _, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "echo nd-key-ok", o.PrimaryKeyPassphrase); err != nil {
 				fmt.Fprintln(os.Stderr, "warn: key login failed — password SSH kept on:", err)
 				fmt.Fprintln(os.Stderr, "hint: check PrimaryKey matches .pub; do not disable password until key works")
 			} else {
@@ -391,11 +391,12 @@ echo KEY:$(b64 "$DIR/client.key")
 			if lip := strings.TrimSpace(o.LANIP); lip != "" && lip != o.RouterHost {
 				hosts = append(hosts, lip)
 			}
-			if reachable := waitEdgeSSH(hosts, o.PrimaryKey, o.RouterUser, 90*time.Second); reachable != "" {
+			waitFor := 180 * time.Second
+			if reachable := waitEdgeSSH(hosts, o.PrimaryKey, o.RouterUser, o.PrimaryKeyPassphrase, waitFor); reachable != "" {
 				fmt.Fprintln(os.Stderr, "RESULT: OK — SSH reachable at", reachable, "after reboot (key)")
 				rebootOK = true
 			} else {
-				fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — reboot sent; SSH not seen within 90s on:", strings.Join(hosts, ", "))
+				fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — reboot sent; SSH not seen within", waitFor, "on:", strings.Join(hosts, ", "))
 				fmt.Fprintln(os.Stderr, "hint: if Mac uses static IP on factory subnet, move Mac to new LAN or use DHCP client on LAN port")
 				fmt.Fprintln(os.Stderr, "hint: then: ssh -i <operator_key> root@<lan_ip>")
 				rebootOK = true // reboot command succeeded; reachability is best-effort
@@ -566,13 +567,8 @@ func applyGuestOnEdge(o EdgeOpts) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, out)
 	}
-	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi staged on", o.RouterHost)
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "psk:") || strings.HasPrefix(line, "join:") {
-			fmt.Fprintln(os.Stderr, "==>", line)
-		}
-	}
+	fmt.Fprintln(os.Stderr, "==> guest Wi-Fi staged on", o.RouterHost, "(credentials not logged)")
+	_ = out
 	return nil
 }
 
@@ -594,7 +590,6 @@ func firstNonEmpty(ss ...string) string {
 	}
 	return ""
 }
-
 
 func planStepApply(plan edge.DeployPlan, mod string) bool {
 	for _, s := range plan.Steps {
