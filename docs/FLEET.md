@@ -54,6 +54,6 @@ Tools: **VPN → secondary** (`secondary sync`), Lampac on primary, wizard secon
 # flags
 netductor tui --remote PRIMARY_IP --remote-user root --remote-key ~/.ssh/id_ed25519
 
-# or Settings tab in TUI (saved to ~/.config/netductor/operator.yaml)
+# or Settings tab in TUI (saved to ~/.config/netductor/operator.conf)
 # or env: NETDUCTOR_REMOTE / NETDUCTOR_REMOTE_USER
 ```

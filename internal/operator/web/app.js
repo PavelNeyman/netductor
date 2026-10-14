@@ -47,7 +47,7 @@ en:{
   btn_raw:'Raw JSON', btn_send:'Send',
   set_conn:'Connection', set_phost:'Primary host (public)', set_vpn:'Primary VPN host', set_key:'SSH key', set_user:'SSH user', set_prefer:'Prefer VPN for SSH',
   set_api_port:'API local port', set_api_base:'API base', set_sec_host:'Secondary host', set_session:'Node session (sessionStorage)',
-  set_session_note:'Not stored in localStorage', set_disk_note:'Save writes ~/.config/netductor/operator.yaml (shared with TUI). Empty fields get values from file on load.',
+  set_session_note:'Not stored in localStorage', set_disk_note:'Save writes ~/.config/netductor/operator.conf (shared with TUI). Empty fields get values from file on load.',
   save:'Save', set_gh:'GitHub token (on primary)', set_gh_note:'Stored on node as secrets/github_token. Avoids release-list 403.', set_gh_tok:'Token', set_gh_st:'Status', set_gh_save:'Save on primary', set_gh_clear:'Clear', set_gh_refresh:'Refresh status', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
   result:'Result', tunnel:'Tunnel', idle:'idle',
   sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
@@ -96,7 +96,7 @@ ru:{
   btn_raw:'Сырой JSON', btn_send:'Отправить',
   set_conn:'Подключение', set_phost:'Primary (публичный)', set_vpn:'Primary через VPN', set_key:'SSH-ключ', set_user:'Пользователь SSH', set_prefer:'Сначала VPN для SSH',
   set_api_port:'Локальный порт API', set_api_base:'База API', set_sec_host:'Хост secondary', set_session:'Session ноды (sessionStorage)',
-  set_session_note:'Не хранится в localStorage', set_disk_note:'Save пишет ~/.config/netductor/operator.yaml (общий с TUI). Пустые поля подставляются из файла.',
+  set_session_note:'Не хранится в localStorage', set_disk_note:'Save пишет ~/.config/netductor/operator.conf (общий с TUI). Пустые поля подставляются из файла.',
   save:'Сохранить', set_gh:'GitHub token (на primary)', set_gh_note:'Файл secrets/github_token на ноде. Снимает 403 при списке релизов.', set_gh_tok:'Токен', set_gh_st:'Статус', set_gh_save:'Сохранить на primary', set_gh_clear:'Удалить', set_gh_refresh:'Обновить статус', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
   result:'Результат', tunnel:'Туннель', idle:'ожидание',
   sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
@@ -550,7 +550,7 @@ document.getElementById('form-settings').onsubmit=async e=>{
       secondary_host: fd.get('secondary_host')||'',
       lang: uiLang||'auto'
     });
-    el.textContent='OK → '+(j.path||'operator.yaml');
+    el.textContent='OK → '+(j.path||'operator.conf');
   }catch(err){
     el.textContent='local OK; disk: '+String(err);
   }
