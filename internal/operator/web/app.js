@@ -245,7 +245,7 @@ async function streamPost(url, body, btn){
           line(chunk);
           parseSteps(chunk);
         }
-        if(/ERROR|error:|failed/i.test(acc) && /step .+ ERROR/.test(acc)) failed=true;
+        if(/step .+ ERROR|RESULT: PARTIAL|reboot not confirmed/i.test(acc)) failed=true;
       }
     }
   }catch(e){ line('error: '+e); failed=true; }

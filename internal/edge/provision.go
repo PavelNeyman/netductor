@@ -140,7 +140,8 @@ if [ -f /etc/config/dropbear ] && command -v uci >/dev/null 2>&1; then
   uci set dropbear.@dropbear[0].PasswordAuth='off' 2>/dev/null || true
   uci set dropbear.@dropbear[0].RootPasswordAuth='off' 2>/dev/null || true
   uci commit dropbear 2>/dev/null || true
-  /etc/init.d/dropbear reload 2>/dev/null || /etc/init.d/dropbear restart 2>/dev/null || true
+  # Do NOT reload dropbear here: password still works until reboot.
+  # Reload would drop password auth and lock us out if key login fails.
 fi
 if [ -d /etc/ssh ]; then
   mkdir -p /etc/ssh/sshd_config.d
@@ -150,7 +151,7 @@ KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 PubkeyAuthentication yes
 SSH_EOF
-  /etc/init.d/sshd reload 2>/dev/null || systemctl reload ssh 2>/dev/null || true
+  # Apply after reboot (same reason as dropbear).
 fi
 `, esc, esc, esc, esc)
 	}

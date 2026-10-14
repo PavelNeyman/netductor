@@ -342,21 +342,45 @@ echo KEY:$(b64 "$DIR/client.key")
 		fmt.Fprintln(os.Stderr, "warn: no operator pubkey — skip harden (password SSH remains)")
 	}
 
+	rebootOK := !o.Reboot
 	if o.Reboot {
 		fmt.Fprintln(os.Stderr, "==> reboot", o.RouterHost)
 		if o.NetConfigure && o.LANIP != "" {
 			fmt.Fprintln(os.Stderr, "==> after reboot SSH may move to", o.LANIP, "(staged LAN)")
 		}
-		// Prefer key after harden; password may already be off.
-		out, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
-		if err != nil && sshPass != "" {
-			out, err = runSSHOnPort(factorySSHPort(), sshPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "sync; reboot", "")
+		// Harden commits PasswordAuth=off but does not reload dropbear, so password
+		// still works until reboot. Prefer password first, then key.
+		// Background reboot so SSH can exit cleanly (foreground reboot often returns 255).
+		rebootCmd := "sync; (sleep 1; reboot) >/dev/null 2>&1 &"
+		var out string
+		var err error
+		if sshPass != "" {
+			out, err = runSSHOnPort(factorySSHPort(), sshPass, o.PrimaryKey, o.RouterUser, o.RouterHost, rebootCmd, "")
+		}
+		if err != nil || sshPass == "" {
+			out2, err2 := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, rebootCmd, "")
+			if err2 == nil {
+				out, err = out2, nil
+			} else if err == nil {
+				out, err = out2, err2
+			}
 		}
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "warn: reboot:", err, out)
+			fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — stages applied, reboot NOT confirmed:", err, strings.TrimSpace(out))
+			fmt.Fprintln(os.Stderr, "hint: power-cycle router or SSH and run: reboot")
+			if o.LANIP != "" {
+				fmt.Fprintln(os.Stderr, "hint: after reboot try SSH root@"+o.LANIP+" with operator key (password SSH off)")
+			}
+			rebootOK = false
 		} else {
-			fmt.Fprintln(os.Stderr, "==> reboot issued; agent enrolls after boot; approve on primary")
+			fmt.Fprintln(os.Stderr, "RESULT: OK — reboot issued; agent enrolls after boot; approve on primary")
+			rebootOK = true
 		}
+	} else {
+		fmt.Fprintln(os.Stderr, "RESULT: OK — provision finished (no reboot requested)")
+	}
+	if o.Reboot && !rebootOK {
+		return fmt.Errorf("stages applied but reboot not confirmed — power-cycle the router or SSH and run reboot")
 	}
 	return nil
 }
