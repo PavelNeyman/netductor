@@ -11,9 +11,10 @@ import (
 func runOperator(args []string) {
 	if len(args) < 1 {
 		fmt.Fprint(os.Stderr, `usage:
-  netductor operator serve [--bind 127.0.0.1] [--port 7373] [--token SECRET]
+  netductor-op serve [--bind 127.0.0.1] [--port 7373] [--token SECRET]
+  netductor-op operator serve   # legacy alias
 
-Localhost-only operator UI + API (FleetDeploy). Never bind 0.0.0.0.
+Localhost-only operator UI + API. Never bind 0.0.0.0.
 `)
 		os.Exit(2)
 	}

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/opconfig"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
@@ -273,12 +274,12 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/session/issue", handleSessionIssue(token))
 	mux.HandleFunc("/v1/session/local", handleSessionLocal(token))
 
-	fmt.Fprintf(os.Stderr, "operator serve: http://%s/  (loopback only)\n", addr)
+	fmt.Fprintf(os.Stderr, "netductor-op %s  serve  http://%s/  (loopback only)\n", ndver.Release, addr)
 	hint := token
 	if len(hint) > 8 {
 		hint = hint[:8]
 	}
-	fmt.Fprintf(os.Stderr, "operator token: %s... (header X-Netductor-Token; full in ~/.netductor/operator_token)\n", hint)
+	fmt.Fprintf(os.Stderr, "token: %s…  header X-Netductor-Token  file ~/.netductor/operator_token\n", hint)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")

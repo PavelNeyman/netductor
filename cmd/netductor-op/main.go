@@ -33,6 +33,9 @@ func main() {
 			os.Exit(runDeployBuildHost(os.Args[3:]))
 		}
 		runDeploy(os.Args[2:])
+	case "serve":
+		// Preferred: netductor-op serve (operator prefix is legacy alias)
+		runOperator(append([]string{"serve"}, os.Args[2:]...))
 	case "operator":
 		runOperator(os.Args[2:])
 	case "credentials":
@@ -59,7 +62,8 @@ func printOpHelp() {
 
 
   deploy primary|secondary|fleet|edge   bootstrap nodes over SSH
-  operator serve [--bind 127.0.0.1] [--port 7373] [--token SECRET]
+  serve [--bind 127.0.0.1] [--port 7373] [--token SECRET]
+  operator serve                        same as serve (legacy)
   credentials collect                   secrets -> ~/.netductor/credentials
   tui|menu                              Setup wizard / fleet UI
   release list-local|tags|mirror-fetch|build <tag>
