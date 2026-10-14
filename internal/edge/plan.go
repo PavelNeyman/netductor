@@ -79,13 +79,16 @@ func decideStep(mod string, facts DeviceFacts, intent DeployIntent) PlanStep {
 		}
 		return PlanStep{Module: mod, Action: "apply"}
 	case ModVPNClient:
-		if !intent.VPNEnable {
-			return PlanStep{Module: mod, Action: "skip", Reason: "vpn not requested"}
-		}
+		// Edge VLESS client (sing-box on OpenWrt): LAN clients → secondary/primary path.
+		// Guests stay ISP-direct (guest module). Not the same as phone SR profile.
 		if !facts.WANCapable() {
 			return PlanStep{Module: mod, Action: "skip", Reason: "no uplink path at plan time"}
 		}
-		return PlanStep{Module: mod, Action: "apply", Reason: "may need default route after wan"}
+		if intent.VPNEnable {
+			return PlanStep{Module: mod, Action: "apply", Reason: "VLESS client for LAN egress"}
+		}
+		// Soft skip: UI may still enable (optional), unlike hardware skips
+		return PlanStep{Module: mod, Action: "skip", Reason: "optional — enable for router VLESS (LAN via VPN, guests ISP)"}
 	case ModFSExpand:
 		if !facts.Storage.ExpandHint && !facts.Storage.HasMMC {
 			return PlanStep{Module: mod, Action: "skip", Reason: "no expand candidate (no mmc / hint)"}

@@ -804,6 +804,7 @@ func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
 		Preset       string          `json:"preset"`
 		NetConfigure bool            `json:"net_configure"`
 		GuestEnable  bool            `json:"guest_enable"`
+		VPNEnable    *bool           `json:"vpn_enable"` // nil = default on for travel/shop when WAN
 		WiFiSSID24   string          `json:"wifi_ssid_24"`
 		WiFiSSID     string          `json:"wifi_ssid"`
 		WiFiSSID5    string          `json:"wifi_ssid_5"`
@@ -838,12 +839,22 @@ func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
 		expand = body.Modules[edge.ModFSExpand]
 		overlay = body.Modules[edge.ModOverlay]
 	}
+	vpnOn := true // product default: edge VLESS for LAN when WAN exists
+	if body.VPNEnable != nil {
+		vpnOn = *body.VPNEnable
+	}
+	if body.Modules != nil {
+		if v, ok := body.Modules[edge.ModVPNClient]; ok {
+			vpnOn = v
+		}
+	}
 	req := edge.PlanRequest{
 		Preset: body.Preset,
 		Facts:  &facts,
 		Intent: edge.DeployIntent{
 			ConfigureNet: body.NetConfigure,
 			GuestEnable:  body.GuestEnable,
+			VPNEnable:    vpnOn,
 			WiFiSSID:     ssid,
 			ExpandFS:     expand,
 			OverlayExt:   overlay,

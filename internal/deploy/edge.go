@@ -137,7 +137,7 @@ func DeployEdge(o EdgeOpts) error {
 			intent := edge.DeployIntent{
 				ConfigureNet: o.NetConfigure,
 				GuestEnable:  o.GuestEnable,
-				VPNEnable:    false, // template-driven later; deploy flags do not enable vpn yet
+				VPNEnable:    o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient],
 				WiFiSSID:     firstNonEmpty(o.WiFiSSID24, o.WiFiSSID, o.WiFiSSID5),
 				ExpandFS:     o.ExpandFS,
 				OverlayExt:   o.OverlayExt,
