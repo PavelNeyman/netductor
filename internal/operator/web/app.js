@@ -122,7 +122,14 @@ ru:{
   btn_nvr:'Выполнить NVR', c_adv:'Показать Advanced (полный session API)', ssh_title:'SSH allowlist', ssh_note:'Список ключей → fingerprints → Сохранить (без смены live) / Merge / Enforce. Сначала опрос secondary.', ssh_inv:'Список ключей', ssh_probe:'Опрос secondary', ssh_status:'Статус allowlist', ssh_fps:'Fingerprints (по строке)', ssh_save:'Сохранить allowlist', ssh_merge:'Добавить (merge)', ssh_enf:'Enforce + secondary', reboot_title:'Перезагрузка (код)', reboot_note:'Запросить код → ввести верный за 3 мин. Primary: shutdown +1мин. Secondary: очередь агента.', reboot_target:'Цель (primary или id secondary)', reboot_challenge:'Получить код', reboot_code:'Код', reboot_confirm:'Подтвердить reboot', sub_nvr:'NVR'
 }};
 function t(k){ const d=I18N[uiLang]||I18N.en; return (d&&d[k])||(I18N.en[k])||k; }
-let uiLang=localStorage.getItem('nd_op_lang')||((navigator.language||'').startsWith('ru')?'ru':'en');
+function detectUiLang(){
+  const saved=localStorage.getItem('nd_op_lang');
+  if(saved==='ru'||saved==='en') return saved;
+  const langs=[navigator.language||''].concat(navigator.languages||[]);
+  for(const L of langs){ if(String(L).toLowerCase().startsWith('ru')) return 'ru'; }
+  return 'en';
+}
+let uiLang=detectUiLang();
 function applyAdvancedVisibility(){
   const show = !!(settings().show_advanced === true || settings().show_advanced === '1' || settings().show_advanced === 1);
   document.querySelectorAll('#controlSub button[data-csec="adv"]').forEach(b=>{ b.style.display = show ? '' : 'none'; });
@@ -178,13 +185,6 @@ function showMain(name){
   if(name==='settings') loadSettingsForm();
 }
 
-document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.toggle('active', b.dataset.main===name));
-  if(name==='control'){ updateTunnelHint();
-try{ fillUpdateUI(); }catch(e){}
-try{ wirePasswordToggles(); }catch(e){}
- ensureTunnel().then(()=>{ refreshTunnelBadge(); fillUpdateUI(); }); }
-  if(name==='settings') loadSettingsForm();
-}
 document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
 document.querySelectorAll('#subInstaller button').forEach(btn=>{
   btn.onclick=()=>{

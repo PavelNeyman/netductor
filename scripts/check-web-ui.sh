@@ -9,6 +9,16 @@ fail=0
 cd "$ROOT"
 
 echo "== web UI static guards =="
+if command -v node >/dev/null 2>&1; then
+  if ! node --check "$JS" 2>/tmp/nd-web-js.err; then
+    echo "FAIL: app.js syntax error"
+    cat /tmp/nd-web-js.err
+    fail=1
+  fi
+else
+  echo "WARN: node not available — skip JS syntax check"
+fi
+
 
 if ! grep -q "classList.toggle('hidden'" "$JS"; then
   echo "FAIL: showMain must classList.toggle('hidden' (CSS .hidden is !important)"
