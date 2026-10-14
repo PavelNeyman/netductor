@@ -1706,17 +1706,21 @@ function edgeSyncDetailVisibility(){
 
 async function edgePreview(){
   const form=document.getElementById('form-edge');
+  if(!form) throw new Error('form-edge missing');
   const fd=new FormData(form);
+  const router=(fd.get('router_host')||'').toString().trim();
+  if(!router) throw new Error('Router (SSH) host is empty — e.g. 192.168.1.1');
   const body={
-    router_host:fd.get('router_host'),
-    router_password:fd.get('router_password')||'',
-    primary_key:fd.get('primary_key')||'',
-    key_passphrase:fd.get('key_passphrase')||'',
-    preset:fd.get('preset')||'',
+    router_host:router,
+    router_user:(fd.get('router_user')||'root').toString().trim()||'root',
+    router_password:(fd.get('router_password')||'').toString(),
+    primary_key:(fd.get('primary_key')||'').toString(),
+    key_passphrase:(fd.get('key_passphrase')||'').toString(),
+    preset:(fd.get('preset')||'').toString(),
     net_configure:true,
     guest_enable:true,
-    wifi_ssid_24:fd.get('wifi_ssid_24')||'',
-    wifi_ssid_5:fd.get('wifi_ssid_5')||'',
+    wifi_ssid_24:(fd.get('wifi_ssid_24')||'').toString(),
+    wifi_ssid_5:(fd.get('wifi_ssid_5')||'').toString(),
     advanced:!!document.getElementById('edge_advanced')?.checked,
     modules: edgeCollectModules()
   };
@@ -1725,8 +1729,14 @@ async function edgePreview(){
     headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
     body:JSON.stringify(body)
   });
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error||data.message||(res.status===401?'unauthorized — hard-refresh (Cmd+Shift+R) or restart netductor-op':res.statusText)||'preview failed');
+  const raw=await res.text();
+  let data={};
+  try{ data=raw?JSON.parse(raw):{}; }catch(e){ data={error:raw||res.statusText}; }
+  if(!res.ok){
+    const msg=data.error||data.message||raw||res.statusText||'preview failed';
+    if(res.status===401) throw new Error('unauthorized — hard-refresh (Cmd+Shift+R) or restart netductor-op');
+    throw new Error(msg);
+  }
   window.__edgePreview=data;
   edgeRenderCard(data);
   edgeRenderModules(data);

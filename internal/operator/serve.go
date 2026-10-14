@@ -472,9 +472,9 @@ type credJSON struct {
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
+	// Allow extra fields from evolving web forms; ignore unknowns.
 	if err := dec.Decode(dst); err != nil {
-		http.Error(w, err.Error(), 400)
+		writeJSONOp(w, 400, map[string]string{"error": "bad json: " + err.Error()})
 		return false
 	}
 	return true
@@ -813,7 +813,7 @@ func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
 		return
 	}
 	if strings.TrimSpace(body.RouterHost) == "" {
-		http.Error(w, "router_host required", 400)
+		writeJSONOp(w, 400, map[string]string{"error": "router_host required — fill Router (SSH) host, e.g. 192.168.1.1"})
 		return
 	}
 	if body.RouterUser == "" {
