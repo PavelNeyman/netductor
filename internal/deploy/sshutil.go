@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 
@@ -261,4 +262,27 @@ func scpTo(keyPath, localPath, remoteSpec, keyPassphrase string) error {
 		return fmt.Errorf("scp: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+
+// waitEdgeSSH polls hosts with key-only SSH until one answers or timeout.
+func waitEdgeSSH(hosts []string, keyPath, user string, timeout time.Duration) string {
+	if timeout <= 0 {
+		timeout = 60 * time.Second
+	}
+	deadline := time.Now().Add(timeout)
+	port := factorySSHPort()
+	for time.Now().Before(deadline) {
+		for _, h := range hosts {
+			h = strings.TrimSpace(h)
+			if h == "" {
+				continue
+			}
+			if _, err := runSSHOnPort(port, "", keyPath, user, h, "echo nd-up", ""); err == nil {
+				return h
+			}
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return ""
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/edgeagent"
@@ -330,34 +331,49 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 
-	// 3) Harden (pubkey + disable password) then reboot.
-	if strings.TrimSpace(pub) != "" {
-		fmt.Fprintln(os.Stderr, "==> harden SSH (pubkey, disable password)")
-		if err := edge.Harden(edge.ProvisionOpts{
+	// 3) Safe SSH transition: keys → verify key login → password-off (no daemon reload) → reboot → poll.
+	keyOK := false
+	if strings.TrimSpace(pub) != "" && o.PrimaryKey != "" {
+		fmt.Fprintln(os.Stderr, "==> install operator SSH key (password still enabled)")
+		if err := edge.InstallOperatorKeys(edge.ProvisionOpts{
 			SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
 		}); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: harden:", err)
+			fmt.Fprintln(os.Stderr, "warn: install keys:", err)
+		} else {
+			fmt.Fprintln(os.Stderr, "==> verify key login before disabling password")
+			if _, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "echo nd-key-ok", ""); err != nil {
+				fmt.Fprintln(os.Stderr, "warn: key login failed — password SSH kept on:", err)
+				fmt.Fprintln(os.Stderr, "hint: check PrimaryKey matches .pub; do not disable password until key works")
+			} else {
+				keyOK = true
+				fmt.Fprintln(os.Stderr, "==> key login OK")
+				fmt.Fprintln(os.Stderr, "==> commit PasswordAuth=off (applies after reboot; password still works now)")
+				if err := edge.CommitPasswordOff(edge.ProvisionOpts{
+					SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
+				}); err != nil {
+					fmt.Fprintln(os.Stderr, "warn: password-off commit:", err)
+					keyOK = false
+				}
+			}
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "warn: no operator pubkey — skip harden (password SSH remains)")
+		fmt.Fprintln(os.Stderr, "warn: no operator pubkey/key — skip harden (password SSH remains)")
 	}
 
 	rebootOK := !o.Reboot
 	if o.Reboot {
 		fmt.Fprintln(os.Stderr, "==> reboot", o.RouterHost)
 		if o.NetConfigure && o.LANIP != "" {
-			fmt.Fprintln(os.Stderr, "==> after reboot SSH may move to", o.LANIP, "(staged LAN)")
+			fmt.Fprintln(os.Stderr, "==> after reboot expect LAN", o.LANIP, "(Mac needs route/DHCP on that subnet to reconnect)")
 		}
-		// Harden commits PasswordAuth=off but does not reload dropbear, so password
-		// still works until reboot. Prefer password first, then key.
-		// Background reboot so SSH can exit cleanly (foreground reboot often returns 255).
 		rebootCmd := "sync; (sleep 1; reboot) >/dev/null 2>&1 &"
 		var out string
 		var err error
+		// Password still live until reboot (we did not reload dropbear).
 		if sshPass != "" {
 			out, err = runSSHOnPort(factorySSHPort(), sshPass, o.PrimaryKey, o.RouterUser, o.RouterHost, rebootCmd, "")
 		}
-		if err != nil || sshPass == "" {
+		if (err != nil || sshPass == "") && o.PrimaryKey != "" {
 			out2, err2 := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, rebootCmd, "")
 			if err2 == nil {
 				out, err = out2, nil
@@ -367,18 +383,28 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — stages applied, reboot NOT confirmed:", err, strings.TrimSpace(out))
-			fmt.Fprintln(os.Stderr, "hint: power-cycle router or SSH and run: reboot")
-			if o.LANIP != "" {
-				fmt.Fprintln(os.Stderr, "hint: after reboot try SSH root@"+o.LANIP+" with operator key (password SSH off)")
-			}
+			fmt.Fprintln(os.Stderr, "hint: power-cycle router or: ssh root@"+o.RouterHost+" reboot")
 			rebootOK = false
 		} else {
-			fmt.Fprintln(os.Stderr, "RESULT: OK — reboot issued; agent enrolls after boot; approve on primary")
-			rebootOK = true
+			fmt.Fprintln(os.Stderr, "==> reboot issued — waiting for SSH (old IP + staged LAN)")
+			hosts := []string{o.RouterHost}
+			if lip := strings.TrimSpace(o.LANIP); lip != "" && lip != o.RouterHost {
+				hosts = append(hosts, lip)
+			}
+			if reachable := waitEdgeSSH(hosts, o.PrimaryKey, o.RouterUser, 90*time.Second); reachable != "" {
+				fmt.Fprintln(os.Stderr, "RESULT: OK — SSH reachable at", reachable, "after reboot (key)")
+				rebootOK = true
+			} else {
+				fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — reboot sent; SSH not seen within 90s on:", strings.Join(hosts, ", "))
+				fmt.Fprintln(os.Stderr, "hint: if Mac uses static IP on factory subnet, move Mac to new LAN or use DHCP client on LAN port")
+				fmt.Fprintln(os.Stderr, "hint: then: ssh -i <operator_key> root@<lan_ip>")
+				rebootOK = true // reboot command succeeded; reachability is best-effort
+			}
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "RESULT: OK — provision finished (no reboot requested)")
 	}
+	_ = keyOK
 	if o.Reboot && !rebootOK {
 		return fmt.Errorf("stages applied but reboot not confirmed — power-cycle the router or SSH and run reboot")
 	}

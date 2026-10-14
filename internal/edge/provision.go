@@ -276,22 +276,15 @@ func shellQuotePath(p string) string {
 }
 
 
-// Harden installs operator pubkey and disables password SSH (Dropbear/OpenSSH).
-// Call after network/guest staging while password auth still worked for those steps.
-func Harden(opts ProvisionOpts) error {
+
+// InstallOperatorKeys writes the operator pubkey to Dropbear/OpenSSH authorized_keys.
+// Does not change PasswordAuth. Safe to call while still using password SSH.
+func InstallOperatorKeys(opts ProvisionOpts) error {
 	pub := strings.TrimSpace(opts.OperatorPubKey)
 	if pub == "" {
-		return fmt.Errorf("operator pubkey required for harden")
+		return fmt.Errorf("operator pubkey required")
 	}
-	sshBase := []string{
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "PreferredAuthentications=password",
-		"-o", "PubkeyAuthentication=no",
-		"-o", "NumberOfPasswordPrompts=3",
-	}
-	if strings.TrimSpace(opts.Password) == "" && opts.SSHKey != "" {
-		sshBase = []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
-	}
+	sshBase := hardenSSHBase(opts)
 	esc := strings.ReplaceAll(pub, "'", `'"'"'`)
 	script := fmt.Sprintf(`set -e
 mkdir -p /root/.ssh
@@ -303,11 +296,26 @@ mkdir -p /etc/dropbear
 touch /etc/dropbear/authorized_keys
 chmod 600 /etc/dropbear/authorized_keys
 grep -qxF '%s' /etc/dropbear/authorized_keys || echo '%s' >> /etc/dropbear/authorized_keys
+`, esc, esc, esc, esc)
+	sshArgs := append(append([]string{"ssh"}, sshBase...), opts.SSHTarget, "sh", "-s")
+	cmd := sshpassCmd(opts.Password, sshArgs)
+	cmd.Stdin = strings.NewReader(script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("install keys: %s %v", cleanSSHNoise(string(out)), err)
+	}
+	return nil
+}
+
+// CommitPasswordOff disables password SSH in UCI/sshd config but does NOT reload daemons.
+// Password login keeps working until reboot (or explicit dropbear restart).
+func CommitPasswordOff(opts ProvisionOpts) error {
+	sshBase := hardenSSHBase(opts)
+	script := `set -e
 if [ -f /etc/config/dropbear ] && command -v uci >/dev/null 2>&1; then
   uci set dropbear.@dropbear[0].PasswordAuth='off' 2>/dev/null || true
   uci set dropbear.@dropbear[0].RootPasswordAuth='off' 2>/dev/null || true
   uci commit dropbear 2>/dev/null || true
-  /etc/init.d/dropbear reload 2>/dev/null || /etc/init.d/dropbear restart 2>/dev/null || true
 fi
 if [ -d /etc/ssh ]; then
   mkdir -p /etc/ssh/sshd_config.d
@@ -317,15 +325,35 @@ KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 PubkeyAuthentication yes
 SSH_EOF
-  /etc/init.d/sshd reload 2>/dev/null || systemctl reload ssh 2>/dev/null || true
 fi
-`, esc, esc, esc, esc)
+`
 	sshArgs := append(append([]string{"ssh"}, sshBase...), opts.SSHTarget, "sh", "-s")
 	cmd := sshpassCmd(opts.Password, sshArgs)
 	cmd.Stdin = strings.NewReader(script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("harden: %s %v", cleanSSHNoise(string(out)), err)
+		return fmt.Errorf("commit password-off: %s %v", cleanSSHNoise(string(out)), err)
 	}
 	return nil
+}
+
+func hardenSSHBase(opts ProvisionOpts) []string {
+	if strings.TrimSpace(opts.Password) == "" && opts.SSHKey != "" {
+		return []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
+	}
+	return []string{
+		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "PreferredAuthentications=password",
+		"-o", "PubkeyAuthentication=no",
+		"-o", "NumberOfPasswordPrompts=3",
+	}
+}
+
+// Harden is InstallOperatorKeys + CommitPasswordOff (no daemon reload).
+// Prefer the phased path in deploy: keys → verify key login → password-off → reboot.
+func Harden(opts ProvisionOpts) error {
+	if err := InstallOperatorKeys(opts); err != nil {
+		return err
+	}
+	return CommitPasswordOff(opts)
 }
