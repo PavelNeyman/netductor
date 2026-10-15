@@ -204,6 +204,106 @@ func FlushAlerts(force bool) error {
 	return nil
 }
 
+
+// BotUsername returns @name without @ from getMe (cached under state/tg/bot_username).
+func BotUsername() string {
+	path := filepath.Join(paths.StateDir(), "tg", "bot_username")
+	if b, err := os.ReadFile(path); err == nil {
+		if u := strings.TrimSpace(string(b)); u != "" {
+			return strings.TrimPrefix(u, "@")
+		}
+	}
+	tok := secret("telegram_bot_token")
+	if tok == "" {
+		return ""
+	}
+	resp, err := http.Get("https://api.telegram.org/bot" + tok + "/getMe")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	var wr struct {
+		OK     bool `json:"ok"`
+		Result struct {
+			Username string `json:"username"`
+		} `json:"result"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&wr)
+	u := strings.TrimPrefix(strings.TrimSpace(wr.Result.Username), "@")
+	if u != "" {
+		_ = os.MkdirAll(filepath.Dir(path), 0o700)
+		_ = os.WriteFile(path, []byte(u+"\n"), 0o600)
+	}
+	return u
+}
+
+// deepLinkStart builds https://t.me/<bot>?start=<payload> for private chat entry.
+func DeepLinkStart(payload string) string {
+	u := BotUsername()
+	if u == "" {
+		return ""
+	}
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		payload = "menu"
+	}
+	return "https://t.me/" + u + "?start=" + url.PathEscape(payload)
+}
+
+// channelSafeMarkup converts operator menu callback_data buttons to deep-link url
+// buttons so a press opens the bot DM instead of running UI in the alerts channel.
+func channelSafeMarkup(markupJSON string) string {
+	if strings.TrimSpace(markupJSON) == "" {
+		return ""
+	}
+	var kb struct {
+		InlineKeyboard [][]map[string]any `json:"inline_keyboard"`
+	}
+	if json.Unmarshal([]byte(markupJSON), &kb) != nil || len(kb.InlineKeyboard) == 0 {
+		return markupJSON
+	}
+	bot := BotUsername()
+	if bot == "" {
+		// Safer: drop buttons than fire operator callbacks in a public channel.
+		return ""
+	}
+	changed := false
+	for i := range kb.InlineKeyboard {
+		for j := range kb.InlineKeyboard[i] {
+			btn := kb.InlineKeyboard[i][j]
+			d, _ := btn["callback_data"].(string)
+			if d == "" {
+				continue
+			}
+			// Only rewrite menu / operator UI callbacks (m:…); leave e:appr etc. if ever posted
+			if !strings.HasPrefix(d, "m:") {
+				continue
+			}
+			payload := "menu"
+			switch {
+			case d == "m:updates" || strings.HasPrefix(d, "m:updates:"):
+				payload = "updates"
+			case d == "m:menu":
+				payload = "menu"
+			default:
+				payload = "menu"
+			}
+			delete(btn, "callback_data")
+			btn["url"] = "https://t.me/" + bot + "?start=" + payload
+			kb.InlineKeyboard[i][j] = btn
+			changed = true
+		}
+	}
+	if !changed {
+		return markupJSON
+	}
+	b, err := json.Marshal(kb)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
 func sendTelegramHTML(msg string) error {
 	tok := secret("telegram_bot_token")
 	chat := secret("telegram_admin_id")
@@ -228,6 +328,9 @@ func sendTelegramHTML(msg string) error {
 				return nil
 			}
 		}
+	}
+	if channelMode && markup != "" {
+		markup = channelSafeMarkup(markup)
 	}
 	vals := url.Values{"chat_id": {chat}, "text": {text}, "parse_mode": {"HTML"}}
 	if markup != "" {

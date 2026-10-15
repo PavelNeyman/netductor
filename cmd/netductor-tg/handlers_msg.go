@@ -432,7 +432,12 @@ func handleMessage(token string, m *message, admin int64) {
 	case "/start", "/menu":
 		// Always forceHub: after clear history the stored message_id edits an invisible message.
 		// force|new|reset remain aliases.
-		_ = arg1
+		// Deep links from channel alerts: /start updates → Updates screen in private chat.
+		switch strings.TrimSpace(strings.ToLower(arg1)) {
+		case "updates", "update":
+			handleUpdatesCB(token, chat, 0, "m:updates")
+			return
+		}
 		forceHub(token, chat, menuText(), mainKeyboard())
 	case "/help":
 		reply(token, chat, 0, helpText(), mainKeyboard())

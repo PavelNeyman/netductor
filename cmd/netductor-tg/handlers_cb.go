@@ -19,6 +19,25 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 	data := strings.TrimSpace(cq.Data)
+	// Channel alerts must never spawn operator menus in the channel.
+	// Prefer deep-link via answerCallbackQuery url (opens bot DM). Ack at most once.
+	if cq.Message != nil && cq.Message.Chat.Type == "channel" {
+		payload := "menu"
+		if data == "m:updates" || strings.HasPrefix(data, "m:updates") {
+			payload = "updates"
+		}
+		link := notify.DeepLinkStart(payload)
+		if link != "" {
+			_, _ = apiPost(token, "answerCallbackQuery", map[string]any{
+				"callback_query_id": cq.ID,
+				"url":               link,
+			})
+		} else {
+			answerCallbackText(token, cq.ID, "Open the bot in a private chat")
+		}
+		fmt.Fprintf(os.Stderr, "tg callback blocked in channel chat=%d data=%q\n", cq.Message.Chat.ID, data)
+		return
+	}
 	// Always ack the spinner first (rich in-body buttons included).
 	if strings.HasPrefix(data, "m:nd:u:") || strings.HasPrefix(data, "m:nd:r:") {
 		answerCallbackText(token, cq.ID, "⏳ …")

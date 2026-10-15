@@ -1,3 +1,9 @@
+## 0.9.397
+
+- TG: channel alert buttons open bot DM via deep link (`t.me/bot?start=updates`), not operator menu in the channel
+- TG: hard-block callback menus when chat type is channel
+- /start updates opens Updates screen in private chat
+
 ## 0.9.396
 
 - Edge deploy: disable LuCI attended-sysupgrade check on Status (no popup loop)
