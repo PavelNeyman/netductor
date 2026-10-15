@@ -128,6 +128,15 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 
 	agents := map[string]string{}
+	// sing-box for OpenWrt vpn_client (same arches as agents)
+	for arch := range agentArches {
+		if path, err := EnsureSingBoxCached(arch); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: sing-box cache", arch, err)
+		} else {
+			fmt.Fprintln(os.Stderr, "==> cached sing-box", path)
+		}
+	}
+
 	for arch := range agentArches {
 		// Offline-prep always refreshes agents for the target release version.
 		_ = os.Remove(filepath.Join(agentDir, "netductor-agent-linux-"+arch))

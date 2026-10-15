@@ -427,16 +427,18 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		notify.ClearAlert("host:reboot-required")
 	}
 
-	// GitHub release newer than local node — notify once per remote tag
+	// GitHub release newer than local node — notify once per remote tag (button works in alerts channel too)
 	if enabled("release_update") {
 		st := ndupdate.CheckStatus(ndver.Release)
-		if st.Error == "" && st.Update && st.Latest != "" {
+		if st.Error != "" {
+			fmt.Fprintln(os.Stderr, "release_update check:", st.Error)
+		} else if st.Update && st.Latest != "" {
 			key := "update:available:" + st.Latest
 			notify.AlertOnce(key, fmt.Sprintf(
-				"🆕 <b>Netductor update</b>\nlocal <code>%s</code> → latest <code>%s</code>\n<tg-button-row><tg-button type=\"callback_data\" style=\"primary\" data=\"m:updates\">Update</tg-button></tg-button-row>",
+				"🆕 <b>Netductor update</b>\nlocal <code>%s</code> → latest <code>%s</code>\n<tg-button-row><tg-button type=\"callback_data\" style=\"primary\" data=\"m:updates\">🔄 Updates</tg-button></tg-button-row>",
 				st.Local, st.Latest))
-		} else if st.Error == "" && !st.Update {
-			// clear any prior version keys is hard; clear generic
+		} else if !st.Update {
+			notify.ClearAlertPrefix("update:available:")
 			notify.ClearAlert("update:available")
 		}
 	}

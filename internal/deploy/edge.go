@@ -332,7 +332,9 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 
 	if o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient] {
-		fmt.Fprintln(os.Stderr, "==> vpn_client: deferred until agent online + template (sing-box not installed at first boot)")
+		if err := applyVPNClientOnEdge(o); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: vpn_client:", err)
+		}
 	}
 
 	// 3) Safe SSH transition: keys → verify key login → password-off (no daemon reload) → reboot → poll.

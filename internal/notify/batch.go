@@ -215,7 +215,10 @@ func sendTelegramHTML(msg string) error {
 	if tok == "" || chat == "" {
 		return fmt.Errorf("telegram secrets not configured")
 	}
-	if !channelMode {
+	text, markup := extractTGButtons(msg)
+	// Channels: Bot API sendRichMessage is unreliable / often skipped — always sendMessage + reply_markup.
+	// DM: try rich first when no explicit callback buttons (keeps card formatting); else sendMessage+keyboard.
+	if !channelMode && markup == "" {
 		u := fmt.Sprintf("https://api.telegram.org/bot%s/sendRichMessage", tok)
 		body := fmt.Sprintf(`{"chat_id":%s,"rich_message":{"html":%q}}`, chat, msg)
 		resp, err := http.Post(u, "application/json", strings.NewReader(body))
@@ -226,11 +229,91 @@ func sendTelegramHTML(msg string) error {
 			}
 		}
 	}
-	vals := url.Values{"chat_id": {chat}, "text": {msg}, "parse_mode": {"HTML"}}
+	vals := url.Values{"chat_id": {chat}, "text": {text}, "parse_mode": {"HTML"}}
+	if markup != "" {
+		vals.Set("reply_markup", markup)
+	}
 	if err := postTG(tok, "sendMessage", vals); err != nil {
 		return fmt.Errorf("sendMessage chat=%s: %w", chat, err)
 	}
 	return nil
+}
+
+
+// indexTGButtonOpen finds <tg-button> but not <tg-button-row>.
+func indexTGButtonOpen(lower string) int {
+	start := 0
+	for {
+		i := strings.Index(lower[start:], "<tg-button")
+		if i < 0 {
+			return -1
+		}
+		i += start
+		rest := lower[i+len("<tg-button"):]
+		if rest == "" {
+			return i
+		}
+		switch rest[0] {
+		case ' ', '\t', '\n', '\r', '>':
+			return i
+		}
+		start = i + 1
+	}
+}
+
+// extractTGButtons pulls <tg-button type="callback_data" data="…">Label</tg-button>
+// into Telegram inline_keyboard JSON and strips tags from text.
+func extractTGButtons(msg string) (text string, replyMarkupJSON string) {
+	text = msg
+	type btn struct{ Label, Data string }
+	var flat []btn
+	lower := strings.ToLower(text)
+	for {
+		i := indexTGButtonOpen(lower)
+		if i < 0 {
+			break
+		}
+		gt := strings.Index(text[i:], ">")
+		if gt < 0 {
+			break
+		}
+		open := text[i : i+gt+1]
+		rest := text[i+gt+1:]
+		closeIdx := strings.Index(strings.ToLower(rest), "</tg-button>")
+		if closeIdx < 0 {
+			// drop broken tag
+			text = text[:i] + rest
+			lower = strings.ToLower(text)
+			continue
+		}
+		label := strings.TrimSpace(rest[:closeIdx])
+		data := ""
+		lo := strings.ToLower(open)
+		if di := strings.Index(lo, `data="`); di >= 0 {
+			di += 6
+			if e := strings.Index(open[di:], `"`); e >= 0 {
+				data = open[di : di+e]
+			}
+		}
+		if label != "" && data != "" {
+			flat = append(flat, btn{Label: label, Data: data})
+		}
+		text = text[:i] + rest[closeIdx+len("</tg-button>"):]
+		lower = strings.ToLower(text)
+	}
+	text = strings.ReplaceAll(text, "<tg-button-row>", "")
+	text = strings.ReplaceAll(text, "</tg-button-row>", "")
+	text = strings.ReplaceAll(text, "<tg-button-row/>", "")
+	text = strings.TrimSpace(text)
+	if len(flat) == 0 {
+		return text, ""
+	}
+	var kb [][]map[string]string
+	for _, b := range flat {
+		kb = append(kb, []map[string]string{{"text": b.Label, "callback_data": b.Data}})
+	}
+	raw, _ := json.Marshal(map[string]any{"inline_keyboard": kb})
+	return text, string(raw)
 }
 
 func chatIDPositive(chat string) bool {

@@ -274,6 +274,23 @@ func runEdgeCLI(args []string) {
 		for _, tmpl := range edge.ListTemplates() {
 			fmt.Println(tmpl["id"])
 		}
+	case "vpn-ensure":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge vpn-ensure <device_id>")
+			os.Exit(2)
+		}
+		links, err := edge.EnsureVPNClient(args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		// also merge into device template so day-2 apply_template is consistent
+		if _, err := edge.TemplateWithVPN(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, "warn template:", err)
+		}
+		b, _ := json.Marshal(links)
+		fmt.Println(string(b))
+		audit.Log("cli", "edge.vpn-ensure", args[1], links["user"])
 	case "bind-template":
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge bind-template <device_id> <template_id>")

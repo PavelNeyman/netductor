@@ -101,6 +101,34 @@ func AlertOnce(key, msg string) bool {
 	return true
 }
 
+
+// ClearAlertPrefix clears all alert keys with the given prefix (e.g. "update:available:").
+func ClearAlertPrefix(prefix string) {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return
+	}
+	alertMu.Lock()
+	defer alertMu.Unlock()
+	for k := range lastSent {
+		if strings.HasPrefix(k, prefix) {
+			delete(lastSent, k)
+			clearedAt[k] = time.Now()
+		}
+	}
+	disk := loadSent()
+	changed := false
+	for k := range disk {
+		if strings.HasPrefix(k, prefix) {
+			delete(disk, k)
+			changed = true
+		}
+	}
+	if changed {
+		saveSent(disk)
+	}
+}
+
 // AlertRefresh clears cooldown for key then AlertOnce (ops status text updates).
 func AlertRefresh(key, msg string) bool {
 	alertMu.Lock()

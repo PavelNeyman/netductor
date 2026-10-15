@@ -1,3 +1,9 @@
+## 0.9.395
+
+- Edge vpn_client: sing-box + VLESS (from primary) at first boot when possible
+- TG update alerts: inline buttons work in alerts channel
+- ClearAlertPrefix for update:available:*
+
 ## 0.9.393
 
 - Edge: guest nft no longer written to /etc/nftables.d (fw4 include broke firewall with "unexpected table")
