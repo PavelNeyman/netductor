@@ -1,3 +1,7 @@
+## 0.9.396
+
+- Edge deploy: disable LuCI attended-sysupgrade check on Status (no popup loop)
+
 ## 0.9.395
 
 - Edge vpn_client: sing-box + VLESS (from primary) at first boot when possible

@@ -336,6 +336,10 @@ echo KEY:$(b64 "$DIR/client.key")
 			fmt.Fprintln(os.Stderr, "warn: vpn_client:", err)
 		}
 	}
+	// Always: no LuCI ASU nag on Status (Close does not save preference).
+	if err := applyLuCIDefaultsOnEdge(o); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: luci defaults:", err)
+	}
 
 	// 3) Safe SSH transition: keys → verify key login → password-off (no daemon reload) → reboot → poll.
 	keyOK := false
