@@ -190,7 +190,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			handleGitCB(token, chat, msgID, "m:git")
 			return
 		case "updates":
-			handleUpdatesCB(token, chat, msgID, "m:updates")
+			handleVersionsCB(token, chat, msgID, "m:versions")
 			return
 		case "sites":
 			reply(token, chat, msgID, formatSitesHTML(), sitesListKeyboard())

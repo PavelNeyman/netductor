@@ -1,3 +1,7 @@
+## 0.9.400
+
+- TG: /start updates and Tools→Updates open multi-component Versions hub (not legacy primary-only picker)
+
 ## 0.9.399
 
 - EnsureAgentBinary: checksum mismatch on cache → re-fetch (not hard fail)

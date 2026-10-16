@@ -522,6 +522,12 @@ func handleQuotaCB(token string, chat int64, msgID int, data string) {
 
 func handleUpdatesCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
+	// Hub entry: always the multi-component Versions screen (primary/secondary select + apply).
+	// Legacy release-picker body below is only reached via m:updates:apply / edge / token.
+	if data == "m:updates" || data == "" {
+		handleVersionsCB(token, chat, msgID, "m:versions")
+		return
+	}
 	// m:updates:token:set|clear
 	if data == "m:updates:token:set" || data == "m:updates:token" {
 		st := ndupdate.GetTokensStatus()

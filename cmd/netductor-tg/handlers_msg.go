@@ -435,7 +435,8 @@ func handleMessage(token string, m *message, admin int64) {
 		// Deep links from channel alerts: /start updates → Updates screen in private chat.
 		switch strings.TrimSpace(strings.ToLower(arg1)) {
 		case "updates", "update":
-			handleUpdatesCB(token, chat, 0, "m:updates")
+			// New multi-component Versions hub (not legacy primary-only picker).
+			handleVersionsCB(token, chat, 0, "m:versions")
 			return
 		}
 		forceHub(token, chat, menuText(), mainKeyboard())
