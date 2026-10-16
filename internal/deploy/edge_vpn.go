@@ -5,10 +5,24 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/edgeagent"
 )
+
+// OpenWrt storage practice (travel / 16MB class):
+//
+//  1. extroot — move /overlay to USB (module overlay_ext). Best when many packages need space.
+//     Official OpenWrt path; if USB missing at boot, device falls back to internal overlay.
+//  2. Data mount — keep system on internal flash; put large binaries on USB (e.g. /mnt/.../netductor/).
+//     Safer if USB is optional day-to-day; only VPN payload depends on the stick.
+//  3. Do not default to "split fancy partitions" on first deploy — one ext4 volume is enough:
+//     either full extroot or a single data mount for netductor bins.
+//
+// vpn_client uses (2) when internal free space < sing-box size; never silent-success on ENOSPC.
+
+const singBoxMarginKB int64 = 512 // leave headroom for keys/config after binary
 
 // applyVPNClientOnEdge installs sing-box on the router and, when primary is reachable,
 // creates the edge VPN user and writes client config (max work before agent→primary enroll).
@@ -22,15 +36,42 @@ func applyVPNClientOnEdge(o EdgeOpts) error {
 	if err != nil {
 		return fmt.Errorf("sing-box cache: %w", err)
 	}
+	st, err := os.Stat(localBin)
+	if err != nil {
+		return fmt.Errorf("sing-box local: %w", err)
+	}
+	needKB := st.Size()/1024 + singBoxMarginKB
+	if needKB < 1024 {
+		needKB = 1024
+	}
+
 	pass := o.RouterPass
 	user := o.RouterUser
 	host := o.RouterHost
 	port := factorySSHPort()
-	if err := runSCPOnPort(port, pass, o.PrimaryKey, user, host, localBin, "/usr/sbin/sing-box", o.PrimaryKeyPassphrase); err != nil {
-		return fmt.Errorf("scp sing-box: %w", err)
+
+	dest, err := pickSingBoxInstallPath(port, pass, o.PrimaryKey, user, host, o.PrimaryKeyPassphrase, needKB)
+	if err != nil {
+		return err
 	}
-	if _, err := runSSHOnPort(port, pass, o.PrimaryKey, user, host, "chmod 755 /usr/sbin/sing-box", o.PrimaryKeyPassphrase); err != nil {
-		fmt.Fprintln(os.Stderr, "warn: chmod sing-box:", err)
+	fmt.Fprintf(os.Stderr, "==> vpn_client: install path %s (need ≥%d KiB free)\n", dest, needKB)
+
+	remoteDir := filepath.Dir(dest)
+	if remoteDir != "/" && remoteDir != "." {
+		if _, err := runSSHOnPort(port, pass, o.PrimaryKey, user, host, "mkdir -p "+ShellQuote(remoteDir), o.PrimaryKeyPassphrase); err != nil {
+			return fmt.Errorf("mkdir %s: %w", remoteDir, err)
+		}
+	}
+	if err := runSCPOnPort(port, pass, o.PrimaryKey, user, host, localBin, dest, o.PrimaryKeyPassphrase); err != nil {
+		return fmt.Errorf("scp sing-box → %s: %w", dest, err)
+	}
+	chmodCmd := "chmod 755 " + ShellQuote(dest)
+	// Symlink into /usr/sbin when binary lives on USB/data mount so procd path stays stable.
+	if dest != "/usr/sbin/sing-box" {
+		chmodCmd += "; ln -sfn " + ShellQuote(dest) + " /usr/sbin/sing-box"
+	}
+	if _, err := runSSHOnPort(port, pass, o.PrimaryKey, user, host, chmodCmd, o.PrimaryKeyPassphrase); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: chmod/symlink sing-box:", err)
 	}
 
 	vless := ""
@@ -39,16 +80,16 @@ func applyVPNClientOnEdge(o EdgeOpts) error {
 		cmd := "netductor edge vpn-ensure " + ShellQuote(o.DeviceID)
 		out, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd, o.PrimaryKeyPassphrase)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "warn: vpn-ensure on primary:", err, strings.TrimSpace(out))
+			fmt.Fprintln(os.Stderr, "warn: edge vpn-ensure:", err, out)
 		} else {
-			raw := strings.TrimSpace(out)
-			// last JSON object line
-			for _, line := range strings.Split(raw, "\n") {
+			for _, line := range strings.Split(out, "\n") {
 				line = strings.TrimSpace(line)
 				if strings.HasPrefix(line, "{") {
 					var links map[string]string
 					if json.Unmarshal([]byte(line), &links) == nil {
-						vless = strings.TrimSpace(links["vless"])
+						if v := strings.TrimSpace(links["vless"]); v != "" {
+							vless = v
+						}
 						if vless == "" {
 							vless = strings.TrimSpace(links["subscription"])
 						}
@@ -66,8 +107,11 @@ START=99
 USE_PROCD=1
 start_service() {
   [ -f /etc/netductor-agent/sing-box-client.json ] || exit 0
+  BIN=/usr/sbin/sing-box
+  [ -x "$BIN" ] || BIN=/mnt/netductor/sing-box
+  [ -x "$BIN" ] || exit 0
   procd_open_instance
-  procd_set_param command /usr/sbin/sing-box run -c /etc/netductor-agent/sing-box-client.json
+  procd_set_param command "$BIN" run -c /etc/netductor-agent/sing-box-client.json
   procd_set_param respawn
   procd_close_instance
 }
@@ -107,4 +151,87 @@ start_service() {
 	_, _ = runSSHOnPort(port, pass, o.PrimaryKey, user, host, "chmod 755 /etc/init.d/netductor-vpn; /etc/init.d/netductor-vpn enable", o.PrimaryKeyPassphrase)
 	fmt.Fprintln(os.Stderr, "==> vpn_client: sing-box + VLESS staged (service starts when config present after reboot)")
 	return nil
+}
+
+// pickSingBoxInstallPath chooses internal /usr/sbin or a mounted USB data path.
+func pickSingBoxInstallPath(port string, pass, key, user, host, keyPass string, needKB int64) (string, error) {
+	// Report free space (overlay preferred, then root).
+	script := `set +e
+ov=$(df -k /overlay 2>/dev/null | tail -1 | awk '{print $4}')
+rt=$(df -k / 2>/dev/null | tail -1 | awk '{print $4}')
+echo OVERLAY_FREE_KB=${ov:-0}
+echo ROOT_FREE_KB=${rt:-0}
+# mounted USB-like candidates (already mounted)
+for m in /mnt/netductor /mnt/usb /mnt/sda1 /mnt/sda /mnt/mmcblk0p1 /opt; do
+  [ -d "$m" ] || continue
+  fre=$(df -k "$m" 2>/dev/null | tail -1 | awk '{print $4}')
+  [ -n "$fre" ] || continue
+  echo MOUNT:$m:$fre
+done
+# unmounted block devices hint (not auto-mounted)
+if command -v block >/dev/null 2>&1; then
+  block info 2>/dev/null | head -20 | sed 's/^/BLOCKINFO:/'
+fi
+true
+`
+	out, err := runSSHOnPort(port, pass, key, user, host, script, keyPass)
+	if err != nil {
+		return "", fmt.Errorf("space probe: %w (%s)", err, strings.TrimSpace(out))
+	}
+	var overlayFree, rootFree int64
+	var mounts []struct {
+		path string
+		free int64
+	}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "OVERLAY_FREE_KB="):
+			overlayFree, _ = strconv.ParseInt(strings.TrimPrefix(line, "OVERLAY_FREE_KB="), 10, 64)
+		case strings.HasPrefix(line, "ROOT_FREE_KB="):
+			rootFree, _ = strconv.ParseInt(strings.TrimPrefix(line, "ROOT_FREE_KB="), 10, 64)
+		case strings.HasPrefix(line, "MOUNT:"):
+			parts := strings.Split(strings.TrimPrefix(line, "MOUNT:"), ":")
+			if len(parts) >= 2 {
+				fre, _ := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+				path := strings.Join(parts[:len(parts)-1], ":")
+				if fre > 0 && path != "" {
+					mounts = append(mounts, struct {
+						path string
+						free int64
+					}{path, fre})
+				}
+			}
+		}
+	}
+	fmt.Fprintf(os.Stderr, "==> vpn_client: free overlay=%dKiB root=%dKiB usb_mounts=%d need=%dKiB\n",
+		overlayFree, rootFree, len(mounts), needKB)
+
+	internal := overlayFree
+	if rootFree > internal {
+		internal = rootFree
+	}
+	if internal >= needKB {
+		return "/usr/sbin/sing-box", nil
+	}
+
+	// Prefer dedicated netductor dir on an already-mounted volume with enough space.
+	for _, m := range mounts {
+		if m.free < needKB {
+			continue
+		}
+		if m.path == "/opt" {
+			return "/opt/netductor/sing-box", nil
+		}
+		if m.path == "/mnt/netductor" {
+			return "/mnt/netductor/sing-box", nil
+		}
+		return filepath.Join(m.path, "netductor", "sing-box"), nil
+	}
+
+	return "", fmt.Errorf("vpn_client: not enough free space for sing-box (need ≥%d KiB; overlay=%d root=%d). "+
+		"Options: (1) enable overlay_ext / extroot on USB so /overlay is large; "+
+		"(2) mount USB under /mnt/usb or /mnt/sda1 and re-run; "+
+		"(3) free space on internal flash. Deploy aborted before treating this as success",
+		needKB, overlayFree, rootFree)
 }

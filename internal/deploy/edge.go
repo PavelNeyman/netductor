@@ -333,7 +333,8 @@ echo KEY:$(b64 "$DIR/client.key")
 
 	if o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient] {
 		if err := applyVPNClientOnEdge(o); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: vpn_client:", err)
+			// Space / install failures must not continue to "success + reboot".
+			return fmt.Errorf("vpn_client: %w", err)
 		}
 	}
 	// Always: no LuCI ASU nag on Status (Close does not save preference).

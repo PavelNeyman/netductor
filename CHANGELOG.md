@@ -1,3 +1,8 @@
+## 0.9.402
+
+- Edge vpn_client: pre-check free space; install sing-box to USB data mount when internal flash too small; hard-fail (no fake success/reboot) if nowhere to put binary
+- Prefer /usr/sbin when space allows; else /mnt/.../netductor/sing-box or /opt/netductor/sing-box + symlink
+
 ## 0.9.401
 
 - TG: /start updates deletes user command + previous hub before opening Versions (no stacked menus)
