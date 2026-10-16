@@ -331,9 +331,34 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 
-	if o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient] {
+	skipVPN := false
+	st := EdgeStorageOpts{
+		UseUSB:               o.ApplyOverlay || (o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModOverlay]),
+		Extroot:              o.ApplyOverlay || (o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModOverlay]),
+		PinFallback:          true,
+		ExpectUSB:            o.ApplyOverlay || (o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModOverlay]),
+		DeviceID:             o.DeviceID,
+		PrimaryKey:           o.PrimaryKey,
+		PrimaryKeyPassphrase: o.PrimaryKeyPassphrase,
+	}
+	if o.Selection.Enabled != nil && o.Selection.Enabled["usb_format"] {
+		st.Format = true
+		st.UseUSB = true
+	}
+	if st.UseUSB || st.Extroot || st.Format {
+		needRB, err := applyEdgeStorage(o, st)
+		if err != nil {
+			return fmt.Errorf("storage: %w", err)
+		}
+		if needRB {
+			o.Reboot = true
+			skipVPN = true
+			fmt.Fprintln(os.Stderr, "==> storage: extroot staged — reboot required; vpn_client after reboot when overlay is large")
+		}
+	}
+
+	if !skipVPN && o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient] {
 		if err := applyVPNClientOnEdge(o); err != nil {
-			// Space / install failures must not continue to "success + reboot".
 			return fmt.Errorf("vpn_client: %w", err)
 		}
 	}

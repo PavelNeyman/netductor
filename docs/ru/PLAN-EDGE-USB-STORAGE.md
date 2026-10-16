@@ -1,8 +1,23 @@
 # ПЛАН: USB на edge (extroot + fallback + бэкап/restore)
 
-Статус: **запланировано** (решения ниже **согласованы**; в коде ещё нет)  
+Статус: **в работе** (фазы A–E частично в коде; G–H заготовки) (решения ниже **согласованы**; в коде ещё нет)  
 Связано: `PLAN-EDGE-DEPLOY-HYBRID.md`, модули `overlay_ext` / `vpn_client`, класс TR1200 (16 МиБ flash, USB 2.0).  
 Контекст: после v0.9.402.
+
+
+## Прогресс реализации
+
+| Фаза | Статус |
+|-------|--------|
+| A Detect + card + vpn gate | **сделано** (facts USB_DISK/BLOCK, Card, plan skip without USB, Web card/modules) |
+| B Mount existing ext4 | **сделано** (data mount path in applyEdgeStorage) |
+| C Format + extroot | **сделано** (opt-in `usb_format` + overlay_ext → fstab UUID, reboot) |
+| D vpn after large overlay | **сделано** (skip vpn same pass when extroot needs reboot) |
+| E Pin sync | **сделано** (nd-pin-sync + cron 12h) |
+| F Alerts + mute | **частично** (expect_usb flag on device; full TG alerts TBD) |
+| G Backup A/B + remote restore | **частично** (`internal/edgestorage` manifest store) |
+| H Offline restore | **todo** |
+
 
 ## Цель
 

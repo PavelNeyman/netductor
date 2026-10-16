@@ -37,17 +37,37 @@ type WiFiSSIDFact struct {
 	Disabled bool  `json:"disabled,omitempty"`
 }
 
+// USBDiskFact is one USB/block disk seen at probe (PLAN-EDGE-USB-STORAGE).
+type USBDiskFact struct {
+	Name       string `json:"name"`                  // sda
+	SizeKB     int64  `json:"size_kb,omitempty"`
+	Partitions int    `json:"partitions,omitempty"`
+	FS         string `json:"fs,omitempty"`          // first partition fs if any
+	Mount      string `json:"mount,omitempty"`
+	FreeKB     int64  `json:"free_kb,omitempty"`
+	UsedKB     int64  `json:"used_kb,omitempty"`
+	UUID       string `json:"uuid,omitempty"`
+	Label      string `json:"label,omitempty"`
+}
+
 // StorageFacts best-effort disk / overlay signals for UI offers.
 type StorageFacts struct {
-	OverlayTotalKB int64  `json:"overlay_total_kb,omitempty"`
-	OverlayFreeKB  int64  `json:"overlay_free_kb,omitempty"`
-	RootTotalKB    int64  `json:"root_total_kb,omitempty"`
-	RootFreeKB     int64  `json:"root_free_kb,omitempty"`
-	FlashKB        int64  `json:"flash_kb,omitempty"` // from /proc/mtd when present
-	HasMMC         bool   `json:"has_mmc,omitempty"`
-	HasUSBDisk     bool   `json:"has_usb_disk,omitempty"`
-	ExpandHint     bool   `json:"expand_hint,omitempty"` // free space after root partition likely
-	OverlayNote    string `json:"overlay_note,omitempty"`
+	OverlayTotalKB int64         `json:"overlay_total_kb,omitempty"`
+	OverlayFreeKB  int64         `json:"overlay_free_kb,omitempty"`
+	RootTotalKB    int64         `json:"root_total_kb,omitempty"`
+	RootFreeKB     int64         `json:"root_free_kb,omitempty"`
+	FlashKB        int64         `json:"flash_kb,omitempty"` // from /proc/mtd when present
+	HasMMC         bool          `json:"has_mmc,omitempty"`
+	HasUSBDisk     bool          `json:"has_usb_disk,omitempty"`
+	USBDisks       []USBDiskFact `json:"usb_disks,omitempty"`
+	ExtrootActive  bool          `json:"extroot_active,omitempty"` // /overlay already on external
+	ExpandHint     bool          `json:"expand_hint,omitempty"`
+	OverlayNote    string        `json:"overlay_note,omitempty"`
+}
+
+// HasUsableUSB is true when a USB mass-storage disk is present (plan gate for vpn/extroot).
+func (s StorageFacts) HasUsableUSB() bool {
+	return s.HasUSBDisk || len(s.USBDisks) > 0
 }
 
 // DeviceFacts is the capability snapshot used to build a deploy plan and UI card.
@@ -173,6 +193,13 @@ func ApplySelection(plan DeployPlan, sel ModuleSelection, facts DeviceFacts) Dep
 			continue
 		}
 		if ok && en && s.Action == "skip" {
+			// VPN without USB: only Advanced may force (operator accepts likely ENOSPC).
+			if s.Module == ModVPNClient && !facts.Storage.HasUsableUSB() && !facts.Storage.ExtrootActive && !sel.Advanced {
+				s.Action = "skip"
+				s.Reason = "no USB — vpn_client disabled (PLAN-EDGE-USB-STORAGE)"
+				steps = append(steps, s)
+				continue
+			}
 			if sel.Advanced || s.Module == ModFSExpand || s.Module == ModOverlay {
 				s.Action = "apply"
 				if sel.Advanced {

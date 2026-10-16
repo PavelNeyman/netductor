@@ -79,15 +79,16 @@ func decideStep(mod string, facts DeviceFacts, intent DeployIntent) PlanStep {
 		}
 		return PlanStep{Module: mod, Action: "apply"}
 	case ModVPNClient:
-		// Edge VLESS client (sing-box on OpenWrt): LAN clients → secondary/primary path.
-		// Guests stay ISP-direct (guest module). Not the same as phone SR profile.
+		// Edge VLESS client (sing-box): needs USB/extroot space on 16MiB-class devices (PLAN-EDGE-USB-STORAGE D3).
 		if !facts.WANCapable() {
 			return PlanStep{Module: mod, Action: "skip", Reason: "no uplink path at plan time"}
+		}
+		if !facts.Storage.HasUsableUSB() && !facts.Storage.ExtrootActive {
+			return PlanStep{Module: mod, Action: "skip", Reason: "no USB storage — sing-box needs extroot/USB (enable USB first)"}
 		}
 		if intent.VPNEnable {
 			return PlanStep{Module: mod, Action: "apply", Reason: "VLESS client for LAN egress"}
 		}
-		// Soft skip: UI may still enable (optional), unlike hardware skips
 		return PlanStep{Module: mod, Action: "skip", Reason: "optional — enable for router VLESS (LAN via VPN, guests ISP)"}
 	case ModFSExpand:
 		if !facts.Storage.ExpandHint && !facts.Storage.HasMMC {

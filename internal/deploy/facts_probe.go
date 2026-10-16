@@ -70,12 +70,32 @@ if [ -f /proc/mtd ]; then
 fi
 ls /dev/mmcblk* >/dev/null 2>&1 && echo HAS_MMC=1 || echo HAS_MMC=0
 ls /dev/sd[a-z] >/dev/null 2>&1 && echo HAS_USB_DISK=1 || echo HAS_USB_DISK=0
-# crude expand hint: mmc present and root free looks tiny vs typical card (heuristic only)
-# expand hint: mmc present and root looks like small image (free+used < ~3GB and mmc larger — best-effort)
+# USB disk details (PLAN-EDGE-USB-STORAGE)
+for d in /sys/block/sd*; do
+  [ -d "$d" ] || continue
+  name=$(basename "$d")
+  sectors=$(cat "$d/size" 2>/dev/null || echo 0)
+  size_kb=$((sectors / 2))
+  parts=0
+  for p in /dev/${name}[0-9]* /dev/${name}p[0-9]*; do
+    [ -b "$p" ] || continue
+    parts=$((parts+1))
+  done
+  echo USB_DISK name=$name size_kb=$size_kb partitions=$parts
+done
+if command -v block >/dev/null 2>&1; then
+  block info 2>/dev/null | while IFS= read -r bi; do
+    echo "BLOCK $bi"
+  done
+fi
+ov_src=$(mount 2>/dev/null | awk '/ on \/overlay /{print $1; exit}')
+case "$ov_src" in
+  /dev/sd*|/dev/mmcblk*) echo EXTROOT_ACTIVE=1 ;;
+  *) echo EXTROOT_ACTIVE=0 ;;
+esac
 EXPAND_HINT=0
 if ls /dev/mmcblk0 >/dev/null 2>&1; then
   root_k=$(df -k / 2>/dev/null | tail -1 | awk '{print $2}')
-  # if reported root size under ~1.5GiB, suggest expand on typical 8GB+ cards
   if [ -n "$root_k" ] && [ "$root_k" -lt 1600000 ] 2>/dev/null; then
     EXPAND_HINT=1
   fi
@@ -200,6 +220,34 @@ func parseFactsProbe(out string) edge.DeviceFacts {
 			f.Storage.HasMMC = strings.TrimPrefix(line, "HAS_MMC=") == "1"
 		case strings.HasPrefix(line, "HAS_USB_DISK="):
 			f.Storage.HasUSBDisk = strings.TrimPrefix(line, "HAS_USB_DISK=") == "1"
+		case strings.HasPrefix(line, "EXTROOT_ACTIVE="):
+			f.Storage.ExtrootActive = strings.TrimPrefix(line, "EXTROOT_ACTIVE=") == "1"
+		case strings.HasPrefix(line, "USB_DISK "):
+			// USB_DISK name=sda size_kb=N partitions=N
+			ud := edge.USBDiskFact{}
+			for _, kv := range strings.Fields(strings.TrimPrefix(line, "USB_DISK ")) {
+				k, v, ok := strings.Cut(kv, "=")
+				if !ok {
+					continue
+				}
+				switch k {
+				case "name":
+					ud.Name = v
+				case "size_kb":
+					ud.SizeKB = atoi64(v)
+				case "partitions":
+					n, _ := strconv.Atoi(v)
+					ud.Partitions = n
+				}
+			}
+			if ud.Name != "" {
+				f.Storage.USBDisks = append(f.Storage.USBDisks, ud)
+				f.Storage.HasUSBDisk = true
+			}
+		case strings.HasPrefix(line, "BLOCK "):
+			// Enrich last matching USB disk from block info (UUID TYPE MOUNT)
+			bi := strings.TrimPrefix(line, "BLOCK ")
+			enrichUSBFromBlockInfo(&f, bi)
 		case strings.HasPrefix(line, "EXPAND_HINT="):
 			f.Storage.ExpandHint = strings.TrimPrefix(line, "EXPAND_HINT=") == "1"
 		case strings.HasPrefix(line, "IFACE "):
@@ -235,6 +283,67 @@ func parseFactsProbe(out string) edge.DeviceFacts {
 		}
 	}
 	return f
+}
+
+// enrichUSBFromBlockInfo parses "block info" lines into USBDiskFact fields.
+func enrichUSBFromBlockInfo(f *edge.DeviceFacts, bi string) {
+	dev := strings.Split(bi, ":")[0]
+	dev = strings.TrimSpace(dev)
+	base := strings.TrimPrefix(dev, "/dev/")
+	if base == "" || base == dev {
+		return
+	}
+	// disk name: sda1 -> sda, mmcblk0p1 -> mmcblk0
+	disk := base
+	if i := strings.LastIndexAny(base, "0123456789"); i > 0 {
+		// strip trailing partition number; keep mmcblk0 from mmcblk0p1
+		if strings.Contains(base, "mmcblk") && strings.Contains(base, "p") {
+			disk = base[:strings.LastIndex(base, "p")]
+		} else {
+			j := i
+			for j >= 0 && base[j] >= '0' && base[j] <= '9' {
+				j--
+			}
+			disk = base[:j+1]
+		}
+	}
+	var uuid, fs, mount, label string
+	for _, part := range strings.Fields(bi) {
+		key, val, ok := strings.Cut(part, "=")
+		if !ok {
+			continue
+		}
+		val = strings.Trim(val, "\"")
+		switch key {
+		case "UUID":
+			uuid = val
+		case "TYPE":
+			fs = val
+		case "MOUNT":
+			mount = val
+		case "LABEL":
+			label = val
+		}
+	}
+	for i := range f.Storage.USBDisks {
+		n := f.Storage.USBDisks[i].Name
+		if n != disk && !strings.HasPrefix(base, n) {
+			continue
+		}
+		if uuid != "" {
+			f.Storage.USBDisks[i].UUID = uuid
+		}
+		if fs != "" {
+			f.Storage.USBDisks[i].FS = fs
+		}
+		if mount != "" {
+			f.Storage.USBDisks[i].Mount = mount
+		}
+		if label != "" {
+			f.Storage.USBDisks[i].Label = label
+		}
+		return
+	}
 }
 
 func atoi64(s string) int64 {

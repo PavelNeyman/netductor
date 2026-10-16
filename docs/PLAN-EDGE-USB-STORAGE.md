@@ -1,8 +1,23 @@
 # PLAN: Edge USB storage (extroot + internal fallback + backup/restore)
 
-Status: **planned** (agreed product decisions below; not implemented)  
+Status: **in progress** (phases A–E partial in tree; G–H API stubs) (agreed product decisions below; not implemented)  
 Related: `PLAN-EDGE-DEPLOY-HYBRID.md`, modules `overlay_ext` / `vpn_client`, TR1200-class (16 MiB flash, USB 2.0).  
 Context: post v0.9.402 (vpn_client free-space check + optional data-mount for sing-box).
+
+
+## Implementation progress
+
+| Phase | Status |
+|-------|--------|
+| A Detect + card + vpn gate | **done** (facts USB_DISK/BLOCK, Card, plan skip without USB, Web card/modules) |
+| B Mount existing ext4 | **done** (data mount path in applyEdgeStorage) |
+| C Format + extroot | **done** (opt-in `usb_format` + overlay_ext → fstab UUID, reboot) |
+| D vpn after large overlay | **done** (skip vpn same pass when extroot needs reboot) |
+| E Pin sync | **done** (nd-pin-sync + cron 12h) |
+| F Alerts + mute | **partial** (expect_usb flag on device; full TG alerts TBD) |
+| G Backup A/B + remote restore | **partial** (`internal/edgestorage` manifest store) |
+| H Offline restore | **todo** |
+
 
 ## Goal
 

@@ -44,6 +44,7 @@ func TestBuildPlan_CudyLike(t *testing.T) {
 		},
 		Radios: []RadioFact{{Name: "radio0", Band: "2g"}, {Name: "radio1", Band: "5g"}},
 		UCI:    UCINetFacts{LANDevice: "br-lan", LANIP: "192.168.1.1", WANPresent: true, WANProto: "dhcp"},
+		Storage: StorageFacts{HasUSBDisk: true},
 	}
 	intent := DeployIntent{ConfigureNet: true, GuestEnable: true, VPNEnable: true, WiFiSSID: "Home"}
 	plan := BuildPlan(PresetTravelRouter, facts, intent)
@@ -98,5 +99,28 @@ func TestApplySelection_AdvancedForcesWAN(t *testing.T) {
 			}
 		}
 		t.Fatal("wan not forced")
+	}
+}
+
+func TestVPNRequiresUSB(t *testing.T) {
+	facts := DeviceFacts{UCI: UCINetFacts{WANPresent: true}, Storage: StorageFacts{}}
+	// fake wan capable via iface
+	facts.Ifaces = []NetIface{{Name: "eth0", Type: "ethernet", Up: true}, {Name: "eth1", Type: "ethernet", Up: true}}
+	plan := BuildPlan(PresetTravelRouter, facts, DeployIntent{VPNEnable: true, ConfigureNet: true})
+	for _, s := range plan.Steps {
+		if s.Module == ModVPNClient && s.Action == "apply" {
+			t.Fatalf("vpn_client must skip without USB: %+v", s)
+		}
+	}
+	facts.Storage.HasUSBDisk = true
+	plan = BuildPlan(PresetTravelRouter, facts, DeployIntent{VPNEnable: true, ConfigureNet: true})
+	found := false
+	for _, s := range plan.Steps {
+		if s.Module == ModVPNClient && s.Action == "apply" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("vpn_client should apply with USB + VPNEnable")
 	}
 }

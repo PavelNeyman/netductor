@@ -47,6 +47,8 @@ type DeviceCard struct {
 	RootTotalKB    int64 `json:"root_total_kb,omitempty"`
 	RootFreeKB     int64 `json:"root_free_kb,omitempty"`
 	FlashKB        int64 `json:"flash_kb,omitempty"`
+	USBDisks       []USBDiskFact `json:"usb_disks,omitempty"`
+	ExtrootActive  bool          `json:"extroot_active,omitempty"`
 }
 
 // CardFromFacts builds UI card from facts.
@@ -59,6 +61,7 @@ func CardFromFacts(f DeviceFacts) DeviceCard {
 		HasMMC: f.Storage.HasMMC, HasUSBDisk: f.Storage.HasUSBDisk, ExpandHint: f.Storage.ExpandHint,
 		OverlayTotalKB: f.Storage.OverlayTotalKB, OverlayFreeKB: f.Storage.OverlayFreeKB,
 		RootTotalKB: f.Storage.RootTotalKB, RootFreeKB: f.Storage.RootFreeKB, FlashKB: f.Storage.FlashKB,
+		USBDisks: f.Storage.USBDisks, ExtrootActive: f.Storage.ExtrootActive,
 	}
 	if c.Model == "" {
 		c.Model = f.Board
