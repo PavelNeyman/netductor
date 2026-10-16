@@ -147,7 +147,8 @@ func apiPathExemptFromSession(path string) bool {
 		return true
 	case "/api/edge/enroll", "/api/edge/heartbeat", "/api/edge/commands",
 		"/api/edge/cmd_result", "/api/edge/mtls/material", "/api/edge/metrics",
-		"/api/edge/backup", "/api/edge/template":
+		"/api/edge/backup", "/api/edge/backups", "/api/edge/template",
+		"/api/edge/storage/backup-push", "/api/edge/storage/latest-b", "/api/edge/storage/download":
 		return true
 	case "/api/nvr/ingest":
 		return true
@@ -157,6 +158,15 @@ func apiPathExemptFromSession(path string) bool {
 	}
 	if strings.HasPrefix(path, "/api/secondary/agent/") {
 		return true
+	}
+	// Build-host agent uses Bearer host token (also registered on :8787 for debugging).
+	// Operator-only routes (/status, /recovery-arm, /backup-mirror) still require session.
+	switch path {
+	case "/api/build-host/heartbeat", "/api/build-host/backup/latest", "/api/build-host/jobs/claim":
+		return true
+	}
+	if strings.HasPrefix(path, "/api/build-host/jobs/") {
+		return true // work.tgz / artifacts / result — token checked in handler
 	}
 	return false
 }

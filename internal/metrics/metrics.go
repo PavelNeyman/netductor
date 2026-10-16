@@ -21,12 +21,6 @@ var Services = []string{"sing-box", "blocky", "netductor-api", "netductor-telegr
 
 func Dir() string { return paths.MetricsDir() }
 
-func env(k, d string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return d
-}
 
 func Collect() map[string]any {
 	out := map[string]any{
