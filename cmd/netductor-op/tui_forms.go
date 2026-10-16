@@ -38,6 +38,16 @@ func (m *model) startActionForm(action string) {
 			{Key: "server", Label: "Agent URL", Value: "https://PRIMARY:8789", Placeholder: "https://primary:8789"},
 			{Key: "preset", Label: "Preset", Placeholder: "auto|travel-router|sbc-lab"},
 		}
+	case "edge-storage-backup", "edge-storage-restore", "edge-storage-mute", "edge-storage-pack":
+		m.wizFields = []wizField{
+			{Key: "device_id", Label: "Device ID", Placeholder: "tr1200-..."},
+		}
+		if action == "edge-storage-restore" {
+			m.wizFields = append(m.wizFields, wizField{Key: "format", Label: map[bool]string{true: "Format USB? (yes/no)", false: "Format USB? (yes/no)"}[ru], Value: "no"})
+		}
+		if action == "edge-storage-mute" {
+			m.wizFields = append(m.wizFields, wizField{Key: "mute", Label: map[bool]string{true: "Mute? (yes/no)", false: "Mute? (yes/no)"}[ru], Value: "yes"})
+		}
 	case "edge-register":
 		m.wizFields = []wizField{
 			{Key: "id", Label: map[bool]string{true: "Device ID", false: "Device ID"}[ru], Placeholder: "cudy-home-1"},
@@ -152,6 +162,22 @@ func (m *model) submitActionForm() string {
 			args = append(args, "--preset", pr)
 		}
 		return m.runLocalOp(args...)
+	case "edge-storage-backup":
+		return m.runNetductor("edge", "storage", "backup-now", m.fieldVal("device_id"))
+	case "edge-storage-restore":
+		args := []string{"edge", "storage", "restore", m.fieldVal("device_id")}
+		if yesish(m.fieldVal("format")) {
+			args = append(args, "--format")
+		}
+		return m.runNetductor(args...)
+	case "edge-storage-mute":
+		sub := "unmute"
+		if yesish(m.fieldVal("mute")) {
+			sub = "mute"
+		}
+		return m.runNetductor("edge", "storage", sub, m.fieldVal("device_id"))
+	case "edge-storage-pack":
+		return m.runNetductor("edge", "storage", "offline-pack", m.fieldVal("device_id"))
 	case "edge-register":
 		id := m.fieldVal("id")
 		if id == "" {

@@ -246,6 +246,8 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.showCmd("edge", "pending")
 	case "edge-recovery":
 		m.showCmd("edge", "recovery")
+	case "edge-storage-backup", "edge-storage-restore", "edge-storage-mute", "edge-storage-pack":
+		m.startActionForm(id)
 	case "edge-register":
 		m.startActionForm("edge-register")
 	case "probe":

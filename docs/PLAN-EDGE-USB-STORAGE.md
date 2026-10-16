@@ -219,3 +219,8 @@ Mute when operator clears "expect USB".
 
 - Hardware lab e2e on Cudy + USB
 - Release cut when operator requests
+
+
+## UI parity
+
+Web panel + TUI menu (backup/restore/mute/pack) + TG Routers → USB/storage. CLI: `netductor edge storage …`. EN/RU on Web and TG.

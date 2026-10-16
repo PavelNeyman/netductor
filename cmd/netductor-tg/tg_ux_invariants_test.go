@@ -149,7 +149,7 @@ func TestNoObviousOrphanMenuCallbacks(t *testing.T) {
 		}
 		// prefix handlers m:sshkeys
 		okPrefix := false
-		for _, pref := range []string{"m:sshkeys", "m:nd:", "m:quota:", "m:edge", "m:git", "m:loc:", "m:preset", "m:canary", "m:stack", "m:logs", "m:nvr", "m:reboot", "m:ssh:"} {
+		for _, pref := range []string{"m:sshkeys", "m:nd:", "m:quota:", "m:edge", "m:edgestor", "m:git", "m:loc:", "m:preset", "m:canary", "m:stack", "m:logs", "m:nvr", "m:reboot", "m:ssh:"} {
 			if strings.HasPrefix(d, pref) && strings.Contains(handlers, pref) {
 				okPrefix = true
 				break

@@ -591,6 +591,7 @@ func routersHubHTML() string {
 		`<tg-button type="callback_data" data="m:edge_bind">` + T("bind_tmpl") + `</tg-button>` +
 		`<tg-button type="callback_data" style="primary" data="m:edge_apply">` + T("apply_tmpl") + `</tg-button>` +
 		`</tg-button-row><tg-button-row align="left">` +
+		`<tg-button type="callback_data" data="m:edgestor">` + T("edge_storage") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:edgeguest">` + T("edge_guest_wifi") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:edgeluci">` + T("edge_luci") + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:edgetpl">` + T("edge_tpl_vpn") + `</tg-button>` +

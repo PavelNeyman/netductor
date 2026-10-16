@@ -11,6 +11,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/edgestorage"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/sites"
@@ -23,6 +24,9 @@ func runEdgeCLI(args []string) {
 		os.Exit(2)
 	}
 	switch args[0] {
+
+	case "storage":
+		runEdgeStorageCLI(args[1:])
 	case "list":
 		runEdgeList()
 	case "pending":
@@ -382,4 +386,79 @@ func buildAgentUpdateArg(deviceID, arg string) (string, error) {
 		}
 	}
 	return ndupdate.AgentUpdateArg(tag, arch)
+}
+
+
+func runEdgeStorageCLI(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: netductor edge storage backup-now|restore|mute|unmute|offline-pack <device_id> [--format]")
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "backup-now":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge storage backup-now <device_id>")
+			os.Exit(2)
+		}
+		id := args[1]
+		a := edge.EnqueueCmd(id, "config_backup", "")
+		b := edge.EnqueueCmd(id, "storage_backup", "")
+		fmt.Printf("config_backup=%s storage_backup=%s\n", a, b)
+		audit.Log("cli", "edge.storage.backup", id, "")
+	case "restore":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge storage restore <device_id> [--format]")
+			os.Exit(2)
+		}
+		id := args[1]
+		format := false
+		for _, a := range args[2:] {
+			if a == "--format" {
+				format = true
+			}
+		}
+		if format {
+			_ = edge.EnqueueCmd(id, "storage_init_usb", "format=yes")
+		}
+		cid := edge.EnqueueCmd(id, "storage_restore_remote", "")
+		if cid == "" {
+			fmt.Fprintln(os.Stderr, "enqueue failed")
+			os.Exit(1)
+		}
+		fmt.Println(cid)
+		audit.Log("cli", "edge.storage.restore", id, fmt.Sprintf("format=%v", format))
+	case "mute", "unmute":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge storage mute|unmute <device_id>")
+			os.Exit(2)
+		}
+		mute := args[0] == "mute"
+		if err := edge.SetUSBAlertMute(args[1], mute); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("ok mute=", mute)
+	case "offline-pack":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge storage offline-pack <device_id> [dest_dir]")
+			os.Exit(2)
+		}
+		dest := ""
+		if len(args) > 2 {
+			dest = args[2]
+		}
+		if dest == "" {
+			dest = "/var/lib/netductor/edge-offline/" + args[1]
+		}
+		dir, err := edgestorage.WriteOfflinePack(args[1], dest)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(dir)
+		audit.Log("cli", "edge.storage.offline_pack", args[1], dir)
+	default:
+		fmt.Fprintln(os.Stderr, "unknown storage subcommand")
+		os.Exit(2)
+	}
 }

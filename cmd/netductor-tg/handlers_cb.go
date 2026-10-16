@@ -245,6 +245,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		handleUpdatesCB(token, chat, msgID, data)
 		return
 	}
+	if handleEdgeStorageCB(token, chat, msgID, data) {
+		return
+	}
 	if handleEdgeGuestCB(token, chat, msgID, data) {
 		return
 	}

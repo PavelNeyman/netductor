@@ -242,7 +242,13 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 		DryRun:               yesish(get("dry_run")),
 		ExpandFS:             yesish(get("expand_fs")),
 		OverlayExt:           yesish(get("overlay_ext")),
-		Selection: edge.ModuleSelection{Advanced: yesish(get("advanced"))},
+		Selection: edge.ModuleSelection{
+			Advanced: yesish(get("advanced")),
+			Enabled: map[string]bool{
+				"overlay_ext": yesish(get("overlay_ext")),
+				"usb_format":  yesish(get("usb_format")),
+			},
+		},
 	}
 }
 

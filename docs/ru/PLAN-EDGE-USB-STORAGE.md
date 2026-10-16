@@ -132,3 +132,8 @@ Sync: ~12ч + после deploy; не синкать, если на internal м�
 
 - Hardware lab e2e on Cudy + USB
 - Release cut when operator requests
+
+
+## Паритет UI
+
+Web-панель + меню TUI + TG «Роутеры → USB/storage». CLI: `netductor edge storage …`. EN/RU в Web и TG.
