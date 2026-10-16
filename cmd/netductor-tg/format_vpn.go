@@ -516,9 +516,6 @@ var accessShowMu sync.Mutex
 // lastAccessMsg tracks the live Access card per chat+user so we can delete without racing photo edits.
 var lastAccessMsg = map[string]int{}
 
-func accessCardKey(chat int64, name string) string {
-	return fmt.Sprintf("%d:%s", chat, name)
-}
 
 func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	accessShowMu.Lock()
@@ -559,9 +556,6 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	}
 }
 
-func sendWorkProfileDocument(token string, chat int64) {
-	sendSRProfileDocument(token, chat, vpn.SRProfileOperatorMobile)
-}
 
 func showSRProfilePicker(token string, chat int64, msgID int, userName string) {
 	nl := "\n"

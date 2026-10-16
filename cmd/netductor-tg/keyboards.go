@@ -146,10 +146,6 @@ func fleetHubHTML() string {
 
 // operator = session / admin / audit (not day-to-day user VPN)
 
-func topicsKeyboard() map[string]any {
-	return alertsChatKeyboard()
-}
-
 func operatorKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("main_menu"), "m:menu", "primary")},
@@ -302,11 +298,6 @@ func operatorHubHTML() string {
 		`<tg-button type="callback_data" data="m:api_public_toggle">` + apiToggle + `</tg-button>` +
 		`<tg-button type="callback_data" data="m:users_sp_toggle">` + usersToggle + `</tg-button>` +
 		`</tg-button-row>`
-}
-
-func vpnKeyboard() map[string]any {
-	// legacy alias → users
-	return usersListKeyboard()
 }
 
 func addonsKeyboard() map[string]any {
@@ -683,17 +674,6 @@ func usersListKeyboard() map[string]any {
 	}}
 }
 
-func helpHubHTML() string {
-	body := helpText()
-	body += "\n" + `<tg-button-row align="left">` +
-		`<tg-button type="callback_data" style="primary" data="m:status">` + T("status") + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:digest">` + T("digest_btn") + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:users">` + T("users") + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:fleet">` + T("fleet") + `</tg-button>` +
-		`<tg-button type="callback_data" data="m:tools">` + T("tools") + `</tg-button>` +
-		`</tg-button-row>`
-	return body
-}
 
 func displayRole(role string) string {
 	switch strings.ToLower(strings.TrimSpace(role)) {

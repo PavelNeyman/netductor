@@ -173,10 +173,6 @@ func replyCatalog(token string, chat int64, msgID int, html string, kb map[strin
 	sendHTML(token, chat, html, kb)
 }
 
-func toolsDay2Groups() []opcatalog.Group {
-	return opcatalog.Day2Groups()
-}
-
 func formatToolsFromGroups() string {
 	// PLAN-TG-MENU: Tools is day-2 only — no Status/Users/Fleet clones.
 	lang := catalogLang()

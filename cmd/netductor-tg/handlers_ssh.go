@@ -21,6 +21,15 @@ func handleSSHCB(token string, chat int64, msgID int, data string) bool {
 		reply(token, chat, msgID, formatSSHHubHTML(), sshHubKB())
 		return true
 	}
+	if data == "m:sshkeys:show" {
+		reply(token, chat, msgID, formatSSHKeysDetailHTML(), sshDetailKB())
+		return true
+	}
+	if strings.HasPrefix(data, "m:sshkeys:show:") {
+		fp := strings.TrimPrefix(data, "m:sshkeys:show:")
+		reply(token, chat, msgID, formatOneSSHKeyDetailHTML(fp), sshDetailKB())
+		return true
+	}
 	if data == "m:sshkeys:probe" {
 		n := 0
 		for _, d := range secondary.List() {

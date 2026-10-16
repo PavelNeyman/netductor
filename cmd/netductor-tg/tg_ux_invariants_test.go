@@ -112,7 +112,7 @@ func TestNoObviousOrphanMenuCallbacks(t *testing.T) {
 		tgSource(t, "handlers_reboot.go") + tgSource(t, "handlers_nvr.go") +
 		tgSource(t, "handlers_edge_guest.go") + tgSource(t, "handlers_edge_template.go") +
 		tgSource(t, "handlers_edge_luci.go") + tgSource(t, "handlers_registry.go") +
-		tgSource(t, "handlers_release.go") + tgSource(t, "handlers_certs.go") +
+		tgSource(t, "handlers_certs.go") +
 		tgSource(t, "handlers_mtls.go") + tgSource(t, "handlers_versions.go") +
 		tgSource(t, "alerts_channel_ui.go")
 

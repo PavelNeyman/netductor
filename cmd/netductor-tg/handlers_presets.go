@@ -331,13 +331,6 @@ func handleIncidentCB(token string, chat int64, msgID int, data string) bool {
 	return true
 }
 
-func trimRun(s string, n int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
-}
 
 func replyIncidentTimeline(token string, chat int64, msgID int) bool {
 	ru := getLang() != "en"

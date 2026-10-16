@@ -234,7 +234,8 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 	if data == "m:release" || strings.HasPrefix(data, "m:release:") {
-		handleReleaseCB(token, chat, msgID, data)
+		// Legacy menu: always Versions hub (multi-component), not old primary-only release UI
+		handleVersionsCB(token, chat, msgID, "m:versions")
 		return
 	}
 	if data == "m:updates" || data == "m:versions" || strings.HasPrefix(data, "m:ver:") {
