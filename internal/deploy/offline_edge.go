@@ -12,18 +12,22 @@ import (
 
 // EdgeOfflineManifest is written under ~/.cache/netductor/offline/edge/manifest.json
 type EdgeOfflineManifest struct {
-	At              string            `json:"at"`
-	Version         string            `json:"version"`
-	PrimaryHost     string            `json:"primary_host,omitempty"`
-	BootstrapToken  string            `json:"-"` // not in JSON file; token is separate file
-	TokenFile       string            `json:"token_file"`
-	MTLSCAFile      string            `json:"mtls_ca_file"`
-	MTLSCertFile    string            `json:"mtls_cert_file,omitempty"`
-	MTLSKeyFile     string            `json:"mtls_key_file,omitempty"`
-	DeviceID        string            `json:"device_id,omitempty"`
-	AgentDir        string            `json:"agent_dir"`
-	Agents          map[string]string `json:"agents"` // arch → path
-	Note            string            `json:"note"`
+	At             string            `json:"at"`
+	Version        string            `json:"version"`
+	PrimaryHost    string            `json:"primary_host,omitempty"`
+	BootstrapToken string            `json:"-"` // not in JSON file; token is separate file
+	TokenFile      string            `json:"token_file"`
+	MTLSCAFile     string            `json:"mtls_ca_file"`
+	MTLSCertFile   string            `json:"mtls_cert_file,omitempty"`
+	MTLSKeyFile    string            `json:"mtls_key_file,omitempty"`
+	DeviceID       string            `json:"device_id,omitempty"`
+	AgentDir       string            `json:"agent_dir"`
+	Agents         map[string]string `json:"agents"` // arch → path
+	MissingAgents  []string          `json:"missing_agents,omitempty"`
+	MissingSingBox []string          `json:"missing_singbox,omitempty"`
+	Partial        bool              `json:"partial"`
+	Status         string            `json:"status"` // complete | partial
+	Note           string            `json:"note"`
 }
 
 // OfflineEdgeDir returns default offline pack directory.
@@ -35,6 +39,11 @@ func OfflineEdgeDir() string {
 // PrepareEdgeOffline pulls token (+ optional mTLS for device_id) from primary and
 // caches agent binaries for all supported arches. Requires network + SSH to primary.
 func PrepareEdgeOffline(primaryHost, primaryUser, primaryKey, keyPass, deviceID, version string) (*EdgeOfflineManifest, error) {
+	return PrepareEdgeOfflineOpts(primaryHost, primaryUser, primaryKey, keyPass, deviceID, version, false)
+}
+
+// PrepareEdgeOfflineOpts is like PrepareEdgeOffline; forceRefresh deletes cached agents first (full re-fetch).
+func PrepareEdgeOfflineOpts(primaryHost, primaryUser, primaryKey, keyPass, deviceID, version string, forceRefresh bool) (*EdgeOfflineManifest, error) {
 	if primaryHost == "" || primaryKey == "" {
 		return nil, fmt.Errorf("primary host and key required to prepare offline pack")
 	}
@@ -128,24 +137,38 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 
 	agents := map[string]string{}
+	var missingAgents, missingSB []string
 	// sing-box for OpenWrt vpn_client (same arches as agents)
 	for arch := range agentArches {
 		if path, err := EnsureSingBoxCached(arch); err != nil {
 			fmt.Fprintln(os.Stderr, "warn: sing-box cache", arch, err)
+			missingSB = append(missingSB, arch)
 		} else {
 			fmt.Fprintln(os.Stderr, "==> cached sing-box", path)
 		}
 	}
 
 	for arch := range agentArches {
-		// Offline-prep always refreshes agents for the target release version.
-		_ = os.Remove(filepath.Join(agentDir, "netductor-agent-linux-"+arch))
+		destName := "netductor-agent-linux-" + arch
+		if forceRefresh {
+			_ = os.Remove(filepath.Join(agentDir, destName))
+		}
 		path, err := EnsureAgentBinary(version, arch, agentDir)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn: agent", arch, err)
+			missingAgents = append(missingAgents, arch)
 			continue
 		}
 		agents[arch] = path
+	}
+
+	partial := len(missingAgents) > 0 || len(missingSB) > 0
+	status := "complete"
+	note := "Refresh when upgrading netductor (agent binaries). Re-pull token if rotated on primary. Client cert is per device_id — re-prep or issue for each new edge id."
+	if partial {
+		status = "partial"
+		note = "PARTIAL pack: some agent/sing-box arches missing. Retry offline-prep (same button) to download only gaps; already cached files are kept. Cudy/OpenWrt travel routers need mipsle (or your board arch) — other arches are optional."
+		fmt.Fprintf(os.Stderr, "==> PARTIAL offline pack: missing agents=%v missing sing-box=%v (retry to fill gaps only)\n", missingAgents, missingSB)
 	}
 
 	m := &EdgeOfflineManifest{
@@ -159,7 +182,11 @@ echo KEY:$(b64 "$DIR/client.key")
 		DeviceID:       deviceID,
 		AgentDir:       agentDir,
 		Agents:         agents,
-		Note:           "Refresh when upgrading netductor (agent binaries). Re-pull token if rotated on primary. Client cert is per device_id — re-prep or issue for each new edge id.",
+		MissingAgents:  missingAgents,
+		MissingSingBox: missingSB,
+		Partial:        partial,
+		Status:         status,
+		Note:           note,
 	}
 	b, _ := json.MarshalIndent(m, "", "  ")
 	manPath := filepath.Join(outDir, "manifest.json")

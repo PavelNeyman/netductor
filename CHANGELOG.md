@@ -1,3 +1,8 @@
+## 0.9.398
+
+- Offline-prep: partial status when some agent/sing-box arches fail; UI warns and Retry downloads **only gaps** (cache kept)
+- Manifest: missing_agents, partial, status; CLI exit 2 on partial;  full re-fetch
+
 ## 0.9.397
 
 - TG: channel alert buttons open bot DM via deep link (`t.me/bot?start=updates`), not operator menu in the channel

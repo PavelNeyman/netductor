@@ -73,12 +73,24 @@ See: netductor tui → Setup wizard`)
 				ver = args[i]
 			}
 		}
-		m, err := deploy.PrepareEdgeOffline(host, user, key, pass, id, ver)
+		force := false
+		for _, a := range args {
+			if a == "--force" {
+				force = true
+			}
+		}
+		m, err := deploy.PrepareEdgeOfflineOpts(host, user, key, pass, id, ver, force)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Printf("offline pack ok version=%s agents=%d dir=%s\n", m.Version, len(m.Agents), deploy.OfflineEdgeDir())
+		want := len(deploy.AgentArchList())
+		if m.Partial {
+			fmt.Printf("offline pack PARTIAL version=%s agents=%d/%d missing=%v dir=%s\n", m.Version, len(m.Agents), want, m.MissingAgents, deploy.OfflineEdgeDir())
+			fmt.Fprintln(os.Stderr, "retry without --force to download only missing arches")
+			os.Exit(2)
+		}
+		fmt.Printf("offline pack ok version=%s agents=%d/%d dir=%s\n", m.Version, len(m.Agents), want, deploy.OfflineEdgeDir())
 		return
 	case "primary":
 		o := operator.PrimarySpec{Version: deploy.Release, SNI: "api.vk.me", User: "root"}
@@ -254,15 +266,20 @@ See: netductor tui → Setup wizard`)
 			a := args[i]
 			switch {
 			case a == "--router" && i+1 < len(args):
-				i++; host = args[i]
+				i++
+				host = args[i]
 			case a == "--user" && i+1 < len(args):
-				i++; user = args[i]
+				i++
+				user = args[i]
 			case a == "--password" && i+1 < len(args):
-				i++; pass = args[i]
+				i++
+				pass = args[i]
 			case a == "--key" && i+1 < len(args):
-				i++; key = args[i]
+				i++
+				key = args[i]
 			case a == "--action" && i+1 < len(args):
-				i++; action = args[i]
+				i++
+				action = args[i]
 			case a == "--hours" && i+1 < len(args):
 				i++
 				fmt.Sscanf(args[i], "%f", &hours)
@@ -438,8 +455,8 @@ See: netductor tui → Setup wizard`)
 			PrimaryHost: o.PrimaryHost, PrimaryUser: o.PrimaryUser, PrimaryKey: o.PrimaryKey,
 			PrimaryKeyPassphrase: o.PrimaryKeyPassphrase,
 			RouterHost:           o.RouterHost, RouterUser: o.RouterUser, RouterPass: o.RouterPass,
-			NewRootPassword:      o.NewRootPassword,
-			DeviceID: o.DeviceID, ServerURL: o.ServerURL, Version: o.Version, AgentArch: o.AgentArch,
+			NewRootPassword: o.NewRootPassword,
+			DeviceID:        o.DeviceID, ServerURL: o.ServerURL, Version: o.Version, AgentArch: o.AgentArch,
 			NetConfigure: o.NetConfigure, LANIP: o.LANIP, LANMask: o.LANMask,
 			DHCPStart: o.DHCPStart, DHCPLimit: o.DHCPLimit,
 			WiFiSSID: o.WiFiSSID, WiFiKey: o.WiFiKey,

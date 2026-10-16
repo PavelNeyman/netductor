@@ -245,13 +245,20 @@ async function streamPost(url, body, btn){
           line(chunk);
           parseSteps(chunk);
         }
+        // RESULT: PARTIAL = edge deploy outcome; offline-prep PARTIAL is recoverable (retry gaps).
         if(/step .+ ERROR|RESULT: PARTIAL|reboot not confirmed/i.test(acc)) failed=true;
+        if(/offline-prep PARTIAL|WARN offline pack incomplete/i.test(acc)) failed=false;
+        if(btn) btn.disabled=false;
+        if(logSec) logSec.classList.remove('deploy-log-active');
+        if(isEdge) setEdgeRunStatus(failed?'err':'ok', t(failed?'edge_run_err':'edge_run_done'));
+        return acc;
       }
     }
   }catch(e){ line('error: '+e); failed=true; }
   if(btn) btn.disabled=false;
   if(logSec) logSec.classList.remove('deploy-log-active');
   if(isEdge) setEdgeRunStatus(failed?'err':'ok', t(failed?'edge_run_err':'edge_run_done'));
+  return '';
 }
 function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token|session/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
 function loadForm(id,form){ try{ const o=JSON.parse(localStorage.getItem('nd_op_'+id)||'{}'); Object.keys(o).forEach(k=>{ const el=form.elements.namedItem(k); if(!el)return; if(el.type==='checkbox')el.checked=true; else el.value=o[k]; }); }catch(e){} }
@@ -1595,19 +1602,41 @@ document.getElementById('btnEdgeOfflinePrep')?.addEventListener('click', async (
   if(!form) return;
   const fd=new FormData(form);
   const isRu=(document.documentElement.lang||localStorage.getItem('nd_lang')||'').startsWith('ru');
+  const force=!!window.__ndOfflineForceRefresh;
+  window.__ndOfflineForceRefresh=false;
   if(!confirm(isRu
-    ? 'Нужен интернет и SSH на primary (порт 52222). Скачаем agent и token. Продолжить?'
-    : 'Needs internet + SSH to primary (:52222). Will download agents and token. Continue?')) return;
+    ? (force
+      ? 'Полное обновление кэша: интернет + SSH primary :52222. Перекачать все agent?'
+      : 'Нужен интернет и SSH на primary (:52222). Скачаем token и недостающие agent (уже в кэше не трогаем). Продолжить?')
+    : (force
+      ? 'Full cache refresh: internet + SSH primary :52222. Re-download all agents?'
+      : 'Needs internet + SSH to primary (:52222). Downloads token + missing agents only (cached kept). Continue?'))) return;
   const btn=document.getElementById('btnEdgeOfflinePrep');
   if(btn) btn.disabled=true;
   try{
-    await streamPost('/v1/edge/offline-prep',{
+    const text = await streamPost('/v1/edge/offline-prep',{
       primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'),
       primary_user:fd.get('primary_user')||'root', key_passphrase:fd.get('key_passphrase')||'',
-      device_id:fd.get('device_id')||''
+      device_id:fd.get('device_id')||'',
+      force_refresh: force
     }, btn);
     const off=document.getElementById('edge_offline');
     if(off) off.checked=true;
+    const body = (typeof text==='string'?text:'') + (document.getElementById('log')?.textContent||'');
+    const partial = /offline-prep PARTIAL|WARN offline pack incomplete/i.test(body);
+    const okFull = /offline-prep ok /i.test(body) && !partial;
+    if(btn){
+      if(partial){
+        btn.textContent = isRu ? 'Докачать недостающее' : 'Retry missing downloads';
+        btn.classList.add('warn');
+        alert(isRu
+          ? 'Офлайн-пакет частичный: не все agent/arch скачались.\n\nНажмите «Докачать недостающее» — подтянутся только пробелы (кэш сохранится).\nДля Cudy обычно достаточно mipsle.'
+          : 'Offline pack is PARTIAL: some agent arches failed.\n\nClick «Retry missing downloads» to fetch only gaps (cache kept).\nCudy usually only needs mipsle.');
+      } else if(okFull){
+        btn.textContent = isRu ? 'Подготовить offline pack' : 'Prepare offline pack';
+        btn.classList.remove('warn');
+      }
+    }
   } finally { if(btn) btn.disabled=false; }
 });
 

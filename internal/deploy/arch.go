@@ -3,6 +3,7 @@ package deploy
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -142,4 +143,14 @@ func ResolveAgentArch(override, password, keyPath, user, host, keyPassphrase str
 	}
 	fmt.Fprintln(os.Stderr)
 	return goarch, nil
+}
+
+// AgentArchList returns supported agent GOARCH values (stable order).
+func AgentArchList() []string {
+	out := make([]string, 0, len(agentArches))
+	for a := range agentArches {
+		out = append(out, a)
+	}
+	sort.Strings(out)
+	return out
 }

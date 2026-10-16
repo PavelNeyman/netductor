@@ -18,12 +18,12 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
-	ndver "github.com/PavelNeyman/netductor/internal/version"
-	"github.com/PavelNeyman/netductor/internal/opconfig"
-	"github.com/PavelNeyman/netductor/internal/netmap"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/netmap"
 	"github.com/PavelNeyman/netductor/internal/opcatalog"
+	"github.com/PavelNeyman/netductor/internal/opconfig"
 	"github.com/PavelNeyman/netductor/internal/operator/web"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
 
 // ServeOpts for localhost operator HTTP API + embed UI.
@@ -672,7 +672,6 @@ func handleSecondary(w http.ResponseWriter, r *http.Request, token string) {
 	_, _ = io.WriteString(w, "OK\n")
 }
 
-
 func handleBuildHost(w http.ResponseWriter, r *http.Request, token string) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST only", 405)
@@ -752,54 +751,53 @@ func handleCredentials(w http.ResponseWriter, r *http.Request, token string) {
 }
 
 type edgeBody struct {
-	RouterHost   string `json:"router_host"`
-	RouterUser   string `json:"router_user"`
-	RouterPass   string `json:"router_password"`
-	NewRootPassword string `json:"new_root_password"`
-	SkipRootPass bool `json:"skip_root_pass"`
-	DeviceID     string `json:"device_id"`
-	PrimaryHost  string `json:"primary_host"`
-	PrimaryUser  string `json:"primary_user"`
-	PrimaryKey   string `json:"primary_key"`
-	KeyPass      string `json:"key_passphrase"`
-	ServerURL    string `json:"server_url"`
-	AgentArch    string `json:"agent_arch"`
-	NetConfigure bool   `json:"net_configure"`
-	LANIP        string `json:"lan_ip"`
-	LANMask      string `json:"lan_mask"`
-	DHCPStart    string `json:"dhcp_start"`
-	DHCPLimit    string `json:"dhcp_limit"`
-	WiFiSSID     string `json:"wifi_ssid"` // legacy both bands
-	WiFiKey      string `json:"wifi_key"`
-	WiFiSSID24   string `json:"wifi_ssid_24"`
-	WiFiKey24    string `json:"wifi_key_24"`
-	WiFiSSID5    string `json:"wifi_ssid_5"`
-	WiFiKey5     string `json:"wifi_key_5"`
-	GuestEnable  bool   `json:"guest_enable"`
-	GuestSSID    string `json:"guest_ssid"`
-	GuestPIN     string `json:"guest_pin"`
-	GuestHidden  string `json:"guest_hidden"` // "1" hidden, "0" visible
-	GuestPSK     string `json:"guest_psk"`
-	WANProto     string `json:"wan_proto"`
-	WANIP        string `json:"wan_ip"`
-	WANMask      string `json:"wan_mask"`
-	WANGateway   string `json:"wan_gateway"`
-	WANDNS       string `json:"wan_dns"`
-	PPPoEUser    string `json:"pppoe_user"`
-	PPPoEPass    string `json:"pppoe_pass"`
-	PPPoEService string `json:"pppoe_service"`
-	PPPoEAC      string `json:"pppoe_ac"`
-	Reboot       bool   `json:"reboot"`
-	Offline         bool   `json:"offline"`
-	Preset          string `json:"preset"`
-	Advanced        bool   `json:"advanced"`
+	RouterHost      string          `json:"router_host"`
+	RouterUser      string          `json:"router_user"`
+	RouterPass      string          `json:"router_password"`
+	NewRootPassword string          `json:"new_root_password"`
+	SkipRootPass    bool            `json:"skip_root_pass"`
+	DeviceID        string          `json:"device_id"`
+	PrimaryHost     string          `json:"primary_host"`
+	PrimaryUser     string          `json:"primary_user"`
+	PrimaryKey      string          `json:"primary_key"`
+	KeyPass         string          `json:"key_passphrase"`
+	ServerURL       string          `json:"server_url"`
+	AgentArch       string          `json:"agent_arch"`
+	NetConfigure    bool            `json:"net_configure"`
+	LANIP           string          `json:"lan_ip"`
+	LANMask         string          `json:"lan_mask"`
+	DHCPStart       string          `json:"dhcp_start"`
+	DHCPLimit       string          `json:"dhcp_limit"`
+	WiFiSSID        string          `json:"wifi_ssid"` // legacy both bands
+	WiFiKey         string          `json:"wifi_key"`
+	WiFiSSID24      string          `json:"wifi_ssid_24"`
+	WiFiKey24       string          `json:"wifi_key_24"`
+	WiFiSSID5       string          `json:"wifi_ssid_5"`
+	WiFiKey5        string          `json:"wifi_key_5"`
+	GuestEnable     bool            `json:"guest_enable"`
+	GuestSSID       string          `json:"guest_ssid"`
+	GuestPIN        string          `json:"guest_pin"`
+	GuestHidden     string          `json:"guest_hidden"` // "1" hidden, "0" visible
+	GuestPSK        string          `json:"guest_psk"`
+	WANProto        string          `json:"wan_proto"`
+	WANIP           string          `json:"wan_ip"`
+	WANMask         string          `json:"wan_mask"`
+	WANGateway      string          `json:"wan_gateway"`
+	WANDNS          string          `json:"wan_dns"`
+	PPPoEUser       string          `json:"pppoe_user"`
+	PPPoEPass       string          `json:"pppoe_pass"`
+	PPPoEService    string          `json:"pppoe_service"`
+	PPPoEAC         string          `json:"pppoe_ac"`
+	Reboot          bool            `json:"reboot"`
+	Offline         bool            `json:"offline"`
+	Preset          string          `json:"preset"`
+	Advanced        bool            `json:"advanced"`
 	Modules         map[string]bool `json:"modules"`
-	BootstrapToken  string `json:"bootstrap_token"`
-	MTLSCAFile      string `json:"mtls_ca_file"`
-	MTLSCertFile    string `json:"mtls_cert_file"`
-	MTLSKeyFile     string `json:"mtls_key_file"`
+	BootstrapToken  string          `json:"bootstrap_token"`
+	MTLSCAFile      string          `json:"mtls_ca_file"`
+	MTLSCertFile    string          `json:"mtls_cert_file"`
+	MTLSKeyFile     string          `json:"mtls_key_file"`
 }
-
 
 func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
 	if r.Method != http.MethodPost {
@@ -900,12 +898,13 @@ func handleEdgeOfflinePrep(w http.ResponseWriter, r *http.Request, token string)
 		return
 	}
 	var body struct {
-		PrimaryHost string `json:"primary_host"`
-		PrimaryUser string `json:"primary_user"`
-		PrimaryKey  string `json:"primary_key"`
-		KeyPass     string `json:"key_passphrase"`
-		DeviceID    string `json:"device_id"`
-		Version     string `json:"version"`
+		PrimaryHost  string `json:"primary_host"`
+		PrimaryUser  string `json:"primary_user"`
+		PrimaryKey   string `json:"primary_key"`
+		KeyPass      string `json:"key_passphrase"`
+		DeviceID     string `json:"device_id"`
+		Version      string `json:"version"`
+		ForceRefresh bool   `json:"force_refresh"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -916,12 +915,26 @@ func handleEdgeOfflinePrep(w http.ResponseWriter, r *http.Request, token string)
 		f.Flush()
 	}
 	body.PrimaryKey = expandHome(body.PrimaryKey)
-	m, err := deploy.PrepareEdgeOffline(body.PrimaryHost, body.PrimaryUser, body.PrimaryKey, body.KeyPass, body.DeviceID, body.Version)
+	m, err := deploy.PrepareEdgeOfflineOpts(body.PrimaryHost, body.PrimaryUser, body.PrimaryKey, body.KeyPass, body.DeviceID, body.Version, body.ForceRefresh)
 	if err != nil {
 		_, _ = w.Write([]byte("step offline-prep ERROR " + err.Error() + "\n"))
 		return
 	}
-	_, _ = fmt.Fprintf(w, "step offline-prep ok version=%s agents=%d token=%s\n", m.Version, len(m.Agents), m.TokenFile)
+	want := len(deploy.AgentArchList())
+	if m.Partial {
+		_, _ = fmt.Fprintf(w, "step offline-prep PARTIAL version=%s agents=%d/%d missing=%s token=%s\n",
+			m.Version, len(m.Agents), want, strings.Join(m.MissingAgents, ","), m.TokenFile)
+		_, _ = w.Write([]byte("WARN offline pack incomplete — retry the same button to download only missing arches (cached files kept).\n"))
+		if len(m.MissingAgents) > 0 {
+			_, _ = fmt.Fprintf(w, "missing agents: %s\n", strings.Join(m.MissingAgents, ", "))
+		}
+		if len(m.MissingSingBox) > 0 {
+			_, _ = fmt.Fprintf(w, "missing sing-box: %s\n", strings.Join(m.MissingSingBox, ", "))
+		}
+		_, _ = w.Write([]byte("hint: Cudy/travel OpenWrt needs mipsle (or your board arch); other arches optional until you deploy that hardware.\n"))
+	} else {
+		_, _ = fmt.Fprintf(w, "step offline-prep ok version=%s agents=%d/%d token=%s\n", m.Version, len(m.Agents), want, m.TokenFile)
+	}
 	_, _ = fmt.Fprintf(w, "note: %s\n", m.Note)
 }
 
@@ -963,9 +976,9 @@ func handleEdge(w http.ResponseWriter, r *http.Request, token string) {
 		WiFiSSID5: body.WiFiSSID5, WiFiKey5: body.WiFiKey5,
 		GuestEnable: body.GuestEnable, GuestSSID: body.GuestSSID, GuestPIN: body.GuestPIN, GuestPSK: body.GuestPSK,
 		GuestVisible: guestSSIDVisible(body.GuestHidden),
-		WANProto: body.WANProto, WANIP: body.WANIP, WANMask: body.WANMask, WANGateway: body.WANGateway, WANDNS: body.WANDNS,
+		WANProto:     body.WANProto, WANIP: body.WANIP, WANMask: body.WANMask, WANGateway: body.WANGateway, WANDNS: body.WANDNS,
 		PPPoEUser: body.PPPoEUser, PPPoEPass: body.PPPoEPass, PPPoEService: body.PPPoEService, PPPoEAC: body.PPPoEAC,
-		Reboot: body.Reboot,
+		Reboot:         body.Reboot,
 		BootstrapToken: body.BootstrapToken, MTLSCAFile: body.MTLSCAFile, MTLSCertFile: body.MTLSCertFile, MTLSKeyFile: body.MTLSKeyFile,
 	}
 	if body.Offline {
@@ -1114,7 +1127,6 @@ func parsePortField(s string) int {
 	return n
 }
 
-
 func handleEdgeLuci(w http.ResponseWriter, r *http.Request, token string) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
@@ -1125,13 +1137,13 @@ func handleEdgeLuci(w http.ResponseWriter, r *http.Request, token string) {
 		return
 	}
 	var body struct {
-		RouterHost   string  `json:"router_host"`
-		RouterUser   string  `json:"router_user"`
-		RouterPass   string  `json:"router_password"`
-		PrimaryKey   string  `json:"primary_key"`
-		KeyPassphrase string `json:"key_passphrase"`
-		Action       string  `json:"action"` // enable|disable|extend|status
-		Hours        float64 `json:"hours"`
+		RouterHost    string  `json:"router_host"`
+		RouterUser    string  `json:"router_user"`
+		RouterPass    string  `json:"router_password"`
+		PrimaryKey    string  `json:"primary_key"`
+		KeyPassphrase string  `json:"key_passphrase"`
+		Action        string  `json:"action"` // enable|disable|extend|status
+		Hours         float64 `json:"hours"`
 		// via agent (primary online): device_id + enqueue
 		DeviceID string `json:"device_id"`
 		Via      string `json:"via"` // ssh|agent
