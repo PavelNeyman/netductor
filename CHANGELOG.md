@@ -1,3 +1,7 @@
+## 0.9.399
+
+- EnsureAgentBinary: checksum mismatch on cache → re-fetch (not hard fail)
+
 ## 0.9.398
 
 - Offline-prep: partial status when some agent/sing-box arches fail; UI warns and Retry downloads **only gaps** (cache kept)

@@ -393,11 +393,14 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 			return dest, nil
 		}
 		if err := verifyAgentAgainstLocalSums(destDir, ver, name, dest); err != nil {
-			return "", fmt.Errorf("cached agent %s: %w (re-run offline-prep or remove cache)", name, err)
+			// Stale cache from older release: drop and re-fetch when online.
+			fmt.Fprintln(os.Stderr, "warn: cached agent mismatch, re-fetching:", name, err)
+			_ = os.Remove(dest)
+		} else {
+			fmt.Fprintln(os.Stderr, "==> using cached agent", dest)
+			_ = os.Chmod(dest, 0o755)
+			return dest, nil
 		}
-		fmt.Fprintln(os.Stderr, "==> using cached agent", dest)
-		_ = os.Chmod(dest, 0o755)
-		return dest, nil
 	}
 
 	url := fmt.Sprintf("https://github.com/PavelNeyman/netductor/releases/download/%s/%s", tag, name)
