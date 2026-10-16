@@ -75,3 +75,7 @@
 
 - [ ] Read-only guest operator session — будущее
 - [ ] OIDC operator login — [OIDC-DESIGN](../OIDC-DESIGN.md); когда появится IdP
+
+## USB на edge
+
+- План: [PLAN-EDGE-USB-STORAGE.md](../PLAN-EDGE-USB-STORAGE.md) / [ru](PLAN-EDGE-USB-STORAGE.md) — extroot + pin/sync + алерты (после 0.9.402).

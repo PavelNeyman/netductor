@@ -127,3 +127,7 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 - [x] Journal export last 1h on alert + API/UI download (0.9.276)
 - [x] Log retention timer (default 04:00 MSK / 01:00 UTC), API+TG+catalog (0.9.276)
 - [x] Internal releases P0–P4 + later: auto-build on mirror-fetch, metrics local_release_* + build status (0.9.310)
+
+## Edge USB storage
+
+- Planned: [PLAN-EDGE-USB-STORAGE.md](PLAN-EDGE-USB-STORAGE.md) / [ru](ru/PLAN-EDGE-USB-STORAGE.md) — extroot + internal pin/sync + alerts (post-0.9.402).
