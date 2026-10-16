@@ -8,7 +8,7 @@
 
 ## Hard rule (locked)
 
-**Never** ship `sha256 :no_check` in `Formula/netductor.rb`.
+**Never** ship `sha256 :no_check` in `Formula/netductor-op.rb`.
 
 Homebrew rejects it (`Formula reports different checksum: no_check`). Digests **must** match the GitHub Release assets for that version.
 
