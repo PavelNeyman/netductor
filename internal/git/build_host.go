@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -75,23 +73,7 @@ func BuildHostEnabled() bool {
 	return PrimaryBuildHostOnline()
 }
 
-func (c BuildHostConfig) target() string {
-	return c.SSHUser + "@" + c.SSHHost
-}
 
-func (c BuildHostConfig) sshArgs(extra ...string) []string {
-	args := []string{
-		"-p", strconv.Itoa(c.SSHPort),
-		"-o", "BatchMode=yes",
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "ConnectTimeout=20",
-	}
-	if c.IdentityFile != "" {
-		args = append(args, "-i", c.IdentityFile)
-	}
-	args = append(args, extra...)
-	return args
-}
 
 // TestBuildHost probes agent plane status (no SSH from primary).
 // Legacy SSH probe removed — policy: primary never SSHs to build-host.
@@ -116,45 +98,9 @@ func TestBuildHost() (string, error) {
 	return b.String(), nil
 }
 
-func (c BuildHostConfig) runSSH(remoteCmd string) (string, error) {
-	args := c.sshArgs(c.target(), remoteCmd)
-	cmd := exec.Command("ssh", args...)
-	b, err := cmd.CombinedOutput()
-	return string(b), err
-}
 
-func (c BuildHostConfig) scpTo(local, remote string) error {
-	// scp uses -P for port
-	scpArgs := []string{"-P", strconv.Itoa(c.SSHPort), "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"}
-	if c.IdentityFile != "" {
-		scpArgs = append(scpArgs, "-i", c.IdentityFile)
-	}
-	scpArgs = append(scpArgs, local, fmt.Sprintf("%s:%s", c.target(), remote))
-	cmd := exec.Command("scp", scpArgs...)
-	b, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("scp to remote: %w: %s", err, string(b))
-	}
-	return nil
-}
 
-func (c BuildHostConfig) scpFrom(remote, local string) error {
-	scpArgs := []string{"-P", strconv.Itoa(c.SSHPort), "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", "-r"}
-	if c.IdentityFile != "" {
-		scpArgs = append(scpArgs, "-i", c.IdentityFile)
-	}
-	scpArgs = append(scpArgs, fmt.Sprintf("%s:%s", c.target(), remote), local)
-	cmd := exec.Command("scp", scpArgs...)
-	b, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("scp from remote: %w: %s", err, string(b))
-	}
-	return nil
-}
 
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
 
 // StatusLine for doctor/CLI.
 func BuildHostStatusLine() string {

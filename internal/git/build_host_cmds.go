@@ -1,6 +1,7 @@
 package gitstore
 
 import (
+	"strings"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,7 +10,20 @@ import (
 )
 
 // EnqueueBuildHostCmd appends a cmd for an online (or any) build host agent.
+func allowedBuildHostCmd(cmd string) bool {
+	switch strings.TrimSpace(cmd) {
+	case "backup_pull", "recovery_arm":
+		return true
+	default:
+		return false
+	}
+}
+
 func EnqueueBuildHostCmd(id, cmd string) error {
+	cmd = strings.TrimSpace(cmd)
+	if !allowedBuildHostCmd(cmd) {
+		return fmt.Errorf("build-host cmd not allowed: %q", cmd)
+	}
 	if _, err := LoadBuildHostState(id); err != nil {
 		return err
 	}

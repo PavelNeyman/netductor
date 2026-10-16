@@ -85,13 +85,15 @@ func buildHeartbeat(client *http.Client, cfg config) error {
 	}
 	_ = json.NewDecoder(res.Body).Decode(&hb)
 	for _, c := range hb.Cmds {
-		if c == "backup_pull" {
+		switch c {
+		case "backup_pull":
 			if err := buildBackupPull(client, cfg); err != nil {
 				fmt.Fprintf(os.Stderr, "backup_pull: %v\n", err)
 			}
-		}
-		if c == "recovery_arm" {
+		case "recovery_arm":
 			armBuildRecovery(30 * time.Minute)
+		default:
+			fmt.Fprintf(os.Stderr, "build-host: ignore unknown cmd %q\n", c)
 		}
 	}
 	return nil
