@@ -430,14 +430,26 @@ func handleMessage(token string, m *message, admin int64) {
 
 	switch cmd {
 	case "/start", "/menu":
-		// Always forceHub: after clear history the stored message_id edits an invisible message.
-		// force|new|reset remain aliases.
-		// Deep links from channel alerts: /start updates → Updates screen in private chat.
+		// Always replace hub; delete the user command line (/start, /menu) when API allows.
+		// Deep links from channel alerts: /start updates → Versions hub in private chat.
 		switch strings.TrimSpace(strings.ToLower(arg1)) {
 		case "updates", "update":
-			// New multi-component Versions hub (not legacy primary-only picker).
+			// Drop /start updates text + previous hub so only Versions remains.
+			if uid > 0 {
+				_ = deleteMessage(token, chat, uid)
+			}
+			hub := notify.LoadHubMsg()
+			notify.ClearHubMsg()
+			if hub.MessageID > 0 && (hub.ChatID == 0 || hub.ChatID == chat) {
+				_ = deleteMessage(token, chat, hub.MessageID)
+			}
 			handleVersionsCB(token, chat, 0, "m:versions")
 			return
+		case "force", "new", "reset":
+			// explicit refresh
+		}
+		if uid > 0 {
+			_ = deleteMessage(token, chat, uid)
 		}
 		forceHub(token, chat, menuText(), mainKeyboard())
 	case "/help":

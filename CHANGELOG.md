@@ -1,3 +1,7 @@
+## 0.9.401
+
+- TG: /start updates deletes user command + previous hub before opening Versions (no stacked menus)
+
 ## 0.9.400
 
 - TG: /start updates and Tools→Updates open multi-component Versions hub (not legacy primary-only picker)
