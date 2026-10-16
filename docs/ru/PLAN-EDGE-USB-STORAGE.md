@@ -126,3 +126,9 @@ Sync: ~12ч + после deploy; не синкать, если на internal м�
 ## Мелочи открыты
 
 Порог free для pin · format один раздел vs whole-disk (предпочтительно один раздел)
+
+
+## Residual (not code)
+
+- Hardware lab e2e on Cudy + USB
+- Release cut when operator requests

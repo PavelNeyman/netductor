@@ -300,6 +300,24 @@
       </div>
     </form>
 
+    
+    <div id="edge_storage_panel" style="margin-top:1.5rem;border-top:1px solid var(--border,#333);padding-top:1rem">
+      <h3 data-i18n="edge_storage_title">Edge storage (USB)</h3>
+      <p class="hint" data-i18n="edge_storage_help">Day-2: backup A+B, mute USB alerts, restore from primary or offline pack path on device.</p>
+      <div class="row">
+        <div><label data-i18n="l_rpi_id">Device ID</label><input id="edge_st_device" placeholder="tr1200-..."/></div>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:.5rem;margin-top:.5rem">
+        <button type="button" class="primary" id="btnStBackup" data-i18n="btn_st_backup">Backup now (A+B)</button>
+        <button type="button" class="primary" id="btnStRestore" data-i18n="btn_st_restore">Restore from primary</button>
+        <button type="button" class="primary" id="btnStRestoreFmt" data-i18n="btn_st_restore_fmt">Format USB + restore</button>
+        <button type="button" class="primary" id="btnStMute" data-i18n="btn_st_mute">Mute USB alerts</button>
+        <button type="button" class="primary" id="btnStUnmute" data-i18n="btn_st_unmute">Unmute USB alerts</button>
+        <button type="button" class="primary" id="btnStOffline" data-i18n="btn_st_offline">Build offline pack (on primary)</button>
+      </div>
+      <pre id="edge_st_log" class="deploy-log" style="max-height:12rem;margin-top:.5rem"></pre>
+    </div>
+
     <form id="form-edge-luci" style="margin-top:1.5rem;border-top:1px solid var(--border, #333);padding-top:1rem">
       <h3 class="edge-h">LuCI control</h3>
       <div class="row">

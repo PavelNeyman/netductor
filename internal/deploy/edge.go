@@ -609,6 +609,13 @@ func applyGuestOnEdge(o EdgeOpts) error {
 		"rm -f /etc/nftables.d/90-netductor-guest.nft; true", "")
 
 	_ = out
+
+	// PLAN-EDGE-USB-STORAGE: auto A+B backup when device known
+	if strings.TrimSpace(o.DeviceID) != "" {
+		_ = edge.EnqueueCmd(o.DeviceID, "config_backup", "")
+		_ = edge.EnqueueCmd(o.DeviceID, "storage_backup", "")
+		fmt.Fprintln(os.Stderr, "==> queued storage backups for", o.DeviceID)
+	}
 	return nil
 }
 

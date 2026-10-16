@@ -14,7 +14,7 @@ Context: post v0.9.402 (vpn_client free-space check + optional data-mount for si
 | C Format + extroot | **done** (opt-in `usb_format` + overlay_ext → fstab UUID, reboot) |
 | D vpn after large overlay | **done** (skip vpn same pass when extroot needs reboot) |
 | E Pin sync | **done** (nd-pin-sync + cron 12h) |
-| F Alerts + mute | **done** |
+| F Alerts + mute | **done** (recovery ✅) |
 | G Backup A/B + remote restore | **done** (A existing + B push API) |
 | H Offline restore | **done** (storage_restore local + pin merge) |
 
@@ -213,3 +213,9 @@ Mute when operator clears "expect USB".
 
 - Exact free-space threshold on internal for pin
 - Whole-disk vs single-partition format default (prefer single partition; whole-disk only if disk empty)
+
+
+## Residual (not code)
+
+- Hardware lab e2e on Cudy + USB
+- Release cut when operator requests

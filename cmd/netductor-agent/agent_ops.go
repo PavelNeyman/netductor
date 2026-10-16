@@ -418,3 +418,119 @@ func storageRestoreLocal(arg string) string {
 	}
 	return "restore extracted; merge pin attempted — reboot when ready"
 }
+
+
+func storageRestoreRemote(client *http.Client, cfg config, arg string) string {
+	// arg: filename optional; empty = latest via /api/edge/storage/latest-b
+	name := strings.TrimSpace(arg)
+	var url string
+	if name == "" {
+		url = strings.TrimRight(cfg.Server, "/") + "/api/edge/storage/latest-b?device_id=" + cfg.DeviceID
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return err.Error()
+		}
+		req.Header.Set("Authorization", "Bearer "+cfg.Token)
+		resp, err := client.Do(req)
+		if err != nil {
+			return err.Error()
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode >= 300 {
+			return fmt.Sprintf("latest-b HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+		}
+		var meta map[string]any
+		_ = json.Unmarshal(body, &meta)
+		name, _ = meta["file"].(string)
+		if name == "" {
+			return "latest-b: no file"
+		}
+	}
+	// Prefer edgestorage path; also try legacy edge backups list
+	dl := strings.TrimRight(cfg.Server, "/") + "/api/edge/storage/download?device_id=" + cfg.DeviceID + "&name=" + name
+	req, err := http.NewRequest(http.MethodGet, dl, nil)
+	if err != nil {
+		return err.Error()
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err.Error()
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Sprintf("download HTTP %d: %s", resp.StatusCode, truncate(string(b), 200))
+	}
+	tmp := filepath.Join(os.TempDir(), "nd-B-restore.tar.gz")
+	f, err := os.Create(tmp)
+	if err != nil {
+		return err.Error()
+	}
+	_, err = io.Copy(f, io.LimitReader(resp.Body, 512<<20))
+	f.Close()
+	if err != nil {
+		return err.Error()
+	}
+	defer os.Remove(tmp)
+	_ = os.MkdirAll("/mnt/netductor", 0o755)
+	// ensure mount
+	_ = exec.Command("sh", "-c", "mountpoint -q /mnt/netductor || (block info 2>/dev/null; for p in /dev/sda1 /dev/sda /dev/sdb1; do [ -b $p ] && mount $p /mnt/netductor && break; done)").Run()
+	if out, err := exec.Command("tar", "-xzf", tmp, "-C", "/mnt/netductor").CombinedOutput(); err != nil {
+		return "extract: " + truncate(string(out)+" "+err.Error(), 400)
+	}
+	pin := "/etc/netductor-agent/pin"
+	if _, err := os.Stat(pin); err == nil {
+		_ = exec.Command("cp", "-a", pin+"/.", "/mnt/netductor/").Run()
+	}
+	_ = os.WriteFile("/etc/netductor-agent/restore_ready", []byte("1\n"), 0o644)
+	return "remote B restored to /mnt/netductor; pin merged — reboot when ready"
+}
+
+func storageInitUSB(arg string) string {
+	// arg may contain format=yes
+	format := strings.Contains(arg, "format=yes")
+	script := `
+set -e
+DEV=
+for d in /sys/block/sd*; do [ -d "$d" ] || continue; DEV=$(basename "$d"); break; done
+[ -n "$DEV" ] || { echo no_usb; exit 1; }
+PART=/dev/${DEV}1
+DISK=/dev/$DEV
+`
+	if format {
+		script += `
+if [ ! -b "$PART" ]; then
+  command -v parted >/dev/null 2>&1 && parted -s $DISK -- mklabel gpt mkpart primary ext4 1MiB 100% || true
+  sleep 2
+fi
+[ -b "$PART" ] || PART=$DISK
+umount "$PART" 2>/dev/null || true
+mkfs.ext4 -F -L netductor "$PART"
+`
+	}
+	script += `
+[ -b "$PART" ] || PART=$DISK
+mkdir -p /mnt/netductor
+umount /mnt/netductor 2>/dev/null || true
+mount "$PART" /mnt/netductor
+UUID=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
+[ -n "$UUID" ] || UUID=$(blkid -s UUID -o value "$PART" 2>/dev/null || true)
+if [ -n "$UUID" ]; then
+  uci -q delete fstab.nd_extroot
+  uci set fstab.nd_extroot=mount
+  uci set fstab.nd_extroot.uuid="$UUID"
+  uci set fstab.nd_extroot.target=/overlay
+  uci set fstab.nd_extroot.enabled=1
+  uci commit fstab
+fi
+echo 1 > /etc/netductor-agent/expect_usb
+echo INIT_OK part=$PART uuid=$UUID
+`
+	out, err := exec.Command("sh", "-c", script).CombinedOutput()
+	if err != nil {
+		return truncate(string(out)+" "+err.Error(), 500)
+	}
+	return truncate(string(out), 500)
+}

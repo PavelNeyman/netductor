@@ -529,6 +529,10 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return storageBackupB(client, cfg)
 	case "storage_restore":
 		return storageRestoreLocal(arg)
+	case "storage_restore_remote":
+		return storageRestoreRemote(client, cfg, arg)
+	case "storage_init_usb":
+		return storageInitUSB(arg)
 	case "config_restore":
 		return configRestore(client, cfg, arg)
 	case "guest_status":

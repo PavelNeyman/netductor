@@ -345,6 +345,131 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "file": name, "bytes": n})
 	})
 
+	mux.HandleFunc("/api/edge/storage/latest-b", func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		tokenDID := edge.DeviceIDFromAuth(auth)
+		if tokenDID == "" && !requireSession(w, r) {
+			return
+		}
+		did := r.URL.Query().Get("device_id")
+		if did == "" {
+			did = tokenDID
+		}
+		if did == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		if tokenDID != "" && did != tokenDID {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
+		}
+		_, name, err := edgestorage.LatestB(did)
+		if err != nil {
+			writeJSON(w, 404, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "file": name})
+	})
+	mux.HandleFunc("/api/edge/storage/download", func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		tokenDID := edge.DeviceIDFromAuth(auth)
+		if tokenDID == "" && !requireSession(w, r) {
+			return
+		}
+		did := r.URL.Query().Get("device_id")
+		name := filepath.Base(r.URL.Query().Get("name"))
+		if did == "" {
+			did = tokenDID
+		}
+		if did == "" || name == "" || name == "." || strings.Contains(name, "..") {
+			writeJSON(w, 400, map[string]string{"error": "device_id and name"})
+			return
+		}
+		if tokenDID != "" && did != tokenDID {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
+		}
+		path := filepath.Join(edgestorage.Dir(did), name)
+		b, err := os.ReadFile(path)
+		if err != nil {
+			writeJSON(w, 404, map[string]string{"error": "not found"})
+			return
+		}
+		w.Header().Set("Content-Type", "application/gzip")
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+name+"\"")
+		w.WriteHeader(200)
+		_, _ = w.Write(b)
+	})
+	mux.HandleFunc("/api/edge/storage/restore", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		body := readJSON(r)
+		id, _ := body["device_id"].(string)
+		if id == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		format, _ := body["format"].(bool)
+		if format {
+			_ = edge.EnqueueCmd(id, "storage_init_usb", "format=yes")
+		}
+		arg, _ := body["file"].(string)
+		cmdID := edge.EnqueueCmd(id, "storage_restore_remote", arg)
+		if cmdID == "" {
+			writeJSON(w, 400, map[string]string{"error": "enqueue failed (device not approved?)"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "cmd_id": cmdID, "format": format})
+	})
+	mux.HandleFunc("/api/edge/storage/backup-now", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		body := readJSON(r)
+		id, _ := body["device_id"].(string)
+		if id == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		idA := edge.EnqueueCmd(id, "config_backup", "")
+		idB := edge.EnqueueCmd(id, "storage_backup", "")
+		writeJSON(w, 200, map[string]any{"ok": true, "config_backup": idA, "storage_backup": idB})
+	})
+	mux.HandleFunc("/api/edge/storage/offline-pack", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		body := readJSON(r)
+		id, _ := body["device_id"].(string)
+		dest, _ := body["dest"].(string)
+		if id == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		if dest == "" {
+			dest = filepath.Join("/var/lib/netductor/edge-offline", id)
+		}
+		dir, err := edgestorage.WriteOfflinePack(id, dest)
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "path": dir})
+	})
+
 	mux.HandleFunc("/api/edge/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
