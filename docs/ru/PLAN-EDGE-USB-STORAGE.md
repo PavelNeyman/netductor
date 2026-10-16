@@ -1,143 +1,113 @@
-# ПЛАН: USB-накопитель на edge (extroot + fallback на внутреннюю flash)
+# ПЛАН: USB на edge (extroot + fallback + бэкап/restore)
 
-Статус: **запланировано** (ещё не в коде)  
-Связано: `PLAN-EDGE-DEPLOY-HYBRID.md`, модули `overlay_ext` / `vpn_client`, класс Cudy TR1200 (16 МиБ flash, USB 2.0).  
-Контекст: после v0.9.402 (проверка места для vpn_client + опциональный data-mount под sing-box).
+Статус: **запланировано** (решения ниже **согласованы**; в коде ещё нет)  
+Связано: `PLAN-EDGE-DEPLOY-HYBRID.md`, модули `overlay_ext` / `vpn_client`, класс TR1200 (16 МиБ flash, USB 2.0).  
+Контекст: после v0.9.402.
 
 ## Цель
 
-На OpenWrt магазина/travel с маленькой внутренней flash:
+1. Детект USB в карточке (объём, FS, занято/свободно, mount, UUID).
+2. Только с **явного согласия** — format и **полный extroot**.
+3. Internal — тёплый fallback: agent, сеть, Wi‑Fi, firewall; магазин **без VPN**, если USB нет.
+4. Периодический **sync** whitelist → pin на internal.
+5. **Алерты** + в UI «не ждать USB» (mute).
+6. **Бэкапы на primary** + remote и **offline** restore на новую флешку.
 
-1. Детектировать USB и показывать его в карточке устройства.
-2. Только с **явного согласия** оператора — подготовить USB (опционально format) и использовать как **полный extroot** (`/overlay` на USB).
-3. Внутренняя flash — **тёплый fallback**: agent, сеть, Wi‑Fi, firewall — магазин работает **без VPN**, если USB нет или он мёртв.
-4. **Периодическая синхронизация** критичных файлов с USB-overlay → internal overlay, чтобы fallback был актуальным.
-5. **Алерты** при пропаже/болезни USB; health накопителя.
+Не цель: USB обязателен для AP/agent. **Модем 4G на USB пока не учитываем.**
 
-Не цель: требовать USB для базового LAN/AP/agent.
+## Согласованные решения
 
-## Принципы продукта (не ломать)
+| # | Решение |
+|---|--------|
+| D1 | Целевой режим = **полный extroot**; data-mount только аварийный путь. |
+| D2 | Порядок: **тонкий стек на internal** → USB/extroot/reboot → **sing-box** → pin sync. |
+| D3 | Шаг модулей: **нет USB на probe** → **vpn_client выключен/неактивен** (и format/extroot). |
+| D4 | Agent → primary **напрямую** (`:8789` mTLS). SoftFallback + PrimaryHost. |
+| D5 | USB out → boot с pin → AP + agent + ISP. |
+| D6 | Format/extroot только галочки + warning в той же сессии. |
+| D7 | fstab по **UUID**. |
+| D8 | Pin: whitelist; без sing-box; безопасная замена (checksum / stage+rename). |
+| D9 | LuCI ASU off на internal **до** extroot и в whitelist pin. |
+| D10 | Истина при живом USB = **USB overlay**; sync **active → pin**, не наоборот на каждом boot. |
+| D11 | Алерты storage + UI «ожидать USB / mute». |
+| D12 | Guest/nft/firewall essentials в pin. |
+| D13 | Бэкап **A** (sysupgrade-style) + **B** (tar файлов overlay, не образ диска). |
+| D14 | Remote restore: format → extroot → B → **merge pin с internal сверху** → алерт → **ручной reboot** из UI. |
+| D15 | Offline restore — см. ниже. |
 
-| Принцип | Суть |
-|---------|------|
-| **Agent → primary напрямую** | `SERVER=https://<primary>:8789` (mTLS). **Не** зависит от LAN VLESS/sing-box. В клиентском JSON — `SoftFallback` и direct на `PrimaryHost`. |
-| **Падение VPN ≠ отключение магазина** | Нет sing-box/VLESS → egress LAN через **ISP WAN**. Интернет у сотрудников остаётся; пропадает только путь «через netductor». |
-| **Падение USB ≠ кирпич** | Boot без USB → internal overlay; AP + DHCP + agent работают. Нет: тяжёлых пакетов с extroot (**sing-box**). |
-| **Деструктивные операции — только opt-in** | Format / разметка / pivot extroot — только галочки в UI + предупреждение. |
+## Что влезает на internal без sing-box
 
-### Путь agent сейчас (проверка в коде)
+**Да:** agent, mTLS, UCI, guest, ASU off. **Нет:** полный sing-box.
 
-- Provision пишет `SERVER=https://primary:8789`, не через пользовательский VLESS.
-- Генератор VLESS-клиента: `SoftFallback` + **direct** на `PrimaryHost`, чтобы control plane не уходил в туннель.
-- Регресс-тест: VPN down или USB вынут — heartbeat agent до primary при живом WAN.
-
-## Железо (класс TR1200)
-
-| | Обычно |
-|--|--|
-| Internal flash | 16 МиБ SPI NOR; overlay часто ~8–12 МиБ free |
-| RAM | ~128 МиБ |
-| USB | 1× USB 2.0 (питание ~2.5 W — модемам часто нужен powered hub) |
-| Встроенный microSD | **Нет** на TR1200 |
-| Что **влезает без sing-box** | Agent, mTLS, UCI (network/wireless/dhcp/firewall), guest — **да**. **Полный sing-box — нет**. |
-
-## Архитектура
+## Порядок деплоя
 
 ```text
-                    ┌──────────────────────────────┐
-                    │ USB (ext4, UUID в fstab)      │
-                    │  = /overlay (extroot)         │
-                    │  sing-box, опциональные pkg   │
-                    └──────────────▲─────────────────┘
-                                   │ pivot при boot
-┌──────────────────────────────────┴──────────────────┐
-│ Boot: ROM + попытка extroot                         │
-│ USB OK  → большой overlay (возможен VPN)            │
-│ USB fail → internal overlay (AP + agent + ISP)      │
-└─────────────────────────────────────────────────────┘
-         периодический sync (whitelist) → pin на internal
+1) Probe (+ USB) → карточка
+2) Модули: нет USB → vpn_client OFF
+3) Тонкий стек на internal (без sing-box)
+4) Format/extroot по согласию → reboot
+5) sing-box / vpn_client на большом overlay
+6) Pin sync + бэкап A (+ B)
 ```
 
-### Решение: полный extroot
+## UI
 
-В этом плане целевой режим при наличии USB и согласии — **весь /overlay на USB**.
+Карточка storage; галочки Use USB / Format / Extroot / Pin / Expect USB alerts; day-2: backup now, restore from primary, restore from offline pack, mute, manual reboot after restore.
 
-- Data-mount только под sing-box — запасной путь (частично уже есть в vpn_client), если оператор **не** включает format/extroot.
-- Рекомендуемый путь: **extroot**.
+## Бэкапы на primary
 
-## UI / поток оператора
+| Тип | Содержимое |
+|-----|------------|
+| **A** | Конфиг OpenWrt (как sysupgrade -b) — и **без** USB |
+| **B** | tar.gz **файлов** с extroot (не dd) |
 
-### Карточка устройства (Web, op; не deploy из TG)
+Путь вида `/var/lib/netductor/edge-backups/<device_id>/`, манифест, last+previous, по расписанию и после deploy, mTLS, mode 0600.
 
-- Internal: overlay total/free.
-- USB: есть/нет; устройство; размер; разделы; FS; mount; free/used; UUID.
-- Health: last seen, mount ok, ошибки I/O при наличии.
+### Remote restore (есть путь до primary)
 
-### Галочки
+1. UI confirm → agent format → layout → download B → extract.  
+2. **Поверх — актуальный internal pin** (старый B не откатывает SERVER/mTLS).  
+3. Алерт «можно reboot».  
+4. Reboot **вручную** из UI.  
+5. Проверка → recovery OK.
 
-| Контрол | Смысл |
-|---------|--------|
-| **Use USB for storage** | Мастер-включение |
-| **Format USB (destroy data)** | mkfs.ext4 — **обязательное подтверждение** |
-| **Extroot (перенос /overlay на USB)** | Pivot + reboot |
-| **Pin fallback to internal** | Sync whitelist internal←USB (по умолчанию **вкл** при extroot) |
+### Offline restore (нет сети до primary)
 
-### Порядок модулей
+1. **Pack заранее** с доступом к primary (как offline-prep): B (+ опционально A), checksums, привязка к **device_id**.  
+2. Доставка: вторая флешка, каталог `nd-restore/`, или с ноутбука по LAN.  
+3. «Restore from local pack» → тот же pipeline, merge **internal pin сверху**.  
+4. Когда primary снова доступен — залить свежие A/B.
 
-1. Probe (в т.ч. USB).
-2. Format/extroot при выборе.
-3. Agent + UCI (работают с internal).
-4. Pivot + reboot.
-5. На большом overlay — **sing-box** / vpn_client.
-6. Таймер sync.
+Ограничения: pack с секретами; отказ при несовпадении device_id; лучше готовить pack, пока устройство здорово.
 
-Нет USB при выбранном extroot → **жёсткая ошибка**, без «успешного» reboot вслепую.
+## Pin whitelist (ориентир)
 
-## Фазы реализации
+agent, `/etc/netductor-agent/**`, network/wireless/dhcp/firewall/system + guest, ASU off.  
+**Не:** sing-box, кэши opkg, большие логи.
 
-| Фаза | Содержание |
-|------|------------|
-| **A** | Детект + поля карточки + RU/EN, без деструктива |
-| **B** | Mount уже готового ext4 по UUID |
-| **C** | Opt-in format + extroot (копия overlay, fstab, reboot) |
-| **D** | vpn_client на большом overlay; SoftFallback + PrimaryHost |
-| **E** | Pin + sync whitelist (agent, mTLS, UCI сетей; **не** sing-box) |
-| **F** | Алерты missing/unhealthy/extroot failed + recovery ✅ |
+Sync: ~12ч + после deploy; не синкать, если на internal мало места.
 
-## Алерты
+## Фазы
 
-| Событие | |
-|---------|--|
-| USB ожидался, нет после boot | ⚠️ storage missing |
-| Extroot настроен, не смонтирован | 🔴 extroot failed |
-| RO / I/O errors | ⚠️ storage unhealthy |
-| Восстановление | ✅ по тому же паттерну, что channel/path |
+| Фаза | |
+|------|--|
+| A | Детект + card + gate vpn без USB |
+| B | Mount готового ext4 по UUID |
+| C | Format + extroot + reboot |
+| D | vpn_client на большом overlay |
+| E | Pin + sync |
+| F | Алерты + mute |
+| G | Backup A/B + remote restore + merge |
+| H | Offline pack + local restore |
 
-## Безопасность
+## Тесты
 
-- Format только с явного согласия в той же сессии.
-- В fstab — UUID, не `/dev/sda1`.
-- Приватные ключи оператора на edge не хранить.
-- TG — только алерты, не deploy.
+Без USB → vpn выключен; extroot + sing-box; вынуть USB → AP+agent+алерт; remote restore; offline restore; VPN down → ISP + heartbeat.
 
-## Тесты (лаб)
+## Вне скоупа сейчас
 
-1. Без USB — базовый deploy; vpn без места — явный fail/skip.  
-2. USB + format + extroot — после reboot overlay на USB, sing-box, soft-fallback.  
-3. Вынуть USB — reboot — AP + agent; алерт; без sing-box.  
-4. Вернуть USB — extroot снова; recovery-алерт.  
-5. Убить VLESS — ISP у LAN; agent бьёт primary.
+Модем на USB · образы диска · auto-reboot после restore · sing-box на internal
 
-## Вне скоупа (пока)
+## Мелочи открыты
 
-- RAID, multi-disk.
-- Модем+storage на одном stick как основной дизайн.
-- sing-box на internal flash.
-- Тихий format в фоне.
-
-## Открытые продуктовые вопросы
-
-1. Интервал sync (предложение: 12ч + после успешного deploy).  
-2. Format: только раздел vs весь диск (предложение: один раздел; whole-disk только если диск «пустой»).  
-3. Мин. free на internal после pin — иначе отказ sync.
-'''
+Порог free для pin · format один раздел vs whole-disk (предпочтительно один раздел)

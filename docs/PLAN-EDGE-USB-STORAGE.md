@@ -1,193 +1,200 @@
-# PLAN: Edge USB storage (extroot + internal fallback)
+# PLAN: Edge USB storage (extroot + internal fallback + backup/restore)
 
-Status: **planned** (not implemented)  
-Related: `PLAN-EDGE-DEPLOY-HYBRID.md`, edge modules `overlay_ext` / `vpn_client`, Cudy TR1200 class (16 MiB flash, USB 2.0).  
-Stop-line context: after v0.9.402 (vpn_client free-space check + optional data-mount path for sing-box).
+Status: **planned** (agreed product decisions below; not implemented)  
+Related: `PLAN-EDGE-DEPLOY-HYBRID.md`, modules `overlay_ext` / `vpn_client`, TR1200-class (16 MiB flash, USB 2.0).  
+Context: post v0.9.402 (vpn_client free-space check + optional data-mount for sing-box).
 
 ## Goal
 
-On travel/site OpenWrt with tiny internal flash:
+1. Detect USB and show it on the device card (size, FS, used/free, mount, UUID).
+2. With **explicit operator consent**, format (optional) and use USB as **full extroot**.
+3. Keep **internal flash** as warm fallback: agent, network, Wi‑Fi, firewall — shop runs **without VPN** if USB is missing/dead.
+4. **Periodic sync** (whitelist) USB/active overlay → internal pin so fallback stays current.
+5. **Alerts** for missing/unhealthy USB; per-device ability to **disable** USB expectation alerts.
+6. **Backups on primary** + remote (and offline) restore onto a **new** USB stick.
 
-1. Detect USB storage and show it on the device card.
-2. With **explicit operator consent**, prepare USB (format optional) and use it as **full extroot** (`/overlay` on USB).
-3. Keep **internal flash** as a **warm fallback**: agent, network, Wi‑Fi, firewall — enough to run the shop without VPN if USB is missing or dead.
-4. **Periodic sync** of critical files from USB overlay → internal overlay so fallback stays reasonably current.
-5. **Alerts** when USB is missing/unhealthy; health signals for storage.
+Non-goal: require USB for basic LAN/AP/agent. Modem/4G on same USB port is **out of scope for now**.
 
-Non-goal: require USB for basic LAN/AP/agent operation.
+## Agreed decisions (product)
 
-## Product principles (must not regress)
+| # | Decision |
+|---|----------|
+| D1 | Target mode with USB + consent = **full extroot**, not sing-box-only data mount as end state. Data-mount remains emergency path only. |
+| D2 | Deploy order: **internal thin stack first** → USB prepare/extroot/reboot → **sing-box on large overlay** → pin sync. |
+| D3 | **Modules step:** if probe found **no USB**, disable / grey out **vpn_client** (and extroot/format controls). No silent hard-fail after operator enabled VPN with nowhere to put it. |
+| D4 | Agent → primary **direct** (`SERVER=https://primary:8789` mTLS). SoftFallback + PrimaryHost direct so VPN loss ≠ blackhole; agent must not depend on sing-box. |
+| D5 | USB loss → boot internal pin → AP + agent + ISP path; only extra features (VPN binary) gone. |
+| D6 | Destructive USB ops only with UI checkboxes + warning in the same session. |
+| D7 | fstab by **UUID**, never rely on `/dev/sda1` alone. |
+| D8 | Pin sync: whitelist only; never sing-box on internal; safe replace (checksum / stage+rename); do not overwrite working agent with a failed copy. |
+| D9 | LuCI ASU off applied on **internal before** extroot **and** included in pin whitelist so fallback has no upgrade nag. |
+| D10 | Single source of truth while USB healthy = **USB overlay**. Sync direction normal ops: **active → internal pin** only (not internal overwriting USB on every boot). |
+| D11 | USB alerts: missing / extroot failed / unhealthy + recovery OK. UI: per-device **expect USB / mute storage alerts**. |
+| D12 | Guest Wi‑Fi / nft / essential firewall snippets in pin whitelist. |
+| D13 | Backups on primary: type **A** sysupgrade-style + type **B** overlay **file** archive (not disk image). |
+| D14 | Remote restore new USB: agent format → extroot → fetch B → extract → **merge internal pin on top** → alert ready → **manual reboot** from UI. |
+| D15 | Offline restore path when no path to primary (see below). |
+
+## Principles
 
 | Principle | Detail |
 |-----------|--------|
-| **Agent → primary is direct** | Agent uses `SERVER=https://<primary>:8789` (mTLS). Must **not** depend on LAN VLESS/sing-box. `SoftFallback` + `PrimaryHost` direct rules in client JSON exist so control plane survives VPN loss. |
-| **VPN loss ≠ shop blackout** | When sing-box/VLESS is down, **LAN egress uses ISP WAN** (soft-fallback / direct). Staff keep internet; only “via netductor path” features drop. |
-| **USB loss ≠ brick** | Boot without USB → internal overlay; AP + DHCP + agent still work. Lost: large packages on extroot (notably **sing-box**). |
-| **Destructive USB ops are opt-in** | Format / partition / extroot pivot only after UI checkboxes + clear warning. |
+| Agent direct | Control plane must survive VPN and USB loss whenever path to primary exists. |
+| VPN loss ≠ shop blackout | LAN egress via ISP when tunnel down. |
+| USB loss ≠ brick | Internal pin sufficient for AP + DHCP + agent. |
+| No silent destroy | Format/extroot only opt-in. |
 
-### Agent path today (verify in code)
+### What fits on internal without sing-box
 
-- Provision writes `SERVER=https://primary:8789` (or host:8789), not via user VLESS.
-- Edge VLESS client generator supports `SoftFallback` and **direct** to `PrimaryHost` so agent/enroll traffic is not hairpinned into the tunnel.
-- Implementers must **regression-test**: with VPN down or USB unplugged, agent heartbeats still reach primary when WAN works.
-
-## Hardware reality (TR1200-class)
-
-| Item | Typical |
-|------|---------|
-| Internal flash | 16 MiB SPI NOR; usable overlay often ~8–12 MiB free |
-| RAM | ~128 MiB |
-| USB | 1× USB 2.0 (power budget ~2.5 W — modems may need powered hub) |
-| Internal microSD | **No** on TR1200 |
-| What fits **internal without sing-box** | Agent binary, mTLS material, UCI (network/wireless/dhcp/firewall), guest rules, small state — **yes, by design**. **sing-box full binary does not** (tens of MiB). |
+**Yes:** agent binary, mTLS, UCI (network/wireless/dhcp/firewall/system), guest rules, small state, ASU-off.  
+**No:** full sing-box (and other large packages).
 
 ## Architecture
 
 ```text
-                    ┌──────────────────────────────┐
-                    │ USB (ext4, UUID in fstab)     │
-                    │  = /overlay (extroot)         │
-                    │  sing-box, optional packages  │
-                    └──────────────▲─────────────────┘
-                                   │ pivot at boot
-┌──────────────────────────────────┴──────────────────┐
-│ Boot: ROM + try extroot                             │
-│ If USB OK  → run with large overlay (VPN possible)  │
-│ If USB fail → internal overlay (AP + agent + ISP)   │
-└─────────────────────────────────────────────────────┘
-         periodic sync (whitelist) ──► internal pin
+  USB ext4 (UUID)  --extroot-->  /overlay   (sing-box, packages)
+         |
+         |  sync whitelist
+         v
+  Internal overlay pin  --boot if USB fail-->  AP + agent + ISP
+         |
+         |  backup A + B
+         v
+  Primary  /var/lib/netductor/edge-backups/<device_id>/
 ```
 
-### Two storage roles
+## Deploy sequence (agreed)
 
-| Role | Location | Contents |
-|------|----------|----------|
-| **Primary runtime overlay** | USB extroot | Full writable root after pivot: packages, sing-box, logs policy as configured |
-| **Fallback pin** | Internal overlay | Whitelist only: agent, agent.env, device_id, mTLS, essential UCI snapshots, **not** sing-box |
+```text
+1) Probe (incl. USB facts) -> card
+2) Module selection:
+   - no USB -> vpn_client OFF (disabled); format/extroot OFF
+   - USB present -> operator may enable Use USB / Format / Extroot / Pin
+3) Apply thin stack on **internal** (agent, UCI, guest, ASU off) — never sing-box yet
+4) If format/extroot:
+   - mkfs if consented -> copy overlay -> fstab UUID -> reboot
+5) After extroot up -> vpn_client / sing-box on large overlay
+6) Enable pin sync timer; take backup A (+ B if extroot active)
+```
 
-### Why full extroot (decision)
+First boot after format must not leave the shop without AP: thin stack on internal **before** pivot.
 
-Operator choice for this plan: **full overlay on USB**, not “sing-box-only data mount” as the end state.
+## UI
 
-- Data-mount-only remains a **fallback install path** if operator declines format/extroot but has a pre-mounted volume (already partially supported for vpn_client).
-- Default recommended path when USB present + consent: **extroot**.
+### Card
 
-## UI / operator flow
+Internal overlay free/total; USB present, size, partitions, FS, mount, free/used, UUID; health summary.
 
-### Device card (all UIs: Web, op TUI/CLI; not TG deploy)
+### Checkboxes
 
-Show storage block:
+- Use USB for storage
+- Format USB (destroy data) — confirm
+- Extroot (move /overlay to USB)
+- Pin fallback to internal (default on if extroot)
+- Expect USB / storage alerts (default on if extroot ever configured)
 
-- Internal: overlay total/free (existing facts).
-- USB: present yes/no; device node; size; partitions; FS type; mounted path; free/used; UUID if any.
-- Health: last seen, mount ok, optional SMART-ish / I/O error count if available.
+### Restore actions (day-2)
 
-### Explicit controls (checkboxes)
+- Backup now (A and/or B)
+- Init new USB + restore from primary
+- Init new USB + restore from **offline pack** (local)
+- Mute/unmute storage alerts
+- Manual reboot after restore ready
 
-| Control | Meaning |
-|---------|---------|
-| **Use USB for storage** | Master enable |
-| **Format USB (destroy data)** | mkfs.ext4 on chosen partition/device — **required confirmation** |
-| **Extroot (move /overlay to USB)** | Pivot after copy; forces reboot |
-| **Pin fallback to internal** | Enable sync whitelist internal←USB (default **on** when extroot on) |
+## Backups on primary
 
-Hints: CIDR map / site LAN as elsewhere; warn that format is irreversible; warn USB power for hubs/modems.
+| Type | Content | Use |
+|------|---------|-----|
+| **A** | OpenWrt-style config backup (sysupgrade -b or equivalent) | Fast config rollback; works **without** USB |
+| **B** | tar.gz of **files** from USB extroot (not dd image) | Rebuild new stick |
 
-### Deploy order (modules)
+Store under e.g. `/var/lib/netductor/edge-backups/<device_id>/` with manifest: `device_id`, time, OpenWrt version, path list, sha256. Keep **last + previous** slots. Schedule + after successful deploy. Agent uploads over mTLS; files mode `0600`.
 
-1. Probe facts (incl. USB).
-2. If format/extroot selected → prepare USB (see phases) **before** or **with** network stage as documented in implementation notes.
-3. Agent + UCI on device (works on internal).
-4. Extroot pivot + reboot when selected.
-5. After USB overlay up → install **sing-box** / vpn_client onto large overlay.
-6. Start fallback sync timer.
+### Remote restore (new stick, path to primary OK)
 
-If extroot selected but USB missing → **hard fail** before destructive network claims success (same class as vpn space check).
+1. Operator: UI -> Init new USB + restore (confirm format).
+2. Agent detects disk -> format -> extroot structure -> download **B** -> extract.
+3. **Merge internal pin on top** (newer agent.env, mTLS, SERVER, critical UCI) so a weeks-old B cannot roll back connectivity to primary.
+4. Alert: restore ready — reboot when convenient.
+5. **Manual** reboot from UI.
+6. Post-boot: extroot + heartbeat -> recovery alert OK.
+
+Idempotent: second click does not re-format without confirm. Primary must have free space for archives.
+
+### Offline restore (no path to primary)
+
+When the shop has no WAN/path to primary (or primary down), remote fetch of B is impossible.
+
+**Agreed approach:**
+
+1. **Prepare offline pack** on a machine that can reach primary (operator laptop or another site), same family as edge offline-prep:
+   - device_id-scoped archive **B** (and optional **A**)
+   - manifest + checksums
+   - optional last pin snapshot if stored on primary
+2. Deliver pack: second USB, `nd-restore/` on the replacement stick, or copy from laptop on local LAN to the router when only LAN works.
+3. On device: local action "Restore from local pack" (path or auto-detect `/mnt/.../nd-restore` / labeled volume).
+4. Same pipeline as remote: format target if needed -> extract B -> **merge local internal pin on top** -> alert -> manual reboot.
+5. When primary is reachable again: agent uploads fresh A/B and resumes normal sync.
+
+**Constraints:**
+
+- Offline pack is **secrets-bearing** — treat like backup material.
+- Pack must be **device_id-bound** (refuse restore on mismatch).
+- Prefer generating pack while device still healthy; emergency pack from primary last B only.
+
+## Pin whitelist (indicative)
+
+- netductor-agent binary (if size allows)
+- `/etc/netductor-agent/**` (config, mtls; no huge caches)
+- `/etc/config/network`, `wireless`, `dhcp`, `firewall`, `system` + guest/netductor snippets
+- ASU-off UCI
+
+**Never:** sing-box binary, opkg caches, large logs
+
+Sync: every ~12h + after successful deploy; skip if internal free below threshold; stage + verify then replace.
+
+## Alerts
+
+| Event | |
+|-------|--|
+| Expect USB but missing | warning |
+| Extroot configured, not mounted | critical |
+| RO / repeated I/O errors | warning |
+| Recovered | recovery OK |
+| Restore ready / restore failed | info / critical |
+
+Mute when operator clears "expect USB".
 
 ## Implementation phases
 
-### Phase A — Detect + card (no destructive ops)
+| Phase | |
+|-------|--|
+| **A** | USB detect + card fields + RU/EN; module gate: no USB -> vpn_client disabled |
+| **B** | Mount existing ext4 by UUID (no mkfs) |
+| **C** | Opt-in format + extroot + reboot |
+| **D** | vpn_client only after large overlay; SoftFallback + PrimaryHost |
+| **E** | Internal pin + sync |
+| **F** | Storage alerts + mute |
+| **G** | Backup A/B to primary; remote restore + merge pin |
+| **H** | Offline restore pack + local restore path |
 
-- Extend edge facts probe: `block info`, USB size, partitions, mounts, free.
-- API/card fields + Web/op rendering (RU/EN).
-- Tests: golden facts with/without USB.
+## Testing
 
-### Phase B — Safe mount of existing ext4
+1. No USB -> vpn_client disabled in UI; thin deploy OK.
+2. USB + extroot -> sing-box OK; soft-fallback OK.
+3. Pull USB -> AP + agent; alert; no VPN.
+4. New stick remote restore + merge -> manual reboot -> same function.
+5. Offline pack restore without primary -> merge pin -> reboot -> later re-register backups.
+6. VPN down, USB present -> ISP LAN + agent heartbeat.
 
-- If partition already ext4 + operator enables “use USB”: fstab by **UUID**, mount `/mnt/netductor` or prepare for extroot path.
-- No mkfs without checkbox.
+## Out of scope (now)
 
-### Phase C — Opt-in format + extroot
+- 4G modem sharing the USB port
+- Disk images / RAID
+- Auto-reboot after restore
+- Guaranteeing sing-box on internal flash
 
-- Format only if checkbox set; target selection rules (prefer single empty disk; refuse mounted system disk).
-- Copy internal `/overlay` → USB; fstab `target=/overlay` UUID; `block-mount` packages as needed.
-- Reboot; verify extroot active (`mount | grep overlay` / `df`).
-- Document recovery: pull USB → boot internal.
+## Open (minor)
 
-### Phase D — vpn_client on large overlay
-
-- After extroot, install sing-box to `/usr/sbin` on USB overlay (space pre-check still required).
-- SoftFallback + PrimaryHost direct remain mandatory in generated client config.
-
-### Phase E — Internal pin + sync
-
-**Whitelist (indicative):**
-
-- `/usr/sbin/netductor-agent` (or compressed copy if size requires policy)
-- `/etc/netductor-agent/**` (config, mtls, **not** huge caches)
-- `/etc/config/network`, `wireless`, `dhcp`, `firewall`, `system` (and netductor guest snippets)
-- device_id / bootstrap tokens as applicable
-
-**Not on pin:** sing-box binary, large lists, package caches.
-
-**Sync:** procd timer or agent cmd (e.g. every 6–24h + after successful deploy). Copy USB→internal only when both healthy; atomic replace where possible.
-
-**Boot without USB:** internal pin must be sufficient for AP + agent + ISP path.
-
-### Phase F — Alerts + health
-
-| Event | Alert |
-|-------|--------|
-| USB expected but missing after boot | ⚠️ edge storage missing |
-| Extroot configured but not mounted | 🔴 edge extroot failed |
-| Mount read-only / I/O errors | ⚠️ edge storage unhealthy |
-| Recovered | ✅ recovery alert (same pattern as channel/path) |
-
-Health: periodic `df`, mount check, optional `iostat`/kernel USB disconnect count; expose in agent heartbeat facts → primary metrics/TG.
-
-## Security / safety
-
-- Never format without explicit UI consent in the same session.
-- Prefer UUID over `/dev/sda1` in fstab.
-- Do not store operator private keys on edge.
-- Sync must not push secrets to world-readable paths.
-- TG: alerts only; no edge deploy from channel.
-
-## Testing (lab)
-
-1. No USB → deploy without extroot; agent+LAN OK; vpn_client fails or skips with clear reason if no space.
-2. USB + format + extroot → after reboot overlay on USB; sing-box installs; VPN soft-fallback works.
-3. Pull USB → reboot → AP + agent up; alert fired; no sing-box.
-4. Reinsert USB → extroot returns; optional clear recovery alert.
-5. Kill VLESS/secondary → LAN still has ISP; agent still heartbeats primary.
-
-## Documentation
-
-- EN: this file.
-- RU: `docs/ru/PLAN-EDGE-USB-STORAGE.md` (same meaning).
-- Link from `OPEN_ITEMS` / handoff when work starts.
-- Operator hint in Web edge wizard: short “USB / extroot” note.
-
-## Out of scope (unless added later)
-
-- RAID or multi-disk.
-- Automatic modem+storage combo on one stick as primary design.
-- Guaranteeing sing-box on internal flash.
-- Silent background format.
-
-## Open questions (product)
-
-1. Default sync interval (proposal: 12h + on deploy success).
-2. Whether “format” allows whole-disk wipe vs single partition only (proposal: single partition, whole-disk only if one partition table empty).
-3. Minimum free internal after pin (reject sync if internal free &lt; threshold).
-'''
+- Exact free-space threshold on internal for pin
+- Whole-disk vs single-partition format default (prefer single partition; whole-disk only if disk empty)
