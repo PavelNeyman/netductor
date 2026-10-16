@@ -391,7 +391,7 @@ func buildAgentUpdateArg(deviceID, arg string) (string, error) {
 
 func runEdgeStorageCLI(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor edge storage backup-now|restore|mute|unmute|offline-pack <device_id> [--format]")
+		fmt.Fprintln(os.Stderr, "usage: netductor edge storage list|backup-now|restore|mute|unmute|offline-pack <device_id> [--format]")
 		os.Exit(2)
 	}
 	switch args[0] {

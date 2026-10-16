@@ -66,7 +66,9 @@ func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool 
 		id := strings.TrimPrefix(rest, "dev:")
 		var b strings.Builder
 		b.WriteString(fmt.Sprintf("💾 <b>%s</b>\n", esc(id)))
+		b.WriteString(formatEdgeStorageListHTML(id, ru))
 		labels := []struct{ data, en, ru string }{
+			{"list:" + id, "📋 List", "📋 Список"},
 			{"bak:" + id, "Backup A+B", "Бэкап A+B"},
 			{"rst:" + id, "Restore", "Restore"},
 			{"fmt:" + id, "Format+restore", "Format+restore"},
@@ -81,11 +83,11 @@ func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool 
 				lab = L.ru
 			}
 			style := "link"
-			if i == 0 {
+			if i == 1 {
 				style = "primary"
 			}
 			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="m:edgestor:%s">%s</tg-button>`, style, L.data, lab))
-			if i == 2 {
+			if i == 3 {
 				b.WriteString(`</tg-button-row><tg-button-row align="left">`)
 			}
 		}
@@ -102,13 +104,15 @@ func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool 
 	act, id := parts[0], parts[1]
 	var msg string
 	switch act {
+	case "list":
+		msg = fmt.Sprintf("💾 <b>%s</b>\n", esc(id)) + formatEdgeStorageListHTML(id, ru)
 	case "bak":
 		a := edge.EnqueueCmd(id, "config_backup", "")
-		b := edge.EnqueueCmd(id, "storage_backup", "")
+		bb := edge.EnqueueCmd(id, "storage_backup", "")
 		if ru {
-			msg = fmt.Sprintf("✅ Очередь бэкапа\nconfig=<code>%s</code>\nstorage=<code>%s</code>", esc(a), esc(b))
+			msg = fmt.Sprintf("✅ Очередь бэкапа\nconfig=<code>%s</code>\nstorage=<code>%s</code>", esc(a), esc(bb))
 		} else {
-			msg = fmt.Sprintf("✅ Backup queued\nconfig=<code>%s</code>\nstorage=<code>%s</code>", esc(a), esc(b))
+			msg = fmt.Sprintf("✅ Backup queued\nconfig=<code>%s</code>\nstorage=<code>%s</code>", esc(a), esc(bb))
 		}
 	case "rst":
 		cid := edge.EnqueueCmd(id, "storage_restore_remote", "")
@@ -129,15 +133,17 @@ func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool 
 		}
 	case "mute":
 		_ = edge.SetUSBAlertMute(id, true)
-		msg = "✅ mute USB alerts"
 		if ru {
 			msg = "✅ USB-алерты выключены"
+		} else {
+			msg = "✅ mute USB alerts"
 		}
 	case "unm":
 		_ = edge.SetUSBAlertMute(id, false)
-		msg = "✅ unmute USB alerts"
 		if ru {
 			msg = "✅ USB-алерты включены"
+		} else {
+			msg = "✅ unmute USB alerts"
 		}
 	case "pack":
 		dir, err := edgestorage.WriteOfflinePack(id, "/var/lib/netductor/edge-offline/"+id)
@@ -153,4 +159,60 @@ func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool 
 	}
 	reply(token, chat, msgID, msg, nav)
 	return true
+}
+
+func formatEdgeStorageListHTML(id string, ru bool) string {
+	var b strings.Builder
+	list, _ := edgestorage.ListManifests(id)
+	if ru {
+		b.WriteString("<b>Манифесты на primary</b>\n")
+	} else {
+		b.WriteString("<b>Manifests on primary</b>\n")
+	}
+	if len(list) == 0 {
+		b.WriteString("<i>—</i>\n")
+	} else {
+		b.WriteString("<table bordered striped compact>\n<tr><th>#</th><th>kind</th><th>file</th><th>when</th></tr>\n")
+		for i, m := range list {
+			if i >= 8 {
+				b.WriteString(fmt.Sprintf("<tr><td colspan=\"4\">… +%d</td></tr>\n", len(list)-8))
+				break
+			}
+			when := m.Created
+			if len(when) > 19 {
+				when = when[:19]
+			}
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>\n",
+				i+1, esc(m.Kind), esc(shortName(m.File)), esc(when)))
+		}
+		b.WriteString("</table>\n")
+	}
+	ups := edge.ListBackups(id)
+	if ru {
+		b.WriteString("<b>Загрузки с агента</b>\n")
+	} else {
+		b.WriteString("<b>Agent uploads</b>\n")
+	}
+	if len(ups) == 0 {
+		b.WriteString("<i>—</i>\n")
+	} else {
+		b.WriteString("<table bordered striped compact>\n<tr><th>#</th><th>name</th><th>size</th></tr>\n")
+		for i, u := range ups {
+			if i >= 8 {
+				break
+			}
+			name, _ := u["name"].(string)
+			sz := u["size"]
+			b.WriteString(fmt.Sprintf("<tr><td>%d</td><td><code>%s</code></td><td>%v</td></tr>\n", i+1, esc(shortName(name)), sz))
+		}
+		b.WriteString("</table>\n")
+	}
+	return b.String()
+}
+
+func shortName(s string) string {
+	if len(s) <= 28 {
+		return s
+	}
+	return s[:12] + "…" + s[len(s)-12:]
 }

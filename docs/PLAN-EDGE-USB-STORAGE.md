@@ -224,3 +224,8 @@ Mute when operator clears "expect USB".
 ## UI parity
 
 Web panel + TUI menu (backup/restore/mute/pack) + TG Routers → USB/storage. CLI: `netductor edge storage …`. EN/RU on Web and TG.
+
+
+### Follow-up (closed)
+- USB alert prev-state persisted (`/var/lib/netductor/edge-storage/_usb_prev.json`) so recovery survives primary restart.
+- Backup list tables: TG device card, TUI `edge-storage-list`, CLI `edge storage list`, Web List backups.

@@ -59,6 +59,7 @@ func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
 		menuItem{TT(lang, "Secondary status", "Secondary"), "agent online", "secondary-status"},
 		menuItem{TT(lang, "Secondary sync", "Sync secondary"), "VPN users → secondary", "secondary-sync"},
 		menuItem{TT(lang, "Edge devices", "Edge устройства"), "list", "edge-list"},
+		menuItem{TT(lang, "Edge USB list", "Edge USB список"), "backups", "edge-storage-list"},
 		menuItem{TT(lang, "Edge USB backup", "Edge USB бэкап"), "A+B", "edge-storage-backup"},
 		menuItem{TT(lang, "Edge USB restore", "Edge USB restore"), "primary", "edge-storage-restore"},
 		menuItem{TT(lang, "Edge USB mute", "Edge USB mute"), "alerts", "edge-storage-mute"},

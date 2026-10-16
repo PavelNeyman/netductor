@@ -137,3 +137,8 @@ Sync: ~12ч + после deploy; не синкать, если на internal м�
 ## Паритет UI
 
 Web-панель + меню TUI + TG «Роутеры → USB/storage». CLI: `netductor edge storage …`. EN/RU в Web и TG.
+
+
+### Добивка (закрыто)
+- Prev-state USB-алертов на диске — recovery после рестарта primary.
+- Списки бэкапов: TG, TUI, CLI, Web.

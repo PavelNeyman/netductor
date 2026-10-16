@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
@@ -27,10 +28,36 @@ func USBAlertsMuted(deviceID string) bool {
 	return err == nil
 }
 
+var usbPrevPath = "/var/lib/netductor/edge-storage/_usb_prev.json"
+
 var (
-	usbPrevMu sync.Mutex
-	usbPrev   = map[string]string{} // deviceID -> "ok"|"missing"|"no-extroot"
+	usbPrevMu   sync.Mutex
+	usbPrev     map[string]string // deviceID -> "ok"|"missing"|"no-extroot"
+	usbPrevLoad sync.Once
 )
+
+func loadUSBPrevLocked() {
+	usbPrevLoad.Do(func() {
+		usbPrev = map[string]string{}
+		b, err := os.ReadFile(usbPrevPath)
+		if err != nil {
+			return
+		}
+		_ = json.Unmarshal(b, &usbPrev)
+		if usbPrev == nil {
+			usbPrev = map[string]string{}
+		}
+	})
+}
+
+func saveUSBPrevLocked() {
+	_ = os.MkdirAll(filepath.Dir(usbPrevPath), 0o755)
+	b, err := json.Marshal(usbPrev)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(usbPrevPath, b, 0o600)
+}
 
 // EvaluateStorageAlerts from device facts after heartbeat.
 func EvaluateStorageAlerts(deviceID string, st StorageFacts) {
@@ -48,11 +75,23 @@ func EvaluateStorageAlerts(deviceID string, st StorageFacts) {
 	}
 
 	usbPrevMu.Lock()
+	loadUSBPrevLocked()
 	prev := usbPrev[deviceID]
-	usbPrev[deviceID] = state
+	if prev != state {
+		usbPrev[deviceID] = state
+		saveUSBPrevLocked()
+	}
 	usbPrevMu.Unlock()
 
 	if state == "ok" && prev != "" && prev != "ok" {
 		notify.AlertRefresh(key+":recovered", "✅ Edge USB restored: "+deviceID+" (storage OK)")
 	}
+}
+
+
+func resetUSBPrevForTest() {
+	usbPrevMu.Lock()
+	defer usbPrevMu.Unlock()
+	usbPrevLoad = sync.Once{}
+	usbPrev = nil
 }

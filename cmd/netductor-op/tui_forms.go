@@ -38,7 +38,7 @@ func (m *model) startActionForm(action string) {
 			{Key: "server", Label: "Agent URL", Value: "https://PRIMARY:8789", Placeholder: "https://primary:8789"},
 			{Key: "preset", Label: "Preset", Placeholder: "auto|travel-router|sbc-lab"},
 		}
-	case "edge-storage-backup", "edge-storage-restore", "edge-storage-mute", "edge-storage-pack":
+	case "edge-storage-list", "edge-storage-backup", "edge-storage-restore", "edge-storage-mute", "edge-storage-pack":
 		m.wizFields = []wizField{
 			{Key: "device_id", Label: "Device ID", Placeholder: "tr1200-..."},
 		}
@@ -162,6 +162,8 @@ func (m *model) submitActionForm() string {
 			args = append(args, "--preset", pr)
 		}
 		return m.runLocalOp(args...)
+	case "edge-storage-list":
+		return m.runNetductor("edge", "storage", "list", m.fieldVal("device_id"))
 	case "edge-storage-backup":
 		return m.runNetductor("edge", "storage", "backup-now", m.fieldVal("device_id"))
 	case "edge-storage-restore":
