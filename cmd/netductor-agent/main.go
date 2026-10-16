@@ -525,6 +525,10 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return strings.Join(lines, "\n")
 	case "config_backup":
 		return configBackup(client, cfg)
+	case "storage_backup":
+		return storageBackupB(client, cfg)
+	case "storage_restore":
+		return storageRestoreLocal(arg)
 	case "config_restore":
 		return configRestore(client, cfg, arg)
 	case "guest_status":

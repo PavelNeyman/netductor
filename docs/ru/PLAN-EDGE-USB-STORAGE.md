@@ -1,6 +1,6 @@
 # ПЛАН: USB на edge (extroot + fallback + бэкап/restore)
 
-Статус: **в работе** (фазы A–E частично в коде; G–H заготовки) (решения ниже **согласованы**; в коде ещё нет)  
+Статус: **в коде** (lab e2e ещё нет; релиз отложен) (решения ниже **согласованы**; в коде ещё нет)  
 Связано: `PLAN-EDGE-DEPLOY-HYBRID.md`, модули `overlay_ext` / `vpn_client`, класс TR1200 (16 МиБ flash, USB 2.0).  
 Контекст: после v0.9.402.
 
@@ -16,7 +16,7 @@
 | E Pin sync | **сделано** (nd-pin-sync + cron 12h) |
 | F Alerts + mute | **частично** (expect_usb flag on device; full TG alerts TBD) |
 | G Backup A/B + remote restore | **частично** (`internal/edgestorage` manifest store) |
-| H Offline restore | **todo** |
+| H Offline restore | **done** (storage_restore local + pin merge) |
 
 
 ## Цель

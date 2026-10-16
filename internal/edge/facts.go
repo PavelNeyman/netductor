@@ -61,6 +61,7 @@ type StorageFacts struct {
 	HasUSBDisk     bool          `json:"has_usb_disk,omitempty"`
 	USBDisks       []USBDiskFact `json:"usb_disks,omitempty"`
 	ExtrootActive  bool          `json:"extroot_active,omitempty"` // /overlay already on external
+	ExpectUSB      bool          `json:"expect_usb,omitempty"`
 	ExpandHint     bool          `json:"expand_hint,omitempty"`
 	OverlayNote    string        `json:"overlay_note,omitempty"`
 }

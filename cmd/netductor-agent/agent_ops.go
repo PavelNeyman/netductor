@@ -357,3 +357,64 @@ func configRestore(client *http.Client, cfg config, name string) string {
 	_ = exec.Command("uci", "commit").Run()
 	return "restored " + name + " + uci commit"
 }
+
+
+func storageBackupB(client *http.Client, cfg config) string {
+	tmp := filepath.Join(os.TempDir(), "nd-overlay-"+cfg.DeviceID+".tar.gz")
+	_ = os.Remove(tmp)
+	src := "/overlay"
+	if _, err := os.Stat(src); err != nil {
+		src = "/etc"
+	}
+	if out, err := exec.Command("tar", "-czf", tmp, "-C", src, ".").CombinedOutput(); err != nil {
+		return "tar: " + truncate(string(out)+" "+err.Error(), 400)
+	}
+	defer os.Remove(tmp)
+	f, err := os.Open(tmp)
+	if err != nil {
+		return err.Error()
+	}
+	defer f.Close()
+	url := strings.TrimRight(cfg.Server, "/") + "/api/edge/storage/backup-push?kind=B&device_id=" + cfg.DeviceID
+	req, err := http.NewRequest(http.MethodPost, url, f)
+	if err != nil {
+		return err.Error()
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Content-Type", "application/gzip")
+	resp, err := client.Do(req)
+	if err != nil {
+		return err.Error()
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return fmt.Sprintf("upload HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+	}
+	return "storage B uploaded: " + truncate(string(body), 300)
+}
+
+func storageRestoreLocal(arg string) string {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return "storage_restore: need path to nd-restore dir or tar.gz"
+	}
+	if !strings.HasSuffix(arg, ".tar.gz") && !strings.HasSuffix(arg, ".tgz") {
+		cand := filepath.Join(arg, "overlay-B.tar.gz")
+		if _, err := os.Stat(cand); err == nil {
+			arg = cand
+		}
+	}
+	if _, err := os.Stat("/mnt/netductor"); err != nil {
+		return "storage_restore: mount USB at /mnt/netductor first"
+	}
+	out, err := exec.Command("tar", "-xzf", arg, "-C", "/mnt/netductor").CombinedOutput()
+	if err != nil {
+		return "extract: " + truncate(string(out)+" "+err.Error(), 400)
+	}
+	pin := "/etc/netductor-agent/pin"
+	if _, err := os.Stat(pin); err == nil {
+		_ = exec.Command("cp", "-a", pin+"/.", "/mnt/netductor/").Run()
+	}
+	return "restore extracted; merge pin attempted — reboot when ready"
+}

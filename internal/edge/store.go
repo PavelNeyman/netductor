@@ -480,7 +480,7 @@ var allowedEdgeActions = map[string]bool{
 	"ping": true, "status": true, "metrics": true, "logread": true,
 	"wifi_reload": true, "network_reload": true,
 	"uci_get": true, "uci_show": true, "uci_set": true, "uci_commit": true, "uci_batch": true,
-	"config_backup": true, "config_restore": true, "apply_template": true, "bootstrap_apply": true,
+	"config_backup": true, "storage_backup": true, "storage_restore": true, "config_restore": true, "apply_template": true, "bootstrap_apply": true,
 	"reboot": true, "agent_update": true, "mtls_refresh": true, "sysupgrade": true, "apply_rsc": true,
 	"dhcp_leases": true, "wifi_clients": true, "dhcp_static": true, "rtsp_probe": true, "nvr_record_start": true, "nvr_record_stop": true, "nvr_record_status": true, "nvr_disk_info": true, "camera_ptz": true,
 	"guest_status": true, "guest_grant": true, "guest_revoke": true, "guest_apply_template": true,

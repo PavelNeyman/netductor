@@ -76,6 +76,31 @@ func collectDeviceFacts() map[string]any {
 	if matches, _ := exec.Command("sh", "-c", "ls /dev/sd[a-z] 2>/dev/null | head -1").Output(); len(strings.TrimSpace(string(matches))) > 0 {
 		storage["has_usb_disk"] = true
 	}
+	if _, err := os.Stat("/etc/netductor-agent/expect_usb"); err == nil {
+		storage["expect_usb"] = true
+	}
+	if out, err := exec.Command("sh", "-c", "mount 2>/dev/null | grep ' on /overlay ' | awk '{print $1}' | head -1").Output(); err == nil {
+		src := strings.TrimSpace(string(out))
+		if strings.HasPrefix(src, "/dev/sd") || strings.HasPrefix(src, "/dev/mmcblk") {
+			storage["extroot_active"] = true
+		}
+	}
+	var disks []map[string]any
+	if out, err := exec.Command("sh", "-c", "for d in /sys/block/sd*; do [ -d \"$d\" ] || continue; name=$(basename \"$d\"); sectors=$(cat \"$d/size\" 2>/dev/null || echo 0); echo $name $((sectors/2)); done").Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" { continue }
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				kb, _ := strconv.ParseInt(parts[1], 10, 64)
+				disks = append(disks, map[string]any{"name": parts[0], "size_kb": kb})
+			}
+		}
+	}
+	if len(disks) > 0 {
+		storage["usb_disks"] = disks
+		storage["has_usb_disk"] = true
+	}
 	f["storage"] = storage
 
 	var ifaces []map[string]any

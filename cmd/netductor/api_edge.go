@@ -6,11 +6,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/edgestorage"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
@@ -271,6 +273,78 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"status": st, "device_token": dtok})
 	})
+	
+	mux.HandleFunc("/api/edge/storage/mute", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) { return }
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		body := readJSON(r)
+		id, _ := body["device_id"].(string)
+		mute, _ := body["mute"].(bool)
+		if id == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		if err := edge.SetUSBAlertMute(id, mute); err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "mute": mute})
+	})
+	mux.HandleFunc("/api/edge/storage/backups", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) { return }
+		id := r.URL.Query().Get("device_id")
+		if id == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id"})
+			return
+		}
+		list, err := edgestorage.ListManifests(id)
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "backups": list})
+	})
+	mux.HandleFunc("/api/edge/storage/backup-push", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		auth := r.Header.Get("Authorization")
+		tokenDID := edge.DeviceIDFromAuth(auth)
+		if tokenDID == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		kind := r.URL.Query().Get("kind")
+		if kind != "A" && kind != "B" { kind = "B" }
+		did := r.URL.Query().Get("device_id")
+		if did == "" { did = tokenDID }
+		if did != tokenDID {
+			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
+			return
+		}
+		dir := edgestorage.Dir(did)
+		_ = os.MkdirAll(dir, 0o700)
+		name := "backup-" + kind + "-" + time.Now().UTC().Format("20060102T150405Z") + ".tar.gz"
+		path := filepath.Join(dir, name)
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		defer f.Close()
+		n, err := io.Copy(f, io.LimitReader(r.Body, 512<<20))
+		if err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		_ = edgestorage.SaveManifest(did, edgestorage.Manifest{Kind: kind, File: name, Note: fmt.Sprintf("%d bytes", n)})
+		writeJSON(w, 200, map[string]any{"ok": true, "file": name, "bytes": n})
+	})
+
 	mux.HandleFunc("/api/edge/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
@@ -293,6 +367,26 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			return
 		}
 		edge.Heartbeat(payload)
+		if raw, ok := payload["facts"]; ok {
+			if fm, ok := raw.(map[string]any); ok {
+				if sm, ok := fm["storage"].(map[string]any); ok {
+					var st edge.StorageFacts
+					if b, ok := sm["has_usb_disk"].(bool); ok {
+						st.HasUSBDisk = b
+					}
+					if b, ok := sm["extroot_active"].(bool); ok {
+						st.ExtrootActive = b
+					}
+					if b, ok := sm["expect_usb"].(bool); ok {
+						st.ExpectUSB = b
+					}
+					if disks, ok := sm["usb_disks"].([]any); ok && len(disks) > 0 {
+						st.HasUSBDisk = true
+					}
+					edge.EvaluateStorageAlerts(did, st)
+				}
+			}
+		}
 		if ser, _ := payload["cert_serial"].(string); ser != "" {
 			_ = mtls.ConfirmRotate(did, ser)
 		}

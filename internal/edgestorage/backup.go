@@ -5,26 +5,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-// Dir for edge device backups on primary.
 func Dir(deviceID string) string {
 	return filepath.Join("/var/lib/netductor/edge-backups", deviceID)
 }
 
-// Manifest describes a stored backup slot.
 type Manifest struct {
-	DeviceID  string   `json:"device_id"`
-	Kind      string   `json:"kind"` // A | B
-	Created   string   `json:"created"`
-	File      string   `json:"file"`
-	SHA256    string   `json:"sha256,omitempty"`
-	OpenWrt   string   `json:"openwrt,omitempty"`
-	Note      string   `json:"note,omitempty"`
+	DeviceID string `json:"device_id"`
+	Kind     string `json:"kind"`
+	Created  string `json:"created"`
+	File     string `json:"file"`
+	SHA256   string `json:"sha256,omitempty"`
+	Note     string `json:"note,omitempty"`
 }
 
-// SaveManifest writes manifest next to archive.
 func SaveManifest(deviceID string, m Manifest) error {
 	dir := Dir(deviceID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -42,7 +39,6 @@ func SaveManifest(deviceID string, m Manifest) error {
 	return os.WriteFile(filepath.Join(dir, name), b, 0o600)
 }
 
-// ListManifests returns manifests for device (best-effort).
 func ListManifests(deviceID string) ([]Manifest, error) {
 	dir := Dir(deviceID)
 	ents, err := os.ReadDir(dir)
@@ -54,7 +50,7 @@ func ListManifests(deviceID string) ([]Manifest, error) {
 	}
 	var out []Manifest
 	for _, e := range ents {
-		if e.IsDir() || !stringsHasPrefix(e.Name(), "manifest-") {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "manifest-") {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
@@ -67,8 +63,4 @@ func ListManifests(deviceID string) ([]Manifest, error) {
 		}
 	}
 	return out, nil
-}
-
-func stringsHasPrefix(s, p string) bool {
-	return len(s) >= len(p) && s[:len(p)] == p
 }
