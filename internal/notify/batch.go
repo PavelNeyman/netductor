@@ -419,11 +419,6 @@ func extractTGButtons(msg string) (text string, replyMarkupJSON string) {
 	return text, string(raw)
 }
 
-func chatIDPositive(chat string) bool {
-	var n int64
-	_, err := fmt.Sscanf(strings.TrimSpace(chat), "%d", &n)
-	return err == nil && n > 0
-}
 
 // repinHub deletes previous hub (if any) and sends a compact menu at chat bottom.
 func repinHub() error {

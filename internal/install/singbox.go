@@ -118,9 +118,6 @@ WantedBy=multi-user.target
 	return enableStart("sing-box")
 }
 
-func downloadSingBox(dest string) error {
-	return downloadSingBoxVersion(dest, resolveSingBoxTag())
-}
 
 func downloadSingBoxVersion(dest, tag string) error {
 	a := arch()

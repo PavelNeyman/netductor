@@ -467,39 +467,7 @@ func trimPBK(s string) string {
 	return s[:8] + "…"
 }
 
-func pushLatestBackup(target string) {
-	dir := filepath.Join(paths.StateDir(), "backups")
-	ents, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	var latest string
-	var latestMod time.Time
-	for _, e := range ents {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if !strings.HasSuffix(name, ".ndenc") && !strings.HasSuffix(name, ".tar.gz") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		if latest == "" || info.ModTime().After(latestMod) {
-			latest = filepath.Join(dir, name)
-			latestMod = info.ModTime()
-		}
-	}
-	if latest != "" {
-		_ = scpToSecondary(latest, target)
-	}
-}
 
-func execSSHHost(host, cmd string) error {
-	return sshOnSecondary(host, cmd)
-}
 
 func execLocal(name string, args ...string) error {
 	c := exec.Command(name, args...)

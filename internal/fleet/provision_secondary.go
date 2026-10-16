@@ -115,11 +115,3 @@ func findNodeIDByIP(ip string) string {
 	return ""
 }
 
-func publicIPGuess() string {
-	out, _ := exec.Command("hostname", "-I").Output()
-	fields := strings.Fields(string(out))
-	if len(fields) > 0 {
-		return fields[0]
-	}
-	return ""
-}

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
+			"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -461,10 +459,6 @@ func runProbe(args []string) {
 	}
 }
 
-func sha256Hex(b []byte) string {
-	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:])
-}
 
 func mustStatMod(dir, name string) time.Time {
 	fi, err := os.Stat(filepath.Join(dir, name))
