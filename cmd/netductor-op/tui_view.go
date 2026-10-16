@@ -42,15 +42,6 @@ func (m *model) addHit(x, y, w, h int, action string) {
 	m.hits = append(m.hits, hitRect{X: x, Y: y, W: w, H: h, Action: action})
 }
 
-func (m *model) hitTest(x, y int) string {
-	for i := len(m.hits) - 1; i >= 0; i-- {
-		r := m.hits[i]
-		if x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H {
-			return r.Action
-		}
-	}
-	return ""
-}
 
 func (m *model) currentEntries() []menuEntry {
 	if m.screen == screenMode || m.tab == tabMode {

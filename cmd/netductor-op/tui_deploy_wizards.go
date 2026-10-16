@@ -21,8 +21,5 @@ func runSetupWizard() {
 	}
 }
 
-func wizardPrimary()   { runSetupWizard() }
-func wizardSecondary() { runSetupWizard() }
-func wizardOpenWrt()   { runSetupWizard() }
 func wizardNVR()       { runSetupWizard() }
 func wizardAddons()    { runSetupWizard() }

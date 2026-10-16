@@ -1215,7 +1215,27 @@ const special = {
   'vpn-disable': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/disable',{method:'POST',body:'{}'}); },
   'vpn-revoke': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/revoke',{method:'POST',body:'{}'}); },
   'vpn-link': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/link'); },
-  'vpn-policy-get': async()=>{ const n=document.getElementById('vpnActName').value.trim(); return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy'); },
+  'vpn-policy-get': async()=>{
+    const n=document.getElementById('vpnActName').value.trim();
+    const pol=await nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy');
+    window.__ndPolicy=(pol && pol.policy)?pol.policy:pol;
+    try{ const cat=await nodeFetch('/api/services'); window.__ndCatalog=cat; }catch(_){}
+    renderPolicyCheckboxes();
+    return pol;
+  },
+  'vpn-policy-save': async()=>{
+    const n=document.getElementById('vpnActName').value.trim();
+    if(!n) return {error:'name'};
+    const body=collectPolicyForm();
+    return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy',{method:'PUT',body:JSON.stringify(body)});
+  },
+  'edge-policy-save': async()=>{
+    const id=document.getElementById('edgeId')?.value.trim()||document.getElementById('edge_pol_id')?.value.trim()||'';
+    if(!id) return {error:'device_id'};
+    const body=collectPolicyForm();
+    return nodeFetch('/api/edge/device-policy',{method:'POST',body:JSON.stringify(Object.assign({device_id:id}, body))});
+  },
+
   'vpn-policy-set-media': async()=>{
     const n=document.getElementById('vpnActName').value.trim();
     return nodeFetch('/vpn/users/'+encodeURIComponent(n)+'/policy',{method:'PUT',body:JSON.stringify({allow_internet:true,services:['lampac'],services_mode:'list'})});
@@ -1230,7 +1250,11 @@ const special = {
   },
   'edge-policy-get': async()=>{
     const id=document.getElementById('edgeId').value.trim();
-    return nodeFetch('/api/edge/device-policy?id='+encodeURIComponent(id));
+    const pol=await nodeFetch('/api/edge/device-policy?id='+encodeURIComponent(id));
+    window.__ndPolicy=(pol && pol.policy)?pol.policy:pol;
+    try{ const cat=await nodeFetch('/api/services'); window.__ndCatalog=cat; }catch(_){}
+    renderPolicyCheckboxes();
+    return pol;
   },
 
   'nodes-hostname': async()=>{ const hostname=document.getElementById('nodeHost').value.trim(); return nodeFetch('/api/nodes/hostname',{method:'POST',body:JSON.stringify({hostname,id:document.getElementById('nodeId').value.trim()})}); },
@@ -1652,7 +1676,7 @@ function renderPolicyCheckboxes(){
   if(!box) return;
   const cat=window.__ndCatalog||{};
   const pol=window.__ndPolicy||{};
-  const services=(cat.services||[]).filter(s=>s && s.kind!=='egress' && !s.disabled);
+  const services=((cat.services)||(cat.catalog&&cat.catalog.services)||[]).filter(s=>s && s.kind!=='egress' && !s.disabled);
   const mode=(pol.services_mode||'list');
   const allowed=new Set(pol.services||[]);
   const inet=document.getElementById('polInternet');

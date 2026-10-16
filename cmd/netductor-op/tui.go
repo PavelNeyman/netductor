@@ -172,18 +172,6 @@ type model struct {
 	catLevel       int
 }
 
-func modeItems(sug runMode, lang tuiLang) []list.Item {
-	order := []runMode{modeVPS, modeOpenWRT, modeWorkstation, modeOperator}
-	items := make([]list.Item, 0, 4)
-	for _, m := range order {
-		title, d := describeModeLang(m, lang)
-		if m == sug {
-			title += " ←"
-		}
-		items = append(items, menuItem{title: title, desc: d, id: string(m)})
-	}
-	return items
-}
 
 func orDefault(s, d string) string {
 	if strings.TrimSpace(s) == "" {
@@ -304,13 +292,6 @@ func runTUI(args []string) {
 	}
 }
 
-func describeMode(m runMode) string {
-	title, d := describeModeLang(m, detectLang())
-	if d == "" {
-		return title
-	}
-	return title + " — " + d
-}
 
 func describeModeLang(m runMode, lang tuiLang) (title, desc string) {
 	for _, e := range modeEntries(lang) {

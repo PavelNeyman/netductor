@@ -606,9 +606,6 @@ func (m *model) fieldVal(key string) string {
 	return ""
 }
 
-func (m model) runWizardApply() string {
-	return m.runWizardApplyInTUI()
-}
 
 func keyTextForField(msg tea.KeyMsg) (string, bool) {
 	if msg.Paste {

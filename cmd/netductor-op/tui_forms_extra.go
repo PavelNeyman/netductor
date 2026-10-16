@@ -5,112 +5,13 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
-func menuItemsFor(mode runMode, lang tuiLang) []list.Item {
-	items := []list.Item{
-		menuItem{"wizard", TT(lang, "Primary / Secondary / OpenWrt / MikroTik — questions then auto",
-			"Primary / Secondary / OpenWrt / MikroTik — вопросы, затем авто"), "wizard"},
-	}
-	switch mode {
-	case modeVPS:
-		items = append(items,
-			menuItem{TT(lang, "Install / upgrade stack", "Install / upgrade стека"), "netductor install (idempotent)", "install"},
-			menuItem{TT(lang, "Add-ons checklist", "Дополнения (чек-лист)"), TT(lang, "Lampac / TG / go2rtc", "Lampac / TG / go2rtc"), "apply-lampac"},
-			menuItem{TT(lang, "Set hostname", "Задать hostname"), "nd-primary / nd-secondary / …", "hostname"},
-		)
-	case modeOpenWRT:
-		items = append(items,
-			menuItem{TT(lang, "Agent install instructions", "Инструкция agent"), "outbound netductor-agent", "agent-help"},
-			menuItem{TT(lang, "Run install-openwrt.sh", "Запуск install-openwrt.sh"), TT(lang, "if present on device", "если есть на устройстве"), "owrt-install"},
-			menuItem{TT(lang, "Check agent config", "Проверить конфиг agent"), "", "agent-cfg"},
-		)
-	case modeWorkstation:
-		items = append(items,
-			menuItem{TT(lang, "Bootstrap one-liner", "Bootstrap one-liner"), TT(lang, "copy-paste for VPS", "copy-paste для VPS"), "bootstrap"},
-			menuItem{TT(lang, "Build netductor (local Go)", "Сборка netductor (локальный Go)"), "", "build"},
-			menuItem{TT(lang, "MikroTik manage", "Управление MikroTik"), TT(lang, "identity / routes / push", "identity / routes / push"), "mt-manage"},
-		)
-	default:
-		items = append(items,
-			menuItem{TT(lang, "VPN — add user", "VPN — добавить пользователя"), "", "vpn-add"},
-			menuItem{TT(lang, "VPN — link / QR", "VPN — ссылка / QR"), "", "vpn-sub"},
-			menuItem{TT(lang, "Session create", "Создать session"), "", "session"},
-			menuItem{TT(lang, "Live SNI", "Live SNI"), "", "sni-live"},
-			menuItem{TT(lang, "Edge devices", "Edge-устройства"), "", "edge-list"},
-		)
-	}
-	toolsDesc := "diagnostics & ops"
-	if lang == langRU {
-		toolsDesc = "диагностика и операции"
-	}
-	items = append(items,
-		menuItem{"tools", toolsDesc, "noop"},
-		menuItem{TT(lang, "Doctor", "Doctor"), TT(lang, "health checks", "проверки"), "doctor"},
-		menuItem{TT(lang, "Status", "Status"), TT(lang, "systemd units", "юниты systemd"), "status"},
-		menuItem{TT(lang, "Fleet status", "Статус флота"), "primary / secondary", "fleet-status"},
-		menuItem{TT(lang, "Nodes registry", "Реестр нод"), "list", "nodes-list"},
-		menuItem{TT(lang, "Secondary status", "Secondary"), "agent online", "secondary-status"},
-		menuItem{TT(lang, "Secondary sync", "Sync secondary"), "VPN users → secondary", "secondary-sync"},
-		menuItem{TT(lang, "Edge devices", "Edge устройства"), "list", "edge-list"},
-		menuItem{TT(lang, "Edge USB list", "Edge USB список"), "backups", "edge-storage-list"},
-		menuItem{TT(lang, "Edge USB backup", "Edge USB бэкап"), "A+B", "edge-storage-backup"},
-		menuItem{TT(lang, "Edge USB restore", "Edge USB restore"), "primary", "edge-storage-restore"},
-		menuItem{TT(lang, "Edge USB mute", "Edge USB mute"), "alerts", "edge-storage-mute"},
-		menuItem{TT(lang, "Edge USB offline pack", "Edge USB offline pack"), "pack", "edge-storage-pack"},
-		menuItem{TT(lang, "Edge pending", "Edge ожидание"), "approve queue", "edge-pending"},
-		menuItem{TT(lang, "Edge recovery code", "Код recovery"), "", "edge-recovery"},
-		menuItem{TT(lang, "NVR status", "NVR статус"), "cameras / storage", "nvr-status"},
-		menuItem{TT(lang, "NVR go2rtc", "NVR go2rtc"), "write config", "nvr-go2rtc"},
-		menuItem{TT(lang, "NVR cameras", "NVR камеры"), "list", "nvr-cameras"},
-		menuItem{TT(lang, "NVR storage", "NVR storage"), "disk", "nvr-storage"},
-		menuItem{TT(lang, "Git repos", "Git репозитории"), "list", "git-repos"},
-		menuItem{TT(lang, "Git pipelines", "Git pipelines"), "list", "git-pipelines"},
-		menuItem{TT(lang, "Registry status", "Registry"), "", "registry-status"},
-		menuItem{TT(lang, "Add-ons status", "Дополнения"), "lampac / …", "addons-status"},
-		menuItem{TT(lang, "mTLS certs", "mTLS сертификаты"), "list", "mtls-list"},
-		menuItem{TT(lang, "Backup now", "Бэкап сейчас"), "encrypted + peer", "backup-now"},
-		menuItem{TT(lang, "VPN users", "VPN пользователи"), "list", "vpn-list"},
-		menuItem{TT(lang, "Refresh VPN links", "Обновить ссылки VPN"), "", "vpn-refresh"},
-		menuItem{TT(lang, "Probes", "Probes"), "connectivity", "probe"},
-		menuItem{TT(lang, "SSH known hosts", "SSH known hosts"), "TOFU", "ssh-hosts"},
-		menuItem{TT(lang, "Audit tail", "Audit"), "events", "audit-tail"},
-		menuItem{TT(lang, "Sites list", "Сайты"), "", "sites-list"},
-		menuItem{TT(lang, "Rooms list", "Комнаты"), "site id in form", "rooms-list"},
-		menuItem{"change-mode", "", "change-mode"},
-		menuItem{"quit", "", "quit"},
-	)
-	return items
-}
 
-func newList(title string, items []list.Item, w, h int) list.Model {
-	d := list.NewDefaultDelegate()
-	d.SetHeight(2)
-	d.SetSpacing(1)
-	d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(lipgloss.Color("205")).BorderForeground(lipgloss.Color("205")).Bold(true)
-	d.Styles.SelectedDesc = d.Styles.SelectedDesc.Foreground(lipgloss.Color("218"))
-	d.Styles.NormalTitle = d.Styles.NormalTitle.Padding(0, 1)
-	d.Styles.NormalDesc = d.Styles.NormalDesc.Padding(0, 1)
-	if w < 40 {
-		w = 40
-	}
-	if h < 8 {
-		h = 8
-	}
-	l := list.New(items, d, w, h)
-	l.Title = title
-	l.SetShowStatusBar(true)
-	l.SetFilteringEnabled(true)
-	l.Styles.Title = titleStyle
-	l.SetShowHelp(false)
-	return l
-}
 
 func formVpnAdd() {
 	var name, note string
@@ -187,7 +88,6 @@ func formSession() {
 	fmt.Println(subStyle.Render("use: netductor session create"))
 }
 
-func formConfirm() {}
 
 func formInstall(prepare bool) {
 	var ok bool
