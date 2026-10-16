@@ -549,6 +549,8 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		return applyTemplate(client, cfg)
 	case "mtls_refresh":
 		return mtlsRefresh(client, cfg)
+	case "apply_rsc":
+		return "apply_rsc: not supported on OpenWrt agent (MikroTik RSC via sites/mikrotik path only)"
 	case "agent_update":
 		if !strings.Contains(arg, "confirm=yes") {
 			return "agent_update: need confirm=yes in arg (URL|sha|confirm=yes)"

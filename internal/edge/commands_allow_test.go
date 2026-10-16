@@ -19,6 +19,10 @@ func TestAllowedEdgeActionsArchitecture(t *testing.T) {
 	if allowedEdgeActions["rm_rf"] || allowedEdgeActions["shell"] {
 		t.Fatal("dangerous action must not be allowed")
 	}
+	// MikroTik RSC is not an OpenWrt agent action
+	if allowedEdgeActions["apply_rsc"] {
+		t.Fatal("apply_rsc must not be queued to OpenWrt agent")
+	}
 }
 
 func TestEnqueueCmdRejectsUnknown(t *testing.T) {

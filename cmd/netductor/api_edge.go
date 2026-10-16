@@ -613,7 +613,15 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			writeJSON(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
+		// RSC is MikroTik RouterOS — OpenWrt agent cannot apply it. File saved for operator download / MT push.
 		cid := edge.EnqueueCmd(did, "apply_rsc", name)
+		if cid == "" {
+			writeJSON(w, 200, map[string]any{
+				"ok": true, "cmd_id": "", "rsc": name,
+				"note": "RSC saved; not queued to edge agent (use MikroTik sites push / PushRSC). OpenWrt agents deny apply_rsc.",
+			})
+			return
+		}
 		writeJSON(w, 200, map[string]any{"ok": true, "cmd_id": cid, "rsc": name})
 	})
 	mux.HandleFunc("/api/edge/results", func(w http.ResponseWriter, r *http.Request) {

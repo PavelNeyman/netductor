@@ -465,7 +465,32 @@ func Rename(id, name string) error {
 	return os.ErrNotExist
 }
 
+
+// allowedSecondaryCmd mirrors runAgentCmd in agent.go — queue only known ops.
+func allowedSecondaryCmd(cmd string) bool {
+	cmd = strings.TrimSpace(cmd)
+	switch cmd {
+	case "reboot", "upgrade", "mtls_refresh", "backup_pull", "metrics", "journal", "ssh_keys", "backup_local":
+		return true
+	}
+	if strings.HasPrefix(cmd, "upgrade:") || strings.HasPrefix(cmd, "ssh_allowlist:") {
+		return true
+	}
+	if strings.HasPrefix(cmd, "restart:") {
+		unit := strings.TrimPrefix(cmd, "restart:")
+		switch unit {
+		case "sing-box", "netductor-secondary-agent", "netductor-api", "netductor-telegram-bot", "blocky":
+			return true
+		}
+	}
+	return false
+}
+
 func EnqueueCmd(id, cmd string) error {
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" || !allowedSecondaryCmd(cmd) {
+		return fmt.Errorf("secondary cmd not allowed: %q", cmd)
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
