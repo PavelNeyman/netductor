@@ -1,6 +1,6 @@
 # PLAN: Edge USB storage (extroot + internal fallback + backup/restore)
 
-Status: **implemented in tree** (lab e2e pending; release deferred) (agreed product decisions below; not implemented)  
+Status: **implemented in tree** (lab e2e pending). Tip includes UI parity TG/TUI/Web/CLI; ship via release ≥0.9.403.
 Related: `PLAN-EDGE-DEPLOY-HYBRID.md`, modules `overlay_ext` / `vpn_client`, TR1200-class (16 MiB flash, USB 2.0).  
 Context: post v0.9.402 (vpn_client free-space check + optional data-mount for sing-box).
 

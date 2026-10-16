@@ -305,7 +305,8 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			writeJSON(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "backups": list})
+		uploads := edge.ListBackups(id)
+		writeJSON(w, 200, map[string]any{"ok": true, "backups": list, "uploads": uploads})
 	})
 	mux.HandleFunc("/api/edge/storage/backup-push", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

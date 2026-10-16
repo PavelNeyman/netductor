@@ -9,6 +9,8 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Stop line
 
+**v0.9.403** (2026-10-16) — USB path sanitize, backup list parity, tip=release.
+
 - [x] Product improvements plan (no hardware e2e) — [PLAN-PRODUCT-IMPROVEMENTS.md](PLAN-PRODUCT-IMPROVEMENTS.md) **closed** (2026-10-12); TG menu structure pass included
 
 

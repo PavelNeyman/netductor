@@ -8,6 +8,15 @@ import (
 	"github.com/PavelNeyman/netductor/internal/edgestorage"
 )
 
+
+func edgestorData(suffix string) string {
+	d := "m:edgestor:" + suffix
+	if len(d) > 64 {
+		return "" // Telegram callback_data limit
+	}
+	return d
+}
+
 func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool {
 	if data != "m:edgestor" && !strings.HasPrefix(data, "m:edgestor:") {
 		return false
@@ -54,7 +63,11 @@ func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool 
 			if i >= 12 {
 				break
 			}
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="m:edgestor:dev:%s">%d</tg-button>`, id, i+1))
+			data := edgestorData("dev:" + id)
+			if data == "" {
+				continue
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="%s">%d</tg-button>`, data, i+1))
 		}
 		b.WriteString(`</tg-button-row>`)
 		reply(token, chat, msgID, b.String(), nav)
@@ -86,7 +99,11 @@ func handleEdgeStorageCB(token string, chat int64, msgID int, data string) bool 
 			if i == 1 {
 				style = "primary"
 			}
-			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="m:edgestor:%s">%s</tg-button>`, style, L.data, lab))
+			data := edgestorData(L.data)
+			if data == "" {
+				continue
+			}
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="%s">%s</tg-button>`, style, data, lab))
 			if i == 3 {
 				b.WriteString(`</tg-button-row><tg-button-row align="left">`)
 			}

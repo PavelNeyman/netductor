@@ -1965,10 +1965,11 @@ document.getElementById('btnStList')?.addEventListener('click', async ()=>{
   try{
     const id=edgeStDevice(); if(!id) throw new Error('device_id');
     const d=await nodeFetch('/api/edge/storage/backups?device_id='+encodeURIComponent(id));
-    const rows=(d.backups||[]).slice(0,12).map((m,i)=> (i+1)+'. ['+(m.kind||'?')+'] '+(m.file||'')+' @ '+(m.created||'')).join('\n');
+    const man=(d.backups||[]).slice(0,12).map((m,i)=> (i+1)+'. ['+(m.kind||'?')+'] '+(m.file||'')+' @ '+(m.created||'')).join('\n');
+    const up=(d.uploads||[]).slice(0,12).map((u,i)=> (i+1)+'. '+(u.name||'')+' size='+(u.size||'')).join('\n');
     const el=document.getElementById('edge_st_table');
-    if(el) el.textContent = rows || '(empty)';
-    edgeStLog('list ok n='+((d.backups||[]).length));
+    if(el) el.textContent = 'Manifests:\n'+(man||'(empty)')+'\n\nAgent uploads:\n'+(up||'(empty)');
+    edgeStLog('list ok manifests='+((d.backups||[]).length)+' uploads='+((d.uploads||[]).length));
   }catch(e){ edgeStLog(String(e.message||e)); }
 });
 document.getElementById('btnStBackup')?.addEventListener('click', async ()=>{

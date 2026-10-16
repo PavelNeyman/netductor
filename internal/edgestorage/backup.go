@@ -13,8 +13,31 @@ import (
 	"time"
 )
 
+
+// SafeDeviceID strips path separators and limits length for filesystem paths.
+func SafeDeviceID(id string) string {
+	id = strings.TrimSpace(id)
+	id = filepath.Base(id) // drop any directory components
+	id = strings.ReplaceAll(id, "..", "")
+	var b strings.Builder
+	for _, r := range id {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+			b.WriteRune(r)
+		}
+	}
+	s := b.String()
+	if len(s) > 64 {
+		s = s[:64]
+	}
+	return s
+}
+
 func Dir(deviceID string) string {
-	return filepath.Join("/var/lib/netductor/edge-backups", deviceID)
+	id := SafeDeviceID(deviceID)
+	if id == "" {
+		id = "_invalid"
+	}
+	return filepath.Join("/var/lib/netductor/edge-backups", id)
 }
 
 type Manifest struct {
@@ -119,6 +142,7 @@ func WriteOfflinePack(deviceID, destDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	destDir = clampOfflineDest(destDir, deviceID)
 	outDir := filepath.Join(destDir, "nd-restore")
 	if err := os.MkdirAll(outDir, 0o700); err != nil {
 		return "", err
@@ -154,4 +178,24 @@ func WriteOfflinePack(deviceID, destDir string) (string, error) {
 	_ = os.WriteFile(filepath.Join(outDir, "manifest.json"), b, 0o600)
 	_ = os.WriteFile(filepath.Join(outDir, "SHA256SUMS"), []byte(sum+"  "+dstName+"\n"), 0o600)
 	return outDir, nil
+}
+
+
+// clampOfflineDest forces packs under /var/lib/netductor/edge-offline/<safe-id>/…
+func clampOfflineDest(dest, deviceID string) string {
+	base := "/var/lib/netductor/edge-offline"
+	safe := SafeDeviceID(deviceID)
+	if safe == "" {
+		safe = "_unknown"
+	}
+	defaultDir := filepath.Join(base, safe)
+	if dest == "" {
+		return defaultDir
+	}
+	clean := filepath.Clean(dest)
+	// must stay under base
+	if clean == base || strings.HasPrefix(clean, base+string(filepath.Separator)) {
+		return clean
+	}
+	return defaultDir
 }

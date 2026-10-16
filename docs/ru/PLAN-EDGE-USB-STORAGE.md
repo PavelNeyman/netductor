@@ -1,6 +1,6 @@
 # ПЛАН: USB на edge (extroot + fallback + бэкап/restore)
 
-Статус: **в коде** (lab e2e ещё нет; релиз отложен) (решения ниже **согласованы**; в коде ещё нет)  
+Статус: **в дереве реализовано** (lab e2e pending). Tip: паритет UI TG/TUI/Web/CLI; на прод — релиз ≥0.9.403.
 Связано: `PLAN-EDGE-DEPLOY-HYBRID.md`, модули `overlay_ext` / `vpn_client`, класс TR1200 (16 МиБ flash, USB 2.0).  
 Контекст: после v0.9.402.
 
