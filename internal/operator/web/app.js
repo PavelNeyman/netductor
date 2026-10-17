@@ -217,8 +217,77 @@ function setEdgeRunStatus(kind, msg){
   el.className='edge-run-status edge-run-'+kind;
   el.textContent=msg;
 }
+
+/** Thin UI: start job on serve, poll until terminal. Survives page refresh if job_id in sessionStorage. */
+async function jobStart(type, params){
+  const res=await fetch('/v1/jobs',{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify({type,params})});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||('job start HTTP '+res.status));
+  try{ sessionStorage.setItem('nd_op_job_'+type, data.id); }catch(e){}
+  return data;
+}
+async function jobGet(id){
+  const res=await fetch('/v1/jobs/'+encodeURIComponent(id),{headers:{'X-Netductor-Token':ND_TOKEN}});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||('job get HTTP '+res.status));
+  return data;
+}
+async function jobWait(id, onUpdate){
+  const terminal={succeeded:1,failed:1,cancelled:1,interrupted:1};
+  for(;;){
+    const j=await jobGet(id);
+    if(onUpdate) onUpdate(j);
+    if(terminal[j.status]) return j;
+    await new Promise(r=>setTimeout(r,1000));
+  }
+}
+async function jobRun(type, params, onUpdate){
+  const started=await jobStart(type, params);
+  return jobWait(started.id, onUpdate);
+}
+function jobLogToUI(j){
+  if(!j||!j.log) return;
+  const lines=j.log.split('\n');
+  const last=lines.slice(-8).join('\n');
+  if(last) line(last);
+}
+
 async function streamPost(url, body, btn){
   if(btn) btn.disabled=true;
+  // Job-backed slow paths (thin UI — refresh-safe)
+  const jobMap={
+    '/v1/edge':'edge.provision',
+    '/v1/edge/offline-prep':'edge.offline_prep',
+    '/v1/fleet':'fleet.deploy',
+    '/v1/primary':'primary.deploy',
+    '/v1/secondary':'secondary.deploy',
+    '/v1/build-host':'buildhost.deploy'
+  };
+  if(jobMap[url]){
+    const isEdge = jobMap[url]==='edge.provision';
+    if(isEdge) setEdgeRunStatus('run', t('edge_run_working'));
+    const logSec=document.getElementById('deployLogSec');
+    if(logSec){ logSec.classList.add('deploy-log-active'); }
+    resetLog(); line('JOB '+jobMap[url]);
+    let failed=false;
+    try{
+      // normalize params: web uses router_password → runner also reads router_pass
+      const params=Object.assign({}, body);
+      if(params.router_password && !params.router_pass) params.router_pass=params.router_password;
+      if(params.key_passphrase && !params.key_pass) params.key_pass=params.key_passphrase;
+      const j=await jobRun(jobMap[url], params, j2=>{
+        if(j2.log){ resetLog(); line(j2.log); }
+        (j2.steps||[]).forEach(s=>parseSteps('step '+s.id+(s.done?' ok':'')+': '+(s.message||'')));
+      });
+      failed = j.status!=='succeeded';
+      if(j.error) line('ERROR '+j.error);
+      if(j.log) line(j.log);
+    }catch(e){ line('error: '+e); failed=true; }
+    if(btn) btn.disabled=false;
+    if(logSec) logSec.classList.remove('deploy-log-active');
+    if(isEdge) setEdgeRunStatus(failed?'err':'ok', t(failed?'edge_run_err':'edge_run_done'));
+    return failed?'':('job '+jobMap[url]+' ok');
+  }
   const isEdge = url.indexOf('/v1/edge')>=0 && url.indexOf('preview')<0 && url.indexOf('offline')<0;
   if(isEdge) setEdgeRunStatus('run', t('edge_run_working'));
   const logSec=document.getElementById('deployLogSec');
@@ -1865,19 +1934,18 @@ async function edgePreview(){
     advanced:!!document.getElementById('edge_advanced')?.checked,
     modules: mods
   };
-  const res=await fetch('/v1/edge/preview',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
-    body:JSON.stringify(body)
-  });
-  const raw=await res.text();
-  let data={};
-  try{ data=raw?JSON.parse(raw):{}; }catch(e){ data={error:raw||res.statusText}; }
-  if(!res.ok){
-    const msg=data.error||data.message||raw||res.statusText||'preview failed';
-    if(res.status===401) throw new Error('unauthorized — hard-refresh (Cmd+Shift+R) or restart netductor-op');
-    throw new Error(msg);
+  line('job edge.probe …');
+  const j=await jobRun('edge.probe', body, jobLogToUI);
+  if(j.status!=='succeeded'){
+    throw new Error(j.error||('probe '+j.status));
   }
+  let data={};
+  try{
+    const r=j.result||{};
+    // result is {facts, plan}; card expects plan-shaped + facts
+    data=Object.assign({}, r.plan||{}, {facts:r.facts, plan:r.plan, result:r});
+    if(r.plan) Object.assign(data, r.plan);
+  }catch(e){ data={error:String(e)}; }
   window.__edgePreview=data;
   edgeRenderCard(data);
   edgeRenderModules(data);

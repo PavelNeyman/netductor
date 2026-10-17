@@ -1,3 +1,9 @@
+## 0.9.408
+
+- Thin UI jobs: internal/jobs; op /v1/jobs (edge.probe, edge.provision, edge.offline_prep, fleet, primary/secondary/buildhost); primary /api/jobs (stack.apply, doctor.run)
+- Web: slow edge/fleet paths via job poll (sessionStorage job_id)
+- CLI: netductor-op job list|get|wait|cancel
+
 ## 0.9.407
 
 - Edge probe: fix BusyBox exit 127 aborting USB package install

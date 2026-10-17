@@ -26,6 +26,8 @@ func main() {
 		fmt.Printf("netductor-op %s (operator)\n", version)
 	case "help", "-h", "--help":
 		printOpHelp()
+	case "job", "jobs":
+		runJobsCLI(os.Args[2:])
 	case "tui", "menu":
 		runTUI(os.Args[2:])
 	case "deploy":

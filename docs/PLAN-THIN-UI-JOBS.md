@@ -1,6 +1,6 @@
 # Plan: True thin UI (jobs + state on backend)
 
-**Status:** draft · **Date:** 2026-10-17 · **Tip context:** v0.9.407+
+**Status:** Phase 0–1 implemented (v0.9.408); Phase 2–4 incremental · **Date:** 2026-10-17 · **Tip context:** v0.9.407+
 
 ## Goal
 

@@ -1,6 +1,6 @@
 # План: действительно тонкий UI (jobs на бэкенде)
 
-**Статус:** draft · **2026-10-17** · Полная EN-версия: [PLAN-THIN-UI-JOBS.md](../PLAN-THIN-UI-JOBS.md)
+**Статус:** Phase 0–1 в v0.9.408 · **2026-10-17** · Полная EN-версия: [PLAN-THIN-UI-JOBS.md](../PLAN-THIN-UI-JOBS.md)
 
 ## Цель
 

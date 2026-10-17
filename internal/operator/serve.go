@@ -125,7 +125,7 @@ func Serve(o ServeOpts) error {
 			"version":         deploy.Release,
 			"bind":            addr,
 			"credentials_dir": cred,
-			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/build-host", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/credentials", "/v1/health", "/v1/meta"},
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/build-host", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/jobs", "/v1/credentials", "/v1/health", "/v1/meta"},
 			"auth":            "X-Netductor-Token",
 		})
 	})
@@ -222,6 +222,7 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/edge/preview", func(w http.ResponseWriter, r *http.Request) { handleEdgePreview(w, r, token) })
 	mux.HandleFunc("/v1/edge/offline-prep", func(w http.ResponseWriter, r *http.Request) { handleEdgeOfflinePrep(w, r, token) })
 	mux.HandleFunc("/v1/edge/luci", func(w http.ResponseWriter, r *http.Request) { handleEdgeLuci(w, r, token) })
+	registerJobsAPI(mux, token)
 	mux.HandleFunc("/v1/site", func(w http.ResponseWriter, r *http.Request) { handleSite(w, r, token) })
 	mux.HandleFunc("/v1/mikrotik", func(w http.ResponseWriter, r *http.Request) { handleMikroTik(w, r, token) })
 	mux.HandleFunc("/v1/node/", func(w http.ResponseWriter, r *http.Request) { ProxyNodeAPI(w, r, token) })

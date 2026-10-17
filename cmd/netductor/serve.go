@@ -53,6 +53,7 @@ func buildAPIMux() http.Handler {
 	registerIncidentAPI(mux)
 	registerCanaryAPI(mux)
 	registerSmokeAPI(mux)
+	registerJobsAPI(mux)
 	registerOnboardAPI(mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
