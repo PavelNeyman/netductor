@@ -1,3 +1,22 @@
+# Thin UI + Jobs
+
+**Статус 0.9.412 (2026-10-17):** фазы 0–4 по deploy-путям op + UX list/cancel **закрыты**.
+
+| Готово | Пункт |
+|--|--|
+| ✅ | `internal/jobs` + op `/v1/jobs` + primary `/api/jobs` |
+| ✅ | типы edge/fleet/primary/secondary/buildhost |
+| ✅ | Web: jobMap, reattach, панель Jobs + cancel |
+| ✅ | TUI: jobs + auto-serve + список/cancel |
+| ✅ | CLI op + node `job list\|cancel` |
+| ✅ | TG Tools → Jobs + cancel; Doctor → job `doctor.run` |
+| ✅ | SSH `CommandContext` + `WithSSHContext` при cancel |
+| ⏸ | stack.apply остаётся `stack schedule` (безопасный рестарт бота) |
+| ⏸ | Полный аудит каждой кнопки TG/DNS/NVR как job (day-2 уже EnqueueCmd) |
+
+Полная EN-версия: [PLAN-THIN-UI-JOBS.md](../PLAN-THIN-UI-JOBS.md)
+
+
 # План: действительно тонкий UI (jobs на бэкенде)
 
 **Статус:** Phase 0–1 в v0.9.408 · **2026-10-17** · Полная EN-версия: [PLAN-THIN-UI-JOBS.md](../PLAN-THIN-UI-JOBS.md)

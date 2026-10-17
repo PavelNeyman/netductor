@@ -1,3 +1,5 @@
+**0.9.412:** SSH CommandContext cancel; TG doctor job; thin-UI plan closed core.
+
 **0.9.411:** Jobs list+cancel in Web/TUI/TG/CLI.
 
 **0.9.410:** CLI→jobs; TUI Jobs panel; cooperative cancel.

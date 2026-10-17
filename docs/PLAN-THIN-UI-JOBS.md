@@ -1,47 +1,19 @@
-Status **0.9.410:** Phase 2 CLI+TUI jobs list; cancel cooperative.
+# Thin UI + Jobs
 
-# Plan: True thin UI (jobs + state on backend)
+**Status 0.9.412 (2026-10-17):** Phases 0–4 core **done** for op deploy paths + UX list/cancel.
 
-**Status:** Phase 0–1 implemented; Phase 2 TUI+Web reattach in **0.9.409** (v0.9.408); Phase 2–4 incremental · **Date:** 2026-10-17 · **Tip context:** v0.9.407+
+| Done | Item |
+|--|--|
+| ✅ | `internal/jobs` + op `/v1/jobs` + primary `/api/jobs` |
+| ✅ | edge/fleet/primary/secondary/buildhost job types |
+| ✅ | Web jobMap + reattach + Jobs panel + cancel |
+| ✅ | TUI via jobs + auto-serve + Jobs list/cancel |
+| ✅ | CLI op + node `job list\|cancel` |
+| ✅ | TG Tools → Jobs + cancel; Doctor → `doctor.run` job |
+| ✅ | SSH `CommandContext` + `WithSSHContext` on cancel |
+| ⏸ | stack.apply stays `stack schedule` (bot restart safety) |
+| ⏸ | Full Phase-3 audit of every TG/DNS/NVR button as job (day-2 already EnqueueCmd) |
 
-## Goal
-
-All long-running and multi-step work lives in a **backend process**. Every UI (Web, TUI, Telegram, CLI) only:
-
-1. **Starts** an operation → receives `job_id`
-2. **Polls** (or subscribes to) status / log / result
-3. **Cancels** if needed
-4. After UI restart / page refresh / bot reconnect — **reattaches** to the same `job_id` and shows current state
-
-UI must never be the process boundary for work that can take >2–3 seconds or touch SSH/deploy/build.
-
----
-
-## Current state (honest map)
-
-| Surface | Backend today | Long ops | Survives UI refresh? |
-|--|--|--|--|
-| **Primary Web / session API** | `netductor` on VPS | Many short JSON; some enqueue | Partial (agent queues yes) |
-| **Telegram** | bot on primary | Mostly enqueue + reply; some sync handlers | Mostly yes for agent cmds; not for in-handler SSH |
-| **CLI on VPS** | same process | Sync commands | N/A (terminal is the client) |
-| **Operator Web / TUI / CLI** (`netductor-op`) | local process on Mac | **Edge probe/provision, Fleet, primary/secondary/build deploy** run **inside the HTTP/TUI request** (stream or block) | **No** — abort client = stop or orphan without trackable job |
-| **Edge day-2** (agent online) | primary `EnqueueCmd` | Queue + agent poll | **Yes** (primary registry) |
-| **Build-host ship** | primary job claim | Queue | **Yes** |
-| **Git project build** | primary CI | Partially async | Improve |
-
-**Already good patterns to reuse**
-
-- `edge.EnqueueCmd` / secondary cmd queue / build-host `jobs/claim`
-- Operator `Reporter` + `Step{ID,Message,Done,Err}` (`internal/operator/events.go`) — structured progress, still tied to one request
-- TG “queued” replies for reboot / NVR / edge storage
-
-**Gap**
-
-- No unified **Job** store on **op** (LAN deploys)
-- No unified **Job** store on **primary** for operator-triggered bulk ops that today block the HTTP handler (stack apply stream, large doctor, mirror, etc. where still sync)
-- Web op has **no** durable `job_id` in sessionStorage → refresh restarts probe
-
----
 
 ## Principles
 

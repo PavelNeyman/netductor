@@ -253,7 +253,7 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 		s.NewRootPassword = strParam(j.Params, "new_root_password")
 	}
 	done := make(chan error, 1)
-	go func() { done <- DeployEdge(s) }()
+	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeployEdge(s) }) }()
 	select {
 	case <-ctx.Done():
 		setStep(jobs.Step{ID: "provision", Message: "cancel requested", Err: "cancelled"})
@@ -302,7 +302,7 @@ func runFleetDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), se
 		appendLog(st.ID + ": " + st.Message)
 	}
 	done := make(chan error, 1)
-	go func() { done <- FleetDeployWithReport(f, rep) }()
+	go func() { done <- deploy.WithSSHContext(ctx, func() error { return FleetDeployWithReport(f, rep) }) }()
 	select {
 	case <-ctx.Done():
 		setStep(jobs.Step{ID: "fleet", Message: "cancel requested", Err: "cancelled"})
@@ -324,7 +324,7 @@ func runPrimaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), 
 	setStep(jobs.Step{ID: "primary", Message: "deploy primary"})
 	ApplyDomainFlags(&s)
 	done := make(chan error, 1)
-	go func() { done <- DeployPrimary(s) }()
+	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeployPrimary(s) }) }()
 	select {
 	case <-ctx.Done():
 		setStep(jobs.Step{ID: "primary", Message: "cancel requested", Err: "cancelled"})
@@ -346,7 +346,7 @@ func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	}
 	setStep(jobs.Step{ID: "secondary", Message: "deploy secondary"})
 	done := make(chan error, 1)
-	go func() { done <- DeploySecondary(s) }()
+	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeploySecondary(s) }) }()
 	select {
 	case <-ctx.Done():
 		setStep(jobs.Step{ID: "secondary", Message: "cancel requested", Err: "cancelled"})
@@ -368,7 +368,7 @@ func runBuildHostDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	}
 	setStep(jobs.Step{ID: "build-host", Message: "deploy build-host"})
 	done := make(chan error, 1)
-	go func() { done <- DeployBuildHost(s) }()
+	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeployBuildHost(s) }) }()
 	select {
 	case <-ctx.Done():
 		setStep(jobs.Step{ID: "build-host", Message: "cancel requested", Err: "cancelled"})

@@ -1,3 +1,9 @@
+## 0.9.412
+
+- SSH cancel: `CommandContext` + `deploy.WithSSHContext` on job runners (real kill of in-flight ssh/scp)
+- TG: Doctor → `job start doctor.run`; Tools Jobs unchanged
+- PLAN-THIN-UI-JOBS marked Phases 0–4 core done
+
 ## 0.9.411
 
 - **All UIs:** job list + cancel

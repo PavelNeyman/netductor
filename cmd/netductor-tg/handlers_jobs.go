@@ -8,6 +8,20 @@ import (
 )
 
 func handleJobsMenu(token string, chat int64, msgID int, data string) bool {
+	if data == "m:doctor:run" {
+		out, err := exec.Command("/usr/local/bin/netductor", "job", "start", "doctor.run").CombinedOutput()
+		id := strings.TrimSpace(string(out))
+		msg := "🩺 doctor job started <code>" + esc(id) + "</code>
+"
+		if err != nil {
+			msg = "❌ " + esc(err.Error()) + "
+<code>" + esc(id) + "</code>"
+		} else {
+			msg += "<i>Tools → Jobs for status/cancel</i>"
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:jobs", parentTools()))
+		return true
+	}
 	if data != "m:jobs" && !strings.HasPrefix(data, "m:jobs:") {
 		return false
 	}

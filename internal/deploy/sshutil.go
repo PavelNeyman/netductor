@@ -140,7 +140,7 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 		if sp, err := lookSSHPass(); err == nil {
 			args := append([]string{"-e", "ssh"}, base...)
 			args = append(args, "--", target, remoteCmd)
-			cmd := exec.Command(sp, args...)
+			cmd := exec.CommandContext(currentSSHCtx(), sp, args...)
 			cmd.Env = append(os.Environ(), "SSHPASS="+password)
 			out, err := cmd.CombinedOutput()
 			return string(out), err
@@ -151,7 +151,7 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 		}
 		defer cleanup()
 		args := append(append([]string{}, base...), "--", target, remoteCmd)
-		cmd := exec.Command("setsid", append([]string{"ssh"}, args...)...)
+		cmd := exec.CommandContext(currentSSHCtx(), "setsid", append([]string{"ssh"}, args...)...)
 		cmd.Env = append(os.Environ(), "SSH_ASKPASS="+ask, "SSH_ASKPASS_REQUIRE=force", "DISPLAY=.")
 		out, err := cmd.CombinedOutput()
 		return string(out), err
@@ -162,7 +162,7 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	}
 	defer cleanup()
 	args := append(base, "--", target, remoteCmd)
-	cmd := exec.Command("ssh", args...)
+	cmd := exec.CommandContext(currentSSHCtx(), "ssh", args...)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	return string(out), err
@@ -187,7 +187,7 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 		}
 		args := append([]string{"-e", "scp", "-O"}, base...)
 		args = append(args, "--", local, target)
-		cmd := exec.Command(sp, args...)
+		cmd := exec.CommandContext(currentSSHCtx(), sp, args...)
 		cmd.Env = append(os.Environ(), "SSHPASS="+password)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -202,7 +202,7 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 	defer cleanup()
 	// -O: legacy SCP (Dropbear / OpenWrt have no SFTP subsystem).
 	args := append(append([]string{"-O"}, base...), "--", local, target)
-	cmd := exec.Command("scp", args...)
+	cmd := exec.CommandContext(currentSSHCtx(), "scp", args...)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -248,7 +248,7 @@ func scpTo(keyPath, localPath, remoteSpec, keyPassphrase string) error {
 		base = append(base, "-i", keyPath)
 	}
 	args := append(base, "--", localPath, remoteSpec)
-	cmd := exec.Command("scp", args...)
+	cmd := exec.CommandContext(currentSSHCtx(), "scp", args...)
 	env, cleanup, err := sshEnvWithAskPass(keyPassphrase)
 	if err != nil {
 		return err
