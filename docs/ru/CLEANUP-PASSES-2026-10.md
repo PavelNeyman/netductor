@@ -73,6 +73,25 @@
 | `ndconfig.APIPort` / `SvcSPPrimary` / `SvcSPSecondary` | accessors не использовались |
 
 
+
+### Проход слой 3 — ещё zero-ref (в т.ч. ранее «намеренные»)
+
+| Удалено | Почему |
+|---------|--------|
+| `RotateToken`, `StatusOf`, `FindResult` | store, не подключены |
+| `CopyClientMaterial` | 0 callers |
+| `GroupSectionsCSV` | не использовался |
+| `PolicySnapshotPath` | не читался |
+| `secondary/catalog.go` | 0 callers |
+| `SaveMaterial`/`LoadMaterial` | material.json пишет Bootstrap |
+| `LoadBuildMaterial` | 0 callers |
+| `ClearToken` | только `ClearTokenKind` |
+| `SelfReplace`, `AgentDownloadURL` | 0 callers |
+| `deploy.NodeAsset`/`OperatorAsset` | 0 callers |
+| `BuildShadowrocketRoutingConf` | алиас |
+| `AddCustomURL` | UI так и не подключили |
+
+
 ## 3. Security / correctness из той же кампании
 
 | Тема | Проблема | Исправление |

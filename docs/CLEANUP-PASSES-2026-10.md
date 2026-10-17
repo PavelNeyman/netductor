@@ -73,6 +73,25 @@ Autotests were **skipped on live VPS** by operator request during some suite run
 | `ndconfig.APIPort` / `SvcSPPrimary` / `SvcSPSecondary` | accessors unused (CIDR helpers kept) |
 
 
+
+### Pass layer 3 — more zero-ref (including previously “intentional”)
+
+| Removed | Why |
+|---------|-----|
+| `RotateToken`, `StatusOf`, `FindResult` | edge store, never wired |
+| `CopyClientMaterial` | mtls, zero callers |
+| `GroupSectionsCSV` | opcatalog docs helper unused |
+| `PolicySnapshotPath` | never read |
+| `secondary/catalog.go` | `RunCatalogHTTP`/`FormatCatalog` zero callers |
+| `SaveMaterial`/`LoadMaterial` | Bootstrap writes material.json inline |
+| `LoadBuildMaterial` | zero callers (`SaveBuildMaterial` kept) |
+| `ClearToken` | only `ClearTokenKind` used |
+| `SelfReplace`, `AgentDownloadURL` | zero callers |
+| `deploy.NodeAsset`/`OperatorAsset` | zero callers; keep `Release` |
+| `BuildShadowrocketRoutingConf` | alias; profile path used |
+| `AddCustomURL` | zero callers (UI backlog was never wired) |
+
+
 ## 3. Security / correctness fixes from the same campaign
 
 | Topic | Problem | Fix |
