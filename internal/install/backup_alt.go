@@ -72,6 +72,9 @@ func PushBackupRecovery(baseURL, token, filePath string) error {
 	if baseURL == "" || token == "" || filePath == "" {
 		return fmt.Errorf("usage: netductor backup push-recovery --url https://SEC:8790 --token TOKEN --file path.ndenc")
 	}
+	if !strings.HasPrefix(baseURL, "https://") {
+		return fmt.Errorf("recovery URL must be https://")
+	}
 	f, err := os.Open(filePath)
 	if err != nil {
 		return err

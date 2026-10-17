@@ -529,6 +529,9 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	if baseURL == "" || recoveryToken == "" {
 		return fmt.Errorf("usage: netductor recover --from-secondary URL --recovery-token TOKEN [--key KEY]")
 	}
+	if !strings.HasPrefix(baseURL, "https://") {
+		return fmt.Errorf("recovery URL must be https:// (got %s)", baseURL)
+	}
 	// Self-signed recovery TLS is default on secondary; allow skip-verify for this DR path only.
 	client := &http.Client{
 		Timeout: 30 * time.Minute,
