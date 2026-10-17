@@ -1,3 +1,5 @@
+**Стоп-линия: v0.9.404** (tip=prod). Hygiene 0.9.403…404; DNS custom URL; recovery CA pin. См. CLEANUP-PASSES-2026-10.
+
 # AGENT Handoff (RU)
 
 **Стоп-линия: v0.9.403** (2026-10-16). Комплекс ревью: [REVIEW-SUITE](REVIEW-SUITE.md). Чистки tip после релиза: [CLEANUP-PASSES-2026-10](../CLEANUP-PASSES-2026-10.md). Новый чат: AGENTS.md → [EN AGENT_HANDOFF](../AGENT_HANDOFF.md) → OPEN_ITEMS.

@@ -170,6 +170,15 @@ func SetEnabled(idOrURL string, on bool) error {
 	return writeDenyURLs(next)
 }
 
+// AddCustomURL enables a custom https list URL (same validation as SetEnabled on a raw URL).
+func AddCustomURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if err := validateCustomListURL(raw); err != nil {
+		return err
+	}
+	return SetEnabled(raw, true)
+}
+
 // ReloadBlocky refreshes lists via HTTP API (no restart → no DNS flap / probe noise).
 func ReloadBlocky() error {
 	client := &http.Client{Timeout: 15 * time.Second}

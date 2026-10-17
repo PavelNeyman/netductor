@@ -1,3 +1,5 @@
+> **Стоп: v0.9.404.** Чистка tip выкатана. Остаётся lab e2e (OpenWrt/NVR/MikroTik) и future (OIDC/guest session).
+
 **RU** · [EN](../OPEN_ITEMS.md)
 
 # Открытые пункты

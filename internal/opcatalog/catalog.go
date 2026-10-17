@@ -159,6 +159,7 @@ func All() []Action {
 		a("dns-lists", "dns", "GET", "/api/dns/lists", "", "dns list", "DNS lists", "DNS списки"),
 		a("dns-set", "dns", "POST", "/api/dns/set", `{"id":"","enabled":true}`, "dns set", "DNS set list", "DNS вкл/выкл список"),
 		a("dns-reload", "dns", "POST", "/api/dns/reload", "{}", "dns reload", "DNS reload", "DNS reload"),
+		a("dns-custom", "dns", "POST", "/api/dns/custom", `{"url":"https://"}`, "dns add-url", "DNS add custom URL", "DNS свой URL"),
 
 		// SSH allowlist (security)
 		a("ssh-keys", "probes", "GET", "/api/security/ssh-keys", "", "—", "SSH keys inventory", "SSH ключи (inventory)"),
@@ -169,7 +170,6 @@ func All() []Action {
 		a("reboot-challenge", "probes", "POST", "/api/security/reboot/challenge", `{"target":"primary"}`, "—", "Reboot challenge", "Reboot: запрос кода"),
 		a("reboot-confirm", "probes", "POST", "/api/security/reboot/confirm", `{"target":"primary","code":"0000"}`, "—", "Reboot confirm", "Reboot: подтвердить код"),
 		a("ssh-allowlist-enforce", "probes", "POST", "/api/security/ssh-allowlist", `{"fingerprints":[],"enforce":true,"push_secondary":true}`, "—", "SSH allowlist enforce", "SSH enforce"),
-
 
 		// backup
 		a("backup-schedule", "backup", "GET", "/api/backup/schedule", "", "backup schedule", "Backup schedule", "Расписание бэкапа"),

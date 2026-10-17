@@ -1,7 +1,7 @@
 # Cleanup & security review passes (2026-10)
 
 **Audience:** any AI or human continuing netductor work.  
-**Stop line at doc write:** tip after **v0.9.403** + cleanup commits (see `git log v0.9.403..HEAD`). Product release still **v0.9.403** until operator asks 0.9.404+.  
+**Stop line at doc write:** tip after **v0.9.403** + cleanup commits (see `git log v0.9.403..HEAD`). Product release **v0.9.404**.  
 **Do not** treat this as a substitute for [REVIEW-SUITE.md](REVIEW-SUITE.md) — it is a **changelog of hygiene passes** and a **remaining backlog**.
 
 Related: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [OPEN_ITEMS.md](OPEN_ITEMS.md) · [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/CLEANUP-PASSES-2026-10.md](ru/CLEANUP-PASSES-2026-10.md)
@@ -195,9 +195,9 @@ Approximate order (newest last on main may differ; use `git log`):
 
 ### 5.3 Optional hardening (backlog, not blockers)
 
-- Further **R1** split of secondary sing-box builders (partially done).  
-- Wire **AddCustomURL** to Web/TG UI if product wants custom lists (backend ready).  
-- Recovery client still uses `InsecureSkipVerify` (self-signed :8790) — pin CA if product wants.  
+- Further **R1** split — **closed** (builders + thin WriteSecondarySingBox).  
+- **AddCustomURL** — wired API/CLI/TG/opcatalog in 0.9.404.  
+- Recovery CA pin — `NETDUCTOR_RECOVERY_CA` / `recovery_peer.crt`; skip-verify only if unset (0.9.404).  
 - CrowdSec / advanced scanner noise — deferred historically.  
 - IPv6 dual-stack, multi-primary HA, IdP — explicitly **not now**.
 

@@ -1,3 +1,11 @@
+## 0.9.404
+
+- Hygiene series after 0.9.403: dead-code layers 1–6, POST-REVIEW crumb removal, fleet sync timer cleanup
+- DNS: custom list URL via API/CLI/TG (`dns add`, `/api/dns/custom`, TG ➕)
+- Recovery HTTPS client: optional CA pin (`NETDUCTOR_RECOVERY_CA` or `/etc/netductor/secrets/recovery_peer.crt`); skip-verify only if unset
+- R1 secondary builders: already closed in tree (WriteSecondarySingBox orchestrates only)
+- opcatalog: dns-custom action
+
 ## 0.9.402
 
 - Edge vpn_client: pre-check free space; install sing-box to USB data mount when internal flash too small; hard-fail (no fake success/reboot) if nowhere to put binary

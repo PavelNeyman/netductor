@@ -1,7 +1,6 @@
 package install
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -87,12 +86,7 @@ func PushBackupRecovery(baseURL, token, filePath string) error {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Netductor-Backup-Name", filepath.Base(filePath))
-	client := &http.Client{
-		Timeout: 30 * time.Minute,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // recovery self-signed
-		},
-	}
+	client := recoveryHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -138,7 +132,6 @@ func PushBackupSSH(host, port, keyPath, filePath string) error {
 	fmt.Println("pushed", filepath.Base(filePath), "→", host+":"+remoteDir)
 	return nil
 }
-
 
 // InstallSecondaryLocalBackupTimer daily local backup on secondary (no primary API).
 func InstallSecondaryLocalBackupTimer() error {

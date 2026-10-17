@@ -88,6 +88,16 @@ func guestBackKB() map[string]any {
 
 func handleDNSCB(token string, chat int64, msgID int, data string) {
 	fmt.Fprintf(os.Stderr, "dns cb data=%q\n", data)
+	if data == "m:dns:add" {
+		setState(chat, "wait_dns_custom", "")
+		ru := getLang() != "en"
+		hint := "Send an <b>https://</b> list URL (or /cancel)."
+		if ru {
+			hint = "Пришлите URL списка <b>https://</b> (или /cancel)."
+		}
+		reply(token, chat, msgID, "✏️ "+hint, navKeyboard("m:dns", "DNS"))
+		return
+	}
 	if data == "m:dns:reload" {
 		if err := dnsblock.ReloadBlocky(); err != nil {
 			showDNSMenu(token, chat, msgID, "❌ Reload: "+err.Error())
@@ -133,10 +143,14 @@ func showDNSMenu(token string, chat int64, msgID int, status string) {
 	if status != "" {
 		body = "<p>" + esc(status) + "</p>" + body
 	}
+	addLbl := "➕ Custom URL"
+	if getLang() != "en" {
+		addLbl = "➕ Свой URL"
+	}
 	kb := map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn(addLbl, "m:dns:add", ""), btn("🔄 Reload", "m:dns:reload", "")},
 		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
 	}}
-	// Prefer in-place edit; delete+send only if rich edit fails.
 	reply(token, chat, msgID, body, kb)
 }
 
@@ -383,8 +397,7 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 		}})
 		return
 	}
-	
-	
+
 	if strings.HasPrefix(data, "m:loc:roomadd:") {
 		siteID := strings.TrimPrefix(data, "m:loc:roomadd:")
 		setState(chat, "wait_room_id", siteID)
@@ -411,7 +424,7 @@ func handleLocationCB(token string, chat int64, msgID int, data string) {
 		showRoomCard(token, chat, msgID, parts[0], parts[1])
 		return
 	}
-if strings.HasPrefix(data, "m:loc:open:") {
+	if strings.HasPrefix(data, "m:loc:open:") {
 		id := strings.TrimPrefix(data, "m:loc:open:")
 		showLocationCard(token, chat, msgID, id)
 		return
@@ -848,7 +861,6 @@ func trimRunes(s string, n int) string {
 	}
 	return string(r[:n]) + "…"
 }
-
 
 func showRoomsList(token string, chat int64, msgID int, siteID string) {
 	ru := getLang() != "en"

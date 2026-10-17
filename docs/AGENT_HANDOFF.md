@@ -1,3 +1,5 @@
+**Stop line: v0.9.404** (tip=prod). Hygiene after 0.9.403; DNS custom URL; recovery CA pin. See CLEANUP-PASSES-2026-10.
+
 **0.9.378:** build-host dead deploy removed; Watch via heartbeat; registry Enabled; TG ship i18n; release assets.
 
 **0.9.378:** Build-host UI i18n (Web/TG). Fleet still deferred.

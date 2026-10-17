@@ -55,4 +55,30 @@ func registerDNSAPI(mux *http.ServeMux) {
 		audit.Log("session", "dns.reload", "", "")
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})
+
+	mux.HandleFunc("/api/dns/custom", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			writeJSON(w, 405, map[string]string{"error": "method"})
+			return
+		}
+		body := readJSON(r)
+		raw, _ := body["url"].(string)
+		if raw == "" {
+			raw, _ = body["id"].(string)
+		}
+		if raw == "" {
+			writeJSON(w, 400, map[string]string{"error": "url required (https://…)"})
+			return
+		}
+		if err := dnsblock.AddCustomURL(raw); err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		audit.Log("session", "dns.custom", raw, "")
+		writeJSON(w, 200, map[string]any{"ok": true, "lists": dnsblock.Catalog()})
+	})
+
 }

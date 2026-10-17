@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/dnsblock"
+	"github.com/PavelNeyman/netductor/internal/edge"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/sites"
-	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
-	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 	"strconv"
 	"strings"
@@ -109,6 +110,24 @@ func handleMessage(token string, m *message, admin int64) {
 		// numeric id
 		setState(chat, "", "")
 		applyAlertsChatID(token, chat, 0, text)
+		return
+	}
+	if st == "wait_dns_custom" {
+		setState(chat, "", "")
+		raw := strings.TrimSpace(text)
+		if raw == "" || raw == "/cancel" || raw == "-" {
+			completeInput(token, chat, uid, T("cancelled"), navKeyboard("m:dns", "DNS"))
+			return
+		}
+		if err := dnsblock.AddCustomURL(raw); err != nil {
+			completeInput(token, chat, uid, "❌ "+esc(err.Error()), navKeyboard("m:dns", "DNS"))
+			return
+		}
+		msg := "✅ Custom list added — press Reload in DNS menu"
+		if getLang() != "en" {
+			msg = "✅ Свой список добавлен — нажмите Reload в меню DNS"
+		}
+		completeInput(token, chat, uid, msg, navKeyboard("m:dns", "DNS"))
 		return
 	}
 	if st == "wait_github_token" || strings.HasPrefix(st, "wait_github_token:") {

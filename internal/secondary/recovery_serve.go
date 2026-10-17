@@ -275,7 +275,7 @@ func ArmRecovery(ttl time.Duration) error {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write(b)
 	}))
-		mux.HandleFunc("/recovery/upload", auth(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/recovery/upload", auth(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", 405)
 			return
@@ -302,7 +302,7 @@ func ArmRecovery(ttl time.Duration) error {
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintf(w, "stored %s (%d bytes)\n", outPath, n)
 	}))
-mux.HandleFunc("/recovery/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/recovery/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte("ok\n"))
 	})
@@ -397,6 +397,7 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool) {
 	b, _ := x509.MarshalECPrivateKey(key)
 	_ = pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
 	_ = kf.Close()
+	fmt.Fprintf(os.Stderr, "recovery-tls: cert %s (copy to peer as /etc/netductor/secrets/recovery_peer.crt or set NETDUCTOR_RECOVERY_CA)\n", recoveryCert)
 	return recoveryCert, recoveryKey, true
 }
 

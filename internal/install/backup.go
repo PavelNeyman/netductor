@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -507,7 +508,6 @@ func PrunePeerBackups(keep int) {
 	pruneBackups("/var/lib/netductor/backups/peers/core", keep)
 }
 
-
 // MarkRecoverDrill records a successful recovery/restore drill timestamp for fleet digest.
 func MarkRecoverDrill() error {
 	p := filepath.Join(paths.StateDir(), "recover-drill-last.txt")
@@ -523,6 +523,31 @@ func RecoverFromBuildHost(baseURL, recoveryToken, keyArg string) error {
 	return RecoverFromSecondary(baseURL, recoveryToken, keyArg)
 }
 
+// recoveryHTTPClient prefers pinned CA (NETDUCTOR_RECOVERY_CA or /etc/netductor/secrets/recovery_peer.crt).
+// Falls back to InsecureSkipVerify only when no pin is configured (DR first contact).
+func recoveryHTTPClient() *http.Client {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	caPath := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA"))
+	if caPath == "" {
+		caPath = "/etc/netductor/secrets/recovery_peer.crt"
+	}
+	if b, err := os.ReadFile(caPath); err == nil && len(b) > 0 {
+		pool := x509.NewCertPool()
+		if pool.AppendCertsFromPEM(b) {
+			cfg.RootCAs = pool
+		} else {
+			fmt.Fprintln(os.Stderr, "recovery: CA file present but not PEM certs; using skip-verify")
+			cfg.InsecureSkipVerify = true //nolint:gosec
+		}
+	} else {
+		cfg.InsecureSkipVerify = true //nolint:gosec // no pin yet — optional NETDUCTOR_RECOVERY_CA
+	}
+	return &http.Client{
+		Timeout:   30 * time.Minute,
+		Transport: &http.Transport{TLSClientConfig: cfg},
+	}
+}
+
 // RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().
 func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
@@ -532,13 +557,7 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	if !strings.HasPrefix(baseURL, "https://") {
 		return fmt.Errorf("recovery URL must be https:// (got %s)", baseURL)
 	}
-	// Self-signed recovery TLS is default on secondary; allow skip-verify for this DR path only.
-	client := &http.Client{
-		Timeout: 30 * time.Minute,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // recovery self-signed
-		},
-	}
+	client := recoveryHTTPClient()
 	get := func(path string) ([]byte, http.Header, error) {
 		req, err := http.NewRequest(http.MethodGet, baseURL+path, nil)
 		if err != nil {

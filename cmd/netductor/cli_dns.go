@@ -10,7 +10,7 @@ import (
 
 func runDNS(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor dns list|on <id>|off <id>|reload")
+		fmt.Fprintln(os.Stderr, "usage: netductor dns list|on <id>|off <id>|add <https-url>|reload")
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -49,6 +49,16 @@ func runDNS(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("ok", args[1], "off")
+	case "add", "custom":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor dns add <https-url>")
+			os.Exit(2)
+		}
+		if err := dnsblock.AddCustomURL(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("ok custom", args[1])
 	case "reload":
 		if err := dnsblock.ReloadBlocky(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -57,7 +67,7 @@ func runDNS(args []string) {
 		fmt.Println("ok reload")
 	default:
 		fmt.Fprintln(os.Stderr, "unknown dns subcommand:", args[0])
-		fmt.Fprintln(os.Stderr, "usage: netductor dns list|on <id>|off <id>|reload")
+		fmt.Fprintln(os.Stderr, "usage: netductor dns list|on <id>|off <id>|add <https-url>|reload")
 		os.Exit(2)
 	}
 }
