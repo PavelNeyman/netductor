@@ -310,22 +310,7 @@ func runGitProject(args []string) int {
 	case "build":
 		fmt.Fprintln(os.Stderr, "git project build removed — use: netductor project ship <name> [--ref REF] [--tag vX]")
 		return 2
-		// unreachable legacy:
-		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor git project build <name> [ref]")
-			return 2
-		}
-		ref := ""
-		if len(args) >= 3 {
-			ref = args[2]
-		}
-		out, err := gitstore.BuildProject(args[1], ref)
-		fmt.Print(out)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 1
-		}
-		return 0
+
 	case "build-all", "buildall":
 		fmt.Fprintln(os.Stderr, "git project build-all removed — use project ship per name, or API ship-all")
 		queued, skipped, err := gitstore.ShipAllVPS()

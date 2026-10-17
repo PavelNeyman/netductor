@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,11 +12,11 @@ import (
 )
 
 type Guest struct {
-	ID        string `json:"id"`
-	User      string `json:"user"` // vpn user name created for guest
-	Expires   int64  `json:"expires"`
-	Created   int64  `json:"created"`
-	Note      string `json:"note,omitempty"`
+	ID      string `json:"id"`
+	User    string `json:"user"` // vpn user name created for guest
+	Expires int64  `json:"expires"`
+	Created int64  `json:"created"`
+	Note    string `json:"note,omitempty"`
 }
 
 func guestPath() string {
@@ -128,17 +127,4 @@ func ExpireGuests() (int, error) {
 		return n, err
 	}
 	return n, nil
-}
-
-func ListGuests() []Guest {
-	g, _ := loadGuests()
-	return g
-}
-
-func GuestSummary() string {
-	g := ListGuests()
-	if len(g) == 0 {
-		return "guests: 0"
-	}
-	return fmt.Sprintf("guests: %d", len(g))
 }

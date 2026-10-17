@@ -55,19 +55,3 @@ func postTG(tok string, method string, vals url.Values) error {
 func Telegram(msg string) error {
 	return sendTelegramHTML(msg)
 }
-
-// TelegramCmd reports a finished node command with a small table.
-func TelegramCmd(node, cmd string, ok bool, log string) error {
-	mark := "✅"
-	if !ok {
-		mark = "❌"
-	}
-	if len(log) > 800 {
-		log = log[len(log)-800:]
-	}
-	msg := fmt.Sprintf(
-		"%s <b>%s</b>\n\n<table bordered striped>\n<tr><th>field</th><th>value</th></tr>\n<tr><td>node</td><td>%s</td></tr>\n<tr><td>cmd</td><td>%s</td></tr>\n<tr><td>ok</td><td>%v</td></tr>\n</table>\n<details><summary>log</summary>\n<pre>%s</pre>\n</details>",
-		mark, htmlEsc(cmd), htmlEsc(node), htmlEsc(cmd), ok, htmlEsc(log),
-	)
-	return Telegram(msg)
-}

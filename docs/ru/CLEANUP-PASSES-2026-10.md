@@ -36,6 +36,26 @@
 
 ---
 
+
+### Проход (после журнала) — мёртвые символы по call-graph
+
+| Удалено | Почему |
+|---------|--------|
+| `internal/fleet/bot_failover.go` | Только error-stub; CLI не вызывал |
+| `internal/fleet/apply.go` (`ApplyLampac`) | 0 callers; lampac через `install lampac` |
+| `internal/fleet/sync.go` (`SyncPaths`) | Deprecated no-op; 0 callers |
+| `internal/vpn/qr.go` | Не используется (QR в registry) |
+| `ListGuests` / `GuestSummary` | Только друг на друга |
+| `TelegramCmd` | 0 callers |
+| `FactsToJSON` / `FactsFromJSON` | 0 callers |
+| `TouchBuildHostSeen` | 0 callers |
+| `EnqueueSyncAll` | Мёртв; живой путь `SyncAll` |
+| `sshIdentityArgs` / `scpToSecondary` / `sshOnSecondary` | Остатки SSH primary→secondary |
+| Недостижимый код после `git project build` | После `return 2` |
+
+**Оставлено:** `RotateToken` / `StatusOf` (store API, UI пока нет — не мусор).
+
+
 ## 3. Security / correctness из той же кампании
 
 | Тема | Проблема | Исправление |

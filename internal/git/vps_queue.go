@@ -324,20 +324,3 @@ func EnqueueBuildAll(vpsOnly bool) (jobs []VpsBuildJob, skipped []string) {
 	}
 	return jobs, skipped
 }
-
-// EnqueueSyncAll queues sync for every project (still sequential via worker).
-func EnqueueSyncAll() (jobs []VpsBuildJob, errs []string) {
-	list, err := LoadProjects()
-	if err != nil {
-		return nil, []string{err.Error()}
-	}
-	for _, p := range list {
-		j, err := EnqueueVpsJob(p.Name, "HEAD", "sync")
-		if err != nil {
-			errs = append(errs, p.Name+":"+err.Error())
-			continue
-		}
-		jobs = append(jobs, j)
-	}
-	return jobs, errs
-}

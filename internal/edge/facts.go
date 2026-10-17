@@ -1,7 +1,6 @@
 package edge
 
 import (
-	"encoding/json"
 	"strings"
 )
 
@@ -30,19 +29,19 @@ type UCINetFacts struct {
 
 // WiFiSSIDFact is a configured AP iface (current state).
 type WiFiSSIDFact struct {
-	Section string `json:"section,omitempty"` // e.g. default_radio0
-	Device  string `json:"device,omitempty"`  // radio0
-	SSID    string `json:"ssid,omitempty"`
-	Mode    string `json:"mode,omitempty"` // ap | sta
-	Disabled bool  `json:"disabled,omitempty"`
+	Section  string `json:"section,omitempty"` // e.g. default_radio0
+	Device   string `json:"device,omitempty"`  // radio0
+	SSID     string `json:"ssid,omitempty"`
+	Mode     string `json:"mode,omitempty"` // ap | sta
+	Disabled bool   `json:"disabled,omitempty"`
 }
 
 // USBDiskFact is one USB/block disk seen at probe (PLAN-EDGE-USB-STORAGE).
 type USBDiskFact struct {
-	Name       string `json:"name"`                  // sda
+	Name       string `json:"name"` // sda
 	SizeKB     int64  `json:"size_kb,omitempty"`
 	Partitions int    `json:"partitions,omitempty"`
-	FS         string `json:"fs,omitempty"`          // first partition fs if any
+	FS         string `json:"fs,omitempty"` // first partition fs if any
 	Mount      string `json:"mount,omitempty"`
 	FreeKB     int64  `json:"free_kb,omitempty"`
 	UsedKB     int64  `json:"used_kb,omitempty"`
@@ -73,19 +72,19 @@ func (s StorageFacts) HasUsableUSB() bool {
 
 // DeviceFacts is the capability snapshot used to build a deploy plan and UI card.
 type DeviceFacts struct {
-	Arch     string         `json:"arch,omitempty"`
-	Board    string         `json:"board,omitempty"`
-	Model    string         `json:"model,omitempty"`
-	Serial   string         `json:"serial,omitempty"`
-	OS       string         `json:"os,omitempty"` // openwrt | other
-	Ifaces   []NetIface     `json:"ifaces,omitempty"`
-	Radios   []RadioFact    `json:"radios,omitempty"`
-	SSIDs    []WiFiSSIDFact `json:"ssids,omitempty"`
-	UCI      UCINetFacts    `json:"uci"`
-	MemTotalKB int64        `json:"mem_total_kb,omitempty"`
-	MemAvailKB int64        `json:"mem_avail_kb,omitempty"`
-	Storage  StorageFacts   `json:"storage"`
-	FlashMB  int            `json:"flash_mb,omitempty"`
+	Arch       string         `json:"arch,omitempty"`
+	Board      string         `json:"board,omitempty"`
+	Model      string         `json:"model,omitempty"`
+	Serial     string         `json:"serial,omitempty"`
+	OS         string         `json:"os,omitempty"` // openwrt | other
+	Ifaces     []NetIface     `json:"ifaces,omitempty"`
+	Radios     []RadioFact    `json:"radios,omitempty"`
+	SSIDs      []WiFiSSIDFact `json:"ssids,omitempty"`
+	UCI        UCINetFacts    `json:"uci"`
+	MemTotalKB int64          `json:"mem_total_kb,omitempty"`
+	MemAvailKB int64          `json:"mem_avail_kb,omitempty"`
+	Storage    StorageFacts   `json:"storage"`
+	FlashMB    int            `json:"flash_mb,omitempty"`
 }
 
 func (f DeviceFacts) EthernetCount() int {
@@ -136,22 +135,6 @@ func (f DeviceFacts) Bands() []string {
 		}
 	}
 	return out
-}
-
-func FactsToJSON(f DeviceFacts) string {
-	b, err := json.Marshal(f)
-	if err != nil {
-		return "{}"
-	}
-	return string(b)
-}
-
-func FactsFromJSON(s string) (DeviceFacts, error) {
-	var f DeviceFacts
-	if err := json.Unmarshal([]byte(s), &f); err != nil {
-		return f, err
-	}
-	return f, nil
 }
 
 // NormalizeArch maps uname -m style to netductor agent arch labels.

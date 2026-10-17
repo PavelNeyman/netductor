@@ -1,12 +1,11 @@
 package gitstore
 
 import (
-	"strings"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 )
 
 // EnqueueBuildHostCmd appends a cmd for an online (or any) build host agent.
@@ -69,12 +68,3 @@ func EnqueueBackupPullAllBuildHosts() (n int, err error) {
 }
 
 // RecordBuildHostHeartbeat also drains nothing — cmds returned by API.
-func TouchBuildHostSeen(id string) {
-	s, err := LoadBuildHostState(id)
-	if err != nil {
-		return
-	}
-	s.LastSeen = time.Now().UTC().Format(time.RFC3339)
-	s.Online = true
-	_ = SaveBuildHostState(s)
-}

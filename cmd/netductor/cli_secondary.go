@@ -357,33 +357,6 @@ func runSecondary(args []string) {
 	}
 }
 
-// sshIdentityArgs: prefer operator_reprovision (deploy left key for post-steps), else default identity.
-func sshIdentityArgs() []string {
-	// Prefer core's own key for rare primary→secondary post-steps — never Mac private key.
-	for _, p := range []string{"/root/.ssh/id_ed25519", "/root/.ssh/id_rsa"} {
-		if st, err := os.Stat(p); err == nil && !st.IsDir() {
-			return []string{"-i", p}
-		}
-	}
-	return nil
-}
-
-func scpToSecondary(local, remoteHostPath string) error {
-	args := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes"}
-	args = append(args, sshIdentityArgs()...)
-	args = append(args, local, remoteHostPath)
-	return execLocal("scp", args...)
-}
-
-func sshOnSecondary(host, cmd string) error {
-	args := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes"}
-	args = append(args, sshIdentityArgs()...)
-	args = append(args, "root@"+host, cmd)
-	c := exec.Command("ssh", args...)
-	c.Stdout, c.Stderr = os.Stdout, os.Stderr
-	return c.Run()
-}
-
 // postProvisionSecondary restores operator-facing state after a clean relay reinstall.
 // Reality keys are always new on the secondary; everything else is rebuilt on core + remote.
 func postProvisionSecondary(host, sni string) {
@@ -466,8 +439,6 @@ func trimPBK(s string) string {
 	}
 	return s[:8] + "…"
 }
-
-
 
 func execLocal(name string, args ...string) error {
 	c := exec.Command(name, args...)

@@ -1,7 +1,7 @@
 # Cleanup & security review passes (2026-10)
 
 **Audience:** any AI or human continuing netductor work.  
-**Stop line at doc write:** tip commits after **v0.9.403** (see `git log v0.9.403..HEAD`).  
+**Stop line at doc write:** tip after **v0.9.403** + cleanup commits (see `git log v0.9.403..HEAD`). Product release still **v0.9.403** until operator asks 0.9.404+.  
 **Do not** treat this as a substitute for [REVIEW-SUITE.md](REVIEW-SUITE.md) — it is a **changelog of hygiene passes** and a **remaining backlog**.
 
 Related: [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [OPEN_ITEMS.md](OPEN_ITEMS.md) · [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/CLEANUP-PASSES-2026-10.md](ru/CLEANUP-PASSES-2026-10.md)
@@ -35,6 +35,26 @@ Autotests were **skipped on live VPS** by operator request during some suite run
 **Rule used:** a symbol is dead only if zero references outside its definition (and not required for `//go:linkname`, tests, or external API stability). Prefer leaving exported stubs that return a clear error (e.g. `SetBackupPeer`) over silent no-ops.
 
 ---
+
+
+### Pass (post-journal) — dead symbols proved by call-graph
+
+| Removed | Why |
+|---------|-----|
+| `internal/fleet/bot_failover.go` | All funcs only returned errors; CLI never called them |
+| `internal/fleet/apply.go` (`ApplyLampac`) | Zero callers; lampac via `netductor install lampac` |
+| `internal/fleet/sync.go` (`SyncPaths`) | Deprecated no-op; zero callers |
+| `internal/vpn/qr.go` | `WriteQR`/`ASCIIQR`/`PrintASCIIQR` unused (QR via registry `qrcode.WriteFile`) |
+| `ListGuests` / `GuestSummary` | Only each other |
+| `TelegramCmd` | Zero callers |
+| `FactsToJSON` / `FactsFromJSON` | Zero callers |
+| `TouchBuildHostSeen` | Zero callers |
+| `EnqueueSyncAll` | Dead; live path is `SyncAll` |
+| `sshIdentityArgs` / `scpToSecondary` / `sshOnSecondary` | Primary→secondary SSH leftover |
+| `cli_git` unreachable after `git project build` | Dead after `return 2` |
+
+**Left intentionally:** `RotateToken` / `StatusOf` (store API, not wired to UI yet — product surface, not trash).
+
 
 ## 3. Security / correctness fixes from the same campaign
 
@@ -126,4 +146,4 @@ brew update && brew upgrade netductor-op
 
 ---
 
-*Last updated with tip hygiene series through recovery HTTPS + ship Dir fix. Extend the table in §3 when you land another pass.*
+*Last updated: dead-fleet/QR/guest/notify/secondary helpers pass (post e0e1859). Extend §2/§3 on next pass.*
