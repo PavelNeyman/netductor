@@ -2,7 +2,9 @@ package dnsblock
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -84,32 +86,50 @@ func Catalog() []ListEntry {
 	return out
 }
 
-func SetEnabled(idOrURL string, on bool) error {
-	url, ok := AdGuardStyleLists[idOrURL]
-	if !ok {
-		return fmt.Errorf("unknown list id")
+func resolveListURL(idOrURL string) (string, error) {
+	idOrURL = strings.TrimSpace(idOrURL)
+	if u, ok := AdGuardStyleLists[idOrURL]; ok {
+		return u, nil
 	}
+	// Already a full URL (custom entry from Catalog or AddCustomURL).
+	if strings.HasPrefix(idOrURL, "https://") {
+		if err := validateCustomListURL(idOrURL); err != nil {
+			return "", err
+		}
+		return idOrURL, nil
+	}
+	if strings.HasPrefix(idOrURL, "http://") {
+		return "", fmt.Errorf("custom lists must use https")
+	}
+	return "", fmt.Errorf("unknown list id")
+}
+
+func validateCustomListURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return fmt.Errorf("invalid https list url")
+	}
+	if u.User != nil {
+		return fmt.Errorf("list url must not include credentials")
+	}
+	host := u.Hostname()
+	if host == "localhost" || strings.HasSuffix(host, ".local") {
+		return fmt.Errorf("list host not allowed")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+			return fmt.Errorf("list host not allowed")
+		}
+	}
+	return nil
+}
+
+func writeDenyURLs(next []string) error {
 	b, err := os.ReadFile(blockyConfig)
 	if err != nil {
 		return err
 	}
 	text := string(b)
-	cur := currentDenyURLs()
-	have := false
-	var next []string
-	for _, u := range cur {
-		if u == url {
-			have = true
-			if on {
-				next = append(next, u)
-			}
-			continue
-		}
-		next = append(next, u)
-	}
-	if on && !have {
-		next = append(next, url)
-	}
 	var adsBlock strings.Builder
 	adsBlock.WriteString("    ads:\n")
 	for _, u := range next {
@@ -122,19 +142,40 @@ func SetEnabled(idOrURL string, on bool) error {
 		text += "\nblocking:\n  denylists:\n" + adsBlock.String()
 		text += "  clientGroupsBlock:\n    default:\n      - ads\n"
 	}
-	if err := os.WriteFile(blockyConfig, []byte(text), 0o644); err != nil {
-		return err
-	}
-	// Do not reload here — operator presses 🔄 Reload after choosing lists.
-	return nil
+	return os.WriteFile(blockyConfig, []byte(text), 0o644)
 }
 
-func AddCustomURL(url string) error {
-	url = strings.TrimSpace(url)
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return fmt.Errorf("url must be http(s)")
+func SetEnabled(idOrURL string, on bool) error {
+	listURL, err := resolveListURL(idOrURL)
+	if err != nil {
+		return err
 	}
-	return SetEnabled(url, true)
+	cur := currentDenyURLs()
+	have := false
+	var next []string
+	for _, u := range cur {
+		if u == listURL {
+			have = true
+			if on {
+				next = append(next, u)
+			}
+			continue
+		}
+		next = append(next, u)
+	}
+	if on && !have {
+		next = append(next, listURL)
+	}
+	// Do not reload here — operator presses Reload after choosing lists.
+	return writeDenyURLs(next)
+}
+
+func AddCustomURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if err := validateCustomListURL(raw); err != nil {
+		return err
+	}
+	return SetEnabled(raw, true)
 }
 
 // ReloadBlocky refreshes lists via HTTP API (no restart → no DNS flap / probe noise).
