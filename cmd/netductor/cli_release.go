@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 )
 
 func runRelease(args []string) int {
@@ -152,8 +152,7 @@ func runRelease(args []string) int {
 		fmt.Println("ok", dst)
 		return 0
 	case "ship":
-		fmt.Fprintln(os.Stderr, "release ship removed — use: netductor project ship netductor [--tag vX]")
-		// still runs matrix for transition:
+		fmt.Fprintln(os.Stderr, "release ship: deprecated alias — prefer: netductor project ship netductor [--tag vX]")
 		tag := ""
 		skipT, skipD := false, false
 		for _, a := range args[1:] {

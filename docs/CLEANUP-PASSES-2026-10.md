@@ -105,6 +105,22 @@ Autotests were **skipped on live VPS** by operator request during some suite run
 | `netmap.HintByID` | zero callers |
 
 
+
+### Pass layer 5 — docs/scripts surface + CLI stubs
+
+| Action | Detail |
+|--------|--------|
+| Deleted | all `docs/POST-REVIEW-0.9.*.md` (EN+RU) — one-shot suite crumbs |
+| Deleted | `docs/DEEP-CODE-REVIEW-2026-10-02.md` (+ RU) — historical; not live handoff |
+| Fixed | `VERIFICATION-PLAN` links to deep review removed |
+| `InstallSyncTimer` | removed; `DisableLegacyFleetUnits` only |
+| CLI fleet | `sync`/`bot-failover`/`apply-lampac` → exit 2 + disable legacy units |
+| CLI git `build-all` | message matches real `ShipAllVPS` behavior |
+| CLI `release ship` | deprecated alias wording (still runs matrix) |
+
+Kept: `scripts/audit-hoster-*`, `tapo_v4` (protocol reference), agent python fallback (day-2 NVR).
+
+
 ## 3. Security / correctness fixes from the same campaign
 
 | Topic | Problem | Fix |

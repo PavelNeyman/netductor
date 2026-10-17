@@ -105,6 +105,22 @@
 | `netmap.HintByID` | 0 callers |
 
 
+
+### Проход слой 5 — доки/скрипты + CLI-заглушки
+
+| Действие | Деталь |
+|----------|--------|
+| Удалены | все `POST-REVIEW-0.9.*` (EN+RU) |
+| Удалён | `DEEP-CODE-REVIEW-2026-10-02` (EN+RU) |
+| Правка | ссылки в `VERIFICATION-PLAN` |
+| `InstallSyncTimer` | убран; только `DisableLegacyFleetUnits` |
+| CLI fleet | removed-команды → exit 2 + disable legacy |
+| CLI git `build-all` | сообщение = реальное поведение |
+| CLI `release ship` | deprecated alias |
+
+Оставлены: audit-скрипты, `tapo_v4` (reference), python fallback агента.
+
+
 ## 3. Security / correctness из той же кампании
 
 | Тема | Проблема | Исправление |

@@ -54,14 +54,12 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 		}
 		fmt.Println("secondary", args[1])
 	case "sync", "sync-timer", "apply-lampac", "bot-failover":
-		fmt.Fprintln(os.Stderr, "removed:", args[0], "— secondary is VPN entry only (see docs/PLAN-SECONDARY-VPN-ONLY.md)")
+		fmt.Fprintln(os.Stderr, "removed:", args[0], "— secondary is VPN entry only")
 		if args[0] == "apply-lampac" {
 			fmt.Fprintln(os.Stderr, "hint: netductor install lampac   # on primary")
 		}
-		if args[0] == "sync" || args[0] == "sync-timer" {
-			_ = fleet.InstallSyncTimer()
-		}
-		os.Exit(0)
+		fleet.DisableLegacyFleetUnits()
+		os.Exit(2)
 	case "disable-legacy":
 		fleet.DisableLegacyFleetUnits()
 		fmt.Println("disabled legacy fleet-sync / bot-failover units (if present)")

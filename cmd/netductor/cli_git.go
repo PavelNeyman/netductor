@@ -312,7 +312,7 @@ func runGitProject(args []string) int {
 		return 2
 
 	case "build-all", "buildall":
-		fmt.Fprintln(os.Stderr, "git project build-all removed — use project ship per name, or API ship-all")
+		fmt.Fprintln(os.Stderr, "git project build-all → ShipAllVPS (prefer: netductor project ship <name>)")
 		queued, skipped, err := gitstore.ShipAllVPS()
 		for _, id := range queued {
 			fmt.Println("queued", id)

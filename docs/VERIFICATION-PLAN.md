@@ -2,7 +2,6 @@
 
 **Purpose:** systematic scenario + module review against real hardware constraints.  
 **Progress:** check boxes as phases complete; do not skip marking.  
-**Deep review:** [DEEP-CODE-REVIEW-2026-10-02.md](DEEP-CODE-REVIEW-2026-10-02.md) (RU twin under docs/ru/).
 
 **Stop line at creation:** v0.9.192 (2026-10-03); prior baseline 0.9.191.
 **Live stop (2026-10-03):** primary+secondary **v0.9.197+** applied; host-audit CLEAN; firewall ufw secondary OK; Timeweb zabbix package+apt residual removed. Code tip **v0.9.198** adds apt residual detection.  
