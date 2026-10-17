@@ -197,6 +197,14 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "fleet-status":
 		m.showCmd("fleet", "status")
+	case "jobs", "jobs-list":
+		m.output = listOpJobsText()
+		m.screen = screenOutput
+		return m, nil
+	case "jobs-running":
+		m.output = listOpJobsTextRunning()
+		m.screen = screenOutput
+		return m, nil
 	case "secondary-sync", "fleet-sync", "relay-sync":
 		m.showCmd("secondary", "sync")
 	case "apply-lampac":

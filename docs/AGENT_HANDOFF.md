@@ -1,3 +1,5 @@
+**0.9.410:** CLI→jobs; TUI Jobs panel; cooperative cancel.
+
 **0.9.409:** TUI deploy via jobs; Web reattach; auto serve.
 
 **Stop line: v0.9.406** — probe installs USB kmods then facts.

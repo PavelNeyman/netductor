@@ -1,3 +1,9 @@
+## 0.9.410
+
+- CLI deploy (primary/secondary/fleet/edge) via **/v1/jobs**
+- TUI menu: Jobs (running/all) against op serve
+- Job runners: cooperative cancel via ctx (marks cancelled; SSH may finish current step)
+
 ## 0.9.409
 
 - TUI wizards (primary/fleet/secondary/build/edge) via **/v1/jobs** + auto-start `serve`

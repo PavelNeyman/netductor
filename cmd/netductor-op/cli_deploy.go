@@ -161,7 +161,7 @@ See: netductor tui → Setup wizard`)
 		if o.SSHPrivateKey == "" {
 			o.GenerateKey = true
 		}
-		if err := operator.DeployPrimary(o); err != nil {
+		if _, err := startAndWaitJob("primary.deploy", structToParams(o)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -200,7 +200,7 @@ See: netductor tui → Setup wizard`)
 			fmt.Fprintln(os.Stderr, "required: --primary --primary-key --host (--password or --secondary-key)")
 			os.Exit(2)
 		}
-		if err := operator.DeploySecondary(o); err != nil {
+		if _, err := startAndWaitJob("secondary.deploy", structToParams(o)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -253,7 +253,7 @@ See: netductor tui → Setup wizard`)
 			fmt.Fprintln(os.Stderr, "fleet: --secondary-host required")
 			os.Exit(2)
 		}
-		if err := operator.FleetDeploy(f); err != nil {
+		if _, err := startAndWaitJob("fleet.deploy", structToParams(f)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -451,7 +451,7 @@ See: netductor tui → Setup wizard`)
 		if o.ServerURL == "" && o.PrimaryHost != "" {
 			o.ServerURL = "https://" + o.PrimaryHost + ":8789"
 		}
-		if err := operator.DeployEdge(operator.EdgeSpec{
+		edgeSpec := operator.EdgeSpec{
 			PrimaryHost: o.PrimaryHost, PrimaryUser: o.PrimaryUser, PrimaryKey: o.PrimaryKey,
 			PrimaryKeyPassphrase: o.PrimaryKeyPassphrase,
 			RouterHost:           o.RouterHost, RouterUser: o.RouterUser, RouterPass: o.RouterPass,
@@ -468,7 +468,13 @@ See: netductor tui → Setup wizard`)
 			PPPoEUser: o.PPPoEUser, PPPoEPass: o.PPPoEPass, PPPoEService: o.PPPoEService, PPPoEAC: o.PPPoEAC,
 			Reboot: o.Reboot,
 			Preset: o.Preset, DryRun: o.DryRun, DryRunJSON: o.DryRunJSON,
-		}); err != nil {
+		}
+		if o.DryRun {
+			if err := operator.DeployEdge(edgeSpec); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		} else if _, err := startAndWaitJob("edge.provision", structToParams(edgeSpec)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

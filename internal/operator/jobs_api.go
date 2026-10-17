@@ -301,10 +301,18 @@ func runFleetDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), se
 		setStep(jobs.Step{ID: st.ID, Message: st.Message, Done: st.Done, Err: st.Err})
 		appendLog(st.ID + ": " + st.Message)
 	}
-	if err := FleetDeployWithReport(f, rep); err != nil {
-		return nil, err
+	done := make(chan error, 1)
+	go func() { done <- FleetDeployWithReport(f, rep) }()
+	select {
+	case <-ctx.Done():
+		setStep(jobs.Step{ID: "fleet", Message: "cancel requested", Err: "cancelled"})
+		return nil, ctx.Err()
+	case err := <-done:
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true}, nil
 	}
-	return map[string]any{"ok": true}, nil
 }
 
 func runPrimaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
@@ -315,11 +323,19 @@ func runPrimaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), 
 	}
 	setStep(jobs.Step{ID: "primary", Message: "deploy primary"})
 	ApplyDomainFlags(&s)
-	if err := DeployPrimary(s); err != nil {
-		return nil, err
+	done := make(chan error, 1)
+	go func() { done <- DeployPrimary(s) }()
+	select {
+	case <-ctx.Done():
+		setStep(jobs.Step{ID: "primary", Message: "cancel requested", Err: "cancelled"})
+		return nil, ctx.Err()
+	case err := <-done:
+		if err != nil {
+			return nil, err
+		}
+		setStep(jobs.Step{ID: "primary", Message: "ok", Done: true})
+		return map[string]any{"ok": true}, nil
 	}
-	setStep(jobs.Step{ID: "primary", Message: "ok", Done: true})
-	return map[string]any{"ok": true}, nil
 }
 
 func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
@@ -329,11 +345,19 @@ func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 		return nil, err
 	}
 	setStep(jobs.Step{ID: "secondary", Message: "deploy secondary"})
-	if err := DeploySecondary(s); err != nil {
-		return nil, err
+	done := make(chan error, 1)
+	go func() { done <- DeploySecondary(s) }()
+	select {
+	case <-ctx.Done():
+		setStep(jobs.Step{ID: "secondary", Message: "cancel requested", Err: "cancelled"})
+		return nil, ctx.Err()
+	case err := <-done:
+		if err != nil {
+			return nil, err
+		}
+		setStep(jobs.Step{ID: "secondary", Message: "ok", Done: true})
+		return map[string]any{"ok": true}, nil
 	}
-	setStep(jobs.Step{ID: "secondary", Message: "ok", Done: true})
-	return map[string]any{"ok": true}, nil
 }
 
 func runBuildHostDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
@@ -343,9 +367,17 @@ func runBuildHostDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 		return nil, err
 	}
 	setStep(jobs.Step{ID: "build-host", Message: "deploy build-host"})
-	if err := DeployBuildHost(s); err != nil {
-		return nil, err
+	done := make(chan error, 1)
+	go func() { done <- DeployBuildHost(s) }()
+	select {
+	case <-ctx.Done():
+		setStep(jobs.Step{ID: "build-host", Message: "cancel requested", Err: "cancelled"})
+		return nil, ctx.Err()
+	case err := <-done:
+		if err != nil {
+			return nil, err
+		}
+		setStep(jobs.Step{ID: "build-host", Message: "ok", Done: true})
+		return map[string]any{"ok": true}, nil
 	}
-	setStep(jobs.Step{ID: "build-host", Message: "ok", Done: true})
-	return map[string]any{"ok": true}, nil
 }
