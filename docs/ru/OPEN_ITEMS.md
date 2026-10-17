@@ -85,3 +85,5 @@
 ## USB на edge
 
 - План: [PLAN-EDGE-USB-STORAGE.md](../PLAN-EDGE-USB-STORAGE.md) / [ru](PLAN-EDGE-USB-STORAGE.md) — extroot + pin/sync + алерты (после 0.9.402).
+
+| Тонкий UI (jobs) | draft | [PLAN-THIN-UI-JOBS](PLAN-THIN-UI-JOBS.md) |

@@ -138,3 +138,5 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 ## Edge USB storage
 
 - Planned: [PLAN-EDGE-USB-STORAGE.md](PLAN-EDGE-USB-STORAGE.md) / [ru](ru/PLAN-EDGE-USB-STORAGE.md) — extroot + internal pin/sync + alerts (post-0.9.402).
+
+| Thin UI jobs (all surfaces) | draft | [PLAN-THIN-UI-JOBS](PLAN-THIN-UI-JOBS.md) |
