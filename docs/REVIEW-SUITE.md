@@ -4,7 +4,7 @@
 **Do not** invent a shorter ad-hoc list in chat — follow this document (or [RU](ru/REVIEW-SUITE.md)).  
 **Language rule:** every durable doc change ships **EN + RU** with the **same meaning** (not a one-line stub). Short notes belong only in `POST-REVIEW-*.md` release crumbs, not as replacements for this suite.
 
-**Related:** [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [OPEN_ITEMS.md](OPEN_ITEMS.md) · [OPCATALOG.md](OPCATALOG.md) · [I18N.md](I18N.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md) · [AGENTS.md](../AGENTS.md)
+**Related:** [AGENT_HANDOFF.md](AGENT_HANDOFF.md) · [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md) (hygiene journal post-0.9.403) · [OPEN_ITEMS.md](OPEN_ITEMS.md) · [OPCATALOG.md](OPCATALOG.md) · [I18N.md](I18N.md) · [PLAN-TG-MENU.md](PLAN-TG-MENU.md) · [AGENTS.md](../AGENTS.md)
 
 ---
 

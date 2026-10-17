@@ -222,21 +222,31 @@ func ExtractAndBuild(workTGZ, outDir string) (log string, err error) {
 	if e != nil {
 		return b.String(), fmt.Errorf("extract: %w", e)
 	}
-	// Prefer project ship script / Makefile / go test
-	try := [][]string{
-		{"bash", "-lc", "cd '" + work + "' && (test -f ci/netductor.yml && echo yaml-ok; go test ./... 2>&1); (cd '" + work + "' && CGO_ENABLED=0 go build -o /tmp/nd-out ./... 2>&1 || true)"},
+	// Prefer project ship script / Makefile / go test — Dir=work, no shell-quoting of paths.
+	try := []struct {
+		name string
+		args []string
+		env  []string
+	}{
+		{"test", []string{"bash", "-lc", "test -f ci/netductor.yml && echo yaml-ok; go test ./..."}, nil},
+		{"build", []string{"bash", "-lc", "CGO_ENABLED=0 go build -o /tmp/nd-out ./... || true"}, nil},
 	}
-	for _, args := range try {
-		cmd = exec.Command(args[0], args[1:]...)
+	for _, step := range try {
+		cmd = exec.Command(step.args[0], step.args[1:]...)
+		cmd.Dir = work
 		out, e = cmd.CombinedOutput()
 		b.Write(out)
-		if e != nil {
-			return b.String(), e
+		if e != nil && step.name == "test" {
+			// test failure is soft for extract path; log and continue to build attempt
+			fmt.Fprintf(&b, "\nwarn: %s: %v\n", step.name, e)
+			continue
 		}
 	}
 	// copy binaries if any
 	_ = os.MkdirAll(filepath.Join(outDir, "dist"), 0o755)
-	_ = exec.Command("bash", "-lc", "cp -a "+work+"/dist/* "+outDir+"/dist/ 2>/dev/null || true").Run()
+	cp := exec.Command("bash", "-lc", "cp -a dist/* ../dist/ 2>/dev/null || true")
+	cp.Dir = work
+	_ = cp.Run()
 	return b.String(), nil
 }
 

@@ -5,6 +5,7 @@
 **Язык:** любое устойчивое изменение документации выходит **EN + RU** с **одинаковым смыслом** (не однострочный stub «см. EN»). Короткие `POST-REVIEW-*.md` — только указатели на релиз, не замена комплекса.
 
 **Связанные:** [AGENT_HANDOFF.md](../AGENT_HANDOFF.md) · [OPEN_ITEMS.md](../OPEN_ITEMS.md) · [OPCATALOG.md](../OPCATALOG.md) · [I18N.md](../I18N.md) · [PLAN-TG-MENU.md](../PLAN-TG-MENU.md) · [AGENTS.md](../../AGENTS.md)
+Журнал чисток (после 0.9.403): [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md).
 
 ---
 

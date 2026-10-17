@@ -16,6 +16,9 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 Full review complex: [REVIEW-SUITE.md](REVIEW-SUITE.md) · [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md).
 
+Hygiene / dead-code / allowlist campaign (post-0.9.403 tip): [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md) · [ru/CLEANUP-PASSES-2026-10.md](ru/CLEANUP-PASSES-2026-10.md). Tip may be **ahead of** GitHub Release until 0.9.404+ is cut.
+
+
 
 **v0.9.378** (2026-10-13) — build-host recover + fleet optional; prior 0.9.349 SR General.
 
