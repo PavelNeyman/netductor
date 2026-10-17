@@ -55,7 +55,6 @@ func ListLocalTags() ([]string, error) {
 	return out, nil
 }
 
-
 // LocalLatestTag is the newest v* directory under LocalReleasesDir, or "".
 func LocalLatestTag() string {
 	tags, err := ListLocalTags()
@@ -63,15 +62,6 @@ func LocalLatestTag() string {
 		return ""
 	}
 	return tags[0]
-}
-
-// TryLocalReleaseAsset copies component binary from local store when present.
-func TryLocalReleaseAsset(tag, component, destPath string) (bool, error) {
-	tag, err := ValidReleaseTag(tag)
-	if err != nil {
-		return false, err
-	}
-	return tryLocalNamedAsset(tag, assetName(component), destPath)
 }
 
 func tryLocalNamedAsset(tag, name, destPath string) (bool, error) {
@@ -205,10 +195,10 @@ func MaybeAutoBuildNewest() error {
 
 // ReleaseBuildStatus is written for metrics/doctor.
 type ReleaseBuildStatus struct {
-	State   string `json:"state"` // scheduled|uptodate|skipped|ok|fail
-	Tag     string `json:"tag,omitempty"`
-	Detail  string `json:"detail,omitempty"`
-	At      string `json:"at"`
+	State  string `json:"state"` // scheduled|uptodate|skipped|ok|fail
+	Tag    string `json:"tag,omitempty"`
+	Detail string `json:"detail,omitempty"`
+	At     string `json:"at"`
 }
 
 func releaseStatusPath() string {

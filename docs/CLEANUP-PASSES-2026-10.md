@@ -92,6 +92,19 @@ Autotests were **skipped on live VPS** by operator request during some suite run
 | `AddCustomURL` | zero callers (UI backlog was never wired) |
 
 
+
+### Pass layer 4
+
+| Removed | Why |
+|---------|-----|
+| `HostMonitoringPresent` | doctor/cli use Findings/Residual directly |
+| `TokenConfigured` | zero callers |
+| `SetToken` | only `SetTokenKind` used |
+| `GithubTokenRepos` / `GithubTokenForAPI` | git uses `githubTokenLocal`; package uses unexported `githubToken` |
+| `TryLocalReleaseAsset` | only unexported `tryLocalNamedAsset` used |
+| `netmap.HintByID` | zero callers |
+
+
 ## 3. Security / correctness fixes from the same campaign
 
 | Topic | Problem | Fix |

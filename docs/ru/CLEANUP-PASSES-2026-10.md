@@ -92,6 +92,19 @@
 | `AddCustomURL` | UI так и не подключили |
 
 
+
+### Проход слой 4
+
+| Удалено | Почему |
+|---------|--------|
+| `HostMonitoringPresent` | doctor/cli зовут Findings/Residual |
+| `TokenConfigured` | 0 callers |
+| `SetToken` | только `SetTokenKind` |
+| `GithubTokenRepos` / `GithubTokenForAPI` | не используются снаружи |
+| `TryLocalReleaseAsset` | живой путь `tryLocalNamedAsset` |
+| `netmap.HintByID` | 0 callers |
+
+
 ## 3. Security / correctness из той же кампании
 
 | Тема | Проблема | Исправление |

@@ -290,15 +290,6 @@ func scanUnwantedAptResiduals() []string {
 	return found
 }
 
-// HostMonitoringPresent is true if a known agent unit is active, a classic port is open,
-// residual packages/paths remain, or a watched process is running.
-func HostMonitoringPresent() bool {
-	u, p := HostAgentFindings()
-	pkgs, paths := HostAgentResidual()
-	procs := HostAgentProcs()
-	return len(u) > 0 || len(p) > 0 || len(pkgs) > 0 || len(paths) > 0 || len(procs) > 0
-}
-
 func scanInstalledUnwantedPackages() []string {
 	out, err := exec.Command("dpkg-query", "-W", "-f", "${Package}\t${Status}\n").CombinedOutput()
 	if err != nil {

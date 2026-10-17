@@ -15,11 +15,6 @@ const (
 	TokenKindRepos    = "repos"    // private git mirror / migrate
 )
 
-// TokenConfigured reports whether a GitHub token is available (file or env).
-func TokenConfigured() bool {
-	return githubToken() != ""
-}
-
 // TokenStatus for UI (never returns raw token).
 type TokenStatus struct {
 	Configured bool   `json:"configured"`
@@ -80,11 +75,6 @@ func maskToken(t string) string {
 	return t[:4] + "…" + t[len(t)-4:]
 }
 
-// SetToken writes releases token (backward compatible).
-func SetToken(token string) error {
-	return SetTokenKind(TokenKindReleases, token)
-}
-
 func SetTokenKind(kind, token string) error {
 	token = strings.TrimSpace(token)
 	path := TokenFile
@@ -123,19 +113,3 @@ func githubToken() string {
 	}
 	return ""
 }
-
-// GithubTokenRepos for private git mirrors; falls back to releases token.
-func GithubTokenRepos() string {
-	if t := strings.TrimSpace(os.Getenv("NETDUCTOR_GITHUB_TOKEN_REPOS")); t != "" {
-		return t
-	}
-	if b, err := os.ReadFile(TokenFileRepos); err == nil {
-		if t := strings.TrimSpace(string(b)); t != "" {
-			return t
-		}
-	}
-	return githubToken()
-}
-
-// GithubTokenForAPI is releases token (exported).
-func GithubTokenForAPI() string { return githubToken() }
