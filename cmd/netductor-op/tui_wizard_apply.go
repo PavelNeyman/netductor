@@ -352,7 +352,7 @@ func (m model) runWizardApplyInTUI() string {
 			return FormT(lang, "primary_host") + " required"
 		}
 		spec.Version = deploy.Release
-		if err := operator.DeployPrimary(spec); err != nil {
+		if _, err := startAndWaitJob("primary.deploy", structToParams(spec)); err != nil {
 			return err.Error()
 		}
 		s.RemoteHost = spec.Host
@@ -364,18 +364,7 @@ func (m model) runWizardApplyInTUI() string {
 	case wizFleet:
 		f := operator.FleetFromFields(m.fieldVal)
 		f.Primary.Version = deploy.Release
-		rep := func(st operator.Step) {
-			if st.Err != "" {
-				fmt.Fprintf(os.Stderr, "step %s ERROR: %s\n", st.ID, st.Err)
-				return
-			}
-			if st.Done {
-				fmt.Fprintf(os.Stderr, "step %s done: %s\n", st.ID, st.Message)
-				return
-			}
-			fmt.Fprintf(os.Stderr, "step %s: %s\n", st.ID, st.Message)
-		}
-		if err := operator.FleetDeployWithReport(f, rep); err != nil {
+		if _, err := startAndWaitJob("fleet.deploy", structToParams(f)); err != nil {
 			return err.Error()
 		}
 		if f.DoPrimary {
@@ -398,7 +387,7 @@ func (m model) runWizardApplyInTUI() string {
 		if bh.BuildHost == "" {
 			return "build host required"
 		}
-		if err := operator.DeployBuildHost(bh); err != nil {
+		if _, err := startAndWaitJob("buildhost.deploy", structToParams(bh)); err != nil {
 			return err.Error()
 		}
 		return TT(lang, "Build-host deploy finished", "Build-host готов")
@@ -410,7 +399,7 @@ func (m model) runWizardApplyInTUI() string {
 		sec.PrimaryHost = s.RemoteHost
 		sec.PrimaryUser = orDefault(s.RemoteUser, "root")
 		sec.PrimaryKey = s.RemoteKey
-		if err := operator.DeploySecondary(sec); err != nil {
+		if _, err := startAndWaitJob("secondary.deploy", structToParams(sec)); err != nil {
 			return err.Error()
 		}
 		return TT(lang, "Secondary deploy finished", "Secondary готов")
@@ -440,7 +429,7 @@ func (m model) runWizardApplyInTUI() string {
 			}
 			return b.String()
 		}
-		if err := operator.DeployEdge(edge); err != nil {
+		if _, err := startAndWaitJob("edge.provision", structToParams(edge)); err != nil {
 			return err.Error()
 		}
 		if edge.DeviceID != "" {

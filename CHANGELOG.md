@@ -1,3 +1,9 @@
+## 0.9.409
+
+- TUI wizards (primary/fleet/secondary/build/edge) via **/v1/jobs** + auto-start `serve`
+- Web: jobMap includes primary/secondary/build-host; reattach running jobs from sessionStorage
+- Dead in-process Deploy* on those TUI paths removed (runners on serve only)
+
 ## 0.9.408
 
 - Thin UI jobs: internal/jobs; op /v1/jobs (edge.probe, edge.provision, edge.offline_prep, fleet, primary/secondary/buildhost); primary /api/jobs (stack.apply, doctor.run)

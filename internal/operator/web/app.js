@@ -261,6 +261,9 @@ async function streamPost(url, body, btn){
     '/v1/fleet':'fleet.deploy',
     '/v1/primary':'primary.deploy',
     '/v1/secondary':'secondary.deploy',
+    '/v1/build-host':'buildhost.deploy',
+    '/v1/primary':'primary.deploy',
+    '/v1/secondary':'secondary.deploy',
     '/v1/build-host':'buildhost.deploy'
   };
   if(jobMap[url]){
@@ -2107,3 +2110,33 @@ document.getElementById('btnStOffline')?.addEventListener('click', async ()=>{
     edgeStLog(JSON.stringify(d));
   }catch(e){ edgeStLog(String(e.message||e)); }
 });
+
+async function jobReattachOnLoad(){
+  try{
+    let id=null, typ=null;
+    for(let i=0;i<sessionStorage.length;i++){
+      const k=sessionStorage.key(i);
+      if(k && k.indexOf('nd_op_job_')===0){
+        const cand=sessionStorage.getItem(k);
+        if(!cand) continue;
+        try{
+          const j=await jobGet(cand);
+          if(j && (j.status==='running'||j.status==='queued')){ id=cand; typ=k; break; }
+          if(j && !id) id=cand;
+        }catch(e){}
+      }
+    }
+    if(!id) return;
+    const j=await jobGet(id);
+    if(!j||!j.status) return;
+    const logSec=document.getElementById('deployLogSec');
+    if(logSec){ logSec.classList.add('deploy-log-active'); }
+    resetLog(); line('re-attach job '+id+' ('+(j.type||'')+') status='+j.status);
+    if(j.log) line(j.log);
+    if(j.status==='running'||j.status==='queued'){
+      await jobWait(id, j2=>{ if(j2.log){ resetLog(); line(j2.log);} });
+    }
+  }catch(e){ console.warn('job reattach', e); }
+}
+jobReattachOnLoad();
+
