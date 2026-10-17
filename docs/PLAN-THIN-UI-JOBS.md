@@ -61,6 +61,28 @@ UI must never be the process boundary for work that can take >2–3 seconds or t
 
 ---
 
+
+## Operator process model (TUI / Web / CLI on Mac)
+
+**Decision (2026-10-17):** do **not** split TUI into a separate product or binary. Split **job lifetime** from **UI lifetime**.
+
+| Process | Role |
+|--|--|
+| `netductor-op serve` (127.0.0.1:7373) | **Owns** `OperatorJobStore`, runs SSH/deploy/probe workers, persists job log/state |
+| `netductor-op tui` | Thin client: `POST/GET/cancel /v1/jobs` only — no in-process SSH for slow paths |
+| Browser → same serve | Same API as TUI |
+| `netductor-op job wait\|list\|cancel` | CLI thin client |
+
+Rules:
+
+1. Closing TUI or refreshing Web **must not** cancel running jobs (cancel is explicit).
+2. TUI on start: if serve is down → start embedded serve **or** print “run `netductor-op serve`” (product choice in Phase 1: prefer **auto-start background serve** on first job if nothing listens on the port).
+3. TUI “Running jobs” panel on home: reattach by `job_id` after restart.
+4. Optional later: launchd/user agent keeps `serve` always up — **not** required for Phase 0–1.
+5. Primary jobs stay on VPS (`/api/jobs`); when TUI operates through a primary session it polls primary, not local serve.
+
+**Rejected:** TUI as sole process holding goroutine jobs (dies with the terminal).
+
 ## Job record (minimal schema)
 
 ```json
@@ -111,12 +133,14 @@ Convert **streaming handlers** to job runners:
 | `fleet.deploy` | stream + Reporter | job + steps |
 | `primary.deploy` / `secondary.deploy` / `buildhost.deploy` | stream | job |
 
-Web/TUI:
+Web/TUI (both clients of **serve**, not job owners):
 
-- Start → save `job_id` in `sessionStorage` / TUI model
+- Start → `POST /v1/jobs` on local serve → save `job_id` in `sessionStorage` / TUI model
 - Poll every 1s; render steps + log tail
 - On load: if `job_id` present and status running → **reattach**, do not start new
 - Banner: “Probe in progress…” with Cancel
+- TUI home: **Running jobs** list from `GET /v1/jobs?status=running`
+- TUI must not call `deploy.*` / `ProbeDeviceFacts` directly for slow paths once Phase 1 lands
 
 **Acceptance:** start probe → refresh browser → same progress continues; second probe while first running either queues or returns existing `job_id` (product choice: **reject duplicate** for same host).
 
@@ -193,7 +217,7 @@ Surfaces to audit (tick when job-backed or intentionally sync):
 ## Implementation order (practical)
 
 1. `internal/jobs` + op `/v1/jobs` + primary `/api/jobs` (Phase 0)  
-2. `edge.probe` + Web reattach (Phase 1 slice) — **unblocks current Cudy pain**  
+2. `edge.probe` + Web/TUI reattach via serve (Phase 1 slice) — **unblocks current Cudy pain**  
 3. `edge.provision` + offline-prep  
 4. Fleet / primary / secondary / build-host  
 5. Primary stack/git bulk  

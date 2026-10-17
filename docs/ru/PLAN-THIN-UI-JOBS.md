@@ -26,6 +26,19 @@
 
 Один контракт: `POST/GET/cancel /v1/jobs` (op) и `/api/jobs` (primary).
 
+
+## Модель процесса op (TUI / Web / CLI)
+
+**Решение:** TUI **не** выносим в отдельный бинарь. Jobs держит **`netductor-op serve`**; TUI/Web/CLI — клиенты `127.0.0.1:7373`.
+
+| Процесс | Роль |
+|--|--|
+| `netductor-op serve` | `OperatorJobStore`, SSH, probe, provision |
+| `netductor-op tui` | только API jobs (без своего SSH на долгих путях) |
+| Браузер / CLI | тот же serve |
+
+Закрытие TUI или refresh Web **не** отменяет job. Опциональный launchd — позже. Primary jobs — на VPS.
+
 ## Фазы
 
 0. `internal/jobs` + API на op и primary  
