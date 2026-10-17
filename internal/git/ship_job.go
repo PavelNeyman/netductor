@@ -15,13 +15,13 @@ import (
 
 // Ship job states (PLAN-PROJECT-SHIP).
 const (
-	ShipQueued           = "queued"
-	ShipRunning          = "running"
-	ShipPaused           = "paused"
-	ShipWaitingExternal  = "waiting_external"
-	ShipPublishing       = "publishing"
-	ShipDone             = "done"
-	ShipFailed           = "failed"
+	ShipQueued          = "queued"
+	ShipRunning         = "running"
+	ShipPaused          = "paused"
+	ShipWaitingExternal = "waiting_external"
+	ShipPublishing      = "publishing"
+	ShipDone            = "done"
+	ShipFailed          = "failed"
 )
 
 // ShipStep is one pipeline step with status and optional log/output paths.
@@ -37,22 +37,22 @@ type ShipStep struct {
 
 // ShipJob is a durable snapshot of a project ship (minimal disk while paused/waiting).
 type ShipJob struct {
-	ID        string     `json:"id"`
-	Project   string     `json:"project"`
-	Ref       string     `json:"ref"`
-	Tag       string     `json:"tag,omitempty"`
-	State     string     `json:"state"`
-	Reason    string     `json:"reason,omitempty"` // mac|user|approval|…
-	VpsSlot   bool       `json:"vps_slot"`
-	Cursor    int        `json:"cursor"`
-	Steps     []ShipStep `json:"steps"`
-	CreatedAt string     `json:"created_at"`
-	UpdatedAt string     `json:"updated_at"`
-	WaitSince string     `json:"wait_since,omitempty"`
-	Error     string     `json:"error,omitempty"`
-	LogTail        string `json:"log_tail,omitempty"`
-	PauseRequested bool   `json:"pause_requested,omitempty"`
-	PublishTarget  string `json:"publish_target,omitempty"` // artifacts path when done
+	ID             string     `json:"id"`
+	Project        string     `json:"project"`
+	Ref            string     `json:"ref"`
+	Tag            string     `json:"tag,omitempty"`
+	State          string     `json:"state"`
+	Reason         string     `json:"reason,omitempty"` // mac|user|approval|…
+	VpsSlot        bool       `json:"vps_slot"`
+	Cursor         int        `json:"cursor"`
+	Steps          []ShipStep `json:"steps"`
+	CreatedAt      string     `json:"created_at"`
+	UpdatedAt      string     `json:"updated_at"`
+	WaitSince      string     `json:"wait_since,omitempty"`
+	Error          string     `json:"error,omitempty"`
+	LogTail        string     `json:"log_tail,omitempty"`
+	PauseRequested bool       `json:"pause_requested,omitempty"`
+	PublishTarget  string     `json:"publish_target,omitempty"` // artifacts path when done
 }
 
 var shipMu sync.Mutex
@@ -251,21 +251,6 @@ func MarkShipWaiting(id, reason string) error {
 	return saveShipJobUnlocked(j)
 }
 
-// MarkShipPaused moves job to paused after step boundary; clears vps_slot.
-func MarkShipPaused(id string) error {
-	shipMu.Lock()
-	defer shipMu.Unlock()
-	j, err := getShipJobUnlocked(id)
-	if err != nil {
-		return err
-	}
-	j.State = ShipPaused
-	j.Reason = "user"
-	j.VpsSlot = false
-	j.WaitSince = time.Now().UTC().Format(time.RFC3339)
-	return saveShipJobUnlocked(j)
-}
-
 // TryAcquireVpsSlot sets running/publishing + vps_slot if no other holder.
 func TryAcquireVpsSlot(id, state string) error {
 	shipMu.Lock()
@@ -322,7 +307,6 @@ func FormatShipJobsText(jobs []ShipJob) string {
 	return b.String()
 }
 
-
 // RequestShipPause sets pause_requested; applied after the current step finishes.
 func RequestShipPause(id string) error {
 	shipMu.Lock()
@@ -346,7 +330,6 @@ func shouldPauseAfterStep(j *ShipJob) bool {
 	j.PauseRequested = false
 	return true
 }
-
 
 // ShipJobLogPath is the full log file for a job (appended during run).
 func ShipJobLogPath(id string) string {

@@ -56,6 +56,23 @@
 **Оставлено:** `RotateToken` / `StatusOf` (store API, UI пока нет — не мусор).
 
 
+
+### Проход продолжен — ещё zero-ref exports
+
+| Удалено | Почему |
+|---------|--------|
+| `formatFlatMap` | 0 callers |
+| `ShadowrocketGeneralBlock` | заменён на `…For` |
+| `update.ApplyTag` | 0 callers |
+| `MarkShipPaused` | 0 callers |
+| `mtls.WriteClientMaterial` | 0 callers |
+| `ListHumanNames` | 0 callers |
+| `DeployPlan.Applying` | 0 callers |
+| `ApplyRoutesOrError` | 0 callers |
+| `edge/health.go` | agent не звал |
+| `ndconfig.APIPort` / `SvcSPPrimary` / `SvcSPSecondary` | accessors не использовались |
+
+
 ## 3. Security / correctness из той же кампании
 
 | Тема | Проблема | Исправление |

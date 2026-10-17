@@ -3,8 +3,8 @@ package ndconfig
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -47,7 +47,6 @@ func SSHPort() int {
 }
 
 func AgentMTLSPort() string { return EnvOr("NETDUCTOR_AGENT_MTLS_PORT", DefAgentMTLSPort) }
-func APIPort() string       { return EnvOr("NETDUCTOR_API_PORT", DefAPIPort) }
 
 // RedirectHTTPSPort for LE import redirect (not Reality :443).
 func RedirectHTTPSPort() string {
@@ -64,13 +63,8 @@ func DefaultSNI() string {
 
 func LampacPort() string { return EnvOr("NETDUCTOR_LAMPAC_PORT", DefLampacPort) }
 
-
 func SvcSPCIDR() string { return EnvOr("NETDUCTOR_SVC_SP_CIDR", DefSvcSPCIDR) }
 func SvcPSCIDR() string { return EnvOr("NETDUCTOR_SVC_PS_CIDR", DefSvcPSCIDR) }
-func SvcSPPrimary() string { return EnvOr("NETDUCTOR_SVC_SP_PRIMARY", DefSvcSPPrimary) }
-func SvcSPSecondary() string {
-	return EnvOr("NETDUCTOR_SVC_SP_SECONDARY", DefSvcSPSecondary)
-}
 
 // DefaultsConfSnippet is written into netductor.conf (commented) for operators.
 func DefaultsConfSnippet() string {

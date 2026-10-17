@@ -112,14 +112,3 @@ func decideStep(mod string, facts DeviceFacts, intent DeployIntent) PlanStep {
 		return PlanStep{Module: mod, Action: "skip", Reason: fmt.Sprintf("unknown module %s", mod)}
 	}
 }
-
-// Applying returns module IDs with action apply.
-func (p DeployPlan) Applying() []string {
-	var out []string
-	for _, s := range p.Steps {
-		if s.Action == "apply" {
-			out = append(out, s.Module)
-		}
-	}
-	return out
-}

@@ -56,6 +56,23 @@ Autotests were **skipped on live VPS** by operator request during some suite run
 **Left intentionally:** `RotateToken` / `StatusOf` (store API, not wired to UI yet — product surface, not trash).
 
 
+
+### Pass continued — more zero-ref exports
+
+| Removed | Why |
+|---------|-----|
+| `formatFlatMap` | never called |
+| `ShadowrocketGeneralBlock` | superseded by `ShadowrocketGeneralBlockFor` |
+| `update.ApplyTag` | zero callers (`DownloadReleaseAsset` used) |
+| `MarkShipPaused` | zero callers |
+| `mtls.WriteClientMaterial` | zero callers |
+| `ListHumanNames` | zero callers |
+| `DeployPlan.Applying` | zero callers |
+| `ApplyRoutesOrError` | zero callers |
+| `edge/health.go` (`CheckRelayTCP`) | agent never called |
+| `ndconfig.APIPort` / `SvcSPPrimary` / `SvcSPSecondary` | accessors unused (CIDR helpers kept) |
+
+
 ## 3. Security / correctness fixes from the same campaign
 
 | Topic | Problem | Fix |

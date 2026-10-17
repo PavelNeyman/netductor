@@ -3,9 +3,9 @@
 package format
 
 import (
-	"github.com/PavelNeyman/netductor/internal/vpn"
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"html"
 	"sort"
 	"strings"
@@ -61,7 +61,6 @@ func API(actionID string, raw []byte, lang string) Result {
 		return formatSmart(actionID, v, ru)
 	}
 }
-
 
 func formatHealth(v any, ru bool) Result {
 	m, _ := asMap(v)
@@ -466,14 +465,6 @@ func formatStatus(v any, ru bool) Result {
 	return Result{HTML: b.String(), Text: "status"}
 }
 
-func formatFlatMap(action, emoji string, v any, ru bool) Result {
-	m, _ := asMap(v)
-	if m == nil {
-		return formatSmart(action, v, ru)
-	}
-	return Result{HTML: "<b>" + emoji + " " + esc(action) + "</b><br>" + mapTable(m, 40), Text: action}
-}
-
 // formatSmart: arrays → table of items; objects → key/value (nested summarized).
 
 func formatProbes(v any, ru bool) Result {
@@ -595,7 +586,6 @@ func listTable(list []any, maxRows int) string {
 	b.WriteString("</table>")
 	return b.String()
 }
-
 
 // summarizeMetricMap renders nested mem/disk/load/net/services one-liners for tables.
 func summarizeMetricMap(t map[string]any) string {

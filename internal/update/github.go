@@ -20,7 +20,6 @@ import (
 
 const Repo = "PavelNeyman/netductor"
 
-
 func setGitHubHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "netductor-update")
@@ -191,7 +190,6 @@ func latestFromGitHub() (string, error) {
 	}
 	return tag, nil
 }
-
 
 func mergeLocalIntoReleases(list []ReleaseInfo) []ReleaseInfo {
 	seen := map[string]bool{}
@@ -475,18 +473,6 @@ func DownloadNamedAsset(tag, name, destPath string) error {
 		ExpectedSHA256: want,
 		FileMode:       0o755,
 	})
-}
-
-// ApplyTag downloads a specific release tag asset to destPath (atomic .new + rename).
-func ApplyTag(tag, component, destPath string) error {
-	tag = strings.TrimSpace(tag)
-	if tag == "" {
-		return fmt.Errorf("empty tag")
-	}
-	if !strings.HasPrefix(tag, "v") {
-		tag = "v" + tag
-	}
-	return DownloadReleaseAsset(tag, component, destPath)
 }
 
 // SelfReplace downloads latest release asset and optionally restarts systemd unit.

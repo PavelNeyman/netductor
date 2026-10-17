@@ -244,19 +244,6 @@ func CopyClientMaterial() (ca, cert, key []byte, err error) {
 	return
 }
 
-func WriteClientMaterial(ca, cert, key []byte) error {
-	if err := os.MkdirAll(Dir(), 0o700); err != nil {
-		return err
-	}
-	if err := os.WriteFile(path(CACertFile), ca, 0o600); err != nil {
-		return err
-	}
-	if err := os.WriteFile(path(ClientCertFile), cert, 0o600); err != nil {
-		return err
-	}
-	return os.WriteFile(path(ClientKeyFile), key, 0o600)
-}
-
 func serverCertHasDNS(host string) bool {
 	if host == "" {
 		return true

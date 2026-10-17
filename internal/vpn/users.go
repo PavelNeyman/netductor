@@ -150,25 +150,6 @@ func SetKind(name, kind string) error {
 	return writeRegistry(r)
 }
 
-// ListHumanNames returns non-device, non-relay names for Users UI.
-func ListHumanNames() []string {
-	r, err := loadRegistry()
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, u := range r.Users {
-		if u.Name == "relay-uplink" || IsEdgeUser(u.Name) {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(u.Kind), "device") {
-			continue
-		}
-		out = append(out, u.Name)
-	}
-	return out
-}
-
 // ListDeviceNames returns kind=device profiles for Devices UI.
 func ListDeviceNames(includeEdge bool) []string {
 	r, err := loadRegistry()

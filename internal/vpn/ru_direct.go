@@ -238,21 +238,3 @@ func ShadowrocketRemoteRuleSetRules() []string {
 	}
 	return lines
 }
-
-// ShadowrocketGeneralBlock — [General] tuned for RU dual-stack ops (inspired by community confs).
-func ShadowrocketGeneralBlock() string {
-	return strings.TrimSpace(`
-[General]
-# system DNS for DIRECT; PROXY DNS handled by node
-dns-server = system
-fallback-dns-server = system
-ipv6 = false
-prefer-ipv6 = false
-private-ip-answer = true
-# LAN + Apple captive stay off PROXY path
-skip-proxy = 127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, localhost, *.local, captive.apple.com
-tun-excluded-routes = 10.0.0.0/8,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,172.16.0.0/12,192.0.0.0/24,192.168.0.0/16,224.0.0.0/4,255.255.255.255/32
-icmp-auto-reply = false
-udp-policy-not-supported-behaviour = REJECT
-`) + "\n"
-}
