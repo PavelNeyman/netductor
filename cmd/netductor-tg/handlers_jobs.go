@@ -11,13 +11,11 @@ func handleJobsMenu(token string, chat int64, msgID int, data string) bool {
 	if data == "m:doctor:run" {
 		out, err := exec.Command("/usr/local/bin/netductor", "job", "start", "doctor.run").CombinedOutput()
 		id := strings.TrimSpace(string(out))
-		msg := "🩺 doctor job started <code>" + esc(id) + "</code>
-"
+		var msg string
 		if err != nil {
-			msg = "❌ " + esc(err.Error()) + "
-<code>" + esc(id) + "</code>"
+			msg = "❌ " + esc(err.Error()) + "\n<code>" + esc(id) + "</code>"
 		} else {
-			msg += "<i>Tools → Jobs for status/cancel</i>"
+			msg = T("jobs_doctor_started") + " <code>" + esc(id) + "</code>\n<i>" + T("jobs_doctor_hint") + "</i>"
 		}
 		reply(token, chat, msgID, msg, navKeyboard("m:jobs", parentTools()))
 		return true
@@ -25,24 +23,20 @@ func handleJobsMenu(token string, chat int64, msgID int, data string) bool {
 	if data != "m:jobs" && !strings.HasPrefix(data, "m:jobs:") {
 		return false
 	}
-	ru := getLang() == "ru"
 	if data == "m:jobs" || data == "m:jobs:list" {
-		text, rows := renderPrimaryJobsTG("", ru)
+		text, rows := renderPrimaryJobsTG("")
 		reply(token, chat, msgID, text, map[string]any{"inline_keyboard": rows})
 		return true
 	}
 	if data == "m:jobs:running" {
-		text, rows := renderPrimaryJobsTG("running", ru)
+		text, rows := renderPrimaryJobsTG("running")
 		reply(token, chat, msgID, text, map[string]any{"inline_keyboard": rows})
 		return true
 	}
 	if strings.HasPrefix(data, "m:jobs:cancel:") {
 		id := strings.TrimPrefix(data, "m:jobs:cancel:")
 		out, err := exec.Command("/usr/local/bin/netductor", "job", "cancel", id).CombinedOutput()
-		msg := "✅ cancelled <code>" + esc(id) + "</code>\n<code>" + esc(strings.TrimSpace(string(out))) + "</code>"
-		if ru {
-			msg = "✅ отменено <code>" + esc(id) + "</code>\n<code>" + esc(strings.TrimSpace(string(out))) + "</code>"
-		}
+		msg := T("jobs_cancelled") + " <code>" + esc(id) + "</code>\n<code>" + esc(strings.TrimSpace(string(out))) + "</code>"
 		if err != nil {
 			msg = "❌ " + esc(err.Error()) + "\n<code>" + esc(strings.TrimSpace(string(out))) + "</code>"
 		}
@@ -52,19 +46,15 @@ func handleJobsMenu(token string, chat int64, msgID int, data string) bool {
 	return false
 }
 
-func renderPrimaryJobsTG(statusFilter string, ru bool) (string, [][]map[string]any) {
+func renderPrimaryJobsTG(statusFilter string) (string, [][]map[string]any) {
 	args := []string{"job", "list"}
 	if statusFilter != "" {
 		args = append(args, "--status", statusFilter)
 	}
 	out, err := exec.Command("/usr/local/bin/netductor", args...).CombinedOutput()
 	var b strings.Builder
-	if ru {
-		b.WriteString("📋 <b>Jobs (primary)</b>\n")
-	} else {
-		b.WriteString("📋 <b>Jobs (primary)</b>\n")
-	}
-	b.WriteString("<i>stack.apply · doctor.run — not Mac edge/fleet jobs</i>\n")
+	b.WriteString("📋 <b>" + T("jobs_title_primary") + "</b>\n")
+	b.WriteString("<i>" + T("jobs_types_hint") + "</i>\n")
 	rows := [][]map[string]any{}
 	if err != nil {
 		b.WriteString("❌ " + esc(err.Error()) + "\n<code>" + esc(strings.TrimSpace(string(out))) + "</code>\n")
@@ -76,7 +66,7 @@ func renderPrimaryJobsTG(statusFilter string, ru bool) (string, [][]map[string]a
 	_ = json.Unmarshal(out, &m)
 	jobs, _ := m["jobs"].([]any)
 	if len(jobs) == 0 {
-		b.WriteString("<i>(none)</i>\n")
+		b.WriteString("<i>" + T("jobs_empty") + "</i>\n")
 	} else {
 		b.WriteString("<table bordered striped>\n<tr><th>#</th><th>type</th><th>status</th><th>id</th></tr>\n")
 		for i, j := range jobs {
@@ -95,13 +85,9 @@ func renderPrimaryJobsTG(statusFilter string, ru bool) (string, [][]map[string]a
 			}
 		}
 		b.WriteString("</table>\n")
-		if ru {
-			b.WriteString("<i>⛔ N — отмена running</i>\n")
-		} else {
-			b.WriteString("<i>⛔ N — cancel running</i>\n")
-		}
+		b.WriteString("<i>" + T("jobs_cancel_hint") + "</i>\n")
 	}
-	rows = append(rows, []map[string]any{btn(T("refresh"), "m:jobs:list", "primary"), btn("Running", "m:jobs:running", "")})
+	rows = append(rows, []map[string]any{btn(T("refresh"), "m:jobs:list", "primary"), btn(T("jobs_running_btn"), "m:jobs:running", "")})
 	rows = append(rows, []map[string]any{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")})
 	return b.String(), rows
 }

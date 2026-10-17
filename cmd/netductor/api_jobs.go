@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/PavelNeyman/netductor/internal/jobs"
 )
@@ -29,7 +28,6 @@ func primaryJobStore() *jobs.Store {
 		primaryJobs = jobs.NewStore(dir)
 		primaryJobs.Register("stack.apply", runJobStackApply)
 		primaryJobs.Register("doctor.run", runJobDoctor)
-		primaryJobs.Register("shell.cmd", runJobShell) // restricted later; used for controlled ops
 	})
 	return primaryJobs
 }
@@ -54,10 +52,6 @@ func registerJobsAPI(mux *http.ServeMux) {
 			}
 			if typ == "" {
 				writeJSON(w, 400, map[string]string{"error": "type required"})
-				return
-			}
-			if typ == "shell.cmd" {
-				writeJSON(w, 403, map[string]string{"error": "shell.cmd disabled"})
 				return
 			}
 			j, err := primaryJobStore().Start(typ, params)
@@ -136,11 +130,3 @@ func runJobDoctor(ctx context.Context, j *jobs.Job, appendLog func(string), setS
 	return map[string]any{"ok": true, "report": string(out)}, nil
 }
 
-func runJobShell(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
-	return nil, fmt.Errorf("disabled")
-}
-
-func init() {
-	// ensure register is linked — called from buildAPIMux
-	_ = time.Second
-}

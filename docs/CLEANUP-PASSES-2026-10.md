@@ -225,3 +225,31 @@ brew update && brew upgrade netductor-op
 ---
 
 *Last updated: dead-fleet/QR/guest/notify/secondary helpers pass (post e0e1859). Extend §2/§3 on next pass.*
+
+---
+
+## 7. Thin-UI jobs pass (0.9.408–0.9.413)
+
+**Tip at review:** `7f2c78d1` / VERSION **0.9.413**.
+
+### Suite (autotests skipped by operator request)
+
+| § | Result |
+|--|--|
+| Tip / VERSION | `VERSION` == `internal/version.Release` == **0.9.413** |
+| GitHub Release | **v0.9.413 not published**. Latest partial: **v0.9.412** (5 assets only — missing tg, agent multi-arch, op-linux). **Formula still 0.9.408**. |
+| Handoff / OPEN_ITEMS | OPEN_ITEMS stop **0.9.413**; AGENT_HANDOFF has multiple historical stop lines — top notes 0.9.412 features |
+| Docs EN/RU | PLAN-THIN-UI-JOBS status updated; RU short status present |
+| UI parity jobs | Web panel + cancel; TUI list/cancel; TG Tools→Jobs; node+op CLI `job list\|cancel` |
+| TG cards | Jobs table + cancel rows; doctor → `doctor.run` job |
+| Bilingual | Fixed hard-coded EN in TG jobs (keys `jobs_*`) |
+| Security | `shell.cmd` was registered but disabled — **removed** (dead path). Session required on `/api/jobs`. Sync `/v1/*` deploy still token-gated (intentional dual path with jobs for streaming Web). |
+| Dead code | Removed `runJobShell` + register + 403 branch. Sync handlers **not** dead (Web streamPost). |
+
+### Remaining for next AI
+
+1. **Full release 0.9.413+** with complete asset set + Formula sha256 (do not ship partial 5-asset tags).
+2. Lab e2e: OpenWrt/Cudy, NVR, MikroTik.
+3. Optional: migrate Web deploy fully to jobs (drop sync stream handlers) — product decision; currently dual path by design.
+4. Handoff: collapse duplicate **Stop line** history at top of AGENT_HANDOFF.
+

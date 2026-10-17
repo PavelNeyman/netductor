@@ -23,7 +23,7 @@ func catalogLang() string {
 // toolsKeyboard — navigation only; section links in toolsHubHTML body.
 func toolsKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("📋 Jobs", "m:jobs", "primary"), btn("🩺 Doctor", "m:doctor:run", "")},
+		{btn(T("jobs_menu_btn"), "m:jobs", "primary"), btn("🩺 Doctor", "m:doctor:run", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }

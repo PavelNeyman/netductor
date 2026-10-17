@@ -1,3 +1,5 @@
+**Стоп-линия: v0.9.413** (2026-10-17). Thin-UI jobs; журнал [CLEANUP-PASSES-2026-10](../CLEANUP-PASSES-2026-10.md).
+
 **Стоп: v0.9.406** — probe ставит USB kmod, затем facts.
 
 **Стоп-линия: v0.9.405** — USB kmod OpenWrt с кэша Mac.
