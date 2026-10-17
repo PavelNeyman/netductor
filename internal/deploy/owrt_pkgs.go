@@ -34,6 +34,7 @@ func OpenWrtPkgCacheDir(release, target string) string {
 
 // ProbeOpenWrtMeta reads release/target/arch/kernel/pkg manager over SSH.
 func ProbeOpenWrtMeta(password, keyPath, user, host, keyPassphrase string) (OpenWrtMeta, error) {
+	// BusyBox: `command -v missing` exits 127 — always end with true so SSH is not false-failed.
 	script := `
 [ -f /etc/openwrt_release ] && . /etc/openwrt_release
 echo RELEASE=${DISTRIB_RELEASE:-}
@@ -42,11 +43,9 @@ echo ARCH=${DISTRIB_ARCH:-}
 uname -r
 command -v apk >/dev/null 2>&1 && echo PKGMGR=apk
 command -v opkg >/dev/null 2>&1 && echo PKGMGR=opkg
+true
 `
 	out, err := runSSHOnPort(factorySSHPort(), password, keyPath, user, host, script, keyPassphrase)
-	if err != nil {
-		return OpenWrtMeta{}, fmt.Errorf("probe openwrt meta: %w (%s)", err, strings.TrimSpace(out))
-	}
 	var m OpenWrtMeta
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
@@ -67,8 +66,12 @@ command -v opkg >/dev/null 2>&1 && echo PKGMGR=opkg
 		}
 	}
 	if m.Release == "" || m.Target == "" {
+		if err != nil {
+			return m, fmt.Errorf("probe openwrt meta: %w (%s)", err, strings.TrimSpace(out))
+		}
 		return m, fmt.Errorf("not OpenWrt or incomplete /etc/openwrt_release (got release=%q target=%q)", m.Release, m.Target)
 	}
+	_ = err // data present; ignore BusyBox exit 127 from command -v
 	if m.PkgMgr == "" {
 		if strings.HasPrefix(m.Release, "24.") || strings.HasPrefix(m.Release, "23.") {
 			m.PkgMgr = "opkg"
@@ -242,9 +245,10 @@ if [ -d /sys/module/usb_storage ]; then echo HAVE=yes; exit 0; fi
 KO=$(find /lib/modules -name 'usb-storage.ko*' 2>/dev/null | head -1)
 if [ -n "$KO" ]; then echo HAVE=ko path=$KO; exit 0; fi
 echo HAVE=no
+true
 `
 	out, err := runSSHOnPort(factorySSHPort(), password, keyPath, user, host, script, keyPassphrase)
-	if err != nil {
+	if err != nil && !strings.Contains(out, "HAVE=") {
 		return true, out, err
 	}
 	s := strings.TrimSpace(out)
@@ -269,6 +273,7 @@ func EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase strin
 		return nil
 	}
 	fmt.Fprintln(os.Stderr, "==> usb-storage missing on router — installing packages from Mac cache")
+	fmt.Fprintln(os.Stderr, "==> (probe installs kmods so the card can show USB / Format / overlay)")
 
 	meta, err := ProbeOpenWrtMeta(password, keyPath, user, host, keyPassphrase)
 	if err != nil {
@@ -276,6 +281,7 @@ func EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase strin
 	}
 	fmt.Fprintf(os.Stderr, "==> OpenWrt %s target=%s arch=%s kernel=%s mgr=%s\n",
 		meta.Release, meta.Target, meta.Arch, meta.Kernel, meta.PkgMgr)
+	fmt.Fprintln(os.Stderr, "==> uploading packages to router /tmp/nd-owrt-pkgs …")
 
 	dir, files, err := EnsureOpenWrtUSBPackagesCached(meta)
 	if err != nil {

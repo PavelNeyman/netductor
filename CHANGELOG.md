@@ -1,3 +1,7 @@
+## 0.9.407
+
+- Edge probe: fix BusyBox exit 127 aborting USB package install
+
 ## 0.9.406
 
 - Edge probe: install OpenWrt USB mass-storage packages **before** collecting facts so card shows USB / Format / overlay
