@@ -465,10 +465,8 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, msg, navKeyboard("m:tools", parentTools()))
 		return
-	case "m:topics", "m:topics:reconcile", "m:topics:recreate", "m:topics:flat":
-		// Topics removed — channel / flat DM only.
-		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
-	case "m:alerts-chat":
+	case "m:topics", "m:topics:reconcile", "m:topics:recreate", "m:topics:flat", "m:alerts-chat":
+		// Legacy m:topics* same as alerts-chat (channel / flat DM).
 		reply(token, chat, msgID, alertsChatPromptHTML(getLang() != "en"), alertsChatKeyboard())
 	case "m:alerts-chat:set":
 		setState(chat, "wait_alerts_chat", "")

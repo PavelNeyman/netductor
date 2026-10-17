@@ -12,6 +12,5 @@ for arch in "${arches[@]}"; do
   dest="${OUT}/netductor-tg-linux-${arch}"
   echo "Building linux/${arch} → ${dest}"
   CGO_ENABLED=0 GOOS=linux GOARCH="${arch}" go build -trimpath -ldflags='-s -w' -o "${dest}" "${SRC}"
-  ln -sfn "netductor-tg-linux-${arch}" "${OUT}/freshvps-tg-linux-${arch}"
 done
 echo "Done."

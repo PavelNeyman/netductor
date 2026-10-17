@@ -121,6 +121,19 @@ Autotests were **skipped on live VPS** by operator request during some suite run
 Kept: `scripts/audit-hoster-*`, `tapo_v4` (protocol reference), agent python fallback (day-2 NVR).
 
 
+
+### Pass layer 6 — TG leftovers (no behavior change for live menus)
+
+| Action | Detail |
+|--------|--------|
+| Removed | `topicsLastReconcile` unused var |
+| Removed | i18n `btn_topics` (no `T("btn_topics")` call sites) |
+| Merged | `m:topics*` cases with `m:alerts-chat` (same reply body; deep-links still work) |
+| Script | `build-tg-bot.sh` no longer creates `freshvps-tg-*` symlink |
+
+**Not removed:** `MigrateAwayFromTopics` (startup one-shot), `MessageThreadID` JSON field, `m:release`→Versions bridge.
+
+
 ## 3. Security / correctness fixes from the same campaign
 
 | Topic | Problem | Fix |

@@ -121,6 +121,19 @@
 Оставлены: audit-скрипты, `tapo_v4` (reference), python fallback агента.
 
 
+
+### Проход слой 6 — хвосты TG (без смены живых меню)
+
+| Действие | Деталь |
+|----------|--------|
+| Удалён | var `topicsLastReconcile` |
+| Удалён | i18n `btn_topics` |
+| Объединены | case `m:topics*` с `m:alerts-chat` |
+| Script | без symlink `freshvps-tg-*` |
+
+**Оставлено:** `MigrateAwayFromTopics`, поле `MessageThreadID`, мост `m:release`→Versions.
+
+
 ## 3. Security / correctness из той же кампании
 
 | Тема | Проблема | Исправление |

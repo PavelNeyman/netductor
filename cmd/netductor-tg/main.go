@@ -190,8 +190,6 @@ func editRich(token string, chat int64, msgID int, html string, kb map[string]an
 	return err
 }
 
-var topicsLastReconcile time.Time
-
 func sendHTML(token string, chat int64, text string, kb map[string]any) {
 	sendRich(token, chat, text, kb)
 }
@@ -615,7 +613,6 @@ func sendPhotoBytes(token string, chat int64, data []byte, caption string) error
 	defer os.Remove(path)
 	return sendPhotoFile(token, chat, path, caption, nil)
 }
-
 
 func deleteMessage(token string, chat int64, msgID int) error {
 	return apiPOST(token, "deleteMessage", map[string]any{
