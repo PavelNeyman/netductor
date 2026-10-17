@@ -23,15 +23,15 @@ const (
 
 // Material is shared key material for both ends (no need to keep peer private).
 type Material struct {
-	SPPrivP string `json:"sp_priv_p"`
-	SPPubP  string `json:"sp_pub_p"`
-	SPPrivS string `json:"sp_priv_s"`
-	SPPubS  string `json:"sp_pub_s"`
-	PSPrivP string `json:"ps_priv_p"`
-	PSPubP  string `json:"ps_pub_p"`
-	PSPrivS string `json:"ps_priv_s"`
-	PSPubS  string `json:"ps_pub_s"`
-	Primary string `json:"primary_ip"`
+	SPPrivP   string `json:"sp_priv_p"`
+	SPPubP    string `json:"sp_pub_p"`
+	SPPrivS   string `json:"sp_priv_s"`
+	SPPubS    string `json:"sp_pub_s"`
+	PSPrivP   string `json:"ps_priv_p"`
+	PSPubP    string `json:"ps_pub_p"`
+	PSPrivS   string `json:"ps_priv_s"`
+	PSPubS    string `json:"ps_pub_s"`
+	Primary   string `json:"primary_ip"`
 	Secondary string `json:"secondary_ip"`
 }
 
@@ -332,28 +332,6 @@ WantedBy=timers.target
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "enable", "--now", "nd-svc-paths-health.timer").Run()
 	return nil
-}
-
-// BootstrapAll is convenience for operator SSH on each host.
-func SaveMaterial(m *Material) error {
-	_ = os.MkdirAll(KeysDir, 0o700)
-	b, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600)
-}
-
-func LoadMaterial() (*Material, error) {
-	b, err := os.ReadFile(filepath.Join(KeysDir, "material.json"))
-	if err != nil {
-		return nil, err
-	}
-	var m Material
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-	return &m, nil
 }
 
 // WaitPing waits for peer.

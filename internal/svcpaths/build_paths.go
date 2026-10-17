@@ -64,15 +64,6 @@ func SaveBuildMaterial(m *BuildMaterial) error {
 	return os.WriteFile(filepath.Join(KeysDir, "build-material.json"), b, 0o600)
 }
 
-func LoadBuildMaterial() (*BuildMaterial, error) {
-	b, err := os.ReadFile(filepath.Join(KeysDir, "build-material.json"))
-	if err != nil {
-		return nil, err
-	}
-	var m BuildMaterial
-	return &m, json.Unmarshal(b, &m)
-}
-
 // BootstrapPrimaryBuild applies PB/BP on primary (listen PB server side, BP via wstunnel).
 func BootstrapPrimaryBuild(m *BuildMaterial) error {
 	if m == nil {

@@ -231,19 +231,6 @@ func ClientReady() bool {
 	return fileOK(path(CACertFile)) && fileOK(path(ClientCertFile)) && fileOK(path(ClientKeyFile))
 }
 
-func CopyClientMaterial() (ca, cert, key []byte, err error) {
-	ca, err = os.ReadFile(path(CACertFile))
-	if err != nil {
-		return
-	}
-	cert, err = os.ReadFile(path(ClientCertFile))
-	if err != nil {
-		return
-	}
-	key, err = os.ReadFile(path(ClientKeyFile))
-	return
-}
-
 func serverCertHasDNS(host string) bool {
 	if host == "" {
 		return true

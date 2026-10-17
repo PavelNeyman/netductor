@@ -12,7 +12,7 @@ const TokenFileRepos = "/etc/netductor/secrets/github_token_repos"
 // TokenKind selects which secret file.
 const (
 	TokenKindReleases = "releases" // list/download netductor GH releases
-	TokenKindRepos   = "repos"    // private git mirror / migrate
+	TokenKindRepos    = "repos"    // private git mirror / migrate
 )
 
 // TokenConfigured reports whether a GitHub token is available (file or env).
@@ -98,10 +98,6 @@ func SetTokenKind(kind, token string) error {
 		return err
 	}
 	return os.WriteFile(path, []byte(token+"\n"), 0o600)
-}
-
-func ClearToken() error {
-	return ClearTokenKind(TokenKindReleases)
 }
 
 func ClearTokenKind(kind string) error {

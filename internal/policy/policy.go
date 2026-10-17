@@ -348,9 +348,3 @@ func (c *Catalog) SoftDisable(id string) error {
 	}
 	return fmt.Errorf("service not found: %s", id)
 }
-
-// PolicyFile is optional side store; primary storage is embedded on user/device.
-// Kept for future bulk export.
-func PolicySnapshotPath() string {
-	return filepath.Join(paths.StateDir(), "access-policies.json")
-}

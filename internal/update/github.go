@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -475,21 +474,6 @@ func DownloadNamedAsset(tag, name, destPath string) error {
 	})
 }
 
-// SelfReplace downloads latest release asset and optionally restarts systemd unit.
-func SelfReplace(component, destPath, unit string) error {
-	tag, err := LatestReleaseTag()
-	if err != nil {
-		return err
-	}
-	if err := DownloadReleaseAsset(tag, component, destPath); err != nil {
-		return err
-	}
-	if unit != "" {
-		_ = exec.Command("systemctl", "restart", unit).Start()
-	}
-	return nil
-}
-
 func verParts(s string) (int, int, int) {
 	s = strings.TrimPrefix(strings.TrimSpace(s), "v")
 	if i := strings.IndexAny(s, "-+"); i >= 0 {
@@ -560,19 +544,6 @@ func CheckStatusCached(local string) Status {
 // AgentAssetName is the GitHub release asset for a given GOARCH.
 func AgentAssetName(goarch string) string {
 	return "netductor-agent-linux-" + goarch
-}
-
-// AgentDownloadURL returns the release asset URL for agent arch.
-func AgentDownloadURL(tag, goarch string) (string, error) {
-	tag, err := ValidReleaseTag(tag)
-	if err != nil {
-		return "", err
-	}
-	goarch = strings.TrimSpace(goarch)
-	if goarch == "" || goarch == "auto" {
-		return "", fmt.Errorf("agent arch required")
-	}
-	return downloadURL(tag, AgentAssetName(goarch)), nil
 }
 
 // AgentUpdateArg builds URL|sha256|confirm=yes for edge agent_update / sysupgrade-style downloads.

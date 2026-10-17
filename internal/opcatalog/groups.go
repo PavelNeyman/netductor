@@ -1,7 +1,5 @@
 package opcatalog
 
-import "strings"
-
 // Group is a Day-2 navigation bucket shared by Web Control, TG Tools, TUI.
 // Multiple Action.Section values map into one group (fewer tabs, same catalog).
 type Group struct {
@@ -75,12 +73,6 @@ func ByGroup(surface string) map[string][]Action {
 	}
 	return m
 }
-
-// GroupSectionSet helper for docs.
-func GroupSectionsCSV(g Group) string {
-	return strings.Join(g.Sections, ", ")
-}
-
 
 // Day2Groups is Tools-only IA (no Status/Users/Fleet top hubs).
 func Day2Groups() []Group {

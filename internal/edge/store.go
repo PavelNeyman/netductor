@@ -353,24 +353,6 @@ func Approve(deviceID string) (deviceToken string, err error) {
 	return tok, nil
 }
 
-func RotateToken(deviceID string) (string, error) {
-	mu.Lock()
-	defer mu.Unlock()
-	m := loadDevices()
-	d, ok := m[deviceID]
-	if !ok {
-		return "", fmt.Errorf("unknown device")
-	}
-	if d.Status != StatusApproved {
-		return "", fmt.Errorf("not approved")
-	}
-	tok := randomToken(32)
-	d.DeviceToken = tok
-	m[deviceID] = d
-	_ = saveDevices(m)
-	return tok, nil
-}
-
 func Deny(deviceID string) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -399,16 +381,6 @@ func Revoke(deviceID string) error {
 	d.RevokedAt = time.Now().Unix()
 	m[deviceID] = d
 	return saveDevices(m)
-}
-
-func StatusOf(deviceID string) string {
-	mu.Lock()
-	defer mu.Unlock()
-	d, ok := loadDevices()[deviceID]
-	if !ok {
-		return ""
-	}
-	return d.Status
 }
 
 func Heartbeat(payload map[string]any) {
@@ -572,20 +544,6 @@ func WaitCmdResult(cmdID string, timeout time.Duration) (map[string]any, error) 
 		time.Sleep(2 * time.Second)
 	}
 	return nil, fmt.Errorf("timeout waiting for cmd %s", cmdID)
-}
-
-// FindResult returns latest result for cmd_id if present.
-func FindResult(cmdID string) (map[string]any, bool) {
-	var last map[string]any
-	ok := false
-	for _, m := range ListResults() {
-		id, _ := m["cmd_id"].(string)
-		if id == cmdID {
-			last = m
-			ok = true
-		}
-	}
-	return last, ok
 }
 
 func ListResults() []map[string]any {

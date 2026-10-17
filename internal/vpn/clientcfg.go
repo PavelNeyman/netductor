@@ -13,13 +13,13 @@ import (
 
 // ClientEndpoints holds resolved core + preferred relay for a user.
 type ClientEndpoints struct {
-	Name      string
-	UUID      string
-	CoreHost  string
-	CorePort  int
-	CoreSNI   string
-	CorePBK   string
-	CoreSID   string
+	Name          string
+	UUID          string
+	CoreHost      string
+	CorePort      int
+	CoreSNI       string
+	CorePBK       string
+	CoreSID       string
 	SecondaryHost string
 	SecondaryPort int
 	SecondarySNI  string
@@ -183,7 +183,7 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 		"inbounds": []any{
 			map[string]any{
 				"type": "tun", "tag": "tun-in",
-				"address": []string{"172.19.0.1/30"},
+				"address":    []string{"172.19.0.1/30"},
 				"auto_route": true, "strict_route": true,
 				"sniff": true,
 			},
@@ -216,7 +216,7 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 			"default_domain_resolver": "ya",
 		},
 	}
-		if cidrs := AdminNodeDirectCIDRs(); len(cidrs) > 0 {
+	if cidrs := AdminNodeDirectCIDRs(); len(cidrs) > 0 {
 		if route, ok := cfg["route"].(map[string]any); ok {
 			if rules, ok := route["rules"].([]any); ok {
 				admin := map[string]any{"ip_cidr": cidrs, "outbound": "direct"}
@@ -233,7 +233,7 @@ func SingBoxClientJSON(e ClientEndpoints) ([]byte, error) {
 			}
 		}
 	}
-return json.MarshalIndent(cfg, "", "  ")
+	return json.MarshalIndent(cfg, "", "  ")
 }
 
 // ShadowrocketJSON helper + URIs (relay first).
@@ -301,11 +301,6 @@ func WriteClientConfigs(name, uuid string) error {
 	_ = os.Remove(filepath.Join(dir, "subscription.b64"))
 	_ = os.Remove(filepath.Join(dir, "qr-subscription.png"))
 	return nil
-}
-
-// BuildShadowrocketRoutingConf returns default operator-mobile SR Config.
-func BuildShadowrocketRoutingConf() string {
-	return BuildShadowrocketRoutingConfProfile(SRProfileOperatorMobile)
 }
 
 // WriteShadowrocketRoutingFile writes default (operator-mobile) SR Config.
