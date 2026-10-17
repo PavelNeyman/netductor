@@ -59,7 +59,7 @@ func printOpHelp() {
 
 
   deploy primary|secondary|fleet|edge   bootstrap nodes over SSH
-  serve [--bind 127.0.9.404] [--port 7373] [--token SECRET]
+  serve [--bind 127.0.9.405] [--port 7373] [--token SECRET]
   credentials collect                   secrets -> ~/.netductor/credentials
   tui|menu                              Setup wizard / fleet UI
   release list-local|tags|mirror-fetch|build <tag>

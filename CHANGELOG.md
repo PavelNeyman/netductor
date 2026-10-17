@@ -1,3 +1,8 @@
+## 0.9.405
+
+- Edge: install OpenWrt USB mass-storage packages from Mac cache (kmod-usb-storage, scsi, ext4, block-mount, e2fsprogs) via apk/opkg; offline-prep pre-seeds ramips/mt76x8
+- Router needs no WAN; Mac downloads matching release/target/kernel packages
+
 ## 0.9.404
 
 - Hygiene series after 0.9.403: dead-code layers 1–6, POST-REVIEW crumb removal, fleet sync timer cleanup
