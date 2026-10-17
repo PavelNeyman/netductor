@@ -10,13 +10,18 @@
 </head>
 <body>
 <header>
-  <div><h1 data-i18n="app_title">netductor-op</h1><div class="meta" id="metaLine" data-i18n="meta_line">Mac client · node API</div> <span id="updateBadge" class="badge hidden"></span></div>
+  <div>
+    <h1 data-i18n="app_title">netductor-op</h1>
+    <div class="meta" id="metaLine" data-i18n="meta_line">Mac client · node API</div>
+    <span id="updateBadge" class="badge hidden"></span>
+    <button type="button" id="btnHeaderJobs" class="badge jobs-badge" title="Jobs">Jobs <span id="jobsRunningCount">0</span></button>
+  </div>
   <div><button type="button" id="langEn" class="active">EN</button> <button type="button" id="langRu">RU</button></div>
 </header>
 <nav class="nav-main" id="mainTabs">
-  <button type="button" data-main="installer" class="active">Installer</button>
-  <button type="button" data-main="control">Control</button>
-  <button type="button" data-main="settings">Settings</button>
+  <button type="button" data-main="installer" class="active" data-i18n="nav_installer">Deploy</button>
+  <button type="button" data-main="control" data-i18n="nav_control">Operate</button>
+  <button type="button" data-main="settings" data-i18n="nav_settings">Settings</button>
 </nav>
 <nav class="nav-sub" id="subInstaller">
   <button type="button" data-tab="fleet" class="active">Fleet</button>
@@ -450,7 +455,7 @@
 </form>
 </div>
 
-<div class="sec" id="jobsPanelSec">
+<div class="sec" id="jobsPanelSec" class="sec jobs-dock">
   <h3 class="edge-h" data-i18n="jobs_title">Operator jobs</h3>
   <p class="note" data-i18n="jobs_note">Live on netductor-op serve. Cancel stops cooperative cancel (current SSH step may finish).</p>
   <div class="row" style="gap:0.5rem;margin-bottom:0.5rem">

@@ -13,6 +13,8 @@
 | ✅ | SSH `CommandContext` + `WithSSHContext` on cancel |
 | ⏸ | stack.apply stays `stack schedule` (bot restart safety) |
 | ✅ | Phase 3 audit: deploy paths = job; day-2 = EnqueueCmd; fast mutate = sync |
+| ✅ | Web deploy: **jobs only** (no HTTP stream fallback for edge/fleet/primary/secondary/build); site stays short sync |
+| ⏳ | Web IA redesign (options in operator notes / next pass) |
 
 
 ## Principles

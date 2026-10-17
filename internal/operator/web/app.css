@@ -105,3 +105,9 @@ table.netmap code{font-size:.8em;word-break:break-all}
 #deployLogSec .chip.ok{background:#2a6a3a}
 #deployLogSec .chip.err{background:#7a2a2a}
 .hint{opacity:.85;font-size:.82rem;margin:.25rem 0 .6rem;line-height:1.35}
+
+/* Jobs dock */
+.jobs-badge{cursor:pointer;margin-left:.5rem;background:#1a3a2a;border:1px solid #2d6;color:#cfc;}
+.jobs-badge.has-run{background:#4a3010;border-color:#c80;}
+#jobsPanelSec.jobs-dock{border:1px solid var(--border,#333);border-radius:8px;padding:.75rem;margin:1rem 0;background:rgba(0,0,0,.2);}
+.deploy-log-active{outline:1px solid #2a6;}

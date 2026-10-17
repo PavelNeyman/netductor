@@ -26,7 +26,7 @@ function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replac
 
 const I18N = {
 en:{
-  app_title:'netductor-op', meta_line:'Mac client · node API',
+  app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API',
   tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings', tab_updates:'Updates',
   upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date',
   sub_fleet:'Fleet', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
@@ -39,7 +39,7 @@ en:{
   l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
   l_role:'Role', l_tg_token:'TG bot token', l_tg_admin:'TG admin user id',
   c_do_primary:'Primary', c_do_secondary:'Secondary', c_do_build:'Build-host', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot', 
-  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', c_skip_root:'Do not set root password (leave empty)', l_new_root:'New root password (LuCI)', edge_root_help:'Required for LuCI. SSH uses operator key; password SSH is disabled after provision.', edge_guest_help:'Isolated guest, ISP direct (not VPN). Default: visible SSID (join-QR). Optional hidden. PSK=Wi‑Fi password; desk PIN=staff grant.', l_guest_visible:'SSID visibility', opt_hidden:'Hidden', opt_visible:'Visible (default)', c_edge_offline:'Offline deploy', btn_edge_offline_prep:'Prepare offline pack', edge_offline_help:'Uses local pack (token + agents). No SSH to primary at deploy.', edge_offline_prep_warn:'Needs internet + SSH primary now. Re-run after upgrades or token rotate.', btn_edge_probe:'Probe device →', edge_h_wifi:'Wi‑Fi AP', edge_wifi_hint:'You can fill 2.4 only — empty 5 GHz SSID/key is copied from 2.4 (and vice versa).', edge_h_guest:'Guest Wi‑Fi', edge_guest_detail_hint:'Isolated SSID; clients use ISP (not router VLESS). PSK = Wi‑Fi password; desk PIN = staff grant.', edge_wan_hint:'Uplink to ISP. Optional DNS e.g. 1.1.1.1 9.9.9.9.', deploy_log_title:'Deploy log', jobs_title:'Operator jobs', jobs_note:'Live on netductor-op serve. Cancel is cooperative (current SSH step may finish).', jobs_refresh:'Refresh', jobs_running:'Running only', jobs_empty:'(no jobs)', jobs_cancel:'Cancel', jobs_cancel_confirm:'Cancel job?', edge_run_working:'Working… streaming steps below', edge_run_done:'Finished — see log', edge_run_err:'Failed — see log', netmap_title:'Network map', netmap_note:'Canonical CIDRs — SR and edge LAN.', edge_h_lan:'LAN', edge_lan_hint:'Shops: prefer 10.120.<N>.0/24 (Settings → Network map). Not 10.9.8 or 10.88.', edge_mod_agent:'Agent install', edge_mod_lan:'LAN baseline', edge_mod_wan:'WAN / uplink', edge_mod_wifi:'Wi‑Fi AP', edge_mod_guest:'Guest Wi‑Fi', edge_mod_vpn:'VPN client (VLESS)', edge_mod_fs:'Expand root FS (SD/mmc)', edge_mod_overlay:'External overlay / extroot', edge_mod_usb_format:'Format USB (destroy data)', edge_storage_title:'Edge storage (USB)', edge_storage_help:'Day-2: backup A+B, mute alerts, restore from primary.', btn_st_list:'List backups', btn_st_backup:'Backup now (A+B)', btn_st_restore:'Restore from primary', btn_st_restore_fmt:'Format USB + restore', btn_st_mute:'Mute USB alerts', btn_st_unmute:'Unmute USB alerts', btn_st_offline:'Build offline pack (primary)', edge_mod_usb_format_help:'Wipe selected USB and create ext4 for extroot. Irreversible.', edge_mod_ssh:'SSH harden', edge_mod_vpn_help:'Router joins VLESS → secondary/primary. LAN clients use this path; guest Wi‑Fi stays ISP.', edge_mod_help:'Toggle modules for this device. Grey = not possible on this hardware.', edge_stat_mem:'Memory free', edge_stat_storage:'Storage', edge_stat_expand:'Expand hint', edge_chip_eth:'Eth ×', edge_chip_wan_yes:'WAN capable', edge_chip_wan_no:'No WAN', edge_chip_no_radio:'No radio', edge_yes:'yes', edge_no:'no', edge_storage_flash:'flash', edge_storage_overlay:'overlay', edge_storage_root:'root', edge_ph_router:'e.g. 192.168.1.1 — not filled automatically', btn_edge_to_modules:'Continue →', btn_edge_to_details:'Continue →', btn_edge_replan:'Re-probe / replan', btn_back:'Back', btn_edge_details:'Details →', btn_edge_dry:'Dry-run plan', btn_edge_modules:'Modules →', c_advanced:'Advanced modules', edge_details_help:'Fill only modules you enabled.', edge_h_card:'Device card', edge_h_connect:'Connect', edge_h_details:'Details', edge_h_modules:'Modules', edge_mod_help:'Toggle modules for this device class.', l_action:'Action', l_display:'Display name', l_key_pass:'Key passphrase', l_label:'Label', l_preset:'Preset', l_primary:'Primary host', l_router:'Router host', l_router_pass:'Router password', l_rpi_id:'Device id', l_rpi_lan:'Router LAN IP', l_server:'Agent server URL', edge_note:'OpenWrt edge: agent then UCI. Primary SSH uses port 52222 (after harden); router SSH port 22. Prefill from Fleet/Settings.', edge_net_help:'Only if Configure network is on.', l_lan_mask:'LAN mask', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'Wi-Fi SSID 2.4', l_key24:'Wi-Fi key 2.4', l_ssid5:'Wi-Fi SSID 5', l_key5:'Wi-Fi key 5', l_wan_ip:'WAN IP', l_wan_mask:'WAN mask', l_wan_gw:'WAN gateway', l_wan_dns:'WAN DNS', l_wan_dns_help:'Optional. Space or comma. Recommended 1.1.1.1 9.9.9.9 (CF first). Empty=ISP. Not VPN dns mode.', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'Guest desk PIN', l_guest_pin_help:'Staff PIN to grant internet — not the Wi‑Fi password.', l_guest_psk:'Guest PSK (Wi‑Fi)', l_guest_psk_help:'Wi‑Fi password embedded in join QR. Required (no open network).', c_push:'Push RSC + harden',
+  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', c_skip_root:'Do not set root password (leave empty)', l_new_root:'New root password (LuCI)', edge_root_help:'Required for LuCI. SSH uses operator key; password SSH is disabled after provision.', edge_guest_help:'Isolated guest, ISP direct (not VPN). Default: visible SSID (join-QR). Optional hidden. PSK=Wi‑Fi password; desk PIN=staff grant.', l_guest_visible:'SSID visibility', opt_hidden:'Hidden', opt_visible:'Visible (default)', c_edge_offline:'Offline deploy', btn_edge_offline_prep:'Prepare offline pack', edge_offline_help:'Uses local pack (token + agents). No SSH to primary at deploy.', edge_offline_prep_warn:'Needs internet + SSH primary now. Re-run after upgrades or token rotate.', btn_edge_probe:'Probe device →', edge_h_wifi:'Wi‑Fi AP', edge_wifi_hint:'You can fill 2.4 only — empty 5 GHz SSID/key is copied from 2.4 (and vice versa).', edge_h_guest:'Guest Wi‑Fi', edge_guest_detail_hint:'Isolated SSID; clients use ISP (not router VLESS). PSK = Wi‑Fi password; desk PIN = staff grant.', edge_wan_hint:'Uplink to ISP. Optional DNS e.g. 1.1.1.1 9.9.9.9.', deploy_log_title:'Deploy log', jobs_title:'Operator jobs', jobs_note:'Live on netductor-op serve. Cancel is cooperative (current SSH step may finish).', jobs_refresh:'Refresh', jobs_running:'Running only', jobs_empty:'(no jobs)', jobs_cancel:'Cancel', jobs_cancel_confirm:'Cancel job?', edge_run_working:'Working… job steps below (survives refresh)', edge_run_done:'Finished — see log', edge_run_err:'Failed — see log', netmap_title:'Network map', netmap_note:'Canonical CIDRs — SR and edge LAN.', edge_h_lan:'LAN', edge_lan_hint:'Shops: prefer 10.120.<N>.0/24 (Settings → Network map). Not 10.9.8 or 10.88.', edge_mod_agent:'Agent install', edge_mod_lan:'LAN baseline', edge_mod_wan:'WAN / uplink', edge_mod_wifi:'Wi‑Fi AP', edge_mod_guest:'Guest Wi‑Fi', edge_mod_vpn:'VPN client (VLESS)', edge_mod_fs:'Expand root FS (SD/mmc)', edge_mod_overlay:'External overlay / extroot', edge_mod_usb_format:'Format USB (destroy data)', edge_storage_title:'Edge storage (USB)', edge_storage_help:'Day-2: backup A+B, mute alerts, restore from primary.', btn_st_list:'List backups', btn_st_backup:'Backup now (A+B)', btn_st_restore:'Restore from primary', btn_st_restore_fmt:'Format USB + restore', btn_st_mute:'Mute USB alerts', btn_st_unmute:'Unmute USB alerts', btn_st_offline:'Build offline pack (primary)', edge_mod_usb_format_help:'Wipe selected USB and create ext4 for extroot. Irreversible.', edge_mod_ssh:'SSH harden', edge_mod_vpn_help:'Router joins VLESS → secondary/primary. LAN clients use this path; guest Wi‑Fi stays ISP.', edge_mod_help:'Toggle modules for this device. Grey = not possible on this hardware.', edge_stat_mem:'Memory free', edge_stat_storage:'Storage', edge_stat_expand:'Expand hint', edge_chip_eth:'Eth ×', edge_chip_wan_yes:'WAN capable', edge_chip_wan_no:'No WAN', edge_chip_no_radio:'No radio', edge_yes:'yes', edge_no:'no', edge_storage_flash:'flash', edge_storage_overlay:'overlay', edge_storage_root:'root', edge_ph_router:'e.g. 192.168.1.1 — not filled automatically', btn_edge_to_modules:'Continue →', btn_edge_to_details:'Continue →', btn_edge_replan:'Re-probe / replan', btn_back:'Back', btn_edge_details:'Details →', btn_edge_dry:'Dry-run plan', btn_edge_modules:'Modules →', c_advanced:'Advanced modules', edge_details_help:'Fill only modules you enabled.', edge_h_card:'Device card', edge_h_connect:'Connect', edge_h_details:'Details', edge_h_modules:'Modules', edge_mod_help:'Toggle modules for this device class.', l_action:'Action', l_display:'Display name', l_key_pass:'Key passphrase', l_label:'Label', l_preset:'Preset', l_primary:'Primary host', l_router:'Router host', l_router_pass:'Router password', l_rpi_id:'Device id', l_rpi_lan:'Router LAN IP', l_server:'Agent server URL', edge_note:'OpenWrt edge: agent then UCI. Primary SSH uses port 52222 (after harden); router SSH port 22. Prefill from Fleet/Settings.', edge_net_help:'Only if Configure network is on.', l_lan_mask:'LAN mask', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'Wi-Fi SSID 2.4', l_key24:'Wi-Fi key 2.4', l_ssid5:'Wi-Fi SSID 5', l_key5:'Wi-Fi key 5', l_wan_ip:'WAN IP', l_wan_mask:'WAN mask', l_wan_gw:'WAN gateway', l_wan_dns:'WAN DNS', l_wan_dns_help:'Optional. Space or comma. Recommended 1.1.1.1 9.9.9.9 (CF first). Empty=ISP. Not VPN dns mode.', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'Guest desk PIN', l_guest_pin_help:'Staff PIN to grant internet — not the Wi‑Fi password.', l_guest_psk:'Guest PSK (Wi‑Fi)', l_guest_psk_help:'Wi‑Fi password embedded in join QR. Required (no open network).', c_push:'Push RSC + harden',
   tg_note:'Telegram installs on primary only (token + numeric admin id required).',
   build_note:'CI build-host from Mac (op). PB/BP tunnels. Not VPN exit.', l_build_host:'Build host', l_build_pass:'Build password', l_build_label:'Build label', btn_fleet:'Fleet deploy', btn_primary:'Deploy primary', btn_build:'Deploy build-host', btn_secondary:'Deploy secondary',
   btn_edge:'Provision edge', h_luci:'LuCI (LAN)', luci_help:'Temporarily enable OpenWrt LuCI web UI with auto-off timer (default 1h). Use while on the same LAN as the router. SSH via = operator key from this Mac; Agent via = command queued on primary (router needs agent online).', l_device_id:'Device id (agent)', l_device_id_help:'Edge device_id from provision (e.g. site-home1). Required for Via=Agent; optional for SSH if you only use key+host.', l_luci_action:'Action', l_luci_hours:'Hours (TTL then LuCI off)', l_luci_via:'Via', btn_luci:'LuCI control', btn_site:'Save / push site', btn_creds:'Collect',
@@ -75,7 +75,7 @@ en:{
   reboot_title:'Reboot (challenge)', reboot_note:'Request code → enter correct code within 3 min. Primary: shutdown +1min. Secondary: agent queue.', reboot_target:'Target (primary or secondary id)', reboot_challenge:'Get code', reboot_code:'Code', reboot_confirm:'Confirm reboot'
 },
 ru:{
-  app_title:'netductor-op', meta_line:'Клиент Mac · API ноды',
+  app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды',
   tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки', tab_updates:'Обновления',
   upd_local:'Локально', upd_latest:'Latest', upd_pick:'Релиз', upd_apply:'Применить на primary', upd_refresh:'Обновить', upd_available:'есть обновление', upd_ok:'актуально',
   sub_fleet:'Флот', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
@@ -258,6 +258,12 @@ async function refreshJobsPanel(){
     const data=await res.json().catch(()=>({}));
     if(!res.ok){ el.innerHTML='<span class="note">'+escHtml(data.error||('HTTP '+res.status))+'</span>'; return; }
     const list=data.jobs||[];
+    const running=(list.filter(j=>j.status==='running'||j.status==='queued')).length;
+    const cnt=document.getElementById('jobsRunningCount');
+    const hb=document.getElementById('btnHeaderJobs');
+    if(cnt) cnt.textContent=String(running);
+    if(hb){ hb.classList.toggle('has-run', running>0); }
+
     if(!list.length){ el.innerHTML='<span class="note">'+(typeof t==='function'?t('jobs_empty'):'(no jobs)')+'</span>'; return; }
     el.innerHTML='';
     list.forEach(j=>{
@@ -300,86 +306,71 @@ function jobLogToUI(j){
 }
 
 async function streamPost(url, body, btn){
+  /* All long deploys go through /v1/jobs only (no HTTP stream). Short sync allowlist: site. */
   if(btn) btn.disabled=true;
-  // Job-backed slow paths (thin UI — refresh-safe)
   const jobMap={
     '/v1/edge':'edge.provision',
     '/v1/edge/offline-prep':'edge.offline_prep',
     '/v1/fleet':'fleet.deploy',
     '/v1/primary':'primary.deploy',
     '/v1/secondary':'secondary.deploy',
-    '/v1/build-host':'buildhost.deploy',
-    '/v1/primary':'primary.deploy',
-    '/v1/secondary':'secondary.deploy',
     '/v1/build-host':'buildhost.deploy'
   };
   if(jobMap[url]){
-    const isEdge = jobMap[url]==='edge.provision';
+    const typ=jobMap[url];
+    const isEdge = typ==='edge.provision';
     if(isEdge) setEdgeRunStatus('run', t('edge_run_working'));
     const logSec=document.getElementById('deployLogSec');
-    if(logSec){ logSec.classList.add('deploy-log-active'); }
-    resetLog(); line('JOB '+jobMap[url]);
+    if(logSec){ logSec.classList.add('deploy-log-active'); try{ logSec.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){} }
+    resetLog(); line('JOB '+typ+' (thin UI — refresh-safe)');
+    try{ sessionStorage.setItem('nd_web_last_job_type', typ); }catch(e){}
     let failed=false;
     try{
-      // normalize params: web uses router_password → runner also reads router_pass
-      const params=Object.assign({}, body);
+      const params=Object.assign({}, body||{});
       if(params.router_password && !params.router_pass) params.router_pass=params.router_password;
       if(params.key_passphrase && !params.key_pass) params.key_pass=params.key_passphrase;
-      const j=await jobRun(jobMap[url], params, j2=>{
+      const j=await jobRun(typ, params, j2=>{
         if(j2.log){ resetLog(); line(j2.log); }
-        (j2.steps||[]).forEach(s=>parseSteps('step '+s.id+(s.done?' ok':'')+': '+(s.message||'')));
+        (j2.steps||[]).forEach(s=>chip(s.id, s.done?'ok':(s.message?'run':'')));
+        (j2.steps||[]).forEach(s=>{ if(s.message) line('step '+s.id+(s.done?' done':'')+': '+s.message); });
       });
       failed = j.status!=='succeeded';
       if(j.error) line('ERROR '+j.error);
-      if(j.log) line(j.log);
+      if(j.log && !logEl.textContent.includes(j.log.slice(0,40))) line(j.log);
+      line('status '+j.status+' id='+(j.id||''));
     }catch(e){ line('error: '+e); failed=true; }
     if(btn) btn.disabled=false;
     if(logSec) logSec.classList.remove('deploy-log-active');
     if(isEdge) setEdgeRunStatus(failed?'err':'ok', t(failed?'edge_run_err':'edge_run_done'));
     try{refreshJobsPanel();}catch(e){}
-    return failed?'':('job '+jobMap[url]+' ok');
+    return failed?'':('job '+typ+' ok');
   }
-  const isEdge = url.indexOf('/v1/edge')>=0 && url.indexOf('preview')<0 && url.indexOf('offline')<0;
-  if(isEdge) setEdgeRunStatus('run', t('edge_run_working'));
+  /* Short sync only (no job type yet) */
+  const syncOK={ '/v1/site':1 };
+  if(!syncOK[url]){
+    line('error: no job mapping for '+url+' — refused stream fallback');
+    if(btn) btn.disabled=false;
+    return '';
+  }
   const logSec=document.getElementById('deployLogSec');
-  if(logSec){ logSec.classList.add('deploy-log-active'); try{ logSec.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){} }
-  resetLog(); line('POST '+url);
+  if(logSec){ logSec.classList.add('deploy-log-active'); }
+  resetLog(); line('POST '+url+' (sync short)');
   let failed=false;
   try{
-    if(!ND_TOKEN){ line('unauthorized: empty operator token — hard-refresh the page (Cmd+Shift+R)'); failed=true; }
+    if(!ND_TOKEN){ line('unauthorized: empty operator token — hard-refresh'); failed=true; }
     else {
-      const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body)});
-      if(res.status===401){
-        line('unauthorized — operator token mismatch. Restart netductor-op and hard-refresh this tab (Cmd+Shift+R).');
-        failed=true;
-      } else if(!res.ok && !res.body){
-        line('HTTP '+res.status); failed=true;
-      } else {
-        const reader=res.body.getReader(); const dec=new TextDecoder();
-        let acc='';
-        while(true){
-          const {done,value}=await reader.read();
-          if(done) break;
-          const chunk=dec.decode(value);
-          acc+=chunk;
-          line(chunk);
-          parseSteps(chunk);
-        }
-        // RESULT: PARTIAL = edge deploy outcome; offline-prep PARTIAL is recoverable (retry gaps).
-        if(/step .+ ERROR|RESULT: PARTIAL|reboot not confirmed/i.test(acc)) failed=true;
-        if(/offline-prep PARTIAL|WARN offline pack incomplete/i.test(acc)) failed=false;
-        if(btn) btn.disabled=false;
-        if(logSec) logSec.classList.remove('deploy-log-active');
-        if(isEdge) setEdgeRunStatus(failed?'err':'ok', t(failed?'edge_run_err':'edge_run_done'));
-        return acc;
-      }
+      const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},body:JSON.stringify(body||{})});
+      const text=await res.text();
+      line(text||('HTTP '+res.status));
+      if(!res.ok) failed=true;
     }
   }catch(e){ line('error: '+e); failed=true; }
   if(btn) btn.disabled=false;
   if(logSec) logSec.classList.remove('deploy-log-active');
-  if(isEdge) setEdgeRunStatus(failed?'err':'ok', t(failed?'edge_run_err':'edge_run_done'));
-  return '';
+  try{refreshJobsPanel();}catch(e){}
+  return failed?'':'ok';
 }
+
 function saveForm(id,fd){ const o={}; for(const [k,v] of fd.entries()){ if(/password|passphrase|token|session/.test(k))continue; o[k]=v;} localStorage.setItem('nd_op_'+id,JSON.stringify(o)); }
 function loadForm(id,form){ try{ const o=JSON.parse(localStorage.getItem('nd_op_'+id)||'{}'); Object.keys(o).forEach(k=>{ const el=form.elements.namedItem(k); if(!el)return; if(el.type==='checkbox')el.checked=true; else el.value=o[k]; }); }catch(e){} }
 
