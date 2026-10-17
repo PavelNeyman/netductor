@@ -51,7 +51,8 @@ func registerStackAPI(mux *http.ServeMux) {
 			writeJSON(w, 500, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "scheduled": true, "version": body.Version})
+		// Empty version schedules latest (resolved inside ScheduleApply).
+		writeJSON(w, 200, map[string]any{"ok": true, "scheduled": true, "version": body.Version, "note": "empty version means latest release"})
 	})
 	mux.HandleFunc("/api/stack/rollback", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

@@ -13,7 +13,13 @@ import (
 func runSmoke(args []string) int {
 	mode := "dual"
 	if len(args) > 0 {
-		mode = args[0]
+		mode = strings.TrimSpace(args[0])
+	}
+	switch mode {
+	case "dual", "secondary", "primary", "local":
+	default:
+		fmt.Fprintf(os.Stderr, "smoke: unknown mode %q (dual|secondary|primary|local)\n", mode)
+		return 2
 	}
 	bin := "netductor"
 	if b, err := os.Executable(); err == nil && b != "" {

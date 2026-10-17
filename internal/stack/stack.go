@@ -406,6 +406,11 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if !strings.HasPrefix(tag, "v") {
 		tag = "v" + tag
 	}
+	if t2, err := ndupdate.ValidReleaseTag(tag); err != nil {
+		return err
+	} else {
+		tag = t2
+	}
 	if !TryAcquireApplyLock(tag) {
 		busy, cur, _ := ApplyInProgress()
 		_ = busy
@@ -633,7 +638,14 @@ func ScheduleApply(tag string) error {
 	if ok, why := IsPinned(); ok {
 		return fmt.Errorf("stack pinned: %s", why)
 	}
+	tag = strings.TrimSpace(tag)
 	var err error
+	if tag == "" {
+		tag, err = ndupdate.LatestReleaseTag()
+		if err != nil {
+			return err
+		}
+	}
 	tag, err = ndupdate.ValidReleaseTag(tag)
 	if err != nil {
 		return err

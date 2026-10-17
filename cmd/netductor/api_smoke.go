@@ -11,11 +11,17 @@ func registerSmokeAPI(mux *http.ServeMux) {
 		if !requireSession(w, r) {
 			return
 		}
-		mode := r.URL.Query().Get("mode")
+		mode := strings.TrimSpace(r.URL.Query().Get("mode"))
 		if mode == "" {
 			mode = "dual"
 		}
+		switch mode {
+		case "dual", "secondary", "primary", "local":
+		default:
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "mode must be dual|secondary|primary|local"})
+			return
+		}
 		out, err := exec.Command("netductor", "smoke", mode).CombinedOutput()
-		writeJSON(w, 200, map[string]any{"ok": err == nil, "output": strings.TrimSpace(string(out))})
+		writeJSON(w, 200, map[string]any{"ok": err == nil, "mode": mode, "output": strings.TrimSpace(string(out))})
 	})
 }
