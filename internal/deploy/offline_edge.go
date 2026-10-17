@@ -138,6 +138,14 @@ echo KEY:$(b64 "$DIR/client.key")
 
 	agents := map[string]string{}
 	var missingAgents, missingSB []string
+	// OpenWrt USB/extroot packages (router offline — Mac downloads once).
+	// Default travel-router target; deploy re-probes exact release/kernel and fills gaps.
+	for _, preset := range offlineOpenWrtUSBPresets() {
+		if _, _, err := EnsureOpenWrtUSBPackagesCached(preset); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: OpenWrt USB pkgs", preset.Target, preset.Release, err)
+		}
+	}
+
 	// sing-box for OpenWrt vpn_client (same arches as agents)
 	for arch := range agentArches {
 		if path, err := EnsureSingBoxCached(arch); err != nil {

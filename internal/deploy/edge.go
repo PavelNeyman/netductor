@@ -331,6 +331,17 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 
+	// OpenWrt USB mass-storage kmods (router has no WAN): Mac cache → scp → apk/opkg.
+	// Run for any OpenWrt edge so next probe sees sda when stick is plugged.
+	if err := EnsureUSBStorageOnRouter(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, o.PrimaryKeyPassphrase); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: USB storage packages:", err)
+		// soft-fail if operator did not request USB/overlay — hard-fail only when USB modules required
+		needUSB := o.ApplyOverlay || (o.Selection.Enabled != nil && (o.Selection.Enabled[edge.ModOverlay] || o.Selection.Enabled["usb_format"] || o.Selection.Enabled[edge.ModVPNClient]))
+		if needUSB {
+			return fmt.Errorf("USB storage modules: %w", err)
+		}
+	}
+
 	skipVPN := false
 	st := EdgeStorageOpts{
 		UseUSB:               o.ApplyOverlay || (o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModOverlay]),
