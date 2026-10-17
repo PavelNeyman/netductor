@@ -1,3 +1,5 @@
+**Стоп: v0.9.406** — probe ставит USB kmod, затем facts.
+
 **Стоп-линия: v0.9.405** — USB kmod OpenWrt с кэша Mac.
 
 **Стоп-линия: v0.9.404** (tip=prod). Hygiene 0.9.403…404; DNS custom URL; recovery CA pin. См. CLEANUP-PASSES-2026-10.

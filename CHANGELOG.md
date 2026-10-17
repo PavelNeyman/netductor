@@ -1,3 +1,7 @@
+## 0.9.406
+
+- Edge probe: install OpenWrt USB mass-storage packages **before** collecting facts so card shows USB / Format / overlay
+
 ## 0.9.405
 
 - Edge: install OpenWrt USB mass-storage packages from Mac cache (kmod-usb-storage, scsi, ext4, block-mount, e2fsprogs) via apk/opkg; offline-prep pre-seeds ramips/mt76x8
