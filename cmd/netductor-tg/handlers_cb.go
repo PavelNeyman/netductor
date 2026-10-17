@@ -74,6 +74,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 	}()
 
+	if handleJobsMenu(token, chat, msgID, data) {
+		return
+	}
 	if strings.HasPrefix(data, "e:appr:") {
 		id := strings.TrimPrefix(data, "e:appr:")
 		out := runND("edge", "approve", id)

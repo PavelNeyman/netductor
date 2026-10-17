@@ -205,6 +205,15 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.output = listOpJobsTextRunning()
 		m.screen = screenOutput
 		return m, nil
+	case "jobs-cancel":
+		m.tab = tabWizard
+		m.wizTarget = "jobs-cancel"
+		m.wizFields = []wizField{{Key: "job_id", Label: "Job ID", Value: "", Placeholder: "id from Jobs list"}}
+		m.wizFieldIdx = 0
+		m.wizInput = ""
+		m.wizStep = wizStepFields
+		m.screen = screenWizard
+		return m, nil
 	case "secondary-sync", "fleet-sync", "relay-sync":
 		m.showCmd("secondary", "sync")
 	case "apply-lampac":

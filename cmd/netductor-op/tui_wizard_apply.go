@@ -541,6 +541,8 @@ func (m model) runWizardApplyInTUI() string {
 			return out + "\n" + err.Error()
 		}
 		return out
+	case "jobs-cancel":
+		return cancelOpJobText(m.fieldVal("job_id"))
 	default:
 		return "unknown target"
 	}

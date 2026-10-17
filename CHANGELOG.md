@@ -1,3 +1,12 @@
+## 0.9.411
+
+- **All UIs:** job list + cancel
+  - Web op: panel Operator jobs (refresh / running / cancel)
+  - TUI: Jobs running/all + Jobs cancel form
+  - CLI op: job list|cancel (already); node: `netductor job list|cancel`
+  - TG Tools → Jobs (primary store) + cancel buttons for running
+- Note: Mac edge/fleet jobs only on op serve; primary jobs (stack/doctor) on node
+
 ## 0.9.410
 
 - CLI deploy (primary/secondary/fleet/edge) via **/v1/jobs**

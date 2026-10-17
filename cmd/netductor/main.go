@@ -52,6 +52,8 @@ func main() {
 		runFirewall(os.Args[2:])
 	case "smoke":
 		os.Exit(runSmoke(os.Args[2:]))
+	case "job", "jobs":
+		runJobsCLI(os.Args[2:])
 	case "doctor":
 		if len(os.Args) > 2 && os.Args[2] == "--legacy" {
 			fmt.Fprintln(os.Stderr, "legacy doctor removed")

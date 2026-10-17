@@ -1,3 +1,5 @@
+**0.9.411:** Jobs list+cancel in Web/TUI/TG/CLI.
+
 **0.9.410:** CLI→jobs; TUI Jobs panel; cooperative cancel.
 
 **0.9.409:** TUI deploy via jobs; Web reattach; auto serve.
