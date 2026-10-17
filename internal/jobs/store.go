@@ -243,6 +243,25 @@ func (s *Store) Cancel(id string) error {
 	return nil
 }
 
+
+// Counts returns running and failed job totals (for metrics).
+func (s *Store) Counts() (running, failed int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, j := range s.jobs {
+		j.mu.Lock()
+		st := j.Status
+		j.mu.Unlock()
+		switch st {
+		case StatusRunning, StatusQueued:
+			running++
+		case StatusFailed:
+			failed++
+		}
+	}
+	return
+}
+
 func (s *Store) List(status Status, typ string) []map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()

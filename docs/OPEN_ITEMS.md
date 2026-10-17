@@ -1,4 +1,4 @@
-> **Stop: v0.9.404.** Cleanup tip released. Remaining: lab e2e (OpenWrt/NVR/MikroTik) and future (OIDC/guest session).
+> **Stop: v0.9.413.** Thin-UI jobs core + Phase 3 audit. Remaining: lab e2e (OpenWrt/NVR/MikroTik) and future (OIDC/guest session).
 
 - [x] Optional **build-host** VPS (SSH executor, 0.9.361); agent-pull later
 - [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283); channel face vs uplink alerts (0.9.284); see [CI-WORKFLOWS.md](CI-WORKFLOWS.md)
@@ -11,7 +11,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Stop line
 
-**v0.9.403** (2026-10-16) — USB path sanitize, backup list parity, tip=release.
+**v0.9.413** (2026-10-17) — thin-UI jobs core done; Phase 3 audit; jobs metrics. Prior 0.9.404 cleanup.
 
 - [x] Product improvements plan (no hardware e2e) — [PLAN-PRODUCT-IMPROVEMENTS.md](PLAN-PRODUCT-IMPROVEMENTS.md) **closed** (2026-10-12); TG menu structure pass included
 

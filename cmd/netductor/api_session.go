@@ -442,7 +442,15 @@ func registerSessionAPI(mux *http.ServeMux) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		_, _ = w.Write([]byte(metrics.PrometheusText()))
+		text := metrics.PrometheusText()
+		if st := primaryJobStore(); st != nil {
+			run, fail := st.Counts()
+			text += "\n# HELP netductor_jobs_running Jobs currently running or queued\n# TYPE netductor_jobs_running gauge\n"
+			text += fmt.Sprintf("netductor_jobs_running %d\n", run)
+			text += "# HELP netductor_jobs_failed_total Failed jobs in store\n# TYPE netductor_jobs_failed_total gauge\n"
+			text += fmt.Sprintf("netductor_jobs_failed_total %d\n", fail)
+		}
+		_, _ = w.Write([]byte(text))
 	})
 	mux.HandleFunc("/api/metrics/history", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {

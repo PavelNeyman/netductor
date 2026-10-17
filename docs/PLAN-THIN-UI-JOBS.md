@@ -1,6 +1,6 @@
 # Thin UI + Jobs
 
-**Status 0.9.412 (2026-10-17):** Phases 0–4 core **done** for op deploy paths + UX list/cancel.
+**Status 0.9.413 (2026-10-17):** Phases 0–4 core done. Phase 3 checklist audited. Jobs metrics on `/metrics/prometheus`.
 
 | Done | Item |
 |--|--|
@@ -12,7 +12,7 @@
 | ✅ | TG Tools → Jobs + cancel; Doctor → `doctor.run` job |
 | ✅ | SSH `CommandContext` + `WithSSHContext` on cancel |
 | ⏸ | stack.apply stays `stack schedule` (bot restart safety) |
-| ⏸ | Full Phase-3 audit of every TG/DNS/NVR button as job (day-2 already EnqueueCmd) |
+| ✅ | Phase 3 audit: deploy paths = job; day-2 = EnqueueCmd; fast mutate = sync |
 
 
 ## Principles
@@ -152,19 +152,19 @@ Every user-visible action classified:
 
 Surfaces to audit (tick when job-backed or intentionally sync):
 
-- [ ] Edge: probe, provision, offline-prep, luci, storage day-2
-- [ ] Fleet / primary / secondary / build-host deploy
-- [ ] Stack apply / rollback / doctor
-- [ ] VPN apply, policy, uplink, SR config export
-- [ ] Secondary status / sync / prune / agent update
-- [ ] Git: project add/sync/build/queue
-- [ ] NVR: camera add, PTZ, record, leases (agent)
-- [ ] Sites / rooms
-- [ ] DNS custom lists
-- [ ] Users / profiles / credentials issue
-- [ ] Alerts / channel test
-- [ ] Cleanup / host-baseline / snapshot doctor
-- [ ] TG menu tree (no orphan long callbacks)
+- [x] Edge: probe / provision / offline-prep → **op job**; luci / storage day-2 → **EnqueueCmd**
+- [x] Fleet / primary / secondary / build-host deploy → **op job**
+- [x] Stack apply → `stack schedule` (bot restart; not a job by design); doctor → **primary job**
+- [x] VPN apply / policy / uplink / SR export → sync or **EnqueueCmd** (day-2)
+- [x] Secondary status / sync / prune / agent update → **EnqueueCmd**
+- [x] Git: project add/sync/build/queue → existing ship jobs / sync
+- [x] NVR: camera add / PTZ / record / leases → **EnqueueCmd**
+- [x] Sites / rooms → sync (fast)
+- [x] DNS custom lists → sync
+- [x] Users / profiles / credentials issue → sync
+- [x] Alerts / channel test → sync
+- [x] Cleanup / host-baseline / snapshot doctor → doctor job or sync
+- [x] TG menu tree — Jobs + Doctor present; long callbacks go through jobs or EnqueueCmd
 
 **Parity rule:** if Web has a job for X, TG and TUI and CLI must be able to start/wait the same `type` (thin clients).
 

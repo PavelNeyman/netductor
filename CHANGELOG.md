@@ -1,3 +1,10 @@
+## 0.9.413
+
+- Thin-UI jobs: Phase 3 checklist audited (deploy=job, day-2=EnqueueCmd, fast=sync)
+- Prometheus: netductor_jobs_running / netductor_jobs_failed_total
+- OPEN_ITEMS stop line → 0.9.413
+
+
 ## 0.9.412
 
 - SSH cancel: `CommandContext` + `deploy.WithSSHContext` on job runners (real kill of in-flight ssh/scp)

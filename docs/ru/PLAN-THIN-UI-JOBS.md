@@ -1,3 +1,5 @@
+**Статус 0.9.413:** фазы 0–4 core готовы. Чеклист Phase 3 пройден: deploy = job, day-2 = EnqueueCmd, быстрые мутации = sync. Метрики `netductor_jobs_running` / `netductor_jobs_failed_total` на `/metrics/prometheus`.
+
 # Thin UI + Jobs
 
 **Статус 0.9.412 (2026-10-17):** фазы 0–4 по deploy-путям op + UX list/cancel **закрыты**.
