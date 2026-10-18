@@ -1067,15 +1067,53 @@ function renderControlNav(){
     });
   });
 }
+function groupOperateActions(list){
+  // Heuristic buckets so Operate is cards, not a wall of primary buttons.
+  const buckets=[
+    {key:'diag', title: uiLang==='ru'?'Диагностика':'Diagnostics', match:/health|doctor|status|overview|metrics|attention|latest|sessions|domain|bot/i},
+    {key:'stack', title: uiLang==='ru'?'Стек':'Stack', match:/^stack|watchdog/i},
+    {key:'upd', title: uiLang==='ru'?'Обновления':'Updates', match:/update|release|rel_|gh-token|github/i},
+    {key:'vpn', title: 'VPN / policy', match:/vpn|policy|services/i},
+    {key:'nodes', title: uiLang==='ru'?'Узлы':'Nodes', match:/node|secondary|ssh|mtls|channel|path/i},
+    {key:'edge', title: 'Edge', match:/edge|guest|site/i},
+    {key:'nvr', title: 'NVR', match:/nvr|camera|clip|motion|go2rtc|ptz|record|segment|retention/i},
+    {key:'git', title: 'Git / build', match:/git|build|registry|ship|pipeline|artifact|mirror/i},
+    {key:'dns', title: 'DNS', match:/dns|blocky|sni/i},
+    {key:'bak', title: uiLang==='ru'?'Бэкапы':'Backup', match:/backup|recover|drill/i},
+    {key:'addon', title: uiLang==='ru'?'Сервисы':'Addons', match:/addon|lampac/i},
+    {key:'misc', title: uiLang==='ru'?'Прочее':'Other', match:/.*/},
+  ];
+  const used=new Set();
+  const out=[];
+  for(const b of buckets){
+    const items=[];
+    for(const row of list){
+      const id=row[0]||'';
+      if(used.has(id)) continue;
+      if(b.match.test(id) || b.match.test(String(row[1]||''))){
+        items.push(row); used.add(id);
+      }
+    }
+    if(items.length) out.push({title:b.title, items});
+  }
+  return out;
+}
 function mountButtons(){
   for(const [sec, list] of Object.entries(BTN)){
     const el=document.getElementById('csec-'+sec); if(!el) continue;
-    // preserve form blocks: clear only button strip by regenerating whole section content carefully
-    let h='';
-    for(const [id,label,method,path,body] of list){
-      const lab=(label&&label.indexOf('b_')===0)?t(label):label;
-      h+='<button class="primary" type="button" data-act="'+id+'">'+lab+'</button> ';
+    // Group into calm op-cards (no primary-blue wall).
+    const groups=groupOperateActions(list||[]);
+    let h='<div class="op-grid">';
+    for(const g of groups){
+      h+='<div class="op-card"><h3>'+g.title+'</h3><div class="op-links">';
+      for(const [id,label,method,path,body] of g.items){
+        const lab=(label&&label.indexOf('b_')===0)?t(label):label;
+        const emph=/apply|doctor|backup.?now|ensure/i.test(id)||/apply|doctor/i.test(String(lab))? ' emph':'';
+        h+='<button class="op-link'+emph+'" type="button" data-act="'+id+'">'+lab+'</button>';
+      }
+      h+='</div></div>';
     }
+    h+='</div>';
     // append forms for complex POSTs
         if(sec==='updates' || sec==='home'){
       h+=`<div class="card" style="margin-top:.5rem"><h3>${t('tab_updates')||'Updates'}</h3>
@@ -2353,13 +2391,21 @@ function showServerDetail(role){
       +'<div class="metric"><div class="k">Metrics</div><div class="v" style="font-size:.9rem">—</div><div class="s">snapshot via Operate</div></div>'
       +'<div class="metric"><div class="k">API</div><div class="v" style="font-size:.9rem">'+(s.api_port||'8787')+'</div><div class="s">tunnel</div></div>';
   }
+  // topology under metrics
+  let topoHost=document.getElementById('srvDetailTopo');
+  if(!topoHost){
+    topoHost=document.createElement('div');
+    topoHost.id='srvDetailTopo';
+    if(metrics && metrics.parentNode) metrics.parentNode.insertBefore(topoHost, metrics.nextSibling);
+  }
+  topoHost.innerHTML=fleetTopoHTML(m.role, m.host);
   const act=document.getElementById('srvDetailActions');
   if(act){
     act.innerHTML='';
     const add=(label, nav)=>{
       const b=document.createElement('button');
       b.type='button'; b.textContent=label;
-      if(nav==='control') b.className='primary';
+      b.className='primary';
       b.onclick=()=>navigateShell(nav);
       act.appendChild(b);
     };
@@ -2371,6 +2417,46 @@ function showServerDetail(role){
   }
   const pt=document.getElementById('pageTitle');
   if(pt) pt.textContent=(typeof t==='function'?t('nav_servers'):'Servers')+' / '+m.name;
+}
+function fleetTopoHTML(role, host){
+  // Schematic for control-plane nodes (same visual language as site topology).
+  const h=esc(host||'—');
+  if(role==='primary'){
+    return '<div class="fleet-topo">'
+      +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">'+h+'</div></div>'
+      +'<div class="topo-link"></div>'
+      +'<div class="topo-mid">'
+      +'<div class="zbox on"><span class="zd"></span><span class="zt">SP</span><span class="zc">10.87.10/30</span></div>'
+      +'<div class="zbox on"><span class="zd"></span><span class="zt">PS</span><span class="zc">10.87.11/30</span></div>'
+      +'<div class="zbox on"><span class="zd"></span><span class="zt">mTLS</span><span class="zc">:8789</span></div>'
+      +'</div>'
+      +'<div class="topo-link"></div>'
+      +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Secondary</div><div class="ip">peer</div></div>'
+      +'</div>';
+  }
+  if(role==='secondary'){
+    return '<div class="fleet-topo">'
+      +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Secondary</div><div class="ip">'+h+'</div></div>'
+      +'<div class="topo-link"></div>'
+      +'<div class="topo-mid">'
+      +'<div class="zbox on"><span class="zd"></span><span class="zt">uplink</span><span class="zc">VLESS :443</span></div>'
+      +'<div class="zbox on"><span class="zd"></span><span class="zt">agent</span><span class="zc">hb → primary</span></div>'
+      +'</div>'
+      +'<div class="topo-link"></div>'
+      +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">control</div></div>'
+      +'</div>';
+  }
+  // build
+  return '<div class="fleet-topo">'
+    +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">control</div></div>'
+    +'<div class="topo-link"></div>'
+    +'<div class="topo-mid">'
+    +'<div class="zbox"><span class="zd"></span><span class="zt">PB/BP</span><span class="zc">10.87.12–13</span></div>'
+    +'<div class="zbox"><span class="zd"></span><span class="zt">jobs</span><span class="zc">:8789</span></div>'
+    +'</div>'
+    +'<div class="topo-link"></div>'
+    +'<div class="topo-node"><div class="ic">⬡</div><div class="lab">Build</div><div class="ip">'+h+'</div></div>'
+    +'</div>';
 }
 function renderServersCards(){
   const grid=document.getElementById('serversGrid');
@@ -2387,12 +2473,33 @@ function renderServersCards(){
     chips.innerHTML='<span class="badge">'+(n)+' configured</span>';
   }
   grid.innerHTML='';
+  // overview topology strip (fleet map)
+  const map=document.createElement('div');
+  map.className='card';
+  map.style.gridColumn='1 / -1';
+  map.innerHTML='<h3 style="margin:0 0 .35rem;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">'
+    +(uiLang==='ru'?'Каналы control-plane':'Control-plane paths')+'</h3>'
+    +'<div class="fleet-topo">'
+    +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">'+esc(s.primary_host||'—')+'</div></div>'
+    +'<div class="topo-link"></div>'
+    +'<div class="topo-mid">'
+    +'<div class="zbox on"><span class="zd"></span><span class="zt">SP</span><span class="zc">10.87.10/30</span></div>'
+    +'<div class="zbox on"><span class="zd"></span><span class="zt">PS</span><span class="zc">10.87.11/30</span></div>'
+    +'<div class="zbox on"><span class="zd"></span><span class="zt">mTLS</span><span class="zc">:8789</span></div>'
+    +'</div>'
+    +'<div class="topo-link"></div>'
+    +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Secondary</div><div class="ip">'+esc(s.secondary_host||'—')+'</div></div>'
+    +(s.build_host?('<div class="topo-link"></div><div class="topo-node"><div class="ic">⬡</div><div class="lab">Build</div><div class="ip">'+esc(s.build_host)+'</div></div>'):'')
+    +'</div>';
+  grid.appendChild(map);
   cards.forEach(c=>{
     const el=document.createElement('div');
     el.className='srv-card';
+    const ok=c.host && c.host!=='—' && c.host!=='(optional)';
     el.innerHTML='<div class="row1"><span class="name">'+esc(c.name)+'</span><span class="badge">'+c.role+'</span></div>'
       +'<div class="meta">'+esc(c.host)+'</div>'
-      +'<div class="kv"><span>Status</span><b>'+(c.host && c.host!=='—' && c.host!=='(optional)'?'configured':'not set')+'</b></div>';
+      + fleetTopoHTML(c.role, c.host)
+      +'<div class="kv"><span>Status</span><b>'+(ok?'configured':'not set')+'</b></div>';
     el.onclick=()=>showServerDetail(c.id);
     grid.appendChild(el);
   });

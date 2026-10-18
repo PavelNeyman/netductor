@@ -401,14 +401,20 @@
       <div class="row">
         <div><label data-i18n="l_rpi_id">Device ID</label><input id="edge_st_device" placeholder="tr1200-..."/></div>
       </div>
-      <div class="row" style="flex-wrap:wrap;gap:.5rem;margin-top:.5rem">
-        <button type="button" class="primary" id="btnStList" data-i18n="btn_st_list">List backups</button>
-        <button type="button" class="primary" id="btnStBackup" data-i18n="btn_st_backup">Backup now (A+B)</button>
-        <button type="button" class="primary" id="btnStRestore" data-i18n="btn_st_restore">Restore from primary</button>
-        <button type="button" class="primary" id="btnStRestoreFmt" data-i18n="btn_st_restore_fmt">Format USB + restore</button>
-        <button type="button" class="primary" id="btnStMute" data-i18n="btn_st_mute">Mute USB alerts</button>
-        <button type="button" class="primary" id="btnStUnmute" data-i18n="btn_st_unmute">Unmute USB alerts</button>
-        <button type="button" class="primary" id="btnStOffline" data-i18n="btn_st_offline">Build offline pack (on primary)</button>
+      <div class="op-grid" style="margin-top:.5rem">
+        <div class="op-card"><h3 data-i18n="edge_st_g_bak">Backups</h3><div class="op-links">
+          <button type="button" class="op-link" id="btnStList" data-i18n="btn_st_list">List backups</button>
+          <button type="button" class="op-link emph" id="btnStBackup" data-i18n="btn_st_backup">Backup now (A+B)</button>
+          <button type="button" class="op-link" id="btnStRestore" data-i18n="btn_st_restore">Restore from primary</button>
+        </div></div>
+        <div class="op-card"><h3>USB</h3><div class="op-links">
+          <button type="button" class="op-link" id="btnStRestoreFmt" data-i18n="btn_st_restore_fmt">Format USB + restore</button>
+          <button type="button" class="op-link" id="btnStMute" data-i18n="btn_st_mute">Mute USB alerts</button>
+          <button type="button" class="op-link" id="btnStUnmute" data-i18n="btn_st_unmute">Unmute USB alerts</button>
+        </div></div>
+        <div class="op-card"><h3>Offline</h3><div class="op-links">
+          <button type="button" class="op-link" id="btnStOffline" data-i18n="btn_st_offline">Build offline pack (on primary)</button>
+        </div></div>
       </div>
       <div id="edge_st_table" class="hint" style="margin-top:.5rem"></div>
       <pre id="edge_st_log" class="deploy-log" style="max-height:12rem;margin-top:.5rem"></pre>
@@ -481,10 +487,12 @@
   <div class="card">
     <h3 data-i18n="tunnel">Tunnel <span id="tunnelBadge" class="chip">—</span></h3>
     <pre class="log" id="tunnelCmd" class="log tunnel-log"></pre>
-    <button class="primary" type="button" id="btnTunnelStart" data-i18n="btn_tunnel_start">Start / ensure</button>
+    <div class="op-toolbar">
+    <button class="primary emph" type="button" id="btnTunnelStart" data-i18n="btn_tunnel_start">Start / ensure</button>
     <button class="primary" type="button" id="btnTunnelStop" data-i18n="btn_tunnel_stop">Stop</button>
     <button class="primary" type="button" id="btnSessionIssue" data-i18n="btn_session_issue">Issue session</button>
     <button class="primary" type="button" id="btnSessionLoad" data-i18n="btn_session_load">Load session file</button>
+    </div>
   </div>
   <nav class="nav-sub nav-sub-wrap" id="controlSub"></nav>
   <div id="csec-home" class="csec"></div>

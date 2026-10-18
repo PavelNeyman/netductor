@@ -102,9 +102,10 @@ netductor secondary cmd <id> upgrade:v0.9.349
 
 | Topic | State |
 |--|--|
-| Release | **v0.9.349** tip + GitHub assets (this ship). Formula **netductor-op only** |
+| Release | **v0.9.421** tip (calm Web UI + server topology). Formula **netductor-op only** |
+| Web UI | No electric-blue primary fills; Operate grouped into op-cards; Servers control-plane topology (SP/PS/mTLS) |
 | VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
-| Deferred | read-only guest op session; OIDC (design only) |
+| Deferred | Web terminal + FM; read-only guest op session; OIDC (design only) |
 | Open lab | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik) |
 
 # AGENT Handoff

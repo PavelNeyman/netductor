@@ -1,3 +1,10 @@
+## 0.9.421
+
+- Web calm UI: no electric-blue primary fills; slate accent `#5a7a9a`
+- Operate: actions grouped into op-cards (diagnostics / stack / updates / …) instead of button wall
+- Edge USB day-2: same card layout
+- Servers: control-plane topology (SP/PS/mTLS, uplink, PB/BP) on overview + per-card + detail
+
 ## 0.9.414
 
 - Web UI skins A/B/C (Settings → UI skin; localStorage `nd_op_skin`); shared forms/jobs
