@@ -1,4 +1,4 @@
-> **Стоп: v0.9.414.** Thin-UI jobs core + аудит Phase 3. Остаётся lab e2e (OpenWrt/NVR/MikroTik) и future (OIDC/guest session).
+> **Стоп: v0.9.421.** Thin-UI jobs core + аудит Phase 3. Остаётся lab e2e (OpenWrt/NVR/MikroTik) и future (OIDC/guest session).
 
 **RU** · [EN](../OPEN_ITEMS.md)
 
