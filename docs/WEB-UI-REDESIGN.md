@@ -19,16 +19,6 @@
 Switch: Settings → Skin (live on change); Save persists.
 
 
-## Interactive mockups
-
-After `netductor-op serve`:
-
-```text
-http://127.0.0.1:7373/mockups
-```
-
-Switcher: **A** (home cards) · **B** (sidebar) · **C** (TUI-like). Navigation works; deploy buttons are inert.
-
 
 ## Current problems
 

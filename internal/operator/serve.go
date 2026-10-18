@@ -65,19 +65,6 @@ func Serve(o ServeOpts) error {
 
 	addr := net.JoinHostPort(bind, port)
 	mux := http.NewServeMux()
-		mux.HandleFunc("/mockups", func(w http.ResponseWriter, r *http.Request) {
-		b, err := web.FS.ReadFile("mockups.html")
-		if err != nil {
-			http.Error(w, "mockups missing", 404)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
-		_, _ = w.Write(b)
-	})
-	mux.HandleFunc("/mockups/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/mockups", http.StatusFound)
-	})
 mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.Error(w, "method", 405)
@@ -138,7 +125,7 @@ mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
 			"version":         deploy.Release,
 			"bind":            addr,
 			"credentials_dir": cred,
-			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/build-host", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/jobs", "/v1/credentials", "/v1/health", "/v1/meta", "/mockups"},
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/build-host", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/jobs", "/v1/credentials", "/v1/health", "/v1/meta"},
 			"auth":            "X-Netductor-Token",
 		})
 	})
