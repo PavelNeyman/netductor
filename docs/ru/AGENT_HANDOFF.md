@@ -1,4 +1,4 @@
-**Стоп-линия: v0.9.413** (2026-10-17). Thin-UI jobs; журнал [CLEANUP-PASSES-2026-10](../CLEANUP-PASSES-2026-10.md).
+**Стоп-линия: v0.9.414** (2026-10-17). Thin-UI jobs; журнал [CLEANUP-PASSES-2026-10](../CLEANUP-PASSES-2026-10.md).
 
 **Стоп: v0.9.406** — probe ставит USB kmod, затем facts.
 

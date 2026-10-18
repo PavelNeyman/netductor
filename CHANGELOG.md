@@ -1,3 +1,12 @@
+## 0.9.414
+
+- Web UI skins A/B/C (Settings → UI skin; localStorage `nd_op_skin`); shared forms/jobs
+- Web deploy: jobs-only path (no HTTP stream fallback for edge/fleet/primary/secondary/build-host)
+- Header Jobs badge + running count; Deploy/Operate/Settings labels
+- Interactive mockups at `/mockups` (A/B/TUI-structure)
+- Deferred: Web terminal + file manager (OPEN_ITEMS)
+- Docs: WEB-UI-REDESIGN status; OPEN_ITEMS deferred notes
+
 ## 0.9.413
 
 - Thin-UI jobs: Phase 3 checklist audited (deploy=job, day-2=EnqueueCmd, fast=sync)

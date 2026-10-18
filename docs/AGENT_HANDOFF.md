@@ -1,4 +1,4 @@
-**Stop line: v0.9.413** (2026-10-17). Thin-UI jobs core; hygiene journal [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md). Review: [REVIEW-SUITE.md](REVIEW-SUITE.md).
+**Stop line: v0.9.414** (2026-10-17). Thin-UI jobs core; hygiene journal [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md). Review: [REVIEW-SUITE.md](REVIEW-SUITE.md).
 
 **0.9.412:** SSH CommandContext cancel; TG doctor job; thin-UI plan closed core.
 

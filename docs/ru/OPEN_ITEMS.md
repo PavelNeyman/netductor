@@ -1,4 +1,4 @@
-> **Стоп: v0.9.413.** Thin-UI jobs core + аудит Phase 3. Остаётся lab e2e (OpenWrt/NVR/MikroTik) и future (OIDC/guest session).
+> **Стоп: v0.9.414.** Thin-UI jobs core + аудит Phase 3. Остаётся lab e2e (OpenWrt/NVR/MikroTik) и future (OIDC/guest session).
 
 **RU** · [EN](../OPEN_ITEMS.md)
 
@@ -8,7 +8,7 @@
 
 ## Стоп-линия
 
-**v0.9.413** (2026-10-17) — thin-UI jobs core; аудит Phase 3; метрики jobs. Ранее 0.9.404.
+**v0.9.414** (2026-10-17) — thin-UI jobs core; аудит Phase 3; метрики jobs. Ранее 0.9.404.
 
 - [x] План улучшений продукта (без железа e2e) — [PLAN-PRODUCT-IMPROVEMENTS.md](PLAN-PRODUCT-IMPROVEMENTS.md) **закрыт** (2026-10-12); включает проход по структуре TG-меню
 
