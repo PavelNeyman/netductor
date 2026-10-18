@@ -6,47 +6,90 @@
 <title>netductor-op</title>
 <link rel="stylesheet" href="/static/app.css"/>
 <meta name="nd-token" content="/*__ND_TOKEN__*/"/>
-
 </head>
-<body class="skin-a">
-<header>
-  <div>
-    <h1 data-i18n="app_title">netductor-op</h1>
-    <div class="meta" id="metaLine" data-i18n="meta_line">Mac client · node API</div>
+<body>
+<div class="app" id="app">
+<div class="app-body">
+
+<aside class="side" id="side" aria-label="Navigation">
+  <div class="side-brand">
+    <div class="mark">N</div>
+    <span class="name">netductor</span>
+  </div>
+  <nav class="side-nav" id="sideNav">
+    <div class="grp" data-i18n="nav_grp_deploy">Deploy</div>
+    <button type="button" class="nav-btn on" data-nav="installer:fleet" title="Fleet">
+      <span class="ico" aria-hidden="true">▦</span><span class="lbl" data-i18n="sub_fleet">Fleet</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="installer:primary" title="Primary">
+      <span class="ico" aria-hidden="true">■</span><span class="lbl">Primary</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="installer:secondary" title="Secondary">
+      <span class="ico" aria-hidden="true">▣</span><span class="lbl">Secondary</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="installer:build" title="Build-host">
+      <span class="ico" aria-hidden="true">⚙</span><span class="lbl" data-i18n="sub_build">Build</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="installer:edge" title="OpenWrt">
+      <span class="ico" aria-hidden="true">◈</span><span class="lbl">OpenWrt</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="installer:site" title="MikroTik">
+      <span class="ico" aria-hidden="true">◇</span><span class="lbl">MikroTik</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="installer:nvr" title="NVR">
+      <span class="ico" aria-hidden="true">◉</span><span class="lbl">NVR</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="installer:creds" title="Credentials">
+      <span class="ico" aria-hidden="true">🔑</span><span class="lbl" data-i18n="sub_creds">Credentials</span>
+    </button>
+    <div class="grp" data-i18n="nav_grp_operate">Operate</div>
+    <button type="button" class="nav-btn" data-nav="control" title="Operate">
+      <span class="ico" aria-hidden="true">⚡</span><span class="lbl" data-i18n="nav_control">Operate</span>
+    </button>
+  </nav>
+  <div class="side-foot">
+    <button type="button" class="nav-btn" data-nav="settings" title="Settings">
+      <span class="ico" aria-hidden="true">⚙</span><span class="lbl" data-i18n="nav_settings">Settings</span>
+    </button>
+    <button type="button" class="collapse-btn" id="btnCollapse" title="Collapse sidebar">
+      <span class="ico" aria-hidden="true">«</span><span class="lbl" data-i18n="nav_collapse">Collapse</span>
+    </button>
+  </div>
+</aside>
+
+<div class="main-col">
+  <header class="topbar">
+    <h1 id="pageTitle">Fleet</h1>
     <span id="updateBadge" class="badge hidden"></span>
-    <button type="button" id="btnHeaderJobs" class="badge jobs-badge" title="Jobs">Jobs <span id="jobsRunningCount">0</span></button>
-  </div>
-  <div><button type="button" id="langEn" class="active">EN</button> <button type="button" id="langRu">RU</button></div>
-</header>
-<div id="appLayout" class="app-layout">
-<aside id="skinSideB" class="skin-side skin-side-b" aria-label="Sidebar"></aside>
-<aside id="skinMenuC" class="skin-side skin-menu-c" aria-label="Menu"></aside>
-<div id="appMain" class="app-main">
-<div id="skinHomeA" class="skin-home-a">
-  <p class="note" data-i18n="skin_home_note">Choose a scenario. Forms below stay the same in every skin.</p>
-  <div class="skin-cards">
-    <button type="button" class="skin-card" data-skin-go="fleet"><strong data-i18n="card_fleet">Nodes / Fleet</strong><span data-i18n="card_fleet_d">Primary, secondary, build-host</span></button>
-    <button type="button" class="skin-card" data-skin-go="edge"><strong data-i18n="card_edge">OpenWrt / site</strong><span data-i18n="card_edge_d">Probe → modules → provision</span></button>
-    <button type="button" class="skin-card" data-skin-go="control"><strong data-i18n="card_ops">Day-2 operate</strong><span data-i18n="card_ops_d">VPN, DNS, status, SSH</span></button>
-    <button type="button" class="skin-card" data-skin-go="jobs"><strong data-i18n="card_jobs">Jobs</strong><span data-i18n="card_jobs_d">Running operator jobs</span></button>
-  </div>
-</div>
-<nav class="nav-main" id="mainTabs">
-  <button type="button" data-main="installer" class="active" data-i18n="nav_installer">Deploy</button>
-  <button type="button" data-main="control" data-i18n="nav_control">Operate</button>
-  <button type="button" data-main="settings" data-i18n="nav_settings">Settings</button>
-</nav>
-<nav class="nav-sub" id="subInstaller">
-  <button type="button" data-tab="fleet" class="active">Fleet</button>
-  <button type="button" data-tab="primary">Primary</button>
-  <button type="button" data-tab="build" data-i18n="sub_build">Build</button>
-  <button type="button" data-tab="secondary">Secondary</button>
-  <button type="button" data-tab="edge">OpenWrt</button>
-  <button type="button" data-tab="site">MikroTik</button>
-  <button type="button" data-tab="nvr">NVR</button>
-  <button type="button" data-tab="creds">Credentials</button>
-</nav>
-<main>
+    <div class="topbar-right">
+      <button type="button" id="langEn" class="lang-btn active">EN</button>
+      <button type="button" id="langRu" class="lang-btn">RU</button>
+      <button type="button" class="icon-btn" id="btnHeaderJobs" title="Jobs">
+        <span aria-hidden="true">☰</span>
+        <span class="job-badge hide" id="jobsRunningCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="content" id="content">
+    <!-- hidden legacy tabs for JS compatibility -->
+    <nav class="nav-main sr-only" id="mainTabs" aria-hidden="true">
+      <button type="button" data-main="installer" class="active"></button>
+      <button type="button" data-main="control"></button>
+      <button type="button" data-main="settings"></button>
+    </nav>
+    <nav class="nav-sub sr-only" id="subInstaller" aria-hidden="true">
+      <button type="button" data-tab="fleet" class="active"></button>
+      <button type="button" data-tab="primary"></button>
+      <button type="button" data-tab="build"></button>
+      <button type="button" data-tab="secondary"></button>
+      <button type="button" data-tab="edge"></button>
+      <button type="button" data-tab="site"></button>
+      <button type="button" data-tab="nvr"></button>
+      <button type="button" data-tab="creds"></button>
+    </nav>
+
+    <main id="appMain">
 <div id="main-installer">
   <p class="note" data-i18n="inst_note">Deploy from this Mac over SSH.</p>
   <section id="panel-fleet" class="panel active">
@@ -449,11 +492,6 @@
       
       <h3 data-i18n="set_skin">UI skin</h3>
       <p class="note" data-i18n="set_skin_note">Layout only — same forms and jobs. Terminal and file manager are deferred.</p>
-      <div class="row"><div><label data-i18n="set_skin_label">Skin</label>
-        <select name="ui_skin" id="set_ui_skin">
-          <option value="a">A · Home cards + job focus</option>
-          <option value="b">B · Sidebar</option>
-          <option value="c">C · Menu structure</option>
         </select>
       </div><div></div></div>
 
@@ -484,21 +522,59 @@
   <div class="steps" id="steps"></div>
   <pre class="log" id="log" data-i18n="idle">idle</pre>
 </div>
-</main>
-</div><!--appMain-->
-<div class="sec" id="jobsPanelSec" class="sec jobs-dock">
-  <h3 class="edge-h" data-i18n="jobs_title">Operator jobs</h3>
-  <p class="note" data-i18n="jobs_note">Live on netductor-op serve. Cancel stops cooperative cancel (current SSH step may finish).</p>
-  <div class="row" style="gap:0.5rem;margin-bottom:0.5rem">
-    <button type="button" class="primary" id="btnJobsRefresh" data-i18n="jobs_refresh">Refresh</button>
-    <button type="button" id="btnJobsRunningOnly" data-i18n="jobs_running">Running only</button>
+
+    </main>
   </div>
-  <div id="jobsList" class="jobs-list"><span class="note">—</span></div>
-</div>
 
+  <div class="drawer-backdrop" id="jobsBackdrop"></div>
+  <aside class="drawer" id="jobsDrawer" aria-label="Jobs">
+    <div class="drawer-head">
+      <h2 data-i18n="jobs_title">Operator jobs</h2>
+      <button type="button" class="icon-btn" id="btnCloseJobs" title="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <p class="note" data-i18n="jobs_note">Live on netductor-op serve. Cancel stops cooperative cancel.</p>
+      <div class="row" style="gap:0.5rem;margin-bottom:0.5rem">
+        <button type="button" class="primary" id="btnJobsRefresh" data-i18n="jobs_refresh">Refresh</button>
+        <button type="button" id="btnJobsRunningOnly" data-i18n="jobs_running">Running only</button>
+      </div>
+      <div id="jobsList" class="jobs-list"><span class="note">—</span></div>
+    </div>
+  </aside>
+</div><!-- main-col -->
+</div><!-- app-body -->
 
+<footer class="statusbar" id="statusbar">
+  <div class="sb-left">
+    <span class="sb-item" title="API"><span class="sb-dot" id="sbApi"></span> API</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item" title="Secondary"><span class="sb-dot off" id="sbSec"></span> secondary</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item" title="Paths"><span class="sb-dot off" id="sbPath"></span> paths</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item" title="Channel">channel <b id="sbCh">—</b></span>
+    <span class="sb-sep"></span>
+    <span class="sb-item" id="sbVer">op</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item meta" id="metaLine" data-i18n="meta_line">Mac client · node API</span>
+  </div>
+  <div class="sb-right">
+    <button type="button" class="sb-item btn" id="sbTheme" title="Theme">◐ theme</button>
+    <span class="sb-sep"></span>
+    <button type="button" class="sb-item btn" id="sbJobsMini" title="Jobs">jobs <b id="sbJobsN">0</b></button>
+    <span class="sb-sep"></span>
+    <button type="button" class="sb-item btn" disabled title="Terminal (later)">terminal</button>
+    <span class="sb-sep"></span>
+    <button type="button" class="sb-item btn" disabled title="Files (later)">files</button>
+    <span class="sb-sep"></span>
+    <span class="sb-item" id="sbClock">--:--:--</span>
+  </div>
+</footer>
+</div><!-- app -->
+
+<!-- jobsPanelSec id kept as alias for JS that looks for it -->
+<div id="jobsPanelSec" class="hidden" aria-hidden="true"></div>
 
 <script src="/static/app.js" defer></script>
-</div><!--appLayout-->
 </body>
 </html>

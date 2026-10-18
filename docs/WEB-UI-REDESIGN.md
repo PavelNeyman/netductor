@@ -92,3 +92,14 @@ Ship **Web only for OpenWrt + Jobs + session tunnel**; keep Fleet/Primary/Second
 2. Pick **A or B**.  
 3. Implement shell + move existing panels without rewriting backends.  
 4. Polish Control catalog (group + search) last.
+
+## Hybrid shell (0.9.415)
+
+Skins A/B/C removed. Single layout:
+
+- Left sidebar (collapsible to icons), Settings at bottom
+- Jobs in right drawer (topbar icon + statusbar)
+- Bottom status bar (API/secondary/paths/channel, theme, clock)
+- Content = existing Deploy / Operate / Settings panels
+
+Design reference: operator hybrid preview (sidebar + cards density + jobs drawer).

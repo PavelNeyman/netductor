@@ -184,6 +184,7 @@ function showMain(name){
     ensureTunnel().then(()=>{ refreshTunnelBadge(); fillUpdateUI(); });
   }
   if(name==='settings') loadSettingsForm();
+  try{ syncSideNav(); }catch(e){}
 }
 
 document.querySelectorAll('#mainTabs button').forEach(b=>b.onclick=()=>showMain(b.dataset.main));
@@ -261,8 +262,9 @@ async function refreshJobsPanel(){
     const running=(list.filter(j=>j.status==='running'||j.status==='queued')).length;
     const cnt=document.getElementById('jobsRunningCount');
     const hb=document.getElementById('btnHeaderJobs');
-    if(cnt) cnt.textContent=String(running);
+    if(cnt){ cnt.textContent=String(running); cnt.classList.toggle('hide', running<=0); }
     if(hb){ hb.classList.toggle('has-run', running>0); }
+    const sb=document.getElementById('sbJobsN'); if(sb) sb.textContent=String(running);
 
     if(!list.length){ el.innerHTML='<span class="note">'+(typeof t==='function'?t('jobs_empty'):'(no jobs)')+'</span>'; return; }
     el.innerHTML='';
@@ -701,24 +703,16 @@ function loadSettingsForm(){
   const map={set_primary_host:'primary_host',set_key:'key',set_user:'user',set_api_port:'api_port',set_api_base:'api_base',set_secondary_host:'secondary_host',set_vpn_host:'vpn_host',set_node_session:'node_session'};
   Object.keys(map).forEach(id=>{ const el=document.getElementById(id); if(!el)return; el.value=s[map[id]]||(id==='set_key'?'~/.ssh/netductor_primary':id==='set_user'?'root':id==='set_api_port'?'8787':id==='set_api_base'?'http://127.0.0.1:8787':''); });
   const pv=document.getElementById('set_prefer_vpn'); if(pv) pv.value=(s.prefer_vpn==='0'?'0':'1');
-  const sk=document.getElementById('set_ui_skin');
-  if(sk){
-    let v='a';
-    try{ v=localStorage.getItem('nd_op_skin')||s.ui_skin||'a'; }catch(e){ v=s.ui_skin||'a'; }
-    if(['a','b','c'].indexOf(v)<0) v='a';
-    sk.value=v;
-  }
+  /* ui skins removed */
 }
 (function(){ const el=document.getElementById('set_show_advanced'); if(el){ el.checked=!!(settings().show_advanced===true||settings().show_advanced==='1'); } })();
 document.getElementById('form-settings').onsubmit=async e=>{
   e.preventDefault(); const fd=new FormData(e.target);
-  const skin=(fd.get('ui_skin')||'a').toString();
   try{ localStorage.setItem('nd_op_skin', skin); }catch(err){}
   saveSettingsObj({ show_advanced: fd.get('show_advanced')==='on', primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
     api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
-    vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session'), ui_skin: skin });
-  try{ applySkin(skin); }catch(err){}
-  const el=document.getElementById('settingsSaved');
+    vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session'), });
+    const el=document.getElementById('settingsSaved');
   try{
     const j=await saveConfigToDisk({
       remote_host: fd.get('primary_host')||'',
@@ -2196,108 +2190,105 @@ refreshJobsPanel();
 
 
 
-/* ===== UI skins (A home cards · B sidebar · C menu structure) ===== */
-function currentSkin(){
-  try{
-    const v=localStorage.getItem('nd_op_skin')||(settings().ui_skin)||'a';
-    return (['a','b','c'].indexOf(v)>=0)?v:'a';
-  }catch(e){ return 'a'; }
+/* ===== Shell: hybrid sidebar / jobs drawer / statusbar ===== */
+function openJobsDrawer(on){
+  const d=document.getElementById('jobsDrawer');
+  const b=document.getElementById('jobsBackdrop');
+  const btn=document.getElementById('btnHeaderJobs');
+  if(!d) return;
+  d.classList.toggle('on', !!on);
+  if(b) b.classList.toggle('on', !!on);
+  if(btn) btn.classList.toggle('on', !!on);
+  if(on){ try{ refreshJobsPanel(); }catch(e){} }
 }
-function goMain(main){
-  const btn=document.querySelector('#mainTabs [data-main="'+main+'"]');
-  if(btn) btn.click();
-}
-function goTab(tab){
-  goMain('installer');
-  setTimeout(()=>{
-    const b=document.querySelector('#subInstaller [data-tab="'+tab+'"]');
-    if(b) b.click();
-  }, 0);
-}
-function skinNavigate(key){
-  if(key==='control' || key==='ops'){ goMain('control'); return; }
-  if(key==='settings'){ goMain('settings'); return; }
-  if(key==='jobs'){
-    const el=document.getElementById('jobsPanelSec');
-    if(el) el.scrollIntoView({behavior:'smooth'});
-    try{ refreshJobsPanel(); }catch(e){}
-    return;
-  }
-  goTab(key);
-}
-function rebuildSkinNav(){
-  const sideB=document.getElementById('skinSideB');
-  const menuC=document.getElementById('skinMenuC');
-  if(!sideB||!menuC) return;
-  const deployTabs=[
-    ['fleet','Fleet'],['primary','Primary'],['build',t('sub_build')||'Build'],['secondary','Secondary'],
-    ['edge','OpenWrt'],['site','MikroTik'],['nvr','NVR'],['creds',t('sub_creds')||'Credentials']
-  ];
-  function fill(el, numbered){
-    el.innerHTML='';
-    const g1=document.createElement('div'); g1.className='side-grp'; g1.textContent=t('side_grp_deploy')||'Deploy'; el.appendChild(g1);
-    deployTabs.forEach((pair,i)=>{
-      const [id,label]=pair;
-      const b=document.createElement('button');
-      b.type='button'; b.dataset.skinNav='tab:'+id;
-      if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent=(i+1)+'.'; b.appendChild(n); }
-      b.appendChild(document.createTextNode(label));
-      b.onclick=()=>skinNavigate(id);
-      el.appendChild(b);
-    });
-    const g2=document.createElement('div'); g2.className='side-grp'; g2.textContent=t('side_grp_ops')||'Operate'; el.appendChild(g2);
-    const ops=document.createElement('button'); ops.type='button'; ops.dataset.skinNav='main:control';
-    if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent='9.'; ops.appendChild(n); }
-    ops.appendChild(document.createTextNode(t('nav_control')||'Operate'));
-    ops.onclick=()=>skinNavigate('control'); el.appendChild(ops);
-    const jobs=document.createElement('button'); jobs.type='button'; jobs.dataset.skinNav='jobs';
-    if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent='10.'; jobs.appendChild(n); }
-    jobs.appendChild(document.createTextNode(t('card_jobs')||'Jobs'));
-    jobs.onclick=()=>skinNavigate('jobs'); el.appendChild(jobs);
-    const g3=document.createElement('div'); g3.className='side-grp'; g3.textContent=t('side_grp_sys')||'System'; el.appendChild(g3);
-    const set=document.createElement('button'); set.type='button'; set.dataset.skinNav='main:settings';
-    if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent='11.'; set.appendChild(n); }
-    set.appendChild(document.createTextNode(t('nav_settings')||'Settings'));
-    set.onclick=()=>skinNavigate('settings'); el.appendChild(set);
-  }
-  fill(sideB, false);
-  fill(menuC, true);
-  highlightSkinNav();
-}
-function highlightSkinNav(){
+function syncSideNav(){
   const mainBtn=document.querySelector('#mainTabs button.active');
-  const main=mainBtn?mainBtn.dataset.main:'installer';
-  const tabBtn=document.querySelector('#subInstaller button.active');
-  const tab=tabBtn?tabBtn.dataset.tab:'';
-  document.querySelectorAll('#skinSideB button, #skinMenuC button').forEach(b=>{
-    const k=b.dataset.skinNav||'';
-    let on=false;
-    if(main==='control' && k==='main:control') on=true;
-    else if(main==='settings' && k==='main:settings') on=true;
-    else if(main==='installer' && k==='tab:'+tab) on=true;
-    b.classList.toggle('active', on);
+  const main=mainBtn && mainBtn.dataset.main;
+  let key='installer:fleet';
+  if(main==='control') key='control';
+  else if(main==='settings') key='settings';
+  else {
+    const tab=document.querySelector('#subInstaller button.active');
+    key='installer:'+((tab && tab.dataset.tab)||'fleet');
+  }
+  document.querySelectorAll('#sideNav .nav-btn[data-nav], .side-foot .nav-btn[data-nav]').forEach(b=>{
+    b.classList.toggle('on', b.dataset.nav===key);
   });
+  const titles={
+    'installer:fleet':'Fleet','installer:primary':'Primary','installer:secondary':'Secondary',
+    'installer:build':'Build','installer:edge':'OpenWrt','installer:site':'MikroTik',
+    'installer:nvr':'NVR','installer:creds':'Credentials','control': (typeof t==='function'?t('nav_control'):'Operate'),
+    'settings': (typeof t==='function'?t('nav_settings'):'Settings')
+  };
+  const pt=document.getElementById('pageTitle');
+  if(pt) pt.textContent = titles[key] || key;
 }
-function applySkin(skin){
-  if(['a','b','c'].indexOf(skin)<0) skin='a';
-  document.body.classList.remove('skin-a','skin-b','skin-c');
-  document.body.classList.add('skin-'+skin);
-  try{ localStorage.setItem('nd_op_skin', skin); }catch(e){}
-  const sel=document.getElementById('set_ui_skin');
-  if(sel) sel.value=skin;
-  rebuildSkinNav();
-  try{ applyI18n(); }catch(e){}
-  highlightSkinNav();
+function navigateShell(nav){
+  if(!nav) return;
+  if(nav==='control'){ showMain('control'); }
+  else if(nav==='settings'){ showMain('settings'); }
+  else if(nav.startsWith('installer:')){
+    const tab=nav.split(':')[1]||'fleet';
+    showMain('installer');
+    const btn=document.querySelector('#subInstaller button[data-tab="'+tab+'"]');
+    if(btn) btn.click();
+  }
+  syncSideNav();
 }
-// live change from settings without save
-document.getElementById('set_ui_skin')?.addEventListener('change', e=>{
-  applySkin(e.target.value||'a');
-});
-document.querySelectorAll('.skin-card[data-skin-go]').forEach(c=>{
-  c.addEventListener('click', ()=>skinNavigate(c.getAttribute('data-skin-go')));
-});
-// keep side highlight when top tabs change
-document.getElementById('mainTabs')?.addEventListener('click', ()=>setTimeout(highlightSkinNav, 0));
-document.getElementById('subInstaller')?.addEventListener('click', ()=>setTimeout(highlightSkinNav, 0));
-document.getElementById('controlSub')?.addEventListener('click', ()=>setTimeout(highlightSkinNav, 0));
-applySkin(currentSkin());
+function initShell(){
+  document.getElementById('btnCollapse')?.addEventListener('click', ()=>{
+    document.body.classList.toggle('collapsed');
+    try{ localStorage.setItem('nd_op_collapsed', document.body.classList.contains('collapsed')?'1':'0'); }catch(e){}
+  });
+  try{ if(localStorage.getItem('nd_op_collapsed')==='1') document.body.classList.add('collapsed'); }catch(e){}
+  document.querySelectorAll('[data-nav]').forEach(b=>{
+    b.addEventListener('click', ()=>navigateShell(b.dataset.nav));
+  });
+  document.getElementById('btnHeaderJobs')?.addEventListener('click', ()=>{
+    const d=document.getElementById('jobsDrawer');
+    openJobsDrawer(!(d && d.classList.contains('on')));
+  });
+  document.getElementById('btnCloseJobs')?.addEventListener('click', ()=>openJobsDrawer(false));
+  document.getElementById('jobsBackdrop')?.addEventListener('click', ()=>openJobsDrawer(false));
+  document.getElementById('sbJobsMini')?.addEventListener('click', ()=>openJobsDrawer(true));
+  document.getElementById('sbTheme')?.addEventListener('click', ()=>{
+    document.body.classList.toggle('light');
+    try{ localStorage.setItem('nd_op_light', document.body.classList.contains('light')?'1':'0'); }catch(e){}
+  });
+  try{ if(localStorage.getItem('nd_op_light')==='1') document.body.classList.add('light'); }catch(e){}
+  function tick(){
+    const el=document.getElementById('sbClock');
+    if(!el) return;
+    const d=new Date(), p=n=>String(n).padStart(2,'0');
+    el.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+  tick(); setInterval(tick, 1000);
+  // wrap jobs count updates
+  const badge=document.getElementById('jobsRunningCount');
+  if(badge){
+    const mo=new MutationObserver(()=>{
+      const n=parseInt(badge.textContent,10)||0;
+      const sb=document.getElementById('sbJobsN');
+      if(sb) sb.textContent=String(n);
+      badge.classList.toggle('hide', n<=0);
+    });
+    mo.observe(badge, {characterData:true, childList:true, subtree:true});
+  }
+  document.querySelectorAll('#subInstaller button').forEach(btn=>{
+    btn.addEventListener('click', ()=>setTimeout(syncSideNav, 0));
+  });
+  document.querySelectorAll('#mainTabs button').forEach(btn=>{
+    btn.addEventListener('click', ()=>setTimeout(syncSideNav, 0));
+  });
+  syncSideNav();
+}
+// noop stubs so old skin hooks don't throw if referenced
+function applySkin(){}
+function currentSkin(){ return 'hybrid'; }
+function skinNavigate(){}
+function highlightSkinNav(){ syncSideNav(); }
+function buildSideMenuB(){}
+function buildSideMenuC(){}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initShell);
+else initShell();

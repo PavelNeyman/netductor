@@ -88,3 +88,12 @@ Web только OpenWrt + Jobs + tunnel/session; Fleet/Primary/Secondary — TU
 2. Выбрать **A или B**.  
 3. Оболочка + перенос панелей без смены API.  
 4. Каталог Control — в конце.
+
+## Hybrid shell (0.9.415)
+
+Скины A/B/C убраны. Один layout:
+
+- Левый sidebar (сворачивается до иконок), Settings внизу
+- Jobs в правом drawer
+- Нижний status bar
+- Контент = существующие панели Deploy / Operate / Settings
