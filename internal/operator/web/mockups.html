@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>netductor-op · UI mockups</title>
+<style>
+:root {
+  --bg: #0c0e12; --panel: #141820; --border: #2a3140; --text: #e8eaef; --muted: #8b93a7;
+  --accent: #3d8bfd; --ok: #3dd68c; --warn: #f5a524; --danger: #f31260;
+  --card: #1a1f2b; --sidebar: #0f1218; --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+button { font: inherit; cursor: pointer; }
+a { color: var(--accent); }
+
+/* ===== Switcher chrome ===== */
+.switcher {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+  padding: .65rem 1rem; background: #080a0e; border-bottom: 1px solid var(--border);
+}
+.switcher h1 { font-size: .95rem; margin: 0 1rem 0 0; font-weight: 600; letter-spacing: .02em; }
+.switcher .hint { color: var(--muted); font-size: .8rem; flex: 1; min-width: 12rem; }
+.sw-btn {
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  padding: .4rem .85rem; border-radius: 8px; font-size: .85rem;
+}
+.sw-btn:hover { border-color: var(--accent); }
+.sw-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.lang-mini { margin-left: auto; display: flex; gap: .25rem; }
+.lang-mini button { padding: .25rem .5rem; font-size: .75rem; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); }
+.lang-mini button.active { color: var(--text); border-color: var(--muted); }
+
+.mock { display: none; min-height: calc(100vh - 52px); }
+.mock.visible { display: flex; flex-direction: column; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .15rem .5rem; border-radius: 999px; font-size: .75rem;
+  background: #1a2a22; color: var(--ok); border: 1px solid #2a5;
+}
+.badge.warn { background: #2a2010; color: var(--warn); border-color: #854; }
+.badge.muted { background: var(--panel); color: var(--muted); border-color: var(--border); }
+
+.btn {
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  padding: .5rem 1rem; border-radius: 8px; font-size: .875rem;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.field { margin-bottom: .75rem; }
+.field label { display: block; font-size: .75rem; color: var(--muted); margin-bottom: .25rem; }
+.field input, .field select {
+  width: 100%; max-width: 28rem; padding: .45rem .6rem; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+
+.note { color: var(--muted); font-size: .85rem; line-height: 1.45; }
+.fake-log {
+  font-family: var(--mono); font-size: .78rem; background: #0a0c10;
+  border: 1px solid var(--border); border-radius: 8px; padding: .75rem;
+  max-height: 10rem; overflow: auto; color: #a8b0c4; white-space: pre-wrap;
+}
+
+/* ===== A: Home cards + ops ===== */
+.a-top {
+  display: flex; align-items: center; gap: 1rem; padding: .75rem 1.25rem;
+  border-bottom: 1px solid var(--border); background: var(--panel);
+}
+.a-top .brand { font-weight: 700; }
+.a-nav { display: flex; gap: .35rem; }
+.a-nav button {
+  border: none; background: transparent; color: var(--muted); padding: .4rem .75rem; border-radius: 6px;
+}
+.a-nav button.active { background: var(--card); color: var(--text); }
+.a-body { display: flex; flex: 1; min-height: 0; }
+.a-main { flex: 1; padding: 1.25rem; overflow: auto; }
+.a-job {
+  width: 20rem; border-left: 1px solid var(--border); background: var(--sidebar);
+  padding: 1rem; display: flex; flex-direction: column; gap: .75rem;
+}
+.a-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.a-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1.25rem; cursor: pointer; transition: border-color .15s, transform .1s;
+}
+.a-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.a-card h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+.a-card p { margin: 0; color: var(--muted); font-size: .85rem; }
+.a-ops { display: none; }
+.a-ops.on { display: block; }
+.a-ops-layout { display: grid; grid-template-columns: 11rem 1fr; gap: 1rem; }
+.a-ops-nav button {
+  display: block; width: 100%; text-align: left; border: none; background: transparent;
+  color: var(--muted); padding: .45rem .6rem; border-radius: 6px; margin-bottom: .2rem;
+}
+.a-ops-nav button.active { background: var(--card); color: var(--text); }
+.a-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; }
+.a-stat {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: .85rem;
+}
+.a-stat .k { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.a-stat .v { font-size: 1.25rem; font-weight: 600; margin-top: .2rem; }
+
+/* ===== B: Sidebar shell ===== */
+.b-shell { display: flex; flex: 1; min-height: 0; }
+.b-side {
+  width: 15.5rem; background: var(--sidebar); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: .75rem 0;
+}
+.b-side .logo { padding: .5rem 1rem 1rem; font-weight: 700; font-size: .95rem; }
+.b-side .grp { padding: .35rem 1rem; font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: .5rem; }
+.b-side button {
+  display: flex; align-items: center; gap: .5rem; width: 100%;
+  border: none; background: transparent; color: var(--muted);
+  padding: .45rem 1rem; text-align: left; font-size: .875rem;
+}
+.b-side button:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.b-side button.active { color: var(--text); background: rgba(61,139,253,.12); border-right: 2px solid var(--accent); }
+.b-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.b-bar {
+  display: flex; align-items: center; gap: .75rem; padding: .65rem 1.25rem;
+  border-bottom: 1px solid var(--border); background: var(--panel);
+}
+.b-bar h2 { margin: 0; font-size: 1rem; flex: 1; }
+.b-content { padding: 1.25rem; overflow: auto; flex: 1; }
+.b-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.b-table th, .b-table td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); }
+.b-table th { color: var(--muted); font-weight: 500; font-size: .75rem; }
+
+/* ===== C: TUI-like ===== */
+.c-wrap {
+  flex: 1; display: flex; align-items: stretch; justify-content: center;
+  padding: 1.5rem; background: #050608;
+}
+.c-frame {
+  width: min(720px, 100%); background: #0a0c10; border: 1px solid #2a3344;
+  border-radius: 4px; box-shadow: 0 0 0 1px #111, 0 12px 40px rgba(0,0,0,.5);
+  font-family: var(--mono); font-size: .9rem; display: flex; flex-direction: column;
+}
+.c-titlebar {
+  background: #12161e; border-bottom: 1px solid #2a3344; padding: .4rem .75rem;
+  display: flex; gap: 1rem; color: #9aa3b5; font-size: .8rem;
+}
+.c-titlebar .hl { color: #7ec8ff; }
+.c-body { display: grid; grid-template-columns: 11rem 1fr; min-height: 28rem; }
+.c-menu { border-right: 1px solid #2a3344; padding: .5rem 0; }
+.c-menu .item {
+  padding: .35rem .75rem; cursor: pointer; color: #8b93a7;
+  border-left: 2px solid transparent;
+}
+.c-menu .item:hover { background: #12161e; color: #c8ceda; }
+.c-menu .item.active { color: #e8eaef; background: #151a24; border-left-color: #3d8bfd; }
+.c-menu .item .key { color: #5a6578; margin-right: .35rem; }
+.c-panel { padding: .75rem 1rem; }
+.c-panel h3 { margin: 0 0 .75rem; font-size: .95rem; color: #b8c0d0; font-weight: 600; }
+.c-list { list-style: none; margin: 0; padding: 0; }
+.c-list li {
+  padding: .4rem .5rem; margin-bottom: .25rem; border-radius: 2px;
+  cursor: pointer; color: #a0a8b8;
+}
+.c-list li:hover, .c-list li.sel { background: #1a2233; color: #e8eaef; }
+.c-list li .num { color: #5a9fd4; margin-right: .4rem; }
+.c-footer {
+  border-top: 1px solid #2a3344; padding: .35rem .75rem; font-size: .75rem; color: #5a6578;
+  display: flex; gap: 1rem;
+}
+.c-footer kbd {
+  background: #1a1f2b; border: 1px solid #2a3344; border-radius: 3px;
+  padding: 0 .3rem; font-size: .7rem; color: #8b93a7;
+}
+.c-log {
+  margin-top: .75rem; border: 1px solid #2a3344; background: #06080c;
+  padding: .5rem; height: 7rem; overflow: auto; color: #6a7a8a; font-size: .8rem;
+}
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <h1>netductor · mockups</h1>
+  <button type="button" class="sw-btn active" data-mock="a" id="swA">A · Home cards</button>
+  <button type="button" class="sw-btn" data-mock="b" id="swB">B · Sidebar</button>
+  <button type="button" class="sw-btn" data-mock="c" id="swC">C · TUI-like</button>
+  <span class="hint" id="hint">Частично кликабельно: разделы и jobs. Деплой не выполняется.</span>
+  <div class="lang-mini">
+    <button type="button" class="active" data-lang="ru">RU</button>
+    <button type="button" data-lang="en">EN</button>
+  </div>
+</div>
+
+<!-- ========== MOCK A ========== -->
+<div class="mock visible" id="mock-a">
+  <div class="a-top">
+    <span class="brand">netductor-op</span>
+    <nav class="a-nav">
+      <button type="button" class="active" data-a="home" data-i="nav_home">Домой</button>
+      <button type="button" data-a="ops" data-i="nav_ops">Управление</button>
+      <button type="button" data-a="set" data-i="nav_set">Настройки</button>
+    </nav>
+    <span class="badge warn" id="aJobBadge">Jobs · 1</span>
+  </div>
+  <div class="a-body">
+    <div class="a-main">
+      <div id="a-home">
+        <p class="note" data-i="a_home_note">Что нужно сделать? Выберите сценарий — формы деплоя здесь только макет.</p>
+        <div class="a-cards">
+          <div class="a-card" data-goto="fleet">
+            <h3 data-i="card_fleet">Ноды / Fleet</h3>
+            <p data-i="card_fleet_d">Primary, secondary, build-host с Mac по SSH</p>
+          </div>
+          <div class="a-card" data-goto="edge">
+            <h3 data-i="card_edge">OpenWrt / магазин</h3>
+            <p data-i="card_edge_d">Probe → модули → provision (job)</p>
+          </div>
+          <div class="a-card" data-goto="ops">
+            <h3 data-i="card_ops">Day-2 на primary</h3>
+            <p data-i="card_ops_d">VPN, DNS, SSH allowlist, бэкапы</p>
+          </div>
+        </div>
+        <div id="a-fleet-mock" class="hidden">
+          <h3 data-i="fleet_title">Fleet deploy (макет)</h3>
+          <div class="field"><label>Primary host</label><input placeholder="2.27.x.x" disabled/></div>
+          <div class="field"><label>Secondary host</label><input placeholder="92.255.x.x" disabled/></div>
+          <button type="button" class="btn primary" disabled data-i="btn_deploy">Deploy (mock)</button>
+          <button type="button" class="btn ghost" data-a-back data-i="btn_back">← Назад</button>
+        </div>
+        <div id="a-edge-mock" class="hidden">
+          <h3>OpenWrt (макет)</h3>
+          <div class="field"><label>Router</label><input value="192.168.1.1" disabled/></div>
+          <button type="button" class="btn primary" disabled>Probe →</button>
+          <button type="button" class="btn ghost" data-a-back data-i="btn_back">← Назад</button>
+        </div>
+      </div>
+      <div id="a-ops" class="a-ops">
+        <div class="a-ops-layout">
+          <div class="a-ops-nav">
+            <button type="button" class="active" data-ops="st">Status</button>
+            <button type="button" data-ops="vpn">VPN</button>
+            <button type="button" data-ops="dns">DNS</button>
+            <button type="button" data-ops="sec">Security</button>
+          </div>
+          <div>
+            <div class="a-ops-panel" id="ops-st">
+              <div class="a-status-grid">
+                <div class="a-stat"><div class="k">Primary</div><div class="v" style="color:var(--ok)">online</div></div>
+                <div class="a-stat"><div class="k">Secondary</div><div class="v" style="color:var(--ok)">online</div></div>
+                <div class="a-stat"><div class="k">Uplink</div><div class="v" style="color:var(--ok)">42 ms</div></div>
+              </div>
+              <p class="note" style="margin-top:1rem">Макет: живые данные подтянутся из /api после выбора дизайна.</p>
+            </div>
+            <div class="a-ops-panel hidden" id="ops-vpn">
+              <p class="note">Список пользователей VPN (макет)</p>
+              <ul style="color:var(--muted)"><li>Pavel · allow_internet</li><li>Nelya · family</li></ul>
+            </div>
+            <div class="a-ops-panel hidden" id="ops-dns"><p class="note">Block lists toggles — макет</p></div>
+            <div class="a-ops-panel hidden" id="ops-sec"><p class="note">SSH allowlist · Reboot challenge — макет</p></div>
+          </div>
+        </div>
+      </div>
+      <div id="a-set" class="hidden">
+        <h3 data-i="nav_set">Настройки</h3>
+        <div class="field"><label>API base</label><input value="http://127.0.0.1:8787" disabled/></div>
+        <div class="field"><label>SSH key</label><input value="~/.ssh/netductor_primary" disabled/></div>
+      </div>
+    </div>
+    <aside class="a-job">
+      <strong data-i="jobs_title">Активные jobs</strong>
+      <div class="badge warn">edge.probe · running</div>
+      <div class="fake-log" id="aLog">JOB edge.probe
+step probe: SSH 192.168.1.1
+step facts: arch=mipsle
+…</div>
+      <button type="button" class="btn" disabled data-i="btn_cancel">Cancel</button>
+      <p class="note" data-i="jobs_note">Панель всегда видна — не нужно искать Jobs во вкладках.</p>
+    </aside>
+  </div>
+</div>
+
+<!-- ========== MOCK B ========== -->
+<div class="mock" id="mock-b">
+  <div class="b-shell">
+    <aside class="b-side">
+      <div class="logo">netductor</div>
+      <div class="grp" data-i="grp_deploy">Deploy</div>
+      <button type="button" class="active" data-b="dash" data-i="b_dash">Overview</button>
+      <button type="button" data-b="fleet">Fleet</button>
+      <button type="button" data-b="edge">OpenWrt</button>
+      <button type="button" data-b="mt">MikroTik</button>
+      <div class="grp" data-i="grp_ops">Operate</div>
+      <button type="button" data-b="status">Status</button>
+      <button type="button" data-b="vpn">VPN</button>
+      <button type="button" data-b="jobs">Jobs <span class="badge warn" style="margin-left:auto">1</span></button>
+      <div class="grp">System</div>
+      <button type="button" data-b="settings" data-i="nav_set">Настройки</button>
+    </aside>
+    <div class="b-main">
+      <div class="b-bar">
+        <h2 id="bTitle">Overview</h2>
+        <span class="badge muted">v0.9.413 mock</span>
+        <button type="button" class="btn" style="font-size:.8rem">EN / RU</button>
+      </div>
+      <div class="b-content">
+        <div class="b-panel" id="bp-dash">
+          <div class="a-status-grid">
+            <div class="a-stat"><div class="k">Nodes</div><div class="v">2</div></div>
+            <div class="a-stat"><div class="k">Jobs</div><div class="v" style="color:var(--warn)">1 run</div></div>
+            <div class="a-stat"><div class="k">Channel</div><div class="v" style="color:var(--ok)">ok</div></div>
+          </div>
+          <p class="note" style="margin-top:1rem" data-i="b_dash_note">Классический admin shell: сайдбар всегда на месте, один экран контента. Как Coolify / Portainer.</p>
+        </div>
+        <div class="b-panel hidden" id="bp-fleet">
+          <p class="note">Wizard fleet — макет полей</p>
+          <div class="field"><label>Primary</label><input disabled placeholder="host"/></div>
+          <button class="btn primary" disabled>Deploy</button>
+        </div>
+        <div class="b-panel hidden" id="bp-edge">
+          <p class="note">OpenWrt wizard steps (mock)</p>
+          <button class="btn" disabled>1 Probe</button>
+          <button class="btn" disabled>2 Modules</button>
+          <button class="btn primary" disabled>3 Apply</button>
+        </div>
+        <div class="b-panel hidden" id="bp-mt"><p class="note">MikroTik site form — mock</p></div>
+        <div class="b-panel hidden" id="bp-status">
+          <table class="b-table">
+            <tr><th>Check</th><th>Result</th></tr>
+            <tr><td>firewall</td><td style="color:var(--ok)">ufw primary</td></tr>
+            <tr><td>sing-box</td><td style="color:var(--ok)">active</td></tr>
+            <tr><td>mTLS :8789</td><td style="color:var(--ok)">ok</td></tr>
+          </table>
+        </div>
+        <div class="b-panel hidden" id="bp-vpn"><p class="note">VPN users table — mock</p></div>
+        <div class="b-panel hidden" id="bp-jobs">
+          <table class="b-table">
+            <tr><th>#</th><th>type</th><th>status</th><th></th></tr>
+            <tr><td>1</td><td>edge.probe</td><td style="color:var(--warn)">running</td><td><button class="btn" disabled>Cancel</button></td></tr>
+            <tr><td>2</td><td>doctor.run</td><td style="color:var(--ok)">succeeded</td><td></td></tr>
+          </table>
+          <div class="fake-log" style="margin-top:.75rem">JOB edge.probe id=ab12…
+step probe: connecting…</div>
+        </div>
+        <div class="b-panel hidden" id="bp-settings">
+          <div class="field"><label>operator.conf</label><input disabled value="~/.config/netductor/operator.conf"/></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MOCK C TUI ========== -->
+<div class="mock" id="mock-c">
+  <div class="c-wrap">
+    <div class="c-frame">
+      <div class="c-titlebar">
+        <span class="hl">netductor-op</span>
+        <span>0.9.413</span>
+        <span>·</span>
+        <span id="cMode">menu</span>
+        <span style="margin-left:auto" class="hl">RU</span>
+      </div>
+      <div class="c-body">
+        <div class="c-menu" id="cMenu">
+          <div class="item active" data-c="main"><span class="key">1</span> Main</div>
+          <div class="item" data-c="wiz"><span class="key">2</span> Wizards</div>
+          <div class="item" data-c="jobs"><span class="key">3</span> Jobs</div>
+          <div class="item" data-c="tools"><span class="key">4</span> Tools</div>
+          <div class="item" data-c="set"><span class="key">5</span> Settings</div>
+        </div>
+        <div class="c-panel">
+          <div id="cp-main">
+            <h3>Main menu</h3>
+            <ul class="c-list">
+              <li class="sel"><span class="num">1.</span> Status / doctor</li>
+              <li><span class="num">2.</span> Deploy wizards →</li>
+              <li><span class="num">3.</span> Jobs (1 running)</li>
+              <li><span class="num">4.</span> Tunnel / session</li>
+            </ul>
+          </div>
+          <div id="cp-wiz" class="hidden">
+            <h3>Wizards</h3>
+            <ul class="c-list">
+              <li><span class="num">1.</span> Primary</li>
+              <li><span class="num">2.</span> Secondary</li>
+              <li><span class="num">3.</span> Fleet</li>
+              <li class="sel"><span class="num">4.</span> OpenWrt edge</li>
+              <li><span class="num">5.</span> Build-host</li>
+            </ul>
+          </div>
+          <div id="cp-jobs" class="hidden">
+            <h3>Jobs</h3>
+            <ul class="c-list">
+              <li class="sel"><span class="num">1.</span> edge.probe · running</li>
+              <li><span class="num">2.</span> doctor.run · ok</li>
+            </ul>
+            <div class="c-log">step probe: SSH ok
+step facts: mipsle · travel-router
+(waiting modules…)</div>
+          </div>
+          <div id="cp-tools" class="hidden">
+            <h3>Tools</h3>
+            <ul class="c-list">
+              <li><span class="num">1.</span> Credentials</li>
+              <li><span class="num">2.</span> SSH hosts</li>
+              <li><span class="num">3.</span> Catalog API</li>
+            </ul>
+          </div>
+          <div id="cp-set" class="hidden">
+            <h3>Settings</h3>
+            <p style="color:#6a7a8a;font-size:.85rem">Lang · API base · key paths<br/>(как tui settings)</p>
+          </div>
+        </div>
+      </div>
+      <div class="c-footer">
+        <span><kbd>↑↓</kbd> move</span>
+        <span><kbd>enter</kbd> select</span>
+        <span><kbd>esc</kbd> back</span>
+        <span><kbd>q</kbd> quit</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const I = {
+    ru: {
+      hint: 'Частично кликабельно: разделы и jobs. Деплой не выполняется.',
+      nav_home: 'Домой', nav_ops: 'Управление', nav_set: 'Настройки',
+      a_home_note: 'Что нужно сделать? Сценарии — макет, без реального деплоя.',
+      card_fleet: 'Ноды / Fleet', card_fleet_d: 'Primary, secondary, build-host с Mac по SSH',
+      card_edge: 'OpenWrt / магазин', card_edge_d: 'Probe → модули → provision (job)',
+      card_ops: 'Day-2 на primary', card_ops_d: 'VPN, DNS, SSH allowlist, бэкапы',
+      fleet_title: 'Fleet deploy (макет)', btn_deploy: 'Deploy (mock)', btn_back: '← Назад',
+      jobs_title: 'Активные jobs', btn_cancel: 'Cancel', jobs_note: 'Панель всегда видна — jobs не теряются во вкладках.',
+      grp_deploy: 'Deploy', grp_ops: 'Operate', b_dash: 'Overview',
+      b_dash_note: 'Классический admin shell: сайдбар на месте. Как Coolify / Portainer.'
+    },
+    en: {
+      hint: 'Partially interactive: sections & jobs. Deploy is not executed.',
+      nav_home: 'Home', nav_ops: 'Operate', nav_set: 'Settings',
+      a_home_note: 'What do you need? Scenarios are mock — no real deploy.',
+      card_fleet: 'Nodes / Fleet', card_fleet_d: 'Primary, secondary, build-host via Mac SSH',
+      card_edge: 'OpenWrt / site', card_edge_d: 'Probe → modules → provision (job)',
+      card_ops: 'Day-2 on primary', card_ops_d: 'VPN, DNS, SSH allowlist, backups',
+      fleet_title: 'Fleet deploy (mock)', btn_deploy: 'Deploy (mock)', btn_back: '← Back',
+      jobs_title: 'Active jobs', btn_cancel: 'Cancel', jobs_note: 'Always-visible job rail — never lost in tabs.',
+      grp_deploy: 'Deploy', grp_ops: 'Operate', b_dash: 'Overview',
+      b_dash_note: 'Classic admin shell: persistent sidebar. Like Coolify / Portainer.'
+    }
+  };
+  let lang = 'ru';
+  function applyLang(){
+    const d = I[lang];
+    document.getElementById('hint').textContent = d.hint;
+    document.querySelectorAll('[data-i]').forEach(el=>{
+      const k = el.getAttribute('data-i');
+      if(d[k]) el.textContent = d[k];
+    });
+    document.querySelectorAll('.lang-mini button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.lang===lang);
+    });
+  }
+  document.querySelectorAll('.lang-mini button').forEach(b=>{
+    b.onclick=()=>{ lang=b.dataset.lang; applyLang(); };
+  });
+
+  // Switcher
+  function showMock(id){
+    document.querySelectorAll('.mock').forEach(m=>m.classList.remove('visible'));
+    document.getElementById('mock-'+id).classList.add('visible');
+    document.querySelectorAll('.sw-btn').forEach(b=>b.classList.toggle('active', b.dataset.mock===id));
+    try{ localStorage.setItem('nd_mock', id); }catch(e){}
+  }
+  document.querySelectorAll('.sw-btn').forEach(b=>{
+    b.onclick=()=>showMock(b.dataset.mock);
+  });
+  try{ const s=localStorage.getItem('nd_mock'); if(s) showMock(s); }catch(e){}
+
+  // A navigation
+  const aNav = document.querySelectorAll('.a-nav button');
+  function aShow(which){
+    aNav.forEach(b=>b.classList.toggle('active', b.dataset.a===which));
+    document.getElementById('a-home').classList.toggle('hidden', which!=='home');
+    document.getElementById('a-ops').classList.toggle('on', which==='ops');
+    document.getElementById('a-ops').classList.toggle('hidden', which!=='ops');
+    document.getElementById('a-set').classList.toggle('hidden', which!=='set');
+    document.getElementById('a-fleet-mock').classList.add('hidden');
+    document.getElementById('a-edge-mock').classList.add('hidden');
+  }
+  aNav.forEach(b=>b.onclick=()=>aShow(b.dataset.a));
+  document.querySelectorAll('.a-card').forEach(c=>{
+    c.onclick=()=>{
+      const g=c.dataset.goto;
+      if(g==='ops') aShow('ops');
+      if(g==='fleet'){ aShow('home'); document.getElementById('a-fleet-mock').classList.remove('hidden'); }
+      if(g==='edge'){ aShow('home'); document.getElementById('a-edge-mock').classList.remove('hidden'); }
+    };
+  });
+  document.querySelectorAll('[data-a-back]').forEach(b=>{
+    b.onclick=()=>{ document.getElementById('a-fleet-mock').classList.add('hidden'); document.getElementById('a-edge-mock').classList.add('hidden'); };
+  });
+  document.querySelectorAll('.a-ops-nav button').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll('.a-ops-nav button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      document.querySelectorAll('.a-ops-panel').forEach(p=>p.classList.add('hidden'));
+      document.getElementById('ops-'+b.dataset.ops).classList.remove('hidden');
+    };
+  });
+
+  // B sidebar
+  const titles = {dash:'Overview',fleet:'Fleet',edge:'OpenWrt',mt:'MikroTik',status:'Status',vpn:'VPN',jobs:'Jobs',settings:'Settings'};
+  document.querySelectorAll('.b-side button[data-b]').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll('.b-side button[data-b]').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      document.querySelectorAll('.b-panel').forEach(p=>p.classList.add('hidden'));
+      const id='bp-'+b.dataset.b;
+      const el=document.getElementById(id);
+      if(el) el.classList.remove('hidden');
+      document.getElementById('bTitle').textContent = titles[b.dataset.b]||b.dataset.b;
+    };
+  });
+
+  // C TUI menu
+  document.querySelectorAll('#cMenu .item').forEach(item=>{
+    item.onclick=()=>{
+      document.querySelectorAll('#cMenu .item').forEach(x=>x.classList.remove('active'));
+      item.classList.add('active');
+      const id=item.dataset.c;
+      document.getElementById('cMode').textContent=id;
+      ['main','wiz','jobs','tools','set'].forEach(k=>{
+        const el=document.getElementById('cp-'+k);
+        if(el) el.classList.toggle('hidden', k!==id);
+      });
+    };
+  });
+
+  applyLang();
+})();
+</script>
+</body>
+</html>

@@ -6,6 +6,18 @@
 
 ---
 
+
+## Interactive mockups
+
+After `netductor-op serve`:
+
+```text
+http://127.0.0.1:7373/mockups
+```
+
+Switcher: **A** (home cards) · **B** (sidebar) · **C** (TUI-like). Navigation works; deploy buttons are inert.
+
+
 ## Current problems
 
 1. **Three top modes** (Installer / Control / Settings) mix “one-time deploy” and “day-2 ops” without a clear home.
