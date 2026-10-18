@@ -29,3 +29,4 @@ nd-rev/
 netductor/
 !cmd/netductor/
 !cmd/netductor/**
+_preview.html
