@@ -2213,10 +2213,14 @@ function setFleetPages(which){
   });
 }
 function hideLegacyMains(){
-  ['main-installer','main-control','main-settings','deployLogSec','subInstaller'].forEach(id=>{
+  ['main-installer','main-control','main-settings','deployLogSec','subInstaller','mainTabs'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     el.classList.add('hidden'); el.style.display='none';
   });
+}
+function showLegacyMain(id){
+  const el=document.getElementById(id); if(!el) return;
+  el.classList.remove('hidden'); el.style.display='';
 }
 function syncSideNav(){
   const mainBtn=document.querySelector('#mainTabs button.active');
@@ -2410,6 +2414,8 @@ function initShell(){
   pollOpHealth(); setInterval(pollOpHealth, 15000);
   // default home = Servers cards
   showServersOverview();
+  setTimeout(showServersOverview, 0);
+  setTimeout(showServersOverview, 50);
 }
 function highlightSkinNav(){ try{ syncSideNav(); }catch(e){} }
 

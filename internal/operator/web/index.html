@@ -515,39 +515,50 @@
   <form id="form-settings">
     <div class="card">
       <h3 data-i18n="set_conn">Connection</h3>
-      <div class="row"><div><label data-i18n="set_phost">Primary host (public)</label><input name="primary_host" id="set_primary_host"/></div>
-      <div><label data-i18n="set_vpn">Primary VPN host</label><input name="vpn_host" id="set_vpn_host"/></div></div>
-      <div class="row"><div><label data-i18n="set_key">SSH key</label><input name="key" id="set_key" value="~/.ssh/netductor_primary"/></div>
-      <div><label data-i18n="set_user">SSH user</label><input name="user" id="set_user" value="root"/></div></div>
-      <div class="row"><div><label data-i18n="set_api_port">API local port</label><input name="api_port" id="set_api_port" value="8787"/></div>
-      <div><label data-i18n="set_api_base">API base</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div></div>
-      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div>
-      <div><label data-i18n="set_prefer">Prefer VPN for SSH</label><select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes</option><option value="0">no</option></select></div></div>
-      <div class="row"><div><label data-i18n="set_session">Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div><div><span class="note" data-i18n="set_session_note">Not stored in localStorage</span></div></div>
-      <div class="checks"><label><input type="checkbox" name="show_advanced" id="set_show_advanced"/> <span data-i18n="c_adv">Show Advanced (full session API)</span></label></div>
-</select>
-      </div><div></div></div>
-
+      <div class="row">
+        <div><label data-i18n="set_phost">Primary host (public)</label><input name="primary_host" id="set_primary_host"/></div>
+        <div><label data-i18n="set_vpn">Primary VPN host</label><input name="vpn_host" id="set_vpn_host"/></div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="set_key">SSH key</label><input name="key" id="set_key" value="~/.ssh/netductor_primary"/></div>
+        <div><label data-i18n="set_user">SSH user</label><input name="user" id="set_user" value="root"/></div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="set_api_port">API local port</label><input name="api_port" id="set_api_port" value="8787"/></div>
+        <div><label data-i18n="set_api_base">API base</label><input name="api_base" id="set_api_base" value="http://127.0.0.1:8787"/></div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" id="set_secondary_host"/></div>
+        <div><label data-i18n="set_prefer">Prefer VPN for SSH</label>
+          <select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes</option><option value="0">no</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label data-i18n="set_session">Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div>
+        <div><span class="note" data-i18n="set_session_note">Not stored in localStorage</span></div>
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" name="show_advanced" id="set_show_advanced"/> <span data-i18n="c_adv">Show Advanced (full session API)</span></label>
+      </div>
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <p class="note" data-i18n="set_disk_note">Save writes ~/.config/netductor/operator.conf (same as TUI). Prefills all installer tabs.</p>
-      
       <h3 data-i18n="netmap_title">Network map</h3>
       <p class="note" data-i18n="netmap_note">Canonical CIDRs — SR routing and edge LAN planning.</p>
       <div id="netmapBox" class="netmap-wrap"><p class="note">…</p></div>
-
-      <pre class="log" id="settingsSaved" class="log settings-log"></pre>
+      <pre class="log settings-log" id="settingsSaved"></pre>
     </div>
-  
     <div class="card mt-1">
       <h3 data-i18n="set_gh">GitHub token (on primary)</h3>
       <p class="note" data-i18n="set_gh_note">Stored as /etc/netductor/secrets/github_token on the node. Avoids API 403 when listing releases.</p>
-      <div class="row"><div><label data-i18n="set_gh_tok">Token</label><input name="github_token" id="set_github_token" type="password" autocomplete="off" placeholder="ghp_…"/></div>
-      <div><label data-i18n="set_gh_st">Status</label><input id="set_github_token_status" readonly placeholder="—"/></div></div>
+      <div class="row">
+        <div><label data-i18n="set_gh_tok">Token</label><input name="github_token" id="set_github_token" type="password" autocomplete="off" placeholder="ghp_…"/></div>
+        <div><label data-i18n="set_gh_st">Status</label><input id="set_github_token_status" readonly placeholder="—"/></div>
+      </div>
       <button class="primary" type="button" id="btnGhTokenSave" data-i18n="set_gh_save">Save on primary</button>
       <button type="button" id="btnGhTokenClear" data-i18n="set_gh_clear">Clear</button>
       <button type="button" id="btnGhTokenRefresh" data-i18n="set_gh_refresh">Refresh status</button>
     </div>
-</form>
+  </form>
 </div>
 
 <div class="sec" id="deployLogSec">
