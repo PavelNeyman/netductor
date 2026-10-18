@@ -124,3 +124,31 @@ body.light pre.log{background:#f8f9fb}
 
 /* legacy skin classes noop */
 .skin-side,.skin-home-a{display:none!important}
+
+/* Fleet cards (Servers / Sites) */
+.fleet-page{max-width:56rem}
+.srv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;margin-top:.5rem}
+.srv-card{
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.85rem;
+  cursor:pointer;transition:border-color .12s;
+}
+.srv-card:hover{border-color:#3a4558}
+.srv-card .row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem}
+.srv-card .name{font-weight:600;font-size:.92rem}
+.srv-card .meta{font-size:.78rem;color:var(--muted);margin-bottom:.35rem}
+.srv-card .kv{display:flex;justify-content:space-between;font-size:.78rem;margin-top:.3rem;color:var(--muted)}
+.srv-card .kv b{color:var(--text);font-weight:500}
+.bar{height:4px;background:#1a2030;border-radius:2px;overflow:hidden;margin-top:.2rem}
+.bar>i{display:block;height:100%;background:var(--ok);border-radius:2px}
+.chips{display:flex;gap:.4rem;flex-wrap:wrap;margin:.4rem 0 .75rem}
+.detail-title{font-size:1.1rem;font-weight:600;margin:.25rem 0}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:.55rem;margin:.75rem 0}
+@media(max-width:800px){.metrics{grid-template-columns:1fr 1fr}}
+.metric{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.65rem}
+.metric .k{font-size:.65rem;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:1.15rem;font-weight:600;margin-top:.12rem}
+.metric .s{font-size:.72rem;color:var(--muted);margin-top:.12rem}
+.actions{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem}
+.back{border:1px solid var(--border);background:transparent;color:var(--muted);padding:.3rem .65rem;border-radius:6px;font-size:.8rem;margin-bottom:.75rem;cursor:pointer}
+.back:hover{color:var(--text)}
+.statusbar{height:28px;font-size:.74rem;border-top:1px solid #3a4558;background:#080b10}

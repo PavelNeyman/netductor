@@ -26,7 +26,7 @@ function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replac
 
 const I18N = {
 en:{
-  app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API', nav_grp_deploy:'Deploy', nav_grp_operate:'Operate', nav_collapse:'Collapse', l_port:'Port', b_gh_token:'GitHub token',
+  app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API', nav_grp_fleet:'Fleet', nav_servers:'Servers', nav_sites:'Sites', servers_note:'Nodes of the control plane. Click a card for details and actions.', sites_note:'Edge sites (OpenWrt shops / home). Deploy via OpenWrt wizard.', card_openwrt:'OpenWrt / site', card_openwrt_d:'Probe → modules → provision', card_mt_d:'RSC push / site shell', actions:'Actions', nav_grp_deploy:'Deploy', nav_grp_operate:'Operate', nav_collapse:'Collapse', l_port:'Port', b_gh_token:'GitHub token',
   tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings', tab_updates:'Updates',
   upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date',
   sub_fleet:'Fleet', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
@@ -75,7 +75,7 @@ en:{
   reboot_title:'Reboot (challenge)', reboot_note:'Request code → enter correct code within 3 min. Primary: shutdown +1min. Secondary: agent queue.', reboot_target:'Target (primary or secondary id)', reboot_challenge:'Get code', reboot_code:'Code', reboot_confirm:'Confirm reboot'
 },
 ru:{
-  app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды', nav_grp_deploy:'Деплой', nav_grp_operate:'Управление', nav_collapse:'Свернуть', btn_st_list:'Список бэкапов', l_port:'Порт', b_gh_token:'Токен GitHub',
+  app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды', nav_grp_fleet:'Флот', nav_servers:'Серверы', nav_sites:'Сайты', servers_note:'Узлы control plane. Клик по карточке — детали и действия.', sites_note:'Edge-сайты (OpenWrt магазины / дом). Деплой через мастер OpenWrt.', card_openwrt:'OpenWrt / сайт', card_openwrt_d:'Probe → модули → provision', card_mt_d:'RSC push / site shell', actions:'Действия', nav_grp_deploy:'Деплой', nav_grp_operate:'Управление', nav_collapse:'Свернуть', btn_st_list:'Список бэкапов', l_port:'Порт', b_gh_token:'Токен GitHub',
   tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки', tab_updates:'Обновления',
   upd_local:'Локально', upd_latest:'Latest', upd_pick:'Релиз', upd_apply:'Применить на primary', upd_refresh:'Обновить', upd_available:'есть обновление', upd_ok:'актуально',
   sub_fleet:'Флот', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
@@ -184,6 +184,7 @@ function showMain(name){
     ensureTunnel().then(()=>{ refreshTunnelBadge(); fillUpdateUI(); });
   }
   if(name==='settings') loadSettingsForm();
+  document.querySelectorAll('.fleet-page').forEach(p=>p.classList.add('hidden'));
   try{ syncSideNav(); }catch(e){}
 }
 
@@ -2189,7 +2190,8 @@ refreshJobsPanel();
 
 
 
-/* ===== Shell: hybrid sidebar / jobs drawer / statusbar ===== */
+
+/* ===== Shell: hybrid sidebar / jobs drawer / statusbar / Servers cards ===== */
 function openJobsDrawer(on){
   const d=document.getElementById('jobsDrawer');
   const b=document.getElementById('jobsBackdrop');
@@ -2200,13 +2202,29 @@ function openJobsDrawer(on){
   if(btn) btn.classList.toggle('on', !!on);
   if(on){ try{ refreshJobsPanel(); }catch(e){} }
 }
+function setFleetPages(which){
+  ['page-servers','page-server-detail','page-sites'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    const on = (which==='servers' && id==='page-servers')
+      || (which==='detail' && id==='page-server-detail')
+      || (which==='sites' && id==='page-sites');
+    el.classList.toggle('hidden', !on);
+  });
+}
+function hideLegacyMains(){
+  ['main-installer','main-control','main-settings','deployLogSec','subInstaller'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.classList.add('hidden'); el.style.display='none';
+  });
+}
 function syncSideNav(){
   const mainBtn=document.querySelector('#mainTabs button.active');
   const main=mainBtn && mainBtn.dataset.main;
-  let key='installer:fleet';
+  let key = window.__ndNav || 'servers';
   if(main==='control') key='control';
   else if(main==='settings') key='settings';
-  else {
+  else if(main==='installer'){
     const tab=document.querySelector('#subInstaller button.active');
     key='installer:'+((tab && tab.dataset.tab)||'fleet');
   }
@@ -2214,16 +2232,106 @@ function syncSideNav(){
     b.classList.toggle('on', b.dataset.nav===key);
   });
   const titles={
+    servers:(typeof t==='function'?t('nav_servers'):'Servers'),
+    sites:(typeof t==='function'?t('nav_sites'):'Sites'),
     'installer:fleet':'Fleet','installer:primary':'Primary','installer:secondary':'Secondary',
     'installer:build':'Build','installer:edge':'OpenWrt','installer:site':'MikroTik',
-    'installer:nvr':'NVR','installer:creds':'Credentials','control': (typeof t==='function'?t('nav_control'):'Operate'),
-    'settings': (typeof t==='function'?t('nav_settings'):'Settings')
+    'installer:nvr':'NVR','installer:creds':'Credentials',
+    control:(typeof t==='function'?t('nav_control'):'Operate'),
+    settings:(typeof t==='function'?t('nav_settings'):'Settings')
   };
   const pt=document.getElementById('pageTitle');
   if(pt) pt.textContent = titles[key] || key;
 }
+function showServersOverview(){
+  window.__ndNav='servers';
+  hideLegacyMains();
+  setFleetPages('servers');
+  // clear mainTabs active to installer-none
+  document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.remove('active'));
+  renderServersCards();
+  syncSideNav();
+}
+function showSitesOverview(){
+  window.__ndNav='sites';
+  hideLegacyMains();
+  setFleetPages('sites');
+  document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.remove('active'));
+  syncSideNav();
+}
+function showServerDetail(role){
+  window.__ndNav='servers';
+  hideLegacyMains();
+  setFleetPages('detail');
+  const s=settings();
+  const map={
+    primary:{name:'nd-primary', role:'primary', host:s.primary_host||'—', key:s.key||'~/.ssh/netductor_primary'},
+    secondary:{name:'nd-secondary', role:'secondary', host:s.secondary_host||'—', key:s.key||''},
+    build:{name:'build-host', role:'build', host:s.build_host||'—', key:s.key||''}
+  };
+  const m=map[role]||map.primary;
+  const dn=document.getElementById('srvDetailName');
+  if(dn) dn.innerHTML=m.name+' <span class="badge">'+m.role+'</span>';
+  const meta=document.getElementById('srvDetailMeta');
+  if(meta) meta.textContent=m.host+' · key '+m.key;
+  const metrics=document.getElementById('srvDetailMetrics');
+  if(metrics){
+    metrics.innerHTML='<div class="metric"><div class="k">Host</div><div class="v" style="font-size:.9rem">'+esc(m.host)+'</div><div class="s">from Settings</div></div>'
+      +'<div class="metric"><div class="k">Role</div><div class="v" style="font-size:.9rem">'+m.role+'</div><div class="s">control plane</div></div>'
+      +'<div class="metric"><div class="k">Metrics</div><div class="v" style="font-size:.9rem">—</div><div class="s">snapshot via Operate</div></div>'
+      +'<div class="metric"><div class="k">API</div><div class="v" style="font-size:.9rem">'+(s.api_port||'8787')+'</div><div class="s">tunnel</div></div>';
+  }
+  const act=document.getElementById('srvDetailActions');
+  if(act){
+    act.innerHTML='';
+    const add=(label, nav)=>{
+      const b=document.createElement('button');
+      b.type='button'; b.textContent=label;
+      if(nav==='control') b.className='primary';
+      b.onclick=()=>navigateShell(nav);
+      act.appendChild(b);
+    };
+    add(typeof t==='function'?t('nav_control'):'Operate', 'control');
+    if(role==='primary') add('Deploy primary', 'installer:primary');
+    if(role==='secondary') add('Deploy secondary', 'installer:secondary');
+    if(role==='build') add('Deploy build', 'installer:build');
+    add(typeof t==='function'?t('nav_settings'):'Settings', 'settings');
+  }
+  const pt=document.getElementById('pageTitle');
+  if(pt) pt.textContent=(typeof t==='function'?t('nav_servers'):'Servers')+' / '+m.name;
+}
+function renderServersCards(){
+  const grid=document.getElementById('serversGrid');
+  if(!grid) return;
+  const s=settings();
+  const cards=[
+    {id:'primary', name:'nd-primary', role:'primary', host:s.primary_host||'—'},
+    {id:'secondary', name:'nd-secondary', role:'secondary', host:s.secondary_host||'—'},
+    {id:'build', name:'build-host', role:'build', host:s.build_host||'(optional)'}
+  ];
+  const chips=document.getElementById('serversChips');
+  if(chips){
+    const n=cards.filter(c=>c.host && c.host!=='—' && c.host!=='(optional)').length;
+    chips.innerHTML='<span class="badge">'+(n)+' configured</span>';
+  }
+  grid.innerHTML='';
+  cards.forEach(c=>{
+    const el=document.createElement('div');
+    el.className='srv-card';
+    el.innerHTML='<div class="row1"><span class="name">'+esc(c.name)+'</span><span class="badge">'+c.role+'</span></div>'
+      +'<div class="meta">'+esc(c.host)+'</div>'
+      +'<div class="kv"><span>Status</span><b>'+(c.host && c.host!=='—' && c.host!=='(optional)'?'configured':'not set')+'</b></div>';
+    el.onclick=()=>showServerDetail(c.id);
+    grid.appendChild(el);
+  });
+}
 function navigateShell(nav){
   if(!nav) return;
+  window.__ndNav=nav;
+  if(nav==='servers'){ showServersOverview(); return; }
+  if(nav==='sites'){ showSitesOverview(); return; }
+  setFleetPages(''); // hide all fleet pages
+  document.querySelectorAll('.fleet-page').forEach(p=>p.classList.add('hidden'));
   if(nav==='control'){ showMain('control'); }
   else if(nav==='settings'){ showMain('settings'); }
   else if(nav.startsWith('installer:')){
@@ -2233,28 +2341,6 @@ function navigateShell(nav){
     if(btn) btn.click();
   }
   syncSideNav();
-
-  async function pollOpHealth(){
-    try{
-      const res=await fetch('/v1/health',{headers:{'X-Netductor-Token':ND_TOKEN}});
-      const ok=res.ok;
-      const d=document.getElementById('sbApi');
-      if(d){ d.className='sb-dot'+(ok?'':' err'); }
-      const ver=document.getElementById('sbVer');
-      if(ver && ok){
-        try{
-          const m=await fetch('/v1/meta',{headers:{'X-Netductor-Token':ND_TOKEN}});
-          const j=await m.json();
-          if(j.version) ver.textContent='op '+j.version;
-          else if(j.op_version) ver.textContent='op '+j.op_version;
-        }catch(e){}
-      }
-    }catch(e){
-      const d=document.getElementById('sbApi');
-      if(d) d.className='sb-dot err';
-    }
-  }
-  pollOpHealth(); setInterval(pollOpHealth, 15000);
 }
 function initShell(){
   document.getElementById('btnCollapse')?.addEventListener('click', ()=>{
@@ -2284,7 +2370,6 @@ function initShell(){
     el.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
   }
   tick(); setInterval(tick, 1000);
-  // wrap jobs count updates
   const badge=document.getElementById('jobsRunningCount');
   if(badge){
     const mo=new MutationObserver(()=>{
@@ -2295,14 +2380,13 @@ function initShell(){
     });
     mo.observe(badge, {characterData:true, childList:true, subtree:true});
   }
+  document.getElementById('btnServersBack')?.addEventListener('click', ()=>showServersOverview());
+  document.querySelectorAll('[data-site-go]').forEach(c=>{
+    c.addEventListener('click', ()=>navigateShell('installer:'+c.getAttribute('data-site-go')));
+  });
   document.querySelectorAll('#subInstaller button').forEach(btn=>{
     btn.addEventListener('click', ()=>setTimeout(syncSideNav, 0));
   });
-  document.querySelectorAll('#mainTabs button').forEach(btn=>{
-    btn.addEventListener('click', ()=>setTimeout(syncSideNav, 0));
-  });
-  syncSideNav();
-
   async function pollOpHealth(){
     try{
       const res=await fetch('/v1/health',{headers:{'X-Netductor-Token':ND_TOKEN}});
@@ -2324,6 +2408,8 @@ function initShell(){
     }
   }
   pollOpHealth(); setInterval(pollOpHealth, 15000);
+  // default home = Servers cards
+  showServersOverview();
 }
 function highlightSkinNav(){ try{ syncSideNav(); }catch(e){} }
 

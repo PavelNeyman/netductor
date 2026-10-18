@@ -17,9 +17,19 @@
     <span class="name">netductor</span>
   </div>
   <nav class="side-nav" id="sideNav">
+    <div class="grp" data-i18n="nav_grp_fleet">Fleet</div>
+    <button type="button" class="nav-btn on" data-nav="servers" title="Servers">
+      <span class="ico" aria-hidden="true">▦</span><span class="lbl" data-i18n="nav_servers">Servers</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="sites" title="Sites">
+      <span class="ico" aria-hidden="true">◈</span><span class="lbl" data-i18n="nav_sites">Sites</span>
+    </button>
+    <button type="button" class="nav-btn" data-nav="control" title="Operate">
+      <span class="ico" aria-hidden="true">⚡</span><span class="lbl" data-i18n="nav_control">Operate</span>
+    </button>
     <div class="grp" data-i18n="nav_grp_deploy">Deploy</div>
-    <button type="button" class="nav-btn on" data-nav="installer:fleet" title="Fleet">
-      <span class="ico" aria-hidden="true">▦</span><span class="lbl" data-i18n="sub_fleet">Fleet</span>
+    <button type="button" class="nav-btn" data-nav="installer:fleet" title="Fleet wizard">
+      <span class="ico" aria-hidden="true">⧉</span><span class="lbl" data-i18n="sub_fleet">Fleet</span>
     </button>
     <button type="button" class="nav-btn" data-nav="installer:primary" title="Primary">
       <span class="ico" aria-hidden="true">■</span><span class="lbl">Primary</span>
@@ -28,10 +38,10 @@
       <span class="ico" aria-hidden="true">▣</span><span class="lbl">Secondary</span>
     </button>
     <button type="button" class="nav-btn" data-nav="installer:build" title="Build-host">
-      <span class="ico" aria-hidden="true">⚙</span><span class="lbl" data-i18n="sub_build">Build</span>
+      <span class="ico" aria-hidden="true">⚒</span><span class="lbl" data-i18n="sub_build">Build</span>
     </button>
     <button type="button" class="nav-btn" data-nav="installer:edge" title="OpenWrt">
-      <span class="ico" aria-hidden="true">◈</span><span class="lbl">OpenWrt</span>
+      <span class="ico" aria-hidden="true">⌘</span><span class="lbl">OpenWrt</span>
     </button>
     <button type="button" class="nav-btn" data-nav="installer:site" title="MikroTik">
       <span class="ico" aria-hidden="true">◇</span><span class="lbl">MikroTik</span>
@@ -41,10 +51,6 @@
     </button>
     <button type="button" class="nav-btn" data-nav="installer:creds" title="Credentials">
       <span class="ico" aria-hidden="true">🔑</span><span class="lbl" data-i18n="sub_creds">Credentials</span>
-    </button>
-    <div class="grp" data-i18n="nav_grp_operate">Operate</div>
-    <button type="button" class="nav-btn" data-nav="control" title="Operate">
-      <span class="ico" aria-hidden="true">⚡</span><span class="lbl" data-i18n="nav_control">Operate</span>
     </button>
   </nav>
   <div class="side-foot">
@@ -57,9 +63,10 @@
   </div>
 </aside>
 
+
 <div class="main-col">
   <header class="topbar">
-    <h1 id="pageTitle">Fleet</h1>
+    <h1 id="pageTitle">Servers</h1>
     <span id="updateBadge" class="badge hidden"></span>
     <div class="topbar-right">
       <button type="button" id="langEn" class="lang-btn active">EN</button>
@@ -72,6 +79,35 @@
   </header>
 
   <div class="content" id="content">
+
+    <!-- Fleet overview: Servers cards + Sites -->
+    <div id="page-servers" class="fleet-page">
+      <p class="note" data-i18n="servers_note">Nodes of the control plane. Click a card for details and actions.</p>
+      <div class="chips" id="serversChips"></div>
+      <div class="srv-grid" id="serversGrid"><span class="note">…</span></div>
+    </div>
+    <div id="page-server-detail" class="fleet-page hidden">
+      <button type="button" class="back" id="btnServersBack">← <span data-i18n="nav_servers">Servers</span></button>
+      <h2 class="detail-title" id="srvDetailName">—</h2>
+      <p class="note" id="srvDetailMeta"></p>
+      <div class="metrics" id="srvDetailMetrics"></div>
+      <div class="note" data-i18n="actions">Actions</div>
+      <div class="actions" id="srvDetailActions"></div>
+    </div>
+    <div id="page-sites" class="fleet-page hidden">
+      <p class="note" data-i18n="sites_note">Edge sites (OpenWrt shops / home). Deploy via OpenWrt wizard.</p>
+      <div class="srv-grid" id="sitesGrid">
+        <div class="srv-card" data-site-go="edge">
+          <div class="row1"><span class="name" data-i18n="card_openwrt">OpenWrt / site</span><span class="badge">edge</span></div>
+          <div class="meta" data-i18n="card_openwrt_d">Probe → modules → provision</div>
+        </div>
+        <div class="srv-card" data-site-go="site">
+          <div class="row1"><span class="name">MikroTik</span><span class="badge">site</span></div>
+          <div class="meta" data-i18n="card_mt_d">RSC push / site shell</div>
+        </div>
+      </div>
+    </div>
+
     <!-- hidden legacy tabs for JS compatibility -->
     <nav class="nav-main sr-only" id="mainTabs" aria-hidden="true">
       <button type="button" data-main="installer" class="active"></button>
@@ -541,7 +577,7 @@
 </div><!-- main-col -->
 </div><!-- app-body -->
 
-<footer class="statusbar" id="statusbar">
+<footer class="statusbar" id="statusbar" role="status">
   <div class="sb-left">
     <span class="sb-item" title="API"><span class="sb-dot" id="sbApi"></span> API</span>
     <span class="sb-sep"></span>
