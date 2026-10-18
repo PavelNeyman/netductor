@@ -26,7 +26,7 @@ function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replac
 
 const I18N = {
 en:{
-  app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API',
+  app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API', set_skin:'UI skin', set_skin_note:'Layout only — same forms and jobs. Terminal and file manager are deferred.', set_skin_label:'Skin', skin_home_note:'Choose a scenario. Forms stay the same in every skin.', card_fleet:'Nodes / Fleet', card_fleet_d:'Primary, secondary, build-host', card_edge:'OpenWrt / site', card_edge_d:'Probe → modules → provision', card_ops:'Day-2 operate', card_ops_d:'VPN, DNS, status, SSH', card_jobs:'Jobs', card_jobs_d:'Running operator jobs', side_grp_deploy:'Deploy', side_grp_ops:'Operate', side_grp_sys:'System',
   tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings', tab_updates:'Updates',
   upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date',
   sub_fleet:'Fleet', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
@@ -75,7 +75,7 @@ en:{
   reboot_title:'Reboot (challenge)', reboot_note:'Request code → enter correct code within 3 min. Primary: shutdown +1min. Secondary: agent queue.', reboot_target:'Target (primary or secondary id)', reboot_challenge:'Get code', reboot_code:'Code', reboot_confirm:'Confirm reboot'
 },
 ru:{
-  app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды',
+  app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды', set_skin:'Скин UI', set_skin_note:'Только раскладка — те же формы и jobs. Терминал и файловый менеджер отложены.', set_skin_label:'Скин', skin_home_note:'Выберите сценарий. Формы одинаковые во всех скинах.', card_fleet:'Ноды / Fleet', card_fleet_d:'Primary, secondary, build-host', card_edge:'OpenWrt / магазин', card_edge_d:'Probe → модули → provision', card_ops:'Day-2 управление', card_ops_d:'VPN, DNS, статус, SSH', card_jobs:'Jobs', card_jobs_d:'Задачи оператора', side_grp_deploy:'Деплой', side_grp_ops:'Управление', side_grp_sys:'Система',
   tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки', tab_updates:'Обновления',
   upd_local:'Локально', upd_latest:'Latest', upd_pick:'Релиз', upd_apply:'Применить на primary', upd_refresh:'Обновить', upd_available:'есть обновление', upd_ok:'актуально',
   sub_fleet:'Флот', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
@@ -701,13 +701,23 @@ function loadSettingsForm(){
   const map={set_primary_host:'primary_host',set_key:'key',set_user:'user',set_api_port:'api_port',set_api_base:'api_base',set_secondary_host:'secondary_host',set_vpn_host:'vpn_host',set_node_session:'node_session'};
   Object.keys(map).forEach(id=>{ const el=document.getElementById(id); if(!el)return; el.value=s[map[id]]||(id==='set_key'?'~/.ssh/netductor_primary':id==='set_user'?'root':id==='set_api_port'?'8787':id==='set_api_base'?'http://127.0.0.1:8787':''); });
   const pv=document.getElementById('set_prefer_vpn'); if(pv) pv.value=(s.prefer_vpn==='0'?'0':'1');
+  const sk=document.getElementById('set_ui_skin');
+  if(sk){
+    let v='a';
+    try{ v=localStorage.getItem('nd_op_skin')||s.ui_skin||'a'; }catch(e){ v=s.ui_skin||'a'; }
+    if(['a','b','c'].indexOf(v)<0) v='a';
+    sk.value=v;
+  }
 }
 (function(){ const el=document.getElementById('set_show_advanced'); if(el){ el.checked=!!(settings().show_advanced===true||settings().show_advanced==='1'); } })();
 document.getElementById('form-settings').onsubmit=async e=>{
   e.preventDefault(); const fd=new FormData(e.target);
+  const skin=(fd.get('ui_skin')||'a').toString();
+  try{ localStorage.setItem('nd_op_skin', skin); }catch(err){}
   saveSettingsObj({ show_advanced: fd.get('show_advanced')==='on', primary_host:fd.get('primary_host'), key:fd.get('key'), user:fd.get('user'),
     api_port:fd.get('api_port'), api_base:fd.get('api_base'), secondary_host:fd.get('secondary_host'),
-    vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session') });
+    vpn_host:fd.get('vpn_host'), prefer_vpn:fd.get('prefer_vpn'), node_session:fd.get('node_session'), ui_skin: skin });
+  try{ applySkin(skin); }catch(err){}
   const el=document.getElementById('settingsSaved');
   try{
     const j=await saveConfigToDisk({
@@ -2184,3 +2194,110 @@ document.getElementById('btnJobsRunningOnly')?.addEventListener('click', ()=>{ j
 setInterval(()=>{ try{ refreshJobsPanel(); }catch(e){} }, 4000);
 refreshJobsPanel();
 
+
+
+/* ===== UI skins (A home cards · B sidebar · C menu structure) ===== */
+function currentSkin(){
+  try{
+    const v=localStorage.getItem('nd_op_skin')||(settings().ui_skin)||'a';
+    return (['a','b','c'].indexOf(v)>=0)?v:'a';
+  }catch(e){ return 'a'; }
+}
+function goMain(main){
+  const btn=document.querySelector('#mainTabs [data-main="'+main+'"]');
+  if(btn) btn.click();
+}
+function goTab(tab){
+  goMain('installer');
+  setTimeout(()=>{
+    const b=document.querySelector('#subInstaller [data-tab="'+tab+'"]');
+    if(b) b.click();
+  }, 0);
+}
+function skinNavigate(key){
+  if(key==='control' || key==='ops'){ goMain('control'); return; }
+  if(key==='settings'){ goMain('settings'); return; }
+  if(key==='jobs'){
+    const el=document.getElementById('jobsPanelSec');
+    if(el) el.scrollIntoView({behavior:'smooth'});
+    try{ refreshJobsPanel(); }catch(e){}
+    return;
+  }
+  goTab(key);
+}
+function rebuildSkinNav(){
+  const sideB=document.getElementById('skinSideB');
+  const menuC=document.getElementById('skinMenuC');
+  if(!sideB||!menuC) return;
+  const deployTabs=[
+    ['fleet','Fleet'],['primary','Primary'],['build',t('sub_build')||'Build'],['secondary','Secondary'],
+    ['edge','OpenWrt'],['site','MikroTik'],['nvr','NVR'],['creds',t('sub_creds')||'Credentials']
+  ];
+  function fill(el, numbered){
+    el.innerHTML='';
+    const g1=document.createElement('div'); g1.className='side-grp'; g1.textContent=t('side_grp_deploy')||'Deploy'; el.appendChild(g1);
+    deployTabs.forEach((pair,i)=>{
+      const [id,label]=pair;
+      const b=document.createElement('button');
+      b.type='button'; b.dataset.skinNav='tab:'+id;
+      if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent=(i+1)+'.'; b.appendChild(n); }
+      b.appendChild(document.createTextNode(label));
+      b.onclick=()=>skinNavigate(id);
+      el.appendChild(b);
+    });
+    const g2=document.createElement('div'); g2.className='side-grp'; g2.textContent=t('side_grp_ops')||'Operate'; el.appendChild(g2);
+    const ops=document.createElement('button'); ops.type='button'; ops.dataset.skinNav='main:control';
+    if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent='9.'; ops.appendChild(n); }
+    ops.appendChild(document.createTextNode(t('nav_control')||'Operate'));
+    ops.onclick=()=>skinNavigate('control'); el.appendChild(ops);
+    const jobs=document.createElement('button'); jobs.type='button'; jobs.dataset.skinNav='jobs';
+    if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent='10.'; jobs.appendChild(n); }
+    jobs.appendChild(document.createTextNode(t('card_jobs')||'Jobs'));
+    jobs.onclick=()=>skinNavigate('jobs'); el.appendChild(jobs);
+    const g3=document.createElement('div'); g3.className='side-grp'; g3.textContent=t('side_grp_sys')||'System'; el.appendChild(g3);
+    const set=document.createElement('button'); set.type='button'; set.dataset.skinNav='main:settings';
+    if(numbered){ const n=document.createElement('span'); n.className='num'; n.textContent='11.'; set.appendChild(n); }
+    set.appendChild(document.createTextNode(t('nav_settings')||'Settings'));
+    set.onclick=()=>skinNavigate('settings'); el.appendChild(set);
+  }
+  fill(sideB, false);
+  fill(menuC, true);
+  highlightSkinNav();
+}
+function highlightSkinNav(){
+  const mainBtn=document.querySelector('#mainTabs button.active');
+  const main=mainBtn?mainBtn.dataset.main:'installer';
+  const tabBtn=document.querySelector('#subInstaller button.active');
+  const tab=tabBtn?tabBtn.dataset.tab:'';
+  document.querySelectorAll('#skinSideB button, #skinMenuC button').forEach(b=>{
+    const k=b.dataset.skinNav||'';
+    let on=false;
+    if(main==='control' && k==='main:control') on=true;
+    else if(main==='settings' && k==='main:settings') on=true;
+    else if(main==='installer' && k==='tab:'+tab) on=true;
+    b.classList.toggle('active', on);
+  });
+}
+function applySkin(skin){
+  if(['a','b','c'].indexOf(skin)<0) skin='a';
+  document.body.classList.remove('skin-a','skin-b','skin-c');
+  document.body.classList.add('skin-'+skin);
+  try{ localStorage.setItem('nd_op_skin', skin); }catch(e){}
+  const sel=document.getElementById('set_ui_skin');
+  if(sel) sel.value=skin;
+  rebuildSkinNav();
+  try{ applyI18n(); }catch(e){}
+  highlightSkinNav();
+}
+// live change from settings without save
+document.getElementById('set_ui_skin')?.addEventListener('change', e=>{
+  applySkin(e.target.value||'a');
+});
+document.querySelectorAll('.skin-card[data-skin-go]').forEach(c=>{
+  c.addEventListener('click', ()=>skinNavigate(c.getAttribute('data-skin-go')));
+});
+// keep side highlight when top tabs change
+document.getElementById('mainTabs')?.addEventListener('click', ()=>setTimeout(highlightSkinNav, 0));
+document.getElementById('subInstaller')?.addEventListener('click', ()=>setTimeout(highlightSkinNav, 0));
+document.getElementById('controlSub')?.addEventListener('click', ()=>setTimeout(highlightSkinNav, 0));
+applySkin(currentSkin());

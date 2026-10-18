@@ -8,7 +8,7 @@
 <meta name="nd-token" content="/*__ND_TOKEN__*/"/>
 
 </head>
-<body>
+<body class="skin-a">
 <header>
   <div>
     <h1 data-i18n="app_title">netductor-op</h1>
@@ -18,6 +18,19 @@
   </div>
   <div><button type="button" id="langEn" class="active">EN</button> <button type="button" id="langRu">RU</button></div>
 </header>
+<div id="appLayout" class="app-layout">
+<aside id="skinSideB" class="skin-side skin-side-b" aria-label="Sidebar"></aside>
+<aside id="skinMenuC" class="skin-side skin-menu-c" aria-label="Menu"></aside>
+<div id="appMain" class="app-main">
+<div id="skinHomeA" class="skin-home-a">
+  <p class="note" data-i18n="skin_home_note">Choose a scenario. Forms below stay the same in every skin.</p>
+  <div class="skin-cards">
+    <button type="button" class="skin-card" data-skin-go="fleet"><strong data-i18n="card_fleet">Nodes / Fleet</strong><span data-i18n="card_fleet_d">Primary, secondary, build-host</span></button>
+    <button type="button" class="skin-card" data-skin-go="edge"><strong data-i18n="card_edge">OpenWrt / site</strong><span data-i18n="card_edge_d">Probe → modules → provision</span></button>
+    <button type="button" class="skin-card" data-skin-go="control"><strong data-i18n="card_ops">Day-2 operate</strong><span data-i18n="card_ops_d">VPN, DNS, status, SSH</span></button>
+    <button type="button" class="skin-card" data-skin-go="jobs"><strong data-i18n="card_jobs">Jobs</strong><span data-i18n="card_jobs_d">Running operator jobs</span></button>
+  </div>
+</div>
 <nav class="nav-main" id="mainTabs">
   <button type="button" data-main="installer" class="active" data-i18n="nav_installer">Deploy</button>
   <button type="button" data-main="control" data-i18n="nav_control">Operate</button>
@@ -433,6 +446,17 @@
       <div><label data-i18n="set_prefer">Prefer VPN for SSH</label><select name="prefer_vpn" id="set_prefer_vpn"><option value="1">yes</option><option value="0">no</option></select></div></div>
       <div class="row"><div><label data-i18n="set_session">Node session (sessionStorage)</label><input name="node_session" id="set_node_session"/></div><div><span class="note" data-i18n="set_session_note">Not stored in localStorage</span></div></div>
       <div class="checks"><label><input type="checkbox" name="show_advanced" id="set_show_advanced"/> <span data-i18n="c_adv">Show Advanced (full session API)</span></label></div>
+      
+      <h3 data-i18n="set_skin">UI skin</h3>
+      <p class="note" data-i18n="set_skin_note">Layout only — same forms and jobs. Terminal and file manager are deferred.</p>
+      <div class="row"><div><label data-i18n="set_skin_label">Skin</label>
+        <select name="ui_skin" id="set_ui_skin">
+          <option value="a">A · Home cards + job focus</option>
+          <option value="b">B · Sidebar</option>
+          <option value="c">C · Menu structure</option>
+        </select>
+      </div><div></div></div>
+
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <p class="note" data-i18n="set_disk_note">Save writes ~/.config/netductor/operator.conf (same as TUI). Prefills all installer tabs.</p>
       
@@ -455,6 +479,7 @@
 </form>
 </div>
 
+</div><!--appMain-->
 <div class="sec" id="jobsPanelSec" class="sec jobs-dock">
   <h3 class="edge-h" data-i18n="jobs_title">Operator jobs</h3>
   <p class="note" data-i18n="jobs_note">Live on netductor-op serve. Cancel stops cooperative cancel (current SSH step may finish).</p>
@@ -473,5 +498,6 @@
 
 
 <script src="/static/app.js" defer></script>
+</div><!--appLayout-->
 </body>
 </html>

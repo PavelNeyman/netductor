@@ -7,6 +7,18 @@
 ---
 
 
+
+## Implementation status
+
+| | |
+|--|--|
+| **Skins A / B / C** | **Done** — Settings → UI skin (`localStorage` `nd_op_skin`). Shared forms/jobs. C = menu structure, not terminal chrome. |
+| **Terminal (xterm / agent PTY)** | **Deferred** |
+| **File manager (agent fs_*)** | **Deferred** |
+
+Switch: Settings → Skin (live on change); Save persists.
+
+
 ## Interactive mockups
 
 After `netductor-op serve`:

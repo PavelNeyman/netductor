@@ -7,6 +7,18 @@
 ---
 
 
+
+## Статус реализации
+
+| | |
+|--|--|
+| **Скины A / B / C** | **Сделано** — Settings → UI skin (`localStorage` `nd_op_skin`). Общие формы/jobs. C = структура меню, не terminal chrome. |
+| **Терминал (xterm / agent PTY)** | **Отложено** |
+| **Файловый менеджер (agent fs_*)** | **Отложено** |
+
+Переключение: Settings → Skin, или select меняет layout сразу; Save сохраняет выбор.
+
+
 ## Интерактивные макеты
 
 После `netductor-op serve`:

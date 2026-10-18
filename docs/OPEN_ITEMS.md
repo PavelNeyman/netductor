@@ -140,3 +140,9 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 - Planned: [PLAN-EDGE-USB-STORAGE.md](PLAN-EDGE-USB-STORAGE.md) / [ru](ru/PLAN-EDGE-USB-STORAGE.md) — extroot + internal pin/sync + alerts (post-0.9.402).
 
 | Thin UI jobs (all surfaces) | draft | [PLAN-THIN-UI-JOBS](PLAN-THIN-UI-JOBS.md) |
+
+### Deferred (product)
+
+- **Web terminal** (xterm.js + agent stream/PTY or exec allowlist) — not in tree; agent path preferred over raw SSH.
+- **Web file manager** (agent `fs_list`/`fs_read`/`fs_write` with path allowlist) — deferred.
+- **UI skins A/B/C** — implemented in operator Web (Settings → skin).

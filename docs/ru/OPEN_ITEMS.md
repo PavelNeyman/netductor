@@ -87,3 +87,9 @@
 - План: [PLAN-EDGE-USB-STORAGE.md](../PLAN-EDGE-USB-STORAGE.md) / [ru](PLAN-EDGE-USB-STORAGE.md) — extroot + pin/sync + алерты (после 0.9.402).
 
 | Тонкий UI (jobs) | draft | [PLAN-THIN-UI-JOBS](PLAN-THIN-UI-JOBS.md) |
+
+### Отложено (продукт)
+
+- **Web-терминал** (xterm.js + agent stream/PTY или exec allowlist) — не в дереве; предпочтителен путь через агент, не сырой SSH.
+- **Web-файловый менеджер** (agent `fs_list`/`fs_read`/`fs_write` + allowlist путей) — отложено.
+- **UI-скины A/B/C** — реализованы в operator Web (Settings → skin).
