@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/guest"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
 
@@ -324,6 +326,80 @@ func doJSON(client *http.Client, method, url, token string, body any) ([]byte, e
 	return data, nil
 }
 
+
+func countGuestActive() int {
+	st, err := guest.OpenStore(guestStoreDir())
+	if err != nil || st == nil {
+		return -1
+	}
+	now := time.Now()
+	n := 0
+	for _, e := range st.Allow {
+		if e.ExpiresAt.After(now) {
+			n++
+		}
+	}
+	return n
+}
+
+func countWifiClients() int {
+	// iwinfo assoclist on all radios (OpenWrt)
+	n := 0
+	for _, phy := range []string{"wlan0", "wlan1", "phy0-ap0", "phy1-ap0", "rax0", "rax1"} {
+		o, err := exec.Command("iwinfo", phy, "assoclist").Output()
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(o), "\n") {
+			if strings.Contains(line, ":") && !strings.HasPrefix(strings.TrimSpace(line), "No") {
+				// MAC lines look like "AA:BB:..."
+				parts := strings.Fields(line)
+				if len(parts) > 0 && strings.Count(parts[0], ":") == 5 {
+					n++
+				}
+			}
+		}
+	}
+	if n == 0 {
+		return -1
+	}
+	return n
+}
+
+func measurePrimaryLatency() float64 {
+	// NETDUCTOR_SERVER or config SERVER is https://host:8789
+	server := strings.TrimSpace(os.Getenv("NETDUCTOR_SERVER"))
+	if server == "" {
+		if b, err := os.ReadFile("/etc/netductor-agent/config"); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "SERVER=") {
+					server = strings.Trim(strings.TrimPrefix(line, "SERVER="), "\"'")
+				}
+			}
+		}
+	}
+	if server == "" {
+		return 0
+	}
+	u, err := url.Parse(server)
+	if err != nil || u.Host == "" {
+		return 0
+	}
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		port = "443"
+	}
+	start := time.Now()
+	c, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 2*time.Second)
+	if err != nil {
+		return 0
+	}
+	_ = c.Close()
+	return float64(time.Since(start).Milliseconds())
+}
+
 func collectMetrics() map[string]any {
 	m := map[string]any{
 		"hostname": hostname(),
@@ -378,10 +454,22 @@ func collectMetrics() map[string]any {
 	if out, err := exec.Command("iwinfo").Output(); err == nil {
 		m["iwinfo"] = truncate(string(out), 1500)
 	}
+	// Guest + LAN client counts (best-effort) for Sites topology cards.
+	if n := countGuestActive(); n >= 0 {
+		m["guest_active"] = n
+	}
+	if n := countWifiClients(); n >= 0 {
+		m["device_count"] = n
+	}
+	// RTT to primary (from SERVER URL host) for latency tile.
+	if ms := measurePrimaryLatency(); ms > 0 {
+		m["latency_ms"] = ms
+	}
 	// Capability snapshot for primary UI card / plan (edge.DeviceFacts JSON).
 	m["facts"] = collectDeviceFacts()
 	return m
 }
+
 
 func checkRelayAndFallback() {
 	relayHost := strings.TrimSpace(readFirstLine("/etc/netductor-agent/secondary.host"))

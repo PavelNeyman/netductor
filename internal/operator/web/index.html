@@ -95,17 +95,14 @@
       <div class="actions" id="srvDetailActions"></div>
     </div>
     <div id="page-sites" class="fleet-page hidden">
-      <p class="note" data-i18n="sites_note">Edge sites (OpenWrt shops / home). Deploy via OpenWrt wizard.</p>
-      <div class="srv-grid" id="sitesGrid">
-        <div class="srv-card" data-site-go="edge">
-          <div class="row1"><span class="name" data-i18n="card_openwrt">OpenWrt / site</span><span class="badge">edge</span></div>
-          <div class="meta" data-i18n="card_openwrt_d">Probe → modules → provision</div>
-        </div>
-        <div class="srv-card" data-site-go="site">
-          <div class="row1"><span class="name">MikroTik</span><span class="badge">site</span></div>
-          <div class="meta" data-i18n="card_mt_d">RSC push / site shell</div>
+      <div class="sites-toolbar">
+        <p class="note" data-i18n="sites_note">Edge sites — topology, zones, metrics. Add site opens the OpenWrt wizard.</p>
+        <div class="sites-actions">
+          <button type="button" class="primary" id="btnAddSite" data-i18n="sites_add">+ Add site</button>
+          <button type="button" id="btnSitesRefresh" data-i18n="jobs_refresh">Refresh</button>
         </div>
       </div>
+      <div class="site-grid" id="sitesGrid"><span class="note">…</span></div>
     </div>
 
     <!-- hidden legacy tabs for JS compatibility -->

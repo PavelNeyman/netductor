@@ -165,6 +165,7 @@ func EnsureDefaultTemplate() {
 	}
 	_ = SaveTemplate("default", Template{
 		"guest": map[string]any{"enabled": false, "ssid": "Guest", "hidden": false},
+		"iot": map[string]any{"enabled": false, "ssid": "IoT", "hidden": true, "cidr": ""},
 		"id":   "default",
 		"role": "site",
 		"network": map[string]any{

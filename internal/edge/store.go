@@ -153,6 +153,9 @@ type Device struct {
 	Arch        string         `json:"arch,omitempty"`
 	UptimeSec   float64        `json:"uptime_sec,omitempty"`
 	MemPct      float64        `json:"mem_pct,omitempty"`
+	GuestActive int            `json:"guest_active,omitempty"`
+	DeviceCount int            `json:"device_count,omitempty"`
+	LatencyMs   float64        `json:"latency_ms,omitempty"`
 	// Extra keeps unknown agent fields without losing them on disk.
 	Extra map[string]any `json:"extra,omitempty"`
 	// Access policy (docs/PLAN-SERVICE-ACCESS-POLICY.md) — not mixed with VPN Users UI.
@@ -217,18 +220,20 @@ func strFrom(payload map[string]any, keys ...string) string {
 	return ""
 }
 
-func floatFrom(payload map[string]any, key string) float64 {
-	v, ok := payload[key]
-	if !ok {
-		return 0
-	}
-	switch t := v.(type) {
-	case float64:
-		return t
-	case int:
-		return float64(t)
-	case int64:
-		return float64(t)
+func floatFrom(payload map[string]any, keys ...string) float64 {
+	for _, key := range keys {
+		v, ok := payload[key]
+		if !ok {
+			continue
+		}
+		switch t := v.(type) {
+		case float64:
+			return t
+		case int:
+			return float64(t)
+		case int64:
+			return float64(t)
+		}
 	}
 	return 0
 }
@@ -255,6 +260,15 @@ func mergePayload(d *Device, payload map[string]any) {
 	if v := floatFrom(payload, "mem_pct"); v > 0 {
 		d.MemPct = v
 	}
+	if v := floatFrom(payload, "guest_active", "guests"); v > 0 {
+		d.GuestActive = int(v)
+	}
+	if v := floatFrom(payload, "device_count", "devices", "clients"); v > 0 {
+		d.DeviceCount = int(v)
+	}
+	if v := floatFrom(payload, "latency_ms", "rtt_ms"); v > 0 {
+		d.LatencyMs = v
+	}
 	if raw, ok := payload["facts"]; ok && raw != nil {
 		b, err := json.Marshal(raw)
 		if err == nil {
@@ -277,6 +291,7 @@ func mergePayload(d *Device, payload map[string]any) {
 		"hostname": true, "wan_ip": true, "template_id": true, "overlay": true,
 		"enrolled_at": true, "approved_at": true, "denied_at": true, "revoked_at": true,
 		"last_seen": true, "healthy": true, "agent": true, "arch": true, "goarch": true, "version": true, "agent_version": true, "agent_ver": true, "uptime_sec": true, "mem_pct": true,
+		"guest_active": true, "guests": true, "device_count": true, "devices": true, "clients": true, "latency_ms": true, "rtt_ms": true,
 		"extra": true, "facts": true, "facts_at": true,
 	}
 	for k, v := range payload {

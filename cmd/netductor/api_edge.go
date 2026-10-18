@@ -694,6 +694,12 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"pending": edge.ListPending()})
 	})
+	mux.HandleFunc("/api/edge/sites", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		writeJSON(w, 200, map[string]any{"sites": edge.ListSiteSummaries()})
+	})
 	mux.HandleFunc("/api/edge/devices", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return

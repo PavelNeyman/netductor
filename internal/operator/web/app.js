@@ -26,7 +26,7 @@ function apiBase(){ return (settings().api_base||'http://127.0.0.1:8787').replac
 
 const I18N = {
 en:{
-  app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API', nav_grp_fleet:'Fleet', nav_servers:'Servers', nav_sites:'Sites', servers_note:'Nodes of the control plane. Click a card for details and actions.', sites_note:'Edge sites (OpenWrt shops / home). Deploy via OpenWrt wizard.', card_openwrt:'OpenWrt / site', card_openwrt_d:'Probe → modules → provision', card_mt_d:'RSC push / site shell', actions:'Actions', nav_grp_deploy:'Deploy', nav_grp_operate:'Operate', nav_collapse:'Collapse', l_port:'Port', b_gh_token:'GitHub token',
+  app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API', nav_grp_fleet:'Fleet', nav_servers:'Servers', nav_sites:'Sites', servers_note:'Nodes of the control plane. Click a card for details and actions.', sites_note:'Edge sites — topology, zones, metrics. Add site opens the OpenWrt wizard.', sites_add:'+ Add site', sites_empty:'No enrolled sites yet. Add a site to run the OpenWrt wizard.', sites_offline:'Need tunnel + session to load sites from primary.', card_openwrt:'OpenWrt / site', card_openwrt_d:'Probe → modules → provision', card_mt_d:'RSC push / site shell', actions:'Actions', nav_grp_deploy:'Deploy', nav_grp_operate:'Operate', nav_collapse:'Collapse', l_port:'Port', b_gh_token:'GitHub token',
   tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings', tab_updates:'Updates',
   upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date',
   sub_fleet:'Fleet', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
@@ -75,7 +75,7 @@ en:{
   reboot_title:'Reboot (challenge)', reboot_note:'Request code → enter correct code within 3 min. Primary: shutdown +1min. Secondary: agent queue.', reboot_target:'Target (primary or secondary id)', reboot_challenge:'Get code', reboot_code:'Code', reboot_confirm:'Confirm reboot'
 },
 ru:{
-  app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды', nav_grp_fleet:'Флот', nav_servers:'Серверы', nav_sites:'Сайты', servers_note:'Узлы control plane. Клик по карточке — детали и действия.', sites_note:'Edge-сайты (OpenWrt магазины / дом). Деплой через мастер OpenWrt.', card_openwrt:'OpenWrt / сайт', card_openwrt_d:'Probe → модули → provision', card_mt_d:'RSC push / site shell', actions:'Действия', nav_grp_deploy:'Деплой', nav_grp_operate:'Управление', nav_collapse:'Свернуть', btn_st_list:'Список бэкапов', l_port:'Порт', b_gh_token:'Токен GitHub',
+  app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды', nav_grp_fleet:'Флот', nav_servers:'Серверы', nav_sites:'Сайты', servers_note:'Узлы control plane. Клик по карточке — детали и действия.', sites_note:'Edge-сайты — топология, зоны, метрики. «Добавить сайт» открывает мастер OpenWrt.', sites_add:'+ Добавить сайт', sites_empty:'Пока нет сайтов. Добавьте сайт через мастер OpenWrt.', sites_offline:'Нужны туннель и session, чтобы загрузить сайты с primary.', card_openwrt:'OpenWrt / сайт', card_openwrt_d:'Probe → модули → provision', card_mt_d:'RSC push / site shell', actions:'Действия', nav_grp_deploy:'Деплой', nav_grp_operate:'Управление', nav_collapse:'Свернуть', btn_st_list:'Список бэкапов', l_port:'Порт', b_gh_token:'Токен GitHub',
   tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки', tab_updates:'Обновления',
   upd_local:'Локально', upd_latest:'Latest', upd_pick:'Релиз', upd_apply:'Применить на primary', upd_refresh:'Обновить', upd_available:'есть обновление', upd_ok:'актуально',
   sub_fleet:'Флот', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
@@ -2256,11 +2256,79 @@ function showServersOverview(){
   renderServersCards();
   syncSideNav();
 }
+
+function formatUptimeUI(sec){
+  if(!sec || sec<=0) return '—';
+  const s=Math.floor(sec), d=Math.floor(s/86400), h=Math.floor((s%86400)/3600), m=Math.floor((s%3600)/60);
+  if(d>0) return d+'d '+h+'h '+m+'m';
+  if(h>0) return h+'h '+m+'m';
+  return m+'m';
+}
+function siteTopoSVG(s){
+  // pure HTML topology (no external assets)
+  const wan = esc(s.wan_ip||'—');
+  const rip = esc(s.router_ip||'—');
+  const zones = (s.zones||[]).map(z=>{
+    const on = z.enabled ? ' on' : '';
+    return '<div class="zbox'+on+'"><span class="zd"></span><span class="zt">'+esc(z.title)+'</span><span class="zc">'+esc(z.cidr||'—')+'</span></div>';
+  }).join('');
+  return '<div class="topo">'
+    +'<div class="topo-left">'
+    +'<div class="topo-node"><div class="ic">☁</div><div class="lab">WAN</div><div class="ip">'+wan+'</div></div>'
+    +'<div class="topo-link"></div>'
+    +'<div class="topo-node"><div class="ic">▣</div><div class="lab">'+esc(s.board||s.kind||'Router')+'</div><div class="ip">'+rip+'</div></div>'
+    +'</div>'
+    +'<div class="topo-zones">'+zones+'</div>'
+    +'</div>';
+}
+async function renderSitesCards(){
+  const grid=document.getElementById('sitesGrid');
+  if(!grid) return;
+  grid.innerHTML='<span class="note">…</span>';
+  let sites=[];
+  try{
+    const j=await nodeFetch('/api/edge/sites');
+    sites = (j && j.sites) || [];
+  }catch(e){
+    grid.innerHTML='<span class="note">'+(typeof t==='function'?t('sites_offline'):'Need tunnel + session')+'</span>';
+    // still show add-site affordance via empty state button area
+    return;
+  }
+  if(!sites.length){
+    grid.innerHTML='<span class="note">'+(typeof t==='function'?t('sites_empty'):'No sites')+'</span>';
+    return;
+  }
+  grid.innerHTML='';
+  sites.forEach(s=>{
+    const card=document.createElement('div');
+    card.className='site-card';
+    const st=s.status||'draft';
+    const dot = st==='online'?' on':(st==='offline'?' warn':'');
+    const kindLabel = [st==='online'?'Online':st, s.board||s.kind].filter(Boolean).join(' | ');
+    card.innerHTML =
+      '<div class="head"><span class="dot'+dot+'"></span><span>Site · '+esc(s.name||s.device_id)+'</span></div>'
+      +'<div class="sub">'+esc(kindLabel)+'</div>'
+      + siteTopoSVG(s)
+      +'<div class="site-foot">'
+      +'<div class="sf"><div class="sk">Devices</div><div class="sv">'+(s.devices!=null&&s.devices>0?s.devices:'—')+'</div></div>'
+      +'<div class="sf"><div class="sk">Guests</div><div class="sv">'+(s.guests!=null&&s.guests>0?s.guests:'—')+'</div></div>'
+      +'<div class="sf"><div class="sk">Uptime</div><div class="sv">'+(s.uptime_fmt||formatUptimeUI(s.uptime_sec)||'—')+'</div></div>'
+      +'<div class="sf"><div class="sk">Latency</div><div class="sv'+(s.latency_ms>0?' ok':'')+'">'+(s.latency_ms>0?(Math.round(s.latency_ms)+' ms'):'—')+'</div></div>'
+      +'</div>';
+    card.onclick=()=>{
+      // open edge deploy with device context later; for now edge wizard
+      navigateShell('installer:edge');
+    };
+    grid.appendChild(card);
+  });
+}
+
 function showSitesOverview(){
   window.__ndNav='sites';
   hideLegacyMains();
   setFleetPages('sites');
   document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.remove('active'));
+  try{ renderSitesCards(); }catch(e){}
   syncSideNav();
 }
 function showServerDetail(role){
@@ -2385,6 +2453,8 @@ function initShell(){
     mo.observe(badge, {characterData:true, childList:true, subtree:true});
   }
   document.getElementById('btnServersBack')?.addEventListener('click', ()=>showServersOverview());
+  document.getElementById('btnAddSite')?.addEventListener('click', ()=>navigateShell('installer:edge'));
+  document.getElementById('btnSitesRefresh')?.addEventListener('click', ()=>renderSitesCards());
   document.querySelectorAll('[data-site-go]').forEach(c=>{
     c.addEventListener('click', ()=>navigateShell('installer:'+c.getAttribute('data-site-go')));
   });
