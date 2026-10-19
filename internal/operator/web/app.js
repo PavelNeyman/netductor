@@ -49,7 +49,7 @@ en:{
   set_api_port:'API local port', set_api_base:'API base', set_sec_host:'Secondary host', set_session:'Node session (sessionStorage)',
   set_session_note:'Not stored in localStorage', set_disk_note:'Save writes ~/.config/netductor/operator.conf (shared with TUI). Empty fields get values from file on load.',
   save:'Save', set_gh:'GitHub token (on primary)', set_gh_note:'Stored on node as secrets/github_token. Avoids release-list 403.', set_gh_tok:'Token', set_gh_st:'Status', set_gh_save:'Save on primary', set_gh_clear:'Clear', set_gh_refresh:'Refresh status', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
-  result:'Result', tunnel:'Tunnel', idle:'idle',
+  result:'Result', rd_out:'Output', rd_hist:'History', rd_mode_panel:'panel', rd_mode_card:'card', rd_mode_both:'both', tunnel:'Tunnel', idle:'idle',
   sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
   adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
   b_health:'Health', b_stack:'Stack', b_stack_apply:'Stack apply', b_stack_rb:'Stack rollback', b_stack_wd:'Stack WD', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_overview:'Fleet overview', b_metrics:'Metrics',
@@ -98,7 +98,7 @@ ru:{
   set_api_port:'Локальный порт API', set_api_base:'База API', set_sec_host:'Хост secondary', set_session:'Session ноды (sessionStorage)',
   set_session_note:'Не хранится в localStorage', set_disk_note:'Save пишет ~/.config/netductor/operator.conf (общий с TUI). Пустые поля подставляются из файла.',
   save:'Сохранить', set_gh:'GitHub token (на primary)', set_gh_note:'Файл secrets/github_token на ноде. Снимает 403 при списке релизов.', set_gh_tok:'Токен', set_gh_st:'Статус', set_gh_save:'Сохранить на primary', set_gh_clear:'Удалить', set_gh_refresh:'Обновить статус', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
-  result:'Результат', tunnel:'Туннель', idle:'ожидание',
+  result:'Результат', rd_out:'Вывод', rd_hist:'История', rd_mode_panel:'панель', rd_mode_card:'карточка', rd_mode_both:'оба', tunnel:'Туннель', idle:'ожидание',
   sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
   adv_note:'Произвольный POST/GET к session API', l_method:'метод', l_path:'путь', l_body:'JSON body',
   b_health:'Health', b_stack:'Стек', b_stack_apply:'Применить стек', b_stack_rb:'Откат стека', b_stack_wd:'Watchdog', b_doctor:'Doctor', b_domain:'Домен', b_bot:'Статус бота', b_status:'Статус', b_overview:'Обзор флота', b_metrics:'Метрики',
@@ -950,26 +950,42 @@ function rdRenderHist(){
 }
 function rdApplyChrome(){
   const dock=document.getElementById('resultDock'); if(!dock) return;
-  dock.classList.remove('pos-bottom','pos-right','pos-top','hidden','compact-tools');
-  if(!rdState.visible || rdState.mode==='inline'){
-    if(rdState.mode==='inline') dock.classList.add('hidden');
-    else if(!rdState.visible) dock.classList.add('hidden');
-  }
-  if(rdState.mode!=='inline' && rdState.visible){
-    dock.classList.add('pos-'+(rdState.position||'bottom'));
-  } else if(rdState.mode!=='inline' && !rdState.visible){
+  const pos=rdState.position||'bottom';
+  dock.classList.remove('pos-bottom','pos-right','pos-top','hidden');
+  if(rdState.mode==='inline' || !rdState.visible){
     dock.classList.add('hidden');
+  } else {
+    dock.classList.add('pos-'+pos);
   }
-  // right dock: hide wide toolbar, only ⋮ menu
-  if((rdState.position||'bottom')==='right') dock.classList.add('compact-tools');
-  const size=Math.max(120, Math.min(rdState.position==='right'?640:480, +rdState.size||220));
+  // size: width for right, height for top/bottom
+  let size=+rdState.size||0;
+  if(pos==='right'){
+    if(size<200 || size>700) size=320;
+  } else {
+    if(size<120 || size>560) size=220;
+  }
+  rdState.size=size;
   dock.style.setProperty('--rd-size', size+'px');
-  const pos=document.getElementById('rdPos'); if(pos) pos.value=rdState.position||'bottom';
   const mode=document.getElementById('rdMode'); if(mode) mode.value=rdState.mode||'both';
+  document.querySelectorAll('[data-rdpos]').forEach(b=>{
+    b.classList.toggle('on', b.getAttribute('data-rdpos')===pos);
+  });
   const hdr=document.getElementById('btnHeaderResult');
   if(hdr) hdr.classList.toggle('on', rdState.visible && rdState.mode!=='inline');
   const sb=document.getElementById('sbResult');
   if(sb) sb.classList.toggle('on', rdState.visible && rdState.mode!=='inline');
+}
+function rdSetPosition(pos){
+  const prev=rdState.position||'bottom';
+  pos = (pos==='top'||pos==='right'||pos==='bottom') ? pos : 'bottom';
+  // when switching orientation, pick a sensible default size
+  if(prev==='right' && pos!=='right') rdState.size=220;
+  if(prev!=='right' && pos==='right') rdState.size=320;
+  rdState.position=pos;
+  rdState.visible=true;
+  if(rdState.mode==='inline') rdState.mode='both';
+  rdApplyChrome();
+  rdPersistDisk();
 }
 function rdShow(force){
   if(rdState.mode==='inline' && !force) return;
@@ -1065,25 +1081,18 @@ function initResultDock(){
     }catch(e){ rdApplyChrome(); }
   })();
   rdApplyChrome();
+
+  const tb=document.getElementById('rdPosBottom'); if(tb) tb.title=uiLang==='ru'?'Снизу':'Bottom';
+  const tr=document.getElementById('rdPosRight'); if(tr) tr.title=uiLang==='ru'?'Справа':'Right';
+  const tt=document.getElementById('rdPosTop'); if(tt) tt.title=uiLang==='ru'?'Сверху':'Top';
+  const traw=document.getElementById('rdRaw'); if(traw) traw.title=uiLang==='ru'?'Сырой JSON':'Raw JSON';
+  const tcl=document.getElementById('rdClear'); if(tcl) tcl.title=uiLang==='ru'?'Очистить':'Clear';
+  const tch=document.getElementById('rdClose'); if(tch) tch.title=uiLang==='ru'?'Скрыть':'Hide';
   rdRenderHist();
   document.getElementById('btnHeaderResult')?.addEventListener('click', rdToggle);
   document.getElementById('sbResult')?.addEventListener('click', rdToggle);
   document.getElementById('rdClose')?.addEventListener('click', rdHide);
 
-  const menuBtn=document.getElementById('rdMenuBtn');
-  const menu=document.getElementById('rdMenu');
-  menuBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); menu?.classList.toggle('hidden'); });
-  document.addEventListener('click',()=>menu?.classList.add('hidden'));
-  menu?.addEventListener('click',e=>e.stopPropagation());
-  const syncPos=(v)=>{ rdState.position=v; rdApplyChrome(); rdPersistDisk();
-    const a=document.getElementById('rdPos'); const b=document.getElementById('rdPosM'); if(a)a.value=v; if(b)b.value=v; };
-  const syncMode=(v)=>{ rdState.mode=v; if(v!=='inline') rdState.visible=true; rdApplyChrome(); rdPersistDisk();
-    const a=document.getElementById('rdMode'); const b=document.getElementById('rdModeM'); if(a)a.value=v; if(b)b.value=v; };
-  document.getElementById('rdPosM')?.addEventListener('change',e=>syncPos(e.target.value));
-  document.getElementById('rdModeM')?.addEventListener('change',e=>syncMode(e.target.value));
-  document.getElementById('rdRawM')?.addEventListener('click',()=>document.getElementById('rdRaw')?.click());
-  document.getElementById('rdClearM')?.addEventListener('click',()=>document.getElementById('rdClear')?.click());
-  document.getElementById('rdCloseM')?.addEventListener('click',()=>{ rdHide(); menu?.classList.add('hidden'); });
 
   document.getElementById('rdClear')?.addEventListener('click', ()=>{
     const box=document.getElementById('controlTables'); if(box) box.innerHTML='';
@@ -1096,9 +1105,8 @@ function initResultDock(){
     raw.classList.toggle('hidden');
     raw.textContent=typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
   });
-  document.getElementById('rdPos')?.addEventListener('change', (e)=>{
-    rdState.position=e.target.value;
-    rdApplyChrome(); rdPersistDisk();
+  document.querySelectorAll('[data-rdpos]').forEach(b=>{
+    b.addEventListener('click', ()=> rdSetPosition(b.getAttribute('data-rdpos')));
   });
   document.getElementById('rdMode')?.addEventListener('change', (e)=>{
     rdState.mode=e.target.value;

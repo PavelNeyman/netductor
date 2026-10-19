@@ -1,3 +1,8 @@
+## 0.9.424
+
+- Result dock: icon toolbar (no truncated RU labels); position ⬇/➡/⬆ always works including right→top
+- Sensible size when switching orientation; tooltips RU/EN
+
 ## 0.9.423
 
 - Operate: map BTN sections to shell panels (overview to home); missing button wiring fixed
