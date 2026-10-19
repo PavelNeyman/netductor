@@ -764,12 +764,55 @@ async function nodeFetch(path, opts){
 
 let lastRaw=null;
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function unwrapPayload(payload){
+  // nodeFetch returns {ok,status,data}; prefer data for tables/doctor when object
+  if(payload && typeof payload==='object' && !Array.isArray(payload) && payload.data!==undefined
+    && (payload.ok!==undefined || payload.status!==undefined)){
+    return payload.data;
+  }
+  return payload;
+}
+function formatPreviewText(payload){
+  const u=unwrapPayload(payload);
+  if(payload && payload.ok===false){
+    const err=(u&&u.error)||payload.error||('HTTP '+(payload.status||''));
+    if(payload.status===401) return (uiLang==='ru'
+      ? '401 unauthorized — выдайте session (Operate → Issue session) и поднимите tunnel'
+      : '401 unauthorized — Issue session + start tunnel first');
+    return 'error: '+String(err).slice(0,200);
+  }
+  if(u && u.checks && u.summary){
+    const s=u.summary;
+    return 'Doctor · ok='+(s.ok||0)+' warn='+(s.warn||0)+' fail='+(s.fail||0);
+  }
+  if(typeof u==='string') return u.slice(0,300);
+  if(u==null) return '—';
+  try{
+    if(typeof u==='object'){
+      const keys=Object.keys(u).slice(0,8);
+      const lines=keys.map(k=>{
+        let v=u[k];
+        if(v!==null && typeof v==='object') v=Array.isArray(v)?('['+v.length+']'):'{…}';
+        return k+': '+v;
+      });
+      return lines.join('\n').slice(0,400);
+    }
+  }catch(e){}
+  try{ return JSON.stringify(u).slice(0,300); }catch(e){ return String(u); }
+}
 function renderTables(payload){
   const box=document.getElementById('controlTables');
   const raw=document.getElementById('controlStatus');
   const btn=document.getElementById('btnShowRaw');
   lastRaw=payload; if(box) box.innerHTML=''; if(raw){ raw.classList.add('hidden'); raw.style.display='none'; } if(btn) btn.style.display='inline-block';
-  const data = payload && payload.data !== undefined ? payload.data : payload;
+  // 401 / envelope errors — clear message instead of empty tables
+  if(payload && typeof payload==='object' && payload.ok===false){
+    const msg=formatPreviewText(payload);
+    if(box) box.innerHTML='<div class="card" style="padding:.65rem;border-color:var(--err)"><b>'+esc(msg)+'</b></div>';
+    if(raw){ raw.classList.remove('hidden'); raw.style.display='block'; raw.textContent=typeof payload==='string'?payload:JSON.stringify(payload,null,2); }
+    return;
+  }
+  const data = unwrapPayload(payload);
   const tables=[];
   function walk(obj, path){
     if(Array.isArray(obj)){
@@ -818,6 +861,7 @@ function renderTables(payload){
 }
 
 function formatDoctorWeb(x){
+  x=unwrapPayload(x);
   if(!x||!x.checks) return null;
   const s=x.summary||{};
   let h='<div class="card"><b>Doctor</b> '+esc(x.role||'')+' @ '+esc(x.host||'')+
@@ -906,7 +950,7 @@ function rdRenderHist(){
 }
 function rdApplyChrome(){
   const dock=document.getElementById('resultDock'); if(!dock) return;
-  dock.classList.remove('pos-bottom','pos-right','pos-top','hidden');
+  dock.classList.remove('pos-bottom','pos-right','pos-top','hidden','compact-tools');
   if(!rdState.visible || rdState.mode==='inline'){
     if(rdState.mode==='inline') dock.classList.add('hidden');
     else if(!rdState.visible) dock.classList.add('hidden');
@@ -916,6 +960,8 @@ function rdApplyChrome(){
   } else if(rdState.mode!=='inline' && !rdState.visible){
     dock.classList.add('hidden');
   }
+  // right dock: hide wide toolbar, only ⋮ menu
+  if((rdState.position||'bottom')==='right') dock.classList.add('compact-tools');
   const size=Math.max(120, Math.min(rdState.position==='right'?640:480, +rdState.size||220));
   dock.style.setProperty('--rd-size', size+'px');
   const pos=document.getElementById('rdPos'); if(pos) pos.value=rdState.position||'bottom';
@@ -960,17 +1006,17 @@ function rdFlash(btn, ok){
   btn.classList.add(ok?'ok-flash':'err-flash');
   setTimeout(()=>btn.classList.remove('ok-flash','err-flash'), 1600);
 }
+function rdClearInlinePreviews(){
+  document.querySelectorAll('.inline-res').forEach(el=>el.remove());
+}
 function rdInlinePreview(btn, text){
   if(rdState.mode!=='inline' && rdState.mode!=='both') return;
   if(!btn) return;
-  const card=btn.closest('.op-card')||btn.parentElement;
-  if(!card) return;
-  let box=card.querySelector('.inline-res');
-  if(!box){
-    box=document.createElement('div');
-    box.className='inline-res';
-    btn.insertAdjacentElement('afterend', box);
-  }
+  rdClearInlinePreviews();
+  const box=document.createElement('div');
+  box.className='inline-res';
+  // always under the clicked control, not at top of card
+  btn.insertAdjacentElement('afterend', box);
   box.innerHTML='<div class="h"><span>'+esc(rdLastAct||'…')+'</span><a href="#" class="rd-open-full" style="color:#a8c0d8;text-decoration:none">'+(uiLang==='ru'?'открыть':'open')+' →</a></div><pre style="margin:0;font-size:.72rem;white-space:pre-wrap">'+esc(text).slice(0,400)+'</pre>';
   box.querySelector('.rd-open-full')?.addEventListener('click',(ev)=>{
     ev.preventDefault();
@@ -982,7 +1028,6 @@ function showControl(x, opts){
   opts=opts||{};
   const act=opts.act||rdLastAct||'';
   const box=document.getElementById('controlTables');
-  const raw=document.getElementById('controlStatus');
   if(x && x.loading){
     rdSetBusy(rdLastBtn, x.loading, true);
     if(rdState.mode!=='inline') rdShow();
@@ -995,14 +1040,12 @@ function showControl(x, opts){
   rdFlash(rdLastBtn, !isErr);
   const dot=document.getElementById('rdDot'); if(dot) dot.className='rd-dot '+(isErr?'err':'ok');
   if(rdState.mode!=='inline') rdShow();
-  if(box && x && x.checks){ box.innerHTML=formatDoctorWeb(x)||''; }
-  else if(box){ /* renderTables fills */ }
+  const unwrapped=unwrapPayload(x);
+  if(box && unwrapped && unwrapped.checks){ box.innerHTML=formatDoctorWeb(x)||''; }
   renderTables(x);
   lastRaw=x;
   if(!opts.fromHist) rdHistPush(act, x);
-  let preview='';
-  try{ preview=typeof x==='string'?x:JSON.stringify(x,null,2); }catch(e){ preview=String(x); }
-  rdInlinePreview(rdLastBtn, preview);
+  rdInlinePreview(rdLastBtn, formatPreviewText(x));
   const lab=document.getElementById('rdActLabel'); if(lab) lab.textContent=act?('· '+act):'';
 }
 
@@ -1026,6 +1069,22 @@ function initResultDock(){
   document.getElementById('btnHeaderResult')?.addEventListener('click', rdToggle);
   document.getElementById('sbResult')?.addEventListener('click', rdToggle);
   document.getElementById('rdClose')?.addEventListener('click', rdHide);
+
+  const menuBtn=document.getElementById('rdMenuBtn');
+  const menu=document.getElementById('rdMenu');
+  menuBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); menu?.classList.toggle('hidden'); });
+  document.addEventListener('click',()=>menu?.classList.add('hidden'));
+  menu?.addEventListener('click',e=>e.stopPropagation());
+  const syncPos=(v)=>{ rdState.position=v; rdApplyChrome(); rdPersistDisk();
+    const a=document.getElementById('rdPos'); const b=document.getElementById('rdPosM'); if(a)a.value=v; if(b)b.value=v; };
+  const syncMode=(v)=>{ rdState.mode=v; if(v!=='inline') rdState.visible=true; rdApplyChrome(); rdPersistDisk();
+    const a=document.getElementById('rdMode'); const b=document.getElementById('rdModeM'); if(a)a.value=v; if(b)b.value=v; };
+  document.getElementById('rdPosM')?.addEventListener('change',e=>syncPos(e.target.value));
+  document.getElementById('rdModeM')?.addEventListener('change',e=>syncMode(e.target.value));
+  document.getElementById('rdRawM')?.addEventListener('click',()=>document.getElementById('rdRaw')?.click());
+  document.getElementById('rdClearM')?.addEventListener('click',()=>document.getElementById('rdClear')?.click());
+  document.getElementById('rdCloseM')?.addEventListener('click',()=>{ rdHide(); menu?.classList.add('hidden'); });
+
   document.getElementById('rdClear')?.addEventListener('click', ()=>{
     const box=document.getElementById('controlTables'); if(box) box.innerHTML='';
     const raw=document.getElementById('controlStatus'); if(raw){ raw.textContent='—'; raw.classList.add('hidden'); }
@@ -1344,12 +1403,26 @@ function groupOperateActions(list){
   }
   return out;
 }
+// Static BTN keys → shell panel ids (catalog groups may already use home/users/…)
+const BTN_SEC_TO_PANEL={
+  overview:'home', home:'home', updates:'home',
+  vpn:'users', users:'users',
+  nodes:'fleet', fleet:'fleet',
+  edge:'edge',
+  nvr:'media', media:'media',
+  git:'data', backup:'data', dns:'data', probes:'data', data:'data',
+  adv:'adv',
+};
 function mountButtons(){
+  // clear panels first (several BTN keys may map to the same shell panel)
+  const panelIds=new Set(Object.values(BTN_SEC_TO_PANEL));
+  panelIds.forEach(id=>{ const el=document.getElementById('csec-'+id); if(el && id!=='adv') el.innerHTML=''; });
   for(const [sec, list] of Object.entries(BTN)){
-    const el=document.getElementById('csec-'+sec); if(!el) continue;
+    const panelId=BTN_SEC_TO_PANEL[sec]||sec;
+    const el=document.getElementById('csec-'+panelId); if(!el) continue;
     // Group into calm op-cards (no primary-blue wall).
     const groups=groupOperateActions(list||[]);
-    let h='<div class="op-grid">';
+    let h='<div class="op-grid" data-btn-sec="'+esc(sec)+'">';
     for(const g of groups){
       h+='<div class="op-card"><h3>'+g.title+'</h3><div class="op-links">';
       for(const [id,label,method,path,body] of g.items){
@@ -1361,7 +1434,7 @@ function mountButtons(){
     }
     h+='</div>';
     // append forms for complex POSTs
-        if(sec==='updates' || sec==='home'){
+        if(sec==='updates' || sec==='home' || sec==='overview'){
       h+=`<div class="card" style="margin-top:.5rem"><h3>${t('tab_updates')||'Updates'}</h3>
       <p class="note" id="updStatusLine">—</p>
       <div class="row"><div><label>${t('upd_pick')||'Release'}</label><select id="updTag"></select></div>
@@ -1603,7 +1676,8 @@ function mountButtons(){
       <div class="row"><div><label>${t('l_git_art')}</label><input id="gitArtPath" placeholder="build/out.bin"/></div><div></div></div>
       <button class="primary" type="button" data-act="git-artifact">${t('b_git_art')}</button>`;
     }
-    el.innerHTML=h;
+    // append (do not overwrite other secs mapped to same panel)
+    el.insertAdjacentHTML('beforeend', h);
   }
 }
 mountButtons();
@@ -1924,9 +1998,20 @@ for(const list of Object.values(BTN)){
   }
 }
 
-document.getElementById('main-control').addEventListener('click', async (ev)=>{
+// Delegate from body: buttons may live in main-control or re-mounted panels
+document.body.addEventListener('click', async (ev)=>{
   const btn=ev.target.closest('[data-act]'); if(!btn) return;
-  const act=btn.dataset.act; if(!special[act]) return;
+  // ignore pure UI toggles without special handler path
+  const act=btn.dataset.act;
+  if(!act || !special[act]){
+    if(act && btn.closest('#main-control')){
+      rdLastAct=act; rdLastBtn=btn;
+      showControl({ok:false,status:0,data:{error:'no handler for '+act}}, {act});
+    }
+    return;
+  }
+  // avoid double-fire with other handlers on same click when not operate
+  if(!btn.closest('#main-control') && !btn.closest('.op-card')) return;
   rdLastAct=act; rdLastBtn=btn;
   showControl({loading:act}, {act});
   try{ showControl(await special[act](), {act}); }catch(e){ showControl({error:String(e)}, {act}); }

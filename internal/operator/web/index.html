@@ -603,7 +603,7 @@
       <button type="button" class="rd-tab on" data-rdtab="out" id="rdTabOut">Output</button>
       <button type="button" class="rd-tab" data-rdtab="hist" id="rdTabHist">History</button>
     </div>
-    <div class="rd-tools">
+    <div class="rd-tools" id="rdTools">
       <select id="rdPos" title="Position">
         <option value="bottom">bottom</option>
         <option value="right">right</option>
@@ -617,6 +617,16 @@
       <button type="button" class="rd-btn" id="rdRaw" data-i18n="btn_raw">Raw</button>
       <button type="button" class="rd-btn" id="rdClear">Clear</button>
       <button type="button" class="rd-btn" id="rdClose" title="Hide">✕</button>
+    </div>
+    <div class="rd-menu-wrap">
+      <button type="button" class="rd-btn rd-menu-btn" id="rdMenuBtn" title="Menu">⋮</button>
+      <div class="rd-menu hidden" id="rdMenu">
+        <label>Position <select id="rdPosM"><option value="bottom">bottom</option><option value="right">right</option><option value="top">top</option></select></label>
+        <label>Mode <select id="rdModeM"><option value="overlay">panel</option><option value="inline">card</option><option value="both">both</option></select></label>
+        <button type="button" class="rd-btn" id="rdRawM">Raw JSON</button>
+        <button type="button" class="rd-btn" id="rdClearM">Clear</button>
+        <button type="button" class="rd-btn" id="rdCloseM">Hide</button>
+      </div>
     </div>
   </div>
   <div class="rd-body" id="rdBodyOut">

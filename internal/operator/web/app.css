@@ -290,3 +290,30 @@ button.op-link.busy{color:#a8c0d8;background:rgba(90,122,154,.12)}
 button.op-link.ok-flash{color:var(--ok)}
 button.op-link.err-flash{color:var(--err)}
 #btnHeaderResult.on{color:var(--text);background:rgba(255,255,255,.06);border-color:var(--border)}
+
+/* Result dock: right position → only ⋮ menu */
+.result-dock.compact-tools .rd-tools{display:none}
+.result-dock:not(.compact-tools) .rd-menu-wrap{display:none}
+.rd-menu-wrap{position:relative;margin-left:auto}
+.rd-menu-btn{font-size:1rem;padding:.1rem .45rem;min-width:1.75rem}
+.rd-menu{
+  position:absolute;right:0;top:calc(100% + 4px);z-index:5;
+  background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  padding:.45rem;min-width:10rem;display:flex;flex-direction:column;gap:.35rem;
+  box-shadow:0 8px 24px rgba(0,0,0,.4)
+}
+.rd-menu.hidden{display:none}
+.rd-menu label{font-size:.72rem;color:var(--muted);display:flex;flex-direction:column;gap:.15rem}
+.rd-menu select{font-size:.72rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:.2rem}
+.rd-btn{
+  white-space:nowrap; max-width:100%;
+  overflow:hidden; text-overflow:ellipsis;
+}
+button.op-link.busy,button.primary.busy{
+  color:#a8c0d8!important;background:rgba(90,122,154,.18)!important;
+  outline:1px solid rgba(90,122,154,.35);
+}
+button.op-link.busy::after,button.primary.busy::after{content:" ···";opacity:.8}
+button.op-link.ok-flash,button.primary.ok-flash{color:var(--ok)!important}
+button.op-link.err-flash,button.primary.err-flash{color:var(--err)!important}
+.inline-res{display:block;width:100%;margin:.4rem 0}

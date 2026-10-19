@@ -1,3 +1,11 @@
+## 0.9.423
+
+- Operate: map BTN sections to shell panels (overview to home); missing button wiring fixed
+- Result dock: compact menu in right position; Raw no longer overflows
+- Inline preview under clicked action only; human summary not raw JSON
+- Unwrap nodeFetch envelope for tables/doctor; clear 401 session hint
+- Stronger busy/ok/err feedback on op-link and primary
+
 ## 0.9.422
 
 - Operate Result dock (VS Code–style): positions bottom/right/top, show/hide, drag-resize
