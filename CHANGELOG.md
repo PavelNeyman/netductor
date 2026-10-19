@@ -1,3 +1,9 @@
+## 0.9.426
+
+- OpenWrt USB packages: offline-first cache (no network on probe if offline-prep already filled cache; avoids downloads.openwrt.org EOF)
+- Web Result dock: **Log** tab — job/deploy stdout streams there (option A); bottom Deploy log still mirrors
+- Edge probe card: normalize job result `{facts, plan}` so DeviceCard renders again (not mixed text)
+
 ## 0.9.425
 
 - Result dock: rubber layout; right mode = only ⋮ menu pinned top-right

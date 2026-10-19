@@ -363,3 +363,22 @@ button.op-link.err-flash,button.primary.err-flash{color:var(--err)!important}
 
 /* main content must shrink when right dock open */
 body.rd-right-open .main-col{margin-right:var(--rd-size, 300px)}
+
+/* Result dock — job log tab */
+.rd-log {
+  margin: 0;
+  padding: .6rem .75rem;
+  font-size: .72rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  max-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+#rdBodyLog { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+#rdBodyLog:not(.hidden) { display: flex; }
+.result-dock.pos-bottom #rdBodyLog .rd-log { max-height: calc(var(--rd-size, 220px) - 48px); }

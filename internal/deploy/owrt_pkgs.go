@@ -101,21 +101,38 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 	dir = OpenWrtPkgCacheDir(m.Release, m.Target)
 	_ = os.MkdirAll(dir, 0o755)
 
+	ext := ".apk"
+	if m.PkgMgr == "opkg" {
+		ext = ".ipk"
+	}
+
+	// Offline-first: if every package is already in cache, never touch the network.
+	// (Probe runs on LAN-only Mac↔router; Mac may have no route to downloads.openwrt.org.)
+	if got, ok := listCachedUSBPackages(dir, ext); ok {
+		for _, f := range got {
+			fmt.Fprintln(os.Stderr, "==> using cached OpenWrt pkg", filepath.Base(f))
+		}
+		return dir, got, nil
+	}
+
 	kmodBase, err := resolveKmodBaseURL(m)
 	if err != nil {
+		// Last chance: any partial cache is better than hard fail with EOF
+		if got, ok := listCachedUSBPackages(dir, ext); ok {
+			fmt.Fprintln(os.Stderr, "warn: kmod index unreachable; using partial/full local cache")
+			return dir, got, nil
+		}
+		if got := listAnyCachedUSBPackages(dir, ext); len(got) > 0 {
+			fmt.Fprintln(os.Stderr, "warn: kmod index unreachable; installing", len(got), "cached packages (may be incomplete)")
+			return dir, got, nil
+		}
 		return dir, nil, err
 	}
 	pkgBase := fmt.Sprintf("%s/releases/%s/targets/%s/packages/", openWrtDownloads, m.Release, m.Target)
-	// e2fsprogs lives in packages-<branch>/<arch>/base/
 	branch := openWrtBranch(m.Release)
 	archBase := fmt.Sprintf("%s/releases/packages-%s/%s/base/", openWrtDownloads, branch, m.Arch)
 	if m.Arch == "" {
 		archBase = ""
-	}
-
-	ext := ".apk"
-	if m.PkgMgr == "opkg" {
-		ext = ".ipk"
 	}
 
 	var got []string
@@ -128,6 +145,30 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 		fmt.Fprintln(os.Stderr, "==> cached OpenWrt pkg", filepath.Base(path))
 	}
 	return dir, got, nil
+}
+
+// listCachedUSBPackages returns true only when every required package name has a matching file.
+func listCachedUSBPackages(dir, ext string) ([]string, bool) {
+	var got []string
+	for _, base := range usbPkgBaseNames {
+		matches, _ := filepath.Glob(filepath.Join(dir, base+"*"+ext))
+		if len(matches) == 0 {
+			return nil, false
+		}
+		got = append(got, matches[0])
+	}
+	return got, true
+}
+
+func listAnyCachedUSBPackages(dir, ext string) []string {
+	var got []string
+	for _, base := range usbPkgBaseNames {
+		matches, _ := filepath.Glob(filepath.Join(dir, base+"*"+ext))
+		if len(matches) > 0 {
+			got = append(got, matches[0])
+		}
+	}
+	return got
 }
 
 func openWrtBranch(release string) string {

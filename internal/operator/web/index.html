@@ -566,7 +566,7 @@
 </div>
 
 <div class="sec" id="deployLogSec">
-  <h3 class="edge-h" data-i18n="deploy_log_title">Deploy log</h3>
+  <h3 class="edge-h" data-i18n="deploy_log_title">Deploy log (also in Result → Log)</h3>
   <div class="steps" id="steps"></div>
   <pre class="log" id="log" data-i18n="idle">idle</pre>
 </div>
@@ -603,6 +603,7 @@
       <div class="rd-tabs">
         <button type="button" class="rd-tab on" data-rdtab="out" id="rdTabOut" data-i18n="rd_out">Output</button>
         <button type="button" class="rd-tab" data-rdtab="hist" id="rdTabHist" data-i18n="rd_hist">History</button>
+        <button type="button" class="rd-tab" data-rdtab="log" id="rdTabLog" data-i18n="rd_log">Log</button>
       </div>
     </div>
     <div class="rd-bar-right">
@@ -651,6 +652,9 @@
   </div>
   <div class="rd-body hidden" id="rdBodyHist">
     <div id="rdHistList" class="rd-hist"></div>
+  </div>
+  <div class="rd-body hidden" id="rdBodyLog">
+    <pre class="rd-log" id="rdLog" data-i18n="idle">idle</pre>
   </div>
 </div>
 

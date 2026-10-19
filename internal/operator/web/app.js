@@ -49,7 +49,7 @@ en:{
   set_api_port:'API local port', set_api_base:'API base', set_sec_host:'Secondary host', set_session:'Node session (sessionStorage)',
   set_session_note:'Not stored in localStorage', set_disk_note:'Save writes ~/.config/netductor/operator.conf (shared with TUI). Empty fields get values from file on load.',
   save:'Save', set_gh:'GitHub token (on primary)', set_gh_note:'Stored on node as secrets/github_token. Avoids release-list 403.', set_gh_tok:'Token', set_gh_st:'Status', set_gh_save:'Save on primary', set_gh_clear:'Clear', set_gh_refresh:'Refresh status', ctrl_note:'Day-2 via node API. Tunnel: direct → VPN SSH → public SSH. Session kept in sessionStorage only (not localStorage).',
-  result:'Result', rd_out:'Output', rd_hist:'History', rd_mode_panel:'panel', rd_mode_card:'card', rd_mode_both:'both', tunnel:'Tunnel', idle:'idle',
+  result:'Result', rd_out:'Output', rd_hist:'History', rd_log:'Log', rd_mode_panel:'panel', rd_mode_card:'card', rd_mode_both:'both', tunnel:'Tunnel', idle:'idle',
   sec_overview:'Overview', sec_vpn:'VPN', sec_nodes:'Nodes', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Reg', sec_backup:'Backup', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Advanced',
   adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
   b_health:'Health', b_stack:'Stack', b_stack_apply:'Stack apply', b_stack_rb:'Stack rollback', b_stack_wd:'Stack WD', b_doctor:'Doctor', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_overview:'Fleet overview', b_metrics:'Metrics',
@@ -98,7 +98,7 @@ ru:{
   set_api_port:'Локальный порт API', set_api_base:'База API', set_sec_host:'Хост secondary', set_session:'Session ноды (sessionStorage)',
   set_session_note:'Не хранится в localStorage', set_disk_note:'Save пишет ~/.config/netductor/operator.conf (общий с TUI). Пустые поля подставляются из файла.',
   save:'Сохранить', set_gh:'GitHub token (на primary)', set_gh_note:'Файл secrets/github_token на ноде. Снимает 403 при списке релизов.', set_gh_tok:'Токен', set_gh_st:'Статус', set_gh_save:'Сохранить на primary', set_gh_clear:'Удалить', set_gh_refresh:'Обновить статус', ctrl_note:'Day-2 через API ноды. Туннель: direct → VPN SSH → public SSH. Session только в sessionStorage.',
-  result:'Результат', rd_out:'Вывод', rd_hist:'История', rd_mode_panel:'панель', rd_mode_card:'карточка', rd_mode_both:'оба', tunnel:'Туннель', idle:'ожидание',
+  result:'Результат', rd_out:'Вывод', rd_hist:'История', rd_log:'Лог', rd_mode_panel:'панель', rd_mode_card:'карточка', rd_mode_both:'оба', tunnel:'Туннель', idle:'ожидание',
   sec_overview:'Обзор', sec_vpn:'VPN', sec_nodes:'Ноды', sec_edge:'Edge', sec_nvr:'NVR', sec_git:'Git / Registry', sec_backup:'Бэкап', sec_dns:'DNS', sec_probes:'Probes', sec_adv:'Дополнительно',
   adv_note:'Произвольный POST/GET к session API', l_method:'метод', l_path:'путь', l_body:'JSON body',
   b_health:'Health', b_stack:'Стек', b_stack_apply:'Применить стек', b_stack_rb:'Откат стека', b_stack_wd:'Watchdog', b_doctor:'Doctor', b_domain:'Домен', b_bot:'Статус бота', b_status:'Статус', b_overview:'Обзор флота', b_metrics:'Метрики',
@@ -207,8 +207,27 @@ document.querySelectorAll('#controlSub button').forEach(btn=>{
 });
 
 const logEl=document.getElementById('log'), stepsEl=document.getElementById('steps');
-function line(s){ logEl.textContent+=s+(s.endsWith('\n')?'':'\n'); logEl.scrollTop=logEl.scrollHeight; }
-function resetLog(){ logEl.textContent=''; stepsEl.innerHTML=''; }
+function rdLogAppend(s){
+  const el=document.getElementById('rdLog');
+  if(!el) return;
+  if(el.textContent==='idle' || el.getAttribute('data-i18n')==='idle'){ el.textContent=''; el.removeAttribute('data-i18n'); }
+  el.textContent += (el.textContent && !el.textContent.endsWith('\n')?'\n':'') + s;
+  el.scrollTop = el.scrollHeight;
+}
+function rdShowLogTab(){
+  rdShow(true);
+  document.querySelectorAll('[data-rdtab]').forEach(x=>x.classList.remove('on'));
+  document.getElementById('rdTabLog')?.classList.add('on');
+  document.getElementById('rdBodyOut')?.classList.add('hidden');
+  document.getElementById('rdBodyHist')?.classList.add('hidden');
+  document.getElementById('rdBodyLog')?.classList.remove('hidden');
+}
+function line(s){
+  rdLogAppend(s);
+ logEl.textContent+=s+(s.endsWith('\n')?'':'\n'); logEl.scrollTop=logEl.scrollHeight; }
+function resetLog(){
+  const rl=document.getElementById('rdLog'); if(rl){ rl.textContent=''; }
+ logEl.textContent=''; stepsEl.innerHTML=''; }
 function chip(id,st){ let el=stepsEl.querySelector('[data-id="'+id+'"]'); if(!el){el=document.createElement('span');el.dataset.id=id;el.textContent=id;stepsEl.appendChild(el);} el.className='chip '+(st||''); }
 function parseSteps(chunk){ chunk.split('\n').forEach(l=>{ const m=l.match(/^step (\S+)/); if(!m)return; if(l.includes(' ERROR'))chip(m[1],'err'); else if(l.includes(' done'))chip(m[1],'ok'); else chip(m[1],'run'); }); }
 function setEdgeRunStatus(kind, msg){
@@ -1009,6 +1028,7 @@ function rdDoClear(){
   const box=document.getElementById('controlTables'); if(box) box.innerHTML='';
   const raw=document.getElementById('controlStatus');
   if(raw){ raw.textContent='—'; raw.classList.add('hidden'); raw.style.display='none'; }
+  const rl=document.getElementById('rdLog'); if(rl) rl.textContent='idle';
   lastRaw=null;
   const lab=document.getElementById('rdActLabel'); if(lab) lab.textContent='';
   rdClearInlinePreviews();
@@ -1165,8 +1185,11 @@ function initResultDock(){
       tab.classList.add('on');
       const out=document.getElementById('rdBodyOut');
       const hist=document.getElementById('rdBodyHist');
-      if(tab.dataset.rdtab==='hist'){ out?.classList.add('hidden'); hist?.classList.remove('hidden'); rdRenderHist(); }
-      else { hist?.classList.add('hidden'); out?.classList.remove('hidden'); }
+      const logb=document.getElementById('rdBodyLog');
+      out?.classList.add('hidden'); hist?.classList.add('hidden'); logb?.classList.add('hidden');
+      if(tab.dataset.rdtab==='hist'){ hist?.classList.remove('hidden'); rdRenderHist(); }
+      else if(tab.dataset.rdtab==='log'){ logb?.classList.remove('hidden'); }
+      else { out?.classList.remove('hidden'); }
     });
   });
   // drag resize
@@ -2404,17 +2427,43 @@ async function edgePreview(){
     advanced:!!document.getElementById('edge_advanced')?.checked,
     modules: mods
   };
-  line('job edge.probe …');
+  rdShowLogTab(); line('job edge.probe …');
   const j=await jobRun('edge.probe', body, jobLogToUI);
   if(j.status!=='succeeded'){
     throw new Error(j.error||('probe '+j.status));
   }
   let data={};
   try{
-    const r=j.result||{};
-    // result is {facts, plan}; card expects plan-shaped + facts
-    data=Object.assign({}, r.plan||{}, {facts:r.facts, plan:r.plan, result:r});
-    if(r.plan) Object.assign(data, r.plan);
+    let r=j.result||{};
+    if(typeof r==='string'){ try{ r=JSON.parse(r); }catch(_){ r={}; } }
+    // Job result: { facts, plan: PlanResponse{ card, plan, preset, facts } }
+    const pr = r.plan && typeof r.plan==='object' ? r.plan : r;
+    data = {
+      preset: pr.preset || r.preset || '',
+      suggested_preset: pr.suggested_preset || r.suggested_preset || '',
+      facts: r.facts || pr.facts || {},
+      plan: pr.plan || pr, // DeployPlan with steps
+      card: pr.card || r.card || {},
+      result: r
+    };
+    // If card empty, synthesize minimal from facts
+    if(!data.card || (!data.card.model && !data.card.board && data.facts)){
+      const f=data.facts||{};
+      data.card = Object.assign({}, data.card||{}, {
+        model: f.model||f.board||'', board: f.board||'', serial: f.serial||'',
+        arch: f.arch||'', os: f.os||'',
+        lan_ip: (f.uci&&f.uci.lan_ip)||f.lan_ip||'',
+        wan_capable: !!(f.wan_capable || (f.uci&&f.uci.wan_present)),
+        eth_count: f.eth_count || (f.ifaces&&f.ifaces.length) || 0,
+        bands: f.bands||[], ssid_now: f.ssid_now||[],
+        mem_total_kb: f.mem_total_kb, mem_avail_kb: f.mem_avail_kb,
+        overlay_total_kb: f.storage&&f.storage.overlay_total_kb, overlay_free_kb: f.storage&&f.storage.overlay_free_kb,
+        root_total_kb: f.storage&&f.storage.root_total_kb, root_free_kb: f.storage&&f.storage.root_free_kb,
+        flash_kb: f.storage&&f.storage.flash_kb || f.flash_mb&&(f.flash_mb*1024),
+        has_usb_disk: f.storage&&f.storage.has_usb_disk, usb_disks: f.storage&&f.storage.usb_disks,
+        expand_hint: f.storage&&f.storage.expand_hint
+      });
+    }
   }catch(e){ data={error:String(e)}; }
   window.__edgePreview=data;
   edgeRenderCard(data);
