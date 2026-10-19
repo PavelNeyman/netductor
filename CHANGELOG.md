@@ -1,3 +1,9 @@
+## 0.9.427
+
+- Offline-prep: if SSH to primary :52222 fails, reuse cached edge_bootstrap_token instead of hard-fail
+- Clearer hint when connection is closed (fail2ban / key / passphrase)
+
+
 ## 0.9.426
 
 - OpenWrt USB packages: offline-first cache (no network on probe if offline-prep already filled cache; avoids downloads.openwrt.org EOF)

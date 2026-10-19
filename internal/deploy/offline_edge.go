@@ -66,16 +66,24 @@ func PrepareEdgeOfflineOpts(primaryHost, primaryUser, primaryKey, keyPass, devic
 
 	fmt.Fprintln(os.Stderr, "==> offline pack: need internet + SSH to primary :52222")
 
+	tokenFile := filepath.Join(outDir, "edge_bootstrap_token")
 	out, err := runSSHOnPort(day2SSHPort(), "", primaryKey, primaryUser, primaryHost,
 		"cat /etc/netductor/secrets/edge_bootstrap_token 2>/dev/null", keyPass)
+	var token string
 	if err != nil {
-		return nil, fmt.Errorf("bootstrap token: %w\n%s", err, out)
+		// Fallback: reuse previously cached token if SSH to primary is down.
+		if b, e2 := os.ReadFile(tokenFile); e2 == nil && strings.TrimSpace(string(b)) != "" {
+			token = strings.TrimSpace(string(b))
+			fmt.Fprintf(os.Stderr, "warn: SSH to primary failed (%v) — reusing cached bootstrap token\n", err)
+		} else {
+			return nil, fmt.Errorf("bootstrap token: %w\n%s\nhint: primary :52222 closed the connection (fail2ban / key / passphrase). If a pack was prepared before, the token file is missing — fix SSH and retry", err, out)
+		}
+	} else {
+		token = strings.TrimSpace(out)
+		if token == "" {
+			return nil, fmt.Errorf("empty edge_bootstrap_token on primary")
+		}
 	}
-	token := strings.TrimSpace(out)
-	if token == "" {
-		return nil, fmt.Errorf("empty edge_bootstrap_token on primary")
-	}
-	tokenFile := filepath.Join(outDir, "edge_bootstrap_token")
 	if err := os.WriteFile(tokenFile, []byte(token+"\n"), 0o600); err != nil {
 		return nil, err
 	}
