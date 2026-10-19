@@ -1,3 +1,9 @@
+## 0.9.425
+
+- Result dock: rubber layout; right mode = only ⋮ menu pinned top-right
+- Position via select (no arrow icons); JSON no longer prints null
+- op-cards / tables: overflow ellipsis, adaptive grid
+
 ## 0.9.424
 
 - Result dock: icon toolbar (no truncated RU labels); position ⬇/➡/⬆ always works including right→top

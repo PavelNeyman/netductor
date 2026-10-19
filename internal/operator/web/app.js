@@ -957,19 +957,21 @@ function rdApplyChrome(){
   } else {
     dock.classList.add('pos-'+pos);
   }
-  // size: width for right, height for top/bottom
   let size=+rdState.size||0;
   if(pos==='right'){
-    if(size<200 || size>700) size=320;
+    if(size<220 || size>560) size=300;
   } else {
-    if(size<120 || size>560) size=220;
+    if(size<140 || size>480) size=220;
   }
   rdState.size=size;
   dock.style.setProperty('--rd-size', size+'px');
+  document.body.classList.toggle('rd-right-open', rdState.visible && rdState.mode!=='inline' && pos==='right');
   const mode=document.getElementById('rdMode'); if(mode) mode.value=rdState.mode||'both';
-  document.querySelectorAll('[data-rdpos]').forEach(b=>{
-    b.classList.toggle('on', b.getAttribute('data-rdpos')===pos);
-  });
+  const modeM=document.getElementById('rdModeM'); if(modeM) modeM.value=rdState.mode||'both';
+  const posEl=document.getElementById('rdPos'); if(posEl) posEl.value=pos;
+  const posM=document.getElementById('rdPosM'); if(posM) posM.value=pos;
+  // close floating menu when chrome changes
+  document.getElementById('rdMenu')?.classList.add('hidden');
   const hdr=document.getElementById('btnHeaderResult');
   if(hdr) hdr.classList.toggle('on', rdState.visible && rdState.mode!=='inline');
   const sb=document.getElementById('sbResult');
@@ -978,14 +980,38 @@ function rdApplyChrome(){
 function rdSetPosition(pos){
   const prev=rdState.position||'bottom';
   pos = (pos==='top'||pos==='right'||pos==='bottom') ? pos : 'bottom';
-  // when switching orientation, pick a sensible default size
   if(prev==='right' && pos!=='right') rdState.size=220;
-  if(prev!=='right' && pos==='right') rdState.size=320;
+  if(prev!=='right' && pos==='right') rdState.size=300;
   rdState.position=pos;
   rdState.visible=true;
   if(rdState.mode==='inline') rdState.mode='both';
   rdApplyChrome();
   rdPersistDisk();
+}
+function rdShowRaw(){
+  const raw=document.getElementById('controlStatus');
+  if(!raw) return;
+  if(lastRaw===null || lastRaw===undefined){
+    raw.classList.remove('hidden');
+    raw.style.display='block';
+    raw.textContent=uiLang==='ru'?'Нет данных — сначала выполните действие':'No data — run an action first';
+    return;
+  }
+  raw.classList.toggle('hidden');
+  if(!raw.classList.contains('hidden')){
+    raw.style.display='block';
+    raw.textContent=typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
+  } else {
+    raw.style.display='none';
+  }
+}
+function rdDoClear(){
+  const box=document.getElementById('controlTables'); if(box) box.innerHTML='';
+  const raw=document.getElementById('controlStatus');
+  if(raw){ raw.textContent='—'; raw.classList.add('hidden'); raw.style.display='none'; }
+  lastRaw=null;
+  const lab=document.getElementById('rdActLabel'); if(lab) lab.textContent='';
+  rdClearInlinePreviews();
 }
 function rdShow(force){
   if(rdState.mode==='inline' && !force) return;
@@ -1082,37 +1108,57 @@ function initResultDock(){
   })();
   rdApplyChrome();
 
-  const tb=document.getElementById('rdPosBottom'); if(tb) tb.title=uiLang==='ru'?'Снизу':'Bottom';
-  const tr=document.getElementById('rdPosRight'); if(tr) tr.title=uiLang==='ru'?'Справа':'Right';
-  const tt=document.getElementById('rdPosTop'); if(tt) tt.title=uiLang==='ru'?'Сверху':'Top';
-  const traw=document.getElementById('rdRaw'); if(traw) traw.title=uiLang==='ru'?'Сырой JSON':'Raw JSON';
-  const tcl=document.getElementById('rdClear'); if(tcl) tcl.title=uiLang==='ru'?'Очистить':'Clear';
-  const tch=document.getElementById('rdClose'); if(tch) tch.title=uiLang==='ru'?'Скрыть':'Hide';
+  // i18n tool labels
+  const setT=(id,en,ru)=>{ const el=document.getElementById(id); if(el) el.title=uiLang==='ru'?ru:en; };
+  setT('rdRaw','Raw JSON','Сырой JSON'); setT('rdRawM','Raw JSON','Сырой JSON');
+  setT('rdClear','Clear','Очистить'); setT('rdClearM','Clear','Очистить');
+  setT('rdClose','Hide','Скрыть'); setT('rdCloseM','Hide','Скрыть');
+  setT('rdMenuBtn','Menu','Меню');
+  const clearLab=(id,en,ru)=>{ const el=document.getElementById(id); if(el && el.tagName==='BUTTON') el.textContent=uiLang==='ru'?ru:en; };
+  clearLab('rdClear','Clear','Очистить'); clearLab('rdClearM','Clear','Очистить');
+  clearLab('rdCloseM','Hide','Скрыть');
+  // localize selects options
+  const locSel=(id, map)=>{
+    const s=document.getElementById(id); if(!s) return;
+    [...s.options].forEach(o=>{ if(map[o.value]) o.textContent=map[o.value]; });
+  };
+  if(uiLang==='ru'){
+    locSel('rdPos',{bottom:'↓ снизу',right:'→ справа',top:'↑ сверху'});
+    locSel('rdPosM',{bottom:'снизу',right:'справа',top:'сверху'});
+    locSel('rdMode',{overlay:'панель',inline:'карточка',both:'оба'});
+    locSel('rdModeM',{overlay:'панель',inline:'карточка',both:'оба'});
+  }
   rdRenderHist();
   document.getElementById('btnHeaderResult')?.addEventListener('click', rdToggle);
   document.getElementById('sbResult')?.addEventListener('click', rdToggle);
   document.getElementById('rdClose')?.addEventListener('click', rdHide);
-
-
-  document.getElementById('rdClear')?.addEventListener('click', ()=>{
-    const box=document.getElementById('controlTables'); if(box) box.innerHTML='';
-    const raw=document.getElementById('controlStatus'); if(raw){ raw.textContent='—'; raw.classList.add('hidden'); }
-    lastRaw=null;
+  document.getElementById('rdCloseM')?.addEventListener('click', ()=>{ rdHide(); document.getElementById('rdMenu')?.classList.add('hidden'); });
+  document.getElementById('rdClear')?.addEventListener('click', rdDoClear);
+  document.getElementById('rdClearM')?.addEventListener('click', ()=>{ rdDoClear(); document.getElementById('rdMenu')?.classList.add('hidden'); });
+  document.getElementById('rdRaw')?.addEventListener('click', rdShowRaw);
+  document.getElementById('rdRawM')?.addEventListener('click', ()=>{ rdShowRaw(); document.getElementById('rdMenu')?.classList.add('hidden'); });
+  document.getElementById('rdMenuBtn')?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('rdMenu')?.classList.toggle('hidden');
   });
-  document.getElementById('rdRaw')?.addEventListener('click', ()=>{
-    const raw=document.getElementById('controlStatus');
-    if(!raw) return;
-    raw.classList.toggle('hidden');
-    raw.textContent=typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
+  document.addEventListener('click', (e)=>{
+    const menu=document.getElementById('rdMenu');
+    const btn=document.getElementById('rdMenuBtn');
+    if(!menu || menu.classList.contains('hidden')) return;
+    if(menu.contains(e.target) || btn?.contains(e.target)) return;
+    menu.classList.add('hidden');
   });
-  document.querySelectorAll('[data-rdpos]').forEach(b=>{
-    b.addEventListener('click', ()=> rdSetPosition(b.getAttribute('data-rdpos')));
-  });
-  document.getElementById('rdMode')?.addEventListener('change', (e)=>{
+  const onPos=(e)=> rdSetPosition(e.target.value);
+  document.getElementById('rdPos')?.addEventListener('change', onPos);
+  document.getElementById('rdPosM')?.addEventListener('change', onPos);
+  const onMode=(e)=>{
     rdState.mode=e.target.value;
     if(rdState.mode!=='inline') rdState.visible=true;
     rdApplyChrome(); rdPersistDisk();
-  });
+  };
+  document.getElementById('rdMode')?.addEventListener('change', onMode);
+  document.getElementById('rdModeM')?.addEventListener('change', onMode);
+
   document.querySelectorAll('[data-rdtab]').forEach(tab=>{
     tab.addEventListener('click', ()=>{
       document.querySelectorAll('[data-rdtab]').forEach(t=>t.classList.remove('on'));

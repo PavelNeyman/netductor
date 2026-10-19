@@ -592,35 +592,61 @@
 </div><!-- main-col -->
 </div><!-- app-body -->
 
-<!-- Operate Result dock (positions: bottom | right | top; resize + history) -->
+<!-- Operate Result dock -->
 <div id="resultDock" class="result-dock pos-bottom hidden" aria-label="Result">
   <div class="rd-resize" id="rdResize" title="Drag to resize"></div>
   <div class="rd-bar">
-    <span class="rd-dot" id="rdDot"></span>
-    <b id="rdTitle" data-i18n="result">Result</b>
-    <span class="rd-act" id="rdActLabel"></span>
-    <div class="rd-tabs">
-      <button type="button" class="rd-tab on" data-rdtab="out" id="rdTabOut" data-i18n="rd_out">Output</button>
-      <button type="button" class="rd-tab" data-rdtab="hist" id="rdTabHist" data-i18n="rd_hist">History</button>
-    </div>
-    <div class="rd-tools" id="rdTools">
-      <div class="rd-pos-group" title="Position">
-        <button type="button" class="rd-ico" data-rdpos="bottom" id="rdPosBottom" title="Bottom">⬇</button>
-        <button type="button" class="rd-ico" data-rdpos="right" id="rdPosRight" title="Right">➡</button>
-        <button type="button" class="rd-ico" data-rdpos="top" id="rdPosTop" title="Top">⬆</button>
+    <div class="rd-bar-left">
+      <span class="rd-dot" id="rdDot"></span>
+      <b id="rdTitle" data-i18n="result">Result</b>
+      <span class="rd-act" id="rdActLabel"></span>
+      <div class="rd-tabs">
+        <button type="button" class="rd-tab on" data-rdtab="out" id="rdTabOut" data-i18n="rd_out">Output</button>
+        <button type="button" class="rd-tab" data-rdtab="hist" id="rdTabHist" data-i18n="rd_hist">History</button>
       </div>
-      <select id="rdMode" class="rd-mode" title="Mode">
-        <option value="overlay" data-i18n-opt="rd_mode_panel">panel</option>
-        <option value="inline" data-i18n-opt="rd_mode_card">card</option>
-        <option value="both" data-i18n-opt="rd_mode_both">both</option>
-      </select>
-      <button type="button" class="rd-ico" id="rdRaw" title="Raw JSON">{ }</button>
-      <button type="button" class="rd-ico" id="rdClear" title="Clear">⌫</button>
-      <button type="button" class="rd-ico" id="rdClose" title="Hide">✕</button>
+    </div>
+    <div class="rd-bar-right">
+      <div class="rd-tools-full" id="rdToolsFull">
+        <select id="rdPos" class="rd-sel" title="Position">
+          <option value="bottom">↓ bottom</option>
+          <option value="right">→ right</option>
+          <option value="top">↑ top</option>
+        </select>
+        <select id="rdMode" class="rd-sel" title="Mode">
+          <option value="overlay">panel</option>
+          <option value="inline">card</option>
+          <option value="both">both</option>
+        </select>
+        <button type="button" class="rd-chip" id="rdRaw" title="Raw JSON">JSON</button>
+        <button type="button" class="rd-chip" id="rdClear" title="Clear">Clear</button>
+        <button type="button" class="rd-chip" id="rdClose" title="Hide">✕</button>
+      </div>
+      <div class="rd-corner" id="rdCorner">
+        <button type="button" class="rd-chip rd-menu-btn" id="rdMenuBtn" title="Menu">⋮</button>
+        <div class="rd-menu hidden" id="rdMenu">
+          <label><span data-i18n="rd_pos">Position</span>
+            <select id="rdPosM" class="rd-sel">
+              <option value="bottom">bottom</option>
+              <option value="right">right</option>
+              <option value="top">top</option>
+            </select>
+          </label>
+          <label><span data-i18n="rd_mode">Mode</span>
+            <select id="rdModeM" class="rd-sel">
+              <option value="overlay">panel</option>
+              <option value="inline">card</option>
+              <option value="both">both</option>
+            </select>
+          </label>
+          <button type="button" class="rd-chip" id="rdRawM">JSON</button>
+          <button type="button" class="rd-chip" id="rdClearM">Clear</button>
+          <button type="button" class="rd-chip" id="rdCloseM">Hide</button>
+        </div>
+      </div>
     </div>
   </div>
   <div class="rd-body" id="rdBodyOut">
-    <div id="controlTables"></div>
+    <div id="controlTables" class="rd-tables"></div>
     <pre class="log hidden" id="controlStatus">—</pre>
   </div>
   <div class="rd-body hidden" id="rdBodyHist">
