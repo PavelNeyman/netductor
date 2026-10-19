@@ -71,6 +71,9 @@
     <div class="topbar-right">
       <button type="button" id="langEn" class="lang-btn active">EN</button>
       <button type="button" id="langRu" class="lang-btn">RU</button>
+      <button type="button" class="icon-btn" id="btnHeaderResult" title="Result panel">
+        <span aria-hidden="true">◧</span>
+      </button>
       <button type="button" class="icon-btn" id="btnHeaderJobs" title="Jobs">
         <span aria-hidden="true">☰</span>
         <span class="job-badge hide" id="jobsRunningCount">0</span>
@@ -508,12 +511,8 @@
     <label data-i18n="l_body">JSON body</label><textarea id="advBody" rows="4" class="adv-body">{ }</textarea>
     <button class="primary" type="button" data-act="adv-send" data-i18n="btn_send">Send</button>
   </div>
-  <div class="card mt-1">
-    <h3 data-i18n="result">Result</h3>
-    <div id="controlTables"></div>
-    <pre class="log hidden" id="controlStatus">—</pre>
-    <button class="primary hidden" type="button" id="btnShowRaw" data-i18n="btn_raw">Raw JSON</button>
-  </div>
+  <!-- Result moved to #resultDock (VS Code–style); placeholder for legacy layout -->
+  <p class="note" id="resultInlineHint" data-i18n="result_hint">Results open in the Result panel (toggle in status bar or top-right). Inline previews appear under the action when mode includes «card».</p>
 </div>
 
 <div id="main-settings" class="hidden">
@@ -593,6 +592,42 @@
 </div><!-- main-col -->
 </div><!-- app-body -->
 
+<!-- Operate Result dock (positions: bottom | right | top; resize + history) -->
+<div id="resultDock" class="result-dock pos-bottom hidden" aria-label="Result">
+  <div class="rd-resize" id="rdResize" title="Drag to resize"></div>
+  <div class="rd-bar">
+    <span class="rd-dot" id="rdDot"></span>
+    <b id="rdTitle" data-i18n="result">Result</b>
+    <span class="rd-act" id="rdActLabel"></span>
+    <div class="rd-tabs">
+      <button type="button" class="rd-tab on" data-rdtab="out" id="rdTabOut">Output</button>
+      <button type="button" class="rd-tab" data-rdtab="hist" id="rdTabHist">History</button>
+    </div>
+    <div class="rd-tools">
+      <select id="rdPos" title="Position">
+        <option value="bottom">bottom</option>
+        <option value="right">right</option>
+        <option value="top">top</option>
+      </select>
+      <select id="rdMode" title="Mode">
+        <option value="overlay">panel</option>
+        <option value="inline">card only</option>
+        <option value="both">panel + card</option>
+      </select>
+      <button type="button" class="rd-btn" id="rdRaw" data-i18n="btn_raw">Raw</button>
+      <button type="button" class="rd-btn" id="rdClear">Clear</button>
+      <button type="button" class="rd-btn" id="rdClose" title="Hide">✕</button>
+    </div>
+  </div>
+  <div class="rd-body" id="rdBodyOut">
+    <div id="controlTables"></div>
+    <pre class="log hidden" id="controlStatus">—</pre>
+  </div>
+  <div class="rd-body hidden" id="rdBodyHist">
+    <div id="rdHistList" class="rd-hist"></div>
+  </div>
+</div>
+
 <footer class="statusbar" id="statusbar" role="status">
   <div class="sb-left">
     <span class="sb-item" title="API"><span class="sb-dot" id="sbApi"></span> API</span>
@@ -609,6 +644,8 @@
   </div>
   <div class="sb-right">
     <button type="button" class="sb-item btn" id="sbTheme" title="Theme">◐ theme</button>
+    <span class="sb-sep"></span>
+    <button type="button" class="sb-item btn" id="sbResult" title="Result panel">result</button>
     <span class="sb-sep"></span>
     <button type="button" class="sb-item btn" id="sbJobsMini" title="Jobs">jobs <b id="sbJobsN">0</b></button>
     <span class="sb-sep"></span>

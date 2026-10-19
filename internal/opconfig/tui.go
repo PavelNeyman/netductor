@@ -21,6 +21,11 @@ type Settings struct {
 	SecondaryHost  string `json:"secondary_host"`
 	LastEdgeID     string `json:"last_edge_id"`
 	Mode           string `json:"mode"`
+	// Web Operate Result panel (VS Code–style dock). Persisted with connection profile.
+	ResultVisible  string `json:"result_visible"`  // "1" | "0" | ""
+	ResultPosition string `json:"result_position"` // bottom | right | top
+	ResultMode     string `json:"result_mode"`     // overlay | inline | both
+	ResultSize     string `json:"result_size"`     // px for active dock edge
 }
 
 // TUI is an alias kept for existing call sites.
@@ -84,6 +89,7 @@ func Save(s Settings) error {
 #
 # lang: auto | ru | en
 # mode: vps | workstation | openwrt | operator
+# result_*: Web Operate Result dock (visible 0|1, position bottom|right|top, mode overlay|inline|both, size px)
 remote_host: %q
 remote_user: %q
 remote_key: %q
@@ -92,7 +98,12 @@ secondary_host: %q
 last_edge_id: %q
 lang: %q
 mode: %q
-`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.SecondaryHost, s.LastEdgeID, s.Lang, s.Mode)
+result_visible: %q
+result_position: %q
+result_mode: %q
+result_size: %q
+`, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.SecondaryHost, s.LastEdgeID, s.Lang, s.Mode,
+		s.ResultVisible, s.ResultPosition, s.ResultMode, s.ResultSize)
 	return os.WriteFile(path, []byte(body), 0o600)
 }
 
@@ -123,6 +134,18 @@ func Merge(base, patch Settings, clearPassword bool) Settings {
 	}
 	if patch.Mode != "" {
 		out.Mode = patch.Mode
+	}
+	if patch.ResultVisible != "" {
+		out.ResultVisible = patch.ResultVisible
+	}
+	if patch.ResultPosition != "" {
+		out.ResultPosition = patch.ResultPosition
+	}
+	if patch.ResultMode != "" {
+		out.ResultMode = patch.ResultMode
+	}
+	if patch.ResultSize != "" {
+		out.ResultSize = patch.ResultSize
 	}
 	return out
 }
@@ -156,6 +179,14 @@ func parseYAML(text string, s *Settings) {
 			s.Lang = v
 		case "mode":
 			s.Mode = v
+		case "result_visible":
+			s.ResultVisible = v
+		case "result_position":
+			s.ResultPosition = v
+		case "result_mode":
+			s.ResultMode = v
+		case "result_size":
+			s.ResultSize = v
 		}
 	}
 }

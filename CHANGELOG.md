@@ -1,3 +1,10 @@
+## 0.9.422
+
+- Operate Result dock (VS Code–style): positions bottom/right/top, show/hide, drag-resize
+- Modes: panel only / card inline only / both; History tab (local, last 40)
+- Toggle: topbar icon + statusbar «result»; prefs in localStorage + operator.conf (`result_*`)
+- Action busy/ok/err feedback on op-link clicks
+
 ## 0.9.421
 
 - Web calm UI: no electric-blue primary fills; slate accent `#5a7a9a`

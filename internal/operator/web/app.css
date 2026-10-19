@@ -229,3 +229,64 @@ body.light pre.log{background:#f8f9fb}
 .site-foot .sk{font-size:.62rem;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
 .site-foot .sv{font-size:.85rem;font-weight:600;margin-top:.1rem}
 .site-foot .sv.ok{color:var(--ok)}
+
+/* ===== Result dock (Operate) ===== */
+.result-dock{
+  position:fixed; z-index:40; background:#0c0f16; border:1px solid var(--border);
+  display:flex; flex-direction:column; box-shadow:0 0 32px rgba(0,0,0,.45);
+}
+.result-dock.hidden{display:none!important}
+.result-dock.pos-bottom{left:var(--side-w); right:0; bottom:28px; height:var(--rd-size, 220px); border-left:none; border-right:none; border-bottom:none}
+body.collapsed .result-dock.pos-bottom{left:var(--side-w-c)}
+.result-dock.pos-top{left:var(--side-w); right:0; top:48px; height:var(--rd-size, 220px); border-left:none; border-right:none; border-top:none}
+body.collapsed .result-dock.pos-top{left:var(--side-w-c)}
+.result-dock.pos-right{top:48px; right:0; bottom:28px; width:var(--rd-size, 360px); border-right:none; border-top:none; border-bottom:none}
+.rd-resize{position:absolute; z-index:2; background:transparent}
+.pos-bottom .rd-resize{top:0; left:0; right:0; height:5px; cursor:ns-resize}
+.pos-top .rd-resize{bottom:0; left:0; right:0; height:5px; cursor:ns-resize}
+.pos-right .rd-resize{left:0; top:0; bottom:0; width:5px; cursor:ew-resize}
+.rd-resize:hover{background:rgba(90,122,154,.25)}
+.rd-bar{
+  height:34px; flex-shrink:0; display:flex; align-items:center; gap:.4rem;
+  padding:0 .55rem; border-bottom:1px solid var(--border); font-size:.78rem;
+}
+.rd-dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex-shrink:0}
+.rd-dot.run{background:var(--warn);animation:rdpulse 1s infinite}
+.rd-dot.ok{background:var(--ok)}
+.rd-dot.err{background:var(--err)}
+@keyframes rdpulse{50%{opacity:.35}}
+.rd-act{color:var(--muted);font-weight:400;max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rd-tabs{display:flex;gap:.2rem;margin-left:.35rem}
+.rd-tab{
+  border:1px solid transparent;background:transparent;color:var(--muted);
+  padding:.15rem .45rem;border-radius:5px;font:inherit;font-size:.72rem;cursor:pointer
+}
+.rd-tab.on{border-color:var(--border);color:var(--text);background:rgba(255,255,255,.04)}
+.rd-tools{margin-left:auto;display:flex;align-items:center;gap:.25rem}
+.rd-tools select{
+  background:var(--panel);border:1px solid var(--border);color:var(--text);
+  border-radius:5px;font-size:.7rem;padding:.15rem .25rem;max-width:7rem
+}
+.rd-btn{
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  border-radius:5px;padding:.15rem .4rem;font:inherit;font-size:.7rem;cursor:pointer
+}
+.rd-btn:hover{color:var(--text)}
+.rd-body{flex:1;overflow:auto;padding:.55rem .7rem;min-height:0}
+.rd-hist{display:flex;flex-direction:column;gap:.25rem}
+.rd-hist button{
+  text-align:left;border:1px solid var(--border);background:var(--panel);color:var(--text);
+  border-radius:7px;padding:.4rem .55rem;font:inherit;font-size:.78rem;cursor:pointer
+}
+.rd-hist button:hover{border-color:#3a4558}
+.rd-hist .t{font-weight:500}
+.rd-hist .m{font-size:.68rem;color:var(--muted)}
+.inline-res{
+  margin:.35rem 0 .45rem;padding:.4rem .5rem;border-radius:8px;border:1px solid var(--border);
+  background:#0c0f16;font-size:.72rem;color:var(--muted);max-height:8rem;overflow:auto
+}
+.inline-res .h{display:flex;justify-content:space-between;margin-bottom:.25rem;color:var(--text);font-size:.75rem}
+button.op-link.busy{color:#a8c0d8;background:rgba(90,122,154,.12)}
+button.op-link.ok-flash{color:var(--ok)}
+button.op-link.err-flash{color:var(--err)}
+#btnHeaderResult.on{color:var(--text);background:rgba(255,255,255,.06);border-color:var(--border)}

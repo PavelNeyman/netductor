@@ -768,7 +768,7 @@ function renderTables(payload){
   const box=document.getElementById('controlTables');
   const raw=document.getElementById('controlStatus');
   const btn=document.getElementById('btnShowRaw');
-  lastRaw=payload; box.innerHTML=''; raw.style.display='none'; btn.style.display='inline-block';
+  lastRaw=payload; if(box) box.innerHTML=''; if(raw){ raw.classList.add('hidden'); raw.style.display='none'; } if(btn) btn.style.display='inline-block';
   const data = payload && payload.data !== undefined ? payload.data : payload;
   const tables=[];
   function walk(obj, path){
@@ -787,7 +787,7 @@ function renderTables(payload){
     }
   }
   walk(data,'');
-  if(!tables.length){ raw.style.display='block'; raw.textContent=typeof payload==='string'?payload:JSON.stringify(payload,null,2); btn.style.display='none'; return; }
+  if(!tables.length){ if(raw){ raw.classList.remove('hidden'); raw.style.display='block'; raw.textContent=typeof payload==='string'?payload:JSON.stringify(payload,null,2);} if(btn) btn.style.display='none'; return; }
   for(const t of tables){
     const keys=[]; t.rows.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!keys.includes(k)) keys.push(k); }));
     const cols=keys.slice(0,12);
@@ -813,7 +813,7 @@ function renderTables(payload){
         return '<td style="border-bottom:1px solid var(--border);padding:.35rem;vertical-align:top">'+esc(v)+'</td>';
       }).join('')+'</tr>';
     });
-    h+='</tbody></table></div></div>'; box.innerHTML+=h;
+    h+='</tbody></table></div></div>'; if(box) box.innerHTML+=h;
   }
 }
 
@@ -832,17 +832,263 @@ function formatDoctorWeb(x){
 }
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
 
-function showControl(x){
+/* ===== Result dock (VS Code–style) ===== */
+const RD_HIST_KEY='nd_op_result_hist';
+const RD_LS_KEY='nd_op_result_ui';
+let rdState={visible:true, position:'bottom', mode:'both', size:220};
+let rdLastAct='';
+let rdLastBtn=null;
+
+function rdLoadLocal(){
+  try{
+    const o=JSON.parse(localStorage.getItem(RD_LS_KEY)||'{}');
+    if(o.position) rdState.position=o.position;
+    if(o.mode) rdState.mode=o.mode;
+    if(o.size) rdState.size=+o.size||220;
+    if(typeof o.visible==='boolean') rdState.visible=o.visible;
+  }catch(e){}
+}
+function rdSaveLocal(){
+  try{ localStorage.setItem(RD_LS_KEY, JSON.stringify(rdState)); }catch(e){}
+}
+async function rdPersistDisk(){
+  rdSaveLocal();
+  try{
+    await fetch('/v1/config',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Netductor-Token':ND_TOKEN},
+      body:JSON.stringify({
+        result_visible: rdState.visible?'1':'0',
+        result_position: rdState.position,
+        result_mode: rdState.mode,
+        result_size: String(rdState.size||220),
+      })
+    });
+  }catch(e){}
+}
+function rdHistLoad(){
+  try{ return JSON.parse(localStorage.getItem(RD_HIST_KEY)||'[]'); }catch(e){ return []; }
+}
+function rdHistPush(act, payload){
+  const list=rdHistLoad();
+  const entry={ts:Date.now(), act:act||'—', summary: rdSummary(payload), raw: payload};
+  list.unshift(entry);
+  while(list.length>40) list.pop();
+  try{ localStorage.setItem(RD_HIST_KEY, JSON.stringify(list)); }catch(e){}
+  rdRenderHist();
+}
+function rdSummary(x){
+  if(x==null) return '—';
+  if(typeof x==='string') return x.slice(0,80);
+  if(x.error) return 'error: '+String(x.error).slice(0,60);
+  if(x.loading) return '… '+x.loading;
+  if(x.checks&&x.summary) return 'doctor ok='+(x.summary.ok||0)+' fail='+(x.summary.fail||0);
+  if(x.ok===true) return 'ok';
+  try{ return JSON.stringify(x).slice(0,80); }catch(e){ return 'result'; }
+}
+function rdRenderHist(){
+  const box=document.getElementById('rdHistList'); if(!box) return;
+  const list=rdHistLoad();
+  if(!list.length){ box.innerHTML='<span class="note">—</span>'; return; }
+  box.innerHTML=list.map((e,i)=>{
+    const when=new Date(e.ts).toLocaleTimeString();
+    return '<button type="button" data-hist="'+i+'"><div class="t">'+esc(e.act)+'</div><div class="m">'+esc(when)+' · '+esc(e.summary)+'</div></button>';
+  }).join('');
+  box.querySelectorAll('[data-hist]').forEach(b=>{
+    b.onclick=()=>{
+      const e=rdHistLoad()[+b.dataset.hist];
+      if(!e) return;
+      rdLastAct=e.act;
+      showControl(e.raw, {fromHist:true, act:e.act});
+      document.getElementById('rdTabOut')?.click();
+    };
+  });
+}
+function rdApplyChrome(){
+  const dock=document.getElementById('resultDock'); if(!dock) return;
+  dock.classList.remove('pos-bottom','pos-right','pos-top','hidden');
+  if(!rdState.visible || rdState.mode==='inline'){
+    if(rdState.mode==='inline') dock.classList.add('hidden');
+    else if(!rdState.visible) dock.classList.add('hidden');
+  }
+  if(rdState.mode!=='inline' && rdState.visible){
+    dock.classList.add('pos-'+(rdState.position||'bottom'));
+  } else if(rdState.mode!=='inline' && !rdState.visible){
+    dock.classList.add('hidden');
+  }
+  const size=Math.max(120, Math.min(rdState.position==='right'?640:480, +rdState.size||220));
+  dock.style.setProperty('--rd-size', size+'px');
+  const pos=document.getElementById('rdPos'); if(pos) pos.value=rdState.position||'bottom';
+  const mode=document.getElementById('rdMode'); if(mode) mode.value=rdState.mode||'both';
+  const hdr=document.getElementById('btnHeaderResult');
+  if(hdr) hdr.classList.toggle('on', rdState.visible && rdState.mode!=='inline');
+  const sb=document.getElementById('sbResult');
+  if(sb) sb.classList.toggle('on', rdState.visible && rdState.mode!=='inline');
+}
+function rdShow(force){
+  if(rdState.mode==='inline' && !force) return;
+  rdState.visible=true;
+  rdApplyChrome();
+  rdPersistDisk();
+}
+function rdHide(){
+  rdState.visible=false;
+  rdApplyChrome();
+  rdPersistDisk();
+}
+function rdToggle(){
+  if(rdState.mode==='inline'){
+    rdState.mode='both';
+    rdState.visible=true;
+  } else {
+    rdState.visible=!rdState.visible;
+  }
+  rdApplyChrome();
+  rdPersistDisk();
+}
+function rdSetBusy(btn, act, on){
+  document.querySelectorAll('button.op-link.busy,button.primary.busy').forEach(b=>b.classList.remove('busy'));
+  if(btn && on){ btn.classList.add('busy'); rdLastBtn=btn; }
+  const dot=document.getElementById('rdDot');
+  if(dot){ dot.className='rd-dot'+(on?' run':''); }
+  const lab=document.getElementById('rdActLabel');
+  if(lab) lab.textContent=act?('· '+act):'';
+}
+function rdFlash(btn, ok){
+  if(!btn) return;
+  btn.classList.remove('busy');
+  btn.classList.add(ok?'ok-flash':'err-flash');
+  setTimeout(()=>btn.classList.remove('ok-flash','err-flash'), 1600);
+}
+function rdInlinePreview(btn, text){
+  if(rdState.mode!=='inline' && rdState.mode!=='both') return;
+  if(!btn) return;
+  const card=btn.closest('.op-card')||btn.parentElement;
+  if(!card) return;
+  let box=card.querySelector('.inline-res');
+  if(!box){
+    box=document.createElement('div');
+    box.className='inline-res';
+    btn.insertAdjacentElement('afterend', box);
+  }
+  box.innerHTML='<div class="h"><span>'+esc(rdLastAct||'…')+'</span><a href="#" class="rd-open-full" style="color:#a8c0d8;text-decoration:none">'+(uiLang==='ru'?'открыть':'open')+' →</a></div><pre style="margin:0;font-size:.72rem;white-space:pre-wrap">'+esc(text).slice(0,400)+'</pre>';
+  box.querySelector('.rd-open-full')?.addEventListener('click',(ev)=>{
+    ev.preventDefault();
+    if(rdState.mode==='inline'){ rdState.mode='both'; }
+    rdShow(true);
+  });
+}
+function showControl(x, opts){
+  opts=opts||{};
+  const act=opts.act||rdLastAct||'';
   const box=document.getElementById('controlTables');
+  const raw=document.getElementById('controlStatus');
+  if(x && x.loading){
+    rdSetBusy(rdLastBtn, x.loading, true);
+    if(rdState.mode!=='inline') rdShow();
+    if(box) box.innerHTML='<span class="note">… '+esc(x.loading)+'</span>';
+    const dot=document.getElementById('rdDot'); if(dot) dot.className='rd-dot run';
+    return;
+  }
+  const isErr=!!(x && (x.error || x.ok===false));
+  rdSetBusy(rdLastBtn, act, false);
+  rdFlash(rdLastBtn, !isErr);
+  const dot=document.getElementById('rdDot'); if(dot) dot.className='rd-dot '+(isErr?'err':'ok');
+  if(rdState.mode!=='inline') rdShow();
   if(box && x && x.checks){ box.innerHTML=formatDoctorWeb(x)||''; }
+  else if(box){ /* renderTables fills */ }
   renderTables(x);
+  lastRaw=x;
+  if(!opts.fromHist) rdHistPush(act, x);
+  let preview='';
+  try{ preview=typeof x==='string'?x:JSON.stringify(x,null,2); }catch(e){ preview=String(x); }
+  rdInlinePreview(rdLastBtn, preview);
+  const lab=document.getElementById('rdActLabel'); if(lab) lab.textContent=act?('· '+act):'';
 }
 
-document.getElementById('btnShowRaw').onclick=()=>{
+function initResultDock(){
+  rdLoadLocal();
+  // merge from disk config when available
+  (async()=>{
+    try{
+      const res=await fetch('/v1/config',{headers:{'X-Netductor-Token':ND_TOKEN}});
+      const j=await res.json();
+      if(j.result_position) rdState.position=j.result_position;
+      if(j.result_mode) rdState.mode=j.result_mode;
+      if(j.result_size) rdState.size=+j.result_size||rdState.size;
+      if(j.result_visible==='0') rdState.visible=false;
+      if(j.result_visible==='1') rdState.visible=true;
+      rdApplyChrome();
+    }catch(e){ rdApplyChrome(); }
+  })();
+  rdApplyChrome();
+  rdRenderHist();
+  document.getElementById('btnHeaderResult')?.addEventListener('click', rdToggle);
+  document.getElementById('sbResult')?.addEventListener('click', rdToggle);
+  document.getElementById('rdClose')?.addEventListener('click', rdHide);
+  document.getElementById('rdClear')?.addEventListener('click', ()=>{
+    const box=document.getElementById('controlTables'); if(box) box.innerHTML='';
+    const raw=document.getElementById('controlStatus'); if(raw){ raw.textContent='—'; raw.classList.add('hidden'); }
+    lastRaw=null;
+  });
+  document.getElementById('rdRaw')?.addEventListener('click', ()=>{
+    const raw=document.getElementById('controlStatus');
+    if(!raw) return;
+    raw.classList.toggle('hidden');
+    raw.textContent=typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
+  });
+  document.getElementById('rdPos')?.addEventListener('change', (e)=>{
+    rdState.position=e.target.value;
+    rdApplyChrome(); rdPersistDisk();
+  });
+  document.getElementById('rdMode')?.addEventListener('change', (e)=>{
+    rdState.mode=e.target.value;
+    if(rdState.mode!=='inline') rdState.visible=true;
+    rdApplyChrome(); rdPersistDisk();
+  });
+  document.querySelectorAll('[data-rdtab]').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('[data-rdtab]').forEach(t=>t.classList.remove('on'));
+      tab.classList.add('on');
+      const out=document.getElementById('rdBodyOut');
+      const hist=document.getElementById('rdBodyHist');
+      if(tab.dataset.rdtab==='hist'){ out?.classList.add('hidden'); hist?.classList.remove('hidden'); rdRenderHist(); }
+      else { hist?.classList.add('hidden'); out?.classList.remove('hidden'); }
+    });
+  });
+  // drag resize
+  const handle=document.getElementById('rdResize');
+  const dock=document.getElementById('resultDock');
+  if(handle && dock){
+    let dragging=false, start=0, startSize=0;
+    handle.addEventListener('mousedown', (ev)=>{
+      dragging=true; startSize=rdState.size||220;
+      start = rdState.position==='right' ? ev.clientX : ev.clientY;
+      ev.preventDefault();
+    });
+    window.addEventListener('mousemove', (ev)=>{
+      if(!dragging) return;
+      let next=startSize;
+      if(rdState.position==='bottom') next=startSize-(ev.clientY-start);
+      else if(rdState.position==='top') next=startSize+(ev.clientY-start);
+      else next=startSize-(ev.clientX-start);
+      rdState.size=Math.max(120, Math.min(rdState.position==='right'?640:520, next));
+      dock.style.setProperty('--rd-size', rdState.size+'px');
+    });
+    window.addEventListener('mouseup', ()=>{
+      if(!dragging) return;
+      dragging=false; rdPersistDisk();
+    });
+  }
+}
+
+// legacy raw button may be gone — guarded
+document.getElementById('btnShowRaw')?.addEventListener('click', ()=>{
   const raw=document.getElementById('controlStatus');
-  raw.style.display=raw.style.display==='none'?'block':'none';
+  if(!raw) return;
+  raw.classList.toggle('hidden');
   raw.textContent=typeof lastRaw==='string'?lastRaw:JSON.stringify(lastRaw,null,2);
-};
+});
 
 // --- Control button definitions (max operator-session API) ---
 const BTN = {
@@ -1681,8 +1927,9 @@ for(const list of Object.values(BTN)){
 document.getElementById('main-control').addEventListener('click', async (ev)=>{
   const btn=ev.target.closest('[data-act]'); if(!btn) return;
   const act=btn.dataset.act; if(!special[act]) return;
-  showControl({loading:act});
-  try{ showControl(await special[act]()); }catch(e){ showControl({error:String(e)}); }
+  rdLastAct=act; rdLastBtn=btn;
+  showControl({loading:act}, {act});
+  try{ showControl(await special[act](), {act}); }catch(e){ showControl({error:String(e)}, {act}); }
 });
 
 document.body.addEventListener('click', async (ev)=>{
@@ -2596,5 +2843,9 @@ function initShell(){
 }
 function highlightSkinNav(){ try{ syncSideNav(); }catch(e){} }
 
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initShell);
-else initShell();
+function bootOp(){
+  try{ initShell(); }catch(e){ console.warn(e); }
+  try{ initResultDock(); }catch(e){ console.warn('result dock', e); }
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bootOp);
+else bootOp();

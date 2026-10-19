@@ -1,4 +1,4 @@
-> **Stop: v0.9.421.** Thin-UI jobs core + Phase 3 audit. Remaining: lab e2e (OpenWrt/NVR/MikroTik) and future (OIDC/guest session).
+> **Stop: v0.9.422.** Thin-UI jobs core + Phase 3 audit. Remaining: lab e2e (OpenWrt/NVR/MikroTik) and future (OIDC/guest session).
 
 - [x] Optional **build-host** VPS (SSH executor, 0.9.361); agent-pull later
 - [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283); channel face vs uplink alerts (0.9.284); see [CI-WORKFLOWS.md](CI-WORKFLOWS.md)

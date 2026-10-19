@@ -139,14 +139,18 @@ mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
 			s := opconfig.Load()
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"path":           opconfig.Path(),
-				"remote_host":    s.RemoteHost,
-				"remote_user":    s.RemoteUser,
-				"remote_key":     s.RemoteKey,
-				"secondary_host": s.SecondaryHost,
-				"last_edge_id":   s.LastEdgeID,
-				"lang":           s.Lang,
-				"mode":           s.Mode,
+				"path":             opconfig.Path(),
+				"remote_host":      s.RemoteHost,
+				"remote_user":      s.RemoteUser,
+				"remote_key":       s.RemoteKey,
+				"secondary_host":   s.SecondaryHost,
+				"last_edge_id":     s.LastEdgeID,
+				"lang":             s.Lang,
+				"mode":             s.Mode,
+				"result_visible":   s.ResultVisible,
+				"result_position":  s.ResultPosition,
+				"result_mode":      s.ResultMode,
+				"result_size":      s.ResultSize,
 			})
 		case http.MethodPut, http.MethodPost:
 			if !requireToken(r, token) {
@@ -162,6 +166,10 @@ mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
 				LastEdgeID     string `json:"last_edge_id"`
 				Lang           string `json:"lang"`
 				Mode           string `json:"mode"`
+				ResultVisible  string `json:"result_visible"`
+				ResultPosition string `json:"result_position"`
+				ResultMode     string `json:"result_mode"`
+				ResultSize     string `json:"result_size"`
 				ClearPassword  bool   `json:"clear_password"`
 				PrimaryHost    string `json:"primary_host"`
 				Key            string `json:"key"`
@@ -187,6 +195,10 @@ mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
 				LastEdgeID:     body.LastEdgeID,
 				Lang:           body.Lang,
 				Mode:           body.Mode,
+				ResultVisible:  body.ResultVisible,
+				ResultPosition: body.ResultPosition,
+				ResultMode:     body.ResultMode,
+				ResultSize:     body.ResultSize,
 			}
 			merged := opconfig.Merge(opconfig.Load(), patch, body.ClearPassword)
 			if err := opconfig.Save(merged); err != nil {
