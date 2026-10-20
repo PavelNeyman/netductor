@@ -1,4 +1,4 @@
-> **Stop: v0.9.422.** Thin-UI jobs core + Phase 3 audit. Remaining: lab e2e (OpenWrt/NVR/MikroTik) and future (OIDC/guest session).
+> **Stop: v0.9.427.** Thin-UI jobs core + Phase 3 audit + Operate Result dock. Remaining: review follow-ups F1–F10 (below), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
 
 - [x] Optional **build-host** VPS (SSH executor, 0.9.361); agent-pull later
 - [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283); channel face vs uplink alerts (0.9.284); see [CI-WORKFLOWS.md](CI-WORKFLOWS.md)
@@ -11,7 +11,26 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Stop line
 
-**v0.9.414** (2026-10-17) — thin-UI jobs core done; Phase 3 audit; jobs metrics. Prior 0.9.404 cleanup.
+**v0.9.427** (code tip 2026-10-19; docs synced 2026-10-20) — Operate Result dock (0.9.422–0.9.426), offline-prep token fallback (0.9.427). Latest published release: v0.9.426. Prior: 0.9.414 thin-UI jobs core; 0.9.404 cleanup.
+
+### Review 2026-10-20 follow-ups (static full-complex; tests not run)
+
+Report: [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) · plan: [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md). Items marked **owner** wait for approval because they change code.
+
+- [ ] **Run `go test ./internal/... ./cmd/... -count=1`** before the next release tag (skipped in this review by owner request)
+- [ ] **F1 (S-1, Medium, owner)** revoke VPN sub-token on user delete (`RevokeNative`) + reject disabled users in `SubscriptionBody` + test
+- [ ] **F2 (Q-1, Medium, owner)** add Web i18n keys `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` (EN+RU)
+- [ ] **F3 (Q-2, owner)** self-assignment in `internal/git/projects.go:108`
+- [ ] **F4 (Q-3, owner)** gofmt commit (129 files) + `gofmt -l` in suite
+- [ ] **F5 (owner)** remove verified dead code DC-A (~45 funcs, ~25 consts/vars); decide DC-B per item
+- [ ] **F6 (S-2, Medium, owner)** recovery TLS: fail closed on invalid pin, explicit first-contact flag
+- [ ] **F7 (S-5/R-4, owner)** `httpx.NewServer` with timeouts for all listeners
+- [ ] **F8 (S-6/S-7/R-3, owner)** no shell composition for `ufw delete` / `wg pubkey`; replace `curl | sh` Docker install
+- [ ] **F9 (S-8, owner)** propagate `saveDevices` errors in `internal/edge`
+- [ ] **F10 (R-1…R-8, owner)** refactors: split god functions (`registerEdgeAPI` 937 lines, TG `handleCallback` 779, …), shared helpers
+- [ ] **D-1 (Medium, owner)** RU twins for 19 EN-only docs: CI-WORKFLOWS, CLEANUP, DAY2-GROUPS, DISASTER-RECOVERY, GH-PRIVATE-SETUP, OPENWRT-LAB, PLAN-CI-NEXT, PLAN-EDGE-DEPLOY-HYBRID, PLAN-GIT-CI-OPS, PLAN-INTERNAL-RELEASES, PLAN-NVR-IMPLEMENTATION, PLAN-NVR-UI, PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, RECOVER-BOT, RELEASE, REVIEW-PROGRESS, TG-ALERTS-CHANNEL, YOUTUBE-ADS
+- [ ] **§8 live fleet smoke** (`netductor doctor`, `host-audit`, `channel status`, secondary agent version) — needs operator access
+- [x] Static review run, report and plan published (EN+RU); handoff / OPEN_ITEMS / AGENTS stop lines aligned to 0.9.427
 
 - [x] Product improvements plan (no hardware e2e) — [PLAN-PRODUCT-IMPROVEMENTS.md](PLAN-PRODUCT-IMPROVEMENTS.md) **closed** (2026-10-12); TG menu structure pass included
 

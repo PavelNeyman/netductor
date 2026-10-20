@@ -1,4 +1,4 @@
-> **Стоп: v0.9.422.** Thin-UI jobs core + аудит Phase 3. Остаётся lab e2e (OpenWrt/NVR/MikroTik) и future (OIDC/guest session).
+> **Стоп: v0.9.427.** Thin-UI jobs core + аудит Phase 3 + Operate Result dock. Остаётся: доработки по ревью F1–F10 (ниже), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
 
 **RU** · [EN](../OPEN_ITEMS.md)
 
@@ -8,7 +8,26 @@
 
 ## Стоп-линия
 
-**v0.9.414** (2026-10-17) — thin-UI jobs core; аудит Phase 3; метрики jobs. Ранее 0.9.404.
+**v0.9.427** (tip кода 2026-10-19; доки синхронизированы 2026-10-20) — Operate Result dock (0.9.422–0.9.426), fallback токена в offline-prep (0.9.427). Последний опубликованный релиз: v0.9.426. Ранее: 0.9.414 thin-UI jobs core; 0.9.404 чистка.
+
+### Доработки по ревью 2026-10-20 (статический полный комплекс; тесты не запускались)
+
+Отчёт: [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) · план: [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md). Пункты с пометкой **owner** ждут согласия, потому что меняют код.
+
+- [ ] **Выполнить `go test ./internal/... ./cmd/... -count=1`** перед следующим тегом релиза (в этом ревью пропущено по просьбе владельца)
+- [ ] **F1 (S-1, Medium, owner)** отзывать VPN sub-токен при удалении пользователя (`RevokeNative`) + отклонять отключённых в `SubscriptionBody` + тест
+- [ ] **F2 (Q-1, Medium, owner)** добавить Web i18n-ключи `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` (EN+RU)
+- [ ] **F3 (Q-2, owner)** самоприсваивание в `internal/git/projects.go:108`
+- [ ] **F4 (Q-3, owner)** коммит gofmt (129 файлов) + `gofmt -l` в комплексе
+- [ ] **F5 (owner)** удалить проверенный мёртвый код DC-A (~45 функций, ~25 констант/переменных); по DC-B решать по каждому пункту
+- [ ] **F6 (S-2, Medium, owner)** recovery TLS: fail closed при невалидном пине, явный флаг первого контакта
+- [ ] **F7 (S-5/R-4, owner)** `httpx.NewServer` с таймаутами для всех слушателей
+- [ ] **F8 (S-6/S-7/R-3, owner)** без shell-сборки для `ufw delete` / `wg pubkey`; заменить установку Docker через `curl | sh`
+- [ ] **F9 (S-8, owner)** пробрасывать ошибки `saveDevices` в `internal/edge`
+- [ ] **F10 (R-1…R-8, owner)** рефакторинги: разбить функции-монстры (`registerEdgeAPI` 937 строк, TG `handleCallback` 779, …), общие helper-ы
+- [ ] **D-1 (Medium, owner)** RU-пары для 19 документов, которые есть только на EN: CI-WORKFLOWS, CLEANUP, DAY2-GROUPS, DISASTER-RECOVERY, GH-PRIVATE-SETUP, OPENWRT-LAB, PLAN-CI-NEXT, PLAN-EDGE-DEPLOY-HYBRID, PLAN-GIT-CI-OPS, PLAN-INTERNAL-RELEASES, PLAN-NVR-IMPLEMENTATION, PLAN-NVR-UI, PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, RECOVER-BOT, RELEASE, REVIEW-PROGRESS, TG-ALERTS-CHANNEL, YOUTUBE-ADS
+- [ ] **§8 live smoke флота** (`netductor doctor`, `host-audit`, `channel status`, версия агента на secondary) — нужен доступ оператора
+- [x] Статический прогон ревью, отчёт и план опубликованы (EN+RU); стоп-линии handoff / OPEN_ITEMS / AGENTS приведены к 0.9.427
 
 - [x] План улучшений продукта (без железа e2e) — [PLAN-PRODUCT-IMPROVEMENTS.md](PLAN-PRODUCT-IMPROVEMENTS.md) **закрыт** (2026-10-12); включает проход по структуре TG-меню
 
@@ -52,21 +71,21 @@
 - [x] Recover automation + live drill
 - [x] Доки EN/RU
 - [x] Updates (node/TG/Web/TUI) + secondary pre-backup wait
-- [x] TG menu categories (0.9.288–289) — [PLAN-TG-MENU.md](PLAN-TG-MENU.md)
+- [x] TG menu categories (0.9.288–289) — [PLAN-TG-MENU.md](../PLAN-TG-MENU.md)
 - [x] Site rooms (0.9.305) — [PLAN-SITE-ROOMS.md](PLAN-SITE-ROOMS.md)
 - [x] NVR UI + doctor + retention alerts (код; e2e железо отдельно)
 - [x] Channel health + export логов 1h + ротация (0.9.275–0.9.276)
 - [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283)
 - [x] Channel face vs uplink alerts (0.9.284)
-- [x] Private GH runbook — [GH-PRIVATE-SETUP.md](GH-PRIVATE-SETUP.md)
+- [x] Private GH runbook — [GH-PRIVATE-SETUP.md](../GH-PRIVATE-SETUP.md)
 - [x] Workflow resolve только `.github/workflows/<Name>.yml` (0.9.307–0.9.308); `ci/` убран
 - [x] Mac queue + TG/CLI (0.9.307); op `project build` (0.9.309)
 - [x] REVIEW-SUITE EN/RU + unit-test debt P0/P1 (0.9.329–0.9.331)
 
 ## У владельца / лаб
 
-- [ ] Edge stock-OpenWrt **lab e2e** (код hybrid готов) — [OPENWRT-LAB.md](OPENWRT-LAB.md)
-- [ ] NVR hardware e2e (C200 record/live/clip) — [PLAN-NVR-IMPLEMENTATION.md](PLAN-NVR-IMPLEMENTATION.md)
+- [ ] Edge stock-OpenWrt **lab e2e** (код hybrid готов) — [OPENWRT-LAB.md](../OPENWRT-LAB.md)
+- [ ] NVR hardware e2e (C200 record/live/clip) — [PLAN-NVR-IMPLEMENTATION.md](../PLAN-NVR-IMPLEMENTATION.md)
 - [ ] Hardware e2e (OpenWrt / Tapo / MikroTik)
 - [x] Homebrew Formula SHA (`release.sh` + `update-formula-sha.sh`) (0.9.310)
 - [x] Internal releases «later»: auto-build on mirror-fetch, metrics local_release_* (0.9.310)
@@ -76,7 +95,7 @@
 - [x] Alert batch adaptive (0.9.274)
 - [x] 10 реп: default `main`, Actions off, entry yaml по имени репы
 
-Ревью: [REVIEW-PROGRESS.md](REVIEW-PROGRESS.md) · комплекс: [REVIEW-SUITE.md](REVIEW-SUITE.md).
+Ревью: [REVIEW-PROGRESS.md](../REVIEW-PROGRESS.md) · комплекс: [REVIEW-SUITE.md](REVIEW-SUITE.md).
 
 
 - [ ] Read-only guest operator session — будущее

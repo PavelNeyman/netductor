@@ -1,3 +1,9 @@
+## Unreleased (docs only, no version bump)
+
+- Docs: full-complex static review report + plan (EN+RU): `docs/REVIEW-REPORT-2026-10-19.md`, `docs/REVIEW-PLAN-2026-10-19.md`
+- Docs: AGENT_HANDOFF (EN+RU) restructured — current stop line v0.9.427 on top, history archived; OPEN_ITEMS follow-ups F1–F10; AGENTS.md baseline/Project State aligned to 0.9.427
+- Code unchanged; automated tests were not run for this review
+
 ## 0.9.427
 
 - Offline-prep: if SSH to primary :52222 fails, reuse cached edge_bootstrap_token instead of hard-fail

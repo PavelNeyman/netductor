@@ -7,7 +7,7 @@
 **Single source of truth for project rules and architecture.**  
 **Conversation history must never replace this document.**
 
-**Release baseline: v0.9.261** (guest visible default; WAN DNS hints; op Web sole UI) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
+**Release baseline: v0.9.427** (Operate Result dock; offline-prep token fallback; op Web sole UI) · Handoff: [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)
 
 Progress: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
@@ -144,9 +144,9 @@ Target layout: `cmd/netductor`, `cmd/netductor-agent`, `internal/`.
 | Area | Status |
 |------|--------|
 | Repo | **PavelNeyman/netductor** |
-| Version | **0.8.30** |
+| Version | **0.9.427** (tip; latest published release v0.9.426) |
 | G0–G1 | done |
-| G2 | release `v0.8.30` published |
+| G2 | releases published through `v0.9.426` |
 | G3 | `netductor serve` health scaffold; port Python API |
 | Next | OpenWrt/MikroTik e2e; optional HTTPS |
 

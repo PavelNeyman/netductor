@@ -458,3 +458,9 @@ Findings fixed in **0.9.316**:
 - S8 verify timer primary-oriented
 - C1 formula bump with release
 - C5 smoke uses os.Executable
+
+---
+
+## 2026-10-20 full-complex run (static)
+
+See [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) (findings S-/Q-/D-/R-/DC-) and [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md). New R-items there use the prefix `R-` inside that report and do not reopen closed R* below.

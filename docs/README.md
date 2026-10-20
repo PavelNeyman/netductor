@@ -8,6 +8,8 @@
 | [AGENT_HANDOFF.md](AGENT_HANDOFF.md) | [ru/AGENT_HANDOFF.md](ru/AGENT_HANDOFF.md) |
 
 | [REVIEW-SUITE.md](REVIEW-SUITE.md) | [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md) | Full review suite (tests, UI, i18n, docs) |
+| [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md) | [ru/REVIEW-PLAN-2026-10-19.md](ru/REVIEW-PLAN-2026-10-19.md) | Review run plan with chunk checkboxes and follow-ups F1–F10 |
+| [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) | [ru/REVIEW-REPORT-2026-10-19.md](ru/REVIEW-REPORT-2026-10-19.md) | Review findings: security, quality, dead code, refactoring |
 | [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | [ru/](ru/ARCHITECTURE-FREEZE.md) |
 | [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
 | [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |

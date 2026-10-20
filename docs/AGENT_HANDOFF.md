@@ -1,4 +1,34 @@
-**Stop line: v0.9.414** (2026-10-17). Thin-UI jobs core; hygiene journal [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md). Review: [REVIEW-SUITE.md](REVIEW-SUITE.md).
+**Stop line: v0.9.427** (code tip 2026-10-19, docs synced 2026-10-20). New chat: [AGENTS.md](../AGENTS.md) → this file → [OPEN_ITEMS.md](OPEN_ITEMS.md) → [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md) · hygiene journal: [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md).
+
+## Where we stopped
+
+| Topic | State |
+|--|--|
+| Release | tip **v0.9.427**; latest published GitHub release **v0.9.426** (0.9.427 not cut yet); `Formula/netductor-op.rb` at 0.9.426 with real SHA256. Formula is **netductor-op only** |
+| Latest review | Full-complex **static** review 2026-10-20 (tests NOT run, code unchanged): [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md); plan and open follow-ups F1–F10: [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md) |
+| Before next release tag | run `go test ./internal/... ./cmd/... -count=1` (skipped in the 2026-10-20 review) |
+| Top review findings | S-1 VPN sub-token not revoked with the user (name reuse revives the old URL); S-2 recovery TLS silently falls back to skip-verify; Q-1 four Web i18n keys missing (`edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint`); ~45 verified dead functions (DC-A) |
+| Web UI | Calm palette (slate accent), Operate grouped into op-cards, Servers control-plane topology, Operate **Result dock** (bottom/right/top, Log/History tabs) |
+| VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
+| Deferred | Web terminal + FM; read-only guest op session; OIDC (design only) |
+| Open lab | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik) |
+| Docs debt | 19 EN docs have no RU twin (finding D-1) |
+
+## Recent versions (0.9.421–0.9.427)
+
+- **0.9.427:** offline-prep reuses the cached `edge_bootstrap_token` when SSH to primary `:52222` fails; clearer hint on closed connection (fail2ban / key / passphrase).
+- **0.9.426:** OpenWrt USB packages offline-first from the Mac cache; Result dock **Log** tab streams job/deploy stdout; edge probe card normalizes `{facts, plan}`.
+- **0.9.425:** Result dock rubber layout; position via select; JSON no longer prints `null`; op-cards/tables adaptive.
+- **0.9.424:** Result dock icon toolbar; position ⬇/➡/⬆ always works; sensible size on orientation switch.
+- **0.9.423:** Operate BTN sections mapped to shell panels; inline preview under the clicked action; nodeFetch envelope unwrapped; clearer 401 hint.
+- **0.9.422:** Operate Result dock (VS Code–style) — positions, modes (panel / card / both), History (last 40), prefs in `operator.conf` (`result_*`).
+- **0.9.421:** calm Web UI; Operate op-cards; Edge USB day-2 cards; Servers topology (SP/PS/mTLS, uplink, PB/BP).
+
+Docs plan for the Web audit: `UI-BUTTON-AUDIT.md` (operator walkthrough of every button).
+
+## Archive — version log 0.9.277–0.9.414 (newest first)
+
+_Historical stop line v0.9.414 (2026-10-17):_ Thin-UI jobs core; hygiene journal [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md). Review: [REVIEW-SUITE.md](REVIEW-SUITE.md).
 
 **0.9.412:** SSH CommandContext cancel; TG doctor job; thin-UI plan closed core.
 
@@ -8,11 +38,11 @@
 
 **0.9.409:** TUI deploy via jobs; Web reattach; auto serve.
 
-**Stop line: v0.9.406** — probe installs USB kmods then facts.
+_Historical stop v0.9.406_ — probe installs USB kmods then facts.
 
-**Stop line: v0.9.405** — edge OpenWrt USB kmods from Mac cache.
+_Historical stop v0.9.405_ — edge OpenWrt USB kmods from Mac cache.
 
-**Stop line: v0.9.404** (tip=prod). Hygiene after 0.9.403; DNS custom URL; recovery CA pin. See CLEANUP-PASSES-2026-10.
+_Historical stop v0.9.404_ (tip=prod). Hygiene after 0.9.403; DNS custom URL; recovery CA pin. See CLEANUP-PASSES-2026-10.
 
 **0.9.378:** build-host dead deploy removed; Watch via heartbeat; registry Enabled; TG ship i18n; release assets.
 
@@ -67,9 +97,10 @@
 **0.9.288:** PLAN-TG-MENU implemented — hub Status/Users/Fleet/Tools/Operator; Tools without Status clone; Stack+Alerts under Operator.
 
 **0.9.277:** channel log tar only on new alert (6h cooldown). Reality-invalid from secondary is not alerted while uplink is up (mux noise on public :443).
-# AGENT Handoff
 
-**Stop line: v0.9.403 (hygiene tip: [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md))** (2026-10-16). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md). New chat: AGENTS.md → this file → OPEN_ITEMS → docs/REVIEW-PROGRESS.md.
+## Archive — summaries 0.9.320–0.9.349
+
+_Historical stop line v0.9.403 (2026-10-16); superseded by the stop line at the top of this file._
 
 ### 0.9.320–0.9.331 (summary)
 
@@ -98,17 +129,8 @@ netductor stack apply v0.9.349
 netductor secondary cmd <id> upgrade:v0.9.349
 ```
 
-## Where we stopped
 
-| Topic | State |
-|--|--|
-| Release | **v0.9.421** tip (calm Web UI + server topology). Formula **netductor-op only** |
-| Web UI | No electric-blue primary fills; Operate grouped into op-cards; Servers control-plane topology (SP/PS/mTLS) |
-| VPN config | binary update does **not** rewrite sing-box. New JSON only after `vpn apply` or secondary sync |
-| Deferred | Web terminal + FM; read-only guest op session; OIDC (design only) |
-| Open lab | dual-node smoke, hardware e2e (OpenWrt/Tapo/MikroTik) |
-
-# AGENT Handoff
+## Archive — 0.9.175–0.9.217 notes and early stop lines
 - **0.9.217:** service-net 10.88 from secondary dials primary as the real VLESS user (uplink-svc-<name>, vision, no mux). Shared relay-uplink is internet only. ACL no longer auto-allows relay-uplink.
 - **0.9.208:** TG bot sets policy.ApplyHook → ApplyAccessPolicies (policy toggles were saving JSON only; sing-box mtime stayed old).
 - **0.9.207:** TG/Web policy UI parity — full T() i18n, preset none, card template aligned with users/dns.
@@ -118,9 +140,9 @@ netductor secondary cmd <id> upgrade:v0.9.349
 - **0.9.200:** install/stack apply/secondary upgrade auto EnsureHostBaseline (firewall role file + netductor-stack-watchdog.timer). Role detect fixed in 0.9.199.
 - **0.9.175:** test release (version bump only) for TG/stack update smoke.
 
-**Stop line: v0.9.199** (host-audit apt residual + fleet live CLEAN; policy P0–P3 at 0.9.196)
+_Historical stop v0.9.199_ (host-audit apt residual + fleet live CLEAN; policy P0–P3 at 0.9.196)
 
-**Prev stop: v0.9.192** (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
+_Historical stop v0.9.192_ (2026-10-02). Guest stage no-reload; net/guest hard-fail; full edge path fixes.
 
 
 ## Docs added (2026-10-03)
@@ -135,9 +157,9 @@ netductor secondary cmd <id> upgrade:v0.9.349
 **Next implementer:** dual-node smoke (VPN/bot/policy routes) dual-node smoke (VPN/bot/policy routes) or OpenWrt e2e. HOST-AUDIT + service-net in 0.9.205.
 
 
-**Prev stop: v0.9.172** (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
+_Historical stop v0.9.172_ (2026-10-02). New chats: AGENTS.md → this file → OPEN_ITEMS → code.
 
-## Current baseline
+## Archive — baseline (as of 0.9.192)
 
 | Item | State |
 |--|--|
@@ -150,7 +172,7 @@ netductor secondary cmd <id> upgrade:v0.9.349
 | **/sub/** | Public token sub + **60 req/min/IP** rate limit (0.9.170) |
 | **Tests** | `go test ./...` green (0.9.172); opcatalog unique IDs fixed |
 
-## Recent versions (short)
+## Archive — recent versions (short, 0.9.1xx)
 
 - **0.9.189** — edge order: network/guest before harden; SSH prefer password when set
 - **0.9.188** — OpenWrt provision without base64 (mTLS/pass via ssh stdin)
@@ -295,7 +317,7 @@ See docs/TG-MEDIA-TOPICS.md
 - TG **Versions** merges Fleet digest + Updates; multi-select primary/secondary Apply
 - VPN **sub_profile**: `secondary` (default) | `primary` | `both` — subscription URL body replaced (client refresh)
 - Operator unset profile → both; others → secondary
-- Design: [TG-MEDIA-TOPICS.md](TG-MEDIA-TOPICS.md)
+- Design: TG-MEDIA-TOPICS.md (TG-MEDIA-TOPICS.md, removed)
 
 
 ## Version policy (0.9.148+)
@@ -307,7 +329,8 @@ See docs/TG-MEDIA-TOPICS.md
 
 **EN** · [RU](ru/AGENT_HANDOFF.md)
 
-# Agent handoff
+
+## Archive — agent handoff (v0.9.122 era)
 
 **Repo:** https://github.com/PavelNeyman/netductor  
 **Version:** **v0.9.122** (`internal/version.Release` + GitHub Release assets)

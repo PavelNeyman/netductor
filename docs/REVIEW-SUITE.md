@@ -261,6 +261,7 @@ Mandatory on **Full** suite. Scope: commits since last stop line (or explicit ra
 
 | Version | Change |
 |--|--|
+| 0.9.427 (docs 2026-10-20) | First run with static dead-code analysis (`deadcode` on every shipped GOOS) and `gofmt -l` / `go vet` as part of §9/§11; see [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md). Recommended additions: `gofmt -l` gate; EN-only docs audit (§4) |
 | 0.9.331 | Expanded §9–§11: deep code review, security review, refactoring necessity; remaining package unit tests |
 | 0.9.330 | P1/P2 tests: firewall, channels, hardening, op catalog |
 | 0.9.329 | Initial suite doc EN+RU; integrity + reboot challenge tests; mandatory full-complex reference |
