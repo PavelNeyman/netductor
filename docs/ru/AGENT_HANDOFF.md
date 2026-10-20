@@ -2,7 +2,7 @@
 
 # AGENT Handoff (RU)
 
-**Стоп-линия: v0.9.427** (tip кода 2026-10-19, доки синхронизированы 2026-10-20). Новый чат: [AGENTS.md](../../AGENTS.md) → этот файл → [OPEN_ITEMS.md](OPEN_ITEMS.md) → [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md). Комплекс ревью: [REVIEW-SUITE.md](REVIEW-SUITE.md) · журнал чисток: [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md).
+**Стоп-линия: v0.9.440** (2026-10-20). sub-prune + doctor orphan WARN; D-1 RU-пары. Новый чат: [AGENTS.md](../../AGENTS.md) → этот файл → [OPEN_ITEMS.md](OPEN_ITEMS.md) → [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md). Комплекс ревью: [REVIEW-SUITE.md](REVIEW-SUITE.md) · журнал чисток: [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md).
 
 ## Где остановились
 
