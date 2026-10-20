@@ -26,6 +26,9 @@ type Settings struct {
 	ResultPosition string `json:"result_position"` // bottom | right | top
 	ResultMode     string `json:"result_mode"`     // overlay | inline | both
 	ResultSize     string `json:"result_size"`     // px for active dock edge
+	// EdgeUSBPackages — comma/space-separated OpenWrt package base names for USB/overlay offline cache.
+	// Empty = deploy.DefaultUSBPkgNames(). Edit without rebuilding op.
+	EdgeUSBPackages string `json:"edge_usb_packages"`
 }
 
 // TUI is an alias kept for existing call sites.
@@ -90,6 +93,7 @@ func Save(s Settings) error {
 # lang: auto | ru | en
 # mode: vps | workstation | openwrt | operator
 # result_*: Web Operate Result dock (visible 0|1, position bottom|right|top, mode overlay|inline|both, size px)
+# edge_usb_packages: comma-separated OpenWrt base names for offline USB/overlay cache (empty = built-in defaults)
 remote_host: %q
 remote_user: %q
 remote_key: %q
@@ -102,8 +106,9 @@ result_visible: %q
 result_position: %q
 result_mode: %q
 result_size: %q
+edge_usb_packages: %q
 `, s.RemoteHost, s.RemoteUser, s.RemoteKey, s.RemotePassword, s.SecondaryHost, s.LastEdgeID, s.Lang, s.Mode,
-		s.ResultVisible, s.ResultPosition, s.ResultMode, s.ResultSize)
+		s.ResultVisible, s.ResultPosition, s.ResultMode, s.ResultSize, s.EdgeUSBPackages)
 	return os.WriteFile(path, []byte(body), 0o600)
 }
 
@@ -147,6 +152,12 @@ func Merge(base, patch Settings, clearPassword bool) Settings {
 	if patch.ResultSize != "" {
 		out.ResultSize = patch.ResultSize
 	}
+	// EdgeUSBPackages: allow explicit clear via single "-"
+	if patch.EdgeUSBPackages == "-" {
+		out.EdgeUSBPackages = ""
+	} else if patch.EdgeUSBPackages != "" {
+		out.EdgeUSBPackages = patch.EdgeUSBPackages
+	}
 	return out
 }
 
@@ -187,6 +198,8 @@ func parseYAML(text string, s *Settings) {
 			s.ResultMode = v
 		case "result_size":
 			s.ResultSize = v
+		case "edge_usb_packages":
+			s.EdgeUSBPackages = v
 		}
 	}
 }

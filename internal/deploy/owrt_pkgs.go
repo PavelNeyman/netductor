@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/opconfig"
 )
 
 // OpenWrt packages required for USB mass-storage + extroot (router has no internet).
@@ -82,9 +84,10 @@ true
 	return m, nil
 }
 
-// usbPkgBaseNames are logical package names (version suffix resolved from index).
+// defaultUSBPkgNames are logical package names (version suffix resolved from index).
 // Include e2fsprogs runtime deps: router often has no WAN, so apk/opkg cannot fetch them.
-var usbPkgBaseNames = []string{
+// Override via operator.conf edge_usb_packages or EnsureOpenWrtUSBPackagesCachedNames.
+var defaultUSBPkgNames = []string{
 	"kmod-usb-storage",
 	"kmod-scsi-core",
 	"kmod-fs-ext4",
@@ -99,9 +102,65 @@ var usbPkgBaseNames = []string{
 	"e2fsprogs",
 }
 
+// DefaultUSBPkgNames returns a copy of built-in offline USB package base names.
+func DefaultUSBPkgNames() []string {
+	out := make([]string, len(defaultUSBPkgNames))
+	copy(out, defaultUSBPkgNames)
+	return out
+}
+
+// ParseUSBPkgList splits comma/whitespace-separated package base names.
+func ParseUSBPkgList(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	s = strings.ReplaceAll(s, ",", " ")
+	s = strings.ReplaceAll(s, ";", " ")
+	var out []string
+	for _, part := range strings.Fields(s) {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		out = append(out, part)
+	}
+	return out
+}
+
+// ResolveUSBPkgNames returns override if non-empty, else defaults.
+func ResolveUSBPkgNames(override []string) []string {
+	if len(override) > 0 {
+		out := make([]string, len(override))
+		copy(out, override)
+		return out
+	}
+	return DefaultUSBPkgNames()
+}
+
+// USBPkgNamesFromOperatorConf reads edge_usb_packages from operator.conf (empty → defaults).
+func USBPkgNamesFromOperatorConf() []string {
+	return ParseUSBPkgList(opconfig.Load().EdgeUSBPackages)
+}
+
+func usbPkgAlternates(base string) []string {
+	switch base {
+	case "libcomerr0", "libcomerr2", "libcomerr":
+		return []string{"libcomerr0", "libcomerr2", "libcomerr"}
+	default:
+		return []string{base}
+	}
+}
+
 // EnsureOpenWrtUSBPackagesCached downloads required .apk/.ipk into cache for this board release.
-// Mac needs internet; router does not.
+// Mac needs internet; router does not. Uses DefaultUSBPkgNames.
 func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, err error) {
+	return EnsureOpenWrtUSBPackagesCachedNames(m, nil)
+}
+
+// EnsureOpenWrtUSBPackagesCachedNames is like EnsureOpenWrtUSBPackagesCached with an explicit name list.
+func EnsureOpenWrtUSBPackagesCachedNames(m OpenWrtMeta, names []string) (dir string, files []string, err error) {
+	names = ResolveUSBPkgNames(names)
 	if m.Release == "" || m.Target == "" {
 		return "", nil, fmt.Errorf("openwrt meta incomplete")
 	}
@@ -115,7 +174,7 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 
 	// Offline-first: if every package is already in cache, never touch the network.
 	// (Probe runs on LAN-only Mac↔router; Mac may have no route to downloads.openwrt.org.)
-	if got, ok := listCachedUSBPackages(dir, ext); ok {
+	if got, ok := listCachedUSBPackages(dir, ext, names); ok {
 		for _, f := range got {
 			fmt.Fprintln(os.Stderr, "==> using cached OpenWrt pkg", filepath.Base(f))
 		}
@@ -124,12 +183,11 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 
 	kmodBase, err := resolveKmodBaseURL(m)
 	if err != nil {
-		// Last chance: any partial cache is better than hard fail with EOF
-		if got, ok := listCachedUSBPackages(dir, ext); ok {
+		if got, ok := listCachedUSBPackages(dir, ext, names); ok {
 			fmt.Fprintln(os.Stderr, "warn: kmod index unreachable; using partial/full local cache")
 			return dir, got, nil
 		}
-		if got := listAnyCachedUSBPackages(dir, ext); len(got) > 0 {
+		if got := listAnyCachedUSBPackages(dir, ext, names); len(got) > 0 {
 			fmt.Fprintln(os.Stderr, "warn: kmod index unreachable; installing", len(got), "cached packages (may be incomplete)")
 			return dir, got, nil
 		}
@@ -143,12 +201,8 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 	}
 
 	var got []string
-	for _, base := range usbPkgBaseNames {
-		alts := []string{base}
-		// ABI-suffixed names differ across releases; try common alternates.
-		if base == "libcomerr0" {
-			alts = []string{"libcomerr0", "libcomerr2", "libcomerr"}
-		}
+	for _, base := range names {
+		alts := usbPkgAlternates(base)
 		var path string
 		var err error
 		for _, cand := range alts {
@@ -167,13 +221,10 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 }
 
 // listCachedUSBPackages returns true only when every required package name has a matching file.
-func listCachedUSBPackages(dir, ext string) ([]string, bool) {
+func listCachedUSBPackages(dir, ext string, names []string) ([]string, bool) {
 	var got []string
-	for _, base := range usbPkgBaseNames {
-		cands := []string{base}
-		if base == "libcomerr0" {
-			cands = []string{"libcomerr0", "libcomerr2", "libcomerr"}
-		}
+	for _, base := range names {
+		cands := usbPkgAlternates(base)
 		var matches []string
 		for _, c := range cands {
 			matches, _ = filepath.Glob(filepath.Join(dir, c+"*"+ext))
@@ -189,12 +240,15 @@ func listCachedUSBPackages(dir, ext string) ([]string, bool) {
 	return got, true
 }
 
-func listAnyCachedUSBPackages(dir, ext string) []string {
+func listAnyCachedUSBPackages(dir, ext string, names []string) []string {
 	var got []string
-	for _, base := range usbPkgBaseNames {
-		matches, _ := filepath.Glob(filepath.Join(dir, base+"*"+ext))
-		if len(matches) > 0 {
-			got = append(got, matches[0])
+	for _, base := range names {
+		for _, c := range usbPkgAlternates(base) {
+			matches, _ := filepath.Glob(filepath.Join(dir, c+"*"+ext))
+			if len(matches) > 0 {
+				got = append(got, matches[0])
+				break
+			}
 		}
 	}
 	return got
@@ -353,7 +407,7 @@ func EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase strin
 		meta.Release, meta.Target, meta.Arch, meta.Kernel, meta.PkgMgr)
 	fmt.Fprintln(os.Stderr, "==> uploading packages to router /tmp/nd-owrt-pkgs …")
 
-	dir, files, err := EnsureOpenWrtUSBPackagesCached(meta)
+	dir, files, err := EnsureOpenWrtUSBPackagesCachedNames(meta, USBPkgNamesFromOperatorConf())
 	if err != nil {
 		return fmt.Errorf("cache OpenWrt USB packages: %w (Mac needs internet once)", err)
 	}

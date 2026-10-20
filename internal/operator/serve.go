@@ -138,19 +138,26 @@ func Serve(o ServeOpts) error {
 			}
 			s := opconfig.Load()
 			w.Header().Set("Content-Type", "application/json")
+			pkgs := s.EdgeUSBPackages
+			if pkgs == "" {
+				pkgs = strings.Join(deploy.DefaultUSBPkgNames(), ", ")
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"path":            opconfig.Path(),
-				"remote_host":     s.RemoteHost,
-				"remote_user":     s.RemoteUser,
-				"remote_key":      s.RemoteKey,
-				"secondary_host":  s.SecondaryHost,
-				"last_edge_id":    s.LastEdgeID,
-				"lang":            s.Lang,
-				"mode":            s.Mode,
-				"result_visible":  s.ResultVisible,
-				"result_position": s.ResultPosition,
-				"result_mode":     s.ResultMode,
-				"result_size":     s.ResultSize,
+				"path":               opconfig.Path(),
+				"remote_host":        s.RemoteHost,
+				"remote_user":        s.RemoteUser,
+				"remote_key":         s.RemoteKey,
+				"secondary_host":     s.SecondaryHost,
+				"last_edge_id":       s.LastEdgeID,
+				"lang":               s.Lang,
+				"mode":               s.Mode,
+				"result_visible":     s.ResultVisible,
+				"result_position":    s.ResultPosition,
+				"result_mode":        s.ResultMode,
+				"result_size":        s.ResultSize,
+				"edge_usb_packages":  s.EdgeUSBPackages,
+				"edge_usb_effective": pkgs,
+				"edge_usb_defaults":  deploy.DefaultUSBPkgNames(),
 			})
 		case http.MethodPut, http.MethodPost:
 			if !requireToken(r, token) {
@@ -158,22 +165,23 @@ func Serve(o ServeOpts) error {
 				return
 			}
 			var body struct {
-				RemoteHost     string `json:"remote_host"`
-				RemoteUser     string `json:"remote_user"`
-				RemoteKey      string `json:"remote_key"`
-				RemotePassword string `json:"remote_password"`
-				SecondaryHost  string `json:"secondary_host"`
-				LastEdgeID     string `json:"last_edge_id"`
-				Lang           string `json:"lang"`
-				Mode           string `json:"mode"`
-				ResultVisible  string `json:"result_visible"`
-				ResultPosition string `json:"result_position"`
-				ResultMode     string `json:"result_mode"`
-				ResultSize     string `json:"result_size"`
-				ClearPassword  bool   `json:"clear_password"`
-				PrimaryHost    string `json:"primary_host"`
-				Key            string `json:"key"`
-				User           string `json:"user"`
+				RemoteHost       string `json:"remote_host"`
+				RemoteUser       string `json:"remote_user"`
+				RemoteKey        string `json:"remote_key"`
+				RemotePassword   string `json:"remote_password"`
+				SecondaryHost    string `json:"secondary_host"`
+				LastEdgeID       string `json:"last_edge_id"`
+				Lang             string `json:"lang"`
+				Mode             string `json:"mode"`
+				ResultVisible    string `json:"result_visible"`
+				ResultPosition   string `json:"result_position"`
+				ResultMode       string `json:"result_mode"`
+				ResultSize       string `json:"result_size"`
+				EdgeUSBPackages  string `json:"edge_usb_packages"`
+				ClearPassword    bool   `json:"clear_password"`
+				PrimaryHost      string `json:"primary_host"`
+				Key              string `json:"key"`
+				User             string `json:"user"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				http.Error(w, "bad json", 400)
@@ -187,18 +195,19 @@ func Serve(o ServeOpts) error {
 				return b
 			}
 			patch := opconfig.TUI{
-				RemoteHost:     pick(body.RemoteHost, body.PrimaryHost),
-				RemoteUser:     pick(body.RemoteUser, body.User),
-				RemoteKey:      pick(body.RemoteKey, body.Key),
-				RemotePassword: body.RemotePassword,
-				SecondaryHost:  body.SecondaryHost,
-				LastEdgeID:     body.LastEdgeID,
-				Lang:           body.Lang,
-				Mode:           body.Mode,
-				ResultVisible:  body.ResultVisible,
-				ResultPosition: body.ResultPosition,
-				ResultMode:     body.ResultMode,
-				ResultSize:     body.ResultSize,
+				RemoteHost:      pick(body.RemoteHost, body.PrimaryHost),
+				RemoteUser:      pick(body.RemoteUser, body.User),
+				RemoteKey:       pick(body.RemoteKey, body.Key),
+				RemotePassword:  body.RemotePassword,
+				SecondaryHost:   body.SecondaryHost,
+				LastEdgeID:      body.LastEdgeID,
+				Lang:            body.Lang,
+				Mode:            body.Mode,
+				ResultVisible:   body.ResultVisible,
+				ResultPosition:  body.ResultPosition,
+				ResultMode:      body.ResultMode,
+				ResultSize:      body.ResultSize,
+				EdgeUSBPackages: body.EdgeUSBPackages,
 			}
 			merged := opconfig.Merge(opconfig.Load(), patch, body.ClearPassword)
 			if err := opconfig.Save(merged); err != nil {

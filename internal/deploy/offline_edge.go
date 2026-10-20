@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
 )
 
 // EdgeOfflineManifest is written under ~/.cache/netductor/offline/edge/manifest.json
@@ -146,7 +147,7 @@ echo KEY:$(b64 "$DIR/client.key")
 	// OpenWrt USB/extroot packages (router offline — Mac downloads once).
 	// Default travel-router target; deploy re-probes exact release/kernel and fills gaps.
 	for _, preset := range offlineOpenWrtUSBPresets() {
-		if _, _, err := EnsureOpenWrtUSBPackagesCached(preset); err != nil {
+		if _, _, err := EnsureOpenWrtUSBPackagesCachedNames(preset, USBPkgNamesFromOperatorConf()); err != nil {
 			fmt.Fprintln(os.Stderr, "warn: OpenWrt USB pkgs", preset.Target, preset.Release, err)
 		}
 	}

@@ -260,7 +260,16 @@
           <label><input type="checkbox" name="offline" id="edge_offline"/> <span data-i18n="c_edge_offline">Offline deploy</span></label>
           <label><input type="checkbox" name="reboot" id="edge_reboot" checked/> <span data-i18n="c_reboot">Reboot after provision</span></label>
         </div>
+        <div class="row edge-usb-pkgs">
+          <div style="flex:1">
+            <label data-i18n="l_edge_usb_pkgs">OpenWrt USB packages (offline cache)</label>
+            <textarea name="edge_usb_packages" id="edge_usb_packages" rows="3" spellcheck="false" data-i18n-placeholder="edge_ph_usb_pkgs" placeholder="kmod-usb-storage, e2fsprogs, … (comma-separated; empty = defaults)"></textarea>
+            <p class="note" data-i18n="edge_usb_pkgs_note">Used by offline-prep / probe. Saved to operator.conf. Does not require a new release.</p>
+          </div>
+        </div>
         <div class="edge-actions">
+          <button type="button" class="secondary" id="btnEdgeUSBReset" data-i18n="btn_edge_usb_reset">Reset packages to defaults</button>
+          <button type="button" class="secondary" id="btnEdgeUSBSave" data-i18n="btn_edge_usb_save">Save package list</button>
           <button type="button" class="secondary" id="btnEdgeOfflinePrep" data-i18n="btn_edge_offline_prep">Prepare offline pack</button>
           <button type="button" class="primary" id="btnEdgeProbe" data-i18n="btn_edge_probe">Probe device →</button>
         </div>
@@ -545,6 +554,8 @@
         <label><input type="checkbox" name="show_advanced" id="set_show_advanced"/> <span data-i18n="c_adv">Show Advanced (full session API)</span></label>
       </div>
       <button class="primary" type="submit" data-i18n="save">Save</button>
+      <div class="row"><div style="flex:1"><label data-i18n="l_edge_usb_pkgs">OpenWrt USB packages</label>
+            <textarea name="edge_usb_packages" id="set_edge_usb_packages" rows="2" spellcheck="false"></textarea></div></div>
       <p class="note" data-i18n="set_disk_note">Save writes ~/.config/netductor/operator.conf (same as TUI). Prefills all installer tabs.</p>
       <h3 data-i18n="netmap_title">Network map</h3>
       <p class="note" data-i18n="netmap_note">Canonical CIDRs — SR routing and edge LAN planning.</p>
