@@ -1,15 +1,14 @@
 package sites
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
@@ -41,16 +40,12 @@ func path() string {
 }
 
 func load() (fileData, error) {
-	_ = os.MkdirAll(filepath.Dir(path()), 0o700)
-	b, err := os.ReadFile(path())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fileData{Sites: map[string]Site{}}, nil
-		}
-		return fileData{}, err
-	}
 	var d fileData
-	if err := json.Unmarshal(b, &d); err != nil {
+	err := statefile.LoadJSON(path(), &d)
+	if statefile.IsNotExist(err) {
+		return fileData{Sites: map[string]Site{}}, nil
+	}
+	if err != nil {
 		return fileData{}, err
 	}
 	if d.Sites == nil {
@@ -60,11 +55,7 @@ func load() (fileData, error) {
 }
 
 func save(d fileData) error {
-	raw, err := json.MarshalIndent(d, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path(), append(raw, '\n'), 0o600)
+	return statefile.SaveJSON(path(), d)
 }
 
 func List() ([]Site, error) {

@@ -12,6 +12,7 @@ func runHostBaseline(args []string) {
 	if len(args) < 1 {
 		fmt.Print(`netductor host-baseline status [--json]
 netductor host-baseline apply [primary|secondary]
+netductor host-baseline repair   # LE hooks + statefile modes (idempotent)
 `)
 		return
 	}

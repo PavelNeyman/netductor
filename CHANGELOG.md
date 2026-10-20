@@ -1,3 +1,9 @@
+## 0.9.450
+
+- LE: certbot pre/post/deploy hooks (free :80 on renew, restore redirect); doctor checks hooks, :80 listeners, cert expiry
+- host-baseline apply/repair + stack baseline: RepairStateOnUpgrade (hooks + state JSON mode checks)
+- internal/statefile: LoadJSON/SaveJSON; edge devices/recovery, vpn subtoken, sites, jobs, reboot-challenge migrated
+
 ## 0.9.449
 
 - Enroll: check saveDevices errors (no silent success on disk failure)

@@ -5,12 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 type recoveryCode struct {
@@ -27,27 +27,16 @@ func recoveryPath() string {
 }
 
 func loadRecovery() ([]recoveryCode, error) {
-	b, err := os.ReadFile(recoveryPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
 	var list []recoveryCode
-	if err := json.Unmarshal(b, &list); err != nil {
-		return nil, err
+	err := statefile.LoadJSON(recoveryPath(), &list)
+	if statefile.IsNotExist(err) {
+		return nil, nil
 	}
-	return list, nil
+	return list, err
 }
 
 func saveRecovery(list []recoveryCode) error {
-	_ = os.MkdirAll(filepath.Dir(recoveryPath()), 0o700)
-	raw, err := json.MarshalIndent(list, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(recoveryPath(), append(raw, '\n'), 0o600)
+	return statefile.SaveJSON(recoveryPath(), list)
 }
 
 // IssueRecoveryCode creates a one-time code (default TTL 24h) for LAN recovery page.

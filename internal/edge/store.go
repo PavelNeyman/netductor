@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/secreq"
 )
@@ -181,18 +182,15 @@ func resultsPath() string  { return filepath.Join(paths.EdgeDir(), "results.json
 // Read/JSON errors are returned (R-1) so callers do not overwrite a corrupt registry with {}.
 func loadDevices() (map[string]Device, error) {
 	_ = ensure()
-	b, err := os.ReadFile(devicesPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return map[string]Device{}, nil
-		}
-		return nil, err
-	}
 	var wrap struct {
 		Devices map[string]Device `json:"devices"`
 	}
-	if err := json.Unmarshal(b, &wrap); err != nil {
-		return nil, fmt.Errorf("devices.json: %w", err)
+	err := statefile.LoadJSON(devicesPath(), &wrap)
+	if statefile.IsNotExist(err) {
+		return map[string]Device{}, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	if wrap.Devices == nil {
 		return map[string]Device{}, nil
@@ -212,12 +210,7 @@ func loadDevices() (map[string]Device, error) {
 
 func saveDevices(m map[string]Device) error {
 	_ = ensure()
-	b, _ := json.MarshalIndent(map[string]any{"devices": m}, "", "  ")
-	tmp := devicesPath() + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, devicesPath())
+	return statefile.SaveJSON(devicesPath(), map[string]any{"devices": m})
 }
 
 func strFrom(payload map[string]any, keys ...string) string {

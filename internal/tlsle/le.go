@@ -97,10 +97,10 @@ func Obtain(c Config) error {
 		_ = exec.Command("systemctl", "start", "netductor-redirect").Run()
 		return fmt.Errorf("certbot: %w", err)
 	}
-	// Ensure renew keeps working: standalone needs free :80; restart redirect after renew
-	_ = os.MkdirAll("/etc/letsencrypt/renewal-hooks/deploy", 0o755)
-	_ = os.WriteFile("/etc/letsencrypt/renewal-hooks/deploy/netductor-redirect.sh",
-		[]byte("#!/bin/sh\nsystemctl restart netductor-redirect 2>/dev/null || true\n"), 0o755)
+	// Pre/post/deploy hooks for certbot renew (free :80, restore redirect)
+	if err := EnsureRenewHooks(); err != nil {
+		fmt.Fprintln(os.Stderr, "warn le hooks:", err)
+	}
 
 	// Certbot uses first domain as live dir name
 	liveName := c.Domains[0]

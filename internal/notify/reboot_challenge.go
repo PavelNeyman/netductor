@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 type rebootChal struct {
@@ -43,9 +44,10 @@ func BeginRebootChallenge(target string) (code string, err error) {
 		return "", err
 	}
 	c := rebootChal{Code: code, Target: target, Exp: time.Now().Add(3 * time.Minute).Unix()}
-	_ = os.MkdirAll(filepath.Dir(rebootChalPath()), 0o700)
-	b, _ := json.Marshal(c)
-	return code, os.WriteFile(rebootChalPath(), b, 0o600)
+	if err := statefile.SaveJSON(rebootChalPath(), c); err != nil {
+		return "", err
+	}
+	return code, nil
 }
 
 // DecoyCodes returns n unique 4-digit codes including the real one (caller shuffles).

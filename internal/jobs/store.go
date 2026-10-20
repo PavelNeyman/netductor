@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 type Status string
@@ -319,16 +321,7 @@ func (s *Store) persist(j *Job) error {
 		return fmt.Errorf("jobs: no store directory")
 	}
 	snap := j.Snapshot()
-	b, err := json.MarshalIndent(snap, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(s.dir, j.ID+".json")
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return statefile.SaveJSON(filepath.Join(s.dir, j.ID+".json"), snap)
 }
 
 func (s *Store) loadDisk() {

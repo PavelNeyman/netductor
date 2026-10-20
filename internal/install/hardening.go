@@ -98,5 +98,8 @@ func EnsureHostBaseline(role string) error {
 		_ = vpn.EnsureCanarySeed()
 		_ = InstallBackupVerifyTimer()
 	}
+	for _, n := range RepairStateOnUpgrade() {
+		fmt.Fprintln(os.Stderr, "state repair:", n)
+	}
 	return nil
 }

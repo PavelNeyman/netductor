@@ -20,6 +20,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/tlsle"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/registry"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
@@ -242,6 +243,37 @@ func doctorRunChecks(h doctorHooks) {
 				(*h.warn)++
 			}
 		}
+		
+		// LE / :80 surface
+		if tlsle.HooksInstalled() {
+			doctorPrintln("OK   le renew hooks (pre/post/deploy free :80)")
+			(*h.ok)++
+		} else if _, err := os.Stat("/etc/letsencrypt"); err == nil {
+			doctorPrintln("WARN le renew hooks missing (netductor host-baseline apply installs)")
+			(*h.warn)++
+		}
+		if listeners := tlsle.Port80Listeners(); listeners != "" {
+			doctorPrintln("WARN :80 has listener(s) — expect free except during certbot standalone:")
+			for _, line := range strings.Split(listeners, "\n") {
+				if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "State") {
+					doctorPrintln("      " + strings.TrimSpace(line))
+				}
+			}
+			(*h.warn)++
+		} else if _, err := os.Stat("/etc/letsencrypt"); err == nil {
+			doctorPrintln("OK   :80 no local listener (ACME standby)")
+			(*h.ok)++
+		}
+		for _, c := range tlsle.ListLiveCerts() {
+			if c.DaysLeft <= 21 {
+				doctorPrintf("WARN le cert %s expires in %d days (%s)\n", c.Name, c.DaysLeft, c.NotAfter.Format("2006-01-02"))
+				(*h.warn)++
+			} else {
+				doctorPrintf("OK   le cert %s valid ~%d days\n", c.Name, c.DaysLeft)
+				(*h.ok)++
+			}
+		}
+
 		if activeUnit("netductor-api") {
 			h.check("api health :8787", h.curlOK("http://127.0.0.1:8787/health") || h.curlOKInsecure("https://127.0.0.1:8787/health"))
 			h.warnCheck("api :8787 localhost only", listeningLocalhost("8787") && !listeningOnAll("8787"))

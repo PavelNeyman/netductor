@@ -3,14 +3,13 @@ package vpn
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 	"github.com/PavelNeyman/netductor/internal/secreq"
 )
 
@@ -32,33 +31,15 @@ func subPath() string {
 
 func loadSub() (subStore, error) {
 	var s subStore
-	b, err := os.ReadFile(subPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return s, nil
-		}
-		return s, err
+	err := statefile.LoadJSON(subPath(), &s)
+	if statefile.IsNotExist(err) {
+		return s, nil
 	}
-	if err := json.Unmarshal(b, &s); err != nil {
-		return s, err
-	}
-	return s, nil
+	return s, err
 }
 
 func saveSub(s subStore) error {
-	if err := os.MkdirAll(filepath.Dir(subPath()), 0o700); err != nil {
-		return err
-	}
-	raw, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := subPath()
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return statefile.SaveJSON(subPath(), s)
 }
 
 // IssueSubToken creates or rotates a long random token for user subscription URL.
