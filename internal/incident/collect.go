@@ -5,10 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/selfbin"
 )
 
 // Collect gathers journals/doctor/channel into a tar.gz under state/incidents.
@@ -24,14 +24,7 @@ func Collect(hours int) (dir, archive string, err error) {
 		return "", "", err
 	}
 	since := fmt.Sprintf("%d hours ago", hours)
-	bin := "/usr/local/bin/netductor"
-	if b, e := os.Executable(); e == nil && b != "" {
-		// go test binary is named *.test; exec'ing it re-runs tests (fork bomb).
-		base := filepath.Base(b)
-		if !strings.HasSuffix(base, ".test") && !strings.Contains(b, "/_test/") {
-			bin = b
-		}
-	}
+	bin := selfbin.CLI("/usr/local/bin/netductor")
 	runTo := func(path string, name string, args ...string) {
 		f, err := os.Create(path)
 		if err != nil {

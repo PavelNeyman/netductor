@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"github.com/PavelNeyman/netductor/internal/selfbin"
 )
 
 func runSmoke(args []string) int {
@@ -21,10 +22,7 @@ func runSmoke(args []string) int {
 		fmt.Fprintf(os.Stderr, "smoke: unknown mode %q (dual|secondary|primary|local)\n", mode)
 		return 2
 	}
-	bin := "netductor"
-	if b, err := os.Executable(); err == nil && b != "" {
-		bin = b
-	}
+	bin := selfbin.CLI("netductor")
 	fail := 0
 	check := func(name, cmd string, argv ...string) {
 		out, err := exec.Command(cmd, argv...).CombinedOutput()

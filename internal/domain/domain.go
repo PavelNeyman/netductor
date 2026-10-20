@@ -10,6 +10,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/selfbin"
 )
 
 // Config is the operator-facing domain mapping (DNS is external — Cloudflare etc.).
@@ -20,10 +21,10 @@ type Config struct {
 	RedirectBase    string
 	UseHTTPRedirect bool
 	EnableRedirect  bool
-	LE             bool   // obtain Let's Encrypt after apply
-	LEEmail        string
-	LEStaging      bool
-	CFProxiedI     bool   // Cloudflare orange on redirect host → REDIRECT_BASE without :8443
+	LE              bool // obtain Let's Encrypt after apply
+	LEEmail         string
+	LEStaging       bool
+	CFProxiedI      bool // Cloudflare orange on redirect host → REDIRECT_BASE without :8443
 }
 
 // Expand normalizes Base and explicit host fields. Does NOT invent hostnames
@@ -126,10 +127,7 @@ func runLE(c Config) error {
 		return fmt.Errorf("LE requires email (domain set --le --email …)")
 	}
 	// lazy import via exec to avoid cycle — call netductor tls le
-	bin, err := os.Executable()
-	if err != nil || bin == "" {
-		bin = "netductor"
-	}
+	bin := selfbin.CLI("netductor")
 	args := []string{"tls", "le", "--email", email, "--agree-tos"}
 	if c.LEStaging {
 		args = append(args, "--staging")

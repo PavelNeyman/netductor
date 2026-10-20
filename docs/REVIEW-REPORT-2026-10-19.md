@@ -138,3 +138,10 @@ Prior closed R* items in `REVIEW-PROGRESS.md` were not reopened.
 ## 7. Operator reply template (§12)
 
 1. Tip: 0.9.427 local, release 0.9.426 published. 2. Tests: not run (owner). 3. Docs: handoff / OPEN_ITEMS / AGENTS updated EN+RU; D-1 open. 4. UI parity: OK, Q-1. 5. TG: no orphans. 6. Code review: Q-1…Q-5. 7. Security: S-1…S-10. 8. Refactoring: R-1…R-8 (not "no refactor required"). 9. Fix-now candidates (need owner approval, all small): S-1, Q-1, Q-2, gofmt commit, DC-A removal. 10. No apply commands (tip not moved).
+
+## Avoiding the incident fork-bomb class
+
+- Any `os.Executable()` that is later `exec`'d must go through `internal/selfbin.CLI`. A `*.test` path re-runs the suite.
+- If `go test` OOMs or leaves thousands of processes, the running package is the suspect. Read it before blaming the sandbox.
+- Run packages one at a time with a timeout. Do not treat a killed suite as "tests are fine".
+

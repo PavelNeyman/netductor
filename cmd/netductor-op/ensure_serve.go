@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/selfbin"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,11 +15,10 @@ func ensureOpServe() error {
 	if opHealthOK(base) {
 		return nil
 	}
-	bin, err := os.Executable()
-	if err != nil {
-		bin = "netductor-op"
+	bin := selfbin.CLI("netductor-op")
+	if r, e := filepath.EvalSymlinks(bin); e == nil && r != "" && !selfbin.IsTestBinary(r) {
+		bin = r
 	}
-	bin, _ = filepath.EvalSymlinks(bin)
 	cmd := exec.Command(bin, "serve")
 	cmd.Stdout = nil
 	cmd.Stderr = nil

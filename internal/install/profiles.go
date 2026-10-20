@@ -1,15 +1,16 @@
 package install
 
 import (
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	_ "embed"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/selfbin"
 )
 
 //go:embed profiles/nd-oc.conf
@@ -38,7 +39,8 @@ func EnsureClientProfiles() error {
 
 // EnsureDomainConfig writes netductor.conf keys for redirect/VPN host from env.
 // Env: NETDUCTOR_DOMAIN or NETDUCTOR_PUBLIC_HOSTNAME (e.g. netductor.work.gd)
-//      NETDUCTOR_REDIRECT_BASE (full URL) overrides derived http://domain
+//
+//	NETDUCTOR_REDIRECT_BASE (full URL) overrides derived http://domain
 func EnsureDomainConfig() error {
 	domain := strings.TrimSpace(os.Getenv("NETDUCTOR_DOMAIN"))
 	if domain == "" {
@@ -96,10 +98,7 @@ func EnsureDomainConfig() error {
 
 // InstallRedirect unit for deep-link buttons (optional listen :80).
 func InstallRedirect() error {
-	bin, err := os.Executable()
-	if err != nil || bin == "" {
-		bin = "/usr/local/bin/netductor"
-	}
+	bin := selfbin.CLI("/usr/local/bin/netductor")
 	// Prefer LE HTTPS :8443 when certs present (after domain set --le). No public :80.
 	// Env first, then /etc/netductor/netductor.conf (recover restores conf but unit may lag).
 	cert := strings.TrimSpace(os.Getenv("NETDUCTOR_REDIRECT_TLS_CERT"))

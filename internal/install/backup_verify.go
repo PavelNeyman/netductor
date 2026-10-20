@@ -11,6 +11,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/selfbin"
 )
 
 // Limits for verify (decrypt + tar list) — avoid disk/IO DoS on huge archives.
@@ -87,7 +88,7 @@ func VerifyLatestBackup() (string, error) {
 		n++
 		if n > maxVerifyTarMembers {
 			_ = cmd.Process.Kill()
-			 _ = cmd.Wait()
+			_ = cmd.Wait()
 			return "", fmt.Errorf("too many tar members: max=%d", maxVerifyTarMembers)
 		}
 	}
@@ -114,10 +115,7 @@ func AlertVerifyFailure(err error) {
 
 // InstallBackupVerifyTimer weekly Sunday 03:15 UTC (primary only recommended).
 func InstallBackupVerifyTimer() error {
-	bin, _ := os.Executable()
-	if bin == "" {
-		bin = "/usr/local/bin/netductor"
-	}
+	bin := selfbin.CLI("/usr/local/bin/netductor")
 	unit := fmt.Sprintf(`[Unit]
 Description=Netductor backup verify once
 [Service]

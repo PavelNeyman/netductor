@@ -1,3 +1,8 @@
+## 0.9.429
+
+- selfbin.CLI: never exec a go test binary (fork-bomb guard on incident, smoke, domain LE, op serve, profiles, backup-verify)
+
+
 ## 0.9.428
 
 - S-1: revoke VPN sub-token on delete/disable; /sub/ rejects disabled users

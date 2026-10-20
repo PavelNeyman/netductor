@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/selfbin"
 	"os"
 	"os/exec"
 	"strings"
@@ -93,10 +94,7 @@ func loadRemoteFromEnv() (host, user string) {
 
 // runLocalOp runs this operator binary (never remote netductor) — for LAN edge deploy.
 func (m *model) runLocalOp(args ...string) string {
-	exe, err := os.Executable()
-	if err != nil || exe == "" {
-		exe = "netductor-op"
-	}
+	exe := selfbin.CLI("netductor-op")
 	cmd := exec.Command(exe, args...)
 	out, err := cmd.CombinedOutput()
 	s := string(out)
