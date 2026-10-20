@@ -1,3 +1,9 @@
+## 0.9.449
+
+- Enroll: check saveDevices errors (no silent success on disk failure)
+- cli secondary: mtls.EnsureAll failure is fatal
+- agent guest/build recovery HTTP servers: ReadHeaderTimeout set
+
 ## 0.9.448
 
 - Security audit remainder:

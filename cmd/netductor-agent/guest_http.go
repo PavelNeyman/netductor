@@ -62,7 +62,8 @@ func startGuestHTTP(cfg *config) {
 			fmt.Fprint(w, captiveHTML(mac, sess.Code, grantURL))
 		})
 		fmt.Fprintf(os.Stderr, "guest captive on %s\n", addr)
-		_ = http.ListenAndServe(addr, mux)
+		srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second}
+		_ = srv.ListenAndServe()
 	}()
 	// Desk: LAN only
 	go func() {
@@ -90,7 +91,8 @@ func startGuestHTTP(cfg *config) {
 			deskAPIGrant(w, r, &gc, store)
 		})
 		fmt.Fprintf(os.Stderr, "guest desk on %s\n", addr)
-		_ = http.ListenAndServe(addr, mux)
+		srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second}
+		_ = srv.ListenAndServe()
 	}()
 	_ = cfg
 }

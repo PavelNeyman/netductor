@@ -339,14 +339,18 @@ func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 			existing.LastSeen = now
 			existing.DeviceID = did
 			m[did] = existing
-			_ = saveDevices(m)
+			if err := saveDevices(m); err != nil {
+				return "error", "", false
+			}
 			// H-1: bootstrap/recovery enroll must not return the live personal device token.
 			return StatusApproved, "", false
 		}
 		if st == StatusDenied || st == StatusRevoked {
 			existing.LastSeen = now
 			m[did] = existing
-			_ = saveDevices(m)
+			if err := saveDevices(m); err != nil {
+				return "error", "", false
+			}
 			return st, "", false
 		}
 		mergePayload(&existing, payload)
@@ -354,13 +358,17 @@ func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 		existing.LastSeen = now
 		existing.DeviceID = did
 		m[did] = existing
-		_ = saveDevices(m)
+		if err := saveDevices(m); err != nil {
+			return "error", "", false
+		}
 		return StatusPending, "", false
 	}
 	row := Device{DeviceID: did, Status: StatusPending, EnrolledAt: now, LastSeen: now}
 	mergePayload(&row, payload)
 	m[did] = row
-	_ = saveDevices(m)
+	if err := saveDevices(m); err != nil {
+		return "error", "", false
+	}
 	return StatusPending, "", true
 }
 

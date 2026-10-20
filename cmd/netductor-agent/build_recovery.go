@@ -91,7 +91,7 @@ func armBuildRecovery(ttl time.Duration) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = w.Write([]byte("dirs\nhardening\n"))
 	})
-	srv := &http.Server{Addr: ":8790", Handler: mux}
+	srv := &http.Server{Addr: ":8790", Handler: mux, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 60 * time.Second, WriteTimeout: 120 * time.Second}
 	bRecSrv = srv
 	go func() {
 		fmt.Fprintf(os.Stderr, "build recovery armed until %s on :8790\n", bRecUntil.Format(time.RFC3339))

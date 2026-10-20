@@ -179,7 +179,10 @@ func runSecondary(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+		if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil {
+			fmt.Fprintln(os.Stderr, "mtls.EnsureAll:", err)
+			os.Exit(1)
+		}
 		var mtlsCA, mtlsCert, mtlsKey []byte
 		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
 			b.AgentID = id
@@ -225,7 +228,10 @@ func runSecondary(args []string) {
 			}
 		}
 		sni = vpn.ResolveSecondarySNI(sni, "")
-		_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+		if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil {
+			fmt.Fprintln(os.Stderr, "mtls.EnsureAll:", err)
+			os.Exit(1)
+		}
 		b, err := vpn.ExportSecondaryBundle(sni)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
