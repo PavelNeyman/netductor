@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/secreq"
 	"os"
 	"path/filepath"
 	"sync"
@@ -80,7 +81,7 @@ func ResolveSubToken(token string) string {
 	subMu.Lock()
 	defer subMu.Unlock()
 	for _, e := range loadSub().Entries {
-		if e.Token == token {
+		if secreq.Eq(e.Token, token) {
 			return e.User
 		}
 	}

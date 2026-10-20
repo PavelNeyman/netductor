@@ -2,8 +2,6 @@ package edge
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/policy"
+	"github.com/PavelNeyman/netductor/internal/secreq"
 )
 
 var mu sync.Mutex
@@ -57,13 +56,7 @@ func bytesTrim(b []byte) []byte {
 }
 
 func constEq(a, b string) bool {
-	if a == "" || b == "" {
-		return false
-	}
-	// Hash so compare is always same-length (subtle requires equal len).
-	x := sha256.Sum256([]byte(a))
-	y := sha256.Sum256([]byte(b))
-	return subtle.ConstantTimeCompare(x[:], y[:]) == 1
+	return secreq.Eq(a, b)
 }
 
 func bearerRaw(auth string) string {

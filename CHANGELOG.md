@@ -1,3 +1,9 @@
+## 0.9.432
+
+- Backup excludes build-backup-mirror (was 3.4G), stack binaries, lampac/ts
+- R-2/S-4: internal/secreq.Eq; edge constEq and sub token compare use it
+
+
 ## 0.9.431
 
 - F4: gofmt sweep (separate commit e3d8cd21)
