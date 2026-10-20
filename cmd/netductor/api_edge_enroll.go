@@ -47,7 +47,12 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			wan, _ := payload["wan_ip"].(string)
 			_ = notify.Telegram(fmt.Sprintf("⏳ Edge pending: <b>%s</b>\nboard=%s wan=%s", did, board, wan))
 		}
-		writeJSON(w, 200, map[string]any{"status": st, "device_token": dtok})
+		out := map[string]any{"status": st}
+		// H-1: never echo an existing personal token under bootstrap/recovery.
+		if dtok != "" {
+			out["device_token"] = dtok
+		}
+		writeJSON(w, 200, out)
 	})
 
 }

@@ -298,7 +298,8 @@ func mergePayload(d *Device, payload map[string]any) {
 	}
 }
 
-// Enroll registers or refreshes pending device. Returns status + optional token if already approved.
+// Enroll registers or refreshes pending device. Returns status; deviceToken is only non-empty
+// from Approve — never from bootstrap/recovery re-enroll of an already-approved device (H-1).
 func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -317,7 +318,8 @@ func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 			existing.DeviceID = did
 			m[did] = existing
 			_ = saveDevices(m)
-			return StatusApproved, existing.DeviceToken, false
+			// H-1: bootstrap/recovery enroll must not return the live personal device token.
+			return StatusApproved, "", false
 		}
 		if st == StatusDenied || st == StatusRevoked {
 			existing.LastSeen = now

@@ -140,7 +140,6 @@ func applyUFW(role string) error {
 		cmd := exec.Command("ufw", args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			// delete of missing rule is ok
 			msg := string(out)
 			if strings.Contains(msg, "Skipping") || strings.Contains(msg, "Could not delete") {
 				return nil
@@ -149,18 +148,27 @@ func applyUFW(role string) error {
 		}
 		return nil
 	}
-	// Full reset only when explicitly requested (avoids lockout on live SSH).
+	must := func(args ...string) error { return run(args...) }
 	if os.Getenv("NETDUCTOR_FW_RESET") == "1" {
 		_ = exec.Command("bash", "-c", "echo y | ufw --force reset").Run()
 	}
-	_ = run("default", "deny", "incoming")
-	_ = run("default", "allow", "outgoing")
+	// H-2: critical policy steps must not be ignored.
+	if err := must("default", "deny", "incoming"); err != nil {
+		return err
+	}
+	if err := must("default", "allow", "outgoing"); err != nil {
+		return err
+	}
 	_ = run("default", "deny", "routed")
 
 	sp := sshPort()
-	_ = run("allow", sp+"/tcp", "comment", "netductor-ssh")
+	if err := must("allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
+		return err
+	}
 	_ = run("deny", "22/tcp", "comment", "netductor-no-ssh22")
-	_ = run("allow", "443/tcp", "comment", "netductor-vless")
+	if err := must("allow", "443/tcp", "comment", "netductor-vless"); err != nil {
+		return err
+	}
 	_ = run("deny", "10050/tcp", "comment", "no-zabbix")
 	_ = run("deny", "10051/tcp", "comment", "no-zabbix")
 
@@ -168,32 +176,24 @@ func applyUFW(role string) error {
 		redir := ndconfig.RedirectHTTPSPort()
 		_ = run("allow", redir+"/tcp", "comment", "netductor-redirect")
 		_ = run("allow", redir+"/udp", "comment", "netductor-redirect")
-		// ACME http-01 if used
 		_ = run("allow", "80/tcp", "comment", "netductor-http-acme")
-		// WSS SP server on primary
 		_ = run("allow", "8444/tcp", "comment", "nd-wss-sp")
 		_ = run("deny", "8788/tcp", "comment", "no-plain-agent")
-		// mTLS only from service path CIDRs + localhost
 		mtls := ndconfig.AgentMTLSPort()
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
 			_ = run("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api")
 		}
-		// Service uplink from secondary only (vless-svc). Not a per-catalog port:
-		// lampac/git/registry stay on loopback; clients reach them via VLESS + DNAT.
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			_ = run("allow", "from", c, "to", "any", "port", "9443", "proto", "tcp", "comment", "netductor-svc-uplink")
 		}
 		_ = run("deny", "9443/tcp", "comment", "no-svc-uplink-wan")
-		// lampac localhost only
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
 			_ = run("deny", lp+"/tcp", "comment", "lampac-wan-deny")
 			_ = run("allow", "from", "127.0.0.1", "to", "any", "port", lp, "proto", "tcp", "comment", "lampac-local")
 		}
 	} else {
-		// secondary: VLESS 443, SSH, WSS PS server
 		_ = run("allow", "8445/tcp", "comment", "nd-wss-ps")
-		// no control-plane ports on WAN
 		_ = run("deny", "8787/tcp", "comment", "no-api-wan")
 		_ = run("deny", "8788/tcp", "comment", "no-plain-agent")
 		_ = run("deny", "8789/tcp", "comment", "no-mtls-wan-secondary")
@@ -214,11 +214,15 @@ func applyIPTables(role string) error {
 	run := func(args ...string) error {
 		cmd := exec.Command("iptables", args...)
 		out, err := cmd.CombinedOutput()
-		if err != nil && !strings.Contains(string(out), "No chain") {
-			// ignore duplicate rules somewhat
-			if strings.Contains(strings.ToLower(string(out)), "exist") {
+		msg := string(out)
+		if err != nil {
+			if strings.Contains(msg, "No chain") {
+				return err
+			}
+			if strings.Contains(strings.ToLower(msg), "exist") {
 				return nil
 			}
+			return fmt.Errorf("iptables %v: %v (%s)", args, err, truncate(msg, 160))
 		}
 		return nil
 	}
@@ -300,13 +304,25 @@ func Collect(role string) Status {
 		s := string(out)
 		st.Active = strings.Contains(s, "Status: active")
 		st.Detail = firstLines(s, 12)
+		// H-2: OK requires active + SSH + 443; deny hints must appear when active.
 		st.OK = st.Active && strings.Contains(s, sshPort()) && strings.Contains(s, "443")
 		if !st.Active {
 			st.Warnings = append(st.Warnings, "ufw installed but inactive")
+			st.OK = false
 		}
 		if !strings.Contains(s, sshPort()) {
 			st.Warnings = append(st.Warnings, "ssh port rule missing in ufw status")
 			st.OK = false
+		}
+		if !strings.Contains(s, "443") {
+			st.Warnings = append(st.Warnings, "443/tcp rule missing in ufw status")
+			st.OK = false
+		}
+		for _, d := range []string{"22/tcp", "10050/tcp"} {
+			if st.Active && !strings.Contains(s, d) {
+				st.Warnings = append(st.Warnings, "expected deny/mention missing: "+d)
+				st.OK = false
+			}
 		}
 		return st
 	}
@@ -319,6 +335,8 @@ func Collect(role string) Status {
 		st.OK = st.Active && strings.Contains(s, "--dport "+sshPort())
 		if !st.OK {
 			st.Warnings = append(st.Warnings, "iptables NETDUCTOR chain missing or incomplete (ufw preferred)")
+		} else {
+			st.Warnings = append(st.Warnings, "iptables fallback: full role policy not verified (prefer ufw)")
 		}
 		return st
 	}

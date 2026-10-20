@@ -46,30 +46,49 @@ func (o *Options) normalize() {
 	}
 }
 
+func validateDownloadURL(raw string, allowHTTPPrivate bool) (*url.URL, error) {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return nil, fmt.Errorf("download: bad url")
+	}
+	switch u.Scheme {
+	case "https":
+		return u, nil
+	case "http":
+		if !allowHTTPPrivate {
+			return nil, fmt.Errorf("download: only https URLs allowed")
+		}
+		ip := net.ParseIP(u.Hostname())
+		if ip == nil || !(ip.IsPrivate() || ip.IsLoopback()) {
+			return nil, fmt.Errorf("download: http only allowed to private/loopback IP")
+		}
+		return u, nil
+	default:
+		return nil, fmt.Errorf("download: only http/https URLs")
+	}
+}
+
 // Get downloads rawURL to dest with scheme/size policy and optional SHA256 check.
 func Get(rawURL, dest string, opt Options) error {
 	opt.normalize()
 
-	u, err := url.Parse(rawURL)
-	if err != nil || u.Host == "" {
-		return fmt.Errorf("download: bad url")
-	}
-	switch u.Scheme {
-	case "https":
-		// ok
-	case "http":
-		if !opt.AllowHTTPPrivate {
-			return fmt.Errorf("download: only https URLs allowed")
-		}
-		ip := net.ParseIP(u.Hostname())
-		if ip == nil || !(ip.IsPrivate() || ip.IsLoopback()) {
-			return fmt.Errorf("download: http only allowed to private/loopback IP")
-		}
-	default:
-		return fmt.Errorf("download: only http/https URLs")
+	u, err := validateDownloadURL(rawURL, opt.AllowHTTPPrivate)
+	if err != nil {
+		return err
 	}
 
-	client := &http.Client{Timeout: opt.Timeout}
+	client := &http.Client{
+		Timeout: opt.Timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("download: too many redirects")
+			}
+			if _, err := validateDownloadURL(req.URL.String(), opt.AllowHTTPPrivate); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return err

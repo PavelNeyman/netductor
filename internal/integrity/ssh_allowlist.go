@@ -81,8 +81,6 @@ func liveKeysFromPath(path, host string) []LiveKey {
 
 // ParseKeysFromText parses authorized_keys body (e.g. agent cmd log).
 func ParseKeysFromText(host, body string) []LiveKey {
-	_ = os.WriteFile(filepath.Join(os.TempDir(), "nd-ak-parse"), []byte(body), 0o600)
-	// use line loop
 	allow := map[string]bool{}
 	for _, k := range ParseAuthorizedKeys(AllowlistPath) {
 		allow[k.Fingerprint] = true

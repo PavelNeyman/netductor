@@ -59,8 +59,14 @@ func EnsureAll(serverIP string) error {
 }
 
 func ensureCA() error {
-	if fileOK(path(CACertFile)) && fileOK(path(CAKeyFile)) {
+	certOK := fileOK(path(CACertFile))
+	keyOK := fileOK(path(CAKeyFile))
+	if certOK && keyOK {
 		return nil
+	}
+	// M-5: partial CA must not silently mint a new root.
+	if certOK != keyOK {
+		return fmt.Errorf("mtls: incomplete CA (cert_ok=%v key_ok=%v); restore both files or run explicit CA rotate", certOK, keyOK)
 	}
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -163,11 +169,17 @@ func loadCA() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 		return nil, nil, err
 	}
 	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return nil, nil, fmt.Errorf("mtls: bad ca cert PEM")
+	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, nil, err
 	}
 	kblock, _ := pem.Decode(keyPEM)
+	if kblock == nil {
+		return nil, nil, fmt.Errorf("mtls: bad ca key PEM")
+	}
 	key, err := x509.ParseECPrivateKey(kblock.Bytes)
 	if err != nil {
 		return nil, nil, err
@@ -200,7 +212,11 @@ func ServerTLSConfig() (*tls.Config, error) {
 			if err != nil {
 				return err
 			}
-			if IsRevoked(c.SerialNumber) {
+			revoked, err := IsRevoked(c.SerialNumber)
+			if err != nil {
+				return fmt.Errorf("mtls: revoke check failed: %w", err)
+			}
+			if revoked {
 				return fmt.Errorf("mtls: client certificate revoked")
 			}
 			return nil

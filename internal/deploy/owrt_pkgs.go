@@ -111,7 +111,29 @@ func DefaultUSBPkgNames() []string {
 	return out
 }
 
+// validUSBPkgName rejects path separators and globs (N-10 / N-11).
+func validUSBPkgName(name string) bool {
+	if name == "" || len(name) > 128 {
+		return false
+	}
+	if strings.ContainsAny(name, "/\\:*?\"<>|") || strings.Contains(name, "..") {
+		return false
+	}
+	for i, r := range name {
+		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '+' || r == '.' || r == '_' || r == '-'
+		if i == 0 && !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+			return false
+		}
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // ParseUSBPkgList splits comma/whitespace-separated package base names.
+// Invalid names are dropped (path/glob injection).
 func ParseUSBPkgList(s string) []string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -122,13 +144,14 @@ func ParseUSBPkgList(s string) []string {
 	var out []string
 	for _, part := range strings.Fields(s) {
 		part = strings.TrimSpace(part)
-		if part == "" {
+		if part == "" || !validUSBPkgName(part) {
 			continue
 		}
 		out = append(out, part)
 	}
 	return out
 }
+
 
 // ResolveUSBPkgNames returns override if non-empty, else defaults.
 func ResolveUSBPkgNames(override []string) []string {
@@ -425,13 +448,31 @@ func EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase strin
 		}
 	}
 
+	// N-10: install only the exact basenames we uploaded (no shell glob as sole selector).
+	var bases []string
+	for _, f := range files {
+		b := filepath.Base(f)
+		if !validUSBPkgName(b) {
+			return fmt.Errorf("refusing package basename: %q", b)
+		}
+		bases = append(bases, b)
+	}
+	if len(bases) == 0 {
+		return fmt.Errorf("no package files to install")
+	}
+	quoted := make([]string, len(bases))
+	for i, b := range bases {
+		quoted[i] = "'" + strings.ReplaceAll(b, "'", "") + "'"
+	}
+	list := strings.Join(quoted, " ")
+
 	var installScript string
 	if meta.PkgMgr == "opkg" {
 		installScript = `
 set -e
 cd /tmp/nd-owrt-pkgs
-for f in *.ipk; do
-  [ -f "$f" ] || continue
+for f in ` + list + `; do
+  [ -f "$f" ] || { echo "missing $f"; exit 1; }
   opkg install --force-depends "$f" || opkg install "$f" || true
 done
 modprobe usb-storage 2>/dev/null || true
@@ -440,13 +481,12 @@ lsmod | grep -E 'usb_storage|sd_mod' || true
 echo INSTALL_DONE
 `
 	} else {
-		// Offline: no WAN on factory router. --no-network + empty repos so apk does not wget indexes.
+		// Offline install: explicit file list from Mac cache (N-10).
 		installScript = `
 set -e
 cd /tmp/nd-owrt-pkgs
-# prevent apk from refreshing remote indexes (wget "Operation not permitted" without WAN)
 : > /tmp/nd-apk-empty-repos
-apk add --allow-untrusted --no-network --repositories-file=/tmp/nd-apk-empty-repos ./*.apk
+apk add --allow-untrusted --no-network --repositories-file=/tmp/nd-apk-empty-repos ` + list + `
 modprobe usb-storage 2>/dev/null || true
 modprobe sd_mod 2>/dev/null || true
 lsmod | grep -E 'usb_storage|sd_mod' || true

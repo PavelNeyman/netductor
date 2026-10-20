@@ -1,3 +1,7 @@
+## 0.9.445
+
+- Security P0/P1 ([docs/SECURITY-REVIEW-2026-10-20.md](docs/SECURITY-REVIEW-2026-10-20.md)): H-1 enroll token, H-3 mTLS revoke fail-closed, H-2 firewall, N-10 OpenWrt pkgs, M-5 partial CA, M-7 tmp write, N-8 sub-token rename, M-3 download redirects, L-3 PEM nil-check
+
 ## 0.9.444
 
 - edge: offline USB cache includes librt + libpthread (libuuid1 deps)

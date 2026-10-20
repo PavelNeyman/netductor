@@ -94,3 +94,25 @@ func TestBootstrap(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestEnrollApprovedNoTokenLeak(t *testing.T) {
+	setup(t)
+	st, tok, _ := Enroll(map[string]any{"device_id": "leak1", "board": "x"})
+	if st != StatusPending || tok != "" {
+		t.Fatalf("pending: %s %q", st, tok)
+	}
+	dt, err := Approve("leak1")
+	if err != nil || dt == "" {
+		t.Fatal(err, dt)
+	}
+	st2, tok2, isNew := Enroll(map[string]any{"device_id": "leak1", "board": "x"})
+	if st2 != StatusApproved || isNew {
+		t.Fatalf("status=%s isNew=%v", st2, isNew)
+	}
+	if tok2 != "" {
+		t.Fatal("H-1: bootstrap re-enroll must not return existing device_token")
+	}
+	if !RequireApproved("Bearer "+dt, "leak1") {
+		t.Fatal("original token still valid")
+	}
+}

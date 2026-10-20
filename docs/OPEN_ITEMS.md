@@ -1,4 +1,4 @@
-> **Stop: v0.9.439.** Thin-UI jobs core + Phase 3 audit + Operate Result dock. Remaining: review follow-ups F1–F10 (below), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
+> **Stop: v0.9.445.** Thin-UI jobs core + Phase 3 audit + Operate Result dock. Remaining: review follow-ups F1–F10 (below), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
 
 - [x] Optional **build-host** VPS (SSH executor, 0.9.361); agent-pull later
 - [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283); channel face vs uplink alerts (0.9.284); see [CI-WORKFLOWS.md](CI-WORKFLOWS.md)
@@ -11,7 +11,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 ## Stop line
 
-**v0.9.427** (code tip 2026-10-19; docs synced 2026-10-20) — Operate Result dock (0.9.422–0.9.426), offline-prep token fallback (0.9.427). Latest published release: v0.9.426. Prior: 0.9.414 thin-UI jobs core; 0.9.404 cleanup.
+**v0.9.445** (code tip 2026-10-19; docs synced 2026-10-20) — Operate Result dock (0.9.422–0.9.426), offline-prep token fallback (0.9.427). Latest published release: v0.9.426. Prior: 0.9.414 thin-UI jobs core; 0.9.404 cleanup.
 
 ### Review 2026-10-20 follow-ups (static full-complex; tests not run)
 
@@ -42,7 +42,7 @@ Hygiene / dead-code / allowlist campaign (post-0.9.403 tip): [CLEANUP-PASSES-202
 
 
 
-**v0.9.378** (2026-10-13) — build-host recover + fleet optional; prior 0.9.349 SR General.
+**v0.9.445** (2026-10-13) — build-host recover + fleet optional; prior 0.9.349 SR General.
 
 ### Closed in 0.9.320–0.9.331 (security / DNS / SSH)
 

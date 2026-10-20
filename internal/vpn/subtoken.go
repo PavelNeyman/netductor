@@ -126,6 +126,8 @@ func EnsureSubToken(user string) (string, error) {
 
 // RenameSubToken moves the subscription token from oldName to newName.
 func RenameSubToken(oldName, newName string) error {
+	subMu.Lock()
+	defer subMu.Unlock()
 	s := loadSub()
 	changed := false
 	for i := range s.Entries {

@@ -271,19 +271,19 @@ func RenameNative(oldName, newName string) error {
 	if err := writeRegistry(r); err != nil {
 		return err
 	}
+	// N-8: rename sub-token with the registry name change.
+	if err := RenameSubToken(oldName, newName); err != nil {
+		return err
+	}
 	oldDir := filepath.Join(Clients(), oldName)
 	newDir := filepath.Join(Clients(), newName)
 	if st, err := os.Stat(oldDir); err == nil && st.IsDir() {
 		_ = os.RemoveAll(newDir)
 		if err := os.Rename(oldDir, newDir); err != nil {
-			// fallback: rewrite into new dir
 			_ = os.MkdirAll(newDir, 0o700)
 		}
 	}
 	if err := writeArtifacts(newName, uuid); err != nil {
-		return err
-	}
-	if err := RenameSubToken(oldName, newName); err != nil {
 		return err
 	}
 	// UUID unchanged — ApplyConfig optional (may fail in tests without sing-box)

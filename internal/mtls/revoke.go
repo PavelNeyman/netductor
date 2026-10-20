@@ -76,18 +76,20 @@ func serialHex(s *big.Int) string {
 }
 
 // IsRevoked reports whether client cert serial is on the revoke list.
-func IsRevoked(serial *big.Int) bool {
+// Missing revoke file is an empty list (not an error). Read/JSON errors are returned
+// so TLS can fail-closed (H-3).
+func IsRevoked(serial *big.Int) (bool, error) {
 	if serial == nil {
-		return false
+		return false, nil
 	}
 	revokeMu.Lock()
 	defer revokeMu.Unlock()
 	m, err := loadRevoked()
 	if err != nil {
-		return false
+		return false, err
 	}
 	_, ok := m[serialHex(serial)]
-	return ok
+	return ok, nil
 }
 
 // RevokeSerial adds serial to the revoke list.
@@ -168,11 +170,15 @@ func ReadClientInfo(nodeID string) (ClientInfo, error) {
 		return ClientInfo{}, err
 	}
 	days := int(time.Until(c.NotAfter).Hours() / 24)
+	revoked, err := IsRevoked(c.SerialNumber)
+	if err != nil {
+		revoked = true // observability: do not show "ok" when check failed
+	}
 	info := ClientInfo{
 		NodeID: nodeID, Serial: serialHex(c.SerialNumber),
 		NotBefore: c.NotBefore, NotAfter: c.NotAfter,
 		Subject: c.Subject.CommonName, Path: certPath, DaysLeft: days,
-		Revoked: IsRevoked(c.SerialNumber),
+		Revoked: revoked,
 	}
 	return info, nil
 }
