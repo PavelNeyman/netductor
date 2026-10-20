@@ -11,8 +11,6 @@ import (
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
-
-
 func formVpnAdd() {
 	var name, note string
 	var ok bool
@@ -87,7 +85,6 @@ func formSession() {
 	_ = f.Run()
 	fmt.Println(subStyle.Render("use: netductor session create"))
 }
-
 
 func formInstall(prepare bool) {
 	var ok bool

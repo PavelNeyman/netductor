@@ -12,7 +12,7 @@ func env(k, d string) string {
 	return d
 }
 
-func EtcDir() string   { return env("NETDUCTOR_ETC", "/etc/netductor") }
+func EtcDir() string { return env("NETDUCTOR_ETC", "/etc/netductor") }
 func StateDir() string {
 	if v := os.Getenv("NETDUCTOR_STATE"); v != "" {
 		return v

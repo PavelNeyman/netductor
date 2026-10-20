@@ -128,7 +128,7 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "hosts": list, "config": gitstore.LoadBuildHost(), "status": gitstore.BuildHostStatusLine(), "waiting_build": waiting})
 	})
-		mux.HandleFunc("/api/build-host/jobs/claim", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/build-host/jobs/claim", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return
@@ -228,7 +228,7 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/build-host/deploy", func(w http.ResponseWriter, r *http.Request) {
 		// Deploy is operator-only (Mac). Node must not orchestrate build-host.
 		writeJSON(w, 410, map[string]any{
-			"ok": false,
+			"ok":    false,
 			"error": "build-host deploy only from operator (netductor-op tui / deploy build-host)",
 		})
 	})

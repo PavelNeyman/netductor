@@ -1,10 +1,10 @@
 package session
 
 import (
-	"time"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func setup(t *testing.T) {

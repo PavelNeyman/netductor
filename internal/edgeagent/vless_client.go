@@ -2,8 +2,8 @@ package edgeagent
 
 import (
 	"encoding/json"
-	"net"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -76,14 +76,14 @@ func VLESSClientConfigOpts(link string, opt ClientOpts) ([]byte, error) {
 		strict := !soft
 		inbounds = []any{
 			map[string]any{
-				"type":                      "tun",
-				"tag":                       "tun-in",
-				"interface_name":            "nd-tun",
-				"inet4_address":             "172.19.0.1/30",
-				"auto_route":                true,
-				"strict_route":              strict,
-				"stack":                     "system",
-				"sniff":                     true,
+				"type":                       "tun",
+				"tag":                        "tun-in",
+				"interface_name":             "nd-tun",
+				"inet4_address":              "172.19.0.1/30",
+				"auto_route":                 true,
+				"strict_route":               strict,
+				"stack":                      "system",
+				"sniff":                      true,
 				"sniff_override_destination": true,
 			},
 		}

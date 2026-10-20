@@ -20,8 +20,8 @@ func registerCanaryAPI(mux *http.ServeMux) {
 			st10 := vpn.CollectMismatch(10)
 			st30 := vpn.CollectMismatch(30)
 			writeJSON(w, 200, map[string]any{
-				"ok":    true,
-				"users": list,
+				"ok":           true,
+				"users":        list,
 				"mismatch_10m": map[string]any{"total": st10.Total, "canary": st10.CanaryTotal, "other": st10.OtherTotal},
 				"mismatch_30m": map[string]any{"total": st30.Total, "canary": st30.CanaryTotal, "other": st30.OtherTotal},
 			})

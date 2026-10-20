@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/nvr"
+	"github.com/PavelNeyman/netductor/internal/tapo"
 	"io"
 	"mime/multipart"
 	"net"
@@ -14,8 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/PavelNeyman/netductor/internal/nvr"
-	"github.com/PavelNeyman/netductor/internal/tapo"
 )
 
 func nvrDir(cfg config) string {
@@ -233,9 +233,6 @@ func nvrTrimTmp(cfg config) error {
 	return nil
 }
 
-
-
-
 func cameraPTZ(arg string) string {
 	// Preferred: native Go port of pytapo (HA Tapo-Control protocol).
 	// Fallback: python scripts/tapo_control.py, then ONVIF :2020.
@@ -447,7 +444,6 @@ func nvrUploadFile(client *http.Client, cfg config, camID, path string) error {
 	return nil
 }
 
-
 func rtspProbe(arg string) string {
 	arg = strings.TrimSpace(arg)
 	if arg == "" {
@@ -509,5 +505,3 @@ func rtspProbe(arg string) string {
 	}
 	return out
 }
-
-

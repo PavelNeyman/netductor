@@ -141,5 +141,3 @@ func luciTickAutoDisable() {
 	}
 	_ = os.Remove(luciUntilPath())
 }
-
-

@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/channels"
-	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/devices"
-	"github.com/PavelNeyman/netductor/internal/integrity"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/mtls"
@@ -310,22 +310,22 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		}
 		// path e2e + offline diagnostics
 		for _, p := range ch.Path {
-		if !p.PathOK {
-			key := "path:e2e:" + p.SecondaryID
-			msg := fmt.Sprintf("⚠️ Path e2e <b>%s</b>: %s\npath_ok=%v mgmt=%v online=%v uplink=%v face443=%v ssh=%v",
-				p.Name, p.Note, p.PathOK, p.MgmtOK, p.Online, p.UplinkOK, p.Face443, p.SSH52222)
-			if !p.MgmtOK && !p.Online {
-				msg = "🔴 " + msg
-				if notify.AlertOnce(key, msg) {
-					attachLogs(key, "📎 path/host unreachable logs (last 1h)")
+			if !p.PathOK {
+				key := "path:e2e:" + p.SecondaryID
+				msg := fmt.Sprintf("⚠️ Path e2e <b>%s</b>: %s\npath_ok=%v mgmt=%v online=%v uplink=%v face443=%v ssh=%v",
+					p.Name, p.Note, p.PathOK, p.MgmtOK, p.Online, p.UplinkOK, p.Face443, p.SSH52222)
+				if !p.MgmtOK && !p.Online {
+					msg = "🔴 " + msg
+					if notify.AlertOnce(key, msg) {
+						attachLogs(key, "📎 path/host unreachable logs (last 1h)")
+					}
+				} else {
+					notify.AlertOnce(key, msg)
 				}
 			} else {
-				notify.AlertOnce(key, msg)
+				notify.ClearAlert("path:e2e:" + p.SecondaryID)
 			}
-		} else {
-			notify.ClearAlert("path:e2e:" + p.SecondaryID)
 		}
-	}
 	}
 	// mTLS expiry reminders (always)
 	mtls.AlertExpiringCerts(30)
@@ -466,7 +466,6 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	_ = sum
 	_ = m
 }
-
 
 func countJournalMatches(unit string, windowMin int, substr string) int {
 	if windowMin < 1 {

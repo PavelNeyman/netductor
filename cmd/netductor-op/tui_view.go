@@ -1,8 +1,8 @@
 package main
 
 import (
-	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"fmt"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"strings"
 	"time"
 
@@ -41,7 +41,6 @@ func (m *model) addHit(x, y, w, h int, action string) {
 	}
 	m.hits = append(m.hits, hitRect{X: x, Y: y, W: w, H: h, Action: action})
 }
-
 
 func (m *model) currentEntries() []menuEntry {
 	if m.screen == screenMode || m.tab == tabMode {
@@ -287,7 +286,7 @@ func (m *model) renderOutput() string {
 	}
 	inner := stTitle.Render(title) + "\n" + stMuted.Render(hint) + "\n\n" + m.output
 	body := stBorder.Width(w).Height(bodyH).MaxHeight(bodyH).Render(
-		lipgloss.NewStyle().Width(w-2).Height(bodyH-2).MaxHeight(bodyH-2).Render(inner),
+		lipgloss.NewStyle().Width(w - 2).Height(bodyH - 2).MaxHeight(bodyH - 2).Render(inner),
 	)
 	used := headH + lipgloss.Height(body) + helpH
 	gap := h - used

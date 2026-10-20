@@ -320,5 +320,3 @@ func deskAPIGrant(w http.ResponseWriter, r *http.Request, gc *guest.Config, stor
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"ok":true,"mac":%q,"expires_at":%q}`, e.MAC, e.ExpiresAt.Format(time.RFC3339))
 }
-
-

@@ -118,7 +118,6 @@ WantedBy=multi-user.target
 	return enableStart("sing-box")
 }
 
-
 func downloadSingBoxVersion(dest, tag string) error {
 	a := arch()
 	url := fmt.Sprintf("https://github.com/SagerNet/sing-box/releases/download/%s/sing-box-%s-linux-%s.tar.gz", tag, strings.TrimPrefix(tag, "v"), a)

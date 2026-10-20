@@ -13,10 +13,10 @@ import (
 
 // PreflightCheck is one gate before stack apply.
 type PreflightCheck struct {
-	ID      string `json:"id"`
-	OK      bool   `json:"ok"`
-	Critical bool  `json:"critical"`
-	Detail  string `json:"detail"`
+	ID       string `json:"id"`
+	OK       bool   `json:"ok"`
+	Critical bool   `json:"critical"`
+	Detail   string `json:"detail"`
 }
 
 // PreflightReport aggregates apply readiness for tag.

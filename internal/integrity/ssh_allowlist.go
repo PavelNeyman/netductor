@@ -282,7 +282,6 @@ func LiveKeysSecondaryCached(id string) []LiveKey {
 	return ParseKeysFromText(id, string(b))
 }
 
-
 // SummarizeAuthorizedKeysForNotify builds a TG-safe summary (no full public key material).
 // Full authorized_keys lines never appear in the result — only type, short fp/mask, comment.
 func SummarizeAuthorizedKeysForNotify(body string) string {

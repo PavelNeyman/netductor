@@ -21,8 +21,8 @@ type Location = Site
 
 type Site struct {
 	ID         string   `json:"id"`
-	Name       string   `json:"name"` // e.g. "home", "office-msk"
-	Kind       string   `json:"kind,omitempty"` // home|flat|office|other
+	Name       string   `json:"name"`               // e.g. "home", "office-msk"
+	Kind       string   `json:"kind,omitempty"`     // home|flat|office|other
 	EdgeIDs    []string `json:"edge_ids,omitempty"` // netductor-agent device_ids
 	RPiID      string   `json:"rpi_id,omitempty"`
 	MikroTikID string   `json:"mikrotik_id,omitempty"`

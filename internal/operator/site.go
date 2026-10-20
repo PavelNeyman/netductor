@@ -13,16 +13,16 @@ import (
 
 // SiteSpec — MikroTik (+ optional RPi edge id) from operator machine.
 type SiteSpec struct {
-	SiteID   string
-	Name     string
-	RPiID    string
+	SiteID     string
+	Name       string
+	RPiID      string
 	MikroTikID string
-	RPiLAN   string
-	MTHost   string
-	MTUser   string
-	MTPass   string
-	MTPort   int
-	DoPush   bool
+	RPiLAN     string
+	MTHost     string
+	MTUser     string
+	MTPass     string
+	MTPort     int
+	DoPush     bool
 	// OperatorKeyPath private key; .pub used for harden
 	OperatorKeyPath string
 }

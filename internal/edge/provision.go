@@ -12,16 +12,16 @@ import (
 )
 
 type ProvisionOpts struct {
-	SSHTarget      string // root@192.168.1.1
-	DeviceID       string
-	ServerURL      string // prefer https://primary:8789
-	AgentBin       string
-	SSHKey         string
-	Arch           string
-	Token          string
-	Password       string // current root password; empty = factory OpenWrt (empty password login)
+	SSHTarget       string // root@192.168.1.1
+	DeviceID        string
+	ServerURL       string // prefer https://primary:8789
+	AgentBin        string
+	SSHKey          string
+	Arch            string
+	Token           string
+	Password        string // current root password; empty = factory OpenWrt (empty password login)
 	NewRootPassword string // optional: set root password before disabling password SSH
-	OperatorPubKey string
+	OperatorPubKey  string
 	// SkipHarden: install agent/config only; caller applies network while password still works, then Harden.
 	SkipHarden bool
 	// Optional mTLS client material (from primary EnsureClientFor).
@@ -124,9 +124,9 @@ fi
 
 	harden := ""
 	if !opts.SkipHarden {
-	if pub := strings.TrimSpace(opts.OperatorPubKey); pub != "" {
-		esc := strings.ReplaceAll(pub, "'", `'"'"'`)
-		harden = fmt.Sprintf(`
+		if pub := strings.TrimSpace(opts.OperatorPubKey); pub != "" {
+			esc := strings.ReplaceAll(pub, "'", `'"'"'`)
+			harden = fmt.Sprintf(`
 mkdir -p /root/.ssh
 chmod 700 /root/.ssh
 touch /root/.ssh/authorized_keys
@@ -154,7 +154,7 @@ SSH_EOF
   # Apply after reboot (same reason as dropbear).
 fi
 `, esc, esc, esc, esc)
-	}
+		}
 	} // end !SkipHarden
 
 	script := fmt.Sprintf(`set -e
@@ -239,7 +239,6 @@ func sshpassCmd(password string, args []string) *exec.Cmd {
 	return cmd
 }
 
-
 // putFileSSH copies localPath to remotePath via ssh stdin (Dropbear-safe; no SFTP subsystem).
 func putFileSSH(password string, sshBase []string, target, localPath, remotePath string) error {
 	b, err := os.ReadFile(localPath)
@@ -274,8 +273,6 @@ func runSSH(password string, sshBase []string, target, remoteCmd string) error {
 func shellQuotePath(p string) string {
 	return "'" + strings.ReplaceAll(p, "'", `'"'"'`) + "'"
 }
-
-
 
 // InstallOperatorKeys writes the operator pubkey to Dropbear/OpenSSH authorized_keys.
 // Does not change PasswordAuth. Safe to call while still using password SSH.

@@ -13,19 +13,19 @@ import (
 
 // PathE2E is end-to-end data-plane health for one secondary (not just face :443).
 type PathE2E struct {
-	SecondaryID   string  `json:"secondary_id"`
-	Name          string  `json:"name"`
-	Online        bool    `json:"online"`
-	Face443       bool    `json:"face_443"` // public :443
-	Face443ms     float64 `json:"face_443_ms,omitempty"`
-	UplinkOK      bool    `json:"uplink_ok"` // agent-reported primary path
-	SingBoxOK     bool    `json:"singbox_ok"`
-	SSH52222      bool    `json:"ssh_52222"` // out-of-band management
-	SSHms         float64 `json:"ssh_ms,omitempty"`
-	ICMP          bool    `json:"icmp_ok"`
-	PathOK        bool    `json:"path_ok"` // online && uplink && sing-box (data plane)
-	MgmtOK        bool    `json:"mgmt_ok"` // ssh or icmp — host reachable
-	Note          string  `json:"note,omitempty"`
+	SecondaryID string  `json:"secondary_id"`
+	Name        string  `json:"name"`
+	Online      bool    `json:"online"`
+	Face443     bool    `json:"face_443"` // public :443
+	Face443ms   float64 `json:"face_443_ms,omitempty"`
+	UplinkOK    bool    `json:"uplink_ok"` // agent-reported primary path
+	SingBoxOK   bool    `json:"singbox_ok"`
+	SSH52222    bool    `json:"ssh_52222"` // out-of-band management
+	SSHms       float64 `json:"ssh_ms,omitempty"`
+	ICMP        bool    `json:"icmp_ok"`
+	PathOK      bool    `json:"path_ok"` // online && uplink && sing-box (data plane)
+	MgmtOK      bool    `json:"mgmt_ok"` // ssh or icmp — host reachable
+	Note        string  `json:"note,omitempty"`
 }
 
 // CollectPathE2E probes management plane when secondary looks dead and summarises path.

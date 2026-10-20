@@ -17,36 +17,36 @@ type PlanRequest struct {
 
 // PlanResponse is returned to all thin UIs.
 type PlanResponse struct {
-	Preset    string       `json:"preset"`
-	Suggested string       `json:"suggested_preset"`
-	Facts     DeviceFacts  `json:"facts"`
-	Plan      DeployPlan   `json:"plan"`
-	Card      DeviceCard   `json:"card"`
+	Preset    string      `json:"preset"`
+	Suggested string      `json:"suggested_preset"`
+	Facts     DeviceFacts `json:"facts"`
+	Plan      DeployPlan  `json:"plan"`
+	Card      DeviceCard  `json:"card"`
 }
 
 // DeviceCard is a stable view-model for UI (derived from facts only).
 type DeviceCard struct {
-	Model      string   `json:"model,omitempty"`
-	Board      string   `json:"board,omitempty"`
-	Serial     string   `json:"serial,omitempty"`
-	Arch       string   `json:"arch,omitempty"`
-	OS         string   `json:"os,omitempty"`
-	LANIP      string   `json:"lan_ip,omitempty"`
-	WANPresent bool     `json:"wan_present"`
-	WANCapable bool     `json:"wan_capable"`
-	EthCount   int      `json:"eth_count"`
-	Bands      []string `json:"bands,omitempty"`
-	SSIDNow    []string `json:"ssid_now,omitempty"`
-	MemAvailKB int64    `json:"mem_avail_kb,omitempty"`
-	MemTotalKB int64    `json:"mem_total_kb,omitempty"`
-	HasMMC         bool  `json:"has_mmc,omitempty"`
-	HasUSBDisk     bool  `json:"has_usb_disk,omitempty"`
-	ExpandHint     bool  `json:"expand_hint,omitempty"`
-	OverlayTotalKB int64 `json:"overlay_total_kb,omitempty"`
-	OverlayFreeKB  int64 `json:"overlay_free_kb,omitempty"`
-	RootTotalKB    int64 `json:"root_total_kb,omitempty"`
-	RootFreeKB     int64 `json:"root_free_kb,omitempty"`
-	FlashKB        int64 `json:"flash_kb,omitempty"`
+	Model          string        `json:"model,omitempty"`
+	Board          string        `json:"board,omitempty"`
+	Serial         string        `json:"serial,omitempty"`
+	Arch           string        `json:"arch,omitempty"`
+	OS             string        `json:"os,omitempty"`
+	LANIP          string        `json:"lan_ip,omitempty"`
+	WANPresent     bool          `json:"wan_present"`
+	WANCapable     bool          `json:"wan_capable"`
+	EthCount       int           `json:"eth_count"`
+	Bands          []string      `json:"bands,omitempty"`
+	SSIDNow        []string      `json:"ssid_now,omitempty"`
+	MemAvailKB     int64         `json:"mem_avail_kb,omitempty"`
+	MemTotalKB     int64         `json:"mem_total_kb,omitempty"`
+	HasMMC         bool          `json:"has_mmc,omitempty"`
+	HasUSBDisk     bool          `json:"has_usb_disk,omitempty"`
+	ExpandHint     bool          `json:"expand_hint,omitempty"`
+	OverlayTotalKB int64         `json:"overlay_total_kb,omitempty"`
+	OverlayFreeKB  int64         `json:"overlay_free_kb,omitempty"`
+	RootTotalKB    int64         `json:"root_total_kb,omitempty"`
+	RootFreeKB     int64         `json:"root_free_kb,omitempty"`
+	FlashKB        int64         `json:"flash_kb,omitempty"`
 	USBDisks       []USBDiskFact `json:"usb_disks,omitempty"`
 	ExtrootActive  bool          `json:"extroot_active,omitempty"`
 }

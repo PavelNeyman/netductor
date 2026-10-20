@@ -247,7 +247,6 @@ func reportResult(client *http.Client, cfg config, jobID string, ok bool, log, e
 	return nil
 }
 
-
 func uploadArtifacts(client *http.Client, cfg config, jobID, path string) error {
 	f, err := os.Open(path)
 	if err != nil {

@@ -122,7 +122,7 @@ func CollectLampac() LampacStatus {
 // ListAddons returns all optional components status.
 func ListAddons() map[string]any {
 	return map[string]any{
-		"lampac": CollectLampac(),
+		"lampac":   CollectLampac(),
 		"versions": Versions(),
 	}
 }

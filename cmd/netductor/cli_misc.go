@@ -1,7 +1,7 @@
 package main
 
 import (
-			"encoding/json"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -459,7 +459,6 @@ func runProbe(args []string) {
 	}
 }
 
-
 func mustStatMod(dir, name string) time.Time {
 	fi, err := os.Stat(filepath.Join(dir, name))
 	if err != nil {
@@ -529,4 +528,3 @@ func runUpdateGitHubToken(args []string) {
 		os.Exit(1)
 	}
 }
-

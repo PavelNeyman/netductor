@@ -17,7 +17,7 @@ const (
 
 // Defaults aligned with live topology (override via env only when needed).
 const (
-	defaultHomeLAN = "10.9.8.0/24"
+	defaultHomeLAN       = "10.9.8.0/24"
 	defaultServiceNetVIP = "10.88.0.0/24"
 	defaultShopCIDR      = "10.120.0.0/16"
 )
@@ -69,27 +69,27 @@ type SRProfileMeta struct {
 func SRProfiles() []SRProfileMeta {
 	return []SRProfileMeta{
 		{
-			ID:      SRProfileOperatorMobile,
-			LabelEN: "Operator · mobile",
-			LabelRU: "Оператор · мобильный",
-			HelpEN:  "Cellular / foreign Wi‑Fi: RU+banks DIRECT, work+home DIRECT, ads REJECT, service-net PROXY, else VLESS",
-			HelpRU:  "Сотовая / чужой Wi‑Fi: RU+банки DIRECT, работа+дом DIRECT, реклама REJECT, service-net PROXY, остальное VLESS",
+			ID:       SRProfileOperatorMobile,
+			LabelEN:  "Operator · mobile",
+			LabelRU:  "Оператор · мобильный",
+			HelpEN:   "Cellular / foreign Wi‑Fi: RU+banks DIRECT, work+home DIRECT, ads REJECT, service-net PROXY, else VLESS",
+			HelpRU:   "Сотовая / чужой Wi‑Fi: RU+банки DIRECT, работа+дом DIRECT, реклама REJECT, service-net PROXY, остальное VLESS",
 			Operator: true,
 		},
 		{
-			ID:      SRProfileOperatorFullProxy,
-			LabelEN: "Operator · full proxy",
-			LabelRU: "Оператор · весь трафик в VLESS",
-			HelpEN:  "Foreign Wi‑Fi when you want almost all via secondary: work+home+nodes DIRECT, no client RU DIRECT (split on node), service-net PROXY",
-			HelpRU:  "Чужой Wi‑Fi «всё в VLESS»: работа+дом+ноды DIRECT, без RU DIRECT на клиенте (split на secondary), service-net PROXY",
+			ID:       SRProfileOperatorFullProxy,
+			LabelEN:  "Operator · full proxy",
+			LabelRU:  "Оператор · весь трафик в VLESS",
+			HelpEN:   "Foreign Wi‑Fi when you want almost all via secondary: work+home+nodes DIRECT, no client RU DIRECT (split on node), service-net PROXY",
+			HelpRU:   "Чужой Wi‑Fi «всё в VLESS»: работа+дом+ноды DIRECT, без RU DIRECT на клиенте (split на secondary), service-net PROXY",
 			Operator: true,
 		},
 		{
-			ID:      SRProfileFamily,
-			LabelEN: "Family",
-			LabelRU: "Семья",
-			HelpEN:  "One config for cellular and Wi‑Fi: RU+banks DIRECT, ads REJECT, FINAL PROXY. No work/shop/service-net",
-			HelpRU:  "Один конфиг для LTE и Wi‑Fi: RU+банки DIRECT, реклама REJECT, FINAL PROXY. Без work/магазинов/service-net",
+			ID:       SRProfileFamily,
+			LabelEN:  "Family",
+			LabelRU:  "Семья",
+			HelpEN:   "One config for cellular and Wi‑Fi: RU+banks DIRECT, ads REJECT, FINAL PROXY. No work/shop/service-net",
+			HelpRU:   "Один конфиг для LTE и Wi‑Fi: RU+банки DIRECT, реклама REJECT, FINAL PROXY. Без work/магазинов/service-net",
 			Operator: false,
 		},
 	}

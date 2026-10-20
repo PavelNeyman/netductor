@@ -63,7 +63,7 @@ func registerVPNHTTP(mux *http.ServeMux) {
 	})
 
 	// --- VPN users (operator session) ---
-	
+
 	mux.HandleFunc("/api/backup/schedule", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return

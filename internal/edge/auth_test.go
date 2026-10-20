@@ -23,7 +23,7 @@ func TestValidBearerDevice(t *testing.T) {
 	if err != nil || tok == "" {
 		t.Fatal(err, tok)
 	}
-	if !ValidBearer("Bearer "+tok) {
+	if !ValidBearer("Bearer " + tok) {
 		t.Fatal("device token should work")
 	}
 	if ValidBearer("Bearer not-a-real-token-xxxxxxxxxxxxxx") {

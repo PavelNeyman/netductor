@@ -8,7 +8,6 @@ import (
 	"github.com/PavelNeyman/netductor/internal/edgestorage"
 )
 
-
 func edgestorData(suffix string) string {
 	d := "m:edgestor:" + suffix
 	if len(d) > 64 {

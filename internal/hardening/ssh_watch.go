@@ -105,4 +105,3 @@ const DefaultSSHPort = ndconfig.DefSSHPort // keep for callers
 func SSHPort() int {
 	return ndconfig.SSHPort()
 }
-

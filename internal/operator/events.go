@@ -128,7 +128,7 @@ func FleetDeployWithReport(f FleetSpec, r Reporter) error {
 		err := deploy.DeployBuildHost(deploy.BuildHostOpts{
 			PrimaryHost: primaryHost, PrimaryUser: primaryUser, PrimaryKey: primaryKey,
 			PrimaryKeyPassphrase: keyPass,
-			BuildHost: bh.Host, BuildUser: bh.User, BuildPass: bh.Password, Label: bh.Label,
+			BuildHost:            bh.Host, BuildUser: bh.User, BuildPass: bh.Password, Label: bh.Label,
 		})
 		if err != nil {
 			reportErr(r, "build-host", err)

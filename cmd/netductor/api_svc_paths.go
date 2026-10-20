@@ -48,7 +48,7 @@ func registerSvcPathsAPI(mux *http.ServeMux) {
 		case http.MethodPost:
 			raw, _ := io.ReadAll(io.LimitReader(r.Body, 1<<16))
 			var in struct {
-				Enabled            *bool `json:"enabled"`
+				Enabled              *bool `json:"enabled"`
 				UsersToSPOnVLESSDown *bool `json:"users_to_sp_on_vless_down"`
 			}
 			_ = json.Unmarshal(raw, &in)

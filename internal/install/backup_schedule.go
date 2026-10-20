@@ -90,7 +90,6 @@ func ParseHHMM(s string) (hour, minute int, err error) {
 	return h, m, nil
 }
 
-
 func backupKeepPath() string {
 	return filepath.Join(paths.StateDir(), "backup_keep.json")
 }

@@ -147,4 +147,3 @@ func SyncAgentAllowFromSecondaryRegistry() error {
 	}
 	return nil
 }
-

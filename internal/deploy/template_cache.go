@@ -31,8 +31,8 @@ func CacheDefaultTemplates(agentDir string) (string, error) {
 	t, err := edge.GetTemplate("default")
 	if err != nil {
 		t = edge.Template{
-			"id":   "default",
-			"role": "site",
+			"id":    "default",
+			"role":  "site",
 			"guest": map[string]any{"enabled": false, "ssid": "Guest", "hidden": false},
 			"network": map[string]any{
 				"lan_ip": "192.168.50.1", "lan_mask": "255.255.255.0", "dhcp": true,

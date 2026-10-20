@@ -172,13 +172,13 @@ func wizBuildFields(id string, m *model) []wizField {
 		s := loadTUISettings()
 		return []wizField{
 			{Key: "primary_host", Label: FormT(lang, "primary_host"), Value: s.RemoteHost, Placeholder: "x.x.x.x",
-				Short: ph("Primary already deployed", "Primary уже развёрнут"),
+				Short:  ph("Primary already deployed", "Primary уже развёрнут"),
 				Detail: ph("Build-host is managed from op; primary receives PB/BP paths.", "Build-host с op; на primary поднимаются пути PB/BP.")},
 			{Key: "primary_key", Label: FormT(lang, "ssh_key_path"), Value: orDefault(s.RemoteKey, "~/.ssh/netductor_primary"),
 				Short: ph("Operator key (same as primary)", "Ключ op (как для primary)")},
 			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (empty=none)", Secret: true},
 			{Key: "host", Label: ph("Build VPS host", "Хост build VPS"), Placeholder: "x.x.x.x",
-				Short: ph("New CI server public IP", "Публичный IP CI-сервера"),
+				Short:  ph("New CI server public IP", "Публичный IP CI-сервера"),
 				Detail: ph("Fresh Debian. First SSH :22 with password, then harden 52222.", "Чистый Debian. Сначала :22 пароль, потом harden 52222.")},
 			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root"},
 			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true,
@@ -186,7 +186,7 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "label", Label: ph("Label", "Метка"), Value: "build-1"},
 			{Key: "primary_url", Label: ph("Primary API URL (optional)", "URL API primary (опц.)"),
 				Placeholder: "https://p.example:8787",
-				Short: ph("Agent SERVER= for heartbeat", "SERVER= агента для heartbeat")},
+				Short:       ph("Agent SERVER= for heartbeat", "SERVER= агента для heartbeat")},
 		}
 	case "secondary":
 		return []wizField{

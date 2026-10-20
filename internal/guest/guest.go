@@ -24,16 +24,16 @@ const (
 
 // Config is stored on the edge device.
 type Config struct {
-	Enabled    bool   `json:"enabled"`
-	SSID       string `json:"ssid"`
-	Hidden     bool   `json:"hidden"`
-	PSK        string `json:"psk"`
-	SubnetCIDR string `json:"subnet_cidr"` // e.g. 192.168.50.1/24
-	Band       string `json:"band"`        // 2g | both
-	DeskPIN    string `json:"desk_pin"`    // plaintext only at setup; prefer DeskPINHash
+	Enabled     bool   `json:"enabled"`
+	SSID        string `json:"ssid"`
+	Hidden      bool   `json:"hidden"`
+	PSK         string `json:"psk"`
+	SubnetCIDR  string `json:"subnet_cidr"` // e.g. 192.168.50.1/24
+	Band        string `json:"band"`        // 2g | both
+	DeskPIN     string `json:"desk_pin"`    // plaintext only at setup; prefer DeskPINHash
 	DeskPINHash string `json:"desk_pin_hash,omitempty"`
-	DeskPort   int    `json:"desk_port"`
-	CaptivePort int   `json:"captive_port"`
+	DeskPort    int    `json:"desk_port"`
+	CaptivePort int    `json:"captive_port"`
 }
 
 // AllowEntry is one MAC with internet until ExpiresAt.

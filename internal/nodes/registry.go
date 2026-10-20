@@ -102,7 +102,6 @@ func NormalizeRole(role string) string {
 	}
 }
 
-
 func UpsertFromDevice(n Node) (Node, error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -309,9 +308,6 @@ func pruneStaleVPS(keepID, publicIP string) error {
 	}
 	return nil
 }
-
-
-
 
 // MarkStaleRelays sets offline for relay nodes not seen recently and drops empty-IP ghosts.
 func MarkStaleRelays(maxAgeSec int64) {

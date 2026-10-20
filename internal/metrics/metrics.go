@@ -21,7 +21,6 @@ var Services = []string{"sing-box", "blocky", "netductor-api", "netductor-telegr
 
 func Dir() string { return paths.MetricsDir() }
 
-
 func Collect() map[string]any {
 	out := map[string]any{
 		"ts":       time.Now().Unix(),

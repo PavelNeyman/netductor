@@ -21,5 +21,5 @@ func runSetupWizard() {
 	}
 }
 
-func wizardNVR()       { runSetupWizard() }
-func wizardAddons()    { runSetupWizard() }
+func wizardNVR()    { runSetupWizard() }
+func wizardAddons() { runSetupWizard() }

@@ -358,7 +358,6 @@ func configRestore(client *http.Client, cfg config, name string) string {
 	return "restored " + name + " + uci commit"
 }
 
-
 func storageBackupB(client *http.Client, cfg config) string {
 	tmp := filepath.Join(os.TempDir(), "nd-overlay-"+cfg.DeviceID+".tar.gz")
 	_ = os.Remove(tmp)
@@ -418,7 +417,6 @@ func storageRestoreLocal(arg string) string {
 	}
 	return "restore extracted; merge pin attempted — reboot when ready"
 }
-
 
 func storageRestoreRemote(client *http.Client, cfg config, arg string) string {
 	// arg: filename optional; empty = latest via /api/edge/storage/latest-b

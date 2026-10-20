@@ -35,15 +35,15 @@ func TestBuildPlan_RPiFactory(t *testing.T) {
 
 func TestBuildPlan_CudyLike(t *testing.T) {
 	facts := DeviceFacts{
-		Arch: "mipsle",
+		Arch:  "mipsle",
 		Board: "cudy,tr1200",
-		OS:   "openwrt",
+		OS:    "openwrt",
 		Ifaces: []NetIface{
 			{Name: "eth0", Type: "ethernet", Up: true},
 			{Name: "eth1", Type: "ethernet", Up: true},
 		},
-		Radios: []RadioFact{{Name: "radio0", Band: "2g"}, {Name: "radio1", Band: "5g"}},
-		UCI:    UCINetFacts{LANDevice: "br-lan", LANIP: "192.168.1.1", WANPresent: true, WANProto: "dhcp"},
+		Radios:  []RadioFact{{Name: "radio0", Band: "2g"}, {Name: "radio1", Band: "5g"}},
+		UCI:     UCINetFacts{LANDevice: "br-lan", LANIP: "192.168.1.1", WANPresent: true, WANProto: "dhcp"},
 		Storage: StorageFacts{HasUSBDisk: true},
 	}
 	intent := DeployIntent{ConfigureNet: true, GuestEnable: true, VPNEnable: true, WiFiSSID: "Home"}

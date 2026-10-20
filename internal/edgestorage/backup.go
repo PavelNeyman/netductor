@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-
 // SafeDeviceID strips path separators and limits length for filesystem paths.
 func SafeDeviceID(id string) string {
 	id = strings.TrimSpace(id)
@@ -172,14 +171,13 @@ func WriteOfflinePack(deviceID, destDir string) (string, error) {
 		File:     dstName,
 		SHA256:   sum,
 		Kind:     "B",
-		}
+	}
 	_ = name
 	b, _ := json.MarshalIndent(man, "", "  ")
 	_ = os.WriteFile(filepath.Join(outDir, "manifest.json"), b, 0o600)
 	_ = os.WriteFile(filepath.Join(outDir, "SHA256SUMS"), []byte(sum+"  "+dstName+"\n"), 0o600)
 	return outDir, nil
 }
-
 
 // clampOfflineDest forces packs under /var/lib/netductor/edge-offline/<safe-id>/…
 func clampOfflineDest(dest, deviceID string) string {

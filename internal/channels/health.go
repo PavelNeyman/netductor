@@ -29,13 +29,13 @@ type SecondaryPath struct {
 
 // Report is primary-side channel snapshot.
 type Report struct {
-	TS                         time.Time       `json:"ts"`
-	Secondaries                []SecondaryPath `json:"secondaries"`
-	MismatchLocal30m           int             `json:"mismatch_local_30m"` // primary journal flow mismatch
-	Path                       []PathE2E       `json:"path_e2e,omitempty"`
-	RealityInvalidFromSec15m   int             `json:"reality_invalid_from_secondary_15m"`
-	RealityInvalidTotal15m     int             `json:"reality_invalid_total_15m"`
-	Notes                      []string        `json:"notes,omitempty"`
+	TS                       time.Time       `json:"ts"`
+	Secondaries              []SecondaryPath `json:"secondaries"`
+	MismatchLocal30m         int             `json:"mismatch_local_30m"` // primary journal flow mismatch
+	Path                     []PathE2E       `json:"path_e2e,omitempty"`
+	RealityInvalidFromSec15m int             `json:"reality_invalid_from_secondary_15m"`
+	RealityInvalidTotal15m   int             `json:"reality_invalid_total_15m"`
+	Notes                    []string        `json:"notes,omitempty"`
 }
 
 // Collect builds a report (primary). Safe on secondary (empty list).

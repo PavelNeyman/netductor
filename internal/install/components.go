@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/version"
 )
 
 // ComponentsManifest lists what was installed on this core (for recover).

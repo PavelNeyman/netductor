@@ -73,8 +73,6 @@ func BuildHostEnabled() bool {
 	return PrimaryBuildHostOnline()
 }
 
-
-
 // TestBuildHost probes agent plane status (no SSH from primary).
 // Legacy SSH probe removed — policy: primary never SSHs to build-host.
 func TestBuildHost() (string, error) {
@@ -97,10 +95,6 @@ func TestBuildHost() (string, error) {
 	}
 	return b.String(), nil
 }
-
-
-
-
 
 // StatusLine for doctor/CLI.
 func BuildHostStatusLine() string {

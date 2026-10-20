@@ -331,7 +331,6 @@ func handleIncidentCB(token string, chat int64, msgID int, data string) bool {
 	return true
 }
 
-
 func replyIncidentTimeline(token string, chat int64, msgID int) bool {
 	ru := getLang() != "en"
 	nl := "\n"

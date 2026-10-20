@@ -24,9 +24,9 @@ type ProvisionIn struct {
 	SNI            string // Reality SNI; empty → ResolveSecondarySNI / api.vk.me
 	OperatorPubKey string // optional: Mac/operator pubkey (preferred). If set, only this is installed.
 	// Optional mTLS client material (written over the same SSH session — primary need not re-SSH later).
-	MTLSCA     []byte
-	MTLSCert   []byte
-	MTLSKey    []byte
+	MTLSCA   []byte
+	MTLSCert []byte
+	MTLSKey  []byte
 }
 
 // ProvisionResult summarizes remote setup.
@@ -114,8 +114,6 @@ func runSSH(client *ssh.Client, cmd string) (string, error) {
 	out, err := s.CombinedOutput(cmd)
 	return string(out), err
 }
-
-
 
 // InstallOperatorKeys writes authorized_keys only (password auth stays enabled).
 func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {

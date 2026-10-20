@@ -161,4 +161,3 @@ func InstallSingBoxBinaryOnly() error {
 	}
 	return InstallSingBox()
 }
-

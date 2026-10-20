@@ -1,10 +1,10 @@
 package nvr
 
 import (
-	"fmt"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"

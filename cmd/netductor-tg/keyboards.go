@@ -674,7 +674,6 @@ func usersListKeyboard() map[string]any {
 	}}
 }
 
-
 func displayRole(role string) string {
 	switch strings.ToLower(strings.TrimSpace(role)) {
 	case "", "core":

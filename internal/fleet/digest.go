@@ -20,24 +20,24 @@ import (
 
 // Digest is a single snapshot of dual-node + VPN soft signals.
 type Digest struct {
-	TS              time.Time         `json:"ts"`
-	PrimaryVersion  string            `json:"primary_version"`
-	UpdateAvailable bool              `json:"update_available"`
-	LatestRelease   string            `json:"latest_release,omitempty"`
-	Services        map[string]string `json:"services"`
-	Secondaries     []SecRow          `json:"secondaries"`
-	SPOK            *bool             `json:"sp_ok,omitempty"`
-	PSOK            *bool             `json:"ps_ok,omitempty"`
-	BackupAgeHours  *float64          `json:"backup_age_hours,omitempty"`
-	BackupVerify    string            `json:"backup_verify,omitempty"`
-	RecoverDrillDays *int             `json:"recover_drill_days,omitempty"`
-	LEHosts         []string          `json:"le_hosts,omitempty"`
-	VPNUsers        int               `json:"vpn_users"`
-	VPNQuiet        []string          `json:"vpn_quiet,omitempty"` // no activity hint
-	VPNNearQuota    []string          `json:"vpn_near_quota,omitempty"`
-	Notes           []string          `json:"notes,omitempty"`
-	FirewallOK      *bool             `json:"firewall_ok,omitempty"`
-	FirewallBackend string            `json:"firewall_backend,omitempty"`
+	TS               time.Time         `json:"ts"`
+	PrimaryVersion   string            `json:"primary_version"`
+	UpdateAvailable  bool              `json:"update_available"`
+	LatestRelease    string            `json:"latest_release,omitempty"`
+	Services         map[string]string `json:"services"`
+	Secondaries      []SecRow          `json:"secondaries"`
+	SPOK             *bool             `json:"sp_ok,omitempty"`
+	PSOK             *bool             `json:"ps_ok,omitempty"`
+	BackupAgeHours   *float64          `json:"backup_age_hours,omitempty"`
+	BackupVerify     string            `json:"backup_verify,omitempty"`
+	RecoverDrillDays *int              `json:"recover_drill_days,omitempty"`
+	LEHosts          []string          `json:"le_hosts,omitempty"`
+	VPNUsers         int               `json:"vpn_users"`
+	VPNQuiet         []string          `json:"vpn_quiet,omitempty"` // no activity hint
+	VPNNearQuota     []string          `json:"vpn_near_quota,omitempty"`
+	Notes            []string          `json:"notes,omitempty"`
+	FirewallOK       *bool             `json:"firewall_ok,omitempty"`
+	FirewallBackend  string            `json:"firewall_backend,omitempty"`
 }
 
 // SecRow is one secondary agent line.

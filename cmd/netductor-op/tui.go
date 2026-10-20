@@ -172,7 +172,6 @@ type model struct {
 	catLevel       int
 }
 
-
 func orDefault(s, d string) string {
 	if strings.TrimSpace(s) == "" {
 		return d
@@ -292,7 +291,6 @@ func runTUI(args []string) {
 	}
 }
 
-
 func describeModeLang(m runMode, lang tuiLang) (title, desc string) {
 	for _, e := range modeEntries(lang) {
 		if runMode(e.ID) == m {
@@ -301,4 +299,3 @@ func describeModeLang(m runMode, lang tuiLang) (title, desc string) {
 	}
 	return string(m), ""
 }
-

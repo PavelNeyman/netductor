@@ -165,9 +165,9 @@ func EnsureDefaultTemplate() {
 	}
 	_ = SaveTemplate("default", Template{
 		"guest": map[string]any{"enabled": false, "ssid": "Guest", "hidden": false},
-		"iot": map[string]any{"enabled": false, "ssid": "IoT", "hidden": true, "cidr": ""},
-		"id":   "default",
-		"role": "site",
+		"iot":   map[string]any{"enabled": false, "ssid": "IoT", "hidden": true, "cidr": ""},
+		"id":    "default",
+		"role":  "site",
 		"network": map[string]any{
 			"lan_ip":   "192.168.50.1",
 			"lan_mask": "255.255.255.0",
@@ -187,7 +187,6 @@ func EnsureDefaultTemplate() {
 		},
 	})
 }
-
 
 // applyVPNPolicyToMap merges validated policy keys from kvs into vpn map.
 func applyVPNPolicyToMap(vpn map[string]any, kvs map[string]any) error {

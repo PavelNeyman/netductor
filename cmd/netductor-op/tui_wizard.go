@@ -454,7 +454,7 @@ func (m model) updateWizard(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 				return m, nil
 			case wizStepConfirm:
-		// confirm → fields (already filled); run stays in frame
+				// confirm → fields (already filled); run stays in frame
 				m.wizStep = wizStepFields
 				m.wizFieldIdx = 0
 				if len(m.wizFields) > 0 {
@@ -606,7 +606,6 @@ func (m *model) fieldVal(key string) string {
 	return ""
 }
 
-
 func keyTextForField(msg tea.KeyMsg) (string, bool) {
 	if msg.Paste {
 		if len(msg.Runes) > 0 {
@@ -642,7 +641,6 @@ func stripFieldNewlines(s string) string {
 	s = strings.ReplaceAll(s, "\n", "")
 	return s
 }
-
 
 func (m model) wizardHelpChips(ru bool) []helpChip {
 	L := func(en, r string) string {
@@ -749,4 +747,3 @@ func (m *model) clampWizLogOffset(viewport int) {
 		m.wizLogOffset = maxOff
 	}
 }
-

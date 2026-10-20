@@ -47,7 +47,6 @@ func QueueBuildHostBackupMirror() error {
 	return os.WriteFile(filepath.Join(dstDir, "LATEST"), []byte(latestName+"\n"), 0o600)
 }
 
-
 // LatestBuildBackupMirror returns name and path of staged primary backup.
 func LatestBuildBackupMirror() (name, path string, err error) {
 	dir := filepath.Join(paths.StateDir(), "build-backup-mirror")

@@ -204,7 +204,6 @@ func FlushAlerts(force bool) error {
 	return nil
 }
 
-
 // BotUsername returns @name without @ from getMe (cached under state/tg/bot_username).
 func BotUsername() string {
 	path := filepath.Join(paths.StateDir(), "tg", "bot_username")
@@ -342,7 +341,6 @@ func sendTelegramHTML(msg string) error {
 	return nil
 }
 
-
 // indexTGButtonOpen finds <tg-button> but not <tg-button-row>.
 func indexTGButtonOpen(lower string) int {
 	start := 0
@@ -418,7 +416,6 @@ func extractTGButtons(msg string) (text string, replyMarkupJSON string) {
 	raw, _ := json.Marshal(map[string]any{"inline_keyboard": kb})
 	return text, string(raw)
 }
-
 
 // repinHub deletes previous hub (if any) and sends a compact menu at chat bottom.
 func repinHub() error {

@@ -11,14 +11,14 @@ import (
 
 // BaselineReport is a machine-readable host baseline integrity check.
 type BaselineReport struct {
-	RoleFile      string `json:"role_file"`       // primary|secondary|missing
-	RoleOK        bool   `json:"role_ok"`
-	AptPinPresent bool   `json:"apt_pin_present"`
-	AptPinOK      bool   `json:"apt_pin_ok"`
-	WatchdogOK    bool   `json:"watchdog_ok"`
-	FirewallOK    bool   `json:"firewall_ok"`
-	HosterClean   bool   `json:"hoster_clean"`
-	OK            bool   `json:"ok"`
+	RoleFile      string   `json:"role_file"` // primary|secondary|missing
+	RoleOK        bool     `json:"role_ok"`
+	AptPinPresent bool     `json:"apt_pin_present"`
+	AptPinOK      bool     `json:"apt_pin_ok"`
+	WatchdogOK    bool     `json:"watchdog_ok"`
+	FirewallOK    bool     `json:"firewall_ok"`
+	HosterClean   bool     `json:"hoster_clean"`
+	OK            bool     `json:"ok"`
 	Issues        []string `json:"issues,omitempty"`
 }
 

@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
-	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )

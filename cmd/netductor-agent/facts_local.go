@@ -89,7 +89,9 @@ func collectDeviceFacts() map[string]any {
 	if out, err := exec.Command("sh", "-c", "for d in /sys/block/sd*; do [ -d \"$d\" ] || continue; name=$(basename \"$d\"); sectors=$(cat \"$d/size\" 2>/dev/null || echo 0); echo $name $((sectors/2)); done").Output(); err == nil {
 		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			line = strings.TrimSpace(line)
-			if line == "" { continue }
+			if line == "" {
+				continue
+			}
 			parts := strings.Fields(line)
 			if len(parts) >= 2 {
 				kb, _ := strconv.ParseInt(parts[1], 10, 64)

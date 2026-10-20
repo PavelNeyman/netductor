@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/vpn"
 	"encoding/base64"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 	"log"
 	"net"
 	"net/http"
@@ -167,8 +167,6 @@ func allowedDeepLink(s string) bool {
 	}
 	return false
 }
-
-
 
 // In-memory rate limit for public /sub/ (does not change URL or auth contract).
 var (

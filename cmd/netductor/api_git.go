@@ -7,8 +7,8 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
-	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 )
 
 func registerGitAPI(mux *http.ServeMux) {
@@ -385,7 +385,6 @@ func registerGitAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "async": true, "job": job})
 	})
 
-	
 	mux.HandleFunc("/api/git/build-host", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
@@ -394,7 +393,7 @@ func registerGitAPI(mux *http.ServeMux) {
 		case http.MethodGet:
 			c := gitstore.LoadBuildHost()
 			writeJSON(w, 200, map[string]any{
-				"ok": true,
+				"ok":     true,
 				"config": c,
 				"status": gitstore.BuildHostStatusLine(),
 				"agents": gitstore.ListBuildHostStates(),

@@ -170,7 +170,7 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
-	
+
 	mux.HandleFunc("/api/edge/templates/vpn", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
@@ -273,9 +273,11 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		}
 		writeJSON(w, 200, map[string]any{"status": st, "device_token": dtok})
 	})
-	
+
 	mux.HandleFunc("/api/edge/storage/mute", func(w http.ResponseWriter, r *http.Request) {
-		if !requireSession(w, r) { return }
+		if !requireSession(w, r) {
+			return
+		}
 		if r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return
@@ -294,7 +296,9 @@ func registerEdgeAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true, "mute": mute})
 	})
 	mux.HandleFunc("/api/edge/storage/backups", func(w http.ResponseWriter, r *http.Request) {
-		if !requireSession(w, r) { return }
+		if !requireSession(w, r) {
+			return
+		}
 		id := r.URL.Query().Get("device_id")
 		if id == "" {
 			writeJSON(w, 400, map[string]string{"error": "device_id"})
@@ -320,9 +324,13 @@ func registerEdgeAPI(mux *http.ServeMux) {
 			return
 		}
 		kind := r.URL.Query().Get("kind")
-		if kind != "A" && kind != "B" { kind = "B" }
+		if kind != "A" && kind != "B" {
+			kind = "B"
+		}
 		did := r.URL.Query().Get("device_id")
-		if did == "" { did = tokenDID }
+		if did == "" {
+			did = tokenDID
+		}
 		if did != tokenDID {
 			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
 			return

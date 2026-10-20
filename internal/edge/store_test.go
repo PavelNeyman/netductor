@@ -40,7 +40,7 @@ func TestEnrollApproveFlow(t *testing.T) {
 	if !RequireApproved("Bearer "+dt, "site1") {
 		t.Fatal("device token")
 	}
-	if !ValidBearer("Bearer "+dt) {
+	if !ValidBearer("Bearer " + dt) {
 		t.Fatal("valid bearer")
 	}
 	// commands only approved

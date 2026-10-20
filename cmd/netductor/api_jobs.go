@@ -129,4 +129,3 @@ func runJobDoctor(ctx context.Context, j *jobs.Job, appendLog func(string), setS
 	setStep(jobs.Step{ID: "doctor", Message: "ok", Done: true})
 	return map[string]any{"ok": true, "report": string(out)}, nil
 }
-

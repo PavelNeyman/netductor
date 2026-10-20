@@ -1,11 +1,11 @@
 package install
 
 import (
-	"strings"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/integrity"
@@ -48,7 +48,6 @@ func SnapshotHostBaseline() error {
 	}
 	return nil
 }
-
 
 // BaselineDrift is a doctor-facing diff against the post-install snapshot.
 type BaselineDrift struct {

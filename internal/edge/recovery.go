@@ -164,7 +164,7 @@ func ExportDevices() ([]byte, error) {
 	defer mu.Unlock()
 	m := loadDevices()
 	return json.MarshalIndent(map[string]any{
-		"devices": m,
+		"devices":  m,
 		"exported": time.Now().UTC().Format(time.RFC3339),
 	}, "", "  ")
 }

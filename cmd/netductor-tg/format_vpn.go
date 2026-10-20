@@ -139,7 +139,6 @@ func formatUsersListHTML() string {
 	return b.String()
 }
 
-
 func formatDevicesListHTML() string {
 	nl := string([]byte{10})
 	names := vpn.ListDeviceNames(false)
@@ -516,7 +515,6 @@ var accessShowMu sync.Mutex
 // lastAccessMsg tracks the live Access card per chat+user so we can delete without racing photo edits.
 var lastAccessMsg = map[string]int{}
 
-
 func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	accessShowMu.Lock()
 	defer accessShowMu.Unlock()
@@ -555,7 +553,6 @@ func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 		fmt.Fprintln(os.Stderr, "sendRichWithPhoto media:", err)
 	}
 }
-
 
 func showSRProfilePicker(token string, chat int64, msgID int, userName string) {
 	nl := "\n"

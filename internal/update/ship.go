@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/ci"
-	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/gha"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )

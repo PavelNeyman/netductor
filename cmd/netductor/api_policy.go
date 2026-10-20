@@ -190,9 +190,9 @@ func registerPolicyPresetAPI(mux *http.ServeMux) {
 				return
 			}
 			writeJSON(w, 200, map[string]any{
-				"ok": true,
+				"ok":      true,
 				"builtin": []string{policy.PresetFull, policy.PresetMedia, policy.PresetNone},
-				"custom": list,
+				"custom":  list,
 			})
 		case http.MethodPost:
 			body := readJSON(r)

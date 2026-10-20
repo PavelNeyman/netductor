@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/PavelNeyman/netductor/internal/upstream"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
+	"github.com/PavelNeyman/netductor/internal/upstream"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,10 +22,10 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/registry"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
+	"github.com/PavelNeyman/netductor/internal/sites"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -525,9 +525,9 @@ func runDoctorNative() int {
 			doctorPrintf(" vps_slot=%v\n", gitstore.VpsSlotTaken())
 		}
 		doctorPrintf("INFO ci %s\n", ci.StatusLine())
-		doctorPrintln("INFO "+gitstore.FormatCacheInfo())
-		doctorPrintln("INFO "+gitstore.BuildHostStatusLine())
-		doctorPrintln("INFO "+svcpaths.BuildPathsStatus())
+		doctorPrintln("INFO " + gitstore.FormatCacheInfo())
+		doctorPrintln("INFO " + gitstore.BuildHostStatusLine())
+		doctorPrintln("INFO " + svcpaths.BuildPathsStatus())
 		for _, s := range gitstore.ListBuildHostStates() {
 			on := "offline"
 			if s.Online {
@@ -757,7 +757,7 @@ func runDoctorNative() int {
 	if latest != "" && latest != ver && latest != "v"+ver {
 		warnCheck("VERSION matches latest GitHub tag", false)
 		lastDoctorReport.Checks = append(lastDoctorReport.Checks, DoctorCheck{
-			ID: "version-tag", Status: "warn", Detail: "local="+ver+" latest="+latest,
+			ID: "version-tag", Status: "warn", Detail: "local=" + ver + " latest=" + latest,
 		})
 	} else if latest != "" {
 		check("VERSION matches latest GitHub tag", true)

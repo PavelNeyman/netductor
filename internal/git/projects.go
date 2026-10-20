@@ -472,7 +472,6 @@ func ProjectDetailOf(name string) (*ProjectDetail, error) {
 	return d, nil
 }
 
-
 // ShouldAutoShip reports whether fetch should enqueue ship.
 func ShouldAutoShip(p *Project, changedPaths []string) bool {
 	if p == nil {
@@ -501,7 +500,6 @@ func ShouldAutoShip(p *Project, changedPaths []string) bool {
 	}
 	return !allIgn
 }
-
 
 // prepareProjectWorktree checks out ref into a temp work dir (caller removes).
 func prepareProjectWorktree(name, ref string) (string, error) {

@@ -88,7 +88,6 @@ func EvaluateStorageAlerts(deviceID string, st StorageFacts) {
 	}
 }
 
-
 func resetUSBPrevForTest() {
 	usbPrevMu.Lock()
 	defer usbPrevMu.Unlock()

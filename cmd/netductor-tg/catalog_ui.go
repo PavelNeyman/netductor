@@ -217,7 +217,6 @@ func formatToolsFromGroups() string {
 	return b.String()
 }
 
-
 func handleCatGroup(token string, chat int64, msgID int, groupID string) {
 	ru := getLang() != "en"
 	back := map[string]any{"inline_keyboard": [][]map[string]any{

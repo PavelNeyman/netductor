@@ -22,7 +22,7 @@ func formatLampacHTML() string {
 	ru := getLang() != "en"
 	nl := "\n"
 	st := addons.CollectLampac()
-	
+
 	var b strings.Builder
 	b.WriteString("📺 <b>Lampac</b>" + nl)
 	b.WriteString("<table bordered striped compact>" + nl)
@@ -130,7 +130,7 @@ func formatEdgeListHTML(raw string) string {
 func formatPendingHTML(raw string) string {
 	nl := "\n"
 	raw = strings.TrimSpace(raw)
-	
+
 	var b strings.Builder
 	if getLang() != "en" {
 		b.WriteString("⏳ <b>Ожидают approve</b>" + nl)
@@ -248,7 +248,7 @@ func isHexish(s string) bool {
 
 func formatStatusPretty() string {
 	nl := string([]byte{10})
-	
+
 	ru := getLang() != "en"
 	host, _ := os.Hostname()
 	title := "📊 <b>Primary</b>"
@@ -337,7 +337,7 @@ func formatStatusPretty() string {
 }
 
 func formatFirewallCompact() string {
-	
+
 	ru := getLang() != "en"
 	out, err := exec.Command("netductor", "firewall", "status", "--json").CombinedOutput()
 	if err != nil && len(out) == 0 {
@@ -380,7 +380,7 @@ func truncate(s string, n int) string {
 
 func formatFirewallBlock() string {
 	nl := string([]byte{10})
-	
+
 	ru := getLang() != "en"
 	out, err := exec.Command("netductor", "firewall", "status", "--json").CombinedOutput()
 	title := "🔥 <b>Firewall</b>"
@@ -434,7 +434,6 @@ func formatFirewallBlock() string {
 	}
 	return b.String()
 }
-
 
 // formatChannelSummaryHTML — compact Status-card block (no raw dump).
 func formatChannelSummaryHTML() string {

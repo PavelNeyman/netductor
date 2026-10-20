@@ -388,7 +388,6 @@ func buildAgentUpdateArg(deviceID, arg string) (string, error) {
 	return ndupdate.AgentUpdateArg(tag, arch)
 }
 
-
 func runEdgeStorageCLI(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "usage: netductor edge storage list|backup-now|restore|mute|unmute|offline-pack <device_id> [--format]")

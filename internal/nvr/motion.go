@@ -28,10 +28,10 @@ type MotionZone struct {
 
 // MotionConfig — schedule + optional zones (zones stored; CV not required for MVP).
 type MotionConfig struct {
-	Enabled   bool             `json:"enabled"`
-	Timezone  string           `json:"timezone"` // e.g. Europe/Moscow; empty = local
-	Windows   []ScheduleWindow `json:"windows"`
-	Zones     []MotionZone     `json:"zones,omitempty"`
+	Enabled  bool             `json:"enabled"`
+	Timezone string           `json:"timezone"` // e.g. Europe/Moscow; empty = local
+	Windows  []ScheduleWindow `json:"windows"`
+	Zones    []MotionZone     `json:"zones,omitempty"`
 	// AlertOnSegment: emit event when new segment arrives during window.
 	AlertOnSegment bool `json:"alert_on_segment"`
 }

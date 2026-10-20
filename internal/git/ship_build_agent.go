@@ -208,8 +208,6 @@ func CompleteAgentBuild(jobID, hostID string, ok bool, logText, errMsg string) e
 	return saveShipJobUnlocked(&j)
 }
 
-
-
 // ExtractAndBuild is used by agent on build-host (local disk).
 func ExtractAndBuild(workTGZ, outDir string) (log string, err error) {
 	var b strings.Builder
@@ -249,7 +247,6 @@ func ExtractAndBuild(workTGZ, outDir string) (log string, err error) {
 	_ = cp.Run()
 	return b.String(), nil
 }
-
 
 // StoreAgentArtifacts writes agent-uploaded dist.tgz into job artifacts.
 func StoreAgentArtifacts(jobID string, r io.Reader) error {

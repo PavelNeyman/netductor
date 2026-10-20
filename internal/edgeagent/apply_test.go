@@ -48,7 +48,6 @@ func stringIndex(s, sub string) int {
 	return -1
 }
 
-
 func TestShellApplyStagedNoReload(t *testing.T) {
 	s := ShellApplyStaged([]string{"network.lan.ipaddr=10.0.0.1"})
 	if strings.Contains(s, "/etc/init.d/network reload") || strings.Contains(s, "wifi reload") {

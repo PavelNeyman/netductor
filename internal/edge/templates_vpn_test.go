@@ -65,7 +65,7 @@ func TestMergeTemplatePreservesSections(t *testing.T) {
 	t.Setenv("NETDUCTOR_STATE", dir)
 	EnsureDefaultTemplate()
 	_ = SaveTemplate("site", Template{
-		"id": "site",
+		"id":   "site",
 		"wifi": map[string]any{"ssid": "home"},
 		"vpn":  map[string]any{"dns": "vpn", "mode": "tun"},
 	})
@@ -102,7 +102,7 @@ func TestMergeTemplateRejectsBadVPN(t *testing.T) {
 	}
 	// replace valid — full body but only allowed vpn keys kept in policy path
 	got, err := MergeTemplate("x", Template{
-		"id": "x",
+		"id":   "x",
 		"wifi": map[string]any{"ssid": "new"},
 		"vpn":  map[string]any{"dns": "off", "mode": "off"},
 	}, true)

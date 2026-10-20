@@ -9,7 +9,7 @@ import (
 
 // NetworkZone is one logical segment on a site (LAN / guest / IoT).
 type NetworkZone struct {
-	ID      string `json:"id"`                // lan | guest | iot
+	ID      string `json:"id"` // lan | guest | iot
 	Title   string `json:"title"`
 	CIDR    string `json:"cidr,omitempty"`
 	Enabled bool   `json:"enabled"`
@@ -18,23 +18,23 @@ type NetworkZone struct {
 
 // SiteSummary is the UI card model (topology + metrics).
 type SiteSummary struct {
-	DeviceID   string        `json:"device_id"`
-	Name       string        `json:"name"`
-	Status     string        `json:"status"` // online | offline | draft | pending
-	Kind       string        `json:"kind"`   // openwrt | mikrotik | …
-	Board      string        `json:"board,omitempty"`
-	WANIP      string        `json:"wan_ip,omitempty"`
-	RouterIP   string        `json:"router_ip,omitempty"`
-	Hostname   string        `json:"hostname,omitempty"`
-	Zones      []NetworkZone `json:"zones"`
-	Devices    int           `json:"devices"`
-	Guests     int           `json:"guests"`
-	UptimeSec  float64       `json:"uptime_sec,omitempty"`
-	UptimeFmt  string        `json:"uptime_fmt,omitempty"`
-	LatencyMs  float64       `json:"latency_ms,omitempty"`
-	Online     bool          `json:"online"`
-	LastSeen   int64         `json:"last_seen,omitempty"`
-	Agent      string        `json:"agent,omitempty"`
+	DeviceID  string        `json:"device_id"`
+	Name      string        `json:"name"`
+	Status    string        `json:"status"` // online | offline | draft | pending
+	Kind      string        `json:"kind"`   // openwrt | mikrotik | …
+	Board     string        `json:"board,omitempty"`
+	WANIP     string        `json:"wan_ip,omitempty"`
+	RouterIP  string        `json:"router_ip,omitempty"`
+	Hostname  string        `json:"hostname,omitempty"`
+	Zones     []NetworkZone `json:"zones"`
+	Devices   int           `json:"devices"`
+	Guests    int           `json:"guests"`
+	UptimeSec float64       `json:"uptime_sec,omitempty"`
+	UptimeFmt string        `json:"uptime_fmt,omitempty"`
+	LatencyMs float64       `json:"latency_ms,omitempty"`
+	Online    bool          `json:"online"`
+	LastSeen  int64         `json:"last_seen,omitempty"`
+	Agent     string        `json:"agent,omitempty"`
 }
 
 // ListSiteSummaries builds topology cards for all edge devices.

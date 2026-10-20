@@ -63,9 +63,9 @@ func ActionRequired() []Action {
 	} else if age := backupVerifyAgeDays(d.BackupVerify); age >= 14 {
 		add(Action{
 			ID: "backup-verify-stale", Severity: "warn",
-			Title: fmt.Sprintf("Backup verify %dd ago", age),
+			Title:   fmt.Sprintf("Backup verify %dd ago", age),
 			TitleRU: fmt.Sprintf("Backup verify %d дн. назад", age),
-			Hint: "weekly timer or: netductor backup verify",
+			Hint:    "weekly timer or: netductor backup verify",
 		})
 	}
 	if d.RecoverDrillDays != nil && *d.RecoverDrillDays > 90 {
@@ -126,7 +126,6 @@ func FormatActionsHTML(ru bool) string {
 	}
 	return b.String()
 }
-
 
 // backupVerifyAgeDays parses last.txt second line RFC3339; -1 if unknown.
 func backupVerifyAgeDays(raw string) int {

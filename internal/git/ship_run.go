@@ -261,7 +261,7 @@ func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
 			return nil // parked; agent claim continues
 		}
 	}
-		out, err := runBuildProjectNow(j.Project, j.Ref)
+	out, err := runBuildProjectNow(j.Project, j.Ref)
 	logb.WriteString(out)
 	AppendShipLog(j.ID, out)
 	return err
@@ -371,7 +371,6 @@ func copyDir(src, dst string) error {
 	}
 	return nil
 }
-
 
 func writeArtifactSHA256SUMS(dir string) error {
 	ents, err := os.ReadDir(dir)

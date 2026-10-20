@@ -153,7 +153,6 @@ func dhcpStaticHost(arg string) string {
 	return res + "; dnsmasq:" + truncate(string(out), 120)
 }
 
-
 func uciBatch(arg string) string {
 	var ok, fail int
 	var logs []string
@@ -200,4 +199,3 @@ func uciBatch(arg string) string {
 	}
 	return fmt.Sprintf("ok=%d fail=%d\n%s", ok, fail, strings.Join(logs, "\n"))
 }
-

@@ -15,20 +15,20 @@ const (
 
 // Policy controls auto actions (defaults conservative).
 type Policy struct {
-	Enabled            bool `json:"enabled"`
+	Enabled              bool `json:"enabled"`
 	UsersToSPOnVLESSDown bool `json:"users_to_sp_on_vless_down"`
-	FailThreshold      int  `json:"fail_threshold"` // consecutive fails → DOWN
-	OKThreshold        int  `json:"ok_threshold"`
-	StableSeconds      int  `json:"stable_seconds"` // failback wait
+	FailThreshold        int  `json:"fail_threshold"` // consecutive fails → DOWN
+	OKThreshold          int  `json:"ok_threshold"`
+	StableSeconds        int  `json:"stable_seconds"` // failback wait
 }
 
 func DefaultPolicy() Policy {
 	return Policy{
-		Enabled:            true,
+		Enabled:              true,
 		UsersToSPOnVLESSDown: true,
-		FailThreshold:      3,
-		OKThreshold:        3,
-		StableSeconds:      45,
+		FailThreshold:        3,
+		OKThreshold:          3,
+		StableSeconds:        45,
 	}
 }
 
@@ -59,19 +59,19 @@ func SavePolicy(p Policy) error {
 
 // State is persisted anti-flap counters and last decision.
 type State struct {
-	SPFails    int       `json:"sp_fails"`
-	SPOks      int       `json:"sp_oks"`
-	PSFails    int       `json:"ps_fails"`
-	PSOks      int       `json:"ps_oks"`
-	VLESSFails int       `json:"vless_fails"`
-	VLESSOks   int       `json:"vless_oks"`
-	SPDown     bool      `json:"sp_down"`
-	PSDown     bool      `json:"ps_down"`
-	VLESSDown  bool      `json:"vless_down"`
-	UserPath   string    `json:"user_path"` // "vless" | "sp" | "degraded"
-	AgentURLMode string  `json:"agent_url_mode"` // "tunnel" (SP) | "ps" (PS) — never public
-	UpdatedAt  time.Time `json:"updated_at"`
-	LastAction string    `json:"last_action,omitempty"`
+	SPFails      int       `json:"sp_fails"`
+	SPOks        int       `json:"sp_oks"`
+	PSFails      int       `json:"ps_fails"`
+	PSOks        int       `json:"ps_oks"`
+	VLESSFails   int       `json:"vless_fails"`
+	VLESSOks     int       `json:"vless_oks"`
+	SPDown       bool      `json:"sp_down"`
+	PSDown       bool      `json:"ps_down"`
+	VLESSDown    bool      `json:"vless_down"`
+	UserPath     string    `json:"user_path"`      // "vless" | "sp" | "degraded"
+	AgentURLMode string    `json:"agent_url_mode"` // "tunnel" (SP) | "ps" (PS) — never public
+	UpdatedAt    time.Time `json:"updated_at"`
+	LastAction   string    `json:"last_action,omitempty"`
 }
 
 func LoadState() State {
@@ -94,9 +94,9 @@ func saveState(s State) error {
 }
 
 type healthSnap struct {
-	SP    int `json:"svc_sp_up"`
-	PS    int `json:"svc_ps_up"`
-	VLESS int `json:"vless_tcp443"`
+	SP    int    `json:"svc_sp_up"`
+	PS    int    `json:"svc_ps_up"`
+	VLESS int    `json:"vless_tcp443"`
 	Role  string `json:"role"`
 }
 

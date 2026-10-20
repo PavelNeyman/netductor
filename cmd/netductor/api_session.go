@@ -1,10 +1,10 @@
 package main
 
 import (
-	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"io"
 	"net/http"
 	"os"
@@ -14,24 +14,24 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
-	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/mtls"
+	"github.com/PavelNeyman/netductor/internal/nvr"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/probes"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/session"
-	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 var allowedSystemdRestart = map[string]bool{
-	"netductor-api":            true,
-	"netductor-telegram-bot":   true,
+	"netductor-api":             true,
+	"netductor-telegram-bot":    true,
 	"netductor-secondary-agent": true,
-	"netductor-agent":          true,
-	"netductor":                true,
+	"netductor-agent":           true,
+	"netductor":                 true,
 }
 
 func allowSystemdUnit(unit string) bool {
@@ -48,7 +48,6 @@ func allowSystemdUnit(unit string) bool {
 	}
 	return false
 }
-
 
 func registerSessionAPI(mux *http.ServeMux) {
 	// --- operator session ---
@@ -250,7 +249,6 @@ func registerSessionAPI(mux *http.ServeMux) {
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})
 
-
 	mux.HandleFunc("/api/sites/rooms", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
@@ -381,9 +379,9 @@ func registerSessionAPI(mux *http.ServeMux) {
 				return
 			}
 			var body struct {
-				SiteID     string `json:"site_id"`
-				ID         string `json:"id"`
-				DataBase64 string `json:"data_base64"`
+				SiteID      string `json:"site_id"`
+				ID          string `json:"id"`
+				DataBase64  string `json:"data_base64"`
 				ContentType string `json:"content_type"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -507,7 +505,7 @@ func registerSessionAPI(mux *http.ServeMux) {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 		}
 	})
-	
+
 	mux.HandleFunc("/api/doctor", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return

@@ -102,7 +102,6 @@ func Obtain(c Config) error {
 	_ = os.WriteFile("/etc/letsencrypt/renewal-hooks/deploy/netductor-redirect.sh",
 		[]byte("#!/bin/sh\nsystemctl restart netductor-redirect 2>/dev/null || true\n"), 0o755)
 
-
 	// Certbot uses first domain as live dir name
 	liveName := c.Domains[0]
 	live := filepath.Join("/etc/letsencrypt/live", liveName)

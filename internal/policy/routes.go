@@ -14,6 +14,7 @@ type Subject struct {
 // For each internal catalog endpoint:
 //  1. allow auth_user ∈ permitted → outbound direct (optional ip + port)
 //  2. reject other users hitting that port (and ip when set)
+//
 // allow_internet=false gets a broad reject for those users after service allows.
 func ServiceRouteRules(subjects []Subject, cat *Catalog) []any {
 	if cat == nil {

@@ -38,17 +38,17 @@ type Client struct {
 	Port          int    // control port, default 443
 	ChildID       string // optional hub child device_id
 
-	http *http.Client
-	stok string
-	seq  int
-	lsk  []byte
-	ivb  []byte
-	cnonce string
-	hash   hashMethod
-	secure bool
-	klap   *klapSession
-	tpap     bool // session via pure-Go TPAP/SPAKE2+
-	tpapSess *tpapSession
+	http         *http.Client
+	stok         string
+	seq          int
+	lsk          []byte
+	ivb          []byte
+	cnonce       string
+	hash         hashMethod
+	secure       bool
+	klap         *klapSession
+	tpap         bool // session via pure-Go TPAP/SPAKE2+
+	tpapSess     *tpapSession
 	hashedMD5    string
 	hashedSHA256 string
 }
@@ -62,10 +62,10 @@ func NewWithCloud(host, user, password, cloudPassword string) *Client {
 
 func New(host, user, password string) *Client {
 	return &Client{
-		Host:         host,
-		User:         user,
-		Password:     password,
-		Port:         443,
+		Host:     host,
+		User:     user,
+		Password: password,
+		Port:     443,
 		http: &http.Client{
 			Timeout: 12 * time.Second,
 			Transport: &http.Transport{
@@ -382,7 +382,6 @@ func (c *Client) Execute(method string, params map[string]any) (map[string]any, 
 	return c.postJSON(url, inner, nil)
 }
 
-
 // Perform sends a raw top-level request (e.g. {"method":"set",...}) without multipleRequest wrapper.
 func (c *Client) Perform(body map[string]any) (map[string]any, error) {
 	if c.klap == nil && c.stok == "" {
@@ -489,7 +488,6 @@ func (c *Client) SetPrivacy(on bool) (map[string]any, error) {
 		},
 	})
 }
-
 
 func (c *Client) tryTPAPFallback(prior error) error {
 	err := c.loginTPAP()

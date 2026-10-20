@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"os"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/stack"
 )

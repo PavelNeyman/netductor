@@ -48,7 +48,6 @@ func SaveCanaryUsers(users []string) error {
 	return os.WriteFile(canaryPath(), append(b, '\n'), 0o600)
 }
 
-
 // IsCanary reports whether name is in the canary list.
 func IsCanary(name string) bool {
 	name = strings.TrimSpace(name)
@@ -91,7 +90,6 @@ func ToggleCanary(name string) (bool, error) {
 	return !found, nil
 }
 
-
 // EnsureCanarySeed writes canary-users.json once if missing, with non-system VPN users.
 func EnsureCanarySeed() error {
 	if _, err := os.Stat(canaryPath()); err == nil {
@@ -113,7 +111,6 @@ func EnsureCanarySeed() error {
 	}
 	return SaveCanaryUsers(names)
 }
-
 
 // FilterKnownVPNUsers drops names not in vpn-users (and system accounts).
 func FilterKnownVPNUsers(names []string) []string {

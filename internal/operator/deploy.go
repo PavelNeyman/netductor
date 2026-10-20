@@ -44,7 +44,6 @@ func DeploySecondary(s SecondarySpec) error {
 	return deploy.DeploySecondary(s.toDeploy())
 }
 
-
 // PreviewEdge probes the router over SSH and returns the same PlanResponse as /v1/edge/preview and primary /api/edge/plan.
 func PreviewEdge(s EdgeSpec) (edge.PlanResponse, error) {
 	if s.RouterUser == "" {
@@ -152,7 +151,6 @@ func RunRemote(user, host, keyPath, keyPass, cmd string) (string, error) {
 	}
 	return deploy.RunOnPrimary(host, user, keyPath, keyPass, cmd)
 }
-
 
 // DeployBuildHost provisions build VPS from operator (Mac-direct).
 func DeployBuildHost(s BuildHostSpec) error {

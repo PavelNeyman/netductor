@@ -16,24 +16,24 @@ var mu sync.Mutex
 
 // Camera is a multi-site camera record (secrets by reference, not in git).
 type Camera struct {
-	ID           string            `json:"id"`
-	SiteID       string            `json:"site_id"`       // edge device_id or location id
-	Name         string            `json:"name"`
-	MAC          string            `json:"mac,omitempty"`
-	LANIP        string            `json:"lan_ip,omitempty"`
-	RTSPUser     string            `json:"rtsp_user,omitempty"`
-	RTSPPath     string            `json:"rtsp_path"` // e.g. /stream1
-	RTSPPort     int               `json:"rtsp_port"`
-	SecretRef    string            `json:"secret_ref,omitempty"` // key in secrets file
-	Features     map[string]bool   `json:"features,omitempty"`  // ptz, night, onvif
-	Enabled      bool              `json:"enabled"`
-	Record       bool              `json:"record"`
-	StreamSub    bool              `json:"stream_sub"` // prefer stream2 for motion/record on weak edge
-	Model        string            `json:"model,omitempty"` // default tapo_c200
-	ONVIFPort    int               `json:"onvif_port,omitempty"` // Tapo often 2020
-	Created      int64             `json:"created"`
-	Updated      int64             `json:"updated"`
-	Meta         map[string]string `json:"meta,omitempty"`
+	ID        string            `json:"id"`
+	SiteID    string            `json:"site_id"` // edge device_id or location id
+	Name      string            `json:"name"`
+	MAC       string            `json:"mac,omitempty"`
+	LANIP     string            `json:"lan_ip,omitempty"`
+	RTSPUser  string            `json:"rtsp_user,omitempty"`
+	RTSPPath  string            `json:"rtsp_path"` // e.g. /stream1
+	RTSPPort  int               `json:"rtsp_port"`
+	SecretRef string            `json:"secret_ref,omitempty"` // key in secrets file
+	Features  map[string]bool   `json:"features,omitempty"`   // ptz, night, onvif
+	Enabled   bool              `json:"enabled"`
+	Record    bool              `json:"record"`
+	StreamSub bool              `json:"stream_sub"`           // prefer stream2 for motion/record on weak edge
+	Model     string            `json:"model,omitempty"`      // default tapo_c200
+	ONVIFPort int               `json:"onvif_port,omitempty"` // Tapo often 2020
+	Created   int64             `json:"created"`
+	Updated   int64             `json:"updated"`
+	Meta      map[string]string `json:"meta,omitempty"`
 }
 
 type storeFile struct {

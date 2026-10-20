@@ -11,7 +11,6 @@ import (
 // Always follow internal/version.Release (never hardcode).
 var version = ndver.Release
 
-
 func main() {
 	if len(os.Args) < 2 {
 		if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {

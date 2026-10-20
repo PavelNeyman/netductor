@@ -6,8 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,9 +16,9 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
-	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -218,7 +218,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{
 		"ok": true, "config_ver": ver, "need_sync": in.ConfigVer < ver, "id": d.ID,
 		"desired_hostname": desired,
-		"desired_release": "" /* operator-driven upgrades only */,
+		"desired_release":  "", /* operator-driven upgrades only */
 		"commands":         cmds,
 		"failover_policy":  pol,
 	})
@@ -384,7 +384,6 @@ func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	_, _ = w.Write(b)
 }
-
 
 // redactSecondaryCmdLog keeps TG alerts free of full authorized_keys lines.
 func redactSecondaryCmdLog(cmd, log string) string {

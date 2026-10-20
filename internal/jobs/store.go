@@ -243,7 +243,6 @@ func (s *Store) Cancel(id string) error {
 	return nil
 }
 
-
 // Counts returns running and failed job totals (for metrics).
 func (s *Store) Counts() (running, failed int) {
 	s.mu.Lock()

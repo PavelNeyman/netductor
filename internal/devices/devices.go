@@ -16,14 +16,14 @@ import (
 
 // Device is a client endpoint observed on the VPN (bound to a vpn user name).
 type Device struct {
-	ID         string    `json:"id"` // user|srcIP
-	User       string    `json:"user"`
-	SrcIP      string    `json:"src_ip"`
-	LastSeen   time.Time `json:"last_seen"`
-	LastDest   string    `json:"last_dest,omitempty"`
-	Hits       int       `json:"hits"`
-	Inbound    string    `json:"inbound,omitempty"` // vless-reality | relay-in | …
-	Note       string    `json:"note,omitempty"`
+	ID       string    `json:"id"` // user|srcIP
+	User     string    `json:"user"`
+	SrcIP    string    `json:"src_ip"`
+	LastSeen time.Time `json:"last_seen"`
+	LastDest string    `json:"last_dest,omitempty"`
+	Hits     int       `json:"hits"`
+	Inbound  string    `json:"inbound,omitempty"` // vless-reality | relay-in | …
+	Note     string    `json:"note,omitempty"`
 }
 
 type fileStore struct {

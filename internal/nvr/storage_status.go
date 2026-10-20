@@ -1,23 +1,23 @@
 package nvr
 
 import (
-	"strings"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
 // StorageStatus is a quick health snapshot for doctor/UI.
 type StorageStatus struct {
-	Path       string  `json:"path"`
-	Exists     bool    `json:"exists"`
-	Writable   bool    `json:"writable"`
-	MountPoint bool    `json:"mount_point"` // true if path is a mountpoint (/proc/mounts)
-	EncryptedHint string `json:"encrypted_hint,omitempty"`
-	FreeGB     float64 `json:"free_gb"`
-	TotalGB    float64 `json:"total_gb"`
-	SegmentCnt int     `json:"segment_cnt"`
-	SegmentGB  float64 `json:"segment_gb"`
+	Path          string  `json:"path"`
+	Exists        bool    `json:"exists"`
+	Writable      bool    `json:"writable"`
+	MountPoint    bool    `json:"mount_point"` // true if path is a mountpoint (/proc/mounts)
+	EncryptedHint string  `json:"encrypted_hint,omitempty"`
+	FreeGB        float64 `json:"free_gb"`
+	TotalGB       float64 `json:"total_gb"`
+	SegmentCnt    int     `json:"segment_cnt"`
+	SegmentGB     float64 `json:"segment_gb"`
 }
 
 // GetStorageStatus probes configured path.
@@ -52,7 +52,6 @@ func GetStorageStatus() StorageStatus {
 	st.SegmentGB = float64(sum) / (1024 * 1024 * 1024)
 	return st
 }
-
 
 func isMountPoint(path string) bool {
 	b, err := os.ReadFile("/proc/mounts")

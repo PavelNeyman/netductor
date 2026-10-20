@@ -1,10 +1,10 @@
 package deploy
 
 import (
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"os"
 	"path/filepath"
 	"strings"

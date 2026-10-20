@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/paths"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
 // Item is one removable leftover.
@@ -88,7 +88,6 @@ func Run(apply bool) Report {
 	} else {
 		r.Items = append(r.Items, Item{Kind: "dir", Path: filepath.Join(paths.StateDir(), "ci-cache"), Detail: gitstore.FormatCacheInfo()})
 	}
-
 
 	// sing-box atomic tmp
 	addFile("file", "/usr/local/etc/sing-box/config.json.tmp", "incomplete sing-box write")

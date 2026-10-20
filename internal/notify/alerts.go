@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/incident"
+	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
 var (
@@ -100,7 +100,6 @@ func AlertOnce(key, msg string) bool {
 	saveSent(disk)
 	return true
 }
-
 
 // ClearAlertPrefix clears all alert keys with the given prefix (e.g. "update:available:").
 func ClearAlertPrefix(prefix string) {

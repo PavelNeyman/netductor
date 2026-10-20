@@ -523,7 +523,6 @@ func RecoverFromBuildHost(baseURL, recoveryToken, keyArg string) error {
 	return RecoverFromSecondary(baseURL, recoveryToken, keyArg)
 }
 
-
 func caPathFromEnv() string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA")); v != "" {
 		return v

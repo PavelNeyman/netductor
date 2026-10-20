@@ -156,7 +156,6 @@ func verifyBlockyChecksum(tag, archivePath, assetName string) error {
 	return nil
 }
 
-
 // EnsureBlockyDoT upgrades existing /etc/blocky/config.yml upstreams to prefer DoT (tcp-tls :853)
 // while keeping a plaintext fallback. Idempotent if tcp-tls already present.
 func EnsureBlockyDoT() error {

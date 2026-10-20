@@ -143,7 +143,6 @@ func RevokeAll() error {
 	return nil
 }
 
-
 // SessionInfo is a redacted view (no plaintext token).
 type SessionInfo struct {
 	HashPrefix string `json:"id"`

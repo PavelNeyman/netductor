@@ -149,7 +149,6 @@ func vpnAdvertiseHost() string {
 	return ""
 }
 
-
 func publicIP() string {
 	if v := os.Getenv("PUBLIC_IP"); v != "" {
 		return v

@@ -12,9 +12,9 @@ import (
 
 // Updater is one managed addon. New addons register in init via Register.
 type Updater struct {
-	Name    string
-	Check   func() map[string]any
-	Apply   func() error
+	Name  string
+	Check func() map[string]any
+	Apply func() error
 }
 
 var updaters []Updater

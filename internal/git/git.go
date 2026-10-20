@@ -426,7 +426,6 @@ func RunWorkflow(repo, workflowPath string) (string, error) {
 	return log, err
 }
 
-
 // PruneArtifacts keeps the newest keep files under ArtifactDir (recursive), deletes older.
 func PruneArtifacts(keep int) error {
 	if keep < 1 {

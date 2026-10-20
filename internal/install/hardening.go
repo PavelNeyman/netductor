@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
-	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )

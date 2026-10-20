@@ -65,7 +65,7 @@ func Serve(o ServeOpts) error {
 
 	addr := net.JoinHostPort(bind, port)
 	mux := http.NewServeMux()
-mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.Error(w, "method", 405)
 			return
@@ -139,18 +139,18 @@ mux.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
 			s := opconfig.Load()
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"path":             opconfig.Path(),
-				"remote_host":      s.RemoteHost,
-				"remote_user":      s.RemoteUser,
-				"remote_key":       s.RemoteKey,
-				"secondary_host":   s.SecondaryHost,
-				"last_edge_id":     s.LastEdgeID,
-				"lang":             s.Lang,
-				"mode":             s.Mode,
-				"result_visible":   s.ResultVisible,
-				"result_position":  s.ResultPosition,
-				"result_mode":      s.ResultMode,
-				"result_size":      s.ResultSize,
+				"path":            opconfig.Path(),
+				"remote_host":     s.RemoteHost,
+				"remote_user":     s.RemoteUser,
+				"remote_key":      s.RemoteKey,
+				"secondary_host":  s.SecondaryHost,
+				"last_edge_id":    s.LastEdgeID,
+				"lang":            s.Lang,
+				"mode":            s.Mode,
+				"result_visible":  s.ResultVisible,
+				"result_position": s.ResultPosition,
+				"result_mode":     s.ResultMode,
+				"result_size":     s.ResultSize,
 			})
 		case http.MethodPut, http.MethodPost:
 			if !requireToken(r, token) {

@@ -2,9 +2,9 @@ package gitstore
 
 import (
 	"os"
-	"time"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestBuildHostEnabledFromRegistry(t *testing.T) {

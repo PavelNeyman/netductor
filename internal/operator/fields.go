@@ -113,8 +113,8 @@ func FleetFromFields(get FieldGetter) FleetSpec {
 			Host: get("build_host"), User: orDefault(get("build_user"), "root"),
 			Password: get("build_password"), Label: orDefault(get("build_label"), "build-1"),
 		},
-		Primary:     p,
-		Secondary:   sec,
+		Primary:   p,
+		Secondary: sec,
 	}
 }
 
@@ -200,9 +200,9 @@ func EdgeFromFields(get FieldGetter) EdgeSpec {
 	ssid5 := strings.TrimSpace(get("wifi_ssid_5"))
 	key5 := get("wifi_key_5")
 	return EdgeSpec{
-		RouterHost:           strings.TrimSpace(get("router")),
-		RouterUser:           orDefault(get("user"), "root"),
-		RouterPass:           get("password"),
+		RouterHost:   strings.TrimSpace(get("router")),
+		RouterUser:   orDefault(get("user"), "root"),
+		RouterPass:   get("password"),
 		SkipRootPass: yesish(get("skip_root_pass")),
 		NewRootPassword: func() string {
 			if yesish(get("skip_root_pass")) {
@@ -259,7 +259,6 @@ func atoiDefault(s string, def int) int {
 	}
 	return n
 }
-
 
 // BuildHostFromFields maps wizard keys → BuildHostSpec.
 func BuildHostFromFields(get FieldGetter) BuildHostSpec {

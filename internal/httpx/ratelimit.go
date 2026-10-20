@@ -58,7 +58,6 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-
 func trimTimes(arr []time.Time, cut time.Time) []time.Time {
 	n := 0
 	for _, t := range arr {

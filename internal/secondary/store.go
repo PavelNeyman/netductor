@@ -18,30 +18,30 @@ import (
 )
 
 type Device struct {
-	ID         string    `json:"id"`
-	Token      string    `json:"token"` // agent auth
-	Name       string    `json:"name"`
-	PublicIP   string    `json:"public_ip"`
-	PBK        string    `json:"pbk"`
-	SID        string    `json:"sid"`
-	SNI        string    `json:"sni"`
-	Version    string    `json:"version"`
-	SingBoxOK  bool      `json:"singbox_ok"`
-	UplinkOK   bool      `json:"uplink_ok"`
-	ConfigVer  int       `json:"config_ver"`
-	CPUPercent float64   `json:"cpu_percent"`
-	MemUsedMB  int64     `json:"mem_used_mb"`
-	MemTotalMB int64     `json:"mem_total_mb"`
-	Load1      float64   `json:"load1"`
+	ID            string         `json:"id"`
+	Token         string         `json:"token"` // agent auth
+	Name          string         `json:"name"`
+	PublicIP      string         `json:"public_ip"`
+	PBK           string         `json:"pbk"`
+	SID           string         `json:"sid"`
+	SNI           string         `json:"sni"`
+	Version       string         `json:"version"`
+	SingBoxOK     bool           `json:"singbox_ok"`
+	UplinkOK      bool           `json:"uplink_ok"`
+	ConfigVer     int            `json:"config_ver"`
+	CPUPercent    float64        `json:"cpu_percent"`
+	MemUsedMB     int64          `json:"mem_used_mb"`
+	MemTotalMB    int64          `json:"mem_total_mb"`
+	Load1         float64        `json:"load1"`
 	MismatchTotal int            `json:"mismatch_total,omitempty"`
 	MismatchByIP  map[string]int `json:"mismatch_by_ip,omitempty"`
-	PendingCmds []string  `json:"pending_cmds,omitempty"`
-	LastCmd     string    `json:"last_cmd,omitempty"`
-	LastCmdAt   time.Time `json:"last_cmd_at,omitempty"`
-	LastCmdOK   bool      `json:"last_cmd_ok,omitempty"`
-	LastCmdLog  string    `json:"last_cmd_log,omitempty"`
-	LastSeen   time.Time `json:"last_seen"`
-	CreatedAt  time.Time `json:"created_at"`
+	PendingCmds   []string       `json:"pending_cmds,omitempty"`
+	LastCmd       string         `json:"last_cmd,omitempty"`
+	LastCmdAt     time.Time      `json:"last_cmd_at,omitempty"`
+	LastCmdOK     bool           `json:"last_cmd_ok,omitempty"`
+	LastCmdLog    string         `json:"last_cmd_log,omitempty"`
+	LastSeen      time.Time      `json:"last_seen"`
+	CreatedAt     time.Time      `json:"created_at"`
 }
 
 type registry struct {
@@ -167,21 +167,21 @@ func FindByToken(token string) *Device {
 }
 
 type HeartbeatIn struct {
-	PublicIP   string  `json:"public_ip"`
-	PBK        string  `json:"pbk"`
-	SID        string  `json:"sid"`
-	SNI        string  `json:"sni"`
-	Version    string  `json:"version"`
-	SingBoxOK  bool    `json:"singbox_ok"`
-	UplinkOK   bool    `json:"uplink_ok"`
-	ConfigVer  int     `json:"config_ver"`
-	CPUPercent float64 `json:"cpu_percent"`
-	MemUsedMB  int64   `json:"mem_used_mb"`
-	MemTotalMB int64   `json:"mem_total_mb"`
-	Load1      float64 `json:"load1"`
-	CmdDone    string  `json:"cmd_done,omitempty"`
-	CmdOK      bool    `json:"cmd_ok,omitempty"`
-	CmdLog     string  `json:"cmd_log,omitempty"`
+	PublicIP      string         `json:"public_ip"`
+	PBK           string         `json:"pbk"`
+	SID           string         `json:"sid"`
+	SNI           string         `json:"sni"`
+	Version       string         `json:"version"`
+	SingBoxOK     bool           `json:"singbox_ok"`
+	UplinkOK      bool           `json:"uplink_ok"`
+	ConfigVer     int            `json:"config_ver"`
+	CPUPercent    float64        `json:"cpu_percent"`
+	MemUsedMB     int64          `json:"mem_used_mb"`
+	MemTotalMB    int64          `json:"mem_total_mb"`
+	Load1         float64        `json:"load1"`
+	CmdDone       string         `json:"cmd_done,omitempty"`
+	CmdOK         bool           `json:"cmd_ok,omitempty"`
+	CmdLog        string         `json:"cmd_log,omitempty"`
 	MismatchTotal int            `json:"mismatch_total,omitempty"`
 	MismatchByIP  map[string]int `json:"mismatch_by_ip,omitempty"`
 }
@@ -464,7 +464,6 @@ func Rename(id, name string) error {
 	}
 	return os.ErrNotExist
 }
-
 
 // allowedSecondaryCmd mirrors runAgentCmd in agent.go — queue only known ops.
 func allowedSecondaryCmd(cmd string) bool {

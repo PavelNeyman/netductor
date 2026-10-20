@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/json"
-	 "encoding/pem"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
@@ -326,7 +326,6 @@ func doJSON(client *http.Client, method, url, token string, body any) ([]byte, e
 	return data, nil
 }
 
-
 func countGuestActive() int {
 	st, err := guest.OpenStore(guestStoreDir())
 	if err != nil || st == nil {
@@ -469,7 +468,6 @@ func collectMetrics() map[string]any {
 	m["facts"] = collectDeviceFacts()
 	return m
 }
-
 
 func checkRelayAndFallback() {
 	relayHost := strings.TrimSpace(readFirstLine("/etc/netductor-agent/secondary.host"))

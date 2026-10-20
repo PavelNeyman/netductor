@@ -32,10 +32,10 @@ func TestMapUnameToGoArch(t *testing.T) {
 
 func TestMapOpenWrtArch(t *testing.T) {
 	cases := map[string]string{
-		"aarch64_cortex-a53": "arm64",
-		"x86_64":             "amd64",
+		"aarch64_cortex-a53":       "arm64",
+		"x86_64":                   "amd64",
 		"arm_cortex-a7_neon-vfpv4": "arm",
-		"mipsel_24kc":        "mipsle",
+		"mipsel_24kc":              "mipsle",
 	}
 	for in, want := range cases {
 		got, err := mapOpenWrtArch(in)

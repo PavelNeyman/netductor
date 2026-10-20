@@ -8,7 +8,7 @@ import (
 )
 
 func registerStackAPI(mux *http.ServeMux) {
-		mux.HandleFunc("/api/stack/preflight", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/stack/preflight", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method", http.StatusMethodNotAllowed)
 			return

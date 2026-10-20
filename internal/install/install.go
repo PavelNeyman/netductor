@@ -11,18 +11,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/nodes"
-	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/version"
 )
 
 var currentComps []string
 
 type Options struct {
-	Components    []string // empty = default core set
-	Force         bool
-	SkipHostname  bool // recover: do not invent nd-primary-*; restore name from backup after tar
+	Components   []string // empty = default core set
+	Force        bool
+	SkipHostname bool // recover: do not invent nd-primary-*; restore name from backup after tar
 }
 
 func DefaultComponents() []string {
@@ -142,7 +142,6 @@ func runOut(name string, args ...string) (string, error) {
 	return string(out), err
 }
 
-
 func writeSecret(name, val string) error {
 	dir := filepath.Join(paths.EtcDir(), "secrets")
 	_ = os.MkdirAll(dir, 0o700)
@@ -170,7 +169,6 @@ func enableStart(unit string) error {
 	_ = run("systemctl", "enable", unit)
 	return run("systemctl", "restart", unit)
 }
-
 
 // applyHostname sets a uniform node name.
 // Priority: NETDUCTOR_HOSTNAME env > existing /etc/netductor/node_id > auto nd-<role>-<ip-suffix>
@@ -207,7 +205,6 @@ func applyHostname(role string) {
 	_ = run("bash", "-c", fmt.Sprintf(
 		`grep -q '%s' /etc/hosts || echo '127.0.1.1 %s' >> /etc/hosts`, name, name))
 }
-
 
 func detectPublicIP() string {
 	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "public_ip")); err == nil {
@@ -253,8 +250,6 @@ func writeReady() {
 	}
 	_ = nodes.SelfRegisterLocal(hn, "primary", ip)
 }
-
-
 
 func copySelfToLocalBin() error {
 	exe, err := os.Executable()

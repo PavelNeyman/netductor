@@ -40,8 +40,8 @@ type Policy struct {
 	SecondarySSH    string `json:"secondary_ssh,omitempty"`
 	LampacNodeID    string `json:"lampac_node_id,omitempty"` // preferred runtime host
 	BotNodeID       string `json:"bot_node_id,omitempty"`    // preferred TG bot host
-	SyncEnabled     bool              `json:"sync_enabled"`
-	Notes           string            `json:"notes,omitempty"`
+	SyncEnabled     bool   `json:"sync_enabled"`
+	Notes           string `json:"notes,omitempty"`
 }
 
 func defaultPolicy() Policy {
@@ -244,7 +244,6 @@ func StatusSummary() string {
 	}
 	return b.String()
 }
-
 
 func empty(s, def string) string {
 	if strings.TrimSpace(s) == "" {
