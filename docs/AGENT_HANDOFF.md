@@ -1,4 +1,4 @@
-**Stop line: v0.9.440** (2026-10-20). sub-prune + doctor orphan WARN; D-1 RU pairs for surviving EN-only docs.
+**Stop line: v0.9.441** (2026-10-20). edge offline USB apk + e2fs deps.
 
 ## Where we stopped
 
