@@ -11,7 +11,7 @@
 | 2 | `cmd/netductor-tg` `handleCallback` | **done 0.9.434** — hubs: edge approve, tools, hubs, users, nodes. Dispatcher left in `handlers_cb.go` (453 lines). |
 | 3 | `handleGitCB` | **done 0.9.435** — hub, build-host, ship, proj, repo. Dispatcher 29 lines. |
 | 4 | `runDoctorNative` | **done 0.9.436** — checks moved to `doctorRunChecks` via `doctorHooks`. `runDoctorNative` is setup + call. |
-| 5 | `registerSessionAPI`, `registerGitAPI`, `registerNVRAPI` | Same as step 1, after edge is the template. |
+| 5 | `registerSessionAPI`, `registerGitAPI`, `registerNVRAPI` | **done 0.9.437** — session nodes/sni/sites/status/mtls; git repos/projects/ship; nvr cameras/config/events/live. |
 | 6 | `DeployEdge` / `runDeploy` | Already stepped; split only if a step file exceeds ~200 lines. |
 
 Stop after each step. Do not combine with i18n or auth changes.

@@ -1,3 +1,8 @@
+## 0.9.437
+
+- R-1 step 5: session, git, and NVR API split into route-group files
+
+
 ## 0.9.436
 
 - R-1 step 4: runDoctorNative setup only; checks in doctorRunChecks
