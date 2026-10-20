@@ -76,7 +76,10 @@ func registerEdgeStorage(mux *http.ServeMux) {
 			return
 		}
 		dir := edgestorage.Dir(did)
-		_ = os.MkdirAll(dir, 0o700)
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
 		name := "backup-" + kind + "-" + time.Now().UTC().Format("20060102T150405Z") + ".tar.gz"
 		path := filepath.Join(dir, name)
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -84,13 +87,18 @@ func registerEdgeStorage(mux *http.ServeMux) {
 			writeJSON(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
-		defer f.Close()
 		n, err := io.Copy(f, io.LimitReader(r.Body, 512<<20))
+		_ = f.Close()
 		if err != nil {
+			_ = os.Remove(path)
 			writeJSON(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
-		_ = edgestorage.SaveManifest(did, edgestorage.Manifest{Kind: kind, File: name, Note: fmt.Sprintf("%d bytes", n)})
+		if err := edgestorage.SaveManifest(did, edgestorage.Manifest{Kind: kind, File: name, Note: fmt.Sprintf("%d bytes", n)}); err != nil {
+			_ = os.Remove(path)
+			writeJSON(w, 500, map[string]string{"error": "manifest: " + err.Error()})
+			return
+		}
 		writeJSON(w, 200, map[string]any{"ok": true, "file": name, "bytes": n})
 	})
 

@@ -108,14 +108,23 @@ func Delete(id string) error {
 }
 
 func Get(id string) (Site, bool) {
+	s, ok, err := GetStrict(id)
+	if err != nil {
+		return Site{}, false
+	}
+	return s, ok
+}
+
+// GetStrict distinguishes missing site (ok=false, err=nil) from store failure (err!=nil).
+func GetStrict(id string) (Site, bool, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	d, err := load()
 	if err != nil {
-		return Site{}, false
+		return Site{}, false, err
 	}
 	s, ok := d.Sites[id]
-	return s, ok
+	return s, ok, nil
 }
 
 // RSCForSite generates MikroTik routing-only script for the site.
@@ -124,7 +133,10 @@ func RSCForSite(id string) (string, error) {
 }
 
 func RSCForSiteWithGateway(id, rpiLAN string) (string, error) {
-	s, ok := Get(id)
+	s, ok, err := GetStrict(id)
+	if err != nil {
+		return "", err
+	}
 	if !ok {
 		s = Site{ID: id, Name: id}
 	}

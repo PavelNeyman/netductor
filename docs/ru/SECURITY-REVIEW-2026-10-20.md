@@ -28,3 +28,8 @@
 M-1 NVR path, M-4 local SUMS, N-9 timeouts, M-2 Host/Origin, M-6 ship tag, L-1 ACME.
 
 Полный текст критериев — EN: [SECURITY-REVIEW-2026-10-20.md](../SECURITY-REVIEW-2026-10-20.md).
+
+
+## 7. Остаток аудита закрыт в 0.9.448
+
+См. EN-документ: R-10, vpn loadSub, N-12, sites GetStrict, CARolloverFinish, RotateClient pending.

@@ -102,13 +102,20 @@ func RotateClientForPush(nodeID, reason string) (info ClientInfo, ca, cert, key 
 	}
 	if oldSerial != "" && oldSerial != info.Serial {
 		pendingMu.Lock()
-		m, _ := loadPending()
+		m, errLoad := loadPending()
+		if errLoad != nil {
+			pendingMu.Unlock()
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("load pending rotate: %w", errLoad)
+		}
 		m[nodeID] = pendingRotate{
 			NodeID: nodeID, OldSerial: oldSerial, NewSerial: info.Serial,
 			CreatedAt: time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Duration(GraceHours()) * time.Hour).Unix(),
 		}
-		_ = savePending(m)
+		if err := savePending(m); err != nil {
+			pendingMu.Unlock()
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("save pending rotate: %w", err)
+		}
 		pendingMu.Unlock()
 		// do NOT revoke old yet — agent still uses it to fetch material
 	}

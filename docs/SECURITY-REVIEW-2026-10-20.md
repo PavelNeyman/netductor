@@ -65,3 +65,17 @@ Findings from the consolidated audit of tip `1b1946b` still open after 0.9.445�
 | sites/vpn soft load | Open P2 |
 | CA rollover partial | Open P2 |
 | L-1 ACME :80 | Product decision |
+
+
+## 7. Audit remainder closed in 0.9.448
+
+| ID | Status |
+|--|--|
+| R-10 jobs persist | **Done** — atomic write, Start fails closed, terminal persist checked |
+| vpn loadSub soft | **Done** — errors propagated; atomic save |
+| N-12 empty live prune | **Done** — refuse wipe |
+| sites.Get soft | **Done** — GetStrict + RSC |
+| CARolloverFinish | **Done** — backup/promote with rollback |
+| RotateClient pending | **Done** — errors returned |
+| L-1 ACME :80 | Product decision (unchanged) |
+| Full typed persistence layer | Deferred (incremental path taken) |

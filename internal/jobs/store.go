@@ -88,14 +88,19 @@ func NewStore(dir string) *Store {
 		home, _ := os.UserHomeDir()
 		dir = filepath.Join(home, ".cache", "netductor", "jobs")
 	}
-	_ = os.MkdirAll(dir, 0o700)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		// still construct store so API can report persist failures
+		dir = ""
+	}
 	s := &Store{
 		jobs:    map[string]*Job{},
 		dir:     dir,
 		maxLog:  256 << 10,
 		runners: map[string]Runner{},
 	}
-	s.loadDisk()
+	if dir != "" {
+		s.loadDisk()
+	}
 	return s
 }
 
@@ -132,7 +137,13 @@ func (s *Store) Start(typ string, params map[string]any) (*Job, error) {
 	s.mu.Lock()
 	s.jobs[j.ID] = j
 	s.mu.Unlock()
-	s.persist(j)
+	if err := s.persist(j); err != nil {
+		s.mu.Lock()
+		delete(s.jobs, j.ID)
+		s.mu.Unlock()
+		cancel()
+		return nil, fmt.Errorf("jobs persist: %w", err)
+	}
 
 	go s.run(ctx, j, r)
 	return j, nil
@@ -143,7 +154,7 @@ func (s *Store) run(ctx context.Context, j *Job, r Runner) {
 	j.Status = StatusRunning
 	j.UpdatedAt = time.Now().UTC()
 	j.mu.Unlock()
-	s.persist(j)
+	_ = s.persist(j)
 
 	appendLog := func(line string) {
 		j.mu.Lock()
@@ -159,7 +170,7 @@ func (s *Store) run(ctx context.Context, j *Job, r Runner) {
 		}
 		j.UpdatedAt = time.Now().UTC()
 		j.mu.Unlock()
-		s.persist(j)
+		_ = s.persist(j)
 	}
 	setStep := func(st Step) {
 		j.mu.Lock()
@@ -176,7 +187,7 @@ func (s *Store) run(ctx context.Context, j *Job, r Runner) {
 		}
 		j.UpdatedAt = time.Now().UTC()
 		j.mu.Unlock()
-		s.persist(j)
+		_ = s.persist(j)
 		if st.Message != "" {
 			appendLog(fmt.Sprintf("step %s: %s", st.ID, st.Message))
 		}
@@ -191,7 +202,9 @@ func (s *Store) run(ctx context.Context, j *Job, r Runner) {
 		j.UpdatedAt = time.Now().UTC()
 		j.mu.Unlock()
 		appendLog("cancelled")
-		s.persist(j)
+		if perr := s.persist(j); perr != nil {
+			appendLog("persist error: " + perr.Error())
+		}
 		return
 	}
 	if err != nil {
@@ -201,7 +214,12 @@ func (s *Store) run(ctx context.Context, j *Job, r Runner) {
 		j.Error = err.Error()
 		j.UpdatedAt = time.Now().UTC()
 		j.mu.Unlock()
-		s.persist(j)
+		if perr := s.persist(j); perr != nil {
+			j.mu.Lock()
+			j.Error = j.Error + "; persist: " + perr.Error()
+			j.mu.Unlock()
+			_ = s.persist(j)
+		}
 		return
 	}
 	j.mu.Lock()
@@ -212,7 +230,13 @@ func (s *Store) run(ctx context.Context, j *Job, r Runner) {
 		j.Result = b
 	}
 	j.mu.Unlock()
-	s.persist(j)
+	if perr := s.persist(j); perr != nil {
+		j.mu.Lock()
+		j.Status = StatusFailed
+		j.Error = "job ok but persist failed: " + perr.Error()
+		j.mu.Unlock()
+		_ = s.persist(j)
+	}
 }
 
 func (s *Store) Get(id string) *Job {
@@ -239,7 +263,7 @@ func (s *Store) Cancel(id string) error {
 	if c != nil {
 		c()
 	}
-	s.persist(j)
+	_ = s.persist(j)
 	return nil
 }
 
@@ -288,13 +312,23 @@ func (s *Store) List(status Status, typ string) []map[string]any {
 	return out
 }
 
-func (s *Store) persist(j *Job) {
+// persist writes job snapshot atomically. Returns error so callers can fail the job
+// when durability is required (R-10). Best-effort for intermediate log steps.
+func (s *Store) persist(j *Job) error {
 	if s.dir == "" {
-		return
+		return fmt.Errorf("jobs: no store directory")
 	}
 	snap := j.Snapshot()
-	b, _ := json.MarshalIndent(snap, "", "  ")
-	_ = os.WriteFile(filepath.Join(s.dir, j.ID+".json"), b, 0o600)
+	b, err := json.MarshalIndent(snap, "", "  ")
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(s.dir, j.ID+".json")
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func (s *Store) loadDisk() {

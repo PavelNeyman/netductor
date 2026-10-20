@@ -1,3 +1,12 @@
+## 0.9.448
+
+- Security audit remainder:
+  - R-10: jobs persist atomic + Start fails if cannot write; terminal status checks persist
+  - vpn loadSub/saveSub: NotExist vs error; atomic save; N-12 refuse prune with empty live + tokens
+  - sites GetStrict distinguishes missing vs store error; RSC respects load errors
+  - CARolloverFinish: ordered backup/promote with rollback on rename failure
+  - RotateClientForPush: load/save pending errors returned
+
 ## 0.9.447
 
 - Security series 1 remainder (unified audit on tip 0.9.444 findings still open after 0.9.445–446):

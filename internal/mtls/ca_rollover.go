@@ -163,14 +163,28 @@ func CARolloverFinish() error {
 	if !fileOK(path(CANewCertFile)) {
 		return fmt.Errorf("no ca-new")
 	}
-	// backup old
-	_ = os.Rename(path(CACertFile), path("ca-old.crt"))
-	_ = os.Rename(path(CAKeyFile), path("ca-old.key"))
+	if !fileOK(path(CANewKeyFile)) {
+		return fmt.Errorf("no ca-new key")
+	}
+	// backup old (must succeed before promote)
+	if err := os.Rename(path(CACertFile), path("ca-old.crt")); err != nil {
+		return fmt.Errorf("backup ca.crt: %w", err)
+	}
+	if err := os.Rename(path(CAKeyFile), path("ca-old.key")); err != nil {
+		// try restore cert
+		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
+		return fmt.Errorf("backup ca.key: %w", err)
+	}
 	if err := os.Rename(path(CANewCertFile), path(CACertFile)); err != nil {
-		return err
+		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
+		_ = os.Rename(path("ca-old.key"), path(CAKeyFile))
+		return fmt.Errorf("promote ca-new.crt: %w", err)
 	}
 	if err := os.Rename(path(CANewKeyFile), path(CAKeyFile)); err != nil {
-		return err
+		_ = os.Rename(path(CACertFile), path(CANewCertFile))
+		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
+		_ = os.Rename(path("ca-old.key"), path(CAKeyFile))
+		return fmt.Errorf("promote ca-new.key: %w", err)
 	}
 	// re-issue server cert under new CA
 	_ = os.Remove(path(ServerCertFile))
@@ -180,7 +194,7 @@ func CARolloverFinish() error {
 		pub = string(b)
 	}
 	if err := ensureServer(strings.TrimSpace(pub)); err != nil {
-		return err
+		return fmt.Errorf("ensureServer after CA promote: %w (CA files promoted; restore from ca-old.* if needed)", err)
 	}
 	return saveRollover(rolloverInfo{Phase: "done", StartedAt: time.Now().Unix()})
 }

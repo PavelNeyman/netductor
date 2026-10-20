@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -23,6 +24,8 @@ func rebootChalPath() string {
 	return filepath.Join(paths.StateDir(), "reboot-challenge.json")
 }
 
+var rebootChalMu sync.Mutex
+
 func randomCode() (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(9000))
 	if err != nil {
@@ -33,6 +36,8 @@ func randomCode() (string, error) {
 
 // BeginRebootChallenge stores a 4-digit code valid for 3 minutes.
 func BeginRebootChallenge(target string) (code string, err error) {
+	rebootChalMu.Lock()
+	defer rebootChalMu.Unlock()
 	code, err = randomCode()
 	if err != nil {
 		return "", err
@@ -75,20 +80,28 @@ func DecoyCodes(real string, total int) []string {
 
 // ConsumeRebootChallenge validates code+target and deletes the file (one-shot).
 func ConsumeRebootChallenge(target, code string) error {
-	b, err := os.ReadFile(rebootChalPath())
+	rebootChalMu.Lock()
+	defer rebootChalMu.Unlock()
+	path := rebootChalPath()
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("no pending reboot challenge — request again")
 	}
 	var c rebootChal
-	if json.Unmarshal(b, &c) != nil {
+	if err := json.Unmarshal(b, &c); err != nil {
 		return fmt.Errorf("invalid challenge file")
 	}
-	_ = os.Remove(rebootChalPath())
 	if time.Now().Unix() > c.Exp {
+		_ = os.Remove(path)
 		return fmt.Errorf("challenge expired — request again")
 	}
 	if c.Target != target || c.Code != strings.TrimSpace(code) {
+		// do not burn challenge on wrong code (rate-limit elsewhere)
 		return fmt.Errorf("code or target mismatch")
+	}
+	// one-shot: remove only after successful match
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("consume challenge: %w", err)
 	}
 	return nil
 }

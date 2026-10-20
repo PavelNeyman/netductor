@@ -10,9 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/secreq"
-
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/secreq"
 )
 
 type subEntry struct {
@@ -31,19 +30,35 @@ func subPath() string {
 	return filepath.Join(paths.StateDir(), "vpn_sub_tokens.json")
 }
 
-func loadSub() subStore {
+func loadSub() (subStore, error) {
 	var s subStore
 	b, err := os.ReadFile(subPath())
-	if err == nil {
-		_ = json.Unmarshal(b, &s)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return s, nil
+		}
+		return s, err
 	}
-	return s
+	if err := json.Unmarshal(b, &s); err != nil {
+		return s, err
+	}
+	return s, nil
 }
 
 func saveSub(s subStore) error {
-	_ = os.MkdirAll(filepath.Dir(subPath()), 0o700)
-	raw, _ := json.MarshalIndent(s, "", "  ")
-	return os.WriteFile(subPath(), append(raw, '\n'), 0o600)
+	if err := os.MkdirAll(filepath.Dir(subPath()), 0o700); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return err
+	}
+	path := subPath()
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // IssueSubToken creates or rotates a long random token for user subscription URL.
@@ -58,8 +73,10 @@ func IssueSubToken(user string) (string, error) {
 	tok := hex.EncodeToString(buf)
 	subMu.Lock()
 	defer subMu.Unlock()
-	s := loadSub()
-	// remove old for user
+	s, err := loadSub()
+	if err != nil {
+		return "", err
+	}
 	out := s.Entries[:0]
 	for _, e := range s.Entries {
 		if e.User != user {
@@ -81,7 +98,11 @@ func ResolveSubToken(token string) string {
 	}
 	subMu.Lock()
 	defer subMu.Unlock()
-	for _, e := range loadSub().Entries {
+	s, err := loadSub()
+	if err != nil {
+		return ""
+	}
+	for _, e := range s.Entries {
 		if secreq.Eq(e.Token, token) {
 			return e.User
 		}
@@ -93,7 +114,11 @@ func ResolveSubToken(token string) string {
 func SubTokenForUser(user string) string {
 	subMu.Lock()
 	defer subMu.Unlock()
-	for _, e := range loadSub().Entries {
+	s, err := loadSub()
+	if err != nil {
+		return ""
+	}
+	for _, e := range s.Entries {
 		if e.User == user {
 			return e.Token
 		}
@@ -105,7 +130,10 @@ func SubTokenForUser(user string) string {
 func RevokeSubToken(user string) error {
 	subMu.Lock()
 	defer subMu.Unlock()
-	s := loadSub()
+	s, err := loadSub()
+	if err != nil {
+		return err
+	}
 	out := s.Entries[:0]
 	for _, e := range s.Entries {
 		if e.User != user {
@@ -128,7 +156,10 @@ func EnsureSubToken(user string) (string, error) {
 func RenameSubToken(oldName, newName string) error {
 	subMu.Lock()
 	defer subMu.Unlock()
-	s := loadSub()
+	s, err := loadSub()
+	if err != nil {
+		return err
+	}
 	changed := false
 	for i := range s.Entries {
 		if s.Entries[i].User == oldName {
@@ -150,8 +181,12 @@ func ListOrphanSubUsers(live []string) []string {
 	}
 	subMu.Lock()
 	defer subMu.Unlock()
+	s, err := loadSub()
+	if err != nil {
+		return nil
+	}
 	var orphans []string
-	for _, e := range loadSub().Entries {
+	for _, e := range s.Entries {
 		if !want[e.User] {
 			orphans = append(orphans, e.User)
 		}
@@ -160,6 +195,7 @@ func ListOrphanSubUsers(live []string) []string {
 }
 
 // PruneOrphanSubTokens drops tokens whose user is not in the VPN registry.
+// N-12: empty live list refuses prune when tokens exist (avoids wiping all on List failure).
 func PruneOrphanSubTokens(live []string) (int, error) {
 	want := map[string]bool{}
 	for _, n := range live {
@@ -167,7 +203,13 @@ func PruneOrphanSubTokens(live []string) (int, error) {
 	}
 	subMu.Lock()
 	defer subMu.Unlock()
-	s := loadSub()
+	s, err := loadSub()
+	if err != nil {
+		return 0, err
+	}
+	if len(live) == 0 && len(s.Entries) > 0 {
+		return 0, fmt.Errorf("refuse prune: empty live user list with %d tokens (vpn list failed?)", len(s.Entries))
+	}
 	out := s.Entries[:0]
 	n := 0
 	for _, e := range s.Entries {
