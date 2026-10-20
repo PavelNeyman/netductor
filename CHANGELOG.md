@@ -1,3 +1,7 @@
+## 0.9.444
+
+- edge: offline USB cache includes librt + libpthread (libuuid1 deps)
+
 ## 0.9.443
 
 - edge: USB package list from operator.conf + Web textarea (A+B); defaults still built-in

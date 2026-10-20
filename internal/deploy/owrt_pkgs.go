@@ -93,6 +93,8 @@ var defaultUSBPkgNames = []string{
 	"kmod-fs-ext4",
 	"kmod-lib-crc16",
 	"block-mount",
+	"librt",       // target base — required by libuuid1 on OpenWrt apk
+	"libpthread",  // often pulled with librt on musl systems
 	"libuuid1",
 	"libblkid1",
 	"libcomerr0", // OpenWrt packages as libcomerr0 (not libcomerr2)
