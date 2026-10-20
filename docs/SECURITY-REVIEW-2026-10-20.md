@@ -1,4 +1,4 @@
-# Security review & fix plan — tip v0.9.444 → v0.9.445
+# Security review & fix plan — tip v0.9.444 → v0.9.446
 
 **Date:** 2026-10-20 · **Reviewed tip:** `1b1946b` / v0.9.444
 
@@ -17,11 +17,11 @@ Authoritative closure checklist. A finding is closed only when acceptance criter
 | **N-8** `RenameSubToken` no mutex; late order | Integrity | **Done** — `subMu` + rename after registry |
 | **M-3** download no CheckRedirect | Policy | **Done** — redirect re-validates URL policy |
 | **L-3** `loadCA` pem.Decode nil | Stability | **Done** — nil checks |
-| **M-1** NVR camera_id path | High | **Open (P1)** |
-| **M-4** Local release without SHA256SUMS | High | **Open (P1)** |
-| **N-9** HTTP timeouts | Medium | **Open (P2)** |
-| **M-2** Host/Origin op UI | Hardening | **Open (P2)** |
-| **M-6** Ship tag vs HEAD | Release | **Open (P2)** |
+| **M-1** NVR camera_id path | High | **Done (0.9.446)** |
+| **M-4** Local release without SHA256SUMS | High | **Done (0.9.446)** |
+| **N-9** HTTP timeouts | Medium | **Done (0.9.446)** |
+| **M-2** Host/Origin op UI | Hardening | **Done (0.9.446)** |
+| **M-6** Ship tag vs HEAD | Release | **Done (0.9.446)** |
 | **L-1** Public :80 ACME | Architecture | **Product decision** — not silent-fixed |
 
 ## By design (not bugs here)

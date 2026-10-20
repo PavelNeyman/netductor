@@ -27,13 +27,18 @@ func ShipProject(o ShipOpts) (job *ShipJob, logOut string, err error) {
 	if err != nil {
 		return nil, "", err
 	}
-	ref := o.Ref
-	if ref == "" {
-		ref = "HEAD"
-	}
 	tag := strings.TrimSpace(o.Tag)
 	if tag != "" && !strings.HasPrefix(tag, "v") {
 		tag = "v" + tag
+	}
+	ref := strings.TrimSpace(o.Ref)
+	// M-6: optional rebuild-from-tag — Ref "tag" or empty Ref with Tag and SHIP_FROM_TAG=1 checks out the tag.
+	if ref == "" || strings.EqualFold(ref, "tag") {
+		if ref == "tag" || (ref == "" && os.Getenv("NETDUCTOR_SHIP_FROM_TAG") == "1" && tag != "") {
+			ref = tag
+		} else if ref == "" {
+			ref = "HEAD"
+		}
 	}
 
 	steps := []ShipStep{

@@ -311,6 +311,10 @@ func checkoutRef(name, ref, workDir string) error {
 	candidates := []string{}
 	if ref != "" {
 		candidates = append(candidates, ref)
+		// M-6: annotated/lightweight tags
+		if strings.HasPrefix(ref, "v") || strings.HasPrefix(ref, "refs/tags/") {
+			candidates = append(candidates, "refs/tags/"+strings.TrimPrefix(ref, "refs/tags/"))
+		}
 	}
 	candidates = append(candidates, "HEAD", "main", "master")
 	var lastOut []byte

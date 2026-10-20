@@ -318,6 +318,25 @@ func Serve(o ServeOpts) error {
 	}
 	fmt.Fprintf(os.Stderr, "token: %s…  header X-Netductor-Token  file ~/.netductor/operator_token\n", hint)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// M-2: reject unexpected Host (DNS rebinding / odd proxies) on loopback UI.
+		host := r.Host
+		if i := strings.Index(host, ":"); i >= 0 {
+			host = host[:i]
+		}
+		if host != "" && !isLoopbackHost(host) {
+			http.Error(w, "forbidden host", http.StatusForbidden)
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
+			origin := r.Header.Get("Origin")
+			if origin != "" {
+				// allow only loopback origins for state-changing requests
+				if !strings.Contains(origin, "127.0.0.1") && !strings.Contains(origin, "localhost") && !strings.Contains(origin, "[::1]") {
+					http.Error(w, "forbidden origin", http.StatusForbidden)
+					return
+				}
+			}
+		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")

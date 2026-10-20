@@ -1,6 +1,8 @@
 package update
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,9 +17,16 @@ func TestTryLocalNamedAsset(t *testing.T) {
 	name := "netductor-linux-amd64"
 	body := []byte("fake-bin")
 	_ = os.WriteFile(filepath.Join(td, name), body, 0o755)
-	// no SHA256SUMS → still ok
+	sum := sha256.Sum256(body)
+	hexSum := hex.EncodeToString(sum[:])
+
 	dest := filepath.Join(t.TempDir(), "out")
 	ok, err := tryLocalNamedAsset(tag, name, dest)
+	if err == nil || ok {
+		t.Fatal("expected error without SHA256SUMS")
+	}
+	_ = os.WriteFile(filepath.Join(td, "SHA256SUMS"), []byte(hexSum+"  "+name+"\n"), 0o644)
+	ok, err = tryLocalNamedAsset(tag, name, dest)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}

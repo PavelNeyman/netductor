@@ -71,23 +71,26 @@ func tryLocalNamedAsset(tag, name, destPath string) (bool, error) {
 	if _, err := os.Stat(src); err != nil {
 		return false, nil
 	}
+	// M-4: local install requires SHA256SUMS — missing manifest is an error, not skip-verify.
 	sumsPath := filepath.Join(dir, "SHA256SUMS")
-	if b, err := os.ReadFile(sumsPath); err == nil {
-		sums, err := ParseSHA256SUMS(b)
-		if err != nil {
-			return false, fmt.Errorf("local SHA256SUMS: %w", err)
-		}
-		want, ok := sums[name]
-		if !ok {
-			return false, fmt.Errorf("local SHA256SUMS: no entry for %s", name)
-		}
-		got, err := fileSHA256(src)
-		if err != nil {
-			return false, err
-		}
-		if !strings.EqualFold(got, want) {
-			return false, fmt.Errorf("local %s sha mismatch", name)
-		}
+	b, err := os.ReadFile(sumsPath)
+	if err != nil {
+		return false, fmt.Errorf("local SHA256SUMS required for %s: %w", name, err)
+	}
+	sums, err := ParseSHA256SUMS(b)
+	if err != nil {
+		return false, fmt.Errorf("local SHA256SUMS: %w", err)
+	}
+	want, ok := sums[name]
+	if !ok {
+		return false, fmt.Errorf("local SHA256SUMS: no entry for %s", name)
+	}
+	got, err := fileSHA256(src)
+	if err != nil {
+		return false, err
+	}
+	if !strings.EqualFold(got, want) {
+		return false, fmt.Errorf("local %s sha mismatch", name)
 	}
 	in, err := os.ReadFile(src)
 	if err != nil {
@@ -111,6 +114,16 @@ func ImportReleaseDir(tag, srcDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// M-4: require SHA256SUMS in source before importing binaries.
+	sumsPath := filepath.Join(srcDir, "SHA256SUMS")
+	sumsBody, err := os.ReadFile(sumsPath)
+	if err != nil {
+		return "", fmt.Errorf("ImportReleaseDir: SHA256SUMS required in %s: %w", srcDir, err)
+	}
+	sums, err := ParseSHA256SUMS(sumsBody)
+	if err != nil {
+		return "", fmt.Errorf("ImportReleaseDir: %w", err)
+	}
 	dst := LocalTagDir(tag)
 	if err := os.MkdirAll(dst, 0o755); err != nil {
 		return "", err
@@ -124,21 +137,40 @@ func ImportReleaseDir(tag, srcDir string) (string, error) {
 		if e.IsDir() {
 			continue
 		}
-		b, err := os.ReadFile(filepath.Join(srcDir, e.Name()))
+		name := e.Name()
+		srcFile := filepath.Join(srcDir, name)
+		b, err := os.ReadFile(srcFile)
 		if err != nil {
 			return "", err
 		}
+		if strings.HasPrefix(name, "netductor") {
+			want, ok := sums[name]
+			if !ok {
+				return "", fmt.Errorf("ImportReleaseDir: no SHA256SUMS entry for %s", name)
+			}
+			got, err := fileSHA256(srcFile)
+			if err != nil {
+				return "", err
+			}
+			if !strings.EqualFold(got, want) {
+				return "", fmt.Errorf("ImportReleaseDir: sha mismatch for %s", name)
+			}
+		}
 		mode := os.FileMode(0o644)
-		if strings.HasPrefix(e.Name(), "netductor") {
+		if strings.HasPrefix(name, "netductor") {
 			mode = 0o755
 		}
-		if err := os.WriteFile(filepath.Join(dst, e.Name()), b, mode); err != nil {
+		if err := os.WriteFile(filepath.Join(dst, name), b, mode); err != nil {
 			return "", err
 		}
 		n++
 	}
 	if n == 0 {
 		return "", fmt.Errorf("no files in %s", srcDir)
+	}
+	if _, ok := sums["SHA256SUMS"]; !ok {
+		// ensure SUMS itself was copied (name is SHA256SUMS, may not be in map as entry for itself)
+		_ = ok
 	}
 	return dst, nil
 }

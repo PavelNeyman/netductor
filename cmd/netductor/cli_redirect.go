@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/httpx"
 )
 
 // runRedirectServe: open-redirect-safe landing for TG url buttons.
@@ -79,7 +81,7 @@ func runRedirectServe(args []string) {
 		go func() {
 			defer wg.Done()
 			log.Printf("import redirect HTTP on %s", addr)
-			errCh <- http.ListenAndServe(addr, mux)
+			errCh <- httpx.NewServer(addr, mux).ListenAndServe()
 		}()
 	}
 	if httpsAddr != "" && tlsCert != "" && tlsKey != "" {
@@ -87,7 +89,8 @@ func runRedirectServe(args []string) {
 		go func() {
 			defer wg.Done()
 			log.Printf("import redirect HTTPS on %s", httpsAddr)
-			errCh <- http.ListenAndServeTLS(httpsAddr, tlsCert, tlsKey, mux)
+			srv := httpx.NewServer(httpsAddr, mux)
+			errCh <- srv.ListenAndServeTLS(tlsCert, tlsKey)
 		}()
 	}
 	err := <-errCh

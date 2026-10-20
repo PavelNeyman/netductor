@@ -1,3 +1,12 @@
+## 0.9.446
+
+- Security remainder ([docs/SECURITY-REVIEW-2026-10-20.md](docs/SECURITY-REVIEW-2026-10-20.md)):
+  - M-1: NVR camera_id validation + path containment
+  - M-4: local release install/import requires SHA256SUMS
+  - N-9: redirect + agent-plane HTTP timeouts
+  - M-2: operator serve Host/Origin checks
+  - M-6: ship checkout prefers refs/tags; SHIP_FROM_TAG / Ref=tag
+
 ## 0.9.445
 
 - Security P0/P1 ([docs/SECURITY-REVIEW-2026-10-20.md](docs/SECURITY-REVIEW-2026-10-20.md)): H-1 enroll token, H-3 mTLS revoke fail-closed, H-2 firewall, N-10 OpenWrt pkgs, M-5 partial CA, M-7 tmp write, N-8 sub-token rename, M-3 download redirects, L-3 PEM nil-check

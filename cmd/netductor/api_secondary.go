@@ -297,7 +297,15 @@ func StartAgentPlane() {
 			}
 			go func() {
 				lim := httpx.NewPlaneLimiter(180, time.Minute) // 180 req/min/IP
-				srv := &http.Server{Addr: tlsAddr, Handler: lim.Middleware(withSecurity(mux)), TLSConfig: tlsCfg}
+				srv := &http.Server{
+					Addr:              tlsAddr,
+					Handler:           lim.Middleware(withSecurity(mux)),
+					TLSConfig:         tlsCfg,
+					ReadHeaderTimeout: 10 * time.Second,
+					ReadTimeout:       60 * time.Second,
+					WriteTimeout:      120 * time.Second,
+					IdleTimeout:       120 * time.Second,
+				}
 				fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
 				if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 					fmt.Fprintln(os.Stderr, "mtls serve:", err)
