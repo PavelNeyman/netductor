@@ -1,3 +1,7 @@
+## 0.9.442
+
+- edge: OpenWrt USB cache uses libcomerr0 (not libcomerr2) + alternates
+
 ## 0.9.441
 
 - edge: offline apk USB install (no WAN index fetch) + cache e2fsprogs deps (libuuid/libe2p/…)

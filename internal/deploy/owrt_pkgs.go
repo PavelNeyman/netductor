@@ -92,7 +92,7 @@ var usbPkgBaseNames = []string{
 	"block-mount",
 	"libuuid1",
 	"libblkid1",
-	"libcomerr2",
+	"libcomerr0", // OpenWrt packages as libcomerr0 (not libcomerr2)
 	"libss2",
 	"libe2p2",
 	"libext2fs2",
@@ -144,7 +144,19 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 
 	var got []string
 	for _, base := range usbPkgBaseNames {
-		path, err := fetchPkgByPrefix(dir, base, ext, []string{kmodBase, pkgBase, archBase})
+		alts := []string{base}
+		// ABI-suffixed names differ across releases; try common alternates.
+		if base == "libcomerr0" {
+			alts = []string{"libcomerr0", "libcomerr2", "libcomerr"}
+		}
+		var path string
+		var err error
+		for _, cand := range alts {
+			path, err = fetchPkgByPrefix(dir, cand, ext, []string{kmodBase, pkgBase, archBase})
+			if err == nil {
+				break
+			}
+		}
 		if err != nil {
 			return dir, got, fmt.Errorf("%s: %w", base, err)
 		}
@@ -158,7 +170,17 @@ func EnsureOpenWrtUSBPackagesCached(m OpenWrtMeta) (dir string, files []string, 
 func listCachedUSBPackages(dir, ext string) ([]string, bool) {
 	var got []string
 	for _, base := range usbPkgBaseNames {
-		matches, _ := filepath.Glob(filepath.Join(dir, base+"*"+ext))
+		cands := []string{base}
+		if base == "libcomerr0" {
+			cands = []string{"libcomerr0", "libcomerr2", "libcomerr"}
+		}
+		var matches []string
+		for _, c := range cands {
+			matches, _ = filepath.Glob(filepath.Join(dir, c+"*"+ext))
+			if len(matches) > 0 {
+				break
+			}
+		}
 		if len(matches) == 0 {
 			return nil, false
 		}
