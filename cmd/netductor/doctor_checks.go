@@ -194,6 +194,16 @@ func doctorRunChecks(h doctorHooks) {
 	case "primary":
 		h.check("READY.txt", h.exists(filepath.Join(h.etc, "READY.txt")))
 		h.check("vpn-users.json", h.exists(filepath.Join(h.etc, "vpn-users.json")))
+		if users, err := vpn.List(); err == nil {
+			live := make([]string, 0, len(users))
+			for _, u := range users {
+				live = append(live, u.Name)
+			}
+			if n := len(vpn.ListOrphanSubUsers(live)); n > 0 {
+				doctorPrintf("WARN orphan sub tokens: %d (netductor vpn sub-prune)\n", n)
+				(*h.warn)++
+			}
+		}
 		h.check("blocky unit", activeUnit("blocky"))
 		if activeUnit("blocky") {
 			if listeningOnAll("53") {

@@ -391,6 +391,39 @@ func runVPN(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	case "sub-prune":
+		dry := false
+		for _, a := range rest {
+			if a == "--dry-run" || a == "-n" {
+				dry = true
+			}
+		}
+		users, err := vpn.List()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		live := make([]string, 0, len(users))
+		for _, u := range users {
+			live = append(live, u.Name)
+		}
+		if dry {
+			orphans := vpn.ListOrphanSubUsers(live)
+			for _, name := range orphans {
+				fmt.Println(name)
+			}
+			fmt.Printf("orphan_sub_tokens=%d dry-run\n", len(orphans))
+			return
+		}
+		n, err := vpn.PruneOrphanSubTokens(live)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("pruned=%d\n", n)
+		if n > 0 {
+			audit.Log("cli", "vpn.sub-prune", fmt.Sprintf("%d", n), "")
+		}
 	default:
 		fmt.Fprintln(os.Stderr, "unknown vpn subcommand")
 		os.Exit(2)

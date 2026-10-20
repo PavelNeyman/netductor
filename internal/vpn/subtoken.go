@@ -140,12 +140,31 @@ func RenameSubToken(oldName, newName string) error {
 	return saveSub(s)
 }
 
+// ListOrphanSubUsers returns subscription token user names not present in live.
+func ListOrphanSubUsers(live []string) []string {
+	want := map[string]bool{}
+	for _, n := range live {
+		want[n] = true
+	}
+	subMu.Lock()
+	defer subMu.Unlock()
+	var orphans []string
+	for _, e := range loadSub().Entries {
+		if !want[e.User] {
+			orphans = append(orphans, e.User)
+		}
+	}
+	return orphans
+}
+
 // PruneOrphanSubTokens drops tokens whose user is not in the VPN registry.
 func PruneOrphanSubTokens(live []string) (int, error) {
 	want := map[string]bool{}
 	for _, n := range live {
 		want[n] = true
 	}
+	subMu.Lock()
+	defer subMu.Unlock()
 	s := loadSub()
 	out := s.Entries[:0]
 	n := 0

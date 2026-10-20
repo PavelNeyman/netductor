@@ -1,3 +1,8 @@
+## 0.9.440
+
+- CLI: `netductor vpn sub-prune` [--dry-run] — drop orphan subscription tokens
+- doctor (primary): WARN when orphan sub tokens remain
+
 ## 0.9.439
 
 - N-1: recoveryHTTPClient returns error; both callers handle bad PEM
