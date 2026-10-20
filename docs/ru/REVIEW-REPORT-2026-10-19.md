@@ -1,3 +1,15 @@
+
+## Fixed in 0.9.428 (2026-10-20)
+
+| ID | Fix |
+|--|--|
+| S-1 | `RevokeSubToken` on delete and disable; `/sub/` rejects disabled users |
+| S-2 | Recovery pin present but not PEM → fail closed (no silent SkipVerify) |
+| S-8 | `Approve` propagates `saveDevices` error |
+| Q-1 | i18n keys `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` EN/RU |
+| Q-2 | Removed self-assignment in `internal/git/projects.go` |
+| incident | `Collect` no longer execs `*.test` (fork-bomb under `go test`) |
+
 **RU** · [EN](../REVIEW-REPORT-2026-10-19.md)
 
 # Отчёт полного комплекса ревью — tip v0.9.427 (2026-10-20)

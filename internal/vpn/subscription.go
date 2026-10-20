@@ -67,6 +67,9 @@ func SubscriptionBody(name string) (string, error) {
 	if u == nil {
 		return "", fmt.Errorf("user not found")
 	}
+	if !u.Enabled {
+		return "", fmt.Errorf("user disabled")
+	}
 	nl := string([]byte{10})
 	sec := strings.TrimSpace(PreferredVLESSLink(name, u.UUID))
 	core := strings.TrimSpace(VLESSLink(name, u.UUID))

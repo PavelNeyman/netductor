@@ -364,7 +364,9 @@ func Approve(deviceID string) (deviceToken string, err error) {
 	d.ApprovedAt = time.Now().Unix()
 	d.DeviceID = deviceID
 	m[deviceID] = d
-	_ = saveDevices(m)
+	if err := saveDevices(m); err != nil {
+		return "", err
+	}
 	return tok, nil
 }
 

@@ -351,6 +351,9 @@ func SetEnabledNative(name string, enabled bool) error {
 	if err := writeRegistry(r); err != nil {
 		return err
 	}
+	if !enabled {
+		_ = RevokeSubToken(name)
+	}
 	return ApplyConfig()
 }
 
@@ -376,6 +379,7 @@ func RevokeNative(name string) error {
 		return err
 	}
 	_ = os.RemoveAll(filepath.Join(Clients(), name))
+	_ = RevokeSubToken(name)
 	return ApplyConfig()
 }
 

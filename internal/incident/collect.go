@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -25,7 +26,11 @@ func Collect(hours int) (dir, archive string, err error) {
 	since := fmt.Sprintf("%d hours ago", hours)
 	bin := "/usr/local/bin/netductor"
 	if b, e := os.Executable(); e == nil && b != "" {
-		bin = b
+		// go test binary is named *.test; exec'ing it re-runs tests (fork bomb).
+		base := filepath.Base(b)
+		if !strings.HasSuffix(base, ".test") && !strings.Contains(b, "/_test/") {
+			bin = b
+		}
 	}
 	runTo := func(path string, name string, args ...string) {
 		f, err := os.Create(path)

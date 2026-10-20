@@ -105,7 +105,6 @@ func AddProject(p Project, fetch bool) error {
 				}
 			}
 			list[i] = p
-			list[i].CreatedAt = list[i].CreatedAt
 			if list[i].CreatedAt == "" {
 				list[i].CreatedAt = time.Now().UTC().Format(time.RFC3339)
 			}

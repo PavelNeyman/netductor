@@ -18,15 +18,15 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 Report: [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) · plan: [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md). Items marked **owner** wait for approval because they change code.
 
 - [ ] **Run `go test ./internal/... ./cmd/... -count=1`** before the next release tag (skipped in this review by owner request)
-- [ ] **F1 (S-1, Medium, owner)** revoke VPN sub-token on user delete (`RevokeNative`) + reject disabled users in `SubscriptionBody` + test
-- [ ] **F2 (Q-1, Medium, owner)** add Web i18n keys `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` (EN+RU)
-- [ ] **F3 (Q-2, owner)** self-assignment in `internal/git/projects.go:108`
+- [x] **F1 (S-1, Medium, owner)** revoke VPN sub-token on user delete (`RevokeNative`) + reject disabled users in `SubscriptionBody` + test
+- [x] **F2 (Q-1, Medium, owner)** add Web i18n keys `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` (EN+RU)
+- [x] **F3 (Q-2, owner)** self-assignment in `internal/git/projects.go:108`
 - [ ] **F4 (Q-3, owner)** gofmt commit (129 files) + `gofmt -l` in suite
 - [ ] **F5 (owner)** remove verified dead code DC-A (~45 funcs, ~25 consts/vars); decide DC-B per item
-- [ ] **F6 (S-2, Medium, owner)** recovery TLS: fail closed on invalid pin, explicit first-contact flag
+- [x] **F6 (S-2, Medium, owner)** recovery TLS: fail closed on invalid pin, explicit first-contact flag
 - [ ] **F7 (S-5/R-4, owner)** `httpx.NewServer` with timeouts for all listeners
 - [ ] **F8 (S-6/S-7/R-3, owner)** no shell composition for `ufw delete` / `wg pubkey`; replace `curl | sh` Docker install
-- [ ] **F9 (S-8, owner)** propagate `saveDevices` errors in `internal/edge`
+- [x] **F9 (S-8, owner)** propagate `saveDevices` errors in `internal/edge`
 - [ ] **F10 (R-1…R-8, owner)** refactors: split god functions (`registerEdgeAPI` 937 lines, TG `handleCallback` 779, …), shared helpers
 - [ ] **D-1 (Medium, owner)** RU twins for 19 EN-only docs: CI-WORKFLOWS, CLEANUP, DAY2-GROUPS, DISASTER-RECOVERY, GH-PRIVATE-SETUP, OPENWRT-LAB, PLAN-CI-NEXT, PLAN-EDGE-DEPLOY-HYBRID, PLAN-GIT-CI-OPS, PLAN-INTERNAL-RELEASES, PLAN-NVR-IMPLEMENTATION, PLAN-NVR-UI, PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, RECOVER-BOT, RELEASE, REVIEW-PROGRESS, TG-ALERTS-CHANNEL, YOUTUBE-ADS
 - [ ] **§8 live fleet smoke** (`netductor doctor`, `host-audit`, `channel status`, secondary agent version) — needs operator access

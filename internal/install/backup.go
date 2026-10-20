@@ -523,9 +523,17 @@ func RecoverFromBuildHost(baseURL, recoveryToken, keyArg string) error {
 	return RecoverFromSecondary(baseURL, recoveryToken, keyArg)
 }
 
+
+func caPathFromEnv() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA")); v != "" {
+		return v
+	}
+	return "/etc/netductor/secrets/recovery_peer.crt"
+}
+
 // recoveryHTTPClient prefers pinned CA (NETDUCTOR_RECOVERY_CA or /etc/netductor/secrets/recovery_peer.crt).
 // Falls back to InsecureSkipVerify only when no pin is configured (DR first contact).
-func recoveryHTTPClient() *http.Client {
+func recoveryHTTPClient() *http.Client { // nil = pin present but not valid PEM
 	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	caPath := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA"))
 	if caPath == "" {
@@ -536,8 +544,7 @@ func recoveryHTTPClient() *http.Client {
 		if pool.AppendCertsFromPEM(b) {
 			cfg.RootCAs = pool
 		} else {
-			fmt.Fprintln(os.Stderr, "recovery: CA file present but not PEM certs; using skip-verify")
-			cfg.InsecureSkipVerify = true //nolint:gosec
+			return nil // caller treats nil as fail-closed (pin present but not PEM)
 		}
 	} else {
 		cfg.InsecureSkipVerify = true //nolint:gosec // no pin yet — optional NETDUCTOR_RECOVERY_CA
@@ -558,6 +565,9 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 		return fmt.Errorf("recovery URL must be https:// (got %s)", baseURL)
 	}
 	client := recoveryHTTPClient()
+	if client == nil {
+		return fmt.Errorf("recovery CA pin present but not valid PEM (%s)", caPathFromEnv())
+	}
 	get := func(path string) ([]byte, http.Header, error) {
 		req, err := http.NewRequest(http.MethodGet, baseURL+path, nil)
 		if err != nil {

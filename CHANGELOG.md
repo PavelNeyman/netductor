@@ -1,3 +1,13 @@
+## 0.9.428
+
+- S-1: revoke VPN sub-token on delete/disable; /sub/ rejects disabled users
+- S-2: recovery pin present but not PEM fails closed
+- S-8: Approve propagates saveDevices error
+- Q-1: Web i18n keys edge_st_g_bak, rd_mode, rd_pos, result_hint
+- Q-2: drop self-assignment in projects.go
+- incident Collect: do not exec *.test (fork-bomb under go test)
+
+
 ## Unreleased (docs only, no version bump)
 
 - Docs: full-complex static review report + plan (EN+RU): `docs/REVIEW-REPORT-2026-10-19.md`, `docs/REVIEW-PLAN-2026-10-19.md`
