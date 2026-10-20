@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/format"
 )
 
 const recoveryHTML = `<!DOCTYPE html>
@@ -152,10 +154,7 @@ func allowRecoveryClient(r *http.Request) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }
 
-func htmlEsc(s string) string {
-	r := strings.NewReplacer(`&`, "&amp;", `<`, "&lt;", `>`, "&gt;", `"`, "&quot;")
-	return r.Replace(s)
-}
+func htmlEsc(s string) string { return format.HTMLEsc(s) }
 
 func validPrimaryURL(raw string) bool {
 	u, err := url.Parse(strings.TrimSpace(raw))

@@ -5,10 +5,11 @@ package format
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PavelNeyman/netductor/internal/vpn"
 	"html"
 	"sort"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 // Result of formatting.
@@ -816,3 +817,9 @@ func truncate(s string, n int) string {
 func ShellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
+
+// HTMLEsc escapes s for Telegram/HTML.
+func HTMLEsc(s string) string { return html.EscapeString(s) }
+
+// Truncate cuts s to n bytes and adds an ellipsis.
+func Truncate(s string, n int) string { return truncate(s, n) }

@@ -1,3 +1,9 @@
+## 0.9.438
+
+- R-1 step 6: DeployEdge moved to edge_run.go
+- R-2: format.HTMLEsc / Truncate; agent and firewall use them. notify htmlEsc stays (cycle)
+
+
 ## 0.9.437
 
 - R-1 step 5: session, git, and NVR API split into route-group files

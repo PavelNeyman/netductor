@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/format"
+
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 )
@@ -58,13 +60,7 @@ func EnsureInstalled() (Backend, error) {
 	return BackendNone, fmt.Errorf("firewall: cannot install ufw and no iptables: %v %s", err, truncate(string(out), 300))
 }
 
-func truncate(s string, n int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
-}
+func truncate(s string, n int) string { return format.Truncate(s, n) }
 
 // ApplyRole installs backend if needed and applies primary or secondary profile.
 func ApplyRole(role string) error {

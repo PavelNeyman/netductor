@@ -12,7 +12,7 @@
 | 3 | `handleGitCB` | **done 0.9.435** — hub, build-host, ship, proj, repo. Dispatcher 29 lines. |
 | 4 | `runDoctorNative` | **done 0.9.436** — checks moved to `doctorRunChecks` via `doctorHooks`. `runDoctorNative` is setup + call. |
 | 5 | `registerSessionAPI`, `registerGitAPI`, `registerNVRAPI` | **done 0.9.437** — session nodes/sni/sites/status/mtls; git repos/projects/ship; nvr cameras/config/events/live. |
-| 6 | `DeployEdge` / `runDeploy` | Already stepped; split only if a step file exceeds ~200 lines. |
+| 6 | `DeployEdge` | **done 0.9.438** — body in `edge_run.go`. Helpers stay in `edge.go`. |
 
 Stop after each step. Do not combine with i18n or auth changes.
 
@@ -22,7 +22,7 @@ Move, do not rewrite:
 
 | Symbol | Keep in |
 |--|--|
-| `htmlEsc` | `internal/format` (already exists) |
+| `htmlEsc` | `format.HTMLEsc`. notify keeps a local copy (import cycle format→notify). agent uses HTMLEsc. |
 | `shellQuote` | `internal/deploy` (one copy; others call it) |
 | `constEq` | `internal/httpx` or new `internal/secreq` |
 | `truncate` / `esc` | `internal/format` |
