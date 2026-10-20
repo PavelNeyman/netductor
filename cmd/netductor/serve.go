@@ -4,6 +4,8 @@ import (
 	"fmt"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"net/http"
+
+	"github.com/PavelNeyman/netductor/internal/httpx"
 	"os"
 	"os/exec"
 	"strings"
@@ -108,15 +110,15 @@ func runServe(args []string) {
 	fmt.Fprintf(os.Stderr, "netductor serve on http://%s API-only (Mac client = UI)\n", addr)
 	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
 	StartAgentPlane()
+	srv := httpx.NewServer(addr, withSecurity(mux))
+	var err error
 	if tlsCert != "" && tlsKey != "" {
 		fmt.Fprintf(os.Stderr, "netductor serve TLS on https://%s\n", addr)
-		if err := http.ListenAndServeTLS(addr, tlsCert, tlsKey, withSecurity(mux)); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		return
+		err = srv.ListenAndServeTLS(tlsCert, tlsKey)
+	} else {
+		err = srv.ListenAndServe()
 	}
-	if err := http.ListenAndServe(addr, withSecurity(mux)); err != nil {
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

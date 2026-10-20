@@ -1,3 +1,11 @@
+## 0.9.433
+
+- R-1 step 1: edge API split into meta/templates/enroll/storage/agent/admin
+- R-2: ShellQuote in internal/format; deploy and svcpaths use it
+- F8: ufw delete via argv, not bash -c
+- F7: httpx.NewServer on node serve (60s write). Op stream stays 2h
+
+
 ## 0.9.432
 
 - Backup excludes build-backup-mirror (was 3.4G), stack binaries, lampac/ts

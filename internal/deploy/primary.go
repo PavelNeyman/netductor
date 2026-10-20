@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/format"
+
 	"github.com/PavelNeyman/netductor/internal/download"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -343,9 +345,7 @@ func safeConfKey(k string) bool {
 	return true
 }
 
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
-}
+func shellQuote(s string) string { return format.ShellQuote(s) }
 
 // validReleaseVersion rejects shell/path injection in release tags used in download URLs.
 func validReleaseVersion(v string) bool {

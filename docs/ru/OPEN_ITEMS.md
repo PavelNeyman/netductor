@@ -18,11 +18,11 @@
 - [x] **F1 (S-1, Medium, owner)** отзывать VPN sub-токен при удалении пользователя (`RevokeNative`) + отклонять отключённых в `SubscriptionBody` + тест
 - [x] **F2 (Q-1, Medium, owner)** добавить Web i18n-ключи `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` (EN+RU)
 - [x] **F3 (Q-2, owner)** самоприсваивание в `internal/git/projects.go:108`
-- [ ] **F4 (Q-3, owner)** коммит gofmt (129 файлов) + `gofmt -l` в комплексе
-- [ ] **F5 (owner)** удалить проверенный мёртвый код DC-A (~45 функций, ~25 констант/переменных); по DC-B решать по каждому пункту
+- [x] **F4 (Q-3, owner)** коммит gofmt (129 файлов) + `gofmt -l` в комплексе
+- [x] **F5 (owner)** удалить проверенный мёртвый код DC-A (~45 функций, ~25 констант/переменных); по DC-B решать по каждому пункту
 - [x] **F6 (S-2, Medium, owner)** recovery TLS: fail closed при невалидном пине, явный флаг первого контакта
-- [ ] **F7 (S-5/R-4, owner)** `httpx.NewServer` с таймаутами для всех слушателей
-- [ ] **F8 (S-6/S-7/R-3, owner)** без shell-сборки для `ufw delete` / `wg pubkey`; заменить установку Docker через `curl | sh`
+- [x] **F7 (S-5/R-4, owner)** `httpx.NewServer` с таймаутами для всех слушателей
+- [x] **F8 (S-6/S-7/R-3, owner)** без shell-сборки для `ufw delete` / `wg pubkey`; заменить установку Docker через `curl | sh`
 - [x] **F9 (S-8, owner)** пробрасывать ошибки `saveDevices` в `internal/edge`
 - [ ] **F10 (R-1…R-8, owner)** рефакторинги: разбить функции-монстры (`registerEdgeAPI` 937 строк, TG `handleCallback` 779, …), общие helper-ы
 - [ ] **D-1 (Medium, owner)** — deferred. Audit and delete stale docs first; translate last. See PLAN-DOCS-D1.md.

@@ -51,7 +51,8 @@ func deleteUFWByComment(comment string) {
 		}
 	}
 	for _, n := range nums {
-		cmd := exec.Command("bash", "-c", "echo y | ufw delete "+n)
+		// argv only: rule number is data, must not go through a shell.
+		cmd := exec.Command("ufw", "--force", "delete", n)
 		cmd.Stdout, cmd.Stderr = nil, nil
 		_ = cmd.Run()
 	}

@@ -811,3 +811,8 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// ShellQuote wraps s for a POSIX single-quoted argument.
+func ShellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
+}

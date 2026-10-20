@@ -7,7 +7,7 @@
 
 | Step | Target | Cut |
 |--|--|--|
-| 1 | `cmd/netductor/api_edge.go` `registerEdgeAPI` (~937) | One file per route group: enroll, approve, storage, wifi, guest. Table-driven mux in `registerEdgeAPI`. |
+| 1 | `cmd/netductor/api_edge.go` | **done 0.9.433** — `registerEdgeMeta/Templates/Enroll/Storage/Agent/Admin`. Dispatcher only in `api_edge.go`. |
 | 2 | `cmd/netductor-tg` `handleCallback` (~779) | Dispatch table `m:*` → handler. One file per hub (vpn, fleet, tools, edge). |
 | 3 | `handleGitCB` (~666) | Same pattern, git callbacks only. |
 | 4 | `runDoctorNative` (~637) | One check function per probe; `runDoctorNative` only loops. |
@@ -33,7 +33,7 @@ Replace only where the argument is data (keys, user input). Leave fixed admin st
 
 ## R-4 Timeouts (see F7)
 
-After R-1 step 1. One `httpx.NewServer(addr, handler)` with ReadHeader 10s, Read 30s, Write 60s, Idle 120s. Loopback op serve can stay longer.
+**done 0.9.433** for node `serve` via `httpx.NewServer` (60s write). Op serve keeps 2h WriteTimeout for deploy streams. One `httpx.NewServer(addr, handler)` with ReadHeader 10s, Read 30s, Write 60s, Idle 120s. Loopback op serve can stay longer.
 
 ## R-5 Edge auth
 
