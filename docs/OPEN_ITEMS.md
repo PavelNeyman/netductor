@@ -17,7 +17,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 
 Report: [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) · plan: [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md). Items marked **owner** wait for approval because they change code.
 
-- [ ] **Run `go test ./internal/... ./cmd/... -count=1`** before the next release tag (skipped in this review by owner request)
+- [x] **Run `go test ./internal/... ./cmd/... -count=1`** — passed 2026-10-20 on tip 0.9.429 (`GOMAXPROCS=1 NETDUCTOR_DISABLE_VPS_WORKER=1`, timeout 180s). `internal/incident` 0.027s, no fork-bomb. All packages ok.
 - [x] **F1 (S-1, Medium, owner)** revoke VPN sub-token on user delete (`RevokeNative`) + reject disabled users in `SubscriptionBody` + test
 - [x] **F2 (Q-1, Medium, owner)** add Web i18n keys `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` (EN+RU)
 - [x] **F3 (Q-2, owner)** self-assignment in `internal/git/projects.go:108`

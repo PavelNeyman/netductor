@@ -1,4 +1,9 @@
 
+## Full suite 2026-10-20
+
+`go test ./internal/... ./cmd/... -count=1 -timeout 180s` with `GOMAXPROCS=1 NETDUCTOR_DISABLE_VPS_WORKER=1` — all ok. `internal/incident` 0.027s (fork-bomb closed in 0.9.428/429). Sandbox ~1.9 GiB did not OOM.
+
+
 ## Fixed in 0.9.428 (2026-10-20)
 
 | ID | Fix |

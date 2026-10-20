@@ -14,7 +14,7 @@
 
 Отчёт: [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) · план: [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md). Пункты с пометкой **owner** ждут согласия, потому что меняют код.
 
-- [ ] **Выполнить `go test ./internal/... ./cmd/... -count=1`** перед следующим тегом релиза (в этом ревью пропущено по просьбе владельца)
+- [x] **Выполнить `go test ./internal/... ./cmd/... -count=1`** — прошло 2026-10-20 на tip 0.9.429 (`GOMAXPROCS=1 NETDUCTOR_DISABLE_VPS_WORKER=1`, timeout 180s). `internal/incident` 0.027s, без форк-бомбы. Все пакеты ok.
 - [x] **F1 (S-1, Medium, owner)** отзывать VPN sub-токен при удалении пользователя (`RevokeNative`) + отклонять отключённых в `SubscriptionBody` + тест
 - [x] **F2 (Q-1, Medium, owner)** добавить Web i18n-ключи `edge_st_g_bak`, `rd_mode`, `rd_pos`, `result_hint` (EN+RU)
 - [x] **F3 (Q-2, owner)** самоприсваивание в `internal/git/projects.go:108`
