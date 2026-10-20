@@ -32,10 +32,11 @@ func ensure() error {
 
 // BootstrapToken — shared secret only for enroll (not full access).
 func BootstrapToken() string {
+	// R-2: bootstrap is a dedicated secret — do not fall back to legacy edge_token
+	// (that would expand a weaker/older secret into enroll authority).
 	b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "secrets", "edge_bootstrap_token"))
 	if err != nil {
-		// fallback to legacy edge_token for transition
-		return Token()
+		return ""
 	}
 	return string(bytesTrim(b))
 }
@@ -75,7 +76,10 @@ func ValidBearer(auth string) bool {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return false
+	}
 	for _, d := range m {
 		if d.DeviceToken != "" && constEq(raw, d.DeviceToken) && d.Status == StatusApproved {
 			return true
@@ -84,17 +88,21 @@ func ValidBearer(auth string) bool {
 	return false
 }
 
-// DeviceIDFromAuth returns device_id if auth is a device token.
+// DeviceIDFromAuth returns device_id if auth is an *approved* device token (R-6).
+// Revoked/pending/denied tokens do not map to an identity for agent APIs.
 func DeviceIDFromAuth(auth string) string {
 	raw := bearerRaw(auth)
-	if raw == "" {
+	if raw == "" || len(raw) < 32 {
 		return ""
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return ""
+	}
 	for id, d := range m {
-		if d.DeviceToken != "" && constEq(raw, d.DeviceToken) {
+		if d.DeviceToken != "" && constEq(raw, d.DeviceToken) && d.Status == StatusApproved {
 			return id
 		}
 	}
@@ -118,7 +126,10 @@ func RequireApproved(auth, deviceID string) bool {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return false
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return false
@@ -166,17 +177,25 @@ func devicesPath() string  { return filepath.Join(paths.EdgeDir(), "devices.json
 func commandsPath() string { return filepath.Join(paths.EdgeDir(), "commands.json") }
 func resultsPath() string  { return filepath.Join(paths.EdgeDir(), "results.jsonl") }
 
-func loadDevices() map[string]Device {
+// loadDevices returns the device map. Missing file → empty map (clean install).
+// Read/JSON errors are returned (R-1) so callers do not overwrite a corrupt registry with {}.
+func loadDevices() (map[string]Device, error) {
 	_ = ensure()
 	b, err := os.ReadFile(devicesPath())
 	if err != nil {
-		return map[string]Device{}
+		if os.IsNotExist(err) {
+			return map[string]Device{}, nil
+		}
+		return nil, err
 	}
 	var wrap struct {
 		Devices map[string]Device `json:"devices"`
 	}
-	if json.Unmarshal(b, &wrap) != nil || wrap.Devices == nil {
-		return map[string]Device{}
+	if err := json.Unmarshal(b, &wrap); err != nil {
+		return nil, fmt.Errorf("devices.json: %w", err)
+	}
+	if wrap.Devices == nil {
+		return map[string]Device{}, nil
 	}
 	changed := false
 	for id, d := range wrap.Devices {
@@ -188,7 +207,7 @@ func loadDevices() map[string]Device {
 	if changed {
 		_ = saveDevices(wrap.Devices)
 	}
-	return wrap.Devices
+	return wrap.Devices, nil
 }
 
 func saveDevices(m map[string]Device) error {
@@ -303,7 +322,10 @@ func mergePayload(d *Device, payload map[string]any) {
 func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return "error", "", false
+	}
 	did, _ := payload["device_id"].(string)
 	if did == "" {
 		did = "unknown"
@@ -345,7 +367,10 @@ func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 func Approve(deviceID string) (deviceToken string, err error) {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return "", err
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return "", fmt.Errorf("unknown device")
@@ -368,7 +393,10 @@ func Approve(deviceID string) (deviceToken string, err error) {
 func Deny(deviceID string) error {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return err
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return fmt.Errorf("unknown device")
@@ -383,7 +411,10 @@ func Deny(deviceID string) error {
 func Revoke(deviceID string) error {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return err
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return fmt.Errorf("unknown device")
@@ -398,7 +429,10 @@ func Revoke(deviceID string) error {
 func Heartbeat(payload map[string]any) {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		return
+	}
 	did, _ := payload["device_id"].(string)
 	if did == "" {
 		did = "unknown"
@@ -423,7 +457,10 @@ func Heartbeat(payload map[string]any) {
 func GetDevice(deviceID string) (Device, bool) {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return Device{}, false
@@ -438,7 +475,10 @@ func GetDevice(deviceID string) (Device, bool) {
 func ListDevices() []Device {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	now := time.Now().Unix()
 	out := make([]Device, 0, len(m))
 	for id, d := range m {
@@ -499,7 +539,11 @@ func EnqueueCmd(deviceID, action, arg string) string {
 }
 
 func statusUnlocked(deviceID string) string {
-	d, ok := loadDevices()[deviceID]
+	devs, err := loadDevices()
+	if err != nil {
+		return ""
+	}
+	d, ok := devs[deviceID]
 	if !ok {
 		return ""
 	}
@@ -746,7 +790,10 @@ func migrateDevicePolicy(d *Device) bool {
 
 // GetDevicePolicy returns access policy for an edge device.
 func GetDevicePolicy(deviceID string) (policy.AccessPolicy, error) {
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		// try match DeviceID field
@@ -783,7 +830,10 @@ func SetDevicePolicy(deviceID string, p policy.AccessPolicy, by string) error {
 		return err
 	}
 	p.Touch(by)
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	key := deviceID
 	d, ok := m[key]
 	if !ok {

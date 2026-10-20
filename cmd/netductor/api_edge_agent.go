@@ -80,6 +80,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 		writeJSON(w, 200, resp)
 	})
 	mux.HandleFunc("/api/edge/commands", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
 		auth := r.Header.Get("Authorization")
 		did := edge.DeviceIDFromAuth(auth)
 		if did == "" {

@@ -113,7 +113,10 @@ func ResolvePlan(req PlanRequest) (PlanResponse, error) {
 func SetDeviceFacts(deviceID string, f DeviceFacts) error {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return fmt.Errorf("unknown device")

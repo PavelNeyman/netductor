@@ -47,3 +47,21 @@ Authoritative closure checklist. A finding is closed only when acceptance criter
 5. M-6 ship checkout of tag SHA  
 6. L-1 ACME :80 decision (DNS-01 vs keep)
 
+
+
+## 6. Unified audit follow-up (post-0.9.446)
+
+Findings from the consolidated audit of tip `1b1946b` still open after 0.9.445–446, closed in **0.9.447**:
+
+| ID | Status |
+|--|--|
+| R-1 loadDevices empty on error | **Done** |
+| R-2 Bootstrap→Token fallback | **Done** |
+| R-6 DeviceIDFromAuth status | **Done** |
+| R-7 recovery consume without save | **Done** |
+| R-3 EnsureAll ignored | **Done** |
+| R-9 commands method | **Done** |
+| R-10 jobs persist | Open P2 |
+| sites/vpn soft load | Open P2 |
+| CA rollover partial | Open P2 |
+| L-1 ACME :80 | Product decision |

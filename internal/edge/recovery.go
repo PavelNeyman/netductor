@@ -26,14 +26,19 @@ func recoveryPath() string {
 	return filepath.Join(paths.EdgeDir(), "recovery_codes.json")
 }
 
-func loadRecovery() []recoveryCode {
+func loadRecovery() ([]recoveryCode, error) {
 	b, err := os.ReadFile(recoveryPath())
 	if err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	var list []recoveryCode
-	_ = json.Unmarshal(b, &list)
-	return list
+	if err := json.Unmarshal(b, &list); err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 func saveRecovery(list []recoveryCode) error {
@@ -59,7 +64,10 @@ func IssueRecoveryCode(siteID, note string, ttl time.Duration) (code string, exp
 	exp := now.Add(ttl)
 	mu.Lock()
 	defer mu.Unlock()
-	list := loadRecovery()
+	list, err := loadRecovery()
+	if err != nil {
+		return "", time.Time{}, err
+	}
 	// drop expired
 	var keep []recoveryCode
 	for _, c := range list {
@@ -85,7 +93,10 @@ func ConsumeRecoveryCode(code string) (siteID string, ok bool) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	list := loadRecovery()
+	list, err := loadRecovery()
+	if err != nil {
+		return "", false
+	}
 	now := time.Now().Unix()
 	for i := range list {
 		c := &list[i]
@@ -95,7 +106,10 @@ func ConsumeRecoveryCode(code string) (siteID string, ok bool) {
 		if constEq(c.Code, code) {
 			c.UsedAt = now
 			siteID = c.SiteID
-			_ = saveRecovery(list)
+			if err := saveRecovery(list); err != nil {
+				// R-7: do not treat as consumed if persist failed
+				return "", false
+			}
 			return siteID, true
 		}
 	}
@@ -115,7 +129,11 @@ func ValidRecoveryOrBootstrap(auth string) bool {
 	mu.Lock()
 	defer mu.Unlock()
 	now := time.Now().Unix()
-	for _, c := range loadRecovery() {
+	list, err := loadRecovery()
+	if err != nil {
+		return false
+	}
+	for _, c := range list {
 		if c.UsedAt == 0 && c.Expires >= now && constEq(c.Code, raw) {
 			return true
 		}
@@ -131,7 +149,10 @@ func RegisterPending(deviceID, siteID, note string) error {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	now := time.Now().Unix()
 	d, ok := m[deviceID]
 	if !ok {
@@ -162,7 +183,10 @@ func RegisterPending(deviceID, siteID, note string) error {
 func ExportDevices() ([]byte, error) {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	return json.MarshalIndent(map[string]any{
 		"devices":  m,
 		"exported": time.Now().UTC().Format(time.RFC3339),
@@ -182,7 +206,10 @@ func ImportDevices(raw []byte, replace bool) (n int, err error) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	if replace {
 		m = map[string]Device{}
 	}
@@ -198,7 +225,10 @@ func ImportDevices(raw []byte, replace bool) (n int, err error) {
 func SetSiteID(deviceID, siteID string) error {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return fmt.Errorf("unknown device")

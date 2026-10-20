@@ -108,7 +108,11 @@ func runServe(args []string) {
 	mux := buildAPIMux()
 	addr := bind + ":" + port
 	fmt.Fprintf(os.Stderr, "netductor serve on http://%s API-only (Mac client = UI)\n", addr)
-	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+	if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil {
+		fmt.Fprintln(os.Stderr, "mtls.EnsureAll:", err)
+		// R-3: refuse to start agent plane without usable CA/material
+		os.Exit(1)
+	}
 	StartAgentPlane()
 	srv := httpx.NewServer(addr, withSecurity(mux))
 	var err error

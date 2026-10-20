@@ -86,7 +86,10 @@ func DeleteTemplate(id string) error {
 func BindTemplate(deviceID, templateID string, overlay map[string]any) error {
 	mu.Lock()
 	defer mu.Unlock()
-	m := loadDevices()
+	m, err := loadDevices()
+	if err != nil {
+		m = map[string]Device{}
+	}
 	d, ok := m[deviceID]
 	if !ok {
 		return fmt.Errorf("unknown device")
@@ -101,7 +104,8 @@ func BindTemplate(deviceID, templateID string, overlay map[string]any) error {
 
 func TemplateForDevice(deviceID string) (Template, error) {
 	mu.Lock()
-	d, ok := loadDevices()[deviceID]
+	devs, _ := loadDevices()
+	d, ok := devs[deviceID]
 	mu.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("unknown device")

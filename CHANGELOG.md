@@ -1,3 +1,13 @@
+## 0.9.447
+
+- Security series 1 remainder (unified audit on tip 0.9.444 findings still open after 0.9.445–446):
+  - R-1: loadDevices distinguishes missing vs corrupt; Enroll/Approve fail closed
+  - R-2: BootstrapToken no longer falls back to legacy edge_token
+  - R-6: DeviceIDFromAuth requires approved status
+  - R-7: ConsumeRecoveryCode only succeeds after saveRecovery
+  - R-3: serve exits if mtls.EnsureAll fails
+  - R-9: /api/edge/commands method check
+
 ## 0.9.446
 
 - Security remainder ([docs/SECURITY-REVIEW-2026-10-20.md](docs/SECURITY-REVIEW-2026-10-20.md)):

@@ -282,7 +282,10 @@ func StartAgentPlane() {
 	registerNVRAPI(mux)
 
 	// Ensure certs exist (auto-generate CA/server/client if missing).
-	_ = mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP"))
+	if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil {
+		fmt.Fprintln(os.Stderr, "mtls.EnsureAll:", err)
+		return
+	}
 
 	if !mtls.ServerReady() {
 		fmt.Fprintln(os.Stderr, "agent plane: mTLS certs missing — run: netductor mtls ensure")
