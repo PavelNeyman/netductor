@@ -371,9 +371,6 @@ func (c *Client) GetDayNight() (map[string]any, error) {
 }
 
 // GetDeviceInfo alias basic.
-func (c *Client) GetDeviceInfo() (map[string]any, error) {
-	return c.GetBasicInfo()
-}
 
 // AlertTest sounds/flashes alarm briefly if supported.
 func (c *Client) AlertTest() (map[string]any, error) {

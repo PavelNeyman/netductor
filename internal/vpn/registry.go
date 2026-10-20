@@ -283,6 +283,9 @@ func RenameNative(oldName, newName string) error {
 	if err := writeArtifacts(newName, uuid); err != nil {
 		return err
 	}
+	if err := RenameSubToken(oldName, newName); err != nil {
+		return err
+	}
 	// UUID unchanged — ApplyConfig optional (may fail in tests without sing-box)
 	_ = ApplyConfig()
 	return nil
@@ -351,7 +354,9 @@ func SetEnabledNative(name string, enabled bool) error {
 		return err
 	}
 	if !enabled {
-		_ = RevokeSubToken(name)
+		if err := RevokeSubToken(name); err != nil {
+			return err
+		}
 	}
 	return ApplyConfig()
 }
@@ -378,7 +383,9 @@ func RevokeNative(name string) error {
 		return err
 	}
 	_ = os.RemoveAll(filepath.Join(Clients(), name))
-	_ = RevokeSubToken(name)
+	if err := RevokeSubToken(name); err != nil {
+		return err
+	}
 	return ApplyConfig()
 }
 

@@ -283,17 +283,6 @@ func registryGET(path string) (*http.Response, error) {
 	return httpClient().Do(req)
 }
 
-func Catalog() ([]string, error) {
-	detail, err := CatalogDetail()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(detail))
-	for _, r := range detail {
-		out = append(out, r.Name)
-	}
-	return out, nil
-}
 
 type RepoInfo struct {
 	Name string   `json:"name"`

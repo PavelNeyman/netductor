@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/nvr"
@@ -131,6 +132,8 @@ func registerNVRLive(mux *http.ServeMux) {
 			w.Header().Set("Content-Type", "video/mp4")
 		}
 		w.WriteHeader(resp.StatusCode)
+		// Node serve WriteTimeout is 60s; live must not inherit it.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 		_, _ = io.Copy(w, resp.Body)
 	})
 }

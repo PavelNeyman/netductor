@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/secreq"
+
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -101,7 +103,7 @@ func RecordBuildHostHeartbeat(token string, facts map[string]any) error {
 	for _, s := range ListBuildHostStates() {
 		// reload with token
 		full, err := LoadBuildHostState(s.ID)
-		if err != nil || full.Token == "" || full.Token != token {
+		if err != nil || full.Token == "" || !secreq.Eq(full.Token, token) {
 			continue
 		}
 		full.LastSeen = time.Now().UTC().Format(time.RFC3339)
@@ -159,7 +161,7 @@ func AuthBuildHostToken(token string) (id string, ok bool) {
 	}
 	for _, s := range ListBuildHostStates() {
 		full, err := LoadBuildHostState(s.ID)
-		if err == nil && full.Token != "" && full.Token == token {
+		if err == nil && full.Token != "" && secreq.Eq(full.Token, token) {
 			return full.ID, true
 		}
 	}

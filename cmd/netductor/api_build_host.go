@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/secreq"
+
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 )
 
@@ -57,7 +59,7 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 		okTok := false
 		for _, s := range gitstore.ListBuildHostStates() {
-			if full, e := gitstore.LoadBuildHostState(s.ID); e == nil && full.Token == token {
+			if full, e := gitstore.LoadBuildHostState(s.ID); e == nil && secreq.Eq(full.Token, token) {
 				okTok = true
 				break
 			}
@@ -101,7 +103,7 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		}
 		if hostID == "" {
 			for _, s := range gitstore.ListBuildHostStates() {
-				if full, e := gitstore.LoadBuildHostState(s.ID); e == nil && full.Token == token {
+				if full, e := gitstore.LoadBuildHostState(s.ID); e == nil && secreq.Eq(full.Token, token) {
 					hostID = full.ID
 					break
 				}

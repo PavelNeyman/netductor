@@ -21,13 +21,6 @@ func secret(name string) string {
 	return strings.TrimSpace(string(b))
 }
 
-func htmlEsc(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	return s
-}
-
 func postTG(tok string, method string, vals url.Values) error {
 	u := fmt.Sprintf("https://api.telegram.org/bot%s/%s", tok, method)
 	resp, err := http.PostForm(u, vals)

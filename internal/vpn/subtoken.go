@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/PavelNeyman/netductor/internal/secreq"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/secreq"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -121,4 +122,43 @@ func EnsureSubToken(user string) (string, error) {
 		return t, nil
 	}
 	return IssueSubToken(user)
+}
+
+// RenameSubToken moves the subscription token from oldName to newName.
+func RenameSubToken(oldName, newName string) error {
+	s := loadSub()
+	changed := false
+	for i := range s.Entries {
+		if s.Entries[i].User == oldName {
+			s.Entries[i].User = newName
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return saveSub(s)
+}
+
+// PruneOrphanSubTokens drops tokens whose user is not in the VPN registry.
+func PruneOrphanSubTokens(live []string) (int, error) {
+	want := map[string]bool{}
+	for _, n := range live {
+		want[n] = true
+	}
+	s := loadSub()
+	out := s.Entries[:0]
+	n := 0
+	for _, e := range s.Entries {
+		if want[e.User] {
+			out = append(out, e)
+			continue
+		}
+		n++
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	s.Entries = out
+	return n, saveSub(s)
 }

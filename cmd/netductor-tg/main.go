@@ -734,21 +734,6 @@ func runVPN(args ...string) string {
 }
 
 // shareURIFrom keeps only importable URI lines (vless/ss/trojan).
-func shareURIFrom(raw string) string {
-	var lines []string
-	for _, ln := range strings.Split(raw, "\n") {
-		ln = strings.TrimSpace(ln)
-		if ln == "" {
-			continue
-		}
-		low := strings.ToLower(ln)
-		if strings.HasPrefix(low, "vless://") || strings.HasPrefix(low, "ss://") ||
-			strings.HasPrefix(low, "trojan://") {
-			lines = append(lines, ln)
-		}
-	}
-	return strings.Join(lines, "\n")
-}
 
 func runND(args ...string) string {
 	cmd := exec.Command(netductorBin(), args...)
@@ -834,6 +819,9 @@ func main() {
 		case "help", "-h", "--help":
 			fmt.Println("netductor-tg [version] — Telegram bot for netductor (systemd)")
 			return
+		default:
+			fmt.Fprintf(os.Stderr, "netductor-tg: unknown command %q (only version|help)\n", os.Args[1])
+			os.Exit(2)
 		}
 	}
 

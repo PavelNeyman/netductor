@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -121,9 +120,4 @@ WantedBy=timers.target
 func EnsureTimer() error {
 	s := LoadSchedule()
 	return ApplySchedule(s)
-}
-
-func runOut(name string, args ...string) string {
-	out, _ := exec.Command(name, args...).CombinedOutput()
-	return strings.TrimSpace(string(out))
 }

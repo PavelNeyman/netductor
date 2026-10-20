@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/secreq"
 )
 
 type clipToken struct {
@@ -97,7 +99,7 @@ func RedeemClipToken(token string) (path string, ok bool) {
 	out := list[:0]
 	found := ""
 	for _, t := range list {
-		if t.Token == token && t.Exp > now && found == "" {
+		if secreq.Eq(t.Token, token) && t.Exp > now && found == "" {
 			found = t.Path
 			continue // consume
 		}

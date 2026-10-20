@@ -86,7 +86,10 @@ func PushBackupRecovery(baseURL, token, filePath string) error {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Netductor-Backup-Name", filepath.Base(filePath))
-	client := recoveryHTTPClient()
+	client, err := recoveryHTTPClient()
+	if err != nil {
+		return err
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

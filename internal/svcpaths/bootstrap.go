@@ -3,7 +3,6 @@ package svcpaths
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PavelNeyman/netductor/internal/format"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,8 +49,6 @@ func wgGen() (priv, pub string, err error) {
 	}
 	return priv, strings.TrimSpace(string(pubOut)), nil
 }
-
-func shellQuote(s string) string { return format.ShellQuote(s) }
 
 func ensureWireguardTools() error {
 	if _, err := exec.LookPath("wg"); err == nil {

@@ -45,11 +45,6 @@ func defaultPins() []Pin {
 	}
 }
 
-func Save(pins []Pin) error {
-	_ = os.MkdirAll(filepath.Dir(path()), 0o700)
-	b, _ := json.MarshalIndent(file{Pins: pins}, "", "  ")
-	return os.WriteFile(path(), append(b, '\n'), 0o600)
-}
 
 // InstalledVersion best-effort --version parse.
 func InstalledVersion(name string) string {

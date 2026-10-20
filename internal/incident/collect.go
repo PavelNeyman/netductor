@@ -1,6 +1,7 @@
 package incident
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/selfbin"
 )
 
 // Collect gathers journals/doctor/channel into a tar.gz under state/incidents.
@@ -24,14 +24,17 @@ func Collect(hours int) (dir, archive string, err error) {
 		return "", "", err
 	}
 	since := fmt.Sprintf("%d hours ago", hours)
-	bin := selfbin.CLI("/usr/local/bin/netductor")
+	// Always the product CLI. selfbin.CLI would return netductor-tg when Collect runs from the bot.
+	bin := "/usr/local/bin/netductor"
 	runTo := func(path string, name string, args ...string) {
 		f, err := os.Create(path)
 		if err != nil {
 			return
 		}
 		defer f.Close()
-		cmd := exec.Command(name, args...)
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, name, args...)
 		cmd.Stdout = f
 		cmd.Stderr = f
 		_ = cmd.Run()

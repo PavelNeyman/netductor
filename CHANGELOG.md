@@ -1,3 +1,14 @@
+## 0.9.439
+
+- N-1: recoveryHTTPClient returns error; both callers handle bad PEM
+- N-2: incident.Collect always execs /usr/local/bin/netductor with timeout; tg exits 2 on unknown args
+- N-3: /api/nvr/live clears WriteDeadline
+- N-4: RenameSubToken; RevokeSubToken errors returned; disable still kills URL (documented)
+- N-5: firewall.truncate trims before format.Truncate
+- secreq.Eq on build-host and NVR tokens
+- dropped no-caller dead funcs; restored PLAN-TG-MENU; dropped no-op lampac excludes
+
+
 ## 0.9.438
 
 - R-1 step 6: DeployEdge moved to edge_run.go

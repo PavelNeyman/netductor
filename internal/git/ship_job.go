@@ -323,13 +323,6 @@ func RequestShipPause(id string) error {
 }
 
 // shouldPauseAfterStep returns true if pause was requested (clears flag when applying).
-func shouldPauseAfterStep(j *ShipJob) bool {
-	if j == nil || !j.PauseRequested {
-		return false
-	}
-	j.PauseRequested = false
-	return true
-}
 
 // ShipJobLogPath is the full log file for a job (appended during run).
 func ShipJobLogPath(id string) string {

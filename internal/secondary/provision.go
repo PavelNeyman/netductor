@@ -142,12 +142,6 @@ func DisablePasswordAuth(client *ssh.Client) error {
 }
 
 // HardenSSH = InstallOperatorKeys + DisablePasswordAuth (legacy one-shot).
-func HardenSSH(client *ssh.Client, pubKeys ...string) error {
-	if err := InstallOperatorKeys(client, pubKeys...); err != nil {
-		return err
-	}
-	return DisablePasswordAuth(client)
-}
 
 // RemoteJoin installs netductor binary + joins with bundle JSON.
 func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {

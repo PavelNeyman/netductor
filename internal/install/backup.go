@@ -218,8 +218,6 @@ func Backup() (string, error) {
 		"--exclude=var/lib/netductor/stack",
 		"--exclude=var/lib/netductor/lampac/ts",
 		"--exclude=var/lib/docker",
-		"--exclude=opt/netductor/lampac/cache",
-		"--exclude=opt/netductor/lampac/data",
 		"-C", "/", "etc/netductor",
 	}
 	// Config + data for managed services (binaries/images reinstalled from COMPONENTS).
@@ -538,7 +536,7 @@ func caPathFromEnv() string {
 
 // recoveryHTTPClient prefers pinned CA (NETDUCTOR_RECOVERY_CA or /etc/netductor/secrets/recovery_peer.crt).
 // Falls back to InsecureSkipVerify only when no pin is configured (DR first contact).
-func recoveryHTTPClient() *http.Client { // nil = pin present but not valid PEM
+func recoveryHTTPClient() (*http.Client, error) { // error = pin present but not valid PEM
 	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	caPath := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA"))
 	if caPath == "" {
@@ -546,18 +544,17 @@ func recoveryHTTPClient() *http.Client { // nil = pin present but not valid PEM
 	}
 	if b, err := os.ReadFile(caPath); err == nil && len(b) > 0 {
 		pool := x509.NewCertPool()
-		if pool.AppendCertsFromPEM(b) {
-			cfg.RootCAs = pool
-		} else {
-			return nil // caller treats nil as fail-closed (pin present but not PEM)
+		if !pool.AppendCertsFromPEM(b) {
+			return nil, fmt.Errorf("recovery CA pin present but not valid PEM (%s)", caPath)
 		}
+		cfg.RootCAs = pool
 	} else {
 		cfg.InsecureSkipVerify = true //nolint:gosec // no pin yet — optional NETDUCTOR_RECOVERY_CA
 	}
 	return &http.Client{
 		Timeout:   30 * time.Minute,
 		Transport: &http.Transport{TLSClientConfig: cfg},
-	}
+	}, nil
 }
 
 // RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().
@@ -569,9 +566,9 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	if !strings.HasPrefix(baseURL, "https://") {
 		return fmt.Errorf("recovery URL must be https:// (got %s)", baseURL)
 	}
-	client := recoveryHTTPClient()
-	if client == nil {
-		return fmt.Errorf("recovery CA pin present but not valid PEM (%s)", caPathFromEnv())
+	client, err := recoveryHTTPClient()
+	if err != nil {
+		return err
 	}
 	get := func(path string) ([]byte, http.Header, error) {
 		req, err := http.NewRequest(http.MethodGet, baseURL+path, nil)

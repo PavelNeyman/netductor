@@ -60,7 +60,7 @@ func EnsureInstalled() (Backend, error) {
 	return BackendNone, fmt.Errorf("firewall: cannot install ufw and no iptables: %v %s", err, truncate(string(out), 300))
 }
 
-func truncate(s string, n int) string { return format.Truncate(s, n) }
+func truncate(s string, n int) string { return format.Truncate(strings.TrimSpace(s), n) }
 
 // ApplyRole installs backend if needed and applies primary or secondary profile.
 func ApplyRole(role string) error {

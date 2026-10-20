@@ -22,6 +22,3 @@ func ClientRSC(name, relayIP, coreURL, note string) string {
 	return b.String()
 }
 
-func Policy() string {
-	return "ROS routing only; VPN on RPi OpenWrt same LAN; no Reality client on RouterOS"
-}

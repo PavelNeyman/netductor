@@ -261,9 +261,3 @@ func T(key string, args ...any) string {
 	return fmt.Sprintf(s, args...)
 }
 
-func Register(lang, key, value string) {
-	if dict[lang] == nil {
-		dict[lang] = map[string]string{}
-	}
-	dict[lang][key] = value
-}

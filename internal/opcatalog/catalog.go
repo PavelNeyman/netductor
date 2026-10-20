@@ -254,20 +254,6 @@ func Get(id string) (Action, bool) {
 }
 
 // Sections returns unique section names in stable order.
-func Sections() []string {
-	order := []string{"overview", "updates", "vpn", "nodes", "edge", "nvr", "git", "dns", "backup", "logs", "probes"}
-	have := map[string]bool{}
-	for _, a := range All() {
-		have[a.Section] = true
-	}
-	var out []string
-	for _, s := range order {
-		if have[s] {
-			out = append(out, s)
-		}
-	}
-	return out
-}
 
 // MatrixMarkdown renders UI↔API matrix for docs / CLI.
 func MatrixMarkdown() string {

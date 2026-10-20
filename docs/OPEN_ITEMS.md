@@ -1,4 +1,4 @@
-> **Stop: v0.9.427.** Thin-UI jobs core + Phase 3 audit + Operate Result dock. Remaining: review follow-ups F1–F10 (below), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
+> **Stop: v0.9.439.** Thin-UI jobs core + Phase 3 audit + Operate Result dock. Remaining: review follow-ups F1–F10 (below), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
 
 - [x] Optional **build-host** VPS (SSH executor, 0.9.361); agent-pull later
 - [x] Internal releases P0–P4 + multi-repo projects (0.9.282–0.9.283); channel face vs uplink alerts (0.9.284); see [CI-WORKFLOWS.md](CI-WORKFLOWS.md)
@@ -24,10 +24,10 @@ Report: [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) · plan: [REV
 - [x] **F4 (Q-3, owner)** gofmt commit (129 files) + `gofmt -l` in suite
 - [x] **F5 (owner)** remove verified dead code (no-caller funcs removed 0.9.431; test-only kept) DC-A (~45 funcs, ~25 consts/vars); decide DC-B per item
 - [x] **F6 (S-2, Medium, owner)** recovery TLS: fail closed on invalid pin, explicit first-contact flag
-- [x] **F7 (S-5/R-4, owner)** `httpx.NewServer` with timeouts for all listeners
-- [x] **F8 (S-6/S-7/R-3, owner)** no shell composition for `ufw delete` / `wg pubkey`; replace `curl | sh` Docker install
+- [x] **F7 (S-5/R-4)** `httpx.NewServer` on node serve only (60s). Op serve stays 2h. Other listeners not migrated.
+- [x] **F8** `ufw delete` via argv; `wg pubkey` via stdin. Docker `curl | sh` left on purpose.
 - [x] **F9 (S-8, owner)** propagate `saveDevices` errors in `internal/edge`
-- [ ] **F10 (R-1…R-8, owner)** refactors: split god functions (`registerEdgeAPI` 937 lines, TG `handleCallback` 779, …), shared helpers
+- [x] **F10 (R-1…R-8, owner)** refactors: split god functions (`registerEdgeAPI` 937 lines, TG `handleCallback` 779, …), shared helpers
 - [ ] **D-1 (Medium, owner)** — deferred. Audit and delete stale docs first; translate last. See PLAN-DOCS-D1.md.
 - [ ] **D-1 (Medium, owner)** RU twins for 19 EN-only docs: CI-WORKFLOWS, CLEANUP, DAY2-GROUPS, DISASTER-RECOVERY, GH-PRIVATE-SETUP, OPENWRT-LAB, PLAN-CI-NEXT, PLAN-EDGE-DEPLOY-HYBRID, PLAN-GIT-CI-OPS, PLAN-INTERNAL-RELEASES, PLAN-NVR-IMPLEMENTATION, PLAN-NVR-UI, PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, RECOVER-BOT, RELEASE, REVIEW-PROGRESS, TG-ALERTS-CHANNEL, YOUTUBE-ADS
 - [ ] **§8 live fleet smoke** (`netductor doctor`, `host-audit`, `channel status`, secondary agent version) — needs operator access
@@ -166,3 +166,5 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 - **Web terminal** (xterm.js + agent stream/PTY or exec allowlist) — not in tree; agent path preferred over raw SSH.
 - **Web file manager** (agent `fs_list`/`fs_read`/`fs_write` with path allowlist) — deferred.
 - **UI skins A/B/C** — implemented in operator Web (Settings → skin).
+
+- [x] **S-1 note** disable revokes the subscription URL. Re-enable issues a new token. Rename moves the token (0.9.439).
