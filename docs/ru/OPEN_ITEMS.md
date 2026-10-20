@@ -25,6 +25,7 @@
 - [ ] **F8 (S-6/S-7/R-3, owner)** без shell-сборки для `ufw delete` / `wg pubkey`; заменить установку Docker через `curl | sh`
 - [x] **F9 (S-8, owner)** пробрасывать ошибки `saveDevices` в `internal/edge`
 - [ ] **F10 (R-1…R-8, owner)** рефакторинги: разбить функции-монстры (`registerEdgeAPI` 937 строк, TG `handleCallback` 779, …), общие helper-ы
+- [ ] **D-1 (Medium, owner)** — deferred. Audit and delete stale docs first; translate last. See PLAN-DOCS-D1.md.
 - [ ] **D-1 (Medium, owner)** RU-пары для 19 документов, которые есть только на EN: CI-WORKFLOWS, CLEANUP, DAY2-GROUPS, DISASTER-RECOVERY, GH-PRIVATE-SETUP, OPENWRT-LAB, PLAN-CI-NEXT, PLAN-EDGE-DEPLOY-HYBRID, PLAN-GIT-CI-OPS, PLAN-INTERNAL-RELEASES, PLAN-NVR-IMPLEMENTATION, PLAN-NVR-UI, PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, RECOVER-BOT, RELEASE, REVIEW-PROGRESS, TG-ALERTS-CHANNEL, YOUTUBE-ADS
 - [ ] **§8 live smoke флота** (`netductor doctor`, `host-audit`, `channel status`, версия агента на secondary) — нужен доступ оператора
 - [x] Статический прогон ревью, отчёт и план опубликованы (EN+RU); стоп-линии handoff / OPEN_ITEMS / AGENTS приведены к 0.9.427
