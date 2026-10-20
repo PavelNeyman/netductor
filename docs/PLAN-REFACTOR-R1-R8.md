@@ -8,7 +8,7 @@
 | Step | Target | Cut |
 |--|--|--|
 | 1 | `cmd/netductor/api_edge.go` | **done 0.9.433** — `registerEdgeMeta/Templates/Enroll/Storage/Agent/Admin`. Dispatcher only in `api_edge.go`. |
-| 2 | `cmd/netductor-tg` `handleCallback` (~779) | Dispatch table `m:*` → handler. One file per hub (vpn, fleet, tools, edge). |
+| 2 | `cmd/netductor-tg` `handleCallback` | **done 0.9.434** — hubs: edge approve, tools, hubs, users, nodes. Dispatcher left in `handlers_cb.go` (453 lines). |
 | 3 | `handleGitCB` (~666) | Same pattern, git callbacks only. |
 | 4 | `runDoctorNative` (~637) | One check function per probe; `runDoctorNative` only loops. |
 | 5 | `registerSessionAPI`, `registerGitAPI`, `registerNVRAPI` | Same as step 1, after edge is the template. |

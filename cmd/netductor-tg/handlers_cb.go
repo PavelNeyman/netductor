@@ -2,16 +2,14 @@ package main
 
 import (
 	"fmt"
-	ndstack "github.com/PavelNeyman/netductor/internal/stack"
 	"os"
 	"strings"
+
+	ndstack "github.com/PavelNeyman/netductor/internal/stack"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
 	"github.com/PavelNeyman/netductor/internal/format"
 	"github.com/PavelNeyman/netductor/internal/notify"
-	"github.com/PavelNeyman/netductor/internal/vpn"
-
-	"os/exec"
 )
 
 func handleCallback(token string, cq *callbackQuery, admin int64) {
@@ -77,18 +75,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	if handleJobsMenu(token, chat, msgID, data) {
 		return
 	}
-	if strings.HasPrefix(data, "e:appr:") {
-		id := strings.TrimPrefix(data, "e:appr:")
-		out := runND("edge", "approve", id)
-		// mask token=... in output
-		out = maskTokenKV(out)
-		reply(token, chat, msgID, "✅ <pre>"+esc(out)+"</pre>", routersKeyboard())
-		return
-	}
-	if strings.HasPrefix(data, "e:deny:") {
-		id := strings.TrimPrefix(data, "e:deny:")
-		out := runND("edge", "deny", id)
-		reply(token, chat, msgID, "🚫 <pre>"+esc(out)+"</pre>", routersKeyboard())
+	if handleCBEdgeApprove(token, chat, msgID, data) {
 		return
 	}
 
@@ -104,348 +91,17 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	if handleIncidentCB(token, chat, msgID, data) {
 		return
 	}
-	if data == "m:mtls" || strings.HasPrefix(data, "m:mtls:") {
-		handleMtlsCB(token, chat, msgID, data)
+	if handleCBTools(token, chat, msgID, data) {
+		return
+	}
+	if handleCBHubs(token, chat, msgID, data) {
+		return
+	}
+	if handleCBUsers(token, chat, msgID, data) {
 		return
 	}
 
-	if strings.HasPrefix(data, "m:alerts-chat:pick:") {
-		id := strings.TrimPrefix(data, "m:alerts-chat:pick:")
-		applyAlertsChatID(token, chat, msgID, id)
-		return
-	}
-	if data == "m:cleanup" {
-		out, _ := exec.Command("netductor", "cleanup", "--json").CombinedOutput()
-		reply(token, chat, msgID, "<pre>"+esc(string(out))+"</pre>\n<i>Weekly timer: Sun 04:30 UTC (docker prune + leftovers)</i>\n<code>netductor cleanup --apply</code>", backKeyboard())
-		return
-	}
-	if data == "m:cleanup:apply" {
-		out, _ := exec.Command("netductor", "cleanup", "--apply").CombinedOutput()
-		reply(token, chat, msgID, "<pre>"+esc(string(out))+"</pre>", backKeyboard())
-		return
-	}
-	if data == "m:fw" || data == "m:firewall" {
-		body := formatFirewallBlock()
-		reply(token, chat, msgID, body, backKeyboard())
-		return
-	}
-	if data == "m:fw:apply" {
-		out, err := exec.Command("netductor", "firewall", "apply").CombinedOutput()
-		msg := string(out)
-		if err != nil {
-			msg = "❌ " + msg + " " + err.Error()
-		} else {
-			msg = "✅ " + msg
-		}
-		reply(token, chat, msgID, esc(msg)+"\n\n"+formatFirewallBlock(), backKeyboard())
-		return
-	}
-	if data == "m:stack" || strings.HasPrefix(data, "m:stack:") {
-		handleStackCB(token, chat, msgID, data)
-		return
-	}
-	if data == "m:tools" {
-		reply(token, chat, msgID, toolsHubHTML(), toolsKeyboard())
-		return
-	}
-	if strings.HasPrefix(data, "m:cat:") {
-		handleCatGroup(token, chat, msgID, strings.TrimPrefix(data, "m:cat:"))
-		return
-	}
-	if strings.HasPrefix(data, "m:ops:") {
-		sec := strings.TrimPrefix(data, "m:ops:")
-		backTools := map[string]any{"inline_keyboard": [][]map[string]any{
-			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-		}}
-		switch sec {
-		case "overview", "home":
-			// PLAN-TG-MENU: Status is top-level, not under Tools.
-			reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
-			return
-		case "vpn", "users":
-			reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
-			return
-		case "nodes", "fleet":
-			if sec == "fleet" {
-				reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
-			} else {
-				reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
-			}
-			return
-		case "edge", "routers":
-			reply(token, chat, msgID, routersHubHTML(), routersKeyboard())
-			return
-		case "nvr", "media":
-			reply(token, chat, msgID, nvrHubHTML(), nvrKeyboard())
-			return
-		case "dns":
-			showDNSMenu(token, chat, msgID, "")
-			return
-		case "backup":
-			handleBackupCB(token, chat, msgID, "m:backup")
-			return
-		case "probes", "adv":
-			out := runND("probe")
-			r := format.API("probes", []byte(out), catalogLang())
-			reply(token, chat, msgID, r.HTML, backTools)
-			return
-		case "git":
-			handleGitCB(token, chat, msgID, "m:git")
-			return
-		case "updates":
-			handleVersionsCB(token, chat, msgID, "m:versions")
-			return
-		case "sites":
-			reply(token, chat, msgID, formatSitesHTML(), sitesListKeyboard())
-			return
-		}
-		// fallback: catalog section with numbered API actions
-		reply(token, chat, msgID, catalogSectionTitle(sec), catalogSectionKeyboard(sec))
-		return
-	}
-	if strings.HasPrefix(data, "m:opraw:") {
-		id := strings.TrimPrefix(data, "m:opraw:")
-		raw, err := execCatalogActionRaw(id)
-		html := formatCatalogHTML(id, raw, true)
-		if err != nil {
-			html = "⚠️ " + esc(err.Error()) + "<br>" + html
-		}
-		replyCatalog(token, chat, msgID, html, catalogResultKeyboard(id))
-		return
-	}
-	if strings.HasPrefix(data, "m:op:") {
-		id := strings.TrimPrefix(data, "m:op:")
-		raw, err := execCatalogActionRaw(id)
-		var html string
-		if err != nil {
-			html = "⚠️ <b>error</b><br><pre>" + esc(err.Error()) + "</pre>"
-			if len(raw) > 0 {
-				html += "<br>" + formatCatalogHTML(id, raw, true)
-			}
-		} else {
-			html = formatCatalogHTML(id, raw, false)
-		}
-		replyCatalog(token, chat, msgID, html, catalogResultKeyboard(id))
-		return
-	}
-	if data == "m:git" || strings.HasPrefix(data, "m:git:") {
-		handleGitCB(token, chat, msgID, data)
-		return
-	}
-	if data == "m:nvr" || strings.HasPrefix(data, "m:nvr:") {
-		handleNVRCB(token, chat, msgID, data)
-		return
-	}
-	if data == "m:release" || strings.HasPrefix(data, "m:release:") {
-		// Legacy menu: always Versions hub (multi-component), not old primary-only release UI
-		handleVersionsCB(token, chat, msgID, "m:versions")
-		return
-	}
-	if data == "m:updates" || data == "m:versions" || strings.HasPrefix(data, "m:ver:") {
-		handleVersionsCB(token, chat, msgID, data)
-		return
-	}
-	if strings.HasPrefix(data, "m:updates:") {
-		handleUpdatesCB(token, chat, msgID, data)
-		return
-	}
-	if handleEdgeStorageCB(token, chat, msgID, data) {
-		return
-	}
-	if handleEdgeGuestCB(token, chat, msgID, data) {
-		return
-	}
-	if handleEdgeLuciCB(token, chat, msgID, data) {
-		return
-	}
-	if handleEdgeTemplateCB(token, chat, msgID, data) {
-		return
-	}
-	if handleCertsCB(token, chat, msgID, data) {
-		return
-	}
-	if handleRegistryCallback(token, chat, msgID, data) {
-		return
-	}
-	if handleGitCB(token, chat, msgID, data) {
-		return
-	}
-	if data == "m:guest" || strings.HasPrefix(data, "m:guest:") {
-		handleGuestCB(token, chat, msgID, data)
-		return
-	}
-	if data == "m:dns" || strings.HasPrefix(data, "m:dns:") {
-		handleDNSCB(token, chat, msgID, data)
-		return
-	}
-	if data == "m:logs" || strings.HasPrefix(data, "m:logs:") {
-		handleLogsCB(token, chat, msgID, data)
-		return
-	}
-	if data == "m:backup" || strings.HasPrefix(data, "m:backup:") {
-		handleBackupCB(token, chat, msgID, data)
-		return
-	}
-	if data == "m:loc" || strings.HasPrefix(data, "m:loc:") {
-		handleLocationCB(token, chat, msgID, data)
-		return
-	}
-	if strings.HasPrefix(data, "m:quota:") {
-		handleQuotaCB(token, chat, msgID, data)
-		return
-	}
-	if strings.HasPrefix(data, "u:policy") || strings.HasPrefix(data, "u:pol:") {
-		handleUserPolicyCB(token, chat, msgID, data)
-		return
-	}
-	if strings.HasPrefix(data, "e:policy") || strings.HasPrefix(data, "e:pol:") {
-		handleEdgePolicyCB(token, chat, msgID, data)
-		return
-	}
-	if strings.HasPrefix(data, "u:") {
-		// u:open:name | u:access:name:mode | u:rename:name | u:enable:name | ...
-		parts := strings.Split(data, ":")
-		if len(parts) >= 3 {
-			action, name := parts[1], parts[2]
-			switch action {
-			case "workcfg":
-				// u:workcfg:name | u:workcfg:name:profile
-				if len(parts) >= 4 && parts[3] != "" {
-					sendSRProfileDocument(token, chat, parts[3])
-				} else if showWorkProfileButton(name) {
-					showSRProfilePicker(token, chat, msgID, name)
-				} else {
-					sendSRProfileDocument(token, chat, vpn.SRProfileFamily)
-				}
-			case "open":
-				reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
-			case "app":
-				// u:app:name:mode:sr|happ|incy — deep-link as code (TG forbids custom schemes in url buttons)
-				mode, client := "vless", "sr"
-				if len(parts) >= 4 && parts[3] != "" {
-					mode = parts[3]
-				}
-				if len(parts) >= 5 && parts[4] != "" {
-					client = parts[4]
-				}
-				sendAppDeepLink(token, chat, name, mode, client)
-			case "subrot":
-				if _, err := vpn.IssueSubToken(name); err != nil {
-					reply(token, chat, msgID, "❌ "+esc(err.Error()), userHubKeyboard(name))
-					return
-				}
-				showUserAccess(token, chat, msgID, name, "sub")
-			case "access":
-				mode := "vless"
-				if len(parts) >= 4 && parts[3] != "" {
-					mode = parts[3]
-				}
-				showUserAccess(token, chat, msgID, name, mode)
-			case "link":
-				showUserAccess(token, chat, msgID, name, "vless")
-			case "vlessqr":
-				showUserAccess(token, chat, msgID, name, "vless")
-			case "subprof":
-				next, err := vpn.CycleSubProfile(name)
-				if err != nil {
-					reply(token, chat, msgID, "❌ "+esc(err.Error()), userHubKeyboard(name))
-					return
-				}
-				msg := "✅ sub profile → <code>" + esc(next) + "</code>\n<i>subscription URL content replaced; client refreshes on next poll</i>"
-				if getLang() != "en" {
-					msg = "✅ профиль подписки → <code>" + esc(next) + "</code>\n<i>содержимое URL заменено; клиент подтянет при обновлении</i>"
-				}
-				reply(token, chat, msgID, msg+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
-			case "rename":
-				setState(chat, "wait_rename_new:"+name, "")
-				reply(token, chat, msgID, Tf("rename_new_hint", name), backTo("users"))
-			case "enable":
-				out := runVPN("enable", name)
-				reply(token, chat, msgID, "✅ <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
-			case "disable":
-				out := runVPN("disable", name)
-				reply(token, chat, msgID, "🚫 <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
-			case "revoke":
-				out := runVPN("revoke", name)
-				reply(token, chat, msgID, "🗑 <pre>"+esc(out)+"</pre>", usersListKeyboard())
-			case "kind":
-				// u:kind:name:user|device
-				k := "user"
-				if len(parts) >= 4 && parts[3] != "" {
-					k = parts[3]
-				}
-				if err := vpn.SetKind(name, k); err != nil {
-					reply(token, chat, msgID, "❌ "+esc(err.Error()), userHubKeyboard(name))
-					return
-				}
-				msg := "✅ kind → <code>" + esc(k) + "</code>"
-				if getLang() != "en" {
-					msg = "✅ тип → <code>" + esc(k) + "</code>"
-				}
-				reply(token, chat, msgID, msg+string([]byte{10, 10})+formatUserHubHTML(name), userHubKeyboard(name))
-			}
-		}
-		return
-	}
-
-	if strings.HasPrefix(data, "m:ssh:rm:") {
-		id := strings.TrimPrefix(data, "m:ssh:rm:")
-		out := runND("ssh-hosts", "forget", id)
-		reply(token, chat, msgID, fmt.Sprintf(T("ssh_forgot"), esc(id))+string([]byte{10})+"<pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatSSHHostsHTML(), sshHostsKeyboard())
-		return
-	}
-	if strings.HasPrefix(data, "m:nd:") {
-		// m:nd:o|m|u|r:<id>
-		rest := strings.TrimPrefix(data, "m:nd:")
-		parts := strings.SplitN(rest, ":", 2)
-		if len(parts) == 2 {
-			act, id := parts[0], parts[1]
-			switch act {
-			case "o": // open card
-				reply(token, chat, msgID, formatNodeDetailHTML(id), nodeCardKeyboard(id))
-			case "m": // metrics
-				reply(token, chat, msgID, formatNodeDetailHTML(id), nodeCardKeyboard(id))
-			case "u": // upgrade
-				_ = enqueueNodeCmd(id, "upgrade")
-				reply(token, chat, msgID, formatCmdQueuedHTML("upgrade", id, ""), nodeCardKeyboard(id))
-			case "r": // reboot — challenge code
-				handleRebootCB(token, chat, msgID, "m:n:reboot:"+id)
-			case "j": // journal
-				reply(token, chat, msgID, formatJournalHTML(id), nodeCardKeyboard(id))
-			case "s": // restart sing-box
-				out := restartSingBox(id)
-				reply(token, chat, msgID, "♻️ <b>Restart sing-box</b>"+string([]byte{10})+"<pre>"+esc(out)+"</pre>", nodeCardKeyboard(id))
-			}
-		}
-		return
-	}
-
-	if strings.HasPrefix(data, "m:lang:") {
-		l := strings.TrimPrefix(data, "m:lang:")
-		setLang(l)
-		name := "Русский"
-		if l == "en" {
-			name = "English"
-		}
-		reply(token, chat, msgID, Tf("lang_set", name), mainKeyboard())
-		return
-	}
-
-	if strings.HasPrefix(data, "m:nr:") {
-		id := strings.TrimPrefix(data, "m:nr:")
-		setState(chat, "wait_node_newname", id)
-		host := id
-		for _, r := range parseNodesList() {
-			if r.ID == id {
-				if r.Host != "" {
-					host = r.Host
-				}
-				break
-			}
-		}
-		prompt := fmt.Sprintf(T("nodes_pick"), esc(host))
-		prompt += string([]byte{10}) + "id: <code>" + esc(id) + "</code>"
-		reply(token, chat, msgID, prompt, backTo("nodes"))
+	if handleCBNodes(token, chat, msgID, data) {
 		return
 	}
 

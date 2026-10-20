@@ -1,3 +1,8 @@
+## 0.9.434
+
+- R-1 step 2: TG handleCallback split into edge/tools/hubs/users/nodes. Behavior unchanged.
+
+
 ## 0.9.433
 
 - R-1 step 1: edge API split into meta/templates/enroll/storage/agent/admin
