@@ -348,9 +348,3 @@ func hardenSSHBase(opts ProvisionOpts) []string {
 
 // Harden is InstallOperatorKeys + CommitPasswordOff (no daemon reload).
 // Prefer the phased path in deploy: keys → verify key login → password-off → reboot.
-func Harden(opts ProvisionOpts) error {
-	if err := InstallOperatorKeys(opts); err != nil {
-		return err
-	}
-	return CommitPasswordOff(opts)
-}

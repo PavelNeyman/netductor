@@ -129,9 +129,6 @@ func CollectCredentials(role, user, host, keyPath, keyPass string) (string, erro
 }
 
 // FleetDeploy runs primary then secondary in order. Credentials are collected inside each Deploy*.
-func FleetDeploy(f FleetSpec) error {
-	return FleetDeployWithReport(f, nil)
-}
 
 func defaultOperatorKeyPath() string {
 	return expandHome("~/.ssh/netductor_primary")

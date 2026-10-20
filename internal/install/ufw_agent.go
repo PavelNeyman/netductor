@@ -119,9 +119,6 @@ func RestrictAgentMTLSToIP(ip string) error {
 }
 
 // AllowAgentMTLSFromIP adds operator/path CIDR without hammering ufw.
-func AllowAgentMTLSFromIP(ip string) error {
-	return RestrictAgentMTLSToIP(ip)
-}
 
 func applyAgentFirewallQuiet() error {
 	if _, err := exec.LookPath("ufw"); err != nil {

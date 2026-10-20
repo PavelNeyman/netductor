@@ -1,3 +1,12 @@
+## 0.9.431
+
+- F4: gofmt sweep (separate commit e3d8cd21)
+- Backup excludes ci-cache, releases, agents, docker, lampac cache/data
+- TG status/timeline: classic HTML unless the body needs rich controls
+- Removed production-dead helpers (scpTo, PrepareEdgeOffline, PrunePeerBackups, edge.Harden, WaitVpsJob, and others with no test callers)
+- Deleted stale plans: PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, PLAN-EDGE-DEPLOY-HYBRID, YOUTUBE-ADS
+
+
 ## 0.9.430
 
 - S-6: WireGuard private key to `wg pubkey` via stdin, not argv

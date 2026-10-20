@@ -123,6 +123,19 @@ func messageIDFromTG(body []byte) int {
 }
 
 func sendRich(token string, chat int64, html string, kb map[string]any) {
+	// Classic HTML renders <b>/<i>/<code> on every client. Rich only for tables/tg-button.
+	if !htmlNeedsRich(html) {
+		payload2 := map[string]any{"chat_id": chat, "text": html, "parse_mode": "HTML"}
+		if kb != nil {
+			payload2["reply_markup"] = kb
+		}
+		if body, err := apiPost(token, "sendMessage", payload2); err == nil {
+			if mid := messageIDFromTG(body); mid > 0 {
+				notify.SaveHubMsg(chat, mid)
+			}
+			return
+		}
+	}
 	payload := map[string]any{
 		"chat_id": chat,
 		"rich_message": map[string]any{
@@ -161,6 +174,16 @@ func sendRich(token string, chat int64, html string, kb map[string]any) {
 }
 
 func editRich(token string, chat int64, msgID int, html string, kb map[string]any) error {
+	if !htmlNeedsRich(html) {
+		payload2 := map[string]any{
+			"chat_id": chat, "message_id": msgID, "text": html, "parse_mode": "HTML",
+		}
+		if kb != nil {
+			payload2["reply_markup"] = kb
+		}
+		_, err := apiPost(token, "editMessageText", payload2)
+		return err
+	}
 	payload := map[string]any{
 		"chat_id":    chat,
 		"message_id": msgID,

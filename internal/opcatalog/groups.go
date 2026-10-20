@@ -25,17 +25,6 @@ func Groups() []Group {
 }
 
 // GroupLabel returns EN/RU label for group id.
-func GroupLabel(id, lang string) string {
-	for _, g := range Groups() {
-		if g.ID == id {
-			if lang == "ru" && g.LabelRU != "" {
-				return g.LabelRU
-			}
-			return g.LabelEN
-		}
-	}
-	return id
-}
 
 // ActionsInGroup returns actions for a group filtered by surface.
 func ActionsInGroup(groupID, surface string) []Action {

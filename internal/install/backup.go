@@ -211,6 +211,12 @@ func Backup() (string, error) {
 		"--exclude=var/lib/netductor/registry",
 		"--exclude=var/lib/netductor/nvr/segments",
 		"--exclude=var/lib/netductor/git",
+		"--exclude=var/lib/netductor/ci-cache",
+		"--exclude=var/lib/netductor/releases",
+		"--exclude=var/lib/netductor/agents",
+		"--exclude=var/lib/docker",
+		"--exclude=opt/netductor/lampac/cache",
+		"--exclude=opt/netductor/lampac/data",
 		"-C", "/", "etc/netductor",
 	}
 	// Config + data for managed services (binaries/images reinstalled from COMPONENTS).
@@ -504,9 +510,6 @@ func pruneBackups(dir string, keep int) {
 }
 
 // PrunePeerBackups trims secondary offsite copies under peers/core.
-func PrunePeerBackups(keep int) {
-	pruneBackups("/var/lib/netductor/backups/peers/core", keep)
-}
 
 // MarkRecoverDrill records a successful recovery/restore drill timestamp for fleet digest.
 func MarkRecoverDrill() error {

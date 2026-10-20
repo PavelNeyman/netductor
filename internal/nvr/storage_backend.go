@@ -39,15 +39,3 @@ func ResolveStoragePath() (string, error) {
 }
 
 // EnsureStorageReady prepares segment root according to backend.
-func EnsureStorageReady() error {
-	p, err := ResolveStoragePath()
-	if err != nil {
-		return err
-	}
-	c := LoadConfig()
-	if c.Path != p {
-		c.Path = p
-		_ = SaveConfig(c)
-	}
-	return EnsureSegmentsDir()
-}

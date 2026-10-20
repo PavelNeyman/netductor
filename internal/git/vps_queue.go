@@ -207,28 +207,6 @@ func ListVpsQueue(pendingOnly bool) []VpsBuildJob {
 }
 
 // WaitVpsJob blocks until job leaves pending|running or timeout.
-func WaitVpsJob(id string, timeout time.Duration) (VpsBuildJob, error) {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		vpsMu.Lock()
-		list := loadVpsQueue()
-		vpsMu.Unlock()
-		for _, j := range list {
-			if j.ID != id {
-				continue
-			}
-			if j.Status == "done" || j.Status == "failed" || j.Status == "cancelled" {
-				if j.Status == "failed" {
-					return j, fmt.Errorf("%s", j.Error)
-				}
-				return j, nil
-			}
-			break
-		}
-		time.Sleep(time.Second)
-	}
-	return VpsBuildJob{}, fmt.Errorf("timeout waiting for job %s", id)
-}
 
 // ciContainerName is a docker-safe name for a queue job.
 func isVpsJobCancelled(id string) bool {

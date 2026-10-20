@@ -38,9 +38,6 @@ func OfflineEdgeDir() string {
 
 // PrepareEdgeOffline pulls token (+ optional mTLS for device_id) from primary and
 // caches agent binaries for all supported arches. Requires network + SSH to primary.
-func PrepareEdgeOffline(primaryHost, primaryUser, primaryKey, keyPass, deviceID, version string) (*EdgeOfflineManifest, error) {
-	return PrepareEdgeOfflineOpts(primaryHost, primaryUser, primaryKey, keyPass, deviceID, version, false)
-}
 
 // PrepareEdgeOfflineOpts is like PrepareEdgeOffline; forceRefresh deletes cached agents first (full re-fetch).
 func PrepareEdgeOfflineOpts(primaryHost, primaryUser, primaryKey, keyPass, deviceID, version string, forceRefresh bool) (*EdgeOfflineManifest, error) {

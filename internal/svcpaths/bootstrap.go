@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 const (
@@ -338,12 +337,3 @@ WantedBy=timers.target
 }
 
 // WaitPing waits for peer.
-func WaitPing(ip string, tries int) bool {
-	for i := 0; i < tries; i++ {
-		if exec.Command("ping", "-c", "1", "-W", "2", ip).Run() == nil {
-			return true
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return false
-}

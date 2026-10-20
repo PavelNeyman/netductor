@@ -114,14 +114,6 @@ func safeAttachmentFilename(name string) string {
 }
 
 // withSession wraps a handler that requires a valid operator session (R6).
-func withSession(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !requireSession(w, r) {
-			return
-		}
-		next(w, r)
-	}
-}
 
 // apiSessionGate requires operator session for /api/* except agent/device and health paths.
 // Handlers still do their own checks; this is defense-in-depth against forgotten requireSession (R6).

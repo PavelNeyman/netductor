@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -209,44 +208,6 @@ func CompleteAgentBuild(jobID, hostID string, ok bool, logText, errMsg string) e
 }
 
 // ExtractAndBuild is used by agent on build-host (local disk).
-func ExtractAndBuild(workTGZ, outDir string) (log string, err error) {
-	var b strings.Builder
-	work := filepath.Join(outDir, "src")
-	_ = os.RemoveAll(work)
-	_ = os.MkdirAll(work, 0o755)
-	cmd := exec.Command("tar", "-xzf", workTGZ, "-C", work)
-	out, e := cmd.CombinedOutput()
-	b.Write(out)
-	if e != nil {
-		return b.String(), fmt.Errorf("extract: %w", e)
-	}
-	// Prefer project ship script / Makefile / go test — Dir=work, no shell-quoting of paths.
-	try := []struct {
-		name string
-		args []string
-		env  []string
-	}{
-		{"test", []string{"bash", "-lc", "test -f ci/netductor.yml && echo yaml-ok; go test ./..."}, nil},
-		{"build", []string{"bash", "-lc", "CGO_ENABLED=0 go build -o /tmp/nd-out ./... || true"}, nil},
-	}
-	for _, step := range try {
-		cmd = exec.Command(step.args[0], step.args[1:]...)
-		cmd.Dir = work
-		out, e = cmd.CombinedOutput()
-		b.Write(out)
-		if e != nil && step.name == "test" {
-			// test failure is soft for extract path; log and continue to build attempt
-			fmt.Fprintf(&b, "\nwarn: %s: %v\n", step.name, e)
-			continue
-		}
-	}
-	// copy binaries if any
-	_ = os.MkdirAll(filepath.Join(outDir, "dist"), 0o755)
-	cp := exec.Command("bash", "-lc", "cp -a dist/* ../dist/ 2>/dev/null || true")
-	cp.Dir = work
-	_ = cp.Run()
-	return b.String(), nil
-}
 
 // StoreAgentArtifacts writes agent-uploaded dist.tgz into job artifacts.
 func StoreAgentArtifacts(jobID string, r io.Reader) error {

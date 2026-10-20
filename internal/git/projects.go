@@ -189,36 +189,6 @@ func SyncProject(name string) (string, error) {
 
 // BuildProject for host=mac enqueues Mac queue; for VPS enqueues sequential VPS queue and waits.
 // Set NETDUCTOR_GIT_BUILD_DIRECT=1 to run VPS build in-process (debug).
-func BuildProject(name, ref string) (string, error) {
-	p, err := GetProject(name)
-	if err != nil {
-		return "", err
-	}
-	if isMacHost(p.Host) {
-		return runBuildProjectNow(name, ref)
-	}
-	if os.Getenv("NETDUCTOR_GIT_BUILD_DIRECT") == "1" {
-		return runBuildProjectNow(name, ref)
-	}
-	job, err := EnqueueVpsJob(p.Name, ref, "build")
-	if err != nil {
-		return "", err
-	}
-	var log strings.Builder
-	fmt.Fprintf(&log, "vps-queue id=%s status=%s project=%s (one build at a time)\n", job.ID, job.Status, job.Project)
-	done, err := WaitVpsJob(job.ID, 2*time.Hour)
-	fmt.Fprintf(&log, "vps-queue final status=%s\n", done.Status)
-	if done.LogTail != "" {
-		log.WriteString(done.LogTail)
-		if !strings.HasSuffix(done.LogTail, "\n") {
-			log.WriteString("\n")
-		}
-	}
-	if err != nil {
-		return log.String(), err
-	}
-	return log.String(), nil
-}
 
 func runBuildProjectNow(name, ref string) (string, error) {
 	p, err := GetProject(name)
