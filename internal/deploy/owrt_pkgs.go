@@ -83,12 +83,19 @@ true
 }
 
 // usbPkgBaseNames are logical package names (version suffix resolved from index).
+// Include e2fsprogs runtime deps: router often has no WAN, so apk/opkg cannot fetch them.
 var usbPkgBaseNames = []string{
 	"kmod-usb-storage",
 	"kmod-scsi-core",
 	"kmod-fs-ext4",
 	"kmod-lib-crc16",
 	"block-mount",
+	"libuuid1",
+	"libblkid1",
+	"libcomerr2",
+	"libss2",
+	"libe2p2",
+	"libext2fs2",
 	"e2fsprogs",
 }
 
@@ -355,10 +362,13 @@ lsmod | grep -E 'usb_storage|sd_mod' || true
 echo INSTALL_DONE
 `
 	} else {
+		// Offline: no WAN on factory router. --no-network + empty repos so apk does not wget indexes.
 		installScript = `
 set -e
 cd /tmp/nd-owrt-pkgs
-apk add --allow-untrusted ./*.apk
+# prevent apk from refreshing remote indexes (wget "Operation not permitted" without WAN)
+: > /tmp/nd-apk-empty-repos
+apk add --allow-untrusted --no-network --repositories-file=/tmp/nd-apk-empty-repos ./*.apk
 modprobe usb-storage 2>/dev/null || true
 modprobe sd_mod 2>/dev/null || true
 lsmod | grep -E 'usb_storage|sd_mod' || true

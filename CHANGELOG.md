@@ -1,3 +1,7 @@
+## 0.9.441
+
+- edge: offline apk USB install (no WAN index fetch) + cache e2fsprogs deps (libuuid/libe2p/…)
+
 ## 0.9.440
 
 - Docs D-1: RU pairs for surviving EN-only ops docs; OPEN_ITEMS/handoff stop line
