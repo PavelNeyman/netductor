@@ -13,3 +13,8 @@
 Encrypted backups land on secondary via agent `backup_pull`. Key is offline (`--key` / `NETDUCTOR_BACKUP_KEY`).
 
 TG: **Menu → 📡 Fleet → DR** checklist.
+
+## Key custody (accepted)
+
+Offsite copies under `peers/core/` on secondary may include `BACKUP_KEY.txt` next to the `.ndenc` archives (mode 0600). At-rest encryption on that host is void: anyone who can read the archive can read the key. This is intentional so DR does not depend on the operator having the key offline. Do not treat secondary disk as a second factor.
+

@@ -1,3 +1,10 @@
+## 0.9.430
+
+- S-6: WireGuard private key to `wg pubkey` via stdin, not argv
+- S-3: DR doc notes BACKUP_KEY.txt beside archives on secondary (accepted)
+- Plans: PLAN-REFACTOR-R1-R8, PLAN-DEADCODE-F5, PLAN-DOCS-D1
+
+
 ## 0.9.429
 
 - selfbin.CLI: never exec a go test binary (fork-bomb guard on incident, smoke, domain LE, op serve, profiles, backup-verify)

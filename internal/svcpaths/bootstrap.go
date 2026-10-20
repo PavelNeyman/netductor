@@ -41,7 +41,10 @@ func wgGen() (priv, pub string, err error) {
 		return "", "", fmt.Errorf("wg genkey: %w (install wireguard-tools)", err)
 	}
 	priv = strings.TrimSpace(string(out))
-	pubOut, err := exec.Command("bash", "-c", "echo "+shellQuote(priv)+" | wg pubkey").Output()
+	// stdin, not argv: private key must not appear in /proc/<pid>/cmdline.
+	cmd := exec.Command("wg", "pubkey")
+	cmd.Stdin = strings.NewReader(priv + "\n")
+	pubOut, err := cmd.Output()
 	if err != nil {
 		return "", "", fmt.Errorf("wg pubkey: %w", err)
 	}
