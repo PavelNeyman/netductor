@@ -1,3 +1,8 @@
+## 0.9.435
+
+- R-1 step 3: handleGitCB split into hub, build-host, ship, projects, repo
+
+
 ## 0.9.434
 
 - R-1 step 2: TG handleCallback split into edge/tools/hubs/users/nodes. Behavior unchanged.
