@@ -1,5 +1,6 @@
 ## 0.9.440
 
+- Docs D-1: RU pairs for surviving EN-only ops docs; OPEN_ITEMS/handoff stop line
 - CLI: `netductor vpn sub-prune` [--dry-run] — drop orphan subscription tokens
 - doctor (primary): WARN when orphan sub tokens remain
 

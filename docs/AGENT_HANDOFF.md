@@ -1,4 +1,4 @@
-**Stop line: v0.9.427** (code tip 2026-10-19, docs synced 2026-10-20). New chat: [AGENTS.md](../AGENTS.md) → this file → [OPEN_ITEMS.md](OPEN_ITEMS.md) → [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md). Review suite: [REVIEW-SUITE.md](REVIEW-SUITE.md) · hygiene journal: [CLEANUP-PASSES-2026-10.md](CLEANUP-PASSES-2026-10.md).
+**Stop line: v0.9.440** (2026-10-20). sub-prune + doctor orphan WARN; D-1 RU pairs for surviving EN-only docs.
 
 ## Where we stopped
 

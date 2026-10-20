@@ -28,8 +28,8 @@ Report: [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) · plan: [REV
 - [x] **F8** `ufw delete` via argv; `wg pubkey` via stdin. Docker `curl | sh` left on purpose.
 - [x] **F9 (S-8, owner)** propagate `saveDevices` errors in `internal/edge`
 - [x] **F10 (R-1…R-8, owner)** refactors: split god functions (`registerEdgeAPI` 937 lines, TG `handleCallback` 779, …), shared helpers
-- [ ] **D-1 (Medium, owner)** — deferred. Audit and delete stale docs first; translate last. See PLAN-DOCS-D1.md.
-- [ ] **D-1 (Medium, owner)** RU twins for 19 EN-only docs: CI-WORKFLOWS, CLEANUP, DAY2-GROUPS, DISASTER-RECOVERY, GH-PRIVATE-SETUP, OPENWRT-LAB, PLAN-CI-NEXT, PLAN-EDGE-DEPLOY-HYBRID, PLAN-GIT-CI-OPS, PLAN-INTERNAL-RELEASES, PLAN-NVR-IMPLEMENTATION, PLAN-NVR-UI, PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, RECOVER-BOT, RELEASE, REVIEW-PROGRESS, TG-ALERTS-CHANNEL, YOUTUBE-ADS
+- [x] **D-1 (Medium, owner)** — RU pairs for surviving EN-only ops docs (2026-10-20). See PLAN-DOCS-D1.md.
+- [x] **D-1 (Medium, owner)** RU twins (missing EN deleted earlier; survivors translated): CI-WORKFLOWS, CLEANUP, DAY2-GROUPS, DISASTER-RECOVERY, GH-PRIVATE-SETUP, OPENWRT-LAB, PLAN-CI-NEXT, PLAN-EDGE-DEPLOY-HYBRID, PLAN-GIT-CI-OPS, PLAN-INTERNAL-RELEASES, PLAN-NVR-IMPLEMENTATION, PLAN-NVR-UI, PLAN-REMOVE-TG-TOPICS, PLAN-TG-MENU, RECOVER-BOT, RELEASE, REVIEW-PROGRESS, TG-ALERTS-CHANNEL, YOUTUBE-ADS
 - [ ] **§8 live fleet smoke** (`netductor doctor`, `host-audit`, `channel status`, secondary agent version) — needs operator access
 - [x] Static review run, report and plan published (EN+RU); handoff / OPEN_ITEMS / AGENTS stop lines aligned to 0.9.427
 

@@ -1,5 +1,7 @@
 # Docs audit then RU (D-1) — last
 
+**Status (2026-10-20):** RU pairs added under `docs/ru/` for keepers. Historical EN-only plans that were already deleted stay gone.
+
 **Order:** finish code fixes → audit docs → delete low-value → only then translate. Translation is last.
 
 ## Already low value (candidates to delete or fold)
