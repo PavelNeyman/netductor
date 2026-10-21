@@ -14,17 +14,21 @@ func TestBootstrapPresetsUSB(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	st := EvaluateBootstrapPresets(map[string]bool{}, false)
+	st := EvaluateBootstrapPresets(map[string]bool{}, BootstrapEvalOpts{})
 	if len(st) != 1 || !st[0].Selectable || st[0].Installed {
 		t.Fatalf("expected selectable missing: %+v", st[0])
 	}
-	// mark all packages installed
 	inst := map[string]bool{}
 	for _, p := range ps[0].Packages {
 		inst[p] = true
 	}
-	st = EvaluateBootstrapPresets(inst, true)
+	st = EvaluateBootstrapPresets(inst, BootstrapEvalOpts{USBVisible: true, USBSizeKB: 8 * 1024 * 1024})
 	if !st[0].Installed || st[0].Selectable {
 		t.Fatalf("expected installed not selectable: %+v", st[0])
+	}
+	// overlay too small
+	st = EvaluateBootstrapPresets(map[string]bool{}, BootstrapEvalOpts{OverlayFreeKB: 100})
+	if st[0].Selectable {
+		t.Fatalf("expected not selectable on tiny overlay: %+v", st[0])
 	}
 }

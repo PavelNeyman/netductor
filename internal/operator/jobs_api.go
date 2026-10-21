@@ -222,7 +222,7 @@ func runEdgeProbe(ctx context.Context, j *jobs.Job, appendLog func(string), setS
 	}
 	setStep(jobs.Step{ID: "plan", Message: "plan resolved", Done: true})
 	installed, _ := deploy.ProbeInstalledPackages(pass, key, user, host, keyPass)
-	presets := deploy.EvaluateBootstrapPresets(installed, facts.Storage.HasUsableUSB())
+	presets := deploy.EvaluateBootstrapPresets(installed, bootstrapOptsFromFacts(facts))
 	return map[string]any{"facts": facts, "plan": resp, "bootstrap_presets": presets}, nil
 }
 
@@ -280,7 +280,7 @@ func runEdgeBootstrap(ctx context.Context, j *jobs.Job, appendLog func(string), 
 		return nil, err
 	}
 	installed, _ := deploy.ProbeInstalledPackages(pass, key, user, host, keyPass)
-	presets := deploy.EvaluateBootstrapPresets(installed, facts.Storage.HasUsableUSB())
+	presets := deploy.EvaluateBootstrapPresets(installed, bootstrapOptsFromFacts(facts))
 	setStep(jobs.Step{ID: "reprobe", Message: "facts updated", Done: true})
 	return map[string]any{"facts": facts, "bootstrap_presets": presets, "preset": preset}, nil
 }
@@ -441,5 +441,20 @@ func runBuildHostDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 		}
 		setStep(jobs.Step{ID: "build-host", Message: "ok", Done: true})
 		return map[string]any{"ok": true}, nil
+	}
+}
+
+
+func bootstrapOptsFromFacts(facts edge.DeviceFacts) deploy.BootstrapEvalOpts {
+	var usbKB int64
+	for _, d := range facts.Storage.USBDisks {
+		if d.SizeKB > usbKB {
+			usbKB = d.SizeKB
+		}
+	}
+	return deploy.BootstrapEvalOpts{
+		USBVisible:    facts.Storage.HasUsableUSB(),
+		OverlayFreeKB: facts.Storage.OverlayFreeKB,
+		USBSizeKB:     usbKB,
 	}
 }

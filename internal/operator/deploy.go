@@ -50,7 +50,7 @@ func PreviewEdge(s EdgeSpec) (edge.PlanResponse, error) {
 		s.RouterUser = "root"
 	}
 	s.PrimaryKey = expandHome(s.PrimaryKey)
-	facts, _, err := deploy.ProbeDeviceFacts(s.RouterPass, s.PrimaryKey, s.RouterUser, s.RouterHost, s.PrimaryKeyPassphrase, true)
+	facts, _, err := deploy.ProbeDeviceFacts(s.RouterPass, s.PrimaryKey, s.RouterUser, s.RouterHost, s.PrimaryKeyPassphrase, false)
 	if err != nil {
 		return edge.PlanResponse{}, err
 	}

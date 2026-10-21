@@ -227,9 +227,12 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "preset", Label: "Preset", Value: "",
 				Short:  "empty=auto | travel-router | sbc-lab | sbc-dual-nic",
 				Detail: ph("From device facts if empty. RPi single-NIC → sbc-lab.", "Пусто = из facts. RPi один NIC → sbc-lab.")},
+			{Key: "bootstrap_preset", Label: "Bootstrap packages", Value: "auto",
+				Short:  "auto | usb-storage | none",
+				Detail: ph("auto=usb-storage if modules missing before deploy. none=skip. Packages only via bootstrap job (not probe/deploy).", "auto=usb-storage если нет модулей до deploy. none=пропуск. Пакеты только через bootstrap, не probe/deploy.")},
 			{Key: "dry_run", Label: "Dry-run only? (yes/no)", Value: "no",
 				Short:  ph("Probe + plan, no provision", "Probe + plan, без установки"),
-				Detail: ph("Same plan as Web preview / API.", "Тот же plan, что Web preview / API.")},
+				Detail: ph("Same plan as Web preview / API. No package install.", "Тот же plan, что Web. Пакеты не ставит.")},
 			{Key: "advanced", Label: "Advanced modules? (yes/no)", Value: "no",
 				Short:  ph("Force modules despite detect", "Форс модулей мимо детекта"),
 				Detail: ph("Unlock wan/wifi/etc when probe is wrong.", "Снять ограничения, если probe ошибся.")},
@@ -428,6 +431,29 @@ func (m model) runWizardApplyInTUI() string {
 				fmt.Fprintf(&b, "  %-16s %-5s %s\n", s.Module, s.Action, s.Reason)
 			}
 			return b.String()
+		}
+		// Bootstrap packages (strict path: never inside provision).
+		bs := strings.ToLower(strings.TrimSpace(m.fieldVal("bootstrap_preset")))
+		if bs == "" {
+			bs = "auto"
+		}
+		if bs != "none" && !edge.DryRun {
+			preset := "usb-storage"
+			if bs != "auto" {
+				preset = bs
+			}
+			params := map[string]any{
+				"router_host": edge.RouterHost, "router_user": edge.RouterUser,
+				"router_pass": edge.RouterPass, "primary_key": edge.PrimaryKey,
+				"key_pass": edge.PrimaryKeyPassphrase, "preset": preset,
+			}
+			if _, err := startAndWaitJob("edge.bootstrap", params); err != nil {
+				if bs != "auto" {
+					return "bootstrap: " + err.Error()
+				}
+				// auto: soft — continue; provision will hard-fail if USB still required
+				fmt.Fprintf(os.Stderr, "warn: auto bootstrap: %v\n", err)
+			}
 		}
 		if _, err := startAndWaitJob("edge.provision", structToParams(edge)); err != nil {
 			return err.Error()
