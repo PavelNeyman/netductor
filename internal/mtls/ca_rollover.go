@@ -198,22 +198,39 @@ func CARolloverFinish() error {
 		return fmt.Errorf("promote ca-new.key: %w", err)
 	}
 	// Backup server cert before re-issue so ensureServer failure can restore.
-	_ = os.Rename(path(ServerCertFile), path("server-old.crt"))
-	_ = os.Rename(path(ServerKeyFile), path("server-old.key"))
+	if err := os.Rename(path(ServerCertFile), path("server-old.crt")); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("backup server.crt: %w", err)
+	}
+	if err := os.Rename(path(ServerKeyFile), path("server-old.key")); err != nil && !os.IsNotExist(err) {
+		_ = os.Rename(path("server-old.crt"), path(ServerCertFile))
+		return fmt.Errorf("backup server.key: %w", err)
+	}
 	pub := ""
 	if b, err := os.ReadFile(filepath.Join(filepath.Dir(Dir()), "public_ip")); err == nil {
 		pub = string(b)
 	}
 	if err := ensureServer(strings.TrimSpace(pub)); err != nil {
-		// Roll CA + server back to pre-promote state.
-		_ = os.Rename(path(CACertFile), path(CANewCertFile))
-		_ = os.Rename(path(CAKeyFile), path(CANewKeyFile))
-		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
-		_ = os.Rename(path("ca-old.key"), path(CAKeyFile))
-		_ = os.Rename(path("server-old.crt"), path(ServerCertFile))
-		_ = os.Rename(path("server-old.key"), path(ServerKeyFile))
+		var rb []string
+		for _, pair := range [][2]string{
+			{path(CACertFile), path(CANewCertFile)},
+			{path(CAKeyFile), path(CANewKeyFile)},
+			{path("ca-old.crt"), path(CACertFile)},
+			{path("ca-old.key"), path(CAKeyFile)},
+			{path("server-old.crt"), path(ServerCertFile)},
+			{path("server-old.key"), path(ServerKeyFile)},
+		} {
+			if e := os.Rename(pair[0], pair[1]); e != nil && !os.IsNotExist(e) {
+				rb = append(rb, e.Error())
+			}
+		}
 		_ = saveRollover(rolloverInfo{Phase: "dual", StartedAt: time.Now().Unix()})
-		return fmt.Errorf("ensureServer after CA promote: %w (rolled back to previous CA/server)", err)
+		msg := fmt.Sprintf("ensureServer after CA promote: %v", err)
+		if len(rb) > 0 {
+			msg += "; rollback errors: " + strings.Join(rb, "; ")
+		} else {
+			msg += " (rolled back to previous CA/server)"
+		}
+		return fmt.Errorf("%s", msg)
 	}
 	_ = os.Remove(path("server-old.crt"))
 	_ = os.Remove(path("server-old.key"))

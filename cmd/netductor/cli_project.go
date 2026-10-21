@@ -226,6 +226,17 @@ func runProject(args []string) int {
 		}
 		fmt.Println("pause requested", args[1], "(applies after current step)")
 		return 0
+	case "cancel":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor project cancel <id>")
+			return 2
+		}
+		if err := gitstore.RequestShipCancel(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		fmt.Println("cancelled", args[1], "(CI container kill best-effort)")
+		return 0
 	case "resume":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor project resume <id>")

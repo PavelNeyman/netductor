@@ -189,6 +189,9 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if fp := strings.TrimSpace(in.RecoveryFP); fp != "" {
+		secondary.StoreRecoveryPeerFingerprint(d.ID, fp)
+	}
 	if strings.TrimSpace(in.CmdDone) != "" {
 		ok := "✅"
 		if !in.CmdOK {

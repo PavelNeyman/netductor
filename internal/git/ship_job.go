@@ -22,6 +22,7 @@ const (
 	ShipPublishing      = "publishing"
 	ShipDone            = "done"
 	ShipFailed          = "failed"
+	ShipCancelled       = "cancelled"
 )
 
 // ShipStep is one pipeline step with status and optional log/output paths.
@@ -52,6 +53,7 @@ type ShipJob struct {
 	Error          string     `json:"error,omitempty"`
 	LogTail        string     `json:"log_tail,omitempty"`
 	PauseRequested bool       `json:"pause_requested,omitempty"`
+	CancelRequested bool       `json:"cancel_requested,omitempty"`
 	PublishTarget  string     `json:"publish_target,omitempty"` // artifacts path when done
 }
 
@@ -322,7 +324,32 @@ func RequestShipPause(id string) error {
 	return saveShipJobUnlocked(j)
 }
 
+// RequestShipCancel marks job cancelled. For running builds, kills CI container (grace via docker).
+func RequestShipCancel(id string) error {
+	shipMu.Lock()
+	defer shipMu.Unlock()
+	j, err := getShipJobUnlocked(id)
+	if err != nil {
+		return err
+	}
+	if j.State == ShipDone || j.State == ShipFailed || j.State == ShipCancelled {
+		return fmt.Errorf("job %s is %s", id, j.State)
+	}
+	j.CancelRequested = true
+	j.State = ShipCancelled
+	j.VpsSlot = false
+	j.Error = "cancelled"
+	j.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if err := saveShipJobUnlocked(j); err != nil {
+		return err
+	}
+	// Best-effort stop of isolated CI container for this ship job.
+	killCIContainer("ship-" + sanitize(id))
+	return nil
+}
+
 // shouldPauseAfterStep returns true if pause was requested (clears flag when applying).
+
 
 // ShipJobLogPath is the full log file for a job (appended during run).
 func ShipJobLogPath(id string) string {

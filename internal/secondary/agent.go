@@ -147,6 +147,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: *lastDone, CmdOK: *lastOK, CmdLog: *lastLog,
 		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
+		RecoveryFP: readRecoveryFingerprint(),
 	})
 	*lastDone, *lastOK, *lastLog = "", false, ""
 	req, err := http.NewRequest(http.MethodPost, coreBase+"/api/secondary/agent/heartbeat", bytes.NewReader(body))
@@ -672,4 +673,22 @@ func applyFailoverPolicy(raw json.RawMessage) error {
 	}
 	b, _ := json.MarshalIndent(m, "", "  ")
 	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+
+func readRecoveryFingerprint() string {
+	for _, p := range []string{
+		"/etc/netductor/secrets/recovery.fp",
+		filepath.Join(paths.EtcDir(), "secrets", "recovery.fp"),
+	} {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		s := strings.TrimSpace(string(b))
+		if s != "" {
+			return s
+		}
+	}
+	return ""
 }

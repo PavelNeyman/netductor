@@ -1,4 +1,4 @@
-**0.9.457:** NDG2 backups, recovery pin/fingerprint, ship publish/secrets/CI gates, rename index.\n\n**0.9.456:** N-25/26 build-host, backup fail-closed, safe temp, HTTP upload limits, UI W-1/W-2/T-1/T-2.
+**0.9.458:** recovery_fp heartbeat→primary; ship cancel; CA rollback errors; NVR symlink fail-closed.\n\n**0.9.457:** NDG2 backups, recovery pin/fingerprint, ship publish/secrets/CI gates, rename index.\n\n**0.9.456:** N-25/26 build-host, backup fail-closed, safe temp, HTTP upload limits, UI W-1/W-2/T-1/T-2.
 
 **Stop line: v0.9.441** (2026-10-20). edge offline USB apk + e2fs deps.
 

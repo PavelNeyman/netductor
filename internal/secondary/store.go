@@ -35,6 +35,7 @@ type Device struct {
 	Load1         float64        `json:"load1"`
 	MismatchTotal int            `json:"mismatch_total,omitempty"`
 	MismatchByIP  map[string]int `json:"mismatch_by_ip,omitempty"`
+	RecoveryFP    string         `json:"recovery_fp,omitempty"`
 	PendingCmds   []string       `json:"pending_cmds,omitempty"`
 	LastCmd       string         `json:"last_cmd,omitempty"`
 	LastCmdAt     time.Time      `json:"last_cmd_at,omitempty"`
@@ -184,6 +185,7 @@ type HeartbeatIn struct {
 	CmdLog        string         `json:"cmd_log,omitempty"`
 	MismatchTotal int            `json:"mismatch_total,omitempty"`
 	MismatchByIP  map[string]int `json:"mismatch_by_ip,omitempty"`
+	RecoveryFP    string         `json:"recovery_fp,omitempty"`
 }
 
 func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
@@ -217,6 +219,9 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 		r.Devices[i].Load1 = in.Load1
 		r.Devices[i].MismatchTotal = in.MismatchTotal
 		r.Devices[i].MismatchByIP = in.MismatchByIP
+		if in.RecoveryFP != "" {
+			r.Devices[i].RecoveryFP = in.RecoveryFP
+		}
 		if in.CmdDone != "" {
 			if in.CmdDone == "ssh_keys" && in.CmdOK {
 				_ = integrity.CacheSecondaryKeys(r.Devices[i].ID, in.CmdLog)
@@ -558,4 +563,42 @@ func ListPublicIPs() []string {
 		out = append(out, ip)
 	}
 	return out
+}
+
+
+// StoreRecoveryPeerFingerprint saves secondary recovery TLS fingerprint for DR on primary.
+// Written so recover --from-secondary can pin without INSECURE=1.
+func StoreRecoveryPeerFingerprint(deviceID, fp string) {
+	fp = strings.TrimSpace(fp)
+	if fp == "" {
+		return
+	}
+	if !strings.HasPrefix(strings.ToLower(fp), "sha256:") {
+		fp = "sha256:" + fp
+	}
+	line := fp + "\n"
+	dir := filepath.Join(paths.StateDir(), "secondary")
+	_ = os.MkdirAll(dir, 0o700)
+	_ = os.WriteFile(filepath.Join(dir, "recovery_peer.fp"), []byte(line), 0o600)
+	if deviceID != "" {
+		_ = os.WriteFile(filepath.Join(dir, "recovery_peer_"+sanitizeID(deviceID)+".fp"), []byte(line), 0o600)
+	}
+	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
+	_ = os.WriteFile("/etc/netductor/secrets/recovery_peer.fp", []byte(line), 0o600)
+}
+
+func sanitizeID(id string) string {
+	var b strings.Builder
+	for _, r := range id {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	s := b.String()
+	if len(s) > 64 {
+		s = s[:64]
+	}
+	return s
 }

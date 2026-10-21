@@ -52,8 +52,12 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 	if !underRoot(root, dir) {
 		return "", 0, fmt.Errorf("camera_id escapes nvr root")
 	}
-	// Resolve symlinks on root when possible so dir cannot escape via symlink root.
-	if realRoot, err := filepath.EvalSymlinks(root); err == nil {
+	// Resolve root symlinks when root exists; fail closed if resolution fails on existing path.
+	if st, err := os.Stat(root); err == nil && st.IsDir() {
+		realRoot, err := filepath.EvalSymlinks(root)
+		if err != nil {
+			return "", 0, fmt.Errorf("nvr root EvalSymlinks: %w", err)
+		}
 		root = realRoot
 		dir = filepath.Join(root, cameraID)
 		if !underRoot(root, dir) {
@@ -63,13 +67,14 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", 0, err
 	}
-	// After create: camera dir must not be a symlink out of root.
-	if realDir, err := filepath.EvalSymlinks(dir); err == nil {
-		if !underRoot(root, realDir) {
-			return "", 0, fmt.Errorf("camera dir escapes nvr root via symlink")
-		}
-		dir = realDir
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", 0, fmt.Errorf("camera dir EvalSymlinks: %w", err)
 	}
+	if !underRoot(root, realDir) {
+		return "", 0, fmt.Errorf("camera dir escapes nvr root via symlink")
+	}
+	dir = realDir
 	filename = filepath.Base(filename)
 	if filename == "" || filename == "." || filename == ".." {
 		filename = time.Now().UTC().Format("2006-01-02_15-04-05") + ".mp4"

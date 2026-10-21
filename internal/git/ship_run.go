@@ -240,8 +240,17 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 		_ = SaveShipJob(j)
 		AppendShipLog(id, fmt.Sprintf("ok step duration=%ds", int(fin.Sub(start).Seconds())))
 
-		// pause after successful step if requested
+		// cancel wins over pause if both set
 		j, _ = GetShipJob(id)
+		if j.CancelRequested || j.State == ShipCancelled {
+			j.State = ShipCancelled
+			j.VpsSlot = false
+			j.Error = "cancelled"
+			_ = SaveShipJob(j)
+			fmt.Fprintf(logb, "cancelled after step (cursor=%d)\n", j.Cursor)
+			return j, logb.String(), fmt.Errorf("cancelled")
+		}
+		// pause after successful step if requested
 		if j.PauseRequested {
 			j.PauseRequested = false
 			j.State = ShipPaused
@@ -257,6 +266,8 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 }
 
 func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
+	os.Setenv("NETDUCTOR_CI_CONTAINER", ciContainerName("ship-"+sanitize(j.ID)))
+	defer os.Unsetenv("NETDUCTOR_CI_CONTAINER")
 	// N-23: secrets applied inside runBuildProjectNow → gha.Run(jobEnv), not process-global.
 	prevDirect := os.Getenv("NETDUCTOR_GIT_BUILD_DIRECT")
 	_ = os.Setenv("NETDUCTOR_GIT_BUILD_DIRECT", "1")

@@ -1,3 +1,11 @@
+## 0.9.458
+
+- **Recovery auto-pin:** secondary heartbeat sends `recovery_fp`; primary stores `/etc/netductor/secrets/recovery_peer.fp` (+ per-device under state)
+- **Ship cancel:** `netductor project cancel <id>` — state cancelled + best-effort `docker kill` of CI container (`ship-<id>`)
+- Pause still waits end of step; cancel is explicit stop path
+- **CA rollover:** server cert backup errors checked; rollback errors reported
+- **NVR ingest:** EvalSymlinks fail-closed after MkdirAll
+
 ## 0.9.457
 
 - **N-19** large backups: chunked AES-GCM (NDG2); legacy CBC decrypt kept for old archives
