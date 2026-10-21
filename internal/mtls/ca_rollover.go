@@ -93,12 +93,13 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	_ = os.MkdirAll(dir, 0o700)
 	certPath := filepath.Join(dir, ClientCertFile)
 	keyPath := filepath.Join(dir, ClientKeyFile)
+	tmpCert := certPath + ".new"
+	tmpKey := keyPath + ".new"
+	oldSerial := ""
 	if fileOK(certPath) {
 		if c, e := parseCertFile(certPath); e == nil {
-			_ = RevokeSerial(serialHex(c.SerialNumber), nodeID, "rollover-reissue")
+			oldSerial = serialHex(c.SerialNumber)
 		}
-		_ = os.Remove(certPath)
-		_ = os.Remove(keyPath)
 	}
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -116,11 +117,25 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if err := writeCert(certPath, der); err != nil {
+	if err := writeCert(tmpCert, der); err != nil {
 		return nil, nil, nil, err
 	}
-	if err := writeKey(keyPath, k); err != nil {
+	if err := writeKey(tmpKey, k); err != nil {
+		_ = os.Remove(tmpCert)
 		return nil, nil, nil, err
+	}
+	// Promote only after both files exist; keep old pair until rename succeeds.
+	if err := os.Rename(tmpCert, certPath); err != nil {
+		_ = os.Remove(tmpCert)
+		_ = os.Remove(tmpKey)
+		return nil, nil, nil, err
+	}
+	if err := os.Rename(tmpKey, keyPath); err != nil {
+		_ = os.Remove(tmpKey)
+		return nil, nil, nil, fmt.Errorf("client key promote: %w (cert already replaced)", err)
+	}
+	if oldSerial != "" {
+		_ = RevokeSerial(oldSerial, nodeID, "rollover-reissue")
 	}
 	return ReadMaterial(nodeID)
 }
@@ -182,17 +197,30 @@ func CARolloverFinish() error {
 		_ = os.Rename(path("ca-old.key"), path(CAKeyFile))
 		return fmt.Errorf("promote ca-new.key: %w", err)
 	}
-	// re-issue server cert under new CA
-	_ = os.Remove(path(ServerCertFile))
-	_ = os.Remove(path(ServerKeyFile))
+	// Backup server cert before re-issue so ensureServer failure can restore.
+	_ = os.Rename(path(ServerCertFile), path("server-old.crt"))
+	_ = os.Rename(path(ServerKeyFile), path("server-old.key"))
 	pub := ""
 	if b, err := os.ReadFile(filepath.Join(filepath.Dir(Dir()), "public_ip")); err == nil {
 		pub = string(b)
 	}
 	if err := ensureServer(strings.TrimSpace(pub)); err != nil {
-		return fmt.Errorf("ensureServer after CA promote: %w (CA files promoted; restore from ca-old.* if needed)", err)
+		// Roll CA + server back to pre-promote state.
+		_ = os.Rename(path(CACertFile), path(CANewCertFile))
+		_ = os.Rename(path(CAKeyFile), path(CANewKeyFile))
+		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
+		_ = os.Rename(path("ca-old.key"), path(CAKeyFile))
+		_ = os.Rename(path("server-old.crt"), path(ServerCertFile))
+		_ = os.Rename(path("server-old.key"), path(ServerKeyFile))
+		_ = saveRollover(rolloverInfo{Phase: "dual", StartedAt: time.Now().Unix()})
+		return fmt.Errorf("ensureServer after CA promote: %w (rolled back to previous CA/server)", err)
 	}
-	return saveRollover(rolloverInfo{Phase: "done", StartedAt: time.Now().Unix()})
+	_ = os.Remove(path("server-old.crt"))
+	_ = os.Remove(path("server-old.key"))
+	if err := saveRollover(rolloverInfo{Phase: "done", StartedAt: time.Now().Unix()}); err != nil {
+		return fmt.Errorf("CA promoted and server re-issued but rollover state save failed: %w", err)
+	}
+	return nil
 }
 
 // CARolloverAbort removes ca-new without promoting.

@@ -1,3 +1,9 @@
+## 0.9.454
+
+- firewall: critical primary/secondary ufw rules use must(); Collect verifies mtls/878x role policy (H-2 residual)
+- mtls CARolloverFinish: backup server cert, rollback CA+server on ensureServer failure; rollover state save error surfaced
+- IssueClientFromNewCA: write .new then rename; revoke old serial only after successful promote
+
 ## 0.9.453
 
 - edge: fail-closed on devices load (RegisterPending/Import/Export/SetSiteID); command queue does not wipe/reissue on corrupt IO

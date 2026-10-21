@@ -37,7 +37,7 @@
 
 Журнал чисток / allowlist (tip после 0.9.403): [CLEANUP-PASSES-2026-10.md](../CLEANUP-PASSES-2026-10.md) · [ru](CLEANUP-PASSES-2026-10.md). Tip может быть **впереди** GitHub Release до 0.9.404+.
 
-**v0.9.453** (2026-10-13) — build-host recover + fleet optional; ранее 0.9.349 SR General.
+**v0.9.454** (2026-10-13) — build-host recover + fleet optional; ранее 0.9.349 SR General.
 
 ### Закрыто в 0.9.320–0.9.331 (security / DNS / SSH)
 

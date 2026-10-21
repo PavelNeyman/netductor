@@ -174,19 +174,31 @@ func applyUFW(role string) error {
 
 	if role == "primary" {
 		redir := ndconfig.RedirectHTTPSPort()
-		_ = run("allow", redir+"/tcp", "comment", "netductor-redirect")
+		if err := must("allow", redir+"/tcp", "comment", "netductor-redirect"); err != nil {
+			return err
+		}
 		_ = run("allow", redir+"/udp", "comment", "netductor-redirect")
-		_ = run("allow", "80/tcp", "comment", "netductor-http-acme")
+		if err := must("allow", "80/tcp", "comment", "netductor-http-acme"); err != nil {
+			return err
+		}
 		_ = run("allow", "8444/tcp", "comment", "nd-wss-sp")
-		_ = run("deny", "8788/tcp", "comment", "no-plain-agent")
+		if err := must("deny", "8788/tcp", "comment", "no-plain-agent"); err != nil {
+			return err
+		}
 		mtls := ndconfig.AgentMTLSPort()
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
-			_ = run("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api")
+			if err := must("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api"); err != nil {
+				return err
+			}
 		}
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
-			_ = run("allow", "from", c, "to", "any", "port", "9443", "proto", "tcp", "comment", "netductor-svc-uplink")
+			if err := must("allow", "from", c, "to", "any", "port", "9443", "proto", "tcp", "comment", "netductor-svc-uplink"); err != nil {
+				return err
+			}
 		}
-		_ = run("deny", "9443/tcp", "comment", "no-svc-uplink-wan")
+		if err := must("deny", "9443/tcp", "comment", "no-svc-uplink-wan"); err != nil {
+			return err
+		}
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
 			_ = run("deny", lp+"/tcp", "comment", "lampac-wan-deny")
@@ -194,9 +206,15 @@ func applyUFW(role string) error {
 		}
 	} else {
 		_ = run("allow", "8445/tcp", "comment", "nd-wss-ps")
-		_ = run("deny", "8787/tcp", "comment", "no-api-wan")
-		_ = run("deny", "8788/tcp", "comment", "no-plain-agent")
-		_ = run("deny", "8789/tcp", "comment", "no-mtls-wan-secondary")
+		if err := must("deny", "8787/tcp", "comment", "no-api-wan"); err != nil {
+			return err
+		}
+		if err := must("deny", "8788/tcp", "comment", "no-plain-agent"); err != nil {
+			return err
+		}
+		if err := must("deny", "8789/tcp", "comment", "no-mtls-wan-secondary"); err != nil {
+			return err
+		}
 		_ = run("deny", "80/tcp", "comment", "no-http-secondary")
 	}
 
@@ -304,7 +322,7 @@ func Collect(role string) Status {
 		s := string(out)
 		st.Active = strings.Contains(s, "Status: active")
 		st.Detail = firstLines(s, 12)
-		// H-2: OK requires active + SSH + 443; deny hints must appear when active.
+		// H-2: OK requires active + SSH + 443 + role-critical denies/restricts.
 		st.OK = st.Active && strings.Contains(s, sshPort()) && strings.Contains(s, "443")
 		if !st.Active {
 			st.Warnings = append(st.Warnings, "ufw installed but inactive")
@@ -322,6 +340,32 @@ func Collect(role string) Status {
 			if st.Active && !strings.Contains(s, d) {
 				st.Warnings = append(st.Warnings, "expected deny/mention missing: "+d)
 				st.OK = false
+			}
+		}
+		if st.Active {
+			if role == "primary" {
+				mtls := ndconfig.AgentMTLSPort()
+				// mTLS must be present as restricted allow (CIDR), not open WAN-only.
+				if !strings.Contains(s, mtls) {
+					st.Warnings = append(st.Warnings, "mtls port "+mtls+" missing in ufw status")
+					st.OK = false
+				}
+				if !strings.Contains(s, "8788") {
+					st.Warnings = append(st.Warnings, "expected deny 8788 (plain agent) missing")
+					st.OK = false
+				}
+				// Wide open 8789 anywhere without from-restrict is degraded (heuristic).
+				if strings.Contains(s, mtls+"/tcp") && strings.Contains(s, "ALLOW") && !strings.Contains(s, "10.87") && !strings.Contains(s, "127.0.0.1") {
+					st.Warnings = append(st.Warnings, "mtls may be open without svc CIDR restrict — re-apply firewall")
+					st.OK = false
+				}
+			} else {
+				for _, d := range []string{"8787", "8788", "8789"} {
+					if !strings.Contains(s, d) {
+						st.Warnings = append(st.Warnings, "secondary expected control of port "+d+" missing")
+						st.OK = false
+					}
+				}
 			}
 		}
 		return st

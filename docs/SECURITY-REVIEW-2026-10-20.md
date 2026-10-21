@@ -91,3 +91,10 @@ Migrated remaining JSON state writers to `internal/statefile`; repair path list 
 Closed: R-1 residual in recovery.go; edge command queue fail-closed; recovery consume before enroll; NVR camera-dir symlink; statefile CreateTemp; VPN migrate persist; Ship tag checkout; Origin exact host; release matrix without soft-fail agent builds.
 
 Still open / partial by design: full firewall effective-policy proof (H-2 residual); complete CA rollover transaction; optional fsync on statefile.
+
+
+## 10. H-2 / CA rollover (0.9.454)
+
+- Apply: mtls CIDR allows, 9443 restrict, 8788/8787/8789 denies are hard failures on ufw error.
+- Collect: role-aware checks for mtls port presence and secondary control-plane denials.
+- CARolloverFinish rolls back promoted CA and server material if ensureServer fails; client reissue no longer deletes old pair before new files exist.
