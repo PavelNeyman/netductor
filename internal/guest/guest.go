@@ -98,9 +98,15 @@ func ClampGrant(d time.Duration) time.Duration {
 }
 
 func OpenStore(dir string) (*Store, error) {
-	_ = os.MkdirAll(dir, 0o700)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
 	s := &Store{dir: dir}
-	_ = s.load()
+	if err := s.load(); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("guest store: %w", err)
+		}
+	}
 	return s, nil
 }
 

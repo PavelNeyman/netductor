@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -104,11 +105,18 @@ func Get(rawURL, dest string, opt Options) error {
 		return fmt.Errorf("download: HTTP %d %s", resp.StatusCode, rawURL)
 	}
 
-	tmp := dest + ".new"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	dir := filepath.Dir(dest)
+	if dir == "" || dir == "." {
+		dir = os.TempDir()
+	}
+	_ = os.MkdirAll(dir, 0o755)
+	tf, err := os.CreateTemp(dir, ".nd-dl-*")
 	if err != nil {
 		return err
 	}
+	tmp := tf.Name()
+	_ = tf.Chmod(0o600)
+	f := tf
 	n, err := io.Copy(f, io.LimitReader(resp.Body, opt.MaxBytes))
 	closeErr := f.Close()
 	if err != nil {

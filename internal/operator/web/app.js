@@ -1110,8 +1110,12 @@ function showControl(x, opts){
   const dot=document.getElementById('rdDot'); if(dot) dot.className='rd-dot '+(isErr?'err':'ok');
   if(rdState.mode!=='inline') rdShow();
   const unwrapped=unwrapPayload(x);
-  if(box && unwrapped && unwrapped.checks){ box.innerHTML=formatDoctorWeb(x)||''; }
-  renderTables(x);
+  if(box && unwrapped && unwrapped.checks){
+    box.innerHTML=formatDoctorWeb(x)||'';
+    // W-2: do not let generic tables wipe Doctor renderer
+  } else {
+    renderTables(x);
+  }
   lastRaw=x;
   if(!opts.fromHist) rdHistPush(act, x);
   rdInlinePreview(rdLastBtn, formatPreviewText(x));
@@ -1417,16 +1421,17 @@ async function loadCatalogButtons(){
     const j = await res.json();
     window.__ndGroups = j.groups || [];
     window.__ndByGroup = j.by_group || {};
-    if(j.by_section){
-      for(const [sec, list] of Object.entries(j.by_section)){
-        if(!BTN[sec]) BTN[sec]=[];
-        BTN[sec] = list.map(a=>[a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
-      }
-    }
-    // map group → merged button lists from sections
+    // W-1: single source per panel — by_group only (sections are nested under groups).
+    // Filling BTN from both by_section and by_group duplicated actions in the same panel.
     for(const g of (j.groups||[])){
       const list = (j.by_group && j.by_group[g.id]) || [];
-      BTN[g.id] = list.map(a=>[a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
+      const seen = new Set();
+      BTN[g.id] = [];
+      for(const a of list){
+        if(seen.has(a.id)) continue;
+        seen.add(a.id);
+        BTN[g.id].push([a.id, (uiLang==='ru'?a.label_ru:a.label_en)||a.label_en, a.method, a.path, a.body||'']);
+      }
     }
     renderControlNav();
   }catch(e){}

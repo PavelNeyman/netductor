@@ -326,7 +326,6 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:set:22:0">22:00</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" style="link" data="m:backup:custom">⏱</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
-	b.WriteString(`<tg-button-row align="left">`)
 	if last := install.LastBackupVerify(); last != "" {
 		b.WriteString("<p><code>" + esc(last) + "</code></p>" + nl)
 	}

@@ -26,7 +26,9 @@ import (
 func InstallBackup() error {
 	bin := "/usr/local/bin/netductor"
 	if readSecret("backup_key") == "" {
-		_ = writeSecret("backup_key", randomHex(32))
+		if err := writeSecret("backup_key", randomHex(32)); err != nil {
+			return fmt.Errorf("backup_key: %w", err)
+		}
 	}
 	unit := fmt.Sprintf(`[Unit]
 Description=Netductor backup once
@@ -232,24 +234,30 @@ func Backup() (string, error) {
 			args = append(args, p)
 		}
 	}
-	_ = run("tar", args...)
-	if st, err := os.Stat(plain); err != nil || st.Size() == 0 {
-		etc := paths.EtcDir()
-		_ = run("tar", "-czf", plain, "-C", filepath.Dir(etc), filepath.Base(etc))
-	}
-	if st, err := os.Stat(plain); err != nil || st.Size() == 0 {
-		return "", fmt.Errorf("tar failed")
-	}
-	key := readSecret("backup_key")
-	out := plain
-	if key != "" {
-		enc := plain + ".ndenc"
-		if err := encryptFile(plain, enc, key); err != nil {
-			return "", err
-		}
+	if err := run("tar", args...); err != nil {
 		_ = os.Remove(plain)
-		out = enc
+		etc := paths.EtcDir()
+		if err2 := run("tar", "-czf", plain, "-C", filepath.Dir(etc), filepath.Base(etc)); err2 != nil {
+			_ = os.Remove(plain)
+			return "", fmt.Errorf("tar failed: %v (fallback: %v)", err, err2)
+		}
 	}
+	if st, err := os.Stat(plain); err != nil || st.Size() == 0 {
+		_ = os.Remove(plain)
+		return "", fmt.Errorf("tar failed: empty archive")
+	}
+	key := strings.TrimSpace(readSecret("backup_key"))
+	if key == "" {
+		_ = os.Remove(plain)
+		return "", fmt.Errorf("backup_key missing — refuse plaintext backup (set secrets/backup_key)")
+	}
+	enc := plain + ".ndenc"
+	if err := encryptFile(plain, enc, key); err != nil {
+		_ = os.Remove(plain)
+		return "", err
+	}
+	_ = os.Remove(plain)
+	out := enc
 	_ = os.Chmod(out, 0o600)
 	// Recovery key + components list alongside archive (plain — needed before decrypt on bare metal).
 	_ = writeBackupKeyRecovery()

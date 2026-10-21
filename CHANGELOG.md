@@ -1,3 +1,16 @@
+## 0.9.456
+
+Security / reliability residual after tip reviews:
+- **N-26** build-host heartbeat: cmds from token host only (not body device_id)
+- **N-25** /result + CompleteAgentBuild: ownership + waiting_external gate
+- **N-20/N-32** backup: refuse plaintext without key; tar exit checked
+- **N-21** download: CreateTemp instead of dest+.new
+- **N-31** guest store: fail-closed on corrupt JSON
+- **N-22** HTTP body limits per upload path (NVR 64M, backup/artifacts 512M)
+- **UI:** Web catalog single source (by_group); Doctor not wiped by tables; TG routers parent; backup button-row markup; sites hub no double list
+
+Still open (next): AES-CBC→AEAD for large backups, recovery pin-required, ship secrets env, CI || true, TUI narrow layout, TG callback length.
+
 ## 0.9.455
 
 - **P0** edge: one-shot TokenPickup after Approve — agent Enroll receives device token once; further bootstrap enrolls empty (H-1 without breaking onboarding)

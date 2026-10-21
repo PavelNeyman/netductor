@@ -170,9 +170,17 @@ func CompleteAgentBuild(jobID, hostID string, ok bool, logText, errMsg string) e
 		return err
 	}
 	m := LoadAgentMeta(jobID)
+	if m.HostID != "" && hostID != "" && m.HostID != hostID {
+		return fmt.Errorf("job claimed by other host")
+	}
+	if j.State != ShipWaitingExternal || j.Reason != ReasonBuildAgent {
+		return fmt.Errorf("job state %s reason %s not accepting agent result", j.State, j.Reason)
+	}
 	m.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 	m.Log = trimTail(logText, 8000)
-	m.HostID = hostID
+	if hostID != "" {
+		m.HostID = hostID
+	}
 	if ok {
 		m.Status = AgentDone
 		m.Error = ""

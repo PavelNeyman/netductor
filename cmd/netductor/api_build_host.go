@@ -95,19 +95,11 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 			writeJSON(w, 401, map[string]any{"ok": false, "error": err.Error()})
 			return
 		}
-		hostID := ""
-		if facts != nil {
-			if v, ok := facts["device_id"].(string); ok {
-				hostID = v
-			}
-		}
-		if hostID == "" {
-			for _, s := range gitstore.ListBuildHostStates() {
-				if full, e := gitstore.LoadBuildHostState(s.ID); e == nil && secreq.Eq(full.Token, token) {
-					hostID = full.ID
-					break
-				}
-			}
+		// N-26: queue host always from token, never from client body device_id.
+		hostID, okTok := gitstore.AuthBuildHostToken(token)
+		if !okTok || hostID == "" {
+			writeJSON(w, 401, map[string]any{"ok": false, "error": "token"})
+			return
 		}
 		cmds := gitstore.TakeBuildHostCmds(hostID)
 		writeJSON(w, 200, map[string]any{"ok": true, "cmds": cmds})
@@ -207,6 +199,10 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 		if strings.HasSuffix(path, "/result") && r.Method == http.MethodPost {
 			id := strings.TrimSuffix(path, "/result")
 			id = strings.Trim(id, "/")
+			if !jobOwnedBy(id, hostID) {
+				writeJSON(w, 403, map[string]any{"ok": false, "error": "not claimed by this host"})
+				return
+			}
 			var body struct {
 				OK    bool   `json:"ok"`
 				Log   string `json:"log"`

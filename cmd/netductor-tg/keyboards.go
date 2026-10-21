@@ -560,8 +560,21 @@ func formatNodesRenameHTML() string {
 	return b.String()
 }
 
-func routersKeyboard() map[string]any {
-	return navKeyboard("m:tools", parentTools())
+func routersKeyboard(parentCB ...string) map[string]any {
+	cb := "m:tools"
+	lab := parentTools()
+	if len(parentCB) > 0 && parentCB[0] != "" {
+		cb = parentCB[0]
+		switch cb {
+		case "m:fleet":
+			lab = T("fleet")
+		case "m:tools":
+			lab = parentTools()
+		default:
+			lab = "Back"
+		}
+	}
+	return navKeyboard(cb, lab)
 }
 
 func routersHubHTML() string {

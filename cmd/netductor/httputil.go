@@ -29,10 +29,27 @@ func withSecurity(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		if r.Body != nil {
-			r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+			r.Body = http.MaxBytesReader(w, r.Body, bodyLimitForPath(r.URL.Path))
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// bodyLimitForPath: JSON APIs stay at 16 MiB; file uploads get explicit larger caps (N-22).
+func bodyLimitForPath(path string) int64 {
+	p := path
+	switch {
+	case strings.Contains(p, "/nvr/") && (strings.Contains(p, "ingest") || strings.Contains(p, "segment") || strings.Contains(p, "upload")):
+		return 64 << 20
+	case strings.Contains(p, "/edge/") && strings.Contains(p, "backup"):
+		return 512 << 20
+	case strings.Contains(p, "/build-host/") && (strings.Contains(p, "artifacts") || strings.Contains(p, "work")):
+		return 512 << 20
+	case strings.Contains(p, "/secondary/") && strings.Contains(p, "backup"):
+		return 512 << 20
+	default:
+		return MaxBodyBytes
+	}
 }
 
 func readJSON(r *http.Request) map[string]any {
