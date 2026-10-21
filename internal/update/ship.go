@@ -52,18 +52,38 @@ func Ship(o ShipOpts) (tag, dst, logPath string, err error) {
 	fmt.Fprintf(&logb, "ship tag=%s skip_test=%v gitDir=%s\n", tag, o.SkipTest, gitDir)
 
 	if st, err := os.Stat(gitDir); err == nil && st.IsDir() {
-		_ = exec.Command("git", "--git-dir="+gitDir, "--work-tree="+work, "checkout", "-f", "HEAD").Run()
-		// try main if empty
+		// Prefer exact release tag so Ship builds the requested commit, not tip HEAD.
+		checked := false
+		for _, ref := range []string{tag, "refs/tags/" + tag, "main", "HEAD"} {
+			cmd := exec.Command("git", "--git-dir="+gitDir, "--work-tree="+work, "checkout", "-f", ref)
+			out, cerr := cmd.CombinedOutput()
+			logb.Write(out)
+			if cerr == nil {
+				fmt.Fprintf(&logb, "checkout %s ok\n", ref)
+				checked = true
+				break
+			}
+			fmt.Fprintf(&logb, "checkout %s: %v\n", ref, cerr)
+		}
+		if !checked {
+			return tag, "", "", fmt.Errorf("git checkout failed for tag %s", tag)
+		}
 		if ents, _ := os.ReadDir(work); len(ents) == 0 {
-			_ = exec.Command("git", "--git-dir="+gitDir, "--work-tree="+work, "checkout", "-f", "main").Run()
+			return tag, "", "", fmt.Errorf("git checkout produced empty worktree for %s", tag)
 		}
 	} else {
-		// no mirror: clone shallow main
-		cmd := exec.Command("git", "clone", "--depth", "1", "https://github.com/PavelNeyman/netductor.git", work)
+		cmd := exec.Command("git", "clone", "--depth", "1", "--branch", tag, "https://github.com/PavelNeyman/netductor.git", work)
 		out, cerr := cmd.CombinedOutput()
 		logb.Write(out)
 		if cerr != nil {
-			return tag, "", "", fmt.Errorf("clone: %w", cerr)
+			_ = os.RemoveAll(work)
+			cmd = exec.Command("git", "clone", "--depth", "1", "https://github.com/PavelNeyman/netductor.git", work)
+			out, cerr = cmd.CombinedOutput()
+			logb.Write(out)
+			if cerr != nil {
+				return tag, "", "", fmt.Errorf("clone: %w", cerr)
+			}
+			fmt.Fprintf(&logb, "warn: cloned default branch; tag %s may be absent on remote\n", tag)
 		}
 	}
 

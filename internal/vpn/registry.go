@@ -61,7 +61,9 @@ func EnsureDirs() error {
 }
 
 func loadRegistry() (*registry, error) {
-	_ = EnsureDirs()
+	if err := EnsureDirs(); err != nil {
+		return nil, err
+	}
 	var r registry
 	err := statefile.LoadJSON(usersFile(), &r)
 	if statefile.IsNotExist(err) {
@@ -75,7 +77,9 @@ func loadRegistry() (*registry, error) {
 	}
 	changed := migrateUserPolicies(&r)
 	if changed {
-		_ = writeRegistry(&r)
+		if err := writeRegistry(&r); err != nil {
+			return nil, fmt.Errorf("migrate persist: %w", err)
+		}
 	}
 	return &r, nil
 }

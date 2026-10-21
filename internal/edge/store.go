@@ -527,7 +527,9 @@ func EnqueueCmd(deviceID, action, arg string) string {
 	var wrap struct {
 		Pending []map[string]any `json:"pending"`
 	}
-	_ = statefile.LoadJSON(commandsPath(), &wrap)
+	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil && !statefile.IsNotExist(err) {
+		return "" // fail-closed: do not wipe corrupt queue
+	}
 	id := randomID()
 	wrap.Pending = append(wrap.Pending, map[string]any{
 		"id": id, "device_id": deviceID, "action": action, "arg": arg, "created": time.Now().Unix(),
@@ -559,7 +561,9 @@ func PollCommands(deviceID string) []map[string]any {
 	var wrap struct {
 		Pending []map[string]any `json:"pending"`
 	}
-	_ = statefile.LoadJSON(commandsPath(), &wrap)
+	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil && !statefile.IsNotExist(err) {
+		return []map[string]any{} // fail-closed: do not dequeue on corrupt/IO error
+	}
 	var mine, rest []map[string]any
 	for _, c := range wrap.Pending {
 		if c["device_id"] == deviceID {
@@ -569,7 +573,10 @@ func PollCommands(deviceID string) []map[string]any {
 		}
 	}
 	wrap.Pending = rest
-	_ = statefile.SaveJSON(commandsPath(), wrap)
+	// Only return commands after durable remove; else agent may re-poll same set.
+	if err := statefile.SaveJSON(commandsPath(), wrap); err != nil {
+		return []map[string]any{}
+	}
 	if mine == nil {
 		mine = []map[string]any{}
 	}

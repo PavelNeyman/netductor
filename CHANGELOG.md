@@ -1,3 +1,14 @@
+## 0.9.453
+
+- edge: fail-closed on devices load (RegisterPending/Import/Export/SetSiteID); command queue does not wipe/reissue on corrupt IO
+- enroll: recovery code must Consume successfully before Enroll (not bootstrap)
+- NVR ingest: reject camera dir that resolves outside root via symlink
+- statefile.SaveJSON: CreateTemp + 0600 + rename (no predictable .tmp name)
+- vpn loadRegistry: migrate persist and EnsureDirs errors returned
+- Ship: checkout release tag before HEAD/main; empty worktree is error
+- operator Origin: parse URL, exact loopback host only
+- release: agent arch builds and check-web-ui no longer `|| true`
+
 ## 0.9.452
 
 - migrate-on-read for stores touched by product changes: VPN users (kind, sub_profile, policy defaults), edge devices, sites, custom policy presets, sub tokens, recovery list

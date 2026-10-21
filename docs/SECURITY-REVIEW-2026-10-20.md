@@ -84,3 +84,10 @@ Findings from the consolidated audit of tip `1b1946b` still open after 0.9.445â€
 ## 8. statefile remainder (0.9.451)
 
 Migrated remaining JSON state writers to `internal/statefile`; repair path list expanded.
+
+
+## 9. Follow-up review (0.9.453)
+
+Closed: R-1 residual in recovery.go; edge command queue fail-closed; recovery consume before enroll; NVR camera-dir symlink; statefile CreateTemp; VPN migrate persist; Ship tag checkout; Origin exact host; release matrix without soft-fail agent builds.
+
+Still open / partial by design: full firewall effective-policy proof (H-2 residual); complete CA rollover transaction; optional fsync on statefile.

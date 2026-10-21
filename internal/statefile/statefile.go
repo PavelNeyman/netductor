@@ -28,17 +28,33 @@ func LoadJSON(path string, dest any) error {
 	return nil
 }
 
-// SaveJSON writes v atomically (tmp + rename), mode 0600, parent dir 0700.
+// SaveJSON writes v atomically (CreateTemp + rename), mode 0600, parent dir 0700.
 func SaveJSON(path string, v any) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	raw, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
+	f, err := os.CreateTemp(dir, ".nd-state-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if _, err := f.Write(append(raw, '\n')); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
 		return err
 	}
 	if err := os.Rename(tmp, path); err != nil {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Preflight (web/version)
 ./scripts/check-versions.sh
-./scripts/check-web-ui.sh || true
+./scripts/check-web-ui.sh
 # Local release helper (GitHub Actions disabled for this repo).
 # Usage: VERSION=0.9.106 GITHUB_TOKEN=ghp_… ./scripts/release.sh
 set -euo pipefail

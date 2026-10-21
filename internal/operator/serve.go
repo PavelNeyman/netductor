@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -25,6 +26,20 @@ import (
 	"github.com/PavelNeyman/netductor/internal/operator/web"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 )
+
+
+// allowLoopbackOrigin parses Origin as URL and allows only loopback hosts (exact).
+func allowLoopbackOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	host := u.Hostname()
+	return host == "127.0.0.1" || host == "localhost" || host == "::1"
+}
 
 // ServeOpts for localhost operator HTTP API + embed UI.
 type ServeOpts struct {
@@ -329,12 +344,9 @@ func Serve(o ServeOpts) error {
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
 			origin := r.Header.Get("Origin")
-			if origin != "" {
-				// allow only loopback origins for state-changing requests
-				if !strings.Contains(origin, "127.0.0.1") && !strings.Contains(origin, "localhost") && !strings.Contains(origin, "[::1]") {
-					http.Error(w, "forbidden origin", http.StatusForbidden)
-					return
-				}
+			if origin != "" && !allowLoopbackOrigin(origin) {
+				http.Error(w, "forbidden origin", http.StatusForbidden)
+				return
 			}
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")

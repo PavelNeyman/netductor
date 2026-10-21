@@ -29,11 +29,19 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 		var payload map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&payload)
 		raw := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
-		if siteID, ok := edge.ConsumeRecoveryCode(raw); ok && siteID != "" {
+		// Recovery codes must be consumed before enroll; bootstrap is long-lived.
+		if !edge.ValidBootstrap(auth) {
+			siteID, ok := edge.ConsumeRecoveryCode(raw)
+			if !ok {
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "recovery_consume_failed"})
+				return
+			}
 			if payload == nil {
 				payload = map[string]any{}
 			}
-			payload["site_id"] = siteID
+			if siteID != "" {
+				payload["site_id"] = siteID
+			}
 		}
 		st, dtok, isNew := edge.Enroll(payload)
 		if did, _ := payload["device_id"].(string); did != "" {

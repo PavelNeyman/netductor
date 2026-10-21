@@ -146,7 +146,7 @@ func RegisterPending(deviceID, siteID, note string) error {
 	defer mu.Unlock()
 	m, err := loadDevices()
 	if err != nil {
-		m = map[string]Device{}
+		return fmt.Errorf("devices store: %w", err)
 	}
 	now := time.Now().Unix()
 	d, ok := m[deviceID]
@@ -180,7 +180,7 @@ func ExportDevices() ([]byte, error) {
 	defer mu.Unlock()
 	m, err := loadDevices()
 	if err != nil {
-		m = map[string]Device{}
+		return nil, fmt.Errorf("devices store: %w", err)
 	}
 	return json.MarshalIndent(map[string]any{
 		"devices":  m,
@@ -203,7 +203,7 @@ func ImportDevices(raw []byte, replace bool) (n int, err error) {
 	defer mu.Unlock()
 	m, err := loadDevices()
 	if err != nil {
-		m = map[string]Device{}
+		return 0, fmt.Errorf("devices store: %w", err)
 	}
 	if replace {
 		m = map[string]Device{}
@@ -222,7 +222,7 @@ func SetSiteID(deviceID, siteID string) error {
 	defer mu.Unlock()
 	m, err := loadDevices()
 	if err != nil {
-		m = map[string]Device{}
+		return fmt.Errorf("devices store: %w", err)
 	}
 	d, ok := m[deviceID]
 	if !ok {
