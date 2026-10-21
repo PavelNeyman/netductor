@@ -163,6 +163,15 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 	}
 	if data == "m:backup:list" {
 		names := install.ListBackupFiles()
+		clean := make([]string, 0, len(names))
+		for _, n := range names {
+			n = filepath.Base(n)
+			if n == "" || n == "." || n == ".." {
+				continue
+			}
+			clean = append(clean, n)
+		}
+		names = clean
 		if len(names) > 12 {
 			names = names[:12]
 		}
@@ -209,8 +218,20 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 		return
 	}
 	if strings.HasPrefix(data, "m:backup:restore:") {
-		name := strings.TrimPrefix(data, "m:backup:restore:")
-		path := filepath.Join("/var/lib/netductor/backups", name)
+		raw := strings.TrimPrefix(data, "m:backup:restore:")
+		name := filepath.Base(raw)
+		if name == "" || name == "." || name == ".." || name != raw {
+			reply(token, chat, msgID, "❌ invalid backup name", navKeyboard("m:tools", parentTools()))
+			return
+		}
+		dir := "/var/lib/netductor/backups"
+		path := filepath.Join(dir, name)
+		cleanDir := filepath.Clean(dir)
+		cleanPath := filepath.Clean(path)
+		if cleanPath != path || (!strings.HasPrefix(cleanPath, cleanDir+string(filepath.Separator)) && cleanPath != cleanDir) {
+			reply(token, chat, msgID, "❌ invalid backup path", navKeyboard("m:tools", parentTools()))
+			return
+		}
 		rst := "⏳ Restore <code>" + esc(name) + "</code>…"
 		if ru {
 			rst = "⏳ Восстановление <code>" + esc(name) + "</code>…"

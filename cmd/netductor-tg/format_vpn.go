@@ -96,7 +96,7 @@ func formatUsersListHTML() string {
 		b.WriteString("<i>🟢 on · 🔴 off · # open · ➕ add</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>#</th><th>user</th><th></th></tr>" + nl)
+	b.WriteString("<tr><th>#</th><th>"+T("th_user")+"</th><th></th></tr>" + nl)
 	for i, r := range rows {
 		icon := "🟢"
 		if r.en == "off" {
@@ -139,10 +139,9 @@ func formatUsersListHTML() string {
 	return b.String()
 }
 
-func formatDevicesListHTML() string {
+func formatDevicesListHTML(page int) string {
 	nl := string([]byte{10})
 	names := vpn.ListDeviceNames(false)
-	// state from vpn list
 	state := map[string]string{}
 	for _, line := range strings.Split(runVPN("list"), "\n") {
 		line = strings.TrimSpace(line)
@@ -162,6 +161,25 @@ func formatDevicesListHTML() string {
 		}
 		state[parts[0]] = en
 	}
+	const pageSize = 12
+	if page < 0 {
+		page = 0
+	}
+	total := len(names)
+	pages := (total + pageSize - 1) / pageSize
+	if pages == 0 {
+		pages = 1
+	}
+	if page >= pages {
+		page = pages - 1
+	}
+	start := page * pageSize
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	visible := names[start:end]
+
 	var b strings.Builder
 	b.WriteString("📺 <b>" + esc(T("vpn_devices_btn")) + "</b>" + nl)
 	if getLang() != "en" {
@@ -169,28 +187,26 @@ func formatDevicesListHTML() string {
 	} else {
 		b.WriteString("<i>Separate VLESS/sub (Apple TV…). Hidden from Users. UUID kept on kind change. # opens card</i>" + nl)
 	}
+	if total > pageSize {
+		b.WriteString(fmt.Sprintf("<i>%s %d/%d · %d</i>"+nl, T("page_label"), page+1, pages, total))
+	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>#</th><th>device</th><th></th></tr>" + nl)
-	for i, n := range names {
-		if i >= 25 {
-			break
-		}
+	b.WriteString("<tr><th>#</th><th>" + T("th_device") + "</th><th></th></tr>" + nl)
+	for i, n := range visible {
 		en := state[n]
 		icon := "🟢"
 		if en == "off" {
 			icon = "🔴"
 		}
-		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, i+1, esc(n), icon))
+		num := start + i + 1
+		b.WriteString(fmt.Sprintf("<tr><td>%d</td><td>%s</td><td>%s</td></tr>"+nl, num, esc(n), icon))
 	}
-	if len(names) == 0 {
+	if len(visible) == 0 {
 		b.WriteString("<tr><td>—</td><td>—</td><td>—</td></tr>" + nl)
 	}
 	b.WriteString("</table>" + nl)
 	const per = 5
-	for i, n := range names {
-		if i >= 12 {
-			break
-		}
+	for i, n := range visible {
 		if i%per == 0 {
 			if i > 0 {
 				b.WriteString(`</tg-button-row>` + nl)
@@ -201,12 +217,26 @@ func formatDevicesListHTML() string {
 		if state[n] != "off" {
 			style = "success"
 		}
-		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="u:open:%s">%d</tg-button>`, style, n, i+1))
+		cb := fmt.Sprintf("u:open:%s", n)
+		if len([]byte(cb)) > 64 {
+			cb = fmt.Sprintf("m:dev:i:%d:%d", page, i)
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="%s" data="%s">%d</tg-button>`, style, cb, start+i+1))
 	}
-	if len(names) > 0 {
+	if len(visible) > 0 {
 		b.WriteString(`</tg-button-row>` + nl)
 	}
-	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:users">« Users</tg-button></tg-button-row>`)
+	if pages > 1 {
+		b.WriteString(`<tg-button-row align="left">`)
+		if page > 0 {
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="m:vpn_devices:p:%d">« %d</tg-button>`, page-1, page))
+		}
+		if page+1 < pages {
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="primary" data="m:vpn_devices:p:%d">%d »</tg-button>`, page+1, page+2))
+		}
+		b.WriteString(`</tg-button-row>` + nl)
+	}
+	b.WriteString(`<tg-button-row align="left"><tg-button type="callback_data" data="m:users">« ` + T("users") + `</tg-button></tg-button-row>`)
 	return b.String()
 }
 

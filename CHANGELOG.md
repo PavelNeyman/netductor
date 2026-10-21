@@ -1,3 +1,14 @@
+## 0.9.461
+
+Review closure (ordered):
+- **TG devices:** one visible slice + pageSize 12 + `m:vpn_devices:p:N`; long names → `m:dev:i:page:idx`
+- **Backup restore:** `filepath.Base` + path under backups dir; list names Base’d
+- **Callback tests:** 64-byte helpers, devices visible slice, backup traversal
+- **Web:** single `bindSidebarNav` (desktop collapse / mobile drawer); no capture dual-handler
+- **i18n:** users/devices th_*; channel Secondary/Path e2e headers via T()
+- **TUI:** handleMouse prefers View() hit-rects (tab/lang/row)
+- **Docs:** TG-UI-PATTERN hub in-body actions exception (EN/RU)
+
 ## 0.9.460
 
 - **TG:** Registry + mTLS certs screens via T() (RU/EN)

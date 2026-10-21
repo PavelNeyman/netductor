@@ -408,6 +408,35 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 		y = 0
 	}
 
+	// Prefer hit-rects recorded during the last View() — single geometry source.
+	for i := len(m.hits) - 1; i >= 0; i-- {
+		hr := m.hits[i]
+		if x >= hr.X && x < hr.X+hr.W && y >= hr.Y && y < hr.Y+hr.H {
+			act := hr.Action
+			switch {
+			case strings.HasPrefix(act, "tab:"):
+				m.tab = strings.TrimPrefix(act, "tab:")
+				m.cursor = 0
+				if m.tab == tabMode {
+					m.screen = screenMode
+				} else {
+					m.screen = screenMenu
+					if m.tab == tabWizard {
+						m.wizStep = wizStepTarget
+					}
+				}
+				return m, nil
+			case act == "lang":
+				return m.toggleLang()
+			case strings.HasPrefix(act, "row:"):
+				var row int
+				_, _ = fmt.Sscanf(act, "row:%d", &row)
+				m.cursor = row
+				return m, nil
+			}
+		}
+	}
+
 	// Help bar occupies the last line(s). Allow last 3 rows — gap/wrap variance.
 	chips := m.currentHelp()
 	helpRows := 1

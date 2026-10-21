@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	ndstack "github.com/PavelNeyman/netductor/internal/stack"
@@ -10,6 +11,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/fleet"
 	"github.com/PavelNeyman/netductor/internal/format"
 	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 func handleCallback(token string, cq *callbackQuery, admin int64) {
@@ -109,6 +111,29 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		return
 	}
 	if handleSSHCB(token, chat, msgID, data) {
+		return
+	}
+	if strings.HasPrefix(data, "m:vpn_devices:p:") {
+		page, _ := strconv.Atoi(strings.TrimPrefix(data, "m:vpn_devices:p:"))
+		reply(token, chat, msgID, formatDevicesListHTML(page), usersListKeyboard())
+		return
+	}
+	if strings.HasPrefix(data, "m:dev:i:") {
+		rest := strings.TrimPrefix(data, "m:dev:i:")
+		parts := strings.Split(rest, ":")
+		if len(parts) == 2 {
+			page, _ := strconv.Atoi(parts[0])
+			idx, _ := strconv.Atoi(parts[1])
+			names := vpn.ListDeviceNames(false)
+			const pageSize = 12
+			start := page * pageSize
+			if idx >= 0 && start+idx < len(names) {
+				name := names[start+idx]
+				reply(token, chat, msgID, formatUserHubHTML(name), userCardKeyboard(name, ""))
+				return
+			}
+		}
+		reply(token, chat, msgID, formatDevicesListHTML(0), usersListKeyboard())
 		return
 	}
 	switch data {
@@ -312,7 +337,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:channel":
 		reply(token, chat, msgID, formatChannelDetailHTML(), statusKeyboard())
 	case "m:vpn_devices":
-		reply(token, chat, msgID, formatDevicesListHTML(), usersListKeyboard())
+		reply(token, chat, msgID, formatDevicesListHTML(0), usersListKeyboard())
 	case "m:users", "m:vpn_list":
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:vpn_list_legacy":

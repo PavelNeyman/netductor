@@ -550,12 +550,9 @@ func formatChannelDetailHTML() string {
 	}
 
 	// Secondaries table
-	h1 := "Secondary"
-	if ru {
-		h1 = "Secondary"
-	}
+	h1 := T("ch_secondary")
 	b.WriteString("<b>" + h1 + "</b>" + nl)
-	b.WriteString(`<table bordered striped compact><tr><th>name</th><th>online</th><th>uplink</th><th>face:443</th><th>sb</th><th>hb</th></tr>`)
+	b.WriteString("<table bordered striped compact><tr><th>"+T("ch_name")+"</th><th>"+T("ch_online")+"</th><th>"+T("ch_uplink")+"</th><th>"+T("ch_face")+"</th><th>"+T("ch_sb")+"</th><th>"+T("ch_hb")+"</th></tr>")
 	for _, s := range rep.Secondaries {
 		name := s.Name
 		if name == "" {
@@ -577,8 +574,8 @@ func formatChannelDetailHTML() string {
 	b.WriteString(`</table>` + nl + nl)
 
 	// Path e2e table
-	b.WriteString("<b>Path e2e</b>" + nl)
-	b.WriteString(`<table bordered striped compact><tr><th>name</th><th>path</th><th>mgmt</th><th>face</th><th>ssh</th><th>note</th></tr>`)
+	b.WriteString("<b>"+T("ch_path_e2e")+"</b>" + nl)
+	b.WriteString("<table bordered striped compact><tr><th>"+T("ch_name")+"</th><th>"+T("ch_path")+"</th><th>"+T("ch_mgmt")+"</th><th>"+T("ch_face")+"</th><th>"+T("ch_ssh")+"</th><th>"+T("ch_note")+"</th></tr>")
 	for _, p := range rep.Path {
 		name := p.Name
 		if name == "" {

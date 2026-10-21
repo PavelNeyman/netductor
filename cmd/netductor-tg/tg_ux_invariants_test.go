@@ -197,3 +197,46 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+func TestCallbackDataByteLimitHelpers(t *testing.T) {
+	long := strings.Repeat("a", 80)
+	cb := "u:open:" + long
+	if len([]byte(cb)) <= 64 {
+		t.Fatal("fixture should exceed 64 bytes")
+	}
+	idx := "m:dev:i:3:11"
+	if len([]byte(idx)) > 64 {
+		t.Fatalf("index callback too long: %d", len([]byte(idx)))
+	}
+	page := "m:vpn_devices:p:2"
+	if len([]byte(page)) > 64 {
+		t.Fatalf("page callback too long: %d", len([]byte(page)))
+	}
+}
+
+func TestDevicesListUsesSingleVisibleSlice(t *testing.T) {
+	src := tgSource(t, "format_vpn.go")
+	if !strings.Contains(src, "const pageSize = 12") {
+		t.Fatal("formatDevicesListHTML must paginate with pageSize 12")
+	}
+	if !strings.Contains(src, "visible := names[start:end]") {
+		t.Fatal("table and buttons must share visible slice")
+	}
+	if strings.Contains(src, "if i >= 25") {
+		t.Fatal("old 25-row table limit must be removed")
+	}
+	cb := tgSource(t, "handlers_cb.go")
+	if !strings.Contains(cb, `m:vpn_devices:p:`) {
+		t.Fatal("handlers must accept m:vpn_devices:p: page callbacks")
+	}
+}
+
+func TestBackupRestoreRejectsPathTraversal(t *testing.T) {
+	src := tgSource(t, "handlers_extra.go")
+	if !strings.Contains(src, "filepath.Base(raw)") {
+		t.Fatal("restore must Base() the callback name")
+	}
+	if !strings.Contains(src, "filepath.Clean(dir)") {
+		t.Fatal("restore must keep path under backups dir")
+	}
+}

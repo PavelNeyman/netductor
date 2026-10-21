@@ -1,3 +1,5 @@
+**0.9.461:** TG devices pagination + backup path + sidebar unify + TUI hits-first + channel i18n.
+
 **0.9.460:** TG Registry/mTLS i18n; TUI catalog/output viewport; Web mobile menu.
 
 **0.9.459:** TUI/Web/TG UI residual (no release assets yet).\n\n**0.9.458:** recovery_fp heartbeat→primary; ship cancel; CA rollback errors; NVR symlink fail-closed.\n\n**0.9.457:** NDG2 backups, recovery pin/fingerprint, ship publish/secrets/CI gates, rename index.\n\n**0.9.456:** N-25/26 build-host, backup fail-closed, safe temp, HTTP upload limits, UI W-1/W-2/T-1/T-2.

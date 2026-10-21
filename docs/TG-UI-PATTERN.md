@@ -63,3 +63,7 @@
 
 
 | Operator hub | **B** | status table (API public, Users→SP) + single toggle buttons |
+
+## Hub exception (in-body actions)
+
+Hub screens (Fleet, Operator, Nodes, Sites) may place **section actions** in the message body (`tg-button-row`). **Navigation** (parent / main menu) stays on the inline keyboard. List↔card screens still require table rows and action buttons from the same visible slice.
