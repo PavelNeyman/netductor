@@ -39,8 +39,8 @@ en:{
   l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
   l_role:'Role', l_tg_token:'TG bot token', l_tg_admin:'TG admin user id',
   c_do_primary:'Primary', c_do_secondary:'Secondary', c_do_build:'Build-host', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram bot', 
-  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', c_skip_root:'Do not set root password (leave empty)', l_new_root:'New root password (LuCI)', edge_root_help:'Required for LuCI. SSH uses operator key; password SSH is disabled after provision.', edge_guest_help:'Isolated guest, ISP direct (not VPN). Default: visible SSID (join-QR). Optional hidden. PSK=Wi‑Fi password; desk PIN=staff grant.', l_guest_visible:'SSID visibility', opt_hidden:'Hidden', opt_visible:'Visible (default)', c_edge_offline:'Offline deploy', l_edge_usb_pkgs:'OpenWrt USB packages (offline cache)',
-  edge_usb_pkgs_note:'Used by offline-prep / probe. Saved to operator.conf. Change without a new op release.',
+  c_netcfg:'Configure network', c_guest:'Guest Wi-Fi', c_reboot:'Reboot after provision', c_skip_root:'Do not set root password (leave empty)', l_new_root:'New root password (LuCI)', edge_root_help:'Required for LuCI. SSH uses operator key; password SSH is disabled after provision.', edge_guest_help:'Isolated guest, ISP direct (not VPN). Default: visible SSID (join-QR). Optional hidden. PSK=Wi‑Fi password; desk PIN=staff grant.', l_guest_visible:'SSID visibility', opt_hidden:'Hidden', opt_visible:'Visible (default)', c_edge_offline:'Offline deploy', l_edge_usb_pkgs:'Bootstrap presets', edge_bootstrap_note:'Probe is read-only. If USB is missing, select usb-storage and Bootstrap; cards refresh. Deploy does not install packages.', btn_edge_bootstrap:'Bootstrap selected', edge_bootstrap_need_probe:'Run Probe first', edge_bootstrap_done:'Bootstrap finished — facts updated', edge_preset_installed:'Installed', edge_preset_missing:'Missing packages',
+  edge_usb_pkgs_note:'Deprecated free-form list; use bootstrap presets.',
   edge_ph_usb_pkgs:'comma-separated; empty = built-in defaults',
   btn_edge_usb_reset:'Reset packages to defaults',
   btn_edge_usb_save:'Save package list',
@@ -93,7 +93,7 @@ ru:{
   l_mthost:'Хост MT', l_mtuser:'Пользователь MT', l_mtpass:'Пароль MT', l_mtport:'Порт MT', l_opkey:'Ключ оператора',
   l_role:'Роль', l_tg_token:'Токен TG-бота', l_tg_admin:'TG admin id',
   c_do_primary:'Primary', c_do_secondary:'Secondary', c_do_build:'Build-host', c_lampac:'Lampac', c_git:'Git', c_tg:'Telegram-бот', 
-  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_reboot:'Перезагрузка после provision', c_skip_root:'Не задавать пароль root (оставить пустым)', l_new_root:'Новый пароль root (LuCI)', edge_root_help:'Нужен для LuCI. SSH — ключ оператора; password SSH после provision отключается.', edge_guest_help:'Гостевая изолирована, интернет через провайдера (не VPN). По умолчанию: видимый SSID (join-QR). Скрытый — опция. PSK=пароль Wi‑Fi; PIN=выдача доступа персоналом.', l_guest_visible:'Видимость SSID', opt_hidden:'Скрытый', opt_visible:'Видимый (по умолчанию)', c_edge_offline:'Офлайн-деплой', l_edge_usb_pkgs:'Пакеты OpenWrt USB (offline-кэш)', edge_usb_pkgs_note:'Для offline-prep / probe. Пишется в operator.conf. Меняется без нового релиза op.', edge_ph_usb_pkgs:'через запятую; пусто = defaults', btn_edge_usb_reset:'Сбросить пакеты к defaults', btn_edge_usb_save:'Сохранить список пакетов', btn_edge_offline_prep:'Подготовить offline-пакет', edge_offline_help:'Пакет с диска (token + agents). Без SSH на primary при деплое.', edge_offline_prep_warn:'Нужен интернет и SSH на primary сейчас. Повторить после апгрейда или смены token.', btn_edge_probe:'Опросить устройство →', edge_h_wifi:'Wi‑Fi AP', edge_wifi_hint:'Можно заполнить только 2.4 — пустые SSID/ключ 5 ГГц копируются с 2.4 (и наоборот).', edge_h_guest:'Гостевой Wi‑Fi', edge_guest_detail_hint:'Отдельный SSID; гости в ISP (не через VLESS роутера). PSK = пароль Wi‑Fi; PIN = выдача персоналом.', edge_wan_hint:'Аплинк в ISP. DNS опционально, напр. 1.1.1.1 9.9.9.9.', deploy_log_title:'Лог деплоя', jobs_title:'Задачи op', jobs_note:'Живут в netductor-op serve. Cancel — кооперативный (текущий SSH-шаг может доработать).', jobs_refresh:'Обновить', jobs_running:'Только running', jobs_empty:'(нет задач)', jobs_cancel:'Отменить', jobs_cancel_confirm:'Отменить задачу?', edge_run_working:'Идёт применение… шаги в логе ниже', edge_run_done:'Готово — смотрите лог', edge_run_err:'Ошибка — смотрите лог', netmap_title:'Карта сетей', netmap_note:'Канонические CIDR — SR и edge LAN.', edge_h_lan:'LAN', edge_lan_hint:'Магазины: лучше 10.120.<N>.0/24 (Настройки → Карта сетей). Не 10.9.8 и не 10.88.', edge_mod_agent:'Установка agent', edge_mod_lan:'LAN baseline', edge_mod_wan:'WAN / uplink', edge_mod_wifi:'Wi‑Fi AP', edge_mod_guest:'Гостевой Wi‑Fi', edge_mod_vpn:'VPN‑клиент (VLESS)', edge_mod_fs:'Расширить root (SD/mmc)', edge_mod_overlay:'Внешний overlay / extroot', edge_mod_usb_format:'Форматировать USB (данные будут уничтожены)', edge_storage_title:'Накопитель edge (USB)', edge_storage_help:'Day-2: бэкап A+B, mute алертов, restore с primary.', btn_st_backup:'Бэкап сейчас (A+B)', btn_st_restore:'Restore с primary', btn_st_restore_fmt:'Format USB + restore', btn_st_mute:'Mute USB-алертов', btn_st_unmute:'Включить USB-алерты', btn_st_offline:'Собрать offline pack (на primary)', edge_mod_usb_format_help:'Стереть USB и создать ext4 под extroot. Необратимо.', edge_mod_ssh:'SSH harden', edge_mod_vpn_help:'Роутер поднимает VLESS → secondary/primary. Клиенты LAN идут через VPN; гости — напрямую в ISP.', edge_mod_help:'Модули для этого устройства. Серые — нельзя на этом железе.', edge_stat_mem:'Свободная память', edge_stat_storage:'Накопитель', edge_stat_expand:'Expand root', edge_chip_eth:'Eth ×', edge_chip_wan_yes:'есть WAN', edge_chip_wan_no:'без WAN', edge_chip_no_radio:'нет radio', edge_yes:'да', edge_no:'нет', edge_storage_flash:'flash', edge_storage_overlay:'overlay', edge_storage_root:'root', edge_ph_router:'например 192.168.1.1 — само не подставляется', btn_edge_to_modules:'Модули →', btn_edge_to_details:'Параметры →', btn_edge_replan:'Повторить probe', btn_back:'Назад', btn_edge_details:'Параметры →', btn_edge_dry:'План (dry-run)', btn_edge_modules:'Модули →', c_advanced:'Advanced-модули', edge_details_help:'Заполните только включённые модули.', edge_h_card:'Карточка устройства', edge_h_connect:'Подключение', edge_h_details:'Параметры', edge_h_modules:'Модули', edge_mod_help:'Модули для этого класса устройства.', l_action:'Действие', l_display:'Отображаемое имя', l_key_pass:'Passphrase ключа', l_label:'Метка', l_preset:'Пресет', l_primary:'Primary host', l_router:'Хост роутера', l_router_pass:'Пароль роутера', l_rpi_id:'ID устройства', l_rpi_lan:'LAN IP роутера', l_server:'URL agent server', edge_note:'OpenWrt edge: агент, затем UCI. SSH на primary — порт 52222 (после harden); на роутер — 22. Prefill из Fleet/Settings.', edge_net_help:'Только если включено «Настроить сеть».', l_lan_mask:'Маска LAN', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'SSID 2.4', l_key24:'Ключ 2.4', l_ssid5:'SSID 5', l_key5:'Ключ 5', l_wan_ip:'WAN IP', l_wan_mask:'Маска WAN', l_wan_gw:'Шлюз WAN', l_wan_dns:'DNS WAN', l_wan_dns_help:'Опционально. Пробел или запятая. Рекомендуем 1.1.1.1 9.9.9.9 (сначала CF). Пусто=DNS провайдера. Не режим dns=vpn у edge.', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'PIN продавца', l_guest_pin_help:'PIN персонала для выдачи интернета — не пароль Wi‑Fi.', l_guest_psk:'Guest PSK (Wi‑Fi)', l_guest_psk_help:'Пароль Wi‑Fi в join-QR. Обязателен (open-сеть не поддерживается).', c_push:'Push RSC + harden',
+  c_netcfg:'Настроить сеть', c_guest:'Гостевой Wi-Fi', c_reboot:'Перезагрузка после provision', c_skip_root:'Не задавать пароль root (оставить пустым)', l_new_root:'Новый пароль root (LuCI)', edge_root_help:'Нужен для LuCI. SSH — ключ оператора; password SSH после provision отключается.', edge_guest_help:'Гостевая изолирована, интернет через провайдера (не VPN). По умолчанию: видимый SSID (join-QR). Скрытый — опция. PSK=пароль Wi‑Fi; PIN=выдача доступа персоналом.', l_guest_visible:'Видимость SSID', opt_hidden:'Скрытый', opt_visible:'Видимый (по умолчанию)', c_edge_offline:'Офлайн-деплой', l_edge_usb_pkgs:'Пресеты bootstrap', edge_bootstrap_note:'Probe только читает. Если USB не виден — выберите usb-storage и Bootstrap; карточки обновятся. Deploy пакеты не ставит.', btn_edge_bootstrap:'Установить пресет', edge_bootstrap_need_probe:'Сначала Probe', edge_bootstrap_done:'Bootstrap готов — факты обновлены', edge_preset_installed:'Установлено', edge_preset_missing:'Нет пакетов', edge_usb_pkgs_note:'Свободный список пакетов устарел; только пресеты.', edge_ph_usb_pkgs:'через запятую; пусто = defaults', btn_edge_usb_reset:'Сбросить пакеты к defaults', btn_edge_usb_save:'Сохранить список пакетов', btn_edge_offline_prep:'Подготовить offline-пакет', edge_offline_help:'Пакет с диска (token + agents). Без SSH на primary при деплое.', edge_offline_prep_warn:'Нужен интернет и SSH на primary сейчас. Повторить после апгрейда или смены token.', btn_edge_probe:'Опросить устройство →', edge_h_wifi:'Wi‑Fi AP', edge_wifi_hint:'Можно заполнить только 2.4 — пустые SSID/ключ 5 ГГц копируются с 2.4 (и наоборот).', edge_h_guest:'Гостевой Wi‑Fi', edge_guest_detail_hint:'Отдельный SSID; гости в ISP (не через VLESS роутера). PSK = пароль Wi‑Fi; PIN = выдача персоналом.', edge_wan_hint:'Аплинк в ISP. DNS опционально, напр. 1.1.1.1 9.9.9.9.', deploy_log_title:'Лог деплоя', jobs_title:'Задачи op', jobs_note:'Живут в netductor-op serve. Cancel — кооперативный (текущий SSH-шаг может доработать).', jobs_refresh:'Обновить', jobs_running:'Только running', jobs_empty:'(нет задач)', jobs_cancel:'Отменить', jobs_cancel_confirm:'Отменить задачу?', edge_run_working:'Идёт применение… шаги в логе ниже', edge_run_done:'Готово — смотрите лог', edge_run_err:'Ошибка — смотрите лог', netmap_title:'Карта сетей', netmap_note:'Канонические CIDR — SR и edge LAN.', edge_h_lan:'LAN', edge_lan_hint:'Магазины: лучше 10.120.<N>.0/24 (Настройки → Карта сетей). Не 10.9.8 и не 10.88.', edge_mod_agent:'Установка agent', edge_mod_lan:'LAN baseline', edge_mod_wan:'WAN / uplink', edge_mod_wifi:'Wi‑Fi AP', edge_mod_guest:'Гостевой Wi‑Fi', edge_mod_vpn:'VPN‑клиент (VLESS)', edge_mod_fs:'Расширить root (SD/mmc)', edge_mod_overlay:'Внешний overlay / extroot', edge_mod_usb_format:'Форматировать USB (данные будут уничтожены)', edge_storage_title:'Накопитель edge (USB)', edge_storage_help:'Day-2: бэкап A+B, mute алертов, restore с primary.', btn_st_backup:'Бэкап сейчас (A+B)', btn_st_restore:'Restore с primary', btn_st_restore_fmt:'Format USB + restore', btn_st_mute:'Mute USB-алертов', btn_st_unmute:'Включить USB-алерты', btn_st_offline:'Собрать offline pack (на primary)', edge_mod_usb_format_help:'Стереть USB и создать ext4 под extroot. Необратимо.', edge_mod_ssh:'SSH harden', edge_mod_vpn_help:'Роутер поднимает VLESS → secondary/primary. Клиенты LAN идут через VPN; гости — напрямую в ISP.', edge_mod_help:'Модули для этого устройства. Серые — нельзя на этом железе.', edge_stat_mem:'Свободная память', edge_stat_storage:'Накопитель', edge_stat_expand:'Expand root', edge_chip_eth:'Eth ×', edge_chip_wan_yes:'есть WAN', edge_chip_wan_no:'без WAN', edge_chip_no_radio:'нет radio', edge_yes:'да', edge_no:'нет', edge_storage_flash:'flash', edge_storage_overlay:'overlay', edge_storage_root:'root', edge_ph_router:'например 192.168.1.1 — само не подставляется', btn_edge_to_modules:'Модули →', btn_edge_to_details:'Параметры →', btn_edge_replan:'Повторить probe', btn_back:'Назад', btn_edge_details:'Параметры →', btn_edge_dry:'План (dry-run)', btn_edge_modules:'Модули →', c_advanced:'Advanced-модули', edge_details_help:'Заполните только включённые модули.', edge_h_card:'Карточка устройства', edge_h_connect:'Подключение', edge_h_details:'Параметры', edge_h_modules:'Модули', edge_mod_help:'Модули для этого класса устройства.', l_action:'Действие', l_display:'Отображаемое имя', l_key_pass:'Passphrase ключа', l_label:'Метка', l_preset:'Пресет', l_primary:'Primary host', l_router:'Хост роутера', l_router_pass:'Пароль роутера', l_rpi_id:'ID устройства', l_rpi_lan:'LAN IP роутера', l_server:'URL agent server', edge_note:'OpenWrt edge: агент, затем UCI. SSH на primary — порт 52222 (после harden); на роутер — 22. Prefill из Fleet/Settings.', edge_net_help:'Только если включено «Настроить сеть».', l_lan_mask:'Маска LAN', l_dhcp_start:'DHCP start', l_dhcp_limit:'DHCP limit', l_ssid24:'SSID 2.4', l_key24:'Ключ 2.4', l_ssid5:'SSID 5', l_key5:'Ключ 5', l_wan_ip:'WAN IP', l_wan_mask:'Маска WAN', l_wan_gw:'Шлюз WAN', l_wan_dns:'DNS WAN', l_wan_dns_help:'Опционально. Пробел или запятая. Рекомендуем 1.1.1.1 9.9.9.9 (сначала CF). Пусто=DNS провайдера. Не режим dns=vpn у edge.', l_pppoe_user:'PPPoE user', l_pppoe_pass:'PPPoE password', l_guest_ssid:'Guest SSID', l_guest_pin:'PIN продавца', l_guest_pin_help:'PIN персонала для выдачи интернета — не пароль Wi‑Fi.', l_guest_psk:'Guest PSK (Wi‑Fi)', l_guest_psk_help:'Пароль Wi‑Fi в join-QR. Обязателен (open-сеть не поддерживается).', c_push:'Push RSC + harden',
   tg_note:'Telegram ставится только на primary (нужны token и числовой admin id).',
   build_note:'CI build-host с Mac (op). Туннели PB/BP к primary. Не VPN-exit.', l_build_host:'Хост build', l_build_pass:'Пароль build', l_build_label:'Метка build', btn_fleet:'Деплой флота', btn_primary:'Деплой primary', btn_build:'Деплой build-host', btn_secondary:'Деплой secondary',
   btn_edge:'Поставить edge', h_luci:'LuCI (LAN)', luci_help:'Временно включить веб-UI LuCI OpenWrt с таймером автовыключения (по умолчанию 1ч). Нужен доступ в ту же LAN, что и роутер. Via=SSH — ключ оператора с Mac; Via=Agent — команда в очередь primary (агент на роутере должен быть online).', l_device_id:'Device id (agent)', l_device_id_help:'ID edge с provision (напр. site-home1). Обязателен для Via=Agent; для SSH можно только host+ключ.', l_luci_action:'Действие', l_luci_hours:'Часы (TTL, потом LuCI выкл)', l_luci_via:'Канал', btn_luci:'Управление LuCI', btn_site:'Сохранить / push сайта', btn_creds:'Собрать',
@@ -2456,6 +2456,7 @@ async function edgePreview(){
       facts: r.facts || pr.facts || {},
       plan: pr.plan || pr, // DeployPlan with steps
       card: pr.card || r.card || {},
+      bootstrap_presets: r.bootstrap_presets || pr.bootstrap_presets || [],
       result: r
     };
     // If card empty, synthesize minimal from facts
@@ -2480,10 +2481,82 @@ async function edgePreview(){
   window.__edgePreview=data;
   edgeRenderCard(data);
   edgeRenderModules(data);
+  edgeRenderBootstrapPresets(data);
   const ps=document.getElementById('edge_preset');
   if(ps && data.preset && !ps.value) ps.value=data.preset;
   return data;
 }
+
+
+function edgeRenderBootstrapPresets(data){
+  const box=document.getElementById('edge_bootstrap_presets');
+  const btn=document.getElementById('btnEdgeBootstrap');
+  if(!box) return;
+  box.innerHTML='';
+  const list=(data&&data.bootstrap_presets)||[];
+  window.__edgeBootstrapPresets=list;
+  if(!list.length){
+    box.innerHTML='<p class="note">'+(t('edge_bootstrap_need_probe')||'Run Probe first')+'</p>';
+    if(btn) btn.disabled=true;
+    return;
+  }
+  const ru=(localStorage.getItem('nd_lang')||'')==='ru';
+  list.forEach((pr,idx)=>{
+    const row=document.createElement('label');
+    row.className='edge-mod-row';
+    const title=ru?(pr.title_ru||pr.title_en):(pr.title_en||pr.id);
+    const desc=ru?(pr.description_ru||pr.description_en):(pr.description_en||'');
+    const status=pr.installed?('<span class="ok">'+(t('edge_preset_installed')||'Installed')+'</span>'):
+      ('<span class="warn">'+(t('edge_preset_missing')||'Missing')+': '+(pr.missing||[]).slice(0,4).join(', ')+'</span>');
+    const usb=pr.usb_visible?' · USB✓':'';
+    row.innerHTML='<input type="radio" name="edge_bs_preset" value="'+pr.id+'" '+(idx===0&&pr.selectable?'checked ':'')+(pr.selectable?'':'disabled ')+'/>'+
+      '<div><div class="edge-mod-title">'+title+usb+'</div><div class="edge-mod-reason">'+desc+' '+status+'</div></div>';
+    box.appendChild(row);
+  });
+  if(btn) btn.disabled=!list.some(x=>x.selectable);
+}
+
+document.getElementById('btnEdgeBootstrap')?.addEventListener('click', async ev=>{
+  const btn=ev.currentTarget; btn.disabled=true;
+  try{
+    const sel=document.querySelector('input[name="edge_bs_preset"]:checked');
+    const preset=sel?sel.value:'usb-storage';
+    const form=document.getElementById('form-edge');
+    const fd=new FormData(form);
+    const body={
+      router_host:(fd.get('router_host')||'').toString().trim(),
+      router_user:(fd.get('router_user')||'root').toString().trim()||'root',
+      router_password:(fd.get('router_password')||'').toString(),
+      primary_key:(fd.get('primary_key')||'').toString(),
+      key_passphrase:(fd.get('key_passphrase')||'').toString(),
+      preset: preset
+    };
+    if(!body.router_host) throw new Error('Router host required');
+    rdShowLogTab(); line('job edge.bootstrap …');
+    const j=await jobRun('edge.bootstrap', body, jobLogToUI);
+    if(j.status&&j.status!=='succeeded') throw new Error(j.error||j.status);
+    let r=j.result||{};
+    if(typeof r==='string'){ try{ r=JSON.parse(r);}catch(_){ r={}; } }
+    const data=Object.assign({}, window.__edgePreview||{}, {
+      facts: r.facts || {},
+      bootstrap_presets: r.bootstrap_presets || []
+    });
+    if(data.facts&&data.facts.storage){
+      data.card=Object.assign({}, data.card||{}, {
+        has_usb_disk: data.facts.storage.has_usb_disk,
+        usb_disks: data.facts.storage.usb_disks,
+        overlay_free_kb: data.facts.storage.overlay_free_kb
+      });
+    }
+    window.__edgePreview=data;
+    edgeRenderCard(data);
+    edgeRenderModules(data);
+    edgeRenderBootstrapPresets(data);
+    line(t('edge_bootstrap_done')||'Bootstrap done');
+  }catch(e){ alert(e.message||e); }
+  finally{ btn.disabled=false; }
+});
+
 
 document.getElementById('btnEdgeProbe')?.addEventListener('click', async ev=>{
   const btn=ev.currentTarget; btn.disabled=true;

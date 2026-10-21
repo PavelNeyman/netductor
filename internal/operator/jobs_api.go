@@ -33,6 +33,7 @@ func OpJobStore() *jobs.Store {
 
 func registerOpRunners(s *jobs.Store) {
 	s.Register("edge.probe", runEdgeProbe)
+	s.Register("edge.bootstrap", runEdgeBootstrap)
 	s.Register("edge.provision", runEdgeProvision)
 	s.Register("edge.offline_prep", runEdgeOfflinePrep)
 	s.Register("fleet.deploy", runFleetDeploy)
@@ -175,13 +176,13 @@ func runEdgeProbe(ctx context.Context, j *jobs.Job, appendLog func(string), setS
 	if host == "" {
 		return nil, fmt.Errorf("router_host required")
 	}
-	setStep(jobs.Step{ID: "probe", Message: "SSH probe + USB packages if needed"})
+	setStep(jobs.Step{ID: "probe", Message: "SSH probe (read-only)"})
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 	}
-	facts, raw, err := deploy.ProbeDeviceFacts(pass, key, user, host, keyPass, true)
+	facts, raw, err := deploy.ProbeDeviceFacts(pass, key, user, host, keyPass, false)
 	appendLog(raw)
 	if err != nil {
 		setStep(jobs.Step{ID: "probe", Message: err.Error(), Err: err.Error()})
@@ -220,7 +221,68 @@ func runEdgeProbe(ctx context.Context, j *jobs.Job, appendLog func(string), setS
 		return nil, err
 	}
 	setStep(jobs.Step{ID: "plan", Message: "plan resolved", Done: true})
-	return map[string]any{"facts": facts, "plan": resp}, nil
+	installed, _ := deploy.ProbeInstalledPackages(pass, key, user, host, keyPass)
+	presets := deploy.EvaluateBootstrapPresets(installed, facts.Storage.HasUsableUSB())
+	return map[string]any{"facts": facts, "plan": resp, "bootstrap_presets": presets}, nil
+}
+
+func runEdgeBootstrap(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
+	p := j.Params
+	host := strParam(p, "router_host")
+	user := strParam(p, "router_user")
+	if user == "" {
+		user = "root"
+	}
+	pass := strParam(p, "router_pass")
+	if pass == "" {
+		pass = strParam(p, "router_password")
+	}
+	key := expandHome(strParam(p, "primary_key"))
+	keyPass := strParam(p, "key_pass")
+	if keyPass == "" {
+		keyPass = strParam(p, "key_passphrase")
+	}
+	preset := strParam(p, "preset")
+	if preset == "" {
+		preset = "usb-storage"
+	}
+	if host == "" {
+		return nil, fmt.Errorf("router_host required")
+	}
+	setStep(jobs.Step{ID: "bootstrap", Message: "install preset " + preset})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- deploy.WithSSHContext(ctx, func() error {
+			return deploy.BootstrapPresetOnRouter(preset, pass, key, user, host, keyPass)
+		})
+	}()
+	select {
+	case <-ctx.Done():
+		setStep(jobs.Step{ID: "bootstrap", Message: "cancel requested", Err: "cancelled"})
+		return nil, ctx.Err()
+	case err := <-done:
+		if err != nil {
+			setStep(jobs.Step{ID: "bootstrap", Message: err.Error(), Err: err.Error()})
+			return nil, err
+		}
+	}
+	setStep(jobs.Step{ID: "bootstrap", Message: "packages installed", Done: true})
+	setStep(jobs.Step{ID: "reprobe", Message: "re-probe after bootstrap"})
+	facts, raw, err := deploy.ProbeDeviceFacts(pass, key, user, host, keyPass, false)
+	appendLog(raw)
+	if err != nil {
+		setStep(jobs.Step{ID: "reprobe", Message: err.Error(), Err: err.Error()})
+		return nil, err
+	}
+	installed, _ := deploy.ProbeInstalledPackages(pass, key, user, host, keyPass)
+	presets := deploy.EvaluateBootstrapPresets(installed, facts.Storage.HasUsableUSB())
+	setStep(jobs.Step{ID: "reprobe", Message: "facts updated", Done: true})
+	return map[string]any{"facts": facts, "bootstrap_presets": presets, "preset": preset}, nil
 }
 
 func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {

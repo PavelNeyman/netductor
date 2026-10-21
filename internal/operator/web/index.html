@@ -268,8 +268,9 @@
         <div class="row edge-usb-pkgs">
           <div style="flex:1">
             <label data-i18n="l_edge_usb_pkgs">OpenWrt USB packages (offline cache)</label>
-            <textarea name="edge_usb_packages" id="edge_usb_packages" rows="3" spellcheck="false" data-i18n-placeholder="edge_ph_usb_pkgs" placeholder="kmod-usb-storage, e2fsprogs, … (comma-separated; empty = defaults)"></textarea>
-            <p class="note" data-i18n="edge_usb_pkgs_note">Used by offline-prep / probe. Saved to operator.conf. Does not require a new release.</p>
+            <div id="edge_bootstrap_presets" class="edge-mod-list"></div>
+            <p class="note" data-i18n="edge_bootstrap_note">Probe is read-only. If USB is missing, run Bootstrap (usb-storage) then cards refresh. Deploy never installs these packages.</p>
+            <button type="button" class="secondary" id="btnEdgeBootstrap" data-i18n="btn_edge_bootstrap" disabled>Bootstrap selected</button>
           </div>
         </div>
         <div class="edge-actions">
@@ -560,7 +561,7 @@
       </div>
       <button class="primary" type="submit" data-i18n="save">Save</button>
       <div class="row"><div style="flex:1"><label data-i18n="l_edge_usb_pkgs">OpenWrt USB packages</label>
-            <textarea name="edge_usb_packages" id="set_edge_usb_packages" rows="2" spellcheck="false"></textarea></div></div>
+            <p class="note" data-i18n="edge_usb_conf_deprecated">Package lists are fixed presets (usb-storage). Free-form edge_usb_packages is ignored for install.</p></div></div>
       <p class="note" data-i18n="set_disk_note">Save writes ~/.config/netductor/operator.conf (same as TUI). Prefills all installer tabs.</p>
       <h3 data-i18n="netmap_title">Network map</h3>
       <p class="note" data-i18n="netmap_note">Canonical CIDRs — SR routing and edge LAN planning.</p>

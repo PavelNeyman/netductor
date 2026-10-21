@@ -68,8 +68,8 @@ func DeployEdge(o EdgeOpts) error {
 		if preset != "" && !edge.ValidPreset(preset) {
 			return fmt.Errorf("unknown preset %q (travel-router|sbc-lab|sbc-dual-nic)", preset)
 		}
-		// Dry-run: read-only probe (no USB package install). Real deploy may bootstrap kmods.
-		facts, raw, perr := ProbeDeviceFacts(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "", !o.DryRun)
+		// Probe is always read-only. USB packages: edge.bootstrap only.
+		facts, raw, perr := ProbeDeviceFacts(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, o.PrimaryKeyPassphrase, false)
 		if perr != nil {
 			fmt.Fprintln(os.Stderr, "warn: facts probe:", perr)
 			if o.DryRun {
@@ -272,17 +272,7 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 
-	// OpenWrt USB mass-storage kmods (router has no WAN): Mac cache → scp → apk/opkg.
-	// Run for any OpenWrt edge so next probe sees sda when stick is plugged.
-	if err := EnsureUSBStorageOnRouter(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, o.PrimaryKeyPassphrase); err != nil {
-		fmt.Fprintln(os.Stderr, "warn: USB storage packages:", err)
-		// soft-fail if operator did not request USB/overlay — hard-fail only when USB modules required
-		needUSB := o.ApplyOverlay || (o.Selection.Enabled != nil && (o.Selection.Enabled[edge.ModOverlay] || o.Selection.Enabled["usb_format"] || o.Selection.Enabled[edge.ModVPNClient]))
-		if needUSB {
-			return fmt.Errorf("USB storage modules: %w", err)
-		}
-	}
-
+	// Strict: deploy never installs USB packages. Use edge.bootstrap preset usb-storage first.
 	skipVPN := false
 	st := EdgeStorageOpts{
 		UseUSB:               o.ApplyOverlay || (o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModOverlay]),
@@ -298,6 +288,14 @@ echo KEY:$(b64 "$DIR/client.key")
 		st.UseUSB = true
 	}
 	if st.UseUSB || st.Extroot || st.Format {
+		facts2, _, _ := ProbeDeviceFacts(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, o.PrimaryKeyPassphrase, false)
+		if !facts2.Storage.HasUsableUSB() {
+			need, _, _ := RouterNeedsUSBStorage(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, o.PrimaryKeyPassphrase)
+			if need {
+				return fmt.Errorf("USB/extroot requested but mass-storage modules missing — run edge.bootstrap preset=usb-storage, then probe again")
+			}
+			return fmt.Errorf("USB/extroot requested but no USB disk visible — plug stick, bootstrap usb-storage if needed, then probe")
+		}
 		needRB, err := applyEdgeStorage(o, st)
 		if err != nil {
 			return fmt.Errorf("storage: %w", err)

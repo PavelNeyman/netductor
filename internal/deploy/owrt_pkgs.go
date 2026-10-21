@@ -413,8 +413,8 @@ true
 	return true, s, nil
 }
 
-// EnsureUSBStorageOnRouter checks modules; if missing, installs from Mac cache (download if needed).
-// Always safe to call on OpenWrt; no-op when modules already present.
+// EnsureUSBStorageOnRouter installs usb-storage bootstrap packages when modules are missing.
+// Call from edge.bootstrap only — not from probe or deploy (strict).
 func EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase string) error {
 	need, note, err := RouterNeedsUSBStorage(password, keyPath, user, host, keyPassphrase)
 	if err != nil {
@@ -428,7 +428,7 @@ func EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase strin
 		return nil
 	}
 	fmt.Fprintln(os.Stderr, "==> usb-storage missing on router — installing packages from Mac cache")
-	fmt.Fprintln(os.Stderr, "==> (probe installs kmods so the card can show USB / Format / overlay)")
+	fmt.Fprintln(os.Stderr, "==> (bootstrap preset usb-storage)")
 
 	meta, err := ProbeOpenWrtMeta(password, keyPath, user, host, keyPassphrase)
 	if err != nil {
@@ -438,7 +438,7 @@ func EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase strin
 		meta.Release, meta.Target, meta.Arch, meta.Kernel, meta.PkgMgr)
 	fmt.Fprintln(os.Stderr, "==> uploading packages to router /tmp/nd-owrt-pkgs …")
 
-	dir, files, err := EnsureOpenWrtUSBPackagesCachedNames(meta, USBPkgNamesFromOperatorConf())
+	dir, files, err := EnsureOpenWrtUSBPackagesCachedNames(meta, DefaultUSBPkgNames()) // preset usb-storage only
 	if err != nil {
 		return fmt.Errorf("cache OpenWrt USB packages: %w (Mac needs internet once)", err)
 	}

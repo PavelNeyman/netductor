@@ -110,8 +110,13 @@ netductor-op deploy edge --router 192.168.1.1 --id SITE \
   --preset sbc-lab|travel-router \
   --configure-net --guest \
   --dry-run --json          # same JSON as POST /api/edge/plan
-                            # Dry-run probe is **read-only** (no USB kmod install).
-                            # Real deploy may bootstrap USB packages, then re-probe.
+                            # Probe is **always read-only** (no package install).
+
+Bootstrap packages (then auto re-probe):
+  netductor-op deploy edge-bootstrap --router 192.168.1.1 --password '' --preset usb-storage
+  # Web: Edge → Probe → Bootstrap presets → Bootstrap selected
+  # Deploy is strict: never installs USB packages; overlay needs visible USB after bootstrap.
+
 
 netductor-op deploy edge ...   # real provision over SSH
 ```

@@ -11,7 +11,7 @@ import (
 
 func runDeploy(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, `usage: netductor deploy primary|secondary|edge|offline-prep [flags]
+		fmt.Fprintln(os.Stderr, `usage: netductor deploy primary|secondary|edge|edge-bootstrap|offline-prep [flags]
 
   primary   — bootstrap Debian VPS from this machine (Mac/PC)
   secondary — provision RU entry from Mac (prepare-pack on primary; Mac SSHs to secondary)
@@ -295,6 +295,9 @@ See: netductor tui → Setup wizard`)
 			os.Exit(1)
 		}
 		fmt.Println(out)
+	case "edge-bootstrap", "bootstrap-edge":
+		runEdgeBootstrapCLI(args[1:])
+		return
 	case "edge":
 		o := deploy.EdgeOpts{PrimaryUser: "root", RouterUser: "root", Version: deploy.Release, AgentArch: "auto"}
 		for i := 1; i < len(args); i++ {
@@ -488,4 +491,47 @@ See: netductor tui → Setup wizard`)
 		os.Exit(2)
 	}
 	_ = strings.TrimSpace
+}
+
+
+func runEdgeBootstrapCLI(args []string) {
+	var host, user, pass, key, keyPass, preset string
+	user = "root"
+	preset = "usb-storage"
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case (a == "--router" || a == "--host") && i+1 < len(args):
+			i++
+			host = args[i]
+		case a == "--user" && i+1 < len(args):
+			i++
+			user = args[i]
+		case a == "--password" && i+1 < len(args):
+			i++
+			pass = args[i]
+		case (a == "--key" || a == "--primary-key") && i+1 < len(args):
+			i++
+			key = args[i]
+		case (a == "--key-passphrase" || a == "--primary-key-passphrase") && i+1 < len(args):
+			i++
+			keyPass = args[i]
+		case a == "--preset" && i+1 < len(args):
+			i++
+			preset = args[i]
+		}
+	}
+	if host == "" {
+		fmt.Fprintln(os.Stderr, "edge-bootstrap: --router required")
+		os.Exit(2)
+	}
+	params := map[string]any{
+		"router_host": host, "router_user": user, "router_pass": pass,
+		"primary_key": key, "key_pass": keyPass, "preset": preset,
+	}
+	if _, err := startAndWaitJob("edge.bootstrap", params); err != nil {
+		fmt.Fprintln(os.Stderr, "edge-bootstrap:", err)
+		os.Exit(1)
+	}
+	fmt.Println("edge-bootstrap ok preset=" + preset)
 }

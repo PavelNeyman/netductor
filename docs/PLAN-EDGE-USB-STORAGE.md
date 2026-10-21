@@ -229,3 +229,10 @@ Web panel + TUI menu (backup/restore/mute/pack) + TG Routers → USB/storage. CL
 ### Follow-up (closed)
 - USB alert prev-state persisted (`/var/lib/netductor/edge-storage/_usb_prev.json`) so recovery survives primary restart.
 - Backup list tables: TG device card, TUI `edge-storage-list`, CLI `edge storage list`, Web List backups.
+
+
+## Bootstrap presets (0.9.463+)
+
+- Probe: read-only; returns `bootstrap_presets`.
+- Job `edge.bootstrap`: fixed preset `usb-storage` only.
+- Deploy: **strict** — no kmod install; fails if overlay without USB.

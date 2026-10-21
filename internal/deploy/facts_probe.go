@@ -153,11 +153,11 @@ done
 `
 
 // ProbeDeviceFacts SSHs to the router and fills edge.DeviceFacts.
-// bootstrapUSB installs mass-storage kmods from the Mac cache when missing (needed to see USB
-// disks on a WAN-less factory OpenWrt). Dry-run must pass bootstrapUSB=false (read-only probe).
+// Production must pass bootstrapUSB=false (read-only). Package install is edge.bootstrap only.
 func ProbeDeviceFacts(password, keyPath, user, host, keyPassphrase string, bootstrapUSB bool) (edge.DeviceFacts, string, error) {
 	var f edge.DeviceFacts
 	if bootstrapUSB {
+		// Deprecated — prefer BootstrapPresetOnRouter("usb-storage", …).
 		if err := EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase); err != nil {
 			fmt.Fprintln(os.Stderr, "warn: USB storage packages during probe:", err)
 		} else {
