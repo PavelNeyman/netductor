@@ -3,12 +3,11 @@ package vpn
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
-	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 type Guest struct {
@@ -24,25 +23,25 @@ func guestPath() string {
 }
 
 func loadGuests() ([]Guest, error) {
-	b, err := os.ReadFile(guestPath())
+	var g []Guest
+	err := statefile.LoadJSON(guestPath(), &g)
+	if statefile.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	var g []Guest
-	_ = json.Unmarshal(b, &g)
+	if g == nil {
+		g = []Guest{}
+	}
 	return g, nil
 }
 
 func saveGuests(g []Guest) error {
-	_ = os.MkdirAll(filepath.Dir(guestPath()), 0o700)
-	raw, err := json.MarshalIndent(g, "", "  ")
-	if err != nil {
-		return err
+	if g == nil {
+		g = []Guest{}
 	}
-	return os.WriteFile(guestPath(), append(raw, '\n'), 0o600)
+	return statefile.SaveJSON(guestPath(), g)
 }
 
 // CreateGuest registers metadata; caller should AddUser first.

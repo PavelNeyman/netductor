@@ -1,3 +1,9 @@
+## 0.9.452
+
+- migrate-on-read for stores touched by product changes: VPN users (kind, sub_profile, policy defaults), edge devices, sites, custom policy presets, sub tokens, recovery list
+- guests / locator devices / policy-presets → statefile (fail-closed load)
+- host-baseline repair watches vpn_guests, vpn-devices, policy-presets
+
 ## 0.9.451
 
 - statefile migration remainder: mtls pending/rollover, vpn-users registry, edge commands queue, notify alerts/known_chats, integrity manifest, reboot challenge load

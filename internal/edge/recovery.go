@@ -30,9 +30,15 @@ func loadRecovery() ([]recoveryCode, error) {
 	var list []recoveryCode
 	err := statefile.LoadJSON(recoveryPath(), &list)
 	if statefile.IsNotExist(err) {
-		return nil, nil
+		return []recoveryCode{}, nil
 	}
-	return list, err
+	if err != nil {
+		return nil, err
+	}
+	if list == nil {
+		list = []recoveryCode{}
+	}
+	return list, nil
 }
 
 func saveRecovery(list []recoveryCode) error {

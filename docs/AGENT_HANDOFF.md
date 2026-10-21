@@ -3,7 +3,7 @@
 
 ## Security stop (2026-10-20)
 
-See SECURITY-REVIEW-2026-10-20.md. Tip **v0.9.451** closes H-1/H-3/H-2/N-10 and M-3/M-5/M-7/N-8/L-3. Open: M-1, M-4, N-9, M-2, M-6, L-1.
+See SECURITY-REVIEW-2026-10-20.md. Tip **v0.9.452** closes H-1/H-3/H-2/N-10 and M-3/M-5/M-7/N-8/L-3. Open: M-1, M-4, N-9, M-2, M-6, L-1.
 
 ## Where we stopped
 

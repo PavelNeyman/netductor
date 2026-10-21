@@ -33,9 +33,15 @@ func loadSub() (subStore, error) {
 	var s subStore
 	err := statefile.LoadJSON(subPath(), &s)
 	if statefile.IsNotExist(err) {
-		return s, nil
+		return subStore{Entries: []subEntry{}}, nil
 	}
-	return s, err
+	if err != nil {
+		return s, err
+	}
+	if s.Entries == nil {
+		s.Entries = []subEntry{}
+	}
+	return s, nil
 }
 
 func saveSub(s subStore) error {

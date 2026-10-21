@@ -203,7 +203,9 @@ func loadDevices() (map[string]Device, error) {
 		}
 	}
 	if changed {
-		_ = saveDevices(wrap.Devices)
+		if err := saveDevices(wrap.Devices); err != nil {
+			return nil, err
+		}
 	}
 	return wrap.Devices, nil
 }

@@ -1,8 +1,6 @@
 package devices
 
 import (
-	"encoding/json"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 // Device is a client endpoint observed on the VPN (bound to a vpn user name).
@@ -112,24 +111,25 @@ func RefreshFromJournal(windowMin int) ([]Device, error) {
 }
 
 func loadUnlocked() ([]Device, error) {
-	b, err := os.ReadFile(storePath())
+	var f fileStore
+	err := statefile.LoadJSON(storePath(), &f)
+	if statefile.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	var f fileStore
-	if err := json.Unmarshal(b, &f); err != nil {
-		return nil, err
+	if f.Devices == nil {
+		f.Devices = []Device{}
 	}
 	return f.Devices, nil
 }
 
 func saveUnlocked(list []Device) error {
-	_ = os.MkdirAll(filepath.Dir(storePath()), 0o700)
-	b, _ := json.MarshalIndent(fileStore{Devices: list}, "", "  ")
-	return os.WriteFile(storePath(), append(b, '\n'), 0o600)
+	if list == nil {
+		list = []Device{}
+	}
+	return statefile.SaveJSON(storePath(), fileStore{Devices: list})
 }
 
 // List returns known devices (newest first).

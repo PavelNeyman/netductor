@@ -1,9 +1,7 @@
 package policy
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -11,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 // CustomPreset is a user-defined access template (not the built-in media/full/none).
@@ -41,27 +40,46 @@ func LoadCustomPresets() ([]CustomPreset, error) {
 }
 
 func loadCustomPresetsUnlocked() ([]CustomPreset, error) {
-	b, err := os.ReadFile(customPresetPath())
+	var f customPresetFile
+	err := statefile.LoadJSON(customPresetPath(), &f)
+	if statefile.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	var f customPresetFile
-	if err := json.Unmarshal(b, &f); err != nil {
-		return nil, err
+	changed := false
+	for i := range f.Presets {
+		if migrateCustomPreset(&f.Presets[i]) {
+			changed = true
+		}
+	}
+	if changed {
+		if err := saveCustomPresetsUnlocked(f.Presets); err != nil {
+			return nil, err
+		}
 	}
 	return f.Presets, nil
 }
 
-func saveCustomPresetsUnlocked(list []CustomPreset) error {
-	_ = os.MkdirAll(filepath.Dir(customPresetPath()), 0o700)
-	b, err := json.MarshalIndent(customPresetFile{Presets: list}, "", "  ")
-	if err != nil {
-		return err
+func migrateCustomPreset(p *CustomPreset) bool {
+	changed := false
+	if p.Services == nil {
+		p.Services = []string{}
+		changed = true
 	}
-	return os.WriteFile(customPresetPath(), append(b, '\n'), 0o600)
+	if p.ServicesMode == "" {
+		p.ServicesMode = "list"
+		changed = true
+	}
+	return changed
+}
+
+func saveCustomPresetsUnlocked(list []CustomPreset) error {
+	if list == nil {
+		list = []CustomPreset{}
+	}
+	return statefile.SaveJSON(customPresetPath(), customPresetFile{Presets: list})
 }
 
 func slugID(s string) string {

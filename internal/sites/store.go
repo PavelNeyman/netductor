@@ -2,6 +2,7 @@ package sites
 
 import (
 	"fmt"
+	"strings"
 	"path/filepath"
 	"sync"
 	"time"
@@ -51,7 +52,40 @@ func load() (fileData, error) {
 	if d.Sites == nil {
 		d.Sites = map[string]Site{}
 	}
+	changed := false
+	for id, s := range d.Sites {
+		if migrateSite(&s) {
+			d.Sites[id] = s
+			changed = true
+		}
+	}
+	if changed {
+		if err := save(d); err != nil {
+			return fileData{}, err
+		}
+	}
 	return d, nil
+}
+
+// migrateSite fills nil slices / missing kind (migrate-on-read).
+func migrateSite(s *Site) bool {
+	changed := false
+	if s.EdgeIDs == nil {
+		s.EdgeIDs = []string{}
+		changed = true
+	}
+	if strings.TrimSpace(s.Kind) == "" {
+		s.Kind = "other"
+		changed = true
+	}
+	if s.ID == "" {
+		return changed
+	}
+	if strings.TrimSpace(s.Name) == "" {
+		s.Name = s.ID
+		changed = true
+	}
+	return changed
 }
 
 func save(d fileData) error {

@@ -80,7 +80,7 @@ func loadRegistry() (*registry, error) {
 	return &r, nil
 }
 
-// migrateUserPolicies sets default allow_internet=true, services=[] when policy fields absent.
+// migrateUserPolicies fills defaults for fields added after older installs (migrate-on-read).
 func migrateUserPolicies(r *registry) bool {
 	changed := false
 	for i := range r.Users {
@@ -96,6 +96,24 @@ func migrateUserPolicies(r *registry) bool {
 		}
 		if u.ServicesMode == "" {
 			u.ServicesMode = "list"
+			changed = true
+		}
+		// Kind omitted in pre-device-list installs → person profile
+		if strings.TrimSpace(u.Kind) == "" {
+			u.Kind = "user"
+			changed = true
+		}
+		// Persist normalized sub_profile so files match EffectiveSubProfile
+		np := NormalizeSubProfile(u.SubProfile)
+		if u.SubProfile == "" {
+			if strings.EqualFold(u.Name, "operator") {
+				np = SubBoth
+			} else {
+				np = SubSecondary
+			}
+		}
+		if u.SubProfile != np {
+			u.SubProfile = np
 			changed = true
 		}
 	}
