@@ -13,6 +13,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/deploy"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/jobs"
+	"github.com/PavelNeyman/netductor/internal/vpscheck"
 )
 
 var (
@@ -40,6 +41,7 @@ func registerOpRunners(s *jobs.Store) {
 	s.Register("primary.deploy", runPrimaryDeploy)
 	s.Register("secondary.deploy", runSecondaryDeploy)
 	s.Register("buildhost.deploy", runBuildHostDeploy)
+	s.Register("vps.precheck", runVpsPrecheck)
 }
 
 func registerJobsAPI(mux *http.ServeMux, token string) {
@@ -457,4 +459,69 @@ func bootstrapOptsFromFacts(facts edge.DeviceFacts) deploy.BootstrapEvalOpts {
 		OverlayFreeKB: facts.Storage.OverlayFreeKB,
 		USBSizeKB:     usbKB,
 	}
+}
+
+
+func runVpsPrecheck(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
+	p := j.Params
+	host := strParam(p, "host")
+	if host == "" {
+		host = strParam(p, "router_host")
+	}
+	user := strParam(p, "user")
+	if user == "" {
+		user = strParam(p, "router_user")
+	}
+	if user == "" {
+		user = "root"
+	}
+	pass := strParam(p, "password")
+	if pass == "" {
+		pass = strParam(p, "router_pass")
+	}
+	key := expandHome(strParam(p, "key"))
+	if key == "" {
+		key = expandHome(strParam(p, "primary_key"))
+	}
+	keyPass := strParam(p, "key_passphrase")
+	if keyPass == "" {
+		keyPass = strParam(p, "key_pass")
+	}
+	port := strParam(p, "port")
+	if port == "" {
+		port = "22"
+	}
+	profile := strParam(p, "profile")
+	if profile == "" {
+		profile = "secondary"
+	}
+	primary := strParam(p, "primary")
+	skip := boolParam(p, "skip_install", false)
+	if host == "" {
+		return nil, fmt.Errorf("host required")
+	}
+	setStep(jobs.Step{ID: "vpscheck", Message: "running pre-check on " + host})
+	opt := vpscheck.SSHOpts{
+		Host: host, User: user, Password: pass, KeyPath: key, KeyPassphrase: keyPass,
+		Port: port, Profile: vpscheck.ParseProfile(profile), PrimaryIP: primary, SkipInstall: skip,
+	}
+	var rep vpscheck.Report
+	var err error
+	done := make(chan error, 1)
+	go func() {
+		rep, err = vpscheck.RunViaSSH(ctx, opt)
+		done <- err
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err := <-done:
+		if err != nil {
+			setStep(jobs.Step{ID: "vpscheck", Message: err.Error(), Err: err.Error()})
+			return nil, err
+		}
+	}
+	appendLog(rep.Text())
+	setStep(jobs.Step{ID: "vpscheck", Message: rep.SummaryEN, Done: true})
+	return rep, nil
 }

@@ -1,6 +1,6 @@
 # VPS pre-check (candidate secondary / primary)
 
-**Status:** not implemented as a full Go product path yet (2026-10-21).
+**Status:** implemented **0.9.465** — `internal/vpscheck`, job `vps.precheck`, CLI/Web/TUI (MVP scorecard, not full YABS clone).
 
 ## Intent
 

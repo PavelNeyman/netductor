@@ -19,6 +19,7 @@ const (
 	wizSecondary wizTarget = "secondary"
 	wizBuild     wizTarget = "build"
 	wizOpenWrt   wizTarget = "openwrt"
+	wizVPSCheck  wizTarget = "vpscheck"
 	wizMikroTik  wizTarget = "mikrotik"
 	wizNVR       wizTarget = "nvr"
 	wizLuci      wizTarget = "luci"
@@ -60,6 +61,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 			{"primary", "Primary VPS", "Зарубежный control plane", "Чистый Debian/VPS за границей: install стека, Reality SNI, bootstrap fleet, doctor. После этого обычно настраивают Secondary."},
 			{"secondary", "Secondary VPS", "RU entry", "Российский VPS: с Mac — prepare-pack на primary, SSH на secondary (pubkey, agent, sing-box). Пароль только первый вход."},
 			{"build", "Build-host VPS", "CI server", "Отдельный VPS под сборки: с Mac (op) — SSH, harden, agent ROLE=build, туннели PB/BP к primary. Не VPN-exit."},
+			{"vpscheck", "VPS pre-check", "Scorecard", "Прогон IP/CPU/iperf/HTTP до покупки или смены VPS (без deploy)."},
 			{"openwrt", "OpenWrt / RPi", "Edge agent", "По LAN с Mac: edge provision (бинарь агента + bootstrap). Enroll с backoff, approve на primary."},
 			{"mikrotik", "MikroTik", "ROS site", "Сайт MikroTik (+ опционально RPi OpenWrt): identity, маршруты, push скриптов через SSH TOFU."},
 			{"luci", "LuCI on router", "LAN SSH / agent", "Вкл/выкл LuCI по SSH в LAN или через agent. TTL 1ч."},
@@ -72,6 +74,8 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		{"primary", "Primary VPS", "Abroad control plane", "Clean Debian/VPS abroad: stack install, Reality SNI, fleet bootstrap, doctor. Usually followed by Secondary."},
 		{"secondary", "Secondary VPS", "RU entry", "RU VPS: from Mac — prepare-pack on primary, SSH to secondary (pubkey, agent, sing-box). Password first login only."},
 		{"build", "Build-host VPS", "CI server", "Dedicated CI VPS: from Mac (op) — SSH, harden, agent ROLE=build, PB/BP tunnels to primary. Not a VPN exit."},
+		{"vpscheck", "VPS pre-check", "Scorecard", "Прогон IP/CPU/iperf/HTTP до покупки или смены VPS (без deploy)."},
+			{"vpscheck", "VPS pre-check", "Scorecard", "IP/CPU/iperf/HTTP scorecard before buy or switch (no deploy)."},
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
 		{"luci", "LuCI on router", "LAN SSH", "Enable/disable LuCI via SSH on LAN or agent. Default TTL 1h."},

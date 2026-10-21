@@ -197,10 +197,23 @@ func wizBuildFields(id string, m *model) []wizField {
 			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true,
 				Short:  ph("First SSH password", "Пароль первого SSH"),
 				Detail: ph("Mac pubkey installed; password auth then off.", "Ставится pubkey Mac; пароль отключается.")},
+			{Key: "precheck", Label: "VPS pre-check first? (yes/no/only)", Value: "yes",
+				Short:  ph("Scorecard before deploy", "Прогон до deploy"),
+				Detail: ph("yes=run vps.precheck then deploy; only=check only; no=skip. Installs curl/iperf3/sysbench on target.", "yes=precheck затем deploy; only=только проверка; no=пропуск. Ставит curl/iperf3/sysbench.")},
 			{Key: "sni", Label: FormT(lang, "reality_sni"), Value: "api.vk.me", Short: "Reality SNI", Detail: ph("Usually same as primary.", "Обычно как на primary.")},
 			{Key: "key_pass", Label: FormT(lang, "key_passphrase") + " (primary key)", Secret: true,
 				Short:  ph("If primary key has passphrase", "Если ключ primary с фразой"),
 				Detail: ph("Unlocks Mac private key when SSHing to primary during provision.", "Нужна, чтобы с Mac ходить на primary при provision.")},
+		}
+	case "vpscheck":
+		return []wizField{
+			{Key: "host", Label: "VPS host", Short: "IP/DNS", Detail: ph("Fresh or existing VPS.", "Новый или уже живой VPS.")},
+			{Key: "user", Label: "SSH user", Value: "root", Short: "user", Detail: "root"},
+			{Key: "password", Label: "SSH password", Secret: true, Short: "or key", Detail: ph("Password for first access.", "Пароль первого входа.")},
+			{Key: "key", Label: "SSH key path", Value: orDefault(s.RemoteKey, ""), Short: "optional", Detail: ph("If password auth already off.", "Если пароль уже выключен.")},
+			{Key: "profile", Label: "Profile", Value: "secondary", Short: "secondary|primary|generic", Detail: ph("secondary=RU entry checks; primary=abroad.", "secondary=проверки для РФ entry; primary=зарубежный.")},
+			{Key: "primary", Label: "Primary IP (optional)", Value: s.RemoteHost, Short: "latency target", Detail: ph("TCP latency to primary :443/:52222.", "Задержка до primary.")},
+			{Key: "port", Label: "SSH port", Value: "22", Short: "port", Detail: "22"},
 		}
 	case "openwrt":
 		srv := "https://PRIMARY:8789"
@@ -394,6 +407,17 @@ func (m model) runWizardApplyInTUI() string {
 			return err.Error()
 		}
 		return TT(lang, "Build-host deploy finished", "Build-host готов")
+	case wizVPSCheck:
+		params := map[string]any{
+			"host": m.fieldVal("host"), "user": orDefault(m.fieldVal("user"), "root"),
+			"password": m.fieldVal("password"), "key": m.fieldVal("key"),
+			"profile": orDefault(m.fieldVal("profile"), "secondary"),
+			"primary": m.fieldVal("primary"), "port": orDefault(m.fieldVal("port"), "22"),
+		}
+		if _, err := startAndWaitJob("vps.precheck", params); err != nil {
+			return err.Error()
+		}
+		return TT(lang, "VPS pre-check finished", "VPS pre-check готов")
 	case wizSecondary:
 		if s.RemoteHost == "" || s.RemoteKey == "" {
 			return FormT(lang, "set_primary_first")
@@ -402,6 +426,25 @@ func (m model) runWizardApplyInTUI() string {
 		sec.PrimaryHost = s.RemoteHost
 		sec.PrimaryUser = orDefault(s.RemoteUser, "root")
 		sec.PrimaryKey = s.RemoteKey
+		pc := strings.ToLower(strings.TrimSpace(m.fieldVal("precheck")))
+		if pc == "" {
+			pc = "yes"
+		}
+		if pc != "no" {
+			params := map[string]any{
+				"host": m.fieldVal("host"), "user": orDefault(m.fieldVal("user"), "root"),
+				"password": m.fieldVal("password"), "profile": "secondary",
+				"primary": s.RemoteHost, "port": "22",
+			}
+			if _, err := startAndWaitJob("vps.precheck", params); err != nil {
+				if pc == "only" || pc == "yes" {
+					return "vps-check: " + err.Error()
+				}
+			}
+			if pc == "only" {
+				return TT(lang, "VPS pre-check finished (no deploy)", "VPS pre-check готов (без deploy)")
+			}
+		}
 		if _, err := startAndWaitJob("secondary.deploy", structToParams(sec)); err != nil {
 			return err.Error()
 		}

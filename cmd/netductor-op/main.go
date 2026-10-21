@@ -48,6 +48,8 @@ func main() {
 		os.Exit(runProjectBuild(os.Args[2:]))
 	case "update":
 		runOpUpdate(os.Args[2:])
+	case "vps-check", "vpscheck":
+		runVPSCheckOp(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown: %s (operator binary — see netductor-op help)\n", os.Args[1])
 		os.Exit(1)
@@ -65,6 +67,7 @@ func printOpHelp() {
   tui|menu                              Setup wizard / fleet UI
   release list-local|tags|mirror-fetch|build <tag>
   update [--version X] [--skip-verify]   self-update from GitHub Release
+  vps-check --host IP --password PASS [--profile secondary|primary]
   version | help
 
 The VPS runs a separate binary: netductor (release asset netductor-linux-*).

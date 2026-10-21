@@ -37,6 +37,9 @@
     <button type="button" class="nav-btn" data-nav="installer:secondary" title="Secondary">
       <span class="ico" aria-hidden="true">▣</span><span class="lbl">Secondary</span>
     </button>
+    <button type="button" class="nav-btn" data-nav="installer:vpscheck" title="VPS pre-check">
+      <span class="ico" aria-hidden="true">⌀</span><span class="lbl" data-i18n="nav_vpscheck">VPS check</span>
+    </button>
     <button type="button" class="nav-btn" data-nav="installer:build" title="Build-host">
       <span class="ico" aria-hidden="true">⚒</span><span class="lbl" data-i18n="sub_build">Build</span>
     </button>
@@ -199,11 +202,26 @@
       <button class="primary" type="submit" data-i18n="btn_build">Deploy build-host</button>
     </form>
   </section>
-<section id="panel-secondary" class="panel">
+  <section id="panel-secondary" class="panel">
     <form id="form-secondary">
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key"/></div></div>
       <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" required/></div><div><label data-i18n="l_pass">Password</label><input name="secondary_password" type="password"/></div></div>
-      <button class="primary" type="submit" data-i18n="btn_secondary">Deploy secondary</button>
+      <p class="note" data-i18n="vpscheck_note">Pre-check: IP region, CPU, disk sample, TCP/HTTP, iperf (installs curl/iperf3/sysbench on target). One button = full scorecard before deploy.</p>
+      <div class="row">
+        <button type="button" class="secondary" id="btnVpsPrecheckSec" data-i18n="btn_vps_precheck">VPS pre-check</button>
+        <button class="primary" type="submit" data-i18n="btn_secondary">Deploy secondary</button>
+      </div>
+    </form>
+  </section>
+  <section id="panel-vpscheck" class="panel">
+    <p class="note" data-i18n="vpscheck_panel_note">Standalone scorecard for any VPS (buy/switch). Same job as Secondary pre-check.</p>
+    <form id="form-vpscheck">
+      <div class="row"><div><label data-i18n="l_host">Host</label><input name="host" required/></div><div><label data-i18n="l_user">User</label><input name="user" value="root"/></div></div>
+      <div class="row"><div><label data-i18n="l_pass">Password</label><input name="password" type="password"/></div><div><label data-i18n="l_key">SSH key</label><input name="key" placeholder="~/.ssh/…"/></div></div>
+      <div class="row"><div><label data-i18n="l_profile">Profile</label>
+        <select name="profile"><option value="secondary">secondary (RU)</option><option value="primary">primary (abroad)</option><option value="generic">generic</option></select>
+      </div><div><label data-i18n="l_primary">Primary IP (latency)</label><input name="primary"/></div></div>
+      <button type="button" class="primary" id="btnVpsPrecheck" data-i18n="btn_vps_precheck">Run pre-check</button>
     </form>
   </section>
   <section id="panel-site" class="panel">
