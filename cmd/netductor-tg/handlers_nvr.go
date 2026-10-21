@@ -102,7 +102,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			}
 			devices = append(devices, d)
 		}
-		b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>host</th></tr>" + nl)
+		b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>"+T("th_host")+"</th></tr>" + nl)
 		for i, d := range devices {
 			if i >= 12 {
 				break

@@ -95,10 +95,10 @@ func (m *model) updateCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
-		case "esc":
+		case "esc", "q":
 			if m.catLevel == 1 {
 				m.catLevel = 0
 				m.catActionIdx = 0

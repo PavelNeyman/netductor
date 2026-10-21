@@ -533,7 +533,7 @@ func formatNodesRenameHTML() string {
 		b.WriteString(T("nodes_empty"))
 		return b.String()
 	}
-	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>host</th><th>role</th></tr>" + nl)
+	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>"+T("th_host")+"</th><th>"+T("th_role")+"</th></tr>" + nl)
 	for i, r := range rows {
 		if i >= 20 {
 			break
