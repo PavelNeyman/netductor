@@ -584,16 +584,37 @@ func secondaryBackupPull() (bool, string) {
 	if name == "" {
 		name = "netductor-latest.ndenc"
 	}
+	name = filepath.Base(name)
+	if name == "." || name == ".." || name == "" {
+		name = "netductor-latest.ndenc"
+	}
+	if !strings.HasSuffix(strings.ToLower(name), ".ndenc") && !strings.HasSuffix(strings.ToLower(name), ".tar.gz") {
+		name = name + ".ndenc"
+	}
 	dir := "/var/lib/netductor/backups/peers/core"
 	_ = os.MkdirAll(dir, 0o700)
 	outPath := filepath.Join(dir, name)
-	f, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	tmp, err := os.CreateTemp(dir, ".backup-pull-*")
 	if err != nil {
 		return false, err.Error()
 	}
-	_, err = io.Copy(f, resp.Body)
-	f.Close()
+	tmpName := tmp.Name()
+	_, err = io.Copy(tmp, resp.Body)
+	cerr := tmp.Close()
 	if err != nil {
+		_ = os.Remove(tmpName)
+		return false, err.Error()
+	}
+	if cerr != nil {
+		_ = os.Remove(tmpName)
+		return false, cerr.Error()
+	}
+	if st, e := os.Stat(tmpName); e != nil || st.Size() == 0 {
+		_ = os.Remove(tmpName)
+		return false, "empty backup download"
+	}
+	if err := os.Rename(tmpName, outPath); err != nil {
+		_ = os.Remove(tmpName)
 		return false, err.Error()
 	}
 	// key sidecar

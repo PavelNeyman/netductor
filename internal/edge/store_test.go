@@ -105,12 +105,18 @@ func TestEnrollApprovedNoTokenLeak(t *testing.T) {
 	if err != nil || dt == "" {
 		t.Fatal(err, dt)
 	}
+	// First post-approve enroll: one-shot pickup for the agent.
 	st2, tok2, isNew := Enroll(map[string]any{"device_id": "leak1", "board": "x"})
 	if st2 != StatusApproved || isNew {
 		t.Fatalf("status=%s isNew=%v", st2, isNew)
 	}
-	if tok2 != "" {
-		t.Fatal("H-1: bootstrap re-enroll must not return existing device_token")
+	if tok2 != dt {
+		t.Fatalf("one-shot pickup: got %q want %q", tok2, dt)
+	}
+	// Second enroll: H-1 — no permanent leak of personal token.
+	st3, tok3, _ := Enroll(map[string]any{"device_id": "leak1", "board": "x"})
+	if st3 != StatusApproved || tok3 != "" {
+		t.Fatalf("re-enroll must not return token: status=%s tok=%q", st3, tok3)
 	}
 	if !RequireApproved("Bearer "+dt, "leak1") {
 		t.Fatal("original token still valid")

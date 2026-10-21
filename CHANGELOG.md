@@ -1,3 +1,13 @@
+## 0.9.455
+
+- **P0** edge: one-shot TokenPickup after Approve — agent Enroll receives device token once; further bootstrap enrolls empty (H-1 without breaking onboarding)
+- EnqueueCmd requires StatusApproved only (no empty-status enqueue)
+- secondary pullBackup: Base name, .ndenc, temp+rename (no path traversal / no O_TRUNC wipe)
+- agent backup download: clear WriteDeadline for large files
+- Ship: no main/HEAD fallback when release tag missing
+- release.sh: set -euo pipefail before preflight checks
+- recovery: invalid ALLOW_CIDR fails arm; TLS failure does not fall back to HTTP unless TLS=0
+
 ## 0.9.454
 
 - firewall: critical primary/secondary ufw rules use must(); Collect verifies mtls/878x role policy (H-2 residual)

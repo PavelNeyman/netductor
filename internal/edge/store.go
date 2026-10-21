@@ -143,6 +143,8 @@ type Device struct {
 	DeviceID    string         `json:"device_id,omitempty"`
 	Status      string         `json:"status,omitempty"`
 	DeviceToken string         `json:"device_token,omitempty"`
+	// TokenPickup: after Approve, next Enroll may return DeviceToken once (agent onboarding).
+	TokenPickup  bool           `json:"token_pickup,omitempty"`
 	Board       string         `json:"board,omitempty"`
 	Hostname    string         `json:"hostname,omitempty"`
 	WANIP       string         `json:"wan_ip,omitempty"`
@@ -333,12 +335,18 @@ func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 			mergePayload(&existing, payload)
 			existing.LastSeen = now
 			existing.DeviceID = did
+			// One-shot pickup after Approve: agent needs the personal token once.
+			// Subsequent bootstrap enrolls get empty token (H-1: no permanent leak).
+			tok := ""
+			if existing.TokenPickup && existing.DeviceToken != "" {
+				tok = existing.DeviceToken
+				existing.TokenPickup = false
+			}
 			m[did] = existing
 			if err := saveDevices(m); err != nil {
 				return "error", "", false
 			}
-			// H-1: bootstrap/recovery enroll must not return the live personal device token.
-			return StatusApproved, "", false
+			return StatusApproved, tok, false
 		}
 		if st == StatusDenied || st == StatusRevoked {
 			existing.LastSeen = now
@@ -381,9 +389,13 @@ func Approve(deviceID string) (deviceToken string, err error) {
 	if d.Status == StatusApproved {
 		return d.DeviceToken, nil
 	}
-	tok := randomToken(32)
+	tok := d.DeviceToken
+	if tok == "" {
+		tok = randomToken(32)
+	}
 	d.Status = StatusApproved
 	d.DeviceToken = tok
+	d.TokenPickup = true // agent may Enroll once to receive token
 	d.ApprovedAt = time.Now().Unix()
 	d.DeviceID = deviceID
 	m[deviceID] = d
@@ -521,8 +533,8 @@ func EnqueueCmd(deviceID, action, arg string) string {
 	if !allowedEdgeActions[action] {
 		return ""
 	}
-	if st := statusUnlocked(deviceID); st != StatusApproved && st != "" {
-		return ""
+	if st := statusUnlocked(deviceID); st != StatusApproved {
+		return "" // unknown, error load, or non-approved → no enqueue
 	}
 	var wrap struct {
 		Pending []map[string]any `json:"pending"`

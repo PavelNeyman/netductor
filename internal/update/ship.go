@@ -54,7 +54,7 @@ func Ship(o ShipOpts) (tag, dst, logPath string, err error) {
 	if st, err := os.Stat(gitDir); err == nil && st.IsDir() {
 		// Prefer exact release tag so Ship builds the requested commit, not tip HEAD.
 		checked := false
-		for _, ref := range []string{tag, "refs/tags/" + tag, "main", "HEAD"} {
+		for _, ref := range []string{tag, "refs/tags/" + tag} {
 			cmd := exec.Command("git", "--git-dir="+gitDir, "--work-tree="+work, "checkout", "-f", ref)
 			out, cerr := cmd.CombinedOutput()
 			logb.Write(out)
@@ -66,7 +66,7 @@ func Ship(o ShipOpts) (tag, dst, logPath string, err error) {
 			fmt.Fprintf(&logb, "checkout %s: %v\n", ref, cerr)
 		}
 		if !checked {
-			return tag, "", "", fmt.Errorf("git checkout failed for tag %s", tag)
+			return tag, "", "", fmt.Errorf("git checkout failed for release tag %s (no main/HEAD fallback)", tag)
 		}
 		if ents, _ := os.ReadDir(work); len(ents) == 0 {
 			return tag, "", "", fmt.Errorf("git checkout produced empty worktree for %s", tag)
@@ -76,14 +76,7 @@ func Ship(o ShipOpts) (tag, dst, logPath string, err error) {
 		out, cerr := cmd.CombinedOutput()
 		logb.Write(out)
 		if cerr != nil {
-			_ = os.RemoveAll(work)
-			cmd = exec.Command("git", "clone", "--depth", "1", "https://github.com/PavelNeyman/netductor.git", work)
-			out, cerr = cmd.CombinedOutput()
-			logb.Write(out)
-			if cerr != nil {
-				return tag, "", "", fmt.Errorf("clone: %w", cerr)
-			}
-			fmt.Fprintf(&logb, "warn: cloned default branch; tag %s may be absent on remote\n", tag)
+			return tag, "", "", fmt.Errorf("clone tag %s: %w", tag, cerr)
 		}
 	}
 

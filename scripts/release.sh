@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Preflight (web/version)
-./scripts/check-versions.sh
-./scripts/check-web-ui.sh
+set -euo pipefail
 # Local release helper (GitHub Actions disabled for this repo).
 # Usage: VERSION=0.9.106 GITHUB_TOKEN=ghp_… ./scripts/release.sh
-set -euo pipefail
+# Preflight (web/version) — must run under set -e
+./scripts/check-versions.sh
+./scripts/check-web-ui.sh
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 VER="${VERSION:-$(cat VERSION | tr -d '[:space:]')}"

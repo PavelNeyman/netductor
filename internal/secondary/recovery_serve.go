@@ -133,6 +133,7 @@ func ArmRecovery(ttl time.Duration) error {
 
 	var nets []*net.IPNet
 	if allow := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_ALLOW_CIDR")); allow != "" {
+		var parseErrs []string
 		for _, p := range strings.Split(allow, ",") {
 			p = strings.TrimSpace(p)
 			if p == "" {
@@ -143,10 +144,16 @@ func ArmRecovery(ttl time.Duration) error {
 			}
 			_, n, err := net.ParseCIDR(p)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "recovery-serve: bad CIDR %q: %v\n", p, err)
+				parseErrs = append(parseErrs, fmt.Sprintf("%q: %v", p, err))
 				continue
 			}
 			nets = append(nets, n)
+		}
+		if len(nets) == 0 {
+			return fmt.Errorf("NETDUCTOR_RECOVERY_ALLOW_CIDR set but no valid CIDR (%v)", parseErrs)
+		}
+		if len(parseErrs) > 0 {
+			return fmt.Errorf("NETDUCTOR_RECOVERY_ALLOW_CIDR has invalid entries: %v", parseErrs)
 		}
 	}
 	serveKey := false // backup key is offline-only; SERVE_KEY removed
@@ -315,8 +322,15 @@ func ArmRecovery(ttl time.Duration) error {
 	recArmed = true
 	recUntil = time.Now().Add(ttl)
 
+	certFile, keyFile, tlsOn, tlsErr := ensureRecoveryTLS()
+	if os.Getenv("NETDUCTOR_RECOVERY_TLS") != "0" && (tlsErr != nil || !tlsOn) {
+		disarmLocked()
+		if tlsErr != nil {
+			return fmt.Errorf("recovery TLS required: %w", tlsErr)
+		}
+		return fmt.Errorf("recovery TLS required but certs unavailable")
+	}
 	go func() {
-		certFile, keyFile, tlsOn := ensureRecoveryTLS()
 		if tlsOn {
 			if recoveryBindIsLoopback(bind) {
 				fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
@@ -329,7 +343,7 @@ func ArmRecovery(ttl time.Duration) error {
 		if recoveryBindIsLoopback(bind) {
 			fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
 		}
-		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED http://%s until %s (Bearer; key on wire=%v; set RECOVERY_TLS=0 to force HTTP)\n",
+		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED http://%s until %s (Bearer; key on wire=%v; NETDUCTOR_RECOVERY_TLS=0)\n",
 			addr, recUntil.Format(time.RFC3339), serveKey)
 		_ = srv.ListenAndServe()
 	}()
@@ -356,20 +370,19 @@ const recoveryCert = "/etc/netductor/secrets/recovery.crt"
 const recoveryKey = "/etc/netductor/secrets/recovery.key"
 
 // ensureRecoveryTLS returns cert/key paths. Default ON (self-signed). RECOVERY_TLS=0 → plain HTTP.
-func ensureRecoveryTLS() (certFile, keyFile string, ok bool) {
+func ensureRecoveryTLS() (certFile, keyFile string, ok bool, err error) {
 	if os.Getenv("NETDUCTOR_RECOVERY_TLS") == "0" {
-		return "", "", false
+		return "", "", false, nil
 	}
-	if st, err := os.Stat(recoveryCert); err == nil && st.Size() > 0 {
-		if st2, err2 := os.Stat(recoveryKey); err2 == nil && st2.Size() > 0 {
-			return recoveryCert, recoveryKey, true
+	if st, e := os.Stat(recoveryCert); e == nil && st.Size() > 0 {
+		if st2, e2 := os.Stat(recoveryKey); e2 == nil && st2.Size() > 0 {
+			return recoveryCert, recoveryKey, true, nil
 		}
 	}
 	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "recovery-tls: keygen: %v\n", err)
-		return "", "", false
+		return "", "", false, err
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
@@ -381,26 +394,24 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool) {
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "recovery-tls: cert: %v\n", err)
-		return "", "", false
+		return "", "", false, err
 	}
 	cf, err := os.OpenFile(recoveryCert, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return "", "", false
+		return "", "", false, err
 	}
 	_ = pem.Encode(cf, &pem.Block{Type: "CERTIFICATE", Bytes: der})
 	_ = cf.Close()
 	kf, err := os.OpenFile(recoveryKey, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return "", "", false
+		return "", "", false, err
 	}
 	b, _ := x509.MarshalECPrivateKey(key)
 	_ = pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
 	_ = kf.Close()
 	fmt.Fprintf(os.Stderr, "recovery-tls: cert %s (copy to peer as /etc/netductor/secrets/recovery_peer.crt or set NETDUCTOR_RECOVERY_CA)\n", recoveryCert)
-	return recoveryCert, recoveryKey, true
+	return recoveryCert, recoveryKey, true, nil
 }
-
 func recoveryBindIsLoopback(bind string) bool {
 	bind = strings.TrimSpace(bind)
 	if bind == "" || bind == "127.0.0.1" || bind == "::1" || bind == "localhost" {
