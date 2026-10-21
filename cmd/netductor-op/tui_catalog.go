@@ -40,24 +40,44 @@ func (m *model) catalogActions() []opcatalog.Action {
 func (m *model) renderCatalog(bodyH, w int) string {
 	ru := m.lang == langRU
 	var b strings.Builder
+	hint := "Enter · Esc · PgUp/PgDn"
+	if ru {
+		hint = "Enter · Esc · PgUp/PgDn"
+	}
 	if m.catLevel == 0 {
 		title := "Day-2 catalog (Groups)"
 		if ru {
 			title = "Day-2 каталог (группы)"
 		}
 		b.WriteString(stTitle.Render(title) + "\n")
-		b.WriteString(stMuted.Render("Enter → actions · Esc → menu") + "\n\n")
-		for i, g := range m.catalogGroups() {
+		b.WriteString(stMuted.Render(hint) + "\n\n")
+		groups := m.catalogGroups()
+		headerLines := 3
+		vis := bodyH - headerLines
+		if vis < 3 {
+			vis = 3
+		}
+		m.clampCatOffset(len(groups), vis)
+		start := m.catOffset
+		end := start + vis
+		if end > len(groups) {
+			end = len(groups)
+		}
+		for i := start; i < end; i++ {
+			g := groups[i]
 			lab := g.LabelEN
 			if ru {
 				lab = g.LabelRU
 			}
-			line := fmt.Sprintf("  %s  %s", lab, stMuted.Render("["+strings.Join(g.Sections, ",")+"]"))
 			if i == m.catGroupIdx {
 				b.WriteString(stSel.Render("› "+lab) + " " + stMuted.Render(strings.Join(g.Sections, ",")) + "\n")
 			} else {
+				line := fmt.Sprintf("  %s  %s", lab, stMuted.Render("["+strings.Join(g.Sections, ",")+"]"))
 				b.WriteString(stNorm.Render(line) + "\n")
 			}
+		}
+		if start > 0 || end < len(groups) {
+			b.WriteString(stMuted.Render(fmt.Sprintf("  [%d–%d / %d]", start+1, end, len(groups))) + "\n")
 		}
 	} else {
 		gs := m.catalogGroups()
@@ -67,12 +87,25 @@ func (m *model) renderCatalog(bodyH, w int) string {
 			lab = g.LabelRU
 		}
 		b.WriteString(stTitle.Render(lab) + "\n")
-		b.WriteString(stMuted.Render("Enter → run · Esc → groups") + "\n\n")
+		b.WriteString(stMuted.Render(hint) + "\n\n")
 		acts := m.catalogActions()
 		if len(acts) == 0 {
 			b.WriteString(stMuted.Render("(empty)") + "\n")
 		}
-		for i, a := range acts {
+		headerLines := 3
+		vis := bodyH - headerLines
+		if vis < 3 {
+			vis = 3
+		}
+		// actions may take 2 lines when selected — use 1 line count for offset
+		m.clampCatOffset(len(acts), vis)
+		start := m.catOffset
+		end := start + vis
+		if end > len(acts) {
+			end = len(acts)
+		}
+		for i := start; i < end; i++ {
+			a := acts[i]
 			label := a.Label(map[bool]string{true: "ru", false: "en"}[ru])
 			cli := a.CLI
 			if cli == "" || cli == "—" {
@@ -84,11 +117,48 @@ func (m *model) renderCatalog(bodyH, w int) string {
 				b.WriteString(stNorm.Render("  "+label) + "\n")
 			}
 		}
+		if start > 0 || end < len(acts) {
+			b.WriteString(stMuted.Render(fmt.Sprintf("  [%d–%d / %d]", start+1, end, len(acts))) + "\n")
+		}
 	}
 	if m.output != "" {
-		b.WriteString("\n" + stMuted.Render("---") + "\n" + m.output)
+		// show last few lines of action output below list
+		lines := strings.Split(m.output, "\n")
+		tail := lines
+		if len(tail) > 8 {
+			tail = tail[len(tail)-8:]
+		}
+		b.WriteString("\n" + stMuted.Render("---") + "\n" + strings.Join(tail, "\n"))
 	}
 	return b.String()
+}
+
+func (m *model) clampCatOffset(n, vis int) {
+	if vis < 1 {
+		vis = 1
+	}
+	if n <= vis {
+		m.catOffset = 0
+		return
+	}
+	// keep selection visible
+	idx := m.catGroupIdx
+	if m.catLevel == 1 {
+		idx = m.catActionIdx
+	}
+	if idx < m.catOffset {
+		m.catOffset = idx
+	}
+	if idx >= m.catOffset+vis {
+		m.catOffset = idx - vis + 1
+	}
+	maxOff := n - vis
+	if m.catOffset < 0 {
+		m.catOffset = 0
+	}
+	if m.catOffset > maxOff {
+		m.catOffset = maxOff
+	}
 }
 
 func (m *model) updateCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -102,6 +172,7 @@ func (m *model) updateCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.catLevel == 1 {
 				m.catLevel = 0
 				m.catActionIdx = 0
+				m.catOffset = 0
 				return m, nil
 			}
 			m.screen = screenMenu
@@ -125,10 +196,63 @@ func (m *model) updateCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.catActionIdx++
 				}
 			}
+		case "pgup", "ctrl+u":
+			page := 8
+			if m.catLevel == 0 {
+				m.catGroupIdx -= page
+				if m.catGroupIdx < 0 {
+					m.catGroupIdx = 0
+				}
+			} else {
+				m.catActionIdx -= page
+				if m.catActionIdx < 0 {
+					m.catActionIdx = 0
+				}
+			}
+		case "pgdown", "ctrl+d":
+			page := 8
+			if m.catLevel == 0 {
+				m.catGroupIdx += page
+				if m.catGroupIdx >= len(m.catalogGroups()) {
+					m.catGroupIdx = len(m.catalogGroups()) - 1
+				}
+				if m.catGroupIdx < 0 {
+					m.catGroupIdx = 0
+				}
+			} else {
+				acts := m.catalogActions()
+				m.catActionIdx += page
+				if m.catActionIdx >= len(acts) {
+					m.catActionIdx = len(acts) - 1
+				}
+				if m.catActionIdx < 0 {
+					m.catActionIdx = 0
+				}
+			}
+		case "home":
+			if m.catLevel == 0 {
+				m.catGroupIdx = 0
+			} else {
+				m.catActionIdx = 0
+			}
+		case "end":
+			if m.catLevel == 0 {
+				m.catGroupIdx = len(m.catalogGroups()) - 1
+				if m.catGroupIdx < 0 {
+					m.catGroupIdx = 0
+				}
+			} else {
+				acts := m.catalogActions()
+				m.catActionIdx = len(acts) - 1
+				if m.catActionIdx < 0 {
+					m.catActionIdx = 0
+				}
+			}
 		case "enter":
 			if m.catLevel == 0 {
 				m.catLevel = 1
 				m.catActionIdx = 0
+				m.catOffset = 0
 				return m, nil
 			}
 			acts := m.catalogActions()

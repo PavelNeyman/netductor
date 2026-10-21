@@ -3080,3 +3080,37 @@ document.getElementById('btnEdgeUSBSave')?.addEventListener('click', async ()=>{
   }catch(e){ showControl({error:String(e)}); }
 });
 loadEdgeUSBPackages();
+
+
+/* mobile sidebar drawer */
+(function(){
+  function openSide(on){
+    document.body.classList.toggle('side-open', !!on);
+    const bd = document.getElementById('sideBackdrop');
+    if (bd) {
+      if (on) bd.removeAttribute('hidden');
+      else bd.setAttribute('hidden', '');
+    }
+  }
+  document.getElementById('btnSideOpen')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    openSide(!document.body.classList.contains('side-open'));
+  });
+  document.getElementById('sideBackdrop')?.addEventListener('click', ()=> openSide(false));
+  // close drawer after nav on mobile
+  document.querySelectorAll('.sidebar [data-nav]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      if (window.matchMedia('(max-width: 800px)').matches) openSide(false);
+    });
+  });
+  // btnCollapse on mobile also toggles drawer
+  const coll = document.getElementById('btnCollapse');
+  if (coll) {
+    coll.addEventListener('click', (e)=>{
+      if (window.matchMedia('(max-width: 800px)').matches) {
+        e.stopImmediatePropagation();
+        openSide(!document.body.classList.contains('side-open'));
+      }
+    }, true);
+  }
+})();

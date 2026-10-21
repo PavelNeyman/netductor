@@ -11,14 +11,9 @@ func handleCertsCB(token string, chat int64, msgID int, data string) bool {
 	if data != "m:certs" && !strings.HasPrefix(data, "m:certs:") {
 		return false
 	}
-	ru := getLang() != "en"
 	var b strings.Builder
-	if ru {
-		b.WriteString("🔐 <b>Сертификаты mTLS</b>\n")
-	} else {
-		b.WriteString("🔐 <b>mTLS certificates</b>\n")
-	}
-	b.WriteString("\n<b>Plane</b>\n")
+	b.WriteString(T("certs_title") + "\n")
+	b.WriteString("\n<b>" + T("certs_plane") + "</b>\n")
 	for _, pc := range mtls.ListPlaneCerts() {
 		tag := "🟢"
 		if pc.DaysLeft < 0 {
@@ -28,14 +23,10 @@ func handleCertsCB(token string, chat int64, msgID int, data string) bool {
 		}
 		fmt.Fprintf(&b, "%s <code>%s</code> %dd · %s\n", tag, esc(pc.Name), pc.DaysLeft, pc.NotAfter.UTC().Format("2006-01-02"))
 	}
-	b.WriteString("\n<b>Clients</b>\n")
+	b.WriteString("\n<b>" + T("certs_clients") + "</b>\n")
 	clients, err := mtls.ListClientCerts()
 	if err != nil || len(clients) == 0 {
-		if ru {
-			b.WriteString("<i>нет client certs</i>\n")
-		} else {
-			b.WriteString("<i>no client certs</i>\n")
-		}
+		b.WriteString("<i>" + T("certs_none") + "</i>\n")
 	} else {
 		for _, c := range clients {
 			tag := "🟢"
@@ -50,7 +41,7 @@ func handleCertsCB(token string, chat int64, msgID int, data string) bool {
 		}
 	}
 	if pend, err := mtls.PendingRotates(); err == nil && len(pend) > 0 {
-		b.WriteString("\n<b>Pending rotate</b>\n")
+		b.WriteString("\n<b>" + T("certs_pending") + "</b>\n")
 		for _, p := range pend {
 			fmt.Fprintf(&b, "• %s old=%s new=%s\n", esc(p.NodeID), esc(p.OldSerial), esc(p.NewSerial))
 		}

@@ -425,3 +425,24 @@ body, .app {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* mobile sidebar toggle */
+.mobile-only { display: none; }
+.side-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 35;
+}
+@media (max-width: 800px) {
+  .mobile-only { display: inline-flex; align-items: center; justify-content: center; }
+  .topbar { gap: .4rem; }
+  .side-backdrop { display: block; }
+  .side-backdrop[hidden] { display: none !important; }
+  body.side-open .side-backdrop { display: block; }
+  body.side-open .side-backdrop[hidden] { display: block !important; }
+  /* collapse control on mobile opens drawer instead of desktop collapse */
+  body.side-open .sidebar { box-shadow: 4px 0 24px rgba(0,0,0,.35); }
+}

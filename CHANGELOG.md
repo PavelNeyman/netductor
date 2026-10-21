@@ -1,3 +1,9 @@
+## 0.9.460
+
+- **TG:** Registry + mTLS certs screens via T() (RU/EN)
+- **TUI:** catalog viewport + PgUp/PgDn/Home/End + wheel; Output viewport + scroll/wheel
+- **Web:** mobile sidebar toggle (btnSideOpen) + backdrop; close on nav
+
 ## 0.9.459
 
 UI residual (no GitHub assets yet — code on main):

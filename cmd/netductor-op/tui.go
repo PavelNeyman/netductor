@@ -170,6 +170,8 @@ type model struct {
 	catGroupIdx    int
 	catActionIdx   int
 	catLevel       int
+	catOffset      int // list viewport start (groups or actions)
+	outOffset      int // output log lines from bottom (0 = follow tail)
 }
 
 func orDefault(s, d string) string {

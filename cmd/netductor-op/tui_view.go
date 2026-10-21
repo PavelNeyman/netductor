@@ -294,7 +294,7 @@ func (m *model) renderSplit() string {
 }
 
 func (m *model) renderOutput() string {
-	// Framed log — same chrome as menu/wizard (TUI stays whole).
+	// Framed log with viewport (PgUp/PgDn); outOffset lines from bottom (0 = tail).
 	w := m.termW()
 	h := max(8, m.height)
 	header := m.renderHeader()
@@ -306,13 +306,51 @@ func (m *model) renderOutput() string {
 		bodyH = 5
 	}
 	ru := m.lang == langRU
-	title, hint := "Output", "Esc = back to menu"
+	title, hint := "Output", "Esc · PgUp/PgDn · Home/End"
 	if ru {
-		title, hint = "Вывод", "Esc = назад в меню"
+		title, hint = "Вывод", "Esc · PgUp/PgDn · Home/End"
 	}
-	inner := stTitle.Render(title) + "\n" + stMuted.Render(hint) + "\n\n" + m.output
+	lines := strings.Split(m.output, "\n")
+	if m.output == "" {
+		lines = nil
+	}
+	innerH := bodyH - 4
+	if innerH < 3 {
+		innerH = 3
+	}
+	n := len(lines)
+	maxOff := 0
+	if n > innerH {
+		maxOff = n - innerH
+	}
+	if m.outOffset < 0 {
+		m.outOffset = 0
+	}
+	if m.outOffset > maxOff {
+		m.outOffset = maxOff
+	}
+	start, end := 0, n
+	if n > innerH {
+		end = n - m.outOffset
+		if end < innerH {
+			end = innerH
+		}
+		if end > n {
+			end = n
+		}
+		start = end - innerH
+		if start < 0 {
+			start = 0
+		}
+	}
+	view := strings.Join(lines[start:end], "\n")
+	pos := ""
+	if n > innerH {
+		pos = fmt.Sprintf("  [%d–%d / %d]", start+1, end, n)
+	}
+	inner := stTitle.Render(title) + "\n" + stMuted.Render(hint+pos) + "\n\n" + view
 	body := stBorder.Width(w).Height(bodyH).MaxHeight(bodyH).Render(
-		lipgloss.NewStyle().Width(w - 2).Height(bodyH - 2).MaxHeight(bodyH - 2).Render(inner),
+		lipgloss.NewStyle().Width(w-2).Height(bodyH-2).MaxHeight(bodyH-2).Render(inner),
 	)
 	used := headH + lipgloss.Height(body) + helpH
 	gap := h - used

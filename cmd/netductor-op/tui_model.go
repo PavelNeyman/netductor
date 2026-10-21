@@ -41,6 +41,43 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
+		if m.screen == screenOutput {
+			if msg.Button == tea.MouseButtonWheelUp {
+				m.outOffset++
+				return m, nil
+			}
+			if msg.Button == tea.MouseButtonWheelDown {
+				if m.outOffset > 0 {
+					m.outOffset--
+				}
+				return m, nil
+			}
+		}
+		if m.screen == screenCatalog {
+			if msg.Button == tea.MouseButtonWheelUp {
+				if m.catLevel == 0 {
+					if m.catGroupIdx > 0 {
+						m.catGroupIdx--
+					}
+				} else if m.catActionIdx > 0 {
+					m.catActionIdx--
+				}
+				return m, nil
+			}
+			if msg.Button == tea.MouseButtonWheelDown {
+				if m.catLevel == 0 {
+					if m.catGroupIdx < len(m.catalogGroups())-1 {
+						m.catGroupIdx++
+					}
+				} else {
+					acts := m.catalogActions()
+					if m.catActionIdx < len(acts)-1 {
+						m.catActionIdx++
+					}
+				}
+				return m, nil
+			}
+		}
 		if msg.Button != tea.MouseButtonLeft {
 			return m, nil
 		}
@@ -86,10 +123,38 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 			return m, nil
+		case "pgup", "ctrl+u":
+			if m.screen == screenOutput {
+				m.outOffset += 10
+				return m, nil
+			}
+		case "pgdown", "ctrl+d":
+			if m.screen == screenOutput {
+				m.outOffset -= 10
+				if m.outOffset < 0 {
+					m.outOffset = 0
+				}
+				return m, nil
+			}
+		case "home":
+			if m.screen == screenOutput {
+				// jump to top of log
+				lines := len(m.output)
+				if lines > 0 {
+					m.outOffset = 999999 // clamped in render
+				}
+				return m, nil
+			}
+		case "end":
+			if m.screen == screenOutput {
+				m.outOffset = 0
+				return m, nil
+			}
 		case "esc", "q":
 			if m.screen == screenOutput {
 				m.screen = screenMenu
 				m.output = ""
+				m.outOffset = 0
 				return m, nil
 			}
 			if m.tab != tabMode && m.screen == screenMenu {
@@ -145,6 +210,7 @@ func (m model) activateCursor() (tea.Model, tea.Cmd) {
 		}
 		m.tab = tabTools
 		m.screen = screenOutput
+		m.outOffset = 0
 		m.cursor = 0
 		return m, nil
 	}
@@ -194,16 +260,19 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		m.remoteHost, m.remoteUser = "", "root"
 		m.output = "remote cleared — commands run locally"
 		m.screen = screenOutput
+		m.outOffset = 0
 		return m, nil
 	case "fleet-status":
 		m.showCmd("fleet", "status")
 	case "jobs", "jobs-list":
 		m.output = listOpJobsText()
 		m.screen = screenOutput
+		m.outOffset = 0
 		return m, nil
 	case "jobs-running":
 		m.output = listOpJobsTextRunning()
 		m.screen = screenOutput
+		m.outOffset = 0
 		return m, nil
 	case "jobs-cancel":
 		m.tab = tabWizard
@@ -239,6 +308,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		} else {
 			m.output = m.runNetductor("status")
 			m.screen = screenOutput
+		m.outOffset = 0
 		}
 	case "mtls-list":
 		m.showCmd("mtls", "list")
@@ -250,6 +320,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		} else {
 			m.output = m.runNetductor("doctor")
 			m.screen = screenOutput
+		m.outOffset = 0
 		}
 	case "vpn-list":
 		m.showCmd("vpn", "list")
@@ -273,6 +344,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		} else {
 			m.output = m.runNetductor("probe")
 			m.screen = screenOutput
+		m.outOffset = 0
 		}
 	case "nvr-status":
 		m.showCmd("nvr", "status")
@@ -339,6 +411,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 			m.output = "saved " + tuiConfigPath()
 		}
 		m.screen = screenOutput
+		m.outOffset = 0
 		return m, nil
 	case "cfg-clear-remote":
 		m.remoteHost, m.remoteKey, m.remotePassword = "", "", ""
@@ -347,6 +420,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		_ = saveTUISettings(m.snapshotSettings())
 		m.output = "remote cleared"
 		m.screen = screenOutput
+		m.outOffset = 0
 		return m, nil
 	case "wizard", "addons":
 		m.tab = tabWizard
@@ -381,6 +455,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 	default:
 		m.output = "unknown action: " + id
 		m.screen = screenOutput
+		m.outOffset = 0
 	}
 	return m, nil
 }
