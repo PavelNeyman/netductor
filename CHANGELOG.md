@@ -1,3 +1,10 @@
+## 0.9.459
+
+UI residual (no GitHub assets yet — code on main):
+- **TUI:** termW without forced 40 cols; list viewport follows cursor; narrow single-column; mouse header matches update badge + mode
+- **Web:** 100dvh; site/srv-grid minmax(min(100%,…)); mobile sidebar overlay + dock rules
+- **TG:** table headers via T(th_*); NVR Live on EN hub; RU guest/dns/backup labels
+
 ## 0.9.458
 
 - **Recovery auto-pin:** secondary heartbeat sends `recovery_fp`; primary stores `/etc/netductor/secrets/recovery_peer.fp` (+ per-device under state)

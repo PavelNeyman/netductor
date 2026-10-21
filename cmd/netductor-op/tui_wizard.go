@@ -83,7 +83,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 // Deploy targets: framed fields only (tui_wizard_apply). Legacy huh deploy removed.
 
 func (m *model) renderWizard() string {
-	w := max(40, m.width)
+	w := max(1, m.width)
 	h := max(8, m.height)
 	ru := m.lang == langRU
 	header := m.renderHeader()

@@ -312,7 +312,7 @@ func showBackupMenu(token string, chat int64, msgID int, s install.BackupSchedul
 		b.WriteString("<tr><td>время</td><td><code>" + install.FormatBackupSchedule(s) + "</code></td></tr>" + nl)
 		b.WriteString("<tr><td>по умолчанию</td><td>01:00 UTC ≈ 04:00 MSK</td></tr>" + nl)
 	} else {
-		b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+		b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
 		b.WriteString("<tr><td>time</td><td><code>" + install.FormatBackupSchedule(s) + "</code></td></tr>" + nl)
 		b.WriteString("<tr><td>default</td><td>01:00 UTC ≈ 04:00 MSK</td></tr>" + nl)
 	}
@@ -479,7 +479,7 @@ func showLocationCard(token string, chat int64, msgID int, id string) {
 	var b strings.Builder
 	b.WriteString("📍 <b>" + esc(s.Name) + "</b>" + nl)
 	b.WriteString("<table bordered striped>" + nl)
-	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+	b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
 	b.WriteString("<tr><td>id</td><td><code>" + esc(s.ID) + "</code></td></tr>" + nl)
 	b.WriteString("<tr><td>kind</td><td>" + esc(s.Kind) + "</td></tr>" + nl)
 	b.WriteString("<tr><td>edges</td><td>" + strconv.Itoa(len(s.EdgeIDs)) + "</td></tr>" + nl)

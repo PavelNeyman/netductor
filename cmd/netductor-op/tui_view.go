@@ -82,10 +82,18 @@ func renderChip(c helpChip) string {
 	return stChipKey.Render(c.Key) + stChipLab.Render(" "+c.Label+" ")
 }
 
+// termW is the usable terminal width (never invent extra columns that break mouse hit-tests).
+func (m *model) termW() int {
+	if m.width < 1 {
+		return 1
+	}
+	return m.width
+}
+
 func (m *model) renderHeader() string {
 	m.clearHits()
 	loc := l10n(m.lang)
-	w := max(40, m.width)
+	w := m.termW()
 
 	// Left: app · version · short blurb
 	ver := version
@@ -162,7 +170,7 @@ func (m *model) renderHeader() string {
 }
 
 func (m *model) renderHelpBar() string {
-	w := max(40, m.width)
+	w := m.termW()
 	chips := m.currentHelp()
 	var rows []string
 	var cur string
@@ -198,7 +206,7 @@ func (m *model) renderHelpBar() string {
 }
 
 func (m *model) renderSplit() string {
-	w := max(40, m.width)
+	w := m.termW()
 	h := max(8, m.height)
 	headerH := 1
 	helpH := lipgloss.Height(m.renderHelpBar())
@@ -209,18 +217,25 @@ func (m *model) renderSplit() string {
 	if bodyH < 5 {
 		bodyH = 5
 	}
+	single := w < 48
 	leftW := w * 2 / 5
-	if leftW < 24 {
-		leftW = 24
+	if leftW < 16 {
+		leftW = 16
 	}
 	if leftW > 48 {
 		leftW = 48
 	}
-	rightW := w - leftW - 3
-	if rightW < 20 {
-		rightW = 20
-		leftW = w - rightW - 3
+	if leftW >= w-4 {
+		leftW = max(12, w-4)
+		single = true
 	}
+	rightW := w - leftW - 3
+	if rightW < 16 {
+		single = true
+		leftW = w
+		rightW = 0
+	}
+	_ = single
 
 	entries := m.currentEntries()
 	if m.cursor < 0 {
@@ -230,24 +245,33 @@ func (m *model) renderSplit() string {
 		m.cursor = len(entries) - 1
 	}
 
-	// left list — track absolute Y: header is y=0, body starts y=1
+	// Viewport keeps cursor visible (2 rows per entry).
+	visible := bodyH / 2
+	if visible < 1 {
+		visible = 1
+	}
+	start := 0
+	if m.cursor >= visible {
+		start = m.cursor - visible + 1
+	}
+	end := start + visible
+	if end > len(entries) {
+		end = len(entries)
+	}
 	var leftLines []string
 	bodyY0 := 1
-	for i, e := range entries {
+	for i := start; i < end; i++ {
+		e := entries[i]
 		line := e.Title
 		short := e.Short
-		var row string
 		if i == m.cursor {
-			row = stSel.Width(leftW).Render(line)
-			leftLines = append(leftLines, row)
+			leftLines = append(leftLines, stSel.Width(leftW).Render(line))
 			leftLines = append(leftLines, stSel.Width(leftW).Render("  "+short))
 		} else {
-			row = stNorm.Width(leftW).Render(line)
-			leftLines = append(leftLines, row)
+			leftLines = append(leftLines, stNorm.Width(leftW).Render(line))
 			leftLines = append(leftLines, stMuted.Width(leftW).Render("  "+short))
 		}
-		// each entry takes 2 rows
-		m.addHit(0, bodyY0+i*2, leftW, 2, fmt.Sprintf("row:%d", i))
+		m.addHit(0, bodyY0+(i-start)*2, leftW, 2, fmt.Sprintf("row:%d", i))
 	}
 	leftBody := strings.Join(leftLines, "\n")
 	leftBody = lipgloss.NewStyle().Width(leftW).Height(bodyH).MaxHeight(bodyH).Render(leftBody)
@@ -263,13 +287,15 @@ func (m *model) renderSplit() string {
 		lipgloss.NewStyle().Width(rightW - 2).Height(bodyH - 2).Render(detail),
 	)
 
-	gap := " "
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftBody, gap, detail)
+	if single || rightW < 16 {
+		return leftBody
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftBody, " ", detail)
 }
 
 func (m *model) renderOutput() string {
 	// Framed log — same chrome as menu/wizard (TUI stays whole).
-	w := max(40, m.width)
+	w := m.termW()
 	h := max(8, m.height)
 	header := m.renderHeader()
 	help := m.renderHelpBar()
@@ -319,7 +345,7 @@ func (m model) View() string {
 	}
 	if m.screen == screenCatalog {
 		header := m.renderHeader()
-		body := m.renderCatalog(max(8, m.height-6), max(40, m.width))
+		body := m.renderCatalog(max(8, m.height-6), m.termW())
 		help := m.renderHelpBar()
 		return header + "\n" + body + "\n" + help
 	}
@@ -335,7 +361,7 @@ func (m model) View() string {
 }
 
 func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
-	w := max(40, m.width)
+	w := m.termW()
 	h := max(8, m.height)
 	if x < 0 {
 		x = 0
@@ -447,6 +473,20 @@ func (m model) handleMouse(x, y int) (tea.Model, tea.Cmd) {
 		title += stMuted.Render(" " + blurb + " ")
 		if m.hasRemote() {
 			title += stChipKey.Render(" " + m.remoteLabel() + " ")
+		}
+		if st := ndupdate.CheckStatusCached(version); st.Update && st.Latest != "" {
+			title += stChipKey.Render(fmt.Sprintf(" ⬆%s ", st.Latest))
+		}
+		{
+			mt, _ := describeModeLang(m.mode, m.lang)
+			if mt == "" {
+				mt = string(m.mode)
+			}
+			label := "mode:" + mt
+			if m.lang == langRU {
+				label = "режим:" + mt
+			}
+			title += stChipKey.Render(" " + label + " ")
 		}
 		cx := lipgloss.Width(title)
 		tabs := []struct{ id, label string }{

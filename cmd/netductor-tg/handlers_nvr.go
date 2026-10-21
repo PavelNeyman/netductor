@@ -25,7 +25,7 @@ func nvrHubHTML() string {
 		b.WriteString("<i>📷 cameras · 📍 DHCP leases · ⚙️ config · 🗜 rotate · 📼 segments · ⚡ events · 👁 motion · 📡 go2rtc</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+	b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
 	b.WriteString(fmt.Sprintf("<tr><td>record</td><td>%v</td></tr>"+nl, cfg.RecordEnabled))
 	b.WriteString(fmt.Sprintf("<tr><td>path</td><td><code>%s</code></td></tr>"+nl, esc(cfg.Path)))
 	b.WriteString(fmt.Sprintf("<tr><td>retention</td><td>%dd · max %.0fGB</td></tr>"+nl, cfg.RetentionDays, cfg.MaxGB))
@@ -62,6 +62,7 @@ func nvrHubHTML() string {
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:events">⚡ Events</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:motion">👁 Motion</tg-button>`)
 		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:go2rtc">📡 go2rtc</tg-button>`)
+		b.WriteString(`<tg-button type="callback_data" style="link" data="m:nvr:live">▶ Live</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl)
 	}
 	return b.String()

@@ -239,7 +239,7 @@ func formatUserHubHTML(name string) string {
 		b.WriteString("<i>🔗 access · ✏️ rename · 50/200/∞/N quota · ▶ on · ⏸ off · 🗑 revoke</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+	b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
 	b.WriteString("<tr><td>status</td><td>" + icon + " <code>" + esc(en) + "</code></td></tr>" + nl)
 	b.WriteString(fmt.Sprintf("<tr><td>limit</td><td><code>%.0f</code> GiB</td></tr>"+nl, lim))
 	prof := vpn.SubProfileOf(name)

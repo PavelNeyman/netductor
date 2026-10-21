@@ -68,7 +68,7 @@ func formatSitesRSCHTML() string {
 		b.WriteString("<tr><td>источник</td><td>шаблон площадки netductor</td></tr>" + nl)
 		b.WriteString(fmt.Sprintf("<tr><td>строк</td><td>%d</td></tr>"+nl, n))
 	} else {
-		b.WriteString("<tr><th>field</th><th>value</th></tr>" + nl)
+		b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
 		b.WriteString("<tr><td>format</td><td>RouterOS script (.rsc)</td></tr>" + nl)
 		b.WriteString("<tr><td>apply</td><td>Winbox terminal / <code>/import</code></td></tr>" + nl)
 		b.WriteString("<tr><td>source</td><td>netductor site template</td></tr>" + nl)
