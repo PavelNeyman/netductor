@@ -546,14 +546,11 @@ func formatNodesRenameHTML() string {
 	}
 	b.WriteString("</table>" + nl)
 	b.WriteString(`<tg-button-row align="left">`)
-	for i, r := range rows {
+	for i := range rows {
 		if i >= 20 {
 			break
 		}
-		data := "m:nr:" + r.ID
-		if len(data) > 64 {
-			data = data[:64]
-		}
+		data := fmt.Sprintf("m:nr:i:%d", i)
 		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="link" data="%s">%d</tg-button>`, data, i+1))
 	}
 	b.WriteString(`</tg-button-row>`)

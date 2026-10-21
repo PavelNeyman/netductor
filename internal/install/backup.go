@@ -2,6 +2,7 @@ package install
 
 import (
 	"crypto/aes"
+	"encoding/binary"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
@@ -83,10 +84,10 @@ func encryptFile(inPath, outPath, pass string) error {
 	if err != nil {
 		return err
 	}
-	// In-process AES-GCM loads the whole file twice — cap to protect bot/api RAM.
+	// Large files: chunked AES-GCM stream (NDG2) — authenticated.
 	const maxInMem = 64 << 20 // 64 MiB
 	if st.Size() > maxInMem {
-		return encryptFileOpenSSL(inPath, outPath, pass)
+		return encryptFileStreamGCM(inPath, outPath, pass)
 	}
 	in, err := os.ReadFile(inPath)
 	if err != nil {
@@ -108,10 +109,130 @@ func encryptFile(inPath, outPath, pass string) error {
 	return os.WriteFile(outPath, out, 0o600)
 }
 
-// encryptFileOpenSSL streams large archives (openssl enc AES-256-CBC + salt).
-// Format differs from small GCM blobs — decryptFile tries both.
+// NDG2: chunked AES-GCM. Magic "NDG2" + chunkSize(BE u32) + (nonce12 | ctLen BE u32 | ciphertext)*.
+const ndg2Magic = "NDG2"
+const ndg2Chunk = 1 << 20 // 1 MiB
+
+func encryptFileStreamGCM(inPath, outPath, pass string) error {
+	in, err := os.Open(inPath)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	block, err := aes.NewCipher(keyBytes(pass))
+	if err != nil {
+		return err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return err
+	}
+	if _, err := out.Write([]byte(ndg2Magic)); err != nil {
+		return err
+	}
+	var sz [4]byte
+	binary.BigEndian.PutUint32(sz[:], uint32(ndg2Chunk))
+	if _, err := out.Write(sz[:]); err != nil {
+		return err
+	}
+	buf := make([]byte, ndg2Chunk)
+	for {
+		n, rerr := io.ReadFull(in, buf)
+		if n > 0 {
+			nonce := make([]byte, gcm.NonceSize())
+			if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+				return err
+			}
+			ct := gcm.Seal(nil, nonce, buf[:n], nil)
+			if _, err := out.Write(nonce); err != nil {
+				return err
+			}
+			binary.BigEndian.PutUint32(sz[:], uint32(len(ct)))
+			if _, err := out.Write(sz[:]); err != nil {
+				return err
+			}
+			if _, err := out.Write(ct); err != nil {
+				return err
+			}
+		}
+		if rerr == io.EOF || rerr == io.ErrUnexpectedEOF {
+			break
+		}
+		if rerr != nil {
+			return rerr
+		}
+	}
+	return nil
+}
+
+func decryptFileStreamGCM(inPath, outPath, pass string) error {
+	in, err := os.Open(inPath)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	mag := make([]byte, 4)
+	if _, err := io.ReadFull(in, mag); err != nil {
+		return err
+	}
+	if string(mag) != ndg2Magic {
+		return fmt.Errorf("not NDG2")
+	}
+	var sz [4]byte
+	if _, err := io.ReadFull(in, sz[:]); err != nil {
+		return err
+	}
+	_ = binary.BigEndian.Uint32(sz[:])
+	block, err := aes.NewCipher(keyBytes(pass))
+	if err != nil {
+		return err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return err
+	}
+	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	nonce := make([]byte, gcm.NonceSize())
+	for {
+		if _, err := io.ReadFull(in, nonce); err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break
+			}
+			return err
+		}
+		if _, err := io.ReadFull(in, sz[:]); err != nil {
+			return err
+		}
+		ctLen := binary.BigEndian.Uint32(sz[:])
+		if ctLen == 0 || ctLen > (ndg2Chunk+uint32(gcm.Overhead())+64) {
+			return fmt.Errorf("ndg2: bad chunk len %d", ctLen)
+		}
+		ct := make([]byte, ctLen)
+		if _, err := io.ReadFull(in, ct); err != nil {
+			return err
+		}
+		plain, err := gcm.Open(nil, nonce, ct, nil)
+		if err != nil {
+			return fmt.Errorf("ndg2 auth: %w", err)
+		}
+		if _, err := out.Write(plain); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// encryptFileOpenSSL: legacy only (decrypt still supports old CBC archives).
 func encryptFileOpenSSL(inPath, outPath, pass string) error {
-	// R10: pass via env (not argv) so it does not appear in process list
 	cmd := exec.Command("openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
 		"-in", inPath, "-out", outPath, "-pass", "env:NETDUCTOR_BACKUP_PASS")
 	cmd.Env = append(os.Environ(), "NETDUCTOR_BACKUP_PASS="+pass)
@@ -126,6 +247,14 @@ func decryptFile(inPath, outPath, pass string) error {
 	st, err := os.Stat(inPath)
 	if err != nil {
 		return err
+	}
+	if f, e := os.Open(inPath); e == nil {
+		mag := make([]byte, 4)
+		_, _ = io.ReadFull(f, mag)
+		_ = f.Close()
+		if string(mag) == ndg2Magic {
+			return decryptFileStreamGCM(inPath, outPath, pass)
+		}
 	}
 	// Try legacy in-memory GCM only for small archives.
 	if st.Size() > 0 && st.Size() < gcmTryMax {
@@ -542,9 +671,10 @@ func caPathFromEnv() string {
 	return "/etc/netductor/secrets/recovery_peer.crt"
 }
 
-// recoveryHTTPClient prefers pinned CA (NETDUCTOR_RECOVERY_CA or /etc/netductor/secrets/recovery_peer.crt).
-// Falls back to InsecureSkipVerify only when no pin is configured (DR first contact).
-func recoveryHTTPClient() (*http.Client, error) { // error = pin present but not valid PEM
+// recoveryHTTPClient: pin required (CA PEM or cert fingerprint). No silent insecure.
+// Order: NETDUCTOR_RECOVERY_CA → secrets/recovery_peer.crt → NETDUCTOR_RECOVERY_FINGERPRINT / secrets/recovery_peer.fp
+// Escape: NETDUCTOR_RECOVERY_INSECURE=1 only (stderr WARN).
+func recoveryHTTPClient() (*http.Client, error) {
 	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
 	caPath := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA"))
 	if caPath == "" {
@@ -556,13 +686,41 @@ func recoveryHTTPClient() (*http.Client, error) { // error = pin present but not
 			return nil, fmt.Errorf("recovery CA pin present but not valid PEM (%s)", caPath)
 		}
 		cfg.RootCAs = pool
+	} else if fp := recoveryFingerprint(); fp != "" {
+		want := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(fp), "sha256:"))
+		cfg.InsecureSkipVerify = true //nolint:gosec // replaced by VerifyPeerCertificate
+		cfg.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+			if len(rawCerts) == 0 {
+				return fmt.Errorf("recovery: empty peer cert")
+			}
+			sum := sha256.Sum256(rawCerts[0])
+			got := fmt.Sprintf("%x", sum[:])
+			if got != want {
+				return fmt.Errorf("recovery fingerprint mismatch (got sha256:%s)", got)
+			}
+			return nil
+		}
+	} else if os.Getenv("NETDUCTOR_RECOVERY_INSECURE") == "1" {
+		cfg.InsecureSkipVerify = true //nolint:gosec
+		fmt.Fprintln(os.Stderr, "WARN recovery: NETDUCTOR_RECOVERY_INSECURE=1 — TLS not verified")
 	} else {
-		cfg.InsecureSkipVerify = true //nolint:gosec // no pin yet — optional NETDUCTOR_RECOVERY_CA
+		return nil, fmt.Errorf("recovery pin required: set NETDUCTOR_RECOVERY_CA, place %s, or NETDUCTOR_RECOVERY_FINGERPRINT=sha256:… (or INSECURE=1 for first contact)", caPath)
 	}
 	return &http.Client{
 		Timeout:   30 * time.Minute,
 		Transport: &http.Transport{TLSClientConfig: cfg},
 	}, nil
+}
+
+func recoveryFingerprint() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_FINGERPRINT")); v != "" {
+		return v
+	}
+	b, err := os.ReadFile("/etc/netductor/secrets/recovery_peer.fp")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 // RecoverFromSecondary downloads latest .ndenc from secondary recovery API then Recover().
@@ -578,7 +736,7 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	if err != nil {
 		return err
 	}
-	get := func(path string) ([]byte, http.Header, error) {
+	getSmall := func(path string, max int64) ([]byte, http.Header, error) {
 		req, err := http.NewRequest(http.MethodGet, baseURL+path, nil)
 		if err != nil {
 			return nil, nil, err
@@ -589,28 +747,53 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 			return nil, nil, err
 		}
 		defer resp.Body.Close()
-		b, err := io.ReadAll(resp.Body)
+		b, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
 		if resp.StatusCode >= 300 {
 			return nil, nil, fmt.Errorf("%s: HTTP %d %s", path, resp.StatusCode, string(b))
 		}
+		if int64(len(b)) > max {
+			return nil, nil, fmt.Errorf("%s: response exceeds %d bytes", path, max)
+		}
 		return b, resp.Header, err
-	}
-	body, hdr, err := get("/recovery/latest")
-	if err != nil {
-		return err
-	}
-	name := hdr.Get("X-Netductor-Backup-Name")
-	if name == "" {
-		name = "from-secondary.ndenc"
 	}
 	tmpDir, err := os.MkdirTemp("", "nd-recover-*")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tmpDir)
-	arch := filepath.Join(tmpDir, name)
-	if err := os.WriteFile(arch, body, 0o600); err != nil {
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/recovery/latest", nil)
+	if err != nil {
 		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+recoveryToken)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("/recovery/latest: HTTP %d %s", resp.StatusCode, string(b))
+	}
+	name := resp.Header.Get("X-Netductor-Backup-Name")
+	if name == "" {
+		name = "from-secondary.ndenc"
+	}
+	name = filepath.Base(name)
+	arch := filepath.Join(tmpDir, name)
+	f, err := os.OpenFile(arch, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	const maxArch = 512 << 20
+	n, err := io.Copy(f, io.LimitReader(resp.Body, maxArch+1))
+	_ = f.Close()
+	if err != nil {
+		return err
+	}
+	if n > maxArch {
+		_ = os.Remove(arch)
+		return fmt.Errorf("recovery archive exceeds %d bytes", maxArch)
 	}
 	// Decryption key: operator-supplied only (offline). Wire key fetch is opt-in and discouraged.
 	if keyArg == "" {
@@ -621,7 +804,7 @@ func RecoverFromSecondary(baseURL, recoveryToken, keyArg string) error {
 	if keyArg == "" {
 		return fmt.Errorf("backup key required: pass --key or NETDUCTOR_BACKUP_KEY (not served by secondary unless SERVE_KEY+FETCH_KEY)")
 	}
-	if cb, _, err := get("/recovery/components"); err == nil && len(cb) > 0 {
+	if cb, _, err := getSmall("/recovery/components", 1<<20); err == nil && len(cb) > 0 {
 		_ = os.WriteFile(filepath.Join(tmpDir, "COMPONENTS.txt"), cb, 0o644)
 	}
 	return Recover(arch, keyArg)

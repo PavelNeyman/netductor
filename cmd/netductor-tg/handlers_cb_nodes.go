@@ -51,6 +51,16 @@ func handleCBNodes(token string, chat int64, msgID int, data string) bool {
 
 	if strings.HasPrefix(data, "m:nr:") {
 		id := strings.TrimPrefix(data, "m:nr:")
+		if strings.HasPrefix(id, "i:") {
+			var idx int
+			fmt.Sscanf(strings.TrimPrefix(id, "i:"), "%d", &idx)
+			rows := parseNodesList()
+			if idx < 0 || idx >= len(rows) || idx >= 20 {
+				reply(token, chat, msgID, "❌ bad index", nodesRenameKeyboard())
+				return true
+			}
+			id = rows[idx].ID
+		}
 		setState(chat, "wait_node_newname", id)
 		host := id
 		for _, r := range parseNodesList() {

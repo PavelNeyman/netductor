@@ -1,3 +1,14 @@
+## 0.9.457
+
+- **N-19** large backups: chunked AES-GCM (NDG2); legacy CBC decrypt kept for old archives
+- **N-18** recovery TLS: CA pin or **fingerprint** required; `INSECURE=1` only explicit; secondary writes `recovery.fp`
+- **N-30** recover stream to disk (512 MiB cap), no full-archive RAM
+- **N-23** CI secrets via gha jobEnv, not process `Setenv`
+- **N-24** ship publish fails on copy/tar/SHA errors
+- **N-27** no-tests / soft `|| true` removed — tests must pass
+- **Ship lifecycle**: Pause still waits end of step; Timeout waits grace before failed (not Pause)
+- **T-5** node rename callbacks by list index
+
 ## 0.9.456
 
 Security / reliability residual after tip reviews:

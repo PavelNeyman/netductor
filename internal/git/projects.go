@@ -220,11 +220,8 @@ func runBuildProjectNow(name, ref string) (string, error) {
 	fmt.Fprintf(&log, "project %s ref=%s work=%s host=%s\n", p.Name, ref, work, p.Host)
 	cacheDir, cacheEnv := EnsureCICache(p.Name, work)
 	fmt.Fprintf(&log, "ci-cache %s\n", cacheDir)
-	for _, kv := range append(cacheEnv, LoadCISecretsEnv(p.Name)...) {
-		if i := strings.IndexByte(kv, '='); i > 0 {
-			_ = os.Setenv(kv[:i], kv[i+1:])
-		}
-	}
+	// N-23: secrets only for this job subprocess env (gha.Run), not process-global.
+	jobEnv := append(append([]string{}, cacheEnv...), LoadCISecretsEnv(p.Name)...)
 
 	// host=mac: never compile on VPS — enqueue + notify operator
 	if isMacHost(p.Host) {
@@ -246,7 +243,7 @@ func runBuildProjectNow(name, ref string) (string, error) {
 		if err != nil {
 			return log.String(), err
 		}
-		out, err := gha.Run(w, work, nil)
+		out, err := gha.Run(w, work, jobEnv)
 		log.WriteString(out)
 		if err != nil {
 			notify.AlertOnce("git:build-fail:"+p.Name, fmt.Sprintf("🔴 Project build <code>%s</code> workflow failed", p.Name))
@@ -262,7 +259,7 @@ func runBuildProjectNow(name, ref string) (string, error) {
 		if rerr == nil {
 			if w, perr := gha.Parse(data); perr == nil {
 				fmt.Fprintf(&log, "using %s\n", path)
-				out, err := gha.Run(w, work, nil)
+				out, err := gha.Run(w, work, jobEnv)
 				log.WriteString(out)
 				if err != nil {
 					notify.AlertOnce("git:build-fail:"+p.Name, fmt.Sprintf("🔴 Project build <code>%s</code> failed", p.Name))

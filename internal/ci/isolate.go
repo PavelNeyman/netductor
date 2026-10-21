@@ -79,15 +79,15 @@ func DetectTestCommand(workDir string) string {
 		return "cargo test"
 	}
 	if _, err := os.Stat(filepath.Join(workDir, "pyproject.toml")); err == nil {
-		return "pip install -q pytest 2>/dev/null; pytest || python -m pytest || true"
+		return "pip install -q pytest 2>/dev/null; (pytest || python -m pytest)"
 	}
 	if _, err := os.Stat(filepath.Join(workDir, "requirements.txt")); err == nil {
-		return "pip install -q -r requirements.txt pytest 2>/dev/null; pytest || python -m pytest || true"
+		return "pip install -q -r requirements.txt pytest 2>/dev/null; (pytest || python -m pytest)"
 	}
 	if _, err := os.Stat(filepath.Join(workDir, "Makefile")); err == nil {
-		return "make test || make check || true"
+		return "make test || make check"
 	}
-	return "echo 'no project marker — set container: and run: in workflow'; exit 0"
+	return "echo 'no project marker — set container: and run: in workflow' >&2; exit 1"
 }
 
 type ExecOpts struct {

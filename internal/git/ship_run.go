@@ -169,6 +169,10 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 		fmt.Fprintf(logb, "==> step %s\n", step.Name)
 		AppendShipLog(id, fmt.Sprintf("==> step %s at %s", step.Name, start.Format(time.RFC3339)))
 
+		// Lifecycle (Pause ≠ Timeout):
+		//   PauseRequested → applied AFTER this step finishes (see below).
+		//   Timeout → step failed; we still wait up to grace for the worker to exit
+		//   so we do not free the VPS slot while a build still writes artifacts.
 		var stepErr error
 		done := make(chan error, 1)
 		go func() {
@@ -187,7 +191,19 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 		select {
 		case stepErr = <-done:
 		case <-time.After(timeout):
-			stepErr = fmt.Errorf("step %s timeout after %s", step.Name, timeout)
+			// Grace: allow worker to finish or observe cancel (do not treat as Pause).
+			grace := 2 * time.Minute
+			select {
+			case stepErr = <-done:
+				if stepErr == nil {
+					stepErr = fmt.Errorf("step %s finished after timeout (%s)", step.Name, timeout)
+				} else {
+					stepErr = fmt.Errorf("step %s timeout after %s: %w", step.Name, timeout, stepErr)
+				}
+			case <-time.After(grace):
+				stepErr = fmt.Errorf("step %s timeout after %s (worker still running after %s grace — slot held until process exits; cancel policy TBD)", step.Name, timeout, grace)
+				// Do not advance cursor; mark failed but leave note that slot may still be busy.
+			}
 		}
 
 		fin := time.Now().UTC()
@@ -241,13 +257,16 @@ func runShipFromCursor(id string, logb *strings.Builder) (*ShipJob, string, erro
 }
 
 func runShipTestBuild(j *ShipJob, logb *strings.Builder) error {
-	os.Setenv("NETDUCTOR_GIT_BUILD_DIRECT", "1")
-	defer os.Unsetenv("NETDUCTOR_GIT_BUILD_DIRECT")
-	for _, kv := range LoadCISecretsEnv(j.Project) {
-		if i := strings.IndexByte(kv, '='); i > 0 {
-			_ = os.Setenv(kv[:i], kv[i+1:])
+	// N-23: secrets applied inside runBuildProjectNow → gha.Run(jobEnv), not process-global.
+	prevDirect := os.Getenv("NETDUCTOR_GIT_BUILD_DIRECT")
+	_ = os.Setenv("NETDUCTOR_GIT_BUILD_DIRECT", "1")
+	defer func() {
+		if prevDirect == "" {
+			_ = os.Unsetenv("NETDUCTOR_GIT_BUILD_DIRECT")
+		} else {
+			_ = os.Setenv("NETDUCTOR_GIT_BUILD_DIRECT", prevDirect)
 		}
-	}
+	}()
 	if BuildHostEnabled() {
 		if os.Getenv("NETDUCTOR_BUILD_HOST_FALLBACK") == "1" {
 			fmt.Fprintf(logb, "WARN NETDUCTOR_BUILD_HOST_FALLBACK=1 — local build on primary\n")
@@ -278,24 +297,34 @@ func runShipPublish(j *ShipJob, logb *strings.Builder) error {
 		pubName = j.ID
 	}
 	dst := filepath.Join(ArtifactDir(), sanitize(j.Project), sanitize(pubName))
-	_ = os.MkdirAll(dst, 0o755)
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return fmt.Errorf("publish mkdir: %w", err)
+	}
 	logPath := filepath.Join(dst, "ship.log")
-	_ = os.WriteFile(logPath, []byte(logb.String()), 0o600)
+	if err := os.WriteFile(logPath, []byte(logb.String()), 0o600); err != nil {
+		return fmt.Errorf("publish log: %w", err)
+	}
 	AppendShipLog(j.ID, "publish log → "+logPath)
 
 	srcArt := ShipJobArtifactsDir(j.ID)
-	// Prefer agent-uploaded dist.tgz
 	if distTGZ := filepath.Join(srcArt, "dist.tgz"); fileExists(distTGZ) {
-		_ = exec.Command("tar", "-xzf", distTGZ, "-C", dst).Run()
+		if out, err := exec.Command("tar", "-xzf", distTGZ, "-C", dst).CombinedOutput(); err != nil {
+			return fmt.Errorf("unpack dist.tgz: %w (%s)", err, strings.TrimSpace(string(out)))
+		}
 		AppendShipLog(j.ID, "unpacked agent dist.tgz → "+dst)
 	}
-
 	if ents, e := os.ReadDir(srcArt); e == nil {
 		for _, ent := range ents {
-			_ = copyFileOrDir(filepath.Join(srcArt, ent.Name()), filepath.Join(dst, ent.Name()))
+			if err := copyFileOrDir(filepath.Join(srcArt, ent.Name()), filepath.Join(dst, ent.Name())); err != nil {
+				return fmt.Errorf("publish copy %s: %w", ent.Name(), err)
+			}
 		}
+	} else if !fileExists(filepath.Join(srcArt, "dist.tgz")) {
+		return fmt.Errorf("publish: no artifacts in %s", srcArt)
 	}
-	_ = writeArtifactSHA256SUMS(dst)
+	if err := writeArtifactSHA256SUMS(dst); err != nil {
+		return fmt.Errorf("SHA256SUMS: %w", err)
+	}
 	fmt.Fprintf(logb, "publish → %s\n", dst)
 	AppendShipLog(j.ID, "publish → "+dst)
 
@@ -316,7 +345,9 @@ func runShipPublish(j *ShipJob, logb *strings.Builder) error {
 			j2.Steps[i].Outputs = dst
 		}
 	}
-	_ = SaveShipJob(j2)
+	if err := SaveShipJob(j2); err != nil {
+		return fmt.Errorf("publish save job: %w", err)
+	}
 	notify.AlertOnce("ship:ok:"+j.ID, fmt.Sprintf("✅ Ship <code>%s</code> → <code>%s</code>", j.Project, dst))
 	_ = PruneArtifacts(20)
 	return nil

@@ -376,6 +376,7 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool, err error) {
 	}
 	if st, e := os.Stat(recoveryCert); e == nil && st.Size() > 0 {
 		if st2, e2 := os.Stat(recoveryKey); e2 == nil && st2.Size() > 0 {
+			writeRecoveryFingerprintFromCert(recoveryCert)
 			return recoveryCert, recoveryKey, true, nil
 		}
 	}
@@ -409,10 +410,28 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool, err error) {
 	b, _ := x509.MarshalECPrivateKey(key)
 	_ = pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
 	_ = kf.Close()
-	fmt.Fprintf(os.Stderr, "recovery-tls: cert %s (copy to peer as /etc/netductor/secrets/recovery_peer.crt or set NETDUCTOR_RECOVERY_CA)\n", recoveryCert)
+	sum := sha256.Sum256(der)
+	fp := fmt.Sprintf("sha256:%x", sum[:])
+	_ = os.WriteFile("/etc/netductor/secrets/recovery.fp", []byte(fp+"\n"), 0o600)
+	fmt.Fprintf(os.Stderr, "recovery-tls: cert %s\nrecovery-tls: fingerprint %s\n  on primary: echo %s > /etc/netductor/secrets/recovery_peer.fp\n", recoveryCert, fp, fp)
 	return recoveryCert, recoveryKey, true, nil
 }
+func writeRecoveryFingerprintFromCert(certPath string) {
+	b, err := os.ReadFile(certPath)
+	if err != nil {
+		return
+	}
+	block, _ := pem.Decode(b)
+	if block == nil {
+		return
+	}
+	sum := sha256.Sum256(block.Bytes)
+	fp := fmt.Sprintf("sha256:%x", sum[:])
+	_ = os.WriteFile("/etc/netductor/secrets/recovery.fp", []byte(fp+"\n"), 0o600)
+}
+
 func recoveryBindIsLoopback(bind string) bool {
+
 	bind = strings.TrimSpace(bind)
 	if bind == "" || bind == "127.0.0.1" || bind == "::1" || bind == "localhost" {
 		return true
