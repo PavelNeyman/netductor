@@ -300,7 +300,7 @@ func resolveKmodBaseURL(m OpenWrtMeta) (string, error) {
 	if len(matches) == 0 {
 		return "", fmt.Errorf("no kmod dirs under %s", indexURL)
 	}
-	pick := matches[0][1]
+	pick := ""
 	if m.Kernel != "" {
 		for _, sm := range matches {
 			if strings.HasPrefix(sm[1], m.Kernel) {
@@ -308,6 +308,12 @@ func resolveKmodBaseURL(m OpenWrtMeta) (string, error) {
 				break
 			}
 		}
+		if pick == "" {
+			return "", fmt.Errorf("no kmod dir matching kernel %q under %s (refusing first-dir fallback)", m.Kernel, indexURL)
+		}
+	} else {
+		pick = matches[0][1]
+		fmt.Fprintf(os.Stderr, "warn: kernel unknown — using first kmod dir %s\n", pick)
 	}
 	return indexURL + pick + "/", nil
 }
@@ -473,11 +479,20 @@ set -e
 cd /tmp/nd-owrt-pkgs
 for f in ` + list + `; do
   [ -f "$f" ] || { echo "missing $f"; exit 1; }
-  opkg install --force-depends "$f" || opkg install "$f" || true
+  if ! opkg install --force-depends "$f"; then
+    if ! opkg install "$f"; then
+      echo "FAIL install $f"
+      exit 1
+    fi
+  fi
 done
 modprobe usb-storage 2>/dev/null || true
 modprobe sd_mod 2>/dev/null || true
-lsmod | grep -E 'usb_storage|sd_mod' || true
+# Require at least one storage module visible after install
+if ! lsmod | grep -qE 'usb_storage|sd_mod|scsi_mod'; then
+  echo "FAIL: no usb_storage/sd_mod after package install"
+  exit 1
+fi
 echo INSTALL_DONE
 `
 	} else {

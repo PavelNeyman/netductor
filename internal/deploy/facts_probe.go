@@ -152,15 +152,17 @@ uci -q show wireless 2>/dev/null | grep '=wifi-iface' | while read -r line; do
 done
 `
 
-// ProbeDeviceFacts SSHs to the router and fills edge.DeviceFacts (no uplink required).
-func ProbeDeviceFacts(password, keyPath, user, host, keyPassphrase string) (edge.DeviceFacts, string, error) {
+// ProbeDeviceFacts SSHs to the router and fills edge.DeviceFacts.
+// bootstrapUSB installs mass-storage kmods from the Mac cache when missing (needed to see USB
+// disks on a WAN-less factory OpenWrt). Dry-run must pass bootstrapUSB=false (read-only probe).
+func ProbeDeviceFacts(password, keyPath, user, host, keyPassphrase string, bootstrapUSB bool) (edge.DeviceFacts, string, error) {
 	var f edge.DeviceFacts
-	// Probe must reflect real USB capability: install mass-storage kmods from Mac cache first
-	// so card can show disk / Format / overlay (router has no WAN).
-	if err := EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase); err != nil {
-		fmt.Fprintln(os.Stderr, "warn: USB storage packages during probe:", err)
-	} else {
-		_, _ = runSSHOnPort(factorySSHPort(), password, keyPath, user, host, "sleep 2; ls /sys/block/sd* 2>/dev/null || true", keyPassphrase)
+	if bootstrapUSB {
+		if err := EnsureUSBStorageOnRouter(password, keyPath, user, host, keyPassphrase); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: USB storage packages during probe:", err)
+		} else {
+			_, _ = runSSHOnPort(factorySSHPort(), password, keyPath, user, host, "sleep 2; ls /sys/block/sd* 2>/dev/null || true", keyPassphrase)
+		}
 	}
 	out, err := runSSHOnPort(factorySSHPort(), password, keyPath, user, host, factsProbeScript, keyPassphrase)
 	raw := out

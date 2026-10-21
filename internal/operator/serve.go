@@ -888,7 +888,7 @@ func handleEdgePreview(w http.ResponseWriter, r *http.Request, token string) {
 		body.RouterUser = "root"
 	}
 	key := expandHome(body.PrimaryKey)
-	facts, _, err := deploy.ProbeDeviceFacts(body.RouterPass, key, body.RouterUser, body.RouterHost, body.KeyPass)
+	facts, _, err := deploy.ProbeDeviceFacts(body.RouterPass, key, body.RouterUser, body.RouterHost, body.KeyPass, true)
 	if err != nil {
 		writeJSONOp(w, 400, map[string]string{"error": err.Error()})
 		return

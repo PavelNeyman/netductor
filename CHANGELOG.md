@@ -1,3 +1,16 @@
+## 0.9.462
+
+OpenWrt deploy (review):
+- **Dry-run** probe is read-only (`bootstrapUSB=false`); real deploy may install USB kmods
+- **sing-box path:** prefer USB mounts; internal only if **overlay** free ≥ need (not max root/overlay)
+- **opkg USB packages:** fail-closed; require usb_storage/sd_mod after install
+- **kmod dir:** no first-dir fallback when kernel is known
+- **VPN init/chmod:** errors are fatal
+- **extroot → skip VPN:** RESULT PARTIAL + error to re-run after reboot
+- docs/OPENWRT-LAB.md dry-run contract
+
+Deferred: min sing-box build experiment, full phase resume machine, WANReachable probe.
+
 ## 0.9.461
 
 Review closure (ordered):

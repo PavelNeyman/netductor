@@ -1,3 +1,5 @@
+**0.9.462:** OpenWrt dry-run read-only, storage/VPN/kmod fail-closed, PARTIAL after extroot.
+
 **0.9.461:** TG devices pagination + backup path + sidebar unify + TUI hits-first + channel i18n.
 
 **0.9.460:** TG Registry/mTLS i18n; TUI catalog/output viewport; Web mobile menu.

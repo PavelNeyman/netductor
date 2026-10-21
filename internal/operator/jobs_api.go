@@ -181,7 +181,7 @@ func runEdgeProbe(ctx context.Context, j *jobs.Job, appendLog func(string), setS
 		return nil, ctx.Err()
 	default:
 	}
-	facts, raw, err := deploy.ProbeDeviceFacts(pass, key, user, host, keyPass)
+	facts, raw, err := deploy.ProbeDeviceFacts(pass, key, user, host, keyPass, true)
 	appendLog(raw)
 	if err != nil {
 		setStep(jobs.Step{ID: "probe", Message: err.Error(), Err: err.Error()})

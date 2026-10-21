@@ -68,7 +68,8 @@ func DeployEdge(o EdgeOpts) error {
 		if preset != "" && !edge.ValidPreset(preset) {
 			return fmt.Errorf("unknown preset %q (travel-router|sbc-lab|sbc-dual-nic)", preset)
 		}
-		facts, raw, perr := ProbeDeviceFacts(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "")
+		// Dry-run: read-only probe (no USB package install). Real deploy may bootstrap kmods.
+		facts, raw, perr := ProbeDeviceFacts(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "", !o.DryRun)
 		if perr != nil {
 			fmt.Fprintln(os.Stderr, "warn: facts probe:", perr)
 			if o.DryRun {
@@ -96,7 +97,7 @@ func DeployEdge(o EdgeOpts) error {
 			}
 			o.Preset = plan.Preset
 			if o.DryRun {
-				fmt.Fprintln(os.Stderr, "==> dry-run: no provision")
+				fmt.Fprintln(os.Stderr, "==> dry-run: no provision (read-only; USB disks unknown until real deploy bootstraps kmods)")
 				if o.DryRunJSON {
 					resp := edge.PlanResponse{
 						Preset: plan.Preset, Suggested: edge.SuggestPreset(facts),
@@ -395,6 +396,11 @@ echo KEY:$(b64 "$DIR/client.key")
 	_ = keyOK
 	if o.Reboot && !rebootOK {
 		return fmt.Errorf("stages applied but reboot not confirmed — power-cycle the router or SSH and run reboot")
+	}
+	if skipVPN && (o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient]) {
+		fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — extroot/storage staged; vpn_client NOT installed this run")
+		fmt.Fprintln(os.Stderr, "hint: after reboot verify overlay, then re-run edge deploy (or enable vpn_client) to install sing-box")
+		return fmt.Errorf("PARTIAL: reboot/extroot required before vpn_client; re-run deploy after router is back")
 	}
 	return nil
 }

@@ -71,7 +71,7 @@ func applyVPNClientOnEdge(o EdgeOpts) error {
 		chmodCmd += "; ln -sfn " + ShellQuote(dest) + " /usr/sbin/sing-box"
 	}
 	if _, err := runSSHOnPort(port, pass, o.PrimaryKey, user, host, chmodCmd, o.PrimaryKeyPassphrase); err != nil {
-		fmt.Fprintln(os.Stderr, "warn: chmod/symlink sing-box:", err)
+		return fmt.Errorf("chmod/symlink sing-box: %w", err)
 	}
 
 	vless := ""
@@ -147,8 +147,12 @@ start_service() {
 	if err := runSCPOnPort(port, pass, o.PrimaryKey, user, host, tmpC, "/etc/netductor-agent/sing-box-client.json", o.PrimaryKeyPassphrase); err != nil {
 		return fmt.Errorf("scp config: %w", err)
 	}
-	_ = runSCPOnPort(port, pass, o.PrimaryKey, user, host, tmpInit, "/etc/init.d/netductor-vpn", o.PrimaryKeyPassphrase)
-	_, _ = runSSHOnPort(port, pass, o.PrimaryKey, user, host, "chmod 755 /etc/init.d/netductor-vpn; /etc/init.d/netductor-vpn enable", o.PrimaryKeyPassphrase)
+	if err := runSCPOnPort(port, pass, o.PrimaryKey, user, host, tmpInit, "/etc/init.d/netductor-vpn", o.PrimaryKeyPassphrase); err != nil {
+		return fmt.Errorf("install netductor-vpn init: %w", err)
+	}
+	if _, err := runSSHOnPort(port, pass, o.PrimaryKey, user, host, "chmod 755 /etc/init.d/netductor-vpn; /etc/init.d/netductor-vpn enable", o.PrimaryKeyPassphrase); err != nil {
+		return fmt.Errorf("enable netductor-vpn: %w", err)
+	}
 	fmt.Fprintln(os.Stderr, "==> vpn_client: sing-box + VLESS staged (service starts when config present after reboot)")
 	return nil
 }
@@ -207,15 +211,7 @@ true
 	fmt.Fprintf(os.Stderr, "==> vpn_client: free overlay=%dKiB root=%dKiB usb_mounts=%d need=%dKiB\n",
 		overlayFree, rootFree, len(mounts), needKB)
 
-	internal := overlayFree
-	if rootFree > internal {
-		internal = rootFree
-	}
-	if internal >= needKB {
-		return "/usr/sbin/sing-box", nil
-	}
-
-	// Prefer dedicated netductor dir on an already-mounted volume with enough space.
+	// Prefer USB/data mounts first (16 MiB flash class cannot host stock sing-box).
 	for _, m := range mounts {
 		if m.free < needKB {
 			continue
@@ -229,9 +225,15 @@ true
 		return filepath.Join(m.path, "netductor", "sing-box"), nil
 	}
 
-	return "", fmt.Errorf("vpn_client: not enough free space for sing-box (need ≥%d KiB; overlay=%d root=%d). "+
-		"Options: (1) enable overlay_ext / extroot on USB so /overlay is large; "+
+	// Internal: use overlay free only (df / can be larger than writable /usr).
+	// Never use max(root, overlay) — root free does not guarantee /usr/sbin write.
+	if overlayFree >= needKB {
+		return "/usr/sbin/sing-box", nil
+	}
+
+	return "", fmt.Errorf("vpn_client: not enough free space for sing-box (need ≥%d KiB; overlay=%d root=%d usb_mounts=%d). "+
+		"On 16MiB flash put sing-box on USB/extroot: (1) overlay_ext so /overlay is large; "+
 		"(2) mount USB under /mnt/usb or /mnt/sda1 and re-run; "+
-		"(3) free space on internal flash. Deploy aborted before treating this as success",
-		needKB, overlayFree, rootFree)
+		"(3) free overlay space. Deploy aborted before treating this as success",
+		needKB, overlayFree, rootFree, len(mounts))
 }
