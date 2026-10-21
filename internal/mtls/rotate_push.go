@@ -1,12 +1,13 @@
 package mtls
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/PavelNeyman/netductor/internal/statefile"
 	"time"
 )
 
@@ -26,21 +27,17 @@ func pendingPath() string { return filepath.Join(Dir(), pendingRotateFile) }
 
 func loadPending() (map[string]pendingRotate, error) {
 	out := map[string]pendingRotate{}
-	b, err := os.ReadFile(pendingPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return out, nil
-		}
-		return nil, err
-	}
 	var list []pendingRotate
-	if err := json.Unmarshal(b, &list); err != nil {
+	err := statefile.LoadJSON(pendingPath(), &list)
+	if statefile.IsNotExist(err) {
+		return out, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 	now := time.Now().Unix()
 	for _, p := range list {
 		if p.ExpiresAt > 0 && now > p.ExpiresAt {
-			// grace over — revoke old if still listed
 			_ = RevokeSerial(p.OldSerial, p.NodeID, "grace-expired")
 			continue
 		}
@@ -54,15 +51,7 @@ func savePending(m map[string]pendingRotate) error {
 	for _, p := range m {
 		list = append(list, p)
 	}
-	raw, err := json.MarshalIndent(list, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := pendingPath() + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, pendingPath())
+	return statefile.SaveJSON(pendingPath(), list)
 }
 
 // GraceHours after rotate before old serial is force-revoked (default 24).

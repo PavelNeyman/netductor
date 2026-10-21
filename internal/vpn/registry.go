@@ -2,7 +2,6 @@ package vpn
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +12,7 @@ import (
 	"github.com/skip2/go-qrcode"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/session"
 )
@@ -62,12 +62,12 @@ func EnsureDirs() error {
 
 func loadRegistry() (*registry, error) {
 	_ = EnsureDirs()
-	b, err := os.ReadFile(usersFile())
-	if err != nil {
+	var r registry
+	err := statefile.LoadJSON(usersFile(), &r)
+	if statefile.IsNotExist(err) {
 		return &registry{Users: []UserRecord{}}, nil
 	}
-	var r registry
-	if err := json.Unmarshal(b, &r); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	if r.Users == nil {
@@ -103,15 +103,7 @@ func migrateUserPolicies(r *registry) bool {
 }
 
 func writeRegistry(r *registry) error {
-	b, err := json.MarshalIndent(r, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := usersFile() + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, usersFile())
+	return statefile.SaveJSON(usersFile(), r)
 }
 
 func secret(name string) string {

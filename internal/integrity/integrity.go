@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 // DefaultPaths hashed on snapshot/check (missing files are noted, not fatal).
@@ -164,26 +164,25 @@ func WriteManifest() error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	b, _ := json.MarshalIndent(m, "", "  ")
-	return os.WriteFile(manifestPath(), b, 0o600)
+	return statefile.SaveJSON(manifestPath(), m)
 }
 
 // Check compares live state to manifest.
 func Check() Drift {
 	d := Drift{OK: true}
-	b, err := os.ReadFile(manifestPath())
-	if err != nil {
+	var m Manifest
+	err := statefile.LoadJSON(manifestPath(), &m)
+	if statefile.IsNotExist(err) {
 		d.HaveManifest = false
 		d.Notes = append(d.Notes, "no integrity manifest (written at install / host-baseline / stack apply)")
 		return d
 	}
-	d.HaveManifest = true
-	var m Manifest
-	if json.Unmarshal(b, &m) != nil {
+	if err != nil {
 		d.OK = false
-		d.Notes = append(d.Notes, "integrity manifest corrupt")
+		d.Notes = append(d.Notes, "integrity manifest corrupt: "+err.Error())
 		return d
 	}
+	d.HaveManifest = true
 	for p, want := range m.Files {
 		sum, err := fileSHA256(p)
 		if err != nil {

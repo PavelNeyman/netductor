@@ -79,3 +79,8 @@ Findings from the consolidated audit of tip `1b1946b` still open after 0.9.445â€
 | RotateClient pending | **Done** â€” errors returned |
 | L-1 ACME :80 | Product decision (unchanged) |
 | Full typed persistence layer | Deferred (incremental path taken) |
+
+
+## 8. statefile remainder (0.9.451)
+
+Migrated remaining JSON state writers to `internal/statefile`; repair path list expanded.

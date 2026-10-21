@@ -525,17 +525,14 @@ func EnqueueCmd(deviceID, action, arg string) string {
 	var wrap struct {
 		Pending []map[string]any `json:"pending"`
 	}
-	if b, err := os.ReadFile(commandsPath()); err == nil {
-		_ = json.Unmarshal(b, &wrap)
-	}
+	_ = statefile.LoadJSON(commandsPath(), &wrap)
 	id := randomID()
 	wrap.Pending = append(wrap.Pending, map[string]any{
 		"id": id, "device_id": deviceID, "action": action, "arg": arg, "created": time.Now().Unix(),
 	})
-	b, _ := json.MarshalIndent(wrap, "", "  ")
-	tmp := commandsPath() + ".tmp"
-	_ = os.WriteFile(tmp, append(b, '\n'), 0o600)
-	_ = os.Rename(tmp, commandsPath())
+	if err := statefile.SaveJSON(commandsPath(), wrap); err != nil {
+		return ""
+	}
 	return id
 }
 
@@ -560,9 +557,7 @@ func PollCommands(deviceID string) []map[string]any {
 	var wrap struct {
 		Pending []map[string]any `json:"pending"`
 	}
-	if b, err := os.ReadFile(commandsPath()); err == nil {
-		_ = json.Unmarshal(b, &wrap)
-	}
+	_ = statefile.LoadJSON(commandsPath(), &wrap)
 	var mine, rest []map[string]any
 	for _, c := range wrap.Pending {
 		if c["device_id"] == deviceID {
@@ -572,10 +567,7 @@ func PollCommands(deviceID string) []map[string]any {
 		}
 	}
 	wrap.Pending = rest
-	b, _ := json.MarshalIndent(wrap, "", "  ")
-	tmp := commandsPath() + ".tmp"
-	_ = os.WriteFile(tmp, append(b, '\n'), 0o600)
-	_ = os.Rename(tmp, commandsPath())
+	_ = statefile.SaveJSON(commandsPath(), wrap)
 	if mine == nil {
 		mine = []map[string]any{}
 	}

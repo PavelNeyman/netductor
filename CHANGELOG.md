@@ -1,3 +1,8 @@
+## 0.9.451
+
+- statefile migration remainder: mtls pending/rollover, vpn-users registry, edge commands queue, notify alerts/known_chats, integrity manifest, reboot challenge load
+- host-baseline repair scans expanded state path list
+
 ## 0.9.450
 
 - LE: certbot pre/post/deploy hooks (free :80 on renew, restore redirect); doctor checks hooks, :80 listeners, cert expiry

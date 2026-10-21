@@ -20,12 +20,20 @@ func RepairStateOnUpgrade() []string {
 		notes = append(notes, "le renew hooks ok")
 	}
 
+	mtlsDir := filepath.Join(paths.EtcDir(), "secrets", "mtls")
 	files := []string{
 		filepath.Join(paths.EdgeDir(), "devices.json"),
 		filepath.Join(paths.EdgeDir(), "recovery_codes.json"),
+		filepath.Join(paths.EdgeDir(), "commands.json"),
 		filepath.Join(paths.StateDir(), "vpn_sub_tokens.json"),
 		filepath.Join(paths.StateDir(), "sites", "sites.json"),
 		filepath.Join(paths.StateDir(), "reboot-challenge.json"),
+		filepath.Join(paths.StateDir(), "alerts_sent.json"),
+		filepath.Join(paths.StateDir(), "tg", "known_chats.json"),
+		filepath.Join(paths.EtcDir(), "vpn-users.json"),
+		filepath.Join(paths.StateDir(), "baseline", "integrity.json"),
+		filepath.Join(mtlsDir, "pending_rotate.json"),
+		filepath.Join(mtlsDir, "ca_rollover.json"),
 	}
 	for _, f := range files {
 		_ = statefile.EnsureParentDir(f)

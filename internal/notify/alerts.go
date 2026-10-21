@@ -1,7 +1,6 @@
 package notify
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/incident"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 var (
@@ -26,22 +26,16 @@ func alertStatePath() string {
 }
 
 func loadSent() map[string]int64 {
-	b, err := os.ReadFile(alertStatePath())
-	if err != nil {
-		return map[string]int64{}
-	}
 	var m map[string]int64
-	_ = json.Unmarshal(b, &m)
-	if m == nil {
+	err := statefile.LoadJSON(alertStatePath(), &m)
+	if err != nil || m == nil {
 		return map[string]int64{}
 	}
 	return m
 }
 
 func saveSent(m map[string]int64) {
-	_ = os.MkdirAll(filepath.Dir(alertStatePath()), 0o700)
-	b, _ := json.MarshalIndent(m, "", "  ")
-	_ = os.WriteFile(alertStatePath(), b, 0o600)
+	_ = statefile.SaveJSON(alertStatePath(), m)
 }
 
 // SuppressUntil writes a marker so alerts are ignored until t (e.g. during sing-box restart).

@@ -6,13 +6,14 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 const (
@@ -31,17 +32,12 @@ func rolloverPath() string { return filepath.Join(Dir(), rolloverState) }
 
 func loadRollover() rolloverInfo {
 	var r rolloverInfo
-	b, err := os.ReadFile(rolloverPath())
-	if err != nil {
-		return r
-	}
-	_ = json.Unmarshal(b, &r)
+	_ = statefile.LoadJSON(rolloverPath(), &r) // NotExist / corrupt → empty phase
 	return r
 }
 
 func saveRollover(r rolloverInfo) error {
-	raw, _ := json.MarshalIndent(r, "", "  ")
-	return os.WriteFile(rolloverPath(), append(raw, '\n'), 0o600)
+	return statefile.SaveJSON(rolloverPath(), r)
 }
 
 // CARolloverStart generates ca-new. Both CAs trusted until CARolloverFinish.
