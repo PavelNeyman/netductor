@@ -438,7 +438,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 			fmt.Fprintln(os.Stderr, "warn backup:", err)
 		} else {
 			fmt.Fprintln(os.Stderr, "backup:", path)
-			_, _ = install.WaitForBackupPull(12 * time.Second)
+			_, _ = install.WaitForBackupPull(12*time.Second, time.Now().UTC().Add(-2*time.Second))
 		}
 	}
 	fmt.Fprintln(os.Stderr, "stack apply:", tag)

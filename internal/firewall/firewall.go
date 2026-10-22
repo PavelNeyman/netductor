@@ -228,66 +228,100 @@ func applyUFW(role string) error {
 }
 
 func applyIPTables(role string) error {
-	// Use filter INPUT with netductor chain for idempotency
+	// Use filter INPUT with netductor chain for idempotency.
+	// Critical rules must succeed — do not report success if chain/jump/ports failed.
 	run := func(args ...string) error {
 		cmd := exec.Command("iptables", args...)
 		out, err := cmd.CombinedOutput()
 		msg := string(out)
 		if err != nil {
-			if strings.Contains(msg, "No chain") {
-				return err
-			}
 			if strings.Contains(strings.ToLower(msg), "exist") {
+				return nil
+			}
+			// -N when chain exists is ok
+			if len(args) > 0 && args[0] == "-N" && strings.Contains(strings.ToLower(msg), "chain") {
 				return nil
 			}
 			return fmt.Errorf("iptables %v: %v (%s)", args, err, truncate(msg, 160))
 		}
 		return nil
 	}
-	_ = run("-N", "NETDUCTOR")
-	_ = run("-F", "NETDUCTOR")
-	// jump once
-	_ = exec.Command("iptables", "-C", "INPUT", "-j", "NETDUCTOR").Run()
+	must := func(args ...string) error {
+		return run(args...)
+	}
+	if err := must("-N", "NETDUCTOR"); err != nil {
+		// already exists is fine via run(); other errors abort
+		if !strings.Contains(err.Error(), "exist") {
+			// try flush only if chain usable
+			_ = run("-F", "NETDUCTOR")
+		}
+	}
+	if err := must("-F", "NETDUCTOR"); err != nil {
+		return fmt.Errorf("iptables fallback: cannot flush NETDUCTOR: %w", err)
+	}
 	if exec.Command("iptables", "-C", "INPUT", "-j", "NETDUCTOR").Run() != nil {
-		_ = run("-I", "INPUT", "1", "-j", "NETDUCTOR")
+		if err := must("-I", "INPUT", "1", "-j", "NETDUCTOR"); err != nil {
+			return fmt.Errorf("iptables fallback: INPUT jump: %w", err)
+		}
 	}
 	sp := sshPort()
-	allowTCP := func(port string) {
-		_ = run("-A", "NETDUCTOR", "-p", "tcp", "--dport", port, "-j", "ACCEPT")
+	allowTCP := func(port string) error {
+		return must("-A", "NETDUCTOR", "-p", "tcp", "--dport", port, "-j", "ACCEPT")
 	}
-	denyTCP := func(port string) {
-		_ = run("-A", "NETDUCTOR", "-p", "tcp", "--dport", port, "-j", "DROP")
+	denyTCP := func(port string) error {
+		return must("-A", "NETDUCTOR", "-p", "tcp", "--dport", port, "-j", "DROP")
 	}
-	allowTCP(sp)
-	denyTCP("22")
-	allowTCP("443")
-	denyTCP("10050")
-	denyTCP("10051")
+	for _, step := range []struct {
+		fn   func() error
+		what string
+	}{
+		{func() error { return allowTCP(sp) }, "allow ssh"},
+		{func() error { return denyTCP("22") }, "deny 22"},
+		{func() error { return allowTCP("443") }, "allow 443"},
+		{func() error { return denyTCP("10050") }, "deny zabbix"},
+		{func() error { return denyTCP("10051") }, "deny zabbix"},
+	} {
+		if err := step.fn(); err != nil {
+			return fmt.Errorf("iptables fallback %s: %w", step.what, err)
+		}
+	}
 	if role == "primary" {
 		redir := ndconfig.RedirectHTTPSPort()
-		allowTCP(redir)
-		allowTCP("80")
-		allowTCP("8444")
-		denyTCP("8788")
+		for _, port := range []string{redir, "80", "8444"} {
+			if err := allowTCP(port); err != nil {
+				return fmt.Errorf("iptables fallback allow %s: %w", port, err)
+			}
+		}
+		if err := denyTCP("8788"); err != nil {
+			return fmt.Errorf("iptables fallback deny 8788: %w", err)
+		}
 		mtls := ndconfig.AgentMTLSPort()
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
-			_ = run("-A", "NETDUCTOR", "-p", "tcp", "-s", c, "--dport", mtls, "-j", "ACCEPT")
+			if err := must("-A", "NETDUCTOR", "-p", "tcp", "-s", c, "--dport", mtls, "-j", "ACCEPT"); err != nil {
+				return fmt.Errorf("iptables fallback mtls allow %s: %w", c, err)
+			}
 		}
-		_ = run("-A", "NETDUCTOR", "-p", "tcp", "--dport", mtls, "-j", "DROP")
+		if err := must("-A", "NETDUCTOR", "-p", "tcp", "--dport", mtls, "-j", "DROP"); err != nil {
+			return fmt.Errorf("iptables fallback mtls drop: %w", err)
+		}
 	} else {
-		allowTCP("8445")
-		denyTCP("8787")
-		denyTCP("8788")
-		denyTCP("8789")
-		denyTCP("80")
+		if err := allowTCP("8445"); err != nil {
+			return err
+		}
+		for _, port := range []string{"8787", "8788", "8789", "80"} {
+			if err := denyTCP(port); err != nil {
+				return fmt.Errorf("iptables fallback deny %s: %w", port, err)
+			}
+		}
 	}
-	// established
-	_ = run("-I", "NETDUCTOR", "1", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT")
-	_ = run("-I", "NETDUCTOR", "2", "-i", "lo", "-j", "ACCEPT")
-	// note: do NOT set default DROP on INPUT via iptables alone — risk lockout on unknown mgmt ports
-	// NETDUCTOR chain drops known-bad; hoster may still allow rest until operator tightens
+	if err := must("-I", "NETDUCTOR", "1", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"); err != nil {
+		return fmt.Errorf("iptables fallback established: %w", err)
+	}
+	if err := must("-I", "NETDUCTOR", "2", "-i", "lo", "-j", "ACCEPT"); err != nil {
+		return fmt.Errorf("iptables fallback lo: %w", err)
+	}
+	// note: do NOT set default DROP on INPUT via iptables alone — risk lockout
 	fmt.Fprintf(os.Stderr, "firewall: iptables NETDUCTOR chain applied role=%s (fallback; prefer ufw)\n", role)
-	// persist best-effort
 	if _, err := exec.LookPath("netfilter-persistent"); err == nil {
 		_ = exec.Command("netfilter-persistent", "save").Run()
 	} else if _, err := exec.LookPath("iptables-save"); err == nil {

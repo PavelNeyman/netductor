@@ -62,11 +62,16 @@ func VerifyLatestBackup() (string, error) {
 		if key == "" {
 			return "", fmt.Errorf("backup_key missing for verify")
 		}
-		tmp = filepath.Join(os.TempDir(), fmt.Sprintf("nd-verify-%d.tar.gz", time.Now().UnixNano()))
+		vdir, err := os.MkdirTemp("", "nd-verify-*")
+		if err != nil {
+			return "", fmt.Errorf("verify temp: %w", err)
+		}
+		defer os.RemoveAll(vdir)
+		_ = os.Chmod(vdir, 0o700)
+		tmp = filepath.Join(vdir, "archive.tar.gz")
 		if err := decryptFile(newest, tmp, key); err != nil {
 			return "", fmt.Errorf("decrypt %s: %w", filepath.Base(newest), err)
 		}
-		defer os.Remove(tmp)
 		if st, err := os.Stat(tmp); err == nil && st.Size() > maxVerifyArchiveBytes {
 			return "", fmt.Errorf("decrypted archive too large: %d", st.Size())
 		}

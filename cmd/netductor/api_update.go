@@ -162,7 +162,7 @@ func registerUpdateAPI(mux *http.ServeMux) {
 				backupPath = "error:" + err.Error()
 			} else {
 				backupPath = p
-				acked, pend := install.WaitForBackupPull(20 * time.Second)
+				acked, pend := install.WaitForBackupPull(20*time.Second, time.Now().UTC().Add(-2*time.Second))
 				backupPath = fmt.Sprintf("%s (pull acked=%d pending=%d)", p, acked, pend)
 			}
 		}

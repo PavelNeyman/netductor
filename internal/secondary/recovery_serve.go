@@ -287,6 +287,7 @@ func ArmRecovery(ttl time.Duration) error {
 			http.Error(w, "POST only", 405)
 			return
 		}
+		const maxUpload = 512 << 20 // 512 MiB
 		dir := "/var/lib/netductor/backups/peers/core"
 		_ = os.MkdirAll(dir, 0o700)
 		name := r.Header.Get("X-Netductor-Backup-Name")
@@ -294,15 +295,43 @@ func ArmRecovery(ttl time.Duration) error {
 			name = "netductor-upload-" + time.Now().UTC().Format("20060102-150405") + ".ndenc"
 		}
 		name = filepath.Base(name)
+		if name == "." || name == ".." || name == "" {
+			http.Error(w, "bad name", 400)
+			return
+		}
+		// refuse overwriting critical sidecars without explicit name policy
+		base := strings.ToLower(name)
+		if base == "backup_key.txt" || base == "components.txt" {
+			http.Error(w, "reserved name", 400)
+			return
+		}
 		outPath := filepath.Join(dir, name)
-		f, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		tmp, err := os.CreateTemp(dir, ".upload-*")
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		n, err := io.Copy(f, r.Body)
-		f.Close()
+		tmpName := tmp.Name()
+		r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
+		n, err := io.Copy(tmp, r.Body)
+		cerr := tmp.Close()
 		if err != nil {
+			_ = os.Remove(tmpName)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if cerr != nil {
+			_ = os.Remove(tmpName)
+			http.Error(w, cerr.Error(), 500)
+			return
+		}
+		if n == 0 {
+			_ = os.Remove(tmpName)
+			http.Error(w, "empty body", 400)
+			return
+		}
+		if err := os.Rename(tmpName, outPath); err != nil {
+			_ = os.Remove(tmpName)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -315,7 +344,7 @@ func ArmRecovery(ttl time.Duration) error {
 	})
 
 	addr := bind + ":" + recoveryPort
-	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Minute, WriteTimeout: 5 * time.Minute}
 	ctx, cancel := context.WithCancel(context.Background())
 	recSrv = srv
 	recCancel = cancel

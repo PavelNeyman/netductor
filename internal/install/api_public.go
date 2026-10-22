@@ -105,10 +105,27 @@ Unit=nd-api-public-disarm.service
 [Install]
 WantedBy=timers.target
 `, sec)
-	_ = os.WriteFile("/run/systemd/system/nd-api-public-disarm.service", []byte(unit), 0o644)
-	_ = os.WriteFile("/run/systemd/system/nd-api-public-disarm.timer", []byte(timer), 0o644)
-	_ = exec.Command("systemctl", "daemon-reload").Run()
-	_ = exec.Command("systemctl", "start", "nd-api-public-disarm.timer").Run()
+	if err := os.WriteFile("/run/systemd/system/nd-api-public-disarm.service", []byte(unit), 0o644); err != nil {
+		deleteUFWByComment(apiPublicComment)
+		return fmt.Errorf("write disarm service: %w", err)
+	}
+	if err := os.WriteFile("/run/systemd/system/nd-api-public-disarm.timer", []byte(timer), 0o644); err != nil {
+		deleteUFWByComment(apiPublicComment)
+		return fmt.Errorf("write disarm timer: %w", err)
+	}
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		deleteUFWByComment(apiPublicComment)
+		return fmt.Errorf("daemon-reload: %v (%s)", err, string(out))
+	}
+	if out, err := exec.Command("systemctl", "start", "nd-api-public-disarm.timer").CombinedOutput(); err != nil {
+		deleteUFWByComment(apiPublicComment)
+		return fmt.Errorf("start disarm timer: %v (%s)", err, string(out))
+	}
+	// confirm timer is active
+	if out, err := exec.Command("systemctl", "is-active", "nd-api-public-disarm.timer").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
+		deleteUFWByComment(apiPublicComment)
+		return fmt.Errorf("disarm timer not active after start: %s", strings.TrimSpace(string(out)))
+	}
 	return nil
 }
 

@@ -101,22 +101,37 @@ const (
 
 func dnsblLookup(ctx context.Context, name string) dnsblResult {
 	if _, err := exec.LookPath("dig"); err == nil {
-		cmd := exec.CommandContext(ctx, "dig", "+short", "+time=3", "+tries=1", name, "A")
+		// +noall +answer only A lines; empty + exit 0 often NXDOMAIN but SERVFAIL can also be empty — use status.
+		cmd := exec.CommandContext(ctx, "dig", "+time=3", "+tries=1", "+noall", "+answer", "+comments", name, "A")
 		out, err := cmd.CombinedOutput()
-		s := strings.TrimSpace(string(out))
-		if err != nil && s == "" {
+		s := string(out)
+		low := strings.ToLower(s)
+		if strings.Contains(low, "servfail") || strings.Contains(low, "refused") || strings.Contains(low, "timeout") {
 			return dnsblUnknown
-		}
-		if s == "" {
-			return dnsblClean
 		}
 		for _, line := range strings.Split(s, "\n") {
 			line = strings.TrimSpace(line)
 			if strings.HasPrefix(line, "127.0.0.") {
 				return dnsblListed
 			}
+			// dig answer: name TTL IN A 127.0.0.x
+			fields := strings.Fields(line)
+			if len(fields) >= 5 && fields[len(fields)-2] == "A" && strings.HasPrefix(fields[len(fields)-1], "127.0.0.") {
+				return dnsblListed
+			}
 		}
-		return dnsblUnknown
+		if err != nil {
+			return dnsblUnknown
+		}
+		if strings.Contains(low, "status: nxdomain") || strings.Contains(low, "status: noerror") {
+			// NOERROR with no 127. answer → not listed; NXDOMAIN → not listed on this BL
+			return dnsblClean
+		}
+		// empty ambiguous → unknown
+		if strings.TrimSpace(s) == "" {
+			return dnsblUnknown
+		}
+		return dnsblClean
 	}
 	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", name)
 	if err != nil {

@@ -1,3 +1,15 @@
+## 0.9.468
+
+- firewall iptables fallback: critical rules return error (no false success)
+- offsite: backup_pull requires BACKUP_KEY; WaitForBackupPull needs this-run ack + key=ok in log
+- secondaryUpgrade: download into private MkdirTemp (no /tmp/asset.new race)
+- DNSBL dig: SERVFAIL/empty → unknown; only NXDOMAIN/NOERROR clean
+- api-public: fail + ufw rollback if disarm timer not active
+- edge vpn: init scp/enable errors when VLESS deferred
+- backup verify: private temp dir
+- sing-box cache: unique CreateTemp publish
+- recovery upload: 512MiB MaxBytesReader, temp+rename, ReadTimeout
+
 ## 0.9.462
 
 OpenWrt deploy (review):

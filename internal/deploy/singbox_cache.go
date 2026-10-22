@@ -101,15 +101,26 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	if err != nil || st.Size() < minSingBoxBytes {
 		return "", fmt.Errorf("sing-box binary missing or too small")
 	}
-	// Atomic publish: write to dest.tmp then rename
-	tmpDest := dest + ".tmp"
+	// Atomic publish: unique temp in same dir then rename
 	data, err := os.ReadFile(bin)
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(tmpDest, data, 0o755); err != nil {
+	tf, err := os.CreateTemp(filepath.Dir(dest), ".sb-pub-*")
+	if err != nil {
 		return "", err
 	}
+	tmpDest := tf.Name()
+	if _, err := tf.Write(data); err != nil {
+		tf.Close()
+		_ = os.Remove(tmpDest)
+		return "", err
+	}
+	if err := tf.Close(); err != nil {
+		_ = os.Remove(tmpDest)
+		return "", err
+	}
+	_ = os.Chmod(tmpDest, 0o755)
 	if err := os.Rename(tmpDest, dest); err != nil {
 		_ = os.Remove(tmpDest)
 		return "", err

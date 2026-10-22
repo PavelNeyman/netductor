@@ -282,11 +282,15 @@ func decryptFile(inPath, outPath, pass string) error {
 	return os.Chmod(outPath, 0o600)
 }
 
-// WaitForBackupPull waits up to timeout for online secondaries to report last_cmd backup_pull ok.
+// WaitForBackupPull waits up to timeout for online secondaries to report last_cmd backup_pull ok
+// for this run (LastCmdAt after notBefore). Log must include key=ok (restore-ready).
 // Returns (acked, pending). Soft signal for pre-upgrade; does not fail hard if timeout.
-func WaitForBackupPull(timeout time.Duration) (acked, pending int) {
+func WaitForBackupPull(timeout time.Duration, notBefore time.Time) (acked, pending int) {
 	if timeout <= 0 {
 		timeout = 45 * time.Second
+	}
+	if notBefore.IsZero() {
+		notBefore = time.Now().UTC().Add(-30 * time.Second)
 	}
 	deadline := time.Now().Add(timeout)
 	online := 0
@@ -304,12 +308,11 @@ func WaitForBackupPull(timeout time.Duration) (acked, pending int) {
 			if !secondary.Online(d, 2*time.Minute) {
 				continue
 			}
-			if d.LastCmd == "backup_pull" && d.LastCmdOK {
-				// recent enough (10 min)
-				if time.Since(d.LastCmdAt) < 10*time.Minute {
-					acked++
-					continue
-				}
+			if d.LastCmd == "backup_pull" && d.LastCmdOK &&
+				!d.LastCmdAt.Before(notBefore) &&
+				(strings.Contains(d.LastCmdLog, "key=ok") || strings.Contains(d.LastCmdLog, "stored ")) {
+				acked++
+				continue
 			}
 			pending++
 		}
@@ -406,13 +409,14 @@ func Backup() (string, error) {
 	}
 	if n > 0 {
 		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d secondary agent(s)\n", n)
-		// Do not clear offsite alert on enqueue alone — wait for agent ack.
-		acked, pending := WaitForBackupPull(90 * time.Second)
+		// Do not clear offsite alert on enqueue alone — wait for this run's ack + key.
+		started := time.Now().UTC().Add(-2 * time.Second)
+		acked, pending := WaitForBackupPull(90*time.Second, started)
 		if acked > 0 && pending == 0 {
-			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d secondary acked backup_pull)\n", acked)
+			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d secondary acked backup_pull with key)\n", acked)
 			notify.ClearAlert("backup-offsite")
 		} else {
-			msg := fmt.Sprintf("🔴 Backup offsite: queued on %d, acked=%d pending=%d (pull not verified)", n, acked, pending)
+			msg := fmt.Sprintf("🔴 Backup offsite: queued on %d, acked=%d pending=%d (pull/key not verified)", n, acked, pending)
 			fmt.Fprintln(os.Stderr, msg)
 			notify.AlertOnce("backup-offsite", msg)
 			_ = os.WriteFile(failMark, []byte(msg), 0o600)

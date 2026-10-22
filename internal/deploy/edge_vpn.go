@@ -129,8 +129,12 @@ start_service() {
 
 	if vless == "" {
 		fmt.Fprintln(os.Stderr, "==> vpn_client: binary installed; VLESS deferred until agent online + template")
-		_ = runSCPOnPort(port, pass, o.PrimaryKey, user, host, tmpInit, "/etc/init.d/netductor-vpn", o.PrimaryKeyPassphrase)
-		_, _ = runSSHOnPort(port, pass, o.PrimaryKey, user, host, "chmod 755 /etc/init.d/netductor-vpn; /etc/init.d/netductor-vpn enable", o.PrimaryKeyPassphrase)
+		if err := runSCPOnPort(port, pass, o.PrimaryKey, user, host, tmpInit, "/etc/init.d/netductor-vpn", o.PrimaryKeyPassphrase); err != nil {
+			return fmt.Errorf("vpn_client: install init (deferred VLESS): %w", err)
+		}
+		if _, err := runSSHOnPort(port, pass, o.PrimaryKey, user, host, "chmod 755 /etc/init.d/netductor-vpn; /etc/init.d/netductor-vpn enable", o.PrimaryKeyPassphrase); err != nil {
+			return fmt.Errorf("vpn_client: enable init (deferred VLESS): %w", err)
+		}
 		return nil
 	}
 

@@ -409,8 +409,13 @@ func secondaryUpgrade(tag string) (bool, string) {
 	log.WriteString(fmt.Sprintf("upgrade tag=v%s arch=%s\n", tag, arch))
 	fetch := func(asset, dest string) error {
 		url := base + asset
-		tmp := "/tmp/" + asset + ".new"
-		_ = os.Remove(tmp)
+		dir, err := os.MkdirTemp("", "nd-upgrade-*")
+		if err != nil {
+			return fmt.Errorf("%s: temp dir: %w", asset, err)
+		}
+		defer os.RemoveAll(dir)
+		_ = os.Chmod(dir, 0o700)
+		tmp := filepath.Join(dir, filepath.Base(asset))
 		// curl: show HTTP code on failure (wget -q hides reason → bare "exit status 1")
 		cmd := exec.Command("curl", "-fL", "--connect-timeout", "20", "--max-time", "180",
 			"-o", tmp, "-w", "http=%{http_code} size=%{size_download}\n", url)
@@ -418,7 +423,6 @@ func secondaryUpgrade(tag string) (bool, string) {
 		log.Write(out)
 		if err != nil {
 			log.WriteString(fmt.Sprintf("curl %s: %v\n", asset, err))
-			// wget fallback
 			cmd = exec.Command("wget", "-O", tmp, url)
 			out2, err2 := cmd.CombinedOutput()
 			log.Write(out2)
@@ -618,21 +622,37 @@ func secondaryBackupPull() (bool, string) {
 		_ = os.Remove(tmpName)
 		return false, err.Error()
 	}
-	// key sidecar
-	req2, _ := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/key", nil)
+	// key sidecar — required for restore; pull is not OK without it
+	req2, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/key", nil)
+	if err != nil {
+		_ = os.Remove(outPath)
+		return false, "backup key request: " + err.Error()
+	}
 	req2.Header.Set("Authorization", "Bearer "+tok)
-	if resp2, err := client.Do(req2); err == nil {
-		defer resp2.Body.Close()
-		if resp2.StatusCode == 200 {
-			kb, _ := io.ReadAll(resp2.Body)
-			_ = os.WriteFile(filepath.Join(dir, "BACKUP_KEY.txt"), kb, 0o600)
-		}
+	resp2, err := client.Do(req2)
+	if err != nil {
+		_ = os.Remove(outPath)
+		return false, "backup key fetch: " + err.Error()
+	}
+	kb, rerr := io.ReadAll(resp2.Body)
+	_ = resp2.Body.Close()
+	if rerr != nil {
+		_ = os.Remove(outPath)
+		return false, "backup key read: " + rerr.Error()
+	}
+	if resp2.StatusCode != 200 || len(strings.TrimSpace(string(kb))) < 8 {
+		_ = os.Remove(outPath)
+		return false, fmt.Sprintf("backup key missing or short (HTTP %d, %d bytes) — offsite not restore-ready", resp2.StatusCode, len(kb))
+	}
+	if err := os.WriteFile(filepath.Join(dir, "BACKUP_KEY.txt"), kb, 0o600); err != nil {
+		_ = os.Remove(outPath)
+		return false, "write BACKUP_KEY: " + err.Error()
 	}
 	if comps := resp.Header.Get("X-Netductor-Components"); comps != "" {
 		_ = os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(strings.ReplaceAll(comps, ",", "\n")+"\n"), 0o644)
 	}
 	prunePeerArchives(dir, 14)
-	return true, "stored " + outPath
+	return true, "stored " + outPath + " key=ok"
 }
 
 func prunePeerArchives(dir string, keep int) {
