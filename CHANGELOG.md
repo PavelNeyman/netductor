@@ -1,3 +1,11 @@
+## 0.9.473
+
+- NDG2: per-chunk AAD (index) + authenticated end marker (count+size); reject truncate/forge/reorder
+- recover: drill only if sing-box, blocky, netductor-api are active after restart
+- baseline iptables: chain policies (`:INPUT DROP`) included in diff
+- ufw mTLS trust: exact SvcSP/PS CIDR match (not substring 10.87)
+- OpenWrt facts: FLASH_KB via ash/printf (no gawk strtonum)
+
 ## 0.9.472
 
 - firewall Collect: `ufw status numbered` — first-match WAN rule order (early ALLOW 22 fails even if DENY exists later)

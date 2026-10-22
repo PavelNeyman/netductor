@@ -110,9 +110,26 @@ func encryptFile(inPath, outPath, pass string) error {
 	return os.WriteFile(outPath, out, 0o600)
 }
 
-// NDG2: chunked AES-GCM. Magic "NDG2" + chunkSize(BE u32) + (nonce12 | ctLen BE u32 | ciphertext)*.
+// NDG2: chunked AES-GCM with per-chunk AAD (index) and authenticated end marker.
+// Layout: "NDG2" + chunkSize(BE u32) + repeated (nonce | ctLen BE u32 | ciphertext)
+// Data chunk i: AAD = "NDG2DATA" || BE(i); End: AAD = "NDG2END!" || BE(nchunks) || BE(totalPlain)
 const ndg2Magic = "NDG2"
 const ndg2Chunk = 1 << 20 // 1 MiB
+
+func ndg2AADData(i uint64) []byte {
+	var b [16]byte
+	copy(b[:8], "NDG2DATA")
+	binary.BigEndian.PutUint64(b[8:], i)
+	return b[:]
+}
+
+func ndg2AADEnd(nchunks, total uint64) []byte {
+	var b [24]byte
+	copy(b[:8], "NDG2END!")
+	binary.BigEndian.PutUint64(b[8:], nchunks)
+	binary.BigEndian.PutUint64(b[16:], total)
+	return b[:]
+}
 
 func encryptFileStreamGCM(inPath, outPath, pass string) error {
 	in, err := os.Open(inPath)
@@ -142,6 +159,7 @@ func encryptFileStreamGCM(inPath, outPath, pass string) error {
 		return err
 	}
 	buf := make([]byte, ndg2Chunk)
+	var nchunks, total uint64
 	for {
 		n, rerr := io.ReadFull(in, buf)
 		if n > 0 {
@@ -149,7 +167,7 @@ func encryptFileStreamGCM(inPath, outPath, pass string) error {
 			if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 				return err
 			}
-			ct := gcm.Seal(nil, nonce, buf[:n], nil)
+			ct := gcm.Seal(nil, nonce, buf[:n], ndg2AADData(nchunks))
 			if _, err := out.Write(nonce); err != nil {
 				return err
 			}
@@ -160,6 +178,8 @@ func encryptFileStreamGCM(inPath, outPath, pass string) error {
 			if _, err := out.Write(ct); err != nil {
 				return err
 			}
+			nchunks++
+			total += uint64(n)
 		}
 		if rerr == io.EOF || rerr == io.ErrUnexpectedEOF {
 			break
@@ -168,16 +188,20 @@ func encryptFileStreamGCM(inPath, outPath, pass string) error {
 			return rerr
 		}
 	}
-	// Authenticated end marker: random nonce + zero length (distinguishes truncation).
+	// Authenticated end marker (empty plaintext + AAD binds count and size).
 	endNonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, endNonce); err != nil {
 		return err
 	}
+	endCT := gcm.Seal(nil, endNonce, nil, ndg2AADEnd(nchunks, total))
 	if _, err := out.Write(endNonce); err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint32(sz[:], 0)
+	binary.BigEndian.PutUint32(sz[:], uint32(len(endCT)))
 	if _, err := out.Write(sz[:]); err != nil {
+		return err
+	}
+	if _, err := out.Write(endCT); err != nil {
 		return err
 	}
 	return nil
@@ -200,7 +224,7 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 	if _, err := io.ReadFull(in, sz[:]); err != nil {
 		return err
 	}
-	_ = binary.BigEndian.Uint32(sz[:])
+	_ = binary.BigEndian.Uint32(sz[:]) // declared chunk size (advisory)
 	block, err := aes.NewCipher(keyBytes(pass))
 	if err != nil {
 		return err
@@ -215,11 +239,11 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 	}
 	defer out.Close()
 	nonce := make([]byte, gcm.NonceSize())
-	chunks := 0
+	var nchunks, total uint64
 	for {
 		n, err := io.ReadFull(in, nonce)
 		if err == io.EOF {
-			break // clean end only with zero bytes read by ReadFull → EOF
+			return fmt.Errorf("ndg2: missing authenticated end marker (truncated or legacy archive — re-backup)")
 		}
 		if err == io.ErrUnexpectedEOF {
 			return fmt.Errorf("ndg2: truncated nonce (%d/%d bytes)", n, len(nonce))
@@ -231,9 +255,15 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 			return fmt.Errorf("ndg2: truncated chunk len: %w", err)
 		}
 		ctLen := binary.BigEndian.Uint32(sz[:])
-		// Final marker: ctLen == 0 after full nonce → authenticated end of stream
-		if ctLen == 0 {
-			// optional: remaining must be EOF
+		if ctLen == 0 || ctLen > (ndg2Chunk+uint32(gcm.Overhead())+64) {
+			return fmt.Errorf("ndg2: bad chunk len %d", ctLen)
+		}
+		ct := make([]byte, ctLen)
+		if _, err := io.ReadFull(in, ct); err != nil {
+			return fmt.Errorf("ndg2: truncated ciphertext: %w", err)
+		}
+		// Prefer end marker when tag matches (empty plain + end AAD).
+		if _, errEnd := gcm.Open(nil, nonce, ct, ndg2AADEnd(nchunks, total)); errEnd == nil {
 			var one [1]byte
 			if _, err := io.ReadFull(in, one[:]); err != io.EOF && err != io.ErrUnexpectedEOF {
 				if err == nil {
@@ -243,27 +273,16 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 			}
 			return nil
 		}
-		if ctLen > (ndg2Chunk + uint32(gcm.Overhead()) + 64) {
-			return fmt.Errorf("ndg2: bad chunk len %d", ctLen)
-		}
-		ct := make([]byte, ctLen)
-		if _, err := io.ReadFull(in, ct); err != nil {
-			return fmt.Errorf("ndg2: truncated ciphertext: %w", err)
-		}
-		plain, err := gcm.Open(nil, nonce, ct, nil)
+		plain, err := gcm.Open(nil, nonce, ct, ndg2AADData(nchunks))
 		if err != nil {
-			return fmt.Errorf("ndg2 auth: %w", err)
+			return fmt.Errorf("ndg2 auth chunk %d: %w", nchunks, err)
 		}
 		if _, err := out.Write(plain); err != nil {
 			return err
 		}
-		chunks++
+		nchunks++
+		total += uint64(len(plain))
 	}
-	// End marker required (nonce + zero length). Plain EOF after data = truncated or legacy — reject.
-	if chunks == 0 {
-		return fmt.Errorf("ndg2: empty ciphertext")
-	}
-	return fmt.Errorf("ndg2: missing end marker (truncated or pre-0.9.471 archive — re-backup)")
 }
 
 // encryptFileOpenSSL: legacy only (decrypt still supports old CBC archives).
@@ -633,9 +652,18 @@ func Recover(archive, keyArg string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "recover: vpn apply OK (Reality+users from secrets/registry)")
 	}
-	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot", "netductor-backup.timer"} {
+	critUnits := []string{"sing-box", "blocky", "netductor-api"}
+	optUnits := []string{"netductor-telegram-bot", "netductor-backup.timer"}
+	for _, u := range append(append([]string{}, critUnits...), optUnits...) {
 		_ = run("systemctl", "enable", "--now", u)
 		_ = run("systemctl", "try-restart", u)
+	}
+	// Require critical units active before drill-mark (review P2 recovery).
+	for _, u := range critUnits {
+		out, err := runOut("systemctl", "is-active", u)
+		if err != nil || strings.TrimSpace(out) != "active" {
+			critical = append(critical, u+" not active (got "+strings.TrimSpace(out)+")")
+		}
 	}
 	// lampac: if component listed, ensure container up (data already restored under opt)
 	for _, c := range comps {

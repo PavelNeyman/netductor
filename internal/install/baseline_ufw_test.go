@@ -56,3 +56,15 @@ To                         Action      From
 		t.Fatalf("extra2=%v missing2=%v", extra2, missing2)
 	}
 }
+
+func TestIptablesChainPolicyToken(t *testing.T) {
+	if got := iptablesLineToken(":INPUT DROP [0:0]"); got != ":INPUT DROP" {
+		t.Fatalf("got %q", got)
+	}
+	if got := iptablesLineToken(":INPUT ACCEPT [12:34]"); got != ":INPUT ACCEPT" {
+		t.Fatalf("got %q", got)
+	}
+	a, b := ruleSetDiff("/dev/null", ":INPUT DROP [0:0]\n-A INPUT -j ACCEPT\n", iptablesLineToken)
+	_ = a
+	_ = b
+}

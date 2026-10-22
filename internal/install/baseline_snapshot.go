@@ -238,10 +238,18 @@ func ufwDefaultDiff(snapPath, live string) string {
 
 func iptablesLineToken(line string) string {
 	line = strings.TrimSpace(line)
-	if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ":") || strings.HasPrefix(line, "*") || line == "COMMIT" {
+	if line == "" || strings.HasPrefix(line, "#") || line == "COMMIT" || strings.HasPrefix(line, "*") {
 		return ""
 	}
-	// Keep filter rules; normalize spaces
+	// Chain policy lines: :INPUT DROP [0:0] — keep policy, drop packet counters.
+	if strings.HasPrefix(line, ":") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			// :NAME POLICY [counters]
+			return fields[0] + " " + fields[1]
+		}
+		return line
+	}
 	return strings.Join(strings.Fields(line), " ")
 }
 

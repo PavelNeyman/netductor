@@ -65,13 +65,22 @@ if command -v df >/dev/null; then
     echo ROOT_FREE_KB=$4
   fi
 fi
-# flash size from /proc/mtd if present (NOR/NAND sum)
+# flash size from /proc/mtd (BusyBox-safe: no gawk strtonum)
 if [ -f /proc/mtd ]; then
-  awk 'NR>1 {
-    sz=$2
-    if (sz ~ /^0x/) sz=strtonum(sz); else if (sz ~ /^[0-9a-fA-F]+$/) sz=strtonum("0x"sz)
-    sum+=sz
-  } END{if(sum>0) printf "FLASH_KB=%d\n", int(sum/1024)}' /proc/mtd 2>/dev/null
+  sum=0
+  while read -r dev sz erasesize name; do
+    case "$dev" in
+      dev*) continue ;;
+    esac
+    [ -z "$sz" ] && continue
+    sz=${sz#0x}
+    # hex → decimal via printf (works in ash/BusyBox)
+    dec=$(printf '%d' "0x$sz" 2>/dev/null) || dec=0
+    sum=$((sum + dec))
+  done < /proc/mtd
+  if [ "$sum" -gt 0 ] 2>/dev/null; then
+    echo FLASH_KB=$((sum / 1024))
+  fi
 fi
 ls /dev/mmcblk* >/dev/null 2>&1 && echo HAS_MMC=1 || echo HAS_MMC=0
 ls /dev/sd[a-z] >/dev/null 2>&1 && echo HAS_USB_DISK=1 || echo HAS_USB_DISK=0

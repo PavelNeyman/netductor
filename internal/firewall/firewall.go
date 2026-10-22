@@ -5,6 +5,7 @@ package firewall
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -479,10 +480,27 @@ func ufwFromIsWAN(from string) bool {
 
 func ufwFromIsTrustedMTLS(from string) bool {
 	from = strings.TrimSpace(from)
-	if strings.Contains(from, "10.87") || strings.Contains(from, "127.0.0.1") || from == "lo" {
+	if from == "127.0.0.1" || from == "lo" || strings.HasPrefix(from, "127.0.0.1/") {
 		return true
 	}
+	// Exact match against configured service-path CIDRs (not substring "10.87").
+	for _, w := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
+		if cidrEqual(from, w) {
+			return true
+		}
+	}
 	return false
+}
+
+func cidrEqual(a, b string) bool {
+	_, na, ea := net.ParseCIDR(strings.TrimSpace(a))
+	_, nb, eb := net.ParseCIDR(strings.TrimSpace(b))
+	if ea != nil || eb != nil {
+		return strings.TrimSpace(a) == strings.TrimSpace(b)
+	}
+	oa, _ := na.Mask.Size()
+	ob, _ := nb.Mask.Size()
+	return oa == ob && na.IP.Equal(nb.IP)
 }
 
 // firstTCPAction walks rules in order; returns first action that applies to port from a WAN source.
