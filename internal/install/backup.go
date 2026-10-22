@@ -265,11 +265,12 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 		// Prefer end marker when tag matches (empty plain + end AAD).
 		if _, errEnd := gcm.Open(nil, nonce, ct, ndg2AADEnd(nchunks, total)); errEnd == nil {
 			var one [1]byte
-			if _, err := io.ReadFull(in, one[:]); err != io.EOF && err != io.ErrUnexpectedEOF {
-				if err == nil {
-					return fmt.Errorf("ndg2: trailing data after end marker")
-				}
-				return err
+			n, err := io.ReadFull(in, one[:])
+			if n != 0 {
+				return fmt.Errorf("ndg2: trailing data after end marker")
+			}
+			if err != io.EOF {
+				return fmt.Errorf("ndg2: invalid end of stream: %w", err)
 			}
 			return nil
 		}
@@ -598,9 +599,10 @@ func Recover(archive, keyArg string) error {
 	injectOperatorKeysFromEnvEarly()
 
 	// Install first (binaries/services). Secrets not required yet for most steps.
+	var critical []string
 	if err := Run(Options{Components: comps, SkipHostname: true}); err != nil {
-		fmt.Fprintf(os.Stderr, "recover: install warnings: %v\n", err)
-		// continue — restore may still fix secrets
+		fmt.Fprintf(os.Stderr, "recover: pre-restore install FAILED: %v\n", err)
+		critical = append(critical, "pre-restore install: "+err.Error())
 	}
 
 	// Then overlay data from archive (secrets, users, state, lampac config).
@@ -632,7 +634,8 @@ func Recover(archive, keyArg string) error {
 	}
 	if len(post) > 0 {
 		if err := Run(Options{Components: post, SkipHostname: true}); err != nil {
-			fmt.Fprintf(os.Stderr, "recover: post-restore install: %v\n", err)
+			fmt.Fprintf(os.Stderr, "recover: post-restore install FAILED: %v\n", err)
+			critical = append(critical, "post-restore install: "+err.Error())
 		}
 	}
 
@@ -645,7 +648,6 @@ func Recover(archive, keyArg string) error {
 	_ = InstallRedirect()
 	fmt.Fprintln(os.Stderr, "recover: ensure relay-uplink user + apply vpn from secrets (must match secondary bundle)")
 	_ = run("netductor", "vpn", "ensure-relay-uplink")
-	var critical []string
 	if err := run("netductor", "vpn", "apply"); err != nil {
 		fmt.Fprintf(os.Stderr, "recover: vpn apply FAILED (primary conf may not match secrets): %v\n", err)
 		critical = append(critical, "vpn apply: "+err.Error())
@@ -673,7 +675,10 @@ func Recover(archive, keyArg string) error {
 		}
 	}
 	// Agent plane: allow known secondary public IPs on :8789 (restored registry + api-allow.cidr)
-	_ = SyncAgentAllowFromSecondaryRegistry()
+	if err := SyncAgentAllowFromSecondaryRegistry(); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: agent allow sync: %v\n", err)
+		critical = append(critical, "agent-allow: "+err.Error())
+	}
 	if err := ApplyAgentFirewall(); err != nil {
 		fmt.Fprintf(os.Stderr, "recover: agent firewall: %v\n", err)
 		critical = append(critical, "firewall: "+err.Error())

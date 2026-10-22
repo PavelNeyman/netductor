@@ -1,3 +1,11 @@
+## 0.9.474
+
+- deploy SSH: stop clearing known_hosts on every hop (TOFU restored; ClearHostKeys only for explicit reinstall)
+- RemoteJoin: download binary into mktemp -d 0700, not fixed /tmp/netductor.new
+- BackupSecondaryLocal: require backup_key (no silent plaintext .tar.gz)
+- recover: pre/post install errors + agent-allow sync feed critical; drill only if all pass
+- NDG2: strict trailing-byte check; tests for reorder + iptables policy drift
+
 ## 0.9.473
 
 - NDG2: per-chunk AAD (index) + authenticated end marker (count+size); reject truncate/forge/reorder

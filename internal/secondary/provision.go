@@ -150,15 +150,17 @@ func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 	script := fmt.Sprintf("set -e\n"+
 		"export DEBIAN_FRONTEND=noninteractive\n"+
 		"VER=%s\n"+
+		"TD=$(mktemp -d /tmp/nd-join.XXXXXX)\n"+
+		"chmod 700 \"$TD\"\n"+
+		"trap 'rm -rf \"$TD\"' EXIT\n"+
 		"dl() {\n"+
 		"  u=\"https://github.com/PavelNeyman/netductor/releases/download/v$1/netductor-linux-amd64\"\n"+
-		"  if command -v curl >/dev/null 2>&1; then curl -fsSL -o /tmp/netductor.new \"$u\"\n"+
-		"  else wget -qO /tmp/netductor.new \"$u\"; fi\n"+
+		"  if command -v curl >/dev/null 2>&1; then curl -fsSL -o \"$TD/netductor.new\" \"$u\"\n"+
+		"  else wget -qO \"$TD/netductor.new\" \"$u\"; fi\n"+
 		"}\n"+
 		"dl \"$VER\" || { echo \"download netductor v$VER failed\" >&2; exit 1; }\n"+
 		"systemctl stop netductor-secondary-agent 2>/dev/null || true\n"+
-		"install -m 755 /tmp/netductor.new /usr/local/bin/netductor\n"+
-		"rm -f /tmp/netductor.new\n"+
+		"install -m 755 \"$TD/netductor.new\" /usr/local/bin/netductor\n"+
 		"cat > /root/bundle.json << 'BUNDLE_EOF'\n"+
 		"%s\n"+
 		"BUNDLE_EOF\n"+

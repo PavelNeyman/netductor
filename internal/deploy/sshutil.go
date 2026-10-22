@@ -32,8 +32,9 @@ func factorySSHPort() string {
 	return "22"
 }
 
-// clearHostKeys drops stale known_hosts entries after VPS reinstall (changed host key).
-func clearHostKeys(host string) {
+// ClearHostKeys drops known_hosts for host — only for explicit reinstall/host-key rotation.
+// Do NOT call on every SSH hop (that defeats TOFU / MITM detection).
+func ClearHostKeys(host string) {
 	if host == "" {
 		return
 	}
@@ -129,7 +130,6 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	if port == "" {
 		port = sshPort()
 	}
-	clearHostKeys(host)
 	target := user + "@" + host
 	// Prefer password when provided (OpenWrt day-0 after setPass still needs password until harden).
 	// Key-only when password is empty.

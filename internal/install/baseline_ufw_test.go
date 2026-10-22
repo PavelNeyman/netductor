@@ -68,3 +68,29 @@ func TestIptablesChainPolicyToken(t *testing.T) {
 	_ = a
 	_ = b
 }
+
+
+func TestIptablesPolicyDriftDetected(t *testing.T) {
+	dir := t.TempDir()
+	bp := filepath.Join(dir, "iptables.txt")
+	base := ":INPUT DROP [0:0]\n-A INPUT -j ACCEPT\n"
+	live := ":INPUT ACCEPT [9:9]\n-A INPUT -j ACCEPT\n"
+	if err := os.WriteFile(bp, []byte(base), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	added, removed := ruleSetDiff(bp, live, iptablesLineToken)
+	ok := false
+	for _, r := range removed {
+		if r == ":INPUT DROP" {
+			ok = true
+		}
+	}
+	for _, a := range added {
+		if a == ":INPUT ACCEPT" {
+			ok = true
+		}
+	}
+	if !ok {
+		t.Fatalf("expected INPUT policy drift; added=%v removed=%v", added, removed)
+	}
+}

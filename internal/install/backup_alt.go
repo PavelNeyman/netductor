@@ -49,15 +49,16 @@ func BackupSecondaryLocal() (string, error) {
 		return "", fmt.Errorf("tar empty")
 	}
 	key := readSecret("backup_key")
-	out := plain
-	if key != "" {
-		enc := plain + ".ndenc"
-		if err := encryptFile(plain, enc, key); err != nil {
-			return "", err
-		}
+	if key == "" {
 		_ = os.Remove(plain)
-		out = enc
+		return "", fmt.Errorf("backup_key missing — refusing plaintext secondary-local backup (set /etc/netductor/secrets/backup_key)")
 	}
+	enc := plain + ".ndenc"
+	if err := encryptFile(plain, enc, key); err != nil {
+		return "", err
+	}
+	_ = os.Remove(plain)
+	out := enc
 	_ = os.Chmod(out, 0o600)
 	pruneBackups(dir, BackupKeepCount())
 	fmt.Fprintln(os.Stderr, "backup secondary-local:", out)
