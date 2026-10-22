@@ -17,6 +17,27 @@ var mtlsDirs = []string{
 	"/etc/netductor/secrets/mtls",
 }
 
+func mtlsRequiredFlagPath() string {
+	return filepath.Join(agentDir(), "mtls_required")
+}
+
+// markMTLSRequired sets sticky flag after successful mTLS material install/use.
+func markMTLSRequired() {
+	_ = os.MkdirAll(agentDir(), 0o700)
+	_ = os.WriteFile(mtlsRequiredFlagPath(), []byte("1\n"), 0o600)
+}
+
+func mtlsRequired() bool {
+	if os.Getenv("NETDUCTOR_MTLS_REQUIRED") == "1" {
+		return true
+	}
+	if os.Getenv("NETDUCTOR_MTLS_REQUIRED") == "0" {
+		return false
+	}
+	_, err := os.Stat(mtlsRequiredFlagPath())
+	return err == nil
+}
+
 func findMTLSDir() string {
 	for _, d := range mtlsDirs {
 		if fileOK(filepath.Join(d, "ca.crt")) &&
@@ -34,12 +55,19 @@ func fileOK(p string) bool {
 }
 
 // agentHTTPClient returns an HTTP client; with mTLS certs uses TLS 1.3 client auth.
-// If mTLS material is present but unusable, fail closed (no silent bearer fallback).
+// Once mTLS was required (flag or complete material used), missing/broken material fails closed —
+// no silent bearer fallback (review P1).
 func agentHTTPClient() *http.Client {
 	c := &http.Client{Timeout: 120 * time.Second}
 	dir := findMTLSDir()
 	if dir == "" {
-		return c // bootstrap / pre-enroll
+		if mtlsRequired() {
+			err := fmt.Errorf("mtls required but ca.crt/client.crt/client.key incomplete or missing")
+			fmt.Fprintln(os.Stderr, err)
+			c.Transport = &failClosedRoundTripper{err: err}
+			return c
+		}
+		return c // bootstrap / pre-enroll only
 	}
 	cert, err := tls.LoadX509KeyPair(filepath.Join(dir, "client.crt"), filepath.Join(dir, "client.key"))
 	if err != nil {
@@ -60,6 +88,7 @@ func agentHTTPClient() *http.Client {
 		c.Transport = &failClosedRoundTripper{err: err}
 		return c
 	}
+	markMTLSRequired()
 	c.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -81,22 +110,20 @@ func (f *failClosedRoundTripper) RoundTrip(*http.Request) (*http.Response, error
 	return nil, fmt.Errorf("mtls required but unavailable")
 }
 
-// normalizeServerURL forces https://host:8789 when mTLS material is present.
+// normalizeServerURL forces https://host:8789 when mTLS material is present or required.
 func normalizeServerURL(server string) string {
 	server = strings.TrimRight(strings.TrimSpace(server), "/")
-	if findMTLSDir() == "" {
+	if findMTLSDir() == "" && !mtlsRequired() {
 		return server
 	}
 	rest := server
 	rest = strings.TrimPrefix(rest, "https://")
 	rest = strings.TrimPrefix(rest, "http://")
-	host := rest
 	if i := strings.Index(rest, "/"); i >= 0 {
-		host = rest[:i]
+		rest = rest[:i]
 	}
-	if i := strings.LastIndex(host, ":"); i > 0 {
-		// strip port
-		host = host[:i]
+	if !strings.Contains(rest, ":") {
+		rest += ":8789"
 	}
-	return "https://" + host + ":8789"
+	return "https://" + rest
 }

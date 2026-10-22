@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net"
+	"net/url"
 	"net/http"
 	"os"
 	"os/exec"
@@ -200,21 +201,25 @@ func nvrSupervise(client *http.Client, cfg config, camID, url string, seg int, d
 	}
 }
 
-func nvrTCPCheckRTSP(url string) error {
-	hostport := url
-	if strings.HasPrefix(url, "rtsp://") {
-		u := url[7:]
-		if i := strings.Index(u, "@"); i >= 0 {
-			u = u[i+1:]
-		}
-		if i := strings.IndexAny(u, "/?"); i >= 0 {
-			u = u[:i]
-		}
-		hostport = u
+func nvrTCPCheckRTSP(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return err
 	}
-	if !strings.Contains(hostport, ":") {
-		hostport += ":554"
+	scheme := strings.ToLower(u.Scheme)
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("rtsp: empty host")
 	}
+	port := u.Port()
+	if port == "" {
+		if scheme == "rtsps" {
+			port = "322" // common RTSPS default
+		} else {
+			port = "554"
+		}
+	}
+	hostport := net.JoinHostPort(host, port)
 	c, err := net.DialTimeout("tcp", hostport, 3*time.Second)
 	if err != nil {
 		return err

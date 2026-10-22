@@ -172,8 +172,10 @@ func ufwRuleToken(line string) string {
 	default:
 		return ""
 	}
-	// Port-like: 443/tcp, 22, 8443/udp
-	if !strings.ContainsAny(port, "0123456789") {
+	// Port-like: 443/tcp, 22, 8443/udp — also keep global Anywhere rules
+	if !strings.ContainsAny(port, "0123456789") &&
+		!strings.EqualFold(port, "Anywhere") && port != "*" &&
+		!strings.EqualFold(port, "any") {
 		return ""
 	}
 	from := strings.Join(fields[2:], " ")

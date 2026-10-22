@@ -339,27 +339,31 @@ func decryptFile(inPath, outPath, pass string) error {
 
 // WaitForBackupPull waits for online secondaries to ack backup_pull with key=ok.
 // If cmdID is non-empty, LastCmdLog must contain cmd_id=<cmdID> (ties ack to this run).
-func WaitForBackupPull(timeout time.Duration, notBefore time.Time, cmdID string) (acked, pending int) {
+func WaitForBackupPull(timeout time.Duration, notBefore time.Time, cmdID string, targetIDs []string) (acked, pending int) {
 	if timeout <= 0 {
 		timeout = 45 * time.Second
 	}
 	if notBefore.IsZero() {
 		notBefore = time.Now().UTC().Add(-30 * time.Second)
 	}
-	deadline := time.Now().Add(timeout)
-	online := 0
-	for _, d := range secondary.List() {
-		if secondary.Online(d, 2*time.Minute) {
-			online++
-		}
-	}
-	if online == 0 {
+	if len(targetIDs) == 0 {
 		return 0, 0
 	}
+	want := map[string]struct{}{}
+	for _, id := range targetIDs {
+		want[id] = struct{}{}
+	}
+	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		acked, pending = 0, 0
+		byID := map[string]secondary.Device{}
 		for _, d := range secondary.List() {
-			if !secondary.Online(d, 2*time.Minute) {
+			byID[d.ID] = d
+		}
+		for id := range want {
+			d, ok := byID[id]
+			if !ok {
+				pending++
 				continue
 			}
 			cmdOK := strings.HasPrefix(d.LastCmd, "backup_pull") && d.LastCmdOK &&
@@ -381,7 +385,6 @@ func WaitForBackupPull(timeout time.Duration, notBefore time.Time, cmdID string)
 	}
 	return acked, pending
 }
-
 func newBackupPullCmdID() string {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -466,7 +469,9 @@ func Backup() (string, error) {
 	// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
 	n, offline := 0, 0
 	pullID := newBackupPullCmdID()
+	var targetIDs []string
 	for _, d := range secondary.List() {
+		targetIDs = append(targetIDs, d.ID)
 		if !secondary.Online(d, 3*time.Minute) {
 			offline++
 			continue
@@ -475,16 +480,15 @@ func Backup() (string, error) {
 			n++
 		}
 	}
-	if n > 0 {
-		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d secondary agent(s)\n", n)
-		// Do not clear offsite alert on enqueue alone — wait for this run's ack + key.
+	if len(targetIDs) > 0 && n > 0 {
+		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d/%d secondary agent(s) (offline=%d)\n", n, len(targetIDs), offline)
 		started := time.Now().UTC().Add(-2 * time.Second)
-		acked, pending := WaitForBackupPull(90*time.Second, started, pullID)
-		if acked > 0 && pending == 0 {
-			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d secondary acked backup_pull with key)\n", acked)
+		acked, pending := WaitForBackupPull(90*time.Second, started, pullID, targetIDs)
+		if acked == len(targetIDs) && pending == 0 {
+			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d/%d secondary acked backup_pull with key)\n", acked, len(targetIDs))
 			notify.ClearAlert("backup-offsite")
 		} else {
-			msg := fmt.Sprintf("🔴 Backup offsite: queued on %d, acked=%d pending=%d (pull/key not verified)", n, acked, pending)
+			msg := fmt.Sprintf("🔴 Backup offsite: targets=%d queued=%d acked=%d pending=%d offline=%d", len(targetIDs), n, acked, pending, offline)
 			fmt.Fprintln(os.Stderr, msg)
 			notify.AlertOnce("backup-offsite", msg)
 			_ = os.WriteFile(failMark, []byte(msg), 0o600)

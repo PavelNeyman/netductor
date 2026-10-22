@@ -462,16 +462,39 @@ func parseUfwNumbered(status string) []ufwRule {
 }
 
 func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
-	if r.Port != port {
-		return false
-	}
 	if r.Proto == "udp" {
 		return false
 	}
-	// proto tcp or empty (ufw sometimes omits)
-	return true
+	rp := strings.TrimSpace(r.Port)
+	// Global allow/deny (Anywhere, *, empty) applies to every TCP port.
+	if rp == "" || rp == "Anywhere" || rp == "Anywhere (v6)" || rp == "*" ||
+		strings.EqualFold(rp, "any") {
+		return true
+	}
+	// Port ranges: 8000:9000 or 8000-9000
+	for _, sep := range []string{":", "-"} {
+		if i := strings.Index(rp, sep); i > 0 {
+			lo, hi := rp[:i], rp[i+len(sep):]
+			if j := strings.Index(lo, "/"); j >= 0 {
+				lo = lo[:j]
+			}
+			if j := strings.Index(hi, "/"); j >= 0 {
+				hi = hi[:j]
+			}
+			a, ea := strconv.Atoi(lo)
+			b, eb := strconv.Atoi(hi)
+			pn, ep := strconv.Atoi(port)
+			if ea == nil && eb == nil && ep == nil && pn >= a && pn <= b {
+				return true
+			}
+		}
+	}
+	base := rp
+	if j := strings.Index(base, "/"); j >= 0 {
+		base = base[:j]
+	}
+	return base == port
 }
-
 func ufwFromIsWAN(from string) bool {
 	from = strings.TrimSpace(from)
 	return from == "" || from == "Anywhere" || from == "Anywhere (v6)" ||
@@ -520,6 +543,13 @@ func firstTCPActionFromWAN(rules []ufwRule, port string) (action string, found b
 // ufwEffectivePolicy uses rule order from `ufw status numbered` (first match wins).
 func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	ok = true
+	// Default incoming must be deny/reject (not allow).
+	low := strings.ToLower(status)
+	if strings.Contains(low, "default: allow (incoming)") ||
+		strings.Contains(low, "default: allow (incoming,") {
+		ok = false
+		warnings = append(warnings, "ufw default incoming is ALLOW — must be deny")
+	}
 	rules := parseUfwNumbered(status)
 	// Fallback: non-numbered status still works via order of appearance.
 	if len(rules) == 0 {

@@ -105,7 +105,10 @@ Also: job type vps.precheck (Web/TUI). Installs curl/iperf3/sysbench on the targ
 	}
 	if jsonOut {
 		fmt.Println(rep.JSON())
-		return
+	} else {
+		fmt.Print(rep.Text())
 	}
-	fmt.Print(rep.Text())
+	if rep.Fail > 0 {
+		os.Exit(2)
+	}
 }

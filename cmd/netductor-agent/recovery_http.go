@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -20,6 +21,46 @@ import (
 	"github.com/PavelNeyman/netductor/internal/format"
 )
 
+
+// recoveryUnlockPath is a local secret (root-only file) required to rebind an already-configured agent.
+func recoveryUnlockPath() string {
+	return agentDir() + "/recovery_unlock"
+}
+
+// ensureRecoveryUnlock creates unlock secret once (for operator to read via SSH).
+func ensureRecoveryUnlock() string {
+	path := recoveryUnlockPath()
+	if b, err := os.ReadFile(path); err == nil {
+		s := strings.TrimSpace(string(b))
+		if len(s) >= 16 {
+			return s
+		}
+	}
+	_ = os.MkdirAll(agentDir(), 0o700)
+	var buf [24]byte
+	_, _ = rand.Read(buf[:])
+	s := fmt.Sprintf("%x", buf[:])
+	_ = os.WriteFile(path, []byte(s+"\n"), 0o600)
+	return s
+}
+
+func recoveryUnlockOK(submitted string) bool {
+	submitted = strings.TrimSpace(submitted)
+	if submitted == "" {
+		return false
+	}
+	b, err := os.ReadFile(recoveryUnlockPath())
+	if err != nil {
+		return false
+	}
+	want := strings.TrimSpace(string(b))
+	if len(submitted) != len(want) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(submitted), []byte(want)) == 1
+}
+
+
 const recoveryHTML = `<!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>netductor recovery</title>
@@ -34,6 +75,7 @@ button{background:#1a7;color:#fff;border:0;border-radius:6px}
 <form method="POST" action="/netductor-recovery">
 <label>Primary URL<br/><input name="server" placeholder="https://x.x.x.x:8789" value="{{SERVER}}"/></label>
 <label>Recovery / bootstrap code<br/><input name="code" autocomplete="off" required/></label>
+<label>Local unlock (если агент уже привязан; файл recovery_unlock на роутере)<br/><input name="unlock" autocomplete="off"/></label>
 <button type="submit">Отправить</button>
 </form>
 <p class="msg">{{MSG}}</p>
@@ -74,6 +116,24 @@ func startRecoveryHTTP(cfg *config) {
 			}
 			if code == "" || len(code) < 16 {
 				msg = `<span class="err">Нужен код (recovery или bootstrap)</span>`
+			} else if strings.TrimSpace(cfg.Token) != "" || strings.TrimSpace(cfg.Server) != "" {
+				// Already bound: require local unlock (LAN-only is not authentication).
+				unlock := strings.TrimSpace(r.Form.Get("unlock"))
+				_ = ensureRecoveryUnlock()
+				if !recoveryUnlockOK(unlock) {
+					msg = `<span class="err">Нужен local unlock (cat …/recovery_unlock на роутере). Без него перепривязка запрещена.</span>`
+				} else if !validPrimaryURL(server) {
+					msg = `<span class="err">Некорректный Primary URL (нужен https://…:8789; lab: NETDUCTOR_RECOVERY_ALLOW_HTTP=1)</span>`
+				} else {
+					server = strings.TrimRight(server, "/")
+					if err := writeAgentConfig(server, code, cfg.DeviceID); err != nil {
+						msg = `<span class="err">` + htmlEsc(err.Error()) + `</span>`
+					} else {
+						cfg.Server = server
+						cfg.Token = code
+						msg = `<span class="ok">Сохранено. Агент сделает enroll → pending на primary. Оператор должен Approve.</span>`
+					}
+				}
 			} else if !validPrimaryURL(server) {
 				msg = `<span class="err">Некорректный Primary URL (нужен https://…:8789; lab: NETDUCTOR_RECOVERY_ALLOW_HTTP=1)</span>`
 			} else {

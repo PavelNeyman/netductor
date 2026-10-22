@@ -18,36 +18,58 @@ import (
 var pinFailMu sync.Mutex
 var pinFails = map[string][]time.Time{}
 
-func pinRateAllow(ip string) bool {
+func pinRatePruneLocked(now time.Time) {
+	cut := now.Add(-15 * time.Minute)
+	for ip, times := range pinFails {
+		var kept []time.Time
+		for _, ts := range times {
+			if ts.After(cut) {
+				kept = append(kept, ts)
+			}
+		}
+		if len(kept) == 0 {
+			delete(pinFails, ip)
+		} else {
+			pinFails[ip] = kept
+		}
+	}
+	// Cap map size against slow growth from many IPs
+	if len(pinFails) > 10000 {
+		pinFails = map[string][]time.Time{}
+	}
+}
+
+// pinRateReserve returns false if IP already at limit; on true reserves a slot (counts as fail until success clears).
+func pinRateReserve(ip string) bool {
 	pinFailMu.Lock()
 	defer pinFailMu.Unlock()
 	now := time.Now()
-	cut := now.Add(-15 * time.Minute)
-	var kept []time.Time
-	for _, ts := range pinFails[ip] {
-		if ts.After(cut) {
-			kept = append(kept, ts)
-		}
+	pinRatePruneLocked(now)
+	kept := pinFails[ip]
+	if len(kept) >= 5 {
+		return false
 	}
-	pinFails[ip] = kept
-	return len(kept) < 5
+	pinFails[ip] = append(kept, now)
+	return true
 }
 
-func pinRateFail(ip string) {
+func pinRateClearLast(ip string) {
 	pinFailMu.Lock()
 	defer pinFailMu.Unlock()
-	pinFails[ip] = append(pinFails[ip], time.Now())
+	if len(pinFails[ip]) > 0 {
+		pinFails[ip] = pinFails[ip][:len(pinFails[ip])-1]
+	}
 }
 
 func deskPINCheck(r *http.Request, gc *guest.Config, pin string) bool {
 	ip := clientIP(r)
-	if !pinRateAllow(ip) {
+	if !pinRateReserve(ip) {
 		return false
 	}
 	if gc == nil || !gc.PINOK(pin) {
-		pinRateFail(ip)
-		return false
+		return false // reserved slot stays as failure
 	}
+	pinRateClearLast(ip) // success: release reservation
 	return true
 }
 

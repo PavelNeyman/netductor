@@ -48,15 +48,28 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	name := "sing-box-linux-" + agentArch
+	ver := strings.TrimPrefix(PinnedSingBox, "v")
+	name := fmt.Sprintf("sing-box-%s-linux-%s", ver, agentArch)
 	dest := filepath.Join(dir, name)
 	if st, err := os.Stat(dest); err == nil && st.Size() >= minSingBoxBytes {
-		return dest, nil
+		// Cache hit: still verify size; optional SHA file sidecar
+		sumPath := dest + ".sha256"
+		if b, err := os.ReadFile(sumPath); err == nil {
+			want := strings.TrimSpace(string(b))
+			got, herr := fileSHA256HexFile(dest)
+			if herr != nil || !strings.EqualFold(got, want) {
+				_ = os.Remove(dest)
+				_ = os.Remove(sumPath)
+			} else {
+				return dest, nil
+			}
+		} else {
+			return dest, nil // legacy cache without sidecar
+		}
 	}
 	_ = os.Remove(dest) // drop partial/corrupt
 
 	sbArch := singBoxArch(agentArch)
-	ver := strings.TrimPrefix(PinnedSingBox, "v")
 	url := fmt.Sprintf("https://github.com/SagerNet/sing-box/releases/download/v%s/sing-box-%s-linux-%s.tar.gz",
 		ver, ver, sbArch)
 	tmp, err := os.MkdirTemp("", "sb-cache-")
@@ -145,6 +158,9 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	if err := os.Rename(tmpDest, dest); err != nil {
 		_ = os.Remove(tmpDest)
 		return "", err
+	}
+	if sum, err := fileSHA256HexFile(dest); err == nil {
+		_ = os.WriteFile(dest+".sha256", []byte(sum+"\n"), 0o644)
 	}
 	return dest, nil
 }

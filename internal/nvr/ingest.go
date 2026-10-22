@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -15,6 +16,9 @@ import (
 var cameraIDRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
 
 // ValidCameraID rejects path traversal and unsafe ids (M-1).
+
+var quotaMu sync.Mutex
+
 func ValidCameraID(id string) bool {
 	id = strings.TrimSpace(id)
 	if id == "" || id == "." || id == ".." {
@@ -27,6 +31,20 @@ func ValidCameraID(id string) bool {
 }
 
 // underRoot reports whether absPath is inside root (after Clean; best-effort symlink check).
+
+func dirSizeBytesErr(root string) (int64, error) {
+	var total int64
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info != nil && !info.IsDir() {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total, err
+}
 
 func dirSizeBytes(root string) int64 {
 	var sum int64
@@ -125,16 +143,25 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 	if realDest, err := filepath.EvalSymlinks(filepath.Dir(dest)); err == nil && !underRoot(root, realDest) {
 		return "", 0, fmt.Errorf("destination parent escapes nvr root")
 	}
-	// Quotas: per-camera and global MaxGB (review hardening).
-	camUsed := dirSizeBytes(dir)
-	if q := cameraQuotaBytes(cfg); q > 0 && camUsed >= q {
-		return "", 0, fmt.Errorf("camera quota exceeded (%d bytes used, limit %d)", camUsed, q)
+	const maxSeg = 64 << 20 // 64 MiB per request
+	quotaMu.Lock()
+	defer quotaMu.Unlock()
+	// Hard quotas: refuse if current + maxSeg would exceed (no overshoot on full segment).
+	camUsed, camErr := dirSizeBytesErr(dir)
+	if camErr != nil {
+		return "", 0, fmt.Errorf("camera usage: %w", camErr)
+	}
+	if q := cameraQuotaBytes(cfg); q > 0 && camUsed+maxSeg > q {
+		return "", 0, fmt.Errorf("camera quota exceeded (%d used + up to %d seg, limit %d)", camUsed, maxSeg, q)
 	}
 	if cfg.MaxGB > 0 {
-		total := dirSizeBytes(root)
+		total, totErr := dirSizeBytesErr(root)
+		if totErr != nil {
+			return "", 0, fmt.Errorf("nvr usage: %w", totErr)
+		}
 		lim := int64(cfg.MaxGB * 1024 * 1024 * 1024)
-		if total >= lim {
-			return "", 0, fmt.Errorf("nvr storage full (%d bytes, MaxGB=%.1f)", total, cfg.MaxGB)
+		if total+maxSeg > lim {
+			return "", 0, fmt.Errorf("nvr storage full (%d used + up to %d seg, MaxGB=%.1f)", total, maxSeg, cfg.MaxGB)
 		}
 	}
 	tmp := dest + ".partial"
@@ -142,7 +169,6 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 	if err != nil {
 		return "", 0, err
 	}
-	const maxSeg = 64 << 20 // 64 MiB per request
 	n, err := io.Copy(f, io.LimitReader(r, maxSeg+1))
 	if n > maxSeg {
 		_ = os.Remove(tmp)
