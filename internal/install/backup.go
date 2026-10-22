@@ -259,11 +259,11 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 		}
 		chunks++
 	}
-	// Legacy streams without end marker: EOF after last full chunk is accepted if ≥1 chunk
+	// End marker required (nonce + zero length). Plain EOF after data = truncated or legacy — reject.
 	if chunks == 0 {
 		return fmt.Errorf("ndg2: empty ciphertext")
 	}
-	return nil
+	return fmt.Errorf("ndg2: missing end marker (truncated or pre-0.9.471 archive — re-backup)")
 }
 
 // encryptFileOpenSSL: legacy only (decrypt still supports old CBC archives).

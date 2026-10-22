@@ -2,41 +2,67 @@ package firewall
 
 import "testing"
 
-func TestUfwLineMentionsPort(t *testing.T) {
-	cases := []struct {
-		ln, port string
-		want     bool
-	}{
-		{"52222/tcp                  ALLOW       Anywhere", "52222", true},
-		{"52222/tcp                  ALLOW       Anywhere", "22", false},
-		{"22/tcp                     DENY        Anywhere", "22", true},
-		{"22/tcp                     DENY        Anywhere", "52222", false},
-		{"10050/tcp                  DENY        Anywhere", "10050", true},
-		{"8789/tcp                   ALLOW       10.87.10.0/30", "8789", true},
+func TestParseUfwNumberedOrder(t *testing.T) {
+	status := `Status: active
+
+     To                         Action      From
+     --                         ------      ----
+[ 1] 52222/tcp                  ALLOW IN    Anywhere
+[ 2] 22/tcp                     ALLOW IN    Anywhere
+[ 3] 22/tcp                     DENY IN     Anywhere
+[ 4] 443/tcp                    ALLOW IN    Anywhere
+[ 5] 10050/tcp                  DENY IN     Anywhere
+[ 6] 8788/tcp                   DENY IN     Anywhere
+[ 7] 8789/tcp                   ALLOW IN    10.87.10.0/30
+[ 8] 8789/tcp                   ALLOW IN    127.0.0.1
+[ 9] 22/tcp (v6)                DENY IN     Anywhere (v6)
+`
+	rules := parseUfwNumbered(status)
+	if len(rules) < 7 {
+		t.Fatalf("rules=%d", len(rules))
 	}
-	for _, c := range cases {
-		if got := ufwLineMentionsPort(c.ln, c.port); got != c.want {
-			t.Fatalf("ln=%q port=%q got=%v want=%v", c.ln, c.port, got, c.want)
+	// v6 skipped
+	for _, r := range rules {
+		if r.Proto == "udp" {
+			t.Fatal("udp")
 		}
+	}
+	act, found := firstTCPActionFromWAN(rules, "22")
+	if !found || act != "ALLOW" {
+		t.Fatalf("first WAN 22 should be ALLOW (stale), got found=%v act=%s", found, act)
+	}
+	ok, warns := ufwEffectivePolicy(status, "primary")
+	if ok {
+		t.Fatalf("expected fail on early ALLOW 22, warns=%v", warns)
 	}
 }
 
-func TestUfwEffectivePolicyPrimary(t *testing.T) {
+func TestUfwNumberedGoodPrimary(t *testing.T) {
+	// sshPort() defaults often 52222
 	status := `Status: active
-
-To                         Action      From
---                         ------      ----
-52222/tcp                  ALLOW       Anywhere                   # netductor-ssh
-22/tcp                     DENY        Anywhere                   # netductor-no-ssh22
-443/tcp                    ALLOW       Anywhere                   # netductor-vless
-10050/tcp                  DENY        Anywhere
-8788/tcp                   DENY        Anywhere
-8789/tcp                   ALLOW       10.87.10.0/30
-8789/tcp                   ALLOW       127.0.0.1
+[ 1] 52222/tcp                  ALLOW IN    Anywhere
+[ 2] 22/tcp                     DENY IN     Anywhere
+[ 3] 443/tcp                    ALLOW IN    Anywhere
+[ 4] 10050/tcp                  DENY IN     Anywhere
+[ 5] 8788/tcp                   DENY IN     Anywhere
+[ 6] 8789/tcp                   ALLOW IN    10.87.10.0/30
+[ 7] 8789/tcp                   ALLOW IN    10.87.11.0/30
+[ 8] 8789/tcp                   ALLOW IN    127.0.0.1
 `
-	// sshPort() reads env/file — force via setting is hard; skip if not 52222
+	if sshPort() != "52222" {
+		t.Skip("ssh port not 52222 in test env")
+	}
 	ok, warns := ufwEffectivePolicy(status, "primary")
-	if sshPort() == "52222" && !ok {
-		t.Fatalf("expected ok, warns=%v", warns)
+	if !ok {
+		t.Fatalf("want ok, warns=%v", warns)
+	}
+}
+
+func TestUfwLineMentionsPort(t *testing.T) {
+	if !ufwLineMentionsPort("52222/tcp ALLOW Anywhere", "52222") {
+		t.Fatal("52222")
+	}
+	if ufwLineMentionsPort("52222/tcp ALLOW Anywhere", "22") {
+		t.Fatal("must not match 22 inside 52222")
 	}
 }

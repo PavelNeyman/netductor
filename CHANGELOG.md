@@ -1,3 +1,8 @@
+## 0.9.472
+
+- firewall Collect: `ufw status numbered` — first-match WAN rule order (early ALLOW 22 fails even if DENY exists later)
+- NDG2 decrypt: end marker mandatory; legacy streams without marker rejected (re-backup)
+
 ## 0.9.471
 
 Security close-out from review of 0.9.468–0.9.470:

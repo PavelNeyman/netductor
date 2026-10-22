@@ -352,10 +352,10 @@ func Collect(role string) Status {
 
 	if _, err := exec.LookPath("ufw"); err == nil {
 		st.Backend = BackendUFW
-		out, _ := exec.Command("ufw", "status").CombinedOutput()
+		out, _ := exec.Command("ufw", "status", "numbered").CombinedOutput()
 		s := string(out)
 		st.Active = strings.Contains(s, "Status: active")
-		st.Detail = firstLines(s, 12)
+		st.Detail = firstLines(s, 16)
 		ok, warns := ufwEffectivePolicy(s, role)
 		st.OK = st.Active && ok
 		st.Warnings = append(st.Warnings, warns...)
@@ -388,117 +388,217 @@ func Collect(role string) Status {
 }
 
 
-// ufwEffectivePolicy parses `ufw status` lines (not raw substring) so "22/tcp" does not match "52222/tcp".
+// ufwRule is one line from `ufw status numbered` (IPv4 preferred; v6 skipped for policy OK).
+type ufwRule struct {
+	Num    int
+	Port   string // e.g. 22 or 52222
+	Proto  string // tcp|udp|""
+	Action string // ALLOW|DENY|REJECT|LIMIT
+	From   string // Anywhere, 10.87.10.0/30, 127.0.0.1, ...
+	Raw    string
+}
+
+// parseUfwNumbered parses lines like: [ 1] 52222/tcp    ALLOW IN    Anywhere
+func parseUfwNumbered(status string) []ufwRule {
+	var rules []ufwRule
+	for _, ln := range strings.Split(status, "\n") {
+		ln = strings.TrimSpace(ln)
+		if ln == "" || !strings.HasPrefix(ln, "[") {
+			continue
+		}
+		// strip [ N]
+		rb := strings.Index(ln, "]")
+		if rb < 0 {
+			continue
+		}
+		numStr := strings.TrimSpace(ln[1:rb])
+		num := 0
+		for _, c := range numStr {
+			if c >= '0' && c <= '9' {
+				num = num*10 + int(c-'0')
+			}
+		}
+		rest := strings.TrimSpace(ln[rb+1:])
+		if strings.Contains(rest, "(v6)") {
+			continue // evaluate IPv4 path; v6 mirrored separately
+		}
+		if i := strings.Index(rest, "#"); i >= 0 {
+			rest = strings.TrimSpace(rest[:i])
+		}
+		fields := strings.Fields(rest)
+		if len(fields) < 3 {
+			continue
+		}
+		portProto := fields[0]
+		port, proto := portProto, ""
+		if j := strings.Index(portProto, "/"); j >= 0 {
+			port, proto = portProto[:j], portProto[j+1:]
+		}
+		// find action
+		actionIdx := -1
+		for i, f := range fields {
+			if f == "ALLOW" || f == "DENY" || f == "REJECT" || f == "LIMIT" {
+				actionIdx = i
+				break
+			}
+		}
+		if actionIdx < 0 {
+			continue
+		}
+		action := fields[actionIdx]
+		// skip IN/OUT
+		fromParts := fields[actionIdx+1:]
+		for len(fromParts) > 0 && (fromParts[0] == "IN" || fromParts[0] == "OUT") {
+			fromParts = fromParts[1:]
+		}
+		from := strings.Join(fromParts, " ")
+		if from == "" {
+			from = "Anywhere"
+		}
+		rules = append(rules, ufwRule{Num: num, Port: port, Proto: proto, Action: action, From: from, Raw: ln})
+	}
+	return rules
+}
+
+func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
+	if r.Port != port {
+		return false
+	}
+	if r.Proto == "udp" {
+		return false
+	}
+	// proto tcp or empty (ufw sometimes omits)
+	return true
+}
+
+func ufwFromIsWAN(from string) bool {
+	from = strings.TrimSpace(from)
+	return from == "" || from == "Anywhere" || from == "Anywhere (v6)" ||
+		strings.EqualFold(from, "any")
+}
+
+func ufwFromIsTrustedMTLS(from string) bool {
+	from = strings.TrimSpace(from)
+	if strings.Contains(from, "10.87") || strings.Contains(from, "127.0.0.1") || from == "lo" {
+		return true
+	}
+	return false
+}
+
+// firstTCPAction walks rules in order; returns first action that applies to port from a WAN source.
+func firstTCPActionFromWAN(rules []ufwRule, port string) (action string, found bool) {
+	for _, r := range rules {
+		if !ufwRuleMatchesPortTCP(r, port) {
+			continue
+		}
+		if !ufwFromIsWAN(r.From) {
+			continue // restricted source — not the WAN path
+		}
+		return r.Action, true
+	}
+	return "", false
+}
+
+// ufwEffectivePolicy uses rule order from `ufw status numbered` (first match wins).
 func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	ok = true
-	lines := strings.Split(status, "\n")
+	rules := parseUfwNumbered(status)
+	// Fallback: non-numbered status still works via order of appearance.
+	if len(rules) == 0 {
+		for i, ln := range strings.Split(status, "\n") {
+			ln = strings.TrimSpace(ln)
+			if ln == "" || strings.HasPrefix(ln, "Status:") || strings.HasPrefix(ln, "To ") {
+				continue
+			}
+			fields := strings.Fields(ln)
+			if len(fields) < 3 {
+				continue
+			}
+			portProto := fields[0]
+			port, proto := portProto, ""
+			if j := strings.Index(portProto, "/"); j >= 0 {
+				port, proto = portProto[:j], portProto[j+1:]
+			}
+			action := ""
+			for _, f := range fields {
+				if f == "ALLOW" || f == "DENY" || f == "REJECT" || f == "LIMIT" {
+					action = f
+					break
+				}
+			}
+			if action == "" || proto == "udp" {
+				continue
+			}
+			from := "Anywhere"
+			if ai := -1; true {
+				for i, f := range fields {
+					if f == action {
+						ai = i
+						break
+					}
+				}
+				if ai >= 0 && ai+1 < len(fields) {
+					from = strings.Join(fields[ai+1:], " ")
+					from = strings.TrimPrefix(from, "IN ")
+					from = strings.TrimPrefix(from, "OUT ")
+				}
+			}
+			rules = append(rules, ufwRule{Num: i + 1, Port: port, Proto: proto, Action: action, From: from, Raw: ln})
+		}
+	}
+
 	sp := sshPort()
-	hasAllowTCP := func(port string) bool {
-		for _, ln := range lines {
-			ln = strings.TrimSpace(ln)
-			if !ufwLineMentionsPortProto(ln, port, "tcp") {
-				continue
-			}
-			if strings.Contains(ln, "ALLOW") {
-				return true
-			}
+	requireWAN := func(port, wantAction, label string) {
+		act, found := firstTCPActionFromWAN(rules, port)
+		if !found {
+			ok = false
+			warnings = append(warnings, label+": no "+port+"/tcp rule for WAN")
+			return
 		}
-		return false
-	}
-	hasDenyTCP := func(port string) bool {
-		for _, ln := range lines {
-			ln = strings.TrimSpace(ln)
-			if !ufwLineMentionsPortProto(ln, port, "tcp") {
-				continue
-			}
-			if strings.Contains(ln, "DENY") || strings.Contains(ln, "REJECT") {
-				return true
-			}
+		if act != wantAction {
+			ok = false
+			warnings = append(warnings, label+": first WAN rule for "+port+"/tcp is "+act+" (want "+wantAction+")")
 		}
-		return false
 	}
-	// Conflicting early ALLOW for ports that must be denied (best-effort without rule numbers).
-	hasAllowTCPAnywhere := func(port string) bool {
-		for _, ln := range lines {
-			ln = strings.TrimSpace(ln)
-			if !ufwLineMentionsPortProto(ln, port, "tcp") {
-				continue
-			}
-			if strings.Contains(ln, "ALLOW") && (strings.Contains(ln, "Anywhere") || strings.Contains(ln, "Anywhere (v6)")) {
-				return true
-			}
-		}
-		return false
-	}
-	if !hasAllowTCP(sp) {
-		ok = false
-		warnings = append(warnings, "ssh port "+sp+"/tcp ALLOW missing")
-	}
-	if !hasAllowTCP("443") {
-		ok = false
-		warnings = append(warnings, "443/tcp ALLOW missing")
-	}
-	if !hasDenyTCP("22") {
-		ok = false
-		warnings = append(warnings, "22/tcp DENY missing (do not confuse with "+sp+")")
-	} else if hasAllowTCPAnywhere("22") {
-		ok = false
-		warnings = append(warnings, "22/tcp has ALLOW Anywhere alongside DENY — re-apply firewall (stale rules)")
-	}
-	if !hasDenyTCP("10050") {
-		ok = false
-		warnings = append(warnings, "10050/tcp DENY missing")
-	} else if hasAllowTCPAnywhere("10050") {
-		ok = false
-		warnings = append(warnings, "10050/tcp has ALLOW Anywhere — re-apply firewall")
-	}
+	requireWAN(sp, "ALLOW", "ssh")
+	requireWAN("443", "ALLOW", "vless")
+	requireWAN("22", "DENY", "ssh22")
+	requireWAN("10050", "DENY", "zabbix")
+
 	if role == "primary" {
+		requireWAN("8788", "DENY", "plain-agent")
 		mtls := ndconfig.AgentMTLSPort()
-		if !hasDenyTCP("8788") {
-			ok = false
-			warnings = append(warnings, "8788/tcp DENY missing")
-		}
-		mtlsRestricted := false
-		mtlsOpenWAN := false
-		for _, ln := range lines {
-			ln = strings.TrimSpace(ln)
-			if !ufwLineMentionsPortProto(ln, mtls, "tcp") {
+		var trustedAllow bool
+		var wanAct string
+		var wanFound bool
+		for _, r := range rules {
+			if !ufwRuleMatchesPortTCP(r, mtls) {
 				continue
 			}
-			if strings.Contains(ln, "ALLOW") {
-				if strings.Contains(ln, "10.87") || strings.Contains(ln, "127.0.0.1") {
-					mtlsRestricted = true
-				}
-				if (strings.Contains(ln, "Anywhere") || strings.Contains(ln, "Anywhere (v6)")) &&
-					!strings.Contains(ln, "10.87") && !strings.Contains(ln, "127.0.0.1") {
-					mtlsOpenWAN = true
-				}
+			if ufwFromIsTrustedMTLS(r.From) && r.Action == "ALLOW" {
+				trustedAllow = true
+			}
+			if ufwFromIsWAN(r.From) && !wanFound {
+				wanAct, wanFound = r.Action, true
 			}
 		}
-		if !mtlsRestricted {
+		if !trustedAllow {
 			ok = false
-			warnings = append(warnings, "mtls port "+mtls+"/tcp ALLOW from svc CIDR/lo missing")
+			warnings = append(warnings, "mtls: no ALLOW from 10.87/lo for "+mtls+"/tcp")
 		}
-		if mtlsOpenWAN {
+		if wanFound && wanAct == "ALLOW" {
 			ok = false
-			warnings = append(warnings, "mtls port "+mtls+" appears open on WAN — re-apply firewall")
+			warnings = append(warnings, "mtls: first WAN rule for "+mtls+"/tcp is ALLOW (must not be open)")
 		}
 	} else {
 		for _, d := range []string{"8787", "8788", "8789"} {
-			if !hasDenyTCP(d) {
-				ok = false
-				warnings = append(warnings, d+"/tcp DENY missing on secondary")
-			} else if hasAllowTCPAnywhere(d) {
-				ok = false
-				warnings = append(warnings, d+"/tcp ALLOW Anywhere on secondary — re-apply")
-			}
+			requireWAN(d, "DENY", "secondary-"+d)
 		}
 	}
 	return ok, warnings
 }
 
-// ufwLineMentionsPortProto matches PORT/tcp (or bare PORT treated as tcp by ufw display).
-// UDP-only rules do not satisfy TCP policy checks.
+// legacy helpers kept for tests
 func ufwLineMentionsPortProto(ln, port, proto string) bool {
 	port = strings.TrimSpace(port)
 	proto = strings.TrimSpace(proto)
