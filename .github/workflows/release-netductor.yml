@@ -23,7 +23,7 @@ jobs:
         run: |
           VER="${GITHUB_REF_NAME#v}"
           mkdir -p dist
-          LD="-s -w -X main.version=${VER}"
+          LD="-s -w -X main.version=${VER} -X github.com/PavelNeyman/netductor/internal/version.Release=${VER}"
           # Node control plane — linux only (VPS)
           for arch in amd64 arm64; do
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \

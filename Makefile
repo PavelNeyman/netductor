@@ -1,5 +1,5 @@
 VERSION ?= 0.7.0-dev
-LDFLAGS := -s -w -X main.version=$(VERSION)
+LDFLAGS := -s -w -X main.version=$(VERSION) -X github.com/PavelNeyman/netductor/internal/version.Release=$(VERSION)
 
 .PHONY: netductor netductor-release
 netductor:
