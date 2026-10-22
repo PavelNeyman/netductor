@@ -1,39 +1,40 @@
 # VPS pre-check
 
-Go implementation of the usual VPS scorecard (no `curl | bash` third-party scripts).
+Go scorecard (no `curl | bash` third-party scripts). Intent aligned with common VPS chat suites (region, IP quality, geoblock reachability, DPI hints, sysbench, iperf).
 
-## What it runs
+## Checks (0.9.466+)
 
-| Check | Notes |
-|--|--|
-| tools | `apt-get install curl iperf3 sysbench` when missing |
-| ip_region | ip-api.com (country, ISP, proxy/hosting flags) |
-| sysbench_cpu | `--threads=1` |
-| disk_write | 256MiB `dd` sample (local path only) |
-| dns | resolve example.com |
-| latency | TCP to CF/Google; optional primary :443/:52222 |
-| http | ya.ru/vk (secondary), CF/GitHub (primary), ipify |
-| iperf3 | public/RU servers when reachable (warn if none) |
+| Group | IDs | Notes |
+|--|--|--|
+| Tools | `tools` | apt: curl, iperf3, sysbench, dnsutils; optional fio |
+| Region | `ip_region` | ip-api.com country/ISP/AS |
+| IP quality | `ipq_dnsbl`, `ipq_proxy`, `ipq_org`, `ipq_egress` | Spamhaus ZEN/SBL/XBL, CBL, Barracuda; proxy flag; ASN; egress IP match |
+| Bench | `sysbench_cpu`, `sysbench_mem`, `cpu_info`, `disk_fio`, `disk_write` | CPU+memory sysbench; fio if present; 256MiB dd |
+| Network | `dns`, `latency_*`, `tcp_bulk`, `http_*` | DNS, TCP RTT, HTTP |
+| Geoblock | `geo_*` | YouTube, X, Discord, Netflix CDN, OpenAI, Instagram, Yandex, VK, Gosuslugi, Rutube |
+| DPI (RU) | `dpi_tls_*`, `dpi_dns_*` | TLS SNI handshake; DNS pollution (loopback/private) |
+| iperf | `iperf_ru` / `iperf_pub` | RU or public servers; warn if none respond |
 
-**Not** a line-by-line clone of YABS/bench.sh/IPQuality/censorcheck — same *intent*, structured JSON, safe from Mac via SSH.
+**Profiles:** `secondary` (RU entry), `primary` (abroad), `generic`.
 
 ## CLI
 
 ```bash
-# from Mac (operator)
-netductor-op vps-check --host 1.2.3.4 --password '…' --profile secondary --primary 2.27.118.70
-netductor-op vps-check --host 1.2.3.4 --key ~/.ssh/netductor_primary --profile primary
+# Mac → fresh VPS
+netductor-op vps-check --host IP --password '…' --profile secondary --primary PRIMARY_IP
 
-# on the node (day-2)
-netductor vps-check --profile secondary --primary 2.27.118.70 --json
+# Day-2 on node (full Go path)
+netductor vps-check --profile secondary --primary PRIMARY_IP --json
 ```
+
+Remote SSH prefers `netductor vps-check` when the binary exists; otherwise an embedded Python probe (same categories, slightly thinner).
 
 ## UI
 
-- Web: **Deploy → VPS check** and **Secondary → VPS pre-check**
-- TUI: wizard **VPS pre-check**; Secondary field `precheck=yes|only|no`
+- Web: **Deploy → VPS check**, **Secondary → VPS pre-check**
+- TUI: **VPS pre-check** wizard; Secondary `precheck=yes|only|no`
 - Job: `vps.precheck`
 
 ## Day-2 hoster residual
 
-Still separate: `netductor host-audit` (see HOST-AUDIT.md).
+`netductor host-audit` — separate from channel scorecard (HOST-AUDIT.md).

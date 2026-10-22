@@ -1,14 +1,10 @@
 # Проверка VPS (pre-check)
 
-Реализация scorecard на Go (без `curl | bash` сторонних скриптов).
-
-Пакеты на цели: `curl`, `iperf3`, `sysbench`. Профили: `secondary` (РФ entry), `primary` (зарубежный), `generic`.
+Scorecard на Go без `curl | bash`. С 0.9.466: DNSBL/IP quality, geoblock-матрица, DPI (TLS SNI + DNS pollution), sysbench CPU/mem, fio/dd, iperf.
 
 ```bash
 netductor-op vps-check --host IP --password '…' --profile secondary --primary PRIMARY_IP
-netductor vps-check --profile secondary --json   # day-2 на ноде
+netductor vps-check --profile secondary --json
 ```
 
-Web: Deploy → VPS check / Secondary → pre-check. TUI: мастер VPS pre-check; у Secondary поле precheck.
-
-Job: `vps.precheck`. Закладки хостера — отдельно: `netductor host-audit`.
+Профили: `secondary` | `primary` | `generic`. Web/TUI/job `vps.precheck`. Закладки хостера: `netductor host-audit`.

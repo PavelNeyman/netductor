@@ -10,30 +10,49 @@ import (
 // EnsureTools installs packages needed for local checks (Debian/Ubuntu). Best-effort.
 func EnsureTools() (string, error) {
 	need := []string{"curl", "iperf3", "sysbench"}
+	optional := []string{"dnsutils", "fio"} // dig, fio
 	var missing []string
 	for _, b := range need {
 		if _, err := exec.LookPath(b); err != nil {
 			missing = append(missing, b)
 		}
 	}
+	// also want dig
+	if _, err := exec.LookPath("dig"); err != nil {
+		missing = append(missing, "dnsutils")
+	}
 	if len(missing) == 0 {
+		// still try optional fio quietly
+		_ = optional
+		if _, err := exec.LookPath("fio"); err != nil {
+			if _, e2 := exec.LookPath("apt-get"); e2 == nil {
+				cmd := exec.Command("apt-get", "install", "-y", "-qq", "fio")
+				cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
+				_ = cmd.Run()
+			}
+		}
 		return "tools ok", nil
 	}
-	// map binary → package
-	pkgs := map[string]string{"curl": "curl", "iperf3": "iperf3", "sysbench": "sysbench"}
+	pkgs := map[string]string{
+		"curl": "curl", "iperf3": "iperf3", "sysbench": "sysbench",
+		"dnsutils": "dnsutils", "dig": "dnsutils", "fio": "fio",
+	}
+	seen := map[string]bool{}
 	var install []string
 	for _, m := range missing {
-		if p := pkgs[m]; p != "" {
+		p := pkgs[m]
+		if p == "" {
+			p = m
+		}
+		if !seen[p] {
+			seen[p] = true
 			install = append(install, p)
 		}
 	}
-	if len(install) == 0 {
-		return "", fmt.Errorf("missing tools: %v", missing)
-	}
 	if _, err := exec.LookPath("apt-get"); err != nil {
-		return "", fmt.Errorf("need apt-get to install %v (missing binaries: %v)", install, missing)
+		return "", fmt.Errorf("need apt-get to install %v (missing: %v)", install, missing)
 	}
-	cmd := exec.Command("apt-get", append([]string{"install", "-y"}, install...)...)
+	cmd := exec.Command("apt-get", append([]string{"install", "-y", "-qq"}, install...)...)
 	cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -45,7 +64,7 @@ func EnsureTools() (string, error) {
 func runCmd(timeout time.Duration, name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
 	out, err := cmd.CombinedOutput()
-	_ = timeout // reserved for CommandContext callers
+	_ = timeout
 	return strings.TrimSpace(string(out)), err
 }
 

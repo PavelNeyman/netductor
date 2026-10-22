@@ -42,27 +42,36 @@ func RunLocal(ctx context.Context, opt Options) (Report, error) {
 		r.Results = append(r.Results, Result{ID: "tools", TitleEN: "Install tools", TitleRU: "Пакеты", Status: st, Detail: detail})
 	}
 
-	// Public IP + region (ip-api.com free, no key)
+	// Public IP + region
 	ip, region, detail, st := checkIPRegion(ctx)
 	r.PublicIP, r.Region = ip, region
 	r.Results = append(r.Results, Result{ID: "ip_region", TitleEN: "IP region", TitleRU: "Регион IP", Status: st, Detail: detail})
 
-	// CPU sysbench
-	r.Results = append(r.Results, checkSysbench(ctx))
+	// IP quality (DNSBL, proxy flags, egress match)
+	r.Results = append(r.Results, checkIPQuality(ctx, ip)...)
 
-	// Disk sequential write sample
+	// Bench: CPU / mem / disk
+	r.Results = append(r.Results, checkSysbench(ctx))
+	r.Results = append(r.Results, checkBenchExtra(ctx)...)
 	r.Results = append(r.Results, checkDisk(ctx))
 
-	// Network: DNS + latency
+	// Network base
 	r.Results = append(r.Results, checkDNS(ctx))
 	r.Results = append(r.Results, checkLatency(ctx, "1.1.1.1:443", "cloudflare"))
 	r.Results = append(r.Results, checkLatency(ctx, "8.8.8.8:443", "google_dns"))
+	r.Results = append(r.Results, checkLatency(ctx, "9.9.9.9:443", "quad9"))
 	if opt.PrimaryIP != "" {
 		r.Results = append(r.Results, checkLatency(ctx, net.JoinHostPort(opt.PrimaryIP, "443"), "primary_443"))
 		r.Results = append(r.Results, checkLatency(ctx, net.JoinHostPort(opt.PrimaryIP, "52222"), "primary_ssh"))
 	}
 
-	// Profile-specific
+	// Geoblock reachability matrix
+	r.Results = append(r.Results, checkGeoblock(ctx, opt.Profile)...)
+
+	// DPI suite (secondary-focused)
+	r.Results = append(r.Results, checkDPI(ctx, opt.Profile)...)
+
+	// Profile-specific connectivity + iperf
 	switch opt.Profile {
 	case ProfileSecondary:
 		r.Results = append(r.Results, checkRUHTTP(ctx)...)
@@ -75,9 +84,9 @@ func RunLocal(ctx context.Context, opt Options) (Report, error) {
 	default:
 		r.Results = append(r.Results, checkAbroadHTTP(ctx)...)
 		r.Results = append(r.Results, checkRUHTTP(ctx)...)
+		r.Results = append(r.Results, checkIperfPublic(ctx, opt.IperfSeconds))
 	}
 
-	// Light "blocked by foreign services" style probes
 	r.Results = append(r.Results, checkHTTPCode(ctx, "https://api.ipify.org", "ipify"))
 	r.Results = append(r.Results, checkHTTPCode(ctx, "https://ifconfig.me/ip", "ifconfig_me"))
 
@@ -277,10 +286,13 @@ func checkAbroadHTTP(ctx context.Context) []Result {
 var iperfRU = []string{
 	"iperf.msk1.wnet.su:5201",
 	"iperf.spb1.wnet.su:5201",
+	"speedtest.selectel.ru:5201",
 }
 
 var iperfPublic = []string{
 	"iperf3.moji.online:5201",
+	"bouygues.iperf.fr:5201",
+	"iperf.he.net:5201",
 }
 
 func checkIperfRU(ctx context.Context, sec int) Result {
