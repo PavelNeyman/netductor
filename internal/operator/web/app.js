@@ -155,7 +155,7 @@ function applyI18n(){
     if(b.dataset.main==='settings') b.textContent=d.tab_settings||b.textContent;
   });
   document.querySelectorAll('#subInstaller button').forEach(b=>{
-    const map={fleet:'sub_fleet',primary:'sub_primary',build:'sub_build',secondary:'sub_secondary',edge:'sub_edge',site:'sub_site',nvr:'sub_nvr',creds:'sub_creds'};
+    const map={fleet:'sub_fleet',primary:'sub_primary',build:'sub_build',secondary:'sub_secondary',vpscheck:'nav_vpscheck',edge:'sub_edge',site:'sub_site',nvr:'sub_nvr',creds:'sub_creds'};
     const k=map[b.dataset.tab]; if(k&&d[k]) b.textContent=d[k];
   });
   document.querySelectorAll('#controlSub button').forEach(b=>{
@@ -2837,7 +2837,7 @@ function syncSideNav(){
     servers:(typeof t==='function'?t('nav_servers'):'Servers'),
     sites:(typeof t==='function'?t('nav_sites'):'Sites'),
     'installer:fleet':'Fleet','installer:primary':'Primary','installer:secondary':'Secondary',
-    'installer:build':'Build','installer:edge':'OpenWrt','installer:site':'MikroTik',
+    'installer:build':'Build','installer:vpscheck':(typeof t==='function'?t('nav_vpscheck'):'VPS check'),'installer:edge':'OpenWrt','installer:site':'MikroTik',
     'installer:nvr':'NVR','installer:creds':'Credentials',
     control:(typeof t==='function'?t('nav_control'):'Operate'),
     settings:(typeof t==='function'?t('nav_settings'):'Settings')

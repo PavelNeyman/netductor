@@ -113,10 +113,11 @@ try:
         ip=m.get("query","") or ""
         region=f"{m.get('countryCode')}/{m.get('regionName')} {m.get('city')}"
         det=f"{region} isp={m.get('isp')} org={m.get('org')} as={m.get('as')} proxy={m.get('proxy')} hosting={m.get('hosting')}"
-        st="fail" if m.get("proxy") else ("info" if m.get("hosting") else "ok")
+        # VPS almost always hosting=true; proxy flag from ip-api is often datacenter noise — warn, not hard fail
+        st="warn" if m.get("proxy") else ("info" if m.get("hosting") else "ok")
         add("ip_region","IP region","Регион IP",st,det,ms)
-        add("ipq_proxy","Proxy/VPN flags","Флаги proxy/VPN","fail" if m.get("proxy") else "info" if m.get("hosting") else "ok",
-            f"proxy={m.get('proxy')} hosting={m.get('hosting')} mobile={m.get('mobile')}",ms)
+        add("ipq_proxy","Proxy/VPN flags","Флаги proxy/VPN","warn" if m.get("proxy") else "info" if m.get("hosting") else "ok",
+            f"proxy={m.get('proxy')} hosting={m.get('hosting')} mobile={m.get('mobile')} (hosting normal on VPS)",ms)
         add("ipq_org","ASN / org","ASN / org","ok",f"as={m.get('as')} org={m.get('org')} isp={m.get('isp')} rdns={m.get('reverse')}",ms)
     else:
         add("ip_region","IP region","Регион IP","warn",str(m),ms)
