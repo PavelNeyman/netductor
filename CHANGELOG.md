@@ -1,3 +1,11 @@
+## 0.9.476
+
+- recovery form: Primary URL must be https (lab: NETDUCTOR_RECOVERY_ALLOW_HTTP=1)
+- guest desk: no default PIN 0000; rate-limit PIN fails (5 / 15m / IP)
+- agent mTLS: fail-closed when material present but unreadable (no silent bearer fallback)
+- agent NVR: ValidCameraID + rtsp(s) only + segment 10..3600; path under nvr root
+- NVR ingest: hard 64 MiB LimitReader per segment
+
 ## 0.9.475
 
 - BackupSecondaryLocal: defer remove plaintext; wipe partial .ndenc on encrypt fail

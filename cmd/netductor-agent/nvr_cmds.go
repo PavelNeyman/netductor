@@ -52,6 +52,18 @@ func nvrRecordStart(client *http.Client, cfg config, arg string) string {
 	if camID == "" || url == "" {
 		return "error:empty"
 	}
+	if !nvr.ValidCameraID(camID) {
+		return "error:invalid camera_id"
+	}
+	if !strings.HasPrefix(strings.ToLower(url), "rtsp://") && !strings.HasPrefix(strings.ToLower(url), "rtsps://") {
+		return "error:rtsp_url must be rtsp:// or rtsps://"
+	}
+	if seg < 10 {
+		seg = 10
+	}
+	if seg > 3600 {
+		seg = 3600
+	}
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return "error:ffmpeg not installed"
 	}
@@ -66,7 +78,11 @@ func nvrRecordStart(client *http.Client, cfg config, arg string) string {
 	if running >= nvrMaxConcurrent {
 		return "error:max concurrent records (" + strconv.Itoa(nvrMaxConcurrent) + ")"
 	}
-	dir := filepath.Join(nvrDir(cfg), camID)
+	root := filepath.Clean(nvrDir(cfg))
+	dir := filepath.Join(root, camID)
+	if !strings.HasPrefix(dir, root+string(os.PathSeparator)) && dir != root {
+		return "error:camera_id escapes nvr root"
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "error:" + err.Error()
 	}

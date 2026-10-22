@@ -67,7 +67,7 @@ func startRecoveryHTTP(cfg *config) {
 			if code == "" || len(code) < 16 {
 				msg = `<span class="err">Нужен код (recovery или bootstrap)</span>`
 			} else if !validPrimaryURL(server) {
-				msg = `<span class="err">Некорректный Primary URL (только http/https)</span>`
+				msg = `<span class="err">Некорректный Primary URL (нужен https://…:8789; lab: NETDUCTOR_RECOVERY_ALLOW_HTTP=1)</span>`
 			} else {
 				server = strings.TrimRight(server, "/")
 				if err := writeAgentConfig(server, code, cfg.DeviceID); err != nil {
@@ -161,7 +161,14 @@ func validPrimaryURL(raw string) bool {
 	if err != nil || u.Host == "" {
 		return false
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
+	// HTTPS required by default — recovery code must not travel as plaintext (review P1).
+	// Opt-in: NETDUCTOR_RECOVERY_ALLOW_HTTP=1 for lab-only.
+	allowHTTP := os.Getenv("NETDUCTOR_RECOVERY_ALLOW_HTTP") == "1"
+	if u.Scheme == "https" {
+		// ok
+	} else if u.Scheme == "http" && allowHTTP {
+		// lab only
+	} else {
 		return false
 	}
 	if strings.Contains(u.Host, "@") {

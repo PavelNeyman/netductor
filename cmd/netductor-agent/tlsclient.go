@@ -34,25 +34,30 @@ func fileOK(p string) bool {
 }
 
 // agentHTTPClient returns an HTTP client; with mTLS certs uses TLS 1.3 client auth.
+// If mTLS material is present but unusable, fail closed (no silent bearer fallback).
 func agentHTTPClient() *http.Client {
 	c := &http.Client{Timeout: 120 * time.Second}
 	dir := findMTLSDir()
 	if dir == "" {
-		return c
+		return c // bootstrap / pre-enroll
 	}
 	cert, err := tls.LoadX509KeyPair(filepath.Join(dir, "client.crt"), filepath.Join(dir, "client.key"))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "mtls load client:", err)
+		fmt.Fprintln(os.Stderr, "mtls load client (fail-closed):", err)
+		c.Transport = &failClosedRoundTripper{err: err}
 		return c
 	}
 	caPEM, err := os.ReadFile(filepath.Join(dir, "ca.crt"))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "mtls load ca:", err)
+		fmt.Fprintln(os.Stderr, "mtls load ca (fail-closed):", err)
+		c.Transport = &failClosedRoundTripper{err: err}
 		return c
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(caPEM) {
-		fmt.Fprintln(os.Stderr, "mtls: no CA certs parsed")
+		err := fmt.Errorf("mtls: no CA certs parsed")
+		fmt.Fprintln(os.Stderr, err)
+		c.Transport = &failClosedRoundTripper{err: err}
 		return c
 	}
 	c.Transport = &http.Transport{
@@ -65,6 +70,15 @@ func agentHTTPClient() *http.Client {
 	}
 	fmt.Fprintln(os.Stderr, "mtls: client certs from", dir)
 	return c
+}
+
+type failClosedRoundTripper struct{ err error }
+
+func (f *failClosedRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	if f.err != nil {
+		return nil, fmt.Errorf("mtls required but unavailable: %w", f.err)
+	}
+	return nil, fmt.Errorf("mtls required but unavailable")
 }
 
 // normalizeServerURL forces https://host:8789 when mTLS material is present.

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -46,7 +47,8 @@ func applyGuestFromTemplate(tmpl map[string]any) string {
 		gc.DeskPINHash = ""
 	}
 	if gc.DeskPIN == "" && gc.DeskPINHash == "" {
-		gc.DeskPIN = "0000"
+		// No default PIN — desk grant disabled until operator sets desk_pin (review P1/P2).
+		fmt.Fprintln(os.Stderr, "guest: desk_pin missing — desk grant disabled (set desk_pin in template)")
 	}
 	hidden := false // default visible
 	if v, ok := g["hidden"]; ok {

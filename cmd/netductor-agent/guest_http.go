@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sync"
 	"fmt"
 	"html"
 	"net"
@@ -11,6 +12,52 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/guest"
 )
+
+
+// PIN rate limit: max 5 failures per IP per 15 minutes (in-memory).
+var pinFailMu sync.Mutex
+var pinFails = map[string][]time.Time{}
+
+func pinRateAllow(ip string) bool {
+	pinFailMu.Lock()
+	defer pinFailMu.Unlock()
+	now := time.Now()
+	cut := now.Add(-15 * time.Minute)
+	var kept []time.Time
+	for _, ts := range pinFails[ip] {
+		if ts.After(cut) {
+			kept = append(kept, ts)
+		}
+	}
+	pinFails[ip] = kept
+	return len(kept) < 5
+}
+
+func pinRateFail(ip string) {
+	pinFailMu.Lock()
+	defer pinFailMu.Unlock()
+	pinFails[ip] = append(pinFails[ip], time.Now())
+}
+
+func deskPINCheck(r *http.Request, gc *guest.Config, pin string) bool {
+	ip := clientIP(r)
+	if !pinRateAllow(ip) {
+		return false
+	}
+	if gc == nil || !gc.PINOK(pin) {
+		pinRateFail(ip)
+		return false
+	}
+	return true
+}
+
+func clientIP(r *http.Request) string {
+	h := r.RemoteAddr
+	if i := strings.LastIndex(h, ":"); i > 0 {
+		return h[:i]
+	}
+	return h
+}
 
 func guestConfigPath() string {
 	return agentDir() + "/guest.json"
@@ -180,7 +227,7 @@ func deskHandler(w http.ResponseWriter, r *http.Request, gc *guest.Config, store
 	if r.Method == http.MethodPost {
 		_ = r.ParseForm()
 		pin := r.Form.Get("pin")
-		if !gc.PINOK(pin) {
+		if !deskPINCheck(r, gc, pin) {
 			msg = `<p class="err">Неверный PIN</p>`
 		} else {
 			code := strings.TrimSpace(r.Form.Get("code"))
@@ -282,7 +329,7 @@ func deskGrantQR(w http.ResponseWriter, r *http.Request, gc *guest.Config, store
 		return
 	}
 	_ = r.ParseForm()
-	if !gc.PINOK(r.Form.Get("pin")) {
+	if !deskPINCheck(r, gc, r.Form.Get("pin")) {
 		http.Error(w, "неверный PIN", http.StatusForbidden)
 		return
 	}
@@ -306,7 +353,7 @@ func deskAPIGrant(w http.ResponseWriter, r *http.Request, gc *guest.Config, stor
 		return
 	}
 	_ = r.ParseForm()
-	if !gc.PINOK(r.Form.Get("pin")) {
+	if !deskPINCheck(r, gc, r.Form.Get("pin")) {
 		http.Error(w, "pin", 403)
 		return
 	}

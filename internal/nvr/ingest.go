@@ -14,8 +14,8 @@ import (
 
 var cameraIDRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
 
-// validCameraID rejects path traversal and unsafe ids (M-1).
-func validCameraID(id string) bool {
+// ValidCameraID rejects path traversal and unsafe ids (M-1).
+func ValidCameraID(id string) bool {
 	id = strings.TrimSpace(id)
 	if id == "" || id == "." || id == ".." {
 		return false
@@ -43,7 +43,7 @@ func underRoot(root, absPath string) bool {
 // IngestSegment writes an uploaded segment under path/<camera_id>/.
 func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error) {
 	cameraID = strings.TrimSpace(cameraID)
-	if !validCameraID(cameraID) {
+	if !ValidCameraID(cameraID) {
 		return "", 0, fmt.Errorf("invalid camera_id")
 	}
 	cfg := LoadConfig()
@@ -102,7 +102,12 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 	if err != nil {
 		return "", 0, err
 	}
-	n, err := io.Copy(f, r)
+	const maxSeg = 64 << 20 // 64 MiB per request
+	n, err := io.Copy(f, io.LimitReader(r, maxSeg+1))
+	if n > maxSeg {
+		_ = os.Remove(tmp)
+		return "", 0, fmt.Errorf("segment exceeds %d bytes", maxSeg)
+	}
 	_ = f.Close()
 	if err != nil {
 		_ = os.Remove(tmp)
