@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ func RunLocal(ctx context.Context, opt Options) (Report, error) {
 	}
 	r := Report{At: time.Now().UTC(), Profile: opt.Profile, Host: hostname()}
 	if !opt.SkipInstall {
-		msg, err := EnsureTools()
+		msg, err := EnsureToolsCtx(ctx)
 		st := StatusOK
 		detail := msg
 		if err != nil {
@@ -165,22 +166,26 @@ func checkSysbench(ctx context.Context) Result {
 func checkDisk(ctx context.Context) Result {
 	start := time.Now()
 	r := Result{ID: "disk_write", TitleEN: "Disk write sample", TitleRU: "Запись диска"}
-	f := "/tmp/nd-vpscheck-$$.bin"
-	// 256MB sequential
-	cmd := exec.CommandContext(ctx, "dd", "if=/dev/zero", "of="+f, "bs=1M", "count=256", "conv=fdatasync")
+	dir, err := os.MkdirTemp("", "nd-vpscheck-*")
+	if err != nil {
+		r.Status = StatusWarn
+		r.Detail = "tmpdir: " + err.Error()
+		return r
+	}
+	defer os.RemoveAll(dir)
+	_ = os.Chmod(dir, 0o700)
+	f := filepath.Join(dir, "write.bin")
+	// 64MB sequential (smaller; avoids exhausting tmpfs RAM)
+	cmd := exec.CommandContext(ctx, "dd", "if=/dev/zero", "of="+f, "bs=1M", "count=64", "conv=fdatasync")
 	out, err := cmd.CombinedOutput()
-	_ = os.Remove(f)
 	r.DurationMs = time.Since(start).Milliseconds()
 	if err != nil {
 		r.Status = StatusWarn
-		r.Detail = truncate(string(out)+" "+err.Error(), 200)
+		r.Detail = truncate(string(out)+" "+err.Error(), 300)
 		return r
 	}
 	r.Status = StatusOK
-	r.Detail = strings.TrimSpace(string(out))
-	if r.Detail == "" {
-		r.Detail = fmt.Sprintf("%d ms for 256MiB", r.DurationMs)
-	}
+	r.Detail = truncate(string(out), 200)
 	return r
 }
 

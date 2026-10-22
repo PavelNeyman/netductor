@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -85,15 +86,21 @@ func checkDiskFIO(ctx context.Context) Result {
 		r.Detail = "fio not installed"
 		return r
 	}
-	tmp := "/tmp/nd-fio-test"
+	dir, err := os.MkdirTemp("", "nd-fio-*")
+	if err != nil {
+		r.Status = StatusWarn
+		r.Detail = "tmpdir: " + err.Error()
+		return r
+	}
+	defer os.RemoveAll(dir)
+	_ = os.Chmod(dir, 0o700)
+	tmp := filepath.Join(dir, "test.bin")
 	cmd := exec.CommandContext(ctx, "fio",
-		"--name=ndseq", "--directory=/tmp", "--filename="+tmp,
-		"--rw=write", "--bs=1m", "--size=256m", "--iodepth=1",
-		"--direct=1", "--runtime=15", "--time_based=0",
-		"--group_reporting", "--output-format=terse",
+		"--name=ndseq", "--directory="+dir, "--filename="+tmp,
+		"--rw=write", "--bs=1m", "--size=64m", "--iodepth=1",
+		"--direct=1", "--group_reporting", "--output-format=terse",
 	)
 	out, err := cmd.CombinedOutput()
-	_ = os.Remove(tmp)
 	r.DurationMs = time.Since(start).Milliseconds()
 	if err != nil {
 		r.Status = StatusWarn

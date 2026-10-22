@@ -8,10 +8,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // PinnedSingBox is downloaded into offline cache (avoids GH API on OpenWrt).
 const PinnedSingBox = "1.11.7"
+
+// minSingBoxBytes — refuse tiny/corrupt cache entries (real binary is several MB).
+const minSingBoxBytes = 1 << 20 // 1 MiB
 
 // SingBoxCacheDir returns ~/.cache/netductor/sing-box
 func SingBoxCacheDir() string {
@@ -37,12 +41,16 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 		return "", fmt.Errorf("sing-box cache: arch required")
 	}
 	dir := SingBoxCacheDir()
-	_ = os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
 	name := "sing-box-linux-" + agentArch
 	dest := filepath.Join(dir, name)
-	if st, err := os.Stat(dest); err == nil && st.Size() > 1000 {
+	if st, err := os.Stat(dest); err == nil && st.Size() >= minSingBoxBytes {
 		return dest, nil
 	}
+	_ = os.Remove(dest) // drop partial/corrupt
+
 	sbArch := singBoxArch(agentArch)
 	ver := strings.TrimPrefix(PinnedSingBox, "v")
 	url := fmt.Sprintf("https://github.com/SagerNet/sing-box/releases/download/v%s/sing-box-%s-linux-%s.tar.gz",
@@ -53,7 +61,9 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	}
 	defer os.RemoveAll(tmp)
 	tgz := filepath.Join(tmp, "sb.tgz")
-	resp, err := http.Get(url)
+
+	client := &http.Client{Timeout: 3 * time.Minute}
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -65,10 +75,14 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, err = io.Copy(f, resp.Body)
-	f.Close()
+	const maxTGZ = 80 << 20
+	_, err = io.Copy(f, io.LimitReader(resp.Body, maxTGZ+1))
+	_ = f.Close()
 	if err != nil {
 		return "", err
+	}
+	if st, _ := os.Stat(tgz); st != nil && st.Size() > maxTGZ {
+		return "", fmt.Errorf("sing-box archive too large")
 	}
 	if out, err := exec.Command("tar", "-xzf", tgz, "-C", tmp).CombinedOutput(); err != nil {
 		return "", fmt.Errorf("tar: %s %v", out, err)
@@ -83,11 +97,21 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	if bin == "" {
 		return "", fmt.Errorf("sing-box binary not in archive for %s", sbArch)
 	}
+	st, err := os.Stat(bin)
+	if err != nil || st.Size() < minSingBoxBytes {
+		return "", fmt.Errorf("sing-box binary missing or too small")
+	}
+	// Atomic publish: write to dest.tmp then rename
+	tmpDest := dest + ".tmp"
 	data, err := os.ReadFile(bin)
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(dest, data, 0o755); err != nil {
+	if err := os.WriteFile(tmpDest, data, 0o755); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmpDest, dest); err != nil {
+		_ = os.Remove(tmpDest)
 		return "", err
 	}
 	return dest, nil

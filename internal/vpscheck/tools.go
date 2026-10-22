@@ -1,6 +1,7 @@
 package vpscheck
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -9,24 +10,25 @@ import (
 
 // EnsureTools installs packages needed for local checks (Debian/Ubuntu). Best-effort.
 func EnsureTools() (string, error) {
+	return EnsureToolsCtx(context.Background())
+}
+
+// EnsureToolsCtx is cancelable (job cancel / timeout).
+func EnsureToolsCtx(ctx context.Context) (string, error) {
 	need := []string{"curl", "iperf3", "sysbench"}
-	optional := []string{"dnsutils", "fio"} // dig, fio
 	var missing []string
 	for _, b := range need {
 		if _, err := exec.LookPath(b); err != nil {
 			missing = append(missing, b)
 		}
 	}
-	// also want dig
 	if _, err := exec.LookPath("dig"); err != nil {
 		missing = append(missing, "dnsutils")
 	}
 	if len(missing) == 0 {
-		// still try optional fio quietly
-		_ = optional
 		if _, err := exec.LookPath("fio"); err != nil {
 			if _, e2 := exec.LookPath("apt-get"); e2 == nil {
-				cmd := exec.Command("apt-get", "install", "-y", "-qq", "fio")
+				cmd := exec.CommandContext(ctx, "apt-get", "install", "-y", "-qq", "fio")
 				cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
 				_ = cmd.Run()
 			}
@@ -52,7 +54,7 @@ func EnsureTools() (string, error) {
 	if _, err := exec.LookPath("apt-get"); err != nil {
 		return "", fmt.Errorf("need apt-get to install %v (missing: %v)", install, missing)
 	}
-	cmd := exec.Command("apt-get", append([]string{"install", "-y", "-qq"}, install...)...)
+	cmd := exec.CommandContext(ctx, "apt-get", append([]string{"install", "-y", "-qq"}, install...)...)
 	cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -61,10 +63,12 @@ func EnsureTools() (string, error) {
 	return "installed " + strings.Join(install, ","), nil
 }
 
-func runCmd(timeout time.Duration, name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
+func runCmd(ctx context.Context, name string, args ...string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, name, args...)
 	out, err := cmd.CombinedOutput()
-	_ = timeout
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -74,3 +78,6 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// keep unused import happy if time needed later
+var _ = time.Second

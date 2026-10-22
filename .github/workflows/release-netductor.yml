@@ -43,9 +43,14 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w" \
               -o dist/netductor-tg-linux-$arch ./cmd/netductor-tg
           done
-          # Edge agent — linux multi-arch
-          for arch in amd64 arm64 arm mipsle; do
-            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+          # Edge agent — linux multi-arch (mipsle = softfloat for OpenWrt 24kc)
+          for arch in amd64 arm64 arm mipsle riscv64; do
+            extra=""
+            case $arch in
+              mipsle) extra="GOMIPS=softfloat";;
+              arm) extra="GOARM=7";;
+            esac
+            env CGO_ENABLED=0 GOOS=linux GOARCH=$arch $extra go build -trimpath \
               -ldflags "$LD" \
               -o dist/netductor-agent-linux-$arch ./cmd/netductor-agent
           done

@@ -73,37 +73,39 @@ Also: job type vps.precheck (Web/TUI). Installs curl/iperf3/sysbench on the targ
 			fmt.Fprintln(os.Stderr, "vps-check: --host or --local required")
 			os.Exit(2)
 		}
-		// Prefer async job so UI can poll the same path
-		params := map[string]any{
-			"host": host, "user": user, "password": pass, "key": key,
-			"key_passphrase": keyPass, "port": port, "profile": profile,
-			"primary": primary, "skip_install": skip,
-		}
-		if _, jerr := startAndWaitJob("vps.precheck", params); jerr == nil {
-			// Job already streamed logs; still run once more only if we need structured print —
-			// instead fetch is not available easily; re-run via SSH for JSON is wasteful.
-			// Re-run local parse: just SSH once without job when --json, else job was enough.
-			if !jsonOut {
-				fmt.Println("vps-check job finished (see log above)")
+		// Structured JSON needs Report once — run SSH path only (no job + re-run).
+		// Text mode: prefer job so Web/TUI share the same runner; no second SSH.
+		if jsonOut {
+			rep, err = vpscheck.RunViaSSH(ctx, vpscheck.SSHOpts{
+				Host: host, User: user, Password: pass, KeyPath: key,
+				KeyPassphrase: keyPass, Port: port,
+				Profile: vpscheck.ParseProfile(profile), PrimaryIP: primary, SkipInstall: skip,
+			})
+		} else {
+			params := map[string]any{
+				"host": host, "user": user, "password": pass, "key": key,
+				"key_passphrase": keyPass, "port": port, "profile": profile,
+				"primary": primary, "skip_install": skip,
+			}
+			if _, jerr := startAndWaitJob("vps.precheck", params); jerr == nil {
+				fmt.Println("vps-check: job finished (see log above)")
 				return
 			}
+			// Fallback if job runner unavailable
+			rep, err = vpscheck.RunViaSSH(ctx, vpscheck.SSHOpts{
+				Host: host, User: user, Password: pass, KeyPath: key,
+				KeyPassphrase: keyPass, Port: port,
+				Profile: vpscheck.ParseProfile(profile), PrimaryIP: primary, SkipInstall: skip,
+			})
 		}
-		rep, err = vpscheck.RunViaSSH(ctx, vpscheck.SSHOpts{
-			Host: host, User: user, Password: pass, KeyPath: expandHome(key),
-			KeyPassphrase: keyPass, Port: port, Profile: vpscheck.ParseProfile(profile),
-			PrimaryIP: primary, SkipInstall: skip,
-		})
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "vps-check:", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if jsonOut {
 		fmt.Println(rep.JSON())
-	} else {
-		fmt.Print(rep.Text())
+		return
 	}
-	if rep.Fail > 0 {
-		os.Exit(2)
-	}
+	fmt.Print(rep.Text())
 }

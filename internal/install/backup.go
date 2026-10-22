@@ -406,7 +406,17 @@ func Backup() (string, error) {
 	}
 	if n > 0 {
 		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d secondary agent(s)\n", n)
-		notify.ClearAlert("backup-offsite")
+		// Do not clear offsite alert on enqueue alone — wait for agent ack.
+		acked, pending := WaitForBackupPull(90 * time.Second)
+		if acked > 0 && pending == 0 {
+			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d secondary acked backup_pull)\n", acked)
+			notify.ClearAlert("backup-offsite")
+		} else {
+			msg := fmt.Sprintf("🔴 Backup offsite: queued on %d, acked=%d pending=%d (pull not verified)", n, acked, pending)
+			fmt.Fprintln(os.Stderr, msg)
+			notify.AlertOnce("backup-offsite", msg)
+			_ = os.WriteFile(failMark, []byte(msg), 0o600)
+		}
 	} else if len(secondary.List()) == 0 {
 		fmt.Fprintln(os.Stderr, "backup: no secondary devices registered — skip offsite pull")
 	} else {
@@ -438,12 +448,17 @@ func Restore(archive string, keyArg string) error {
 		if key == "" {
 			return fmt.Errorf("backup_key missing — pass --key, or NETDUCTOR_BACKUP_KEY, or restore secrets first")
 		}
-		tmp = filepath.Join(os.TempDir(), "netductor-restore.tar.gz")
+		tmpDir, err := os.MkdirTemp("", "nd-restore-*")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tmpDir)
+		_ = os.Chmod(tmpDir, 0o700)
+		tmp = filepath.Join(tmpDir, "restore.tar.gz")
 		if err := decryptFile(archive, tmp, key); err != nil {
 			return err
 		}
 		src = tmp
-		defer os.Remove(tmp)
 	}
 	// Prefer root extract (new backups: etc/netductor + var/lib/...). Fallback: old etc-only archives.
 	if err := run("tar", "-xzf", src, "-C", "/"); err != nil {
@@ -484,12 +499,17 @@ func Recover(archive, keyArg string) error {
 		if key == "" {
 			return fmt.Errorf("backup_key required for recover")
 		}
-		tmp = filepath.Join(os.TempDir(), "netductor-recover.tar.gz")
+		tmpDir, err := os.MkdirTemp("", "nd-recover-plain-*")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tmpDir)
+		_ = os.Chmod(tmpDir, 0o700)
+		tmp = filepath.Join(tmpDir, "recover.tar.gz")
 		if err := decryptFile(archive, tmp, key); err != nil {
 			return err
 		}
 		src = tmp
-		defer os.Remove(tmp)
 	}
 
 	// Prefer sidecar COMPONENTS.txt next to archive (works even if list not in tar yet).

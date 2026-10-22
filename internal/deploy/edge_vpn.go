@@ -116,9 +116,16 @@ start_service() {
   procd_close_instance
 }
 `
-	tmpInit := filepath.Join(os.TempDir(), "nd-netductor-vpn-init")
-	_ = os.WriteFile(tmpInit, []byte(initWait), 0o755)
-	defer os.Remove(tmpInit)
+	vpnTmp, errTmp := os.MkdirTemp("", "nd-edge-vpn-*")
+	if errTmp != nil {
+		return fmt.Errorf("vpn temp dir: %w", errTmp)
+	}
+	defer os.RemoveAll(vpnTmp)
+	_ = os.Chmod(vpnTmp, 0o700)
+	tmpInit := filepath.Join(vpnTmp, "netductor-vpn-init")
+	if err := os.WriteFile(tmpInit, []byte(initWait), 0o755); err != nil {
+		return fmt.Errorf("write vpn init: %w", err)
+	}
 
 	if vless == "" {
 		fmt.Fprintln(os.Stderr, "==> vpn_client: binary installed; VLESS deferred until agent online + template")
@@ -134,12 +141,14 @@ start_service() {
 	if err != nil {
 		return fmt.Errorf("vless config: %w", err)
 	}
-	tmpV := filepath.Join(os.TempDir(), "nd-vpn.vless")
-	tmpC := filepath.Join(os.TempDir(), "nd-sing-box-client.json")
-	_ = os.WriteFile(tmpV, []byte(vless+"\n"), 0o600)
-	_ = os.WriteFile(tmpC, cfgJSON, 0o600)
-	defer os.Remove(tmpV)
-	defer os.Remove(tmpC)
+	tmpV := filepath.Join(vpnTmp, "vpn.vless")
+	tmpC := filepath.Join(vpnTmp, "sing-box-client.json")
+	if err := os.WriteFile(tmpV, []byte(vless+"\n"), 0o600); err != nil {
+		return fmt.Errorf("write vless: %w", err)
+	}
+	if err := os.WriteFile(tmpC, cfgJSON, 0o600); err != nil {
+		return fmt.Errorf("write client json: %w", err)
+	}
 	_, _ = runSSHOnPort(port, pass, o.PrimaryKey, user, host, "mkdir -p /etc/netductor-agent", o.PrimaryKeyPassphrase)
 	if err := runSCPOnPort(port, pass, o.PrimaryKey, user, host, tmpV, "/etc/netductor-agent/vpn.vless", o.PrimaryKeyPassphrase); err != nil {
 		return fmt.Errorf("scp vless: %w", err)
@@ -165,12 +174,20 @@ ov=$(df -k /overlay 2>/dev/null | tail -1 | awk '{print $4}')
 rt=$(df -k / 2>/dev/null | tail -1 | awk '{print $4}')
 echo OVERLAY_FREE_KB=${ov:-0}
 echo ROOT_FREE_KB=${rt:-0}
-# mounted USB-like candidates (already mounted)
+# mounted USB-like candidates — only if filesystem device differs from overlay/root
+ov_dev=$(df -P /overlay 2>/dev/null | tail -1 | awk '{print $1}')
+rt_dev=$(df -P / 2>/dev/null | tail -1 | awk '{print $1}')
 for m in /mnt/netductor /mnt/usb /mnt/sda1 /mnt/sda /mnt/mmcblk0p1 /opt; do
   [ -d "$m" ] || continue
-  fre=$(df -k "$m" 2>/dev/null | tail -1 | awk '{print $4}')
+  line=$(df -Pk "$m" 2>/dev/null | tail -1)
+  [ -n "$line" ] || continue
+  m_dev=$(echo "$line" | awk '{print $1}')
+  fre=$(echo "$line" | awk '{print $4}')
   [ -n "$fre" ] || continue
-  echo MOUNT:$m:$fre
+  # skip if same block device as overlay or root (directory on internal flash)
+  if [ -n "$ov_dev" ] && [ "$m_dev" = "$ov_dev" ]; then continue; fi
+  if [ -n "$rt_dev" ] && [ "$m_dev" = "$rt_dev" ]; then continue; fi
+  echo MOUNT:$m:$fre:$m_dev
 done
 # unmounted block devices hint (not auto-mounted)
 if command -v block >/dev/null 2>&1; then
@@ -196,9 +213,20 @@ true
 			rootFree, _ = strconv.ParseInt(strings.TrimPrefix(line, "ROOT_FREE_KB="), 10, 64)
 		case strings.HasPrefix(line, "MOUNT:"):
 			parts := strings.Split(strings.TrimPrefix(line, "MOUNT:"), ":")
+			// MOUNT:path:freeKB or MOUNT:path:freeKB:device
 			if len(parts) >= 2 {
-				fre, _ := strconv.ParseInt(parts[len(parts)-1], 10, 64)
-				path := strings.Join(parts[:len(parts)-1], ":")
+				freIdx := 1
+				if len(parts) >= 3 {
+					// path may contain colons rarely; free is first purely numeric field after path
+					for i := 1; i < len(parts); i++ {
+						if _, e := strconv.ParseInt(parts[i], 10, 64); e == nil {
+							freIdx = i
+							break
+						}
+					}
+				}
+				fre, _ := strconv.ParseInt(parts[freIdx], 10, 64)
+				path := strings.Join(parts[:freIdx], ":")
 				if fre > 0 && path != "" {
 					mounts = append(mounts, struct {
 						path string

@@ -131,17 +131,33 @@ def rev_ip(ip):
 def dnsbl(ip):
     rev=rev_ip(ip)
     if not rev: return "skip","not v4"
-    hits=[]; checked=[]
+    hits=[]; checked=[]; unknown=[]
     for zone,name in [("zen.spamhaus.org","zen"),("cbl.abuseat.org","cbl"),("b.barracudacentral.org","barracuda")]:
         checked.append(name)
         try:
-            socket.getaddrinfo(f"{rev}.{zone}",None)
-            # if resolves to something - may be listed (simplified: any answer = listed for spamhaus style)
-            hits.append(name)
-        except socket.gaierror:
-            pass
+            infos=socket.getaddrinfo(f"{rev}.{zone}",None)
+            addrs=set()
+            for inf in infos:
+                a=inf[4][0]
+                addrs.add(a)
+            if any(a.startswith("127.") for a in addrs):
+                hits.append(name)
+            else:
+                unknown.append(name)
+        except socket.gaierror as e:
+            # NXDOMAIN -> clean for that list; other errors unknown
+            if getattr(e,"errno",None) in (socket.EAI_NONAME, -2) or "not known" in str(e).lower() or "Name or service not known" in str(e):
+                pass
+            else:
+                unknown.append(name)
+        except Exception:
+            unknown.append(name)
     if hits:
         return "fail","LISTED: "+",".join(hits)
+    if len(unknown)==len(checked):
+        return "warn","DNSBL unreachable: "+",".join(unknown)
+    if unknown:
+        return "warn","partial clean; unknown: "+",".join(unknown)
     return "ok","clean on "+",".join(checked)
 if ip:
     st,det=dnsbl(ip)
@@ -287,13 +303,14 @@ func sshRun(ctx context.Context, o SSHOpts, script string) (string, error) {
 		args = append(args, "-i", o.KeyPath, "-o", "IdentitiesOnly=yes")
 	}
 	if o.Password != "" {
-		if _, err := exec.LookPath("sshpass"); err == nil {
-			full := append([]string{"-p", o.Password, "ssh"}, append(args, o.User+"@"+o.Host, "bash", "-s")...)
-			cmd := exec.CommandContext(ctx, "sshpass", full...)
-			cmd.Stdin = strings.NewReader(script)
-			b, err := cmd.CombinedOutput()
-			return string(b), err
+		if _, err := exec.LookPath("sshpass"); err != nil {
+			return "", fmt.Errorf("password auth requires sshpass in PATH (or use --key)")
 		}
+		full := append([]string{"-p", o.Password, "ssh"}, append(args, o.User+"@"+o.Host, "bash", "-s")...)
+		cmd := exec.CommandContext(ctx, "sshpass", full...)
+		cmd.Stdin = strings.NewReader(script)
+		b, err := cmd.CombinedOutput()
+		return string(b), err
 	}
 	args = append(args, o.User+"@"+o.Host, "bash", "-s")
 	cmd := exec.CommandContext(ctx, "ssh", args...)

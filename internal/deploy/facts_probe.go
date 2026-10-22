@@ -67,7 +67,11 @@ if command -v df >/dev/null; then
 fi
 # flash size from /proc/mtd if present (NOR/NAND sum)
 if [ -f /proc/mtd ]; then
-  awk 'NR>1 {gsub(/["]/,$4); sum+=$2} END{if(sum>0) printf "FLASH_KB=%d\n", sum/2}' /proc/mtd 2>/dev/null
+  awk 'NR>1 {
+    sz=$2
+    if (sz ~ /^0x/) sz=strtonum(sz); else if (sz ~ /^[0-9a-fA-F]+$/) sz=strtonum("0x"sz)
+    sum+=sz
+  } END{if(sum>0) printf "FLASH_KB=%d\n", int(sum/1024)}' /proc/mtd 2>/dev/null
 fi
 ls /dev/mmcblk* >/dev/null 2>&1 && echo HAS_MMC=1 || echo HAS_MMC=0
 ls /dev/sd[a-z] >/dev/null 2>&1 && echo HAS_USB_DISK=1 || echo HAS_USB_DISK=0

@@ -47,25 +47,36 @@ func checkDNSBL(ctx context.Context, ip string) Result {
 		{"cbl", "cbl.abuseat.org"},
 		{"b.barracudacentral.org", "b.barracudacentral.org"},
 	}
-	var hits, checked []string
+	var hits, checked, unknown []string
 	for _, l := range lists {
 		q := rev + "." + l.zone
-		listed := dnsblLookup(ctx, q)
+		res := dnsblLookup(ctx, q)
 		checked = append(checked, l.name)
-		if listed {
+		switch res {
+		case dnsblListed:
 			hits = append(hits, l.name)
+		case dnsblUnknown:
+			unknown = append(unknown, l.name)
 		}
 	}
 	r.DurationMs = time.Since(start).Milliseconds()
-	if len(hits) > 0 {
+	switch {
+	case len(hits) > 0:
 		r.Status = StatusFail
 		r.Detail = "LISTED: " + strings.Join(hits, ",") + " (checked " + strings.Join(checked, ",") + ")"
-	} else {
+	case len(unknown) == len(checked):
+		r.Status = StatusWarn
+		r.Detail = "DNSBL unreachable (all queries failed): " + strings.Join(unknown, ",")
+	case len(unknown) > 0:
+		r.Status = StatusWarn
+		r.Detail = "clean on some; unknown: " + strings.Join(unknown, ",") + " (checked " + strings.Join(checked, ",") + ")"
+	default:
 		r.Status = StatusOK
 		r.Detail = "clean on " + strings.Join(checked, ",")
 	}
 	return r
 }
+
 
 func reverseIPv4(ip string) (string, error) {
 	parsed := net.ParseIP(ip)
@@ -79,32 +90,49 @@ func reverseIPv4(ip string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d.%d", v4[3], v4[2], v4[1], v4[0]), nil
 }
 
-func dnsblLookup(ctx context.Context, name string) bool {
-	// dig +short A; any 127.0.0.x = listed
+// dnsblResult: listed / clean / unknown
+type dnsblResult int
+
+const (
+	dnsblClean dnsblResult = iota
+	dnsblListed
+	dnsblUnknown
+)
+
+func dnsblLookup(ctx context.Context, name string) dnsblResult {
 	if _, err := exec.LookPath("dig"); err == nil {
 		cmd := exec.CommandContext(ctx, "dig", "+short", "+time=3", "+tries=1", name, "A")
-		out, _ := cmd.CombinedOutput()
+		out, err := cmd.CombinedOutput()
 		s := strings.TrimSpace(string(out))
+		if err != nil && s == "" {
+			return dnsblUnknown
+		}
+		if s == "" {
+			return dnsblClean
+		}
 		for _, line := range strings.Split(s, "\n") {
 			line = strings.TrimSpace(line)
 			if strings.HasPrefix(line, "127.0.0.") {
-				return true
+				return dnsblListed
 			}
 		}
-		return false
+		return dnsblUnknown
 	}
-	// fallback net.LookupIP
 	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", name)
 	if err != nil {
-		return false
+		if dnsErr, ok := err.(*net.DNSError); ok && dnsErr.IsNotFound {
+			return dnsblClean
+		}
+		return dnsblUnknown
 	}
 	for _, ip := range ips {
 		if ip.IsLoopback() {
-			return true
+			return dnsblListed
 		}
 	}
-	return false
+	return dnsblUnknown
 }
+
 
 func checkProxyFlags(ctx context.Context, ip string) Result {
 	start := time.Now()

@@ -38,3 +38,8 @@ Remote SSH prefers `netductor vps-check` when the binary exists; otherwise an em
 ## Day-2 hoster residual
 
 `netductor host-audit` — separate from channel scorecard (HOST-AUDIT.md).
+
+
+## Security (0.9.467+)
+
+Disk/fio tests use private `MkdirTemp` dirs (no fixed `/tmp` names). Password SSH requires `sshpass` or fails explicitly. DNSBL treats DNS errors as WARN, not clean.

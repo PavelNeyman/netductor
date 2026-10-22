@@ -489,8 +489,8 @@ done
 modprobe usb-storage 2>/dev/null || true
 modprobe sd_mod 2>/dev/null || true
 # Require at least one storage module visible after install
-if ! lsmod | grep -qE 'usb_storage|sd_mod|scsi_mod'; then
-  echo "FAIL: no usb_storage/sd_mod after package install"
+if ! lsmod | grep -q 'usb_storage' && ! [ -d /sys/module/usb_storage ]; then
+  echo "FAIL: usb_storage module not loaded after package install"
   exit 1
 fi
 echo INSTALL_DONE
