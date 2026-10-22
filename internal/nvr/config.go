@@ -21,6 +21,8 @@ type Config struct {
 	RetentionDays int `json:"retention_days"`
 	// MaxGB total size cap across all cameras (0 = ignore size).
 	MaxGB float64 `json:"max_gb"`
+	// MaxCameraGB per-camera cap (0 = MaxGB/4 or 10 GB default when MaxGB set).
+	MaxCameraGB float64 `json:"max_camera_gb"`
 	// MinFreeGB stop writing / force rotate if free space below (0 = off).
 	MinFreeGB float64 `json:"min_free_gb"`
 	// RotateIntervalSec how often retention runs (default 300).
@@ -36,6 +38,7 @@ func defaultConfig() Config {
 		SegmentSec:        300,
 		RetentionDays:     7,
 		MaxGB:             40,
+		MaxCameraGB:       10,
 		MinFreeGB:         5,
 		RotateIntervalSec: 300,
 		RecordEnabled:     false, // off until operator enables + path ready

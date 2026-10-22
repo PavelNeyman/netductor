@@ -18,6 +18,19 @@ import (
 	"time"
 )
 
+
+func nvrDirUsage(dir string) int64 {
+	var sum int64
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		sum += info.Size()
+		return nil
+	})
+	return sum
+}
+
 func nvrDir(cfg config) string {
 	if cfg.NVRDir != "" {
 		return cfg.NVRDir
@@ -85,6 +98,9 @@ func nvrRecordStart(client *http.Client, cfg config, arg string) string {
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "error:" + err.Error()
+	}
+	if used := nvrDirUsage(dir); used >= nvrMaxBytes(cfg) {
+		return "error:camera storage quota (" + strconv.FormatInt(used, 10) + " bytes)"
 	}
 	nvrRecordStop(camID)
 	stop := make(chan struct{})

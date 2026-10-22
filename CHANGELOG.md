@@ -1,3 +1,9 @@
+## 0.9.477
+
+- NVR: MaxCameraGB + per-camera/global quota before ingest; agent refuses record when camera dir full
+- Guest desk: staff-only (exclude guest SubnetCIDR); DeskAllowCIDR / NETDUCTOR_GUEST_DESK_CIDR
+- Recovery UI: HTTPS with ephemeral self-signed (or NETDUCTOR_RECOVERY_TLS_CERT/KEY); HTTP only if NETDUCTOR_RECOVERY_HTTP=1
+
 ## 0.9.476
 
 - recovery form: Primary URL must be https (lab: NETDUCTOR_RECOVERY_ALLOW_HTTP=1)

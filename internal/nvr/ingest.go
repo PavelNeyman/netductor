@@ -27,6 +27,34 @@ func ValidCameraID(id string) bool {
 }
 
 // underRoot reports whether absPath is inside root (after Clean; best-effort symlink check).
+
+func dirSizeBytes(root string) int64 {
+	var sum int64
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		sum += info.Size()
+		return nil
+	})
+	return sum
+}
+
+func cameraQuotaBytes(cfg Config) int64 {
+	if cfg.MaxCameraGB > 0 {
+		return int64(cfg.MaxCameraGB * 1024 * 1024 * 1024)
+	}
+	if cfg.MaxGB > 0 {
+		// default quarter of pool, min 1 GiB
+		q := int64(cfg.MaxGB * 1024 * 1024 * 1024 / 4)
+		if q < 1<<30 {
+			q = 1 << 30
+		}
+		return q
+	}
+	return 0
+}
+
 func underRoot(root, absPath string) bool {
 	root = filepath.Clean(root)
 	absPath = filepath.Clean(absPath)
@@ -96,6 +124,18 @@ func IngestSegment(cameraID, filename string, r io.Reader) (string, int64, error
 	}
 	if realDest, err := filepath.EvalSymlinks(filepath.Dir(dest)); err == nil && !underRoot(root, realDest) {
 		return "", 0, fmt.Errorf("destination parent escapes nvr root")
+	}
+	// Quotas: per-camera and global MaxGB (review hardening).
+	camUsed := dirSizeBytes(dir)
+	if q := cameraQuotaBytes(cfg); q > 0 && camUsed >= q {
+		return "", 0, fmt.Errorf("camera quota exceeded (%d bytes used, limit %d)", camUsed, q)
+	}
+	if cfg.MaxGB > 0 {
+		total := dirSizeBytes(root)
+		lim := int64(cfg.MaxGB * 1024 * 1024 * 1024)
+		if total >= lim {
+			return "", 0, fmt.Errorf("nvr storage full (%d bytes, MaxGB=%.1f)", total, cfg.MaxGB)
+		}
 	}
 	tmp := dest + ".partial"
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)

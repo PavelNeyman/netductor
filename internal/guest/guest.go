@@ -33,6 +33,8 @@ type Config struct {
 	DeskPIN     string `json:"desk_pin"`    // plaintext only at setup; prefer DeskPINHash
 	DeskPINHash string `json:"desk_pin_hash,omitempty"`
 	DeskPort    int    `json:"desk_port"`
+	// DeskAllowCIDR optional staff networks (comma-separated). Empty = private IP except guest SubnetCIDR.
+	DeskAllowCIDR string `json:"desk_allow_cidr,omitempty"`
 	CaptivePort int    `json:"captive_port"`
 }
 

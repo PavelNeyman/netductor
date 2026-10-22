@@ -1,6 +1,14 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,7 +30,7 @@ button{background:#1a7;color:#fff;border:0;border-radius:6px}
 .err{color:#a00}.ok{color:#070}
 </style></head><body>
 <h1>netductor recovery</h1>
-<p>Введите код с primary (CLI/TG). Настройки Wi‑Fi/сети <b>не</b> меняются — только привязка к серверу.</p>
+<p>Введите код с primary (CLI/TG). Страница по <b>HTTPS</b> (self-signed). Wi‑Fi/сеть <b>не</b> меняются — только привязка к серверу.</p>
 <form method="POST" action="/netductor-recovery">
 <label>Primary URL<br/><input name="server" placeholder="https://x.x.x.x:8789" value="{{SERVER}}"/></label>
 <label>Recovery / bootstrap code<br/><input name="code" autocomplete="off" required/></label>
@@ -105,10 +113,66 @@ func startRecoveryHTTP(cfg *config) {
 				return
 			}
 		}
-		fmt.Fprintf(os.Stderr, "recovery http on %s /netductor-recovery (LAN clients only unless RECOVERY_ALLOW_ANY=1; set RECOVERY_HTTP=0 to disable)\n", addr)
-		s := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-		_ = s.Serve(ln)
+		fmt.Fprintf(os.Stderr, "recovery https on %s /netductor-recovery (self-signed; LAN only unless RECOVERY_ALLOW_ANY=1)\n", addr)
+		s := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second}
+		cert, err := recoveryTLSCertificate()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "recovery tls cert: %v — falling back to HTTP (set NETDUCTOR_RECOVERY_HTTP=1 to force)\n", err)
+			if os.Getenv("NETDUCTOR_RECOVERY_HTTP") == "1" {
+				_ = s.Serve(ln)
+			}
+			return
+		}
+		_ = s.Serve(tls.NewListener(ln, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}))
 	}()
+}
+
+// recoveryTLSCertificate loads PEM from env paths or generates ephemeral self-signed for LAN recovery UI.
+func recoveryTLSCertificate() (tls.Certificate, error) {
+	certFile := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_TLS_CERT"))
+	keyFile := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_TLS_KEY"))
+	if certFile != "" && keyFile != "" {
+		return tls.LoadX509KeyPair(certFile, keyFile)
+	}
+	// Ephemeral self-signed (valid 7d) — browser warning expected; protects recovery code on LAN.
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	serial, err := rand.Int(rand.Reader, big.NewInt(1<<62))
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject:      pkix.Name{CommonName: "netductor-recovery"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(7 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	// Attach private interface IPs as SANs.
+	ifaces, _ := net.Interfaces()
+	for _, iface := range ifaces {
+		addrs, _ := iface.Addrs()
+		for _, a := range addrs {
+			if ipn, ok := a.(*net.IPNet); ok && ipn.IP.To4() != nil {
+				tmpl.IPAddresses = append(tmpl.IPAddresses, ipn.IP)
+			}
+		}
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
 func pickPrivateListenAddr(port string) string {

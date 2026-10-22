@@ -117,22 +117,22 @@ func startGuestHTTP(cfg *config) {
 		addr := pickPrivateListenAddr(fmt.Sprintf("%d", gc.DeskPort))
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if !allowRecoveryClient(r) {
-				http.Error(w, "forbidden: private LAN only", http.StatusForbidden)
+			if !allowDeskClient(r, &gc) {
+				http.Error(w, "forbidden: staff network only", http.StatusForbidden)
 				return
 			}
 			deskHandler(w, r, &gc, store)
 		})
 		mux.HandleFunc("/grant", func(w http.ResponseWriter, r *http.Request) {
-			if !allowRecoveryClient(r) {
-				http.Error(w, "forbidden: private LAN only", http.StatusForbidden)
+			if !allowDeskClient(r, &gc) {
+				http.Error(w, "forbidden: staff network only", http.StatusForbidden)
 				return
 			}
 			deskGrantQR(w, r, &gc, store)
 		})
 		mux.HandleFunc("/api/grant", func(w http.ResponseWriter, r *http.Request) {
-			if !allowRecoveryClient(r) {
-				http.Error(w, "forbidden", http.StatusForbidden)
+			if !allowDeskClient(r, &gc) {
+				http.Error(w, "forbidden: staff network only", http.StatusForbidden)
 				return
 			}
 			deskAPIGrant(w, r, &gc, store)
@@ -142,6 +142,60 @@ func startGuestHTTP(cfg *config) {
 		_ = srv.ListenAndServe()
 	}()
 	_ = cfg
+}
+
+
+// allowDeskClient: staff only — not the guest subnet; optional explicit DeskAllowCIDR / env.
+func allowDeskClient(r *http.Request, gc *guest.Config) bool {
+	if os.Getenv("NETDUCTOR_GUEST_DESK_ALLOW_ANY") == "1" {
+		return true
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	allow := strings.TrimSpace(os.Getenv("NETDUCTOR_GUEST_DESK_CIDR"))
+	if gc != nil && strings.TrimSpace(gc.DeskAllowCIDR) != "" {
+		allow = gc.DeskAllowCIDR
+	}
+	if allow != "" {
+		for _, c := range strings.Split(allow, ",") {
+			c = strings.TrimSpace(c)
+			if c == "" {
+				continue
+			}
+			_, n, err := net.ParseCIDR(c)
+			if err != nil {
+				// single IP
+				if net.ParseIP(c) != nil && c == ip.String() {
+					return true
+				}
+				continue
+			}
+			if n.Contains(ip) {
+				return true
+			}
+		}
+		return false
+	}
+	// Default: private LAN, but exclude guest client subnet.
+	if !(ip.IsPrivate() || ip.IsLinkLocalUnicast()) {
+		return false
+	}
+	if gc != nil && gc.SubnetCIDR != "" {
+		_, n, err := net.ParseCIDR(strings.TrimSpace(gc.SubnetCIDR))
+		if err == nil && n.Contains(ip) {
+			return false // guest Wi‑Fi clients must not reach desk
+		}
+	}
+	return true
 }
 
 func deskHostHint() string {
