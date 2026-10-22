@@ -1,6 +1,8 @@
 package secondary
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -618,10 +620,30 @@ func secondaryBackupPull() (bool, string) {
 		_ = os.Remove(tmpName)
 		return false, "empty backup download"
 	}
+	// verify SHA before promoting to final name
+	wantSHA := strings.ToLower(strings.TrimSpace(resp.Header.Get("X-Netductor-Backup-SHA256")))
+	gotSHA, herr := fileSHA256HexPath(tmpName)
+	if herr != nil {
+		_ = os.Remove(tmpName)
+		return false, "hash download: " + herr.Error()
+	}
+	if wantSHA != "" && !strings.EqualFold(gotSHA, wantSHA) {
+		_ = os.Remove(tmpName)
+		return false, fmt.Sprintf("backup SHA mismatch got=%s want=%s", gotSHA, wantSHA)
+	}
+	if wantSize := strings.TrimSpace(resp.Header.Get("X-Netductor-Backup-Size")); wantSize != "" {
+		if st, e := os.Stat(tmpName); e == nil {
+			if fmt.Sprintf("%d", st.Size()) != wantSize {
+				_ = os.Remove(tmpName)
+				return false, fmt.Sprintf("backup size mismatch got=%d want=%s", st.Size(), wantSize)
+			}
+		}
+	}
 	if err := os.Rename(tmpName, outPath); err != nil {
 		_ = os.Remove(tmpName)
 		return false, err.Error()
 	}
+	_ = os.WriteFile(outPath+".sha256", []byte(gotSHA+"  "+filepath.Base(outPath)+"\n"), 0o644)
 	// key sidecar — required for restore; pull is not OK without it
 	req2, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/key", nil)
 	if err != nil {
@@ -652,7 +674,7 @@ func secondaryBackupPull() (bool, string) {
 		_ = os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(strings.ReplaceAll(comps, ",", "\n")+"\n"), 0o644)
 	}
 	prunePeerArchives(dir, 14)
-	return true, "stored " + outPath + " key=ok"
+	return true, "stored " + outPath + " key=ok sha=" + gotSHA
 }
 
 func prunePeerArchives(dir string, keep int) {
@@ -711,4 +733,18 @@ func readRecoveryFingerprint() string {
 		}
 	}
 	return ""
+}
+
+
+func fileSHA256HexPath(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

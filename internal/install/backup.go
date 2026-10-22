@@ -310,7 +310,7 @@ func WaitForBackupPull(timeout time.Duration, notBefore time.Time) (acked, pendi
 			}
 			if d.LastCmd == "backup_pull" && d.LastCmdOK &&
 				!d.LastCmdAt.Before(notBefore) &&
-				(strings.Contains(d.LastCmdLog, "key=ok") || strings.Contains(d.LastCmdLog, "stored ")) {
+				strings.Contains(d.LastCmdLog, "key=ok") {
 				acked++
 				continue
 			}

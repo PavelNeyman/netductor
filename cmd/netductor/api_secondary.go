@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -369,9 +371,28 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Netductor-Components", strings.ReplaceAll(strings.TrimSpace(string(b)), "\n", ","))
 	}
 	w.Header().Set("X-Netductor-Backup-Name", filepath.Base(latest))
+	if sum, err := fileSHA256Hex(latest); err == nil {
+		w.Header().Set("X-Netductor-Backup-SHA256", sum)
+	}
+	if st, err := os.Stat(latest); err == nil {
+		w.Header().Set("X-Netductor-Backup-Size", fmt.Sprintf("%d", st.Size()))
+	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeAttachmentFilename(filepath.Base(latest))+"\"")
 	http.ServeFile(w, r, latest)
+}
+
+func fileSHA256Hex(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {

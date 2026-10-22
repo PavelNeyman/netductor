@@ -356,51 +356,12 @@ func Collect(role string) Status {
 		s := string(out)
 		st.Active = strings.Contains(s, "Status: active")
 		st.Detail = firstLines(s, 12)
-		// H-2: OK requires active + SSH + 443 + role-critical denies/restricts.
-		st.OK = st.Active && strings.Contains(s, sshPort()) && strings.Contains(s, "443")
+		ok, warns := ufwEffectivePolicy(s, role)
+		st.OK = st.Active && ok
+		st.Warnings = append(st.Warnings, warns...)
 		if !st.Active {
 			st.Warnings = append(st.Warnings, "ufw installed but inactive")
 			st.OK = false
-		}
-		if !strings.Contains(s, sshPort()) {
-			st.Warnings = append(st.Warnings, "ssh port rule missing in ufw status")
-			st.OK = false
-		}
-		if !strings.Contains(s, "443") {
-			st.Warnings = append(st.Warnings, "443/tcp rule missing in ufw status")
-			st.OK = false
-		}
-		for _, d := range []string{"22/tcp", "10050/tcp"} {
-			if st.Active && !strings.Contains(s, d) {
-				st.Warnings = append(st.Warnings, "expected deny/mention missing: "+d)
-				st.OK = false
-			}
-		}
-		if st.Active {
-			if role == "primary" {
-				mtls := ndconfig.AgentMTLSPort()
-				// mTLS must be present as restricted allow (CIDR), not open WAN-only.
-				if !strings.Contains(s, mtls) {
-					st.Warnings = append(st.Warnings, "mtls port "+mtls+" missing in ufw status")
-					st.OK = false
-				}
-				if !strings.Contains(s, "8788") {
-					st.Warnings = append(st.Warnings, "expected deny 8788 (plain agent) missing")
-					st.OK = false
-				}
-				// Wide open 8789 anywhere without from-restrict is degraded (heuristic).
-				if strings.Contains(s, mtls+"/tcp") && strings.Contains(s, "ALLOW") && !strings.Contains(s, "10.87") && !strings.Contains(s, "127.0.0.1") {
-					st.Warnings = append(st.Warnings, "mtls may be open without svc CIDR restrict — re-apply firewall")
-					st.OK = false
-				}
-			} else {
-				for _, d := range []string{"8787", "8788", "8789"} {
-					if !strings.Contains(s, d) {
-						st.Warnings = append(st.Warnings, "secondary expected control of port "+d+" missing")
-						st.OK = false
-					}
-				}
-			}
 		}
 		return st
 	}
@@ -423,6 +384,126 @@ func Collect(role string) Status {
 	st.Detail = "no ufw and no iptables"
 	st.Warnings = append(st.Warnings, "CRITICAL: no host firewall backend")
 	return st
+}
+
+
+// ufwEffectivePolicy parses `ufw status` lines (not raw substring) so "22/tcp" does not match "52222/tcp".
+func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
+	ok = true
+	lines := strings.Split(status, "\n")
+	sp := sshPort()
+	hasAllowPort := func(port string) bool {
+		for _, ln := range lines {
+			ln = strings.TrimSpace(ln)
+			if !ufwLineMentionsPort(ln, port) {
+				continue
+			}
+			if strings.Contains(ln, "ALLOW") {
+				return true
+			}
+		}
+		return false
+	}
+	hasDenyPort := func(port string) bool {
+		for _, ln := range lines {
+			ln = strings.TrimSpace(ln)
+			if !ufwLineMentionsPort(ln, port) {
+				continue
+			}
+			if strings.Contains(ln, "DENY") || strings.Contains(ln, "REJECT") {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasAllowPort(sp) {
+		ok = false
+		warnings = append(warnings, "ssh port "+sp+"/tcp ALLOW missing")
+	}
+	if !hasAllowPort("443") {
+		ok = false
+		warnings = append(warnings, "443/tcp ALLOW missing")
+	}
+	if !hasDenyPort("22") {
+		ok = false
+		warnings = append(warnings, "22/tcp DENY missing (do not confuse with "+sp+")")
+	}
+	if !hasDenyPort("10050") {
+		ok = false
+		warnings = append(warnings, "10050/tcp DENY missing")
+	}
+	if role == "primary" {
+		mtls := ndconfig.AgentMTLSPort()
+		if !hasDenyPort("8788") {
+			ok = false
+			warnings = append(warnings, "8788/tcp DENY missing")
+		}
+		// mTLS: need at least one ALLOW from restricted source (10.87 or 127.0.0.1)
+		mtlsRestricted := false
+		mtlsOpenWAN := false
+		for _, ln := range lines {
+			ln = strings.TrimSpace(ln)
+			if !ufwLineMentionsPort(ln, mtls) {
+				continue
+			}
+			if strings.Contains(ln, "ALLOW") {
+				if strings.Contains(ln, "10.87") || strings.Contains(ln, "127.0.0.1") || strings.Contains(ln, "Anywhere on") {
+					mtlsRestricted = true
+				}
+				// "ALLOW IN Anywhere" without from-CIDR is open
+				if (strings.Contains(ln, "Anywhere") || strings.Contains(ln, "Anywhere (v6)")) &&
+					!strings.Contains(ln, "10.87") && !strings.Contains(ln, "127.0.0.1") {
+					mtlsOpenWAN = true
+				}
+			}
+		}
+		if !mtlsRestricted && !ufwLineAnyPort(lines, mtls) {
+			ok = false
+			warnings = append(warnings, "mtls port "+mtls+" rule missing")
+		} else if mtlsOpenWAN && !mtlsRestricted {
+			ok = false
+			warnings = append(warnings, "mtls port "+mtls+" appears open on WAN without svc CIDR — re-apply firewall")
+		}
+	} else {
+		for _, d := range []string{"8787", "8788", "8789"} {
+			if !hasDenyPort(d) {
+				ok = false
+				warnings = append(warnings, d+"/tcp DENY missing on secondary")
+			}
+		}
+	}
+	return ok, warnings
+}
+
+func ufwLineMentionsPort(ln, port string) bool {
+	// Match "52222/tcp" or "52222" as field, not substring of another port.
+	port = strings.TrimSpace(port)
+	if port == "" {
+		return false
+	}
+	candidates := []string{port + "/tcp", port + "/udp", port + " "}
+	// tokenize
+	fields := strings.Fields(ln)
+	for _, f := range fields {
+		f = strings.TrimSuffix(f, "(v6)")
+		if f == port || f == port+"/tcp" || f == port+"/udp" {
+			return true
+		}
+		if strings.HasPrefix(f, port+"/") {
+			return true
+		}
+	}
+	_ = candidates
+	return false
+}
+
+func ufwLineAnyPort(lines []string, port string) bool {
+	for _, ln := range lines {
+		if ufwLineMentionsPort(ln, port) {
+			return true
+		}
+	}
+	return false
 }
 
 func firstLines(s string, n int) string {

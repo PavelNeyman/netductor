@@ -1,3 +1,9 @@
+## 0.9.469
+
+- offsite: primary sends X-Netductor-Backup-SHA256/Size; secondary verifies hash+size before promote; sidecar `.sha256`; log includes `sha=`
+- sing-box: embedded SHA-256 pins for v1.11.7 (amd64/arm64/armv7/mipsle/riscv64); cache + install enforce pin (env override still works)
+- firewall Collect: line-based ufw policy (22 vs 52222); DENY/ALLOW and mTLS restrict checks without ufw reset
+
 ## 0.9.468
 
 - firewall iptables fallback: critical rules return error (no false success)

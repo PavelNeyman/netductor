@@ -1,6 +1,8 @@
 package deploy
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,10 +11,12 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/upstream"
 )
 
 // PinnedSingBox is downloaded into offline cache (avoids GH API on OpenWrt).
-const PinnedSingBox = "1.11.7"
+const PinnedSingBox = upstream.SingBoxPinnedVersion
 
 // minSingBoxBytes — refuse tiny/corrupt cache entries (real binary is several MB).
 const minSingBoxBytes = 1 << 20 // 1 MiB
@@ -84,6 +88,23 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	if st, _ := os.Stat(tgz); st != nil && st.Size() > maxTGZ {
 		return "", fmt.Errorf("sing-box archive too large")
 	}
+	if want := pinnedSingBoxSHA(sbArch); want != "" {
+		got, err := fileSHA256HexFile(tgz)
+		if err != nil {
+			return "", err
+		}
+		if !matchSHA256(got, want) {
+			return "", fmt.Errorf("sing-box tarball SHA mismatch arch=%s got=%s want=%s", sbArch, got, want)
+		}
+	} else if want := strings.TrimSpace(os.Getenv("NETDUCTOR_SINGBOX_SHA256")); want != "" {
+		got, err := fileSHA256HexFile(tgz)
+		if err != nil {
+			return "", err
+		}
+		if !matchSHA256(got, want) {
+			return "", fmt.Errorf("sing-box tarball SHA mismatch got=%s want=%s", got, want)
+		}
+	}
 	if out, err := exec.Command("tar", "-xzf", tgz, "-C", tmp).CombinedOutput(); err != nil {
 		return "", fmt.Errorf("tar: %s %v", out, err)
 	}
@@ -126,4 +147,18 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 		return "", err
 	}
 	return dest, nil
+}
+
+
+func fileSHA256HexFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/download"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"github.com/PavelNeyman/netductor/internal/upstream"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -130,19 +131,29 @@ func downloadSingBoxVersion(dest, tag string) error {
 	if err := httpDownload(url, tgz); err != nil {
 		return err
 	}
-	// R11a: optional pin of tarball SHA via NETDUCTOR_SINGBOX_SHA256
-	if want := strings.TrimSpace(os.Getenv("NETDUCTOR_SINGBOX_SHA256")); want != "" {
-		got, err := fileSHA256Hex(tgz)
-		if err != nil {
-			return err
+	// Enforce SHA: env override, else embedded pin when tag matches upstream pin.
+	want := strings.TrimSpace(os.Getenv("NETDUCTOR_SINGBOX_SHA256"))
+	if want == "" {
+		ver := strings.TrimPrefix(tag, "v")
+		if ver == upstream.SingBoxPinnedVersion {
+			sbArch := a
+			if a == "arm" {
+				sbArch = "armv7"
+			}
+			want = upstream.SingBoxSHA(sbArch)
 		}
-		if !strings.EqualFold(got, want) {
+	}
+	got, err := fileSHA256Hex(tgz)
+	if err != nil {
+		return err
+	}
+	if want != "" {
+		if !upstream.MatchSHA(got, want) {
 			return fmt.Errorf("sing-box tarball SHA mismatch got=%s want=%s", got, want)
 		}
+		fmt.Fprintln(os.Stderr, "sing-box tarball sha256 ok:", got)
 	} else {
-		if got, err := fileSHA256Hex(tgz); err == nil {
-			fmt.Fprintln(os.Stderr, "sing-box tarball sha256:", got, "(set NETDUCTOR_SINGBOX_SHA256 to enforce)")
-		}
+		fmt.Fprintln(os.Stderr, "sing-box tarball sha256:", got, "(no pin for this tag — set NETDUCTOR_SINGBOX_SHA256)")
 	}
 	if err := run("tar", "-xzf", tgz, "-C", tmp); err != nil {
 		return err
