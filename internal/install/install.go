@@ -86,11 +86,24 @@ func Run(opts Options) error {
 			err = InstallBackup()
 		case "lampac":
 			err = InstallLampac()
+			// Soft: optional media stack must not fail recover drill / full install.
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "component lampac: %v (soft — install continues)\n", err)
+				err = nil
+			}
 		case "git":
 			// bare repos root; sample repo optional
 			err = ensureGitComponent()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "component git: %v (soft — install continues)\n", err)
+				err = nil
+			}
 		case "registry":
 			err = ensureRegistryComponent()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "component registry: %v (soft — install continues)\n", err)
+				err = nil
+			}
 		default:
 			fmt.Fprintf(os.Stderr, "skip unknown component %s\n", c)
 		}

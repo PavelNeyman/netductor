@@ -1,3 +1,8 @@
+## 0.9.475
+
+- BackupSecondaryLocal: defer remove plaintext; wipe partial .ndenc on encrypt fail
+- install Run: lampac / git / registry soft (like telegram) — do not block recover drill
+
 ## 0.9.474
 
 - deploy SSH: stop clearing known_hosts on every hop (TOFU restored; ClearHostKeys only for explicit reinstall)

@@ -22,6 +22,8 @@ func BackupSecondaryLocal() (string, error) {
 	}
 	stamp := time.Now().UTC().Format("20060102-150405")
 	plain := filepath.Join(dir, "secondary-"+stamp+".tar.gz")
+	// Always wipe plaintext; success returns only .ndenc (review: tar/encrypt failure must not leave secrets open).
+	defer func() { _ = os.Remove(plain) }()
 	args := []string{
 		"-czf", plain,
 		"--exclude=var/lib/netductor/backups",
@@ -50,14 +52,13 @@ func BackupSecondaryLocal() (string, error) {
 	}
 	key := readSecret("backup_key")
 	if key == "" {
-		_ = os.Remove(plain)
 		return "", fmt.Errorf("backup_key missing — refusing plaintext secondary-local backup (set /etc/netductor/secrets/backup_key)")
 	}
 	enc := plain + ".ndenc"
 	if err := encryptFile(plain, enc, key); err != nil {
+		_ = os.Remove(enc)
 		return "", err
 	}
-	_ = os.Remove(plain)
 	out := enc
 	_ = os.Chmod(out, 0o600)
 	pruneBackups(dir, BackupKeepCount())
