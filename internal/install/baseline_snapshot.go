@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -51,10 +52,12 @@ func SnapshotHostBaseline() error {
 
 // BaselineDrift is a doctor-facing diff against the post-install snapshot.
 type BaselineDrift struct {
-	HaveSnapshot bool
-	Created      string
-	NewPorts     []string
-	NewUnits     []string
+	HaveSnapshot    bool
+	Created         string
+	NewPorts        []string
+	NewUnits        []string
+	NewUfwRules     []string // live ALLOW/DENY not in baseline/ufw.txt
+	MissingUfwRules []string // baseline rules gone from live (no ufw reset required)
 }
 
 // DiffHostBaseline compares the current host to the snapshot. Missing snapshot is not a failure.
@@ -70,6 +73,12 @@ func DiffHostBaseline() BaselineDrift {
 	}
 	d.NewPorts = newLines(filepath.Join(dir, "ss.txt"), capture("ss", "-tulnp"), portToken)
 	d.NewUnits = newLines(filepath.Join(dir, "enabled-units.txt"), capture("systemctl", "list-unit-files", "--state=enabled"), unitToken)
+	// ufw: full rule set vs baseline/ufw.txt (or iptables.txt if no ufw)
+	if _, err := os.Stat(filepath.Join(dir, "ufw.txt")); err == nil {
+		live := capture("ufw", "status", "verbose")
+		d.NewUfwRules, d.MissingUfwRules = ruleSetDiff(
+			filepath.Join(dir, "ufw.txt"), live, ufwRuleToken)
+	}
 	return d
 }
 
@@ -124,3 +133,71 @@ func newLines(snapPath, now string, token func(string) string) []string {
 	}
 	return extra
 }
+
+// ufwRuleToken normalizes a `ufw status` row to "PORT ACTION FROM…".
+// Skips headers; strips trailing comments. Does not match 22 inside 52222
+// because the port field is the first token as printed by ufw.
+func ufwRuleToken(line string) string {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return ""
+	}
+	if strings.HasPrefix(line, "Status:") || strings.HasPrefix(line, "Logging:") ||
+		strings.HasPrefix(line, "Default:") || strings.HasPrefix(line, "New profiles:") {
+		return ""
+	}
+	if strings.HasPrefix(line, "To ") || strings.HasPrefix(line, "--") {
+		return ""
+	}
+	if i := strings.Index(line, "#"); i >= 0 {
+		line = strings.TrimSpace(line[:i])
+	}
+	fields := strings.Fields(line)
+	if len(fields) < 3 {
+		return ""
+	}
+	port, action := fields[0], fields[1]
+	switch action {
+	case "ALLOW", "DENY", "REJECT", "LIMIT":
+	default:
+		return ""
+	}
+	// Port-like: 443/tcp, 22, 8443/udp
+	if !strings.ContainsAny(port, "0123456789") {
+		return ""
+	}
+	from := strings.Join(fields[2:], " ")
+	return port + " " + action + " " + from
+}
+
+// ruleSetDiff returns tokens in live not in snap (extra) and in snap not in live (missing).
+func ruleSetDiff(snapPath, live string, token func(string) string) (extra, missing []string) {
+	old := map[string]struct{}{}
+	if b, err := os.ReadFile(snapPath); err == nil {
+		for _, line := range strings.Split(string(b), "\n") {
+			if t := token(line); t != "" {
+				old[t] = struct{}{}
+			}
+		}
+	}
+	now := map[string]struct{}{}
+	for _, line := range strings.Split(live, "\n") {
+		t := token(line)
+		if t == "" {
+			continue
+		}
+		now[t] = struct{}{}
+		if _, ok := old[t]; !ok {
+			extra = append(extra, t)
+		}
+	}
+	for t := range old {
+		if _, ok := now[t]; !ok {
+			missing = append(missing, t)
+		}
+	}
+	sort.Strings(extra)
+	sort.Strings(missing)
+	return extra, missing
+}
+

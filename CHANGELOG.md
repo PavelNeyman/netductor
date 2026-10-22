@@ -1,3 +1,8 @@
+## 0.9.470
+
+- host baseline: full ufw rule-set diff vs `baseline/ufw.txt` (new + missing ALLOW/DENY) without ufw reset
+- doctor: WARN `snapshot new ufw rules` / `snapshot missing ufw rules`; OK only when ports+units+ufw match
+
 ## 0.9.469
 
 - offsite: primary sends X-Netductor-Backup-SHA256/Size; secondary verifies hash+size before promote; sidecar `.sha256`; log includes `sha=`

@@ -115,7 +115,8 @@ func doctorRunChecks(h doctorHooks) {
 	drift := install.DiffHostBaseline()
 	if !drift.HaveSnapshot {
 		doctorPrintln("INFO no host snapshot yet (written at install / host-baseline apply)")
-	} else if len(drift.NewPorts) == 0 && len(drift.NewUnits) == 0 {
+	} else if len(drift.NewPorts) == 0 && len(drift.NewUnits) == 0 &&
+		len(drift.NewUfwRules) == 0 && len(drift.MissingUfwRules) == 0 {
 		doctorPrintf("OK   host snapshot matches (%s)\n", drift.Created)
 		(*h.ok)++
 	} else {
@@ -125,6 +126,22 @@ func doctorRunChecks(h doctorHooks) {
 		}
 		if len(drift.NewUnits) > 0 {
 			doctorPrintf("WARN snapshot new units: %s\n", strings.Join(drift.NewUnits, ", "))
+			(*h.warn)++
+		}
+		if len(drift.NewUfwRules) > 0 {
+			max := drift.NewUfwRules
+			if len(max) > 8 {
+				max = append(max[:8], "…")
+			}
+			doctorPrintf("WARN snapshot new ufw rules: %s\n", strings.Join(max, " | "))
+			(*h.warn)++
+		}
+		if len(drift.MissingUfwRules) > 0 {
+			max := drift.MissingUfwRules
+			if len(max) > 8 {
+				max = append(max[:8], "…")
+			}
+			doctorPrintf("WARN snapshot missing ufw rules: %s\n", strings.Join(max, " | "))
 			(*h.warn)++
 		}
 	}
