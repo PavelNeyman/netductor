@@ -371,11 +371,12 @@ func Collect(role string) Status {
 		s := string(out)
 		st.Active = strings.Contains(s, "NETDUCTOR") && !strings.Contains(s, "No chain")
 		st.Detail = firstLines(s, 20)
-		st.OK = st.Active && strings.Contains(s, "--dport "+sshPort())
-		if !st.OK {
+		// Do not report OK for iptables fallback — role policy is not fully verified.
+		st.OK = false
+		if !st.Active || !strings.Contains(s, "--dport "+sshPort()) {
 			st.Warnings = append(st.Warnings, "iptables NETDUCTOR chain missing or incomplete (ufw preferred)")
 		} else {
-			st.Warnings = append(st.Warnings, "iptables fallback: full role policy not verified (prefer ufw)")
+			st.Warnings = append(st.Warnings, "iptables fallback: policy not fully verified — not OK (prefer ufw)")
 		}
 		return st
 	}
@@ -392,10 +393,10 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	ok = true
 	lines := strings.Split(status, "\n")
 	sp := sshPort()
-	hasAllowPort := func(port string) bool {
+	hasAllowTCP := func(port string) bool {
 		for _, ln := range lines {
 			ln = strings.TrimSpace(ln)
-			if !ufwLineMentionsPort(ln, port) {
+			if !ufwLineMentionsPortProto(ln, port, "tcp") {
 				continue
 			}
 			if strings.Contains(ln, "ALLOW") {
@@ -404,10 +405,10 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 		return false
 	}
-	hasDenyPort := func(port string) bool {
+	hasDenyTCP := func(port string) bool {
 		for _, ln := range lines {
 			ln = strings.TrimSpace(ln)
-			if !ufwLineMentionsPort(ln, port) {
+			if !ufwLineMentionsPortProto(ln, port, "tcp") {
 				continue
 			}
 			if strings.Contains(ln, "DENY") || strings.Contains(ln, "REJECT") {
@@ -416,85 +417,111 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 		return false
 	}
-	if !hasAllowPort(sp) {
+	// Conflicting early ALLOW for ports that must be denied (best-effort without rule numbers).
+	hasAllowTCPAnywhere := func(port string) bool {
+		for _, ln := range lines {
+			ln = strings.TrimSpace(ln)
+			if !ufwLineMentionsPortProto(ln, port, "tcp") {
+				continue
+			}
+			if strings.Contains(ln, "ALLOW") && (strings.Contains(ln, "Anywhere") || strings.Contains(ln, "Anywhere (v6)")) {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasAllowTCP(sp) {
 		ok = false
 		warnings = append(warnings, "ssh port "+sp+"/tcp ALLOW missing")
 	}
-	if !hasAllowPort("443") {
+	if !hasAllowTCP("443") {
 		ok = false
 		warnings = append(warnings, "443/tcp ALLOW missing")
 	}
-	if !hasDenyPort("22") {
+	if !hasDenyTCP("22") {
 		ok = false
 		warnings = append(warnings, "22/tcp DENY missing (do not confuse with "+sp+")")
+	} else if hasAllowTCPAnywhere("22") {
+		ok = false
+		warnings = append(warnings, "22/tcp has ALLOW Anywhere alongside DENY — re-apply firewall (stale rules)")
 	}
-	if !hasDenyPort("10050") {
+	if !hasDenyTCP("10050") {
 		ok = false
 		warnings = append(warnings, "10050/tcp DENY missing")
+	} else if hasAllowTCPAnywhere("10050") {
+		ok = false
+		warnings = append(warnings, "10050/tcp has ALLOW Anywhere — re-apply firewall")
 	}
 	if role == "primary" {
 		mtls := ndconfig.AgentMTLSPort()
-		if !hasDenyPort("8788") {
+		if !hasDenyTCP("8788") {
 			ok = false
 			warnings = append(warnings, "8788/tcp DENY missing")
 		}
-		// mTLS: need at least one ALLOW from restricted source (10.87 or 127.0.0.1)
 		mtlsRestricted := false
 		mtlsOpenWAN := false
 		for _, ln := range lines {
 			ln = strings.TrimSpace(ln)
-			if !ufwLineMentionsPort(ln, mtls) {
+			if !ufwLineMentionsPortProto(ln, mtls, "tcp") {
 				continue
 			}
 			if strings.Contains(ln, "ALLOW") {
-				if strings.Contains(ln, "10.87") || strings.Contains(ln, "127.0.0.1") || strings.Contains(ln, "Anywhere on") {
+				if strings.Contains(ln, "10.87") || strings.Contains(ln, "127.0.0.1") {
 					mtlsRestricted = true
 				}
-				// "ALLOW IN Anywhere" without from-CIDR is open
 				if (strings.Contains(ln, "Anywhere") || strings.Contains(ln, "Anywhere (v6)")) &&
 					!strings.Contains(ln, "10.87") && !strings.Contains(ln, "127.0.0.1") {
 					mtlsOpenWAN = true
 				}
 			}
 		}
-		if !mtlsRestricted && !ufwLineAnyPort(lines, mtls) {
+		if !mtlsRestricted {
 			ok = false
-			warnings = append(warnings, "mtls port "+mtls+" rule missing")
-		} else if mtlsOpenWAN && !mtlsRestricted {
+			warnings = append(warnings, "mtls port "+mtls+"/tcp ALLOW from svc CIDR/lo missing")
+		}
+		if mtlsOpenWAN {
 			ok = false
-			warnings = append(warnings, "mtls port "+mtls+" appears open on WAN without svc CIDR — re-apply firewall")
+			warnings = append(warnings, "mtls port "+mtls+" appears open on WAN — re-apply firewall")
 		}
 	} else {
 		for _, d := range []string{"8787", "8788", "8789"} {
-			if !hasDenyPort(d) {
+			if !hasDenyTCP(d) {
 				ok = false
 				warnings = append(warnings, d+"/tcp DENY missing on secondary")
+			} else if hasAllowTCPAnywhere(d) {
+				ok = false
+				warnings = append(warnings, d+"/tcp ALLOW Anywhere on secondary — re-apply")
 			}
 		}
 	}
 	return ok, warnings
 }
 
-func ufwLineMentionsPort(ln, port string) bool {
-	// Match "52222/tcp" or "52222" as field, not substring of another port.
+// ufwLineMentionsPortProto matches PORT/tcp (or bare PORT treated as tcp by ufw display).
+// UDP-only rules do not satisfy TCP policy checks.
+func ufwLineMentionsPortProto(ln, port, proto string) bool {
 	port = strings.TrimSpace(port)
+	proto = strings.TrimSpace(proto)
 	if port == "" {
 		return false
 	}
-	candidates := []string{port + "/tcp", port + "/udp", port + " "}
-	// tokenize
 	fields := strings.Fields(ln)
 	for _, f := range fields {
 		f = strings.TrimSuffix(f, "(v6)")
-		if f == port || f == port+"/tcp" || f == port+"/udp" {
-			return true
+		if proto == "tcp" {
+			if f == port+"/tcp" || f == port {
+				return true
+			}
 		}
-		if strings.HasPrefix(f, port+"/") {
+		if f == port+"/"+proto {
 			return true
 		}
 	}
-	_ = candidates
 	return false
+}
+
+func ufwLineMentionsPort(ln, port string) bool {
+	return ufwLineMentionsPortProto(ln, port, "tcp")
 }
 
 func ufwLineAnyPort(lines []string, port string) bool {

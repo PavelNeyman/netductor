@@ -127,10 +127,6 @@ func ArmRecovery(ttl time.Duration) error {
 	if bind == "" {
 		bind = "0.0.0.0"
 	}
-	if os.Getenv("NETDUCTOR_RECOVERY_UFW") == "1" {
-		_ = exec.Command("ufw", "allow", recoveryPort+"/tcp", "comment", "netductor-recovery").Run()
-	}
-
 	var nets []*net.IPNet
 	if allow := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_ALLOW_CIDR")); allow != "" {
 		var parseErrs []string
@@ -154,6 +150,11 @@ func ArmRecovery(ttl time.Duration) error {
 		}
 		if len(parseErrs) > 0 {
 			return fmt.Errorf("NETDUCTOR_RECOVERY_ALLOW_CIDR has invalid entries: %v", parseErrs)
+		}
+	}
+	if os.Getenv("NETDUCTOR_RECOVERY_UFW") == "1" {
+		if err := exec.Command("ufw", "allow", recoveryPort+"/tcp", "comment", "netductor-recovery").Run(); err != nil {
+			return fmt.Errorf("recovery ufw allow %s: %w", recoveryPort, err)
 		}
 	}
 	serveKey := false // backup key is offline-only; SERVE_KEY removed

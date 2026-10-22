@@ -1,3 +1,17 @@
+## 0.9.471
+
+Security close-out from review of 0.9.468–0.9.470:
+
+- P1.1: restoreHostnameFromBackup — no shell; strict hostname charset; /etc/hosts via Go
+- P1.2: ufw policy checks TCP proto; mTLS requires restricted ALLOW; iptables fallback never OK
+- P1.3: Recover fails + no drill-mark if vpn apply or agent firewall fails
+- P2.1: sing-box pin 1.11.15 + mandatory SHA for install/cache
+- P2.2/P2.3: baseline Default: policy + iptables-save diff in doctor
+- P2.4/P2.7: offsite require SHA256+Size headers; 512MiB download cap
+- P2.5: NDG2 end marker + reject truncated nonce
+- P2.6: backup_pull:<cmd_id> + WaitForBackupPull matches cmd_id in log
+- P2.8: recovery UFW allow only after CIDR validation (disarm rolls back)
+
 ## 0.9.470
 
 - host baseline: full ufw rule-set diff vs `baseline/ufw.txt` (new + missing ALLOW/DENY) without ufw reset

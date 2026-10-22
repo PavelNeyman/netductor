@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -167,6 +168,18 @@ func encryptFileStreamGCM(inPath, outPath, pass string) error {
 			return rerr
 		}
 	}
+	// Authenticated end marker: random nonce + zero length (distinguishes truncation).
+	endNonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, endNonce); err != nil {
+		return err
+	}
+	if _, err := out.Write(endNonce); err != nil {
+		return err
+	}
+	binary.BigEndian.PutUint32(sz[:], 0)
+	if _, err := out.Write(sz[:]); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -202,23 +215,40 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 	}
 	defer out.Close()
 	nonce := make([]byte, gcm.NonceSize())
+	chunks := 0
 	for {
-		if _, err := io.ReadFull(in, nonce); err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				break
-			}
+		n, err := io.ReadFull(in, nonce)
+		if err == io.EOF {
+			break // clean end only with zero bytes read by ReadFull → EOF
+		}
+		if err == io.ErrUnexpectedEOF {
+			return fmt.Errorf("ndg2: truncated nonce (%d/%d bytes)", n, len(nonce))
+		}
+		if err != nil {
 			return err
 		}
 		if _, err := io.ReadFull(in, sz[:]); err != nil {
-			return err
+			return fmt.Errorf("ndg2: truncated chunk len: %w", err)
 		}
 		ctLen := binary.BigEndian.Uint32(sz[:])
-		if ctLen == 0 || ctLen > (ndg2Chunk+uint32(gcm.Overhead())+64) {
+		// Final marker: ctLen == 0 after full nonce → authenticated end of stream
+		if ctLen == 0 {
+			// optional: remaining must be EOF
+			var one [1]byte
+			if _, err := io.ReadFull(in, one[:]); err != io.EOF && err != io.ErrUnexpectedEOF {
+				if err == nil {
+					return fmt.Errorf("ndg2: trailing data after end marker")
+				}
+				return err
+			}
+			return nil
+		}
+		if ctLen > (ndg2Chunk + uint32(gcm.Overhead()) + 64) {
 			return fmt.Errorf("ndg2: bad chunk len %d", ctLen)
 		}
 		ct := make([]byte, ctLen)
 		if _, err := io.ReadFull(in, ct); err != nil {
-			return err
+			return fmt.Errorf("ndg2: truncated ciphertext: %w", err)
 		}
 		plain, err := gcm.Open(nil, nonce, ct, nil)
 		if err != nil {
@@ -227,6 +257,11 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 		if _, err := out.Write(plain); err != nil {
 			return err
 		}
+		chunks++
+	}
+	// Legacy streams without end marker: EOF after last full chunk is accepted if ≥1 chunk
+	if chunks == 0 {
+		return fmt.Errorf("ndg2: empty ciphertext")
 	}
 	return nil
 }
@@ -282,10 +317,9 @@ func decryptFile(inPath, outPath, pass string) error {
 	return os.Chmod(outPath, 0o600)
 }
 
-// WaitForBackupPull waits up to timeout for online secondaries to report last_cmd backup_pull ok
-// for this run (LastCmdAt after notBefore). Log must include key=ok (restore-ready).
-// Returns (acked, pending). Soft signal for pre-upgrade; does not fail hard if timeout.
-func WaitForBackupPull(timeout time.Duration, notBefore time.Time) (acked, pending int) {
+// WaitForBackupPull waits for online secondaries to ack backup_pull with key=ok.
+// If cmdID is non-empty, LastCmdLog must contain cmd_id=<cmdID> (ties ack to this run).
+func WaitForBackupPull(timeout time.Duration, notBefore time.Time, cmdID string) (acked, pending int) {
 	if timeout <= 0 {
 		timeout = 45 * time.Second
 	}
@@ -308,9 +342,13 @@ func WaitForBackupPull(timeout time.Duration, notBefore time.Time) (acked, pendi
 			if !secondary.Online(d, 2*time.Minute) {
 				continue
 			}
-			if d.LastCmd == "backup_pull" && d.LastCmdOK &&
+			cmdOK := strings.HasPrefix(d.LastCmd, "backup_pull") && d.LastCmdOK &&
 				!d.LastCmdAt.Before(notBefore) &&
-				strings.Contains(d.LastCmdLog, "key=ok") {
+				strings.Contains(d.LastCmdLog, "key=ok")
+			if cmdOK && cmdID != "" {
+				cmdOK = strings.Contains(d.LastCmdLog, "cmd_id="+cmdID)
+			}
+			if cmdOK {
 				acked++
 				continue
 			}
@@ -323,6 +361,15 @@ func WaitForBackupPull(timeout time.Duration, notBefore time.Time) (acked, pendi
 	}
 	return acked, pending
 }
+
+func newBackupPullCmdID() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b[:])
+}
+
 
 func Backup() (string, error) {
 	dir := filepath.Join(paths.StateDir(), "backups")
@@ -398,12 +445,13 @@ func Backup() (string, error) {
 	_ = os.Remove(failMark) // cleared unless agent pull fails below
 	// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
 	n, offline := 0, 0
+	pullID := newBackupPullCmdID()
 	for _, d := range secondary.List() {
 		if !secondary.Online(d, 3*time.Minute) {
 			offline++
 			continue
 		}
-		if err := secondary.EnqueueCmd(d.ID, "backup_pull"); err == nil {
+		if err := secondary.EnqueueCmd(d.ID, "backup_pull:"+pullID); err == nil {
 			n++
 		}
 	}
@@ -411,7 +459,7 @@ func Backup() (string, error) {
 		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d secondary agent(s)\n", n)
 		// Do not clear offsite alert on enqueue alone — wait for this run's ack + key.
 		started := time.Now().UTC().Add(-2 * time.Second)
-		acked, pending := WaitForBackupPull(90*time.Second, started)
+		acked, pending := WaitForBackupPull(90*time.Second, started, pullID)
 		if acked > 0 && pending == 0 {
 			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d secondary acked backup_pull with key)\n", acked)
 			notify.ClearAlert("backup-offsite")
@@ -578,8 +626,10 @@ func Recover(archive, keyArg string) error {
 	_ = InstallRedirect()
 	fmt.Fprintln(os.Stderr, "recover: ensure relay-uplink user + apply vpn from secrets (must match secondary bundle)")
 	_ = run("netductor", "vpn", "ensure-relay-uplink")
+	var critical []string
 	if err := run("netductor", "vpn", "apply"); err != nil {
 		fmt.Fprintf(os.Stderr, "recover: vpn apply FAILED (primary conf may not match secrets): %v\n", err)
+		critical = append(critical, "vpn apply: "+err.Error())
 	} else {
 		fmt.Fprintln(os.Stderr, "recover: vpn apply OK (Reality+users from secrets/registry)")
 	}
@@ -596,13 +646,22 @@ func Recover(archive, keyArg string) error {
 	}
 	// Agent plane: allow known secondary public IPs on :8789 (restored registry + api-allow.cidr)
 	_ = SyncAgentAllowFromSecondaryRegistry()
-	_ = ApplyAgentFirewall()
+	if err := ApplyAgentFirewall(); err != nil {
+		fmt.Fprintf(os.Stderr, "recover: agent firewall: %v\n", err)
+		critical = append(critical, "firewall: "+err.Error())
+	}
+	if len(critical) > 0 {
+		msg := "recover incomplete: " + strings.Join(critical, "; ")
+		fmt.Fprintln(os.Stderr, msg)
+		notify.AlertOnce("backup:drill-fail", "🔴 Recover incomplete — drill not marked: "+strings.Join(critical, "; "))
+		return fmt.Errorf("%s", msg)
+	}
 	if err := MarkRecoverDrill(); err != nil {
 		fmt.Fprintf(os.Stderr, "recover: drill-mark: %v\n", err)
-	} else {
-		fmt.Fprintln(os.Stderr, "recover: drill-mark OK (recover-drill-last.txt)")
-		notify.AlertOnce("backup:drill-ok", "✅ Recover drill marked (auto after successful recover)")
+		return err
 	}
+	fmt.Fprintln(os.Stderr, "recover: drill-mark OK (recover-drill-last.txt)")
+	notify.AlertOnce("backup:drill-ok", "✅ Recover drill marked (auto after successful recover)")
 	fmt.Fprintln(os.Stderr, "recover: done")
 	return nil
 }
@@ -890,7 +949,26 @@ func snapshotOperatorKeysForBackup() {
 	_ = os.WriteFile(path, []byte(strings.Join(out, "\n")+"\n"), 0o600)
 }
 
+// validHostnameStrict: DNS-like labels only (recovery trust boundary — no shell metacharacters).
+func validHostnameStrict(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 253 {
+		return false
+	}
+	for _, c := range name {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' {
+			continue
+		}
+		return false
+	}
+	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") || strings.Contains(name, "..") {
+		return false
+	}
+	return true
+}
+
 // restoreHostnameFromBackup applies hostname from restored etc (no auto nd-primary-* invent).
+// Never shells out with archive data (P1.1).
 func restoreHostnameFromBackup() {
 	name := ""
 	for _, p := range []string{
@@ -910,13 +988,38 @@ func restoreHostnameFromBackup() {
 		return
 	}
 	name = strings.ToLower(name)
+	if !validHostnameStrict(name) {
+		fmt.Fprintf(os.Stderr, "recover: refuse hostname %q (invalid charset)\n", name)
+		return
+	}
 	fmt.Fprintf(os.Stderr, "recover: hostname=%s (from backup)\n", name)
 	_ = os.MkdirAll(paths.EtcDir(), 0o755)
 	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "node_id"), []byte(name+"\n"), 0o644)
 	_ = os.WriteFile("/etc/hostname", []byte(name+"\n"), 0o644)
 	_ = run("hostnamectl", "set-hostname", name)
-	_ = run("bash", "-c", fmt.Sprintf(
-		`grep -q '%s' /etc/hosts || echo '127.0.1.1 %s' >> /etc/hosts`, name, name))
+	ensureHostsLocalLine(name)
+}
+
+// ensureHostsLocalLine adds "127.0.1.1 <name>" without invoking a shell.
+func ensureHostsLocalLine(name string) {
+	const path = "/etc/hosts"
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	needle := "127.0.1.1 " + name
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if line == needle || strings.HasPrefix(line, needle+" ") || strings.HasPrefix(line, needle+"\t") {
+			return
+		}
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.WriteString(needle + "\n")
 }
 
 // restoreOperatorKeysFromBackup writes pubkeys into /root/.ssh/authorized_keys.

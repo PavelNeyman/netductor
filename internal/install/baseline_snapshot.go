@@ -58,6 +58,9 @@ type BaselineDrift struct {
 	NewUnits        []string
 	NewUfwRules     []string // live ALLOW/DENY not in baseline/ufw.txt
 	MissingUfwRules []string // baseline rules gone from live (no ufw reset required)
+	DefaultPolicy   string   // non-empty if Default: lines differ
+	NewIPTables     []string
+	MissingIPTables []string
 }
 
 // DiffHostBaseline compares the current host to the snapshot. Missing snapshot is not a failure.
@@ -76,8 +79,15 @@ func DiffHostBaseline() BaselineDrift {
 	// ufw: full rule set vs baseline/ufw.txt (or iptables.txt if no ufw)
 	if _, err := os.Stat(filepath.Join(dir, "ufw.txt")); err == nil {
 		live := capture("ufw", "status", "verbose")
-		d.NewUfwRules, d.MissingUfwRules = ruleSetDiff(
-			filepath.Join(dir, "ufw.txt"), live, ufwRuleToken)
+		snapPath := filepath.Join(dir, "ufw.txt")
+		d.NewUfwRules, d.MissingUfwRules = ruleSetDiff(snapPath, live, ufwRuleToken)
+		if diff := ufwDefaultDiff(snapPath, live); diff != "" {
+			d.DefaultPolicy = diff
+		}
+	} else if _, err := os.Stat(filepath.Join(dir, "iptables.txt")); err == nil {
+		live := capture("iptables-save")
+		d.NewIPTables, d.MissingIPTables = ruleSetDiff(
+			filepath.Join(dir, "iptables.txt"), live, iptablesLineToken)
 	}
 	return d
 }
@@ -199,5 +209,39 @@ func ruleSetDiff(snapPath, live string, token func(string) string) (extra, missi
 	sort.Strings(extra)
 	sort.Strings(missing)
 	return extra, missing
+}
+
+func ufwDefaultLines(s string) []string {
+	var out []string
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Default:") {
+			out = append(out, line)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func ufwDefaultDiff(snapPath, live string) string {
+	b, err := os.ReadFile(snapPath)
+	if err != nil {
+		return ""
+	}
+	a := strings.Join(ufwDefaultLines(string(b)), " | ")
+	c := strings.Join(ufwDefaultLines(live), " | ")
+	if a == c {
+		return ""
+	}
+	return "baseline=[" + a + "] live=[" + c + "]"
+}
+
+func iptablesLineToken(line string) string {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ":") || strings.HasPrefix(line, "*") || line == "COMMIT" {
+		return ""
+	}
+	// Keep filter rules; normalize spaces
+	return strings.Join(strings.Fields(line), " ")
 }
 

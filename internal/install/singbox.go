@@ -20,7 +20,7 @@ import (
 
 // pinnedSingBoxTag is the default install target (R11a). Override with /etc/netductor/addons/singbox.tag
 // or NETDUCTOR_SINGBOX_TAG. Floating "latest" is no longer used by default.
-const pinnedSingBoxTag = "v1.11.15"
+const pinnedSingBoxTag = "v1.11.15" // must match upstream.SingBoxPinnedVersion
 
 func resolveSingBoxTag() string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_SINGBOX_TAG")); v != "" {
@@ -147,14 +147,13 @@ func downloadSingBoxVersion(dest, tag string) error {
 	if err != nil {
 		return err
 	}
-	if want != "" {
-		if !upstream.MatchSHA(got, want) {
-			return fmt.Errorf("sing-box tarball SHA mismatch got=%s want=%s", got, want)
-		}
-		fmt.Fprintln(os.Stderr, "sing-box tarball sha256 ok:", got)
-	} else {
-		fmt.Fprintln(os.Stderr, "sing-box tarball sha256:", got, "(no pin for this tag — set NETDUCTOR_SINGBOX_SHA256)")
+	if want == "" {
+		return fmt.Errorf("sing-box tarball SHA pin missing for tag %s — set NETDUCTOR_SINGBOX_SHA256 or use pinned v%s", tag, upstream.SingBoxPinnedVersion)
 	}
+	if !upstream.MatchSHA(got, want) {
+		return fmt.Errorf("sing-box tarball SHA mismatch got=%s want=%s", got, want)
+	}
+	fmt.Fprintln(os.Stderr, "sing-box tarball sha256 ok:", got)
 	if err := run("tar", "-xzf", tgz, "-C", tmp); err != nil {
 		return err
 	}

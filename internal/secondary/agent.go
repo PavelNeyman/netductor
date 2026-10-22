@@ -336,6 +336,14 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		}
 		return true, body
 	default:
+		if strings.HasPrefix(cmd, "backup_pull:") {
+			cid := strings.TrimPrefix(cmd, "backup_pull:")
+			ok, log := secondaryBackupPull()
+			if cid != "" {
+				log = strings.TrimSpace(log) + " cmd_id=" + cid
+			}
+			return ok, log
+		}
 		if strings.HasPrefix(cmd, "upgrade:") {
 			return secondaryUpgrade(strings.TrimPrefix(cmd, "upgrade:"))
 		}
@@ -606,8 +614,13 @@ func secondaryBackupPull() (bool, string) {
 		return false, err.Error()
 	}
 	tmpName := tmp.Name()
-	_, err = io.Copy(tmp, resp.Body)
+	const maxBackup = 512 << 20
+	ncopy, err := io.Copy(tmp, io.LimitReader(resp.Body, maxBackup+1))
 	cerr := tmp.Close()
+	if err == nil && ncopy > maxBackup {
+		_ = os.Remove(tmpName)
+		return false, fmt.Sprintf("backup too large (>%d bytes)", maxBackup)
+	}
 	if err != nil {
 		_ = os.Remove(tmpName)
 		return false, err.Error()
@@ -620,23 +633,30 @@ func secondaryBackupPull() (bool, string) {
 		_ = os.Remove(tmpName)
 		return false, "empty backup download"
 	}
-	// verify SHA before promoting to final name
+	// verify SHA before promoting (headers required)
 	wantSHA := strings.ToLower(strings.TrimSpace(resp.Header.Get("X-Netductor-Backup-SHA256")))
+	if len(wantSHA) != 64 {
+		_ = os.Remove(tmpName)
+		return false, "missing or invalid X-Netductor-Backup-SHA256 (need primary with SHA headers)"
+	}
 	gotSHA, herr := fileSHA256HexPath(tmpName)
 	if herr != nil {
 		_ = os.Remove(tmpName)
 		return false, "hash download: " + herr.Error()
 	}
-	if wantSHA != "" && !strings.EqualFold(gotSHA, wantSHA) {
+	if !strings.EqualFold(gotSHA, wantSHA) {
 		_ = os.Remove(tmpName)
 		return false, fmt.Sprintf("backup SHA mismatch got=%s want=%s", gotSHA, wantSHA)
 	}
-	if wantSize := strings.TrimSpace(resp.Header.Get("X-Netductor-Backup-Size")); wantSize != "" {
-		if st, e := os.Stat(tmpName); e == nil {
-			if fmt.Sprintf("%d", st.Size()) != wantSize {
-				_ = os.Remove(tmpName)
-				return false, fmt.Sprintf("backup size mismatch got=%d want=%s", st.Size(), wantSize)
-			}
+	wantSize := strings.TrimSpace(resp.Header.Get("X-Netductor-Backup-Size"))
+	if wantSize == "" {
+		_ = os.Remove(tmpName)
+		return false, "missing X-Netductor-Backup-Size"
+	}
+	if st, e := os.Stat(tmpName); e == nil {
+		if fmt.Sprintf("%d", st.Size()) != wantSize {
+			_ = os.Remove(tmpName)
+			return false, fmt.Sprintf("backup size mismatch got=%d want=%s", st.Size(), wantSize)
 		}
 	}
 	if err := os.Rename(tmpName, outPath); err != nil {

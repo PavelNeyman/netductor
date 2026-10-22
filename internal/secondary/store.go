@@ -477,7 +477,7 @@ func allowedSecondaryCmd(cmd string) bool {
 	case "reboot", "upgrade", "mtls_refresh", "backup_pull", "metrics", "journal", "ssh_keys", "backup_local":
 		return true
 	}
-	if strings.HasPrefix(cmd, "upgrade:") || strings.HasPrefix(cmd, "ssh_allowlist:") {
+	if strings.HasPrefix(cmd, "upgrade:") || strings.HasPrefix(cmd, "backup_pull:") || strings.HasPrefix(cmd, "ssh_allowlist:") {
 		return true
 	}
 	if strings.HasPrefix(cmd, "restart:") {

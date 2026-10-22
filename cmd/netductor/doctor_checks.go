@@ -116,7 +116,7 @@ func doctorRunChecks(h doctorHooks) {
 	if !drift.HaveSnapshot {
 		doctorPrintln("INFO no host snapshot yet (written at install / host-baseline apply)")
 	} else if len(drift.NewPorts) == 0 && len(drift.NewUnits) == 0 &&
-		len(drift.NewUfwRules) == 0 && len(drift.MissingUfwRules) == 0 {
+		len(drift.NewUfwRules) == 0 && len(drift.MissingUfwRules) == 0 && drift.DefaultPolicy == "" && len(drift.NewIPTables) == 0 && len(drift.MissingIPTables) == 0 {
 		doctorPrintf("OK   host snapshot matches (%s)\n", drift.Created)
 		(*h.ok)++
 	} else {
@@ -142,6 +142,18 @@ func doctorRunChecks(h doctorHooks) {
 				max = append(max[:8], "…")
 			}
 			doctorPrintf("WARN snapshot missing ufw rules: %s\n", strings.Join(max, " | "))
+			(*h.warn)++
+		}
+		if drift.DefaultPolicy != "" {
+			doctorPrintf("WARN snapshot ufw default policy drift: %s\n", drift.DefaultPolicy)
+			(*h.warn)++
+		}
+		if len(drift.NewIPTables) > 0 {
+			doctorPrintf("WARN snapshot new iptables rules: %d\n", len(drift.NewIPTables))
+			(*h.warn)++
+		}
+		if len(drift.MissingIPTables) > 0 {
+			doctorPrintf("WARN snapshot missing iptables rules: %d\n", len(drift.MissingIPTables))
 			(*h.warn)++
 		}
 	}
