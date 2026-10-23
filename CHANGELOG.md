@@ -1,3 +1,10 @@
+## 0.9.487
+
+- R7/R8: SP/PS verify pings peer only (S→10.87.10.1+10.87.11.1, P→10.87.10.2+10.87.11.2). No self-ping fallback.
+- R5: wait online for prepare-pack AgentID, not any secondary. preferred_secondary_ip taken from that row PublicIP when it is an IP.
+- R1: RemoteJoin :443 check uses :443([^0-9]|$) instead of broken \\b.
+
+
 ## 0.9.477
 
 - NVR: MaxCameraGB + per-camera/global quota before ingest; agent refuses record when camera dir full

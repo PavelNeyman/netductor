@@ -122,7 +122,6 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("mtls key: %w", err)
 	}
 
-
 	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
 	if o.SecondaryPass != "" {
 		ClearHostKeys(o.SecondaryHost)
@@ -197,7 +196,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if scpErr != nil {
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
 	}
-	secBoot := "echo c2V0IC1lCm5ldGR1Y3RvciBzdmMtcGF0aHMgYm9vdHN0cmFwLXNlY29uZGFyeSAtLW1hdGVyaWFsIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24Kcm0gLWYgL3RtcC9uZC1zdmMtbWF0ZXJpYWwuanNvbgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmdyZXAgLXEgMTAuODcuMTAuMSAvZXRjL25ldGR1Y3Rvci9zZWNyZXRzL3NlY29uZGFyeV9jb3JlX3VybApmb3IgdSBpbiBuZC13c3Mtc3AtY2xpZW50IG5kLXdzcy1wcy1zZXJ2ZXIgd2ctcXVpY2tAbmQtc3ZjLXNwIHdnLXF1aWNrQG5kLXN2Yy1wczsgZG8KICBzdD0kKHN5c3RlbWN0bCBpcy1hY3RpdmUgIiR1IiAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKQogIHRlc3QgIiRzdCIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gInVuaXQgJHUgbm90IGFjdGl2ZTogJHN0IiA+JjI7IGV4aXQgMTsgfQpkb25lCnBpbmcgLWMxIC1XMyAxMC44Ny4xMC4xCnBpbmcgLWMxIC1XMyAxMC44Ny4xMS4xIHx8IHBpbmcgLWMxIC1XMyAxMC44Ny4xMS4yCnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc3ZjLXBhdGhzL2ZhaWxvdmVyLXBvbGljeS5qc29uCmVjaG8gU1BfUFNfT0sK | base64 -d | bash"
+	secBoot := "echo c2V0IC1lCm5ldGR1Y3RvciBzdmMtcGF0aHMgYm9vdHN0cmFwLXNlY29uZGFyeSAtLW1hdGVyaWFsIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24Kcm0gLWYgL3RtcC9uZC1zdmMtbWF0ZXJpYWwuanNvbgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmdyZXAgLXEgMTAuODcuMTAuMSAvZXRjL25ldGR1Y3Rvci9zZWNyZXRzL3NlY29uZGFyeV9jb3JlX3VybApmb3IgdSBpbiBuZC13c3Mtc3AtY2xpZW50IG5kLXdzcy1wcy1zZXJ2ZXIgd2ctcXVpY2tAbmQtc3ZjLXNwIHdnLXF1aWNrQG5kLXN2Yy1wczsgZG8KICBzdD0kKHN5c3RlbWN0bCBpcy1hY3RpdmUgIiR1IiAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKQogIHRlc3QgIiRzdCIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gInVuaXQgJHUgbm90IGFjdGl2ZTogJHN0IiA+JjI7IGV4aXQgMTsgfQpkb25lCiMgUGVlciBvbmx5LiBMb2NhbCBhZGRyZXNzIGlzIG5vdCBwcm9vZiB0aGUgdHVubmVsIGlzIHVwIChSNykuCnBpbmcgLWMxIC1XMyAxMC44Ny4xMC4xIHx8IHsgZWNobyAiU1AgcGVlciAxMC44Ny4xMC4xIHVucmVhY2hhYmxlIiA+JjI7IGV4aXQgMTsgfQpwaW5nIC1jMSAtVzMgMTAuODcuMTEuMSB8fCB7IGVjaG8gIlBTIHBlZXIgMTAuODcuMTEuMSB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KdGVzdCAtZiAvZXRjL25ldGR1Y3Rvci9zdmMtcGF0aHMvZmFpbG92ZXItcG9saWN5Lmpzb24KZWNobyBTUF9QU19PSwo= | base64 -d | bash"
 	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
 	fmt.Print(out2)
 	if err2 != nil {
@@ -211,7 +210,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if !strings.Contains(out2, "SP_PS_OK") {
 		return fmt.Errorf("svc-paths secondary: SP/PS verification failed\n%s", out2)
 	}
-	primBoot := "echo c2V0IC1lCmZvciB1IGluIG5kLXdzcy1zcC1zZXJ2ZXIgbmQtd3NzLXBzLWNsaWVudCB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAicHJpbWFyeSB1bml0ICR1IG5vdCBhY3RpdmU6ICRzdCIgPiYyOyBleGl0IDE7IH0KZG9uZQpwaW5nIC1jMSAtVzMgMTAuODcuMTAuMgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3N2Yy1wYXRocy9mYWlsb3Zlci1wb2xpY3kuanNvbgplY2hvIFBSSU1BUllfU1BfT0sK | base64 -d | bash"
+	primBoot := "echo c2V0IC1lCmZvciB1IGluIG5kLXdzcy1zcC1zZXJ2ZXIgbmQtd3NzLXBzLWNsaWVudCB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAicHJpbWFyeSB1bml0ICR1IG5vdCBhY3RpdmU6ICRzdCIgPiYyOyBleGl0IDE7IH0KZG9uZQojIEJvdGggZGlyZWN0aW9uczogU1AgcGVlciBhbmQgUFMgcGVlciAoUjgpLgpwaW5nIC1jMSAtVzMgMTAuODcuMTAuMiB8fCB7IGVjaG8gIlNQIHBlZXIgMTAuODcuMTAuMiB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KcGluZyAtYzEgLVczIDEwLjg3LjExLjIgfHwgeyBlY2hvICJQUyBwZWVyIDEwLjg3LjExLjIgdW5yZWFjaGFibGUiID4mMjsgZXhpdCAxOyB9CnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc3ZjLXBhdGhzL2ZhaWxvdmVyLXBvbGljeS5qc29uCmVjaG8gUFJJTUFSWV9TUF9PSwo= | base64 -d | bash"
 	outP2, errP2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primBoot, o.PrimaryKeyPassphrase)
 	fmt.Print(outP2)
 	if errP2 != nil || !strings.Contains(outP2, "PRIMARY_SP_OK") {
@@ -233,28 +232,39 @@ func DeploySecondary(o SecondaryOpts) error {
 
 	// Wait for agent heartbeat via primary registry (tunnel URL should be active).
 	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
-	waitCmd := fmt.Sprintf(
-		`ok=0; for i in 1 2 3 4 5 6 7 8 9 10; do netductor secondary status 2>/dev/null | grep -F %s | grep -q online && ok=1 && break; sleep 3; done; test "$ok" = 1`,
-		ShellQuote(o.SecondaryHost),
-	)
-	// status lines use agent id not always IP — also accept any online after our deploy
-	waitCmd = `ok=0; for i in $(seq 1 12); do
+	if pack.AgentID == "" {
+		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")
+	}
+	// Wait for THIS agent id, not any online row (R5). Status line: id\\tname\\tonline\\tip=...
+	waitCmd := fmt.Sprintf(`ok=0
+id=%s
+for i in $(seq 1 12); do
   st=$(netductor secondary status 2>/dev/null || true)
   echo "$st"
-  echo "$st" | grep -qi online && ok=1 && break
+  echo "$st" | grep -F "$id" | grep -q "$(printf '\t')online$(printf '\t')" && ok=1 && break
   sleep 5
 done
-test "$ok" = 1`
+test "$ok" = 1`, ShellQuote(pack.AgentID))
 	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	prefCmd := fmt.Sprintf(
-		"mkdir -p /etc/netductor/secrets; printf '%%s\n' %s > /etc/netductor/preferred_secondary_ip; printf '%%s\n' %s > /etc/netductor/secrets/preferred_secondary_ip; chmod 600 /etc/netductor/preferred_secondary_ip /etc/netductor/secrets/preferred_secondary_ip 2>/dev/null; true",
-		ShellQuote(o.SecondaryHost), ShellQuote(o.SecondaryHost),
-	)
+	// Prefer registry PublicIP for this agent so preferred matches clientcfg (R9).
+	prefCmd := fmt.Sprintf(`id=%s
+fallback=%s
+line=$(netductor secondary status 2>/dev/null | grep -F "$id" | head -1)
+ip=$(printf '%%s\n' "$line" | awk -F'\t' '{for(i=1;i<=NF;i++) if($i ~ /^ip=/){sub(/^ip=/,"",$i); print $i; exit}}')
+case "$ip" in
+  ""|*[!0-9.]*) ip=$fallback ;;
+esac
+mkdir -p /etc/netductor/secrets
+printf '%%s\n' "$ip" > /etc/netductor/preferred_secondary_ip
+printf '%%s\n' "$ip" > /etc/netductor/secrets/preferred_secondary_ip
+chmod 600 /etc/netductor/preferred_secondary_ip /etc/netductor/secrets/preferred_secondary_ip 2>/dev/null
+echo "preferred=$ip"
+true`, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
 	if outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prefCmd, o.PrimaryKeyPassphrase); errP != nil {
 		fmt.Fprintln(os.Stderr, "warn preferred_secondary_ip:", errP, outP)
 	} else {
@@ -266,7 +276,6 @@ test "$ok" = 1`
 	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
 	return nil
 }
-
 
 func expandUserPath(p string) string {
 	p = strings.TrimSpace(p)

@@ -179,11 +179,10 @@ netductor secondary join /root/bundle.json
 # Strict unit checks (no || true)
 test "$(systemctl is-active sing-box)" = "active"
 test "$(systemctl is-active netductor-secondary-agent)" = "active"
-ss -tlnp | grep -qE ':443\\b'
+ss -tlnp | grep -qE ':443([^0-9]|$)'
 `, ver, b64)
 	return runSSH(client, script)
 }
-
 
 func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) error {
 	if len(ca) == 0 || len(cert) == 0 || len(key) == 0 {
