@@ -1,3 +1,11 @@
+## 0.9.489
+
+- R6: password secondary deploy no longer always ClearHostKeys; only on host-key mismatch + one retry.
+- R11: svc-paths material temp file Write/Close errors are fatal.
+- R12: prepare-pack / material JSON via extractJSONObject (Decoder), not first `{` to EOF.
+- R10: :22 post-harden probe logs refused vs auth-denied vs other (still fail only if key login succeeds).
+- R1 residual: post-join :443 check aligned with RemoteJoin (`:443([^0-9]|$)`).
+
 ## 0.9.488
 
 - R2: Material.ForSecondary strips primary WG private keys (SPPrivP/PSPrivP); bootstrap-primary stdout and BootstrapSecondary persist only the secondary-safe copy.

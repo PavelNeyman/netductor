@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -43,6 +44,24 @@ type secondaryPack struct {
 	MTLSCertB64 string          `json:"mtls_cert_b64"`
 	MTLSKeyB64  string          `json:"mtls_key_b64"`
 	SNI         string          `json:"sni"`
+}
+
+
+// extractJSONObject returns the first top-level JSON object from mixed stdout.
+// R12: avoids truncating on the first "{" without a matching close when possible.
+func extractJSONObject(s string) string {
+	i := strings.Index(s, "{")
+	if i < 0 {
+		return s
+	}
+	s = s[i:]
+	dec := json.NewDecoder(bytes.NewReader([]byte(s)))
+	var raw json.RawMessage
+	if err := dec.Decode(&raw); err != nil {
+		// fallback: from first { to end (legacy)
+		return s
+	}
+	return string(raw)
 }
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
@@ -95,10 +114,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if err != nil {
 		return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
 	}
-	raw := out
-	if i := strings.Index(out, "{"); i >= 0 {
-		raw = out[i:]
-	}
+	raw := extractJSONObject(out)
 	var pack secondaryPack
 	if err := json.Unmarshal([]byte(raw), &pack); err != nil {
 		return fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out)
@@ -120,15 +136,22 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 
 	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
-	if o.SecondaryPass != "" {
-		ClearHostKeys(o.SecondaryHost)
+	// R6: do not auto-wipe host-key trust on every password deploy.
+	// Clear known_hosts only after a host-key mismatch, then retry once.
+	provision := func() (*secondary.ProvisionResult, error) {
+		return secondary.ProvisionFromCore(secondary.ProvisionIn{
+			Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
+			Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
+			SNI: o.SNI, OperatorPubKey: pub,
+			MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
+		}, string(pack.Bundle))
 	}
-	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
-		Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
-		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
-		SNI: o.SNI, OperatorPubKey: pub,
-		MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
-	}, string(pack.Bundle))
+	res, err := provision()
+	if err != nil && o.SecondaryPass != "" && isSSHHostKeyError(err) {
+		fmt.Fprintln(os.Stderr, "warn: host key mismatch — ClearHostKeys + one retry (R6)")
+		ClearHostKeys(o.SecondaryHost)
+		res, err = provision()
+	}
 	if res != nil {
 		fmt.Print(res.Log)
 	}
@@ -170,17 +193,21 @@ func DeploySecondary(o SecondaryOpts) error {
 	if err != nil {
 		return fmt.Errorf("svc-paths bootstrap-primary: %w\n%s", err, out)
 	}
-	raw = out
-	if idx := strings.Index(out, "{"); idx >= 0 {
-		raw = out[idx:]
-	}
+	raw = extractJSONObject(out)
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
 	if errTmp != nil {
 		return fmt.Errorf("svc-paths temp file: %w", errTmp)
 	}
 	tmpPath := tmpFile.Name()
-	_, _ = tmpFile.Write([]byte(raw))
-	_ = tmpFile.Close()
+	if _, errW := tmpFile.Write([]byte(raw)); errW != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("svc-paths material write: %w", errW)
+	}
+	if errC := tmpFile.Close(); errC != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("svc-paths material close: %w", errC)
+	}
 	defer os.Remove(tmpPath)
 
 	scpErr := runSCPOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase)
@@ -214,10 +241,19 @@ func DeploySecondary(o SecondaryOpts) error {
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
 		`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
 		o.PrimaryKeyPassphrase)
+	// R10: success = key still accepted on :22 (bad). Failure is expected; note refused vs other.
 	if out22, err22 := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err22 == nil {
 		return fmt.Errorf("SSH still reachable on :22 after harden (expected key-only :%s only)", day2Port)
 	} else {
-		_ = out22
+		msg := strings.ToLower(err22.Error() + " " + out22)
+		switch {
+		case strings.Contains(msg, "connection refused"), strings.Contains(msg, "no route"):
+			fmt.Fprintln(os.Stderr, "==> :22 closed or unreachable (ok for harden)")
+		case strings.Contains(msg, "permission denied"), strings.Contains(msg, "authentication"):
+			fmt.Fprintln(os.Stderr, "==> :22 rejects key (ok; prefer closed after harden)")
+		default:
+			fmt.Fprintln(os.Stderr, "==> :22 not usable with key:", strings.TrimSpace(err22.Error()))
+		}
 	}
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
 		"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; ufw allow 8445/tcp 2>/dev/null; true",
@@ -275,6 +311,17 @@ true`, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
 	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS)")
 	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
 	return nil
+}
+
+func isSSHHostKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "host key") ||
+		strings.Contains(s, "known_hosts") ||
+		strings.Contains(s, "remote host identification has changed") ||
+		strings.Contains(s, "someone is doing something nasty")
 }
 
 func expandUserPath(p string) string {

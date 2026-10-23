@@ -239,7 +239,7 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	// Strict post-join checks (RemoteJoin already tests units; re-verify)
 	sbOut, sbErr := runSSH(client, `test "$(systemctl is-active sing-box)" = "active"`)
 	agOut, agErr := runSSH(client, `test "$(systemctl is-active netductor-secondary-agent)" = "active"`)
-	_, p443 := runSSH(client, `ss -tlnp | grep -qE ':443\b'`)
+	_, p443 := runSSH(client, `ss -tlnp | grep -qE ':443([^0-9]|$)'`)
 	agentOK := agErr == nil
 	singOK := sbErr == nil && p443 == nil
 	if !agentOK || !singOK {
