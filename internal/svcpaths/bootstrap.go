@@ -20,7 +20,8 @@ const (
 	WSS_PS   = 8445
 )
 
-// Material is shared key material for both ends (no need to keep peer private).
+// Material holds WG keypairs for SP/PS. Primary keeps the full set on disk.
+// Secondary must only receive MaterialForSecondary (no primary private keys).
 type Material struct {
 	SPPrivP   string `json:"sp_priv_p"`
 	SPPubP    string `json:"sp_pub_p"`
@@ -32,6 +33,25 @@ type Material struct {
 	PSPubS    string `json:"ps_pub_s"`
 	Primary   string `json:"primary_ip"`
 	Secondary string `json:"secondary_ip"`
+}
+
+// ForSecondary returns a copy safe to ship to the secondary host.
+// Omits primary private keys (SPPrivP, PSPrivP). Secondary only needs its own
+// privates and the primary peer public keys.
+func (m *Material) ForSecondary() *Material {
+	if m == nil {
+		return nil
+	}
+	return &Material{
+		SPPubP:    m.SPPubP,
+		SPPrivS:   m.SPPrivS,
+		SPPubS:    m.SPPubS,
+		PSPubP:    m.PSPubP,
+		PSPrivS:   m.PSPrivS,
+		PSPubS:    m.PSPubS,
+		Primary:   m.Primary,
+		Secondary: m.Secondary,
+	}
 }
 
 func wgGen() (priv, pub string, err error) {
@@ -67,12 +87,9 @@ func ensureWstunnel() error {
 	if _, err := exec.LookPath("wstunnel"); err == nil {
 		return nil
 	}
-	// static binary amd64
 	script := `set -e
 arch=$(uname -m)
 case "$arch" in x86_64) a=amd64;; aarch64) a=arm64;; *) exit 1;; esac
-url="https://github.com/erebe/wstunnel/releases/download/v10.1.9/wstunnel_${a}"
-# try newer layout
 for u in \
   "https://github.com/erebe/wstunnel/releases/download/v10.1.9/wstunnel_10.1.9_linux_${a}.tar.gz" \
   "https://github.com/erebe/wstunnel/releases/download/v9.2.3/wstunnel_9.2.3_linux_${a}.tar.gz"
@@ -86,7 +103,6 @@ do
     fi
   fi
 done
-# direct binary attempt
 curl -fsSL "https://github.com/erebe/wstunnel/releases/download/v9.2.3/wstunnel_9.2.3_linux_${a}" -o /usr/local/bin/wstunnel && chmod +x /usr/local/bin/wstunnel
 `
 	if out, err := exec.Command("bash", "-c", script).CombinedOutput(); err != nil {
@@ -121,7 +137,9 @@ func GenerateMaterial(primaryIP, secondaryIP string) (*Material, error) {
 }
 
 func writeFile(path, body string, mode os.FileMode) error {
-	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
 	return os.WriteFile(path, []byte(body), mode)
 }
 
@@ -143,7 +161,22 @@ WantedBy=multi-user.target
 	return writeFile("/etc/systemd/system/"+name+".service", body, 0o644)
 }
 
-// BootstrapPrimary writes confs+units on primary and saves material.
+func enableRestart(units ...string) error {
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		return fmt.Errorf("daemon-reload: %v (%s)", err, strings.TrimSpace(string(out)))
+	}
+	for _, u := range units {
+		if out, err := exec.Command("systemctl", "enable", u).CombinedOutput(); err != nil {
+			return fmt.Errorf("enable %s: %v (%s)", u, err, strings.TrimSpace(string(out)))
+		}
+		if out, err := exec.Command("systemctl", "restart", u).CombinedOutput(); err != nil {
+			return fmt.Errorf("restart %s: %v (%s)", u, err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+// BootstrapPrimary writes confs+units on primary and saves full material.
 func BootstrapPrimary(m *Material) error {
 	if m == nil {
 		return fmt.Errorf("nil material")
@@ -159,11 +192,17 @@ func BootstrapPrimary(m *Material) error {
 	if err := ensureWstunnel(); err != nil {
 		return err
 	}
-	_ = os.MkdirAll(KeysDir, 0o700)
-	b, _ := json.MarshalIndent(m, "", "  ")
-	_ = os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600)
+	if err := os.MkdirAll(KeysDir, 0o700); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
+		return fmt.Errorf("material.json: %w", err)
+	}
 
-	// SP: listen local UDP, peer secondary via WSS client on secondary
 	spConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
 Address = %s/30
@@ -187,48 +226,56 @@ Endpoint = 127.0.0.1:%d
 PersistentKeepalive = 25
 `, m.PSPrivP, AddrP_PS, m.PSPubS, AddrS_PS, PortPS)
 
-	_ = os.MkdirAll("/etc/wireguard", 0o700)
-	_ = writeFile("/etc/wireguard/nd-svc-sp.conf", spConf, 0o600)
-	_ = writeFile("/etc/wireguard/nd-svc-ps.conf", psConf, 0o600)
-
-	// WSS: SP server on primary :8444 → local UDP 51830
-	_ = unitFile("nd-wss-sp-server",
-		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", WSS_SP, PortSP))
-	// PS client: tunnel local :51832 to secondary WSS :8445
-	_ = unitFile("nd-wss-ps-client",
+	if err := os.MkdirAll("/etc/wireguard", 0o700); err != nil {
+		return err
+	}
+	if err := writeFile("/etc/wireguard/nd-svc-sp.conf", spConf, 0o600); err != nil {
+		return fmt.Errorf("nd-svc-sp.conf: %w", err)
+	}
+	if err := writeFile("/etc/wireguard/nd-svc-ps.conf", psConf, 0o600); err != nil {
+		return fmt.Errorf("nd-svc-ps.conf: %w", err)
+	}
+	if err := unitFile("nd-wss-sp-server",
+		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", WSS_SP, PortSP)); err != nil {
+		return err
+	}
+	if err := unitFile("nd-wss-ps-client",
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
-			PortPS, PortPS, m.Secondary, WSS_PS))
-
-	_ = exec.Command("systemctl", "daemon-reload").Run()
-	for _, u := range []string{"nd-wss-sp-server", "nd-wss-ps-client", "wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps"} {
-		_ = exec.Command("systemctl", "enable", u).Run()
-		_ = exec.Command("systemctl", "restart", u).Run()
+			PortPS, PortPS, m.Secondary, WSS_PS)); err != nil {
+		return err
+	}
+	if err := enableRestart("nd-wss-sp-server", "nd-wss-ps-client", "wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps"); err != nil {
+		return err
 	}
 
-	// ufw: WSS SP port + agent plane only from SP peer (not secondary public IP)
+	// ufw best-effort
 	_ = exec.Command("bash", "-c", fmt.Sprintf(
 		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-sp && ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp || true`,
 		WSS_SP, AddrS_SP)).Run()
-	// Drop interim WAN allow for secondary public IP once SP is the path
 	if m.Secondary != "" {
 		_ = exec.Command("bash", "-c", fmt.Sprintf(
 			`command -v ufw >/dev/null || exit 0
-ufw status numbered 2>/dev/null | grep -E '8789.*%s' | head -5
 ufw delete allow from %s to any port 8789 proto tcp 2>/dev/null || true
-ufw status 2>/dev/null | grep 8789 || true
-`, m.Secondary, m.Secondary)).Run()
+`, m.Secondary)).Run()
 	}
 
-	// health timer + default failover policy
-	_ = installHealthTimer()
-	_ = SavePolicy(DefaultPolicy())
+	if err := installHealthTimer(); err != nil {
+		return err
+	}
+	if err := SavePolicy(DefaultPolicy()); err != nil {
+		return err
+	}
 	return nil
 }
 
 // BootstrapSecondary applies material on secondary.
+// Always persists ForSecondary() so primary privates never land on disk here.
 func BootstrapSecondary(m *Material) error {
 	if m == nil {
 		return fmt.Errorf("nil material")
+	}
+	if m.SPPrivS == "" || m.PSPrivS == "" || m.SPPubP == "" || m.PSPubP == "" {
+		return fmt.Errorf("material incomplete for secondary (need SPPrivS, PSPrivS, SPPubP, PSPubP)")
 	}
 	if err := ensureWireguardTools(); err != nil {
 		return err
@@ -236,9 +283,17 @@ func BootstrapSecondary(m *Material) error {
 	if err := ensureWstunnel(); err != nil {
 		return err
 	}
-	_ = os.MkdirAll(KeysDir, 0o700)
-	b, _ := json.MarshalIndent(m, "", "  ")
-	_ = os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600)
+	safe := m.ForSecondary()
+	if err := os.MkdirAll(KeysDir, 0o700); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(safe, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
+		return fmt.Errorf("material.json: %w", err)
+	}
 
 	spConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
@@ -263,42 +318,55 @@ PublicKey = %s
 AllowedIPs = %s/32
 `, m.PSPrivS, AddrS_PS, PortPS, m.PSPubP, AddrP_PS)
 
-	_ = os.MkdirAll("/etc/wireguard", 0o700)
-	_ = writeFile("/etc/wireguard/nd-svc-sp.conf", spConf, 0o600)
-	_ = writeFile("/etc/wireguard/nd-svc-ps.conf", psConf, 0o600)
-
-	_ = unitFile("nd-wss-sp-client",
+	if err := os.MkdirAll("/etc/wireguard", 0o700); err != nil {
+		return err
+	}
+	if err := writeFile("/etc/wireguard/nd-svc-sp.conf", spConf, 0o600); err != nil {
+		return fmt.Errorf("nd-svc-sp.conf: %w", err)
+	}
+	if err := writeFile("/etc/wireguard/nd-svc-ps.conf", psConf, 0o600); err != nil {
+		return fmt.Errorf("nd-svc-ps.conf: %w", err)
+	}
+	if err := unitFile("nd-wss-sp-client",
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
-			PortSP, PortSP, m.Primary, WSS_SP))
-	_ = unitFile("nd-wss-ps-server",
-		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", WSS_PS, PortPS))
-
-	_ = exec.Command("systemctl", "daemon-reload").Run()
-	for _, u := range []string{"nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps"} {
-		_ = exec.Command("systemctl", "enable", u).Run()
-		_ = exec.Command("systemctl", "restart", u).Run()
+			PortSP, PortSP, m.Primary, WSS_SP)); err != nil {
+		return err
+	}
+	if err := unitFile("nd-wss-ps-server",
+		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", WSS_PS, PortPS)); err != nil {
+		return err
+	}
+	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps"); err != nil {
+		return err
 	}
 	_ = exec.Command("bash", "-c", fmt.Sprintf(
 		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-ps || true`, WSS_PS)).Run()
 
-	// agent prefer SP
-	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
+	if err := os.MkdirAll("/etc/netductor/secrets", 0o700); err != nil {
+		return err
+	}
 	pub := fmt.Sprintf("https://%s:8789", m.Primary)
-	_ = os.WriteFile("/etc/netductor/secrets/secondary_core_url.public", []byte(pub+"\n"), 0o600)
-	_ = os.WriteFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+AddrP_SP+":8789\n"), 0o600)
+	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url.public", []byte(pub+"\n"), 0o600); err != nil {
+		return err
+	}
+	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+AddrP_SP+":8789\n"), 0o600); err != nil {
+		return err
+	}
 	_ = exec.Command("systemctl", "try-restart", "netductor-secondary-agent").Run()
 
-	_ = installHealthTimer()
-	_ = SavePolicy(DefaultPolicy())
+	if err := installHealthTimer(); err != nil {
+		return err
+	}
+	if err := SavePolicy(DefaultPolicy()); err != nil {
+		return err
+	}
 	return nil
 }
 
 func installHealthTimer() error {
 	script := `/usr/local/bin/nd-svc-paths-health`
-	// minimal if missing
 	if _, err := os.Stat(script); err != nil {
 		body := `#!/bin/bash
-# Probe + failover tick/apply (binary owns health JSON + sing-box/agent URL)
 if command -v netductor >/dev/null 2>&1; then
   netductor svc-paths failover tick >/dev/null 2>&1 || true
   exit 0
@@ -310,15 +378,19 @@ ping -c1 -W2 10.87.10.1 >/dev/null 2>&1 || ping -c1 -W2 10.87.10.2 >/dev/null 2>
 ping -c1 -W2 10.87.11.1 >/dev/null 2>&1 || ping -c1 -W2 10.87.11.2 >/dev/null 2>&1 && ps=1
 printf '{"ts":"%s","svc_sp_up":%s,"svc_ps_up":%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sp" "$ps" > "$OUT"
 `
-		_ = writeFile(script, body, 0o755)
+		if err := writeFile(script, body, 0o755); err != nil {
+			return err
+		}
 	}
-	_ = writeFile("/etc/systemd/system/nd-svc-paths-health.service", `[Unit]
+	if err := writeFile("/etc/systemd/system/nd-svc-paths-health.service", `[Unit]
 Description=Netductor svc-paths health
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/nd-svc-paths-health
-`, 0o644)
-	_ = writeFile("/etc/systemd/system/nd-svc-paths-health.timer", `[Unit]
+`, 0o644); err != nil {
+		return err
+	}
+	if err := writeFile("/etc/systemd/system/nd-svc-paths-health.timer", `[Unit]
 Description=Netductor svc-paths health timer
 [Timer]
 OnBootSec=30
@@ -326,10 +398,10 @@ OnUnitActiveSec=30
 AccuracySec=5
 [Install]
 WantedBy=timers.target
-`, 0o644)
+`, 0o644); err != nil {
+		return err
+	}
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "enable", "--now", "nd-svc-paths-health.timer").Run()
 	return nil
 }
-
-// WaitPing waits for peer.
