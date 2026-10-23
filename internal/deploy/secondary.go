@@ -67,11 +67,22 @@ func DeploySecondary(o SecondaryOpts) error {
 	if o.SNI == "" {
 		o.SNI = ndconfig.DefaultSNI()
 	}
+	o.PrimaryKey = expandUserPath(o.PrimaryKey)
+	o.SecondarySSHKey = expandUserPath(o.SecondarySSHKey)
 	pub := strings.TrimSpace(o.OperatorPubKey)
 	if pub == "" {
-		b, err := os.ReadFile(o.PrimaryKey + ".pub")
+		pubPath := o.PrimaryKey + ".pub"
+		b, err := os.ReadFile(pubPath)
 		if err != nil {
-			return fmt.Errorf("read operator pubkey %s.pub: %w", o.PrimaryKey, err)
+			return fmt.Errorf("read operator pubkey %s: %w", pubPath, err)
+		}
+		pub = strings.TrimSpace(string(b))
+	} else if !strings.HasPrefix(pub, "ssh-") {
+		// path to .pub file
+		pubPath := expandUserPath(pub)
+		b, err := os.ReadFile(pubPath)
+		if err != nil {
+			return fmt.Errorf("read operator pubkey %s: %w", pubPath, err)
 		}
 		pub = strings.TrimSpace(string(b))
 	}
@@ -199,4 +210,18 @@ func DeploySecondary(o SecondaryOpts) error {
 
 	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS + svc-paths)")
 	return nil
+}
+
+func expandUserPath(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return p
+	}
+	if strings.HasPrefix(p, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil && home != "" {
+			return filepath.Join(home, p[2:])
+		}
+	}
+	return p
 }

@@ -433,6 +433,8 @@ func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	if s.SecondaryUser == "" {
 		s.SecondaryUser = "root"
 	}
+	s.PrimaryKey = expandHome(s.PrimaryKey)
+	s.SecondarySSHKey = expandHome(s.SecondarySSHKey)
 	setStep(jobs.Step{ID: "secondary", Message: "deploy secondary on " + s.SecondaryHost})
 	done := make(chan error, 1)
 	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeploySecondary(s) }) }()

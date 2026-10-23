@@ -41,6 +41,15 @@ func DeploySecondary(s SecondarySpec) error {
 	if !ValidUser(s.SecondaryUser) || !ValidUser(s.PrimaryUser) {
 		return fmt.Errorf("invalid ssh user")
 	}
+	s.PrimaryKey = expandHome(s.PrimaryKey)
+	s.SecondarySSHKey = expandHome(s.SecondarySSHKey)
+	// OperatorPubKey may be raw "ssh-ed25519 AAAA…" or a path to .pub
+	if op := strings.TrimSpace(s.OperatorPubKey); op != "" && !strings.HasPrefix(op, "ssh-") {
+		s.OperatorPubKey = expandHome(op)
+		if b, err := os.ReadFile(s.OperatorPubKey); err == nil {
+			s.OperatorPubKey = strings.TrimSpace(string(b))
+		}
+	}
 	return deploy.DeploySecondary(s.toDeploy())
 }
 
