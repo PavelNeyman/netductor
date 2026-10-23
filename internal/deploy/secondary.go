@@ -197,23 +197,25 @@ func DeploySecondary(o SecondaryOpts) error {
 	if scpErr != nil {
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
 	}
-	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
-		"netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json; rm -f /tmp/nd-svc-material.json; "+
-			`test -f /etc/netductor/secrets/secondary_core_url; grep -q '10.87.10.1' /etc/netductor/secrets/secondary_core_url; `+
-			"ping -c1 -W3 10.87.10.1",
-		o.PrimaryKeyPassphrase)
+	secBoot := "echo c2V0IC1lCm5ldGR1Y3RvciBzdmMtcGF0aHMgYm9vdHN0cmFwLXNlY29uZGFyeSAtLW1hdGVyaWFsIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24Kcm0gLWYgL3RtcC9uZC1zdmMtbWF0ZXJpYWwuanNvbgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmdyZXAgLXEgMTAuODcuMTAuMSAvZXRjL25ldGR1Y3Rvci9zZWNyZXRzL3NlY29uZGFyeV9jb3JlX3VybApmb3IgdSBpbiBuZC13c3Mtc3AtY2xpZW50IG5kLXdzcy1wcy1zZXJ2ZXIgd2ctcXVpY2tAbmQtc3ZjLXNwIHdnLXF1aWNrQG5kLXN2Yy1wczsgZG8KICBzdD0kKHN5c3RlbWN0bCBpcy1hY3RpdmUgIiR1IiAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKQogIHRlc3QgIiRzdCIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gInVuaXQgJHUgbm90IGFjdGl2ZTogJHN0IiA+JjI7IGV4aXQgMTsgfQpkb25lCnBpbmcgLWMxIC1XMyAxMC44Ny4xMC4xCnBpbmcgLWMxIC1XMyAxMC44Ny4xMS4xIHx8IHBpbmcgLWMxIC1XMyAxMC44Ny4xMS4yCnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc3ZjLXBhdGhzL2ZhaWxvdmVyLXBvbGljeS5qc29uCmVjaG8gU1BfUFNfT0sK | base64 -d | bash"
+	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
 	fmt.Print(out2)
 	if err2 != nil {
-		// try :22 if day2 not yet exclusive
-		out2b, err2b := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
-			"netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json; rm -f /tmp/nd-svc-material.json; "+
-				`test -f /etc/netductor/secrets/secondary_core_url; grep -q '10.87.10.1' /etc/netductor/secrets/secondary_core_url; `+
-				"ping -c1 -W3 10.87.10.1",
-			o.PrimaryKeyPassphrase)
+		out2b, err2b := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
 		fmt.Print(out2b)
 		if err2b != nil {
-			return fmt.Errorf("svc-paths bootstrap-secondary: %w\n%s", err2b, out2b)
+			return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b)
 		}
+		out2 = out2b
+	}
+	if !strings.Contains(out2, "SP_PS_OK") {
+		return fmt.Errorf("svc-paths secondary: SP/PS verification failed\n%s", out2)
+	}
+	primBoot := "echo c2V0IC1lCmZvciB1IGluIG5kLXdzcy1zcC1zZXJ2ZXIgbmQtd3NzLXBzLWNsaWVudCB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAicHJpbWFyeSB1bml0ICR1IG5vdCBhY3RpdmU6ICRzdCIgPiYyOyBleGl0IDE7IH0KZG9uZQpwaW5nIC1jMSAtVzMgMTAuODcuMTAuMgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3N2Yy1wYXRocy9mYWlsb3Zlci1wb2xpY3kuanNvbgplY2hvIFBSSU1BUllfU1BfT0sK | base64 -d | bash"
+	outP2, errP2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primBoot, o.PrimaryKeyPassphrase)
+	fmt.Print(outP2)
+	if errP2 != nil || !strings.Contains(outP2, "PRIMARY_SP_OK") {
+		return fmt.Errorf("svc-paths primary SP/PS units: %v\n%s", errP2, outP2)
 	}
 	// Best-effort: prefer ssh.service over socket on :22 (SEC-17 — warn only if check fails later)
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
@@ -262,7 +264,6 @@ test "$ok" = 1`
 	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
 	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS)")
 	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
-	fmt.Fprintln(os.Stderr, "    legacy /vpn/.../subscription is 410 — use VLESS/core links or TG")
 	return nil
 }
 
