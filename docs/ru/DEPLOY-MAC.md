@@ -2,6 +2,8 @@
 
 # Деплой с Mac
 
+Модель SSH-доверия, конечное состояние deploy и **ручной чеклист failover (R22):** [SECONDARY-DEPLOY.md](SECONDARY-DEPLOY.md).
+
 ## Бинарник
 `netductor-op` — workstation. Не путать с `netductor` на VPS.
 
