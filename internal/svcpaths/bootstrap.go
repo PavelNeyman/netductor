@@ -352,7 +352,13 @@ AllowedIPs = %s/32
 	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+AddrP_SP+":8789\n"), 0o600); err != nil {
 		return err
 	}
-	_ = exec.Command("systemctl", "try-restart", "netductor-secondary-agent").Run()
+	// Agent must pick up secondary_core_url (SP). Restart failures are fatal unless unit is absent (pre-join).
+	if out, err := exec.Command("systemctl", "try-restart", "netductor-secondary-agent").CombinedOutput(); err != nil {
+		st := string(out)
+		if !strings.Contains(st, "not found") && !strings.Contains(st, "not-found") && !strings.Contains(st, "could not be found") {
+			return fmt.Errorf("try-restart netductor-secondary-agent: %w: %s", err, strings.TrimSpace(st))
+		}
+	}
 
 	if err := installHealthTimer(); err != nil {
 		return err
@@ -401,7 +407,14 @@ WantedBy=timers.target
 `, 0o644); err != nil {
 		return err
 	}
-	_ = exec.Command("systemctl", "daemon-reload").Run()
-	_ = exec.Command("systemctl", "enable", "--now", "nd-svc-paths-health.timer").Run()
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		return fmt.Errorf("daemon-reload (health timer): %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if out, err := exec.Command("systemctl", "enable", "--now", "nd-svc-paths-health.timer").CombinedOutput(); err != nil {
+		return fmt.Errorf("enable nd-svc-paths-health.timer: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if st, err := exec.Command("systemctl", "is-active", "nd-svc-paths-health.timer").CombinedOutput(); err != nil || strings.TrimSpace(string(st)) != "active" {
+		return fmt.Errorf("nd-svc-paths-health.timer not active: %s", strings.TrimSpace(string(st)))
+	}
 	return nil
 }

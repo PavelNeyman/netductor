@@ -354,7 +354,11 @@ func runSecondary(args []string) {
 			if secondary.Online(d, 2*time.Minute) {
 				on = "online"
 			}
-			fmt.Printf("%s\t%s\t%s\tip=%s\tsb=%v\tconfig_ver=%d\tagent=%s\n", d.ID, d.Name, on, d.PublicIP, d.SingBoxOK, d.ConfigVer, d.Version)
+			seen := int64(0)
+			if !d.LastSeen.IsZero() {
+				seen = d.LastSeen.Unix()
+			}
+			fmt.Printf("%s\t%s\t%s\tip=%s\tsb=%v\tconfig_ver=%d\tagent=%s\tseen=%d\n", d.ID, d.Name, on, d.PublicIP, d.SingBoxOK, d.ConfigVer, d.Version, seen)
 		}
 		fmt.Println("config_ver", secondary.ConfigVer())
 	default:

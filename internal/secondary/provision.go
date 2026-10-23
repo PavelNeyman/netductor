@@ -27,6 +27,9 @@ type ProvisionIn struct {
 	MTLSCA   []byte
 	MTLSCert []byte
 	MTLSKey  []byte
+	// ForceReinstall: explicit host-key rotation — forget Go TOFU for this host before dial.
+	// Password alone is NOT enough to wipe trust (R6).
+	ForceReinstall bool
 }
 
 // ProvisionResult summarizes remote setup.
@@ -211,8 +214,8 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	if len(in.MTLSCA) == 0 || len(in.MTLSCert) == 0 || len(in.MTLSKey) == 0 {
 		return nil, fmt.Errorf("mTLS material required before secondary provision (ca=%d cert=%d key=%d)", len(in.MTLSCA), len(in.MTLSCert), len(in.MTLSKey))
 	}
-	// SEC-08: password first-hop ⇒ reinstall — drop stale TOFU for this host.
-	if strings.TrimSpace(in.Password) != "" {
+	// R6: never wipe TOFU on password alone. Only explicit ForceReinstall (or CLI ssh-hosts forget).
+	if in.ForceReinstall {
 		_ = ForgetSSHHost(in.Host)
 	}
 	client, err := sshClient(in)

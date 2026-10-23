@@ -1,3 +1,11 @@
+## 0.9.490
+
+- R6: password deploy no longer ForgetSSHHost by default; Go TOFU mismatch fails; wipe only ForceReinstall or explicit forget + one retry after mismatch.
+- Material on secondary: trap EXIT rm /tmp/nd-svc-material.json; chmod 600 before bootstrap.
+- R3 residual: installHealthTimer daemon-reload/enable/--now + is-active fail-closed; try-restart secondary-agent fail-closed (absent unit soft).
+- Deploy verify: health timer active on P and S; wait online requires seen= within 90s (fresh heartbeat after SP).
+- secondary status: append seen=<unix> for deploy freshness checks.
+
 ## 0.9.489
 
 - R6: password secondary deploy no longer always ClearHostKeys; only on host-key mismatch + one retry.

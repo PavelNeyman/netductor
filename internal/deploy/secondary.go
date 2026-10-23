@@ -148,7 +148,9 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 	res, err := provision()
 	if err != nil && o.SecondaryPass != "" && isSSHHostKeyError(err) {
-		fmt.Fprintln(os.Stderr, "warn: host key mismatch — ClearHostKeys + one retry (R6)")
+		fmt.Fprintln(os.Stderr, "warn: host key mismatch — explicit TOFU forget + ClearHostKeys + one retry (R6)")
+		// Operator is re-running password deploy after confirmed mismatch; wipe both stores once.
+		_ = secondary.ForgetSSHHost(o.SecondaryHost)
 		ClearHostKeys(o.SecondaryHost)
 		res, err = provision()
 	}
@@ -218,7 +220,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if scpErr != nil {
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
 	}
-	secBoot := "echo c2V0IC1lCm5ldGR1Y3RvciBzdmMtcGF0aHMgYm9vdHN0cmFwLXNlY29uZGFyeSAtLW1hdGVyaWFsIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24Kcm0gLWYgL3RtcC9uZC1zdmMtbWF0ZXJpYWwuanNvbgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmdyZXAgLXEgMTAuODcuMTAuMSAvZXRjL25ldGR1Y3Rvci9zZWNyZXRzL3NlY29uZGFyeV9jb3JlX3VybApmb3IgdSBpbiBuZC13c3Mtc3AtY2xpZW50IG5kLXdzcy1wcy1zZXJ2ZXIgd2ctcXVpY2tAbmQtc3ZjLXNwIHdnLXF1aWNrQG5kLXN2Yy1wczsgZG8KICBzdD0kKHN5c3RlbWN0bCBpcy1hY3RpdmUgIiR1IiAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKQogIHRlc3QgIiRzdCIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gInVuaXQgJHUgbm90IGFjdGl2ZTogJHN0IiA+JjI7IGV4aXQgMTsgfQpkb25lCiMgUGVlciBvbmx5LiBMb2NhbCBhZGRyZXNzIGlzIG5vdCBwcm9vZiB0aGUgdHVubmVsIGlzIHVwIChSNykuCnBpbmcgLWMxIC1XMyAxMC44Ny4xMC4xIHx8IHsgZWNobyAiU1AgcGVlciAxMC44Ny4xMC4xIHVucmVhY2hhYmxlIiA+JjI7IGV4aXQgMTsgfQpwaW5nIC1jMSAtVzMgMTAuODcuMTEuMSB8fCB7IGVjaG8gIlBTIHBlZXIgMTAuODcuMTEuMSB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KdGVzdCAtZiAvZXRjL25ldGR1Y3Rvci9zdmMtcGF0aHMvZmFpbG92ZXItcG9saWN5Lmpzb24KZWNobyBTUF9QU19PSwo= | base64 -d | bash"
+	secBoot := "echo c2V0IC1lCnRyYXAgJ3JtIC1mIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24nIEVYSVQKY2htb2QgNjAwIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24gMj4vZGV2L251bGwgfHwgdHJ1ZQpuZXRkdWN0b3Igc3ZjLXBhdGhzIGJvb3RzdHJhcC1zZWNvbmRhcnkgLS1tYXRlcmlhbCAvdG1wL25kLXN2Yy1tYXRlcmlhbC5qc29uCnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc2VjcmV0cy9zZWNvbmRhcnlfY29yZV91cmwKZ3JlcCAtcSAxMC44Ny4xMC4xIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmZvciB1IGluIG5kLXdzcy1zcC1jbGllbnQgbmQtd3NzLXBzLXNlcnZlciB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAidW5pdCAkdSBub3QgYWN0aXZlOiAkc3QiID4mMjsgZXhpdCAxOyB9CmRvbmUKIyBQZWVyIG9ubHkuIExvY2FsIGFkZHJlc3MgaXMgbm90IHByb29mIHRoZSB0dW5uZWwgaXMgdXAgKFI3KS4KcGluZyAtYzEgLVczIDEwLjg3LjEwLjEgfHwgeyBlY2hvICJTUCBwZWVyIDEwLjg3LjEwLjEgdW5yZWFjaGFibGUiID4mMjsgZXhpdCAxOyB9CnBpbmcgLWMxIC1XMyAxMC44Ny4xMS4xIHx8IHsgZWNobyAiUFMgcGVlciAxMC44Ny4xMS4xIHVucmVhY2hhYmxlIiA+JjI7IGV4aXQgMTsgfQp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3N2Yy1wYXRocy9mYWlsb3Zlci1wb2xpY3kuanNvbgojIEhlYWx0aCB0aW1lciBtdXN0IGJlIGFjdGl2ZSAoZmFpbC1jbG9zZWQpLgp0ZXN0ICIkKHN5c3RlbWN0bCBpcy1hY3RpdmUgbmQtc3ZjLXBhdGhzLWhlYWx0aC50aW1lciAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKSIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gIm5kLXN2Yy1wYXRocy1oZWFsdGgudGltZXIgbm90IGFjdGl2ZSIgPiYyOyBleGl0IDE7IH0KZWNobyBTUF9QU19PSwo= | base64 -d | bash"
 	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
 	fmt.Print(out2)
 	if err2 != nil {
@@ -232,7 +234,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if !strings.Contains(out2, "SP_PS_OK") {
 		return fmt.Errorf("svc-paths secondary: SP/PS verification failed\n%s", out2)
 	}
-	primBoot := "echo c2V0IC1lCmZvciB1IGluIG5kLXdzcy1zcC1zZXJ2ZXIgbmQtd3NzLXBzLWNsaWVudCB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAicHJpbWFyeSB1bml0ICR1IG5vdCBhY3RpdmU6ICRzdCIgPiYyOyBleGl0IDE7IH0KZG9uZQojIEJvdGggZGlyZWN0aW9uczogU1AgcGVlciBhbmQgUFMgcGVlciAoUjgpLgpwaW5nIC1jMSAtVzMgMTAuODcuMTAuMiB8fCB7IGVjaG8gIlNQIHBlZXIgMTAuODcuMTAuMiB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KcGluZyAtYzEgLVczIDEwLjg3LjExLjIgfHwgeyBlY2hvICJQUyBwZWVyIDEwLjg3LjExLjIgdW5yZWFjaGFibGUiID4mMjsgZXhpdCAxOyB9CnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc3ZjLXBhdGhzL2ZhaWxvdmVyLXBvbGljeS5qc29uCmVjaG8gUFJJTUFSWV9TUF9PSwo= | base64 -d | bash"
+	primBoot := "echo c2V0IC1lCmZvciB1IGluIG5kLXdzcy1zcC1zZXJ2ZXIgbmQtd3NzLXBzLWNsaWVudCB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAicHJpbWFyeSB1bml0ICR1IG5vdCBhY3RpdmU6ICRzdCIgPiYyOyBleGl0IDE7IH0KZG9uZQojIEJvdGggZGlyZWN0aW9uczogU1AgcGVlciBhbmQgUFMgcGVlciAoUjgpLgpwaW5nIC1jMSAtVzMgMTAuODcuMTAuMiB8fCB7IGVjaG8gIlNQIHBlZXIgMTAuODcuMTAuMiB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KcGluZyAtYzEgLVczIDEwLjg3LjExLjIgfHwgeyBlY2hvICJQUyBwZWVyIDEwLjg3LjExLjIgdW5yZWFjaGFibGUiID4mMjsgZXhpdCAxOyB9CnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc3ZjLXBhdGhzL2ZhaWxvdmVyLXBvbGljeS5qc29uCnRlc3QgIiQoc3lzdGVtY3RsIGlzLWFjdGl2ZSBuZC1zdmMtcGF0aHMtaGVhbHRoLnRpbWVyIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpIiA9ICJhY3RpdmUiIHx8IHsgZWNobyAibmQtc3ZjLXBhdGhzLWhlYWx0aC50aW1lciBub3QgYWN0aXZlIiA+JjI7IGV4aXQgMTsgfQplY2hvIFBSSU1BUllfU1BfT0sK | base64 -d | bash"
 	outP2, errP2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primBoot, o.PrimaryKeyPassphrase)
 	fmt.Print(outP2)
 	if errP2 != nil || !strings.Contains(outP2, "PRIMARY_SP_OK") {
@@ -263,17 +265,26 @@ func DeploySecondary(o SecondaryOpts) error {
 	if pack.AgentID == "" {
 		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")
 	}
-	// Exact field match: $1 == AgentID && $3 == online (not substring grep).
+	// Exact AgentID + online + fresh last_seen (seen= unix, within 90s) after SP switch.
 	waitCmd := fmt.Sprintf(`ok=0
 id=%s
-for i in $(seq 1 12); do
+now=$(date +%%s)
+for i in $(seq 1 18); do
   st=$(netductor secondary status 2>/dev/null || true)
   echo "$st"
-  if printf '%%s\n' "$st" | awk -F '\t' -v id="$id" '$1 == id && $3 == "online" { found=1 } END { exit !found }'; then
+  if printf '%%s\n' "$st" | awk -F '\t' -v id="$id" -v now="$now" '
+    $1 == id && $3 == "online" {
+      for (i=1;i<=NF;i++) if ($i ~ /^seen=/) {
+        split($i, a, "="); age = now - a[2];
+        if (age >= 0 && age <= 90) found=1
+      }
+    }
+    END { exit !found }'; then
     ok=1
     break
   fi
   sleep 5
+  now=$(date +%%s)
 done
 test "$ok" = 1`, ShellQuote(pack.AgentID))
 	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
