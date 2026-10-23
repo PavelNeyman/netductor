@@ -1,3 +1,9 @@
+## 0.9.488
+
+- R2: Material.ForSecondary strips primary WG private keys (SPPrivP/PSPrivP); bootstrap-primary stdout and BootstrapSecondary persist only the secondary-safe copy.
+- R3: BootstrapPrimary/BootstrapSecondary hard-fail on conf write, unit write, and critical systemctl enable/restart (no silent `_ =`).
+- P2: wait online + preferred_secondary_ip use awk exact field match (`$1 == AgentID`); preferred writes only when value is IPv4 (no hostname fallback into preferred_secondary_ip file).
+
 ## 0.9.487
 
 - R7/R8: SP/PS verify pings peer only (S→10.87.10.1+10.87.11.1, P→10.87.10.2+10.87.11.2). No self-ping fallback.
