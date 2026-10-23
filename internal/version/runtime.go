@@ -15,6 +15,9 @@ func verNorm(s string) string {
 	return strings.TrimPrefix(strings.TrimSpace(s), "v")
 }
 
+// Less reports whether a is strictly older than b (SemVer major.minor.patch).
+func Less(a, b string) bool { return verLess(a, b) }
+
 func verLess(a, b string) bool {
 	a, b = verNorm(a), verNorm(b)
 	if a == "" || b == "" {

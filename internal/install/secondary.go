@@ -10,6 +10,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -27,7 +28,18 @@ func InstallRelay(bundlePath string) error {
 		return fmt.Errorf("parse bundle: %w", err)
 	}
 	if b.CoreIP == "" || b.UplinkUUID == "" {
-		return fmt.Errorf("invalid bundle")
+		return fmt.Errorf("invalid bundle: missing core_ip or uplink_uuid")
+	}
+	const supportedSchema = 1
+	if b.Version == 0 {
+		// legacy packs without version field — treat as schema 1
+		b.Version = 1
+	}
+	if b.Version != supportedSchema {
+		return fmt.Errorf("bundle schema_version %d not supported (need %d)", b.Version, supportedSchema)
+	}
+	if b.MinAgentVersion != "" && version.Less(version.Release, b.MinAgentVersion) {
+		return fmt.Errorf("agent %s older than bundle min_agent_version %s — upgrade secondary binary first", version.Release, b.MinAgentVersion)
 	}
 
 	PurgeHostMonitoring()

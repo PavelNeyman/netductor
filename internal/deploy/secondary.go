@@ -47,21 +47,20 @@ type secondaryPack struct {
 }
 
 
-// extractJSONObject returns the first top-level JSON object from mixed stdout.
-// R12: avoids truncating on the first "{" without a matching close when possible.
-func extractJSONObject(s string) string {
+// extractJSONObject returns the first complete top-level JSON object from mixed stdout.
+// R12: no legacy "from { to EOF" fallback — decode must succeed.
+func extractJSONObject(s string) (string, error) {
 	i := strings.Index(s, "{")
 	if i < 0 {
-		return s
+		return "", fmt.Errorf("no JSON object in output")
 	}
 	s = s[i:]
 	dec := json.NewDecoder(bytes.NewReader([]byte(s)))
 	var raw json.RawMessage
 	if err := dec.Decode(&raw); err != nil {
-		// fallback: from first { to end (legacy)
-		return s
+		return "", fmt.Errorf("JSON decode: %w", err)
 	}
-	return string(raw)
+	return string(raw), nil
 }
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
@@ -114,13 +113,16 @@ func DeploySecondary(o SecondaryOpts) error {
 	if err != nil {
 		return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
 	}
-	raw := extractJSONObject(out)
+	raw, errJ := extractJSONObject(out)
+	if errJ != nil {
+		return fmt.Errorf("prepare-pack JSON: %w\n%s", errJ, out)
+	}
 	var pack secondaryPack
 	if err := json.Unmarshal([]byte(raw), &pack); err != nil {
 		return fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out)
 	}
-	if pack.AgentToken == "" || len(pack.Bundle) == 0 {
-		return fmt.Errorf("prepare-pack missing token/bundle:\n%s", out)
+	if pack.AgentID == "" || pack.AgentToken == "" || len(pack.Bundle) == 0 {
+		return fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out)
 	}
 	ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
 	if err != nil {
@@ -195,7 +197,10 @@ func DeploySecondary(o SecondaryOpts) error {
 	if err != nil {
 		return fmt.Errorf("svc-paths bootstrap-primary: %w\n%s", err, out)
 	}
-	raw = extractJSONObject(out)
+	raw, errJ = extractJSONObject(out)
+	if errJ != nil {
+		return fmt.Errorf("bootstrap-primary material JSON: %w\n%s", errJ, out)
+	}
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
 	if errTmp != nil {
 		return fmt.Errorf("svc-paths temp file: %w", errTmp)
@@ -243,7 +248,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
 		`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
 		o.PrimaryKeyPassphrase)
-	// R10: success = key still accepted on :22 (bad). Failure is expected; note refused vs other.
+	// R10: key login on :22 must fail; additionally probe listeners/PasswordAuth via day2.
 	if out22, err22 := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err22 == nil {
 		return fmt.Errorf("SSH still reachable on :22 after harden (expected key-only :%s only)", day2Port)
 	} else {
@@ -255,6 +260,22 @@ func DeploySecondary(o SecondaryOpts) error {
 			fmt.Fprintln(os.Stderr, "==> :22 rejects key (ok; prefer closed after harden)")
 		default:
 			fmt.Fprintln(os.Stderr, "==> :22 not usable with key:", strings.TrimSpace(err22.Error()))
+		}
+	}
+	// Effective surface: PasswordAuthentication + whether anything listens on :22 (best-effort).
+	probe22 := `set +e
+ss -tlnp 2>/dev/null | grep -E ':22([^0-9]|$)' >/tmp/nd-ss22 || true
+pa=$(grep -E '^[#[:space:]]*PasswordAuthentication' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/* 2>/dev/null | tail -1 || true)
+echo "listen22=$(test -s /tmp/nd-ss22 && echo yes || echo no)"
+echo "password_auth_line=$pa"
+grep -qiE 'PasswordAuthentication[[:space:]]+no' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/* 2>/dev/null && echo password_auth=no || echo password_auth=unknown
+true`
+	if pout, perr := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, probe22, o.PrimaryKeyPassphrase); perr != nil {
+		fmt.Fprintln(os.Stderr, "warn :22 surface probe:", perr)
+	} else {
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(pout))
+		if strings.Contains(pout, "password_auth=unknown") {
+			fmt.Fprintln(os.Stderr, "warn: PasswordAuthentication=no not found in sshd_config (harden may be incomplete)")
 		}
 	}
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,

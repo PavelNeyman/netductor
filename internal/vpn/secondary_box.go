@@ -47,8 +47,11 @@ const RelayUplinkName = "relay-uplink"
 
 // SecondaryBundle is generated on core and consumed on RU relay VPS.
 type SecondaryBundle struct {
-	Version      int         `json:"version"`
-	CreatedAt    string      `json:"created_at"`
+	// Version is the bundle schema version (R15). Consumers reject unknown schemas.
+	Version int `json:"version"`
+	// MinAgentVersion: optional SemVer floor for secondary binary before join mutates the host.
+	MinAgentVersion string `json:"min_agent_version,omitempty"`
+	CreatedAt       string `json:"created_at"`
 	CoreIP       string      `json:"core_ip"`
 	CoreVless    int         `json:"core_vless_port"`
 	CoreSNI      string      `json:"core_sni"`
@@ -113,8 +116,9 @@ func ExportSecondaryBundle(relaySNI string) (*SecondaryBundle, error) {
 		users = append(users, RelayUser{Name: u.Name, UUID: u.UUID})
 	}
 	b := &SecondaryBundle{
-		Version:      1,
-		CreatedAt:    time.Now().UTC().Format(time.RFC3339),
+		Version:         1,
+		MinAgentVersion: "0.9.490",
+		CreatedAt:       time.Now().UTC().Format(time.RFC3339),
 		CoreIP:       publicIP(),
 		CoreVless:    vlessPort(),
 		CoreSNI:      sni(),

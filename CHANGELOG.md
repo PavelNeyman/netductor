@@ -1,3 +1,11 @@
+## 0.9.491
+
+- R15: SecondaryBundle schema Version + MinAgentVersion; join rejects unsupported schema / agent too old; prepare-pack emits schema_version/min_agent_version.
+- R12: extractJSONObject fail-closed (no legacy from-{ to-EOF fallback); prepare-pack validates agent_id/token/bundle.
+- wstunnel: pin v10.1.9, verify official SHA256 (linux amd64/arm64) before install.
+- R10: after key-fail on :22, probe day2 for listen:22 and PasswordAuthentication=no.
+- version.Less exported for SemVer comparisons.
+
 ## 0.9.490
 
 - R6: password deploy no longer ForgetSSHHost by default; Go TOFU mismatch fails; wipe only ForceReinstall or explicit forget + one retry after mismatch.

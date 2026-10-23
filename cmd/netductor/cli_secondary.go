@@ -253,14 +253,16 @@ func runSecondary(args []string) {
 			mtlsCA, mtlsCert, mtlsKey = ca, cert, key
 		}
 		pack := map[string]any{
-			"bundle":        b,
-			"agent_id":      id,
-			"agent_token":   tok,
-			"core_url":      b.CoreAgentURL,
-			"mtls_ca_b64":   base64.StdEncoding.EncodeToString(mtlsCA),
-			"mtls_cert_b64": base64.StdEncoding.EncodeToString(mtlsCert),
-			"mtls_key_b64":  base64.StdEncoding.EncodeToString(mtlsKey),
-			"sni":           sni,
+			"schema_version":    1,
+			"min_agent_version": b.MinAgentVersion,
+			"bundle":            b,
+			"agent_id":          id,
+			"agent_token":       tok,
+			"core_url":          b.CoreAgentURL,
+			"mtls_ca_b64":       base64.StdEncoding.EncodeToString(mtlsCA),
+			"mtls_cert_b64":     base64.StdEncoding.EncodeToString(mtlsCert),
+			"mtls_key_b64":      base64.StdEncoding.EncodeToString(mtlsKey),
+			"sni":               sni,
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
