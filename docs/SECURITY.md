@@ -34,5 +34,6 @@ No private operator keys in archive. LE certs not stored — re-issue on recover
 
 - Lampac optional via install component / op wizard
 - SSH host keys: `netductor ssh-hosts list|forget|clear`
+- Secondary password deploy **does not** wipe host-key trust by default (v0.9.490+). Mismatch fails; explicit forget / one controlled retry only. Full policy: [SECONDARY-DEPLOY.md](SECONDARY-DEPLOY.md) §1.
 
 See [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md).

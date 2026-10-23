@@ -57,6 +57,8 @@ netductor deploy secondary \
 
 Secondary: Mac → primary `prepare-pack` → Mac SSH to secondary (password once) → harden.
 
+Trust model, end-state checks, and **manual failover checklist (R22):** [SECONDARY-DEPLOY.md](SECONDARY-DEPLOY.md).
+
 ## Installed automatically (core)
 
 **Primary:** api, sing-box, blocky, domain+LE redirect :8443, mTLS :8789, metrics, backup, SSH 52222 key-only.

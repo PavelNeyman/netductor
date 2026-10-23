@@ -22,3 +22,9 @@
 Серты LE не в архиве — перевыпуск при recover при `DOMAIN` + `LE_EMAIL`.
 
 См. [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md).
+
+## SSH host keys (TOFU)
+
+- CLI: `netductor ssh-hosts list|forget|clear`
+- Password deploy Secondary **не** сбрасывает доверие к host key по умолчанию (v0.9.490+). При смене ключа — отказ; явный forget и один контролируемый retry. Политика: [SECONDARY-DEPLOY.md](SECONDARY-DEPLOY.md) §1.
+

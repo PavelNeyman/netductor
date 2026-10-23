@@ -15,6 +15,7 @@
 | [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |
 | [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) | [ru/](ru/RUNBOOK-INSTALL-RECOVER.md) |
 | [DEPLOY-MAC.md](DEPLOY-MAC.md) | [ru/](ru/DEPLOY-MAC.md) |
+| [SECONDARY-DEPLOY.md](SECONDARY-DEPLOY.md) | [ru/SECONDARY-DEPLOY.md](ru/SECONDARY-DEPLOY.md) | Secondary trust, end-state, R22 failover checklist |
 | [BREW.md](BREW.md) | [ru/](ru/BREW.md) |
 
 ## Product / plans

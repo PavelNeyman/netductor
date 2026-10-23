@@ -1,3 +1,7 @@
+## 0.9.492
+
+- Docs: SECONDARY-DEPLOY (EN/RU) — SSH TOFU policy (R6/R16), deploy end-state, R22 manual failover checklist, R15 bundle contract; links from SECURITY, DEPLOY-MAC, docs index.
+
 ## 0.9.491
 
 - R15: SecondaryBundle schema Version + MinAgentVersion; join rejects unsupported schema / agent too old; prepare-pack emits schema_version/min_agent_version.
