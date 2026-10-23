@@ -4,11 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
 
@@ -47,7 +47,6 @@ type secondaryPack struct {
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
 func DeploySecondary(o SecondaryOpts) error {
-	// Ports are passed explicitly (runSSHOnPort / ProvisionIn.Port) — no process-global NETDUCTOR_SSH_PORT.
 	if o.PrimaryHost == "" || o.PrimaryKey == "" {
 		return fmt.Errorf("primary host and SSH key required")
 	}
@@ -77,7 +76,6 @@ func DeploySecondary(o SecondaryOpts) error {
 		}
 		pub = strings.TrimSpace(string(b))
 	} else if !strings.HasPrefix(pub, "ssh-") {
-		// path to .pub file
 		pubPath := expandUserPath(pub)
 		b, err := os.ReadFile(pubPath)
 		if err != nil {
@@ -97,7 +95,6 @@ func DeploySecondary(o SecondaryOpts) error {
 	if err != nil {
 		return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
 	}
-	// prepare-pack prints JSON on stdout; may mix stderr noise — find first '{'
 	raw := out
 	if i := strings.Index(out, "{"); i >= 0 {
 		raw = out[i:]
@@ -143,7 +140,6 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 
 	const day2Port = "52222"
-	// SEC-06: verify operator key on hardened port before post-steps.
 	fmt.Fprintln(os.Stderr, "==> verify SSH key-only on", o.SecondaryHost+":"+day2Port)
 	if out, err := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err != nil {
 		return fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w\n%s", o.SecondaryHost, day2Port, err, out)
@@ -164,7 +160,6 @@ func DeploySecondary(o SecondaryOpts) error {
 		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
 	}
 
-	// SEC-03: svc-paths required for tunnel-only agent plane.
 	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths bootstrap (SP/PS)")
 	primIP, secIP := o.PrimaryHost, o.SecondaryHost
 	pre := fmt.Sprintf(
@@ -216,11 +211,9 @@ func DeploySecondary(o SecondaryOpts) error {
 	if errP2 != nil || !strings.Contains(outP2, "PRIMARY_SP_OK") {
 		return fmt.Errorf("svc-paths primary SP/PS units: %v\n%s", errP2, outP2)
 	}
-	// Best-effort: prefer ssh.service over socket on :22 (SEC-17 — warn only if check fails later)
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
 		`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
 		o.PrimaryKeyPassphrase)
-	// SEC-17: :22 must not accept key login after socket disable.
 	if out22, err22 := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err22 == nil {
 		return fmt.Errorf("SSH still reachable on :22 after harden (expected key-only :%s only)", day2Port)
 	} else {
@@ -230,18 +223,20 @@ func DeploySecondary(o SecondaryOpts) error {
 		"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; ufw allow 8445/tcp 2>/dev/null; true",
 		o.PrimaryKeyPassphrase)
 
-	// Wait for agent heartbeat via primary registry (tunnel URL should be active).
 	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
 	if pack.AgentID == "" {
 		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")
 	}
-	// Wait for THIS agent id, not any online row (R5). Status line: id\\tname\\tonline\\tip=...
+	// Exact field match: $1 == AgentID && $3 == online (not substring grep).
 	waitCmd := fmt.Sprintf(`ok=0
 id=%s
 for i in $(seq 1 12); do
   st=$(netductor secondary status 2>/dev/null || true)
   echo "$st"
-  echo "$st" | grep -F "$id" | grep -q "$(printf '\t')online$(printf '\t')" && ok=1 && break
+  if printf '%%s\n' "$st" | awk -F '\t' -v id="$id" '$1 == id && $3 == "online" { found=1 } END { exit !found }'; then
+    ok=1
+    break
+  fi
   sleep 5
 done
 test "$ok" = 1`, ShellQuote(pack.AgentID))
@@ -251,13 +246,18 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	// Prefer registry PublicIP for this agent so preferred matches clientcfg (R9).
+	// preferred_secondary_ip: only from matching AgentID row; write only if IPv4.
 	prefCmd := fmt.Sprintf(`id=%s
 fallback=%s
-line=$(netductor secondary status 2>/dev/null | grep -F "$id" | head -1)
+line=$(netductor secondary status 2>/dev/null | awk -F '\t' -v id="$id" '$1 == id { print; exit }')
 ip=$(printf '%%s\n' "$line" | awk -F'\t' '{for(i=1;i<=NF;i++) if($i ~ /^ip=/){sub(/^ip=/,"",$i); print $i; exit}}')
 case "$ip" in
-  ""|*[!0-9.]*) ip=$fallback ;;
+  ""|*[!0-9.]*)
+    case "$fallback" in
+      *[!0-9.]*) echo "preferred_secondary_ip: no IPv4 (skip)"; exit 0 ;;
+      *) ip=$fallback ;;
+    esac
+    ;;
 esac
 mkdir -p /etc/netductor/secrets
 printf '%%s\n' "$ip" > /etc/netductor/preferred_secondary_ip
@@ -268,7 +268,7 @@ true`, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
 	if outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prefCmd, o.PrimaryKeyPassphrase); errP != nil {
 		fmt.Fprintln(os.Stderr, "warn preferred_secondary_ip:", errP, outP)
 	} else {
-		fmt.Fprintln(os.Stderr, "==> preferred_secondary_ip =", o.SecondaryHost)
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP))
 	}
 
 	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
