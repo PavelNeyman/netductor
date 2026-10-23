@@ -39,17 +39,18 @@ type PrimarySpec struct {
 }
 
 // SecondarySpec is the deploy-secondary use-case input.
+// JSON tags match Web /v1/secondary and job params (snake_case).
 type SecondarySpec struct {
-	PrimaryHost          string
-	PrimaryUser          string
-	PrimaryKey           string
-	PrimaryKeyPassphrase string
-	SecondaryHost        string
-	SecondaryUser        string
-	SecondaryPass        string
-	SecondarySSHKey      string
-	SNI                  string
-	OperatorPubKey       string
+	PrimaryHost          string `json:"primary_host"`
+	PrimaryUser          string `json:"primary_user"`
+	PrimaryKey           string `json:"primary_key"`
+	PrimaryKeyPassphrase string `json:"primary_key_passphrase"`
+	SecondaryHost        string `json:"secondary_host"`
+	SecondaryUser        string `json:"secondary_user"`
+	SecondaryPass        string `json:"secondary_password"`
+	SecondarySSHKey      string `json:"secondary_ssh_key"`
+	SNI                  string `json:"sni"`
+	OperatorPubKey       string `json:"operator_pubkey"`
 }
 
 // FleetSpec runs ordered primary then secondary (Mac operator).

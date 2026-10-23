@@ -133,12 +133,18 @@ func subtleConstEq(a, b string) bool {
 	return v == 0
 }
 
-func strParam(p map[string]any, k string) string {
+func strParam(p map[string]any, keys ...string) string {
 	if p == nil {
 		return ""
 	}
-	v, _ := p[k].(string)
-	return strings.TrimSpace(v)
+	for _, k := range keys {
+		if v, ok := p[k].(string); ok {
+			if s := strings.TrimSpace(v); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 func boolParam(p map[string]any, k string, def bool) bool {
@@ -408,7 +414,26 @@ func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	if err := json.Unmarshal(b, &s); err != nil {
 		return nil, err
 	}
-	setStep(jobs.Step{ID: "secondary", Message: "deploy secondary"})
+	// Accept alternate keys from older UI / TUI field names.
+	if s.SecondaryHost == "" {
+		s.SecondaryHost = strParam(j.Params, "secondary_host", "SecondaryHost", "host", "sec_host")
+	}
+	if s.PrimaryHost == "" {
+		s.PrimaryHost = strParam(j.Params, "primary_host", "PrimaryHost")
+	}
+	if s.PrimaryKey == "" {
+		s.PrimaryKey = strParam(j.Params, "primary_key", "PrimaryKey", "key")
+	}
+	if s.SecondaryPass == "" {
+		s.SecondaryPass = strParam(j.Params, "secondary_password", "SecondaryPass", "password", "sec_password")
+	}
+	if s.SecondaryUser == "" {
+		s.SecondaryUser = strParam(j.Params, "secondary_user", "user")
+	}
+	if s.SecondaryUser == "" {
+		s.SecondaryUser = "root"
+	}
+	setStep(jobs.Step{ID: "secondary", Message: "deploy secondary on " + s.SecondaryHost})
 	done := make(chan error, 1)
 	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeploySecondary(s) }) }()
 	select {
