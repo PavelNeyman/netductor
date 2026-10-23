@@ -42,6 +42,14 @@ func FleetDeployWithReport(f FleetSpec, r Reporter) error {
 		return fmt.Errorf("fleet: nothing selected (primary and/or secondary and/or build)")
 	}
 	var primaryHost, primaryUser, primaryKey, keyPass string
+	// Seed from fleet Primary even when DoPrimary=false (secondary-only / build-only).
+	primaryHost = strings.TrimSpace(f.Primary.Host)
+	primaryUser = strings.TrimSpace(f.Primary.User)
+	if primaryUser == "" {
+		primaryUser = "root"
+	}
+	primaryKey = expandHome(strings.TrimSpace(f.Primary.SSHPrivateKey))
+	keyPass = f.Primary.KeyPassphrase
 	if f.DoPrimary {
 		report(r, "primary", "deploy primary")
 		s := f.Primary
@@ -75,6 +83,10 @@ func FleetDeployWithReport(f FleetSpec, r Reporter) error {
 		if sec.PrimaryKey == "" {
 			sec.PrimaryKey = primaryKey
 		}
+		if sec.PrimaryKey == "" {
+			sec.PrimaryKey = defaultOperatorKeyPath()
+		}
+		sec.PrimaryKey = expandHome(sec.PrimaryKey)
 		if sec.PrimaryKeyPassphrase == "" {
 			sec.PrimaryKeyPassphrase = keyPass
 		}

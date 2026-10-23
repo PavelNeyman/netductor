@@ -361,11 +361,9 @@ func runEdgeOfflinePrep(ctx context.Context, j *jobs.Job, appendLog func(string)
 }
 
 func runFleetDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
-	// Params expected as JSON-shaped fleet fields; decode via round-trip.
-	b, _ := json.Marshal(j.Params)
-	var f FleetSpec
-	if err := json.Unmarshal(b, &f); err != nil {
-		return nil, fmt.Errorf("fleet params: %w", err)
+	f, err := NormalizeFleetParams(j.Params)
+	if err != nil {
+		return nil, err
 	}
 	rep := func(st Step) {
 		setStep(jobs.Step{ID: st.ID, Message: st.Message, Done: st.Done, Err: st.Err})
@@ -388,10 +386,15 @@ func runFleetDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), se
 func runPrimaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
 	b, _ := json.Marshal(j.Params)
 	var s PrimarySpec
-	if err := json.Unmarshal(b, &s); err != nil {
-		return nil, err
+	_ = json.Unmarshal(b, &s)
+	// Web flat snake_case (overrides empty fields from untyped decode).
+	flat := PrimaryFromFlatParams(j.Params)
+	mergePrimary(&s, flat)
+	if s.Host == "" {
+		return nil, fmt.Errorf("primary host required")
 	}
-	setStep(jobs.Step{ID: "primary", Message: "deploy primary"})
+	s.SSHPrivateKey = expandHome(s.SSHPrivateKey)
+	setStep(jobs.Step{ID: "primary", Message: "deploy primary on " + s.Host})
 	ApplyDomainFlags(&s)
 	done := make(chan error, 1)
 	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeployPrimary(s) }) }()
@@ -423,6 +426,12 @@ func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	}
 	if s.PrimaryKey == "" {
 		s.PrimaryKey = strParam(j.Params, "primary_key", "PrimaryKey", "key")
+	}
+	if s.PrimaryKeyPassphrase == "" {
+		s.PrimaryKeyPassphrase = strParam(j.Params, "primary_key_passphrase", "key_passphrase", "key_pass")
+	}
+	if s.SNI == "" {
+		s.SNI = strParam(j.Params, "sni", "SNI")
 	}
 	if s.SecondaryPass == "" {
 		s.SecondaryPass = strParam(j.Params, "secondary_password", "SecondaryPass", "password", "sec_password")

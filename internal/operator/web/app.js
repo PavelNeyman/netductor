@@ -440,7 +440,7 @@ document.getElementById('form-build')&&(document.getElementById('form-build').on
 });
 
 document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
-  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password') }, e.submitter); };
+  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), primary_key_passphrase:(fd.get('primary_key_passphrase')||fd.get('key_passphrase')||''), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'), sni:(fd.get('sni')||'api.vk.me') }, e.submitter); };
 document.getElementById('form-site').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('site',fd);
   await streamPost('/v1/site',{
     site_id:fd.get('site_id'), name:fd.get('name'), rpi_id:fd.get('rpi_id'), mikrotik_id:fd.get('mikrotik_id'),
