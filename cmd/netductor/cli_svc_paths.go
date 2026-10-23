@@ -56,14 +56,7 @@ func runSvcPaths(args []string) {
 		}
 		prim := strings.TrimSpace(os.Getenv("NETDUCTOR_PUBLIC_IP"))
 		if prim == "" {
-			// best-effort
-			out, _ := os.ReadFile("/etc/netductor/public_hostname")
-			_ = out
 			prim = "0.0.0.0"
-		}
-		// discover primary public IP
-		if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
-			prim = strings.TrimSpace(string(b))
 		}
 		if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
 			if p := strings.TrimSpace(string(b)); p != "" {
@@ -81,9 +74,10 @@ func runSvcPaths(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		// R2: stdout is what deploy SCPs to secondary — never emit primary private keys.
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		_ = enc.Encode(m)
+		_ = enc.Encode(m.ForSecondary())
 	case "bootstrap-secondary":
 		path := ""
 		for i := 1; i < len(args); i++ {
@@ -176,7 +170,6 @@ func runSvcFailover(args []string) {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(map[string]any{"policy": p, "state": s})
 	case "tick":
-		// probe + state machine + apply (secondary); primary only advances from health file
 		s, sum, err := svcpaths.RunSecondaryCycle()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -206,7 +199,6 @@ func runSvcFailover(args []string) {
 		_ = svcpaths.SavePolicy(p)
 		fmt.Printf("users_to_sp_on_vless_down=%v\n", on)
 	default:
-		// allow threshold tweaks: fail-threshold N
 		if args[0] == "fail-threshold" && len(args) > 1 {
 			n, _ := strconv.Atoi(args[1])
 			p := svcpaths.LoadPolicy()
