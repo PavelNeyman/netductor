@@ -144,37 +144,50 @@ func DisablePasswordAuth(client *ssh.Client) error {
 // HardenSSH = InstallOperatorKeys + DisablePasswordAuth (legacy one-shot).
 
 // RemoteJoin installs netductor binary + joins with bundle JSON.
+// Binary is verified against GitHub release SHA256SUMS when available.
 func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
-	escaped := strings.ReplaceAll(bundleJSON, "'", `'"'"'`)
 	ver := version.Release
-	script := fmt.Sprintf("set -e\n"+
-		"export DEBIAN_FRONTEND=noninteractive\n"+
-		"VER=%s\n"+
-		"TD=$(mktemp -d /tmp/nd-join.XXXXXX)\n"+
-		"chmod 700 \"$TD\"\n"+
-		"trap 'rm -rf \"$TD\"' EXIT\n"+
-		"dl() {\n"+
-		"  u=\"https://github.com/PavelNeyman/netductor/releases/download/v$1/netductor-linux-amd64\"\n"+
-		"  if command -v curl >/dev/null 2>&1; then curl -fsSL -o \"$TD/netductor.new\" \"$u\"\n"+
-		"  else wget -qO \"$TD/netductor.new\" \"$u\"; fi\n"+
-		"}\n"+
-		"dl \"$VER\" || { echo \"download netductor v$VER failed\" >&2; exit 1; }\n"+
-		"systemctl stop netductor-secondary-agent 2>/dev/null || true\n"+
-		"install -m 755 \"$TD/netductor.new\" /usr/local/bin/netductor\n"+
-		"cat > /root/bundle.json << 'BUNDLE_EOF'\n"+
-		"%s\n"+
-		"BUNDLE_EOF\n"+
-		"netductor secondary join /root/bundle.json\n"+
-		"systemctl is-active sing-box || true\n"+
-		"systemctl is-active netductor-secondary-agent || true\n"+
-		"ss -tlnp | grep -E ':443' || true\n",
-		ver, escaped)
+	b64 := base64.StdEncoding.EncodeToString([]byte(bundleJSON))
+	script := fmt.Sprintf(`set -e
+export DEBIAN_FRONTEND=noninteractive
+VER=%s
+TD=$(mktemp -d /tmp/nd-join.XXXXXX)
+chmod 700 "$TD"
+trap 'rm -rf "$TD"' EXIT
+ASSET="netductor-linux-amd64"
+BASE="https://github.com/PavelNeyman/netductor/releases/download/v${VER}"
+dl() {
+  if command -v curl >/dev/null 2>&1; then curl -fsSL -o "$1" "$2"
+  else wget -qO "$1" "$2"; fi
+}
+dl "$TD/$ASSET" "$BASE/$ASSET" || { echo "download $ASSET v$VER failed" >&2; exit 1; }
+# Prefer SHA256SUMS from the same release (optional network failure → refuse)
+if dl "$TD/SHA256SUMS" "$BASE/SHA256SUMS"; then
+  EXPECT=$(grep -E "[[:space:]]${ASSET}$" "$TD/SHA256SUMS" | awk '{print $1}' | head -1)
+  if [ -z "$EXPECT" ]; then echo "SHA256SUMS missing $ASSET" >&2; exit 1; fi
+  GOT=$(sha256sum "$TD/$ASSET" | awk '{print $1}')
+  if [ "$GOT" != "$EXPECT" ]; then echo "SHA256 mismatch: got $GOT want $EXPECT" >&2; exit 1; fi
+else
+  echo "SHA256SUMS download failed — refuse install without checksum" >&2
+  exit 1
+fi
+systemctl stop netductor-secondary-agent 2>/dev/null || true
+install -m 755 "$TD/$ASSET" /usr/local/bin/netductor
+echo '%s' | base64 -d > /root/bundle.json
+chmod 600 /root/bundle.json
+netductor secondary join /root/bundle.json
+# Strict unit checks (no || true)
+test "$(systemctl is-active sing-box)" = "active"
+test "$(systemctl is-active netductor-secondary-agent)" = "active"
+ss -tlnp | grep -qE ':443\\b'
+`, ver, b64)
 	return runSSH(client, script)
 }
 
+
 func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) error {
 	if len(ca) == 0 || len(cert) == 0 || len(key) == 0 {
-		return nil
+		return fmt.Errorf("mTLS material incomplete (ca=%d cert=%d key=%d bytes)", len(ca), len(cert), len(key))
 	}
 	enc := func(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 	script := fmt.Sprintf("set -e\n"+
@@ -196,6 +209,9 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	if err != nil {
 		return nil, err
 	}
+	if len(in.MTLSCA) == 0 || len(in.MTLSCert) == 0 || len(in.MTLSKey) == 0 {
+		return nil, fmt.Errorf("mTLS material required before secondary provision (ca=%d cert=%d key=%d)", len(in.MTLSCA), len(in.MTLSCert), len(in.MTLSKey))
+	}
 	client, err := sshClient(in)
 	if err != nil {
 		return nil, fmt.Errorf("ssh dial: %w", err)
@@ -208,25 +224,33 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	}
 	log.WriteString("operator pubkey installed (password still on)\n")
 	if err := installMTLSMaterial(client, in.MTLSCA, in.MTLSCert, in.MTLSKey); err != nil {
-		log.WriteString("mtls material: " + err.Error() + "\n")
-	} else if len(in.MTLSCert) > 0 {
-		log.WriteString("mtls client material installed\n")
+		return nil, fmt.Errorf("mtls material: %w", err)
 	}
+	log.WriteString("mtls client material installed\n")
 	out, err := RemoteJoin(client, bundleJSON)
 	log.WriteString(out)
 	pubJoined := strings.Join(keys, "\n")
 	if err != nil {
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("join: %w\n%s", err, out)
 	}
+	// Strict post-join checks (RemoteJoin already tests units; re-verify)
+	sbOut, sbErr := runSSH(client, `test "$(systemctl is-active sing-box)" = "active"`)
+	agOut, agErr := runSSH(client, `test "$(systemctl is-active netductor-secondary-agent)" = "active"`)
+	_, p443 := runSSH(client, `ss -tlnp | grep -qE ':443\b'`)
+	agentOK := agErr == nil
+	singOK := sbErr == nil && p443 == nil
+	if !agentOK || !singOK {
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: agentOK, SingBoxOK: singOK},
+			fmt.Errorf("post-join services not healthy: agent_ok=%v singbox_ok=%v sb=%s ag=%s", agentOK, singOK, strings.TrimSpace(sbOut), strings.TrimSpace(agOut))
+	}
 	if err := DisablePasswordAuth(client); err != nil {
 		log.WriteString("disable password: " + err.Error() + "\n")
-		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(),
-			AgentOK: strings.Contains(out, "active"), SingBoxOK: strings.Contains(out, "443"),
-		}, fmt.Errorf("join ok but disable password failed: %w", err)
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
+			fmt.Errorf("join ok but disable password failed: %w", err)
 	}
 	log.WriteString("password auth disabled (harden-last)\n")
 	return &ProvisionResult{
 		Host: in.Host, PublicKey: pubJoined, Log: log.String(),
-		AgentOK: strings.Contains(out, "active"), SingBoxOK: strings.Contains(out, "443"),
+		AgentOK: true, SingBoxOK: true,
 	}, nil
 }

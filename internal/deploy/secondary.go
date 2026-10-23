@@ -47,8 +47,7 @@ type secondaryPack struct {
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
 func DeploySecondary(o SecondaryOpts) error {
-	// Primary is day-2 on 52222 after harden; secondary first hop forces :22 below.
-	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+	// Ports are passed explicitly (runSSHOnPort / ProvisionIn.Port) — no process-global NETDUCTOR_SSH_PORT.
 	if o.PrimaryHost == "" || o.PrimaryKey == "" {
 		return fmt.Errorf("primary host and SSH key required")
 	}
@@ -94,7 +93,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost)
 
 	prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
-	out, err := runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
+	out, err := runSSHOnPort("52222", "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 	if err != nil {
 		return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
 	}
@@ -123,18 +122,8 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("mtls key: %w", err)
 	}
 
-	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
-	// Secondary first login is :22; do not use primary's 52222 env for this leg.
-	prevPort := os.Getenv("NETDUCTOR_SSH_PORT")
-	_ = os.Setenv("NETDUCTOR_SSH_PORT", "22")
-	defer func() {
-		if prevPort != "" {
-			_ = os.Setenv("NETDUCTOR_SSH_PORT", prevPort)
-		} else {
-			_ = os.Unsetenv("NETDUCTOR_SSH_PORT")
-		}
-	}()
 
+	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
 	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
 		Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
 		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
@@ -147,70 +136,115 @@ func DeploySecondary(o SecondaryOpts) error {
 	if err != nil {
 		return fmt.Errorf("secondary provision: %w", err)
 	}
+	if res == nil || !res.AgentOK || !res.SingBoxOK {
+		return fmt.Errorf("secondary provision: agent/sing-box not healthy after join")
+	}
 
-	// post: sync/fleet on primary
-	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
+	const day2Port = "52222"
+	// SEC-06: verify operator key on hardened port before post-steps.
+	fmt.Fprintln(os.Stderr, "==> verify SSH key-only on", o.SecondaryHost+":"+day2Port)
+	if out, err := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err != nil {
+		return fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w\n%s", o.SecondaryHost, day2Port, err, out)
+	}
+
 	fmt.Fprintln(os.Stderr, "==> primary: secondary sync + fleet status")
-	out, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
-		"netductor secondary sync; netductor fleet bootstrap 2>/dev/null; netductor fleet status",
+	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
+		"netductor secondary sync && netductor fleet status",
 		o.PrimaryKeyPassphrase)
 	fmt.Print(out)
+	if err != nil {
+		return fmt.Errorf("primary secondary sync: %w\n%s", err, out)
+	}
 
-	// credentials: after harden SSH is on :52222 (same as primary)
-	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, o.PrimaryKey, o.PrimaryKeyPassphrase); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: credentials collect:", err)
 	} else {
 		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
 	}
-	// Service plane SP/PS (canonical dual WG-over-WSS) — required with secondary.
+
+	// SEC-03: svc-paths required for tunnel-only agent plane.
 	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths bootstrap (SP/PS)")
-	_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
 	primIP, secIP := o.PrimaryHost, o.SecondaryHost
-	pre := fmt.Sprintf("mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths bootstrap-primary --peer-ip %s", ShellQuote(primIP), ShellQuote(secIP))
-	out, err = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
+	pre := fmt.Sprintf(
+		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths bootstrap-primary --peer-ip %s",
+		ShellQuote(primIP), ShellQuote(secIP),
+	)
+	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "warn svc-paths primary:", err, out)
-	} else {
-		raw := out
-		if idx := strings.Index(out, "{"); idx >= 0 {
-			raw = out[idx:]
-		}
-		tmp := filepath.Join(os.TempDir(), "nd-svc-material.json")
-		_ = os.WriteFile(tmp, []byte(raw), 0o600)
-		// Prefer :52222; if secondary still has ssh.socket on :22, fall back
-		if err := runSCP("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmp, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase); err != nil {
-			fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", err, "— retry :22")
-			_ = os.Setenv("NETDUCTOR_SSH_PORT", "22")
-			if err2 := runSCP("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmp, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase); err2 != nil {
-				fmt.Fprintln(os.Stderr, "warn svc-paths scp material:", err2)
-			} else {
-				err = nil
-			}
-		}
-		if err == nil {
-			out2, err2 := runSSH("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
-				"netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json; rm -f /tmp/nd-svc-material.json; sleep 2; ping -c1 -W3 10.87.10.1 || true",
-				o.PrimaryKeyPassphrase)
-			fmt.Print(out2)
-			if err2 != nil {
-				fmt.Fprintln(os.Stderr, "warn svc-paths secondary:", err2)
-			}
-			// Force ssh.service only (kill ssh.socket :22)
-			_, _ = runSSH("", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
-				`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
-				o.PrimaryKeyPassphrase)
-		}
-		_ = os.Setenv("NETDUCTOR_SSH_PORT", "52222")
-		_ = os.Remove(tmp)
-		_, _ = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
-			"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; true",
+		return fmt.Errorf("svc-paths bootstrap-primary: %w\n%s", err, out)
+	}
+	raw = out
+	if idx := strings.Index(out, "{"); idx >= 0 {
+		raw = out[idx:]
+	}
+	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
+	if errTmp != nil {
+		return fmt.Errorf("svc-paths temp file: %w", errTmp)
+	}
+	tmpPath := tmpFile.Name()
+	_, _ = tmpFile.Write([]byte(raw))
+	_ = tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	scpErr := runSCPOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase)
+	if scpErr != nil {
+		fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", scpErr, "— retry :22")
+		scpErr = runSCPOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase)
+	}
+	if scpErr != nil {
+		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
+	}
+	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
+		"netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json; rm -f /tmp/nd-svc-material.json; "+
+			`test -f /etc/netductor/secrets/secondary_core_url; grep -q '10.87.10.1' /etc/netductor/secrets/secondary_core_url; `+
+			"ping -c1 -W3 10.87.10.1",
+		o.PrimaryKeyPassphrase)
+	fmt.Print(out2)
+	if err2 != nil {
+		// try :22 if day2 not yet exclusive
+		out2b, err2b := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
+			"netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json; rm -f /tmp/nd-svc-material.json; "+
+				`test -f /etc/netductor/secrets/secondary_core_url; grep -q '10.87.10.1' /etc/netductor/secrets/secondary_core_url; `+
+				"ping -c1 -W3 10.87.10.1",
 			o.PrimaryKeyPassphrase)
+		fmt.Print(out2b)
+		if err2b != nil {
+			return fmt.Errorf("svc-paths bootstrap-secondary: %w\n%s", err2b, out2b)
+		}
+	}
+	// Best-effort: prefer ssh.service over socket on :22 (SEC-17 — warn only if check fails later)
+	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
+		`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
+		o.PrimaryKeyPassphrase)
+	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
+		"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; ufw allow 8445/tcp 2>/dev/null; true",
+		o.PrimaryKeyPassphrase)
+
+	// Wait for agent heartbeat via primary registry (tunnel URL should be active).
+	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
+	waitCmd := fmt.Sprintf(
+		`ok=0; for i in 1 2 3 4 5 6 7 8 9 10; do netductor secondary status 2>/dev/null | grep -F %s | grep -q online && ok=1 && break; sleep 3; done; test "$ok" = 1`,
+		ShellQuote(o.SecondaryHost),
+	)
+	// status lines use agent id not always IP — also accept any online after our deploy
+	waitCmd = `ok=0; for i in $(seq 1 12); do
+  st=$(netductor secondary status 2>/dev/null || true)
+  echo "$st"
+  echo "$st" | grep -qi online && ok=1 && break
+  sleep 5
+done
+test "$ok" = 1`
+	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
+	fmt.Print(out)
+	if err != nil {
+		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS + svc-paths)")
+	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
+	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS) — see docs")
 	return nil
 }
+
 
 func expandUserPath(p string) string {
 	p = strings.TrimSpace(p)
