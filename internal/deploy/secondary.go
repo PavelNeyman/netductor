@@ -124,6 +124,9 @@ func DeploySecondary(o SecondaryOpts) error {
 
 
 	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
+	if o.SecondaryPass != "" {
+		ClearHostKeys(o.SecondaryHost)
+	}
 	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
 		Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
 		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
@@ -216,6 +219,12 @@ func DeploySecondary(o SecondaryOpts) error {
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
 		`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
 		o.PrimaryKeyPassphrase)
+	// SEC-17: :22 must not accept key login after socket disable.
+	if out22, err22 := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err22 == nil {
+		return fmt.Errorf("SSH still reachable on :22 after harden (expected key-only :%s only)", day2Port)
+	} else {
+		_ = out22
+	}
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
 		"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; ufw allow 8445/tcp 2>/dev/null; true",
 		o.PrimaryKeyPassphrase)
@@ -240,8 +249,20 @@ test "$ok" = 1`
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
+	prefCmd := fmt.Sprintf(
+		"mkdir -p /etc/netductor/secrets; printf '%%s\n' %s > /etc/netductor/preferred_secondary_ip; printf '%%s\n' %s > /etc/netductor/secrets/preferred_secondary_ip; chmod 600 /etc/netductor/preferred_secondary_ip /etc/netductor/secrets/preferred_secondary_ip 2>/dev/null; true",
+		ShellQuote(o.SecondaryHost), ShellQuote(o.SecondaryHost),
+	)
+	if outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prefCmd, o.PrimaryKeyPassphrase); errP != nil {
+		fmt.Fprintln(os.Stderr, "warn preferred_secondary_ip:", errP, outP)
+	} else {
+		fmt.Fprintln(os.Stderr, "==> preferred_secondary_ip =", o.SecondaryHost)
+	}
+
 	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
-	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS) — see docs")
+	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS)")
+	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
+	fmt.Fprintln(os.Stderr, "    legacy /vpn/.../subscription is 410 — use VLESS/core links or TG")
 	return nil
 }
 

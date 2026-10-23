@@ -37,7 +37,21 @@ type relayDevFile struct {
 	} `json:"devices"`
 }
 
-func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI string } {
+func preferredSecondaryIP() string {
+	for _, rel := range []string{
+		filepath.Join(paths.EtcDir(), "preferred_secondary_ip"),
+		filepath.Join(paths.EtcDir(), "secrets", "preferred_secondary_ip"),
+	} {
+		if b, err := os.ReadFile(rel); err == nil {
+			if s := strings.TrimSpace(string(b)); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 	b, err := os.ReadFile(paths.SecondaryDevicesFile())
 	if err != nil {
 		return nil
@@ -47,7 +61,8 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI string } {
 		return nil
 	}
 	now := time.Now().UTC()
-	var out []struct{ Host, PBK, SID, SNI string }
+	type row struct{ Host, PBK, SID, SNI, PublicIP string }
+	var out []row
 	for _, d := range f.Devices {
 		if d.PublicIP == "" || d.PBK == "" {
 			continue
@@ -63,9 +78,25 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI string } {
 		if h := vpnAdvertiseHost(); h != "" {
 			host = h
 		}
-		out = append(out, struct{ Host, PBK, SID, SNI string }{host, d.PBK, d.SID, sniName})
+		out = append(out, row{host, d.PBK, d.SID, sniName, d.PublicIP})
 	}
-	return out
+	// Preferred public IP first (migration / dual-S policy).
+	if pref := preferredSecondaryIP(); pref != "" && len(out) > 1 {
+		var head, tail []row
+		for _, r := range out {
+			if r.PublicIP == pref {
+				head = append(head, r)
+			} else {
+				tail = append(tail, r)
+			}
+		}
+		out = append(head, tail...)
+	}
+	res := make([]struct{ Host, PBK, SID, SNI, PublicIP string }, len(out))
+	for i, r := range out {
+		res[i] = struct{ Host, PBK, SID, SNI, PublicIP string }{r.Host, r.PBK, r.SID, r.SNI, r.PublicIP}
+	}
+	return res
 }
 
 func loadOnlineSecondary() (host, pbk, sid, sniName string) {
