@@ -363,7 +363,7 @@ func TestRecoverIndexFailedJournalErrorJoined(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	es := err.Error()
-	if !strings.Contains(es, "disk full") || !strings.Contains(es, "journal full") && !strings.Contains(es, "index_failed") {
+	if !strings.Contains(es, "disk full") || !strings.Contains(es, "journal full") {
 		t.Fatalf("want both errors: %v", err)
 	}
 	if bootCalls != 1 {
@@ -411,5 +411,58 @@ func TestPeerPromoteSecretsFileWritten(t *testing.T) {
 	b, err := os.ReadFile(preferredIPSecretsPath)
 	if err != nil || string(b) != "203.0.113.2\n" {
 		t.Fatalf("secrets preferred %v %q", err, b)
+	}
+}
+
+
+func TestPeerPromoteActiveFileFailRollsBack(t *testing.T) {
+	withTestRoot(t)
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
+	}, ActiveID: "old"}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(activePeerPathFile(), []byte("old\n"), 0o644)
+	// replace active path with a directory so WriteFile fails after SavePeersIndex
+	path := activePeerPathFile()
+	_ = os.Remove(path)
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := PeerPromote("p1"); err == nil {
+		t.Fatal("expected fail")
+	}
+	idx2, _ := LoadPeersIndex()
+	if idx2.ActiveID != "old" {
+		t.Fatalf("ActiveID %s", idx2.ActiveID)
+	}
+	if idx2.Find("old").State != "active" || idx2.Find("p1").State != "ready" {
+		t.Fatalf("states %+v", idx2.Peers)
+	}
+}
+
+func TestPeerPromoteClearsPreferredWhenNoneBefore(t *testing.T) {
+	withTestRoot(t)
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
+	}}
+	_ = SavePeersIndex(idx)
+	// no preferred files before
+	// force secrets write fail after preferred wrote
+	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
+	sec := preferredIPSecretsPath
+	_ = os.Remove(sec)
+	if err := os.Mkdir(sec, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := PeerPromote("p1"); err == nil {
+		t.Fatal("expected fail")
+	}
+	if _, err := os.Stat(preferredIPPath); !os.IsNotExist(err) {
+		// preferred should be removed because it did not exist before
+		b, _ := os.ReadFile(preferredIPPath)
+		t.Fatalf("preferred should be absent, got %q err=%v", b, err)
 	}
 }

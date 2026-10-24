@@ -331,11 +331,83 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 	return fmt.Errorf("peer %s not found", peerID)
 }
 
-// PeerPromote requires state ready (or already active). Writes registry + active + preferred atomically-ish.
+// promoteSnap is pre-promote disk/registry state for full rollback.
+type promoteSnap struct {
+	Index              *PeersIndex
+	ActiveIDFile       string // content including newline, or "" if missing
+	ActiveIDExisted    bool
+	Preferred          string
+	PreferredExisted   bool
+	PreferredSecrets   string
+	SecretsExisted     bool
+}
+
+func snapshotPromote() (*promoteSnap, error) {
+	idx, err := LoadPeersIndex()
+	if err != nil {
+		return nil, err
+	}
+	// deep-ish copy peers slice
+	cp := *idx
+	cp.Peers = append([]ServicePeer(nil), idx.Peers...)
+	s := &promoteSnap{Index: &cp}
+	if b, err := os.ReadFile(activePeerPathFile()); err == nil {
+		s.ActiveIDFile = string(b)
+		s.ActiveIDExisted = true
+	}
+	if b, err := os.ReadFile(preferredIPPath); err == nil {
+		s.Preferred = string(b)
+		s.PreferredExisted = true
+	}
+	if b, err := os.ReadFile(preferredIPSecretsPath); err == nil {
+		s.PreferredSecrets = string(b)
+		s.SecretsExisted = true
+	}
+	return s, nil
+}
+
+func restoreFile(path, content string, existed bool, mode os.FileMode) error {
+	if !existed {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), mode)
+}
+
+func rollbackPromoteSnap(snap *promoteSnap) error {
+	if snap == nil || snap.Index == nil {
+		return fmt.Errorf("nil promote snapshot")
+	}
+	var errs []error
+	if err := SavePeersIndex(snap.Index); err != nil {
+		errs = append(errs, fmt.Errorf("restore peers index: %w", err))
+	}
+	if err := restoreFile(activePeerPathFile(), snap.ActiveIDFile, snap.ActiveIDExisted, 0o644); err != nil {
+		errs = append(errs, fmt.Errorf("restore active_peer_id: %w", err))
+	}
+	if err := restoreFile(preferredIPPath, snap.Preferred, snap.PreferredExisted, 0o644); err != nil {
+		errs = append(errs, fmt.Errorf("restore preferred: %w", err))
+	}
+	if err := restoreFile(preferredIPSecretsPath, snap.PreferredSecrets, snap.SecretsExisted, 0o600); err != nil {
+		errs = append(errs, fmt.Errorf("restore preferred secrets: %w", err))
+	}
+	return errors.Join(errs...)
+}
+
+// PeerPromote requires state ready (or already active). Writes registry + active + preferred; rolls back full snap on failure.
 func PeerPromote(peerID string) error {
 	peerMu.Lock()
 	defer peerMu.Unlock()
 	if err := validatePeerID(peerID); err != nil {
+		return err
+	}
+	snap, err := snapshotPromote()
+	if err != nil {
 		return err
 	}
 	idx, err := LoadPeersIndex()
@@ -349,8 +421,6 @@ func PeerPromote(peerID string) error {
 	if p.State != "ready" && p.State != "active" {
 		return fmt.Errorf("peer %s state %s — promote only from ready (run peer ready/validate first)", peerID, p.State)
 	}
-	prevActive := idx.ActiveID
-	prevPreferred := readPreferredIP()
 
 	for i := range idx.Peers {
 		if idx.Peers[i].State == "active" {
@@ -366,28 +436,30 @@ func PeerPromote(peerID string) error {
 		return err
 	}
 	if err := os.WriteFile(activePeerPathFile(), []byte(peerID+"\n"), 0o644); err != nil {
-		idx.ActiveID = prevActive
-		_ = SavePeersIndex(idx)
+		rerr := rollbackPromoteSnap(snap)
+		if rerr != nil {
+			return errors.Join(fmt.Errorf("write active_peer_id: %w", err), fmt.Errorf("rollback: %w", rerr))
+		}
 		return fmt.Errorf("write active_peer_id: %w", err)
 	}
 	if p.PublicIP != "" {
 		_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
 		if err := os.WriteFile(preferredIPPath, []byte(p.PublicIP+"\n"), 0o644); err != nil {
-			rerr := rollbackPromote(prevActive, prevPreferred)
+			rerr := rollbackPromoteSnap(snap)
 			if rerr != nil {
 				return errors.Join(fmt.Errorf("preferred_secondary_ip: %w", err), fmt.Errorf("rollback: %w", rerr))
 			}
 			return fmt.Errorf("preferred_secondary_ip: %w", err)
 		}
 		if err := os.WriteFile(preferredIPSecretsPath, []byte(p.PublicIP+"\n"), 0o600); err != nil {
-			rerr := rollbackPromote(prevActive, prevPreferred)
+			rerr := rollbackPromoteSnap(snap)
 			if rerr != nil {
 				return errors.Join(fmt.Errorf("secrets/preferred_secondary_ip: %w", err), fmt.Errorf("rollback: %w", rerr))
 			}
 			return fmt.Errorf("secrets/preferred_secondary_ip: %w", err)
 		}
 	}
-	_ = appendPeerJournal("promote", peerID, "active", "prev="+prevActive)
+	_ = appendPeerJournal("promote", peerID, "active", "prev="+snap.Index.ActiveID)
 	return nil
 }
 
@@ -397,39 +469,6 @@ func readPreferredIP() string {
 		return ""
 	}
 	return strings.TrimSpace(string(b))
-}
-
-func rollbackPromote(prevActive, prevPreferred string) error {
-	var errs []error
-	idx, err := LoadPeersIndex()
-	if err != nil {
-		return err
-	}
-	for i := range idx.Peers {
-		if idx.Peers[i].ID == prevActive {
-			idx.Peers[i].State = "active"
-		} else if idx.Peers[i].State == "active" {
-			idx.Peers[i].State = "ready"
-		}
-	}
-	idx.ActiveID = prevActive
-	if err := SavePeersIndex(idx); err != nil {
-		errs = append(errs, fmt.Errorf("restore peers index: %w", err))
-	}
-	if prevActive != "" {
-		if err := os.WriteFile(activePeerPathFile(), []byte(prevActive+"\n"), 0o644); err != nil {
-			errs = append(errs, fmt.Errorf("restore active_peer_id: %w", err))
-		}
-	}
-	if prevPreferred != "" {
-		if err := os.WriteFile(preferredIPPath, []byte(prevPreferred+"\n"), 0o644); err != nil {
-			errs = append(errs, fmt.Errorf("restore preferred: %w", err))
-		}
-		if err := os.WriteFile(preferredIPSecretsPath, []byte(prevPreferred+"\n"), 0o600); err != nil {
-			errs = append(errs, fmt.Errorf("restore preferred secrets: %w", err))
-		}
-	}
-	return errors.Join(errs...)
 }
 
 // PeerRollback promotes explicit id or first ready peer.

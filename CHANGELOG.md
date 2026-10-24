@@ -1,3 +1,9 @@
+## 0.9.505
+
+- PeerPromote: full registry+files snapshot; rollback restores or deletes active/preferred when absent pre-op.
+- Fix TestRecoverIndexFailedJournalErrorJoined operator precedence.
+- Tests: active_peer_id write fail; preferred cleared when none before.
+
 ## 0.9.504
 
 - Recovery/PeerAdd: join checkpoint errors with bootstrap/index failures (visible).
