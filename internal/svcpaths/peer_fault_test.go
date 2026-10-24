@@ -505,6 +505,20 @@ func TestPeerPromotePreferredFailRestoresExisting(t *testing.T) {
 			t.Fatalf("%s: %v %q", path, err, b)
 		}
 	}
+	modes := map[string]os.FileMode{
+		activePeerPathFile():   0o644,
+		preferredIPPath:        0o644,
+		preferredIPSecretsPath: 0o600,
+	}
+	for path, wantMode := range modes {
+		st, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(path, err)
+		}
+		if st.Mode().Perm() != wantMode {
+			t.Fatalf("%s mode %o want %o", path, st.Mode().Perm(), wantMode)
+		}
+	}
 }
 
 func TestPeerPromoteSecretsFailRemovesNewPreferred(t *testing.T) {
@@ -533,5 +547,33 @@ func TestPeerPromoteSecretsFailRemovesNewPreferred(t *testing.T) {
 	idx2, _ := LoadPeersIndex()
 	if idx2.Find("p1").State != "ready" {
 		t.Fatalf("p1 should stay ready: %+v", idx2)
+	}
+}
+
+func TestPeerPromoteAndRollbackBothFail(t *testing.T) {
+	withTestRoot(t)
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
+	}, ActiveID: "old"}
+	_ = SavePeersIndex(idx)
+	_ = os.WriteFile(activePeerPathFile(), []byte("old\n"), 0o644)
+	_ = os.WriteFile(preferredIPPath, []byte("203.0.113.1\n"), 0o644)
+	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
+	_ = os.WriteFile(preferredIPSecretsPath, []byte("203.0.113.1\n"), 0o600)
+
+	writeFileFn = func(name string, data []byte, perm os.FileMode) error {
+		return fmt.Errorf("write always denied")
+	}
+	err := PeerPromote("p1")
+	if err == nil {
+		t.Fatal("expected fail")
+	}
+	es := err.Error()
+	if !strings.Contains(es, "write always denied") {
+		t.Fatalf("%v", err)
+	}
+	if !strings.Contains(es, "rollback:") {
+		t.Fatalf("expected rollback error joined: %v", err)
 	}
 }

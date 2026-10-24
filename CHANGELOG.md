@@ -1,3 +1,8 @@
+## 0.9.508
+
+- PreferredFailRestoresExisting: assert modes 0644/0644/0600 on all three files.
+- TestPeerPromoteAndRollbackBothFail: promote+rollback dual write failure joins both errors.
+
 ## 0.9.507
 
 - Remove Disabled_* promote tests; restore preferred-fail-with-existing coverage.
