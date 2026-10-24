@@ -170,3 +170,12 @@ netductor secondary prepare-pack    # on primary
 netductor ssh-hosts list|forget|clear
 netductor svc-paths status          # when available on node
 ```
+
+## peer-ops.log (audit, not recovery)
+
+`/etc/netductor/svc-paths/peer-ops.log` records add/ready/promote/remove/recover **for operators**.
+
+- **Source of truth** for recovery: `peers.json`, `peers/<id>/op.json`, `peers/<id>/material.json`, preferred/active files.
+- Journal write failure does **not** roll back a successful plane mutation (promote/add index). stderr warns: `peer-ops journal … plane op already committed`.
+- Do not treat the log as complete audit: lines may be missing after disk errors.
+

@@ -1,3 +1,8 @@
+## 0.9.509
+
+- Document peer-ops.log: diagnostic audit only; recovery uses op.json/peers.json.
+- logPeerJournal: plane success + journal fail → stderr warning, no rollback.
+
 ## 0.9.508
 
 - PreferredFailRestoresExisting: assert modes 0644/0644/0600 on all three files.
