@@ -286,12 +286,35 @@ func runSvcPeer(args []string) {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(mat)
+	case "validate":
+		id := ""
+		if len(args) >= 2 {
+			id = args[1]
+		}
+		vr, err := svcpaths.PeerValidateLocal(id)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(vr)
+		if !vr.OK {
+			os.Exit(1)
+		}
 	case "ready":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "need peer id")
 			os.Exit(2)
 		}
-		if err := svcpaths.PeerMarkReady(args[1]); err != nil {
+		// Default: require validate. --force-ready skips checks (ops escape hatch).
+		req := true
+		for _, a := range args[2:] {
+			if a == "--force-ready" {
+				req = false
+			}
+		}
+		if err := svcpaths.PeerMarkReady(args[1], req); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

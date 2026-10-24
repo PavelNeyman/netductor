@@ -3,6 +3,7 @@
 ```
 netductor svc-paths peer add --peer-ip B_IP [--id peer-b]
 # apply ForSecondary material on B: bootstrap-secondary
+netductor svc-paths peer validate peer-b  # real checks
 netductor svc-paths peer ready peer-b
 netductor svc-paths peer promote peer-b   # preferred_secondary_ip
 # DNS cutover (operator)

@@ -3,12 +3,16 @@ package svcpaths
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var peerIDRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
 
 // PeerAddOpts provisions a new service-plane peer on primary (does not promote).
 type PeerAddOpts struct {
@@ -17,12 +21,30 @@ type PeerAddOpts struct {
 	PrimaryIP string
 }
 
-// PeerAdd allocates a free slot, generates material, applies Primary conf for that peer.
-// Does not change preferred_secondary_ip / active peer.
+func validatePeerID(id string) error {
+	if id == "" {
+		return fmt.Errorf("empty peer id")
+	}
+	if !peerIDRe.MatchString(id) {
+		return fmt.Errorf("invalid peer id %q (use [a-zA-Z0-9_-], max 64)", id)
+	}
+	return nil
+}
+
+func validatePublicIP(ip string) error {
+	if net.ParseIP(ip) == nil {
+		return fmt.Errorf("invalid public IP %q", ip)
+	}
+	return nil
+}
+
+// PeerAdd allocates a free slot, generates material, applies Primary conf for that peer only.
 func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	peerMu.Lock()
 	defer peerMu.Unlock()
-	_ = MigrateLegacyPeerIfNeededUnlocked()
+	if err := MigrateLegacyPeerIfNeededUnlocked(); err != nil {
+		return nil, nil, fmt.Errorf("legacy migrate: %w", err)
+	}
 
 	idx, err := LoadPeersIndex()
 	if err != nil {
@@ -31,8 +53,11 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if o.PeerID == "" {
 		o.PeerID = "peer-" + strings.ReplaceAll(o.PublicIP, ".", "-")
 	}
-	if o.PublicIP == "" {
-		return nil, nil, fmt.Errorf("peer add: need public IP")
+	if err := validatePeerID(o.PeerID); err != nil {
+		return nil, nil, err
+	}
+	if err := validatePublicIP(o.PublicIP); err != nil {
+		return nil, nil, err
 	}
 	if existing := idx.Find(o.PeerID); existing != nil {
 		m, err := loadPeerMaterial(o.PeerID)
@@ -71,11 +96,14 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err := os.WriteFile(peerMaterialPath(o.PeerID), b, 0o600); err != nil {
 		return nil, nil, err
 	}
-	if len(idx.Peers) == 0 {
-		_ = os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600)
-	}
 
-	if err := BootstrapPrimary(m); err != nil {
+	// First peer may seed legacy material.json; later peers must not overwrite it.
+	writeLegacy := len(idx.Peers) == 0
+	if err := BootstrapPrimaryWith(m, BootstrapPrimaryOpts{
+		WriteLegacyMaterial: writeLegacy,
+		ResetPolicy:         writeLegacy, // only seed policy once
+		InstallHealthTimer:  writeLegacy,
+	}); err != nil {
 		return nil, nil, fmt.Errorf("bootstrap primary peer %s: %w", o.PeerID, err)
 	}
 
@@ -88,6 +116,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err := SavePeersIndex(idx); err != nil {
 		return nil, nil, err
 	}
+	_ = appendPeerJournal("add", o.PeerID, "prepared", "")
 	return m.ForSecondary(), &sp, nil
 }
 
@@ -128,6 +157,9 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 	id := "legacy-slot0"
 	if m.Secondary != "" {
 		id = "legacy-" + strings.ReplaceAll(m.Secondary, ".", "-")
+		if err := validatePeerID(id); err != nil {
+			id = "legacy-slot0"
+		}
 	}
 	slot := SlotTable()[0]
 	applySlotToMaterial(m, slot)
@@ -144,14 +176,91 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 		CreatedAt: now, UpdatedAt: now,
 	})
 	idx.ActiveID = id
-	_ = os.WriteFile(activePeerPath, []byte(id+"\n"), 0o644)
+	if err := os.WriteFile(activePeerPath, []byte(id+"\n"), 0o644); err != nil {
+		return err
+	}
 	return SavePeersIndex(idx)
 }
 
-// PeerPromote sets active peer and preferred_secondary_ip (clientcfg).
-func PeerPromote(peerID string) error {
+// PeerValidateResult is the outcome of real readiness checks (run where secondary is reachable).
+type PeerValidateResult struct {
+	PeerID    string   `json:"peer_id"`
+	OK        bool     `json:"ok"`
+	Checks    []string `json:"checks"`
+	Errors    []string `json:"errors,omitempty"`
+	CheckedAt time.Time `json:"checked_at"`
+}
+
+// PeerValidateLocal runs checks on this host (secondary after bootstrap, or primary smoke).
+// On secondary: units, peer pings, :443, core URL. Does not set ready — caller uses PeerMarkReady after OK.
+func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
+	res := &PeerValidateResult{PeerID: peerID, CheckedAt: time.Now().UTC()}
+	add := func(ok bool, msg string) {
+		if ok {
+			res.Checks = append(res.Checks, "OK "+msg)
+		} else {
+			res.Errors = append(res.Errors, msg)
+		}
+	}
+
+	m, err := LoadMaterialStrict()
+	if err != nil {
+		// try peer material on primary
+		if peerID != "" {
+			m, err = loadPeerMaterial(peerID)
+		}
+	}
+	if err != nil {
+		add(false, "material: "+err.Error())
+		res.OK = false
+		return res, nil
+	}
+	_, sSP, _, sPS, _, _, _, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
+	pSP, _, pPS, _, _, _, _, _, _, _ := m.resolvedAddrs()
+	_ = wssPS
+
+	role := hostRole()
+	if role == "secondary" {
+		for _, u := range []string{"nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS} {
+			st, err := exec.Command("systemctl", "is-active", u).CombinedOutput()
+			add(err == nil && strings.TrimSpace(string(st)) == "active", "unit "+u+"="+strings.TrimSpace(string(st)))
+		}
+		add(pingOK(pSP), "ping SP peer "+pSP)
+		add(pingOK(pPS), "ping PS peer "+pPS)
+		add(probeTCP("127.0.0.1", "443", 2*time.Second), "local :443 listener")
+		if b, err := os.ReadFile(coreURLPath); err != nil {
+			add(false, "secondary_core_url missing")
+		} else {
+			add(strings.Contains(string(b), pSP), "core_url targets SP "+pSP)
+		}
+	} else {
+		// primary: this peer's units
+		spUnit := "nd-wss-sp-server"
+		if ifaceSP != "nd-svc-sp" {
+			spUnit = "nd-wss-sp-server-" + ifaceSP
+		}
+		psUnit := "nd-wss-ps-client"
+		if ifacePS != "nd-svc-ps" {
+			psUnit = "nd-wss-ps-client-" + ifacePS
+		}
+		for _, u := range []string{spUnit, psUnit, "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS} {
+			st, err := exec.Command("systemctl", "is-active", u).CombinedOutput()
+			add(err == nil && strings.TrimSpace(string(st)) == "active", "unit "+u+"="+strings.TrimSpace(string(st)))
+		}
+		add(pingOK(sSP), "ping secondary SP "+sSP)
+		add(pingOK(sPS), "ping secondary PS "+sPS)
+	}
+	res.OK = len(res.Errors) == 0
+	return res, nil
+}
+
+// PeerMarkReady sets ready only after successful PeerValidateLocal when requireValidate is true.
+func PeerMarkReady(peerID string, requireValidate bool) error {
 	peerMu.Lock()
 	defer peerMu.Unlock()
+	if err := validatePeerID(peerID); err != nil {
+		return err
+	}
 	idx, err := LoadPeersIndex()
 	if err != nil {
 		return err
@@ -160,6 +269,59 @@ func PeerPromote(peerID string) error {
 	if p == nil {
 		return fmt.Errorf("peer %s not found", peerID)
 	}
+	if requireValidate {
+		// unlock for validate (may take time); re-check after
+		peerMu.Unlock()
+		vr, err := PeerValidateLocal(peerID)
+		peerMu.Lock()
+		if err != nil {
+			return err
+		}
+		if !vr.OK {
+			_ = appendPeerJournal("validate", peerID, "failed", strings.Join(vr.Errors, "; "))
+			return fmt.Errorf("peer %s validate failed: %s", peerID, strings.Join(vr.Errors, "; "))
+		}
+		// reload index
+		idx, err = LoadPeersIndex()
+		if err != nil {
+			return err
+		}
+	}
+	for i := range idx.Peers {
+		if idx.Peers[i].ID == peerID {
+			idx.Peers[i].State = "ready"
+			idx.Peers[i].UpdatedAt = time.Now().UTC()
+			if err := SavePeersIndex(idx); err != nil {
+				return err
+			}
+			_ = appendPeerJournal("ready", peerID, "ready", "")
+			return nil
+		}
+	}
+	return fmt.Errorf("peer %s not found", peerID)
+}
+
+// PeerPromote requires state ready (or already active). Writes registry + active + preferred atomically-ish.
+func PeerPromote(peerID string) error {
+	peerMu.Lock()
+	defer peerMu.Unlock()
+	if err := validatePeerID(peerID); err != nil {
+		return err
+	}
+	idx, err := LoadPeersIndex()
+	if err != nil {
+		return err
+	}
+	p := idx.Find(peerID)
+	if p == nil {
+		return fmt.Errorf("peer %s not found", peerID)
+	}
+	if p.State != "ready" && p.State != "active" {
+		return fmt.Errorf("peer %s state %s — promote only from ready (run peer ready/validate first)", peerID, p.State)
+	}
+	prevActive := idx.ActiveID
+	prevPreferred := readPreferredIP()
+
 	for i := range idx.Peers {
 		if idx.Peers[i].State == "active" {
 			idx.Peers[i].State = "ready"
@@ -173,11 +335,54 @@ func PeerPromote(peerID string) error {
 	if err := SavePeersIndex(idx); err != nil {
 		return err
 	}
-	_ = os.WriteFile(activePeerPath, []byte(peerID+"\n"), 0o644)
+	if err := os.WriteFile(activePeerPath, []byte(peerID+"\n"), 0o644); err != nil {
+		idx.ActiveID = prevActive
+		_ = SavePeersIndex(idx)
+		return fmt.Errorf("write active_peer_id: %w", err)
+	}
 	if p.PublicIP != "" {
 		_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
-		_ = os.WriteFile("/etc/netductor/preferred_secondary_ip", []byte(p.PublicIP+"\n"), 0o644)
-		_ = os.WriteFile("/etc/netductor/secrets/preferred_secondary_ip", []byte(p.PublicIP+"\n"), 0o600)
+		if err := os.WriteFile("/etc/netductor/preferred_secondary_ip", []byte(p.PublicIP+"\n"), 0o644); err != nil {
+			_ = rollbackPromote(prevActive, prevPreferred)
+			return fmt.Errorf("preferred_secondary_ip: %w", err)
+		}
+		if err := os.WriteFile("/etc/netductor/secrets/preferred_secondary_ip", []byte(p.PublicIP+"\n"), 0o600); err != nil {
+			_ = rollbackPromote(prevActive, prevPreferred)
+			return fmt.Errorf("secrets/preferred_secondary_ip: %w", err)
+		}
+	}
+	_ = appendPeerJournal("promote", peerID, "active", "prev="+prevActive)
+	return nil
+}
+
+func readPreferredIP() string {
+	b, err := os.ReadFile("/etc/netductor/preferred_secondary_ip")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+func rollbackPromote(prevActive, prevPreferred string) error {
+	idx, err := LoadPeersIndex()
+	if err != nil {
+		return err
+	}
+	for i := range idx.Peers {
+		if idx.Peers[i].ID == prevActive {
+			idx.Peers[i].State = "active"
+		} else if idx.Peers[i].State == "active" {
+			idx.Peers[i].State = "ready"
+		}
+	}
+	idx.ActiveID = prevActive
+	_ = SavePeersIndex(idx)
+	if prevActive != "" {
+		_ = os.WriteFile(activePeerPath, []byte(prevActive+"\n"), 0o644)
+	}
+	if prevPreferred != "" {
+		_ = os.WriteFile("/etc/netductor/preferred_secondary_ip", []byte(prevPreferred+"\n"), 0o644)
+		_ = os.WriteFile("/etc/netductor/secrets/preferred_secondary_ip", []byte(prevPreferred+"\n"), 0o600)
 	}
 	return nil
 }
@@ -185,6 +390,7 @@ func PeerPromote(peerID string) error {
 // PeerRollback promotes explicit id or first ready peer.
 func PeerRollback(toPeerID string) error {
 	if toPeerID != "" {
+		// allow rollback to ready peer; if prepared, still require ready
 		return PeerPromote(toPeerID)
 	}
 	peerMu.Lock()
@@ -201,10 +407,13 @@ func PeerRollback(toPeerID string) error {
 	return fmt.Errorf("no ready peer to rollback to")
 }
 
-// PeerRemove marks peer removed and stops its units on primary.
+// PeerRemove disables, stops, removes confs/units for peer, then marks removed (frees slot).
 func PeerRemove(peerID string) error {
 	peerMu.Lock()
 	defer peerMu.Unlock()
+	if err := validatePeerID(peerID); err != nil {
+		return err
+	}
 	idx, err := LoadPeersIndex()
 	if err != nil {
 		return err
@@ -217,40 +426,54 @@ func PeerRemove(peerID string) error {
 		return fmt.Errorf("peer %s not found", peerID)
 	}
 	ifaceSP, ifacePS := p.Slot.IfaceSP, p.Slot.IfacePS
-	_ = exec.Command("systemctl", "stop", "wg-quick@"+ifaceSP).Run()
-	_ = exec.Command("systemctl", "stop", "wg-quick@"+ifacePS).Run()
-	if ifacePS != "nd-svc-ps" {
-		_ = exec.Command("systemctl", "stop", "nd-wss-ps-client-"+ifacePS).Run()
+	spUnit := "nd-wss-sp-server"
+	if ifaceSP != "nd-svc-sp" {
+		spUnit = "nd-wss-sp-server-" + ifaceSP
 	}
+	psUnit := "nd-wss-ps-client"
+	if ifacePS != "nd-svc-ps" {
+		psUnit = "nd-wss-ps-client-" + ifacePS
+	}
+	units := []string{"wg-quick@" + ifaceSP, "wg-quick@" + ifacePS, spUnit, psUnit}
+	for _, u := range units {
+		_ = exec.Command("systemctl", "disable", "--now", u).Run()
+	}
+	_ = os.Remove("/etc/wireguard/" + ifaceSP + ".conf")
+	_ = os.Remove("/etc/wireguard/" + ifacePS + ".conf")
+	_ = os.Remove("/etc/systemd/system/" + spUnit + ".service")
+	_ = os.Remove("/etc/systemd/system/" + psUnit + ".service")
+	_ = exec.Command("systemctl", "daemon-reload").Run()
+
 	for i := range idx.Peers {
 		if idx.Peers[i].ID == peerID {
 			idx.Peers[i].State = "removed"
 			idx.Peers[i].UpdatedAt = time.Now().UTC()
 		}
 	}
-	return SavePeersIndex(idx)
+	if err := SavePeersIndex(idx); err != nil {
+		return err
+	}
+	_ = appendPeerJournal("remove", peerID, "removed", "")
+	return nil
 }
 
 // PeerList returns registry snapshot.
 func PeerList() (*PeersIndex, error) {
-	_ = MigrateLegacyPeerIfNeeded()
+	if err := MigrateLegacyPeerIfNeeded(); err != nil {
+		return nil, err
+	}
 	return LoadPeersIndex()
 }
 
-// PeerMarkReady sets state ready after secondary bootstrap + validation.
-func PeerMarkReady(peerID string) error {
-	peerMu.Lock()
-	defer peerMu.Unlock()
-	idx, err := LoadPeersIndex()
+func appendPeerJournal(op, peerID, state, detail string) error {
+	_ = os.MkdirAll(KeysDir, 0o700)
+	path := filepath.Join(KeysDir, "peer-ops.log")
+	line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\n", time.Now().UTC().Format(time.RFC3339), op, peerID, state, detail)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
-	for i := range idx.Peers {
-		if idx.Peers[i].ID == peerID {
-			idx.Peers[i].State = "ready"
-			idx.Peers[i].UpdatedAt = time.Now().UTC()
-			return SavePeersIndex(idx)
-		}
-	}
-	return fmt.Errorf("peer %s not found", peerID)
+	defer f.Close()
+	_, err = f.WriteString(line)
+	return err
 }

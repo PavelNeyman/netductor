@@ -1,3 +1,12 @@
+## 0.9.497
+
+- R1 Blue-Green blockers: PeerValidateLocal; ready requires validate; promote only from ready.
+- Per-slot SP WSS server units + unique WSS_SP ports (B cannot rewrite A restrict-to).
+- PeerAdd: no legacy material.json overwrite; no DefaultPolicy reset on 2nd+ peer; migrate errors abort.
+- PeerPromote: fail-closed preferred/active writes with rollback; peer-ops journal.
+- PeerRemove: disable --now, remove conf/units, then free slot.
+- BootstrapPrimaryWith explicit side-effect opts.
+
 ## 0.9.496
 
 - Blue-Green: service peer registry, slots SP/PS, peer add|ready|promote|rollback|remove.

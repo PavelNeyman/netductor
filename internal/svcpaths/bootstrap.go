@@ -266,8 +266,27 @@ func enableRestart(units ...string) error {
 	return nil
 }
 
-// BootstrapPrimary writes confs+units on primary and saves full material.
+// BootstrapPrimaryOpts controls side effects when applying a peer on primary.
+type BootstrapPrimaryOpts struct {
+	// WriteLegacyMaterial writes KeysDir/material.json (only for first/legacy peer).
+	WriteLegacyMaterial bool
+	// ResetPolicy writes DefaultPolicy (never on multi-peer add).
+	ResetPolicy bool
+	// InstallHealthTimer installs health timer once.
+	InstallHealthTimer bool
+}
+
+// BootstrapPrimary writes confs+units on primary (legacy single-peer: writes material.json + default policy).
 func BootstrapPrimary(m *Material) error {
+	return BootstrapPrimaryWith(m, BootstrapPrimaryOpts{
+		WriteLegacyMaterial: true,
+		ResetPolicy:         true,
+		InstallHealthTimer:  true,
+	})
+}
+
+// BootstrapPrimaryWith applies one peer's WG/WSS on primary with explicit side effects.
+func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) error {
 	if m == nil {
 		return fmt.Errorf("nil material")
 	}
@@ -289,8 +308,10 @@ func BootstrapPrimary(m *Material) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
-		return fmt.Errorf("material.json: %w", err)
+	if o.WriteLegacyMaterial {
+		if err := os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
+			return fmt.Errorf("material.json: %w", err)
+		}
 	}
 
 	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
@@ -326,7 +347,12 @@ PersistentKeepalive = 25
 	if err := writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
 		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
-	if err := unitFile("nd-wss-sp-server",
+	// Per-peer SP WSS server (unique port per slot) — adding B must not rewrite A's unit.
+	spServerUnit := "nd-wss-sp-server"
+	if ifaceSP != "nd-svc-sp" {
+		spServerUnit = "nd-wss-sp-server-" + ifaceSP
+	}
+	if err := unitFile(spServerUnit,
 		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", wssSP, portSP)); err != nil {
 		return err
 	}
@@ -339,7 +365,7 @@ PersistentKeepalive = 25
 			portPS, portPS, m.Secondary, wssPS)); err != nil {
 		return err
 	}
-	if err := enableRestart("nd-wss-sp-server", psClientUnit, "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
+	if err := enableRestart(spServerUnit, psClientUnit, "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
 		return err
 	}
 
@@ -354,11 +380,15 @@ ufw delete allow from %s to any port 8789 proto tcp 2>/dev/null || true
 `, m.Secondary)).Run()
 	}
 
-	if err := installHealthTimer(); err != nil {
-		return err
+	if o.InstallHealthTimer {
+		if err := installHealthTimer(); err != nil {
+			return err
+		}
 	}
-	if err := SavePolicy(DefaultPolicy()); err != nil {
-		return err
+	if o.ResetPolicy {
+		if err := SavePolicy(DefaultPolicy()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
