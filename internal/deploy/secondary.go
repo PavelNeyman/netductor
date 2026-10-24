@@ -33,6 +33,8 @@ type SecondaryOpts struct {
 	OperatorPubKey       string
 	// ForceReinstall: operator already verified host-key rotation — pass through to Go TOFU forget.
 	ForceReinstall bool
+	// Promote writes preferred_secondary_ip (Blue-Green: leave false until peer promote).
+	Promote bool
 	// ViaPrimary is ignored (deprecated). Always Mac-direct.
 	ViaPrimary bool
 }
@@ -322,7 +324,10 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	// preferred_secondary_ip: only from matching AgentID row; write only if IPv4.
+	// preferred_secondary_ip only when Promote (provision ≠ promotion).
+	if !o.Promote {
+		fmt.Fprintln(os.Stderr, "==> skip preferred_secondary_ip (Promote=false; use svc-paths peer promote)")
+	}
 	prefCmd := fmt.Sprintf(`id=%s
 fallback=%s
 line=$(netductor secondary status 2>/dev/null | awk -F '\t' -v id="$id" '$1 == id { print; exit }')
@@ -341,10 +346,12 @@ printf '%%s\n' "$ip" > /etc/netductor/secrets/preferred_secondary_ip
 chmod 600 /etc/netductor/preferred_secondary_ip /etc/netductor/secrets/preferred_secondary_ip 2>/dev/null
 echo "preferred=$ip"
 true`, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
-	if outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prefCmd, o.PrimaryKeyPassphrase); errP != nil {
-		fmt.Fprintln(os.Stderr, "warn preferred_secondary_ip:", errP, outP)
-	} else {
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP))
+	if o.Promote {
+		if outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prefCmd, o.PrimaryKeyPassphrase); errP != nil {
+			fmt.Fprintln(os.Stderr, "warn preferred_secondary_ip:", errP, outP)
+		} else {
+			fmt.Fprintln(os.Stderr, strings.TrimSpace(outP))
+		}
 	}
 
 	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")

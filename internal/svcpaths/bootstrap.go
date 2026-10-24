@@ -33,6 +33,18 @@ type Material struct {
 	PSPubS    string `json:"ps_pub_s"`
 	Primary   string `json:"primary_ip"`
 	Secondary string `json:"secondary_ip"`
+	PeerID    string `json:"peer_id,omitempty"`
+	Slot      int    `json:"slot,omitempty"`
+	AddrP_SP  string `json:"addr_p_sp,omitempty"`
+	AddrS_SP  string `json:"addr_s_sp,omitempty"`
+	AddrP_PS  string `json:"addr_p_ps,omitempty"`
+	AddrS_PS  string `json:"addr_s_ps,omitempty"`
+	PortSP    int    `json:"port_sp,omitempty"`
+	PortPS    int    `json:"port_ps,omitempty"`
+	WSS_SP    int    `json:"wss_sp,omitempty"`
+	WSS_PS    int    `json:"wss_ps,omitempty"`
+	IfaceSP   string `json:"iface_sp,omitempty"`
+	IfacePS   string `json:"iface_ps,omitempty"`
 }
 
 // ForSecondary returns a copy safe to ship to the secondary host.
@@ -43,14 +55,13 @@ func (m *Material) ForSecondary() *Material {
 		return nil
 	}
 	return &Material{
-		SPPubP:    m.SPPubP,
-		SPPrivS:   m.SPPrivS,
-		SPPubS:    m.SPPubS,
-		PSPubP:    m.PSPubP,
-		PSPrivS:   m.PSPrivS,
-		PSPubS:    m.PSPubS,
-		Primary:   m.Primary,
-		Secondary: m.Secondary,
+		SPPubP: m.SPPubP, SPPrivS: m.SPPrivS, SPPubS: m.SPPubS,
+		PSPubP: m.PSPubP, PSPrivS: m.PSPrivS, PSPubS: m.PSPubS,
+		Primary: m.Primary, Secondary: m.Secondary,
+		PeerID: m.PeerID, Slot: m.Slot,
+		AddrP_SP: m.AddrP_SP, AddrS_SP: m.AddrS_SP, AddrP_PS: m.AddrP_PS, AddrS_PS: m.AddrS_PS,
+		PortSP: m.PortSP, PortPS: m.PortPS, WSS_SP: m.WSS_SP, WSS_PS: m.WSS_PS,
+		IfaceSP: m.IfaceSP, IfacePS: m.IfacePS,
 	}
 }
 
@@ -138,27 +149,30 @@ func GenerateMaterial(primaryIP, secondaryIP string) (*Material, error) {
 	return m, nil
 }
 
-// LoadMaterial reads KeysDir/material.json if present.
-func LoadMaterial() (*Material, error) {
-	b, err := os.ReadFile(filepath.Join(KeysDir, "material.json"))
+// LoadMaterialStrict reads legacy KeysDir/material.json.
+// os.ErrNotExist if absent; any other error = corrupt/incomplete — never treat as missing.
+func LoadMaterialStrict() (*Material, error) {
+	path := filepath.Join(KeysDir, "material.json")
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	var m Material
 	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("material.json corrupt (refuse regen): %w", err)
 	}
 	if m.SPPrivP == "" || m.SPPrivS == "" || m.PSPrivP == "" || m.PSPrivS == "" {
-		return nil, fmt.Errorf("material.json incomplete")
+		return nil, fmt.Errorf("material.json incomplete (refuse regen)")
 	}
 	return &m, nil
 }
 
-// LoadOrGenerateMaterial reuses existing keys when secondary IP matches.
-// Refuses silent regen for a different secondary (fixed /30 allows only one SP/PS peer).
-// force=true regenerates even if another secondary was configured.
+// LoadMaterial aliases LoadMaterialStrict.
+func LoadMaterial() (*Material, error) { return LoadMaterialStrict() }
+
+// LoadOrGenerateMaterial generates only when file is truly absent.
 func LoadOrGenerateMaterial(primaryIP, secondaryIP string, force bool) (*Material, bool, error) {
-	existing, err := LoadMaterial()
+	existing, err := LoadMaterialStrict()
 	if err == nil && existing != nil {
 		if existing.Secondary == secondaryIP || secondaryIP == "" {
 			if primaryIP != "" && primaryIP != "0.0.0.0" {
@@ -167,20 +181,49 @@ func LoadOrGenerateMaterial(primaryIP, secondaryIP string, force bool) (*Materia
 			if secondaryIP != "" {
 				existing.Secondary = secondaryIP
 			}
-			return existing, false, nil // reused
+			return existing, false, nil
 		}
 		if !force {
 			return nil, false, fmt.Errorf(
-				"svc-paths material already peers secondary %s; new peer %s would overwrite fixed SP/PS /30 (10.87.10.0/30, 10.87.11.0/30). "+
-					"Only one HA secondary is supported on the service plane. Pass --force-new-material to replace (breaks old secondary tunnels)",
+				"legacy material peers %s; refusing %s without --force-new-material (or: svc-paths peer add)",
 				existing.Secondary, secondaryIP)
 		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return nil, false, err
 	}
 	m, err := GenerateMaterial(primaryIP, secondaryIP)
 	if err != nil {
 		return nil, false, err
 	}
-	return m, true, nil // generated
+	return m, true, nil
+}
+
+func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {
+	pSP, sSP, pPS, sPS = AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
+	portSP, portPS, wssSP, wssPS = PortSP, PortPS, WSS_SP, WSS_PS
+	ifaceSP, ifacePS = "nd-svc-sp", "nd-svc-ps"
+	if m != nil && m.AddrP_SP != "" {
+		pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
+	}
+	if m != nil && m.PortSP != 0 {
+		portSP = m.PortSP
+	}
+	if m != nil && m.PortPS != 0 {
+		portPS = m.PortPS
+	}
+	if m != nil && m.WSS_SP != 0 {
+		wssSP = m.WSS_SP
+	}
+	if m != nil && m.WSS_PS != 0 {
+		wssPS = m.WSS_PS
+	}
+	if m != nil && m.IfaceSP != "" {
+		ifaceSP = m.IfaceSP
+	}
+	if m != nil && m.IfacePS != "" {
+		ifacePS = m.IfacePS
+	}
+	return
 }
 
 func writeFile(path, body string, mode os.FileMode) error {
@@ -250,6 +293,7 @@ func BootstrapPrimary(m *Material) error {
 		return fmt.Errorf("material.json: %w", err)
 	}
 
+	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
 	spConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
 Address = %s/30
@@ -259,7 +303,7 @@ Table = off
 [Peer]
 PublicKey = %s
 AllowedIPs = %s/32
-`, m.SPPrivP, AddrP_SP, PortSP, m.SPPubS, AddrS_SP)
+`, m.SPPrivP, pSP, portSP, m.SPPubS, sSP)
 
 	psConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
@@ -271,34 +315,38 @@ PublicKey = %s
 AllowedIPs = %s/32
 Endpoint = 127.0.0.1:%d
 PersistentKeepalive = 25
-`, m.PSPrivP, AddrP_PS, m.PSPubS, AddrS_PS, PortPS)
+`, m.PSPrivP, pPS, m.PSPubS, sPS, portPS)
 
 	if err := os.MkdirAll("/etc/wireguard", 0o700); err != nil {
 		return err
 	}
-	if err := writeFile("/etc/wireguard/nd-svc-sp.conf", spConf, 0o600); err != nil {
-		return fmt.Errorf("nd-svc-sp.conf: %w", err)
+	if err := writeFile("/etc/wireguard/"+ifaceSP+".conf", spConf, 0o600); err != nil {
+		return fmt.Errorf("%s.conf: %w", ifaceSP, err)
 	}
-	if err := writeFile("/etc/wireguard/nd-svc-ps.conf", psConf, 0o600); err != nil {
-		return fmt.Errorf("nd-svc-ps.conf: %w", err)
+	if err := writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
+		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
 	if err := unitFile("nd-wss-sp-server",
-		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", WSS_SP, PortSP)); err != nil {
+		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", wssSP, portSP)); err != nil {
 		return err
 	}
-	if err := unitFile("nd-wss-ps-client",
+	psClientUnit := "nd-wss-ps-client"
+	if ifacePS != "nd-svc-ps" {
+		psClientUnit = "nd-wss-ps-client-" + ifacePS
+	}
+	if err := unitFile(psClientUnit,
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
-			PortPS, PortPS, m.Secondary, WSS_PS)); err != nil {
+			portPS, portPS, m.Secondary, wssPS)); err != nil {
 		return err
 	}
-	if err := enableRestart("nd-wss-sp-server", "nd-wss-ps-client", "wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps"); err != nil {
+	if err := enableRestart("nd-wss-sp-server", psClientUnit, "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
 		return err
 	}
 
 	// ufw best-effort
 	_ = exec.Command("bash", "-c", fmt.Sprintf(
 		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-sp && ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp || true`,
-		WSS_SP, AddrS_SP)).Run()
+		wssSP, sSP)).Run()
 	if m.Secondary != "" {
 		_ = exec.Command("bash", "-c", fmt.Sprintf(
 			`command -v ufw >/dev/null || exit 0
@@ -342,6 +390,7 @@ func BootstrapSecondary(m *Material) error {
 		return fmt.Errorf("material.json: %w", err)
 	}
 
+	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
 	spConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
 Address = %s/30
@@ -352,7 +401,7 @@ PublicKey = %s
 AllowedIPs = %s/32
 Endpoint = 127.0.0.1:%d
 PersistentKeepalive = 25
-`, m.SPPrivS, AddrS_SP, m.SPPubP, AddrP_SP, PortSP)
+`, m.SPPrivS, sSP, m.SPPubP, pSP, portSP)
 
 	psConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
@@ -363,31 +412,31 @@ Table = off
 [Peer]
 PublicKey = %s
 AllowedIPs = %s/32
-`, m.PSPrivS, AddrS_PS, PortPS, m.PSPubP, AddrP_PS)
+`, m.PSPrivS, sPS, portPS, m.PSPubP, pPS)
 
 	if err := os.MkdirAll("/etc/wireguard", 0o700); err != nil {
 		return err
 	}
-	if err := writeFile("/etc/wireguard/nd-svc-sp.conf", spConf, 0o600); err != nil {
-		return fmt.Errorf("nd-svc-sp.conf: %w", err)
+	if err := writeFile("/etc/wireguard/"+ifaceSP+".conf", spConf, 0o600); err != nil {
+		return fmt.Errorf("%s.conf: %w", ifaceSP, err)
 	}
-	if err := writeFile("/etc/wireguard/nd-svc-ps.conf", psConf, 0o600); err != nil {
-		return fmt.Errorf("nd-svc-ps.conf: %w", err)
+	if err := writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
+		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
 	if err := unitFile("nd-wss-sp-client",
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
-			PortSP, PortSP, m.Primary, WSS_SP)); err != nil {
+			portSP, portSP, m.Primary, wssSP)); err != nil {
 		return err
 	}
 	if err := unitFile("nd-wss-ps-server",
-		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", WSS_PS, PortPS)); err != nil {
+		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", wssPS, portPS)); err != nil {
 		return err
 	}
-	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps"); err != nil {
+	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
 		return err
 	}
 	_ = exec.Command("bash", "-c", fmt.Sprintf(
-		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-ps || true`, WSS_PS)).Run()
+		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-ps || true`, wssPS)).Run()
 
 	if err := os.MkdirAll("/etc/netductor/secrets", 0o700); err != nil {
 		return err
@@ -396,7 +445,7 @@ AllowedIPs = %s/32
 	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url.public", []byte(pub+"\n"), 0o600); err != nil {
 		return err
 	}
-	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+AddrP_SP+":8789\n"), 0o600); err != nil {
+	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+pSP+":8789\n"), 0o600); err != nil {
 		return err
 	}
 	// Agent must pick up secondary_core_url (SP). Restart failures are fatal unless unit is absent (pre-join).

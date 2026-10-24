@@ -1,3 +1,16 @@
+## Blue-Green (v0.9.496+)
+
+```
+netductor svc-paths peer add --peer-ip B_IP [--id peer-b]
+netductor svc-paths peer ready peer-b
+netductor svc-paths peer promote peer-b
+# DNS
+netductor svc-paths peer rollback peer-a
+netductor svc-paths peer remove peer-b
+```
+
+Deploy secondary: Promote=false по умолчанию. Слоты 0–3: `10.87.10/11` … `24/25`.
+
 **EN** · [RU](SECONDARY-DEPLOY.md)
 
 # Deploy Secondary — доверие, конечное состояние, failover

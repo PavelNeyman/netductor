@@ -1,3 +1,17 @@
+## Blue-Green (v0.9.496+)
+
+```
+netductor svc-paths peer add --peer-ip B_IP [--id peer-b]
+# apply ForSecondary material on B: bootstrap-secondary
+netductor svc-paths peer ready peer-b
+netductor svc-paths peer promote peer-b   # preferred_secondary_ip
+# DNS cutover (operator)
+netductor svc-paths peer rollback peer-a  # or promote peer-a
+netductor svc-paths peer remove peer-b    # only if not active
+```
+
+Deploy secondary defaults to Promote=false. Slots: 0=`10.87.10/11`, 1=`20/21`, 2=`22/23`, 3=`24/25`.
+
 **EN** · [RU](ru/SECONDARY-DEPLOY.md)
 
 # Secondary deploy — trust, end-state, failover

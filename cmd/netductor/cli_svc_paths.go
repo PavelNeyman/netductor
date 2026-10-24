@@ -116,6 +116,8 @@ func runSvcPaths(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("svc-paths secondary OK")
+	case "peer":
+		runSvcPeer(args[1:])
 	case "failover":
 		runSvcFailover(args[1:])
 	case "bootstrap-primary-build":
@@ -230,4 +232,102 @@ func flagMaterial(args []string) string {
 		}
 	}
 	return ""
+}
+
+
+func runSvcPeer(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: netductor svc-paths peer list|add|ready|promote|rollback|remove")
+		os.Exit(2)
+	}
+	switch strings.ToLower(args[0]) {
+	case "list":
+		idx, err := svcpaths.PeerList()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(idx)
+	case "add":
+		peerIP, peerID, prim := "", "", ""
+		for i := 1; i < len(args); i++ {
+			switch args[i] {
+			case "--peer-ip":
+				if i+1 < len(args) {
+					peerIP, i = args[i+1], i+1
+				}
+			case "--id":
+				if i+1 < len(args) {
+					peerID, i = args[i+1], i+1
+				}
+			case "--primary-ip":
+				if i+1 < len(args) {
+					prim, i = args[i+1], i+1
+				}
+			}
+		}
+		if peerIP == "" {
+			fmt.Fprintln(os.Stderr, "need --peer-ip")
+			os.Exit(2)
+		}
+		if prim == "" {
+			if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
+				prim = strings.TrimSpace(string(b))
+			}
+		}
+		mat, peer, err := svcpaths.PeerAdd(svcpaths.PeerAddOpts{PeerID: peerID, PublicIP: peerIP, PrimaryIP: prim})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "peer %s prepared slot=%d ip=%s (not promoted)\n", peer.ID, peer.Slot.Index, peer.PublicIP)
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(mat)
+	case "ready":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "need peer id")
+			os.Exit(2)
+		}
+		if err := svcpaths.PeerMarkReady(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("ready", args[1])
+	case "promote":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "need peer id")
+			os.Exit(2)
+		}
+		if err := svcpaths.PeerPromote(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("promoted", args[1])
+	case "rollback":
+		to := ""
+		if len(args) >= 2 {
+			to = args[1]
+		}
+		if err := svcpaths.PeerRollback(to); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("rollback ok")
+	case "remove":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "need peer id")
+			os.Exit(2)
+		}
+		if err := svcpaths.PeerRemove(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("removed", args[1])
+	default:
+		fmt.Fprintln(os.Stderr, "unknown peer subcommand")
+		os.Exit(2)
+	}
 }

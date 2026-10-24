@@ -17,8 +17,8 @@ const (
 	coreURLPublic = "/etc/netductor/secrets/secondary_core_url.public"
 )
 
-// ProbeHealth writes HealthJSON (SP/PS/VLESS). Safe on primary and secondary.
-func ProbeHealth() error {
+// hostRole is shared by ProbeHealth and EnforceState.
+func hostRole() string {
 	role := "unknown"
 	if hasIP(IfaceSP, AddrP_SP) || hasIP(IfacePS, AddrP_PS) {
 		role = "primary"
@@ -26,28 +26,58 @@ func ProbeHealth() error {
 	if hasIP(IfaceSP, AddrS_SP) || hasIP(IfacePS, AddrS_PS) {
 		role = "secondary"
 	}
-	// Role must not depend only on live WG IPs (both tunnels down → still secondary).
+	for _, s := range SlotTable() {
+		if hasIP(s.IfaceSP, s.AddrP_SP) || hasIP(s.IfacePS, s.AddrP_PS) {
+			role = "primary"
+		}
+		if hasIP(s.IfaceSP, s.AddrS_SP) || hasIP(s.IfacePS, s.AddrS_PS) {
+			role = "secondary"
+		}
+	}
 	if role == "unknown" {
 		if _, err := os.Stat(coreURLPath); err == nil {
 			role = "secondary"
 		} else if _, err := os.Stat(filepath.Join(KeysDir, "material.json")); err == nil {
-			// material on disk without secondary_core_url → likely primary
 			role = "primary"
 		}
 	}
+	return role
+}
+
+// ProbeHealth writes HealthJSON (SP/PS/VLESS). Safe on primary and secondary.
+func ProbeHealth() error {
+	role := hostRole()
 	sp, ps := 0, 0
+	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
+	if m, err := LoadMaterialStrict(); err == nil {
+		a, b, c, d, _, _, _, _, _, _ := m.resolvedAddrs()
+		pSP, sSP, pPS, sPS = a, b, c, d
+	}
 	if role == "primary" {
-		if pingOK(AddrS_SP) {
+		if pingOK(sSP) {
 			sp = 1
 		}
-		if pingOK(AddrS_PS) {
+		if pingOK(sPS) {
 			ps = 1
 		}
+		if idx, err := LoadPeersIndex(); err == nil {
+			for _, peer := range idx.Peers {
+				if peer.State == "removed" {
+					continue
+				}
+				if pingOK(peer.Slot.AddrS_SP) {
+					sp = 1
+				}
+				if pingOK(peer.Slot.AddrS_PS) {
+					ps = 1
+				}
+			}
+		}
 	} else {
-		if pingOK(AddrP_SP) {
+		if pingOK(pSP) {
 			sp = 1
 		}
-		if pingOK(AddrP_PS) {
+		if pingOK(pPS) {
 			ps = 1
 		}
 	}
@@ -102,11 +132,7 @@ func publicPrimaryHost() string {
 
 // Apply enforces desired user_path and agent_url_mode on this host (secondary).
 func EnforceState(s State) error {
-	role := "unknown"
-	if hasIP(IfaceSP, AddrS_SP) || hasIP(IfacePS, AddrS_PS) {
-		role = "secondary"
-	}
-	if role != "secondary" {
+	if hostRole() != "secondary" {
 		return nil
 	}
 	if err := applyAgentURL(s.AgentURLMode); err != nil {
@@ -118,9 +144,14 @@ func EnforceState(s State) error {
 func applyAgentURL(mode string) error {
 	_ = os.MkdirAll(filepath.Dir(coreURLPath), 0o700)
 	// Tunnel-only: SP default, PS when SP path is down. Never public WAN :8789.
-	want := "https://" + AddrP_SP + ":8789"
+	pSP, pPS := AddrP_SP, AddrP_PS
+	if m, err := LoadMaterialStrict(); err == nil {
+		a, _, c, _, _, _, _, _, _, _ := m.resolvedAddrs()
+		pSP, pPS = a, c
+	}
+	want := "https://" + pSP + ":8789"
 	if mode == "public" || mode == "ps" || mode == "tunnel_ps" {
-		want = "https://" + AddrP_PS + ":8789"
+		want = "https://" + pPS + ":8789"
 	}
 	cur := strings.TrimSpace(string(mustRead(coreURLPath)))
 	if cur == want {
@@ -190,6 +221,9 @@ func applyUserUplink(userPath string) error {
 	if err != nil {
 		return err
 	}
+	prev := mustRead(singBoxConfig)
+	bak := singBoxConfig + ".bak"
+	_ = os.WriteFile(bak, prev, 0o644)
 	tmp := singBoxConfig + ".tmp"
 	if err := os.WriteFile(tmp, append(raw, '\n'), 0o644); err != nil {
 		return err
@@ -198,11 +232,16 @@ func applyUserUplink(userPath string) error {
 		return err
 	}
 	if out, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput(); err != nil {
-		return fmt.Errorf("restart sing-box after uplink apply: %w: %s", err, strings.TrimSpace(string(out)))
+		_ = os.WriteFile(singBoxConfig, prev, 0o644)
+		_ = exec.Command("systemctl", "restart", "sing-box").Run()
+		return fmt.Errorf("restart sing-box after uplink apply: %w: %s (restored previous config)", err, strings.TrimSpace(string(out)))
 	}
 	if st, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(st)) != "active" {
-		return fmt.Errorf("sing-box not active after uplink apply: %s", strings.TrimSpace(string(st)))
+		_ = os.WriteFile(singBoxConfig, prev, 0o644)
+		_ = exec.Command("systemctl", "restart", "sing-box").Run()
+		return fmt.Errorf("sing-box not active after uplink apply: %s (restored previous config)", strings.TrimSpace(string(st)))
 	}
+	_ = os.Remove(bak)
 	return nil
 }
 

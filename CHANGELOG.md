@@ -1,3 +1,11 @@
+## 0.9.496
+
+- Blue-Green: service peer registry, slots SP/PS, peer add|ready|promote|rollback|remove.
+- Material: corrupt/incomplete never regenerates keys.
+- Deploy: preferred_secondary_ip only when Promote=true.
+- hostRole shared; sing-box apply restores previous config on failed restart.
+- Per-slot WG ifaces and PS wstunnel client units on primary.
+
 ## 0.9.495
 
 - svc-paths: reuse WG material on same secondary IP; refuse different peer without --force-new-material (one HA secondary on fixed /30).

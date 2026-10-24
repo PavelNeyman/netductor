@@ -53,6 +53,7 @@ type SecondarySpec struct {
 	OperatorPubKey       string `json:"operator_pubkey"`
 	// ForceReinstall: after offline fingerprint check + ssh-hosts forget — wipe Go TOFU on dial.
 	ForceReinstall bool `json:"force_reinstall"`
+	Promote        bool `json:"promote"`
 }
 
 // FleetSpec runs ordered primary then secondary (Mac operator).
@@ -96,6 +97,7 @@ func (s SecondarySpec) toDeploy() deploy.SecondaryOpts {
 		SecondaryPass: s.SecondaryPass, SecondarySSHKey: s.SecondarySSHKey,
 		SNI: s.SNI, OperatorPubKey: s.OperatorPubKey, ViaPrimary: false,
 		ForceReinstall: s.ForceReinstall,
+		Promote:        s.Promote,
 	}
 }
 
