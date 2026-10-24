@@ -77,6 +77,8 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "allocating"})
+
 	m, err := GenerateMaterial(o.PrimaryIP, o.PublicIP)
 	if err != nil {
 		return nil, nil, err
@@ -96,16 +98,18 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err := os.WriteFile(peerMaterialPath(o.PeerID), b, 0o600); err != nil {
 		return nil, nil, err
 	}
+	_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "material"})
 
-	// First peer may seed legacy material.json; later peers must not overwrite it.
 	writeLegacy := len(idx.Peers) == 0
 	if err := BootstrapPrimaryWith(m, BootstrapPrimaryOpts{
 		WriteLegacyMaterial: writeLegacy,
-		ResetPolicy:         writeLegacy, // only seed policy once
+		ResetPolicy:         writeLegacy,
 		InstallHealthTimer:  writeLegacy,
 	}); err != nil {
-		return nil, nil, fmt.Errorf("bootstrap primary peer %s: %w", o.PeerID, err)
+		_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap_failed"})
+		return nil, nil, fmt.Errorf("bootstrap primary peer %s: %w (retry: peer recover %s)", o.PeerID, err, o.PeerID)
 	}
+	_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap"})
 
 	now := time.Now().UTC()
 	sp := ServicePeer{
@@ -114,8 +118,10 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	}
 	idx.Peers = append(idx.Peers, sp)
 	if err := SavePeersIndex(idx); err != nil {
-		return nil, nil, err
+		_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "index_failed"})
+		return nil, nil, fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, o.PeerID)
 	}
+	clearPeerOp(o.PeerID)
 	_ = appendPeerJournal("add", o.PeerID, "prepared", "")
 	return m.ForSecondary(), &sp, nil
 }

@@ -349,6 +349,17 @@ func runSvcPeer(args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("removed", args[1])
+	case "recover":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "need peer id")
+			os.Exit(2)
+		}
+		msg, err := svcpaths.RecoverIncompletePeerAdd(args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(msg)
 	default:
 		fmt.Fprintln(os.Stderr, "unknown peer subcommand")
 		os.Exit(2)

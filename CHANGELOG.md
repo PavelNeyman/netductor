@@ -1,3 +1,10 @@
+## 0.9.498
+
+- R2: peer add op.json phases + `peer recover`; full journal.
+- R3: inventory.Register/List (planned candidates, no network); Primary API `/api/secondaries`, `/api/svc-paths/peers`.
+- Operator: GET/POST `/v1/secondaries` (local inventory, register ≠ deploy).
+- Tests: inventory register, peer id/IP, unique WSS_SP slots.
+
 ## 0.9.497
 
 - R1 Blue-Green blockers: PeerValidateLocal; ready requires validate; promote only from ready.

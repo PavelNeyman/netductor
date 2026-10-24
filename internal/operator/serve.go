@@ -140,7 +140,7 @@ func Serve(o ServeOpts) error {
 			"version":         deploy.Release,
 			"bind":            addr,
 			"credentials_dir": cred,
-			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/build-host", "/v1/secondary", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/jobs", "/v1/credentials", "/v1/health", "/v1/meta"},
+			"endpoints":       []string{"/v1/fleet", "/v1/primary", "/v1/build-host", "/v1/secondary", "/v1/secondaries", "/v1/edge", "/v1/edge/preview", "/v1/edge/offline-prep", "/v1/edge/luci", "/v1/jobs", "/v1/credentials", "/v1/health", "/v1/meta"},
 			"auth":            "X-Netductor-Token",
 		})
 	})
@@ -253,6 +253,8 @@ func Serve(o ServeOpts) error {
 	mux.HandleFunc("/v1/primary", func(w http.ResponseWriter, r *http.Request) { handlePrimary(w, r, token) })
 	mux.HandleFunc("/v1/build-host", func(w http.ResponseWriter, r *http.Request) { handleBuildHost(w, r, token) })
 	mux.HandleFunc("/v1/secondary", func(w http.ResponseWriter, r *http.Request) { handleSecondary(w, r, token) })
+	mux.HandleFunc("/v1/secondaries", func(w http.ResponseWriter, r *http.Request) { handleSecondariesInventory(w, r, token) })
+	mux.HandleFunc("/v1/secondaries/", func(w http.ResponseWriter, r *http.Request) { handleSecondaryInventoryID(w, r, token) })
 	mux.HandleFunc("/v1/credentials", func(w http.ResponseWriter, r *http.Request) { handleCredentials(w, r, token) })
 	mux.HandleFunc("/v1/edge", func(w http.ResponseWriter, r *http.Request) { handleEdge(w, r, token) })
 	mux.HandleFunc("/v1/edge/preview", func(w http.ResponseWriter, r *http.Request) { handleEdgePreview(w, r, token) })

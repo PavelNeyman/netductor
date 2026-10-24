@@ -48,6 +48,7 @@ func buildAPIMux() http.Handler {
 	registerUpdateAPI(mux)
 	registerReleaseAPI(mux)
 	registerFleetAPI(mux)
+	registerSecondariesAPI(mux)
 	registerCleanupAPI(mux)
 	registerTGAlertsAPI(mux)
 	registerPolicyAPI(mux)
