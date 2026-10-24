@@ -1,3 +1,8 @@
+## 0.9.502
+
+- Fault-injection tests: recover after material/bootstrap_failed; no key regen; promote requires ready; slot/WSS isolation.
+- keysRoot overridable in tests; bootstrapPrimaryFn injectable.
+
 ## 0.9.501
 
 - API: validate returns HTTP 409 before JSON body when checks fail.

@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// bootstrapPrimaryFn is BootstrapPrimaryWith; tests may stub to avoid systemctl/wg.
+var bootstrapPrimaryFn = BootstrapPrimaryWith
+
 // peerOp tracks in-progress peer add for crash recovery.
 type peerOp struct {
 	Op        string    `json:"op"`
@@ -20,12 +23,12 @@ type peerOp struct {
 }
 
 func peerOpPath(id string) string {
-	return filepath.Join(peersDir, id, "op.json")
+	return filepath.Join(peersDirPath(), id, "op.json")
 }
 
 func writePeerOp(op peerOp) error {
 	op.UpdatedAt = time.Now().UTC()
-	if err := os.MkdirAll(filepath.Join(peersDir, op.PeerID), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(peersDirPath(), op.PeerID), 0o700); err != nil {
 		return err
 	}
 	b, err := json.MarshalIndent(op, "", "  ")
@@ -66,7 +69,7 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 		clearPeerOp(peerID)
 		return "already indexed; cleared op", nil
 	}
-	if err := BootstrapPrimaryWith(m, BootstrapPrimaryOpts{
+	if err := bootstrapPrimaryFn(m, BootstrapPrimaryOpts{
 		WriteLegacyMaterial: false,
 		ResetPolicy:         false,
 		InstallHealthTimer:  false,

@@ -9,11 +9,21 @@ import (
 	"time"
 )
 
-const (
-	peersDir       = KeysDir + "/peers"
-	peersIndex     = KeysDir + "/peers.json"
-	activePeerPath = KeysDir + "/active_peer_id"
-)
+// keysRoot is the svc-paths data dir (overridable in tests).
+var keysRoot = KeysDir
+
+func peersDirPath() string       { return filepath.Join(keysRoot, "peers") }
+func peersIndexPath() string     { return filepath.Join(keysRoot, "peers.json") }
+func activePeerPathFile() string { return filepath.Join(keysRoot, "active_peer_id") }
+
+// SetKeysRootForTest redirects peer registry paths; empty restores KeysDir.
+func SetKeysRootForTest(dir string) {
+	if dir == "" {
+		keysRoot = KeysDir
+		return
+	}
+	keysRoot = dir
+}
 
 // PeerSlot is a reserved address/port assignment (no overlap with build 10.87.12/13).
 type PeerSlot struct {
@@ -63,11 +73,11 @@ func SlotTable() []PeerSlot {
 }
 
 func peerMaterialPath(id string) string {
-	return filepath.Join(peersDir, id, "material.json")
+	return filepath.Join(peersDirPath(), id, "material.json")
 }
 
 func LoadPeersIndex() (*PeersIndex, error) {
-	b, err := os.ReadFile(peersIndex)
+	b, err := os.ReadFile(peersIndexPath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &PeersIndex{Version: 1}, nil
@@ -85,7 +95,7 @@ func LoadPeersIndex() (*PeersIndex, error) {
 }
 
 func SavePeersIndex(idx *PeersIndex) error {
-	if err := os.MkdirAll(KeysDir, 0o700); err != nil {
+	if err := os.MkdirAll(keysRoot, 0o700); err != nil {
 		return err
 	}
 	idx.UpdatedAt = time.Now().UTC()
@@ -93,11 +103,11 @@ func SavePeersIndex(idx *PeersIndex) error {
 	if err != nil {
 		return err
 	}
-	tmp := peersIndex + ".tmp"
+	tmp := peersIndexPath() + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, peersIndex)
+	return os.Rename(tmp, peersIndexPath())
 }
 
 func (idx *PeersIndex) Find(id string) *ServicePeer {

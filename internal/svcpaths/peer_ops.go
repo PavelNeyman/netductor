@@ -88,7 +88,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	m.Primary = o.PrimaryIP
 	m.Secondary = o.PublicIP
 
-	if err := os.MkdirAll(filepath.Join(peersDir, o.PeerID), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(peersDirPath(), o.PeerID), 0o700); err != nil {
 		return nil, nil, err
 	}
 	b, err := json.MarshalIndent(m, "", "  ")
@@ -101,7 +101,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "material"})
 
 	writeLegacy := len(idx.Peers) == 0
-	if err := BootstrapPrimaryWith(m, BootstrapPrimaryOpts{
+	if err := bootstrapPrimaryFn(m, BootstrapPrimaryOpts{
 		WriteLegacyMaterial: writeLegacy,
 		ResetPolicy:         writeLegacy,
 		InstallHealthTimer:  writeLegacy,
@@ -169,7 +169,7 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 	}
 	slot := SlotTable()[0]
 	applySlotToMaterial(m, slot)
-	if err := os.MkdirAll(filepath.Join(peersDir, id), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(peersDirPath(), id), 0o700); err != nil {
 		return err
 	}
 	b, _ := json.MarshalIndent(m, "", "  ")
@@ -182,7 +182,7 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 		CreatedAt: now, UpdatedAt: now,
 	})
 	idx.ActiveID = id
-	if err := os.WriteFile(activePeerPath, []byte(id+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(activePeerPathFile(), []byte(id+"\n"), 0o644); err != nil {
 		return err
 	}
 	return SavePeersIndex(idx)
@@ -341,7 +341,7 @@ func PeerPromote(peerID string) error {
 	if err := SavePeersIndex(idx); err != nil {
 		return err
 	}
-	if err := os.WriteFile(activePeerPath, []byte(peerID+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(activePeerPathFile(), []byte(peerID+"\n"), 0o644); err != nil {
 		idx.ActiveID = prevActive
 		_ = SavePeersIndex(idx)
 		return fmt.Errorf("write active_peer_id: %w", err)
@@ -384,7 +384,7 @@ func rollbackPromote(prevActive, prevPreferred string) error {
 	idx.ActiveID = prevActive
 	_ = SavePeersIndex(idx)
 	if prevActive != "" {
-		_ = os.WriteFile(activePeerPath, []byte(prevActive+"\n"), 0o644)
+		_ = os.WriteFile(activePeerPathFile(), []byte(prevActive+"\n"), 0o644)
 	}
 	if prevPreferred != "" {
 		_ = os.WriteFile("/etc/netductor/preferred_secondary_ip", []byte(prevPreferred+"\n"), 0o644)
@@ -472,8 +472,8 @@ func PeerList() (*PeersIndex, error) {
 }
 
 func appendPeerJournal(op, peerID, state, detail string) error {
-	_ = os.MkdirAll(KeysDir, 0o700)
-	path := filepath.Join(KeysDir, "peer-ops.log")
+	_ = os.MkdirAll(keysRoot, 0o700)
+	path := filepath.Join(keysRoot, "peer-ops.log")
 	line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\n", time.Now().UTC().Format(time.RFC3339), op, peerID, state, detail)
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
