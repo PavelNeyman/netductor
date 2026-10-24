@@ -14,6 +14,14 @@ import (
 
 var peerIDRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
 
+var generateMaterialFn = GenerateMaterial
+
+// Preferred file paths (overridable in tests; default production).
+var (
+	preferredIPPath        = "/etc/netductor/preferred_secondary_ip"
+	preferredIPSecretsPath = "/etc/netductor/secrets/preferred_secondary_ip"
+)
+
 // PeerAddOpts provisions a new service-plane peer on primary (does not promote).
 type PeerAddOpts struct {
 	PeerID    string
@@ -77,9 +85,11 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "allocating"})
+	if err := writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "allocating"}); err != nil {
+		return nil, nil, fmt.Errorf("peer op checkpoint allocating: %w", err)
+	}
 
-	m, err := GenerateMaterial(o.PrimaryIP, o.PublicIP)
+	m, err := generateMaterialFn(o.PrimaryIP, o.PublicIP)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -98,7 +108,9 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err := os.WriteFile(peerMaterialPath(o.PeerID), b, 0o600); err != nil {
 		return nil, nil, err
 	}
-	_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "material"})
+	if err := writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "material"}); err != nil {
+		return nil, nil, fmt.Errorf("peer op checkpoint material: %w", err)
+	}
 
 	writeLegacy := len(idx.Peers) == 0
 	if err := bootstrapPrimaryFn(m, BootstrapPrimaryOpts{
@@ -109,7 +121,9 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap_failed"})
 		return nil, nil, fmt.Errorf("bootstrap primary peer %s: %w (retry: peer recover %s)", o.PeerID, err, o.PeerID)
 	}
-	_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap"})
+	if err := writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap"}); err != nil {
+		return nil, nil, fmt.Errorf("bootstrap ok but checkpoint failed: %w (retry: peer recover %s)", err, o.PeerID)
+	}
 
 	now := time.Now().UTC()
 	sp := ServicePeer{
@@ -117,8 +131,11 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		CreatedAt: now, UpdatedAt: now,
 	}
 	idx.Peers = append(idx.Peers, sp)
-	if err := SavePeersIndex(idx); err != nil {
-		_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "index_failed"})
+	if err := savePeersIndexFn(idx); err != nil {
+		jerr := writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "index_failed"})
+		if jerr != nil {
+			return nil, nil, fmt.Errorf("save peers index: %w; also checkpoint index_failed: %v (retry: peer recover %s)", err, jerr, o.PeerID)
+		}
 		return nil, nil, fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, o.PeerID)
 	}
 	clearPeerOp(o.PeerID)
@@ -347,12 +364,12 @@ func PeerPromote(peerID string) error {
 		return fmt.Errorf("write active_peer_id: %w", err)
 	}
 	if p.PublicIP != "" {
-		_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
-		if err := os.WriteFile("/etc/netductor/preferred_secondary_ip", []byte(p.PublicIP+"\n"), 0o644); err != nil {
+		_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
+		if err := os.WriteFile(preferredIPPath, []byte(p.PublicIP+"\n"), 0o644); err != nil {
 			_ = rollbackPromote(prevActive, prevPreferred)
 			return fmt.Errorf("preferred_secondary_ip: %w", err)
 		}
-		if err := os.WriteFile("/etc/netductor/secrets/preferred_secondary_ip", []byte(p.PublicIP+"\n"), 0o600); err != nil {
+		if err := os.WriteFile(preferredIPSecretsPath, []byte(p.PublicIP+"\n"), 0o600); err != nil {
 			_ = rollbackPromote(prevActive, prevPreferred)
 			return fmt.Errorf("secrets/preferred_secondary_ip: %w", err)
 		}
@@ -362,7 +379,7 @@ func PeerPromote(peerID string) error {
 }
 
 func readPreferredIP() string {
-	b, err := os.ReadFile("/etc/netductor/preferred_secondary_ip")
+	b, err := os.ReadFile(preferredIPPath)
 	if err != nil {
 		return ""
 	}
@@ -387,8 +404,8 @@ func rollbackPromote(prevActive, prevPreferred string) error {
 		_ = os.WriteFile(activePeerPathFile(), []byte(prevActive+"\n"), 0o644)
 	}
 	if prevPreferred != "" {
-		_ = os.WriteFile("/etc/netductor/preferred_secondary_ip", []byte(prevPreferred+"\n"), 0o644)
-		_ = os.WriteFile("/etc/netductor/secrets/preferred_secondary_ip", []byte(prevPreferred+"\n"), 0o600)
+		_ = os.WriteFile(preferredIPPath, []byte(prevPreferred+"\n"), 0o644)
+		_ = os.WriteFile(preferredIPSecretsPath, []byte(prevPreferred+"\n"), 0o600)
 	}
 	return nil
 }

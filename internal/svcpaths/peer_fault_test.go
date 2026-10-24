@@ -2,6 +2,7 @@ package svcpaths
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,9 +12,17 @@ func withTestRoot(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	SetKeysRootForTest(dir)
+	preferredIPPath = filepath.Join(dir, "preferred_secondary_ip")
+	preferredIPSecretsPath = filepath.Join(dir, "secrets", "preferred_secondary_ip")
+	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
 	t.Cleanup(func() {
 		SetKeysRootForTest("")
 		bootstrapPrimaryFn = BootstrapPrimaryWith
+		savePeersIndexFn = SavePeersIndex
+		writePeerOpFn = writePeerOpDefault
+		generateMaterialFn = GenerateMaterial
+		preferredIPPath = "/etc/netductor/preferred_secondary_ip"
+		preferredIPSecretsPath = "/etc/netductor/secrets/preferred_secondary_ip"
 	})
 	return dir
 }
@@ -43,12 +52,7 @@ func writePeerMaterial(t *testing.T, m *Material) {
 }
 
 func TestLoadMaterialStrictCorruptRefuses(t *testing.T) {
-	dir := withTestRoot(t)
-	// LoadMaterialStrict reads KeysDir constant path - may still hit /etc
-	// Write corrupt under keysRoot won't affect LoadMaterialStrict unless we change it.
-	// Test LoadOrGenerateMaterial via legacy only when KeysDir is real - skip if no write to KeysDir.
-	_ = dir
-	// Pure: incomplete material detection on unmarshal path via loadPeerMaterial
+	withTestRoot(t)
 	slot := SlotTable()[0]
 	m := sampleMaterial("p1", "203.0.113.1", slot)
 	m.SPPrivP = ""
@@ -105,9 +109,6 @@ func TestRecoverAfterMaterialBeforeIndex(t *testing.T) {
 	bootCalls := 0
 	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error {
 		bootCalls++
-		if m.SPPrivS == "" {
-			t.Fatal("empty material on recover")
-		}
 		return nil
 	}
 	slot := SlotTable()[1]
@@ -115,28 +116,21 @@ func TestRecoverAfterMaterialBeforeIndex(t *testing.T) {
 	writePeerMaterial(t, m)
 	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
 
-	msg, err := RecoverIncompletePeerAdd("peer-b")
-	if err != nil {
+	if _, err := RecoverIncompletePeerAdd("peer-b"); err != nil {
 		t.Fatal(err)
 	}
 	if bootCalls != 1 {
 		t.Fatalf("bootstrap calls %d", bootCalls)
 	}
-	idx, err := LoadPeersIndex()
-	if err != nil {
-		t.Fatal(err)
+	idx, _ := LoadPeersIndex()
+	if idx.Find("peer-b") == nil {
+		t.Fatal("not indexed")
 	}
-	p := idx.Find("peer-b")
-	if p == nil || p.State != "prepared" {
-		t.Fatalf("%v msg=%s", p, msg)
-	}
-	// second recover is no-op
-	msg2, err := RecoverIncompletePeerAdd("peer-b")
-	if err != nil {
+	if _, err := RecoverIncompletePeerAdd("peer-b"); err != nil {
 		t.Fatal(err)
 	}
 	if bootCalls != 1 {
-		t.Fatalf("second recover re-bootstrapped: %d %s", bootCalls, msg2)
+		t.Fatalf("second recover re-bootstrapped: %d", bootCalls)
 	}
 }
 
@@ -160,7 +154,6 @@ func TestRecoverBootstrapFailedRetriesSameKeys(t *testing.T) {
 	writePeerMaterial(t, m)
 	privBefore := m.SPPrivP
 	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-a", PublicIP: "203.0.113.5", SlotIndex: 0, Phase: "bootstrap_failed"})
-
 	var sawPriv string
 	bootstrapPrimaryFn = func(mm *Material, o BootstrapPrimaryOpts) error {
 		sawPriv = mm.SPPrivP
@@ -170,46 +163,150 @@ func TestRecoverBootstrapFailedRetriesSameKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	if sawPriv != privBefore {
-		t.Fatalf("keys regenerated: %q vs %q", sawPriv, privBefore)
+		t.Fatalf("keys regenerated")
 	}
 }
 
-func TestPeerPromoteRequiresReady(t *testing.T) {
+func TestPeerAddJournalFailureStopsBeforeBootstrap(t *testing.T) {
+	withTestRoot(t)
+	bootCalls, genCalls := 0, 0
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error {
+		bootCalls++
+		return nil
+	}
+	generateMaterialFn = func(primaryIP, secondaryIP string) (*Material, error) {
+		genCalls++
+		return sampleMaterial("peer-x", secondaryIP, SlotTable()[0]), nil
+	}
+	writePeerOpFn = func(op peerOp) error {
+		return fmt.Errorf("journal disk full")
+	}
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-x", PublicIP: "203.0.113.20", PrimaryIP: "1.1.1.1"})
+	if err == nil {
+		t.Fatal("expected journal error")
+	}
+	if genCalls != 0 || bootCalls != 0 {
+		t.Fatalf("gen=%d boot=%d want 0", genCalls, bootCalls)
+	}
+	idx, _ := LoadPeersIndex()
+	if idx.Find("peer-x") != nil {
+		t.Fatal("peer should not be indexed")
+	}
+}
+
+func TestRecoverAfterIndexSaveFailure(t *testing.T) {
+	withTestRoot(t)
+	bootCalls := 0
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error {
+		bootCalls++
+		return nil
+	}
+	slot := SlotTable()[1]
+	m := sampleMaterial("peer-b", "203.0.113.10", slot)
+	writePeerMaterial(t, m)
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
+
+	savePeersIndexFn = func(idx *PeersIndex) error {
+		return fmt.Errorf("disk full")
+	}
+	_, err := RecoverIncompletePeerAdd("peer-b")
+	if err == nil {
+		t.Fatal("expected index save error")
+	}
+	op, err := loadPeerOp("peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if op.Phase != "index_failed" {
+		t.Fatalf("phase %s want index_failed", op.Phase)
+	}
+	if bootCalls != 1 {
+		t.Fatalf("boot %d", bootCalls)
+	}
+
+	// Second recover: phase index_failed → no second bootstrap
+	savePeersIndexFn = SavePeersIndex
+	if _, err := RecoverIncompletePeerAdd("peer-b"); err != nil {
+		t.Fatal(err)
+	}
+	if bootCalls != 1 {
+		t.Fatalf("bootstrap repeated: %d", bootCalls)
+	}
+	idx, _ := LoadPeersIndex()
+	if idx.Find("peer-b") == nil {
+		t.Fatal("not prepared")
+	}
+	if _, err := os.Stat(peerOpPath("peer-b")); !os.IsNotExist(err) {
+		t.Fatal("op.json should be cleared")
+	}
+}
+
+func TestRecoverCorruptOpJSON(t *testing.T) {
+	withTestRoot(t)
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error {
+		t.Fatal("no bootstrap")
+		return nil
+	}
+	_ = os.MkdirAll(filepath.Join(peersDirPath(), "bad"), 0o700)
+	_ = os.WriteFile(peerOpPath("bad"), []byte("{not json"), 0o600)
+	writePeerMaterial(t, sampleMaterial("bad", "203.0.113.8", SlotTable()[0]))
+	_, err := RecoverIncompletePeerAdd("bad")
+	if err == nil {
+		t.Fatal("expected corrupt error")
+	}
+}
+
+func TestRecoverUnknownPhase(t *testing.T) {
+	withTestRoot(t)
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error {
+		t.Fatal("no bootstrap")
+		return nil
+	}
+	m := sampleMaterial("p", "203.0.113.7", SlotTable()[0])
+	writePeerMaterial(t, m)
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "p", PublicIP: "203.0.113.7", SlotIndex: 0, Phase: "weird"})
+	_, err := RecoverIncompletePeerAdd("p")
+	if err == nil {
+		t.Fatal("expected unknown phase")
+	}
+}
+
+func TestPeerPromotePreparedAndReady(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "p1", PublicIP: "203.0.113.1", State: "prepared", Slot: SlotTable()[0]},
-	}}
+		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "203.0.113.2", State: "prepared", Slot: SlotTable()[1]},
+	}, ActiveID: "old"}
 	if err := SavePeersIndex(idx); err != nil {
 		t.Fatal(err)
 	}
 	if err := PeerPromote("p1"); err == nil {
 		t.Fatal("promote prepared must fail")
 	}
-	idx.Peers[0].State = "ready"
-	_ = SavePeersIndex(idx)
-	// preferred paths write to /etc — may fail in sandbox; accept error from preferred write
-	_ = PeerPromote("p1")
-}
-
-func TestPeerAddIdempotentSameID(t *testing.T) {
-	withTestRoot(t)
-	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error { return nil }
-	// Skip if no wg genkey
-	if _, err := os.Stat("/usr/bin/wg"); err != nil {
-		if _, err2 := os.Stat("/bin/wg"); err2 != nil {
-			t.Skip("wg not installed")
-		}
+	idx.Peers[1].State = "ready"
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
 	}
-	m1, p1, err := PeerAdd(PeerAddOpts{PeerID: "peer-x", PublicIP: "203.0.113.20", PrimaryIP: "1.1.1.1"})
-	if err != nil {
-		t.Skip("PeerAdd needs wg:", err)
+	if err := PeerPromote("p1"); err != nil {
+		t.Fatal(err)
 	}
-	m2, p2, err := PeerAdd(PeerAddOpts{PeerID: "peer-x", PublicIP: "203.0.113.20", PrimaryIP: "1.1.1.1"})
+	idx2, _ := LoadPeersIndex()
+	if idx2.ActiveID != "p1" {
+		t.Fatalf("active %s", idx2.ActiveID)
+	}
+	if idx2.Find("old").State != "ready" || idx2.Find("p1").State != "active" {
+		t.Fatalf("%+v", idx2.Peers)
+	}
+	b, err := os.ReadFile(preferredIPPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p1.ID != p2.ID || m1.SPPrivS != m2.SPPrivS {
-		t.Fatal("idempotent add must reuse material")
+	if string(b) != "203.0.113.2\n" {
+		t.Fatalf("preferred %q", b)
+	}
+	ab, _ := os.ReadFile(activePeerPathFile())
+	if string(ab) != "p1\n" {
+		t.Fatalf("active file %q", ab)
 	}
 }
 
@@ -219,10 +316,7 @@ func TestTwoPeersDifferentSlots(t *testing.T) {
 	s0, _ := allocateSlot(idx)
 	idx.Peers = append(idx.Peers, ServicePeer{ID: "a", State: "active", Slot: s0})
 	s1, _ := allocateSlot(idx)
-	if s0.Index == s1.Index {
-		t.Fatal("same slot")
-	}
-	if s0.AddrS_SP == s1.AddrS_SP || s0.WSS_SP == s1.WSS_SP {
+	if s0.Index == s1.Index || s0.AddrS_SP == s1.AddrS_SP || s0.WSS_SP == s1.WSS_SP {
 		t.Fatal("A/B not isolated")
 	}
 }

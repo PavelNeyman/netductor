@@ -1,3 +1,10 @@
+## 0.9.503
+
+- PeerAdd: journal write failures abort before keygen/bootstrap; checkpoint after bootstrap required.
+- Recover: phase bootstrap/index_failed skips re-bootstrap; validates op integrity.
+- Preferred paths injectable; promote success tested hermetically.
+- Fault tests: journal fail, index_save fail + second recover, corrupt op, unknown phase.
+
 ## 0.9.502
 
 - Fault-injection tests: recover after material/bootstrap_failed; no key regen; promote requires ready; slot/WSS isolation.
