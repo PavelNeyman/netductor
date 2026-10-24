@@ -195,7 +195,7 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 		return "", fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, peerID)
 	}
 	clearPeerOp(peerID)
-	_ = appendPeerJournal("recover", peerID, "prepared", op.Phase)
+	logPeerJournal("recover", peerID, "prepared", op.Phase)
 	return "recovered to prepared", nil
 }
 

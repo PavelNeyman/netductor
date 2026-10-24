@@ -147,7 +147,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		return nil, nil, fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, o.PeerID)
 	}
 	clearPeerOp(o.PeerID)
-	_ = appendPeerJournal("add", o.PeerID, "prepared", "")
+	logPeerJournal("add", o.PeerID, "prepared", "")
 	return m.ForSecondary(), &sp, nil
 }
 
@@ -309,7 +309,7 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 			return err
 		}
 		if !vr.OK {
-			_ = appendPeerJournal("validate", peerID, "failed", strings.Join(vr.Errors, "; "))
+			logPeerJournal("validate", peerID, "failed", strings.Join(vr.Errors, "; "))
 			return fmt.Errorf("peer %s validate failed: %s", peerID, strings.Join(vr.Errors, "; "))
 		}
 		// reload index
@@ -325,7 +325,7 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 			if err := SavePeersIndex(idx); err != nil {
 				return err
 			}
-			_ = appendPeerJournal("ready", peerID, "ready", "")
+			logPeerJournal("ready", peerID, "ready", "")
 			return nil
 		}
 	}
@@ -491,7 +491,7 @@ func PeerPromote(peerID string) error {
 			return fmt.Errorf("secrets/preferred_secondary_ip: %w", err)
 		}
 	}
-	_ = appendPeerJournal("promote", peerID, "active", "prev="+snap.Index.ActiveID)
+	logPeerJournal("promote", peerID, "active", "prev="+snap.Index.ActiveID)
 	return nil
 }
 
@@ -569,7 +569,7 @@ func PeerRemove(peerID string) error {
 	if err := SavePeersIndex(idx); err != nil {
 		return err
 	}
-	_ = appendPeerJournal("remove", peerID, "removed", "")
+	logPeerJournal("remove", peerID, "removed", "")
 	return nil
 }
 
@@ -581,6 +581,9 @@ func PeerList() (*PeersIndex, error) {
 	return LoadPeersIndex()
 }
 
+// appendPeerJournal appends a diagnostic audit line to peer-ops.log.
+// Contract: NOT used for crash recovery (that is op.json + peers.json + material).
+// Plane success is not rolled back solely because the audit line failed.
 func appendPeerJournal(op, peerID, state, detail string) error {
 	_ = os.MkdirAll(keysRoot, 0o700)
 	path := filepath.Join(keysRoot, "peer-ops.log")
@@ -592,4 +595,12 @@ func appendPeerJournal(op, peerID, state, detail string) error {
 	defer f.Close()
 	_, err = f.WriteString(line)
 	return err
+}
+
+// logPeerJournal records a journal line after a committed plane mutation.
+// On error prints to stderr; does not fail the caller.
+func logPeerJournal(op, peerID, state, detail string) {
+	if err := appendPeerJournal(op, peerID, state, detail); err != nil {
+		fmt.Fprintf(os.Stderr, "svc-paths: peer-ops journal %s %s: %v (plane op already committed; journal is diagnostic only)\n", op, peerID, err)
+	}
 }
