@@ -76,6 +76,7 @@ type State struct {
 	SPStableSince    time.Time `json:"sp_stable_since,omitempty"`
 	PSStableSince    time.Time `json:"ps_stable_since,omitempty"`
 	VLESSStableSince time.Time `json:"vless_stable_since,omitempty"`
+	LastSampleAt     time.Time `json:"last_sample_at,omitempty"`
 }
 
 func LoadState() State {
@@ -123,6 +124,14 @@ func Tick() (State, string, error) {
 
 	now := time.Now().UTC()
 	stableFor := time.Duration(p.StableSeconds) * time.Second
+	// Min interval between counted samples (agent + timer fallback must not double-count).
+	const minSample = 20 * time.Second
+	if !s.LastSampleAt.IsZero() && now.Sub(s.LastSampleAt) < minSample {
+		sum := fmt.Sprintf("sp_down=%v ps_down=%v vless_down=%v user=%s agent=%s action=sample_skipped",
+			s.SPDown, s.PSDown, s.VLESSDown, s.UserPath, s.AgentURLMode)
+		return s, sum, nil
+	}
+	s.LastSampleAt = now
 	upd := func(up int, fails, oks *int, down *bool, stableSince *time.Time) {
 		if up == 1 {
 			*oks++

@@ -1,3 +1,11 @@
+## 0.9.495
+
+- svc-paths: reuse WG material on same secondary IP; refuse different peer without --force-new-material (one HA secondary on fixed /30).
+- Failover: agent owns ticks when active; timer is fallback; min 20s between counted samples.
+- applyUserUplink: atomic config write; systemctl restart sing-box fail-closed + is-active.
+- Probe role: secondary_core_url / material.json when WG ifaces down.
+- Harden iptables fallback: NETDUCTOR chain ends with DROP.
+
 ## 0.9.494
 
 - Failover: user_path ps → uplink 10.87.11.1 (PS); sp → 10.87.10.1; vless → public primary.

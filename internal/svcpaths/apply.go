@@ -26,6 +26,15 @@ func ProbeHealth() error {
 	if hasIP(IfaceSP, AddrS_SP) || hasIP(IfacePS, AddrS_PS) {
 		role = "secondary"
 	}
+	// Role must not depend only on live WG IPs (both tunnels down → still secondary).
+	if role == "unknown" {
+		if _, err := os.Stat(coreURLPath); err == nil {
+			role = "secondary"
+		} else if _, err := os.Stat(filepath.Join(KeysDir, "material.json")); err == nil {
+			// material on disk without secondary_core_url → likely primary
+			role = "primary"
+		}
+	}
 	sp, ps := 0, 0
 	if role == "primary" {
 		if pingOK(AddrS_SP) {
@@ -181,10 +190,19 @@ func applyUserUplink(userPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(singBoxConfig, append(raw, '\n'), 0o644); err != nil {
+	tmp := singBoxConfig + ".tmp"
+	if err := os.WriteFile(tmp, append(raw, '\n'), 0o644); err != nil {
 		return err
 	}
-	_ = exec.Command("systemctl", "restart", "sing-box").Run()
+	if err := os.Rename(tmp, singBoxConfig); err != nil {
+		return err
+	}
+	if out, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput(); err != nil {
+		return fmt.Errorf("restart sing-box after uplink apply: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if st, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(st)) != "active" {
+		return fmt.Errorf("sing-box not active after uplink apply: %s", strings.TrimSpace(string(st)))
+	}
 	return nil
 }
 

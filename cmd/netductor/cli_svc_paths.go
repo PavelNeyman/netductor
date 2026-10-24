@@ -44,10 +44,14 @@ func runSvcPaths(args []string) {
 		fmt.Printf("sp_up=%v ps_up=%v role=%s\n", r.SP.Up, r.PS.Up, r.HostRole)
 	case "bootstrap-primary":
 		peer := ""
+		forceNew := false
 		for i := 1; i < len(args); i++ {
 			if args[i] == "--peer-ip" && i+1 < len(args) {
 				peer = args[i+1]
 				i++
+			}
+			if args[i] == "--force-new-material" {
+				forceNew = true
 			}
 		}
 		if peer == "" {
@@ -63,13 +67,18 @@ func runSvcPaths(args []string) {
 				prim = p
 			}
 		}
-		m, err := svcpaths.GenerateMaterial(prim, peer)
+		m, generated, err := svcpaths.LoadOrGenerateMaterial(prim, peer, forceNew)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		m.Primary = prim
 		m.Secondary = peer
+		if generated {
+			fmt.Fprintln(os.Stderr, "svc-paths: generated new WG material for peer", peer)
+		} else {
+			fmt.Fprintln(os.Stderr, "svc-paths: reusing existing material for peer", peer)
+		}
 		if err := svcpaths.BootstrapPrimary(m); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

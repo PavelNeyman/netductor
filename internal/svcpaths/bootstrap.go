@@ -138,6 +138,51 @@ func GenerateMaterial(primaryIP, secondaryIP string) (*Material, error) {
 	return m, nil
 }
 
+// LoadMaterial reads KeysDir/material.json if present.
+func LoadMaterial() (*Material, error) {
+	b, err := os.ReadFile(filepath.Join(KeysDir, "material.json"))
+	if err != nil {
+		return nil, err
+	}
+	var m Material
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	if m.SPPrivP == "" || m.SPPrivS == "" || m.PSPrivP == "" || m.PSPrivS == "" {
+		return nil, fmt.Errorf("material.json incomplete")
+	}
+	return &m, nil
+}
+
+// LoadOrGenerateMaterial reuses existing keys when secondary IP matches.
+// Refuses silent regen for a different secondary (fixed /30 allows only one SP/PS peer).
+// force=true regenerates even if another secondary was configured.
+func LoadOrGenerateMaterial(primaryIP, secondaryIP string, force bool) (*Material, bool, error) {
+	existing, err := LoadMaterial()
+	if err == nil && existing != nil {
+		if existing.Secondary == secondaryIP || secondaryIP == "" {
+			if primaryIP != "" && primaryIP != "0.0.0.0" {
+				existing.Primary = primaryIP
+			}
+			if secondaryIP != "" {
+				existing.Secondary = secondaryIP
+			}
+			return existing, false, nil // reused
+		}
+		if !force {
+			return nil, false, fmt.Errorf(
+				"svc-paths material already peers secondary %s; new peer %s would overwrite fixed SP/PS /30 (10.87.10.0/30, 10.87.11.0/30). "+
+					"Only one HA secondary is supported on the service plane. Pass --force-new-material to replace (breaks old secondary tunnels)",
+				existing.Secondary, secondaryIP)
+		}
+	}
+	m, err := GenerateMaterial(primaryIP, secondaryIP)
+	if err != nil {
+		return nil, false, err
+	}
+	return m, true, nil // generated
+}
+
 func writeFile(path, body string, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
@@ -376,6 +421,10 @@ func installHealthTimer() error {
 	// Always rewrite so bootstrap upgrades the tick policy (do not keep silent-success legacy).
 	body := `#!/bin/bash
 set -u
+# Prefer agent as sole owner of failover samples; timer is fallback if agent is down.
+if systemctl is-active --quiet netductor-secondary-agent 2>/dev/null; then
+  exit 0
+fi
 if command -v netductor >/dev/null 2>&1; then
   if ! out=$(netductor svc-paths failover tick 2>&1); then
     echo "nd-svc-paths-health: failover tick failed: $out" >&2

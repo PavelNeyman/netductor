@@ -73,6 +73,22 @@ ssh -i "$KEY" -p 22 root@SECONDARY true && echo 'FAIL: :22 accepts key' || echo 
 
 ---
 
+## Несколько Secondary и service plane
+
+Во fleet можно иметь **много** VPN-secondary (AgentID, tokens, Reality).
+
+**Service plane** (SP/PS WireGuard + wstunnel) — **один primary ↔ один secondary**:
+
+| Ресурс | Значение |
+|--------|----------|
+| SP | `10.87.10.1/30` ↔ `10.87.10.2` |
+| PS | `10.87.11.1/30` ↔ `10.87.11.2` |
+| Порты | WG 51830/51832, WSS 8444/8445 |
+
+Deploy **другого** secondary как HA-peer без `--force-new-material` отклоняется. Force заменяет ключи и **ломает** туннели прежнего secondary.
+
+Повторный deploy **того же** IP secondary **переиспользует** material (без смены ключей).
+
 ## 4. Семантика failover (v0.9.494+)
 
 | `user_path` | Цель uplink |

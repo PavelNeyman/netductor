@@ -74,6 +74,22 @@ Expect `secondary_core_url` → `https://10.87.10.1:8789` (SP), not public WAN f
 
 ---
 
+## Multi-secondary and service plane
+
+Fleet may register **many** VPN secondaries (AgentID, tokens, Reality).
+
+The **service plane** (SP/PS WireGuard + wstunnel) is **one primary ↔ one secondary**:
+
+| Resource | Value |
+|----------|--------|
+| SP | `10.87.10.1/30` ↔ `10.87.10.2` |
+| PS | `10.87.11.1/30` ↔ `10.87.11.2` |
+| Ports | WG 51830/51832, WSS 8444/8445 |
+
+Deploying a **different** secondary as HA peer without `--force-new-material` is refused. Force replaces keys and **breaks** the previous secondary’s tunnels.
+
+Re-deploy of the **same** secondary IP **reuses** material (no key churn).
+
 ## 4. Failover semantics (v0.9.494+)
 
 | `user_path` | Uplink target |

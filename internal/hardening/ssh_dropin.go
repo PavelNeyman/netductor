@@ -62,6 +62,8 @@ elif command -v iptables >/dev/null 2>&1; then
   iptables -A NETDUCTOR -p tcp --dport 8445 -j ACCEPT
   iptables -A NETDUCTOR -p tcp --dport 22 -j DROP
   iptables -A NETDUCTOR -p tcp --dport 10050 -j DROP
+  # default-deny remainder of inbound (chain is first in INPUT)
+  iptables -A NETDUCTOR -j DROP
 fi
 # purge hoster monitoring agents (zabbix)
 for u in zabbix-agent zabbix-agentd zabbix-agent2 telegraf salt-minion node_exporter prometheus-node-exporter datadog-agent snmpd nrpe; do
