@@ -1,3 +1,9 @@
+## 0.9.511
+
+- DeploySecondary: ufw 8789 from secondary SP/PS WG IPs + WSS_SP; fail if ufw active and rules fail.
+- Primary: unit checks + ping secondary WG endpoints (with B→P pings).
+- Promote=true runs peer ready --force-ready + peer promote (not raw preferred write).
+
 ## 0.9.510
 
 - DeploySecondary: svc-paths peer add (slot-aware) instead of legacy bootstrap-primary alone.

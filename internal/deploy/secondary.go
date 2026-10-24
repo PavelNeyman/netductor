@@ -212,14 +212,16 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("peer add material JSON: %w\n%s", errJ, out)
 	}
 	var mat struct {
-		PeerID   string `json:"peer_id"`
-		Slot     int    `json:"slot"`
-		AddrPSP  string `json:"addr_p_sp"`
-		AddrPPS  string `json:"addr_p_ps"`
-		IfaceSP  string `json:"iface_sp"`
-		IfacePS  string `json:"iface_ps"`
-		WSSSP    int    `json:"wss_sp"`
-		WSSPS    int    `json:"wss_ps"`
+		PeerID  string `json:"peer_id"`
+		Slot    int    `json:"slot"`
+		AddrPSP string `json:"addr_p_sp"`
+		AddrSSP string `json:"addr_s_sp"`
+		AddrPPS string `json:"addr_p_ps"`
+		AddrSPS string `json:"addr_s_ps"`
+		IfaceSP string `json:"iface_sp"`
+		IfacePS string `json:"iface_ps"`
+		WSSSP   int    `json:"wss_sp"`
+		WSSPS   int    `json:"wss_ps"`
 	}
 	if err := json.Unmarshal([]byte(raw), &mat); err != nil {
 		return fmt.Errorf("peer material decode: %w", err)
@@ -235,6 +237,12 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 	if mat.AddrPPS == "" {
 		mat.AddrPPS = "10.87.11.1"
+	}
+	if mat.AddrSSP == "" {
+		mat.AddrSSP = "10.87.10.2"
+	}
+	if mat.AddrSPS == "" {
+		mat.AddrSPS = "10.87.11.2"
 	}
 	if mat.WSSSP == 0 {
 		mat.WSSSP = 8444
@@ -273,6 +281,7 @@ chmod 600 /tmp/nd-svc-material.json
 netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json
 test -f /etc/netductor/secrets/secondary_core_url
 grep -q %s /etc/netductor/secrets/secondary_core_url
+# Contract: on Secondary, WSS client/server unit names are shared; WG ifaces are per-slot.
 for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
   st=$(systemctl is-active "$u" 2>/dev/null || true)
   test "$st" = active
@@ -298,19 +307,26 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 	}
 	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
 
-	// Primary: open this peer's SP WSS + mTLS from this peer /30 (not only slot 0).
-	ufwPeer := fmt.Sprintf(
-		"ufw allow from %s to any port 8789 proto tcp 2>/dev/null; ufw allow from %s to any port 8789 proto tcp 2>/dev/null; ufw allow %d/tcp 2>/dev/null; true",
-		ShellQuote(mat.AddrPSP+"/30"), ShellQuote(mat.AddrPPS+"/30"), mat.WSSSP,
-	)
-	// /30 from host IP is wrong - use network. Prefer allow from peer secondary addresses is complex;
-	// keep allow WSS port + broad note. Better: allow from secondary public? Actually SP tunnel is local.
-	// Primary mTLS is over WG - allow from AddrS_SP network. We only have AddrP. Use subnet derived from AddrP_SP.
-	// Simple: ufw allow WSS_SP and leave existing 10.87 rules.
-	ufwPeer = fmt.Sprintf("ufw allow %d/tcp comment nd-wss-sp-slot 2>/dev/null; true", mat.WSSSP)
-	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase)
+		// Primary firewall for this peer: mTLS 8789 from secondary WG IPs + WSS_SP listen.
+	// Fail deploy if ufw is active and rules cannot be applied.
+	ufwPeer := fmt.Sprintf(`set -e
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi 'Status: active'; then
+  ufw allow from %s to any port 8789 proto tcp comment nd-mtls-sp
+  ufw allow from %s to any port 8789 proto tcp comment nd-mtls-ps
+  ufw allow %d/tcp comment nd-wss-sp-slot
+  ufw status | grep -E '8789|%d' || true
+  echo "ufw peer rules applied"
+else
+  echo "ufw inactive or missing - skip (bootstrap may still open ports)"
+fi
+`, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), mat.WSSSP, mat.WSSSP)
+	if outU, errU := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
+		return fmt.Errorf("svc-paths primary firewall for peer slot: %w\n%s", errU, outU)
+	} else {
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(outU))
+	}
 
-	// Primary smoke: peer units for this slot
+	// Primary: units active + ping secondary WG endpoints (bidirectional with B's pings to primary).
 	spUnit := "nd-wss-sp-server"
 	if mat.IfaceSP != "nd-svc-sp" {
 		spUnit = "nd-wss-sp-server-" + mat.IfaceSP
@@ -324,15 +340,17 @@ for u in %s %s wg-quick@%s wg-quick@%s; do
   st=$(systemctl is-active "$u" 2>/dev/null || true)
   test "$st" = active || { echo "unit $u=$st"; exit 1; }
 done
-echo "primary peer units ok"
-`, ShellQuote(spUnit), ShellQuote(psUnit), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
+ping -c1 -W3 %s >/dev/null
+ping -c1 -W3 %s >/dev/null
+echo "primary peer units+ping ok -> %s %s"
+`, ShellQuote(spUnit), ShellQuote(psUnit), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
+		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS))
 	if outP2, errP2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
-		return fmt.Errorf("svc-paths primary SP/PS units: %v\n%s", errP2, outP2)
+		return fmt.Errorf("svc-paths primary SP/PS units/ping: %v\n%s", errP2, outP2)
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
 	}
-
-	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
+fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
 	if pack.AgentID == "" {
 		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")
 	}
@@ -364,37 +382,24 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	// preferred_secondary_ip only when Promote (provision ≠ promotion).
-	if !o.Promote {
-		fmt.Fprintln(os.Stderr, "==> skip preferred_secondary_ip (Promote=false; use svc-paths peer promote)")
-	}
-	prefCmd := fmt.Sprintf(`id=%s
-fallback=%s
-line=$(netductor secondary status 2>/dev/null | awk -F '\t' -v id="$id" '$1 == id { print; exit }')
-ip=$(printf '%%s\n' "$line" | awk -F'\t' '{for(i=1;i<=NF;i++) if($i ~ /^ip=/){sub(/^ip=/,"",$i); print $i; exit}}')
-case "$ip" in
-  ""|*[!0-9.]*)
-    case "$fallback" in
-      *[!0-9.]*) echo "preferred_secondary_ip: no IPv4 (skip)"; exit 0 ;;
-      *) ip=$fallback ;;
-    esac
-    ;;
-esac
-mkdir -p /etc/netductor/secrets
-printf '%%s\n' "$ip" > /etc/netductor/preferred_secondary_ip
-printf '%%s\n' "$ip" > /etc/netductor/secrets/preferred_secondary_ip
-chmod 600 /etc/netductor/preferred_secondary_ip /etc/netductor/secrets/preferred_secondary_ip 2>/dev/null
-echo "preferred=$ip"
-true`, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
+		// Provision ≠ promotion. Only PeerPromote (ready→active) is authoritative.
 	if o.Promote {
-		if outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prefCmd, o.PrimaryKeyPassphrase); errP != nil {
-			fmt.Fprintln(os.Stderr, "warn preferred_secondary_ip:", errP, outP)
-		} else {
-			fmt.Fprintln(os.Stderr, strings.TrimSpace(outP))
+		fmt.Fprintln(os.Stderr, "==> Promote=true: svc-paths peer ready + promote (not raw preferred write)")
+		promCmd := fmt.Sprintf(`set -e
+netductor svc-paths peer ready %s --force-ready
+netductor svc-paths peer promote %s
+echo "promoted %s"
+`, ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID))
+		outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, promCmd, o.PrimaryKeyPassphrase)
+		if errP != nil {
+			return fmt.Errorf("svc-paths peer promote after deploy: %w\n%s", errP, outP)
 		}
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP))
+	} else {
+		fmt.Fprintln(os.Stderr, "==> skip promote (Promote=false; after traffic test: svc-paths peer ready/promote", peerID+")")
 	}
 
-	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
+fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
 	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS)")
 	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
 	return nil
