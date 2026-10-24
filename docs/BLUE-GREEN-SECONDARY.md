@@ -1,6 +1,10 @@
 # Blue-Green Secondary (R5 acceptance)
 
-**Code baseline:** v0.9.499+  
+**Code baseline:** v0.9.501+
+
+> This document is an **operator acceptance procedure**, not a production certificate.
+> Preflight prints state only; a zero exit does **not** mean cutover PASS.
+> Live traffic, fault-injection recovery, and dual-node isolation must be signed off on the lab/prod VPS.  
 **Goal:** Run Secondary B next to A, validate, promote, DNS cutover, rollback — without breaking A’s service plane.
 
 ## Preconditions

@@ -1,3 +1,9 @@
+## 0.9.501
+
+- API: validate returns HTTP 409 before JSON body when checks fail.
+- API: promote/remove/rollback report inventory_ok / inventory_error (no silent ignore).
+- Docs: R5 runbook is acceptance procedure, not production certificate.
+
 ## 0.9.500
 
 - R5 close-out: Blue-Green runbook + acceptance checklist (docs/BLUE-GREEN-SECONDARY.md).
