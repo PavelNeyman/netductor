@@ -1,3 +1,9 @@
+## 0.9.499
+
+- R4 UI: Web Secondary panel inventory (list/register candidates).
+- Telegram: Fleet → Secondaries (list/register); no deploy from bot.
+- CLI: netductor inventory list|add.
+
 ## 0.9.498
 
 - R2: peer add op.json phases + `peer recover`; full journal.

@@ -26,6 +26,9 @@ func handleMessage(token string, m *message, admin int64) {
 	if handlePresetNameText(token, chat, text) {
 		return
 	}
+	if trySecAddMessage(token, chat, text) {
+		return
+	}
 	if chatState[chat] == "wait_guest_revoke_mac" {
 		id := chatExtra[chat]
 		mac := strings.TrimSpace(text)

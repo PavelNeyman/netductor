@@ -82,6 +82,8 @@ func main() {
 		runCleanupLegacy(os.Args[2:])
 	case "api-public":
 		runAPIPublic(os.Args[2:])
+	case "inventory":
+		runInventory(os.Args[2:])
 	case "svc-paths":
 		runSvcPaths(os.Args[2:])
 	case "uplink-mux":

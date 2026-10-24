@@ -204,6 +204,18 @@
     </form>
   </section>
   <section id="panel-secondary" class="panel">
+    <div class="card" id="sec-inventory" style="margin-bottom:1rem">
+      <h3 data-i18n="sec_inv_title">Secondary inventory (candidates)</h3>
+      <p class="note" data-i18n="sec_inv_note">Register planned secondaries without deploy or WG. Deploy uses the form below.</p>
+      <div id="sec-inv-list" class="note">—</div>
+      <form id="form-sec-inv" style="margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+        <input name="id" placeholder="id (optional)" style="min-width:7rem"/>
+        <input name="name" placeholder="name" style="min-width:7rem"/>
+        <input name="public_ip" placeholder="public IP" required style="min-width:9rem"/>
+        <button type="submit" class="secondary" data-i18n="sec_inv_add">Register candidate</button>
+        <button type="button" class="secondary" id="btnSecInvRefresh" data-i18n="sec_inv_refresh">Refresh</button>
+      </form>
+    </div>
     <form id="form-secondary">
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_key_pass">Key passphrase</label><input name="primary_key_passphrase" type="password" autocomplete="off"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div></div>

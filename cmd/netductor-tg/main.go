@@ -798,6 +798,10 @@ func setState(chat int64, st, extra string) {
 	chatExtra[chat] = extra
 }
 
+func getState(chat int64) (string, string) {
+	return chatState[chat], chatExtra[chat]
+}
+
 func setBotCommands(token string) {
 	// descriptions in both langs is limited; use English short + user can /lang
 	cmds := []map[string]string{

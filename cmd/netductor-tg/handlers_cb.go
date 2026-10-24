@@ -189,6 +189,10 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			body = helpText()
 		}
 		reply(token, chat, msgID, body, mainKeyboard())
+	case "m:sec", "m:sec:list", "m:sec:add":
+		if handleSecondariesCB(token, chat, msgID, data) {
+			return
+		}
 	case "m:fleet":
 		reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
 	case "m:operator":

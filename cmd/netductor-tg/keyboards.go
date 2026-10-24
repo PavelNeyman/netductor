@@ -125,6 +125,7 @@ func statusKeyboard() map[string]any {
 
 func fleetKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("📋 Secondaries", "m:sec", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }
