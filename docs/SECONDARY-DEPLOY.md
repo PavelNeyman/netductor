@@ -23,15 +23,15 @@ Two independent stores:
 |-----------|-----------|
 | First contact (no saved key) | Accept and persist (TOFU / `accept-new`) |
 | Key matches saved fingerprint | Continue |
-| Key **changed** unexpectedly | **Fail** — do not auto-trust |
-| Operator confirms reinstall / rotation | Explicit forget, then one controlled retry |
+| Key **changed** unexpectedly | **Fail** — no auto-forget, no password retry |
+| Operator confirms reinstall / rotation | CLI forget both stores, then re-run deploy (`force_reinstall` optional) |
 
-**Password alone does not wipe trust.**
+**Password alone does not wipe trust. Deploy never auto-retries after mismatch (v0.9.493+).**
 
-- Go: `ForgetSSHHost` only if `ForceReinstall` or CLI `netductor ssh-hosts forget --kind relay <host>`.
-- OpenSSH: `ClearHostKeys` only after a **detected host-key error**, then **one** retry (also forgets Go TOFU once in that path).
+- Go TOFU: `ForgetSSHHost` only via `ForceReinstall` / `force_reinstall` or CLI `netductor ssh-hosts forget --kind relay <host>`.
+- OpenSSH: operator runs `ssh-keygen -R` after verifying the new fingerprint offline.
 
-Do **not** treat “password deploy succeeded” as proof the host was not substituted. On mismatch, inspect the new fingerprint offline; only then forget and re-run.
+On mismatch, inspect the new fingerprint offline; only then forget and re-run.
 
 ```bash
 netductor ssh-hosts list

@@ -31,19 +31,23 @@ type SecondaryOpts struct {
 	SecondarySSHKey      string // optional re-provision when password already off
 	SNI                  string
 	OperatorPubKey       string
+	// ForceReinstall: operator already verified host-key rotation — pass through to Go TOFU forget.
+	ForceReinstall bool
 	// ViaPrimary is ignored (deprecated). Always Mac-direct.
 	ViaPrimary bool
 }
 
 type secondaryPack struct {
-	Bundle      json.RawMessage `json:"bundle"`
-	AgentID     string          `json:"agent_id"`
-	AgentToken  string          `json:"agent_token"`
-	CoreURL     string          `json:"core_url"`
-	MTLSCAB64   string          `json:"mtls_ca_b64"`
-	MTLSCertB64 string          `json:"mtls_cert_b64"`
-	MTLSKeyB64  string          `json:"mtls_key_b64"`
-	SNI         string          `json:"sni"`
+	SchemaVersion   int             `json:"schema_version"`
+	MinAgentVersion string          `json:"min_agent_version"`
+	Bundle          json.RawMessage `json:"bundle"`
+	AgentID         string          `json:"agent_id"`
+	AgentToken      string          `json:"agent_token"`
+	CoreURL         string          `json:"core_url"`
+	MTLSCAB64       string          `json:"mtls_ca_b64"`
+	MTLSCertB64     string          `json:"mtls_cert_b64"`
+	MTLSKeyB64      string          `json:"mtls_key_b64"`
+	SNI             string          `json:"sni"`
 }
 
 
@@ -124,6 +128,14 @@ func DeploySecondary(o SecondaryOpts) error {
 	if pack.AgentID == "" || pack.AgentToken == "" || len(pack.Bundle) == 0 {
 		return fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out)
 	}
+	const packSchema = 1
+	if pack.SchemaVersion == 0 {
+		// legacy prepare-pack without top-level schema — accept as 1
+		pack.SchemaVersion = 1
+	}
+	if pack.SchemaVersion != packSchema {
+		return fmt.Errorf("prepare-pack schema_version %d unsupported (need %d)", pack.SchemaVersion, packSchema)
+	}
 	ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
 	if err != nil {
 		return fmt.Errorf("mtls ca: %w", err)
@@ -138,23 +150,22 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 
 	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
-	// R6: do not auto-wipe host-key trust on every password deploy.
-	// Clear known_hosts only after a host-key mismatch, then retry once.
-	provision := func() (*secondary.ProvisionResult, error) {
-		return secondary.ProvisionFromCore(secondary.ProvisionIn{
-			Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
-			Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
-			SNI: o.SNI, OperatorPubKey: pub,
-			MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
-		}, string(pack.Bundle))
-	}
-	res, err := provision()
-	if err != nil && o.SecondaryPass != "" && isSSHHostKeyError(err) {
-		fmt.Fprintln(os.Stderr, "warn: host key mismatch — explicit TOFU forget + ClearHostKeys + one retry (R6)")
-		// Operator is re-running password deploy after confirmed mismatch; wipe both stores once.
-		_ = secondary.ForgetSSHHost(o.SecondaryHost)
-		ClearHostKeys(o.SecondaryHost)
-		res, err = provision()
+	// R6/R16: host-key mismatch must NOT auto-forget or retry with password (MITM risk).
+	// Explicit ForceReinstall only after operator verified fingerprint offline.
+	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
+		Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
+		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
+		SNI: o.SNI, OperatorPubKey: pub,
+		MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
+		ForceReinstall: o.ForceReinstall,
+	}, string(pack.Bundle))
+	if err != nil && isSSHHostKeyError(err) {
+		return fmt.Errorf("SSH host key mismatch for %s — refuse auto-trust.\n"+
+			"Verify fingerprint offline, then:\n"+
+			"  netductor ssh-hosts forget --kind relay %s\n"+
+			"  ssh-keygen -R %s; ssh-keygen -R '[%s]:22'; ssh-keygen -R '[%s]:52222'\n"+
+			"Re-run deploy (or set ForceReinstall after forget).\n%w",
+			o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, err)
 	}
 	if res != nil {
 		fmt.Print(res.Log)
@@ -225,7 +236,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if scpErr != nil {
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
 	}
-	secBoot := "echo c2V0IC1lCnRyYXAgJ3JtIC1mIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24nIEVYSVQKY2htb2QgNjAwIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24gMj4vZGV2L251bGwgfHwgdHJ1ZQpuZXRkdWN0b3Igc3ZjLXBhdGhzIGJvb3RzdHJhcC1zZWNvbmRhcnkgLS1tYXRlcmlhbCAvdG1wL25kLXN2Yy1tYXRlcmlhbC5qc29uCnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc2VjcmV0cy9zZWNvbmRhcnlfY29yZV91cmwKZ3JlcCAtcSAxMC44Ny4xMC4xIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmZvciB1IGluIG5kLXdzcy1zcC1jbGllbnQgbmQtd3NzLXBzLXNlcnZlciB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAidW5pdCAkdSBub3QgYWN0aXZlOiAkc3QiID4mMjsgZXhpdCAxOyB9CmRvbmUKIyBQZWVyIG9ubHkuIExvY2FsIGFkZHJlc3MgaXMgbm90IHByb29mIHRoZSB0dW5uZWwgaXMgdXAgKFI3KS4KcGluZyAtYzEgLVczIDEwLjg3LjEwLjEgfHwgeyBlY2hvICJTUCBwZWVyIDEwLjg3LjEwLjEgdW5yZWFjaGFibGUiID4mMjsgZXhpdCAxOyB9CnBpbmcgLWMxIC1XMyAxMC44Ny4xMS4xIHx8IHsgZWNobyAiUFMgcGVlciAxMC44Ny4xMS4xIHVucmVhY2hhYmxlIiA+JjI7IGV4aXQgMTsgfQp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3N2Yy1wYXRocy9mYWlsb3Zlci1wb2xpY3kuanNvbgojIEhlYWx0aCB0aW1lciBtdXN0IGJlIGFjdGl2ZSAoZmFpbC1jbG9zZWQpLgp0ZXN0ICIkKHN5c3RlbWN0bCBpcy1hY3RpdmUgbmQtc3ZjLXBhdGhzLWhlYWx0aC50aW1lciAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKSIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gIm5kLXN2Yy1wYXRocy1oZWFsdGgudGltZXIgbm90IGFjdGl2ZSIgPiYyOyBleGl0IDE7IH0KZWNobyBTUF9QU19PSwo= | base64 -d | bash"
+	secBoot := "echo c2V0IC1lCnRyYXAgJ3JtIC1mIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24nIEVYSVQKY2htb2QgNjAwIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24KbmV0ZHVjdG9yIHN2Yy1wYXRocyBib290c3RyYXAtc2Vjb25kYXJ5IC0tbWF0ZXJpYWwgL3RtcC9uZC1zdmMtbWF0ZXJpYWwuanNvbgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmdyZXAgLXEgMTAuODcuMTAuMSAvZXRjL25ldGR1Y3Rvci9zZWNyZXRzL3NlY29uZGFyeV9jb3JlX3VybApmb3IgdSBpbiBuZC13c3Mtc3AtY2xpZW50IG5kLXdzcy1wcy1zZXJ2ZXIgd2ctcXVpY2tAbmQtc3ZjLXNwIHdnLXF1aWNrQG5kLXN2Yy1wczsgZG8KICBzdD0kKHN5c3RlbWN0bCBpcy1hY3RpdmUgIiR1IiAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKQogIHRlc3QgIiRzdCIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gInVuaXQgJHUgbm90IGFjdGl2ZTogJHN0IiA+JjI7IGV4aXQgMTsgfQpkb25lCnBpbmcgLWMxIC1XMyAxMC44Ny4xMC4xIHx8IHsgZWNobyAiU1AgcGVlciAxMC44Ny4xMC4xIHVucmVhY2hhYmxlIiA+JjI7IGV4aXQgMTsgfQpwaW5nIC1jMSAtVzMgMTAuODcuMTEuMSB8fCB7IGVjaG8gIlBTIHBlZXIgMTAuODcuMTEuMSB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KdGVzdCAtZiAvZXRjL25ldGR1Y3Rvci9zdmMtcGF0aHMvZmFpbG92ZXItcG9saWN5Lmpzb24KdGVzdCAiJChzeXN0ZW1jdGwgaXMtYWN0aXZlIG5kLXN2Yy1wYXRocy1oZWFsdGgudGltZXIgMj4vZGV2L251bGwgfHwgZWNobyBpbmFjdGl2ZSkiID0gImFjdGl2ZSIgfHwgeyBlY2hvICJuZC1zdmMtcGF0aHMtaGVhbHRoLnRpbWVyIG5vdCBhY3RpdmUiID4mMjsgZXhpdCAxOyB9CmVjaG8gU1BfUFNfT0sK | base64 -d | bash"
 	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
 	fmt.Print(out2)
 	if err2 != nil {
@@ -248,7 +259,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
 		`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
 		o.PrimaryKeyPassphrase)
-	// R10: key login on :22 must fail; additionally probe listeners/PasswordAuth via day2.
+	// R10: key login on :22 must fail.
 	if out22, err22 := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err22 == nil {
 		return fmt.Errorf("SSH still reachable on :22 after harden (expected key-only :%s only)", day2Port)
 	} else {
@@ -257,29 +268,30 @@ func DeploySecondary(o SecondaryOpts) error {
 		case strings.Contains(msg, "connection refused"), strings.Contains(msg, "no route"):
 			fmt.Fprintln(os.Stderr, "==> :22 closed or unreachable (ok for harden)")
 		case strings.Contains(msg, "permission denied"), strings.Contains(msg, "authentication"):
-			fmt.Fprintln(os.Stderr, "==> :22 rejects key (ok; prefer closed after harden)")
+			fmt.Fprintln(os.Stderr, "==> :22 rejects key")
 		default:
 			fmt.Fprintln(os.Stderr, "==> :22 not usable with key:", strings.TrimSpace(err22.Error()))
 		}
 	}
-	// Effective surface: PasswordAuthentication + whether anything listens on :22 (best-effort).
-	probe22 := `set +e
-ss -tlnp 2>/dev/null | grep -E ':22([^0-9]|$)' >/tmp/nd-ss22 || true
-pa=$(grep -E '^[#[:space:]]*PasswordAuthentication' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/* 2>/dev/null | tail -1 || true)
-echo "listen22=$(test -s /tmp/nd-ss22 && echo yes || echo no)"
-echo "password_auth_line=$pa"
-grep -qiE 'PasswordAuthentication[[:space:]]+no' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/* 2>/dev/null && echo password_auth=no || echo password_auth=unknown
+	// Effective sshd: PasswordAuthentication must be no (sshd -T). :22 may still listen (key-only) — OK;
+	// fail if password auth remains enabled.
+	probe22 := `set -e
+eff=$(sshd -T 2>/dev/null | awk '/^passwordauthentication /{print $2; exit}')
+echo "passwordauthentication=$eff"
+test "$eff" = "no" || { echo "effective PasswordAuthentication is not no: $eff" >&2; exit 1; }
+if ss -tlnp 2>/dev/null | grep -qE ':22([^0-9]|$)'; then
+  echo "listen22=yes (key-only expected on day2 :52222 is primary)"
+else
+  echo "listen22=no"
+fi
 true`
-	if pout, perr := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, probe22, o.PrimaryKeyPassphrase); perr != nil {
-		fmt.Fprintln(os.Stderr, "warn :22 surface probe:", perr)
-	} else {
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(pout))
-		if strings.Contains(pout, "password_auth=unknown") {
-			fmt.Fprintln(os.Stderr, "warn: PasswordAuthentication=no not found in sshd_config (harden may be incomplete)")
-		}
+	pout, perr := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, probe22, o.PrimaryKeyPassphrase)
+	if perr != nil {
+		return fmt.Errorf("SSH harden end-state failed (PasswordAuthentication): %w\n%s", perr, pout)
 	}
+	fmt.Fprintln(os.Stderr, strings.TrimSpace(pout))
 	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
-		"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; ufw allow 8445/tcp 2>/dev/null; true",
+		"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; true",
 		o.PrimaryKeyPassphrase)
 
 	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")

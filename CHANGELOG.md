@@ -1,3 +1,12 @@
+## 0.9.493
+
+- R6/R16: host-key mismatch aborts deploy (no auto ForgetSSHHost/ClearHostKeys/retry); ForceReinstall / force_reinstall only after offline verify.
+- Health timer: always rewrite script; failover tick failures exit non-zero and log (no silent success).
+- R10: effective PasswordAuthentication via sshd -T must be no (fail-closed).
+- prepare-pack: validate top-level schema_version; chmod 600 material fail-closed; drop primary ufw 8445.
+- RemoteJoin: arch amd64/arm64, binary rollback on join fail, rm /root/bundle.json on EXIT.
+- version.ValidDotVersion + stricter Less; reject invalid min_agent_version.
+
 ## 0.9.492
 
 - Docs: SECONDARY-DEPLOY (EN/RU) — SSH TOFU policy (R6/R16), deploy end-state, R22 manual failover checklist, R15 bundle contract; links from SECURITY, DEPLOY-MAC, docs index.

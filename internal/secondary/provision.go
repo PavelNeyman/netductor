@@ -156,15 +156,19 @@ export DEBIAN_FRONTEND=noninteractive
 VER=%s
 TD=$(mktemp -d /tmp/nd-join.XXXXXX)
 chmod 700 "$TD"
-trap 'rm -rf "$TD"' EXIT
-ASSET="netductor-linux-amd64"
+trap 'rm -rf "$TD"; rm -f /root/bundle.json' EXIT
+arch=$(uname -m)
+case "$arch" in
+  x86_64) ASSET=netductor-linux-amd64;;
+  aarch64|arm64) ASSET=netductor-linux-arm64;;
+  *) echo "unsupported arch $arch (need amd64 or arm64)" >&2; exit 1;;
+esac
 BASE="https://github.com/PavelNeyman/netductor/releases/download/v${VER}"
 dl() {
   if command -v curl >/dev/null 2>&1; then curl -fsSL -o "$1" "$2"
   else wget -qO "$1" "$2"; fi
 }
 dl "$TD/$ASSET" "$BASE/$ASSET" || { echo "download $ASSET v$VER failed" >&2; exit 1; }
-# Prefer SHA256SUMS from the same release (optional network failure → refuse)
 if dl "$TD/SHA256SUMS" "$BASE/SHA256SUMS"; then
   EXPECT=$(grep -E "[[:space:]]${ASSET}$" "$TD/SHA256SUMS" | awk '{print $1}' | head -1)
   if [ -z "$EXPECT" ]; then echo "SHA256SUMS missing $ASSET" >&2; exit 1; fi
@@ -174,12 +178,24 @@ else
   echo "SHA256SUMS download failed — refuse install without checksum" >&2
   exit 1
 fi
+# Keep previous binary for rollback if join fails.
+PREV=
+if [ -x /usr/local/bin/netductor ]; then
+  cp -a /usr/local/bin/netductor "$TD/netductor.prev"
+  PREV=$TD/netductor.prev
+fi
 systemctl stop netductor-secondary-agent 2>/dev/null || true
 install -m 755 "$TD/$ASSET" /usr/local/bin/netductor
 echo '%s' | base64 -d > /root/bundle.json
 chmod 600 /root/bundle.json
-netductor secondary join /root/bundle.json
-# Strict unit checks (no || true)
+if ! netductor secondary join /root/bundle.json; then
+  echo "join failed — restoring previous binary if any" >&2
+  if [ -n "$PREV" ] && [ -f "$PREV" ]; then
+    install -m 755 "$PREV" /usr/local/bin/netductor
+    systemctl start netductor-secondary-agent 2>/dev/null || true
+  fi
+  exit 1
+fi
 test "$(systemctl is-active sing-box)" = "active"
 test "$(systemctl is-active netductor-secondary-agent)" = "active"
 ss -tlnp | grep -qE ':443([^0-9]|$)'

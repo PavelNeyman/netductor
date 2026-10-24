@@ -23,15 +23,15 @@
 |----------|-----------|
 | Первый контакт (ключа ещё нет) | Принять и сохранить (TOFU / `accept-new`) |
 | Ключ совпадает с сохранённым | Продолжить |
-| Ключ **изменился** без предупреждения | **Отказ** — не доверять автоматически |
-| Оператор подтвердил переустановку / ротацию | Явный forget, затем один контролируемый retry |
+| Ключ **изменился** без предупреждения | **Отказ** — без auto-forget и без password retry |
+| Оператор подтвердил переустановку / ротацию | CLI forget в обоих store, затем повтор deploy (`force_reinstall` по желанию) |
 
-**Одного пароля недостаточно, чтобы сбросить доверие.**
+**Одного пароля недостаточно. Deploy не делает auto-retry при mismatch (v0.9.493+).**
 
-- Go: `ForgetSSHHost` только при `ForceReinstall` или CLI `netductor ssh-hosts forget --kind relay <host>`.
-- OpenSSH: `ClearHostKeys` только после **ошибки host key**, затем **один** retry (в этом пути один раз сбрасывается и Go TOFU).
+- Go TOFU: `ForgetSSHHost` только через `ForceReinstall` / `force_reinstall` или CLI `netductor ssh-hosts forget --kind relay <host>`.
+- OpenSSH: оператор выполняет `ssh-keygen -R` после проверки fingerprint вне канала.
 
-Успешный password-deploy сам по себе не доказывает отсутствие подмены. При mismatch сверьте fingerprint вне канала; только потом forget и повтор.
+При mismatch сверьте fingerprint; только потом forget и повтор.
 
 ```bash
 netductor ssh-hosts list

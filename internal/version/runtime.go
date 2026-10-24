@@ -23,18 +23,23 @@ func verLess(a, b string) bool {
 	if a == "" || b == "" {
 		return false
 	}
-	as, bs := strings.Split(a, "."), strings.Split(b, ".")
-	n := len(as)
-	if len(bs) > n {
-		n = len(bs)
+	ap, okA := parseDotVersion(a)
+	bp, okB := parseDotVersion(b)
+	if !okA || !okB {
+		// Unparseable versions: do not claim ordering (caller may still reject empty min).
+		return false
+	}
+	n := len(ap)
+	if len(bp) > n {
+		n = len(bp)
 	}
 	for i := 0; i < n; i++ {
-		var ai, bi int
-		if i < len(as) {
-			fmt.Sscanf(as[i], "%d", &ai)
+		ai, bi := 0, 0
+		if i < len(ap) {
+			ai = ap[i]
 		}
-		if i < len(bs) {
-			fmt.Sscanf(bs[i], "%d", &bi)
+		if i < len(bp) {
+			bi = bp[i]
 		}
 		if ai < bi {
 			return true
@@ -44,6 +49,41 @@ func verLess(a, b string) bool {
 		}
 	}
 	return false
+}
+
+// ValidDotVersion reports whether s is major.minor.patch digits-only (optional leading v stripped by caller via Less/Norm).
+func ValidDotVersion(s string) bool {
+	_, ok := parseDotVersion(verNorm(s))
+	return ok
+}
+
+// parseDotVersion accepts only major.minor.patch style (digits and dots). Rejects prerelease/suffix.
+func parseDotVersion(s string) ([]int, bool) {
+	if s == "" {
+		return nil, false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && r != '.' {
+			return nil, false
+		}
+	}
+	parts := strings.Split(s, ".")
+	out := make([]int, 0, len(parts))
+	for _, p := range parts {
+		if p == "" {
+			return nil, false
+		}
+		var n int
+		if _, err := fmt.Sscanf(p, "%d", &n); err != nil {
+			return nil, false
+		}
+		// reject leading-zero weirdness except "0"
+		if len(p) > 1 && p[0] == '0' {
+			return nil, false
+		}
+		out = append(out, n)
+	}
+	return out, true
 }
 
 func readFileVersion() string {

@@ -38,8 +38,13 @@ func InstallRelay(bundlePath string) error {
 	if b.Version != supportedSchema {
 		return fmt.Errorf("bundle schema_version %d not supported (need %d)", b.Version, supportedSchema)
 	}
-	if b.MinAgentVersion != "" && version.Less(version.Release, b.MinAgentVersion) {
-		return fmt.Errorf("agent %s older than bundle min_agent_version %s — upgrade secondary binary first", version.Release, b.MinAgentVersion)
+	if b.MinAgentVersion != "" {
+		if !version.ValidDotVersion(b.MinAgentVersion) {
+			return fmt.Errorf("bundle min_agent_version %q invalid (need major.minor.patch)", b.MinAgentVersion)
+		}
+		if version.Less(version.Release, b.MinAgentVersion) {
+			return fmt.Errorf("agent %s older than bundle min_agent_version %s — upgrade secondary binary first", version.Release, b.MinAgentVersion)
+		}
 	}
 
 	PurgeHostMonitoring()

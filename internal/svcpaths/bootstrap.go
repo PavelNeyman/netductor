@@ -373,10 +373,15 @@ AllowedIPs = %s/32
 
 func installHealthTimer() error {
 	script := `/usr/local/bin/nd-svc-paths-health`
-	if _, err := os.Stat(script); err != nil {
-		body := `#!/bin/bash
+	// Always rewrite so bootstrap upgrades the tick policy (do not keep silent-success legacy).
+	body := `#!/bin/bash
+set -u
 if command -v netductor >/dev/null 2>&1; then
-  netductor svc-paths failover tick >/dev/null 2>&1 || true
+  if ! out=$(netductor svc-paths failover tick 2>&1); then
+    echo "nd-svc-paths-health: failover tick failed: $out" >&2
+    logger -t nd-svc-paths-health "failover tick failed: $out" 2>/dev/null || true
+    exit 1
+  fi
   exit 0
 fi
 OUT=/var/lib/netductor/svc-paths-health.json
@@ -386,9 +391,8 @@ ping -c1 -W2 10.87.10.1 >/dev/null 2>&1 || ping -c1 -W2 10.87.10.2 >/dev/null 2>
 ping -c1 -W2 10.87.11.1 >/dev/null 2>&1 || ping -c1 -W2 10.87.11.2 >/dev/null 2>&1 && ps=1
 printf '{"ts":"%s","svc_sp_up":%s,"svc_ps_up":%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sp" "$ps" > "$OUT"
 `
-		if err := writeFile(script, body, 0o755); err != nil {
-			return err
-		}
+	if err := writeFile(script, body, 0o755); err != nil {
+		return err
 	}
 	if err := writeFile("/etc/systemd/system/nd-svc-paths-health.service", `[Unit]
 Description=Netductor svc-paths health
