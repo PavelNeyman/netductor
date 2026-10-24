@@ -1,3 +1,11 @@
+## 0.9.504
+
+- Recovery/PeerAdd: join checkpoint errors with bootstrap/index failures (visible).
+- validatePeerOp: slot must exist in SlotTable; strict secondary/primary IP.
+- No silent slot-0 fallback on unknown material slot.
+- rollbackPromote returns joined errors; promote surfaces rollback failures.
+- Tests: invalid slot, index_failed+journal fail, preferred fail rollback, secrets path.
+
 ## 0.9.503
 
 - PeerAdd: journal write failures abort before keygen/bootstrap; checkpoint after bootstrap required.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -318,5 +319,97 @@ func TestTwoPeersDifferentSlots(t *testing.T) {
 	s1, _ := allocateSlot(idx)
 	if s0.Index == s1.Index || s0.AddrS_SP == s1.AddrS_SP || s0.WSS_SP == s1.WSS_SP {
 		t.Fatal("A/B not isolated")
+	}
+}
+
+func TestRecoverInvalidSlotRefused(t *testing.T) {
+	withTestRoot(t)
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error {
+		t.Fatal("no bootstrap")
+		return nil
+	}
+	m := sampleMaterial("p", "203.0.113.7", SlotTable()[0])
+	m.Slot = 999
+	writePeerMaterial(t, m)
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "p", PublicIP: "203.0.113.7", SlotIndex: 999, Phase: "material"})
+	_, err := RecoverIncompletePeerAdd("p")
+	if err == nil {
+		t.Fatal("expected invalid slot")
+	}
+}
+
+func TestRecoverIndexFailedJournalErrorJoined(t *testing.T) {
+	withTestRoot(t)
+	bootCalls := 0
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error {
+		bootCalls++
+		return nil
+	}
+	slot := SlotTable()[1]
+	m := sampleMaterial("peer-b", "203.0.113.10", slot)
+	writePeerMaterial(t, m)
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
+	savePeersIndexFn = func(idx *PeersIndex) error {
+		return fmt.Errorf("disk full")
+	}
+	writePeerOpFn = func(op peerOp) error {
+		if op.Phase == "index_failed" {
+			return fmt.Errorf("journal full")
+		}
+		return writePeerOpDefault(op)
+	}
+	_, err := RecoverIncompletePeerAdd("peer-b")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	es := err.Error()
+	if !strings.Contains(es, "disk full") || !strings.Contains(es, "journal full") && !strings.Contains(es, "index_failed") {
+		t.Fatalf("want both errors: %v", err)
+	}
+	if bootCalls != 1 {
+		t.Fatalf("boot %d", bootCalls)
+	}
+}
+
+func TestPeerPromotePreferredFailRollsBack(t *testing.T) {
+	withTestRoot(t)
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
+	}, ActiveID: "old"}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(preferredIPPath, []byte("203.0.113.1\n"), 0o644)
+	// make preferred path a directory so WriteFile fails
+	_ = os.Remove(preferredIPPath)
+	if err := os.Mkdir(preferredIPPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	err := PeerPromote("p1")
+	if err == nil {
+		t.Fatal("expected preferred write fail")
+	}
+	idx2, _ := LoadPeersIndex()
+	if idx2.ActiveID != "old" {
+		t.Fatalf("rollback active want old got %s", idx2.ActiveID)
+	}
+	if idx2.Find("old").State != "active" {
+		t.Fatalf("old should be active again")
+	}
+}
+
+func TestPeerPromoteSecretsFileWritten(t *testing.T) {
+	withTestRoot(t)
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
+	}}
+	_ = SavePeersIndex(idx)
+	if err := PeerPromote("p1"); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(preferredIPSecretsPath)
+	if err != nil || string(b) != "203.0.113.2\n" {
+		t.Fatalf("secrets preferred %v %q", err, b)
 	}
 }

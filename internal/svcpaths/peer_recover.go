@@ -2,6 +2,7 @@ package svcpaths
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,6 +65,15 @@ func loadPeerOp(id string) (*peerOp, error) {
 	return &op, nil
 }
 
+func slotFromTable(index int) (PeerSlot, bool) {
+	for _, s := range SlotTable() {
+		if s.Index == index {
+			return s, true
+		}
+	}
+	return PeerSlot{}, false
+}
+
 func validatePeerOp(op *peerOp, peerID string, m *Material) error {
 	if op.Op != "add" {
 		return fmt.Errorf("op %q not supported for recover", op.Op)
@@ -79,20 +89,33 @@ func validatePeerOp(op *peerOp, peerID string, m *Material) error {
 	default:
 		return fmt.Errorf("unknown op phase %q", op.Phase)
 	}
+	if _, ok := slotFromTable(op.SlotIndex); !ok {
+		return fmt.Errorf("op slot_index %d not in SlotTable", op.SlotIndex)
+	}
+	if op.PublicIP == "" {
+		return fmt.Errorf("op public_ip required")
+	}
+	if err := validatePublicIP(op.PublicIP); err != nil {
+		return err
+	}
 	if m != nil {
 		if m.PeerID != "" && m.PeerID != peerID {
 			return fmt.Errorf("material peer_id %q != %q", m.PeerID, peerID)
 		}
-		if op.PublicIP != "" && m.Secondary != "" && op.PublicIP != m.Secondary {
+		if m.Secondary == "" {
+			return fmt.Errorf("material secondary_ip required")
+		}
+		if m.Secondary != op.PublicIP {
 			return fmt.Errorf("material secondary IP %s != op %s", m.Secondary, op.PublicIP)
 		}
-		if op.SlotIndex != 0 || m.Slot != 0 {
-			if m.Slot != op.SlotIndex && !(m.Slot == 0 && op.SlotIndex == 0) {
-				// allow material slot 0 default only if op also 0
-				if m.Slot != op.SlotIndex {
-					return fmt.Errorf("material slot %d != op slot %d", m.Slot, op.SlotIndex)
-				}
-			}
+		if op.PrimaryIP != "" && m.Primary != "" && m.Primary != op.PrimaryIP {
+			return fmt.Errorf("material primary IP %s != op %s", m.Primary, op.PrimaryIP)
+		}
+		if m.Slot != op.SlotIndex {
+			return fmt.Errorf("material slot %d != op slot %d", m.Slot, op.SlotIndex)
+		}
+		if _, ok := slotFromTable(m.Slot); !ok {
+			return fmt.Errorf("material slot %d not in SlotTable", m.Slot)
 		}
 	}
 	return nil
@@ -142,7 +165,10 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 			ResetPolicy:         false,
 			InstallHealthTimer:  false,
 		}); err != nil {
-			_ = writePeerOp(peerOp{Op: "add", PeerID: peerID, PublicIP: op.PublicIP, PrimaryIP: op.PrimaryIP, SlotIndex: op.SlotIndex, Phase: "bootstrap_failed"})
+			jerr := writePeerOp(peerOp{Op: "add", PeerID: peerID, PublicIP: op.PublicIP, PrimaryIP: op.PrimaryIP, SlotIndex: op.SlotIndex, Phase: "bootstrap_failed"})
+			if jerr != nil {
+				return "", errors.Join(fmt.Errorf("resume bootstrap: %w", err), fmt.Errorf("checkpoint bootstrap_failed: %w", jerr))
+			}
 			return "", fmt.Errorf("resume bootstrap: %w", err)
 		}
 		if err := writePeerOp(peerOp{Op: "add", PeerID: peerID, PublicIP: op.PublicIP, PrimaryIP: op.PrimaryIP, SlotIndex: op.SlotIndex, Phase: "bootstrap"}); err != nil {
@@ -150,12 +176,22 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 		}
 	}
 	now := time.Now().UTC()
+	slot, ok := slotFromTable(m.Slot)
+	if !ok {
+		return "", fmt.Errorf("material slot %d not in SlotTable", m.Slot)
+	}
 	idx.Peers = append(idx.Peers, ServicePeer{
-		ID: peerID, PublicIP: op.PublicIP, State: "prepared", Slot: mSlot(m),
+		ID: peerID, PublicIP: op.PublicIP, State: "prepared", Slot: slot,
 		CreatedAt: now, UpdatedAt: now,
 	})
 	if err := savePeersIndexFn(idx); err != nil {
-		_ = writePeerOp(peerOp{Op: "add", PeerID: peerID, PublicIP: op.PublicIP, PrimaryIP: op.PrimaryIP, SlotIndex: op.SlotIndex, Phase: "index_failed"})
+		jerr := writePeerOp(peerOp{Op: "add", PeerID: peerID, PublicIP: op.PublicIP, PrimaryIP: op.PrimaryIP, SlotIndex: op.SlotIndex, Phase: "index_failed"})
+		if jerr != nil {
+			return "", errors.Join(
+				fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, peerID),
+				fmt.Errorf("checkpoint index_failed also failed: %w — safe resume without re-bootstrap NOT guaranteed", jerr),
+			)
+		}
 		return "", fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, peerID)
 	}
 	clearPeerOp(peerID)
@@ -163,11 +199,11 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 	return "recovered to prepared", nil
 }
 
+// mSlot resolves slot or returns slot 0 only when index is 0 and present in table.
+// Prefer slotFromTable for validation paths.
 func mSlot(m *Material) PeerSlot {
-	for _, s := range SlotTable() {
-		if s.Index == m.Slot {
-			return s
-		}
+	if s, ok := slotFromTable(m.Slot); ok {
+		return s
 	}
-	return SlotTable()[0]
+	return PeerSlot{}
 }

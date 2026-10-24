@@ -2,6 +2,7 @@ package svcpaths
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -118,7 +119,13 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		ResetPolicy:         writeLegacy,
 		InstallHealthTimer:  writeLegacy,
 	}); err != nil {
-		_ = writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap_failed"})
+		jerr := writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap_failed"})
+		if jerr != nil {
+			return nil, nil, errors.Join(
+				fmt.Errorf("bootstrap primary peer %s: %w (retry: peer recover %s)", o.PeerID, err, o.PeerID),
+				fmt.Errorf("checkpoint bootstrap_failed: %w", jerr),
+			)
+		}
 		return nil, nil, fmt.Errorf("bootstrap primary peer %s: %w (retry: peer recover %s)", o.PeerID, err, o.PeerID)
 	}
 	if err := writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "bootstrap"}); err != nil {
@@ -366,11 +373,17 @@ func PeerPromote(peerID string) error {
 	if p.PublicIP != "" {
 		_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
 		if err := os.WriteFile(preferredIPPath, []byte(p.PublicIP+"\n"), 0o644); err != nil {
-			_ = rollbackPromote(prevActive, prevPreferred)
+			rerr := rollbackPromote(prevActive, prevPreferred)
+			if rerr != nil {
+				return errors.Join(fmt.Errorf("preferred_secondary_ip: %w", err), fmt.Errorf("rollback: %w", rerr))
+			}
 			return fmt.Errorf("preferred_secondary_ip: %w", err)
 		}
 		if err := os.WriteFile(preferredIPSecretsPath, []byte(p.PublicIP+"\n"), 0o600); err != nil {
-			_ = rollbackPromote(prevActive, prevPreferred)
+			rerr := rollbackPromote(prevActive, prevPreferred)
+			if rerr != nil {
+				return errors.Join(fmt.Errorf("secrets/preferred_secondary_ip: %w", err), fmt.Errorf("rollback: %w", rerr))
+			}
 			return fmt.Errorf("secrets/preferred_secondary_ip: %w", err)
 		}
 	}
@@ -387,6 +400,7 @@ func readPreferredIP() string {
 }
 
 func rollbackPromote(prevActive, prevPreferred string) error {
+	var errs []error
 	idx, err := LoadPeersIndex()
 	if err != nil {
 		return err
@@ -399,15 +413,23 @@ func rollbackPromote(prevActive, prevPreferred string) error {
 		}
 	}
 	idx.ActiveID = prevActive
-	_ = SavePeersIndex(idx)
+	if err := SavePeersIndex(idx); err != nil {
+		errs = append(errs, fmt.Errorf("restore peers index: %w", err))
+	}
 	if prevActive != "" {
-		_ = os.WriteFile(activePeerPathFile(), []byte(prevActive+"\n"), 0o644)
+		if err := os.WriteFile(activePeerPathFile(), []byte(prevActive+"\n"), 0o644); err != nil {
+			errs = append(errs, fmt.Errorf("restore active_peer_id: %w", err))
+		}
 	}
 	if prevPreferred != "" {
-		_ = os.WriteFile(preferredIPPath, []byte(prevPreferred+"\n"), 0o644)
-		_ = os.WriteFile(preferredIPSecretsPath, []byte(prevPreferred+"\n"), 0o600)
+		if err := os.WriteFile(preferredIPPath, []byte(prevPreferred+"\n"), 0o644); err != nil {
+			errs = append(errs, fmt.Errorf("restore preferred: %w", err))
+		}
+		if err := os.WriteFile(preferredIPSecretsPath, []byte(prevPreferred+"\n"), 0o600); err != nil {
+			errs = append(errs, fmt.Errorf("restore preferred secrets: %w", err))
+		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // PeerRollback promotes explicit id or first ready peer.
