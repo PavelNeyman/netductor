@@ -74,6 +74,17 @@ Expect `secondary_core_url` → `https://10.87.10.1:8789` (SP), not public WAN f
 
 ---
 
+## 4. Failover semantics (v0.9.494+)
+
+| `user_path` | Uplink target |
+|-------------|-----------------|
+| `vless` | Public primary host |
+| `sp` | `10.87.10.1` (SP) |
+| `ps` | `10.87.11.1` (PS) |
+| `degraded` | No uplink rewrite |
+
+VLESS health = local secondary `:443` listener. Agent URL SP/PS independent. Cycles serialized with flock. Failback uses `StableSeconds` continuous healthy window.
+
 ## 4. Failover checklist (R22) — manual
 
 Deploy only proves units + peer ICMP + policy file + timer **active**. Confirm real switch on a lab or maintenance window.

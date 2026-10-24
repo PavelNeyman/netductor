@@ -44,10 +44,8 @@ func ProbeHealth() error {
 	}
 	vless := 0
 	if role == "secondary" {
-		// Prefer SP reachability. Bare TCP to public Reality :443 creates invalid-handshake noise on primary.
-		if pingOK(AddrP_SP) {
-			vless = 1
-		} else if h := publicPrimaryHost(); h != "" && probeTCP(h, "443", 3*time.Second) {
+		// Local Reality/VLESS inbound on :443 — independent of SP/PS tunnel health.
+		if probeTCP("127.0.0.1", "443", 2*time.Second) {
 			vless = 1
 		}
 	}
@@ -146,8 +144,16 @@ func applyUserUplink(userPath string) error {
 	}
 	pubHost := publicPrimaryHost()
 	target := pubHost
-	if userPath == "sp" || userPath == "ps" {
-		target = AddrP_SP // user bulk via SP to primary Reality
+	switch userPath {
+	case "sp":
+		target = AddrP_SP // primary via service SP
+	case "ps":
+		target = AddrP_PS // primary via service PS (when SP down)
+	case "vless":
+		target = pubHost
+	case "degraded":
+		// Keep last known target; do not rewrite uplink to a dead path.
+		return nil
 	}
 	if target == "" {
 		return nil
@@ -182,9 +188,16 @@ func applyUserUplink(userPath string) error {
 	return nil
 }
 
-// RunSecondaryCycle: probe → tick → apply. Intended on secondary (agent + timer).
+// RunSecondaryCycle: probe → tick → apply. Serialized with flock (agent + timer share this).
 func RunSecondaryCycle() (State, string, error) {
-	_ = ProbeHealth()
+	unlock, err := acquireFailoverLock()
+	if err != nil {
+		return State{}, "", err
+	}
+	defer unlock()
+	if err := ProbeHealth(); err != nil {
+		return State{}, "", fmt.Errorf("probe health: %w", err)
+	}
 	s, sum, err := Tick()
 	if err != nil {
 		return s, sum, err

@@ -68,7 +68,10 @@ func parseDotVersion(s string) ([]int, bool) {
 		}
 	}
 	parts := strings.Split(s, ".")
-	out := make([]int, 0, len(parts))
+	if len(parts) != 3 {
+		return nil, false // major.minor.patch only
+	}
+	out := make([]int, 0, 3)
 	for _, p := range parts {
 		if p == "" {
 			return nil, false
@@ -77,7 +80,6 @@ func parseDotVersion(s string) ([]int, bool) {
 		if _, err := fmt.Sscanf(p, "%d", &n); err != nil {
 			return nil, false
 		}
-		// reject leading-zero weirdness except "0"
 		if len(p) > 1 && p[0] == '0' {
 			return nil, false
 		}

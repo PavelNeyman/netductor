@@ -1,3 +1,11 @@
+## 0.9.494
+
+- Failover: user_path ps → uplink 10.87.11.1 (PS); sp → 10.87.10.1; vless → public primary.
+- VLESS health: local :443 on secondary (not SP ping).
+- Failover cycle: exclusive flock (agent + timer); StableSeconds gates failback; saveState/desired errors returned.
+- RemoteJoin: rollback binary on join or post-join health fail; prev binary outside trap dir.
+- schema_version required (no 0→1); ValidDotVersion exactly major.minor.patch.
+
 ## 0.9.493
 
 - R6/R16: host-key mismatch aborts deploy (no auto ForgetSSHHost/ClearHostKeys/retry); ForceReinstall / force_reinstall only after offline verify.

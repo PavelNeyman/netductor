@@ -178,27 +178,41 @@ else
   echo "SHA256SUMS download failed — refuse install without checksum" >&2
   exit 1
 fi
-# Keep previous binary for rollback if join fails.
+# Prev binary outside $TD so trap does not erase rollback source.
 PREV=
+mkdir -p /var/lib/netductor
 if [ -x /usr/local/bin/netductor ]; then
-  cp -a /usr/local/bin/netductor "$TD/netductor.prev"
-  PREV=$TD/netductor.prev
+  cp -a /usr/local/bin/netductor /var/lib/netductor/netductor.bin.prev
+  PREV=/var/lib/netductor/netductor.bin.prev
 fi
+rollback() {
+  echo "join/health failed — restoring previous binary if any" >&2
+  if [ -n "$PREV" ] && [ -f "$PREV" ]; then
+    install -m 755 "$PREV" /usr/local/bin/netductor
+    systemctl start netductor-secondary-agent 2>/dev/null || true
+  fi
+}
 systemctl stop netductor-secondary-agent 2>/dev/null || true
 install -m 755 "$TD/$ASSET" /usr/local/bin/netductor
 echo '%s' | base64 -d > /root/bundle.json
 chmod 600 /root/bundle.json
 if ! netductor secondary join /root/bundle.json; then
-  echo "join failed — restoring previous binary if any" >&2
-  if [ -n "$PREV" ] && [ -f "$PREV" ]; then
-    install -m 755 "$PREV" /usr/local/bin/netductor
-    systemctl start netductor-secondary-agent 2>/dev/null || true
-  fi
+  rollback
   exit 1
 fi
-test "$(systemctl is-active sing-box)" = "active"
-test "$(systemctl is-active netductor-secondary-agent)" = "active"
-ss -tlnp | grep -qE ':443([^0-9]|$)'
+if ! test "$(systemctl is-active sing-box)" = "active"; then
+  rollback
+  exit 1
+fi
+if ! test "$(systemctl is-active netductor-secondary-agent)" = "active"; then
+  rollback
+  exit 1
+fi
+if ! ss -tlnp | grep -qE ':443([^0-9]|$)'; then
+  rollback
+  exit 1
+fi
+rm -f /var/lib/netductor/netductor.bin.prev
 `, ver, b64)
 	return runSSH(client, script)
 }

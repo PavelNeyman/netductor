@@ -68,10 +68,14 @@ type State struct {
 	SPDown       bool      `json:"sp_down"`
 	PSDown       bool      `json:"ps_down"`
 	VLESSDown    bool      `json:"vless_down"`
-	UserPath     string    `json:"user_path"`      // "vless" | "sp" | "degraded"
+	UserPath     string    `json:"user_path"`      // "vless" | "sp" | "ps" | "degraded"
 	AgentURLMode string    `json:"agent_url_mode"` // "tunnel" (SP) | "ps" (PS) — never public
 	UpdatedAt    time.Time `json:"updated_at"`
 	LastAction   string    `json:"last_action,omitempty"`
+	// StableSince tracks continuous healthy time for failback (StableSeconds policy).
+	SPStableSince    time.Time `json:"sp_stable_since,omitempty"`
+	PSStableSince    time.Time `json:"ps_stable_since,omitempty"`
+	VLESSStableSince time.Time `json:"vless_stable_since,omitempty"`
 }
 
 func LoadState() State {
@@ -117,34 +121,44 @@ func Tick() (State, string, error) {
 	s := LoadState()
 	h := readHealthFile()
 
-	upd := func(up int, fails, oks *int, down *bool) {
+	now := time.Now().UTC()
+	stableFor := time.Duration(p.StableSeconds) * time.Second
+	upd := func(up int, fails, oks *int, down *bool, stableSince *time.Time) {
 		if up == 1 {
 			*oks++
 			*fails = 0
-			if *oks >= p.OKThreshold {
-				*down = false
+			if *down {
+				if stableSince.IsZero() {
+					*stableSince = now
+				}
+				if *oks >= p.OKThreshold && now.Sub(*stableSince) >= stableFor {
+					*down = false
+					*stableSince = time.Time{}
+				}
+			} else {
+				*stableSince = time.Time{}
 			}
 		} else {
 			*fails++
 			*oks = 0
+			*stableSince = time.Time{}
 			if *fails >= p.FailThreshold {
 				*down = true
 			}
 		}
 	}
-	upd(h.SP, &s.SPFails, &s.SPOks, &s.SPDown)
-	upd(h.PS, &s.PSFails, &s.PSOks, &s.PSDown)
-	if h.Role == "secondary" || h.VLESS != 0 || h.Role == "primary" {
-		// on primary health file has vless_tcp443=0 always; only secondary measures
-		if h.Role == "secondary" {
-			upd(h.VLESS, &s.VLESSFails, &s.VLESSOks, &s.VLESSDown)
-		}
+	upd(h.SP, &s.SPFails, &s.SPOks, &s.SPDown, &s.SPStableSince)
+	upd(h.PS, &s.PSFails, &s.PSOks, &s.PSDown, &s.PSStableSince)
+	if h.Role == "secondary" {
+		upd(h.VLESS, &s.VLESSFails, &s.VLESSOks, &s.VLESSDown, &s.VLESSStableSince)
 	}
 
 	action := "none"
 	if !p.Enabled {
 		s.LastAction = "disabled"
-		_ = saveState(s)
+		if err := saveState(s); err != nil {
+			return s, "failover disabled", fmt.Errorf("save state: %w", err)
+		}
 		return s, "failover disabled", nil
 	}
 
@@ -183,7 +197,9 @@ func Tick() (State, string, error) {
 	}
 
 	s.LastAction = action
-	_ = saveState(s)
+	if err := saveState(s); err != nil {
+		return s, action, fmt.Errorf("save state: %w", err)
+	}
 
 	// Write desired for secondary scripts / agent
 	desired := map[string]any{
@@ -195,9 +211,16 @@ func Tick() (State, string, error) {
 		"policy":         p,
 		"ts":             time.Now().UTC().Format(time.RFC3339),
 	}
-	db, _ := json.MarshalIndent(desired, "", "  ")
-	_ = os.MkdirAll("/var/lib/netductor", 0o755)
-	_ = os.WriteFile("/var/lib/netductor/failover-desired.json", db, 0o644)
+	db, err := json.MarshalIndent(desired, "", "  ")
+	if err != nil {
+		return s, action, err
+	}
+	if err := os.MkdirAll("/var/lib/netductor", 0o755); err != nil {
+		return s, action, err
+	}
+	if err := os.WriteFile("/var/lib/netductor/failover-desired.json", db, 0o644); err != nil {
+		return s, action, fmt.Errorf("write failover-desired: %w", err)
+	}
 
 	sum := fmt.Sprintf("sp_down=%v ps_down=%v vless_down=%v user=%s agent=%s action=%s",
 		s.SPDown, s.PSDown, s.VLESSDown, s.UserPath, s.AgentURLMode, action)

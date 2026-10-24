@@ -31,12 +31,8 @@ func InstallRelay(bundlePath string) error {
 		return fmt.Errorf("invalid bundle: missing core_ip or uplink_uuid")
 	}
 	const supportedSchema = 1
-	if b.Version == 0 {
-		// legacy packs without version field — treat as schema 1
-		b.Version = 1
-	}
 	if b.Version != supportedSchema {
-		return fmt.Errorf("bundle schema_version %d not supported (need %d)", b.Version, supportedSchema)
+		return fmt.Errorf("bundle schema version %d not supported (need %d; missing/0 rejected)", b.Version, supportedSchema)
 	}
 	if b.MinAgentVersion != "" {
 		if !version.ValidDotVersion(b.MinAgentVersion) {

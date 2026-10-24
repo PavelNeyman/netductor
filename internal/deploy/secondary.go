@@ -129,12 +129,8 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out)
 	}
 	const packSchema = 1
-	if pack.SchemaVersion == 0 {
-		// legacy prepare-pack without top-level schema — accept as 1
-		pack.SchemaVersion = 1
-	}
 	if pack.SchemaVersion != packSchema {
-		return fmt.Errorf("prepare-pack schema_version %d unsupported (need %d)", pack.SchemaVersion, packSchema)
+		return fmt.Errorf("prepare-pack schema_version %d unsupported (need %d; missing/0 rejected)", pack.SchemaVersion, packSchema)
 	}
 	ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
 	if err != nil {

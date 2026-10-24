@@ -73,6 +73,17 @@ ssh -i "$KEY" -p 22 root@SECONDARY true && echo 'FAIL: :22 accepts key' || echo 
 
 ---
 
+## 4. Семантика failover (v0.9.494+)
+
+| `user_path` | Цель uplink |
+|-------------|-------------|
+| `vless` | Публичный primary |
+| `sp` | `10.87.10.1` (SP) |
+| `ps` | `10.87.11.1` (PS) |
+| `degraded` | Без перезаписи uplink |
+
+Health VLESS = локальный listener secondary `:443`. URL агента SP/PS отдельно. Циклы под `flock`. Failback — окно `StableSeconds`.
+
 ## 4. Чеклист failover (R22) — вручную
 
 Deploy подтверждает units, ICMP peer, файл policy и **active** timer. Реальное переключение — на стенде или в окно обслуживания.
