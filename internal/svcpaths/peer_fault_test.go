@@ -372,33 +372,7 @@ func TestRecoverIndexFailedJournalErrorJoined(t *testing.T) {
 	}
 }
 
-func Disabled_TestPeerPromotePreferredFailRollsBack(t *testing.T) {
-	withTestRoot(t)
-	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
-	}, ActiveID: "old"}
-	if err := SavePeersIndex(idx); err != nil {
-		t.Fatal(err)
-	}
-	_ = os.WriteFile(preferredIPPath, []byte("203.0.113.1\n"), 0o644)
-	// make preferred path a directory so WriteFile fails
-	_ = os.Remove(preferredIPPath)
-	if err := os.Mkdir(preferredIPPath, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	err := PeerPromote("p1")
-	if err == nil {
-		t.Fatal("expected preferred write fail")
-	}
-	idx2, _ := LoadPeersIndex()
-	if idx2.ActiveID != "old" {
-		t.Fatalf("rollback active want old got %s", idx2.ActiveID)
-	}
-	if idx2.Find("old").State != "active" {
-		t.Fatalf("old should be active again")
-	}
-}
+
 
 func TestPeerPromoteSecretsFileWritten(t *testing.T) {
 	withTestRoot(t)
@@ -415,67 +389,12 @@ func TestPeerPromoteSecretsFileWritten(t *testing.T) {
 	}
 }
 
-
-func Disabled_TestPeerPromoteActiveFileFailRollsBack(t *testing.T) {
-	withTestRoot(t)
-	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
-	}, ActiveID: "old"}
-	if err := SavePeersIndex(idx); err != nil {
-		t.Fatal(err)
-	}
-	_ = os.WriteFile(activePeerPathFile(), []byte("old\n"), 0o644)
-	// replace active path with a directory so WriteFile fails after SavePeersIndex
-	path := activePeerPathFile()
-	_ = os.Remove(path)
-	if err := os.Mkdir(path, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := PeerPromote("p1"); err == nil {
-		t.Fatal("expected fail")
-	}
-	idx2, _ := LoadPeersIndex()
-	if idx2.ActiveID != "old" {
-		t.Fatalf("ActiveID %s", idx2.ActiveID)
-	}
-	if idx2.Find("old").State != "active" || idx2.Find("p1").State != "ready" {
-		t.Fatalf("states %+v", idx2.Peers)
-	}
-}
-
-func Disabled_TestPeerPromoteClearsPreferredWhenNoneBefore(t *testing.T) {
-	withTestRoot(t)
-	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
-	}}
-	_ = SavePeersIndex(idx)
-	// no preferred files before
-	// force secrets write fail after preferred wrote
-	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
-	sec := preferredIPSecretsPath
-	_ = os.Remove(sec)
-	if err := os.Mkdir(sec, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := PeerPromote("p1"); err == nil {
-		t.Fatal("expected fail")
-	}
-	if _, err := os.Stat(preferredIPPath); !os.IsNotExist(err) {
-		// preferred should be removed because it did not exist before
-		b, _ := os.ReadFile(preferredIPPath)
-		t.Fatalf("preferred should be absent, got %q err=%v", b, err)
-	}
-}
-
-
 func TestSnapshotRefusesUnreadablePath(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
 		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
 	}}
 	_ = SavePeersIndex(idx)
-	// directory at preferred path → snapshot error, no promote side effects
 	if err := os.Mkdir(preferredIPPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -526,13 +445,65 @@ func TestPeerPromoteActiveWriteFailFullRollback(t *testing.T) {
 	if idx2.ActiveID != "old" || idx2.Find("old").State != "active" || idx2.Find("p1").State != "ready" {
 		t.Fatalf("%+v", idx2)
 	}
-	b, _ := os.ReadFile(activePeerPathFile())
-	if string(b) != "old\n" {
-		t.Fatalf("active file %q", b)
+	for path, want := range map[string]string{
+		activePeerPathFile():   "old\n",
+		preferredIPPath:        "203.0.113.1\n",
+		preferredIPSecretsPath: "203.0.113.1\n",
+	} {
+		b, err := os.ReadFile(path)
+		if err != nil || string(b) != want {
+			t.Fatalf("%s: %v %q", path, err, b)
+		}
 	}
-	b, _ = os.ReadFile(preferredIPPath)
-	if string(b) != "203.0.113.1\n" {
-		t.Fatalf("preferred %q", b)
+	st, err := os.Stat(preferredIPSecretsPath)
+	if err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("secrets mode %v", err)
+	}
+}
+
+func TestPeerPromotePreferredFailRestoresExisting(t *testing.T) {
+	withTestRoot(t)
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
+	}, ActiveID: "old"}
+	_ = SavePeersIndex(idx)
+	_ = os.WriteFile(activePeerPathFile(), []byte("old\n"), 0o644)
+	_ = os.WriteFile(preferredIPPath, []byte("203.0.113.1\n"), 0o644)
+	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
+	_ = os.WriteFile(preferredIPSecretsPath, []byte("203.0.113.1\n"), 0o600)
+
+	failOnce := true
+	writeFileFn = func(name string, data []byte, perm os.FileMode) error {
+		if failOnce && name == preferredIPPath {
+			failOnce = false
+			return fmt.Errorf("preferred denied")
+		}
+		return os.WriteFile(name, data, perm)
+	}
+	err := PeerPromote("p1")
+	if err == nil {
+		t.Fatal("expected fail")
+	}
+	if !strings.Contains(err.Error(), "preferred denied") {
+		t.Fatalf("%v", err)
+	}
+	if strings.Contains(err.Error(), "rollback:") {
+		t.Fatalf("rollback should succeed: %v", err)
+	}
+	idx2, _ := LoadPeersIndex()
+	if idx2.ActiveID != "old" || idx2.Find("old").State != "active" || idx2.Find("p1").State != "ready" {
+		t.Fatalf("%+v", idx2)
+	}
+	for path, want := range map[string]string{
+		activePeerPathFile():   "old\n",
+		preferredIPPath:        "203.0.113.1\n",
+		preferredIPSecretsPath: "203.0.113.1\n",
+	} {
+		b, err := os.ReadFile(path)
+		if err != nil || string(b) != want {
+			t.Fatalf("%s: %v %q", path, err, b)
+		}
 	}
 }
 
@@ -542,7 +513,6 @@ func TestPeerPromoteSecretsFailRemovesNewPreferred(t *testing.T) {
 		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
 	}}
 	_ = SavePeersIndex(idx)
-	// no preferred files before promote
 	writeFileFn = func(name string, data []byte, perm os.FileMode) error {
 		if name == preferredIPSecretsPath {
 			return fmt.Errorf("secrets denied")

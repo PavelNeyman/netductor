@@ -1,3 +1,8 @@
+## 0.9.507
+
+- Remove Disabled_* promote tests; restore preferred-fail-with-existing coverage.
+- ActiveWriteFail rollback asserts all three files + secrets mode 0600.
+
 ## 0.9.506
 
 - snapshotPromote: only IsNotExist = missing; other read/dir errors abort before mutate.
