@@ -242,7 +242,7 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | firewall | host-audit | vps-check | host-baseline | cleanup | tg-alerts | servicenet | doctor | status | vpn | services | policy | logs | channel | secondary | svc-paths | api-public | edge | mtls | nvr
+  install | serve | firewall | host-audit | vps-check | host-baseline | cleanup | tg-alerts | servicenet | doctor | status | vpn | services | policy | logs | channel | secondary | inventory | svc-paths | api-public | edge | mtls | nvr
   stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
   version | help
 

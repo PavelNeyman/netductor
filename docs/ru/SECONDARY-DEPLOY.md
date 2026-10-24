@@ -1,3 +1,5 @@
+> Полный Blue-Green: [BLUE-GREEN-SECONDARY.md](BLUE-GREEN-SECONDARY.md)
+
 ## Blue-Green (v0.9.496+)
 
 ```

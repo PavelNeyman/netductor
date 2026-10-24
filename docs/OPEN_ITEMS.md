@@ -9,6 +9,15 @@
 
 Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
+
+## Blue-Green Secondary (2026-10-24)
+
+- [x] R1 blockers (0.9.497): validate, WSS isolation, promote/remove, material fail-closed
+- [x] R2 recover (0.9.498)
+- [x] R3 inventory + API (0.9.498)
+- [x] R4 Web/TG/CLI inventory UI (0.9.499)
+- [ ] **R5 live cutover** on lab/prod VPS — operator; runbook [BLUE-GREEN-SECONDARY.md](BLUE-GREEN-SECONDARY.md)
+
 ## Stop line
 
 **v0.9.455** (code tip 2026-10-19; docs synced 2026-10-20) — Operate Result dock (0.9.422–0.9.426), offline-prep token fallback (0.9.427). Latest published release: v0.9.426. Prior: 0.9.414 thin-UI jobs core; 0.9.404 cleanup.

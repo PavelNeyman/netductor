@@ -1,3 +1,8 @@
+## 0.9.500
+
+- R5 close-out: Blue-Green runbook + acceptance checklist (docs/BLUE-GREEN-SECONDARY.md).
+- scripts/bg-secondary-preflight.sh on Primary; OPEN_ITEMS BG status; help lists inventory.
+
 ## 0.9.499
 
 - R4 UI: Web Secondary panel inventory (list/register candidates).
