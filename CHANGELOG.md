@@ -1,3 +1,9 @@
+## 0.9.506
+
+- snapshotPromote: only IsNotExist = missing; other read/dir errors abort before mutate.
+- Capture file modes; restore with original perms; injectable writeFileFn for tests.
+- Promote fault tests: unreadable path pre-check; active write fail + full rollback; secrets fail clears new preferred.
+
 ## 0.9.505
 
 - PeerPromote: full registry+files snapshot; rollback restores or deletes active/preferred when absent pre-op.

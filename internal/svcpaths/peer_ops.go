@@ -21,6 +21,7 @@ var generateMaterialFn = GenerateMaterial
 var (
 	preferredIPPath        = "/etc/netductor/preferred_secondary_ip"
 	preferredIPSecretsPath = "/etc/netductor/secrets/preferred_secondary_ip"
+	writeFileFn            = os.WriteFile // tests may inject failures
 )
 
 // PeerAddOpts provisions a new service-plane peer on primary (does not promote).
@@ -206,7 +207,7 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 		CreatedAt: now, UpdatedAt: now,
 	})
 	idx.ActiveID = id
-	if err := os.WriteFile(activePeerPathFile(), []byte(id+"\n"), 0o644); err != nil {
+	if err := writeFileFn(activePeerPathFile(), []byte(id+"\n"), 0o644); err != nil {
 		return err
 	}
 	return SavePeersIndex(idx)
@@ -333,13 +334,34 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 
 // promoteSnap is pre-promote disk/registry state for full rollback.
 type promoteSnap struct {
-	Index              *PeersIndex
-	ActiveIDFile       string // content including newline, or "" if missing
-	ActiveIDExisted    bool
-	Preferred          string
-	PreferredExisted   bool
-	PreferredSecrets   string
-	SecretsExisted     bool
+	Index            *PeersIndex
+	ActiveIDFile     string // content including newline, or "" if missing
+	ActiveIDExisted  bool
+	ActiveIDMode     os.FileMode
+	Preferred        string
+	PreferredExisted bool
+	PreferredMode    os.FileMode
+	PreferredSecrets string
+	SecretsExisted   bool
+	SecretsMode      os.FileMode
+}
+
+func readSnapFile(path string) (content string, existed bool, mode os.FileMode, err error) {
+	st, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", false, 0, nil
+		}
+		return "", false, 0, fmt.Errorf("snapshot %s: %w", path, err)
+	}
+	if st.IsDir() {
+		return "", false, 0, fmt.Errorf("snapshot %s: is a directory", path)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", false, 0, fmt.Errorf("snapshot %s: %w", path, err)
+	}
+	return string(b), true, st.Mode().Perm(), nil
 }
 
 func snapshotPromote() (*promoteSnap, error) {
@@ -347,21 +369,24 @@ func snapshotPromote() (*promoteSnap, error) {
 	if err != nil {
 		return nil, err
 	}
-	// deep-ish copy peers slice
 	cp := *idx
 	cp.Peers = append([]ServicePeer(nil), idx.Peers...)
 	s := &promoteSnap{Index: &cp}
-	if b, err := os.ReadFile(activePeerPathFile()); err == nil {
-		s.ActiveIDFile = string(b)
-		s.ActiveIDExisted = true
+
+	if c, ok, mode, err := readSnapFile(activePeerPathFile()); err != nil {
+		return nil, err
+	} else if ok {
+		s.ActiveIDFile, s.ActiveIDExisted, s.ActiveIDMode = c, true, mode
 	}
-	if b, err := os.ReadFile(preferredIPPath); err == nil {
-		s.Preferred = string(b)
-		s.PreferredExisted = true
+	if c, ok, mode, err := readSnapFile(preferredIPPath); err != nil {
+		return nil, err
+	} else if ok {
+		s.Preferred, s.PreferredExisted, s.PreferredMode = c, true, mode
 	}
-	if b, err := os.ReadFile(preferredIPSecretsPath); err == nil {
-		s.PreferredSecrets = string(b)
-		s.SecretsExisted = true
+	if c, ok, mode, err := readSnapFile(preferredIPSecretsPath); err != nil {
+		return nil, err
+	} else if ok {
+		s.PreferredSecrets, s.SecretsExisted, s.SecretsMode = c, true, mode
 	}
 	return s, nil
 }
@@ -373,10 +398,13 @@ func restoreFile(path, content string, existed bool, mode os.FileMode) error {
 		}
 		return nil
 	}
+	if mode == 0 {
+		mode = 0o644
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(content), mode)
+	return writeFileFn(path, []byte(content), mode)
 }
 
 func rollbackPromoteSnap(snap *promoteSnap) error {
@@ -387,13 +415,17 @@ func rollbackPromoteSnap(snap *promoteSnap) error {
 	if err := SavePeersIndex(snap.Index); err != nil {
 		errs = append(errs, fmt.Errorf("restore peers index: %w", err))
 	}
-	if err := restoreFile(activePeerPathFile(), snap.ActiveIDFile, snap.ActiveIDExisted, 0o644); err != nil {
+	if err := restoreFile(activePeerPathFile(), snap.ActiveIDFile, snap.ActiveIDExisted, snap.ActiveIDMode); err != nil {
 		errs = append(errs, fmt.Errorf("restore active_peer_id: %w", err))
 	}
-	if err := restoreFile(preferredIPPath, snap.Preferred, snap.PreferredExisted, 0o644); err != nil {
+	if err := restoreFile(preferredIPPath, snap.Preferred, snap.PreferredExisted, snap.PreferredMode); err != nil {
 		errs = append(errs, fmt.Errorf("restore preferred: %w", err))
 	}
-	if err := restoreFile(preferredIPSecretsPath, snap.PreferredSecrets, snap.SecretsExisted, 0o600); err != nil {
+	sm := snap.SecretsMode
+	if sm == 0 {
+		sm = 0o600
+	}
+	if err := restoreFile(preferredIPSecretsPath, snap.PreferredSecrets, snap.SecretsExisted, sm); err != nil {
 		errs = append(errs, fmt.Errorf("restore preferred secrets: %w", err))
 	}
 	return errors.Join(errs...)
@@ -435,7 +467,7 @@ func PeerPromote(peerID string) error {
 	if err := SavePeersIndex(idx); err != nil {
 		return err
 	}
-	if err := os.WriteFile(activePeerPathFile(), []byte(peerID+"\n"), 0o644); err != nil {
+	if err := writeFileFn(activePeerPathFile(), []byte(peerID+"\n"), 0o644); err != nil {
 		rerr := rollbackPromoteSnap(snap)
 		if rerr != nil {
 			return errors.Join(fmt.Errorf("write active_peer_id: %w", err), fmt.Errorf("rollback: %w", rerr))
@@ -444,14 +476,14 @@ func PeerPromote(peerID string) error {
 	}
 	if p.PublicIP != "" {
 		_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
-		if err := os.WriteFile(preferredIPPath, []byte(p.PublicIP+"\n"), 0o644); err != nil {
+		if err := writeFileFn(preferredIPPath, []byte(p.PublicIP+"\n"), 0o644); err != nil {
 			rerr := rollbackPromoteSnap(snap)
 			if rerr != nil {
 				return errors.Join(fmt.Errorf("preferred_secondary_ip: %w", err), fmt.Errorf("rollback: %w", rerr))
 			}
 			return fmt.Errorf("preferred_secondary_ip: %w", err)
 		}
-		if err := os.WriteFile(preferredIPSecretsPath, []byte(p.PublicIP+"\n"), 0o600); err != nil {
+		if err := writeFileFn(preferredIPSecretsPath, []byte(p.PublicIP+"\n"), 0o600); err != nil {
 			rerr := rollbackPromoteSnap(snap)
 			if rerr != nil {
 				return errors.Join(fmt.Errorf("secrets/preferred_secondary_ip: %w", err), fmt.Errorf("rollback: %w", rerr))
