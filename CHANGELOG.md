@@ -1,3 +1,9 @@
+## 0.9.510
+
+- DeploySecondary: svc-paths peer add (slot-aware) instead of legacy bootstrap-primary alone.
+- Secondary/primary verify uses material iface/addrs/WSS, not hardcoded slot 0.
+- logPeerJournal: neutral message (not only after commit).
+
 ## 0.9.509
 
 - Document peer-ops.log: diagnostic audit only; recovery uses op.json/peers.json.

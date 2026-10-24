@@ -601,6 +601,6 @@ func appendPeerJournal(op, peerID, state, detail string) error {
 // On error prints to stderr; does not fail the caller.
 func logPeerJournal(op, peerID, state, detail string) {
 	if err := appendPeerJournal(op, peerID, state, detail); err != nil {
-		fmt.Fprintf(os.Stderr, "svc-paths: peer-ops journal %s %s: %v (plane op already committed; journal is diagnostic only)\n", op, peerID, err)
+		fmt.Fprintf(os.Stderr, "svc-paths: peer-ops journal %s %s: %v (journal is diagnostic only)\n", op, peerID, err)
 	}
 }

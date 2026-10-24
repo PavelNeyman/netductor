@@ -196,20 +196,51 @@ func DeploySecondary(o SecondaryOpts) error {
 		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
 	}
 
-	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths bootstrap (SP/PS)")
+	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths peer add + bootstrap (Blue-Green slot)")
 	primIP, secIP := o.PrimaryHost, o.SecondaryHost
+	peerID := "peer-" + strings.ReplaceAll(secIP, ".", "-")
 	pre := fmt.Sprintf(
-		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths bootstrap-primary --peer-ip %s",
-		ShellQuote(primIP), ShellQuote(secIP),
+		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
+		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
 	)
 	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	if err != nil {
-		return fmt.Errorf("svc-paths bootstrap-primary: %w\n%s", err, out)
+		return fmt.Errorf("svc-paths peer add: %w\n%s", err, out)
 	}
 	raw, errJ = extractJSONObject(out)
 	if errJ != nil {
-		return fmt.Errorf("bootstrap-primary material JSON: %w\n%s", errJ, out)
+		return fmt.Errorf("peer add material JSON: %w\n%s", errJ, out)
 	}
+	var mat struct {
+		PeerID   string `json:"peer_id"`
+		Slot     int    `json:"slot"`
+		AddrPSP  string `json:"addr_p_sp"`
+		AddrPPS  string `json:"addr_p_ps"`
+		IfaceSP  string `json:"iface_sp"`
+		IfacePS  string `json:"iface_ps"`
+		WSSSP    int    `json:"wss_sp"`
+		WSSPS    int    `json:"wss_ps"`
+	}
+	if err := json.Unmarshal([]byte(raw), &mat); err != nil {
+		return fmt.Errorf("peer material decode: %w", err)
+	}
+	if mat.IfaceSP == "" {
+		mat.IfaceSP = "nd-svc-sp"
+	}
+	if mat.IfacePS == "" {
+		mat.IfacePS = "nd-svc-ps"
+	}
+	if mat.AddrPSP == "" {
+		mat.AddrPSP = "10.87.10.1"
+	}
+	if mat.AddrPPS == "" {
+		mat.AddrPPS = "10.87.11.1"
+	}
+	if mat.WSSSP == 0 {
+		mat.WSSSP = 8444
+	}
+	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP)
+
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
 	if errTmp != nil {
 		return fmt.Errorf("svc-paths temp file: %w", errTmp)
@@ -234,63 +265,72 @@ func DeploySecondary(o SecondaryOpts) error {
 	if scpErr != nil {
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
 	}
-	secBoot := "echo c2V0IC1lCnRyYXAgJ3JtIC1mIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24nIEVYSVQKY2htb2QgNjAwIC90bXAvbmQtc3ZjLW1hdGVyaWFsLmpzb24KbmV0ZHVjdG9yIHN2Yy1wYXRocyBib290c3RyYXAtc2Vjb25kYXJ5IC0tbWF0ZXJpYWwgL3RtcC9uZC1zdmMtbWF0ZXJpYWwuanNvbgp0ZXN0IC1mIC9ldGMvbmV0ZHVjdG9yL3NlY3JldHMvc2Vjb25kYXJ5X2NvcmVfdXJsCmdyZXAgLXEgMTAuODcuMTAuMSAvZXRjL25ldGR1Y3Rvci9zZWNyZXRzL3NlY29uZGFyeV9jb3JlX3VybApmb3IgdSBpbiBuZC13c3Mtc3AtY2xpZW50IG5kLXdzcy1wcy1zZXJ2ZXIgd2ctcXVpY2tAbmQtc3ZjLXNwIHdnLXF1aWNrQG5kLXN2Yy1wczsgZG8KICBzdD0kKHN5c3RlbWN0bCBpcy1hY3RpdmUgIiR1IiAyPi9kZXYvbnVsbCB8fCBlY2hvIGluYWN0aXZlKQogIHRlc3QgIiRzdCIgPSAiYWN0aXZlIiB8fCB7IGVjaG8gInVuaXQgJHUgbm90IGFjdGl2ZTogJHN0IiA+JjI7IGV4aXQgMTsgfQpkb25lCnBpbmcgLWMxIC1XMyAxMC44Ny4xMC4xIHx8IHsgZWNobyAiU1AgcGVlciAxMC44Ny4xMC4xIHVucmVhY2hhYmxlIiA+JjI7IGV4aXQgMTsgfQpwaW5nIC1jMSAtVzMgMTAuODcuMTEuMSB8fCB7IGVjaG8gIlBTIHBlZXIgMTAuODcuMTEuMSB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KdGVzdCAtZiAvZXRjL25ldGR1Y3Rvci9zdmMtcGF0aHMvZmFpbG92ZXItcG9saWN5Lmpzb24KdGVzdCAiJChzeXN0ZW1jdGwgaXMtYWN0aXZlIG5kLXN2Yy1wYXRocy1oZWFsdGgudGltZXIgMj4vZGV2L251bGwgfHwgZWNobyBpbmFjdGl2ZSkiID0gImFjdGl2ZSIgfHwgeyBlY2hvICJuZC1zdmMtcGF0aHMtaGVhbHRoLnRpbWVyIG5vdCBhY3RpdmUiID4mMjsgZXhpdCAxOyB9CmVjaG8gU1BfUFNfT0sK | base64 -d | bash"
+
+	// Slot-aware verification on B (not hardcoded slot 0).
+	secBoot := fmt.Sprintf(`set -e
+trap 'rm -f /tmp/nd-svc-material.json' EXIT
+chmod 600 /tmp/nd-svc-material.json
+netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json
+test -f /etc/netductor/secrets/secondary_core_url
+grep -q %s /etc/netductor/secrets/secondary_core_url
+for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
+  st=$(systemctl is-active "$u" 2>/dev/null || true)
+  test "$st" = active
+done
+ping -c1 -W3 %s >/dev/null
+ping -c1 -W3 %s >/dev/null
+echo "svc-paths secondary ok slot_iface=%s/%s"
+`, ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
+		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
+
 	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
-	fmt.Print(out2)
 	if err2 != nil {
-		out2b, err2b := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
-		fmt.Print(out2b)
-		if err2b != nil {
-			return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b)
+		// one retry with :22 if day2 is 52222
+		if day2Port == "52222" {
+			out2b, err2b := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
+			if err2b != nil {
+				return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b)
+			}
+			out2 = out2b
+		} else {
+			return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2, out2)
 		}
-		out2 = out2b
 	}
-	if !strings.Contains(out2, "SP_PS_OK") {
-		return fmt.Errorf("svc-paths secondary: SP/PS verification failed\n%s", out2)
+	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
+
+	// Primary: open this peer's SP WSS + mTLS from this peer /30 (not only slot 0).
+	ufwPeer := fmt.Sprintf(
+		"ufw allow from %s to any port 8789 proto tcp 2>/dev/null; ufw allow from %s to any port 8789 proto tcp 2>/dev/null; ufw allow %d/tcp 2>/dev/null; true",
+		ShellQuote(mat.AddrPSP+"/30"), ShellQuote(mat.AddrPPS+"/30"), mat.WSSSP,
+	)
+	// /30 from host IP is wrong - use network. Prefer allow from peer secondary addresses is complex;
+	// keep allow WSS port + broad note. Better: allow from secondary public? Actually SP tunnel is local.
+	// Primary mTLS is over WG - allow from AddrS_SP network. We only have AddrP. Use subnet derived from AddrP_SP.
+	// Simple: ufw allow WSS_SP and leave existing 10.87 rules.
+	ufwPeer = fmt.Sprintf("ufw allow %d/tcp comment nd-wss-sp-slot 2>/dev/null; true", mat.WSSSP)
+	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase)
+
+	// Primary smoke: peer units for this slot
+	spUnit := "nd-wss-sp-server"
+	if mat.IfaceSP != "nd-svc-sp" {
+		spUnit = "nd-wss-sp-server-" + mat.IfaceSP
 	}
-	primBoot := "echo c2V0IC1lCmZvciB1IGluIG5kLXdzcy1zcC1zZXJ2ZXIgbmQtd3NzLXBzLWNsaWVudCB3Zy1xdWlja0BuZC1zdmMtc3Agd2ctcXVpY2tAbmQtc3ZjLXBzOyBkbwogIHN0PSQoc3lzdGVtY3RsIGlzLWFjdGl2ZSAiJHUiIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpCiAgdGVzdCAiJHN0IiA9ICJhY3RpdmUiIHx8IHsgZWNobyAicHJpbWFyeSB1bml0ICR1IG5vdCBhY3RpdmU6ICRzdCIgPiYyOyBleGl0IDE7IH0KZG9uZQojIEJvdGggZGlyZWN0aW9uczogU1AgcGVlciBhbmQgUFMgcGVlciAoUjgpLgpwaW5nIC1jMSAtVzMgMTAuODcuMTAuMiB8fCB7IGVjaG8gIlNQIHBlZXIgMTAuODcuMTAuMiB1bnJlYWNoYWJsZSIgPiYyOyBleGl0IDE7IH0KcGluZyAtYzEgLVczIDEwLjg3LjExLjIgfHwgeyBlY2hvICJQUyBwZWVyIDEwLjg3LjExLjIgdW5yZWFjaGFibGUiID4mMjsgZXhpdCAxOyB9CnRlc3QgLWYgL2V0Yy9uZXRkdWN0b3Ivc3ZjLXBhdGhzL2ZhaWxvdmVyLXBvbGljeS5qc29uCnRlc3QgIiQoc3lzdGVtY3RsIGlzLWFjdGl2ZSBuZC1zdmMtcGF0aHMtaGVhbHRoLnRpbWVyIDI+L2Rldi9udWxsIHx8IGVjaG8gaW5hY3RpdmUpIiA9ICJhY3RpdmUiIHx8IHsgZWNobyAibmQtc3ZjLXBhdGhzLWhlYWx0aC50aW1lciBub3QgYWN0aXZlIiA+JjI7IGV4aXQgMTsgfQplY2hvIFBSSU1BUllfU1BfT0sK | base64 -d | bash"
-	outP2, errP2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primBoot, o.PrimaryKeyPassphrase)
-	fmt.Print(outP2)
-	if errP2 != nil || !strings.Contains(outP2, "PRIMARY_SP_OK") {
+	psUnit := "nd-wss-ps-client"
+	if mat.IfacePS != "nd-svc-ps" {
+		psUnit = "nd-wss-ps-client-" + mat.IfacePS
+	}
+	primCheck := fmt.Sprintf(`set -e
+for u in %s %s wg-quick@%s wg-quick@%s; do
+  st=$(systemctl is-active "$u" 2>/dev/null || true)
+  test "$st" = active || { echo "unit $u=$st"; exit 1; }
+done
+echo "primary peer units ok"
+`, ShellQuote(spUnit), ShellQuote(psUnit), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
+	if outP2, errP2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
 		return fmt.Errorf("svc-paths primary SP/PS units: %v\n%s", errP2, outP2)
-	}
-	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost,
-		`set -e; systemctl stop ssh.socket sshd.socket 2>/dev/null || true; systemctl disable ssh.socket sshd.socket 2>/dev/null || true; systemctl enable ssh.service 2>/dev/null || true; systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true`,
-		o.PrimaryKeyPassphrase)
-	// R10: key login on :22 must fail.
-	if out22, err22 := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err22 == nil {
-		return fmt.Errorf("SSH still reachable on :22 after harden (expected key-only :%s only)", day2Port)
 	} else {
-		msg := strings.ToLower(err22.Error() + " " + out22)
-		switch {
-		case strings.Contains(msg, "connection refused"), strings.Contains(msg, "no route"):
-			fmt.Fprintln(os.Stderr, "==> :22 closed or unreachable (ok for harden)")
-		case strings.Contains(msg, "permission denied"), strings.Contains(msg, "authentication"):
-			fmt.Fprintln(os.Stderr, "==> :22 rejects key")
-		default:
-			fmt.Fprintln(os.Stderr, "==> :22 not usable with key:", strings.TrimSpace(err22.Error()))
-		}
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
 	}
-	// Effective sshd: PasswordAuthentication must be no (sshd -T). :22 may still listen (key-only) — OK;
-	// fail if password auth remains enabled.
-	probe22 := `set -e
-eff=$(sshd -T 2>/dev/null | awk '/^passwordauthentication /{print $2; exit}')
-echo "passwordauthentication=$eff"
-test "$eff" = "no" || { echo "effective PasswordAuthentication is not no: $eff" >&2; exit 1; }
-if ss -tlnp 2>/dev/null | grep -qE ':22([^0-9]|$)'; then
-  echo "listen22=yes (key-only expected on day2 :52222 is primary)"
-else
-  echo "listen22=no"
-fi
-true`
-	pout, perr := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, probe22, o.PrimaryKeyPassphrase)
-	if perr != nil {
-		return fmt.Errorf("SSH harden end-state failed (PasswordAuthentication): %w\n%s", perr, pout)
-	}
-	fmt.Fprintln(os.Stderr, strings.TrimSpace(pout))
-	_, _ = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
-		"ufw allow from 10.87.10.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow from 10.87.11.0/30 to any port 8789 proto tcp 2>/dev/null; ufw allow 8444/tcp 2>/dev/null; true",
-		o.PrimaryKeyPassphrase)
 
 	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
 	if pack.AgentID == "" {

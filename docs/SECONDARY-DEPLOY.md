@@ -95,7 +95,7 @@ Expect `secondary_core_url` → `https://10.87.10.1:8789` (SP), not public WAN f
 
 Fleet may register **many** VPN secondaries (AgentID, tokens, Reality).
 
-The **service plane** (SP/PS WireGuard + wstunnel) is **one primary ↔ one secondary**:
+The **service plane** (SP/PS WireGuard + wstunnel) is **legacy single-peer; multi-peer Blue-Green uses up to 4 slots**:
 
 | Resource | Value |
 |----------|--------|
@@ -178,4 +178,11 @@ netductor svc-paths status          # when available on node
 - **Source of truth** for recovery: `peers.json`, `peers/<id>/op.json`, `peers/<id>/material.json`, preferred/active files.
 - Journal write failure does **not** roll back a successful plane mutation (promote/add index). stderr warns: `peer-ops journal … plane op already committed`.
 - Do not treat the log as complete audit: lines may be missing after disk errors.
+
+## DeploySecondary and multi-peer
+
+From **v0.9.510**, `netductor deploy secondary` / operator deploy calls **`svc-paths peer add`** on primary (not legacy `bootstrap-primary` alone). Material uses a free slot; verification on B is slot-aware (`iface_sp`/`addr_p_sp` from material).
+
+- Default **Promote=false** — does not write preferred_secondary_ip; use `peer ready` / `peer promote` after traffic test.
+- First secondary still may use slot 0; a second deploy allocates the next free slot without rewriting A’s legacy material.
 
