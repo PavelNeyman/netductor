@@ -119,10 +119,13 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").Output(); err == nil {
 		sbOK = strings.TrimSpace(string(out)) == "active"
 	}
-	// Uplink health: tunnel-only — SP then PS from this peer's material slot (not hard-coded slot 0).
+	// Uplink health: tunnel-only — SP then PS from this peer's material slot.
+	// Corrupt material → uplink down (do not probe legacy slot 0).
 	upOK := false
-	pSP, pPS := svcpaths.PrimaryTunnelAddrs()
-	if pSP != "" && exec.Command("ping", "-c", "1", "-W", "2", pSP).Run() == nil {
+	pSP, pPS, addrErr := svcpaths.PrimaryTunnelAddrsStrict()
+	if addrErr != nil {
+		fmt.Fprintf(os.Stderr, "uplink probe: material: %v\n", addrErr)
+	} else if pSP != "" && exec.Command("ping", "-c", "1", "-W", "2", pSP).Run() == nil {
 		upOK = true
 	} else if pPS != "" && exec.Command("ping", "-c", "1", "-W", "2", pPS).Run() == nil {
 		upOK = true

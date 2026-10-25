@@ -144,10 +144,9 @@ func EnforceState(s State) error {
 func applyAgentURL(mode string) error {
 	_ = os.MkdirAll(filepath.Dir(coreURLPath), 0o700)
 	// Tunnel-only: SP default, PS when SP path is down. Never public WAN :8789.
-	pSP, pPS := AddrP_SP, AddrP_PS
-	if m, err := LoadMaterialStrict(); err == nil {
-		a, _, c, _, _, _, _, _, _, _ := m.resolvedAddrs()
-		pSP, pPS = a, c
+	pSP, pPS, addrErr := PrimaryTunnelAddrsStrict()
+	if addrErr != nil {
+		return fmt.Errorf("agent URL material: %w", addrErr)
 	}
 	want := "https://" + pSP + ":8789"
 	if mode == "public" || mode == "ps" || mode == "tunnel_ps" {
@@ -183,8 +182,11 @@ func applyUserUplink(userPath string) error {
 		return nil
 	}
 	pubHost := publicPrimaryHost()
-	// Slot-aware: SP/PS primary addresses from this host's material (slot 1–3 ≠ slot 0 constants).
-	pSP, pPS := PrimaryTunnelAddrs()
+	// Slot-aware critical path: corrupt material must not silently target slot 0.
+	pSP, pPS, addrErr := PrimaryTunnelAddrsStrict()
+	if addrErr != nil {
+		return fmt.Errorf("user uplink material: %w", addrErr)
+	}
 	target := pubHost
 	switch userPath {
 	case "sp":

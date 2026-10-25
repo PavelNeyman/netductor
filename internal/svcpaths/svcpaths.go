@@ -38,14 +38,9 @@ type PathStatus struct {
 	PeerPingOK *bool  `json:"peer_ping_ok,omitempty"`
 }
 
+// detectRole is slot-aware (same rules as hostRole in apply.go).
 func detectRole() string {
-	if hasIP(IfaceSP, "10.87.10.1") || hasIP(IfacePS, "10.87.11.1") {
-		return "primary"
-	}
-	if hasIP(IfaceSP, "10.87.10.2") || hasIP(IfacePS, "10.87.11.2") {
-		return "secondary"
-	}
-	return "unknown"
+	return hostRole()
 }
 
 func hasIP(iface, want string) bool {

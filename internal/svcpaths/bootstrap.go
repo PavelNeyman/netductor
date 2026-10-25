@@ -201,50 +201,75 @@ func LoadOrGenerateMaterial(primaryIP, secondaryIP string, force bool) (*Materia
 }
 
 
-// PrimaryTunnelAddrs returns Primary's SP/PS tunnel IPs for this host's material slot.
-// Falls back to legacy slot-0 constants when material is absent.
+// PrimaryTunnelAddrs returns Primary SP/PS tunnel IPs for this host's material slot.
+// Missing material → legacy slot-0. Corrupt/incomplete material → still returns slot-0 for
+// non-critical callers; use PrimaryTunnelAddrsStrict on failover/uplink paths.
 func PrimaryTunnelAddrs() (sp, ps string) {
-	sp, ps = AddrP_SP, AddrP_PS
-	if m, err := LoadMaterialStrict(); err == nil {
-		a, _, c, _, _, _, _, _, _, _ := m.resolvedAddrs()
-		if a != "" {
-			sp = a
-		}
-		if c != "" {
-			ps = c
-		}
-	}
+	sp, ps, _ = PrimaryTunnelAddrsStrict()
 	return sp, ps
 }
 
-// SecondaryTunnelAddrs returns Secondary's SP/PS tunnel IPs for this host's material slot.
-func SecondaryTunnelAddrs() (sp, ps string) {
-	sp, ps = AddrS_SP, AddrS_PS
-	if m, err := LoadMaterialStrict(); err == nil {
-		_, b, _, d, _, _, _, _, _, _ := m.resolvedAddrs()
-		if b != "" {
-			sp = b
+// PrimaryTunnelAddrsStrict is the critical-path API.
+// - material absent (ErrNotExist): legacy slot-0 constants, err=nil
+// - material corrupt/incomplete: err != nil, empty strings (no silent slot-0)
+// - material OK: addresses from resolvedAddrs
+func PrimaryTunnelAddrsStrict() (sp, ps string, err error) {
+	m, err := LoadMaterialStrict()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return AddrP_SP, AddrP_PS, nil
 		}
-		if d != "" {
-			ps = d
-		}
+		return "", "", err
 	}
+	a, _, c, _, _, _, _, _, _, _ := m.resolvedAddrs()
+	if a == "" || c == "" {
+		return "", "", fmt.Errorf("material missing primary tunnel addrs")
+	}
+	return a, c, nil
+}
+
+// SecondaryTunnelAddrs returns Secondary SP/PS tunnel IPs (legacy fallback if no material).
+func SecondaryTunnelAddrs() (sp, ps string) {
+	sp, ps, _ = SecondaryTunnelAddrsStrict()
 	return sp, ps
+}
+
+// SecondaryTunnelAddrsStrict mirrors PrimaryTunnelAddrsStrict for secondary endpoints.
+func SecondaryTunnelAddrsStrict() (sp, ps string, err error) {
+	m, err := LoadMaterialStrict()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return AddrS_SP, AddrS_PS, nil
+		}
+		return "", "", err
+	}
+	_, b, _, d, _, _, _, _, _, _ := m.resolvedAddrs()
+	if b == "" || d == "" {
+		return "", "", fmt.Errorf("material missing secondary tunnel addrs")
+	}
+	return b, d, nil
 }
 
 // MaterialIfaces returns wg interface names for this host's material slot.
 func MaterialIfaces() (sp, ps string) {
-	sp, ps = IfaceSP, IfacePS
-	if m, err := LoadMaterialStrict(); err == nil {
-		_, _, _, _, _, _, _, _, is, ip := m.resolvedAddrs()
-		if is != "" {
-			sp = is
-		}
-		if ip != "" {
-			ps = ip
-		}
-	}
+	sp, ps, _ = MaterialIfacesStrict()
 	return sp, ps
+}
+
+// MaterialIfacesStrict returns iface names; corrupt material → error, no silent slot-0.
+func MaterialIfacesStrict() (sp, ps string, err error) {
+	m, err := LoadMaterialStrict()
+	if err != nil {
+		if os.IsNotExist(err) {
+			return IfaceSP, IfacePS, nil
+		}
+		return "", "", err
+	}
+	_, _, _, _, _, _, _, _, is, ip := m.resolvedAddrs()
+	if is == "" || ip == "" {
+		return "", "", fmt.Errorf("material missing ifaces")
+	}
+	return is, ip, nil
 }
 
 func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {
@@ -544,8 +569,25 @@ AllowedIPs = %s/32
 
 func installHealthTimer() error {
 	script := `/usr/local/bin/nd-svc-paths-health`
+	// Peer-bound addrs for shell fallback (avoid hard-coded slot 0 when material is present).
+	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
+	if m, err := LoadMaterialStrict(); err == nil {
+		a, b, c, d, _, _, _, _, _, _ := m.resolvedAddrs()
+		if a != "" {
+			pSP = a
+		}
+		if b != "" {
+			sSP = b
+		}
+		if c != "" {
+			pPS = c
+		}
+		if d != "" {
+			sPS = d
+		}
+	}
 	// Always rewrite so bootstrap upgrades the tick policy (do not keep silent-success legacy).
-	body := `#!/bin/bash
+	body := fmt.Sprintf(`#!/bin/bash
 set -u
 # Prefer agent as sole owner of failover samples; timer is fallback if agent is down.
 if systemctl is-active --quiet netductor-secondary-agent 2>/dev/null; then
@@ -559,13 +601,15 @@ if command -v netductor >/dev/null 2>&1; then
   fi
   exit 0
 fi
+# No netductor binary: probe this peer's tunnel endpoints only (baked at bootstrap).
 OUT=/var/lib/netductor/svc-paths-health.json
 mkdir -p /var/lib/netductor
 sp=0; ps=0
-ping -c1 -W2 10.87.10.1 >/dev/null 2>&1 || ping -c1 -W2 10.87.10.2 >/dev/null 2>&1 && sp=1
-ping -c1 -W2 10.87.11.1 >/dev/null 2>&1 || ping -c1 -W2 10.87.11.2 >/dev/null 2>&1 && ps=1
-printf '{"ts":"%s","svc_sp_up":%s,"svc_ps_up":%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sp" "$ps" > "$OUT"
-`
+ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1 && sp=1
+ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1 && ps=1
+printf '{"ts":"%%s","role":"unknown","svc_sp_up":%%s,"svc_ps_up":%%s,"note":"shell-fallback-peer"}\\n' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "$sp" "$ps" > "$OUT"
+`, pSP, sSP, pPS, sPS)
+
 	if err := writeFile(script, body, 0o755); err != nil {
 		return err
 	}
@@ -599,6 +643,7 @@ WantedBy=timers.target
 	}
 	return nil
 }
+
 
 // ufwOpenPortAnywherePattern matches a wide-open UFW status line for port (IPv4 and IPv6).
 // Examples:

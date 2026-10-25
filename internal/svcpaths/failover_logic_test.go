@@ -71,3 +71,44 @@ func TestDefaultPolicyStable(t *testing.T) {
 		t.Fatal(p.StableSeconds)
 	}
 }
+
+func TestPrimaryTunnelAddrsStrictCorrupt(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), []byte("{not-json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sp, ps, err := PrimaryTunnelAddrsStrict()
+	if err == nil {
+		t.Fatal("expected error for corrupt material")
+	}
+	if sp != "" || ps != "" {
+		t.Fatalf("corrupt must not return slot-0 addrs, got %s/%s", sp, ps)
+	}
+}
+
+func TestPrimaryTunnelAddrsStrictIncomplete(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	// missing private keys → LoadMaterialStrict error
+	b := []byte(`{"sp_pub_p":"x","addr_p_sp":"10.87.20.1","addr_p_ps":"10.87.21.1"}`)
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sp, ps, err := PrimaryTunnelAddrsStrict()
+	if err == nil {
+		t.Fatal("expected error for incomplete material")
+	}
+	if sp != "" || ps != "" {
+		t.Fatalf("incomplete must not return addrs, got %s/%s", sp, ps)
+	}
+}
+
+func TestDetectRoleUsesHostRole(t *testing.T) {
+	// detectRole is an alias of hostRole — both must agree without iface presence.
+	if detectRole() != hostRole() {
+		t.Fatalf("detectRole=%q hostRole=%q", detectRole(), hostRole())
+	}
+}
