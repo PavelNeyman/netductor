@@ -1,3 +1,8 @@
+## 0.9.519
+
+- P2: DeploySecondary ships normalized peer material (slot 0 SlotTable defaults included). WireGuard keys from the original JSON are preserved.
+
+
 ## 0.9.518
 
 - UFW residual open-port detect: match `PORT/tcp (v6) ALLOW IN Anywhere (v6)` (IPv6-only open rules).

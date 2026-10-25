@@ -56,6 +56,31 @@ type peerMaterialSCP struct {
 	WSSPS   int    `json:"wss_ps"`
 }
 
+// materialJSONForSCP overlays validated slot defaults onto the original material.
+// peerMaterialSCP has no WireGuard keys; those stay from raw.
+func materialJSONForSCP(raw string, mat peerMaterialSCP) ([]byte, error) {
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(raw), &obj); err != nil {
+		return nil, err
+	}
+	if obj == nil {
+		obj = map[string]any{}
+	}
+	obj["peer_id"] = mat.PeerID
+	obj["slot"] = mat.Slot
+	obj["addr_p_sp"] = mat.AddrPSP
+	obj["addr_s_sp"] = mat.AddrSSP
+	obj["addr_p_ps"] = mat.AddrPPS
+	obj["addr_s_ps"] = mat.AddrSPS
+	obj["iface_sp"] = mat.IfaceSP
+	obj["iface_ps"] = mat.IfacePS
+	obj["port_sp"] = mat.PortSP
+	obj["port_ps"] = mat.PortPS
+	obj["wss_sp"] = mat.WSSSP
+	obj["wss_ps"] = mat.WSSPS
+	return json.MarshalIndent(obj, "", "  ")
+}
+
 // validatePeerMaterialForSCP fills slot-0 defaults and refuses incomplete or wrong ports/addrs.
 func validatePeerMaterialForSCP(mat *peerMaterialSCP, peerID string) error {
 	if mat.PeerID != peerID {
@@ -298,7 +323,13 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("svc-paths temp file: %w", errTmp)
 	}
 	tmpPath := tmpFile.Name()
-	if _, errW := tmpFile.Write([]byte(raw)); errW != nil {
+	ship, errShip := materialJSONForSCP(raw, mat)
+	if errShip != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("svc-paths material normalize: %w", errShip)
+	}
+	if _, errW := tmpFile.Write(ship); errW != nil {
 		_ = tmpFile.Close()
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("svc-paths material write: %w", errW)
