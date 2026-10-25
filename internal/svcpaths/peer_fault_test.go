@@ -577,3 +577,54 @@ func TestPeerPromoteAndRollbackBothFail(t *testing.T) {
 		t.Fatalf("expected rollback error joined: %v", err)
 	}
 }
+
+func TestPeerValidateLocalUsesPeerMaterialNotLegacy(t *testing.T) {
+	withTestRoot(t)
+	// Legacy slot0 material for A
+	slot0 := SlotTable()[0]
+	mA := sampleMaterial("peer-a", "203.0.113.1", slot0)
+	writePeerMaterial(t, mA)
+	// Also write legacy material.json path used by LoadMaterialStrict
+	b, _ := json.MarshalIndent(mA, "", "  ")
+	_ = os.MkdirAll(keysRoot, 0o700)
+	_ = os.WriteFile(filepath.Join(keysRoot, "material.json"), b, 0o600)
+
+	slot1 := SlotTable()[1]
+	mB := sampleMaterial("peer-b", "203.0.113.2", slot1)
+	writePeerMaterial(t, mB)
+
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "peer-a", PublicIP: "203.0.113.1", State: "active", Slot: slot0},
+		{ID: "peer-b", PublicIP: "203.0.113.2", State: "prepared", Slot: slot1},
+	}, ActiveID: "peer-a"}
+	_ = SavePeersIndex(idx)
+
+	// Without peerID would use legacy; with peer-b must resolve slot1 ifaces
+	vr, err := PeerValidateLocal("peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// systemctl will fail in sandbox — that is OK; critical is we attempted peer-b units not only A
+	joined := strings.Join(append(vr.Checks, vr.Errors...), "\n")
+	if !strings.Contains(joined, slot1.IfaceSP) && !strings.Contains(joined, "nd-svc-sp1") && !strings.Contains(joined, SlotTable()[1].IfaceSP) {
+		// iface from sampleMaterial applySlot
+		wantIface := slot1.IfaceSP
+		if wantIface == "" {
+			t.Fatal("slot1 empty iface")
+		}
+		if !strings.Contains(joined, wantIface) {
+			t.Fatalf("expected slot1 iface %s in validate output:\n%s", wantIface, joined)
+		}
+	}
+	// peer-a material path must not be the only one — peer-b missing material would error
+	vrMissing, err := PeerValidateLocal("peer-missing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vrMissing.OK {
+		t.Fatal("missing peer must not OK")
+	}
+	if !strings.Contains(strings.Join(vrMissing.Errors, " "), "peer material") {
+		t.Fatalf("errors %v", vrMissing.Errors)
+	}
+}

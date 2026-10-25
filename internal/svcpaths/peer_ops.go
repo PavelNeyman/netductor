@@ -234,17 +234,29 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 		}
 	}
 
-	m, err := LoadMaterialStrict()
-	if err != nil {
-		// try peer material on primary
-		if peerID != "" {
-			m, err = loadPeerMaterial(peerID)
+	// When peerID is set, always validate THAT peer's material (not legacy/active material).
+	// Otherwise readiness of B can pass because A is healthy.
+	var m *Material
+	var err error
+	if peerID != "" {
+		m, err = loadPeerMaterial(peerID)
+		if err != nil {
+			add(false, "peer material "+peerID+": "+err.Error())
+			res.OK = false
+			return res, nil
 		}
-	}
-	if err != nil {
-		add(false, "material: "+err.Error())
-		res.OK = false
-		return res, nil
+		if m.PeerID != "" && m.PeerID != peerID {
+			add(false, fmt.Sprintf("material peer_id %q != requested %q", m.PeerID, peerID))
+			res.OK = false
+			return res, nil
+		}
+	} else {
+		m, err = LoadMaterialStrict()
+		if err != nil {
+			add(false, "material: "+err.Error())
+			res.OK = false
+			return res, nil
+		}
 	}
 	_, sSP, _, sPS, _, _, _, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
 	pSP, _, pPS, _, _, _, _, _, _, _ := m.resolvedAddrs()

@@ -1,3 +1,8 @@
+## 0.9.513
+
+- PeerValidateLocal: when peerID set, load peers/<id>/material only (never legacy first).
+- Regression: validate peer-b uses slot1 ifaces; missing peer fails.
+
 ## 0.9.512
 
 - Promote=true: peer validate → ready (no --force-ready) → promote.
