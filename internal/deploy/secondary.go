@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,6 +175,12 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 	if o.SecondaryHost == "" {
 		return fmt.Errorf("secondary host required")
+	}
+	// Service-plane peer-ip requires a public IPv4 (not hostname). Fail before SSH harden.
+	if ip := net.ParseIP(strings.TrimSpace(o.SecondaryHost)); ip == nil {
+		return fmt.Errorf("secondary host must be a public IP (got %q); hostname is not accepted for peer-id/svc-paths", o.SecondaryHost)
+	} else if ip.To4() == nil {
+		return fmt.Errorf("secondary host IPv6 is not supported for peer-id encoding yet (got %q)", o.SecondaryHost)
 	}
 	if o.SecondaryPass == "" && o.SecondarySSHKey == "" {
 		return fmt.Errorf("secondary password or secondary SSH key required")

@@ -134,10 +134,11 @@ func unitActive(name string) string {
 
 // Status collects iface + unit + health JSON.
 func Status() StatusReport {
+	ifaceSP, ifacePS := MaterialIfaces()
 	r := StatusReport{
 		HostRole:  detectRole(),
-		SP:        pathStatus(IfaceSP),
-		PS:        pathStatus(IfacePS),
+		SP:        pathStatus(ifaceSP),
+		PS:        pathStatus(ifacePS),
 		Units:     map[string]string{},
 		KeysDirOK: false,
 		CheckedAt: time.Now().UTC().Format(time.RFC3339),
@@ -153,8 +154,8 @@ func Status() StatusReport {
 	}
 	role := r.HostRole
 	units := []string{
-		"wg-quick@nd-svc-sp",
-		"wg-quick@nd-svc-ps",
+		"wg-quick@" + ifaceSP,
+		"wg-quick@" + ifacePS,
 	}
 	if role == "primary" {
 		units = append(units, "nd-wss-sp-server", "nd-wss-ps-client")
@@ -173,7 +174,8 @@ func Status() StatusReport {
 func Apply() (string, error) {
 	var msgs []string
 	confDir := "/etc/wireguard"
-	for _, iface := range []string{IfaceSP, IfacePS} {
+	ifaceSP, ifacePS := MaterialIfaces()
+	for _, iface := range []string{ifaceSP, ifacePS} {
 		conf := filepath.Join(confDir, iface+".conf")
 		if _, err := os.Stat(conf); err != nil {
 			msgs = append(msgs, fmt.Sprintf("skip %s: no %s", iface, conf))

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -197,6 +198,53 @@ func LoadOrGenerateMaterial(primaryIP, secondaryIP string, force bool) (*Materia
 		return nil, false, err
 	}
 	return m, true, nil
+}
+
+
+// PrimaryTunnelAddrs returns Primary's SP/PS tunnel IPs for this host's material slot.
+// Falls back to legacy slot-0 constants when material is absent.
+func PrimaryTunnelAddrs() (sp, ps string) {
+	sp, ps = AddrP_SP, AddrP_PS
+	if m, err := LoadMaterialStrict(); err == nil {
+		a, _, c, _, _, _, _, _, _, _ := m.resolvedAddrs()
+		if a != "" {
+			sp = a
+		}
+		if c != "" {
+			ps = c
+		}
+	}
+	return sp, ps
+}
+
+// SecondaryTunnelAddrs returns Secondary's SP/PS tunnel IPs for this host's material slot.
+func SecondaryTunnelAddrs() (sp, ps string) {
+	sp, ps = AddrS_SP, AddrS_PS
+	if m, err := LoadMaterialStrict(); err == nil {
+		_, b, _, d, _, _, _, _, _, _ := m.resolvedAddrs()
+		if b != "" {
+			sp = b
+		}
+		if d != "" {
+			ps = d
+		}
+	}
+	return sp, ps
+}
+
+// MaterialIfaces returns wg interface names for this host's material slot.
+func MaterialIfaces() (sp, ps string) {
+	sp, ps = IfaceSP, IfacePS
+	if m, err := LoadMaterialStrict(); err == nil {
+		_, _, _, _, _, _, _, _, is, ip := m.resolvedAddrs()
+		if is != "" {
+			sp = is
+		}
+		if ip != "" {
+			ps = ip
+		}
+	}
+	return sp, ps
 }
 
 func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {
@@ -486,8 +534,10 @@ AllowedIPs = %s/32
 	if err := installHealthTimer(); err != nil {
 		return err
 	}
-	if err := SavePolicy(DefaultPolicy()); err != nil {
-		return err
+	if _, err := os.Stat(policyPath); os.IsNotExist(err) {
+		if err := SavePolicy(DefaultPolicy()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -561,21 +611,42 @@ func ufwOpenPortAnywherePattern(port int) string {
 }
 
 // applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
+// Also removes Anywhere rules for every SlotTable WSS_SP port (legacy A on slot 0 when adding B).
 func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 	if secondaryPub == "" {
 		return nil
 	}
-	openRE := ufwOpenPortAnywherePattern(wssSP)
-	script := fmt.Sprintf(
-		"set -e; "+
-			"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; "+
-			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; "+
-			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
-			"ufw allow from %s to any port %d proto tcp comment nd-wss-sp; "+
-			"ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; "+
-			"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-still-present; exit 1; fi; "+
-			"echo primary-ufw-wss-ok",
-		wssSP, secondaryPub, wssSP, sSP, openRE)
+	var dels []string
+	seen := map[int]bool{}
+	for _, s := range SlotTable() {
+		if s.WSS_SP > 0 && !seen[s.WSS_SP] {
+			seen[s.WSS_SP] = true
+			dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", s.WSS_SP))
+		}
+	}
+	if !seen[wssSP] {
+		seen[wssSP] = true
+		dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", wssSP))
+	}
+	ports := make([]int, 0, len(seen))
+	for port := range seen {
+		ports = append(ports, port)
+	}
+	sort.Ints(ports)
+	var openChecks []string
+	for _, port := range ports {
+		openChecks = append(openChecks, fmt.Sprintf(
+			"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-still-present port=%d; exit 1; fi",
+			ufwOpenPortAnywherePattern(port), port))
+	}
+	script := "set -e; " +
+		"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; " +
+		"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; " +
+		strings.Join(dels, "; ") + "; " +
+		fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment nd-wss-sp; ", secondaryPub, wssSP) +
+		fmt.Sprintf("ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; ", sSP) +
+		strings.Join(openChecks, "; ") + "; " +
+		"echo primary-ufw-wss-ok"
 	out, err := exec.Command("bash", "-c", script).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("primary ufw WSS: %w: %s", err, out)

@@ -183,12 +183,14 @@ func applyUserUplink(userPath string) error {
 		return nil
 	}
 	pubHost := publicPrimaryHost()
+	// Slot-aware: SP/PS primary addresses from this host's material (slot 1–3 ≠ slot 0 constants).
+	pSP, pPS := PrimaryTunnelAddrs()
 	target := pubHost
 	switch userPath {
 	case "sp":
-		target = AddrP_SP // primary via service SP
+		target = pSP
 	case "ps":
-		target = AddrP_PS // primary via service PS (when SP down)
+		target = pPS
 	case "vless":
 		target = pubHost
 	case "degraded":
