@@ -1,3 +1,9 @@
+## 0.9.516
+
+- assertPeerMaterialIdentity: registry slot match; required secondary/ifaces/addrs.
+- DeploySecondary: no slot-0 defaults for slots 1–3.
+- UFW: --force delete open WSS; fail if Anywhere remains when ufw active.
+
 ## 0.9.515
 
 - PeerAdd: assert material PeerID/IP/slot; refuse IP rebound to different ID.

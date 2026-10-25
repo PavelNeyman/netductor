@@ -226,32 +226,39 @@ func DeploySecondary(o SecondaryOpts) error {
 	if err := json.Unmarshal([]byte(raw), &mat); err != nil {
 		return fmt.Errorf("peer material decode: %w", err)
 	}
-	if mat.IfaceSP == "" {
-		mat.IfaceSP = "nd-svc-sp"
-	}
-	if mat.IfacePS == "" {
-		mat.IfacePS = "nd-svc-ps"
-	}
-	if mat.AddrPSP == "" {
-		mat.AddrPSP = "10.87.10.1"
-	}
-	if mat.AddrPPS == "" {
-		mat.AddrPPS = "10.87.11.1"
-	}
-	if mat.AddrSSP == "" {
-		mat.AddrSSP = "10.87.10.2"
-	}
-	if mat.AddrSPS == "" {
-		mat.AddrSPS = "10.87.11.2"
-	}
-	if mat.WSSSP == 0 {
-		mat.WSSSP = 8444
-	}
 	if mat.PeerID != peerID {
 		return fmt.Errorf("peer material identity: PeerID %q != expected %q — refuse SCP/bootstrap", mat.PeerID, peerID)
 	}
 	if mat.Slot < 0 || mat.Slot > 3 {
 		return fmt.Errorf("peer material slot %d out of range", mat.Slot)
+	}
+	// Slot 0 may omit fields only if filled to table defaults; slots 1–3 must be complete (no silent slot-0 fill).
+	if mat.Slot == 0 {
+		if mat.IfaceSP == "" {
+			mat.IfaceSP = "nd-svc-sp"
+		}
+		if mat.IfacePS == "" {
+			mat.IfacePS = "nd-svc-ps"
+		}
+		if mat.AddrPSP == "" {
+			mat.AddrPSP = "10.87.10.1"
+		}
+		if mat.AddrPPS == "" {
+			mat.AddrPPS = "10.87.11.1"
+		}
+		if mat.AddrSSP == "" {
+			mat.AddrSSP = "10.87.10.2"
+		}
+		if mat.AddrSPS == "" {
+			mat.AddrSPS = "10.87.11.2"
+		}
+		if mat.WSSSP == 0 {
+			mat.WSSSP = 8444
+		}
+	} else {
+		if mat.IfaceSP == "" || mat.IfacePS == "" || mat.AddrPSP == "" || mat.AddrPPS == "" || mat.AddrSSP == "" || mat.AddrSPS == "" || mat.WSSSP == 0 {
+			return fmt.Errorf("peer material slot %d incomplete (iface/addr/wss required) — refuse SCP", mat.Slot)
+		}
 	}
 	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP)
 

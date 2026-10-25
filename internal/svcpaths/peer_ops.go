@@ -49,26 +49,42 @@ func validatePublicIP(ip string) error {
 }
 
 
-// assertPeerMaterialIdentity ensures on-disk material matches the requested peer and public IP.
-func assertPeerMaterialIdentity(m *Material, peerID, publicIP string) error {
+// assertPeerMaterialIdentity ensures on-disk material matches the requested peer, public IP,
+// and (when regSlot >= 0) the registry slot index. Empty secondary/iface/addrs fail closed.
+func assertPeerMaterialIdentity(m *Material, peerID, publicIP string, regSlot int) error {
 	if m == nil {
 		return fmt.Errorf("nil material")
 	}
 	if m.PeerID != peerID {
 		return fmt.Errorf("material peer_id %q != requested %q", m.PeerID, peerID)
 	}
-	if publicIP != "" && m.Secondary != "" && m.Secondary != publicIP {
+	if publicIP == "" {
+		return fmt.Errorf("requested public IP empty")
+	}
+	if m.Secondary == "" {
+		return fmt.Errorf("material secondary_ip empty")
+	}
+	if m.Secondary != publicIP {
 		return fmt.Errorf("material secondary_ip %s != requested %s", m.Secondary, publicIP)
 	}
 	s, ok := slotFromTable(m.Slot)
 	if !ok {
 		return fmt.Errorf("material slot %d not in SlotTable", m.Slot)
 	}
-	if m.IfaceSP != "" && s.IfaceSP != "" && m.IfaceSP != s.IfaceSP {
-		return fmt.Errorf("material iface_sp %s != slot %s", m.IfaceSP, s.IfaceSP)
+	if regSlot >= 0 && m.Slot != regSlot {
+		return fmt.Errorf("material slot %d != registry slot %d", m.Slot, regSlot)
 	}
-	if m.AddrS_SP != "" && s.AddrS_SP != "" && m.AddrS_SP != s.AddrS_SP {
-		return fmt.Errorf("material addr_s_sp %s != slot %s", m.AddrS_SP, s.AddrS_SP)
+	if m.IfaceSP == "" || m.IfacePS == "" {
+		return fmt.Errorf("material iface_sp/ps required")
+	}
+	if m.IfaceSP != s.IfaceSP || m.IfacePS != s.IfacePS {
+		return fmt.Errorf("material ifaces %s/%s != slot %s/%s", m.IfaceSP, m.IfacePS, s.IfaceSP, s.IfacePS)
+	}
+	if m.AddrS_SP == "" || m.AddrP_SP == "" || m.AddrS_PS == "" || m.AddrP_PS == "" {
+		return fmt.Errorf("material SP/PS addresses required")
+	}
+	if m.AddrS_SP != s.AddrS_SP || m.AddrP_SP != s.AddrP_SP || m.AddrS_PS != s.AddrS_PS || m.AddrP_PS != s.AddrP_PS {
+		return fmt.Errorf("material addresses do not match slot %d table", m.Slot)
 	}
 	return nil
 }
@@ -99,7 +115,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		if err := assertPeerMaterialIdentity(m, o.PeerID, o.PublicIP); err != nil {
+		if err := assertPeerMaterialIdentity(m, o.PeerID, o.PublicIP, existing.Slot.Index); err != nil {
 			return nil, nil, fmt.Errorf("existing peer %s: %w", o.PeerID, err)
 		}
 		return m.ForSecondary(), existing, nil
@@ -112,7 +128,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		if err := assertPeerMaterialIdentity(m, byIP.ID, o.PublicIP); err != nil {
+		if err := assertPeerMaterialIdentity(m, byIP.ID, o.PublicIP, byIP.Slot.Index); err != nil {
 			return nil, nil, fmt.Errorf("existing peer by IP %s: %w", o.PublicIP, err)
 		}
 		return m.ForSecondary(), byIP, nil

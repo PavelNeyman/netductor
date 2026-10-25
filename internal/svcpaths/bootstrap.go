@@ -370,18 +370,9 @@ PersistentKeepalive = 25
 	}
 
 	// UFW: WSS_SP only from secondary public IP; mTLS 8789 from secondary SP WG IP.
-	// Delete legacy open WSS rule if present. Best-effort if ufw missing.
-	if m.Secondary != "" {
-		_ = exec.Command("bash", "-c", fmt.Sprintf(
-			`command -v ufw >/dev/null || exit 0
-ufw delete allow %d/tcp 2>/dev/null || true
-ufw allow from %s to any port %d proto tcp comment nd-wss-sp
-ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp
-ufw delete allow from %s to any port 8789 proto tcp 2>/dev/null || true
-`, wssSP, m.Secondary, wssSP, sSP, m.Secondary)).Run()
-	} else {
-		_ = exec.Command("bash", "-c", fmt.Sprintf(
-			`command -v ufw >/dev/null && ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp || true`, sSP)).Run()
+	// When ufw is active, fail if open WSS remains or allow rules cannot be applied.
+	if err := applyPrimaryWSSFirewall(m.Secondary, sSP, wssSP); err != nil {
+		return err
 	}
 
 	if o.InstallHealthTimer {
@@ -469,13 +460,8 @@ AllowedIPs = %s/32
 	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
 		return err
 	}
-	// WSS_PS only from primary public IP (wstunnel client on primary → secondary).
-	if m.Primary != "" {
-		_ = exec.Command("bash", "-c", fmt.Sprintf(
-			`command -v ufw >/dev/null || exit 0
-ufw delete allow %d/tcp 2>/dev/null || true
-ufw allow from %s to any port %d proto tcp comment nd-wss-ps
-`, wssPS, m.Primary, wssPS)).Run()
+	if err := applySecondaryWSSFirewall(m.Primary, wssPS); err != nil {
+		return err
 	}
 
 	if err := os.MkdirAll("/etc/netductor/secrets", 0o700); err != nil {
@@ -559,6 +545,51 @@ WantedBy=timers.target
 	}
 	if st, err := exec.Command("systemctl", "is-active", "nd-svc-paths-health.timer").CombinedOutput(); err != nil || strings.TrimSpace(string(st)) != "active" {
 		return fmt.Errorf("nd-svc-paths-health.timer not active: %s", strings.TrimSpace(string(st)))
+	}
+	return nil
+}
+
+
+
+
+// applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
+func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
+	if secondaryPub == "" {
+		return nil
+	}
+	script := fmt.Sprintf(
+		"set -e; "+
+			"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; "+
+			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; "+
+			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
+			"ufw allow from %s to any port %d proto tcp comment nd-wss-sp; "+
+			"ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; "+
+			"if ufw status | grep -E '^%d(/tcp)?[[:space:]]+ALLOW[[:space:]]+Anywhere' >/dev/null 2>&1; then echo open-wss-still-present; exit 1; fi; "+
+			"echo primary-ufw-wss-ok",
+		wssSP, secondaryPub, wssSP, sSP, wssSP)
+	out, err := exec.Command("bash", "-c", script).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("primary ufw WSS: %w: %s", err, out)
+	}
+	return nil
+}
+
+func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
+	if primaryPub == "" {
+		return nil
+	}
+	script := fmt.Sprintf(
+		"set -e; "+
+			"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; "+
+			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; "+
+			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
+			"ufw allow from %s to any port %d proto tcp comment nd-wss-ps; "+
+			"if ufw status | grep -E '^%d(/tcp)?[[:space:]]+ALLOW[[:space:]]+Anywhere' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi; "+
+			"echo secondary-ufw-wss-ok",
+		wssPS, primaryPub, wssPS, wssPS)
+	out, err := exec.Command("bash", "-c", script).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("secondary ufw WSS: %w: %s", err, out)
 	}
 	return nil
 }

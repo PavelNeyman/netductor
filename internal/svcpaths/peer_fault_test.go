@@ -729,3 +729,40 @@ func TestPeerAddExistingRequiresIdentity(t *testing.T) {
 		t.Fatal("expected identity fail")
 	}
 }
+
+func TestAssertPeerMaterialRegistrySlotMismatch(t *testing.T) {
+	withTestRoot(t)
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error { return nil }
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "peer-b", PublicIP: "203.0.113.2", State: "prepared", Slot: SlotTable()[1]},
+	}}
+	_ = SavePeersIndex(idx)
+	// material claims peer-b but slot 0
+	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[0])
+	writePeerMaterial(t, m)
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.2", PrimaryIP: "1.1.1.1"})
+	if err == nil {
+		t.Fatal("expected slot mismatch")
+	}
+	if !strings.Contains(err.Error(), "registry slot") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestAssertPeerMaterialEmptySecondary(t *testing.T) {
+	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m.Secondary = ""
+	err := assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	if err == nil {
+		t.Fatal("expected empty secondary fail")
+	}
+}
+
+func TestAssertPeerMaterialIncompleteIfaces(t *testing.T) {
+	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m.IfaceSP = ""
+	err := assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	if err == nil {
+		t.Fatal("expected incomplete fail")
+	}
+}
