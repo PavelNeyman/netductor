@@ -1,3 +1,8 @@
+## 0.9.534
+
+- Registry/git bootstrap uses set -e so an earlier failure is not hidden by a later success. git init stays optional. Duplicate print removed.
+
+
 ## 0.9.533
 
 - DeployPrimary fails on product conf write, set-sni, and fleet bootstrap. Doctor, telegram, domain, lampac, and registry stay explicit warnings.

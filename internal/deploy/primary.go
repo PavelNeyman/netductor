@@ -285,15 +285,18 @@ chmod 755 /usr/local/bin/netductor
 	if o.WithGitRegistry {
 		fmt.Fprintln(os.Stderr, "==> registry + git bootstrap")
 		out, err = runSSH("", keyPath, o.User, o.Host,
-			"command -v git >/dev/null || apt-get install -y -qq git; "+
-				"netductor registry ensure; netductor registry crane; "+
-				"netductor git init netductor 2>/dev/null || true; netductor git pipelines; netductor registry status",
+			"set -e; "+
+				"command -v git >/dev/null || apt-get install -y -qq git; "+
+				"netductor registry ensure; "+
+				"netductor registry crane; "+
+				"netductor git init netductor 2>/dev/null || true; "+
+				"netductor git pipelines; "+
+				"netductor registry status",
 			o.KeyPassphrase)
 		fmt.Print(out)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn registry:", err)
 		}
-		fmt.Print(out)
 	}
 	fmt.Fprintln(os.Stderr, "==> primary deploy done")
 	port := sshPort()
