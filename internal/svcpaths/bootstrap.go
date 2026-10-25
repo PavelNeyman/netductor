@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -550,14 +550,22 @@ WantedBy=timers.target
 	return nil
 }
 
-
-
+// ufwOpenPortAnywherePattern matches a wide-open UFW status line for port (IPv4 and IPv6).
+// Examples:
+//
+//	8444/tcp                   ALLOW IN    Anywhere
+//	8444/tcp (v6)              ALLOW IN    Anywhere (v6)
+//	8444 ALLOW Anywhere
+func ufwOpenPortAnywherePattern(port int) string {
+	return fmt.Sprintf(`(^|[[:space:]])%d(/tcp)?([[:space:]]+\(v6\))?[[:space:]]+ALLOW([[:space:]]+IN)?[[:space:]]+Anywhere`, port)
+}
 
 // applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
 func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 	if secondaryPub == "" {
 		return nil
 	}
+	openRE := ufwOpenPortAnywherePattern(wssSP)
 	script := fmt.Sprintf(
 		"set -e; "+
 			"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; "+
@@ -565,9 +573,9 @@ func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
 			"ufw allow from %s to any port %d proto tcp comment nd-wss-sp; "+
 			"ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; "+
-			"if ufw status | grep -E '(^|[[:space:]])%d(/tcp)?[[:space:]]+ALLOW([[:space:]]+IN)?[[:space:]]+Anywhere' >/dev/null 2>&1; then echo open-wss-still-present; exit 1; fi; "+
+			"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-still-present; exit 1; fi; "+
 			"echo primary-ufw-wss-ok",
-		wssSP, secondaryPub, wssSP, sSP, wssSP)
+		wssSP, secondaryPub, wssSP, sSP, openRE)
 	out, err := exec.Command("bash", "-c", script).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("primary ufw WSS: %w: %s", err, out)
@@ -579,15 +587,16 @@ func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
 	if primaryPub == "" {
 		return nil
 	}
+	openRE := ufwOpenPortAnywherePattern(wssPS)
 	script := fmt.Sprintf(
 		"set -e; "+
 			"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; "+
 			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; "+
 			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
 			"ufw allow from %s to any port %d proto tcp comment nd-wss-ps; "+
-			"if ufw status | grep -E '(^|[[:space:]])%d/tcp[[:space:]]+ALLOW[[:space:]]+(IN[[:space:]]+)?Anywhere' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi; "+
+			"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi; "+
 			"echo secondary-ufw-wss-ok",
-		wssPS, primaryPub, wssPS, wssPS)
+		wssPS, primaryPub, wssPS, openRE)
 	out, err := exec.Command("bash", "-c", script).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("secondary ufw WSS: %w: %s", err, out)
@@ -595,11 +604,9 @@ func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
 	return nil
 }
 
-
-// ufwStatusHasOpenPort reports whether ufw status text still allows PORT from Anywhere.
+// ufwStatusHasOpenPort reports whether ufw status text still allows PORT from Anywhere
+// (IPv4 and/or IPv6 status lines).
 func ufwStatusHasOpenPort(status string, port int) bool {
-	// Match both "8444/tcp ALLOW IN Anywhere" and legacy "8444 ALLOW Anywhere".
-	re := fmt.Sprintf(`(^|[[:space:]])%d(/tcp)?[[:space:]]+ALLOW([[:space:]]+IN)?[[:space:]]+Anywhere`, port)
-	ok, _ := regexp.MatchString(re, status)
+	ok, _ := regexp.MatchString(ufwOpenPortAnywherePattern(port), status)
 	return ok
 }

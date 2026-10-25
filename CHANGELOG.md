@@ -1,3 +1,10 @@
+## 0.9.518
+
+- UFW residual open-port detect: match `PORT/tcp (v6) ALLOW IN Anywhere (v6)` (IPv6-only open rules).
+- Shell UFW checks share the same pattern as Go `ufwStatusHasOpenPort`.
+- DeploySecondary: parse PortSP/PortPS; validate all four ports/WSS (+ iface/addrs) against SlotTable before SCP.
+- Slot 0 defaults include PortSP/PS and WSS_PS from SlotTable.
+
 ## 0.9.517
 
 - assertPeerMaterialIdentity: PortSP/PS and WSS_SP/PS must match SlotTable.

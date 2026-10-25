@@ -11,6 +11,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"github.com/PavelNeyman/netductor/internal/svcpaths"
 )
 
 // SecondaryOpts — provision RU secondary from operator workstation (Mac).
@@ -39,6 +40,79 @@ type SecondaryOpts struct {
 	ViaPrimary bool
 }
 
+// peerMaterialSCP is the subset of svc-paths material JSON needed before SCP to secondary.
+type peerMaterialSCP struct {
+	PeerID  string `json:"peer_id"`
+	Slot    int    `json:"slot"`
+	AddrPSP string `json:"addr_p_sp"`
+	AddrSSP string `json:"addr_s_sp"`
+	AddrPPS string `json:"addr_p_ps"`
+	AddrSPS string `json:"addr_s_ps"`
+	IfaceSP string `json:"iface_sp"`
+	IfacePS string `json:"iface_ps"`
+	PortSP  int    `json:"port_sp"`
+	PortPS  int    `json:"port_ps"`
+	WSSSP   int    `json:"wss_sp"`
+	WSSPS   int    `json:"wss_ps"`
+}
+
+// validatePeerMaterialForSCP fills slot-0 defaults and refuses incomplete or wrong ports/addrs.
+func validatePeerMaterialForSCP(mat *peerMaterialSCP, peerID string) error {
+	if mat.PeerID != peerID {
+		return fmt.Errorf("peer material identity: PeerID %q != expected %q — refuse SCP/bootstrap", mat.PeerID, peerID)
+	}
+	if mat.Slot < 0 || mat.Slot > 3 {
+		return fmt.Errorf("peer material slot %d out of range", mat.Slot)
+	}
+	slot := svcpaths.SlotTable()[mat.Slot]
+	if mat.Slot == 0 {
+		if mat.IfaceSP == "" {
+			mat.IfaceSP = slot.IfaceSP
+		}
+		if mat.IfacePS == "" {
+			mat.IfacePS = slot.IfacePS
+		}
+		if mat.AddrPSP == "" {
+			mat.AddrPSP = slot.AddrP_SP
+		}
+		if mat.AddrPPS == "" {
+			mat.AddrPPS = slot.AddrP_PS
+		}
+		if mat.AddrSSP == "" {
+			mat.AddrSSP = slot.AddrS_SP
+		}
+		if mat.AddrSPS == "" {
+			mat.AddrSPS = slot.AddrS_PS
+		}
+		if mat.PortSP == 0 {
+			mat.PortSP = slot.PortSP
+		}
+		if mat.PortPS == 0 {
+			mat.PortPS = slot.PortPS
+		}
+		if mat.WSSSP == 0 {
+			mat.WSSSP = slot.WSS_SP
+		}
+		if mat.WSSPS == 0 {
+			mat.WSSPS = slot.WSS_PS
+		}
+	} else {
+		if mat.IfaceSP == "" || mat.IfacePS == "" || mat.AddrPSP == "" || mat.AddrPPS == "" || mat.AddrSSP == "" || mat.AddrSPS == "" ||
+			mat.PortSP == 0 || mat.PortPS == 0 || mat.WSSSP == 0 || mat.WSSPS == 0 {
+			return fmt.Errorf("peer material slot %d incomplete (iface/addr/port/wss required) — refuse SCP", mat.Slot)
+		}
+	}
+	if mat.PortSP != slot.PortSP || mat.PortPS != slot.PortPS || mat.WSSSP != slot.WSS_SP || mat.WSSPS != slot.WSS_PS {
+		return fmt.Errorf("peer material slot %d ports/wss mismatch table (got port_sp=%d port_ps=%d wss_sp=%d wss_ps=%d want %d/%d/%d/%d) — refuse SCP",
+			mat.Slot, mat.PortSP, mat.PortPS, mat.WSSSP, mat.WSSPS, slot.PortSP, slot.PortPS, slot.WSS_SP, slot.WSS_PS)
+	}
+	if mat.IfaceSP != slot.IfaceSP || mat.IfacePS != slot.IfacePS ||
+		mat.AddrPSP != slot.AddrP_SP || mat.AddrSSP != slot.AddrS_SP || mat.AddrPPS != slot.AddrP_PS || mat.AddrSPS != slot.AddrS_PS {
+		return fmt.Errorf("peer material slot %d iface/addr mismatch SlotTable — refuse SCP", mat.Slot)
+	}
+	return nil
+}
+
 type secondaryPack struct {
 	SchemaVersion   int             `json:"schema_version"`
 	MinAgentVersion string          `json:"min_agent_version"`
@@ -51,7 +125,6 @@ type secondaryPack struct {
 	MTLSKeyB64      string          `json:"mtls_key_b64"`
 	SNI             string          `json:"sni"`
 }
-
 
 // extractJSONObject returns the first complete top-level JSON object from mixed stdout.
 // R12: no legacy "from { to EOF" fallback — decode must succeed.
@@ -211,56 +284,14 @@ func DeploySecondary(o SecondaryOpts) error {
 	if errJ != nil {
 		return fmt.Errorf("peer add material JSON: %w\n%s", errJ, out)
 	}
-	var mat struct {
-		PeerID  string `json:"peer_id"`
-		Slot    int    `json:"slot"`
-		AddrPSP string `json:"addr_p_sp"`
-		AddrSSP string `json:"addr_s_sp"`
-		AddrPPS string `json:"addr_p_ps"`
-		AddrSPS string `json:"addr_s_ps"`
-		IfaceSP string `json:"iface_sp"`
-		IfacePS string `json:"iface_ps"`
-		WSSSP   int    `json:"wss_sp"`
-		WSSPS   int    `json:"wss_ps"`
-	}
+	var mat peerMaterialSCP
 	if err := json.Unmarshal([]byte(raw), &mat); err != nil {
 		return fmt.Errorf("peer material decode: %w", err)
 	}
-	if mat.PeerID != peerID {
-		return fmt.Errorf("peer material identity: PeerID %q != expected %q — refuse SCP/bootstrap", mat.PeerID, peerID)
+	if err := validatePeerMaterialForSCP(&mat, peerID); err != nil {
+		return err
 	}
-	if mat.Slot < 0 || mat.Slot > 3 {
-		return fmt.Errorf("peer material slot %d out of range", mat.Slot)
-	}
-	// Slot 0 may omit fields only if filled to table defaults; slots 1–3 must be complete (no silent slot-0 fill).
-	if mat.Slot == 0 {
-		if mat.IfaceSP == "" {
-			mat.IfaceSP = "nd-svc-sp"
-		}
-		if mat.IfacePS == "" {
-			mat.IfacePS = "nd-svc-ps"
-		}
-		if mat.AddrPSP == "" {
-			mat.AddrPSP = "10.87.10.1"
-		}
-		if mat.AddrPPS == "" {
-			mat.AddrPPS = "10.87.11.1"
-		}
-		if mat.AddrSSP == "" {
-			mat.AddrSSP = "10.87.10.2"
-		}
-		if mat.AddrSPS == "" {
-			mat.AddrSPS = "10.87.11.2"
-		}
-		if mat.WSSSP == 0 {
-			mat.WSSSP = 8444
-		}
-	} else {
-		if mat.IfaceSP == "" || mat.IfacePS == "" || mat.AddrPSP == "" || mat.AddrPPS == "" || mat.AddrSSP == "" || mat.AddrSPS == "" || mat.WSSSP == 0 || mat.WSSPS == 0 {
-			return fmt.Errorf("peer material slot %d incomplete (iface/addr/wss required) — refuse SCP", mat.Slot)
-		}
-	}
-	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP)
+	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d port_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP, mat.PortSP)
 
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
 	if errTmp != nil {
@@ -320,7 +351,7 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 	}
 	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
 
-		// Primary firewall for this peer: mTLS 8789 from secondary WG IPs + WSS_SP listen.
+	// Primary firewall for this peer: mTLS 8789 from secondary WG IPs + WSS_SP listen.
 	// Fail deploy if ufw is active and rules cannot be applied.
 	ufwPeer := fmt.Sprintf(`set -e
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi 'Status: active'; then
@@ -364,7 +395,7 @@ echo "primary peer units+ping ok -> %s %s"
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
 	}
-fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
+	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
 	if pack.AgentID == "" {
 		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")
 	}
@@ -396,7 +427,7 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-		// Provision ≠ promotion. Only PeerPromote (ready→active) is authoritative.
+	// Provision ≠ promotion. Only PeerPromote (ready→active) is authoritative.
 	if o.Promote {
 		// No --force-ready: PeerMarkReady runs PeerValidateLocal (primary-side units/ping).
 		// Full user-traffic proof remains operator R5 before DNS cutover.
@@ -416,7 +447,7 @@ echo "promoted %s"
 		fmt.Fprintln(os.Stderr, "==> skip promote (Promote=false; after traffic test: peer validate/ready/promote", peerID+")")
 	}
 
-fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
+	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
 	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS)")
 	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
 	return nil

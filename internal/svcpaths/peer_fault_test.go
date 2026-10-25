@@ -372,8 +372,6 @@ func TestRecoverIndexFailedJournalErrorJoined(t *testing.T) {
 	}
 }
 
-
-
 func TestPeerPromoteSecretsFileWritten(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
@@ -783,6 +781,22 @@ To                         Action      From
 `
 	if ufwStatusHasOpenPort(restricted, 8444) {
 		t.Fatal("restricted rule must not count as open")
+	}
+	// IPv6-only open rule must still fail-closed (no IPv4 Anywhere line).
+	v6Only := `Status: active
+
+To                         Action      From
+--                         ------      ----
+8444/tcp                   ALLOW IN    203.0.113.2
+8444/tcp (v6)              ALLOW IN    Anywhere (v6)
+`
+	if !ufwStatusHasOpenPort(v6Only, 8444) {
+		t.Fatal("expected detect open 8444 from IPv6 Anywhere line alone")
+	}
+	restrictedV6 := `8444/tcp (v6)              ALLOW IN    203.0.113.2 (v6)
+`
+	if ufwStatusHasOpenPort(restrictedV6, 8444) {
+		t.Fatal("restricted IPv6 rule must not count as open")
 	}
 }
 
