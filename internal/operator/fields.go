@@ -89,8 +89,15 @@ func SecondaryFromFields(get FieldGetter) SecondarySpec {
 		pass = get("password")
 	}
 	mode := strings.ToLower(strings.TrimSpace(get("ssh_mode")))
-	if mode == "" {
-		mode = "initial"
+	passSet := strings.TrimSpace(pass) != ""
+	keySet := strings.TrimSpace(get("secondary_ssh_key")) != ""
+	// Do not hide ambiguous credentials. Empty mode + both → leave empty so ResolveSecondarySSH errors.
+	if mode == "" && !(passSet && keySet) {
+		if keySet && !passSet {
+			mode = "resume"
+		} else {
+			mode = "initial"
+		}
 	}
 	return SecondarySpec{
 		SecondaryHost:        host,

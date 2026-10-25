@@ -443,12 +443,15 @@ func (m model) runWizardApplyInTUI() string {
 				"primary": s.RemoteHost, "port": precheckPort(m.fieldVal("ssh_mode")),
 			}
 			if strings.ToLower(strings.TrimSpace(m.fieldVal("ssh_mode"))) == "resume" {
-				key := m.fieldVal("secondary_ssh_key")
+				key := strings.TrimSpace(m.fieldVal("secondary_ssh_key"))
 				if key == "" {
 					key = s.RemoteKey
 				}
 				params["key"] = key
-				params["key_passphrase"] = m.fieldVal("key_pass")
+				// Primary passphrase only when the dial key is the primary key.
+				if key == s.RemoteKey || key == "" {
+					params["key_passphrase"] = m.fieldVal("key_pass")
+				}
 			} else {
 				params["password"] = m.fieldVal("password")
 			}

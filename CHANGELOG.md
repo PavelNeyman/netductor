@@ -1,3 +1,9 @@
+## 0.9.530
+
+- Resume precheck sends the primary key passphrase only when the dial key is the primary key.
+- SecondaryFromFields leaves ssh_mode empty when both password and key are set without an explicit mode, so ResolveSecondarySSH can reject the ambiguity.
+
+
 ## 0.9.529
 
 - All SSH/SCP to the secondary host use secondaryDialKey (SecondarySSHKey, else PrimaryKey). Primary connections stay on PrimaryKey.
