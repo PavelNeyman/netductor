@@ -8,7 +8,6 @@ import (
 )
 
 func TestApplyUserPathTargets(t *testing.T) {
-	// Legacy slot-0 constants remain the fallback when material is absent.
 	if AddrP_SP != "10.87.10.1" || AddrP_PS != "10.87.11.1" {
 		t.Fatalf("peer addrs %s %s", AddrP_SP, AddrP_PS)
 	}
@@ -58,7 +57,6 @@ func TestPrimaryTunnelAddrsFallbackSlot0(t *testing.T) {
 	dir := t.TempDir()
 	SetKeysRootForTest(dir)
 	t.Cleanup(func() { SetKeysRootForTest("") })
-	// no material.json → constants
 	sp, ps := PrimaryTunnelAddrs()
 	if sp != AddrP_SP || ps != AddrP_PS {
 		t.Fatalf("fallback want %s/%s got %s/%s", AddrP_SP, AddrP_PS, sp, ps)
@@ -92,7 +90,6 @@ func TestPrimaryTunnelAddrsStrictIncomplete(t *testing.T) {
 	dir := t.TempDir()
 	SetKeysRootForTest(dir)
 	t.Cleanup(func() { SetKeysRootForTest("") })
-	// missing private keys → LoadMaterialStrict error
 	b := []byte(`{"sp_pub_p":"x","addr_p_sp":"10.87.20.1","addr_p_ps":"10.87.21.1"}`)
 	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
 		t.Fatal(err)
@@ -107,8 +104,101 @@ func TestPrimaryTunnelAddrsStrictIncomplete(t *testing.T) {
 }
 
 func TestDetectRoleUsesHostRole(t *testing.T) {
-	// detectRole is an alias of hostRole — both must agree without iface presence.
 	if detectRole() != hostRole() {
 		t.Fatalf("detectRole=%q hostRole=%q", detectRole(), hostRole())
 	}
+}
+
+func TestPrimaryTunnelAddrsStrictPartialAddrs(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	slot := SlotTable()[1]
+	m := Material{
+		SPPrivP: "x", SPPubP: "y", SPPrivS: "z", SPPubS: "w",
+		PSPrivP: "a", PSPubP: "b", PSPrivS: "c", PSPubS: "d",
+		AddrP_PS: slot.AddrP_PS,
+		Slot:     1,
+		PeerID:   "peer-partial",
+	}
+	b, _ := json.Marshal(m)
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sp, ps, err := PrimaryTunnelAddrsStrict()
+	if err == nil {
+		t.Fatal("expected error for partial addrs on slot 1")
+	}
+	if sp != "" || ps != "" {
+		t.Fatalf("must not return slot-0, got %s/%s", sp, ps)
+	}
+}
+
+func TestPrimaryTunnelAddrsStrictSlotMismatch(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	m := Material{
+		SPPrivP: "x", SPPubP: "y", SPPrivS: "z", SPPubS: "w",
+		PSPrivP: "a", PSPubP: "b", PSPrivS: "c", PSPubS: "d",
+		AddrP_SP: AddrP_SP,
+		AddrS_SP: AddrS_SP,
+		AddrP_PS: AddrP_PS,
+		AddrS_PS: AddrS_PS,
+		Slot:     1,
+		PeerID:   "peer-mismatch",
+	}
+	b, _ := json.Marshal(m)
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := PrimaryTunnelAddrsStrict()
+	if err == nil {
+		t.Fatal("expected mismatch error")
+	}
+}
+
+func TestHealthTimerPrintfNewlineInSource(t *testing.T) {
+	// installHealthTimer embeds a printf format ending with \n for the shell.
+	// Read bootstrap source and ensure the format uses a single backslash-n (not \\n).
+	src, err := os.ReadFile("bootstrap.go")
+	if err != nil {
+		t.Skip("bootstrap.go not readable from test cwd:", err)
+	}
+	needle := []byte(`note":"shell-fallback-peer"}`)
+	i := indexBytes(src, needle)
+	if i < 0 {
+		t.Fatal("printf format not found in bootstrap.go")
+	}
+	// After the closing quote of the JSON, expect \n for printf (one 0x5c then 'n')
+	rest := src[i+len(needle):]
+	if len(rest) < 3 || rest[0] != '\\' || rest[1] != 'n' {
+		t.Fatalf("expected \\n after JSON in printf format, got %q", rest[:min(10, len(rest))])
+	}
+	if len(rest) > 2 && rest[1] == '\\' {
+		t.Fatal("double-backslash before n would print literal \\n")
+	}
+}
+
+func indexBytes(b, sub []byte) int {
+	for i := 0; i+len(sub) <= len(b); i++ {
+		ok := true
+		for j := range sub {
+			if b[i+j] != sub[j] {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return i
+		}
+	}
+	return -1
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -201,9 +201,39 @@ func LoadOrGenerateMaterial(primaryIP, secondaryIP string, force bool) (*Materia
 }
 
 
+// validateMaterialTunnelIdentity refuses incomplete or mismatched slot fields.
+// Empty identity on slot 0 = legacy (caller may use constants). Slot>0 requires full match to SlotTable.
+func validateMaterialTunnelIdentity(m *Material) error {
+	if m == nil {
+		return fmt.Errorf("nil material")
+	}
+	if m.Slot < 0 || m.Slot > 3 {
+		return fmt.Errorf("material slot %d out of range", m.Slot)
+	}
+	any := m.AddrP_SP != "" || m.AddrS_SP != "" || m.AddrP_PS != "" || m.AddrS_PS != "" ||
+		m.IfaceSP != "" || m.IfacePS != ""
+	if m.Slot == 0 && !any {
+		return nil // pure legacy keys-only material
+	}
+	if m.AddrP_SP == "" || m.AddrS_SP == "" || m.AddrP_PS == "" || m.AddrS_PS == "" {
+		return fmt.Errorf("material slot %d incomplete tunnel addrs (refuse defaults)", m.Slot)
+	}
+	slot := SlotTable()[m.Slot]
+	if m.AddrP_SP != slot.AddrP_SP || m.AddrS_SP != slot.AddrS_SP ||
+		m.AddrP_PS != slot.AddrP_PS || m.AddrS_PS != slot.AddrS_PS {
+		return fmt.Errorf("material addrs do not match SlotTable[%d]", m.Slot)
+	}
+	if m.IfaceSP != "" && m.IfaceSP != slot.IfaceSP {
+		return fmt.Errorf("material iface_sp %q != slot %d %q", m.IfaceSP, m.Slot, slot.IfaceSP)
+	}
+	if m.IfacePS != "" && m.IfacePS != slot.IfacePS {
+		return fmt.Errorf("material iface_ps %q != slot %d %q", m.IfacePS, m.Slot, slot.IfacePS)
+	}
+	return nil
+}
+
 // PrimaryTunnelAddrs returns Primary SP/PS tunnel IPs for this host's material slot.
-// Missing material → legacy slot-0. Corrupt/incomplete material → still returns slot-0 for
-// non-critical callers; use PrimaryTunnelAddrsStrict on failover/uplink paths.
+// Missing material → legacy slot-0. Prefer PrimaryTunnelAddrsStrict on critical paths.
 func PrimaryTunnelAddrs() (sp, ps string) {
 	sp, ps, _ = PrimaryTunnelAddrsStrict()
 	return sp, ps
@@ -211,8 +241,8 @@ func PrimaryTunnelAddrs() (sp, ps string) {
 
 // PrimaryTunnelAddrsStrict is the critical-path API.
 // - material absent (ErrNotExist): legacy slot-0 constants, err=nil
-// - material corrupt/incomplete: err != nil, empty strings (no silent slot-0)
-// - material OK: addresses from resolvedAddrs
+// - material corrupt / incomplete / slot mismatch: err != nil, empty strings
+// - material OK: addresses from material fields (never resolvedAddrs defaults)
 func PrimaryTunnelAddrsStrict() (sp, ps string, err error) {
 	m, err := LoadMaterialStrict()
 	if err != nil {
@@ -221,11 +251,13 @@ func PrimaryTunnelAddrsStrict() (sp, ps string, err error) {
 		}
 		return "", "", err
 	}
-	a, _, c, _, _, _, _, _, _, _ := m.resolvedAddrs()
-	if a == "" || c == "" {
-		return "", "", fmt.Errorf("material missing primary tunnel addrs")
+	if err := validateMaterialTunnelIdentity(m); err != nil {
+		return "", "", err
 	}
-	return a, c, nil
+	if m.AddrP_SP == "" && m.Slot == 0 {
+		return AddrP_SP, AddrP_PS, nil
+	}
+	return m.AddrP_SP, m.AddrP_PS, nil
 }
 
 // SecondaryTunnelAddrs returns Secondary SP/PS tunnel IPs (legacy fallback if no material).
@@ -243,11 +275,13 @@ func SecondaryTunnelAddrsStrict() (sp, ps string, err error) {
 		}
 		return "", "", err
 	}
-	_, b, _, d, _, _, _, _, _, _ := m.resolvedAddrs()
-	if b == "" || d == "" {
-		return "", "", fmt.Errorf("material missing secondary tunnel addrs")
+	if err := validateMaterialTunnelIdentity(m); err != nil {
+		return "", "", err
 	}
-	return b, d, nil
+	if m.AddrS_SP == "" && m.Slot == 0 {
+		return AddrS_SP, AddrS_PS, nil
+	}
+	return m.AddrS_SP, m.AddrS_PS, nil
 }
 
 // MaterialIfaces returns wg interface names for this host's material slot.
@@ -256,7 +290,7 @@ func MaterialIfaces() (sp, ps string) {
 	return sp, ps
 }
 
-// MaterialIfacesStrict returns iface names; corrupt material → error, no silent slot-0.
+// MaterialIfacesStrict returns iface names; incomplete/mismatched material → error.
 func MaterialIfacesStrict() (sp, ps string, err error) {
 	m, err := LoadMaterialStrict()
 	if err != nil {
@@ -265,11 +299,17 @@ func MaterialIfacesStrict() (sp, ps string, err error) {
 		}
 		return "", "", err
 	}
-	_, _, _, _, _, _, _, _, is, ip := m.resolvedAddrs()
-	if is == "" || ip == "" {
-		return "", "", fmt.Errorf("material missing ifaces")
+	if err := validateMaterialTunnelIdentity(m); err != nil {
+		return "", "", err
 	}
-	return is, ip, nil
+	if m.IfaceSP == "" && m.Slot == 0 {
+		return IfaceSP, IfacePS, nil
+	}
+	if m.IfaceSP == "" || m.IfacePS == "" {
+		slot := SlotTable()[m.Slot]
+		return slot.IfaceSP, slot.IfacePS, nil
+	}
+	return m.IfaceSP, m.IfacePS, nil
 }
 
 func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {
@@ -572,18 +612,10 @@ func installHealthTimer() error {
 	// Peer-bound addrs for shell fallback (avoid hard-coded slot 0 when material is present).
 	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
 	if m, err := LoadMaterialStrict(); err == nil {
-		a, b, c, d, _, _, _, _, _, _ := m.resolvedAddrs()
-		if a != "" {
-			pSP = a
-		}
-		if b != "" {
-			sSP = b
-		}
-		if c != "" {
-			pPS = c
-		}
-		if d != "" {
-			sPS = d
+		if err := validateMaterialTunnelIdentity(m); err == nil {
+			if m.AddrP_SP != "" {
+				pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
+			}
 		}
 	}
 	// Always rewrite so bootstrap upgrades the tick policy (do not keep silent-success legacy).
@@ -607,7 +639,7 @@ mkdir -p /var/lib/netductor
 sp=0; ps=0
 ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1 && sp=1
 ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1 && ps=1
-printf '{"ts":"%%s","role":"unknown","svc_sp_up":%%s,"svc_ps_up":%%s,"note":"shell-fallback-peer"}\\n' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "$sp" "$ps" > "$OUT"
+printf '{"ts":"%%s","role":"unknown","svc_sp_up":%%s,"svc_ps_up":%%s,"note":"shell-fallback-peer"}\n' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "$sp" "$ps" > "$OUT"
 `, pSP, sSP, pPS, sPS)
 
 	if err := writeFile(script, body, 0o755); err != nil {
