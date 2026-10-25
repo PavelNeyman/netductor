@@ -163,7 +163,7 @@ chmod 755 /usr/local/bin/netductor
 	// Product ports/SNI into conf BEFORE install so harden/redirect read them
 	fmt.Fprintln(os.Stderr, "==> write product defaults to netductor.conf")
 	if err := writeProductConfRemote(keyPath, o.User, o.Host, o.KeyPassphrase, o); err != nil {
-		fmt.Fprintln(os.Stderr, "warn product conf:", err)
+		return fmt.Errorf("write product conf: %w", err)
 	}
 
 	if !o.SkipInstall {
@@ -205,7 +205,9 @@ chmod 755 /usr/local/bin/netductor
 	fmt.Fprintln(os.Stderr, "==> set SNI", o.SNI)
 	out, err = runSSH("", keyPath, o.User, o.Host, "netductor vpn set-sni "+shellQuote(o.SNI), o.KeyPassphrase)
 	fmt.Print(out)
-	_ = err
+	if err != nil {
+		return fmt.Errorf("set-sni: %w", err)
+	}
 
 	if o.DomainLE && strings.TrimSpace(o.DomainPrimary) == "" {
 		return fmt.Errorf("domain LE requires explicit --domain-primary (and usually --domain-redirect); no p./i. invent from --domain-base")
@@ -259,9 +261,18 @@ chmod 755 /usr/local/bin/netductor
 		}
 	}
 
-	fmt.Fprintln(os.Stderr, "==> fleet bootstrap + doctor")
-	out, _ = runSSH("", keyPath, o.User, o.Host, "netductor fleet bootstrap; netductor doctor", o.KeyPassphrase)
+	fmt.Fprintln(os.Stderr, "==> fleet bootstrap")
+	out, err = runSSH("", keyPath, o.User, o.Host, "netductor fleet bootstrap", o.KeyPassphrase)
 	fmt.Print(out)
+	if err != nil {
+		return fmt.Errorf("fleet bootstrap: %w", err)
+	}
+	fmt.Fprintln(os.Stderr, "==> doctor (non-fatal)")
+	out, err = runSSH("", keyPath, o.User, o.Host, "netductor doctor", o.KeyPassphrase)
+	fmt.Print(out)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "warn doctor:", err)
+	}
 
 	if o.WithLampac {
 		fmt.Fprintln(os.Stderr, "==> install lampac (docker)")
@@ -273,11 +284,15 @@ chmod 755 /usr/local/bin/netductor
 	}
 	if o.WithGitRegistry {
 		fmt.Fprintln(os.Stderr, "==> registry + git bootstrap")
-		out, _ = runSSH("", keyPath, o.User, o.Host,
+		out, err = runSSH("", keyPath, o.User, o.Host,
 			"command -v git >/dev/null || apt-get install -y -qq git; "+
 				"netductor registry ensure; netductor registry crane; "+
 				"netductor git init netductor 2>/dev/null || true; netductor git pipelines; netductor registry status",
 			o.KeyPassphrase)
+		fmt.Print(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warn registry:", err)
+		}
 		fmt.Print(out)
 	}
 	fmt.Fprintln(os.Stderr, "==> primary deploy done")

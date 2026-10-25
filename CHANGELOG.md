@@ -1,3 +1,8 @@
+## 0.9.533
+
+- DeployPrimary fails on product conf write, set-sni, and fleet bootstrap. Doctor, telegram, domain, lampac, and registry stay explicit warnings.
+
+
 ## 0.9.532
 
 - requirePublicIPv4 also rejects CGNAT 100.64/10, TEST-NET, 198.18/15, and 240/4.
