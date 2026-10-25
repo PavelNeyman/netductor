@@ -1,3 +1,8 @@
+## 0.9.512
+
+- Promote=true: peer validate → ready (no --force-ready) → promote.
+- UFW WSS_SP allow from secondary public IP only (not 0.0.0.0/0).
+
 ## 0.9.511
 
 - DeploySecondary: ufw 8789 from secondary SP/PS WG IPs + WSS_SP; fail if ufw active and rules fail.

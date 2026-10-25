@@ -144,3 +144,8 @@ From **v0.9.510**, `netductor deploy secondary` / operator deploy calls **`svc-p
 - Default **Promote=false** — does not write preferred_secondary_ip; use `peer ready` / `peer promote` after traffic test.
 - First secondary still may use slot 0; a second deploy allocates the next free slot without rewriting A’s legacy material.
 
+## Promote flag on deploy
+
+- Default **Promote=false**: provision only; operator runs `peer validate` / `ready` / `promote` after traffic proof.
+- **Promote=true**: runs `peer validate` then `ready` (no `--force-ready`) then `promote` on primary. Still does **not** replace live user-traffic R5 or DNS cutover.
+- Emergency force-ready remains CLI-only: `peer ready <id> --force-ready`.

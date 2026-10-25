@@ -33,7 +33,7 @@ type SecondaryOpts struct {
 	OperatorPubKey       string
 	// ForceReinstall: operator already verified host-key rotation — pass through to Go TOFU forget.
 	ForceReinstall bool
-	// Promote writes preferred_secondary_ip (Blue-Green: leave false until peer promote).
+	// Promote runs peer validate→ready→promote after deploy (no force-ready). Prefer false until R5 traffic test.
 	Promote bool
 	// ViaPrimary is ignored (deprecated). Always Mac-direct.
 	ViaPrimary bool
@@ -313,13 +313,14 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi 'Status: active'; then
   ufw allow from %s to any port 8789 proto tcp comment nd-mtls-sp
   ufw allow from %s to any port 8789 proto tcp comment nd-mtls-ps
-  ufw allow %d/tcp comment nd-wss-sp-slot
-  ufw status | grep -E '8789|%d' || true
+  # WSS SP is reached from secondary public IP (wstunnel to primary), not open to 0.0.0.0/0
+  ufw allow from %s to any port %d proto tcp comment nd-wss-sp-slot
+  ufw status numbered | grep -E '8789|%d' || true
   echo "ufw peer rules applied"
 else
-  echo "ufw inactive or missing - skip (bootstrap may still open ports)"
+  echo "ufw inactive or missing - skip (bootstrap may still open ports; production should enable ufw)"
 fi
-`, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), mat.WSSSP, mat.WSSSP)
+`, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP, mat.WSSSP)
 	if outU, errU := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
 		return fmt.Errorf("svc-paths primary firewall for peer slot: %w\n%s", errU, outU)
 	} else {
@@ -384,19 +385,22 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 
 		// Provision ≠ promotion. Only PeerPromote (ready→active) is authoritative.
 	if o.Promote {
-		fmt.Fprintln(os.Stderr, "==> Promote=true: svc-paths peer ready + promote (not raw preferred write)")
+		// No --force-ready: PeerMarkReady runs PeerValidateLocal (primary-side units/ping).
+		// Full user-traffic proof remains operator R5 before DNS cutover.
+		fmt.Fprintln(os.Stderr, "==> Promote=true: validate → ready → promote (no force-ready)")
 		promCmd := fmt.Sprintf(`set -e
-netductor svc-paths peer ready %s --force-ready
+netductor svc-paths peer validate %s
+netductor svc-paths peer ready %s
 netductor svc-paths peer promote %s
 echo "promoted %s"
-`, ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID))
+`, ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID))
 		outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, promCmd, o.PrimaryKeyPassphrase)
 		if errP != nil {
 			return fmt.Errorf("svc-paths peer promote after deploy: %w\n%s", errP, outP)
 		}
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP))
 	} else {
-		fmt.Fprintln(os.Stderr, "==> skip promote (Promote=false; after traffic test: svc-paths peer ready/promote", peerID+")")
+		fmt.Fprintln(os.Stderr, "==> skip promote (Promote=false; after traffic test: peer validate/ready/promote", peerID+")")
 	}
 
 fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
