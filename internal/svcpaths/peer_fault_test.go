@@ -766,3 +766,37 @@ func TestAssertPeerMaterialIncompleteIfaces(t *testing.T) {
 		t.Fatal("expected incomplete fail")
 	}
 }
+
+func TestUfwStatusHasOpenPortRealFormat(t *testing.T) {
+	sample := `Status: active
+
+To                         Action      From
+--                         ------      ----
+8444/tcp                   ALLOW IN    Anywhere
+8444/tcp (v6)              ALLOW IN    Anywhere (v6)
+22/tcp                     ALLOW IN    Anywhere
+`
+	if !ufwStatusHasOpenPort(sample, 8444) {
+		t.Fatal("expected detect open 8444")
+	}
+	restricted := `8444/tcp                   ALLOW IN    203.0.113.2
+`
+	if ufwStatusHasOpenPort(restricted, 8444) {
+		t.Fatal("restricted rule must not count as open")
+	}
+}
+
+func TestAssertPeerMaterialWrongPorts(t *testing.T) {
+	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m.WSS_SP = 8444 // slot0 port
+	err := assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	if err == nil {
+		t.Fatal("expected port mismatch")
+	}
+	m = sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m.PortSP = 0
+	err = assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	if err == nil {
+		t.Fatal("expected zero port fail")
+	}
+}

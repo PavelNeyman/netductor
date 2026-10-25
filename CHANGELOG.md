@@ -1,3 +1,9 @@
+## 0.9.517
+
+- assertPeerMaterialIdentity: PortSP/PS and WSS_SP/PS must match SlotTable.
+- UFW residual check matches "ALLOW IN Anywhere" (and without IN).
+- DeploySecondary: require WSS_PS for slots 1–3.
+
 ## 0.9.516
 
 - assertPeerMaterialIdentity: registry slot match; required secondary/ifaces/addrs.

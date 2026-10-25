@@ -86,6 +86,12 @@ func assertPeerMaterialIdentity(m *Material, peerID, publicIP string, regSlot in
 	if m.AddrS_SP != s.AddrS_SP || m.AddrP_SP != s.AddrP_SP || m.AddrS_PS != s.AddrS_PS || m.AddrP_PS != s.AddrP_PS {
 		return fmt.Errorf("material addresses do not match slot %d table", m.Slot)
 	}
+	if m.PortSP == 0 || m.PortPS == 0 || m.WSS_SP == 0 || m.WSS_PS == 0 {
+		return fmt.Errorf("material ports/wss required (got port_sp=%d port_ps=%d wss_sp=%d wss_ps=%d)", m.PortSP, m.PortPS, m.WSS_SP, m.WSS_PS)
+	}
+	if m.PortSP != s.PortSP || m.PortPS != s.PortPS || m.WSS_SP != s.WSS_SP || m.WSS_PS != s.WSS_PS {
+		return fmt.Errorf("material ports/wss do not match slot %d table", m.Slot)
+	}
 	return nil
 }
 

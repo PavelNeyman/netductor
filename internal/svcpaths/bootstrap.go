@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"path/filepath"
 	"strings"
 )
@@ -564,7 +565,7 @@ func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
 			"ufw allow from %s to any port %d proto tcp comment nd-wss-sp; "+
 			"ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; "+
-			"if ufw status | grep -E '^%d(/tcp)?[[:space:]]+ALLOW[[:space:]]+Anywhere' >/dev/null 2>&1; then echo open-wss-still-present; exit 1; fi; "+
+			"if ufw status | grep -E '(^|[[:space:]])%d(/tcp)?[[:space:]]+ALLOW([[:space:]]+IN)?[[:space:]]+Anywhere' >/dev/null 2>&1; then echo open-wss-still-present; exit 1; fi; "+
 			"echo primary-ufw-wss-ok",
 		wssSP, secondaryPub, wssSP, sSP, wssSP)
 	out, err := exec.Command("bash", "-c", script).CombinedOutput()
@@ -584,7 +585,7 @@ func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
 			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; "+
 			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
 			"ufw allow from %s to any port %d proto tcp comment nd-wss-ps; "+
-			"if ufw status | grep -E '^%d(/tcp)?[[:space:]]+ALLOW[[:space:]]+Anywhere' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi; "+
+			"if ufw status | grep -E '(^|[[:space:]])%d/tcp[[:space:]]+ALLOW[[:space:]]+(IN[[:space:]]+)?Anywhere' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi; "+
 			"echo secondary-ufw-wss-ok",
 		wssPS, primaryPub, wssPS, wssPS)
 	out, err := exec.Command("bash", "-c", script).CombinedOutput()
@@ -592,4 +593,13 @@ func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
 		return fmt.Errorf("secondary ufw WSS: %w: %s", err, out)
 	}
 	return nil
+}
+
+
+// ufwStatusHasOpenPort reports whether ufw status text still allows PORT from Anywhere.
+func ufwStatusHasOpenPort(status string, port int) bool {
+	// Match both "8444/tcp ALLOW IN Anywhere" and legacy "8444 ALLOW Anywhere".
+	re := fmt.Sprintf(`(^|[[:space:]])%d(/tcp)?[[:space:]]+ALLOW([[:space:]]+IN)?[[:space:]]+Anywhere`, port)
+	ok, _ := regexp.MatchString(re, status)
+	return ok
 }

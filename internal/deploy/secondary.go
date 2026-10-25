@@ -256,7 +256,7 @@ func DeploySecondary(o SecondaryOpts) error {
 			mat.WSSSP = 8444
 		}
 	} else {
-		if mat.IfaceSP == "" || mat.IfacePS == "" || mat.AddrPSP == "" || mat.AddrPPS == "" || mat.AddrSSP == "" || mat.AddrSPS == "" || mat.WSSSP == 0 {
+		if mat.IfaceSP == "" || mat.IfacePS == "" || mat.AddrPSP == "" || mat.AddrPPS == "" || mat.AddrSSP == "" || mat.AddrSPS == "" || mat.WSSSP == 0 || mat.WSSPS == 0 {
 			return fmt.Errorf("peer material slot %d incomplete (iface/addr/wss required) — refuse SCP", mat.Slot)
 		}
 	}
