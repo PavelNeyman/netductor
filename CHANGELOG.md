@@ -1,3 +1,9 @@
+## 0.9.515
+
+- PeerAdd: assert material PeerID/IP/slot; refuse IP rebound to different ID.
+- DeploySecondary: refuse SCP if mat.PeerID != peerID or slot out of range.
+- BootstrapPrimary/Secondary: WSS UFW from peer public IP only; drop open allow PORT/tcp.
+
 ## 0.9.514
 
 - LoadMaterialStrict reads keysRoot/material.json (testable with SetKeysRootForTest).

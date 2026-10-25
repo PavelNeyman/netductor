@@ -247,6 +247,12 @@ func DeploySecondary(o SecondaryOpts) error {
 	if mat.WSSSP == 0 {
 		mat.WSSSP = 8444
 	}
+	if mat.PeerID != peerID {
+		return fmt.Errorf("peer material identity: PeerID %q != expected %q — refuse SCP/bootstrap", mat.PeerID, peerID)
+	}
+	if mat.Slot < 0 || mat.Slot > 3 {
+		return fmt.Errorf("peer material slot %d out of range", mat.Slot)
+	}
 	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP)
 
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")

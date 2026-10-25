@@ -48,6 +48,31 @@ func validatePublicIP(ip string) error {
 	return nil
 }
 
+
+// assertPeerMaterialIdentity ensures on-disk material matches the requested peer and public IP.
+func assertPeerMaterialIdentity(m *Material, peerID, publicIP string) error {
+	if m == nil {
+		return fmt.Errorf("nil material")
+	}
+	if m.PeerID != peerID {
+		return fmt.Errorf("material peer_id %q != requested %q", m.PeerID, peerID)
+	}
+	if publicIP != "" && m.Secondary != "" && m.Secondary != publicIP {
+		return fmt.Errorf("material secondary_ip %s != requested %s", m.Secondary, publicIP)
+	}
+	s, ok := slotFromTable(m.Slot)
+	if !ok {
+		return fmt.Errorf("material slot %d not in SlotTable", m.Slot)
+	}
+	if m.IfaceSP != "" && s.IfaceSP != "" && m.IfaceSP != s.IfaceSP {
+		return fmt.Errorf("material iface_sp %s != slot %s", m.IfaceSP, s.IfaceSP)
+	}
+	if m.AddrS_SP != "" && s.AddrS_SP != "" && m.AddrS_SP != s.AddrS_SP {
+		return fmt.Errorf("material addr_s_sp %s != slot %s", m.AddrS_SP, s.AddrS_SP)
+	}
+	return nil
+}
+
 // PeerAdd allocates a free slot, generates material, applies Primary conf for that peer only.
 func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	peerMu.Lock()
@@ -74,12 +99,21 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		if err != nil {
 			return nil, nil, err
 		}
+		if err := assertPeerMaterialIdentity(m, o.PeerID, o.PublicIP); err != nil {
+			return nil, nil, fmt.Errorf("existing peer %s: %w", o.PeerID, err)
+		}
 		return m.ForSecondary(), existing, nil
 	}
 	if byIP := idx.FindByIP(o.PublicIP); byIP != nil {
+		if byIP.ID != o.PeerID {
+			return nil, nil, fmt.Errorf("public IP %s already registered as peer %q (requested %q); refuse silent rebind — remove or use matching --id", o.PublicIP, byIP.ID, o.PeerID)
+		}
 		m, err := loadPeerMaterial(byIP.ID)
 		if err != nil {
 			return nil, nil, err
+		}
+		if err := assertPeerMaterialIdentity(m, byIP.ID, o.PublicIP); err != nil {
+			return nil, nil, fmt.Errorf("existing peer by IP %s: %w", o.PublicIP, err)
 		}
 		return m.ForSecondary(), byIP, nil
 	}

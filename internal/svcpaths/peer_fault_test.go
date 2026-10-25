@@ -690,3 +690,42 @@ func TestMigrateLegacySetsPeerID(t *testing.T) {
 		t.Fatalf("PeerID %q want %q", m2.PeerID, id)
 	}
 }
+
+func TestPeerAddRejectsIPBoundToOtherID(t *testing.T) {
+	withTestRoot(t)
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error { return nil }
+	generateMaterialFn = func(primaryIP, secondaryIP string) (*Material, error) {
+		return sampleMaterial("peer-x", secondaryIP, SlotTable()[0]), nil
+	}
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "peer-old", PublicIP: "203.0.113.50", State: "active", Slot: SlotTable()[0]},
+	}}
+	_ = SavePeersIndex(idx)
+	m := sampleMaterial("peer-old", "203.0.113.50", SlotTable()[0])
+	writePeerMaterial(t, m)
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-new", PublicIP: "203.0.113.50", PrimaryIP: "1.1.1.1"})
+	if err == nil {
+		t.Fatal("expected refuse rebind")
+	}
+	if !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestPeerAddExistingRequiresIdentity(t *testing.T) {
+	withTestRoot(t)
+	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error { return nil }
+	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
+		{ID: "peer-b", PublicIP: "203.0.113.2", State: "prepared", Slot: SlotTable()[1]},
+	}}
+	_ = SavePeersIndex(idx)
+	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m.PeerID = "wrong"
+	_ = os.MkdirAll(filepath.Join(peersDirPath(), "peer-b"), 0o700)
+	b, _ := json.MarshalIndent(m, "", "  ")
+	_ = os.WriteFile(peerMaterialPath("peer-b"), b, 0o600)
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.2", PrimaryIP: "1.1.1.1"})
+	if err == nil {
+		t.Fatal("expected identity fail")
+	}
+}

@@ -369,15 +369,19 @@ PersistentKeepalive = 25
 		return err
 	}
 
-	// ufw best-effort
-	_ = exec.Command("bash", "-c", fmt.Sprintf(
-		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-sp && ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp || true`,
-		wssSP, sSP)).Run()
+	// UFW: WSS_SP only from secondary public IP; mTLS 8789 from secondary SP WG IP.
+	// Delete legacy open WSS rule if present. Best-effort if ufw missing.
 	if m.Secondary != "" {
 		_ = exec.Command("bash", "-c", fmt.Sprintf(
 			`command -v ufw >/dev/null || exit 0
+ufw delete allow %d/tcp 2>/dev/null || true
+ufw allow from %s to any port %d proto tcp comment nd-wss-sp
+ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp
 ufw delete allow from %s to any port 8789 proto tcp 2>/dev/null || true
-`, m.Secondary)).Run()
+`, wssSP, m.Secondary, wssSP, sSP, m.Secondary)).Run()
+	} else {
+		_ = exec.Command("bash", "-c", fmt.Sprintf(
+			`command -v ufw >/dev/null && ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp || true`, sSP)).Run()
 	}
 
 	if o.InstallHealthTimer {
@@ -465,8 +469,14 @@ AllowedIPs = %s/32
 	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
 		return err
 	}
-	_ = exec.Command("bash", "-c", fmt.Sprintf(
-		`command -v ufw >/dev/null && ufw allow %d/tcp comment nd-wss-ps || true`, wssPS)).Run()
+	// WSS_PS only from primary public IP (wstunnel client on primary → secondary).
+	if m.Primary != "" {
+		_ = exec.Command("bash", "-c", fmt.Sprintf(
+			`command -v ufw >/dev/null || exit 0
+ufw delete allow %d/tcp 2>/dev/null || true
+ufw allow from %s to any port %d proto tcp comment nd-wss-ps
+`, wssPS, m.Primary, wssPS)).Run()
+	}
 
 	if err := os.MkdirAll("/etc/netductor/secrets", 0o700); err != nil {
 		return err
