@@ -1,3 +1,8 @@
+## 0.9.514
+
+- PeerValidateLocal/recover: require material.PeerID == peerID (empty rejected).
+- Legacy migrate writes PeerID into peers/<id>/material.json.
+
 ## 0.9.513
 
 - PeerValidateLocal: when peerID set, load peers/<id>/material only (never legacy first).

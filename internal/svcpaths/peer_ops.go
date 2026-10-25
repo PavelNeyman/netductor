@@ -194,6 +194,7 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 	}
 	slot := SlotTable()[0]
 	applySlotToMaterial(m, slot)
+	m.PeerID = id
 	if err := os.MkdirAll(filepath.Join(peersDirPath(), id), 0o700); err != nil {
 		return err
 	}
@@ -245,7 +246,7 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 			res.OK = false
 			return res, nil
 		}
-		if m.PeerID != "" && m.PeerID != peerID {
+		if m.PeerID != peerID {
 			add(false, fmt.Sprintf("material peer_id %q != requested %q", m.PeerID, peerID))
 			res.OK = false
 			return res, nil

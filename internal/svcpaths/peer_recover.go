@@ -99,7 +99,7 @@ func validatePeerOp(op *peerOp, peerID string, m *Material) error {
 		return err
 	}
 	if m != nil {
-		if m.PeerID != "" && m.PeerID != peerID {
+		if m.PeerID != peerID {
 			return fmt.Errorf("material peer_id %q != %q", m.PeerID, peerID)
 		}
 		if m.Secondary == "" {

@@ -628,3 +628,65 @@ func TestPeerValidateLocalUsesPeerMaterialNotLegacy(t *testing.T) {
 		t.Fatalf("errors %v", vrMissing.Errors)
 	}
 }
+
+func TestPeerValidateLocalRejectsEmptyOrWrongPeerID(t *testing.T) {
+	withTestRoot(t)
+	slot1 := SlotTable()[1]
+	m := sampleMaterial("peer-b", "203.0.113.2", slot1)
+	m.PeerID = ""
+	writePeerMaterial(t, m)
+	// path is peers/peer-b but PeerID empty in JSON — write manually
+	_ = os.MkdirAll(filepath.Join(peersDirPath(), "peer-b"), 0o700)
+	b, _ := json.MarshalIndent(m, "", "  ")
+	_ = os.WriteFile(peerMaterialPath("peer-b"), b, 0o600)
+	vr, err := PeerValidateLocal("peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vr.OK {
+		t.Fatal("empty PeerID must fail")
+	}
+
+	m.PeerID = "peer-a"
+	b, _ = json.MarshalIndent(m, "", "  ")
+	_ = os.WriteFile(peerMaterialPath("peer-b"), b, 0o600)
+	vr, err = PeerValidateLocal("peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vr.OK {
+		t.Fatal("mismatched PeerID must fail")
+	}
+	joined := strings.Join(vr.Errors, " ")
+	if !strings.Contains(joined, "peer_id") {
+		t.Fatalf("%v", vr.Errors)
+	}
+}
+
+func TestMigrateLegacySetsPeerID(t *testing.T) {
+	withTestRoot(t)
+	slot0 := SlotTable()[0]
+	m := sampleMaterial("", "203.0.113.9", slot0)
+	m.PeerID = ""
+	b, _ := json.MarshalIndent(m, "", "  ")
+	_ = os.MkdirAll(keysRoot, 0o700)
+	_ = os.WriteFile(filepath.Join(keysRoot, "material.json"), b, 0o600)
+	peerMu.Lock()
+	err := MigrateLegacyPeerIfNeededUnlocked()
+	peerMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, _ := LoadPeersIndex()
+	if len(idx.Peers) != 1 {
+		t.Fatalf("%+v", idx)
+	}
+	id := idx.Peers[0].ID
+	m2, err := loadPeerMaterial(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m2.PeerID != id {
+		t.Fatalf("PeerID %q want %q", m2.PeerID, id)
+	}
+}
