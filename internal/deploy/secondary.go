@@ -30,15 +30,63 @@ type SecondaryOpts struct {
 	SecondaryHost        string
 	SecondaryUser        string
 	SecondaryPass        string
-	SecondarySSHKey      string // optional re-provision when password already off
-	SNI                  string
-	OperatorPubKey       string
+	SecondarySSHKey      string // resume: key already on secondary. Empty uses PrimaryKey.
+	// SSHMode: "initial" (port 22 + password) or "resume" (port 52222 + key).
+	// Empty: password-only → initial; key-only → resume; both → error.
+	SSHMode        string
+	SNI            string
+	OperatorPubKey string
 	// ForceReinstall: operator already verified host-key rotation — pass through to Go TOFU forget.
 	ForceReinstall bool
 	// Promote runs peer validate→ready→promote after deploy (no force-ready). Prefer false until R5 traffic test.
 	Promote bool
 	// ViaPrimary is ignored (deprecated). Always Mac-direct.
 	ViaPrimary bool
+}
+
+const (
+	SSHModeInitial = "initial"
+	SSHModeResume  = "resume"
+)
+
+// ResolveSecondarySSH picks provision port and auth from mode.
+// initial: 22 + password. resume: 52222 + key (SecondarySSHKey or PrimaryKey).
+// Empty mode infers from which credential is set. Both set without mode is an error.
+func ResolveSecondarySSH(o SecondaryOpts) (mode string, port int, key string, err error) {
+	mode = strings.ToLower(strings.TrimSpace(o.SSHMode))
+	hasPass := strings.TrimSpace(o.SecondaryPass) != ""
+	hasKey := strings.TrimSpace(o.SecondarySSHKey) != ""
+	switch mode {
+	case "", SSHModeInitial:
+		if mode == "" {
+			if hasKey && !hasPass {
+				mode = SSHModeResume
+			} else if hasPass && !hasKey {
+				mode = SSHModeInitial
+			} else if hasPass && hasKey {
+				return "", 0, "", fmt.Errorf("secondary password and SSH key both set — set ssh_mode=initial or resume")
+			} else {
+				return "", 0, "", fmt.Errorf("secondary password (initial) or SSH key (resume) required")
+			}
+		}
+	case SSHModeResume:
+	default:
+		return "", 0, "", fmt.Errorf("ssh_mode %q: want initial or resume", o.SSHMode)
+	}
+	if mode == SSHModeResume {
+		key = strings.TrimSpace(o.SecondarySSHKey)
+		if key == "" {
+			key = strings.TrimSpace(o.PrimaryKey)
+		}
+		if key == "" {
+			return "", 0, "", fmt.Errorf("resume deploy needs secondary SSH key (or primary key)")
+		}
+		return mode, 52222, key, nil
+	}
+	if !hasPass {
+		return "", 0, "", fmt.Errorf("initial deploy needs secondary root password")
+	}
+	return SSHModeInitial, 22, strings.TrimSpace(o.SecondarySSHKey), nil
 }
 
 // peerMaterialSCP is the subset of svc-paths material JSON needed before SCP to secondary.
@@ -182,8 +230,13 @@ func DeploySecondary(o SecondaryOpts) error {
 	} else if ip.To4() == nil {
 		return fmt.Errorf("secondary host IPv6 is not supported for peer-id encoding yet (got %q)", o.SecondaryHost)
 	}
-	if o.SecondaryPass == "" && o.SecondarySSHKey == "" {
-		return fmt.Errorf("secondary password or secondary SSH key required")
+	mode, provPort, secKey, errMode := ResolveSecondarySSH(o)
+	if errMode != nil {
+		return errMode
+	}
+	o.SSHMode = mode
+	if secKey != "" {
+		o.SecondarySSHKey = secKey
 	}
 	if o.PrimaryUser == "" {
 		o.PrimaryUser = "root"
@@ -256,7 +309,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	// R6/R16: host-key mismatch must NOT auto-forget or retry with password (MITM risk).
 	// Explicit ForceReinstall only after operator verified fingerprint offline.
 	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
-		Host: o.SecondaryHost, Port: 22, User: o.SecondaryUser,
+		Host: o.SecondaryHost, Port: provPort, User: o.SecondaryUser,
 		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
 		SNI: o.SNI, OperatorPubKey: pub,
 		MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
@@ -348,8 +401,8 @@ func DeploySecondary(o SecondaryOpts) error {
 	defer os.Remove(tmpPath)
 
 	scpErr := runSCPOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase)
-	if scpErr != nil {
-		fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", scpErr, "— retry :22")
+	if scpErr != nil && o.SSHMode != SSHModeResume {
+		fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", scpErr, "— retry :22 (initial only)")
 		scpErr = runSCPOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase)
 	}
 	if scpErr != nil {
@@ -376,8 +429,8 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 
 	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
 	if err2 != nil {
-		// one retry with :22 if day2 is 52222
-		if day2Port == "52222" {
+		// Retry :22 only on initial (harden may not have stuck). Resume stays on 52222.
+		if o.SSHMode != SSHModeResume && day2Port == "52222" {
 			out2b, err2b := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
 			if err2b != nil {
 				return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b)
@@ -486,7 +539,7 @@ echo "promoted %s"
 	}
 
 	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
-	fmt.Fprintln(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :8445 (PS WSS)")
+	fmt.Fprintf(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :%d (PS WSS)\n", mat.WSSPS)
 	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
 	return nil
 }

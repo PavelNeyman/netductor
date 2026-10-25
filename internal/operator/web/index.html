@@ -219,7 +219,8 @@
     <form id="form-secondary">
       <div class="row"><div><label data-i18n="l_phost">Primary host</label><input name="primary_host" required/></div><div><label data-i18n="l_pkey">Primary key</label><input name="primary_key" placeholder="~/.ssh/netductor_primary"/></div></div>
       <div class="row"><div><label data-i18n="l_key_pass">Key passphrase</label><input name="primary_key_passphrase" type="password" autocomplete="off"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div></div>
-      <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" required/></div><div><label data-i18n="l_pass">Password</label><input name="secondary_password" type="password"/></div></div>
+      <div class="row"><div><label data-i18n="l_ssh_mode">SSH mode</label><select name="ssh_mode"><option value="initial" data-i18n="opt_ssh_initial">Initial (:22 password)</option><option value="resume" data-i18n="opt_ssh_resume">Resume (:52222 key)</option></select></div><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" required/></div></div>
+      <div class="row"><div><label data-i18n="l_pass">Password</label><input name="secondary_password" type="password"/></div><div><label data-i18n="l_skey">Secondary key (resume)</label><input name="secondary_ssh_key" placeholder="empty = primary key"/></div></div>
       <p class="note" data-i18n="vpscheck_note">Pre-check: IP region, CPU, disk sample, TCP/HTTP, iperf (installs curl/iperf3/sysbench on target). One button = full scorecard before deploy.</p>
       <div class="row">
         <button type="button" class="secondary" id="btnVpsPrecheckSec" data-i18n="btn_vps_precheck">VPS pre-check</button>

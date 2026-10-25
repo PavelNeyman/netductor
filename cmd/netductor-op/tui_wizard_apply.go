@@ -194,9 +194,15 @@ func wizBuildFields(id string, m *model) []wizField {
 				Short:  ph("RU VPS address", "Адрес РФ VPS"),
 				Detail: ph("VPN entry only. Primary must already be set in TUI.", "Только VPN entry. Primary уже должен быть в TUI.")},
 			{Key: "user", Label: FormT(lang, "ssh_user"), Value: "root", Short: "SSH", Detail: ph("First login user.", "Пользователь первого входа.")},
+			{Key: "ssh_mode", Label: ph("SSH mode (initial/resume)", "Режим SSH (initial/resume)"), Value: "initial",
+				Short:  ph("initial=:22 password; resume=:52222 key", "initial=:22 пароль; resume=:52222 ключ"),
+				Detail: ph("initial = first install. resume = hardened host, key-only on 52222. Do not infer from primary key passphrase.", "initial = первая установка. resume = уже harden, вход по ключу на 52222.")},
 			{Key: "password", Label: FormT(lang, "ssh_password_first"), Secret: true,
-				Short:  ph("First SSH password", "Пароль первого SSH"),
-				Detail: ph("Mac pubkey installed; password auth then off.", "Ставится pubkey Mac; пароль отключается.")},
+				Short:  ph("Required for initial", "Нужен для initial"),
+				Detail: ph("Root password. Used only in initial mode.", "Пароль root. Только режим initial.")},
+			{Key: "secondary_ssh_key", Label: ph("Secondary SSH key (resume)", "Ключ secondary (resume)"), Value: "",
+				Short:  ph("Empty = primary key", "Пусто = ключ primary"),
+				Detail: ph("Resume only. Key already installed on secondary.", "Только resume. Ключ уже стоит на secondary.")},
 			{Key: "precheck", Label: "VPS pre-check first? (yes/no/only)", Value: "yes",
 				Short:  ph("Scorecard before deploy", "Прогон до deploy"),
 				Detail: ph("yes=run vps.precheck then deploy; only=check only; no=skip. Installs curl/iperf3/sysbench on target.", "yes=precheck затем deploy; only=только проверка; no=пропуск. Ставит curl/iperf3/sysbench.")},
@@ -434,7 +440,7 @@ func (m model) runWizardApplyInTUI() string {
 			params := map[string]any{
 				"host": m.fieldVal("host"), "user": orDefault(m.fieldVal("user"), "root"),
 				"password": m.fieldVal("password"), "profile": "secondary",
-				"primary": s.RemoteHost, "port": "22",
+				"primary": s.RemoteHost, "port": precheckPort(m.fieldVal("ssh_mode")),
 			}
 			if _, err := startAndWaitJob("vps.precheck", params); err != nil {
 				if pc == "only" || pc == "yes" {
@@ -615,4 +621,11 @@ func (m model) runWizardApplyInTUI() string {
 	default:
 		return "unknown target"
 	}
+}
+
+func precheckPort(mode string) string {
+	if strings.ToLower(strings.TrimSpace(mode)) == "resume" {
+		return "52222"
+	}
+	return "22"
 }

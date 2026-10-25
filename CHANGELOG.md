@@ -1,3 +1,9 @@
+## 0.9.528
+
+- Secondary SSH mode: initial = :22 + root password; resume = :52222 + key. Empty mode infers from which credential is set. Both without mode is an error.
+- Resume does not fall back to port 22. TUI and Web have an explicit mode field. Final note prints the slot PS WSS port.
+
+
 ## 0.9.527
 
 - LoadMaterialForHost accepts primary-complete or ForSecondary material. Probe, health timer, and tunnel-addr reads use it.

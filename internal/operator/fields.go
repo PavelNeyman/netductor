@@ -88,10 +88,16 @@ func SecondaryFromFields(get FieldGetter) SecondarySpec {
 	if pass == "" {
 		pass = get("password")
 	}
+	mode := strings.ToLower(strings.TrimSpace(get("ssh_mode")))
+	if mode == "" {
+		mode = "initial"
+	}
 	return SecondarySpec{
 		SecondaryHost:        host,
 		SecondaryUser:        orDefault(get("user"), "root"),
 		SecondaryPass:        pass,
+		SecondarySSHKey:      get("secondary_ssh_key"),
+		SSHMode:              mode,
 		SNI:                  orDefault(get("sni"), "api.vk.me"),
 		PrimaryKeyPassphrase: get("key_pass"),
 	}

@@ -49,6 +49,7 @@ type SecondarySpec struct {
 	SecondaryUser        string `json:"secondary_user"`
 	SecondaryPass        string `json:"secondary_password"`
 	SecondarySSHKey      string `json:"secondary_ssh_key"`
+	SSHMode              string `json:"ssh_mode"` // initial | resume
 	SNI                  string `json:"sni"`
 	OperatorPubKey       string `json:"operator_pubkey"`
 	// ForceReinstall: after offline fingerprint check + ssh-hosts forget — wipe Go TOFU on dial.
@@ -95,7 +96,8 @@ func (s SecondarySpec) toDeploy() deploy.SecondaryOpts {
 		PrimaryKeyPassphrase: s.PrimaryKeyPassphrase,
 		SecondaryHost:        s.SecondaryHost, SecondaryUser: s.SecondaryUser,
 		SecondaryPass: s.SecondaryPass, SecondarySSHKey: s.SecondarySSHKey,
-		SNI: s.SNI, OperatorPubKey: s.OperatorPubKey, ViaPrimary: false,
+		SSHMode: s.SSHMode,
+		SNI:     s.SNI, OperatorPubKey: s.OperatorPubKey, ViaPrimary: false,
 		ForceReinstall: s.ForceReinstall,
 		Promote:        s.Promote,
 	}
