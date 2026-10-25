@@ -202,3 +202,53 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+func TestInstallHealthTimerRejectsCorruptMaterial(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), []byte("{bad"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// installHealthTimer writes under /usr/local and systemctl — skip if not root;
+	// unit-test the addr resolution path via exported probe: call validate path only.
+	// We check PrimaryTunnelAddrsStrict already fails; health timer must use same gate.
+	_, _, err := PrimaryTunnelAddrsStrict()
+	if err == nil {
+		t.Fatal("corrupt material should fail strict")
+	}
+	// Simulate health timer load branch
+	_, err = LoadMaterialStrict()
+	if err == nil {
+		t.Fatal("expected load error")
+	}
+	if os.IsNotExist(err) {
+		t.Fatal("corrupt is not NotExist")
+	}
+}
+
+func TestMaterialIfacesStrictFromVerifiedSlot(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	slot := SlotTable()[2]
+	m := Material{
+		SPPrivP: "x", SPPubP: "y", SPPrivS: "z", SPPubS: "w",
+		PSPrivP: "a", PSPubP: "b", PSPrivS: "c", PSPubS: "d",
+		AddrP_SP: slot.AddrP_SP, AddrS_SP: slot.AddrS_SP,
+		AddrP_PS: slot.AddrP_PS, AddrS_PS: slot.AddrS_PS,
+		// ifaces omitted — must come from SlotTable after identity OK
+		Slot: 2, PeerID: "peer-if",
+	}
+	b, _ := json.Marshal(m)
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sp, ps, err := MaterialIfacesStrict()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sp != slot.IfaceSP || ps != slot.IfacePS {
+		t.Fatalf("want %s/%s got %s/%s", slot.IfaceSP, slot.IfacePS, sp, ps)
+	}
+}

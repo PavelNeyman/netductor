@@ -290,7 +290,10 @@ func MaterialIfaces() (sp, ps string) {
 	return sp, ps
 }
 
-// MaterialIfacesStrict returns iface names; incomplete/mismatched material → error.
+// MaterialIfacesStrict returns wg iface names for this host's material slot.
+// Contract: after validateMaterialTunnelIdentity succeeds, missing iface fields are
+// filled from SlotTable[Slot] (canonical names for the verified slot). Corrupt or
+// mismatched material returns an error — never a silent wrong-slot iface.
 func MaterialIfacesStrict() (sp, ps string, err error) {
 	m, err := LoadMaterialStrict()
 	if err != nil {
@@ -302,14 +305,15 @@ func MaterialIfacesStrict() (sp, ps string, err error) {
 	if err := validateMaterialTunnelIdentity(m); err != nil {
 		return "", "", err
 	}
-	if m.IfaceSP == "" && m.Slot == 0 {
-		return IfaceSP, IfacePS, nil
+	slot := SlotTable()[m.Slot]
+	sp, ps = slot.IfaceSP, slot.IfacePS
+	if m.IfaceSP != "" {
+		sp = m.IfaceSP
 	}
-	if m.IfaceSP == "" || m.IfacePS == "" {
-		slot := SlotTable()[m.Slot]
-		return slot.IfaceSP, slot.IfacePS, nil
+	if m.IfacePS != "" {
+		ps = m.IfacePS
 	}
-	return m.IfaceSP, m.IfacePS, nil
+	return sp, ps, nil
 }
 
 func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {
@@ -609,13 +613,21 @@ AllowedIPs = %s/32
 
 func installHealthTimer() error {
 	script := `/usr/local/bin/nd-svc-paths-health`
-	// Peer-bound addrs for shell fallback (avoid hard-coded slot 0 when material is present).
+	// Peer-bound addrs for shell fallback.
+	// material missing → legacy slot 0; material present but invalid → error (no silent slot 0).
 	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
-	if m, err := LoadMaterialStrict(); err == nil {
-		if err := validateMaterialTunnelIdentity(m); err == nil {
-			if m.AddrP_SP != "" {
-				pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
-			}
+	m, err := LoadMaterialStrict()
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("health timer: load material: %w", err)
+		}
+		// no material file: legacy single-peer slot 0
+	} else {
+		if err := validateMaterialTunnelIdentity(m); err != nil {
+			return fmt.Errorf("health timer: material identity: %w", err)
+		}
+		if m.AddrP_SP != "" {
+			pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
 		}
 	}
 	// Always rewrite so bootstrap upgrades the tick policy (do not keep silent-success legacy).
