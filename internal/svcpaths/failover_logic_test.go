@@ -341,3 +341,73 @@ func TestProbeHealthRejectsCorruptMaterial(t *testing.T) {
 		t.Fatalf("corrupt must not probe slot 0, got %v", err)
 	}
 }
+
+func secondaryMaterial(slot int) *Material {
+	s := SlotTable()[slot]
+	m := &Material{
+		Slot: slot, PeerID: "peer-sec",
+		SPPubP: "pub-sp", SPPrivS: "priv-s-sp", SPPubS: "pub-s-sp",
+		PSPubP: "pub-ps", PSPrivS: "priv-s-ps", PSPubS: "pub-s-ps",
+		AddrP_SP: s.AddrP_SP, AddrS_SP: s.AddrS_SP,
+		AddrP_PS: s.AddrP_PS, AddrS_PS: s.AddrS_PS,
+	}
+	return m.ForSecondary()
+}
+
+func TestLoadMaterialForHostAcceptsSecondary(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	m := secondaryMaterial(1)
+	if m.SPPrivP != "" || m.PSPrivP != "" {
+		t.Fatal("ForSecondary leaked primary privates")
+	}
+	b, _ := json.Marshal(m)
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadMaterialStrict(); err == nil {
+		t.Fatal("strict regen loader must reject secondary file")
+	}
+	got, err := LoadMaterialForHost()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pSP, _, _, _, errA := healthTimerProbeAddrs()
+	if errA != nil || pSP != SlotTable()[1].AddrP_SP {
+		t.Fatalf("health timer: %v pSP=%s", errA, pSP)
+	}
+	if got.SPPrivS == "" {
+		t.Fatal("secondary private dropped")
+	}
+}
+
+func TestProbeHealthAcceptsSecondaryMaterial(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	b, _ := json.Marshal(secondaryMaterial(1))
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := ProbeHealth()
+	if err != nil && strings.Contains(err.Error(), "material") {
+		t.Fatalf("valid secondary material treated as invalid: %v", err)
+	}
+}
+
+func TestLoadMaterialForHostRejectsIncomplete(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	raw := []byte(`{"slot":1,"sp_priv_s":"only-one"}`)
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadMaterialForHost(); err == nil {
+		t.Fatal("incomplete must fail")
+	}
+	if err := ProbeHealth(); err == nil || !strings.Contains(err.Error(), "material") {
+		t.Fatalf("probe should be material-invalid, got %v", err)
+	}
+}

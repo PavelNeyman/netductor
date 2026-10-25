@@ -1,3 +1,9 @@
+## 0.9.527
+
+- LoadMaterialForHost accepts primary-complete or ForSecondary material. Probe, health timer, and tunnel-addr reads use it.
+- LoadMaterialStrict still requires all four primary privates for regen. Secondary file is not treated as corrupt.
+
+
 ## 0.9.526
 
 - Slot 0 is legacy only when addrs, ifaces, and ports are all empty. A lone PortSP is incomplete, not slot-0 defaults.

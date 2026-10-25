@@ -307,7 +307,7 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 			return res, nil
 		}
 	} else {
-		m, err = LoadMaterialStrict()
+		m, err = LoadMaterialForHost()
 		if err != nil {
 			add(false, "material: "+err.Error())
 			res.OK = false

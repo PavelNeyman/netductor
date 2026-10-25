@@ -49,7 +49,7 @@ func ProbeHealth() error {
 	role := hostRole()
 	sp, ps := 0, 0
 	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
-	m, errM := LoadMaterialStrict()
+	m, errM := LoadMaterialForHost()
 	if errM != nil {
 		if !os.IsNotExist(errM) {
 			return probeHealthInvalid("material load: " + errM.Error())

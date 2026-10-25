@@ -151,9 +151,9 @@ func GenerateMaterial(primaryIP, secondaryIP string) (*Material, error) {
 	return m, nil
 }
 
-// LoadMaterialStrict reads legacy KeysDir/material.json.
-// os.ErrNotExist if absent; any other error = corrupt/incomplete — never treat as missing.
-func LoadMaterialStrict() (*Material, error) {
+// loadMaterialJSON reads and parses material.json. No key policy.
+// os.ErrNotExist if absent; any other error = corrupt — never treat as missing.
+func loadMaterialJSON() (*Material, error) {
 	path := filepath.Join(keysRoot, "material.json")
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -163,10 +163,47 @@ func LoadMaterialStrict() (*Material, error) {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, fmt.Errorf("material.json corrupt (refuse regen): %w", err)
 	}
+	return &m, nil
+}
+
+// materialKeysForHost accepts a primary-complete file or a ForSecondary file.
+// Primary regen still uses LoadMaterialStrict (all four privates).
+func materialKeysForHost(m *Material) error {
+	if m == nil {
+		return fmt.Errorf("nil material")
+	}
+	primary := m.SPPrivP != "" && m.SPPrivS != "" && m.PSPrivP != "" && m.PSPrivS != ""
+	secondary := m.SPPrivS != "" && m.PSPrivS != "" && m.SPPubP != "" && m.PSPubP != ""
+	if primary || secondary {
+		return nil
+	}
+	return fmt.Errorf("material.json incomplete for host (need primary privates, or secondary privates + primary pubs)")
+}
+
+// LoadMaterialStrict reads material.json and requires the full primary private set.
+// Used by regen. Secondary files without SPPrivP/PSPrivP fail here on purpose.
+func LoadMaterialStrict() (*Material, error) {
+	m, err := loadMaterialJSON()
+	if err != nil {
+		return nil, err
+	}
 	if m.SPPrivP == "" || m.SPPrivS == "" || m.PSPrivP == "" || m.PSPrivS == "" {
 		return nil, fmt.Errorf("material.json incomplete (refuse regen)")
 	}
-	return &m, nil
+	return m, nil
+}
+
+// LoadMaterialForHost accepts primary-complete or ForSecondary material.
+// Probe, health timer, and tunnel-addr reads on either role use this.
+func LoadMaterialForHost() (*Material, error) {
+	m, err := loadMaterialJSON()
+	if err != nil {
+		return nil, err
+	}
+	if err := materialKeysForHost(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // LoadMaterial aliases LoadMaterialStrict.
@@ -274,7 +311,7 @@ func PrimaryTunnelAddrs() (sp, ps string) {
 // - material corrupt / incomplete / slot mismatch: err != nil, empty strings
 // - material OK: addresses from material fields (never resolvedAddrs defaults)
 func PrimaryTunnelAddrsStrict() (sp, ps string, err error) {
-	m, err := LoadMaterialStrict()
+	m, err := LoadMaterialForHost()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return AddrP_SP, AddrP_PS, nil
@@ -298,7 +335,7 @@ func SecondaryTunnelAddrs() (sp, ps string) {
 
 // SecondaryTunnelAddrsStrict mirrors PrimaryTunnelAddrsStrict for secondary endpoints.
 func SecondaryTunnelAddrsStrict() (sp, ps string, err error) {
-	m, err := LoadMaterialStrict()
+	m, err := LoadMaterialForHost()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return AddrS_SP, AddrS_PS, nil
@@ -325,7 +362,7 @@ func MaterialIfaces() (sp, ps string) {
 // filled from SlotTable[Slot] (canonical names for the verified slot). Corrupt or
 // mismatched material returns an error — never a silent wrong-slot iface.
 func MaterialIfacesStrict() (sp, ps string, err error) {
-	m, err := LoadMaterialStrict()
+	m, err := LoadMaterialForHost()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return IfaceSP, IfacePS, nil
@@ -654,7 +691,7 @@ AllowedIPs = %s/32
 // Missing material → legacy slot 0. Corrupt or identity fail → error (never silent slot 0).
 func healthTimerProbeAddrs() (pSP, sSP, pPS, sPS string, err error) {
 	pSP, sSP, pPS, sPS = AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
-	m, err := LoadMaterialStrict()
+	m, err := LoadMaterialForHost()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return pSP, sSP, pPS, sPS, nil
