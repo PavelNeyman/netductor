@@ -440,20 +440,19 @@ func (m model) runWizardApplyInTUI() string {
 			params := map[string]any{
 				"host": m.fieldVal("host"), "user": orDefault(m.fieldVal("user"), "root"),
 				"profile": "secondary",
-				"primary": s.RemoteHost, "port": precheckPort(m.fieldVal("ssh_mode")),
+				"primary": s.RemoteHost, "port": precheckPort(sec.SSHMode),
 			}
-			if strings.ToLower(strings.TrimSpace(m.fieldVal("ssh_mode"))) == "resume" {
-				key := strings.TrimSpace(m.fieldVal("secondary_ssh_key"))
+			if sec.SSHMode == "resume" {
+				key := strings.TrimSpace(sec.SecondarySSHKey)
 				if key == "" {
 					key = s.RemoteKey
 				}
 				params["key"] = key
-				// Primary passphrase only when the dial key is the primary key.
-				if key == s.RemoteKey || key == "" {
-					params["key_passphrase"] = m.fieldVal("key_pass")
+				if key == s.RemoteKey {
+					params["key_passphrase"] = sec.PrimaryKeyPassphrase
 				}
 			} else {
-				params["password"] = m.fieldVal("password")
+				params["password"] = sec.SecondaryPass
 			}
 			if _, err := startAndWaitJob("vps.precheck", params); err != nil {
 				if pc == "only" || pc == "yes" {

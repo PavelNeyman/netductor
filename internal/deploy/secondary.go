@@ -86,7 +86,11 @@ func ResolveSecondarySSH(o SecondaryOpts) (mode string, port int, key string, er
 	if !hasPass {
 		return "", 0, "", fmt.Errorf("initial deploy needs secondary root password")
 	}
-	return SSHModeInitial, 22, strings.TrimSpace(o.SecondarySSHKey), nil
+	sep := strings.TrimSpace(o.SecondarySSHKey)
+	if sep != "" && sep != strings.TrimSpace(o.PrimaryKey) {
+		return "", 0, "", fmt.Errorf("initial deploy installs the primary operator key; a separate secondary_ssh_key is only valid in resume")
+	}
+	return SSHModeInitial, 22, "", nil
 }
 
 // secondaryDialKey is the key for every SSH/SCP to the secondary host.
@@ -100,6 +104,27 @@ func secondaryDialKey(o SecondaryOpts) (path, pass string) {
 		pass = o.PrimaryKeyPassphrase
 	}
 	return
+}
+
+func secondaryKeyPass(o SecondaryOpts) string {
+	if o.SecondarySSHKey == "" || o.SecondarySSHKey == o.PrimaryKey {
+		return o.PrimaryKeyPassphrase
+	}
+	return ""
+}
+
+func requirePublicIPv4(host string) error {
+	ip := net.ParseIP(strings.TrimSpace(host))
+	if ip == nil {
+		return fmt.Errorf("secondary host must be a public IP (got %q); hostname is not accepted for peer-id/svc-paths", host)
+	}
+	if ip.To4() == nil {
+		return fmt.Errorf("secondary host IPv6 is not supported for peer-id encoding yet (got %q)", host)
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() {
+		return fmt.Errorf("secondary host %q is not a public IPv4 (private/loopback/link-local rejected)", host)
+	}
+	return nil
 }
 
 // peerMaterialSCP is the subset of svc-paths material JSON needed before SCP to secondary.
@@ -238,18 +263,19 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("secondary host required")
 	}
 	// Service-plane peer-ip requires a public IPv4 (not hostname). Fail before SSH harden.
-	if ip := net.ParseIP(strings.TrimSpace(o.SecondaryHost)); ip == nil {
-		return fmt.Errorf("secondary host must be a public IP (got %q); hostname is not accepted for peer-id/svc-paths", o.SecondaryHost)
-	} else if ip.To4() == nil {
-		return fmt.Errorf("secondary host IPv6 is not supported for peer-id encoding yet (got %q)", o.SecondaryHost)
+	if errIP := requirePublicIPv4(o.SecondaryHost); errIP != nil {
+		return errIP
 	}
 	mode, provPort, secKey, errMode := ResolveSecondarySSH(o)
 	if errMode != nil {
 		return errMode
 	}
 	o.SSHMode = mode
-	if secKey != "" {
+	if mode == SSHModeResume {
+		o.SecondaryPass = "" // key-only; do not offer password
 		o.SecondarySSHKey = secKey
+	} else {
+		o.SecondarySSHKey = "" // initial installs primary pubkey, not a separate key
 	}
 	if o.PrimaryUser == "" {
 		o.PrimaryUser = "root"
@@ -328,7 +354,8 @@ func DeploySecondary(o SecondaryOpts) error {
 	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
 		Host: o.SecondaryHost, Port: provPort, User: o.SecondaryUser,
 		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
-		SNI: o.SNI, OperatorPubKey: pub,
+		SSHKeyPassphrase: secondaryKeyPass(o),
+		SNI:              o.SNI, OperatorPubKey: pub,
 		MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
 		ForceReinstall: o.ForceReinstall,
 	}, string(pack.Bundle))

@@ -16,13 +16,15 @@ import (
 
 // ProvisionIn is operator input for zero-touch RU secondary setup from core (or Mac via primary).
 type ProvisionIn struct {
-	Host           string // IP or hostname
-	Port           int    // SSH port, default 22
-	User           string // default root
-	Password       string
-	SSHPrivateKey  string // optional path; used when password auth disabled (re-provision)
-	SNI            string // Reality SNI; empty → ResolveSecondarySNI / api.vk.me
-	OperatorPubKey string // optional: Mac/operator pubkey (preferred). If set, only this is installed.
+	Host          string // IP or hostname
+	Port          int    // SSH port, default 22
+	User          string // default root
+	Password      string
+	SSHPrivateKey string // optional path; used when password auth disabled (re-provision)
+	// SSHKeyPassphrase unlocks SSHPrivateKey. Not applied to a different key.
+	SSHKeyPassphrase string
+	SNI              string // Reality SNI; empty → ResolveSecondarySNI / api.vk.me
+	OperatorPubKey   string // optional: Mac/operator pubkey (preferred). If set, only this is installed.
 	// Optional mTLS client material (written over the same SSH session — primary need not re-SSH later).
 	MTLSCA   []byte
 	MTLSCert []byte
@@ -86,9 +88,14 @@ func sshClient(in ProvisionIn) (*ssh.Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read SSH private key: %w", err)
 		}
-		signer, err := ssh.ParsePrivateKey(key)
+		var signer ssh.Signer
+		if pass := strings.TrimSpace(in.SSHKeyPassphrase); pass != "" {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(pass))
+		} else {
+			signer, err = ssh.ParsePrivateKey(key)
+		}
 		if err != nil {
-			return nil, fmt.Errorf("parse SSH private key: %w", err)
+			return nil, fmt.Errorf("parse SSH private key: %w (encrypted key needs its passphrase; a separate secondary key does not inherit the primary passphrase)", err)
 		}
 		methods = append(methods, ssh.PublicKeys(signer))
 	}

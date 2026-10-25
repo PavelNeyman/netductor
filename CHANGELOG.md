@@ -1,3 +1,9 @@
+## 0.9.531
+
+- Provision parses an encrypted SSH key with its passphrase. Resume is key-only (password cleared). Initial rejects a separate secondary key.
+- TUI precheck uses the normalized SSHMode. Non-public IPv4 is rejected before SSH.
+
+
 ## 0.9.530
 
 - Resume precheck sends the primary key passphrase only when the dial key is the primary key.

@@ -33,9 +33,9 @@ func TestResolveSecondarySSHAmbiguous(t *testing.T) {
 	if err == nil {
 		t.Fatal("both credentials without mode must fail")
 	}
-	mode, port, _, err := ResolveSecondarySSH(SecondaryOpts{SSHMode: SSHModeInitial, SecondaryPass: "pw", SecondarySSHKey: "/k"})
-	if err != nil || mode != SSHModeInitial || port != 22 {
-		t.Fatalf("explicit initial with both: %s %d %v", mode, port, err)
+	_, _, _, err = ResolveSecondarySSH(SecondaryOpts{SSHMode: SSHModeInitial, SecondaryPass: "pw", SecondarySSHKey: "/k"})
+	if err == nil {
+		t.Fatal("initial plus a separate key must fail")
 	}
 }
 
@@ -59,5 +59,26 @@ func TestSecondaryDialKeySeparate(t *testing.T) {
 	})
 	if path != "/primary" || pass != "pp" {
 		t.Fatalf("fallback: %s %q", path, pass)
+	}
+}
+
+func TestResolveSecondarySSHInitialRejectsSeparateKey(t *testing.T) {
+	_, _, _, err := ResolveSecondarySSH(SecondaryOpts{
+		SSHMode: SSHModeInitial, SecondaryPass: "pw",
+		PrimaryKey: "/p", SecondarySSHKey: "/other",
+	})
+	if err == nil {
+		t.Fatal("initial with a different secondary key must fail")
+	}
+}
+
+func TestRequirePublicIPv4(t *testing.T) {
+	for _, bad := range []string{"10.1.2.3", "192.168.0.1", "127.0.0.1", "169.254.1.1", "host.example"} {
+		if err := requirePublicIPv4(bad); err == nil {
+			t.Fatalf("%s should be rejected", bad)
+		}
+	}
+	if err := requirePublicIPv4("92.255.77.253"); err != nil {
+		t.Fatal(err)
 	}
 }
