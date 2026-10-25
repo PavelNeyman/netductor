@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -213,17 +214,34 @@ func TestInstallHealthTimerRejectsCorruptMaterial(t *testing.T) {
 	// installHealthTimer writes under /usr/local and systemctl — skip if not root;
 	// unit-test the addr resolution path via exported probe: call validate path only.
 	// We check PrimaryTunnelAddrsStrict already fails; health timer must use same gate.
-	_, _, err := PrimaryTunnelAddrsStrict()
+	_, _, _, _, err := healthTimerProbeAddrs()
 	if err == nil {
-		t.Fatal("corrupt material should fail strict")
-	}
-	// Simulate health timer load branch
-	_, err = LoadMaterialStrict()
-	if err == nil {
-		t.Fatal("expected load error")
+		t.Fatal("corrupt material must refuse health timer addrs")
 	}
 	if os.IsNotExist(err) {
 		t.Fatal("corrupt is not NotExist")
+	}
+}
+
+func TestBootstrapRejectsInvalidBeforeSideEffects(t *testing.T) {
+	m := &Material{Slot: 1, AddrP_SP: "10.87.20.1"} // incomplete slot 1
+	err := BootstrapPrimaryWith(m, BootstrapPrimaryOpts{})
+	if err == nil || !strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("primary: %v", err)
+	}
+	if _, statErr := os.Stat("/etc/wireguard/nd-svc-sp1.conf"); statErr == nil {
+		t.Fatal("primary wrote slot1 wg conf before identity fail")
+	}
+	sec := &Material{
+		Slot: 1, AddrP_SP: "10.87.20.1",
+		SPPrivS: "s", PSPrivS: "p", SPPubP: "a", PSPubP: "b",
+	}
+	err = BootstrapSecondary(sec)
+	if err == nil || !strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("secondary: %v", err)
+	}
+	if _, statErr := os.Stat("/etc/wireguard/nd-svc-sp1.conf"); statErr == nil {
+		t.Fatal("secondary wrote slot1 wg conf before identity fail")
 	}
 }
 

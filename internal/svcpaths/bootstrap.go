@@ -200,7 +200,6 @@ func LoadOrGenerateMaterial(primaryIP, secondaryIP string, force bool) (*Materia
 	return m, true, nil
 }
 
-
 // validateMaterialTunnelIdentity refuses incomplete or mismatched slot fields.
 // Empty identity on slot 0 = legacy (caller may use constants). Slot>0 requires full match to SlotTable.
 func validateMaterialTunnelIdentity(m *Material) error {
@@ -408,6 +407,10 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) error {
 	if m == nil {
 		return fmt.Errorf("nil material")
 	}
+	// Fail closed before deps, file writes, firewall, or unit restarts.
+	if err := validateMaterialTunnelIdentity(m); err != nil {
+		return fmt.Errorf("bootstrap primary: %w", err)
+	}
 	if m.Primary == "" || m.Primary == "0.0.0.0" {
 		if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
 			m.Primary = strings.TrimSpace(string(b))
@@ -515,6 +518,10 @@ func BootstrapSecondary(m *Material) error {
 	if m.SPPrivS == "" || m.PSPrivS == "" || m.SPPubP == "" || m.PSPubP == "" {
 		return fmt.Errorf("material incomplete for secondary (need SPPrivS, PSPrivS, SPPubP, PSPubP)")
 	}
+	// Fail closed before deps, file writes, firewall, or unit restarts.
+	if err := validateMaterialTunnelIdentity(m); err != nil {
+		return fmt.Errorf("bootstrap secondary: %w", err)
+	}
 	if err := ensureWireguardTools(); err != nil {
 		return err
 	}
@@ -611,24 +618,32 @@ AllowedIPs = %s/32
 	return nil
 }
 
-func installHealthTimer() error {
-	script := `/usr/local/bin/nd-svc-paths-health`
-	// Peer-bound addrs for shell fallback.
-	// material missing → legacy slot 0; material present but invalid → error (no silent slot 0).
-	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
+// healthTimerProbeAddrs picks shell-fallback probe targets.
+// Missing material → legacy slot 0. Corrupt or identity fail → error (never silent slot 0).
+func healthTimerProbeAddrs() (pSP, sSP, pPS, sPS string, err error) {
+	pSP, sSP, pPS, sPS = AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
 	m, err := LoadMaterialStrict()
 	if err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("health timer: load material: %w", err)
+		if os.IsNotExist(err) {
+			return pSP, sSP, pPS, sPS, nil
 		}
-		// no material file: legacy single-peer slot 0
-	} else {
-		if err := validateMaterialTunnelIdentity(m); err != nil {
-			return fmt.Errorf("health timer: material identity: %w", err)
-		}
-		if m.AddrP_SP != "" {
-			pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
-		}
+		return "", "", "", "", fmt.Errorf("health timer: load material: %w", err)
+	}
+	if err := validateMaterialTunnelIdentity(m); err != nil {
+		return "", "", "", "", fmt.Errorf("health timer: material identity: %w", err)
+	}
+	if m.AddrP_SP != "" {
+		pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
+	}
+	return pSP, sSP, pPS, sPS, nil
+}
+
+func installHealthTimer() error {
+	script := `/usr/local/bin/nd-svc-paths-health`
+	// material missing → legacy slot 0; present but invalid → error before any unit write.
+	pSP, sSP, pPS, sPS, errA := healthTimerProbeAddrs()
+	if errA != nil {
+		return errA
 	}
 	// Always rewrite so bootstrap upgrades the tick policy (do not keep silent-success legacy).
 	body := fmt.Sprintf(`#!/bin/bash
@@ -687,7 +702,6 @@ WantedBy=timers.target
 	}
 	return nil
 }
-
 
 // ufwOpenPortAnywherePattern matches a wide-open UFW status line for port (IPv4 and IPv6).
 // Examples:

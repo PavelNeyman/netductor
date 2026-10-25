@@ -1,3 +1,9 @@
+## 0.9.524
+
+- BootstrapPrimary/Secondary validate tunnel identity before deps, file writes, firewall, or unit restarts.
+- healthTimerProbeAddrs is the fail-closed addr picker; corrupt material never installs the timer with slot 0.
+
+
 ## 0.9.519
 
 - P2: DeploySecondary ships normalized peer material (slot 0 SlotTable defaults included). WireGuard keys from the original JSON are preserved.
