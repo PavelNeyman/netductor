@@ -1,3 +1,9 @@
+## 0.9.526
+
+- Slot 0 is legacy only when addrs, ifaces, and ports are all empty. A lone PortSP is incomplete, not slot-0 defaults.
+- ProbeHealth uses slot 0 only when material.json is absent. Corrupt or identity-fail writes material-invalid and returns error.
+
+
 ## 0.9.525
 
 - resolveBootstrapParams validates identity and fills missing iface/ports from SlotTable[slot] before any bootstrap side effect. No silent slot-0 fallback for other slots.

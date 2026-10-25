@@ -210,9 +210,10 @@ func validateMaterialTunnelIdentity(m *Material) error {
 		return fmt.Errorf("material slot %d out of range", m.Slot)
 	}
 	any := m.AddrP_SP != "" || m.AddrS_SP != "" || m.AddrP_PS != "" || m.AddrS_PS != "" ||
-		m.IfaceSP != "" || m.IfacePS != ""
+		m.IfaceSP != "" || m.IfacePS != "" ||
+		m.PortSP != 0 || m.PortPS != 0 || m.WSS_SP != 0 || m.WSS_PS != 0
 	if m.Slot == 0 && !any {
-		return nil // pure legacy keys-only material
+		return nil // pure legacy keys-only material (no addrs, ifaces, or ports)
 	}
 	if m.AddrP_SP == "" || m.AddrS_SP == "" || m.AddrP_PS == "" || m.AddrS_PS == "" {
 		return fmt.Errorf("material slot %d incomplete tunnel addrs (refuse defaults)", m.Slot)

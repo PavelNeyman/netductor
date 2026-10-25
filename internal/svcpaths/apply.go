@@ -49,10 +49,16 @@ func ProbeHealth() error {
 	role := hostRole()
 	sp, ps := 0, 0
 	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
-	if m, err := LoadMaterialStrict(); err == nil {
-		if a, b, c, d, _, _, _, _, _, _, errR := resolveBootstrapParams(m); errR == nil {
-			pSP, sSP, pPS, sPS = a, b, c, d
+	m, errM := LoadMaterialStrict()
+	if errM != nil {
+		if !os.IsNotExist(errM) {
+			return probeHealthInvalid("material load: " + errM.Error())
 		}
+		// no file: legacy slot 0
+	} else if a, b, c, d, _, _, _, _, _, _, errR := resolveBootstrapParams(m); errR != nil {
+		return probeHealthInvalid("material identity: " + errR.Error())
+	} else {
+		pSP, sSP, pPS, sPS = a, b, c, d
 	}
 	if role == "primary" {
 		if pingOK(sSP) {
@@ -268,4 +274,12 @@ func RunSecondaryCycle() (State, string, error) {
 		return s, sum, err
 	}
 	return s, sum, nil
+}
+
+func probeHealthInvalid(why string) error {
+	_ = os.MkdirAll(filepath.Dir(HealthJSON), 0o755)
+	body := fmt.Sprintf(`{"ts":"%s","role":"unknown","svc_sp_up":0,"svc_ps_up":0,"vless_tcp443":0,"note":"material-invalid","error":%q}`+"\n",
+		time.Now().UTC().Format(time.RFC3339), why)
+	_ = os.WriteFile(HealthJSON, []byte(body), 0o644)
+	return fmt.Errorf("probe health: %s", why)
 }

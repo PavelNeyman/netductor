@@ -320,3 +320,24 @@ func TestResolveBootstrapParamsPartialPortsFillFromSlot(t *testing.T) {
 		t.Fatalf("partial not filled from slot 2: %d %d %d %s", portSP, portPS, wssSP, ifaceSP)
 	}
 }
+
+func TestResolveBootstrapParamsSlot0PortOnlyRejected(t *testing.T) {
+	m := &Material{Slot: 0, PortSP: 51830}
+	_, _, _, _, _, _, _, _, _, _, err := resolveBootstrapParams(m)
+	if err == nil || !strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("slot 0 with only PortSP must fail, got %v", err)
+	}
+}
+
+func TestProbeHealthRejectsCorruptMaterial(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), []byte("{bad"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := ProbeHealth()
+	if err == nil || !strings.Contains(err.Error(), "material") {
+		t.Fatalf("corrupt must not probe slot 0, got %v", err)
+	}
+}
