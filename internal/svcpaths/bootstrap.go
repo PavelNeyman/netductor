@@ -152,7 +152,7 @@ func GenerateMaterial(primaryIP, secondaryIP string) (*Material, error) {
 // LoadMaterialStrict reads legacy KeysDir/material.json.
 // os.ErrNotExist if absent; any other error = corrupt/incomplete — never treat as missing.
 func LoadMaterialStrict() (*Material, error) {
-	path := filepath.Join(KeysDir, "material.json")
+	path := filepath.Join(keysRoot, "material.json")
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err

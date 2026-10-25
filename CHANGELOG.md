@@ -1,5 +1,7 @@
 ## 0.9.514
 
+- LoadMaterialStrict reads keysRoot/material.json (testable with SetKeysRootForTest).
+
 - PeerValidateLocal/recover: require material.PeerID == peerID (empty rejected).
 - Legacy migrate writes PeerID into peers/<id>/material.json.
 
