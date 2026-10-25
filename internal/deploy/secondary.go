@@ -89,6 +89,19 @@ func ResolveSecondarySSH(o SecondaryOpts) (mode string, port int, key string, er
 	return SSHModeInitial, 22, strings.TrimSpace(o.SecondarySSHKey), nil
 }
 
+// secondaryDialKey is the key for every SSH/SCP to the secondary host.
+// Primary connections stay on PrimaryKey. Same key may share the primary passphrase.
+func secondaryDialKey(o SecondaryOpts) (path, pass string) {
+	path = strings.TrimSpace(o.SecondarySSHKey)
+	if path == "" {
+		path = o.PrimaryKey
+	}
+	if path == o.PrimaryKey {
+		pass = o.PrimaryKeyPassphrase
+	}
+	return
+}
+
 // peerMaterialSCP is the subset of svc-paths material JSON needed before SCP to secondary.
 type peerMaterialSCP struct {
 	PeerID  string `json:"peer_id"`
@@ -305,7 +318,11 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("mtls key: %w", err)
 	}
 
-	fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(password once, then key-only)")
+	if o.SSHMode == SSHModeResume {
+		fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(resume, key-only :52222)")
+	} else {
+		fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(initial, password once, then key-only)")
+	}
 	// R6/R16: host-key mismatch must NOT auto-forget or retry with password (MITM risk).
 	// Explicit ForceReinstall only after operator verified fingerprint offline.
 	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
@@ -335,7 +352,8 @@ func DeploySecondary(o SecondaryOpts) error {
 
 	const day2Port = "52222"
 	fmt.Fprintln(os.Stderr, "==> verify SSH key-only on", o.SecondaryHost+":"+day2Port)
-	if out, err := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, "true", o.PrimaryKeyPassphrase); err != nil {
+	secKey, secPass := secondaryDialKey(o)
+	if out, err := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, "true", secPass); err != nil {
 		return fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w\n%s", o.SecondaryHost, day2Port, err, out)
 	}
 
@@ -348,7 +366,7 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("primary secondary sync: %w\n%s", err, out)
 	}
 
-	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, o.PrimaryKey, o.PrimaryKeyPassphrase); err != nil {
+	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, secKey, secPass); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: credentials collect:", err)
 	} else {
 		fmt.Fprintln(os.Stderr, "  Credentials file:", path)
@@ -400,10 +418,10 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 	defer os.Remove(tmpPath)
 
-	scpErr := runSCPOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase)
+	scpErr := runSCPOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
 	if scpErr != nil && o.SSHMode != SSHModeResume {
 		fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", scpErr, "— retry :22 (initial only)")
-		scpErr = runSCPOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", o.PrimaryKeyPassphrase)
+		scpErr = runSCPOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
 	}
 	if scpErr != nil {
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
@@ -427,11 +445,11 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 `, ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 
-	out2, err2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
+	out2, err2 := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, secBoot, secPass)
 	if err2 != nil {
 		// Retry :22 only on initial (harden may not have stuck). Resume stays on 52222.
 		if o.SSHMode != SSHModeResume && day2Port == "52222" {
-			out2b, err2b := runSSHOnPort("22", "", o.PrimaryKey, o.SecondaryUser, o.SecondaryHost, secBoot, o.PrimaryKeyPassphrase)
+			out2b, err2b := runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, secBoot, secPass)
 			if err2b != nil {
 				return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b)
 			}

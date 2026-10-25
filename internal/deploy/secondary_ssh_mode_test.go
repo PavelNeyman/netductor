@@ -45,3 +45,19 @@ func TestResolveSecondarySSHInitialNeedsPassword(t *testing.T) {
 		t.Fatal("initial without password must fail")
 	}
 }
+
+func TestSecondaryDialKeySeparate(t *testing.T) {
+	path, pass := secondaryDialKey(SecondaryOpts{
+		PrimaryKey: "/primary", PrimaryKeyPassphrase: "pp",
+		SecondarySSHKey: "/secondary",
+	})
+	if path != "/secondary" || pass != "" {
+		t.Fatalf("separate key must not use primary passphrase: %s %q", path, pass)
+	}
+	path, pass = secondaryDialKey(SecondaryOpts{
+		PrimaryKey: "/primary", PrimaryKeyPassphrase: "pp",
+	})
+	if path != "/primary" || pass != "pp" {
+		t.Fatalf("fallback: %s %q", path, pass)
+	}
+}

@@ -1,3 +1,9 @@
+## 0.9.529
+
+- All SSH/SCP to the secondary host use secondaryDialKey (SecondarySSHKey, else PrimaryKey). Primary connections stay on PrimaryKey.
+- TUI resume precheck sends the secondary key, not the root password. Log line is mode-specific.
+
+
 ## 0.9.528
 
 - Secondary SSH mode: initial = :22 + root password; resume = :52222 + key. Empty mode infers from which credential is set. Both without mode is an error.
