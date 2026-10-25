@@ -73,7 +73,10 @@ func TestResolveSecondarySSHInitialRejectsSeparateKey(t *testing.T) {
 }
 
 func TestRequirePublicIPv4(t *testing.T) {
-	for _, bad := range []string{"10.1.2.3", "192.168.0.1", "127.0.0.1", "169.254.1.1", "host.example"} {
+	for _, bad := range []string{
+		"10.1.2.3", "192.168.0.1", "127.0.0.1", "169.254.1.1", "host.example",
+		"100.64.0.1", "192.0.2.1", "198.51.100.1", "203.0.113.1", "198.18.0.1", "240.0.0.1",
+	} {
 		if err := requirePublicIPv4(bad); err == nil {
 			t.Fatalf("%s should be rejected", bad)
 		}

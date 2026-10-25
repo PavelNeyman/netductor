@@ -1,3 +1,9 @@
+## 0.9.532
+
+- requirePublicIPv4 also rejects CGNAT 100.64/10, TEST-NET, 198.18/15, and 240/4.
+- SSH key passphrase is not TrimSpace-d before parse.
+
+
 ## 0.9.531
 
 - Provision parses an encrypted SSH key with its passphrase. Resume is key-only (password cleared). Initial rejects a separate secondary key.

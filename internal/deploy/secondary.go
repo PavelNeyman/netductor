@@ -118,13 +118,34 @@ func requirePublicIPv4(host string) error {
 	if ip == nil {
 		return fmt.Errorf("secondary host must be a public IP (got %q); hostname is not accepted for peer-id/svc-paths", host)
 	}
-	if ip.To4() == nil {
+	ip4 := ip.To4()
+	if ip4 == nil {
 		return fmt.Errorf("secondary host IPv6 is not supported for peer-id encoding yet (got %q)", host)
 	}
-	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() {
-		return fmt.Errorf("secondary host %q is not a public IPv4 (private/loopback/link-local rejected)", host)
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() || nonPublicIPv4(ip4) {
+		return fmt.Errorf("secondary host %q is not a public IPv4 (private, CGNAT, documentation, benchmark, or reserved)", host)
 	}
 	return nil
+}
+
+// nonPublicIPv4 covers special-purpose ranges IsPrivate/IsLoopback miss.
+// 100.64/10 CGNAT, TEST-NET-1/2/3, 198.18/15 benchmark, 240/4 reserved.
+func nonPublicIPv4(ip net.IP) bool {
+	var blocked = []string{
+		"100.64.0.0/10",
+		"192.0.2.0/24",
+		"198.51.100.0/24",
+		"203.0.113.0/24",
+		"198.18.0.0/15",
+		"240.0.0.0/4",
+	}
+	for _, c := range blocked {
+		_, n, err := net.ParseCIDR(c)
+		if err == nil && n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // peerMaterialSCP is the subset of svc-paths material JSON needed before SCP to secondary.

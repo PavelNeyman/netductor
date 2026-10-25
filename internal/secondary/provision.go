@@ -89,8 +89,8 @@ func sshClient(in ProvisionIn) (*ssh.Client, error) {
 			return nil, fmt.Errorf("read SSH private key: %w", err)
 		}
 		var signer ssh.Signer
-		if pass := strings.TrimSpace(in.SSHKeyPassphrase); pass != "" {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(pass))
+		if in.SSHKeyPassphrase != "" {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(in.SSHKeyPassphrase))
 		} else {
 			signer, err = ssh.ParsePrivateKey(key)
 		}
