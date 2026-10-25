@@ -48,7 +48,6 @@ func validatePublicIP(ip string) error {
 	return nil
 }
 
-
 // assertPeerMaterialIdentity ensures on-disk material matches the requested peer, public IP,
 // and (when regSlot >= 0) the registry slot index. Empty secondary/iface/addrs fail closed.
 func assertPeerMaterialIdentity(m *Material, peerID, publicIP string, regSlot int) error {
@@ -272,10 +271,10 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 
 // PeerValidateResult is the outcome of real readiness checks (run where secondary is reachable).
 type PeerValidateResult struct {
-	PeerID    string   `json:"peer_id"`
-	OK        bool     `json:"ok"`
-	Checks    []string `json:"checks"`
-	Errors    []string `json:"errors,omitempty"`
+	PeerID    string    `json:"peer_id"`
+	OK        bool      `json:"ok"`
+	Checks    []string  `json:"checks"`
+	Errors    []string  `json:"errors,omitempty"`
 	CheckedAt time.Time `json:"checked_at"`
 }
 
@@ -315,9 +314,13 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 			return res, nil
 		}
 	}
-	_, sSP, _, sPS, _, _, _, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
-	pSP, _, pPS, _, _, _, _, _, _, _ := m.resolvedAddrs()
+	pSP, sSP, pPS, sPS, _, _, _, wssPS, ifaceSP, ifacePS, errR := resolveBootstrapParams(m)
 	_ = wssPS
+	if errR != nil {
+		add(false, "material slot params: "+errR.Error())
+		res.OK = false
+		return res, nil
+	}
 
 	role := hostRole()
 	if role == "secondary" {

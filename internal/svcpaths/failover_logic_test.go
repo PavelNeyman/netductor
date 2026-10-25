@@ -270,3 +270,53 @@ func TestMaterialIfacesStrictFromVerifiedSlot(t *testing.T) {
 		t.Fatalf("want %s/%s got %s/%s", slot.IfaceSP, slot.IfacePS, sp, ps)
 	}
 }
+
+func TestResolveBootstrapParamsSlot1MissingPorts(t *testing.T) {
+	slot := SlotTable()[1]
+	m := &Material{
+		Slot:     1,
+		AddrP_SP: slot.AddrP_SP, AddrS_SP: slot.AddrS_SP,
+		AddrP_PS: slot.AddrP_PS, AddrS_PS: slot.AddrS_PS,
+	}
+	_, _, _, _, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS, err := resolveBootstrapParams(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ifaceSP != slot.IfaceSP || ifacePS != slot.IfacePS || portSP != slot.PortSP || wssSP != slot.WSS_SP || portPS != slot.PortPS || wssPS != slot.WSS_PS {
+		t.Fatalf("got iface %s/%s ports %d/%d wss %d/%d want slot1", ifaceSP, ifacePS, portSP, portPS, wssSP, wssPS)
+	}
+	if ifaceSP == "nd-svc-sp" || portSP == PortSP {
+		t.Fatal("fell back to slot 0")
+	}
+}
+
+func TestResolveBootstrapParamsRejectsForeignPort(t *testing.T) {
+	slot := SlotTable()[1]
+	m := &Material{
+		Slot:     1,
+		AddrP_SP: slot.AddrP_SP, AddrS_SP: slot.AddrS_SP,
+		AddrP_PS: slot.AddrP_PS, AddrS_PS: slot.AddrS_PS,
+		PortSP: PortSP, // slot 0
+	}
+	_, _, _, _, _, _, _, _, _, _, err := resolveBootstrapParams(m)
+	if err == nil || !strings.Contains(err.Error(), "port_sp") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestResolveBootstrapParamsPartialPortsFillFromSlot(t *testing.T) {
+	slot := SlotTable()[2]
+	m := &Material{
+		Slot:     2,
+		AddrP_SP: slot.AddrP_SP, AddrS_SP: slot.AddrS_SP,
+		AddrP_PS: slot.AddrP_PS, AddrS_PS: slot.AddrS_PS,
+		PortSP: slot.PortSP,
+	}
+	_, _, _, _, portSP, portPS, wssSP, _, ifaceSP, _, err := resolveBootstrapParams(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if portSP != slot.PortSP || portPS != slot.PortPS || wssSP != slot.WSS_SP || ifaceSP != slot.IfaceSP {
+		t.Fatalf("partial not filled from slot 2: %d %d %d %s", portSP, portPS, wssSP, ifaceSP)
+	}
+}

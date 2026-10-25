@@ -50,8 +50,9 @@ func ProbeHealth() error {
 	sp, ps := 0, 0
 	pSP, sSP, pPS, sPS := AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
 	if m, err := LoadMaterialStrict(); err == nil {
-		a, b, c, d, _, _, _, _, _, _ := m.resolvedAddrs()
-		pSP, sSP, pPS, sPS = a, b, c, d
+		if a, b, c, d, _, _, _, _, _, _, errR := resolveBootstrapParams(m); errR == nil {
+			pSP, sSP, pPS, sPS = a, b, c, d
+		}
 	}
 	if role == "primary" {
 		if pingOK(sSP) {

@@ -228,7 +228,37 @@ func validateMaterialTunnelIdentity(m *Material) error {
 	if m.IfacePS != "" && m.IfacePS != slot.IfacePS {
 		return fmt.Errorf("material iface_ps %q != slot %d %q", m.IfacePS, m.Slot, slot.IfacePS)
 	}
+	if m.PortSP != 0 && m.PortSP != slot.PortSP {
+		return fmt.Errorf("material port_sp %d != slot %d %d", m.PortSP, m.Slot, slot.PortSP)
+	}
+	if m.PortPS != 0 && m.PortPS != slot.PortPS {
+		return fmt.Errorf("material port_ps %d != slot %d %d", m.PortPS, m.Slot, slot.PortPS)
+	}
+	if m.WSS_SP != 0 && m.WSS_SP != slot.WSS_SP {
+		return fmt.Errorf("material wss_sp %d != slot %d %d", m.WSS_SP, m.Slot, slot.WSS_SP)
+	}
+	if m.WSS_PS != 0 && m.WSS_PS != slot.WSS_PS {
+		return fmt.Errorf("material wss_ps %d != slot %d %d", m.WSS_PS, m.Slot, slot.WSS_PS)
+	}
 	return nil
+}
+
+// resolveBootstrapParams validates identity then fills missing iface/ports from SlotTable[slot].
+// Never falls back to slot 0 for a non-legacy peer. Slot 0 with empty identity stays legacy constants.
+func resolveBootstrapParams(m *Material) (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string, err error) {
+	if err = validateMaterialTunnelIdentity(m); err != nil {
+		return
+	}
+	slot := SlotTable()[m.Slot]
+	legacy := m.Slot == 0 && m.AddrP_SP == "" && m.IfaceSP == "" && m.IfacePS == "" &&
+		m.PortSP == 0 && m.PortPS == 0 && m.WSS_SP == 0 && m.WSS_PS == 0
+	if legacy {
+		return AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS, PortSP, PortPS, WSS_SP, WSS_PS, "nd-svc-sp", "nd-svc-ps", nil
+	}
+	pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
+	portSP, portPS, wssSP, wssPS = slot.PortSP, slot.PortPS, slot.WSS_SP, slot.WSS_PS
+	ifaceSP, ifacePS = slot.IfaceSP, slot.IfacePS
+	return
 }
 
 // PrimaryTunnelAddrs returns Primary SP/PS tunnel IPs for this host's material slot.
@@ -408,8 +438,10 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) error {
 		return fmt.Errorf("nil material")
 	}
 	// Fail closed before deps, file writes, firewall, or unit restarts.
-	if err := validateMaterialTunnelIdentity(m); err != nil {
-		return fmt.Errorf("bootstrap primary: %w", err)
+	// Params come from the verified slot, never resolvedAddrs slot-0 defaults.
+	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS, errR := resolveBootstrapParams(m)
+	if errR != nil {
+		return fmt.Errorf("bootstrap primary: %w", errR)
 	}
 	if m.Primary == "" || m.Primary == "0.0.0.0" {
 		if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
@@ -435,7 +467,6 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) error {
 		}
 	}
 
-	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
 	spConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
 Address = %s/30
@@ -519,8 +550,9 @@ func BootstrapSecondary(m *Material) error {
 		return fmt.Errorf("material incomplete for secondary (need SPPrivS, PSPrivS, SPPubP, PSPubP)")
 	}
 	// Fail closed before deps, file writes, firewall, or unit restarts.
-	if err := validateMaterialTunnelIdentity(m); err != nil {
-		return fmt.Errorf("bootstrap secondary: %w", err)
+	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS, errR := resolveBootstrapParams(m)
+	if errR != nil {
+		return fmt.Errorf("bootstrap secondary: %w", errR)
 	}
 	if err := ensureWireguardTools(); err != nil {
 		return err
@@ -540,7 +572,6 @@ func BootstrapSecondary(m *Material) error {
 		return fmt.Errorf("material.json: %w", err)
 	}
 
-	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS := m.resolvedAddrs()
 	spConf := fmt.Sprintf(`[Interface]
 PrivateKey = %s
 Address = %s/30

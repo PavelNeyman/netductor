@@ -1,3 +1,9 @@
+## 0.9.525
+
+- resolveBootstrapParams validates identity and fills missing iface/ports from SlotTable[slot] before any bootstrap side effect. No silent slot-0 fallback for other slots.
+- Mismatched ports fail closed. Peer validate and ProbeHealth use the same resolver.
+
+
 ## 0.9.524
 
 - BootstrapPrimary/Secondary validate tunnel identity before deps, file writes, firewall, or unit restarts.
