@@ -28,15 +28,24 @@ type SSHHostEntry struct {
 	KeyPrefix string `json:"key_prefix"`
 }
 
-func loadRelayKH() map[string]string {
+// loadRelayKH returns TOFU map. Missing file → empty map.
+// Corrupt/unreadable file → error (never treat as empty — would allow re-pin MITM).
+func loadRelayKH() (map[string]string, error) {
+	b, err := os.ReadFile(relayKnownPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("ssh TOFU read: %w", err)
+	}
 	f := map[string]string{}
-	if b, err := os.ReadFile(relayKnownPath()); err == nil {
-		_ = json.Unmarshal(b, &f)
+	if err := json.Unmarshal(b, &f); err != nil {
+		return nil, fmt.Errorf("ssh TOFU corrupt (fix or: netductor ssh-hosts clear): %w", err)
 	}
 	if f == nil {
 		f = map[string]string{}
 	}
-	return f
+	return f, nil
 }
 
 func saveRelayKH(f map[string]string) error {
@@ -55,7 +64,10 @@ func saveRelayKH(f map[string]string) error {
 func ListSSHHosts() []SSHHostEntry {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()
-	f := loadRelayKH()
+	f, err := loadRelayKH()
+	if err != nil {
+		return nil
+	}
 	ids := make([]string, 0, len(f))
 	for id := range f {
 		ids = append(ids, id)
@@ -81,7 +93,10 @@ func ForgetSSHHost(id string) error {
 	if h, _, err := net.SplitHostPort(id); err == nil {
 		id = h
 	}
-	f := loadRelayKH()
+	f, err := loadRelayKH()
+	if err != nil {
+		return err
+	}
 	delete(f, id)
 	return saveRelayKH(f)
 }
@@ -97,7 +112,10 @@ func provisionHostKey(host string) ssh.HostKeyCallback {
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		pkhMu.Lock()
 		defer pkhMu.Unlock()
-		f := loadRelayKH()
+		f, err := loadRelayKH()
+		if err != nil {
+			return err
+		}
 		got := base64.StdEncoding.EncodeToString(key.Marshal())
 		id := host
 		if prev, ok := f[id]; ok {
@@ -120,10 +138,13 @@ func OpenSSHKnownHostsLine(host, port string) (string, error) {
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
-	f := loadRelayKH()
+	f, err := loadRelayKH()
+	if err != nil {
+		return "", err
+	}
 	b64, ok := f[host]
 	if !ok || b64 == "" {
-		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first or ssh-hosts forget is pending", host)
+		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first", host)
 	}
 	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {

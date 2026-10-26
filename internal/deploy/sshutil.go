@@ -57,15 +57,18 @@ func lookSSHPass() (string, error) {
 	return p, nil
 }
 
-// openSSHPinPath materializes OpenSSH known_hosts from Go TOFU (ssh_known_hosts.json).
-func openSSHPinPath(host, port string) string {
+// openSSHPinPath materializes OpenSSH known_hosts from Go TOFU.
+// errNoPin: no entry yet (first contact). Other errors: corrupt TOFU / IO — fail closed.
+var errNoPin = fmt.Errorf("no TOFU pin")
+
+func openSSHPinPath(host, port string) (string, error) {
 	host = strings.TrimSpace(host)
 	if host == "" {
-		return ""
+		return "", errNoPin
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ""
+		return "", err
 	}
 	if port == "" {
 		port = "22"
@@ -74,24 +77,35 @@ func openSSHPinPath(host, port string) string {
 	safe := strings.ReplaceAll(host, "/", "_")
 	dest := filepath.Join(dir, safe+"_"+port+".known_hosts")
 	if err := secondary.WriteOpenSSHKnownHostsFile(host, port, dest); err != nil {
-		return ""
+		if strings.Contains(err.Error(), "no TOFU pin") {
+			return "", errNoPin
+		}
+		return "", err // corrupt / IO — do not fall back to accept-new
 	}
-	return dest
+	return dest, nil
 }
 
-func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port string) []string {
+// sshOpts: passwordAuth (first contact) may accept-new; key-only after provision requires TOFU pin (fail-closed).
+func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port string) ([]string, error) {
 	args := []string{
 		"-o", "ConnectTimeout=20",
 	}
-	if pin := openSSHPinPath(host, port); pin != "" {
+	pin, pinErr := openSSHPinPath(host, port)
+	switch {
+	case pin != "":
 		args = append(args,
 			"-o", "StrictHostKeyChecking=yes",
 			"-o", "UserKnownHostsFile="+pin,
 			"-o", "GlobalKnownHostsFile=/dev/null",
 			"-o", "HashKnownHosts=no",
 		)
-	} else {
+	case passwordAuth:
+		// Factory / first password hop only.
 		args = append(args, "-o", "StrictHostKeyChecking=accept-new")
+	case pinErr == nil || pinErr == errNoPin:
+		return nil, fmt.Errorf("SSH host key pin required for %s:%s (key-only) but TOFU missing — provision first or restore pin", host, port)
+	default:
+		return nil, fmt.Errorf("SSH host key pin for %s:%s: %w", host, port, pinErr)
 	}
 	if keyPath != "" {
 		args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
@@ -103,7 +117,7 @@ func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port s
 	} else {
 		args = append(args, "-o", "BatchMode=yes")
 	}
-	return args
+	return args, nil
 }
 
 // writeAskPass returns a 0700 script that prints secret once (for SSH_ASKPASS).
@@ -167,7 +181,10 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	// Prefer password when provided (OpenWrt day-0 after setPass still needs password until harden).
 	// Key-only when password is empty.
 	usePass := password != ""
-	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
+	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
+	if optsErr != nil {
+		return "", optsErr
+	}
 	base = append([]string{"-p", port}, base...)
 	if usePass {
 		if sp, err := lookSSHPass(); err == nil {
@@ -209,7 +226,10 @@ func runSSHOnPortWithStdin(port, password, keyPath, user, host, remoteCmd, keyPa
 	}
 	target := user + "@" + host
 	usePass := password != ""
-	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
+	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
+	if optsErr != nil {
+		return "", optsErr
+	}
 	base = append([]string{"-p", port}, base...)
 	run := func(cmd *exec.Cmd) (string, error) {
 		cmd.Stdin = bytes.NewReader(stdin)
@@ -255,7 +275,10 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 	}
 	target := user + "@" + host + ":" + remotePath
 	usePass := password != "" // prefer password when set (router pre-harden)
-	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
+	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
+	if optsErr != nil {
+		return optsErr
+	}
 	base = append([]string{"-P", port}, base...)
 	if usePass {
 		sp, err := lookSSHPass()

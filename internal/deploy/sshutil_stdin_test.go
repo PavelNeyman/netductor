@@ -113,3 +113,24 @@ func TestPrintVPNHostnameStatusSafe(t *testing.T) {
 		t.Fatalf("want configured status, got %q", s)
 	}
 }
+
+func TestSSHOptsKeyOnlyRequiresPin(t *testing.T) {
+	_, err := sshOpts("", false, false, "203.0.113.77", "52222")
+	if err == nil {
+		t.Fatal("key-only without TOFU pin must fail closed")
+	}
+	if !strings.Contains(err.Error(), "pin required") && !strings.Contains(err.Error(), "TOFU") {
+		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
+func TestSSHOptsPasswordMayAcceptNew(t *testing.T) {
+	args, err := sshOpts("", true, false, "203.0.113.78", "22")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "accept-new") {
+		t.Fatalf("password hop should allow accept-new, got %v", args)
+	}
+}

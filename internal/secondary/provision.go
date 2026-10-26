@@ -211,10 +211,9 @@ rollback() {
   echo "join/health failed — restoring previous state if possible" >&2
   systemctl stop netductor-secondary-agent 2>/dev/null || true
   if [ -n "$PREV" ] && [ -f "$PREV" ]; then
-    install -m 755 "$PREV" /usr/local/bin/netductor
+    install -m 755 "$PREV" /usr/local/bin/netductor 2>/dev/null || true
     systemctl start netductor-secondary-agent 2>/dev/null || true
   else
-    # First install: stop units started by this join and remove partial binary.
     systemctl stop sing-box 2>/dev/null || true
     systemctl disable netductor-secondary-agent 2>/dev/null || true
     rm -f /usr/local/bin/netductor

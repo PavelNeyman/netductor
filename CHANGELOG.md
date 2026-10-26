@@ -1,3 +1,10 @@
+## 0.9.572
+
+- SSH key-only hops fail-closed without TOFU pin (no silent accept-new)
+- Corrupt TOFU JSON is an error, not empty store
+- Production tests for OpenSSHKnownHostsLine / corrupt load / sshOpts pin policy
+- RemoteJoin rollback steps best-effort independent
+
 ## 0.9.571
 
 - OpenSSH uses Go TOFU pin when present (StrictHostKeyChecking=yes + UserKnownHostsFile)
