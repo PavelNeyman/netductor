@@ -349,29 +349,32 @@ print("material full match")
 `
 }
 
-// printRemoteAllowlist prints only lines with known-safe prefixes; otherwise a fixed ok line.
-// Remote stdout is untrusted and must not be dumped wholesale (secrets hygiene).
+// printRemoteAllowlist never echoes remote stdout (untrusted). Success paths only log a fixed stage status.
+// out/prefixes kept for call-site clarity; they are not printed.
 func printRemoteAllowlist(stage string, out string, prefixes ...string) {
-	printed := false
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		for _, p := range prefixes {
-			if p != "" && strings.HasPrefix(line, p) {
-				fmt.Fprintln(os.Stderr, line)
-				printed = true
-				break
-			}
-		}
-	}
-	if !printed {
-		fmt.Fprintln(os.Stderr, stage+": ok")
-	}
+	_ = out
+	_ = prefixes
+	fmt.Fprintln(os.Stderr, stage+": ok")
 }
 
-// DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
+// printVPNHostnameStatus extracts only a validated hostname or a fixed NOTE - never a full remote dump.
+func printVPNHostnameStatus(out string) {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "vpn_hostname=") {
+			h := strings.TrimSpace(strings.TrimPrefix(line, "vpn_hostname="))
+			if h != "" && len(h) < 256 && !strings.ContainsAny(h, " \t\r\n") {
+				fmt.Fprintln(os.Stderr, "vpn_hostname="+h)
+				return
+			}
+		}
+		if strings.HasPrefix(line, "NOTE:") {
+			fmt.Fprintln(os.Stderr, "NOTE: no shared vpn_hostname - DNS cutover will not retarget direct-IP profiles")
+			return
+		}
+	}
+	fmt.Fprintln(os.Stderr, "vpn-hostname: ok")
+}
 
 func DeploySecondary(o SecondaryOpts) error {
 	if o.Promote {
@@ -914,7 +917,7 @@ else
 fi
 `
 	if outH, errH := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, hostNote, o.PrimaryKeyPassphrase); errH == nil {
-		printRemoteAllowlist("vpn-hostname", outH, "vpn_hostname=", "NOTE:")
+		printVPNHostnameStatus(outH)
 	}
 
 	if err := checkpointDeployComplete(&prev, peerID, pack.AgentID, o.SecondaryHost); err != nil {

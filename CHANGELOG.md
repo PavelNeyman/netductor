@@ -1,3 +1,9 @@
+## 0.9.569
+
+- printRemoteAllowlist: never echo remote lines — fixed "stage: ok" only
+- printVPNHostnameStatus: only validated vpn_hostname= or fixed NOTE
+- Tests call helpers and capture stderr (no secret suffix leaks)
+
 ## 0.9.568
 
 - DeploySecondary: remote stdout via printRemoteAllowlist only (bootstrap, verify, ufw, heartbeat, sync)

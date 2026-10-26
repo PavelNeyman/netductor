@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,20 +67,46 @@ func TestRunSSHOnPortWithStdinDoesNotLeakInError(t *testing.T) {
 	}
 }
 
-func TestPrintRemoteAllowlistFiltersSecrets(t *testing.T) {
-	// ensure helper only keeps prefixed lines — exercised via prefix match logic inlined
-	out := "svc-paths secondary ok slot_iface=a/b\nsp_priv_s=SHOULD_NOT_PRINT\nsecret token=xyz\n"
-	var kept []string
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if strings.HasPrefix(line, "svc-paths secondary") {
-			kept = append(kept, line)
-		}
+func TestPrintRemoteAllowlistNeverEchoesRemoteBody(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(kept) != 1 || strings.Contains(strings.Join(kept, ""), "priv") {
-		t.Fatalf("allowlist failed: %v", kept)
+	old := os.Stderr
+	os.Stderr = w
+	poison := "svc-paths secondary ok" + "\n" + "sp_priv_s=SECRET_SHOULD_NOT_APPEAR" + "\n" + "token=LEAK"
+	printRemoteAllowlist("bootstrap-secondary", poison, "svc-paths secondary")
+	_ = w.Close()
+	os.Stderr = old
+	got, _ := io.ReadAll(r)
+	_ = r.Close()
+	s := string(got)
+	if strings.Contains(s, "SECRET") || strings.Contains(s, "LEAK") || strings.Contains(s, "sp_priv") {
+		t.Fatalf("remote body leaked: %q", s)
+	}
+	if !strings.Contains(s, "bootstrap-secondary: ok") {
+		t.Fatalf("want fixed status, got %q", s)
+	}
+}
+
+func TestPrintVPNHostnameStatusSafe(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = w
+	poison := "vpn_hostname=vpn.example.test" + "\n" + "sp_priv_s=NO"
+	printVPNHostnameStatus(poison)
+	_ = w.Close()
+	os.Stderr = old
+	got, _ := io.ReadAll(r)
+	_ = r.Close()
+	s := string(got)
+	if strings.Contains(s, "NO") || strings.Contains(s, "sp_priv") {
+		t.Fatalf("leak: %q", s)
+	}
+	if !strings.Contains(s, "vpn_hostname=vpn.example.test") {
+		t.Fatalf("want hostname, got %q", s)
 	}
 }
