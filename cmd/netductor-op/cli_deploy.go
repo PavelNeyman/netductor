@@ -194,6 +194,12 @@ See: netductor tui → Setup wizard`)
 			case a == "--secondary-key" && i+1 < len(args):
 				i++
 				o.SecondarySSHKey = args[i]
+			case a == "--primary-ssh-port" && i+1 < len(args):
+				i++
+				fmt.Sscanf(args[i], "%d", &o.PrimarySSHPort)
+			case a == "--peer-id" && i+1 < len(args):
+				i++
+				o.PeerID = args[i]
 			}
 		}
 		if o.PrimaryHost == "" || o.PrimaryKey == "" || o.SecondaryHost == "" {
@@ -492,7 +498,6 @@ See: netductor tui → Setup wizard`)
 	}
 	_ = strings.TrimSpace
 }
-
 
 func runEdgeBootstrapCLI(args []string) {
 	var host, user, pass, key, keyPass, preset string

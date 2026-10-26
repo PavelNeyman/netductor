@@ -1,3 +1,9 @@
+## 0.9.540
+
+- Deploy refuses Promote=true. Traffic test and peer promote stay separate operator steps.
+- PrimarySSHPort and PeerID flow through SecondarySpec, fields, and CLI. /api/secondary/links skips empty SID.
+
+
 ## 0.9.539
 
 - PeerAdd refuses a removed id. unitMissing requires a unit-specific message. Empty SID is omitted from /sub.

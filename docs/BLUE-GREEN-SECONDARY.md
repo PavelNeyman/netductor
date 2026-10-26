@@ -184,3 +184,10 @@ Separate Reality profiles. DNS does not switch a profile. `prepared` is not traf
 9. Rollback before the window ends: DNS back to A, promote A. Do not remove A first.
 
 `peer add` of a removed id fails. Use a new id or recover. Empty SID/PBK is omitted from `/sub`.
+
+## 0.9.540
+
+- Deploy never promotes. After the client traffic test, run `peer ready` / `peer promote` yourself.
+- `--primary-ssh-port` and `--peer-id` flow CLI → SecondarySpec → DeploySecondary.
+- `/api/secondary/links` skips empty SID, same as `/sub`.
+- After `peer remove`, reuse of the same IP needs `--peer-id` (a new id) or recover. Default `peer-<ip>` will be refused.

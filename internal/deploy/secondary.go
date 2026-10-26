@@ -41,8 +41,10 @@ type SecondaryOpts struct {
 	OperatorPubKey string
 	// ForceReinstall: operator already verified host-key rotation — pass through to Go TOFU forget.
 	ForceReinstall bool
-	// Promote runs peer validate→ready→promote after deploy (no force-ready). Prefer false until R5 traffic test.
+	// Promote is rejected. Traffic test is a separate operator step; deploy must not promote.
 	Promote bool
+	// PeerID overrides the default peer-<ip>. Required after a removed peer reused the same IP.
+	PeerID string
 	// ViaPrimary is ignored (deprecated). Always Mac-direct.
 	ViaPrimary bool
 }
@@ -437,7 +439,10 @@ func DeploySecondary(o SecondaryOpts) error {
 
 	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths peer add + bootstrap (Blue-Green slot)")
 	primIP, secIP := o.PrimaryHost, o.SecondaryHost
-	peerID := "peer-" + strings.ReplaceAll(secIP, ".", "-")
+	peerID := strings.TrimSpace(o.PeerID)
+	if peerID == "" {
+		peerID = "peer-" + strings.ReplaceAll(secIP, ".", "-")
+	}
 	pre := fmt.Sprintf(
 		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
 		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
@@ -599,27 +604,11 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	// Provision ≠ promotion. Only PeerPromote (ready→active) is authoritative.
 	if o.Promote {
-		// No --force-ready: PeerMarkReady runs PeerValidateLocal (primary-side units/ping).
-		// Full user-traffic proof remains operator R5 before DNS cutover.
-		fmt.Fprintln(os.Stderr, "==> Promote=true: validate → ready → promote (no force-ready)")
-		promCmd := fmt.Sprintf(`set -e
-netductor svc-paths peer validate %s
-netductor svc-paths peer ready %s
-netductor svc-paths peer promote %s
-echo "promoted %s"
-`, ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID))
-		outP, errP := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, promCmd, o.PrimaryKeyPassphrase)
-		if errP != nil {
-			return fmt.Errorf("svc-paths peer promote after deploy: %w\n%s", errP, outP)
-		}
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP))
-	} else {
-		fmt.Fprintln(os.Stderr, "==> skip promote (Promote=false; after traffic test: peer validate/ready/promote", peerID+")")
+		return fmt.Errorf("deploy does not promote: run client traffic test on B, then svc-paths peer ready/promote %s", peerID)
 	}
+	fmt.Fprintln(os.Stderr, "==> not promoted (after traffic test: peer validate/ready/promote", peerID+")")
 
-	fmt.Fprintln(os.Stderr, "==> secondary deploy done (Mac-direct; agent → primary :8789 mTLS via SP + svc-paths)")
 	fmt.Fprintf(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :%d (PS WSS)\n", mat.WSSPS)
 	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
 	return nil

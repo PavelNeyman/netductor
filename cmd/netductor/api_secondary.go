@@ -134,7 +134,7 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 		var links []map[string]string
 		reg, _ := vpn.ExportSecondaryBundle("ya.ru") // users only
 		for _, d := range devs {
-			if d.PublicIP == "" || d.PBK == "" {
+			if !secondaryLinkComplete(d.PublicIP, d.PBK, d.SID) {
 				continue
 			}
 			for _, u := range reg.Users {
@@ -435,4 +435,8 @@ func redactSecondaryCmdLog(cmd, log string) string {
 		return log[len(log)-800:]
 	}
 	return log
+}
+
+func secondaryLinkComplete(publicIP, pbk, sid string) bool {
+	return publicIP != "" && pbk != "" && sid != ""
 }
