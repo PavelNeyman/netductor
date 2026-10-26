@@ -424,8 +424,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 		raw, errJ = extractJSONObject(out)
 		if errJ != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack JSON: %w
-%s", errJ, out))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack JSON: %w\n%s", errJ, out))
 		}
 		if err := json.Unmarshal([]byte(raw), &pack); err != nil {
 			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out))
