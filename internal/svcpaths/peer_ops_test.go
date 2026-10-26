@@ -447,3 +447,20 @@ func TestUFWRulePresentExact(t *testing.T) {
 		t.Fatal("exact rule should match")
 	}
 }
+
+func TestPeerAddRefusesIncompleteOp(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	if err := os.MkdirAll(filepath.Join(dir, "peers", "peer-b"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	op := `{"op":"add","peer_id":"peer-b","public_ip":"203.0.113.9","primary_ip":"198.51.100.1","slot_index":1,"phase":"material"}`
+	if err := os.WriteFile(filepath.Join(dir, "peers", "peer-b", "op.json"), []byte(op), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.9", PrimaryIP: "198.51.100.1"})
+	if err == nil || !strings.Contains(err.Error(), "peer recover") {
+		t.Fatalf("incomplete op must refuse add, got %v", err)
+	}
+}

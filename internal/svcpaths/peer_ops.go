@@ -141,6 +141,9 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		}
 		return m.ForSecondary(), byIP, nil
 	}
+	if err := refuseIncompleteAdds(o.PeerID, o.PublicIP); err != nil {
+		return nil, nil, err
+	}
 	slot, err := allocateSlot(idx)
 	if err != nil {
 		return nil, nil, err
@@ -874,4 +877,30 @@ func ufwRulePresent(status, src, port string) bool {
 		}
 	}
 	return false
+}
+
+func refuseIncompleteAdds(peerID, publicIP string) error {
+	entries, err := os.ReadDir(peersDirPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		op, err := loadPeerOp(e.Name())
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("op.json for %s unreadable — fix before add: %w", e.Name(), err)
+		}
+		if op.PeerID == peerID || op.PublicIP == publicIP {
+			return fmt.Errorf("incomplete add %s phase=%s — run: netductor svc-paths peer recover %s (add will not overwrite keys)", op.PeerID, op.Phase, op.PeerID)
+		}
+	}
+	return nil
 }

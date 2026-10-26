@@ -1,3 +1,10 @@
+## 0.9.550
+
+- PeerAdd refuses an incomplete op.json and tells the operator to recover. It does not generate new keys.
+- Deploy UFW fails if inactive unless NETDUCTOR_ALLOW_NO_UFW=1, and verifies each rule by exact fields.
+- Deploy writes a local stage journal under ~/.cache/netductor/deploy/journal.log.
+
+
 ## 0.9.549
 
 - UFW leftover check matches exact source and port fields. A longer IP or a port with an extra digit no longer blocks remove.

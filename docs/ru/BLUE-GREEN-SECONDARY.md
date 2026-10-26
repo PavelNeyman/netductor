@@ -60,3 +60,9 @@
 - `peer ready` после validate снова проверяет состояние и отказывает для `removed` / `removing`.
 - UFW cleanup падает, если источник peer всё ещё есть в `ufw status`.
 - Runbook: сначала клиентский тест, потом `ready` / `promote` на Primary. Deploy `Promote=true` отклоняется.
+
+## 0.9.550
+
+- Незавершённый `peer add` не перезаписывается. Команда: `netductor svc-paths peer recover <id>`.
+- UFW на deploy обязателен. Без него — ошибка, кроме `NETDUCTOR_ALLOW_NO_UFW=1`.
+- Журнал этапов deploy: `~/.cache/netductor/deploy/journal.log`. Это не полная транзакция.

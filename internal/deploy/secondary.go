@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -281,6 +282,21 @@ func extractJSONObject(s string) (string, error) {
 }
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
+func writeDeployJournal(peerID, agentID, host, stage string) {
+	dir := filepath.Join(os.Getenv("HOME"), ".cache", "netductor", "deploy")
+	if dir == "/.cache/netductor/deploy" || strings.HasPrefix(dir, "/.cache") {
+		dir = filepath.Join(os.TempDir(), "netductor-deploy")
+	}
+	_ = os.MkdirAll(dir, 0o700)
+	line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\n", time.Now().UTC().Format(time.RFC3339), stage, peerID, agentID, host)
+	f, err := os.OpenFile(filepath.Join(dir, "journal.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	_, _ = f.WriteString(line)
+	_ = f.Close()
+}
+
 func DeploySecondary(o SecondaryOpts) error {
 	if o.Promote {
 		return fmt.Errorf("deploy does not promote: run client traffic test on B, then svc-paths peer ready/promote")
@@ -342,6 +358,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if errP != nil {
 		return errP
 	}
+	writeDeployJournal("", "", o.SecondaryHost, "provision_started")
 	fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost, "port", pPort)
 
 	prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
@@ -446,6 +463,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if peerID == "" {
 		peerID = "peer-" + strings.ReplaceAll(secIP, ".", "-")
 	}
+	writeDeployJournal(peerID, "", o.SecondaryHost, "peer_add_started")
 	pre := fmt.Sprintf(
 		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
 		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
@@ -534,17 +552,30 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 	// Primary firewall for this peer: mTLS 8789 from secondary WG IPs + WSS_SP listen.
 	// Fail deploy if ufw is active and rules cannot be applied.
 	ufwPeer := fmt.Sprintf(`set -e
-if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi 'Status: active'; then
-  ufw allow from %s to any port 8789 proto tcp comment nd-mtls-sp
-  ufw allow from %s to any port 8789 proto tcp comment nd-mtls-ps
-  # WSS SP is reached from secondary public IP (wstunnel to primary), not open to 0.0.0.0/0
-  ufw allow from %s to any port %d proto tcp comment nd-wss-sp-slot
-  ufw status numbered | grep -E '8789|%d' || true
-  echo "ufw peer rules applied"
-else
-  echo "ufw inactive or missing - skip (bootstrap may still open ports; production should enable ufw)"
+if ! command -v ufw >/dev/null 2>&1 || ! ufw status 2>/dev/null | grep -qi 'Status: active'; then
+  if [ "${NETDUCTOR_ALLOW_NO_UFW:-}" = "1" ]; then
+    echo "ufw inactive or missing - skip (NETDUCTOR_ALLOW_NO_UFW=1)"
+    exit 0
+  fi
+  echo "ufw inactive or missing - refuse (set NETDUCTOR_ALLOW_NO_UFW=1 to override)" >&2
+  exit 1
 fi
-`, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP, mat.WSSSP)
+ufw allow from %s to any port 8789 proto tcp comment nd-mtls-sp
+ufw allow from %s to any port 8789 proto tcp comment nd-mtls-ps
+ufw allow from %s to any port %d proto tcp comment nd-wss-sp-slot
+status=$(ufw status)
+need() {
+  src="$1"; port="$2"
+  echo "$status" | awk -v src="$src" -v port="$port/tcp" '
+    { for (i=1;i<=NF;i++) { if ($i==src) s=1; if ($i==port) p=1 } if (s && p) found=1; s=0; p=0 }
+    END { exit found?0:1 }'
+}
+need %s 8789
+need %s 8789
+need %s %d
+echo "ufw peer rules verified"
+`, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
+		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP)
 	if outU, errU := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
 		return fmt.Errorf("svc-paths primary firewall for peer slot: %w\n%s", errU, outU)
 	} else {
