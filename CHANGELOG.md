@@ -1,3 +1,9 @@
+## 0.9.560
+
+- Material verify on B: expected ship only in python memory (base64 argv), no /tmp expected file
+- Mismatch reports field names only; never private key values; filter remote diagnostics with priv/secret/token
+- Full JSON object equality after required-field presence check
+
 ## 0.9.559
 
 - Skip-SCP: full material field compare on B (python3 required; no partial grep-only path)
