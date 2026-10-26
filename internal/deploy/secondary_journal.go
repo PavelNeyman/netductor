@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // Deploy stages for secondary orchestration journal (no secrets).
@@ -363,4 +365,46 @@ func ClearDeployJournal(host string) error {
 // LoadDeployJournal is the public load for CLI.
 func LoadDeployJournal(host string) (*DeployOrchState, error) {
 	return loadDeployState(host)
+}
+
+func hostLockPath(host string) string {
+	safe := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-' {
+			return r
+		}
+		return '_'
+	}, host)
+	return filepath.Join(deployJournalDir(), "lock-"+safe)
+}
+
+// withHostDeployLock serializes DeploySecondary for one secondary host on the operator machine.
+func withHostDeployLock(host string, fn func() error) error {
+	if host == "" {
+		return fn()
+	}
+	dir := deployJournalDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("deploy lock mkdir: %w", err)
+	}
+	f, err := os.OpenFile(hostLockPath(host), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("deploy lock open: %w", err)
+	}
+	defer f.Close()
+	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX); err != nil {
+		return fmt.Errorf("deploy lock: %w", err)
+	}
+	defer unix.Flock(int(f.Fd()), unix.LOCK_UN)
+	return fn()
+}
+
+// failDeploy records failed_recoverable (preserving last success) and returns the original error.
+func failDeploy(prev **DeployOrchState, peerID, agentID, host string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if cerr := checkpointFailure(prev, peerID, agentID, host, err.Error()); cerr != nil {
+		return fmt.Errorf("%w (also journal: %v)", err, cerr)
+	}
+	return err
 }

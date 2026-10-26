@@ -1,3 +1,10 @@
+## 0.9.557
+
+- DeploySecondary: per-host flock on operator machine (serialize concurrent deploy to same B)
+- Unified `failDeploy` on mid-path errors (preserves last_successful_stage + surfaces journal write failures)
+- Skip-SCP identity: python3 JSON field compare on B when available (grep fallback)
+- Promote check before host lock (tests unchanged)
+
 ## 0.9.556
 
 - Resume P1: `last_successful_stage` is monotonic (peer_add_started / provision_started are current_step only)
