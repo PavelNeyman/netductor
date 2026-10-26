@@ -295,15 +295,19 @@ func ShadowrocketJSON(e ClientEndpoints) ([]byte, error) {
 	}
 	uris := []string{}
 	seen := map[string]bool{}
-	for _, r := range loadOnlineSecondarys() {
-		if seen[r.Host] {
-			continue
+	add := func(link string) {
+		link = strings.TrimSpace(link)
+		if link == "" || seen[link] {
+			return
 		}
-		seen[r.Host] = true
-		uris = append(uris, ClientLinkForSecondaryLocal(e.Name, e.UUID, r.Host, r.PBK, r.SID, r.SNI))
+		seen[link] = true
+		uris = append(uris, link)
 	}
-	if e.SecondaryHost != "" && !seen[e.SecondaryHost] {
-		uris = append(uris, ClientLinkForSecondaryLocal(e.Name, e.UUID, e.SecondaryHost, e.SecondaryPBK, e.SecondarySID, e.SecondarySNI))
+	for _, r := range loadOnlineSecondarys() {
+		add(ClientLinkForSecondaryLocal(e.Name, e.UUID, r.Host, r.PBK, r.SID, r.SNI))
+	}
+	if e.SecondaryHost != "" {
+		add(ClientLinkForSecondaryLocal(e.Name, e.UUID, e.SecondaryHost, e.SecondaryPBK, e.SecondarySID, e.SecondarySNI))
 	}
 	if e.CoreHost != "" {
 		uris = append(uris, VLESSLink(e.Name, e.UUID))

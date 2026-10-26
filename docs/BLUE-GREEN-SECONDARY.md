@@ -191,3 +191,10 @@ Separate Reality profiles. DNS does not switch a profile. `prepared` is not traf
 - `--primary-ssh-port` and `--peer-id` flow CLI → SecondarySpec → DeploySecondary.
 - `/api/secondary/links` skips empty SID, same as `/sub`.
 - After `peer remove`, reuse of the same IP needs `--peer-id` (a new id) or recover. Default `peer-<ip>` will be refused.
+
+## 0.9.545
+
+- On B, `peer validate` uses local `material.json`. An id is optional and must match if set. On primary, `peer validate <id>` uses `peers/<id>`.
+- `peer remove` also deletes the peer's UFW rules and `peers/<id>` material. It does not stop services on the old Secondary itself.
+- `ready` is infra-only. It does not prove client Reality traffic. Promote only after that test.
+- Shadowrocket helper keeps both profiles when they share a hostname but differ in Reality keys.

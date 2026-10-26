@@ -40,3 +40,10 @@
 9. Rollback до конца окна: DNS обратно на A, promote A. Не удалять A первым.
 
 `peer add` на removed id падает. Нужен новый id или recover. Пустой SID/PBK не попадает в `/sub`.
+
+## 0.9.545
+
+- На B `peer validate` читает локальный `material.json`. Id необязателен. На primary `peer validate <id>` читает `peers/<id>`.
+- `peer remove` также снимает UFW-правила peer и каталог `peers/<id>`. Сервисы на самом старом Secondary он не останавливает.
+- `ready` — только инфраструктура. Клиентский Reality-трафик он не доказывает. Promote только после этого теста.
+- Shadowrocket helper сохраняет оба профиля, если hostname общий, а Reality-ключи разные.

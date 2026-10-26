@@ -1,3 +1,8 @@
+## 0.9.545
+
+- peer validate on Secondary uses local material.json. peer remove deletes UFW rules and peer material. Shadowrocket helper keeps both profiles on a shared hostname.
+
+
 ## 0.9.544
 
 - CLI --primary-ssh-port uses ParseSSHPort. Web payload omits an empty port and is covered by ssh_port_test.js.

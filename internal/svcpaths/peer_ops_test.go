@@ -1,8 +1,11 @@
 package svcpaths
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -179,5 +182,70 @@ func TestPeerAddRejectsRemoved(t *testing.T) {
 	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-old", PublicIP: "203.0.113.9", PrimaryIP: "198.51.100.1"})
 	if err == nil || !strings.Contains(err.Error(), "removed") {
 		t.Fatalf("add after remove must fail, got %v", err)
+	}
+}
+
+func TestPeerValidateSecondaryUsesLocalMaterial(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	old := peerValidateRole
+	peerValidateRole = func() string { return "secondary" }
+	t.Cleanup(func() { peerValidateRole = old })
+	m := &Material{PeerID: "peer-b", Slot: 1, Secondary: "203.0.113.9", Primary: "198.51.100.1"}
+	applySlotToMaterial(m, SlotTable()[1])
+	b, _ := json.MarshalIndent(m, "", "  ")
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res, err := PeerValidateLocal("peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range res.Errors {
+		if strings.Contains(e, "peer material") {
+			t.Fatalf("secondary should not require peers/<id>: %s", e)
+		}
+	}
+}
+
+func TestPeerRemoveDeletesMaterialAndUFW(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	slot := SlotTable()[1]
+	idx := &PeersIndex{Peers: []ServicePeer{{
+		ID: "peer-a", State: "prepared", PublicIP: "203.0.113.8", Slot: slot,
+	}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	matDir := filepath.Join(dir, "peers", "peer-a")
+	if err := os.MkdirAll(matDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(matDir, "material.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ufwCalled := false
+	oldStop, oldReload, oldUFW := peerRemoveStop, peerRemoveReload, peerRemoveUFW
+	t.Cleanup(func() { peerRemoveStop, peerRemoveReload, peerRemoveUFW = oldStop, oldReload, oldUFW })
+	peerRemoveStop = func(string) error { return nil }
+	peerRemoveReload = func() error { return nil }
+	peerRemoveUFW = func(publicIP, addrSSP, addrSPS string, wss int) error {
+		ufwCalled = true
+		if publicIP != "203.0.113.8" || addrSSP == "" {
+			t.Fatalf("ufw args %s %s", publicIP, addrSSP)
+		}
+		return nil
+	}
+	if err := PeerRemove("peer-a"); err != nil {
+		t.Fatal(err)
+	}
+	if !ufwCalled {
+		t.Fatal("ufw cleanup not called")
+	}
+	if _, err := os.Stat(matDir); !os.IsNotExist(err) {
+		t.Fatal("material dir still present")
 	}
 }

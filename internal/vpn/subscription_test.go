@@ -152,3 +152,27 @@ func TestEmptySIDOmitted(t *testing.T) {
 		t.Fatalf("empty SID must not produce a profile: %s", body)
 	}
 }
+
+func TestShadowrocketKeepsTwoProfilesSameHost(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
+	t.Setenv("NETDUCTOR_STATE", filepath.Join(root, "state"))
+	t.Setenv("NETDUCTOR_VPN_HOST", "vpn.example.test")
+	path := paths.SecondaryDevicesFile()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	raw := `{"devices":[{"public_ip":"203.0.113.11","pbk":"pbk-a","sid":"sid-a","sni":"sni.example.test","last_seen":"` + now + `"},{"public_ip":"203.0.113.12","pbk":"pbk-b","sid":"sid-b","sni":"sni.example.test","last_seen":"` + now + `"}]}`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b, err := ShadowrocketJSON(ClientEndpoints{Name: "alice", UUID: "00000000-0000-0000-0000-000000000001"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	if !strings.Contains(s, "pbk-a") || !strings.Contains(s, "pbk-b") {
+		t.Fatalf("same hostname dropped a profile: %s", s)
+	}
+}

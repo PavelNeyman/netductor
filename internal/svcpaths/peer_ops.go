@@ -283,6 +283,8 @@ type PeerValidateResult struct {
 
 // PeerValidateLocal runs checks on this host (secondary after bootstrap, or primary smoke).
 // On secondary: units, peer pings, :443, core URL. Does not set ready — caller uses PeerMarkReady after OK.
+var peerValidateRole = hostRole
+
 func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 	res := &PeerValidateResult{PeerID: peerID, CheckedAt: time.Now().UTC()}
 	add := func(ok bool, msg string) {
@@ -293,11 +295,23 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 		}
 	}
 
-	// When peerID is set, always validate THAT peer's material (not legacy/active material).
-	// Otherwise readiness of B can pass because A is healthy.
+	// Primary with an id validates that peer's file. Secondary has only local material.json.
 	var m *Material
 	var err error
-	if peerID != "" {
+	role := peerValidateRole()
+	if role == "secondary" {
+		m, err = LoadMaterialForHost()
+		if err != nil {
+			add(false, "material: "+err.Error())
+			res.OK = false
+			return res, nil
+		}
+		if peerID != "" && m.PeerID != "" && m.PeerID != peerID {
+			add(false, fmt.Sprintf("local material peer_id %q != requested %q", m.PeerID, peerID))
+			res.OK = false
+			return res, nil
+		}
+	} else if peerID != "" {
 		m, err = loadPeerMaterial(peerID)
 		if err != nil {
 			add(false, "peer material "+peerID+": "+err.Error())
@@ -325,7 +339,6 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 		return res, nil
 	}
 
-	role := hostRole()
 	if role == "secondary" {
 		for _, u := range []string{"nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS} {
 			st, err := exec.Command("systemctl", "is-active", u).CombinedOutput()
@@ -400,7 +413,7 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 			if err := SavePeersIndex(idx); err != nil {
 				return err
 			}
-			logPeerJournal("ready", peerID, "ready", "")
+			logPeerJournal("ready", peerID, "ready", "infra-only; traffic not proven")
 			return nil
 		}
 	}
@@ -645,6 +658,12 @@ func PeerRemove(peerID string) error {
 			return fmt.Errorf("peer %s remove file %s (not marked removed): %w", peerID, path, err)
 		}
 	}
+	if err := peerRemoveUFW(p.PublicIP, p.Slot.AddrS_SP, p.Slot.AddrS_PS, p.Slot.WSS_SP); err != nil {
+		return fmt.Errorf("peer %s ufw cleanup (not marked removed): %w", peerID, err)
+	}
+	if err := os.RemoveAll(filepath.Join(peersDirPath(), peerID)); err != nil {
+		return fmt.Errorf("peer %s material dir (not marked removed): %w", peerID, err)
+	}
 	if err := peerRemoveReload(); err != nil {
 		return fmt.Errorf("peer %s daemon-reload (not marked removed): %w", peerID, err)
 	}
@@ -697,6 +716,7 @@ func logPeerJournal(op, peerID, state, detail string) {
 // peerRemoveStop / peerRemoveReload / peerRemoveSystemctl are overridable in tests.
 var peerRemoveStop = stopUnitIdempotent
 var peerRemoveReload = reloadSystemd
+var peerRemoveUFW = removePeerUFW
 var peerRemoveRemoveFile = os.Remove
 var peerRemoveSystemctl = func(args ...string) ([]byte, error) {
 	return exec.Command("systemctl", args...).CombinedOutput()
@@ -753,4 +773,40 @@ func unitMissing(msg string) bool {
 	}
 	return strings.Contains(m, "not found") || strings.Contains(m, "not-found") ||
 		strings.Contains(m, "not loaded") || strings.Contains(m, "does not exist")
+}
+
+func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
+	if _, err := exec.LookPath("ufw"); err != nil {
+		return nil
+	}
+	out, err := exec.Command("ufw", "status").CombinedOutput()
+	if err != nil || !strings.Contains(strings.ToLower(string(out)), "status: active") {
+		return nil
+	}
+	var errs []string
+	for _, rule := range [][]string{
+		{"delete", "allow", "from", addrSSP, "to", "any", "port", "8789", "proto", "tcp"},
+		{"delete", "allow", "from", addrSPS, "to", "any", "port", "8789", "proto", "tcp"},
+		{"delete", "allow", "from", publicIP, "to", "any", "port", fmt.Sprintf("%d", wssPort), "proto", "tcp"},
+	} {
+		if rule[3] == "" || rule[7] == "0" {
+			continue
+		}
+		bout, berr := exec.Command("ufw", rule...).CombinedOutput()
+		msg := strings.ToLower(string(bout) + " " + errString(berr))
+		if berr != nil && !strings.Contains(msg, "could not delete") && !strings.Contains(msg, "not found") && !strings.Contains(msg, "skipping") {
+			errs = append(errs, strings.TrimSpace(string(bout)+" "+errString(berr)))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
