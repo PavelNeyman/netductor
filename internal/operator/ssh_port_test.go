@@ -40,3 +40,13 @@ func TestFieldsBadPortSentinel(t *testing.T) {
 		t.Fatalf("bad field should be sentinel, got %d", s.PrimarySSHPort)
 	}
 }
+
+func TestFleetOmitsEmptyPortKeepsZeroError(t *testing.T) {
+	f, err := NormalizeFleetParams(map[string]any{"do_secondary": true})
+	if err != nil || f.Secondary.PrimarySSHPort != 0 {
+		t.Fatalf("omitted port must stay default 0, got %d %v", f.Secondary.PrimarySSHPort, err)
+	}
+	if _, err := NormalizeFleetParams(map[string]any{"do_secondary": true, "primary_ssh_port": "0"}); err == nil {
+		t.Fatal("explicit 0 must be rejected")
+	}
+}

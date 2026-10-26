@@ -196,7 +196,11 @@ See: netductor tui → Setup wizard`)
 			case a == "--secondary-key" && i+1 < len(args):
 				i++
 				o.SecondarySSHKey = args[i]
-			case a == "--primary-ssh-port" && i+1 < len(args):
+			case a == "--primary-ssh-port":
+				if i+1 >= len(args) {
+					fmt.Fprintln(os.Stderr, "missing value for --primary-ssh-port")
+					os.Exit(2)
+				}
 				i++
 				n, err := strconv.Atoi(args[i])
 				if err != nil || n < 1 || n > 65535 {

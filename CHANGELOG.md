@@ -1,3 +1,8 @@
+## 0.9.543
+
+- Web omits primary_ssh_port when the field is empty. CLI errors if --primary-ssh-port has no value.
+
+
 ## 0.9.542
 
 - One SSH port parser for TUI, Web, Fleet, and deploy. Empty is default; abc, 22abc, 0, -1, and 65536 are errors.
