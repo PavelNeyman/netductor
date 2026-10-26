@@ -1,3 +1,10 @@
+## 0.9.558
+
+- Bootstrap checkpoint bound to material SHA (`bootstrapped_material_sha`); re-SCP/mismatch forces full bootstrap
+- canSkipBootstrap only when SHA matches confirmed bootstrap binding
+- Clear `current_step` on success checkpoints; journal clear uses host lock
+- More mid-path errors via failDeploy; regression tests for material change → re-bootstrap
+
 ## 0.9.557
 
 - DeploySecondary: per-host flock on operator machine (serialize concurrent deploy to same B)

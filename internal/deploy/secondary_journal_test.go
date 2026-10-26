@@ -279,3 +279,69 @@ func TestAdvancedJournalBlocksBlindProvisionDecision(t *testing.T) {
 		t.Fatal("should skip bootstrap")
 	}
 }
+
+func TestBootstrapSkipRequiresMatchingMaterialSHA(t *testing.T) {
+	st := &DeployOrchState{
+		LastSuccessfulStage:     StageSecondaryBootstrapped,
+		MaterialSHA:             "sha-old",
+		BootstrappedMaterialSHA: "sha-old",
+	}
+	if !canSkipBootstrapForMaterial(st, "sha-old") {
+		t.Fatal("same SHA should skip")
+	}
+	if canSkipBootstrapForMaterial(st, "sha-new") {
+		t.Fatal("changed material must force bootstrap")
+	}
+	st.BootstrappedMaterialSHA = ""
+	if canSkipBootstrapForMaterial(st, "sha-old") {
+		t.Fatal("empty bootstrap binding must force bootstrap")
+	}
+}
+
+func TestMaterialTransferInvalidatesBootstrapBinding(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "198.51.100.90"
+	var prev *DeployOrchState
+	if err := checkpointBootstrapOK(&prev, "peer-x", "ag", host, "sha-a"); err != nil {
+		t.Fatal(err)
+	}
+	if prev.BootstrappedMaterialSHA != "sha-a" {
+		t.Fatal(prev.BootstrappedMaterialSHA)
+	}
+	// New ship SHA after mismatch re-SCP
+	if err := checkpointSuccessWithSHA(&prev, "peer-x", "ag", host, StageMaterialTransferred, "sha-b"); err != nil {
+		t.Fatal(err)
+	}
+	if prev.BootstrappedMaterialSHA != "" {
+		t.Fatalf("bootstrap binding should clear on new material SHA, got %s", prev.BootstrappedMaterialSHA)
+	}
+	if canSkipBootstrapForMaterial(prev, "sha-b") {
+		t.Fatal("must not skip bootstrap after material change")
+	}
+	if err := checkpointBootstrapOK(&prev, "peer-x", "ag", host, "sha-b"); err != nil {
+		t.Fatal(err)
+	}
+	if !canSkipBootstrapForMaterial(prev, "sha-b") {
+		t.Fatal("after re-bootstrap should skip")
+	}
+}
+
+func TestCheckpointSuccessClearsCurrentStep(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "198.51.100.91"
+	var prev *DeployOrchState
+	if err := markCurrentStep(&prev, "p", "a", host, StagePeerAddStarted); err != nil {
+		t.Fatal(err)
+	}
+	if prev.CurrentStep == "" {
+		t.Fatal("expected current step")
+	}
+	if err := checkpointSuccess(&prev, "p", "a", host, StagePeerPrepared); err != nil {
+		t.Fatal(err)
+	}
+	if prev.CurrentStep != "" {
+		t.Fatalf("current step not cleared: %q", prev.CurrentStep)
+	}
+}

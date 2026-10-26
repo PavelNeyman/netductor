@@ -424,13 +424,14 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 		raw, errJ = extractJSONObject(out)
 		if errJ != nil {
-			return fmt.Errorf("prepare-pack JSON: %w\n%s", errJ, out)
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack JSON: %w
+%s", errJ, out))
 		}
 		if err := json.Unmarshal([]byte(raw), &pack); err != nil {
-			return fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out)
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out))
 		}
 		if pack.AgentID == "" || pack.AgentToken == "" || len(pack.Bundle) == 0 {
-			return fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out)
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out))
 		}
 		const packSchema = 1
 		if pack.SchemaVersion != packSchema {
@@ -446,15 +447,15 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 		ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
 		if err != nil {
-			return fmt.Errorf("mtls ca: %w", err)
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("mtls ca: %w", err))
 		}
 		cert, err := base64.StdEncoding.DecodeString(pack.MTLSCertB64)
 		if err != nil {
-			return fmt.Errorf("mtls cert: %w", err)
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("mtls cert: %w", err))
 		}
 		key, err := base64.StdEncoding.DecodeString(pack.MTLSKeyB64)
 		if err != nil {
-			return fmt.Errorf("mtls key: %w", err)
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("mtls key: %w", err))
 		}
 
 		if o.SSHMode == SSHModeResume {
@@ -484,10 +485,10 @@ func deploySecondaryBody(o SecondaryOpts) error {
 			fmt.Print(res.Log)
 		}
 		if err != nil {
-			return fmt.Errorf("secondary provision: %w", err)
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary provision: %w", err))
 		}
 		if res == nil || !res.AgentOK || !res.SingBoxOK {
-			return fmt.Errorf("secondary provision: agent/sing-box not healthy after join")
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary provision: agent/sing-box not healthy after join"))
 		}
 	} // end !skipProv
 
@@ -545,7 +546,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	}
 	raw, errJ = extractJSONObject(out)
 	if errJ != nil {
-		return fmt.Errorf("peer add material JSON: %w\n%s", errJ, out)
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("peer add material JSON: %w\n%s", errJ, out))
 	}
 	var mat peerMaterialSCP
 	if err := json.Unmarshal([]byte(raw), &mat); err != nil {
@@ -561,25 +562,25 @@ func deploySecondaryBody(o SecondaryOpts) error {
 
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
 	if errTmp != nil {
-		return fmt.Errorf("svc-paths temp file: %w", errTmp)
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths temp file: %w", errTmp))
 	}
 	tmpPath := tmpFile.Name()
 	ship, errShip := materialJSONForSCP(raw, mat)
 	if errShip != nil {
 		_ = tmpFile.Close()
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("svc-paths material normalize: %w", errShip)
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths material normalize: %w", errShip))
 	}
 	sum := sha256.Sum256(ship)
 	shipSHA := hex.EncodeToString(sum[:])
 	if _, errW := tmpFile.Write(ship); errW != nil {
 		_ = tmpFile.Close()
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("svc-paths material write: %w", errW)
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths material write: %w", errW))
 	}
 	if errC := tmpFile.Close(); errC != nil {
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("svc-paths material close: %w", errC)
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths material close: %w", errC))
 	}
 	defer os.Remove(tmpPath)
 
@@ -590,6 +591,9 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		if spPub == "" || psPub == "" {
 			fmt.Fprintln(os.Stderr, "warn: ship material missing sp_pub_p/ps_pub_p — refuse skip-SCP")
 			skipSCP = false
+			if prev != nil {
+				prev.BootstrappedMaterialSHA = ""
+			}
 		} else {
 			pubChecks = fmt.Sprintf("grep -qF %s \"$f\"\ngrep -qF %s \"$f\"\n", ShellQuote(spPub), ShellQuote(psPub))
 		}
@@ -615,6 +619,9 @@ echo "material identity ok peer=%s slot=%d"
 		if outV, errV := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass); errV != nil {
 			fmt.Fprintln(os.Stderr, "warn: material on B mismatch journal — re-SCP:", errV, outV)
 			skipSCP = false
+			if prev != nil {
+				prev.BootstrappedMaterialSHA = ""
+			}
 		} else {
 			fmt.Fprintln(os.Stderr, strings.TrimSpace(outV))
 			fmt.Fprintln(os.Stderr, "==> skip SCP (material SHA + peer identity match)")
@@ -672,9 +679,11 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 `, ShellQuote(matOnB), ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 	bootScript := secBoot
-	if canSkipBootstrapB(prev) {
-		fmt.Fprintln(os.Stderr, "==> skip bootstrap-secondary (journal) — verify units+ping only")
+	if canSkipBootstrapForMaterial(prev, shipSHA) {
+		fmt.Fprintln(os.Stderr, "==> skip bootstrap-secondary (journal+material SHA match) — verify only")
 		bootScript = secVerify
+	} else if canSkipBootstrapB(prev) {
+		fmt.Fprintln(os.Stderr, "==> material changed or bootstrap not bound to ship SHA — full bootstrap-secondary")
 	}
 
 	out2, err2 := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
@@ -691,7 +700,7 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 		}
 	}
 	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
-	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageSecondaryBootstrapped); err != nil {
+	if err := checkpointBootstrapOK(&prev, peerID, pack.AgentID, o.SecondaryHost, shipSHA); err != nil {
 		return err
 	}
 
@@ -767,7 +776,7 @@ echo "primary peer units+ping ok -> %s %s"
 	}
 	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
 	if pack.AgentID == "" {
-		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy"))
 	}
 	// Exact AgentID + online + fresh last_seen (seen= unix, within 90s) after SP switch.
 	waitCmd := fmt.Sprintf(`ok=0

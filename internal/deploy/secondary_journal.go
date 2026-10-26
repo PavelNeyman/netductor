@@ -35,15 +35,16 @@ const (
 // DeployOrchState is durable orchestration state on the operator machine.
 // Private keys / tokens are never stored here.
 type DeployOrchState struct {
-	PeerID              string    `json:"peer_id"`
-	AgentID             string    `json:"agent_id,omitempty"`
-	Host                string    `json:"host"`
-	LastSuccessfulStage string    `json:"last_successful_stage"`
-	CurrentStep         string    `json:"current_step,omitempty"` // in-progress op; does not regress last_successful_stage
-	Status              string    `json:"status"`
-	LastError           string    `json:"last_error,omitempty"`
-	MaterialSHA         string    `json:"material_sha,omitempty"` // sha256 of ship JSON (identity)
-	UpdatedAt           time.Time `json:"updated_at"`
+	PeerID                  string    `json:"peer_id"`
+	AgentID                 string    `json:"agent_id,omitempty"`
+	Host                    string    `json:"host"`
+	LastSuccessfulStage     string    `json:"last_successful_stage"`
+	CurrentStep             string    `json:"current_step,omitempty"` // in-progress op; does not regress last_successful_stage
+	Status                  string    `json:"status"`
+	LastError               string    `json:"last_error,omitempty"`
+	MaterialSHA             string    `json:"material_sha,omitempty"`              // sha256 of ship JSON
+	BootstrappedMaterialSHA string    `json:"bootstrapped_material_sha,omitempty"` // SHA for which bootstrap was confirmed
+	UpdatedAt               time.Time `json:"updated_at"`
 	// Legacy Stage kept for reading old journals; prefer LastSuccessfulStage.
 	Stage string `json:"stage,omitempty"`
 }
@@ -199,6 +200,7 @@ func markCurrentStep(prev **DeployOrchState, peerID, agentID, host, step string)
 // checkpointSuccess records a confirmed successful stage. Blocking if state cannot be saved.
 func checkpointSuccess(prev **DeployOrchState, peerID, agentID, host, stage string) error {
 	st := mergeOrchState(*prev, host, peerID, agentID, stage, StatusRunning, "", "")
+	st.CurrentStep = ""
 	_ = appendDeployLog(st.PeerID, st.AgentID, host, stage, "")
 	if err := saveDeployState(st); err != nil {
 		return fmt.Errorf("deploy checkpoint %s: %w", stage, err)
@@ -210,9 +212,29 @@ func checkpointSuccess(prev **DeployOrchState, peerID, agentID, host, stage stri
 // checkpointSuccessWithSHA records stage and material ship fingerprint.
 func checkpointSuccessWithSHA(prev **DeployOrchState, peerID, agentID, host, stage, materialSHA string) error {
 	st := mergeOrchState(*prev, host, peerID, agentID, stage, StatusRunning, "", materialSHA)
+	st.CurrentStep = ""
+	// New/updated ship material invalidates prior bootstrap confirmation until re-bootstrap.
+	if materialSHA != "" && st.BootstrappedMaterialSHA != "" && st.BootstrappedMaterialSHA != materialSHA {
+		st.BootstrappedMaterialSHA = ""
+	}
 	_ = appendDeployLog(st.PeerID, st.AgentID, host, stage, "")
 	if err := saveDeployState(st); err != nil {
 		return fmt.Errorf("deploy checkpoint %s: %w", stage, err)
+	}
+	*prev = st
+	return nil
+}
+
+// checkpointBootstrapOK records secondary_bootstrapped bound to this material SHA.
+func checkpointBootstrapOK(prev **DeployOrchState, peerID, agentID, host, materialSHA string) error {
+	st := mergeOrchState(*prev, host, peerID, agentID, StageSecondaryBootstrapped, StatusRunning, "", materialSHA)
+	st.CurrentStep = ""
+	if materialSHA != "" {
+		st.BootstrappedMaterialSHA = materialSHA
+	}
+	_ = appendDeployLog(st.PeerID, st.AgentID, host, StageSecondaryBootstrapped, "")
+	if err := saveDeployState(st); err != nil {
+		return fmt.Errorf("deploy checkpoint bootstrap: %w", err)
 	}
 	*prev = st
 	return nil
@@ -296,6 +318,17 @@ func canSkipBootstrapB(st *DeployOrchState) bool {
 	return stageRank(effectiveStage(st)) >= stageRank(StageSecondaryBootstrapped)
 }
 
+// canSkipBootstrapForMaterial allows verify-only only when bootstrap was confirmed for this ship SHA.
+func canSkipBootstrapForMaterial(st *DeployOrchState, shipSHA string) bool {
+	if st == nil || shipSHA == "" {
+		return false
+	}
+	if !canSkipBootstrapB(st) {
+		return false
+	}
+	return st.BootstrappedMaterialSHA != "" && st.BootstrappedMaterialSHA == shipSHA
+}
+
 // Legacy helpers for older call sites / tests.
 func writeDeployJournal(peerID, agentID, host, stage string) {
 	var prev *DeployOrchState
@@ -358,8 +391,11 @@ func shortSHA(s string) string {
 }
 
 // ClearDeployJournal is the public clear for CLI (host IP or sanitized name).
+// Uses the same host lock as DeploySecondary so clear cannot race an active deploy.
 func ClearDeployJournal(host string) error {
-	return clearDeployState(host)
+	return withHostDeployLock(host, func() error {
+		return clearDeployState(host)
+	})
 }
 
 // LoadDeployJournal is the public load for CLI.
