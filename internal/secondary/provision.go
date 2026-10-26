@@ -1,6 +1,7 @@
 package secondary
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -125,6 +126,20 @@ func runSSH(client *ssh.Client, cmd string) (string, error) {
 	return string(out), err
 }
 
+func runSSHWithStdin(client *ssh.Client, cmd string, stdin []byte) (string, error) {
+	s, err := client.NewSession()
+	if err != nil {
+		return "", err
+	}
+	defer s.Close()
+	s.Stdin = bytes.NewReader(stdin)
+	var buf bytes.Buffer
+	s.Stdout = &buf
+	s.Stderr = &buf
+	err = s.Run(cmd)
+	return buf.String(), err
+}
+
 // InstallOperatorKeys writes authorized_keys only (password auth stays enabled).
 func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 	var installLines strings.Builder
@@ -155,9 +170,9 @@ func DisablePasswordAuth(client *ssh.Client) error {
 
 // RemoteJoin installs netductor binary + joins with bundle JSON.
 // Binary is verified against GitHub release SHA256SUMS when available.
+// Bundle is passed only via SSH stdin (never base64 in remote argv).
 func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 	ver := version.Release
-	b64 := base64.StdEncoding.EncodeToString([]byte(bundleJSON))
 	script := fmt.Sprintf(`set -e
 export DEBIAN_FRONTEND=noninteractive
 VER=%s
@@ -201,7 +216,8 @@ rollback() {
 }
 systemctl stop netductor-secondary-agent 2>/dev/null || true
 install -m 755 "$TD/$ASSET" /usr/local/bin/netductor
-echo '%s' | base64 -d > /root/bundle.json
+# Bundle only via SSH stdin
+cat > /root/bundle.json
 chmod 600 /root/bundle.json
 if ! netductor secondary join /root/bundle.json; then
   rollback
@@ -220,8 +236,12 @@ if ! ss -tlnp | grep -qE ':443([^0-9]|$)'; then
   exit 1
 fi
 rm -f /var/lib/netductor/netductor.bin.prev
-`, ver, b64)
-	return runSSH(client, script)
+`, ver)
+	_, err := runSSHWithStdin(client, script, []byte(bundleJSON))
+	if err != nil {
+		return "", fmt.Errorf("remote join failed")
+	}
+	return "join ok\n", nil
 }
 
 func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) error {
@@ -270,21 +290,21 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 		return nil, fmt.Errorf("mtls material: %w", err)
 	}
 	log.WriteString("mtls client material installed\n")
-	out, err := RemoteJoin(client, bundleJSON)
-	log.WriteString(out)
+	_, err = RemoteJoin(client, bundleJSON)
+	log.WriteString("remote join completed\n")
 	pubJoined := strings.Join(keys, "\n")
 	if err != nil {
-		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("join: %w\n%s", err, out)
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("join failed")
 	}
 	// Strict post-join checks (RemoteJoin already tests units; re-verify)
-	sbOut, sbErr := runSSH(client, `test "$(systemctl is-active sing-box)" = "active"`)
-	agOut, agErr := runSSH(client, `test "$(systemctl is-active netductor-secondary-agent)" = "active"`)
+	_, sbErr := runSSH(client, `test "$(systemctl is-active sing-box)" = "active"`)
+	_, agErr := runSSH(client, `test "$(systemctl is-active netductor-secondary-agent)" = "active"`)
 	_, p443 := runSSH(client, `ss -tlnp | grep -qE ':443([^0-9]|$)'`)
 	agentOK := agErr == nil
 	singOK := sbErr == nil && p443 == nil
 	if !agentOK || !singOK {
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: agentOK, SingBoxOK: singOK},
-			fmt.Errorf("post-join services not healthy: agent_ok=%v singbox_ok=%v sb=%s ag=%s", agentOK, singOK, strings.TrimSpace(sbOut), strings.TrimSpace(agOut))
+			fmt.Errorf("post-join services not healthy: agent_ok=%v singbox_ok=%v", agentOK, singOK)
 	}
 	if err := DisablePasswordAuth(client); err != nil {
 		log.WriteString("disable password: " + err.Error() + "\n")

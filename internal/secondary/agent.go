@@ -1,9 +1,9 @@
 package secondary
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -741,7 +741,6 @@ func applyFailoverPolicy(raw json.RawMessage) error {
 	return os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
-
 func readRecoveryFingerprint() string {
 	for _, p := range []string{
 		"/etc/netductor/secrets/recovery.fp",
@@ -758,7 +757,6 @@ func readRecoveryFingerprint() string {
 	}
 	return ""
 }
-
 
 func fileSHA256HexPath(path string) (string, error) {
 	f, err := os.Open(path)

@@ -534,14 +534,30 @@ func deploySecondaryBody(o SecondaryOpts) error {
 				"Re-run deploy (or set ForceReinstall after forget).\n%w",
 				o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, err))
 		}
-		if res != nil {
-			fmt.Print(res.Log)
-		}
 		if err != nil {
-			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary provision: %w", err))
+			// Never print res.Log on failure — may contain remote join diagnostics.
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("secondary-provision", "ssh", err))
 		}
 		if res == nil || !res.AgentOK || !res.SingBoxOK {
-			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary provision: agent/sing-box not healthy after join"))
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("secondary-provision", "health", fmt.Errorf("not healthy")))
+		}
+		// Success only: allowlisted local status lines (no remote dump).
+		if res != nil {
+			for _, line := range strings.Split(res.Log, "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				ok := strings.HasPrefix(line, "ssh connected") ||
+					strings.HasPrefix(line, "operator pubkey") ||
+					strings.HasPrefix(line, "mtls client") ||
+					strings.HasPrefix(line, "remote join") ||
+					strings.HasPrefix(line, "password auth") ||
+					strings.HasPrefix(line, "join ok")
+				if ok {
+					fmt.Fprintln(os.Stderr, line)
+				}
+			}
 		}
 	} // end !skipProv
 

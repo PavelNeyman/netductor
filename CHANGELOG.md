@@ -1,3 +1,11 @@
+## 0.9.566
+
+- Provision: never print res.Log on error; success allowlisted status only
+- secondary-provision errors via safeStageErr
+- RemoteJoin: bundle via SSH stdin (not base64 in argv); errors omit remote stdout
+- loadOnlineSecondarys: TrimSpace IP/PBK/SID/SNI
+- Stronger TestSubscriptionOmitsEmptyPBK (whitespace + exact profile count)
+
 ## 0.9.565
 
 - Sensitive deploy errors use safeStageErr (stage/op/class only — no remote payload)

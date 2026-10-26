@@ -64,6 +64,10 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 	type row struct{ Host, PBK, SID, SNI, PublicIP string }
 	var out []row
 	for _, d := range f.Devices {
+		d.PublicIP = strings.TrimSpace(d.PublicIP)
+		d.PBK = strings.TrimSpace(d.PBK)
+		d.SID = strings.TrimSpace(d.SID)
+		d.SNI = strings.TrimSpace(d.SNI)
 		if d.PublicIP == "" || d.PBK == "" || d.SID == "" {
 			continue
 		}

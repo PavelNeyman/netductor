@@ -565,7 +565,6 @@ func ListPublicIPs() []string {
 	return out
 }
 
-
 // StoreRecoveryPeerFingerprint saves secondary recovery TLS fingerprint for DR on primary.
 // Written so recover --from-secondary can pin without INSECURE=1.
 func StoreRecoveryPeerFingerprint(deviceID, fp string) {

@@ -281,17 +281,26 @@ func TestSubscriptionOmitsEmptyPBK(t *testing.T) {
 	_ = os.MkdirAll(filepath.Dir(path), 0o700)
 	now := time.Now().UTC()
 	raw, _ := json.Marshal(map[string]any{"devices": []map[string]any{
-		{"public_ip": "203.0.113.9", "pbk": "", "sid": "s", "sni": "x", "last_seen": now},
+		{"public_ip": "203.0.113.9", "pbk": "", "sid": "sid-invalid", "sni": "x", "last_seen": now},
+		{"public_ip": "203.0.113.8", "pbk": "   ", "sid": "sid-ws", "sni": "x", "last_seen": now},
+		{"public_ip": "203.0.113.7", "pbk": "good-pbk", "sid": "   ", "sni": "x", "last_seen": now},
+		{"public_ip": "203.0.113.6", "pbk": "keep-pbk", "sid": "keep-sid", "sni": "x", "last_seen": now},
 	}})
 	_ = os.WriteFile(path, raw, 0o600)
 	body, err := SubscriptionBody("bob")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(body) != "" && strings.Contains(body, "vless://") {
-		// may be empty list
-		if strings.Contains(body, "203.0.113.9") {
-			t.Fatalf("empty pbk must not appear: %q", body)
+	for _, bad := range []string{"sid-invalid", "sid-ws", "good-pbk", "203.0.113.9", "203.0.113.8", "203.0.113.7"} {
+		if strings.Contains(body, bad) {
+			t.Fatalf("must omit invalid secondary marker %q in %q", bad, body)
 		}
+	}
+	if !strings.Contains(body, "keep-pbk") || !strings.Contains(body, "keep-sid") {
+		t.Fatalf("valid secondary missing: %q", body)
+	}
+	lines := strings.Split(strings.TrimSpace(body), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("want exactly 1 profile, got %d: %q", len(lines), body)
 	}
 }
