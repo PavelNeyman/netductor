@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"strings"
 	"time"
 )
@@ -55,10 +57,41 @@ func lookSSHPass() (string, error) {
 	return p, nil
 }
 
-func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool) []string {
+// openSSHPinPath materializes OpenSSH known_hosts from Go TOFU (ssh_known_hosts.json).
+func openSSHPinPath(host, port string) string {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return ""
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	if port == "" {
+		port = "22"
+	}
+	dir := filepath.Join(home, ".cache", "netductor", "ssh-pins")
+	safe := strings.ReplaceAll(host, "/", "_")
+	dest := filepath.Join(dir, safe+"_"+port+".known_hosts")
+	if err := secondary.WriteOpenSSHKnownHostsFile(host, port, dest); err != nil {
+		return ""
+	}
+	return dest
+}
+
+func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port string) []string {
 	args := []string{
-		"-o", "StrictHostKeyChecking=accept-new",
 		"-o", "ConnectTimeout=20",
+	}
+	if pin := openSSHPinPath(host, port); pin != "" {
+		args = append(args,
+			"-o", "StrictHostKeyChecking=yes",
+			"-o", "UserKnownHostsFile="+pin,
+			"-o", "GlobalKnownHostsFile=/dev/null",
+			"-o", "HashKnownHosts=no",
+		)
+	} else {
+		args = append(args, "-o", "StrictHostKeyChecking=accept-new")
 	}
 	if keyPath != "" {
 		args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
@@ -66,7 +99,6 @@ func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool) []string {
 	if passwordAuth {
 		args = append(args, "-o", "PreferredAuthentications=password", "-o", "PubkeyAuthentication=no")
 	} else if keyPassphrase {
-		// BatchMode blocks passphrase prompts; ASKPASS supplies it instead
 		args = append(args, "-o", "BatchMode=no", "-o", "NumberOfPasswordPrompts=1")
 	} else {
 		args = append(args, "-o", "BatchMode=yes")
@@ -135,7 +167,7 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	// Prefer password when provided (OpenWrt day-0 after setPass still needs password until harden).
 	// Key-only when password is empty.
 	usePass := password != ""
-	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
+	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
 	base = append([]string{"-p", port}, base...)
 	if usePass {
 		if sp, err := lookSSHPass(); err == nil {
@@ -177,7 +209,7 @@ func runSSHOnPortWithStdin(port, password, keyPath, user, host, remoteCmd, keyPa
 	}
 	target := user + "@" + host
 	usePass := password != ""
-	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
+	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
 	base = append([]string{"-p", port}, base...)
 	run := func(cmd *exec.Cmd) (string, error) {
 		cmd.Stdin = bytes.NewReader(stdin)
@@ -223,7 +255,7 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 	}
 	target := user + "@" + host + ":" + remotePath
 	usePass := password != "" // prefer password when set (router pre-harden)
-	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
+	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
 	base = append([]string{"-P", port}, base...)
 	if usePass {
 		sp, err := lookSSHPass()

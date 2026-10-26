@@ -209,37 +209,30 @@ if [ -x /usr/local/bin/netductor ]; then
 fi
 rollback() {
   echo "join/health failed — restoring previous state if possible" >&2
+  systemctl stop netductor-secondary-agent 2>/dev/null || true
   if [ -n "$PREV" ] && [ -f "$PREV" ]; then
     install -m 755 "$PREV" /usr/local/bin/netductor
     systemctl start netductor-secondary-agent 2>/dev/null || true
   else
-    # First install failed: remove partial binary so retry starts clean (no PREV to restore).
-    systemctl stop netductor-secondary-agent 2>/dev/null || true
+    # First install: stop units started by this join and remove partial binary.
+    systemctl stop sing-box 2>/dev/null || true
     systemctl disable netductor-secondary-agent 2>/dev/null || true
     rm -f /usr/local/bin/netductor
   fi
+  rm -f /root/bundle.json
 }
+# Any failure after we begin replacing the binary runs rollback.
+trap 'rollback; exit 1' ERR
 systemctl stop netductor-secondary-agent 2>/dev/null || true
 install -m 755 "$TD/$ASSET" /usr/local/bin/netductor
 # Bundle only via SSH stdin
 cat > /root/bundle.json
 chmod 600 /root/bundle.json
-if ! netductor secondary join /root/bundle.json; then
-  rollback
-  exit 1
-fi
-if ! test "$(systemctl is-active sing-box)" = "active"; then
-  rollback
-  exit 1
-fi
-if ! test "$(systemctl is-active netductor-secondary-agent)" = "active"; then
-  rollback
-  exit 1
-fi
-if ! ss -tlnp | grep -qE ':443([^0-9]|$)'; then
-  rollback
-  exit 1
-fi
+netductor secondary join /root/bundle.json
+test "$(systemctl is-active sing-box)" = "active"
+test "$(systemctl is-active netductor-secondary-agent)" = "active"
+ss -tlnp | grep -qE ':443([^0-9]|$)'
+trap - ERR
 rm -f /var/lib/netductor/netductor.bin.prev
 `, ver)
 	_, err := runSSHWithStdin(client, script, []byte(bundleJSON))

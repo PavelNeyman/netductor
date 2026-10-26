@@ -110,3 +110,46 @@ func provisionHostKey(host string) ssh.HostKeyCallback {
 		return saveRelayKH(f)
 	}
 }
+
+// OpenSSHKnownHostsLine builds a StrictHostKeyChecking=yes line from TOFU store.
+// Empty string if host not yet pinned (first contact still uses accept-new only when no pin).
+func OpenSSHKnownHostsLine(host, port string) (string, error) {
+	pkhMu.Lock()
+	defer pkhMu.Unlock()
+	host = strings.TrimSpace(host)
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	f := loadRelayKH()
+	b64, ok := f[host]
+	if !ok || b64 == "" {
+		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first or ssh-hosts forget is pending", host)
+	}
+	raw, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return "", fmt.Errorf("TOFU key corrupt for %s", host)
+	}
+	pk, err := ssh.ParsePublicKey(raw)
+	if err != nil {
+		return "", fmt.Errorf("TOFU key parse for %s: %w", host, err)
+	}
+	ak := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pk)))
+	// ak is "type base64"
+	name := host
+	if port != "" && port != "22" {
+		name = fmt.Sprintf("[%s]:%s", host, port)
+	}
+	return name + " " + ak, nil
+}
+
+// WriteOpenSSHKnownHostsFile writes a 0600 known_hosts file for OpenSSH strict checking.
+func WriteOpenSSHKnownHostsFile(host, port, dest string) error {
+	line, err := OpenSSHKnownHostsLine(host, port)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(dest, append([]byte(line), 10), 0o600)
+}

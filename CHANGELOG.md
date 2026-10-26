@@ -1,3 +1,9 @@
+## 0.9.571
+
+- OpenSSH uses Go TOFU pin when present (StrictHostKeyChecking=yes + UserKnownHostsFile)
+- RemoteJoin: trap ERR rollback; first install stops sing-box and removes partial binary
+- nonPublicIPv4: 0/8, 192.0.0.0/24, 192.88.99.0/24
+
 ## 0.9.570
 
 - Material mismatch: no remote outV lines — fixed warning only

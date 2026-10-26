@@ -139,11 +139,14 @@ func requirePublicIPv4(host string) error {
 // 100.64/10 CGNAT, TEST-NET-1/2/3, 198.18/15 benchmark, 240/4 reserved.
 func nonPublicIPv4(ip net.IP) bool {
 	var blocked = []string{
+		"0.0.0.0/8",
 		"100.64.0.0/10",
+		"192.0.0.0/24",
 		"192.0.2.0/24",
+		"192.88.99.0/24",
+		"198.18.0.0/15",
 		"198.51.100.0/24",
 		"203.0.113.0/24",
-		"198.18.0.0/15",
 		"240.0.0.0/4",
 	}
 	for _, c := range blocked {
