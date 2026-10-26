@@ -1,3 +1,8 @@
+## 0.9.548
+
+- peer ready refuses if state changed during validate, including active. UFW leftover check is source+port, not any mention of the IP. RU runbook puts the traffic test before ready.
+
+
 ## 0.9.547
 
 - peer ready re-checks state after validate and refuses removed/removing. UFW cleanup confirms sources are gone. Runbook puts the traffic test before ready/promote.

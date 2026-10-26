@@ -390,3 +390,47 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 		t.Fatal("status error must fail")
 	}
 }
+
+func TestPeerMarkReadyDoesNotDemoteActive(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	idx := &PeersIndex{ActiveID: "", Peers: []ServicePeer{{ID: "peer-z", State: "ready", Slot: SlotTable()[1]}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	old := peerValidateForReady
+	peerValidateForReady = func(id string) (*PeerValidateResult, error) {
+		cur, err := LoadPeersIndex()
+		if err != nil {
+			return nil, err
+		}
+		cur.ActiveID = id
+		if err := markPeerState(cur, id, "active"); err != nil {
+			return nil, err
+		}
+		return &PeerValidateResult{OK: true}, nil
+	}
+	t.Cleanup(func() { peerValidateForReady = old })
+	if err := PeerMarkReady("peer-z", true); err == nil || !strings.Contains(err.Error(), "changed during validate") {
+		t.Fatalf("ready must not overwrite active, got %v", err)
+	}
+	got, _ := LoadPeersIndex()
+	if got.findAny("peer-z").State != "active" || got.ActiveID != "peer-z" {
+		t.Fatalf("active lost: %+v", got)
+	}
+}
+
+func TestRemovePeerUFWIgnoresOtherRule(t *testing.T) {
+	old := peerUFWExec
+	t.Cleanup(func() { peerUFWExec = old })
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if args[0] == "status" {
+			return []byte("Status: active\n22/tcp ALLOW 203.0.113.9\n"), nil
+		}
+		return []byte("deleted"), nil
+	}
+	if err := removePeerUFW("203.0.113.9", "", "", 8444); err != nil {
+		t.Fatalf("unrelated rule must not block remove: %v", err)
+	}
+}

@@ -392,6 +392,7 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 	if p.State == "removed" || p.State == "removing" {
 		return fmt.Errorf("peer %s is %s — refuse ready", peerID, p.State)
 	}
+	before := p.State
 	if requireValidate {
 		// unlock for validate (may take time); re-check after
 		peerMu.Unlock()
@@ -409,8 +410,8 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 			return err
 		}
 		again := idx.findAny(peerID)
-		if again == nil || again.State == "removed" || again.State == "removing" {
-			return fmt.Errorf("peer %s changed during validate (now %s) — refuse ready", peerID, peerState(again))
+		if again == nil || again.State != before || again.State == "active" || again.State == "removed" || again.State == "removing" {
+			return fmt.Errorf("peer %s changed during validate (was %s, now %s) — refuse ready", peerID, before, peerState(again))
 		}
 	}
 	for i := range idx.Peers {
@@ -815,12 +816,17 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 	if err != nil {
 		return fmt.Errorf("ufw status after delete: %v: %s", err, strings.TrimSpace(string(after)))
 	}
-	for _, src := range []string{addrSSP, addrSPS, publicIP} {
-		if src == "" {
+	checks := []struct{ src, port string }{
+		{addrSSP, "8789"},
+		{addrSPS, "8789"},
+		{publicIP, fmt.Sprintf("%d", wssPort)},
+	}
+	for _, c := range checks {
+		if c.src == "" || c.port == "0" {
 			continue
 		}
-		if strings.Contains(string(after), src) {
-			return fmt.Errorf("ufw still has a rule for %s", src)
+		if ufwRulePresent(string(after), c.src, c.port) {
+			return fmt.Errorf("ufw still has %s/tcp from %s", c.port, c.src)
 		}
 	}
 	return nil
@@ -848,4 +854,14 @@ func peerState(p *ServicePeer) string {
 		return "missing"
 	}
 	return p.State
+}
+
+func ufwRulePresent(status, src, port string) bool {
+	needle := port + "/tcp"
+	for _, line := range strings.Split(status, "\n") {
+		if strings.Contains(line, src) && strings.Contains(line, needle) {
+			return true
+		}
+	}
+	return false
 }
