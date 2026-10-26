@@ -171,6 +171,14 @@ type peerMaterialSCP struct {
 	WSSPS   int    `json:"wss_ps"`
 }
 
+func mustGlob(pattern string) []string {
+	m, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil
+	}
+	return m
+}
+
 // materialJSONForSCP overlays validated slot defaults onto the original material.
 // peerMaterialSCP has no WireGuard keys; those stay from raw.
 func materialJSONForSCP(raw string, mat peerMaterialSCP) ([]byte, error) {
@@ -559,11 +567,16 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	}
 	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d port_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP, mat.PortSP)
 
+	// Local ship JSON for SCP only (0600); cleaned on return. Stale leftovers from kill are removed best-effort.
+	for _, old := range mustGlob(filepath.Join(os.TempDir(), "nd-svc-material-*.json")) {
+		_ = os.Remove(old)
+	}
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
 	if errTmp != nil {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths temp file: %w", errTmp))
 	}
 	tmpPath := tmpFile.Name()
+	_ = tmpFile.Chmod(0o600)
 	ship, errShip := materialJSONForSCP(raw, mat)
 	if errShip != nil {
 		_ = tmpFile.Close()
@@ -609,15 +622,29 @@ if missing_i:
 sa=json.dumps(a, sort_keys=True, separators=(",",":"))
 sb=json.dumps(b, sort_keys=True, separators=(",",":"))
 if sa!=sb:
-    diffs=[]
-    for k in sorted(set(a)|set(b)):
-        if k not in a:
-            diffs.append(k+"(extra)")
-        elif k not in b:
-            diffs.append(k+"(missing)")
-        elif a[k]!=b[k] or type(a[k]) is not type(b[k]):
-            diffs.append(k)
-    raise SystemExit("mismatch fields: "+",".join(diffs))
+    def walk(x,y,p):
+        if type(x) is not type(y):
+            yield p or "$"
+            return
+        if isinstance(x, dict):
+            for k in sorted(set(x)|set(y)):
+                np=(p+"." if p else "")+str(k)
+                if k not in x:
+                    yield np+"(extra)"; continue
+                if k not in y:
+                    yield np+"(missing)"; continue
+                yield from walk(x[k],y[k],np)
+            return
+        if isinstance(x, list):
+            if len(x)!=len(y):
+                yield (p or "$")+"(len)"; return
+            for i,(xi,yi) in enumerate(zip(x,y)):
+                yield from walk(xi,yi,(p or "$")+"["+str(i)+"]")
+            return
+        if x!=y:
+            yield p or "$"
+    diffs=list(walk(a,b,""))
+    raise SystemExit("mismatch fields: "+",".join(diffs) if diffs else "canonical")
 print("material full match")
 ' "$f"
 `

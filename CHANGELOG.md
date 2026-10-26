@@ -1,3 +1,9 @@
+## 0.9.562
+
+- Material mismatch diagnostics: recursive path walk (nested type/value diffs report field paths)
+- Local SCP temp: chmod 0600 + best-effort cleanup of stale nd-svc-material-*.json
+- Tests: remote cmd has no ship body; CreateTemp mode; stdin helper does not leak secret in errors
+
 ## 0.9.561
 
 - Material verify: expected ship on SSH stdin only (runSSHOnPortWithStdin) — not argv, not /tmp
