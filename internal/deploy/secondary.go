@@ -474,17 +474,17 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 		if err != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack on primary: %w\n%s", err, out))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack on primary: %w", err))
 		}
 		raw, errJ = extractJSONObject(out)
 		if errJ != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack JSON: %w\n%s", errJ, out))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack JSON: %w", errJ))
 		}
 		if err := json.Unmarshal([]byte(raw), &pack); err != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("parse prepare-pack JSON: %w", err))
 		}
 		if pack.AgentID == "" || pack.AgentToken == "" || len(pack.Bundle) == 0 {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack missing agent_id/token/bundle"))
 		}
 		const packSchema = 1
 		if pack.SchemaVersion != packSchema {
@@ -548,8 +548,8 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	const day2Port = "52222"
 	fmt.Fprintln(os.Stderr, "==> verify SSH key-only on", o.SecondaryHost+":"+day2Port)
 	secKey, secPass := secondaryDialKey(o)
-	if out, err := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, "true", secPass); err != nil {
-		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w\n%s", o.SecondaryHost, day2Port, err, out))
+	if _, err := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, "true", secPass); err != nil {
+		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w", o.SecondaryHost, day2Port, err))
 	}
 	if err := checkpointSuccess(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, StageProvisioned); err != nil {
 		return err
@@ -561,7 +561,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
-		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("primary secondary sync: %w\n%s", err, out))
+		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("primary secondary sync: %w", err))
 	}
 
 	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, secKey, secPass); err != nil {
@@ -580,7 +580,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		return err
 	}
 	pre := fmt.Sprintf(
-		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
+		"set -e; mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
 		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
 	)
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
@@ -590,16 +590,16 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		outR, errR := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, rec, o.PrimaryKeyPassphrase)
 		fmt.Print(outR)
 		if errR != nil {
-			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths peer recover: %w\n%s\n(original add: %v\n%s)", errR, outR, err, out))
+			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths peer recover: %w (original add: %v)", errR, err))
 		}
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	}
 	if err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths peer add: %w\n%s", err, out))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths peer add: %w", err))
 	}
 	raw, errJ = extractJSONObject(out)
 	if errJ != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("peer add material JSON: %w\n%s", errJ, out))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("peer add material JSON: %w", errJ))
 	}
 	var mat peerMaterialSCP
 	if err := json.Unmarshal([]byte(raw), &mat); err != nil {
@@ -613,35 +613,13 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	}
 	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d port_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP, mat.PortSP)
 
-	// Local ship JSON for SCP only: operator-private dir under deploy journal (not shared /tmp).
-	shipDir := filepath.Join(deployJournalDir(), "tmp")
-	if err := os.MkdirAll(shipDir, 0o700); err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths temp dir: %w", err))
-	}
-	tmpFile, errTmp := os.CreateTemp(shipDir, "nd-svc-material-*.json")
-	if errTmp != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths temp file: %w", errTmp))
-	}
-	tmpPath := tmpFile.Name()
-	_ = tmpFile.Chmod(0o600)
+	// Ship material stays in operator memory; applied on B via SSH stdin (no remote /tmp secret file).
 	ship, errShip := materialJSONForSCP(raw, mat)
 	if errShip != nil {
-		_ = tmpFile.Close()
-		_ = os.Remove(tmpPath)
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths material normalize: %w", errShip))
 	}
 	sum := sha256.Sum256(ship)
 	shipSHA := hex.EncodeToString(sum[:])
-	if _, errW := tmpFile.Write(ship); errW != nil {
-		_ = tmpFile.Close()
-		_ = os.Remove(tmpPath)
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths material write: %w", errW))
-	}
-	if errC := tmpFile.Close(); errC != nil {
-		_ = os.Remove(tmpPath)
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths material close: %w", errC))
-	}
-	defer os.Remove(tmpPath)
 
 	skipSCP := canSkipMaterialXfer(prev) && prev != nil && prev.MaterialSHA != "" && prev.MaterialSHA == shipSHA
 	if skipSCP {
@@ -673,22 +651,10 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 	}
 	if !skipSCP {
-		scpErr := runSCPOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
-		if scpErr != nil && o.SSHMode != SSHModeResume {
-			fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", scpErr, "— retry :22 (initial only)")
-			scpErr = runSCPOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
-		}
-		if scpErr != nil {
-			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths scp material to secondary: %w", scpErr))
-		}
+		fmt.Fprintln(os.Stderr, "==> material will apply via bootstrap-secondary stdin (no remote temp file)")
 	}
 	if err := checkpointSuccessWithSHA(&prev, peerID, pack.AgentID, o.SecondaryHost, StageMaterialTransferred, shipSHA); err != nil {
 		return err
-	}
-	// bootstrap-secondary needs a material file on B; after skip-SCP use installed path.
-	matOnB := "/tmp/nd-svc-material.json"
-	if skipSCP {
-		matOnB = "/etc/netductor/svc-paths/material.json"
 	}
 
 	// Slot-aware verification on B (not hardcoded slot 0).
@@ -708,10 +674,7 @@ echo "svc-paths secondary verify ok slot_iface=%s/%s"
 `, ShellQuote(mat.AddrPSP), peerID, mat.Slot, ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 	secBoot := fmt.Sprintf(`set -e
-MAT=%s
-test -f "$MAT"
-chmod 600 "$MAT" 2>/dev/null || true
-netductor svc-paths bootstrap-secondary --material "$MAT"
+netductor svc-paths bootstrap-secondary --material -
 test -f /etc/netductor/secrets/secondary_core_url
 grep -q %s /etc/netductor/secrets/secondary_core_url
 for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
@@ -721,27 +684,40 @@ done
 ping -c1 -W3 %s >/dev/null
 ping -c1 -W3 %s >/dev/null
 echo "svc-paths secondary ok slot_iface=%s/%s"
-`, ShellQuote(matOnB), ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
+`, ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
+	useStdinShip := true
 	bootScript := secBoot
 	if canSkipBootstrapForMaterial(prev, shipSHA) {
 		fmt.Fprintln(os.Stderr, "==> skip bootstrap-secondary (journal+material SHA match) — verify only")
 		bootScript = secVerify
+		useStdinShip = false
 	} else if canSkipBootstrapB(prev) {
-		fmt.Fprintln(os.Stderr, "==> material changed or bootstrap not bound to ship SHA — full bootstrap-secondary")
+		fmt.Fprintln(os.Stderr, "==> material changed or bootstrap not bound to ship SHA — full bootstrap via stdin")
 	}
 
-	out2, err2 := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
+	var out2 string
+	var err2 error
+	if useStdinShip {
+		out2, err2 = runSSHOnPortWithStdin(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass, ship)
+	} else {
+		out2, err2 = runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
+	}
 	if err2 != nil {
-		// Retry :22 only on initial (harden may not have stuck). Resume stays on 52222.
 		if o.SSHMode != SSHModeResume && day2Port == "52222" {
-			out2b, err2b := runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
+			var out2b string
+			var err2b error
+			if useStdinShip {
+				out2b, err2b = runSSHOnPortWithStdin("22", "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass, ship)
+			} else {
+				out2b, err2b = runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
+			}
 			if err2b != nil {
-				return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b))
+				return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w", err2b))
 			}
 			out2 = out2b
 		} else {
-			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2, out2))
+			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w", err2))
 		}
 	}
 	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
@@ -784,7 +760,7 @@ echo "ufw peer rules verified"
 `, ShellQuote(allowNoUFW), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP)
 	if outU, errU := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths primary firewall for peer slot: %w\n%s", errU, outU))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths primary firewall for peer slot: %w", errU))
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outU))
 	}
@@ -812,7 +788,7 @@ echo "primary peer units+ping ok -> %s %s"
 `, ShellQuote(spUnit), ShellQuote(psUnit), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS))
 	if outP2, errP2 := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths primary SP/PS units/ping: %v\n%s", errP2, outP2))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths primary SP/PS units/ping: %v", errP2))
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
 	}
@@ -848,12 +824,60 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w", err))
 	}
 
 	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageHeartbeatVerified); err != nil {
 		return err
 	}
+
+	// Profile readiness: B must be subscription-eligible (PBK/SID/PublicIP/sing-box).
+	fmt.Fprintln(os.Stderr, "==> check secondary profile readiness (PBK/SID/sing-box)")
+	readyCmd := fmt.Sprintf(`set -e
+id=%s
+ip=%s
+f=/var/lib/netductor/secondary/devices.json
+test -f "$f"
+python3 -c '
+import json,sys
+id,ip=sys.argv[1],sys.argv[2]
+r=json.load(open("/var/lib/netductor/secondary/devices.json"))
+devs=r.get("devices") or []
+d=next((x for x in devs if x.get("id")==id), None)
+if not d:
+    raise SystemExit("agent id not in registry")
+if (d.get("public_ip") or "") != ip:
+    raise SystemExit("public_ip mismatch")
+if not (d.get("pbk") or "").strip():
+    raise SystemExit("empty pbk — subscription would omit this secondary")
+if not (d.get("sid") or "").strip():
+    raise SystemExit("empty sid — subscription would omit this secondary")
+if not d.get("singbox_ok"):
+    raise SystemExit("singbox_ok=false")
+print("profile ready id=%%s ip=%%s pbk_len=%%d"%%(id,ip,len(d.get("pbk") or "")))
+' "$id" "$ip"
+`, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
+	outReady, errReady := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, readyCmd, o.PrimaryKeyPassphrase)
+	if errReady != nil {
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary profile not subscription-ready: %w", errReady))
+	}
+	fmt.Fprintln(os.Stderr, strings.TrimSpace(outReady))
+
+	// DNS cutover requires shared VPN hostname — warn only (deploy does not cut over DNS).
+	hostNote := `set -e
+h=""
+if [ -n "${NETDUCTOR_VPN_HOST:-}" ]; then h="$NETDUCTOR_VPN_HOST"; fi
+if [ -z "$h" ] && [ -f /etc/netductor/vpn_hostname ]; then h=$(tr -d "\n" </etc/netductor/vpn_hostname); fi
+if [ -z "$h" ]; then
+  echo "NOTE: no NETDUCTOR_VPN_HOST / vpn_hostname — client profiles may use direct secondary IP; DNS cutover alone will not switch them"
+else
+  echo "vpn_hostname=$h (DNS cutover targets this name; profiles use B Reality keys after promote)"
+fi
+`
+	if outH, errH := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, hostNote, o.PrimaryKeyPassphrase); errH == nil {
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(outH))
+	}
+
 	if err := checkpointDeployComplete(&prev, peerID, pack.AgentID, o.SecondaryHost); err != nil {
 		return err
 	}

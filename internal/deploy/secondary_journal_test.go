@@ -1,8 +1,10 @@
 package deploy
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -369,5 +371,35 @@ func TestDeployCompleteKeepsState(t *testing.T) {
 	}
 	if !canSkipProvision(loaded) {
 		t.Fatal("complete must still protect against blind provision")
+	}
+}
+
+func TestRedactDeploySecrets(t *testing.T) {
+	in := `prepare-pack failed: {"agent_token":"SECRETTOKENVALUE1234567890abcdef","sp_priv_s":"AAAA_PRIVATE_KEY_MATERIAL_XXXX"} and more`
+	out := redactDeploySecrets(in)
+	if strings.Contains(out, "SECRETTOKEN") || strings.Contains(out, "PRIVATE_KEY_MATERIAL") {
+		t.Fatalf("secret leaked: %s", out)
+	}
+	if !strings.Contains(out, "redacted") && !strings.Contains(out, "[redacted]") {
+		t.Fatalf("expected redaction markers: %s", out)
+	}
+}
+
+func TestFailDeployRedactsJournal(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "198.51.100.77"
+	var prev *DeployOrchState
+	_ = checkpointSuccess(&prev, "p", "a", host, StageProvisioned)
+	err := failDeploy(&prev, "p", "a", host, fmt.Errorf("boom token=SUPERSECRETVALUE123456789012345 and sp_priv_s=XYZ"))
+	if err == nil {
+		t.Fatal("expected err")
+	}
+	if strings.Contains(err.Error(), "SUPERSECRET") {
+		t.Fatalf("err leaked: %v", err)
+	}
+	st, _ := loadDeployState(host)
+	if st != nil && strings.Contains(st.LastError, "SUPERSECRET") {
+		t.Fatalf("journal leaked: %s", st.LastError)
 	}
 }

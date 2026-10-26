@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -454,8 +455,49 @@ func failDeploy(prev **DeployOrchState, peerID, agentID, host string, err error)
 	if err == nil {
 		return nil
 	}
-	if cerr := checkpointFailure(prev, peerID, agentID, host, err.Error()); cerr != nil {
-		return fmt.Errorf("%w (also journal: %v)", err, cerr)
+	safe := redactDeploySecrets(err.Error())
+	safeErr := fmt.Errorf("%s", safe)
+	if cerr := checkpointFailure(prev, peerID, agentID, host, safe); cerr != nil {
+		return fmt.Errorf("%w (also journal: %v)", safeErr, cerr)
 	}
-	return err
+	return safeErr
+}
+
+var (
+	reJSONBlob  = regexp.MustCompile(`(?s)\{[^{}]{0,20}"(sp_priv|ps_priv|agent_token|token|private)"[^{}]{0,500}\}`)
+	reLongB64   = regexp.MustCompile(`[A-Za-z0-9+/]{40,}={0,2}`)
+	rePrivField = regexp.MustCompile(`(?i)(sp_priv_[ps]|ps_priv_[ps]|agent_token|BEGIN [A-Z ]+PRIVATE KEY)[^\s"]*`)
+)
+
+// redactDeploySecrets strips tokens/keys from diagnostics before journal/errors.
+func redactDeploySecrets(s string) string {
+	if s == "" {
+		return s
+	}
+	s = reJSONBlob.ReplaceAllString(s, "{redacted}")
+	s = rePrivField.ReplaceAllString(s, "$1=redacted")
+	// token=VALUE / agent_token=VALUE style
+	s = regexp.MustCompile(`(?i)(token|secret|password|passphrase)=\S+`).ReplaceAllString(s, "$1=redacted")
+	s = reLongB64.ReplaceAllString(s, "[redacted]")
+	if len(s) > 800 {
+		s = s[:800] + "…"
+	}
+	return s
+}
+
+// ensureSecureDir creates dir at 0700 and forces mode if already present.
+func ensureSecureDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	fi, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if fi.Mode().Perm()&0o077 != 0 {
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return fmt.Errorf("chmod %s: %w", dir, err)
+		}
+	}
+	return nil
 }

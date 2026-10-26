@@ -1,3 +1,12 @@
+## 0.9.564
+
+- Deploy: no remote /tmp material file — bootstrap-secondary via SSH stdin
+- failDeploy redacts tokens/keys; sensitive errors omit remote stdout
+- peer-add prep: set -e
+- After heartbeat: require PBK/SID/public_ip/singbox_ok for subscription readiness
+- Note vpn_hostname presence (DNS cutover vs direct-IP profiles)
+- Tests for secret redaction in errors/journal
+
 ## 0.9.563
 
 - Remove global /tmp wipe of nd-svc-material-*.json (unsafe across processes)
