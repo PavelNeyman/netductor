@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
@@ -202,8 +201,8 @@ See: netductor tui → Setup wizard`)
 					os.Exit(2)
 				}
 				i++
-				n, err := strconv.Atoi(args[i])
-				if err != nil || n < 1 || n > 65535 {
+				n, err := operator.ParseSSHPort(args[i])
+				if err != nil || n == 0 {
 					fmt.Fprintf(os.Stderr, "invalid --primary-ssh-port %q (need 1-65535)\n", args[i])
 					os.Exit(2)
 				}

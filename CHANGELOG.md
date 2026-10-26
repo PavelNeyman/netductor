@@ -1,3 +1,8 @@
+## 0.9.544
+
+- CLI --primary-ssh-port uses ParseSSHPort. Web payload omits an empty port and is covered by ssh_port_test.js.
+
+
 ## 0.9.543
 
 - Web omits primary_ssh_port when the field is empty. CLI errors if --primary-ssh-port has no value.

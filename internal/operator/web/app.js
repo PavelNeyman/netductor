@@ -7,6 +7,12 @@ function sshPortValue(raw){
   if(n<1||n>65535) return null;
   return n;
 }
+function applySshPort(body, raw){
+  const v=sshPortValue(raw);
+  if(v===null) return false;
+  if(v) body.primary_ssh_port=v;
+  return true;
+}
 const ND_TOKEN = (function(){
   // Prefer injected literal from /static/app.js; fallback meta on index.html.
   const injected = '/*__ND_TOKEN__*/';
@@ -436,7 +442,7 @@ document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); co
     with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
     with_telegram:fd.get('with_telegram')==='on',
     tg_token:(fd.get('tg_token')||'').trim(), tg_admin:(fd.get('tg_admin')||'').trim() };
-  if(fleetPort) fleetBody.primary_ssh_port=fleetPort;
+  if(!applySshPort(fleetBody, fd.get('primary_ssh_port'))){ alert('Invalid primary SSH port (1-65535)'); return; }
   await streamPost('/v1/fleet', fleetBody, e.submitter); };
 document.getElementById('form-primary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; saveForm('primary',fd);
   await streamPost('/v1/primary',{ host:fd.get('host'), password:fd.get('password'), domain_base:fd.get('domain_base'), domain_primary:fd.get('domain_primary'), domain_vpn:fd.get('domain_vpn'), domain_redirect:fd.get('domain_redirect'), le_email:fd.get('le_email'),
@@ -454,7 +460,7 @@ document.getElementById('form-build')&&(document.getElementById('form-build').on
 document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); const secPort=sshPortValue(fd.get('primary_ssh_port')); if(secPort===null){ alert('Invalid primary SSH port (1-65535)'); return; } saveForm('secondary',fd);
   const secBody={ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), primary_key_passphrase:(fd.get('primary_key_passphrase')||fd.get('key_passphrase')||''), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
     peer_id:(fd.get('peer_id')||''), secondary_ssh_key:fd.get('secondary_ssh_key'), ssh_mode:(fd.get('ssh_mode')||'initial'), sni:(fd.get('sni')||'api.vk.me') };
-  if(secPort) secBody.primary_ssh_port=secPort;
+  if(!applySshPort(secBody, fd.get('primary_ssh_port'))){ alert('Invalid primary SSH port (1-65535)'); return; }
   await streamPost('/v1/secondary', secBody, e.submitter); };
 document.getElementById('form-site').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('site',fd);
   await streamPost('/v1/site',{
