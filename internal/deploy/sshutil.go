@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -166,6 +167,50 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+// runSSHOnPortWithStdin is like runSSHOnPort but feeds stdin to the remote command.
+// Secrets must travel on stdin, never in remoteCmd argv.
+func runSSHOnPortWithStdin(port, password, keyPath, user, host, remoteCmd, keyPassphrase string, stdin []byte) (string, error) {
+	if port == "" {
+		port = sshPort()
+	}
+	target := user + "@" + host
+	usePass := password != ""
+	base := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "")
+	base = append([]string{"-p", port}, base...)
+	run := func(cmd *exec.Cmd) (string, error) {
+		cmd.Stdin = bytes.NewReader(stdin)
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	if usePass {
+		if sp, err := lookSSHPass(); err == nil {
+			args := append([]string{"-e", "ssh"}, base...)
+			args = append(args, "--", target, remoteCmd)
+			cmd := exec.CommandContext(currentSSHCtx(), sp, args...)
+			cmd.Env = append(os.Environ(), "SSHPASS="+password)
+			return run(cmd)
+		}
+		ask, cleanup, err := writeAskPass(password)
+		if err != nil {
+			return "", fmt.Errorf("sshpass missing and ASKPASS failed: %w", err)
+		}
+		defer cleanup()
+		args := append(append([]string{}, base...), "--", target, remoteCmd)
+		cmd := exec.CommandContext(currentSSHCtx(), "setsid", append([]string{"ssh"}, args...)...)
+		cmd.Env = append(os.Environ(), "SSH_ASKPASS="+ask, "SSH_ASKPASS_REQUIRE=force", "DISPLAY=.")
+		return run(cmd)
+	}
+	env, cleanup, err := sshEnvWithAskPass(keyPassphrase)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+	args := append(base, "--", target, remoteCmd)
+	cmd := exec.CommandContext(currentSSHCtx(), "ssh", args...)
+	cmd.Env = env
+	return run(cmd)
 }
 
 func runSCP(password, keyPath, user, host, local, remotePath, keyPassphrase string) error {

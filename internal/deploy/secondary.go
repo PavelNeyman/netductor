@@ -585,10 +585,8 @@ func deploySecondaryBody(o SecondaryOpts) error {
 
 	skipSCP := canSkipMaterialXfer(prev) && prev != nil && prev.MaterialSHA != "" && prev.MaterialSHA == shipSHA
 	if skipSCP {
-		// Compare installed material to ship in memory (no expected file on disk).
-		// python3 required; mismatch reports field names only — never secret values.
-		shipB64 := base64.StdEncoding.EncodeToString(ship)
-		verifyMat := fmt.Sprintf(`set -e
+		// Expected material only on SSH stdin (not argv, not /tmp). Field names only on mismatch.
+		verifyMat := `set -e
 f=/etc/netductor/svc-paths/material.json
 test -f "$f"
 if ! command -v python3 >/dev/null 2>&1; then
@@ -596,9 +594,9 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 2
 fi
 python3 -c '
-import json,sys,base64
+import json,sys
 a=json.load(open(sys.argv[1]))
-b=json.loads(base64.b64decode(sys.argv[2]))
+b=json.load(sys.stdin)
 req=["peer_id","slot","sp_pub_p","ps_pub_p","sp_priv_s","ps_priv_s","sp_pub_s","ps_pub_s",
      "addr_p_sp","addr_s_sp","addr_p_ps","addr_s_ps","port_sp","port_ps","wss_sp","wss_ps","iface_sp","iface_ps"]
 missing_e=[k for k in req if k not in b]
@@ -607,26 +605,36 @@ if missing_e:
     raise SystemExit("expected material missing fields: "+",".join(missing_e))
 if missing_i:
     raise SystemExit("installed material missing fields: "+",".join(missing_i))
-# Full object equality after required keys present (catches future/extra fields).
-if a!=b:
-    diffs=sorted(k for k in set(a)|set(b) if a.get(k)!=b.get(k))
+# Strict JSON equality (sort_keys + type-preserving dumps avoids True==1 pitfalls on diagnostics).
+sa=json.dumps(a, sort_keys=True, separators=(",",":"))
+sb=json.dumps(b, sort_keys=True, separators=(",",":"))
+if sa!=sb:
+    diffs=[]
+    for k in sorted(set(a)|set(b)):
+        if k not in a:
+            diffs.append(k+"(extra)")
+        elif k not in b:
+            diffs.append(k+"(missing)")
+        elif a[k]!=b[k] or type(a[k]) is not type(b[k]):
+            diffs.append(k)
     raise SystemExit("mismatch fields: "+",".join(diffs))
 print("material full match")
-' "$f" %s
-`, ShellQuote(shipB64))
-		if outV, errV := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass); errV != nil {
-			// Do not print remote stdout/stderr — may contain residual diagnostics; field names only from our script is fine but keep minimal.
-			fmt.Fprintln(os.Stderr, "warn: material on B does not match ship — re-SCP:", errV)
-			if outV != "" {
-				// redact-looking lines: never forward lines with priv/key/secret substrings
-				for _, line := range strings.Split(outV, "\n") {
-					l := strings.ToLower(line)
-					if strings.Contains(l, "priv") || strings.Contains(l, "secret") || strings.Contains(l, "token") {
-						continue
-					}
-					if strings.TrimSpace(line) != "" {
-						fmt.Fprintln(os.Stderr, "  remote:", strings.TrimSpace(line))
-					}
+' "$f"
+`
+		outV, errV := runSSHOnPortWithStdin(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass, ship)
+		if errV != nil {
+			fmt.Fprintln(os.Stderr, "warn: material on B does not match ship — re-SCP")
+			for _, line := range strings.Split(outV, "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				l := strings.ToLower(line)
+				if strings.Contains(l, "priv") || strings.Contains(l, "secret") || strings.Contains(l, "token") || strings.Contains(l, "key") {
+					continue
+				}
+				if strings.HasPrefix(line, "mismatch ") || strings.HasPrefix(line, "expected ") || strings.HasPrefix(line, "installed ") || strings.HasPrefix(line, "python3 required") {
+					fmt.Fprintln(os.Stderr, "  remote:", line)
 				}
 			}
 			skipSCP = false

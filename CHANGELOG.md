@@ -1,3 +1,9 @@
+## 0.9.561
+
+- Material verify: expected ship on SSH stdin only (runSSHOnPortWithStdin) — not argv, not /tmp
+- Strict JSON dumps compare + typed field diffs; diagnostics field names only
+- errV not printed; remote lines filtered to mismatch/missing prefixes
+
 ## 0.9.560
 
 - Material verify on B: expected ship only in python memory (base64 argv), no /tmp expected file
