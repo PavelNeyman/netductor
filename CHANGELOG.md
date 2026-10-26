@@ -1,3 +1,9 @@
+## 0.9.539
+
+- PeerAdd refuses a removed id. unitMissing requires a unit-specific message. Empty SID is omitted from /sub.
+- DeploySecondary uses PrimarySSHPort for all primary SSH and rejects an operator binary older than pack min_agent_version before provision.
+
+
 ## 0.9.538
 
 - PeerRemove no longer treats a D-Bus "No such file or directory" as a missing unit. Only a unit-specific systemd message is idempotent.

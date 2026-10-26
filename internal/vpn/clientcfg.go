@@ -64,7 +64,7 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 	type row struct{ Host, PBK, SID, SNI, PublicIP string }
 	var out []row
 	for _, d := range f.Devices {
-		if d.PublicIP == "" || d.PBK == "" {
+		if d.PublicIP == "" || d.PBK == "" || d.SID == "" {
 			continue
 		}
 		if d.LastSeen.IsZero() || now.Sub(d.LastSeen) > 3*time.Minute {

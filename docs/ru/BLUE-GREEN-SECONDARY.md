@@ -24,3 +24,19 @@
 | `netductor svc-paths peer remove <peer-id>` | Service-plane peer/слот на primary. Само по себе URI из подписки не удаляет |
 
 Не удалять A, пока трафик B и DNS cutover не подтверждены. `peer remove` отказывает active peer и больше не ставит `removed`, если очистка unit/файлов не прошла.
+
+## Runbook миграции (v0.9.539)
+
+Раздельные Reality-профили. DNS не переключает профиль. `prepared` не значит traffic-ready. Promote не автоматический.
+
+1. Provision B (`Promote=false`). SSH-порт primary — `PrimarySSHPort` (по умолчанию 52222).
+2. Проверки инфраструктуры: units, ping, свежий heartbeat, непустые PBK/SID, SingBoxOK, UplinkOK.
+3. Внешний клиентский трафик на публичный IP B профилем B. Это не часть успешного deploy.
+4. `peer ready` и `peer promote` только после этого теста трафика.
+5. Пользователи выбирают профиль B из `/sub/{token}`. Пока оба свежие, в списке оба.
+6. Необязательная ручная смена DNS общего hostname. Это не замена профиля B.
+7. Окно наблюдения. A остаётся для rollback.
+8. Удалять A только после приёмки: остановить сервисы A, `secondary remove <agent-id>` (убирает A из `/sub`), затем `peer remove <peer-id>`.
+9. Rollback до конца окна: DNS обратно на A, promote A. Не удалять A первым.
+
+`peer add` на removed id падает. Нужен новый id или recover. Пустой SID/PBK не попадает в `/sub`.

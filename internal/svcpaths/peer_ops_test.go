@@ -65,13 +65,15 @@ func TestPeerRemoveStopsBeforeDelete(t *testing.T) {
 }
 
 func TestStopUnitIdempotentMissing(t *testing.T) {
-	for _, msg := range []string{"Unit foo.service not found.", "not loaded", "unit does not exist"} {
+	for _, msg := range []string{"Unit foo.service not found.", "unit foo.service not loaded", "unit foo does not exist"} {
 		if !unitMissing(msg) {
 			t.Fatalf("should treat as missing: %s", msg)
 		}
 	}
-	if unitMissing("No such file or directory") {
-		t.Fatal("bare no such file is not a missing unit")
+	for _, msg := range []string{"No such file or directory", "not loaded", "not-found"} {
+		if unitMissing(msg) {
+			t.Fatalf("bare %q is not a missing unit", msg)
+		}
 	}
 }
 
@@ -120,7 +122,11 @@ func TestPeerRemoveBusErrorKeepsConfigs(t *testing.T) {
 		t.Fatal(err)
 	}
 	reloaded := false
+	removedFile := false
 	oldStop, oldReload, oldSys := peerRemoveStop, peerRemoveReload, peerRemoveSystemctl
+	oldRm := peerRemoveRemoveFile
+	t.Cleanup(func() { peerRemoveRemoveFile = oldRm })
+	peerRemoveRemoveFile = func(path string) error { removedFile = true; return nil }
 	t.Cleanup(func() {
 		peerRemoveStop, peerRemoveReload, peerRemoveSystemctl = oldStop, oldReload, oldSys
 	})
@@ -138,6 +144,9 @@ func TestPeerRemoveBusErrorKeepsConfigs(t *testing.T) {
 	if reloaded {
 		t.Fatal("reload ran after bus error")
 	}
+	if removedFile {
+		t.Fatal("config remove ran after bus error")
+	}
 	got, err := LoadPeersIndex()
 	if err != nil {
 		t.Fatal(err)
@@ -153,5 +162,22 @@ func TestUnitMissingRejectsBusError(t *testing.T) {
 	}
 	if !unitMissing("Unit nd-wss-sp-server.service not found.") {
 		t.Fatal("real missing unit should match")
+	}
+}
+
+func TestPeerAddRejectsRemoved(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	idx := &PeersIndex{Peers: []ServicePeer{{
+		ID: "peer-old", State: "removed", PublicIP: "203.0.113.9",
+		Slot: SlotTable()[1],
+	}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-old", PublicIP: "203.0.113.9", PrimaryIP: "198.51.100.1"})
+	if err == nil || !strings.Contains(err.Error(), "removed") {
+		t.Fatalf("add after remove must fail, got %v", err)
 	}
 }

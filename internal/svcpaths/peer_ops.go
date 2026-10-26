@@ -115,6 +115,9 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err := validatePublicIP(o.PublicIP); err != nil {
 		return nil, nil, err
 	}
+	if removed := idx.findAny(o.PeerID); removed != nil && removed.State == "removed" {
+		return nil, nil, fmt.Errorf("peer %s is removed (units and configs were torn down); use a new id or peer recover — add does not rebuild a removed peer", o.PeerID)
+	}
 	if existing := idx.Find(o.PeerID); existing != nil {
 		m, err := loadPeerMaterial(o.PeerID)
 		if err != nil {
@@ -465,7 +468,7 @@ func snapshotPromote() (*promoteSnap, error) {
 
 func restoreFile(path, content string, existed bool, mode os.FileMode) error {
 	if !existed {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		if err := peerRemoveRemoveFile(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		return nil
@@ -638,7 +641,7 @@ func PeerRemove(peerID string) error {
 		"/etc/systemd/system/" + spUnit + ".service",
 		"/etc/systemd/system/" + psUnit + ".service",
 	} {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		if err := peerRemoveRemoveFile(path); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("peer %s remove file %s (not marked removed): %w", peerID, path, err)
 		}
 	}
@@ -694,6 +697,7 @@ func logPeerJournal(op, peerID, state, detail string) {
 // peerRemoveStop / peerRemoveReload / peerRemoveSystemctl are overridable in tests.
 var peerRemoveStop = stopUnitIdempotent
 var peerRemoveReload = reloadSystemd
+var peerRemoveRemoveFile = os.Remove
 var peerRemoveSystemctl = func(args ...string) ([]byte, error) {
 	return exec.Command("systemctl", args...).CombinedOutput()
 }
@@ -742,9 +746,11 @@ func safeUnitName(s string) bool {
 func unitMissing(msg string) bool {
 	m := strings.ToLower(strings.TrimSpace(msg))
 	// Only a unit-specific systemd message. A D-Bus "No such file or directory" is not this.
-	return strings.Contains(m, "not-found") ||
-		strings.Contains(m, "unit not found") ||
-		strings.Contains(m, ".service not found") ||
-		strings.Contains(m, "not loaded") ||
-		(strings.Contains(m, "does not exist") && strings.Contains(m, "unit"))
+	// Unit-specific only. Bare "not found" / "not loaded" / "not-found" is not enough.
+	hasUnit := strings.Contains(m, "unit ") || strings.Contains(m, ".service")
+	if !hasUnit {
+		return false
+	}
+	return strings.Contains(m, "not found") || strings.Contains(m, "not-found") ||
+		strings.Contains(m, "not loaded") || strings.Contains(m, "does not exist")
 }

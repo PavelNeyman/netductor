@@ -168,3 +168,19 @@ Two different removes:
 | `netductor svc-paths peer remove <peer-id>` | Service-plane peer/slot on primary. Does not by itself drop the subscription URI |
 
 Do not remove A until B traffic and DNS cutover are confirmed. `peer remove` refuses the active peer and no longer marks `removed` if unit/file cleanup failed.
+
+## Migration runbook (v0.9.539)
+
+Separate Reality profiles. DNS does not switch a profile. `prepared` is not traffic-ready. Promote is not automatic.
+
+1. Provision B (`Promote=false`). Primary SSH port comes from `PrimarySSHPort` (default 52222).
+2. Infrastructure checks: units, ping, fresh heartbeat, non-empty PBK/SID, SingBoxOK, UplinkOK.
+3. External client traffic test against B's public IP with B's profile. Not part of deploy success.
+4. `peer ready` then `peer promote` only after that traffic test.
+5. Users pick the B profile from `/sub/{token}`. Both A and B are listed while both are fresh.
+6. Optional manual DNS cutover of the shared hostname. Not a substitute for the B profile.
+7. Observation window. Keep A up for rollback.
+8. Remove A only after sign-off: stop A services, `secondary remove <agent-id>` (drops A from `/sub`), then `peer remove <peer-id>`.
+9. Rollback before the window ends: DNS back to A, promote A. Do not remove A first.
+
+`peer add` of a removed id fails. Use a new id or recover. Empty SID/PBK is omitted from `/sub`.

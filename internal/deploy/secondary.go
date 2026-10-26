@@ -13,6 +13,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
+	"github.com/PavelNeyman/netductor/internal/version"
 )
 
 // SecondaryOpts — provision RU secondary from operator workstation (Mac).
@@ -27,10 +28,12 @@ type SecondaryOpts struct {
 	PrimaryUser          string
 	PrimaryKey           string // Mac private key path (pubkey = path+".pub")
 	PrimaryKeyPassphrase string
-	SecondaryHost        string
-	SecondaryUser        string
-	SecondaryPass        string
-	SecondarySSHKey      string // resume: key already on secondary. Empty uses PrimaryKey.
+	// PrimarySSHPort is the SSH port on primary. 0 means 52222.
+	PrimarySSHPort  int
+	SecondaryHost   string
+	SecondaryUser   string
+	SecondaryPass   string
+	SecondarySSHKey string // resume: key already on secondary. Empty uses PrimaryKey.
 	// SSHMode: "initial" (port 22 + password) or "resume" (port 52222 + key).
 	// Empty: password-only → initial; key-only → resume; both → error.
 	SSHMode        string
@@ -330,10 +333,14 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 
 	fmt.Fprintln(os.Stderr, "==> secondary deploy: Mac-direct (primary prepares pack; Mac SSHs to secondary)")
-	fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost)
+	pPort, errP := primarySSHPort(o)
+	if errP != nil {
+		return errP
+	}
+	fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost, "port", pPort)
 
 	prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
-	out, err := runSSHOnPort("52222", "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
+	out, err := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 	if err != nil {
 		return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
 	}
@@ -351,6 +358,14 @@ func DeploySecondary(o SecondaryOpts) error {
 	const packSchema = 1
 	if pack.SchemaVersion != packSchema {
 		return fmt.Errorf("prepare-pack schema_version %d unsupported (need %d; missing/0 rejected)", pack.SchemaVersion, packSchema)
+	}
+	if pack.MinAgentVersion != "" {
+		if !version.ValidDotVersion(pack.MinAgentVersion) {
+			return fmt.Errorf("prepare-pack min_agent_version %q invalid", pack.MinAgentVersion)
+		}
+		if version.Less(version.Release, pack.MinAgentVersion) {
+			return fmt.Errorf("operator binary %s older than pack min_agent_version %s — upgrade before provision", version.Release, pack.MinAgentVersion)
+		}
 	}
 	ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
 	if err != nil {
@@ -406,7 +421,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 
 	fmt.Fprintln(os.Stderr, "==> primary: secondary sync + fleet status")
-	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
+	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
 		"netductor secondary sync && netductor fleet status",
 		o.PrimaryKeyPassphrase)
 	fmt.Print(out)
@@ -427,7 +442,7 @@ func DeploySecondary(o SecondaryOpts) error {
 		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
 		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
 	)
-	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
+	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	if err != nil {
 		return fmt.Errorf("svc-paths peer add: %w\n%s", err, out)
 	}
@@ -522,7 +537,7 @@ else
   echo "ufw inactive or missing - skip (bootstrap may still open ports; production should enable ufw)"
 fi
 `, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP, mat.WSSSP)
-	if outU, errU := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
+	if outU, errU := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
 		return fmt.Errorf("svc-paths primary firewall for peer slot: %w\n%s", errU, outU)
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outU))
@@ -547,7 +562,7 @@ ping -c1 -W3 %s >/dev/null
 echo "primary peer units+ping ok -> %s %s"
 `, ShellQuote(spUnit), ShellQuote(psUnit), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS))
-	if outP2, errP2 := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
+	if outP2, errP2 := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
 		return fmt.Errorf("svc-paths primary SP/PS units/ping: %v\n%s", errP2, outP2)
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
@@ -578,7 +593,7 @@ for i in $(seq 1 18); do
   now=$(date +%%s)
 done
 test "$ok" = 1`, ShellQuote(pack.AgentID))
-	out, err = runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
+	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
@@ -595,7 +610,7 @@ netductor svc-paths peer ready %s
 netductor svc-paths peer promote %s
 echo "promoted %s"
 `, ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID), ShellQuote(peerID))
-		outP, errP := runSSHOnPort(day2Port, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, promCmd, o.PrimaryKeyPassphrase)
+		outP, errP := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, promCmd, o.PrimaryKeyPassphrase)
 		if errP != nil {
 			return fmt.Errorf("svc-paths peer promote after deploy: %w\n%s", errP, outP)
 		}
@@ -633,4 +648,15 @@ func expandUserPath(p string) string {
 		}
 	}
 	return p
+}
+
+func primarySSHPort(o SecondaryOpts) (string, error) {
+	port := o.PrimarySSHPort
+	if port <= 0 {
+		port = 52222
+	}
+	if port > 65535 {
+		return "", fmt.Errorf("primary SSH port %d invalid", port)
+	}
+	return fmt.Sprintf("%d", port), nil
 }

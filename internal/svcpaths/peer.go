@@ -110,6 +110,15 @@ func SavePeersIndex(idx *PeersIndex) error {
 	return os.Rename(tmp, peersIndexPath())
 }
 
+func (idx *PeersIndex) findAny(id string) *ServicePeer {
+	for i := range idx.Peers {
+		if idx.Peers[i].ID == id {
+			return &idx.Peers[i]
+		}
+	}
+	return nil
+}
+
 func (idx *PeersIndex) Find(id string) *ServicePeer {
 	for i := range idx.Peers {
 		if idx.Peers[i].ID == id && idx.Peers[i].State != "removed" {

@@ -85,3 +85,17 @@ func TestRequirePublicIPv4(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPrimarySSHPort(t *testing.T) {
+	p, err := primarySSHPort(SecondaryOpts{})
+	if err != nil || p != "52222" {
+		t.Fatalf("default: %s %v", p, err)
+	}
+	p, err = primarySSHPort(SecondaryOpts{PrimarySSHPort: 2200})
+	if err != nil || p != "2200" {
+		t.Fatalf("custom: %s %v", p, err)
+	}
+	if _, err := primarySSHPort(SecondaryOpts{PrimarySSHPort: 70000}); err == nil {
+		t.Fatal("invalid port accepted")
+	}
+}

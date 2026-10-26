@@ -119,3 +119,36 @@ func TestUniqueProfileLabelOnSameIP(t *testing.T) {
 		t.Fatalf("got %s %s", a, b)
 	}
 }
+
+func TestEmptySIDOmitted(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
+	t.Setenv("NETDUCTOR_STATE", filepath.Join(root, "state"))
+	t.Setenv("NETDUCTOR_VPN_HOST", "vpn.example.test")
+	if err := os.MkdirAll(filepath.Join(root, "etc", "secrets"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, value := range map[string]string{"singbox_reality_public": "core-pbk", "singbox_short_id": "core-sid"} {
+		if err := os.WriteFile(filepath.Join(root, "etc", "secrets", name), []byte(value), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "etc", "vpn-users.json"), []byte(`{"users":[{"name":"alice","uuid":"00000000-0000-0000-0000-000000000001","enabled":true,"sub_profile":"secondary"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := paths.SecondaryDevicesFile()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw := `{"devices":[{"public_ip":"203.0.113.11","pbk":"secondary-a-pbk","sid":"","sni":"sni.example.test","last_seen":"` + time.Now().UTC().Format(time.RFC3339) + `"}]}`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body, err := SubscriptionBody("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(body, "secondary-a-pbk") {
+		t.Fatalf("empty SID must not produce a profile: %s", body)
+	}
+}
