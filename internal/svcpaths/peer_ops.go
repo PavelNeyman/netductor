@@ -700,7 +700,16 @@ func stopUnitIdempotent(unit string) error {
 	if err == nil {
 		return nil
 	}
-	if unitMissing(string(out) + " " + err.Error()) {
+	// systemctl never started (missing binary, permission on exec). Fail closed.
+	var execErr *exec.Error
+	if errors.As(err, &execErr) {
+		return fmt.Errorf("systemctl not started: %w", err)
+	}
+	if _, ok := err.(*exec.ExitError); !ok {
+		return fmt.Errorf("systemctl not started: %w", err)
+	}
+	// systemctl ran and reported this unit absent — idempotent.
+	if unitMissing(string(out)) {
 		return nil
 	}
 	return fmt.Errorf("disable %s: %v: %s", unit, err, strings.TrimSpace(string(out)))

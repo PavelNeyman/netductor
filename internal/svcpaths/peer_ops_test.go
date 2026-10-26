@@ -70,3 +70,36 @@ func TestStopUnitIdempotentMissing(t *testing.T) {
 		}
 	}
 }
+
+func TestPeerRemoveSystemctlNotStarted(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	idx := &PeersIndex{Peers: []ServicePeer{{
+		ID: "peer-c", State: "prepared",
+		Slot: SlotTable()[1],
+	}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	reloaded := false
+	oldStop, oldReload := peerRemoveStop, peerRemoveReload
+	t.Cleanup(func() { peerRemoveStop, peerRemoveReload = oldStop, oldReload })
+	peerRemoveStop = stopUnitIdempotent
+	peerRemoveReload = func() error { reloaded = true; return nil }
+	t.Setenv("PATH", t.TempDir())
+	err := PeerRemove("peer-c")
+	if err == nil || !strings.Contains(err.Error(), "not started") {
+		t.Fatalf("got %v", err)
+	}
+	if reloaded {
+		t.Fatal("reload ran when systemctl did not start")
+	}
+	got, err := LoadPeersIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Find("peer-c").State == "removed" {
+		t.Fatal("peer marked removed when systemctl did not start")
+	}
+}

@@ -1,3 +1,8 @@
+## 0.9.537
+
+- PeerRemove treats a missing systemctl binary as a start failure, not a missing unit. Configs stay if systemctl never ran.
+
+
 ## 0.9.536
 
 - PeerRemove stops units first and does not delete configs if stop fails. Missing units are idempotent. State stays until cleanup succeeds.
