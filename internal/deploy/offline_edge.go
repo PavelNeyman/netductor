@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
 )
 
 // EdgeOfflineManifest is written under ~/.cache/netductor/offline/edge/manifest.json

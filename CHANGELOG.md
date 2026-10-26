@@ -1,3 +1,9 @@
+## 0.9.552
+
+- DeploySecondary: checkpoints material_transferred, secondary_bootstrapped, firewall_verified, network_verified; journal on every mid-path failure
+- Resume: journal stage≥secondary_bootstrapped → verify-only on B (no re-bootstrap unless verify fails → full boot on next full path)
+- Tests: full stage chain
+
 ## 0.9.551
 
 - DeploySecondary: structured orchestration journal (`state-<host>.json` + `journal.log`) with stages; resume skips provision when stage≥provisioned and key SSH works

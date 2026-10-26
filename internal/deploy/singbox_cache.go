@@ -165,7 +165,6 @@ func EnsureSingBoxCached(agentArch string) (string, error) {
 	return dest, nil
 }
 
-
 func fileSHA256HexFile(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {

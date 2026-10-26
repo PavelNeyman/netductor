@@ -76,3 +76,9 @@
 - успех → state очищается (`deploy_complete`)
 
 Клиентский Reality-трафик и DNS — по-прежнему вне deploy.
+
+### Этапы journal (0.9.552)
+
+`provision_started` → `provisioned` → `peer_add_started` → `peer_prepared` → `material_transferred` → `secondary_bootstrapped` → `firewall_verified` → `network_verified` → `heartbeat_verified` → `deploy_complete`.
+
+При `secondary_bootstrapped`+ повторный deploy только проверяет units/ping на B (без повторного `bootstrap-secondary`), если verify OK.

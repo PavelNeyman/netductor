@@ -93,8 +93,8 @@ var defaultUSBPkgNames = []string{
 	"kmod-fs-ext4",
 	"kmod-lib-crc16",
 	"block-mount",
-	"librt",       // target base — required by libuuid1 on OpenWrt apk
-	"libpthread",  // often pulled with librt on musl systems
+	"librt",      // target base — required by libuuid1 on OpenWrt apk
+	"libpthread", // often pulled with librt on musl systems
 	"libuuid1",
 	"libblkid1",
 	"libcomerr0", // OpenWrt packages as libcomerr0 (not libcomerr2)
@@ -151,7 +151,6 @@ func ParseUSBPkgList(s string) []string {
 	}
 	return out
 }
-
 
 // ResolveUSBPkgNames returns override if non-empty, else defaults.
 func ResolveUSBPkgNames(override []string) []string {

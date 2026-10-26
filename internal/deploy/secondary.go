@@ -543,17 +543,30 @@ func DeploySecondary(o SecondaryOpts) error {
 		scpErr = runSCPOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
 	}
 	if scpErr != nil {
+		writeDeployJournalErr(scpErr.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
 	}
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageMaterialTransferred)
 
 	// Slot-aware verification on B (not hardcoded slot 0).
+	secVerify := fmt.Sprintf(`set -e
+test -f /etc/netductor/secrets/secondary_core_url
+grep -q %s /etc/netductor/secrets/secondary_core_url
+for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
+  st=$(systemctl is-active "$u" 2>/dev/null || true)
+  test "$st" = active
+done
+ping -c1 -W3 %s >/dev/null
+ping -c1 -W3 %s >/dev/null
+echo "svc-paths secondary verify ok slot_iface=%s/%s"
+`, ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
+		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 	secBoot := fmt.Sprintf(`set -e
 trap 'rm -f /tmp/nd-svc-material.json' EXIT
 chmod 600 /tmp/nd-svc-material.json
 netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json
 test -f /etc/netductor/secrets/secondary_core_url
 grep -q %s /etc/netductor/secrets/secondary_core_url
-# Contract: on Secondary, WSS client/server unit names are shared; WG ifaces are per-slot.
 for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
   st=$(systemctl is-active "$u" 2>/dev/null || true)
   test "$st" = active
@@ -563,21 +576,29 @@ ping -c1 -W3 %s >/dev/null
 echo "svc-paths secondary ok slot_iface=%s/%s"
 `, ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
+	bootScript := secBoot
+	if canSkipBootstrapB(prev) {
+		fmt.Fprintln(os.Stderr, "==> skip bootstrap-secondary (journal) — verify units+ping only")
+		bootScript = secVerify
+	}
 
-	out2, err2 := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, secBoot, secPass)
+	out2, err2 := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
 	if err2 != nil {
 		// Retry :22 only on initial (harden may not have stuck). Resume stays on 52222.
 		if o.SSHMode != SSHModeResume && day2Port == "52222" {
-			out2b, err2b := runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, secBoot, secPass)
+			out2b, err2b := runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
 			if err2b != nil {
+				writeDeployJournalErr(err2b.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 				return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b)
 			}
 			out2 = out2b
 		} else {
+			writeDeployJournalErr(err2.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 			return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2, out2)
 		}
 	}
 	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageSecondaryBootstrapped)
 
 	// Primary firewall for this peer: mTLS 8789 from secondary WG IPs + WSS_SP listen.
 	// Fail deploy if ufw is active and rules cannot be applied.
@@ -607,10 +628,12 @@ echo "ufw peer rules verified"
 `, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP)
 	if outU, errU := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
+		writeDeployJournalErr(errU.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 		return fmt.Errorf("svc-paths primary firewall for peer slot: %w\n%s", errU, outU)
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outU))
 	}
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageFirewallVerified)
 
 	// Primary: units active + ping secondary WG endpoints (bidirectional with B's pings to primary).
 	spUnit := "nd-wss-sp-server"
@@ -632,10 +655,12 @@ echo "primary peer units+ping ok -> %s %s"
 `, ShellQuote(spUnit), ShellQuote(psUnit), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS))
 	if outP2, errP2 := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
+		writeDeployJournalErr(errP2.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 		return fmt.Errorf("svc-paths primary SP/PS units/ping: %v\n%s", errP2, outP2)
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
 	}
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageNetworkVerified)
 	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
 	if pack.AgentID == "" {
 		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")

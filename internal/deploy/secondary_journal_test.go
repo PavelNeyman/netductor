@@ -52,3 +52,39 @@ func TestStageRankOrder(t *testing.T) {
 		t.Fatal("complete after heartbeat")
 	}
 }
+
+func TestDeployStageChain(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "203.0.113.50"
+	stages := []string{
+		StageProvisionStarted, StageProvisioned, StagePeerAddStarted, StagePeerPrepared,
+		StageMaterialTransferred, StageSecondaryBootstrapped, StageFirewallVerified,
+		StageNetworkVerified, StageHeartbeatVerified, StageDeployComplete,
+	}
+	for i, s := range stages {
+		writeDeployJournal("peer-c", "ag-1", host, s)
+		st, err := loadDeployState(host)
+		if err != nil || st == nil || st.Stage != s {
+			t.Fatalf("%d %s: %+v %v", i, s, st, err)
+		}
+		if i > 0 && stageRank(s) <= stageRank(stages[i-1]) && s != StageDeployComplete {
+			// ranks non-decreasing through verified path
+			if stageRank(s) < stageRank(stages[i-1]) {
+				t.Fatalf("rank dropped %s -> %s", stages[i-1], s)
+			}
+		}
+	}
+	if !canSkipBootstrapB(mustState(t, host)) {
+		t.Fatal("should skip bootstrap after complete path stages")
+	}
+}
+
+func mustState(t *testing.T, host string) *deployOrchState {
+	t.Helper()
+	st, err := loadDeployState(host)
+	if err != nil || st == nil {
+		t.Fatal(err, st)
+	}
+	return st
+}

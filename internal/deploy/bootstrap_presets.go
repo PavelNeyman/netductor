@@ -39,11 +39,11 @@ type PresetStatus struct {
 
 var builtinBootstrapPresets = []BootstrapPreset{
 	{
-		ID:              "usb-storage",
-		TitleEN:         "USB mass storage",
-		TitleRU:         "USB-накопитель",
-		DescriptionEN:   "kmod + e2fsprogs so the router can see a USB stick and prepare extroot/overlay. Required before overlay/extroot deploy on stock OpenWrt.",
-		DescriptionRU:   "kmod и e2fsprogs, чтобы роутер увидел USB и можно было сделать extroot/overlay. Нужен до deploy с overlay на стоковом OpenWrt.",
+		ID:               "usb-storage",
+		TitleEN:          "USB mass storage",
+		TitleRU:          "USB-накопитель",
+		DescriptionEN:    "kmod + e2fsprogs so the router can see a USB stick and prepare extroot/overlay. Required before overlay/extroot deploy on stock OpenWrt.",
+		DescriptionRU:    "kmod и e2fsprogs, чтобы роутер увидел USB и можно было сделать extroot/overlay. Нужен до deploy с overlay на стоковом OpenWrt.",
 		Packages:         nil, // filled in BootstrapPresets()
 		RequiresUSBSlot:  true,
 		MinOverlayFreeKB: 4096, // need room to unpack kmods on flash
@@ -75,9 +75,9 @@ func BootstrapPresetByID(id string) (BootstrapPreset, error) {
 
 // BootstrapEvalOpts optional size gates from last probe.
 type BootstrapEvalOpts struct {
-	USBVisible     bool
-	OverlayFreeKB  int64 // 0 = unknown
-	USBSizeKB      int64 // largest USB disk; 0 = unknown / none
+	USBVisible    bool
+	OverlayFreeKB int64 // 0 = unknown
+	USBSizeKB     int64 // largest USB disk; 0 = unknown / none
 }
 
 // EvaluateBootstrapPresets builds UI status from installed packages and optional size facts.
