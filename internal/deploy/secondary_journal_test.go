@@ -10,7 +10,7 @@ func TestDeployJournalStateRoundTrip(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	host := "198.51.100.10"
-	var prev *deployOrchState
+	var prev *DeployOrchState
 	if err := checkpointSuccess(&prev, "peer-x", "agent-1", host, StageProvisioned); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestFailedRecoverableKeepsLastSuccess(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	host := "198.51.100.20"
-	var prev *deployOrchState
+	var prev *DeployOrchState
 	if err := checkpointSuccess(&prev, "peer-y", "ag-2", host, StageNetworkVerified); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestPeerIDPreservedAcrossStages(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	host := "198.51.100.40"
-	var prev *deployOrchState
+	var prev *DeployOrchState
 	if err := checkpointSuccess(&prev, "custom-peer", "", host, StageProvisionStarted); err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestDeployStageChain(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	host := "203.0.113.50"
-	var prev *deployOrchState
+	var prev *DeployOrchState
 	stages := []string{
 		StageProvisionStarted, StageProvisioned, StagePeerAddStarted, StagePeerPrepared,
 		StageMaterialTransferred, StageSecondaryBootstrapped, StageFirewallVerified,
@@ -191,7 +191,7 @@ func TestMaterialSHAPreservedOnFailure(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	host := "198.51.100.70"
-	var prev *deployOrchState
+	var prev *DeployOrchState
 	sha := "abcdef0123456789"
 	if err := checkpointSuccessWithSHA(&prev, "peer-m", "ag-m", host, StageMaterialTransferred, sha); err != nil {
 		t.Fatal(err)
@@ -215,7 +215,7 @@ func TestMaterialSHAPreservedOnFailure(t *testing.T) {
 }
 
 func TestCanSkipPeerAddUsesLastSuccess(t *testing.T) {
-	st := &deployOrchState{
+	st := &DeployOrchState{
 		LastSuccessfulStage: StagePeerPrepared,
 		Status:              StatusFailedRecoverable,
 		MaterialSHA:         "deadbeef",

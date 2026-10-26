@@ -282,6 +282,19 @@ func extractJSONObject(s string) (string, error) {
 	return string(raw), nil
 }
 
+// materialIdentityPubs extracts stable public identity fields from ship JSON for verify on B.
+func materialIdentityPubs(ship []byte) (spPubP, psPubP string) {
+	var obj map[string]any
+	if json.Unmarshal(ship, &obj) != nil {
+		return "", ""
+	}
+	get := func(k string) string {
+		v, _ := obj[k].(string)
+		return strings.TrimSpace(v)
+	}
+	return get("sp_pub_p"), get("ps_pub_p")
+}
+
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
 
 func DeploySecondary(o SecondaryOpts) error {
@@ -562,14 +575,22 @@ func DeploySecondary(o SecondaryOpts) error {
 
 	skipSCP := canSkipMaterialXfer(prev) && prev != nil && prev.MaterialSHA != "" && prev.MaterialSHA == shipSHA
 	if skipSCP {
-		// Confirm installed material on B matches peer identity (not only journal SHA).
+		spPub, psPub := materialIdentityPubs(ship)
+		pubChecks := ""
+		if spPub != "" {
+			pubChecks += fmt.Sprintf("grep -qF %s \"$f\"\n", ShellQuote(spPub))
+		}
+		if psPub != "" {
+			pubChecks += fmt.Sprintf("grep -qF %s \"$f\"\n", ShellQuote(psPub))
+		}
 		verifyMat := fmt.Sprintf(`set -e
 f=/etc/netductor/svc-paths/material.json
 test -f "$f"
 grep -q '"peer_id"[[:space:]]*:[[:space:]]*"%s"' "$f"
 grep -q '"slot"[[:space:]]*:[[:space:]]*%d' "$f"
+%s
 echo "material identity ok peer=%s slot=%d"
-`, peerID, mat.Slot, peerID, mat.Slot)
+`, peerID, mat.Slot, pubChecks, peerID, mat.Slot)
 		if outV, errV := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass); errV != nil {
 			fmt.Fprintln(os.Stderr, "warn: material on B mismatch journal — re-SCP:", errV, outV)
 			skipSCP = false
@@ -675,8 +696,13 @@ ufw allow from %s to any port %d proto tcp comment nd-wss-sp-slot
 status=$(ufw status)
 need() {
   src="$1"; port="$2"
+  # Require same line: ALLOW + source IP + port/tcp (avoid substring false positives).
   echo "$status" | awk -v src="$src" -v port="$port/tcp" '
-    { for (i=1;i<=NF;i++) { if ($i==src) s=1; if ($i==port) p=1 } if (s && p) found=1; s=0; p=0 }
+    /ALLOW/ {
+      s=0; p=0
+      for (i=1;i<=NF;i++) { if ($i==src) s=1; if ($i==port) p=1 }
+      if (s && p) found=1
+    }
     END { exit found?0:1 }'
 }
 need %s 8789

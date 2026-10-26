@@ -30,9 +30,9 @@ const (
 	StatusComplete          = "complete"
 )
 
-// deployOrchState is durable orchestration state on the operator machine.
+// DeployOrchState is durable orchestration state on the operator machine.
 // Private keys / tokens are never stored here.
-type deployOrchState struct {
+type DeployOrchState struct {
 	PeerID              string    `json:"peer_id"`
 	AgentID             string    `json:"agent_id,omitempty"`
 	Host                string    `json:"host"`
@@ -63,7 +63,7 @@ func deployStatePath(host string) string {
 	return filepath.Join(deployJournalDir(), "state-"+safe+".json")
 }
 
-func loadDeployState(host string) (*deployOrchState, error) {
+func loadDeployState(host string) (*DeployOrchState, error) {
 	path := deployStatePath(host)
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -72,7 +72,7 @@ func loadDeployState(host string) (*deployOrchState, error) {
 		}
 		return nil, fmt.Errorf("deploy state read %s: %w", path, err)
 	}
-	var st deployOrchState
+	var st DeployOrchState
 	if err := json.Unmarshal(b, &st); err != nil {
 		return nil, fmt.Errorf("deploy state corrupt at %s: %w (fix or remove file; refuse blind re-provision)", path, err)
 	}
@@ -96,7 +96,7 @@ func loadDeployState(host string) (*deployOrchState, error) {
 	return &st, nil
 }
 
-func saveDeployState(st *deployOrchState) error {
+func saveDeployState(st *DeployOrchState) error {
 	if st == nil || st.Host == "" {
 		return fmt.Errorf("empty deploy state")
 	}
@@ -111,12 +111,32 @@ func saveDeployState(st *deployOrchState) error {
 	}
 	path := deployStatePath(st.Host)
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
 		return fmt.Errorf("deploy state write: %w", err)
+	}
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("deploy state write: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("deploy state fsync: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("deploy state close: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("deploy state rename: %w", err)
+	}
+	// Best-effort directory fsync (durability of the rename).
+	if d, err := os.Open(dir); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
 	}
 	return nil
 }
@@ -131,8 +151,8 @@ func clearDeployState(host string) error {
 }
 
 // mergeOrchState updates st with non-empty IDs and stage/status; preserves prior IDs.
-func mergeOrchState(prev *deployOrchState, host, peerID, agentID, successStage, status, lastErr, materialSHA string) *deployOrchState {
-	st := &deployOrchState{Host: host, Status: StatusRunning}
+func mergeOrchState(prev *DeployOrchState, host, peerID, agentID, successStage, status, lastErr, materialSHA string) *DeployOrchState {
+	st := &DeployOrchState{Host: host, Status: StatusRunning}
 	if prev != nil {
 		cp := *prev
 		st = &cp
@@ -159,7 +179,7 @@ func mergeOrchState(prev *deployOrchState, host, peerID, agentID, successStage, 
 }
 
 // checkpointSuccess records a confirmed successful stage. Blocking if state cannot be saved.
-func checkpointSuccess(prev **deployOrchState, peerID, agentID, host, stage string) error {
+func checkpointSuccess(prev **DeployOrchState, peerID, agentID, host, stage string) error {
 	st := mergeOrchState(*prev, host, peerID, agentID, stage, StatusRunning, "", "")
 	_ = appendDeployLog(st.PeerID, st.AgentID, host, stage, "")
 	if err := saveDeployState(st); err != nil {
@@ -170,7 +190,7 @@ func checkpointSuccess(prev **deployOrchState, peerID, agentID, host, stage stri
 }
 
 // checkpointSuccessWithSHA records stage and material ship fingerprint.
-func checkpointSuccessWithSHA(prev **deployOrchState, peerID, agentID, host, stage, materialSHA string) error {
+func checkpointSuccessWithSHA(prev **DeployOrchState, peerID, agentID, host, stage, materialSHA string) error {
 	st := mergeOrchState(*prev, host, peerID, agentID, stage, StatusRunning, "", materialSHA)
 	_ = appendDeployLog(st.PeerID, st.AgentID, host, stage, "")
 	if err := saveDeployState(st); err != nil {
@@ -182,7 +202,7 @@ func checkpointSuccessWithSHA(prev **deployOrchState, peerID, agentID, host, sta
 
 // checkpointFailure marks status failed without clearing last_successful_stage.
 
-func checkpointFailure(prev **deployOrchState, peerID, agentID, host, lastErr string) error {
+func checkpointFailure(prev **DeployOrchState, peerID, agentID, host, lastErr string) error {
 	st := mergeOrchState(*prev, host, peerID, agentID, "", StatusFailedRecoverable, lastErr, "")
 	_ = appendDeployLog(st.PeerID, st.AgentID, host, StatusFailedRecoverable, lastErr)
 	if err := saveDeployState(st); err != nil {
@@ -211,7 +231,7 @@ func appendDeployLog(peerID, agentID, host, stage, lastErr string) error {
 	return cerr
 }
 
-func effectiveStage(st *deployOrchState) string {
+func effectiveStage(st *DeployOrchState) string {
 	if st == nil {
 		return ""
 	}
@@ -242,29 +262,89 @@ func stageRank(s string) int {
 	return -1
 }
 
-func canSkipProvision(st *deployOrchState) bool {
+func canSkipProvision(st *DeployOrchState) bool {
 	return stageRank(effectiveStage(st)) >= stageRank(StageProvisioned)
 }
 
-func canSkipPeerAdd(st *deployOrchState) bool {
+func canSkipPeerAdd(st *DeployOrchState) bool {
 	return stageRank(effectiveStage(st)) >= stageRank(StagePeerPrepared)
 }
 
-func canSkipMaterialXfer(st *deployOrchState) bool {
+func canSkipMaterialXfer(st *DeployOrchState) bool {
 	return stageRank(effectiveStage(st)) >= stageRank(StageMaterialTransferred)
 }
 
-func canSkipBootstrapB(st *deployOrchState) bool {
+func canSkipBootstrapB(st *DeployOrchState) bool {
 	return stageRank(effectiveStage(st)) >= stageRank(StageSecondaryBootstrapped)
 }
 
 // Legacy helpers for older call sites / tests.
 func writeDeployJournal(peerID, agentID, host, stage string) {
-	var prev *deployOrchState
+	var prev *DeployOrchState
 	_ = checkpointSuccess(&prev, peerID, agentID, host, stage)
 }
 
 func writeDeployJournalErr(lastErr, peerID, agentID, host, _ string) {
-	var prev *deployOrchState
+	var prev *DeployOrchState
 	_ = checkpointFailure(&prev, peerID, agentID, host, lastErr)
+}
+
+// ListDeployStates returns all state-*.json under the journal dir (may be empty).
+func ListDeployStates() ([]*DeployOrchState, error) {
+	dir := deployJournalDir()
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var out []*DeployOrchState
+	for _, e := range ents {
+		name := e.Name()
+		if !strings.HasPrefix(name, "state-") || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		host := strings.TrimSuffix(strings.TrimPrefix(name, "state-"), ".json")
+		// Host may have been sanitized; load by reconstructed path via ReadFile of full path.
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return nil, err
+		}
+		var st DeployOrchState
+		if err := json.Unmarshal(b, &st); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		if st.Host == "" {
+			st.Host = host
+		}
+		out = append(out, &st)
+	}
+	return out, nil
+}
+
+// FormatDeployStateLine is one-line status for CLI.
+func FormatDeployStateLine(st *DeployOrchState) string {
+	if st == nil {
+		return "(nil)"
+	}
+	return fmt.Sprintf("host=%s peer=%s agent=%s last_ok=%s status=%s err=%s sha=%s",
+		st.Host, st.PeerID, st.AgentID, effectiveStage(st), st.Status, st.LastError, shortSHA(st.MaterialSHA))
+}
+
+func shortSHA(s string) string {
+	if len(s) <= 12 {
+		return s
+	}
+	return s[:12] + "…"
+}
+
+// ClearDeployJournal is the public clear for CLI (host IP or sanitized name).
+func ClearDeployJournal(host string) error {
+	return clearDeployState(host)
+}
+
+// LoadDeployJournal is the public load for CLI.
+func LoadDeployJournal(host string) (*DeployOrchState, error) {
+	return loadDeployState(host)
 }

@@ -11,7 +11,7 @@ import (
 
 func runDeploy(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, `usage: netductor deploy primary|secondary|edge|edge-bootstrap|offline-prep [flags]
+		fmt.Fprintln(os.Stderr, `usage: netductor deploy primary|secondary|edge|edge-bootstrap|offline-prep|journal [flags]
 
   primary   — bootstrap Debian VPS from this machine (Mac/PC)
   secondary — provision RU entry from Mac (prepare-pack on primary; Mac SSHs to secondary)
@@ -48,6 +48,9 @@ See: netductor tui → Setup wizard`)
 		os.Exit(2)
 	}
 	switch args[0] {
+	case "journal", "secondary-journal", "deploy-status":
+		runDeployJournal(args[1:])
+		return
 	case "edge-offline-prep", "offline-prep":
 		var host, user, key, pass, id, ver string
 		user = "root"
@@ -549,4 +552,61 @@ func runEdgeBootstrapCLI(args []string) {
 		os.Exit(1)
 	}
 	fmt.Println("edge-bootstrap ok preset=" + preset)
+}
+
+func runDeployJournal(args []string) {
+	cmd := "list"
+	host := ""
+	if len(args) >= 1 {
+		cmd = args[0]
+	}
+	if len(args) >= 2 {
+		host = args[1]
+	}
+	switch cmd {
+	case "list", "ls", "":
+		sts, err := deploy.ListDeployStates()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if len(sts) == 0 {
+			fmt.Println("no deploy journal states")
+			return
+		}
+		for _, st := range sts {
+			fmt.Println(deploy.FormatDeployStateLine(st))
+		}
+	case "show", "status":
+		if host == "" {
+			fmt.Fprintln(os.Stderr, "usage: netductor-op deploy journal show <secondary-ip>")
+			os.Exit(2)
+		}
+		st, err := deploy.LoadDeployJournal(host)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if st == nil {
+			fmt.Println("no state for", host)
+			return
+		}
+		fmt.Println(deploy.FormatDeployStateLine(st))
+	case "clear":
+		if host == "" {
+			fmt.Fprintln(os.Stderr, "usage: netductor-op deploy journal clear <secondary-ip>")
+			os.Exit(2)
+		}
+		if err := deploy.ClearDeployJournal(host); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("cleared", host)
+	default:
+		fmt.Fprintln(os.Stderr, `usage:
+  netductor-op deploy journal list
+  netductor-op deploy journal show <secondary-ip>
+  netductor-op deploy journal clear <secondary-ip>`)
+		os.Exit(2)
+	}
 }

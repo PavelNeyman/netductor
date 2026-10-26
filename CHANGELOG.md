@@ -1,3 +1,10 @@
+## 0.9.555
+
+- Deploy state: fsync + dir sync on checkpoint write
+- Skip-SCP: verify `sp_pub_p` / `ps_pub_p` on B when present in ship JSON
+- UFW need(): require ALLOW on same line as src+port
+- CLI: `netductor-op deploy journal list|show|clear`
+
 ## 0.9.554
 
 - Resume: material ship SHA256 in journal; skip SCP when SHA matches and B material peer_id/slot verify

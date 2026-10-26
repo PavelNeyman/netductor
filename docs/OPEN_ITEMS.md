@@ -16,6 +16,7 @@ Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARC
 - [x] R2 recover (0.9.498)
 - [x] R3 inventory + API (0.9.498)
 - [x] R4 Web/TG/CLI inventory UI (0.9.499)
+- [x] Deploy journal resume (0.9.550–0.9.555): last_successful_stage, material SHA, skip SCP/bootstrap verify, fail-closed state, `netductor-op deploy journal`
 - [ ] **R5 live cutover** on lab/prod VPS — operator; runbook [BLUE-GREEN-SECONDARY.md](BLUE-GREEN-SECONDARY.md). Code R1–R4 ≠ production cert.
 
 ## Stop line
