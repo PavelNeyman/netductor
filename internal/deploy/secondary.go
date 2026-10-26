@@ -527,12 +527,13 @@ func deploySecondaryBody(o SecondaryOpts) error {
 			ForceReinstall: o.ForceReinstall,
 		}, string(pack.Bundle))
 		if err != nil && isSSHHostKeyError(err) {
-			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("SSH host key mismatch for %s — refuse auto-trust.\n"+
-				"Verify fingerprint offline, then:\n"+
-				"  netductor ssh-hosts forget --kind relay %s\n"+
-				"  ssh-keygen -R %s; ssh-keygen -R '[%s]:22'; ssh-keygen -R '[%s]:52222'\n"+
-				"Re-run deploy (or set ForceReinstall after forget).\n%w",
-				o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, err))
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf(
+				"SSH host key mismatch for %s — refuse auto-trust.\n"+
+					"Verify fingerprint offline, then:\n"+
+					"  netductor ssh-hosts forget --kind relay %s\n"+
+					"  ssh-keygen -R %s; ssh-keygen -R '[%s]:22'; ssh-keygen -R '[%s]:52222'\n"+
+					"Re-run deploy (or set ForceReinstall after forget).",
+				o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost))
 		}
 		if err != nil {
 			// Never print res.Log on failure — may contain remote join diagnostics.

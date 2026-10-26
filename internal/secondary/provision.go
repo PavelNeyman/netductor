@@ -1,8 +1,8 @@
 package secondary
 
 import (
+	"archive/tar"
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -248,17 +248,33 @@ func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) error {
 	if len(ca) == 0 || len(cert) == 0 || len(key) == 0 {
 		return fmt.Errorf("mTLS material incomplete (ca=%d cert=%d key=%d bytes)", len(ca), len(cert), len(key))
 	}
-	enc := func(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
-	script := fmt.Sprintf("set -e\n"+
-		"mkdir -p /etc/netductor/secrets/mtls\n"+
-		"chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls\n"+
-		"echo '%s' | base64 -d > /etc/netductor/secrets/mtls/ca.crt\n"+
-		"echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.crt\n"+
-		"echo '%s' | base64 -d > /etc/netductor/secrets/mtls/client.key\n"+
-		"chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.crt /etc/netductor/secrets/mtls/client.key\n",
-		enc(ca), enc(cert), enc(key))
-	_, err := runSSH(client, script)
-	return err
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for name, data := range map[string][]byte{
+		"ca.crt": ca, "client.crt": cert, "client.key": key,
+	} {
+		hdr := &tar.Header{Name: name, Mode: 0o600, Size: int64(len(data))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if _, err := tw.Write(data); err != nil {
+			return err
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	script := `set -e
+mkdir -p /etc/netductor/secrets/mtls
+chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls
+tar -x -C /etc/netductor/secrets/mtls
+chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.crt /etc/netductor/secrets/mtls/client.key
+`
+	_, err := runSSHWithStdin(client, script, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("mtls material install failed")
+	}
+	return nil
 }
 
 // ProvisionFromCore: keys + mTLS + join while password works, then disable password (harden-last).

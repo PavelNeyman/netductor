@@ -1,3 +1,9 @@
+## 0.9.567
+
+- mTLS client material install via tar on SSH stdin (no base64 in remote argv)
+- Host-key mismatch error omits wrapped remote detail
+- Tests: PeerAdd refuses incomplete op without new keys; resume after material_prepared keeps SHA
+
 ## 0.9.566
 
 - Provision: never print res.Log on error; success allowlisted status only

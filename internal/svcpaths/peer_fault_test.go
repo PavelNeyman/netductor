@@ -814,3 +814,45 @@ func TestAssertPeerMaterialWrongPorts(t *testing.T) {
 		t.Fatal("expected zero port fail")
 	}
 }
+
+func TestPeerAddRefusesIncompleteOpWithoutOverwritingKeys(t *testing.T) {
+	withTestRoot(t)
+	slot := SlotTable()[1]
+	m := sampleMaterial("peer-b", "203.0.113.10", slot)
+	writePeerMaterial(t, m)
+	if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"}); err != nil {
+		t.Fatal(err)
+	}
+	genCalls := 0
+	generateMaterialFn = func(primary, secondary string) (*Material, error) {
+		genCalls++
+		return sampleMaterial("peer-b", secondary, slot), nil
+	}
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1"})
+	if err == nil || !strings.Contains(err.Error(), "peer recover") {
+		t.Fatalf("want refuse incomplete + recover hint, got %v", err)
+	}
+	if genCalls != 0 {
+		t.Fatal("must not generate new keys over incomplete add")
+	}
+	// Same keys still on disk
+	m2, err := loadPeerMaterial("peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m2.SPPrivS != m.SPPrivS || m2.PSPrivS != m.PSPrivS {
+		t.Fatal("keys changed")
+	}
+}
+
+func TestPeerAddRefusesIncompleteByPublicIP(t *testing.T) {
+	withTestRoot(t)
+	slot := SlotTable()[0]
+	m := sampleMaterial("peer-old", "203.0.113.55", slot)
+	writePeerMaterial(t, m)
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-old", PublicIP: "203.0.113.55", PrimaryIP: "1.1.1.1", SlotIndex: 0, Phase: "bootstrap_failed"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-new", PublicIP: "203.0.113.55", PrimaryIP: "1.1.1.1"})
+	if err == nil || !strings.Contains(err.Error(), "incomplete add") {
+		t.Fatalf("want refuse by IP, got %v", err)
+	}
+}

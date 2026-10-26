@@ -424,3 +424,42 @@ func TestMaterialPreparedSameRankAsLegacyTransferred(t *testing.T) {
 		t.Fatal("legacy material_transferred must still skip material stage")
 	}
 }
+
+func TestResumeAfterMaterialPreparedWithoutBootstrap(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "198.51.100.90"
+	var prev *DeployOrchState
+	sha := "deadbeefcafebabe"
+	if err := checkpointSuccessWithSHA(&prev, "peer-r", "ag-r", host, StageMaterialPrepared, sha); err != nil {
+		t.Fatal(err)
+	}
+	st, err := loadDeployState(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !canSkipMaterialXfer(st) {
+		t.Fatal("should skip material after material_prepared")
+	}
+	if canSkipBootstrapForMaterial(st, sha) {
+		t.Fatal("must not skip bootstrap without BootstrappedMaterialSHA")
+	}
+	if canSkipBootstrapForMaterial(st, "other") {
+		t.Fatal("wrong sha must not skip")
+	}
+	// simulate failure then success bootstrap binding
+	_ = failDeploy(&prev, "peer-r", "ag-r", host, safeStageErr("bootstrap-secondary", "ssh", fmt.Errorf("exit status 1")))
+	st, _ = loadDeployState(host)
+	if st.LastSuccessfulStage != StageMaterialPrepared {
+		t.Fatalf("failure must keep material_prepared, got %s", st.LastSuccessfulStage)
+	}
+	if st.MaterialSHA != sha {
+		t.Fatalf("MaterialSHA lost: %s", st.MaterialSHA)
+	}
+	if err := checkpointBootstrapOK(&prev, "peer-r", "ag-r", host, sha); err != nil {
+		t.Fatal(err)
+	}
+	if !canSkipBootstrapForMaterial(prev, sha) {
+		t.Fatal("after bootstrap ok, skip must work for same sha")
+	}
+}
