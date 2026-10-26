@@ -1,3 +1,8 @@
+## 0.9.549
+
+- UFW leftover check matches exact source and port fields. A longer IP or a port with an extra digit no longer blocks remove.
+
+
 ## 0.9.548
 
 - peer ready refuses if state changed during validate, including active. UFW leftover check is source+port, not any mention of the IP. RU runbook puts the traffic test before ready.

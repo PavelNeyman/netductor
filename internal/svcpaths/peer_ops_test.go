@@ -434,3 +434,16 @@ func TestRemovePeerUFWIgnoresOtherRule(t *testing.T) {
 		t.Fatalf("unrelated rule must not block remove: %v", err)
 	}
 }
+
+func TestUFWRulePresentExact(t *testing.T) {
+	status := "Status: active\n18444/tcp ALLOW 203.0.113.90\n22/tcp ALLOW 203.0.113.9\n"
+	if ufwRulePresent(status, "203.0.113.9", "8444") {
+		t.Fatal("prefix IP or leading port digit must not match")
+	}
+	if !ufwRulePresent(status, "203.0.113.90", "18444") {
+		t.Fatal("exact longer IP and port should match")
+	}
+	if !ufwRulePresent("8444/tcp ALLOW 203.0.113.9\n", "203.0.113.9", "8444") {
+		t.Fatal("exact rule should match")
+	}
+}

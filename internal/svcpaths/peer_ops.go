@@ -857,9 +857,19 @@ func peerState(p *ServicePeer) string {
 }
 
 func ufwRulePresent(status, src, port string) bool {
-	needle := port + "/tcp"
+	wantPort := port + "/tcp"
 	for _, line := range strings.Split(status, "\n") {
-		if strings.Contains(line, src) && strings.Contains(line, needle) {
+		fields := strings.Fields(line)
+		hasSrc, hasPort := false, false
+		for _, f := range fields {
+			if f == src {
+				hasSrc = true
+			}
+			if f == wantPort {
+				hasPort = true
+			}
+		}
+		if hasSrc && hasPort {
 			return true
 		}
 	}
