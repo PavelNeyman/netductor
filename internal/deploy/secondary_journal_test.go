@@ -232,3 +232,50 @@ func TestCanSkipPeerAddUsesLastSuccess(t *testing.T) {
 		t.Fatal("should skip material")
 	}
 }
+
+func TestLastSuccessfulStageMonotonic(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "198.51.100.80"
+	var prev *DeployOrchState
+	if err := checkpointSuccessWithSHA(&prev, "peer-m", "ag", host, StageMaterialTransferred, "abc123"); err != nil {
+		t.Fatal(err)
+	}
+	// peer_add_started via markCurrentStep must not regress
+	if err := markCurrentStep(&prev, "peer-m", "ag", host, StagePeerAddStarted); err != nil {
+		t.Fatal(err)
+	}
+	if prev.LastSuccessfulStage != StageMaterialTransferred {
+		t.Fatalf("regressed to %s", prev.LastSuccessfulStage)
+	}
+	if prev.CurrentStep != StagePeerAddStarted {
+		t.Fatalf("current=%s", prev.CurrentStep)
+	}
+	if !canSkipMaterialXfer(prev) {
+		t.Fatal("should still skip material xfer")
+	}
+	// Accidental checkpointSuccess with earlier stage must not regress either
+	if err := checkpointSuccess(&prev, "peer-m", "ag", host, StagePeerPrepared); err != nil {
+		t.Fatal(err)
+	}
+	if prev.LastSuccessfulStage != StageMaterialTransferred {
+		t.Fatalf("checkpointSuccess regressed to %s", prev.LastSuccessfulStage)
+	}
+	if prev.MaterialSHA != "abc123" {
+		t.Fatalf("sha lost %s", prev.MaterialSHA)
+	}
+}
+
+func TestAdvancedJournalBlocksBlindProvisionDecision(t *testing.T) {
+	st := &DeployOrchState{
+		LastSuccessfulStage: StageSecondaryBootstrapped,
+		AgentID:             "ag-1",
+		Status:              StatusRunning,
+	}
+	if !canSkipProvision(st) {
+		t.Fatal("advanced should skip provision")
+	}
+	if !canSkipBootstrapB(st) {
+		t.Fatal("should skip bootstrap")
+	}
+}

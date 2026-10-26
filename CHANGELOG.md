@@ -1,3 +1,11 @@
+## 0.9.556
+
+- Resume P1: `last_successful_stage` is monotonic (peer_add_started / provision_started are current_step only)
+- Advanced journal + SSH/resume failure → refuse automatic re-provision (no fallthrough)
+- Skip-SCP requires both `sp_pub_p` and `ps_pub_p` in ship JSON
+- UFW need(): require ALLOW IN
+- State write uses unique temp files (CreateTemp)
+
 ## 0.9.555
 
 - Deploy state: fsync + dir sync on checkpoint write

@@ -37,6 +37,7 @@ type DeployOrchState struct {
 	AgentID             string    `json:"agent_id,omitempty"`
 	Host                string    `json:"host"`
 	LastSuccessfulStage string    `json:"last_successful_stage"`
+	CurrentStep         string    `json:"current_step,omitempty"` // in-progress op; does not regress last_successful_stage
 	Status              string    `json:"status"`
 	LastError           string    `json:"last_error,omitempty"`
 	MaterialSHA         string    `json:"material_sha,omitempty"` // sha256 of ship JSON (identity)
@@ -110,22 +111,22 @@ func saveDeployState(st *DeployOrchState) error {
 		return err
 	}
 	path := deployStatePath(st.Host)
-	tmp := path + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	tf, err := os.CreateTemp(dir, "state-*.tmp")
 	if err != nil {
-		return fmt.Errorf("deploy state write: %w", err)
+		return fmt.Errorf("deploy state temp: %w", err)
 	}
-	if _, err := f.Write(b); err != nil {
-		_ = f.Close()
+	tmp := tf.Name()
+	if _, err := tf.Write(b); err != nil {
+		_ = tf.Close()
 		_ = os.Remove(tmp)
 		return fmt.Errorf("deploy state write: %w", err)
 	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
+	if err := tf.Sync(); err != nil {
+		_ = tf.Close()
 		_ = os.Remove(tmp)
 		return fmt.Errorf("deploy state fsync: %w", err)
 	}
-	if err := f.Close(); err != nil {
+	if err := tf.Close(); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("deploy state close: %w", err)
 	}
@@ -165,8 +166,11 @@ func mergeOrchState(prev *DeployOrchState, host, peerID, agentID, successStage, 
 		st.AgentID = agentID
 	}
 	if successStage != "" {
-		st.LastSuccessfulStage = successStage
-		st.Stage = successStage
+		// Never regress last_successful_stage (peer_add_started must not wipe material_transferred).
+		if stageRank(successStage) >= stageRank(st.LastSuccessfulStage) {
+			st.LastSuccessfulStage = successStage
+			st.Stage = successStage
+		}
 	}
 	if status != "" {
 		st.Status = status
@@ -176,6 +180,18 @@ func mergeOrchState(prev *DeployOrchState, host, peerID, agentID, successStage, 
 	}
 	st.LastError = lastErr
 	return st
+}
+
+// markCurrentStep records an in-progress operation without regressing last_successful_stage.
+func markCurrentStep(prev **DeployOrchState, peerID, agentID, host, step string) error {
+	st := mergeOrchState(*prev, host, peerID, agentID, "", StatusRunning, "", "")
+	st.CurrentStep = step
+	_ = appendDeployLog(st.PeerID, st.AgentID, host, "step:"+step, "")
+	if err := saveDeployState(st); err != nil {
+		return fmt.Errorf("deploy current step %s: %w", step, err)
+	}
+	*prev = st
+	return nil
 }
 
 // checkpointSuccess records a confirmed successful stage. Blocking if state cannot be saved.

@@ -383,21 +383,28 @@ func DeploySecondary(o SecondaryOpts) error {
 	var raw string
 	var errJ error
 
-	skipProv := canSkipProvision(prev) && o.SSHMode == SSHModeResume && prev != nil && prev.AgentID != ""
-	if skipProv {
+	// Advanced journal: never auto-reprovision. SSH/resume problems fail closed.
+	advanced := canSkipProvision(prev) && prev != nil && prev.AgentID != ""
+	skipProv := false
+	if advanced {
+		if o.SSHMode != SSHModeResume {
+			return fmt.Errorf("deploy journal last_ok=%s agent=%s — refuse full provision in initial SSH mode; use resume (key :52222) or deploy journal clear %s",
+				effectiveStage(prev), prev.AgentID, o.SecondaryHost)
+		}
 		fmt.Fprintln(os.Stderr, "==> skip prepare-pack+provision (journal stage>=provisioned, resume SSH)")
 		pack.AgentID = prev.AgentID
-		// Verify key-only SSH; if fail, fall through to full provision
 		const day2PortProbe = "52222"
 		secKeyP, secPassP := secondaryDialKey(o)
 		if _, errP := runSSHOnPort(day2PortProbe, "", secKeyP, o.SecondaryUser, o.SecondaryHost, "true", secPassP); errP != nil {
-			fmt.Fprintln(os.Stderr, "warn: resume SSH check failed — full provision:", errP)
-			skipProv = false
+			_ = checkpointFailure(&prev, peerIDEarly, prev.AgentID, o.SecondaryHost, errP.Error())
+			return fmt.Errorf("resume SSH %s:52222 failed (journal last_ok=%s) — refuse automatic re-provision: %w",
+				o.SecondaryHost, effectiveStage(prev), errP)
 		}
+		skipProv = true
 	}
 
 	if !skipProv {
-		if err := checkpointSuccess(&prev, peerIDEarly, "", o.SecondaryHost, StageProvisionStarted); err != nil {
+		if err := markCurrentStep(&prev, peerIDEarly, "", o.SecondaryHost, StageProvisionStarted); err != nil {
 			return err
 		}
 		fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost, "port", pPort)
@@ -509,7 +516,7 @@ func DeploySecondary(o SecondaryOpts) error {
 	if canSkipPeerAdd(prev) {
 		fmt.Fprintln(os.Stderr, "==> peer add resume: expect existing material (idempotent PeerAdd, no new keys)")
 	}
-	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StagePeerAddStarted); err != nil {
+	if err := markCurrentStep(&prev, peerID, pack.AgentID, o.SecondaryHost, StagePeerAddStarted); err != nil {
 		return err
 	}
 	pre := fmt.Sprintf(
@@ -574,15 +581,17 @@ func DeploySecondary(o SecondaryOpts) error {
 	defer os.Remove(tmpPath)
 
 	skipSCP := canSkipMaterialXfer(prev) && prev != nil && prev.MaterialSHA != "" && prev.MaterialSHA == shipSHA
+	var pubChecks string
 	if skipSCP {
 		spPub, psPub := materialIdentityPubs(ship)
-		pubChecks := ""
-		if spPub != "" {
-			pubChecks += fmt.Sprintf("grep -qF %s \"$f\"\n", ShellQuote(spPub))
+		if spPub == "" || psPub == "" {
+			fmt.Fprintln(os.Stderr, "warn: ship material missing sp_pub_p/ps_pub_p — refuse skip-SCP")
+			skipSCP = false
+		} else {
+			pubChecks = fmt.Sprintf("grep -qF %s \"$f\"\ngrep -qF %s \"$f\"\n", ShellQuote(spPub), ShellQuote(psPub))
 		}
-		if psPub != "" {
-			pubChecks += fmt.Sprintf("grep -qF %s \"$f\"\n", ShellQuote(psPub))
-		}
+	}
+	if skipSCP {
 		verifyMat := fmt.Sprintf(`set -e
 f=/etc/netductor/svc-paths/material.json
 test -f "$f"
@@ -696,9 +705,9 @@ ufw allow from %s to any port %d proto tcp comment nd-wss-sp-slot
 status=$(ufw status)
 need() {
   src="$1"; port="$2"
-  # Require same line: ALLOW + source IP + port/tcp (avoid substring false positives).
+  # Require same line: ALLOW IN + source IP + port/tcp.
   echo "$status" | awk -v src="$src" -v port="$port/tcp" '
-    /ALLOW/ {
+    /ALLOW[[:space:]]+IN/ {
       s=0; p=0
       for (i=1;i<=NF;i++) { if ($i==src) s=1; if ($i==port) p=1 }
       if (s && p) found=1
