@@ -107,3 +107,15 @@ func TestSubscriptionBodyIncludesAllSecondariesAndDropsRemovedPeer(t *testing.T)
 		t.Fatalf("removed Secondary should disappear: %q", body)
 	}
 }
+
+func TestUniqueProfileLabelOnSameIP(t *testing.T) {
+	used := map[string]int{}
+	a := uniqueProfileLabel("nd-secondary-203-0-113-11", used)
+	b := uniqueProfileLabel("nd-secondary-203-0-113-11", used)
+	if a == b {
+		t.Fatalf("labels collided: %s %s", a, b)
+	}
+	if a != "nd-secondary-203-0-113-11" || b != "nd-secondary-203-0-113-11-2" {
+		t.Fatalf("got %s %s", a, b)
+	}
+}

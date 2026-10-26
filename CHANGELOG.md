@@ -1,3 +1,9 @@
+## 0.9.536
+
+- PeerRemove stops units first and does not delete configs if stop fails. Missing units are idempotent. State stays until cleanup succeeds.
+- Duplicate Secondary labels get a stable -2/-3 suffix.
+
+
 ## 0.9.535
 
 - /sub/{token} lists every recently seen Secondary with a shared hostname and unique labels. Zero or stale LastSeen is omitted.

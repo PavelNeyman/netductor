@@ -626,10 +626,10 @@ func PeerRemove(peerID string) error {
 		return fmt.Errorf("peer %s slot unit name invalid", peerID)
 	}
 	units := []string{"wg-quick@" + ifaceSP, "wg-quick@" + ifacePS, spUnit, psUnit}
-	var errs []string
+	// Stop first. Do not delete configs if a unit is still running.
 	for _, u := range units {
-		if out, err := exec.Command("systemctl", "disable", "--now", u).CombinedOutput(); err != nil {
-			errs = append(errs, fmt.Sprintf("disable %s: %v: %s", u, err, strings.TrimSpace(string(out))))
+		if err := peerRemoveStop(u); err != nil {
+			return fmt.Errorf("peer %s stop failed (configs kept, not marked removed): %w", peerID, err)
 		}
 	}
 	for _, path := range []string{
@@ -639,14 +639,11 @@ func PeerRemove(peerID string) error {
 		"/etc/systemd/system/" + psUnit + ".service",
 	} {
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			errs = append(errs, fmt.Sprintf("remove %s: %v", path, err))
+			return fmt.Errorf("peer %s remove file %s (not marked removed): %w", peerID, path, err)
 		}
 	}
-	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
-		errs = append(errs, fmt.Sprintf("daemon-reload: %v: %s", err, strings.TrimSpace(string(out))))
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("peer %s remove incomplete (not marked removed): %s", peerID, strings.Join(errs, "; "))
+	if err := peerRemoveReload(); err != nil {
+		return fmt.Errorf("peer %s daemon-reload (not marked removed): %w", peerID, err)
 	}
 
 	for i := range idx.Peers {
@@ -694,6 +691,29 @@ func logPeerJournal(op, peerID, state, detail string) {
 	}
 }
 
+// peerRemoveStop / peerRemoveReload are overridable in tests.
+var peerRemoveStop = stopUnitIdempotent
+var peerRemoveReload = reloadSystemd
+
+func stopUnitIdempotent(unit string) error {
+	out, err := exec.Command("systemctl", "disable", "--now", unit).CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	if unitMissing(string(out) + " " + err.Error()) {
+		return nil
+	}
+	return fmt.Errorf("disable %s: %v: %s", unit, err, strings.TrimSpace(string(out)))
+}
+
+func reloadSystemd() error {
+	out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func safeUnitName(s string) bool {
 	if s == "" || strings.ContainsAny(s, "/\\") || strings.Contains(s, "..") {
 		return false
@@ -705,4 +725,11 @@ func safeUnitName(s string) bool {
 		return false
 	}
 	return true
+}
+
+func unitMissing(msg string) bool {
+	m := strings.ToLower(msg)
+	return strings.Contains(m, "not found") || strings.Contains(m, "does not exist") ||
+		strings.Contains(m, "no such file") || strings.Contains(m, "not loaded") ||
+		strings.Contains(m, "not-found")
 }

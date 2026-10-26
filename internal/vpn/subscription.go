@@ -68,6 +68,15 @@ func secondaryProfileLabel(publicIP string, index int) string {
 	return "nd-secondary-" + label
 }
 
+func uniqueProfileLabel(base string, used map[string]int) string {
+	n := used[base]
+	used[base] = n + 1
+	if n == 0 {
+		return base
+	}
+	return fmt.Sprintf("%s-%d", base, n+1)
+}
+
 // SubscriptionBody returns the complete VLESS profile list.
 // secondary: every recently seen Secondary, core only if none.
 // primary: core. both: every Secondary plus core.
@@ -87,10 +96,12 @@ func SubscriptionBody(name string) (string, error) {
 	core := strings.TrimSpace(VLESSLink(name, u.UUID))
 	var secondaries []string
 	seen := make(map[string]bool)
+	usedLabels := make(map[string]int)
 	for i, sec := range loadOnlineSecondarys() {
+		label := uniqueProfileLabel(secondaryProfileLabel(sec.PublicIP, i), usedLabels)
 		link := strings.TrimSpace(ClientLinkForSecondaryProfile(
 			name, u.UUID, sec.Host, sec.PBK, sec.SID, sec.SNI,
-			secondaryProfileLabel(sec.PublicIP, i),
+			label,
 		))
 		if link == "" || seen[link] {
 			continue
