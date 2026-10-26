@@ -1,3 +1,9 @@
+## 0.9.570
+
+- Material mismatch: no remote outV lines — fixed warning only
+- vpn-hostname status: configured/none only (no value echo)
+- RemoteJoin first-install rollback: stop/disable agent, remove partial binary when no PREV
+
 ## 0.9.569
 
 - printRemoteAllowlist: never echo remote lines — fixed "stage: ok" only

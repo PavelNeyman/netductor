@@ -106,7 +106,10 @@ func TestPrintVPNHostnameStatusSafe(t *testing.T) {
 	if strings.Contains(s, "NO") || strings.Contains(s, "sp_priv") {
 		t.Fatalf("leak: %q", s)
 	}
-	if !strings.Contains(s, "vpn_hostname=vpn.example.test") {
-		t.Fatalf("want hostname, got %q", s)
+	if strings.Contains(s, "vpn.example.test") {
+		t.Fatalf("must not echo hostname value: %q", s)
+	}
+	if !strings.Contains(s, "vpn-hostname: configured") {
+		t.Fatalf("want configured status, got %q", s)
 	}
 }

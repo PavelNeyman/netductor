@@ -208,10 +208,15 @@ if [ -x /usr/local/bin/netductor ]; then
   PREV=/var/lib/netductor/netductor.bin.prev
 fi
 rollback() {
-  echo "join/health failed — restoring previous binary if any" >&2
+  echo "join/health failed — restoring previous state if possible" >&2
   if [ -n "$PREV" ] && [ -f "$PREV" ]; then
     install -m 755 "$PREV" /usr/local/bin/netductor
     systemctl start netductor-secondary-agent 2>/dev/null || true
+  else
+    # First install failed: remove partial binary so retry starts clean (no PREV to restore).
+    systemctl stop netductor-secondary-agent 2>/dev/null || true
+    systemctl disable netductor-secondary-agent 2>/dev/null || true
+    rm -f /usr/local/bin/netductor
   fi
 }
 systemctl stop netductor-secondary-agent 2>/dev/null || true

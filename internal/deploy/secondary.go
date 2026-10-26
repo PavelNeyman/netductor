@@ -357,19 +357,19 @@ func printRemoteAllowlist(stage string, out string, prefixes ...string) {
 	fmt.Fprintln(os.Stderr, stage+": ok")
 }
 
-// printVPNHostnameStatus extracts only a validated hostname or a fixed NOTE - never a full remote dump.
+// printVPNHostnameStatus reports whether a shared hostname is configured - never echoes remote body or raw value.
 func printVPNHostnameStatus(out string) {
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "vpn_hostname=") {
 			h := strings.TrimSpace(strings.TrimPrefix(line, "vpn_hostname="))
-			if h != "" && len(h) < 256 && !strings.ContainsAny(h, " \t\r\n") {
-				fmt.Fprintln(os.Stderr, "vpn_hostname="+h)
+			if h != "" && len(h) < 256 {
+				fmt.Fprintln(os.Stderr, "vpn-hostname: configured")
 				return
 			}
 		}
 		if strings.HasPrefix(line, "NOTE:") {
-			fmt.Fprintln(os.Stderr, "NOTE: no shared vpn_hostname - DNS cutover will not retarget direct-IP profiles")
+			fmt.Fprintln(os.Stderr, "vpn-hostname: none")
 			return
 		}
 	}
@@ -669,20 +669,8 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		verifyMat := materialVerifyRemoteCmd()
 		outV, errV := runSSHOnPortWithStdin(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass, ship)
 		if errV != nil {
-			fmt.Fprintln(os.Stderr, "warn: material on B does not match ship — re-SCP")
-			for _, line := range strings.Split(outV, "\n") {
-				line = strings.TrimSpace(line)
-				if line == "" {
-					continue
-				}
-				l := strings.ToLower(line)
-				if strings.Contains(l, "priv") || strings.Contains(l, "secret") || strings.Contains(l, "token") || strings.Contains(l, "key") {
-					continue
-				}
-				if strings.HasPrefix(line, "mismatch ") || strings.HasPrefix(line, "expected ") || strings.HasPrefix(line, "installed ") || strings.HasPrefix(line, "python3 required") {
-					fmt.Fprintln(os.Stderr, "  remote:", line)
-				}
-			}
+			_ = outV // never echo remote verification stdout (secrets hygiene)
+			fmt.Fprintln(os.Stderr, "warn: material verification failed — re-apply via bootstrap stdin")
 			skipSCP = false
 			if prev != nil {
 				prev.BootstrappedMaterialSHA = ""
