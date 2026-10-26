@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/statefile"
 	"github.com/PavelNeyman/netductor/internal/secreq"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 type subEntry struct {

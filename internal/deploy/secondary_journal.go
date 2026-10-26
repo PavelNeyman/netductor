@@ -18,7 +18,8 @@ const (
 	StageProvisioned           = "provisioned"
 	StagePeerAddStarted        = "peer_add_started"
 	StagePeerPrepared          = "peer_prepared"
-	StageMaterialTransferred   = "material_transferred"
+	StageMaterialPrepared      = "material_prepared"
+	StageMaterialTransferred   = "material_transferred" // legacy journal alias
 	StageSecondaryBootstrapped = "secondary_bootstrapped"
 	StageFirewallVerified      = "firewall_verified"
 	StageNetworkVerified       = "network_verified"
@@ -298,12 +299,16 @@ func effectiveStage(st *DeployOrchState) string {
 }
 
 func stageRank(s string) int {
+	// material_prepared and legacy material_transferred share the same rank.
+	if s == StageMaterialTransferred {
+		s = StageMaterialPrepared
+	}
 	order := []string{
 		StageProvisionStarted,
 		StageProvisioned,
 		StagePeerAddStarted,
 		StagePeerPrepared,
-		StageMaterialTransferred,
+		StageMaterialPrepared,
 		StageSecondaryBootstrapped,
 		StageFirewallVerified,
 		StageNetworkVerified,
@@ -327,7 +332,7 @@ func canSkipPeerAdd(st *DeployOrchState) bool {
 }
 
 func canSkipMaterialXfer(st *DeployOrchState) bool {
-	return stageRank(effectiveStage(st)) >= stageRank(StageMaterialTransferred)
+	return stageRank(effectiveStage(st)) >= stageRank(StageMaterialPrepared)
 }
 
 func canSkipBootstrapB(st *DeployOrchState) bool {
@@ -486,6 +491,31 @@ func redactDeploySecrets(s string) string {
 }
 
 // ensureSecureDir creates dir at 0700 and forces mode if already present.
+
+// safeStageErr is the only error form allowed for sensitive deploy steps.
+// It never embeds remote stdout, JSON, or token material — only stage, op, and a coarse class.
+func safeStageErr(stage, op string, err error) error {
+	class := "error"
+	if err != nil {
+		s := strings.ToLower(err.Error())
+		switch {
+		case strings.Contains(s, "timeout") || strings.Contains(s, "deadline"):
+			class = "timeout"
+		case strings.Contains(s, "connection refused"):
+			class = "connection_refused"
+		case strings.Contains(s, "permission denied") || strings.Contains(s, "publickey"):
+			class = "auth"
+		case strings.Contains(s, "no such file"):
+			class = "missing"
+		case strings.Contains(s, "exit status"):
+			class = "exit_status"
+		case strings.Contains(s, "json"):
+			class = "parse"
+		}
+	}
+	return fmt.Errorf("%s: %s failed (%s)", stage, op, class)
+}
+
 func ensureSecureDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err

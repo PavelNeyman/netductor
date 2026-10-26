@@ -1,3 +1,9 @@
+## 0.9.565
+
+- Sensitive deploy errors use safeStageErr (stage/op/class only — no remote payload)
+- Journal stage material_prepared (legacy material_transferred same rank)
+- Tests: preferred secondary first in SubscriptionBody; empty PBK/SID omitted; safeStageErr no secrets
+
 ## 0.9.564
 
 - Deploy: no remote /tmp material file — bootstrap-secondary via SSH stdin

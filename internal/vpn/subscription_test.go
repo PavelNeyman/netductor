@@ -176,3 +176,122 @@ func TestShadowrocketKeepsTwoProfilesSameHost(t *testing.T) {
 		t.Fatalf("same hostname dropped a profile: %s", s)
 	}
 }
+
+func TestSubscriptionPreferredSecondaryFirstAfterPromote(t *testing.T) {
+	root := t.TempDir()
+	etcDir := filepath.Join(root, "etc")
+	stateDir := filepath.Join(root, "state")
+	t.Setenv("NETDUCTOR_ETC", etcDir)
+	t.Setenv("NETDUCTOR_STATE", stateDir)
+	t.Setenv("NETDUCTOR_VPN_HOST", "vpn.example.test")
+	t.Setenv("NETDUCTOR_CORE_HOST", "core.example.test")
+	t.Setenv("PUBLIC_IP", "198.51.100.10")
+	if err := os.MkdirAll(filepath.Join(etcDir, "secrets"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, value := range map[string]string{
+		"singbox_reality_public": "core-pbk",
+		"singbox_short_id":       "core-sid",
+	} {
+		if err := os.WriteFile(filepath.Join(etcDir, "secrets", name), []byte(value), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(etcDir, "vpn-users.json"), []byte(
+		`{"users":[{"name":"alice","uuid":"00000000-0000-0000-0000-000000000001","enabled":true,"sub_profile":"secondary"}]}`,
+	), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	type device struct {
+		PublicIP string    `json:"public_ip"`
+		PBK      string    `json:"pbk"`
+		SID      string    `json:"sid"`
+		SNI      string    `json:"sni"`
+		LastSeen time.Time `json:"last_seen"`
+	}
+	path := paths.SecondaryDevicesFile()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(struct {
+		Devices []device `json:"devices"`
+	}{Devices: []device{
+		{PublicIP: "203.0.113.11", PBK: "pbk-a", SID: "sid-a", SNI: "sni.example", LastSeen: now},
+		{PublicIP: "203.0.113.22", PBK: "pbk-b", SID: "sid-b", SNI: "sni.example", LastSeen: now},
+	}})
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate peer promote: preferred B
+	if err := os.WriteFile(filepath.Join(etcDir, "preferred_secondary_ip"), []byte("203.0.113.22\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := SubscriptionBody("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(body), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("want 2 profiles, got %d: %q", len(lines), body)
+	}
+	if !strings.Contains(lines[0], "pbk-b") {
+		t.Fatalf("promoted B must be first profile: %q", lines[0])
+	}
+	if !strings.Contains(lines[1], "pbk-a") {
+		t.Fatalf("A should remain second: %q", lines[1])
+	}
+	if !strings.Contains(body, "@vpn.example.test:443") {
+		t.Fatalf("must use shared hostname: %q", body)
+	}
+	// Empty SID omitted
+	raw2, _ := json.Marshal(struct {
+		Devices []device `json:"devices"`
+	}{Devices: []device{
+		{PublicIP: "203.0.113.22", PBK: "pbk-b", SID: "sid-b", SNI: "sni.example", LastSeen: now},
+		{PublicIP: "203.0.113.33", PBK: "pbk-empty", SID: "", SNI: "sni.example", LastSeen: now},
+	}})
+	_ = os.WriteFile(path, raw2, 0o600)
+	body, err = SubscriptionBody("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(body, "pbk-empty") {
+		t.Fatalf("empty SID must be omitted: %q", body)
+	}
+	if !strings.Contains(body, "pbk-b") {
+		t.Fatalf("B must remain: %q", body)
+	}
+}
+
+func TestSubscriptionOmitsEmptyPBK(t *testing.T) {
+	root := t.TempDir()
+	etcDir := filepath.Join(root, "etc")
+	t.Setenv("NETDUCTOR_ETC", etcDir)
+	t.Setenv("NETDUCTOR_STATE", filepath.Join(root, "state"))
+	t.Setenv("NETDUCTOR_VPN_HOST", "vpn.example.test")
+	_ = os.MkdirAll(filepath.Join(etcDir, "secrets"), 0o700)
+	_ = os.WriteFile(filepath.Join(etcDir, "secrets", "singbox_reality_public"), []byte("core-pbk"), 0o600)
+	_ = os.WriteFile(filepath.Join(etcDir, "secrets", "singbox_short_id"), []byte("core-sid"), 0o600)
+	_ = os.WriteFile(filepath.Join(etcDir, "vpn-users.json"), []byte(
+		`{"users":[{"name":"bob","uuid":"00000000-0000-0000-0000-000000000002","enabled":true,"sub_profile":"secondary"}]}`,
+	), 0o600)
+	path := paths.SecondaryDevicesFile()
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	now := time.Now().UTC()
+	raw, _ := json.Marshal(map[string]any{"devices": []map[string]any{
+		{"public_ip": "203.0.113.9", "pbk": "", "sid": "s", "sni": "x", "last_seen": now},
+	}})
+	_ = os.WriteFile(path, raw, 0o600)
+	body, err := SubscriptionBody("bob")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(body) != "" && strings.Contains(body, "vless://") {
+		// may be empty list
+		if strings.Contains(body, "203.0.113.9") {
+			t.Fatalf("empty pbk must not appear: %q", body)
+		}
+	}
+}

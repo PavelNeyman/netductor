@@ -50,21 +50,21 @@ type SecondaryBundle struct {
 	// Version is the bundle schema version (R15). Consumers reject unknown schemas.
 	Version int `json:"version"`
 	// MinAgentVersion: optional SemVer floor for secondary binary before join mutates the host.
-	MinAgentVersion string `json:"min_agent_version,omitempty"`
-	CreatedAt       string `json:"created_at"`
-	CoreIP       string      `json:"core_ip"`
-	CoreVless    int         `json:"core_vless_port"`
-	CoreSNI      string      `json:"core_sni"`
-	CorePBK      string      `json:"core_pbk"`
-	CoreSID      string      `json:"core_sid"`
-	UplinkUUID   string      `json:"uplink_uuid"`
-	SecondarySNI string      `json:"relay_sni"`
-	Users        []RelayUser `json:"users"`
-	AgentToken   string      `json:"agent_token,omitempty"`
-	AgentID      string      `json:"agent_id,omitempty"`
-	CoreAgentURL string      `json:"core_agent_url,omitempty"`
-	ExitUUID     string      `json:"exit_uuid,omitempty"`
-	ExitPort     int         `json:"exit_port,omitempty"`
+	MinAgentVersion string      `json:"min_agent_version,omitempty"`
+	CreatedAt       string      `json:"created_at"`
+	CoreIP          string      `json:"core_ip"`
+	CoreVless       int         `json:"core_vless_port"`
+	CoreSNI         string      `json:"core_sni"`
+	CorePBK         string      `json:"core_pbk"`
+	CoreSID         string      `json:"core_sid"`
+	UplinkUUID      string      `json:"uplink_uuid"`
+	SecondarySNI    string      `json:"relay_sni"`
+	Users           []RelayUser `json:"users"`
+	AgentToken      string      `json:"agent_token,omitempty"`
+	AgentID         string      `json:"agent_id,omitempty"`
+	CoreAgentURL    string      `json:"core_agent_url,omitempty"`
+	ExitUUID        string      `json:"exit_uuid,omitempty"`
+	ExitPort        int         `json:"exit_port,omitempty"`
 }
 
 type RelayUser struct {
@@ -119,15 +119,15 @@ func ExportSecondaryBundle(relaySNI string) (*SecondaryBundle, error) {
 		Version:         1,
 		MinAgentVersion: "0.9.490",
 		CreatedAt:       time.Now().UTC().Format(time.RFC3339),
-		CoreIP:       publicIP(),
-		CoreVless:    vlessPort(),
-		CoreSNI:      sni(),
-		CorePBK:      secret("singbox_reality_public"),
-		CoreSID:      secret("singbox_short_id"),
-		UplinkUUID:   up,
-		SecondarySNI: relaySNI,
-		Users:        users,
-		ExitPort:     4443,
+		CoreIP:          publicIP(),
+		CoreVless:       vlessPort(),
+		CoreSNI:         sni(),
+		CorePBK:         secret("singbox_reality_public"),
+		CoreSID:         secret("singbox_short_id"),
+		UplinkUUID:      up,
+		SecondarySNI:    relaySNI,
+		Users:           users,
+		ExitPort:        4443,
 	}
 	// dedicated UUID for core→RU exit feeder
 	if eu := secret("secondary_exit_uuid"); eu != "" {

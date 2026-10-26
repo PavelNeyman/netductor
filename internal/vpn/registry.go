@@ -12,9 +12,9 @@ import (
 	"github.com/skip2/go-qrcode"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/statefile"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/session"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 type UserRecord struct {

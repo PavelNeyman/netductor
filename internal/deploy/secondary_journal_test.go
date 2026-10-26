@@ -403,3 +403,24 @@ func TestFailDeployRedactsJournal(t *testing.T) {
 		t.Fatalf("journal leaked: %s", st.LastError)
 	}
 }
+
+func TestSafeStageErrNeverEmbedsPayload(t *testing.T) {
+	err := safeStageErr("prepare-pack", "ssh", fmt.Errorf(`{"agent_token":"SECRET1234567890","sp_priv_s":"PRIVKEY"} timeout`))
+	s := err.Error()
+	if strings.Contains(s, "SECRET") || strings.Contains(s, "PRIVKEY") || strings.Contains(s, "agent_token") {
+		t.Fatalf("payload in safe error: %s", s)
+	}
+	if !strings.Contains(s, "prepare-pack") || !strings.Contains(s, "timeout") {
+		t.Fatalf("want stage+class: %s", s)
+	}
+}
+
+func TestMaterialPreparedSameRankAsLegacyTransferred(t *testing.T) {
+	if stageRank(StageMaterialPrepared) != stageRank(StageMaterialTransferred) {
+		t.Fatalf("ranks differ %d vs %d", stageRank(StageMaterialPrepared), stageRank(StageMaterialTransferred))
+	}
+	st := &DeployOrchState{LastSuccessfulStage: StageMaterialTransferred}
+	if !canSkipMaterialXfer(st) {
+		t.Fatal("legacy material_transferred must still skip material stage")
+	}
+}

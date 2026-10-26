@@ -474,17 +474,17 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 		if err != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack on primary: %w", err))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErr("prepare-pack", "ssh", err))
 		}
 		raw, errJ = extractJSONObject(out)
 		if errJ != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack JSON: %w", errJ))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErr("prepare-pack", "extract_json", errJ))
 		}
 		if err := json.Unmarshal([]byte(raw), &pack); err != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("parse prepare-pack JSON: %w", err))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErr("prepare-pack", "parse_json", err))
 		}
 		if pack.AgentID == "" || pack.AgentToken == "" || len(pack.Bundle) == 0 {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack missing agent_id/token/bundle"))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErr("prepare-pack", "missing_fields", nil))
 		}
 		const packSchema = 1
 		if pack.SchemaVersion != packSchema {
@@ -500,15 +500,15 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 		ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
 		if err != nil {
-			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("mtls ca: %w", err))
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("prepare-pack", "mtls_ca", err))
 		}
 		cert, err := base64.StdEncoding.DecodeString(pack.MTLSCertB64)
 		if err != nil {
-			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("mtls cert: %w", err))
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("prepare-pack", "mtls_cert", err))
 		}
 		key, err := base64.StdEncoding.DecodeString(pack.MTLSKeyB64)
 		if err != nil {
-			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("mtls key: %w", err))
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("prepare-pack", "mtls_key", err))
 		}
 
 		if o.SSHMode == SSHModeResume {
@@ -590,20 +590,20 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		outR, errR := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, rec, o.PrimaryKeyPassphrase)
 		fmt.Print(outR)
 		if errR != nil {
-			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths peer recover: %w (original add: %v)", errR, err))
+			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("peer-recover", "ssh", errR))
 		}
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	}
 	if err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths peer add: %w", err))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("peer-add", "ssh", err))
 	}
 	raw, errJ = extractJSONObject(out)
 	if errJ != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("peer add material JSON: %w", errJ))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("peer-add", "extract_json", errJ))
 	}
 	var mat peerMaterialSCP
 	if err := json.Unmarshal([]byte(raw), &mat); err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("peer material decode: %w", err))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("peer-add", "decode", err))
 	}
 	if err := validatePeerMaterialForSCP(&mat, peerID); err != nil {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, err)
@@ -616,7 +616,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	// Ship material stays in operator memory; applied on B via SSH stdin (no remote /tmp secret file).
 	ship, errShip := materialJSONForSCP(raw, mat)
 	if errShip != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths material normalize: %w", errShip))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("material", "normalize", errShip))
 	}
 	sum := sha256.Sum256(ship)
 	shipSHA := hex.EncodeToString(sum[:])
@@ -653,7 +653,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	if !skipSCP {
 		fmt.Fprintln(os.Stderr, "==> material will apply via bootstrap-secondary stdin (no remote temp file)")
 	}
-	if err := checkpointSuccessWithSHA(&prev, peerID, pack.AgentID, o.SecondaryHost, StageMaterialTransferred, shipSHA); err != nil {
+	if err := checkpointSuccessWithSHA(&prev, peerID, pack.AgentID, o.SecondaryHost, StageMaterialPrepared, shipSHA); err != nil {
 		return err
 	}
 
@@ -713,11 +713,11 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 				out2b, err2b = runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
 			}
 			if err2b != nil {
-				return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w", err2b))
+				return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("bootstrap-secondary", "ssh", err2b))
 			}
 			out2 = out2b
 		} else {
-			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w", err2))
+			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("bootstrap-secondary", "ssh", err2))
 		}
 	}
 	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
