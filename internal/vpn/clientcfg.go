@@ -67,7 +67,7 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 		if d.PublicIP == "" || d.PBK == "" {
 			continue
 		}
-		if !d.LastSeen.IsZero() && now.Sub(d.LastSeen) > 3*time.Minute {
+		if d.LastSeen.IsZero() || now.Sub(d.LastSeen) > 3*time.Minute {
 			continue
 		}
 		sniName := d.SNI
@@ -119,6 +119,12 @@ func ResolveClientEndpoints(name, uuid string) ClientEndpoints {
 }
 
 func ClientLinkForSecondaryLocal(name, uuid, relayIP, pbk, sid, sniName string) string {
+	return ClientLinkForSecondaryProfile(name, uuid, relayIP, pbk, sid, sniName, "nd-secondary")
+}
+
+// ClientLinkForSecondaryProfile creates a VLESS URI for one Secondary.
+// The profile label distinguishes entries that share DNS but use different Reality keys.
+func ClientLinkForSecondaryProfile(name, uuid, relayIP, pbk, sid, sniName, profileLabel string) string {
 	host := relayIP
 	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST")); h != "" {
 		host = h
@@ -128,9 +134,24 @@ func ClientLinkForSecondaryLocal(name, uuid, relayIP, pbk, sid, sniName string) 
 	if sniName == "" {
 		sniName = DefaultRealitySNI
 	}
+	profileLabel = strings.TrimSpace(profileLabel)
+	if profileLabel == "" {
+		profileLabel = "nd-secondary"
+	}
+	profileLabel = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_' {
+			return r
+		}
+		return '-'
+	}, profileLabel)
+	profileLabel = strings.Trim(profileLabel, "-")
+	if profileLabel == "" {
+		profileLabel = "nd-secondary"
+	}
 	return fmt.Sprintf(
-		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-secondary",
-		uuid, host, sniName, DefaultUTLSFingerprint, pbk, sid,
+		"vless://%s@%s:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#%s",
+		uuid, host, sniName, DefaultUTLSFingerprint, pbk, sid, profileLabel,
 	)
 }
 

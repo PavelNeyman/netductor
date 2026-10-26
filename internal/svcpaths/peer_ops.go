@@ -622,15 +622,32 @@ func PeerRemove(peerID string) error {
 	if ifacePS != "nd-svc-ps" {
 		psUnit = "nd-wss-ps-client-" + ifacePS
 	}
-	units := []string{"wg-quick@" + ifaceSP, "wg-quick@" + ifacePS, spUnit, psUnit}
-	for _, u := range units {
-		_ = exec.Command("systemctl", "disable", "--now", u).Run()
+	if !safeUnitName(ifaceSP) || !safeUnitName(ifacePS) || !safeUnitName(spUnit) || !safeUnitName(psUnit) {
+		return fmt.Errorf("peer %s slot unit name invalid", peerID)
 	}
-	_ = os.Remove("/etc/wireguard/" + ifaceSP + ".conf")
-	_ = os.Remove("/etc/wireguard/" + ifacePS + ".conf")
-	_ = os.Remove("/etc/systemd/system/" + spUnit + ".service")
-	_ = os.Remove("/etc/systemd/system/" + psUnit + ".service")
-	_ = exec.Command("systemctl", "daemon-reload").Run()
+	units := []string{"wg-quick@" + ifaceSP, "wg-quick@" + ifacePS, spUnit, psUnit}
+	var errs []string
+	for _, u := range units {
+		if out, err := exec.Command("systemctl", "disable", "--now", u).CombinedOutput(); err != nil {
+			errs = append(errs, fmt.Sprintf("disable %s: %v: %s", u, err, strings.TrimSpace(string(out))))
+		}
+	}
+	for _, path := range []string{
+		"/etc/wireguard/" + ifaceSP + ".conf",
+		"/etc/wireguard/" + ifacePS + ".conf",
+		"/etc/systemd/system/" + spUnit + ".service",
+		"/etc/systemd/system/" + psUnit + ".service",
+	} {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, fmt.Sprintf("remove %s: %v", path, err))
+		}
+	}
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		errs = append(errs, fmt.Sprintf("daemon-reload: %v: %s", err, strings.TrimSpace(string(out))))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("peer %s remove incomplete (not marked removed): %s", peerID, strings.Join(errs, "; "))
+	}
 
 	for i := range idx.Peers {
 		if idx.Peers[i].ID == peerID {
@@ -675,4 +692,17 @@ func logPeerJournal(op, peerID, state, detail string) {
 	if err := appendPeerJournal(op, peerID, state, detail); err != nil {
 		fmt.Fprintf(os.Stderr, "svc-paths: peer-ops journal %s %s: %v (journal is diagnostic only)\n", op, peerID, err)
 	}
+}
+
+func safeUnitName(s string) bool {
+	if s == "" || strings.ContainsAny(s, "/\\") || strings.Contains(s, "..") {
+		return false
+	}
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' || r == '@' {
+			continue
+		}
+		return false
+	}
+	return true
 }

@@ -149,3 +149,22 @@ From **v0.9.510**, `netductor deploy secondary` / operator deploy calls **`svc-p
 - Default **Promote=false**: provision only; operator runs `peer validate` / `ready` / `promote` after traffic proof.
 - **Promote=true**: runs `peer validate` then `ready` (no `--force-ready`) then `promote` on primary. Still does **not** replace live user-traffic R5 or DNS cutover.
 - Emergency force-ready remains CLI-only: `peer ready <id> --force-ready`.
+
+## Subscription profiles (v0.9.535)
+
+`GET /sub/{token}` stays the live URL. `sub_profile=secondary` returns every recently seen Secondary URI, not only the preferred one.
+
+- Shared hostname from `NETDUCTOR_VPN_HOST` or `/etc/netductor/vpn_hostname`.
+- Each URI keeps that Secondary's `pbk`/`sid`/`sni` and a unique `#nd-secondary-<ip>` label.
+- Stale or never-seen (`LastSeen` zero or older than 3 minutes) devices are omitted.
+- `primary` is still core only. `both` is all Secondary URIs plus core.
+- DNS cutover is manual. `peer promote` does not change DNS.
+
+Two different removes:
+
+| Command | What it drops |
+|--|--|
+| `netductor secondary remove <agent-id>` | VPN device in `secondary/devices.json` — this is what removes A from `/sub` |
+| `netductor svc-paths peer remove <peer-id>` | Service-plane peer/slot on primary. Does not by itself drop the subscription URI |
+
+Do not remove A until B traffic and DNS cutover are confirmed. `peer remove` refuses the active peer and no longer marks `removed` if unit/file cleanup failed.

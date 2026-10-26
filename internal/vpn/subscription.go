@@ -57,7 +57,20 @@ func SetSubProfile(name, profile string) error {
 	return WriteSubscriptionFiles(name)
 }
 
-// SubscriptionBody newline-separated VLESS URIs according to user sub_profile.
+// secondaryProfileLabel is a stable URI-fragment label. Public IP is a label only.
+func secondaryProfileLabel(publicIP string, index int) string {
+	label := strings.NewReplacer(".", "-", ":", "-", "[", "", "]", "", "%", "-").
+		Replace(strings.TrimSpace(publicIP))
+	label = strings.Trim(label, "-")
+	if label == "" {
+		label = fmt.Sprintf("%d", index+1)
+	}
+	return "nd-secondary-" + label
+}
+
+// SubscriptionBody returns the complete VLESS profile list.
+// secondary: every recently seen Secondary, core only if none.
+// primary: core. both: every Secondary plus core.
 func SubscriptionBody(name string) (string, error) {
 	r, err := loadRegistry()
 	if err != nil {
@@ -71,8 +84,20 @@ func SubscriptionBody(name string) (string, error) {
 		return "", fmt.Errorf("user disabled")
 	}
 	nl := string([]byte{10})
-	sec := strings.TrimSpace(PreferredVLESSLink(name, u.UUID))
 	core := strings.TrimSpace(VLESSLink(name, u.UUID))
+	var secondaries []string
+	seen := make(map[string]bool)
+	for i, sec := range loadOnlineSecondarys() {
+		link := strings.TrimSpace(ClientLinkForSecondaryProfile(
+			name, u.UUID, sec.Host, sec.PBK, sec.SID, sec.SNI,
+			secondaryProfileLabel(sec.PublicIP, i),
+		))
+		if link == "" || seen[link] {
+			continue
+		}
+		seen[link] = true
+		secondaries = append(secondaries, link)
+	}
 	var parts []string
 	switch EffectiveSubProfile(u) {
 	case SubPrimary:
@@ -80,19 +105,18 @@ func SubscriptionBody(name string) (string, error) {
 			parts = append(parts, core)
 		}
 	case SubBoth:
-		if sec != "" {
-			parts = append(parts, sec)
-		}
-		if core != "" && core != sec {
+		parts = append(parts, secondaries...)
+		if core != "" && !seen[core] {
 			parts = append(parts, core)
 		}
-	default: // secondary
-		if sec != "" {
-			parts = append(parts, sec)
-		} else if core != "" {
-			// fallback if secondary offline — still one URI
+	default:
+		parts = append(parts, secondaries...)
+		if len(parts) == 0 && core != "" {
 			parts = append(parts, core)
 		}
+	}
+	if len(parts) == 0 {
+		return "", fmt.Errorf("no subscription profiles available")
 	}
 	return strings.Join(parts, nl) + nl, nil
 }
