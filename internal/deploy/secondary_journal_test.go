@@ -186,3 +186,49 @@ func TestLegacyStageMigration(t *testing.T) {
 		t.Fatal("legacy should skip provision")
 	}
 }
+
+func TestMaterialSHAPreservedOnFailure(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "198.51.100.70"
+	var prev *deployOrchState
+	sha := "abcdef0123456789"
+	if err := checkpointSuccessWithSHA(&prev, "peer-m", "ag-m", host, StageMaterialTransferred, sha); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkpointFailure(&prev, "peer-m", "ag-m", host, "bootstrap fail"); err != nil {
+		t.Fatal(err)
+	}
+	st, err := loadDeployState(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.MaterialSHA != sha {
+		t.Fatalf("material sha lost: %+v", st)
+	}
+	if st.LastSuccessfulStage != StageMaterialTransferred {
+		t.Fatalf("stage wiped: %+v", st)
+	}
+	if !canSkipMaterialXfer(st) {
+		t.Fatal("should skip material xfer")
+	}
+}
+
+func TestCanSkipPeerAddUsesLastSuccess(t *testing.T) {
+	st := &deployOrchState{
+		LastSuccessfulStage: StagePeerPrepared,
+		Status:              StatusFailedRecoverable,
+		MaterialSHA:         "deadbeef",
+	}
+	if !canSkipPeerAdd(st) {
+		t.Fatal("peer prepared should skip peer add generation path")
+	}
+	if canSkipMaterialXfer(st) {
+		// Stage is peer_prepared, not material_transferred
+		t.Fatal("should not skip material yet")
+	}
+	st.LastSuccessfulStage = StageMaterialTransferred
+	if !canSkipMaterialXfer(st) {
+		t.Fatal("should skip material")
+	}
+}

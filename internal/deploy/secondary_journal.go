@@ -39,6 +39,7 @@ type deployOrchState struct {
 	LastSuccessfulStage string    `json:"last_successful_stage"`
 	Status              string    `json:"status"`
 	LastError           string    `json:"last_error,omitempty"`
+	MaterialSHA         string    `json:"material_sha,omitempty"` // sha256 of ship JSON (identity)
 	UpdatedAt           time.Time `json:"updated_at"`
 	// Legacy Stage kept for reading old journals; prefer LastSuccessfulStage.
 	Stage string `json:"stage,omitempty"`
@@ -130,7 +131,7 @@ func clearDeployState(host string) error {
 }
 
 // mergeOrchState updates st with non-empty IDs and stage/status; preserves prior IDs.
-func mergeOrchState(prev *deployOrchState, host, peerID, agentID, successStage, status, lastErr string) *deployOrchState {
+func mergeOrchState(prev *deployOrchState, host, peerID, agentID, successStage, status, lastErr, materialSHA string) *deployOrchState {
 	st := &deployOrchState{Host: host, Status: StatusRunning}
 	if prev != nil {
 		cp := *prev
@@ -150,13 +151,27 @@ func mergeOrchState(prev *deployOrchState, host, peerID, agentID, successStage, 
 	if status != "" {
 		st.Status = status
 	}
+	if materialSHA != "" {
+		st.MaterialSHA = materialSHA
+	}
 	st.LastError = lastErr
 	return st
 }
 
 // checkpointSuccess records a confirmed successful stage. Blocking if state cannot be saved.
 func checkpointSuccess(prev **deployOrchState, peerID, agentID, host, stage string) error {
-	st := mergeOrchState(*prev, host, peerID, agentID, stage, StatusRunning, "")
+	st := mergeOrchState(*prev, host, peerID, agentID, stage, StatusRunning, "", "")
+	_ = appendDeployLog(st.PeerID, st.AgentID, host, stage, "")
+	if err := saveDeployState(st); err != nil {
+		return fmt.Errorf("deploy checkpoint %s: %w", stage, err)
+	}
+	*prev = st
+	return nil
+}
+
+// checkpointSuccessWithSHA records stage and material ship fingerprint.
+func checkpointSuccessWithSHA(prev **deployOrchState, peerID, agentID, host, stage, materialSHA string) error {
+	st := mergeOrchState(*prev, host, peerID, agentID, stage, StatusRunning, "", materialSHA)
 	_ = appendDeployLog(st.PeerID, st.AgentID, host, stage, "")
 	if err := saveDeployState(st); err != nil {
 		return fmt.Errorf("deploy checkpoint %s: %w", stage, err)
@@ -166,8 +181,9 @@ func checkpointSuccess(prev **deployOrchState, peerID, agentID, host, stage stri
 }
 
 // checkpointFailure marks status failed without clearing last_successful_stage.
+
 func checkpointFailure(prev **deployOrchState, peerID, agentID, host, lastErr string) error {
-	st := mergeOrchState(*prev, host, peerID, agentID, "", StatusFailedRecoverable, lastErr)
+	st := mergeOrchState(*prev, host, peerID, agentID, "", StatusFailedRecoverable, lastErr, "")
 	_ = appendDeployLog(st.PeerID, st.AgentID, host, StatusFailedRecoverable, lastErr)
 	if err := saveDeployState(st); err != nil {
 		return fmt.Errorf("deploy failure checkpoint: %w", err)

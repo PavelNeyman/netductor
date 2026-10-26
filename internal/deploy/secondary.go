@@ -2,7 +2,9 @@ package deploy
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -491,6 +493,9 @@ func DeploySecondary(o SecondaryOpts) error {
 	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths peer add + bootstrap (Blue-Green slot)")
 	primIP, secIP := o.PrimaryHost, o.SecondaryHost
 	peerID := peerIDEarly
+	if canSkipPeerAdd(prev) {
+		fmt.Fprintln(os.Stderr, "==> peer add resume: expect existing material (idempotent PeerAdd, no new keys)")
+	}
 	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StagePeerAddStarted); err != nil {
 		return err
 	}
@@ -542,6 +547,8 @@ func DeploySecondary(o SecondaryOpts) error {
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("svc-paths material normalize: %w", errShip)
 	}
+	sum := sha256.Sum256(ship)
+	shipSHA := hex.EncodeToString(sum[:])
 	if _, errW := tmpFile.Write(ship); errW != nil {
 		_ = tmpFile.Close()
 		_ = os.Remove(tmpPath)
@@ -553,23 +560,51 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 	defer os.Remove(tmpPath)
 
-	scpErr := runSCPOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
-	if scpErr != nil && o.SSHMode != SSHModeResume {
-		fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", scpErr, "— retry :22 (initial only)")
-		scpErr = runSCPOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
+	skipSCP := canSkipMaterialXfer(prev) && prev != nil && prev.MaterialSHA != "" && prev.MaterialSHA == shipSHA
+	if skipSCP {
+		// Confirm installed material on B matches peer identity (not only journal SHA).
+		verifyMat := fmt.Sprintf(`set -e
+f=/etc/netductor/svc-paths/material.json
+test -f "$f"
+grep -q '"peer_id"[[:space:]]*:[[:space:]]*"%s"' "$f"
+grep -q '"slot"[[:space:]]*:[[:space:]]*%d' "$f"
+echo "material identity ok peer=%s slot=%d"
+`, peerID, mat.Slot, peerID, mat.Slot)
+		if outV, errV := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass); errV != nil {
+			fmt.Fprintln(os.Stderr, "warn: material on B mismatch journal — re-SCP:", errV, outV)
+			skipSCP = false
+		} else {
+			fmt.Fprintln(os.Stderr, strings.TrimSpace(outV))
+			fmt.Fprintln(os.Stderr, "==> skip SCP (material SHA + peer identity match)")
+		}
 	}
-	if scpErr != nil {
-		_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, scpErr.Error())
-		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
+	if !skipSCP {
+		scpErr := runSCPOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
+		if scpErr != nil && o.SSHMode != SSHModeResume {
+			fmt.Fprintln(os.Stderr, "warn svc-paths scp :52222:", scpErr, "— retry :22 (initial only)")
+			scpErr = runSCPOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
+		}
+		if scpErr != nil {
+			_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, scpErr.Error())
+			return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
+		}
 	}
-	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageMaterialTransferred); err != nil {
+	if err := checkpointSuccessWithSHA(&prev, peerID, pack.AgentID, o.SecondaryHost, StageMaterialTransferred, shipSHA); err != nil {
 		return err
+	}
+	// bootstrap-secondary needs a material file on B; after skip-SCP use installed path.
+	matOnB := "/tmp/nd-svc-material.json"
+	if skipSCP {
+		matOnB = "/etc/netductor/svc-paths/material.json"
 	}
 
 	// Slot-aware verification on B (not hardcoded slot 0).
 	secVerify := fmt.Sprintf(`set -e
 test -f /etc/netductor/secrets/secondary_core_url
 grep -q %s /etc/netductor/secrets/secondary_core_url
+test -f /etc/netductor/svc-paths/material.json
+grep -q '"peer_id"[[:space:]]*:[[:space:]]*"%s"' /etc/netductor/svc-paths/material.json
+grep -q '"slot"[[:space:]]*:[[:space:]]*%d' /etc/netductor/svc-paths/material.json
 for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
   st=$(systemctl is-active "$u" 2>/dev/null || true)
   test "$st" = active
@@ -577,12 +612,13 @@ done
 ping -c1 -W3 %s >/dev/null
 ping -c1 -W3 %s >/dev/null
 echo "svc-paths secondary verify ok slot_iface=%s/%s"
-`, ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
+`, ShellQuote(mat.AddrPSP), peerID, mat.Slot, ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 	secBoot := fmt.Sprintf(`set -e
-trap 'rm -f /tmp/nd-svc-material.json' EXIT
-chmod 600 /tmp/nd-svc-material.json
-netductor svc-paths bootstrap-secondary --material /tmp/nd-svc-material.json
+MAT=%s
+test -f "$MAT"
+chmod 600 "$MAT" 2>/dev/null || true
+netductor svc-paths bootstrap-secondary --material "$MAT"
 test -f /etc/netductor/secrets/secondary_core_url
 grep -q %s /etc/netductor/secrets/secondary_core_url
 for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
@@ -592,7 +628,7 @@ done
 ping -c1 -W3 %s >/dev/null
 ping -c1 -W3 %s >/dev/null
 echo "svc-paths secondary ok slot_iface=%s/%s"
-`, ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
+`, ShellQuote(matOnB), ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 	bootScript := secBoot
 	if canSkipBootstrapB(prev) {

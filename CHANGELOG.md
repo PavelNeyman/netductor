@@ -1,3 +1,10 @@
+## 0.9.554
+
+- Resume: material ship SHA256 in journal; skip SCP when SHA matches and B material peer_id/slot verify
+- Resume: peer add logs idempotent path when stage≥peer_prepared (PeerAdd still exports existing material, no new keys)
+- Bootstrap: uses installed `/etc/netductor/svc-paths/material.json` when SCP skipped
+- secVerify: checks material.json peer_id + slot on B
+
 ## 0.9.553
 
 - Deploy journal P0: `last_successful_stage` + `status` + `last_error` (failed_recoverable does not wipe success stage)
