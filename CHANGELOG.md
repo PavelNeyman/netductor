@@ -1,3 +1,11 @@
+## 0.9.553
+
+- Deploy journal P0: `last_successful_stage` + `status` + `last_error` (failed_recoverable does not wipe success stage)
+- loadDeployState fail-closed on corrupt/unreadable state
+- checkpointSuccess is blocking on state write; PeerID/AgentID preserved across stages
+- NETDUCTOR_ALLOW_NO_UFW exported into remote Primary UFW check script
+- Tests: failure keeps last success, corrupt state, PeerID merge, legacy migration
+
 ## 0.9.552
 
 - DeploySecondary: checkpoints material_transferred, secondary_bootstrapped, firewall_verified, network_verified; journal on every mid-path failure

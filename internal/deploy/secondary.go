@@ -343,11 +343,25 @@ func DeploySecondary(o SecondaryOpts) error {
 	if errP != nil {
 		return errP
 	}
-	prev, _ := loadDeployState(o.SecondaryHost)
-	if prev != nil && prev.Stage != "" && prev.Stage != StageDeployComplete {
-		fmt.Fprintf(os.Stderr, "==> resume deploy host=%s stage=%s peer=%s agent=%s\n", o.SecondaryHost, prev.Stage, prev.PeerID, prev.AgentID)
+	prev, errState := loadDeployState(o.SecondaryHost)
+	if errState != nil {
+		return fmt.Errorf("deploy journal: %w", errState)
+	}
+	if prev != nil && prev.Status != StatusComplete && effectiveStage(prev) != "" {
+		fmt.Fprintf(os.Stderr, "==> resume deploy host=%s last_ok=%s status=%s peer=%s agent=%s\n",
+			o.SecondaryHost, effectiveStage(prev), prev.Status, prev.PeerID, prev.AgentID)
 	}
 
+	peerIDEarly := strings.TrimSpace(o.PeerID)
+	if peerIDEarly == "" {
+		peerIDEarly = "peer-" + strings.ReplaceAll(o.SecondaryHost, ".", "-")
+	}
+	if prev != nil && prev.PeerID != "" {
+		if strings.TrimSpace(o.PeerID) != "" && prev.PeerID != peerIDEarly {
+			return fmt.Errorf("deploy journal peer_id %q != requested %q — refuse auto-switch", prev.PeerID, peerIDEarly)
+		}
+		peerIDEarly = prev.PeerID
+	}
 	var pack secondaryPack
 	var out string
 	var err error
@@ -368,13 +382,15 @@ func DeploySecondary(o SecondaryOpts) error {
 	}
 
 	if !skipProv {
-		writeDeployJournal("", "", o.SecondaryHost, StageProvisionStarted)
+		if err := checkpointSuccess(&prev, peerIDEarly, "", o.SecondaryHost, StageProvisionStarted); err != nil {
+			return err
+		}
 		fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost, "port", pPort)
 
 		prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 		if err != nil {
-			writeDeployJournalErr(err.Error(), "", "", o.SecondaryHost, StageFailedRecoverable)
+			_ = checkpointFailure(&prev, peerIDEarly, "", o.SecondaryHost, err.Error())
 			return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
 		}
 		raw, errJ = extractJSONObject(out)
@@ -450,10 +466,12 @@ func DeploySecondary(o SecondaryOpts) error {
 	fmt.Fprintln(os.Stderr, "==> verify SSH key-only on", o.SecondaryHost+":"+day2Port)
 	secKey, secPass := secondaryDialKey(o)
 	if out, err := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, "true", secPass); err != nil {
-		writeDeployJournalErr(err.Error(), "", pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+		_ = checkpointFailure(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, err.Error())
 		return fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w\n%s", o.SecondaryHost, day2Port, err, out)
 	}
-	writeDeployJournal("", pack.AgentID, o.SecondaryHost, StageProvisioned)
+	if err := checkpointSuccess(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, StageProvisioned); err != nil {
+		return err
+	}
 
 	fmt.Fprintln(os.Stderr, "==> primary: secondary sync + fleet status")
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
@@ -472,14 +490,10 @@ func DeploySecondary(o SecondaryOpts) error {
 
 	fmt.Fprintln(os.Stderr, "==> 3/3 svc-paths peer add + bootstrap (Blue-Green slot)")
 	primIP, secIP := o.PrimaryHost, o.SecondaryHost
-	peerID := strings.TrimSpace(o.PeerID)
-	if peerID == "" {
-		peerID = "peer-" + strings.ReplaceAll(secIP, ".", "-")
+	peerID := peerIDEarly
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StagePeerAddStarted); err != nil {
+		return err
 	}
-	if prev != nil && prev.PeerID != "" && strings.TrimSpace(o.PeerID) == "" {
-		peerID = prev.PeerID
-	}
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StagePeerAddStarted)
 	pre := fmt.Sprintf(
 		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
 		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
@@ -491,13 +505,13 @@ func DeploySecondary(o SecondaryOpts) error {
 		outR, errR := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, rec, o.PrimaryKeyPassphrase)
 		fmt.Print(outR)
 		if errR != nil {
-			writeDeployJournalErr(errR.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+			_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, errR.Error())
 			return fmt.Errorf("svc-paths peer recover: %w\n%s\n(original add: %v\n%s)", errR, outR, err, out)
 		}
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	}
 	if err != nil {
-		writeDeployJournalErr(err.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+		_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, err.Error())
 		return fmt.Errorf("svc-paths peer add: %w\n%s", err, out)
 	}
 	raw, errJ = extractJSONObject(out)
@@ -509,10 +523,12 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("peer material decode: %w", err)
 	}
 	if err := validatePeerMaterialForSCP(&mat, peerID); err != nil {
-		writeDeployJournalErr(err.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+		_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, err.Error())
 		return err
 	}
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StagePeerPrepared)
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StagePeerPrepared); err != nil {
+		return err
+	}
 	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d port_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP, mat.PortSP)
 
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
@@ -543,10 +559,12 @@ func DeploySecondary(o SecondaryOpts) error {
 		scpErr = runSCPOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, tmpPath, "/tmp/nd-svc-material.json", secPass)
 	}
 	if scpErr != nil {
-		writeDeployJournalErr(scpErr.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+		_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, scpErr.Error())
 		return fmt.Errorf("svc-paths scp material to secondary: %w", scpErr)
 	}
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageMaterialTransferred)
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageMaterialTransferred); err != nil {
+		return err
+	}
 
 	// Slot-aware verification on B (not hardcoded slot 0).
 	secVerify := fmt.Sprintf(`set -e
@@ -588,21 +606,25 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 		if o.SSHMode != SSHModeResume && day2Port == "52222" {
 			out2b, err2b := runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
 			if err2b != nil {
-				writeDeployJournalErr(err2b.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+				_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, err2b.Error())
 				return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2b, out2b)
 			}
 			out2 = out2b
 		} else {
-			writeDeployJournalErr(err2.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+			_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, err2.Error())
 			return fmt.Errorf("svc-paths bootstrap-secondary (SP/PS strict): %w\n%s", err2, out2)
 		}
 	}
 	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageSecondaryBootstrapped)
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageSecondaryBootstrapped); err != nil {
+		return err
+	}
 
 	// Primary firewall for this peer: mTLS 8789 from secondary WG IPs + WSS_SP listen.
 	// Fail deploy if ufw is active and rules cannot be applied.
+	allowNoUFW := os.Getenv("NETDUCTOR_ALLOW_NO_UFW")
 	ufwPeer := fmt.Sprintf(`set -e
+export NETDUCTOR_ALLOW_NO_UFW=%s
 if ! command -v ufw >/dev/null 2>&1 || ! ufw status 2>/dev/null | grep -qi 'Status: active'; then
   if [ "${NETDUCTOR_ALLOW_NO_UFW:-}" = "1" ]; then
     echo "ufw inactive or missing - skip (NETDUCTOR_ALLOW_NO_UFW=1)"
@@ -625,15 +647,17 @@ need %s 8789
 need %s 8789
 need %s %d
 echo "ufw peer rules verified"
-`, ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
+`, ShellQuote(allowNoUFW), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP)
 	if outU, errU := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
-		writeDeployJournalErr(errU.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+		_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, errU.Error())
 		return fmt.Errorf("svc-paths primary firewall for peer slot: %w\n%s", errU, outU)
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outU))
 	}
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageFirewallVerified)
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageFirewallVerified); err != nil {
+		return err
+	}
 
 	// Primary: units active + ping secondary WG endpoints (bidirectional with B's pings to primary).
 	spUnit := "nd-wss-sp-server"
@@ -655,12 +679,14 @@ echo "primary peer units+ping ok -> %s %s"
 `, ShellQuote(spUnit), ShellQuote(psUnit), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS))
 	if outP2, errP2 := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
-		writeDeployJournalErr(errP2.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+		_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, errP2.Error())
 		return fmt.Errorf("svc-paths primary SP/PS units/ping: %v\n%s", errP2, outP2)
 	} else {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
 	}
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageNetworkVerified)
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageNetworkVerified); err != nil {
+		return err
+	}
 	fmt.Fprintln(os.Stderr, "==> wait secondary online on primary (heartbeat)")
 	if pack.AgentID == "" {
 		return fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy")
@@ -690,13 +716,19 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
-		writeDeployJournalErr(err.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+		_ = checkpointFailure(&prev, peerID, pack.AgentID, o.SecondaryHost, err.Error())
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageHeartbeatVerified)
-	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageDeployComplete)
-	clearDeployState(o.SecondaryHost)
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageHeartbeatVerified); err != nil {
+		return err
+	}
+	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageDeployComplete); err != nil {
+		return err
+	}
+	if err := clearDeployState(o.SecondaryHost); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: clear deploy state:", err)
+	}
 
 	fmt.Fprintln(os.Stderr, "==> not promoted (after traffic test: peer validate/ready/promote", peerID+")")
 
