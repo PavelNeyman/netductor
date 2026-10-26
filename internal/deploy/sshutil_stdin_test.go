@@ -8,65 +8,56 @@ import (
 	"testing"
 )
 
-// TestMaterialVerifyRemoteCmdHasNoShipBody ensures the verify script does not embed ship JSON.
 func TestMaterialVerifyRemoteCmdHasNoShipBody(t *testing.T) {
-	// Reconstruct the fixed remote script used in DeploySecondary (no ship bytes).
-	verifyMat := `set -e
-f=/etc/netductor/svc-paths/material.json
-test -f "$f"
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 required for material verify — refuse skip-SCP" >&2
-  exit 2
-fi
-python3 -c '
-import json,sys
-a=json.load(open(sys.argv[1]))
-b=json.load(sys.stdin)
-' "$f"
-`
+	cmd := materialVerifyRemoteCmd()
 	secret := `{"sp_priv_s":"SECRET_PRIVATE_KEY_VALUE_XYZ","ps_priv_s":"OTHER_SECRET"}`
-	if strings.Contains(verifyMat, "SECRET_PRIVATE_KEY") {
-		t.Fatal("fixture broken")
+	if strings.Contains(cmd, "SECRET_PRIVATE_KEY") || strings.Contains(cmd, secret) {
+		t.Fatal("ship must not appear in production remote command")
 	}
-	if strings.Contains(verifyMat, secret) {
-		t.Fatal("ship must not appear in remote command text")
+	if !strings.Contains(cmd, "json.load(sys.stdin)") {
+		t.Fatal("expected stdin load in production command")
 	}
-	// stdin path: payload separate from cmd
-	if !strings.Contains(verifyMat, "json.load(sys.stdin)") {
-		t.Fatal("expected stdin load")
+	if strings.Contains(cmd, "sys.argv[2]") {
+		t.Fatal("must not load expected material from argv")
 	}
 }
 
-func TestCreateTempMaterialMode(t *testing.T) {
-	f, err := os.CreateTemp("", "nd-svc-material-test-*.json")
+func TestMaterialShipTempInJournalDir(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	dir := filepath.Join(deployJournalDir(), "tmp")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.CreateTemp(dir, "nd-svc-material-*.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	path := f.Name()
-	defer os.Remove(path)
-	if err := f.Chmod(0o600); err != nil {
-		t.Fatal(err)
-	}
+	_ = f.Chmod(0o600)
 	_ = f.Close()
+	defer os.Remove(path)
+	if !strings.Contains(path, filepath.Join(".cache", "netductor", "deploy", "tmp")) && !strings.Contains(path, "deploy"+string(os.PathSeparator)+"tmp") {
+		// HOME is tmp; deployJournalDir should be under it
+		if !strings.HasPrefix(path, dir) {
+			t.Fatalf("temp outside journal dir: %s want under %s", path, dir)
+		}
+	}
 	st, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if st.Mode().Perm()&0o077 != 0 {
-		t.Fatalf("mode %v should be 0600-ish", st.Mode())
+		t.Fatalf("mode %v", st.Mode())
 	}
-	_ = filepath.Base(path)
 }
 
-func TestRunSSHOnPortWithStdinEcho(t *testing.T) {
-	// Smoke: local echo of stdin via ssh is not available; ensure helper compiles and rejects empty host path via ssh failure without embedding secret in error when cmd is fixed.
+func TestRunSSHOnPortWithStdinDoesNotLeakInError(t *testing.T) {
 	if _, err := exec.LookPath("ssh"); err != nil {
 		t.Skip("ssh not available")
 	}
 	secret := []byte(`{"sp_priv_s":"DO_NOT_LEAK_IN_ARGV"}`)
-	// Force fail: invalid host; command has no secret
-	cmd := "true"
-	_, err := runSSHOnPortWithStdin("1", "", "", "root", "127.0.0.1", cmd, "", secret)
+	_, err := runSSHOnPortWithStdin("1", "", "", "root", "127.0.0.1", "true", "", secret)
 	if err == nil {
 		t.Fatal("expected connection failure on port 1")
 	}

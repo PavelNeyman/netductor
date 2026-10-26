@@ -171,14 +171,6 @@ type peerMaterialSCP struct {
 	WSSPS   int    `json:"wss_ps"`
 }
 
-func mustGlob(pattern string) []string {
-	m, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil
-	}
-	return m
-}
-
 // materialJSONForSCP overlays validated slot defaults onto the original material.
 // peerMaterialSCP has no WireGuard keys; those stay from raw.
 func materialJSONForSCP(raw string, mat peerMaterialSCP) ([]byte, error) {
@@ -301,6 +293,60 @@ func materialIdentityPubs(ship []byte) (spPubP, psPubP string) {
 		return strings.TrimSpace(v)
 	}
 	return get("sp_pub_p"), get("ps_pub_p")
+}
+
+// materialVerifyRemoteCmd is the remote script for full material compare on B.
+// Expected JSON is supplied only via SSH stdin (never argv, never a file on B).
+func materialVerifyRemoteCmd() string {
+	return `set -e
+f=/etc/netductor/svc-paths/material.json
+test -f "$f"
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 required for material verify — refuse skip-SCP" >&2
+  exit 2
+fi
+python3 -c '
+import json,sys
+a=json.load(open(sys.argv[1]))
+b=json.load(sys.stdin)
+req=["peer_id","slot","sp_pub_p","ps_pub_p","sp_priv_s","ps_priv_s","sp_pub_s","ps_pub_s",
+     "addr_p_sp","addr_s_sp","addr_p_ps","addr_s_ps","port_sp","port_ps","wss_sp","wss_ps","iface_sp","iface_ps"]
+missing_e=[k for k in req if k not in b]
+missing_i=[k for k in req if k not in a]
+if missing_e:
+    raise SystemExit("expected material missing fields: "+",".join(missing_e))
+if missing_i:
+    raise SystemExit("installed material missing fields: "+",".join(missing_i))
+# Strict JSON equality (sort_keys + type-preserving dumps avoids True==1 pitfalls on diagnostics).
+sa=json.dumps(a, sort_keys=True, separators=(",",":"))
+sb=json.dumps(b, sort_keys=True, separators=(",",":"))
+if sa!=sb:
+    def walk(x,y,p):
+        if type(x) is not type(y):
+            yield p or "$"
+            return
+        if isinstance(x, dict):
+            for k in sorted(set(x)|set(y)):
+                np=(p+"." if p else "")+str(k)
+                if k not in x:
+                    yield np+"(extra)"; continue
+                if k not in y:
+                    yield np+"(missing)"; continue
+                yield from walk(x[k],y[k],np)
+            return
+        if isinstance(x, list):
+            if len(x)!=len(y):
+                yield (p or "$")+"(len)"; return
+            for i,(xi,yi) in enumerate(zip(x,y)):
+                yield from walk(xi,yi,(p or "$")+"["+str(i)+"]")
+            return
+        if x!=y:
+            yield p or "$"
+    diffs=list(walk(a,b,""))
+    raise SystemExit("mismatch fields: "+",".join(diffs) if diffs else "canonical")
+print("material full match")
+' "$f"
+`
 }
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
@@ -567,11 +613,12 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	}
 	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d port_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP, mat.PortSP)
 
-	// Local ship JSON for SCP only (0600); cleaned on return. Stale leftovers from kill are removed best-effort.
-	for _, old := range mustGlob(filepath.Join(os.TempDir(), "nd-svc-material-*.json")) {
-		_ = os.Remove(old)
+	// Local ship JSON for SCP only: operator-private dir under deploy journal (not shared /tmp).
+	shipDir := filepath.Join(deployJournalDir(), "tmp")
+	if err := os.MkdirAll(shipDir, 0o700); err != nil {
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths temp dir: %w", err))
 	}
-	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
+	tmpFile, errTmp := os.CreateTemp(shipDir, "nd-svc-material-*.json")
 	if errTmp != nil {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths temp file: %w", errTmp))
 	}
@@ -599,55 +646,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	skipSCP := canSkipMaterialXfer(prev) && prev != nil && prev.MaterialSHA != "" && prev.MaterialSHA == shipSHA
 	if skipSCP {
 		// Expected material only on SSH stdin (not argv, not /tmp). Field names only on mismatch.
-		verifyMat := `set -e
-f=/etc/netductor/svc-paths/material.json
-test -f "$f"
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 required for material verify — refuse skip-SCP" >&2
-  exit 2
-fi
-python3 -c '
-import json,sys
-a=json.load(open(sys.argv[1]))
-b=json.load(sys.stdin)
-req=["peer_id","slot","sp_pub_p","ps_pub_p","sp_priv_s","ps_priv_s","sp_pub_s","ps_pub_s",
-     "addr_p_sp","addr_s_sp","addr_p_ps","addr_s_ps","port_sp","port_ps","wss_sp","wss_ps","iface_sp","iface_ps"]
-missing_e=[k for k in req if k not in b]
-missing_i=[k for k in req if k not in a]
-if missing_e:
-    raise SystemExit("expected material missing fields: "+",".join(missing_e))
-if missing_i:
-    raise SystemExit("installed material missing fields: "+",".join(missing_i))
-# Strict JSON equality (sort_keys + type-preserving dumps avoids True==1 pitfalls on diagnostics).
-sa=json.dumps(a, sort_keys=True, separators=(",",":"))
-sb=json.dumps(b, sort_keys=True, separators=(",",":"))
-if sa!=sb:
-    def walk(x,y,p):
-        if type(x) is not type(y):
-            yield p or "$"
-            return
-        if isinstance(x, dict):
-            for k in sorted(set(x)|set(y)):
-                np=(p+"." if p else "")+str(k)
-                if k not in x:
-                    yield np+"(extra)"; continue
-                if k not in y:
-                    yield np+"(missing)"; continue
-                yield from walk(x[k],y[k],np)
-            return
-        if isinstance(x, list):
-            if len(x)!=len(y):
-                yield (p or "$")+"(len)"; return
-            for i,(xi,yi) in enumerate(zip(x,y)):
-                yield from walk(xi,yi,(p or "$")+"["+str(i)+"]")
-            return
-        if x!=y:
-            yield p or "$"
-    diffs=list(walk(a,b,""))
-    raise SystemExit("mismatch fields: "+",".join(diffs) if diffs else "canonical")
-print("material full match")
-' "$f"
-`
+		verifyMat := materialVerifyRemoteCmd()
 		outV, errV := runSSHOnPortWithStdin(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass, ship)
 		if errV != nil {
 			fmt.Fprintln(os.Stderr, "warn: material on B does not match ship — re-SCP")

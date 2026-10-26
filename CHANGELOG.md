@@ -1,3 +1,9 @@
+## 0.9.563
+
+- Remove global /tmp wipe of nd-svc-material-*.json (unsafe across processes)
+- Ship temp under ~/.cache/netductor/deploy/tmp (0700 dir, 0600 file, defer remove only)
+- materialVerifyRemoteCmd() extracted; tests assert production command (stdin, no ship body)
+
 ## 0.9.562
 
 - Material mismatch diagnostics: recursive path walk (nested type/value diffs report field paths)
