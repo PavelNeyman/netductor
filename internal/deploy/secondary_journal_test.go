@@ -345,3 +345,29 @@ func TestCheckpointSuccessClearsCurrentStep(t *testing.T) {
 		t.Fatalf("current step not cleared: %q", prev.CurrentStep)
 	}
 }
+
+func TestDeployCompleteKeepsState(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "198.51.100.95"
+	var prev *DeployOrchState
+	if err := checkpointBootstrapOK(&prev, "peer-c", "ag-c", host, "sha-c"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkpointDeployComplete(&prev, "peer-c", "ag-c", host); err != nil {
+		t.Fatal(err)
+	}
+	if prev.Status != StatusComplete {
+		t.Fatalf("status=%s", prev.Status)
+	}
+	loaded, err := loadDeployState(host)
+	if err != nil || loaded == nil {
+		t.Fatalf("state should remain after complete: %v %v", loaded, err)
+	}
+	if loaded.Status != StatusComplete || effectiveStage(loaded) != StageDeployComplete {
+		t.Fatalf("%+v", loaded)
+	}
+	if !canSkipProvision(loaded) {
+		t.Fatal("complete must still protect against blind provision")
+	}
+}

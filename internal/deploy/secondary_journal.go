@@ -225,6 +225,20 @@ func checkpointSuccessWithSHA(prev **DeployOrchState, peerID, agentID, host, sta
 	return nil
 }
 
+// checkpointDeployComplete records successful deploy and keeps state for resume protection.
+func checkpointDeployComplete(prev **DeployOrchState, peerID, agentID, host string) error {
+	st := mergeOrchState(*prev, host, peerID, agentID, StageDeployComplete, StatusComplete, "", "")
+	st.CurrentStep = ""
+	st.Status = StatusComplete
+	st.LastError = ""
+	_ = appendDeployLog(st.PeerID, st.AgentID, host, StageDeployComplete, "")
+	if err := saveDeployState(st); err != nil {
+		return fmt.Errorf("deploy checkpoint complete: %w", err)
+	}
+	*prev = st
+	return nil
+}
+
 // checkpointBootstrapOK records secondary_bootstrapped bound to this material SHA.
 func checkpointBootstrapOK(prev **DeployOrchState, peerID, agentID, host, materialSHA string) error {
 	st := mergeOrchState(*prev, host, peerID, agentID, StageSecondaryBootstrapped, StatusRunning, "", materialSHA)
@@ -252,6 +266,7 @@ func checkpointFailure(prev **DeployOrchState, peerID, agentID, host, lastErr st
 	return nil
 }
 
+// appendDeployLog is best-effort diagnostics only; JSON state is the resume source of truth.
 func appendDeployLog(peerID, agentID, host, stage, lastErr string) error {
 	dir := deployJournalDir()
 	if err := os.MkdirAll(dir, 0o700); err != nil {

@@ -1,3 +1,10 @@
+## 0.9.559
+
+- Skip-SCP: full material field compare on B (python3 required; no partial grep-only path)
+- Successful deploy keeps journal with StatusComplete (no auto-clear) for re-provision protection
+- checkpointDeployComplete; resume treats complete as advanced
+- More failDeploy (schema/min_agent/host-key/sync); journal.log documented best-effort
+
 ## 0.9.558
 
 - Bootstrap checkpoint bound to material SHA (`bootstrapped_material_sha`); re-SCP/mismatch forces full bootstrap

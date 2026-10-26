@@ -371,7 +371,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	if errState != nil {
 		return fmt.Errorf("deploy journal: %w", errState)
 	}
-	if prev != nil && prev.Status != StatusComplete && effectiveStage(prev) != "" {
+	if prev != nil && effectiveStage(prev) != "" {
 		fmt.Fprintf(os.Stderr, "==> resume deploy host=%s last_ok=%s status=%s peer=%s agent=%s\n",
 			o.SecondaryHost, effectiveStage(prev), prev.Status, prev.PeerID, prev.AgentID)
 	}
@@ -434,14 +434,14 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 		const packSchema = 1
 		if pack.SchemaVersion != packSchema {
-			return fmt.Errorf("prepare-pack schema_version %d unsupported (need %d; missing/0 rejected)", pack.SchemaVersion, packSchema)
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("prepare-pack schema_version %d unsupported (need %d; missing/0 rejected)", pack.SchemaVersion, packSchema))
 		}
 		if pack.MinAgentVersion != "" {
 			if !version.ValidDotVersion(pack.MinAgentVersion) {
-				return fmt.Errorf("prepare-pack min_agent_version %q invalid", pack.MinAgentVersion)
+				return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("prepare-pack min_agent_version %q invalid", pack.MinAgentVersion))
 			}
 			if version.Less(version.Release, pack.MinAgentVersion) {
-				return fmt.Errorf("operator binary %s older than pack min_agent_version %s — upgrade before provision", version.Release, pack.MinAgentVersion)
+				return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("operator binary %s older than pack min_agent_version %s — upgrade before provision", version.Release, pack.MinAgentVersion))
 			}
 		}
 		ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
@@ -473,12 +473,12 @@ func deploySecondaryBody(o SecondaryOpts) error {
 			ForceReinstall: o.ForceReinstall,
 		}, string(pack.Bundle))
 		if err != nil && isSSHHostKeyError(err) {
-			return fmt.Errorf("SSH host key mismatch for %s — refuse auto-trust.\n"+
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("SSH host key mismatch for %s — refuse auto-trust.\n"+
 				"Verify fingerprint offline, then:\n"+
 				"  netductor ssh-hosts forget --kind relay %s\n"+
 				"  ssh-keygen -R %s; ssh-keygen -R '[%s]:22'; ssh-keygen -R '[%s]:52222'\n"+
 				"Re-run deploy (or set ForceReinstall after forget).\n%w",
-				o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, err)
+				o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, err))
 		}
 		if res != nil {
 			fmt.Print(res.Log)
@@ -507,7 +507,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
-		return fmt.Errorf("primary secondary sync: %w\n%s", err, out)
+		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("primary secondary sync: %w\n%s", err, out))
 	}
 
 	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, secKey, secPass); err != nil {
@@ -584,46 +584,41 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	defer os.Remove(tmpPath)
 
 	skipSCP := canSkipMaterialXfer(prev) && prev != nil && prev.MaterialSHA != "" && prev.MaterialSHA == shipSHA
-	var pubChecks string
 	if skipSCP {
-		spPub, psPub := materialIdentityPubs(ship)
-		if spPub == "" || psPub == "" {
-			fmt.Fprintln(os.Stderr, "warn: ship material missing sp_pub_p/ps_pub_p — refuse skip-SCP")
-			skipSCP = false
-			if prev != nil {
-				prev.BootstrappedMaterialSHA = ""
-			}
-		} else {
-			pubChecks = fmt.Sprintf("grep -qF %s \"$f\"\ngrep -qF %s \"$f\"\n", ShellQuote(spPub), ShellQuote(psPub))
-		}
-	}
-	if skipSCP {
-		spPub, psPub := materialIdentityPubs(ship) // re-read; required non-empty above
+		// Full material compare on B (identity + keys + slot networking). No python3 → refuse skip.
+		shipB64 := base64.StdEncoding.EncodeToString(ship)
 		verifyMat := fmt.Sprintf(`set -e
 f=/etc/netductor/svc-paths/material.json
+exp=/tmp/nd-expected-material.json
 test -f "$f"
-if command -v python3 >/dev/null 2>&1; then
-  python3 -c "import json,sys;d=json.load(open(sys.argv[1]));
-assert d.get('peer_id')==sys.argv[2], d.get('peer_id');
-assert int(d.get('slot',-1))==int(sys.argv[3]), d.get('slot');
-assert d.get('sp_pub_p')==sys.argv[4], 'sp_pub_p';
-assert d.get('ps_pub_p')==sys.argv[5], 'ps_pub_p'" "$f" %s %d %s %s
-else
-  grep -q '"peer_id"[[:space:]]*:[[:space:]]*"%s"' "$f"
-  grep -q '"slot"[[:space:]]*:[[:space:]]*%d' "$f"
-  %s
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 required for material verify — refuse skip-SCP" >&2
+  exit 2
 fi
-echo "material identity ok peer=%s slot=%d"
-`, ShellQuote(peerID), mat.Slot, ShellQuote(spPub), ShellQuote(psPub), peerID, mat.Slot, pubChecks, peerID, mat.Slot)
+echo %s | base64 -d > "$exp"
+python3 -c '
+import json,sys
+a=json.load(open(sys.argv[1]))
+b=json.load(open(sys.argv[2]))
+keys=["peer_id","slot","sp_pub_p","ps_pub_p","sp_priv_s","ps_priv_s","sp_pub_s","ps_pub_s",
+      "addr_p_sp","addr_s_sp","addr_p_ps","addr_s_ps","port_sp","port_ps","wss_sp","wss_ps","iface_sp","iface_ps"]
+for k in keys:
+    av,bv=a.get(k),b.get(k)
+    if av!=bv:
+        raise SystemExit("mismatch %%s: installed=%%r expected=%%r"%%(k,av,bv))
+print("material full match")
+' "$f" "$exp"
+rm -f "$exp"
+`, ShellQuote(shipB64))
 		if outV, errV := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, verifyMat, secPass); errV != nil {
-			fmt.Fprintln(os.Stderr, "warn: material on B mismatch journal — re-SCP:", errV, outV)
+			fmt.Fprintln(os.Stderr, "warn: material on B does not match ship — re-SCP:", errV, outV)
 			skipSCP = false
 			if prev != nil {
 				prev.BootstrappedMaterialSHA = ""
 			}
 		} else {
 			fmt.Fprintln(os.Stderr, strings.TrimSpace(outV))
-			fmt.Fprintln(os.Stderr, "==> skip SCP (material SHA + peer identity match)")
+			fmt.Fprintln(os.Stderr, "==> skip SCP (full material match + journal SHA)")
 		}
 	}
 	if !skipSCP {
@@ -808,11 +803,8 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageHeartbeatVerified); err != nil {
 		return err
 	}
-	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageDeployComplete); err != nil {
+	if err := checkpointDeployComplete(&prev, peerID, pack.AgentID, o.SecondaryHost); err != nil {
 		return err
-	}
-	if err := clearDeployState(o.SecondaryHost); err != nil {
-		fmt.Fprintln(os.Stderr, "warn: clear deploy state:", err)
 	}
 
 	fmt.Fprintln(os.Stderr, "==> not promoted (after traffic test: peer validate/ready/promote", peerID+")")
