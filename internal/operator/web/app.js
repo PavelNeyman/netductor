@@ -31,7 +31,7 @@ en:{
   upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date',
   sub_fleet:'Fleet', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
   inst_note:'Deploy from this Mac over SSH.',
-  l_phost:'Primary host', l_ppass:'Primary password', l_shost:'Secondary host', l_spass:'Secondary password', l_ssh_mode:'SSH mode', opt_ssh_initial:'Initial (:22 password)', opt_ssh_resume:'Resume (:52222 key)', l_skey:'Secondary key (resume)',
+  l_phost:'Primary host', l_ppass:'Primary password', l_shost:'Secondary host', l_spass:'Secondary password', l_ssh_mode:'SSH mode', opt_ssh_initial:'Initial (:22 password)', opt_ssh_resume:'Resume (:52222 key)', l_skey:'Secondary key (resume)', l_pport:'Primary SSH port', l_peer_id:'Peer ID',
   l_domain:'Domain label (optional org tag)', l_domain_primary:'Primary domain', l_domain_vpn:'Secondary domain', l_domain_redirect:'Redirect URL', l_ssh_port:'SSH port', l_redir_port:'Redirect HTTPS', l_mtls_port:'Agent mTLS', l_lampac_port:'Lampac', l_le:'LE email', l_sni:'SNI (Reality camouflage)', l_key:'SSH key', l_host:'Host', l_pass:'Password',
   l_pkey:'Primary key', l_user:'User', l_arch:'Agent arch', l_server_url:'Server URL (mTLS)', l_keypass:'Key passphrase',
   l_lan:'LAN IP (optional)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Wi-Fi key',
@@ -85,7 +85,7 @@ ru:{
   upd_local:'Локально', upd_latest:'Latest', upd_pick:'Релиз', upd_apply:'Применить на primary', upd_refresh:'Обновить', upd_available:'есть обновление', upd_ok:'актуально',
   sub_fleet:'Флот', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
   inst_note:'Деплой с этого Mac по SSH.',
-  l_phost:'Хост primary', l_ppass:'Пароль primary', l_shost:'Хост secondary', l_spass:'Пароль secondary', l_ssh_mode:'Режим SSH', opt_ssh_initial:'Первый (:22 пароль)', opt_ssh_resume:'Повтор (:52222 ключ)', l_skey:'Ключ secondary (повтор)',
+  l_phost:'Хост primary', l_ppass:'Пароль primary', l_shost:'Хост secondary', l_spass:'Пароль secondary', l_ssh_mode:'Режим SSH', opt_ssh_initial:'Первый (:22 пароль)', opt_ssh_resume:'Повтор (:52222 ключ)', l_skey:'Ключ secondary (повтор)', l_pport:'SSH-порт primary', l_peer_id:'Peer ID',
   l_domain:'Метка DOMAIN (опц., не создаёт имена)', l_domain_primary:'Домен primary', l_domain_vpn:'Домен secondary', l_domain_redirect:'URL redirect', l_ssh_port:'Порт SSH', l_redir_port:'HTTPS redirect', l_mtls_port:'Agent mTLS', l_lampac_port:'Lampac', l_le:'Email LE', l_sni:'SNI (маскировка Reality)', l_key:'SSH-ключ', l_host:'Хост', l_pass:'Пароль',
   l_pkey:'Ключ primary', l_user:'Пользователь', l_arch:'Архитектура agent', l_server_url:'URL сервера (mTLS)', l_keypass:'Passphrase ключа',
   l_lan:'LAN IP (опц.)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Ключ Wi-Fi',
@@ -421,6 +421,7 @@ document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); co
     build_host:fd.get('build_host'), build_password:fd.get('build_password'), build_label:fd.get('build_label')||'build-1',
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
+    primary_ssh_port:parseInt(fd.get('primary_ssh_port')||'0',10)||0, peer_id:(fd.get('peer_id')||''),
     domain_base:fd.get('domain_base'), domain_primary:fd.get('domain_primary'), domain_vpn:fd.get('domain_vpn'), domain_redirect:fd.get('domain_redirect'), le_email:fd.get('le_email'), sni:fd.get('sni'), ssh_port:fd.get('ssh_port'), redirect_https_port:fd.get('redirect_https_port'), agent_mtls_port:fd.get('agent_mtls_port'), lampac_port:fd.get('lampac_port'), key:fd.get('key'), key_passphrase:fd.get('key_passphrase'),
     cf_proxy:fd.get('cf_proxy')==='on',
     with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
@@ -440,7 +441,8 @@ document.getElementById('form-build')&&(document.getElementById('form-build').on
 });
 
 document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
-  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), primary_key_passphrase:(fd.get('primary_key_passphrase')||fd.get('key_passphrase')||''), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'), secondary_ssh_key:fd.get('secondary_ssh_key'), ssh_mode:(fd.get('ssh_mode')||'initial'), sni:(fd.get('sni')||'api.vk.me') }, e.submitter); };
+  await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), primary_key_passphrase:(fd.get('primary_key_passphrase')||fd.get('key_passphrase')||''), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
+    primary_ssh_port:parseInt(fd.get('primary_ssh_port')||'0',10)||0, peer_id:(fd.get('peer_id')||''), secondary_ssh_key:fd.get('secondary_ssh_key'), ssh_mode:(fd.get('ssh_mode')||'initial'), sni:(fd.get('sni')||'api.vk.me') }, e.submitter); };
 document.getElementById('form-site').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('site',fd);
   await streamPost('/v1/site',{
     site_id:fd.get('site_id'), name:fd.get('name'), rpi_id:fd.get('rpi_id'), mikrotik_id:fd.get('mikrotik_id'),

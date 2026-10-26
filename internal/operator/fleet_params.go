@@ -36,6 +36,14 @@ func NormalizeFleetParams(p map[string]any) (FleetSpec, error) {
 	if pw := strParam(p, "secondary_password", "SecondaryPass", "secondary_pass"); pw != "" {
 		f.Secondary.SecondaryPass = pw
 	}
+	if port := strParam(p, "primary_ssh_port", "PrimarySSHPort"); port != "" {
+		if n, err := strconv.Atoi(port); err == nil {
+			f.Secondary.PrimarySSHPort = n
+		}
+	}
+	if id := strParam(p, "peer_id", "PeerID"); id != "" {
+		f.Secondary.PeerID = id
+	}
 	if sni := strParam(p, "sni", "SNI"); sni != "" {
 		if f.Secondary.SNI == "" {
 			f.Secondary.SNI = sni

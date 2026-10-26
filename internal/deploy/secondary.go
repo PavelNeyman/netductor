@@ -282,6 +282,9 @@ func extractJSONObject(s string) (string, error) {
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
 func DeploySecondary(o SecondaryOpts) error {
+	if o.Promote {
+		return fmt.Errorf("deploy does not promote: run client traffic test on B, then svc-paths peer ready/promote")
+	}
 	if o.PrimaryHost == "" || o.PrimaryKey == "" {
 		return fmt.Errorf("primary host and SSH key required")
 	}
@@ -604,9 +607,6 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
 
-	if o.Promote {
-		return fmt.Errorf("deploy does not promote: run client traffic test on B, then svc-paths peer ready/promote %s", peerID)
-	}
 	fmt.Fprintln(os.Stderr, "==> not promoted (after traffic test: peer validate/ready/promote", peerID+")")
 
 	fmt.Fprintf(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :%d (PS WSS)\n", mat.WSSPS)

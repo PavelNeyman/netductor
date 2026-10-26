@@ -143,6 +143,7 @@
       <div class="row"><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host"/></div><div><label data-i18n="l_spass">Secondary password</label><input name="secondary_password" type="password"/></div></div>
       <div class="row"><div><label data-i18n="l_domain_primary">CORE host</label><input name="domain_primary" placeholder="FQDN primary (DNS A → primary IP)" title="Primary host domain for LE / conf"/></div><div><label data-i18n="l_domain_vpn">VPN host</label><input name="domain_vpn" placeholder="FQDN secondary (DNS A → secondary IP)" title="Secondary / VPN entry domain"/></div></div>
       
+      <div class="row"><div><label data-i18n="l_pport">Primary SSH port</label><input name="primary_ssh_port" value="52222"/></div><div><label data-i18n="l_peer_id">Peer ID</label><input name="peer_id" placeholder="empty = peer-<ip>"/></div></div>
       <div class="row build-fields" id="fleet_build_fields">
         <div><label data-i18n="l_build_host">Build host</label><input name="build_host" placeholder="build VPS IP"/></div>
         <div><label data-i18n="l_build_pass">Build password</label><input name="build_password" type="password"/></div>
@@ -221,6 +222,7 @@
       <div class="row"><div><label data-i18n="l_key_pass">Key passphrase</label><input name="primary_key_passphrase" type="password" autocomplete="off"/></div><div><label data-i18n="l_sni">SNI</label><input name="sni" value="api.vk.me"/></div></div>
       <div class="row"><div><label data-i18n="l_ssh_mode">SSH mode</label><select name="ssh_mode"><option value="initial" data-i18n="opt_ssh_initial">Initial (:22 password)</option><option value="resume" data-i18n="opt_ssh_resume">Resume (:52222 key)</option></select></div><div><label data-i18n="l_shost">Secondary host</label><input name="secondary_host" required/></div></div>
       <div class="row"><div><label data-i18n="l_pass">Password</label><input name="secondary_password" type="password"/></div><div><label data-i18n="l_skey">Secondary key (resume)</label><input name="secondary_ssh_key" placeholder="empty = primary key"/></div></div>
+      <div class="row"><div><label data-i18n="l_pport">Primary SSH port</label><input name="primary_ssh_port" value="52222"/></div><div><label data-i18n="l_peer_id">Peer ID</label><input name="peer_id" placeholder="empty = peer-<ip>"/></div></div>
       <p class="note" data-i18n="vpscheck_note">Pre-check: IP region, CPU, disk sample, TCP/HTTP, iperf (installs curl/iperf3/sysbench on target). One button = full scorecard before deploy.</p>
       <div class="row">
         <button type="button" class="secondary" id="btnVpsPrecheckSec" data-i18n="btn_vps_precheck">VPS pre-check</button>

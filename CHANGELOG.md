@@ -1,3 +1,8 @@
+## 0.9.541
+
+- Promote=true is rejected before any SSH. Primary SSH port and peer id are in TUI, Web, and Fleet. Invalid CLI port is an error.
+
+
 ## 0.9.540
 
 - Deploy refuses Promote=true. Traffic test and peer promote stay separate operator steps.

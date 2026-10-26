@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/deploy"
@@ -25,6 +26,7 @@ primary:
 secondary:
   --primary --primary-key --host --password [--user] [--sni]
   [--primary-key-passphrase] [--secondary-key]
+  [--primary-ssh-port 52222] [--peer-id ID]
 
 edge-luci:
   --router --action enable|disable|extend|status [--hours 1] [--password|--key]
@@ -196,7 +198,12 @@ See: netductor tui → Setup wizard`)
 				o.SecondarySSHKey = args[i]
 			case a == "--primary-ssh-port" && i+1 < len(args):
 				i++
-				fmt.Sscanf(args[i], "%d", &o.PrimarySSHPort)
+				n, err := strconv.Atoi(args[i])
+				if err != nil || n < 1 || n > 65535 {
+					fmt.Fprintf(os.Stderr, "invalid --primary-ssh-port %q (need 1-65535)\n", args[i])
+					os.Exit(2)
+				}
+				o.PrimarySSHPort = n
 			case a == "--peer-id" && i+1 < len(args):
 				i++
 				o.PeerID = args[i]

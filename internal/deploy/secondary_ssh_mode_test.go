@@ -1,6 +1,9 @@
 package deploy
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestResolveSecondarySSHInitial(t *testing.T) {
 	mode, port, _, err := ResolveSecondarySSH(SecondaryOpts{SecondaryPass: "rootpw"})
@@ -97,5 +100,12 @@ func TestPrimarySSHPort(t *testing.T) {
 	}
 	if _, err := primarySSHPort(SecondaryOpts{PrimarySSHPort: 70000}); err == nil {
 		t.Fatal("invalid port accepted")
+	}
+}
+
+func TestDeploySecondaryPromoteRejectedFirst(t *testing.T) {
+	err := DeploySecondary(SecondaryOpts{Promote: true})
+	if err == nil || !strings.Contains(err.Error(), "does not promote") {
+		t.Fatalf("promote must fail before any deploy work, got %v", err)
 	}
 }
