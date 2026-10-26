@@ -1,3 +1,8 @@
+## 0.9.538
+
+- PeerRemove no longer treats a D-Bus "No such file or directory" as a missing unit. Only a unit-specific systemd message is idempotent.
+
+
 ## 0.9.537
 
 - PeerRemove treats a missing systemctl binary as a start failure, not a missing unit. Configs stay if systemctl never ran.

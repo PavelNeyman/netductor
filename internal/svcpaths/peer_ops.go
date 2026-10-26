@@ -691,12 +691,15 @@ func logPeerJournal(op, peerID, state, detail string) {
 	}
 }
 
-// peerRemoveStop / peerRemoveReload are overridable in tests.
+// peerRemoveStop / peerRemoveReload / peerRemoveSystemctl are overridable in tests.
 var peerRemoveStop = stopUnitIdempotent
 var peerRemoveReload = reloadSystemd
+var peerRemoveSystemctl = func(args ...string) ([]byte, error) {
+	return exec.Command("systemctl", args...).CombinedOutput()
+}
 
 func stopUnitIdempotent(unit string) error {
-	out, err := exec.Command("systemctl", "disable", "--now", unit).CombinedOutput()
+	out, err := peerRemoveSystemctl("disable", "--now", unit)
 	if err == nil {
 		return nil
 	}
@@ -737,8 +740,11 @@ func safeUnitName(s string) bool {
 }
 
 func unitMissing(msg string) bool {
-	m := strings.ToLower(msg)
-	return strings.Contains(m, "not found") || strings.Contains(m, "does not exist") ||
-		strings.Contains(m, "no such file") || strings.Contains(m, "not loaded") ||
-		strings.Contains(m, "not-found")
+	m := strings.ToLower(strings.TrimSpace(msg))
+	// Only a unit-specific systemd message. A D-Bus "No such file or directory" is not this.
+	return strings.Contains(m, "not-found") ||
+		strings.Contains(m, "unit not found") ||
+		strings.Contains(m, ".service not found") ||
+		strings.Contains(m, "not loaded") ||
+		(strings.Contains(m, "does not exist") && strings.Contains(m, "unit"))
 }

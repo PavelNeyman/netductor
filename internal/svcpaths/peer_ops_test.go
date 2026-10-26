@@ -2,6 +2,7 @@ package svcpaths
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -64,10 +65,13 @@ func TestPeerRemoveStopsBeforeDelete(t *testing.T) {
 }
 
 func TestStopUnitIdempotentMissing(t *testing.T) {
-	for _, msg := range []string{"Unit foo.service not found.", "No such file or directory", "not loaded"} {
+	for _, msg := range []string{"Unit foo.service not found.", "not loaded", "unit does not exist"} {
 		if !unitMissing(msg) {
 			t.Fatalf("should treat as missing: %s", msg)
 		}
+	}
+	if unitMissing("No such file or directory") {
+		t.Fatal("bare no such file is not a missing unit")
 	}
 }
 
@@ -101,5 +105,53 @@ func TestPeerRemoveSystemctlNotStarted(t *testing.T) {
 	}
 	if got.Find("peer-c").State == "removed" {
 		t.Fatal("peer marked removed when systemctl did not start")
+	}
+}
+
+func TestPeerRemoveBusErrorKeepsConfigs(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	idx := &PeersIndex{Peers: []ServicePeer{{
+		ID: "peer-d", State: "prepared",
+		Slot: SlotTable()[1],
+	}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	reloaded := false
+	oldStop, oldReload, oldSys := peerRemoveStop, peerRemoveReload, peerRemoveSystemctl
+	t.Cleanup(func() {
+		peerRemoveStop, peerRemoveReload, peerRemoveSystemctl = oldStop, oldReload, oldSys
+	})
+	peerRemoveStop = stopUnitIdempotent
+	peerRemoveReload = func() error { reloaded = true; return nil }
+	peerRemoveSystemctl = func(args ...string) ([]byte, error) {
+		cmd := exec.Command("false")
+		err := cmd.Run()
+		return []byte("Failed to connect to bus: No such file or directory"), err
+	}
+	err := PeerRemove("peer-d")
+	if err == nil || strings.Contains(err.Error(), "not started") {
+		t.Fatalf("bus error must be a stop failure, got %v", err)
+	}
+	if reloaded {
+		t.Fatal("reload ran after bus error")
+	}
+	got, err := LoadPeersIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Find("peer-d").State == "removed" {
+		t.Fatal("peer marked removed after bus error")
+	}
+}
+
+func TestUnitMissingRejectsBusError(t *testing.T) {
+	if unitMissing("Failed to connect to bus: No such file or directory") {
+		t.Fatal("bus error must not look like a missing unit")
+	}
+	if !unitMissing("Unit nd-wss-sp-server.service not found.") {
+		t.Fatal("real missing unit should match")
 	}
 }
