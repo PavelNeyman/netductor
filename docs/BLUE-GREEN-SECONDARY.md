@@ -62,12 +62,21 @@ systemctl is-active wg-quick@nd-svc-sp1   # if slot 1
 
 ### 3. Ready
 
-On the host that can see B’s plane (usually B or Primary after tunnels up):
+On B, validate only (local material and units):
+
+```bash
+netductor svc-paths peer validate peer-b
+```
+
+On Primary, after the client traffic test:
 
 ```bash
 netductor svc-paths peer validate peer-b
 netductor svc-paths peer ready peer-b
+netductor svc-paths peer promote peer-b
 ```
+
+`ready` and `promote` need the Primary peer registry. They are not run on B.
 
 `--force-ready` is ops escape hatch only.
 
@@ -198,3 +207,11 @@ Separate Reality profiles. DNS does not switch a profile. `prepared` is not traf
 - `peer remove` also deletes the peer's UFW rules and `peers/<id>` material. It does not stop services on the old Secondary itself.
 - `ready` is infra-only. It does not prove client Reality traffic. Promote only after that test.
 - Shadowrocket helper keeps both profiles when they share a hostname but differ in Reality keys.
+
+
+## 0.9.546
+
+- UFW cleanup errors if status cannot be read. Inactive UFW still has its peer rules deleted.
+- On B, a requested peer id must match material PeerID exactly, including a non-empty id.
+- `peer remove` writes `removing` before deleting material, so a failed reload can be retried.
+- Ready and promote run on Primary, not on B.

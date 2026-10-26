@@ -1,3 +1,8 @@
+## 0.9.546
+
+- UFW cleanup fails closed on status errors and still deletes rules when inactive. Secondary validate requires an exact PeerID. peer remove is retryable via removing.
+
+
 ## 0.9.545
 
 - peer validate on Secondary uses local material.json. peer remove deletes UFW rules and peer material. Shadowrocket helper keeps both profiles on a shared hostname.

@@ -249,3 +249,67 @@ func TestPeerRemoveDeletesMaterialAndUFW(t *testing.T) {
 		t.Fatal("material dir still present")
 	}
 }
+
+func TestPeerValidateSecondaryRequiresPeerID(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	old := peerValidateRole
+	peerValidateRole = func() string { return "secondary" }
+	t.Cleanup(func() { peerValidateRole = old })
+	m := &Material{PeerID: "", Slot: 1, Secondary: "203.0.113.9", Primary: "198.51.100.1"}
+	applySlotToMaterial(m, SlotTable()[1])
+	b, _ := json.MarshalIndent(m, "", "  ")
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res, err := PeerValidateLocal("peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK {
+		t.Fatal("empty material PeerID must not match requested id")
+	}
+}
+
+func TestPeerRemoveRetryAfterReloadFail(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	slot := SlotTable()[1]
+	idx := &PeersIndex{Peers: []ServicePeer{{
+		ID: "peer-r", State: "prepared", PublicIP: "203.0.113.7", Slot: slot,
+	}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	reloads := 0
+	oldStop, oldReload, oldUFW := peerRemoveStop, peerRemoveReload, peerRemoveUFW
+	t.Cleanup(func() { peerRemoveStop, peerRemoveReload, peerRemoveUFW = oldStop, oldReload, oldUFW })
+	peerRemoveStop = func(string) error { return nil }
+	peerRemoveUFW = func(string, string, string, int) error { return nil }
+	peerRemoveReload = func() error {
+		reloads++
+		if reloads == 1 {
+			return fmt.Errorf("reload failed")
+		}
+		return nil
+	}
+	if err := PeerRemove("peer-r"); err == nil {
+		t.Fatal("first remove should fail on reload")
+	}
+	got, err := LoadPeersIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.findAny("peer-r").State != "removing" {
+		t.Fatalf("state after partial: %s", got.findAny("peer-r").State)
+	}
+	if err := PeerRemove("peer-r"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = LoadPeersIndex()
+	if got.findAny("peer-r").State != "removed" {
+		t.Fatalf("retry did not finish: %s", got.findAny("peer-r").State)
+	}
+}

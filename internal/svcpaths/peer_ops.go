@@ -306,7 +306,7 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 			res.OK = false
 			return res, nil
 		}
-		if peerID != "" && m.PeerID != "" && m.PeerID != peerID {
+		if peerID != "" && m.PeerID != peerID {
 			add(false, fmt.Sprintf("local material peer_id %q != requested %q", m.PeerID, peerID))
 			res.OK = false
 			return res, nil
@@ -384,9 +384,12 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 	if err != nil {
 		return err
 	}
-	p := idx.Find(peerID)
+	p := idx.findAny(peerID)
 	if p == nil {
 		return fmt.Errorf("peer %s not found", peerID)
+	}
+	if p.State == "removed" {
+		return nil
 	}
 	if requireValidate {
 		// unlock for validate (may take time); re-check after
@@ -648,6 +651,9 @@ func PeerRemove(peerID string) error {
 			return fmt.Errorf("peer %s stop failed (configs kept, not marked removed): %w", peerID, err)
 		}
 	}
+	if err := markPeerState(idx, peerID, "removing"); err != nil {
+		return fmt.Errorf("peer %s mark removing: %w", peerID, err)
+	}
 	for _, path := range []string{
 		"/etc/wireguard/" + ifaceSP + ".conf",
 		"/etc/wireguard/" + ifacePS + ".conf",
@@ -668,14 +674,8 @@ func PeerRemove(peerID string) error {
 		return fmt.Errorf("peer %s daemon-reload (not marked removed): %w", peerID, err)
 	}
 
-	for i := range idx.Peers {
-		if idx.Peers[i].ID == peerID {
-			idx.Peers[i].State = "removed"
-			idx.Peers[i].UpdatedAt = time.Now().UTC()
-		}
-	}
-	if err := SavePeersIndex(idx); err != nil {
-		return err
+	if err := markPeerState(idx, peerID, "removed"); err != nil {
+		return fmt.Errorf("peer %s mark removed after cleanup: %w", peerID, err)
 	}
 	logPeerJournal("remove", peerID, "removed", "")
 	return nil
@@ -780,9 +780,10 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 		return nil
 	}
 	out, err := exec.Command("ufw", "status").CombinedOutput()
-	if err != nil || !strings.Contains(strings.ToLower(string(out)), "status: active") {
-		return nil
+	if err != nil {
+		return fmt.Errorf("ufw status: %v: %s", err, strings.TrimSpace(string(out)))
 	}
+	// Installed but inactive still has rules. Delete them so a later enable cannot revive them.
 	var errs []string
 	for _, rule := range [][]string{
 		{"delete", "allow", "from", addrSSP, "to", "any", "port", "8789", "proto", "tcp"},
@@ -809,4 +810,14 @@ func errString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func markPeerState(idx *PeersIndex, peerID, state string) error {
+	for i := range idx.Peers {
+		if idx.Peers[i].ID == peerID {
+			idx.Peers[i].State = state
+			idx.Peers[i].UpdatedAt = time.Now().UTC()
+		}
+	}
+	return SavePeersIndex(idx)
 }
