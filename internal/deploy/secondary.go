@@ -641,11 +641,11 @@ func expandUserPath(p string) string {
 
 func primarySSHPort(o SecondaryOpts) (string, error) {
 	port := o.PrimarySSHPort
-	if port <= 0 {
+	if port == 0 {
 		port = 52222
 	}
-	if port > 65535 {
-		return "", fmt.Errorf("primary SSH port %d invalid", port)
+	if port < 1 || port > 65535 {
+		return "", fmt.Errorf("primary SSH port %d invalid (need 1-65535; 0 means default)", port)
 	}
 	return fmt.Sprintf("%d", port), nil
 }

@@ -444,6 +444,13 @@ func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	}
 	s.PrimaryKey = expandHome(s.PrimaryKey)
 	s.SecondarySSHKey = expandHome(s.SecondarySSHKey)
+	if port, ok := portParam(j.Params, "primary_ssh_port", "PrimarySSHPort"); ok {
+		n, err := ParseSSHPort(port)
+		if err != nil {
+			return nil, err
+		}
+		s.PrimarySSHPort = n
+	}
 	setStep(jobs.Step{ID: "secondary", Message: "deploy secondary on " + s.SecondaryHost})
 	done := make(chan error, 1)
 	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeploySecondary(s) }) }()
@@ -482,7 +489,6 @@ func runBuildHostDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	}
 }
 
-
 func bootstrapOptsFromFacts(facts edge.DeviceFacts) deploy.BootstrapEvalOpts {
 	var usbKB int64
 	for _, d := range facts.Storage.USBDisks {
@@ -496,7 +502,6 @@ func bootstrapOptsFromFacts(facts edge.DeviceFacts) deploy.BootstrapEvalOpts {
 		USBSizeKB:     usbKB,
 	}
 }
-
 
 func runVpsPrecheck(ctx context.Context, j *jobs.Job, appendLog func(string), setStep func(jobs.Step)) (any, error) {
 	p := j.Params

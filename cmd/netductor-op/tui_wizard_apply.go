@@ -394,6 +394,9 @@ func (m model) runWizardApplyInTUI() string {
 		return TT(lang, "Primary deploy finished: "+spec.Host, "Primary готов: "+spec.Host)
 
 	case wizFleet:
+		if _, err := operator.ParseSSHPort(m.fieldVal("primary_ssh_port")); err != nil {
+			return err.Error()
+		}
 		f := operator.FleetFromFields(m.fieldVal)
 		f.Primary.Version = deploy.Release
 		if _, err := startAndWaitJob("fleet.deploy", structToParams(f)); err != nil {
@@ -437,6 +440,9 @@ func (m model) runWizardApplyInTUI() string {
 	case wizSecondary:
 		if s.RemoteHost == "" || s.RemoteKey == "" {
 			return FormT(lang, "set_primary_first")
+		}
+		if _, err := operator.ParseSSHPort(m.fieldVal("primary_ssh_port")); err != nil {
+			return err.Error()
 		}
 		sec := operator.SecondaryFromFields(m.fieldVal)
 		sec.PrimaryHost = s.RemoteHost

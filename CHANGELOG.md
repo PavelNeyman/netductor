@@ -1,3 +1,8 @@
+## 0.9.542
+
+- One SSH port parser for TUI, Web, Fleet, and deploy. Empty is default; abc, 22abc, 0, -1, and 65536 are errors.
+
+
 ## 0.9.541
 
 - Promote=true is rejected before any SSH. Primary SSH port and peer id are in TUI, Web, and Fleet. Invalid CLI port is an error.

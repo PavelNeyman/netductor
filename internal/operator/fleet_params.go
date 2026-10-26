@@ -36,10 +36,12 @@ func NormalizeFleetParams(p map[string]any) (FleetSpec, error) {
 	if pw := strParam(p, "secondary_password", "SecondaryPass", "secondary_pass"); pw != "" {
 		f.Secondary.SecondaryPass = pw
 	}
-	if port := strParam(p, "primary_ssh_port", "PrimarySSHPort"); port != "" {
-		if n, err := strconv.Atoi(port); err == nil {
-			f.Secondary.PrimarySSHPort = n
+	if port, ok := portParam(p, "primary_ssh_port", "PrimarySSHPort"); ok {
+		n, err := ParseSSHPort(port)
+		if err != nil {
+			return f, err
 		}
+		f.Secondary.PrimarySSHPort = n
 	}
 	if id := strParam(p, "peer_id", "PeerID"); id != "" {
 		f.Secondary.PeerID = id
@@ -213,4 +215,27 @@ func toInt(v any) int {
 	default:
 		return 0
 	}
+}
+
+func portParam(p map[string]any, keys ...string) (string, bool) {
+	for _, k := range keys {
+		v, ok := p[k]
+		if !ok || v == nil {
+			continue
+		}
+		switch n := v.(type) {
+		case string:
+			return n, true
+		case float64:
+			if n != float64(int(n)) {
+				return fmt.Sprintf("%v", n), true
+			}
+			return strconv.Itoa(int(n)), true
+		case int:
+			return strconv.Itoa(n), true
+		default:
+			return fmt.Sprintf("%v", n), true
+		}
+	}
+	return "", false
 }

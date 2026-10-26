@@ -1,3 +1,12 @@
+
+function sshPortValue(raw){
+  const s=(raw||'').trim();
+  if(!s) return 0;
+  if(!/^[0-9]+$/.test(s)) return null;
+  const n=Number(s);
+  if(n<1||n>65535) return null;
+  return n;
+}
 const ND_TOKEN = (function(){
   // Prefer injected literal from /static/app.js; fallback meta on index.html.
   const injected = '/*__ND_TOKEN__*/';
@@ -416,12 +425,12 @@ function bindTgToggle(cbId, fieldsId, noteId){
 bindTgToggle('fleet_with_tg','fleet_tg_fields','fleet_tg_note');
 bindTgToggle('pri_with_tg','pri_tg_fields',null);
 
-document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; saveForm('fleet',fd);
+document.getElementById('form-fleet').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(!tgFieldsOk(fd)) return; if(sshPortValue(fd.get('primary_ssh_port'))===null){ alert('Invalid primary SSH port (1-65535)'); return; } saveForm('fleet',fd);
   await streamPost('/v1/fleet',{ do_primary:fd.get('do_primary')==='on', do_secondary:fd.get('do_secondary')==='on', do_build:fd.get('do_build')==='on',
     build_host:fd.get('build_host'), build_password:fd.get('build_password'), build_label:fd.get('build_label')||'build-1',
     primary_host:fd.get('primary_host'), primary_password:fd.get('primary_password'),
     secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
-    primary_ssh_port:parseInt(fd.get('primary_ssh_port')||'0',10)||0, peer_id:(fd.get('peer_id')||''),
+    primary_ssh_port:sshPortValue(fd.get('primary_ssh_port')), peer_id:(fd.get('peer_id')||''),
     domain_base:fd.get('domain_base'), domain_primary:fd.get('domain_primary'), domain_vpn:fd.get('domain_vpn'), domain_redirect:fd.get('domain_redirect'), le_email:fd.get('le_email'), sni:fd.get('sni'), ssh_port:fd.get('ssh_port'), redirect_https_port:fd.get('redirect_https_port'), agent_mtls_port:fd.get('agent_mtls_port'), lampac_port:fd.get('lampac_port'), key:fd.get('key'), key_passphrase:fd.get('key_passphrase'),
     cf_proxy:fd.get('cf_proxy')==='on',
     with_lampac:fd.get('with_lampac')==='on', with_git:fd.get('with_git')==='on',
@@ -440,9 +449,9 @@ document.getElementById('form-build')&&(document.getElementById('form-build').on
     primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), label:fd.get('label')||'' });
 });
 
-document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('secondary',fd);
+document.getElementById('form-secondary').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); if(sshPortValue(fd.get('primary_ssh_port'))===null){ alert('Invalid primary SSH port (1-65535)'); return; } saveForm('secondary',fd);
   await streamPost('/v1/secondary',{ primary_host:fd.get('primary_host'), primary_key:fd.get('primary_key'), primary_key_passphrase:(fd.get('primary_key_passphrase')||fd.get('key_passphrase')||''), secondary_host:fd.get('secondary_host'), secondary_password:fd.get('secondary_password'),
-    primary_ssh_port:parseInt(fd.get('primary_ssh_port')||'0',10)||0, peer_id:(fd.get('peer_id')||''), secondary_ssh_key:fd.get('secondary_ssh_key'), ssh_mode:(fd.get('ssh_mode')||'initial'), sni:(fd.get('sni')||'api.vk.me') }, e.submitter); };
+    primary_ssh_port:sshPortValue(fd.get('primary_ssh_port')), peer_id:(fd.get('peer_id')||''), secondary_ssh_key:fd.get('secondary_ssh_key'), ssh_mode:(fd.get('ssh_mode')||'initial'), sni:(fd.get('sni')||'api.vk.me') }, e.submitter); };
 document.getElementById('form-site').onsubmit=async e=>{ e.preventDefault(); const fd=new FormData(e.target); saveForm('site',fd);
   await streamPost('/v1/site',{
     site_id:fd.get('site_id'), name:fd.get('name'), rpi_id:fd.get('rpi_id'), mikrotik_id:fd.get('mikrotik_id'),

@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -105,7 +106,7 @@ func SecondaryFromFields(get FieldGetter) SecondarySpec {
 		SecondaryPass:        pass,
 		SecondarySSHKey:      get("secondary_ssh_key"),
 		SSHMode:              mode,
-		PrimarySSHPort:       atoiDefault(get("primary_ssh_port"), 0),
+		PrimarySSHPort:       mustSSHPort(get("primary_ssh_port")),
 		PeerID:               get("peer_id"),
 		SNI:                  orDefault(get("sni"), "api.vk.me"),
 		PrimaryKeyPassphrase: get("key_pass"),
@@ -290,4 +291,26 @@ func BuildHostFromFields(get FieldGetter) BuildHostSpec {
 		OperatorPubKey:       strings.TrimSpace(get("operator_pub")),
 		PrimaryURL:           strings.TrimSpace(get("primary_url")),
 	}
+}
+
+// ParseSSHPort: empty means default (0). Any other value must be an integer 1-65535.
+// "22abc" is rejected; it is not 22.
+func ParseSSHPort(s string) (int, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 || n > 65535 {
+		return 0, fmt.Errorf("invalid SSH port %q (need 1-65535)", s)
+	}
+	return n, nil
+}
+
+func mustSSHPort(s string) int {
+	n, err := ParseSSHPort(s)
+	if err != nil {
+		return -1 // sentinel: caller must check
+	}
+	return n
 }
