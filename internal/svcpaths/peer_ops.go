@@ -284,6 +284,7 @@ type PeerValidateResult struct {
 // PeerValidateLocal runs checks on this host (secondary after bootstrap, or primary smoke).
 // On secondary: units, peer pings, :443, core URL. Does not set ready — caller uses PeerMarkReady after OK.
 var peerValidateRole = hostRole
+var peerValidateForReady = PeerValidateLocal
 
 func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 	res := &PeerValidateResult{PeerID: peerID, CheckedAt: time.Now().UTC()}
@@ -388,13 +389,13 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 	if p == nil {
 		return fmt.Errorf("peer %s not found", peerID)
 	}
-	if p.State == "removed" {
-		return nil
+	if p.State == "removed" || p.State == "removing" {
+		return fmt.Errorf("peer %s is %s — refuse ready", peerID, p.State)
 	}
 	if requireValidate {
 		// unlock for validate (may take time); re-check after
 		peerMu.Unlock()
-		vr, err := PeerValidateLocal(peerID)
+		vr, err := peerValidateForReady(peerID)
 		peerMu.Lock()
 		if err != nil {
 			return err
@@ -403,10 +404,13 @@ func PeerMarkReady(peerID string, requireValidate bool) error {
 			logPeerJournal("validate", peerID, "failed", strings.Join(vr.Errors, "; "))
 			return fmt.Errorf("peer %s validate failed: %s", peerID, strings.Join(vr.Errors, "; "))
 		}
-		// reload index
 		idx, err = LoadPeersIndex()
 		if err != nil {
 			return err
+		}
+		again := idx.findAny(peerID)
+		if again == nil || again.State == "removed" || again.State == "removing" {
+			return fmt.Errorf("peer %s changed during validate (now %s) — refuse ready", peerID, peerState(again))
 		}
 	}
 	for i := range idx.Peers {
@@ -775,32 +779,49 @@ func unitMissing(msg string) bool {
 		strings.Contains(m, "not loaded") || strings.Contains(m, "does not exist")
 }
 
-func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
+var peerUFWExec = func(args ...string) ([]byte, error) {
 	if _, err := exec.LookPath("ufw"); err != nil {
+		return nil, errUFWMissing
+	}
+	return exec.Command("ufw", args...).CombinedOutput()
+}
+
+var errUFWMissing = fmt.Errorf("ufw not installed")
+
+func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
+	out, err := peerUFWExec("status")
+	if err != nil && errors.Is(err, errUFWMissing) {
 		return nil
 	}
-	out, err := exec.Command("ufw", "status").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ufw status: %v: %s", err, strings.TrimSpace(string(out)))
 	}
-	// Installed but inactive still has rules. Delete them so a later enable cannot revive them.
-	var errs []string
-	for _, rule := range [][]string{
+	rules := [][]string{
 		{"delete", "allow", "from", addrSSP, "to", "any", "port", "8789", "proto", "tcp"},
 		{"delete", "allow", "from", addrSPS, "to", "any", "port", "8789", "proto", "tcp"},
 		{"delete", "allow", "from", publicIP, "to", "any", "port", fmt.Sprintf("%d", wssPort), "proto", "tcp"},
-	} {
+	}
+	for _, rule := range rules {
 		if rule[3] == "" || rule[7] == "0" {
 			continue
 		}
-		bout, berr := exec.Command("ufw", rule...).CombinedOutput()
+		bout, berr := peerUFWExec(rule...)
 		msg := strings.ToLower(string(bout) + " " + errString(berr))
 		if berr != nil && !strings.Contains(msg, "could not delete") && !strings.Contains(msg, "not found") && !strings.Contains(msg, "skipping") {
-			errs = append(errs, strings.TrimSpace(string(bout)+" "+errString(berr)))
+			return fmt.Errorf("ufw delete %s: %s", rule[3], strings.TrimSpace(string(bout)+" "+errString(berr)))
 		}
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	after, err := peerUFWExec("status")
+	if err != nil {
+		return fmt.Errorf("ufw status after delete: %v: %s", err, strings.TrimSpace(string(after)))
+	}
+	for _, src := range []string{addrSSP, addrSPS, publicIP} {
+		if src == "" {
+			continue
+		}
+		if strings.Contains(string(after), src) {
+			return fmt.Errorf("ufw still has a rule for %s", src)
+		}
 	}
 	return nil
 }
@@ -820,4 +841,11 @@ func markPeerState(idx *PeersIndex, peerID, state string) error {
 		}
 	}
 	return SavePeersIndex(idx)
+}
+
+func peerState(p *ServicePeer) string {
+	if p == nil {
+		return "missing"
+	}
+	return p.State
 }

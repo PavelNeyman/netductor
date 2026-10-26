@@ -54,3 +54,9 @@
 - На B запрошенный peer id должен точно совпасть с PeerID материала, пустой id не проходит.
 - `peer remove` пишет `removing` до удаления материала. Сбой reload можно повторить.
 - `ready` и `promote` выполняются на Primary, не на B.
+
+## 0.9.547
+
+- `peer ready` после validate снова проверяет состояние и отказывает для `removed` / `removing`.
+- UFW cleanup падает, если источник peer всё ещё есть в `ufw status`.
+- Runbook: сначала клиентский тест, потом `ready` / `promote` на Primary. Deploy `Promote=true` отклоняется.

@@ -1,3 +1,8 @@
+## 0.9.547
+
+- peer ready re-checks state after validate and refuses removed/removing. UFW cleanup confirms sources are gone. Runbook puts the traffic test before ready/promote.
+
+
 ## 0.9.546
 
 - UFW cleanup fails closed on status errors and still deletes rules when inactive. Secondary validate requires an exact PeerID. peer remove is retryable via removing.

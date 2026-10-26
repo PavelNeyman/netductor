@@ -313,3 +313,80 @@ func TestPeerRemoveRetryAfterReloadFail(t *testing.T) {
 		t.Fatalf("retry did not finish: %s", got.findAny("peer-r").State)
 	}
 }
+
+func TestPeerMarkReadyRejectsRemoved(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	idx := &PeersIndex{Peers: []ServicePeer{{ID: "peer-x", State: "removed", Slot: SlotTable()[1]}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	if err := PeerMarkReady("peer-x", false); err == nil || !strings.Contains(err.Error(), "removed") {
+		t.Fatalf("ready on removed must fail, got %v", err)
+	}
+}
+
+func TestPeerMarkReadyDoesNotReviveRemoved(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	idx := &PeersIndex{Peers: []ServicePeer{{ID: "peer-y", State: "prepared", Slot: SlotTable()[1]}}}
+	if err := SavePeersIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	old := peerValidateForReady
+	peerValidateForReady = func(id string) (*PeerValidateResult, error) {
+		cur, err := LoadPeersIndex()
+		if err != nil {
+			return nil, err
+		}
+		if err := markPeerState(cur, id, "removed"); err != nil {
+			return nil, err
+		}
+		return &PeerValidateResult{OK: true}, nil
+	}
+	t.Cleanup(func() { peerValidateForReady = old })
+	if err := PeerMarkReady("peer-y", true); err == nil || !strings.Contains(err.Error(), "changed during validate") {
+		t.Fatalf("ready must not revive removed, got %v", err)
+	}
+	got, _ := LoadPeersIndex()
+	if got.findAny("peer-y").State != "removed" {
+		t.Fatal("state changed")
+	}
+}
+
+func TestRemovePeerUFWConfirmsGone(t *testing.T) {
+	rules := "Status: active\n8789/tcp ALLOW 10.87.20.2\n8444/tcp ALLOW 203.0.113.9\n"
+	old := peerUFWExec
+	t.Cleanup(func() { peerUFWExec = old })
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if args[0] == "status" {
+			return []byte(rules), nil
+		}
+		if args[0] == "delete" {
+			src := args[3]
+			rules = strings.ReplaceAll(rules, src, "")
+			return []byte("deleted"), nil
+		}
+		return nil, fmt.Errorf("unexpected %v", args)
+	}
+	if err := removePeerUFW("203.0.113.9", "10.87.20.2", "", 8444); err != nil {
+		t.Fatal(err)
+	}
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if args[0] == "status" {
+			return []byte("Status: active\n8789/tcp ALLOW 10.87.20.2\n"), nil
+		}
+		return []byte("deleted"), nil
+	}
+	if err := removePeerUFW("203.0.113.9", "10.87.20.2", "", 0); err == nil {
+		t.Fatal("remaining rule must fail")
+	}
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		return []byte("fail"), fmt.Errorf("status failed")
+	}
+	if err := removePeerUFW("203.0.113.9", "10.87.20.2", "", 0); err == nil {
+		t.Fatal("status error must fail")
+	}
+}

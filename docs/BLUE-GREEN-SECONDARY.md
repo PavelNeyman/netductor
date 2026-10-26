@@ -60,7 +60,7 @@ systemctl is-active wg-quick@nd-svc-sp1   # if slot 1
 # agent heartbeat visible on Primary
 ```
 
-### 3. Ready
+### 3. Infra check
 
 On B, validate only (local material and units):
 
@@ -68,30 +68,27 @@ On B, validate only (local material and units):
 netductor svc-paths peer validate peer-b
 ```
 
-On Primary, after the client traffic test:
+On Primary, validate the registered peer. Do not ready or promote yet:
 
 ```bash
 netductor svc-paths peer validate peer-b
-netductor svc-paths peer ready peer-b
-netductor svc-paths peer promote peer-b
 ```
 
-`ready` and `promote` need the Primary peer registry. They are not run on B.
-
-`--force-ready` is ops escape hatch only.
-
-### 4. Client path test **before** promote
+### 4. Client path test **before** ready and promote
 
 - Point a test client at **B’s IP** (not DNS) with B’s Reality params from B.
 - Confirm TCP/UDP user traffic.
 - Optional: break SP on B, confirm PS failover on B only; A unchanged.
 
-### 5. Promote (preferred_secondary_ip)
+### 5. Ready and promote (Primary only, after the traffic test)
 
 ```bash
+netductor svc-paths peer ready peer-b
 netductor svc-paths peer promote peer-b
 # writes preferred_secondary_ip + active_peer_id
 ```
+
+`ready` and `promote` need the Primary peer registry. They are not run on B. `ready` is infra-only; the traffic test above is the real gate.
 
 Does **not** change DNS by itself.
 
@@ -156,7 +153,7 @@ From **v0.9.510**, `netductor deploy secondary` / operator deploy calls **`svc-p
 ## Promote flag on deploy
 
 - Default **Promote=false**: provision only; operator runs `peer validate` / `ready` / `promote` after traffic proof.
-- **Promote=true**: runs `peer validate` then `ready` (no `--force-ready`) then `promote` on primary. Still does **not** replace live user-traffic R5 or DNS cutover.
+- **Promote=true** is rejected. Deploy never promotes. Run the traffic test, then `peer ready` / `peer promote` on Primary.
 - Emergency force-ready remains CLI-only: `peer ready <id> --force-ready`.
 
 ## Subscription profiles (v0.9.535)
@@ -215,3 +212,10 @@ Separate Reality profiles. DNS does not switch a profile. `prepared` is not traf
 - On B, a requested peer id must match material PeerID exactly, including a non-empty id.
 - `peer remove` writes `removing` before deleting material, so a failed reload can be retried.
 - Ready and promote run on Primary, not on B.
+
+
+## 0.9.547
+
+- `peer ready` re-checks state after validate and refuses `removed` / `removing`.
+- UFW cleanup fails if a peer source is still in `ufw status` after delete.
+- Runbook: traffic test, then ready/promote on Primary. Deploy Promote=true is rejected.
