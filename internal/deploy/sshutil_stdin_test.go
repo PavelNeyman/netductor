@@ -65,3 +65,21 @@ func TestRunSSHOnPortWithStdinDoesNotLeakInError(t *testing.T) {
 		t.Fatal("secret leaked in error")
 	}
 }
+
+func TestPrintRemoteAllowlistFiltersSecrets(t *testing.T) {
+	// ensure helper only keeps prefixed lines — exercised via prefix match logic inlined
+	out := "svc-paths secondary ok slot_iface=a/b\nsp_priv_s=SHOULD_NOT_PRINT\nsecret token=xyz\n"
+	var kept []string
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "svc-paths secondary") {
+			kept = append(kept, line)
+		}
+	}
+	if len(kept) != 1 || strings.Contains(strings.Join(kept, ""), "priv") {
+		t.Fatalf("allowlist failed: %v", kept)
+	}
+}

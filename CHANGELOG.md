@@ -1,3 +1,8 @@
+## 0.9.568
+
+- DeploySecondary: remote stdout via printRemoteAllowlist only (bootstrap, verify, ufw, heartbeat, sync)
+- No wholesale fmt.Print of remote command output on success paths
+
 ## 0.9.567
 
 - mTLS client material install via tar on SSH stdin (no base64 in remote argv)

@@ -349,6 +349,28 @@ print("material full match")
 `
 }
 
+// printRemoteAllowlist prints only lines with known-safe prefixes; otherwise a fixed ok line.
+// Remote stdout is untrusted and must not be dumped wholesale (secrets hygiene).
+func printRemoteAllowlist(stage string, out string, prefixes ...string) {
+	printed := false
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		for _, p := range prefixes {
+			if p != "" && strings.HasPrefix(line, p) {
+				fmt.Fprintln(os.Stderr, line)
+				printed = true
+				break
+			}
+		}
+	}
+	if !printed {
+		fmt.Fprintln(os.Stderr, stage+": ok")
+	}
+}
+
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
 
 func DeploySecondary(o SecondaryOpts) error {
@@ -576,10 +598,10 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
 		"netductor secondary sync && netductor fleet status",
 		o.PrimaryKeyPassphrase)
-	fmt.Print(out)
 	if err != nil {
-		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("primary secondary sync: %w", err))
+		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("secondary-sync", "ssh", err))
 	}
+	printRemoteAllowlist("secondary-sync", out, "secondary", "fleet", "config_ver")
 
 	if path, err := CollectOperatorSecrets("secondary", o.SecondaryUser, o.SecondaryHost, secKey, secPass); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: credentials collect:", err)
@@ -605,10 +627,10 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		fmt.Fprintln(os.Stderr, "==> incomplete peer add — recovering", peerID)
 		rec := "netductor svc-paths peer recover " + ShellQuote(peerID)
 		outR, errR := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, rec, o.PrimaryKeyPassphrase)
-		fmt.Print(outR)
 		if errR != nil {
 			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("peer-recover", "ssh", errR))
 		}
+		printRemoteAllowlist("peer-recover", outR, "svc-paths", "peer", "recovered")
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	}
 	if err != nil {
@@ -663,7 +685,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 				prev.BootstrappedMaterialSHA = ""
 			}
 		} else {
-			fmt.Fprintln(os.Stderr, strings.TrimSpace(outV))
+			printRemoteAllowlist("material-verify", outV, "material full match")
 			fmt.Fprintln(os.Stderr, "==> skip SCP (full material match + journal SHA)")
 		}
 	}
@@ -737,7 +759,7 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("bootstrap-secondary", "ssh", err2))
 		}
 	}
-	fmt.Fprintln(os.Stderr, strings.TrimSpace(out2))
+	printRemoteAllowlist("bootstrap-secondary", out2, "svc-paths secondary", "join ok")
 	if err := checkpointBootstrapOK(&prev, peerID, pack.AgentID, o.SecondaryHost, shipSHA); err != nil {
 		return err
 	}
@@ -779,7 +801,7 @@ echo "ufw peer rules verified"
 	if outU, errU := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths primary firewall for peer slot: %w", errU))
 	} else {
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(outU))
+		printRemoteAllowlist("ufw-peer", outU, "ufw", "UFW", "skip")
 	}
 	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageFirewallVerified); err != nil {
 		return err
@@ -807,7 +829,7 @@ echo "primary peer units+ping ok -> %s %s"
 	if outP2, errP2 := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, primCheck, o.PrimaryKeyPassphrase); errP2 != nil {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths primary SP/PS units/ping: %v", errP2))
 	} else {
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(outP2))
+		printRemoteAllowlist("primary-sp-ps", outP2, "primary peer", "unit ")
 	}
 	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageNetworkVerified); err != nil {
 		return err
@@ -839,10 +861,10 @@ for i in $(seq 1 18); do
 done
 test "$ok" = 1`, ShellQuote(pack.AgentID))
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
-	fmt.Print(out)
 	if err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w", err))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("heartbeat", "wait", err))
 	}
+	printRemoteAllowlist("heartbeat", out, pack.AgentID, "online")
 
 	if err := checkpointSuccess(&prev, peerID, pack.AgentID, o.SecondaryHost, StageHeartbeatVerified); err != nil {
 		return err
@@ -878,7 +900,7 @@ print("profile ready id=%%s ip=%%s pbk_len=%%d"%%(id,ip,len(d.get("pbk") or ""))
 	if errReady != nil {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary profile not subscription-ready: %w", errReady))
 	}
-	fmt.Fprintln(os.Stderr, strings.TrimSpace(outReady))
+	printRemoteAllowlist("profile-ready", outReady, "profile ready")
 
 	// DNS cutover requires shared VPN hostname — warn only (deploy does not cut over DNS).
 	hostNote := `set -e
@@ -892,7 +914,7 @@ else
 fi
 `
 	if outH, errH := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, hostNote, o.PrimaryKeyPassphrase); errH == nil {
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(outH))
+		printRemoteAllowlist("vpn-hostname", outH, "vpn_hostname=", "NOTE:")
 	}
 
 	if err := checkpointDeployComplete(&prev, peerID, pack.AgentID, o.SecondaryHost); err != nil {
