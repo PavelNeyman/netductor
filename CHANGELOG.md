@@ -1,3 +1,9 @@
+## 0.9.551
+
+- DeploySecondary: structured orchestration journal (`state-<host>.json` + `journal.log`) with stages; resume skips provision when stage≥provisioned and key SSH works
+- Incomplete peer add: auto `peer recover` once then retry add (still refuses silent key overwrite)
+- Checkpoints: provisioned → peer_prepared → heartbeat_verified → deploy_complete (clears state on success)
+
 ## 0.9.550
 
 - PeerAdd refuses an incomplete op.json and tells the operator to recover. It does not generate new keys.

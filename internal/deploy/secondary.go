@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -282,20 +281,6 @@ func extractJSONObject(s string) (string, error) {
 }
 
 // DeploySecondary: Mac orchestrates both legs; primary never SSHs to secondary.
-func writeDeployJournal(peerID, agentID, host, stage string) {
-	dir := filepath.Join(os.Getenv("HOME"), ".cache", "netductor", "deploy")
-	if dir == "/.cache/netductor/deploy" || strings.HasPrefix(dir, "/.cache") {
-		dir = filepath.Join(os.TempDir(), "netductor-deploy")
-	}
-	_ = os.MkdirAll(dir, 0o700)
-	line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\n", time.Now().UTC().Format(time.RFC3339), stage, peerID, agentID, host)
-	f, err := os.OpenFile(filepath.Join(dir, "journal.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return
-	}
-	_, _ = f.WriteString(line)
-	_ = f.Close()
-}
 
 func DeploySecondary(o SecondaryOpts) error {
 	if o.Promote {
@@ -358,89 +343,117 @@ func DeploySecondary(o SecondaryOpts) error {
 	if errP != nil {
 		return errP
 	}
-	writeDeployJournal("", "", o.SecondaryHost, "provision_started")
-	fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost, "port", pPort)
+	prev, _ := loadDeployState(o.SecondaryHost)
+	if prev != nil && prev.Stage != "" && prev.Stage != StageDeployComplete {
+		fmt.Fprintf(os.Stderr, "==> resume deploy host=%s stage=%s peer=%s agent=%s\n", o.SecondaryHost, prev.Stage, prev.PeerID, prev.AgentID)
+	}
 
-	prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
-	out, err := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
-	if err != nil {
-		return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
-	}
-	raw, errJ := extractJSONObject(out)
-	if errJ != nil {
-		return fmt.Errorf("prepare-pack JSON: %w\n%s", errJ, out)
-	}
 	var pack secondaryPack
-	if err := json.Unmarshal([]byte(raw), &pack); err != nil {
-		return fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out)
-	}
-	if pack.AgentID == "" || pack.AgentToken == "" || len(pack.Bundle) == 0 {
-		return fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out)
-	}
-	const packSchema = 1
-	if pack.SchemaVersion != packSchema {
-		return fmt.Errorf("prepare-pack schema_version %d unsupported (need %d; missing/0 rejected)", pack.SchemaVersion, packSchema)
-	}
-	if pack.MinAgentVersion != "" {
-		if !version.ValidDotVersion(pack.MinAgentVersion) {
-			return fmt.Errorf("prepare-pack min_agent_version %q invalid", pack.MinAgentVersion)
+	var out string
+	var err error
+	var raw string
+	var errJ error
+
+	skipProv := canSkipProvision(prev) && o.SSHMode == SSHModeResume && prev != nil && prev.AgentID != ""
+	if skipProv {
+		fmt.Fprintln(os.Stderr, "==> skip prepare-pack+provision (journal stage>=provisioned, resume SSH)")
+		pack.AgentID = prev.AgentID
+		// Verify key-only SSH; if fail, fall through to full provision
+		const day2PortProbe = "52222"
+		secKeyP, secPassP := secondaryDialKey(o)
+		if _, errP := runSSHOnPort(day2PortProbe, "", secKeyP, o.SecondaryUser, o.SecondaryHost, "true", secPassP); errP != nil {
+			fmt.Fprintln(os.Stderr, "warn: resume SSH check failed — full provision:", errP)
+			skipProv = false
 		}
-		if version.Less(version.Release, pack.MinAgentVersion) {
-			return fmt.Errorf("operator binary %s older than pack min_agent_version %s — upgrade before provision", version.Release, pack.MinAgentVersion)
-		}
-	}
-	ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
-	if err != nil {
-		return fmt.Errorf("mtls ca: %w", err)
-	}
-	cert, err := base64.StdEncoding.DecodeString(pack.MTLSCertB64)
-	if err != nil {
-		return fmt.Errorf("mtls cert: %w", err)
-	}
-	key, err := base64.StdEncoding.DecodeString(pack.MTLSKeyB64)
-	if err != nil {
-		return fmt.Errorf("mtls key: %w", err)
 	}
 
-	if o.SSHMode == SSHModeResume {
-		fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(resume, key-only :52222)")
-	} else {
-		fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(initial, password once, then key-only)")
-	}
-	// R6/R16: host-key mismatch must NOT auto-forget or retry with password (MITM risk).
-	// Explicit ForceReinstall only after operator verified fingerprint offline.
-	res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
-		Host: o.SecondaryHost, Port: provPort, User: o.SecondaryUser,
-		Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
-		SSHKeyPassphrase: secondaryKeyPass(o),
-		SNI:              o.SNI, OperatorPubKey: pub,
-		MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
-		ForceReinstall: o.ForceReinstall,
-	}, string(pack.Bundle))
-	if err != nil && isSSHHostKeyError(err) {
-		return fmt.Errorf("SSH host key mismatch for %s — refuse auto-trust.\n"+
-			"Verify fingerprint offline, then:\n"+
-			"  netductor ssh-hosts forget --kind relay %s\n"+
-			"  ssh-keygen -R %s; ssh-keygen -R '[%s]:22'; ssh-keygen -R '[%s]:52222'\n"+
-			"Re-run deploy (or set ForceReinstall after forget).\n%w",
-			o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, err)
-	}
-	if res != nil {
-		fmt.Print(res.Log)
-	}
-	if err != nil {
-		return fmt.Errorf("secondary provision: %w", err)
-	}
-	if res == nil || !res.AgentOK || !res.SingBoxOK {
-		return fmt.Errorf("secondary provision: agent/sing-box not healthy after join")
-	}
+	if !skipProv {
+		writeDeployJournal("", "", o.SecondaryHost, StageProvisionStarted)
+		fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost, "port", pPort)
+
+		prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
+		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
+		if err != nil {
+			writeDeployJournalErr(err.Error(), "", "", o.SecondaryHost, StageFailedRecoverable)
+			return fmt.Errorf("prepare-pack on primary: %w\n%s", err, out)
+		}
+		raw, errJ = extractJSONObject(out)
+		if errJ != nil {
+			return fmt.Errorf("prepare-pack JSON: %w\n%s", errJ, out)
+		}
+		if err := json.Unmarshal([]byte(raw), &pack); err != nil {
+			return fmt.Errorf("parse prepare-pack JSON: %w\n%s", err, out)
+		}
+		if pack.AgentID == "" || pack.AgentToken == "" || len(pack.Bundle) == 0 {
+			return fmt.Errorf("prepare-pack missing agent_id/token/bundle:\n%s", out)
+		}
+		const packSchema = 1
+		if pack.SchemaVersion != packSchema {
+			return fmt.Errorf("prepare-pack schema_version %d unsupported (need %d; missing/0 rejected)", pack.SchemaVersion, packSchema)
+		}
+		if pack.MinAgentVersion != "" {
+			if !version.ValidDotVersion(pack.MinAgentVersion) {
+				return fmt.Errorf("prepare-pack min_agent_version %q invalid", pack.MinAgentVersion)
+			}
+			if version.Less(version.Release, pack.MinAgentVersion) {
+				return fmt.Errorf("operator binary %s older than pack min_agent_version %s — upgrade before provision", version.Release, pack.MinAgentVersion)
+			}
+		}
+		ca, err := base64.StdEncoding.DecodeString(pack.MTLSCAB64)
+		if err != nil {
+			return fmt.Errorf("mtls ca: %w", err)
+		}
+		cert, err := base64.StdEncoding.DecodeString(pack.MTLSCertB64)
+		if err != nil {
+			return fmt.Errorf("mtls cert: %w", err)
+		}
+		key, err := base64.StdEncoding.DecodeString(pack.MTLSKeyB64)
+		if err != nil {
+			return fmt.Errorf("mtls key: %w", err)
+		}
+
+		if o.SSHMode == SSHModeResume {
+			fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(resume, key-only :52222)")
+		} else {
+			fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(initial, password once, then key-only)")
+		}
+		// R6/R16: host-key mismatch must NOT auto-forget or retry with password (MITM risk).
+		// Explicit ForceReinstall only after operator verified fingerprint offline.
+		res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
+			Host: o.SecondaryHost, Port: provPort, User: o.SecondaryUser,
+			Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
+			SSHKeyPassphrase: secondaryKeyPass(o),
+			SNI:              o.SNI, OperatorPubKey: pub,
+			MTLSCA: ca, MTLSCert: cert, MTLSKey: key,
+			ForceReinstall: o.ForceReinstall,
+		}, string(pack.Bundle))
+		if err != nil && isSSHHostKeyError(err) {
+			return fmt.Errorf("SSH host key mismatch for %s — refuse auto-trust.\n"+
+				"Verify fingerprint offline, then:\n"+
+				"  netductor ssh-hosts forget --kind relay %s\n"+
+				"  ssh-keygen -R %s; ssh-keygen -R '[%s]:22'; ssh-keygen -R '[%s]:52222'\n"+
+				"Re-run deploy (or set ForceReinstall after forget).\n%w",
+				o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, err)
+		}
+		if res != nil {
+			fmt.Print(res.Log)
+		}
+		if err != nil {
+			return fmt.Errorf("secondary provision: %w", err)
+		}
+		if res == nil || !res.AgentOK || !res.SingBoxOK {
+			return fmt.Errorf("secondary provision: agent/sing-box not healthy after join")
+		}
+	} // end !skipProv
 
 	const day2Port = "52222"
 	fmt.Fprintln(os.Stderr, "==> verify SSH key-only on", o.SecondaryHost+":"+day2Port)
 	secKey, secPass := secondaryDialKey(o)
 	if out, err := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, "true", secPass); err != nil {
+		writeDeployJournalErr(err.Error(), "", pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 		return fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w\n%s", o.SecondaryHost, day2Port, err, out)
 	}
+	writeDeployJournal("", pack.AgentID, o.SecondaryHost, StageProvisioned)
 
 	fmt.Fprintln(os.Stderr, "==> primary: secondary sync + fleet status")
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
@@ -463,13 +476,28 @@ func DeploySecondary(o SecondaryOpts) error {
 	if peerID == "" {
 		peerID = "peer-" + strings.ReplaceAll(secIP, ".", "-")
 	}
-	writeDeployJournal(peerID, "", o.SecondaryHost, "peer_add_started")
+	if prev != nil && prev.PeerID != "" && strings.TrimSpace(o.PeerID) == "" {
+		peerID = prev.PeerID
+	}
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StagePeerAddStarted)
 	pre := fmt.Sprintf(
 		"mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
 		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
 	)
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
+	if err != nil && (strings.Contains(out, "peer recover") || (err != nil && strings.Contains(err.Error(), "peer recover"))) {
+		fmt.Fprintln(os.Stderr, "==> incomplete peer add — recovering", peerID)
+		rec := "netductor svc-paths peer recover " + ShellQuote(peerID)
+		outR, errR := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, rec, o.PrimaryKeyPassphrase)
+		fmt.Print(outR)
+		if errR != nil {
+			writeDeployJournalErr(errR.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
+			return fmt.Errorf("svc-paths peer recover: %w\n%s\n(original add: %v\n%s)", errR, outR, err, out)
+		}
+		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
+	}
 	if err != nil {
+		writeDeployJournalErr(err.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 		return fmt.Errorf("svc-paths peer add: %w\n%s", err, out)
 	}
 	raw, errJ = extractJSONObject(out)
@@ -481,8 +509,10 @@ func DeploySecondary(o SecondaryOpts) error {
 		return fmt.Errorf("peer material decode: %w", err)
 	}
 	if err := validatePeerMaterialForSCP(&mat, peerID); err != nil {
+		writeDeployJournalErr(err.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 		return err
 	}
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StagePeerPrepared)
 	fmt.Fprintf(os.Stderr, "  peer slot=%d ifaces=%s/%s primary_sp=%s wss_sp=%d port_sp=%d\n", mat.Slot, mat.IfaceSP, mat.IfacePS, mat.AddrPSP, mat.WSSSP, mat.PortSP)
 
 	tmpFile, errTmp := os.CreateTemp("", "nd-svc-material-*.json")
@@ -635,8 +665,13 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
 	fmt.Print(out)
 	if err != nil {
+		writeDeployJournalErr(err.Error(), peerID, pack.AgentID, o.SecondaryHost, StageFailedRecoverable)
 		return fmt.Errorf("secondary not online on primary after deploy (agent heartbeat missing): %w\n%s", err, out)
 	}
+
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageHeartbeatVerified)
+	writeDeployJournal(peerID, pack.AgentID, o.SecondaryHost, StageDeployComplete)
+	clearDeployState(o.SecondaryHost)
 
 	fmt.Fprintln(os.Stderr, "==> not promoted (after traffic test: peer validate/ready/promote", peerID+")")
 

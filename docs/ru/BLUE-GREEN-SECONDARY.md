@@ -66,3 +66,13 @@
 - Незавершённый `peer add` не перезаписывается. Команда: `netductor svc-paths peer recover <id>`.
 - UFW на deploy обязателен. Без него — ошибка, кроме `NETDUCTOR_ALLOW_NO_UFW=1`.
 - Журнал этапов deploy: `~/.cache/netductor/deploy/journal.log`. Это не полная транзакция.
+
+## Resume после сбоя (0.9.551+)
+
+На Mac: `~/.cache/netductor/deploy/state-<IP>.json` и `journal.log`.
+Повторный `secondary deploy` того же host:
+- stage ≥ `provisioned` + resume SSH (:52222) → без повторного prepare-pack/provision
+- incomplete `peer add` → `peer recover` + retry (ключи не перегенерируются)
+- успех → state очищается (`deploy_complete`)
+
+Клиентский Reality-трафик и DNS — по-прежнему вне deploy.
