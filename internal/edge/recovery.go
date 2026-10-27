@@ -80,6 +80,31 @@ func IssueRecoveryCode(siteID, note string, ttl time.Duration) (code string, exp
 	return code, exp, nil
 }
 
+// PeekRecoveryCode validates a recovery code without consuming it.
+func PeekRecoveryCode(code string) (siteID string, ok bool) {
+	code = strings.TrimSpace(code)
+	if len(code) < 16 {
+		return "", false
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	list, err := loadRecovery()
+	if err != nil {
+		return "", false
+	}
+	now := time.Now().Unix()
+	for i := range list {
+		c := &list[i]
+		if c.UsedAt != 0 || c.Expires < now {
+			continue
+		}
+		if constEq(c.Code, code) {
+			return c.SiteID, true
+		}
+	}
+	return "", false
+}
+
 // ConsumeRecoveryCode validates and marks used. Returns siteID hint.
 func ConsumeRecoveryCode(code string) (siteID string, ok bool) {
 	code = strings.TrimSpace(code)

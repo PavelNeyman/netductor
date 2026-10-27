@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
@@ -27,6 +28,41 @@ func registerEdgeAdmin(mux *http.ServeMux) {
 		_ = notify.Telegram(fmt.Sprintf("✅ Edge approved: <b>%s</b>", did))
 		audit.Log("session", "edge.approve", did, "")
 		writeJSON(w, 200, map[string]any{"ok": true, "device_id": did, "device_token": tok})
+	})
+	mux.HandleFunc("/api/edge/token-ack", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
+			return
+		}
+		// Personal device token in Authorization — not session, not bootstrap.
+		auth := r.Header.Get("Authorization")
+		body := readJSON(r)
+		did, _ := body["device_id"].(string)
+		if did == "" {
+			writeJSON(w, 400, map[string]string{"error": "device_id required"})
+			return
+		}
+		raw := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		if err := edge.ConfirmTokenPickup(did, raw); err != nil {
+			writeJSON(w, 401, map[string]string{"error": err.Error()})
+			return
+		}
+		audit.Log("edge", "token-ack", did, "")
+		writeJSON(w, 200, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("/api/edge/reissue-token", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		did, _ := body["device_id"].(string)
+		tok, err := edge.ReissueToken(did)
+		if err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		audit.Log("session", "edge.reissue-token", did, "")
+		writeJSON(w, 200, map[string]any{"ok": true, "device_id": did, "device_token": tok, "token_pickup": true})
 	})
 	mux.HandleFunc("/api/edge/deny", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !requireSession(w, r) {

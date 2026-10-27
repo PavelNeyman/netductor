@@ -42,6 +42,48 @@ func BootstrapToken() string {
 	return string(bytesTrim(b))
 }
 
+// EnsureBootstrapToken creates a cryptographically random bootstrap secret (≥32 bytes
+// hex = 64 chars) at secrets/edge_bootstrap_token with 0600 if missing or too short.
+// Does not rotate an existing strong token. Returns the current token.
+func EnsureBootstrapToken() (string, error) {
+	cur := strings.TrimSpace(BootstrapToken())
+	if len(cur) >= 32 {
+		return cur, nil
+	}
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	tok := hex.EncodeToString(b[:])
+	dir := filepath.Join(paths.EtcDir(), "secrets")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, "edge_bootstrap_token")
+	if err := os.WriteFile(path, []byte(tok+"\n"), 0o600); err != nil {
+		return "", err
+	}
+	return tok, nil
+}
+
+// RotateBootstrapToken forces a new bootstrap secret (invalidates offline packs until re-prep).
+func RotateBootstrapToken() (string, error) {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	tok := hex.EncodeToString(b[:])
+	dir := filepath.Join(paths.EtcDir(), "secrets")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, "edge_bootstrap_token")
+	if err := os.WriteFile(path, []byte(tok+"\n"), 0o600); err != nil {
+		return "", err
+	}
+	return tok, nil
+}
+
 func Token() string {
 	b, err := os.ReadFile(paths.EdgeTokenFile())
 	if err != nil {
@@ -335,12 +377,12 @@ func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 			mergePayload(&existing, payload)
 			existing.LastSeen = now
 			existing.DeviceID = did
-			// One-shot pickup after Approve: agent needs the personal token once.
-			// Subsequent bootstrap enrolls get empty token (H-1: no permanent leak).
+			// TokenPickup stays true until ConfirmTokenPickup (agent saved token).
+			// Re-issue token on every enroll while pickup is armed — lost response is recoverable.
+			// After ack, bootstrap enroll returns approved without device_token (H-1).
 			tok := ""
 			if existing.TokenPickup && existing.DeviceToken != "" {
 				tok = existing.DeviceToken
-				existing.TokenPickup = false
 			}
 			m[did] = existing
 			if err := saveDevices(m); err != nil {
@@ -403,6 +445,62 @@ func Approve(deviceID string) (deviceToken string, err error) {
 		return "", err
 	}
 	return tok, nil
+}
+
+// ConfirmTokenPickup clears the one-shot flag after the agent persisted device_token.
+// Auth: personal device token only (not bootstrap).
+func ConfirmTokenPickup(deviceID, deviceToken string) error {
+	deviceID = strings.TrimSpace(deviceID)
+	deviceToken = strings.TrimSpace(deviceToken)
+	if deviceID == "" || deviceToken == "" {
+		return fmt.Errorf("device_id and token required")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	m, err := loadDevices()
+	if err != nil {
+		return err
+	}
+	d, ok := m[deviceID]
+	if !ok {
+		return fmt.Errorf("unknown device")
+	}
+	if d.Status != StatusApproved {
+		return fmt.Errorf("device not approved")
+	}
+	if d.DeviceToken == "" || !constEq(d.DeviceToken, deviceToken) {
+		return fmt.Errorf("token mismatch")
+	}
+	d.TokenPickup = false
+	m[deviceID] = d
+	return saveDevices(m)
+}
+
+// ReissueToken re-arms one-shot TokenPickup for an approved device (operator recovery
+// after lost agent token / reinstall). Does not rotate the token value unless empty.
+func ReissueToken(deviceID string) (deviceToken string, err error) {
+	mu.Lock()
+	defer mu.Unlock()
+	m, err := loadDevices()
+	if err != nil {
+		return "", err
+	}
+	d, ok := m[deviceID]
+	if !ok {
+		return "", fmt.Errorf("unknown device")
+	}
+	if d.Status != StatusApproved {
+		return "", fmt.Errorf("device not approved")
+	}
+	if d.DeviceToken == "" {
+		d.DeviceToken = randomToken(32)
+	}
+	d.TokenPickup = true
+	m[deviceID] = d
+	if err := saveDevices(m); err != nil {
+		return "", err
+	}
+	return d.DeviceToken, nil
 }
 
 func Deny(deviceID string) error {

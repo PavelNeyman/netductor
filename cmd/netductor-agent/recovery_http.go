@@ -315,12 +315,20 @@ func writeAgentConfig(server, token, deviceID string) error {
 			}
 		}
 	}
+	prevServer := strings.TrimSpace(cur["SERVER"])
 	cur["SERVER"] = server
 	cur["TOKEN"] = token
 	if deviceID != "" {
 		cur["DEVICE_ID"] = deviceID
 	}
 	cur["CONTROL_ONLY"] = "1"
+	// Rebind to new Primary: drop stale personal device_token so ensureEnrolled uses recovery/bootstrap TOKEN.
+	if prevServer != "" && prevServer != strings.TrimSpace(server) {
+		clearDeviceToken()
+	} else if strings.TrimSpace(token) != "" {
+		// Always clear on recovery submit so recovery code path can enroll again.
+		clearDeviceToken()
+	}
 	if pin := strings.TrimSpace(os.Getenv("NETDUCTOR_SERVER_PIN")); pin != "" {
 		cur["SERVER_PIN"] = pin
 	}

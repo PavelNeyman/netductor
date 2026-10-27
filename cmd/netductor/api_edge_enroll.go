@@ -29,13 +29,15 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 		var payload map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&payload)
 		raw := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
-		// Recovery codes must be consumed before enroll; bootstrap is long-lived.
+		usedRecovery := false
+		// Peek recovery (no consume yet). Consume only after successful Enroll response.
 		if !edge.ValidBootstrap(auth) {
-			siteID, ok := edge.ConsumeRecoveryCode(raw)
+			siteID, ok := edge.PeekRecoveryCode(raw)
 			if !ok {
-				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "recovery_consume_failed"})
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "recovery_invalid"})
 				return
 			}
+			usedRecovery = true
 			if payload == nil {
 				payload = map[string]any{}
 			}
@@ -44,6 +46,13 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			}
 		}
 		st, dtok, isNew := edge.Enroll(payload)
+		if st == "error" {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "enroll_persist_failed"})
+			return
+		}
+		if usedRecovery {
+			_, _ = edge.ConsumeRecoveryCode(raw) // soft: enroll already persisted; race is rare
+		}
 		if did, _ := payload["device_id"].(string); did != "" {
 			if sid, _ := payload["site_id"].(string); sid != "" {
 				_ = edge.SetSiteID(did, sid)

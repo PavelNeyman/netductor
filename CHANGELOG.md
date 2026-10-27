@@ -1,3 +1,13 @@
+## 0.9.582
+
+Edge provisioning lifecycle (audit f27db3d):
+- EnsureBootstrapToken / RotateBootstrapToken; InstallAPI fails if secret write fails.
+- CLI: `edge bootstrap-token ensure|show|rotate`, `edge provision --token`, `edge reissue-token`.
+- Recovery rebind clears local device_token so ensureEnrolled uses recovery code.
+- TokenPickup stays armed until agent `POST /api/edge/token-ack` after successful saveDeviceToken.
+- Recovery code: Peek then Enroll, Consume only after successful enroll (no burn on persist failure).
+- API: `/api/edge/token-ack`, `/api/edge/reissue-token` (session).
+
 ## 0.9.581
 
 - Edge deploy: after SSH success, poll primary `edge list` until device is pending|approved (control-plane sighting); fail if missing within 90s.

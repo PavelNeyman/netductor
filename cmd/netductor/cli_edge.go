@@ -29,6 +29,55 @@ func runEdgeCLI(args []string) {
 		runEdgeStorageCLI(args[1:])
 	case "list":
 		runEdgeList()
+	case "bootstrap-token":
+		// ensure | show | rotate
+		sub := "ensure"
+		if len(args) > 1 {
+			sub = args[1]
+		}
+		switch sub {
+		case "ensure":
+			tok, err := edge.EnsureBootstrapToken()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("edge_bootstrap_token ok len=", len(tok))
+		case "show":
+			tok := edge.BootstrapToken()
+			if tok == "" {
+				fmt.Fprintln(os.Stderr, "missing — run: netductor edge bootstrap-token ensure")
+				os.Exit(1)
+			}
+			// Never print full token to stdout by default; only length + suffix.
+			suf := tok
+			if len(suf) > 8 {
+				suf = "…" + suf[len(suf)-8:]
+			}
+			fmt.Println("present suffix=", suf, "len=", len(tok))
+		case "rotate":
+			tok, err := edge.RotateBootstrapToken()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("rotated len=", len(tok), "(re-prep offline packs)")
+		default:
+			fmt.Fprintln(os.Stderr, "usage: netductor edge bootstrap-token ensure|show|rotate")
+			os.Exit(2)
+		}
+	case "reissue-token":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge reissue-token <device_id>")
+			os.Exit(2)
+		}
+		tok, err := edge.ReissueToken(args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		audit.Log("cli", "edge.reissue-token", args[1], "")
+		fmt.Println("reissue ok", args[1], "token_pickup=true token="+tok)
 	case "pending":
 		for _, d := range edge.ListPending() {
 			fmt.Printf("%s\t%s\t%s\t%s\n", d.DeviceID, d.Board, d.WANIP, d.Hostname)
@@ -199,7 +248,7 @@ func runEdgeCLI(args []string) {
 		fmt.Println(cli18n.T("edge.ok"))
 	case "provision":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: netductor edge provision user@host --id DEVICE [--server URL] [--key KEY] [--agent BIN]")
+			fmt.Fprintln(os.Stderr, "usage: netductor edge provision user@host --id DEVICE [--server URL] [--token BOOTSTRAP] [--key KEY] [--agent BIN]")
 			os.Exit(2)
 		}
 		opts := edge.ProvisionOpts{SSHTarget: args[1], ServerURL: envOr("NETDUCTOR_PUBLIC_URL", "")}
@@ -224,6 +273,11 @@ func runEdgeCLI(args []string) {
 				if i+1 < len(args) {
 					i++
 					opts.AgentBin = args[i]
+				}
+			case "--token":
+				if i+1 < len(args) {
+					i++
+					opts.Token = args[i]
 				}
 			}
 		}

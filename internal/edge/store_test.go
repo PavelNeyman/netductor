@@ -113,12 +113,72 @@ func TestEnrollApprovedNoTokenLeak(t *testing.T) {
 	if tok2 != dt {
 		t.Fatalf("one-shot pickup: got %q want %q", tok2, dt)
 	}
-	// Second enroll: H-1 — no permanent leak of personal token.
+	// Agent persists token then acks — until then re-enroll may retry pickup.
+	if err := ConfirmTokenPickup("leak1", dt); err != nil {
+		t.Fatal(err)
+	}
+	// After ack: H-1 — no permanent leak of personal token on bootstrap enroll.
 	st3, tok3, _ := Enroll(map[string]any{"device_id": "leak1", "board": "x"})
 	if st3 != StatusApproved || tok3 != "" {
 		t.Fatalf("re-enroll must not return token: status=%s tok=%q", st3, tok3)
 	}
 	if !RequireApproved("Bearer "+dt, "leak1") {
 		t.Fatal("original token still valid")
+	}
+}
+
+func TestEnsureBootstrapToken(t *testing.T) {
+	dir := t.TempDir()
+	os.Setenv("NETDUCTOR_ETC", dir)
+	t.Cleanup(func() { os.Unsetenv("NETDUCTOR_ETC") })
+	tok, err := EnsureBootstrapToken()
+	if err != nil || len(tok) < 32 {
+		t.Fatal(err, len(tok))
+	}
+	tok2, err := EnsureBootstrapToken()
+	if err != nil || tok2 != tok {
+		t.Fatal("must not rotate existing", err, tok2)
+	}
+}
+
+func TestReissueTokenPickup(t *testing.T) {
+	setup(t)
+	Enroll(map[string]any{"device_id": "ri1"})
+	dt, _ := Approve("ri1")
+	_ = ConfirmTokenPickup("ri1", dt)
+	st, tok, _ := Enroll(map[string]any{"device_id": "ri1"})
+	if st != StatusApproved || tok != "" {
+		t.Fatalf("after ack: %s %q", st, tok)
+	}
+	dt2, err := ReissueToken("ri1")
+	if err != nil || dt2 != dt {
+		t.Fatal(err, dt2)
+	}
+	st2, tok2, _ := Enroll(map[string]any{"device_id": "ri1"})
+	if st2 != StatusApproved || tok2 != dt {
+		t.Fatalf("reissue pickup: %s %q", st2, tok2)
+	}
+}
+
+func TestPeekRecoveryDoesNotConsume(t *testing.T) {
+	setup(t)
+	code, _, err := IssueRecoveryCode("site-a", "n", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid, ok := PeekRecoveryCode(code)
+	if !ok || sid != "site-a" {
+		t.Fatal(sid, ok)
+	}
+	sid2, ok2 := PeekRecoveryCode(code)
+	if !ok2 || sid2 != "site-a" {
+		t.Fatal("peek must not consume")
+	}
+	_, ok3 := ConsumeRecoveryCode(code)
+	if !ok3 {
+		t.Fatal("consume")
+	}
+	if _, ok4 := PeekRecoveryCode(code); ok4 {
+		t.Fatal("after consume peek must fail")
 	}
 }

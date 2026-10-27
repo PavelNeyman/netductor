@@ -162,9 +162,15 @@ func loadDeviceToken() string {
 	return strings.TrimSpace(string(b))
 }
 
-func saveDeviceToken(tok string) {
-	_ = os.MkdirAll("/etc/netductor-agent", 0o700)
-	_ = os.WriteFile(deviceTokenPath(), []byte(tok+"\n"), 0o600)
+func saveDeviceToken(tok string) error {
+	if err := os.MkdirAll(agentDir(), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(deviceTokenPath(), []byte(tok+"\n"), 0o600)
+}
+
+func clearDeviceToken() {
+	_ = os.Remove(deviceTokenPath())
 }
 
 // ensureEnrolled uses bootstrap TOKEN until device_token is issued.
@@ -200,8 +206,20 @@ func ensureEnrolled(client *http.Client, cfg *config) error {
 	switch out.Status {
 	case "approved":
 		if out.DeviceToken != "" {
-			saveDeviceToken(out.DeviceToken)
+			if err := saveDeviceToken(out.DeviceToken); err != nil {
+				return fmt.Errorf("save device_token: %w", err)
+			}
 			cfg.Token = out.DeviceToken
+			// Confirm pickup so server stops re-issuing personal token on bootstrap enroll.
+			ackBody, _ := json.Marshal(map[string]string{"device_id": cfg.DeviceID})
+			ackReq, err := http.NewRequest(http.MethodPost, cfg.Server+"/api/edge/token-ack", bytes.NewReader(ackBody))
+			if err == nil {
+				ackReq.Header.Set("Authorization", "Bearer "+out.DeviceToken)
+				ackReq.Header.Set("Content-Type", "application/json")
+				if ackResp, err2 := client.Do(ackReq); err2 == nil {
+					ackResp.Body.Close()
+				}
+			}
 		}
 		return nil
 	case "pending":

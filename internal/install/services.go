@@ -38,10 +38,14 @@ func InstallVPNUsers() error {
 
 func InstallAPI() error {
 	if readSecret("edge_bootstrap_token") == "" {
-		_ = writeSecret("edge_bootstrap_token", randomHex(32))
+		if err := writeSecret("edge_bootstrap_token", randomHex(32)); err != nil {
+			return fmt.Errorf("edge_bootstrap_token: %w", err)
+		}
 	}
 	if readSecret("edge_token") == "" {
-		_ = writeSecret("edge_token", randomHex(32))
+		if err := writeSecret("edge_token", randomHex(32)); err != nil {
+			return fmt.Errorf("edge_token: %w", err)
+		}
 	}
 
 	if out, _ := runOut("systemctl", "is-active", "netductor-api"); strings.TrimSpace(out) == "active" {
