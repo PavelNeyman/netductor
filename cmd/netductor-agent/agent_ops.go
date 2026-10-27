@@ -113,12 +113,13 @@ func doSysupgrade(arg string) string {
 		_ = os.Remove(img)
 		return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
 	}
-	// -n keep config by default
+	// OpenWrt: default sysupgrade KEEPS config. Flag -n means DO NOT keep (factory-like).
+	// Never use -n here — that would wipe LAN/Wi-Fi/Netductor settings.
 	go func() {
 		time.Sleep(3 * time.Second)
-		_ = exec.Command("sysupgrade", "-n", img).Run()
+		_ = exec.Command("sysupgrade", img).Run()
 	}()
-	return "sysupgrade scheduled (keep config flags: default -n keep; image " + img + ")"
+	return "sysupgrade scheduled (config preserved; image " + img + ")"
 }
 
 func downloadFile(rawURL, dest string) error {
@@ -492,8 +493,14 @@ func storageInitUSB(arg string) string {
 	script := `
 set -e
 DEV=
-for d in /sys/block/sd*; do [ -d "$d" ] || continue; DEV=$(basename "$d"); break; done
-[ -n "$DEV" ] || { echo no_usb; exit 1; }
+for d in /sys/block/sd*; do
+  [ -d "$d" ] || continue
+  rem=$(cat "$d/removable" 2>/dev/null || echo 0)
+  [ "$rem" = "1" ] || continue
+  DEV=$(basename "$d")
+  break
+done
+[ -n "$DEV" ] || { echo no_removable_usb; exit 1; }
 PART=/dev/${DEV}1
 DISK=/dev/$DEV
 `

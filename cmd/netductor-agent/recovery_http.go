@@ -9,8 +9,8 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"math/big"
 	"fmt"
+	"math/big"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,7 +20,6 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/format"
 )
-
 
 // recoveryUnlockPath is a local secret (root-only file) required to rebind an already-configured agent.
 func recoveryUnlockPath() string {
@@ -59,7 +58,6 @@ func recoveryUnlockOK(submitted string) bool {
 	}
 	return subtle.ConstantTimeCompare([]byte(submitted), []byte(want)) == 1
 }
-
 
 const recoveryHTML = `<!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>

@@ -71,11 +71,9 @@ func DeployEdge(o EdgeOpts) error {
 		// Probe is always read-only. USB packages: edge.bootstrap only.
 		facts, raw, perr := ProbeDeviceFacts(o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, o.PrimaryKeyPassphrase, false)
 		if perr != nil {
-			fmt.Fprintln(os.Stderr, "warn: facts probe:", perr)
-			if o.DryRun {
-				return fmt.Errorf("dry-run requires successful facts probe: %w", perr)
-			}
-		} else {
+			return fmt.Errorf("facts probe failed — refuse deploy without device plan: %w", perr)
+		}
+		{
 			intent := edge.DeployIntent{
 				ConfigureNet: o.NetConfigure,
 				GuestEnable:  o.GuestEnable,
@@ -219,6 +217,13 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 	target := o.RouterUser + "@" + o.RouterHost
 	fmt.Fprintln(os.Stderr, "==> edge provision", target, "→", o.ServerURL)
+	// Fail-closed: partial mTLS material must not pretend client auth is installed.
+	haveCA, haveCert, haveKey := len(mtlsCA) > 0, len(mtlsCert) > 0, len(mtlsKey) > 0
+	if haveCA || haveCert || haveKey {
+		if !(haveCA && haveCert && haveKey) {
+			return fmt.Errorf("mTLS material incomplete (ca=%v cert=%v key=%v) — refuse edge deploy", haveCA, haveCert, haveKey)
+		}
+	}
 	if len(mtlsCert) > 0 {
 		fmt.Fprintln(os.Stderr, "==> mTLS client material will be installed on router")
 	} else {

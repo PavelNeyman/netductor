@@ -161,16 +161,6 @@ func uciBatch(arg string) string {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if line == "commit" {
-			out, err := exec.Command("uci", "commit").CombinedOutput()
-			logs = append(logs, "commit:"+truncate(string(out), 200))
-			if err != nil {
-				fail++
-			} else {
-				ok++
-			}
-			continue
-		}
 		if line == "network_reload" {
 			out, _ := exec.Command("/etc/init.d/network", "reload").CombinedOutput()
 			logs = append(logs, "network_reload:"+truncate(string(out), 200))
@@ -183,15 +173,57 @@ func uciBatch(arg string) string {
 			ok++
 			continue
 		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			logs = append(logs, "bad:"+line)
-			fail++
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
 			continue
 		}
-		out, err := exec.Command("uci", "set", parts[0]+"="+parts[1]).CombinedOutput()
+		op := fields[0]
+		var out []byte
+		var err error
+		switch op {
+		case "set":
+			// "set network.lan.ipaddr=192.168.1.1" or path without spaces after set
+			rest := strings.TrimSpace(strings.TrimPrefix(line, "set"))
+			if rest == "" || !strings.Contains(rest, "=") {
+				logs = append(logs, "bad:"+line)
+				fail++
+				continue
+			}
+			out, err = exec.Command("uci", "set", rest).CombinedOutput()
+		case "delete", "del":
+			rest := strings.TrimSpace(line[len(fields[0]):])
+			if rest == "" {
+				logs = append(logs, "bad:"+line)
+				fail++
+				continue
+			}
+			out, err = exec.Command("uci", "delete", rest).CombinedOutput()
+		case "add":
+			// add <config> <type>
+			if len(fields) < 3 {
+				logs = append(logs, "bad:"+line)
+				fail++
+				continue
+			}
+			out, err = exec.Command("uci", "add", fields[1], fields[2]).CombinedOutput()
+		case "commit":
+			if len(fields) == 1 {
+				out, err = exec.Command("uci", "commit").CombinedOutput()
+			} else {
+				out, err = exec.Command("uci", "commit", fields[1]).CombinedOutput()
+			}
+		default:
+			// Legacy: bare path=value → uci set
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				logs = append(logs, "bad:"+line)
+				fail++
+				continue
+			}
+			out, err = exec.Command("uci", "set", parts[0]+"="+parts[1]).CombinedOutput()
+		}
 		if err != nil {
-			logs = append(logs, "fail:"+parts[0]+":"+truncate(string(out), 100))
+			logs = append(logs, "fail:"+op+":"+truncate(string(out), 100))
 			fail++
 		} else {
 			ok++

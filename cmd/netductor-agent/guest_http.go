@@ -1,18 +1,17 @@
 package main
 
 import (
-	"sync"
 	"fmt"
 	"html"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/guest"
 )
-
 
 // PIN rate limit: max 5 failures per IP per 15 minutes (in-memory).
 var pinFailMu sync.Mutex
@@ -165,7 +164,6 @@ func startGuestHTTP(cfg *config) {
 	}()
 	_ = cfg
 }
-
 
 // allowDeskClient: staff only — not the guest subnet; optional explicit DeskAllowCIDR / env.
 func allowDeskClient(r *http.Request, gc *guest.Config) bool {

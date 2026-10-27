@@ -1,3 +1,12 @@
+## 0.9.578
+
+OpenWrt deploy safety (audit):
+- sysupgrade: drop -n (preserve config; -n wipes settings)
+- uciBatch: parse set/delete/add/commit <pkg> (guest + static DHCP)
+- USB disk: only removable=1 (not first sd*)
+- extroot: fail if overlay copy fails; no marker on empty
+- edge deploy: probe failure aborts; incomplete mTLS aborts
+
 ## 0.9.577
 
 - provisionHostKey: missing pin + seen host → ErrPinLost (no re-TOFU)

@@ -40,9 +40,13 @@ func applyEdgeStorage(o EdgeOpts, s EdgeStorageOpts) (needReboot bool, err error
 
 	out, err := runSSHOnPort(port, pass, key, user, host, `
 set +e
+# Prefer removable (USB) disks only — never first sd* (may be system SATA on x86).
 for d in /sys/block/sd*; do
   [ -d "$d" ] || continue
+  rem=$(cat "$d/removable" 2>/dev/null || echo 0)
+  [ "$rem" = "1" ] || continue
   echo DEV=$(basename "$d")
+  echo REMOVABLE=1
   break
 done
 `, kp)
@@ -98,7 +102,25 @@ mkdir -p /mnt/netductor
 umount /mnt/netductor 2>/dev/null || true
 mount "$PART" /mnt/netductor
 if [ ! -f /mnt/netductor/.nd-extroot ]; then
-  tar -C /overlay -cf - . 2>/dev/null | tar -C /mnt/netductor -xf - || cp -a /overlay/. /mnt/netductor/ 2>/dev/null || true
+  if tar -C /overlay -cf - . 2>/dev/null | tar -C /mnt/netductor -xf -; then
+    :
+  elif cp -a /overlay/. /mnt/netductor/; then
+    :
+  else
+    echo "EXTROOT_COPY_FAIL"
+    umount /mnt/netductor 2>/dev/null || true
+    exit 1
+  fi
+  # Require something resembling a copied overlay before marking ready.
+  if [ ! -d /mnt/netductor/upper ] && [ ! -d /mnt/netductor/etc ] && [ ! -e /mnt/netductor/work ]; then
+    # soft check: at least one entry besides lost+found
+    n=$(find /mnt/netductor -mindepth 1 -maxdepth 1 ! -name lost+found 2>/dev/null | wc -l)
+    if [ "$n" -lt 1 ]; then
+      echo "EXTROOT_EMPTY_AFTER_COPY"
+      umount /mnt/netductor 2>/dev/null || true
+      exit 1
+    fi
+  fi
   touch /mnt/netductor/.nd-extroot
 fi
 UUID=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
