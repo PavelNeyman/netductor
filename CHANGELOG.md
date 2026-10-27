@@ -1,3 +1,12 @@
+## 0.9.575
+
+Package A (SSH trust before A→B migration):
+- MigrateSSHTrustSeen / ensureSeenMigratedFromPins: legacy pins → seen (idempotent)
+- Matching existing pin restores missing seen marker
+- OpenSSHKnownHostsLine migrates before pin-lost check
+- ForceReinstall fails closed on ForgetSSHHost error (before remote work)
+- Tests: legacy migrate, pin-lost after migrate, restore seen, ForceReinstall
+
 ## 0.9.574
 
 - ssh_hosts_seen.json: hosts ever pinned; lost pin ≠ first contact

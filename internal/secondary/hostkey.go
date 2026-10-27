@@ -67,6 +67,32 @@ func saveSeenHosts(m map[string]bool) error {
 	return os.WriteFile(path, append(raw, 10), 0o600)
 }
 
+// ensureSeenMigratedFromPins adds every current pin host to seen (idempotent).
+// Call under pkhMu. Fixes upgrades from pre-0.9.574 installs that only had ssh_known_hosts.json.
+func ensureSeenMigratedFromPins(pins map[string]string) error {
+	if len(pins) == 0 {
+		return nil
+	}
+	seen, err := loadSeenHosts()
+	if err != nil {
+		return err
+	}
+	changed := false
+	for id := range pins {
+		if id == "" {
+			continue
+		}
+		if !seen[id] {
+			seen[id] = true
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return saveSeenHosts(seen)
+}
+
 func markHostSeen(id string) error {
 	m, err := loadSeenHosts()
 	if err != nil {
@@ -187,11 +213,15 @@ func provisionHostKey(host string) ssh.HostKeyCallback {
 		}
 		got := base64.StdEncoding.EncodeToString(key.Marshal())
 		id := host
+		if err := ensureSeenMigratedFromPins(f); err != nil {
+			return err
+		}
 		if prev, ok := f[id]; ok {
 			if prev != got {
 				return fmt.Errorf("SSH host key changed for %s — forget via: netductor ssh-hosts forget --kind relay %s", id, id)
 			}
-			return nil
+			// Pin exists and matches: ensure seen marker (upgrade path / partial write recovery).
+			return markHostSeen(id)
 		}
 		f[id] = got
 		if err := saveRelayKH(f); err != nil {
@@ -214,6 +244,9 @@ func OpenSSHKnownHostsLine(host, port string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := ensureSeenMigratedFromPins(f); err != nil {
+		return "", err
+	}
 	b64, ok := f[host]
 	if !ok || b64 == "" {
 		seen, err := loadSeenHosts()
@@ -224,6 +257,10 @@ func OpenSSHKnownHostsLine(host, port string) (string, error) {
 			return "", fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision (explicit first contact)", ErrPinLost, host, host)
 		}
 		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first", host)
+	}
+	// Pin present: keep seen in sync (idempotent).
+	if err := markHostSeen(host); err != nil {
+		return "", err
 	}
 	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
@@ -252,4 +289,16 @@ func WriteOpenSSHKnownHostsFile(host, port, dest string) error {
 		return err
 	}
 	return os.WriteFile(dest, append([]byte(line), 10), 0o600)
+}
+
+// MigrateSSHTrustSeen ensures all existing TOFU pins are recorded in ssh_hosts_seen.json.
+// Safe and idempotent; call on upgrade or doctor.
+func MigrateSSHTrustSeen() error {
+	pkhMu.Lock()
+	defer pkhMu.Unlock()
+	f, err := loadRelayKH()
+	if err != nil {
+		return err
+	}
+	return ensureSeenMigratedFromPins(f)
 }

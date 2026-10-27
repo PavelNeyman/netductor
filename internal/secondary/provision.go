@@ -280,16 +280,19 @@ chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.
 // ProvisionFromCore: keys + mTLS + join while password works, then disable password (harden-last).
 func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, error) {
 	var log strings.Builder
+	// R6: never wipe TOFU on password alone. Only explicit ForceReinstall (or CLI ssh-hosts forget).
+	// Fail closed before any remote work if trust reset cannot be applied.
+	if in.ForceReinstall {
+		if err := ForgetSSHHost(in.Host); err != nil {
+			return nil, fmt.Errorf("ForceReinstall: cannot reset SSH trust for %s: %w", in.Host, err)
+		}
+	}
 	keys, err := resolveInstallPubKeys(in)
 	if err != nil {
 		return nil, err
 	}
 	if len(in.MTLSCA) == 0 || len(in.MTLSCert) == 0 || len(in.MTLSKey) == 0 {
 		return nil, fmt.Errorf("mTLS material required before secondary provision (ca=%d cert=%d key=%d)", len(in.MTLSCA), len(in.MTLSCert), len(in.MTLSKey))
-	}
-	// R6: never wipe TOFU on password alone. Only explicit ForceReinstall (or CLI ssh-hosts forget).
-	if in.ForceReinstall {
-		_ = ForgetSSHHost(in.Host)
 	}
 	client, err := sshClient(in)
 	if err != nil {
