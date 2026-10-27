@@ -42,12 +42,38 @@ func BootstrapToken() string {
 	return string(bytesTrim(b))
 }
 
+// writeBootstrapTokenFile writes edge_bootstrap_token with 0600 and secrets dir 0700.
+func writeBootstrapTokenFile(tok string) error {
+	dir := filepath.Join(paths.EtcDir(), "secrets")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	_ = os.Chmod(dir, 0o700)
+	path := filepath.Join(dir, "edge_bootstrap_token")
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(tok+"\n"), 0o600); err != nil {
+		return err
+	}
+	_ = os.Chmod(tmp, 0o600)
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	_ = os.Chmod(path, 0o600)
+	return nil
+}
+
 // EnsureBootstrapToken creates a cryptographically random bootstrap secret (≥32 bytes
 // hex = 64 chars) at secrets/edge_bootstrap_token with 0600 if missing or too short.
-// Does not rotate an existing strong token. Returns the current token.
+// Always enforces 0600/0700 on existing material.
 func EnsureBootstrapToken() (string, error) {
 	cur := strings.TrimSpace(BootstrapToken())
 	if len(cur) >= 32 {
+		path := filepath.Join(paths.EtcDir(), "secrets", "edge_bootstrap_token")
+		dir := filepath.Join(paths.EtcDir(), "secrets")
+		_ = os.MkdirAll(dir, 0o700)
+		_ = os.Chmod(dir, 0o700)
+		_ = os.Chmod(path, 0o600)
 		return cur, nil
 	}
 	var b [32]byte
@@ -55,12 +81,7 @@ func EnsureBootstrapToken() (string, error) {
 		return "", err
 	}
 	tok := hex.EncodeToString(b[:])
-	dir := filepath.Join(paths.EtcDir(), "secrets")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
-	}
-	path := filepath.Join(dir, "edge_bootstrap_token")
-	if err := os.WriteFile(path, []byte(tok+"\n"), 0o600); err != nil {
+	if err := writeBootstrapTokenFile(tok); err != nil {
 		return "", err
 	}
 	return tok, nil
@@ -73,12 +94,7 @@ func RotateBootstrapToken() (string, error) {
 		return "", err
 	}
 	tok := hex.EncodeToString(b[:])
-	dir := filepath.Join(paths.EtcDir(), "secrets")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
-	}
-	path := filepath.Join(dir, "edge_bootstrap_token")
-	if err := os.WriteFile(path, []byte(tok+"\n"), 0o600); err != nil {
+	if err := writeBootstrapTokenFile(tok); err != nil {
 		return "", err
 	}
 	return tok, nil
@@ -476,8 +492,8 @@ func ConfirmTokenPickup(deviceID, deviceToken string) error {
 	return saveDevices(m)
 }
 
-// ReissueToken re-arms one-shot TokenPickup for an approved device (operator recovery
-// after lost agent token / reinstall). Does not rotate the token value unless empty.
+// ReissueToken re-arms TokenPickup with the same DeviceToken (lost agent file / reinstall).
+// Does not rotate the secret — use RotateDeviceToken after compromise.
 func ReissueToken(deviceID string) (deviceToken string, err error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -495,6 +511,30 @@ func ReissueToken(deviceID string) (deviceToken string, err error) {
 	if d.DeviceToken == "" {
 		d.DeviceToken = randomToken(32)
 	}
+	d.TokenPickup = true
+	m[deviceID] = d
+	if err := saveDevices(m); err != nil {
+		return "", err
+	}
+	return d.DeviceToken, nil
+}
+
+// RotateDeviceToken invalidates the previous personal token and arms pickup of a new one.
+func RotateDeviceToken(deviceID string) (deviceToken string, err error) {
+	mu.Lock()
+	defer mu.Unlock()
+	m, err := loadDevices()
+	if err != nil {
+		return "", err
+	}
+	d, ok := m[deviceID]
+	if !ok {
+		return "", fmt.Errorf("unknown device")
+	}
+	if d.Status != StatusApproved {
+		return "", fmt.Errorf("device not approved")
+	}
+	d.DeviceToken = randomToken(32)
 	d.TokenPickup = true
 	m[deviceID] = d
 	if err := saveDevices(m); err != nil {

@@ -182,3 +182,21 @@ func TestPeekRecoveryDoesNotConsume(t *testing.T) {
 		t.Fatal("after consume peek must fail")
 	}
 }
+
+func TestRotateDeviceToken(t *testing.T) {
+	setup(t)
+	Enroll(map[string]any{"device_id": "rot1"})
+	old, _ := Approve("rot1")
+	_ = ConfirmTokenPickup("rot1", old)
+	neu, err := RotateDeviceToken("rot1")
+	if err != nil || neu == "" || neu == old {
+		t.Fatal(err, neu, old)
+	}
+	if RequireApproved("Bearer "+old, "rot1") {
+		t.Fatal("old token must not work")
+	}
+	st, tok, _ := Enroll(map[string]any{"device_id": "rot1"})
+	if st != StatusApproved || tok != neu {
+		t.Fatalf("%s %q", st, tok)
+	}
+}

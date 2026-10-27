@@ -118,6 +118,12 @@ func TestEnsureEnrolledPendingAndApproved(t *testing.T) {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "approved", "device_token": "devtok-32-chars-xxxxxxxxxxxxxxx"})
+		case r.URL.Path == "/api/edge/token-ack" && r.Method == http.MethodPost:
+			if r.Header.Get("Authorization") != "Bearer devtok-32-chars-xxxxxxxxxxxxxxx" {
+				w.WriteHeader(401)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 		case r.URL.Path == "/api/edge/heartbeat":
 			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 		case r.URL.Path == "/api/edge/commands":

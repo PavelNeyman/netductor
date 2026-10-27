@@ -14,12 +14,14 @@ import (
 )
 
 type recoveryCode struct {
-	Code      string `json:"code"`
-	SiteID    string `json:"site_id,omitempty"`
-	Note      string `json:"note,omitempty"`
-	Expires   int64  `json:"expires"`
-	CreatedAt int64  `json:"created_at"`
-	UsedAt    int64  `json:"used_at,omitempty"`
+	Code       string `json:"code"`
+	SiteID     string `json:"site_id,omitempty"`
+	Note       string `json:"note,omitempty"`
+	Expires    int64  `json:"expires"`
+	CreatedAt  int64  `json:"created_at"`
+	UsedAt     int64  `json:"used_at,omitempty"`
+	ReservedAt int64  `json:"reserved_at,omitempty"`
+	ReserveID  string `json:"reserve_id,omitempty"`
 }
 
 func recoveryPath() string {
@@ -81,6 +83,7 @@ func IssueRecoveryCode(siteID, note string, ttl time.Duration) (code string, exp
 }
 
 // PeekRecoveryCode validates a recovery code without consuming it.
+// Codes reserved longer than 2 minutes are treated as free again (crash recovery).
 func PeekRecoveryCode(code string) (siteID string, ok bool) {
 	code = strings.TrimSpace(code)
 	if len(code) < 16 {
@@ -98,6 +101,9 @@ func PeekRecoveryCode(code string) (siteID string, ok bool) {
 		if c.UsedAt != 0 || c.Expires < now {
 			continue
 		}
+		if c.ReservedAt != 0 && now-c.ReservedAt < 120 {
+			continue // in-flight enroll
+		}
 		if constEq(c.Code, code) {
 			return c.SiteID, true
 		}
@@ -105,35 +111,118 @@ func PeekRecoveryCode(code string) (siteID string, ok bool) {
 	return "", false
 }
 
-// ConsumeRecoveryCode validates and marks used. Returns siteID hint.
-func ConsumeRecoveryCode(code string) (siteID string, ok bool) {
+// ReserveRecoveryCode atomically claims a code for enroll (unused → reserved).
+// Concurrent second claim fails. Caller must Commit or Abort.
+func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 	code = strings.TrimSpace(code)
 	if len(code) < 16 {
-		return "", false
+		return "", "", false
 	}
 	mu.Lock()
 	defer mu.Unlock()
 	list, err := loadRecovery()
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 	now := time.Now().Unix()
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	rid := hex.EncodeToString(b[:])
 	for i := range list {
 		c := &list[i]
 		if c.UsedAt != 0 || c.Expires < now {
 			continue
 		}
-		if constEq(c.Code, code) {
-			c.UsedAt = now
-			siteID = c.SiteID
-			if err := saveRecovery(list); err != nil {
-				// R-7: do not treat as consumed if persist failed
-				return "", false
+		if c.ReservedAt != 0 && now-c.ReservedAt < 120 {
+			if constEq(c.Code, code) {
+				return "", "", false // already in flight
 			}
-			return siteID, true
+			continue
+		}
+		if constEq(c.Code, code) {
+			c.ReservedAt = now
+			c.ReserveID = rid
+			if err := saveRecovery(list); err != nil {
+				return "", "", false
+			}
+			return c.SiteID, rid, true
 		}
 	}
-	return "", false
+	return "", "", false
+}
+
+// CommitRecoveryCode marks a reserved code as permanently used.
+func CommitRecoveryCode(code, reserveID string) bool {
+	code = strings.TrimSpace(code)
+	reserveID = strings.TrimSpace(reserveID)
+	if code == "" || reserveID == "" {
+		return false
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	list, err := loadRecovery()
+	if err != nil {
+		return false
+	}
+	now := time.Now().Unix()
+	for i := range list {
+		c := &list[i]
+		if !constEq(c.Code, code) {
+			continue
+		}
+		if c.UsedAt != 0 {
+			return true // already committed
+		}
+		if c.ReserveID != reserveID {
+			return false
+		}
+		c.UsedAt = now
+		c.ReservedAt = 0
+		c.ReserveID = ""
+		return saveRecovery(list) == nil
+	}
+	return false
+}
+
+// AbortRecoveryCode releases a reservation so the code can be retried.
+func AbortRecoveryCode(code, reserveID string) {
+	code = strings.TrimSpace(code)
+	reserveID = strings.TrimSpace(reserveID)
+	mu.Lock()
+	defer mu.Unlock()
+	list, err := loadRecovery()
+	if err != nil {
+		return
+	}
+	for i := range list {
+		c := &list[i]
+		if !constEq(c.Code, code) {
+			continue
+		}
+		if c.UsedAt != 0 {
+			return
+		}
+		if c.ReserveID != "" && c.ReserveID != reserveID {
+			return
+		}
+		c.ReservedAt = 0
+		c.ReserveID = ""
+		_ = saveRecovery(list)
+		return
+	}
+}
+
+// ConsumeRecoveryCode validates and marks used in one step (tests / simple callers).
+func ConsumeRecoveryCode(code string) (siteID string, ok bool) {
+	siteID, rid, ok := ReserveRecoveryCode(code)
+	if !ok {
+		return "", false
+	}
+	if !CommitRecoveryCode(code, rid) {
+		AbortRecoveryCode(code, rid)
+		return "", false
+	}
+	return siteID, true
 }
 
 // ValidRecoveryOrBootstrap — enroll auth: recovery code OR long-lived bootstrap.

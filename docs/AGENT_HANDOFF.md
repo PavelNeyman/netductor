@@ -1,3 +1,5 @@
+**Stop line: v0.9.583** (2026-10-27). Edge token-ack retry, atomic recovery reserve, bootstrap perms, rotate-device-token.
+
 **Stop line: v0.9.582** (2026-10-27). Edge bootstrap/token-ack/reissue + recovery rebind.
 
 **0.9.462:** OpenWrt dry-run read-only, storage/VPN/kmod fail-closed, PARTIAL after extroot.

@@ -29,15 +29,15 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 		var payload map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&payload)
 		raw := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
-		usedRecovery := false
-		// Peek recovery (no consume yet). Consume only after successful Enroll response.
+		var reserveID string
+		// Atomic reserve → enroll → commit (or abort on failure). Prevents concurrent double-use.
 		if !edge.ValidBootstrap(auth) {
-			siteID, ok := edge.PeekRecoveryCode(raw)
+			siteID, rid, ok := edge.ReserveRecoveryCode(raw)
 			if !ok {
 				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "recovery_invalid"})
 				return
 			}
-			usedRecovery = true
+			reserveID = rid
 			if payload == nil {
 				payload = map[string]any{}
 			}
@@ -47,11 +47,17 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 		}
 		st, dtok, isNew := edge.Enroll(payload)
 		if st == "error" {
+			if reserveID != "" {
+				edge.AbortRecoveryCode(raw, reserveID)
+			}
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "enroll_persist_failed"})
 			return
 		}
-		if usedRecovery {
-			_, _ = edge.ConsumeRecoveryCode(raw) // soft: enroll already persisted; race is rare
+		if reserveID != "" {
+			if !edge.CommitRecoveryCode(raw, reserveID) {
+				// Device row already written; code may remain reserved until TTL — better than reusable.
+				_ = reserveID
+			}
 		}
 		if did, _ := payload["device_id"].(string); did != "" {
 			if sid, _ := payload["site_id"].(string); sid != "" {

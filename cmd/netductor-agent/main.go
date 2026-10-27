@@ -171,12 +171,61 @@ func saveDeviceToken(tok string) error {
 
 func clearDeviceToken() {
 	_ = os.Remove(deviceTokenPath())
+	_ = os.Remove(tokenAckPendingPath())
+}
+
+func tokenAckPendingPath() string {
+	return filepath.Join(agentDir(), "token_ack_pending")
+}
+
+func markTokenAckPending() error {
+	if err := os.MkdirAll(agentDir(), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(tokenAckPendingPath(), []byte("1\n"), 0o600)
+}
+
+func clearTokenAckPending() {
+	_ = os.Remove(tokenAckPendingPath())
+}
+
+func tokenAckPending() bool {
+	_, err := os.Stat(tokenAckPendingPath())
+	return err == nil
+}
+
+// sendTokenAck posts confirmation that device_token was persisted. Returns nil only on HTTP 2xx.
+func sendTokenAck(client *http.Client, server, deviceID, deviceToken string) error {
+	ackBody, _ := json.Marshal(map[string]string{"device_id": deviceID})
+	ackReq, err := http.NewRequest(http.MethodPost, strings.TrimRight(server, "/")+"/api/edge/token-ack", bytes.NewReader(ackBody))
+	if err != nil {
+		return err
+	}
+	ackReq.Header.Set("Authorization", "Bearer "+deviceToken)
+	ackReq.Header.Set("Content-Type", "application/json")
+	ackResp, err := client.Do(ackReq)
+	if err != nil {
+		return err
+	}
+	defer ackResp.Body.Close()
+	if ackResp.StatusCode >= 300 {
+		b, _ := io.ReadAll(ackResp.Body)
+		return fmt.Errorf("token-ack HTTP %d: %s", ackResp.StatusCode, truncate(string(b), 120))
+	}
+	return nil
 }
 
 // ensureEnrolled uses bootstrap TOKEN until device_token is issued.
 func ensureEnrolled(client *http.Client, cfg *config) error {
 	if tok := loadDeviceToken(); tok != "" {
 		cfg.Token = tok
+		// Retry token-ack until primary confirms (TokenPickup cleared).
+		if tokenAckPending() {
+			if err := sendTokenAck(client, cfg.Server, cfg.DeviceID, tok); err != nil {
+				return fmt.Errorf("token-ack pending: %w", err)
+			}
+			clearTokenAckPending()
+		}
 		return nil
 	}
 	payload := collectMetrics()
@@ -210,16 +259,14 @@ func ensureEnrolled(client *http.Client, cfg *config) error {
 				return fmt.Errorf("save device_token: %w", err)
 			}
 			cfg.Token = out.DeviceToken
-			// Confirm pickup so server stops re-issuing personal token on bootstrap enroll.
-			ackBody, _ := json.Marshal(map[string]string{"device_id": cfg.DeviceID})
-			ackReq, err := http.NewRequest(http.MethodPost, cfg.Server+"/api/edge/token-ack", bytes.NewReader(ackBody))
-			if err == nil {
-				ackReq.Header.Set("Authorization", "Bearer "+out.DeviceToken)
-				ackReq.Header.Set("Content-Type", "application/json")
-				if ackResp, err2 := client.Do(ackReq); err2 == nil {
-					ackResp.Body.Close()
-				}
+			if err := markTokenAckPending(); err != nil {
+				return fmt.Errorf("mark token_ack_pending: %w", err)
 			}
+			if err := sendTokenAck(client, cfg.Server, cfg.DeviceID, out.DeviceToken); err != nil {
+				// Token is on disk; next ensureEnrolled cycle retries ack.
+				return fmt.Errorf("token-ack: %w", err)
+			}
+			clearTokenAckPending()
 		}
 		return nil
 	case "pending":

@@ -67,6 +67,7 @@ func runEdgeCLI(args []string) {
 			os.Exit(2)
 		}
 	case "reissue-token":
+		// Same token, arm pickup again (lost agent file). Not a rotation.
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge reissue-token <device_id>")
 			os.Exit(2)
@@ -77,7 +78,20 @@ func runEdgeCLI(args []string) {
 			os.Exit(1)
 		}
 		audit.Log("cli", "edge.reissue-token", args[1], "")
-		fmt.Println("reissue ok", args[1], "token_pickup=true token="+tok)
+		fmt.Println("reissue ok", args[1], "token_pickup=true (same token) token="+tok)
+	case "rotate-device-token":
+		// New token after compromise; old token stops working.
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge rotate-device-token <device_id>")
+			os.Exit(2)
+		}
+		tok, err := edge.RotateDeviceToken(args[1])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		audit.Log("cli", "edge.rotate-device-token", args[1], "")
+		fmt.Println("rotated", args[1], "token_pickup=true token="+tok)
 	case "pending":
 		for _, d := range edge.ListPending() {
 			fmt.Printf("%s\t%s\t%s\t%s\n", d.DeviceID, d.Board, d.WANIP, d.Hostname)
@@ -195,7 +209,7 @@ func runEdgeCLI(args []string) {
 		}
 		fmt.Println(code)
 		fmt.Fprintln(os.Stderr, "expires", exp.Format(time.RFC3339), "site="+site)
-		fmt.Fprintln(os.Stderr, "On router LAN open http://<router-ip>:7879/netductor-recovery")
+		fmt.Fprintln(os.Stderr, "On router LAN open https://<router-ip>:7879/netductor-recovery (self-signed TLS)")
 	case "export":
 		b, err := edge.ExportDevices()
 		if err != nil {

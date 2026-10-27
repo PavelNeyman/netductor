@@ -1,3 +1,12 @@
+## 0.9.583
+
+Edge lifecycle residual (review 0.9.582):
+- Agent: token_ack_pending + retry until HTTP 2xx; no silent drop of TokenPickup arming
+- Recovery: Reserve → Enroll → Commit/Abort (no concurrent double-use of one code)
+- Bootstrap secret: atomic write + chmod 0600/0700 on ensure and rotate
+- CLI recovery URL uses https:// (matches self-signed listener)
+- rotate-device-token (new secret) vs reissue-token (same secret, re-arm pickup)
+
 ## 0.9.582
 
 Edge provisioning lifecycle (audit f27db3d):

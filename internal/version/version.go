@@ -3,4 +3,4 @@ package version
 // Release is the product version. Overridden at link time:
 //
 //	-X github.com/PavelNeyman/netductor/internal/version.Release=0.9.xxx
-var Release = "0.9.582"
+var Release = "0.9.583"
