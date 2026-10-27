@@ -1,3 +1,9 @@
+## 0.9.581
+
+- Edge deploy: after SSH success, poll primary `edge list` until device is pending|approved (control-plane sighting); fail if missing within 90s.
+- applyTemplate: guest errors on empty UCI-diff path also fail-closed (no applied_template).
+- uciBatch: network_reload / wifi_reload failures increment fail count.
+
 ## 0.9.580
 
 - Guest: keep firewall.guest_wan (guest→WAN); remove delete that undid forwarding; nft still drops non-allowed MAC / LAN.

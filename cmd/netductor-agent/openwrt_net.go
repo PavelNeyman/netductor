@@ -162,15 +162,25 @@ func uciBatch(arg string) string {
 			continue
 		}
 		if line == "network_reload" {
-			out, _ := exec.Command("/etc/init.d/network", "reload").CombinedOutput()
-			logs = append(logs, "network_reload:"+truncate(string(out), 200))
-			ok++
+			out, err := exec.Command("/etc/init.d/network", "reload").CombinedOutput()
+			if err != nil {
+				logs = append(logs, "fail:network_reload:"+truncate(string(out), 200))
+				fail++
+			} else {
+				logs = append(logs, "network_reload:"+truncate(string(out), 200))
+				ok++
+			}
 			continue
 		}
 		if line == "wifi_reload" {
-			out, _ := exec.Command("wifi", "reload").CombinedOutput()
-			logs = append(logs, "wifi_reload:"+truncate(string(out), 200))
-			ok++
+			out, err := exec.Command("wifi", "reload").CombinedOutput()
+			if err != nil {
+				logs = append(logs, "fail:wifi_reload:"+truncate(string(out), 200))
+				fail++
+			} else {
+				logs = append(logs, "wifi_reload:"+truncate(string(out), 200))
+				ok++
+			}
 			continue
 		}
 		fields := strings.Fields(line)

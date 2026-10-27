@@ -411,5 +411,55 @@ echo KEY:$(b64 "$DIR/client.key")
 		fmt.Fprintln(os.Stderr, "hint: after reboot verify overlay, then re-run edge deploy (or enable vpn_client) to install sing-box")
 		return fmt.Errorf("PARTIAL: reboot/extroot required before vpn_client; re-run deploy after router is back")
 	}
+	// Control plane: agent must appear on primary (enrolled), not only SSH to the router.
+	if !o.DryRun && o.PrimaryHost != "" && o.PrimaryKey != "" {
+		fmt.Fprintln(os.Stderr, "==> wait control-plane sighting for", o.DeviceID)
+		if err := waitEdgeOnControlPlane(o, 90*time.Second); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// waitEdgeOnControlPlane polls primary `netductor edge list` until device_id is present
+// with status pending or approved (enroll happened). Online health is best-effort.
+func waitEdgeOnControlPlane(o EdgeOpts, waitFor time.Duration) error {
+	deadline := time.Now().Add(waitFor)
+	user := o.PrimaryUser
+	if user == "" {
+		user = "root"
+	}
+	did := strings.TrimSpace(o.DeviceID)
+	for time.Now().Before(deadline) {
+		out, err := runSSHOnPort("52222", "", o.PrimaryKey, user, o.PrimaryHost,
+			"netductor edge list 2>/dev/null || true", o.PrimaryKeyPassphrase)
+		if err == nil {
+			for _, line := range strings.Split(out, "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				var fields []string
+				if strings.Contains(line, "\t") {
+					fields = strings.Split(line, "\t")
+				} else {
+					fields = strings.Fields(line)
+				}
+				if len(fields) < 2 || fields[0] != did {
+					continue
+				}
+				st := fields[1]
+				hl := ""
+				if len(fields) > 2 {
+					hl = fields[2]
+				}
+				if st == "pending" || st == "approved" {
+					fmt.Fprintf(os.Stderr, "RESULT: OK — control plane sees %s status=%s health=%s\n", did, st, hl)
+					return nil
+				}
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("control plane: device %s not seen on primary within %s (agent enroll/heartbeat) — check mTLS and SERVER URL", did, waitFor)
 }

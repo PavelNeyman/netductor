@@ -181,7 +181,12 @@ func applyTemplate(client *http.Client, cfg config) string {
 	toSet := edgeagent.DiffUCI(desired, current)
 	toSet = skipMissingRadios(toSet)
 	if len(toSet) == 0 {
-		return edgeagent.FormatApplyReport(toSet) + applyVPNClient(tmpl, cfg) + applyGuestFromTemplate(tmpl)
+		vpnNote := applyVPNClient(tmpl, cfg)
+		gNote := applyGuestFromTemplate(tmpl)
+		if strings.HasPrefix(gNote, "template:") {
+			return gNote
+		}
+		return edgeagent.FormatApplyReport(toSet) + vpnNote + gNote
 	}
 	var errs []string
 	for _, line := range toSet {
