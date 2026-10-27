@@ -92,6 +92,12 @@ echo FORMAT_OK part=$PART
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
 	}
 
+	if s.PinFallback {
+		if err := installPinSync(port, pass, key, user, host, kp); err != nil {
+			return false, fmt.Errorf("storage pin-sync: %w", err)
+		}
+		fmt.Fprintln(os.Stderr, "==> storage: pin sync installed before extroot")
+	}
 	if s.Extroot {
 		fmt.Fprintln(os.Stderr, "==> storage: configure extroot")
 		script := fmt.Sprintf(`
@@ -169,13 +175,6 @@ echo DATA_MOUNT_OK
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
 	}
 
-	if s.PinFallback {
-		if err := installPinSync(port, pass, key, user, host, kp); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: pin sync install:", err)
-		} else {
-			fmt.Fprintln(os.Stderr, "==> storage: pin sync script installed")
-		}
-	}
 	return needReboot, nil
 }
 

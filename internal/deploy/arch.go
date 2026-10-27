@@ -35,11 +35,14 @@ func MapUnameToGoArch(uname string) (string, error) {
 		return "amd64", nil
 	case u == "aarch64" || u == "arm64":
 		return "arm64", nil
-	case strings.HasPrefix(u, "armv7") || u == "arm" || strings.HasPrefix(u, "armv6"):
+	case strings.HasPrefix(u, "armv7") || u == "arm":
 		return "arm", nil
-	case u == "mips" || u == "mipsel" || strings.HasPrefix(u, "mips"):
-		// OpenWrt ramips/mt76x8 (MT7628) is little-endian softfloat → mipsle
+	case strings.HasPrefix(u, "armv6"):
+		return "", fmt.Errorf("armv6 is not a shipped agent arch (arm asset is GOARM=7); set --arch only if you built one")
+	case u == "mipsel" || strings.HasPrefix(u, "mipsel"):
 		return "mipsle", nil
+	case u == "mips" || strings.HasPrefix(u, "mips"):
+		return "", fmt.Errorf("bare mips is ambiguous (endian); need mipsel or --arch mipsle")
 	case u == "riscv64":
 		return "riscv64", nil
 	case u == "":
@@ -114,8 +117,10 @@ func mapOpenWrtArch(distrib string) (string, error) {
 		return "amd64", nil
 	case strings.HasPrefix(d, "arm_") || strings.Contains(d, "arm_cortex"):
 		return "arm", nil
-	case strings.Contains(d, "mipsel") || strings.Contains(d, "mips_24") || d == "mipsel_24kc":
+	case strings.Contains(d, "mipsel") || strings.Contains(d, "mipsel_24") || d == "mipsel_24kc":
 		return "mipsle", nil
+	case strings.Contains(d, "mips") && !strings.Contains(d, "mipsel"):
+		return "", fmt.Errorf("DISTRIB_ARCH %q is not little-endian mips; refuse guess", distrib)
 	case strings.Contains(d, "riscv"):
 		return "riscv64", nil
 	default:

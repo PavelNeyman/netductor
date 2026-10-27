@@ -12,7 +12,7 @@ import (
 )
 
 // applyGuestNetwork writes OpenWrt UCI for guest AP + isolation + captive redirect.
-// Internet for guests is NOT open by zone forwarding — only via nft MAC allow-list.
+// Allowed MACs reach WAN via guest→wan forwarding. nft drops everyone else and LAN.
 // stage=true: commit UCI only (no network/wifi reload) — for first-boot deploy before reboot.
 func applyGuestNetwork(gc guest.Config, stage bool) string {
 	if !gc.Enabled {
@@ -65,6 +65,9 @@ set firewall.guest.network=guest
 set firewall.guest.input=REJECT
 set firewall.guest.output=ACCEPT
 set firewall.guest.forward=REJECT
+set firewall.guest_wan=forwarding
+set firewall.guest_wan.src=guest
+set firewall.guest_wan.dest=wan
 set firewall.guest_dhcp=rule
 set firewall.guest_dhcp.name=Guest-DHCP
 set firewall.guest_dhcp.src=guest
@@ -133,8 +136,9 @@ table inet netductor_guest {
 	chain forward {
 		type filter hook forward priority -5; policy accept;
 		iifname "br-guest" oifname "br-guest" accept
-		iifname "br-guest" ether saddr @allowed accept
-		iifname "br-guest" counter drop comment "netductor-guest-deny"
+		iifname "br-guest" oifname "br-lan" drop
+		iifname "br-guest" ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } drop
+		iifname "br-guest" ether saddr != @allowed drop
 	}
 }
 `

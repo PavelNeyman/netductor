@@ -11,7 +11,6 @@ func TestMapUnameToGoArch(t *testing.T) {
 		"armv7l":      "arm",
 		"armv7":       "arm",
 		"arm":         "arm",
-		"mips":        "mipsle",
 		"mipsel":      "mipsle",
 		"riscv64":     "riscv64",
 		"  aarch64\n": "arm64",
@@ -28,6 +27,12 @@ func TestMapUnameToGoArch(t *testing.T) {
 	if _, err := MapUnameToGoArch("powerpc"); err == nil {
 		t.Fatal("expected error for powerpc")
 	}
+	if _, err := MapUnameToGoArch("armv6l"); err == nil {
+		t.Fatal("armv6 must not map to GOARM=7 arm")
+	}
+	if _, err := MapUnameToGoArch("mips"); err == nil {
+		t.Fatal("bare mips must not guess endian")
+	}
 }
 
 func TestMapOpenWrtArch(t *testing.T) {
@@ -36,6 +41,9 @@ func TestMapOpenWrtArch(t *testing.T) {
 		"x86_64":                   "amd64",
 		"arm_cortex-a7_neon-vfpv4": "arm",
 		"mipsel_24kc":              "mipsle",
+	}
+	if _, err := mapOpenWrtArch("mips_24kc"); err == nil {
+		t.Fatal("big-endian mips_24kc must not become mipsle")
 	}
 	for in, want := range cases {
 		got, err := mapOpenWrtArch(in)

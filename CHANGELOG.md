@@ -1,3 +1,11 @@
+## 0.9.579
+
+- Guest: explicit guest→wan forwarding; nft drops non-allowed MACs and LAN. Drop terminates, so fw4 cannot reject allowed clients later.
+- Pin-sync installs before extroot copy and fails the deploy if it cannot.
+- Ambiguous arch (armv6, bare mips, mips_24kc) is refused instead of guessed.
+- Template apply skips missing radio0/radio1 and does not write applied_template if uci set/commit fails.
+
+
 ## 0.9.578
 
 OpenWrt deploy safety (audit):

@@ -179,13 +179,22 @@ func applyTemplate(client *http.Client, cfg config) string {
 		}
 	}
 	toSet := edgeagent.DiffUCI(desired, current)
+	toSet = skipMissingRadios(toSet)
 	if len(toSet) == 0 {
 		return edgeagent.FormatApplyReport(toSet) + applyVPNClient(tmpl, cfg) + applyGuestFromTemplate(tmpl)
 	}
+	var errs []string
 	for _, line := range toSet {
-		_ = exec.Command("uci", "set", line).Run()
+		if out, err := exec.Command("uci", "set", line).CombinedOutput(); err != nil {
+			errs = append(errs, line+": "+strings.TrimSpace(string(out))+" "+err.Error())
+		}
 	}
-	_ = exec.Command("uci", "commit").Run()
+	if out, err := exec.Command("uci", "commit").CombinedOutput(); err != nil {
+		errs = append(errs, "commit: "+strings.TrimSpace(string(out))+" "+err.Error())
+	}
+	if len(errs) > 0 {
+		return "template: " + strings.Join(errs, "; ")
+	}
 	_ = exec.Command("/etc/init.d/network", "reload").Run()
 	_ = exec.Command("wifi", "reload").Run()
 	vpnNote := applyVPNClient(tmpl, cfg)
@@ -538,4 +547,28 @@ echo INIT_OK part=$PART uuid=$UUID
 		return truncate(string(out)+" "+err.Error(), 500)
 	}
 	return truncate(string(out), 500)
+}
+
+func skipMissingRadios(lines []string) []string {
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		key := line
+		if i := strings.Index(line, "="); i > 0 {
+			key = line[:i]
+		}
+		radio := ""
+		switch {
+		case strings.HasPrefix(key, "wireless.radio0") || strings.HasPrefix(key, "wireless.default_radio0"):
+			radio = "wireless.radio0"
+		case strings.HasPrefix(key, "wireless.radio1") || strings.HasPrefix(key, "wireless.default_radio1"):
+			radio = "wireless.radio1"
+		}
+		if radio != "" {
+			if err := exec.Command("uci", "-q", "get", radio).Run(); err != nil {
+				continue
+			}
+		}
+		out = append(out, line)
+	}
+	return out
 }
