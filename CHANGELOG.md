@@ -1,3 +1,8 @@
+## 0.9.577
+
+- provisionHostKey: missing pin + seen host → ErrPinLost (no re-TOFU)
+- Regression test: pin dropped, new key refused, store unchanged
+
 ## 0.9.576
 
 - SSH trust state: atomicWriteFile (temp+rename) for pin and seen stores

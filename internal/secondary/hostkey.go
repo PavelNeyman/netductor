@@ -257,6 +257,14 @@ func provisionHostKey(host string) ssh.HostKeyCallback {
 			// Pin exists and matches: ensure seen marker (upgrade path / partial write recovery).
 			return markHostSeen(id)
 		}
+		// No pin: if host was previously trusted (seen), refuse re-TOFU — same policy as OpenSSHKnownHostsLine.
+		seen, err := loadSeenHosts()
+		if err != nil {
+			return err
+		}
+		if seen[id] {
+			return fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision", ErrPinLost, id, id)
+		}
 		f[id] = got
 		if err := saveRelayKH(f); err != nil {
 			return err

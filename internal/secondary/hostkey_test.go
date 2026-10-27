@@ -244,3 +244,36 @@ func TestMatchingPinRestoresSeen(t *testing.T) {
 		t.Fatal("matching pin must restore seen marker")
 	}
 }
+
+func TestProvisionHostKeyPinLostRefusesNewKey(t *testing.T) {
+	isolateState(t)
+	pkOld := testSigner(t)
+	pkNew := testSigner(t)
+	b64 := base64.StdEncoding.EncodeToString(pkOld.Marshal())
+	if err := os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(map[string]string{"203.0.113.73": b64})
+	if err := os.WriteFile(relayKnownPath(), append(raw, 10), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := markHostSeen("203.0.113.73"); err != nil {
+		t.Fatal(err)
+	}
+	// Drop pin only
+	if err := os.WriteFile(relayKnownPath(), []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cb := provisionHostKey("203.0.113.73")
+	if err := cb("203.0.113.73", nil, pkNew); err == nil || !errors.Is(err, ErrPinLost) {
+		t.Fatalf("want ErrPinLost, got %v", err)
+	}
+	// Must not have written new pin
+	f, err := loadRelayKH()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := f["203.0.113.73"]; ok {
+		t.Fatal("must not re-TOFU after pin loss")
+	}
+}
