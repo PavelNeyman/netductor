@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -77,10 +78,11 @@ func openSSHPinPath(host, port string) (string, error) {
 	safe := strings.ReplaceAll(host, "/", "_")
 	dest := filepath.Join(dir, safe+"_"+port+".known_hosts")
 	if err := secondary.WriteOpenSSHKnownHostsFile(host, port, dest); err != nil {
+		// Normalize missing pin; keep other errors (corrupt/IO) fail-closed.
 		if strings.Contains(err.Error(), "no TOFU pin") {
 			return "", errNoPin
 		}
-		return "", err // corrupt / IO — do not fall back to accept-new
+		return "", err
 	}
 	return dest, nil
 }
@@ -99,13 +101,15 @@ func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port s
 			"-o", "GlobalKnownHostsFile=/dev/null",
 			"-o", "HashKnownHosts=no",
 		)
-	case passwordAuth:
-		// Factory / first password hop only.
-		args = append(args, "-o", "StrictHostKeyChecking=accept-new")
-	case pinErr == nil || pinErr == errNoPin:
-		return nil, fmt.Errorf("SSH host key pin required for %s:%s (key-only) but TOFU missing — provision first or restore pin", host, port)
-	default:
+	case pinErr != nil && !errors.Is(pinErr, errNoPin):
+		// Corrupt TOFU / IO — never fall back to accept-new, even with password.
 		return nil, fmt.Errorf("SSH host key pin for %s:%s: %w", host, port, pinErr)
+	case passwordAuth:
+		// Explicit first contact only: no pin entry expected yet.
+		args = append(args, "-o", "StrictHostKeyChecking=accept-new")
+	default:
+		// Key-only and no pin.
+		return nil, fmt.Errorf("SSH host key pin required for %s:%s (key-only) but TOFU missing — provision first or restore pin", host, port)
 	}
 	if keyPath != "" {
 		args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")

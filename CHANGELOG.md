@@ -1,3 +1,10 @@
+## 0.9.573
+
+- SSH: TOFU corrupt/IO always fails (password cannot force accept-new)
+- accept-new only when no pin yet + password first contact
+- Host-key tests use NETDUCTOR_STATE temp isolation
+- RemoteJoin: start agent only if PREV binary restore succeeds
+
 ## 0.9.572
 
 - SSH key-only hops fail-closed without TOFU pin (no silent accept-new)

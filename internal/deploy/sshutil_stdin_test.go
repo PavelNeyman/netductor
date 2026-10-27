@@ -134,3 +134,20 @@ func TestSSHOptsPasswordMayAcceptNew(t *testing.T) {
 		t.Fatalf("password hop should allow accept-new, got %v", args)
 	}
 }
+
+func TestSSHOptsPasswordStillFailsOnCorruptPin(t *testing.T) {
+	// Simulate openSSHPinPath path by forcing Write failure is hard; call sshOpts when
+	// TOFU missing is accept-new, but corrupt is tested via openSSHPinPath returning non-errNoPin.
+	// Inject by writing corrupt TOFU under NETDUCTOR_STATE.
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	sec := filepath.Join(dir, "secondary")
+	_ = os.MkdirAll(sec, 0o700)
+	if err := os.WriteFile(filepath.Join(sec, "ssh_known_hosts.json"), []byte("{bad"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := sshOpts("", true, false, "203.0.113.90", "22")
+	if err == nil {
+		t.Fatal("password mode must not accept-new when TOFU is corrupt")
+	}
+}

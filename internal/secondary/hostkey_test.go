@@ -11,16 +11,11 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/ssh"
-
-	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
-func withTOFUDir(t *testing.T) string {
+func isolateState(t *testing.T) {
 	t.Helper()
-	dir := t.TempDir()
-	// SecondaryDir is under state root — set via env if supported, else write path
-	// paths package uses fixed /var/lib/netductor or XDG — use WriteOpenSSH after planting file at relayKnownPath
-	return dir
+	t.Setenv("NETDUCTOR_STATE", t.TempDir())
 }
 
 func testSigner(t *testing.T) ssh.PublicKey {
@@ -37,23 +32,16 @@ func testSigner(t *testing.T) ssh.PublicKey {
 }
 
 func TestOpenSSHKnownHostsLineFromStore(t *testing.T) {
-	// Plant TOFU next to SecondaryDir by writing through saveRelayKH after ensuring dir
+	isolateState(t)
 	pk := testSigner(t)
 	b64 := base64.StdEncoding.EncodeToString(pk.Marshal())
-	_ = os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700)
-	// Isolate: if SecondaryDir is system path, skip
-	if strings.HasPrefix(relayKnownPath(), "/var/") {
-		// try paths under temp by writing only if writable
-		if err := os.WriteFile(relayKnownPath(), []byte("{}"), 0o600); err != nil {
-			t.Skip("cannot write TOFU path in test env:", err)
-		}
+	if err := os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700); err != nil {
+		t.Fatal(err)
 	}
-	f := map[string]string{"203.0.113.50": b64}
-	raw, _ := json.Marshal(f)
+	raw, _ := json.Marshal(map[string]string{"203.0.113.50": b64})
 	if err := os.WriteFile(relayKnownPath(), append(raw, 10), 0o600); err != nil {
-		t.Skip(err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Remove(relayKnownPath()) })
 
 	line, err := OpenSSHKnownHostsLine("203.0.113.50", "52222")
 	if err != nil {
@@ -70,7 +58,10 @@ func TestOpenSSHKnownHostsLineFromStore(t *testing.T) {
 	if err := WriteOpenSSHKnownHostsFile("203.0.113.50", "52222", dest); err != nil {
 		t.Fatal(err)
 	}
-	b, _ := os.ReadFile(dest)
+	b, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(string(b), "[203.0.113.50]:52222") {
 		t.Fatalf("file=%q", b)
 	}
@@ -82,11 +73,13 @@ func TestOpenSSHKnownHostsLineFromStore(t *testing.T) {
 }
 
 func TestLoadRelayKHCorrupt(t *testing.T) {
-	_ = os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700)
-	if err := os.WriteFile(relayKnownPath(), []byte("{not-json"), 0o600); err != nil {
-		t.Skip(err)
+	isolateState(t)
+	if err := os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700); err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Remove(relayKnownPath()) })
+	if err := os.WriteFile(relayKnownPath(), []byte("{not-json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	_, err := loadRelayKH()
 	if err == nil {
 		t.Fatal("want corrupt error")
@@ -94,14 +87,16 @@ func TestLoadRelayKHCorrupt(t *testing.T) {
 }
 
 func TestOpenSSHKnownHostsPort22(t *testing.T) {
+	isolateState(t)
 	pk := testSigner(t)
 	b64 := base64.StdEncoding.EncodeToString(pk.Marshal())
-	_ = os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700)
+	if err := os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	raw, _ := json.Marshal(map[string]string{"203.0.113.51": b64})
 	if err := os.WriteFile(relayKnownPath(), append(raw, 10), 0o600); err != nil {
-		t.Skip(err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Remove(relayKnownPath()) })
 	line, err := OpenSSHKnownHostsLine("203.0.113.51", "22")
 	if err != nil {
 		t.Fatal(err)
@@ -109,5 +104,22 @@ func TestOpenSSHKnownHostsPort22(t *testing.T) {
 	if strings.HasPrefix(line, "[") {
 		t.Fatalf("port 22 should not use bracket form: %q", line)
 	}
-	_ = paths.SecondaryDir // silence unused if needed
+}
+
+func TestProvisionHostKeyRejectsChange(t *testing.T) {
+	isolateState(t)
+	pk1 := testSigner(t)
+	b64 := base64.StdEncoding.EncodeToString(pk1.Marshal())
+	if err := os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(map[string]string{"203.0.113.52": b64})
+	if err := os.WriteFile(relayKnownPath(), append(raw, 10), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cb := provisionHostKey("203.0.113.52")
+	pk2 := testSigner(t)
+	if err := cb("203.0.113.52", nil, pk2); err == nil {
+		t.Fatal("want host key change rejection")
+	}
 }
