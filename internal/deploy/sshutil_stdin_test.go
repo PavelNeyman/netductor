@@ -151,3 +151,17 @@ func TestSSHOptsPasswordStillFailsOnCorruptPin(t *testing.T) {
 		t.Fatal("password mode must not accept-new when TOFU is corrupt")
 	}
 }
+
+func TestSSHOptsPasswordFailsWhenPinLost(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	sec := filepath.Join(dir, "secondary")
+	_ = os.MkdirAll(sec, 0o700)
+	// seen without pin
+	_ = os.WriteFile(filepath.Join(sec, "ssh_known_hosts.json"), []byte("{}\n"), 0o600)
+	_ = os.WriteFile(filepath.Join(sec, "ssh_hosts_seen.json"), []byte(`["203.0.113.91"]`+"\n"), 0o600)
+	_, err := sshOpts("", true, false, "203.0.113.91", "52222")
+	if err == nil {
+		t.Fatal("password must not accept-new when pin was lost for known host")
+	}
+}

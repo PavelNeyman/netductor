@@ -1,3 +1,10 @@
+## 0.9.574
+
+- ssh_hosts_seen.json: hosts ever pinned; lost pin ≠ first contact
+- Missing pin + seen host → ErrPinLost (no accept-new even with password)
+- ForgetSSHHost / ClearSSHHosts clear seen so re-provision is explicit first contact
+- Tests: pin lost, forget re-allows first contact, password fails on pin lost
+
 ## 0.9.573
 
 - SSH: TOFU corrupt/IO always fails (password cannot force accept-new)

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,5 +122,49 @@ func TestProvisionHostKeyRejectsChange(t *testing.T) {
 	pk2 := testSigner(t)
 	if err := cb("203.0.113.52", nil, pk2); err == nil {
 		t.Fatal("want host key change rejection")
+	}
+}
+
+func TestPinLostRejectsRelearnWithoutForget(t *testing.T) {
+	isolateState(t)
+	pk := testSigner(t)
+	b64 := base64.StdEncoding.EncodeToString(pk.Marshal())
+	if err := os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(map[string]string{"203.0.113.60": b64})
+	if err := os.WriteFile(relayKnownPath(), append(raw, 10), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := markHostSeen("203.0.113.60"); err != nil {
+		t.Fatal(err)
+	}
+	// Delete pin entry but keep seen
+	if err := os.WriteFile(relayKnownPath(), []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := OpenSSHKnownHostsLine("203.0.113.60", "52222")
+	if err == nil || !errors.Is(err, ErrPinLost) {
+		t.Fatalf("want ErrPinLost, got %v", err)
+	}
+}
+
+func TestForgetAllowsFirstContactAgain(t *testing.T) {
+	isolateState(t)
+	pk := testSigner(t)
+	b64 := base64.StdEncoding.EncodeToString(pk.Marshal())
+	_ = os.MkdirAll(filepath.Dir(relayKnownPath()), 0o700)
+	raw, _ := json.Marshal(map[string]string{"203.0.113.61": b64})
+	_ = os.WriteFile(relayKnownPath(), append(raw, 10), 0o600)
+	_ = markHostSeen("203.0.113.61")
+	if err := ForgetSSHHost("203.0.113.61"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := OpenSSHKnownHostsLine("203.0.113.61", "22")
+	if err == nil {
+		t.Fatal("want no pin after forget")
+	}
+	if errors.Is(err, ErrPinLost) {
+		t.Fatal("after forget should be first-contact missing, not pin lost")
 	}
 }

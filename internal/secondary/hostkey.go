@@ -22,6 +22,69 @@ func relayKnownPath() string {
 	return filepath.Join(paths.SecondaryDir(), "ssh_known_hosts.json")
 }
 
+func relaySeenPath() string {
+	return filepath.Join(paths.SecondaryDir(), "ssh_hosts_seen.json")
+}
+
+// ErrPinLost: host was pinned before but entry is gone — not first contact.
+var ErrPinLost = fmt.Errorf("TOFU pin lost for previously known host")
+
+func loadSeenHosts() (map[string]bool, error) {
+	b, err := os.ReadFile(relaySeenPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]bool{}, nil
+		}
+		return nil, fmt.Errorf("ssh seen-hosts read: %w", err)
+	}
+	var ids []string
+	if err := json.Unmarshal(b, &ids); err != nil {
+		return nil, fmt.Errorf("ssh seen-hosts corrupt: %w", err)
+	}
+	out := map[string]bool{}
+	for _, id := range ids {
+		if id = strings.TrimSpace(id); id != "" {
+			out[id] = true
+		}
+	}
+	return out, nil
+}
+
+func saveSeenHosts(m map[string]bool) error {
+	ids := make([]string, 0, len(m))
+	for id := range m {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	path := relaySeenPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(ids, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(raw, 10), 0o600)
+}
+
+func markHostSeen(id string) error {
+	m, err := loadSeenHosts()
+	if err != nil {
+		return err
+	}
+	m[id] = true
+	return saveSeenHosts(m)
+}
+
+func unmarkHostSeen(id string) error {
+	m, err := loadSeenHosts()
+	if err != nil {
+		return err
+	}
+	delete(m, id)
+	return saveSeenHosts(m)
+}
+
 // SSHHostEntry TOFU entry for secondary provision SSH.
 type SSHHostEntry struct {
 	ID        string `json:"id"`
@@ -98,14 +161,20 @@ func ForgetSSHHost(id string) error {
 		return err
 	}
 	delete(f, id)
-	return saveRelayKH(f)
+	if err := saveRelayKH(f); err != nil {
+		return err
+	}
+	return unmarkHostSeen(id)
 }
 
 // ClearSSHHosts removes all secondary provision TOFU keys.
 func ClearSSHHosts() error {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()
-	return saveRelayKH(map[string]string{})
+	if err := saveRelayKH(map[string]string{}); err != nil {
+		return err
+	}
+	return saveSeenHosts(map[string]bool{})
 }
 
 func provisionHostKey(host string) ssh.HostKeyCallback {
@@ -125,7 +194,10 @@ func provisionHostKey(host string) ssh.HostKeyCallback {
 			return nil
 		}
 		f[id] = got
-		return saveRelayKH(f)
+		if err := saveRelayKH(f); err != nil {
+			return err
+		}
+		return markHostSeen(id)
 	}
 }
 
@@ -144,6 +216,13 @@ func OpenSSHKnownHostsLine(host, port string) (string, error) {
 	}
 	b64, ok := f[host]
 	if !ok || b64 == "" {
+		seen, err := loadSeenHosts()
+		if err != nil {
+			return "", err
+		}
+		if seen[host] {
+			return "", fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision (explicit first contact)", ErrPinLost, host, host)
+		}
 		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first", host)
 	}
 	raw, err := base64.StdEncoding.DecodeString(b64)

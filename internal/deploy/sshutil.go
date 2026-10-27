@@ -78,7 +78,9 @@ func openSSHPinPath(host, port string) (string, error) {
 	safe := strings.ReplaceAll(host, "/", "_")
 	dest := filepath.Join(dir, safe+"_"+port+".known_hosts")
 	if err := secondary.WriteOpenSSHKnownHostsFile(host, port, dest); err != nil {
-		// Normalize missing pin; keep other errors (corrupt/IO) fail-closed.
+		if errors.Is(err, secondary.ErrPinLost) {
+			return "", err // previously pinned — never accept-new
+		}
 		if strings.Contains(err.Error(), "no TOFU pin") {
 			return "", errNoPin
 		}
