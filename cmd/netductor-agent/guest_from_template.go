@@ -71,6 +71,9 @@ func applyGuestFromTemplate(tmpl map[string]any) string {
 	}
 	gc, _ = guest.LoadConfig(guestConfigPath())
 	note := applyGuestNetwork(gc, false)
+	if strings.HasPrefix(note, "guest:") || uciBatchFailed(note) {
+		return "template: guest apply failed: " + note
+	}
 	return "\nguest enabled: " + note
 }
 

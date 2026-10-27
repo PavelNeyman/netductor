@@ -217,17 +217,22 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 	target := o.RouterUser + "@" + o.RouterHost
 	fmt.Fprintln(os.Stderr, "==> edge provision", target, "→", o.ServerURL)
-	// Fail-closed: partial mTLS material must not pretend client auth is installed.
+	// Fail-closed: agent plane is mTLS (:8789). Partial or empty material refuses deploy
+	// (except dry-run, which may lack live certs).
 	haveCA, haveCert, haveKey := len(mtlsCA) > 0, len(mtlsCert) > 0, len(mtlsKey) > 0
 	if haveCA || haveCert || haveKey {
 		if !(haveCA && haveCert && haveKey) {
 			return fmt.Errorf("mTLS material incomplete (ca=%v cert=%v key=%v) — refuse edge deploy", haveCA, haveCert, haveKey)
 		}
 	}
-	if len(mtlsCert) > 0 {
-		fmt.Fprintln(os.Stderr, "==> mTLS client material will be installed on router")
+	if !(haveCA && haveCert && haveKey) {
+		if o.DryRun {
+			fmt.Fprintln(os.Stderr, "warn: dry-run without mTLS material")
+		} else {
+			return fmt.Errorf("mTLS material missing (need ca+cert+key for agent plane %s) — refuse edge deploy", mtls.AgentTLSPort)
+		}
 	} else {
-		fmt.Fprintln(os.Stderr, "warn: no mTLS material — agent may fail TLS handshake until certs are present")
+		fmt.Fprintln(os.Stderr, "==> mTLS client material will be installed on router")
 	}
 
 	// 1) Agent + config (+ optional new root pass) WITHOUT harden — password still works for network/guest.
@@ -390,7 +395,8 @@ echo KEY:$(b64 "$DIR/client.key")
 				fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — reboot sent; SSH not seen within", waitFor, "on:", strings.Join(hosts, ", "))
 				fmt.Fprintln(os.Stderr, "hint: if Mac uses static IP on factory subnet, move Mac to new LAN or use DHCP client on LAN port")
 				fmt.Fprintln(os.Stderr, "hint: then: ssh -i <operator_key> root@<lan_ip>")
-				rebootOK = true // reboot command succeeded; reachability is best-effort
+				// Reachability after reboot is part of deploy success — do not report OK.
+				rebootOK = false
 			}
 		}
 	} else {

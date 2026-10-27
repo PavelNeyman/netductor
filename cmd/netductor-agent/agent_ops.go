@@ -195,10 +195,17 @@ func applyTemplate(client *http.Client, cfg config) string {
 	if len(errs) > 0 {
 		return "template: " + strings.Join(errs, "; ")
 	}
-	_ = exec.Command("/etc/init.d/network", "reload").Run()
-	_ = exec.Command("wifi", "reload").Run()
+	if out, err := exec.Command("/etc/init.d/network", "reload").CombinedOutput(); err != nil {
+		return "template: network reload: " + strings.TrimSpace(string(out)) + " " + err.Error()
+	}
+	if out, err := exec.Command("wifi", "reload").CombinedOutput(); err != nil {
+		return "template: wifi reload: " + strings.TrimSpace(string(out)) + " " + err.Error()
+	}
 	vpnNote := applyVPNClient(tmpl, cfg)
 	gNote := applyGuestFromTemplate(tmpl)
+	if strings.HasPrefix(gNote, "template:") {
+		return gNote
+	}
 	return edgeagent.FormatApplyReport(toSet) + "\n" + strings.Join(toSet, "\n") + vpnNote + gNote
 }
 

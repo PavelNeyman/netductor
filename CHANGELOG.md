@@ -1,3 +1,11 @@
+## 0.9.580
+
+- Guest: keep firewall.guest_wan (guest→WAN); remove delete that undid forwarding; nft still drops non-allowed MAC / LAN.
+- Guest/template: uciBatch fail>0 and network/wifi reload errors fail-closed (no applied_template on guest error).
+- Edge deploy: empty mTLS suite refuses (agent plane :8789); reboot without SSH recovery returns error (not OK).
+- Extroot: tar via intermediate file (both stages checked); stricter post-copy layout check before .nd-extroot.
+- Pin-sync: target internal mount (/mnt/nd-pin-internal or pre-extroot /overlay/.nd-pin-internal); critical copy fail-closed.
+
 ## 0.9.579
 
 - Guest: explicit guest→wan forwarding; nft drops non-allowed MACs and LAN. Drop terminates, so fw4 cannot reject allowed clients later.

@@ -231,3 +231,22 @@ func uciBatch(arg string) string {
 	}
 	return fmt.Sprintf("ok=%d fail=%d\n%s", ok, fail, strings.Join(logs, "\n"))
 }
+
+// uciBatchFailed reports whether a uciBatch result string recorded any failures.
+func uciBatchFailed(res string) bool {
+	for _, line := range strings.Split(res, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "ok=") {
+			continue
+		}
+		// ok=N fail=M
+		parts := strings.Fields(line)
+		for _, p := range parts {
+			if strings.HasPrefix(p, "fail=") {
+				n := strings.TrimPrefix(p, "fail=")
+				return n != "" && n != "0"
+			}
+		}
+	}
+	return strings.Contains(res, "\nfail:") || strings.HasPrefix(res, "fail:")
+}

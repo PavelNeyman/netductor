@@ -108,8 +108,16 @@ mkdir -p /mnt/netductor
 umount /mnt/netductor 2>/dev/null || true
 mount "$PART" /mnt/netductor
 if [ ! -f /mnt/netductor/.nd-extroot ]; then
-  if tar -C /overlay -cf - . 2>/dev/null | tar -C /mnt/netductor -xf -; then
-    :
+  # Prefer file intermediate: ash may lack pipefail; both tar stages must succeed.
+  rm -f /tmp/nd-overlay-copy.tar
+  if tar -C /overlay -cf /tmp/nd-overlay-copy.tar .; then
+    if ! tar -C /mnt/netductor -xf /tmp/nd-overlay-copy.tar; then
+      echo "EXTROOT_COPY_FAIL dest_tar"
+      rm -f /tmp/nd-overlay-copy.tar
+      umount /mnt/netductor 2>/dev/null || true
+      exit 1
+    fi
+    rm -f /tmp/nd-overlay-copy.tar
   elif cp -a /overlay/. /mnt/netductor/; then
     :
   else
@@ -117,11 +125,12 @@ if [ ! -f /mnt/netductor/.nd-extroot ]; then
     umount /mnt/netductor 2>/dev/null || true
     exit 1
   fi
-  # Require something resembling a copied overlay before marking ready.
-  if [ ! -d /mnt/netductor/upper ] && [ ! -d /mnt/netductor/etc ] && [ ! -e /mnt/netductor/work ]; then
-    # soft check: at least one entry besides lost+found
-    n=$(find /mnt/netductor -mindepth 1 -maxdepth 1 ! -name lost+found 2>/dev/null | wc -l)
-    if [ "$n" -lt 1 ]; then
+  # Require a real overlay layout (upper/etc or etc), not just empty dirs.
+  if [ -d /mnt/netductor/upper/etc ] || [ -d /mnt/netductor/etc ]; then
+    :
+  else
+    n=$(find /mnt/netductor -mindepth 1 -maxdepth 2 ! -name lost+found 2>/dev/null | wc -l)
+    if [ "$n" -lt 3 ]; then
       echo "EXTROOT_EMPTY_AFTER_COPY"
       umount /mnt/netductor 2>/dev/null || true
       exit 1
@@ -179,30 +188,62 @@ echo DATA_MOUNT_OK
 }
 
 func installPinSync(port, pass, key, user, host, kp string) error {
+	// Pin lives on internal flash outside the active overlay when possible:
+	// mount rootfs_data/jffs2 at /mnt/nd-pin-internal. After extroot, /etc is on USB;
+	// the pin tree must stay on internal media for USB-loss recovery.
 	remote := `cat > /usr/sbin/nd-pin-sync << 'PINEOF'
 #!/bin/sh
-PIN=/etc/netductor-agent/pin
+set -e
+PIN_ROOT=/mnt/nd-pin-internal
+mkdir -p "$PIN_ROOT"
+# Best-effort: mount original overlay volume if not already mounted.
+if ! mountpoint -q "$PIN_ROOT" 2>/dev/null; then
+  MTD=$(awk -F: '/rootfs_data/{gsub(/"/,"",$1); print $1; exit}' /proc/mtd 2>/dev/null || true)
+  if [ -n "$MTD" ] && [ -b "/dev/$MTD" ]; then
+    mount -t jffs2 "/dev/$MTD" "$PIN_ROOT" 2>/dev/null || \
+      mount -t ubifs "ubi0:rootfs_data" "$PIN_ROOT" 2>/dev/null || true
+  fi
+fi
+# Fallback: dedicated dir under /overlay only if internal mount failed and we are
+# still on internal overlay (no extroot marker on current /overlay).
+if ! mountpoint -q "$PIN_ROOT" 2>/dev/null; then
+  if [ ! -f /overlay/.nd-extroot ] && [ ! -f /mnt/netductor/.nd-extroot ]; then
+    PIN_ROOT=/overlay/.nd-pin-internal
+    mkdir -p "$PIN_ROOT"
+  else
+    echo "PIN_NO_INTERNAL_MOUNT" >&2
+    exit 1
+  fi
+fi
+PIN="$PIN_ROOT/pin"
 mkdir -p "$PIN/etc/netductor-agent" "$PIN/etc/config" "$PIN/usr/sbin"
-cp -a /etc/netductor-agent/config "$PIN/etc/netductor-agent/" 2>/dev/null || true
+fail=0
+cp -a /etc/netductor-agent/config "$PIN/etc/netductor-agent/" || fail=1
 cp -a /etc/netductor-agent/mtls "$PIN/etc/netductor-agent/" 2>/dev/null || true
-cp -a /etc/config/network "$PIN/etc/config/" 2>/dev/null || true
+cp -a /etc/config/network "$PIN/etc/config/" || fail=1
 cp -a /etc/config/wireless "$PIN/etc/config/" 2>/dev/null || true
 cp -a /etc/config/dhcp "$PIN/etc/config/" 2>/dev/null || true
-cp -a /etc/config/firewall "$PIN/etc/config/" 2>/dev/null || true
+cp -a /etc/config/firewall "$PIN/etc/config/" || fail=1
 cp -a /etc/config/system "$PIN/etc/config/" 2>/dev/null || true
 cp -a /usr/sbin/netductor-agent "$PIN/usr/sbin/" 2>/dev/null || true
+[ -f "$PIN/etc/netductor-agent/config" ] || fail=1
+[ -f "$PIN/etc/config/network" ] || fail=1
+[ "$fail" = "0" ] || { echo "PIN_COPY_FAIL" >&2; exit 1; }
 date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ > "$PIN/SYNCED_AT" 2>/dev/null || date > "$PIN/SYNCED_AT"
+echo PIN_OK root=$PIN_ROOT
 PINEOF
 chmod 755 /usr/sbin/nd-pin-sync
 grep -q nd-pin-sync /etc/crontabs/root 2>/dev/null || echo '0 */12 * * * /usr/sbin/nd-pin-sync' >> /etc/crontabs/root
 /etc/init.d/cron enable 2>/dev/null || true
 /etc/init.d/cron restart 2>/dev/null || true
 /usr/sbin/nd-pin-sync
-echo PIN_OK
 `
 	out, err := runSSHOnPort(port, pass, key, user, host, remote, kp)
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, out)
+	}
+	if strings.Contains(out, "PIN_COPY_FAIL") || strings.Contains(out, "PIN_NO_INTERNAL_MOUNT") {
+		return fmt.Errorf("pin-sync failed: %s", strings.TrimSpace(out))
 	}
 	return nil
 }

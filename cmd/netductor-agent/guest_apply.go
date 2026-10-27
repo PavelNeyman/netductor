@@ -38,8 +38,9 @@ func applyGuestNetwork(gc guest.Config, stage bool) string {
 	if capPort == 0 {
 		capPort = 7881
 	}
-	// Zone: forward REJECT — WAN only through nft allow set.
-	// No guest→wan forwarding section (would bypass MAC gate).
+	// Zone forward=REJECT for default; guest→wan forwarding is required so allowed
+	// MACs can reach the Internet. Non-allowed MACs are dropped earlier by nft
+	// (priority -5) before fw4; LAN is also dropped there.
 	batch := fmt.Sprintf(`
 set network.br_guest=device
 set network.br_guest.name=br-guest
@@ -93,21 +94,29 @@ set firewall.guest_http_redir.src_dport=80
 set firewall.guest_http_redir.dest_port=%d
 set firewall.guest_http_redir.proto=tcp
 set firewall.guest_http_redir.target=DNAT
-delete firewall.guest_wan
 commit network
 commit dhcp
 commit wireless
 commit firewall
 `, ip, buildGuestWifiUCI(ssid, psk, hidden), capPort, capPort)
 	res := uciBatch(batch)
-	_ = installGuestNFTHooks()
+	if uciBatchFailed(res) {
+		return "guest:uci:" + res
+	}
+	if err := installGuestNFTHooks(); err != nil {
+		return "guest:nft:" + err.Error()
+	}
 	_ = applyGuestVPNBypass(ip)
 	if stage {
 		return res + " (staged: no network/wifi reload — apply on reboot)"
 	}
-	_ = exec.Command("/etc/init.d/network", "reload").Run()
+	if out, err := exec.Command("/etc/init.d/network", "reload").CombinedOutput(); err != nil {
+		return "guest:network_reload:" + truncate(string(out), 120)
+	}
 	_ = exec.Command("/etc/init.d/dnsmasq", "restart").Run()
-	_ = exec.Command("wifi", "reload").Run()
+	if out, err := exec.Command("wifi", "reload").CombinedOutput(); err != nil {
+		return "guest:wifi_reload:" + truncate(string(out), 120)
+	}
 	_ = exec.Command("/etc/init.d/firewall", "reload").Run()
 	time.Sleep(500 * time.Millisecond)
 	if st, err := guest.OpenStore(guestStoreDir()); err == nil {
