@@ -136,10 +136,37 @@ func TestReservedNotStolenAfterTTL(t *testing.T) {
 	if !ok {
 		t.Fatal("reserve")
 	}
-	// Simulate "old" reservation by not aborting — second reserve must still fail (no 120s steal).
+	// Backdate ReservedAt beyond the old 120s steal window — must still refuse.
+	mu.Lock()
+	list, err := loadRecovery()
+	if err != nil {
+		mu.Unlock()
+		t.Fatal(err)
+	}
+	found := false
+	for i := range list {
+		if list[i].ReserveID == rid {
+			list[i].ReservedAt = time.Now().Unix() - 600 // 10 minutes ago
+			found = true
+			break
+		}
+	}
+	if !found {
+		mu.Unlock()
+		t.Fatal("rid not in store")
+	}
+	if err := saveRecovery(list); err != nil {
+		mu.Unlock()
+		t.Fatal(err)
+	}
+	mu.Unlock()
+
 	_, _, ok2 := ReserveRecoveryCode(code)
 	if ok2 {
-		t.Fatal("must not steal active reservation")
+		t.Fatal("must not steal reservation older than 120s")
+	}
+	if _, okPeek := PeekRecoveryCode(code); okPeek {
+		t.Fatal("peek must not treat aged reservation as free")
 	}
 	AbortRecoveryCode(code, rid)
 	_, rid2, ok3 := ReserveRecoveryCode(code)

@@ -1,3 +1,5 @@
+**Stop line: v0.9.586** (2026-10-27). Recovery TTL regression test + comment fix.
+
 **Stop line: v0.9.585** (2026-10-27). Atomic token_ack_done + recovery Finalize without TTL steal.
 
 **Stop line: v0.9.584** (2026-10-27). Edge token_ack_done + recovery Bound + chmod fail-closed.

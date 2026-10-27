@@ -85,7 +85,8 @@ func IssueRecoveryCode(siteID, note string, ttl time.Duration) (code string, exp
 }
 
 // PeekRecoveryCode validates a recovery code without consuming it.
-// Codes reserved longer than 2 minutes are treated as free again (crash recovery).
+// Active reservations (ReservedAt or Bound) are never treated as free until
+// Finalize, Abort, or the code's own Expires timestamp.
 func PeekRecoveryCode(code string) (siteID string, ok bool) {
 	code = strings.TrimSpace(code)
 	if len(code) < 16 {

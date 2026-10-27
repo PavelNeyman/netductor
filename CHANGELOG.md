@@ -1,3 +1,7 @@
+## 0.9.586
+
+- Recovery: fix stale Peek comment; TestReservedNotStolenAfterTTL backdates ReservedAt >120s
+
 ## 0.9.585
 
 Edge lifecycle residual (review 0.9.584):
