@@ -64,7 +64,7 @@ func saveSeenHosts(m map[string]bool) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(raw, 10), 0o600)
+	return atomicWriteFile(path, append(raw, 10), 0o600)
 }
 
 // ensureSeenMigratedFromPins adds every current pin host to seen (idempotent).
@@ -137,6 +137,40 @@ func loadRelayKH() (map[string]string, error) {
 	return f, nil
 }
 
+func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, ".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	ok := false
+	defer func() {
+		if !ok {
+			_ = os.Remove(tmp)
+		}
+	}()
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Chmod(mode); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	ok = true
+	return nil
+}
+
 func saveRelayKH(f map[string]string) error {
 	path := relayKnownPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -146,7 +180,7 @@ func saveRelayKH(f map[string]string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(raw, 10), 0o600)
+	return atomicWriteFile(path, append(raw, 10), 0o600)
 }
 
 // ListSSHHosts lists secondary provision TOFU keys.

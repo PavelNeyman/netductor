@@ -1,3 +1,7 @@
+## 0.9.576
+
+- SSH trust state: atomicWriteFile (temp+rename) for pin and seen stores
+
 ## 0.9.575
 
 Package A (SSH trust before A→B migration):
