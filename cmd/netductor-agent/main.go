@@ -171,27 +171,24 @@ func saveDeviceToken(tok string) error {
 
 func clearDeviceToken() {
 	_ = os.Remove(deviceTokenPath())
-	_ = os.Remove(tokenAckPendingPath())
+	_ = os.Remove(tokenAckDonePath())
+	_ = os.Remove(filepath.Join(agentDir(), "token_ack_pending")) // legacy
 }
 
-func tokenAckPendingPath() string {
-	return filepath.Join(agentDir(), "token_ack_pending")
+func tokenAckDonePath() string {
+	return filepath.Join(agentDir(), "token_ack_done")
 }
 
-func markTokenAckPending() error {
+func tokenAckDone() bool {
+	_, err := os.Stat(tokenAckDonePath())
+	return err == nil
+}
+
+func markTokenAckDone() error {
 	if err := os.MkdirAll(agentDir(), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(tokenAckPendingPath(), []byte("1\n"), 0o600)
-}
-
-func clearTokenAckPending() {
-	_ = os.Remove(tokenAckPendingPath())
-}
-
-func tokenAckPending() bool {
-	_, err := os.Stat(tokenAckPendingPath())
-	return err == nil
+	return os.WriteFile(tokenAckDonePath(), []byte("1\n"), 0o600)
 }
 
 // sendTokenAck posts confirmation that device_token was persisted. Returns nil only on HTTP 2xx.
@@ -215,16 +212,25 @@ func sendTokenAck(client *http.Client, server, deviceID, deviceToken string) err
 	return nil
 }
 
+// ensureTokenAcked retries token-ack until primary confirms. token_ack_done is written only after
+// HTTP 2xx so a failed marker write never skips ack while device_token is already on disk.
+func ensureTokenAcked(client *http.Client, cfg *config, tok string) error {
+	if tokenAckDone() {
+		return nil
+	}
+	if err := sendTokenAck(client, cfg.Server, cfg.DeviceID, tok); err != nil {
+		return err
+	}
+	_ = markTokenAckDone() // idempotent server-side; retry mark next cycle if this fails
+	return nil
+}
+
 // ensureEnrolled uses bootstrap TOKEN until device_token is issued.
 func ensureEnrolled(client *http.Client, cfg *config) error {
 	if tok := loadDeviceToken(); tok != "" {
 		cfg.Token = tok
-		// Retry token-ack until primary confirms (TokenPickup cleared).
-		if tokenAckPending() {
-			if err := sendTokenAck(client, cfg.Server, cfg.DeviceID, tok); err != nil {
-				return fmt.Errorf("token-ack pending: %w", err)
-			}
-			clearTokenAckPending()
+		if err := ensureTokenAcked(client, cfg, tok); err != nil {
+			return fmt.Errorf("token-ack: %w", err)
 		}
 		return nil
 	}
@@ -259,14 +265,9 @@ func ensureEnrolled(client *http.Client, cfg *config) error {
 				return fmt.Errorf("save device_token: %w", err)
 			}
 			cfg.Token = out.DeviceToken
-			if err := markTokenAckPending(); err != nil {
-				return fmt.Errorf("mark token_ack_pending: %w", err)
-			}
-			if err := sendTokenAck(client, cfg.Server, cfg.DeviceID, out.DeviceToken); err != nil {
-				// Token is on disk; next ensureEnrolled cycle retries ack.
+			if err := ensureTokenAcked(client, cfg, out.DeviceToken); err != nil {
 				return fmt.Errorf("token-ack: %w", err)
 			}
-			clearTokenAckPending()
 		}
 		return nil
 	case "pending":

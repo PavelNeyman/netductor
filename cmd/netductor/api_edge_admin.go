@@ -198,7 +198,7 @@ func registerEdgeAdmin(mux *http.ServeMux) {
 		audit.Log("session", "edge.recovery", site, note)
 		writeJSON(w, 200, map[string]any{
 			"ok": true, "code": code, "expires": exp.UTC().Format(time.RFC3339),
-			"site_id": site, "hint": "Open http://<router-lan>:7879/netductor-recovery on site Wi-Fi",
+			"site_id": site, "hint": "Open https://<router-lan>:7879/netductor-recovery on site Wi-Fi (self-signed TLS)",
 		})
 	})
 	mux.HandleFunc("/api/edge/register", func(w http.ResponseWriter, r *http.Request) {

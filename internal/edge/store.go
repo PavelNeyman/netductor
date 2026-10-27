@@ -48,18 +48,25 @@ func writeBootstrapTokenFile(tok string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	_ = os.Chmod(dir, 0o700)
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return fmt.Errorf("secrets dir chmod: %w", err)
+	}
 	path := filepath.Join(dir, "edge_bootstrap_token")
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, []byte(tok+"\n"), 0o600); err != nil {
 		return err
 	}
-	_ = os.Chmod(tmp, 0o600)
+	if err := os.Chmod(tmp, 0o600); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("bootstrap tmp chmod: %w", err)
+	}
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}
-	_ = os.Chmod(path, 0o600)
+	if err := os.Chmod(path, 0o600); err != nil {
+		return fmt.Errorf("bootstrap chmod: %w", err)
+	}
 	return nil
 }
 
@@ -71,9 +78,15 @@ func EnsureBootstrapToken() (string, error) {
 	if len(cur) >= 32 {
 		path := filepath.Join(paths.EtcDir(), "secrets", "edge_bootstrap_token")
 		dir := filepath.Join(paths.EtcDir(), "secrets")
-		_ = os.MkdirAll(dir, 0o700)
-		_ = os.Chmod(dir, 0o700)
-		_ = os.Chmod(path, 0o600)
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return "", err
+		}
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return "", fmt.Errorf("secrets dir chmod: %w", err)
+		}
+		if err := os.Chmod(path, 0o600); err != nil {
+			return "", fmt.Errorf("bootstrap chmod: %w", err)
+		}
 		return cur, nil
 	}
 	var b [32]byte

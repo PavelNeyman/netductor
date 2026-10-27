@@ -54,9 +54,19 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			return
 		}
 		if reserveID != "" {
+			// Pin reservation so failed Commit cannot free the code after 120s.
+			if !edge.BindRecoveryCode(raw, reserveID) {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{
+					"error": "recovery_bind_failed", "status": st, "device_token": dtok,
+				})
+				return
+			}
 			if !edge.CommitRecoveryCode(raw, reserveID) {
-				// Device row already written; code may remain reserved until TTL — better than reusable.
-				_ = reserveID
+				// Bound remains: code not reusable. Client may retry commit path via re-enroll failure handling.
+				writeJSON(w, http.StatusInternalServerError, map[string]any{
+					"error": "recovery_commit_failed", "status": st, "device_token": dtok,
+				})
+				return
 			}
 		}
 		if did, _ := payload["device_id"].(string); did != "" {

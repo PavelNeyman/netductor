@@ -75,3 +75,29 @@ func TestReserveAbortAllowsRetry(t *testing.T) {
 		t.Fatal("commit")
 	}
 }
+
+func TestBoundBlocksReuse(t *testing.T) {
+	t.Setenv("NETDUCTOR_STATE", t.TempDir())
+	t.Setenv("NETDUCTOR_ETC", t.TempDir())
+	t.Setenv("NETDUCTOR_EDGE_DIR", t.TempDir())
+	code, _, err := IssueRecoveryCode("s3", "", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, rid, ok := ReserveRecoveryCode(code)
+	if !ok {
+		t.Fatal("reserve")
+	}
+	if !BindRecoveryCode(code, rid) {
+		t.Fatal("bind")
+	}
+	// Abort must not free bound code
+	AbortRecoveryCode(code, rid)
+	_, _, ok2 := ReserveRecoveryCode(code)
+	if ok2 {
+		t.Fatal("bound code must not be reservable again")
+	}
+	if !CommitRecoveryCode(code, rid) {
+		t.Fatal("commit after bind")
+	}
+}

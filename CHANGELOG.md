@@ -1,3 +1,11 @@
+## 0.9.584
+
+Edge lifecycle residual (review 0.9.583):
+- Agent: token_ack_done only after HTTP 2xx; presence of device_token without done always retries ack
+- Recovery: Bind after successful enroll — never auto-release; Commit failure returns 500 (code not reusable)
+- Bootstrap ensure/rotate: chmod 0600/0700 errors fail the call
+- API recovery hint uses https:// like CLI
+
 ## 0.9.583
 
 Edge lifecycle residual (review 0.9.582):

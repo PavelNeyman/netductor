@@ -22,6 +22,8 @@ type recoveryCode struct {
 	UsedAt     int64  `json:"used_at,omitempty"`
 	ReservedAt int64  `json:"reserved_at,omitempty"`
 	ReserveID  string `json:"reserve_id,omitempty"`
+	// Bound: enroll already persisted the device; never auto-release reservation.
+	Bound bool `json:"bound,omitempty"`
 }
 
 func recoveryPath() string {
@@ -101,8 +103,11 @@ func PeekRecoveryCode(code string) (siteID string, ok bool) {
 		if c.UsedAt != 0 || c.Expires < now {
 			continue
 		}
+		if c.Bound {
+			continue // enroll done; must Commit, never free for reuse
+		}
 		if c.ReservedAt != 0 && now-c.ReservedAt < 120 {
-			continue // in-flight enroll
+			continue // in-flight enroll (unbound)
 		}
 		if constEq(c.Code, code) {
 			return c.SiteID, true
@@ -113,6 +118,7 @@ func PeekRecoveryCode(code string) (siteID string, ok bool) {
 
 // ReserveRecoveryCode atomically claims a code for enroll (unused → reserved).
 // Concurrent second claim fails. Caller must Commit or Abort.
+// Bound codes and active unbound reservations cannot be claimed.
 func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 	code = strings.TrimSpace(code)
 	if len(code) < 16 {
@@ -133,6 +139,12 @@ func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 		if c.UsedAt != 0 || c.Expires < now {
 			continue
 		}
+		if c.Bound {
+			if constEq(c.Code, code) {
+				return "", "", false
+			}
+			continue
+		}
 		if c.ReservedAt != 0 && now-c.ReservedAt < 120 {
 			if constEq(c.Code, code) {
 				return "", "", false // already in flight
@@ -142,6 +154,7 @@ func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 		if constEq(c.Code, code) {
 			c.ReservedAt = now
 			c.ReserveID = rid
+			c.Bound = false
 			if err := saveRecovery(list); err != nil {
 				return "", "", false
 			}
@@ -149,6 +162,36 @@ func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 		}
 	}
 	return "", "", false
+}
+
+// BindRecoveryCode marks reservation as enroll-succeeded: never auto-released.
+func BindRecoveryCode(code, reserveID string) bool {
+	code = strings.TrimSpace(code)
+	reserveID = strings.TrimSpace(reserveID)
+	if code == "" || reserveID == "" {
+		return false
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	list, err := loadRecovery()
+	if err != nil {
+		return false
+	}
+	for i := range list {
+		c := &list[i]
+		if !constEq(c.Code, code) {
+			continue
+		}
+		if c.UsedAt != 0 {
+			return true
+		}
+		if c.ReserveID != reserveID {
+			return false
+		}
+		c.Bound = true
+		return saveRecovery(list) == nil
+	}
+	return false
 }
 
 // CommitRecoveryCode marks a reserved code as permanently used.
@@ -179,12 +222,14 @@ func CommitRecoveryCode(code, reserveID string) bool {
 		c.UsedAt = now
 		c.ReservedAt = 0
 		c.ReserveID = ""
+		c.Bound = false
 		return saveRecovery(list) == nil
 	}
 	return false
 }
 
-// AbortRecoveryCode releases a reservation so the code can be retried.
+// AbortRecoveryCode releases an unbound reservation so the code can be retried.
+// Bound reservations (enroll already persisted) are not released.
 func AbortRecoveryCode(code, reserveID string) {
 	code = strings.TrimSpace(code)
 	reserveID = strings.TrimSpace(reserveID)
@@ -199,7 +244,7 @@ func AbortRecoveryCode(code, reserveID string) {
 		if !constEq(c.Code, code) {
 			continue
 		}
-		if c.UsedAt != 0 {
+		if c.UsedAt != 0 || c.Bound {
 			return
 		}
 		if c.ReserveID != "" && c.ReserveID != reserveID {
