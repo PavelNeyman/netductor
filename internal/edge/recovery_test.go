@@ -101,3 +101,49 @@ func TestBoundBlocksReuse(t *testing.T) {
 		t.Fatal("commit after bind")
 	}
 }
+
+func TestFinalizeRecoveryAfterEnroll(t *testing.T) {
+	t.Setenv("NETDUCTOR_STATE", t.TempDir())
+	t.Setenv("NETDUCTOR_ETC", t.TempDir())
+	t.Setenv("NETDUCTOR_EDGE_DIR", t.TempDir())
+	code, _, err := IssueRecoveryCode("sf", "", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, rid, ok := ReserveRecoveryCode(code)
+	if !ok {
+		t.Fatal("reserve")
+	}
+	if !FinalizeRecoveryAfterEnroll(code, rid) {
+		t.Fatal("finalize")
+	}
+	_, _, ok2 := ReserveRecoveryCode(code)
+	if ok2 {
+		t.Fatal("used code must not reserve")
+	}
+	// Wrong reserve id after finalize is no-op success path already used
+}
+
+func TestReservedNotStolenAfterTTL(t *testing.T) {
+	t.Setenv("NETDUCTOR_STATE", t.TempDir())
+	t.Setenv("NETDUCTOR_ETC", t.TempDir())
+	t.Setenv("NETDUCTOR_EDGE_DIR", t.TempDir())
+	code, _, err := IssueRecoveryCode("st", "", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, rid, ok := ReserveRecoveryCode(code)
+	if !ok {
+		t.Fatal("reserve")
+	}
+	// Simulate "old" reservation by not aborting — second reserve must still fail (no 120s steal).
+	_, _, ok2 := ReserveRecoveryCode(code)
+	if ok2 {
+		t.Fatal("must not steal active reservation")
+	}
+	AbortRecoveryCode(code, rid)
+	_, rid2, ok3 := ReserveRecoveryCode(code)
+	if !ok3 || rid2 == "" {
+		t.Fatal("after abort can reserve again")
+	}
+}

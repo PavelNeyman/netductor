@@ -179,16 +179,48 @@ func tokenAckDonePath() string {
 	return filepath.Join(agentDir(), "token_ack_done")
 }
 
+// tokenAckDone is true only when the marker exists and holds the full expected payload.
 func tokenAckDone() bool {
-	_, err := os.Stat(tokenAckDonePath())
-	return err == nil
+	b, err := os.ReadFile(tokenAckDonePath())
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(b)) == "ok"
 }
 
 func markTokenAckDone() error {
 	if err := os.MkdirAll(agentDir(), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(tokenAckDonePath(), []byte("1\n"), 0o600)
+	path := tokenAckDonePath()
+	tmp := path + ".tmp"
+	payload := []byte("ok\n")
+	if err := os.WriteFile(tmp, payload, 0o600); err != nil {
+		return err
+	}
+	got, err := os.ReadFile(tmp)
+	if err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if string(got) != string(payload) {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("token_ack_done temp incomplete")
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	got, err = os.ReadFile(path)
+	if err != nil {
+		_ = os.Remove(path)
+		return err
+	}
+	if strings.TrimSpace(string(got)) != "ok" {
+		_ = os.Remove(path)
+		return fmt.Errorf("token_ack_done verify failed")
+	}
+	return nil
 }
 
 // sendTokenAck posts confirmation that device_token was persisted. Returns nil only on HTTP 2xx.
@@ -212,8 +244,8 @@ func sendTokenAck(client *http.Client, server, deviceID, deviceToken string) err
 	return nil
 }
 
-// ensureTokenAcked retries token-ack until primary confirms. token_ack_done is written only after
-// HTTP 2xx so a failed marker write never skips ack while device_token is already on disk.
+// ensureTokenAcked retries token-ack until primary confirms. Marker is written atomically and
+// verified; marker write errors are returned so the next cycle retries instead of skipping.
 func ensureTokenAcked(client *http.Client, cfg *config, tok string) error {
 	if tokenAckDone() {
 		return nil
@@ -221,7 +253,9 @@ func ensureTokenAcked(client *http.Client, cfg *config, tok string) error {
 	if err := sendTokenAck(client, cfg.Server, cfg.DeviceID, tok); err != nil {
 		return err
 	}
-	_ = markTokenAckDone() // idempotent server-side; retry mark next cycle if this fails
+	if err := markTokenAckDone(); err != nil {
+		return fmt.Errorf("token_ack_done: %w", err)
+	}
 	return nil
 }
 

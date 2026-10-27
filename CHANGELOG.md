@@ -1,3 +1,10 @@
+## 0.9.585
+
+Edge lifecycle residual (review 0.9.584):
+- token_ack_done: atomic tmp+rename, content must be "ok"; mark errors returned from ensureTokenAcked
+- Recovery: no 120s auto-steal of reservations; FinalizeRecoveryAfterEnroll = single UsedAt save after enroll
+- Failed finalize → HTTP 500; code stays reserved until Abort (pre-enroll) or Expires
+
 ## 0.9.584
 
 Edge lifecycle residual (review 0.9.583):

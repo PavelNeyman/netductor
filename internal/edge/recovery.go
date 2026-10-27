@@ -103,11 +103,10 @@ func PeekRecoveryCode(code string) (siteID string, ok bool) {
 		if c.UsedAt != 0 || c.Expires < now {
 			continue
 		}
-		if c.Bound {
-			continue // enroll done; must Commit, never free for reuse
-		}
-		if c.ReservedAt != 0 && now-c.ReservedAt < 120 {
-			continue // in-flight enroll (unbound)
+		// Any reservation (bound or in-flight) blocks until Commit, Abort, or code Expires.
+		// No 120s auto-release — prevents reuse after Enroll succeeded but Bind/Commit failed.
+		if c.ReservedAt != 0 || c.Bound {
+			continue
 		}
 		if constEq(c.Code, code) {
 			return c.SiteID, true
@@ -117,8 +116,8 @@ func PeekRecoveryCode(code string) (siteID string, ok bool) {
 }
 
 // ReserveRecoveryCode atomically claims a code for enroll (unused → reserved).
-// Concurrent second claim fails. Caller must Commit or Abort.
-// Bound codes and active unbound reservations cannot be claimed.
+// Concurrent second claim fails. No TTL-based steal of an existing reservation.
+// Caller must FinalizeRecoveryAfterEnroll or AbortRecoveryCode.
 func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 	code = strings.TrimSpace(code)
 	if len(code) < 16 {
@@ -139,15 +138,9 @@ func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 		if c.UsedAt != 0 || c.Expires < now {
 			continue
 		}
-		if c.Bound {
+		if c.ReservedAt != 0 || c.Bound {
 			if constEq(c.Code, code) {
 				return "", "", false
-			}
-			continue
-		}
-		if c.ReservedAt != 0 && now-c.ReservedAt < 120 {
-			if constEq(c.Code, code) {
-				return "", "", false // already in flight
 			}
 			continue
 		}
@@ -162,6 +155,41 @@ func ReserveRecoveryCode(code string) (siteID, reserveID string, ok bool) {
 		}
 	}
 	return "", "", false
+}
+
+// FinalizeRecoveryAfterEnroll marks the code permanently used in one save after device persist.
+// Combines bind+commit so a failed intermediate Bound cannot leave a freeable reservation.
+func FinalizeRecoveryAfterEnroll(code, reserveID string) bool {
+	code = strings.TrimSpace(code)
+	reserveID = strings.TrimSpace(reserveID)
+	if code == "" || reserveID == "" {
+		return false
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	list, err := loadRecovery()
+	if err != nil {
+		return false
+	}
+	now := time.Now().Unix()
+	for i := range list {
+		c := &list[i]
+		if !constEq(c.Code, code) {
+			continue
+		}
+		if c.UsedAt != 0 {
+			return true
+		}
+		if c.ReserveID != reserveID {
+			return false
+		}
+		c.UsedAt = now
+		c.Bound = true
+		c.ReservedAt = 0
+		c.ReserveID = ""
+		return saveRecovery(list) == nil
+	}
+	return false
 }
 
 // BindRecoveryCode marks reservation as enroll-succeeded: never auto-released.

@@ -1,3 +1,5 @@
+**Stop line: v0.9.585** (2026-10-27). Atomic token_ack_done + recovery Finalize without TTL steal.
+
 **Stop line: v0.9.584** (2026-10-27). Edge token_ack_done + recovery Bound + chmod fail-closed.
 
 **Stop line: v0.9.583** (2026-10-27). Edge token-ack retry, atomic recovery reserve, bootstrap perms, rotate-device-token.
