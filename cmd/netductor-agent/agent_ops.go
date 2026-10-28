@@ -67,10 +67,18 @@ func agentUpdate(arg string) string {
 	if _, err := os.Stat(dest); err != nil {
 		dest = "/usr/bin/netductor-agent"
 	}
+	rollback := func(hadDest bool, prev, msg string) string {
+		if !hadDest {
+			return msg
+		}
+		if err := os.Rename(prev, dest); err != nil {
+			return msg + "; rollback failed: " + err.Error()
+		}
+		return msg
+	}
 	// Stage on same directory as dest so rename is atomic when possible.
 	tmp, err := os.CreateTemp(filepath.Dir(dest), "netductor-agent.*.new")
 	if err != nil {
-		// fall back to /tmp then copy
 		tmp, err = os.CreateTemp(os.TempDir(), "netductor-agent.*.new")
 		if err != nil {
 			return "agent_update: temp: " + err.Error()
@@ -78,7 +86,7 @@ func agentUpdate(arg string) string {
 	}
 	tmpPath := tmp.Name()
 	_ = tmp.Close()
-	_ = os.Remove(tmpPath) // downloadFile creates the file
+	_ = os.Remove(tmpPath)
 	if err := downloadFile(url, tmpPath); err != nil {
 		_ = os.Remove(tmpPath)
 		return "download: " + err.Error()
@@ -100,21 +108,18 @@ func agentUpdate(arg string) string {
 	hadDest := false
 	if _, err := os.Stat(dest); err == nil {
 		hadDest = true
-		_ = os.Remove(prev) // best-effort old prev only after we know dest exists
+		_ = os.Remove(prev)
 		if err := os.Rename(dest, prev); err != nil {
 			_ = os.Remove(tmpPath)
 			return "agent_update: cannot save prev: " + err.Error()
 		}
 	}
 	if err := os.Rename(tmpPath, dest); err != nil {
-		// Cross-filesystem: stage a second temp in dest dir, copy, verify, atomic rename.
+		// Cross-filesystem: stage beside dest, copy, verify, atomic rename.
 		stage, serr := os.CreateTemp(filepath.Dir(dest), "netductor-agent.*.stage")
 		if serr != nil {
 			_ = os.Remove(tmpPath)
-			if hadDest {
-				_ = os.Rename(prev, dest)
-			}
-			return "agent_update: stage: " + serr.Error()
+			return rollback(hadDest, prev, "agent_update: stage: "+serr.Error())
 		}
 		stagePath := stage.Name()
 		in, rerr := os.Open(tmpPath)
@@ -122,10 +127,7 @@ func agentUpdate(arg string) string {
 			_ = stage.Close()
 			_ = os.Remove(stagePath)
 			_ = os.Remove(tmpPath)
-			if hadDest {
-				_ = os.Rename(prev, dest)
-			}
-			return "agent_update: " + rerr.Error()
+			return rollback(hadDest, prev, "agent_update: "+rerr.Error())
 		}
 		_, cerr := io.Copy(stage, in)
 		_ = in.Close()
@@ -133,38 +135,43 @@ func agentUpdate(arg string) string {
 			_ = stage.Close()
 			_ = os.Remove(stagePath)
 			_ = os.Remove(tmpPath)
-			if hadDest {
-				_ = os.Rename(prev, dest)
-			}
-			return "agent_update: copy: " + cerr.Error()
+			return rollback(hadDest, prev, "agent_update: copy: "+cerr.Error())
 		}
-		_ = stage.Sync()
-		_ = stage.Close()
+		if serr := stage.Sync(); serr != nil {
+			_ = stage.Close()
+			_ = os.Remove(stagePath)
+			_ = os.Remove(tmpPath)
+			return rollback(hadDest, prev, "agent_update: sync: "+serr.Error())
+		}
+		if cerr := stage.Close(); cerr != nil {
+			_ = os.Remove(stagePath)
+			_ = os.Remove(tmpPath)
+			return rollback(hadDest, prev, "agent_update: close: "+cerr.Error())
+		}
 		_ = os.Remove(tmpPath)
 		sum2, herr := fileSHA256(stagePath)
 		if herr != nil || !strings.EqualFold(sum2, wantSHA) {
 			_ = os.Remove(stagePath)
-			if hadDest {
-				_ = os.Rename(prev, dest)
-			}
-			return "agent_update: stage sha mismatch"
+			return rollback(hadDest, prev, "agent_update: stage sha mismatch")
 		}
 		if !isELF(stagePath) {
 			_ = os.Remove(stagePath)
-			if hadDest {
-				_ = os.Rename(prev, dest)
-			}
-			return "agent_update: stage not ELF"
+			return rollback(hadDest, prev, "agent_update: stage not ELF")
 		}
-		_ = os.Chmod(stagePath, 0o755)
-		if err2 := os.Rename(stagePath, dest); err2 != nil {
+		if err := os.Chmod(stagePath, 0o755); err != nil {
 			_ = os.Remove(stagePath)
+			return rollback(hadDest, prev, "agent_update: stage chmod: "+err.Error())
+		}
+		if err2 := os.Rename(stagePath, dest); err2 != nil {
+			// Keep stagePath for operator recovery; do not delete prev on rollback failure.
+			msg := "agent_update: final rename: " + err2.Error()
 			if hadDest {
 				if r2 := os.Rename(prev, dest); r2 != nil {
-					return "agent_update: final rename failed and rollback failed: " + err2.Error() + "; " + r2.Error()
+					return msg + "; rollback failed: " + r2.Error() + "; stage left at " + stagePath
 				}
 			}
-			return "agent_update: final rename: " + err2.Error()
+			_ = os.Remove(stagePath)
+			return msg
 		}
 	}
 	return "updated " + dest + " (prev=" + prev + ") — restart agent to run new binary"

@@ -1,3 +1,11 @@
+## 0.9.592
+
+Residual after 0.9.591 review:
+- Recovery: approved device requires non-empty site_id match (empty ≠ match); DeviceStatus helper
+- agent_update: Sync/Close/Chmod errors checked; rollback errors always surfaced
+- CmdResult: f.Sync + Close errors; idempotent re-POST when result already durable
+- tar: reject GNU sparse; ambiguous cmd_done save errors surfaced
+
 ## 0.9.591
 
 Audit V590-01…06 residual:

@@ -174,3 +174,24 @@ func TestReservedNotStolenAfterTTL(t *testing.T) {
 		t.Fatal("after abort can reserve again")
 	}
 }
+
+func TestDeviceSiteAndStatus(t *testing.T) {
+	setup(t)
+	Enroll(map[string]any{"device_id": "sitedev"})
+	if DeviceStatus("sitedev") != StatusPending {
+		t.Fatal(DeviceStatus("sitedev"))
+	}
+	_, _ = Approve("sitedev")
+	if DeviceStatus("sitedev") != StatusApproved {
+		t.Fatal(DeviceStatus("sitedev"))
+	}
+	if DeviceSiteID("sitedev") != "" {
+		t.Fatal("expected empty site")
+	}
+	if err := SetSiteID("sitedev", "home"); err != nil {
+		t.Fatal(err)
+	}
+	if DeviceSiteID("sitedev") != "home" {
+		t.Fatal(DeviceSiteID("sitedev"))
+	}
+}

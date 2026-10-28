@@ -856,6 +856,14 @@ func CmdResult(payload map[string]any) error {
 	mu.Lock()
 	defer mu.Unlock()
 	_ = ensure()
+	did, _ := payload["device_id"].(string)
+	cid, _ := payload["cmd_id"].(string)
+	// Idempotent: if already completed (not in queue, result exists), accept without duplicate.
+	if cid != "" && did != "" && !pendingCmdExistsUnlocked(did, cid) {
+		if resultExistsUnlocked(cid) {
+			return nil
+		}
+	}
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -864,21 +872,65 @@ func CmdResult(payload map[string]any) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 	line := append(b, 10) // newline
 	n, err := f.Write(line)
 	if err != nil {
+		_ = f.Close()
 		return err
 	}
 	if n < len(line) {
+		_ = f.Close()
 		return fmt.Errorf("short write to results")
 	}
-	did, _ := payload["device_id"].(string)
-	cid, _ := payload["cmd_id"].(string)
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("sync results: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close results: %w", err)
+	}
 	if err := completeCmdUnlockedErr(did, cid); err != nil {
 		return err
 	}
 	return nil
+}
+
+func pendingCmdExistsUnlocked(deviceID, cmdID string) bool {
+	var wrap struct {
+		Pending []map[string]any `json:"pending"`
+	}
+	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil {
+		return false
+	}
+	for _, c := range wrap.Pending {
+		id, _ := c["id"].(string)
+		did, _ := c["device_id"].(string)
+		if id == cmdID && did == deviceID {
+			return true
+		}
+	}
+	return false
+}
+
+func resultExistsUnlocked(cmdID string) bool {
+	b, err := os.ReadFile(resultsPath())
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var m map[string]any
+		if json.Unmarshal([]byte(line), &m) != nil {
+			continue
+		}
+		if id, _ := m["cmd_id"].(string); id == cmdID {
+			return true
+		}
+	}
+	return false
 }
 
 func deviceDir(id string) string {

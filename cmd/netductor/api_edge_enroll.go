@@ -45,11 +45,17 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 				payload["site_id"] = siteID
 			}
 		}
-		// Recovery: refuse cross-site rebind when device already has a different site_id.
+		// Recovery site binding:
+		// - approved device must already have the same site_id (empty ≠ match)
+		// - new/pending may receive site_id on first bind
 		if reserveID != "" {
 			if did, _ := payload["device_id"].(string); did != "" {
-				if sid, _ := payload["site_id"].(string); sid != "" {
-					if existing := edge.DeviceSiteID(did); existing != "" && existing != sid {
+				sid, _ := payload["site_id"].(string)
+				sid = strings.TrimSpace(sid)
+				st0 := edge.DeviceStatus(did)
+				if st0 == edge.StatusApproved {
+					existing := edge.DeviceSiteID(did)
+					if existing == "" || sid == "" || existing != sid {
 						edge.AbortRecoveryCode(raw, reserveID)
 						writeJSON(w, http.StatusForbidden, map[string]string{"error": "site_mismatch"})
 						return

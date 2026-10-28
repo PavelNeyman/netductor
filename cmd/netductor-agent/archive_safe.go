@@ -113,15 +113,6 @@ func tarMembersSafeOpts(archivePath string, opts tarScanOpts) error {
 			}
 		case tar.TypeDir:
 			// ok
-		case tar.TypeGNUSparse:
-			fileMembers++
-			if hdr.Size < 0 || hdr.Size > tarMaxFileBytes {
-				return fmt.Errorf("tar sparse member too large: %q", name)
-			}
-			total += hdr.Size
-			if total > tarMaxTotalBytes {
-				return fmt.Errorf("tar total size exceeds %d", tarMaxTotalBytes)
-			}
 		default:
 			return fmt.Errorf("unsupported tar type %c for %q", hdr.Typeflag, name)
 		}

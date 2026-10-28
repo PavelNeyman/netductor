@@ -662,7 +662,10 @@ func pollCmds(client *http.Client, cfg config) error {
 		} else if cmdStarted(c.ID) {
 			// Crash between start and complete — refuse blind re-exec of side effects.
 			res = "ambiguous: previous attempt started without completed marker — manual check required"
-			_ = saveCmdDone(c.ID, res)
+			if err := saveCmdDone(c.ID, res); err != nil {
+				res = res + "; cmd_done save failed: " + err.Error()
+				postErr = err
+			}
 		} else {
 			if err := markCmdStarted(c.ID); err != nil {
 				res = "cmd_done start marker: " + err.Error()

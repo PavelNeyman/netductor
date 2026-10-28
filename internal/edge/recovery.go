@@ -404,6 +404,21 @@ func ImportDevices(raw []byte, replace bool) (n int, err error) {
 	return n, saveDevices(m)
 }
 
+// DeviceStatus returns pending/approved/… or empty if unknown.
+func DeviceStatus(deviceID string) string {
+	mu.Lock()
+	defer mu.Unlock()
+	m, err := loadDevices()
+	if err != nil {
+		return ""
+	}
+	d, ok := m[deviceID]
+	if !ok {
+		return ""
+	}
+	return d.Status
+}
+
 // DeviceSiteID returns Extra["site_id"] or empty.
 func DeviceSiteID(deviceID string) string {
 	mu.Lock()
