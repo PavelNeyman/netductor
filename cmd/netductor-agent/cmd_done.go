@@ -1,21 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-// cmdDoneDir holds results of completed command IDs so re-leased commands
-// are not re-executed (reboot/sysupgrade/storage_restore etc.).
+// cmdDoneDir holds per-command markers:
+//   <id>.started  — runCmd begun (best-effort crash signal)
+//   <id>          — completed result text
 func cmdDoneDir() string {
 	return filepath.Join(agentDir(), "cmd_done")
 }
 
 func cmdDonePath(id string) string {
 	id = strings.TrimSpace(id)
-	// Restrict filename to safe charset.
 	safe := make([]rune, 0, len(id))
 	for _, r := range id {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
@@ -40,17 +41,57 @@ func loadCmdDone(id string) (result string, ok bool) {
 	return string(b), true
 }
 
-func saveCmdDone(id, result string) {
+// cmdStarted reports whether a started marker exists without a completed result
+// (process may have died mid-command — destructive actions must not be blindly re-run).
+func cmdStarted(id string) bool {
 	p := cmdDonePath(id)
 	if p == "" {
-		return
+		return false
 	}
-	_ = os.MkdirAll(cmdDoneDir(), 0o700)
-	_ = os.WriteFile(p, []byte(result), 0o600)
-	pruneCmdDone()
+	if _, err := os.Stat(p); err == nil {
+		return false // completed wins
+	}
+	_, err := os.Stat(p + ".started")
+	return err == nil
 }
 
-// pruneCmdDone keeps at most 200 newest markers (by mtime).
+func markCmdStarted(id string) error {
+	p := cmdDonePath(id)
+	if p == "" {
+		return fmt.Errorf("invalid cmd id")
+	}
+	if err := os.MkdirAll(cmdDoneDir(), 0o700); err != nil {
+		return err
+	}
+	tmp := p + ".started.tmp"
+	if err := os.WriteFile(tmp, []byte("1\n"), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, p+".started")
+}
+
+func saveCmdDone(id, result string) error {
+	p := cmdDonePath(id)
+	if p == "" {
+		return fmt.Errorf("invalid cmd id")
+	}
+	if err := os.MkdirAll(cmdDoneDir(), 0o700); err != nil {
+		return err
+	}
+	tmp := p + ".tmp"
+	if err := os.WriteFile(tmp, []byte(result), 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, p); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	_ = os.Remove(p + ".started")
+	pruneCmdDone()
+	return nil
+}
+
+// pruneCmdDone keeps at most 200 completed markers; never deletes .started.
 func pruneCmdDone() {
 	ents, err := os.ReadDir(cmdDoneDir())
 	if err != nil || len(ents) <= 200 {
@@ -65,16 +106,20 @@ func pruneCmdDone() {
 		if e.IsDir() {
 			continue
 		}
+		name := e.Name()
+		if strings.HasSuffix(name, ".started") || strings.HasSuffix(name, ".tmp") {
+			continue
+		}
 		info, err := e.Info()
 		if err != nil {
 			continue
 		}
-		all = append(all, item{e.Name(), info.ModTime()})
+		all = append(all, item{name, info.ModTime()})
 	}
 	if len(all) <= 200 {
 		return
 	}
-	// Drop oldest.
+	// Selection sort oldest-first
 	for i := 0; i < len(all); i++ {
 		for j := i + 1; j < len(all); j++ {
 			if all[j].mod.Before(all[i].mod) {

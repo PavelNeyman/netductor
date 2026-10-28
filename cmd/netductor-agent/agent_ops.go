@@ -107,24 +107,64 @@ func agentUpdate(arg string) string {
 		}
 	}
 	if err := os.Rename(tmpPath, dest); err != nil {
-		// cross-filesystem: copy then remove tmp
-		in, rerr := os.ReadFile(tmpPath)
-		_ = os.Remove(tmpPath)
-		if rerr != nil {
+		// Cross-filesystem: stage a second temp in dest dir, copy, verify, atomic rename.
+		stage, serr := os.CreateTemp(filepath.Dir(dest), "netductor-agent.*.stage")
+		if serr != nil {
+			_ = os.Remove(tmpPath)
 			if hadDest {
-				if r2 := os.Rename(prev, dest); r2 != nil {
-					return "agent_update: read failed and rollback failed: " + rerr.Error() + "; " + r2.Error()
-				}
+				_ = os.Rename(prev, dest)
+			}
+			return "agent_update: stage: " + serr.Error()
+		}
+		stagePath := stage.Name()
+		in, rerr := os.Open(tmpPath)
+		if rerr != nil {
+			_ = stage.Close()
+			_ = os.Remove(stagePath)
+			_ = os.Remove(tmpPath)
+			if hadDest {
+				_ = os.Rename(prev, dest)
 			}
 			return "agent_update: " + rerr.Error()
 		}
-		if err2 := os.WriteFile(dest, in, 0o755); err2 != nil {
+		_, cerr := io.Copy(stage, in)
+		_ = in.Close()
+		if cerr != nil {
+			_ = stage.Close()
+			_ = os.Remove(stagePath)
+			_ = os.Remove(tmpPath)
+			if hadDest {
+				_ = os.Rename(prev, dest)
+			}
+			return "agent_update: copy: " + cerr.Error()
+		}
+		_ = stage.Sync()
+		_ = stage.Close()
+		_ = os.Remove(tmpPath)
+		sum2, herr := fileSHA256(stagePath)
+		if herr != nil || !strings.EqualFold(sum2, wantSHA) {
+			_ = os.Remove(stagePath)
+			if hadDest {
+				_ = os.Rename(prev, dest)
+			}
+			return "agent_update: stage sha mismatch"
+		}
+		if !isELF(stagePath) {
+			_ = os.Remove(stagePath)
+			if hadDest {
+				_ = os.Rename(prev, dest)
+			}
+			return "agent_update: stage not ELF"
+		}
+		_ = os.Chmod(stagePath, 0o755)
+		if err2 := os.Rename(stagePath, dest); err2 != nil {
+			_ = os.Remove(stagePath)
 			if hadDest {
 				if r2 := os.Rename(prev, dest); r2 != nil {
-					return "agent_update: write failed and rollback failed: " + err2.Error() + "; " + r2.Error()
+					return "agent_update: final rename failed and rollback failed: " + err2.Error() + "; " + r2.Error()
 				}
 			}
-			return "agent_update: write: " + err2.Error()
+			return "agent_update: final rename: " + err2.Error()
 		}
 	}
 	return "updated " + dest + " (prev=" + prev + ") — restart agent to run new binary"
@@ -411,10 +451,15 @@ func configRestore(client *http.Client, cfg config, name string) string {
 		return err.Error()
 	}
 	defer os.Remove(tmp)
-	if err := extractTarSafe(tmp, "/etc/config"); err != nil {
+	// configBackup uses: tar -C /etc config → members config/network, …
+	// Extract into /etc with strip of the config/ prefix component.
+	opts := tarScanOpts{RequirePrefix: "config/"}
+	if err := extractTarSafeOpts(tmp, "/etc", opts, []string{"--strip-components=1"}); err != nil {
 		return "config_restore: " + err.Error()
 	}
-	_ = exec.Command("uci", "commit").Run()
+	if out, err := exec.Command("uci", "commit").CombinedOutput(); err != nil {
+		return "config_restore: uci commit: " + truncate(string(out)+" "+err.Error(), 200)
+	}
 	return "restored " + safeName + " + uci commit"
 }
 

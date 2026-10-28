@@ -404,6 +404,22 @@ func ImportDevices(raw []byte, replace bool) (n int, err error) {
 	return n, saveDevices(m)
 }
 
+// DeviceSiteID returns Extra["site_id"] or empty.
+func DeviceSiteID(deviceID string) string {
+	mu.Lock()
+	defer mu.Unlock()
+	m, err := loadDevices()
+	if err != nil {
+		return ""
+	}
+	d, ok := m[deviceID]
+	if !ok || d.Extra == nil {
+		return ""
+	}
+	s, _ := d.Extra["site_id"].(string)
+	return strings.TrimSpace(s)
+}
+
 // SetSiteID links device to a location/site id in Extra + returns device.
 func SetSiteID(deviceID, siteID string) error {
 	mu.Lock()

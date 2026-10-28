@@ -45,6 +45,18 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 				payload["site_id"] = siteID
 			}
 		}
+		// Recovery: refuse cross-site rebind when device already has a different site_id.
+		if reserveID != "" {
+			if did, _ := payload["device_id"].(string); did != "" {
+				if sid, _ := payload["site_id"].(string); sid != "" {
+					if existing := edge.DeviceSiteID(did); existing != "" && existing != sid {
+						edge.AbortRecoveryCode(raw, reserveID)
+						writeJSON(w, http.StatusForbidden, map[string]string{"error": "site_mismatch"})
+						return
+					}
+				}
+			}
+		}
 		st, dtok, isNew := edge.Enroll(payload)
 		if st == "error" {
 			if reserveID != "" {
@@ -54,20 +66,21 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			return
 		}
 		if reserveID != "" {
-			// Single durable transition → UsedAt. No 120s free window after successful Enroll.
-			if !edge.FinalizeRecoveryAfterEnroll(raw, reserveID) {
-				writeJSON(w, http.StatusInternalServerError, map[string]any{
-					"error": "recovery_finalize_failed", "status": st, "device_token": dtok,
-				})
-				return
-			}
-		}
-		// site_id binding only from recovery code path — not from shared bootstrap enroll.
-		if reserveID != "" {
 			if did, _ := payload["device_id"].(string); did != "" {
 				if sid, _ := payload["site_id"].(string); sid != "" {
-					_ = edge.SetSiteID(did, sid)
+					if err := edge.SetSiteID(did, sid); err != nil {
+						edge.AbortRecoveryCode(raw, reserveID)
+						writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "site_bind_failed"})
+						return
+					}
 				}
+			}
+			// Single durable transition → UsedAt after site bind succeeds.
+			if !edge.FinalizeRecoveryAfterEnroll(raw, reserveID) {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{
+					"error": "recovery_finalize_failed", "status": st,
+				})
+				return
 			}
 		}
 		if isNew && st == edge.StatusPending {
@@ -78,8 +91,7 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 		}
 		out := map[string]any{"status": st}
 		// H-1 / R-05: shared bootstrap never yields a personal device token.
-		// Recovery-code path may claim an armed TokenPickup once (rebind / reissue recovery).
-		// Operators otherwise install tokens from Approve/Reissue/Rotate offline.
+		// Recovery may claim armed TokenPickup only when site checks passed.
 		if reserveID != "" && st == edge.StatusApproved {
 			if did, _ := payload["device_id"].(string); did != "" {
 				if pt := edge.PeekPickupToken(did); pt != "" {

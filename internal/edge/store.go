@@ -781,16 +781,16 @@ func PollCommands(deviceID string) []map[string]any {
 	return out
 }
 
-// completeCmdUnlocked drops a pending command after a durable result is stored.
-func completeCmdUnlocked(deviceID, cmdID string) {
+// completeCmdUnlockedErr drops a pending command after a durable result is stored.
+func completeCmdUnlockedErr(deviceID, cmdID string) error {
 	if cmdID == "" || deviceID == "" {
-		return
+		return nil
 	}
 	var wrap struct {
 		Pending []map[string]any `json:"pending"`
 	}
-	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil {
-		return
+	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil && !statefile.IsNotExist(err) {
+		return err
 	}
 	rest := make([]map[string]any, 0, len(wrap.Pending))
 	for _, c := range wrap.Pending {
@@ -802,7 +802,7 @@ func completeCmdUnlocked(deviceID, cmdID string) {
 		rest = append(rest, c)
 	}
 	wrap.Pending = rest
-	_ = statefile.SaveJSON(commandsPath(), wrap)
+	return statefile.SaveJSON(commandsPath(), wrap)
 }
 
 // WaitCmdResult polls results log until cmd_id appears or timeout.
@@ -852,25 +852,33 @@ func ListResults() []map[string]any {
 	return out
 }
 
-func CmdResult(payload map[string]any) {
+func CmdResult(payload map[string]any) error {
 	mu.Lock()
 	defer mu.Unlock()
 	_ = ensure()
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return
+		return err
 	}
 	f, err := os.OpenFile(resultsPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		return
+		return err
 	}
 	defer f.Close()
-	if _, err := f.Write(append(b, '\n')); err != nil {
-		return
+	line := append(b, 10) // newline
+	n, err := f.Write(line)
+	if err != nil {
+		return err
+	}
+	if n < len(line) {
+		return fmt.Errorf("short write to results")
 	}
 	did, _ := payload["device_id"].(string)
 	cid, _ := payload["cmd_id"].(string)
-	completeCmdUnlocked(did, cid)
+	if err := completeCmdUnlockedErr(did, cid); err != nil {
+		return err
+	}
+	return nil
 }
 
 func deviceDir(id string) string {

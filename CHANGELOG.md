@@ -1,3 +1,13 @@
+## 0.9.591
+
+Audit V590-01…06 residual:
+- config_restore: require config/ prefix + --strip-components=1 (matches configBackup)
+- tar: size budgets, reject symlinks/hardlinks, no empty archives
+- cmd_done: started/completed markers, atomic rename, errors not ignored; ambiguous mid-run
+- CmdResult returns error; API 500 if result not durable
+- agent_update: cross-FS stage in dest dir + SHA/ELF + atomic rename (no direct WriteFile dest)
+- recovery enroll: site_mismatch abort; SetSiteID before Finalize; bind errors fail closed
+
 ## 0.9.590
 
 Close residual code gaps after 0.9.589 audit follow-up:

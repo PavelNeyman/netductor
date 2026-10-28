@@ -189,7 +189,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			return
 		}
 		body["device_id"] = tokenDID
-		edge.CmdResult(body)
+		if err := edge.CmdResult(body); err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
 		writeJSON(w, 200, map[string]bool{"ok": true})
 	})
 }

@@ -58,7 +58,9 @@ func TestCommandLeaseUntilResult(t *testing.T) {
 	if len(got2) != 0 {
 		t.Fatalf("within lease should be empty: %#v", got2)
 	}
-	CmdResult(map[string]any{"device_id": "lease1", "cmd_id": id, "result": "pong"})
+	if err := CmdResult(map[string]any{"device_id": "lease1", "cmd_id": id, "result": "pong"}); err != nil {
+		t.Fatal(err)
+	}
 	got3 := PollCommands("lease1")
 	if len(got3) != 0 {
 		t.Fatalf("after result: %#v", got3)

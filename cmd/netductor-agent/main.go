@@ -659,9 +659,20 @@ func pollCmds(client *http.Client, cfg config) error {
 			if !strings.HasPrefix(res, "already:") {
 				res = "already:" + res
 			}
+		} else if cmdStarted(c.ID) {
+			// Crash between start and complete — refuse blind re-exec of side effects.
+			res = "ambiguous: previous attempt started without completed marker — manual check required"
+			_ = saveCmdDone(c.ID, res)
 		} else {
-			res = runCmd(client, cfg, c.Action, c.Arg)
-			saveCmdDone(c.ID, res)
+			if err := markCmdStarted(c.ID); err != nil {
+				res = "cmd_done start marker: " + err.Error()
+			} else {
+				res = runCmd(client, cfg, c.Action, c.Arg)
+				if err := saveCmdDone(c.ID, res); err != nil {
+					res = res + "; cmd_done save failed: " + err.Error()
+					postErr = err
+				}
+			}
 		}
 		if _, err := doJSON(client, http.MethodPost, cfg.Server+"/api/edge/cmd_result", cfg.Token, map[string]any{
 			"device_id": cfg.DeviceID,
