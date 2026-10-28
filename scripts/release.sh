@@ -45,6 +45,7 @@ for bin in netductor-linux-amd64 netductor-tg-linux-amd64 netductor-agent-linux-
   fi
 done
 echo "binary version smoke: OK ($VER)"
+./scripts/verify-release-binaries.sh
 # Formula sha
 SHA_ARM=$(sha256sum dist/netductor-op-darwin-arm64 | awk '{print $1}')
 SHA_AMD=$(sha256sum dist/netductor-op-darwin-amd64 | awk '{print $1}')

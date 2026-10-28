@@ -1,3 +1,9 @@
+## 0.9.594
+
+- scripts/verify-release-binaries.sh — runtime version + SHA256SUMS check on dist/
+- docs/RELEASE.md — release gate checklist (0.9.593+)
+- release.sh calls verify after build smoke
+
 ## 0.9.593
 
 Release gate + CmdResult residual:
