@@ -40,6 +40,24 @@ if [ "${ND_RELEASE_MINIMAL:-}" = "1" ]; then
   )
 fi
 
+# True if binary embeds VER (works for cross-compiled files; avoids grep -q SIGPIPE under pipefail).
+has_version() {
+  local path="$1"
+  # Prefer executing on native arch
+  if out=$("$path" version 2>/dev/null | head -1); then
+    if [ -n "$out" ] && echo "$out" | grep -F "$VER" >/dev/null; then
+      echo "$out"
+      return 0
+    fi
+  fi
+  # Binary search (no pipeline SIGPIPE)
+  if grep -aF "$VER" "$path" >/dev/null 2>&1; then
+    echo "(embedded $VER)"
+    return 0
+  fi
+  return 1
+}
+
 fail=0
 for name in "${REQUIRED[@]}"; do
   path="dist/$name"
@@ -61,21 +79,12 @@ for name in "${REQUIRED[@]}"; do
     fail=1
     continue
   fi
-  if out=$("$path" version 2>/dev/null | head -1); then
-    if echo "$out" | grep -qF "$VER"; then
-      echo "OK  $name => $out"
-      continue
-    fi
-    echo "FAIL $name version output: $out (want $VER)" >&2
+  if msg=$(has_version "$path"); then
+    echo "OK  $name => $msg"
+  else
+    echo "FAIL $name: cannot verify version $VER" >&2
     fail=1
-    continue
   fi
-  if command -v strings >/dev/null && strings "$path" | grep -qF "$VER"; then
-    echo "OK  $name (strings has $VER)"
-    continue
-  fi
-  echo "FAIL $name: cannot verify version $VER" >&2
-  fail=1
 done
 
 if [ -f dist/SHA256SUMS ]; then
