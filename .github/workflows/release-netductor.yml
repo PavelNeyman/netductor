@@ -40,7 +40,7 @@ jobs:
           done
           # Telegram bot — linux
           for arch in amd64 arm64; do
-            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w" \
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "$LD" \
               -o dist/netductor-tg-linux-$arch ./cmd/netductor-tg
           done
           # Edge agent — linux multi-arch (mipsle = softfloat for OpenWrt 24kc)

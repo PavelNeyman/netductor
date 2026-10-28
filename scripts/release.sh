@@ -11,31 +11,40 @@ VER="${VERSION:-$(cat VERSION | tr -d '[:space:]')}"
 VER="${VER#v}"
 TAG="v${VER}"
 echo "==> release $TAG"
-# pin version files
+# pin version files (var or const Release)
 echo "$VER" > VERSION
-if grep -q 'const Release' internal/version/version.go 2>/dev/null; then
-  sed -i "s/const Release = \".*\"/const Release = \"$VER\"/" internal/version/version.go
+if grep -qE '(var|const) Release' internal/version/version.go 2>/dev/null; then
+  sed -i -E "s/(var|const) Release = \"[^\"]*\"/\1 Release = \"$VER\"/" internal/version/version.go
 fi
-for f in cmd/netductor/main.go cmd/netductor-op/main.go; do
-  [ -f "$f" ] || continue
-  sed -i "s/0\.[0-9]\+\.[0-9]\+/$VER/g" "$f" 2>/dev/null || true
-done
+# Re-run preflight after pin
+./scripts/check-versions.sh
 export GOPROXY="${GOPROXY:-https://proxy.golang.org,direct}"
 mkdir -p dist
-build() { CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o "dist/$1" "$2"; }
+LD="-s -w -X github.com/PavelNeyman/netductor/internal/version.Release=${VER}"
+build() { CGO_ENABLED=0 go build -trimpath -ldflags="$LD" -o "dist/$1" "$2"; }
 build netductor-linux-amd64 ./cmd/netductor
 build netductor-tg-linux-amd64 ./cmd/netductor-tg
 build netductor-agent-linux-amd64 ./cmd/netductor-agent
 for arch in arm64 arm mipsle riscv64; do
   extra=""
   case $arch in mipsle) extra="GOMIPS=softfloat";; arm) extra="GOARM=7";; esac
-  env $extra CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags='-s -w' \
+  env $extra CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags="$LD" \
     -o "dist/netductor-agent-linux-$arch" ./cmd/netductor-agent
 done
 build netductor-op-linux-amd64 ./cmd/netductor-op
-GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o dist/netductor-op-darwin-arm64 ./cmd/netductor-op
-GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o dist/netductor-op-darwin-amd64 ./cmd/netductor-op
+GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="$LD" -o dist/netductor-op-darwin-arm64 ./cmd/netductor-op
+GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="$LD" -o dist/netductor-op-darwin-amd64 ./cmd/netductor-op
 (cd dist && sha256sum netductor-* > SHA256SUMS)
+# Smoke: version string embedded via -X must match VER for amd64 node/tg/agent/op
+for bin in netductor-linux-amd64 netductor-tg-linux-amd64 netductor-agent-linux-amd64 netductor-op-linux-amd64; do
+  if [ -x "dist/$bin" ] && command -v strings >/dev/null; then
+    if ! strings "dist/$bin" | grep -qF "$VER"; then
+      echo "FAIL: $bin does not embed version $VER" >&2
+      exit 1
+    fi
+  fi
+done
+echo "binary version smoke: OK ($VER)"
 # Formula sha
 SHA_ARM=$(sha256sum dist/netductor-op-darwin-arm64 | awk '{print $1}')
 SHA_AMD=$(sha256sum dist/netductor-op-darwin-amd64 | awk '{print $1}')

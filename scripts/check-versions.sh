@@ -4,8 +4,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 fail=0
 ver=$(tr -d ' \n' < VERSION)
-rel=$(grep -E 'const Release =' internal/version/version.go | sed -E 's/.*"([^"]+)".*/\1/')
-if [ "$ver" != "$rel" ]; then
+if [[ ! "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "FAIL: VERSION invalid: '$ver'"
+  fail=1
+fi
+# Accept var or const Release = "x.y.z"
+rel=$(grep -E '(var|const) Release[[:space:]]*=' internal/version/version.go | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+if [ -z "$rel" ]; then
+  echo "FAIL: could not extract internal/version.Release"
+  fail=1
+fi
+if [ -n "$rel" ] && [ "$ver" != "$rel" ]; then
   echo "FAIL: VERSION ($ver) != internal/version.Release ($rel)"
   fail=1
 fi

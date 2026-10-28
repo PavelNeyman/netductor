@@ -858,9 +858,15 @@ func CmdResult(payload map[string]any) error {
 	_ = ensure()
 	did, _ := payload["device_id"].(string)
 	cid, _ := payload["cmd_id"].(string)
-	// Idempotent: if already completed (not in queue, result exists), accept without duplicate.
-	if cid != "" && did != "" && !pendingCmdExistsUnlocked(did, cid) {
-		if resultExistsUnlocked(cid) {
+	did = strings.TrimSpace(did)
+	cid = strings.TrimSpace(cid)
+	// Idempotent by (device_id, cmd_id): if result already durable, never append again —
+	// only retry completing the queue (even if the command is still pending).
+	if cid != "" && did != "" {
+		if resultExistsForDeviceUnlocked(did, cid) {
+			if pendingCmdExistsUnlocked(did, cid) {
+				return completeCmdUnlockedErr(did, cid)
+			}
 			return nil
 		}
 	}
@@ -890,6 +896,7 @@ func CmdResult(payload map[string]any) error {
 		return fmt.Errorf("close results: %w", err)
 	}
 	if err := completeCmdUnlockedErr(did, cid); err != nil {
+		// Result is on disk; caller may retry — complete path is idempotent via resultExists.
 		return err
 	}
 	return nil
@@ -912,7 +919,7 @@ func pendingCmdExistsUnlocked(deviceID, cmdID string) bool {
 	return false
 }
 
-func resultExistsUnlocked(cmdID string) bool {
+func resultExistsForDeviceUnlocked(deviceID, cmdID string) bool {
 	b, err := os.ReadFile(resultsPath())
 	if err != nil {
 		return false
@@ -926,7 +933,9 @@ func resultExistsUnlocked(cmdID string) bool {
 		if json.Unmarshal([]byte(line), &m) != nil {
 			continue
 		}
-		if id, _ := m["cmd_id"].(string); id == cmdID {
+		id, _ := m["cmd_id"].(string)
+		did, _ := m["device_id"].(string)
+		if id == cmdID && did == deviceID {
 			return true
 		}
 	}

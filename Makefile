@@ -1,4 +1,4 @@
-VERSION ?= 0.7.0-dev
+VERSION ?= $(shell tr -d ' \n' < VERSION 2>/dev/null || echo 0.0.0-dev)
 LDFLAGS := -s -w -X main.version=$(VERSION) -X github.com/PavelNeyman/netductor/internal/version.Release=$(VERSION)
 
 .PHONY: netductor netductor-release

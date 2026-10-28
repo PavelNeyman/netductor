@@ -1,3 +1,13 @@
+## 0.9.593
+
+Release gate + CmdResult residual:
+- VERSION ≡ internal/version.Release (0.9.593); check-versions accepts var|const
+- release.sh: pin var Release, -X ldflags for all binaries, smoke strings version
+- CI: tg build uses same $LD Release override
+- Makefile VERSION default from VERSION file (not 0.7.0-dev)
+- CmdResult: idempotent by (device_id, cmd_id) even when still pending; retry complete only
+- README current release bumped
+
 ## 0.9.592
 
 Residual after 0.9.591 review:
