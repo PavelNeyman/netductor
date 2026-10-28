@@ -33,8 +33,24 @@ func pinRatePruneLocked(now time.Time) {
 		}
 	}
 	// Cap map size against slow growth from many IPs
-	if len(pinFails) > 10000 {
-		pinFails = map[string][]time.Time{}
+	for len(pinFails) > 10000 {
+		var oldestIP string
+		var oldest time.Time
+		first := true
+		for ip, times := range pinFails {
+			if len(times) == 0 {
+				delete(pinFails, ip)
+				continue
+			}
+			t0 := times[0]
+			if first || t0.Before(oldest) {
+				oldest, oldestIP, first = t0, ip, false
+			}
+		}
+		if oldestIP == "" {
+			break
+		}
+		delete(pinFails, oldestIP)
 	}
 }
 

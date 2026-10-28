@@ -1,3 +1,14 @@
+## 0.9.587
+
+Slice A+B (audit UCI/guest/local overlay):
+- A1: dhcpStaticHost validates MAC/IPv4/name; reject CR/LF in arg (validMAC/validIPv4/validDHCPName)
+- A2: SubnetCIDR via parseGatewayCIDR before guest network apply
+- A3: safeUCIValue + validateGuestWifiFields (SSID/PSK); uciQuote strips CR/LF/quotes
+- A4: guest.NormalizeMAC uses net.ParseMAC (EUI-48 only); invalid MAC never stored/nft
+- A5: pinFails eviction drops oldest IP only (no full map reset at 10k)
+- A6: nftSyncAllowDirect returns errors; skip invalid MACs
+- B: applyLocalOverlayOnce writes local_applied marker only when uciBatchFailed is false
+
 ## 0.9.586
 
 - Recovery: fix stale Peek comment; TestReservedNotStolenAfterTTL backdates ReservedAt >120s

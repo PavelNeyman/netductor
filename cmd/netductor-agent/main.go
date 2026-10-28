@@ -128,6 +128,7 @@ Commands (from VPS):
 }
 
 // applyLocalOverlayOnce applies /etc/netductor-agent/local.uci once (marker local_applied).
+// Marker is written only after a successful uciBatch (fail=0).
 func applyLocalOverlayOnce() {
 	marker := filepath.Join(agentDir(), "local_applied")
 	if _, err := os.Stat(marker); err == nil {
@@ -140,6 +141,10 @@ func applyLocalOverlayOnce() {
 	}
 	res := uciBatch(string(b))
 	fmt.Fprintf(os.Stderr, "local.uci: %s\n", res)
+	if uciBatchFailed(res) {
+		fmt.Fprintf(os.Stderr, "local.uci: failed — marker not written, will retry\n")
+		return
+	}
 	_ = os.WriteFile(marker, []byte(res+"\n"), 0o600)
 }
 

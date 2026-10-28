@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,10 +63,23 @@ type Store struct {
 	Pending []Session    `json:"pending"`
 }
 
+// NormalizeMAC returns canonical lower-case EUI-48 or empty string if invalid.
 func NormalizeMAC(mac string) string {
-	mac = strings.ToLower(strings.TrimSpace(mac))
-	mac = strings.ReplaceAll(mac, "-", ":")
-	return mac
+	mac = strings.TrimSpace(mac)
+	if mac == "" || strings.ContainsAny(mac, "\r\n") {
+		return ""
+	}
+	mac = strings.ToLower(strings.ReplaceAll(mac, "-", ":"))
+	hw, err := net.ParseMAC(mac)
+	if err != nil || len(hw) != 6 {
+		return ""
+	}
+	return hw.String()
+}
+
+// ValidMAC reports whether s is a usable EUI-48 address.
+func ValidMAC(s string) bool {
+	return NormalizeMAC(s) != ""
 }
 
 func HashPIN(pin string) string {

@@ -103,6 +103,9 @@ func wifiClientsJSON() string {
 
 // dhcpStaticHost arg: mac=aa:bb:..|ip=192.168.1.50|name=tapo1
 func dhcpStaticHost(arg string) string {
+	if strings.ContainsAny(arg, "\r\n") {
+		return "error:invalid arg"
+	}
 	kv := map[string]string{}
 	for _, p := range strings.Split(arg, "|") {
 		p = strings.TrimSpace(p)
@@ -115,21 +118,31 @@ func dhcpStaticHost(arg string) string {
 		}
 		kv[strings.ToLower(p[:i])] = p[i+1:]
 	}
-	mac := strings.ToLower(strings.ReplaceAll(kv["mac"], "-", ":"))
-	ip := kv["ip"]
+	mac, err := validMAC(kv["mac"])
+	if err != nil {
+		return "error:invalid mac"
+	}
+	ip, err := validIPv4(kv["ip"])
+	if err != nil {
+		return "error:invalid ip"
+	}
 	name := kv["name"]
-	if mac == "" || ip == "" {
-		return "error:need mac= and ip="
-	}
 	if name == "" {
-		name = "cam-" + strings.ReplaceAll(mac, ":", "")[8:]
+		hex := strings.ReplaceAll(mac, ":", "")
+		if len(hex) >= 4 {
+			name = "cam-" + hex[len(hex)-4:]
+		} else {
+			name = "cam-host"
+		}
 	}
-	// Find existing host section with same mac or add new
+	name, err = validDHCPName(name)
+	if err != nil {
+		return "error:invalid name"
+	}
 	show, _ := exec.Command("uci", "-q", "show", "dhcp").CombinedOutput()
 	section := ""
 	for _, line := range strings.Split(string(show), "\n") {
 		if strings.Contains(line, ".mac=") && strings.Contains(strings.ToLower(line), mac) {
-			// dhcp.@host[N].mac='...'
 			left := strings.SplitN(line, ".mac=", 2)[0]
 			section = left
 			break
@@ -148,7 +161,6 @@ func dhcpStaticHost(arg string) string {
 		"commit dhcp",
 	)
 	res := uciBatch(strings.Join(lines, "\n"))
-	// reload dnsmasq
 	out, _ := exec.Command("/etc/init.d/dnsmasq", "reload").CombinedOutput()
 	return res + "; dnsmasq:" + truncate(string(out), 120)
 }

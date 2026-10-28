@@ -26,13 +26,20 @@ func applyGuestNetwork(gc guest.Config, stage bool) string {
 	if ssid == "" {
 		ssid = "Guest"
 	}
+	if err := validateGuestWifiFields(ssid, psk); err != nil {
+		return "guest: " + err.Error()
+	}
 	hidden := "0"
 	if gc.Hidden {
 		hidden = "1"
 	}
 	ip := "192.168.50.1"
-	if i := strings.Index(gc.SubnetCIDR, "/"); i > 0 {
-		ip = gc.SubnetCIDR[:i]
+	if gc.SubnetCIDR != "" {
+		gw, _, err := parseGatewayCIDR(gc.SubnetCIDR)
+		if err != nil {
+			return "guest: invalid subnet_cidr"
+		}
+		ip = gw
 	}
 	capPort := gc.CaptivePort
 	if capPort == 0 {
@@ -126,7 +133,26 @@ commit firewall
 }
 
 func uciQuote(s string) string {
-	return strings.ReplaceAll(s, "'", "")
+	s = strings.ReplaceAll(s, "'", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	return s
+}
+
+func validateGuestWifiFields(ssid, psk string) error {
+	if _, err := safeUCIValue(ssid); err != nil {
+		return fmt.Errorf("ssid: %w", err)
+	}
+	if len(ssid) == 0 || len(ssid) > 32 {
+		return fmt.Errorf("ssid length")
+	}
+	if _, err := safeUCIValue(psk); err != nil {
+		return fmt.Errorf("psk: %w", err)
+	}
+	if len(psk) < 8 || len(psk) > 63 {
+		return fmt.Errorf("psk length")
+	}
+	return nil
 }
 
 func installGuestNFTHooks() error {
@@ -263,15 +289,25 @@ func applyGuestFirewallAllow(store *guest.Store) error {
 }
 
 func nftSyncAllowDirect(allow []guest.AllowEntry, now time.Time) error {
-	_ = exec.Command("nft", "list", "table", "inet", "netductor_guest").Run()
-	_ = exec.Command("nft", "flush", "set", "inet", "netductor_guest", "allowed").Run()
+	if out, err := exec.Command("nft", "list", "table", "inet", "netductor_guest").CombinedOutput(); err != nil {
+		return fmt.Errorf("nft list: %v %s", err, truncate(string(out), 120))
+	}
+	if out, err := exec.Command("nft", "flush", "set", "inet", "netductor_guest", "allowed").CombinedOutput(); err != nil {
+		return fmt.Errorf("nft flush: %v %s", err, truncate(string(out), 120))
+	}
 	for _, e := range allow {
 		sec := int(e.ExpiresAt.Sub(now).Seconds())
 		if sec < 1 {
 			continue
 		}
-		elem := fmt.Sprintf("{ %s timeout %ds }", e.MAC, sec)
-		_ = exec.Command("nft", "add", "element", "inet", "netductor_guest", "allowed", elem).Run()
+		mac := guest.NormalizeMAC(e.MAC)
+		if mac == "" {
+			continue
+		}
+		elem := fmt.Sprintf("{ %s timeout %ds }", mac, sec)
+		if out, err := exec.Command("nft", "add", "element", "inet", "netductor_guest", "allowed", elem).CombinedOutput(); err != nil {
+			return fmt.Errorf("nft add %s: %v %s", mac, err, truncate(string(out), 80))
+		}
 	}
 	return nil
 }
