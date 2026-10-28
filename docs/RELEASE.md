@@ -19,3 +19,10 @@ Before production install from a tag:
 5. SHA256SUMS proves integrity of the *downloaded* set, not cryptographic provenance of the publisher (R-05: signed manifest optional/follow-up)
 
 Local publish: `VERSION=… GITHUB_TOKEN=… ./scripts/release.sh`
+
+### Local release.sh rules (0.9.595+)
+
+- Working tree must be **clean**; VERSION and `internal/version.Release` already match.
+- Build is from **HEAD**; release `target_commitish` is HEAD SHA.
+- Any asset upload failure (or 422 with SHA mismatch) **fails the script**.
+- `verify-release-binaries.sh` requires the full matrix (or `ND_RELEASE_MINIMAL=1` for amd64 smoke).

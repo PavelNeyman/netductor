@@ -18,6 +18,12 @@ import (
 	"github.com/PavelNeyman/netductor/internal/secreq"
 )
 
+// completeCmdSaveHook, when set (tests only), is called instead of saving the command queue
+// after filtering out the completed command. Non-nil error simulates a partial failure after
+// the result line was already synced.
+var completeCmdSaveHook func(deviceID, cmdID string, wrap any) error
+
+
 var mu sync.Mutex
 
 const (
@@ -802,6 +808,9 @@ func completeCmdUnlockedErr(deviceID, cmdID string) error {
 		rest = append(rest, c)
 	}
 	wrap.Pending = rest
+	if completeCmdSaveHook != nil {
+		return completeCmdSaveHook(deviceID, cmdID, wrap)
+	}
 	return statefile.SaveJSON(commandsPath(), wrap)
 }
 
@@ -864,7 +873,11 @@ func CmdResult(payload map[string]any) error {
 	// only retry completing the queue (even if the command is still pending).
 	if cid != "" && did != "" {
 		if resultExistsForDeviceUnlocked(did, cid) {
-			if pendingCmdExistsUnlocked(did, cid) {
+			pending, err := pendingCmdExistsUnlocked(did, cid)
+			if err != nil {
+				return fmt.Errorf("cmd queue read: %w", err)
+			}
+			if pending {
 				return completeCmdUnlockedErr(did, cid)
 			}
 			return nil
@@ -902,21 +915,24 @@ func CmdResult(payload map[string]any) error {
 	return nil
 }
 
-func pendingCmdExistsUnlocked(deviceID, cmdID string) bool {
+func pendingCmdExistsUnlocked(deviceID, cmdID string) (bool, error) {
 	var wrap struct {
 		Pending []map[string]any `json:"pending"`
 	}
 	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil {
-		return false
+		if statefile.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
 	}
 	for _, c := range wrap.Pending {
 		id, _ := c["id"].(string)
 		did, _ := c["device_id"].(string)
 		if id == cmdID && did == deviceID {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func resultExistsForDeviceUnlocked(deviceID, cmdID string) bool {

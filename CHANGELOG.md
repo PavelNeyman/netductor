@@ -1,3 +1,12 @@
+## 0.9.595
+
+Release gate hardening + CmdResult fault test:
+- release.sh: require clean tree; build from HEAD; tag at HEAD_SHA; upload fails closed;
+  HTTP 422 compares remote SHA256 to local; remote asset set verified after upload
+- verify-release-binaries: required asset list; non-executable is FAIL; SHA256SUMS must list all
+- CmdResult: pendingCmdExists returns error on queue read failure; completeCmdSaveHook for tests;
+  TestCmdResultIdempotentAfterPartialCompleteFail injects real save failure
+
 ## 0.9.594
 
 - scripts/verify-release-binaries.sh — runtime version + SHA256SUMS check on dist/
