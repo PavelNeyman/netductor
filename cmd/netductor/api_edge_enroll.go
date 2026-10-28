@@ -77,10 +77,16 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			_ = notify.Telegram(fmt.Sprintf("⏳ Edge pending: <b>%s</b>\nboard=%s wan=%s", did, board, wan))
 		}
 		out := map[string]any{"status": st}
-		// H-1 / R-05: shared bootstrap secret never yields a personal device token.
-		// Token pickup is only allowed on the recovery-code enroll path (rebind).
-		// Operators obtain tokens from Approve/Reissue/Rotate responses and install offline.
-		if dtok != "" && !edge.ValidBootstrap(auth) {
+		// H-1 / R-05: shared bootstrap never yields a personal device token.
+		// Recovery-code path may claim an armed TokenPickup once (rebind / reissue recovery).
+		// Operators otherwise install tokens from Approve/Reissue/Rotate offline.
+		if reserveID != "" && st == edge.StatusApproved {
+			if did, _ := payload["device_id"].(string); did != "" {
+				if pt := edge.PeekPickupToken(did); pt != "" {
+					out["device_token"] = pt
+				}
+			}
+		} else if dtok != "" && reserveID != "" {
 			out["device_token"] = dtok
 		}
 		writeJSON(w, 200, out)

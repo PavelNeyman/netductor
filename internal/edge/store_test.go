@@ -105,19 +105,21 @@ func TestEnrollApprovedNoTokenLeak(t *testing.T) {
 	if err != nil || dt == "" {
 		t.Fatal(err, dt)
 	}
-	// First post-approve enroll: one-shot pickup for the agent.
+	// Enroll itself never returns personal token (R-05).
 	st2, tok2, isNew := Enroll(map[string]any{"device_id": "leak1", "board": "x"})
-	if st2 != StatusApproved || isNew {
-		t.Fatalf("status=%s isNew=%v", st2, isNew)
+	if st2 != StatusApproved || isNew || tok2 != "" {
+		t.Fatalf("enroll must not return token: status=%s tok=%q isNew=%v", st2, tok2, isNew)
 	}
-	if tok2 != dt {
-		t.Fatalf("one-shot pickup: got %q want %q", tok2, dt)
+	// PeekPickupToken is armed until Confirm (recovery/operator path only).
+	if pt := PeekPickupToken("leak1"); pt != dt {
+		t.Fatalf("peek pickup: %q", pt)
 	}
-	// Agent persists token then acks — until then re-enroll may retry pickup.
 	if err := ConfirmTokenPickup("leak1", dt); err != nil {
 		t.Fatal(err)
 	}
-	// After ack: H-1 — no permanent leak of personal token on bootstrap enroll.
+	if pt := PeekPickupToken("leak1"); pt != "" {
+		t.Fatalf("after ack peek must be empty: %q", pt)
+	}
 	st3, tok3, _ := Enroll(map[string]any{"device_id": "leak1", "board": "x"})
 	if st3 != StatusApproved || tok3 != "" {
 		t.Fatalf("re-enroll must not return token: status=%s tok=%q", st3, tok3)
@@ -155,8 +157,11 @@ func TestReissueTokenPickup(t *testing.T) {
 		t.Fatal(err, dt2)
 	}
 	st2, tok2, _ := Enroll(map[string]any{"device_id": "ri1"})
-	if st2 != StatusApproved || tok2 != dt {
-		t.Fatalf("reissue pickup: %s %q", st2, tok2)
+	if st2 != StatusApproved || tok2 != "" {
+		t.Fatalf("enroll after reissue must not return token: %s %q", st2, tok2)
+	}
+	if pt := PeekPickupToken("ri1"); pt != dt {
+		t.Fatalf("peek after reissue: %q", pt)
 	}
 }
 
@@ -196,7 +201,10 @@ func TestRotateDeviceToken(t *testing.T) {
 		t.Fatal("old token must not work")
 	}
 	st, tok, _ := Enroll(map[string]any{"device_id": "rot1"})
-	if st != StatusApproved || tok != neu {
-		t.Fatalf("%s %q", st, tok)
+	if st != StatusApproved || tok != "" {
+		t.Fatalf("enroll after rotate must not return token: %s %q", st, tok)
+	}
+	if pt := PeekPickupToken("rot1"); pt != neu {
+		t.Fatalf("peek after rotate: %q want %q", pt, neu)
 	}
 }

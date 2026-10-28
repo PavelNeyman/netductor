@@ -1,3 +1,11 @@
+## 0.9.590
+
+Close residual code gaps after 0.9.589 audit follow-up:
+- Enroll never returns device_token; PeekPickupToken for recovery API only
+- Agent cmd_done markers: re-leased commands re-post result without re-executing
+- ensureEnrolled: approved without token is an error (no silent bootstrap-as-device)
+- Tests updated for R-05 store-level contract
+
 ## 0.9.589
 
 Residual hardening (audit R-01..R-06 on 0.9.588):

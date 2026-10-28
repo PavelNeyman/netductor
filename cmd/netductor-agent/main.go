@@ -307,8 +307,11 @@ func ensureEnrolled(client *http.Client, cfg *config) error {
 			if err := ensureTokenAcked(client, cfg, out.DeviceToken); err != nil {
 				return fmt.Errorf("token-ack: %w", err)
 			}
+			return nil
 		}
-		return nil
+		// Bootstrap enroll no longer returns device_token (R-05). Operator must install
+		// token from Approve/Reissue, or recovery path must deliver it.
+		return fmt.Errorf("approved without device_token — install token offline or use recovery enroll")
 	case "pending":
 		return fmt.Errorf("pending approval")
 	case "denied", "revoked":
@@ -649,7 +652,17 @@ func pollCmds(client *http.Client, cfg config) error {
 		if c.ID == "" || c.Action == "" {
 			continue
 		}
-		res := runCmd(client, cfg, c.Action, c.Arg)
+		var res string
+		if prev, ok := loadCmdDone(c.ID); ok {
+			// Re-lease after lost result POST: do not re-execute side effects.
+			res = prev
+			if !strings.HasPrefix(res, "already:") {
+				res = "already:" + res
+			}
+		} else {
+			res = runCmd(client, cfg, c.Action, c.Arg)
+			saveCmdDone(c.ID, res)
+		}
 		if _, err := doJSON(client, http.MethodPost, cfg.Server+"/api/edge/cmd_result", cfg.Token, map[string]any{
 			"device_id": cfg.DeviceID,
 			"cmd_id":    c.ID,

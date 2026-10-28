@@ -385,8 +385,8 @@ func mergePayload(d *Device, payload map[string]any) {
 	}
 }
 
-// Enroll registers or refreshes pending device. Returns status; deviceToken is only non-empty
-// from Approve — never from bootstrap/recovery re-enroll of an already-approved device (H-1).
+// Enroll registers or refreshes pending device. deviceToken is always empty (R-05/H-1):
+// personal tokens come from Approve/Reissue/Rotate (operator) or PeekPickupToken (recovery API).
 func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -406,18 +406,13 @@ func Enroll(payload map[string]any) (status, deviceToken string, isNew bool) {
 			mergePayload(&existing, payload)
 			existing.LastSeen = now
 			existing.DeviceID = did
-			// TokenPickup stays true until ConfirmTokenPickup (agent saved token).
-			// Re-issue token on every enroll while pickup is armed — lost response is recoverable.
-			// After ack, bootstrap enroll returns approved without device_token (H-1).
-			tok := ""
-			if existing.TokenPickup && existing.DeviceToken != "" {
-				tok = existing.DeviceToken
-			}
+			// R-05: Enroll never returns personal token. Pickup is via PeekPickupToken
+			// on the recovery-code API path only (shared bootstrap never sees it).
 			m[did] = existing
 			if err := saveDevices(m); err != nil {
 				return "error", "", false
 			}
-			return StatusApproved, tok, false
+			return StatusApproved, "", false
 		}
 		if st == StatusDenied || st == StatusRevoked {
 			existing.LastSeen = now
@@ -478,6 +473,27 @@ func Approve(deviceID string) (deviceToken string, err error) {
 
 // ConfirmTokenPickup clears the one-shot flag after the agent persisted device_token.
 // Auth: personal device token only (not bootstrap).
+// PeekPickupToken returns the personal token only while TokenPickup is armed.
+// Does not clear the flag — ConfirmTokenPickup does after agent persisted the token.
+// Callers must gate this on recovery-code (or operator) auth — never bootstrap.
+func PeekPickupToken(deviceID string) string {
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		return ""
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	m, err := loadDevices()
+	if err != nil {
+		return ""
+	}
+	d, ok := m[deviceID]
+	if !ok || d.Status != StatusApproved || !d.TokenPickup || d.DeviceToken == "" {
+		return ""
+	}
+	return d.DeviceToken
+}
+
 func ConfirmTokenPickup(deviceID, deviceToken string) error {
 	deviceID = strings.TrimSpace(deviceID)
 	deviceToken = strings.TrimSpace(deviceToken)
