@@ -77,3 +77,42 @@ func TestDhcpStaticHostRejectsInjection(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestValidUCIPath(t *testing.T) {
+	if _, err := validUCIPath("network.lan.ipaddr"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validUCIPath("dhcp.@host[0].mac"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validUCIPath("a;rm -rf"); err == nil {
+		t.Fatal("shell metachar")
+	}
+	if _, err := validUCIPath("x\ny"); err == nil {
+		t.Fatal("newline")
+	}
+}
+
+func TestValidBackupName(t *testing.T) {
+	if _, err := validBackupName("cfg-2026.tar.gz"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validBackupName("../etc/passwd"); err == nil {
+		t.Fatal("traversal")
+	}
+	if _, err := validBackupName("a/b"); err == nil {
+		t.Fatal("slash")
+	}
+}
+
+func TestSafeLocalArchivePath(t *testing.T) {
+	if _, err := safeLocalArchivePath("/mnt/netductor/x.tar.gz", "/mnt/netductor"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := safeLocalArchivePath("/etc/passwd", "/mnt/netductor"); err == nil {
+		t.Fatal("outside")
+	}
+	if _, err := safeLocalArchivePath("/mnt/netductor/../etc/passwd", "/mnt/netductor"); err == nil {
+		t.Fatal("dotdot")
+	}
+}

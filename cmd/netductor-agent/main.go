@@ -641,8 +641,8 @@ func pollCmds(client *http.Client, cfg config) error {
 			Arg    string `json:"arg"`
 		} `json:"commands"`
 	}
-	if json.Unmarshal(data, &wrap) != nil {
-		return nil
+	if err := json.Unmarshal(data, &wrap); err != nil {
+		return fmt.Errorf("commands json: %w", err)
 	}
 	for _, c := range wrap.Commands {
 		if c.ID == "" || c.Action == "" {
@@ -697,7 +697,15 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		if len(parts) != 2 || parts[0] == "" {
 			return "uci_set: need path=value"
 		}
-		out, err := exec.Command("uci", "set", parts[0]+"="+parts[1]).CombinedOutput()
+		path, err := validUCIPath(parts[0])
+		if err != nil {
+			return "uci_set: invalid path"
+		}
+		val, err := safeUCIValue(parts[1])
+		if err != nil {
+			return "uci_set: invalid value"
+		}
+		out, err := exec.Command("uci", "set", path+"="+val).CombinedOutput()
 		if err != nil {
 			return truncate(string(out)+" "+err.Error(), 8000)
 		}

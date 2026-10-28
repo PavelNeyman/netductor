@@ -72,20 +72,38 @@ func agentUpdate(arg string) string {
 		_ = os.Remove(tmp)
 		return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
 	}
+	if !isELF(tmp) {
+		_ = os.Remove(tmp)
+		return "agent_update: not an ELF binary"
+	}
 	_ = os.Chmod(tmp, 0o755)
 	dest := "/usr/sbin/netductor-agent"
 	if _, err := os.Stat(dest); err != nil {
 		dest = "/usr/bin/netductor-agent"
 	}
+	// Keep previous binary for manual rollback on flash.
+	prev := dest + ".prev"
+	_ = os.Remove(prev)
+	if _, err := os.Stat(dest); err == nil {
+		_ = os.Rename(dest, prev)
+	}
 	if err := os.Rename(tmp, dest); err != nil {
-		// cross-device
-		in, _ := os.ReadFile(tmp)
+		// cross-device copy
+		in, rerr := os.ReadFile(tmp)
+		if rerr != nil {
+			// try restore prev
+			_ = os.Rename(prev, dest)
+			_ = os.Remove(tmp)
+			return rerr.Error()
+		}
 		if err2 := os.WriteFile(dest, in, 0o755); err2 != nil {
+			_ = os.Rename(prev, dest)
+			_ = os.Remove(tmp)
 			return err2.Error()
 		}
 		_ = os.Remove(tmp)
 	}
-	return "updated " + dest + " — restart agent to run new binary"
+	return "updated " + dest + " (prev=" + prev + ") — restart agent to run new binary"
 }
 
 func doSysupgrade(arg string) string {
@@ -341,7 +359,11 @@ func configRestore(client *http.Client, cfg config, name string) string {
 	if name == "" {
 		return "config_restore: need backup filename"
 	}
-	url := fmt.Sprintf("%s/api/edge/backups?device_id=%s&name=%s", cfg.Server, cfg.DeviceID, name)
+	safeName, err := validBackupName(name)
+	if err != nil {
+		return "config_restore: invalid name"
+	}
+	url := fmt.Sprintf("%s/api/edge/backups?device_id=%s&name=%s", cfg.Server, cfg.DeviceID, safeName)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err.Error()
@@ -361,23 +383,25 @@ func configRestore(client *http.Client, cfg config, name string) string {
 	if err != nil {
 		return err.Error()
 	}
-	_, err = io.Copy(f, resp.Body)
+	_, err = io.Copy(f, io.LimitReader(resp.Body, 64<<20)) // 64 MiB config archive cap
 	f.Close()
 	if err != nil {
+		_ = os.Remove(tmp)
 		return err.Error()
 	}
 	defer os.Remove(tmp)
-	// extract into /etc/config
+	// Extract only under /etc/config (never whole /).
 	_ = os.MkdirAll("/etc/config", 0o755)
-	out, err := exec.Command("tar", "-xzf", tmp, "-C", "/etc").CombinedOutput()
+	out, err := exec.Command("tar", "-xzf", tmp, "-C", "/etc/config", "--strip-components=1").CombinedOutput()
 	if err != nil {
-		out2, err2 := exec.Command("tar", "-xzf", tmp, "-C", "/").CombinedOutput()
+		// archives may be rooted at "config/" or flat files
+		out2, err2 := exec.Command("tar", "-xzf", tmp, "-C", "/etc/config").CombinedOutput()
 		if err2 != nil {
 			return "extract: " + truncate(string(out)+" "+string(out2), 500)
 		}
 	}
 	_ = exec.Command("uci", "commit").Run()
-	return "restored " + name + " + uci commit"
+	return "restored " + safeName + " + uci commit"
 }
 
 func storageBackupB(client *http.Client, cfg config) string {
@@ -420,14 +444,25 @@ func storageRestoreLocal(arg string) string {
 	if arg == "" {
 		return "storage_restore: need path to nd-restore dir or tar.gz"
 	}
+	if strings.Contains(arg, "..") || strings.ContainsAny(arg, "\r\n") {
+		return "storage_restore: invalid path"
+	}
 	if !strings.HasSuffix(arg, ".tar.gz") && !strings.HasSuffix(arg, ".tgz") {
 		cand := filepath.Join(arg, "overlay-B.tar.gz")
 		if _, err := os.Stat(cand); err == nil {
 			arg = cand
 		}
 	}
+	// Only archives under USB mount or /tmp (operator-staged).
+	okRoot := strings.HasPrefix(arg, "/mnt/netductor/") || strings.HasPrefix(arg, "/tmp/")
+	if !okRoot {
+		return "storage_restore: path must be under /mnt/netductor or /tmp"
+	}
 	if _, err := os.Stat("/mnt/netductor"); err != nil {
 		return "storage_restore: mount USB at /mnt/netductor first"
+	}
+	if _, err := os.Stat(arg); err != nil {
+		return "storage_restore: archive not found"
 	}
 	out, err := exec.Command("tar", "-xzf", arg, "-C", "/mnt/netductor").CombinedOutput()
 	if err != nil {
@@ -467,6 +502,11 @@ func storageRestoreRemote(client *http.Client, cfg config, arg string) string {
 			return "latest-b: no file"
 		}
 	}
+	safeName, err := validBackupName(name)
+	if err != nil {
+		return "storage_restore_remote: invalid name"
+	}
+	name = safeName
 	// Prefer edgestorage path; also try legacy edge backups list
 	dl := strings.TrimRight(cfg.Server, "/") + "/api/edge/storage/download?device_id=" + cfg.DeviceID + "&name=" + name
 	req, err := http.NewRequest(http.MethodGet, dl, nil)

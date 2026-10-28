@@ -1,3 +1,13 @@
+## 0.9.588
+
+Slice C–F residual hardening (agent command path / update / restore):
+- uci_set + uciBatch set: validUCIPath + safeUCIValue (no CR/LF/shell metachar injection)
+- agent_update: require ELF magic; keep dest.prev for rollback; restore prev on write failure
+- config_restore: validBackupName, 64MiB download cap, extract only under /etc/config
+- storage_restore: path under /mnt/netductor or /tmp only; reject `..`
+- storage_restore_remote: validBackupName on resolved filename
+- pollCmds: malformed commands JSON is an error (fail-closed)
+
 ## 0.9.587
 
 Slice A+B (audit UCI/guest/local overlay):

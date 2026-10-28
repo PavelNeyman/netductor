@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"strings"
 	"unicode"
 )
@@ -90,4 +92,84 @@ func parseGatewayCIDR(s string) (gw string, n *net.IPNet, err error) {
 		return "", nil, fmt.Errorf("invalid mask")
 	}
 	return ip.To4().String(), network, nil
+}
+
+// validUCIPath restricts UCI option paths used in uci set/get (no CR/LF/spaces/shell).
+func validUCIPath(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" || len(s) > 128 {
+		return "", fmt.Errorf("invalid uci path")
+	}
+	if strings.ContainsAny(s, "\r\n \t'\"`$;&|<>") {
+		return "", fmt.Errorf("invalid uci path")
+	}
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			continue
+		}
+		switch r {
+		case '.', '_', '-', '@', '[', ']':
+			continue
+		default:
+			return "", fmt.Errorf("invalid uci path char")
+		}
+	}
+	return s, nil
+}
+
+// validBackupName: single path segment for config/storage restore filenames.
+func validBackupName(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" || len(s) > 128 {
+		return "", fmt.Errorf("invalid backup name")
+	}
+	if strings.ContainsAny(s, "/\\:\r\n") || strings.Contains(s, "..") {
+		return "", fmt.Errorf("invalid backup name")
+	}
+	base := s
+	for _, r := range base {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			continue
+		}
+		switch r {
+		case '.', '_', '-':
+			continue
+		default:
+			return "", fmt.Errorf("invalid backup name char")
+		}
+	}
+	return s, nil
+}
+
+// safeLocalArchivePath rejects path traversal; optionally requires a root prefix.
+func safeLocalArchivePath(arg, mustUnder string) (string, error) {
+	arg = strings.TrimSpace(arg)
+	if arg == "" || strings.ContainsAny(arg, "\r\n") {
+		return "", fmt.Errorf("invalid path")
+	}
+	if strings.Contains(arg, "..") {
+		return "", fmt.Errorf("path traversal")
+	}
+	clean := arg
+	if mustUnder != "" {
+		// Absolute paths only when constrained under a mount root.
+		if !strings.HasPrefix(clean, mustUnder+"/") && clean != mustUnder {
+			return "", fmt.Errorf("path outside %s", mustUnder)
+		}
+	}
+	return clean, nil
+}
+
+// isELF reports whether the first bytes look like an ELF binary (OpenWrt agent).
+func isELF(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var hdr [4]byte
+	if _, err := io.ReadFull(f, hdr[:]); err != nil {
+		return false
+	}
+	return hdr[0] == 0x7f && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F'
 }

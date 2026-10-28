@@ -211,6 +211,22 @@ func uciBatch(arg string) string {
 				fail++
 				continue
 			}
+			if strings.ContainsAny(rest, "\r\n'") {
+				logs = append(logs, "bad:unsafe:"+line)
+				fail++
+				continue
+			}
+			pathPart, valPart, _ := strings.Cut(rest, "=")
+			if _, errp := validUCIPath(pathPart); errp != nil {
+				logs = append(logs, "bad:path:"+line)
+				fail++
+				continue
+			}
+			if _, errv := safeUCIValue(valPart); errv != nil {
+				logs = append(logs, "bad:value:"+line)
+				fail++
+				continue
+			}
 			out, err = exec.Command("uci", "set", rest).CombinedOutput()
 		case "delete", "del":
 			rest := strings.TrimSpace(line[len(fields[0]):])
@@ -239,6 +255,16 @@ func uciBatch(arg string) string {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) != 2 {
 				logs = append(logs, "bad:"+line)
+				fail++
+				continue
+			}
+			if _, errp := validUCIPath(parts[0]); errp != nil {
+				logs = append(logs, "bad:path:"+line)
+				fail++
+				continue
+			}
+			if _, errv := safeUCIValue(parts[1]); errv != nil {
+				logs = append(logs, "bad:value:"+line)
 				fail++
 				continue
 			}
