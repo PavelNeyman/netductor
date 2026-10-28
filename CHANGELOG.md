@@ -1,3 +1,12 @@
+## 0.9.589
+
+Residual hardening (audit R-01..R-06 on 0.9.588):
+- E: config/storage restore — readBodyLimited (reject oversize), tarMembersSafe (no abs/.. links), single extract path
+- D: agent_update — stage in dest dir, require prev save before replace, explicit rollback errors
+- F: command queue lease (120s); complete only on durable cmd_result; agent surfaces result POST errors
+- C/R-05: bootstrap enroll never returns device_token; site_id only from recovery path
+- UCI: validUCIPath/ConfigName on get/show/delete/add/commit
+
 ## 0.9.588
 
 Slice C–F residual hardening (agent command path / update / restore):

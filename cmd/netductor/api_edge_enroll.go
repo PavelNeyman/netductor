@@ -62,9 +62,12 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 				return
 			}
 		}
-		if did, _ := payload["device_id"].(string); did != "" {
-			if sid, _ := payload["site_id"].(string); sid != "" {
-				_ = edge.SetSiteID(did, sid)
+		// site_id binding only from recovery code path — not from shared bootstrap enroll.
+		if reserveID != "" {
+			if did, _ := payload["device_id"].(string); did != "" {
+				if sid, _ := payload["site_id"].(string); sid != "" {
+					_ = edge.SetSiteID(did, sid)
+				}
 			}
 		}
 		if isNew && st == edge.StatusPending {
@@ -74,8 +77,10 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			_ = notify.Telegram(fmt.Sprintf("⏳ Edge pending: <b>%s</b>\nboard=%s wan=%s", did, board, wan))
 		}
 		out := map[string]any{"status": st}
-		// H-1: never echo an existing personal token under bootstrap/recovery.
-		if dtok != "" {
+		// H-1 / R-05: shared bootstrap secret never yields a personal device token.
+		// Token pickup is only allowed on the recovery-code enroll path (rebind).
+		// Operators obtain tokens from Approve/Reissue/Rotate responses and install offline.
+		if dtok != "" && !edge.ValidBootstrap(auth) {
 			out["device_token"] = dtok
 		}
 		writeJSON(w, 200, out)

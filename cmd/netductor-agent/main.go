@@ -644,20 +644,24 @@ func pollCmds(client *http.Client, cfg config) error {
 	if err := json.Unmarshal(data, &wrap); err != nil {
 		return fmt.Errorf("commands json: %w", err)
 	}
+	var postErr error
 	for _, c := range wrap.Commands {
 		if c.ID == "" || c.Action == "" {
 			continue
 		}
 		res := runCmd(client, cfg, c.Action, c.Arg)
-		_, _ = doJSON(client, http.MethodPost, cfg.Server+"/api/edge/cmd_result", cfg.Token, map[string]any{
+		if _, err := doJSON(client, http.MethodPost, cfg.Server+"/api/edge/cmd_result", cfg.Token, map[string]any{
 			"device_id": cfg.DeviceID,
 			"cmd_id":    c.ID,
 			"action":    c.Action,
 			"result":    res,
 			"ts":        time.Now().Unix(),
-		})
+		}); err != nil {
+			// Keep server lease alive so the command can be re-delivered / result retried.
+			postErr = err
+		}
 	}
-	return nil
+	return postErr
 }
 
 func runCmd(client *http.Client, cfg config, action, arg string) string {
@@ -683,12 +687,24 @@ func runCmd(client *http.Client, cfg config, action, arg string) string {
 		out, _ := exec.Command("/etc/init.d/network", "reload").CombinedOutput()
 		return truncate(string(out), 8000)
 	case "uci_get":
-		out, _ := exec.Command("uci", "-q", "get", arg).CombinedOutput()
+		path, err := validUCIPath(arg)
+		if err != nil {
+			return "uci_get: invalid path"
+		}
+		out, _ := exec.Command("uci", "-q", "get", path).CombinedOutput()
 		return truncate(string(out), 8000)
 	case "uci_show":
 		args := []string{"-q", "show"}
 		if arg != "" {
-			args = append(args, arg)
+			path, err := validUCIPath(arg)
+			if err != nil {
+				// allow package-only show: network, dhcp, …
+				path, err = validUCIConfigName(arg)
+				if err != nil {
+					return "uci_show: invalid path"
+				}
+			}
+			args = append(args, path)
 		}
 		out, _ := exec.Command("uci", args...).CombinedOutput()
 		return truncate(string(out), 8000)

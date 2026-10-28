@@ -235,6 +235,11 @@ func uciBatch(arg string) string {
 				fail++
 				continue
 			}
+			if _, errp := validUCIPath(rest); errp != nil {
+				logs = append(logs, "bad:path:"+line)
+				fail++
+				continue
+			}
 			out, err = exec.Command("uci", "delete", rest).CombinedOutput()
 		case "add":
 			// add <config> <type>
@@ -243,12 +248,25 @@ func uciBatch(arg string) string {
 				fail++
 				continue
 			}
-			out, err = exec.Command("uci", "add", fields[1], fields[2]).CombinedOutput()
+			cfgName, err1 := validUCIConfigName(fields[1])
+			typName, err2 := validUCIConfigName(fields[2])
+			if err1 != nil || err2 != nil {
+				logs = append(logs, "bad:add:"+line)
+				fail++
+				continue
+			}
+			out, err = exec.Command("uci", "add", cfgName, typName).CombinedOutput()
 		case "commit":
 			if len(fields) == 1 {
 				out, err = exec.Command("uci", "commit").CombinedOutput()
 			} else {
-				out, err = exec.Command("uci", "commit", fields[1]).CombinedOutput()
+				cfgName, errc := validUCIConfigName(fields[1])
+				if errc != nil {
+					logs = append(logs, "bad:commit:"+line)
+					fail++
+					continue
+				}
+				out, err = exec.Command("uci", "commit", cfgName).CombinedOutput()
 			}
 		default:
 			// Legacy: bare path=value → uci set

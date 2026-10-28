@@ -63,45 +63,69 @@ func agentUpdate(arg string) string {
 	if err := requireSHA256Hex(wantSHA); err != nil {
 		return "agent_update: " + err.Error()
 	}
-	tmp := filepath.Join(os.TempDir(), "netductor-agent.new")
-	if err := downloadFile(url, tmp); err != nil {
-		return "download: " + err.Error()
-	}
-	sum, err := fileSHA256(tmp)
-	if err != nil || !strings.EqualFold(sum, wantSHA) {
-		_ = os.Remove(tmp)
-		return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
-	}
-	if !isELF(tmp) {
-		_ = os.Remove(tmp)
-		return "agent_update: not an ELF binary"
-	}
-	_ = os.Chmod(tmp, 0o755)
 	dest := "/usr/sbin/netductor-agent"
 	if _, err := os.Stat(dest); err != nil {
 		dest = "/usr/bin/netductor-agent"
 	}
-	// Keep previous binary for manual rollback on flash.
-	prev := dest + ".prev"
-	_ = os.Remove(prev)
-	if _, err := os.Stat(dest); err == nil {
-		_ = os.Rename(dest, prev)
+	// Stage on same directory as dest so rename is atomic when possible.
+	tmp, err := os.CreateTemp(filepath.Dir(dest), "netductor-agent.*.new")
+	if err != nil {
+		// fall back to /tmp then copy
+		tmp, err = os.CreateTemp(os.TempDir(), "netductor-agent.*.new")
+		if err != nil {
+			return "agent_update: temp: " + err.Error()
+		}
 	}
-	if err := os.Rename(tmp, dest); err != nil {
-		// cross-device copy
-		in, rerr := os.ReadFile(tmp)
+	tmpPath := tmp.Name()
+	_ = tmp.Close()
+	_ = os.Remove(tmpPath) // downloadFile creates the file
+	if err := downloadFile(url, tmpPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return "download: " + err.Error()
+	}
+	sum, err := fileSHA256(tmpPath)
+	if err != nil || !strings.EqualFold(sum, wantSHA) {
+		_ = os.Remove(tmpPath)
+		return fmt.Sprintf("sha256 mismatch got=%s want=%s", sum, wantSHA)
+	}
+	if !isELF(tmpPath) {
+		_ = os.Remove(tmpPath)
+		return "agent_update: not an ELF binary"
+	}
+	if err := os.Chmod(tmpPath, 0o755); err != nil {
+		_ = os.Remove(tmpPath)
+		return "agent_update: chmod: " + err.Error()
+	}
+	prev := dest + ".prev"
+	hadDest := false
+	if _, err := os.Stat(dest); err == nil {
+		hadDest = true
+		_ = os.Remove(prev) // best-effort old prev only after we know dest exists
+		if err := os.Rename(dest, prev); err != nil {
+			_ = os.Remove(tmpPath)
+			return "agent_update: cannot save prev: " + err.Error()
+		}
+	}
+	if err := os.Rename(tmpPath, dest); err != nil {
+		// cross-filesystem: copy then remove tmp
+		in, rerr := os.ReadFile(tmpPath)
+		_ = os.Remove(tmpPath)
 		if rerr != nil {
-			// try restore prev
-			_ = os.Rename(prev, dest)
-			_ = os.Remove(tmp)
-			return rerr.Error()
+			if hadDest {
+				if r2 := os.Rename(prev, dest); r2 != nil {
+					return "agent_update: read failed and rollback failed: " + rerr.Error() + "; " + r2.Error()
+				}
+			}
+			return "agent_update: " + rerr.Error()
 		}
 		if err2 := os.WriteFile(dest, in, 0o755); err2 != nil {
-			_ = os.Rename(prev, dest)
-			_ = os.Remove(tmp)
-			return err2.Error()
+			if hadDest {
+				if r2 := os.Rename(prev, dest); r2 != nil {
+					return "agent_update: write failed and rollback failed: " + err2.Error() + "; " + r2.Error()
+				}
+			}
+			return "agent_update: write: " + err2.Error()
 		}
-		_ = os.Remove(tmp)
 	}
 	return "updated " + dest + " (prev=" + prev + ") — restart agent to run new binary"
 }
@@ -375,30 +399,20 @@ func configRestore(client *http.Client, cfg config, name string) string {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Sprintf("HTTP %d: %s", resp.StatusCode, truncate(string(b), 200))
 	}
-	tmp := filepath.Join(os.TempDir(), "nd-restore.tar.gz")
-	f, err := os.Create(tmp)
+	body, err := readBodyLimited(resp.Body, 64<<20)
 	if err != nil {
-		return err.Error()
+		return "config_restore: " + err.Error()
 	}
-	_, err = io.Copy(f, io.LimitReader(resp.Body, 64<<20)) // 64 MiB config archive cap
-	f.Close()
-	if err != nil {
-		_ = os.Remove(tmp)
+	tmp := filepath.Join(os.TempDir(), "nd-restore.tar.gz")
+	if err := os.WriteFile(tmp, body, 0o600); err != nil {
 		return err.Error()
 	}
 	defer os.Remove(tmp)
-	// Extract only under /etc/config (never whole /).
-	_ = os.MkdirAll("/etc/config", 0o755)
-	out, err := exec.Command("tar", "-xzf", tmp, "-C", "/etc/config", "--strip-components=1").CombinedOutput()
-	if err != nil {
-		// archives may be rooted at "config/" or flat files
-		out2, err2 := exec.Command("tar", "-xzf", tmp, "-C", "/etc/config").CombinedOutput()
-		if err2 != nil {
-			return "extract: " + truncate(string(out)+" "+string(out2), 500)
-		}
+	if err := extractTarSafe(tmp, "/etc/config"); err != nil {
+		return "config_restore: " + err.Error()
 	}
 	_ = exec.Command("uci", "commit").Run()
 	return "restored " + safeName + " + uci commit"
@@ -464,9 +478,8 @@ func storageRestoreLocal(arg string) string {
 	if _, err := os.Stat(arg); err != nil {
 		return "storage_restore: archive not found"
 	}
-	out, err := exec.Command("tar", "-xzf", arg, "-C", "/mnt/netductor").CombinedOutput()
-	if err != nil {
-		return "extract: " + truncate(string(out)+" "+err.Error(), 400)
+	if err := extractTarSafe(arg, "/mnt/netductor"); err != nil {
+		return "storage_restore: " + err.Error()
 	}
 	pin := "/etc/netductor-agent/pin"
 	if _, err := os.Stat(pin); err == nil {
@@ -523,22 +536,20 @@ func storageRestoreRemote(client *http.Client, cfg config, arg string) string {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Sprintf("download HTTP %d: %s", resp.StatusCode, truncate(string(b), 200))
 	}
-	tmp := filepath.Join(os.TempDir(), "nd-B-restore.tar.gz")
-	f, err := os.Create(tmp)
+	body, err := readBodyLimited(resp.Body, 512<<20)
 	if err != nil {
-		return err.Error()
+		return "storage_restore_remote: " + err.Error()
 	}
-	_, err = io.Copy(f, io.LimitReader(resp.Body, 512<<20))
-	f.Close()
-	if err != nil {
+	tmp := filepath.Join(os.TempDir(), "nd-B-restore.tar.gz")
+	if err := os.WriteFile(tmp, body, 0o600); err != nil {
 		return err.Error()
 	}
 	defer os.Remove(tmp)
 	_ = os.MkdirAll("/mnt/netductor", 0o755)
 	// ensure mount
 	_ = exec.Command("sh", "-c", "mountpoint -q /mnt/netductor || (block info 2>/dev/null; for p in /dev/sda1 /dev/sda /dev/sdb1; do [ -b $p ] && mount $p /mnt/netductor && break; done)").Run()
-	if out, err := exec.Command("tar", "-xzf", tmp, "-C", "/mnt/netductor").CombinedOutput(); err != nil {
-		return "extract: " + truncate(string(out)+" "+err.Error(), 400)
+	if err := extractTarSafe(tmp, "/mnt/netductor"); err != nil {
+		return "storage_restore_remote: " + err.Error()
 	}
 	pin := "/etc/netductor-agent/pin"
 	if _, err := os.Stat(pin); err == nil {

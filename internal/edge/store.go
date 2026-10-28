@@ -727,23 +727,66 @@ func PollCommands(deviceID string) []map[string]any {
 	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil && !statefile.IsNotExist(err) {
 		return []map[string]any{} // fail-closed: do not dequeue on corrupt/IO error
 	}
-	var mine, rest []map[string]any
-	for _, c := range wrap.Pending {
-		if c["device_id"] == deviceID {
-			mine = append(mine, c)
-		} else {
-			rest = append(rest, c)
+	const leaseSecs int64 = 120
+	now := time.Now().Unix()
+	var out []map[string]any
+	changed := false
+	for i, c := range wrap.Pending {
+		if c["device_id"] != deviceID {
+			continue
+		}
+		// Skip active lease (agent still executing / posting result).
+		var leased int64
+		switch v := c["leased_at"].(type) {
+		case float64:
+			leased = int64(v)
+		case int64:
+			leased = v
+		}
+		if leased > 0 && now-leased < leaseSecs {
+			continue
+		}
+		c["leased_at"] = now
+		wrap.Pending[i] = c
+		out = append(out, map[string]any{
+			"id": c["id"], "device_id": c["device_id"], "action": c["action"], "arg": c["arg"],
+			"created": c["created"], "leased_at": now,
+		})
+		changed = true
+	}
+	if changed {
+		if err := statefile.SaveJSON(commandsPath(), wrap); err != nil {
+			return []map[string]any{}
 		}
 	}
+	if out == nil {
+		out = []map[string]any{}
+	}
+	return out
+}
+
+// completeCmdUnlocked drops a pending command after a durable result is stored.
+func completeCmdUnlocked(deviceID, cmdID string) {
+	if cmdID == "" || deviceID == "" {
+		return
+	}
+	var wrap struct {
+		Pending []map[string]any `json:"pending"`
+	}
+	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil {
+		return
+	}
+	rest := make([]map[string]any, 0, len(wrap.Pending))
+	for _, c := range wrap.Pending {
+		id, _ := c["id"].(string)
+		did, _ := c["device_id"].(string)
+		if id == cmdID && did == deviceID {
+			continue
+		}
+		rest = append(rest, c)
+	}
 	wrap.Pending = rest
-	// Only return commands after durable remove; else agent may re-poll same set.
-	if err := statefile.SaveJSON(commandsPath(), wrap); err != nil {
-		return []map[string]any{}
-	}
-	if mine == nil {
-		mine = []map[string]any{}
-	}
-	return mine
+	_ = statefile.SaveJSON(commandsPath(), wrap)
 }
 
 // WaitCmdResult polls results log until cmd_id appears or timeout.
@@ -797,13 +840,21 @@ func CmdResult(payload map[string]any) {
 	mu.Lock()
 	defer mu.Unlock()
 	_ = ensure()
-	b, _ := json.Marshal(payload)
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
 	f, err := os.OpenFile(resultsPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	_, _ = f.Write(append(b, '\n'))
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		return
+	}
+	did, _ := payload["device_id"].(string)
+	cid, _ := payload["cmd_id"].(string)
+	completeCmdUnlocked(did, cid)
 }
 
 func deviceDir(id string) string {

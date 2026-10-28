@@ -173,3 +173,18 @@ func isELF(path string) bool {
 	}
 	return hdr[0] == 0x7f && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F'
 }
+
+// validUCIConfigName: package or section type name (network, dhcp, host, …).
+func validUCIConfigName(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" || len(s) > 64 {
+		return "", fmt.Errorf("invalid uci name")
+	}
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			continue
+		}
+		return "", fmt.Errorf("invalid uci name char")
+	}
+	return s, nil
+}
