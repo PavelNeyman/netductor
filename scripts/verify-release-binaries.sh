@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Verify dist/ has the full required release set, correct versions, and SHA256SUMS.
+# Operator is macOS-only (darwin-arm64, darwin-amd64).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -14,7 +15,6 @@ if [ ! -d dist ]; then
   exit 1
 fi
 
-# Required assets for a full node release (matches scripts/release.sh matrix).
 REQUIRED=(
   netductor-linux-amd64
   netductor-linux-arm64
@@ -25,19 +25,17 @@ REQUIRED=(
   netductor-agent-linux-arm
   netductor-agent-linux-mipsle
   netductor-agent-linux-riscv64
-  netductor-op-linux-amd64
   netductor-op-darwin-arm64
   netductor-op-darwin-amd64
   SHA256SUMS
 )
 
-# Minimal set when ND_RELEASE_MINIMAL=1 (amd64-only smoke).
 if [ "${ND_RELEASE_MINIMAL:-}" = "1" ]; then
   REQUIRED=(
     netductor-linux-amd64
     netductor-tg-linux-amd64
     netductor-agent-linux-amd64
-    netductor-op-linux-amd64
+    netductor-op-darwin-arm64
     SHA256SUMS
   )
 fi
@@ -82,7 +80,6 @@ done
 
 if [ -f dist/SHA256SUMS ]; then
   echo "checking dist/SHA256SUMS..."
-  # Every REQUIRED binary (except SHA256SUMS) must appear in the manifest.
   for name in "${REQUIRED[@]}"; do
     [ "$name" = "SHA256SUMS" ] && continue
     if ! grep -qE "[[:space:]]${name}\$" dist/SHA256SUMS; then

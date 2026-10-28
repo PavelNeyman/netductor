@@ -1,3 +1,12 @@
+## 0.9.596
+
+Release matrix: operator is **macOS-only**.
+- Drop netductor-op-linux-* from release.sh, verify list, CI, Homebrew formula
+- Explicit GOOS=darwin GOARCH=… for both op binaries
+- Before upload: remote tag SHA must equal HEAD (annotated tags resolved)
+- After upload: download all required assets and compare SHA-256 to local dist/
+- Final remote tag SHA check after publish
+
 ## 0.9.595
 
 Release gate hardening + CmdResult fault test:
