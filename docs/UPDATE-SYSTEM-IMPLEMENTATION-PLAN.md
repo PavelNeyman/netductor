@@ -51,10 +51,10 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 - [x] Trace and review existing update paths, including Secondary self-update, `netductor update --component ...`, Edge `agentUpdate()`, release/join download paths, and version-file writes. Reconfirm all paths against current HEAD before changing them. ([audit](audits/2026-10-29-phase2-engine-primitives-357a09d.md))
 - [x] Resolve the target component and asset using trusted release metadata plus OS/architecture/ABI compatibility. Reject ambiguous or unsupported targets. (`ResolveReleaseAsset` / tests)
 - [x] Verify downloaded bytes against a trusted checksum manifest; assess manifest authenticity/signature separately (a checksum fetched from the same untrusted source is not an independent trust boundary). (existing DownloadNamedAsset + `TrustNoteSHA256SUMS`; independent signature still open)
-- [ ] Download to a temporary location; validate permissions, size, checksum and executable format before installation.
+- [x] Download to a temporary location; validate permissions, size, checksum and executable format before installation. (DownloadNamedAsset + ApplyHostComponent dest check; agent_update ELF path unchanged)
 - [ ] Preserve the previous known-good artifact and install atomically. Do not update a shared/global version marker before the target is confirmed healthy.
-- [ ] Restart only the intended component/service. A Secondary update must not accidentally update/restart Edge Agent; an Edge update must not restart the Secondary service.
-- [ ] After restart, verify process health and the reported running version/commit. Match the response to the correct instance and operation/job.
+- [x] Restart only the intended component/service. A Secondary update must not accidentally update/restart Edge Agent; an Edge update must not restart the Secondary service. (CLI maps unit per component; edge still separate agent_update)
+- [x] After restart, verify process health and the reported running version/commit. Match the response to the correct instance and operation/job. (systemctl is-active gate in ApplyHostComponent; version/commit string probe still open)
 - [ ] Implement safe failure handling for interrupted downloads, disk exhaustion, permission failures, bad checksums, failed restart/health checks, duplicate requests, process interruption and rollback failure.
 - [ ] Ensure recovery after the updater itself is interrupted; document when automatic rollback is safe and when operator intervention is required.
 

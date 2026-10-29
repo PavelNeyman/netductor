@@ -387,35 +387,26 @@ func runUpdate(restart bool) {
 		return
 	}
 	fmt.Fprintln(os.Stderr, "==> update", comp, tag, "→", dest)
-	// Download ALL binaries before any restart — never restart TG on old binary.
-	if err := ndupdate.DownloadReleaseAsset(tag, comp, dest); err != nil {
+	// tg/agent: Phase 2 host apply (Resolve + job registry + optional health after restart).
+	// node uses stack.ApplyOpts above; never restart unrelated edge agents here.
+	compID := ndupdate.ComponentID(comp)
+	job, err := ndupdate.ApplyHostComponent(ndupdate.HostApplyOpts{
+		Component:  compID,
+		InstanceID: "local",
+		Tag:        tag,
+		DestPath:   dest,
+		Unit:       unit,
+		Restart:    doRestart,
+	})
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		if job != nil {
+			fmt.Fprintln(os.Stderr, "job", job.JobID, "state", job.State)
+		}
 		os.Exit(1)
 	}
-	fmt.Println("updated", dest, tag)
-	if comp == "node" {
-		tgDest := "/usr/local/bin/netductor-tg"
-		if err := ndupdate.DownloadReleaseAsset(tag, "tg", tgDest); err != nil {
-			fmt.Fprintln(os.Stderr, "tg binary (required with node):", err)
-			os.Exit(1)
-		}
-		fmt.Println("updated", tgDest, tag)
-	}
+	fmt.Println("updated", dest, tag, "job", job.JobID, "state", job.State)
 	ndupdate.WriteVERSION(tag)
-	if doRestart && unit != "" {
-		if unit == "netductor-api" {
-			// stop bot first so ETXTBSY is less likely, then install already done
-			_ = exec.Command("systemctl", "stop", "netductor-telegram-bot").Run()
-		}
-		_ = exec.Command("systemctl", "try-restart", unit).Run()
-		if unit == "netductor-api" {
-			_ = exec.Command("systemctl", "start", "netductor-telegram-bot").Run()
-			_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
-		} else if unit == "netductor-telegram-bot" {
-			_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
-		}
-		fmt.Println("restarted", unit)
-	}
 	// Secondary upgrade is operator-driven only (secondary cmd upgrade / upgrade:vX).
 }
 

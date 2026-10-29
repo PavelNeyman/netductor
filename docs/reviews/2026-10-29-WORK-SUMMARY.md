@@ -154,3 +154,13 @@ Operator production is already on **v0.9.596**. Work on the unified update syste
 - Requiring re-enrollment of Edge or Secondary.  
 - Rewriting `vpn-users.json` / svc-paths material.  
 - Mandatory GitHub token for checks that already work anonymously (rate limits may still apply).
+
+## 10. Continuation log
+
+| Commit | Change |
+|--------|--------|
+| `9d6d77c` | DownloadReleaseAsset → ResolveReleaseAsset; migration M1–M6 |
+| `a16f7b1` | Pin chain in summary |
+| *(next)* | `ApplyHostComponent` + JobRegistry on CLI `update --component tg\|agent`; health `systemctl is-active`; tests |
+
+**M4 progress:** host tg/agent apply now uses job state machine + health after restart. `node` still via `stack.ApplyOpts` (unchanged operator path). Edge `agent_update` unchanged (confirm=yes).

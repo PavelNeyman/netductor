@@ -73,3 +73,12 @@ go test ./internal/update/ -count=1
 | **M6** | Update node не трогает чужой edge agent | **Контракт** |
 
 Полная замена UI каталога — этапы 5–6, без flag day.
+
+## 10. Журнал продолжения
+
+| Commit | Изменение |
+|--------|-----------|
+| `9d6d77c` / `a16f7b1` | Resolve на download; цепочка коммитов; M1–M6 |
+| *(next)* | `ApplyHostComponent` для CLI tg/agent; health is-active |
+
+**M4:** tg/agent через job machine; node по-прежнему `stack.ApplyOpts`; edge `agent_update` без изменений.
