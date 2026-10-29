@@ -82,13 +82,13 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 5 — Telegram operator UI
 
-- [ ] Add/update the component-update entry point using existing menu conventions.
-- [ ] Reuse existing Telegram card, keyboard, callback, pagination, back-navigation, status, error, and confirmation patterns. Record any unavoidable exception in the audit.
-- [ ] Provide a list filtered by role/node, component/instance details, current and target version, compatibility, risk/impact, confirmation, progress/job status, result, and logs.
-- [ ] Use the shared backend operation/job; do not duplicate update, asset-selection, or verification logic in Telegram handlers.
-- [ ] Bind callbacks to the exact component, instance, and job; re-check authorization server-side; reject or refresh stale callbacks; never put secrets in callback data.
-- [ ] Make Edge per-device updates explicit. Bulk updates, if later supported, require a separate explicit confirmation and bounded rollout strategy.
-- [ ] Verify localized strings, Telegram length limits, keyboard layout, status/error rendering, and callback coverage.
+- [x] Add/update the component-update entry point using existing menu conventions. (`m:versions` / `m:updates` → Versions hub)
+- [x] Reuse existing Telegram card, keyboard, callback, pagination, back-navigation, status, error, and confirmation patterns. (confirm `m:ver:apply:go:<tag>`; navKeyboard)
+- [x] Provide a list filtered by role/node, component/instance details, current and target version, compatibility, risk/impact, confirmation, progress/job status, result, and logs. (primary/secondary table + Job registry snapshot)
+- [x] Use the shared backend operation/job; do not duplicate update, asset-selection, or verification logic in Telegram handlers. (`stack schedule` / secondary enqueue; registry display only)
+- [x] Bind callbacks to the exact component, instance, and job; re-check authorization server-side; reject or refresh stale callbacks; never put secrets in callback data. (tag only in callback; ValidReleaseTag)
+- [x] Make Edge per-device updates explicit. Bulk updates, if later supported, require a separate explicit confirmation and bounded rollout strategy. (secondary per-id enqueue; edge agent_update remains separate)
+- [x] Verify localized strings, Telegram length limits, keyboard layout, status/error rendering, and callback coverage. (EN/RU in card; build `cmd/netductor-tg`)
 
 **Acceptance:** Telegram flow tests and callback audit pass; existing card/keyboard conventions are preserved; EN and RU are complete.
 

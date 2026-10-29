@@ -1,3 +1,11 @@
+## 0.9.601
+
+Update Phase 5 (Telegram):
+- Versions card: Job registry snapshot (UserFacingVersionLabel)
+- Apply confirm callback m:ver:apply:go:<tag> (no secrets)
+- Block Apply when node job non-terminal
+- WORK-SUMMARY EN/RU
+
 ## 0.9.600
 
 Update Phase 4 (Edge Agent identity):

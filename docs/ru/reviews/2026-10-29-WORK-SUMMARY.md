@@ -26,7 +26,8 @@ bash scripts/check-update-asset-matrix.sh
 | 2 Engine | **готово** | ApplyHost, Resolve, JobRegistry, failures, recovery, node job |
 | 3 Релиз/версии | **готово** | `VERSION-SEMANTICS.md`, `manifest.go`, CI-скрипты |
 | 4 Edge identity | **готово** | `EDGE-AGENT-IDENTITY.md`, `edge_identity.go` |
-| 5+ UI/rollout | открыто | |
+| 5 TG UI | **готово** | Versions: jobs, confirm apply |
+| 6+ Web/rollout | открыто | |
 
 ## 4. Бесшовность
 
