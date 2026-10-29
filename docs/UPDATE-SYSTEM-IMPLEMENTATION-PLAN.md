@@ -2,7 +2,7 @@
 
 # Unified component update system — implementation plan
 
-**Status:** planning; no implementation steps are marked complete.  
+**Status:** Phase 0 complete (2026-10-29); Phases 1+ open.  
 **Owner rule:** this document is the living checklist. Update it in the same pull request/commit as the implementation or audit it describes. Never check a box based on intention, code presence alone, or an unverified claim.
 
 ## Goal
@@ -11,7 +11,7 @@ Provide one safe, observable update path for supported Netductor components acro
 
 ## Working rules
 
-- [ ] Before implementation, inspect the current `main` HEAD and relevant source. Record the exact base commit and scope in an audit report.
+- [x] Before implementation, inspect the current `main` HEAD and relevant source. Record the exact base commit and scope in an audit report. ([audit](audits/2026-10-29-phase0-update-baseline-e79e87b.md))
 - [ ] Reuse existing architecture, APIs, Telegram card/keyboard builders, Web UI design-system components, and localization mechanisms. Do not create a parallel template system without a documented reason.
 - [ ] Keep EN and RU documentation in semantic parity: update both in the same change. Do not leave one language as a summary.
 - [ ] Every code change has tests appropriate to the risk. Every claimed test result records the exact command, environment/toolchain where relevant, and pass/fail outcome.
@@ -27,14 +27,14 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 0 — baseline audit and repository map
 
-- [ ] Record current `main` HEAD SHA, release/tag state, and working assumptions.
-- [ ] Map every update entry point: CLI, API, Web UI, Telegram, Primary, Secondary, Edge Agent, CI/release publishing, install scripts, service managers, and documentation.
-- [ ] For each path record: initiator, target component/instance, selected asset and architecture/ABI, trust/integrity checks, installation atomicity, restart target, health/version confirmation, rollback, permissions, logs, UI and localization.
-- [ ] Audit Telegram card and inline-keyboard patterns, callback conventions, pagination/back navigation, confirmation prompts, stale callbacks, and existing UI tests/parity checks.
-- [ ] Audit Web UI design-system patterns and localization source, key naming, fallback behavior, and CI checks.
-- [ ] Save findings in a dated EN/RU audit pair. Separate confirmed defects from items that require live-fleet validation.
+- [x] Record current `main` HEAD SHA, release/tag state, and working assumptions. ([audit](audits/2026-10-29-phase0-update-baseline-e79e87b.md))
+- [x] Map every update entry point: CLI, API, Web UI, Telegram, Primary, Secondary, Edge Agent, CI/release publishing, install scripts, service managers, and documentation. ([audit](audits/2026-10-29-phase0-update-baseline-e79e87b.md))
+- [x] For each path record: initiator, target component/instance, selected asset and architecture/ABI, trust/integrity checks, installation atomicity, restart target, health/version confirmation, rollback, permissions, logs, UI and localization. ([audit](audits/2026-10-29-phase0-update-baseline-e79e87b.md))
+- [x] Audit Telegram card and inline-keyboard patterns, callback conventions, pagination/back navigation, confirmation prompts, stale callbacks, and existing UI tests/parity checks. ([audit](audits/2026-10-29-phase0-update-baseline-e79e87b.md)) (TG mapped; stale-callback depth deferred to Phase 5 tests)
+- [x] Audit Web UI design-system patterns and localization source, key naming, fallback behavior, and CI checks. ([audit](audits/2026-10-29-phase0-update-baseline-e79e87b.md)) (API surface + check-web-ui; full page inventory open Q3)
+- [x] Save findings in a dated EN/RU audit pair. Separate confirmed defects from items that require live-fleet validation. ([audit](audits/2026-10-29-phase0-update-baseline-e79e87b.md))
 
-**Acceptance:** a source-linked flow map, a component/artifact matrix, a UI/i18n conventions map, and an explicit list of open questions. No code changes are required for this phase.
+**Acceptance:** a source-linked flow map, a component/artifact matrix, a UI/i18n conventions map, and an explicit list of open questions. No code changes are required for this phase. **Met 2026-10-29.**
 
 ### Phase 1 — component identity and update contract
 
