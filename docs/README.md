@@ -10,6 +10,8 @@
 | [REVIEW-SUITE.md](REVIEW-SUITE.md) | [ru/REVIEW-SUITE.md](ru/REVIEW-SUITE.md) | Full review suite (tests, UI, i18n, docs) |
 | [REVIEW-PLAN-2026-10-19.md](REVIEW-PLAN-2026-10-19.md) | [ru/REVIEW-PLAN-2026-10-19.md](ru/REVIEW-PLAN-2026-10-19.md) | Review run plan with chunk checkboxes and follow-ups F1–F10 |
 | [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) | [ru/REVIEW-REPORT-2026-10-19.md](ru/REVIEW-REPORT-2026-10-19.md) | Review findings: security, quality, dead code, refactoring |
+| [UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md](UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md) | [ru/UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md](ru/UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md) | Unified component update plan with progress checklist |
+| [AUDIT-ARTIFACTS.md](AUDIT-ARTIFACTS.md) | [ru/AUDIT-ARTIFACTS.md](ru/AUDIT-ARTIFACTS.md) | Audit evidence, secret handling, and status rules |
 | [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | [ru/](ru/ARCHITECTURE-FREEZE.md) |
 | [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
 | [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |
@@ -33,3 +35,8 @@ Full set under `docs/` and `docs/ru/` — architecture, ports, security, backup,
 - [HOST-AUDIT.md](HOST-AUDIT.md) — hoster / listen audit
 - [PLAN-SERVICE-ACCESS-POLICY.md](PLAN-SERVICE-ACCESS-POLICY.md) — service access policies
 
+## Audit archive
+
+- [Audit artifact policy](AUDIT-ARTIFACTS.md)
+- [Reusable audit template](audits/TEMPLATE.md)
+- Store each substantive audit as a dated report under `docs/audits/` and its equivalent under `docs/ru/audits/`; link reports from the relevant plan and issue/PR.
