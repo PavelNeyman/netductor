@@ -2,7 +2,7 @@
 
 # Unified component update system — implementation plan
 
-**Status:** Phases 0–1 complete (2026-10-29); Phase 2+ open.  
+**Status:** Phases 0–1 complete; Phase 2 **in progress** (2026-10-29).  
 **Owner rule:** this document is the living checklist. Update it in the same pull request/commit as the implementation or audit it describes. Never check a box based on intention, code presence alone, or an unverified claim.
 
 ## Goal
@@ -48,9 +48,9 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 2 — secure update engine
 
-- [ ] Trace and review existing update paths, including Secondary self-update, `netductor update --component ...`, Edge `agentUpdate()`, release/join download paths, and version-file writes. Reconfirm all paths against current HEAD before changing them.
-- [ ] Resolve the target component and asset using trusted release metadata plus OS/architecture/ABI compatibility. Reject ambiguous or unsupported targets.
-- [ ] Verify downloaded bytes against a trusted checksum manifest; assess manifest authenticity/signature separately (a checksum fetched from the same untrusted source is not an independent trust boundary).
+- [x] Trace and review existing update paths, including Secondary self-update, `netductor update --component ...`, Edge `agentUpdate()`, release/join download paths, and version-file writes. Reconfirm all paths against current HEAD before changing them. ([audit](audits/2026-10-29-phase2-engine-primitives-357a09d.md))
+- [x] Resolve the target component and asset using trusted release metadata plus OS/architecture/ABI compatibility. Reject ambiguous or unsupported targets. (`ResolveReleaseAsset` / tests)
+- [x] Verify downloaded bytes against a trusted checksum manifest; assess manifest authenticity/signature separately (a checksum fetched from the same untrusted source is not an independent trust boundary). (existing DownloadNamedAsset + `TrustNoteSHA256SUMS`; independent signature still open)
 - [ ] Download to a temporary location; validate permissions, size, checksum and executable format before installation.
 - [ ] Preserve the previous known-good artifact and install atomically. Do not update a shared/global version marker before the target is confirmed healthy.
 - [ ] Restart only the intended component/service. A Secondary update must not accidentally update/restart Edge Agent; an Edge update must not restart the Secondary service.

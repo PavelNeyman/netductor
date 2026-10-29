@@ -12,6 +12,7 @@
 | [REVIEW-REPORT-2026-10-19.md](REVIEW-REPORT-2026-10-19.md) | [ru/REVIEW-REPORT-2026-10-19.md](ru/REVIEW-REPORT-2026-10-19.md) | Review findings: security, quality, dead code, refactoring |
 | [UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md](UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md) | [ru/UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md](ru/UPDATE-SYSTEM-IMPLEMENTATION-PLAN.md) | Unified component update plan with progress checklist |
 - [Update contract (Phase 1)](UPDATE-CONTRACT.md) · [RU](ru/UPDATE-CONTRACT.md)
+- [Work summary for review (2026-10-29)](reviews/2026-10-29-WORK-SUMMARY.md) · [RU](ru/reviews/2026-10-29-WORK-SUMMARY.md)
 | [AUDIT-ARTIFACTS.md](AUDIT-ARTIFACTS.md) | [ru/AUDIT-ARTIFACTS.md](ru/AUDIT-ARTIFACTS.md) | Audit evidence, secret handling, and status rules |
 | [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | [ru/](ru/ARCHITECTURE-FREEZE.md) |
 | [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
