@@ -2,7 +2,7 @@
 
 # Unified component update system — implementation plan
 
-**Status:** Phase 0 complete (2026-10-29); Phases 1+ open.  
+**Status:** Phases 0–1 complete (2026-10-29); Phase 2+ open.  
 **Owner rule:** this document is the living checklist. Update it in the same pull request/commit as the implementation or audit it describes. Never check a box based on intention, code presence alone, or an unverified claim.
 
 ## Goal
@@ -38,13 +38,13 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 1 — component identity and update contract
 
-- [ ] Define stable logical component IDs and instance identity. At minimum distinguish Primary node, Secondary node, and Edge Agent; include other components only when a supported update path is confirmed.
-- [ ] Define the canonical fields: component ID, instance/node ID and role, installed version, running version (when observable), build commit, desired/available version, architecture/ABI, update state, timestamps, health result, and failure reason.
-- [ ] Define state transitions, including unknown/unsupported, checking, available, downloading, verifying, installing, restarting, health-checking, succeeded, failed, rollback-in-progress, and rolled-back.
-- [ ] Define a shared backend contract for catalog/detail, update check, compatible versions, start operation, job status/history, and rollback where supported.
-- [ ] Specify authorization, idempotency, concurrency/locking, timeout, cancellation, and stale-job semantics.
+- [x] Define stable logical component IDs and instance identity. At minimum distinguish Primary node, Secondary node, and Edge Agent; include other components only when a supported update path is confirmed. ([UPDATE-CONTRACT.md](UPDATE-CONTRACT.md); `internal/update/contract.go`)
+- [x] Define the canonical fields: component ID, instance/node ID and role, installed version, running version (when observable), build commit, desired/available version, architecture/ABI, update state, timestamps, health result, and failure reason. ([UPDATE-CONTRACT.md](UPDATE-CONTRACT.md); `internal/update/contract.go`)
+- [x] Define state transitions, including unknown/unsupported, checking, available, downloading, verifying, installing, restarting, health-checking, succeeded, failed, rollback-in-progress, and rolled-back. ([UPDATE-CONTRACT.md](UPDATE-CONTRACT.md); `internal/update/contract.go`)
+- [x] Define a shared backend contract for catalog/detail, update check, compatible versions, start operation, job status/history, and rollback where supported. ([UPDATE-CONTRACT.md](UPDATE-CONTRACT.md); `internal/update/contract.go`)
+- [x] Specify authorization, idempotency, concurrency/locking, timeout, cancellation, and stale-job semantics. ([UPDATE-CONTRACT.md](UPDATE-CONTRACT.md); `internal/update/contract.go`)
 
-**Acceptance:** documented contract and state diagram; schema/transition tests; clients do not independently select release assets or implement their own update engine.
+**Acceptance:** documented contract and state diagram; schema/transition tests; clients do not independently select release assets or implement their own update engine. **Met 2026-10-29** (`go test ./internal/update`).
 
 ### Phase 2 — secure update engine
 
