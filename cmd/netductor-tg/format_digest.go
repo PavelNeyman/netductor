@@ -20,7 +20,7 @@ func formatFleetDigestHTML() string {
 		b.WriteString("📡 <b>Fleet health</b>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
+	b.WriteString("<tr><th>" + T("th_field") + "</th><th>" + T("th_value") + "</th></tr>" + nl)
 	b.WriteString(fmt.Sprintf("<tr><td>primary</td><td><code>%s</code></td></tr>"+nl, esc(d.PrimaryVersion)))
 	if bin, file, self := version.Detail(); (bin != "" && bin != d.PrimaryVersion) || (file != "" && file != d.PrimaryVersion) || (self != "" && self != d.PrimaryVersion) {
 		b.WriteString(fmt.Sprintf("<tr><td>ver dbg</td><td><code>bin=%s file=%s self=%s</code></td></tr>"+nl, esc(bin), esc(file), esc(self)))

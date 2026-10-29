@@ -1,3 +1,11 @@
+## 0.9.603
+
+Update Phase 7 (i18n):
+- UPDATE-I18N.md EN/RU — sources, stable tokens, checks
+- Web RU: upd_latest/note/jobs
+- TG ver_* keys + handlers use T()
+- scripts/check-update-i18n.sh
+
 ## 0.9.602
 
 Update Phase 6 (Web):

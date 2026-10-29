@@ -137,11 +137,7 @@ func formatVersionsHTML(force bool) string {
 	b.WriteString(fmt.Sprintf("<tr><td>github token</td><td>%s</td></tr>"+nl, tokS))
 	b.WriteString("</table>" + nl + nl)
 	b.WriteString(formatUpdateJobsSnippet(ru, nl))
-	if ru {
-		b.WriteString("<i>Apply — выбранные. Primary: stack schedule. Secondary: очередь. Desired ≠ running до health.</i>" + nl)
-	} else {
-		b.WriteString("<i>Apply — selected. Primary: stack schedule. Secondary: queue. Desired ≠ running until health.</i>" + nl)
-	}
+	b.WriteString("<i>" + T("ver_apply_hint") + "</i>" + nl)
 
 	// body buttons
 	b.WriteString(`<tg-button-row align="left">`)
@@ -174,7 +170,7 @@ func formatVersionsHTML(force bool) string {
 
 func formatUpdateJobsSnippet(ru bool, nl string) string {
 	var b strings.Builder
-	b.WriteString("<b>Job registry</b>" + nl)
+	b.WriteString("<b>" + T("ver_jobs") + "</b>" + nl)
 	b.WriteString("<table bordered striped compact>" + nl)
 	b.WriteString("<tr><th>comp</th><th>state</th><th>target</th><th>err</th></tr>" + nl)
 	anyJ := false
@@ -193,11 +189,7 @@ func formatUpdateJobsSnippet(ru bool, nl string) string {
 			esc(string(c)), esc(string(j.State)), esc(disp), esc(errMsg)))
 	}
 	if !anyJ {
-		if ru {
-			b.WriteString(`<tr><td colspan="4"><i>нет job</i></td></tr>` + nl)
-		} else {
-			b.WriteString(`<tr><td colspan="4"><i>no jobs</i></td></tr>` + nl)
-		}
+		b.WriteString(`<tr><td colspan="4"><i>` + T("ver_jobs_empty") + `</i></td></tr>` + nl)
 	}
 	b.WriteString("</table>" + nl + nl)
 	return b.String()
@@ -238,22 +230,14 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 	case data == "m:ver:apply":
 		pri, sec := verSelGet()
 		if !pri && !sec {
-			msg := "❌ nothing selected"
-			if ru {
-				msg = "❌ ничего не выбрано"
-			}
-			reply(token, chat, msgID, msg, versionsKeyboard())
+			reply(token, chat, msgID, "❌ "+T("ver_nothing"), versionsKeyboard())
 			return
 		}
 		if j, ok := ndupdate.DefaultHostRegistry.Get(ndupdate.ComponentNode, "local"); ok {
 			switch j.State {
 			case ndupdate.StateSucceeded, ndupdate.StateFailed, ndupdate.StateRolledBack, ndupdate.StateCancelled, ndupdate.StateIdle:
 			default:
-				msg := "❌ node job active: " + string(j.State)
-				if ru {
-					msg = "❌ job node активен: " + string(j.State)
-				}
-				reply(token, chat, msgID, msg, versionsKeyboard())
+				reply(token, chat, msgID, "❌ "+T("ver_job_active")+": "+string(j.State), versionsKeyboard())
 				return
 			}
 		}
@@ -262,10 +246,7 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 			reply(token, chat, msgID, "❌ "+esc(err.Error()), versionsKeyboard())
 			return
 		}
-		msg := "⬇️ Confirm apply <code>" + esc(tag) + "</code>?"
-		if ru {
-			msg = "⬇️ Подтвердить apply <code>" + esc(tag) + "</code>?"
-		}
+		msg := "⬇️ " + T("ver_confirm") + " <code>" + esc(tag) + "</code>?"
 		kb := map[string]any{"inline_keyboard": [][]map[string]any{
 			{btn("✅ "+tag, "m:ver:apply:go:"+tag, "primary")},
 			{btn("⬅️", "m:versions", ""), btn(T("main_menu"), "m:menu", "")},
@@ -274,12 +255,12 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 	case strings.HasPrefix(data, "m:ver:apply:go:"):
 		tag := strings.TrimPrefix(data, "m:ver:apply:go:")
 		if _, err := ndupdate.ValidReleaseTag(tag); err != nil {
-			reply(token, chat, msgID, "❌ bad tag", versionsKeyboard())
+			reply(token, chat, msgID, "❌ "+T("ver_bad_tag"), versionsKeyboard())
 			return
 		}
 		pri, sec := verSelGet()
 		if !pri && !sec {
-			reply(token, chat, msgID, "❌ nothing selected", versionsKeyboard())
+			reply(token, chat, msgID, "❌ "+T("ver_nothing"), versionsKeyboard())
 			return
 		}
 		var lines []string

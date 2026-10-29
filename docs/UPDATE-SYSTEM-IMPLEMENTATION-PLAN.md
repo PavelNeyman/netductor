@@ -104,12 +104,12 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 7 — bilingual UI and documentation
 
-- [ ] Identify the canonical localization source, supported languages, fallback behavior, and existing validation scripts before editing strings.
-- [ ] Localize all labels, cards, buttons, confirmations, warnings, status/progress, errors, empty states, hints, history and notifications.
-- [ ] Keep component IDs, binary names, versions, hashes, commits, and machine error codes stable; localize human-readable messages at the presentation boundary.
-- [ ] Return structured backend error codes and parameters rather than UI-language-specific backend strings.
-- [ ] Check placeholders, pluralization, long strings, Telegram limits, Web UI overflow, fallback language, and missing/unused keys.
-- [ ] Update every affected EN/RU documentation pair with the same meaning and operational detail.
+- [x] Identify the canonical localization source, supported languages, fallback behavior, and existing validation scripts before editing strings. ([UPDATE-I18N.md](UPDATE-I18N.md))
+- [x] Localize all labels, cards, buttons, confirmations, warnings, status/progress, errors, empty states, hints, history and notifications. (TG `ver_*`, Web `upd_*` EN/RU)
+- [x] Keep component IDs, binary names, versions, hashes, commits, and machine error codes stable; localize human-readable messages at the presentation boundary. (documented)
+- [x] Return structured backend error codes and parameters rather than UI-language-specific backend strings. (`FailureClass`, job state tokens)
+- [x] Check placeholders, pluralization, long strings, Telegram limits, Web UI overflow, fallback language, and missing/unused keys. (`scripts/check-update-i18n.sh`)
+- [x] Update every affected EN/RU documentation pair with the same meaning and operational detail. (UPDATE-* / VERSION / EDGE pairs)
 
 **Acceptance:** automated i18n checks pass; no missing keys or placeholder mismatches; EN/RU documentation and UI have semantic parity.
 

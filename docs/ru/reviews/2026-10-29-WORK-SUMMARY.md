@@ -28,7 +28,8 @@ bash scripts/check-update-asset-matrix.sh
 | 4 Edge identity | **готово** | `EDGE-AGENT-IDENTITY.md`, `edge_identity.go` |
 | 5 TG UI | **готово** | Versions: jobs, confirm apply |
 | 6 Web UI | **готово** | status.jobs, ApplyHost |
-| 7+ | открыто | |
+| 7 i18n | **готово** | UPDATE-I18N, ver_*/upd_* |
+| 8+ | открыто | |
 
 ## 4. Бесшовность
 

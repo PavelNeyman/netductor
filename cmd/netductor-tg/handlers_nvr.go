@@ -25,7 +25,7 @@ func nvrHubHTML() string {
 		b.WriteString("<i>📷 cameras · 📍 DHCP leases · ⚙️ config · 🗜 rotate · 📼 segments · ⚡ events · 👁 motion · 📡 go2rtc</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
+	b.WriteString("<tr><th>" + T("th_field") + "</th><th>" + T("th_value") + "</th></tr>" + nl)
 	b.WriteString(fmt.Sprintf("<tr><td>record</td><td>%v</td></tr>"+nl, cfg.RecordEnabled))
 	b.WriteString(fmt.Sprintf("<tr><td>path</td><td><code>%s</code></td></tr>"+nl, esc(cfg.Path)))
 	b.WriteString(fmt.Sprintf("<tr><td>retention</td><td>%dd · max %.0fGB</td></tr>"+nl, cfg.RetentionDays, cfg.MaxGB))
@@ -102,7 +102,7 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 			}
 			devices = append(devices, d)
 		}
-		b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>"+T("th_host")+"</th></tr>" + nl)
+		b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>" + T("th_host") + "</th></tr>" + nl)
 		for i, d := range devices {
 			if i >= 12 {
 				break

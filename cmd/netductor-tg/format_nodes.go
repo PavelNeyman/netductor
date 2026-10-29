@@ -109,7 +109,7 @@ func formatNodeCardHTML(c nodeCard) string {
 		b.WriteString("<i>📊 metrics · 📜 journal · ♻️ sing-box · ⬆ upgrade · 🔁 reboot</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
+	b.WriteString("<tr><th>" + T("th_field") + "</th><th>" + T("th_value") + "</th></tr>" + nl)
 	b.WriteString("<tr><td>role</td><td>" + esc(displayRole(role)) + "</td></tr>" + nl)
 	b.WriteString("<tr><td>id</td><td>" + esc(idShort) + "</td></tr>" + nl)
 	if c.IP != "" {
@@ -260,7 +260,7 @@ func formatCmdQueuedHTML(kind, nodeID, raw string) string {
 	var b strings.Builder
 	b.WriteString(title + nl + nl)
 	b.WriteString("<table bordered striped>" + nl)
-	b.WriteString("<tr><th>"+T("th_field")+"</th><th>"+T("th_value")+"</th></tr>" + nl)
+	b.WriteString("<tr><th>" + T("th_field") + "</th><th>" + T("th_value") + "</th></tr>" + nl)
 	b.WriteString("<tr><td>node</td><td>" + esc(host) + "</td></tr>" + nl)
 	b.WriteString("<tr><td>role</td><td>" + esc(displayRole(c.Role)) + "</td></tr>" + nl)
 	b.WriteString("<tr><td>status</td><td>queued</td></tr>" + nl)

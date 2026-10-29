@@ -466,7 +466,7 @@ func formatNodesListHTML() string {
 		b.WriteString("<i># open node card</i>" + nl)
 	}
 	b.WriteString("<table bordered striped compact>" + nl)
-	b.WriteString("<tr><th>#</th><th>"+T("th_host")+"</th><th>"+T("th_role")+"</th><th>"+T("th_ver")+"</th><th>"+T("th_status")+"</th></tr>" + nl)
+	b.WriteString("<tr><th>#</th><th>" + T("th_host") + "</th><th>" + T("th_role") + "</th><th>" + T("th_ver") + "</th><th>" + T("th_status") + "</th></tr>" + nl)
 	for i, r := range rows {
 		label := r.Host
 		if label == "" {
@@ -534,7 +534,7 @@ func formatNodesRenameHTML() string {
 		b.WriteString(T("nodes_empty"))
 		return b.String()
 	}
-	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>"+T("th_host")+"</th><th>"+T("th_role")+"</th></tr>" + nl)
+	b.WriteString("<table bordered striped compact>" + nl + "<tr><th>#</th><th>" + T("th_host") + "</th><th>" + T("th_role") + "</th></tr>" + nl)
 	for i, r := range rows {
 		if i >= 20 {
 			break
