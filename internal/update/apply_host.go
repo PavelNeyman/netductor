@@ -119,9 +119,17 @@ func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 	}
 
 	failHealth := func(msg error) (*UpdateJob, error) {
-		// Best-effort restore previous binary if we kept one.
 		if !o.SkipDownload {
-			_ = restorePrevBinary(dest, prevPath)
+			if _, e := os.Stat(prevPath); e == nil {
+				_, _ = mark(StateRollbackInProgress, "")
+				if rerr := restorePrevBinary(dest, prevPath); rerr != nil {
+					msg = ErrRollbackFailed(msg, rerr)
+					j, _ := mark(StateFailed, msg.Error())
+					return j, msg
+				}
+				j, _ := mark(StateRolledBack, msg.Error())
+				return j, msg
+			}
 		}
 		j, _ := mark(StateFailed, msg.Error())
 		return j, msg

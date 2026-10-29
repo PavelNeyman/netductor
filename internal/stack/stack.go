@@ -417,17 +417,36 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return fmt.Errorf("apply already in progress: %s", cur)
 	}
 	defer ClearApplyLock()
+	if _, err := ndupdate.BeginNodeApply(tag, ""); err != nil {
+		// Registry conflict is rare next to stack lock; surface it.
+		return fmt.Errorf("update job registry: %w", err)
+	}
+	applyOK := false
+	var applyFail error
+	defer func() {
+		if applyOK {
+			_, _ = ndupdate.FinishNodeApply(true, "")
+		} else {
+			msg := ""
+			if applyFail != nil {
+				msg = applyFail.Error()
+			}
+			_, _ = ndupdate.FinishNodeApply(false, msg)
+		}
+	}()
 	defer func() { _ = notify.FlushAlerts(true) }()
 	cur := verNorm(version.Running())
 	want := verNorm(tag)
 	if cur != "" && want != "" && verLess(want, cur) {
-		return fmt.Errorf("refuse downgrade: running %s > target %s (use manual binary replace if intentional)", cur, want)
+		applyFail = fmt.Errorf("refuse downgrade: running %s > target %s (use manual binary replace if intentional)", cur, want)
+		return applyFail
 	}
 	if os.Getenv("NETDUCTOR_STACK_SKIP_PREFLIGHT") != "1" {
 		pf := Preflight(tag)
 		fmt.Fprint(os.Stderr, FormatPreflight(pf))
 		if !pf.OK {
-			return fmt.Errorf("preflight failed for %s (set NETDUCTOR_STACK_SKIP_PREFLIGHT=1 to override)", tag)
+			applyFail = fmt.Errorf("preflight failed for %s (set NETDUCTOR_STACK_SKIP_PREFLIGHT=1 to override)", tag)
+			return applyFail
 		}
 	}
 	// Never keep attempt/ — old builds restored it on health fail and fought prev/ (121↔132 loops).
@@ -445,11 +464,13 @@ func ApplyOpts(tag string, noBackup bool) error {
 	notify.AlertOnce("stack:apply:"+tag, "⬆️ Stack apply <code>"+tag+"</code> started")
 	if err := ndupdate.DownloadReleaseAsset(tag, "node", "/usr/local/bin/netductor"); err != nil {
 		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (node): "+err.Error())
-		return fmt.Errorf("node: %w", err)
+		applyFail = fmt.Errorf("node: %w", err)
+		return applyFail
 	}
 	if err := ndupdate.DownloadReleaseAsset(tag, "tg", "/usr/local/bin/netductor-tg"); err != nil {
 		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg): "+err.Error())
-		return fmt.Errorf("tg: %w", err)
+		applyFail = fmt.Errorf("tg: %w", err)
+		return applyFail
 	}
 	ndupdate.WriteVERSION(tag)
 	saveCurrent(tag)
@@ -503,7 +524,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 		notify.AlertOnce("stack:health:"+tag, "⚠️ Stack apply <code>"+tag+"</code> health: "+strings.Join(failed, ", ")+" — binaries kept (no auto-downgrade; prev unchanged)")
 		_ = os.RemoveAll(attemptDir())
 		// Do NOT snapshotPrev on health fail — avoids marking a flaky apply as last-good.
-		return fmt.Errorf("apply health fail %v (binaries kept at %s)", failed, tag)
+		applyFail = fmt.Errorf("apply health fail %v (binaries kept at %s)", failed, tag)
+		return applyFail
 	}
 	// Secondary is NOT auto-upgraded — operator must enqueue upgrade explicitly.
 	msg := "✅ Stack apply ok <code>" + tag + "</code> (secondary: manual upgrade only)"
@@ -523,6 +545,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if rep := cleanup.Run(true); len(rep.Items) > 0 {
 		fmt.Fprintln(os.Stderr, "stack cleanup:", rep.FreedHuman, len(rep.Items), "item(s)")
 	}
+	applyOK = true
 	return nil
 }
 

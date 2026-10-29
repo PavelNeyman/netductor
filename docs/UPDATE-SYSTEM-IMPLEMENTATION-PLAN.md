@@ -55,8 +55,8 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 - [x] Preserve the previous known-good artifact and install atomically (`dest.prev` / `dest.new`). Do not update a shared/global version marker before the target is confirmed healthy. (`ApplyHostComponent`; `WriteVERSION` only after CLI success)
 - [x] Restart only the intended component/service. A Secondary update must not accidentally update/restart Edge Agent; an Edge update must not restart the Secondary service. (CLI maps unit per component; edge still separate agent_update)
 - [x] After restart, verify process health and the reported running version/commit. Match the response to the correct instance and operation/job. (`systemctl is-active` + `probeBinaryVersion` in ApplyHostComponent)
-- [ ] Implement safe failure handling for interrupted downloads, disk exhaustion, permission failures, bad checksums, failed restart/health checks, duplicate requests, process interruption and rollback failure.
-- [ ] Ensure recovery after the updater itself is interrupted; document when automatic rollback is safe and when operator intervention is required.
+- [x] Implement safe failure handling for interrupted downloads, disk exhaustion, permission failures, bad checksums, failed restart/health checks, duplicate requests, process interruption and rollback failure. (`ClassifyFailure`, restore `.prev`, JobRegistry conflict; tests in `failures_test.go`)
+- [x] Ensure recovery after the updater itself is interrupted; document when automatic rollback is safe and when operator intervention is required. ([UPDATE-RECOVERY.md](UPDATE-RECOVERY.md))
 
 **Acceptance:** unit/integration tests cover the failure matrix; successful completion means verified target version is actually running, not merely that a file was downloaded or replaced.
 

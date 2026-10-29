@@ -1,3 +1,11 @@
+## 0.9.598
+
+Update Phase 2 complete (engine core):
+- Failure classification + matrix tests
+- Health fail → rollback_in_progress / restore `.prev` / rolled_back
+- Node stack.Apply registers JobRegistry (BeginNodeApply / FinishNodeApply)
+- docs/UPDATE-RECOVERY.md — when auto-rollback vs operator
+
 ## 0.9.597
 
 Update Phase 2:
