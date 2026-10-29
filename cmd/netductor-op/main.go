@@ -50,6 +50,8 @@ func main() {
 		runOpUpdate(os.Args[2:])
 	case "vps-check", "vpscheck":
 		runVPSCheckOp(os.Args[2:])
+	case "ssh-trust", "ssh-hosts-trust":
+		os.Exit(runSSHTrust(os.Args[2:]))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown: %s (operator binary — see netductor-op help)\n", os.Args[1])
 		os.Exit(1)
@@ -68,6 +70,8 @@ func printOpHelp() {
   release list-local|tags|mirror-fetch|build <tag>
   update [--version X] [--skip-verify]   self-update from GitHub Release
   vps-check --host IP --password PASS [--profile secondary|primary]
+  ssh-trust <host> [--port 52222] --show
+  ssh-trust <host> [--port 52222] --fingerprint SHA256:…
   version | help
 
 The VPS runs a separate binary: netductor (release asset netductor-linux-*).

@@ -503,6 +503,12 @@ func safeStageErr(stage, op string, err error) error {
 			class = "timeout"
 		case strings.Contains(s, "connection refused"):
 			class = "connection_refused"
+		case strings.Contains(s, "host key pin required") || strings.Contains(s, "tofu missing") || strings.Contains(s, "no tofu pin"):
+			class = "hostkey_pin_missing"
+		case strings.Contains(s, "pin lost") || strings.Contains(s, "tofu pin lost"):
+			class = "hostkey_pin_lost"
+		case strings.Contains(s, "host key mismatch") || strings.Contains(s, "remote host identification"):
+			class = "hostkey_mismatch"
 		case strings.Contains(s, "permission denied") || strings.Contains(s, "publickey"):
 			class = "auth"
 		case strings.Contains(s, "no such file"):

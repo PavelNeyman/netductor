@@ -74,8 +74,53 @@ func runSSHHosts(args []string) {
 			_ = secondary.ClearSSHHosts()
 		}
 		fmt.Println("ok: cleared", kind)
+	case "show", "probe":
+		if len(rest) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts show <host> [--port 52222]")
+			os.Exit(2)
+		}
+		host, port := rest[1], "52222"
+		for i := 2; i < len(rest); i++ {
+			if rest[i] == "--port" && i+1 < len(rest) {
+				port = rest[i+1]
+				i++
+			}
+		}
+		key, err := secondary.ProbeHostKey(host, port)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("host=%s port=%s fingerprint=%s\n", host, port, secondary.FingerprintSHA256(key))
+	case "trust":
+		if len(rest) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts trust <host> [--port 52222] --fingerprint SHA256:…")
+			os.Exit(2)
+		}
+		host, port, fp := rest[1], "52222", ""
+		for i := 2; i < len(rest); i++ {
+			if rest[i] == "--port" && i+1 < len(rest) {
+				port = rest[i+1]
+				i++
+				continue
+			}
+			if rest[i] == "--fingerprint" && i+1 < len(rest) {
+				fp = rest[i+1]
+				i++
+			}
+		}
+		if fp == "" {
+			fmt.Fprintln(os.Stderr, "refuse: --fingerprint required")
+			os.Exit(2)
+		}
+		key, err := secondary.TrustHostKeyIfFingerprintMatch(host, port, fp)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("ok: trusted %s fingerprint=%s\n", host, secondary.FingerprintSHA256(key))
 	default:
-		fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts list|forget|clear [--kind mt|secondary]")
+		fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts list|show|trust|forget|clear [--kind mt|secondary]")
 		os.Exit(2)
 	}
 }

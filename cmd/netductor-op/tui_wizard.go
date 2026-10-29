@@ -75,7 +75,7 @@ func wizTargetEntries(lang tuiLang) []menuEntry {
 		{"secondary", "Secondary VPS", "RU entry", "RU VPS: from Mac — prepare-pack on primary, SSH to secondary (pubkey, agent, sing-box). Password first login only."},
 		{"build", "Build-host VPS", "CI server", "Dedicated CI VPS: from Mac (op) — SSH, harden, agent ROLE=build, PB/BP tunnels to primary. Not a VPN exit."},
 		{"vpscheck", "VPS pre-check", "Scorecard", "Прогон IP/CPU/iperf/HTTP до покупки или смены VPS (без deploy)."},
-			{"vpscheck", "VPS pre-check", "Scorecard", "IP/CPU/iperf/HTTP scorecard before buy or switch (no deploy)."},
+		{"vpscheck", "VPS pre-check", "Scorecard", "IP/CPU/iperf/HTTP scorecard before buy or switch (no deploy)."},
 		{"openwrt", "OpenWrt / RPi", "Edge agent", "From Mac over LAN: edge provision (agent binary + bootstrap). Enroll with backoff, approve on primary."},
 		{"mikrotik", "MikroTik", "ROS site", "MikroTik site (+ optional RPi OpenWrt): identity, routes, script push via SSH TOFU."},
 		{"luci", "LuCI on router", "LAN SSH", "Enable/disable LuCI via SSH on LAN or agent. Default TTL 1h."},

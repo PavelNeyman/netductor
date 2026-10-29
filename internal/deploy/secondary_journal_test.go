@@ -463,3 +463,14 @@ func TestResumeAfterMaterialPreparedWithoutBootstrap(t *testing.T) {
 		t.Fatal("after bootstrap ok, skip must work for same sha")
 	}
 }
+
+func TestSafeStageErrHostKeyClasses(t *testing.T) {
+	err := safeStageErr("prepare-pack", "ssh", fmt.Errorf("SSH host key pin required for 1.2.3.4:52222 (key-only) but TOFU missing"))
+	if !strings.Contains(err.Error(), "hostkey_pin_missing") {
+		t.Fatal(err)
+	}
+	err = safeStageErr("prepare-pack", "ssh", fmt.Errorf("TOFU pin lost for previously known host"))
+	if !strings.Contains(err.Error(), "hostkey_pin_lost") {
+		t.Fatal(err)
+	}
+}

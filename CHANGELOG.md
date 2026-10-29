@@ -1,3 +1,13 @@
+## 0.9.604
+
+SSH host-key trust bootstrap (operator Mac):
+- Root cause: key-only deploy SSH requires ~/.netductor TOFU pin; manual OpenSSH does not create it
+- secondary.TrustHostKey / ProbeHostKey / TrustHostKeyIfFingerprintMatch
+- netductor-op ssh-trust; netductor ssh-hosts show|trust
+- prepare-pack preflight hostkey_pin_missing with operator hint
+- safeStageErr classes: hostkey_pin_missing|lost|mismatch
+- docs/SSH-HOST-TRUST.md
+
 ## 0.9.603
 
 Update Phase 7 (i18n):

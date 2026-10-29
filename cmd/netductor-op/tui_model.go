@@ -308,7 +308,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		} else {
 			m.output = m.runNetductor("status")
 			m.screen = screenOutput
-		m.outOffset = 0
+			m.outOffset = 0
 		}
 	case "mtls-list":
 		m.showCmd("mtls", "list")
@@ -320,7 +320,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		} else {
 			m.output = m.runNetductor("doctor")
 			m.screen = screenOutput
-		m.outOffset = 0
+			m.outOffset = 0
 		}
 	case "vpn-list":
 		m.showCmd("vpn", "list")
@@ -344,7 +344,7 @@ func (m model) handleAction(id string) (tea.Model, tea.Cmd) {
 		} else {
 			m.output = m.runNetductor("probe")
 			m.screen = screenOutput
-		m.outOffset = 0
+			m.outOffset = 0
 		}
 	case "nvr-status":
 		m.showCmd("nvr", "status")
