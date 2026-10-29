@@ -42,3 +42,6 @@ Full set under `docs/` and `docs/ru/` — architecture, ports, security, backup,
 - [Audit artifact policy](AUDIT-ARTIFACTS.md)
 - [Reusable audit template](audits/TEMPLATE.md)
 - Store each substantive audit as a dated report under `docs/audits/` and its equivalent under `docs/ru/audits/`; link reports from the relevant plan and issue/PR.
+
+- [Version semantics](VERSION-SEMANTICS.md)
+- [Update recovery](UPDATE-RECOVERY.md)

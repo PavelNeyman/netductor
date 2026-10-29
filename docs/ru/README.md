@@ -23,3 +23,6 @@
 - [Правила хранения артефактов аудита](AUDIT-ARTIFACTS.md)
 - [Шаблон отчёта аудита](audits/TEMPLATE.md)
 - Каждый существенный аудит сохраняется в виде датированного файла в `docs/audits/` и эквивалентного отчёта в `docs/ru/audits/`; ссылки добавляются в соответствующий план и issue/PR.
+
+- [Version semantics](VERSION-SEMANTICS.md)
+- [Update recovery](UPDATE-RECOVERY.md)

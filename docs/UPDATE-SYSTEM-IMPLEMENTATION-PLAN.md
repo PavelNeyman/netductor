@@ -62,11 +62,11 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 3 — release and version consistency
 
-- [ ] Define and document the distinction between product release version, component version, build commit, desired version, installed version, and running version.
-- [ ] Ensure release builds inject version/commit metadata consistently and every artifact identifies its component and target platform.
-- [ ] Validate asset naming, architecture/ABI metadata, checksums, release manifest, and publication workflow.
-- [ ] Add CI checks for required artifacts, duplicate/ambiguous assets, missing checksums, inconsistent version/commit metadata, and unsupported component/platform combinations.
-- [ ] Ensure user-facing output does not report an intended version as running before a post-restart health check confirms it.
+- [x] Define and document the distinction between product release version, component version, build commit, desired version, installed version, and running version. ([VERSION-SEMANTICS.md](VERSION-SEMANTICS.md))
+- [x] Ensure release builds inject version/commit metadata consistently and every artifact identifies its component and target platform. (`version.Release` / `version.Commit` ldflags; `AssetName`)
+- [x] Validate asset naming, architecture/ABI metadata, checksums, release manifest, and publication workflow. (`RequiredLinuxNodeAssets`, `ValidateSUMSCoverRequired`, `verify-release-binaries.sh`)
+- [x] Add CI checks for required artifacts, duplicate/ambiguous assets, missing checksums, inconsistent version/commit metadata, and unsupported component/platform combinations. (`scripts/check-versions.sh`, `scripts/check-update-asset-matrix.sh`, unit tests)
+- [x] Ensure user-facing output does not report an intended version as running before a post-restart health check confirms it. (`UserFacingVersionLabel`; VERSION-SEMANTICS rules)
 
 **Acceptance:** CI verifies the release manifest and asset matrix; version display semantics are documented and tested.
 

@@ -1,3 +1,12 @@
+## 0.9.599
+
+Update Phase 3:
+- VERSION-SEMANTICS (desired vs running)
+- version.Commit ldflag hook
+- RequiredLinuxNodeAssets / SUMS cover / UserFacingVersionLabel
+- scripts/check-update-asset-matrix.sh
+- WORK-SUMMARY EN/RU refreshed for reviewers
+
 ## 0.9.598
 
 Update Phase 2 complete (engine core):
