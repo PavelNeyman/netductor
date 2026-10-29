@@ -22,7 +22,7 @@ ec1eebe  Phase 2 failure matrix + node job + recovery (0.9.598)
 66411c6  Phase 3 version semantics + asset matrix + UI label (0.9.599)
 56f69f1  Phase 4 Edge identity (0.9.600)
 d5d3ec4  Phase 5 TG Versions jobs+confirm (0.9.601)
-b7b5b2e  Phase 6 Web jobs+ApplyHost (0.9.602)
+aebeea6  Phase 6 Web jobs+ApplyHost (0.9.602)
 ```
 
 ```bash
