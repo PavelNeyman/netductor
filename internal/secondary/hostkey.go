@@ -237,7 +237,7 @@ func ClearSSHHosts() error {
 	return saveSeenHosts(map[string]bool{})
 }
 
-func provisionHostKey(host string) ssh.HostKeyCallback {
+func provisionHostKey(host string, port int) ssh.HostKeyCallback {
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		pkhMu.Lock()
 		defer pkhMu.Unlock()
@@ -246,23 +246,32 @@ func provisionHostKey(host string) ssh.HostKeyCallback {
 			return err
 		}
 		got := base64.StdEncoding.EncodeToString(key.Marshal())
-		id := host
+		portStr := "22"
+		if port > 0 {
+			portStr = fmt.Sprintf("%d", port)
+		}
+		host = normalizeHost(host)
+		id := endpointID(host, portStr)
 		if err := ensureSeenMigratedFromPins(f); err != nil {
 			return err
 		}
-		if prev, ok := f[id]; ok {
+		if prevID, prev, ok := lookupPin(f, host, portStr); ok {
 			if prev != got {
-				return fmt.Errorf("SSH host key changed for %s — forget via: netductor ssh-hosts forget --kind relay %s", id, id)
+				return fmt.Errorf("SSH host key changed for %s — forget via: netductor ssh-hosts forget --kind relay %s", prevID, prevID)
 			}
-			// Pin exists and matches: ensure seen marker (upgrade path / partial write recovery).
+			if prevID != id {
+				f[id] = got
+				if err := saveRelayKH(f); err != nil {
+					return err
+				}
+			}
 			return markHostSeen(id)
 		}
-		// No pin: if host was previously trusted (seen), refuse re-TOFU — same policy as OpenSSHKnownHostsLine.
 		seen, err := loadSeenHosts()
 		if err != nil {
 			return err
 		}
-		if seen[id] {
+		if seen[id] || (seen[host] && !hasAnyPortAwarePin(f, host)) {
 			return fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision", ErrPinLost, id, id)
 		}
 		f[id] = got
@@ -278,9 +287,9 @@ func provisionHostKey(host string) ssh.HostKeyCallback {
 func OpenSSHKnownHostsLine(host, port string) (string, error) {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()
-	host = strings.TrimSpace(host)
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		host = h
+	host = normalizeHost(host)
+	if strings.TrimSpace(port) == "" {
+		port = "22"
 	}
 	f, err := loadRelayKH()
 	if err != nil {
@@ -289,18 +298,19 @@ func OpenSSHKnownHostsLine(host, port string) (string, error) {
 	if err := ensureSeenMigratedFromPins(f); err != nil {
 		return "", err
 	}
-	b64, ok := f[host]
+	id, b64, ok := lookupPin(f, host, port)
 	if !ok || b64 == "" {
 		seen, err := loadSeenHosts()
 		if err != nil {
 			return "", err
 		}
-		if seen[host] {
-			return "", fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision (explicit first contact)", ErrPinLost, host, host)
+		if seenEndpoint(seen, host, port) {
+			return "", fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision (explicit first contact)", ErrPinLost, id, id)
 		}
-		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first", host)
+		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first", id)
 	}
 	// Pin present: keep seen in sync (idempotent).
+	_ = markHostSeen(id)
 	if err := markHostSeen(host); err != nil {
 		return "", err
 	}

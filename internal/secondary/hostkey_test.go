@@ -118,7 +118,7 @@ func TestProvisionHostKeyRejectsChange(t *testing.T) {
 	if err := os.WriteFile(relayKnownPath(), append(raw, 10), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cb := provisionHostKey("203.0.113.52")
+	cb := provisionHostKey("203.0.113.52", 22)
 	pk2 := testSigner(t)
 	if err := cb("203.0.113.52", nil, pk2); err == nil {
 		t.Fatal("want host key change rejection")
@@ -232,7 +232,7 @@ func TestMatchingPinRestoresSeen(t *testing.T) {
 	_ = os.WriteFile(relayKnownPath(), append(raw, 10), 0o600)
 	// empty seen
 	_ = os.WriteFile(relaySeenPath(), []byte("[]\n"), 0o600)
-	cb := provisionHostKey("203.0.113.72")
+	cb := provisionHostKey("203.0.113.72", 22)
 	if err := cb("203.0.113.72", nil, pk); err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +264,7 @@ func TestProvisionHostKeyPinLostRefusesNewKey(t *testing.T) {
 	if err := os.WriteFile(relayKnownPath(), []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cb := provisionHostKey("203.0.113.73")
+	cb := provisionHostKey("203.0.113.73", 22)
 	if err := cb("203.0.113.73", nil, pkNew); err == nil || !errors.Is(err, ErrPinLost) {
 		t.Fatalf("want ErrPinLost, got %v", err)
 	}

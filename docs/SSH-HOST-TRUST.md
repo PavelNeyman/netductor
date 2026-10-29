@@ -34,3 +34,8 @@ netductor ssh-hosts trust 2.27.118.70 --port 52222 --fingerprint 'SHA256:…'
 - Trust requires explicit `--fingerprint` match.
 - Existing pin is never replaced with a different key (forget only via documented recovery).
 - Pin lost after `seen` → refuse auto-accept (`ErrPinLost`).
+
+## Endpoint identity
+
+Pins are stored as `host|port` (e.g. `2.27.118.70|52222`). Legacy bare-host entries still resolve.
+Fingerprint comparison is **exact** (case-sensitive Base64). Different ports on the same IP are independent endpoints.

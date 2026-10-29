@@ -1,3 +1,12 @@
+## 0.9.605
+
+SSH trust review fixes (post-0d75d81):
+- Exact fingerprint compare (no EqualFold)
+- Port-aware TOFU ids host|port + legacy bare-host lookup
+- CheckTOFUPin: PinAbsent / PinPresent / PinLost; prepare-pack preflight
+- safeStageErr: Host key verification failed → hostkey_mismatch
+- Independent ports tests
+
 ## 0.9.604
 
 SSH host-key trust bootstrap (operator Mac):

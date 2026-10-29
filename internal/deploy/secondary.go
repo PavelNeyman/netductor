@@ -498,11 +498,16 @@ func deploySecondaryBody(o SecondaryOpts) error {
 			return err
 		}
 		fmt.Fprintln(os.Stderr, "==> 1/2 primary prepare-pack on", o.PrimaryHost, "port", pPort)
-		if ok, errPin := secondary.HasTOFUPin(o.PrimaryHost); errPin != nil {
+		switch st, errPin := secondary.CheckTOFUPin(o.PrimaryHost, pPort); {
+		case errPin != nil:
 			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf("prepare-pack: primary host-key store: %w", errPin))
-		} else if !ok {
+		case st == secondary.PinLost:
 			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf(
-				"prepare-pack: hostkey_pin_missing for primary %s:%s — trust first: netductor-op ssh-trust %s --port %s --show  then  --fingerprint SHA256:… (from VPS console / known good)",
+				"prepare-pack: hostkey_pin_lost for primary %s:%s — pin was known but missing; recovery: netductor-op ssh-trust after documented forget, not auto-accept",
+				o.PrimaryHost, pPort))
+		case st == secondary.PinAbsent:
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, fmt.Errorf(
+				"prepare-pack: hostkey_pin_missing for primary %s:%s — trust first: netductor-op ssh-trust %s --port %s --show then --fingerprint SHA256:… (VPS console)",
 				o.PrimaryHost, pPort, o.PrimaryHost, pPort))
 		}
 

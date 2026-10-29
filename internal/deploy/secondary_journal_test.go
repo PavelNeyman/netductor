@@ -474,3 +474,10 @@ func TestSafeStageErrHostKeyClasses(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSafeStageErrOpenSSHHostKeyVerificationFailed(t *testing.T) {
+	err := safeStageErr("prepare-pack", "ssh", fmt.Errorf("Host key verification failed."))
+	if !strings.Contains(err.Error(), "hostkey_mismatch") {
+		t.Fatal(err)
+	}
+}

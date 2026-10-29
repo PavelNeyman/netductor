@@ -507,7 +507,7 @@ func safeStageErr(stage, op string, err error) error {
 			class = "hostkey_pin_missing"
 		case strings.Contains(s, "pin lost") || strings.Contains(s, "tofu pin lost"):
 			class = "hostkey_pin_lost"
-		case strings.Contains(s, "host key mismatch") || strings.Contains(s, "remote host identification"):
+		case strings.Contains(s, "host key mismatch") || strings.Contains(s, "remote host identification") || strings.Contains(s, "host key verification failed"):
 			class = "hostkey_mismatch"
 		case strings.Contains(s, "permission denied") || strings.Contains(s, "publickey"):
 			class = "auth"

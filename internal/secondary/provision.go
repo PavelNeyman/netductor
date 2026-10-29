@@ -109,7 +109,7 @@ func sshClient(in ProvisionIn) (*ssh.Client, error) {
 	cfg := &ssh.ClientConfig{
 		User:            in.User,
 		Auth:            methods,
-		HostKeyCallback: provisionHostKey(in.Host),
+		HostKeyCallback: provisionHostKey(in.Host, in.Port),
 		Timeout:         30 * time.Second,
 	}
 	addr := net.JoinHostPort(in.Host, fmt.Sprintf("%d", in.Port))
