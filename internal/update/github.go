@@ -589,11 +589,11 @@ func AgentUpdateArg(tag, goarch string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	goarch = strings.TrimSpace(goarch)
-	if goarch == "" || goarch == "auto" {
-		return "", fmt.Errorf("agent arch required (wait for heartbeat with arch=)")
+	norm, nerr := NormalizeEdgeGOARCH(goarch)
+	if nerr != nil {
+		return "", nerr
 	}
-	name := AgentAssetName(goarch)
+	name := AgentAssetName(norm)
 	sums, err := FetchSHA256SUMS(tag)
 	if err != nil {
 		return "", err

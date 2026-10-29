@@ -1,3 +1,11 @@
+## 0.9.600
+
+Update Phase 4 (Edge Agent identity):
+- EDGE-AGENT-IDENTITY.md — keep binary/paths; logical ID agent
+- NormalizeEdgeGOARCH (refuse mips BE / armv6 auto)
+- AgentUpdateArg uses normalized arch
+- WORK-SUMMARY EN/RU updated
+
 ## 0.9.599
 
 Update Phase 3:

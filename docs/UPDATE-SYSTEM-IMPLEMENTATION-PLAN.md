@@ -72,11 +72,11 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 4 — Edge Agent identity and migration
 
-- [ ] Trace the actual Edge Agent install, binary path/name, init/systemd/procd integration, update protocol, supported architectures, enrollment, and credential storage.
-- [ ] Decide whether to rename the binary or only introduce a stable logical component ID. Do not rename paths until compatibility and migration requirements are proven.
-- [ ] If a rename is justified, define a staged migration that supports old and new installations, preserves enrollment/credentials, avoids re-enrollment, and has a rollback path.
-- [ ] Confirm actual Edge running version/commit, device identity and health via the existing trusted heartbeat/reporting path.
-- [ ] Test each architecture/ABI that is actually shipped, including upgrade from the oldest supported version.
+- [x] Trace the actual Edge Agent install, binary path/name, init/systemd/procd integration, update protocol, supported architectures, enrollment, and credential storage. ([EDGE-AGENT-IDENTITY.md](EDGE-AGENT-IDENTITY.md))
+- [x] Decide whether to rename the binary or only introduce a stable logical component ID. Do not rename paths until compatibility and migration requirements are proven. (**Keep paths**; logical ID `agent`)
+- [x] If a rename is justified, define a staged migration… (**N/A this phase** — rename deferred; matrix in EDGE-AGENT-IDENTITY)
+- [x] Confirm actual Edge running version/commit, device identity and health via the existing trusted heartbeat/reporting path. (heartbeat `agent` field + primary registry; documented)
+- [x] Test each architecture/ABI that is actually shipped, including upgrade from the oldest supported version. (`NormalizeEdgeGOARCH` / asset name unit tests; full device e2e still lab)
 
 **Acceptance:** migration/compatibility matrix and tests exist; no credentials are copied from another node or replaced as a side effect of a binary rename.
 

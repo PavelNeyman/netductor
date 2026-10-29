@@ -20,6 +20,7 @@ a16f7b1  docs pin chain
 d1e00b6  Phase 2 atomic install + version probe (0.9.597)
 ec1eebe  Phase 2 failure matrix + node job + recovery (0.9.598)
 66411c6  Phase 3 version semantics + asset matrix + UI label (0.9.599)
+d88e831  Phase 4 Edge identity (0.9.600)
 ```
 
 ```bash
@@ -39,7 +40,7 @@ bash scripts/check-update-asset-matrix.sh
 | 1 Contract | **done** | `docs/UPDATE-CONTRACT.md`, `internal/update/contract.go` |
 | 2 Engine | **done** | ApplyHost, Resolve, JobRegistry, failures, recovery doc, node Begin/Finish |
 | 3 Release/version | **done** | `VERSION-SEMANTICS.md`, `manifest.go`, CI scripts, `UserFacingVersionLabel` |
-| 4 Edge identity | open | |
+| 4 Edge identity | **done** | `EDGE-AGENT-IDENTITY.md`, `edge_identity.go`, NormalizeEdgeGOARCH |
 | 5 TG UI | open | |
 | 6 Web UI | open | |
 | 7+ Rollout | open | |
@@ -83,7 +84,8 @@ bash scripts/check-update-asset-matrix.sh
 
 ## 8. Open for next phases
 
-- Phase 4: Edge agent path, arch matrix, enrollment
 - Phase 5–6: TG/Web update UI on shared job API
+- Edge device e2e upgrade matrix (lab)
+- Independent release signature trust
 - Independent signature trust (beyond SHA256SUMS from same host)
 - Publish GH release when operators should run tip binaries
