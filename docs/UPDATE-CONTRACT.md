@@ -134,3 +134,11 @@ Covers: ValidComponent, AssetName matrix, happy-path transitions, illegal transi
 - Signed provenance (R-05).
 - Renaming edge binary on disk (Phase 4).
 - Automatic fleet-wide bulk update.
+
+## Seamlessness (ops)
+
+- **CLI flags:** may change when the engine requires it; updates must still apply cleanly on hosts that last ran an older CLI (document breaking flags in CHANGELOG).
+- **Config:** migrate when development changes on-disk formats; do not assume "no migration" forever.
+- **UI:** do not break existing TG/Web surfaces; **add** UI when new update features ship (catalog/job status), using existing templates and i18n.
+- **Engine under the hood:** tg/agent host apply uses Resolve + JobRegistry + atomic install + health; node remains `stack.Apply` until Phase 2 wiring completes.
+

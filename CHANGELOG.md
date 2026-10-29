@@ -1,3 +1,10 @@
+## 0.9.597
+
+Update Phase 2:
+- Atomic host binary install (`.new` / `.prev`) + restore on health failure
+- Version string probe after restart (`<bin> version`)
+- Seamlessness notes: CLI may evolve; config migrate when needed; UI extend for new features
+
 ## 0.9.596
 
 Release matrix: operator is **macOS-only**.

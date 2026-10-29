@@ -157,19 +157,19 @@ func AssetName(comp ComponentID, p Platform) string {
 
 // ComponentInstance is the catalog row for one installed target.
 type ComponentInstance struct {
-	Component       ComponentID `json:"component"`
-	InstanceID      InstanceID  `json:"instance_id"`
-	Role            Role        `json:"role"`
-	Platform        Platform    `json:"platform"`
-	InstalledVersion string     `json:"installed_version,omitempty"` // version file / package metadata
-	RunningVersion  string      `json:"running_version,omitempty"`   // observed from process when known
-	BuildCommit     string      `json:"build_commit,omitempty"`
-	DesiredVersion  string      `json:"desired_version,omitempty"`
-	AvailableVersion string     `json:"available_version,omitempty"`
-	State           JobState    `json:"state"`
-	HealthOK        *bool       `json:"health_ok,omitempty"`
-	LastError       string      `json:"last_error,omitempty"`
-	UpdatedAtUnix   int64       `json:"updated_at_unix,omitempty"`
+	Component        ComponentID `json:"component"`
+	InstanceID       InstanceID  `json:"instance_id"`
+	Role             Role        `json:"role"`
+	Platform         Platform    `json:"platform"`
+	InstalledVersion string      `json:"installed_version,omitempty"` // version file / package metadata
+	RunningVersion   string      `json:"running_version,omitempty"`   // observed from process when known
+	BuildCommit      string      `json:"build_commit,omitempty"`
+	DesiredVersion   string      `json:"desired_version,omitempty"`
+	AvailableVersion string      `json:"available_version,omitempty"`
+	State            JobState    `json:"state"`
+	HealthOK         *bool       `json:"health_ok,omitempty"`
+	LastError        string      `json:"last_error,omitempty"`
+	UpdatedAtUnix    int64       `json:"updated_at_unix,omitempty"`
 }
 
 // UpdateJob is one operation against a ComponentInstance.

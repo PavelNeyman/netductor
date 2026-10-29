@@ -58,3 +58,11 @@ CLI — локальный оператор; HTTP — session; TG — allowlist 
 ## 9. Вне этапа 1
 
 HTTP catalog handlers, подпись манифеста, rename edge binary, bulk fleet update.
+
+## Бесшовность (ops)
+
+- **CLI flags:** могут меняться, если этого требует engine; updates must still apply cleanly on hosts that last ran an older CLI (document breaking flags in CHANGELOG).
+- **Config:** migrate when development changes on-disk formats; do not assume "no migration" forever.
+- **UI:** do not break existing TG/Web surfaces; **add** UI when new update features ship (catalog/job status), using existing templates and i18n.
+- **Engine under the hood:** tg/agent host apply uses Resolve + JobRegistry + atomic install + health; node remains `stack.Apply` until Phase 2 wiring completes.
+

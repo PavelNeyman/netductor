@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -18,6 +19,8 @@ type HostApplyOpts struct {
 	Restart        bool
 	IdempotencyKey string
 	JobID          string
+	// RequireVersionProbe when true (default for Restart) checks binary "version" output contains target.
+	SkipVersionProbe bool
 	// SkipDownload is for tests.
 	SkipDownload bool
 	// AfterDownload optional hook (tests).
@@ -27,7 +30,7 @@ type HostApplyOpts struct {
 // DefaultHostRegistry is process-local; CLI uses it to prevent concurrent host applies.
 var DefaultHostRegistry = NewJobRegistry()
 
-// ApplyHostComponent runs download → verify (inside DownloadReleaseAsset) → optional restart → health.
+// ApplyHostComponent runs resolve → download to .new → keep .prev → atomic rename → optional restart → health.
 // States follow the Phase 1 machine. Does not write VERSION for multi-binary stacks (caller may WriteVERSION).
 func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 	if o.InstanceID == "" {
@@ -45,7 +48,6 @@ func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 	}
 	res, err := ResolveReleaseAsset(o.Component, PlatformFromRuntime(), tag)
 	if err != nil {
-		// Allow offline tests to inject AfterDownload without network when SkipDownload.
 		if !o.SkipDownload {
 			return nil, err
 		}
@@ -71,8 +73,19 @@ func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 	if _, err := mark(StateDownloading, ""); err != nil {
 		return cur, err
 	}
+
+	dest := o.DestPath
+	newPath := dest + ".new"
+	prevPath := dest + ".prev"
+
 	if !o.SkipDownload {
-		if err := DownloadNamedAsset(tag, res.Name, o.DestPath); err != nil {
+		if dest == "" {
+			j, _ := mark(StateFailed, "install: empty dest")
+			return j, fmt.Errorf("update: empty dest path")
+		}
+		_ = os.Remove(newPath)
+		if err := DownloadNamedAsset(tag, res.Name, newPath); err != nil {
+			_ = os.Remove(newPath)
 			j, _ := mark(StateFailed, err.Error())
 			return j, err
 		}
@@ -86,16 +99,34 @@ func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 	if _, err := mark(StateVerifying, ""); err != nil {
 		return cur, err
 	}
-	// DownloadNamedAsset already verified SHA when not skip-verify; treat presence of dest as install done.
 	if !o.SkipDownload {
-		if st, err := os.Stat(o.DestPath); err != nil || st.Size() == 0 {
-			j, _ := mark(StateFailed, "install: destination missing or empty")
-			return j, fmt.Errorf("update: destination missing or empty")
+		st, err := os.Stat(newPath)
+		if err != nil || st.Size() == 0 {
+			_ = os.Remove(newPath)
+			j, _ := mark(StateFailed, "install: downloaded file missing or empty")
+			return j, fmt.Errorf("update: downloaded file missing or empty")
 		}
 	}
 	if _, err := mark(StateInstalling, ""); err != nil {
 		return cur, err
 	}
+	if !o.SkipDownload {
+		if err := atomicReplaceBinary(dest, newPath, prevPath); err != nil {
+			_ = os.Remove(newPath)
+			j, _ := mark(StateFailed, err.Error())
+			return j, err
+		}
+	}
+
+	failHealth := func(msg error) (*UpdateJob, error) {
+		// Best-effort restore previous binary if we kept one.
+		if !o.SkipDownload {
+			_ = restorePrevBinary(dest, prevPath)
+		}
+		j, _ := mark(StateFailed, msg.Error())
+		return j, msg
+	}
+
 	if o.Restart && o.Unit != "" {
 		if _, err := mark(StateRestarting, ""); err != nil {
 			return cur, err
@@ -105,17 +136,76 @@ func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 			return cur, err
 		}
 		if err := healthUnitActive(o.Unit); err != nil {
-			j, _ := mark(StateFailed, err.Error())
-			return j, err
+			return failHealth(err)
+		}
+		if !o.SkipVersionProbe {
+			if err := probeBinaryVersion(dest, job.TargetVersion); err != nil {
+				return failHealth(err)
+			}
 		}
 	} else {
-		// No restart: still require file in place before succeeded.
 		if _, err := mark(StateHealthChecking, ""); err != nil {
 			return cur, err
+		}
+		if !o.SkipDownload && !o.SkipVersionProbe && dest != "" {
+			// File replaced but not restarted: still try version string when binary can run.
+			if err := probeBinaryVersion(dest, job.TargetVersion); err != nil {
+				// Soft: offline tests / non-exec environments — only fail when file was replaced and probe is required.
+				// Keep strict when Restart was requested; without restart, log-only soft fail is risky — fail closed if dest is executable path.
+				if st, e := os.Stat(dest); e == nil && st.Mode().IsRegular() && st.Mode()&0o111 != 0 {
+					return failHealth(err)
+				}
+			}
 		}
 	}
 	j, err := mark(StateSucceeded, "")
 	return j, err
+}
+
+// atomicReplaceBinary moves newPath into dest, keeping previous dest as prevPath when present.
+func atomicReplaceBinary(dest, newPath, prevPath string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return err
+	}
+	_ = os.Remove(prevPath)
+	if _, err := os.Stat(dest); err == nil {
+		if err := os.Rename(dest, prevPath); err != nil {
+			// Cross-device fallback
+			if err2 := copyFile(dest, prevPath); err2 != nil {
+				return fmt.Errorf("preserve previous binary: %w", err)
+			}
+			_ = os.Remove(dest)
+		}
+	}
+	if err := os.Rename(newPath, dest); err != nil {
+		if err2 := copyFile(newPath, dest); err2 != nil {
+			// try restore prev
+			_ = restorePrevBinary(dest, prevPath)
+			return fmt.Errorf("install binary: %w", err)
+		}
+		_ = os.Remove(newPath)
+	}
+	_ = os.Chmod(dest, 0o755)
+	return nil
+}
+
+func restorePrevBinary(dest, prevPath string) error {
+	if _, err := os.Stat(prevPath); err != nil {
+		return err
+	}
+	_ = os.Remove(dest)
+	if err := os.Rename(prevPath, dest); err != nil {
+		return copyFile(prevPath, dest)
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	b, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, b, 0o755)
 }
 
 func healthUnitActive(unit string) error {
@@ -125,4 +215,37 @@ func healthUnitActive(unit string) error {
 		return fmt.Errorf("health: unit %s is %q", unit, s)
 	}
 	return nil
+}
+
+// probeBinaryVersion runs "<path> version" and requires output to contain the target version string.
+func probeBinaryVersion(path, wantVer string) error {
+	wantVer = strings.TrimPrefix(strings.TrimSpace(wantVer), "v")
+	if path == "" || wantVer == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("health: binary missing: %w", err)
+	}
+	out, err := exec.Command(path, "version").CombinedOutput()
+	s := string(out)
+	if err != nil {
+		// try --version
+		out2, err2 := exec.Command(path, "--version").CombinedOutput()
+		if err2 != nil {
+			return fmt.Errorf("health: version probe failed: %v (%s)", err, truncateOut(s, 200))
+		}
+		s = string(out2)
+	}
+	if !strings.Contains(s, wantVer) {
+		return fmt.Errorf("health: running version does not contain %q (got %q)", wantVer, truncateOut(s, 120))
+	}
+	return nil
+}
+
+func truncateOut(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
