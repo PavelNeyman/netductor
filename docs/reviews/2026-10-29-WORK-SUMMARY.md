@@ -21,7 +21,7 @@ d1e00b6  Phase 2 atomic install + version probe (0.9.597)
 ec1eebe  Phase 2 failure matrix + node job + recovery (0.9.598)
 66411c6  Phase 3 version semantics + asset matrix + UI label (0.9.599)
 56f69f1  Phase 4 Edge identity (0.9.600)
-________  Phase 5 TG Versions jobs+confirm (0.9.601)
+d5d3ec4  Phase 5 TG Versions jobs+confirm (0.9.601)
 ```
 
 ```bash
