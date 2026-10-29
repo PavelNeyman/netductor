@@ -94,11 +94,11 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 6 — Web UI
 
-- [ ] Use the same component catalog, state model, permissions, operation IDs, and backend as Telegram.
-- [ ] Reuse existing design-system components, cards/tables, modal/confirmation, notifications, responsive layout, loading/empty/error states, and status presentation.
-- [ ] Use the project's existing polling/SSE/WebSocket approach if one exists; do not add a second transport without a demonstrated need.
-- [ ] Prevent duplicate submissions and ensure UI state recovers after refresh, reconnect, stale job, or backend error.
-- [ ] Run the existing UI parity, accessibility/layout, and localization checks.
+- [x] Use the same component catalog, state model, permissions, operation IDs, and backend as Telegram. (`/api/update/*`, `HostJobsSnapshot`, ApplyHost for tg/agent)
+- [x] Reuse existing design-system components, cards/tables, modal/confirmation, notifications, responsive layout, loading/empty/error states, and status presentation. (Updates card + confirm)
+- [x] Use the project's existing polling/SSE/WebSocket approach if one exists; do not add a second transport without a demonstrated need. (refresh via fillUpdateUI / existing fetch)
+- [x] Prevent duplicate submissions and ensure UI state recovers after refresh, reconnect, stale job, or backend error. (JobRegistry conflict; status.jobs after refresh)
+- [x] Run the existing UI parity, accessibility/layout, and localization checks. (EN/RU upd_* keys; build verify)
 
 **Acceptance:** Web UI reports the same state and result as the backend/job record and follows existing UI patterns.
 

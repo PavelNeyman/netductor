@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/stack"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
@@ -156,30 +154,26 @@ func registerUpdateAPI(mux *http.ServeMux) {
 			writeJSON(w, 200, map[string]any{"ok": true, "scheduled": true, "version": tag})
 			return
 		}
-		backupPath := ""
-		if !body.NoBackup {
-			if p, err := install.Backup(); err != nil {
-				backupPath = "error:" + err.Error()
-			} else {
-				backupPath = p
-				acked, pend := install.WaitForBackupPull(20*time.Second, time.Now().UTC().Add(-2*time.Second), "", nil)
-				backupPath = fmt.Sprintf("%s (pull acked=%d pending=%d)", p, acked, pend)
-			}
+		// tg/agent: same ApplyHostComponent engine as CLI (job registry + health).
+		cid := ndupdate.ComponentTG
+		if comp == "agent" {
+			cid = ndupdate.ComponentAgent
 		}
-		if err := ndupdate.DownloadReleaseAsset(tag, comp, dest); err != nil {
-			writeJSON(w, 502, map[string]any{"ok": false, "error": err.Error(), "backup": backupPath})
+		job, err := ndupdate.ApplyHostComponent(ndupdate.HostApplyOpts{
+			Component:  cid,
+			InstanceID: "local",
+			Tag:        tag,
+			DestPath:   dest,
+			Unit:       unit,
+			JobID:      fmt.Sprintf("api-%s-%d", comp, time.Now().UnixNano()),
+		})
+		if err != nil {
+			writeJSON(w, 502, map[string]any{"ok": false, "error": err.Error(), "job": job})
 			return
 		}
 		ndupdate.WriteVERSION(tag)
-		if !body.NoRestart && unit != "" {
-			_ = exec.Command("systemctl", "try-restart", unit).Run()
-			if unit == "netductor-api" {
-				_ = exec.Command("systemctl", "try-restart", "netductor-telegram-bot").Run()
-				_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
-			}
-		}
 		writeJSON(w, 200, map[string]any{
-			"ok": true, "component": comp, "version": tag, "dest": dest, "backup": backupPath,
+			"ok": true, "component": comp, "version": tag, "dest": dest, "job": job,
 		})
 	})
 }

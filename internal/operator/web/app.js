@@ -43,7 +43,7 @@ const I18N = {
 en:{
   app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API', nav_grp_fleet:'Fleet', nav_servers:'Servers', nav_sites:'Sites', servers_note:'Nodes of the control plane. Click a card for details and actions.', sites_note:'Edge sites — topology, zones, metrics. Add site opens the OpenWrt wizard.', sites_add:'+ Add site', sites_empty:'No enrolled sites yet. Add a site to run the OpenWrt wizard.', sites_offline:'Need tunnel + session to load sites from primary.', card_openwrt:'OpenWrt / site', card_openwrt_d:'Probe → modules → provision', card_mt_d:'RSC push / site shell', actions:'Actions', nav_grp_deploy:'Deploy', nav_grp_operate:'Operate', nav_collapse:'Collapse', l_port:'Port', b_gh_token:'GitHub token',
   tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings', tab_updates:'Updates',
-  upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date',
+  upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date', upd_note:'Same backend as CLI/TG. Desired ≠ running until health. Edge: agent_update per device.', upd_jobs:'Jobs',
   sub_fleet:'Fleet', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
   inst_note:'Deploy from this Mac over SSH.',
   l_phost:'Primary host', l_ppass:'Primary password', l_shost:'Secondary host', l_spass:'Secondary password', l_ssh_mode:'SSH mode', opt_ssh_initial:'Initial (:22 password)', opt_ssh_resume:'Resume (:52222 key)', l_skey:'Secondary key (resume)', l_pport:'Primary SSH port', l_peer_id:'Peer ID',
@@ -1406,6 +1406,7 @@ async function fillUpdateUI(){
     const st = await nodeFetch('/api/update/status');
     const rel = await nodeFetch('/api/update/releases');
     const line = document.getElementById('updStatusLine');
+    const jobsEl = document.getElementById('updJobsLine');
     const sel = document.getElementById('updTag');
     const badge = document.getElementById('updateBadge');
     if(line){
@@ -1413,6 +1414,16 @@ async function fillUpdateUI(){
       const lat = st.latest||'?';
       const msg = st.update_available ? (t('upd_available')||'update available') : (t('upd_ok')||'up to date');
       line.textContent = (t('upd_local')||'Local')+': '+loc+' · '+(t('upd_latest')||'Latest')+': '+lat+' · '+msg;
+    }
+    if(jobsEl){
+      const jobs = st.jobs||[];
+      if(!jobs.length){
+        jobsEl.textContent = (t('upd_jobs')||'Jobs')+': —';
+      } else {
+        jobsEl.textContent = (t('upd_jobs')||'Jobs')+':\n'+jobs.map(j=>{
+          return (j.component||'?')+' ['+(j.state||'')+'] '+(j.display_kind||'')+' '+(j.display_label||j.target_version||'')+(j.last_error?(' err='+j.last_error):'');
+        }).join('\n');
+      }
     }
     if(sel && rel && rel.releases){
       sel.innerHTML='';
@@ -1547,10 +1558,11 @@ function mountButtons(){
         if(sec==='updates' || sec==='home' || sec==='overview'){
       h+=`<div class="card" style="margin-top:.5rem"><h3>${t('tab_updates')||'Updates'}</h3>
       <p class="note" id="updStatusLine">—</p>
+      <pre class="note" id="updJobsLine" style="white-space:pre-wrap;font-size:.85em"></pre>
       <div class="row"><div><label>${t('upd_pick')||'Release'}</label><select id="updTag"></select></div>
       <div style="align-self:end"><button class="primary" type="button" data-act="upd-refresh">${t('upd_refresh')||'Refresh'}</button>
       <button class="primary" type="button" data-act="upd-apply">${t('upd_apply')||'Apply'}</button></div></div>
-      <p class="note">Pre-backup + backup_pull wait on apply. Edge: use Edge → cmd agent_update.</p></div>`;
+      <p class="note">${t('upd_note')||'Same backend as CLI/TG (stack schedule / ApplyHost). Desired ≠ running until health. Edge: agent_update per device.'}</p></div>`;
     }
     if(sec==='dns' || sec==='data'){
       h+=`<div class="row" style="margin-top:.75rem"><div><label>${t('l_dns_id')}</label><input id="dnsId" placeholder="adguard"/></div>

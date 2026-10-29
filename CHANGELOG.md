@@ -1,3 +1,11 @@
+## 0.9.602
+
+Update Phase 6 (Web):
+- Status.Jobs via HostJobsSnapshot
+- /api/update/apply tg|agent → ApplyHostComponent
+- Updates card shows jobs; shared-backend note EN/RU
+- WORK-SUMMARY
+
 ## 0.9.601
 
 Update Phase 5 (Telegram):

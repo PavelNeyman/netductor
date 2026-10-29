@@ -22,6 +22,7 @@ ec1eebe  Phase 2 failure matrix + node job + recovery (0.9.598)
 66411c6  Phase 3 version semantics + asset matrix + UI label (0.9.599)
 56f69f1  Phase 4 Edge identity (0.9.600)
 d5d3ec4  Phase 5 TG Versions jobs+confirm (0.9.601)
+b7b5b2e  Phase 6 Web jobs+ApplyHost (0.9.602)
 ```
 
 ```bash
@@ -43,7 +44,8 @@ bash scripts/check-update-asset-matrix.sh
 | 3 Release/version | **done** | `VERSION-SEMANTICS.md`, `manifest.go`, CI scripts, `UserFacingVersionLabel` |
 | 4 Edge identity | **done** | `EDGE-AGENT-IDENTITY.md`, `edge_identity.go`, NormalizeEdgeGOARCH |
 | 5 TG UI | **done** | Versions hub: jobs snippet, confirm apply, conflict gate |
-| 6 Web UI | open | |
+| 6 Web UI | **done** | status.jobs, ApplyHost API, Updates card |
+| 7 i18n/docs | open | |
 | 6 Web UI | open | |
 | 7+ Rollout | open | |
 

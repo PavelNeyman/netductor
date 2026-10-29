@@ -310,14 +310,15 @@ func listReleasesFallback(limit int) ([]ReleaseInfo, error) {
 
 // Status compares local version string to GitHub latest.
 type Status struct {
-	Local  string `json:"local"`
-	Latest string `json:"latest,omitempty"`
-	Update bool   `json:"update_available"`
-	Error  string `json:"error,omitempty"`
+	Local  string        `json:"local"`
+	Latest string        `json:"latest,omitempty"`
+	Update bool          `json:"update_available"`
+	Error  string        `json:"error,omitempty"`
+	Jobs   []JobSnapshot `json:"jobs,omitempty"`
 }
 
 func CheckStatus(local string) Status {
-	st := Status{Local: strings.TrimSpace(local)}
+	st := Status{Local: strings.TrimSpace(local), Jobs: HostJobsSnapshot()}
 	tag, err := LatestReleaseTag()
 	if err != nil {
 		st.Error = err.Error()
