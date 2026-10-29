@@ -4,7 +4,7 @@
 
 > Purpose: single handoff document for external/code review.  
 > Repo: `PavelNeyman/netductor`  
-> Tip at write time: see latest `main` (includes Phase 0–1 commits below).  
+> Tip at write time: track `main`; commit chain in §2.  
 > **No secrets** in this file.
 
 ## 1. Timeline (high level)
@@ -22,16 +22,26 @@
 
 Blue-Green **Secondary B** and full **Edge Cudy rollout** were **deferred** by operator priority: unified **update system** first.
 
-## 2. Git commits (documentation / update system)
+## 2. Commit chain for reviewers (oldest → newest)
 
-| SHA | Summary |
-|-----|---------|
-| `e79e87b` | Merge PR #1: update implementation plan, audit templates, EN/RU policy |
-| `d00c78c` | Phase 0 audit pair + plan Phase 0 checkboxes |
-| `357a09d` | Phase 1 `internal/update/contract.go` + tests + UPDATE-CONTRACT EN/RU |
-| *(this)* | Work summary + Phase 2 resolve/job primitives |
+Review this range on `main`:
 
-Release **v0.9.596** assets were published earlier to GitHub Releases (tag `v0.9.596`, commit `bf54587` era builds); tip `main` may be ahead of that tag with docs/contract only.
+```text
+e79e87b  Merge PR #1: update plan, audit policy/templates (EN/RU)
+d00c78c  docs: Phase 0 update-system baseline audit (EN/RU)
+357a09d  feat(update): Phase 1 component identity and update contract
+c98ccf3  docs+feat(update): review work summary; Phase 2 resolve and job registry
+(next)   seamless DownloadReleaseAsset → ResolveReleaseAsset; migration notes in this file
+```
+
+```bash
+git log --oneline e79e87b^..HEAD
+go test ./internal/update/ -count=1 -run 'Contract|AssetName|Resolve|JobRegistry|Legacy'
+```
+
+**Production baseline the operator already runs:** GitHub release **v0.9.596** (binaries built around `bf54587`).  
+**Commits after that tag** on `main` are mostly docs + update-contract/engine primitives; they must remain **safe to pull** without a forced config rewrite (see §9).
+
 
 ## 3. Files added or changed (by area)
 
@@ -118,3 +128,29 @@ go test ./internal/update/ -count=1
 2. Is the job state graph missing transitions needed by real apply?  
 3. Phase 2: should `DownloadNamedAsset` be forced to go only through `ResolveReleaseAsset`?  
 4. Residual: `--skip-verify`, unsigned manifest, TG apply confirm policy.
+
+## 9. Seamless upgrade from v0.9.596 (operator requirements)
+
+Operator production is already on **v0.9.596**. Work on the unified update system must not require a painful cutover. Tracked **here** (not by rewriting the implementation-plan checkboxes).
+
+| ID | Requirement | Status | Notes |
+|----|-------------|--------|-------|
+| **M1** | Day-2 binary update from **v0.9.596** keeps working with existing CLI: `netductor update check\|list\|apply [--component node\|tg\|agent]` | **Done (compat path)** | Same flags; `DownloadReleaseAsset` resolves assets via Phase 1 `AssetName` + SHA256SUMS |
+| **M2** | Config / state migration on Primary & Secondary when installing post-0.9.596 builds | **Done (none required)** | Phases 0–2 add docs, `contract` types, resolve/job registry — **no** new mandatory on-disk schema for existing installs |
+| **M3** | Existing TG **Updates** / Web update UI keep working; no forced new menu | **Done (no break)** | Handlers still call existing update APIs; Phase 5–6 may *add* catalog UX later without removing old entry points first |
+| **M4** | Automatic adoption of the new update **engine** under the hood without a separate “switch” step | **In progress** | CLI/API download path uses `ResolveReleaseAsset`; Edge remains `agent_update` + confirm until Phase 2 wiring completes; JobRegistry not yet mandatory for all apply paths |
+| **M5** | Document rollback if a post-0.9.596 binary misbehaves | **Done (ops)** | Keep v0.9.596 release assets; snapshot VPS before apply; `--no-backup` remains opt-in on CLI |
+| **M6** | No silent change of Secondary ↔ Edge identity during node update | **Done (contract)** | Job targets `(component, instance)`; updating `node` must not restart unrelated `agent` instances (enforced in design; runtime still per existing unit scripts) |
+
+### Migration narrative for reviewers
+
+1. Hosts on **v0.9.596** continue to use published release assets and current unit layout.  
+2. Pulling newer `main` **source** or installing a newer **node** build that only contains contract/resolve changes should not require editing `/etc/netductor` by hand.  
+3. When a future release **fully** replaces the apply pipeline, it must still accept the same CLI/API surface so operators are not taught a second tool on day one.  
+4. UI “transition” = progressive enhancement (Phase 5–6), not a flag day.
+
+### Explicit non-goals of this migration slice
+
+- Requiring re-enrollment of Edge or Secondary.  
+- Rewriting `vpn-users.json` / svc-paths material.  
+- Mandatory GitHub token for checks that already work anonymously (rate limits may still apply).

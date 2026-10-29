@@ -328,16 +328,29 @@ func CheckStatus(local string) Status {
 	return st
 }
 
+// assetName maps legacy component strings to the Phase 1 AssetName contract.
+// Prefer ResolveReleaseAsset for new code paths.
 func assetName(component string) string {
+	comp := ComponentID(strings.ToLower(strings.TrimSpace(component)))
+	switch comp {
+	case "", "node", "netductor":
+		comp = ComponentNode
+	case "operator":
+		comp = ComponentOp
+	}
+	if name := AssetName(comp, PlatformFromRuntime()); name != "" {
+		return name
+	}
+	// Last-resort legacy pattern (should not run for supported platforms).
 	goos, arch := runtime.GOOS, runtime.GOARCH
-	switch component {
-	case "agent":
+	switch comp {
+	case ComponentAgent:
 		return fmt.Sprintf("netductor-agent-%s-%s", goos, arch)
-	case "tg":
+	case ComponentTG:
 		return fmt.Sprintf("netductor-tg-%s-%s", goos, arch)
-	case "op", "operator":
+	case ComponentOp:
 		return fmt.Sprintf("netductor-op-%s-%s", goos, arch)
-	default: // node
+	default:
 		return fmt.Sprintf("netductor-%s-%s", goos, arch)
 	}
 }
@@ -425,14 +438,37 @@ func ValidReleaseTag(tag string) (string, error) {
 }
 
 // DownloadReleaseAsset writes binary to destPath. Verifies against SHA256SUMS unless SKIP_VERIFY=1 and SKIP_VERIFY_CONFIRM=yes.
+// Component selection goes through the Phase 1/2 contract (AssetName + SUMS); CLI flags stay unchanged for v0.9.596 operators.
 func DownloadReleaseAsset(tag, component, destPath string) error {
 	var err error
 	tag, err = ValidReleaseTag(tag)
 	if err != nil {
 		return err
 	}
-	name := assetName(component)
-	return DownloadNamedAsset(tag, name, destPath)
+	comp := ComponentID(strings.ToLower(strings.TrimSpace(component)))
+	switch comp {
+	case "", "node", "netductor":
+		comp = ComponentNode
+	case "operator":
+		comp = ComponentOp
+	}
+	if !ValidComponent(comp) {
+		return fmt.Errorf("update: unsupported component %q", component)
+	}
+	// Prefer full resolve (asset + checksum presence). On SUMS fetch failure, fall back to
+	// DownloadNamedAsset only when skip-verify is explicitly confirmed (legacy escape).
+	res, rerr := ResolveReleaseAsset(comp, PlatformFromRuntime(), tag)
+	if rerr == nil {
+		return DownloadNamedAsset(tag, res.Name, destPath)
+	}
+	if os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1" && os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM") == "yes" {
+		name := assetName(string(comp))
+		if name == "" {
+			return rerr
+		}
+		return DownloadNamedAsset(tag, name, destPath)
+	}
+	return rerr
 }
 
 // DownloadNamedAsset downloads a release asset by exact basename (e.g. netductor-agent-linux-mipsle).

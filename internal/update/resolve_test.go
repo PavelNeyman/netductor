@@ -1,6 +1,9 @@
 package update
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
 
 func TestResolveReleaseAssetLocal(t *testing.T) {
 	sums := map[string]string{
@@ -47,5 +50,15 @@ func TestJobRegistryIdempotencyAndConflict(t *testing.T) {
 	}
 	if _, err := r.Transition(ComponentNode, "primary", StateSucceeded, ""); err == nil {
 		t.Fatal("expected illegal jump to succeeded")
+	}
+}
+
+func TestAssetNameLegacyCLIComponents(t *testing.T) {
+	// node on this builder OS — may be empty if not linux; only assert linux contract
+	if AssetName(ComponentNode, Platform{GOOS: "linux", GOARCH: "amd64"}) != "netductor-linux-amd64" {
+		t.Fatal("node linux amd64")
+	}
+	if n := assetName("node"); runtime.GOOS == "linux" && runtime.GOARCH == "amd64" && n != "netductor-linux-amd64" {
+		t.Fatalf("assetName node: %s", n)
 	}
 }
