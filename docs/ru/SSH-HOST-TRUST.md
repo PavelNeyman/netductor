@@ -56,6 +56,7 @@ Then re-run `ssh-trust` with a confirmed fingerprint — never auto-accept.
 ## Mixed legacy + port-aware pins
 
 - New trusts store `host|port` only (not bare host).
-- `forget host|port` removes that endpoint only; **legacy bare-host pin is kept** if present.
+- `forget host|port` **refuses** if a legacy bare-host pin still exists — use `forget <host>` to clear all.
+- `forget host|port` without legacy removes only that endpoint.
 - `forget host` removes legacy and every `host|*`.
 - Pin-lost for port B after trusting only port A is **not** raised (ports are independent).

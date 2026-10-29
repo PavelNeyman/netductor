@@ -228,9 +228,12 @@ func ForgetSSHHost(id string) error {
 	host, port, specific := parseForgetTarget(id)
 	if specific {
 		ep := endpointID(host, port)
+		// Refuse when a legacy bare-host pin exists: lookupPin would keep trusting
+		// this host on every port. Operator must forget the bare host (clears all).
+		if leg := strings.TrimSpace(f[host]); leg != "" {
+			return fmt.Errorf("refuse forget %s: legacy pin for %s still present (lookup would keep trusting this host) — run: netductor ssh-hosts forget %s", ep, host, host)
+		}
 		delete(f, ep)
-		// Legacy bare-host pin is intentionally kept: other ports may still rely on it
-		// via lookupPin fallback. Clear legacy only via bare-host forget.
 		if err := saveRelayKH(f); err != nil {
 			return err
 		}

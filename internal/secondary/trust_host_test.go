@@ -225,11 +225,10 @@ func TestPortIndependenceAfterOpenSSHLine(t *testing.T) {
 	}
 }
 
-func TestForgetEndpointKeepsLegacyBare(t *testing.T) {
+func TestForgetEndpointRefusesWhenLegacyPresent(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("NETDUCTOR_STATE", dir)
 	k1, k2 := testKey(t), testKey(t)
-	// mixed: legacy bare + port-aware
 	pkhMu.Lock()
 	f := map[string]string{
 		"203.0.113.91":       base64Key(k1),
@@ -241,20 +240,42 @@ func TestForgetEndpointKeepsLegacyBare(t *testing.T) {
 	}
 	_ = markHostSeen("203.0.113.91|52222")
 	pkhMu.Unlock()
-	if err := ForgetSSHHost("203.0.113.91|52222"); err != nil {
-		t.Fatal(err)
+	err := ForgetSSHHost("203.0.113.91|52222")
+	if err == nil || !strings.Contains(err.Error(), "legacy pin") {
+		t.Fatalf("want refuse legacy, got %v", err)
 	}
-	// legacy bare remains; lookup still finds it for any port
-	st, err := CheckTOFUPin("203.0.113.91", "52222")
-	if err != nil || st != PinPresent {
-		t.Fatalf("legacy should still satisfy lookup: %v %v", st, err)
+	st, _ := CheckTOFUPin("203.0.113.91", "52222")
+	if st != PinPresent {
+		t.Fatal("pins must remain after refused forget")
 	}
-	// explicit bare forget clears legacy
 	if err := ForgetSSHHost("203.0.113.91"); err != nil {
 		t.Fatal(err)
 	}
 	st, _ = CheckTOFUPin("203.0.113.91", "52222")
 	if st == PinPresent {
-		t.Fatal("bare forget should remove legacy")
+		t.Fatal("bare forget should remove all")
+	}
+}
+
+func TestForgetEndpointOKWithoutLegacy(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	k1, k2 := testKey(t), testKey(t)
+	if err := TrustHostKey("203.0.113.92", "52222", k1); err != nil {
+		t.Fatal(err)
+	}
+	if err := TrustHostKey("203.0.113.92", "22222", k2); err != nil {
+		t.Fatal(err)
+	}
+	if err := ForgetSSHHost("203.0.113.92|52222"); err != nil {
+		t.Fatal(err)
+	}
+	st1, _ := CheckTOFUPin("203.0.113.92", "52222")
+	st2, _ := CheckTOFUPin("203.0.113.92", "22222")
+	if st1 == PinPresent {
+		t.Fatal("52222 should be gone")
+	}
+	if st2 != PinPresent {
+		t.Fatal("22222 must remain")
 	}
 }

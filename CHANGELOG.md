@@ -1,3 +1,10 @@
+## 0.9.608
+
+SSH TOFU forget policy:
+- Specific forget host|port refuses when legacy bare-host pin exists
+  (lookup would keep trusting the host) — use bare-host forget to revoke all
+- Tests: refuse mixed state; endpoint forget OK without legacy
+
 ## 0.9.607
 
 SSH TOFU consistency (review a7bb3fa):
