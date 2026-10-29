@@ -197,3 +197,64 @@ func TestLegacyHostOnlyLookup(t *testing.T) {
 func base64Key(key ssh.PublicKey) string {
 	return base64.StdEncoding.EncodeToString(key.Marshal())
 }
+
+func TestPortIndependenceAfterOpenSSHLine(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	k := testKey(t)
+	if err := TrustHostKey("203.0.113.90", "52222", k); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenSSHKnownHostsLine("203.0.113.90", "52222"); err != nil {
+		t.Fatal(err)
+	}
+	// Other port must be Absent, not PinLost
+	st, err := CheckTOFUPin("203.0.113.90", "22222")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st != PinAbsent {
+		t.Fatalf("want PinAbsent for other port, got %v", st)
+	}
+	_, err = OpenSSHKnownHostsLine("203.0.113.90", "22222")
+	if err == nil {
+		t.Fatal("expected no pin on other port")
+	}
+	if strings.Contains(err.Error(), "pin lost") || strings.Contains(err.Error(), "TOFU pin lost") {
+		t.Fatalf("other port must not be pin-lost: %v", err)
+	}
+}
+
+func TestForgetEndpointKeepsLegacyBare(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	k1, k2 := testKey(t), testKey(t)
+	// mixed: legacy bare + port-aware
+	pkhMu.Lock()
+	f := map[string]string{
+		"203.0.113.91":       base64Key(k1),
+		"203.0.113.91|52222": base64Key(k2),
+	}
+	if err := saveRelayKH(f); err != nil {
+		pkhMu.Unlock()
+		t.Fatal(err)
+	}
+	_ = markHostSeen("203.0.113.91|52222")
+	pkhMu.Unlock()
+	if err := ForgetSSHHost("203.0.113.91|52222"); err != nil {
+		t.Fatal(err)
+	}
+	// legacy bare remains; lookup still finds it for any port
+	st, err := CheckTOFUPin("203.0.113.91", "52222")
+	if err != nil || st != PinPresent {
+		t.Fatalf("legacy should still satisfy lookup: %v %v", st, err)
+	}
+	// explicit bare forget clears legacy
+	if err := ForgetSSHHost("203.0.113.91"); err != nil {
+		t.Fatal(err)
+	}
+	st, _ = CheckTOFUPin("203.0.113.91", "52222")
+	if st == PinPresent {
+		t.Fatal("bare forget should remove legacy")
+	}
+}

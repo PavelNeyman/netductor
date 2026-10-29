@@ -229,26 +229,41 @@ func ForgetSSHHost(id string) error {
 	if specific {
 		ep := endpointID(host, port)
 		delete(f, ep)
-		// also drop legacy bare-host if this was the only remaining pin concept
+		// Legacy bare-host pin is intentionally kept: other ports may still rely on it
+		// via lookupPin fallback. Clear legacy only via bare-host forget.
 		if err := saveRelayKH(f); err != nil {
 			return err
 		}
-		_ = unmarkHostSeen(ep)
+		if err := unmarkHostSeen(ep); err != nil {
+			return err
+		}
 		return nil
 	}
 	// bare host: remove legacy + all port-aware keys for host
 	delete(f, host)
 	prefix := host + "|"
+	var keys []string
 	for k := range f {
 		if strings.HasPrefix(k, prefix) {
-			delete(f, k)
-			_ = unmarkHostSeen(k)
+			keys = append(keys, k)
 		}
+	}
+	for _, k := range keys {
+		delete(f, k)
 	}
 	if err := saveRelayKH(f); err != nil {
 		return err
 	}
-	return unmarkHostSeen(host)
+	var first error
+	for _, k := range keys {
+		if err := unmarkHostSeen(k); err != nil && first == nil {
+			first = err
+		}
+	}
+	if err := unmarkHostSeen(host); err != nil && first == nil {
+		first = err
+	}
+	return first
 }
 
 // parseForgetTarget returns host, port, and whether a specific port was requested.
@@ -307,7 +322,7 @@ func provisionHostKey(host string, port int) ssh.HostKeyCallback {
 		if err != nil {
 			return err
 		}
-		if seen[id] || (seen[host] && !hasAnyPortAwarePin(f, host)) {
+		if pinLostForEndpoint(seen, f, host, portStr) {
 			return fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision", ErrPinLost, id, id)
 		}
 		f[id] = got
@@ -340,14 +355,13 @@ func OpenSSHKnownHostsLine(host, port string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if seenEndpoint(seen, host, port) {
+		if pinLostForEndpoint(seen, f, host, port) {
 			return "", fmt.Errorf("%w: %s — run: netductor ssh-hosts forget --kind relay %s then re-provision (explicit first contact)", ErrPinLost, id, id)
 		}
 		return "", fmt.Errorf("no TOFU pin for %s — run provision SSH first", id)
 	}
-	// Pin present: keep seen in sync (idempotent).
-	_ = markHostSeen(id)
-	if err := markHostSeen(host); err != nil {
+	// Pin present: mark endpoint only (not bare host — preserves port independence).
+	if err := markHostSeen(id); err != nil {
 		return "", err
 	}
 	raw, err := base64.StdEncoding.DecodeString(b64)

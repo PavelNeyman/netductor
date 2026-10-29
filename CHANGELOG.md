@@ -1,3 +1,11 @@
+## 0.9.607
+
+SSH TOFU consistency (review a7bb3fa):
+- pinLostForEndpoint unified for CheckTOFUPin / OpenSSHKnownHostsLine / provisionHostKey
+- OpenSSHKnownHostsLine marks endpoint seen only (not bare host)
+- ForgetSSHHost returns unmarkHostSeen errors; specific forget keeps legacy bare pin
+- Tests: port independence after OpenSSH line; mixed legacy + host|port forget
+
 ## 0.9.606
 
 SSH trust follow-up (review d01954d):

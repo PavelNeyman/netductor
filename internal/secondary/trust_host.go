@@ -45,13 +45,6 @@ func lookupPin(f map[string]string, host, port string) (id, b64 string, ok bool)
 	return id, "", false
 }
 
-func seenEndpoint(seen map[string]bool, host, port string) bool {
-	if seen[endpointID(host, port)] {
-		return true
-	}
-	return seen[normalizeHost(host)]
-}
-
 func hasAnyPortAwarePin(f map[string]string, host string) bool {
 	host = normalizeHost(host)
 	prefix := host + "|"
@@ -59,6 +52,24 @@ func hasAnyPortAwarePin(f map[string]string, host string) bool {
 		if strings.HasPrefix(k, prefix) && strings.TrimSpace(v) != "" {
 			return true
 		}
+	}
+	return false
+}
+
+// pinLostForEndpoint is the single definition of "previously trusted, pin gone".
+// Port-aware seen is authoritative. Legacy bare-host seen only applies when
+// no port-aware pin remains for the host (pre-0.9.605 installs).
+func pinLostForEndpoint(seen map[string]bool, f map[string]string, host, port string) bool {
+	host = normalizeHost(host)
+	if strings.TrimSpace(port) == "" {
+		port = "22"
+	}
+	id := endpointID(host, port)
+	if seen[id] {
+		return true
+	}
+	if seen[host] && !hasAnyPortAwarePin(f, host) {
+		return true
 	}
 	return false
 }
@@ -151,11 +162,7 @@ func TrustHostKey(host, port string, key ssh.PublicKey) error {
 	if err != nil {
 		return err
 	}
-	// Pin-lost only when this endpoint (or legacy bare host with no port-aware pins) was seen.
-	if seen[id] {
-		return fmt.Errorf("%w: %s", ErrPinLost, id)
-	}
-	if seen[host] && !hasAnyPortAwarePin(f, host) {
+	if pinLostForEndpoint(seen, f, host, port) {
 		return fmt.Errorf("%w: %s", ErrPinLost, id)
 	}
 	f[id] = got
@@ -220,12 +227,7 @@ func CheckTOFUPin(host, port string) (PinStatus, error) {
 	if err != nil {
 		return PinAbsent, err
 	}
-	id := endpointID(host, port)
-	if seen[id] {
-		return PinLost, nil
-	}
-	// Legacy bare-host seen only if no remaining port-aware pins for this host.
-	if seen[host] && !hasAnyPortAwarePin(f, host) {
+	if pinLostForEndpoint(seen, f, host, port) {
 		return PinLost, nil
 	}
 	return PinAbsent, nil

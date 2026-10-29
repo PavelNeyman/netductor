@@ -52,3 +52,10 @@ netductor ssh-hosts forget --kind secondary 2.27.118.70
 ```
 
 Then re-run `ssh-trust` with a confirmed fingerprint — never auto-accept.
+
+## Mixed legacy + port-aware pins
+
+- New trusts store `host|port` only (not bare host).
+- `forget host|port` removes that endpoint only; **legacy bare-host pin is kept** if present.
+- `forget host` removes legacy and every `host|*`.
+- Pin-lost for port B after trusting only port A is **not** raised (ports are independent).
