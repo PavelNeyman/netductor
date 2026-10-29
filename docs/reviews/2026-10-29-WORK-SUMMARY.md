@@ -19,7 +19,7 @@ a16f7b1  docs pin chain
 855a27a  docs ApplyHost
 d1e00b6  Phase 2 atomic install + version probe (0.9.597)
 ec1eebe  Phase 2 failure matrix + node job + recovery (0.9.598)
-0da522e  Phase 3 version semantics + asset matrix + UI label (0.9.599)
+66411c6  Phase 3 version semantics + asset matrix + UI label (0.9.599)
 ```
 
 ```bash
