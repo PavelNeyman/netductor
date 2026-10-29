@@ -135,12 +135,12 @@ func formatVersionsHTML(force bool) string {
 		tokS = "✅"
 	}
 	b.WriteString(fmt.Sprintf("<tr><td>github token</td><td>%s</td></tr>"+nl, tokS))
-	b.WriteString("</table>" + nl)
-
+	b.WriteString("</table>" + nl + nl)
+	b.WriteString(formatUpdateJobsSnippet(ru, nl))
 	if ru {
-		b.WriteString("<i>Apply — только выбранные. Primary: stack apply. Secondary: очередь upgrade (вручную).</i>" + nl)
+		b.WriteString("<i>Apply — выбранные. Primary: stack schedule. Secondary: очередь. Desired ≠ running до health.</i>" + nl)
 	} else {
-		b.WriteString("<i>Apply — selected only. Primary: stack apply. Secondary: upgrade queue (manual).</i>" + nl)
+		b.WriteString("<i>Apply — selected. Primary: stack schedule. Secondary: queue. Desired ≠ running until health.</i>" + nl)
 	}
 
 	// body buttons
@@ -167,7 +167,39 @@ func formatVersionsHTML(force bool) string {
 	}
 	b.WriteString(`<tg-button type="callback_data" data="m:stack">🧱 Stack</tg-button>`)
 	b.WriteString(`<tg-button type="callback_data" data="m:stack:rollback">↩️ Rollback</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="m:ver:jobs">📋 jobs</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
+	return b.String()
+}
+
+func formatUpdateJobsSnippet(ru bool, nl string) string {
+	var b strings.Builder
+	b.WriteString("<b>Job registry</b>" + nl)
+	b.WriteString("<table bordered striped compact>" + nl)
+	b.WriteString("<tr><th>comp</th><th>state</th><th>target</th><th>err</th></tr>" + nl)
+	anyJ := false
+	for _, c := range []ndupdate.ComponentID{ndupdate.ComponentNode, ndupdate.ComponentTG, ndupdate.ComponentAgent} {
+		j, ok := ndupdate.DefaultHostRegistry.Get(c, "local")
+		if !ok {
+			continue
+		}
+		anyJ = true
+		_, disp := ndupdate.UserFacingVersionLabel(j.TargetVersion, j.State == ndupdate.StateSucceeded, j.TargetVersion)
+		errMsg := j.LastError
+		if len(errMsg) > 40 {
+			errMsg = errMsg[:40] + "…"
+		}
+		b.WriteString(fmt.Sprintf("<tr><td>%s</td><td><code>%s</code></td><td><code>%s</code></td><td>%s</td></tr>"+nl,
+			esc(string(c)), esc(string(j.State)), esc(disp), esc(errMsg)))
+	}
+	if !anyJ {
+		if ru {
+			b.WriteString(`<tr><td colspan="4"><i>нет job</i></td></tr>` + nl)
+		} else {
+			b.WriteString(`<tr><td colspan="4"><i>no jobs</i></td></tr>` + nl)
+		}
+	}
+	b.WriteString("</table>" + nl + nl)
 	return b.String()
 }
 
@@ -201,6 +233,8 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 	case data == "m:ver:none":
 		verSelSetAll(false)
 		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
+	case data == "m:ver:jobs":
+		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	case data == "m:ver:apply":
 		pri, sec := verSelGet()
 		if !pri && !sec {
@@ -211,9 +245,41 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 			reply(token, chat, msgID, msg, versionsKeyboard())
 			return
 		}
+		if j, ok := ndupdate.DefaultHostRegistry.Get(ndupdate.ComponentNode, "local"); ok {
+			switch j.State {
+			case ndupdate.StateSucceeded, ndupdate.StateFailed, ndupdate.StateRolledBack, ndupdate.StateCancelled, ndupdate.StateIdle:
+			default:
+				msg := "❌ node job active: " + string(j.State)
+				if ru {
+					msg = "❌ job node активен: " + string(j.State)
+				}
+				reply(token, chat, msgID, msg, versionsKeyboard())
+				return
+			}
+		}
 		tag, err := ndupdate.LatestReleaseTag()
 		if err != nil {
 			reply(token, chat, msgID, "❌ "+esc(err.Error()), versionsKeyboard())
+			return
+		}
+		msg := "⬇️ Confirm apply <code>" + esc(tag) + "</code>?"
+		if ru {
+			msg = "⬇️ Подтвердить apply <code>" + esc(tag) + "</code>?"
+		}
+		kb := map[string]any{"inline_keyboard": [][]map[string]any{
+			{btn("✅ "+tag, "m:ver:apply:go:"+tag, "primary")},
+			{btn("⬅️", "m:versions", ""), btn(T("main_menu"), "m:menu", "")},
+		}}
+		reply(token, chat, msgID, msg, kb)
+	case strings.HasPrefix(data, "m:ver:apply:go:"):
+		tag := strings.TrimPrefix(data, "m:ver:apply:go:")
+		if _, err := ndupdate.ValidReleaseTag(tag); err != nil {
+			reply(token, chat, msgID, "❌ bad tag", versionsKeyboard())
+			return
+		}
+		pri, sec := verSelGet()
+		if !pri && !sec {
+			reply(token, chat, msgID, "❌ nothing selected", versionsKeyboard())
 			return
 		}
 		var lines []string
@@ -235,11 +301,11 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 			}
 			lines = append(lines, fmt.Sprintf("secondary: queued=%d %s", n, tag))
 		}
-		body := "⬇️ <b>Apply</b>\n<pre>" + esc(strings.Join(lines, "\n")) + "</pre>"
+		body := "⬇️ <b>Apply</b>" + "\n" + "<pre>" + esc(strings.Join(lines, "\n")) + "</pre>"
 		if ru {
-			body += "\n<i>Не жать Apply повторно, пока primary перезапускается.</i>"
+			body += "\n<i>Не жать Apply повторно. Running — после health.</i>"
 		} else {
-			body += "\n<i>Do not re-tap Apply while primary restarts.</i>"
+			body += "\n<i>Do not re-tap Apply. Running only after health.</i>"
 		}
 		reply(token, chat, msgID, body, versionsKeyboard())
 	default:
