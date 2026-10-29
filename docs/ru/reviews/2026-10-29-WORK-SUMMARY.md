@@ -27,7 +27,7 @@ e79e87b  Merge PR #1: план update-system, policy/templates EN/RU
 d00c78c  docs: Phase 0 baseline audit EN/RU
 357a09d  feat(update): Phase 1 contract + tests
 c98ccf3  docs+feat(update): work summary; Phase 2 resolve + job registry
-(next)   бесшовный DownloadReleaseAsset → ResolveReleaseAsset; миграция в этом файле
+9d6d77c  fix(update): DownloadReleaseAsset → Resolve; миграция M1–M6 в сводке
 ```
 
 ```bash
