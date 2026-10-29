@@ -111,6 +111,31 @@ func unmarkHostSeen(id string) error {
 	return saveSeenHosts(m)
 }
 
+// clearSeenForHost drops bare host and every host|* seen marker (exact host only).
+// Call under pkhMu. Does not touch host.example when clearing host.
+func clearSeenForHost(host string) error {
+	host = normalizeHost(host)
+	if host == "" {
+		return nil
+	}
+	m, err := loadSeenHosts()
+	if err != nil {
+		return err
+	}
+	prefix := host + "|"
+	changed := false
+	for id := range m {
+		if id == host || strings.HasPrefix(id, prefix) {
+			delete(m, id)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return saveSeenHosts(m)
+}
+
 // SSHHostEntry TOFU entry for secondary provision SSH.
 type SSHHostEntry struct {
 	ID        string `json:"id"`
@@ -242,31 +267,19 @@ func ForgetSSHHost(id string) error {
 		}
 		return nil
 	}
-	// bare host: remove legacy + all port-aware keys for host
+	// bare host: remove legacy + all port-aware keys; clear all seen markers for host.
 	delete(f, host)
 	prefix := host + "|"
-	var keys []string
 	for k := range f {
 		if strings.HasPrefix(k, prefix) {
-			keys = append(keys, k)
+			delete(f, k)
 		}
-	}
-	for _, k := range keys {
-		delete(f, k)
 	}
 	if err := saveRelayKH(f); err != nil {
 		return err
 	}
-	var first error
-	for _, k := range keys {
-		if err := unmarkHostSeen(k); err != nil && first == nil {
-			first = err
-		}
-	}
-	if err := unmarkHostSeen(host); err != nil && first == nil {
-		first = err
-	}
-	return first
+	// Always scrub seen for host and host|* — including orphaned markers with no pin left.
+	return clearSeenForHost(host)
 }
 
 // parseForgetTarget returns host, port, and whether a specific port was requested.

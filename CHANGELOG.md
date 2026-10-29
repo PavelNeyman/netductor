@@ -1,3 +1,8 @@
+## 0.9.609
+
+SSH TOFU: bare-host forget clears orphaned seen markers (host and host|*)
+so CheckTOFUPin returns PinAbsent after explicit trust reset, not PinLost.
+
 ## 0.9.608
 
 SSH TOFU forget policy:

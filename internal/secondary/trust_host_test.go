@@ -279,3 +279,43 @@ func TestForgetEndpointOKWithoutLegacy(t *testing.T) {
 		t.Fatal("22222 must remain")
 	}
 }
+
+func TestForgetHostClearsOrphanedSeen(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	// Orphan: seen without pin
+	pkhMu.Lock()
+	if err := saveRelayKH(map[string]string{}); err != nil {
+		pkhMu.Unlock()
+		t.Fatal(err)
+	}
+	if err := markHostSeen("203.0.113.93|52222"); err != nil {
+		pkhMu.Unlock()
+		t.Fatal(err)
+	}
+	pkhMu.Unlock()
+	st, err := CheckTOFUPin("203.0.113.93", "52222")
+	if err != nil || st != PinLost {
+		t.Fatalf("setup want PinLost got %v %v", st, err)
+	}
+	if err := ForgetSSHHost("203.0.113.93"); err != nil {
+		t.Fatal(err)
+	}
+	st, err = CheckTOFUPin("203.0.113.93", "52222")
+	if err != nil || st != PinAbsent {
+		t.Fatalf("after forget want PinAbsent got %v %v", st, err)
+	}
+	// must not affect longer host names
+	pkhMu.Lock()
+	_ = markHostSeen("203.0.113.93.example|22")
+	pkhMu.Unlock()
+	if err := ForgetSSHHost("203.0.113.93"); err != nil {
+		t.Fatal(err)
+	}
+	pkhMu.Lock()
+	seen, _ := loadSeenHosts()
+	pkhMu.Unlock()
+	if !seen["203.0.113.93.example|22"] {
+		t.Fatal("must not clear longer hostname prefix")
+	}
+}
