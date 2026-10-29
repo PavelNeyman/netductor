@@ -57,30 +57,70 @@ func TestTrustHostKeyRoundTrip(t *testing.T) {
 }
 
 func TestFingerprintExactMatch(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("NETDUCTOR_STATE", dir)
-	key := testKey(t)
-	fp := FingerprintSHA256(key)
-	// Case-folded FP must not match
+	fp := "SHA256:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789+/=="
+	if !fingerprintsMatch(fp, fp) {
+		t.Fatal("identical")
+	}
+	if !fingerprintsMatch("  "+fp+"  ", fp) {
+		t.Fatal("trim")
+	}
 	folded := strings.ToLower(fp)
 	if folded == fp {
-		// force a different case if alphabet has letters
 		folded = strings.ToUpper(fp)
 	}
-	if folded == fp {
-		t.Skip("fingerprint has no letters to flip case")
+	if fingerprintsMatch(fp, folded) {
+		t.Fatal("case-only difference must not match")
 	}
-	// TrustHostKeyIfFingerprintMatch needs live probe — unit-test comparison path via TrustHostKey + manual check
-	if strings.EqualFold(fp, folded) && fp != folded {
-		// exact compare should reject folded
-		if fp == folded {
-			t.Fatal("unexpected equal")
-		}
+	if fingerprintsMatch(fp, "SHA256:other") {
+		t.Fatal("different must not match")
 	}
-	got := strings.TrimSpace(fp)
-	want := strings.TrimSpace(folded)
-	if got == want {
-		t.Fatal("case-only difference should not be equal with exact compare")
+}
+
+func TestForgetSSHHostPortAware(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	k1, k2 := testKey(t), testKey(t)
+	if err := TrustHostKey("203.0.113.80", "52222", k1); err != nil {
+		t.Fatal(err)
+	}
+	if err := TrustHostKey("203.0.113.80", "22222", k2); err != nil {
+		t.Fatal(err)
+	}
+	// forget one port only
+	if err := ForgetSSHHost("203.0.113.80|52222"); err != nil {
+		t.Fatal(err)
+	}
+	st1, _ := CheckTOFUPin("203.0.113.80", "52222")
+	st2, _ := CheckTOFUPin("203.0.113.80", "22222")
+	if st1 == PinPresent {
+		t.Fatal("52222 should be gone")
+	}
+	if st2 != PinPresent {
+		t.Fatalf("22222 must remain, got %v", st2)
+	}
+	// bare host forget removes remaining
+	if err := ForgetSSHHost("203.0.113.80"); err != nil {
+		t.Fatal(err)
+	}
+	st2, _ = CheckTOFUPin("203.0.113.80", "22222")
+	if st2 == PinPresent {
+		t.Fatal("bare forget should clear all ports")
+	}
+}
+
+func TestForgetSSHHostColonPort(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	k := testKey(t)
+	if err := TrustHostKey("203.0.113.81", "52222", k); err != nil {
+		t.Fatal(err)
+	}
+	if err := ForgetSSHHost("203.0.113.81:52222"); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := CheckTOFUPin("203.0.113.81", "52222")
+	if st == PinPresent {
+		t.Fatal("colon form should forget endpoint")
 	}
 }
 

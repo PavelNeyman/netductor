@@ -208,23 +208,59 @@ func ListSSHHosts() []SSHHostEntry {
 	return out
 }
 
-// ForgetSSHHost removes one relay TOFU entry (no error if absent — safe for re-provision).
+// ForgetSSHHost removes TOFU pin(s). Accepts:
+//   - "host|port" (port-aware id)
+//   - "host:port" / "[ipv6]:port" (OpenSSH-style)
+//   - bare "host" — removes legacy host entry and every host|* pin for that host
+//
+// Missing entries are not an error (safe for re-provision).
 func ForgetSSHHost(id string) error {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()
 	id = strings.TrimSpace(id)
-	if h, _, err := net.SplitHostPort(id); err == nil {
-		id = h
+	if id == "" {
+		return nil
 	}
 	f, err := loadRelayKH()
 	if err != nil {
 		return err
 	}
-	delete(f, id)
+	host, port, specific := parseForgetTarget(id)
+	if specific {
+		ep := endpointID(host, port)
+		delete(f, ep)
+		// also drop legacy bare-host if this was the only remaining pin concept
+		if err := saveRelayKH(f); err != nil {
+			return err
+		}
+		_ = unmarkHostSeen(ep)
+		return nil
+	}
+	// bare host: remove legacy + all port-aware keys for host
+	delete(f, host)
+	prefix := host + "|"
+	for k := range f {
+		if strings.HasPrefix(k, prefix) {
+			delete(f, k)
+			_ = unmarkHostSeen(k)
+		}
+	}
 	if err := saveRelayKH(f); err != nil {
 		return err
 	}
-	return unmarkHostSeen(id)
+	return unmarkHostSeen(host)
+}
+
+// parseForgetTarget returns host, port, and whether a specific port was requested.
+func parseForgetTarget(id string) (host, port string, specific bool) {
+	id = strings.TrimSpace(id)
+	if i := strings.Index(id, "|"); i >= 0 {
+		return normalizeHost(id[:i]), strings.TrimSpace(id[i+1:]), true
+	}
+	if h, p, err := net.SplitHostPort(id); err == nil {
+		return normalizeHost(h), p, true
+	}
+	return normalizeHost(id), "", false
 }
 
 // ClearSSHHosts removes all secondary provision TOFU keys.

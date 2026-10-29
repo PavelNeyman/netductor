@@ -39,3 +39,16 @@ netductor ssh-hosts trust 2.27.118.70 --port 52222 --fingerprint 'SHA256:…'
 
 Pins are stored as `host|port` (e.g. `2.27.118.70|52222`). Legacy bare-host entries still resolve.
 Fingerprint comparison is **exact** (case-sensitive Base64). Different ports on the same IP are independent endpoints.
+
+## Recovery (forget)
+
+```bash
+# one endpoint only
+netductor ssh-hosts forget --kind secondary '2.27.118.70|52222'
+# or OpenSSH-style
+netductor ssh-hosts forget --kind secondary 2.27.118.70:52222
+# all pins for host (legacy + every port)
+netductor ssh-hosts forget --kind secondary 2.27.118.70
+```
+
+Then re-run `ssh-trust` with a confirmed fingerprint — never auto-accept.

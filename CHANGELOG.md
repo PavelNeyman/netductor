@@ -1,3 +1,11 @@
+## 0.9.606
+
+SSH trust follow-up (review d01954d):
+- ForgetSSHHost understands host|port and host:port; bare host clears all ports
+- fingerprintsMatch exact compare unit-tested (not only EqualFold avoidance in prose)
+- HasTOFUPin documented as 52222-only; deploy uses CheckTOFUPin(host, pPort)
+- Tests: forget one port keeps the other
+
 ## 0.9.605
 
 SSH trust review fixes (post-0d75d81):

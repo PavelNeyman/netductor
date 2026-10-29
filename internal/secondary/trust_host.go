@@ -68,6 +68,11 @@ func FingerprintSHA256(key ssh.PublicKey) string {
 	return ssh.FingerprintSHA256(key)
 }
 
+// fingerprintsMatch is exact (case-sensitive) after TrimSpace — Base64 is case-sensitive.
+func fingerprintsMatch(got, want string) bool {
+	return strings.TrimSpace(got) == strings.TrimSpace(want)
+}
+
 // ProbeHostKey dials host:port, captures the server host key during handshake, then aborts.
 // Material is obtained over the unverified channel — operator must confirm fingerprint
 // out-of-band before TrustHostKey. Probe is not authentication.
@@ -174,9 +179,9 @@ func TrustHostKeyIfFingerprintMatch(host, port, expectedFP string) (ssh.PublicKe
 	if err != nil {
 		return nil, err
 	}
-	got := strings.TrimSpace(FingerprintSHA256(key))
-	if got != expectedFP {
-		return key, fmt.Errorf("fingerprint mismatch for %s:%s: got %s want %s", host, port, got, expectedFP)
+	got := FingerprintSHA256(key)
+	if !fingerprintsMatch(got, expectedFP) {
+		return key, fmt.Errorf("fingerprint mismatch for %s:%s: got %s want %s", host, port, strings.TrimSpace(got), expectedFP)
 	}
 	if err := TrustHostKey(host, port, key); err != nil {
 		return key, err
@@ -226,7 +231,8 @@ func CheckTOFUPin(host, port string) (PinStatus, error) {
 	return PinAbsent, nil
 }
 
-// HasTOFUPin reports whether a usable pin exists (legacy helper).
+// HasTOFUPin is a legacy helper that checks day-2 port 52222 only.
+// Prefer CheckTOFUPin(host, port) or HasTOFUPinPort for the actual SSH port.
 func HasTOFUPin(host string) (bool, error) {
 	st, err := CheckTOFUPin(host, "52222")
 	if err != nil {
