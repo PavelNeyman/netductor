@@ -30,3 +30,5 @@ Password only for UI bootstrap connect. After operator pubkey is installed and *
 - [x] Two-phase harden + rollback timer (0.9.618)
 
 - [x] SSHTransport mode machine + stage identifiers (0.9.619)
+
+- [x] P0: cancel rollback only after post-finalize key-only; firewall restore; fail-closed restart (0.9.620)

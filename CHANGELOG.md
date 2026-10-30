@@ -1,3 +1,11 @@
+## 0.9.620
+
+SSH harden P0 (security review):
+- Finalize no longer cancels rollback timer; cancel only after post-finalize key-only success
+- systemctl restart failures fail-closed (no || true)
+- Mandatory fresh SSH backup; UFW snapshot restored by rollback unit
+- PromoteToHardened after proven hardened access
+
 ## 0.9.619
 
 Secondary SSH transport model:

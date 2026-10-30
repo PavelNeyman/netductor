@@ -185,3 +185,17 @@ See `docs/PLAN-SSH-KEYONLY-PROVISION.md`.
 | InstallOperatorKeys verifies lines present | done |
 | Integration sshd lab / live Secondary | still OPEN |
 
+
+### 0.9.620 — P0 harden rollback lifecycle (security review)
+
+| Item | Status |
+|------|--------|
+| Finalize does **not** cancel rollback timer | done |
+| Cancel only after post-finalize verifyKeyOnly | done |
+| systemctl restart errors fail-closed | done |
+| Mandatory SSH backup + fresh backup dir | done |
+| UFW snapshot + restore in rollback unit | done |
+| PromoteToHardened after proven access | done |
+
+Still OPEN: live Secondary e2e, full sshd integration lab.
+

@@ -226,7 +226,7 @@ func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 	return nil
 }
 
-// DisablePasswordAuth is a legacy one-shot harden (prepare+finalize). Prefer HardenSSHTwoPhase.
+// DisablePasswordAuth is a legacy one-shot harden (prepare+finalize+cancel). Prefer two-phase API.
 func DisablePasswordAuth(client *ssh.Client) error {
 	_, err := runSSH(client, hardening.RemoteHardenScript())
 	return err
@@ -241,12 +241,20 @@ func HardenSSHPrepare(client *ssh.Client) error {
 	return nil
 }
 
-// HardenSSHFinalize disables password, closes :22, cancels rollback timer.
-// Call only after key-only verify on DefaultSSHPort succeeded.
+// HardenSSHFinalize disables password and denies :22. Does NOT cancel rollback timer.
 func HardenSSHFinalize(client *ssh.Client) error {
 	out, err := runSSH(client, hardening.RemoteHardenFinalizeScript())
 	if err != nil {
 		return fmt.Errorf("%s: %w (%s)", StageHardenFinalize, err, trimLog(out))
+	}
+	return nil
+}
+
+// HardenSSHCancelRollback stops the independent rollback timer after proven key-only access.
+func HardenSSHCancelRollback(client *ssh.Client) error {
+	out, err := runSSH(client, hardening.RemoteHardenCancelRollbackScript())
+	if err != nil {
+		return fmt.Errorf("%s: cancel rollback: %w (%s)", StageHardenFinalize, err, trimLog(out))
 	}
 	return nil
 }
@@ -460,20 +468,28 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 
 	if err := HardenSSHFinalize(day2); err != nil {
 		log.WriteString("harden finalize: " + err.Error() + "\n")
+		// Rollback timer still armed — do not cancel.
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
 			err
 	}
-	log.WriteString("secondary-hardening-finalize: ok\n")
-
-	// Re-check key-only after password disabled.
+	log.WriteString(StageHardenFinalize + ": applied (rollback still armed)\n")
 	_ = day2.Close()
+
+	// Independent key-only AFTER finalize — only then cancel rollback.
 	finalC, err := verifyKeyOnly(in)
 	if err != nil {
+		log.WriteString(StagePasswordAuthDisable + ": " + err.Error() + "\n")
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
-			fmt.Errorf("secondary-password-auth-disable: post-finalize key-only: %w", err)
+			fmt.Errorf("%s: post-finalize key-only failed (rollback timer remains armed): %w", StagePasswordAuthDisable, err)
+	}
+	if err := HardenSSHCancelRollback(finalC); err != nil {
+		_ = finalC.Close()
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
+			err
 	}
 	_ = finalC.Close()
-	log.WriteString(StagePasswordAuthDisable + ": ok; transport=hardened\n")
+	_ = tr.PromoteToHardened(hardening.DefaultSSHPort)
+	log.WriteString(StagePasswordAuthDisable + ": ok; transport=hardened; rollback cancelled\n")
 	return &ProvisionResult{
 		Host: in.Host, PublicKey: pubJoined, Log: log.String(),
 		AgentOK: true, SingBoxOK: true,
