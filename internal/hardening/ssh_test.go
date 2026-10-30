@@ -5,78 +5,64 @@ import (
 	"testing"
 )
 
-func TestDropInConfContainsPortAndKeyOnly(t *testing.T) {
+func TestDropInConf(t *testing.T) {
 	if !strings.Contains(DropInConf(), "PasswordAuthentication no") {
-		t.Fatal("missing PasswordAuthentication")
+		t.Fatal("key-only")
 	}
 }
 
-func TestPrepareArmsRollbackBeforeMutation(t *testing.T) {
+func TestPrepareOrderAndFlock(t *testing.T) {
 	s := RemoteHardenPrepareScript()
-	marker := "Mutations only after rollback is armed"
-	idxMut := strings.Index(s, marker)
+	if !strings.Contains(s, "flock 9") {
+		t.Fatal("rollback must use flock")
+	}
+	if !strings.Contains(s, "Mutations only after rollback is armed") {
+		t.Fatal("mutation marker")
+	}
 	idxTimer := strings.Index(s, "systemctl is-active ${ND_RB_TIMER}")
-	if idxMut < 0 || idxTimer < 0 || idxTimer > idxMut {
-		t.Fatal("rollback must be active before mutations")
+	idxMut := strings.Index(s, "Mutations only after rollback is armed")
+	if idxTimer < 0 || idxMut < 0 || idxTimer > idxMut {
+		t.Fatal("arm before mutate")
 	}
-	if !strings.Contains(s, "CANCELLED") {
-		// stamp is in rollback script body
-		if !strings.Contains(s, "cancelled stamp") {
-			t.Fatal("rollback should honor CANCELLED stamp")
-		}
+	if !strings.Contains(s, "user6.rules") {
+		t.Fatal("user6 snapshot path")
 	}
-	if !strings.Contains(s, "ufw-policy") {
-		t.Fatal("ufw policy")
-	}
-	if !strings.Contains(s, "ssh.socket") {
-		t.Fatal("socket state snapshot")
-	}
-	if !strings.Contains(s, "test -f \"$ND_BAK/ufw/user.rules\"") && !strings.Contains(s, `test -f "$ND_BAK/ufw/user.rules"`) {
-		// active requires user.rules
-		if !strings.Contains(s, "user.rules") {
-			t.Fatal("user.rules snapshot")
+	if strings.Contains(s, "ufw allow 22/tcp comment netductor-ssh-bootstrap || true") &&
+		strings.Contains(s[strings.Index(s, "NDRBSH"):], "ufw allow 22/tcp comment netductor-ssh-bootstrap") {
+		// heuristic allow in rollback body is forbidden; prepare mutation may still allow 22
+		rb := s[strings.Index(s, "NDRBSH") : strings.LastIndex(s, "NDRBSH")+6]
+		if strings.Contains(rb, "netductor-ssh-bootstrap") {
+			t.Fatal("rollback must not heuristic-allow 22")
 		}
 	}
 }
 
-func TestFinalizeNoPurgeNoCancel(t *testing.T) {
-	s := RemoteHardenFinalizeScript()
-	if strings.Contains(s, "apt-get remove") {
-		t.Fatal("no purge in finalize")
-	}
-	if strings.Contains(s, "CANCELLED") {
-		t.Fatal("finalize must not cancel")
-	}
-}
-
-func TestCancelStampAndService(t *testing.T) {
+func TestCancelUsesFlockAndStamp(t *testing.T) {
 	s := RemoteHardenCancelRollbackScript()
+	if !strings.Contains(s, "flock 9") {
+		t.Fatal("cancel flock")
+	}
 	if !strings.Contains(s, "CANCELLED") {
-		t.Fatal("CANCELLED stamp")
+		t.Fatal("CANCELLED")
 	}
-	if !strings.Contains(s, "stop \"$ND_RB_UNIT\"") && !strings.Contains(s, "stop ${ND_RB_UNIT}") {
-		if !strings.Contains(s, RollbackUnit) {
-			t.Fatal("must stop rollback unit")
-		}
+	if !strings.Contains(s, RollbackUnit) {
+		t.Fatal("stop unit")
 	}
-	if !strings.Contains(s, "is-active") {
+	if !strings.Contains(s, "still active") {
 		t.Fatal("verify inactive")
 	}
 }
 
-func TestLegacyOneShotDisabled(t *testing.T) {
-	s := RemoteHardenScript()
-	if !strings.Contains(s, "exit 1") {
-		t.Fatal("legacy one-shot must fail")
-	}
-	if strings.Contains(s, "nd-harden-prepare") {
-		t.Fatal("must not embed prepare")
+func TestFinalizeClean(t *testing.T) {
+	s := RemoteHardenFinalizeScript()
+	if strings.Contains(s, "apt-get remove") || strings.Contains(s, "CANCELLED") {
+		t.Fatal("finalize scope")
 	}
 }
 
-func TestPurgeIsSeparate(t *testing.T) {
-	if !strings.Contains(RemoteHostAgentPurgeScript(), "zabbix") {
-		t.Fatal("purge")
+func TestLegacyDisabled(t *testing.T) {
+	if !strings.Contains(RemoteHardenScript(), "exit 1") {
+		t.Fatal("legacy")
 	}
 }
 

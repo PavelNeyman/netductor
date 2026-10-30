@@ -1,3 +1,11 @@
+## 0.9.623
+
+SSH harden:
+- flock mutual exclusion between rollback and cancel
+- CANCELLED re-checked under lock before sshd restart
+- UFW restore from snapshot files only; user6 when present on host
+- Socket masked/enabled/disabled restore
+
 ## 0.9.622
 
 SSH harden:

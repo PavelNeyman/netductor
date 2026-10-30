@@ -223,3 +223,14 @@ Still OPEN: live Secondary e2e, full sshd integration lab.
 | Socket enabled/active snapshot + restore | done |
 | Legacy RemoteHardenScript / DisablePasswordAuth fail closed | done |
 
+
+### 0.9.623 — flock mutual exclusion for cancel/rollback
+
+| Item | Status |
+|------|--------|
+| Shared flock on backup/lock for rollback + cancel | done |
+| CANCELLED re-checked under lock before restart | done |
+| Cancel waits for unit inactive after stop | done |
+| UFW restore = file copy + reload only | done |
+| Socket masked/enabled/disabled restore | done |
+
