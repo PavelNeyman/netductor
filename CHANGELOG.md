@@ -1,3 +1,11 @@
+## 0.9.617
+
+Security: Secondary provision password → key-only gate
+- Bootstrap installs pubkey then closes; fresh key-only dial before mTLS/join
+- Deploy supplies PrimaryKey for the gate when SecondarySSHKey empty
+- RemoteHardenScript: sshd -t; no pkill -f
+- Full independent harden rollback still OPEN
+
 ## 0.9.616
 
 Update engine: host component rollback from `.prev`

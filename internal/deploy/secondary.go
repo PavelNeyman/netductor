@@ -558,9 +558,14 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 		// R6/R16: host-key mismatch must NOT auto-forget or retry with password (MITM risk).
 		// Explicit ForceReinstall only after operator verified fingerprint offline.
+		// Always pass operator private key for post-bootstrap key-only verify (PrimaryKey when SecondarySSHKey empty).
+		opKey := strings.TrimSpace(o.SecondarySSHKey)
+		if opKey == "" {
+			opKey = strings.TrimSpace(o.PrimaryKey)
+		}
 		res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
 			Host: o.SecondaryHost, Port: provPort, User: o.SecondaryUser,
-			Password: o.SecondaryPass, SSHPrivateKey: o.SecondarySSHKey,
+			Password: o.SecondaryPass, SSHPrivateKey: opKey,
 			SSHKeyPassphrase: secondaryKeyPass(o),
 			SNI:              o.SNI, OperatorPubKey: pub,
 			MTLSCA: ca, MTLSCert: cert, MTLSKey: key,

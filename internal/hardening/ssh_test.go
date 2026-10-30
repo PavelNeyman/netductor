@@ -23,6 +23,12 @@ func TestRemoteHardenScriptMentionsUFWAndZabbix(t *testing.T) {
 	if !strings.Contains(s, "zabbix") {
 		t.Fatal("no zabbix purge")
 	}
+	if !strings.Contains(s, "sshd -t") {
+		t.Fatal("expected sshd -t before restart")
+	}
+	if strings.Contains(s, "pkill -f") {
+		t.Fatal("pkill -f must not appear")
+	}
 	if !strings.Contains(s, "52222") && !strings.Contains(s, "Port") {
 		t.Log("port may come from DefaultSSHPort expansion")
 	}

@@ -76,35 +76,52 @@ func resolveInstallPubKeys(in ProvisionIn) ([]string, error) {
 	return []string{core}, nil
 }
 
-func sshClient(in ProvisionIn) (*ssh.Client, error) {
+// sshSignerFromIn loads the operator private key; required for key-only transport.
+func sshSignerFromIn(in ProvisionIn) (ssh.Signer, error) {
+	k := strings.TrimSpace(in.SSHPrivateKey)
+	if k == "" {
+		return nil, fmt.Errorf("SSH private key path required for key-only transport")
+	}
+	key, err := os.ReadFile(k)
+	if err != nil {
+		return nil, fmt.Errorf("read SSH private key: %w", err)
+	}
+	var signer ssh.Signer
+	if in.SSHKeyPassphrase != "" {
+		signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(in.SSHKeyPassphrase))
+	} else {
+		signer, err = ssh.ParsePrivateKey(key)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("parse SSH private key: %w (encrypted key needs its passphrase; a separate secondary key does not inherit the primary passphrase)", err)
+	}
+	return signer, nil
+}
+
+func normalizeSSHIn(in *ProvisionIn) {
 	if in.Port <= 0 {
 		in.Port = 22
 	}
 	if in.User == "" {
 		in.User = "root"
 	}
+}
+
+// sshClientBootstrap: first contact. Password-only when password set (no key in Auth → no silent key fallback).
+func sshClientBootstrap(in ProvisionIn) (*ssh.Client, error) {
+	normalizeSSHIn(&in)
 	var methods []ssh.AuthMethod
-	if k := strings.TrimSpace(in.SSHPrivateKey); k != "" {
-		key, err := os.ReadFile(k)
+	if in.Password != "" {
+		methods = append(methods, ssh.Password(in.Password))
+	} else {
+		signer, err := sshSignerFromIn(in)
 		if err != nil {
-			return nil, fmt.Errorf("read SSH private key: %w", err)
-		}
-		var signer ssh.Signer
-		if in.SSHKeyPassphrase != "" {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(in.SSHKeyPassphrase))
-		} else {
-			signer, err = ssh.ParsePrivateKey(key)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("parse SSH private key: %w (encrypted key needs its passphrase; a separate secondary key does not inherit the primary passphrase)", err)
+			return nil, fmt.Errorf("secondary-bootstrap-connect: %w", err)
 		}
 		methods = append(methods, ssh.PublicKeys(signer))
 	}
-	if in.Password != "" {
-		methods = append(methods, ssh.Password(in.Password))
-	}
 	if len(methods) == 0 {
-		return nil, fmt.Errorf("password or SSH private key required")
+		return nil, fmt.Errorf("secondary-bootstrap-connect: password or SSH private key required")
 	}
 	cfg := &ssh.ClientConfig{
 		User:            in.User,
@@ -114,6 +131,44 @@ func sshClient(in ProvisionIn) (*ssh.Client, error) {
 	}
 	addr := net.JoinHostPort(in.Host, fmt.Sprintf("%d", in.Port))
 	return ssh.Dial("tcp", addr, cfg)
+}
+
+// sshClientKeyOnly: PublicKeys only — never password.
+func sshClientKeyOnly(in ProvisionIn) (*ssh.Client, error) {
+	normalizeSSHIn(&in)
+	signer, err := sshSignerFromIn(in)
+	if err != nil {
+		return nil, fmt.Errorf("secondary-key-only-verification: %w", err)
+	}
+	cfg := &ssh.ClientConfig{
+		User:            in.User,
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: provisionHostKey(in.Host, in.Port),
+		Timeout:         30 * time.Second,
+	}
+	addr := net.JoinHostPort(in.Host, fmt.Sprintf("%d", in.Port))
+	return ssh.Dial("tcp", addr, cfg)
+}
+
+// sshClient routes: password present → bootstrap; else key-only (resume).
+func sshClient(in ProvisionIn) (*ssh.Client, error) {
+	if strings.TrimSpace(in.Password) != "" {
+		return sshClientBootstrap(in)
+	}
+	return sshClientKeyOnly(in)
+}
+
+// verifyKeyOnly opens a fresh TCP+SSH session and runs true.
+func verifyKeyOnly(in ProvisionIn) (*ssh.Client, error) {
+	c, err := sshClientKeyOnly(in)
+	if err != nil {
+		return nil, fmt.Errorf("secondary-key-only-verification: dial: %w", err)
+	}
+	if _, err := runSSH(c, "true"); err != nil {
+		_ = c.Close()
+		return nil, fmt.Errorf("secondary-key-only-verification: remote true: %w", err)
+	}
+	return c, nil
 }
 
 func runSSH(client *ssh.Client, cmd string) (string, error) {
@@ -277,7 +332,7 @@ chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.
 	return nil
 }
 
-// ProvisionFromCore: keys + mTLS + join while password works, then disable password (harden-last).
+// ProvisionFromCore: password bootstrap → install pubkey → independent key-only gate → mTLS/join/harden on key session.
 func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, error) {
 	var log strings.Builder
 	// R6: never wipe TOFU on password alone. Only explicit ForceReinstall (or CLI ssh-hosts forget).
@@ -294,17 +349,32 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	if len(in.MTLSCA) == 0 || len(in.MTLSCert) == 0 || len(in.MTLSKey) == 0 {
 		return nil, fmt.Errorf("mTLS material required before secondary provision (ca=%d cert=%d key=%d)", len(in.MTLSCA), len(in.MTLSCert), len(in.MTLSKey))
 	}
-	client, err := sshClient(in)
+	// Stage A: bootstrap (password if provided; key-only resume otherwise).
+	bootstrap, err := sshClient(in)
 	if err != nil {
-		return nil, fmt.Errorf("ssh dial: %w", err)
+		return nil, fmt.Errorf("secondary-bootstrap-connect: %w", err)
+	}
+	log.WriteString("secondary-bootstrap-connect: ok\n")
+	if err := InstallOperatorKeys(bootstrap, keys...); err != nil {
+		_ = bootstrap.Close()
+		return nil, fmt.Errorf("secondary-install-public-key: %w", err)
+	}
+	log.WriteString("secondary-install-public-key: ok\n")
+	_ = bootstrap.Close()
+
+	// Stage C: independent key-only gate (requires operator private key path).
+	if strings.TrimSpace(in.SSHPrivateKey) == "" {
+		return nil, fmt.Errorf("secondary-key-only-verification: operator private key path required after pubkey install")
+	}
+	client, err := verifyKeyOnly(in)
+	if err != nil {
+		return nil, err
 	}
 	defer client.Close()
+	// Stage D: drop password from memory — no password fallback for remainder.
+	in.Password = ""
+	log.WriteString("secondary-key-only-verification: ok; transport=key\n")
 
-	log.WriteString("ssh connected\n")
-	if err := InstallOperatorKeys(client, keys...); err != nil {
-		return nil, fmt.Errorf("install keys: %w", err)
-	}
-	log.WriteString("operator pubkey installed (password still on)\n")
 	if err := installMTLSMaterial(client, in.MTLSCA, in.MTLSCert, in.MTLSKey); err != nil {
 		return nil, fmt.Errorf("mtls material: %w", err)
 	}
@@ -313,7 +383,7 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	log.WriteString("remote join completed\n")
 	pubJoined := strings.Join(keys, "\n")
 	if err != nil {
-		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("join failed")
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("secondary-install-components: join failed: %w", err)
 	}
 	// Strict post-join checks (RemoteJoin already tests units; re-verify)
 	_, sbErr := runSSH(client, `test "$(systemctl is-active sing-box)" = "active"`)
@@ -328,7 +398,7 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	if err := DisablePasswordAuth(client); err != nil {
 		log.WriteString("disable password: " + err.Error() + "\n")
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
-			fmt.Errorf("join ok but disable password failed: %w", err)
+			fmt.Errorf("secondary-password-auth-disable: %w", err)
 	}
 	log.WriteString("password auth disabled (harden-last)\n")
 	return &ProvisionResult{

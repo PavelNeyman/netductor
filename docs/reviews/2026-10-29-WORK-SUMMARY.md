@@ -131,3 +131,37 @@ Phase 9 **parent acceptance is not fully met** until integration + live evidence
 - Contract allows `queued → rollback_in_progress`
 - Still OPEN without stand: dual-VPS integration, Edge canary, live go/no-go
 
+
+
+## Security-critical: Secondary SSH password → key-only (OPEN → in progress)
+
+**TZ (2026-10-30):** password only for first connect; after pubkey install + independent key-only verify, all deploy uses key-only; harden with sshd -t + independent rollback; no password fallback; stage errors; remove `pkill -f`.
+
+### Audit map (pre-change)
+
+| Function | Auth today | When | Required |
+|----------|------------|------|----------|
+| `secondary.sshClient` | Password **and/or** PublicKeys (both offered) | ProvisionFromCore dial | Bootstrap: password only; after gate: key only |
+| `InstallOperatorKeys` | same client session | After dial | Bootstrap session |
+| Key-only verify | **missing** | — | New dial, PublicKeys only, `true` |
+| install binary / RemoteJoin / units | **same bootstrap client** | Mid provision | KeyVerified |
+| `DisablePasswordAuth` → `RemoteHardenScript` | same client | End | KeyVerified; harden needs sshd -t + rollback |
+| `runSSHOnPort` (deploy after provision) | key path, empty password | DeploySecondary post | Key-only (already) |
+
+Root issue: initial path clears `SecondarySSHKey` and keeps one password-capable session through join+harden; password stays in Auth methods if key also present.
+
+See `docs/PLAN-SSH-KEYONLY-PROVISION.md`.
+
+
+### Implementation progress (0.9.617)
+
+| Item | Status |
+|------|--------|
+| Audit map + PLAN-SSH-KEYONLY-PROVISION | done |
+| sshClientBootstrap password-only when password set | done |
+| sshClientKeyOnly / verifyKeyOnly | done |
+| ProvisionFromCore key gate + zero password | done |
+| DeploySecondary passes PrimaryKey for gate | done |
+| Harden: no pkill; sshd -t | done (minimal) |
+| Independent systemd harden rollback | OPEN |
+| Integration sshd lab | OPEN |

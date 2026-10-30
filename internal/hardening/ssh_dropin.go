@@ -76,12 +76,15 @@ if command -v ufw >/dev/null 2>&1; then
   ufw deny 10050/tcp 2>/dev/null || true
   ufw deny 10051/tcp 2>/dev/null || true
 fi
-pkill -f zabbix_agent 2>/dev/null || true
+# zabbix stopped via systemctl disable/mask above — no broad process kill
 systemctl stop ssh.socket 2>/dev/null || true
 systemctl disable ssh.socket 2>/dev/null || true
 systemctl stop sshd.socket 2>/dev/null || true
 systemctl disable sshd.socket 2>/dev/null || true
 systemctl enable ssh.service 2>/dev/null || systemctl enable sshd.service 2>/dev/null || true
+if command -v sshd >/dev/null 2>&1; then
+  sshd -t || { echo "sshd -t failed — refusing restart"; exit 1; }
+fi
 systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || service ssh restart 2>/dev/null || true
 `, DropInConf(), port, port)
 }
