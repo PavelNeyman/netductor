@@ -95,3 +95,12 @@ bash scripts/check-update-asset-matrix.sh
 - Independent release signature trust
 - Independent signature trust (beyond SHA256SUMS from same host)
 - Publish GH release when operators should run tip binaries
+
+
+## Phase 9 (2026-10-30)
+
+- Added `internal/update/phase9_test.go` (tag parse, unsupported arch, concurrent Begin, jobs snapshot, safety asset names, failure classes).
+- Audit: `docs/audits/2026-10-30-update-phase9-verification.md` (+ RU copy).
+- Plan: unit/lifecycle/failure/safety/checkboxes partially [x] with OPEN notes for dual-VPS, Edge, live UI.
+- **Not claimed:** full Phase 9 parent done; integration + canary remain.
+

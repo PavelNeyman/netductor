@@ -49,3 +49,8 @@ bash scripts/check-update-asset-matrix.sh
 
 - UFW на Secondary A включён через `firewall apply secondary`.
 - Isolated B / cutover — **не** объявлены готовыми.
+
+
+## Этап 9 (2026-10-30)
+
+Unit matrix + audit report; integration OPEN.

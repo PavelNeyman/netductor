@@ -125,6 +125,8 @@
 
 ### Этап 9 — матрица проверок
 
+Unit/failure evidence: [audits/2026-10-30-update-phase9-verification.md](../audits/2026-10-30-update-phase9-verification.md). Integration/live remain open.
+
 - [ ] Unit-тесты: выбор компонента/артефакта, архитектура/ABI, разбор версий, проверка checksum/manifest, переходы состояний, идемпотентность, конкуренция, права, локализация и валидация callback.
 - [ ] Integration-тесты: Primary → Secondary, Primary → Edge Agent, а также каждый поддерживаемый путь CLI/Telegram/Web UI через общий backend и движок обновления.
 - [ ] Lifecycle-тесты: download → verify → install → restart → health check → подтверждение работающей версии → history.

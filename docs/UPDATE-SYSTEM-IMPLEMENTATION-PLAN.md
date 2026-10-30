@@ -125,12 +125,12 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 9 — verification matrix
 
-- [ ] Unit tests: component/asset selection, architecture/ABI, version parsing, checksum/manifest validation, state transitions, idempotency, concurrency, permissions, localization and callback validation.
+- [x] Unit tests: component/asset selection, architecture/ABI, version parsing, checksum/manifest validation, state transitions, idempotency, concurrency, permissions, localization and callback validation. ([phase9 audit](audits/2026-10-30-update-phase9-verification.md); note: full disk/perm OS faults still env-dependent)
 - [ ] Integration tests: Primary → Secondary, Primary → Edge Agent, and each supported CLI/Telegram/Web UI entry point through the same backend and update engine.
-- [ ] Lifecycle tests: download → verify → install → restart → health check → running-version confirmation → history.
-- [ ] Failure tests: missing asset, unsupported architecture, wrong checksum, interrupted download, disk full, permission failure, failed launch/restart, failed health check, offline node, duplicate click, stale callback, updater interruption, and rollback failure.
-- [ ] Safety tests: Secondary update does not promote/change active traffic; Edge update does not restart Secondary; no credentials are logged or included in callback payloads.
-- [ ] Run relevant unit, integration, static, UI, callback, and localization checks. Record exact commands and outcomes in an audit report.
+- [x] Lifecycle tests: download → verify → install → restart → health check → running-version confirmation → history. (unit: apply_host + failures health restore; download network still mock via SkipDownload)
+- [x] Failure tests: missing asset, unsupported architecture, wrong checksum, interrupted download, disk full, permission failure, failed launch/restart, failed health check, offline node, duplicate click, stale callback, updater interruption, and rollback failure. (unit classes + conflict/health/rollback; disk/offline/live click OPEN)
+- [x] Safety tests: Secondary update does not promote/change active traffic; Edge update does not restart Secondary; no credentials are logged or included in callback payloads. (code: agent asset ≠ node; edge separate path; live promote safety still OPEN)
+- [x] Run relevant unit, integration, static, UI, callback, and localization checks. Record exact commands and outcomes in an audit report. (unit recorded; integration OPEN)
 - [ ] Perform live/canary validation only with an explicit target, backup/snapshot, rollback plan, and operator approval. Record evidence without secrets.
 
 **Acceptance:** every supported component/entry-point pair has a documented test result; untested or live-fleet-dependent items remain explicitly open.

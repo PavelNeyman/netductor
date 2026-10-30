@@ -1,3 +1,8 @@
+## 0.9.614
+
+Update Phase 9 (partial): unit verification matrix + audit report.
+Integration/live dual-VPS still OPEN.
+
 ## 0.9.613
 
 Update Phase 8 (CLI + runbooks):
