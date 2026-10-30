@@ -259,6 +259,15 @@ func HardenSSHCancelRollback(client *ssh.Client) error {
 	return nil
 }
 
+// HardenSSHHostAgentPurge removes hoster agents after SSH access is locked in (post-cancel).
+func HardenSSHHostAgentPurge(client *ssh.Client) error {
+	out, err := runSSH(client, hardening.RemoteHostAgentPurgeScript())
+	if err != nil {
+		return fmt.Errorf("secondary-host-agent-purge: %w (%s)", err, trimLog(out))
+	}
+	return nil
+}
+
 func trimLog(s string) string {
 	s = strings.TrimSpace(s)
 	if len(s) > 200 {
@@ -487,8 +496,19 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
 			err
 	}
+	if err := tr.PromoteToHardened(hardening.DefaultSSHPort); err != nil {
+		_ = finalC.Close()
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
+			fmt.Errorf("%s: transport state: %w", StageTransportSwitch, err)
+	}
+	// Non-SSH side effects only after access proven and rollback cancelled.
+	if err := HardenSSHHostAgentPurge(finalC); err != nil {
+		_ = finalC.Close()
+		log.WriteString("host-agent-purge: " + err.Error() + "\n")
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
+			err
+	}
 	_ = finalC.Close()
-	_ = tr.PromoteToHardened(hardening.DefaultSSHPort)
 	log.WriteString(StagePasswordAuthDisable + ": ok; transport=hardened; rollback cancelled\n")
 	return &ProvisionResult{
 		Host: in.Host, PublicKey: pubJoined, Log: log.String(),

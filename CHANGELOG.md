@@ -1,3 +1,11 @@
+## 0.9.621
+
+SSH harden P0 follow-up:
+- Arm rollback timer before any UFW/SSH mutation
+- UFW policy snapshot absent/inactive/active with restore
+- Finalize is SSH-only; host-agent purge after cancel
+- Cancel verifies timer inactive; PromoteToHardened errors fail closed
+
 ## 0.9.620
 
 SSH harden P0 (security review):

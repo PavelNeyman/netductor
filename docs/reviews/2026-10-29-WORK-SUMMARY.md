@@ -199,3 +199,15 @@ See `docs/PLAN-SSH-KEYONLY-PROVISION.md`.
 
 Still OPEN: live Secondary e2e, full sshd integration lab.
 
+
+### 0.9.621 — harden P0 follow-up (review 0.9.620)
+
+| Item | Status |
+|------|--------|
+| Arm rollback **before** UFW/SSH mutations | done |
+| UFW policy absent/inactive/active + restore | done |
+| Finalize: SSH only (no package purge) | done |
+| Host agent purge **after** cancel + proven access | done |
+| Cancel verifies timer inactive | done |
+| PromoteToHardened error handled | done |
+
