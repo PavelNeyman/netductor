@@ -270,6 +270,12 @@ func runUpdate(restart bool) {
 				os.Exit(0)
 			}
 			return
+		case "jobs", "job":
+			snaps := ndupdate.HostJobsSnapshot()
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(map[string]any{"jobs": snaps, "local_version": ndver.Release})
+			return
 		case "list", "releases":
 			limit := 15
 			force := false
@@ -304,9 +310,11 @@ func runUpdate(restart bool) {
 			runUpdateGitHubToken(args[1:])
 			return
 		case "--help", "-h", "help":
-			fmt.Println("netductor update check|list [--limit N] [--refresh|--force]")
+			fmt.Println("netductor update check|status|list|jobs [--limit N] [--refresh|--force]")
 			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
 			fmt.Println("netductor update github-token status|set <token>|clear")
+			fmt.Println("  components: node (VPS primary binary), tg (telegram bot), agent (secondary-agent unit on this host)")
+			fmt.Println("  edge OpenWrt agent: use agent_update / edge path — not --component agent")
 			fmt.Println("  version empty → latest release; prefer explicit tag if latest is broken")
 			return
 		}
@@ -329,8 +337,8 @@ func runUpdate(restart bool) {
 		case a == "--no-backup":
 			noBackup = true
 		case a == "--help" || a == "-h":
-			fmt.Println("netductor update check|list [--limit N] [--refresh|--force]")
-			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
+			fmt.Println("netductor update check|status|list|jobs")
+			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] …")
 			return
 		case strings.HasPrefix(a, "-"):
 			// skip unknown flags
@@ -366,15 +374,28 @@ func runUpdate(restart bool) {
 	unit := "netductor-api"
 	switch comp {
 	case "tg", "telegram":
+		comp = "tg"
 		dest = "/usr/local/bin/netductor-tg"
 		unit = "netductor-telegram-bot"
-	case "agent":
+	case "agent", "secondary-agent", "secondary_agent":
+		// Host secondary-agent binary/unit only — not OpenWrt edge (see agent_update).
+		comp = "agent"
 		dest = "/usr/local/bin/netductor-agent"
 		unit = "netductor-secondary-agent"
 	case "node", "netductor", "":
 		comp = "node"
+	case "op", "operator":
+		fmt.Fprintln(os.Stderr, "component op is updated on Mac via netductor-op update / brew — not this node CLI")
+		os.Exit(2)
+	case "edge":
+		fmt.Fprintln(os.Stderr, "edge agent updates use agent_update / edge control plane — not --component agent")
+		os.Exit(2)
 	default:
-		fmt.Fprintln(os.Stderr, "unknown component", comp)
+		fmt.Fprintln(os.Stderr, "unknown component", comp, "(want: node|tg|agent)")
+		os.Exit(2)
+	}
+	if !ndupdate.ValidComponent(ndupdate.ComponentID(comp)) && comp != "node" {
+		fmt.Fprintln(os.Stderr, "invalid component id", comp)
 		os.Exit(2)
 	}
 	// Single path for primary node+tg: stack orchestrator (lock, pin, no dual-writer).

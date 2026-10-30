@@ -47,7 +47,7 @@ bash scripts/check-update-asset-matrix.sh
 | 5 TG UI | **done** | Versions hub: jobs snippet, confirm apply, conflict gate |
 | 6 Web UI | **done** | status.jobs, ApplyHost API, Updates card |
 | 7 i18n/docs | **done** | UPDATE-I18N, ver_*/upd_* keys, check-update-i18n.sh |
-| 8 CLI/runbooks | open | |
+| 8 CLI/runbooks | **done** | UPDATE-CLI, UPDATE-RUNBOOK, jobs subcommand |
 | 6 Web UI | open | |
 | 7+ Rollout | open | |
 

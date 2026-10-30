@@ -115,11 +115,11 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 8 — CLI and operator runbooks
 
-- [ ] Align CLI commands and flags with existing conventions; remove ambiguous component names such as a generic `agent` where it can mean different products.
-- [ ] Expose status/check/update/job/history and rollback only where the underlying operation is supported.
-- [ ] Make CLI use the same update contract/engine rather than implementing a second updater.
-- [ ] Document prerequisites, trust model, artifact verification, expected downtime, health confirmation, failure recovery, rollback and compatibility.
-- [ ] Update deploy, Secondary/Blue-Green, Edge and release runbooks in EN and RU.
+- [x] Align CLI commands and flags with existing conventions; remove ambiguous component names such as a generic `agent` where it can mean different products.
+- [x] Expose status/check/update/job/history and rollback only where the underlying operation is supported.
+- [x] Make CLI use the same update contract/engine rather than implementing a second updater.
+- [x] Document prerequisites, trust model, artifact verification, expected downtime, health confirmation, failure recovery, rollback and compatibility.
+- [x] Update deploy, Secondary/Blue-Green, Edge and release runbooks in EN and RU.
 
 **Acceptance:** CLI behavior is covered by tests and documented in both languages; runbooks describe the implemented behavior, not planned behavior.
 

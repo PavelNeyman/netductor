@@ -1,3 +1,10 @@
+## 0.9.613
+
+Update Phase 8 (CLI + runbooks):
+- `netductor update jobs` — host job registry snapshot
+- Component aliases clarified (agent = secondary-agent; edge/op refused on node CLI)
+- docs/UPDATE-CLI.md, UPDATE-RUNBOOK.md (+ RU)
+
 ## 0.9.612
 
 CLI TOFU diagnostics:

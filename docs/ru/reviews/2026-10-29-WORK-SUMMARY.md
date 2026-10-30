@@ -29,7 +29,8 @@ bash scripts/check-update-asset-matrix.sh
 | 5 TG UI | **готово** | Versions: jobs, confirm apply |
 | 6 Web UI | **готово** | status.jobs, ApplyHost |
 | 7 i18n | **готово** | UPDATE-I18N, ver_*/upd_* |
-| 8+ | открыто | |
+| 8 CLI | **готово** | UPDATE-CLI / RUNBOOK |
+| 9+ | открыто | |
 
 ## 4. Бесшовность
 
