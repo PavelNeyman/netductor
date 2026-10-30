@@ -20,12 +20,12 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/tlsle"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/registry"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
+	"github.com/PavelNeyman/netductor/internal/tlsle"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/upstream"
 	"github.com/PavelNeyman/netductor/internal/version"
@@ -272,7 +272,7 @@ func doctorRunChecks(h doctorHooks) {
 				(*h.warn)++
 			}
 		}
-		
+
 		// LE / :80 surface
 		if tlsle.HooksInstalled() {
 			doctorPrintln("OK   le renew hooks (pre/post/deploy free :80)")

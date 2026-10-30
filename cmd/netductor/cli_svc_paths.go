@@ -234,7 +234,6 @@ func flagMaterial(args []string) string {
 	return ""
 }
 
-
 func runSvcPeer(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "usage: netductor svc-paths peer list|add|ready|promote|rollback|remove")

@@ -20,7 +20,12 @@ func registerSSHHostsAPI(mux *http.ServeMux) {
 				out["mikrotik"] = mikrotik.ListKnownHosts()
 			}
 			if kind == "" || kind == "secondary" || kind == "all" {
-				out["secondary"] = secondary.ListSSHHosts()
+				entries, err := secondary.ListSSHHosts()
+				if err != nil {
+					writeJSON(w, 500, map[string]string{"error": err.Error()})
+					return
+				}
+				out["secondary"] = entries
 			}
 			writeJSON(w, 200, out)
 		case http.MethodDelete:

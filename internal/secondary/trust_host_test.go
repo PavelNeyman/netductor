@@ -357,3 +357,31 @@ func TestForgetHostSeenWriteFailThenRetry(t *testing.T) {
 		t.Fatalf("after retry want PinAbsent got %v %v", st, err)
 	}
 }
+
+func TestListSSHHostsEmptyOK(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	entries, err := ListSSHHosts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("want empty %v", entries)
+	}
+}
+
+func TestListSSHHostsCorruptError(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	path := filepath.Join(dir, "secondary", "ssh_known_hosts.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{not-json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ListSSHHosts()
+	if err == nil {
+		t.Fatal("want corrupt error")
+	}
+}

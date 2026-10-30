@@ -216,12 +216,13 @@ func saveRelayKH(f map[string]string) error {
 }
 
 // ListSSHHosts lists secondary provision TOFU keys.
-func ListSSHHosts() []SSHHostEntry {
+// Missing store → empty list, nil error. Corrupt/unreadable → error.
+func ListSSHHosts() ([]SSHHostEntry, error) {
 	pkhMu.Lock()
 	defer pkhMu.Unlock()
 	f, err := loadRelayKH()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	ids := make([]string, 0, len(f))
 	for id := range f {
@@ -237,7 +238,7 @@ func ListSSHHosts() []SSHHostEntry {
 		}
 		out = append(out, SSHHostEntry{ID: id, KeyPrefix: pref})
 	}
-	return out
+	return out, nil
 }
 
 // ForgetSSHHost removes TOFU pin(s). Accepts:

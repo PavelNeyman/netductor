@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -35,16 +36,25 @@ func runSSHHosts(args []string) {
 		}
 		if kind == "all" || kind == "secondary" {
 			fmt.Println("=== secondary ===")
-			for _, e := range secondary.ListSSHHosts() {
+			entries, err := secondary.ListSSHHosts()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "secondary list:", err)
+				os.Exit(1)
+			}
+			for _, e := range entries {
 				fmt.Printf("%s\t%s\n", e.ID, e.KeyPrefix)
 			}
 		}
 	case "forget", "delete", "rm":
-		if len(rest) < 2 {
+		if len(rest) != 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor ssh-hosts forget [--kind mt|secondary] <id>")
 			os.Exit(2)
 		}
-		id := rest[1]
+		id := strings.TrimSpace(rest[1])
+		if id == "" {
+			fmt.Fprintln(os.Stderr, "refuse: empty host id")
+			os.Exit(2)
+		}
 		var err error
 		switch kind {
 		case "secondary":

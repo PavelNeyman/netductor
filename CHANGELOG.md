@@ -1,3 +1,10 @@
+## 0.9.612
+
+CLI TOFU diagnostics:
+- ListSSHHosts() ([]SSHHostEntry, error) — corrupt store is error, not (empty)
+- ssh-hosts forget requires exactly one non-empty id (op + node)
+- API GET /api/ssh-hosts returns 500 on store read error
+
 ## 0.9.611
 
 Operator SSH trust CLI hardening:

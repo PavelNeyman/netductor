@@ -16,7 +16,11 @@ func runSSHHostsOp(args []string) int {
 	}
 	switch args[0] {
 	case "list":
-		entries := secondary.ListSSHHosts()
+		entries, err := secondary.ListSSHHosts()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "list:", err)
+			return 1
+		}
 		if len(entries) == 0 {
 			fmt.Println("(empty)")
 			return 0
@@ -30,11 +34,15 @@ func runSSHHostsOp(args []string) int {
 	case "trust":
 		return runSSHTrust(args[1:])
 	case "forget", "delete", "rm":
-		if len(args) < 2 {
+		if len(args) != 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor-op ssh-hosts forget <host|host:port|host|port>")
 			return 2
 		}
 		id := strings.TrimSpace(args[1])
+		if id == "" {
+			fmt.Fprintln(os.Stderr, "refuse: empty host id")
+			return 2
+		}
 		if err := secondary.ForgetSSHHost(id); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
