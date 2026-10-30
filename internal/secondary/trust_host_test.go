@@ -322,6 +322,7 @@ func TestForgetHostClearsOrphanedSeen(t *testing.T) {
 }
 
 func TestForgetHostSeenWriteFailThenRetry(t *testing.T) {
+	// mutates package-level saveSeenHostsFn — do not parallelize this test
 	dir := t.TempDir()
 	t.Setenv("NETDUCTOR_STATE", dir)
 	k := testKey(t)

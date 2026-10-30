@@ -1,3 +1,10 @@
+## 0.9.611
+
+Operator SSH trust CLI hardening:
+- parseSSHTrustArgs: host required; --show XOR --fingerprint; missing flag values
+- Unit tests for argument parser
+- Trust still uses exact FP match + refuse pin replace (secondary)
+
 ## 0.9.610
 
 SSH TOFU operator path:
