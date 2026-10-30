@@ -1,3 +1,10 @@
+## 0.9.610
+
+SSH TOFU operator path:
+- TestForgetHostSeenWriteFailThenRetry (partial clear + recover)
+- netductor-op ssh-hosts list|show|trust|forget (same store as deploy)
+- docs/SSH-HOST-TRUST.md CLI section
+
 ## 0.9.609
 
 SSH TOFU: bare-host forget clears orphaned seen markers (host and host|*)

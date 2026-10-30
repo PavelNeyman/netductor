@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -317,5 +318,41 @@ func TestForgetHostClearsOrphanedSeen(t *testing.T) {
 	pkhMu.Unlock()
 	if !seen["203.0.113.93.example|22"] {
 		t.Fatal("must not clear longer hostname prefix")
+	}
+}
+
+func TestForgetHostSeenWriteFailThenRetry(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	k := testKey(t)
+	if err := TrustHostKey("203.0.113.94", "52222", k); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	prev := saveSeenHostsFn
+	t.Cleanup(func() { saveSeenHostsFn = prev })
+	saveSeenHostsFn = func(m map[string]bool) error {
+		calls++
+		if calls == 1 {
+			return fmt.Errorf("simulated seen write fail")
+		}
+		return saveSeenHostsDisk(m)
+	}
+	err := ForgetSSHHost("203.0.113.94")
+	if err == nil || !strings.Contains(err.Error(), "simulated seen write fail") {
+		t.Fatalf("want seen write error, got %v", err)
+	}
+	// Pins may already be gone; seen may still mark PinLost
+	st, _ := CheckTOFUPin("203.0.113.94", "52222")
+	if st == PinPresent {
+		t.Fatal("pin map should be cleared even if seen write failed")
+	}
+	// retry succeeds
+	if err := ForgetSSHHost("203.0.113.94"); err != nil {
+		t.Fatal(err)
+	}
+	st, err = CheckTOFUPin("203.0.113.94", "52222")
+	if err != nil || st != PinAbsent {
+		t.Fatalf("after retry want PinAbsent got %v %v", st, err)
 	}
 }

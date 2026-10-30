@@ -50,7 +50,14 @@ func loadSeenHosts() (map[string]bool, error) {
 	return out, nil
 }
 
+// saveSeenHostsFn is the production writer; tests may swap it to simulate IO failure.
+var saveSeenHostsFn = saveSeenHostsDisk
+
 func saveSeenHosts(m map[string]bool) error {
+	return saveSeenHostsFn(m)
+}
+
+func saveSeenHostsDisk(m map[string]bool) error {
 	ids := make([]string, 0, len(m))
 	for id := range m {
 		ids = append(ids, id)

@@ -8,6 +8,18 @@ Netductor key-only SSH **does not** use `~/.ssh/known_hosts`. Pins live under:
 
 Manual `ssh root@primary -p52222` can work while deploy fails if this store has no pin for Primary.
 
+## CLI (operator Mac)
+
+```bash
+netductor-op ssh-hosts list
+netductor-op ssh-hosts show  HOST --port 52222
+netductor-op ssh-hosts trust HOST --port 52222 --fingerprint 'SHA256:…'
+netductor-op ssh-hosts forget HOST          # full revoke (all ports + legacy)
+netductor-op ssh-hosts forget 'HOST|52222'  # one endpoint (refuses if legacy pin remains)
+```
+
+`netductor` (node binary) also has `ssh-hosts`; workstation default is **netductor-op**.
+
 ## Bootstrap (safe)
 
 1. On VPS console (or other out-of-band channel), note the host key fingerprint.
