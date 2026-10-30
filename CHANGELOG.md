@@ -1,3 +1,7 @@
+## 0.9.615
+
+Update Phase 10 docs: staged rollout checklist; Phase 9 status clarified (unit closed, e2e open).
+
 ## 0.9.614
 
 Update Phase 9 (partial): unit verification matrix + audit report.

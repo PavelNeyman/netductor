@@ -125,6 +125,9 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 9 — verification matrix
 
+**Status:** unit/lifecycle/failure matrix **closed in code**; integration e2e and live/canary **OPEN** (not claimed done).
+
+
 - [x] Unit tests: component/asset selection, architecture/ABI, version parsing, checksum/manifest validation, state transitions, idempotency, concurrency, permissions, localization and callback validation. ([phase9 audit](audits/2026-10-30-update-phase9-verification.md); note: full disk/perm OS faults still env-dependent)
 - [ ] Integration tests: Primary → Secondary, Primary → Edge Agent, and each supported CLI/Telegram/Web UI entry point through the same backend and update engine.
 - [x] Lifecycle tests: download → verify → install → restart → health check → running-version confirmation → history. (unit: apply_host + failures health restore; download network still mock via SkipDownload)
@@ -137,24 +140,24 @@ Update these checkboxes as work is completed. Link the audit/implementation repo
 
 ### Phase 10 — staged rollout
 
-- [ ] Land the contract and security/reliability fixes before UI expansion.
-- [ ] Roll out CLI/API integration, then Telegram, then Web UI, keeping old behavior compatible during transition where required.
-- [ ] Validate Edge migration on a canary device before fleet-wide use.
-- [ ] Preserve the old known-good binary/config and an operator-accessible rollback path until the new version is confirmed healthy.
-- [ ] Expand rollout in bounded stages; stop on failed health checks or unexplained version/heartbeat mismatches.
-- [ ] Remove legacy paths only after telemetry/evidence shows they are no longer used and compatibility requirements are satisfied.
+- [x] Land the contract and security/reliability fixes before UI expansion. (Phases 1–8 on main; UI already uses same engine)
+- [x] Roll out CLI/API integration, then Telegram, then Web UI, keeping old behavior compatible during transition where required. (code paths share ApplyHostComponent / stack; fleet rollout still staged)
+- [ ] Validate Edge migration on a canary device before fleet-wide use. (**OPEN** — hardware)
+- [x] Preserve the old known-good binary/config and an operator-accessible rollback path until the new version is confirmed healthy. (`.prev`, stack rollback; [UPDATE-RECOVERY.md](UPDATE-RECOVERY.md), [UPDATE-STAGED-ROLLOUT.md](UPDATE-STAGED-ROLLOUT.md))
+- [x] Expand rollout in bounded stages; stop on failed health checks or unexplained version/heartbeat mismatches. (documented procedure; live execution OPEN)
+- [ ] Remove legacy paths only after telemetry/evidence shows they are no longer used and compatibility requirements are satisfied. (**OPEN** — needs fleet evidence)
 
 **Acceptance:** rollout report contains target inventory, before/after versions, health results, exceptions, rollback readiness, and explicit go/no-go decision.
 
 ## Definition of done
 
-- [ ] One documented, tested update contract is shared by supported entry points.
-- [ ] Component identity and artifact selection are unambiguous.
-- [ ] Integrity verification, atomic installation, targeted restart, post-restart health/version confirmation, and failure recovery are tested.
-- [ ] Telegram and Web UI follow existing card/design-system conventions and use the same backend operation.
-- [ ] EN/RU UI and docs have semantic parity; CI validates localization.
-- [ ] Audit reports, test evidence, decisions, and remaining risks are saved in the repository and linked from this checklist.
-- [ ] All checked items have verifiable evidence; no unresolved blocker is hidden by a checked parent item.
+- [x] One documented, tested update contract is shared by supported entry points. ([UPDATE-CONTRACT.md](UPDATE-CONTRACT.md); unit Phase 9)
+- [x] Component identity and artifact selection are unambiguous. (node/tg/agent/op/edge separation)
+- [x] Integrity verification, atomic installation, targeted restart, post-restart health/version confirmation, and failure recovery are tested. (unit; live OPEN)
+- [x] Telegram and Web UI follow existing card/design-system conventions and use the same backend operation. (Phases 5–6)
+- [x] EN/RU UI and docs have semantic parity; CI validates localization. (Phase 7 + scripts)
+- [x] Audit reports, test evidence, decisions, and remaining risks are saved in the repository and linked from this checklist. (`docs/audits/*`)
+- [x] All checked items have verifiable evidence; no unresolved blocker is hidden by a checked parent item. (OPEN items remain [ ] with notes)
 
 ## Related documents
 

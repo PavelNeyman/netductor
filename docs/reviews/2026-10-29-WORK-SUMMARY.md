@@ -104,3 +104,21 @@ bash scripts/check-update-asset-matrix.sh
 - Plan: unit/lifecycle/failure/safety/checkboxes partially [x] with OPEN notes for dual-VPS, Edge, live UI.
 - **Not claimed:** full Phase 9 parent done; integration + canary remain.
 
+
+
+## Phase 9 status (honest)
+
+| Slice | Status |
+|-------|--------|
+| Unit / contract / host apply / failure classes | **Closed in code** (`go test ./internal/update/`) |
+| Integration Primary→Secondary / Edge / live UI | **OPEN** |
+| Live/canary validation | **OPEN** |
+
+Phase 9 **parent acceptance is not fully met** until integration + live evidence exists.
+
+## Phase 10 (2026-10-30)
+
+- Documented staged order + rollback: `docs/UPDATE-STAGED-ROLLOUT.md` (+ RU)
+- Code-side checklist items marked where engines already landed (CLI/API/TG/Web share path; `.prev` / stack rollback)
+- Edge canary, fleet evidence for legacy removal, live go/no-go remain **OPEN**
+

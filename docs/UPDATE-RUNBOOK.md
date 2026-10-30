@@ -43,3 +43,8 @@ Operator-driven: secondary upgrade commands / queue — not auto from primary `u
 ## Trust model
 
 Artifacts from GitHub Releases (or internal mirror) with SHA256SUMS. Skip-verify requires explicit confirm env. Never disable StrictHostKeyChecking for deploy SSH.
+
+
+## Staged production rollout
+
+See [UPDATE-STAGED-ROLLOUT.md](UPDATE-STAGED-ROLLOUT.md).
