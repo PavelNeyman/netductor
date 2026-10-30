@@ -24,5 +24,7 @@ Password only for UI bootstrap connect. After operator pubkey is installed and *
 - [x] Audit map recorded (WORK-SUMMARY)
 - [x] Key-only gate in ProvisionFromCore + pass operator private key on initial
 - [x] Remove pkill; add sshd -t before restart (minimal harden safety)
-- [ ] Full independent harden rollback systemd oneshot
+- [x] Full independent harden rollback systemd timer (8m) + prepare/finalize split
 - [ ] Integration tests against temporary sshd
+
+- [x] Two-phase harden + rollback timer (0.9.618)

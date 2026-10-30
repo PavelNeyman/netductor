@@ -214,11 +214,37 @@ func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 	return err
 }
 
-// DisablePasswordAuth is the last step of a successful provision (harden-last).
-// Shared with primary via hardening.RemoteHardenScript / DropInConf (Port 52222 + key-only).
+// DisablePasswordAuth is a legacy one-shot harden (prepare+finalize). Prefer HardenSSHTwoPhase.
 func DisablePasswordAuth(client *ssh.Client) error {
 	_, err := runSSH(client, hardening.RemoteHardenScript())
 	return err
+}
+
+// HardenSSHPrepare moves sshd to DefaultSSHPort, keeps :22 open, arms rollback timer.
+func HardenSSHPrepare(client *ssh.Client) error {
+	out, err := runSSH(client, hardening.RemoteHardenPrepareScript())
+	if err != nil {
+		return fmt.Errorf("secondary-ssh-hardening-prepare: %w (%s)", err, trimLog(out))
+	}
+	return nil
+}
+
+// HardenSSHFinalize disables password, closes :22, cancels rollback timer.
+// Call only after key-only verify on DefaultSSHPort succeeded.
+func HardenSSHFinalize(client *ssh.Client) error {
+	out, err := runSSH(client, hardening.RemoteHardenFinalizeScript())
+	if err != nil {
+		return fmt.Errorf("secondary-hardening-finalize: %w (%s)", err, trimLog(out))
+	}
+	return nil
+}
+
+func trimLog(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 200 {
+		return s[:200] + "…"
+	}
+	return s
 }
 
 // HardenSSH = InstallOperatorKeys + DisablePasswordAuth (legacy one-shot).
@@ -395,12 +421,43 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: agentOK, SingBoxOK: singOK},
 			fmt.Errorf("post-join services not healthy: agent_ok=%v singbox_ok=%v", agentOK, singOK)
 	}
-	if err := DisablePasswordAuth(client); err != nil {
-		log.WriteString("disable password: " + err.Error() + "\n")
+	// Harden prepare on current port (still 22 during initial): new port + rollback timer.
+	if err := HardenSSHPrepare(client); err != nil {
+		log.WriteString("harden prepare: " + err.Error() + "\n")
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
-			fmt.Errorf("secondary-password-auth-disable: %w", err)
+			err
 	}
-	log.WriteString("password auth disabled (harden-last)\n")
+	log.WriteString("secondary-ssh-hardening-prepare: ok\n")
+	_ = client.Close()
+
+	// Verify key-only on hardened port before finalize.
+	in.Port = hardening.DefaultSSHPort
+	in.Password = ""
+	day2, err := verifyKeyOnly(in)
+	if err != nil {
+		log.WriteString("secondary-new-port-verification: " + err.Error() + "\n")
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
+			fmt.Errorf("secondary-new-port-verification: %w (rollback timer will restore SSH if still armed)", err)
+	}
+	log.WriteString("secondary-new-port-verification: ok\n")
+	defer day2.Close()
+
+	if err := HardenSSHFinalize(day2); err != nil {
+		log.WriteString("harden finalize: " + err.Error() + "\n")
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
+			err
+	}
+	log.WriteString("secondary-hardening-finalize: ok\n")
+
+	// Re-check key-only after password disabled.
+	_ = day2.Close()
+	finalC, err := verifyKeyOnly(in)
+	if err != nil {
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
+			fmt.Errorf("secondary-password-auth-disable: post-finalize key-only: %w", err)
+	}
+	_ = finalC.Close()
+	log.WriteString("secondary-password-auth-disable: ok\n")
 	return &ProvisionResult{
 		Host: in.Host, PublicKey: pubJoined, Log: log.String(),
 		AgentOK: true, SingBoxOK: true,

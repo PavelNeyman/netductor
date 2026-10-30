@@ -1,3 +1,10 @@
+## 0.9.618
+
+SSH harden two-phase + independent rollback timer:
+- Prepare: Port 52222, keep :22 open, backup, sshd -t, 8m systemd rollback timer
+- Operator path verifies key-only on 52222 inside ProvisionFromCore
+- Finalize: password off, deny :22, cancel rollback, monitoring unit purge (no pkill)
+
 ## 0.9.617
 
 Security: Secondary provision password → key-only gate

@@ -165,3 +165,13 @@ See `docs/PLAN-SSH-KEYONLY-PROVISION.md`.
 | Harden: no pkill; sshd -t | done (minimal) |
 | Independent systemd harden rollback | OPEN |
 | Integration sshd lab | OPEN |
+
+### 0.9.618 — two-phase SSH harden + independent rollback
+
+| Item | Status |
+|------|--------|
+| `RemoteHardenPrepareScript` | Port 52222, keep :22, backup, `sshd -t`, arm 8m rollback timer |
+| `RemoteHardenFinalizeScript` | Password off, deny :22, cancel timer, unit purge (no pkill) |
+| ProvisionFromCore | prepare → close → key-only :52222 → finalize → key-only again |
+| Integration sshd lab | still OPEN |
+
