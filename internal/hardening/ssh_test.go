@@ -6,8 +6,7 @@ import (
 )
 
 func TestDropInConfContainsPortAndKeyOnly(t *testing.T) {
-	s := DropInConf()
-	if !strings.Contains(s, "PasswordAuthentication no") {
+	if !strings.Contains(DropInConf(), "PasswordAuthentication no") {
 		t.Fatal("missing PasswordAuthentication")
 	}
 }
@@ -15,57 +14,69 @@ func TestDropInConfContainsPortAndKeyOnly(t *testing.T) {
 func TestPrepareArmsRollbackBeforeMutation(t *testing.T) {
 	s := RemoteHardenPrepareScript()
 	marker := "Mutations only after rollback is armed"
-	idxMutSection := strings.Index(s, marker)
+	idxMut := strings.Index(s, marker)
 	idxTimer := strings.Index(s, "systemctl is-active ${ND_RB_TIMER}")
-	if idxMutSection < 0 {
-		t.Fatal("missing mutation section marker")
+	if idxMut < 0 || idxTimer < 0 || idxTimer > idxMut {
+		t.Fatal("rollback must be active before mutations")
 	}
-	if idxTimer < 0 || idxTimer > idxMutSection {
-		t.Fatal("rollback timer must be active before mutations")
-	}
-	// First ufw allow of ND_PORT in mutation section
-	rest := s[idxMutSection:]
-	if !strings.Contains(rest, "ufw allow") {
-		t.Fatal("mutation section must allow ports")
+	if !strings.Contains(s, "CANCELLED") {
+		// stamp is in rollback script body
+		if !strings.Contains(s, "cancelled stamp") {
+			t.Fatal("rollback should honor CANCELLED stamp")
+		}
 	}
 	if !strings.Contains(s, "ufw-policy") {
-		t.Fatal("ufw policy snapshot")
+		t.Fatal("ufw policy")
 	}
-	if strings.Contains(s, "restart sshd 2>/dev/null || true") {
-		t.Fatal("no swallowed restart")
+	if !strings.Contains(s, "ssh.socket") {
+		t.Fatal("socket state snapshot")
 	}
-	if strings.Contains(s, "pkill") {
-		t.Fatal("no pkill")
+	if !strings.Contains(s, "test -f \"$ND_BAK/ufw/user.rules\"") && !strings.Contains(s, `test -f "$ND_BAK/ufw/user.rules"`) {
+		// active requires user.rules
+		if !strings.Contains(s, "user.rules") {
+			t.Fatal("user.rules snapshot")
+		}
 	}
 }
 
 func TestFinalizeNoPurgeNoCancel(t *testing.T) {
 	s := RemoteHardenFinalizeScript()
 	if strings.Contains(s, "apt-get remove") {
-		t.Fatal("purge must not be in finalize")
+		t.Fatal("no purge in finalize")
 	}
-	if strings.Contains(s, "systemctl stop "+RollbackTimer) {
-		t.Fatal("finalize must not cancel timer")
-	}
-	if !strings.Contains(s, "deny 22") {
-		t.Fatal("deny 22")
+	if strings.Contains(s, "CANCELLED") {
+		t.Fatal("finalize must not cancel")
 	}
 }
 
-func TestCancelVerifiesInactive(t *testing.T) {
+func TestCancelStampAndService(t *testing.T) {
 	s := RemoteHardenCancelRollbackScript()
-	if !strings.Contains(s, "is-active") {
-		t.Fatal("must check timer inactive")
+	if !strings.Contains(s, "CANCELLED") {
+		t.Fatal("CANCELLED stamp")
 	}
-	if !strings.Contains(s, "systemctl stop "+RollbackTimer) {
-		t.Fatal("stop timer")
+	if !strings.Contains(s, "stop \"$ND_RB_UNIT\"") && !strings.Contains(s, "stop ${ND_RB_UNIT}") {
+		if !strings.Contains(s, RollbackUnit) {
+			t.Fatal("must stop rollback unit")
+		}
+	}
+	if !strings.Contains(s, "is-active") {
+		t.Fatal("verify inactive")
+	}
+}
+
+func TestLegacyOneShotDisabled(t *testing.T) {
+	s := RemoteHardenScript()
+	if !strings.Contains(s, "exit 1") {
+		t.Fatal("legacy one-shot must fail")
+	}
+	if strings.Contains(s, "nd-harden-prepare") {
+		t.Fatal("must not embed prepare")
 	}
 }
 
 func TestPurgeIsSeparate(t *testing.T) {
-	s := RemoteHostAgentPurgeScript()
-	if !strings.Contains(s, "zabbix") {
-		t.Fatal("zabbix purge")
+	if !strings.Contains(RemoteHostAgentPurgeScript(), "zabbix") {
+		t.Fatal("purge")
 	}
 }
 

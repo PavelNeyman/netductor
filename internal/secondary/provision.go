@@ -226,10 +226,10 @@ func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 	return nil
 }
 
-// DisablePasswordAuth is a legacy one-shot harden (prepare+finalize+cancel). Prefer two-phase API.
+// DisablePasswordAuth is disabled: one-shot would skip independent key-only verification.
+// Use HardenSSHPrepare → verifyKeyOnly → HardenSSHFinalize → verifyKeyOnly → HardenSSHCancelRollback.
 func DisablePasswordAuth(client *ssh.Client) error {
-	_, err := runSSH(client, hardening.RemoteHardenScript())
-	return err
+	return fmt.Errorf("DisablePasswordAuth removed: use phased HardenSSHPrepare/Finalize/CancelRollback with independent key-only checks")
 }
 
 // HardenSSHPrepare moves sshd to DefaultSSHPort, keeps :22 open, arms rollback timer.
@@ -276,7 +276,7 @@ func trimLog(s string) string {
 	return s
 }
 
-// HardenSSH = InstallOperatorKeys + DisablePasswordAuth (legacy one-shot).
+// Legacy HardenSSH one-shot removed; use phased prepare/finalize/cancel only.
 
 // RemoteJoin installs netductor binary + joins with bundle JSON.
 // Binary is verified against GitHub release SHA256SUMS when available.

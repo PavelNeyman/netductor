@@ -1,3 +1,11 @@
+## 0.9.622
+
+SSH harden:
+- Race-safe cancel: CANCELLED stamp; stop timer+unit; verify both inactive
+- Rollback restores SSH first; UFW after (failure does not undo SSH)
+- Validated UFW snapshot; socket unit state saved/restored
+- Legacy one-shot RemoteHardenScript/DisablePasswordAuth disabled
+
 ## 0.9.621
 
 SSH harden P0 follow-up:

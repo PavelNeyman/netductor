@@ -211,3 +211,15 @@ Still OPEN: live Secondary e2e, full sshd integration lab.
 | Cancel verifies timer inactive | done |
 | PromoteToHardened error handled | done |
 
+
+### 0.9.622 — cancel race + UFW/SSH rollback hardening
+
+| Item | Status |
+|------|--------|
+| CANCELLED stamp before stop timer/service | done (rollback no-op if stamped) |
+| Cancel checks timer **and** unit inactive | done |
+| Rollback: SSH restore first; UFW best-effort after | done |
+| UFW active requires user.rules snapshot | done |
+| Socket enabled/active snapshot + restore | done |
+| Legacy RemoteHardenScript / DisablePasswordAuth fail closed | done |
+

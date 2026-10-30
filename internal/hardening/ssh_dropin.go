@@ -28,8 +28,6 @@ const BackupDir = "/var/lib/netductor/ssh-harden-backup"
 // RemoteHardenPrepareScript: backup → arm rollback → only then mutate firewall/SSH.
 func RemoteHardenPrepareScript() string {
 	port := DefaultSSHPort
-	// Rollback script written on remote as file in systemd ExecStart single-quoted bash -c is hard;
-	// write rollback script to disk first, then unit points at it.
 	return fmt.Sprintf(`set -euo pipefail
 ND_BAK='%s'
 ND_PORT=%d
@@ -40,7 +38,7 @@ ND_RB_SCRIPT="$ND_BAK/rollback.sh"
 rm -rf "$ND_BAK"
 mkdir -p "$ND_BAK"
 
-# --- Mandatory SSH backup (before any mutation) ---
+# --- Mandatory SSH backup ---
 test -f /etc/ssh/sshd_config
 cp -a /etc/ssh/sshd_config "$ND_BAK/sshd_config.bak"
 if [ -d /etc/ssh/sshd_config.d ]; then
@@ -50,18 +48,41 @@ else
 fi
 test -f "$ND_BAK/sshd_config.bak"
 
-# --- UFW policy snapshot ---
+# --- Socket activation state (for full systemd restore) ---
+for u in ssh.socket sshd.socket; do
+  if systemctl cat "$u" >/dev/null 2>&1; then
+    systemctl is-enabled "$u" > "$ND_BAK/${u}.enabled" 2>/dev/null || echo disabled > "$ND_BAK/${u}.enabled"
+    systemctl is-active "$u" > "$ND_BAK/${u}.active" 2>/dev/null || echo inactive > "$ND_BAK/${u}.active"
+  else
+    echo absent > "$ND_BAK/${u}.enabled"
+    echo absent > "$ND_BAK/${u}.active"
+  fi
+done
+
+# --- UFW policy snapshot (validated) ---
 if ! command -v ufw >/dev/null 2>&1; then
   echo absent > "$ND_BAK/ufw-policy"
 else
-  if ufw status 2>/dev/null | head -1 | grep -qi inactive; then
+  ST=$(ufw status 2>/dev/null | head -1 || true)
+  if echo "$ST" | grep -qi inactive; then
     echo inactive > "$ND_BAK/ufw-policy"
-  else
+  elif echo "$ST" | grep -qi active; then
     echo active > "$ND_BAK/ufw-policy"
+  else
+    echo "cannot determine ufw status: $ST" >&2
+    exit 1
   fi
   mkdir -p "$ND_BAK/ufw"
-  if [ -f /etc/ufw/user.rules ]; then cp -a /etc/ufw/user.rules "$ND_BAK/ufw/user.rules"; fi
-  if [ -f /etc/ufw/user6.rules ]; then cp -a /etc/ufw/user6.rules "$ND_BAK/ufw/user6.rules"; fi
+  if [ -f /etc/ufw/user.rules ]; then
+    cp -a /etc/ufw/user.rules "$ND_BAK/ufw/user.rules"
+  fi
+  if [ -f /etc/ufw/user6.rules ]; then
+    cp -a /etc/ufw/user6.rules "$ND_BAK/ufw/user6.rules"
+  fi
+  # active policy without rules files is incomplete snapshot
+  if grep -qx active "$ND_BAK/ufw-policy"; then
+    test -f "$ND_BAK/ufw/user.rules"
+  fi
   ufw status numbered > "$ND_BAK/ufw-status.txt" 2>/dev/null || true
   if ufw status 2>/dev/null | grep -E '^[[:space:]]*22/tcp' | grep -qi allow; then
     echo allowed > "$ND_BAK/ufw-22-state"
@@ -70,28 +91,55 @@ else
   fi
 fi
 
-# --- Arm rollback BEFORE mutations (script + systemd) ---
+# --- Arm rollback BEFORE mutations (CANCELLED stamp + script + timer) ---
+# Rollback no-ops if CANCELLED exists (race-safe cancel).
 cat > "$ND_RB_SCRIPT" << 'NDRBSH'
 #!/bin/bash
 set -e
 B=/var/lib/netductor/ssh-harden-backup
+if [ -f "$B/CANCELLED" ]; then
+  echo "nd-harden-rollback: cancelled stamp present — no-op"
+  exit 0
+fi
+# SSH first — must not depend on UFW success
 test -f "$B/sshd_config.bak"
 cp -a "$B/sshd_config.bak" /etc/ssh/sshd_config
 if [ -d "$B/sshd_config.d.bak" ]; then
   rm -rf /etc/ssh/sshd_config.d
   cp -a "$B/sshd_config.d.bak" /etc/ssh/sshd_config.d
 fi
+if command -v sshd >/dev/null 2>&1; then
+  sshd -t
+fi
+systemctl restart sshd 2>/dev/null || systemctl restart ssh
+
+# Restore socket units if they were enabled/active
+for u in ssh.socket sshd.socket; do
+  en="$B/${u}.enabled"
+  ac="$B/${u}.active"
+  [ -f "$en" ] || continue
+  case "$(cat "$en" 2>/dev/null || true)" in
+    enabled)
+      systemctl enable "$u" 2>/dev/null || true
+      ;;
+  esac
+  case "$(cat "$ac" 2>/dev/null || true)" in
+    active)
+      systemctl start "$u" 2>/dev/null || true
+      ;;
+  esac
+done
+
+# UFW best-effort after SSH is back (failure must not undo SSH restore)
+set +e
 if [ -f "$B/ufw-policy" ]; then
   pol=$(cat "$B/ufw-policy")
   case "$pol" in
-    absent)
-      if command -v ufw >/dev/null 2>&1; then ufw --force disable || true; fi
-      ;;
-    inactive)
+    absent|inactive)
       if command -v ufw >/dev/null 2>&1; then
         [ -f "$B/ufw/user.rules" ] && cp -a "$B/ufw/user.rules" /etc/ufw/user.rules
         [ -f "$B/ufw/user6.rules" ] && cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules
-        ufw --force disable || true
+        ufw --force disable
       fi
       ;;
     active)
@@ -100,15 +148,13 @@ if [ -f "$B/ufw-policy" ]; then
         [ -f "$B/ufw/user6.rules" ] && cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules
         ufw reload
         if [ -f "$B/ufw-22-state" ] && grep -qx allowed "$B/ufw-22-state"; then
-          ufw allow 22/tcp comment netductor-ssh-bootstrap || true
+          ufw allow 22/tcp comment netductor-ssh-bootstrap
         fi
       fi
       ;;
   esac
 fi
-command -v sshd >/dev/null 2>&1
-sshd -t
-systemctl restart sshd 2>/dev/null || systemctl restart ssh
+exit 0
 NDRBSH
 chmod 700 "$ND_RB_SCRIPT"
 test -x "$ND_RB_SCRIPT"
@@ -176,7 +222,6 @@ elif systemctl restart ssh; then
   :
 else
   echo "sshd restart failed"
-  # trigger rollback immediately
   systemctl start ${ND_RB_UNIT} || true
   exit 1
 fi
@@ -222,20 +267,36 @@ echo "nd-harden-finalize: ok (rollback still armed until cancel)"
 `, port, DropInConf())
 }
 
-// RemoteHardenCancelRollbackScript verifies timer is stopped.
+// RemoteHardenCancelRollbackScript: race-safe cancel via CANCELLED stamp, then stop timer+service.
 func RemoteHardenCancelRollbackScript() string {
 	return fmt.Sprintf(`set -euo pipefail
-systemctl stop %s
-systemctl disable %s 2>/dev/null || true
-rm -f /etc/systemd/system/%s /etc/systemd/system/%s
-systemctl daemon-reload
-# Must not remain active
-if systemctl is-active %s 2>/dev/null; then
+ND_BAK='%s'
+ND_RB_UNIT='%s'
+ND_RB_TIMER='%s'
+mkdir -p "$ND_BAK"
+# Stamp first so an in-flight or about-to-start rollback no-ops
+touch "$ND_BAK/CANCELLED"
+chmod 600 "$ND_BAK/CANCELLED"
+
+systemctl stop "$ND_RB_TIMER" 2>/dev/null || true
+systemctl stop "$ND_RB_UNIT" 2>/dev/null || true
+systemctl disable "$ND_RB_TIMER" 2>/dev/null || true
+
+# Neither timer nor service may remain active
+if systemctl is-active "$ND_RB_TIMER" 2>/dev/null; then
   echo "rollback timer still active after cancel"
   exit 1
 fi
+# is-active returns non-zero for inactive/dead — only fail if truly active
+if systemctl is-active "$ND_RB_UNIT" 2>/dev/null; then
+  echo "rollback service still active after cancel"
+  exit 1
+fi
+
+rm -f /etc/systemd/system/${ND_RB_UNIT} /etc/systemd/system/${ND_RB_TIMER}
+systemctl daemon-reload
 echo "nd-harden-rollback-cancel: ok"
-`, RollbackTimer, RollbackTimer, RollbackUnit, RollbackTimer, RollbackTimer)
+`, BackupDir, RollbackUnit, RollbackTimer)
 }
 
 // RemoteHostAgentPurgeScript runs after SSH access is proven and rollback cancelled.
@@ -258,8 +319,8 @@ echo "nd-host-agent-purge: ok"
 `
 }
 
-// RemoteHardenScript legacy one-shot (prepare+finalize+cancel+purge). Prefer phased API.
+// RemoteHardenScript is removed as a safe one-shot: it would skip independent key-only checks.
+// Callers must use Prepare → verify → Finalize → verify → Cancel → Purge.
 func RemoteHardenScript() string {
-	return RemoteHardenPrepareScript() + "\n" + RemoteHardenFinalizeScript() + "\n" +
-		RemoteHardenCancelRollbackScript() + "\n" + RemoteHostAgentPurgeScript()
+	return `echo "RemoteHardenScript disabled: use phased HardenSSHPrepare/Finalize/CancelRollback" >&2; exit 1`
 }
