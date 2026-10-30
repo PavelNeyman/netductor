@@ -276,6 +276,42 @@ func runUpdate(restart bool) {
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(map[string]any{"jobs": snaps, "local_version": ndver.Release})
 			return
+		case "rollback":
+			comp := "tg"
+			for i := 1; i < len(args); i++ {
+				if args[i] == "--component" && i+1 < len(args) {
+					i++
+					comp = args[i]
+				}
+			}
+			dest, unit := "/usr/local/bin/netductor-tg", "netductor-telegram-bot"
+			cid := ndupdate.ComponentTG
+			switch comp {
+			case "tg", "telegram":
+			case "agent", "secondary-agent":
+				comp = "agent"
+				dest = "/usr/local/bin/netductor-agent"
+				unit = "netductor-secondary-agent"
+				cid = ndupdate.ComponentAgent
+			case "node":
+				fmt.Fprintln(os.Stderr, "use: netductor stack rollback")
+				os.Exit(2)
+			default:
+				fmt.Fprintln(os.Stderr, "rollback --component tg|agent")
+				os.Exit(2)
+			}
+			job, err := ndupdate.RollbackHostComponent(ndupdate.HostApplyOpts{
+				Component: cid, InstanceID: "local", DestPath: dest, Unit: unit, Restart: true,
+			})
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				if job != nil {
+					fmt.Fprintln(os.Stderr, "job", job.JobID, job.State)
+				}
+				os.Exit(1)
+			}
+			fmt.Println("rolled back", dest, "job", job.JobID, "state", job.State)
+			return
 		case "list", "releases":
 			limit := 15
 			force := false
@@ -310,7 +346,7 @@ func runUpdate(restart bool) {
 			runUpdateGitHubToken(args[1:])
 			return
 		case "--help", "-h", "help":
-			fmt.Println("netductor update check|status|list|jobs [--limit N] [--refresh|--force]")
+			fmt.Println("netductor update check|status|list|jobs|rollback [--component tg|agent] [--limit N] [--refresh|--force]")
 			fmt.Println("netductor update [apply] [version] [--component node|tg|agent] [--no-restart] [--skip-verify] [--no-backup]")
 			fmt.Println("netductor update github-token status|set <token>|clear")
 			fmt.Println("  components: node (VPS primary binary), tg (telegram bot), agent (secondary-agent unit on this host)")

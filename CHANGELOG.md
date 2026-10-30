@@ -1,3 +1,11 @@
+## 0.9.616
+
+Update engine: host component rollback from `.prev`
+- `RollbackHostComponent` + state `queued → rollback_in_progress → rolled_back`
+- CLI: `netductor update rollback --component tg|agent`
+- API: `GET /api/update/jobs`, `POST /api/update/rollback`
+- node still: `stack rollback`
+
 ## 0.9.615
 
 Update Phase 10 docs: staged rollout checklist; Phase 9 status clarified (unit closed, e2e open).

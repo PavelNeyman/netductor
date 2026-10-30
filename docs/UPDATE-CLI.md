@@ -8,6 +8,7 @@ Node binary (`netductor` on VPS). Same engine as TG/Web for host components.
 netductor update check|status [--refresh]   # local vs latest
 netductor update list [--limit N]           # GH releases
 netductor update jobs                       # in-process job registry snapshot
+netductor update rollback --component tg|agent  # restore binary from .prev (+ unit restart)
 netductor update [apply] [vX.Y.Z] \
   [--component node|tg|agent] \
   [--no-restart] [--skip-verify] [--no-backup]

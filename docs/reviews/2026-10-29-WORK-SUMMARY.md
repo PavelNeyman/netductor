@@ -122,3 +122,12 @@ Phase 9 **parent acceptance is not fully met** until integration + live evidence
 - Code-side checklist items marked where engines already landed (CLI/API/TG/Web share path; `.prev` / stack rollback)
 - Edge canary, fleet evidence for legacy removal, live go/no-go remain **OPEN**
 
+
+
+## Code close-out (0.9.616)
+
+- `RollbackHostComponent` for tg/agent (`.prev`); tests
+- CLI/API parity: jobs + rollback
+- Contract allows `queued → rollback_in_progress`
+- Still OPEN without stand: dual-VPS integration, Edge canary, live go/no-go
+

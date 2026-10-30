@@ -257,3 +257,58 @@ func truncateOut(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// RollbackHostComponent restores dest from dest+".prev" if present.
+// Supported for host tg/agent (and any path using the same .prev layout).
+// Does not stack-rollback node — use stack.Rollback for that.
+func RollbackHostComponent(o HostApplyOpts) (*UpdateJob, error) {
+	if o.InstanceID == "" {
+		o.InstanceID = "local"
+	}
+	if o.JobID == "" {
+		o.JobID = fmt.Sprintf("rollback-%s-%s-%d", o.Component, o.InstanceID, time.Now().UnixNano())
+	}
+	if !ValidComponent(o.Component) {
+		return nil, fmt.Errorf("update: unsupported component %q", o.Component)
+	}
+	if o.Component == ComponentNode {
+		return nil, fmt.Errorf("update: node rollback via stack.rollback, not host component")
+	}
+	if o.DestPath == "" {
+		return nil, fmt.Errorf("update: dest path required")
+	}
+	prevPath := o.DestPath + ".prev"
+	if _, err := os.Stat(prevPath); err != nil {
+		return nil, fmt.Errorf("update: no previous binary at %s", prevPath)
+	}
+	job := &UpdateJob{
+		JobID:      o.JobID,
+		Component:  o.Component,
+		InstanceID: o.InstanceID,
+		Asset:      filepath.Base(o.DestPath),
+		State:      StateQueued,
+	}
+	cur, err := DefaultHostRegistry.Begin(job)
+	if err != nil {
+		return cur, err
+	}
+	mark := func(to JobState, msg string) (*UpdateJob, error) {
+		return DefaultHostRegistry.Transition(o.Component, o.InstanceID, to, msg)
+	}
+	if _, err := mark(StateRollbackInProgress, ""); err != nil {
+		return cur, err
+	}
+	if err := restorePrevBinary(o.DestPath, prevPath); err != nil {
+		j, _ := mark(StateFailed, err.Error())
+		return j, fmt.Errorf("rollback: %w", err)
+	}
+	if o.Restart && o.Unit != "" {
+		_ = exec.Command("systemctl", "try-restart", o.Unit).Run()
+		if err := healthUnitActive(o.Unit); err != nil {
+			j, _ := mark(StateFailed, err.Error())
+			return j, err
+		}
+	}
+	j, err := mark(StateRolledBack, "restored from .prev")
+	return j, err
+}

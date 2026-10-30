@@ -176,4 +176,59 @@ func registerUpdateAPI(mux *http.ServeMux) {
 			"ok": true, "component": comp, "version": tag, "dest": dest, "job": job,
 		})
 	})
+	mux.HandleFunc("/api/update/jobs", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "jobs": ndupdate.HostJobsSnapshot(), "local": ndver.Release})
+	})
+	mux.HandleFunc("/api/update/rollback", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		if !requireSession(w, r) {
+			return
+		}
+		var body struct {
+			Component string `json:"component"`
+			NoRestart bool   `json:"no_restart"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		comp := strings.TrimSpace(body.Component)
+		if comp == "" {
+			comp = "tg"
+		}
+		dest, unit := "/usr/local/bin/netductor-tg", "netductor-telegram-bot"
+		cid := ndupdate.ComponentTG
+		switch comp {
+		case "tg", "telegram":
+			comp = "tg"
+		case "agent", "secondary-agent":
+			comp = "agent"
+			dest = "/usr/local/bin/netductor-agent"
+			unit = "netductor-secondary-agent"
+			cid = ndupdate.ComponentAgent
+		case "node":
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "use stack rollback for node"})
+			return
+		default:
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "component tg|agent"})
+			return
+		}
+		job, err := ndupdate.RollbackHostComponent(ndupdate.HostApplyOpts{
+			Component: cid, InstanceID: "local", DestPath: dest, Unit: unit, Restart: !body.NoRestart,
+			JobID: fmt.Sprintf("api-rb-%s-%d", comp, time.Now().UnixNano()),
+		})
+		if err != nil {
+			writeJSON(w, 502, map[string]any{"ok": false, "error": err.Error(), "job": job})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"ok": true, "component": comp, "job": job})
+	})
+
 }

@@ -89,3 +89,40 @@ func TestProbeBinaryVersion(t *testing.T) {
 		t.Fatal("expected mismatch")
 	}
 }
+
+func TestRollbackHostComponent(t *testing.T) {
+	DefaultHostRegistry = NewJobRegistry()
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "bin")
+	prev := dest + ".prev"
+	if err := os.WriteFile(dest, []byte("new"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(prev, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	j, err := RollbackHostComponent(HostApplyOpts{
+		Component: ComponentTG, InstanceID: "local", DestPath: dest, Restart: false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j.State != StateRolledBack {
+		t.Fatalf("state %s", j.State)
+	}
+	b, _ := os.ReadFile(dest)
+	if string(b) != "old" {
+		t.Fatalf("content %q", b)
+	}
+}
+
+func TestRollbackHostNoPrev(t *testing.T) {
+	DefaultHostRegistry = NewJobRegistry()
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "bin")
+	_ = os.WriteFile(dest, []byte("x"), 0o755)
+	_, err := RollbackHostComponent(HostApplyOpts{Component: ComponentTG, DestPath: dest})
+	if err == nil {
+		t.Fatal("want error")
+	}
+}

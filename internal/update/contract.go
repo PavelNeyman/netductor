@@ -74,7 +74,7 @@ var allowedTransitions = map[JobState][]JobState{
 	StateIdle:               {StateChecking},
 	StateChecking:           {StateAvailable, StateIdle, StateUnsupported, StateFailed},
 	StateAvailable:          {StateQueued, StateDownloading, StateIdle, StateChecking},
-	StateQueued:             {StateDownloading, StateCancelled, StateFailed},
+	StateQueued:             {StateDownloading, StateCancelled, StateFailed, StateRollbackInProgress},
 	StateDownloading:        {StateVerifying, StateFailed, StateCancelled},
 	StateVerifying:          {StateInstalling, StateFailed, StateCancelled},
 	StateInstalling:         {StateRestarting, StateHealthChecking, StateFailed, StateRollbackInProgress},
