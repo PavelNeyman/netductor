@@ -1,3 +1,10 @@
+## 0.9.619
+
+Secondary SSH transport model:
+- SSHTransport modes bootstrap → key_verified → hardened; password cleared on promote
+- Stage ID constants for provision errors/logs
+- InstallOperatorKeys verifies authorized_keys lines after install
+
 ## 0.9.618
 
 SSH harden two-phase + independent rollback timer:

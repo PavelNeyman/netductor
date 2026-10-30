@@ -28,3 +28,5 @@ Password only for UI bootstrap connect. After operator pubkey is installed and *
 - [ ] Integration tests against temporary sshd
 
 - [x] Two-phase harden + rollback timer (0.9.618)
+
+- [x] SSHTransport mode machine + stage identifiers (0.9.619)

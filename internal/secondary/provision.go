@@ -210,8 +210,20 @@ func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 		return fmt.Errorf("no public keys to install")
 	}
 	script := "set -e\nmkdir -p /root/.ssh\nchmod 700 /root/.ssh\ntouch /root/.ssh/authorized_keys\nchmod 600 /root/.ssh/authorized_keys\n" + installLines.String()
+	// Verify each key line is present after install.
+	for _, pk := range pubKeys {
+		pk = strings.TrimSpace(pk)
+		if pk == "" {
+			continue
+		}
+		esc := strings.ReplaceAll(pk, "'", `'"'"'`)
+		script += fmt.Sprintf("grep -qxF '%s' /root/.ssh/authorized_keys\n", esc)
+	}
 	_, err := runSSH(client, script)
-	return err
+	if err != nil {
+		return fmt.Errorf("%s: %w", StageInstallPublicKey, err)
+	}
+	return nil
 }
 
 // DisablePasswordAuth is a legacy one-shot harden (prepare+finalize). Prefer HardenSSHTwoPhase.
@@ -224,7 +236,7 @@ func DisablePasswordAuth(client *ssh.Client) error {
 func HardenSSHPrepare(client *ssh.Client) error {
 	out, err := runSSH(client, hardening.RemoteHardenPrepareScript())
 	if err != nil {
-		return fmt.Errorf("secondary-ssh-hardening-prepare: %w (%s)", err, trimLog(out))
+		return fmt.Errorf("%s: %w (%s)", StageSSHHardenPrepare, err, trimLog(out))
 	}
 	return nil
 }
@@ -234,7 +246,7 @@ func HardenSSHPrepare(client *ssh.Client) error {
 func HardenSSHFinalize(client *ssh.Client) error {
 	out, err := runSSH(client, hardening.RemoteHardenFinalizeScript())
 	if err != nil {
-		return fmt.Errorf("secondary-hardening-finalize: %w (%s)", err, trimLog(out))
+		return fmt.Errorf("%s: %w (%s)", StageHardenFinalize, err, trimLog(out))
 	}
 	return nil
 }
@@ -398,8 +410,12 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	}
 	defer client.Close()
 	// Stage D: drop password from memory — no password fallback for remainder.
+	tr := NewSSHTransportBootstrap(in.Host, in.Port, in.User, in.Password, in.SSHPrivateKey, in.SSHKeyPassphrase)
+	if err := tr.PromoteToKeyVerified(); err != nil {
+		return nil, fmt.Errorf("%s: %w", StageTransportSwitch, err)
+	}
 	in.Password = ""
-	log.WriteString("secondary-key-only-verification: ok; transport=key\n")
+	log.WriteString(StageKeyOnlyVerification + ": ok; " + StageTransportSwitch + "=key_verified\n")
 
 	if err := installMTLSMaterial(client, in.MTLSCA, in.MTLSCert, in.MTLSKey); err != nil {
 		return nil, fmt.Errorf("mtls material: %w", err)
@@ -457,7 +473,7 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 			fmt.Errorf("secondary-password-auth-disable: post-finalize key-only: %w", err)
 	}
 	_ = finalC.Close()
-	log.WriteString("secondary-password-auth-disable: ok\n")
+	log.WriteString(StagePasswordAuthDisable + ": ok; transport=hardened\n")
 	return &ProvisionResult{
 		Host: in.Host, PublicKey: pubJoined, Log: log.String(),
 		AgentOK: true, SingBoxOK: true,

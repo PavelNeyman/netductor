@@ -175,3 +175,13 @@ See `docs/PLAN-SSH-KEYONLY-PROVISION.md`.
 | ProvisionFromCore | prepare → close → key-only :52222 → finalize → key-only again |
 | Integration sshd lab | still OPEN |
 
+
+### 0.9.619 — SSHTransport model + stage IDs
+
+| Item | Status |
+|------|--------|
+| `SSHTransport` Bootstrap → KeyVerified → Hardened | done; password zeroed on promote |
+| Stage constants (`secondary-*`) | done |
+| InstallOperatorKeys verifies lines present | done |
+| Integration sshd lab / live Secondary | still OPEN |
+
