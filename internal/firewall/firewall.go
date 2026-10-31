@@ -48,6 +48,15 @@ func EnsureInstalled() (Backend, error) {
 	if _, err := exec.LookPath("ufw"); err == nil {
 		return BackendUFW, nil
 	}
+	// UFW supports a debconf preseed that enables the firewall during package
+	// installation. Force that answer to false: Netductor must install all
+	// management-path rules before its explicit ufw enable step.
+	preseed := exec.Command("debconf-set-selections")
+	preseed.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
+	preseed.Stdin = strings.NewReader("ufw ufw/enable boolean false\n")
+	if out, err := preseed.CombinedOutput(); err != nil {
+		return BackendNone, fmt.Errorf("firewall: disable UFW install-time activation via debconf: %v (%s)", err, truncate(string(out), 200))
+	}
 	cmd := exec.Command("apt-get", "install", "-y", "ufw")
 	cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
 	out, err := cmd.CombinedOutput()
@@ -636,7 +645,11 @@ func ufwDefaultIncomingDenied(status string) (bool, string) {
 		if !strings.HasPrefix(strings.ToLower(line), "default:") {
 			continue
 		}
-		for _, item := range strings.Split(strings.TrimSpace(strings.TrimPrefix(line, line[:len("Default:")])), ",") {
+		colon := strings.IndexByte(line, ':')
+		if colon < 0 {
+			return false, "malformed UFW default policy line"
+		}
+		for _, item := range strings.Split(strings.TrimSpace(line[colon+1:]), ",") {
 			item = strings.TrimSpace(item)
 			if strings.Contains(strings.ToLower(item), "(incoming)") {
 				fields := strings.Fields(item)
