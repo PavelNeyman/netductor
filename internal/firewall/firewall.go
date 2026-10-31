@@ -679,32 +679,52 @@ func Collect(role string) Status {
 // ufwDefaultIncomingDenied requires an explicit restrictive default incoming policy.
 // The setting is available in `ufw status verbose`, not reliably in numbered status.
 func ufwDefaultIncomingDenied(status string) (bool, string) {
+	var defaultLine string
+	count := 0
 	for _, line := range strings.Split(status, "\n") {
 		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(strings.ToLower(line), "default:") {
+		if strings.HasPrefix(strings.ToLower(line), "default:") {
+			count++
+			defaultLine = line
+		}
+	}
+	if count != 1 {
+		return false, fmt.Sprintf("UFW verbose status must contain exactly one Default policy line (found %d)", count)
+	}
+	colon := strings.IndexByte(defaultLine, ':')
+	if colon < 0 {
+		return false, "malformed UFW default policy line"
+	}
+	policies := make(map[string]string)
+	for _, item := range strings.Split(strings.TrimSpace(defaultLine[colon+1:]), ",") {
+		item = strings.TrimSpace(item)
+		open := strings.Index(item, "(")
+		close := strings.Index(item, ")")
+		if open <= 0 || close <= open {
 			continue
 		}
-		colon := strings.IndexByte(line, ':')
-		if colon < 0 {
-			return false, "malformed UFW default policy line"
+		direction := strings.ToLower(strings.TrimSpace(item[open+1 : close]))
+		policy := strings.ToLower(strings.TrimSpace(item[:open]))
+		if _, exists := policies[direction]; exists {
+			return false, "duplicate UFW default policy for " + direction
 		}
-		for _, item := range strings.Split(strings.TrimSpace(line[colon+1:]), ",") {
-			item = strings.TrimSpace(item)
-			if strings.Contains(strings.ToLower(item), "(incoming)") {
-				fields := strings.Fields(item)
-				if len(fields) < 2 {
-					return false, "unparseable default incoming policy: " + item
-				}
-				policy := strings.ToLower(fields[0])
-				if policy == "deny" || policy == "reject" {
-					return true, ""
-				}
-				return false, "default incoming policy is " + policy + " (must be deny or reject)"
-			}
-		}
-		return false, "default incoming policy is missing from UFW verbose status"
+		policies[direction] = policy
 	}
-	return false, "UFW verbose status has no Default policy line"
+	expected := []struct{ direction, policy string }{
+		{"incoming", "deny"},
+		{"outgoing", "allow"},
+		{"routed", "deny"},
+	}
+	for _, item := range expected {
+		got, found := policies[item.direction]
+		if !found {
+			return false, "default " + item.direction + " policy is missing from UFW verbose status"
+		}
+		if got != item.policy && !(item.direction == "incoming" && got == "reject") {
+			return false, "default " + item.direction + " policy is " + got + " (want " + item.policy + ")"
+		}
+	}
+	return true, ""
 }
 
 // ufwRule is one line from `ufw status numbered`.
