@@ -891,14 +891,50 @@ func ufwSourceCovers(from, targetCIDR string) bool {
 	return ones <= targetOnes && fromNet.Contains(targetNet.IP)
 }
 
-// firstTCPActionFromSource returns the first ordered rule that applies to the
-// complete requested source range and port for one address family.
+// ufwSourceOverlaps reports whether a UFW source selector intersects the
+// requested source range. It is deliberately conservative for partial overlap.
+func ufwSourceOverlaps(from, targetCIDR string) bool {
+	from = strings.TrimSpace(from)
+	if ufwFromIsWAN(from) {
+		return true
+	}
+	parseNet := func(value string) (*net.IPNet, bool) {
+		ip, network, err := net.ParseCIDR(value)
+		if err == nil && ip != nil {
+			return network, true
+		}
+		ip = net.ParseIP(value)
+		if ip == nil {
+			return nil, false
+		}
+		bits := 128
+		if ip.To4() != nil {
+			bits = 32
+		}
+		return &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}, true
+	}
+	a, okA := parseNet(from)
+	b, okB := parseNet(strings.TrimSpace(targetCIDR))
+	if !okA || !okB || (a.IP.To4() != nil) != (b.IP.To4() != nil) {
+		return false
+	}
+	return a.Contains(b.IP) || b.Contains(a.IP)
+}
+
+// firstTCPActionFromSource returns the first ordered rule that affects the
+// requested source range. A partial overlap is returned as a non-ALLOW action
+// so a narrow earlier rule cannot be silently ignored.
 func firstTCPActionFromSource(rules []ufwRule, port, sourceCIDR string, ipv6 bool) (action string, found bool) {
 	for _, rule := range rules {
-		if rule.IPv6 != ipv6 || !ufwRuleMatchesPortTCP(rule, port) || !ufwSourceCovers(rule.From, sourceCIDR) {
+		if rule.IPv6 != ipv6 || !ufwRuleMatchesPortTCP(rule, port) {
 			continue
 		}
-		return rule.Action, true
+		if ufwSourceCovers(rule.From, sourceCIDR) {
+			return rule.Action, true
+		}
+		if ufwSourceOverlaps(rule.From, sourceCIDR) {
+			return "PARTIAL_" + rule.Action, true
+		}
 	}
 	return "", false
 }
