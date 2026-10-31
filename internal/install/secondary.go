@@ -61,6 +61,7 @@ func InstallRelay(bundlePath string) error {
 	}
 	fmt.Fprintln(os.Stderr, "==> secondary: dirs")
 	if err := paths.EnsureLayout(); err != nil { return fmt.Errorf("secondary state layout: %w", err) }
+	if err := applyHostname("secondary"); err != nil { return fmt.Errorf("set secondary hostname: %w", err) }
 	if err := os.MkdirAll("/etc/sing-box/certs", 0o755); err != nil { return fmt.Errorf("create sing-box cert directory: %w", err) }
 	if err := os.MkdirAll("/usr/local/etc/sing-box", 0o755); err != nil { return fmt.Errorf("create sing-box config directory: %w", err) }
 
@@ -133,8 +134,10 @@ WantedBy=multi-user.target
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
 		return fmt.Errorf("sing-box did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
 	}
+	if out, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
+		return fmt.Errorf("sing-box did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
+	}
 
-	if err := applyHostname("secondary"); err != nil { return fmt.Errorf("set secondary hostname: %w", err) }
 	pubIP := strings.TrimSpace(env("PUBLIC_IP", ""))
 	if pubIP == "" { pubIP = strings.TrimSpace(detectPublicIP()) }
 	parsedIP := net.ParseIP(pubIP)
@@ -153,7 +156,6 @@ WantedBy=multi-user.target
 			return fmt.Errorf("write secondary client link %q: %w", u.Name, err)
 		}
 	}
-	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.SecondarySNI, outDir)
 	// install agent
 	if b.AgentToken != "" && b.CoreAgentURL != "" {
 		if err := paths.WriteSecret("secondary_agent_token", b.AgentToken); err != nil { return fmt.Errorf("save secondary agent token: %w", err) }
@@ -179,6 +181,7 @@ WantedBy=multi-user.target
 		}
 		fmt.Fprintln(os.Stderr, "secondary agent started →", b.CoreAgentURL)
 	}
+	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.SecondarySNI, outDir)
 	fmt.Fprintln(os.Stderr, "Give mobile users *-relay links; home users keep core links.")
 	return nil
 }
