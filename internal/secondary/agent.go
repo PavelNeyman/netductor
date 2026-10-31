@@ -340,7 +340,16 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		if err != nil {
 			return false, err.Error()
 		}
-		return rep.Status != aptguard.SevFail, fmt.Sprintf("status=%s findings=%d policy_v=%d", rep.Status, len(rep.Findings), rep.PolicyVersion)
+		nFail, nWarn := 0, 0
+		for _, f := range rep.Findings {
+			if f.Severity == aptguard.SevFail {
+				nFail++
+			} else if f.Severity == aptguard.SevWarn {
+				nWarn++
+			}
+		}
+		return rep.Status != aptguard.SevFail, fmt.Sprintf("status=%s fail=%d warn=%d findings=%d policy_v=%d checked=%s",
+			rep.Status, nFail, nWarn, len(rep.Findings), rep.PolicyVersion, rep.CheckedAt.UTC().Format(time.RFC3339))
 	case "journal":
 		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-secondary-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
 		return err == nil || len(out) > 0, string(out)

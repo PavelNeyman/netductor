@@ -45,7 +45,8 @@
 - [x] Stage 6 netductor-aptguard.timer (6h) via host-baseline
 - [x] Stage 7 API + opcatalog + Web Operate buttons + TG Tools
 - [x] Stage 8 Remediation preview/apply (quarantine + ensure; confirm=yes; backup+rollback)
-- [ ] Stage 9 E2E
+- [x] Stage 9 automated e2e (`TestE2EQuarantineAndRescan`)
+- [ ] Stage 9 live canary on Primary/Secondary (operator)
 
 
 ## 0.9.628

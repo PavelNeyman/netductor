@@ -277,3 +277,10 @@ APT Guard (stages 0–2):
 - Web Operate buttons aptguard status/preview/scan/apply
 - TG Tools → APT Guard status/preview/scan
 
+
+### 0.9.629 — close-out
+
+- APT Guard automated e2e; secondary scan log richer
+- Audit: `docs/audits/2026-10-31-closeout-aptguard-update.md`
+- Update-system: code-complete; live canary OPEN
+
