@@ -329,7 +329,10 @@ if [ -e /usr/local/bin/netductor ]; then
 fi
 rollback() {
   echo "join/health failed — restoring previous state if possible" >&2
+  # Configuration and credentials may already have been partially replaced by
+  # "netductor secondary join". Do not restart either service against mixed state.
   systemctl stop netductor-secondary-agent 2>/dev/null || true
+  systemctl stop sing-box 2>/dev/null || true
   if [ -n "$PREV" ] && [ -f "$PREV" ]; then
     RESTORE=$(mktemp /usr/local/bin/.netductor.restore.XXXXXX)
     if install -m 755 "$PREV" "$RESTORE" 2>/dev/null &&
@@ -337,13 +340,11 @@ rollback() {
        mv -f "$RESTORE" /usr/local/bin/netductor &&
        sync -f /usr/local/bin; then
       RESTORE=
-      systemctl start netductor-secondary-agent 2>/dev/null || true
     else
       echo "rollback: failed to durably restore previous binary" >&2
       rm -f "$RESTORE"
     fi
   else
-    systemctl stop sing-box 2>/dev/null || true
     systemctl disable netductor-secondary-agent 2>/dev/null || true
     rm -f /usr/local/bin/netductor
     sync -f /usr/local/bin || true
