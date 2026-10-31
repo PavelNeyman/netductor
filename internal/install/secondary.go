@@ -386,7 +386,6 @@ func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 		filepath.Join(etc, "node_uuid"),
 		"/etc/hostname",
 		"/etc/hosts",
-		filepath.Join(etc, "public_ip"),
 		filepath.Join(etc, "secrets", "singbox_reality_private"),
 		filepath.Join(etc, "secrets", "singbox_reality_public"),
 		filepath.Join(etc, "secrets", "singbox_short_id"),
