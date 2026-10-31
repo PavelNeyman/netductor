@@ -827,6 +827,24 @@ func WatchdogOnce() {
 		fmt.Fprintln(os.Stderr, "watchdog: apply recovery blocked:", err)
 		return
 	}
+	// A prior recovery may have persisted rolled_back but crashed before
+	// successfully restarting both consumers. Retry that restart before cleanup.
+	if tx, err := loadTx(attemptDir()); err == nil && tx.Phase == txRolledBack {
+		for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
+			if err := exec.Command("systemctl", "restart", unit).Run(); err != nil {
+				fmt.Fprintln(os.Stderr, "watchdog: restart after apply rollback:", unit, err)
+				return
+			}
+		}
+		if !waitAPIHealthy(20*time.Second) {
+			fmt.Fprintln(os.Stderr, "watchdog: API unhealthy after apply rollback; retain journal")
+			return
+		}
+		if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+			fmt.Fprintln(os.Stderr, "watchdog: retain rolled-back journal:", err)
+			return
+		}
+	}
 	var restarted []string
 	for _, u := range managedUnits() {
 		if u.Role != "core" {
