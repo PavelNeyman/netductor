@@ -116,7 +116,11 @@ func ApplyRole(role string) error {
 		role = "primary"
 	}
 	if role == "" {
-		role = detectRole()
+		var ok bool
+		role, ok = DetectRoleStrict()
+		if !ok {
+			return fmt.Errorf("firewall: cannot safely determine host role; specify primary or secondary explicitly")
+		}
 	} else if role != "primary" && role != "secondary" {
 		return fmt.Errorf("firewall: invalid role %q (want primary or secondary)", role)
 	}
