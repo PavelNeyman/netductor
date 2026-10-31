@@ -239,6 +239,7 @@ func preparePrevSnapshot(release string) error {
 	next := filepath.Join(root, "prev.next")
 	if err := os.RemoveAll(next); err != nil { return err }
 	if err := os.MkdirAll(next, 0o755); err != nil { return err }
+	if err := syncDir(root); err != nil { return err }
 	for _, src := range []string{"/usr/local/bin/netductor", "/usr/local/bin/netductor-tg"} {
 		b, err := os.ReadFile(src)
 		if err != nil { return fmt.Errorf("snapshot %s: %w", src, err) }
@@ -263,7 +264,8 @@ func promotePrevSnapshot() error {
 		return err
 	}
 	if err := syncDir(root); err != nil { return err }
-	return os.RemoveAll(old)
+	if err := os.RemoveAll(old); err != nil { return err }
+	return syncDir(root)
 }
 
 func recoverPrevSnapshotSwap() error {
@@ -648,8 +650,12 @@ func ApplyOpts(tag string, noBackup bool) error {
 	}
 	if len(failed) > 0 {
 		fmt.Fprintln(os.Stderr, "health soft-fail (api), retry restart:", failed)
-		_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
-		_ = exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run()
+		if err := exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
+			failed = append(failed, "systemctl-reset-failed:"+err.Error())
+		}
+		if err := exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
+			failed = append(failed, "systemctl-restart-retry:"+err.Error())
+		}
 		fmt.Fprintln(os.Stderr, "stack apply: health pending (retry poll up to 12s)")
 		_ = waitAPIHealthy(12 * time.Second)
 		st = Collect()
@@ -680,11 +686,10 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return applyFail
 	}
 	// Secondary is NOT auto-upgraded — operator must enqueue upgrade explicitly.
-	msg := "✅ Stack apply ok <code>" + tag + "</code> (secondary: manual upgrade only)"
+	msg := "⏳ Stack apply checks passed for <code>" + tag + "</code> (finalizing transaction)"
 	notify.AlertOnce("stack:apply-ok:"+tag, msg)
 	_ = notify.FlushAlerts(true)
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
-	_ = integrity.WriteManifest()
 	// Baseline and last-good snapshot preparation are part of the transaction.
 	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
 		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("host baseline after apply: %w", err))
@@ -704,6 +709,10 @@ func ApplyOpts(tag string, noBackup bool) error {
 		applyFail = fmt.Errorf("promote last-good snapshot after durable commit: %w", err)
 		return applyFail
 	}
+	if err := integrity.WriteManifest(); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: write integrity manifest after commit:", err)
+	}
+	notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack apply committed <code>"+tag+"</code> (secondary: manual upgrade only)")
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: retain committed apply evidence:", err)
 	}
