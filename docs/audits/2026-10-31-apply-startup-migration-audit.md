@@ -83,3 +83,14 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 | runServe gate | Done |
 | 0.9.612 fixture suite | Open |
 | More role-aware migrations | Open |
+
+## Stage 3b (0.9.645)
+
+| Item | Status |
+|------|--------|
+| Role file migration | Done |
+| PostCheck | Done |
+| Secondary agent hook | Done |
+| CLI migrate status/run | Done |
+| Empty-state fixture | Done (minimal) |
+| Full 0.9.612 snapshot fixture | Open |

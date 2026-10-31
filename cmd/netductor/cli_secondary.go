@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/cli18n"
 
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/migrate"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -111,6 +113,12 @@ func runSecondary(args []string) {
 		_ = nodes.Delete(args[1])
 		fmt.Println("removed", args[1])
 	case "agent":
+		if os.Getenv("NETDUCTOR_SKIP_MIGRATE") != "1" {
+			if _, merr := migrate.RunAll(context.Background()); merr != nil {
+				fmt.Fprintln(os.Stderr, "startup migrate:", merr)
+				os.Exit(1)
+			}
+		}
 		tok := paths.ReadSecret("secondary_agent_token")
 		url := paths.ReadSecret("secondary_core_url")
 		if len(args) > 1 && args[1] != "" {

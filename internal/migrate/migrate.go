@@ -120,13 +120,25 @@ func init() {
 		&ensureStateDirsMigration{},
 		&repairStateOnUpgradeMigration{},
 		&ensureAptGuardPolicyMigration{},
+		&ensureRoleFileMigration{},
 	}
 }
 
 // RunAll acquires a cross-process lock and applies pending migrations in order.
 // On failure it returns an error and does not mark Ready — caller should exit.
+// After a successful registry run, PostCheck validates minimal host state.
 func RunAll(ctx context.Context) (Result, error) {
-	return RunRegistry(ctx, DefaultRegistry)
+	res, err := RunRegistry(ctx, DefaultRegistry)
+	if err != nil {
+		return res, err
+	}
+	if os.Getenv("NETDUCTOR_SKIP_MIGRATE_POSTCHECK") == "1" {
+		return res, nil
+	}
+	if err := PostCheck(); err != nil {
+		return res, err
+	}
+	return res, nil
 }
 
 // RunRegistry runs the given ordered migrations.
@@ -225,4 +237,24 @@ func RunRegistry(ctx context.Context, list []Migration) (Result, error) {
 		res.Ran = append(res.Ran, id)
 	}
 	return res, nil
+}
+
+// JournalRecord is a public view of one migration record.
+type JournalRecord struct {
+	Status     Status `json:"status"`
+	AppVersion string `json:"app_version"`
+	Error      string `json:"error,omitempty"`
+}
+
+// LoadJournalPublic returns id → status for CLI/UI.
+func LoadJournalPublic() (map[string]JournalRecord, error) {
+	j, err := loadJournal()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]JournalRecord{}
+	for id, r := range j.Records {
+		out[id] = JournalRecord{Status: r.Status, AppVersion: r.AppVersion, Error: r.Error}
+	}
+	return out, nil
 }

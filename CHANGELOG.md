@@ -1,3 +1,12 @@
+## 0.9.645
+
+Startup migrations:
+- ensure-role-file migration
+- PostCheck after RunAll (role + journal)
+- secondary agent runs migrations before loop
+- CLI: netductor migrate status|run
+- Fixture test: empty state → DefaultRegistry
+
 ## 0.9.644
 
 Startup Migration Runner:

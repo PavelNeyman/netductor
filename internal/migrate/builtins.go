@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/PavelNeyman/netductor/internal/aptguard"
+	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -116,6 +117,44 @@ func (m *ensureAptGuardPolicyMigration) Verify(ctx context.Context) error {
 	}
 	if need {
 		return fmt.Errorf("aptguard policy still missing")
+	}
+	return nil
+}
+
+type ensureRoleFileMigration struct{}
+
+func (m *ensureRoleFileMigration) ID() string { return "2026-10-ensure-role-file" }
+func (m *ensureRoleFileMigration) Description() string {
+	return "Write /etc/netductor/role from DetectRole when absent"
+}
+func (m *ensureRoleFileMigration) Required(ctx context.Context) (bool, error) {
+	path := filepath.Join(paths.EtcDir(), "role")
+	_, err := os.Stat(path)
+	if err == nil {
+		return false, nil
+	}
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	return false, err
+}
+func (m *ensureRoleFileMigration) Apply(ctx context.Context) error {
+	role := firewall.DetectRole()
+	if role == "" {
+		role = "primary"
+	}
+	if err := os.MkdirAll(paths.EtcDir(), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(paths.EtcDir(), "role"), []byte(role+"\n"), 0o644)
+}
+func (m *ensureRoleFileMigration) Verify(ctx context.Context) error {
+	need, err := m.Required(ctx)
+	if err != nil {
+		return err
+	}
+	if need {
+		return fmt.Errorf("role file still missing")
 	}
 	return nil
 }

@@ -410,3 +410,8 @@ APT Guard (stages 0–2):
 - Hooked into runServe before mux/listen
 - Built-in migrations (dirs, state repair, aptguard policy)
 
+
+### 0.9.645 — migrate expand
+
+- role file migration, PostCheck, secondary agent hook, CLI, empty-state fixture test
+
