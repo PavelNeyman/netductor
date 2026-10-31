@@ -942,8 +942,14 @@ func firstTCPActionFromSource(rules []ufwRule, port, sourceCIDR string, ipv6 boo
 func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	ok = true
 	rules := parseUfwNumbered(status)
-	if len(rules) == 0 {
-		return false, []string{"cannot parse numbered UFW rules; address-family policy is unverifiable"}
+	numberedLines := 0
+	for _, line := range strings.Split(status, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "[") {
+			numberedLines++
+		}
+	}
+	if len(rules) == 0 || len(rules) != numberedLines {
+		return false, []string{fmt.Sprintf("cannot completely parse numbered UFW rules: parsed %d of %d; address-family policy is unverifiable", len(rules), numberedLines)}
 	}
 	requireWAN := func(port, wantAction, label string, ipv6 bool) {
 		act, found := firstTCPActionFromWANFamily(rules, port, ipv6)
