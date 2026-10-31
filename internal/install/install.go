@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -157,6 +158,124 @@ func run(name string, args ...string) error {
 func runOut(name string, args ...string) (string, error) {
 	out, err := exec.Command(name, args...).CombinedOutput()
 	return string(out), err
+}
+
+// writeSecretSet stages a related set of secret files before replacing any live value.
+// Existing files are retained in a same-filesystem backup until every replacement is durable.
+func writeSecretSet(values map[string]string) error {
+	if len(values) == 0 {
+		return fmt.Errorf("empty secret set")
+	}
+	dir := filepath.Join(paths.EtcDir(), "secrets")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create secrets directory: %w", err)
+	}
+	stage, err := os.MkdirTemp(dir, ".secret-stage-*")
+	if err != nil {
+		return fmt.Errorf("create secret staging directory: %w", err)
+	}
+	defer os.RemoveAll(stage)
+	backup, err := os.MkdirTemp(dir, ".secret-backup-*")
+	if err != nil {
+		return fmt.Errorf("create secret backup directory: %w", err)
+	}
+	backupKept := false
+	defer func() {
+		if !backupKept {
+			_ = os.RemoveAll(backup)
+		}
+	}()
+	keys := make([]string, 0, len(values))
+	for name := range values {
+		if name == "" || name == "." || name == ".." || filepath.Base(name) != name || strings.ContainsAny(name, "/\\\\") {
+			return fmt.Errorf("invalid secret filename %q", name)
+		}
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+	for _, name := range keys {
+		if err := writeInstallFileDurable(filepath.Join(stage, name), []byte(values[name]+"\\n"), 0o600); err != nil {
+			return fmt.Errorf("stage secret %s: %w", name, err)
+		}
+	}
+	if err := syncDirectory(stage); err != nil {
+		return fmt.Errorf("sync staged secrets: %w", err)
+	}
+	backed := make(map[string]bool, len(keys))
+	installed := make(map[string]bool, len(keys))
+	rollback := func(cause error) error {
+		var rollbackErr error
+		for i := len(keys) - 1; i >= 0; i-- {
+			name := keys[i]
+			dest := filepath.Join(dir, name)
+			if installed[name] {
+				if err := os.Remove(dest); err != nil && !os.IsNotExist(err) && rollbackErr == nil {
+					rollbackErr = fmt.Errorf("remove partial secret %s: %w", name, err)
+				}
+			}
+			if backed[name] {
+				if err := os.Rename(filepath.Join(backup, name), dest); err != nil && rollbackErr == nil {
+					rollbackErr = fmt.Errorf("restore secret %s: %w", name, err)
+				}
+			}
+		}
+		if err := syncDirectory(dir); err != nil && rollbackErr == nil {
+			rollbackErr = fmt.Errorf("sync secret rollback: %w", err)
+		}
+		if rollbackErr != nil {
+			backupKept = true
+			return fmt.Errorf("%w; secret rollback incomplete: %v; backup retained at %s", cause, rollbackErr, backup)
+		}
+		return cause
+	}
+	for _, name := range keys {
+		dest := filepath.Join(dir, name)
+		st, err := os.Lstat(dest)
+		if err == nil {
+			if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+				return rollback(fmt.Errorf("existing secret %s is not a regular file", name))
+			}
+			if err := os.Rename(dest, filepath.Join(backup, name)); err != nil {
+				return rollback(fmt.Errorf("backup secret %s: %w", name, err))
+			}
+			backed[name] = true
+		} else if !os.IsNotExist(err) {
+			return rollback(fmt.Errorf("inspect secret %s: %w", name, err))
+		}
+		if err := syncDirectory(dir); err != nil {
+			return rollback(fmt.Errorf("sync secret backup: %w", err))
+		}
+	}
+	for _, name := range keys {
+		if err := os.Rename(filepath.Join(stage, name), filepath.Join(dir, name)); err != nil {
+			return rollback(fmt.Errorf("install secret %s: %w", name, err))
+		}
+		installed[name] = true
+		if err := syncDirectory(dir); err != nil {
+			return rollback(fmt.Errorf("sync installed secret %s: %w", name, err))
+		}
+	}
+	if err := syncDirectory(dir); err != nil {
+		return rollback(fmt.Errorf("sync committed secret set: %w", err))
+	}
+	if err := os.RemoveAll(backup); err != nil {
+		backupKept = true
+		return fmt.Errorf("secret set installed but backup cleanup failed; backup retained at %s: %w", backup, err)
+	}
+	backupKept = true
+	return nil
+}
+
+func syncDirectory(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func writeSecret(name, val string) error {
