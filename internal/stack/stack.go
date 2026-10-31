@@ -233,26 +233,34 @@ func attemptDir() string {
 	return filepath.Join(paths.StateDir(), "stack", "attempt")
 }
 
-// snapshotBins copies node+tg (+ VERSION) into dir for rollback / last-good.
-func snapshotBins(dir string) error {
-	_ = os.MkdirAll(dir, 0o755)
+// snapshotBins copies the complete installed pair and its explicit release
+// marker using durable writes. A partial snapshot is never reported as success.
+func snapshotBins(dir, release string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	if err := syncDir(filepath.Dir(dir)); err != nil {
+		return fmt.Errorf("sync snapshot parent: %w", err)
+	}
 	for _, src := range []string{"/usr/local/bin/netductor", "/usr/local/bin/netductor-tg"} {
-		b, err := os.ReadFile(src)
-		if err != nil {
-			continue
+		if _, err := os.Stat(src); err != nil {
+			return fmt.Errorf("snapshot source %s: %w", src, err)
 		}
-		_ = os.WriteFile(filepath.Join(dir, filepath.Base(src)), b, 0o755)
+		if _, err := durableBackup(src, filepath.Join(dir, filepath.Base(src))); err != nil {
+			return fmt.Errorf("snapshot %s: %w", src, err)
+		}
 	}
-	ver := version.Running()
-	if ver == "" {
-		ver = version.Release
+	if strings.TrimSpace(release) == "" {
+		return fmt.Errorf("snapshot release is empty")
 	}
-	_ = os.WriteFile(filepath.Join(dir, "VERSION"), []byte(ver+"\n"), 0o644)
-	return nil
+	if err := durableWrite(filepath.Join(dir, "VERSION"), []byte(strings.TrimSpace(release)+"\n"), 0o644); err != nil {
+		return fmt.Errorf("snapshot VERSION: %w", err)
+	}
+	return syncDir(dir)
 }
 
 // snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
-func snapshotPrev() error { return snapshotBins(prevDir()) }
+func snapshotPrev(release string) error { return snapshotBins(prevDir(), release) }
 
 // replaceExecutable atomically replaces an executable and propagates every
 // durability error. The temporary file is created in the destination directory
@@ -628,8 +636,6 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return applyFail
 	}
 	_ = os.RemoveAll(stageDir)
-	ndupdate.WriteVERSION(tag)
-	saveCurrent(tag)
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
 	if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
@@ -703,10 +709,20 @@ func ApplyOpts(tag string, noBackup bool) error {
 	// Re-assert host baseline after binary swap (role file + firewall + watchdog).
 	// Never hardcode primary: secondary node binary can run stack paths; DetectRole uses agent unit.
 	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
-		fmt.Fprintln(os.Stderr, "warn host baseline:", err)
+		applyFail = fmt.Errorf("host baseline after apply: %w", err)
+		notify.AlertOnce("stack:baseline-fail:"+tag, "🔴 Stack apply baseline failed: "+err.Error()+" (committed binaries retained; recovery evidence preserved)")
+		return applyFail
 	}
-	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)
-	_ = snapshotPrev()
+	// Persist the release marker only after the service health and host baseline
+	// checks have succeeded. It must describe the installed pair, not a candidate.
+	ndupdate.WriteVERSION(tag)
+	saveCurrent(tag)
+	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success).
+	if err := snapshotPrev(tag); err != nil {
+		applyFail = fmt.Errorf("last-good snapshot: %w", err)
+		notify.AlertOnce("stack:snapshot-fail:"+tag, "🔴 Stack apply snapshot failed: "+err.Error()+" (committed binaries retained; recovery evidence preserved)")
+		return applyFail
+	}
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: retain committed apply evidence:", err)
 	}
