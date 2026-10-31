@@ -351,3 +351,13 @@ APT Guard (stages 0–2):
 - recovery skips ambiguous tx (manual)
 - injectable fsyncDirFn + tests for fsync fail / body check
 
+
+### 0.9.637 — COMMIT three-valued + recovery gate
+
+- inspectCommit: Absent / Done / Unknown
+- only Absent → auto-rollback
+- Unknown (I/O or bad body) → error, no rollback
+- persistJournal for commit_ambiguous must succeed or surface in error
+- rollback Remove + fsyncDir for quarantine/ensure_file
+- recovery tests: absent/done/unknown
+

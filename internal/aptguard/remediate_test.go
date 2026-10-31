@@ -1,6 +1,7 @@
 package aptguard
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -261,5 +262,82 @@ func TestCommitIsDoneBodies(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("ok\n"), 0o600)
 	if !commitIsDone(dir) {
 		t.Fatal("ok")
+	}
+}
+
+func TestInspectCommitStates(t *testing.T) {
+	dir := t.TempDir()
+	if inspectCommit(dir) != commitAbsent {
+		t.Fatal("absent")
+	}
+	_ = os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("ok\n"), 0o600)
+	if inspectCommit(dir) != commitDone {
+		t.Fatal("ok")
+	}
+	_ = os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("recovered\n"), 0o600)
+	if inspectCommit(dir) != commitDone {
+		t.Fatal("recovered")
+	}
+	_ = os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("nope"), 0o600)
+	if inspectCommit(dir) != commitUnknown {
+		t.Fatal("garbage")
+	}
+}
+
+func TestRecoverySkipsUnknownCOMMIT(t *testing.T) {
+	state := t.TempDir()
+	tx := filepath.Join(Dir(state), "remediate-backup", "tx1")
+	_ = os.MkdirAll(tx, 0o700)
+	// journal with a quarantine that would be rolled back if allowed
+	j := []journalEntry{{Action: "ensure_file", Path: filepath.Join(t.TempDir(), "newfile"), Existed: false}}
+	jb, _ := json.MarshalIndent(j, "", "  ")
+	_ = os.WriteFile(filepath.Join(tx, "journal.json"), jb, 0o600)
+	// unreadable COMMIT: replace with a directory named COMMIT so ReadFile fails non-IsNotExist
+	_ = os.Mkdir(filepath.Join(tx, "COMMIT"), 0o700)
+	err := recoverAllIncompleteLocked(state)
+	if err == nil {
+		t.Fatal("expected error about unknown COMMIT")
+	}
+	if !strings.Contains(err.Error(), "COMMIT unknown") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRecoveryRollsBackAbsentCOMMIT(t *testing.T) {
+	state := t.TempDir()
+	rootFS := t.TempDir()
+	newFile := filepath.Join(rootFS, "etc/apt/sources.list.d/nd-managed.sources")
+	_ = os.MkdirAll(filepath.Dir(newFile), 0o755)
+	_ = os.WriteFile(newFile, []byte("x"), 0o644)
+	tx := filepath.Join(Dir(state), "remediate-backup", "tx2")
+	_ = os.MkdirAll(tx, 0o700)
+	j := []journalEntry{{Action: "ensure_file", Path: newFile, Existed: false}}
+	jb, _ := json.MarshalIndent(j, "", "  ")
+	_ = os.WriteFile(filepath.Join(tx, "journal.json"), jb, 0o600)
+	// no COMMIT
+	if err := recoverAllIncompleteLocked(state); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(newFile); !os.IsNotExist(err) {
+		t.Fatal("ensure_file should have been removed by rollback")
+	}
+}
+
+func TestRecoverySkipsDoneCOMMIT(t *testing.T) {
+	state := t.TempDir()
+	rootFS := t.TempDir()
+	newFile := filepath.Join(rootFS, "kept")
+	_ = os.WriteFile(newFile, []byte("x"), 0o644)
+	tx := filepath.Join(Dir(state), "remediate-backup", "tx3")
+	_ = os.MkdirAll(tx, 0o700)
+	j := []journalEntry{{Action: "ensure_file", Path: newFile, Existed: false}}
+	jb, _ := json.MarshalIndent(j, "", "  ")
+	_ = os.WriteFile(filepath.Join(tx, "journal.json"), jb, 0o600)
+	_ = os.WriteFile(filepath.Join(tx, "COMMIT"), []byte("ok\n"), 0o600)
+	if err := recoverAllIncompleteLocked(state); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(newFile); err != nil {
+		t.Fatal("must keep file when COMMIT=ok")
 	}
 }

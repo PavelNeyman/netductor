@@ -1,3 +1,11 @@
+## 0.9.637
+
+APT Guard recovery:
+- Three-valued COMMIT (absent/done/unknown)
+- Auto-rollback only when COMMIT absent
+- Ambiguous journal persist errors surfaced
+- Rollback Remove + parent fsync
+
 ## 0.9.636
 
 APT Guard COMMIT protocol:

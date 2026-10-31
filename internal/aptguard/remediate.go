@@ -422,14 +422,34 @@ func durableWriteCommit(path string, data []byte) error {
 	return nil
 }
 
-// commitIsDone reports whether COMMIT exists with a recognized body ("ok" or "recovered").
-func commitIsDone(txDir string) bool {
-	b, err := os.ReadFile(filepath.Join(txDir, "COMMIT"))
+// Commit status for recovery decisions.
+type commitStatus int
+
+const (
+	commitAbsent commitStatus = iota
+	commitDone
+	commitUnknown // unreadable, unexpected body, or I/O error — never auto-rollback
+)
+
+// inspectCommit returns three-valued COMMIT state. Only commitAbsent allows auto-rollback.
+func inspectCommit(txDir string) commitStatus {
+	path := filepath.Join(txDir, "COMMIT")
+	b, err := os.ReadFile(path)
 	if err != nil {
-		return false
+		if os.IsNotExist(err) {
+			return commitAbsent
+		}
+		return commitUnknown
 	}
 	body := strings.TrimSpace(string(b))
-	return body == "ok" || body == "recovered"
+	if body == "ok" || body == "recovered" {
+		return commitDone
+	}
+	return commitUnknown
+}
+
+func commitIsDone(txDir string) bool {
+	return inspectCommit(txDir) == commitDone
 }
 
 func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report, error) {
@@ -631,7 +651,10 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		if errors.Is(err, ErrCommitAmbiguous) {
 			// COMMIT may be durable — do not rollback; operator must inspect.
 			journal = append(journal, journalEntry{Action: "commit_ambiguous", Path: commitPath})
-			_ = persistJournal()
+			if jerr := persistJournal(); jerr != nil {
+				audit.Log("aptguard", "remediate.commit_ambiguous.journal_fail", pv.ServerID, jerr.Error())
+				return Report{}, fmt.Errorf("%w (mutations applied; journal commit_ambiguous failed: %v; do not re-apply until resolved)", err, jerr)
+			}
 			return Report{}, fmt.Errorf("%w (mutations applied; do not re-apply until resolved)", err)
 		}
 		return fail(fmt.Errorf("commit marker: %w", err))
@@ -653,6 +676,8 @@ func rollbackJournal(journal []journalEntry) error {
 			if e.Quarantine != "" {
 				if err := os.Remove(e.Quarantine); err != nil && !os.IsNotExist(err) {
 					errs = append(errs, "remove quarantine: "+err.Error())
+				} else if err := fsyncDir(filepath.Dir(e.Quarantine)); err != nil {
+					errs = append(errs, "fsync after remove quarantine: "+err.Error())
 				}
 			}
 			if e.Existed && e.BackupPath != "" {
@@ -664,6 +689,8 @@ func rollbackJournal(journal []journalEntry) error {
 			if !e.Existed {
 				if err := os.Remove(e.Path); err != nil && !os.IsNotExist(err) {
 					errs = append(errs, "remove ensure: "+err.Error())
+				} else if err := fsyncDir(filepath.Dir(e.Path)); err != nil {
+					errs = append(errs, "fsync after remove ensure: "+err.Error())
 				}
 			} else if e.BackupPath != "" {
 				if err := restoreFile(e.BackupPath, e.Path, e); err != nil {
@@ -790,11 +817,15 @@ func recoverAllIncompleteLocked(stateRoot string) error {
 			errs = append(errs, name+": "+err.Error())
 			continue
 		}
-		// COMMIT with body ok|recovered is the durable done marker.
-		if commitIsDone(filepath.Join(root, name)) {
+		txDir := filepath.Join(root, name)
+		switch inspectCommit(txDir) {
+		case commitDone:
+			continue
+		case commitUnknown:
+			errs = append(errs, name+": COMMIT unknown/unreadable (manual resolution required; no auto-rollback)")
 			continue
 		}
-		// Ambiguous commit — do not auto-rollback; surface for operator.
+		// COMMIT absent — still respect journal markers.
 		hasAmb := false
 		for _, e := range journal {
 			if e.Action == "commit_ambiguous" {
