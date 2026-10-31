@@ -421,94 +421,152 @@ func VersionHint() string {
 // tag empty → VersionHint / latest file VERSION.
 func secondaryUpgrade(tag string) (bool, string) {
 	var log strings.Builder
-	tag = strings.TrimSpace(tag)
-	tag = strings.TrimPrefix(tag, "v")
-	if tag == "" {
-		tag = VersionHint()
-	}
-	if tag == "" {
-		tag = version.Release
-	}
-	tag = strings.TrimPrefix(tag, "v")
-	for _, r := range tag {
-		if (r < '0' || r > '9') && r != '.' {
-			return false, "upgrade denied: tag must be a version"
-		}
-	}
+	tag = strings.TrimPrefix(strings.TrimSpace(tag), "v")
+	if tag == "" { tag = VersionHint() }
+	if tag == "" { tag = version.Release }
+	tag = strings.TrimPrefix(strings.TrimSpace(tag), "v")
+	if tag == "" { return false, "upgrade denied: release version is empty" }
+	for _, r := range tag { if (r < '0' || r > '9') && r != '.' { return false, "upgrade denied: tag must be a numeric version" } }
+	parts := strings.Split(tag, ".")
+	for _, part := range parts { if part == "" { return false, "upgrade denied: malformed version" } }
 	arch := runtime.GOARCH
-	if arch != "amd64" && arch != "arm64" {
-		arch = "amd64"
-	}
+	if arch != "amd64" && arch != "arm64" { return false, "upgrade denied: unsupported architecture " + arch }
 	base := "https://github.com/PavelNeyman/netductor/releases/download/v" + tag + "/"
-	log.WriteString(fmt.Sprintf("upgrade tag=v%s arch=%s\n", tag, arch))
-	fetch := func(asset, dest string) error {
+	nodeAsset := "netductor-linux-" + arch
+	log.WriteString(fmt.Sprintf("upgrade tag=v%s arch=%s\\n", tag, arch))
+
+	// Stage on the destination filesystem so the final rename is atomic.
+	stageDir, err := os.MkdirTemp("/usr/local/bin", ".nd-upgrade-*")
+	if err != nil { return false, "upgrade staging directory: " + err.Error() }
+	defer os.RemoveAll(stageDir)
+	if err := os.Chmod(stageDir, 0o700); err != nil { return false, "upgrade staging permissions: " + err.Error() }
+	download := func(asset string) (string, error) {
+		dest := filepath.Join(stageDir, asset)
 		url := base + asset
-		dir, err := os.MkdirTemp("", "nd-upgrade-*")
-		if err != nil {
-			return fmt.Errorf("%s: temp dir: %w", asset, err)
-		}
-		defer os.RemoveAll(dir)
-		_ = os.Chmod(dir, 0o700)
-		tmp := filepath.Join(dir, filepath.Base(asset))
-		// curl: show HTTP code on failure (wget -q hides reason → bare "exit status 1")
-		cmd := exec.Command("curl", "-fL", "--connect-timeout", "20", "--max-time", "180",
-			"-o", tmp, "-w", "http=%{http_code} size=%{size_download}\n", url)
+		cmd := exec.Command("curl", "-fL", "--connect-timeout", "20", "--max-time", "180", "-o", dest, url)
 		out, err := cmd.CombinedOutput()
 		log.Write(out)
 		if err != nil {
-			log.WriteString(fmt.Sprintf("curl %s: %v\n", asset, err))
-			cmd = exec.Command("wget", "-O", tmp, url)
-			out2, err2 := cmd.CombinedOutput()
-			log.Write(out2)
-			if err2 != nil {
-				return fmt.Errorf("%s: download failed url=%s curl=%v wget=%v", asset, url, err, err2)
-			}
+			cmd = exec.Command("wget", "-O", dest, url)
+			out, err = cmd.CombinedOutput()
+			log.Write(out)
+			if err != nil { return "", fmt.Errorf("download %s failed: %w", asset, err) }
 		}
-		st, err := os.Stat(tmp)
-		if err != nil {
-			return fmt.Errorf("%s: missing file after download: %w", asset, err)
-		}
-		if st.Size() < 1000 {
-			return fmt.Errorf("%s: download too small (%d bytes) — check GitHub reachability / asset name", asset, st.Size())
-		}
-		_ = os.Chmod(tmp, 0o755)
-		if err := exec.Command("cp", "-f", tmp, dest).Run(); err != nil {
-			return fmt.Errorf("%s: install to %s: %w", asset, dest, err)
-		}
-		log.WriteString("updated " + dest + " (" + fmt.Sprintf("%d", st.Size()) + " bytes)\n")
-		return nil
+		st, err := os.Stat(dest)
+		if err != nil { return "", fmt.Errorf("stat %s: %w", asset, err) }
+		if !st.Mode().IsRegular() || st.Size() < 1000 { return "", fmt.Errorf("invalid %s asset size/type", asset) }
+		return dest, nil
 	}
-	// Secondary unit: ExecStart=/usr/local/bin/netductor secondary agent
-	// OpenWrt netductor-agent binary must not be installed on secondary VPS.
-	nodeAsset := "netductor-linux-" + arch
-	if err := fetch(nodeAsset, "/usr/local/bin/netductor"); err != nil {
-		log.WriteString(err.Error() + "\n")
-		return false, log.String()
+	assetPath, err := download(nodeAsset)
+	if err != nil { return false, err.Error() }
+	sumsPath, err := download("SHA256SUMS")
+	if err != nil { return false, "refuse upgrade without SHA256SUMS: " + err.Error() }
+	sums, err := os.ReadFile(sumsPath)
+	if err != nil { return false, "read SHA256SUMS: " + err.Error() }
+	want := ""
+	for _, line := range strings.Split(string(sums), "\\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && strings.TrimPrefix(strings.TrimPrefix(fields[1], "*"), "./") == nodeAsset { want = fields[0]; break }
 	}
-	_ = os.WriteFile("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644)
-	_ = exec.Command("systemctl", "try-restart", "sing-box").Run()
-	// Delay restart so reportCmdDone can reach primary first.
+	if len(want) != 64 { return false, "SHA256SUMS does not contain a valid checksum for " + nodeAsset }
+	if _, err := hex.DecodeString(want); err != nil { return false, "SHA256SUMS contains an invalid checksum for " + nodeAsset }
+	got, err := fileSHA256HexPath(assetPath)
+	if err != nil { return false, "hash downloaded binary: " + err.Error() }
+	if !strings.EqualFold(got, want) { return false, fmt.Sprintf("SHA256 mismatch for %s: got %s want %s", nodeAsset, got, want) }
+
+	dest := "/usr/local/bin/netductor"
+	info, err := os.Lstat(dest)
+	if err != nil { return false, "inspect current binary: " + err.Error() }
+	if !info.Mode().IsRegular() { return false, "refuse upgrade: current binary is not a regular file" }
+	backup := "/var/lib/netductor/netductor.bin.prev"
+	if err := os.MkdirAll(filepath.Dir(backup), 0o700); err != nil { return false, "create backup directory: " + err.Error() }
+	if err := copyFileDurable(dest, backup, 0o755); err != nil { return false, "backup current binary: " + err.Error() }
+	if err := os.Chmod(assetPath, 0o755); err != nil { return false, "chmod staged binary: " + err.Error() }
+	if err := syncFile(assetPath); err != nil { return false, "sync staged binary: " + err.Error() }
+	if err := os.Rename(assetPath, dest); err != nil { return false, "atomic binary replace: " + err.Error() }
+	if err := syncDir("/usr/local/bin"); err != nil {
+		_ = copyFileDurable(backup, dest, 0o755)
+		return false, "sync binary directory (previous binary restored): " + err.Error()
+	}
+	versionOut, versionErr := exec.Command(dest, "version").CombinedOutput()
+	if versionErr != nil || !strings.Contains(string(versionOut), "netductor "+tag+" (node)") {
+		restoreErr := copyFileDurable(backup, dest, 0o755)
+		if restoreErr != nil { return false, fmt.Sprintf("new binary validation failed (%v; output=%s); CRITICAL: restore previous binary failed: %v", versionErr, strings.TrimSpace(string(versionOut)), restoreErr) }
+		return false, fmt.Sprintf("new binary validation failed (%v; output=%s); previous binary restored", versionErr, strings.TrimSpace(string(versionOut)))
+	}
+	if err := writeFileDurable("/etc/netductor/VERSION", []byte(tag+"\\n"), 0o644); err != nil {
+		restoreErr := copyFileDurable(backup, dest, 0o755)
+		if restoreErr != nil { return false, fmt.Sprintf("write VERSION failed (%v); CRITICAL: restore previous binary failed: %v", err, restoreErr) }
+		return false, "write VERSION: " + err.Error() + "; previous binary restored"
+	}
+	log.WriteString("binary checksum verified; atomic replacement and version probe passed\\n")
+	// Report command completion to core before restarting this agent process.
 	go func() {
 		time.Sleep(5 * time.Second)
-		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Run()
+		if out, err := exec.Command("systemctl", "restart", "netductor-secondary-agent").CombinedOutput(); err != nil {
+			fmt.Fprintf(os.Stderr, "secondary upgrade: agent restart failed: %v: %s\\n", err, strings.TrimSpace(string(out)))
+		}
 	}()
-	// Day-2: re-assert secondary firewall + watchdog after binary replace.
-	out, err := exec.Command("/usr/local/bin/netductor", "firewall", "apply", "secondary").CombinedOutput()
-	if err != nil {
-		log.WriteString(fmt.Sprintf("firewall apply secondary: %v %s\n", err, strings.TrimSpace(string(out))))
-	} else {
-		log.WriteString("firewall apply secondary ok\n")
+	if out, err := exec.Command(dest, "firewall", "apply", "secondary").CombinedOutput(); err != nil {
+		log.WriteString(fmt.Sprintf("firewall apply secondary failed: %v %s\\n", err, strings.TrimSpace(string(out))))
+		return false, log.String()
 	}
-	out, err = exec.Command("/usr/local/bin/netductor", "stack", "watchdog-install").CombinedOutput()
-	if err != nil {
-		log.WriteString(fmt.Sprintf("watchdog-install: %v %s\n", err, strings.TrimSpace(string(out))))
-	} else {
-		log.WriteString("watchdog-install ok\n")
+	log.WriteString("firewall apply secondary ok\\n")
+	if out, err := exec.Command(dest, "stack", "watchdog-install").CombinedOutput(); err != nil {
+		log.WriteString(fmt.Sprintf("watchdog-install failed: %v %s\\n", err, strings.TrimSpace(string(out))))
+		return false, log.String()
 	}
-	log.WriteString("DONE v" + tag + " (node binary; unit=netductor secondary agent)\n")
+	log.WriteString("watchdog-install ok\\n")
+	log.WriteString("DONE v" + tag + " (node binary; unit=netductor-secondary-agent)\\n")
 	return true, log.String()
 }
 
+func syncFile(path string) error {
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil { return err }
+	if err := f.Sync(); err != nil { _ = f.Close(); return err }
+	return f.Close()
+}
+
+func syncDir(path string) error {
+	f, err := os.Open(path)
+	if err != nil { return err }
+	if err := f.Sync(); err != nil { _ = f.Close(); return err }
+	return f.Close()
+}
+
+func copyFileDurable(src, dst string, mode os.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil { return err }
+	defer in.Close()
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil { return err }
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".netductor-copy-*")
+	if err != nil { return err }
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := io.Copy(tmp, in); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Chmod(mode); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Sync(); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Close(); err != nil { return err }
+	if err := os.Rename(tmpName, dst); err != nil { return err }
+	return syncDir(filepath.Dir(dst))
+}
+
+func writeFileDurable(dst string, data []byte, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil { return err }
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".netductor-write-*")
+	if err != nil { return err }
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	n, err := tmp.Write(data)
+	if err != nil { _ = tmp.Close(); return err }
+	if n != len(data) { _ = tmp.Close(); return io.ErrShortWrite }
+	if err := tmp.Chmod(mode); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Sync(); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Close(); err != nil { return err }
+	if err := os.Rename(tmpName, dst); err != nil { return err }
+	return syncDir(filepath.Dir(dst))
+}
 func secondaryBackupLocal() (string, error) {
 	// prefer CLI if present (same binary often)
 	out, err := exec.Command("/usr/local/bin/netductor", "backup", "secondary-local").CombinedOutput()
