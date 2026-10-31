@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -232,52 +233,74 @@ func attemptDir() string {
 	return filepath.Join(paths.StateDir(), "stack", "attempt")
 }
 
-// snapshotBins copies node+tg (+ VERSION) into dir for rollback / last-good.
-func snapshotBins(dir string) error {
-	_ = os.MkdirAll(dir, 0o755)
+// preparePrevSnapshot stages a complete last-good snapshot without changing prev/.
+func preparePrevSnapshot(release string) error {
+	root := filepath.Join(paths.StateDir(), "stack")
+	next := filepath.Join(root, "prev.next")
+	if err := os.RemoveAll(next); err != nil { return err }
+	if err := os.MkdirAll(next, 0o755); err != nil { return err }
 	for _, src := range []string{"/usr/local/bin/netductor", "/usr/local/bin/netductor-tg"} {
 		b, err := os.ReadFile(src)
-		if err != nil {
-			continue
-		}
-		_ = os.WriteFile(filepath.Join(dir, filepath.Base(src)), b, 0o755)
+		if err != nil { return fmt.Errorf("snapshot %s: %w", src, err) }
+		if err := durableWrite(filepath.Join(next, filepath.Base(src)), b, 0o755); err != nil { return err }
 	}
-	ver := version.Running()
-	if ver == "" {
-		ver = version.Release
-	}
-	_ = os.WriteFile(filepath.Join(dir, "VERSION"), []byte(ver+"\n"), 0o644)
-	return nil
+	if err := durableWrite(filepath.Join(next, "VERSION"), []byte(strings.TrimSpace(release)+"\n"), 0o644); err != nil { return err }
+	return syncDir(next)
 }
 
-// snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
-func snapshotPrev() error { return snapshotBins(prevDir()) }
+func promotePrevSnapshot() error {
+	root := filepath.Join(paths.StateDir(), "stack")
+	prev, next := prevDir(), filepath.Join(root, "prev.next")
+	old := filepath.Join(root, "prev.old")
+	if _, err := os.Stat(filepath.Join(next, "netductor")); err != nil { return fmt.Errorf("staged last-good snapshot missing: %w", err) }
+	if err := os.RemoveAll(old); err != nil { return err }
+	if _, err := os.Stat(prev); err == nil {
+		if err := os.Rename(prev, old); err != nil { return err }
+		if err := syncDir(root); err != nil { return err }
+	} else if !os.IsNotExist(err) { return err }
+	if err := os.Rename(next, prev); err != nil {
+		if _, e := os.Stat(old); e == nil { _ = os.Rename(old, prev); _ = syncDir(root) }
+		return err
+	}
+	if err := syncDir(root); err != nil { return err }
+	return os.RemoveAll(old)
+}
 
-// replaceExecutable writes src bytes to dest via dest.new + rename + fsync.
+func recoverPrevSnapshotSwap() error {
+	root := filepath.Join(paths.StateDir(), "stack")
+	prev, old := prevDir(), filepath.Join(root, "prev.old")
+	if _, err := os.Stat(prev); os.IsNotExist(err) {
+		if _, e := os.Stat(old); e == nil {
+			if err := os.Rename(old, prev); err != nil { return err }
+			if err := syncDir(root); err != nil { return err }
+		}
+	} else if err != nil { return err
+	} else if err := os.RemoveAll(old); err != nil { return err }
+	return os.RemoveAll(filepath.Join(root, "prev.next"))
+}
+
+// replaceExecutable performs a durable same-filesystem replacement and verifies bytes.
 func replaceExecutable(src, dest string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return err
-	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil { return err }
 	tmp := dest + ".new"
-	if err := os.WriteFile(tmp, data, 0o755); err != nil {
-		return err
+	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) { return err }
+	in, err := os.Open(src)
+	if err != nil { return err }
+	defer in.Close()
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
+	if err != nil { return err }
+	_, copyErr := io.Copy(out, in)
+	chmodErr := out.Chmod(0o755)
+	syncErr := out.Sync()
+	closeErr := out.Close()
+	for _, e := range []error{copyErr, chmodErr, syncErr, closeErr} {
+		if e != nil { _ = os.Remove(tmp); return e }
 	}
-	if f, err := os.Open(tmp); err == nil {
-		_ = f.Sync()
-		_ = f.Close()
-	}
-	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	if df, err := os.Open(filepath.Dir(dest)); err == nil {
-		_ = df.Sync()
-		_ = df.Close()
-	}
+	if err := os.Rename(tmp, dest); err != nil { _ = os.Remove(tmp); return err }
+	if err := syncDir(filepath.Dir(dest)); err != nil { return err }
+	a, err := fileSHA(src); if err != nil { return err }
+	b, err := fileSHA(dest); if err != nil { return err }
+	if a != b { return fmt.Errorf("replacement verification failed for %s", dest) }
 	return nil
 }
 
@@ -300,15 +323,8 @@ func installStagedPairTo(nodeSrc, tgSrc, nodeDest, tgDest, att string) error {
 		{tgDest, "netductor-tg", "tg"},
 	} {
 		st, err := os.Stat(pair.path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return fmt.Errorf("stat %s: %w", pair.name, err)
-		}
-		if st.IsDir() {
-			return fmt.Errorf("%s is a directory", pair.path)
-		}
+		if err != nil { return fmt.Errorf("stat required pre-image %s: %w", pair.name, err) }
+		if !st.Mode().IsRegular() { return fmt.Errorf("%s is not a regular file", pair.path) }
 		sha, err := durableBackup(pair.path, filepath.Join(att, pair.name))
 		if err != nil {
 			return fmt.Errorf("backup %s: %w", pair.name, err)
@@ -550,8 +566,9 @@ func ApplyOpts(tag string, noBackup bool) error {
 			return applyFail
 		}
 	}
-	// Never keep attempt/ — old builds restored it on health fail and fought prev/ (121↔132 loops).
-	_ = os.RemoveAll(attemptDir())
+	// Recover prior interrupted work; never discard its journal or pre-images.
+	if err := RecoverIncompleteApply(); err != nil { applyFail = err; return err }
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil { applyFail = fmt.Errorf("clean previous apply evidence: %w", err); return applyFail }
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
 		path, err := install.Backup()
@@ -590,18 +607,16 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return applyFail
 	}
 	_ = os.RemoveAll(stageDir)
-	ndupdate.WriteVERSION(tag)
-	saveCurrent(tag)
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
 	if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
-		applyFail = fmt.Errorf("systemctl restart netductor-api: %w", err)
-		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (api restart): "+err.Error())
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("systemctl restart netductor-api: %w", err))
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (api restart): "+applyFail.Error())
 		return applyFail
 	}
 	if err := exec.Command("systemctl", "restart", "netductor-telegram-bot").Run(); err != nil {
-		applyFail = fmt.Errorf("systemctl restart netductor-telegram-bot: %w", err)
-		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg restart): "+err.Error())
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("systemctl restart netductor-telegram-bot: %w", err))
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg restart): "+applyFail.Error())
 		return applyFail
 	}
 	// redirect is best-effort (may be absent on some roles)
@@ -616,7 +631,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 	st := Collect()
 	var failed []string
 	for _, u := range st.Units {
-		if u.Unit == "netductor-api" && !u.OK {
+		if (u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot") && !u.OK {
 			failed = append(failed, u.Unit+":"+u.Active)
 		}
 	}
@@ -629,7 +644,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 		st = Collect()
 		failed = nil
 		for _, u := range st.Units {
-			if u.Unit == "netductor-api" && !u.OK {
+			if (u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot") && !u.OK {
 				failed = append(failed, u.Unit+":"+u.Active)
 			}
 		}
@@ -649,11 +664,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 		}
 	}
 	if len(failed) > 0 {
-		fmt.Fprintln(os.Stderr, "health failed (api), KEEPING new binaries:", failed)
-		notify.AlertOnce("stack:health:"+tag, "⚠️ Stack apply <code>"+tag+"</code> health: "+strings.Join(failed, ", ")+" — binaries kept (no auto-downgrade; prev unchanged)")
-		_ = os.RemoveAll(attemptDir())
-		// Do NOT snapshotPrev on health fail — avoids marking a flaky apply as last-good.
-		applyFail = fmt.Errorf("apply health fail %v (binaries kept at %s)", failed, tag)
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("apply health failed: %v", failed))
+		notify.AlertOnce("stack:health:"+tag, "🔴 Stack apply <code>"+tag+"</code> failed health checks: "+strings.Join(failed, ", "))
 		return applyFail
 	}
 	// Secondary is NOT auto-upgraded — operator must enqueue upgrade explicitly.
@@ -662,20 +674,46 @@ func ApplyOpts(tag string, noBackup bool) error {
 	_ = notify.FlushAlerts(true)
 	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
 	_ = integrity.WriteManifest()
-	// Re-assert host baseline after binary swap (role file + firewall + watchdog).
-	// Never hardcode primary: secondary node binary can run stack paths; DetectRole uses agent unit.
+	// Baseline and last-good snapshot preparation are part of the transaction.
 	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
-		fmt.Fprintln(os.Stderr, "warn host baseline:", err)
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("host baseline after apply: %w", err))
+		return applyFail
 	}
-	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)
-	_ = snapshotPrev()
-	_ = os.RemoveAll(attemptDir())
+	if err := preparePrevSnapshot(tag); err != nil {
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("prepare last-good snapshot: %w", err))
+		return applyFail
+	}
+	if err := commitInstalledPair(attemptDir()); err != nil {
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("commit installed pair: %w", err))
+		return applyFail
+	}
+	ndupdate.WriteVERSION(tag)
+	saveCurrent(tag)
+	if err := promotePrevSnapshot(); err != nil {
+		applyFail = fmt.Errorf("promote last-good snapshot after durable commit: %w", err)
+		return applyFail
+	}
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: retain committed apply evidence:", err)
+	}
 	// brew-style: drop upgrade leftovers (dry nothing left is fine)
 	if rep := cleanup.Run(true); len(rep.Items) > 0 {
 		fmt.Fprintln(os.Stderr, "stack cleanup:", rep.FreedHuman, len(rep.Items), "item(s)")
 	}
 	applyOK = true
 	return nil
+}
+
+func rollbackApplyFailure(att string, cause error) error {
+	tx, err := loadTx(att)
+	if err != nil { return fmt.Errorf("%v; load rollback journal: %w", cause, err) }
+	if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("%v; rollback blocked: %w", cause, err) }
+	var restartErrs []string
+	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
+		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil { restartErrs = append(restartErrs, unit+": "+err.Error()) }
+	}
+	if len(restartErrs) > 0 { return fmt.Errorf("%v; restored pair but service restart failed: %s", cause, strings.Join(restartErrs, "; ")) }
+	return cause
 }
 
 func restoreFrom(dir string) error {
@@ -726,8 +764,11 @@ func Rollback() error {
 
 // WatchdogOnce restarts core units that are failed/inactive.
 func WatchdogOnce() {
-	// Only cleanup + restart failed units. Never swap binaries here (promote was causing silent version flips).
-	_ = os.RemoveAll(attemptDir())
+	// Watchdog must never delete a transaction journal or its pre-images.
+	if err := RecoverIncompleteApply(); err != nil {
+		fmt.Fprintln(os.Stderr, "watchdog: apply recovery blocked:", err)
+		return
+	}
 	var restarted []string
 	for _, u := range managedUnits() {
 		if u.Role != "core" {
