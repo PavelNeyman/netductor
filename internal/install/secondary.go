@@ -39,8 +39,10 @@ func InstallRelay(bundlePath string) error {
 		return fmt.Errorf("invalid bundle: secondary agent identity/token is missing")
 	}
 	coreURL, err := url.Parse(strings.TrimSpace(b.CoreAgentURL))
-	if err != nil || coreURL.Scheme != "https" || coreURL.Host == "" || coreURL.User != nil {
-		return fmt.Errorf("invalid bundle: core_agent_url must be an HTTPS URL")
+	if err != nil || coreURL.Scheme != "https" || coreURL.Host == "" || coreURL.User != nil ||
+		coreURL.Hostname() != strings.TrimSpace(b.CoreIP) || coreURL.Port() != "8789" ||
+		(coreURL.Path != "" && coreURL.Path != "/") || coreURL.RawQuery != "" || coreURL.Fragment != "" {
+		return fmt.Errorf("invalid bundle: core_agent_url must target core_ip on mTLS port 8789")
 	}
 	const supportedSchema = 1
 	if b.Version != supportedSchema {
