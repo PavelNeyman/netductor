@@ -294,10 +294,27 @@ func recoverPrevSnapshotSwap() error {
 			if err := os.Rename(old, prev); err != nil { return err }
 			if err := syncDir(root); err != nil { return err }
 		}
-	} else if prevErr != nil { return prevErr }
+	} else if prevErr != nil { return prevErr
+	} else if committed && nextErr == nil {
+		// If prev still contains the pre-transaction last-good binary, finish
+		// promoting the staged snapshot. If it already matches the committed
+		// binary, the rename completed and only cleanup remains.
+		prevSHA, err := fileSHA(filepath.Join(prev, "netductor"))
+		if err != nil { return fmt.Errorf("inspect current last-good snapshot: %w", err) }
+		if prevSHA != tx.NodeNewSHA {
+			if oldErr == nil { return fmt.Errorf("ambiguous last-good promotion: prev differs from committed binary while prev.old exists") }
+			if err := os.Rename(prev, old); err != nil { return err }
+			if err := syncDir(root); err != nil { return err }
+			if err := os.Rename(next, prev); err != nil {
+				_ = os.Rename(old, prev)
+				_ = syncDir(root)
+				return err
+			}
+			if err := syncDir(root); err != nil { return err }
+		}
+	}
 
-	// Once prev exists, old is obsolete. A committed tx may have already
-	// promoted prev; an uncommitted tx must never promote next.
+	// Once prev exists, old is obsolete. An uncommitted tx never promotes next.
 	if err := os.RemoveAll(old); err != nil { return err }
 	if err := os.RemoveAll(next); err != nil { return err }
 	return syncDir(root)
