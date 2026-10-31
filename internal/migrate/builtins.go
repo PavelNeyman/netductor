@@ -151,12 +151,13 @@ func (m *ensureAptGuardPolicyMigration) Apply(ctx context.Context) error {
 	return err
 }
 func (m *ensureAptGuardPolicyMigration) Verify(ctx context.Context) error {
-	need, err := m.Required(ctx)
+	path := aptguard.PolicyPath(paths.StateDir())
+	p, err := aptguard.LoadPolicyFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("aptguard policy invalid: %w", err)
 	}
-	if need {
-		return fmt.Errorf("aptguard policy still missing")
+	if err := p.Validate(); err != nil {
+		return err
 	}
 	return nil
 }
