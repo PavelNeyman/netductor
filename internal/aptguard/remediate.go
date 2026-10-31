@@ -334,6 +334,8 @@ func durableWrite(path string, data []byte, mode os.FileMode) error {
 }
 
 // fsyncDirFn is overridable in tests.
+var osStatFn = os.Stat
+
 var fsyncDirFn = func(dir string) error {
 	d, err := os.Open(dir)
 	if err != nil {
@@ -409,7 +411,7 @@ func durableWriteCommit(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	if err := durableWrite(path, data, 0o600); err != nil {
 		// durableWrite may have left COMMIT after rename+failed fsync, or never created it.
-		_, stErr := os.Stat(path)
+		_, stErr := osStatFn(path)
 		if stErr != nil {
 			if os.IsNotExist(stErr) {
 				return err // clearly absent — safe for caller rollback
@@ -456,6 +458,29 @@ func inspectCommit(txDir string) commitStatus {
 
 func commitIsDone(txDir string) bool {
 	return inspectCommit(txDir) == commitDone
+}
+
+// journalBlocksAutoRollback is true if on-disk journal may indicate a finalized or
+// finalizing transaction — automatic rollback would race with durable commit state.
+func journalBlocksAutoRollback(journalPath string) bool {
+	b, err := os.ReadFile(journalPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		return true
+	}
+	var entries []journalEntry
+	if err := json.Unmarshal(b, &entries); err != nil {
+		return true
+	}
+	for _, e := range entries {
+		switch e.Action {
+		case "committing", "complete", "commit_ambiguous", "recovered":
+			return true
+		}
+	}
+	return false
 }
 
 func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report, error) {
@@ -542,6 +567,9 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 	}
 
 	fail := func(op error) (Report, error) {
+		if journalBlocksAutoRollback(journalPath) {
+			return Report{}, fmt.Errorf("%w (journal may contain committing/complete; no auto-rollback — inspect %s)", op, bakDir)
+		}
 		rbErr := rollbackJournal(journal)
 		if rbErr != nil {
 			return Report{}, fmt.Errorf("%w; rollback: %v", op, rbErr)

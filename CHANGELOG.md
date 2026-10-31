@@ -1,3 +1,9 @@
+## 0.9.639
+
+APT Guard:
+- fail() skips rollback if on-disk journal may be finalizing
+- injectable os.Stat for COMMIT existence checks
+
 ## 0.9.638
 
 APT Guard COMMIT protocol:

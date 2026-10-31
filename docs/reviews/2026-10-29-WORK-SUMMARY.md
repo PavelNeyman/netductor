@@ -369,3 +369,10 @@ APT Guard (stages 0–2):
 - Stat non-IsNotExist after failed write → ErrCommitAmbiguous
 - tests: committing gate, unknown preserves file
 
+
+### 0.9.639 — fail() journal gate
+
+- journalBlocksAutoRollback: committing|complete|commit_ambiguous|recovered or unreadable → no rollback
+- fail() consults on-disk journal before rollback
+- osStatFn injectable; Stat non-IsNotExist → Ambiguous tested
+
