@@ -235,6 +235,11 @@ func (m *ensureVPNDirsMigration) Verify(ctx context.Context) error {
 	if need {
 		return fmt.Errorf("vpn dirs still incomplete")
 	}
+	// Existence alone is insufficient: a truncated or malformed vpn-users.json
+	// must not be accepted as a completed migration.
+	if _, err := vpn.ListNative(); err != nil {
+		return fmt.Errorf("vpn user registry invalid: %w", err)
+	}
 	return nil
 }
 
