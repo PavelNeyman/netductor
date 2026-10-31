@@ -337,6 +337,16 @@ func recoverPrevSnapshotSwap() error {
 		}
 	}
 
+	// A committed first install must have either a promoted prev or a recoverable stage.
+	if committed {
+		if _, err := os.Stat(prev); os.IsNotExist(err) {
+			if _, nextErr := os.Stat(next); os.IsNotExist(nextErr) {
+				if _, oldErr := os.Stat(old); os.IsNotExist(oldErr) {
+					return fmt.Errorf("committed apply has no last-good snapshot or recoverable promotion")
+				}
+			}
+		}
+	}
 	// Once prev exists, old is obsolete. An uncommitted tx never promotes next.
 	if err := os.RemoveAll(old); err != nil { return err }
 	if err := os.RemoveAll(next); err != nil { return err }
