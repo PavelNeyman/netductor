@@ -189,7 +189,8 @@ func InstallTelegram() error {
 	}
 	unit := fmt.Sprintf(`[Unit]
 Description=Netductor Telegram bot
-After=network-online.target
+Wants=netductor-api.service
+After=network-online.target netductor-api.service
 
 [Service]
 Type=simple
