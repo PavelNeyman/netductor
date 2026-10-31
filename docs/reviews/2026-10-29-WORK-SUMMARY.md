@@ -403,3 +403,10 @@ APT Guard (stages 0–2):
 - probeRunningUnitVersion (MainPID /proc/exe)
 - restart via systemctl restart with error log
 
+
+### 0.9.644 — Startup Migration Runner
+
+- Package internal/migrate with journal + flock
+- Hooked into runServe before mux/listen
+- Built-in migrations (dirs, state repair, aptguard policy)
+

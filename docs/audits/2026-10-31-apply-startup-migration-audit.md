@@ -72,3 +72,14 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 | Process version probe | Done — MainPID → /proc/PID/exe |
 | Host Apply cross-process flock | Done |
 | Startup Migration Runner | Open |
+
+## Stage 3 progress (0.9.644)
+
+| Item | Status |
+|------|--------|
+| Migration interface + registry | Done |
+| Durable journal | Done |
+| Flock | Done |
+| runServe gate | Done |
+| 0.9.612 fixture suite | Open |
+| More role-aware migrations | Open |

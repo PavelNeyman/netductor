@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/migrate"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/policy"
@@ -105,6 +107,17 @@ func runServe(args []string) {
 	if bind != "127.0.0.1" && bind != "localhost" {
 		fmt.Fprintln(os.Stderr, "refusing non-local API bind (operator is netductor-op on Mac; NETDUCTOR_API_PUBLIC removed)")
 		os.Exit(2)
+	}
+	// Startup migrations before Ready (API mux / listeners).
+	if os.Getenv("NETDUCTOR_SKIP_MIGRATE") != "1" {
+		mr, merr := migrate.RunAll(context.Background())
+		if merr != nil {
+			fmt.Fprintln(os.Stderr, "startup migrate:", merr)
+			os.Exit(1)
+		}
+		if len(mr.Ran) > 0 {
+			fmt.Fprintln(os.Stderr, "startup migrate ran:", strings.Join(mr.Ran, ", "))
+		}
 	}
 	mux := buildAPIMux()
 	addr := bind + ":" + port

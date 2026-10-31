@@ -1,3 +1,10 @@
+## 0.9.644
+
+Startup Migration Runner:
+- internal/migrate: registry, durable journal, cross-process flock
+- Built-ins: state dirs, RepairStateOnUpgrade marker, aptguard policy ensure
+- runServe runs migrations before API Ready (NETDUCTOR_SKIP_MIGRATE=1 to bypass)
+
 ## 0.9.643
 
 Update Host Apply:
