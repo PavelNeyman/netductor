@@ -136,7 +136,7 @@ WantedBy=multi-user.target
 	}
 
 	pubIP := strings.TrimSpace(env("PUBLIC_IP", ""))
-	if pubIP == "" { pubIP = strings.TrimSpace(detectPublicIP()) }
+	if pubIP == "" { pubIP = strings.TrimSpace(detectPublicIPv4()) }
 	parsedIP := net.ParseIP(pubIP)
 	if parsedIP == nil || parsedIP.To4() == nil { return fmt.Errorf("secondary public IPv4 could not be determined (got %q)", pubIP) }
 	if err := nodes.SelfRegisterLocal("", "secondary", pubIP); err != nil { return fmt.Errorf("register secondary node: %w", err) }
