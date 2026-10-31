@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -133,13 +134,48 @@ func DetectRoleStrict() (string, bool) {
 }
 
 // persistRole writes /etc/netductor/role so status matches last apply.
-func persistRole(role string) {
+func persistRole(role string) error {
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role != "primary" && role != "secondary" {
-		return
+		return fmt.Errorf("firewall: refusing to persist invalid role %q", role)
 	}
-	_ = os.MkdirAll("/etc/netductor", 0o755)
-	_ = os.WriteFile("/etc/netductor/role", []byte(role+"\n"), 0o644)
+	const dir = "/etc/netductor"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("firewall: create role directory: %w", err)
+	}
+	f, err := os.CreateTemp(dir, ".role-*")
+	if err != nil {
+		return fmt.Errorf("firewall: create role temp file: %w", err)
+	}
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	if err := f.Chmod(0o644); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("firewall: chmod role temp file: %w", err)
+	}
+	if _, err := f.WriteString(role+"\\n"); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("firewall: write role: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("firewall: sync role: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("firewall: close role: %w", err)
+	}
+	if err := os.Rename(tmp, filepath.Join(dir, "role")); err != nil {
+		return fmt.Errorf("firewall: replace role: %w", err)
+	}
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("firewall: open role directory for sync: %w", err)
+	}
+	defer d.Close()
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("firewall: sync role directory: %w", err)
+	}
+	return nil
 }
 
 func sshPort() string {
@@ -151,11 +187,7 @@ func applyUFW(role string) error {
 		cmd := exec.Command("ufw", args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			msg := string(out)
-			if strings.Contains(msg, "Skipping") || strings.Contains(msg, "Could not delete") {
-				return nil
-			}
-			return fmt.Errorf("ufw %v: %v (%s)", args, err, truncate(msg, 160))
+			return fmt.Errorf("ufw %v: %v (%s)", args, err, truncate(string(out), 160))
 		}
 		return nil
 	}
@@ -237,7 +269,9 @@ func applyUFW(role string) error {
 	if err != nil {
 		return fmt.Errorf("ufw enable: %v (%s)", err, truncate(string(out), 200))
 	}
-	persistRole(role)
+	if err := persistRole(role); err != nil {
+		return err
+	}
 	fmt.Fprintf(os.Stderr, "firewall: ufw active role=%s ssh=%s\n", role, sp)
 	return nil
 }
@@ -248,16 +282,8 @@ func applyIPTables(role string) error {
 	run := func(args ...string) error {
 		cmd := exec.Command("iptables", args...)
 		out, err := cmd.CombinedOutput()
-		msg := string(out)
 		if err != nil {
-			if strings.Contains(strings.ToLower(msg), "exist") {
-				return nil
-			}
-			// -N when chain exists is ok
-			if len(args) > 0 && args[0] == "-N" && strings.Contains(strings.ToLower(msg), "chain") {
-				return nil
-			}
-			return fmt.Errorf("iptables %v: %v (%s)", args, err, truncate(msg, 160))
+			return fmt.Errorf("iptables %v: %v (%s)", args, err, truncate(string(out), 160))
 		}
 		return nil
 	}
@@ -272,11 +298,11 @@ func applyIPTables(role string) error {
 		return fmt.Errorf("iptables fallback: temporary SSH safeguard: %w", err)
 	}
 	temporarySSHAllow := true
-	if err := must("-N", "NETDUCTOR"); err != nil {
-		// already exists is fine via run(); other errors abort
-		if !strings.Contains(err.Error(), "exist") {
-			// try flush only if chain usable
-			_ = run("-F", "NETDUCTOR")
+	// Detect an existing chain with a dedicated read-only query. Never infer
+	// idempotent success from arbitrary error text returned by a mutation.
+	if err := exec.Command("iptables", "-S", "NETDUCTOR").Run(); err != nil {
+		if createErr := must("-N", "NETDUCTOR"); createErr != nil {
+			return fmt.Errorf("iptables fallback: create NETDUCTOR chain: %w", createErr)
 		}
 	}
 	if err := must("-F", "NETDUCTOR"); err != nil {
@@ -354,9 +380,52 @@ func applyIPTables(role string) error {
 	// note: do NOT set default DROP on INPUT via iptables alone — risk lockout
 	fmt.Fprintf(os.Stderr, "firewall: iptables NETDUCTOR chain applied role=%s (fallback; prefer ufw)\n", role)
 	if _, err := exec.LookPath("netfilter-persistent"); err == nil {
-		_ = exec.Command("netfilter-persistent", "save").Run()
+		if out, saveErr := exec.Command("netfilter-persistent", "save").CombinedOutput(); saveErr != nil {
+			return fmt.Errorf("iptables fallback: persist firewall via netfilter-persistent: %v (%s)", saveErr, truncate(string(out), 200))
+		}
 	} else if _, err := exec.LookPath("iptables-save"); err == nil {
-		_ = exec.Command("bash", "-c", "iptables-save > /etc/iptables.rules.netductor").Run()
+		out, saveErr := exec.Command("iptables-save").Output()
+		if saveErr != nil {
+			return fmt.Errorf("iptables fallback: capture persistent rules: %w", saveErr)
+		}
+		const rulesPath = "/etc/iptables.rules.netductor"
+		tmp, createErr := os.CreateTemp("/etc", ".iptables-rules-*")
+		if createErr != nil {
+			return fmt.Errorf("iptables fallback: create rules temp file: %w", createErr)
+		}
+		tmpPath := tmp.Name()
+		defer os.Remove(tmpPath)
+		if chmodErr := tmp.Chmod(0o600); chmodErr != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("iptables fallback: chmod rules file: %w", chmodErr)
+		}
+		if _, writeErr := tmp.Write(out); writeErr != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("iptables fallback: write rules file: %w", writeErr)
+		}
+		if syncErr := tmp.Sync(); syncErr != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("iptables fallback: sync rules file: %w", syncErr)
+		}
+		if closeErr := tmp.Close(); closeErr != nil {
+			return fmt.Errorf("iptables fallback: close rules file: %w", closeErr)
+		}
+		if renameErr := os.Rename(tmpPath, rulesPath); renameErr != nil {
+			return fmt.Errorf("iptables fallback: replace rules file: %w", renameErr)
+		}
+		dir, openErr := os.Open("/etc")
+		if openErr != nil {
+			return fmt.Errorf("iptables fallback: open /etc for sync: %w", openErr)
+		}
+		defer dir.Close()
+		if syncErr := dir.Sync(); syncErr != nil {
+			return fmt.Errorf("iptables fallback: sync /etc: %w", syncErr)
+		}
+	} else {
+		return fmt.Errorf("iptables fallback: no supported firewall persistence command")
+	}
+	if err := persistRole(role); err != nil {
+		return err
 	}
 	return nil
 }
