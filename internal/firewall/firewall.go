@@ -941,7 +941,10 @@ func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 	if r.Direction != "IN" {
 		return false
 	}
-	if r.Proto == "udp" {
+	// An omitted protocol means the UFW rule applies to TCP as well.
+	// Any explicit non-TCP protocol must not be mistaken for a TCP rule.
+	proto := strings.ToLower(strings.TrimSpace(r.Proto))
+	if proto != "" && proto != "tcp" {
 		return false
 	}
 	rp := strings.TrimSpace(r.Port)
