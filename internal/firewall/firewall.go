@@ -893,6 +893,12 @@ func ufwSourceCovers(from, targetCIDR string) bool {
 
 // ufwSourceOverlaps reports whether a UFW source selector intersects the
 // requested source range. It is deliberately conservative for partial overlap.
+// ufwSourceContainedBy reports whether every source address selected by
+// from is contained in allowedCIDR.
+func ufwSourceContainedBy(from, allowedCIDR string) bool {
+	return ufwSourceCovers(allowedCIDR, from)
+}
+
 func ufwSourceOverlaps(from, targetCIDR string) bool {
 	from = strings.TrimSpace(from)
 	if ufwFromIsWAN(from) {
@@ -1011,11 +1017,32 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 				warnings = append(warnings, "mtls: first matching IPv4 rule for "+source+" on "+mtls+"/tcp is "+action+" (want ALLOW)")
 			}
 		}
-		// Explicitly reject any IPv6 WAN ALLOW for the mTLS port. The
-		// family-specific WAN rule check above also requires a first DENY.
-		if action, found := firstTCPActionFromWANFamily(rules, mtls, true); found && action == "ALLOW" {
-			ok = false
-			warnings = append(warnings, "mtls: IPv6 WAN rule allows "+mtls+"/tcp")
+		// No IPv6 source is trusted for the current mTLS service topology.
+		// Reject every IPv6 ALLOW, including narrow source-specific exceptions.
+		for _, rule := range rules {
+			if rule.IPv6 && ufwRuleMatchesPortTCP(rule, mtls) && rule.Action == "ALLOW" {
+				ok = false
+				warnings = append(warnings, "mtls: unexpected IPv6 ALLOW from "+rule.From+" for "+mtls+"/tcp")
+			}
+		}
+		// IPv4 mTLS must be reachable only from the configured service CIDRs
+		// and loopback. A broad or unrelated source-specific ALLOW is unsafe.
+		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"}
+		for _, rule := range rules {
+			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || rule.Action != "ALLOW" {
+				continue
+			}
+			trusted := false
+			for _, source := range allowedMTLSSources {
+				if ufwSourceContainedBy(rule.From, source) {
+					trusted = true
+					break
+				}
+			}
+			if !trusted {
+				ok = false
+				warnings = append(warnings, "mtls: IPv4 ALLOW from untrusted source "+rule.From+" for "+mtls+"/tcp")
+			}
 		}
 
 		lp := ndconfig.LampacPort()
