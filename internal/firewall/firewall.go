@@ -707,17 +707,20 @@ func ufwDefaultIncomingDenied(status string) (bool, string) {
 	return false, "UFW verbose status has no Default policy line"
 }
 
-// ufwRule is one line from `ufw status numbered` (IPv4 preferred; v6 skipped for policy OK).
+// ufwRule is one line from `ufw status numbered`.
 type ufwRule struct {
 	Num    int
-	Port   string // e.g. 22 or 52222
-	Proto  string // tcp|udp|""
-	Action string // ALLOW|DENY|REJECT|LIMIT
-	From   string // Anywhere, 10.87.10.0/30, 127.0.0.1, ...
+	Port   string
+	Proto  string
+	Action string
+	From   string
+	IPv6   bool
 	Raw    string
 }
 
-// parseUfwNumbered parses lines like: [ 1] 52222/tcp    ALLOW IN    Anywhere
+// parseUfwNumbered preserves address-family identity. UFW marks IPv6 rules with
+// "(v6)" after the destination and source; removing that marker before parsing
+// keeps the source usable while IPv6 remains explicit in the rule.
 func parseUfwNumbered(status string) []ufwRule {
 	var rules []ufwRule
 	for _, ln := range strings.Split(status, "\n") {
@@ -725,22 +728,18 @@ func parseUfwNumbered(status string) []ufwRule {
 		if ln == "" || !strings.HasPrefix(ln, "[") {
 			continue
 		}
-		// strip [ N]
 		rb := strings.Index(ln, "]")
 		if rb < 0 {
 			continue
 		}
 		numStr := strings.TrimSpace(ln[1:rb])
-		num := 0
-		for _, c := range numStr {
-			if c >= '0' && c <= '9' {
-				num = num*10 + int(c-'0')
-			}
+		num, err := strconv.Atoi(numStr)
+		if err != nil || num < 1 {
+			continue
 		}
 		rest := strings.TrimSpace(ln[rb+1:])
-		if strings.Contains(rest, "(v6)") {
-			continue // evaluate IPv4 path; v6 mirrored separately
-		}
+		ipv6 := strings.Contains(rest, "(v6)")
+		rest = strings.ReplaceAll(rest, " (v6)", "")
 		if i := strings.Index(rest, "#"); i >= 0 {
 			rest = strings.TrimSpace(rest[:i])
 		}
@@ -753,19 +752,19 @@ func parseUfwNumbered(status string) []ufwRule {
 		if j := strings.Index(portProto, "/"); j >= 0 {
 			port, proto = portProto[:j], portProto[j+1:]
 		}
-		// find action
 		actionIdx := -1
-		for i, f := range fields {
-			if f == "ALLOW" || f == "DENY" || f == "REJECT" || f == "LIMIT" {
+		for i, field := range fields {
+			switch field {
+			case "ALLOW", "DENY", "REJECT", "LIMIT":
 				actionIdx = i
+			}
+			if actionIdx >= 0 {
 				break
 			}
 		}
 		if actionIdx < 0 {
 			continue
 		}
-		action := fields[actionIdx]
-		// skip IN/OUT
 		fromParts := fields[actionIdx+1:]
 		for len(fromParts) > 0 && (fromParts[0] == "IN" || fromParts[0] == "OUT") {
 			fromParts = fromParts[1:]
@@ -774,7 +773,10 @@ func parseUfwNumbered(status string) []ufwRule {
 		if from == "" {
 			from = "Anywhere"
 		}
-		rules = append(rules, ufwRule{Num: num, Port: port, Proto: proto, Action: action, From: from, Raw: ln})
+		rules = append(rules, ufwRule{
+			Num: num, Port: port, Proto: proto, Action: fields[actionIdx],
+			From: from, IPv6: ipv6, Raw: ln,
+		})
 	}
 	return rules
 }
@@ -784,21 +786,12 @@ func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 		return false
 	}
 	rp := strings.TrimSpace(r.Port)
-	// Global allow/deny (Anywhere, *, empty) applies to every TCP port.
-	if rp == "" || rp == "Anywhere" || rp == "Anywhere (v6)" || rp == "*" ||
-		strings.EqualFold(rp, "any") {
+	if rp == "" || rp == "Anywhere" || rp == "*" || strings.EqualFold(rp, "any") {
 		return true
 	}
-	// Port ranges: 8000:9000 or 8000-9000
 	for _, sep := range []string{":", "-"} {
 		if i := strings.Index(rp, sep); i > 0 {
 			lo, hi := rp[:i], rp[i+len(sep):]
-			if j := strings.Index(lo, "/"); j >= 0 {
-				lo = lo[:j]
-			}
-			if j := strings.Index(hi, "/"); j >= 0 {
-				hi = hi[:j]
-			}
 			a, ea := strconv.Atoi(lo)
 			b, eb := strconv.Atoi(hi)
 			pn, ep := strconv.Atoi(port)
@@ -807,16 +800,15 @@ func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 			}
 		}
 	}
-	base := rp
-	if j := strings.Index(base, "/"); j >= 0 {
-		base = base[:j]
+	if j := strings.Index(rp, "/"); j >= 0 {
+		rp = rp[:j]
 	}
-	return base == port
+	return rp == port
 }
+
 func ufwFromIsWAN(from string) bool {
 	from = strings.TrimSpace(from)
-	return from == "" || from == "Anywhere" || from == "Anywhere (v6)" ||
-		strings.EqualFold(from, "any")
+	return from == "" || from == "Anywhere" || strings.EqualFold(from, "any")
 }
 
 func ufwFromIsTrustedMTLS(from string) bool {
@@ -824,13 +816,7 @@ func ufwFromIsTrustedMTLS(from string) bool {
 	if from == "127.0.0.1" || from == "lo" || strings.HasPrefix(from, "127.0.0.1/") {
 		return true
 	}
-	// Exact match against configured service-path CIDRs (not substring "10.87").
-	for _, w := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
-		if cidrEqual(from, w) {
-			return true
-		}
-	}
-	return false
+	return cidrEqual(from, ndconfig.SvcSPCIDR()) || cidrEqual(from, ndconfig.SvcPSCIDR())
 }
 
 func cidrEqual(a, b string) bool {
@@ -844,103 +830,71 @@ func cidrEqual(a, b string) bool {
 	return oa == ob && na.IP.Equal(nb.IP)
 }
 
-// firstTCPAction walks rules in order; returns first action that applies to port from a WAN source.
-func firstTCPActionFromWAN(rules []ufwRule, port string) (action string, found bool) {
-	for _, r := range rules {
-		if !ufwRuleMatchesPortTCP(r, port) {
+// firstTCPActionFromWANFamily returns the first matching WAN action for one
+// address family. Rule order is evaluated independently for IPv4 and IPv6.
+func firstTCPActionFromWANFamily(rules []ufwRule, port string, ipv6 bool) (action string, found bool) {
+	for _, rule := range rules {
+		if rule.IPv6 != ipv6 || !ufwRuleMatchesPortTCP(rule, port) || !ufwFromIsWAN(rule.From) {
 			continue
 		}
-		if !ufwFromIsWAN(r.From) {
-			continue // restricted source — not the WAN path
-		}
-		return r.Action, true
+		return rule.Action, true
 	}
 	return "", false
 }
 
-// ufwEffectivePolicy uses rule order from `ufw status numbered` (first match wins).
 func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	ok = true
-	// Default incoming must be deny/reject (not allow).
-	low := strings.ToLower(status)
-	if strings.Contains(low, "default: allow (incoming)") ||
-		strings.Contains(low, "default: allow (incoming,") {
-		ok = false
-		warnings = append(warnings, "ufw default incoming is ALLOW — must be deny")
-	}
 	rules := parseUfwNumbered(status)
-	// Fallback: non-numbered status still works via order of appearance.
 	if len(rules) == 0 {
-		for i, ln := range strings.Split(status, "\n") {
-			ln = strings.TrimSpace(ln)
-			if ln == "" || strings.HasPrefix(ln, "Status:") || strings.HasPrefix(ln, "To ") {
-				continue
-			}
-			fields := strings.Fields(ln)
-			if len(fields) < 3 {
-				continue
-			}
-			portProto := fields[0]
-			port, proto := portProto, ""
-			if j := strings.Index(portProto, "/"); j >= 0 {
-				port, proto = portProto[:j], portProto[j+1:]
-			}
-			action := ""
-			for _, f := range fields {
-				if f == "ALLOW" || f == "DENY" || f == "REJECT" || f == "LIMIT" {
-					action = f
-					break
-				}
-			}
-			if action == "" || proto == "udp" {
-				continue
-			}
-			from := "Anywhere"
-			if ai := -1; true {
-				for i, f := range fields {
-					if f == action {
-						ai = i
-						break
-					}
-				}
-				if ai >= 0 && ai+1 < len(fields) {
-					from = strings.Join(fields[ai+1:], " ")
-					from = strings.TrimPrefix(from, "IN ")
-					from = strings.TrimPrefix(from, "OUT ")
-				}
-			}
-			rules = append(rules, ufwRule{Num: i + 1, Port: port, Proto: proto, Action: action, From: from, Raw: ln})
-		}
+		return false, []string{"cannot parse numbered UFW rules; address-family policy is unverifiable"}
 	}
-
-	sp := sshPort()
-	requireWAN := func(port, wantAction, label string) {
-		act, found := firstTCPActionFromWAN(rules, port)
+	requireWAN := func(port, wantAction, label string, ipv6 bool) {
+		act, found := firstTCPActionFromWANFamily(rules, port, ipv6)
+		family := "IPv4"
+		if ipv6 {
+			family = "IPv6"
+		}
 		if !found {
 			ok = false
-			warnings = append(warnings, label+": no "+port+"/tcp rule for WAN")
+			warnings = append(warnings, label+": no "+port+"/tcp WAN rule for "+family)
 			return
 		}
 		if act != wantAction {
 			ok = false
-			warnings = append(warnings, label+": first WAN rule for "+port+"/tcp is "+act+" (want "+wantAction+")")
+			warnings = append(warnings, label+": first "+family+" WAN rule for "+port+"/tcp is "+act+" (want "+wantAction+")")
 		}
 	}
-	requireWAN(sp, "ALLOW", "ssh")
-	requireWAN("443", "ALLOW", "vless")
-	requireWAN("22", "DENY", "ssh22")
-	requireWAN("10050", "DENY", "zabbix")
-	requireWAN("10051", "DENY", "zabbix")
+	requireBoth := func(port, action, label string) {
+		requireWAN(port, action, label, false)
+		requireWAN(port, action, label, true)
+	}
+	sp := sshPort()
+	for _, item := range []struct{ port, action, label string }{
+		{sp, "ALLOW", "ssh"},
+		{"443", "ALLOW", "vless"},
+		{"22", "DENY", "ssh22"},
+		{"10050", "DENY", "zabbix"},
+		{"10051", "DENY", "zabbix"},
+	} {
+		requireBoth(item.port, item.action, item.label)
+	}
 
 	if role == "primary" {
-		requireWAN(ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect")
-		requireWAN("80", "ALLOW", "http-acme")
-		requireWAN("8444", "ALLOW", "primary-wss")
-		requireWAN("8788", "DENY", "plain-agent")
-		requireWAN("9443", "DENY", "service-uplink-wan")
+		for _, item := range []struct{ port, action, label string }{
+			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
+			{"80", "ALLOW", "http-acme"},
+			{"8444", "ALLOW", "primary-wss"},
+			{"8788", "DENY", "plain-agent"},
+			{"9443", "DENY", "service-uplink-wan"},
+		} {
+			requireBoth(item.port, item.action, item.label)
+		}
+
+		// The configured service-path CIDRs are IPv4. They must not be
+		// interpreted as permission to expose the same port over IPv6.
 		var serviceUplinkTrustedAllow bool
 		for _, rule := range rules {
-			if !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" {
+			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" {
 				continue
 			}
 			if cidrEqual(rule.From, ndconfig.SvcSPCIDR()) || cidrEqual(rule.From, ndconfig.SvcPSCIDR()) {
@@ -950,52 +904,53 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 		if !serviceUplinkTrustedAllow {
 			ok = false
-			warnings = append(warnings, "service uplink: no restricted ALLOW from configured service CIDRs for 9443/tcp")
+			warnings = append(warnings, "service uplink: no IPv4 restricted ALLOW from configured service CIDRs for 9443/tcp")
 		}
+
 		mtls := ndconfig.AgentMTLSPort()
 		var trustedAllow bool
-		var wanAct string
-		var wanFound bool
-		for _, r := range rules {
-			if !ufwRuleMatchesPortTCP(r, mtls) {
+		for _, rule := range rules {
+			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || rule.Action != "ALLOW" {
 				continue
 			}
-			if ufwFromIsTrustedMTLS(r.From) && r.Action == "ALLOW" {
+			if ufwFromIsTrustedMTLS(rule.From) {
 				trustedAllow = true
-			}
-			if ufwFromIsWAN(r.From) && !wanFound {
-				wanAct, wanFound = r.Action, true
+				break
 			}
 		}
 		if !trustedAllow {
 			ok = false
-			warnings = append(warnings, "mtls: no ALLOW from 10.87/lo for "+mtls+"/tcp")
+			warnings = append(warnings, "mtls: no IPv4 ALLOW from configured service CIDRs/loopback for "+mtls+"/tcp")
 		}
-		if wanFound && wanAct == "ALLOW" {
+		// Explicitly reject any IPv6 WAN ALLOW for the mTLS port. The
+		// family-specific WAN rule check above also requires a first DENY.
+		if action, found := firstTCPActionFromWANFamily(rules, mtls, true); found && action == "ALLOW" {
 			ok = false
-			warnings = append(warnings, "mtls: first WAN rule for "+mtls+"/tcp is ALLOW (must not be open)")
+			warnings = append(warnings, "mtls: IPv6 WAN rule allows "+mtls+"/tcp")
 		}
+
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
-			requireWAN(lp, "DENY", "lampac-wan")
+			requireBoth(lp, "DENY", "lampac-wan")
 			var loopbackAllow bool
-			for _, r := range rules {
-				if ufwRuleMatchesPortTCP(r, lp) && r.Action == "ALLOW" &&
-					(strings.TrimSpace(r.From) == "127.0.0.1" || strings.HasPrefix(strings.TrimSpace(r.From), "127.0.0.1/")) {
+			for _, rule := range rules {
+				from := strings.TrimSpace(rule.From)
+				if !rule.IPv6 && ufwRuleMatchesPortTCP(rule, lp) && rule.Action == "ALLOW" &&
+					(from == "127.0.0.1" || strings.HasPrefix(from, "127.0.0.1/")) {
 					loopbackAllow = true
 					break
 				}
 			}
 			if !loopbackAllow {
 				ok = false
-				warnings = append(warnings, "lampac: no loopback ALLOW for "+lp+"/tcp")
+				warnings = append(warnings, "lampac: no IPv4 loopback ALLOW for "+lp+"/tcp")
 			}
 		}
 	} else {
-		requireWAN("8445", "ALLOW", "secondary-wss")
-		requireWAN("80", "DENY", "secondary-http")
-		for _, d := range []string{"8787", "8788", "8789"} {
-			requireWAN(d, "DENY", "secondary-"+d)
+		requireBoth("8445", "ALLOW", "secondary-wss")
+		requireBoth("80", "DENY", "secondary-http")
+		for _, port := range []string{"8787", "8788", "8789"} {
+			requireBoth(port, "DENY", "secondary-"+port)
 		}
 	}
 	return ok, warnings
