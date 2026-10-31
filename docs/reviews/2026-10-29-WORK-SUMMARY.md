@@ -234,3 +234,16 @@ Still OPEN: live Secondary e2e, full sshd integration lab.
 | UFW restore = file copy + reload only | done |
 | Socket masked/enabled/disabled restore | done |
 
+
+### 0.9.624 — Prepare re-entry P0 + APT Repository Guard start
+
+SSH:
+- Stop/verify previous rollback timer+unit before rm -rf backup
+- Prepare holds flock for mutation phase
+- Socket snapshot preserves masked (stdout before exit code)
+- Cancel: timeout on systemctl stop
+
+APT Guard (stages 0–2):
+- docs/PLAN-APT-REPOSITORY-GUARD.md integration map
+- internal/aptguard policy + scanner (.list + .sources)
+

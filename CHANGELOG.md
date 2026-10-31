@@ -1,3 +1,14 @@
+## 0.9.624
+
+SSH harden:
+- Refuse Prepare while previous rollback active; stop old timer/unit before rm -rf backup
+- Prepare holds flock during mutations
+- Socket masked snapshot fix; cancel stop timeout
+
+APT Repository Guard (start):
+- Policy + read-only scanner (.list / Deb822)
+- PLAN-APT-REPOSITORY-GUARD.md
+
 ## 0.9.623
 
 SSH harden:

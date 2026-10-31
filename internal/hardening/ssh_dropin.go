@@ -34,9 +34,36 @@ ND_PORT=%d
 ND_RB_UNIT='%s'
 ND_RB_TIMER='%s'
 ND_RB_SCRIPT="$ND_BAK/rollback.sh"
+LOCK="$ND_BAK/lock"
 
+# --- Stop any previous rollback before touching backup dir ---
+systemctl stop "$ND_RB_TIMER" 2>/dev/null || true
+systemctl stop "$ND_RB_UNIT" 2>/dev/null || true
+systemctl disable "$ND_RB_TIMER" 2>/dev/null || true
+# Wait for previous unit to leave active (bounded)
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  if ! systemctl is-active "$ND_RB_UNIT" 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+if systemctl is-active "$ND_RB_UNIT" 2>/dev/null; then
+  echo "previous rollback service still active — refuse prepare" >&2
+  exit 1
+fi
+if systemctl is-active "$ND_RB_TIMER" 2>/dev/null; then
+  echo "previous rollback timer still active — refuse prepare" >&2
+  exit 1
+fi
+rm -f /etc/systemd/system/${ND_RB_UNIT} /etc/systemd/system/${ND_RB_TIMER}
+systemctl daemon-reload 2>/dev/null || true
+
+# Safe to recreate backup dir only after old rollback is gone
 rm -rf "$ND_BAK"
 mkdir -p "$ND_BAK"
+# Prepare holds lock for entire mutation phase (same lock as rollback/cancel)
+exec 9>"$LOCK"
+flock 9
 
 # --- Mandatory SSH backup ---
 test -f /etc/ssh/sshd_config
@@ -51,8 +78,25 @@ test -f "$ND_BAK/sshd_config.bak"
 # --- Socket unit state (enabled / active / masked) ---
 for u in ssh.socket sshd.socket; do
   if systemctl cat "$u" >/dev/null 2>&1; then
-    systemctl is-enabled "$u" > "$ND_BAK/${u}.enabled" 2>/dev/null || echo "disabled" > "$ND_BAK/${u}.enabled"
-    systemctl is-active "$u" > "$ND_BAK/${u}.active" 2>/dev/null || echo "inactive" > "$ND_BAK/${u}.active"
+    set +e
+    en_out=$(systemctl is-enabled "$u" 2>/dev/null)
+    en_rc=$?
+    ac_out=$(systemctl is-active "$u" 2>/dev/null)
+    ac_rc=$?
+    set -e
+    # Prefer stdout even when exit code is non-zero (e.g. masked)
+    if [ -n "$en_out" ]; then
+      echo "$en_out" > "$ND_BAK/${u}.enabled"
+    elif [ $en_rc -ne 0 ]; then
+      echo "disabled" > "$ND_BAK/${u}.enabled"
+    else
+      echo "unknown" > "$ND_BAK/${u}.enabled"
+    fi
+    if [ -n "$ac_out" ]; then
+      echo "$ac_out" > "$ND_BAK/${u}.active"
+    else
+      echo "inactive" > "$ND_BAK/${u}.active"
+    fi
   else
     echo absent > "$ND_BAK/${u}.enabled"
     echo absent > "$ND_BAK/${u}.active"
@@ -301,13 +345,13 @@ flock 9
 touch "$ND_BAK/CANCELLED"
 chmod 600 "$ND_BAK/CANCELLED"
 
-systemctl stop "$ND_RB_TIMER" 2>/dev/null || true
-systemctl stop "$ND_RB_UNIT" 2>/dev/null || true
+# Bounded stop (systemctl stop itself can hang)
+timeout 10 systemctl stop "$ND_RB_TIMER" 2>/dev/null || systemctl kill "$ND_RB_TIMER" 2>/dev/null || true
+timeout 10 systemctl stop "$ND_RB_UNIT" 2>/dev/null || systemctl kill "$ND_RB_UNIT" 2>/dev/null || true
 systemctl disable "$ND_RB_TIMER" 2>/dev/null || true
 
-# Wait up to ~15s for unit to leave active
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-  if ! systemctl is-active "$ND_RB_UNIT" 2>/dev/null; then
+for i in 1 2 3 4 5; do
+  if ! systemctl is-active "$ND_RB_UNIT" 2>/dev/null && ! systemctl is-active "$ND_RB_TIMER" 2>/dev/null; then
     break
   fi
   sleep 1

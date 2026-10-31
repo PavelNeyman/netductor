@@ -13,6 +13,18 @@ func TestDropInConf(t *testing.T) {
 
 func TestPrepareOrderAndFlock(t *testing.T) {
 	s := RemoteHardenPrepareScript()
+	if !strings.Contains(s, "previous rollback") && !strings.Contains(s, "refuse prepare") {
+		t.Fatal("must refuse prepare while old rollback active")
+	}
+	if !strings.Contains(s, "flock 9") {
+		t.Fatal("prepare must hold flock")
+	}
+	// check stop before rm
+	idxStop := strings.Index(s, "systemctl stop")
+	idxRm := strings.Index(s, `rm -rf "$ND_BAK"`)
+	if idxStop < 0 || idxRm < 0 || idxStop > idxRm {
+		t.Fatal("stop old rollback before rm -rf backup")
+	}
 	if !strings.Contains(s, "flock 9") {
 		t.Fatal("rollback must use flock")
 	}
