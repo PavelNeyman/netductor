@@ -404,7 +404,7 @@ func ufwPreflightPolicy(status, role string) error {
 		uplink := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
 		mtls := ndconfig.AgentMTLSPort()
-		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"}
+		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, source := range trustedMTLS { checkSource(mtls, source, "mtls") }
 		for _, rule := range rules {
 			if !ufwRuleMatchesPortTCP(rule, "9443") || !ufwRuleAllowsTraffic(rule.Action) { continue }
@@ -429,10 +429,9 @@ func ufwPreflightPolicy(status, role string) error {
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
 			checkWAN(lp, "DENY", "lampac")
-			checkSource(lp, "127.0.0.1", "lampac-loopback")
 			for _, rule := range rules {
 				if ufwRuleMatchesPortTCP(rule, lp) && ufwRuleAllowsTraffic(rule.Action) &&
-					(rule.IPv6 || !ufwSourceContainedBy(rule.From, "127.0.0.1")) {
+					true {
 					conflicts = append(conflicts, "lampac has an existing untrusted ALLOW from "+rule.From)
 				}
 			}
@@ -541,7 +540,7 @@ func applyUFW(role string) error {
 			return err
 		}
 		mtls := ndconfig.AgentMTLSPort()
-		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
+		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			if err := must("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api"); err != nil {
 				return err
 			}
@@ -557,7 +556,6 @@ func applyUFW(role string) error {
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
 			if err := must("deny", lp+"/tcp", "comment", "lampac-wan-deny"); err != nil { return fmt.Errorf("deny Lampac WAN port: %w", err) }
-			if err := must("allow", "from", "127.0.0.1", "to", "any", "port", lp, "proto", "tcp", "comment", "lampac-local"); err != nil { return fmt.Errorf("allow Lampac loopback: %w", err) }
 		}
 	} else {
 		if err := must("allow", "8445/tcp", "comment", "nd-wss-ps"); err != nil { return fmt.Errorf("allow secondary WSS port: %w", err) }
@@ -1362,7 +1360,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 
 		mtls := ndconfig.AgentMTLSPort()
-		for _, source := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
+		for _, source := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			action, found := firstTCPActionFromSource(rules, mtls, source, false)
 			if !found || action != "ALLOW" {
 				ok = false
@@ -1377,9 +1375,9 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 				warnings = append(warnings, "mtls: unexpected IPv6 ALLOW from "+rule.From+" for "+mtls+"/tcp")
 			}
 		}
-		// IPv4 mTLS must be reachable only from the configured service CIDRs
-		// and loopback. A broad or unrelated source-specific ALLOW is unsafe.
-		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"}
+		// IPv4 mTLS must be reachable only from the configured service CIDRs.
+		// Loopback is handled by UFW's interface-scoped built-in lo rules.
+		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, rule := range rules {
 			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) {
 				continue
@@ -1400,18 +1398,10 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
 			requireBoth(lp, "DENY", "lampac-wan")
-			action, found := firstTCPActionFromSource(rules, lp, "127.0.0.1", false)
-			if !found || action != "ALLOW" {
-				ok = false
-				warnings = append(warnings, "lampac: first matching IPv4 loopback rule for "+lp+"/tcp is "+action+" (want ALLOW)")
-			}
 			for _, rule := range rules {
-				if !ufwRuleMatchesPortTCP(rule, lp) || !ufwRuleAllowsTraffic(rule.Action) {
-					continue
-				}
-				if rule.IPv6 || !ufwSourceContainedBy(rule.From, "127.0.0.1") {
+				if ufwRuleMatchesPortTCP(rule, lp) && ufwRuleAllowsTraffic(rule.Action) {
 					ok = false
-					warnings = append(warnings, "lampac: unexpected ALLOW from "+rule.From+" for "+lp+"/tcp")
+					warnings = append(warnings, "lampac: unexpected source-based ALLOW from "+rule.From+" for "+lp+"/tcp")
 				}
 			}
 		}
