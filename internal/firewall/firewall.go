@@ -304,6 +304,22 @@ func managedInputJump(rules string) (position int, chain string, err error) {
 	return position, chain, nil
 }
 
+// chainIsReferenced checks all filter-table rules for jumps or gotos to target.
+func chainIsReferenced(rules, target string) bool {
+	for _, line := range strings.Split(rules, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 || fields[0] != "-A" {
+			continue
+		}
+		for i := 2; i+1 < len(fields); i++ {
+			if (fields[i] == "-j" || fields[i] == "--jump" || fields[i] == "-g" || fields[i] == "--goto") && fields[i+1] == target {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func applyIPTables(role string) error {
 	// Build a complete inactive generation, then switch INPUT's single jump.
 	// The live chain is never flushed while packets can still traverse it.
@@ -349,6 +365,17 @@ func applyIPTables(role string) error {
 		stagingChain = "NETDUCTOR_A"
 	default:
 		return fmt.Errorf("iptables fallback: unsupported active chain %q", activeChain)
+	}
+
+	// Refuse to flush a staging chain if any existing filter rule references it.
+	// This prevents breaking administrator-created chains that happen to reuse
+	// one of the reserved Netductor generation names.
+	allRules, inspectErr := exec.Command("iptables", "-S").CombinedOutput()
+	if inspectErr != nil {
+		return fmt.Errorf("iptables fallback: inspect filter table references: %v (%s)", inspectErr, truncate(string(allRules), 200))
+	}
+	if chainIsReferenced(string(allRules), stagingChain) {
+		return fmt.Errorf("iptables fallback: refusing to rebuild referenced staging chain %s", stagingChain)
 	}
 
 	// Create the staging chain if absent; then flush only that inactive chain.
