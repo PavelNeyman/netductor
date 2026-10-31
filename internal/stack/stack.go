@@ -284,9 +284,13 @@ func promotePrevSnapshot() error {
 }
 
 func recoverPrevSnapshotSwap() error {
+	return recoverPrevSnapshotSwapForOwner(applyOwnerActive())
+}
+
+func recoverPrevSnapshotSwapForOwner(ownerActive bool) error {
 	// An active Apply owns prev.next/prev.old. Startup during its API restart
 	// must not clean up the in-flight directory promotion.
-	if applyOwnerActive() { return nil }
+	if ownerActive { return nil }
 	root := filepath.Join(paths.StateDir(), "stack")
 	if _, err := os.Stat(root); os.IsNotExist(err) { return nil } else if err != nil { return err }
 	prev := prevDir()
