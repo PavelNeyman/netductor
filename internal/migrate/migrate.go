@@ -166,10 +166,16 @@ func durableWriteJournal(j journalFile) error {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("migrate journal chmod tmp: %w", err)
 	}
-	if _, err := f.Write(b); err != nil {
+	n, err := f.Write(b)
+	if err != nil {
 		_ = f.Close()
 		_ = os.Remove(tmp)
 		return fmt.Errorf("migrate journal write tmp: %w", err)
+	}
+	if n != len(b) {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("migrate journal short write: %d of %d bytes", n, len(b))
 	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
