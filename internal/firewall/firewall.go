@@ -317,6 +317,9 @@ func applyIPTables(role string) error {
 	}
 	must := func(args ...string) error { return run(args...) }
 	sp := sshPort()
+	if _, err := exec.LookPath("netfilter-persistent"); err != nil {
+		return fmt.Errorf("iptables fallback: netfilter-persistent is unavailable; active rules cannot be guaranteed across reboot")
+	}
 
 	// A temporary direct SSH allow is installed only when an identical rule
 	// is not already present. It remains in place if staging or switching fails.
@@ -431,10 +434,7 @@ func applyIPTables(role string) error {
 			return fmt.Errorf("iptables fallback: remove temporary SSH safeguard: %w", err)
 		}
 	}
-	fmt.Fprintf(os.Stderr, "firewall: iptables %s chain applied role=%s (fallback; prefer ufw)\\n", stagingChain, role)
-	if _, err := exec.LookPath("netfilter-persistent"); err != nil {
-		return fmt.Errorf("iptables fallback: netfilter-persistent is unavailable; active rules cannot be guaranteed across reboot")
-	}
+	fmt.Fprintf(os.Stderr, "firewall: iptables %s chain applied role=%s (fallback; prefer ufw)\n", stagingChain, role)
 	if out, saveErr := exec.Command("netfilter-persistent", "save").CombinedOutput(); saveErr != nil {
 		return fmt.Errorf("iptables fallback: persist firewall via netfilter-persistent: %v (%s)", saveErr, truncate(string(out), 200))
 	}
