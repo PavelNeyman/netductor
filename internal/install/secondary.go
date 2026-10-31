@@ -359,17 +359,10 @@ func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 		filepath.Join(etc, "secrets", "secondary_agent_token"),
 		filepath.Join(etc, "secrets", "secondary_core_url"),
 		filepath.Join(paths.SecondaryDir(), "bundle.json"),
-		filepath.Join(paths.SecondaryDir(), "clients"),
 		filepath.Join("/usr/local/etc/sing-box", "config.json"),
 		"/usr/local/bin/sing-box",
 		filepath.Join(state, "nodes", "registry.json"),
 	}
-	// The clients directory itself is captured separately as individual files below.
-	out = out[:len(out)-3]
-	out = append(out,
-		filepath.Join("/usr/local/etc/sing-box", "config.json"),
-		filepath.Join(state, "nodes", "registry.json"),
-	)
 	for _, u := range users {
 		out = append(out, filepath.Join(paths.SecondaryDir(), "clients", u.Name+".txt"))
 	}
