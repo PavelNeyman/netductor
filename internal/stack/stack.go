@@ -288,21 +288,41 @@ func installStagedPair(nodeSrc, tgSrc string) error {
 
 // installStagedPairTo is the testable core for pair install with restore on partial failure.
 func installStagedPairTo(nodeSrc, tgSrc, nodeDest, tgDest, att string) error {
-	_ = os.MkdirAll(att, 0o755)
+	if err := os.MkdirAll(att, 0o755); err != nil {
+		return fmt.Errorf("attempt dir: %w", err)
+	}
 	for _, pair := range []struct{ path, name string }{
 		{nodeDest, "netductor"},
 		{tgDest, "netductor-tg"},
 	} {
-		if b, err := os.ReadFile(pair.path); err == nil {
-			_ = os.WriteFile(filepath.Join(att, pair.name), b, 0o755)
+		st, err := os.Stat(pair.path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("stat %s: %w", pair.name, err)
+		}
+		if st.IsDir() {
+			return fmt.Errorf("%s is a directory", pair.path)
+		}
+		b, err := os.ReadFile(pair.path)
+		if err != nil {
+			return fmt.Errorf("backup read %s: %w", pair.name, err)
+		}
+		dst := filepath.Join(att, pair.name)
+		if err := os.WriteFile(dst, b, 0o755); err != nil {
+			return fmt.Errorf("backup write %s: %w", pair.name, err)
 		}
 	}
 	if err := replaceExecutable(nodeSrc, nodeDest); err != nil {
 		return fmt.Errorf("install node: %w", err)
 	}
 	if err := replaceExecutable(tgSrc, tgDest); err != nil {
-		if b, rerr := os.ReadFile(filepath.Join(att, "netductor")); rerr == nil {
-			_ = os.WriteFile(nodeDest, b, 0o755)
+		bak := filepath.Join(att, "netductor")
+		if b, rerr := os.ReadFile(bak); rerr != nil {
+			return fmt.Errorf("install tg: %w (node restore failed: %v)", err, rerr)
+		} else if werr := os.WriteFile(nodeDest, b, 0o755); werr != nil {
+			return fmt.Errorf("install tg: %w (node restore write failed: %v)", err, werr)
 		}
 		return fmt.Errorf("install tg: %w (node restored from attempt snapshot)", err)
 	}
@@ -550,11 +570,16 @@ func ApplyOpts(tag string, noBackup bool) error {
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
 	if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "systemctl restart netductor-api:", err)
+		applyFail = fmt.Errorf("systemctl restart netductor-api: %w", err)
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (api restart): "+err.Error())
+		return applyFail
 	}
 	if err := exec.Command("systemctl", "restart", "netductor-telegram-bot").Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "systemctl restart netductor-telegram-bot:", err)
+		applyFail = fmt.Errorf("systemctl restart netductor-telegram-bot: %w", err)
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg restart): "+err.Error())
+		return applyFail
 	}
+	// redirect is best-effort (may be absent on some roles)
 	if err := exec.Command("systemctl", "try-restart", "netductor-redirect").Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "systemctl try-restart netductor-redirect:", err)
 	}

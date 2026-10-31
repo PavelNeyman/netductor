@@ -453,3 +453,19 @@ Note: 0.9.648 was docs-only; real changes here.
 - installed_version migration
 - pre-0.9.12 fixture + fail/retry + lock tests
 
+
+## 11. 0.9.651 review remediation (A/B)
+
+Review of `484c746` / 0.9.651 (NO-GO). Fixed in **0.9.652**:
+
+| ID | Fix |
+|----|-----|
+| P1 journal Sync | `durableWriteJournal` returns errors from tmp/dir Sync |
+| P1 repair marker | `repairStateOnUpgradeMigration` fails if RepairState notes hard errors |
+| P1 staged pair | `installStagedPairTo` fail-closed on attempt mkdir/backup; restore errors surfaced |
+| P1 systemctl restart | API and TG restart errors fail Apply (redirect still soft) |
+| P1 ClearFailed flock | `ClearFailedRecords` uses `withJournalLock` |
+| P2 role default | refuse writing `primary` when DetectRole unknown |
+| P2 installed_version | Required distinguishes NotExist vs other IO errors |
+
+Still open (review C–F): PostCheck depth, real 0.9.612 fixture, full fault-injection. **No production release** claimed by this fix alone.

@@ -93,19 +93,53 @@ func durableWriteJournal(j journalFile) error {
 	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
-	if f, err := os.Open(tmp); err == nil {
-		_ = f.Sync()
+	f, err := os.Open(tmp)
+	if err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("migrate journal open tmp: %w", err)
+	}
+	if err := f.Sync(); err != nil {
 		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("migrate journal sync tmp: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("migrate journal close tmp: %w", err)
 	}
 	if err := os.Rename(tmp, journalPath()); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}
-	if df, err := os.Open(dir); err == nil {
-		_ = df.Sync()
+	df, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("migrate journal open dir: %w", err)
+	}
+	if err := df.Sync(); err != nil {
 		_ = df.Close()
+		return fmt.Errorf("migrate journal sync dir: %w", err)
+	}
+	if err := df.Close(); err != nil {
+		return fmt.Errorf("migrate journal close dir: %w", err)
 	}
 	return nil
+}
+
+// withJournalLock holds the exclusive migrate flock for the duration of fn.
+func withJournalLock(fn func() error) error {
+	if err := os.MkdirAll(filepath.Dir(lockPath()), 0o700); err != nil {
+		return err
+	}
+	lf, err := os.OpenFile(lockPath(), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer lf.Close()
+	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("migrate lock: %w", err)
+	}
+	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
+	return fn()
 }
 
 // Result summarizes one RunAll invocation.
@@ -267,20 +301,23 @@ func LoadJournalPublic() (map[string]JournalRecord, error) {
 }
 
 // ClearFailedRecords resets failed entries so the next RunAll can retry Required work.
+// Holds the same exclusive lock as RunRegistry to avoid racing the Migration Runner.
 func ClearFailedRecords() error {
-	j, err := loadJournal()
-	if err != nil {
-		return err
-	}
-	changed := false
-	for id, rec := range j.Records {
-		if rec.Status == StatusFailed || rec.Status == StatusRunning {
-			delete(j.Records, id)
-			changed = true
+	return withJournalLock(func() error {
+		j, err := loadJournal()
+		if err != nil {
+			return err
 		}
-	}
-	if !changed {
-		return nil
-	}
-	return durableWriteJournal(j)
+		changed := false
+		for id, rec := range j.Records {
+			if rec.Status == StatusFailed || rec.Status == StatusRunning {
+				delete(j.Records, id)
+				changed = true
+			}
+		}
+		if !changed {
+			return nil
+		}
+		return durableWriteJournal(j)
+	})
 }

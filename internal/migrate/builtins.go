@@ -94,8 +94,19 @@ func (m *repairStateOnUpgradeMigration) Required(ctx context.Context) (bool, err
 	return true, nil
 }
 func (m *repairStateOnUpgradeMigration) Apply(ctx context.Context) error {
-	_ = install.RepairStateOnUpgrade()
-	_ = os.MkdirAll(filepath.Dir(repairMarker()), 0o700)
+	notes := install.RepairStateOnUpgrade()
+	var hard []string
+	for _, n := range notes {
+		if strings.HasPrefix(n, "state bad:") || strings.HasPrefix(n, "le hooks:") || strings.HasPrefix(n, "chmod:") {
+			hard = append(hard, n)
+		}
+	}
+	if len(hard) > 0 {
+		return fmt.Errorf("RepairStateOnUpgrade incomplete: %s", strings.Join(hard, "; "))
+	}
+	if err := os.MkdirAll(filepath.Dir(repairMarker()), 0o700); err != nil {
+		return err
+	}
 	return os.WriteFile(repairMarker(), []byte("ok\n"), 0o600)
 }
 func (m *repairStateOnUpgradeMigration) Verify(ctx context.Context) error {
@@ -156,9 +167,9 @@ func (m *ensureRoleFileMigration) Required(ctx context.Context) (bool, error) {
 	return false, err
 }
 func (m *ensureRoleFileMigration) Apply(ctx context.Context) error {
-	role := firewall.DetectRole()
-	if role == "" {
-		role = "primary"
+	role := strings.TrimSpace(firewall.DetectRole())
+	if role != "primary" && role != "secondary" {
+		return fmt.Errorf("cannot write role file: DetectRole returned %q (need primary|secondary; refuse default primary)", role)
 	}
 	if err := os.MkdirAll(paths.EtcDir(), 0o755); err != nil {
 		return err
@@ -268,7 +279,10 @@ func (m *ensureInstalledVersionMigration) Required(ctx context.Context) (bool, e
 	path := filepath.Join(paths.StateDir(), "installed_version")
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return true, nil
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
 	}
 	return len(strings.TrimSpace(string(b))) == 0, nil
 }

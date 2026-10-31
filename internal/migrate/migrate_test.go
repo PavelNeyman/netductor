@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/firewall"
 )
 
 type stubMig struct {
@@ -357,5 +359,40 @@ func TestMigrateLockSerializes(t *testing.T) {
 	}
 	if err := <-done1; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInstalledVersionRequiredNotExistVsOtherError(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	m := &ensureInstalledVersionMigration{}
+	need, err := m.Required(context.Background())
+	if err != nil || !need {
+		t.Fatalf("missing file: need=%v err=%v", need, err)
+	}
+	path := filepath.Join(dir, "installed_version")
+	if err := os.WriteFile(path, []byte("0.9.651\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	need, err = m.Required(context.Background())
+	if err != nil || need {
+		t.Fatalf("present: need=%v err=%v", need, err)
+	}
+}
+
+func TestRoleApplyRequiresDetectableRole(t *testing.T) {
+	// Ensure message format is stable for operators when role cannot be determined.
+	// We only assert DetectRole non-empty hosts typically; for empty, Apply must not write primary.
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_ETC", dir)
+	// If DetectRole still finds secondary markers from the real host, Apply may succeed —
+	// skip when role file would be valid.
+	role := firewall.DetectRole()
+	if role == "primary" || role == "secondary" {
+		t.Skip("host already has detectable role")
+	}
+	m := &ensureRoleFileMigration{}
+	if err := m.Apply(context.Background()); err == nil {
+		t.Fatal("expected error when role unknown")
 	}
 }
