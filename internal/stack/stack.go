@@ -786,11 +786,25 @@ func rollbackApplyFailure(att string, cause error) error {
 		return fmt.Errorf("%v; load rollback journal: %w", cause, err)
 	}
 	if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("%v; rollback blocked: %w", cause, err) }
+	var rollbackPostcheckErrs []string
+	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
+		rollbackPostcheckErrs = append(rollbackPostcheckErrs, "host baseline: "+err.Error())
+	}
 	var restartErrs []string
 	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
 		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil { restartErrs = append(restartErrs, unit+": "+err.Error()) }
 	}
-	if len(restartErrs) > 0 { return fmt.Errorf("%v; restored pair but service restart failed: %s", cause, strings.Join(restartErrs, "; ")) }
+	if len(restartErrs) > 0 { rollbackPostcheckErrs = append(rollbackPostcheckErrs, "service restart: "+strings.Join(restartErrs, "; ")) }
+	if len(restartErrs) == 0 {
+		if !waitAPIHealthy(20*time.Second) { rollbackPostcheckErrs = append(rollbackPostcheckErrs, "API health check failed") }
+		for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
+			active, _ := unitState(unit)
+			if active != "active" { rollbackPostcheckErrs = append(rollbackPostcheckErrs, unit+" is "+active) }
+		}
+	}
+	if len(rollbackPostcheckErrs) > 0 {
+		return fmt.Errorf("%v; restored binary pair but rollback post-check failed: %s", cause, strings.Join(rollbackPostcheckErrs, "; "))
+	}
 	return cause
 }
 
