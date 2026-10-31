@@ -361,6 +361,7 @@ func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 		filepath.Join(paths.SecondaryDir(), "bundle.json"),
 		filepath.Join(paths.SecondaryDir(), "clients"),
 		filepath.Join("/usr/local/etc/sing-box", "config.json"),
+		"/usr/local/bin/sing-box",
 		filepath.Join(state, "nodes", "registry.json"),
 	}
 	// The clients directory itself is captured separately as individual files below.
@@ -406,11 +407,30 @@ func (t *secondaryFileTransaction) rollback() error {
 		if s.exists {
 			err = writeInstallFileDurable(s.path, s.data, s.mode)
 		} else {
-			err = os.Remove(s.path)
-			if os.IsNotExist(err) { err = nil }
-			if err == nil { err = syncDirectory(filepath.Dir(s.path)) }
+			_, statErr := os.Lstat(s.path)
+			if os.IsNotExist(statErr) {
+				continue
+			}
+			if statErr != nil {
+				err = statErr
+			} else {
+				err = os.Remove(s.path)
+				if err == nil { err = syncDirectory(filepath.Dir(s.path)) }
+			}
 		}
 		if err != nil { errs = append(errs, fmt.Sprintf("restore %s: %v", s.path, err)) }
+	}
+	// Restore the kernel's runtime hostname only after the on-disk hostname is restored.
+	for _, s := range t.files {
+		if s.path == "/etc/hostname" && s.exists {
+			hostname := strings.TrimSpace(string(s.data))
+			if hostname != "" {
+				if err := run("hostnamectl", "set-hostname", hostname); err != nil {
+					errs = append(errs, fmt.Sprintf("restore runtime hostname %s: %v", hostname, err))
+				}
+			}
+			break
+		}
 	}
 	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
 	return nil
