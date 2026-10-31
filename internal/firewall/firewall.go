@@ -269,6 +269,19 @@ func applyUFW(role string) error {
 	if err != nil {
 		return fmt.Errorf("ufw enable: %v (%s)", err, truncate(string(out), 200))
 	}
+
+	// Verify the effective policy, not merely the success exit status of each
+	// ufw command. Existing earlier rules may override newly appended rules.
+	status, statusErr := exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if statusErr != nil {
+		return fmt.Errorf("ufw post-apply status: %v (%s)", statusErr, truncate(string(status), 200))
+	}
+	if !strings.Contains(string(status), "Status: active") {
+		return fmt.Errorf("ufw post-apply verification failed: firewall is not active (%s)", truncate(string(status), 200))
+	}
+	if ok, warnings := ufwEffectivePolicy(string(status), role); !ok {
+		return fmt.Errorf("ufw post-apply policy verification failed: %s", strings.Join(warnings, "; "))
+	}
 	if err := persistRole(role); err != nil {
 		return err
 	}
