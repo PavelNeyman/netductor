@@ -167,9 +167,9 @@ func (m *ensureRoleFileMigration) Required(ctx context.Context) (bool, error) {
 	return false, err
 }
 func (m *ensureRoleFileMigration) Apply(ctx context.Context) error {
-	role := strings.TrimSpace(firewall.DetectRole())
-	if role != "primary" && role != "secondary" {
-		return fmt.Errorf("cannot write role file: DetectRole returned %q (need primary|secondary; refuse default primary)", role)
+	role, ok := firewall.DetectRoleStrict()
+	if !ok || (role != "primary" && role != "secondary") {
+		return fmt.Errorf("cannot write role file: host role is unknown (need an explicit role marker; refuse to guess primary)")
 	}
 	if err := os.MkdirAll(paths.EtcDir(), 0o755); err != nil {
 		return err
