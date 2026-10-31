@@ -115,8 +115,10 @@ func ApplyRole(role string) error {
 	if role == "core" {
 		role = "primary"
 	}
-	if role != "primary" && role != "secondary" {
+	if role == "" {
 		role = detectRole()
+	} else if role != "primary" && role != "secondary" {
+		return fmt.Errorf("firewall: invalid role %q (want primary or secondary)", role)
 	}
 	be, err := EnsureInstalled()
 	if err != nil {
