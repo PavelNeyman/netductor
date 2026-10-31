@@ -814,6 +814,36 @@ func setBotCommands(token string) {
 	_, _ = apiPost(token, "setMyCommands", map[string]any{"commands": cmds})
 }
 
+// waitForAPIStartup prevents the Telegram worker from running local CLI
+// commands against migration-managed state while the API is still upgrading it.
+// Standalone bot installs without an API unit retain their previous behavior.
+func waitForAPIStartup() error {
+	if _, err := exec.LookPath("systemctl"); err != nil {
+		return nil
+	}
+	if err := exec.Command("systemctl", "cat", "netductor-api.service").Run(); err != nil {
+		return nil
+	}
+	port := strings.TrimSpace(os.Getenv("NETDUCTOR_API_PORT"))
+	if port == "" {
+		port = "8787"
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	deadline := time.Now().Add(90 * time.Second)
+	for time.Now().Before(deadline) {
+		resp, err := client.Get("http://127.0.0.1:" + port + "/health")
+		if err == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("API did not become ready after startup migrations within 90s")
+}
+
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
@@ -845,6 +875,11 @@ func main() {
 	admin, _ := strconv.ParseInt(adminStr, 10, 64)
 	if admin == 0 {
 		fmt.Fprintln(os.Stderr, "telegram_admin_id empty — set file or NETDUCTOR_TG_ADMIN (CLAIM_FIRST=1 only for bootstrap)")
+	}
+	// Do not process Telegram updates until API startup migrations are complete.
+	if err := waitForAPIStartup(); err != nil {
+		fmt.Fprintln(os.Stderr, "telegram startup gate:", err)
+		os.Exit(1)
 	}
 	// default language ru for this project
 	if _, err := os.Stat(langFile); err != nil {
