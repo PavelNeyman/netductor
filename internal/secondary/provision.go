@@ -421,12 +421,18 @@ cleanup() {
   rc=$?
   if [ "$rc" -ne 0 ]; then
     if [ -n "$BACKUP" ] && [ -d "$BACKUP" ]; then
-      rm -rf "$TARGET"
-      mv "$BACKUP" "$TARGET" || echo "CRITICAL: mTLS rollback failed; backup remains at $BACKUP" >&2
-      sync -f "$P" || true
+      if { [ -e "$TARGET" ] || [ -L "$TARGET" ]; } && ! rm -rf "$TARGET"; then
+        echo "CRITICAL: cannot clear partial mTLS target; backup remains at $BACKUP" >&2
+        exit "$rc"
+      fi
+      if ! mv "$BACKUP" "$TARGET"; then
+        echo "CRITICAL: mTLS rollback failed; backup remains at $BACKUP" >&2
+        exit "$rc"
+      fi
+      sync -f "$P" || echo "CRITICAL: mTLS rollback directory sync failed" >&2
     elif [ "$HAD_OLD" -eq 0 ]; then
-      rm -rf "$TARGET"
-      sync -f "$P" || true
+      rm -rf "$TARGET" || echo "CRITICAL: cannot remove partial mTLS target" >&2
+      sync -f "$P" || echo "CRITICAL: mTLS cleanup directory sync failed" >&2
     fi
   fi
   [ -z "$STAGE" ] || rm -rf "$STAGE"
