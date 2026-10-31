@@ -24,6 +24,9 @@ func PostCheck() error {
 			errs = append(errs, "missing dir "+d)
 			continue
 		}
+		if st.Mode().Perm()&0o077 != 0 {
+			errs = append(errs, fmt.Sprintf("mode %04o on managed state dir %s (want 0700)", st.Mode().Perm(), d))
+		}
 	}
 	for _, d := range []string{
 		filepath.Join(paths.EtcDir(), "secrets"),
