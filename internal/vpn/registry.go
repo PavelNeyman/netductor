@@ -55,6 +55,9 @@ func EnsureDirs() error {
 		}
 	}
 	if _, err := os.Stat(usersFile()); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("stat VPN user registry: %w", err)
+		}
 		return writeRegistry(&registry{Users: []UserRecord{}})
 	}
 	return nil
