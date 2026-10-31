@@ -249,11 +249,26 @@ func preparePrevSnapshot(release string) error {
 	return syncDir(next)
 }
 
+func verifySnapshotPair(dir string, tx *applyTx) error {
+	for _, item := range []struct{name, path, want string}{
+		{"node", filepath.Join(dir, "netductor"), tx.NodeNewSHA},
+		{"tg", filepath.Join(dir, "netductor-tg"), tx.TGNewSHA},
+	} {
+		got, err := fileSHA(item.path)
+		if err != nil { return fmt.Errorf("verify %s last-good snapshot: %w", item.name, err) }
+		if got != item.want { return fmt.Errorf("verify %s last-good snapshot: sha256 mismatch", item.name) }
+	}
+	return nil
+}
+
 func promotePrevSnapshot() error {
 	root := filepath.Join(paths.StateDir(), "stack")
 	prev, next := prevDir(), filepath.Join(root, "prev.next")
 	old := filepath.Join(root, "prev.old")
-	if _, err := os.Stat(filepath.Join(next, "netductor")); err != nil { return fmt.Errorf("staged last-good snapshot missing: %w", err) }
+	tx, err := loadTx(attemptDir())
+	if err != nil { return fmt.Errorf("load committed transaction for snapshot promotion: %w", err) }
+	if tx.Phase != txCommitted { return fmt.Errorf("refuse snapshot promotion for transaction phase %q", tx.Phase) }
+	if err := verifySnapshotPair(next, tx); err != nil { return err }
 	if err := os.RemoveAll(old); err != nil { return err }
 	if _, err := os.Stat(prev); err == nil {
 		if err := os.Rename(prev, old); err != nil { return err }
@@ -284,6 +299,7 @@ func recoverPrevSnapshotSwap() error {
 	_, nextErr := os.Stat(next)
 	if os.IsNotExist(prevErr) {
 		if committed && nextErr == nil {
+			if err := verifySnapshotPair(next, tx); err != nil { return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err) }
 			// Commit is durable and the prepared last-good snapshot is complete.
 			// Finish the directory promotion if power failed before next→prev.
 			if err := os.Rename(next, prev); err != nil { return err }
@@ -299,9 +315,10 @@ func recoverPrevSnapshotSwap() error {
 		// If prev still contains the pre-transaction last-good binary, finish
 		// promoting the staged snapshot. If it already matches the committed
 		// binary, the rename completed and only cleanup remains.
-		prevSHA, err := fileSHA(filepath.Join(prev, "netductor"))
-		if err != nil { return fmt.Errorf("inspect current last-good snapshot: %w", err) }
-		if prevSHA != tx.NodeNewSHA {
+		prevErr := verifySnapshotPair(prev, tx)
+		if prevErr != nil {
+			if nextErr != nil { return fmt.Errorf("committed last-good snapshot is invalid and no staged replacement exists: %w", prevErr) }
+			if err := verifySnapshotPair(next, tx); err != nil { return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err) }
 			if oldErr == nil { return fmt.Errorf("ambiguous last-good promotion: prev differs from committed binary while prev.old exists") }
 			if err := os.Rename(prev, old); err != nil { return err }
 			if err := syncDir(root); err != nil { return err }
