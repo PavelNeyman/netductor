@@ -821,7 +821,8 @@ func waitForAPIStartup() error {
 	if _, err := exec.LookPath("systemctl"); err != nil {
 		return nil
 	}
-	if err := exec.Command("systemctl", "cat", "netductor-api.service").Run(); err != nil {
+	loadState, err := exec.Command("systemctl", "show", "--property=LoadState", "--value", "netductor-api.service").Output()
+	if err != nil || strings.TrimSpace(string(loadState)) != "loaded" {
 		return nil
 	}
 	port := strings.TrimSpace(os.Getenv("NETDUCTOR_API_PORT"))
