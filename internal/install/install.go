@@ -235,7 +235,7 @@ func applyHostname(role string) error {
 		name = fmt.Sprintf("nd-%s-%s", role, suf)
 	}
 	name = strings.ToLower(name)
-	if len(name) == 0 || len(name) > 253 || name[0] == '.' || name[len(name)-1] == '.' { return fmt.Errorf("invalid hostname %q", name) }
+	if len(name) == 0 || len(name) > 63 || name[0] == '.' || name[len(name)-1] == '.' { return fmt.Errorf("invalid hostname %q", name) }
 	for _, label := range strings.Split(name, ".") {
 		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' { return fmt.Errorf("invalid hostname label in %q", name) }
 		for _, ch := range label {
