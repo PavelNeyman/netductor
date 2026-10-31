@@ -3,6 +3,7 @@ package update
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,6 +65,75 @@ func LocalLatestTag() string {
 	return tags[0]
 }
 
+// stageLocalAsset copies a verified local release asset into a staging path.
+// The staged bytes are re-hashed, synced, and atomically renamed before success.
+func stageLocalAsset(src, destPath, expectedSHA string) error {
+	dir := filepath.Dir(destPath)
+	if dir == "" {
+		dir = "."
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create asset staging directory: %w", err)
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	tf, err := os.CreateTemp(dir, ".nd-local-asset-*")
+	if err != nil {
+		return err
+	}
+	tmp := tf.Name()
+	cleanup := func() { _ = os.Remove(tmp) }
+	if err := tf.Chmod(0o755); err != nil {
+		_ = tf.Close()
+		cleanup()
+		return fmt.Errorf("chmod staged asset: %w", err)
+	}
+	if _, err := io.Copy(tf, in); err != nil {
+		_ = tf.Close()
+		cleanup()
+		return fmt.Errorf("copy local asset: %w", err)
+	}
+	if err := tf.Sync(); err != nil {
+		_ = tf.Close()
+		cleanup()
+		return fmt.Errorf("sync staged asset: %w", err)
+	}
+	if err := tf.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("close staged asset: %w", err)
+	}
+	got, err := fileSHA256(tmp)
+	if err != nil {
+		cleanup()
+		return fmt.Errorf("verify staged asset: %w", err)
+	}
+	if !strings.EqualFold(got, expectedSHA) {
+		cleanup()
+		return fmt.Errorf("staged asset checksum mismatch")
+	}
+	if err := os.Rename(tmp, destPath); err != nil {
+		cleanup()
+		return fmt.Errorf("install staged asset: %w", err)
+	}
+	df, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open staging directory after install: %w", err)
+	}
+	syncErr := df.Sync()
+	closeErr := df.Close()
+	if syncErr != nil {
+		return fmt.Errorf("sync staging directory: %w", syncErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close staging directory: %w", closeErr)
+	}
+	return nil
+}
+
 func tryLocalNamedAsset(tag, name, destPath string) (bool, error) {
 	name = filepath.Base(name)
 	dir := LocalTagDir(tag)
@@ -92,19 +162,9 @@ func tryLocalNamedAsset(tag, name, destPath string) (bool, error) {
 	if !strings.EqualFold(got, want) {
 		return false, fmt.Errorf("local %s sha mismatch", name)
 	}
-	in, err := os.ReadFile(src)
-	if err != nil {
+	if err := stageLocalAsset(src, destPath, want); err != nil {
 		return false, err
 	}
-	tmp := destPath + ".tmp"
-	if err := os.WriteFile(tmp, in, 0o755); err != nil {
-		return false, err
-	}
-	if err := os.Rename(tmp, destPath); err != nil {
-		_ = os.Remove(tmp)
-		return false, err
-	}
-	_ = os.Chmod(destPath, 0o755)
 	return true, nil
 }
 
