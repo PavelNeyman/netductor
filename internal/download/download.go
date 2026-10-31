@@ -106,63 +106,80 @@ func Get(rawURL, dest string, opt Options) error {
 	}
 
 	dir := filepath.Dir(dest)
-	if dir == "" || dir == "." {
-		dir = os.TempDir()
+	if dir == "" {
+		dir = "."
 	}
-	_ = os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("download: create destination directory: %w", err)
+	}
 	tf, err := os.CreateTemp(dir, ".nd-dl-*")
 	if err != nil {
 		return err
 	}
 	tmp := tf.Name()
-	_ = tf.Chmod(0o600)
-	f := tf
-	n, err := io.Copy(f, io.LimitReader(resp.Body, opt.MaxBytes))
-	closeErr := f.Close()
+	cleanup := func() { _ = os.Remove(tmp) }
+	if err := tf.Chmod(0o600); err != nil {
+		_ = tf.Close()
+		cleanup()
+		return fmt.Errorf("download: chmod temporary file: %w", err)
+	}
+	n, err := io.Copy(tf, io.LimitReader(resp.Body, opt.MaxBytes))
 	if err != nil {
-		_ = os.Remove(tmp)
+		_ = tf.Close()
+		cleanup()
 		return err
 	}
-	if closeErr != nil {
-		_ = os.Remove(tmp)
-		return closeErr
-	}
 	if n >= opt.MaxBytes {
-		_ = os.Remove(tmp)
+		_ = tf.Close()
+		cleanup()
 		return fmt.Errorf("download exceeds %d byte limit", opt.MaxBytes)
 	}
-
 	if want := strings.TrimSpace(opt.ExpectedSHA256); want != "" {
 		got, err := SHA256File(tmp)
 		if err != nil {
-			_ = os.Remove(tmp)
+			_ = tf.Close()
+			cleanup()
 			return err
 		}
 		if !strings.EqualFold(got, want) {
-			_ = os.Remove(tmp)
+			_ = tf.Close()
+			cleanup()
 			return fmt.Errorf("checksum mismatch for %s", dest)
 		}
 	}
-
 	if opt.FileMode != 0 {
-		_ = os.Chmod(tmp, opt.FileMode)
+		if err := tf.Chmod(opt.FileMode); err != nil {
+			_ = tf.Close()
+			cleanup()
+			return fmt.Errorf("download: chmod destination mode: %w", err)
+		}
 	}
+	if err := tf.Sync(); err != nil {
+		_ = tf.Close()
+		cleanup()
+		return fmt.Errorf("download: sync temporary file: %w", err)
+	}
+	if err := tf.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("download: close temporary file: %w", err)
+	}
+	// The temporary file lives in the destination directory, so rename is
+	// same-filesystem and must remain atomic. Never fall back to in-place write.
 	if err := os.Rename(tmp, dest); err != nil {
-		// cross-device fallback
-		in, rerr := os.ReadFile(tmp)
-		if rerr != nil {
-			_ = os.Remove(tmp)
-			return err
-		}
-		mode := opt.FileMode
-		if mode == 0 {
-			mode = 0o644
-		}
-		if werr := os.WriteFile(dest, in, mode); werr != nil {
-			_ = os.Remove(tmp)
-			return werr
-		}
-		_ = os.Remove(tmp)
+		cleanup()
+		return fmt.Errorf("download: atomic install: %w", err)
+	}
+	df, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("download: open destination directory after rename: %w", err)
+	}
+	syncErr := df.Sync()
+	closeErr := df.Close()
+	if syncErr != nil {
+		return fmt.Errorf("download: sync destination directory: %w", syncErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("download: close destination directory: %w", closeErr)
 	}
 	return nil
 }
