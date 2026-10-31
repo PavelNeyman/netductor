@@ -15,6 +15,7 @@ package stack
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -253,30 +254,53 @@ func snapshotBins(dir string) error {
 // snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
 func snapshotPrev() error { return snapshotBins(prevDir()) }
 
-// replaceExecutable writes src bytes to dest via dest.new + rename + fsync.
+// replaceExecutable atomically replaces an executable and propagates every
+// durability error. The temporary file is created in the destination directory
+// so rename remains on the same filesystem.
 func replaceExecutable(src, dest string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+	dir := filepath.Dir(dest)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	tmp := dest + ".new"
-	if err := os.WriteFile(tmp, data, 0o755); err != nil {
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(dest)+".new-*")
+	if err != nil {
 		return err
 	}
-	if f, err := os.Open(tmp); err == nil {
-		_ = f.Sync()
-		_ = f.Close()
-	}
-	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.Remove(tmp)
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(0o755); err != nil {
+		_ = tmp.Close()
 		return err
 	}
-	if df, err := os.Open(filepath.Dir(dest)); err == nil {
-		_ = df.Sync()
-		_ = df.Close()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, dest); err != nil {
+		return err
+	}
+	if err := syncDir(dir); err != nil {
+		return fmt.Errorf("sync destination directory %s: %w", dir, err)
+	}
+	got, err := fileSHA(dest)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(data)
+	want := fmt.Sprintf("%x", sum[:])
+	if got != want {
+		return fmt.Errorf("replacement verification failed for %s", dest)
 	}
 	return nil
 }
@@ -302,7 +326,7 @@ func installStagedPairTo(nodeSrc, tgSrc, nodeDest, tgDest, att string) error {
 		st, err := os.Stat(pair.path)
 		if err != nil {
 			if os.IsNotExist(err) {
-				continue
+				return fmt.Errorf("required pre-image %s is missing: %w", pair.name, err)
 			}
 			return fmt.Errorf("stat %s: %w", pair.name, err)
 		}
@@ -420,7 +444,7 @@ func PromoteLastGood() bool {
 		fmt.Fprintln(os.Stderr, "promote failed:", err)
 		return false
 	}
-	_ = os.RemoveAll(attemptDir())
+	_ = cleanupTerminalAttempt(attemptDir())
 	notify.AlertOnce("stack:promote:"+prev, "⬆️ Stack promoted last-good <code>"+prev+"</code> (was <code>"+cur+"</code>)")
 	return true
 }
@@ -550,8 +574,16 @@ func ApplyOpts(tag string, noBackup bool) error {
 			return applyFail
 		}
 	}
-	// Never keep attempt/ — old builds restored it on health fail and fought prev/ (121↔132 loops).
-	_ = os.RemoveAll(attemptDir())
+	// Resolve any previous transaction before starting a new one. Never delete
+	// an incomplete or corrupt recovery record to make room for another Apply.
+	if err := RecoverIncompleteApply(); err != nil {
+		applyFail = fmt.Errorf("previous apply recovery: %w", err)
+		return applyFail
+	}
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+		applyFail = fmt.Errorf("previous apply evidence cleanup: %w", err)
+		return applyFail
+	}
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
 		path, err := install.Backup()
@@ -587,6 +619,12 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if err := installStagedPair(nodeStage, tgStage); err != nil {
 		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (install): "+err.Error())
 		applyFail = err
+		return applyFail
+	}
+	// Commit the verified binary pair before restarting API. The new API process
+	// runs RecoverIncompleteApply during startup and must not roll this pair back.
+	if err := commitInstalledPair(attemptDir()); err != nil {
+		applyFail = fmt.Errorf("commit installed binary pair: %w", err)
 		return applyFail
 	}
 	_ = os.RemoveAll(stageDir)
@@ -651,7 +689,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if len(failed) > 0 {
 		fmt.Fprintln(os.Stderr, "health failed (api), KEEPING new binaries:", failed)
 		notify.AlertOnce("stack:health:"+tag, "⚠️ Stack apply <code>"+tag+"</code> health: "+strings.Join(failed, ", ")+" — binaries kept (no auto-downgrade; prev unchanged)")
-		_ = os.RemoveAll(attemptDir())
+		// Keep committed transaction evidence for diagnosis; next Apply may clean it.
 		// Do NOT snapshotPrev on health fail — avoids marking a flaky apply as last-good.
 		applyFail = fmt.Errorf("apply health fail %v (binaries kept at %s)", failed, tag)
 		return applyFail
@@ -669,7 +707,9 @@ func ApplyOpts(tag string, noBackup bool) error {
 	}
 	// Last-good = newly installed binaries (never keep ancient 0.9.121 as prev after success)
 	_ = snapshotPrev()
-	_ = os.RemoveAll(attemptDir())
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: retain committed apply evidence:", err)
+	}
 	// brew-style: drop upgrade leftovers (dry nothing left is fine)
 	if rep := cleanup.Run(true); len(rep.Items) > 0 {
 		fmt.Fprintln(os.Stderr, "stack cleanup:", rep.FreedHuman, len(rep.Items), "item(s)")
@@ -726,8 +766,7 @@ func Rollback() error {
 
 // WatchdogOnce restarts core units that are failed/inactive.
 func WatchdogOnce() {
-	// Only cleanup + restart failed units. Never swap binaries here (promote was causing silent version flips).
-	_ = os.RemoveAll(attemptDir())
+	// Only restart failed units. Never delete non-terminal Apply recovery evidence here.
 	var restarted []string
 	for _, u := range managedUnits() {
 		if u.Role != "core" {
