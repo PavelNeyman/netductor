@@ -2,12 +2,12 @@ package install
 
 import (
 	"crypto/aes"
-	"encoding/binary"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -392,7 +392,6 @@ func newBackupPullCmdID() string {
 	}
 	return hex.EncodeToString(b[:])
 }
-
 
 func Backup() (string, error) {
 	dir := filepath.Join(paths.StateDir(), "backups")

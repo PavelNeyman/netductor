@@ -34,11 +34,15 @@ ND_PORT=%d
 ND_RB_UNIT='%s'
 ND_RB_TIMER='%s'
 ND_RB_SCRIPT="$ND_BAK/rollback.sh"
-LOCK="$ND_BAK/lock"
+# Permanent lock outside removable backup dir (concurrent Prepare safety)
+PREP_LOCK=/var/lib/netductor/ssh-harden.lock
+mkdir -p /var/lib/netductor
+exec 8>"$PREP_LOCK"
+flock 8
 
 # --- Stop any previous rollback before touching backup dir ---
-systemctl stop "$ND_RB_TIMER" 2>/dev/null || true
-systemctl stop "$ND_RB_UNIT" 2>/dev/null || true
+timeout 10 systemctl stop "$ND_RB_TIMER" 2>/dev/null || systemctl kill "$ND_RB_TIMER" 2>/dev/null || true
+timeout 10 systemctl stop "$ND_RB_UNIT" 2>/dev/null || systemctl kill "$ND_RB_UNIT" 2>/dev/null || true
 systemctl disable "$ND_RB_TIMER" 2>/dev/null || true
 # Wait for previous unit to leave active (bounded)
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
@@ -61,7 +65,8 @@ systemctl daemon-reload 2>/dev/null || true
 # Safe to recreate backup dir only after old rollback is gone
 rm -rf "$ND_BAK"
 mkdir -p "$ND_BAK"
-# Prepare holds lock for entire mutation phase (same lock as rollback/cancel)
+LOCK="$ND_BAK/lock"
+# rollback/cancel still share ND_BAK/lock for critical section
 exec 9>"$LOCK"
 flock 9
 

@@ -14,7 +14,7 @@ func TestSecondaryLocalPlainRemovedOnEncryptFail(t *testing.T) {
 		t.Fatal(err)
 	}
 	enc := plain + ".ndenc"
-	// encrypt with empty path target that fails: use encryptFile on missing... 
+	// encrypt with empty path target that fails: use encryptFile on missing...
 	// instead: call encryptFile with bad out dir
 	badEnc := filepath.Join(dir, "nosuch", "x.ndenc")
 	err := encryptFile(plain, badEnc, "test-passphrase-32chars-minimum!!")

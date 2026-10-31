@@ -28,14 +28,16 @@ func TestPreviewQuarantineUnknown(t *testing.T) {
 	if !found {
 		t.Fatalf("want quarantine evil: %+v", pv.Changes)
 	}
+	if pv.Token == "" {
+		t.Fatal("token")
+	}
 
 	state := t.TempDir()
 	_, err = ApplyPreview(state, root, pv, "no")
 	if err == nil {
 		t.Fatal("need confirm")
 	}
-	rep, err := ApplyPreview(state, root, pv, "yes")
-	if err != nil {
+	if _, err := ApplyPreview(state, root, pv, "yes"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(evil); !os.IsNotExist(err) {
@@ -44,12 +46,61 @@ func TestPreviewQuarantineUnknown(t *testing.T) {
 	if _, err := os.Stat(evil + ".nd-quarantine"); err != nil {
 		t.Fatal("quarantine file missing")
 	}
-	_ = rep
+}
+
+func TestMixedFileBlocksQuarantine(t *testing.T) {
+	root := t.TempDir()
+	d := filepath.Join(root, "etc/apt/sources.list.d")
+	_ = os.MkdirAll(d, 0o755)
+	mixed := filepath.Join(d, "mixed.list")
+	_ = os.WriteFile(mixed, []byte(
+		"deb https://deb.debian.org/debian bookworm main\n"+
+			"deb https://evil.example/debian bookworm main\n",
+	), 0o644)
+	pv, err := BuildPreview("t", root, DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pv.Blocked == "" {
+		t.Fatalf("want blocked mixed, changes=%v", pv.Changes)
+	}
+	for _, c := range pv.Changes {
+		if c.Action == "quarantine" && strings.Contains(c.Path, "mixed") {
+			t.Fatal("must not quarantine mixed file")
+		}
+	}
+}
+
+func TestApplyRejectsStaleToken(t *testing.T) {
+	root := t.TempDir()
+	d := filepath.Join(root, "etc/apt/sources.list.d")
+	_ = os.MkdirAll(d, 0o755)
+	_ = os.WriteFile(filepath.Join(d, "evil.list"), []byte("deb https://evil.example/debian bookworm main\n"), 0o644)
+	pv, err := BuildPreview("t", root, DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pv.Token = "deadbeef"
+	_, err = ApplyPreview(t.TempDir(), root, pv, "yes")
+	if err == nil || !strings.Contains(err.Error(), "token") {
+		t.Fatalf("want token error got %v", err)
+	}
 }
 
 func TestApplyEmptyConfirm(t *testing.T) {
 	_, err := ApplyPreview(t.TempDir(), t.TempDir(), Preview{}, "")
 	if err == nil {
 		t.Fatal("want error")
+	}
+}
+
+func TestDeb822EmptyTypesNoPanic(t *testing.T) {
+	root := t.TempDir()
+	d := filepath.Join(root, "etc/apt/sources.list.d")
+	_ = os.MkdirAll(d, 0o755)
+	_ = os.WriteFile(filepath.Join(d, "bad.sources"), []byte("Types:\nURIs: https://deb.debian.org/debian\nSuites: bookworm\nComponents: main\n"), 0o644)
+	_, err := ScanHost("t", DefaultPolicy(), root)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

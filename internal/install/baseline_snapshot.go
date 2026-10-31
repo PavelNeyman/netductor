@@ -254,4 +254,3 @@ func iptablesLineToken(line string) string {
 	}
 	return strings.Join(strings.Fields(line), " ")
 }
-

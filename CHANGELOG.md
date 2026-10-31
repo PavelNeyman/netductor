@@ -1,3 +1,17 @@
+## 0.9.630
+
+APT Guard security:
+- Remediation flock + transaction journal with metadata rollback
+- Block whole-file quarantine of mixed allowed+unknown sources
+- Preview token must match re-scan before apply
+- Policy match includes suite/components/type/Signed-By
+- Managed sources use detected Debian codename
+- Report files 0600; URIs redacted; Deb822 empty Types safe
+- aptguard timer on host-baseline (primary+secondary)
+
+SSH:
+- Permanent prepare lock outside backup dir
+
 ## 0.9.629
 
 - APT Guard: automated e2e (quarantine+rescan); richer secondary aptguard_scan log

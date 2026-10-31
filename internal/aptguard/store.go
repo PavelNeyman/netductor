@@ -61,7 +61,7 @@ func SaveReport(stateRoot string, rep Report) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(LatestPath(stateRoot, rep.ServerID), b, 0o644); err != nil {
+	if err := os.WriteFile(LatestPath(stateRoot, rep.ServerID), b, 0o600); err != nil {
 		return err
 	}
 	hd := HistoryDir(stateRoot, rep.ServerID)
@@ -69,7 +69,7 @@ func SaveReport(stateRoot string, rep Report) error {
 		return err
 	}
 	name := rep.CheckedAt.UTC().Format("20060102T150405Z") + ".json"
-	return os.WriteFile(filepath.Join(hd, name), b, 0o644)
+	return os.WriteFile(filepath.Join(hd, name), b, 0o600)
 }
 
 // LoadLatest returns last saved report or error if missing.

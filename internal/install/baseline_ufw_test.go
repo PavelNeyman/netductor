@@ -69,7 +69,6 @@ func TestIptablesChainPolicyToken(t *testing.T) {
 	_ = b
 }
 
-
 func TestIptablesPolicyDriftDetected(t *testing.T) {
 	dir := t.TempDir()
 	bp := filepath.Join(dir, "iptables.txt")

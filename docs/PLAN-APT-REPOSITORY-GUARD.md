@@ -53,3 +53,6 @@
 - audit.Log + TG alert on apply
 - Web Operate: status/preview/scan/apply
 - TG Tools: APT Guard status/preview/scan
+
+## 0.9.630 security fixes
+- flock, journal rollback, mixed-file block, preview token, suite match, codename, timer on baseline

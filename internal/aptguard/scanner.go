@@ -83,12 +83,17 @@ func ScanHost(serverID string, policy Policy, root string) (Report, error) {
 		case "unknown":
 			rep.Findings = append(rep.Findings, Finding{
 				Code: "UNKNOWN_REPOSITORY", Severity: SevWarn, SourceFile: s.File,
-				Message: fmt.Sprintf("repository not in policy: %v", s.URIs),
+				Message: fmt.Sprintf("repository not in policy: %v", redactURIs(s.URIs)),
 			})
 		case "forbidden":
 			rep.Findings = append(rep.Findings, Finding{
 				Code: "FORBIDDEN_REPOSITORY", Severity: SevFail, SourceFile: s.File,
-				Message: fmt.Sprintf("repository disabled in policy: %v", s.URIs),
+				Message: fmt.Sprintf("repository disabled in policy: %v", redactURIs(s.URIs)),
+			})
+		case "mismatch":
+			rep.Findings = append(rep.Findings, Finding{
+				Code: "POLICY_MISMATCH", Severity: SevFail, SourceFile: s.File,
+				Message: fmt.Sprintf("URI matches policy but suite/components/type/signed-by differ: %v suites=%v", redactURIs(s.URIs), s.Suites),
 			})
 		}
 	}
@@ -130,6 +135,51 @@ func matchPolicy(p Policy, s SourceEntry) string {
 		}
 		if !r.Enabled {
 			return "forbidden"
+		}
+		// type: policy assumes deb; reject deb-src as mismatch for required enforcement
+		if s.Type == "deb-src" {
+			return "mismatch"
+		}
+		if len(r.Suites) > 0 && len(s.Suites) > 0 {
+			okSuite := false
+			for _, want := range r.Suites {
+				for _, got := range s.Suites {
+					if want == got {
+						okSuite = true
+						break
+					}
+				}
+			}
+			if !okSuite {
+				return "mismatch"
+			}
+		}
+		if len(r.Components) > 0 && len(s.Components) > 0 {
+			// at least one component overlap
+			okComp := false
+			for _, want := range r.Components {
+				for _, got := range s.Components {
+					if want == got {
+						okComp = true
+						break
+					}
+				}
+			}
+			if !okComp {
+				return "mismatch"
+			}
+		}
+		if len(r.SignedBy) > 0 && s.SignedBy != "" {
+			okSig := false
+			for _, sb := range r.SignedBy {
+				if sb == s.SignedBy {
+					okSig = true
+					break
+				}
+			}
+			if !okSig {
+				return "mismatch"
+			}
 		}
 		return "ok"
 	}
@@ -273,7 +323,8 @@ func parseDebLine(file, line string, enabled bool) (SourceEntry, bool) {
 	comps := fields[i+2:]
 	return SourceEntry{
 		File: file, Enabled: enabled, Type: typ,
-		URIs: []string{uri}, Suites: []string{suite}, Components: comps, Raw: line,
+		URIs: []string{redactURI(uri)}, Suites: []string{suite}, Components: comps,
+		Raw: "", // never store raw (may contain credentials)
 	}, true
 }
 
@@ -302,7 +353,11 @@ func parseDeb822File(path string) ([]SourceEntry, []Finding, error) {
 			v = strings.TrimSpace(v)
 			switch strings.ToLower(k) {
 			case "types":
-				ent.Type = strings.Fields(v)[0]
+				fields := strings.Fields(v)
+				if len(fields) == 0 {
+					continue
+				}
+				ent.Type = fields[0]
 			case "uris", "uri":
 				ent.URIs = strings.Fields(v)
 			case "suites", "suite":
@@ -321,4 +376,23 @@ func parseDeb822File(path string) ([]SourceEntry, []Finding, error) {
 		out = append(out, ent)
 	}
 	return out, nil, nil
+}
+
+func redactURI(u string) string {
+	// strip userinfo user:pass@
+	if i := strings.Index(u, "://"); i >= 0 {
+		rest := u[i+3:]
+		if at := strings.Index(rest, "@"); at >= 0 {
+			return u[:i+3] + "***@" + rest[at+1:]
+		}
+	}
+	return u
+}
+
+func redactURIs(us []string) []string {
+	out := make([]string, len(us))
+	for i, u := range us {
+		out[i] = redactURI(u)
+	}
+	return out
 }

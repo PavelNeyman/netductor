@@ -1,11 +1,15 @@
 package aptguard
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
@@ -14,10 +18,10 @@ import (
 
 // Change describes one planned file mutation (preview / apply).
 type Change struct {
-	Action  string `json:"action"` // quarantine|ensure_file|restore
+	Action  string `json:"action"` // quarantine|ensure_file
 	Path    string `json:"path"`
 	Detail  string `json:"detail"`
-	Content string `json:"content,omitempty"` // for ensure_file
+	Content string `json:"content,omitempty"`
 }
 
 // Preview holds planned remediation without mutating the system.
@@ -27,12 +31,23 @@ type Preview struct {
 	At            time.Time `json:"at"`
 	Changes       []Change  `json:"changes"`
 	Findings      []Finding `json:"findings"`
-	Blocked       string    `json:"blocked,omitempty"` // non-empty = must not apply
+	Blocked       string    `json:"blocked,omitempty"`
+	Token         string    `json:"token,omitempty"` // hash binding preview to policy+files
 }
 
-// BuildPreview scans and proposes quarantine of unknown/forbidden sources
-// and ensure of missing required Debian entries via a managed sources file.
-// Does not delete files; quarantine = rename to *.nd-quarantine.
+type journalEntry struct {
+	Action     string `json:"action"`
+	Path       string `json:"path"`
+	BackupPath string `json:"backup_path,omitempty"`
+	Existed    bool   `json:"existed"`
+	Mode       uint32 `json:"mode,omitempty"`
+	UID        int    `json:"uid,omitempty"`
+	GID        int    `json:"gid,omitempty"`
+	Quarantine string `json:"quarantine,omitempty"`
+}
+
+// BuildPreview scans and proposes safe changes.
+// Mixed files (allowed + unknown in same path) block Apply rather than quarantine the whole file.
 func BuildPreview(serverID, fsRoot string, policy Policy) (Preview, error) {
 	if fsRoot == "" {
 		fsRoot = "/"
@@ -50,25 +65,45 @@ func BuildPreview(serverID, fsRoot string, policy Policy) (Preview, error) {
 		At:            time.Now().UTC(),
 		Findings:      rep.Findings,
 	}
-	seenFiles := map[string]bool{}
-	for _, f := range rep.Findings {
-		if f.Code == "UNKNOWN_REPOSITORY" || f.Code == "FORBIDDEN_REPOSITORY" {
-			path := f.SourceFile
-			if path == "" || seenFiles[path] {
-				continue
-			}
-			// only quarantine files under sources.list.d (never wholesale sources.list without care)
-			if strings.Contains(path, "sources.list.d") && !strings.HasSuffix(path, ".nd-quarantine") {
-				seenFiles[path] = true
-				pv.Changes = append(pv.Changes, Change{
-					Action: "quarantine",
-					Path:   path,
-					Detail: "rename to " + path + ".nd-quarantine (not deleted)",
-				})
+
+	// Group enabled entries by file
+	byFile := map[string][]SourceEntry{}
+	for _, s := range rep.Sources {
+		if !s.Enabled {
+			continue
+		}
+		byFile[s.File] = append(byFile[s.File], s)
+	}
+
+	for path, ents := range byFile {
+		if !strings.Contains(path, "sources.list.d") {
+			continue
+		}
+		if strings.HasSuffix(path, ".nd-quarantine") {
+			continue
+		}
+		var unknown, allowed int
+		for _, e := range ents {
+			switch matchPolicy(policy, e) {
+			case "ok":
+				allowed++
+			case "forbidden", "unknown", "mismatch":
+				unknown++
 			}
 		}
+		if unknown > 0 && allowed > 0 {
+			pv.Blocked = fmt.Sprintf("mixed allowed+unknown in %s — refuse whole-file quarantine", path)
+			continue
+		}
+		if unknown > 0 && allowed == 0 {
+			pv.Changes = append(pv.Changes, Change{
+				Action: "quarantine",
+				Path:   path,
+				Detail: "rename to " + path + ".nd-quarantine (not deleted)",
+			})
+		}
 	}
-	// Missing required → managed Deb822 file
+
 	needEnsure := false
 	for _, f := range rep.Findings {
 		if f.Code == "MISSING_REQUIRED" {
@@ -77,40 +112,89 @@ func BuildPreview(serverID, fsRoot string, policy Policy) (Preview, error) {
 		}
 	}
 	if needEnsure {
-		managed := filepath.Join(fsRoot, "etc/apt/sources.list.d/netductor-policy.sources")
-		pv.Changes = append(pv.Changes, Change{
-			Action:  "ensure_file",
-			Path:    managed,
-			Detail:  "write managed required Debian sources from policy",
-			Content: managedSourcesContent(policy),
-		})
+		codename := DetectDebianCodename(fsRoot)
+		switch {
+		case codename == "":
+			// Do not block quarantine-only plans; record finding-style detail
+			pv.Findings = append(pv.Findings, Finding{
+				Code: "CODENAME_UNKNOWN", Severity: SevWarn,
+				Message: "cannot detect Debian codename — skip managed sources ensure",
+			})
+		case !releaseAllowed(policy, codename):
+			pv.Blocked = fmt.Sprintf("codename %q not in policy allowed_releases", codename)
+		default:
+			managed := filepath.Join(fsRoot, "etc/apt/sources.list.d/netductor-policy.sources")
+			content, err := managedSourcesContent(policy, codename)
+			if err != nil {
+				pv.Findings = append(pv.Findings, Finding{Code: "ENSURE_SKIP", Severity: SevWarn, Message: err.Error()})
+			} else {
+				pv.Changes = append(pv.Changes, Change{
+					Action:  "ensure_file",
+					Path:    managed,
+					Detail:  "write managed required Debian sources for " + codename,
+					Content: content,
+				})
+			}
+		}
 	}
-	// Only probe live dpkg locks when scanning the real root filesystem.
+
 	if (fsRoot == "/" || fsRoot == "") && aptBusy() {
-		pv.Blocked = "apt/dpkg lock busy"
+		if pv.Blocked == "" {
+			pv.Blocked = "apt/dpkg lock busy"
+		}
 	}
+
+	pv.Token = previewToken(pv, policy)
 	return pv, nil
 }
 
-func managedSourcesContent(policy Policy) string {
+func releaseAllowed(p Policy, codename string) bool {
+	for _, r := range p.Debian.AllowedReleases {
+		if r == codename {
+			return true
+		}
+	}
+	return false
+}
+
+// DetectDebianCodename reads /etc/os-release VERSION_CODENAME (under fsRoot).
+func DetectDebianCodename(fsRoot string) string {
+	if fsRoot == "" {
+		fsRoot = "/"
+	}
+	b, err := os.ReadFile(filepath.Join(fsRoot, "etc/os-release"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, "VERSION_CODENAME=") {
+			v := strings.TrimPrefix(line, "VERSION_CODENAME=")
+			return strings.Trim(v, "\"'")
+		}
+	}
+	return ""
+}
+
+func managedSourcesContent(policy Policy, codename string) (string, error) {
 	var b strings.Builder
 	b.WriteString("# Managed by netductor aptguard — do not edit by hand\n")
+	wrote := 0
 	for _, r := range policy.Repos {
 		if !r.Required || !r.Enabled {
 			continue
 		}
-		if len(r.URIs) == 0 || len(r.Suites) == 0 {
+		if len(r.URIs) == 0 {
 			continue
 		}
-		// Prefer first suite matching allowed release if possible
-		suite := r.Suites[0]
+		suite := ""
 		for _, s := range r.Suites {
-			for _, rel := range policy.Debian.AllowedReleases {
-				if strings.HasPrefix(s, rel) {
-					suite = s
-					break
-				}
+			if s == codename || strings.HasPrefix(s, codename+"-") {
+				suite = s
+				break
 			}
+		}
+		if suite == "" {
+			continue
 		}
 		comps := "main"
 		if len(r.Components) > 0 {
@@ -121,8 +205,28 @@ func managedSourcesContent(policy Policy) string {
 		b.WriteString("Suites: " + suite + "\n")
 		b.WriteString("Components: " + comps + "\n")
 		b.WriteString("Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\n")
+		wrote++
 	}
-	return b.String()
+	if wrote == 0 {
+		return "", fmt.Errorf("no required suites match codename %q", codename)
+	}
+	return b.String(), nil
+}
+
+func previewToken(pv Preview, policy Policy) string {
+	h := sha256.New()
+	_, _ = fmt.Fprintf(h, "v=%d\n", policy.Version)
+	for _, c := range pv.Changes {
+		_, _ = fmt.Fprintf(h, "%s|%s|%s\n", c.Action, c.Path, c.Detail)
+		sum := sha256.Sum256([]byte(c.Content))
+		_, _ = fmt.Fprintf(h, "c=%s\n", hex.EncodeToString(sum[:]))
+		if st, err := os.Stat(c.Path); err == nil {
+			_, _ = fmt.Fprintf(h, "sz=%d m=%d\n", st.Size(), st.ModTime().UnixNano())
+		} else {
+			_, _ = fmt.Fprintf(h, "missing\n")
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil))[:32]
 }
 
 func aptBusy() bool {
@@ -139,94 +243,140 @@ func aptBusy() bool {
 	return false
 }
 
-const remediateLockName = "remediate.lock"
-
-// ApplyPreview applies changes with backup; on failure restores backup.
-// confirm must be "yes". Never runs apt-get upgrade.
+// ApplyPreview applies changes with flock + journal; on failure restores files and metadata.
+// confirm must be "yes". previewToken must match a freshly rebuilt plan (or empty only if no changes).
 func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report, error) {
 	if confirm != "yes" {
 		return Report{}, fmt.Errorf("aptguard: apply requires confirm=yes")
 	}
-	if pv.Blocked != "" {
-		return Report{}, fmt.Errorf("aptguard: blocked: %s", pv.Blocked)
-	}
-	if len(pv.Changes) == 0 {
-		return ScanHost(pv.ServerID, mustPolicy(stateRoot), fsRoot)
-	}
 	if fsRoot == "" {
 		fsRoot = "/"
 	}
-	lockPath := filepath.Join(Dir(stateRoot), remediateLockName)
+	policy, err := EnsurePolicy(stateRoot)
+	if err != nil {
+		return Report{}, err
+	}
+	// Recompute preview and require token match
+	fresh, err := BuildPreview(pv.ServerID, fsRoot, policy)
+	if err != nil {
+		return Report{}, err
+	}
+	if fresh.Blocked != "" {
+		return Report{}, fmt.Errorf("aptguard: blocked: %s", fresh.Blocked)
+	}
+	if len(fresh.Changes) == 0 {
+		return ScanHost(pv.ServerID, policy, fsRoot)
+	}
+	if pv.Token == "" || pv.Token != fresh.Token {
+		return Report{}, fmt.Errorf("aptguard: preview token mismatch — re-run preview")
+	}
+	pv = fresh // use fresh changes
+
 	if err := os.MkdirAll(Dir(stateRoot), 0o755); err != nil {
 		return Report{}, err
 	}
-	if _, err := os.Stat(lockPath); err == nil {
-		return Report{}, fmt.Errorf("aptguard: remediation already in progress")
-	}
-	if err := os.WriteFile(lockPath, []byte(time.Now().UTC().Format(time.RFC3339)), 0o600); err != nil {
+	lockPath := filepath.Join(Dir(stateRoot), "remediate.lock")
+	lf, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
 		return Report{}, err
 	}
-	defer os.Remove(lockPath)
+	defer lf.Close()
+	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return Report{}, fmt.Errorf("aptguard: remediation already in progress")
+	}
+	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
 
 	bakDir := filepath.Join(Dir(stateRoot), "remediate-backup", time.Now().UTC().Format("20060102T150405Z"))
 	if err := os.MkdirAll(bakDir, 0o700); err != nil {
 		return Report{}, err
 	}
-
-	type bakItem struct{ src, dst string }
-	var bak []bakItem
+	var journal []journalEntry
 
 	rollback := func() error {
-		for i := len(bak) - 1; i >= 0; i-- {
-			item := bak[i]
-			// if dst is quarantine target that didn't exist before — remove
-			if strings.HasSuffix(item.src, ".nd-quarantine") {
-				_ = os.Remove(item.src)
+		var errs []string
+		for i := len(journal) - 1; i >= 0; i-- {
+			e := journal[i]
+			switch e.Action {
+			case "quarantine":
+				// remove quarantine name, restore original from backup
+				if e.Quarantine != "" {
+					_ = os.Remove(e.Quarantine)
+				}
+				if e.Existed && e.BackupPath != "" {
+					if err := restoreFile(e.BackupPath, e.Path, e); err != nil {
+						errs = append(errs, err.Error())
+					}
+				}
+			case "ensure_file":
+				if !e.Existed {
+					if err := os.Remove(e.Path); err != nil && !os.IsNotExist(err) {
+						errs = append(errs, err.Error())
+					}
+				} else if e.BackupPath != "" {
+					if err := restoreFile(e.BackupPath, e.Path, e); err != nil {
+						errs = append(errs, err.Error())
+					}
+				}
 			}
-			data, err := os.ReadFile(item.dst)
-			if err != nil {
-				continue
-			}
-			_ = os.MkdirAll(filepath.Dir(item.src), 0o755)
-			if err := os.WriteFile(item.src, data, 0o644); err != nil {
-				return err
-			}
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("rollback incomplete: %s", strings.Join(errs, "; "))
 		}
 		return nil
 	}
 
 	for _, c := range pv.Changes {
+		path := c.Path
 		switch c.Action {
 		case "quarantine":
-			src := c.Path
-			if !strings.HasPrefix(src, fsRoot) && fsRoot != "/" {
-				src = filepath.Join(fsRoot, strings.TrimPrefix(c.Path, "/"))
-			}
-			data, err := os.ReadFile(src)
+			st, err := os.Stat(path)
 			if err != nil {
 				_ = rollback()
-				return Report{}, fmt.Errorf("read %s: %w", src, err)
+				return Report{}, fmt.Errorf("stat %s: %w", path, err)
 			}
-			dst := filepath.Join(bakDir, filepath.Base(src))
-			if err := os.WriteFile(dst, data, 0o644); err != nil {
+			mode := st.Mode()
+			uid, gid := 0, 0
+			if sys, ok := st.Sys().(*syscall.Stat_t); ok {
+				uid, gid = int(sys.Uid), int(sys.Gid)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
 				_ = rollback()
 				return Report{}, err
 			}
-			bak = append(bak, bakItem{src: src, dst: dst})
-			q := src + ".nd-quarantine"
-			if err := os.Rename(src, q); err != nil {
+			dst := filepath.Join(bakDir, filepath.Base(path)+".bak")
+			if err := os.WriteFile(dst, data, mode.Perm()); err != nil {
 				_ = rollback()
-				return Report{}, fmt.Errorf("quarantine %s: %w", src, err)
+				return Report{}, fmt.Errorf("backup: %w", err)
 			}
+			q := path + ".nd-quarantine"
+			if err := os.Rename(path, q); err != nil {
+				_ = rollback()
+				return Report{}, err
+			}
+			journal = append(journal, journalEntry{
+				Action: "quarantine", Path: path, BackupPath: dst,
+				Existed: true, Mode: uint32(mode.Perm()), UID: uid, GID: gid, Quarantine: q,
+			})
 		case "ensure_file":
-			path := c.Path
-			if !strings.HasPrefix(path, fsRoot) && fsRoot != "/" {
-				path = filepath.Join(fsRoot, strings.TrimPrefix(c.Path, "/"))
-			}
-			if prev, err := os.ReadFile(path); err == nil {
+			ent := journalEntry{Action: "ensure_file", Path: path}
+			if st, err := os.Stat(path); err == nil {
+				ent.Existed = true
+				ent.Mode = uint32(st.Mode().Perm())
+				if sys, ok := st.Sys().(*syscall.Stat_t); ok {
+					ent.UID, ent.GID = int(sys.Uid), int(sys.Gid)
+				}
+				data, err := os.ReadFile(path)
+				if err != nil {
+					_ = rollback()
+					return Report{}, err
+				}
 				dst := filepath.Join(bakDir, filepath.Base(path)+".prev")
-				_ = os.WriteFile(dst, prev, 0o644)
-				bak = append(bak, bakItem{src: path, dst: dst})
+				if err := os.WriteFile(dst, data, st.Mode().Perm()); err != nil {
+					_ = rollback()
+					return Report{}, fmt.Errorf("backup existing: %w", err)
+				}
+				ent.BackupPath = dst
 			}
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				_ = rollback()
@@ -236,40 +386,68 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 				_ = rollback()
 				return Report{}, err
 			}
+			journal = append(journal, ent)
 		default:
 			_ = rollback()
 			return Report{}, fmt.Errorf("unknown action %q", c.Action)
 		}
 	}
 
-	// apt-get update to validate indexes (no upgrade)
+	// persist journal for forensics
+	jb, _ := json.MarshalIndent(journal, "", "  ")
+	_ = os.WriteFile(filepath.Join(bakDir, "journal.json"), jb, 0o600)
+
 	if fsRoot == "/" {
 		cmd := exec.Command("bash", "-c", "export DEBIAN_FRONTEND=noninteractive; apt-get update -y -o Acquire::Retries=2")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			_ = rollback()
-			return Report{}, fmt.Errorf("apt-get update failed after remediate (rolled back): %w (%s)", err, truncateOut(string(out), 300))
+			rbErr := rollback()
+			msg := fmt.Sprintf("apt-get update failed (rolled back): %v (%s)", err, truncateOut(string(out), 300))
+			if rbErr != nil {
+				msg += "; rollback error: " + rbErr.Error()
+			}
+			return Report{}, fmt.Errorf("%s", msg)
 		}
 	}
 
-	policy := mustPolicy(stateRoot)
 	rep, err := ScanHost(pv.ServerID, policy, fsRoot)
 	if err != nil {
-		return Report{}, err
+		rbErr := rollback()
+		msg := fmt.Sprintf("post-apply scan failed (rolled back): %v", err)
+		if rbErr != nil {
+			msg += "; rollback error: " + rbErr.Error()
+		}
+		return Report{}, fmt.Errorf("%s", msg)
 	}
-	_ = SaveReport(stateRoot, rep)
-	detail := fmt.Sprintf("changes=%d status=%s", len(pv.Changes), rep.Status)
+	if err := SaveReport(stateRoot, rep); err != nil {
+		// config already changed; report save failure is non-fatal for APT state
+		audit.Log("aptguard", "remediate.apply.save_warn", pv.ServerID, err.Error())
+	}
+	detail := fmt.Sprintf("changes=%d status=%s token=%s", len(pv.Changes), rep.Status, pv.Token)
 	audit.Log("aptguard", "remediate.apply", pv.ServerID, detail)
 	notify.EnqueueAlert("aptguard:apply:"+pv.ServerID, fmt.Sprintf("APT Guard apply on %s: %s (%d changes)", pv.ServerID, rep.Status, len(pv.Changes)))
 	return rep, nil
 }
 
-func mustPolicy(stateRoot string) Policy {
-	p, err := EnsurePolicy(stateRoot)
+func restoreFile(backup, dest string, e journalEntry) error {
+	data, err := os.ReadFile(backup)
 	if err != nil {
-		return DefaultPolicy()
+		return err
 	}
-	return p
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return err
+	}
+	mode := os.FileMode(0o644)
+	if e.Mode != 0 {
+		mode = os.FileMode(e.Mode)
+	}
+	if err := os.WriteFile(dest, data, mode); err != nil {
+		return err
+	}
+	if e.UID != 0 || e.GID != 0 {
+		_ = os.Chown(dest, e.UID, e.GID)
+	}
+	return os.Chmod(dest, mode)
 }
 
 func truncateOut(s string, n int) string {

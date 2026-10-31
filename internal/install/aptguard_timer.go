@@ -34,8 +34,12 @@ WantedBy=timers.target
 	if err := writeUnit("netductor-aptguard.timer", timer); err != nil {
 		return err
 	}
-	_ = run("systemctl", "enable", "netductor-aptguard.timer")
-	_ = run("systemctl", "start", "netductor-aptguard.timer")
+	if err := run("systemctl", "enable", "netductor-aptguard.timer"); err != nil {
+		return fmt.Errorf("enable aptguard timer: %w", err)
+	}
+	if err := run("systemctl", "start", "netductor-aptguard.timer"); err != nil {
+		return fmt.Errorf("start aptguard timer: %w", err)
+	}
 	fmt.Fprintln(os.Stderr, "aptguard timer enabled (6h)")
 	return nil
 }

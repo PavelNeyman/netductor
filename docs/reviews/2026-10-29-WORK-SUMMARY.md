@@ -284,3 +284,15 @@ APT Guard (stages 0–2):
 - Audit: `docs/audits/2026-10-31-closeout-aptguard-update.md`
 - Update-system: code-complete; live canary OPEN
 
+
+### 0.9.630 — APT remediation P0/P1 + SSH prepare lock
+
+- flock remediation (LOCK_EX|NB)
+- transaction journal + metadata restore; delete ensure-created files on rollback
+- mixed source files refuse whole-file quarantine
+- preview token re-validated on apply
+- matchPolicy: suite/components/type/signed-by; codename-aware managed sources
+- Deb822 empty Types safe; reports 0600; URI credentials redacted
+- EnsureHostBaseline installs aptguard timer (both roles)
+- SSH Prepare permanent lock /var/lib/netductor/ssh-harden.lock
+

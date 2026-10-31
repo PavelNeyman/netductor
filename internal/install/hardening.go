@@ -99,6 +99,9 @@ func EnsureHostBaseline(role string) error {
 		_ = vpn.EnsureCanarySeed()
 		_ = InstallBackupVerifyTimer()
 	}
+	if err := InstallAptGuardTimer(); err != nil {
+		fmt.Fprintf(os.Stderr, "aptguard timer: %v\n", err)
+	}
 	for _, n := range RepairStateOnUpgrade() {
 		fmt.Fprintln(os.Stderr, "state repair:", n)
 	}
