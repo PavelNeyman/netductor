@@ -6,9 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/firewall"
+	"github.com/PavelNeyman/netductor/internal/install"
 )
 
 const (
@@ -165,11 +169,48 @@ func applyOwnerActive() bool {
 	return time.Since(started) < applyLockTTL
 }
 
-func RecoverIncompleteApply() error {
+func recoverIncompleteApply() (bool, error) {
 	if err := recoverPrevSnapshotSwap(); err != nil {
-		return fmt.Errorf("last-good snapshot recovery blocked: %w", err)
+		return false, fmt.Errorf("last-good snapshot recovery blocked: %w", err)
 	}
-	return recoverApplyTx(attemptDir())
+	tx, err := loadTx(attemptDir())
+	if err != nil {
+		if os.IsNotExist(err) { return false, nil }
+		return false, fmt.Errorf("apply recovery blocked: %w", err)
+	}
+	willRollback := false
+	switch tx.Phase {
+	case txPrepared, txNodeInstalled, txTGInstalled, txVerified:
+		willRollback = !applyOwnerActive()
+	}
+	if err := recoverApplyTx(attemptDir()); err != nil { return false, err }
+	if willRollback {
+		if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
+			return true, fmt.Errorf("apply pair rolled back but host baseline repair failed: %w", err)
+		}
+	}
+	return willRollback, nil
+}
+
+// RecoverIncompleteApply is used by non-API callers. If recovery rolled back
+// the pair, restart both services so their mapped executable matches disk.
+func RecoverIncompleteApply() error {
+	rolledBack, err := recoverIncompleteApply()
+	if err != nil { return err }
+	if !rolledBack { return nil }
+	var restartErrs []string
+	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
+		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil { restartErrs = append(restartErrs, unit+": "+err.Error()) }
+	}
+	if len(restartErrs) > 0 { return fmt.Errorf("apply pair rolled back; service restart failed: %s", strings.Join(restartErrs, "; ")) }
+	if !waitAPIHealthy(20*time.Second) { return fmt.Errorf("apply pair rolled back; API health check failed") }
+	return nil
+}
+
+// RecoverIncompleteApplyForStartup reports whether startup recovery replaced
+// the on-disk pair. The caller must re-exec itself before opening listeners.
+func RecoverIncompleteApplyForStartup() (bool, error) {
+	return recoverIncompleteApply()
 }
 
 func recoverApplyTx(att string) error {
