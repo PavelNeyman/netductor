@@ -389,6 +389,14 @@ func ufwPreflightPolicy(status, role string) error {
 	} {
 		checkWAN(item.port, item.action, item.label)
 	}
+	// A source-specific SSH DENY/REJECT can precede a global SSH ALLOW.
+	// The WAN-only matcher below intentionally ignores such rules, so reject
+	// them explicitly rather than claiming the management path is preserved.
+	for _, rule := range rules {
+		if ufwRuleMatchesPortTCP(rule, sshPort()) && (rule.Action == "DENY" || rule.Action == "REJECT") {
+			conflicts = append(conflicts, fmt.Sprintf("ssh %s has an existing %s from %s", sshPort(), rule.Action, rule.From))
+		}
+	}
 	for _, item := range []struct{ port, label string }{
 		{"22", "ssh22"}, {"10050", "zabbix"}, {"10051", "zabbix"},
 	} {
@@ -1352,6 +1360,14 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		{"22", "ssh22"}, {"10050", "zabbix"}, {"10051", "zabbix"},
 	} {
 		rejectAnyAllow(item.port, item.label)
+	}
+	// Do not let a source-specific deny be hidden by a later global SSH
+	// allow: it may still match the active administrator connection.
+	for _, rule := range rules {
+		if ufwRuleMatchesPortTCP(rule, sp) && (rule.Action == "DENY" || rule.Action == "REJECT") {
+			ok = false
+			warnings = append(warnings, "ssh: unexpected "+rule.Action+" from "+rule.From+" for "+sp+"/tcp")
+		}
 	}
 
 	if role == "primary" {
