@@ -366,7 +366,11 @@ test "$(systemctl is-active sing-box)" = "active"
 test "$(systemctl is-active netductor-secondary-agent)" = "active"
 ss -tlnp | grep -qE ':443([^0-9]|$)'
 trap - ERR
-rm -f /var/lib/netductor/netductor.bin.prev
+if ! rm -f /var/lib/netductor/netductor.bin.prev; then
+  echo "warning: unable to remove successful-install rollback image" >&2
+else
+  sync -f /var/lib/netductor 2>/dev/null || echo "warning: rollback-image cleanup directory sync failed" >&2
+fi
 `, ver)
 	_, err := runSSHWithStdin(client, script, []byte(bundleJSON))
 	if err != nil {
