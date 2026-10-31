@@ -1,3 +1,11 @@
+## 0.9.635
+
+APT Guard transaction safety:
+- Exclusive unique bakDir (no second-scale collision)
+- durableWriteCommit removes marker on write failure
+- Parent fsync errors fail the operation
+- Quarantine directory fsync after Link/Remove
+
 ## 0.9.634
 
 APT Guard durability:

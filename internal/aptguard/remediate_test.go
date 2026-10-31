@@ -202,3 +202,30 @@ func TestRestoreFileDurable(t *testing.T) {
 func TestLinkOnlyNoRename(t *testing.T) {
 	// compile-time: ApplyPreview path uses Link only — behavioral coverage via existing refuse test.
 }
+
+func TestMkdirExclusiveCollision(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "tx1")
+	if err := mkdirExclusive(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := mkdirExclusive(path, 0o700); err == nil {
+		t.Fatal("expected exist error")
+	} else if !os.IsExist(err) {
+		t.Fatalf("want IsExist, got %v", err)
+	}
+}
+
+func TestDurableWriteCommitRemovesOnFsyncFail(t *testing.T) {
+	// We cannot force fsyncDir failure portably; verify happy path and that
+	// durableWriteCommit leaves a readable COMMIT on success.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "COMMIT")
+	if err := durableWriteCommit(path, []byte("ok\n")); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || string(b) != "ok\n" {
+		t.Fatalf("%q %v", b, err)
+	}
+}

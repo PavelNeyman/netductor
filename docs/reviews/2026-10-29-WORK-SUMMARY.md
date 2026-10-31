@@ -334,3 +334,11 @@ APT Guard (stages 0–2):
 - COMMIT file is sole recovery done signal (not journal complete alone)
 - SavePolicyFile durable; recovered writes COMMIT
 
+
+### 0.9.635 — APT tx dir exclusive + COMMIT fail-closed
+
+- mkdirExclusive (os.Mkdir, not MkdirAll) unique bakDir pid+attempt
+- durableWriteCommit: remove marker if durableWrite fails after partial
+- mkdirDurable parent fsync errors not ignored
+- quarantine Link/Remove + fsyncDir
+

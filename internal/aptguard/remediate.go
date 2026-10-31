@@ -341,7 +341,7 @@ func fsyncDir(dir string) error {
 	return d.Sync()
 }
 
-// mkdirDurable creates path and fsyncs the parent so the directory entry survives crash.
+// mkdirDurable creates path (MkdirAll) and fsyncs path + parent. Errors are not ignored.
 func mkdirDurable(path string, mode os.FileMode) error {
 	if mode == 0 {
 		mode = 0o700
@@ -354,7 +354,38 @@ func mkdirDurable(path string, mode os.FileMode) error {
 	}
 	parent := filepath.Dir(path)
 	if parent != "" && parent != "." && parent != path {
-		_ = fsyncDir(parent)
+		if err := fsyncDir(parent); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// mkdirExclusive creates a new empty directory; fails if path already exists.
+func mkdirExclusive(path string, mode os.FileMode) error {
+	if mode == 0 {
+		mode = 0o700
+	}
+	parent := filepath.Dir(path)
+	if err := mkdirDurable(parent, 0o700); err != nil {
+		return err
+	}
+	if err := os.Mkdir(path, mode); err != nil {
+		return err
+	}
+	if err := fsyncDir(path); err != nil {
+		return err
+	}
+	return fsyncDir(parent)
+}
+
+// durableWriteCommit writes the COMMIT marker. If fsync after rename fails, the marker
+// is removed so recovery will not treat the transaction as done.
+func durableWriteCommit(path string, data []byte) error {
+	if err := durableWrite(path, data, 0o600); err != nil {
+		_ = os.Remove(path)
+		_ = fsyncDir(filepath.Dir(path))
+		return err
 	}
 	return nil
 }
@@ -409,12 +440,27 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		return Report{}, fmt.Errorf("aptguard: apt/dpkg lock busy")
 	}
 
-	bakDir := filepath.Join(Dir(stateRoot), "remediate-backup", time.Now().UTC().Format("20060102T150405Z"))
-	if err := mkdirDurable(bakDir, 0o700); err != nil {
+	bakRoot := filepath.Join(Dir(stateRoot), "remediate-backup")
+	if err := mkdirDurable(bakRoot, 0o700); err != nil {
 		return Report{}, err
 	}
-	// also durable-create parent tree for remediate-backup
-	_ = fsyncDir(filepath.Dir(bakDir))
+	var bakDir string
+	var mkdirErr error
+	for attempt := 0; attempt < 32; attempt++ {
+		suffix := fmt.Sprintf("%s-%d-%d", time.Now().UTC().Format("20060102T150405Z"), os.Getpid(), attempt)
+		cand := filepath.Join(bakRoot, suffix)
+		mkdirErr = mkdirExclusive(cand, 0o700)
+		if mkdirErr == nil {
+			bakDir = cand
+			break
+		}
+		if !os.IsExist(mkdirErr) {
+			return Report{}, mkdirErr
+		}
+	}
+	if bakDir == "" {
+		return Report{}, fmt.Errorf("aptguard: cannot allocate unique transaction dir: %v", mkdirErr)
+	}
 	journalPath := filepath.Join(bakDir, "journal.json")
 	commitPath := filepath.Join(bakDir, "COMMIT")
 	var journal []journalEntry
@@ -477,6 +523,9 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 				_ = os.Remove(q)
 				return fail(err)
 			}
+			if err := fsyncDir(filepath.Dir(path)); err != nil {
+				return fail(fmt.Errorf("quarantine fsync: %w", err))
+			}
 		case "ensure_file":
 			ent := journalEntry{Action: "ensure_file", Path: path, UID: -1, GID: -1}
 			if st, err := os.Stat(path); err == nil {
@@ -535,7 +584,7 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		return fail(fmt.Errorf("commit journal complete: %w", err))
 	}
 	// Durable COMMIT marker is the only recovery "done" signal.
-	if err := durableWrite(commitPath, []byte("ok\n"), 0o600); err != nil {
+	if err := durableWriteCommit(commitPath, []byte("ok\n")); err != nil {
 		return fail(fmt.Errorf("commit marker: %w", err))
 	}
 	audit.Log("aptguard", "remediate.apply", pv.ServerID, detail)
@@ -722,7 +771,7 @@ func recoverAllIncompleteLocked(stateRoot string) error {
 			continue
 		}
 		// Mark recovered with COMMIT so we never re-rollback this tx.
-		if wErr := durableWrite(filepath.Join(root, name, "COMMIT"), []byte("recovered\n"), 0o600); wErr != nil {
+		if wErr := durableWriteCommit(filepath.Join(root, name, "COMMIT"), []byte("recovered\n")); wErr != nil {
 			errs = append(errs, name+": write recovered COMMIT: "+wErr.Error())
 			continue
 		}
