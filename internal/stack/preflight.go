@@ -51,7 +51,14 @@ func Preflight(tag string) PreflightReport {
 	if err != nil {
 		add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf("SHA256SUMS: %v", err)})
 	} else {
-		need := []string{"netductor-linux-amd64", "netductor-tg-linux-amd64"}
+		platform := ndupdate.PlatformFromRuntime()
+		nodeAsset := ndupdate.AssetName(ndupdate.ComponentNode, platform)
+		tgAsset := ndupdate.AssetName(ndupdate.ComponentTG, platform)
+		if nodeAsset == "" || tgAsset == "" {
+			add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf("unsupported host platform %s/%s", platform.GOOS, platform.GOARCH)})
+			return rep
+		}
+		need := []string{nodeAsset, tgAsset}
 		missing := []string{}
 		for _, n := range need {
 			if sums[n] == "" {
