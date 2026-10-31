@@ -718,9 +718,11 @@ func ApplyOpts(tag string, noBackup bool) error {
 	fmt.Fprintln(os.Stderr, "stack apply: health pending (polling api up to 15s)")
 	_ = waitAPIHealthy(15 * time.Second)
 	st := Collect()
+	// Apply requires completed systemd startup, not merely "activating".
+	// Collect intentionally treats activating as OK for status displays.
 	var failed []string
 	for _, u := range st.Units {
-		if (u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot") && !u.OK {
+		if (u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot") && u.Active != "active" {
 			failed = append(failed, u.Unit+":"+u.Active)
 		}
 	}
@@ -738,7 +740,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 		st = Collect()
 		failed = nil
 		for _, u := range st.Units {
-			if (u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot") && !u.OK {
+			if (u.Unit == "netductor-api" || u.Unit == "netductor-telegram-bot") && u.Active != "active" {
 				failed = append(failed, u.Unit+":"+u.Active)
 			}
 		}
