@@ -259,8 +259,11 @@ func writeSecretSet(values map[string]string) error {
 		return rollback(fmt.Errorf("sync committed secret set: %w", err))
 	}
 	if err := os.RemoveAll(backup); err != nil {
+		// The new set is already durable. Do not report a failed install here:
+		// callers must not leave a config using the old key while new secrets are live.
 		backupKept = true
-		return fmt.Errorf("secret set installed but backup cleanup failed; backup retained at %s: %w", backup, err)
+		fmt.Fprintf(os.Stderr, "warning: secret set committed; stale backup retained at %s: %v\\n", backup, err)
+		return nil
 	}
 	backupKept = true
 	return nil
