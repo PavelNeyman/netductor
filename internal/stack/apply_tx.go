@@ -17,6 +17,7 @@ const (
 	txTGInstalled   = "tg_installed"
 	txVerified      = "verified"
 	txCommitted     = "committed"
+	txRolledBack    = "rolled_back"
 )
 
 type applyTx struct {
@@ -112,7 +113,7 @@ func validateTx(tx *applyTx) error {
 		return fmt.Errorf("tx.json has invalid destination paths")
 	}
 	switch tx.Phase {
-	case txPrepared, txNodeInstalled, txTGInstalled, txVerified, txCommitted:
+	case txPrepared, txNodeInstalled, txTGInstalled, txVerified, txCommitted, txRolledBack:
 	default:
 		return fmt.Errorf("tx.json has unknown phase %q", tx.Phase)
 	}
@@ -217,6 +218,11 @@ func recoverApplyTx(att string) error {
 		return fmt.Errorf("apply recovery blocked: %w", err)
 	}
 	switch tx.Phase {
+	case txRolledBack:
+		if err := verifyPreImagePair(att, tx); err != nil {
+			return fmt.Errorf("rolled-back apply recovery blocked: %w", err)
+		}
+		return nil
 	case txCommitted:
 		if err := verifyInstalledPair(tx); err != nil {
 			return fmt.Errorf("committed apply recovery blocked: %w", err)
@@ -253,7 +259,7 @@ func rollbackPair(att string, tx *applyTx) error {
 	if err := restoreChecked(tgBak, tx.TGDest, tx.TGPreSHA); err != nil {
 		return fmt.Errorf("restore tg: %w", err)
 	}
-	tx.Phase = txPrepared
+	tx.Phase = txRolledBack
 	return writeTx(att, *tx)
 }
 
@@ -279,4 +285,38 @@ func restoreChecked(src, dest, want string) error {
 		return fmt.Errorf("restored %s sha mismatch", dest)
 	}
 	return nil
+}
+
+func verifyPreImagePair(att string, tx *applyTx) error {
+	for _, item := range []struct {
+		name, path, want string
+	}{
+		{"node", tx.NodeDest, tx.NodePreSHA},
+		{"tg", tx.TGDest, tx.TGPreSHA},
+	} {
+		got, err := fileSHA(item.path)
+		if err != nil {
+			return fmt.Errorf("verify rolled-back %s: %w", item.name, err)
+		}
+		if got != item.want {
+			return fmt.Errorf("verify rolled-back %s: sha256 mismatch", item.name)
+		}
+	}
+	return nil
+}
+
+// cleanupTerminalAttempt only removes an attempt whose outcome is durably known.
+// Corrupt or in-progress transaction evidence is never deleted.
+func cleanupTerminalAttempt(att string) error {
+	tx, err := loadTx(att)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return os.RemoveAll(att)
+		}
+		return err
+	}
+	if tx.Phase != txCommitted && tx.Phase != txRolledBack {
+		return fmt.Errorf("refuse to remove non-terminal apply transaction %s (%s)", tx.ID, tx.Phase)
+	}
+	return os.RemoveAll(att)
 }
