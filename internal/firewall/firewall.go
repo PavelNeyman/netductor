@@ -899,6 +899,20 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		requireWAN("8444", "ALLOW", "primary-wss")
 		requireWAN("8788", "DENY", "plain-agent")
 		requireWAN("9443", "DENY", "service-uplink-wan")
+		var serviceUplinkTrustedAllow bool
+		for _, rule := range rules {
+			if !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" {
+				continue
+			}
+			if cidrEqual(rule.From, ndconfig.SvcSPCIDR()) || cidrEqual(rule.From, ndconfig.SvcPSCIDR()) {
+				serviceUplinkTrustedAllow = true
+				break
+			}
+		}
+		if !serviceUplinkTrustedAllow {
+			ok = false
+			warnings = append(warnings, "service uplink: no restricted ALLOW from configured service CIDRs for 9443/tcp")
+		}
 		mtls := ndconfig.AgentMTLSPort()
 		var trustedAllow bool
 		var wanAct string
