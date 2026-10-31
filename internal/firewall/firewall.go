@@ -670,6 +670,53 @@ func requireIPv6Disabled() error {
 	return nil
 }
 
+// inputStartsWithSSHAllow reports whether the first INPUT rule is an
+// unconditional TCP destination-port ACCEPT for the configured SSH port.
+// A matching rule later in INPUT is insufficient because earlier rules win.
+func inputStartsWithSSHAllow(rules, port string) bool {
+	for _, line := range strings.Split(rules, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[0] != "-A" || fields[1] != "INPUT" {
+			continue
+		}
+		protocol, destinationPort, target := false, false, false
+		for i := 2; i < len(fields); i++ {
+			switch fields[i] {
+			case "-p", "--protocol":
+				if i+1 >= len(fields) || fields[i+1] != "tcp" || protocol {
+					return false
+				}
+				protocol = true
+				i++
+			case "--dport", "--destination-port":
+				if i+1 >= len(fields) || fields[i+1] != port || destinationPort {
+					return false
+				}
+				destinationPort = true
+				i++
+			case "-j", "--jump":
+				if i+1 >= len(fields) || fields[i+1] != "ACCEPT" || target {
+					return false
+				}
+				target = true
+				i++
+			case "-m":
+				// iptables -S may render the implicit TCP matcher explicitly.
+				if i+1 >= len(fields) || fields[i+1] != "tcp" {
+					return false
+				}
+				i++
+			default:
+				// Source/interface/conntrack or any other qualifier would make
+				// this less than an unconditional management-path safeguard.
+				return false
+			}
+		}
+		return protocol && destinationPort && target
+	}
+	return false
+}
+
 func applyIPTables(role string) error {
 	if err := requireIPv6Disabled(); err != nil {
 		return fmt.Errorf("iptables fallback IPv6 prerequisite: %w", err)
@@ -690,14 +737,18 @@ func applyIPTables(role string) error {
 		return fmt.Errorf("iptables fallback: netfilter-persistent is unavailable; active rules cannot be guaranteed across reboot")
 	}
 
-	// A temporary direct SSH allow is installed only when an identical rule
-	// is not already present. It remains in place if staging or switching fails.
-	temporarySSHAllow := false
-	if exec.Command("iptables", "-C", "INPUT", "-p", "tcp", "--dport", sp, "-j", "ACCEPT").Run() != nil {
+	// Keep an unconditional SSH allow as the first INPUT rule. An identical
+	// rule found later in the chain is not a safeguard: an earlier DROP/REJECT
+	// would still block SSH. The leading rule is intentionally persistent so
+	// removing a temporary exception cannot lock out the host after the switch.
+	inputBefore, inspectBeforeErr := exec.Command("iptables", "-S", "INPUT").CombinedOutput()
+	if inspectBeforeErr != nil {
+		return fmt.Errorf("iptables fallback: inspect INPUT before SSH safeguard: %v (%s)", inspectBeforeErr, truncate(string(inputBefore), 200))
+	}
+	if !inputStartsWithSSHAllow(string(inputBefore), sp) {
 		if err := must("-I", "INPUT", "1", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
-			return fmt.Errorf("iptables fallback: temporary SSH safeguard: %w", err)
+			return fmt.Errorf("iptables fallback: install leading SSH safeguard: %w", err)
 		}
-		temporarySSHAllow = true
 	}
 
 	inputRules, err := exec.Command("iptables", "-S", "INPUT").CombinedOutput()
@@ -839,6 +890,9 @@ func applyIPTables(role string) error {
 	if verifiedPos == 0 || verifiedChain != stagingChain {
 		return fmt.Errorf("iptables fallback: INPUT switch not verified (active=%q want=%q)", verifiedChain, stagingChain)
 	}
+	if !inputStartsWithSSHAllow(string(verifiedInput), sp) {
+		return fmt.Errorf("iptables fallback: leading SSH safeguard is missing after INPUT switch")
+	}
 	verifiedRules, chainVerifyErr := exec.Command("iptables", "-S", stagingChain).CombinedOutput()
 	if chainVerifyErr != nil {
 		return fmt.Errorf("iptables fallback: verify active chain %s: %v (%s)", stagingChain, chainVerifyErr, truncate(string(verifiedRules), 200))
@@ -849,13 +903,7 @@ func applyIPTables(role string) error {
 		return fmt.Errorf("iptables fallback: active chain %s failed essential-rule verification", stagingChain)
 	}
 
-	// The new policy is now active and verified. Remove only the temporary SSH
-	// exception created by this invocation; pre-existing administrator rules are kept.
-	if temporarySSHAllow {
-		if err := must("-D", "INPUT", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
-			return fmt.Errorf("iptables fallback: remove temporary SSH safeguard: %w", err)
-		}
-	}
+	// The leading SSH safeguard is intentionally retained across applies.
 	fmt.Fprintf(os.Stderr, "firewall: iptables %s chain applied role=%s (fallback; prefer ufw)\n", stagingChain, role)
 	if out, saveErr := exec.Command("netfilter-persistent", "save").CombinedOutput(); saveErr != nil {
 		return fmt.Errorf("iptables fallback: persist firewall via netfilter-persistent: %v (%s)", saveErr, truncate(string(out), 200))
