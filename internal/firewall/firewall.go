@@ -277,10 +277,33 @@ func applyUFW(role string) error {
 	}
 	sp := sshPort()
 	// Preserve the active management path before tightening the default policy.
-	// UFW applies rule changes immediately when already enabled; setting the
-	// default incoming policy first can lock out SSH if the allow rule then fails.
-	if err := must("insert", "1", "allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
-		return fmt.Errorf("install SSH allow rule before default deny: %w", err)
+	// Avoid adding a duplicate on every apply when the first WAN rule already
+	// permits SSH for that address family.
+	current, inspectErr := exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if inspectErr != nil {
+		return fmt.Errorf("inspect UFW rules before SSH safeguard: %v (%s)", inspectErr, truncate(string(current), 200))
+	}
+	if strings.Contains(string(current), "Status: active") {
+		rules := parseUfwNumbered(string(current))
+		needSSHInsert := false
+		for _, ipv6 := range []bool{false, true} {
+			action, found := firstTCPActionFromWANFamily(rules, sp, ipv6)
+			if !found || action != "ALLOW" {
+				needSSHInsert = true
+				break
+			}
+		}
+		if needSSHInsert {
+			if err := must("insert", "1", "allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
+				return fmt.Errorf("install SSH allow rule before default deny: %w", err)
+			}
+		}
+	} else {
+		// Inactive UFW does not enforce the listed rules. Insert the safeguard
+		// before changing defaults and enabling the firewall.
+		if err := must("insert", "1", "allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
+			return fmt.Errorf("install SSH allow rule before default deny: %w", err)
+		}
 	}
 
 	// H-2: critical policy steps must not be ignored. Only tighten incoming
