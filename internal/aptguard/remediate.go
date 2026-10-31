@@ -409,13 +409,19 @@ func durableWriteCommit(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	if err := durableWrite(path, data, 0o600); err != nil {
 		// durableWrite may have left COMMIT after rename+failed fsync, or never created it.
-		if _, stErr := os.Stat(path); stErr == nil {
-			if remErr := os.Remove(path); remErr != nil && !os.IsNotExist(remErr) {
-				return &commitAmbiguousError{path: path, err: fmt.Errorf("write: %v; remove COMMIT: %w", err, remErr)}
+		_, stErr := os.Stat(path)
+		if stErr != nil {
+			if os.IsNotExist(stErr) {
+				return err // clearly absent — safe for caller rollback
 			}
-			if syncErr := fsyncDir(dir); syncErr != nil {
-				return &commitAmbiguousError{path: path, err: fmt.Errorf("write: %v; remove ok; dir fsync: %w", err, syncErr)}
-			}
+			// Unknown existence — never claim clear failure.
+			return &commitAmbiguousError{path: path, err: fmt.Errorf("write: %v; stat COMMIT: %w", err, stErr)}
+		}
+		if remErr := os.Remove(path); remErr != nil && !os.IsNotExist(remErr) {
+			return &commitAmbiguousError{path: path, err: fmt.Errorf("write: %v; remove COMMIT: %w", err, remErr)}
+		}
+		if syncErr := fsyncDir(dir); syncErr != nil {
+			return &commitAmbiguousError{path: path, err: fmt.Errorf("write: %v; remove ok; dir fsync: %w", err, syncErr)}
 		}
 		return err
 	}
@@ -640,16 +646,20 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		audit.Log("aptguard", "remediate.apply.save_warn", pv.ServerID, err.Error())
 	}
 	detail := fmt.Sprintf("changes=%d status=%s token=%s", len(pv.Changes), rep.Status, pv.Token)
+	// Pre-commit gate: durable journal marker BEFORE publishing COMMIT.
+	// If COMMIT publish is later ambiguous and commit_ambiguous cannot be written,
+	// recovery still sees "committing" and will not auto-rollback.
+	journal = append(journal, journalEntry{Action: "committing", Path: commitPath})
+	if err := persistJournal(); err != nil {
+		return fail(fmt.Errorf("journal committing: %w", err))
+	}
 	// Forensic complete in journal (not sole commit signal).
 	journal = append(journal, journalEntry{Action: "complete", Path: ""})
 	if err := persistJournal(); err != nil {
 		return fail(fmt.Errorf("commit journal complete: %w", err))
 	}
-	// Durable COMMIT marker is the only recovery "done" signal.
-	// Durable COMMIT is the only recovery "done" signal.
 	if err := durableWriteCommit(commitPath, []byte("ok\n")); err != nil {
 		if errors.Is(err, ErrCommitAmbiguous) {
-			// COMMIT may be durable — do not rollback; operator must inspect.
 			journal = append(journal, journalEntry{Action: "commit_ambiguous", Path: commitPath})
 			if jerr := persistJournal(); jerr != nil {
 				audit.Log("aptguard", "remediate.commit_ambiguous.journal_fail", pv.ServerID, jerr.Error())
@@ -825,16 +835,16 @@ func recoverAllIncompleteLocked(stateRoot string) error {
 			errs = append(errs, name+": COMMIT unknown/unreadable (manual resolution required; no auto-rollback)")
 			continue
 		}
-		// COMMIT absent — still respect journal markers.
-		hasAmb := false
+		// COMMIT absent — still respect journal gates (committing / commit_ambiguous).
+		blocked := false
 		for _, e := range journal {
-			if e.Action == "commit_ambiguous" {
-				hasAmb = true
-				errs = append(errs, name+": commit_ambiguous (manual resolution required)")
+			if e.Action == "commit_ambiguous" || e.Action == "committing" {
+				blocked = true
+				errs = append(errs, name+": "+e.Action+" (manual resolution required; no auto-rollback)")
 				break
 			}
 		}
-		if hasAmb {
+		if blocked {
 			continue
 		}
 		done := false

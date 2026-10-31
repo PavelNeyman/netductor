@@ -1,3 +1,10 @@
+## 0.9.638
+
+APT Guard COMMIT protocol:
+- Pre-commit journal gate before publishing COMMIT
+- Stat I/O errors are Ambiguous (no blind rollback)
+- Recovery blocks on committing without COMMIT file
+
 ## 0.9.637
 
 APT Guard recovery:

@@ -361,3 +361,11 @@ APT Guard (stages 0–2):
 - rollback Remove + fsyncDir for quarantine/ensure_file
 - recovery tests: absent/done/unknown
 
+
+### 0.9.638 — COMMIT pre-gate + Stat ambiguous
+
+- journal "committing" persisted BEFORE durableWriteCommit
+- recovery: committing|commit_ambiguous → no auto-rollback
+- Stat non-IsNotExist after failed write → ErrCommitAmbiguous
+- tests: committing gate, unknown preserves file
+
