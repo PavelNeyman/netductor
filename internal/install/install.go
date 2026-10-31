@@ -299,11 +299,48 @@ func writeUnit(name, content string) error {
 		return fmt.Errorf("invalid systemd unit filename %q", name)
 	}
 	path := filepath.Join("/etc/systemd/system", name)
+	var previous []byte
+	var previousMode os.FileMode
+	existed := false
+	st, statErr := os.Lstat(path)
+	if statErr == nil {
+		if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("existing unit %s is not a regular file", name)
+		}
+		previous, statErr = os.ReadFile(path)
+		if statErr != nil {
+			return fmt.Errorf("read previous unit %s: %w", name, statErr)
+		}
+		previousMode = st.Mode().Perm()
+		existed = true
+	} else if !os.IsNotExist(statErr) {
+		return fmt.Errorf("inspect previous unit %s: %w", name, statErr)
+	}
 	if err := writeInstallFileDurable(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("write unit %s: %w", name, err)
 	}
 	if err := run("systemctl", "daemon-reload"); err != nil {
-		return fmt.Errorf("systemctl daemon-reload: %w", err)
+		// The new file is already on disk. Restore the prior unit definition before
+		// returning so systemd is not left with a failed partially-applied update.
+		var restoreErr error
+		if existed {
+			restoreErr = writeInstallFileDurable(path, previous, previousMode)
+		} else {
+			restoreErr = os.Remove(path)
+			if os.IsNotExist(restoreErr) {
+				restoreErr = nil
+			}
+			if restoreErr == nil {
+				restoreErr = syncDirectory(filepath.Dir(path))
+			}
+		}
+		if restoreErr == nil {
+			restoreErr = run("systemctl", "daemon-reload")
+		}
+		if restoreErr != nil {
+			return fmt.Errorf("systemctl daemon-reload failed: %w; restoring previous unit %s also failed: %v", err, name, restoreErr)
+		}
+		return fmt.Errorf("systemctl daemon-reload failed; previous unit %s restored: %w", name, err)
 	}
 	return nil
 }
