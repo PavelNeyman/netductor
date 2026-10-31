@@ -273,16 +273,18 @@ func validateRolePorts(role string) error {
 		reserved[n] = label
 		return nil
 	}
-	if err := add("redirect HTTPS", ndconfig.RedirectHTTPSPort(), false); err != nil {
-		return err
-	}
-	if err := add("agent mTLS", ndconfig.AgentMTLSPort(), false); err != nil {
-		return err
-	}
-	if err := add("Lampac", ndconfig.LampacPort(), true); err != nil {
-		return err
-	}
 	if role == "primary" {
+		for _, item := range []struct{ label, port string }{
+			{"redirect HTTPS", ndconfig.RedirectHTTPSPort()},
+			{"agent mTLS", ndconfig.AgentMTLSPort()},
+		} {
+			if err := add(item.label, item.port, false); err != nil {
+				return err
+			}
+		}
+		if err := add("Lampac", ndconfig.LampacPort(), true); err != nil {
+			return err
+		}
 		for _, item := range []struct{ label, port string }{
 			{"HTTP", "80"}, {"primary WSS", "8444"}, {"plain agent", "8788"}, {"service uplink", "9443"},
 		} {
