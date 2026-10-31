@@ -301,6 +301,42 @@ func validateRolePorts(role string) error {
 			}
 		}
 	}
+	// Ports owned by the opposite role must remain blocked, but their
+	// configured values must never collide with this role's active services.
+	checkInactive := func(label, value string, optional bool) error {
+		n, err := parse(label, value, optional)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return nil
+		}
+		if active, exists := reserved[n]; exists {
+			return fmt.Errorf("firewall: inactive %s port %d conflicts with active %s port", label, n, active)
+		}
+		return nil
+	}
+	if role == "primary" {
+		for _, item := range []struct{ label, port string }{
+			{"secondary WSS", "8445"}, {"secondary API", "8787"},
+		} {
+			if err := checkInactive(item.label, item.port, false); err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, item := range []struct{ label, port string }{
+			{"primary WSS", "8444"}, {"primary service uplink", "9443"},
+			{"primary mTLS", ndconfig.AgentMTLSPort()}, {"primary redirect HTTPS", ndconfig.RedirectHTTPSPort()},
+		} {
+			if err := checkInactive(item.label, item.port, false); err != nil {
+				return err
+			}
+		}
+		if err := checkInactive("primary Lampac", ndconfig.LampacPort(), true); err != nil {
+			return err
+		}
+	}
 	if previous, exists := reserved[ssh]; exists {
 		return fmt.Errorf("firewall: SSH port %d conflicts with reserved %s port", ssh, previous)
 	}
@@ -458,6 +494,7 @@ func ufwPreflightPolicy(status, role string) error {
 		// behind. UFW does not remove them when applying the secondary role.
 		primaryOnly := []struct{ port, label string }{
 			{"8444", "primary-wss"}, {"9443", "primary-service-uplink"},
+			{ndconfig.AgentMTLSPort(), "primary-mtls"},
 			{ndconfig.RedirectHTTPSPort(), "primary-redirect"},
 		}
 		if lp := ndconfig.LampacPort(); lp != "" && lp != "0" {
@@ -886,7 +923,7 @@ func applyIPTables(role string) error {
 		if err := allowTCP("8445"); err != nil {
 			return err
 		}
-		for _, port := range []string{"8787", "8788", "8789", "80", "8444", "9443", ndconfig.RedirectHTTPSPort()} {
+		for _, port := range []string{"8787", "8788", "8789", "80", "8444", "9443", ndconfig.AgentMTLSPort(), ndconfig.RedirectHTTPSPort()} {
 			if err := denyTCP(port); err != nil {
 				return fmt.Errorf("iptables fallback deny %s: %w", port, err)
 			}
@@ -1519,6 +1556,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 		primaryOnly := []struct{ port, label string }{
 			{"8444", "primary-wss"}, {"9443", "primary-service-uplink"},
+			{ndconfig.AgentMTLSPort(), "primary-mtls"},
 			{ndconfig.RedirectHTTPSPort(), "primary-redirect"},
 		}
 		if lp := ndconfig.LampacPort(); lp != "" && lp != "0" {
