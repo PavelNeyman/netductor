@@ -1,3 +1,12 @@
+## 0.9.631
+
+APT Guard:
+- Token re-check under remediation flock
+- Journal before mutate + crash recovery helper
+- Rollback errors never dropped
+- Strict policy match (suite/components/signed-by required when set)
+- Deb822 URI redact; .list signed-by parse
+
 ## 0.9.630
 
 APT Guard security:

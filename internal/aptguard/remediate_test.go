@@ -54,7 +54,7 @@ func TestMixedFileBlocksQuarantine(t *testing.T) {
 	_ = os.MkdirAll(d, 0o755)
 	mixed := filepath.Join(d, "mixed.list")
 	_ = os.WriteFile(mixed, []byte(
-		"deb https://deb.debian.org/debian bookworm main\n"+
+		"deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian bookworm main contrib non-free-firmware\n"+
 			"deb https://evil.example/debian bookworm main\n",
 	), 0o644)
 	pv, err := BuildPreview("t", root, DefaultPolicy())
@@ -102,5 +102,40 @@ func TestDeb822EmptyTypesNoPanic(t *testing.T) {
 	_, err := ScanHost("t", DefaultPolicy(), root)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMatchPolicySuiteMissing(t *testing.T) {
+	pol := DefaultPolicy()
+	s := SourceEntry{Enabled: true, Type: "deb", URIs: []string{"https://deb.debian.org/debian"}, Suites: nil, Components: []string{"main"}}
+	if matchPolicy(pol, s) != "mismatch" {
+		t.Fatal(matchPolicy(pol, s))
+	}
+}
+
+func TestParseListSignedBy(t *testing.T) {
+	e, ok := parseDebLine("/t", `deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian bookworm main`, true)
+	if !ok {
+		t.Fatal("parse")
+	}
+	if e.SignedBy != "/usr/share/keyrings/debian-archive-keyring.gpg" {
+		t.Fatal(e.SignedBy)
+	}
+}
+
+func TestDeb822RedactURI(t *testing.T) {
+	root := t.TempDir()
+	d := filepath.Join(root, "etc/apt/sources.list.d")
+	_ = os.MkdirAll(d, 0o755)
+	_ = os.WriteFile(filepath.Join(d, "x.sources"), []byte("Types: deb\nURIs: https://user:secret@evil.example/debian\nSuites: bookworm\nComponents: main\n"), 0o644)
+	ents, _, err := parseDeb822File(filepath.Join(d, "x.sources"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ents) != 1 {
+		t.Fatal(ents)
+	}
+	if strings.Contains(ents[0].URIs[0], "secret") {
+		t.Fatal(ents[0].URIs[0])
 	}
 }

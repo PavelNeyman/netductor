@@ -136,11 +136,13 @@ func matchPolicy(p Policy, s SourceEntry) string {
 		if !r.Enabled {
 			return "forbidden"
 		}
-		// type: policy assumes deb; reject deb-src as mismatch for required enforcement
 		if s.Type == "deb-src" {
 			return "mismatch"
 		}
-		if len(r.Suites) > 0 && len(s.Suites) > 0 {
+		if len(r.Suites) > 0 {
+			if len(s.Suites) == 0 {
+				return "mismatch"
+			}
 			okSuite := false
 			for _, want := range r.Suites {
 				for _, got := range s.Suites {
@@ -149,27 +151,35 @@ func matchPolicy(p Policy, s SourceEntry) string {
 						break
 					}
 				}
+				if okSuite {
+					break
+				}
 			}
 			if !okSuite {
 				return "mismatch"
 			}
 		}
-		if len(r.Components) > 0 && len(s.Components) > 0 {
-			// at least one component overlap
-			okComp := false
+		if len(r.Components) > 0 {
+			if len(s.Components) == 0 {
+				return "mismatch"
+			}
 			for _, want := range r.Components {
+				found := false
 				for _, got := range s.Components {
 					if want == got {
-						okComp = true
+						found = true
 						break
 					}
 				}
-			}
-			if !okComp {
-				return "mismatch"
+				if !found {
+					return "mismatch"
+				}
 			}
 		}
-		if len(r.SignedBy) > 0 && s.SignedBy != "" {
+		if len(r.SignedBy) > 0 {
+			if s.SignedBy == "" {
+				return "mismatch"
+			}
 			okSig := false
 			for _, sb := range r.SignedBy {
 				if sb == s.SignedBy {
@@ -200,11 +210,12 @@ func uriOverlap(a, b []string) bool {
 }
 
 func requiredPresent(sources []SourceEntry, r RepositorySpec) bool {
+	mini := Policy{Version: 1, Repos: []RepositorySpec{r}}
 	for _, s := range sources {
 		if !s.Enabled {
 			continue
 		}
-		if uriOverlap(r.URIs, s.URIs) {
+		if matchPolicy(mini, s) == "ok" {
 			return true
 		}
 	}
@@ -305,13 +316,27 @@ func parseDebLine(file, line string, enabled bool) (SourceEntry, bool) {
 		return SourceEntry{}, false
 	}
 	i := 1
-	if strings.HasPrefix(fields[i], "[") {
-		// skip options until ]
+	signedBy := ""
+	if i < len(fields) && strings.HasPrefix(fields[i], "[") {
+		start := i
 		for i < len(fields) && !strings.HasSuffix(fields[i], "]") {
 			i++
 		}
 		if i >= len(fields) {
 			return SourceEntry{}, false
+		}
+		optBlob := strings.Join(fields[start:i+1], " ")
+		optBlob = strings.Trim(optBlob, "[]")
+		for _, part := range strings.Fields(optBlob) {
+			eq := strings.Index(part, "=")
+			if eq <= 0 {
+				continue
+			}
+			k := strings.ToLower(part[:eq])
+			v := part[eq+1:]
+			if k == "signed-by" {
+				signedBy = v
+			}
 		}
 		i++
 	}
@@ -324,7 +349,7 @@ func parseDebLine(file, line string, enabled bool) (SourceEntry, bool) {
 	return SourceEntry{
 		File: file, Enabled: enabled, Type: typ,
 		URIs: []string{redactURI(uri)}, Suites: []string{suite}, Components: comps,
-		Raw: "", // never store raw (may contain credentials)
+		SignedBy: signedBy, Raw: "",
 	}, true
 }
 
@@ -359,7 +384,11 @@ func parseDeb822File(path string) ([]SourceEntry, []Finding, error) {
 				}
 				ent.Type = fields[0]
 			case "uris", "uri":
-				ent.URIs = strings.Fields(v)
+				rawU := strings.Fields(v)
+				ent.URIs = make([]string, len(rawU))
+				for i, u := range rawU {
+					ent.URIs[i] = redactURI(u)
+				}
 			case "suites", "suite":
 				ent.Suites = strings.Fields(v)
 			case "components", "component":

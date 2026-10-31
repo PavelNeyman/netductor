@@ -296,3 +296,13 @@ APT Guard (stages 0–2):
 - EnsureHostBaseline installs aptguard timer (both roles)
 - SSH Prepare permanent lock /var/lib/netductor/ssh-harden.lock
 
+
+### 0.9.631 — APT remediation residual P0/P1
+
+- Preview rebuild + token check **under flock**
+- fail() always returns op + rollback errors
+- Journal entry persisted+synced **before** each mutation; RecoverIncompleteRemediation
+- restoreFile: Chown errors returned; UID/GID -1 sentinel
+- Deb822 URI redact; .list signed-by options
+- matchPolicy strict missing suite/components/signed-by; requiredPresent uses full match
+

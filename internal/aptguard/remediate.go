@@ -82,20 +82,20 @@ func BuildPreview(serverID, fsRoot string, policy Policy) (Preview, error) {
 		if strings.HasSuffix(path, ".nd-quarantine") {
 			continue
 		}
-		var unknown, allowed int
+		var bad, allowed int
 		for _, e := range ents {
 			switch matchPolicy(policy, e) {
 			case "ok":
 				allowed++
-			case "forbidden", "unknown", "mismatch":
-				unknown++
+			default:
+				bad++
 			}
 		}
-		if unknown > 0 && allowed > 0 {
-			pv.Blocked = fmt.Sprintf("mixed allowed+unknown in %s — refuse whole-file quarantine", path)
+		if bad > 0 && allowed > 0 {
+			pv.Blocked = fmt.Sprintf("mixed allowed+noncompliant in %s — refuse whole-file quarantine", path)
 			continue
 		}
-		if unknown > 0 && allowed == 0 {
+		if bad > 0 && allowed == 0 {
 			pv.Changes = append(pv.Changes, Change{
 				Action: "quarantine",
 				Path:   path,
@@ -256,22 +256,6 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 	if err != nil {
 		return Report{}, err
 	}
-	// Recompute preview and require token match
-	fresh, err := BuildPreview(pv.ServerID, fsRoot, policy)
-	if err != nil {
-		return Report{}, err
-	}
-	if fresh.Blocked != "" {
-		return Report{}, fmt.Errorf("aptguard: blocked: %s", fresh.Blocked)
-	}
-	if len(fresh.Changes) == 0 {
-		return ScanHost(pv.ServerID, policy, fsRoot)
-	}
-	if pv.Token == "" || pv.Token != fresh.Token {
-		return Report{}, fmt.Errorf("aptguard: preview token mismatch — re-run preview")
-	}
-	pv = fresh // use fresh changes
-
 	if err := os.MkdirAll(Dir(stateRoot), 0o755); err != nil {
 		return Report{}, err
 	}
@@ -286,80 +270,92 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 	}
 	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
 
+	// Under lock: re-scan, re-token, then mutate
+	fresh, err := BuildPreview(pv.ServerID, fsRoot, policy)
+	if err != nil {
+		return Report{}, err
+	}
+	if fresh.Blocked != "" {
+		return Report{}, fmt.Errorf("aptguard: blocked: %s", fresh.Blocked)
+	}
+	if len(fresh.Changes) == 0 {
+		return ScanHost(pv.ServerID, policy, fsRoot)
+	}
+	if pv.Token == "" || pv.Token != fresh.Token {
+		return Report{}, fmt.Errorf("aptguard: preview token mismatch — re-run preview")
+	}
+	pv = fresh
+
+	if fsRoot == "/" && aptBusy() {
+		return Report{}, fmt.Errorf("aptguard: apt/dpkg lock busy")
+	}
+
 	bakDir := filepath.Join(Dir(stateRoot), "remediate-backup", time.Now().UTC().Format("20060102T150405Z"))
 	if err := os.MkdirAll(bakDir, 0o700); err != nil {
 		return Report{}, err
 	}
+	journalPath := filepath.Join(bakDir, "journal.json")
 	var journal []journalEntry
 
-	rollback := func() error {
-		var errs []string
-		for i := len(journal) - 1; i >= 0; i-- {
-			e := journal[i]
-			switch e.Action {
-			case "quarantine":
-				// remove quarantine name, restore original from backup
-				if e.Quarantine != "" {
-					_ = os.Remove(e.Quarantine)
-				}
-				if e.Existed && e.BackupPath != "" {
-					if err := restoreFile(e.BackupPath, e.Path, e); err != nil {
-						errs = append(errs, err.Error())
-					}
-				}
-			case "ensure_file":
-				if !e.Existed {
-					if err := os.Remove(e.Path); err != nil && !os.IsNotExist(err) {
-						errs = append(errs, err.Error())
-					}
-				} else if e.BackupPath != "" {
-					if err := restoreFile(e.BackupPath, e.Path, e); err != nil {
-						errs = append(errs, err.Error())
-					}
-				}
-			}
+	persistJournal := func() error {
+		jb, err := json.MarshalIndent(journal, "", "  ")
+		if err != nil {
+			return err
 		}
-		if len(errs) > 0 {
-			return fmt.Errorf("rollback incomplete: %s", strings.Join(errs, "; "))
+		if err := os.WriteFile(journalPath, jb, 0o600); err != nil {
+			return err
 		}
-		return nil
+		f, err := os.OpenFile(journalPath, os.O_RDWR, 0o600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		return f.Sync()
 	}
 
-	for _, c := range pv.Changes {
+	fail := func(op error) (Report, error) {
+		rbErr := rollbackJournal(journal)
+		if rbErr != nil {
+			return Report{}, fmt.Errorf("%w; rollback: %v", op, rbErr)
+		}
+		return Report{}, op
+	}
+
+	for i, c := range pv.Changes {
 		path := c.Path
 		switch c.Action {
 		case "quarantine":
 			st, err := os.Stat(path)
 			if err != nil {
-				_ = rollback()
-				return Report{}, fmt.Errorf("stat %s: %w", path, err)
+				return fail(fmt.Errorf("stat %s: %w", path, err))
 			}
 			mode := st.Mode()
-			uid, gid := 0, 0
+			uid, gid := -1, -1
 			if sys, ok := st.Sys().(*syscall.Stat_t); ok {
 				uid, gid = int(sys.Uid), int(sys.Gid)
 			}
 			data, err := os.ReadFile(path)
 			if err != nil {
-				_ = rollback()
-				return Report{}, err
+				return fail(err)
 			}
-			dst := filepath.Join(bakDir, filepath.Base(path)+".bak")
+			dst := filepath.Join(bakDir, fmt.Sprintf("%d-%s.bak", i, filepath.Base(path)))
 			if err := os.WriteFile(dst, data, mode.Perm()); err != nil {
-				_ = rollback()
-				return Report{}, fmt.Errorf("backup: %w", err)
+				return fail(fmt.Errorf("backup: %w", err))
 			}
 			q := path + ".nd-quarantine"
-			if err := os.Rename(path, q); err != nil {
-				_ = rollback()
-				return Report{}, err
-			}
-			journal = append(journal, journalEntry{
+			ent := journalEntry{
 				Action: "quarantine", Path: path, BackupPath: dst,
 				Existed: true, Mode: uint32(mode.Perm()), UID: uid, GID: gid, Quarantine: q,
-			})
+			}
+			journal = append(journal, ent)
+			if err := persistJournal(); err != nil {
+				return fail(fmt.Errorf("journal: %w", err))
+			}
+			if err := os.Rename(path, q); err != nil {
+				return fail(err)
+			}
 		case "ensure_file":
-			ent := journalEntry{Action: "ensure_file", Path: path}
+			ent := journalEntry{Action: "ensure_file", Path: path, UID: -1, GID: -1}
 			if st, err := os.Stat(path); err == nil {
 				ent.Existed = true
 				ent.Mode = uint32(st.Mode().Perm())
@@ -368,65 +364,91 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 				}
 				data, err := os.ReadFile(path)
 				if err != nil {
-					_ = rollback()
-					return Report{}, err
+					return fail(err)
 				}
-				dst := filepath.Join(bakDir, filepath.Base(path)+".prev")
+				dst := filepath.Join(bakDir, fmt.Sprintf("%d-%s.prev", i, filepath.Base(path)))
 				if err := os.WriteFile(dst, data, st.Mode().Perm()); err != nil {
-					_ = rollback()
-					return Report{}, fmt.Errorf("backup existing: %w", err)
+					return fail(fmt.Errorf("backup existing: %w", err))
 				}
 				ent.BackupPath = dst
 			}
+			journal = append(journal, ent)
+			if err := persistJournal(); err != nil {
+				return fail(fmt.Errorf("journal: %w", err))
+			}
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				_ = rollback()
-				return Report{}, err
+				return fail(err)
 			}
 			if err := os.WriteFile(path, []byte(c.Content), 0o644); err != nil {
-				_ = rollback()
-				return Report{}, err
+				return fail(err)
 			}
-			journal = append(journal, ent)
 		default:
-			_ = rollback()
-			return Report{}, fmt.Errorf("unknown action %q", c.Action)
+			return fail(fmt.Errorf("unknown action %q", c.Action))
 		}
 	}
 
-	// persist journal for forensics
-	jb, _ := json.MarshalIndent(journal, "", "  ")
-	_ = os.WriteFile(filepath.Join(bakDir, "journal.json"), jb, 0o600)
-
 	if fsRoot == "/" {
+		if aptBusy() {
+			return fail(fmt.Errorf("aptguard: apt/dpkg lock busy before update"))
+		}
 		cmd := exec.Command("bash", "-c", "export DEBIAN_FRONTEND=noninteractive; apt-get update -y -o Acquire::Retries=2")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			rbErr := rollback()
-			msg := fmt.Sprintf("apt-get update failed (rolled back): %v (%s)", err, truncateOut(string(out), 300))
-			if rbErr != nil {
-				msg += "; rollback error: " + rbErr.Error()
-			}
-			return Report{}, fmt.Errorf("%s", msg)
+			return fail(fmt.Errorf("apt-get update failed: %v (%s)", err, truncateOut(string(out), 300)))
 		}
 	}
 
 	rep, err := ScanHost(pv.ServerID, policy, fsRoot)
 	if err != nil {
-		rbErr := rollback()
-		msg := fmt.Sprintf("post-apply scan failed (rolled back): %v", err)
-		if rbErr != nil {
-			msg += "; rollback error: " + rbErr.Error()
-		}
-		return Report{}, fmt.Errorf("%s", msg)
+		return fail(fmt.Errorf("post-apply scan failed: %w", err))
 	}
 	if err := SaveReport(stateRoot, rep); err != nil {
-		// config already changed; report save failure is non-fatal for APT state
 		audit.Log("aptguard", "remediate.apply.save_warn", pv.ServerID, err.Error())
 	}
 	detail := fmt.Sprintf("changes=%d status=%s token=%s", len(pv.Changes), rep.Status, pv.Token)
 	audit.Log("aptguard", "remediate.apply", pv.ServerID, detail)
 	notify.EnqueueAlert("aptguard:apply:"+pv.ServerID, fmt.Sprintf("APT Guard apply on %s: %s (%d changes)", pv.ServerID, rep.Status, len(pv.Changes)))
+	// mark journal complete
+	journal = append(journal, journalEntry{Action: "complete", Path: ""})
+	_ = persistJournal()
 	return rep, nil
+}
+
+func rollbackJournal(journal []journalEntry) error {
+	var errs []string
+	for i := len(journal) - 1; i >= 0; i-- {
+		e := journal[i]
+		if e.Action == "complete" {
+			continue
+		}
+		switch e.Action {
+		case "quarantine":
+			if e.Quarantine != "" {
+				if err := os.Remove(e.Quarantine); err != nil && !os.IsNotExist(err) {
+					errs = append(errs, "remove quarantine: "+err.Error())
+				}
+			}
+			if e.Existed && e.BackupPath != "" {
+				if err := restoreFile(e.BackupPath, e.Path, e); err != nil {
+					errs = append(errs, err.Error())
+				}
+			}
+		case "ensure_file":
+			if !e.Existed {
+				if err := os.Remove(e.Path); err != nil && !os.IsNotExist(err) {
+					errs = append(errs, "remove ensure: "+err.Error())
+				}
+			} else if e.BackupPath != "" {
+				if err := restoreFile(e.BackupPath, e.Path, e); err != nil {
+					errs = append(errs, err.Error())
+				}
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 func restoreFile(backup, dest string, e journalEntry) error {
@@ -444,10 +466,15 @@ func restoreFile(backup, dest string, e journalEntry) error {
 	if err := os.WriteFile(dest, data, mode); err != nil {
 		return err
 	}
-	if e.UID != 0 || e.GID != 0 {
-		_ = os.Chown(dest, e.UID, e.GID)
+	if e.UID >= 0 && e.GID >= 0 {
+		if err := os.Chown(dest, e.UID, e.GID); err != nil {
+			return fmt.Errorf("chown %s: %w", dest, err)
+		}
 	}
-	return os.Chmod(dest, mode)
+	if err := os.Chmod(dest, mode); err != nil {
+		return err
+	}
+	return nil
 }
 
 func truncateOut(s string, n int) string {
@@ -456,4 +483,43 @@ func truncateOut(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// RecoverIncompleteRemediation rolls back the newest incomplete journal under remediate-backup.
+func RecoverIncompleteRemediation(stateRoot string) error {
+	root := filepath.Join(Dir(stateRoot), "remediate-backup")
+	ents, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var latest string
+	for _, e := range ents {
+		if e.IsDir() {
+			name := e.Name()
+			if name > latest {
+				latest = name
+			}
+		}
+	}
+	if latest == "" {
+		return nil
+	}
+	jp := filepath.Join(root, latest, "journal.json")
+	b, err := os.ReadFile(jp)
+	if err != nil {
+		return err
+	}
+	var journal []journalEntry
+	if err := json.Unmarshal(b, &journal); err != nil {
+		return err
+	}
+	for _, e := range journal {
+		if e.Action == "complete" {
+			return nil // finished ok
+		}
+	}
+	return rollbackJournal(journal)
 }
