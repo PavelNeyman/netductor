@@ -192,9 +192,6 @@ func RunAll(ctx context.Context) (Result, error) {
 	if err != nil {
 		return res, err
 	}
-	if os.Getenv("NETDUCTOR_SKIP_MIGRATE_POSTCHECK") == "1" {
-		return res, nil
-	}
 	if err := PostCheck(); err != nil {
 		return res, err
 	}
