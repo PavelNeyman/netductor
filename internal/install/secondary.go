@@ -18,7 +18,7 @@ import (
 )
 
 // InstallRelay joins a RU VPS to core using bundle.json from core export.
-func InstallRelay(bundlePath string) error {
+func InstallRelay(bundlePath string) (retErr error) {
 	if bundlePath == "" {
 		bundlePath = "bundle.json"
 	}
@@ -144,6 +144,17 @@ func InstallRelay(bundlePath string) error {
 		return err
 	}
 
+	// Preserve prior unit definitions and enablement until activation succeeds.
+	unitTxn, err := beginSecondaryUnitTransaction()
+	if err != nil { return fmt.Errorf("snapshot secondary systemd units: %w", err) }
+	unitTxnTouched := false
+	defer func() {
+		if retErr == nil || !unitTxnTouched { return }
+		if rollbackErr := unitTxn.rollback(); rollbackErr != nil {
+			retErr = fmt.Errorf("%w; secondary unit rollback incomplete: %v", retErr, rollbackErr)
+		}
+	}()
+
 	unit := `[Unit]
 Description=sing-box (Netductor RU secondary)
 After=network-online.target
@@ -161,6 +172,7 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 [Install]
 WantedBy=multi-user.target
 `
+	unitTxnTouched = true
 	if err := writeUnit("sing-box.service", unit); err != nil {
 		return err
 	}
@@ -226,4 +238,73 @@ func InstallSingBoxBinaryOnly() error {
 		return nil
 	}
 	return InstallSingBox()
+}
+
+
+type secondaryUnitSnapshot struct {
+	name string
+	path string
+	data []byte
+	mode os.FileMode
+	exists bool
+	enabled bool
+}
+
+type secondaryUnitTransaction struct { units []secondaryUnitSnapshot }
+
+func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
+	t := &secondaryUnitTransaction{}
+	for _, name := range []string{"sing-box.service", "netductor-secondary-agent.service"} {
+		path := filepath.Join("/etc/systemd/system", name)
+		u := secondaryUnitSnapshot{name: name, path: path}
+		st, err := os.Lstat(path)
+		if err == nil {
+			if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 { return nil, fmt.Errorf("unit %s is not a regular file", name) }
+			u.data, err = os.ReadFile(path)
+			if err != nil { return nil, fmt.Errorf("read %s: %w", name, err) }
+			u.mode, u.exists = st.Mode().Perm(), true
+		} else if !os.IsNotExist(err) { return nil, fmt.Errorf("inspect %s: %w", name, err) }
+		out, enabledErr := exec.Command("systemctl", "is-enabled", strings.TrimSuffix(name, ".service")).CombinedOutput()
+		u.enabled = enabledErr == nil && strings.TrimSpace(string(out)) == "enabled"
+		if enabledErr != nil {
+			msg := strings.TrimSpace(string(out))
+			switch msg {
+			case "disabled", "not-found", "static", "indirect", "masked", "generated", "transient":
+			default: return nil, fmt.Errorf("query enablement for %s: %s: %w", name, msg, enabledErr)
+			}
+		}
+		t.units = append(t.units, u)
+	}
+	return t, nil
+}
+
+func (t *secondaryUnitTransaction) rollback() error {
+	var errs []string
+	// Fail closed: do not restart old services against potentially changed config/secrets.
+	for _, unit := range []string{"netductor-secondary-agent", "sing-box"} {
+		if out, err := exec.Command("systemctl", "stop", unit).CombinedOutput(); err != nil {
+			errs = append(errs, fmt.Sprintf("stop %s: %s: %v", unit, strings.TrimSpace(string(out)), err))
+		}
+	}
+	for i := len(t.units)-1; i >= 0; i-- {
+		u := t.units[i]
+		var err error
+		if u.exists {
+			err = writeInstallFileDurable(u.path, u.data, u.mode)
+		} else {
+			err = os.Remove(u.path)
+			if os.IsNotExist(err) { err = nil }
+			if err == nil { err = syncDirectory(filepath.Dir(u.path)) }
+		}
+		if err != nil { errs = append(errs, fmt.Sprintf("restore %s: %v", u.name, err)) }
+	}
+	if err := run("systemctl", "daemon-reload"); err != nil { errs = append(errs, fmt.Sprintf("daemon-reload: %v", err)) }
+	for _, u := range t.units {
+		unit := strings.TrimSuffix(u.name, ".service")
+		var err error
+		if u.enabled { err = run("systemctl", "enable", unit) } else { err = run("systemctl", "disable", unit) }
+		if err != nil { errs = append(errs, fmt.Sprintf("restore enablement %s: %v", unit, err)) }
+	}
+	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
+	return nil
 }
