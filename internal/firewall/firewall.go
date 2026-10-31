@@ -406,9 +406,12 @@ func ufwPreflightPolicy(status, role string) error {
 		for _, item := range []struct{ port, action, label string }{
 			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
 			{"80", "ALLOW", "http-acme"}, {"8444", "ALLOW", "primary-wss"},
+			{"8787", "DENY", "secondary-api"}, {"8445", "DENY", "secondary-wss"},
 			{"8788", "DENY", "plain-agent"}, {"9443", "DENY", "service-uplink"},
 		} { checkWAN(item.port, item.action, item.label) }
-		checkNoAllow("8788", "plain-agent")
+		for _, item := range []struct{ port, label string }{
+			{"8787", "secondary-api"}, {"8445", "secondary-wss"}, {"8788", "plain-agent"},
+		} { checkNoAllow(item.port, item.label) }
 		uplink := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
 		mtls := ndconfig.AgentMTLSPort()
@@ -842,8 +845,10 @@ func applyIPTables(role string) error {
 				return fmt.Errorf("iptables fallback allow %s: %w", port, err)
 			}
 		}
-		if err := denyTCP("8788"); err != nil {
-			return fmt.Errorf("iptables fallback deny 8788: %w", err)
+		for _, port := range []string{"8787", "8445", "8788"} {
+			if err := denyTCP(port); err != nil {
+				return fmt.Errorf("iptables fallback deny secondary-only port %s: %w", port, err)
+			}
 		}
 		// Match the primary UFW service-uplink policy: only the configured
 		// service peers may reach 9443/tcp; all other IPv4 sources are dropped.
@@ -1404,12 +1409,18 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
 			{"80", "ALLOW", "http-acme"},
 			{"8444", "ALLOW", "primary-wss"},
+			{"8787", "DENY", "secondary-api"},
+			{"8445", "DENY", "secondary-wss"},
 			{"8788", "DENY", "plain-agent"},
 			{"9443", "DENY", "service-uplink-wan"},
 		} {
 			requireBoth(item.port, item.action, item.label)
 		}
-		rejectAnyAllow("8788", "plain-agent")
+		for _, item := range []struct{ port, label string }{
+			{"8787", "secondary-api"}, {"8445", "secondary-wss"}, {"8788", "plain-agent"},
+		} {
+			rejectAnyAllow(item.port, item.label)
+		}
 
 		// The configured service-path CIDRs are IPv4. They must not be
 		// interpreted as permission to expose the same port over IPv6.
