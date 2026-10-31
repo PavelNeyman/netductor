@@ -119,3 +119,57 @@ func TestFaultJournalAtomicReplace(t *testing.T) {
 		t.Fatal("tmp journal left behind")
 	}
 }
+
+func TestFaultJournalTmpPermissionsAreTightened(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	if err := os.MkdirAll(filepath.Dir(journalPath()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	tmp := journalPath() + ".tmp"
+	if err := os.WriteFile(tmp, []byte("stale"), 0o666); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(tmp, 0o666); err != nil {
+		t.Fatal(err)
+	}
+	j := journalFile{Schema: 1, Records: map[string]record{
+		"secure": {ID: "secure", Status: StatusCompleted},
+	}}
+	if err := durableWriteJournal(j); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(journalPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o600 {
+		t.Fatalf("journal mode=%04o want 0600", st.Mode().Perm())
+	}
+}
+
+func TestFaultJournalRejectsUnknownSchemaAndStatus(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	if err := os.MkdirAll(filepath.Dir(journalPath()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"schema", `{"schema":2,"records":{}}`},
+		{"status", `{"schema":1,"records":{"x":{"id":"x","status":"success"}}}`},
+		{"record-id", `{"schema":1,"records":{"x":{"id":"y","status":"completed"}}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(journalPath(), []byte(tc.body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := loadJournal(); err == nil {
+				t.Fatal("invalid journal must be rejected")
+			}
+		})
+	}
+}
