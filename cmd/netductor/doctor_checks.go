@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/aptguard"
 	"github.com/PavelNeyman/netductor/internal/channels"
 	"github.com/PavelNeyman/netductor/internal/ci"
 	"github.com/PavelNeyman/netductor/internal/cli18n"
@@ -99,6 +100,28 @@ func doctorRunChecks(h doctorHooks) {
 			}
 		}
 		(*h.fail)++
+	}
+
+	// APT Repository Guard (read-only policy vs sources); separate from hoster AptPin.
+	{
+		st, detail, sev := aptguard.DoctorSummary(h.state, 12*time.Hour)
+		switch sev {
+		case aptguard.SevFail:
+			doctorPrintf("FAIL aptguard %s %s\n", st, detail)
+			(*h.fail)++
+			lastDoctorReport.Checks = append(lastDoctorReport.Checks, DoctorCheck{ID: "aptguard", Status: "fail"})
+		case aptguard.SevWarn:
+			doctorPrintf("WARN aptguard %s %s\n", st, detail)
+			(*h.warn)++
+			lastDoctorReport.Checks = append(lastDoctorReport.Checks, DoctorCheck{ID: "aptguard", Status: "warn"})
+		case aptguard.SevOK:
+			doctorPrintf("OK   aptguard %s\n", detail)
+			(*h.ok)++
+			lastDoctorReport.Checks = append(lastDoctorReport.Checks, DoctorCheck{ID: "aptguard", Status: "ok"})
+		default:
+			doctorPrintf("INFO aptguard %s %s\n", st, detail)
+			lastDoctorReport.Checks = append(lastDoctorReport.Checks, DoctorCheck{ID: "aptguard", Status: "info"})
+		}
 	}
 
 	bl := install.CheckHostBaseline()

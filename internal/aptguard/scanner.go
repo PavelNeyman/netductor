@@ -37,13 +37,13 @@ type SourceEntry struct {
 }
 
 type Report struct {
-	ServerID      string       `json:"server_id"`
-	Module        string       `json:"module"`
-	Status        Severity     `json:"status"`
-	CheckedAt     time.Time    `json:"checked_at"`
-	PolicyVersion int          `json:"policy_version"`
+	ServerID      string        `json:"server_id"`
+	Module        string        `json:"module"`
+	Status        Severity      `json:"status"`
+	CheckedAt     time.Time     `json:"checked_at"`
+	PolicyVersion int           `json:"policy_version"`
 	Sources       []SourceEntry `json:"sources"`
-	Findings      []Finding    `json:"findings"`
+	Findings      []Finding     `json:"findings"`
 }
 
 // ScanHost reads local APT sources (read-only) and compares to policy.

@@ -1,3 +1,11 @@
+## 0.9.625
+
+APT Repository Guard:
+- Findings store + history under state/aptguard
+- CLI: aptguard scan|status|policy
+- Doctor integration (stale/missing/FAIL/WARN)
+- TG alerts on new findings only (EnqueueAlert)
+
 ## 0.9.624
 
 SSH harden:

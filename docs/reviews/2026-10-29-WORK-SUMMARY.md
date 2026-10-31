@@ -247,3 +247,11 @@ APT Guard (stages 0–2):
 - docs/PLAN-APT-REPOSITORY-GUARD.md integration map
 - internal/aptguard policy + scanner (.list + .sources)
 
+
+### 0.9.625 — APT Guard findings + doctor + CLI
+
+- store: policy.yaml, reports/<id>.json, history/
+- DiffFindings + EnqueueAlert on new FAIL/WARN
+- `netductor aptguard scan|status|policy`
+- doctor: aptguard line (separate from AptPin baseline)
+

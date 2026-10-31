@@ -38,4 +38,11 @@
 - [x] Stage 0 research map
 - [x] Stage 1 DefaultPolicy + Validate
 - [x] Stage 2 Scanner list + deb822 + ScanHost compare
-- [ ] Stages 3–9
+- [x] Stage 3 findings store + history + DiffFindings
+- [x] Stage 5 Doctor summary (primary local report)
+- [x] CLI `netductor aptguard scan|status|policy`
+- [ ] Stage 4 Secondary agent scan path
+- [ ] Stage 6 Scheduling 6h timer
+- [ ] Stage 7 Web UI parity
+- [ ] Stage 8 Remediation
+- [ ] Stage 9 E2E

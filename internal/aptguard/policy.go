@@ -10,10 +10,10 @@ import (
 
 // Policy is the centralized allowlist for APT sources (versioned).
 type Policy struct {
-	Version  int               `yaml:"version" json:"version"`
-	Debian   DebianPolicy      `yaml:"debian" json:"debian"`
-	Repos  []RepositorySpec  `yaml:"repositories" json:"repositories"`
-	Scope    PolicyScope       `yaml:"scope" json:"scope"`
+	Version int              `yaml:"version" json:"version"`
+	Debian  DebianPolicy     `yaml:"debian" json:"debian"`
+	Repos   []RepositorySpec `yaml:"repositories" json:"repositories"`
+	Scope   PolicyScope      `yaml:"scope" json:"scope"`
 }
 
 type DebianPolicy struct {
@@ -46,14 +46,14 @@ func DefaultPolicy() Policy {
 		Repos: []RepositorySpec{
 			{
 				ID: "debian-main", Enabled: true, Type: "debian", Required: true,
-				URIs: []string{"https://deb.debian.org/debian", "http://deb.debian.org/debian"},
-				Suites: []string{"bookworm", "bookworm-updates", "trixie", "trixie-updates"},
+				URIs:       []string{"https://deb.debian.org/debian", "http://deb.debian.org/debian"},
+				Suites:     []string{"bookworm", "bookworm-updates", "trixie", "trixie-updates"},
 				Components: []string{"main", "contrib", "non-free-firmware"},
 			},
 			{
 				ID: "debian-security", Enabled: true, Type: "debian-security", Required: true,
-				URIs: []string{"https://security.debian.org/debian-security", "http://security.debian.org/debian-security"},
-				Suites: []string{"bookworm-security", "trixie-security"},
+				URIs:       []string{"https://security.debian.org/debian-security", "http://security.debian.org/debian-security"},
+				Suites:     []string{"bookworm-security", "trixie-security"},
 				Components: []string{"main", "contrib", "non-free-firmware"},
 			},
 		},

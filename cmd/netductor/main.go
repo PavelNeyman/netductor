@@ -56,6 +56,8 @@ func main() {
 		os.Exit(runSmoke(os.Args[2:]))
 	case "job", "jobs":
 		runJobsCLI(os.Args[2:])
+	case "aptguard", "apt-guard":
+		runAptGuard(os.Args[2:])
 	case "doctor":
 		if len(os.Args) > 2 && os.Args[2] == "--legacy" {
 			fmt.Fprintln(os.Stderr, "legacy doctor removed")
