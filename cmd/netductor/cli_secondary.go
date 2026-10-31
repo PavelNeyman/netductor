@@ -50,12 +50,19 @@ func runSecondary(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
-			b.AgentID = id
-			b.AgentToken = tok
-			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
+		id, tok, err := secondary.IssueToken("secondary")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "issue secondary agent credentials:", err)
+			os.Exit(1)
 		}
-		raw, _ := json.MarshalIndent(b, "", "  ")
+		b.AgentID = id
+		b.AgentToken = tok
+		b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
+		raw, err := json.MarshalIndent(b, "", "  ")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "encode secondary bundle:", err)
+			os.Exit(1)
+		}
 		if err := os.WriteFile(out, append(raw, '\n'), 0o600); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
