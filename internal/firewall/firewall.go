@@ -379,50 +379,11 @@ func applyIPTables(role string) error {
 	}
 	// note: do NOT set default DROP on INPUT via iptables alone — risk lockout
 	fmt.Fprintf(os.Stderr, "firewall: iptables NETDUCTOR chain applied role=%s (fallback; prefer ufw)\n", role)
-	if _, err := exec.LookPath("netfilter-persistent"); err == nil {
-		if out, saveErr := exec.Command("netfilter-persistent", "save").CombinedOutput(); saveErr != nil {
-			return fmt.Errorf("iptables fallback: persist firewall via netfilter-persistent: %v (%s)", saveErr, truncate(string(out), 200))
-		}
-	} else if _, err := exec.LookPath("iptables-save"); err == nil {
-		out, saveErr := exec.Command("iptables-save").Output()
-		if saveErr != nil {
-			return fmt.Errorf("iptables fallback: capture persistent rules: %w", saveErr)
-		}
-		const rulesPath = "/etc/iptables.rules.netductor"
-		tmp, createErr := os.CreateTemp("/etc", ".iptables-rules-*")
-		if createErr != nil {
-			return fmt.Errorf("iptables fallback: create rules temp file: %w", createErr)
-		}
-		tmpPath := tmp.Name()
-		defer os.Remove(tmpPath)
-		if chmodErr := tmp.Chmod(0o600); chmodErr != nil {
-			_ = tmp.Close()
-			return fmt.Errorf("iptables fallback: chmod rules file: %w", chmodErr)
-		}
-		if _, writeErr := tmp.Write(out); writeErr != nil {
-			_ = tmp.Close()
-			return fmt.Errorf("iptables fallback: write rules file: %w", writeErr)
-		}
-		if syncErr := tmp.Sync(); syncErr != nil {
-			_ = tmp.Close()
-			return fmt.Errorf("iptables fallback: sync rules file: %w", syncErr)
-		}
-		if closeErr := tmp.Close(); closeErr != nil {
-			return fmt.Errorf("iptables fallback: close rules file: %w", closeErr)
-		}
-		if renameErr := os.Rename(tmpPath, rulesPath); renameErr != nil {
-			return fmt.Errorf("iptables fallback: replace rules file: %w", renameErr)
-		}
-		dir, openErr := os.Open("/etc")
-		if openErr != nil {
-			return fmt.Errorf("iptables fallback: open /etc for sync: %w", openErr)
-		}
-		defer dir.Close()
-		if syncErr := dir.Sync(); syncErr != nil {
-			return fmt.Errorf("iptables fallback: sync /etc: %w", syncErr)
-		}
-	} else {
-		return fmt.Errorf("iptables fallback: no supported firewall persistence command")
+	if _, err := exec.LookPath("netfilter-persistent"); err != nil {
+		return fmt.Errorf("iptables fallback: netfilter-persistent is unavailable; active rules cannot be guaranteed across reboot")
+	}
+	if out, saveErr := exec.Command("netfilter-persistent", "save").CombinedOutput(); saveErr != nil {
+		return fmt.Errorf("iptables fallback: persist firewall via netfilter-persistent: %v (%s)", saveErr, truncate(string(out), 200))
 	}
 	if err := persistRole(role); err != nil {
 		return err
