@@ -341,6 +341,24 @@ func fsyncDir(dir string) error {
 	return d.Sync()
 }
 
+// mkdirDurable creates path and fsyncs the parent so the directory entry survives crash.
+func mkdirDurable(path string, mode os.FileMode) error {
+	if mode == 0 {
+		mode = 0o700
+	}
+	if err := os.MkdirAll(path, mode); err != nil {
+		return err
+	}
+	if err := fsyncDir(path); err != nil {
+		return err
+	}
+	parent := filepath.Dir(path)
+	if parent != "" && parent != "." && parent != path {
+		_ = fsyncDir(parent)
+	}
+	return nil
+}
+
 func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report, error) {
 	if confirm != "yes" {
 		return Report{}, fmt.Errorf("aptguard: apply requires confirm=yes")
@@ -392,10 +410,13 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 	}
 
 	bakDir := filepath.Join(Dir(stateRoot), "remediate-backup", time.Now().UTC().Format("20060102T150405Z"))
-	if err := os.MkdirAll(bakDir, 0o700); err != nil {
+	if err := mkdirDurable(bakDir, 0o700); err != nil {
 		return Report{}, err
 	}
+	// also durable-create parent tree for remediate-backup
+	_ = fsyncDir(filepath.Dir(bakDir))
 	journalPath := filepath.Join(bakDir, "journal.json")
+	commitPath := filepath.Join(bakDir, "COMMIT")
 	var journal []journalEntry
 
 	persistJournal := func() error {
@@ -481,7 +502,7 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return fail(err)
 			}
-			if err := os.WriteFile(path, []byte(c.Content), 0o644); err != nil {
+			if err := durableWrite(path, []byte(c.Content), 0o644); err != nil {
 				return fail(err)
 			}
 		default:
@@ -508,9 +529,14 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		audit.Log("aptguard", "remediate.apply.save_warn", pv.ServerID, err.Error())
 	}
 	detail := fmt.Sprintf("changes=%d status=%s token=%s", len(pv.Changes), rep.Status, pv.Token)
+	// Forensic complete in journal (not sole commit signal).
 	journal = append(journal, journalEntry{Action: "complete", Path: ""})
 	if err := persistJournal(); err != nil {
 		return fail(fmt.Errorf("commit journal complete: %w", err))
+	}
+	// Durable COMMIT marker is the only recovery "done" signal.
+	if err := durableWrite(commitPath, []byte("ok\n"), 0o600); err != nil {
+		return fail(fmt.Errorf("commit marker: %w", err))
 	}
 	audit.Log("aptguard", "remediate.apply", pv.ServerID, detail)
 	notify.EnqueueAlert("aptguard:apply:"+pv.ServerID, fmt.Sprintf("APT Guard apply on %s: %s (%d changes)", pv.ServerID, rep.Status, len(pv.Changes)))
@@ -559,25 +585,52 @@ func restoreFile(backup, dest string, e journalEntry) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+	dir := filepath.Dir(dest)
+	if err := mkdirDurable(dir, 0o755); err != nil {
 		return err
 	}
 	mode := os.FileMode(0o644)
 	if e.Mode != 0 {
 		mode = os.FileMode(e.Mode)
 	}
-	if err := os.WriteFile(dest, data, mode); err != nil {
+	// Write to temp in same dir, set metadata, fsync, then atomic rename.
+	tmp, err := os.CreateTemp(dir, ".nd-restore-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
 		return err
 	}
 	if e.UID >= 0 && e.GID >= 0 {
-		if err := os.Chown(dest, e.UID, e.GID); err != nil {
-			return fmt.Errorf("chown %s: %w", dest, err)
+		if err := tmp.Chown(e.UID, e.GID); err != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("chown %s: %w", tmpName, err)
 		}
 	}
-	if err := os.Chmod(dest, mode); err != nil {
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
 		return err
 	}
-	return nil
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, dest); err != nil {
+		return err
+	}
+	cleanup = false
+	return fsyncDir(dir)
 }
 
 func truncateOut(s string, n int) string {
@@ -639,9 +692,14 @@ func recoverAllIncompleteLocked(stateRoot string) error {
 			errs = append(errs, name+": "+err.Error())
 			continue
 		}
+		// COMMIT is the durable done marker; journal "complete" alone is not sufficient
+		// (rename of journal may succeed while fsyncDir fails).
+		if _, err := os.Stat(filepath.Join(root, name, "COMMIT")); err == nil {
+			continue
+		}
 		done := false
 		for _, e := range journal {
-			if e.Action == "complete" || e.Action == "recovered" {
+			if e.Action == "recovered" {
 				done = true
 				break
 			}
@@ -661,6 +719,11 @@ func recoverAllIncompleteLocked(stateRoot string) error {
 		}
 		if wErr := durableWrite(jp, jb, 0o600); wErr != nil {
 			errs = append(errs, name+": write recovered: "+wErr.Error())
+			continue
+		}
+		// Mark recovered with COMMIT so we never re-rollback this tx.
+		if wErr := durableWrite(filepath.Join(root, name, "COMMIT"), []byte("recovered\n"), 0o600); wErr != nil {
+			errs = append(errs, name+": write recovered COMMIT: "+wErr.Error())
 			continue
 		}
 	}

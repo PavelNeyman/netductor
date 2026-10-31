@@ -1,3 +1,12 @@
+## 0.9.634
+
+APT Guard durability:
+- mkdirDurable + parent fsync for bak dirs
+- restoreFile atomic durable restore
+- managed source durableWrite
+- COMMIT marker is recovery done signal
+- SavePolicyFile uses durableWrite
+
 ## 0.9.633
 
 APT Guard:

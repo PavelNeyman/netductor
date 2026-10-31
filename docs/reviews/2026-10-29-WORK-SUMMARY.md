@@ -325,3 +325,12 @@ APT Guard (stages 0–2):
 - EnsurePolicy under flock; migrate empty SignedBy from DefaultPolicy
 - managed sources use policy SignedBy
 
+
+### 0.9.634 — APT durable restore + COMMIT marker
+
+- mkdirDurable + parent fsync for transaction dirs
+- restoreFile: temp+metadata+fsync+rename
+- ensure_file via durableWrite
+- COMMIT file is sole recovery done signal (not journal complete alone)
+- SavePolicyFile durable; recovered writes COMMIT
+

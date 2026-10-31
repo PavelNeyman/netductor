@@ -119,5 +119,6 @@ func SavePolicyFile(path string, p Policy) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o644)
+	// durable atomic write (same package as durableWrite)
+	return durableWrite(path, b, 0o600)
 }

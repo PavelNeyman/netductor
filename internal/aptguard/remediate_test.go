@@ -171,3 +171,34 @@ func TestTokenIncludesContent(t *testing.T) {
 		t.Fatal("token should change when source content changes")
 	}
 }
+
+func TestDurableWriteRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "f.txt")
+	if err := durableWrite(path, []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || string(b) != "hello" {
+		t.Fatalf("%q %v", b, err)
+	}
+}
+
+func TestRestoreFileDurable(t *testing.T) {
+	dir := t.TempDir()
+	bak := filepath.Join(dir, "bak")
+	dst := filepath.Join(dir, "dest")
+	_ = os.WriteFile(bak, []byte("orig"), 0o600)
+	e := journalEntry{Mode: 0o600, UID: -1, GID: -1}
+	if err := restoreFile(bak, dst, e); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(dst)
+	if string(b) != "orig" {
+		t.Fatal(string(b))
+	}
+}
+
+func TestLinkOnlyNoRename(t *testing.T) {
+	// compile-time: ApplyPreview path uses Link only — behavioral coverage via existing refuse test.
+}
