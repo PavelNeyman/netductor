@@ -363,12 +363,7 @@ func applyIPTables(role string) error {
 	denyTCP := func(port string) error {
 		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "DROP")
 	}
-	allowTCP := func(port string) error {
-		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "ACCEPT")
-	}
-	denyTCP := func(port string) error {
-		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "DROP")
-	}
+}
 	for _, step := range []struct {
 		fn   func() error
 		what string
