@@ -977,8 +977,16 @@ WantedBy=timers.target
 	if err := os.WriteFile("/etc/systemd/system/netductor-stack-watchdog.timer", []byte(timer), 0o644); err != nil {
 		return err
 	}
-	_ = exec.Command("systemctl", "daemon-reload").Run()
-	_ = exec.Command("systemctl", "enable", "--now", "netductor-stack-watchdog.timer").Run()
+	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+		return fmt.Errorf("watchdog daemon-reload: %w", err)
+	}
+	if err := exec.Command("systemctl", "enable", "--now", "netductor-stack-watchdog.timer").Run(); err != nil {
+		return fmt.Errorf("enable watchdog timer: %w", err)
+	}
+	active, sub := unitState("netductor-stack-watchdog.timer")
+	if active != "active" && sub != "waiting" {
+		return fmt.Errorf("watchdog timer is %s/%s after enable", active, sub)
+	}
 	return nil
 }
 
