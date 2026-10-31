@@ -454,11 +454,12 @@ func secondaryUpgrade(tag string) (bool, string) {
 		}
 		st, err := os.Stat(dest)
 		if err != nil { return "", fmt.Errorf("stat %s: %w", asset, err) }
-		if !st.Mode().IsRegular() || st.Size() < 1000 { return "", fmt.Errorf("invalid %s asset size/type", asset) }
+		if !st.Mode().IsRegular() || st.Size() == 0 { return "", fmt.Errorf("invalid %s asset size/type", asset) }
 		return dest, nil
 	}
 	assetPath, err := download(nodeAsset)
 	if err != nil { return false, err.Error() }
+	if st, err := os.Stat(assetPath); err != nil || st.Size() < 1000 { return false, "downloaded node binary is missing or too small" }
 	sumsPath, err := download("SHA256SUMS")
 	if err != nil { return false, "refuse upgrade without SHA256SUMS: " + err.Error() }
 	sums, err := os.ReadFile(sumsPath)
