@@ -443,11 +443,11 @@ func secondaryUpgrade(tag string) (bool, string) {
 	download := func(asset string) (string, error) {
 		dest := filepath.Join(stageDir, asset)
 		url := base + asset
-		cmd := exec.Command("curl", "-fL", "--connect-timeout", "20", "--max-time", "180", "-o", dest, url)
+		cmd := exec.Command("curl", "-fL", "--proto", "=https", "--proto-redir", "=https", "--connect-timeout", "20", "--max-time", "180", "-o", dest, url)
 		out, err := cmd.CombinedOutput()
 		log.Write(out)
 		if err != nil {
-			cmd = exec.Command("wget", "-O", dest, url)
+			cmd = exec.Command("wget", "--https-only", "--timeout=30", "--tries=2", "-O", dest, url)
 			out, err = cmd.CombinedOutput()
 			log.Write(out)
 			if err != nil { return "", fmt.Errorf("download %s failed: %w", asset, err) }
