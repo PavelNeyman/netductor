@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -252,7 +253,7 @@ func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 
 // StartAgentPlane serves mTLS agent plane (:8789): secondary + edge + nvr.
 // Default: mTLS only on :8789. Plain :8788 unsupported.
-func StartAgentPlane() {
+func StartAgentPlane() error {
 	// Shared agent plane (mTLS :8789): secondary + edge + nvr device APIs.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)
@@ -262,73 +263,45 @@ func StartAgentPlane() {
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
 		d := secondary.FindByToken(tok)
-		if d == nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+		if d == nil { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
 		ca, cert, key, err := mtls.ReadMaterial(d.ID)
-		if err != nil {
-			http.Error(w, err.Error(), 404)
-			return
-		}
+		if err != nil { http.Error(w, err.Error(), 404); return }
 		writeJSON(w, 200, map[string]any{"ca_pem": string(ca), "cert_pem": string(cert), "key_pem": string(key), "node_id": d.ID})
 	})
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		_, _ = w.Write([]byte("ok\n"))
-	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte("ok\n")) })
 	mux.HandleFunc("/api/bot-status", func(w http.ResponseWriter, r *http.Request) {
 		out, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").Output()
 		active := strings.TrimSpace(string(out)) == "active"
 		writeJSON(w, 200, map[string]any{"ok": active, "bot": strings.TrimSpace(string(out))})
 	})
 	registerEdgeAPI(mux)
-	registerBuildHostAgentAPI(mux) // build-host agent routes on :8789
+	registerBuildHostAgentAPI(mux)
 	registerNVRAPI(mux)
 
-	// Ensure certs exist (auto-generate CA/server/client if missing).
-	if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil {
-		fmt.Fprintln(os.Stderr, "mtls.EnsureAll:", err)
-		return
-	}
-
-	if !mtls.ServerReady() {
-		fmt.Fprintln(os.Stderr, "agent plane: mTLS certs missing — run: netductor mtls ensure")
-	} else {
-		tlsCfg, err := mtls.ServerTLSConfig()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "mtls: server config:", err)
-		} else {
-			tlsAddr := os.Getenv("NETDUCTOR_AGENT_MTLS")
-			if tlsAddr == "" {
-				tlsAddr = ":" + mtls.AgentTLSPort
-			}
-			go func() {
-				lim := httpx.NewPlaneLimiter(180, time.Minute) // 180 req/min/IP
-				srv := &http.Server{
-					Addr:              tlsAddr,
-					Handler:           lim.Middleware(withSecurity(mux)),
-					TLSConfig:         tlsCfg,
-					ReadHeaderTimeout: 10 * time.Second,
-					ReadTimeout:       60 * time.Second,
-					WriteTimeout:      120 * time.Second,
-					IdleTimeout:       120 * time.Second,
-				}
-				fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
-				if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-					fmt.Fprintln(os.Stderr, "mtls serve:", err)
-				}
-			}()
-		}
-	}
-
-	// Plain :8788 removed from product (use mTLS :8789 only).
+	// Refuse startup before the main API becomes ready if mTLS cannot be served.
 	if os.Getenv("NETDUCTOR_PLAIN_AGENT") == "1" {
-		fmt.Fprintln(os.Stderr, "FAIL: NETDUCTOR_PLAIN_AGENT is unsupported — refuse start")
-		os.Exit(1)
+		return fmt.Errorf("NETDUCTOR_PLAIN_AGENT is unsupported; only mTLS agent plane is allowed")
 	}
+	if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil { return fmt.Errorf("mtls.EnsureAll: %w", err) }
+	if !mtls.ServerReady() { return fmt.Errorf("agent plane mTLS certificates are missing") }
+	tlsCfg, err := mtls.ServerTLSConfig()
+	if err != nil { return fmt.Errorf("mtls server config: %w", err) }
+	tlsAddr := strings.TrimSpace(os.Getenv("NETDUCTOR_AGENT_MTLS"))
+	if tlsAddr == "" { tlsAddr = ":" + mtls.AgentTLSPort }
+	listener, err := net.Listen("tcp", tlsAddr)
+	if err != nil { return fmt.Errorf("agent plane listen %s: %w", tlsAddr, err) }
+	lim := httpx.NewPlaneLimiter(180, time.Minute)
+	srv := &http.Server{
+		Addr: tlsAddr, Handler: lim.Middleware(withSecurity(mux)), TLSConfig: tlsCfg,
+		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 60 * time.Second,
+		WriteTimeout: 120 * time.Second, IdleTimeout: 120 * time.Second,
+	}
+	go func() {
+		fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
+		if err := srv.ServeTLS(listener, "", ""); err != nil && err != http.ErrServerClosed { fmt.Fprintln(os.Stderr, "mtls serve:", err) }
+	}()
+	return nil
 }
-
 func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method", 405)
