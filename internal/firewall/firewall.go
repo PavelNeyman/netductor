@@ -80,9 +80,9 @@ func acquireFirewallApplyLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("firewall: inspect apply lock: %w", err)
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != 0 || st.Mode&0o022 != 0 {
 		_ = unix.Close(fd)
-		return nil, fmt.Errorf("firewall: apply lock is not a regular file")
+		return nil, fmt.Errorf("firewall: apply lock must be a root-owned regular file not writable by group or others")
 	}
 	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
 		_ = unix.Close(fd)
