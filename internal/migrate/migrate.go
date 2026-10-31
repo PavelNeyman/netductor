@@ -71,8 +71,21 @@ func loadJournal() (journalFile, error) {
 	if err := json.Unmarshal(b, &j); err != nil {
 		return j, fmt.Errorf("migrate journal corrupt: %w", err)
 	}
+	if j.Schema != 1 {
+		return j, fmt.Errorf("migrate journal unsupported schema %d", j.Schema)
+	}
 	if j.Records == nil {
-		j.Records = map[string]record{}
+		return j, fmt.Errorf("migrate journal corrupt: records is null")
+	}
+	for key, rec := range j.Records {
+		if key == "" || rec.ID == "" || key != rec.ID {
+			return j, fmt.Errorf("migrate journal corrupt: record key/id mismatch for %q", key)
+		}
+		switch rec.Status {
+		case StatusPending, StatusRunning, StatusCompleted, StatusFailed:
+		default:
+			return j, fmt.Errorf("migrate journal corrupt: invalid status %q for %s", rec.Status, key)
+		}
 	}
 	return j, nil
 }
@@ -90,13 +103,19 @@ func durableWriteJournal(j journalFile) error {
 		return err
 	}
 	tmp := journalPath() + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	f, err := os.Open(tmp)
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
-		_ = os.Remove(tmp)
 		return fmt.Errorf("migrate journal open tmp: %w", err)
+	}
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("migrate journal chmod tmp: %w", err)
+	}
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("migrate journal write tmp: %w", err)
 	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
