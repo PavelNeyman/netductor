@@ -737,11 +737,13 @@ func ApplyOpts(tag string, noBackup bool) error {
 		if err := exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
 			retryErrors = append(retryErrors, "systemctl-reset-failed:"+err.Error())
 		}
-		if err := exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
-			retryErrors = append(retryErrors, "systemctl-restart-retry:"+err.Error())
+		if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
+			retryErrors = append(retryErrors, "systemctl-restart-api-retry:"+err.Error())
+		} else if !waitAPIHealthy(20 * time.Second) {
+			retryErrors = append(retryErrors, "api-health-after-retry")
+		} else if err := exec.Command("systemctl", "restart", "netductor-telegram-bot").Run(); err != nil {
+			retryErrors = append(retryErrors, "systemctl-restart-tg-retry:"+err.Error())
 		}
-		fmt.Fprintln(os.Stderr, "stack apply: health pending (retry poll up to 12s)")
-		_ = waitAPIHealthy(12 * time.Second)
 		st = Collect()
 		failed = nil
 		for _, u := range st.Units {
