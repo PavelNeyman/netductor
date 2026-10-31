@@ -1,3 +1,11 @@
+## 0.9.633
+
+APT Guard:
+- Quarantine hardlink-only (no Rename overwrite race)
+- durableWrite for journal, backups, recovered marker
+- Policy load under remediation lock; SignedBy migration
+- Managed sources Signed-By from policy
+
 ## 0.9.632
 
 APT Guard P0 residual:

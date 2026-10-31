@@ -40,7 +40,11 @@ func HistoryDir(stateRoot, serverID string) string {
 func EnsurePolicy(stateRoot string) (Policy, error) {
 	path := PolicyPath(stateRoot)
 	if _, err := os.Stat(path); err == nil {
-		return LoadPolicyFile(path)
+		p, err := LoadPolicyFile(path)
+		if err != nil {
+			return Policy{}, err
+		}
+		return migratePolicySignedBy(path, p)
 	}
 	p := DefaultPolicy()
 	if err := os.MkdirAll(Dir(stateRoot), 0o755); err != nil {
@@ -118,4 +122,28 @@ func DiffFindings(prev, cur Report) (added, removed []Finding) {
 
 func findingKey(f Finding) string {
 	return fmt.Sprintf("%s|%s|%s", f.Code, f.SourceFile, f.Message)
+}
+
+func migratePolicySignedBy(path string, p Policy) (Policy, error) {
+	changed := false
+	def := DefaultPolicy()
+	defByID := map[string]RepositorySpec{}
+	for _, r := range def.Repos {
+		defByID[r.ID] = r
+	}
+	for i := range p.Repos {
+		if len(p.Repos[i].SignedBy) == 0 {
+			if d, ok := defByID[p.Repos[i].ID]; ok && len(d.SignedBy) > 0 {
+				p.Repos[i].SignedBy = append([]string{}, d.SignedBy...)
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return p, nil
+	}
+	if err := SavePolicyFile(path, p); err != nil {
+		return p, err
+	}
+	return p, nil
 }

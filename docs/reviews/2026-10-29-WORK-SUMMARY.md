@@ -316,3 +316,12 @@ APT Guard (stages 0–2):
 - journal complete must persist or fail (with rollback via fail())
 - DefaultPolicy SignedBy keyring; strict suite/component sets; Deb822 continuation PARSE_ERROR
 
+
+### 0.9.633 — APT P0 residual (durable journal / link-only)
+
+- quarantine: hardlink only, no Rename fallback
+- durableWrite: tmp+fsync+rename+fsync dir for journal/backup/recovered
+- recovered marker must persist or recovery errors
+- EnsurePolicy under flock; migrate empty SignedBy from DefaultPolicy
+- managed sources use policy SignedBy
+

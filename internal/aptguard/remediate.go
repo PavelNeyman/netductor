@@ -201,11 +201,14 @@ func managedSourcesContent(policy Policy, codename string) (string, error) {
 		if len(r.Components) > 0 {
 			comps = strings.Join(r.Components, " ")
 		}
+		if len(r.SignedBy) == 0 {
+			return "", fmt.Errorf("repo %s: SignedBy required for managed sources", r.ID)
+		}
 		b.WriteString("Types: deb\n")
 		b.WriteString("URIs: " + r.URIs[0] + "\n")
 		b.WriteString("Suites: " + suite + "\n")
 		b.WriteString("Components: " + comps + "\n")
-		b.WriteString("Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\n")
+		b.WriteString("Signed-By: " + r.SignedBy[0] + "\n\n")
 		wrote++
 	}
 	if wrote == 0 {
@@ -228,7 +231,12 @@ func aptSourcesFingerprint(fsRoot string) string {
 	h := sha256.New()
 	paths := []string{filepath.Join(fsRoot, "etc/apt/sources.list")}
 	dir := filepath.Join(fsRoot, "etc/apt/sources.list.d")
-	if ents, err := os.ReadDir(dir); err == nil {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(h, "DIRERR:%v\n", err)
+		}
+	} else {
 		names := make([]string, 0, len(ents))
 		for _, e := range ents {
 			if e.IsDir() {
@@ -242,14 +250,14 @@ func aptSourcesFingerprint(fsRoot string) string {
 		}
 	}
 	for _, pth := range paths {
-		_, _ = fmt.Fprintf(h, "%s\n", pth)
+		fmt.Fprintf(h, "%s\n", pth)
 		b, err := os.ReadFile(pth)
 		if err != nil {
-			_, _ = fmt.Fprintf(h, "ERR:%v\n", err)
+			fmt.Fprintf(h, "ERR:%v\n", err)
 			continue
 		}
 		sum := sha256.Sum256(b)
-		_, _ = fmt.Fprintf(h, "%s\n", hex.EncodeToString(sum[:]))
+		fmt.Fprintf(h, "%s\n", hex.EncodeToString(sum[:]))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -282,16 +290,63 @@ func aptBusy() bool {
 
 // ApplyPreview applies changes with flock + journal; on failure restores files and metadata.
 // confirm must be "yes". previewToken must match a freshly rebuilt plan (or empty only if no changes).
+
+func durableWrite(path string, data []byte, mode os.FileMode) error {
+	if mode == 0 {
+		mode = 0o600
+	}
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, ".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	cleanup = false
+	return fsyncDir(dir)
+}
+
+func fsyncDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.Sync()
+}
+
 func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report, error) {
 	if confirm != "yes" {
 		return Report{}, fmt.Errorf("aptguard: apply requires confirm=yes")
 	}
 	if fsRoot == "" {
 		fsRoot = "/"
-	}
-	policy, err := EnsurePolicy(stateRoot)
-	if err != nil {
-		return Report{}, err
 	}
 	if err := os.MkdirAll(Dir(stateRoot), 0o755); err != nil {
 		return Report{}, err
@@ -309,6 +364,11 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 
 	if err := recoverAllIncompleteLocked(stateRoot); err != nil {
 		return Report{}, fmt.Errorf("aptguard: recovery: %w", err)
+	}
+
+	policy, err := EnsurePolicy(stateRoot)
+	if err != nil {
+		return Report{}, err
 	}
 
 	// Under lock: re-scan, re-token, then mutate
@@ -343,15 +403,7 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(journalPath, jb, 0o600); err != nil {
-			return err
-		}
-		f, err := os.OpenFile(journalPath, os.O_RDWR, 0o600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		return f.Sync()
+		return durableWrite(journalPath, jb, 0o600)
 	}
 
 	fail := func(op error) (Report, error) {
@@ -380,7 +432,7 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 				return fail(err)
 			}
 			dst := filepath.Join(bakDir, fmt.Sprintf("%d-%s.bak", i, filepath.Base(path)))
-			if err := os.WriteFile(dst, data, mode.Perm()); err != nil {
+			if err := durableWrite(dst, data, mode.Perm()); err != nil {
 				return fail(fmt.Errorf("backup: %w", err))
 			}
 			q := path + ".nd-quarantine"
@@ -398,10 +450,9 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 				return fail(fmt.Errorf("journal: %w", err))
 			}
 			if err := os.Link(path, q); err != nil {
-				if err2 := os.Rename(path, q); err2 != nil {
-					return fail(err2)
-				}
-			} else if err := os.Remove(path); err != nil {
+				return fail(fmt.Errorf("quarantine link (no rename fallback): %w", err))
+			}
+			if err := os.Remove(path); err != nil {
 				_ = os.Remove(q)
 				return fail(err)
 			}
@@ -418,7 +469,7 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 					return fail(err)
 				}
 				dst := filepath.Join(bakDir, fmt.Sprintf("%d-%s.prev", i, filepath.Base(path)))
-				if err := os.WriteFile(dst, data, st.Mode().Perm()); err != nil {
+				if err := durableWrite(dst, data, st.Mode().Perm()); err != nil {
 					return fail(fmt.Errorf("backup existing: %w", err))
 				}
 				ent.BackupPath = dst
@@ -603,8 +654,15 @@ func recoverAllIncompleteLocked(stateRoot string) error {
 			continue
 		}
 		journal = append(journal, journalEntry{Action: "recovered", Path: name})
-		jb, _ := json.MarshalIndent(journal, "", "  ")
-		_ = os.WriteFile(jp, jb, 0o600)
+		jb, mErr := json.MarshalIndent(journal, "", "  ")
+		if mErr != nil {
+			errs = append(errs, name+": marshal recovered: "+mErr.Error())
+			continue
+		}
+		if wErr := durableWrite(jp, jb, 0o600); wErr != nil {
+			errs = append(errs, name+": write recovered: "+wErr.Error())
+			continue
+		}
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
