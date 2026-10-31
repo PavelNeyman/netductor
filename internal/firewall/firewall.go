@@ -73,7 +73,7 @@ func EnsureInstalled() (Backend, error) {
 	// Fallback only when UFW is genuinely unavailable, so Apply and Collect
 	// cannot select different backends based on binary presence.
 	if _, lookupErr := exec.LookPath("iptables"); lookupErr == nil {
-		fmt.Fprintf(os.Stderr, "firewall: ufw install failed (%v: %s) — using iptables fallback\\n", installErr, truncate(string(out), 200))
+		fmt.Fprintf(os.Stderr, "firewall: ufw install failed (%v: %s) — using iptables fallback\n", installErr, truncate(string(out), 200))
 		return BackendIPTables, nil
 	}
 	return BackendNone, fmt.Errorf("firewall: cannot install ufw and no iptables: %v %s", installErr, truncate(string(out), 300))
