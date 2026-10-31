@@ -531,6 +531,9 @@ func ApplyOpts(tag string, noBackup bool) error {
 	} else {
 		tag = t2
 	}
+	// Recover stale journal before acquiring this run's owner lock; otherwise
+	// the new lock could make an old incomplete transaction look active.
+	if err := RecoverIncompleteApply(); err != nil { return err }
 	if !TryAcquireApplyLock(tag) {
 		busy, cur, _ := ApplyInProgress()
 		_ = busy
@@ -569,8 +572,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 			return applyFail
 		}
 	}
-	// Recover prior interrupted work; never discard its journal or pre-images.
-	if err := RecoverIncompleteApply(); err != nil { applyFail = err; return err }
+	// Only terminal evidence can be cleaned before a new attempt.
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil { applyFail = fmt.Errorf("clean previous apply evidence: %w", err); return applyFail }
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
@@ -729,11 +731,11 @@ func rollbackApplyFailure(att string, cause error) error {
 }
 
 func restoreFrom(dir string) error {
-	// Manual rollback/promote uses the same pair journal as Apply. The source
-	// snapshot is copied out first because it may be prev/, which must stay intact.
+	// Recover before taking our own lock so an old journal is not mistaken for
+	// this restore's active transaction.
+	if err := RecoverIncompleteApply(); err != nil { return err }
 	if !TryAcquireApplyLock("manual-restore") { return fmt.Errorf("another stack apply/restore is active") }
 	defer ClearApplyLock()
-	if err := RecoverIncompleteApply(); err != nil { return err }
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil { return err }
 
 	root := filepath.Join(paths.StateDir(), "stack")
