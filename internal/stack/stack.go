@@ -273,15 +273,34 @@ func recoverPrevSnapshotSwap() error {
 	// must not clean up the in-flight directory promotion.
 	if applyOwnerActive() { return nil }
 	root := filepath.Join(paths.StateDir(), "stack")
-	prev, old := prevDir(), filepath.Join(root, "prev.old")
-	if _, err := os.Stat(prev); os.IsNotExist(err) {
-		if _, e := os.Stat(old); e == nil {
+	prev := prevDir()
+	next := filepath.Join(root, "prev.next")
+	old := filepath.Join(root, "prev.old")
+	tx, txErr := loadTx(attemptDir())
+	committed := txErr == nil && tx.Phase == txCommitted
+
+	_, prevErr := os.Stat(prev)
+	_, oldErr := os.Stat(old)
+	_, nextErr := os.Stat(next)
+	if os.IsNotExist(prevErr) {
+		if committed && nextErr == nil {
+			// Commit is durable and the prepared last-good snapshot is complete.
+			// Finish the directory promotion if power failed before next→prev.
+			if err := os.Rename(next, prev); err != nil { return err }
+			if err := syncDir(root); err != nil { return err }
+		} else if oldErr == nil {
+			// Uncommitted promotion (or committed promotion without a staged dir):
+			// preserve the prior last-good snapshot.
 			if err := os.Rename(old, prev); err != nil { return err }
 			if err := syncDir(root); err != nil { return err }
 		}
-	} else if err != nil { return err
-	} else if err := os.RemoveAll(old); err != nil { return err }
-	return os.RemoveAll(filepath.Join(root, "prev.next"))
+	} else if prevErr != nil { return prevErr }
+
+	// Once prev exists, old is obsolete. A committed tx may have already
+	// promoted prev; an uncommitted tx must never promote next.
+	if err := os.RemoveAll(old); err != nil { return err }
+	if err := os.RemoveAll(next); err != nil { return err }
+	return syncDir(root)
 }
 
 // replaceExecutable performs a durable same-filesystem replacement and verifies bytes.
