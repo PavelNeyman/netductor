@@ -367,15 +367,15 @@ func applyUFW(role string) error {
 		return fmt.Errorf("NETDUCTOR_FW_RESET is disabled: resetting an active firewall is not transaction-safe; remove the variable and apply the role policy without reset")
 	}
 	sp := sshPort()
-	if err := ufwPreflightPolicy(string(current), role); err != nil {
-		return fmt.Errorf("UFW preflight: %w", err)
-	}
 	// Preserve the active management path before tightening the default policy.
 	// Avoid adding a duplicate on every apply when the first WAN rule already
 	// permits SSH for that address family.
 	current, inspectErr := exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if inspectErr != nil {
 		return fmt.Errorf("inspect UFW rules before SSH safeguard: %v (%s)", inspectErr, truncate(string(current), 200))
+	}
+	if err := ufwPreflightPolicy(string(current), role); err != nil {
+		return fmt.Errorf("UFW preflight: %w", err)
 	}
 	if strings.Contains(string(current), "Status: active") {
 		rules := parseUfwNumbered(string(current))
