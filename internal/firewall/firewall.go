@@ -59,18 +59,24 @@ func EnsureInstalled() (Backend, error) {
 	}
 	cmd := exec.Command("apt-get", "install", "-y", "ufw")
 	cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		if _, err2 := exec.LookPath("ufw"); err2 == nil {
+	out, installErr := cmd.CombinedOutput()
+	if installErr == nil {
+		if _, lookupErr := exec.LookPath("ufw"); lookupErr == nil {
 			return BackendUFW, nil
 		}
+	} else if _, lookupErr := exec.LookPath("ufw"); lookupErr == nil {
+		// Collect() prefers UFW whenever its binary exists. Falling back to
+		// iptables after a partial package installation would apply one backend
+		// while status/health reports the other.
+		return BackendNone, fmt.Errorf("firewall: UFW installation failed but its binary is present; refusing an ambiguous iptables fallback: %v (%s)", installErr, truncate(string(out), 200))
 	}
-	// fallback: iptables
-	if _, err := exec.LookPath("iptables"); err == nil {
-		fmt.Fprintf(os.Stderr, "firewall: ufw install failed (%v: %s) — using iptables fallback\n", err, truncate(string(out), 200))
+	// Fallback only when UFW is genuinely unavailable, so Apply and Collect
+	// cannot select different backends based on binary presence.
+	if _, lookupErr := exec.LookPath("iptables"); lookupErr == nil {
+		fmt.Fprintf(os.Stderr, "firewall: ufw install failed (%v: %s) — using iptables fallback\\n", installErr, truncate(string(out), 200))
 		return BackendIPTables, nil
 	}
-	return BackendNone, fmt.Errorf("firewall: cannot install ufw and no iptables: %v %s", err, truncate(string(out), 300))
+	return BackendNone, fmt.Errorf("firewall: cannot install ufw and no iptables: %v %s", installErr, truncate(string(out), 300))
 }
 
 func truncate(s string, n int) string { return format.Truncate(strings.TrimSpace(s), n) }
