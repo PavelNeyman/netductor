@@ -197,9 +197,11 @@ func recoverIncompleteApply() (bool, error) {
 // RecoverIncompleteApply is used by non-API callers. If recovery rolled back
 // the pair, restart both services so their mapped executable matches disk.
 func RecoverIncompleteApply() error {
+	prior, priorErr := loadTx(attemptDir())
+	persistedRollback := priorErr == nil && prior.Phase == txRolledBack
 	rolledBack, err := recoverIncompleteApply()
 	if err != nil { return err }
-	if !rolledBack { return nil }
+	if !rolledBack && !persistedRollback { return nil }
 	var restartErrs []string
 	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
 		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil { restartErrs = append(restartErrs, unit+": "+err.Error()) }
