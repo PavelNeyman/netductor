@@ -253,6 +253,55 @@ func snapshotBins(dir string) error {
 // snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
 func snapshotPrev() error { return snapshotBins(prevDir()) }
 
+// replaceExecutable writes src bytes to dest via dest.new + rename (best-effort Sync).
+func replaceExecutable(src, dest string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	tmp := dest + ".new"
+	if err := os.WriteFile(tmp, data, 0o755); err != nil {
+		return err
+	}
+	if f, err := os.Open(tmp); err == nil {
+		_ = f.Sync()
+		_ = f.Close()
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// installStagedPair installs node+tg from staged files. If tg fails after node, restores node from attempt/.
+func installStagedPair(nodeSrc, tgSrc string) error {
+	return installStagedPairTo(nodeSrc, tgSrc, "/usr/local/bin/netductor", "/usr/local/bin/netductor-tg", attemptDir())
+}
+
+// installStagedPairTo is the testable core for pair install with restore on partial failure.
+func installStagedPairTo(nodeSrc, tgSrc, nodeDest, tgDest, att string) error {
+	_ = os.MkdirAll(att, 0o755)
+	for _, pair := range []struct{ path, name string }{
+		{nodeDest, "netductor"},
+		{tgDest, "netductor-tg"},
+	} {
+		if b, err := os.ReadFile(pair.path); err == nil {
+			_ = os.WriteFile(filepath.Join(att, pair.name), b, 0o755)
+		}
+	}
+	if err := replaceExecutable(nodeSrc, nodeDest); err != nil {
+		return fmt.Errorf("install node: %w", err)
+	}
+	if err := replaceExecutable(tgSrc, tgDest); err != nil {
+		if b, rerr := os.ReadFile(filepath.Join(att, "netductor")); rerr == nil {
+			_ = os.WriteFile(nodeDest, b, 0o755)
+		}
+		return fmt.Errorf("install tg: %w (node restored from attempt snapshot)", err)
+	}
+	return nil
+}
+
 // verNorm strips leading v.
 func verNorm(s string) string {
 	return strings.TrimPrefix(strings.TrimSpace(s), "v")
@@ -453,32 +502,55 @@ func ApplyOpts(tag string, noBackup bool) error {
 	_ = os.RemoveAll(attemptDir())
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
-		if path, err := install.Backup(); err != nil {
-			fmt.Fprintln(os.Stderr, "warn backup:", err)
-		} else {
-			fmt.Fprintln(os.Stderr, "backup:", path)
-			_, _ = install.WaitForBackupPull(12*time.Second, time.Now().UTC().Add(-2*time.Second), "", nil)
+		path, err := install.Backup()
+		if err != nil {
+			applyFail = fmt.Errorf("pre-backup required: %w (use stack apply --no-backup only if intentional)", err)
+			notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (backup): "+err.Error())
+			return applyFail
 		}
+		fmt.Fprintln(os.Stderr, "backup:", path)
+		_, _ = install.WaitForBackupPull(12*time.Second, time.Now().UTC().Add(-2*time.Second), "", nil)
 	}
 	fmt.Fprintln(os.Stderr, "stack apply:", tag)
 	notify.AlertOnce("stack:apply:"+tag, "⬆️ Stack apply <code>"+tag+"</code> started")
-	if err := ndupdate.DownloadReleaseAsset(tag, "node", "/usr/local/bin/netductor"); err != nil {
-		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (node): "+err.Error())
-		applyFail = fmt.Errorf("node: %w", err)
+	// Stage both binaries before touching live paths — avoid node-only partial apply.
+	stageDir := filepath.Join(paths.StateDir(), "stack", "stage")
+	_ = os.RemoveAll(stageDir)
+	if err := os.MkdirAll(stageDir, 0o755); err != nil {
+		applyFail = fmt.Errorf("stage dir: %w", err)
 		return applyFail
 	}
-	if err := ndupdate.DownloadReleaseAsset(tag, "tg", "/usr/local/bin/netductor-tg"); err != nil {
-		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg): "+err.Error())
-		applyFail = fmt.Errorf("tg: %w", err)
+	nodeStage := filepath.Join(stageDir, "netductor")
+	tgStage := filepath.Join(stageDir, "netductor-tg")
+	if err := ndupdate.DownloadReleaseAsset(tag, "node", nodeStage); err != nil {
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (node download): "+err.Error())
+		applyFail = fmt.Errorf("node download: %w", err)
 		return applyFail
 	}
+	if err := ndupdate.DownloadReleaseAsset(tag, "tg", tgStage); err != nil {
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg download): "+err.Error())
+		applyFail = fmt.Errorf("tg download: %w", err)
+		return applyFail
+	}
+	if err := installStagedPair(nodeStage, tgStage); err != nil {
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (install): "+err.Error())
+		applyFail = err
+		return applyFail
+	}
+	_ = os.RemoveAll(stageDir)
 	ndupdate.WriteVERSION(tag)
 	saveCurrent(tag)
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
-	_ = exec.Command("systemctl", "restart", "netductor-api").Run()
-	_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
-	_ = exec.Command("systemctl", "try-restart", "netductor-redirect").Run()
+	if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "systemctl restart netductor-api:", err)
+	}
+	if err := exec.Command("systemctl", "restart", "netductor-telegram-bot").Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "systemctl restart netductor-telegram-bot:", err)
+	}
+	if err := exec.Command("systemctl", "try-restart", "netductor-redirect").Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "systemctl try-restart netductor-redirect:", err)
+	}
 	// Bot long-poll / restart is flaky for 10–20s — do NOT hard-fail on telegram-bot alone
 	// (that caused auto-rollback to ancient prev like 0.9.121 after a successful binary replace).
 	// R15: poll API health instead of fixed 12s sleep

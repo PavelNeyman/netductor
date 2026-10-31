@@ -389,3 +389,10 @@ APT Guard (stages 0–2):
 - Audit doc: docs/audits/2026-10-31-apply-startup-migration-audit.md
 - Stat test: remove COMMIT when simulating IsNotExist
 
+
+### 0.9.642 — Apply Stage 2
+
+- Backup fail-closed
+- Staged pair install + restore on partial tg failure
+- Restart errors logged
+

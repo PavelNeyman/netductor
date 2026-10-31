@@ -52,3 +52,15 @@
 ## Evidence
 
 Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update.go`, `SecondaryUnits`, `InstallRelay` ExecStart.
+
+## Stage 2 progress (0.9.642)
+
+| Item | Status |
+|------|--------|
+| Backup fail-closed | Done — error returns; `--no-backup` / `noBackup` still available |
+| Stage both downloads before live replace | Done |
+| Restore node if tg install fails | Done (`installStagedPairTo`) |
+| Restart error logging | Done (API/TG/redirect) |
+| Process version probe | Open |
+| Host Apply cross-process flock | Open |
+| Startup Migration Runner | Open |

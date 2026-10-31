@@ -1,3 +1,10 @@
+## 0.9.642
+
+Stack Apply (Stage 2):
+- Pre-backup failure aborts apply (fail-closed; --no-backup still allowed)
+- Download node+tg to stage dir first; install pair; restore node if tg install fails
+- Log systemctl restart errors (still soft on bot; health gate for API)
+
 ## 0.9.641
 
 Update API:
