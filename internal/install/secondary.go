@@ -407,8 +407,11 @@ func beginSecondaryFileTransaction(pathsToCapture []string) (*secondaryFileTrans
 	t := &secondaryFileTransaction{}
 	var err error
 	t.runtimeHostname, err = os.Hostname()
-	if err != nil || strings.TrimSpace(t.runtimeHostname) == "" {
+	if err != nil {
 		return nil, fmt.Errorf("capture runtime hostname: %w", err)
+	}
+	if strings.TrimSpace(t.runtimeHostname) == "" {
+		return nil, fmt.Errorf("capture runtime hostname: empty hostname")
 	}
 	seen := make(map[string]struct{}, len(pathsToCapture))
 	for _, path := range pathsToCapture {
