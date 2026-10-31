@@ -34,12 +34,20 @@ func ApplyInProgress() (busy bool, tag string, started time.Time) {
 	b, err := os.ReadFile(applyLockFile)
 	if err != nil { return false, "", time.Time{} }
 	parts := strings.SplitN(strings.TrimSpace(string(b)), "\t", 3)
-	if len(parts) < 3 || parts[0] == "" || parts[1] == "" {
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
 		return false, "", time.Time{}
 	}
 	ts, err := time.Parse(time.RFC3339, parts[0])
 	if err != nil { return false, "", time.Time{} }
-	alive := applyPIDRunning(parts[2]) || applyUnitRunning()
+	alive := applyUnitRunning()
+	if len(parts) == 3 {
+		alive = alive || applyPIDRunning(parts[2])
+	} else {
+		// Compatibility with locks written by pre-PID releases. They cannot
+		// prove process ownership, so honor them for the bounded legacy TTL.
+		age := time.Since(ts)
+		alive = alive || (age >= 0 && age < applyLockTTL)
+	}
 	if !alive {
 		_ = ClearApplyLock()
 		return false, "", time.Time{}
