@@ -847,6 +847,62 @@ func firstTCPActionFromWAN(rules []ufwRule, port string) (action string, found b
 	return firstTCPActionFromWANFamily(rules, port, false)
 }
 
+// ufwSourceCovers reports whether a UFW source selector covers every address
+// in targetCIDR. "Anywhere" covers all sources; host addresses are treated as
+// single-address networks.
+func ufwSourceCovers(from, targetCIDR string) bool {
+	from = strings.TrimSpace(from)
+	if ufwFromIsWAN(from) {
+		return true
+	}
+	targetIP, targetNet, targetErr := net.ParseCIDR(strings.TrimSpace(targetCIDR))
+	if targetErr != nil {
+		if ip := net.ParseIP(strings.TrimSpace(targetCIDR)); ip != nil {
+			bits := 128
+			if ip.To4() != nil {
+				bits = 32
+			}
+			targetNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}
+		} else {
+			return false
+		}
+	} else if targetIP == nil {
+		return false
+	}
+	fromIP, fromNet, fromErr := net.ParseCIDR(from)
+	if fromErr != nil {
+		if ip := net.ParseIP(from); ip != nil {
+			bits := 128
+			if ip.To4() != nil {
+				bits = 32
+			}
+			fromNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}
+		} else {
+			return false
+		}
+	} else if fromIP == nil {
+		return false
+	}
+	if (targetNet.IP.To4() != nil) != (fromNet.IP.To4() != nil) {
+		return false
+	}
+	ones, _ := fromNet.Mask.Size()
+	targetOnes, _ := targetNet.Mask.Size()
+	return ones <= targetOnes && fromNet.Contains(targetNet.IP)
+}
+
+// firstTCPActionFromSource returns the first ordered rule that applies to the
+// complete requested source range and port for one address family.
+func firstTCPActionFromSource(rules []ufwRule, port, sourceCIDR string, ipv6 bool) (action string, found bool) {
+	for _, rule := range rules {
+		if rule.IPv6 != ipv6 || !ufwRuleMatchesPortTCP(rule, port) || !ufwSourceCovers(rule.From, sourceCIDR) {
+			continue
+		}
+		return rule.Action, true
+	}
+	return "", false
+}
+
 func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	ok = true
 	rules := parseUfwNumbered(status)
@@ -897,35 +953,21 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 
 		// The configured service-path CIDRs are IPv4. They must not be
 		// interpreted as permission to expose the same port over IPv6.
-		var serviceUplinkTrustedAllow bool
-		for _, rule := range rules {
-			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" {
-				continue
+		for _, cidr := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
+			action, found := firstTCPActionFromSource(rules, "9443", cidr, false)
+			if !found || action != "ALLOW" {
+				ok = false
+				warnings = append(warnings, "service uplink: first matching IPv4 rule for "+cidr+" on 9443/tcp is "+action+" (want ALLOW)")
 			}
-			if cidrEqual(rule.From, ndconfig.SvcSPCIDR()) || cidrEqual(rule.From, ndconfig.SvcPSCIDR()) {
-				serviceUplinkTrustedAllow = true
-				break
-			}
-		}
-		if !serviceUplinkTrustedAllow {
-			ok = false
-			warnings = append(warnings, "service uplink: no IPv4 restricted ALLOW from configured service CIDRs for 9443/tcp")
 		}
 
 		mtls := ndconfig.AgentMTLSPort()
-		var trustedAllow bool
-		for _, rule := range rules {
-			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || rule.Action != "ALLOW" {
-				continue
+		for _, source := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
+			action, found := firstTCPActionFromSource(rules, mtls, source, false)
+			if !found || action != "ALLOW" {
+				ok = false
+				warnings = append(warnings, "mtls: first matching IPv4 rule for "+source+" on "+mtls+"/tcp is "+action+" (want ALLOW)")
 			}
-			if ufwFromIsTrustedMTLS(rule.From) {
-				trustedAllow = true
-				break
-			}
-		}
-		if !trustedAllow {
-			ok = false
-			warnings = append(warnings, "mtls: no IPv4 ALLOW from configured service CIDRs/loopback for "+mtls+"/tcp")
 		}
 		// Explicitly reject any IPv6 WAN ALLOW for the mTLS port. The
 		// family-specific WAN rule check above also requires a first DENY.
@@ -937,18 +979,10 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
 			requireBoth(lp, "DENY", "lampac-wan")
-			var loopbackAllow bool
-			for _, rule := range rules {
-				from := strings.TrimSpace(rule.From)
-				if !rule.IPv6 && ufwRuleMatchesPortTCP(rule, lp) && rule.Action == "ALLOW" &&
-					(from == "127.0.0.1" || strings.HasPrefix(from, "127.0.0.1/")) {
-					loopbackAllow = true
-					break
-				}
-			}
-			if !loopbackAllow {
+			action, found := firstTCPActionFromSource(rules, lp, "127.0.0.1", false)
+			if !found || action != "ALLOW" {
 				ok = false
-				warnings = append(warnings, "lampac: no IPv4 loopback ALLOW for "+lp+"/tcp")
+				warnings = append(warnings, "lampac: first matching IPv4 loopback rule for "+lp+"/tcp is "+action+" (want ALLOW)")
 			}
 		}
 	} else {
