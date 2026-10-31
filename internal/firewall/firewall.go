@@ -227,7 +227,42 @@ func sshPort() string {
 	return strconv.Itoa(hardening.SSHPort())
 }
 
+func ufwIPv6Enabled() (bool, error) {
+	b, err := os.ReadFile("/etc/default/ufw")
+	if err != nil {
+		return false, fmt.Errorf("read /etc/default/ufw: %w", err)
+	}
+	found := false
+	enabled := false
+	for _, raw := range strings.Split(string(b), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || strings.TrimSpace(key) != "IPV6" {
+			continue
+		}
+		if found {
+			return false, fmt.Errorf("duplicate IPV6 setting in /etc/default/ufw")
+		}
+		found = true
+		value = strings.Trim(strings.TrimSpace(value), "\"'")
+		enabled = strings.EqualFold(value, "yes")
+	}
+	if !found {
+		return false, fmt.Errorf("IPV6 setting is missing from /etc/default/ufw")
+	}
+	if !enabled {
+		return false, fmt.Errorf("IPV6 is not enabled in /etc/default/ufw")
+	}
+	return true, nil
+}
+
 func applyUFW(role string) error {
+	if _, err := ufwIPv6Enabled(); err != nil {
+		return fmt.Errorf("ufw IPv6 policy prerequisite: %w", err)
+	}
 	run := func(args ...string) error {
 		cmd := exec.Command("ufw", args...)
 		out, err := cmd.CombinedOutput()
@@ -589,6 +624,10 @@ func Collect(role string) Status {
 		st.Active = strings.Contains(s, "Status: active")
 		st.Detail = firstLines(s, 16)
 		ok, warns := ufwEffectivePolicy(s, role)
+		if _, ipv6Err := ufwIPv6Enabled(); ipv6Err != nil {
+			ok = false
+			warns = append(warns, "IPv6 filtering prerequisite: "+ipv6Err.Error())
+		}
 		verbose, verboseErr := exec.Command("ufw", "status", "verbose").CombinedOutput()
 		if verboseErr != nil {
 			ok = false
