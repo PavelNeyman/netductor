@@ -147,8 +147,18 @@ func LatestReleaseTag() (string, error) {
 	return latestFromGitHub()
 }
 
+func requireHTTPSRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("update: too many redirects")
+	}
+	if req.URL.Scheme != "https" {
+		return fmt.Errorf("update: refusing non-HTTPS redirect to %s", req.URL.Scheme)
+	}
+	return nil
+}
+
 func latestFromGitHub() (string, error) {
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: requireHTTPSRedirect}
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
 	setGitHubHeaders(req)
 	resp, err := client.Do(req)
@@ -234,7 +244,7 @@ func ListReleases(limit int) ([]ReleaseInfo, error) {
 		}
 		return list, nil
 	}
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := &http.Client{Timeout: 20 * time.Second, CheckRedirect: requireHTTPSRedirect}
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=%d", Repo, limit)
 	req, _ := http.NewRequest("GET", url, nil)
 	setGitHubHeaders(req)
@@ -391,7 +401,7 @@ func FetchSHA256SUMS(tag string) (map[string]string, error) {
 
 // FetchSHA256SUMSRaw returns the raw file body and parsed map.
 func FetchSHA256SUMSRaw(tag string) ([]byte, map[string]string, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second, CheckRedirect: requireHTTPSRedirect}
 	resp, err := client.Get(downloadURL(tag, "SHA256SUMS"))
 	if err != nil {
 		return nil, nil, err
