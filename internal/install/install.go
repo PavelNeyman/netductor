@@ -1,8 +1,10 @@
 package install
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -267,6 +269,35 @@ func applyHostname(role string) error {
 	}
 	return nil
 }
+
+func detectPublicIPv4() string {
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "tcp4", addr)
+		},
+	}
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 { return fmt.Errorf("too many redirects") }
+			if req.URL.Scheme != "https" { return fmt.Errorf("refuse non-HTTPS redirect") }
+			return nil
+		},
+	}
+	for _, endpoint := range []string{"https://api4.ipify.org", "https://ipv4.icanhazip.com"} {
+		resp, err := client.Get(endpoint)
+		if err != nil { continue }
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64))
+		closeErr := resp.Body.Close()
+		if readErr != nil || closeErr != nil || resp.StatusCode != http.StatusOK { continue }
+		ip := strings.TrimSpace(string(body))
+		parsed := net.ParseIP(ip)
+		if parsed != nil && parsed.To4() != nil { return parsed.To4().String() }
+	}
+	return ""
+}
+
 func detectPublicIP() string {
 	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "public_ip")); err == nil {
 		if ip := strings.TrimSpace(string(b)); ip != "" {
