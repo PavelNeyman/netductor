@@ -192,6 +192,9 @@ func recoverApplyTx(att string) error {
 		if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("apply recovery blocked: %w", err) }
 		return nil
 	case txPrepared, txNodeInstalled:
+		if applyOwnerActive() {
+			return fmt.Errorf("apply recovery blocked: transaction %s is still mutating the binary pair", tx.ID)
+		}
 		if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("apply recovery blocked: %w", err) }
 		return nil
 	default:
