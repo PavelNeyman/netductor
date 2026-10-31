@@ -157,10 +157,11 @@ func applyOwnerActive() bool {
 	if applyUnitRunning() { return true }
 	b, err := os.ReadFile(applyLockFile)
 	if err != nil { return false }
-	parts := strings.SplitN(strings.TrimSpace(string(b)), "\t", 2)
-	if len(parts) == 0 { return false }
+	parts := strings.SplitN(strings.TrimSpace(string(b)), "\t", 3)
+	if len(parts) != 3 { return false }
 	started, err := time.Parse(time.RFC3339, parts[0])
-	return err == nil && time.Since(started) >= 0 && time.Since(started) < 45*time.Second
+	if err != nil || time.Since(started) < 0 { return false }
+	return applyPIDRunning(parts[2])
 }
 
 func RecoverIncompleteApply() error {
