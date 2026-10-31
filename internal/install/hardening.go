@@ -82,15 +82,14 @@ func EnsureHostBaseline(role string) error {
 		return err
 	}
 	if err := ensureWatchdogTimer(); err != nil {
-		fmt.Fprintf(os.Stderr, "watchdog-install: %v\n", err)
-	} else {
-		fmt.Fprintln(os.Stderr, "host baseline: firewall="+role+" + netductor-stack-watchdog.timer")
+		return fmt.Errorf("watchdog baseline: %w", err)
 	}
+	fmt.Fprintln(os.Stderr, "host baseline: firewall="+role+" + netductor-stack-watchdog.timer")
 	if err := logs.EnsureTimer(); err != nil {
 		fmt.Fprintf(os.Stderr, "logs-rotate timer: %v\n", err)
 	}
 	if err := WriteHosterAptBlock(); err != nil {
-		fmt.Fprintf(os.Stderr, "hoster apt pin: %v\n", err)
+		return fmt.Errorf("hoster apt pin baseline: %w", err)
 	}
 	if err := SnapshotHostBaseline(); err != nil {
 		fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
