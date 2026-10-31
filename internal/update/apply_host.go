@@ -32,10 +32,24 @@ var DefaultHostRegistry = NewJobRegistry()
 
 // ApplyHostComponent runs resolve → download to .new → keep .prev → atomic rename → optional restart → health.
 // States follow the Phase 1 machine. Does not write VERSION for multi-binary stacks (caller may WriteVERSION).
+// Cross-process flock serializes Apply/Rollback for the same component/instance.
 func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 	if o.InstanceID == "" {
 		o.InstanceID = "local"
 	}
+	var out *UpdateJob
+	var outErr error
+	lockErr := withHostComponentLock(o.Component, o.InstanceID, func() error {
+		out, outErr = applyHostComponentLocked(o)
+		return outErr
+	})
+	if lockErr != nil && out == nil {
+		return nil, lockErr
+	}
+	return out, outErr
+}
+
+func applyHostComponentLocked(o HostApplyOpts) (*UpdateJob, error) {
 	if o.JobID == "" {
 		o.JobID = fmt.Sprintf("%s-%s-%d", o.Component, o.InstanceID, time.Now().UnixNano())
 	}
@@ -139,7 +153,9 @@ func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 		if _, err := mark(StateRestarting, ""); err != nil {
 			return cur, err
 		}
-		_ = exec.Command("systemctl", "try-restart", o.Unit).Run()
+		if err := exec.Command("systemctl", "restart", o.Unit).Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "update: systemctl restart %s: %v\n", o.Unit, err)
+		}
 		if _, err := mark(StateHealthChecking, ""); err != nil {
 			return cur, err
 		}
@@ -147,7 +163,7 @@ func ApplyHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 			return failHealth(err)
 		}
 		if !o.SkipVersionProbe {
-			if err := probeBinaryVersion(dest, job.TargetVersion); err != nil {
+			if err := probeRunningUnitVersion(o.Unit, job.TargetVersion); err != nil {
 				return failHealth(err)
 			}
 		}
@@ -225,6 +241,19 @@ func healthUnitActive(unit string) error {
 	return nil
 }
 
+// probeRunningUnitVersion checks the systemd unit MainPID executable version string.
+func probeRunningUnitVersion(unit, wantVer string) error {
+	out, err := exec.Command("systemctl", "show", "-p", "MainPID", "--value", unit).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("health: MainPID for %s: %v (%s)", unit, err, truncateOut(string(out), 80))
+	}
+	pid := strings.TrimSpace(string(out))
+	if pid == "" || pid == "0" {
+		return fmt.Errorf("health: unit %s has no MainPID (not running?)", unit)
+	}
+	return probeBinaryVersion(filepath.Join("/proc", pid, "exe"), wantVer)
+}
+
 // probeBinaryVersion runs "<path> version" and requires output to contain the target version string.
 func probeBinaryVersion(path, wantVer string) error {
 	wantVer = strings.TrimPrefix(strings.TrimSpace(wantVer), "v")
@@ -265,6 +294,19 @@ func RollbackHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 	if o.InstanceID == "" {
 		o.InstanceID = "local"
 	}
+	var out *UpdateJob
+	var outErr error
+	lockErr := withHostComponentLock(o.Component, o.InstanceID, func() error {
+		out, outErr = rollbackHostComponentLocked(o)
+		return outErr
+	})
+	if lockErr != nil && out == nil {
+		return nil, lockErr
+	}
+	return out, outErr
+}
+
+func rollbackHostComponentLocked(o HostApplyOpts) (*UpdateJob, error) {
 	if o.JobID == "" {
 		o.JobID = fmt.Sprintf("rollback-%s-%s-%d", o.Component, o.InstanceID, time.Now().UnixNano())
 	}
@@ -303,7 +345,9 @@ func RollbackHostComponent(o HostApplyOpts) (*UpdateJob, error) {
 		return j, fmt.Errorf("rollback: %w", err)
 	}
 	if o.Restart && o.Unit != "" {
-		_ = exec.Command("systemctl", "try-restart", o.Unit).Run()
+		if err := exec.Command("systemctl", "restart", o.Unit).Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "update: systemctl restart %s after rollback: %v\n", o.Unit, err)
+		}
 		if err := healthUnitActive(o.Unit); err != nil {
 			j, _ := mark(StateFailed, err.Error())
 			return j, err

@@ -396,3 +396,10 @@ APT Guard (stages 0–2):
 - Staged pair install + restore on partial tg failure
 - Restart errors logged
 
+
+### 0.9.643 — Host Apply lock + process version
+
+- withHostComponentLock (flock)
+- probeRunningUnitVersion (MainPID /proc/exe)
+- restart via systemctl restart with error log
+

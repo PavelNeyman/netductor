@@ -64,3 +64,11 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 | Process version probe | Open |
 | Host Apply cross-process flock | Open |
 | Startup Migration Runner | Open |
+
+## Stage 2b progress (0.9.643)
+
+| Item | Status |
+|------|--------|
+| Process version probe | Done — MainPID → /proc/PID/exe |
+| Host Apply cross-process flock | Done |
+| Startup Migration Runner | Open |

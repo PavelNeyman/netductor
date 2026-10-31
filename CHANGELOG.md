@@ -1,3 +1,10 @@
+## 0.9.643
+
+Update Host Apply:
+- Cross-process flock per component/instance (Apply + Rollback)
+- systemctl restart errors logged; unit health still required
+- Version probe prefers running process via MainPID → /proc/PID/exe
+
 ## 0.9.642
 
 Stack Apply (Stage 2):
