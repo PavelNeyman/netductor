@@ -311,7 +311,7 @@ func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
 		u.enabledState = strings.TrimSpace(string(out))
 		if enabledErr != nil {
 			switch u.enabledState {
-			case "disabled", "not-found", "static", "indirect", "masked", "generated", "transient":
+			case "disabled", "not-found", "static", "indirect", "masked", "masked-runtime", "generated", "transient":
 			default: return nil, fmt.Errorf("query enablement for %s: %s: %w", name, u.enabledState, enabledErr)
 			}
 		}
@@ -322,13 +322,9 @@ func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
 
 func (t *secondaryUnitTransaction) rollback() error {
 	var errs []string
-	// Fail closed: do not restart old services against potentially changed config/secrets.
+	// Fail closed: stop both managed units unconditionally. is-active is not
+	// authoritative when systemd is unavailable or its query fails.
 	for _, unit := range []string{"netductor-secondary-agent", "sing-box"} {
-		state, _ := exec.Command("systemctl", "is-active", unit).CombinedOutput()
-		status := strings.TrimSpace(string(state))
-		if status != "active" && status != "activating" && status != "deactivating" {
-			continue
-		}
 		if out, err := exec.Command("systemctl", "stop", unit).CombinedOutput(); err != nil {
 			errs = append(errs, fmt.Sprintf("stop %s: %s: %v", unit, strings.TrimSpace(string(out)), err))
 		}
@@ -352,9 +348,13 @@ func (t *secondaryUnitTransaction) rollback() error {
 		switch u.enabledState {
 		case "enabled", "enabled-runtime":
 			err = run("systemctl", "enable", unit)
-		case "masked":
+		case "masked", "masked-runtime":
 			_ = run("systemctl", "unmask", unit)
-			err = run("systemctl", "mask", "--force", unit)
+			if u.enabledState == "masked-runtime" {
+				err = run("systemctl", "mask", "--runtime", "--force", unit)
+			} else {
+				err = run("systemctl", "mask", "--force", unit)
+			}
 		default:
 			err = run("systemctl", "disable", unit)
 			if err == nil && u.enabledState == "masked" {
@@ -405,7 +405,11 @@ func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 
 func beginSecondaryFileTransaction(pathsToCapture []string) (*secondaryFileTransaction, error) {
 	t := &secondaryFileTransaction{}
-	t.runtimeHostname, _ = os.Hostname()
+	var err error
+	t.runtimeHostname, err = os.Hostname()
+	if err != nil || strings.TrimSpace(t.runtimeHostname) == "" {
+		return nil, fmt.Errorf("capture runtime hostname: %w", err)
+	}
 	seen := make(map[string]struct{}, len(pathsToCapture))
 	for _, path := range pathsToCapture {
 		if _, ok := seen[path]; ok { continue }
