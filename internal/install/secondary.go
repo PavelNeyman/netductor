@@ -244,10 +244,43 @@ WantedBy=multi-user.target
 
 // InstallSingBoxBinaryOnly ensures sing-box exists (may run full InstallSingBox once).
 func InstallSingBoxBinaryOnly() error {
-	if st, err := os.Stat("/usr/local/bin/sing-box"); err == nil && !st.IsDir() {
+	const destination = "/usr/local/bin/sing-box"
+	st, err := os.Lstat(destination)
+	if err == nil {
+		if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("existing sing-box binary is not a regular file")
+		}
+		if st.Mode().Perm()&0o111 == 0 {
+			return fmt.Errorf("existing sing-box binary is not executable")
+		}
 		return nil
 	}
-	return InstallSingBox()
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("inspect sing-box binary: %w", err)
+	}
+
+	// Do not call InstallSingBox here: that routine also writes secrets/config,
+	// installs and starts a systemd unit, and would escape InstallRelay's transaction.
+	stage, err := os.MkdirTemp("/usr/local/bin", ".sing-box-stage-*")
+	if err != nil {
+		return fmt.Errorf("create sing-box staging directory: %w", err)
+	}
+	defer os.RemoveAll(stage)
+	tag := resolveSingBoxTag()
+	if err := downloadSingBoxVersion(stage, tag); err != nil {
+		return fmt.Errorf("download sing-box %s: %w", tag, err)
+	}
+	binary, err := os.ReadFile(filepath.Join(stage, "sing-box"))
+	if err != nil {
+		return fmt.Errorf("read staged sing-box binary: %w", err)
+	}
+	if len(binary) == 0 {
+		return fmt.Errorf("downloaded sing-box binary is empty")
+	}
+	if err := writeInstallFileDurable(destination, binary, 0o755); err != nil {
+		return fmt.Errorf("install sing-box binary: %w", err)
+	}
+	return nil
 }
 
 
@@ -349,6 +382,7 @@ func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 	state := paths.StateDir()
 	out := []string{
 		filepath.Join(etc, "node_id"),
+		filepath.Join(etc, "public_ip"),
 		filepath.Join(etc, "node_uuid"),
 		"/etc/hostname",
 		"/etc/hosts",
