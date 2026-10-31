@@ -481,17 +481,26 @@ func Collect(role string) Status {
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		st.Backend = BackendIPTables
-		out, _ := exec.Command("iptables", "-S", "NETDUCTOR").CombinedOutput()
-		s := string(out)
-		st.Active = strings.Contains(s, "NETDUCTOR") && !strings.Contains(s, "No chain")
-		st.Detail = firstLines(s, 20)
+		input, inputErr := exec.Command("iptables", "-S", "INPUT").CombinedOutput()
+		jumpPos, activeChain, jumpErr := managedInputJump(string(input))
+		_ = jumpPos
+		if inputErr == nil && jumpErr == nil && activeChain != "" {
+			out, chainErr := exec.Command("iptables", "-S", activeChain).CombinedOutput()
+			s := string(out)
+			st.Active = chainErr == nil && strings.Contains(s, activeChain)
+			st.Detail = firstLines(s, 20)
+			if !st.Active || !strings.Contains(s, "--dport "+sshPort()) {
+				st.Warnings = append(st.Warnings, "iptables managed chain missing or incomplete (ufw preferred)")
+			} else {
+				st.Warnings = append(st.Warnings, "iptables fallback: policy not fully verified — not OK (prefer ufw)")
+			}
+		} else {
+			st.Active = false
+			st.Detail = firstLines(string(input), 20)
+			st.Warnings = append(st.Warnings, "iptables managed INPUT jump missing or ambiguous")
+		}
 		// Do not report OK for iptables fallback — role policy is not fully verified.
 		st.OK = false
-		if !st.Active || !strings.Contains(s, "--dport "+sshPort()) {
-			st.Warnings = append(st.Warnings, "iptables NETDUCTOR chain missing or incomplete (ufw preferred)")
-		} else {
-			st.Warnings = append(st.Warnings, "iptables fallback: policy not fully verified — not OK (prefer ufw)")
-		}
 		return st
 	}
 	st.Backend = BackendNone
