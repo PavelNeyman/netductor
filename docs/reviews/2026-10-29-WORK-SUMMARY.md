@@ -255,3 +255,11 @@ APT Guard (stages 0–2):
 - `netductor aptguard scan|status|policy`
 - doctor: aptguard line (separate from AptPin baseline)
 
+
+### 0.9.626 — APT Guard secondary + timer + API
+
+- secondary cmd aptguard_scan (allowlist + RunLocalScan)
+- InstallAptGuardTimer 6h in EnsureHostBaseline
+- API: GET /api/aptguard/status, POST scan, POST scan-secondary
+- opcatalog aptguard action
+

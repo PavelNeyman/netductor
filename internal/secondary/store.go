@@ -474,7 +474,7 @@ func Rename(id, name string) error {
 func allowedSecondaryCmd(cmd string) bool {
 	cmd = strings.TrimSpace(cmd)
 	switch cmd {
-	case "reboot", "upgrade", "mtls_refresh", "backup_pull", "metrics", "journal", "ssh_keys", "backup_local":
+	case "reboot", "upgrade", "mtls_refresh", "backup_pull", "metrics", "journal", "ssh_keys", "backup_local", "aptguard_scan":
 		return true
 	}
 	if strings.HasPrefix(cmd, "upgrade:") || strings.HasPrefix(cmd, "backup_pull:") || strings.HasPrefix(cmd, "ssh_allowlist:") {

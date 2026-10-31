@@ -55,7 +55,8 @@ func InstallHardening() error {
 	if err := vpn.EnsureCanarySeed(); err != nil {
 		fmt.Fprintf(os.Stderr, "canary seed: %v\n", err)
 	}
-	_ = InstallBackupVerifyTimer() // primary install path only
+	_ = InstallBackupVerifyTimer()
+	_ = InstallAptGuardTimer() // primary install path only
 	return nil
 }
 

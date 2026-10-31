@@ -43,6 +43,7 @@ func All() []Action {
 		a("tg-alerts-set", "overview", "POST", "/api/telegram/alerts-chat", `{"chat_id":"-100…"}`, "tg-alerts set", "Set TG alerts channel", "Задать канал алертов"),
 		a("cleanup-apply", "overview", "POST", "/api/cleanup", `{"apply":true}`, "cleanup --apply", "Cleanup apply", "Очистка применить"),
 		a("doctor", "overview", "GET", "/api/doctor", "", "doctor", "Doctor", "Doctor"),
+		a("aptguard", "overview", "GET", "/api/aptguard/status", "", "aptguard", "APT Guard", "APT Guard"),
 		a("domain", "overview", "GET", "/api/domain", "", "domain show", "Domain", "Домен"),
 		a("bot", "overview", "GET", "/api/bot-status", "", "—", "Bot status", "Статус бота"),
 		a("status", "overview", "GET", "/api/status", "", "status", "Status", "Статус"),

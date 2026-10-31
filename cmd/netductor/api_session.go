@@ -33,5 +33,6 @@ func registerSessionAPI(mux *http.ServeMux) {
 	registerSessionSNI(mux)
 	registerSessionSites(mux)
 	registerSessionStatus(mux)
+	registerSessionAptGuard(mux)
 	registerSessionMTLS(mux)
 }

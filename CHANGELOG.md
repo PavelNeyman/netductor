@@ -1,3 +1,11 @@
+## 0.9.626
+
+APT Repository Guard:
+- Secondary: cmd aptguard_scan
+- Timer netductor-aptguard.timer (6h) on host-baseline
+- Session API /api/aptguard/status|scan|scan-secondary
+- opcatalog entry
+
 ## 0.9.625
 
 APT Repository Guard:

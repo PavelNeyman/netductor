@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/aptguard"
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -330,6 +331,16 @@ func runAgentCmd(cmd string) (ok bool, log string) {
 		return secondaryBackupPull()
 	case "metrics":
 		return true, "metrics on next heartbeat"
+	case "aptguard_scan":
+		host, _ := os.Hostname()
+		if host == "" {
+			host = "local"
+		}
+		rep, _, err := aptguard.RunLocalScan(paths.StateDir(), host, "/")
+		if err != nil {
+			return false, err.Error()
+		}
+		return rep.Status != aptguard.SevFail, fmt.Sprintf("status=%s findings=%d policy_v=%d", rep.Status, len(rep.Findings), rep.PolicyVersion)
 	case "journal":
 		out, err := exec.Command("journalctl", "-u", "sing-box", "-u", "netductor-secondary-agent", "-n", "60", "--no-pager", "-o", "short-iso").CombinedOutput()
 		return err == nil || len(out) > 0, string(out)
