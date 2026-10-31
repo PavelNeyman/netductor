@@ -286,7 +286,7 @@ func ufwPreflightPolicy(status, role string) error {
 	}
 	checkNoAllow := func(port, label string) {
 		for _, rule := range rules {
-			if ufwRuleMatchesPortTCP(rule, port) && rule.Action == "ALLOW" {
+			if ufwRuleMatchesPortTCP(rule, port) && ufwRuleAllowsTraffic(rule.Action) {
 				family := "IPv4"
 				if rule.IPv6 { family = "IPv6" }
 				conflicts = append(conflicts, fmt.Sprintf("%s %s has existing %s ALLOW from %s", label, port, family, rule.From))
@@ -323,7 +323,7 @@ func ufwPreflightPolicy(status, role string) error {
 		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"}
 		for _, source := range trustedMTLS { checkSource(mtls, source, "mtls") }
 		for _, rule := range rules {
-			if !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" { continue }
+			if !ufwRuleMatchesPortTCP(rule, "9443") || !ufwRuleAllowsTraffic(rule.Action) { continue }
 			trusted := false
 			if !rule.IPv6 {
 				for _, source := range uplink {
@@ -333,7 +333,7 @@ func ufwPreflightPolicy(status, role string) error {
 			if !trusted { conflicts = append(conflicts, "service-uplink has an existing untrusted ALLOW from "+rule.From) }
 		}
 		for _, rule := range rules {
-			if !ufwRuleMatchesPortTCP(rule, mtls) || rule.Action != "ALLOW" { continue }
+			if !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) { continue }
 			trusted := false
 			if !rule.IPv6 {
 				for _, source := range trustedMTLS {
@@ -347,7 +347,7 @@ func ufwPreflightPolicy(status, role string) error {
 			checkWAN(lp, "DENY", "lampac")
 			checkSource(lp, "127.0.0.1", "lampac-loopback")
 			for _, rule := range rules {
-				if ufwRuleMatchesPortTCP(rule, lp) && rule.Action == "ALLOW" &&
+				if ufwRuleMatchesPortTCP(rule, lp) && ufwRuleAllowsTraffic(rule.Action) &&
 					(rule.IPv6 || !ufwSourceContainedBy(rule.From, "127.0.0.1")) {
 					conflicts = append(conflicts, "lampac has an existing untrusted ALLOW from "+rule.From)
 				}
@@ -953,6 +953,12 @@ func parseUfwNumbered(status string) []ufwRule {
 	return rules
 }
 
+func ufwRuleAllowsTraffic(action string) bool {
+	// UFW LIMIT is rate-limited acceptance, not a deny. Treat it as an
+	// allow when checking that restricted ports have no exposure exceptions.
+	return action == "ALLOW" || action == "LIMIT"
+}
+
 func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 	// All callers use this matcher for inbound policy. UFW status also lists
 	// OUT and FWD rules; those must never influence WAN/input decisions.
@@ -1159,7 +1165,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	}
 	rejectAnyAllow := func(port, label string) {
 		for _, rule := range rules {
-			if ufwRuleMatchesPortTCP(rule, port) && rule.Action == "ALLOW" {
+			if ufwRuleMatchesPortTCP(rule, port) && ufwRuleAllowsTraffic(rule.Action) {
 				ok = false
 				family := "IPv4"
 				if rule.IPv6 { family = "IPv6" }
@@ -1206,7 +1212,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			}
 		}
 		for _, rule := range rules {
-			if !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" {
+			if !ufwRuleMatchesPortTCP(rule, "9443") || !ufwRuleAllowsTraffic(rule.Action) {
 				continue
 			}
 			if rule.IPv6 {
@@ -1238,7 +1244,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		// No IPv6 source is trusted for the current mTLS service topology.
 		// Reject every IPv6 ALLOW, including narrow source-specific exceptions.
 		for _, rule := range rules {
-			if rule.IPv6 && ufwRuleMatchesPortTCP(rule, mtls) && rule.Action == "ALLOW" {
+			if rule.IPv6 && ufwRuleMatchesPortTCP(rule, mtls) && ufwRuleAllowsTraffic(rule.Action) {
 				ok = false
 				warnings = append(warnings, "mtls: unexpected IPv6 ALLOW from "+rule.From+" for "+mtls+"/tcp")
 			}
@@ -1247,7 +1253,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		// and loopback. A broad or unrelated source-specific ALLOW is unsafe.
 		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"}
 		for _, rule := range rules {
-			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || rule.Action != "ALLOW" {
+			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) {
 				continue
 			}
 			trusted := false
@@ -1272,7 +1278,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 				warnings = append(warnings, "lampac: first matching IPv4 loopback rule for "+lp+"/tcp is "+action+" (want ALLOW)")
 			}
 			for _, rule := range rules {
-				if !ufwRuleMatchesPortTCP(rule, lp) || rule.Action != "ALLOW" {
+				if !ufwRuleMatchesPortTCP(rule, lp) || !ufwRuleAllowsTraffic(rule.Action) {
 					continue
 				}
 				if rule.IPv6 || !ufwSourceContainedBy(rule.From, "127.0.0.1") {
