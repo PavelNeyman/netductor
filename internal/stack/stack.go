@@ -292,11 +292,17 @@ func recoverPrevSnapshotSwap() error {
 	next := filepath.Join(root, "prev.next")
 	old := filepath.Join(root, "prev.old")
 	tx, txErr := loadTx(attemptDir())
+	if txErr != nil && !os.IsNotExist(txErr) {
+		return fmt.Errorf("cannot recover last-good promotion with invalid transaction journal: %w", txErr)
+	}
 	committed := txErr == nil && tx.Phase == txCommitted
 
 	_, prevErr := os.Stat(prev)
 	_, oldErr := os.Stat(old)
 	_, nextErr := os.Stat(next)
+	if oldErr == nil && !committed {
+		return fmt.Errorf("ambiguous last-good promotion: prev.old exists without a committed transaction")
+	}
 	if os.IsNotExist(prevErr) {
 		if committed && nextErr == nil {
 			if err := verifySnapshotPair(next, tx); err != nil { return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err) }
