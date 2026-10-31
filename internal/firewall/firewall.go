@@ -307,10 +307,36 @@ func ufwPreflightPolicy(status, role string) error {
 		mtls := ndconfig.AgentMTLSPort()
 		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"}
 		for _, source := range trustedMTLS { checkSource(mtls, source, "mtls") }
+		for _, rule := range rules {
+			if !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" { continue }
+			trusted := false
+			if !rule.IPv6 {
+				for _, source := range uplink {
+					if ufwSourceContainedBy(rule.From, source) { trusted = true; break }
+				}
+			}
+			if !trusted { conflicts = append(conflicts, "service-uplink has an existing untrusted ALLOW from "+rule.From) }
+		}
+		for _, rule := range rules {
+			if !ufwRuleMatchesPortTCP(rule, mtls) || rule.Action != "ALLOW" { continue }
+			trusted := false
+			if !rule.IPv6 {
+				for _, source := range trustedMTLS {
+					if ufwSourceContainedBy(rule.From, source) { trusted = true; break }
+				}
+			}
+			if !trusted { conflicts = append(conflicts, "mtls has an existing untrusted ALLOW from "+rule.From) }
+		}
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
 			checkWAN(lp, "DENY", "lampac")
 			checkSource(lp, "127.0.0.1", "lampac-loopback")
+			for _, rule := range rules {
+				if ufwRuleMatchesPortTCP(rule, lp) && rule.Action == "ALLOW" &&
+					(rule.IPv6 || !ufwSourceContainedBy(rule.From, "127.0.0.1")) {
+					conflicts = append(conflicts, "lampac has an existing untrusted ALLOW from "+rule.From)
+				}
+			}
 		}
 	} else {
 		checkWAN("8445", "ALLOW", "secondary-wss")
