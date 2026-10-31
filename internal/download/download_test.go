@@ -56,3 +56,55 @@ func TestGetSizeLimit(t *testing.T) {
 		t.Fatal("expected size error")
 	}
 }
+
+func TestGetChecksumFailurePreservesExistingDestination(t *testing.T) {
+	body := []byte("untrusted-new-content")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "binary")
+	if err := os.WriteFile(dest, []byte("known-good"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := Get(srv.URL, dest, Options{
+		AllowHTTPPrivate: true,
+		ExpectedSHA256:   "0000000000000000000000000000000000000000000000000000000000000000",
+		MaxBytes:         1024,
+		FileMode:         0o755,
+	})
+	if err == nil {
+		t.Fatal("expected checksum failure")
+	}
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "known-good" {
+		t.Fatalf("existing destination changed on failed download: %q", got)
+	}
+}
+
+func TestGetLeavesNoTemporaryFileAfterFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("too-large"))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	err := Get(srv.URL, filepath.Join(dir, "binary"), Options{
+		AllowHTTPPrivate: true,
+		MaxBytes:         4,
+	})
+	if err == nil {
+		t.Fatal("expected size failure")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("temporary files remain after failure: %v", entries)
+	}
+}
