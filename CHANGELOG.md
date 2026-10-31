@@ -1,3 +1,10 @@
+## 0.9.650
+
+UI parity for startup migrations:
+- opcatalog: migrate-status/run/clear (overview + updates)
+- Web Updates panel buttons + i18n
+- TG Versions hub: status / run / clear-failed
+
 ## 0.9.649
 
 Update/migrate (actual code):

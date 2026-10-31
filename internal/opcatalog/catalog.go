@@ -63,6 +63,10 @@ func All() []Action {
 
 		// updates
 		a("update-status", "overview", "GET", "/api/update/status", "", "update check", "Update status", "Статус обновлений"),
+
+		a("migrate-status", "overview", "GET", "/api/migrate/status", "", "migrate status", "Migrate status", "Статус миграций"),
+		a("migrate-run", "overview", "POST", "/api/migrate/run", "{}", "migrate run", "Run migrations", "Запустить миграции"),
+		a("migrate-clear", "overview", "POST", "/api/migrate/clear-failed", "{}", "migrate clear-failed", "Clear failed migrations", "Сбросить failed миграции"),
 		a("update-releases", "overview", "GET", "/api/update/releases", "", "update list", "Release list", "Список релизов"),
 		a("stack-status", "overview", "GET", "/api/stack/status", `{}`, "stack status", "Stack status", "Статус стека"),
 		a("stack-apply", "overview", "POST", "/api/stack/apply", `{"version":""}`, "stack apply", "Stack apply", "Применить стек"),
@@ -93,6 +97,9 @@ func All() []Action {
 		a("ssh-hosts", "nodes", "GET", "/api/ssh-hosts", "", "ssh-hosts list", "SSH hosts", "SSH hosts"),
 		a("ssh-clear", "nodes", "POST", "/api/ssh-hosts/clear", "{}", "ssh-hosts clear", "SSH hosts clear", "Очистить SSH hosts"),
 		a("update-status-updates", "updates", "GET", "/api/update/status", "", "update check", "Update status", "Статус обновлений"),
+
+		a("migrate-status-upd", "updates", "GET", "/api/migrate/status", "", "migrate status", "Migrate status", "Статус миграций"),
+		a("migrate-run-upd", "updates", "POST", "/api/migrate/run", "{}", "migrate run", "Run migrations", "Запустить миграции"),
 		a("update-releases-2", "updates", "GET", "/api/update/releases", "", "update list", "Release list", "Список релизов"),
 		a("release-local", "updates", "GET", "/api/release/local", "", "release list-local", "Local releases", "Локальные релизы"),
 		a("release-local-detail", "updates", "GET", "/api/release/local/detail?tag=v0.9.280", "", "release path", "Local release detail", "Детали локального релиза"),

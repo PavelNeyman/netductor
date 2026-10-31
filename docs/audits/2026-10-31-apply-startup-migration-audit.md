@@ -128,3 +128,12 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 ## Stage 3e fix (0.9.649)
 
 Real code for durable binary replace, baseline dirs, migrate API (0.9.648 claimed these in docs only).
+
+## Stage 3f (0.9.650)
+
+| Item | Status |
+|------|--------|
+| opcatalog migrate actions | Done |
+| Web Updates panel | Done |
+| TG Versions migrate buttons | Done |
+| TUI via opcatalog | Via catalog surface |

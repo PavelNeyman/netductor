@@ -442,3 +442,8 @@ APT Guard (stages 0–2):
 
 Note: 0.9.648 was docs-only; real changes here.
 
+
+### 0.9.650 — migrate UI parity
+
+- opcatalog + Web + TG for migrate status/run/clear-failed
+

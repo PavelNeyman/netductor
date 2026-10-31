@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
+	"github.com/PavelNeyman/netductor/internal/migrate"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/stack"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -203,7 +205,42 @@ func orDash(s string) string {
 }
 
 func versionsKeyboard() map[string]any {
-	return navKeyboard("m:tools", parentTools())
+	return map[string]any{"inline_keyboard": [][]map[string]any{
+		{btn("📋 "+T("migrate_status"), "m:migrate:status", ""), btn("▶️ "+T("migrate_run"), "m:migrate:run", "primary")},
+		{btn("🧹 "+T("migrate_clear"), "m:migrate:clear", "")},
+		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+	}}
+}
+
+func formatMigrateStatusHTML() string {
+	ru := getLang() != "en"
+	nl := string([]byte{10})
+	rec, err := migrate.LoadJournalPublic()
+	var b strings.Builder
+	if ru {
+		b.WriteString("🧩 <b>Миграции startup</b>" + nl)
+	} else {
+		b.WriteString("🧩 <b>Startup migrations</b>" + nl)
+	}
+	if err != nil {
+		b.WriteString("⚠️ " + esc(err.Error()) + nl)
+		return b.String()
+	}
+	if len(rec) == 0 {
+		b.WriteString("<i>(empty journal)</i>" + nl)
+		return b.String()
+	}
+	for id, r := range rec {
+		line := fmt.Sprintf("<code>%s</code> · %s", esc(id), esc(string(r.Status)))
+		if r.AppVersion != "" {
+			line += " · v" + esc(r.AppVersion)
+		}
+		if r.Error != "" {
+			line += " · <code>" + esc(r.Error) + "</code>"
+		}
+		b.WriteString("• " + line + nl)
+	}
+	return b.String()
 }
 
 func handleVersionsCB(token string, chat int64, msgID int, data string) {
@@ -289,6 +326,23 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 			body += "\n<i>Do not re-tap Apply. Running only after health.</i>"
 		}
 		reply(token, chat, msgID, body, versionsKeyboard())
+	case data == "m:migrate:status":
+		reply(token, chat, msgID, formatMigrateStatusHTML(), versionsKeyboard())
+	case data == "m:migrate:run":
+		res, err := migrate.RunAll(context.Background())
+		msg := formatMigrateStatusHTML()
+		if err != nil {
+			msg = "❌ " + esc(err.Error()) + "\n" + msg
+		} else {
+			msg = "✅ ran=" + esc(strings.Join(res.Ran, ",")) + " skipped=" + esc(strings.Join(res.Skipped, ",")) + "\n" + msg
+		}
+		reply(token, chat, msgID, msg, versionsKeyboard())
+	case data == "m:migrate:clear":
+		if err := migrate.ClearFailedRecords(); err != nil {
+			reply(token, chat, msgID, "❌ "+esc(err.Error()), versionsKeyboard())
+			return
+		}
+		reply(token, chat, msgID, "✅ clear-failed ok\n"+formatMigrateStatusHTML(), versionsKeyboard())
 	default:
 		if strings.HasPrefix(data, "m:updates:") {
 			handleUpdatesCB(token, chat, msgID, data)

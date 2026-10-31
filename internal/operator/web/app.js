@@ -74,7 +74,7 @@ en:{
   adv_note:'Generic POST/GET for any session API path', l_method:'method', l_path:'path', l_body:'JSON body',
   b_health:'Health', b_stack:'Stack', b_stack_apply:'Stack apply', b_stack_rb:'Stack rollback', b_stack_wd:'Stack WD', b_doctor:'Doctor', b_aptguard:'APT Guard', b_aptguard_prev:'APT preview', b_aptguard_scan:'APT scan', b_aptguard_apply:'APT apply (confirm)', b_domain:'Domain', b_bot:'Bot status', b_status:'Status', b_overview:'Fleet overview', b_metrics:'Metrics',
   b_metrics_hist:'Metrics history', b_addons:'Addons', b_lampac:'Lampac', b_sni:'SNI', b_sni_presets:'SNI presets',
-  b_latest:'Latest', b_sessions:'Sessions', b_gh_token:'GitHub token', b_upd:'Update status', b_rel_local:'Local releases', b_rel_tags:'Git tags', b_rel_mirror:'Mirror fetch', b_rel_build:'Build local', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
+  b_latest:'Latest', b_sessions:'Sessions', b_gh_token:'GitHub token', b_upd:'Update status', b_migrate_st:'Migrate status', b_migrate_run:'Run migrations', b_migrate_clear:'Clear failed migrations', b_rel_local:'Local releases', b_rel_tags:'Git tags', b_rel_mirror:'Mirror fetch', b_rel_build:'Build local', b_vpn_users:'List users', b_vpn_refresh:'Refresh links',
   b_vpn_add:'Add user', b_vpn_enable:'Enable', b_vpn_disable:'Disable', b_vpn_revoke:'Revoke', b_vpn_link:'Get links',
   l_vpn_policy:'Access policy', l_vpn_policy_help:'User or edge: load, tick services, save.', l_pol_internet:'Internet egress', l_pol_all:'All internal services', b_vpn_pol_load:'Load user policy', b_vpn_pol_save:'Save user policy', b_vpn_pol_media:'Preset: media', b_vpn_pol_full:'Preset: full', b_vpn_pol_none:'Preset: none', l_edge_pol:'Edge device id', b_edge_pol_load:'Load edge policy', b_edge_pol_save:'Save edge policy',
   l_dns_id:'list id', l_dns_en:'enabled', b_dns_set:'Set list', b_dns_on:'on', b_dns_off:'off',
@@ -133,7 +133,7 @@ ru:{
   b_git_run:'Запуск pipeline', b_git_init:'Init репо', b_git_log:'Log', b_git_show:'Show', b_git_art:'Артефакт',
   b_git_proj_list:'Список проектов', b_git_proj_add:'Добавить проект', b_git_proj_sync:'Sync', b_git_proj_build:'Build', b_git_proj_detail:'Карточка проекта', b_git_proj_migrate:'Миграция с GH', b_git_proj_sync_all:'Sync все', b_git_proj_build_all:'Build все (vps)', b_git_proj_vps_queue:'Очередь VPS', b_git_proj_vps_cancel:'Отменить VPS job', b_git_proj_mirror_all:'Mirror→GH все', l_git_mig_owner:'владелец миграции', l_git_mig_mode:'режим',
   b_nodes:'Ноды', b_self:'Self', b_sec_st:'Статус secondary', b_sec_links:'Ссылки secondary',
-  b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты', b_upd:'Статус обновлений', b_rel_local:'Локальные релизы', b_rel_tags:'Git теги', b_rel_mirror:'Mirror fetch', b_rel_build:'Сборка local',
+  b_ssh_hosts:'SSH hosts', b_ssh_clear:'Очистить SSH hosts', b_mtls:'mTLS сертификаты', b_sites:'Сайты', b_upd:'Статус обновлений', b_migrate_st:'Статус миграций', b_migrate_run:'Запустить миграции', b_migrate_clear:'Сбросить failed миграции', b_rel_local:'Локальные релизы', b_rel_tags:'Git теги', b_rel_mirror:'Mirror fetch', b_rel_build:'Сборка local',
   b_hostname:'Задать hostname', b_svc_restart:'Restart сервиса', b_journal:'Journal',
   l_vpn_name:'имя', l_vpn_note:'заметка', l_vpn_act:'user', l_hostname:'hostname', l_node_id:'id ноды',
   l_svc:'restart сервиса', l_journal:'journal unit', yes:'да', no:'нет',
@@ -1565,7 +1565,10 @@ function mountButtons(){
       <pre class="note" id="updJobsLine" style="white-space:pre-wrap;font-size:.85em"></pre>
       <div class="row"><div><label>${t('upd_pick')||'Release'}</label><select id="updTag"></select></div>
       <div style="align-self:end"><button class="primary" type="button" data-act="upd-refresh">${t('upd_refresh')||'Refresh'}</button>
-      <button class="primary" type="button" data-act="upd-apply">${t('upd_apply')||'Apply'}</button></div></div>
+      <button class="primary" type="button" data-act="upd-apply">${t('upd_apply')||'Apply'}</button>
+      <button class="primary" type="button" data-act="migrate-status">${t('b_migrate_st')||'Migrate status'}</button>
+      <button class="primary" type="button" data-act="migrate-run">${t('b_migrate_run')||'Run migrations'}</button>
+      <button type="button" data-act="migrate-clear">${t('b_migrate_clear')||'Clear failed'}</button></div></div>
       <p class="note">${t('upd_note')||'Same backend as CLI/TG (stack schedule / ApplyHost). Desired ≠ running until health. Edge: agent_update per device.'}</p></div>`;
     }
     if(sec==='dns' || sec==='data'){

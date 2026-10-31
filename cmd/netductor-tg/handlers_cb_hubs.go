@@ -16,7 +16,7 @@ func handleCBHubs(token string, chat int64, msgID int, data string) bool {
 		handleVersionsCB(token, chat, msgID, "m:versions")
 		return true
 	}
-	if data == "m:updates" || data == "m:versions" || strings.HasPrefix(data, "m:ver:") {
+	if data == "m:updates" || data == "m:versions" || strings.HasPrefix(data, "m:ver:") || strings.HasPrefix(data, "m:migrate:") {
 		handleVersionsCB(token, chat, msgID, data)
 		return true
 	}
