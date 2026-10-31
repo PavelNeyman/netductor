@@ -133,16 +133,14 @@ func runServe(args []string) {
 		}
 		os.Exit(1)
 	}
-	// Startup migrations before Ready (API mux / listeners).
-	if os.Getenv("NETDUCTOR_SKIP_MIGRATE") != "1" {
-		mr, merr := migrate.RunAll(context.Background())
-		if merr != nil {
-			fmt.Fprintln(os.Stderr, "startup migrate:", merr)
-			os.Exit(1)
-		}
-		if len(mr.Ran) > 0 {
-			fmt.Fprintln(os.Stderr, "startup migrate ran:", strings.Join(mr.Ran, ", "))
-		}
+	// Startup migrations and post-check are mandatory before Ready.
+	mr, merr := migrate.RunAll(context.Background())
+	if merr != nil {
+		fmt.Fprintln(os.Stderr, "startup migrate:", merr)
+		os.Exit(1)
+	}
+	if len(mr.Ran) > 0 {
+		fmt.Fprintln(os.Stderr, "startup migrate ran:", strings.Join(mr.Ran, ", "))
 	}
 	mux := buildAPIMux()
 	addr := bind + ":" + port
