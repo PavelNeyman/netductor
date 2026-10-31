@@ -259,6 +259,71 @@ func ufwIPv6Enabled() (bool, error) {
 	return true, nil
 }
 
+// ufwPreflightPolicy rejects existing ordered rules that would override or
+// broaden the role policy. Missing rules are safe to append; conflicting rules
+// are never deleted automatically because they may be administrator-owned.
+func ufwPreflightPolicy(status, role string) error {
+	rules := parseUfwNumbered(status)
+	numberedLines := 0
+	for _, line := range strings.Split(status, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "[") {
+			numberedLines++
+		}
+	}
+	if len(rules) != numberedLines {
+		return fmt.Errorf("cannot completely parse existing UFW rules (parsed %d of %d)", len(rules), numberedLines)
+	}
+	var conflicts []string
+	checkWAN := func(port, want, label string) {
+		for _, ipv6 := range []bool{false, true} {
+			action, found := firstTCPActionFromWANFamily(rules, port, ipv6)
+			if found && action != want {
+				family := "IPv4"
+				if ipv6 { family = "IPv6" }
+				conflicts = append(conflicts, fmt.Sprintf("%s %s first %s WAN action is %s, want %s", label, port, family, action, want))
+			}
+		}
+	}
+	checkSource := func(port, source, label string) {
+		action, found := firstTCPActionFromSource(rules, port, source, false)
+		if found && action != "ALLOW" {
+			conflicts = append(conflicts, fmt.Sprintf("%s %s first rule for %s is %s, want ALLOW", label, port, source, action))
+		}
+	}
+	for _, item := range []struct{ port, action, label string }{
+		{"443", "ALLOW", "vless"}, {"22", "DENY", "ssh22"},
+		{"10050", "DENY", "zabbix"}, {"10051", "DENY", "zabbix"},
+	} {
+		checkWAN(item.port, item.action, item.label)
+	}
+	if role == "primary" {
+		for _, item := range []struct{ port, action, label string }{
+			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
+			{"80", "ALLOW", "http-acme"}, {"8444", "ALLOW", "primary-wss"},
+			{"8788", "DENY", "plain-agent"}, {"9443", "DENY", "service-uplink"},
+		} { checkWAN(item.port, item.action, item.label) }
+		uplink := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
+		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
+		mtls := ndconfig.AgentMTLSPort()
+		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"}
+		for _, source := range trustedMTLS { checkSource(mtls, source, "mtls") }
+		lp := ndconfig.LampacPort()
+		if lp != "" && lp != "0" {
+			checkWAN(lp, "DENY", "lampac")
+			checkSource(lp, "127.0.0.1", "lampac-loopback")
+		}
+	} else {
+		checkWAN("8445", "ALLOW", "secondary-wss")
+		for _, port := range []string{"80", "8787", "8788", "8789"} {
+			checkWAN(port, "DENY", "secondary-restricted")
+		}
+	}
+	if len(conflicts) != 0 {
+		return fmt.Errorf("existing UFW policy conflicts; refusing mutation: %s", strings.Join(conflicts, "; "))
+	}
+	return nil
+}
+
 func applyUFW(role string) error {
 	if _, err := ufwIPv6Enabled(); err != nil {
 		return fmt.Errorf("ufw IPv6 policy prerequisite: %w", err)
@@ -276,6 +341,9 @@ func applyUFW(role string) error {
 		return fmt.Errorf("NETDUCTOR_FW_RESET is disabled: resetting an active firewall is not transaction-safe; remove the variable and apply the role policy without reset")
 	}
 	sp := sshPort()
+	if err := ufwPreflightPolicy(string(current), role); err != nil {
+		return fmt.Errorf("UFW preflight: %w", err)
+	}
 	// Preserve the active management path before tightening the default policy.
 	// Avoid adding a duplicate on every apply when the first WAN rule already
 	// permits SSH for that address family.
