@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/version"
@@ -40,7 +41,7 @@ func InstallRelay(bundlePath string) error {
 	}
 	coreURL, err := url.Parse(strings.TrimSpace(b.CoreAgentURL))
 	if err != nil || coreURL.Scheme != "https" || coreURL.Host == "" || coreURL.User != nil ||
-		coreURL.Hostname() != strings.TrimSpace(b.CoreIP) || coreURL.Port() != "8789" ||
+		coreURL.Hostname() != strings.TrimSpace(b.CoreIP) || coreURL.Port() != mtls.AgentTLSPort ||
 		(coreURL.Path != "" && coreURL.Path != "/") || coreURL.RawQuery != "" || coreURL.Fragment != "" {
 		return fmt.Errorf("invalid bundle: core_agent_url must target core_ip on mTLS port 8789")
 	}
