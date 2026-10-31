@@ -6,11 +6,14 @@ import (
 	"time"
 )
 
-// RunLocalScan loads policy, scans root filesystem, saves report, returns it.
+// RunLocalScan loads policy, recovers incomplete remediation, scans root filesystem, saves report.
 func RunLocalScan(stateRoot, serverID, fsRoot string) (Report, Report, error) {
 	var prev Report
 	if p, err := LoadLatest(stateRoot, serverID); err == nil {
 		prev = p
+	}
+	if err := RecoverIncompleteRemediation(stateRoot); err != nil {
+		return Report{}, prev, fmt.Errorf("aptguard recovery: %w", err)
 	}
 	policy, err := EnsurePolicy(stateRoot)
 	if err != nil {
@@ -40,7 +43,6 @@ func DoctorSummary(stateRoot string, maxAge time.Duration) (status string, detai
 	}
 	rep, err := LoadLatest(stateRoot, host)
 	if err != nil {
-		// try "local"
 		rep, err = LoadLatest(stateRoot, "local")
 		if err != nil {
 			return "missing", "no aptguard report yet (run: netductor aptguard scan)", SevInfo

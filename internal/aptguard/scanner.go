@@ -144,15 +144,17 @@ func matchPolicy(p Policy, s SourceEntry) string {
 				return "mismatch"
 			}
 			okSuite := false
-			for _, want := range r.Suites {
-				for _, got := range s.Suites {
+			for _, got := range s.Suites {
+				inPol := false
+				for _, want := range r.Suites {
 					if want == got {
+						inPol = true
 						okSuite = true
 						break
 					}
 				}
-				if okSuite {
-					break
+				if !inPol {
+					return "mismatch" // unexpected suite
 				}
 			}
 			if !okSuite {
@@ -173,6 +175,18 @@ func matchPolicy(p Policy, s SourceEntry) string {
 				}
 				if !found {
 					return "mismatch"
+				}
+			}
+			for _, got := range s.Components {
+				inPol := false
+				for _, want := range r.Components {
+					if want == got {
+						inPol = true
+						break
+					}
+				}
+				if !inPol {
+					return "mismatch" // unexpected component
 				}
 			}
 		}
@@ -360,13 +374,19 @@ func parseDeb822File(path string) ([]SourceEntry, []Finding, error) {
 	}
 	blocks := strings.Split(string(b), "\n\n")
 	var out []SourceEntry
+	var findings []Finding
 	for _, block := range blocks {
 		block = strings.TrimSpace(block)
 		if block == "" {
 			continue
 		}
 		ent := SourceEntry{File: path, Enabled: true, Type: "deb"}
+		cont := false
 		for _, line := range strings.Split(block, "\n") {
+			if line != "" && (line[0] == ' ' || line[0] == '\t') {
+				cont = true
+				break
+			}
 			if strings.HasPrefix(strings.TrimSpace(line), "#") {
 				continue
 			}
@@ -399,12 +419,16 @@ func parseDeb822File(path string) ([]SourceEntry, []Finding, error) {
 				ent.Enabled = !strings.EqualFold(v, "no") && v != "false" && v != "0"
 			}
 		}
+		if cont {
+			findings = append(findings, Finding{Code: "PARSE_ERROR", Severity: SevFail, SourceFile: path, Message: "unsupported Deb822 continuation line"})
+			continue
+		}
 		if len(ent.URIs) == 0 {
 			continue
 		}
 		out = append(out, ent)
 	}
-	return out, nil, nil
+	return out, findings, nil
 }
 
 func redactURI(u string) string {

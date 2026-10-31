@@ -49,12 +49,14 @@ func DefaultPolicy() Policy {
 				URIs:       []string{"https://deb.debian.org/debian", "http://deb.debian.org/debian"},
 				Suites:     []string{"bookworm", "bookworm-updates", "trixie", "trixie-updates"},
 				Components: []string{"main", "contrib", "non-free-firmware"},
+				SignedBy:   []string{"/usr/share/keyrings/debian-archive-keyring.gpg"},
 			},
 			{
 				ID: "debian-security", Enabled: true, Type: "debian-security", Required: true,
 				URIs:       []string{"https://security.debian.org/debian-security", "http://security.debian.org/debian-security"},
 				Suites:     []string{"bookworm-security", "trixie-security"},
 				Components: []string{"main", "contrib", "non-free-firmware"},
+				SignedBy:   []string{"/usr/share/keyrings/debian-archive-keyring.gpg"},
 			},
 		},
 	}

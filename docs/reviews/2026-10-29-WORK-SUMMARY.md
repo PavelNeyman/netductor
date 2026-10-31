@@ -306,3 +306,13 @@ APT Guard (stages 0–2):
 - Deb822 URI redact; .list signed-by options
 - matchPolicy strict missing suite/components/signed-by; requiredPresent uses full match
 
+
+### 0.9.632 — APT P0 residual (token/quarantine/recovery/commit)
+
+- previewToken: SHA-256 of full policy JSON + all APT source file contents
+- quarantine: refuse existing .nd-quarantine (no overwrite)
+- RecoverIncompleteRemediation: all incomplete journals under flock; mark recovered
+- RunLocalScan + ApplyPreview call recovery under lock
+- journal complete must persist or fail (with rollback via fail())
+- DefaultPolicy SignedBy keyring; strict suite/component sets; Deb822 continuation PARSE_ERROR
+

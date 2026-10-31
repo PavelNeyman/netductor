@@ -139,3 +139,35 @@ func TestDeb822RedactURI(t *testing.T) {
 		t.Fatal(ents[0].URIs[0])
 	}
 }
+
+func TestQuarantineRefusesExisting(t *testing.T) {
+	root := t.TempDir()
+	d := filepath.Join(root, "etc/apt/sources.list.d")
+	_ = os.MkdirAll(d, 0o755)
+	evil := filepath.Join(d, "evil.list")
+	_ = os.WriteFile(evil, []byte("deb https://evil.example/debian bookworm main\n"), 0o644)
+	_ = os.WriteFile(evil+".nd-quarantine", []byte("old\n"), 0o644)
+	pv, err := BuildPreview("t", root, DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ApplyPreview(t.TempDir(), root, pv, "yes")
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("want destination exists, got %v", err)
+	}
+}
+
+func TestTokenIncludesContent(t *testing.T) {
+	root := t.TempDir()
+	d := filepath.Join(root, "etc/apt/sources.list.d")
+	_ = os.MkdirAll(d, 0o755)
+	path := filepath.Join(d, "evil.list")
+	_ = os.WriteFile(path, []byte("deb https://evil.example/debian bookworm main\n"), 0o644)
+	pv1, _ := BuildPreview("t", root, DefaultPolicy())
+	_ = os.WriteFile(path, []byte("deb https://evil.example/debian bookworm main contrib\n"), 0o644)
+	// keep size different; token must change
+	pv2, _ := BuildPreview("t", root, DefaultPolicy())
+	if pv1.Token == pv2.Token {
+		t.Fatal("token should change when source content changes")
+	}
+}

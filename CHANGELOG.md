@@ -1,3 +1,12 @@
+## 0.9.632
+
+APT Guard P0 residual:
+- Token binds policy + all source file contents (SHA-256)
+- Quarantine refuses existing .nd-quarantine destination
+- Recovery under flock for all incomplete journals; wired into scan/apply
+- Journal complete is mandatory (fail if uncommitted)
+- DefaultPolicy Signed-By; strict suites/components; Deb822 continuation = PARSE_ERROR
+
 ## 0.9.631
 
 APT Guard:

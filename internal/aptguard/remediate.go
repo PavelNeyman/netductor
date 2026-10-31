@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -144,7 +145,7 @@ func BuildPreview(serverID, fsRoot string, policy Policy) (Preview, error) {
 		}
 	}
 
-	pv.Token = previewToken(pv, policy)
+	pv.Token = previewToken(pv, policy, fsRoot)
 	return pv, nil
 }
 
@@ -213,18 +214,54 @@ func managedSourcesContent(policy Policy, codename string) (string, error) {
 	return b.String(), nil
 }
 
-func previewToken(pv Preview, policy Policy) string {
+func policyFingerprint(policy Policy) string {
+	b, err := json.Marshal(policy)
+	if err != nil {
+		return "err"
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
+}
+
+// aptSourcesFingerprint hashes path+content of all APT source files under fsRoot.
+func aptSourcesFingerprint(fsRoot string) string {
 	h := sha256.New()
-	_, _ = fmt.Fprintf(h, "v=%d\n", policy.Version)
+	paths := []string{filepath.Join(fsRoot, "etc/apt/sources.list")}
+	dir := filepath.Join(fsRoot, "etc/apt/sources.list.d")
+	if ents, err := os.ReadDir(dir); err == nil {
+		names := make([]string, 0, len(ents))
+		for _, e := range ents {
+			if e.IsDir() {
+				continue
+			}
+			names = append(names, e.Name())
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			paths = append(paths, filepath.Join(dir, name))
+		}
+	}
+	for _, pth := range paths {
+		_, _ = fmt.Fprintf(h, "%s\n", pth)
+		b, err := os.ReadFile(pth)
+		if err != nil {
+			_, _ = fmt.Fprintf(h, "ERR:%v\n", err)
+			continue
+		}
+		sum := sha256.Sum256(b)
+		_, _ = fmt.Fprintf(h, "%s\n", hex.EncodeToString(sum[:]))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func previewToken(pv Preview, policy Policy, fsRoot string) string {
+	h := sha256.New()
+	_, _ = fmt.Fprintf(h, "policy=%s\n", policyFingerprint(policy))
+	_, _ = fmt.Fprintf(h, "sources=%s\n", aptSourcesFingerprint(fsRoot))
 	for _, c := range pv.Changes {
 		_, _ = fmt.Fprintf(h, "%s|%s|%s\n", c.Action, c.Path, c.Detail)
 		sum := sha256.Sum256([]byte(c.Content))
 		_, _ = fmt.Fprintf(h, "c=%s\n", hex.EncodeToString(sum[:]))
-		if st, err := os.Stat(c.Path); err == nil {
-			_, _ = fmt.Fprintf(h, "sz=%d m=%d\n", st.Size(), st.ModTime().UnixNano())
-		} else {
-			_, _ = fmt.Fprintf(h, "missing\n")
-		}
 	}
 	return hex.EncodeToString(h.Sum(nil))[:32]
 }
@@ -269,6 +306,10 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		return Report{}, fmt.Errorf("aptguard: remediation already in progress")
 	}
 	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
+
+	if err := recoverAllIncompleteLocked(stateRoot); err != nil {
+		return Report{}, fmt.Errorf("aptguard: recovery: %w", err)
+	}
 
 	// Under lock: re-scan, re-token, then mutate
 	fresh, err := BuildPreview(pv.ServerID, fsRoot, policy)
@@ -343,6 +384,11 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 				return fail(fmt.Errorf("backup: %w", err))
 			}
 			q := path + ".nd-quarantine"
+			if _, err := os.Stat(q); err == nil {
+				return fail(fmt.Errorf("quarantine destination already exists: %s", q))
+			} else if err != nil && !os.IsNotExist(err) {
+				return fail(fmt.Errorf("stat quarantine dest: %w", err))
+			}
 			ent := journalEntry{
 				Action: "quarantine", Path: path, BackupPath: dst,
 				Existed: true, Mode: uint32(mode.Perm()), UID: uid, GID: gid, Quarantine: q,
@@ -351,7 +397,12 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 			if err := persistJournal(); err != nil {
 				return fail(fmt.Errorf("journal: %w", err))
 			}
-			if err := os.Rename(path, q); err != nil {
+			if err := os.Link(path, q); err != nil {
+				if err2 := os.Rename(path, q); err2 != nil {
+					return fail(err2)
+				}
+			} else if err := os.Remove(path); err != nil {
+				_ = os.Remove(q)
 				return fail(err)
 			}
 		case "ensure_file":
@@ -406,11 +457,12 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		audit.Log("aptguard", "remediate.apply.save_warn", pv.ServerID, err.Error())
 	}
 	detail := fmt.Sprintf("changes=%d status=%s token=%s", len(pv.Changes), rep.Status, pv.Token)
+	journal = append(journal, journalEntry{Action: "complete", Path: ""})
+	if err := persistJournal(); err != nil {
+		return fail(fmt.Errorf("commit journal complete: %w", err))
+	}
 	audit.Log("aptguard", "remediate.apply", pv.ServerID, detail)
 	notify.EnqueueAlert("aptguard:apply:"+pv.ServerID, fmt.Sprintf("APT Guard apply on %s: %s (%d changes)", pv.ServerID, rep.Status, len(pv.Changes)))
-	// mark journal complete
-	journal = append(journal, journalEntry{Action: "complete", Path: ""})
-	_ = persistJournal()
 	return rep, nil
 }
 
@@ -485,8 +537,26 @@ func truncateOut(s string, n int) string {
 	return s[:n] + "…"
 }
 
-// RecoverIncompleteRemediation rolls back the newest incomplete journal under remediate-backup.
+// RecoverIncompleteRemediation acquires the remediation lock and rolls back any incomplete journals.
 func RecoverIncompleteRemediation(stateRoot string) error {
+	if err := os.MkdirAll(Dir(stateRoot), 0o755); err != nil {
+		return err
+	}
+	lockPath := filepath.Join(Dir(stateRoot), "remediate.lock")
+	lf, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer lf.Close()
+	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer syscall.Flock(int(lf.Fd()), syscall.LOCK_UN)
+	return recoverAllIncompleteLocked(stateRoot)
+}
+
+// recoverAllIncompleteLocked assumes caller holds remediate.lock.
+func recoverAllIncompleteLocked(stateRoot string) error {
 	root := filepath.Join(Dir(stateRoot), "remediate-backup")
 	ents, err := os.ReadDir(root)
 	if err != nil {
@@ -495,31 +565,49 @@ func RecoverIncompleteRemediation(stateRoot string) error {
 		}
 		return err
 	}
-	var latest string
+	var names []string
 	for _, e := range ents {
 		if e.IsDir() {
-			name := e.Name()
-			if name > latest {
-				latest = name
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+	var errs []string
+	for _, name := range names {
+		jp := filepath.Join(root, name, "journal.json")
+		b, err := os.ReadFile(jp)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			errs = append(errs, name+": "+err.Error())
+			continue
+		}
+		var journal []journalEntry
+		if err := json.Unmarshal(b, &journal); err != nil {
+			errs = append(errs, name+": "+err.Error())
+			continue
+		}
+		done := false
+		for _, e := range journal {
+			if e.Action == "complete" || e.Action == "recovered" {
+				done = true
+				break
 			}
 		}
-	}
-	if latest == "" {
-		return nil
-	}
-	jp := filepath.Join(root, latest, "journal.json")
-	b, err := os.ReadFile(jp)
-	if err != nil {
-		return err
-	}
-	var journal []journalEntry
-	if err := json.Unmarshal(b, &journal); err != nil {
-		return err
-	}
-	for _, e := range journal {
-		if e.Action == "complete" {
-			return nil // finished ok
+		if done {
+			continue
 		}
+		if err := rollbackJournal(journal); err != nil {
+			errs = append(errs, name+": rollback: "+err.Error())
+			continue
+		}
+		journal = append(journal, journalEntry{Action: "recovered", Path: name})
+		jb, _ := json.MarshalIndent(journal, "", "  ")
+		_ = os.WriteFile(jp, jb, 0o600)
 	}
-	return rollbackJournal(journal)
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
 }
