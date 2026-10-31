@@ -430,9 +430,8 @@ func ufwPreflightPolicy(status, role string) error {
 		if lp != "" && lp != "0" {
 			checkWAN(lp, "DENY", "lampac")
 			for _, rule := range rules {
-				if ufwRuleMatchesPortTCP(rule, lp) && ufwRuleAllowsTraffic(rule.Action) &&
-					true {
-					conflicts = append(conflicts, "lampac has an existing untrusted ALLOW from "+rule.From)
+				if ufwRuleMatchesPortTCP(rule, lp) && ufwRuleAllowsTraffic(rule.Action) {
+					conflicts = append(conflicts, "lampac has an existing source-based ALLOW from "+rule.From)
 				}
 			}
 		}
@@ -1121,14 +1120,6 @@ func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 func ufwFromIsWAN(from string) bool {
 	from = strings.TrimSpace(from)
 	return from == "" || from == "Anywhere" || from == "Anywhere (v6)" || strings.EqualFold(from, "any")
-}
-
-func ufwFromIsTrustedMTLS(from string) bool {
-	from = strings.TrimSpace(from)
-	if from == "127.0.0.1" || from == "lo" || strings.HasPrefix(from, "127.0.0.1/") {
-		return true
-	}
-	return cidrEqual(from, ndconfig.SvcSPCIDR()) || cidrEqual(from, ndconfig.SvcPSCIDR())
 }
 
 func cidrEqual(a, b string) bool {
