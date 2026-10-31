@@ -184,6 +184,13 @@ func recoverIncompleteApply() (bool, error) {
 		if os.IsNotExist(err) { return false, nil }
 		return false, fmt.Errorf("apply recovery blocked: %w", err)
 	}
+	// The production transaction may replace only the two managed primary
+	// executables. A syntactically valid but altered journal must never turn
+	// startup recovery into an arbitrary absolute-path file replacement.
+	if filepath.Clean(tx.NodeDest) != "/usr/local/bin/netductor" ||
+		filepath.Clean(tx.TGDest) != "/usr/local/bin/netductor-tg" {
+		return false, fmt.Errorf("apply recovery blocked: transaction has unexpected destinations %q and %q", tx.NodeDest, tx.TGDest)
+	}
 	wasRolledBack := tx.Phase == txRolledBack
 	rolledBack, err := recoverApplyTxForOwner(attemptDir(), ownerActive)
 	if err != nil { return false, err }
