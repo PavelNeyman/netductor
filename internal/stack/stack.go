@@ -439,7 +439,7 @@ func PromoteLastGood() bool {
 		fmt.Fprintln(os.Stderr, "promote failed:", err)
 		return false
 	}
-	_ = os.RemoveAll(attemptDir())
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil { fmt.Fprintln(os.Stderr, "promote: retain apply journal:", err) }
 	notify.AlertOnce("stack:promote:"+prev, "⬆️ Stack promoted last-good <code>"+prev+"</code> (was <code>"+cur+"</code>)")
 	return true
 }
@@ -729,33 +729,68 @@ func rollbackApplyFailure(att string, cause error) error {
 }
 
 func restoreFrom(dir string) error {
-	// Manual rollback is a pair operation too: validate both sources before
-	// changing either live executable, then use the same durable replacer.
-	sources := []struct{name, dest string}{
-		{"netductor", "/usr/local/bin/netductor"},
-		{"netductor-tg", "/usr/local/bin/netductor-tg"},
+	// Manual rollback/promote uses the same pair journal as Apply. The source
+	// snapshot is copied out first because it may be prev/, which must stay intact.
+	if !TryAcquireApplyLock("manual-restore") { return fmt.Errorf("another stack apply/restore is active") }
+	defer ClearApplyLock()
+	if err := RecoverIncompleteApply(); err != nil { return err }
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil { return err }
+
+	root := filepath.Join(paths.StateDir(), "stack")
+	stage := filepath.Join(root, "restore-stage")
+	if err := os.RemoveAll(stage); err != nil { return err }
+	if err := os.MkdirAll(stage, 0o700); err != nil { return err }
+	defer os.RemoveAll(stage)
+	for _, name := range []string{"netductor", "netductor-tg"} {
+		src := filepath.Join(dir, name)
+		st, err := os.Stat(src)
+		if err != nil { return fmt.Errorf("rollback source %s: %w", name, err) }
+		if !st.Mode().IsRegular() { return fmt.Errorf("rollback source %s is not a regular file", name) }
+		data, err := os.ReadFile(src)
+		if err != nil { return err }
+		if err := durableWrite(filepath.Join(stage, name), data, 0o755); err != nil { return err }
 	}
-	for _, item := range sources {
-		st, err := os.Stat(filepath.Join(dir, item.name))
-		if err != nil { return fmt.Errorf("rollback source %s: %w", item.name, err) }
-		if !st.Mode().IsRegular() { return fmt.Errorf("rollback source %s is not a regular file", item.name) }
-	}
-	for _, item := range sources {
-		if err := replaceExecutable(filepath.Join(dir, item.name), item.dest); err != nil {
-			return fmt.Errorf("restore %s: %w", item.name, err)
-		}
-	}
+	release := ""
 	if b, err := os.ReadFile(filepath.Join(dir, "VERSION")); err == nil {
-		ndupdate.WriteVERSION(strings.TrimSpace(string(b)))
-		saveCurrent(strings.TrimSpace(string(b)))
+		release = strings.TrimSpace(string(b))
 	} else if !os.IsNotExist(err) { return err }
-	var restartErrs []string
+	if release == "" { release = parseVerField(binVersion(filepath.Join(stage, "netductor"))) }
+	if release == "" { return fmt.Errorf("rollback source has no verifiable release marker") }
+
+	if err := installStagedPair(filepath.Join(stage, "netductor"), filepath.Join(stage, "netductor-tg")); err != nil {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("install rollback pair: %w", err))
+	}
+	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback daemon-reload: %w", err))
+	}
+	if err := exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback reset-failed: %w", err))
+	}
 	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
 		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil {
-			restartErrs = append(restartErrs, unit+": "+err.Error())
+			return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback restart %s: %w", unit, err))
 		}
 	}
-	if len(restartErrs) > 0 { return fmt.Errorf("restored pair but service restart failed: %s", strings.Join(restartErrs, "; ")) }
+	if !waitAPIHealthy(20*time.Second) {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback API health check failed"))
+	}
+	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
+		active, _ := unitState(unit)
+		if active != "active" {
+			return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback service %s is %s", unit, active))
+		}
+	}
+	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback host baseline: %w", err))
+	}
+	if err := commitInstalledPair(attemptDir()); err != nil {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("commit restored pair: %w", err))
+	}
+	ndupdate.WriteVERSION(release)
+	saveCurrent(release)
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+		return fmt.Errorf("restored pair committed; retain journal: %w", err)
+	}
 	return nil
 }
 
