@@ -171,7 +171,12 @@ func applyOwnerActive() bool {
 }
 
 func recoverIncompleteApply() (bool, error) {
-	if err := recoverPrevSnapshotSwap(); err != nil {
+	// Take one ownership snapshot and use it for both journal and snapshot
+	// recovery. Re-reading it in recoverApplyTx creates a TOCTOU window:
+	// the journal may be rolled back while the caller is told no re-exec is
+	// needed (or vice versa).
+	ownerActive := applyOwnerActive()
+	if err := recoverPrevSnapshotSwapForOwner(ownerActive); err != nil {
 		return false, fmt.Errorf("last-good snapshot recovery blocked: %w", err)
 	}
 	tx, err := loadTx(attemptDir())
@@ -179,20 +184,15 @@ func recoverIncompleteApply() (bool, error) {
 		if os.IsNotExist(err) { return false, nil }
 		return false, fmt.Errorf("apply recovery blocked: %w", err)
 	}
-	willRollback := false
-	needsBaseline := tx.Phase == txRolledBack
-	switch tx.Phase {
-	case txPrepared, txNodeInstalled, txTGInstalled, txVerified:
-		willRollback = !applyOwnerActive()
-		needsBaseline = willRollback
-	}
-	if err := recoverApplyTx(attemptDir()); err != nil { return false, err }
-	if needsBaseline {
+	wasRolledBack := tx.Phase == txRolledBack
+	rolledBack, err := recoverApplyTxForOwner(attemptDir(), ownerActive)
+	if err != nil { return false, err }
+	if rolledBack || wasRolledBack {
 		if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
-			return willRollback, fmt.Errorf("apply pair rollback state requires host baseline repair: %w", err)
+			return rolledBack, fmt.Errorf("apply pair rollback state requires host baseline repair: %w", err)
 		}
 	}
-	return willRollback, nil
+	return rolledBack, nil
 }
 
 // RecoverIncompleteApply is used by non-API callers. If recovery rolled back
@@ -223,33 +223,41 @@ func RecoverIncompleteApplyForStartup() (bool, error) {
 }
 
 func recoverApplyTx(att string) error {
+	_, err := recoverApplyTxForOwner(att, applyOwnerActive())
+	return err
+}
+
+// recoverApplyTxForOwner returns true only when this invocation restored the
+// pre-image pair. The caller uses that result to decide whether the process
+// image must be re-executed.
+func recoverApplyTxForOwner(att string, ownerActive bool) (bool, error) {
 	tx, err := loadTx(att)
 	if err != nil {
-		if os.IsNotExist(err) { return nil }
-		return fmt.Errorf("apply recovery blocked: %w", err)
+		if os.IsNotExist(err) { return false, nil }
+		return false, fmt.Errorf("apply recovery blocked: %w", err)
 	}
 	switch tx.Phase {
 	case txCommitted:
-		if err := verifyInstalledPair(tx); err != nil { return fmt.Errorf("committed apply recovery blocked: %w", err) }
-		return nil
+		if err := verifyInstalledPair(tx); err != nil { return false, fmt.Errorf("committed apply recovery blocked: %w", err) }
+		return false, nil
 	case txRolledBack:
-		if err := verifyPreImagePair(att, tx); err != nil { return fmt.Errorf("rolled-back apply recovery blocked: %w", err) }
-		return nil
+		if err := verifyPreImagePair(att, tx); err != nil { return false, fmt.Errorf("rolled-back apply recovery blocked: %w", err) }
+		return false, nil
 	case txTGInstalled, txVerified:
-		if applyOwnerActive() {
-			if err := verifyInstalledPair(tx); err != nil { return fmt.Errorf("active apply pair verification failed: %w", err) }
-			return nil
+		if ownerActive {
+			if err := verifyInstalledPair(tx); err != nil { return false, fmt.Errorf("active apply pair verification failed: %w", err) }
+			return false, nil
 		}
-		if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("apply recovery blocked: %w", err) }
-		return nil
+		if err := rollbackPair(att, tx); err != nil { return false, fmt.Errorf("apply recovery blocked: %w", err) }
+		return true, nil
 	case txPrepared, txNodeInstalled:
-		if applyOwnerActive() {
-			return fmt.Errorf("apply recovery blocked: transaction %s is still mutating the binary pair", tx.ID)
+		if ownerActive {
+			return false, fmt.Errorf("apply recovery blocked: transaction %s is still mutating the binary pair", tx.ID)
 		}
-		if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("apply recovery blocked: %w", err) }
-		return nil
+		if err := rollbackPair(att, tx); err != nil { return false, fmt.Errorf("apply recovery blocked: %w", err) }
+		return true, nil
 	default:
-		return fmt.Errorf("apply recovery blocked: unknown phase %q", tx.Phase)
+		return false, fmt.Errorf("apply recovery blocked: unknown phase %q", tx.Phase)
 	}
 }
 
