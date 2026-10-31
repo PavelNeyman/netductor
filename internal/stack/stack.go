@@ -288,6 +288,7 @@ func recoverPrevSnapshotSwap() error {
 	// must not clean up the in-flight directory promotion.
 	if applyOwnerActive() { return nil }
 	root := filepath.Join(paths.StateDir(), "stack")
+	if _, err := os.Stat(root); os.IsNotExist(err) { return nil } else if err != nil { return err }
 	prev := prevDir()
 	next := filepath.Join(root, "prev.next")
 	old := filepath.Join(root, "prev.old")
