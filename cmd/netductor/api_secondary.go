@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/httpx"
@@ -253,6 +254,10 @@ func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 
 // StartAgentPlane serves mTLS agent plane (:8789): secondary + edge + nvr.
 // Default: mTLS only on :8789. Plain :8788 unsupported.
+var agentPlaneReady atomic.Bool
+
+func AgentPlaneReady() bool { return agentPlaneReady.Load() }
+
 func StartAgentPlane() error {
 	// Shared agent plane (mTLS :8789): secondary + edge + nvr device APIs.
 	mux := http.NewServeMux()
@@ -296,9 +301,11 @@ func StartAgentPlane() error {
 		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 60 * time.Second,
 		WriteTimeout: 120 * time.Second, IdleTimeout: 120 * time.Second,
 	}
+	agentPlaneReady.Store(true)
 	go func() {
 		fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
 		if err := srv.ServeTLS(listener, "", ""); err != nil && err != http.ErrServerClosed { fmt.Fprintln(os.Stderr, "mtls serve:", err) }
+		agentPlaneReady.Store(false)
 	}()
 	return nil
 }
