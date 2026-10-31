@@ -380,35 +380,159 @@ fi
 	return "join ok\n", nil
 }
 
-func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) error {
+func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) (string, error) {
 	if len(ca) == 0 || len(cert) == 0 || len(key) == 0 {
-		return fmt.Errorf("mTLS material incomplete (ca=%d cert=%d key=%d bytes)", len(ca), len(cert), len(key))
+		return "", fmt.Errorf("mTLS material incomplete (ca=%d cert=%d key=%d bytes)", len(ca), len(cert), len(key))
 	}
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	for name, data := range map[string][]byte{
-		"ca.crt": ca, "client.crt": cert, "client.key": key,
+	for _, item := range []struct {
+		name string
+		data []byte
+	}{
+		{name: "ca.crt", data: ca},
+		{name: "client.crt", data: cert},
+		{name: "client.key", data: key},
 	} {
-		hdr := &tar.Header{Name: name, Mode: 0o600, Size: int64(len(data))}
+		hdr := &tar.Header{Name: item.name, Mode: 0o600, Size: int64(len(item.data))}
 		if err := tw.WriteHeader(hdr); err != nil {
-			return err
+			return "", err
 		}
-		if _, err := tw.Write(data); err != nil {
-			return err
+		if n, err := tw.Write(item.data); err != nil {
+			return "", err
+		} else if n != len(item.data) {
+			return "", fmt.Errorf("short tar write for %s: %d/%d", item.name, n, len(item.data))
 		}
 	}
 	if err := tw.Close(); err != nil {
-		return err
+		return "", err
 	}
-	script := `set -e
-mkdir -p /etc/netductor/secrets/mtls
-chmod 700 /etc/netductor/secrets /etc/netductor/secrets/mtls
-tar -x -C /etc/netductor/secrets/mtls
-chmod 600 /etc/netductor/secrets/mtls/ca.crt /etc/netductor/secrets/mtls/client.crt /etc/netductor/secrets/mtls/client.key
-`
-	_, err := runSSHWithStdin(client, script, buf.Bytes())
+	script := `set -eu
+P=/etc/netductor/secrets
+TARGET="$P/mtls"
+STAGE=
+BACKUP=
+HAD_OLD=0
+mkdir -p "$P"
+chmod 700 "$P"
+test ! -L "$P" || { echo "mTLS secrets parent is symlink" >&2; exit 1; }
+STAGE=$(mktemp -d "$P/.mtls-stage.XXXXXX")
+cleanup() {
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    if [ -n "$BACKUP" ] && [ -d "$BACKUP" ]; then
+      rm -rf "$TARGET"
+      mv "$BACKUP" "$TARGET" || echo "CRITICAL: mTLS rollback failed; backup remains at $BACKUP" >&2
+      sync -f "$P" || true
+    elif [ "$HAD_OLD" -eq 0 ]; then
+      rm -rf "$TARGET"
+      sync -f "$P" || true
+    fi
+  fi
+  [ -z "$STAGE" ] || rm -rf "$STAGE"
+  exit "$rc"
+}
+trap cleanup EXIT
+tar -x --no-same-owner -f - -C "$STAGE"
+for f in ca.crt client.crt client.key; do
+  test -f "$STAGE/$f" && test ! -L "$STAGE/$f" && test -s "$STAGE/$f"
+  chmod 600 "$STAGE/$f"
+  sync -f "$STAGE/$f"
+done
+test "$(find "$STAGE" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 3
+chmod 700 "$STAGE"
+sync -f "$STAGE"
+if [ -e "$TARGET" ] || [ -L "$TARGET ]; then
+  test -d "$TARGET" && test ! -L "$TARGET" || { echo "existing mTLS target is not a real directory" >&2; exit 1; }
+  HAD_OLD=1
+  BACKUP=$(mktemp -d "$P/.mtls-backup.XXXXXX")
+  rmdir "$BACKUP"
+  mv "$TARGET" "$BACKUP"
+  sync -f "$P"
+fi
+mv "$STAGE" "$TARGET"
+STAGE=
+sync -f "$P"
+trap - EXIT
+if [ "$HAD_OLD" -eq 1 ]; then printf 'MTLS_BACKUP=%s\n' "$BACKUP"; else printf 'MTLS_BACKUP=-\n'; fi
+`;
+	const out, err = runSSHWithStdin(client, script, buf.Bytes())
 	if err != nil {
-		return fmt.Errorf("mtls material install failed")
+		return "", fmt.Errorf("mTLS atomic install failed: %w (%s)", err, trimLog(out))
+	}
+	const marker = "MTLS_BACKUP="
+	for _, line := range strings.Split(out, "
+") {
+		if strings.HasPrefix(line, marker) {
+			backup := strings.TrimSpace(strings.TrimPrefix(line, marker))
+			if backup == "-" {
+				return "-", nil
+			}
+			if !validMTLSBackupPath(backup) {
+				return "", fmt.Errorf("remote returned invalid mTLS backup path")
+			}
+			return backup, nil
+		}
+	}
+	return "", fmt.Errorf("mTLS atomic install did not return transaction marker: %s", trimLog(out))
+}
+
+func validMTLSBackupPath(path string) bool {
+	const prefix = "/etc/netductor/secrets/.mtls-backup."
+	if !strings.HasPrefix(path, prefix) || len(path) != len(prefix)+6 {
+		return false
+	}
+	for _, r := range path[len(prefix):] {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func finishMTLSMaterial(client *ssh.Client, backup string, restore bool) error {
+	if backup == "" {
+		return fmt.Errorf("mTLS transaction path missing")
+	}
+	if backup != "-" && !validMTLSBackupPath(backup) {
+		return fmt.Errorf("invalid mTLS transaction path")
+	}
+	if backup == "-" && !restore {
+		return nil
+	}
+	quoted := "'" + strings.ReplaceAll(backup, "'", "'\''") + "'"
+	var script string
+	if restore {
+		if backup == "-" {
+			script = `set -eu
+P=/etc/netductor/secrets
+TARGET="$P/mtls"
+rm -rf "$TARGET"
+sync -f "$P"
+`;
+		} else {
+			script = `set -eu
+P=/etc/netductor/secrets
+TARGET="$P/mtls"
+BACKUP=` + quoted + `
+test -d "$BACKUP" && test ! -L "$BACKUP"
+rm -rf "$TARGET"
+mv "$BACKUP" "$TARGET"
+sync -f "$P"
+`;
+		}
+	} else {
+		script = `set -eu
+P=/etc/netductor/secrets
+BACKUP=` + quoted + `
+test -d "$BACKUP" && test ! -L "$BACKUP"
+rm -rf "$BACKUP"
+sync -f "$P"
+`;
+	}
+	out, err := runSSH(client, script)
+	if err != nil {
+		return fmt.Errorf("mTLS transaction finalize (restore=%v) failed: %w (%s)", restore, err, trimLog(out))
 	}
 	return nil
 }
