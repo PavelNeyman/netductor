@@ -349,6 +349,7 @@ func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 	state := paths.StateDir()
 	out := []string{
 		filepath.Join(etc, "node_id"),
+		filepath.Join(etc, "node_uuid"),
 		"/etc/hostname",
 		"/etc/hosts",
 		filepath.Join(etc, "public_ip"),
