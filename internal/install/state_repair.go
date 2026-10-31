@@ -39,7 +39,10 @@ func RepairStateOnUpgrade() []string {
 		filepath.Join(mtlsDir, "ca_rollover.json"),
 	}
 	for _, f := range files {
-		_ = statefile.EnsureParentDir(f)
+		if err := statefile.EnsureParentDir(f); err != nil {
+			notes = append(notes, "state parent: "+f+": "+err.Error())
+			continue
+		}
 		r := statefile.CheckJSON(f)
 		if !r.OK {
 			notes = append(notes, "state bad: "+r.Path+": "+r.Detail)
