@@ -784,15 +784,14 @@ func applyIPTables(role string) error {
 			return fmt.Errorf("iptables fallback service uplink drop: %w", err)
 		}
 		if lp := ndconfig.LampacPort(); lp != "" && lp != "0" {
-			if err := must("-A", stagingChain, "-p", "tcp", "-s", "127.0.0.1", "--dport", lp, "-j", "ACCEPT"); err != nil {
-				return fmt.Errorf("iptables fallback Lampac loopback allow: %w", err)
-			}
+			// Loopback is accepted by the interface-scoped -i lo rule below;
+			// never trust a 127/8 source address arriving on a WAN interface.
 			if err := denyTCP(lp); err != nil {
 				return fmt.Errorf("iptables fallback Lampac WAN drop: %w", err)
 			}
 		}
 		mtls := ndconfig.AgentMTLSPort()
-		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
+		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			if err := must("-A", stagingChain, "-p", "tcp", "-s", c, "--dport", mtls, "-j", "ACCEPT"); err != nil {
 				return fmt.Errorf("iptables fallback mtls allow %s: %w", c, err)
 			}
