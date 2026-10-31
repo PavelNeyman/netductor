@@ -164,6 +164,9 @@ func applyOwnerActive() bool {
 }
 
 func RecoverIncompleteApply() error {
+	if err := recoverPrevSnapshotSwap(); err != nil {
+		return fmt.Errorf("last-good snapshot recovery blocked: %w", err)
+	}
 	return recoverApplyTx(attemptDir())
 }
 
