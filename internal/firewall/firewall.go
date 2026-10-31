@@ -264,6 +264,14 @@ func applyIPTables(role string) error {
 	must := func(args ...string) error {
 		return run(args...)
 	}
+	sp := sshPort()
+	// Keep the configured management port reachable while replacing the live
+	// NETDUCTOR chain. If the chain is flushed or a later rule fails, INPUT's
+	// default policy must not strand the operator outside the host.
+	if err := must("-I", "INPUT", "1", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
+		return fmt.Errorf("iptables fallback: temporary SSH safeguard: %w", err)
+	}
+	temporarySSHAllow := true
 	if err := must("-N", "NETDUCTOR"); err != nil {
 		// already exists is fine via run(); other errors abort
 		if !strings.Contains(err.Error(), "exist") {
@@ -279,7 +287,6 @@ func applyIPTables(role string) error {
 			return fmt.Errorf("iptables fallback: INPUT jump: %w", err)
 		}
 	}
-	sp := sshPort()
 	allowTCP := func(port string) error {
 		return must("-A", "NETDUCTOR", "-p", "tcp", "--dport", port, "-j", "ACCEPT")
 	}
@@ -334,6 +341,15 @@ func applyIPTables(role string) error {
 	}
 	if err := must("-I", "NETDUCTOR", "2", "-i", "lo", "-j", "ACCEPT"); err != nil {
 		return fmt.Errorf("iptables fallback lo: %w", err)
+	}
+	// Remove the temporary management exception only after the replacement
+	// chain is complete and its INPUT jump is in place. On any earlier error it
+	// intentionally remains, preferring a narrow SSH allow over remote lockout.
+	if temporarySSHAllow {
+		if err := must("-D", "INPUT", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
+			return fmt.Errorf("iptables fallback: remove temporary SSH safeguard: %w", err)
+		}
+		temporarySSHAllow = false
 	}
 	// note: do NOT set default DROP on INPUT via iptables alone — risk lockout
 	fmt.Fprintf(os.Stderr, "firewall: iptables NETDUCTOR chain applied role=%s (fallback; prefer ufw)\n", role)
