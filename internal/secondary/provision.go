@@ -442,7 +442,7 @@ done
 test "$(find "$STAGE" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 3
 chmod 700 "$STAGE"
 sync -f "$STAGE"
-if [ -e "$TARGET" ] || [ -L "$TARGET ]; then
+if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
   test -d "$TARGET" && test ! -L "$TARGET" || { echo "existing mTLS target is not a real directory" >&2; exit 1; }
   HAD_OLD=1
   BACKUP=$(mktemp -d "$P/.mtls-backup.XXXXXX")
@@ -461,8 +461,7 @@ if [ "$HAD_OLD" -eq 1 ]; then printf 'MTLS_BACKUP=%s\n' "$BACKUP"; else printf '
 		return "", fmt.Errorf("mTLS atomic install failed: %w (%s)", err, trimLog(out))
 	}
 	const marker = "MTLS_BACKUP="
-	for _, line := range strings.Split(out, "
-") {
+	for _, line := range strings.Split(out, "\n") {
 		if strings.HasPrefix(line, marker) {
 			backup := strings.TrimSpace(strings.TrimPrefix(line, marker))
 			if backup == "-" {
@@ -584,14 +583,20 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	in.Password = ""
 	log.WriteString(StageKeyOnlyVerification + ": ok; " + StageTransportSwitch + "=key_verified\n")
 
-	if err := installMTLSMaterial(client, in.MTLSCA, in.MTLSCert, in.MTLSKey); err != nil {
+	mtlsBackup, err := installMTLSMaterial(client, in.MTLSCA, in.MTLSCert, in.MTLSKey)
+	if err != nil {
 		return nil, fmt.Errorf("mtls material: %w", err)
 	}
-	log.WriteString("mtls client material installed\n")
+	log.WriteString("mtls client material atomically installed; previous set retained\n")
 	_, err = RemoteJoin(client, bundleJSON)
 	log.WriteString("remote join completed\n")
 	pubJoined := strings.Join(keys, "\n")
 	if err != nil {
+		restoreErr := finishMTLSMaterial(client, mtlsBackup, true)
+		if restoreErr != nil {
+			return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("secondary-install-components: join failed: %w; additionally %v (services remain stopped)", err, restoreErr)
+		}
+		log.WriteString("previous mTLS material restored after join failure\n")
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String()}, fmt.Errorf("secondary-install-components: join failed: %w", err)
 	}
 	// Strict post-join checks (RemoteJoin already tests units; re-verify)
@@ -601,9 +606,21 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 	agentOK := agErr == nil
 	singOK := sbErr == nil && p443 == nil
 	if !agentOK || !singOK {
+		_, _ = runSSH(client, "systemctl stop netductor-secondary-agent 2>/dev/null || true; systemctl stop sing-box 2>/dev/null || true")
+		restoreErr := finishMTLSMaterial(client, mtlsBackup, true)
+		if restoreErr != nil {
+			return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: agentOK, SingBoxOK: singOK},
+				fmt.Errorf("post-join services not healthy: agent_ok=%v singbox_ok=%v; mTLS restore failed: %v (services stopped)", agentOK, singOK, restoreErr)
+		}
+		log.WriteString("previous mTLS material restored after post-join health failure; services stopped\n")
 		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: agentOK, SingBoxOK: singOK},
 			fmt.Errorf("post-join services not healthy: agent_ok=%v singbox_ok=%v", agentOK, singOK)
 	}
+	if err := finishMTLSMaterial(client, mtlsBackup, false); err != nil {
+		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: agentOK, SingBoxOK: singOK},
+			fmt.Errorf("join is healthy but cannot finalize mTLS backup cleanup: %w", err)
+	}
+	log.WriteString("mTLS transaction committed; previous material cleanup complete\n")
 	// Harden prepare on current port (still 22 during initial): new port + rollback timer.
 	if err := HardenSSHPrepare(client); err != nil {
 		log.WriteString("harden prepare: " + err.Error() + "\n")
