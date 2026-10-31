@@ -880,13 +880,15 @@ func restoreFrom(dir string) error {
 	if err := exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
 		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback reset-failed: %w", err))
 	}
-	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
-		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil {
-			return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback restart %s: %w", unit, err))
-		}
+	if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback restart netductor-api: %w", err))
 	}
-	if !waitAPIHealthy(20*time.Second) {
-		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback API health check failed"))
+	if !waitAPIHealthy(30*time.Second) {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback API health/migrations check failed"))
+	}
+	// Start Telegram only after the API has completed startup migrations.
+	if err := exec.Command("systemctl", "restart", "netductor-telegram-bot").Run(); err != nil {
+		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback restart netductor-telegram-bot: %w", err))
 	}
 	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
 		active, _ := unitState(unit)
