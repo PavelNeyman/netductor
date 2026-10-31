@@ -291,9 +291,13 @@ func installStagedPairTo(nodeSrc, tgSrc, nodeDest, tgDest, att string) error {
 	if err := os.MkdirAll(att, 0o755); err != nil {
 		return fmt.Errorf("attempt dir: %w", err)
 	}
-	for _, pair := range []struct{ path, name string }{
-		{nodeDest, "netductor"},
-		{tgDest, "netductor-tg"},
+	if err := syncDir(filepath.Dir(att)); err != nil {
+		return fmt.Errorf("attempt dir sync: %w", err)
+	}
+	tx := applyTx{ID: fmt.Sprintf("tx-%d", time.Now().UnixNano()), NodeDest: nodeDest, TGDest: tgDest, StartedAt: time.Now().UTC()}
+	for _, pair := range []struct{ path, name, field string }{
+		{nodeDest, "netductor", "node"},
+		{tgDest, "netductor-tg", "tg"},
 	} {
 		st, err := os.Stat(pair.path)
 		if err != nil {
@@ -305,26 +309,47 @@ func installStagedPairTo(nodeSrc, tgSrc, nodeDest, tgDest, att string) error {
 		if st.IsDir() {
 			return fmt.Errorf("%s is a directory", pair.path)
 		}
-		b, err := os.ReadFile(pair.path)
+		sha, err := durableBackup(pair.path, filepath.Join(att, pair.name))
 		if err != nil {
-			return fmt.Errorf("backup read %s: %w", pair.name, err)
+			return fmt.Errorf("backup %s: %w", pair.name, err)
 		}
-		dst := filepath.Join(att, pair.name)
-		if err := os.WriteFile(dst, b, 0o755); err != nil {
-			return fmt.Errorf("backup write %s: %w", pair.name, err)
+		if pair.field == "node" {
+			tx.NodePreSHA = sha
+		} else {
+			tx.TGPreSHA = sha
 		}
+	}
+	nsha, err := fileSHA(nodeSrc)
+	if err != nil {
+		return fmt.Errorf("node source: %w", err)
+	}
+	tsha, err := fileSHA(tgSrc)
+	if err != nil {
+		return fmt.Errorf("tg source: %w", err)
+	}
+	tx.NodeNewSHA, tx.TGNewSHA = nsha, tsha
+	tx.Phase = txPrepared
+	if err := writeTx(att, tx); err != nil {
+		return fmt.Errorf("tx prepared: %w", err)
 	}
 	if err := replaceExecutable(nodeSrc, nodeDest); err != nil {
 		return fmt.Errorf("install node: %w", err)
 	}
+	tx.Phase = txNodeInstalled
+	if err := writeTx(att, tx); err != nil {
+		return fmt.Errorf("tx node_installed: %w", err)
+	}
 	if err := replaceExecutable(tgSrc, tgDest); err != nil {
-		bak := filepath.Join(att, "netductor")
-		if b, rerr := os.ReadFile(bak); rerr != nil {
+		if rerr := restoreChecked(filepath.Join(att, "netductor"), nodeDest, tx.NodePreSHA); rerr != nil {
 			return fmt.Errorf("install tg: %w (node restore failed: %v)", err, rerr)
-		} else if werr := os.WriteFile(nodeDest, b, 0o755); werr != nil {
-			return fmt.Errorf("install tg: %w (node restore write failed: %v)", err, werr)
 		}
+		tx.Phase = txPrepared
+		_ = writeTx(att, tx)
 		return fmt.Errorf("install tg: %w (node restored from attempt snapshot)", err)
+	}
+	tx.Phase = txTGInstalled
+	if err := writeTx(att, tx); err != nil {
+		return fmt.Errorf("tx tg_installed: %w", err)
 	}
 	return nil
 }

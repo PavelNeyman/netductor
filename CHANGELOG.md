@@ -1,3 +1,8 @@
+## 0.9.655
+
+- Apply pair install writes a durable tx journal. Startup recovers node_installed/tg_installed before API. Corrupt journal blocks start.
+
+
 ## 0.9.651
 
 Startup migrations:

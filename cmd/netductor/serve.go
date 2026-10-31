@@ -18,6 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/policy"
+	"github.com/PavelNeyman/netductor/internal/stack"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -108,6 +109,11 @@ func runServe(args []string) {
 	if bind != "127.0.0.1" && bind != "localhost" {
 		fmt.Fprintln(os.Stderr, "refusing non-local API bind (operator is netductor-op on Mac; NETDUCTOR_API_PUBLIC removed)")
 		os.Exit(2)
+	}
+	// Crash recovery before API. A kill between Node and TG must not serve a mixed pair.
+	if err := stack.RecoverIncompleteApply(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 	// Startup migrations before Ready (API mux / listeners).
 	if os.Getenv("NETDUCTOR_SKIP_MIGRATE") != "1" {
