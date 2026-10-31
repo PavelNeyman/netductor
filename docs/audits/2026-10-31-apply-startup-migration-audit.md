@@ -115,3 +115,12 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 | clear-failed CLI | Done |
 | Doctor migrate checks | Done |
 | Full 0.9.612 snapshot fixture | Still open |
+
+## Stage 3e (0.9.648)
+
+| Item | Status |
+|------|--------|
+| Durable binary replace (stack+host) | Done |
+| Baseline/sites/git/ci dirs migration | Done |
+| Migrate HTTP API | Done |
+| Full 0.9.612 snapshot fixture | Still open |

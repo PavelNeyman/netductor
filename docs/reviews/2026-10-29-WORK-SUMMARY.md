@@ -430,3 +430,10 @@ APT Guard (stages 0–2):
 - journal dir fsync
 - clear-failed CLI + doctor journal checks
 
+
+### 0.9.648 — durable binary install + migrate API
+
+- fsync on stack/host binary replace
+- baseline dirs migration
+- session API for migrate status/run/clear-failed
+
