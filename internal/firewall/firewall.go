@@ -284,6 +284,15 @@ func ufwPreflightPolicy(status, role string) error {
 			}
 		}
 	}
+	checkNoAllow := func(port, label string) {
+		for _, rule := range rules {
+			if ufwRuleMatchesPortTCP(rule, port) && rule.Action == "ALLOW" {
+				family := "IPv4"
+				if rule.IPv6 { family = "IPv6" }
+				conflicts = append(conflicts, fmt.Sprintf("%s %s has existing %s ALLOW from %s", label, port, family, rule.From))
+			}
+		}
+	}
 	checkSource := func(port, source, label string) {
 		action, found := firstTCPActionFromSource(rules, port, source, false)
 		if found && action != "ALLOW" {
@@ -296,12 +305,18 @@ func ufwPreflightPolicy(status, role string) error {
 	} {
 		checkWAN(item.port, item.action, item.label)
 	}
+	for _, item := range []struct{ port, label string }{
+		{"22", "ssh22"}, {"10050", "zabbix"}, {"10051", "zabbix"},
+	} {
+		checkNoAllow(item.port, item.label)
+	}
 	if role == "primary" {
 		for _, item := range []struct{ port, action, label string }{
 			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
 			{"80", "ALLOW", "http-acme"}, {"8444", "ALLOW", "primary-wss"},
 			{"8788", "DENY", "plain-agent"}, {"9443", "DENY", "service-uplink"},
 		} { checkWAN(item.port, item.action, item.label) }
+		checkNoAllow("8788", "plain-agent")
 		uplink := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
 		mtls := ndconfig.AgentMTLSPort()
@@ -342,6 +357,9 @@ func ufwPreflightPolicy(status, role string) error {
 		checkWAN("8445", "ALLOW", "secondary-wss")
 		for _, port := range []string{"80", "8787", "8788", "8789"} {
 			checkWAN(port, "DENY", "secondary-restricted")
+		}
+		for _, port := range []string{"80", "8787", "8788", "8789"} {
+			checkNoAllow(port, "secondary-restricted")
 		}
 	}
 	if len(conflicts) != 0 {
@@ -1139,6 +1157,16 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		requireWAN(port, action, label, false)
 		requireWAN(port, action, label, true)
 	}
+	rejectAnyAllow := func(port, label string) {
+		for _, rule := range rules {
+			if ufwRuleMatchesPortTCP(rule, port) && rule.Action == "ALLOW" {
+				ok = false
+				family := "IPv4"
+				if rule.IPv6 { family = "IPv6" }
+				warnings = append(warnings, label+": unexpected "+family+" ALLOW from "+rule.From+" for "+port+"/tcp")
+			}
+		}
+	}
 	sp := sshPort()
 	for _, item := range []struct{ port, action, label string }{
 		{sp, "ALLOW", "ssh"},
@@ -1148,6 +1176,11 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		{"10051", "DENY", "zabbix"},
 	} {
 		requireBoth(item.port, item.action, item.label)
+	}
+	for _, item := range []struct{ port, label string }{
+		{"22", "ssh22"}, {"10050", "zabbix"}, {"10051", "zabbix"},
+	} {
+		rejectAnyAllow(item.port, item.label)
 	}
 
 	if role == "primary" {
@@ -1160,6 +1193,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		} {
 			requireBoth(item.port, item.action, item.label)
 		}
+		rejectAnyAllow("8788", "plain-agent")
 
 		// The configured service-path CIDRs are IPv4. They must not be
 		// interpreted as permission to expose the same port over IPv6.
@@ -1252,6 +1286,9 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		requireBoth("80", "DENY", "secondary-http")
 		for _, port := range []string{"8787", "8788", "8789"} {
 			requireBoth(port, "DENY", "secondary-"+port)
+		}
+		for _, port := range []string{"80", "8787", "8788", "8789"} {
+			rejectAnyAllow(port, "secondary-restricted")
 		}
 	}
 	return ok, warnings
