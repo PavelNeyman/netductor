@@ -139,8 +139,8 @@ func verifyPreImagePair(att string, tx *applyTx) error {
 	return nil
 }
 
-// commitInstalledPair is called only after service health, host baseline and
-// last-good snapshot preparation have succeeded.
+// commitInstalledPair is called only after the caller's required service health
+// and host-baseline checks; Apply also prepares the staged last-good snapshot first.
 func commitInstalledPair(att string) error {
 	tx, err := loadTx(att)
 	if err != nil { return fmt.Errorf("load apply transaction: %w", err) }
@@ -206,6 +206,10 @@ func RecoverIncompleteApply() error {
 	}
 	if len(restartErrs) > 0 { return fmt.Errorf("apply pair rolled back; service restart failed: %s", strings.Join(restartErrs, "; ")) }
 	if !waitAPIHealthy(20*time.Second) { return fmt.Errorf("apply pair rolled back; API health check failed") }
+	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
+		active, _ := unitState(unit)
+		if active != "active" { return fmt.Errorf("apply pair rolled back; service %s is %s", unit, active) }
+	}
 	return nil
 }
 
