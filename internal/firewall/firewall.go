@@ -130,6 +130,9 @@ func ApplyRole(role string) error {
 	} else if role != "primary" && role != "secondary" {
 		return fmt.Errorf("firewall: invalid role %q (want primary or secondary)", role)
 	}
+	if err := validateRolePorts(role); err != nil {
+		return err
+	}
 	be, err := EnsureInstalled()
 	if err != nil {
 		return err
@@ -231,6 +234,73 @@ func persistRole(role string) error {
 	defer d.Close()
 	if err := d.Sync(); err != nil {
 		return fmt.Errorf("firewall: sync role directory: %w", err)
+	}
+	return nil
+}
+
+
+// validateRolePorts rejects invalid or colliding ports before installing or
+// mutating a firewall backend. In particular, SSH must never share a port
+// with a service that this role explicitly denies or source-restricts.
+func validateRolePorts(role string) error {
+	parse := func(label, value string, optional bool) (int, error) {
+		value = strings.TrimSpace(value)
+		if optional && (value == "" || value == "0") {
+			return 0, nil
+		}
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 || n > 65535 {
+			return 0, fmt.Errorf("firewall: invalid %s port %q (want numeric 1..65535)", label, value)
+		}
+		return n, nil
+	}
+	ssh, err := parse("SSH", sshPort(), false)
+	if err != nil {
+		return err
+	}
+	reserved := map[int]string{22: "legacy SSH", 443: "VLESS"}
+	add := func(label, value string, optional bool) error {
+		n, err := parse(label, value, optional)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return nil
+		}
+		if previous, exists := reserved[n]; exists {
+			return fmt.Errorf("firewall: %s port %d conflicts with %s", label, n, previous)
+		}
+		reserved[n] = label
+		return nil
+	}
+	if err := add("redirect HTTPS", ndconfig.RedirectHTTPSPort(), false); err != nil {
+		return err
+	}
+	if err := add("agent mTLS", ndconfig.AgentMTLSPort(), false); err != nil {
+		return err
+	}
+	if err := add("Lampac", ndconfig.LampacPort(), true); err != nil {
+		return err
+	}
+	if role == "primary" {
+		for _, item := range []struct{ label, port string }{
+			{"HTTP", "80"}, {"primary WSS", "8444"}, {"plain agent", "8788"}, {"service uplink", "9443"},
+		} {
+			if err := add(item.label, item.port, false); err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, item := range []struct{ label, port string }{
+			{"secondary WSS", "8445"}, {"secondary API", "8787"}, {"plain agent", "8788"}, {"HTTP", "80"}, {"Zabbix agent", "10050"}, {"Zabbix server", "10051"},
+		} {
+			if err := add(item.label, item.port, false); err != nil {
+				return err
+			}
+		}
+	}
+	if previous, exists := reserved[ssh]; exists {
+		return fmt.Errorf("firewall: SSH port %d conflicts with reserved %s port", ssh, previous)
 	}
 	return nil
 }
