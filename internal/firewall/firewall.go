@@ -454,8 +454,33 @@ func applyIPTables(role string) error {
 			return fmt.Errorf("iptables fallback: install INPUT jump: %w", err)
 		}
 	}
-	// The new policy is now active. Remove only the temporary SSH exception
-	// created by this invocation; pre-existing administrator rules are kept.
+
+	// Verify the live INPUT layout after the switch before removing the
+	// temporary SSH safeguard. This catches stale positions, unexpected
+	// concurrent rule changes, and a switch that did not become effective.
+	verifiedInput, verifyErr := exec.Command("iptables", "-S", "INPUT").CombinedOutput()
+	if verifyErr != nil {
+		return fmt.Errorf("iptables fallback: verify switched INPUT: %v (%s)", verifyErr, truncate(string(verifiedInput), 200))
+	}
+	verifiedPos, verifiedChain, layoutErr := managedInputJump(string(verifiedInput))
+	if layoutErr != nil {
+		return fmt.Errorf("iptables fallback: verify switched INPUT layout: %w", layoutErr)
+	}
+	if verifiedPos == 0 || verifiedChain != stagingChain {
+		return fmt.Errorf("iptables fallback: INPUT switch not verified (active=%q want=%q)", verifiedChain, stagingChain)
+	}
+	verifiedRules, chainVerifyErr := exec.Command("iptables", "-S", stagingChain).CombinedOutput()
+	if chainVerifyErr != nil {
+		return fmt.Errorf("iptables fallback: verify active chain %s: %v (%s)", stagingChain, chainVerifyErr, truncate(string(verifiedRules), 200))
+	}
+	if !strings.Contains(string(verifiedRules), "-j ACCEPT") ||
+		!strings.Contains(string(verifiedRules), "--dport "+sp) ||
+		!strings.Contains(string(verifiedRules), "--ctstate ESTABLISHED,RELATED") {
+		return fmt.Errorf("iptables fallback: active chain %s failed essential-rule verification", stagingChain)
+	}
+
+	// The new policy is now active and verified. Remove only the temporary SSH
+	// exception created by this invocation; pre-existing administrator rules are kept.
 	if temporarySSHAllow {
 		if err := must("-D", "INPUT", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
 			return fmt.Errorf("iptables fallback: remove temporary SSH safeguard: %w", err)
