@@ -16,7 +16,6 @@ import (
 	"github.com/PavelNeyman/netductor/internal/edge"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/migrate"
-	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/stack"
@@ -145,12 +144,10 @@ func runServe(args []string) {
 	mux := buildAPIMux()
 	addr := bind + ":" + port
 	fmt.Fprintf(os.Stderr, "netductor serve on http://%s API-only (Mac client = UI)\n", addr)
-	if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil {
-		fmt.Fprintln(os.Stderr, "mtls.EnsureAll:", err)
-		// R-3: refuse to start agent plane without usable CA/material
+	if err := StartAgentPlane(); err != nil {
+		fmt.Fprintln(os.Stderr, "start mTLS agent plane:", err)
 		os.Exit(1)
 	}
-	StartAgentPlane()
 	srv := httpx.NewServer(addr, withSecurity(mux))
 	var err error
 	if tlsCert != "" && tlsKey != "" {
