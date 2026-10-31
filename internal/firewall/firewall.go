@@ -279,7 +279,7 @@ func applyUFW(role string) error {
 	// Preserve the active management path before tightening the default policy.
 	// UFW applies rule changes immediately when already enabled; setting the
 	// default incoming policy first can lock out SSH if the allow rule then fails.
-	if err := must("allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
+	if err := must("insert", "1", "allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
 		return fmt.Errorf("install SSH allow rule before default deny: %w", err)
 	}
 
