@@ -279,6 +279,13 @@ func applyUFW(role string) error {
 	if !strings.Contains(string(status), "Status: active") {
 		return fmt.Errorf("ufw post-apply verification failed: firewall is not active (%s)", truncate(string(status), 200))
 	}
+	verbose, verboseErr := exec.Command("ufw", "status", "verbose").CombinedOutput()
+	if verboseErr != nil {
+		return fmt.Errorf("ufw post-apply verbose status: %v (%s)", verboseErr, truncate(string(verbose), 200))
+	}
+	if ok, reason := ufwDefaultIncomingDenied(string(verbose)); !ok {
+		return fmt.Errorf("ufw post-apply default policy verification failed: %s", reason)
+	}
 	if ok, warnings := ufwEffectivePolicy(string(status), role); !ok {
 		return fmt.Errorf("ufw post-apply policy verification failed: %s", strings.Join(warnings, "; "))
 	}
@@ -537,6 +544,14 @@ func Collect(role string) Status {
 		st.Active = strings.Contains(s, "Status: active")
 		st.Detail = firstLines(s, 16)
 		ok, warns := ufwEffectivePolicy(s, role)
+		verbose, verboseErr := exec.Command("ufw", "status", "verbose").CombinedOutput()
+		if verboseErr != nil {
+			ok = false
+			warns = append(warns, "cannot read UFW verbose status: "+truncate(string(verbose), 160))
+		} else if defaultOK, reason := ufwDefaultIncomingDenied(string(verbose)); !defaultOK {
+			ok = false
+			warns = append(warns, reason)
+		}
 		st.OK = st.Active && ok
 		st.Warnings = append(st.Warnings, warns...)
 		if !st.Active {
@@ -576,6 +591,33 @@ func Collect(role string) Status {
 	return st
 }
 
+
+// ufwDefaultIncomingDenied requires an explicit restrictive default incoming policy.
+// The setting is available in `ufw status verbose`, not reliably in numbered status.
+func ufwDefaultIncomingDenied(status string) (bool, string) {
+	for _, line := range strings.Split(status, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(strings.ToLower(line), "default:") {
+			continue
+		}
+		for _, item := range strings.Split(strings.TrimSpace(strings.TrimPrefix(line, line[:len("Default:")])), ",") {
+			item = strings.TrimSpace(item)
+			if strings.Contains(strings.ToLower(item), "(incoming)") {
+				fields := strings.Fields(item)
+				if len(fields) < 2 {
+					return false, "unparseable default incoming policy: " + item
+				}
+				policy := strings.ToLower(fields[0])
+				if policy == "deny" || policy == "reject" {
+					return true, ""
+				}
+				return false, "default incoming policy is " + policy + " (must be deny or reject)"
+			}
+		}
+		return false, "default incoming policy is missing from UFW verbose status"
+	}
+	return false, "UFW verbose status has no Default policy line"
+}
 
 // ufwRule is one line from `ufw status numbered` (IPv4 preferred; v6 skipped for policy OK).
 type ufwRule struct {
