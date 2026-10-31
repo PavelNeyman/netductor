@@ -119,19 +119,15 @@ func runServe(args []string) {
 		fmt.Fprintln(os.Stderr, recoverErr)
 		os.Exit(1)
 	}
-	exe, exeErr := os.Executable()
-	if exeErr != nil {
-		fmt.Fprintln(os.Stderr, "resolve current executable after recovery:", exeErr)
+	diskExe := "/usr/local/bin/netductor"
+	procInfo, procErr := os.Stat("/proc/self/exe")
+	diskInfo, diskErr := os.Stat(diskExe)
+	if procErr != nil || diskErr != nil {
+		fmt.Fprintln(os.Stderr, "verify executable inode after recovery:", procErr, diskErr)
 		os.Exit(1)
 	}
-	diskVersion, versionErr := exec.Command(exe, "version").CombinedOutput()
-	if versionErr != nil {
-		fmt.Fprintln(os.Stderr, "verify executable after recovery:", versionErr, string(diskVersion))
-		os.Exit(1)
-	}
-	fields := strings.Fields(string(diskVersion))
-	if rolledBack || len(fields) < 2 || fields[1] != ndver.Release {
-		if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
+	if rolledBack || !os.SameFile(procInfo, diskInfo) {
+		if err := syscall.Exec(diskExe, os.Args, os.Environ()); err != nil {
 			fmt.Fprintln(os.Stderr, "re-exec restored netductor binary:", err)
 			os.Exit(1)
 		}
