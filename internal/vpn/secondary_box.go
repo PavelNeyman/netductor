@@ -170,20 +170,53 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		"outbounds": outbounds,
 		"route":     buildSecondaryRoute(svcRules, ruSuffixes),
 	}
-	_ = os.MkdirAll(filepath.Dir(singboxConf), 0o755)
+	dir := filepath.Dir(singboxConf)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create sing-box config directory: %w", err)
+	}
 	raw, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := singboxConf + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
-		return err
+	tmpFile, err := os.CreateTemp(dir, ".config.json.*.tmp")
+	if err != nil {
+		return fmt.Errorf("create sing-box config staging file: %w", err)
 	}
-	_ = os.Chmod(tmp, 0o600)
+	tmp := tmpFile.Name()
+	defer os.Remove(tmp)
+	data := append(raw, '\n')
+	n, writeErr := tmpFile.Write(data)
+	if writeErr == nil && n != len(data) {
+		writeErr = fmt.Errorf("short write: wrote %d of %d bytes", n, len(data))
+	}
+	if writeErr == nil {
+		writeErr = tmpFile.Chmod(0o600)
+	}
+	if writeErr == nil {
+		writeErr = tmpFile.Sync()
+	}
+	closeErr := tmpFile.Close()
+	if writeErr != nil {
+		return fmt.Errorf("stage sing-box config: %w", writeErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close staged sing-box config: %w", closeErr)
+	}
 	if err := os.Rename(tmp, singboxConf); err != nil {
-		return err
+		return fmt.Errorf("replace sing-box config: %w", err)
 	}
-	return os.Chmod(singboxConf, 0o600)
+	df, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open sing-box config directory for sync: %w", err)
+	}
+	if err := df.Sync(); err != nil {
+		_ = df.Close()
+		return fmt.Errorf("sync sing-box config directory: %w", err)
+	}
+	if err := df.Close(); err != nil {
+		return fmt.Errorf("close sing-box config directory: %w", err)
+	}
+	return nil
 }
 
 func sanitizeTag(name string) string {
