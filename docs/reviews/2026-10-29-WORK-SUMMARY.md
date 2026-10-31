@@ -477,3 +477,12 @@ Still open (review C–F): PostCheck depth, real 0.9.612 fixture, full fault-inj
 | C PostCheck | role must be primary\|secondary; installed_version required; optional `NETDUCTOR_POSTCHECK_FIREWALL=1`, `UNITS=1`, `STRICT=1` for VERSION |
 | E Fixture | `TestFixture0912PrimaryLayout` — VERSION 0.9.612, loose secrets, no journal; second RunRegistry must Ran empty; PostCheck passes |
 | Note | Still not a live VPS disk image of 0.9.612; F fault-injection full stack apply still open |
+
+## 13. 0.9.654 fault-injection (stage F partial)
+
+| Area | Tests |
+|------|-------|
+| stack pair | node-src missing → dests unchanged; tg fail → node restored + old tg; attempt path not dir → no binary change; attempt keeps pre-image |
+| migrate | corrupt journal fail-closed; mid-apply cancel → Failed + ClearFailed retry; StatusRunning fails PostCheck; journal no .tmp leftover |
+
+Still **not** full live `stack.ApplyOpts` with systemctl kill mid-restart — that needs a lab host. Synthetic F covers install+journal durability paths from the 0.9.651 review.
