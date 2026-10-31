@@ -134,9 +134,6 @@ WantedBy=multi-user.target
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
 		return fmt.Errorf("sing-box did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
 	}
-	if out, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
-		return fmt.Errorf("sing-box did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
-	}
 
 	pubIP := strings.TrimSpace(env("PUBLIC_IP", ""))
 	if pubIP == "" { pubIP = strings.TrimSpace(detectPublicIP()) }
