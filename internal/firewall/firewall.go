@@ -163,7 +163,16 @@ func applyUFW(role string) error {
 	if os.Getenv("NETDUCTOR_FW_RESET") == "1" {
 		_ = exec.Command("bash", "-c", "echo y | ufw --force reset").Run()
 	}
-	// H-2: critical policy steps must not be ignored.
+	sp := sshPort()
+	// Preserve the active management path before tightening the default policy.
+	// UFW applies rule changes immediately when already enabled; setting the
+	// default incoming policy first can lock out SSH if the allow rule then fails.
+	if err := must("allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
+		return fmt.Errorf("install SSH allow rule before default deny: %w", err)
+	}
+
+	// H-2: critical policy steps must not be ignored. Only tighten incoming
+	// traffic after the configured SSH port has an explicit allow rule.
 	if err := must("default", "deny", "incoming"); err != nil {
 		return err
 	}
@@ -171,11 +180,6 @@ func applyUFW(role string) error {
 		return err
 	}
 	_ = run("default", "deny", "routed")
-
-	sp := sshPort()
-	if err := must("allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
-		return err
-	}
 	_ = run("deny", "22/tcp", "comment", "netductor-no-ssh22")
 	if err := must("allow", "443/tcp", "comment", "netductor-vless"); err != nil {
 		return err
