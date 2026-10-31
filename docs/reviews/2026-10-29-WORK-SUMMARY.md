@@ -423,3 +423,10 @@ APT Guard (stages 0–2):
 - Fixture: loose modes pre-migrate layout
 - Interrupted StatusRunning re-apply covered by test
 
+
+### 0.9.647 — migrate doctor + vpn dirs
+
+- ensure-vpn-dirs migration
+- journal dir fsync
+- clear-failed CLI + doctor journal checks
+

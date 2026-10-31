@@ -34,8 +34,14 @@ func runMigrate(args []string) {
 		for id, rec := range j {
 			fmt.Printf("%s status=%s ver=%s err=%s\n", id, rec.Status, rec.AppVersion, rec.Error)
 		}
+	case "clear-failed", "reset-failed":
+		if err := migrate.ClearFailedRecords(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("cleared failed/running migration records")
 	case "help", "-h", "--help":
-		fmt.Println("netductor migrate status|run")
+		fmt.Println("netductor migrate status|run|clear-failed")
 	default:
 		fmt.Fprintln(os.Stderr, "unknown migrate subcommand")
 		os.Exit(2)

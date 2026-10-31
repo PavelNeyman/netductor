@@ -10,6 +10,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 type ensureStateDirsMigration struct{}
@@ -169,6 +170,43 @@ func (m *ensureRoleFileMigration) Verify(ctx context.Context) error {
 	}
 	if need {
 		return fmt.Errorf("role file still missing")
+	}
+	return nil
+}
+
+type ensureVPNDirsMigration struct{}
+
+func (m *ensureVPNDirsMigration) ID() string { return "2026-10-ensure-vpn-dirs" }
+func (m *ensureVPNDirsMigration) Description() string {
+	return "Ensure VPN secrets/sessions/clients and empty vpn-users.json"
+}
+func (m *ensureVPNDirsMigration) Required(ctx context.Context) (bool, error) {
+	users := filepath.Join(paths.EtcDir(), "vpn-users.json")
+	if _, err := os.Stat(users); err != nil {
+		return true, nil
+	}
+	for _, d := range []string{
+		filepath.Join(paths.EtcDir(), "secrets"),
+		filepath.Join(paths.EtcDir(), "sessions"),
+		filepath.Join(paths.EtcDir(), "clients"),
+	} {
+		st, err := os.Stat(d)
+		if err != nil || !st.IsDir() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (m *ensureVPNDirsMigration) Apply(ctx context.Context) error {
+	return vpn.EnsureDirs()
+}
+func (m *ensureVPNDirsMigration) Verify(ctx context.Context) error {
+	need, err := m.Required(ctx)
+	if err != nil {
+		return err
+	}
+	if need {
+		return fmt.Errorf("vpn dirs still incomplete")
 	}
 	return nil
 }

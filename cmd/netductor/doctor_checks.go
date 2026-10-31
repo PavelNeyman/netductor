@@ -18,6 +18,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/integrity"
+	"github.com/PavelNeyman/netductor/internal/migrate"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nvr"
 	"github.com/PavelNeyman/netductor/internal/paths"
@@ -36,6 +37,36 @@ import (
 func doctorRunChecks(h doctorHooks) {
 	h.check("debian", h.exists("/etc/debian_version"))
 	h.check("secrets", h.exists(filepath.Join(h.etc, "secrets")))
+	// Startup migration journal (soft until first serve)
+	{
+		jp := filepath.Join(h.state, "migrate", "journal.json")
+		if !h.exists(jp) {
+			h.warnCheck("migrate journal present", false)
+		} else {
+			rec, err := migrate.LoadJournalPublic()
+			if err != nil {
+				doctorPrintf("FAIL migrate journal: %v\n", err)
+				(*h.fail)++
+			} else {
+				failed := 0
+				running := 0
+				for _, r := range rec {
+					if r.Status == migrate.StatusFailed {
+						failed++
+					}
+					if r.Status == migrate.StatusRunning {
+						running++
+					}
+				}
+				if failed > 0 || running > 0 {
+					doctorPrintf("FAIL migrate incomplete failed=%d running=%d (netductor migrate clear-failed && migrate run)\n", failed, running)
+					(*h.fail)++
+				} else {
+					h.check("migrate journal clean", true)
+				}
+			}
+		}
+	}
 	h.check("netductor", lookPath("netductor") != "")
 	h.check("sing-box binary", h.exists("/usr/local/bin/sing-box"))
 	h.check("sing-box unit", activeUnit("sing-box"))

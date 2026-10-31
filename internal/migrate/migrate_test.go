@@ -194,3 +194,34 @@ func (c *countMig) Verify(ctx context.Context) error {
 	c.need = false
 	return nil
 }
+
+func TestClearFailedRecords(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
+	_ = os.MkdirAll(filepath.Join(root, "migrate"), 0o700)
+	j := journalFile{Schema: 1, Records: map[string]record{
+		"a": {ID: "a", Status: StatusFailed, Error: "boom"},
+		"b": {ID: "b", Status: StatusCompleted},
+		"c": {ID: "c", Status: StatusRunning},
+	}}
+	if err := durableWriteJournal(j); err != nil {
+		t.Fatal(err)
+	}
+	if err := ClearFailedRecords(); err != nil {
+		t.Fatal(err)
+	}
+	pub, err := LoadJournalPublic()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := pub["a"]; ok {
+		t.Fatal("failed record should be cleared")
+	}
+	if _, ok := pub["c"]; ok {
+		t.Fatal("running record should be cleared")
+	}
+	if pub["b"].Status != StatusCompleted {
+		t.Fatal("completed should remain")
+	}
+}

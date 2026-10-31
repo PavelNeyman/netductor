@@ -101,6 +101,10 @@ func durableWriteJournal(j journalFile) error {
 		_ = os.Remove(tmp)
 		return err
 	}
+	if df, err := os.Open(dir); err == nil {
+		_ = df.Sync()
+		_ = df.Close()
+	}
 	return nil
 }
 
@@ -121,6 +125,7 @@ func init() {
 		&repairStateOnUpgradeMigration{},
 		&ensureAptGuardPolicyMigration{},
 		&ensureRoleFileMigration{},
+		&ensureVPNDirsMigration{},
 	}
 }
 
@@ -257,4 +262,23 @@ func LoadJournalPublic() (map[string]JournalRecord, error) {
 		out[id] = JournalRecord{Status: r.Status, AppVersion: r.AppVersion, Error: r.Error}
 	}
 	return out, nil
+}
+
+// ClearFailedRecords resets failed entries so the next RunAll can retry Required work.
+func ClearFailedRecords() error {
+	j, err := loadJournal()
+	if err != nil {
+		return err
+	}
+	changed := false
+	for id, rec := range j.Records {
+		if rec.Status == StatusFailed || rec.Status == StatusRunning {
+			delete(j.Records, id)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return durableWriteJournal(j)
 }

@@ -105,3 +105,13 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 | Legacy loose-mode fixture | Done |
 | Interrupted migration re-run | Covered by test |
 | Full 0.9.612 binary snapshot | Still open (needs archived install tree) |
+
+## Stage 3d (0.9.647)
+
+| Item | Status |
+|------|--------|
+| vpn EnsureDirs migration | Done |
+| Journal parent fsync | Done |
+| clear-failed CLI | Done |
+| Doctor migrate checks | Done |
+| Full 0.9.612 snapshot fixture | Still open |

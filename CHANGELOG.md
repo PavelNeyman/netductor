@@ -1,3 +1,12 @@
+## 0.9.647
+
+Startup migrations:
+- ensure-vpn-dirs (vpn.EnsureDirs)
+- journal fsync parent dir after rename
+- migrate clear-failed CLI
+- doctor: migrate journal present/clean
+- TestClearFailedRecords
+
 ## 0.9.646
 
 Startup migrations:
