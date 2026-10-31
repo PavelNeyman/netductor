@@ -211,24 +211,24 @@ func applyUFW(role string) error {
 	if err := must("default", "allow", "outgoing"); err != nil {
 		return err
 	}
-	_ = run("default", "deny", "routed")
-	_ = run("deny", "22/tcp", "comment", "netductor-no-ssh22")
+	if err := must("default", "deny", "routed"); err != nil { return fmt.Errorf("set default routed deny: %w", err) }
+	if err := must("deny", "22/tcp", "comment", "netductor-no-ssh22"); err != nil { return fmt.Errorf("deny SSH port 22: %w", err) }
 	if err := must("allow", "443/tcp", "comment", "netductor-vless"); err != nil {
 		return err
 	}
-	_ = run("deny", "10050/tcp", "comment", "no-zabbix")
-	_ = run("deny", "10051/tcp", "comment", "no-zabbix")
+	if err := must("deny", "10050/tcp", "comment", "no-zabbix"); err != nil { return fmt.Errorf("deny zabbix 10050: %w", err) }
+	if err := must("deny", "10051/tcp", "comment", "no-zabbix"); err != nil { return fmt.Errorf("deny zabbix 10051: %w", err) }
 
 	if role == "primary" {
 		redir := ndconfig.RedirectHTTPSPort()
 		if err := must("allow", redir+"/tcp", "comment", "netductor-redirect"); err != nil {
 			return err
 		}
-		_ = run("allow", redir+"/udp", "comment", "netductor-redirect")
+		if err := must("allow", redir+"/udp", "comment", "netductor-redirect"); err != nil { return fmt.Errorf("allow redirect UDP: %w", err) }
 		if err := must("allow", "80/tcp", "comment", "netductor-http-acme"); err != nil {
 			return err
 		}
-		_ = run("allow", "8444/tcp", "comment", "nd-wss-sp")
+		if err := must("allow", "8444/tcp", "comment", "nd-wss-sp"); err != nil { return fmt.Errorf("allow primary WSS port: %w", err) }
 		if err := must("deny", "8788/tcp", "comment", "no-plain-agent"); err != nil {
 			return err
 		}
@@ -248,11 +248,11 @@ func applyUFW(role string) error {
 		}
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
-			_ = run("deny", lp+"/tcp", "comment", "lampac-wan-deny")
-			_ = run("allow", "from", "127.0.0.1", "to", "any", "port", lp, "proto", "tcp", "comment", "lampac-local")
+			if err := must("deny", lp+"/tcp", "comment", "lampac-wan-deny"); err != nil { return fmt.Errorf("deny Lampac WAN port: %w", err) }
+			if err := must("allow", "from", "127.0.0.1", "to", "any", "port", lp, "proto", "tcp", "comment", "lampac-local"); err != nil { return fmt.Errorf("allow Lampac loopback: %w", err) }
 		}
 	} else {
-		_ = run("allow", "8445/tcp", "comment", "nd-wss-ps")
+		if err := must("allow", "8445/tcp", "comment", "nd-wss-ps"); err != nil { return fmt.Errorf("allow secondary WSS port: %w", err) }
 		if err := must("deny", "8787/tcp", "comment", "no-api-wan"); err != nil {
 			return err
 		}
@@ -262,7 +262,7 @@ func applyUFW(role string) error {
 		if err := must("deny", "8789/tcp", "comment", "no-mtls-wan-secondary"); err != nil {
 			return err
 		}
-		_ = run("deny", "80/tcp", "comment", "no-http-secondary")
+		if err := must("deny", "80/tcp", "comment", "no-http-secondary"); err != nil { return fmt.Errorf("deny secondary HTTP port: %w", err) }
 	}
 
 	out, err := exec.Command("bash", "-c", "echo y | ufw --force enable").CombinedOutput()
