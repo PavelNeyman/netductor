@@ -297,8 +297,8 @@ case "$arch" in
 esac
 BASE="https://github.com/PavelNeyman/netductor/releases/download/v${VER}"
 dl() {
-  if command -v curl >/dev/null 2>&1; then curl -fsSL -o "$1" "$2"
-  else wget -qO "$1" "$2"; fi
+  if command -v curl >/dev/null 2>&1; then curl -fsSL --proto "=https" --proto-redir "=https" -o "$1" "$2"
+  else wget --https-only -qO "$1" "$2"; fi
 }
 dl "$TD/$ASSET" "$BASE/$ASSET" || { echo "download $ASSET v$VER failed" >&2; exit 1; }
 if dl "$TD/SHA256SUMS" "$BASE/SHA256SUMS"; then
