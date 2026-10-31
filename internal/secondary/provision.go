@@ -288,7 +288,8 @@ export DEBIAN_FRONTEND=noninteractive
 VER=%s
 TD=$(mktemp -d /tmp/nd-join.XXXXXX)
 chmod 700 "$TD"
-trap 'rm -rf "$TD"; rm -f /root/bundle.json' EXIT
+NEW=/usr/local/bin/.netductor.new.$
+trap 'rm -rf "$TD"; rm -f /root/bundle.json "${NEW:-}"' EXIT
 arch=$(uname -m)
 case "$arch" in
   x86_64) ASSET=netductor-linux-amd64;;
@@ -313,30 +314,44 @@ fi
 # Prev binary outside $TD so trap does not erase rollback source.
 PREV=
 mkdir -p /var/lib/netductor
-if [ -x /usr/local/bin/netductor ]; then
-  cp -a /usr/local/bin/netductor /var/lib/netductor/netductor.bin.prev
+if [ -e /usr/local/bin/netductor ]; then
+  test -f /usr/local/bin/netductor && test ! -L /usr/local/bin/netductor || { echo "existing netductor binary is not a regular file" >&2; exit 1; }
+  PREV_TMP=/var/lib/netductor/.netductor.bin.prev.$
+  cp -a /usr/local/bin/netductor "$PREV_TMP"
+  sync -f "$PREV_TMP"
+  mv -f "$PREV_TMP" /var/lib/netductor/netductor.bin.prev
+  sync -f /var/lib/netductor
   PREV=/var/lib/netductor/netductor.bin.prev
 fi
 rollback() {
   echo "join/health failed — restoring previous state if possible" >&2
   systemctl stop netductor-secondary-agent 2>/dev/null || true
   if [ -n "$PREV" ] && [ -f "$PREV" ]; then
-    if install -m 755 "$PREV" /usr/local/bin/netductor 2>/dev/null; then
+    RESTORE=/usr/local/bin/.netductor.restore.$
+    if install -m 755 "$PREV" "$RESTORE" 2>/dev/null &&
+       sync -f "$RESTORE" &&
+       mv -f "$RESTORE" /usr/local/bin/netductor &&
+       sync -f /usr/local/bin; then
       systemctl start netductor-secondary-agent 2>/dev/null || true
     else
-      echo "rollback: failed to restore previous binary" >&2
+      echo "rollback: failed to durably restore previous binary" >&2
+      rm -f "$RESTORE"
     fi
   else
     systemctl stop sing-box 2>/dev/null || true
     systemctl disable netductor-secondary-agent 2>/dev/null || true
     rm -f /usr/local/bin/netductor
+    sync -f /usr/local/bin || true
   fi
   rm -f /root/bundle.json
 }
 # Any failure after we begin replacing the binary runs rollback.
 trap 'rollback; exit 1' ERR
 systemctl stop netductor-secondary-agent 2>/dev/null || true
-install -m 755 "$TD/$ASSET" /usr/local/bin/netductor
+install -m 755 "$TD/$ASSET" "$NEW"
+sync -f "$NEW"
+mv -f "$NEW" /usr/local/bin/netductor
+sync -f /usr/local/bin
 # Bundle only via SSH stdin
 cat > /root/bundle.json
 chmod 600 /root/bundle.json
