@@ -639,13 +639,11 @@ func ApplyOpts(tag string, noBackup bool) error {
 		applyFail = fmt.Errorf("refuse downgrade: running %s > target %s (use manual binary replace if intentional)", cur, want)
 		return applyFail
 	}
-	if os.Getenv("NETDUCTOR_STACK_SKIP_PREFLIGHT") != "1" {
-		pf := Preflight(tag)
-		fmt.Fprint(os.Stderr, FormatPreflight(pf))
-		if !pf.OK {
-			applyFail = fmt.Errorf("preflight failed for %s (set NETDUCTOR_STACK_SKIP_PREFLIGHT=1 to override)", tag)
-			return applyFail
-		}
+	pf := Preflight(tag)
+	fmt.Fprint(os.Stderr, FormatPreflight(pf))
+	if !pf.OK {
+		applyFail = fmt.Errorf("preflight failed for %s; refusing to modify installed binaries", tag)
+		return applyFail
 	}
 	// Only terminal evidence can be cleaned before a new attempt.
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil { applyFail = fmt.Errorf("clean previous apply evidence: %w", err); return applyFail }
