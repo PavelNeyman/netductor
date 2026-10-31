@@ -213,3 +213,60 @@ func TestRollbackRecoveryIsIdempotent(t *testing.T) {
 		t.Fatalf("tg=%q", got)
 	}
 }
+
+
+func TestCommittedJournalBlocksOnBinaryTamper(t *testing.T) {
+	dir := t.TempDir()
+	node := filepath.Join(dir, "netductor")
+	tg := filepath.Join(dir, "netductor-tg")
+	newNode := filepath.Join(dir, "new-node")
+	newTG := filepath.Join(dir, "new-tg")
+	for path, data := range map[string]string{
+		node: "old-node", tg: "old-tg", newNode: "new-node", newTG: "new-tg",
+	} {
+		if err := os.WriteFile(path, []byte(data), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	att := filepath.Join(dir, "attempt")
+	if err := installStagedPairTo(newNode, newTG, node, tg, att); err != nil {
+		t.Fatal(err)
+	}
+	if err := commitInstalledPair(att); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tg, []byte("unexpected"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverApplyTx(att); err == nil {
+		t.Fatal("committed pair tampering must block startup")
+	}
+	if _, err := os.Stat(filepath.Join(att, "netductor")); err != nil {
+		t.Fatal("pre-image evidence must be preserved")
+	}
+}
+
+func TestCleanupTerminalAttemptPreservesInProgress(t *testing.T) {
+	dir := t.TempDir()
+	node := filepath.Join(dir, "netductor")
+	tg := filepath.Join(dir, "netductor-tg")
+	newNode := filepath.Join(dir, "new-node")
+	newTG := filepath.Join(dir, "new-tg")
+	for path, data := range map[string]string{
+		node: "old-node", tg: "old-tg", newNode: "new-node", newTG: "new-tg",
+	} {
+		if err := os.WriteFile(path, []byte(data), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	att := filepath.Join(dir, "attempt")
+	if err := installStagedPairTo(newNode, newTG, node, tg, att); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanupTerminalAttempt(att); err == nil {
+		t.Fatal("cleanup must refuse an in-progress transaction")
+	}
+	if _, err := os.Stat(txPath(att)); err != nil {
+		t.Fatal("transaction journal was removed")
+	}
+}
