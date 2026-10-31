@@ -57,6 +57,7 @@ func durableWrite(path string, data []byte, mode os.FileMode) error {
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
 	if err != nil { return err }
 	if _, err = f.Write(data); err != nil { _ = f.Close(); _ = os.Remove(tmp); return err }
+	if err = f.Chmod(mode); err != nil { _ = f.Close(); _ = os.Remove(tmp); return err }
 	if err = f.Sync(); err != nil { _ = f.Close(); _ = os.Remove(tmp); return err }
 	if err = f.Close(); err != nil { _ = os.Remove(tmp); return err }
 	if err = os.Rename(tmp, path); err != nil { _ = os.Remove(tmp); return err }
