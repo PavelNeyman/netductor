@@ -891,9 +891,14 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	requireWAN("443", "ALLOW", "vless")
 	requireWAN("22", "DENY", "ssh22")
 	requireWAN("10050", "DENY", "zabbix")
+	requireWAN("10051", "DENY", "zabbix")
 
 	if role == "primary" {
+		requireWAN(ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect")
+		requireWAN("80", "ALLOW", "http-acme")
+		requireWAN("8444", "ALLOW", "primary-wss")
 		requireWAN("8788", "DENY", "plain-agent")
+		requireWAN("9443", "DENY", "service-uplink-wan")
 		mtls := ndconfig.AgentMTLSPort()
 		var trustedAllow bool
 		var wanAct string
@@ -917,7 +922,25 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			ok = false
 			warnings = append(warnings, "mtls: first WAN rule for "+mtls+"/tcp is ALLOW (must not be open)")
 		}
+		lp := ndconfig.LampacPort()
+		if lp != "" && lp != "0" {
+			requireWAN(lp, "DENY", "lampac-wan")
+			var loopbackAllow bool
+			for _, r := range rules {
+				if ufwRuleMatchesPortTCP(r, lp) && r.Action == "ALLOW" &&
+					(strings.TrimSpace(r.From) == "127.0.0.1" || strings.HasPrefix(strings.TrimSpace(r.From), "127.0.0.1/")) {
+					loopbackAllow = true
+					break
+				}
+			}
+			if !loopbackAllow {
+				ok = false
+				warnings = append(warnings, "lampac: no loopback ALLOW for "+lp+"/tcp")
+			}
+		}
 	} else {
+		requireWAN("8445", "ALLOW", "secondary-wss")
+		requireWAN("80", "DENY", "secondary-http")
 		for _, d := range []string{"8787", "8788", "8789"} {
 			requireWAN(d, "DENY", "secondary-"+d)
 		}
