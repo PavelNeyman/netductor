@@ -605,8 +605,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return applyFail
 	}
 	if err := installStagedPair(nodeStage, tgStage); err != nil {
-		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (install): "+err.Error())
-		applyFail = err
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("install staged pair: %w", err))
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (install): "+applyFail.Error())
 		return applyFail
 	}
 	_ = os.RemoveAll(stageDir)
@@ -715,7 +715,10 @@ func ApplyOpts(tag string, noBackup bool) error {
 
 func rollbackApplyFailure(att string, cause error) error {
 	tx, err := loadTx(att)
-	if err != nil { return fmt.Errorf("%v; load rollback journal: %w", cause, err) }
+	if err != nil {
+		if os.IsNotExist(err) { return cause }
+		return fmt.Errorf("%v; load rollback journal: %w", cause, err)
+	}
 	if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("%v; rollback blocked: %w", cause, err) }
 	var restartErrs []string
 	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
