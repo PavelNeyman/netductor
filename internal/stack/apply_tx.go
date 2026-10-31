@@ -179,14 +179,16 @@ func recoverIncompleteApply() (bool, error) {
 		return false, fmt.Errorf("apply recovery blocked: %w", err)
 	}
 	willRollback := false
+	needsBaseline := tx.Phase == txRolledBack
 	switch tx.Phase {
 	case txPrepared, txNodeInstalled, txTGInstalled, txVerified:
 		willRollback = !applyOwnerActive()
+		needsBaseline = willRollback
 	}
 	if err := recoverApplyTx(attemptDir()); err != nil { return false, err }
-	if willRollback {
+	if needsBaseline {
 		if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
-			return true, fmt.Errorf("apply pair rolled back but host baseline repair failed: %w", err)
+			return willRollback, fmt.Errorf("apply pair rollback state requires host baseline repair: %w", err)
 		}
 	}
 	return willRollback, nil
