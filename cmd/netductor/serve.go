@@ -64,7 +64,11 @@ func buildAPIMux() http.Handler {
 	registerOnboardAPI(mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"ok": true, "service": "netductor", "version": ndver.Release, "time": time.Now().UTC().Format(time.RFC3339)})
+		if !AgentPlaneReady() {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "service": "netductor", "error": "mTLS agent plane unavailable"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "service": "netductor", "version": ndver.Release, "time": time.Now().UTC().Format(time.RFC3339)})
 	})
 	mux.HandleFunc("/api/bot-status", func(w http.ResponseWriter, r *http.Request) {
 		out, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").Output()
