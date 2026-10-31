@@ -40,7 +40,7 @@ func ApplyInProgress() (busy bool, tag string, started time.Time) {
 	ts, err := time.Parse(time.RFC3339, parts[0])
 	if err != nil { return false, "", time.Time{} }
 	alive := applyPIDRunning(parts[2]) || applyUnitRunning()
-	if !alive || time.Since(ts) > applyLockTTL {
+	if !alive {
 		_ = ClearApplyLock()
 		return false, "", time.Time{}
 	}
