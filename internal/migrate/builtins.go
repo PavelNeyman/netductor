@@ -88,10 +88,21 @@ func repairMarker() string {
 	return filepath.Join(paths.StateDir(), "migrate", "repair-state.done")
 }
 func (m *repairStateOnUpgradeMigration) Required(ctx context.Context) (bool, error) {
-	if _, err := os.Stat(repairMarker()); err == nil {
-		return false, nil
+	st, err := os.Lstat(repairMarker())
+	if os.IsNotExist(err) {
+		return true, nil
 	}
-	return true, nil
+	if err != nil {
+		return false, err
+	}
+	if !st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 {
+		return true, nil
+	}
+	b, err := os.ReadFile(repairMarker())
+	if err != nil {
+		return false, err
+	}
+	return string(b) != "ok\n", nil
 }
 func (m *repairStateOnUpgradeMigration) Apply(ctx context.Context) error {
 	notes := install.RepairStateOnUpgrade()
@@ -104,14 +115,15 @@ func (m *repairStateOnUpgradeMigration) Apply(ctx context.Context) error {
 	if len(hard) > 0 {
 		return fmt.Errorf("RepairStateOnUpgrade incomplete: %s", strings.Join(hard, "; "))
 	}
-	if err := os.MkdirAll(filepath.Dir(repairMarker()), 0o700); err != nil {
-		return err
-	}
-	return os.WriteFile(repairMarker(), []byte("ok\n"), 0o600)
+	return durableWriteFile(repairMarker(), []byte("ok\n"), 0o600)
 }
 func (m *repairStateOnUpgradeMigration) Verify(ctx context.Context) error {
-	if _, err := os.Stat(repairMarker()); err != nil {
+	need, err := m.Required(ctx)
+	if err != nil {
 		return err
+	}
+	if need {
+		return fmt.Errorf("repair state marker missing or invalid")
 	}
 	return nil
 }
@@ -157,14 +169,15 @@ func (m *ensureRoleFileMigration) Description() string {
 }
 func (m *ensureRoleFileMigration) Required(ctx context.Context) (bool, error) {
 	path := filepath.Join(paths.EtcDir(), "role")
-	_, err := os.Stat(path)
-	if err == nil {
-		return false, nil
-	}
+	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return true, nil
 	}
-	return false, err
+	if err != nil {
+		return false, err
+	}
+	role := strings.TrimSpace(strings.ToLower(string(b)))
+	return role != "primary" && role != "secondary", nil
 }
 func (m *ensureRoleFileMigration) Apply(ctx context.Context) error {
 	role, ok := firewall.DetectRoleStrict()
@@ -174,7 +187,7 @@ func (m *ensureRoleFileMigration) Apply(ctx context.Context) error {
 	if err := os.MkdirAll(paths.EtcDir(), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(paths.EtcDir(), "role"), []byte(role+"\n"), 0o644)
+	return durableWriteFile(filepath.Join(paths.EtcDir(), "role"), []byte(role+"\n"), 0o644)
 }
 func (m *ensureRoleFileMigration) Verify(ctx context.Context) error {
 	need, err := m.Required(ctx)
@@ -182,7 +195,7 @@ func (m *ensureRoleFileMigration) Verify(ctx context.Context) error {
 		return err
 	}
 	if need {
-		return fmt.Errorf("role file still missing")
+		return fmt.Errorf("role file missing or invalid")
 	}
 	return nil
 }
@@ -294,7 +307,7 @@ func (m *ensureInstalledVersionMigration) Apply(ctx context.Context) error {
 	if v == "" {
 		v = "unknown"
 	}
-	return os.WriteFile(filepath.Join(paths.StateDir(), "installed_version"), []byte(v+"\n"), 0o644)
+	return durableWriteFile(filepath.Join(paths.StateDir(), "installed_version"), []byte(v+"\n"), 0o644)
 }
 func (m *ensureInstalledVersionMigration) Verify(ctx context.Context) error {
 	need, err := m.Required(ctx)
