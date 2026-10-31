@@ -87,39 +87,49 @@ func ApplyRole(role string) error {
 }
 
 // DetectRole returns primary|secondary for baseline/firewall/doctor.
-// Live secondary agent wins over a stale role file (stack apply used to force primary).
+// Unknown hosts retain the legacy primary fallback; safety-sensitive migrations
+// must use DetectRoleStrict instead of treating that fallback as evidence.
 func DetectRole() string { return detectRole() }
 
 func detectRole() string {
+	if role, ok := DetectRoleStrict(); ok {
+		return role
+	}
+	return "primary"
+}
+
+// DetectRoleStrict identifies a role only when a durable or live role marker exists.
+// It returns ok=false rather than guessing primary when the host has no usable markers.
+func DetectRoleStrict() (string, bool) {
 	// Live secondary agent is definitive — prevents wrong role=primary after node upgrade paths.
 	if st, _ := exec.Command("systemctl", "is-active", "netductor-secondary-agent").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
-		return "secondary"
+		return "secondary", true
 	}
 	// Explicit role file (written by install / firewall apply).
 	if b, err := os.ReadFile("/etc/netductor/role"); err == nil {
 		s := strings.TrimSpace(strings.ToLower(string(b)))
 		if s == "secondary" {
-			return "secondary"
+			return "secondary", true
 		}
 		if s == "primary" || s == "core" {
-			return "primary"
+			return "primary", true
 		}
 	}
 	// Primary control-plane markers (bundle.json may exist on primary after export — do NOT treat as secondary).
 	if _, err := os.Stat("/var/lib/netductor/READY.txt"); err == nil {
-		return "primary"
+		return "primary", true
 	}
 	if st, _ := exec.Command("systemctl", "is-active", "netductor-api").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
-		return "primary"
+		return "primary", true
 	}
 	if st, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
-		return "primary"
+		return "primary", true
 	}
 	// Last resort: secondary bundle only if no primary markers above.
 	if _, err := os.Stat("/var/lib/netductor/secondary/bundle.json"); err == nil {
-		return "secondary"
+		return "secondary", true
 	}
-	return "primary"
+	return "", false
 }
 
 // persistRole writes /etc/netductor/role so status matches last apply.
