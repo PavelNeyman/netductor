@@ -103,29 +103,38 @@ func InstallRelay(bundlePath string) error {
 	pub := readSecret("singbox_reality_public")
 	sid := readSecret("singbox_short_id")
 	bin := "/usr/local/bin/sing-box"
-	if priv == "" || pub == "" {
+	newPair := priv == "" || pub == ""
+	if newPair {
 		out, err := exec.Command(bin, "generate", "reality-keypair").Output()
 		if err != nil {
-			return err
+			return fmt.Errorf("generate Reality keypair: %w", err)
 		}
+		priv, pub = "", ""
 		for _, line := range strings.Split(string(out), "\n") {
-			f := strings.Fields(line)
-			if len(f) >= 2 && strings.Contains(f[0], "Private") {
-				priv = f[len(f)-1]
+			fields := strings.Fields(line)
+			if len(fields) >= 2 && strings.Contains(fields[0], "Private") {
+				priv = fields[len(fields)-1]
 			}
-			if len(f) >= 2 && strings.Contains(f[0], "Public") {
-				pub = f[len(f)-1]
+			if len(fields) >= 2 && strings.Contains(fields[0], "Public") {
+				pub = fields[len(fields)-1]
 			}
 		}
-		if priv == "" || pub == "" { return fmt.Errorf("sing-box returned incomplete Reality keypair") }
-		if err := writeSecret("singbox_reality_private", priv); err != nil { return fmt.Errorf("save Reality private key: %w", err) }
-		if err := writeSecret("singbox_reality_public", pub); err != nil { return fmt.Errorf("save Reality public key: %w", err) }
+		if priv == "" || pub == "" {
+			return fmt.Errorf("sing-box returned incomplete Reality keypair")
+		}
 	}
 	if sid == "" {
 		sid = randomHex(8)
-		if err := writeSecret("singbox_short_id", sid); err != nil { return fmt.Errorf("save Reality short ID: %w", err) }
 	}
-	if err := writeSecret("singbox_reality_sni", b.SecondarySNI); err != nil { return fmt.Errorf("save Reality SNI: %w", err) }
+	// Replace the related Reality values as one rollback-capable file operation.
+	if err := writeSecretSet(map[string]string{
+		"singbox_reality_private": priv,
+		"singbox_reality_public":  pub,
+		"singbox_short_id":        sid,
+		"singbox_reality_sni":     b.SecondarySNI,
+	}); err != nil {
+		return fmt.Errorf("save Reality secret set: %w", err)
+	}
 
 	// store bundle for re-apply
 	if err := os.MkdirAll(paths.SecondaryDir(), 0o700); err != nil { return fmt.Errorf("create secondary state directory: %w", err) }
