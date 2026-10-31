@@ -276,9 +276,37 @@ func applyUFW(role string) error {
 	return nil
 }
 
+// managedInputJump reports the position of the single Netductor-owned INPUT jump.
+// Position is the 1-based rule number accepted by iptables -R, not the line number.
+func managedInputJump(rules string) (position int, chain string, err error) {
+	for _, line := range strings.Split(rules, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[0] != "-A" || fields[1] != "INPUT" {
+			continue
+		}
+		position++
+		for i := 2; i+1 < len(fields); i++ {
+			if fields[i] != "-j" && fields[i] != "--jump" {
+				continue
+			}
+			target := fields[i+1]
+			if target != "NETDUCTOR" && target != "NETDUCTOR_A" && target != "NETDUCTOR_B" {
+				continue
+			}
+			if chain != "" {
+				return 0, "", fmt.Errorf("multiple Netductor INPUT jumps (%s and %s)", chain, target)
+			}
+			chain = target
+			// Continue scanning to detect duplicate managed jumps.
+			break
+		}
+	}
+	return position, chain, nil
+}
+
 func applyIPTables(role string) error {
-	// Use filter INPUT with netductor chain for idempotency.
-	// Critical rules must succeed — do not report success if chain/jump/ports failed.
+	// Build a complete inactive generation, then switch INPUT's single jump.
+	// The live chain is never flushed while packets can still traverse it.
 	run := func(args ...string) error {
 		cmd := exec.Command("iptables", args...)
 		out, err := cmd.CombinedOutput()
@@ -287,37 +315,59 @@ func applyIPTables(role string) error {
 		}
 		return nil
 	}
-	must := func(args ...string) error {
-		return run(args...)
-	}
+	must := func(args ...string) error { return run(args...) }
 	sp := sshPort()
-	// Keep the configured management port reachable while replacing the live
-	// NETDUCTOR chain. If the chain is flushed or a later rule fails, INPUT's
-	// default policy must not strand the operator outside the host.
-	if err := must("-I", "INPUT", "1", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
-		return fmt.Errorf("iptables fallback: temporary SSH safeguard: %w", err)
+
+	// A temporary direct SSH allow is installed only when an identical rule
+	// is not already present. It remains in place if staging or switching fails.
+	temporarySSHAllow := false
+	if exec.Command("iptables", "-C", "INPUT", "-p", "tcp", "--dport", sp, "-j", "ACCEPT").Run() != nil {
+		if err := must("-I", "INPUT", "1", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
+			return fmt.Errorf("iptables fallback: temporary SSH safeguard: %w", err)
+		}
+		temporarySSHAllow = true
 	}
-	temporarySSHAllow := true
-	// Detect an existing chain with a dedicated read-only query. Never infer
-	// idempotent success from arbitrary error text returned by a mutation.
-	if err := exec.Command("iptables", "-S", "NETDUCTOR").Run(); err != nil {
-		if createErr := must("-N", "NETDUCTOR"); createErr != nil {
-			return fmt.Errorf("iptables fallback: create NETDUCTOR chain: %w", createErr)
+
+	inputRules, err := exec.Command("iptables", "-S", "INPUT").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("iptables fallback: inspect INPUT before chain switch: %v (%s)", err, truncate(string(inputRules), 200))
+	}
+	jumpPos, activeChain, err := managedInputJump(string(inputRules))
+	if err != nil {
+		return fmt.Errorf("iptables fallback: unsafe INPUT layout: %w", err)
+	}
+	stagingChain := "NETDUCTOR_A"
+	switch activeChain {
+	case "NETDUCTOR_A":
+		stagingChain = "NETDUCTOR_B"
+	case "NETDUCTOR_B":
+		stagingChain = "NETDUCTOR_A"
+	case "", "NETDUCTOR":
+		stagingChain = "NETDUCTOR_A"
+	default:
+		return fmt.Errorf("iptables fallback: unsupported active chain %q", activeChain)
+	}
+
+	// Create the staging chain if absent; then flush only that inactive chain.
+	if err := exec.Command("iptables", "-S", stagingChain).Run(); err != nil {
+		if createErr := must("-N", stagingChain); createErr != nil {
+			return fmt.Errorf("iptables fallback: create staging chain %s: %w", stagingChain, createErr)
 		}
 	}
-	if err := must("-F", "NETDUCTOR"); err != nil {
-		return fmt.Errorf("iptables fallback: cannot flush NETDUCTOR: %w", err)
-	}
-	if exec.Command("iptables", "-C", "INPUT", "-j", "NETDUCTOR").Run() != nil {
-		if err := must("-I", "INPUT", "1", "-j", "NETDUCTOR"); err != nil {
-			return fmt.Errorf("iptables fallback: INPUT jump: %w", err)
-		}
+	if err := must("-F", stagingChain); err != nil {
+		return fmt.Errorf("iptables fallback: flush inactive chain %s: %w", stagingChain, err)
 	}
 	allowTCP := func(port string) error {
-		return must("-A", "NETDUCTOR", "-p", "tcp", "--dport", port, "-j", "ACCEPT")
+		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "ACCEPT")
 	}
 	denyTCP := func(port string) error {
-		return must("-A", "NETDUCTOR", "-p", "tcp", "--dport", port, "-j", "DROP")
+		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "DROP")
+	}
+	allowTCP := func(port string) error {
+		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "ACCEPT")
+	}
+	denyTCP := func(port string) error {
+		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "DROP")
 	}
 	for _, step := range []struct {
 		fn   func() error
@@ -345,11 +395,11 @@ func applyIPTables(role string) error {
 		}
 		mtls := ndconfig.AgentMTLSPort()
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
-			if err := must("-A", "NETDUCTOR", "-p", "tcp", "-s", c, "--dport", mtls, "-j", "ACCEPT"); err != nil {
+			if err := must("-A", stagingChain, "-p", "tcp", "-s", c, "--dport", mtls, "-j", "ACCEPT"); err != nil {
 				return fmt.Errorf("iptables fallback mtls allow %s: %w", c, err)
 			}
 		}
-		if err := must("-A", "NETDUCTOR", "-p", "tcp", "--dport", mtls, "-j", "DROP"); err != nil {
+		if err := must("-A", stagingChain, "-p", "tcp", "--dport", mtls, "-j", "DROP"); err != nil {
 			return fmt.Errorf("iptables fallback mtls drop: %w", err)
 		}
 	} else {
@@ -362,23 +412,32 @@ func applyIPTables(role string) error {
 			}
 		}
 	}
-	if err := must("-I", "NETDUCTOR", "1", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"); err != nil {
+	if err := must("-I", stagingChain, "1", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"); err != nil {
 		return fmt.Errorf("iptables fallback established: %w", err)
 	}
-	if err := must("-I", "NETDUCTOR", "2", "-i", "lo", "-j", "ACCEPT"); err != nil {
+	if err := must("-I", stagingChain, "2", "-i", "lo", "-j", "ACCEPT"); err != nil {
 		return fmt.Errorf("iptables fallback lo: %w", err)
 	}
-	// Remove the temporary management exception only after the replacement
-	// chain is complete and its INPUT jump is in place. On any earlier error it
-	// intentionally remains, preferring a narrow SSH allow over remote lockout.
+
+	// The chain is complete. Replace the existing managed jump in one kernel
+	// operation; if none existed, install the first managed jump now.
+	if jumpPos > 0 {
+		if err := must("-R", "INPUT", strconv.Itoa(jumpPos), "-j", stagingChain); err != nil {
+			return fmt.Errorf("iptables fallback: atomic INPUT jump replacement: %w", err)
+		}
+	} else {
+		if err := must("-I", "INPUT", "1", "-j", stagingChain); err != nil {
+			return fmt.Errorf("iptables fallback: install INPUT jump: %w", err)
+		}
+	}
+	// The new policy is now active. Remove only the temporary SSH exception
+	// created by this invocation; pre-existing administrator rules are kept.
 	if temporarySSHAllow {
 		if err := must("-D", "INPUT", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
 			return fmt.Errorf("iptables fallback: remove temporary SSH safeguard: %w", err)
 		}
-		temporarySSHAllow = false
 	}
-	// note: do NOT set default DROP on INPUT via iptables alone — risk lockout
-	fmt.Fprintf(os.Stderr, "firewall: iptables NETDUCTOR chain applied role=%s (fallback; prefer ufw)\n", role)
+	fmt.Fprintf(os.Stderr, "firewall: iptables %s chain applied role=%s (fallback; prefer ufw)\\n", stagingChain, role)
 	if _, err := exec.LookPath("netfilter-persistent"); err != nil {
 		return fmt.Errorf("iptables fallback: netfilter-persistent is unavailable; active rules cannot be guaranteed across reboot")
 	}
