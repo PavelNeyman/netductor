@@ -1,6 +1,8 @@
 package aptguard
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,16 +218,48 @@ func TestMkdirExclusiveCollision(t *testing.T) {
 	}
 }
 
-func TestDurableWriteCommitRemovesOnFsyncFail(t *testing.T) {
-	// We cannot force fsyncDir failure portably; verify happy path and that
-	// durableWriteCommit leaves a readable COMMIT on success.
+func TestDurableWriteCommitHappy(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "COMMIT")
 	if err := durableWriteCommit(path, []byte("ok\n")); err != nil {
 		t.Fatal(err)
 	}
-	b, err := os.ReadFile(path)
-	if err != nil || string(b) != "ok\n" {
-		t.Fatalf("%q %v", b, err)
+	if !commitIsDone(dir) {
+		t.Fatal("expected done")
+	}
+}
+
+func TestDurableWriteCommitFsyncFailClearsOrAmbiguous(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "COMMIT")
+	old := fsyncDirFn
+	defer func() { fsyncDirFn = old }()
+	fsyncDirFn = func(d string) error {
+		return fmt.Errorf("injected fsync fail")
+	}
+	err := durableWriteCommit(path, []byte("ok\n"))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errors.Is(err, ErrCommitAmbiguous) {
+		return
+	}
+	if _, st := os.Stat(path); st == nil {
+		t.Fatalf("COMMIT still present after clear failure: %v", err)
+	}
+}
+
+func TestCommitIsDoneBodies(t *testing.T) {
+	dir := t.TempDir()
+	if commitIsDone(dir) {
+		t.Fatal("empty")
+	}
+	_ = os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("garbage"), 0o600)
+	if commitIsDone(dir) {
+		t.Fatal("garbage")
+	}
+	_ = os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("ok\n"), 0o600)
+	if !commitIsDone(dir) {
+		t.Fatal("ok")
 	}
 }

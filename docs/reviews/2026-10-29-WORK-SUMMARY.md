@@ -342,3 +342,12 @@ APT Guard (stages 0–2):
 - mkdirDurable parent fsync errors not ignored
 - quarantine Link/Remove + fsyncDir
 
+
+### 0.9.636 — COMMIT ambiguous protocol
+
+- ErrCommitAmbiguous: no rollback when COMMIT publish outcome unknown
+- durableWriteCommit: remove COMMIT only when remove+fsync succeed; else ambiguous
+- commitIsDone requires body ok|recovered
+- recovery skips ambiguous tx (manual)
+- injectable fsyncDirFn + tests for fsync fail / body check
+

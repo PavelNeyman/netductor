@@ -1,3 +1,10 @@
+## 0.9.636
+
+APT Guard COMMIT protocol:
+- ErrCommitAmbiguous — do not rollback if COMMIT may be durable
+- Recovery trusts COMMIT only with body ok|recovered
+- Injectable fsync for fail-path tests
+
 ## 0.9.635
 
 APT Guard transaction safety:

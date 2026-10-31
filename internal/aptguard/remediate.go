@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -332,13 +333,36 @@ func durableWrite(path string, data []byte, mode os.FileMode) error {
 	return fsyncDir(dir)
 }
 
-func fsyncDir(dir string) error {
+// fsyncDirFn is overridable in tests.
+var fsyncDirFn = func(dir string) error {
 	d, err := os.Open(dir)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 	return d.Sync()
+}
+
+func fsyncDir(dir string) error {
+	return fsyncDirFn(dir)
+}
+
+// ErrCommitAmbiguous means COMMIT may or may not be durable; do not rollback.
+var ErrCommitAmbiguous = errors.New("aptguard: commit outcome unknown")
+
+type commitAmbiguousError struct {
+	path string
+	err  error
+}
+
+func (e *commitAmbiguousError) Error() string {
+	return fmt.Sprintf("%v: path=%s: %v", ErrCommitAmbiguous, e.path, e.err)
+}
+
+func (e *commitAmbiguousError) Unwrap() error { return e.err }
+
+func (e *commitAmbiguousError) Is(target error) bool {
+	return target == ErrCommitAmbiguous
 }
 
 // mkdirDurable creates path (MkdirAll) and fsyncs path + parent. Errors are not ignored.
@@ -379,15 +403,33 @@ func mkdirExclusive(path string, mode os.FileMode) error {
 	return fsyncDir(parent)
 }
 
-// durableWriteCommit writes the COMMIT marker. If fsync after rename fails, the marker
-// is removed so recovery will not treat the transaction as done.
+// durableWriteCommit publishes COMMIT. On clear failure before durable publish, COMMIT is removed.
+// If rename succeeded but directory fsync failed, returns ErrCommitAmbiguous and does not claim removal.
 func durableWriteCommit(path string, data []byte) error {
+	dir := filepath.Dir(path)
 	if err := durableWrite(path, data, 0o600); err != nil {
-		_ = os.Remove(path)
-		_ = fsyncDir(filepath.Dir(path))
+		// durableWrite may have left COMMIT after rename+failed fsync, or never created it.
+		if _, stErr := os.Stat(path); stErr == nil {
+			if remErr := os.Remove(path); remErr != nil && !os.IsNotExist(remErr) {
+				return &commitAmbiguousError{path: path, err: fmt.Errorf("write: %v; remove COMMIT: %w", err, remErr)}
+			}
+			if syncErr := fsyncDir(dir); syncErr != nil {
+				return &commitAmbiguousError{path: path, err: fmt.Errorf("write: %v; remove ok; dir fsync: %w", err, syncErr)}
+			}
+		}
 		return err
 	}
 	return nil
+}
+
+// commitIsDone reports whether COMMIT exists with a recognized body ("ok" or "recovered").
+func commitIsDone(txDir string) bool {
+	b, err := os.ReadFile(filepath.Join(txDir, "COMMIT"))
+	if err != nil {
+		return false
+	}
+	body := strings.TrimSpace(string(b))
+	return body == "ok" || body == "recovered"
 }
 
 func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report, error) {
@@ -584,7 +626,14 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		return fail(fmt.Errorf("commit journal complete: %w", err))
 	}
 	// Durable COMMIT marker is the only recovery "done" signal.
+	// Durable COMMIT is the only recovery "done" signal.
 	if err := durableWriteCommit(commitPath, []byte("ok\n")); err != nil {
+		if errors.Is(err, ErrCommitAmbiguous) {
+			// COMMIT may be durable — do not rollback; operator must inspect.
+			journal = append(journal, journalEntry{Action: "commit_ambiguous", Path: commitPath})
+			_ = persistJournal()
+			return Report{}, fmt.Errorf("%w (mutations applied; do not re-apply until resolved)", err)
+		}
 		return fail(fmt.Errorf("commit marker: %w", err))
 	}
 	audit.Log("aptguard", "remediate.apply", pv.ServerID, detail)
@@ -741,9 +790,20 @@ func recoverAllIncompleteLocked(stateRoot string) error {
 			errs = append(errs, name+": "+err.Error())
 			continue
 		}
-		// COMMIT is the durable done marker; journal "complete" alone is not sufficient
-		// (rename of journal may succeed while fsyncDir fails).
-		if _, err := os.Stat(filepath.Join(root, name, "COMMIT")); err == nil {
+		// COMMIT with body ok|recovered is the durable done marker.
+		if commitIsDone(filepath.Join(root, name)) {
+			continue
+		}
+		// Ambiguous commit — do not auto-rollback; surface for operator.
+		hasAmb := false
+		for _, e := range journal {
+			if e.Action == "commit_ambiguous" {
+				hasAmb = true
+				errs = append(errs, name+": commit_ambiguous (manual resolution required)")
+				break
+			}
+		}
+		if hasAmb {
 			continue
 		}
 		done := false
