@@ -649,7 +649,34 @@ func chainIsReferenced(rules, target string) bool {
 	return false
 }
 
+// requireIPv6Disabled prevents the IPv4-only fallback from reporting success
+// while an IPv6 stack could still accept inbound traffic outside its policy.
+func requireIPv6Disabled() error {
+	const confDir = "/proc/sys/net/ipv6/conf"
+	entries, err := os.ReadDir(confDir)
+	if err != nil {
+		return fmt.Errorf("cannot verify IPv6 state: %w", err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(confDir, entry.Name(), "disable_ipv6")
+		b, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("cannot verify IPv6 state at %s: %w", path, readErr)
+		}
+		if strings.TrimSpace(string(b)) != "1" {
+			return fmt.Errorf("IPv6 is enabled for %s; refusing IPv4-only iptables fallback", entry.Name())
+		}
+	}
+	return nil
+}
+
 func applyIPTables(role string) error {
+	if err := requireIPv6Disabled(); err != nil {
+		return fmt.Errorf("iptables fallback IPv6 prerequisite: %w", err)
+	}
 	// Build a complete inactive generation, then switch INPUT's single jump.
 	// The live chain is never flushed while packets can still traverse it.
 	run := func(args ...string) error {
