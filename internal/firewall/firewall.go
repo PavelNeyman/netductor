@@ -858,9 +858,10 @@ type ufwRule struct {
 	Num    int
 	Port   string
 	Proto  string
-	Action string
-	From   string
-	IPv6   bool
+	Action    string
+	Direction string
+	From      string
+	IPv6      bool
 	Raw    string
 }
 
@@ -911,23 +912,35 @@ func parseUfwNumbered(status string) []ufwRule {
 		if actionIdx < 0 {
 			continue
 		}
-		fromParts := fields[actionIdx+1:]
-		for len(fromParts) > 0 && (fromParts[0] == "IN" || fromParts[0] == "OUT") {
-			fromParts = fromParts[1:]
+		// Direction is security-significant. Do not silently treat an
+		// unrecognized/missing direction as inbound; the caller's completeness
+		// check will then reject the numbered listing.
+		if actionIdx+1 >= len(fields) {
+			continue
 		}
+		direction := fields[actionIdx+1]
+		if direction != "IN" && direction != "OUT" && direction != "FWD" {
+			continue
+		}
+		fromParts := fields[actionIdx+2:]
 		from := strings.Join(fromParts, " ")
 		if from == "" {
 			from = "Anywhere"
 		}
 		rules = append(rules, ufwRule{
 			Num: num, Port: port, Proto: proto, Action: fields[actionIdx],
-			From: from, IPv6: ipv6, Raw: ln,
+			Direction: direction, From: from, IPv6: ipv6, Raw: ln,
 		})
 	}
 	return rules
 }
 
 func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
+	// All callers use this matcher for inbound policy. UFW status also lists
+	// OUT and FWD rules; those must never influence WAN/input decisions.
+	if r.Direction != "IN" {
+		return false
+	}
 	if r.Proto == "udp" {
 		return false
 	}
