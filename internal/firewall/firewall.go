@@ -265,7 +265,7 @@ func applyUFW(role string) error {
 		if err := must("deny", "80/tcp", "comment", "no-http-secondary"); err != nil { return fmt.Errorf("deny secondary HTTP port: %w", err) }
 	}
 
-	out, err := exec.Command("bash", "-c", "echo y | ufw --force enable").CombinedOutput()
+	out, err := exec.Command("ufw", "--force", "enable").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ufw enable: %v (%s)", err, truncate(string(out), 200))
 	}
