@@ -94,3 +94,14 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 | CLI migrate status/run | Done |
 | Empty-state fixture | Done (minimal) |
 | Full 0.9.612 snapshot fixture | Open |
+
+## Stage 3c (0.9.646)
+
+| Item | Status |
+|------|--------|
+| Secrets/sessions 0700 | Done in ensure-state-dirs |
+| PostCheck modes + journal health | Done |
+| Optional unit post-check | Done (`NETDUCTOR_POSTCHECK_UNITS=1`) |
+| Legacy loose-mode fixture | Done |
+| Interrupted migration re-run | Covered by test |
+| Full 0.9.612 binary snapshot | Still open (needs archived install tree) |

@@ -1,3 +1,11 @@
+## 0.9.646
+
+Startup migrations:
+- criticalDirs: secrets/mtls, sessions, clients, edge, metrics, tg (0700)
+- ensure-state-dirs re-runs if secrets mode is loose
+- PostCheck: sensitive dir modes, journal running/failed records, optional units
+- Tests: legacy loose-mode fixture, PostCheck after RunAll, interrupted StatusRunning re-run
+
 ## 0.9.645
 
 Startup migrations:

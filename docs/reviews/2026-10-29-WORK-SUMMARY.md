@@ -415,3 +415,11 @@ APT Guard (stages 0–2):
 
 - role file migration, PostCheck, secondary agent hook, CLI, empty-state fixture test
 
+
+### 0.9.646 — migrate post-check + legacy fixture
+
+- criticalDirs + secrets 0700 enforcement
+- PostCheck modes/journal/optional units
+- Fixture: loose modes pre-migrate layout
+- Interrupted StatusRunning re-apply covered by test
+

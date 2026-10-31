@@ -19,34 +19,48 @@ func (m *ensureStateDirsMigration) Description() string {
 	return "Ensure state/etc/migrate directory tree exists"
 }
 func (m *ensureStateDirsMigration) Required(ctx context.Context) (bool, error) {
-	for _, d := range []string{
-		paths.StateDir(),
-		paths.EtcDir(),
-		filepath.Join(paths.StateDir(), "migrate"),
-		filepath.Join(paths.StateDir(), "stack"),
-		filepath.Join(paths.StateDir(), "update", "locks"),
-	} {
+	for _, d := range criticalDirs() {
 		st, err := os.Stat(d)
 		if err != nil || !st.IsDir() {
+			return true, nil
+		}
+	}
+	// Secrets must not be world/group accessible
+	sec := filepath.Join(paths.EtcDir(), "secrets")
+	if st, err := os.Stat(sec); err == nil {
+		if st.Mode().Perm()&0o077 != 0 {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 func (m *ensureStateDirsMigration) Apply(ctx context.Context) error {
-	for _, d := range []string{
+	for _, d := range criticalDirs() {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			return err
+		}
+		// Tighten sensitive trees (ignore errors on read-only FS)
+		_ = os.Chmod(d, 0o700)
+	}
+	return nil
+}
+
+func criticalDirs() []string {
+	return []string{
 		paths.StateDir(),
 		paths.EtcDir(),
 		filepath.Join(paths.StateDir(), "migrate"),
 		filepath.Join(paths.StateDir(), "stack"),
 		filepath.Join(paths.StateDir(), "update", "locks"),
 		filepath.Join(paths.StateDir(), "backups"),
-	} {
-		if err := os.MkdirAll(d, 0o700); err != nil {
-			return err
-		}
+		filepath.Join(paths.StateDir(), "edge"),
+		filepath.Join(paths.StateDir(), "metrics"),
+		filepath.Join(paths.StateDir(), "tg"),
+		filepath.Join(paths.EtcDir(), "secrets"),
+		filepath.Join(paths.EtcDir(), "secrets", "mtls"),
+		filepath.Join(paths.EtcDir(), "sessions"),
+		filepath.Join(paths.EtcDir(), "clients"),
 	}
-	return nil
 }
 func (m *ensureStateDirsMigration) Verify(ctx context.Context) error {
 	need, err := m.Required(ctx)

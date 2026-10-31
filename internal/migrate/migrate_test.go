@@ -90,3 +90,107 @@ func TestBuiltinMigrationsFromEmptyState(t *testing.T) {
 		t.Fatal("journal", err)
 	}
 }
+
+func TestPostCheckAfterRunAll(t *testing.T) {
+	root := t.TempDir()
+	etc := filepath.Join(root, "etc")
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", etc)
+	t.Setenv("NETDUCTOR_SKIP_MIGRATE_POSTCHECK", "") // ensure on
+	ctx := context.Background()
+	if _, err := RunAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := PostCheck(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFixtureLegacyLooseModes(t *testing.T) {
+	// Simulates a pre-migration install: dirs exist with loose modes, no journal, no role.
+	root := t.TempDir()
+	etc := filepath.Join(root, "etc")
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", etc)
+	_ = os.MkdirAll(filepath.Join(etc, "secrets"), 0o755)
+	_ = os.MkdirAll(filepath.Join(root, "edge"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, "edge", "devices.json"), []byte("{}"), 0o644)
+	// No role, no migrate journal
+	ctx := context.Background()
+	res, err := RunRegistry(ctx, DefaultRegistry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Ran) == 0 {
+		t.Fatalf("expected migrations to run on legacy layout, got %#v", res)
+	}
+	st, err := os.Stat(filepath.Join(etc, "secrets"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("secrets mode still loose: %04o", st.Mode().Perm())
+	}
+	if _, err := os.Stat(filepath.Join(etc, "role")); err != nil {
+		t.Fatal("role", err)
+	}
+	// PostCheck should pass
+	if err := PostCheck(); err != nil {
+		t.Fatal(err)
+	}
+	// Idempotent second RunAll
+	if _, err := RunAll(ctx); err != nil {
+		t.Fatal("second RunAll", err)
+	}
+}
+
+func TestInterruptedRunningReruns(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
+	ctx := context.Background()
+	// Pre-seed journal with StatusRunning for a mig that is still Required
+	once := 0
+	m := &countMig{id: "test-interrupted", need: true, applyFn: func() error {
+		once++
+		return nil
+	}}
+	// Write fake running record
+	_ = os.MkdirAll(filepath.Join(root, "migrate"), 0o700)
+	j := journalFile{Schema: 1, Records: map[string]record{
+		"test-interrupted": {ID: "test-interrupted", Status: StatusRunning},
+	}}
+	if err := durableWriteJournal(j); err != nil {
+		t.Fatal(err)
+	}
+	res, err := RunRegistry(ctx, []Migration{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if once != 1 {
+		t.Fatalf("apply calls=%d want 1", once)
+	}
+	if len(res.Ran) != 1 {
+		t.Fatalf("ran=%v", res.Ran)
+	}
+}
+
+type countMig struct {
+	id      string
+	need    bool
+	applyFn func() error
+}
+
+func (c *countMig) ID() string                                 { return c.id }
+func (c *countMig) Description() string                        { return c.id }
+func (c *countMig) Required(ctx context.Context) (bool, error) { return c.need, nil }
+func (c *countMig) Apply(ctx context.Context) error {
+	if c.applyFn != nil {
+		return c.applyFn()
+	}
+	return nil
+}
+func (c *countMig) Verify(ctx context.Context) error {
+	c.need = false
+	return nil
+}
