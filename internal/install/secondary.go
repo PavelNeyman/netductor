@@ -80,7 +80,9 @@ func InstallRelay(bundlePath string) error {
 		seenUsers[name] = struct{}{}
 	}
 
-	PurgeHostMonitoring()
+	// Establish and verify the host firewall baseline before optional cleanup.
+	// Hoster purge is destructive and has no reliable inverse; defer it until
+	// the relay services have passed their startup checks.
 	if err := EnsureHostBaseline("secondary"); err != nil {
 		return fmt.Errorf("secondary host baseline: %w", err)
 	}
@@ -200,6 +202,10 @@ WantedBy=multi-user.target
 		}
 		fmt.Fprintln(os.Stderr, "secondary agent started →", b.CoreAgentURL)
 	}
+
+	// This purge removes packages, configuration and files and has no reliable
+	// inverse. Run it only after the relay and agent are confirmed healthy.
+	PurgeHostMonitoring()
 	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.SecondarySNI, outDir)
 	fmt.Fprintln(os.Stderr, "Give mobile users *-relay links; home users keep core links.")
 	return nil
