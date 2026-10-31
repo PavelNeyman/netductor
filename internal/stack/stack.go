@@ -267,6 +267,9 @@ func promotePrevSnapshot() error {
 }
 
 func recoverPrevSnapshotSwap() error {
+	// An active Apply owns prev.next/prev.old. Startup during its API restart
+	// must not clean up the in-flight directory promotion.
+	if applyOwnerActive() { return nil }
 	root := filepath.Join(paths.StateDir(), "stack")
 	prev, old := prevDir(), filepath.Join(root, "prev.old")
 	if _, err := os.Stat(prev); os.IsNotExist(err) {
@@ -607,8 +610,14 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return applyFail
 	}
 	_ = os.RemoveAll(stageDir)
-	_ = exec.Command("systemctl", "daemon-reload").Run()
-	_ = exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run()
+	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("systemctl daemon-reload: %w", err))
+		return applyFail
+	}
+	if err := exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("systemctl reset-failed: %w", err))
+		return applyFail
+	}
 	if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
 		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("systemctl restart netductor-api: %w", err))
 		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (api restart): "+applyFail.Error())
@@ -717,30 +726,33 @@ func rollbackApplyFailure(att string, cause error) error {
 }
 
 func restoreFrom(dir string) error {
-	restored := 0
-	for _, name := range []string{"netductor", "netductor-tg"} {
-		src := filepath.Join(dir, name)
-		if _, err := os.Stat(src); err != nil {
-			continue
-		}
-		b, err := os.ReadFile(src)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile("/usr/local/bin/"+name, b, 0o755); err != nil {
-			return err
-		}
-		restored++
+	// Manual rollback is a pair operation too: validate both sources before
+	// changing either live executable, then use the same durable replacer.
+	sources := []struct{name, dest string}{
+		{"netductor", "/usr/local/bin/netductor"},
+		{"netductor-tg", "/usr/local/bin/netductor-tg"},
 	}
-	if restored == 0 {
-		return fmt.Errorf("no binaries in %s", dir)
+	for _, item := range sources {
+		st, err := os.Stat(filepath.Join(dir, item.name))
+		if err != nil { return fmt.Errorf("rollback source %s: %w", item.name, err) }
+		if !st.Mode().IsRegular() { return fmt.Errorf("rollback source %s is not a regular file", item.name) }
+	}
+	for _, item := range sources {
+		if err := replaceExecutable(filepath.Join(dir, item.name), item.dest); err != nil {
+			return fmt.Errorf("restore %s: %w", item.name, err)
+		}
 	}
 	if b, err := os.ReadFile(filepath.Join(dir, "VERSION")); err == nil {
 		ndupdate.WriteVERSION(strings.TrimSpace(string(b)))
 		saveCurrent(strings.TrimSpace(string(b)))
+	} else if !os.IsNotExist(err) { return err }
+	var restartErrs []string
+	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
+		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil {
+			restartErrs = append(restartErrs, unit+": "+err.Error())
+		}
 	}
-	_ = exec.Command("systemctl", "restart", "netductor-api").Run()
-	_ = exec.Command("systemctl", "restart", "netductor-telegram-bot").Run()
+	if len(restartErrs) > 0 { return fmt.Errorf("restored pair but service restart failed: %s", strings.Join(restartErrs, "; ")) }
 	return nil
 }
 
