@@ -26,8 +26,8 @@ type PreflightReport struct {
 	Checks []PreflightCheck `json:"checks"`
 }
 
-// Preflight validates release exists with checksums and basic fleet health.
-// Critical failures block apply unless NETDUCTOR_STACK_SKIP_PREFLIGHT=1.
+// Preflight validates release existence, checksums, and basic fleet health.
+// Critical failures always block Apply.
 func Preflight(tag string) PreflightReport {
 	tag = strings.TrimSpace(tag)
 	if tag != "" && !strings.HasPrefix(tag, "v") {
