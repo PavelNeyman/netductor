@@ -1,3 +1,8 @@
+## 0.9.629
+
+- APT Guard: automated e2e (quarantine+rescan); richer secondary aptguard_scan log
+- Close-out audit: update-system code-complete vs live canary OPEN
+
 ## 0.9.628
 
 APT Guard:
