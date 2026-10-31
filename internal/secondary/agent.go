@@ -433,7 +433,7 @@ func secondaryUpgrade(tag string) (bool, string) {
 	if arch != "amd64" && arch != "arm64" { return false, "upgrade denied: unsupported architecture " + arch }
 	base := "https://github.com/PavelNeyman/netductor/releases/download/v" + tag + "/"
 	nodeAsset := "netductor-linux-" + arch
-	log.WriteString(fmt.Sprintf("upgrade tag=v%s arch=%s\\n", tag, arch))
+	log.WriteString(fmt.Sprintf("upgrade tag=v%s arch=%s\n", tag, arch))
 
 	// Stage on the destination filesystem so the final rename is atomic.
 	stageDir, err := os.MkdirTemp("/usr/local/bin", ".nd-upgrade-*")
@@ -464,7 +464,7 @@ func secondaryUpgrade(tag string) (bool, string) {
 	sums, err := os.ReadFile(sumsPath)
 	if err != nil { return false, "read SHA256SUMS: " + err.Error() }
 	want := ""
-	for _, line := range strings.Split(string(sums), "\\n") {
+	for _, line := range strings.Split(string(sums), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) >= 2 && strings.TrimPrefix(strings.TrimPrefix(fields[1], "*"), "./") == nodeAsset { want = fields[0]; break }
 	}
@@ -479,45 +479,53 @@ func secondaryUpgrade(tag string) (bool, string) {
 	if err != nil { return false, "inspect current binary: " + err.Error() }
 	if !info.Mode().IsRegular() { return false, "refuse upgrade: current binary is not a regular file" }
 	backup := "/var/lib/netductor/netductor.bin.prev"
+	oldVersion, oldVersionErr := os.ReadFile("/etc/netductor/VERSION")
+	oldVersionExists := oldVersionErr == nil
+	if oldVersionErr != nil && !os.IsNotExist(oldVersionErr) { return false, "read previous VERSION: " + oldVersionErr.Error() }
 	if err := os.MkdirAll(filepath.Dir(backup), 0o700); err != nil { return false, "create backup directory: " + err.Error() }
 	if err := copyFileDurable(dest, backup, 0o755); err != nil { return false, "backup current binary: " + err.Error() }
+	restorePrevious := func(reason string) (bool, string) {
+		if err := copyFileDurable(backup, dest, 0o755); err != nil { return false, reason + "; CRITICAL: previous binary restore failed: " + err.Error() }
+		if oldVersionExists {
+			if err := writeFileDurable("/etc/netductor/VERSION", oldVersion, 0o644); err != nil { return false, reason + "; previous binary restored but VERSION restore failed: " + err.Error() }
+		} else {
+			if err := os.Remove("/etc/netductor/VERSION"); err != nil && !os.IsNotExist(err) { return false, reason + "; previous binary restored but VERSION cleanup failed: " + err.Error() }
+			if err := syncDir("/etc/netductor"); err != nil { return false, reason + "; previous binary restored but VERSION directory sync failed: " + err.Error() }
+		}
+		if out, err := exec.Command(dest, "firewall", "apply", "secondary").CombinedOutput(); err != nil { reason += fmt.Sprintf("; previous firewall reapply failed: %v %s", err, strings.TrimSpace(string(out))) }
+		if out, err := exec.Command(dest, "stack", "watchdog-install").CombinedOutput(); err != nil { reason += fmt.Sprintf("; previous watchdog restore failed: %v %s", err, strings.TrimSpace(string(out))) }
+		return false, reason + "; previous binary restored"
+	}
 	if err := os.Chmod(assetPath, 0o755); err != nil { return false, "chmod staged binary: " + err.Error() }
 	if err := syncFile(assetPath); err != nil { return false, "sync staged binary: " + err.Error() }
 	if err := os.Rename(assetPath, dest); err != nil { return false, "atomic binary replace: " + err.Error() }
 	if err := syncDir("/usr/local/bin"); err != nil {
-		_ = copyFileDurable(backup, dest, 0o755)
-		return false, "sync binary directory (previous binary restored): " + err.Error()
+		return restorePrevious("sync binary directory failed: " + err.Error())
 	}
 	versionOut, versionErr := exec.Command(dest, "version").CombinedOutput()
 	if versionErr != nil || !strings.Contains(string(versionOut), "netductor "+tag+" (node)") {
-		restoreErr := copyFileDurable(backup, dest, 0o755)
-		if restoreErr != nil { return false, fmt.Sprintf("new binary validation failed (%v; output=%s); CRITICAL: restore previous binary failed: %v", versionErr, strings.TrimSpace(string(versionOut)), restoreErr) }
-		return false, fmt.Sprintf("new binary validation failed (%v; output=%s); previous binary restored", versionErr, strings.TrimSpace(string(versionOut)))
+		return restorePrevious(fmt.Sprintf("new binary validation failed (%v; output=%s)", versionErr, strings.TrimSpace(string(versionOut))))
 	}
-	if err := writeFileDurable("/etc/netductor/VERSION", []byte(tag+"\\n"), 0o644); err != nil {
-		restoreErr := copyFileDurable(backup, dest, 0o755)
-		if restoreErr != nil { return false, fmt.Sprintf("write VERSION failed (%v); CRITICAL: restore previous binary failed: %v", err, restoreErr) }
-		return false, "write VERSION: " + err.Error() + "; previous binary restored"
+	if err := writeFileDurable("/etc/netductor/VERSION", []byte(tag+"\n"), 0o644); err != nil {
+		return restorePrevious("write VERSION failed: " + err.Error())
 	}
-	log.WriteString("binary checksum verified; atomic replacement and version probe passed\\n")
+	log.WriteString("binary checksum verified; atomic replacement and version probe passed\n")
+	if out, err := exec.Command(dest, "firewall", "apply", "secondary").CombinedOutput(); err != nil {
+		return restorePrevious(fmt.Sprintf("firewall apply failed: %v %s", err, strings.TrimSpace(string(out))))
+	}
+	log.WriteString("firewall apply secondary ok\n")
+	if out, err := exec.Command(dest, "stack", "watchdog-install").CombinedOutput(); err != nil {
+		return restorePrevious(fmt.Sprintf("watchdog-install failed: %v %s", err, strings.TrimSpace(string(out))))
+	}
+	log.WriteString("watchdog-install ok\n")
 	// Report command completion to core before restarting this agent process.
 	go func() {
 		time.Sleep(5 * time.Second)
 		if out, err := exec.Command("systemctl", "restart", "netductor-secondary-agent").CombinedOutput(); err != nil {
-			fmt.Fprintf(os.Stderr, "secondary upgrade: agent restart failed: %v: %s\\n", err, strings.TrimSpace(string(out)))
+			fmt.Fprintf(os.Stderr, "secondary upgrade: agent restart failed: %v: %s\n", err, strings.TrimSpace(string(out)))
 		}
 	}()
-	if out, err := exec.Command(dest, "firewall", "apply", "secondary").CombinedOutput(); err != nil {
-		log.WriteString(fmt.Sprintf("firewall apply secondary failed: %v %s\\n", err, strings.TrimSpace(string(out))))
-		return false, log.String()
-	}
-	log.WriteString("firewall apply secondary ok\\n")
-	if out, err := exec.Command(dest, "stack", "watchdog-install").CombinedOutput(); err != nil {
-		log.WriteString(fmt.Sprintf("watchdog-install failed: %v %s\\n", err, strings.TrimSpace(string(out))))
-		return false, log.String()
-	}
-	log.WriteString("watchdog-install ok\\n")
-	log.WriteString("DONE v" + tag + " (node binary; unit=netductor-secondary-agent)\\n")
+	log.WriteString("DONE v" + tag + " (node binary; unit=netductor-secondary-agent)\n")
 	return true, log.String()
 }
 
