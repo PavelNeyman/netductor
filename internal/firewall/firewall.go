@@ -746,6 +746,24 @@ func applyIPTables(role string) error {
 		if err := denyTCP("8788"); err != nil {
 			return fmt.Errorf("iptables fallback deny 8788: %w", err)
 		}
+		// Match the primary UFW service-uplink policy: only the configured
+		// service peers may reach 9443/tcp; all other IPv4 sources are dropped.
+		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
+			if err := must("-A", stagingChain, "-p", "tcp", "-s", c, "--dport", "9443", "-j", "ACCEPT"); err != nil {
+				return fmt.Errorf("iptables fallback service uplink allow %s: %w", c, err)
+			}
+		}
+		if err := denyTCP("9443"); err != nil {
+			return fmt.Errorf("iptables fallback service uplink drop: %w", err)
+		}
+		if lp := ndconfig.LampacPort(); lp != "" && lp != "0" {
+			if err := must("-A", stagingChain, "-p", "tcp", "-s", "127.0.0.1", "--dport", lp, "-j", "ACCEPT"); err != nil {
+				return fmt.Errorf("iptables fallback Lampac loopback allow: %w", err)
+			}
+			if err := denyTCP(lp); err != nil {
+				return fmt.Errorf("iptables fallback Lampac WAN drop: %w", err)
+			}
+		}
 		mtls := ndconfig.AgentMTLSPort()
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1"} {
 			if err := must("-A", stagingChain, "-p", "tcp", "-s", c, "--dport", mtls, "-j", "ACCEPT"); err != nil {
