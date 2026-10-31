@@ -342,7 +342,7 @@ type secondaryFileSnapshot struct {
 	exists bool
 }
 
-type secondaryFileTransaction struct { files []secondaryFileSnapshot }
+type secondaryFileTransaction struct { files []secondaryFileSnapshot; runtimeHostname string }
 
 func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 	etc := paths.EtcDir()
@@ -372,6 +372,7 @@ func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 
 func beginSecondaryFileTransaction(pathsToCapture []string) (*secondaryFileTransaction, error) {
 	t := &secondaryFileTransaction{}
+	t.runtimeHostname, _ = os.Hostname()
 	seen := make(map[string]struct{}, len(pathsToCapture))
 	for _, path := range pathsToCapture {
 		if _, ok := seen[path]; ok { continue }
@@ -415,15 +416,9 @@ func (t *secondaryFileTransaction) rollback() error {
 		if err != nil { errs = append(errs, fmt.Sprintf("restore %s: %v", s.path, err)) }
 	}
 	// Restore the kernel's runtime hostname only after the on-disk hostname is restored.
-	for _, s := range t.files {
-		if s.path == "/etc/hostname" && s.exists {
-			hostname := strings.TrimSpace(string(s.data))
-			if hostname != "" {
-				if err := run("hostnamectl", "set-hostname", hostname); err != nil {
-					errs = append(errs, fmt.Sprintf("restore runtime hostname %s: %v", hostname, err))
-				}
-			}
-			break
+	if t.runtimeHostname != "" {
+		if err := run("hostnamectl", "set-hostname", t.runtimeHostname); err != nil {
+			errs = append(errs, fmt.Sprintf("restore runtime hostname %s: %v", t.runtimeHostname, err))
 		}
 	}
 	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
