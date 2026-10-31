@@ -281,6 +281,11 @@ func (t *secondaryUnitTransaction) rollback() error {
 	var errs []string
 	// Fail closed: do not restart old services against potentially changed config/secrets.
 	for _, unit := range []string{"netductor-secondary-agent", "sing-box"} {
+		state, _ := exec.Command("systemctl", "is-active", unit).CombinedOutput()
+		status := strings.TrimSpace(string(state))
+		if status != "active" && status != "activating" && status != "deactivating" {
+			continue
+		}
 		if out, err := exec.Command("systemctl", "stop", unit).CombinedOutput(); err != nil {
 			errs = append(errs, fmt.Sprintf("stop %s: %s: %v", unit, strings.TrimSpace(string(out)), err))
 		}
