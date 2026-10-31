@@ -58,6 +58,28 @@ func InstallRelay(bundlePath string) error {
 		}
 	}
 
+	// Validate every value that can fail deterministically before any host mutation.
+	if len(b.Users) == 0 {
+		return fmt.Errorf("invalid bundle: no end users")
+	}
+	if strings.TrimSpace(b.SecondarySNI) == "" {
+		return fmt.Errorf("invalid bundle: relay_sni is empty")
+	}
+	seenUsers := make(map[string]struct{}, len(b.Users))
+	for _, u := range b.Users {
+		name := strings.TrimSpace(u.Name)
+		if name == "" || name == "." || name == ".." || filepath.Base(name) != name || strings.ContainsAny(name, "/\\\\") {
+			return fmt.Errorf("invalid secondary client link name %q", u.Name)
+		}
+		if strings.TrimSpace(u.UUID) == "" {
+			return fmt.Errorf("invalid bundle: user %q has empty UUID", name)
+		}
+		if _, exists := seenUsers[name]; exists {
+			return fmt.Errorf("invalid bundle: duplicate user name %q", name)
+		}
+		seenUsers[name] = struct{}{}
+	}
+
 	PurgeHostMonitoring()
 	if err := EnsureHostBaseline("secondary"); err != nil {
 		return fmt.Errorf("secondary host baseline: %w", err)
@@ -148,9 +170,6 @@ WantedBy=multi-user.target
 	outDir := filepath.Join(paths.SecondaryDir(), "clients")
 	if err := os.MkdirAll(outDir, 0o700); err != nil { return fmt.Errorf("create secondary client links directory: %w", err) }
 	for _, u := range b.Users {
-		if u.Name == "" || u.Name == "." || u.Name == ".." || filepath.Base(u.Name) != u.Name || strings.ContainsAny(u.Name, "/\\\\") {
-			return fmt.Errorf("invalid secondary client link name %q", u.Name)
-		}
 		link := vpn.ClientLinkForSecondary(u.Name, u.UUID, pubIP, pub, sid, b.SecondarySNI)
 		if err := writeInstallFileDurable(filepath.Join(outDir, u.Name+".txt"), []byte(link+"\n"), 0o600); err != nil {
 			return fmt.Errorf("write secondary client link %q: %w", u.Name, err)
