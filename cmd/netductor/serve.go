@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
@@ -110,9 +111,30 @@ func runServe(args []string) {
 		fmt.Fprintln(os.Stderr, "refusing non-local API bind (operator is netductor-op on Mac; NETDUCTOR_API_PUBLIC removed)")
 		os.Exit(2)
 	}
-	// Crash recovery before API. A kill between Node and TG must not serve a mixed pair.
-	if err := stack.RecoverIncompleteApply(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	// Crash recovery before API. If recovery restores the previous pair, this
+	// process image is still the new executable mapped before recovery; re-exec
+	// the binary now on disk before opening listeners.
+	rolledBack, recoverErr := stack.RecoverIncompleteApplyForStartup()
+	if recoverErr != nil {
+		fmt.Fprintln(os.Stderr, recoverErr)
+		os.Exit(1)
+	}
+	exe, exeErr := os.Executable()
+	if exeErr != nil {
+		fmt.Fprintln(os.Stderr, "resolve current executable after recovery:", exeErr)
+		os.Exit(1)
+	}
+	diskVersion, versionErr := exec.Command(exe, "version").CombinedOutput()
+	if versionErr != nil {
+		fmt.Fprintln(os.Stderr, "verify executable after recovery:", versionErr, string(diskVersion))
+		os.Exit(1)
+	}
+	fields := strings.Fields(string(diskVersion))
+	if rolledBack || len(fields) < 2 || fields[1] != ndver.Release {
+		if err := syscall.Exec(exe, os.Args, os.Environ()); err != nil {
+			fmt.Fprintln(os.Stderr, "re-exec restored netductor binary:", err)
+			os.Exit(1)
+		}
 		os.Exit(1)
 	}
 	// Startup migrations before Ready (API mux / listeners).
