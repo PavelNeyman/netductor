@@ -562,6 +562,12 @@ func applyUFW(role string) error {
 			return err
 		}
 		if err := must("allow", "8444/tcp", "comment", "nd-wss-sp"); err != nil { return fmt.Errorf("allow primary WSS port: %w", err) }
+		if err := must("deny", "8787/tcp", "comment", "no-secondary-api"); err != nil {
+			return fmt.Errorf("deny secondary API port: %w", err)
+		}
+		if err := must("deny", "8445/tcp", "comment", "no-secondary-wss"); err != nil {
+			return fmt.Errorf("deny secondary WSS port: %w", err)
+		}
 		if err := must("deny", "8788/tcp", "comment", "no-plain-agent"); err != nil {
 			return err
 		}
