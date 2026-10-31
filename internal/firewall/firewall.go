@@ -285,6 +285,15 @@ func applyUFW(role string) error {
 	}
 	if strings.Contains(string(current), "Status: active") {
 		rules := parseUfwNumbered(string(current))
+		numberedLines := 0
+		for _, line := range strings.Split(string(current), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "[") {
+				numberedLines++
+			}
+		}
+		if len(rules) != numberedLines {
+			return fmt.Errorf("inspect UFW rules before mutation: cannot completely parse numbered rules (parsed %d of %d)", len(rules), numberedLines)
+		}
 		needSSHInsert := false
 		for _, ipv6 := range []bool{false, true} {
 			action, found := firstTCPActionFromWANFamily(rules, sp, ipv6)
