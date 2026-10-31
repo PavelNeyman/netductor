@@ -288,8 +288,11 @@ export DEBIAN_FRONTEND=noninteractive
 VER=%s
 TD=$(mktemp -d /tmp/nd-join.XXXXXX)
 chmod 700 "$TD"
-NEW=/usr/local/bin/.netductor.new.$
-trap 'rm -rf "$TD"; rm -f /root/bundle.json "${NEW:-}"' EXIT
+NEW=
+PREV_TMP=
+RESTORE=
+trap 'rm -rf "$TD"; rm -f /root/bundle.json "${NEW:-}" "${PREV_TMP:-}" "${RESTORE:-}"' EXIT
+NEW=$(mktemp /usr/local/bin/.netductor.new.XXXXXX)
 arch=$(uname -m)
 case "$arch" in
   x86_64) ASSET=netductor-linux-amd64;;
@@ -316,10 +319,11 @@ PREV=
 mkdir -p /var/lib/netductor
 if [ -e /usr/local/bin/netductor ]; then
   test -f /usr/local/bin/netductor && test ! -L /usr/local/bin/netductor || { echo "existing netductor binary is not a regular file" >&2; exit 1; }
-  PREV_TMP=/var/lib/netductor/.netductor.bin.prev.$
+  PREV_TMP=$(mktemp /var/lib/netductor/.netductor.bin.prev.XXXXXX)
   cp -a /usr/local/bin/netductor "$PREV_TMP"
   sync -f "$PREV_TMP"
   mv -f "$PREV_TMP" /var/lib/netductor/netductor.bin.prev
+  PREV_TMP=
   sync -f /var/lib/netductor
   PREV=/var/lib/netductor/netductor.bin.prev
 fi
@@ -327,11 +331,12 @@ rollback() {
   echo "join/health failed — restoring previous state if possible" >&2
   systemctl stop netductor-secondary-agent 2>/dev/null || true
   if [ -n "$PREV" ] && [ -f "$PREV" ]; then
-    RESTORE=/usr/local/bin/.netductor.restore.$
+    RESTORE=$(mktemp /usr/local/bin/.netductor.restore.XXXXXX)
     if install -m 755 "$PREV" "$RESTORE" 2>/dev/null &&
        sync -f "$RESTORE" &&
        mv -f "$RESTORE" /usr/local/bin/netductor &&
        sync -f /usr/local/bin; then
+      RESTORE=
       systemctl start netductor-secondary-agent 2>/dev/null || true
     else
       echo "rollback: failed to durably restore previous binary" >&2
@@ -351,6 +356,7 @@ systemctl stop netductor-secondary-agent 2>/dev/null || true
 install -m 755 "$TD/$ASSET" "$NEW"
 sync -f "$NEW"
 mv -f "$NEW" /usr/local/bin/netductor
+NEW=
 sync -f /usr/local/bin
 # Bundle only via SSH stdin
 cat > /root/bundle.json
