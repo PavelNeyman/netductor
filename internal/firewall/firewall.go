@@ -908,8 +908,10 @@ func applyIPTables(role string) error {
 			return fmt.Errorf("iptables fallback: atomic INPUT jump replacement: %w", err)
 		}
 	} else {
-		if err := must("-I", "INPUT", "1", "-j", stagingChain); err != nil {
-			return fmt.Errorf("iptables fallback: install INPUT jump: %w", err)
+		// The permanent SSH safeguard occupies INPUT position 1. Insert the
+		// first managed jump immediately after it, not ahead of management access.
+		if err := must("-I", "INPUT", "2", "-j", stagingChain); err != nil {
+			return fmt.Errorf("iptables fallback: install INPUT jump after SSH safeguard: %w", err)
 		}
 	}
 
