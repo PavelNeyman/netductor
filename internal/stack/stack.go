@@ -703,6 +703,14 @@ func ApplyOpts(tag string, noBackup bool) error {
 		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (api restart): "+applyFail.Error())
 		return applyFail
 	}
+	// The API performs startup migrations before opening /health. Do not start
+	// the Telegram worker (which invokes the local CLI) until that barrier passes.
+	fmt.Fprintln(os.Stderr, "stack apply: waiting for API migrations and health")
+	if !waitAPIHealthy(30 * time.Second) {
+		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("API startup migrations/health did not complete"))
+		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (api startup): "+applyFail.Error())
+		return applyFail
+	}
 	if err := exec.Command("systemctl", "restart", "netductor-telegram-bot").Run(); err != nil {
 		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("systemctl restart netductor-telegram-bot: %w", err))
 		notify.AlertOnce("stack:apply-fail:"+tag, "🔴 Stack apply failed (tg restart): "+applyFail.Error())
@@ -712,11 +720,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if err := exec.Command("systemctl", "try-restart", "netductor-redirect").Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "systemctl try-restart netductor-redirect:", err)
 	}
-	// Bot long-poll / restart is flaky for 10–20s — do NOT hard-fail on telegram-bot alone
-	// (that caused auto-rollback to ancient prev like 0.9.121 after a successful binary replace).
-	// R15: poll API health instead of fixed 12s sleep
-	fmt.Fprintln(os.Stderr, "stack apply: health pending (polling api up to 15s)")
-	_ = waitAPIHealthy(15 * time.Second)
+	// Telegram long-poll can take additional time; API health was already required
+	// before the bot was restarted. Reconfirm it below with the combined checks.
 	st := Collect()
 	// Apply requires completed systemd startup, not merely "activating".
 	// Collect intentionally treats activating as OK for status displays.
