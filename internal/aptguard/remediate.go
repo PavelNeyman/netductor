@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/PavelNeyman/netductor/internal/audit"
+	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
 // Change describes one planned file mutation (preview / apply).
@@ -255,6 +258,9 @@ func ApplyPreview(stateRoot, fsRoot string, pv Preview, confirm string) (Report,
 		return Report{}, err
 	}
 	_ = SaveReport(stateRoot, rep)
+	detail := fmt.Sprintf("changes=%d status=%s", len(pv.Changes), rep.Status)
+	audit.Log("aptguard", "remediate.apply", pv.ServerID, detail)
+	notify.EnqueueAlert("aptguard:apply:"+pv.ServerID, fmt.Sprintf("APT Guard apply on %s: %s (%d changes)", pv.ServerID, rep.Status, len(pv.Changes)))
 	return rep, nil
 }
 

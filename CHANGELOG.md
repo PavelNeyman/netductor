@@ -1,3 +1,10 @@
+## 0.9.628
+
+APT Guard:
+- audit log + Telegram alert on apply
+- Web Operate: APT status / preview / scan / apply
+- TG Tools menu: APT Guard
+
 ## 0.9.627
 
 APT Repository Guard remediation:

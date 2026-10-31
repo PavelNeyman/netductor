@@ -8,6 +8,9 @@ import (
 )
 
 func handleJobsMenu(token string, chat int64, msgID int, data string) bool {
+	if strings.HasPrefix(data, "m:aptguard") {
+		return handleAptGuardMenu(token, chat, msgID, data)
+	}
 	if data == "m:doctor:run" {
 		out, err := exec.Command("/usr/local/bin/netductor", "job", "start", "doctor.run").CombinedOutput()
 		id := strings.TrimSpace(string(out))
@@ -90,4 +93,39 @@ func renderPrimaryJobsTG(statusFilter string) (string, [][]map[string]any) {
 	rows = append(rows, []map[string]any{btn(T("refresh"), "m:jobs:list", "primary"), btn(T("jobs_running_btn"), "m:jobs:running", "")})
 	rows = append(rows, []map[string]any{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")})
 	return b.String(), rows
+}
+
+func handleAptGuardMenu(token string, chat int64, msgID int, data string) bool {
+	switch data {
+	case "m:aptguard:status":
+		out, err := exec.Command("/usr/local/bin/netductor", "aptguard", "status").CombinedOutput()
+		msg := "📦 <b>APT Guard</b>\n<pre>" + esc(truncate(string(out), 3500)) + "</pre>"
+		if err != nil {
+			msg += "\n❌ " + esc(err.Error())
+		}
+		rows := [][]map[string]any{
+			{btn("Preview", "m:aptguard:preview", ""), btn("Scan", "m:aptguard:scan", "primary")},
+			{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
+		}
+		reply(token, chat, msgID, msg, map[string]any{"inline_keyboard": rows})
+		return true
+	case "m:aptguard:preview":
+		out, err := exec.Command("/usr/local/bin/netductor", "aptguard", "preview").CombinedOutput()
+		msg := "📦 <b>APT preview</b>\n<pre>" + esc(truncate(string(out), 3500)) + "</pre>"
+		if err != nil {
+			msg += "\n❌ " + esc(err.Error())
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:aptguard:status", parentTools()))
+		return true
+	case "m:aptguard:scan":
+		out, err := exec.Command("/usr/local/bin/netductor", "aptguard", "scan").CombinedOutput()
+		msg := "📦 <b>APT scan</b>\n<pre>" + esc(truncate(string(out), 3500)) + "</pre>"
+		if err != nil {
+			msg += "\n❌ " + esc(err.Error())
+		}
+		reply(token, chat, msgID, msg, navKeyboard("m:aptguard:status", parentTools()))
+		return true
+	default:
+		return false
+	}
 }

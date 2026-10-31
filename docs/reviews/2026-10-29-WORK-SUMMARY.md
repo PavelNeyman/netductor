@@ -270,3 +270,10 @@ APT Guard (stages 0–2):
 - ApplyPreview: confirm=yes, lock, backup, rename quarantine, apt-get update, rollback on fail
 - CLI preview|apply; API /api/aptguard/preview|apply
 
+
+### 0.9.628 — APT Guard UI + audit
+
+- audit.Log + EnqueueAlert on remediate.apply
+- Web Operate buttons aptguard status/preview/scan/apply
+- TG Tools → APT Guard status/preview/scan
+

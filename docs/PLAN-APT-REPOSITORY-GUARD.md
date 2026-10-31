@@ -43,6 +43,12 @@
 - [x] CLI `netductor aptguard scan|status|policy`
 - [x] Stage 4 Secondary cmd aptguard_scan + API queue
 - [x] Stage 6 netductor-aptguard.timer (6h) via host-baseline
-- [x] Stage 7 API GET/POST /api/aptguard/* + opcatalog (thin UI)
+- [x] Stage 7 API + opcatalog + Web Operate buttons + TG Tools
 - [x] Stage 8 Remediation preview/apply (quarantine + ensure; confirm=yes; backup+rollback)
 - [ ] Stage 9 E2E
+
+
+## 0.9.628
+- audit.Log + TG alert on apply
+- Web Operate: status/preview/scan/apply
+- TG Tools: APT Guard status/preview/scan

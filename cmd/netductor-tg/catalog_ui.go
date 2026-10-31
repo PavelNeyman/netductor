@@ -24,6 +24,7 @@ func catalogLang() string {
 func toolsKeyboard() map[string]any {
 	return map[string]any{"inline_keyboard": [][]map[string]any{
 		{btn(T("jobs_menu_btn"), "m:jobs", "primary"), btn("🩺 Doctor", "m:doctor:run", "")},
+		{btn("📦 APT Guard", "m:aptguard:status", "")},
 		{btn(T("main_menu"), "m:menu", "primary")},
 	}}
 }
