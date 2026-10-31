@@ -495,6 +495,7 @@ func secondaryUpgrade(tag string) (bool, string) {
 		}
 		if out, err := exec.Command(dest, "firewall", "apply", "secondary").CombinedOutput(); err != nil { reason += fmt.Sprintf("; previous firewall reapply failed: %v %s", err, strings.TrimSpace(string(out))) }
 		if out, err := exec.Command(dest, "stack", "watchdog-install").CombinedOutput(); err != nil { reason += fmt.Sprintf("; previous watchdog restore failed: %v %s", err, strings.TrimSpace(string(out))) }
+		if out, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput(); err != nil { reason += fmt.Sprintf("; previous sing-box restart failed: %v %s", err, strings.TrimSpace(string(out))) }
 		return false, reason + "; previous binary restored"
 	}
 	if err := os.Chmod(assetPath, 0o755); err != nil { return false, "chmod staged binary: " + err.Error() }
@@ -519,6 +520,10 @@ func secondaryUpgrade(tag string) (bool, string) {
 		return restorePrevious(fmt.Sprintf("watchdog-install failed: %v %s", err, strings.TrimSpace(string(out))))
 	}
 	log.WriteString("watchdog-install ok\n")
+	if out, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput(); err != nil {
+		return restorePrevious(fmt.Sprintf("sing-box restart failed: %v %s", err, strings.TrimSpace(string(out))))
+	}
+	log.WriteString("sing-box restart ok\n")
 	// Report command completion to core before restarting this agent process.
 	go func() {
 		time.Sleep(5 * time.Second)
