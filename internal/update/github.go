@@ -456,20 +456,21 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 	if !ValidComponent(comp) {
 		return fmt.Errorf("update: unsupported component %q", component)
 	}
-	// Prefer full resolve (asset + checksum presence). On SUMS fetch failure, fall back to
-	// DownloadNamedAsset only when skip-verify is explicitly confirmed (legacy escape).
-	res, rerr := ResolveReleaseAsset(comp, PlatformFromRuntime(), tag)
-	if rerr == nil {
-		return DownloadNamedAsset(tag, res.Name, destPath)
+	// ResolveReleaseAsset requires the release checksum manifest. There is no
+	// environment-variable escape hatch: installed binaries must be verified.
+	res, err := ResolveReleaseAsset(comp, PlatformFromRuntime(), tag)
+	if err != nil {
+		return err
 	}
-	if os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1" && os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM") == "yes" {
-		name := assetName(string(comp))
-		if name == "" {
-			return rerr
-		}
-		return DownloadNamedAsset(tag, name, destPath)
+	return DownloadNamedAsset(tag, res.Name, destPath)
+}
+
+func validSHA256Hex(s string) bool {
+	if len(s) != sha256.Size*2 {
+		return false
 	}
-	return rerr
+	_, err := hex.DecodeString(s)
+	return err == nil
 }
 
 // DownloadNamedAsset downloads a release asset by exact basename (e.g. netductor-agent-linux-mipsle).
@@ -490,17 +491,13 @@ func DownloadNamedAsset(tag, name, destPath string) error {
 		fmt.Fprintf(os.Stderr, "release: local %s/%s\n", tag, name)
 		return nil
 	}
-	want := ""
-	if !(os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY") == "1" && os.Getenv("NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM") == "yes") {
-		sums, err := FetchSHA256SUMS(tag)
-		if err != nil {
-			return fmt.Errorf("SHA256SUMS required (%v); set NETDUCTOR_UPDATE_SKIP_VERIFY=1 and NETDUCTOR_UPDATE_SKIP_VERIFY_CONFIRM=yes to bypass", err)
-		}
-		var ok bool
-		want, ok = sums[name]
-		if !ok || want == "" {
-			return fmt.Errorf("no checksum entry for %s in SHA256SUMS", name)
-		}
+	sums, err := FetchSHA256SUMS(tag)
+	if err != nil {
+		return fmt.Errorf("SHA256SUMS required: %w", err)
+	}
+	want, ok := sums[name]
+	if !ok || !validSHA256Hex(want) {
+		return fmt.Errorf("missing or invalid SHA256 checksum for %s", name)
 	}
 	return download.Get(downloadURL(tag, name), destPath, download.Options{
 		MaxBytes:       512 << 20,
