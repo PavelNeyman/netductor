@@ -451,6 +451,22 @@ func ufwPreflightPolicy(status, role string) error {
 		for _, port := range []string{"80", "8787", "8788", "8789"} {
 			checkNoAllow(port, "secondary-restricted")
 		}
+		// A previous primary profile may have left source-restricted allows
+		// behind. UFW does not remove them when applying the secondary role.
+		primaryOnly := []struct{ port, label string }{
+			{"8444", "primary-wss"}, {"9443", "primary-service-uplink"},
+			{ndconfig.RedirectHTTPSPort(), "primary-redirect"},
+		}
+		if lp := ndconfig.LampacPort(); lp != "" && lp != "0" {
+			primaryOnly = append(primaryOnly, struct{ port, label string }{lp, "primary-lampac"})
+		}
+		for _, item := range primaryOnly {
+			for _, rule := range rules {
+				if ufwRuleMatchesPortProtocol(rule, item.port, "") && ufwRuleAllowsTraffic(rule.Action) {
+					conflicts = append(conflicts, fmt.Sprintf("%s %s has an existing %s ALLOW from %s", item.label, item.port, rule.Proto, rule.From))
+				}
+			}
+		}
 	}
 	if len(conflicts) != 0 {
 		return fmt.Errorf("existing UFW policy conflicts; refusing mutation: %s", strings.Join(conflicts, "; "))
@@ -859,10 +875,18 @@ func applyIPTables(role string) error {
 		if err := allowTCP("8445"); err != nil {
 			return err
 		}
-		for _, port := range []string{"8787", "8788", "8789", "80"} {
+		for _, port := range []string{"8787", "8788", "8789", "80", "8444", "9443", ndconfig.RedirectHTTPSPort()} {
 			if err := denyTCP(port); err != nil {
 				return fmt.Errorf("iptables fallback deny %s: %w", port, err)
 			}
+		}
+		if lp := ndconfig.LampacPort(); lp != "" && lp != "0" {
+			if err := denyTCP(lp); err != nil {
+				return fmt.Errorf("iptables fallback deny Lampac port %s: %w", lp, err)
+			}
+		}
+		if err := must("-A", stagingChain, "-p", "udp", "--dport", ndconfig.RedirectHTTPSPort(), "-j", "DROP"); err != nil {
+			return fmt.Errorf("iptables fallback deny primary redirect UDP %s: %w", ndconfig.RedirectHTTPSPort(), err)
 		}
 	}
 	if err := must("-I", stagingChain, "1", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"); err != nil {
@@ -1140,16 +1164,17 @@ func ufwRuleAllowsTraffic(action string) bool {
 	return action == "ALLOW" || action == "LIMIT"
 }
 
-func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
-	// All callers use this matcher for inbound policy. UFW status also lists
-	// OUT and FWD rules; those must never influence WAN/input decisions.
+func ufwRuleMatchesPortProtocol(r ufwRule, port, protocol string) bool {
+	// UFW status also lists OUT and FWD rules; they must never influence
+	// inbound policy decisions.
 	if r.Direction != "IN" {
 		return false
 	}
-	// An omitted protocol means the UFW rule applies to TCP as well.
-	// Any explicit non-TCP protocol must not be mistaken for a TCP rule.
-	proto := strings.ToLower(strings.TrimSpace(r.Proto))
-	if proto != "" && proto != "tcp" {
+	// An empty requested protocol matches any protocol; an omitted UFW
+	// protocol matches TCP as well as other protocols.
+	gotProtocol := strings.ToLower(strings.TrimSpace(r.Proto))
+	wantProtocol := strings.ToLower(strings.TrimSpace(protocol))
+	if wantProtocol != "" && gotProtocol != "" && gotProtocol != wantProtocol {
 		return false
 	}
 	rp := strings.TrimSpace(r.Port)
@@ -1171,6 +1196,10 @@ func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 		rp = rp[:j]
 	}
 	return rp == port
+}
+
+func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
+	return ufwRuleMatchesPortProtocol(r, port, "tcp")
 }
 
 func ufwFromIsWAN(from string) bool {
@@ -1468,6 +1497,21 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 		for _, port := range []string{"80", "8787", "8788", "8789"} {
 			rejectAnyAllow(port, "secondary-restricted")
+		}
+		primaryOnly := []struct{ port, label string }{
+			{"8444", "primary-wss"}, {"9443", "primary-service-uplink"},
+			{ndconfig.RedirectHTTPSPort(), "primary-redirect"},
+		}
+		if lp := ndconfig.LampacPort(); lp != "" && lp != "0" {
+			primaryOnly = append(primaryOnly, struct{ port, label string }{lp, "primary-lampac"})
+		}
+		for _, item := range primaryOnly {
+			for _, rule := range rules {
+				if ufwRuleMatchesPortProtocol(rule, item.port, "") && ufwRuleAllowsTraffic(rule.Action) {
+					ok = false
+					warnings = append(warnings, item.label+": unexpected "+rule.Proto+" ALLOW from "+rule.From+" for "+item.port)
+				}
+			}
 		}
 	}
 	return ok, warnings
