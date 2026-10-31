@@ -786,7 +786,7 @@ func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 		return false
 	}
 	rp := strings.TrimSpace(r.Port)
-	if rp == "" || rp == "Anywhere" || rp == "*" || strings.EqualFold(rp, "any") {
+	if rp == "" || rp == "Anywhere" || rp == "Anywhere (v6)" || rp == "*" || strings.EqualFold(rp, "any") {
 		return true
 	}
 	for _, sep := range []string{":", "-"} {
@@ -808,7 +808,7 @@ func ufwRuleMatchesPortTCP(r ufwRule, port string) bool {
 
 func ufwFromIsWAN(from string) bool {
 	from = strings.TrimSpace(from)
-	return from == "" || from == "Anywhere" || strings.EqualFold(from, "any")
+	return from == "" || from == "Anywhere" || from == "Anywhere (v6)" || strings.EqualFold(from, "any")
 }
 
 func ufwFromIsTrustedMTLS(from string) bool {
@@ -840,6 +840,11 @@ func firstTCPActionFromWANFamily(rules []ufwRule, port string, ipv6 bool) (actio
 		return rule.Action, true
 	}
 	return "", false
+}
+
+// firstTCPActionFromWAN preserves the legacy IPv4 helper contract.
+func firstTCPActionFromWAN(rules []ufwRule, port string) (action string, found bool) {
+	return firstTCPActionFromWANFamily(rules, port, false)
 }
 
 func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
