@@ -1001,11 +1001,33 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 
 		// The configured service-path CIDRs are IPv4. They must not be
 		// interpreted as permission to expose the same port over IPv6.
-		for _, cidr := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
+		allowedUplinkSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
+		for _, cidr := range allowedUplinkSources {
 			action, found := firstTCPActionFromSource(rules, "9443", cidr, false)
 			if !found || action != "ALLOW" {
 				ok = false
 				warnings = append(warnings, "service uplink: first matching IPv4 rule for "+cidr+" on 9443/tcp is "+action+" (want ALLOW)")
+			}
+		}
+		for _, rule := range rules {
+			if !ufwRuleMatchesPortTCP(rule, "9443") || rule.Action != "ALLOW" {
+				continue
+			}
+			if rule.IPv6 {
+				ok = false
+				warnings = append(warnings, "service uplink: unexpected IPv6 ALLOW from "+rule.From+" for 9443/tcp")
+				continue
+			}
+			trusted := false
+			for _, source := range allowedUplinkSources {
+				if ufwSourceContainedBy(rule.From, source) {
+					trusted = true
+					break
+				}
+			}
+			if !trusted {
+				ok = false
+				warnings = append(warnings, "service uplink: IPv4 ALLOW from untrusted source "+rule.From+" for 9443/tcp")
 			}
 		}
 
@@ -1052,6 +1074,15 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			if !found || action != "ALLOW" {
 				ok = false
 				warnings = append(warnings, "lampac: first matching IPv4 loopback rule for "+lp+"/tcp is "+action+" (want ALLOW)")
+			}
+			for _, rule := range rules {
+				if !ufwRuleMatchesPortTCP(rule, lp) || rule.Action != "ALLOW" {
+					continue
+				}
+				if rule.IPv6 || !ufwSourceContainedBy(rule.From, "127.0.0.1") {
+					ok = false
+					warnings = append(warnings, "lampac: unexpected ALLOW from "+rule.From+" for "+lp+"/tcp")
+				}
 			}
 		}
 	} else {
