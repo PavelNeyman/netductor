@@ -650,11 +650,12 @@ func ApplyOpts(tag string, noBackup bool) error {
 	}
 	if len(failed) > 0 {
 		fmt.Fprintln(os.Stderr, "health soft-fail (api), retry restart:", failed)
+		var retryErrors []string
 		if err := exec.Command("systemctl", "reset-failed", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
-			failed = append(failed, "systemctl-reset-failed:"+err.Error())
+			retryErrors = append(retryErrors, "systemctl-reset-failed:"+err.Error())
 		}
 		if err := exec.Command("systemctl", "restart", "netductor-api", "netductor-telegram-bot").Run(); err != nil {
-			failed = append(failed, "systemctl-restart-retry:"+err.Error())
+			retryErrors = append(retryErrors, "systemctl-restart-retry:"+err.Error())
 		}
 		fmt.Fprintln(os.Stderr, "stack apply: health pending (retry poll up to 12s)")
 		_ = waitAPIHealthy(12 * time.Second)
@@ -665,13 +666,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 				failed = append(failed, u.Unit+":"+u.Active)
 			}
 		}
-	}
-	// Soft warn if bot still down — leave new binaries in place
-	for _, u := range st.Units {
-		if u.Unit == "netductor-telegram-bot" && !u.OK {
-			fmt.Fprintln(os.Stderr, "warn: telegram-bot not active after apply (no rollback):", u.Active)
-			notify.AlertOnce("stack:bot-warn:"+tag, "⚠️ Stack apply <code>"+tag+"</code>: telegram-bot="+u.Active+" (binaries kept)")
-		}
+		failed = append(failed, retryErrors...)
 	}
 	// Prefer live /healthz over unit state alone (unit can be "active" while API deadlocked).
 	if len(failed) == 0 && !apiHTTPHealthy() {
@@ -686,10 +681,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 		return applyFail
 	}
 	// Secondary is NOT auto-upgraded — operator must enqueue upgrade explicitly.
-	msg := "⏳ Stack apply checks passed for <code>" + tag + "</code> (finalizing transaction)"
-	notify.AlertOnce("stack:apply-ok:"+tag, msg)
-	_ = notify.FlushAlerts(true)
-	fmt.Fprintln(os.Stderr, "stack apply ok", tag)
+	notify.AlertOnce("stack:apply-checks:"+tag, "Stack apply health checks passed for <code>"+tag+"</code>; finalizing transaction")
+	fmt.Fprintln(os.Stderr, "stack apply checks passed", tag)
 	// Baseline and last-good snapshot preparation are part of the transaction.
 	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
 		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("host baseline after apply: %w", err))
@@ -713,6 +706,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 		fmt.Fprintln(os.Stderr, "warn: write integrity manifest after commit:", err)
 	}
 	notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack apply committed <code>"+tag+"</code> (secondary: manual upgrade only)")
+	_ = notify.FlushAlerts(true)
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: retain committed apply evidence:", err)
 	}
