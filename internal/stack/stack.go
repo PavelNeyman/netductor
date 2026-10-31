@@ -660,7 +660,10 @@ func ApplyOpts(tag string, noBackup bool) error {
 	notify.AlertOnce("stack:apply:"+tag, "⬆️ Stack apply <code>"+tag+"</code> started")
 	// Stage both binaries before touching live paths — avoid node-only partial apply.
 	stageDir := filepath.Join(paths.StateDir(), "stack", "stage")
-	_ = os.RemoveAll(stageDir)
+	if err := os.RemoveAll(stageDir); err != nil {
+		applyFail = fmt.Errorf("remove stale stage dir: %w", err)
+		return applyFail
+	}
 	if err := os.MkdirAll(stageDir, 0o755); err != nil {
 		applyFail = fmt.Errorf("stage dir: %w", err)
 		return applyFail
