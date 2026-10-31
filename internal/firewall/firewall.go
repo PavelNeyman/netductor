@@ -311,6 +311,9 @@ func validateRolePorts(role string) error {
 		if n == 0 {
 			return nil
 		}
+		if n == ssh {
+			return fmt.Errorf("firewall: inactive %s port %d conflicts with SSH port", label, n)
+		}
 		if active, exists := reserved[n]; exists {
 			return fmt.Errorf("firewall: inactive %s port %d conflicts with active %s port", label, n, active)
 		}
