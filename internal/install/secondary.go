@@ -247,7 +247,7 @@ type secondaryUnitSnapshot struct {
 	data []byte
 	mode os.FileMode
 	exists bool
-	enabled bool
+	enabledState string
 }
 
 type secondaryUnitTransaction struct { units []secondaryUnitSnapshot }
@@ -265,12 +265,11 @@ func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
 			u.mode, u.exists = st.Mode().Perm(), true
 		} else if !os.IsNotExist(err) { return nil, fmt.Errorf("inspect %s: %w", name, err) }
 		out, enabledErr := exec.Command("systemctl", "is-enabled", strings.TrimSuffix(name, ".service")).CombinedOutput()
-		u.enabled = enabledErr == nil && strings.TrimSpace(string(out)) == "enabled"
+		u.enabledState = strings.TrimSpace(string(out))
 		if enabledErr != nil {
-			msg := strings.TrimSpace(string(out))
-			switch msg {
+			switch u.enabledState {
 			case "disabled", "not-found", "static", "indirect", "masked", "generated", "transient":
-			default: return nil, fmt.Errorf("query enablement for %s: %s: %w", name, msg, enabledErr)
+			default: return nil, fmt.Errorf("query enablement for %s: %s: %w", name, u.enabledState, enabledErr)
 			}
 		}
 		t.units = append(t.units, u)
@@ -302,8 +301,19 @@ func (t *secondaryUnitTransaction) rollback() error {
 	for _, u := range t.units {
 		unit := strings.TrimSuffix(u.name, ".service")
 		var err error
-		if u.enabled { err = run("systemctl", "enable", unit) } else { err = run("systemctl", "disable", unit) }
-		if err != nil { errs = append(errs, fmt.Sprintf("restore enablement %s: %v", unit, err)) }
+		switch u.enabledState {
+		case "enabled", "enabled-runtime":
+			err = run("systemctl", "enable", unit)
+		case "masked":
+			_ = run("systemctl", "unmask", unit)
+			err = run("systemctl", "mask", "--force", unit)
+		default:
+			err = run("systemctl", "disable", unit)
+			if err == nil && u.enabledState == "masked" {
+				err = run("systemctl", "mask", "--force", unit)
+			}
+		}
+		if err != nil { errs = append(errs, fmt.Sprintf("restore enablement %s (%s): %v", unit, u.enabledState, err)) }
 	}
 	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
 	return nil
