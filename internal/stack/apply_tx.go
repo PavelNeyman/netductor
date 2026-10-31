@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -31,6 +32,14 @@ type applyTx struct {
 }
 
 func txPath(att string) string { return filepath.Join(att, "tx.json") }
+
+func validSHA(s string) bool {
+	if len(s) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(s)
+	return err == nil
+}
 
 func fileSHA(path string) (string, error) {
 	b, err := os.ReadFile(path)
@@ -76,9 +85,12 @@ func syncDir(dir string) error {
 	if err != nil {
 		return err
 	}
-	err = df.Sync()
-	_ = df.Close()
-	return err
+	syncErr := df.Sync()
+	closeErr := df.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
 
 func writeTx(att string, tx applyTx) error {
@@ -87,6 +99,34 @@ func writeTx(att string, tx applyTx) error {
 		return err
 	}
 	return durableWrite(txPath(att), b, 0o600)
+}
+
+func validateTx(tx *applyTx) error {
+	if tx == nil {
+		return fmt.Errorf("tx.json is empty")
+	}
+	if strings.TrimSpace(tx.ID) == "" || tx.StartedAt.IsZero() {
+		return fmt.Errorf("tx.json missing identity or start time")
+	}
+	if !filepath.IsAbs(tx.NodeDest) || !filepath.IsAbs(tx.TGDest) || filepath.Clean(tx.NodeDest) == filepath.Clean(tx.TGDest) {
+		return fmt.Errorf("tx.json has invalid destination paths")
+	}
+	switch tx.Phase {
+	case txPrepared, txNodeInstalled, txTGInstalled, txVerified, txCommitted:
+	default:
+		return fmt.Errorf("tx.json has unknown phase %q", tx.Phase)
+	}
+	for name, value := range map[string]string{
+		"node_pre_sha": tx.NodePreSHA,
+		"tg_pre_sha":   tx.TGPreSHA,
+		"node_new_sha": tx.NodeNewSHA,
+		"tg_new_sha":   tx.TGNewSHA,
+	} {
+		if !validSHA(value) {
+			return fmt.Errorf("tx.json has invalid %s", name)
+		}
+	}
+	return nil
 }
 
 func loadTx(att string) (*applyTx, error) {
@@ -98,8 +138,8 @@ func loadTx(att string) (*applyTx, error) {
 	if err := json.Unmarshal(b, &tx); err != nil {
 		return nil, fmt.Errorf("tx.json corrupt: %w", err)
 	}
-	if tx.Phase == "" || tx.NodeDest == "" || tx.TGDest == "" {
-		return nil, fmt.Errorf("tx.json incomplete")
+	if err := validateTx(&tx); err != nil {
+		return nil, err
 	}
 	return &tx, nil
 }
@@ -115,8 +155,55 @@ func durableBackup(src, dest string) (string, error) {
 	return fileSHA(dest)
 }
 
-// RecoverIncompleteApply rolls back a pair install interrupted between Node and TG.
-// Fail-closed: corrupt journal or missing pre-image blocks startup.
+// commitInstalledPair records the durable commit boundary after both installed
+// binaries have been re-read and matched against the staged asset hashes.
+// It must run before restarting API: the new API process executes startup
+// recovery while the Apply process is waiting for systemd.
+func commitInstalledPair(att string) error {
+	tx, err := loadTx(att)
+	if err != nil {
+		return fmt.Errorf("load apply transaction: %w", err)
+	}
+	if tx.Phase != txTGInstalled && tx.Phase != txVerified {
+		return fmt.Errorf("cannot commit apply transaction in phase %q", tx.Phase)
+	}
+	if err := verifyInstalledPair(tx); err != nil {
+		return err
+	}
+	if tx.Phase != txVerified {
+		tx.Phase = txVerified
+		if err := writeTx(att, *tx); err != nil {
+			return fmt.Errorf("write verified phase: %w", err)
+		}
+	}
+	tx.Phase = txCommitted
+	if err := writeTx(att, *tx); err != nil {
+		return fmt.Errorf("write committed phase: %w", err)
+	}
+	return nil
+}
+
+func verifyInstalledPair(tx *applyTx) error {
+	for _, item := range []struct {
+		name, path, want string
+	}{
+		{"node", tx.NodeDest, tx.NodeNewSHA},
+		{"tg", tx.TGDest, tx.TGNewSHA},
+	} {
+		got, err := fileSHA(item.path)
+		if err != nil {
+			return fmt.Errorf("verify installed %s: %w", item.name, err)
+		}
+		if got != item.want {
+			return fmt.Errorf("verify installed %s: sha256 mismatch", item.name)
+		}
+	}
+	return nil
+}
+
+// RecoverIncompleteApply is called before API listeners are started.
+// A verified pair is the commit boundary: the new API process must not roll
+// it back merely because systemd restarted it as part of the same Apply.
 func RecoverIncompleteApply() error {
 	return recoverApplyTx(attemptDir())
 }
@@ -131,8 +218,23 @@ func recoverApplyTx(att string) error {
 	}
 	switch tx.Phase {
 	case txCommitted:
+		if err := verifyInstalledPair(tx); err != nil {
+			return fmt.Errorf("committed apply recovery blocked: %w", err)
+		}
 		return nil
-	case txPrepared, txNodeInstalled, txTGInstalled, txVerified:
+	case txVerified:
+		if err := verifyInstalledPair(tx); err == nil {
+			tx.Phase = txCommitted
+			if err := writeTx(att, *tx); err != nil {
+				return fmt.Errorf("apply recovery cannot persist commit: %w", err)
+			}
+			return nil
+		}
+		if err := rollbackPair(att, tx); err != nil {
+			return fmt.Errorf("apply recovery blocked: %w", err)
+		}
+		return nil
+	case txPrepared, txNodeInstalled, txTGInstalled:
 		if err := rollbackPair(att, tx); err != nil {
 			return fmt.Errorf("apply recovery blocked: %w", err)
 		}
@@ -145,21 +247,20 @@ func recoverApplyTx(att string) error {
 func rollbackPair(att string, tx *applyTx) error {
 	nodeBak := filepath.Join(att, "netductor")
 	tgBak := filepath.Join(att, "netductor-tg")
-	if tx.NodePreSHA != "" {
-		if err := restoreChecked(nodeBak, tx.NodeDest, tx.NodePreSHA); err != nil {
-			return err
-		}
+	if err := restoreChecked(nodeBak, tx.NodeDest, tx.NodePreSHA); err != nil {
+		return fmt.Errorf("restore node: %w", err)
 	}
-	if tx.TGPreSHA != "" {
-		if err := restoreChecked(tgBak, tx.TGDest, tx.TGPreSHA); err != nil {
-			return err
-		}
+	if err := restoreChecked(tgBak, tx.TGDest, tx.TGPreSHA); err != nil {
+		return fmt.Errorf("restore tg: %w", err)
 	}
 	tx.Phase = txPrepared
 	return writeTx(att, *tx)
 }
 
 func restoreChecked(src, dest, want string) error {
+	if !validSHA(want) {
+		return fmt.Errorf("invalid expected pre-image hash for %s", dest)
+	}
 	got, err := fileSHA(src)
 	if err != nil {
 		return fmt.Errorf("pre-image %s: %w", src, err)
