@@ -174,7 +174,7 @@ func readSecret(name string) string {
 }
 
 func writeUnit(name, content string) error {
-	if filepath.Base(name) != name || (!strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer")) {
+	if name == "" || name == "." || name == ".." || filepath.Base(name) != name || strings.ContainsAny(name, "/\\\\") {
 		return fmt.Errorf("invalid systemd unit filename %q", name)
 	}
 	path := filepath.Join("/etc/systemd/system", name)
