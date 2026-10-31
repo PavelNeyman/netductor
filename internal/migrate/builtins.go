@@ -108,7 +108,7 @@ func (m *repairStateOnUpgradeMigration) Apply(ctx context.Context) error {
 	notes := install.RepairStateOnUpgrade()
 	var hard []string
 	for _, n := range notes {
-		if strings.HasPrefix(n, "state bad:") || strings.HasPrefix(n, "le hooks:") || strings.HasPrefix(n, "chmod:") {
+		if strings.HasPrefix(n, "state bad:") || strings.HasPrefix(n, "state parent:") || strings.HasPrefix(n, "le hooks:") || strings.HasPrefix(n, "chmod:") {
 			hard = append(hard, n)
 		}
 	}
