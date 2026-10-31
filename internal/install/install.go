@@ -50,7 +50,9 @@ func Run(opts Options) error {
 	_ = EnsureDomainConfig()
 	_ = EnsureClientProfiles()
 	if !opts.SkipHostname {
-		applyHostname("primary")
+		if err := applyHostname("primary"); err != nil {
+			return fmt.Errorf("set primary hostname: %w", err)
+		}
 	}
 	_ = nodes.LocalStableID() // stable node id (UUID), independent of hostname
 	var errs []error
@@ -157,8 +159,10 @@ func runOut(name string, args ...string) (string, error) {
 
 func writeSecret(name, val string) error {
 	dir := filepath.Join(paths.EtcDir(), "secrets")
-	_ = os.MkdirAll(dir, 0o700)
-	return os.WriteFile(filepath.Join(dir, name), []byte(val+"\n"), 0o600)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create secrets directory: %w", err)
+	}
+	return writeInstallFileDurable(filepath.Join(dir, name), []byte(val+"\n"), 0o600)
 }
 
 func readSecret(name string) string {
@@ -170,55 +174,96 @@ func readSecret(name string) string {
 }
 
 func writeUnit(name, content string) error {
-	path := filepath.Join("/etc/systemd/system", name)
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return err
+	if filepath.Base(name) != name || (!strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer")) {
+		return fmt.Errorf("invalid systemd unit filename %q", name)
 	}
-	_ = run("systemctl", "daemon-reload")
+	path := filepath.Join("/etc/systemd/system", name)
+	if err := writeInstallFileDurable(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write unit %s: %w", name, err)
+	}
+	if err := run("systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("systemctl daemon-reload: %w", err)
+	}
 	return nil
 }
 
 func enableStart(unit string) error {
-	_ = run("systemctl", "enable", unit)
-	return run("systemctl", "restart", unit)
+	if err := run("systemctl", "enable", unit); err != nil {
+		return fmt.Errorf("systemctl enable %s: %w", unit, err)
+	}
+	if err := run("systemctl", "restart", unit); err != nil {
+		return fmt.Errorf("systemctl restart %s: %w", unit, err)
+	}
+	return nil
+}
+
+func writeInstallFileDurable(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil { return err }
+	tmp, err := os.CreateTemp(dir, ".netductor-install-*")
+	if err != nil { return err }
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	n, err := tmp.Write(data)
+	if err != nil { _ = tmp.Close(); return err }
+	if n != len(data) { _ = tmp.Close(); return io.ErrShortWrite }
+	if err := tmp.Chmod(mode); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Sync(); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Close(); err != nil { return err }
+	if err := os.Rename(tmpName, path); err != nil { return err }
+	df, err := os.Open(dir)
+	if err != nil { return err }
+	if err := df.Sync(); err != nil { _ = df.Close(); return err }
+	return df.Close()
 }
 
 // applyHostname sets a uniform node name.
 // Priority: NETDUCTOR_HOSTNAME env > existing /etc/netductor/node_id > auto nd-<role>-<ip-suffix>
-func applyHostname(role string) {
-	if role == "" {
-		role = "primary"
-	}
+func applyHostname(role string) error {
+	if role == "" { role = "primary" }
 	name := strings.TrimSpace(os.Getenv("NETDUCTOR_HOSTNAME"))
 	if name == "" {
-		if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "node_id")); err == nil {
-			name = strings.TrimSpace(string(b))
-		}
+		if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "node_id")); err == nil { name = strings.TrimSpace(string(b)) }
 	}
 	if name == "" {
 		ip := detectPublicIP()
 		suf := "00"
 		if ip != "" {
 			parts := strings.Split(ip, ".")
-			if len(parts) == 4 {
-				suf = parts[2] + parts[3]
-				if len(suf) > 6 {
-					suf = suf[len(suf)-6:]
-				}
-			}
+			if len(parts) == 4 { suf = parts[2] + parts[3]; if len(suf) > 6 { suf = suf[len(suf)-6:] } }
 		}
 		name = fmt.Sprintf("nd-%s-%s", role, suf)
 	}
 	name = strings.ToLower(name)
-	_ = os.MkdirAll(paths.EtcDir(), 0o755)
-	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "node_id"), []byte(name+"\n"), 0o644)
-	_ = os.WriteFile("/etc/hostname", []byte(name+"\n"), 0o644)
-	_ = run("hostnamectl", "set-hostname", name)
-	// ensure hosts entry
-	_ = run("bash", "-c", fmt.Sprintf(
-		`grep -q '%s' /etc/hosts || echo '127.0.1.1 %s' >> /etc/hosts`, name, name))
+	if len(name) == 0 || len(name) > 63 || name[0] == '-' || name[len(name)-1] == '-' { return fmt.Errorf("invalid hostname %q", name) }
+	for _, ch := range name {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '-' { return fmt.Errorf("invalid hostname character in %q", name) }
+	}
+	if err := os.MkdirAll(paths.EtcDir(), 0o755); err != nil { return fmt.Errorf("create netductor config dir: %w", err) }
+	if err := writeInstallFileDurable(filepath.Join(paths.EtcDir(), "node_id"), []byte(name+"\n"), 0o644); err != nil { return fmt.Errorf("write node_id: %w", err) }
+	if err := writeInstallFileDurable("/etc/hostname", []byte(name+"\n"), 0o644); err != nil { return fmt.Errorf("write /etc/hostname: %w", err) }
+	if err := run("hostnamectl", "set-hostname", name); err != nil { return fmt.Errorf("hostnamectl: %w", err) }
+	hosts, err := os.ReadFile("/etc/hosts")
+	if err != nil { return fmt.Errorf("read /etc/hosts: %w", err) }
+	exists := false
+	for _, line := range strings.Split(string(hosts), "\n") {
+		fields := strings.Fields(strings.SplitN(line, "#", 2)[0])
+		for _, host := range fields[1:] { if host == name { exists = true; break } }
+		if exists { break }
+	}
+	if !exists {
+		f, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil { return fmt.Errorf("open /etc/hosts: %w", err) }
+		line := []byte("127.0.1.1 " + name + "\n")
+		n, werr := f.Write(line)
+		if werr == nil && n != len(line) { werr = io.ErrShortWrite }
+		if werr == nil { werr = f.Sync() }
+		cerr := f.Close()
+		if werr != nil { return fmt.Errorf("append /etc/hosts: %w", werr) }
+		if cerr != nil { return fmt.Errorf("close /etc/hosts: %w", cerr) }
+	}
+	return nil
 }
-
 func detectPublicIP() string {
 	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "public_ip")); err == nil {
 		if ip := strings.TrimSpace(string(b)); ip != "" {
