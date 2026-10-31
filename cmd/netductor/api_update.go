@@ -136,13 +136,20 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		case "tg", "telegram":
 			dest = "/usr/local/bin/netductor-tg"
 			unit = "netductor-telegram-bot"
-		case "agent":
+		case "agent", "edge-agent", "edge":
+			// Edge agent binary (OpenWrt / device).
+			comp = "edge-agent"
 			dest = "/usr/local/bin/netductor-agent"
+			unit = "" // edge uses procd/init; no systemd unit on VPS
+		case "secondary-agent", "secondary":
+			// Secondary agent runs: netductor secondary agent
+			comp = "secondary-agent"
+			dest = "/usr/local/bin/netductor"
 			unit = "netductor-secondary-agent"
 		case "node", "netductor", "":
 			comp = "node"
 		default:
-			writeJSON(w, 400, map[string]any{"ok": false, "error": "unknown component"})
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "unknown component (node|tg|edge-agent|secondary-agent)"})
 			return
 		}
 		// node: single path — stack apply does one backup; no double-wait here.
@@ -156,8 +163,11 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		}
 		// tg/agent: same ApplyHostComponent engine as CLI (job registry + health).
 		cid := ndupdate.ComponentTG
-		if comp == "agent" {
+		switch comp {
+		case "edge-agent":
 			cid = ndupdate.ComponentAgent
+		case "secondary-agent":
+			cid = ndupdate.ComponentNode // secondary agent is the node binary
 		}
 		job, err := ndupdate.ApplyHostComponent(ndupdate.HostApplyOpts{
 			Component:  cid,
@@ -165,15 +175,19 @@ func registerUpdateAPI(mux *http.ServeMux) {
 			Tag:        tag,
 			DestPath:   dest,
 			Unit:       unit,
+			Restart:    !body.NoRestart && unit != "",
 			JobID:      fmt.Sprintf("api-%s-%d", comp, time.Now().UnixNano()),
 		})
 		if err != nil {
 			writeJSON(w, 502, map[string]any{"ok": false, "error": err.Error(), "job": job})
 			return
 		}
-		ndupdate.WriteVERSION(tag)
+		// Global VERSION tracks node/stack only — not per-component (tg/edge/secondary).
+		if comp == "node" {
+			ndupdate.WriteVERSION(tag)
+		}
 		writeJSON(w, 200, map[string]any{
-			"ok": true, "component": comp, "version": tag, "dest": dest, "job": job,
+			"ok": true, "component": comp, "version": tag, "dest": dest, "unit": unit, "restart": !body.NoRestart && unit != "", "job": job,
 		})
 	})
 	mux.HandleFunc("/api/update/jobs", func(w http.ResponseWriter, r *http.Request) {

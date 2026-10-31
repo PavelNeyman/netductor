@@ -1,3 +1,13 @@
+## 0.9.641
+
+Update API:
+- Pass Restart (!no_restart) to ApplyHostComponent
+- Split edge-agent vs secondary-agent (binary + unit)
+- WriteVERSION only for node component
+
+Docs: Stage-1 Apply audit for startup migration plan.
+Tests: Stat IsNotExist path removes COMMIT before Stat.
+
 ## 0.9.640
 
 APT Guard tests:

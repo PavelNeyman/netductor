@@ -16,7 +16,7 @@ type ComponentID string
 const (
 	ComponentNode  ComponentID = "node"  // netductor control-plane binary (primary or secondary host)
 	ComponentTG    ComponentID = "tg"    // netductor-tg
-	ComponentAgent ComponentID = "agent" // netductor-agent (edge device or secondary agent unit)
+	ComponentAgent ComponentID = "agent" // netductor-agent (edge device only; secondary uses ComponentNode binary)
 	ComponentOp    ComponentID = "op"    // netductor-op (macOS operator)
 )
 

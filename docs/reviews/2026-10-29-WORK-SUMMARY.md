@@ -382,3 +382,10 @@ APT Guard (stages 0–2):
 - TestApplyPreviewFsyncOnCommittingNoRollback: inject fsync after committing journal; quarantine kept; recovery blocked
 - Stat test: remove COMMIT before IsNotExist branch
 
+
+### 0.9.641 — Update API + Apply audit
+
+- API Restart flag wired; edge-agent ≠ secondary-agent
+- Audit doc: docs/audits/2026-10-31-apply-startup-migration-audit.md
+- Stat test: remove COMMIT when simulating IsNotExist
+

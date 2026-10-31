@@ -448,18 +448,14 @@ func TestDurableWriteCommitStatNonExistVsOther(t *testing.T) {
 	if !errors.Is(err, ErrCommitAmbiguous) {
 		t.Fatalf("want Ambiguous, got %v", err)
 	}
-	// Real absence: remove any leftover, Stat returns ErrNotExist
-	_ = os.Remove(path)
-	osStatFn = os.Stat // real stat
-	// still fail fsync so write fails after rename; then real Stat → may find file or not
-	// Force clear path: no file + Stat NotExist via injection matching reality
+	// When Stat reports NotExist, ensure file is gone before Stat runs.
 	osStatFn = func(name string) (os.FileInfo, error) {
+		_ = os.Remove(name)
 		return nil, os.ErrNotExist
 	}
-	_ = os.Remove(path)
 	err = durableWriteCommit(path, []byte("ok\n"))
 	if err == nil || errors.Is(err, ErrCommitAmbiguous) {
-		t.Fatalf("want clear error when COMMIT absent, got %v", err)
+		t.Fatalf("want clear error when COMMIT absent at Stat, got %v", err)
 	}
 }
 
