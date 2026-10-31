@@ -300,26 +300,25 @@ func recoverPrevSnapshotSwap() error {
 	if os.IsNotExist(prevErr) {
 		if committed && nextErr == nil {
 			if err := verifySnapshotPair(next, tx); err != nil { return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err) }
-			// Commit is durable and the prepared last-good snapshot is complete.
-			// Finish the directory promotion if power failed before next→prev.
+			// Finish the first promotion after a crash between commit and rename.
 			if err := os.Rename(next, prev); err != nil { return err }
 			if err := syncDir(root); err != nil { return err }
+		} else if committed && nextErr != nil && !os.IsNotExist(nextErr) {
+			return fmt.Errorf("inspect staged committed last-good snapshot: %w", nextErr)
 		} else if oldErr == nil {
-			// Uncommitted promotion (or committed promotion without a staged dir):
-			// preserve the prior last-good snapshot.
+			// An uncommitted rename must restore the previous last-good directory.
 			if err := os.Rename(old, prev); err != nil { return err }
 			if err := syncDir(root); err != nil { return err }
 		}
 	} else if prevErr != nil { return prevErr
-	} else if committed && nextErr == nil {
-		// If prev still contains the pre-transaction last-good binary, finish
-		// promoting the staged snapshot. If it already matches the committed
-		// binary, the rename completed and only cleanup remains.
-		prevErr := verifySnapshotPair(prev, tx)
-		if prevErr != nil {
-			if nextErr != nil { return fmt.Errorf("committed last-good snapshot is invalid and no staged replacement exists: %w", prevErr) }
+	} else if committed {
+		// If prev already matches the committed pair, only cleanup remains.
+		// Otherwise finish the promotion from the verified staged directory.
+		prevPairErr := verifySnapshotPair(prev, tx)
+		if prevPairErr != nil {
+			if nextErr != nil { return fmt.Errorf("committed last-good snapshot is invalid and staged replacement is unavailable: %w", prevPairErr) }
 			if err := verifySnapshotPair(next, tx); err != nil { return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err) }
-			if oldErr == nil { return fmt.Errorf("ambiguous last-good promotion: prev differs from committed binary while prev.old exists") }
+			if oldErr == nil { return fmt.Errorf("ambiguous last-good promotion: prev differs from committed pair while prev.old exists") }
 			if err := os.Rename(prev, old); err != nil { return err }
 			if err := syncDir(root); err != nil { return err }
 			if err := os.Rename(next, prev); err != nil {
