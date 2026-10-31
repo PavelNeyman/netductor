@@ -48,18 +48,41 @@ func SaveJSON(path string, v any) error {
 		_ = os.Remove(tmp)
 		return err
 	}
-	if _, err := f.Write(append(raw, '\n')); err != nil {
+	data := append(raw, '\n')
+	n, err := f.Write(data)
+	if err != nil {
 		_ = f.Close()
 		_ = os.Remove(tmp)
-		return err
+		return fmt.Errorf("write state file: %w", err)
+	}
+	if n != len(data) {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("write state file: short write (%d of %d bytes)", n, len(data))
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("sync state file: %w", err)
 	}
 	if err := f.Close(); err != nil {
 		_ = os.Remove(tmp)
-		return err
+		return fmt.Errorf("close state file: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
-		return err
+		return fmt.Errorf("replace state file: %w", err)
+	}
+	df, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open state directory: %w", err)
+	}
+	if err := df.Sync(); err != nil {
+		_ = df.Close()
+		return fmt.Errorf("sync state directory: %w", err)
+	}
+	if err := df.Close(); err != nil {
+		return fmt.Errorf("close state directory: %w", err)
 	}
 	return nil
 }
