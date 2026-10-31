@@ -3,6 +3,8 @@ package install
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,6 +31,16 @@ func InstallRelay(bundlePath string) error {
 	}
 	if b.CoreIP == "" || b.UplinkUUID == "" {
 		return fmt.Errorf("invalid bundle: missing core_ip or uplink_uuid")
+	}
+	if ip := net.ParseIP(strings.TrimSpace(b.CoreIP)); ip == nil || ip.To4() == nil {
+		return fmt.Errorf("invalid bundle: core_ip must be a public IPv4 address")
+	}
+	if len(strings.TrimSpace(b.AgentToken)) < 16 || strings.TrimSpace(b.AgentID) == "" {
+		return fmt.Errorf("invalid bundle: secondary agent identity/token is missing")
+	}
+	coreURL, err := url.Parse(strings.TrimSpace(b.CoreAgentURL))
+	if err != nil || coreURL.Scheme != "https" || coreURL.Host == "" || coreURL.User != nil {
+		return fmt.Errorf("invalid bundle: core_agent_url must be an HTTPS URL")
 	}
 	const supportedSchema = 1
 	if b.Version != supportedSchema {
@@ -63,7 +75,7 @@ func InstallRelay(bundlePath string) error {
 	pub := readSecret("singbox_reality_public")
 	sid := readSecret("singbox_short_id")
 	bin := "/usr/local/bin/sing-box"
-	if priv == "" {
+	if priv == "" || pub == "" {
 		out, err := exec.Command(bin, "generate", "reality-keypair").Output()
 		if err != nil {
 			return err
@@ -118,11 +130,15 @@ WantedBy=multi-user.target
 	if err := enableStart("sing-box"); err != nil {
 		return err
 	}
+	if out, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
+		return fmt.Errorf("sing-box did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
+	}
 
 	if err := applyHostname("secondary"); err != nil { return fmt.Errorf("set secondary hostname: %w", err) }
-	pubIP := env("PUBLIC_IP", "")
-	if pubIP == "" { pubIP = detectPublicIP() }
-	if strings.TrimSpace(pubIP) == "" { return fmt.Errorf("secondary public IPv4 could not be determined") }
+	pubIP := strings.TrimSpace(env("PUBLIC_IP", ""))
+	if pubIP == "" { pubIP = strings.TrimSpace(detectPublicIP()) }
+	parsedIP := net.ParseIP(pubIP)
+	if parsedIP == nil || parsedIP.To4() == nil { return fmt.Errorf("secondary public IPv4 could not be determined (got %q)", pubIP) }
 	if err := nodes.SelfRegisterLocal("", "secondary", pubIP); err != nil { return fmt.Errorf("register secondary node: %w", err) }
 
 	// write mobile client links for operator convenience
