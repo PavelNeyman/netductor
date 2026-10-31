@@ -161,7 +161,7 @@ func applyUFW(role string) error {
 	}
 	must := func(args ...string) error { return run(args...) }
 	if os.Getenv("NETDUCTOR_FW_RESET") == "1" {
-		_ = exec.Command("bash", "-c", "echo y | ufw --force reset").Run()
+		return fmt.Errorf("NETDUCTOR_FW_RESET is disabled: resetting an active firewall is not transaction-safe; remove the variable and apply the role policy without reset")
 	}
 	sp := sshPort()
 	// Preserve the active management path before tightening the default policy.
