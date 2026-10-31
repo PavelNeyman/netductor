@@ -194,7 +194,7 @@ func writeSecretSet(values map[string]string) error {
 	}
 	sort.Strings(keys)
 	for _, name := range keys {
-		if err := writeInstallFileDurable(filepath.Join(stage, name), []byte(values[name]+"\\n"), 0o600); err != nil {
+		if err := writeInstallFileDurable(filepath.Join(stage, name), append([]byte(values[name]), '\n'), 0o600); err != nil {
 			return fmt.Errorf("stage secret %s: %w", name, err)
 		}
 	}
