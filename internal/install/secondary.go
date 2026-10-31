@@ -45,12 +45,12 @@ func InstallRelay(bundlePath string) error {
 
 	PurgeHostMonitoring()
 	if err := EnsureHostBaseline("secondary"); err != nil {
-		fmt.Fprintf(os.Stderr, "host baseline secondary: %v\n", err)
+		return fmt.Errorf("secondary host baseline: %w", err)
 	}
 	fmt.Fprintln(os.Stderr, "==> secondary: dirs")
-	_ = paths.EnsureLayout()
-	_ = os.MkdirAll("/etc/sing-box/certs", 0o755)
-	_ = os.MkdirAll("/usr/local/etc/sing-box", 0o755)
+	if err := paths.EnsureLayout(); err != nil { return fmt.Errorf("secondary state layout: %w", err) }
+	if err := os.MkdirAll("/etc/sing-box/certs", 0o755); err != nil { return fmt.Errorf("create sing-box cert directory: %w", err) }
+	if err := os.MkdirAll("/usr/local/etc/sing-box", 0o755); err != nil { return fmt.Errorf("create sing-box config directory: %w", err) }
 
 	fmt.Fprintln(os.Stderr, "==> secondary: sing-box binary")
 	if err := InstallSingBoxBinaryOnly(); err != nil {
@@ -77,18 +77,19 @@ func InstallRelay(bundlePath string) error {
 				pub = f[len(f)-1]
 			}
 		}
-		_ = writeSecret("singbox_reality_private", priv)
-		_ = writeSecret("singbox_reality_public", pub)
+		if priv == "" || pub == "" { return fmt.Errorf("sing-box returned incomplete Reality keypair") }
+		if err := writeSecret("singbox_reality_private", priv); err != nil { return fmt.Errorf("save Reality private key: %w", err) }
+		if err := writeSecret("singbox_reality_public", pub); err != nil { return fmt.Errorf("save Reality public key: %w", err) }
 	}
 	if sid == "" {
 		sid = randomHex(8)
-		_ = writeSecret("singbox_short_id", sid)
+		if err := writeSecret("singbox_short_id", sid); err != nil { return fmt.Errorf("save Reality short ID: %w", err) }
 	}
-	_ = writeSecret("singbox_reality_sni", b.SecondarySNI)
+	if err := writeSecret("singbox_reality_sni", b.SecondarySNI); err != nil { return fmt.Errorf("save Reality SNI: %w", err) }
 
 	// store bundle for re-apply
-	_ = os.MkdirAll(paths.SecondaryDir(), 0o700)
-	_ = os.WriteFile(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600)
+	if err := os.MkdirAll(paths.SecondaryDir(), 0o700); err != nil { return fmt.Errorf("create secondary state directory: %w", err) }
+	if err := writeInstallFileDurable(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600); err != nil { return fmt.Errorf("save secondary bundle: %w", err) }
 
 	if err := vpn.WriteSecondarySingBox(&b, priv, sid); err != nil {
 		return err
@@ -118,31 +119,29 @@ WantedBy=multi-user.target
 		return err
 	}
 
-	applyHostname("secondary")
-	ip := b.CoreIP
-	_ = ip
+	if err := applyHostname("secondary"); err != nil { return fmt.Errorf("set secondary hostname: %w", err) }
 	pubIP := env("PUBLIC_IP", "")
-	if pubIP == "" {
-		out, _ := exec.Command("curl", "-4", "-fsS", "--max-time", "5", "https://ifconfig.me").Output()
-		pubIP = strings.TrimSpace(string(out))
-	}
-	_ = nodes.SelfRegisterLocal("", "secondary", pubIP)
+	if pubIP == "" { pubIP = detectPublicIP() }
+	if strings.TrimSpace(pubIP) == "" { return fmt.Errorf("secondary public IPv4 could not be determined") }
+	if err := nodes.SelfRegisterLocal("", "secondary", pubIP); err != nil { return fmt.Errorf("register secondary node: %w", err) }
 
 	// write mobile client links for operator convenience
 	outDir := filepath.Join(paths.SecondaryDir(), "clients")
-	_ = os.MkdirAll(outDir, 0o700)
+	if err := os.MkdirAll(outDir, 0o700); err != nil { return fmt.Errorf("create secondary client links directory: %w", err) }
 	for _, u := range b.Users {
+		if u.Name == "" || u.Name == "." || u.Name == ".." || filepath.Base(u.Name) != u.Name || strings.ContainsAny(u.Name, "/\\\\") {
+			return fmt.Errorf("invalid secondary client link name %q", u.Name)
+		}
 		link := vpn.ClientLinkForSecondary(u.Name, u.UUID, pubIP, pub, sid, b.SecondarySNI)
-		_ = os.WriteFile(filepath.Join(outDir, u.Name+".txt"), []byte(link+"\n"), 0o600)
+		if err := writeInstallFileDurable(filepath.Join(outDir, u.Name+".txt"), []byte(link+"\n"), 0o600); err != nil {
+			return fmt.Errorf("write secondary client link %q: %w", u.Name, err)
+		}
 	}
 	fmt.Fprintf(os.Stderr, "secondary ready · public_ip=%s · SNI=%s · client links in %s\n", pubIP, b.SecondarySNI, outDir)
 	// install agent
 	if b.AgentToken != "" && b.CoreAgentURL != "" {
-		_ = paths.WriteSecret("secondary_agent_token", b.AgentToken)
-		_ = paths.WriteSecret("secondary_core_url", b.CoreAgentURL)
-		// legacy names for older agents
-		_ = paths.WriteSecret("secondary_agent_token", b.AgentToken)
-		_ = paths.WriteSecret("secondary_core_url", b.CoreAgentURL)
+		if err := paths.WriteSecret("secondary_agent_token", b.AgentToken); err != nil { return fmt.Errorf("save secondary agent token: %w", err) }
+		if err := paths.WriteSecret("secondary_core_url", b.CoreAgentURL); err != nil { return fmt.Errorf("save secondary core URL: %w", err) }
 		agentUnit := `[Unit]
 Description=Netductor secondary agent
 After=network-online.target sing-box.service
@@ -157,10 +156,11 @@ RestartSec=15
 [Install]
 WantedBy=multi-user.target
 `
-		_ = writeUnit("netductor-secondary-agent.service", agentUnit)
-		_ = writeUnit("netductor-secondary-agent.service", agentUnit)
-		_ = enableStart("netductor-secondary-agent")
-		_ = enableStart("netductor-secondary-agent")
+		if err := writeUnit("netductor-secondary-agent.service", agentUnit); err != nil { return err }
+		if err := enableStart("netductor-secondary-agent"); err != nil { return err }
+		if out, err := exec.Command("systemctl", "is-active", "netductor-secondary-agent").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
+			return fmt.Errorf("secondary agent did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
+		}
 		fmt.Fprintln(os.Stderr, "secondary agent started →", b.CoreAgentURL)
 	}
 	fmt.Fprintln(os.Stderr, "Give mobile users *-relay links; home users keep core links.")
