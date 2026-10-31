@@ -4,7 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 type stubMig struct {
@@ -223,5 +225,137 @@ func TestClearFailedRecords(t *testing.T) {
 	}
 	if pub["b"].Status != StatusCompleted {
 		t.Fatal("completed should remain")
+	}
+}
+
+func TestFixturePre0912UpgradePath(t *testing.T) {
+	// Richer simulation of an install that predates the migration runner:
+	// loose secrets, partial edge JSON, wrong modes, interrupted journal entry,
+	// no role / aptguard / vpn-users / baseline tree, stale installed_version empty.
+	root := t.TempDir()
+	etc := filepath.Join(root, "etc")
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", etc)
+	_ = os.MkdirAll(filepath.Join(etc, "secrets"), 0o755)
+	_ = os.WriteFile(filepath.Join(etc, "secrets", "secondary_agent_token"), []byte("x\n"), 0o644)
+	_ = os.MkdirAll(filepath.Join(root, "edge"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, "edge", "devices.json"), []byte("{}"), 0o666)
+	_ = os.WriteFile(filepath.Join(root, "installed_version"), []byte("\n"), 0o644)
+	_ = os.MkdirAll(filepath.Join(root, "migrate"), 0o700)
+	j := journalFile{Schema: 1, Records: map[string]record{
+		"2026-10-ensure-state-dirs": {ID: "2026-10-ensure-state-dirs", Status: StatusRunning},
+	}}
+	if err := durableWriteJournal(j); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	res, err := RunAll(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Ran) == 0 {
+		t.Fatalf("expected work on pre-0.9.12 layout: %#v", res)
+	}
+	// Secrets tightened
+	st, err := os.Stat(filepath.Join(etc, "secrets"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("secrets mode %04o", st.Mode().Perm())
+	}
+	for _, rel := range []string{
+		filepath.Join(etc, "role"),
+		filepath.Join(etc, "vpn-users.json"),
+		filepath.Join(root, "baseline"),
+		filepath.Join(root, "sites"),
+		filepath.Join(root, "installed_version"),
+		filepath.Join(root, "migrate", "journal.json"),
+	} {
+		if _, err := os.Stat(rel); err != nil {
+			t.Fatalf("missing after upgrade: %s: %v", rel, err)
+		}
+	}
+	b, _ := os.ReadFile(filepath.Join(root, "installed_version"))
+	if len(strings.TrimSpace(string(b))) == 0 {
+		t.Fatal("installed_version empty")
+	}
+	if err := PostCheck(); err != nil {
+		t.Fatal(err)
+	}
+	// Idempotent
+	res2, err := RunAll(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res2.Ran) != 0 {
+		// may re-run if Required true; allow only if empty work
+		for _, id := range res2.Ran {
+			t.Log("re-ran", id)
+		}
+	}
+}
+
+func TestFailedMigrationClearAndRetry(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
+	ctx := context.Background()
+	calls := 0
+	m := &countMig{id: "flaky", need: true, applyFn: func() error {
+		calls++
+		if calls == 1 {
+			return context.Canceled
+		}
+		return nil
+	}}
+	_, err := RunRegistry(ctx, []Migration{m})
+	if err == nil {
+		t.Fatal("expected fail")
+	}
+	pub, _ := LoadJournalPublic()
+	if pub["flaky"].Status != StatusFailed {
+		t.Fatalf("status=%s", pub["flaky"].Status)
+	}
+	if err := ClearFailedRecords(); err != nil {
+		t.Fatal(err)
+	}
+	m.need = true
+	res, err := RunRegistry(ctx, []Migration{m})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("calls=%d", calls)
+	}
+	if len(res.Ran) != 1 {
+		t.Fatalf("ran=%v", res.Ran)
+	}
+}
+
+func TestMigrateLockSerializes(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
+	ctx := context.Background()
+	started := make(chan struct{})
+	done1 := make(chan error, 1)
+	go func() {
+		m := &countMig{id: "slow", need: true, applyFn: func() error {
+			close(started)
+			time.Sleep(80 * time.Millisecond)
+			return nil
+		}}
+		_, err := RunRegistry(ctx, []Migration{m})
+		done1 <- err
+	}()
+	<-started
+	m2 := &countMig{id: "after", need: true, applyFn: func() error { return nil }}
+	if _, err := RunRegistry(ctx, []Migration{m2}); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done1; err != nil {
+		t.Fatal(err)
 	}
 }

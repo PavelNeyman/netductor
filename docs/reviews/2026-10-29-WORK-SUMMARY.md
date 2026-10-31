@@ -447,3 +447,9 @@ Note: 0.9.648 was docs-only; real changes here.
 
 - opcatalog + Web + TG for migrate status/run/clear-failed
 
+
+### 0.9.651 — richer upgrade fixture
+
+- installed_version migration
+- pre-0.9.12 fixture + fail/retry + lock tests
+

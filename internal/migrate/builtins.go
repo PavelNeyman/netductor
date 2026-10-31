@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/aptguard"
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -252,6 +254,41 @@ func (m *ensureBaselineDirsMigration) Verify(ctx context.Context) error {
 	}
 	if need {
 		return fmt.Errorf("baseline/sites dirs still incomplete")
+	}
+	return nil
+}
+
+type ensureInstalledVersionMigration struct{}
+
+func (m *ensureInstalledVersionMigration) ID() string { return "2026-10-ensure-installed-version" }
+func (m *ensureInstalledVersionMigration) Description() string {
+	return "Write state/installed_version from binary Release when missing or empty"
+}
+func (m *ensureInstalledVersionMigration) Required(ctx context.Context) (bool, error) {
+	path := filepath.Join(paths.StateDir(), "installed_version")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return true, nil
+	}
+	return len(strings.TrimSpace(string(b))) == 0, nil
+}
+func (m *ensureInstalledVersionMigration) Apply(ctx context.Context) error {
+	if err := os.MkdirAll(paths.StateDir(), 0o700); err != nil {
+		return err
+	}
+	v := strings.TrimSpace(ndver.Release)
+	if v == "" {
+		v = "unknown"
+	}
+	return os.WriteFile(filepath.Join(paths.StateDir(), "installed_version"), []byte(v+"\n"), 0o644)
+}
+func (m *ensureInstalledVersionMigration) Verify(ctx context.Context) error {
+	need, err := m.Required(ctx)
+	if err != nil {
+		return err
+	}
+	if need {
+		return fmt.Errorf("installed_version still missing")
 	}
 	return nil
 }

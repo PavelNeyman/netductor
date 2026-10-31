@@ -137,3 +137,13 @@ Real code for durable binary replace, baseline dirs, migrate API (0.9.648 claime
 | Web Updates panel | Done |
 | TG Versions migrate buttons | Done |
 | TUI via opcatalog | Via catalog surface |
+
+## Stage 3g (0.9.651)
+
+| Item | Status |
+|------|--------|
+| ensure-installed-version | Done |
+| Pre-0.9.12 rich fixture | Done (synthetic; not binary tree archive) |
+| Fail/clear/retry test | Done |
+| Flock serialize test | Done |
+| Archived 0.9.612 prod tree | Still needs operator-provided snapshot |

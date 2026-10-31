@@ -1,3 +1,10 @@
+## 0.9.651
+
+Startup migrations:
+- ensure-installed-version migration
+- Fixture: pre-0.9.12 rich layout (loose secrets, interrupted journal, empty version)
+- Tests: clear-failed retry, migrate flock serialization
+
 ## 0.9.650
 
 UI parity for startup migrations:

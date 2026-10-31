@@ -127,6 +127,7 @@ func init() {
 		&ensureRoleFileMigration{},
 		&ensureVPNDirsMigration{},
 		&ensureBaselineDirsMigration{},
+		&ensureInstalledVersionMigration{},
 	}
 }
 
