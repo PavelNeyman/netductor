@@ -7,7 +7,7 @@
 //	Single writer for primary node+tg binaries: Apply / ApplyOpts only.
 //	ScheduleApply → systemd-run → Apply (API/TG must not apply in-process).
 //	prev/     = last successful apply only (manual Rollback target).
-//	attempt/  = removed (caused version oscillation).
+//	attempt/  = durable transaction journal + pair pre-images until commit/rollback.
 //	Watchdog  = restart failed units only (never swaps binaries).
 //	Promote   = explicit CLI only; verifies prev binary matches VERSION.
 //	Pin       = blocks Apply and Promote while stabilizing.
@@ -696,6 +696,9 @@ func ApplyOpts(tag string, noBackup bool) error {
 		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("commit installed pair: %w", err))
 		return applyFail
 	}
+	// The binary pair is now durably committed. Later snapshot-directory
+	// promotion is recoverable bookkeeping and must not mark the release failed.
+	applyOK = true
 	ndupdate.WriteVERSION(tag)
 	saveCurrent(tag)
 	if err := promotePrevSnapshot(); err != nil {
