@@ -14,7 +14,7 @@ import (
 
 func runAptGuard(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: netductor aptguard scan|status|policy [show|init]")
+		fmt.Fprintln(os.Stderr, "usage: netductor aptguard scan|status|policy|preview|apply [--confirm=yes]")
 		os.Exit(2)
 	}
 	state := paths.StateDir()
@@ -82,6 +82,59 @@ func runAptGuard(args []string) {
 		default:
 			fmt.Fprintf(os.Stderr, "unknown policy subcommand %q\n", sub)
 			os.Exit(2)
+		}
+	case "preview":
+		host, _ := os.Hostname()
+		if host == "" {
+			host = "local"
+		}
+		pol, err := aptguard.EnsurePolicy(state)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		pv, err := aptguard.BuildPreview(host, "/", pol)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "preview: %v\n", err)
+			os.Exit(1)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(pv)
+		if pv.Blocked != "" {
+			os.Exit(2)
+		}
+	case "apply":
+		confirm := ""
+		for _, a := range args[1:] {
+			if strings.HasPrefix(a, "--confirm=") {
+				confirm = strings.TrimPrefix(a, "--confirm=")
+			}
+		}
+		host, _ := os.Hostname()
+		if host == "" {
+			host = "local"
+		}
+		pol, err := aptguard.EnsurePolicy(state)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		pv, err := aptguard.BuildPreview(host, "/", pol)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "preview: %v\n", err)
+			os.Exit(1)
+		}
+		rep, err := aptguard.ApplyPreview(state, "/", pv, confirm)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "apply: %v\n", err)
+			os.Exit(1)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(rep)
+		if rep.Status == aptguard.SevFail {
+			os.Exit(1)
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "unknown aptguard command %q\n", args[0])

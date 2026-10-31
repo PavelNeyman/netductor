@@ -44,5 +44,5 @@
 - [x] Stage 4 Secondary cmd aptguard_scan + API queue
 - [x] Stage 6 netductor-aptguard.timer (6h) via host-baseline
 - [x] Stage 7 API GET/POST /api/aptguard/* + opcatalog (thin UI)
-- [ ] Stage 8 Remediation
+- [x] Stage 8 Remediation preview/apply (quarantine + ensure; confirm=yes; backup+rollback)
 - [ ] Stage 9 E2E

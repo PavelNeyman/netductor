@@ -1,3 +1,10 @@
+## 0.9.627
+
+APT Repository Guard remediation:
+- preview: quarantine unknown *.list under sources.list.d; ensure required via netductor-policy.sources
+- apply: confirm=yes, exclusive lock, file backup, apt-get update (no upgrade), rollback on failure
+- CLI + API /api/aptguard/preview|apply
+
 ## 0.9.626
 
 APT Repository Guard:

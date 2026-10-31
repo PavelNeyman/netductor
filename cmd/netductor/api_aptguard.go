@@ -67,6 +67,63 @@ func registerSessionAptGuard(mux *http.ServeMux) {
 		_ = json.NewEncoder(w).Encode(rep)
 	})
 
+	mux.HandleFunc("/api/aptguard/preview", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodPost {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		state := paths.StateDir()
+		host, _ := os.Hostname()
+		if host == "" {
+			host = "local"
+		}
+		pol, err := aptguard.EnsurePolicy(state)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		pv, err := aptguard.BuildPreview(host, "/", pol)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(pv)
+	})
+
+	mux.HandleFunc("/api/aptguard/apply", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			Confirm string `json:"confirm"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		state := paths.StateDir()
+		host, _ := os.Hostname()
+		if host == "" {
+			host = "local"
+		}
+		pol, err := aptguard.EnsurePolicy(state)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		pv, err := aptguard.BuildPreview(host, "/", pol)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		rep, err := aptguard.ApplyPreview(state, "/", pv, body.Confirm)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(rep)
+	})
+
 	mux.HandleFunc("/api/aptguard/scan-secondary", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method", http.StatusMethodNotAllowed)

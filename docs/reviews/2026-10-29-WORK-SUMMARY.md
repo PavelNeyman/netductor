@@ -263,3 +263,10 @@ APT Guard (stages 0–2):
 - API: GET /api/aptguard/status, POST scan, POST scan-secondary
 - opcatalog aptguard action
 
+
+### 0.9.627 — APT Guard remediation
+
+- BuildPreview: quarantine unknown under sources.list.d; ensure managed policy.sources
+- ApplyPreview: confirm=yes, lock, backup, rename quarantine, apt-get update, rollback on fail
+- CLI preview|apply; API /api/aptguard/preview|apply
+
