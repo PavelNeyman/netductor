@@ -27,10 +27,7 @@ func (m *ensureStateDirsMigration) Required(ctx context.Context) (bool, error) {
 		if err != nil || !st.IsDir() {
 			return true, nil
 		}
-	}
-	// Secrets must not be world/group accessible
-	sec := filepath.Join(paths.EtcDir(), "secrets")
-	if st, err := os.Stat(sec); err == nil {
+		// All migration-managed state directories are private (0700).
 		if st.Mode().Perm()&0o077 != 0 {
 			return true, nil
 		}
@@ -42,8 +39,11 @@ func (m *ensureStateDirsMigration) Apply(ctx context.Context) error {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return err
 		}
-		// Tighten sensitive trees (ignore errors on read-only FS)
-		_ = os.Chmod(d, 0o700)
+		// These directories contain state, credentials, or transaction evidence.
+		// A failed permission repair must block startup rather than silently continue.
+		if err := os.Chmod(d, 0o700); err != nil {
+			return fmt.Errorf("chmod managed state directory %s: %w", d, err)
+		}
 	}
 	return nil
 }
