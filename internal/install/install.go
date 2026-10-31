@@ -170,6 +170,13 @@ func writeSecretSet(values map[string]string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create secrets directory: %w", err)
 	}
+	dirInfo, err := os.Lstat(dir)
+	if err != nil {
+		return fmt.Errorf("inspect secrets directory: %w", err)
+	}
+	if !dirInfo.IsDir() || dirInfo.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("secrets path is not a real directory")
+	}
 	stage, err := os.MkdirTemp(dir, ".secret-stage-*")
 	if err != nil {
 		return fmt.Errorf("create secret staging directory: %w", err)
