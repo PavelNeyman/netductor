@@ -88,6 +88,16 @@ func InstallRelay(bundlePath string) (retErr error) {
 	}
 	fmt.Fprintln(os.Stderr, "==> secondary: dirs")
 	if err := paths.EnsureLayout(); err != nil { return fmt.Errorf("secondary state layout: %w", err) }
+	// Snapshot every persistent file this install path can replace before the
+	// first hostname, secret, config, registry or client-link mutation.
+	stateTxn, err := beginSecondaryFileTransaction(secondaryInstallMutationPaths(b.Users))
+	if err != nil { return fmt.Errorf("snapshot secondary install state: %w", err) }
+	defer func() {
+		if retErr == nil { return }
+		if rollbackErr := stateTxn.rollback(); rollbackErr != nil {
+			retErr = fmt.Errorf("%w; secondary state rollback incomplete: %v", retErr, rollbackErr)
+		}
+	}()
 	if err := applyHostname("secondary"); err != nil { return fmt.Errorf("set secondary hostname: %w", err) }
 	if err := os.MkdirAll("/etc/sing-box/certs", 0o755); err != nil { return fmt.Errorf("create sing-box cert directory: %w", err) }
 	if err := os.MkdirAll("/usr/local/etc/sing-box", 0o755); err != nil { return fmt.Errorf("create sing-box config directory: %w", err) }
@@ -319,6 +329,88 @@ func (t *secondaryUnitTransaction) rollback() error {
 			}
 		}
 		if err != nil { errs = append(errs, fmt.Sprintf("restore enablement %s (%s): %v", unit, u.enabledState, err)) }
+	}
+	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
+	return nil
+}
+
+
+type secondaryFileSnapshot struct {
+	path string
+	data []byte
+	mode os.FileMode
+	exists bool
+}
+
+type secondaryFileTransaction struct { files []secondaryFileSnapshot }
+
+func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
+	etc := paths.EtcDir()
+	state := paths.StateDir()
+	out := []string{
+		filepath.Join(etc, "node_id"),
+		"/etc/hostname",
+		"/etc/hosts",
+		filepath.Join(etc, "public_ip"),
+		filepath.Join(etc, "secrets", "singbox_reality_private"),
+		filepath.Join(etc, "secrets", "singbox_reality_public"),
+		filepath.Join(etc, "secrets", "singbox_short_id"),
+		filepath.Join(etc, "secrets", "singbox_reality_sni"),
+		filepath.Join(etc, "secrets", "secondary_agent_token"),
+		filepath.Join(etc, "secrets", "secondary_core_url"),
+		filepath.Join(paths.SecondaryDir(), "bundle.json"),
+		filepath.Join(paths.SecondaryDir(), "clients"),
+		filepath.Join("/usr/local/etc/sing-box", "config.json"),
+		filepath.Join(state, "nodes", "registry.json"),
+	}
+	// The clients directory itself is captured separately as individual files below.
+	out = out[:len(out)-3]
+	out = append(out,
+		filepath.Join("/usr/local/etc/sing-box", "config.json"),
+		filepath.Join(state, "nodes", "registry.json"),
+	)
+	for _, u := range users {
+		out = append(out, filepath.Join(paths.SecondaryDir(), "clients", u.Name+".txt"))
+	}
+	return out
+}
+
+func beginSecondaryFileTransaction(pathsToCapture []string) (*secondaryFileTransaction, error) {
+	t := &secondaryFileTransaction{}
+	seen := make(map[string]struct{}, len(pathsToCapture))
+	for _, path := range pathsToCapture {
+		if _, ok := seen[path]; ok { continue }
+		seen[path] = struct{}{}
+		s := secondaryFileSnapshot{path: path}
+		st, err := os.Lstat(path)
+		if err == nil {
+			if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+				return nil, fmt.Errorf("refuse to snapshot non-regular file %s", path)
+			}
+			s.data, err = os.ReadFile(path)
+			if err != nil { return nil, fmt.Errorf("read %s: %w", path, err) }
+			s.mode, s.exists = st.Mode().Perm(), true
+		} else if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("inspect %s: %w", path, err)
+		}
+		t.files = append(t.files, s)
+	}
+	return t, nil
+}
+
+func (t *secondaryFileTransaction) rollback() error {
+	var errs []string
+	for i := len(t.files)-1; i >= 0; i-- {
+		s := t.files[i]
+		var err error
+		if s.exists {
+			err = writeInstallFileDurable(s.path, s.data, s.mode)
+		} else {
+			err = os.Remove(s.path)
+			if os.IsNotExist(err) { err = nil }
+			if err == nil { err = syncDirectory(filepath.Dir(s.path)) }
+		}
+		if err != nil { errs = append(errs, fmt.Sprintf("restore %s: %v", s.path, err)) }
 	}
 	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
 	return nil
