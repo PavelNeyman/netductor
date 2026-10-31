@@ -231,6 +231,7 @@ func TestClearFailedRecords(t *testing.T) {
 }
 
 func TestFixturePre0912UpgradePath(t *testing.T) {
+	// Note: name is historical; this is pre-migration-runner layout, NOT a byte-accurate 0.9.612 VPS image.
 	// Richer simulation of an install that predates the migration runner:
 	// loose secrets, partial edge JSON, wrong modes, interrupted journal entry,
 	// no role / aptguard / vpn-users / baseline tree, stale installed_version empty.
@@ -257,7 +258,7 @@ func TestFixturePre0912UpgradePath(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(res.Ran) == 0 {
-		t.Fatalf("expected work on pre-0.9.12 layout: %#v", res)
+		t.Fatalf("expected work on pre-migration-runner layout: %#v", res)
 	}
 	// Secrets tightened
 	st, err := os.Stat(filepath.Join(etc, "secrets"))
@@ -394,5 +395,81 @@ func TestRoleApplyRequiresDetectableRole(t *testing.T) {
 	m := &ensureRoleFileMigration{}
 	if err := m.Apply(context.Background()); err == nil {
 		t.Fatal("expected error when role unknown")
+	}
+}
+
+func TestFixture0912PrimaryLayout(t *testing.T) {
+	// Layout modeled on production Primary ~0.9.612 era reports (paths/modes/markers),
+	// not a full systemd image: VERSION, vpn-users, secrets, edge devices, no migrate journal,
+	// no installed_version, role may be absent (DetectRole may still succeed on real hosts).
+	root := t.TempDir()
+	etc := filepath.Join(root, "etc")
+	t.Setenv("NETDUCTOR_STATE", root)
+	t.Setenv("NETDUCTOR_ETC", etc)
+	t.Setenv("NETDUCTOR_SKIP_MIGRATE_POSTCHECK", "1") // PostCheck separately
+
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(os.MkdirAll(filepath.Join(etc, "secrets", "mtls", "clients"), 0o755)) // loose modes
+	must(os.WriteFile(filepath.Join(etc, "VERSION"), []byte("0.9.612\n"), 0o644))
+	must(os.WriteFile(filepath.Join(etc, "vpn-users.json"), []byte("{\"users\":[]}\n"), 0o644))
+	must(os.WriteFile(filepath.Join(etc, "secrets", "placeholder"), []byte("x\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(root, "edge"), 0o755))
+	must(os.WriteFile(filepath.Join(root, "edge", "devices.json"), []byte("{}\n"), 0o644))
+	must(os.MkdirAll(filepath.Join(root, "svc-paths"), 0o755))
+	// no migrate/, no installed_version, no role file — as older primary before runner
+
+	ctx := context.Background()
+	res, err := RunRegistry(ctx, DefaultRegistry)
+	if err != nil {
+		t.Fatalf("first migrate: %v", err)
+	}
+	if len(res.Ran) == 0 {
+		t.Fatalf("expected migrations on 0.9.612-like layout: %#v", res)
+	}
+	// Secrets 0700
+	st, err := os.Stat(filepath.Join(etc, "secrets"))
+	must(err)
+	if st.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("secrets mode %04o", st.Mode().Perm())
+	}
+	iv, err := os.ReadFile(filepath.Join(root, "installed_version"))
+	must(err)
+	if strings.TrimSpace(string(iv)) == "" {
+		t.Fatal("installed_version empty")
+	}
+	if _, err := os.Stat(filepath.Join(root, "migrate", "journal.json")); err != nil {
+		t.Fatal(err)
+	}
+	pub1, err := LoadJournalPublic()
+	must(err)
+
+	// Second pass: no re-apply of completed work (Ran empty or only newly required)
+	res2, err := RunRegistry(ctx, DefaultRegistry)
+	if err != nil {
+		t.Fatalf("second migrate: %v", err)
+	}
+	if len(res2.Ran) != 0 {
+		t.Fatalf("second pass should not re-run completed migrations: ran=%v", res2.Ran)
+	}
+	pub2, err := LoadJournalPublic()
+	must(err)
+	for id, r1 := range pub1 {
+		r2, ok := pub2[id]
+		if !ok {
+			t.Fatalf("journal lost %s", id)
+		}
+		if r1.Status == StatusCompleted && r2.Status != StatusCompleted {
+			t.Fatalf("%s status changed %s -> %s", id, r1.Status, r2.Status)
+		}
+	}
+
+	t.Setenv("NETDUCTOR_SKIP_MIGRATE_POSTCHECK", "")
+	if err := PostCheck(); err != nil {
+		t.Fatal("PostCheck after 0.9.612 fixture:", err)
 	}
 }

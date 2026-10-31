@@ -469,3 +469,11 @@ Review of `484c746` / 0.9.651 (NO-GO). Fixed in **0.9.652**:
 | P2 installed_version | Required distinguishes NotExist vs other IO errors |
 
 Still open (review C–F): PostCheck depth, real 0.9.612 fixture, full fault-injection. **No production release** claimed by this fix alone.
+
+## 12. 0.9.653 PostCheck + 0.9.612 fixture
+
+| Item | Change |
+|------|--------|
+| C PostCheck | role must be primary\|secondary; installed_version required; optional `NETDUCTOR_POSTCHECK_FIREWALL=1`, `UNITS=1`, `STRICT=1` for VERSION |
+| E Fixture | `TestFixture0912PrimaryLayout` — VERSION 0.9.612, loose secrets, no journal; second RunRegistry must Ran empty; PostCheck passes |
+| Note | Still not a live VPS disk image of 0.9.612; F fault-injection full stack apply still open |
