@@ -158,10 +158,11 @@ func applyOwnerActive() bool {
 	b, err := os.ReadFile(applyLockFile)
 	if err != nil { return false }
 	parts := strings.SplitN(strings.TrimSpace(string(b)), "\t", 3)
-	if len(parts) != 3 { return false }
+	if len(parts) < 2 { return false }
 	started, err := time.Parse(time.RFC3339, parts[0])
 	if err != nil || time.Since(started) < 0 { return false }
-	return applyPIDRunning(parts[2])
+	if len(parts) == 3 { return applyPIDRunning(parts[2]) }
+	return time.Since(started) < applyLockTTL
 }
 
 func RecoverIncompleteApply() error {
