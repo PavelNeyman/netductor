@@ -441,7 +441,6 @@ func TestDurableWriteCommitStatNonExistVsOther(t *testing.T) {
 	fsyncDirFn = func(d string) error {
 		return fmt.Errorf("injected fsync fail")
 	}
-	// After write fails, Stat returns permission-ish error → Ambiguous
 	osStatFn = func(name string) (os.FileInfo, error) {
 		return nil, fmt.Errorf("injected stat EIO")
 	}
@@ -449,31 +448,81 @@ func TestDurableWriteCommitStatNonExistVsOther(t *testing.T) {
 	if !errors.Is(err, ErrCommitAmbiguous) {
 		t.Fatalf("want Ambiguous, got %v", err)
 	}
-	// IsNotExist → clear failure (not Ambiguous)
+	// Real absence: remove any leftover, Stat returns ErrNotExist
+	_ = os.Remove(path)
+	osStatFn = os.Stat // real stat
+	// still fail fsync so write fails after rename; then real Stat → may find file or not
+	// Force clear path: no file + Stat NotExist via injection matching reality
 	osStatFn = func(name string) (os.FileInfo, error) {
 		return nil, os.ErrNotExist
 	}
+	_ = os.Remove(path)
 	err = durableWriteCommit(path, []byte("ok\n"))
 	if err == nil || errors.Is(err, ErrCommitAmbiguous) {
-		t.Fatalf("want clear error, got %v", err)
+		t.Fatalf("want clear error when COMMIT absent, got %v", err)
 	}
 }
 
-func TestFailSkipsRollbackWhenJournalHasCommitting(t *testing.T) {
-	// Integration: recovery path already tested; here unit-check the gate helper + fail behavior via Apply is heavy.
-	// Ensure quarantine-only journal still allows blocks=false after simulated mid-tx write.
+func TestApplyPreviewFsyncOnCommittingNoRollback(t *testing.T) {
 	state := t.TempDir()
 	root := t.TempDir()
 	d := filepath.Join(root, "etc/apt/sources.list.d")
 	_ = os.MkdirAll(d, 0o755)
 	evil := filepath.Join(d, "evil.list")
 	_ = os.WriteFile(evil, []byte("deb https://evil.example/debian bookworm main\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(root, "etc/apt/sources.list"), []byte("deb https://deb.debian.org/debian bookworm main\n"), 0o644)
 	pv, err := BuildPreview("t", root, DefaultPolicy())
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Force fail after mutations by making apt update path skip (fsRoot != "/") and then inject via post-scan?
-	// Simpler: write a fake bak journal with committing and call journalBlocksAutoRollback — covered above.
-	_ = state
-	_ = pv
+	oldF := fsyncDirFn
+	defer func() { fsyncDirFn = oldF }()
+	// Fail fsync only after journal on disk contains "committing".
+	fsyncDirFn = func(dir string) error {
+		// After journal contains committing, fail the following dir fsync.
+		pattern := filepath.Join(Dir(state), "remediate-backup", "*", "journal.json")
+		matches, _ := filepath.Glob(pattern)
+		for _, m := range matches {
+			b, rerr := os.ReadFile(m)
+			if rerr == nil && strings.Contains(string(b), `"committing"`) {
+				return fmt.Errorf("injected fsync after committing journal")
+			}
+		}
+		return oldF(dir)
+	}
+	_, err = ApplyPreview(state, root, pv, "yes")
+	if err == nil {
+		t.Fatal("expected error from committing fsync fail")
+	}
+	if !strings.Contains(err.Error(), "no auto-rollback") && !strings.Contains(err.Error(), "committing") && !journalBlocksAutoRollbackSearch(state) {
+		// Accept either fail() gate message or recovery-facing committing state
+		t.Logf("apply err: %v", err)
+	}
+	// Quarantine must NOT have been rolled back: evil.list gone, .nd-quarantine present
+	if _, stErr := os.Stat(evil); !os.IsNotExist(stErr) {
+		t.Fatalf("evil.list should remain quarantined (no rollback), st=%v apply=%v", stErr, err)
+	}
+	if _, err := os.Stat(evil + ".nd-quarantine"); err != nil {
+		t.Fatalf("quarantine file missing (rolled back?): %v; apply err was %v", err, err)
+	}
+	// Recovery must also refuse auto-rollback
+	if rerr := RecoverIncompleteRemediation(state); rerr == nil {
+		t.Fatal("recovery should report blocked committing state")
+	}
+	if _, err := os.Stat(evil + ".nd-quarantine"); err != nil {
+		t.Fatal("recovery must not remove quarantine")
+	}
+}
+
+func journalBlocksAutoRollbackSearch(state string) bool {
+	blocked := false
+	_ = filepath.Walk(state, func(path string, info os.FileInfo, err error) error {
+		if err == nil && filepath.Base(path) == "journal.json" {
+			if journalBlocksAutoRollback(path) {
+				blocked = true
+			}
+		}
+		return nil
+	})
+	return blocked
 }

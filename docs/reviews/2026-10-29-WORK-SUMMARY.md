@@ -376,3 +376,9 @@ APT Guard (stages 0–2):
 - fail() consults on-disk journal before rollback
 - osStatFn injectable; Stat non-IsNotExist → Ambiguous tested
 
+
+### 0.9.640 — integration tests for fail() gate
+
+- TestApplyPreviewFsyncOnCommittingNoRollback: inject fsync after committing journal; quarantine kept; recovery blocked
+- Stat test: remove COMMIT before IsNotExist branch
+

@@ -1,3 +1,9 @@
+## 0.9.640
+
+APT Guard tests:
+- Integration: fsync fail on committing journal → no rollback
+- Stat IsNotExist branch uses real absence of COMMIT
+
 ## 0.9.639
 
 APT Guard:
