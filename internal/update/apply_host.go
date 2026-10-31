@@ -2,6 +2,7 @@ package update
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -188,87 +189,90 @@ func applyHostComponentLocked(o HostApplyOpts) (*UpdateJob, error) {
 
 // atomicReplaceBinary moves newPath into dest, keeping previous dest as prevPath when present.
 func atomicReplaceBinary(dest, newPath, prevPath string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return err
+	if strings.TrimSpace(dest) == "" || strings.TrimSpace(newPath) == "" || strings.TrimSpace(prevPath) == "" {
+		return fmt.Errorf("update: empty binary path")
 	}
-	_ = os.Remove(prevPath)
-	if _, err := os.Stat(dest); err == nil {
-		if err := os.Rename(dest, prevPath); err != nil {
-			// Cross-device fallback
-			if err2 := copyFile(dest, prevPath); err2 != nil {
-				return fmt.Errorf("preserve previous binary: %w", err)
-			}
-			_ = os.Remove(dest)
-		}
+	parent := filepath.Clean(filepath.Dir(dest))
+	if filepath.Clean(filepath.Dir(newPath)) != parent || filepath.Clean(filepath.Dir(prevPath)) != parent {
+		return fmt.Errorf("update: new and previous binaries must be staged beside destination")
 	}
+	if err := os.MkdirAll(parent, 0o755); err != nil { return fmt.Errorf("create destination directory: %w", err) }
+	newInfo, err := os.Lstat(newPath)
+	if err != nil { return fmt.Errorf("inspect staged binary: %w", err) }
+	if !newInfo.Mode().IsRegular() || newInfo.Size() == 0 { return fmt.Errorf("update: staged binary is not a non-empty regular file") }
+	if err := os.Chmod(newPath, 0o755); err != nil { return fmt.Errorf("chmod staged binary: %w", err) }
+	if err := hostSyncFile(newPath); err != nil { return fmt.Errorf("sync staged binary: %w", err) }
+
+	hadPrevious := false
+	if st, err := os.Lstat(dest); err == nil {
+		if !st.Mode().IsRegular() { return fmt.Errorf("update: destination is not a regular file") }
+		if err := hostCopyFileAtomic(dest, prevPath, 0o755); err != nil { return fmt.Errorf("preserve previous binary: %w", err) }
+		hadPrevious = true
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("inspect destination binary: %w", err)
+	}
+
 	if err := os.Rename(newPath, dest); err != nil {
-		if err2 := copyFile(newPath, dest); err2 != nil {
-			// try restore prev
-			_ = restorePrevBinary(dest, prevPath)
-			return fmt.Errorf("install binary: %w", err)
+		return fmt.Errorf("atomic install binary: %w", err)
+	}
+	if err := hostSyncDir(parent); err != nil {
+		if hadPrevious {
+			if restoreErr := hostCopyFileAtomic(prevPath, dest, 0o755); restoreErr != nil {
+				return fmt.Errorf("sync destination directory: %v; CRITICAL: previous binary restore failed: %w", err, restoreErr)
+			}
+			return fmt.Errorf("sync destination directory: %v; previous binary restored", err)
 		}
-		_ = os.Remove(newPath)
-	}
-	_ = os.Chmod(dest, 0o755)
-	if f, err := os.Open(dest); err == nil {
-		_ = f.Sync()
-		_ = f.Close()
-	}
-	if df, err := os.Open(filepath.Dir(dest)); err == nil {
-		_ = df.Sync()
-		_ = df.Close()
+		removeErr := os.Remove(dest)
+		syncErr := hostSyncDir(parent)
+		if removeErr != nil || syncErr != nil { return fmt.Errorf("sync destination directory: %v; cleanup new binary failed: remove=%v sync=%v", err, removeErr, syncErr) }
+		return fmt.Errorf("sync destination directory: %v; newly installed binary removed", err)
 	}
 	return nil
 }
 
+// restorePrevBinary atomically restores the saved image without first removing the live executable.
 func restorePrevBinary(dest, prevPath string) error {
-	if _, err := os.Stat(prevPath); err != nil {
-		return err
+	st, err := os.Lstat(prevPath)
+	if err != nil { return err }
+	if !st.Mode().IsRegular() || st.Size() == 0 { return fmt.Errorf("update: previous binary is not a non-empty regular file") }
+	if filepath.Clean(filepath.Dir(dest)) != filepath.Clean(filepath.Dir(prevPath)) {
+		return fmt.Errorf("update: previous binary must be beside destination")
 	}
-	_ = os.Remove(dest)
-	if err := os.Rename(prevPath, dest); err != nil {
-		if err2 := copyFile(prevPath, dest); err2 != nil {
-			return err2
-		}
-	}
-	if f, err := os.Open(dest); err == nil {
-		_ = f.Sync()
-		_ = f.Close()
-	}
-	if df, err := os.Open(filepath.Dir(dest)); err == nil {
-		_ = df.Sync()
-		_ = df.Close()
-	}
-	return nil
+	return hostCopyFileAtomic(prevPath, dest, 0o755)
 }
 
-func copyFile(src, dst string) error {
-	b, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	tmp := dst + ".copy-tmp"
-	if err := os.WriteFile(tmp, b, 0o755); err != nil {
-		return err
-	}
-	if f, err := os.Open(tmp); err == nil {
-		_ = f.Sync()
-		_ = f.Close()
-	}
-	if err := os.Rename(tmp, dst); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	if df, err := os.Open(filepath.Dir(dst)); err == nil {
-		_ = df.Sync()
-		_ = df.Close()
-	}
-	return nil
+func hostSyncFile(path string) error {
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil { return err }
+	if err := f.Sync(); err != nil { _ = f.Close(); return err }
+	return f.Close()
 }
 
+func hostSyncDir(path string) error {
+	f, err := os.Open(path)
+	if err != nil { return err }
+	if err := f.Sync(); err != nil { _ = f.Close(); return err }
+	return f.Close()
+}
+
+func hostCopyFileAtomic(src, dst string, mode os.FileMode) error {
+	if filepath.Clean(filepath.Dir(src)) != filepath.Clean(filepath.Dir(dst)) {
+		return fmt.Errorf("source and destination must share a directory")
+	}
+	in, err := os.Open(src)
+	if err != nil { return err }
+	defer in.Close()
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".netductor-host-copy-*")
+	if err != nil { return err }
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := io.Copy(tmp, in); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Chmod(mode); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Sync(); err != nil { _ = tmp.Close(); return err }
+	if err := tmp.Close(); err != nil { return err }
+	if err := os.Rename(tmpName, dst); err != nil { return err }
+	return hostSyncDir(filepath.Dir(dst))
+}
 func healthUnitActive(unit string) error {
 	out, err := exec.Command("systemctl", "is-active", unit).CombinedOutput()
 	s := strings.TrimSpace(string(out))
