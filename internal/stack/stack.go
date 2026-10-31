@@ -253,10 +253,13 @@ func snapshotBins(dir string) error {
 // snapshotPrev is last-good (successful) snapshot — used by manual Rollback.
 func snapshotPrev() error { return snapshotBins(prevDir()) }
 
-// replaceExecutable writes src bytes to dest via dest.new + rename (best-effort Sync).
+// replaceExecutable writes src bytes to dest via dest.new + rename + fsync.
 func replaceExecutable(src, dest string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
 	tmp := dest + ".new"
@@ -270,6 +273,10 @@ func replaceExecutable(src, dest string) error {
 	if err := os.Rename(tmp, dest); err != nil {
 		_ = os.Remove(tmp)
 		return err
+	}
+	if df, err := os.Open(filepath.Dir(dest)); err == nil {
+		_ = df.Sync()
+		_ = df.Close()
 	}
 	return nil
 }

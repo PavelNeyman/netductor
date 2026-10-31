@@ -1,10 +1,14 @@
-## 0.9.648
+## 0.9.649
 
-Update/migrate:
+Update/migrate (actual code):
 - replaceExecutable + atomicReplaceBinary: fsync file and parent dir
 - durable copyFile via tmp+rename+fsync
-- ensure-baseline-dirs migration (baseline/sites/git/ci)
-- API: GET /api/migrate/status, POST /api/migrate/run, POST /api/migrate/clear-failed
+- ensure-baseline-dirs migration
+- API: GET /api/migrate/status, POST /api/migrate/run|clear-failed
+
+## 0.9.648
+
+Docs/version bump only (code landed in 0.9.649).
 
 ## 0.9.647
 

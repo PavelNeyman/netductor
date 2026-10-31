@@ -124,3 +124,7 @@ Commands reviewed: `stack.ApplyOpts`, `ndupdate.ApplyHostComponent`, `api_update
 | Baseline/sites/git/ci dirs migration | Done |
 | Migrate HTTP API | Done |
 | Full 0.9.612 snapshot fixture | Still open |
+
+## Stage 3e fix (0.9.649)
+
+Real code for durable binary replace, baseline dirs, migrate API (0.9.648 claimed these in docs only).

@@ -437,3 +437,8 @@ APT Guard (stages 0–2):
 - baseline dirs migration
 - session API for migrate status/run/clear-failed
 
+
+### 0.9.649 — durable install + migrate API (code)
+
+Note: 0.9.648 was docs-only; real changes here.
+

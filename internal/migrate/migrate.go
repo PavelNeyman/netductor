@@ -126,6 +126,7 @@ func init() {
 		&ensureAptGuardPolicyMigration{},
 		&ensureRoleFileMigration{},
 		&ensureVPNDirsMigration{},
+		&ensureBaselineDirsMigration{},
 	}
 }
 

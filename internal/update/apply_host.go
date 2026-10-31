@@ -210,6 +210,14 @@ func atomicReplaceBinary(dest, newPath, prevPath string) error {
 		_ = os.Remove(newPath)
 	}
 	_ = os.Chmod(dest, 0o755)
+	if f, err := os.Open(dest); err == nil {
+		_ = f.Sync()
+		_ = f.Close()
+	}
+	if df, err := os.Open(filepath.Dir(dest)); err == nil {
+		_ = df.Sync()
+		_ = df.Close()
+	}
 	return nil
 }
 
@@ -219,7 +227,17 @@ func restorePrevBinary(dest, prevPath string) error {
 	}
 	_ = os.Remove(dest)
 	if err := os.Rename(prevPath, dest); err != nil {
-		return copyFile(prevPath, dest)
+		if err2 := copyFile(prevPath, dest); err2 != nil {
+			return err2
+		}
+	}
+	if f, err := os.Open(dest); err == nil {
+		_ = f.Sync()
+		_ = f.Close()
+	}
+	if df, err := os.Open(filepath.Dir(dest)); err == nil {
+		_ = df.Sync()
+		_ = df.Close()
 	}
 	return nil
 }
@@ -229,7 +247,26 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, b, 0o755)
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	tmp := dst + ".copy-tmp"
+	if err := os.WriteFile(tmp, b, 0o755); err != nil {
+		return err
+	}
+	if f, err := os.Open(tmp); err == nil {
+		_ = f.Sync()
+		_ = f.Close()
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if df, err := os.Open(filepath.Dir(dst)); err == nil {
+		_ = df.Sync()
+		_ = df.Close()
+	}
+	return nil
 }
 
 func healthUnitActive(unit string) error {

@@ -210,3 +210,48 @@ func (m *ensureVPNDirsMigration) Verify(ctx context.Context) error {
 	}
 	return nil
 }
+
+type ensureBaselineDirsMigration struct{}
+
+func (m *ensureBaselineDirsMigration) ID() string { return "2026-10-ensure-baseline-dirs" }
+func (m *ensureBaselineDirsMigration) Description() string {
+	return "Ensure baseline/sites/git/ci state directories"
+}
+func (m *ensureBaselineDirsMigration) Required(ctx context.Context) (bool, error) {
+	for _, d := range []string{
+		filepath.Join(paths.StateDir(), "baseline"),
+		filepath.Join(paths.StateDir(), "sites"),
+		filepath.Join(paths.StateDir(), "git"),
+		filepath.Join(paths.StateDir(), "ci"),
+	} {
+		st, err := os.Stat(d)
+		if err != nil || !st.IsDir() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (m *ensureBaselineDirsMigration) Apply(ctx context.Context) error {
+	for _, d := range []string{
+		filepath.Join(paths.StateDir(), "baseline"),
+		filepath.Join(paths.StateDir(), "sites"),
+		filepath.Join(paths.StateDir(), "git"),
+		filepath.Join(paths.StateDir(), "ci"),
+		filepath.Join(paths.StateDir(), "alerts"),
+	} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (m *ensureBaselineDirsMigration) Verify(ctx context.Context) error {
+	need, err := m.Required(ctx)
+	if err != nil {
+		return err
+	}
+	if need {
+		return fmt.Errorf("baseline/sites dirs still incomplete")
+	}
+	return nil
+}
