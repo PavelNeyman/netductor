@@ -285,6 +285,10 @@ func RunRegistry(ctx context.Context, list []Migration) (Result, error) {
 				return res, fmt.Errorf("migrate %s required: %w", id, err)
 			}
 			if !need {
+				if err := m.Verify(ctx); err != nil {
+					res.Failed = id
+					return res, fmt.Errorf("migrate %s verify existing state: %w", id, err)
+				}
 				res.Skipped = append(res.Skipped, id)
 				continue
 			}
@@ -296,6 +300,16 @@ func RunRegistry(ctx context.Context, list []Migration) (Result, error) {
 			return res, fmt.Errorf("migrate %s required: %w", id, err)
 		}
 		if !need {
+			if err := m.Verify(ctx); err != nil {
+				j.Records[id] = record{
+					ID: id, Status: StatusFailed, Description: m.Description(),
+					AppVersion: ndver.Release, FinishedAt: time.Now().UTC(),
+					Error: "verify existing state: " + err.Error(),
+				}
+				_ = durableWriteJournal(j)
+				res.Failed = id
+				return res, fmt.Errorf("migrate %s verify existing state: %w", id, err)
+			}
 			// Record completed if never recorded
 			if rec.Status != StatusCompleted {
 				now := time.Now().UTC()
