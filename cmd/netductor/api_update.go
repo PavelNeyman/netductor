@@ -222,20 +222,25 @@ func registerUpdateAPI(mux *http.ServeMux) {
 		switch comp {
 		case "tg", "telegram":
 			comp = "tg"
-		case "agent", "secondary-agent":
-			comp = "agent"
+		case "agent", "edge-agent", "edge":
+			comp = "edge-agent"
 			dest = "/usr/local/bin/netductor-agent"
-			unit = "netductor-secondary-agent"
+			unit = ""
 			cid = ndupdate.ComponentAgent
+		case "secondary-agent", "secondary":
+			comp = "secondary-agent"
+			dest = "/usr/local/bin/netductor"
+			unit = "netductor-secondary-agent"
+			cid = ndupdate.ComponentNode
 		case "node":
 			writeJSON(w, 400, map[string]any{"ok": false, "error": "use stack rollback for node"})
 			return
 		default:
-			writeJSON(w, 400, map[string]any{"ok": false, "error": "component tg|agent"})
+			writeJSON(w, 400, map[string]any{"ok": false, "error": "component tg|edge-agent|secondary-agent"})
 			return
 		}
 		job, err := ndupdate.RollbackHostComponent(ndupdate.HostApplyOpts{
-			Component: cid, InstanceID: "local", DestPath: dest, Unit: unit, Restart: !body.NoRestart,
+			Component: cid, InstanceID: "local", DestPath: dest, Unit: unit, Restart: !body.NoRestart && unit != "",
 			JobID: fmt.Sprintf("api-rb-%s-%d", comp, time.Now().UnixNano()),
 		})
 		if err != nil {
