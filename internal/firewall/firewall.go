@@ -286,7 +286,8 @@ func managedInputJump(rules string) (position int, chain string, err error) {
 		}
 		position++
 		for i := 2; i+1 < len(fields); i++ {
-			if fields[i] != "-j" && fields[i] != "--jump" {
+			if fields[i] != "-j" && fields[i] != "--jump" &&
+				fields[i] != "-g" && fields[i] != "--goto" {
 				continue
 			}
 			target := fields[i+1]
