@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/PavelNeyman/netductor/internal/format"
 
 	"github.com/PavelNeyman/netductor/internal/hardening"
@@ -64,8 +66,42 @@ func EnsureInstalled() (Backend, error) {
 
 func truncate(s string, n int) string { return format.Truncate(strings.TrimSpace(s), n) }
 
+
+// acquireFirewallApplyLock serializes Netductor firewall mutations across processes.
+// It does not coordinate with UFW, iptables, or other external firewall managers.
+func acquireFirewallApplyLock() (func(), error) {
+	const lockPath = "/run/lock/netductor-firewall.lock"
+	fd, err := unix.Open(lockPath, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("firewall: open apply lock: %w", err)
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("firewall: inspect apply lock: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("firewall: apply lock is not a regular file")
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("firewall: acquire apply lock: %w", err)
+	}
+	return func() {
+		_ = unix.Flock(fd, unix.LOCK_UN)
+		_ = unix.Close(fd)
+	}, nil
+}
+
 // ApplyRole installs backend if needed and applies primary or secondary profile.
 func ApplyRole(role string) error {
+	unlock, err := acquireFirewallApplyLock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "core" {
 		role = "primary"
