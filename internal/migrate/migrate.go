@@ -59,6 +59,60 @@ func lockPath() string {
 	return filepath.Join(paths.StateDir(), "migrate", "migrate.lock")
 }
 
+func durableWriteFile(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create parent directory: %w", err)
+	}
+	f, err := os.CreateTemp(dir, ".nd-migrate-*")
+	if err != nil {
+		return fmt.Errorf("create temporary file: %w", err)
+	}
+	tmp := f.Name()
+	cleanup := func() { _ = os.Remove(tmp) }
+	if err := f.Chmod(mode); err != nil {
+		_ = f.Close()
+		cleanup()
+		return fmt.Errorf("chmod temporary file: %w", err)
+	}
+	n, err := f.Write(data)
+	if err != nil {
+		_ = f.Close()
+		cleanup()
+		return fmt.Errorf("write temporary file: %w", err)
+	}
+	if n != len(data) {
+		_ = f.Close()
+		cleanup()
+		return fmt.Errorf("short write: %d of %d bytes", n, len(data))
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		cleanup()
+		return fmt.Errorf("sync temporary file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("close temporary file: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		cleanup()
+		return fmt.Errorf("rename temporary file: %w", err)
+	}
+	df, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open parent directory: %w", err)
+	}
+	if err := df.Sync(); err != nil {
+		_ = df.Close()
+		return fmt.Errorf("sync parent directory: %w", err)
+	}
+	if err := df.Close(); err != nil {
+		return fmt.Errorf("close parent directory: %w", err)
+	}
+	return nil
+}
+
 func loadJournal() (journalFile, error) {
 	j := journalFile{Schema: 1, Records: map[string]record{}}
 	b, err := os.ReadFile(journalPath())
