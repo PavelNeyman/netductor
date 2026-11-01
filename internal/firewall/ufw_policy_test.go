@@ -41,15 +41,34 @@ func TestUfwNumberedGoodPrimary(t *testing.T) {
 	// sshPort() defaults often 52222
 	status := `Status: active
 [ 1] 52222/tcp                  ALLOW IN    Anywhere
-[ 2] 22/tcp                     DENY IN     Anywhere
-[ 3] 443/tcp                    ALLOW IN    Anywhere
-[ 4] 10050/tcp                  DENY IN     Anywhere
-[ 5] 8788/tcp                   DENY IN     Anywhere
-[ 6] 8789/tcp                   ALLOW IN    10.87.10.0/30
-[ 7] 8789/tcp                   ALLOW IN    10.87.11.0/30
-[ 8] 8789/tcp                   ALLOW IN    127.0.0.1
-`
-	if sshPort() != "52222" {
+[ 2] 52222/tcp (v6)             ALLOW IN    Anywhere (v6)
+[ 3] 22/tcp                     DENY IN     Anywhere
+[ 4] 22/tcp (v6)                DENY IN     Anywhere (v6)
+[ 5] 443/tcp                    ALLOW IN    Anywhere
+[ 6] 443/tcp (v6)               ALLOW IN    Anywhere (v6)
+[ 7] 10050/tcp                  DENY IN     Anywhere
+[ 8] 10050/tcp (v6)             DENY IN     Anywhere (v6)
+[ 9] 10051/tcp                  DENY IN     Anywhere
+[10] 10051/tcp (v6)             DENY IN     Anywhere (v6)
+[11] 8443/tcp                   ALLOW IN    Anywhere
+[12] 8443/tcp (v6)              ALLOW IN    Anywhere (v6)
+[13] 80/tcp                     ALLOW IN    Anywhere
+[14] 80/tcp (v6)                ALLOW IN    Anywhere (v6)
+[15] 8787/tcp                   DENY IN     Anywhere
+[16] 8787/tcp (v6)              DENY IN     Anywhere (v6)
+[17] 8445/tcp                   DENY IN     Anywhere
+[18] 8445/tcp (v6)              DENY IN     Anywhere (v6)
+[19] 8788/tcp                   DENY IN     Anywhere
+[20] 8788/tcp (v6)              DENY IN     Anywhere (v6)
+[21] 9443/tcp                   ALLOW IN    10.87.10.0/30
+[22] 9443/tcp                   ALLOW IN    10.87.11.0/30
+[23] 9443/tcp                   DENY IN     Anywhere
+[24] 9443/tcp (v6)              DENY IN     Anywhere (v6)
+[25] 8789/tcp                   ALLOW IN    10.87.10.0/30
+[26] 8789/tcp                   ALLOW IN    10.87.11.0/30
+[27] 9118/tcp                   DENY IN     Anywhere
+[28] 9118/tcp (v6)              DENY IN     Anywhere (v6)
+	`	if sshPort() != "52222" {
 		t.Skip("ssh port not 52222 in test env")
 	}
 	ok, warns := ufwEffectivePolicy(status, "primary")
