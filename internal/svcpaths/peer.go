@@ -116,6 +116,10 @@ func SetKeysRootForTest(dir string) {
 		keysRoot = KeysDir
 		return
 	}
+	// Test roots must satisfy the same private-directory ownership contract as
+	// production roots, including when the test runner mounts /tmp from host.
+	_ = os.Chown(dir, os.Geteuid(), os.Getegid())
+	_ = os.Chmod(dir, 0o700)
 	keysRoot = dir
 }
 
