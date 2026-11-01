@@ -113,11 +113,13 @@ func wssExpectations(role string) ([]wssExpectation, error) {
 		var idx wssPeerIndex
 		exists, err := readFirewallJSON(filepath.Join(dir, "peers.json"), &idx)
 		if err != nil { return nil, err }
-		if exists && len(idx.Peers) > 0 {
+		if exists {
 			for _, p := range idx.Peers {
 				if p.State == "removed" || p.State == "removing" { continue }
 				if err := add(p.Slot.WSSSP, p.PublicIP); err != nil { return nil, err }
 			}
+			// An existing empty registry is authoritative: do not resurrect a
+			// retired legacy material.json peer after the last managed peer is removed.
 			return out, nil
 		}
 		var legacy wssMaterial
