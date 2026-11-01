@@ -43,7 +43,7 @@ jobs:
           go build -o /tmp/netductor-tg ./cmd/netductor-tg
           go build -o /tmp/netductor-agent ./cmd/netductor-agent
           /tmp/netductor version | grep -q node
-  windows-cross:
+  macos-cross:
     runs-on: ubuntu-latest
     container: golang:1.26-bookworm
     defaults:
@@ -60,9 +60,9 @@ jobs:
         run: |
           set -euo pipefail
           go mod download
-      - name: windows amd64 cross
+      - name: macOS operator cross-build
         run: |
           set -euo pipefail
-          GOOS=windows GOARCH=amd64 go build -o /tmp/netductor-op-windows-amd64.exe ./cmd/netductor-op
-          GOOS=windows GOARCH=amd64 go build -o /tmp/netductor-agent-windows-amd64.exe ./cmd/netductor-agent
-          ls -la /tmp/*.exe
+          GOOS=darwin GOARCH=amd64 go build -o /tmp/netductor-op-darwin-amd64 ./cmd/netductor-op
+          GOOS=darwin GOARCH=arm64 go build -o /tmp/netductor-op-darwin-arm64 ./cmd/netductor-op
+          ls -la /tmp/netductor-op-darwin-*
