@@ -102,7 +102,7 @@ func tarMembersSafeOpts(archivePath string, opts tarScanOpts) error {
 		switch hdr.Typeflag {
 		case tar.TypeSymlink, tar.TypeLink:
 			return fmt.Errorf("tar links not allowed: %q", name)
-		case tar.TypeReg, tar.TypeRegA:
+		case 0, tar.TypeReg:
 			fileMembers++
 			if hdr.Size < 0 || hdr.Size > tarMaxFileBytes {
 				return fmt.Errorf("tar member too large: %q size=%d", name, hdr.Size)
