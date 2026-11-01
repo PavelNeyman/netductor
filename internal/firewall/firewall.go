@@ -96,7 +96,7 @@ func roleWSSPorts(role string) []string {
 }
 
 func wssExpectations(role string) ([]wssExpectation, error) {
-	dir := paths.SecondaryDir()
+	dir := filepath.Join(paths.EtcDir(), "svc-paths")
 	var out []wssExpectation
 	add := func(port int, source string) error {
 		ip := net.ParseIP(strings.TrimSpace(source))
