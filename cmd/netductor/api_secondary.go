@@ -88,7 +88,14 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 			return
 		}
 		if err := secondary.EnqueueCmd(body.ID, body.Cmd); err != nil {
-			http.Error(w, err.Error(), 404)
+			switch {
+			case errors.Is(err, secondary.ErrInvalidCommand):
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			case errors.Is(err, os.ErrNotExist):
+				http.Error(w, "secondary device not found", http.StatusNotFound)
+			default:
+				http.Error(w, "failed to persist secondary command", http.StatusInternalServerError)
+			}
 			return
 		}
 		writeJSON(w, 200, map[string]any{"ok": true, "queued": body.Cmd, "id": body.ID})
