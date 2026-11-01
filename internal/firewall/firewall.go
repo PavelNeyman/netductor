@@ -897,8 +897,11 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if inspectErr != nil {
 		return fmt.Errorf("inspect UFW rules before SSH safeguard: %v (%s)", inspectErr, truncate(string(current), 200))
 	}
-	// Automatically migrate only the exact historical Netductor global WSS
-	// rules. Source-restricted peer rules and administrator-owned rules remain.
+	// Validate the complete peer inventory before any firewall mutation.
+	// Then migrate only the exact historical Netductor global WSS rules.
+	if _, err := wssExpectations(role); err != nil {
+		return fmt.Errorf("read WSS peer inventory before firewall mutation: %w", err)
+	}
 	if err := removeLegacyGlobalWSSRules(string(current)); err != nil {
 		return err
 	}
