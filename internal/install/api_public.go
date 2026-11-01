@@ -28,6 +28,122 @@ type apiPublicState struct {
 	TTL     string    `json:"ttl"`
 }
 
+func openAPIPublicStateDir() (int, error) {
+	if err := os.MkdirAll(filepath.Dir(apiPublicStatePath), 0o700); err != nil {
+		return -1, fmt.Errorf("create API public state directory: %w", err)
+	}
+	fd, err := unix.Open(filepath.Dir(apiPublicStatePath), unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return -1, fmt.Errorf("open API public state directory: %w", err)
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return -1, fmt.Errorf("stat API public state directory: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFDIR || st.Uid != 0 || st.Mode&0o022 != 0 {
+		_ = unix.Close(fd)
+		return -1, fmt.Errorf("API public state directory is not trusted")
+	}
+	return fd, nil
+}
+
+func saveAPIPublicState(st apiPublicState) error {
+	dirFD, err := openAPIPublicStateDir()
+	if err != nil {
+		return err
+	}
+	defer unix.Close(dirFD)
+	data, err := json.MarshalIndent(st, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode API public state: %w", err)
+	}
+	data = append(data, '\\n')
+	const tmpName = ".api-public-arm.tmp"
+	_ = unix.Unlinkat(dirFD, tmpName, 0)
+	fd, err := unix.Openat(dirFD, tmpName, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return fmt.Errorf("create temporary API public state: %w", err)
+	}
+	file := os.NewFile(uintptr(fd), tmpName)
+	if n, err := file.Write(data); err != nil {
+		_ = file.Close()
+		_ = unix.Unlinkat(dirFD, tmpName, 0)
+		return fmt.Errorf("write API public state: %w", err)
+	} else if n != len(data) {
+		_ = file.Close()
+		_ = unix.Unlinkat(dirFD, tmpName, 0)
+		return fmt.Errorf("write API public state: short write (%d of %d bytes)", n, len(data))
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		_ = unix.Unlinkat(dirFD, tmpName, 0)
+		return fmt.Errorf("sync API public state: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		_ = unix.Unlinkat(dirFD, tmpName, 0)
+		return fmt.Errorf("close API public state: %w", err)
+	}
+	if err := unix.Renameat(dirFD, tmpName, dirFD, filepath.Base(apiPublicStatePath)); err != nil {
+		_ = unix.Unlinkat(dirFD, tmpName, 0)
+		return fmt.Errorf("install API public state: %w", err)
+	}
+	if err := unix.Fsync(dirFD); err != nil {
+		return fmt.Errorf("sync API public state directory: %w", err)
+	}
+	return nil
+}
+
+func loadAPIPublicState() (apiPublicState, error) {
+	var st apiPublicState
+	dirFD, err := openAPIPublicStateDir()
+	if err != nil {
+		return st, err
+	}
+	defer unix.Close(dirFD)
+	fd, err := unix.Openat(dirFD, filepath.Base(apiPublicStatePath), unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
+	if err != nil {
+		return st, err
+	}
+	file := os.NewFile(uintptr(fd), apiPublicStatePath)
+	var fs unix.Stat_t
+	if err := unix.Fstat(fd, &fs); err != nil {
+		_ = file.Close()
+		return st, fmt.Errorf("stat API public state: %w", err)
+	}
+	if fs.Mode&unix.S_IFMT != unix.S_IFREG || fs.Uid != 0 || fs.Mode&0o077 != 0 || fs.Size > 4096 {
+		_ = file.Close()
+		return st, fmt.Errorf("API public state file is not a trusted root-owned regular file")
+	}
+	dec := json.NewDecoder(file)
+	if err := dec.Decode(&st); err != nil {
+		_ = file.Close()
+		return st, fmt.Errorf("decode API public state: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return st, fmt.Errorf("close API public state: %w", err)
+	}
+	if st.Until.IsZero() || st.ArmedAt.IsZero() || st.Until.Before(st.ArmedAt) {
+		return st, fmt.Errorf("API public state has invalid timestamps")
+	}
+	return st, nil
+}
+
+func removeAPIPublicState() error {
+	dirFD, err := openAPIPublicStateDir()
+	if err != nil {
+		return err
+	}
+	defer unix.Close(dirFD)
+	if err := unix.Unlinkat(dirFD, filepath.Base(apiPublicStatePath), 0); err != nil && err != unix.ENOENT {
+		return fmt.Errorf("remove API public state: %w", err)
+	}
+	if err := unix.Fsync(dirFD); err != nil {
+		return fmt.Errorf("sync API public state directory after removal: %w", err)
+	}
+	return nil
+}
+
 func syncAPIPublicUnitDir() error {
 	fd, err := unix.Open(apiPublicUnitDir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
@@ -272,8 +388,8 @@ func ArmAPIPublic(ttl time.Duration) error {
 		if err := removeAPIPublicTimerUnits(); err != nil {
 			cleanup = append(cleanup, err)
 		}
-		if err := os.Remove(apiPublicStatePath); err != nil && !os.IsNotExist(err) {
-			cleanup = append(cleanup, fmt.Errorf("remove API public state: %w", err))
+		if err := removeAPIPublicState(); err != nil {
+			cleanup = append(cleanup, err)
 		}
 		if len(cleanup) != 0 {
 			return errors.Join(append([]error{cause}, cleanup...)...)
@@ -285,15 +401,8 @@ func ArmAPIPublic(ttl time.Duration) error {
 		Until:   time.Now().UTC().Add(ttl),
 		TTL:     ttl.String(),
 	}
-	if err := os.MkdirAll(filepath.Dir(apiPublicStatePath), 0o755); err != nil {
-		return rollback(fmt.Errorf("create API public state directory: %w", err))
-	}
-	b, err := json.MarshalIndent(st, "", "  ")
-	if err != nil {
-		return rollback(fmt.Errorf("encode API public state: %w", err))
-	}
-	if err := os.WriteFile(apiPublicStatePath, b, 0o600); err != nil {
-		return rollback(fmt.Errorf("write API public state: %w", err))
+	if err := saveAPIPublicState(st); err != nil {
+		return rollback(fmt.Errorf("save API public state: %w", err))
 	}
 	unit := `[Unit]
 Description=Disarm netductor API public after arm TTL
@@ -343,8 +452,8 @@ func DisarmAPIPublic() error {
 		if err := removeAPIPublicTimerUnits(); err != nil {
 			return err
 		}
-		if err := os.Remove(apiPublicStatePath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("remove API public state: %w", err)
+		if err := removeAPIPublicState(); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -365,18 +474,25 @@ func DisarmAPIPublic() error {
 }
 
 // APIPublicStatus returns armed flag and until time.
-func APIPublicStatus() (armed bool, until time.Time) {
-	b, err := os.ReadFile(apiPublicStatePath)
+func APIPublicStatusChecked() (armed bool, until time.Time, err error) {
+	st, err := loadAPIPublicState()
 	if err != nil {
-		return false, time.Time{}
+		if os.IsNotExist(err) {
+			return false, time.Time{}, nil
+		}
+		return false, time.Time{}, err
 	}
-	var st apiPublicState
-	if json.Unmarshal(b, &st) != nil {
-		return false, time.Time{}
+	if !time.Now().UTC().Before(st.Until) {
+		if err := DisarmAPIPublic(); err != nil {
+			return false, st.Until, fmt.Errorf("API public TTL expired but disarm failed: %w", err)
+		}
+		return false, time.Time{}, nil
 	}
-	if time.Now().UTC().After(st.Until) {
-		_ = DisarmAPIPublic()
-		return false, time.Time{}
-	}
-	return true, st.Until
+	return true, st.Until, nil
+}
+
+// APIPublicStatus is retained for callers that only need a best-effort display.
+func APIPublicStatus() (bool, time.Time) {
+	armed, until, _ := APIPublicStatusChecked()
+	return armed, until
 }
