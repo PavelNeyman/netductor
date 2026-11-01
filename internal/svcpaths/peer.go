@@ -26,9 +26,13 @@ func validatePeerDirectory(path string) error {
 	info, err := os.Lstat(path)
 	if err != nil { return err }
 	stat, ok := info.Sys().(*unix.Stat_t)
+	uid := uint32(0)
+	if ok {
+		uid = stat.Uid
+	}
 	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		stat.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
-		return fmt.Errorf("peer data directory %s must be a real directory owned by euid %d and not group/world-writable", path, os.Geteuid())
+		uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("peer data directory %s is unsafe (stat=%t dir=%t symlink=%t uid=%d euid=%d mode=%04o)", path, ok, info.IsDir(), info.Mode()&os.ModeSymlink != 0, uid, os.Geteuid(), info.Mode().Perm())
 	}
 	return nil
 }
