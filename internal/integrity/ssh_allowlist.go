@@ -266,9 +266,41 @@ func CacheSecondaryKeys(id, body string) error {
 	}
 	dir := filepath.Dir(secondaryKeysCachePath(id))
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
+		return fmt.Errorf("create secondary SSH key cache directory: %w", err)
 	}
-	return os.WriteFile(secondaryKeysCachePath(id), []byte(body), 0o600)
+	tmpFile, err := os.CreateTemp(dir, ".ssh-keys.tmp-*")
+	if err != nil {
+		return fmt.Errorf("create secondary SSH key cache temporary file: %w", err)
+	}
+	tmp := tmpFile.Name()
+	defer os.Remove(tmp)
+	if err := tmpFile.Chmod(0o600); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("set secondary SSH key cache permissions: %w", err)
+	}
+	if _, err := tmpFile.WriteString(body); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("write secondary SSH key cache: %w", err)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("sync secondary SSH key cache: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("close secondary SSH key cache: %w", err)
+	}
+	if err := os.Rename(tmp, secondaryKeysCachePath(id)); err != nil {
+		return fmt.Errorf("replace secondary SSH key cache: %w", err)
+	}
+	dirFile, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open secondary SSH key cache directory for sync: %w", err)
+	}
+	defer dirFile.Close()
+	if err := dirFile.Sync(); err != nil {
+		return fmt.Errorf("sync secondary SSH key cache directory: %w", err)
+	}
+	return nil
 }
 
 // LiveKeysSecondaryCached returns keys from last ssh_keys probe.
