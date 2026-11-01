@@ -157,24 +157,31 @@ func IssueToken(name string) (id, token string, err error) {
 	return id, token, save(r)
 }
 
-func FindByToken(token string) *Device {
+func LookupByToken(token string) (*Device, error) {
 	if token == "" || len(token) < 16 {
-		return nil
+		return nil, nil
 	}
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("load secondary registry for token lookup: %w", err)
 	}
 	for i := range r.Devices {
 		t := r.Devices[i].Token
 		if tokenSHAEq(t, token) {
 			d := r.Devices[i]
-			return &d
+			return &d, nil
 		}
 	}
-	return nil
+	return nil, nil
+}
+
+// FindByToken preserves the legacy fail-closed lookup contract.
+// New request handlers should use LookupByToken to distinguish storage errors.
+func FindByToken(token string) *Device {
+	d, _ := LookupByToken(token)
+	return d
 }
 
 type HeartbeatIn struct {
