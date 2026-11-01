@@ -381,7 +381,7 @@ if command -v ufw >/dev/null 2>&1; then
   esac
   while ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; do
     line=$(ufw status numbered | grep -F 'netductor-ssh-bootstrap' | head -1)
-    num=$(printf '%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
+    num=$(printf '%%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
     test -n "$num"
     ufw --force delete "$num"
   done
@@ -395,7 +395,7 @@ elif command -v iptables >/dev/null 2>&1; then
   # rollback snapshot does not include kernel iptables state; cancel removes
   # this tagged exception only after post-finalize key-only access is proven.
   chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
-  test "$(printf '%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+  test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
   iptables -C "$chain" -p tcp --dport 22 -j DROP
   iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
   netfilter-persistent save
@@ -469,7 +469,7 @@ elif command -v iptables >/dev/null 2>&1; then
     exit 1
   fi
   chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
-  test "$(printf '%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+  test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
   iptables -C "$chain" -p tcp --dport 22 -j DROP
 fi
 
