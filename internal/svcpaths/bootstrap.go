@@ -436,7 +436,7 @@ func unitFile(name, execStart string) error {
 	if !safeUnitName(name) {
 		return fmt.Errorf("invalid systemd unit name %q", name)
 	}
-	if strings.ContainsAny(execStart, "\\r\\n") {
+	if strings.ContainsAny(execStart, "\r\n") {
 		return fmt.Errorf("systemd ExecStart for %s contains a line break", name)
 	}
 	body := fmt.Sprintf(`[Unit]
