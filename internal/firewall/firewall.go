@@ -822,6 +822,35 @@ func inputStartsWithSSHAllow(rules, port string) bool {
 	return false
 }
 
+// iptablesHasExactRule checks for one complete rule, not independent option
+// fragments. Only the optional implicit TCP matcher emitted by iptables -S
+// is tolerated; any additional match changes the rule's security semantics.
+func iptablesHasExactRule(rules, chain string, variants ...[]string) bool {
+	for _, line := range strings.Split(rules, "\\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[0] != "-A" || fields[1] != chain {
+			continue
+		}
+		actual := fields[2:]
+		for _, expected := range variants {
+			if len(actual) != len(expected) {
+				continue
+			}
+			match := true
+			for i := range actual {
+				if actual[i] != expected[i] {
+					match = false
+					break
+				}
+			}
+			if match {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func applyIPTables(role string) error {
 	if err := requireIPv6Disabled(); err != nil {
 		return fmt.Errorf("iptables fallback IPv6 prerequisite: %w", err)
@@ -1019,10 +1048,17 @@ func applyIPTables(role string) error {
 	if chainVerifyErr != nil {
 		return fmt.Errorf("iptables fallback: verify active chain %s: %v (%s)", stagingChain, chainVerifyErr, truncate(string(verifiedRules), 200))
 	}
-	if !strings.Contains(string(verifiedRules), "-j ACCEPT") ||
-		!strings.Contains(string(verifiedRules), "--dport "+sp) ||
-		!strings.Contains(string(verifiedRules), "--ctstate ESTABLISHED,RELATED") {
-		return fmt.Errorf("iptables fallback: active chain %s failed essential-rule verification", stagingChain)
+	chainRules := string(verifiedRules)
+	sshRuleOK := iptablesHasExactRule(chainRules, stagingChain,
+		[]string{"-p", "tcp", "--dport", sp, "-j", "ACCEPT"},
+		[]string{"-p", "tcp", "-m", "tcp", "--dport", sp, "-j", "ACCEPT"},
+	)
+	establishedRuleOK := iptablesHasExactRule(chainRules, stagingChain,
+		[]string{"-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"},
+		[]string{"-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"},
+	)
+	if !sshRuleOK || !establishedRuleOK {
+		return fmt.Errorf("iptables fallback: active chain %s failed exact essential-rule verification (ssh=%t established=%t)", stagingChain, sshRuleOK, establishedRuleOK)
 	}
 
 	// The leading SSH safeguard is intentionally retained across applies.
