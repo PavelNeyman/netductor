@@ -172,7 +172,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := os.WriteFile(peerMaterialPath(o.PeerID), b, 0o600); err != nil {
+	if err := atomicWritePeerFile(peerMaterialPath(o.PeerID), b, 0o600); err != nil {
 		return nil, nil, err
 	}
 	if err := writePeerOp(peerOp{Op: "add", PeerID: o.PeerID, PublicIP: o.PublicIP, PrimaryIP: o.PrimaryIP, SlotIndex: slot.Index, Phase: "material"}); err != nil {
@@ -217,7 +217,7 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 }
 
 func loadPeerMaterial(id string) (*Material, error) {
-	b, err := os.ReadFile(peerMaterialPath(id))
+	b, err := readPeerFile(peerMaterialPath(id), maxPeerJSONBytes)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("peer %s material missing", id)
@@ -319,7 +319,7 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 		return err
 	}
 	b, _ := json.MarshalIndent(m, "", "  ")
-	if err := os.WriteFile(peerMaterialPath(id), b, 0o600); err != nil {
+	if err := atomicWritePeerFile(peerMaterialPath(id), b, 0o600); err != nil {
 		return err
 	}
 	now := time.Now().UTC()
