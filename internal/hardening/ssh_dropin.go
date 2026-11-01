@@ -458,6 +458,10 @@ done
 export DEBIAN_FRONTEND=noninteractive
 apt-get remove -y --purge zabbix-agent zabbix-agent2 zabbix-release telegraf salt-minion prometheus-node-exporter snmpd 2>/dev/null || true
 if command -v ufw >/dev/null 2>&1; then
+  mkdir -p /run/lock
+  test ! -L /run/lock/netductor-firewall.lock
+  exec 8>/run/lock/netductor-firewall.lock
+  flock 8
   ufw deny 10050/tcp 2>/dev/null || true
   ufw deny 10051/tcp 2>/dev/null || true
   ufw deny 8787/tcp 2>/dev/null || true
