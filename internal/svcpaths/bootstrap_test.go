@@ -1,6 +1,10 @@
 package svcpaths
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestValidateUnitExecStart(t *testing.T) {
 	tests := []struct {
@@ -31,4 +35,68 @@ func TestValidateUnitExecStart(t *testing.T) {
 			}
 		})
 	}
+}
+
+
+func TestBootstrapFileTransactionRollbackRestoresBeforeImages(t *testing.T) {
+	root := t.TempDir()
+	oldRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	defer func() { bootstrapJournalRoot = oldRoot }()
+
+	existing := filepath.Join(root, "existing.conf")
+	if err := os.WriteFile(existing, []byte("before"), 0o640); err != nil { t.Fatal(err) }
+	created := filepath.Join(root, "created.conf")
+
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFile(existing); err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFile(created); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(existing, []byte("after"), 0o600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(created, []byte("new"), 0o600); err != nil { t.Fatal(err) }
+
+	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	got, err := os.ReadFile(existing)
+	if err != nil { t.Fatal(err) }
+	if string(got) != "before" { t.Fatalf("existing content = %q, want before", got) }
+	info, err := os.Stat(existing)
+	if err != nil { t.Fatal(err) }
+	if info.Mode().Perm() != 0o640 { t.Fatalf("existing mode = %o, want 640", info.Mode().Perm()) }
+	if _, err := os.Lstat(created); !os.IsNotExist(err) { t.Fatalf("created file remains after rollback: %v", err) }
+	entries, err := os.ReadDir(bootstrapJournalRoot)
+	if err != nil { t.Fatal(err) }
+	if len(entries) != 0 { t.Fatalf("rollback left journal entries: %v", entries) }
+}
+
+func TestRecoverBootstrapFileTransactionsRepeatsInterruptedRollback(t *testing.T) {
+	root := t.TempDir()
+	oldRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	defer func() { bootstrapJournalRoot = oldRoot }()
+
+	target := filepath.Join(root, "peer.conf")
+	if err := os.WriteFile(target, []byte("before"), 0o600); err != nil { t.Fatal(err) }
+	tx, err := beginBootstrapFileTransaction("primary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFile(target); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(target, []byte("after"), 0o600); err != nil { t.Fatal(err) }
+
+	if err := recoverBootstrapFileTransactions(); err != nil { t.Fatal(err) }
+	got, err := os.ReadFile(target)
+	if err != nil { t.Fatal(err) }
+	if string(got) != "before" { t.Fatalf("recovered content = %q, want before", got) }
+	if err := recoverBootstrapFileTransactions(); err != nil { t.Fatalf("second recovery must be idempotent: %v", err) }
+}
+
+func TestBootstrapFileTransactionRejectsSymlinkTarget(t *testing.T) {
+	root := t.TempDir()
+	oldRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	defer func() { bootstrapJournalRoot = oldRoot }()
+	target := filepath.Join(root, "link")
+	if err := os.Symlink(filepath.Join(root, "missing"), target); err != nil { t.Fatal(err) }
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFile(target); err == nil { t.Fatal("expected symlink target rejection") }
+	if err := tx.Rollback(); err != nil { t.Fatal(err) }
 }
