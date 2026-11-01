@@ -80,8 +80,14 @@ func readFirewallJSON(path string, dst any) (bool, error) {
 	defer f.Close()
 	var st unix.Stat_t
 	if err := unix.Fstat(fd, &st); err != nil { return false, fmt.Errorf("stat %s: %w", path, err) }
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 || st.Size < 0 || st.Size > 1<<20 {
-		return false, fmt.Errorf("%s must be owned by euid %d, private to that identity, and <=1MiB", path, os.Geteuid())
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 1<<20 {
+		return false, fmt.Errorf("%s must be an owned regular file, not group/world-writable, and <=1MiB", path)
+	}
+	// These files can contain WireGuard private keys. Tighten legacy
+	// owner-readable modes in place; never accept group/world-writable files.
+	if st.Mode&0o077 != 0 {
+		if err := f.Chmod(0o600); err != nil { return false, fmt.Errorf("secure permissions on %s: %w", path, err) }
+		if err := f.Sync(); err != nil { return false, fmt.Errorf("sync secure permissions on %s: %w", path, err) }
 	}
 	b, err := io.ReadAll(io.LimitReader(f, (1<<20)+1))
 	if err != nil { return false, fmt.Errorf("read %s: %w", path, err) }
