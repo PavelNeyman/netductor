@@ -834,7 +834,7 @@ while iptables -C "$chain" -p tcp -s %s --dport 8789 -j ACCEPT 2>/dev/null; do i
 iptables -I "$chain" 3 -p tcp -s %s --dport 8789 -j ACCEPT
 netfilter-persistent save
 echo primary-iptables-wss-ok
-`, secondaryPub, wssSP, secondaryPub, wssSP, secondaryPub, wssSP, sSP, sSP, sSP, sSP)
+`, secondaryPub, wssSP, secondaryPub, wssSP, secondaryPub, wssSP, sSP, sSP, sSP)
 		out, err := exec.Command("bash", "-c", script).CombinedOutput()
 		if err != nil { return fmt.Errorf("primary iptables WSS: %w: %s", err, out) }
 		return nil
