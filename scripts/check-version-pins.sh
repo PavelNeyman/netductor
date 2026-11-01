@@ -37,7 +37,7 @@ done <<FIND
 $(find docs -type f \( -name '*.md' -o -name '*.sh' \) 2>/dev/null)
 FIND
 
-rel="$(grep -E 'const Release' internal/version/version.go | sed -E 's/.*"([0-9.]+)".*/\1/')"
+rel="$(grep -E '^[[:space:]]*(const|var)[[:space:]]+Release[[:space:]]*=' internal/version/version.go | sed -E 's/.*"([0-9.]+)".*/\1/')"
 if [[ "$rel" != "$VER" ]]; then
   echo "FAIL version.Release=$rel != VERSION=$VER"
   bad=1
