@@ -44,6 +44,7 @@ flock 8
 # persistent backup lock with rollback/finalize/cancel. Never unlink this lock.
 mkdir -p "$ND_BAK"
 test ! -L "$ND_BAK"
+chmod 700 "$ND_BAK"
 LOCK="$ND_BAK/lock"
 test ! -L "$LOCK"
 exec 9>"$LOCK"
@@ -74,6 +75,13 @@ fi
 find "$ND_BAK" -mindepth 1 -maxdepth 1 ! -name lock -exec rm -rf -- {} +
 rm -f "/etc/systemd/system/$ND_RB_UNIT" "/etc/systemd/system/$ND_RB_TIMER"
 systemctl daemon-reload
+
+# Serialize all firewall reads and writes across the snapshot/prepare window.
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 7>/run/lock/netductor-firewall.lock
+flock 7
+
 # --- Mandatory SSH backup ---
 test -f /etc/ssh/sshd_config
 cp -a /etc/ssh/sshd_config "$ND_BAK/sshd_config.bak"
@@ -83,6 +91,26 @@ else
   mkdir -p "$ND_BAK/sshd_config.d.bak"
 fi
 test -f "$ND_BAK/sshd_config.bak"
+
+# Record whether the factory SSH listener exists before changing sshd.
+# A previously hardened :52222-only host must not acquire a temporary :22 hole.
+if command -v ss >/dev/null 2>&1; then
+  if ! SS_LISTENERS=$(ss -H -ltn); then
+    echo "cannot inspect TCP listeners before SSH hardening" >&2
+    exit 1
+  fi
+  if printf '%s\n' "$SS_LISTENERS" | awk '$4 ~ /:22$/ { found=1 } END { exit !found }'; then
+    : > "$ND_BAK/factory-ssh-present"
+  fi
+else
+  if [ ! -r /proc/net/tcp ]; then
+    echo "cannot inspect TCP listeners before SSH hardening" >&2
+    exit 1
+  fi
+  if awk 'FNR==1 { next } $4=="0A" { split($2,a,":"); if (toupper(a[2])=="0016") found=1 } END { exit !found }' /proc/net/tcp /proc/net/tcp6; then
+    : > "$ND_BAK/factory-ssh-present"
+  fi
+fi
 
 # --- Socket unit state (enabled / active / masked) ---
 for u in ssh.socket sshd.socket; do
@@ -137,6 +165,10 @@ else
     cp -a /etc/ufw/user6.rules "$ND_BAK/ufw/user6.rules"
   fi
   if grep -qx active "$ND_BAK/ufw-policy"; then
+    if [ -f "$ND_BAK/factory-ssh-present" ] && ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+      echo "active UFW is missing the baseline factory SSH transition rule; refusing unsafe rollback snapshot" >&2
+      exit 1
+    fi
     test -f "$ND_BAK/ufw/user.rules"
     # if host has user6.rules, snapshot must include it
     if [ -f /etc/ufw/user6.rules ]; then
@@ -277,8 +309,9 @@ systemctl is-active ${ND_RB_TIMER}
 # independent policies active with different defaults.
 if command -v ufw >/dev/null 2>&1; then
   ufw allow "$ND_PORT"/tcp comment netductor-ssh
-  # Baseline normally installs this transition rule. Keep prepare idempotent.
-  if ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+  if [ -f "$ND_BAK/factory-ssh-present" ] && ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+    # UFW was inactive at snapshot time; install the transition exception
+    # before enabling it. Rollback will restore the inactive snapshot.
     ufw insert 1 allow 22/tcp comment netductor-ssh-bootstrap
   fi
   ufw allow 443/tcp comment netductor-vless
@@ -286,7 +319,9 @@ if command -v ufw >/dev/null 2>&1; then
   ufw --force enable
   ufw status | grep -qE "$ND_PORT/tcp"
 elif command -v iptables >/dev/null 2>&1; then
-  iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
+  if [ -f "$ND_BAK/factory-ssh-present" ]; then
+    iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
+  fi
   iptables -C INPUT -p tcp --dport "$ND_PORT" -j ACCEPT
   command -v netfilter-persistent >/dev/null 2>&1
   netfilter-persistent save
@@ -396,7 +431,9 @@ elif command -v iptables >/dev/null 2>&1; then
   chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
   test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
   iptables -C "$chain" -p tcp --dport 22 -j DROP
-  iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
+  if [ -f "$ND_BAK/factory-ssh-present" ]; then
+    iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
+  fi
   netfilter-persistent save
 fi
 echo "nd-harden-finalize: ok (rollback still armed until cancel)"
