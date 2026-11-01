@@ -440,8 +440,19 @@ WantedBy=timers.target
 	}
 	// The persistent absolute-time disarm is armed before the persistent UFW
 	// exception is created. A crash at any later point cannot strand public access.
+	if !time.Now().UTC().Before(st.Until) {
+		return rollback(fmt.Errorf("API public TTL expired before opening firewall"))
+	}
 	if err := ufwQuiet("allow", apiPublicPort+"/tcp", "comment", apiPublicComment); err != nil {
 		return rollback(fmt.Errorf("ufw allow public %s: %w", apiPublicPort, err))
+	}
+	// Guard against a short TTL expiring while systemd/UFW operations were in
+	// progress, or the timer firing before the allow rule was installed.
+	if !time.Now().UTC().Before(st.Until) {
+		return rollback(fmt.Errorf("API public TTL expired while opening firewall"))
+	}
+	if out, err := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
+		return rollback(fmt.Errorf("disarm timer stopped after opening firewall: %s", strings.TrimSpace(string(out))))
 	}
 	return nil
 }
