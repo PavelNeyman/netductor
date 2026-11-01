@@ -332,54 +332,77 @@ func ArmRecovery(ttl time.Duration) error {
 		}
 		const maxUpload = 512 << 20 // 512 MiB
 		dir := "/var/lib/netductor/backups/peers/core"
-		_ = os.MkdirAll(dir, 0o700)
-		name := r.Header.Get("X-Netductor-Backup-Name")
+		if err := ensureRecoveryBackupDir(dir); err != nil {
+			http.Error(w, "backup directory unavailable", 500)
+			return
+		}
+		name := strings.TrimSpace(r.Header.Get("X-Netductor-Backup-Name"))
 		if name == "" {
 			name = "netductor-upload-" + time.Now().UTC().Format("20060102-150405") + ".ndenc"
 		}
-		name = filepath.Base(name)
-		if name == "." || name == ".." || name == "" {
+		if name == "." || name == ".." || len(name) > 255 || filepath.Base(name) != name || strings.ContainsAny(name, "/\\\\") {
 			http.Error(w, "bad name", 400)
 			return
 		}
-		// refuse overwriting critical sidecars without explicit name policy
 		base := strings.ToLower(name)
 		if base == "backup_key.txt" || base == "components.txt" {
 			http.Error(w, "reserved name", 400)
 			return
 		}
+		if !strings.HasSuffix(base, ".ndenc") && !strings.HasSuffix(base, ".tar.gz") {
+			http.Error(w, "unsupported backup extension", 400)
+			return
+		}
 		outPath := filepath.Join(dir, name)
 		tmp, err := os.CreateTemp(dir, ".upload-*")
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, "create upload staging file", 500)
 			return
 		}
 		tmpName := tmp.Name()
+		cleanup := func() { _ = os.Remove(tmpName) }
 		r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
 		n, err := io.Copy(tmp, r.Body)
-		cerr := tmp.Close()
 		if err != nil {
-			_ = os.Remove(tmpName)
-			http.Error(w, err.Error(), 400)
-			return
-		}
-		if cerr != nil {
-			_ = os.Remove(tmpName)
-			http.Error(w, cerr.Error(), 500)
+			_ = tmp.Close()
+			cleanup()
+			http.Error(w, "read upload body", 400)
 			return
 		}
 		if n == 0 {
-			_ = os.Remove(tmpName)
+			_ = tmp.Close()
+			cleanup()
 			http.Error(w, "empty body", 400)
 			return
 		}
-		if err := os.Rename(tmpName, outPath); err != nil {
-			_ = os.Remove(tmpName)
-			http.Error(w, err.Error(), 500)
+		if err := tmp.Sync(); err != nil {
+			_ = tmp.Close()
+			cleanup()
+			http.Error(w, "sync upload staging file", 500)
+			return
+		}
+		if err := tmp.Close(); err != nil {
+			cleanup()
+			http.Error(w, "close upload staging file", 500)
+			return
+		}
+		// Hard-link publication is atomic and refuses to replace an existing backup.
+		if err := os.Link(tmpName, outPath); err != nil {
+			cleanup()
+			if os.IsExist(err) {
+				http.Error(w, "backup already exists", http.StatusConflict)
+				return
+			}
+			http.Error(w, "publish backup", 500)
+			return
+		}
+		cleanup()
+		if err := syncRecoveryDir(dir); err != nil {
+			http.Error(w, "sync backup directory", 500)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintf(w, "stored %s (%d bytes)\n", outPath, n)
+		fmt.Fprintf(w, "stored %s (%d bytes)\\n", name, n)
 	}))
 	mux.HandleFunc("/recovery/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -672,6 +695,36 @@ func writeRecoveryFingerprint(der []byte) error {
 	}
 	return syncRecoveryDir(dir)
 }
+
+
+ // ensureRecoveryBackupDir validates every path component before recovery files are
+ // read or published. In particular, a symlinked backup directory is never trusted.
+ func ensureRecoveryBackupDir(dir string) error {
+ 	if err := os.MkdirAll(dir, 0o700); err != nil {
+ 		return fmt.Errorf("create backup directory: %w", err)
+ 	}
+ 	for _, p := range []string{
+ 		"/var",
+ 		"/var/lib",
+ 		"/var/lib/netductor",
+ 		"/var/lib/netductor/backups",
+ 		"/var/lib/netductor/backups/peers",
+ 		dir,
+ 	} {
+ 		info, err := os.Lstat(p)
+ 		if err != nil {
+ 			return fmt.Errorf("inspect backup directory %s: %w", p, err)
+ 		}
+ 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+ 			return fmt.Errorf("backup path component %s is not a real directory", p)
+ 		}
+ 		st, ok := info.Sys().(*syscall.Stat_t)
+ 		if !ok || st.Uid != 0 || info.Mode().Perm()&0o022 != 0 {
+ 			return fmt.Errorf("backup path component %s is not root-owned and private", p)
+ 		}
+ 	}
+ 	return nil
+ }
 
 func recoveryBindIsLoopback(bind string) bool {
 
