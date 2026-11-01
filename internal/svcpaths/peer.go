@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // keysRoot is the svc-paths data dir (overridable in tests).
@@ -60,6 +62,45 @@ type PeersIndex struct {
 }
 
 var peerMu sync.Mutex
+
+// acquirePeerRegistryLock serializes peer-index read/modify/write operations
+// across CLI, API, recovery and agent processes. The lock lives beside peers.json.
+func acquirePeerRegistryLock() (func(), error) {
+	if err := os.MkdirAll(keysRoot, 0o700); err != nil {
+		return nil, fmt.Errorf("create peer registry directory: %w", err)
+	}
+	dirInfo, err := os.Lstat(keysRoot)
+	if err != nil {
+		return nil, fmt.Errorf("inspect peer registry directory: %w", err)
+	}
+	dirStat, ok := dirInfo.Sys().(*unix.Stat_t)
+	if !ok || !dirInfo.IsDir() || dirInfo.Mode()&os.ModeSymlink != 0 ||
+		dirStat.Uid != uint32(os.Geteuid()) || dirInfo.Mode().Perm()&0o022 != 0 {
+		return nil, fmt.Errorf("peer registry directory must be a real directory owned by euid %d and not writable by group/others", os.Geteuid())
+	}
+	path := filepath.Join(keysRoot, "peers.lock")
+	fd, err := unix.Open(path, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open peer registry lock: %w", err)
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("inspect peer registry lock: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("peer registry lock must be a private regular file owned by euid %d", os.Geteuid())
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("lock peer registry: %w", err)
+	}
+	return func() {
+		_ = unix.Flock(fd, unix.LOCK_UN)
+		_ = unix.Close(fd)
+	}, nil
+}
 
 // SlotTable fixed non-overlapping /30 pairs (slot0 = legacy constants).
 func SlotTable() []PeerSlot {
@@ -168,6 +209,9 @@ func applySlotToMaterial(m *Material, s PeerSlot) {
 
 // MigrateLegacyPeerIfNeeded imports single material.json as slot0 peer.
 func MigrateLegacyPeerIfNeeded() error {
+	unlock, err := acquirePeerRegistryLock()
+	if err != nil { return err }
+	defer unlock()
 	peerMu.Lock()
 	defer peerMu.Unlock()
 	return MigrateLegacyPeerIfNeededUnlocked()
