@@ -29,6 +29,12 @@ else
       legacy_found=1
     fi
   done
+  for iface in nd-svc-sp nd-svc-ps; do
+    if [[ -e "/sys/class/net/$iface" ]]; then
+      echo "BLOCK: legacy slot-0 kernel interface exists: $iface"
+      legacy_found=1
+    fi
+  done
   for u in wg-quick@nd-svc-sp wg-quick@nd-svc-ps nd-wss-sp-server nd-wss-ps-client; do
     if systemctl is-active --quiet "$u" 2>/dev/null; then
       echo "BLOCK: legacy slot-0 unit is active: $u"
