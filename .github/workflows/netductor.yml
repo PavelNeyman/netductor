@@ -43,6 +43,7 @@ jobs:
       - name: staticcheck
         run: |
           set -euo pipefail
+          mkdir -p "$GOBIN"
           go install honnef.co/go/tools/cmd/staticcheck@latest
           "$GOBIN/staticcheck" ./...
       - name: go build linux
