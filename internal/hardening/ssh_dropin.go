@@ -156,7 +156,11 @@ flock 9
 mkdir -p /run/lock
 test ! -L /run/lock/netductor-firewall.lock
 exec 8>/run/lock/netductor-firewall.lock
-flock 8
+# Recovery must not be skipped if a concurrent firewall apply holds the lock.
+# Wait briefly, then prioritize restoring SSH/firewall over serialization.
+if ! flock -w 15 8; then
+  echo "nd-harden-rollback: firewall lock timeout; proceeding with emergency restore" >&2
+fi
 if [ -f "$B/CANCELLED" ]; then
   echo "nd-harden-rollback: CANCELLED under lock — no-op"
   exit 0
