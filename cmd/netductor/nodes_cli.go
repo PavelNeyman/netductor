@@ -15,7 +15,9 @@ import (
 )
 
 func syncRelaysIntoNodes() {
-	_ = secondary.PruneDuplicates()
+	if _, err := secondary.PruneDuplicates(); err != nil {
+		fmt.Fprintf(os.Stderr, "secondary duplicate prune failed: %v\n", err)
+	}
 	for _, d := range secondary.List() {
 		host := d.Name
 		if host == "" || host == "secondary" {
