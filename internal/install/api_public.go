@@ -462,13 +462,11 @@ WantedBy=timers.target
 // DisarmAPIPublic removes temporary public allow; keeps service-plane rules intact.
 func DisarmAPIPublic() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
-		if err := removeAPIPublicTimerUnits(); err != nil {
-			return err
-		}
-		if err := removeAPIPublicState(); err != nil {
-			return err
-		}
-		return nil
+		// Do not discard the durable retry mechanism or its state: UFW may have
+		// been removed while its kernel rules are still active. Without the UFW
+		// frontend we cannot prove that the temporary public exception is gone.
+		// Keep the systemd service retrying until firewall cleanup is possible.
+		return fmt.Errorf("cannot safely disarm temporary public API access: ufw is unavailable: %w", err)
 	}
 	if err := deleteUFWByComment(apiPublicComment); err != nil {
 		return fmt.Errorf("remove temporary public API rules: %w", err)
