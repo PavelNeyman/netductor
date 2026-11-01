@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,7 +52,10 @@ type registry struct {
 	Devices     []Device `json:"devices"`
 }
 
-var mu sync.Mutex
+var (
+	mu sync.Mutex
+	ErrUnauthorized = errors.New("unauthorized")
+)
 
 func path() string {
 	return filepath.Join(paths.StateDir(), "secondary", "devices.json")
@@ -196,7 +200,7 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 		return nil, 0, err
 	}
 	if token == "" || len(token) < 16 {
-		return nil, 0, fmt.Errorf("unauthorized")
+		return nil, 0, ErrUnauthorized
 	}
 	for i := range r.Devices {
 		t := r.Devices[i].Token
@@ -247,7 +251,9 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 			kept = append(kept, r.Devices[j])
 		}
 		r.Devices = kept
-		_ = save(r)
+		if err := save(r); err != nil {
+			return nil, 0, fmt.Errorf("persist secondary heartbeat: %w", err)
+		}
 		// re-find current after prune
 		for j := range r.Devices {
 			if r.Devices[j].ID == curID {
