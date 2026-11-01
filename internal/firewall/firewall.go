@@ -907,6 +907,11 @@ func applyIPTables(role string) error {
 				return fmt.Errorf("iptables fallback allow %s: %w", port, err)
 			}
 		}
+		// UFW exposes the primary redirect listener over both TCP and UDP.
+		// Keep the fallback's protocol policy equivalent.
+		if err := must("-A", stagingChain, "-p", "udp", "--dport", redir, "-j", "ACCEPT"); err != nil {
+			return fmt.Errorf("iptables fallback allow redirect UDP %s: %w", redir, err)
+		}
 		for _, port := range []string{"8787", "8445", "8788"} {
 			if err := denyTCP(port); err != nil {
 				return fmt.Errorf("iptables fallback deny secondary-only port %s: %w", port, err)
