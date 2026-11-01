@@ -30,10 +30,10 @@ func ufwQuiet(args ...string) error {
 }
 
 // deleteUFWByComment removes rules whose status line contains comment (high→low numbers).
-func deleteUFWByComment(comment string) {
+func deleteUFWByComment(comment string) error {
 	out, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if err != nil {
-		return
+		return fmt.Errorf("ufw status numbered: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 	var nums []string
 	for _, ln := range strings.Split(string(out), "\n") {
@@ -54,8 +54,11 @@ func deleteUFWByComment(comment string) {
 		// argv only: rule number is data, must not go through a shell.
 		cmd := exec.Command("ufw", "--force", "delete", n)
 		cmd.Stdout, cmd.Stderr = nil, nil
-		_ = cmd.Run()
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("ufw delete numbered rule %s: %w", n, err)
+		}
 	}
+	return nil
 }
 
 // ArmAPIPublic opens :8789 from anywhere for ttl, then schedules disarm.
@@ -70,7 +73,9 @@ func ArmAPIPublic(ttl time.Duration) error {
 		return fmt.Errorf("ufw not found")
 	}
 	// clear only previous temp public rules (do not re-apply full firewall)
-	deleteUFWByComment(apiPublicComment)
+	if err := deleteUFWByComment(apiPublicComment); err != nil {
+		return fmt.Errorf("remove previous temporary public rules: %w", err)
+	}
 	_ = exec.Command("systemctl", "stop", "nd-api-public-disarm.timer").Run()
 
 	if err := ufwQuiet("allow", apiPublicPort+"/tcp", "comment", apiPublicComment); err != nil {
@@ -135,11 +140,17 @@ func DisarmAPIPublic() error {
 		_ = os.Remove(apiPublicStatePath)
 		return nil
 	}
-	deleteUFWByComment(apiPublicComment)
-	_ = os.Remove(apiPublicStatePath)
+	if err := deleteUFWByComment(apiPublicComment); err != nil {
+		return fmt.Errorf("remove temporary public API rules: %w", err)
+	}
+	if err := os.Remove(apiPublicStatePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove API public state: %w", err)
+	}
 	_ = exec.Command("systemctl", "stop", "nd-api-public-disarm.timer").Run()
-	// ensure restricted policy present (quiet)
-	_ = applyAgentFirewallQuiet()
+	// Ensure the restricted policy is restored; do not report disarm success on failure.
+	if err := applyAgentFirewallQuiet(); err != nil {
+		return fmt.Errorf("restore restricted agent firewall: %w", err)
+	}
 	return nil
 }
 
