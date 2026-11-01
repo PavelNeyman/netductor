@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -22,6 +24,28 @@ var (
 
 func buildRecoveryDir() string {
 	return "/var/lib/netductor-build/backups/peers/core"
+}
+
+func openBuildRecoveryBackup(path string) (*os.File, unix.Stat_t, error) {
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, unix.Stat_t{}, err
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, unix.Stat_t{}, err
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) {
+		_ = unix.Close(fd)
+		return nil, unix.Stat_t{}, fmt.Errorf("backup is not a regular file owned by the service user")
+	}
+	f := os.NewFile(uintptr(fd), path)
+	if f == nil {
+		_ = unix.Close(fd)
+		return nil, unix.Stat_t{}, fmt.Errorf("invalid backup file descriptor")
+	}
+	return f, st, nil
 }
 
 func ensureBuildRecoveryToken() string {
@@ -67,10 +91,11 @@ func armBuildRecovery(ttl time.Duration) {
 		}
 		var latest string
 		for _, e := range ents {
-			if e.IsDir() {
+			n := e.Name()
+			if e.IsDir() || strings.ContainsAny(n, "\\r\\n") ||
+				(!strings.HasSuffix(n, ".ndenc") && !strings.HasSuffix(n, ".tar.gz")) {
 				continue
 			}
-			n := e.Name()
 			if n > latest {
 				latest = n
 			}
@@ -79,8 +104,14 @@ func armBuildRecovery(ttl time.Duration) {
 			http.Error(w, "no backup", 404)
 			return
 		}
+		f, st, err := openBuildRecoveryBackup(filepath.Join(dir, latest))
+		if err != nil {
+			http.Error(w, "backup unavailable", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
 		w.Header().Set("X-Netductor-Backup-Name", latest)
-		http.ServeFile(w, r, filepath.Join(dir, latest))
+		http.ServeContent(w, r, latest, time.Unix(st.Mtim.Sec, st.Mtim.Nsec), f)
 	})
 	mux.HandleFunc("/recovery/components", func(w http.ResponseWriter, r *http.Request) {
 		auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
