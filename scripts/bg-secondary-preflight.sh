@@ -10,8 +10,10 @@ netductor inventory list 2>/dev/null || echo "(inventory empty/unavailable)"
 echo "== legacy material =="
 if [[ -f /etc/netductor/svc-paths/material.json ]]; then
   python3 -c "import json;m=json.load(open('/etc/netductor/svc-paths/material.json'));print('secondary',m.get('secondary_ip'),'slot',m.get('slot',0))"
+elif [[ -f /etc/netductor/svc-paths/peers.json ]] && python3 -c "import json,sys;d=json.load(open('/etc/netductor/svc-paths/peers.json'));sys.exit(0 if d.get('peers') else 1)"; then
+  echo "(legacy material absent; managed peer registry already exists)"
 else
-  echo "(no legacy material.json)"
+  echo "(no legacy material.json and no managed peer registry)"
   # An empty registry plus missing material is not proof of a fresh host.
   # Refuse slot-0 reuse if legacy WG/WSS or preferred-secondary state remains.
   legacy_found=0
