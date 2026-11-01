@@ -165,6 +165,9 @@ if [ -f "$B/CANCELLED" ]; then
   echo "nd-harden-rollback: CANCELLED under lock — no-op"
   exit 0
 fi
+# Once rollback starts, finalize/cancel must not overwrite or mask its result.
+touch "$B/ROLLBACK_STARTED"
+chmod 600 "$B/ROLLBACK_STARTED"
 
 # SSH restore under lock
 test -f "$B/sshd_config.bak"
@@ -232,6 +235,8 @@ if [ -f "$B/ufw-policy" ] && command -v ufw >/dev/null 2>&1; then
       ;;
   esac
 fi
+touch "$B/ROLLED_BACK"
+chmod 600 "$B/ROLLED_BACK"
 exit 0
 NDRBSH
 chmod 700 "$ND_RB_SCRIPT"
@@ -333,6 +338,10 @@ ND_PORT=%d
 mkdir -p "$ND_BAK"
 exec 7>"$ND_BAK/lock"
 flock 7
+if [ -f "$ND_BAK/ROLLBACK_STARTED" ] || [ -f "$ND_BAK/ROLLED_BACK" ]; then
+  echo "SSH rollback already started/completed; refusing to re-finalize" >&2
+  exit 1
+fi
 mkdir -p /etc/ssh/sshd_config.d
 cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'NDSSH'
 %sNDSSH
@@ -404,6 +413,10 @@ mkdir -p "$ND_BAK"
 exec 9>"$LOCK"
 # Block until rollback critical section finishes (or free)
 flock 9
+if [ -f "$ND_BAK/ROLLBACK_STARTED" ] || [ -f "$ND_BAK/ROLLED_BACK" ]; then
+  echo "SSH rollback already started/completed; cannot cancel it" >&2
+  exit 1
+fi
 touch "$ND_BAK/CANCELLED"
 chmod 600 "$ND_BAK/CANCELLED"
 
