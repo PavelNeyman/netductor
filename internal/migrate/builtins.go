@@ -83,6 +83,10 @@ func (m *ensureStateDirsMigration) Verify(ctx context.Context) error {
 
 type repairStateOnUpgradeMigration struct{}
 
+// repairStateOnUpgrade is replaceable in tests so synthetic roots never mutate
+// host-global Let's Encrypt paths. Production always uses the real repair.
+var repairStateOnUpgrade = install.RepairStateOnUpgrade
+
 func (m *repairStateOnUpgradeMigration) ID() string {
 	return "2026-10-repair-state-on-upgrade"
 }
@@ -110,7 +114,7 @@ func (m *repairStateOnUpgradeMigration) Required(ctx context.Context) (bool, err
 	return string(b) != "ok\n", nil
 }
 func (m *repairStateOnUpgradeMigration) Apply(ctx context.Context) error {
-	notes := install.RepairStateOnUpgrade()
+	notes := repairStateOnUpgrade()
 	var hard []string
 	for _, n := range notes {
 		if strings.HasPrefix(n, "state bad:") || strings.HasPrefix(n, "state parent:") || strings.HasPrefix(n, "le hooks:") || strings.HasPrefix(n, "chmod:") {
