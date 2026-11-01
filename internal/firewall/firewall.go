@@ -146,7 +146,7 @@ func wssExpectations(role string) ([]wssExpectation, error) {
 func verifyWSSRules(rules []ufwRule, role string) error {
 	expected, err := wssExpectations(role)
 	if err != nil { return err }
-	ports := roleWSSPorts(role)
+	ports := append(roleWSSPorts("primary"), roleWSSPorts("secondary")...)
 	for _, e := range expected {
 		action, found := firstTCPActionFromSource(rules, e.Port, e.Source, false)
 		if !found || action != "ALLOW" {
