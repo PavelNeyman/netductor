@@ -150,7 +150,9 @@ func EnforceState(s State) error {
 }
 
 func applyAgentURL(mode string) error {
-	_ = os.MkdirAll(filepath.Dir(coreURLPath), 0o700)
+	if err := os.MkdirAll(filepath.Dir(coreURLPath), 0o700); err != nil {
+		return fmt.Errorf("create agent URL directory: %w", err)
+	}
 	// Tunnel-only: SP default, PS when SP path is down. Never public WAN :8789.
 	pSP, pPS, addrErr := PrimaryTunnelAddrsStrict()
 	if addrErr != nil {
@@ -160,20 +162,32 @@ func applyAgentURL(mode string) error {
 	if mode == "public" || mode == "ps" || mode == "tunnel_ps" {
 		want = "https://" + pPS + ":8789"
 	}
-	cur := strings.TrimSpace(string(mustRead(coreURLPath)))
-	if cur == want {
+	curBytes, readErr := os.ReadFile(coreURLPath)
+	if readErr == nil && strings.TrimSpace(string(curBytes)) == want {
 		return nil
 	}
-	if err := os.WriteFile(coreURLPath, []byte(want+"\n"), 0o600); err != nil {
-		return err
+	modeBits, uid, gid := os.FileMode(0o600), os.Getuid(), os.Getgid()
+	info, statErr := os.Lstat(coreURLPath)
+	if statErr == nil {
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("agent URL path is not a regular file")
+		}
+		st, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			return fmt.Errorf("agent URL ownership metadata unavailable")
+		}
+		modeBits, uid, gid = info.Mode().Perm(), int(st.Uid), int(st.Gid)
+	} else if !os.IsNotExist(statErr) {
+		return fmt.Errorf("inspect agent URL file: %w", statErr)
 	}
-	fmt.Fprintf(os.Stderr, "svc-paths apply: agent URL → %s (tunnel-only)\n", want)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return fmt.Errorf("read agent URL file: %w", readErr)
+	}
+	if err := writeFileAtomic(coreURLPath, []byte(want+"\\n"), modeBits, uid, gid); err != nil {
+		return fmt.Errorf("atomically write agent URL: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "svc-paths apply: agent URL → %s (tunnel-only)\\n", want)
 	return nil
-}
-
-func mustRead(p string) []byte {
-	b, _ := os.ReadFile(p)
-	return b
 }
 
 func applyUserUplink(userPath string) error {
