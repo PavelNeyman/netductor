@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
+	"crypto/tls"
 	"time"
 )
 
@@ -449,60 +451,212 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool, err error) {
 	if os.Getenv("NETDUCTOR_RECOVERY_TLS") == "0" {
 		return "", "", false, nil
 	}
-	if st, e := os.Stat(recoveryCert); e == nil && st.Size() > 0 {
-		if st2, e2 := os.Stat(recoveryKey); e2 == nil && st2.Size() > 0 {
-			writeRecoveryFingerprintFromCert(recoveryCert)
-			return recoveryCert, recoveryKey, true, nil
-		}
-	}
-	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
+	const dir = "/etc/netductor/secrets"
+	if err := ensureRecoverySecretsDir(dir); err != nil {
 		return "", "", false, err
 	}
+
+	certInfo, certErr := os.Lstat(recoveryCert)
+	keyInfo, keyErr := os.Lstat(recoveryKey)
+	certExists := certErr == nil
+	keyExists := keyErr == nil
+	if certErr != nil && !os.IsNotExist(certErr) {
+		return "", "", false, fmt.Errorf("inspect recovery certificate: %w", certErr)
+	}
+	if keyErr != nil && !os.IsNotExist(keyErr) {
+		return "", "", false, fmt.Errorf("inspect recovery private key: %w", keyErr)
+	}
+	if certExists != keyExists {
+		return "", "", false, fmt.Errorf("recovery TLS certificate/key pair is incomplete; refusing implicit rotation")
+	}
+	if certExists {
+		if err := validateRecoveryTLSFile(recoveryCert, certInfo, false); err != nil {
+			return "", "", false, fmt.Errorf("validate recovery certificate: %w", err)
+		}
+		if err := validateRecoveryTLSFile(recoveryKey, keyInfo, true); err != nil {
+			return "", "", false, fmt.Errorf("validate recovery private key: %w", err)
+		}
+		pair, err := tls.LoadX509KeyPair(recoveryCert, recoveryKey)
+		if err != nil {
+			return "", "", false, fmt.Errorf("load recovery TLS key pair: %w", err)
+		}
+		if len(pair.Certificate) == 0 {
+			return "", "", false, fmt.Errorf("recovery TLS certificate chain is empty")
+		}
+		cert, err := x509.ParseCertificate(pair.Certificate[0])
+		if err != nil {
+			return "", "", false, fmt.Errorf("parse recovery TLS certificate: %w", err)
+		}
+		now := time.Now()
+		if now.Before(cert.NotBefore) || now.After(cert.NotAfter) {
+			return "", "", false, fmt.Errorf("recovery TLS certificate is outside its validity period")
+		}
+		if err := writeRecoveryFingerprint(cert.Raw); err != nil {
+			return "", "", false, fmt.Errorf("persist recovery TLS fingerprint: %w", err)
+		}
+		return recoveryCert, recoveryKey, true, nil
+	}
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return "", "", false, fmt.Errorf("generate recovery TLS key: %w", err)
+	}
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return "", "", false, fmt.Errorf("generate recovery TLS serial: %w", err)
+	}
+	now := time.Now()
 	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		SerialNumber: serial,
 		Subject:      pkix.Name{CommonName: "netductor-recovery"},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
+		NotBefore:    now.Add(-time.Hour),
+		NotAfter:     now.Add(10 * 365 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, fmt.Errorf("create recovery TLS certificate: %w", err)
 	}
-	cf, err := os.OpenFile(recoveryCert, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	keyDER, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, fmt.Errorf("marshal recovery TLS private key: %w", err)
 	}
-	_ = pem.Encode(cf, &pem.Block{Type: "CERTIFICATE", Bytes: der})
-	_ = cf.Close()
-	kf, err := os.OpenFile(recoveryKey, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	if len(certPEM) == 0 || len(keyPEM) == 0 {
+		return "", "", false, fmt.Errorf("encode recovery TLS PEM failed")
+	}
+	// Stage both files durably before publishing either final path. Hard links
+	// provide no-replace semantics; a crash between links leaves an incomplete
+	// pair, which the next startup rejects rather than silently rotating.
+	certTmp, err := writeRecoveryTemp(dir, ".recovery-cert-*", certPEM, 0o600)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, fmt.Errorf("stage recovery certificate: %w", err)
 	}
-	b, _ := x509.MarshalECPrivateKey(key)
-	_ = pem.Encode(kf, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
-	_ = kf.Close()
+	defer os.Remove(certTmp)
+	keyTmp, err := writeRecoveryTemp(dir, ".recovery-key-*", keyPEM, 0o600)
+	if err != nil {
+		return "", "", false, fmt.Errorf("stage recovery private key: %w", err)
+	}
+	defer os.Remove(keyTmp)
+	if err := os.Link(certTmp, recoveryCert); err != nil {
+		return "", "", false, fmt.Errorf("publish recovery certificate without replacement: %w", err)
+	}
+	if err := os.Link(keyTmp, recoveryKey); err != nil {
+		_ = os.Remove(recoveryCert)
+		return "", "", false, fmt.Errorf("publish recovery private key without replacement: %w", err)
+	}
+	if err := syncRecoveryDir(dir); err != nil {
+		return "", "", false, fmt.Errorf("sync recovery TLS directory: %w", err)
+	}
+	if _, err := tls.LoadX509KeyPair(recoveryCert, recoveryKey); err != nil {
+		_ = os.Remove(recoveryCert)
+		_ = os.Remove(recoveryKey)
+		_ = syncRecoveryDir(dir)
+		return "", "", false, fmt.Errorf("verify newly created recovery TLS pair: %w", err)
+	}
 	sum := sha256.Sum256(der)
 	fp := fmt.Sprintf("sha256:%x", sum[:])
-	_ = os.WriteFile("/etc/netductor/secrets/recovery.fp", []byte(fp+"\n"), 0o600)
+	if err := writeRecoveryFingerprint(der); err != nil {
+		return "", "", false, fmt.Errorf("persist recovery TLS fingerprint: %w", err)
+	}
 	fmt.Fprintf(os.Stderr, "recovery-tls: cert %s\nrecovery-tls: fingerprint %s\n  on primary: echo %s > /etc/netductor/secrets/recovery_peer.fp\n", recoveryCert, fp, fp)
 	return recoveryCert, recoveryKey, true, nil
 }
-func writeRecoveryFingerprintFromCert(certPath string) {
-	b, err := os.ReadFile(certPath)
+
+func ensureRecoverySecretsDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create secrets directory: %w", err)
+	}
+	info, err := os.Lstat(dir)
 	if err != nil {
-		return
+		return fmt.Errorf("inspect secrets directory: %w", err)
 	}
-	block, _ := pem.Decode(b)
-	if block == nil {
-		return
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("secrets path is not a private directory")
 	}
-	sum := sha256.Sum256(block.Bytes)
-	fp := fmt.Sprintf("sha256:%x", sum[:])
-	_ = os.WriteFile("/etc/netductor/secrets/recovery.fp", []byte(fp+"\n"), 0o600)
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Uid != 0 {
+		return fmt.Errorf("secrets directory is not owned by root")
+	}
+	return nil
+}
+
+func validateRecoveryTLSFile(path string, info os.FileInfo, private bool) error {
+	if info == nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s is not a regular non-symlink file", path)
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("%s has group/other permissions", path)
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Uid != 0 {
+		return fmt.Errorf("%s is not owned by root", path)
+	}
+	if private && info.Size() > 1<<20 {
+		return fmt.Errorf("%s exceeds size limit", path)
+	}
+	if info.Size() == 0 || info.Size() > 1<<20 {
+		return fmt.Errorf("%s has invalid size", path)
+	}
+	return nil
+}
+
+func writeRecoveryTemp(dir, pattern string, data []byte, mode os.FileMode) (string, error) {
+	f, err := os.CreateTemp(dir, pattern)
+	if err != nil {
+		return "", err
+	}
+	path := f.Name()
+	ok := false
+	defer func() {
+		_ = f.Close()
+		if !ok {
+			_ = os.Remove(path)
+		}
+	}()
+	if err := f.Chmod(mode); err != nil {
+		return "", err
+	}
+	if _, err := f.Write(data); err != nil {
+		return "", err
+	}
+	if err := f.Sync(); err != nil {
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+	ok = true
+	return path, nil
+}
+
+func syncRecoveryDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	if err := d.Sync(); err != nil {
+		_ = d.Close()
+		return err
+	}
+	return d.Close()
+}
+
+func writeRecoveryFingerprint(der []byte) error {
+	sum := sha256.Sum256(der)
+	data := []byte(fmt.Sprintf("sha256:%x\\n", sum[:]))
+	dir := filepath.Dir("/etc/netductor/secrets/recovery.fp")
+	tmp, err := writeRecoveryTemp(dir, ".recovery-fp-*", data, 0o600)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp)
+	if err := os.Rename(tmp, "/etc/netductor/secrets/recovery.fp"); err != nil {
+		return err
+	}
+	return syncRecoveryDir(dir)
 }
 
 func recoveryBindIsLoopback(bind string) bool {
