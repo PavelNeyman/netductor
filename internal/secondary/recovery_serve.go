@@ -646,7 +646,7 @@ func syncRecoveryDir(dir string) error {
 
 func writeRecoveryFingerprint(der []byte) error {
 	sum := sha256.Sum256(der)
-	data := []byte(fmt.Sprintf("sha256:%x\\n", sum[:]))
+	data := []byte(fmt.Sprintf("sha256:%x\n", sum[:]))
 	dir := filepath.Dir("/etc/netductor/secrets/recovery.fp")
 	tmp, err := writeRecoveryTemp(dir, ".recovery-fp-*", data, 0o600)
 	if err != nil {
