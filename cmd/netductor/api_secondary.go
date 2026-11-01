@@ -130,8 +130,14 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 			if body.Enabled != nil {
 				on = *body.Enabled
 			}
-			_ = secondary.SetExitEnabled(on)
-			_ = vpn.ApplyConfig()
+			if err := secondary.SetExitEnabled(on); err != nil {
+				http.Error(w, "failed to persist secondary exit setting", http.StatusInternalServerError)
+				return
+			}
+			if err := vpn.ApplyConfig(); err != nil {
+				http.Error(w, "secondary exit setting saved but VPN apply failed: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		writeJSON(w, 200, map[string]any{"exit_enabled": secondary.ExitEnabled()})
 	})
