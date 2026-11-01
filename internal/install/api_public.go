@@ -90,6 +90,39 @@ func removeAPIPublicUnit(name string) error {
 	return syncAPIPublicUnitDir()
 }
 
+func disableAPIPublicTimerIfPresent() error {
+	activeOut, _ := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput()
+	if strings.TrimSpace(string(activeOut)) == "active" {
+		if out, err := exec.Command("systemctl", "stop", apiPublicTimer).CombinedOutput(); err != nil {
+			return fmt.Errorf("stop disarm timer: %v (%s)", err, strings.TrimSpace(string(out)))
+		}
+	}
+	enabledOut, _ := exec.Command("systemctl", "is-enabled", apiPublicTimer).CombinedOutput()
+	enabled := strings.TrimSpace(string(enabledOut))
+	if enabled == "enabled" || enabled == "enabled-runtime" || enabled == "linked" || enabled == "linked-runtime" {
+		if out, err := exec.Command("systemctl", "disable", apiPublicTimer).CombinedOutput(); err != nil {
+			return fmt.Errorf("disable disarm timer: %v (%s)", err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+func removeAPIPublicTimerUnits() error {
+	if err := disableAPIPublicTimerIfPresent(); err != nil {
+		return err
+	}
+	if err := removeAPIPublicUnit(apiPublicTimer); err != nil {
+		return err
+	}
+	if err := removeAPIPublicUnit(apiPublicService); err != nil {
+		return err
+	}
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemd daemon-reload: %v (%s)", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func ufwQuiet(args ...string) error {
 	cmd := exec.Command("ufw", args...)
 	cmd.Stdout = nil
@@ -193,20 +226,11 @@ func ArmAPIPublic(ttl time.Duration) error {
 		if err := deleteUFWByComment(apiPublicComment); err != nil {
 			cleanup = append(cleanup, fmt.Errorf("remove temporary public UFW rule: %w", err))
 		}
-		if out, err := exec.Command("systemctl", "disable", "--now", apiPublicTimer).CombinedOutput(); err != nil {
-			cleanup = append(cleanup, fmt.Errorf("disable disarm timer: %v (%s)", err, strings.TrimSpace(string(out))))
+		if err := removeAPIPublicTimerUnits(); err != nil {
+			cleanup = append(cleanup, err)
 		}
 		if err := os.Remove(apiPublicStatePath); err != nil && !os.IsNotExist(err) {
 			cleanup = append(cleanup, fmt.Errorf("remove API public state: %w", err))
-		}
-		if err := removeAPIPublicUnit(apiPublicTimer); err != nil {
-			cleanup = append(cleanup, err)
-		}
-		if err := removeAPIPublicUnit(apiPublicService); err != nil {
-			cleanup = append(cleanup, err)
-		}
-		if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
-			cleanup = append(cleanup, fmt.Errorf("systemd daemon-reload: %v (%s)", err, strings.TrimSpace(string(out))))
 		}
 		if len(cleanup) != 0 {
 			return errors.Join(append([]error{cause}, cleanup...)...)
@@ -270,7 +294,12 @@ WantedBy=timers.target
 // DisarmAPIPublic removes temporary public allow; keeps service-plane rules intact.
 func DisarmAPIPublic() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
-		_ = os.Remove(apiPublicStatePath)
+		if err := removeAPIPublicTimerUnits(); err != nil {
+			return err
+		}
+		if err := os.Remove(apiPublicStatePath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove API public state: %w", err)
+		}
 		return nil
 	}
 	if err := deleteUFWByComment(apiPublicComment); err != nil {
@@ -280,17 +309,8 @@ func DisarmAPIPublic() error {
 	if err := applyAgentFirewallQuiet(); err != nil {
 		return fmt.Errorf("restore restricted agent firewall: %w", err)
 	}
-	if out, err := exec.Command("systemctl", "disable", "--now", apiPublicTimer).CombinedOutput(); err != nil {
-		return fmt.Errorf("disable disarm timer: %v (%s)", err, strings.TrimSpace(string(out)))
-	}
-	if err := removeAPIPublicUnit(apiPublicTimer); err != nil {
+	if err := removeAPIPublicTimerUnits(); err != nil {
 		return err
-	}
-	if err := removeAPIPublicUnit(apiPublicService); err != nil {
-		return err
-	}
-	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
-		return fmt.Errorf("systemd daemon-reload after disarm: %v (%s)", err, strings.TrimSpace(string(out)))
 	}
 	if err := os.Remove(apiPublicStatePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove API public state: %w", err)
