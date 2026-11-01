@@ -11,6 +11,7 @@ jobs:
       CGO_ENABLED: "0"
       GOTOOLCHAIN: auto
       GOFLAGS: -buildvcs=false
+      TMPDIR: /var/tmp/netductor-test-tmp
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -25,6 +26,8 @@ jobs:
       - name: go test
         run: |
           set -euo pipefail
+          mkdir -p "$TMPDIR"
+          chmod 700 "$TMPDIR"
           go test ./...
       - name: go vet
         run: |
