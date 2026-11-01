@@ -16,6 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/PavelNeyman/netductor/internal/httpx"
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/mtls"
@@ -386,6 +388,32 @@ func StartAgentPlane() error {
 	}()
 	return nil
 }
+func openRegularFileNoFollow(path string) (*os.File, unix.Stat_t, error) {
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, unix.Stat_t{}, err
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, unix.Stat_t{}, err
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG {
+		_ = unix.Close(fd)
+		return nil, unix.Stat_t{}, fmt.Errorf("not a regular file")
+	}
+	if st.Uid != uint32(os.Geteuid()) {
+		_ = unix.Close(fd)
+		return nil, unix.Stat_t{}, fmt.Errorf("file is not owned by the service user")
+	}
+	f := os.NewFile(uintptr(fd), path)
+	if f == nil {
+		_ = unix.Close(fd)
+		return nil, unix.Stat_t{}, fmt.Errorf("invalid file descriptor")
+	}
+	return f, st, nil
+}
+
 func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method", 405)
@@ -403,18 +431,18 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var latest string
-	var latestT int64
+	var latestT time.Time
 	for _, e := range ents {
 		n := e.Name()
 		if !strings.HasSuffix(n, ".ndenc") && !strings.HasSuffix(n, ".tar.gz") {
 			continue
 		}
 		info, err := e.Info()
-		if err != nil {
+		if err != nil || !info.Mode().IsRegular() {
 			continue
 		}
-		if info.ModTime().Unix() >= latestT {
-			latestT = info.ModTime().Unix()
+		if latest == "" || info.ModTime().After(latestT) {
+			latestT = info.ModTime()
 			latest = filepath.Join(dir, n)
 		}
 	}
@@ -422,33 +450,47 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no backups", 404)
 		return
 	}
-	// sidecars as headers
-	if b, err := os.ReadFile(filepath.Join(dir, "COMPONENTS.txt")); err == nil {
-		w.Header().Set("X-Netductor-Components", strings.ReplaceAll(strings.TrimSpace(string(b)), "\n", ","))
-	}
-	w.Header().Set("X-Netductor-Backup-Name", filepath.Base(latest))
-	if sum, err := fileSHA256Hex(latest); err == nil {
-		w.Header().Set("X-Netductor-Backup-SHA256", sum)
-	}
-	if st, err := os.Stat(latest); err == nil {
-		w.Header().Set("X-Netductor-Backup-Size", fmt.Sprintf("%d", st.Size()))
-	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeAttachmentFilename(filepath.Base(latest))+"\"")
-	http.ServeFile(w, r, latest)
-}
-
-func fileSHA256Hex(path string) (string, error) {
-	f, err := os.Open(path)
+	f, st, err := openRegularFileNoFollow(latest)
 	if err != nil {
-		return "", err
+		http.Error(w, "backup unavailable", http.StatusInternalServerError)
+		return
 	}
 	defer f.Close()
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return "", err
+		http.Error(w, "backup read failed", http.StatusInternalServerError)
+		return
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	// Sidecars as headers.
+	if b, err := os.ReadFile(filepath.Join(dir, "COMPONENTS.txt")); err == nil {
+		w.Header().Set("X-Netductor-Components", strings.ReplaceAll(strings.TrimSpace(string(b)), "\n", ","))
+	}
+	name := filepath.Base(latest)
+	w.Header().Set("X-Netductor-Backup-Name", name)
+	w.Header().Set("X-Netductor-Backup-SHA256", hex.EncodeToString(h.Sum(nil)))
+	w.Header().Set("X-Netductor-Backup-Size", fmt.Sprintf("%d", st.Size))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeAttachmentFilename(name)+"\"")
+	http.ServeContent(w, r, name, time.Unix(st.Mtim.Sec, st.Mtim.Nsec), f)
+}
+
+func readSmallRegularFileNoFollow(path string, maxSize int64) ([]byte, error) {
+	f, st, err := openRegularFileNoFollow(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if st.Size < 0 || st.Size > maxSize {
+		return nil, fmt.Errorf("file size exceeds %d bytes", maxSize)
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > maxSize {
+		return nil, fmt.Errorf("file size exceeds %d bytes", maxSize)
+	}
+	return b, nil
 }
 
 func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {
@@ -462,14 +504,18 @@ func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keyPath := filepath.Join(paths.StateDir(), "backups", "BACKUP_KEY.txt")
-	b, err := os.ReadFile(keyPath)
+	b, err := readSmallRegularFileNoFollow(keyPath, 64<<10)
+	if errors.Is(err, unix.ENOENT) {
+		// Preserve the legacy fallback when the backup directory key is absent.
+		b, err = readSmallRegularFileNoFollow(filepath.Join(paths.EtcDir(), "secrets", "backup_key"), 64<<10)
+	}
 	if err != nil {
-		// fallback secret
-		b, err = os.ReadFile(filepath.Join(paths.EtcDir(), "secrets", "backup_key"))
-		if err != nil {
+		if errors.Is(err, unix.ENOENT) {
 			http.Error(w, "no key", 404)
-			return
+		} else {
+			http.Error(w, "backup key unavailable", http.StatusInternalServerError)
 		}
+		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	_, _ = w.Write(b)
