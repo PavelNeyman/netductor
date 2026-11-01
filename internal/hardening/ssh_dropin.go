@@ -336,8 +336,10 @@ if [ "$FW_RESTORE_OK" -ne 1 ]; then
     if [ -f "$B/factory-ssh-present" ]; then
       emergency_port=22
     fi
-    if ufw insert 1 allow "$emergency_port"/tcp comment netductor-ssh-rollback-emergency; then
-      ufw status numbered | grep -Fq 'netductor-ssh-rollback-emergency' || true
+    if ! ufw status numbered | grep -Fq 'netductor-ssh-rollback-emergency'; then
+      if ufw insert 1 allow "$emergency_port"/tcp comment netductor-ssh-rollback-emergency; then
+        ufw status numbered | grep -Fq 'netductor-ssh-rollback-emergency' || true
+      fi
     fi
   fi
   touch "$B/ROLLBACK_FAILED"
