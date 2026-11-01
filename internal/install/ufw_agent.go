@@ -3,7 +3,6 @@ package install
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
