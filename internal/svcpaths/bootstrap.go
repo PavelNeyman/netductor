@@ -845,6 +845,10 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 		script := "set -e; " +
 			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 1; fi; " +
 			strings.Join(dels, "; ") + "; " +
+			// Remove only the exact Netductor source rules before re-adding them.
+			// Never touch administrator rules or another peer's source restriction.
+			fmt.Sprintf("while ufw --force delete allow from %s to any port %d proto tcp comment nd-wss-sp 2>/dev/null; do :; done; ", secondaryPub, wssSP) +
+			fmt.Sprintf("while ufw --force delete allow from %s to any port 8789 proto tcp comment nd-svc-sp 2>/dev/null; do :; done; ", sSP) +
 			fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment nd-wss-sp; ", secondaryPub, wssSP) +
 			fmt.Sprintf("ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; ", sSP) +
 			strings.Join(openChecks, "; ") + "; echo primary-ufw-wss-ok"
@@ -889,10 +893,11 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		script := fmt.Sprintf(`set -e
 ufw status 2>/dev/null | grep -qi 'Status: active'
 ufw --force delete allow %d/tcp 2>/dev/null || true
+while ufw --force delete allow from %s to any port %d proto tcp comment nd-wss-ps 2>/dev/null; do :; done
 ufw allow from %s to any port %d proto tcp comment nd-wss-ps
 if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi
 echo secondary-ufw-wss-ok
-`, wssPS, primaryPub, wssPS, openRE)
+`, wssPS, primaryPub, wssPS, primaryPub, wssPS, openRE)
 		out, err := exec.Command("bash", "-c", script).CombinedOutput()
 		if err != nil { return fmt.Errorf("secondary ufw WSS: %w: %s", err, out) }
 		return nil
