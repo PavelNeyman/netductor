@@ -359,7 +359,7 @@ func ArmRecovery(ttl time.Duration) error {
 			return
 		}
 		if _, err := io.Copy(w, f); err != nil {
-			fmt.Fprintf(os.Stderr, "recovery-serve: components response failed: %v\\n", err)
+			fmt.Fprintf(os.Stderr, "recovery-serve: components response failed: %v\n", err)
 		}
 	}))
 	mux.HandleFunc("/recovery/upload", auth(func(w http.ResponseWriter, r *http.Request) {
