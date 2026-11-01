@@ -254,24 +254,69 @@ for u in ssh.socket sshd.socket; do
   esac
 done
 
-# UFW: restore files only (no heuristic allow 22). Failure does not undo SSH.
-set +e
+# Restore the exact UFW snapshot. Never mark rollback complete when
+# restoring the firewall failed: the old sshd config may listen only on :22.
+FW_RESTORE_OK=1
 if [ -f "$B/ufw-policy" ] && command -v ufw >/dev/null 2>&1; then
   pol=$(cat "$B/ufw-policy")
   case "$pol" in
     absent|inactive)
-      [ -f "$B/ufw/user.rules" ] && cp -a "$B/ufw/user.rules" /etc/ufw/user.rules
-      [ -f "$B/ufw/user6.rules" ] && cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules
-      ufw --force disable
+      if [ -f "$B/ufw/user.rules" ] && ! cp -a "$B/ufw/user.rules" /etc/ufw/user.rules; then
+        echo "nd-harden-rollback: failed to restore UFW IPv4 rules" >&2
+        FW_RESTORE_OK=0
+      fi
+      if [ -f "$B/ufw/user6.rules" ] && ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
+        echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
+        FW_RESTORE_OK=0
+      fi
+      if ! ufw --force disable; then
+        echo "nd-harden-rollback: failed to restore inactive UFW state" >&2
+        FW_RESTORE_OK=0
+      fi
       ;;
     active)
-      [ -f "$B/ufw/user.rules" ] && cp -a "$B/ufw/user.rules" /etc/ufw/user.rules
-      [ -f "$B/ufw/user6.rules" ] && cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules
-      ufw reload
+      if [ ! -f "$B/ufw/user.rules" ]; then
+        echo "nd-harden-rollback: UFW IPv4 snapshot is missing" >&2
+        FW_RESTORE_OK=0
+      elif ! cp -a "$B/ufw/user.rules" /etc/ufw/user.rules; then
+        echo "nd-harden-rollback: failed to restore UFW IPv4 rules" >&2
+        FW_RESTORE_OK=0
+      fi
+      if [ -f /etc/ufw/user6.rules ]; then
+        if [ ! -f "$B/ufw/user6.rules" ] || ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
+          echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
+          FW_RESTORE_OK=0
+        fi
+      elif [ -f "$B/ufw/user6.rules" ] && ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
+        echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
+        FW_RESTORE_OK=0
+      fi
+      if ! ufw reload; then
+        echo "nd-harden-rollback: failed to reload restored UFW policy" >&2
+        FW_RESTORE_OK=0
+      fi
+      ;;
+    *)
+      echo "nd-harden-rollback: unknown UFW snapshot state: $pol" >&2
+      FW_RESTORE_OK=0
       ;;
   esac
 fi
-set -e
+
+if [ "$FW_RESTORE_OK" -ne 1 ]; then
+  # Best-effort emergency management access. This is intentionally an ALLOW
+  # only when exact rollback failed; it is tagged for console-side cleanup.
+  if command -v ufw >/dev/null 2>&1; then
+    if ufw insert 1 allow 22/tcp comment netductor-ssh-rollback-emergency; then
+      ufw status numbered | grep -Fq 'netductor-ssh-rollback-emergency' || true
+    fi
+  fi
+  touch "$B/ROLLBACK_FAILED"
+  chmod 600 "$B/ROLLBACK_FAILED"
+  echo "nd-harden-rollback: firewall restore incomplete; rollback remains failed and may be retried from console" >&2
+  exit 1
+fi
+
 touch "$B/ROLLED_BACK"
 chmod 600 "$B/ROLLED_BACK"
 exit 0
