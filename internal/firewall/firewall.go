@@ -238,7 +238,7 @@ func persistRole(role string) error {
 		_ = f.Close()
 		return fmt.Errorf("firewall: chmod role temp file: %w", err)
 	}
-	if _, err := f.WriteString(role+"\\n"); err != nil {
+	if _, err := f.WriteString(role+"\n"); err != nil {
 		_ = f.Close()
 		return fmt.Errorf("firewall: write role: %w", err)
 	}
