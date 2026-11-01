@@ -790,8 +790,9 @@ func caPathFromEnv() string {
 	return "/etc/netductor/secrets/recovery_peer.crt"
 }
 
-// recoveryHTTPClient: pin required (CA PEM or cert fingerprint). No silent insecure.
-// Order: NETDUCTOR_RECOVERY_CA → secrets/recovery_peer.crt → NETDUCTOR_RECOVERY_FINGERPRINT / secrets/recovery_peer.fp
+// recoveryHTTPClient: pin required (CA PEM or certificate fingerprint). No silent insecure.
+// For a specific secondary set NETDUCTOR_RECOVERY_DEVICE_ID to select its stored pin.
+// Legacy shared recovery_peer.fp remains supported only when no device ID is supplied.
 // Escape: NETDUCTOR_RECOVERY_INSECURE=1 only (stderr WARN).
 func recoveryHTTPClient() (*http.Client, error) {
 	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
@@ -834,6 +835,16 @@ func recoveryHTTPClient() (*http.Client, error) {
 func recoveryFingerprint() string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_FINGERPRINT")); v != "" {
 		return v
+	}
+	if deviceID := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_DEVICE_ID")); deviceID != "" {
+		sum := sha256.Sum256([]byte(deviceID))
+		name := "recovery_peer_" + hex.EncodeToString(sum[:]) + ".fp"
+		path := filepath.Join(paths.StateDir(), "secondary", name)
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(b))
 	}
 	b, err := os.ReadFile("/etc/netductor/secrets/recovery_peer.fp")
 	if err != nil {
