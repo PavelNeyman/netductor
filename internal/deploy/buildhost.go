@@ -188,6 +188,9 @@ chmod 600 /var/lib/netductor/build-hosts/%s.json
 		deviceID, deviceID, o.Label, o.BuildHost, o.BuildUser, token, time.Now().UTC().Format(time.RFC3339), deviceID)
 	out, err = runSSH("", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, reg, o.PrimaryKeyPassphrase)
 	fmt.Fprint(os.Stderr, out)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "warn primary build-host registration:", err)
+	}
 
 	agentCfg := fmt.Sprintf("SERVER=%s\nTOKEN=%s\nDEVICE_ID=%s\nROLE=build\nINTERVAL=30\n", primaryURL, token, deviceID)
 	tmpCfg := filepath.Join(os.TempDir(), "nd-bh-agent.conf")
