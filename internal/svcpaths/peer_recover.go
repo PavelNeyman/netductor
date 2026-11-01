@@ -42,7 +42,7 @@ func writePeerOpDefault(op peerOp) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(peerOpPath(op.PeerID), b, 0o600)
+	return atomicWritePeerFile(peerOpPath(op.PeerID), b, 0o600)
 }
 
 func writePeerOp(op peerOp) error {
@@ -50,11 +50,16 @@ func writePeerOp(op peerOp) error {
 }
 
 func clearPeerOp(id string) {
-	_ = os.Remove(peerOpPath(id))
+	path := peerOpPath(id)
+	if err := os.Remove(path); err != nil { return }
+	if dir, err := os.Open(filepath.Dir(path)); err == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
 }
 
 func loadPeerOp(id string) (*peerOp, error) {
-	b, err := os.ReadFile(peerOpPath(id))
+	b, err := readPeerFile(peerOpPath(id), maxPeerJSONBytes)
 	if err != nil {
 		return nil, err
 	}
