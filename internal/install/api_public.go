@@ -129,6 +129,45 @@ func deleteUFWByComment(comment string) error {
 	return nil
 }
 
+// deleteUFWUnrestrictedPort removes only unrestricted ALLOW IN Anywhere rules
+// for a TCP port. CIDR-scoped service rules are left untouched.
+func deleteUFWUnrestrictedPort(port string) error {
+	out, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ufw status numbered: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	want := port + "/tcp"
+	var nums []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "[") {
+			continue
+		}
+		end := strings.Index(line, "]")
+		if end < 0 {
+			continue
+		}
+		fields := strings.Fields(strings.TrimSpace(line[end+1:]))
+		if len(fields) < 4 || fields[0] != want {
+			continue
+		}
+		i := 1
+		if fields[i] == "(v6)" {
+			i++
+		}
+		if len(fields) > i+2 && fields[i] == "ALLOW" && fields[i+1] == "IN" && fields[i+2] == "Anywhere" {
+			nums = append([]string{strings.TrimSpace(line[1:end])}, nums...)
+		}
+	}
+	for _, n := range nums {
+		cmd := exec.Command("ufw", "--force", "delete", n)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("ufw delete unrestricted %s rule %s: %w (%s)", port, n, err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
 // ArmAPIPublic opens :8789 from anywhere for ttl, then schedules disarm.
 func ArmAPIPublic(ttl time.Duration) error {
 	if ttl < time.Minute {
