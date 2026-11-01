@@ -37,7 +37,12 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 			http.Error(w, "id", 400)
 			return
 		}
-		for _, d := range secondary.List() {
+		devs, err := secondary.ListE()
+		if err != nil {
+			http.Error(w, "secondary registry unavailable", http.StatusInternalServerError)
+			return
+		}
+		for _, d := range devs {
 			if d.ID == id {
 				writeJSON(w, 200, d)
 				return
@@ -103,7 +108,11 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 		if !requireSession(w, r) {
 			return
 		}
-		devs := secondary.List()
+		devs, err := secondary.ListE()
+		if err != nil {
+			http.Error(w, "secondary registry unavailable", http.StatusInternalServerError)
+			return
+		}
 		type row struct {
 			secondary.Device
 			Online bool `json:"online"`
@@ -112,8 +121,13 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 		for _, d := range devs {
 			out = append(out, row{Device: d, Online: secondary.Online(d, 2*time.Minute)})
 		}
+		configVer, err := secondary.ConfigVerE()
+		if err != nil {
+			http.Error(w, "secondary registry unavailable", http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, 200, map[string]any{
-			"config_ver": secondary.ConfigVer(),
+			"config_ver": configVer,
 			"devices":    out,
 		})
 	})
@@ -139,14 +153,23 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 				return
 			}
 		}
-		writeJSON(w, 200, map[string]any{"exit_enabled": secondary.ExitEnabled()})
+		exitEnabled, err := secondary.ExitEnabledE()
+		if err != nil {
+			http.Error(w, "secondary registry unavailable", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"exit_enabled": exitEnabled})
 	})
 	mux.HandleFunc("/api/secondary/links", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
 			return
 		}
 		// mobile links from last heartbeat identity
-		devs := secondary.List()
+		devs, err := secondary.ListE()
+		if err != nil {
+			http.Error(w, "secondary registry unavailable", http.StatusInternalServerError)
+			return
+		}
 		var links []map[string]string
 		reg, _ := vpn.ExportSecondaryBundle("ya.ru") // users only
 		for _, d := range devs {
