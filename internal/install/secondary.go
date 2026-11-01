@@ -291,6 +291,7 @@ type secondaryUnitSnapshot struct {
 	mode os.FileMode
 	exists bool
 	enabledState string
+	activeState string
 }
 
 type secondaryUnitTransaction struct { units []secondaryUnitSnapshot }
@@ -304,16 +305,25 @@ func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
 		if err == nil {
 			if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 { return nil, fmt.Errorf("unit %s is not a regular file", name) }
 			u.data, err = os.ReadFile(path)
-			if err != nil { return nil, fmt.Errorf("read %s: %w", name, err) }
+			if err != nil { return nil, fmt.Errorf("read %s: %w", path, err) }
 			u.mode, u.exists = st.Mode().Perm(), true
-		} else if !os.IsNotExist(err) { return nil, fmt.Errorf("inspect %s: %w", name, err) }
-		out, enabledErr := exec.Command("systemctl", "is-enabled", strings.TrimSuffix(name, ".service")).CombinedOutput()
+		} else if !os.IsNotExist(err) { return nil, fmt.Errorf("inspect %s: %w", path, err) }
+		unit := strings.TrimSuffix(name, ".service")
+		out, enabledErr := exec.Command("systemctl", "is-enabled", unit).CombinedOutput()
 		u.enabledState = strings.TrimSpace(string(out))
 		if enabledErr != nil {
 			switch u.enabledState {
 			case "disabled", "not-found", "static", "indirect", "masked", "masked-runtime", "generated", "transient":
 			default: return nil, fmt.Errorf("query enablement for %s: %s: %w", name, u.enabledState, enabledErr)
 			}
+		}
+		activeOut, activeErr := exec.Command("systemctl", "is-active", unit).CombinedOutput()
+		u.activeState = strings.TrimSpace(string(activeOut))
+		if activeErr != nil && u.activeState != "inactive" && u.activeState != "failed" {
+			return nil, fmt.Errorf("query active state for %s: %s: %w", name, u.activeState, activeErr)
+		}
+		if u.activeState != "active" && u.activeState != "inactive" && u.activeState != "failed" {
+			return nil, fmt.Errorf("query active state for %s: unexpected state %q", name, u.activeState)
 		}
 		t.units = append(t.units, u)
 	}
@@ -322,13 +332,13 @@ func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
 
 func (t *secondaryUnitTransaction) rollback() error {
 	var errs []string
-	// Fail closed: stop both managed units unconditionally. is-active is not
-	// authoritative when systemd is unavailable or its query fails.
+	// Stop managed units before restoring definitions and files.
 	for _, unit := range []string{"netductor-secondary-agent", "sing-box"} {
 		if out, err := exec.Command("systemctl", "stop", unit).CombinedOutput(); err != nil {
 			errs = append(errs, fmt.Sprintf("stop %s: %s: %v", unit, strings.TrimSpace(string(out)), err))
 		}
 	}
+	restoreFailed := make(map[string]bool, len(t.units))
 	for i := len(t.units)-1; i >= 0; i-- {
 		u := t.units[i]
 		var err error
@@ -339,9 +349,13 @@ func (t *secondaryUnitTransaction) rollback() error {
 			if os.IsNotExist(err) { err = nil }
 			if err == nil { err = syncDirectory(filepath.Dir(u.path)) }
 		}
-		if err != nil { errs = append(errs, fmt.Sprintf("restore %s: %v", u.name, err)) }
+		if err != nil {
+			restoreFailed[u.name] = true
+			errs = append(errs, fmt.Sprintf("restore %s: %v", u.name, err))
+		}
 	}
-	if err := run("systemctl", "daemon-reload"); err != nil { errs = append(errs, fmt.Sprintf("daemon-reload: %v", err)) }
+	reloadErr := run("systemctl", "daemon-reload")
+	if reloadErr != nil { errs = append(errs, fmt.Sprintf("daemon-reload: %v", reloadErr)) }
 	for _, u := range t.units {
 		unit := strings.TrimSuffix(u.name, ".service")
 		var err error
@@ -362,6 +376,11 @@ func (t *secondaryUnitTransaction) rollback() error {
 			}
 		}
 		if err != nil { errs = append(errs, fmt.Sprintf("restore enablement %s (%s): %v", unit, u.enabledState, err)) }
+		if u.activeState == "active" && reloadErr == nil && !restoreFailed[u.name] {
+			if err := run("systemctl", "start", unit); err != nil {
+				errs = append(errs, fmt.Sprintf("restore active state %s: %v", unit, err))
+			}
+		}
 	}
 	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
 	return nil
