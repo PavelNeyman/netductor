@@ -785,7 +785,9 @@ func ufwOpenPortAnywherePattern(port int) string {
 // applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
 // Also removes Anywhere rules for every SlotTable WSS_SP port (legacy A on slot 0 when adding B).
 func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
-	if secondaryPub == "" { return nil }
+	if strings.TrimSpace(secondaryPub) == "" || strings.TrimSpace(sSP) == "" || wssSP <= 0 {
+		return fmt.Errorf("primary WSS firewall requires secondary public IP, SP peer address and valid WSS port")
+	}
 	if _, err := exec.LookPath("ufw"); err == nil {
 		var dels []string
 		seen := map[int]bool{}
@@ -839,7 +841,9 @@ echo primary-iptables-wss-ok
 }
 
 func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
-	if primaryPub == "" { return nil }
+	if strings.TrimSpace(primaryPub) == "" || wssPS <= 0 {
+		return fmt.Errorf("secondary WSS firewall requires primary public IP and valid WSS port")
+	}
 	if _, err := exec.LookPath("ufw"); err == nil {
 		openRE := ufwOpenPortAnywherePattern(wssPS)
 		script := fmt.Sprintf(`set -e
