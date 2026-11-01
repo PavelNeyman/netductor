@@ -709,6 +709,14 @@ func managedInputJump(rules string) (position int, chain string, err error) {
 			if target != "NETDUCTOR" && target != "NETDUCTOR_A" && target != "NETDUCTOR_B" {
 				continue
 			}
+			// Replacing a conditional jump with an unconditional one would
+			// silently broaden its scope. A goto also has different return
+			// semantics from a jump. Only accept the exact rule shape that this
+			// function itself installs; fail closed on legacy/foreign variants.
+			if i != 2 || len(fields) != 4 ||
+				(fields[2] != "-j" && fields[2] != "--jump") {
+				return 0, "", fmt.Errorf("managed INPUT jump to %s is conditional or has unsupported semantics: %s", target, line)
+			}
 			if chain != "" {
 				return 0, "", fmt.Errorf("multiple Netductor INPUT jumps (%s and %s)", chain, target)
 			}
