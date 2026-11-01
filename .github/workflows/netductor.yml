@@ -3,7 +3,9 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: golang:1.26-bookworm
+    container:
+      image: golang:1.26-bookworm
+      options: --user 1001:1001
     defaults:
       run:
         shell: bash
@@ -11,6 +13,11 @@ jobs:
       CGO_ENABLED: "0"
       GOTOOLCHAIN: auto
       GOFLAGS: -buildvcs=false
+      HOME: /tmp
+      GOPATH: /tmp/go
+      GOCACHE: /tmp/go-cache
+      GOMODCACHE: /tmp/go/pkg/mod
+      GOBIN: /tmp/go/bin
       TMPDIR: /var/tmp/netductor-test-tmp
     steps:
       - name: checkout
@@ -37,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./...
+          "$GOBIN/staticcheck" ./...
       - name: go build linux
         run: |
           set -euo pipefail
@@ -48,7 +55,9 @@ jobs:
           /tmp/netductor version | grep -q node
   macos-cross:
     runs-on: ubuntu-latest
-    container: golang:1.26-bookworm
+    container:
+      image: golang:1.26-bookworm
+      options: --user 1001:1001
     defaults:
       run:
         shell: bash
@@ -56,6 +65,11 @@ jobs:
       CGO_ENABLED: "0"
       GOTOOLCHAIN: auto
       GOFLAGS: -buildvcs=false
+      HOME: /tmp
+      GOPATH: /tmp/go
+      GOCACHE: /tmp/go-cache
+      GOMODCACHE: /tmp/go/pkg/mod
+      GOBIN: /tmp/go/bin
     steps:
       - name: checkout
         uses: actions/checkout@v4
