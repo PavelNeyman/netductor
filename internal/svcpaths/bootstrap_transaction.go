@@ -1,6 +1,8 @@
 package svcpaths
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -74,19 +76,11 @@ func beginBootstrapFileTransaction(role, peerID string, slot int) (*bootstrapFil
 }
 
 func randomBootstrapTransactionID() (string, error) {
-	f, err := os.CreateTemp("", "netductor-bootstrap-id-*")
-	if err != nil {
-		return "", fmt.Errorf("allocate bootstrap transaction id: %w", err)
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", fmt.Errorf("generate bootstrap transaction id: %w", err)
 	}
-	name := filepath.Base(f.Name())
-	if err := f.Close(); err != nil {
-		_ = os.Remove(f.Name())
-		return "", err
-	}
-	if err := os.Remove(f.Name()); err != nil {
-		return "", fmt.Errorf("remove bootstrap transaction id temp: %w", err)
-	}
-	return fmt.Sprintf("%x-%x", time.Now().UTC().UnixNano(), len(name)), nil
+	return hex.EncodeToString(raw[:]), nil
 }
 
 func (tx *bootstrapFileTransaction) persist() error {
