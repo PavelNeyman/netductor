@@ -808,15 +808,30 @@ func recoveryHTTPClient() (*http.Client, error) {
 		cfg.RootCAs = pool
 	} else if fp := recoveryFingerprint(); fp != "" {
 		want := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(fp), "sha256:"))
-		cfg.InsecureSkipVerify = true //nolint:gosec // replaced by VerifyPeerCertificate
-		cfg.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-			if len(rawCerts) == 0 {
-				return fmt.Errorf("recovery: empty peer cert")
+		cfg.InsecureSkipVerify = true //nolint:gosec // exact certificate pin is the trust anchor
+		cfg.VerifyConnection = func(state tls.ConnectionState) error {
+			if len(state.PeerCertificates) == 0 {
+				return fmt.Errorf("recovery: empty peer certificate chain")
 			}
-			sum := sha256.Sum256(rawCerts[0])
+			leaf := state.PeerCertificates[0]
+			sum := sha256.Sum256(leaf.Raw)
 			got := fmt.Sprintf("%x", sum[:])
 			if got != want {
 				return fmt.Errorf("recovery fingerprint mismatch (got sha256:%s)", got)
+			}
+			now := time.Now()
+			if now.Before(leaf.NotBefore) || now.After(leaf.NotAfter) {
+				return fmt.Errorf("recovery pinned certificate is outside its validity period")
+			}
+			serverAuth := false
+			for _, usage := range leaf.ExtKeyUsage {
+				if usage == x509.ExtKeyUsageServerAuth || usage == x509.ExtKeyUsageAny {
+					serverAuth = true
+					break
+				}
+			}
+			if !serverAuth {
+				return fmt.Errorf("recovery pinned certificate is not valid for server authentication")
 			}
 			return nil
 		}
