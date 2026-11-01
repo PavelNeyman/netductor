@@ -155,7 +155,7 @@ func GenerateMaterial(primaryIP, secondaryIP string) (*Material, error) {
 // os.ErrNotExist if absent; any other error = corrupt — never treat as missing.
 func loadMaterialJSON() (*Material, error) {
 	path := filepath.Join(keysRoot, "material.json")
-	b, err := os.ReadFile(path)
+	b, err := readPeerFile(path, maxPeerJSONBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func writeFile(path, body string, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(body), mode)
+	return atomicWritePeerFile(path, []byte(body), mode)
 }
 
 func unitFile(name, execStart string) error {
@@ -500,7 +500,7 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) error {
 		return err
 	}
 	if o.WriteLegacyMaterial {
-		if err := os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
+		if err := atomicWritePeerFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
 			return fmt.Errorf("material.json: %w", err)
 		}
 	}
@@ -662,10 +662,10 @@ AllowedIPs = %s/32
 		return err
 	}
 	pub := fmt.Sprintf("https://%s:8789", m.Primary)
-	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url.public", []byte(pub+"\n"), 0o600); err != nil {
+	if err := atomicWritePeerFile("/etc/netductor/secrets/secondary_core_url.public", []byte(pub+"\n"), 0o600); err != nil {
 		return err
 	}
-	if err := os.WriteFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+pSP+":8789\n"), 0o600); err != nil {
+	if err := atomicWritePeerFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+pSP+":8789\n"), 0o600); err != nil {
 		return err
 	}
 	// Agent must pick up secondary_core_url (SP). Restart failures are fatal unless unit is absent (pre-join).
