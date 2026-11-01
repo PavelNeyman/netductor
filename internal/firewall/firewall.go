@@ -203,9 +203,14 @@ func readPersistedRole() (string, bool) {
 
 // DetectRoleStrict identifies a role only when a durable or live role marker exists.
 // It returns ok=false rather than guessing primary when the host has no usable markers.
+func systemdServiceIsActive(name string) bool {
+	st, err := exec.Command("systemctl", "is-active", name).CombinedOutput()
+	return err == nil && strings.TrimSpace(string(st)) == "active"
+}
+
 func DetectRoleStrict() (string, bool) {
 	// Live secondary agent is definitive — prevents wrong role=primary after node upgrade paths.
-	if st, _ := exec.Command("systemctl", "is-active", "netductor-secondary-agent").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
+	if systemdServiceIsActive("netductor-secondary-agent") {
 		return "secondary", true
 	}
 	// Explicit role file (written by install / firewall apply).
@@ -216,10 +221,10 @@ func DetectRoleStrict() (string, bool) {
 	if isTrustedRootOwnedFile(filepath.Join(paths.EtcDir(), "READY.txt")) {
 		return "primary", true
 	}
-	if st, _ := exec.Command("systemctl", "is-active", "netductor-api").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
+	if systemdServiceIsActive("netductor-api") {
 		return "primary", true
 	}
-	if st, _ := exec.Command("systemctl", "is-active", "netductor-telegram-bot").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
+	if systemdServiceIsActive("netductor-telegram-bot") {
 		return "primary", true
 	}
 	// Last resort: secondary bundle only if no primary markers above.
