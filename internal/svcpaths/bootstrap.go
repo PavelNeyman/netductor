@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/firewall"
 )
 
 const (
@@ -785,6 +787,16 @@ func ufwOpenPortAnywherePattern(port int) string {
 // applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
 // Also removes Anywhere rules for every SlotTable WSS_SP port (legacy A on slot 0 when adding B).
 func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
+	unlock, err := firewall.AcquireMutationLock()
+	if err != nil {
+		return fmt.Errorf("primary WSS firewall lock: %w", err)
+	}
+	defer unlock()
+	return applyPrimaryWSSFirewallLocked(secondaryPub, sSP, wssSP)
+}
+
+// applyPrimaryWSSFirewallLocked requires the shared Netductor firewall lock.
+func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 	if strings.TrimSpace(secondaryPub) == "" || strings.TrimSpace(sSP) == "" || wssSP <= 0 {
 		return fmt.Errorf("primary WSS firewall requires secondary public IP, SP peer address and valid WSS port")
 	}
@@ -810,7 +822,7 @@ func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 				"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-still-present port=%d; exit 1; fi",
 				ufwOpenPortAnywherePattern(port), port))
 		}
-		script := "set -e; mkdir -p /run/lock; test ! -L /run/lock/netductor-firewall.lock; exec 9>/run/lock/netductor-firewall.lock; flock 9; " +
+		script := "set -e; " +
 			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 1; fi; " +
 			strings.Join(dels, "; ") + "; " +
 			fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment nd-wss-sp; ", secondaryPub, wssSP) +
@@ -822,10 +834,6 @@ func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		script := fmt.Sprintf(`set -e
-mkdir -p /run/lock
-test ! -L /run/lock/netductor-firewall.lock
-exec 9>/run/lock/netductor-firewall.lock
-flock 9
 chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
 test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
 while iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null; do iptables -D "$chain" -p tcp -s %s --dport %d -j ACCEPT; done
@@ -843,16 +851,22 @@ echo primary-iptables-wss-ok
 }
 
 func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
+	unlock, err := firewall.AcquireMutationLock()
+	if err != nil {
+		return fmt.Errorf("secondary WSS firewall lock: %w", err)
+	}
+	defer unlock()
+	return applySecondaryWSSFirewallLocked(primaryPub, wssPS)
+}
+
+// applySecondaryWSSFirewallLocked requires the shared Netductor firewall lock.
+func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 	if strings.TrimSpace(primaryPub) == "" || wssPS <= 0 {
 		return fmt.Errorf("secondary WSS firewall requires primary public IP and valid WSS port")
 	}
 	if _, err := exec.LookPath("ufw"); err == nil {
 		openRE := ufwOpenPortAnywherePattern(wssPS)
 		script := fmt.Sprintf(`set -e
-mkdir -p /run/lock
-test ! -L /run/lock/netductor-firewall.lock
-exec 9>/run/lock/netductor-firewall.lock
-flock 9
 ufw status 2>/dev/null | grep -qi 'Status: active'
 ufw --force delete allow %d/tcp 2>/dev/null || true
 ufw allow from %s to any port %d proto tcp comment nd-wss-ps
@@ -865,10 +879,6 @@ echo secondary-ufw-wss-ok
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		script := fmt.Sprintf(`set -e
-mkdir -p /run/lock
-test ! -L /run/lock/netductor-firewall.lock
-exec 9>/run/lock/netductor-firewall.lock
-flock 9
 chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
 test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
 while iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null; do iptables -D "$chain" -p tcp -s %s --dport %d -j ACCEPT; done
