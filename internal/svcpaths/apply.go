@@ -2,6 +2,7 @@ package svcpaths
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -139,14 +140,78 @@ func publicPrimaryHost() string {
 }
 
 // Apply enforces desired user_path and agent_url_mode on this host (secondary).
+type agentURLSnapshot struct {
+	exists bool
+	data   []byte
+	mode   os.FileMode
+	uid    int
+	gid    int
+}
+
+func snapshotAgentURL() (agentURLSnapshot, error) {
+	snap := agentURLSnapshot{mode: 0o600, uid: os.Getuid(), gid: os.Getgid()}
+	info, err := os.Lstat(coreURLPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return snap, nil
+		}
+		return snap, fmt.Errorf("inspect agent URL before state transition: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return snap, fmt.Errorf("agent URL path is not a regular file")
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return snap, fmt.Errorf("agent URL ownership metadata unavailable")
+	}
+	data, err := os.ReadFile(coreURLPath)
+	if err != nil {
+		return snap, fmt.Errorf("read agent URL before state transition: %w", err)
+	}
+	snap.exists, snap.data = true, data
+	snap.mode, snap.uid, snap.gid = info.Mode().Perm(), int(st.Uid), int(st.Gid)
+	return snap, nil
+}
+
+func restoreAgentURL(snap agentURLSnapshot) error {
+	if snap.exists {
+		if err := writeFileAtomic(coreURLPath, snap.data, snap.mode, snap.uid, snap.gid); err != nil {
+			return fmt.Errorf("restore previous agent URL: %w", err)
+		}
+		return nil
+	}
+	if err := os.Remove(coreURLPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove newly-created agent URL: %w", err)
+	}
+	dir, err := os.Open(filepath.Dir(coreURLPath))
+	if err != nil {
+		return fmt.Errorf("open agent URL directory for rollback sync: %w", err)
+	}
+	defer dir.Close()
+	if err := dir.Sync(); err != nil {
+		return fmt.Errorf("sync agent URL directory after rollback: %w", err)
+	}
+	return nil
+}
+
 func EnforceState(s State) error {
 	if hostRole() != "secondary" {
 		return nil
 	}
+	snap, err := snapshotAgentURL()
+	if err != nil {
+		return err
+	}
 	if err := applyAgentURL(s.AgentURLMode); err != nil {
 		return err
 	}
-	return applyUserUplink(s.UserPath)
+	if err := applyUserUplink(s.UserPath); err != nil {
+		if rollbackErr := restoreAgentURL(snap); rollbackErr != nil {
+			return errors.Join(fmt.Errorf("apply user uplink: %w", err), rollbackErr)
+		}
+		return fmt.Errorf("apply user uplink (agent URL restored): %w", err)
+	}
+	return nil
 }
 
 func applyAgentURL(mode string) error {
