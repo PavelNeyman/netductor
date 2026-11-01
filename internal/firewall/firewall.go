@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -504,7 +505,7 @@ func validateRootOwnedDirectory(path string) error {
 	if !info.IsDir() {
 		return fmt.Errorf("%s is not a real directory (symlinks are not accepted)", path)
 	}
-	stat, ok := info.Sys().(*unix.Stat_t)
+	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || stat.Uid != 0 {
 		return fmt.Errorf("%s is not owned by root", path)
 	}
