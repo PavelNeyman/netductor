@@ -91,7 +91,9 @@ func buildHeartbeat(client *http.Client, cfg config) error {
 				fmt.Fprintf(os.Stderr, "backup_pull: %v\n", err)
 			}
 		case "recovery_arm":
-			armBuildRecovery(30 * time.Minute)
+			if err := armBuildRecovery(30 * time.Minute); err != nil {
+				fmt.Fprintf(os.Stderr, "recovery_arm: %v\\n", err)
+			}
 		default:
 			fmt.Fprintf(os.Stderr, "build-host: ignore unknown cmd %q\n", c)
 		}
