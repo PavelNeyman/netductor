@@ -606,7 +606,7 @@ func BootstrapSecondary(m *Material) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
+	if err := atomicWritePeerFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
 		return fmt.Errorf("material.json: %w", err)
 	}
 
