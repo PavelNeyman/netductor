@@ -40,41 +40,40 @@ mkdir -p /var/lib/netductor
 exec 8>"$PREP_LOCK"
 flock 8
 
-# --- Stop any previous rollback before touching backup dir ---
-timeout 10 systemctl stop "$ND_RB_TIMER" 2>/dev/null || systemctl kill "$ND_RB_TIMER" 2>/dev/null || true
-timeout 10 systemctl stop "$ND_RB_UNIT" 2>/dev/null || systemctl kill "$ND_RB_UNIT" 2>/dev/null || true
-systemctl disable "$ND_RB_TIMER" 2>/dev/null || true
-# Wait for previous unit to leave active (bounded)
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-  if ! systemctl is-active "$ND_RB_UNIT" 2>/dev/null; then
-    break
-  fi
-  sleep 1
-done
-if systemctl is-active "$ND_RB_UNIT" 2>/dev/null; then
-  echo "previous rollback service still active — refuse prepare" >&2
-  exit 1
-fi
-if systemctl is-active "$ND_RB_TIMER" 2>/dev/null; then
-  echo "previous rollback timer still active — refuse prepare" >&2
-  exit 1
-fi
-rm -f /etc/systemd/system/${ND_RB_UNIT} /etc/systemd/system/${ND_RB_TIMER}
-systemctl daemon-reload 2>/dev/null || true
-
-# Safe to recreate backup dir only after old rollback is gone
-rm -rf "$ND_BAK"
+# Serialize the complete prepare setup with other prepares, and share the
+# persistent backup lock with rollback/finalize/cancel. Never unlink this lock.
 mkdir -p "$ND_BAK"
+test ! -L "$ND_BAK"
 LOCK="$ND_BAK/lock"
-# rollback/cancel/finalize share ND_BAK/lock for the critical section
+test ! -L "$LOCK"
 exec 9>"$LOCK"
+chmod 600 "$LOCK"
 flock 9
-# Acquire the common firewall lock before snapshotting UFW or touching SSH.
-mkdir -p /run/lock
-test ! -L /run/lock/netductor-firewall.lock
-exec 7>/run/lock/netductor-firewall.lock
-flock 7
 
+# A previous prepare may still own the rollback window even though its SSH
+# script has exited. Do not replace its backup while timer/service is active.
+timer_state=$(systemctl is-active "$ND_RB_TIMER" 2>/dev/null || true)
+unit_state=$(systemctl is-active "$ND_RB_UNIT" 2>/dev/null || true)
+if [ "$timer_state" != "inactive" ] || [ "$unit_state" != "inactive" ]; then
+  echo "previous SSH rollback is not terminal (timer=$timer_state service=$unit_state) — refuse concurrent prepare" >&2
+  exit 1
+fi
+
+# Legacy versions removed the rollback units after successful cancel. Accept
+# that terminal state, but refuse an orphaned backup with installed units and
+# no terminal marker; it may represent a failed rollback requiring recovery.
+if [ -f "$ND_RB_SCRIPT" ] && [ ! -f "$ND_BAK/CANCELLED" ] && [ ! -f "$ND_BAK/ROLLED_BACK" ]; then
+  if [ -e "/etc/systemd/system/$ND_RB_UNIT" ] || [ -e "/etc/systemd/system/$ND_RB_TIMER" ]; then
+    echo "previous SSH rollback has no terminal marker — inspect/recover before preparing again" >&2
+    exit 1
+  fi
+fi
+
+# Previous transaction is terminal (or prepare never reached rollback script).
+# Keep the lock inode; remove only transaction payload while holding the lock.
+find "$ND_BAK" -mindepth 1 -maxdepth 1 ! -name lock -exec rm -rf -- {} +
+rm -f "/etc/systemd/system/$ND_RB_UNIT" "/etc/systemd/system/$ND_RB_TIMER"
+systemctl daemon-reload
 # --- Mandatory SSH backup ---
 test -f /etc/ssh/sshd_config
 cp -a /etc/ssh/sshd_config "$ND_BAK/sshd_config.bak"
