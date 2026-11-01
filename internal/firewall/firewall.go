@@ -194,14 +194,39 @@ func DetectRoleStrict() (string, bool) {
 }
 
 // persistRole writes /etc/netductor/role so status matches last apply.
+func validateRootOwnedDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("inspect %s: %w", path, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a real directory (symlinks are not accepted)", path)
+	}
+	stat, ok := info.Sys().(*unix.Stat_t)
+	if !ok || stat.Uid != 0 {
+		return fmt.Errorf("%s is not owned by root", path)
+	}
+	if info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("%s is group- or world-writable", path)
+	}
+	return nil
+}
+
+// persistRole writes /etc/netductor/role so status matches last apply.
 func persistRole(role string) error {
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role != "primary" && role != "secondary" {
 		return fmt.Errorf("firewall: refusing to persist invalid role %q", role)
 	}
 	const dir = "/etc/netductor"
+	if err := validateRootOwnedDirectory("/etc"); err != nil {
+		return fmt.Errorf("firewall: unsafe parent for role directory: %w", err)
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("firewall: create role directory: %w", err)
+	}
+	if err := validateRootOwnedDirectory(dir); err != nil {
+		return fmt.Errorf("firewall: unsafe role directory: %w", err)
 	}
 	f, err := os.CreateTemp(dir, ".role-*")
 	if err != nil {
@@ -213,7 +238,7 @@ func persistRole(role string) error {
 		_ = f.Close()
 		return fmt.Errorf("firewall: chmod role temp file: %w", err)
 	}
-	if _, err := f.WriteString(role+"\n"); err != nil {
+	if _, err := f.WriteString(role+"\\n"); err != nil {
 		_ = f.Close()
 		return fmt.Errorf("firewall: write role: %w", err)
 	}
