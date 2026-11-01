@@ -627,9 +627,15 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool, err error) {
 		return "", "", false, fmt.Errorf("generate recovery TLS serial: %w", err)
 	}
 	now := time.Now()
+	dnsNames, ipAddresses, err := recoveryTLSSubjectAltNames()
+	if err != nil {
+		return "", "", false, err
+	}
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject:      pkix.Name{CommonName: "netductor-recovery"},
+		DNSNames:     dnsNames,
+		IPAddresses:  ipAddresses,
 		NotBefore:    now.Add(-time.Hour),
 		NotAfter:     now.Add(10 * 365 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
@@ -684,6 +690,47 @@ func ensureRecoveryTLS() (certFile, keyFile string, ok bool, err error) {
 	}
 	fmt.Fprintf(os.Stderr, "recovery-tls: cert %s\nrecovery-tls: fingerprint %s\n  on primary: echo %s > /etc/netductor/secrets/recovery_peer.fp\n", recoveryCert, fp, fp)
 	return recoveryCert, recoveryKey, true, nil
+}
+
+
+// recoveryTLSSubjectAltNames reads explicit SANs for clients using CA validation.
+// Set these before the certificate is first generated; existing certificates are
+// intentionally not rotated or rewritten automatically.
+func recoveryTLSSubjectAltNames() ([]string, []net.IP, error) {
+	var dnsNames []string
+	for _, raw := range strings.Split(os.Getenv("NETDUCTOR_RECOVERY_DNS_NAMES"), ",") {
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			continue
+		}
+		if net.ParseIP(name) != nil || len(name) > 253 || strings.ContainsAny(name, " /\\\\:\\t\\r\\n") {
+			return nil, nil, fmt.Errorf("invalid recovery DNS SAN %q", name)
+		}
+		for _, label := range strings.Split(name, ".") {
+			if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+				return nil, nil, fmt.Errorf("invalid recovery DNS SAN %q", name)
+			}
+			for _, c := range label {
+				if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-') {
+					return nil, nil, fmt.Errorf("invalid recovery DNS SAN %q", name)
+				}
+			}
+		}
+		dnsNames = append(dnsNames, strings.ToLower(name))
+	}
+	var ipAddresses []net.IP
+	for _, raw := range strings.Split(os.Getenv("NETDUCTOR_RECOVERY_IPS"), ",") {
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			continue
+		}
+		ip := net.ParseIP(value)
+		if ip == nil {
+			return nil, nil, fmt.Errorf("invalid recovery IP SAN %q", value)
+		}
+		ipAddresses = append(ipAddresses, ip)
+	}
+	return dnsNames, ipAddresses, nil
 }
 
 func ensureRecoverySecretsDir(dir string) error {
