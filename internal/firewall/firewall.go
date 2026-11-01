@@ -176,11 +176,14 @@ func ensureWSSAllowRules(role string) error {
 	status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if err != nil { return fmt.Errorf("inspect UFW before WSS peer migration: %v (%s)", err, truncate(string(status), 160)) }
 	rules := parseUfwNumbered(string(status))
+	active := strings.Contains(string(status), "Status: active")
 	for _, e := range expected {
-		action, found := firstTCPActionFromSource(rules, e.Port, e.Source, false)
-		if found {
-			if action != "ALLOW" { return fmt.Errorf("WSS %s from %s is shadowed by %s; refusing to reorder administrator rules", e.Port, e.Source, action) }
-			continue
+		if active {
+			action, found := firstTCPActionFromSource(rules, e.Port, e.Source, false)
+			if found {
+				if action != "ALLOW" { return fmt.Errorf("WSS %s from %s is shadowed by %s; refusing to reorder administrator rules", e.Port, e.Source, action) }
+				continue
+			}
 		}
 		comment := "nd-wss-sp"
 		if role == "secondary" { comment = "nd-wss-ps" }
@@ -189,7 +192,9 @@ func ensureWSSAllowRules(role string) error {
 		status, err = exec.Command("ufw", "status", "numbered").CombinedOutput()
 		if err != nil { return fmt.Errorf("verify WSS rule %s: %v (%s)", e.Port, err, truncate(string(status), 160)) }
 		rules = parseUfwNumbered(string(status))
+		active = strings.Contains(string(status), "Status: active")
 	}
+	if !active { return nil } // UFW hides ordered rules until enabled; post-enable verification is mandatory.
 	return verifyWSSRules(rules, role)
 }
 
@@ -805,8 +810,10 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 			}
 		}
 	}
-	if err := verifyWSSRules(rules, role); err != nil {
-		conflicts = append(conflicts, "WSS peer policy: "+err.Error())
+	if strings.Contains(status, "Status: active") {
+		if err := verifyWSSRules(rules, role); err != nil {
+			conflicts = append(conflicts, "WSS peer policy: "+err.Error())
+		}
 	}
 	if len(conflicts) != 0 {
 		return fmt.Errorf("existing UFW policy conflicts; refusing mutation: %s", strings.Join(conflicts, "; "))
@@ -981,6 +988,7 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	// UFW may hide saved rules while inactive. Re-run the exact-comment legacy
 	// migration after activation so old global WSS ALLOW rules cannot reappear.
 	if err := removeLegacyGlobalWSSRules(string(status)); err != nil { return err }
+	if err := ensureWSSAllowRules(role); err != nil { return fmt.Errorf("post-enable WSS peer policy: %w", err) }
 	status, statusErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if statusErr != nil { return fmt.Errorf("ufw post-migration status: %v (%s)", statusErr, truncate(string(status), 200)) }
 	if !strings.Contains(string(status), "Status: active") {
