@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"golang.org/x/sys/unix"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/integrity"
@@ -60,6 +62,39 @@ var (
 
 func path() string {
 	return filepath.Join(paths.StateDir(), "secondary", "devices.json")
+}
+
+
+// acquireRegistryLock serializes registry transactions across Netductor processes.
+// The lock file lives beside devices.json and is independent of the registry inode,
+// which is atomically replaced by save().
+func acquireRegistryLock() (func(), error) {
+	dir := filepath.Dir(path())
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("create secondary registry lock directory: %w", err)
+	}
+	lockPath := filepath.Join(dir, "devices.lock")
+	fd, err := unix.Open(lockPath, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open secondary registry lock: %w", err)
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("inspect secondary registry lock: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("secondary registry lock must be a private regular file owned by the current user")
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("acquire secondary registry lock: %w", err)
+	}
+	return func() {
+		_ = unix.Flock(fd, unix.LOCK_UN)
+		_ = unix.Close(fd)
+	}, nil
 }
 
 func load() (*registry, error) {
@@ -132,6 +167,11 @@ func save(r *registry) error {
 func BumpConfigVer() (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return 0, lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return 0, err
@@ -166,6 +206,11 @@ func ConfigVer() int {
 func IssueToken(name string) (id, token string, err error) {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return "", "", lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return "", "", err
@@ -252,6 +297,11 @@ type HeartbeatIn struct {
 func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return nil, 0, lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return nil, 0, err
@@ -368,6 +418,11 @@ func ExitEnabled() bool {
 func SetExitEnabled(on bool) error {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return err
@@ -381,6 +436,11 @@ func SetExitEnabled(on bool) error {
 func PruneDuplicates() (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return 0, lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return 0, fmt.Errorf("load secondary registry for duplicate pruning: %w", err)
@@ -428,6 +488,11 @@ func PruneDuplicates() (int, error) {
 func PruneStale(maxAge time.Duration) (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return 0, lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return 0, fmt.Errorf("load secondary registry for stale pruning: %w", err)
@@ -478,6 +543,11 @@ func RemoveByPublicIP(ip, keepID string) (int, error) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return 0, lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return 0, fmt.Errorf("load secondary registry for IP removal: %w", err)
@@ -524,6 +594,11 @@ func WaitOnlinePBK(publicIP string, timeout time.Duration) *Device {
 func RemoveDevice(id string) error {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return err
@@ -547,6 +622,11 @@ func RemoveDevice(id string) error {
 func Rename(id, name string) error {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return err
@@ -587,6 +667,11 @@ func EnqueueCmd(id, cmd string) error {
 	}
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return err
@@ -609,6 +694,11 @@ func EnqueueCmd(id, cmd string) error {
 func TakeCmds(id string) ([]string, error) {
 	mu.Lock()
 	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return nil, lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return nil, err
