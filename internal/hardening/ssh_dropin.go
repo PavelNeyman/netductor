@@ -259,7 +259,11 @@ if ! command -v ufw >/dev/null 2>&1; then
 fi
 command -v ufw >/dev/null 2>&1
 ufw allow "$ND_PORT"/tcp comment netductor-ssh
-ufw allow 22/tcp comment netductor-ssh-bootstrap
+# Baseline normally installs this transition rule. Keep the prepare script
+# independently safe and idempotent for older/partially prepared hosts.
+if ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+  ufw insert 1 allow 22/tcp comment netductor-ssh-bootstrap
+fi
 ufw allow 443/tcp comment netductor-vless || true
 ufw allow 8445/tcp comment nd-wss-ps || true
 echo y | ufw --force enable
@@ -329,8 +333,27 @@ else
 fi
 if command -v ufw >/dev/null 2>&1; then
   ufw allow "$ND_PORT"/tcp comment netductor-ssh
-  ufw delete allow 22/tcp 2>/dev/null || true
-  ufw deny 22/tcp comment netductor-no-ssh22
+  # Put the final deny ahead of the temporary bootstrap ALLOW, then remove
+  # only the uniquely tagged Netductor transition rule (never admin rules).
+  ufw insert 1 deny 22/tcp comment netductor-no-ssh22
+  if ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+    line=$(ufw status numbered | grep -F 'netductor-ssh-bootstrap' | head -1)
+    num=$(printf '%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
+    test -n "$num"
+    ufw --force delete "$num"
+  fi
+  first22=$(ufw status numbered | grep -E '^[[:space:]]*\\[[^]]+\\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
+  case "$first22" in
+    *"DENY IN"*) ;;
+    *) echo "final SSH firewall verification failed: port 22 is not denied first" >&2; exit 1 ;;
+  esac
+elif command -v iptables >/dev/null 2>&1; then
+  # The fallback backend tags its temporary INPUT exception. Delete only that
+  # exact rule; the managed secondary chain already drops port 22.
+  if iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT 2>/dev/null; then
+    iptables -D INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
+    netfilter-persistent save
+  fi
 fi
 echo "nd-harden-finalize: ok (rollback still armed until cancel)"
 `, port, DropInConf())
