@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -25,7 +26,7 @@ const maxPeerJSONBytes = 1 << 20
 func validatePeerDirectory(path string) error {
 	info, err := os.Lstat(path)
 	if err != nil { return err }
-	stat, ok := info.Sys().(*unix.Stat_t)
+	stat, ok := info.Sys().(*syscall.Stat_t)
 	uid := uint32(0)
 	if ok {
 		uid = stat.Uid
