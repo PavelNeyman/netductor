@@ -323,21 +323,6 @@ func ArmRecovery(ttl time.Duration) error {
 		w.Header().Set("X-Netductor-Backup-Name", latestName)
 		http.ServeContent(w, r, latestName, latestInfo.ModTime(), latest)
 	}))
-	if serveKey {
-		mux.HandleFunc("/recovery/key", auth(func(w http.ResponseWriter, r *http.Request) {
-			for _, p := range []string{
-				"/var/lib/netductor/backups/peers/core/BACKUP_KEY.txt",
-				"/etc/netductor/secrets/backup_key",
-			} {
-				if b, err := os.ReadFile(p); err == nil && len(b) > 0 {
-					w.Header().Set("Content-Type", "text/plain")
-					_, _ = w.Write(b)
-					return
-				}
-			}
-			http.Error(w, "no key", 404)
-		}))
-	}
 	mux.HandleFunc("/recovery/components", auth(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.Error(w, "GET or HEAD only", http.StatusMethodNotAllowed)
