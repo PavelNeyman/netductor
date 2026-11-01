@@ -445,9 +445,13 @@ if command -v ufw >/dev/null 2>&1; then
     *) echo "UFW port 22 is not denied after rollback cancellation" >&2; exit 1 ;;
   esac
 elif command -v iptables >/dev/null 2>&1; then
-  if iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT 2>/dev/null; then
+  while iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT 2>/dev/null; do
     iptables -D INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
-    netfilter-persistent save
+  done
+  netfilter-persistent save
+  if iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT 2>/dev/null; then
+    echo "iptables SSH bootstrap exception remains after cancellation" >&2
+    exit 1
   fi
   chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
   test "$(printf '%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
