@@ -266,7 +266,7 @@ func truncate(s string, n int) string { return format.Truncate(strings.TrimSpace
 
 // acquireFirewallApplyLock serializes Netductor firewall mutations across processes.
 // It does not coordinate with UFW, iptables, or other external firewall managers.
-func acquireFirewallApplyLock() (func(), error) {
+func AcquireMutationLock() (func(), error) {
 	const lockPath = "/run/lock/netductor-firewall.lock"
 	fd, err := unix.Open(lockPath, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
 	if err != nil {
@@ -335,7 +335,7 @@ func ApplyRoleBootstrap(role string) error {
 }
 
 func applyRole(role string, bootstrapSSH bool) error {
-	unlock, err := acquireFirewallApplyLock()
+	unlock, err := AcquireMutationLock()
 	if err != nil {
 		return err
 	}
