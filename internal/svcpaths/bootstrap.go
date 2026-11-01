@@ -736,9 +736,12 @@ AllowedIPs = %s/32
 	if err := installHealthTimer(); err != nil {
 		return err
 	}
-	if _, err := os.Stat(policyPath); os.IsNotExist(err) {
+	if _, err := os.Stat(policyPath); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect secondary policy %s: %w", policyPath, err)
+		}
 		if err := SavePolicy(DefaultPolicy()); err != nil {
-			return err
+			return fmt.Errorf("initialize secondary policy: %w", err)
 		}
 	}
 	return nil
