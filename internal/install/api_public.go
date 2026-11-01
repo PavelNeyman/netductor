@@ -90,6 +90,44 @@ func removeAPIPublicUnit(name string) error {
 	return syncAPIPublicUnitDir()
 }
 
+func syncAPIPublicTimerEnablement() error {
+	dir := filepath.Join(apiPublicUnitDir, "timers.target.wants")
+	link := filepath.Join(dir, apiPublicTimer)
+	linkInfo, err := os.Lstat(link)
+	if err != nil {
+		return fmt.Errorf("stat enabled disarm timer link: %w", err)
+	}
+	if linkInfo.Mode()&os.ModeSymlink == 0 {
+		return fmt.Errorf("enabled disarm timer is not a symlink")
+	}
+	resolved, err := filepath.EvalSymlinks(link)
+	if err != nil {
+		return fmt.Errorf("resolve enabled disarm timer link: %w", err)
+	}
+	if filepath.Clean(resolved) != filepath.Join(apiPublicUnitDir, apiPublicTimer) {
+		return fmt.Errorf("enabled disarm timer link targets unexpected unit %q", resolved)
+	}
+	fd, err := unix.Open(dir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return fmt.Errorf("open timer enablement directory: %w", err)
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return fmt.Errorf("stat timer enablement directory: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFDIR || st.Uid != 0 || st.Mode&0o022 != 0 {
+		_ = unix.Close(fd)
+		return fmt.Errorf("timer enablement directory is not trusted")
+	}
+	f := os.NewFile(uintptr(fd), dir)
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("sync timer enablement directory: %w", err)
+	}
+	return f.Close()
+}
+
 func disableAPIPublicTimerIfPresent() error {
 	activeOut, _ := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput()
 	if strings.TrimSpace(string(activeOut)) == "active" {
@@ -286,6 +324,9 @@ WantedBy=timers.target
 	}
 	if out, err := exec.Command("systemctl", "enable", "--now", apiPublicTimer).CombinedOutput(); err != nil {
 		return rollback(fmt.Errorf("enable/start disarm timer: %v (%s)", err, string(out)))
+	}
+	if err := syncAPIPublicTimerEnablement(); err != nil {
+		return rollback(fmt.Errorf("persist disarm timer enablement: %w", err))
 	}
 	if out, err := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
 		return rollback(fmt.Errorf("disarm timer not active after enable: %s", strings.TrimSpace(string(out))))
