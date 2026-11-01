@@ -128,9 +128,71 @@ func disarmLocked() {
 	recArmed = false
 	recUntil = time.Time{}
 	if os.Getenv("NETDUCTOR_RECOVERY_UFW") == "1" {
-		_ = exec.Command("ufw", "delete", "allow", recoveryPort+"/tcp").Run()
+		if err := removeRecoveryUFWRule(); err != nil {
+			fmt.Fprintf(os.Stderr, "recovery-serve: failed to remove temporary UFW rule: %v\n", err)
+		}
 	}
 	fmt.Fprintln(os.Stderr, "recovery-serve: disarmed")
+}
+
+// removeRecoveryUFWRule deletes only the rule installed by this recovery
+// listener. Numbered rules are removed from highest to lowest because UFW
+// renumbers the remaining rules after each deletion.
+func removeRecoveryUFWRule() error {
+	const comment = "netductor-recovery"
+	out, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ufw status numbered: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+
+	var numbers []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "[") {
+			continue
+		}
+		end := strings.Index(line, "]")
+		if end < 0 {
+			continue
+		}
+		rule := strings.TrimSpace(line[end+1:])
+		marker := strings.LastIndex(rule, "#")
+		if marker < 0 || strings.TrimSpace(rule[marker+1:]) != comment {
+			continue
+		}
+		number := strings.TrimSpace(line[1:end])
+		if number != "" {
+			numbers = append([]string{number}, numbers...)
+		}
+	}
+
+	for _, number := range numbers {
+		cmd := exec.Command("ufw", "--force", "delete", number)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("ufw delete recovery rule %s: %w (%s)", number, err, strings.TrimSpace(string(output)))
+		}
+	}
+
+	out, err = exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("verify recovery UFW rule removal: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "[") {
+			continue
+		}
+		end := strings.Index(line, "]")
+		if end < 0 {
+			continue
+		}
+		rule := strings.TrimSpace(line[end+1:])
+		marker := strings.LastIndex(rule, "#")
+		if marker >= 0 && strings.TrimSpace(rule[marker+1:]) == comment {
+			return fmt.Errorf("recovery UFW rule remains after deletion")
+		}
+	}
+	return nil
 }
 
 // ArmRecovery starts recovery HTTP for ttl (default 30m, max 2h). Idempotent refresh.
