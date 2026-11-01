@@ -3,11 +3,13 @@ package svcpaths
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
@@ -493,6 +495,11 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) error {
 	if errR != nil {
 		return fmt.Errorf("bootstrap primary: %w", errR)
 	}
+	// These values are embedded in systemd ExecStart and firewall commands.
+	// Validate before any dependency installation or host mutation.
+	if err := validatePublicIP(m.Secondary); err != nil {
+		return fmt.Errorf("bootstrap primary secondary IP: %w", err)
+	}
 	if m.Primary == "" || m.Primary == "0.0.0.0" {
 		if b, err := os.ReadFile("/etc/netductor/secrets/public_ip"); err == nil {
 			m.Primary = strings.TrimSpace(string(b))
@@ -564,7 +571,7 @@ PersistentKeepalive = 25
 	}
 	if err := unitFile(psClientUnit,
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
-			portPS, portPS, m.Secondary, wssPS)); err != nil {
+			portPS, portPS, net.JoinHostPort(m.Secondary, strconv.Itoa(wssPS)))); err != nil {
 		return err
 	}
 	if err := enableRestart(spServerUnit, psClientUnit, "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
@@ -603,6 +610,9 @@ func BootstrapSecondary(m *Material) error {
 	pSP, sSP, pPS, sPS, portSP, portPS, wssSP, wssPS, ifaceSP, ifacePS, errR := resolveBootstrapParams(m)
 	if errR != nil {
 		return fmt.Errorf("bootstrap secondary: %w", errR)
+	}
+	if err := validatePublicIP(m.Primary); err != nil {
+		return fmt.Errorf("bootstrap secondary primary IP: %w", err)
 	}
 	if err := ensureWireguardTools(); err != nil {
 		return err
@@ -656,7 +666,7 @@ AllowedIPs = %s/32
 	}
 	if err := unitFile("nd-wss-sp-client",
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
-			portSP, portSP, m.Primary, wssSP)); err != nil {
+			portSP, portSP, net.JoinHostPort(m.Primary, strconv.Itoa(wssSP)))); err != nil {
 		return err
 	}
 	if err := unitFile("nd-wss-ps-server",
