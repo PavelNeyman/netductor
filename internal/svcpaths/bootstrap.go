@@ -825,7 +825,7 @@ test ! -L /run/lock/netductor-firewall.lock
 exec 9>/run/lock/netductor-firewall.lock
 flock 9
 chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
-test "$(printf '%%s\\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
 iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null || iptables -I "$chain" 3 -p tcp -s %s --dport %d -j ACCEPT
 netfilter-persistent save
 echo primary-iptables-wss-ok
@@ -863,7 +863,7 @@ test ! -L /run/lock/netductor-firewall.lock
 exec 9>/run/lock/netductor-firewall.lock
 flock 9
 chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
-test "$(printf '%%s\\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
 iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null || iptables -I "$chain" 3 -p tcp -s %s --dport %d -j ACCEPT
 netfilter-persistent save
 echo secondary-iptables-wss-ok
