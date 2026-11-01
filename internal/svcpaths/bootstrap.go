@@ -86,14 +86,23 @@ func wgGen() (priv, pub string, err error) {
 }
 
 func ensureWireguardTools() error {
-	if _, err := exec.LookPath("wg"); err == nil {
-		if _, err2 := exec.LookPath("wg-quick"); err2 == nil {
-			return nil
-		}
+	toolsPresent := func() bool {
+		_, wgErr := exec.LookPath("wg")
+		_, quickErr := exec.LookPath("wg-quick")
+		return wgErr == nil && quickErr == nil
 	}
-	_ = exec.Command("bash", "-c", "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq wireguard wireguard-tools").Run()
+	if toolsPresent() {
+		return nil
+	}
+	cmd := exec.Command("bash", "-c", "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq wireguard wireguard-tools")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("install wireguard-tools: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
 	if _, err := exec.LookPath("wg"); err != nil {
-		return fmt.Errorf("wireguard-tools missing")
+		return fmt.Errorf("wireguard-tools installed incompletely: wg missing: %w", err)
+	}
+	if _, err := exec.LookPath("wg-quick"); err != nil {
+		return fmt.Errorf("wireguard-tools installed incompletely: wg-quick missing: %w", err)
 	}
 	return nil
 }
