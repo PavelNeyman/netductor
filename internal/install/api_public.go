@@ -409,6 +409,8 @@ Description=Disarm netductor API public after arm TTL
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/netductor api-public disarm
+Restart=on-failure
+RestartSec=30s
 `
 	timer := fmt.Sprintf(`[Unit]
 Description=Timer disarm API public
