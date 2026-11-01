@@ -96,6 +96,9 @@ func assertPeerMaterialIdentity(m *Material, peerID, publicIP string, regSlot in
 
 // PeerAdd allocates a free slot, generates material, applies Primary conf for that peer only.
 func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
+	unlock, lockErr := acquirePeerRegistryLock()
+	if lockErr != nil { return nil, nil, lockErr }
+	defer unlock()
 	peerMu.Lock()
 	defer peerMu.Unlock()
 	if err := MigrateLegacyPeerIfNeededUnlocked(); err != nil {
@@ -231,6 +234,38 @@ func loadPeerMaterial(id string) (*Material, error) {
 }
 
 // MigrateLegacyPeerIfNeededUnlocked assumes peerMu held.
+func legacySlot0Footprint() ([]string, error) {
+	paths := []string{
+		filepath.Join(keysRoot, "material.json"),
+		"/etc/wireguard/nd-svc-sp.conf",
+		"/etc/wireguard/nd-svc-ps.conf",
+		"/etc/systemd/system/nd-wss-sp-server.service",
+		"/etc/systemd/system/nd-wss-ps-client.service",
+		activePeerPathFile(),
+		preferredIPPath,
+		preferredIPSecretsPath,
+	}
+	var found []string
+	for _, path := range paths {
+		_, err := os.Lstat(path)
+		if err == nil {
+			found = append(found, path)
+			continue
+		}
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("inspect possible legacy slot-0 state %s: %w", path, err)
+		}
+	}
+	for _, unit := range []string{"wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps", "nd-wss-sp-server", "nd-wss-ps-client"} {
+		out, err := exec.Command("systemctl", "is-active", unit).CombinedOutput()
+		if err == nil && strings.TrimSpace(string(out)) == "active" {
+			found = append(found, "active systemd unit "+unit)
+		}
+	}
+	return found, nil
+}
+
+// MigrateLegacyPeerIfNeededUnlocked assumes the process and peer mutexes are held.
 func MigrateLegacyPeerIfNeededUnlocked() error {
 	idx, err := LoadPeersIndex()
 	if err != nil {
@@ -242,6 +277,11 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 	m, err := LoadMaterialStrict()
 	if err != nil {
 		if os.IsNotExist(err) {
+			footprint, inspectErr := legacySlot0Footprint()
+			if inspectErr != nil { return inspectErr }
+			if len(footprint) != 0 {
+				return fmt.Errorf("legacy slot-0 state exists but material.json is missing; refusing to allocate slot 0 and risk replacing a live secondary (evidence: %s). Restore/import the legacy material or explicitly remove the stale slot-0 services/configuration after verifying the old peer is retired", strings.Join(footprint, ", "))
+			}
 			return nil
 		}
 		return err
@@ -379,6 +419,9 @@ func PeerValidateLocal(peerID string) (*PeerValidateResult, error) {
 
 // PeerMarkReady sets ready only after successful PeerValidateLocal when requireValidate is true.
 func PeerMarkReady(peerID string, requireValidate bool) error {
+	unlock, lockErr := acquirePeerRegistryLock()
+	if lockErr != nil { return lockErr }
+	defer unlock()
 	peerMu.Lock()
 	defer peerMu.Unlock()
 	if err := validatePeerID(peerID); err != nil {
@@ -532,6 +575,9 @@ func rollbackPromoteSnap(snap *promoteSnap) error {
 
 // PeerPromote requires state ready (or already active). Writes registry + active + preferred; rolls back full snap on failure.
 func PeerPromote(peerID string) error {
+	unlock, lockErr := acquirePeerRegistryLock()
+	if lockErr != nil { return lockErr }
+	defer unlock()
 	peerMu.Lock()
 	defer peerMu.Unlock()
 	if err := validatePeerID(peerID); err != nil {
@@ -624,6 +670,9 @@ func PeerRollback(toPeerID string) error {
 
 // PeerRemove disables, stops, removes confs/units for peer, then marks removed (frees slot).
 func PeerRemove(peerID string) error {
+	unlock, lockErr := acquirePeerRegistryLock()
+	if lockErr != nil { return lockErr }
+	defer unlock()
 	peerMu.Lock()
 	defer peerMu.Unlock()
 	if err := validatePeerID(peerID); err != nil {
