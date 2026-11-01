@@ -132,15 +132,7 @@ func registerBuildHostAPI(mux *http.ServeMux) {
 			writeJSON(w, 401, map[string]any{"ok": false, "error": "token"})
 			return
 		}
-		hostID := ""
-		var body map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		if body != nil {
-			if v, ok := body["device_id"].(string); ok {
-				hostID = v
-			}
-		}
-		// Bind host strictly to the token. Ignore client device_id.
+		// Bind host strictly to the token. Ignore client-supplied device IDs.
 		hostID, okTok := gitstore.AuthBuildHostToken(token)
 		if !okTok || hostID == "" {
 			writeJSON(w, 401, map[string]any{"ok": false, "error": "token"})
