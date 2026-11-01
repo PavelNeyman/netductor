@@ -7,10 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 )
+
+var apiAllowFileMu sync.Mutex
 
 // defaultAPIAllowCIDRs from ndconfig (SP/PS service paths only).
 func defaultAPIAllowCIDRs() []string {
@@ -138,21 +141,54 @@ func RestrictAgentMTLSToIP(ip string) error {
 		return nil
 	}
 	if !strings.Contains(ip, "/") {
-		ip += "/32"
+		parsed := net.ParseIP(ip)
+		if parsed == nil {
+			return fmt.Errorf("invalid agent public IP %q", ip)
+		}
+		if parsed.To4() != nil {
+			ip += "/32"
+		} else {
+			ip += "/128"
+		}
 	}
+	_, network, err := net.ParseCIDR(ip)
+	if err != nil {
+		return fmt.Errorf("invalid agent allow CIDR %q: %w", ip, err)
+	}
+	ip = network.String()
+
+	apiAllowFileMu.Lock()
+	defer apiAllowFileMu.Unlock()
 	if cidrAlreadyListed(ip) {
 		return nil
 	}
-	_ = os.MkdirAll("/etc/netductor", 0o755)
+	if err := os.MkdirAll("/etc/netductor", 0o755); err != nil {
+		return fmt.Errorf("create /etc/netductor: %w", err)
+	}
 	f, err := os.OpenFile("/etc/netductor/api-allow.cidr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		return err
+		return fmt.Errorf("open api-allow.cidr: %w", err)
 	}
-	_, _ = fmt.Fprintln(f, ip)
-	_ = f.Close()
-	// one-shot ufw allow for this CIDR only (no full wipe/reapply)
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("chmod api-allow.cidr: %w", err)
+	}
+	if _, err := fmt.Fprintln(f, ip); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("append api-allow.cidr: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("sync api-allow.cidr: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close api-allow.cidr: %w", err)
+	}
+	// Apply the new rule only after the allowlist entry is durable.
 	if _, err := exec.LookPath("ufw"); err == nil {
-		_ = run("ufw", "allow", "from", ip, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api")
+		if err := run("ufw", "allow", "from", ip, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api"); err != nil {
+			return fmt.Errorf("ufw allow mTLS from %s: %w", ip, err)
+		}
 	}
 	return nil
 }
