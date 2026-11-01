@@ -416,6 +416,13 @@ func ufwPreflightPolicy(status, role string) error {
 			}
 		}
 	}
+	checkNoDeny := func(port, label string) {
+		for _, rule := range rules {
+			if ufwRuleMatchesPortTCP(rule, port) && (rule.Action == "DENY" || rule.Action == "REJECT") {
+				conflicts = append(conflicts, fmt.Sprintf("%s %s has existing %s %s from %s", label, port, rule.Action, rule.Proto, rule.From))
+			}
+		}
+	}
 	checkSource := func(port, source, label string) {
 		action, found := firstTCPActionFromSource(rules, port, source, false)
 		if found && action != "ALLOW" {
@@ -427,6 +434,11 @@ func ufwPreflightPolicy(status, role string) error {
 		{"10050", "DENY", "zabbix"}, {"10051", "DENY", "zabbix"},
 	} {
 		checkWAN(item.port, item.action, item.label)
+	}
+	for _, item := range []struct{ port, label string }{
+		{"443", "vless"},
+	} {
+		checkNoDeny(item.port, item.label)
 	}
 	// A source-specific SSH DENY/REJECT can precede a global SSH ALLOW.
 	// The WAN-only matcher below intentionally ignores such rules, so reject
@@ -448,6 +460,9 @@ func ufwPreflightPolicy(status, role string) error {
 			{"8787", "DENY", "secondary-api"}, {"8445", "DENY", "secondary-wss"},
 			{"8788", "DENY", "plain-agent"}, {"9443", "DENY", "service-uplink"},
 		} { checkWAN(item.port, item.action, item.label) }
+		for _, item := range []struct{ port, label string }{
+			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"}, {"8444", "primary-wss"},
+		} { checkNoDeny(item.port, item.label) }
 		for _, item := range []struct{ port, label string }{
 			{"8787", "secondary-api"}, {"8445", "secondary-wss"}, {"8788", "plain-agent"},
 		} { checkNoAllow(item.port, item.label) }
@@ -487,6 +502,7 @@ func ufwPreflightPolicy(status, role string) error {
 		}
 	} else {
 		checkWAN("8445", "ALLOW", "secondary-wss")
+		checkNoDeny("8445", "secondary-wss")
 		for _, port := range []string{"80", "8787", "8788", "8789"} {
 			checkWAN(port, "DENY", "secondary-restricted")
 		}
@@ -1428,6 +1444,14 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			}
 		}
 	}
+	rejectAnyDeny := func(port, label string) {
+		for _, rule := range rules {
+			if ufwRuleMatchesPortTCP(rule, port) && (rule.Action == "DENY" || rule.Action == "REJECT") {
+				ok = false
+				warnings = append(warnings, label+": unexpected "+rule.Action+" from "+rule.From+" for "+port+"/tcp")
+			}
+		}
+	}
 	sp := sshPort()
 	for _, item := range []struct{ port, action, label string }{
 		{sp, "ALLOW", "ssh"},
@@ -1443,6 +1467,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 	} {
 		rejectAnyAllow(item.port, item.label)
 	}
+	rejectAnyDeny("443", "vless")
 	// Do not let a source-specific deny be hidden by a later global SSH
 	// allow: it may still match the active administrator connection.
 	for _, rule := range rules {
@@ -1464,6 +1489,9 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		} {
 			requireBoth(item.port, item.action, item.label)
 		}
+		for _, item := range []struct{ port, label string }{
+			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"}, {"8444", "primary-wss"},
+		} { rejectAnyDeny(item.port, item.label) }
 		for _, item := range []struct{ port, label string }{
 			{"8787", "secondary-api"}, {"8445", "secondary-wss"}, {"8788", "plain-agent"},
 		} {
@@ -1550,6 +1578,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 	} else {
 		requireBoth("8445", "ALLOW", "secondary-wss")
+		rejectAnyDeny("8445", "secondary-wss")
 		requireBoth("80", "DENY", "secondary-http")
 		for _, port := range []string{"8787", "8788", "8789"} {
 			requireBoth(port, "DENY", "secondary-"+port)
