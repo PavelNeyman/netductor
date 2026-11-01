@@ -347,12 +347,12 @@ if command -v ufw >/dev/null 2>&1; then
     *"DENY IN"*) ;;
     *) ufw insert 1 deny 22/tcp comment netductor-no-ssh22 ;;
   esac
-  if ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+  while ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; do
     line=$(ufw status numbered | grep -F 'netductor-ssh-bootstrap' | head -1)
     num=$(printf '%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
     test -n "$num"
     ufw --force delete "$num"
-  fi
+  done
   if ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
     echo "temporary SSH bootstrap rule remains after finalize" >&2
     exit 1
