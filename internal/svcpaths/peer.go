@@ -174,7 +174,7 @@ func acquirePeerRegistryLock() (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("inspect peer registry directory: %w", err)
 	}
-	dirStat, ok := dirInfo.Sys().(*unix.Stat_t)
+	dirStat, ok := dirInfo.Sys().(*syscall.Stat_t)
 	if !ok || !dirInfo.IsDir() || dirInfo.Mode()&os.ModeSymlink != 0 ||
 		dirStat.Uid != uint32(os.Geteuid()) || dirInfo.Mode().Perm()&0o022 != 0 {
 		return nil, fmt.Errorf("peer registry directory must be a real directory owned by euid %d and not writable by group/others", os.Geteuid())
