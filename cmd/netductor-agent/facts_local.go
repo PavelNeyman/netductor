@@ -118,10 +118,6 @@ func collectDeviceFacts() map[string]any {
 				continue
 			}
 			name := strings.TrimSpace(parts[1])
-			switch {
-			case name == "lo", strings.HasPrefix(name, "br-"), strings.HasPrefix(name, "wlan"):
-				// keep wlan as wireless below
-			}
 			if name == "lo" || strings.HasPrefix(name, "br-") || strings.HasPrefix(name, "docker") ||
 				strings.HasPrefix(name, "veth") || strings.HasPrefix(name, "tun") || strings.HasPrefix(name, "wg") {
 				continue
