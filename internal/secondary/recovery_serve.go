@@ -420,10 +420,10 @@ func ArmRecovery(ttl time.Duration) error {
 		fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
 	}
 	if tlsOn {
-		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED https://%s until %s (Bearer; key on wire=%v)\\n",
+		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED https://%s until %s (Bearer; key on wire=%v)\n",
 			addr, recUntil.Format(time.RFC3339), serveKey)
 	} else {
-		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED http://%s until %s (Bearer; key on wire=%v; NETDUCTOR_RECOVERY_TLS=0)\\n",
+		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED http://%s until %s (Bearer; key on wire=%v; NETDUCTOR_RECOVERY_TLS=0)\n",
 			addr, recUntil.Format(time.RFC3339), serveKey)
 	}
 	go func() {
@@ -434,7 +434,7 @@ func ArmRecovery(ttl time.Duration) error {
 			serveErr = srv.Serve(listener)
 		}
 		if serveErr != nil && serveErr != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "recovery-serve: listener failed: %v\\n", serveErr)
+			fmt.Fprintf(os.Stderr, "recovery-serve: listener failed: %v\n", serveErr)
 			DisarmRecovery()
 		}
 	}()
