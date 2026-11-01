@@ -183,10 +183,10 @@ func applyAgentURL(mode string) error {
 	if readErr != nil && !os.IsNotExist(readErr) {
 		return fmt.Errorf("read agent URL file: %w", readErr)
 	}
-	if err := writeFileAtomic(coreURLPath, []byte(want+"\\n"), modeBits, uid, gid); err != nil {
+	if err := writeFileAtomic(coreURLPath, []byte(want+"\n"), modeBits, uid, gid); err != nil {
 		return fmt.Errorf("atomically write agent URL: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "svc-paths apply: agent URL → %s (tunnel-only)\\n", want)
+	fmt.Fprintf(os.Stderr, "svc-paths apply: agent URL → %s (tunnel-only)\n", want)
 	return nil
 }
 
@@ -258,7 +258,7 @@ func applyUserUplink(userPath string) error {
 	}
 	uid, gid := int(stat.Uid), int(stat.Gid)
 	prev := append([]byte(nil), b...)
-	if err := writeFileAtomic(singBoxConfig, append(raw, '\\n'), mode, uid, gid); err != nil {
+	if err := writeFileAtomic(singBoxConfig, append(raw, '\n'), mode, uid, gid); err != nil {
 		if restoreErr := writeFileAtomic(singBoxConfig, prev, mode, uid, gid); restoreErr != nil {
 			return fmt.Errorf("atomically replace sing-box config: %w; restoring previous config also failed: %v", err, restoreErr)
 		}
