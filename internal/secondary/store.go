@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,16 +98,46 @@ func acquireRegistryLock() (func(), error) {
 	}, nil
 }
 
+const maxSecondaryRegistrySize = 16 << 20
+
 func load() (*registry, error) {
 	if err := os.MkdirAll(filepath.Dir(path()), 0o700); err != nil {
 		return nil, fmt.Errorf("create secondary registry directory: %w", err)
 	}
-	b, err := os.ReadFile(path())
+	p := path()
+	fd, err := unix.Open(p, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if err == unix.ENOENT {
 			return &registry{ConfigVer: 1}, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("open secondary registry: %w", err)
+	}
+	f := os.NewFile(uintptr(fd), p)
+	if f == nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("open secondary registry: invalid file descriptor")
+	}
+	defer f.Close()
+
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		return nil, fmt.Errorf("inspect secondary registry: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG {
+		return nil, fmt.Errorf("secondary registry is not a regular file")
+	}
+	if st.Uid != uint32(os.Geteuid()) {
+		return nil, fmt.Errorf("secondary registry is not owned by the current user")
+	}
+	if st.Size < 0 || st.Size > maxSecondaryRegistrySize {
+		return nil, fmt.Errorf("secondary registry size exceeds %d bytes", maxSecondaryRegistrySize)
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxSecondaryRegistrySize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read secondary registry: %w", err)
+	}
+	if len(b) > maxSecondaryRegistrySize {
+		return nil, fmt.Errorf("secondary registry size exceeds %d bytes", maxSecondaryRegistrySize)
 	}
 	var r registry
 	if err := json.Unmarshal(b, &r); err != nil {
@@ -776,9 +807,38 @@ func StoreRecoveryPeerFingerprint(deviceID, fp string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create secondary recovery pin directory: %w", err)
 	}
-	line := "sha256:" + fp + "\n"
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o600); err != nil {
-		return fmt.Errorf("store secondary recovery fingerprint: %w", err)
+	line := []byte("sha256:" + fp + "\n")
+	tmpFile, err := os.CreateTemp(dir, ".recovery-pin.tmp-*")
+	if err != nil {
+		return fmt.Errorf("create secondary recovery fingerprint temporary file: %w", err)
+	}
+	tmp := tmpFile.Name()
+	defer os.Remove(tmp)
+	if err := tmpFile.Chmod(0o600); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("set secondary recovery fingerprint permissions: %w", err)
+	}
+	if _, err := tmpFile.Write(line); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("write secondary recovery fingerprint: %w", err)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("sync secondary recovery fingerprint: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("close secondary recovery fingerprint: %w", err)
+	}
+	if err := os.Rename(tmp, filepath.Join(dir, name)); err != nil {
+		return fmt.Errorf("replace secondary recovery fingerprint: %w", err)
+	}
+	dirFile, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open secondary recovery pin directory for sync: %w", err)
+	}
+	defer dirFile.Close()
+	if err := dirFile.Sync(); err != nil {
+		return fmt.Errorf("sync secondary recovery pin directory: %w", err)
 	}
 	return nil
 }
