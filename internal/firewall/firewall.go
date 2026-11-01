@@ -20,6 +20,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
+	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
 type Backend string
@@ -212,7 +213,7 @@ func DetectRoleStrict() (string, bool) {
 		return role, true
 	}
 	// Primary control-plane markers (bundle.json may exist on primary after export — do NOT treat as secondary).
-	if _, err := os.Stat("/var/lib/netductor/READY.txt"); err == nil {
+	if isTrustedRootOwnedFile(filepath.Join(paths.EtcDir(), "READY.txt")) {
 		return "primary", true
 	}
 	if st, _ := exec.Command("systemctl", "is-active", "netductor-api").CombinedOutput(); strings.TrimSpace(string(st)) == "active" {
@@ -222,13 +223,39 @@ func DetectRoleStrict() (string, bool) {
 		return "primary", true
 	}
 	// Last resort: secondary bundle only if no primary markers above.
-	if _, err := os.Stat("/var/lib/netductor/secondary/bundle.json"); err == nil {
+	if isTrustedRootOwnedFile(filepath.Join(paths.SecondaryDir(), "bundle.json")) {
 		return "secondary", true
 	}
 	return "", false
 }
 
 // persistRole writes /etc/netductor/role so status matches last apply.
+// isTrustedRootOwnedFile accepts only a root-owned regular file with a
+// non-writable-by-group/other directory ancestry and no symlink components.
+func isTrustedRootOwnedFile(path string) bool {
+	if !filepath.IsAbs(path) {
+		return false
+	}
+	for dir := filepath.Clean(filepath.Dir(path)); ; dir = filepath.Dir(dir) {
+		if err := validateRootOwnedDirectory(dir); err != nil {
+			return false
+		}
+		if dir == "/" {
+			break
+		}
+	}
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return false
+	}
+	defer unix.Close(fd)
+	var st unix.Stat_t
+	return unix.Fstat(fd, &st) == nil &&
+		st.Mode&unix.S_IFMT == unix.S_IFREG &&
+		st.Uid == 0 &&
+		st.Mode&0o022 == 0
+}
+
 func validateRootOwnedDirectory(path string) error {
 	info, err := os.Lstat(path)
 	if err != nil {
