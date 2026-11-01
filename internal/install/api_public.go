@@ -144,10 +144,10 @@ func ArmAPIPublic(ttl time.Duration) error {
 	if err := deleteUFWByComment(apiPublicComment); err != nil {
 		return fmt.Errorf("remove previous temporary public rules: %w", err)
 	}
-	_ = exec.Command("systemctl", "stop", apiPublicTimer).Run()
-
-	if err := ufwQuiet("allow", apiPublicPort+"/tcp", "comment", apiPublicComment); err != nil {
-		return fmt.Errorf("ufw allow public %s: %w", apiPublicPort, err)
+	if out, err := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput(); strings.TrimSpace(string(out)) == "active" {
+		if stopOut, stopErr := exec.Command("systemctl", "stop", apiPublicTimer).CombinedOutput(); stopErr != nil {
+			return fmt.Errorf("stop previous disarm timer: %v (%s)", stopErr, strings.TrimSpace(string(stopOut)))
+		}
 	}
 	rollback := func(cause error) error {
 		var cleanup []error
@@ -219,6 +219,11 @@ WantedBy=timers.target
 	}
 	if out, err := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
 		return rollback(fmt.Errorf("disarm timer not active after enable: %s", strings.TrimSpace(string(out))))
+	}
+	// The persistent absolute-time disarm is armed before the persistent UFW
+	// exception is created. A crash at any later point cannot strand public access.
+	if err := ufwQuiet("allow", apiPublicPort+"/tcp", "comment", apiPublicComment); err != nil {
+		return rollback(fmt.Errorf("ufw allow public %s: %w", apiPublicPort, err))
 	}
 	return nil
 }
