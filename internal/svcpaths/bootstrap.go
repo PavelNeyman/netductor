@@ -812,6 +812,7 @@ func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 			ufwOpenPortAnywherePattern(port), port))
 	}
 	script := "set -e; " +
+		"mkdir -p /run/lock; test ! -L /run/lock/netductor-firewall.lock; exec 9>/run/lock/netductor-firewall.lock; flock 9; " +
 		"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; " +
 		"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; " +
 		strings.Join(dels, "; ") + "; " +
@@ -833,6 +834,7 @@ func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
 	openRE := ufwOpenPortAnywherePattern(wssPS)
 	script := fmt.Sprintf(
 		"set -e; "+
+			"mkdir -p /run/lock; test ! -L /run/lock/netductor-firewall.lock; exec 9>/run/lock/netductor-firewall.lock; flock 9; "+
 			"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; "+
 			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; "+
 			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
