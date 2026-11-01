@@ -33,6 +33,9 @@ else
     if systemctl is-active --quiet "$u" 2>/dev/null; then
       echo "BLOCK: legacy slot-0 unit is active: $u"
       legacy_found=1
+    elif systemctl is-enabled "$u" 2>/dev/null | grep -qxE 'enabled|enabled-runtime'; then
+      echo "BLOCK: legacy slot-0 unit is enabled: $u"
+      legacy_found=1
     fi
   done
   if (( legacy_found )); then
