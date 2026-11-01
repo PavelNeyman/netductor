@@ -63,8 +63,8 @@ type wssPeerIndex struct {
 }
 
 type wssMaterial struct {
-	Primary   string `json:"primary"`
-	Secondary string `json:"secondary"`
+	Primary   string `json:"primary_ip"`
+	Secondary string `json:"secondary_ip"`
 	WSSSP     int    `json:"wss_sp"`
 	WSSPS     int    `json:"wss_ps"`
 }
