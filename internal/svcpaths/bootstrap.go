@@ -755,8 +755,8 @@ fi
 OUT=/var/lib/netductor/svc-paths-health.json
 mkdir -p /var/lib/netductor
 sp=0; ps=0
-ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1 && sp=1
-ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1 && ps=1
+(ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1) && sp=1
+(ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1) && ps=1
 printf '{"ts":"%%s","role":"unknown","svc_sp_up":%%s,"svc_ps_up":%%s,"note":"shell-fallback-peer"}\n' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "$sp" "$ps" > "$OUT"
 `, pSP, sSP, pPS, sPS)
 
