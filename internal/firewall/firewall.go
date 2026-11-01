@@ -4,12 +4,14 @@
 package firewall
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +45,148 @@ type Status struct {
 	Restricted []string `json:"restricted"` // CIDR-limited
 	Warnings   []string `json:"warnings,omitempty"`
 	CheckedAt  string   `json:"checked_at"`
+}
+
+type wssExpectation struct {
+	Port   string
+	Source string
+}
+
+type wssPeerIndex struct {
+	Peers []struct {
+		PublicIP string `json:"public_ip"`
+		State    string `json:"state"`
+		Slot     struct {
+			WSSSP int `json:"wss_sp"`
+		} `json:"slot"`
+	} `json:"peers"`
+}
+
+type wssMaterial struct {
+	Primary   string `json:"primary"`
+	Secondary string `json:"secondary"`
+	WSSSP     int    `json:"wss_sp"`
+	WSSPS     int    `json:"wss_ps"`
+}
+
+func readFirewallJSON(path string, dst any) (bool, error) {
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
+	if err != nil {
+		if err == unix.ENOENT { return false, nil }
+		return false, fmt.Errorf("open %s: %w", path, err)
+	}
+	f := os.NewFile(uintptr(fd), path)
+	if f == nil { _ = unix.Close(fd); return false, fmt.Errorf("open file handle for %s", path) }
+	defer f.Close()
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil { return false, fmt.Errorf("stat %s: %w", path, err) }
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != 0 || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 1<<20 {
+		return false, fmt.Errorf("%s must be a root-owned regular file, not group/world-writable, <=1MiB", path)
+	}
+	b, err := io.ReadAll(io.LimitReader(f, (1<<20)+1))
+	if err != nil { return false, fmt.Errorf("read %s: %w", path, err) }
+	if len(b) > 1<<20 { return false, fmt.Errorf("%s exceeds 1MiB", path) }
+	if err := json.Unmarshal(b, dst); err != nil { return false, fmt.Errorf("parse %s: %w", path, err) }
+	return true, nil
+}
+
+func roleWSSPorts(role string) []string {
+	if role == "primary" { return []string{"8444", "8454", "8464", "8474"} }
+	return []string{"8445", "8455", "8465", "8475"}
+}
+
+func wssExpectations(role string) ([]wssExpectation, error) {
+	const dir = "/etc/netductor/svc-paths"
+	var out []wssExpectation
+	add := func(port int, source string) error {
+		ip := net.ParseIP(strings.TrimSpace(source))
+		if port < 1 || port > 65535 || ip == nil || ip.To4() == nil {
+			return fmt.Errorf("invalid %s WSS peer tuple port=%d source=%q", role, port, source)
+		}
+		valid := false
+		for _, p := range roleWSSPorts(role) { if p == strconv.Itoa(port) { valid = true; break } }
+		if !valid { return fmt.Errorf("unexpected %s WSS port %d (not in reserved slot table)", role, port) }
+		out = append(out, wssExpectation{Port: strconv.Itoa(port), Source: ip.To4().String()})
+		return nil
+	}
+	if role == "primary" {
+		var idx wssPeerIndex
+		exists, err := readFirewallJSON(filepath.Join(dir, "peers.json"), &idx)
+		if err != nil { return nil, err }
+		if exists && len(idx.Peers) > 0 {
+			for _, p := range idx.Peers {
+				if p.State == "removed" || p.State == "removing" { continue }
+				if err := add(p.Slot.WSSSP, p.PublicIP); err != nil { return nil, err }
+			}
+			return out, nil
+		}
+		var legacy wssMaterial
+		exists, err = readFirewallJSON(filepath.Join(dir, "material.json"), &legacy)
+		if err != nil { return nil, err }
+		if exists && legacy.Secondary != "" {
+			port := legacy.WSSSP
+			if port == 0 { port = 8444 }
+			if err := add(port, legacy.Secondary); err != nil { return nil, err }
+		}
+		return out, nil
+	}
+	var local wssMaterial
+	exists, err := readFirewallJSON(filepath.Join(dir, "material.json"), &local)
+	if err != nil { return nil, err }
+	if exists && local.Primary != "" {
+		port := local.WSSPS
+		if port == 0 { port = 8445 }
+		if err := add(port, local.Primary); err != nil { return nil, err }
+	}
+	return out, nil
+}
+
+// verifyWSSRules enforces per-peer source-restricted WSS. No WSS port is ever
+// expected to be globally exposed; prepared peers are included for blue-green.
+func verifyWSSRules(rules []ufwRule, role string) error {
+	expected, err := wssExpectations(role)
+	if err != nil { return err }
+	ports := roleWSSPorts(role)
+	for _, e := range expected {
+		action, found := firstTCPActionFromSource(rules, e.Port, e.Source, false)
+		if !found || action != "ALLOW" {
+			return fmt.Errorf("%s WSS %s from %s first action=%q found=%t (want ALLOW)", role, e.Port, e.Source, action, found)
+		}
+	}
+	for _, rule := range rules {
+		if !ufwRuleAllowsTraffic(rule.Action) { continue }
+		isWSS := false
+		for _, port := range ports { if ufwRuleMatchesPortTCP(rule, port) { isWSS = true; break } }
+		if !isWSS { continue }
+		if rule.IPv6 || ufwFromIsWAN(rule.From) {
+			return fmt.Errorf("%s WSS port %s has broad/IPv6 ALLOW from %s", role, rule.Port, rule.From)
+		}
+		matched := false
+		for _, e := range expected {
+			if e.Port == rule.Port && ufwSourceCovers(e.Source, rule.From) { matched = true; break }
+		}
+		if !matched { return fmt.Errorf("%s WSS port %s has unregistered ALLOW from %s", role, rule.Port, rule.From) }
+	}
+	return nil
+}
+
+// removeLegacyGlobalWSSRules migrates old Netductor-wide WSS ALLOW rules. It
+// removes only rules carrying Netductor's historical comments; administrator
+// rules are preserved and subsequently cause a fail-closed policy check.
+func removeLegacyGlobalWSSRules(status string) error {
+	var numbers []int
+	for _, rule := range parseUfwNumbered(status) {
+		if rule.Action != "ALLOW" || !ufwFromIsWAN(rule.From) || (rule.Port != "8444" && rule.Port != "8445") { continue }
+		if strings.Contains(rule.Raw, "nd-wss-sp") || strings.Contains(rule.Raw, "nd-wss-ps") {
+			numbers = append(numbers, rule.Num)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(numbers)))
+	for _, n := range numbers {
+		out, err := exec.Command("ufw", "--force", "delete", strconv.Itoa(n)).CombinedOutput()
+		if err != nil { return fmt.Errorf("remove legacy global WSS rule %d: %v (%s)", n, err, truncate(string(out), 160)) }
+	}
+	return nil
 }
 
 // EnsureInstalled tries to install ufw. Returns backend that will be used.
