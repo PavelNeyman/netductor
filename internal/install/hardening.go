@@ -27,7 +27,7 @@ func InstallHardening() error {
 	_ = run("sysctl", "--system")
 
 	if err := firewall.ApplyRole("primary"); err != nil {
-		fmt.Fprintf(os.Stderr, "firewall apply primary: %v\n", err)
+		return fmt.Errorf("apply primary firewall policy: %w", err)
 	}
 	_ = ApplyAgentFirewall()
 	if err := EnsureSSHKeyAndHarden(); err != nil {
