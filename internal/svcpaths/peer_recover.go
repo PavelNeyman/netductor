@@ -49,13 +49,23 @@ func writePeerOp(op peerOp) error {
 	return writePeerOpFn(op)
 }
 
-func clearPeerOp(id string) {
+func clearPeerOp(id string) error {
 	path := peerOpPath(id)
-	if err := os.Remove(path); err != nil { return }
-	if dir, err := os.Open(filepath.Dir(path)); err == nil {
-		_ = dir.Sync()
-		_ = dir.Close()
+	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("remove peer op journal: %w", err)
 	}
+	dir, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return fmt.Errorf("open peer op directory for sync: %w", err)
+	}
+	defer dir.Close()
+	if err := dir.Sync(); err != nil {
+		return fmt.Errorf("sync peer op directory after removal: %w", err)
+	}
+	return nil
 }
 
 func loadPeerOp(id string) (*peerOp, error) {
@@ -164,7 +174,9 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 		return "", err
 	}
 	if idx.Find(peerID) != nil {
-		clearPeerOp(peerID)
+		if err := clearPeerOp(peerID); err != nil {
+			return "", fmt.Errorf("peer already indexed but op journal cleanup is not durable: %w", err)
+		}
 		return "already indexed; cleared op", nil
 	}
 	if needsBootstrap(op.Phase) {
@@ -202,7 +214,9 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 		}
 		return "", fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, peerID)
 	}
-	clearPeerOp(peerID)
+	if err := clearPeerOp(peerID); err != nil {
+		return "", fmt.Errorf("peer recovered and indexed, but op journal cleanup is not durable: %w (retry peer recover %s)", err, peerID)
+	}
 	logPeerJournal("recover", peerID, "prepared", op.Phase)
 	return "recovered to prepared", nil
 }
