@@ -257,43 +257,56 @@ done
 # Restore the exact UFW snapshot. Never mark rollback complete when
 # restoring the firewall failed: the old sshd config may listen only on :22.
 FW_RESTORE_OK=1
-if [ -f "$B/ufw-policy" ] && command -v ufw >/dev/null 2>&1; then
+if [ ! -f "$B/ufw-policy" ]; then
+  echo "nd-harden-rollback: UFW snapshot state is missing" >&2
+  FW_RESTORE_OK=0
+else
   pol=$(cat "$B/ufw-policy")
   case "$pol" in
-    absent|inactive)
-      if [ -f "$B/ufw/user.rules" ] && ! cp -a "$B/ufw/user.rules" /etc/ufw/user.rules; then
-        echo "nd-harden-rollback: failed to restore UFW IPv4 rules" >&2
-        FW_RESTORE_OK=0
-      fi
-      if [ -f "$B/ufw/user6.rules" ] && ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
-        echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
-        FW_RESTORE_OK=0
-      fi
-      if ! ufw --force disable; then
-        echo "nd-harden-rollback: failed to restore inactive UFW state" >&2
-        FW_RESTORE_OK=0
-      fi
+    absent)
+      # No UFW backend existed when the transaction was armed.
       ;;
-    active)
-      if [ ! -f "$B/ufw/user.rules" ]; then
-        echo "nd-harden-rollback: UFW IPv4 snapshot is missing" >&2
-        FW_RESTORE_OK=0
-      elif ! cp -a "$B/ufw/user.rules" /etc/ufw/user.rules; then
-        echo "nd-harden-rollback: failed to restore UFW IPv4 rules" >&2
-        FW_RESTORE_OK=0
-      fi
-      if [ -f /etc/ufw/user6.rules ]; then
-        if [ ! -f "$B/ufw/user6.rules" ] || ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
+    inactive)
+      if command -v ufw >/dev/null 2>&1; then
+        if [ -f "$B/ufw/user.rules" ] && ! cp -a "$B/ufw/user.rules" /etc/ufw/user.rules; then
+          echo "nd-harden-rollback: failed to restore UFW IPv4 rules" >&2
+          FW_RESTORE_OK=0
+        fi
+        if [ -f "$B/ufw/user6.rules" ] && ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
           echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
           FW_RESTORE_OK=0
         fi
-      elif [ -f "$B/ufw/user6.rules" ] && ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
-        echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
-        FW_RESTORE_OK=0
+        if ! ufw --force disable; then
+          echo "nd-harden-rollback: failed to restore inactive UFW state" >&2
+          FW_RESTORE_OK=0
+        fi
       fi
-      if ! ufw reload; then
-        echo "nd-harden-rollback: failed to reload restored UFW policy" >&2
+      ;;
+    active)
+      if ! command -v ufw >/dev/null 2>&1; then
+        echo "nd-harden-rollback: UFW was active but its command is unavailable" >&2
         FW_RESTORE_OK=0
+      else
+        if [ ! -f "$B/ufw/user.rules" ]; then
+          echo "nd-harden-rollback: UFW IPv4 snapshot is missing" >&2
+          FW_RESTORE_OK=0
+        elif ! cp -a "$B/ufw/user.rules" /etc/ufw/user.rules; then
+          echo "nd-harden-rollback: failed to restore UFW IPv4 rules" >&2
+          FW_RESTORE_OK=0
+        fi
+        if [ -f /etc/ufw/user6.rules ]; then
+          if [ ! -f "$B/ufw/user6.rules" ] || ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
+            echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
+            FW_RESTORE_OK=0
+          fi
+        elif [ -f "$B/ufw/user6.rules" ] && ! cp -a "$B/ufw/user6.rules" /etc/ufw/user6.rules; then
+          echo "nd-harden-rollback: failed to restore UFW IPv6 rules" >&2
+          FW_RESTORE_OK=0
+        fi
+        if ! ufw reload; then
+          echo "nd-harden-rollback: failed to reload restored UFW policy" >&2
+          FW_RESTORE_OK=0
+        fi
       fi
       ;;
     *)
