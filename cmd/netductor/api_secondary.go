@@ -265,7 +265,10 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fp := strings.TrimSpace(in.RecoveryFP); fp != "" {
-		secondary.StoreRecoveryPeerFingerprint(d.ID, fp)
+		if err := secondary.StoreRecoveryPeerFingerprint(d.ID, fp); err != nil {
+			http.Error(w, "recovery fingerprint persistence failed", http.StatusInternalServerError)
+			return
+		}
 	}
 	if strings.TrimSpace(in.CmdDone) != "" {
 		ok := "✅"
