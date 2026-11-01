@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -180,17 +181,32 @@ func agentToken(r *http.Request) string {
 }
 
 func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	tok := agentToken(r)
 	if tok == "" || len(tok) < 16 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	raw, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "invalid heartbeat body", http.StatusBadRequest)
+		return
+	}
 	var in secondary.HeartbeatIn
-	_ = json.Unmarshal(raw, &in)
+	if err := json.Unmarshal(raw, &in); err != nil {
+		http.Error(w, "invalid heartbeat JSON", http.StatusBadRequest)
+		return
+	}
 	d, ver, err := secondary.Heartbeat(tok, in)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		if errors.Is(err, secondary.ErrUnauthorized) || errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, "heartbeat persistence failed", http.StatusInternalServerError)
 		return
 	}
 	if fp := strings.TrimSpace(in.RecoveryFP); fp != "" {
