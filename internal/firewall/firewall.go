@@ -710,7 +710,7 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		// Keep factory SSH reachable while the new key-only listener is prepared.
 		// Reuse an already-effective first rule; otherwise insert our tagged rule.
 		rules := parseUfwNumbered(string(current))
-		ready := true
+		ready := strings.Contains(string(current), "netductor-ssh-bootstrap")
 		for _, ipv6 := range []bool{false, true} {
 			action, found := firstTCPActionFromWANFamily(rules, "22", ipv6)
 			if !found || action != "ALLOW" { ready = false; break }
