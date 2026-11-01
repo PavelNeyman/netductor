@@ -435,11 +435,19 @@ if command -v ufw >/dev/null 2>&1; then
     echo "UFW SSH bootstrap rule unexpectedly remains after finalize" >&2
     exit 1
   fi
+  first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
+  case "$first22" in
+    *"DENY IN"*) ;;
+    *) echo "UFW port 22 is not denied after rollback cancellation" >&2; exit 1 ;;
+  esac
 elif command -v iptables >/dev/null 2>&1; then
   if iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT 2>/dev/null; then
     iptables -D INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
     netfilter-persistent save
   fi
+  chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
+  test "$(printf '%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+  iptables -C "$chain" -p tcp --dport 22 -j DROP
 fi
 
 rm -f /etc/systemd/system/${ND_RB_UNIT} /etc/systemd/system/${ND_RB_TIMER}
