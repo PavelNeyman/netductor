@@ -240,7 +240,10 @@ func applyUserUplink(userPath string) error {
 	mode := info.Mode().Perm()
 	prev := append([]byte(nil), b...)
 	if err := writeFileAtomic(singBoxConfig, append(raw, '\\n'), mode); err != nil {
-		return fmt.Errorf("atomically replace sing-box config: %w", err)
+		if restoreErr := writeFileAtomic(singBoxConfig, prev, mode); restoreErr != nil {
+			return fmt.Errorf("atomically replace sing-box config: %w; restoring previous config also failed: %v", err, restoreErr)
+		}
+		return fmt.Errorf("atomically replace sing-box config: %w; previous config restored", err)
 	}
 	rollback := func(cause error) error {
 		if restoreErr := writeFileAtomic(singBoxConfig, prev, mode); restoreErr != nil {
@@ -298,7 +301,7 @@ func probeHealthInvalid(why string) error {
 
 // writeFileAtomic replaces a file without exposing a partially written config.
 // The temporary file is created in the destination directory so rename is atomic.
-func writeFileAtomic(path string, data []byte, mode os.FileMode) (retErr error) {
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
 	f, err := os.CreateTemp(dir, ".netductor-atomic-*")
 	if err != nil {
