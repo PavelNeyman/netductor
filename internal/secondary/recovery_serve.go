@@ -402,7 +402,7 @@ func ArmRecovery(ttl time.Duration) error {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintf(w, "stored %s (%d bytes)\\n", name, n)
+		fmt.Fprintf(w, "stored %s (%d bytes)\n", name, n)
 	}))
 	mux.HandleFunc("/recovery/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -697,34 +697,39 @@ func writeRecoveryFingerprint(der []byte) error {
 }
 
 
- // ensureRecoveryBackupDir validates every path component before recovery files are
- // read or published. In particular, a symlinked backup directory is never trusted.
- func ensureRecoveryBackupDir(dir string) error {
- 	if err := os.MkdirAll(dir, 0o700); err != nil {
- 		return fmt.Errorf("create backup directory: %w", err)
- 	}
- 	for _, p := range []string{
- 		"/var",
- 		"/var/lib",
- 		"/var/lib/netductor",
- 		"/var/lib/netductor/backups",
- 		"/var/lib/netductor/backups/peers",
- 		dir,
- 	} {
- 		info, err := os.Lstat(p)
- 		if err != nil {
- 			return fmt.Errorf("inspect backup directory %s: %w", p, err)
- 		}
- 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
- 			return fmt.Errorf("backup path component %s is not a real directory", p)
- 		}
- 		st, ok := info.Sys().(*syscall.Stat_t)
- 		if !ok || st.Uid != 0 || info.Mode().Perm()&0o022 != 0 {
- 			return fmt.Errorf("backup path component %s is not root-owned and private", p)
- 		}
- 	}
- 	return nil
- }
+// ensureRecoveryBackupDir validates every path component before recovery files are
+// read or published. Missing leaf directories are created one level at a time so
+// MkdirAll cannot traverse an unchecked symlink in the backup path.
+func ensureRecoveryBackupDir(dir string) error {
+	paths := []string{
+		"/var",
+		"/var/lib",
+		"/var/lib/netductor",
+		"/var/lib/netductor/backups",
+		"/var/lib/netductor/backups/peers",
+		dir,
+	}
+	for i, p := range paths {
+		info, err := os.Lstat(p)
+		if os.IsNotExist(err) && i >= 3 {
+			if err := os.Mkdir(p, 0o700); err != nil && !os.IsExist(err) {
+				return fmt.Errorf("create backup directory %s: %w", p, err)
+			}
+			info, err = os.Lstat(p)
+		}
+		if err != nil {
+			return fmt.Errorf("inspect backup directory %s: %w", p, err)
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("backup path component %s is not a real directory", p)
+		}
+		st, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || st.Uid != 0 || info.Mode().Perm()&0o022 != 0 {
+			return fmt.Errorf("backup path component %s is not root-owned and private", p)
+		}
+	}
+	return nil
+}
 
 func recoveryBindIsLoopback(bind string) bool {
 
