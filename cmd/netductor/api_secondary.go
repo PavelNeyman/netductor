@@ -462,7 +462,7 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Sidecars as headers.
-	if b, err := os.ReadFile(filepath.Join(dir, "COMPONENTS.txt")); err == nil {
+	if b, err := readSmallRegularFileNoFollow(filepath.Join(dir, "COMPONENTS.txt"), 64<<10); err == nil {
 		w.Header().Set("X-Netductor-Components", strings.ReplaceAll(strings.TrimSpace(string(b)), "\n", ","))
 	}
 	name := filepath.Base(latest)
