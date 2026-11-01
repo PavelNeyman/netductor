@@ -144,8 +144,12 @@ func validateAPIAllowCIDRs(cidrs []string) error {
 		if seen[c] {
 			continue
 		}
-		if _, _, err := net.ParseCIDR(c); err != nil {
+		_, network, err := net.ParseCIDR(c)
+		if err != nil {
 			return fmt.Errorf("invalid API allow CIDR %q: %w", c, err)
+		}
+		if network.IP.To4() == nil {
+			return fmt.Errorf("IPv6 API allow CIDR %q is not supported by the primary mTLS firewall policy", c)
 		}
 		seen[c] = true
 	}
@@ -254,6 +258,9 @@ func RestrictAgentMTLSToIP(ip string) error {
 	_, network, err := net.ParseCIDR(ip)
 	if err != nil {
 		return fmt.Errorf("invalid agent allow CIDR %q: %w", ip, err)
+	}
+	if network.IP.To4() == nil {
+		return fmt.Errorf("IPv6 agent mTLS allow CIDR %q is not supported by the primary firewall policy", ip)
 	}
 	ip = network.String()
 
