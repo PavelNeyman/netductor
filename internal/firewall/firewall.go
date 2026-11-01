@@ -1263,6 +1263,9 @@ func applyIPTablesMode(role string, bootstrapSSH bool) error {
 	denyTCP := func(port string) error {
 		return must("-A", stagingChain, "-p", "tcp", "--dport", port, "-j", "DROP")
 	}
+	allowTCPFrom := func(port, source string) error {
+		return must("-A", stagingChain, "-p", "tcp", "-s", source, "--dport", port, "-j", "ACCEPT")
+	}
 	for _, step := range []struct {
 		fn   func() error
 		what string
@@ -1277,9 +1280,21 @@ func applyIPTablesMode(role string, bootstrapSSH bool) error {
 			return fmt.Errorf("iptables fallback %s: %w", step.what, err)
 		}
 	}
+	// WSS listeners are per-peer and must never be exposed globally. Install
+	// source-specific allows first, then drop every reserved WSS port.
+	wssPeers, wssErr := wssExpectations(role)
+	if wssErr != nil { return fmt.Errorf("iptables fallback WSS inventory: %w", wssErr) }
+	for _, peer := range wssPeers {
+		if err := allowTCPFrom(peer.Port, peer.Source); err != nil {
+			return fmt.Errorf("iptables fallback WSS allow %s from %s: %w", peer.Port, peer.Source, err)
+		}
+	}
+	for _, port := range append(roleWSSPorts("primary"), roleWSSPorts("secondary")...) {
+		if err := denyTCP(port); err != nil { return fmt.Errorf("iptables fallback WSS drop %s: %w", port, err) }
+	}
 	if role == "primary" {
 		redir := ndconfig.RedirectHTTPSPort()
-		for _, port := range []string{redir, "80", "8444"} {
+		for _, port := range []string{redir, "80"} {
 			if err := allowTCP(port); err != nil {
 				return fmt.Errorf("iptables fallback allow %s: %w", port, err)
 			}
@@ -1289,7 +1304,7 @@ func applyIPTablesMode(role string, bootstrapSSH bool) error {
 		if err := must("-A", stagingChain, "-p", "udp", "--dport", redir, "-j", "ACCEPT"); err != nil {
 			return fmt.Errorf("iptables fallback allow redirect UDP %s: %w", redir, err)
 		}
-		for _, port := range []string{"8787", "8445", "8788"} {
+		for _, port := range []string{"8787", "8788"} {
 			if err := denyTCP(port); err != nil {
 				return fmt.Errorf("iptables fallback deny secondary-only port %s: %w", port, err)
 			}
@@ -1321,9 +1336,6 @@ func applyIPTablesMode(role string, bootstrapSSH bool) error {
 			return fmt.Errorf("iptables fallback mtls drop: %w", err)
 		}
 	} else {
-		if err := allowTCP("8445"); err != nil {
-			return err
-		}
 		for _, port := range []string{"8787", "8788", "8789", "80", "8444", "9443", ndconfig.AgentMTLSPort(), ndconfig.RedirectHTTPSPort()} {
 			if err := denyTCP(port); err != nil {
 				return fmt.Errorf("iptables fallback deny %s: %w", port, err)
