@@ -151,8 +151,12 @@ B=/var/lib/netductor/ssh-harden-backup
 LOCK="$B/lock"
 mkdir -p "$B"
 exec 9>"$LOCK"
-# Exclusive lock for entire critical section (cancel acquires same lock)
+# Exclusive lock for entire critical section (cancel/finalize acquire same lock)
 flock 9
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 8>/run/lock/netductor-firewall.lock
+flock 8
 if [ -f "$B/CANCELLED" ]; then
   echo "nd-harden-rollback: CANCELLED under lock — no-op"
   exit 0
@@ -253,6 +257,11 @@ systemctl start ${ND_RB_TIMER}
 systemctl is-active ${ND_RB_TIMER}
 
 # --- Mutations only after rollback is armed ---
+# Serialize firewall mutations with ApplyRole and peer WSS updates.
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 8>/run/lock/netductor-firewall.lock
+flock 8
 # Do not install/switch firewall backends here. EnsureHostBaseline already
 # selected and applied one backend; introducing UFW now could leave two
 # independent policies active with different defaults.
@@ -315,7 +324,11 @@ echo "nd-harden-prepare: ok port=$ND_PORT rollback_timer=8m"
 func RemoteHardenFinalizeScript() string {
 	port := DefaultSSHPort
 	return fmt.Sprintf(`set -euo pipefail
+ND_BAK='%s'
 ND_PORT=%d
+mkdir -p "$ND_BAK"
+exec 7>"$ND_BAK/lock"
+flock 7
 mkdir -p /etc/ssh/sshd_config.d
 cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'NDSSH'
 %sNDSSH
@@ -373,7 +386,7 @@ elif command -v iptables >/dev/null 2>&1; then
   netfilter-persistent save
 fi
 echo "nd-harden-finalize: ok (rollback still armed until cancel)"
-`, port, DropInConf())
+`, BackupDir, port, DropInConf())
 }
 
 // RemoteHardenCancelRollbackScript: flock + CANCELLED + stop timer/unit + verify.
