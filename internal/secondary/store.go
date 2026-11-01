@@ -107,14 +107,22 @@ func BumpConfigVer() (int, error) {
 	return r.ConfigVer, nil
 }
 
-func ConfigVer() int {
+func ConfigVerE() (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
-	r, _ := load()
-	if r == nil {
+	r, err := load()
+	if err != nil {
+		return 0, fmt.Errorf("load secondary registry config version: %w", err)
+	}
+	return r.ConfigVer, nil
+}
+
+func ConfigVer() int {
+	v, _ := ConfigVerE()
+	if v < 1 {
 		return 1
 	}
-	return r.ConfigVer
+	return v
 }
 
 // IssueToken creates a new agent token. Replaces never-joined (ghost) devices with the
@@ -280,15 +288,20 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 	return nil, 0, os.ErrNotExist
 }
 
-func List() []Device {
+func ListE() ([]Device, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("load secondary registry: %w", err)
 	}
 	out := make([]Device, len(r.Devices))
 	copy(out, r.Devices)
+	return out, nil
+}
+
+func List() []Device {
+	out, _ := ListE()
 	return out
 }
 
@@ -299,14 +312,19 @@ func Online(d Device, within time.Duration) bool {
 	return time.Since(d.LastSeen) < within
 }
 
-func ExitEnabled() bool {
+func ExitEnabledE() (bool, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
-	if err != nil || r == nil {
-		return false
+	if err != nil {
+		return false, fmt.Errorf("load secondary registry exit setting: %w", err)
 	}
-	return r.ExitEnabled
+	return r.ExitEnabled, nil
+}
+
+func ExitEnabled() bool {
+	on, _ := ExitEnabledE()
+	return on
 }
 
 func SetExitEnabled(on bool) error {
