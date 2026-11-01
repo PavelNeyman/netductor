@@ -522,12 +522,12 @@ func EnqueueCmd(id, cmd string) error {
 	return os.ErrNotExist
 }
 
-func TakeCmds(id string) []string {
+func TakeCmds(id string) ([]string, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	for i := range r.Devices {
 		if r.Devices[i].ID != id {
@@ -535,10 +535,12 @@ func TakeCmds(id string) []string {
 		}
 		cmds := append([]string{}, r.Devices[i].PendingCmds...)
 		r.Devices[i].PendingCmds = nil
-		_ = save(r)
-		return cmds
+		if err := save(r); err != nil {
+			return nil, fmt.Errorf("persist secondary command dequeue: %w", err)
+		}
+		return cmds, nil
 	}
-	return nil
+	return nil, os.ErrNotExist
 }
 
 func tokenSHAEq(a, b string) bool {
