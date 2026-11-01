@@ -70,9 +70,11 @@ func writeBackupKeyRecovery() error {
 		return nil
 	}
 	dir := filepath.Join(paths.StateDir(), "backups")
-	_ = os.MkdirAll(dir, 0o700)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create backup recovery directory: %w", err)
+	}
 	path := filepath.Join(dir, "BACKUP_KEY.txt")
-	return os.WriteFile(path, []byte(key+"\n"), 0o600)
+	return writeInstallFileDurable(path, []byte(key+"\n"), 0o600)
 }
 
 func keyBytes(pass string) []byte {
@@ -461,8 +463,12 @@ func Backup() (string, error) {
 	out := enc
 	_ = os.Chmod(out, 0o600)
 	// Recovery key + components list alongside archive (plain — needed before decrypt on bare metal).
-	_ = writeBackupKeyRecovery()
-	_ = writeComponentsSidecar(dir)
+	if err := writeBackupKeyRecovery(); err != nil {
+		return "", fmt.Errorf("persist backup recovery key: %w", err)
+	}
+	if err := writeComponentsSidecar(dir); err != nil {
+		fmt.Fprintln(os.Stderr, "backup: components sidecar unavailable:", err)
+	}
 	failMark := filepath.Join(paths.StateDir(), "backup_offsite_fail")
 	_ = os.Remove(failMark) // cleared unless agent pull fails below
 	// Agent pull to RU secondary (HTTPS mTLS) — no primary→secondary SSH.
@@ -555,7 +561,7 @@ func writeComponentsSidecar(dir string) error {
 	SyncComponentsFromDisk()
 	comps := MergeComponents(DefaultComponents(), ReadComponentsManifest())
 	body := strings.Join(comps, "\n") + "\n"
-	return os.WriteFile(filepath.Join(dir, "COMPONENTS.txt"), []byte(body), 0o644)
+	return writeInstallFileDurable(filepath.Join(dir, "COMPONENTS.txt"), []byte(body), 0o644)
 }
 
 // Recover is bare-metal recovery: install components from manifest, then restore data.
