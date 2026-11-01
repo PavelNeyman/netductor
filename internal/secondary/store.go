@@ -91,11 +91,42 @@ func save(r *registry) error {
 	if err := os.MkdirAll(filepath.Dir(path()), 0o700); err != nil {
 		return fmt.Errorf("create secondary registry directory: %w", err)
 	}
-	tmp := path() + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
-		return err
+	dir := filepath.Dir(path())
+	tmpFile, err := os.CreateTemp(dir, ".devices.json.tmp-*")
+	if err != nil {
+		return fmt.Errorf("create secondary registry temporary file: %w", err)
 	}
-	return os.Rename(tmp, path())
+	tmp := tmpFile.Name()
+	defer os.Remove(tmp)
+
+	if err := tmpFile.Chmod(0o600); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("set secondary registry temporary file permissions: %w", err)
+	}
+	if _, err := tmpFile.Write(append(raw, '\n')); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("write secondary registry temporary file: %w", err)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("sync secondary registry temporary file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("close secondary registry temporary file: %w", err)
+	}
+	if err := os.Rename(tmp, path()); err != nil {
+		return fmt.Errorf("replace secondary registry: %w", err)
+	}
+
+	dirFile, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open secondary registry directory for sync: %w", err)
+	}
+	defer dirFile.Close()
+	if err := dirFile.Sync(); err != nil {
+		return fmt.Errorf("sync secondary registry directory: %w", err)
+	}
+	return nil
 }
 
 func BumpConfigVer() (int, error) {
