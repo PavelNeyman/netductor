@@ -96,7 +96,7 @@ func roleWSSPorts(role string) []string {
 }
 
 func wssExpectations(role string) ([]wssExpectation, error) {
-	const dir = "/etc/netductor/svc-paths"
+	dir := paths.SecondaryDir()
 	var out []wssExpectation
 	add := func(port int, source string) error {
 		ip := net.ParseIP(strings.TrimSpace(source))
