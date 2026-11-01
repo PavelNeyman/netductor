@@ -58,7 +58,7 @@ func saveAPIPublicState(st apiPublicState) error {
 	if err != nil {
 		return fmt.Errorf("encode API public state: %w", err)
 	}
-	data = append(data, '\\n')
+	data = append(data, '\n')
 	const tmpName = ".api-public-arm.tmp"
 	_ = unix.Unlinkat(dirFD, tmpName, 0)
 	fd, err := unix.Openat(dirFD, tmpName, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
