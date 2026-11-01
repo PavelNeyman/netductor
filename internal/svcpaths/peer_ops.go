@@ -261,6 +261,14 @@ func legacySlot0Footprint() ([]string, error) {
 		out, err := exec.Command("systemctl", "is-active", unit).CombinedOutput()
 		if err == nil && strings.TrimSpace(string(out)) == "active" {
 			found = append(found, "active systemd unit "+unit)
+			continue
+		}
+		out, err = exec.Command("systemctl", "is-enabled", unit).CombinedOutput()
+		if err == nil {
+			switch strings.TrimSpace(string(out)) {
+			case "enabled", "enabled-runtime":
+				found = append(found, "enabled systemd unit "+unit)
+			}
 		}
 	}
 	return found, nil
