@@ -9,6 +9,12 @@ import (
 
 func TestSavePolicyFileAtomicAndChecked(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.Chown(dir, os.Geteuid(), os.Getegid()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(dir, "policy.json")
 	want := Policy{
 		Enabled:              true,
