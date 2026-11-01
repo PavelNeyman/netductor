@@ -364,6 +364,12 @@ func deleteUFWUnrestrictedPort(port string) error {
 
 // ArmAPIPublic opens :8789 from anywhere for ttl, then schedules disarm.
 func ArmAPIPublic(ttl time.Duration) error {
+	unlock, lockErr := acquireNetductorFirewallLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
+
 	if ttl < time.Minute {
 		ttl = time.Minute
 	}
@@ -461,6 +467,12 @@ WantedBy=timers.target
 
 // DisarmAPIPublic removes temporary public allow; keeps service-plane rules intact.
 func DisarmAPIPublic() error {
+	unlock, lockErr := acquireNetductorFirewallLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
+
 	if _, err := exec.LookPath("ufw"); err != nil {
 		// Do not discard the durable retry mechanism or its state: UFW may have
 		// been removed while its kernel rules are still active. Without the UFW
