@@ -5,6 +5,7 @@ package firewall
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -159,6 +160,46 @@ func detectRole() string {
 	return "primary"
 }
 
+// readPersistedRole accepts only a small, root-owned regular file in a
+// trusted directory. O_NOFOLLOW and fstat prevent symlink and inode-type tricks.
+func readPersistedRole() (string, bool) {
+	const path = "/etc/netductor/role"
+	if err := validateRootOwnedDirectory("/etc"); err != nil {
+		return "", false
+	}
+	if err := validateRootOwnedDirectory("/etc/netductor"); err != nil {
+		return "", false
+	}
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return "", false
+	}
+	file := os.NewFile(uintptr(fd), path)
+	if file == nil {
+		_ = unix.Close(fd)
+		return "", false
+	}
+	defer file.Close()
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil ||
+		st.Mode&unix.S_IFMT != unix.S_IFREG ||
+		st.Uid != 0 || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 64 {
+		return "", false
+	}
+	b, err := io.ReadAll(io.LimitReader(file, 65))
+	if err != nil || len(b) > 64 {
+		return "", false
+	}
+	switch strings.TrimSpace(strings.ToLower(string(b))) {
+	case "secondary":
+		return "secondary", true
+	case "primary", "core":
+		return "primary", true
+	default:
+		return "", false
+	}
+}
+
 // DetectRoleStrict identifies a role only when a durable or live role marker exists.
 // It returns ok=false rather than guessing primary when the host has no usable markers.
 func DetectRoleStrict() (string, bool) {
@@ -167,14 +208,8 @@ func DetectRoleStrict() (string, bool) {
 		return "secondary", true
 	}
 	// Explicit role file (written by install / firewall apply).
-	if b, err := os.ReadFile("/etc/netductor/role"); err == nil {
-		s := strings.TrimSpace(strings.ToLower(string(b)))
-		if s == "secondary" {
-			return "secondary", true
-		}
-		if s == "primary" || s == "core" {
-			return "primary", true
-		}
+	if role, ok := readPersistedRole(); ok {
+		return role, true
 	}
 	// Primary control-plane markers (bundle.json may exist on primary after export — do NOT treat as secondary).
 	if _, err := os.Stat("/var/lib/netductor/READY.txt"); err == nil {
