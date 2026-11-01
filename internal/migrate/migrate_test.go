@@ -11,6 +11,13 @@ import (
 	"github.com/PavelNeyman/netductor/internal/firewall"
 )
 
+func usePrimaryRoleForTest(t *testing.T) {
+	t.Helper()
+	previous := detectHostRole
+	detectHostRole = func() (string, bool) { return "primary", true }
+	t.Cleanup(func() { detectHostRole = previous })
+}
+
 type stubMig struct {
 	id      string
 	need    bool
@@ -71,6 +78,7 @@ func (s *failMig) Apply(ctx context.Context) error            { return context.C
 func (s *failMig) Verify(ctx context.Context) error           { return nil }
 
 func TestBuiltinMigrationsFromEmptyState(t *testing.T) {
+	usePrimaryRoleForTest(t)
 	root := t.TempDir()
 	t.Setenv("NETDUCTOR_STATE", root)
 	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
@@ -96,6 +104,7 @@ func TestBuiltinMigrationsFromEmptyState(t *testing.T) {
 }
 
 func TestPostCheckAfterRunAll(t *testing.T) {
+	usePrimaryRoleForTest(t)
 	root := t.TempDir()
 	etc := filepath.Join(root, "etc")
 	t.Setenv("NETDUCTOR_STATE", root)
@@ -111,6 +120,7 @@ func TestPostCheckAfterRunAll(t *testing.T) {
 }
 
 func TestFixtureLegacyLooseModes(t *testing.T) {
+	usePrimaryRoleForTest(t)
 	// Simulates a pre-migration install: dirs exist with loose modes, no journal, no role.
 	root := t.TempDir()
 	etc := filepath.Join(root, "etc")
@@ -231,6 +241,7 @@ func TestClearFailedRecords(t *testing.T) {
 }
 
 func TestFixturePre0912UpgradePath(t *testing.T) {
+	usePrimaryRoleForTest(t)
 	// Note: name is historical; this is pre-migration-runner layout, NOT a byte-accurate 0.9.612 VPS image.
 	// Richer simulation of an install that predates the migration runner:
 	// loose secrets, partial edge JSON, wrong modes, interrupted journal entry,
@@ -399,6 +410,7 @@ func TestRoleApplyRequiresDetectableRole(t *testing.T) {
 }
 
 func TestFixture0912PrimaryLayout(t *testing.T) {
+	usePrimaryRoleForTest(t)
 	// Layout modeled on production Primary ~0.9.612 era reports (paths/modes/markers),
 	// not a full systemd image: VERSION, vpn-users, secrets, edge devices, no migrate journal,
 	// no installed_version, role may be absent (DetectRole may still succeed on real hosts).
