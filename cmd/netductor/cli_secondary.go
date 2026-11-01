@@ -94,8 +94,16 @@ func runSecondary(args []string) {
 			fmt.Printf("## %s\n%s\n", e.Name(), string(b))
 		}
 	case "prune":
-		n := secondary.PruneDuplicates()
-		s := secondary.PruneStale(10 * time.Minute)
+		n, err := secondary.PruneDuplicates()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "prune secondary duplicates:", err)
+			os.Exit(1)
+		}
+		s, err := secondary.PruneStale(10 * time.Minute)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "duplicates_removed=%d; prune stale secondaries: %v\n", n, err)
+			os.Exit(1)
+		}
 		fmt.Printf("duplicates_removed=%d stale_removed=%d\n", n, s)
 		// drop offline secondary nodes from registry
 		for _, d := range secondary.List() {
@@ -206,7 +214,10 @@ func runSecondary(args []string) {
 		b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
 		// Pre-clean only after credentials have been durably issued. A failed
 		// issuance must not remove the previously registered secondary.
-		_ = secondary.RemoveByPublicIP(host, "")
+		if _, err := secondary.RemoveByPublicIP(host, ""); err != nil {
+			fmt.Fprintln(os.Stderr, "remove previous secondary registry entries:", err)
+			os.Exit(1)
+		}
 		var mtlsCA, mtlsCert, mtlsKey []byte
 		if ca, cert, key, err := mtls.EnsureClientFor(id); err != nil {
 			fmt.Fprintln(os.Stderr, "mtls EnsureClientFor:", err)
@@ -363,7 +374,9 @@ func runSecondary(args []string) {
 		fmt.Println("exit_enabled", on)
 		fmt.Println("sing-box re-applied on core; relays will sync on next agent poll")
 	case "status":
-		_ = secondary.PruneDuplicates()
+		if _, err := secondary.PruneDuplicates(); err != nil {
+			fmt.Fprintln(os.Stderr, "warning: cannot prune duplicate secondary records:", err)
+		}
 		devs := secondary.List()
 		if len(devs) == 0 {
 			b, err := os.ReadFile(filepath.Join(paths.SecondaryDir(), "bundle.json"))
@@ -403,7 +416,9 @@ func postProvisionSecondary(host, sni string) {
 
 	fmt.Println("==> post-provision: keep issued agent tokens (do not wipe before heartbeat)")
 	// Do not RemoveByPublicIP(host,"") here — that deleted the token IssueToken just wrote.
-	_ = secondary.PruneStale(24 * time.Hour)
+	if _, err := secondary.PruneStale(24 * time.Hour); err != nil {
+		fmt.Println("  warning: prune stale secondary records:", err)
+	}
 	if list, err := nodes.List(); err == nil {
 		for _, n := range list {
 			if n.Role != "secondary" {
@@ -429,7 +444,9 @@ func postProvisionSecondary(host, sni string) {
 			fmt.Println("  queued mtls_refresh via agent (HTTPS), not SSH")
 		}
 		// keep only this device for the IP
-		_ = secondary.RemoveByPublicIP(host, dev.ID)
+		if _, err := secondary.RemoveByPublicIP(host, dev.ID); err != nil {
+			fmt.Println("  warning: remove duplicate secondary IP records:", err)
+		}
 		_, _ = nodes.SetDesiredHostname(dev.ID, "nd-secondary")
 		_ = secondary.Rename(dev.ID, "nd-secondary")
 	}
@@ -464,7 +481,9 @@ func postProvisionSecondary(host, sni string) {
 	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "last_secondary_host"), []byte(host+"\n"), 0o600)
 
 	// final prune pass
-	_ = secondary.PruneDuplicates()
+	if _, err := secondary.PruneDuplicates(); err != nil {
+		fmt.Println("  warning: final secondary duplicate prune:", err)
+	}
 	fmt.Println("==> post-provision: done — secondary VPN plane ready (new Reality keys only); run: netductor fleet provision-secondary extras or fleet bootstrap")
 }
 
