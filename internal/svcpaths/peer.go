@@ -73,10 +73,25 @@ func readPeerFile(path string, maxBytes int64) ([]byte, error) {
 
 // atomicWritePeerFile preserves the path and format while making peer state
 // crash-durable: private temp, fsync, atomic rename, then directory fsync.
+func validateAtomicWriteTarget(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("inspect atomic-write target %s: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return fmt.Errorf("atomic-write target %s must be a regular file, not a symlink or special file", path)
+	}
+	return nil
+}
+
 func atomicWritePeerFile(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil { return fmt.Errorf("create %s: %w", dir, err) }
 	if err := validatePeerFileDirectories(path); err != nil { return err }
+	if err := validateAtomicWriteTarget(path); err != nil { return err }
 	f, err := os.CreateTemp(dir, ".netductor-peer-*")
 	if err != nil { return fmt.Errorf("create temp for %s: %w", path, err) }
 	tmp := f.Name()
