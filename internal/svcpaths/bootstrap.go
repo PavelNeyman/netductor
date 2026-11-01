@@ -432,7 +432,7 @@ func writeFile(path, body string, mode os.FileMode) error {
 	return atomicWritePeerFile(path, []byte(body), mode)
 }
 
-func unitFile(name, execStart string) error {
+func validateUnitExecStart(name, execStart string) error {
 	if !safeUnitName(name) {
 		return fmt.Errorf("invalid systemd unit name %q", name)
 	}
@@ -447,6 +447,13 @@ func unitFile(name, execStart string) error {
 	}
 	if !strings.HasPrefix(execStart, "/") {
 		return fmt.Errorf("systemd ExecStart for %s must use an absolute executable path", name)
+	}
+	return nil
+}
+
+func unitFile(name, execStart string) error {
+	if err := validateUnitExecStart(name, execStart); err != nil {
+		return err
 	}
 	body := fmt.Sprintf(`[Unit]
 Description=Netductor %s
