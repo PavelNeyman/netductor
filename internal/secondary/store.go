@@ -62,7 +62,9 @@ func path() string {
 }
 
 func load() (*registry, error) {
-	_ = os.MkdirAll(filepath.Dir(path()), 0o700)
+	if err := os.MkdirAll(filepath.Dir(path()), 0o700); err != nil {
+		return nil, fmt.Errorf("create secondary registry directory: %w", err)
+	}
 	b, err := os.ReadFile(path())
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -81,10 +83,12 @@ func save(r *registry) error {
 	if r != nil && r.Devices == nil {
 		r.Devices = []Device{}
 	}
-	_ = os.MkdirAll(filepath.Dir(path()), 0o700)
 	raw, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
 		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path()), 0o700); err != nil {
+		return fmt.Errorf("create secondary registry directory: %w", err)
 	}
 	tmp := path() + ".tmp"
 	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
