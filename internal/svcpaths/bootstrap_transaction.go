@@ -159,6 +159,55 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 	return tx.finish("rolled_back")
 }
 
+
+func recoverBootstrapFileTransactions() error {
+	entries, err := os.ReadDir(bootstrapJournalRoot)
+	if err != nil {
+		if os.IsNotExist(err) { return nil }
+		return fmt.Errorf("read bootstrap transaction directory: %w", err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" { continue }
+		path := filepath.Join(bootstrapJournalRoot, entry.Name())
+		info, err := os.Lstat(path)
+		if err != nil { return fmt.Errorf("inspect bootstrap journal %s: %w", path, err) }
+		st, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+			st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
+			return fmt.Errorf("bootstrap journal %s is not a private regular file owned by euid %d", path, os.Geteuid())
+		}
+		b, err := os.ReadFile(path)
+		if err != nil { return fmt.Errorf("read bootstrap journal %s: %w", path, err) }
+		var j bootstrapJournal
+		if err := json.Unmarshal(b, &j); err != nil {
+			return fmt.Errorf("bootstrap journal %s is corrupt; refusing bootstrap: %w", path, err)
+		}
+		if j.Version != bootstrapJournalVersion || j.TxID == "" ||
+			filepath.Base(path) != j.TxID+".json" ||
+			(j.Role != "primary" && j.Role != "secondary") ||
+			j.Slot < 0 || j.Slot >= len(SlotTable()) {
+			return fmt.Errorf("bootstrap journal %s has unsupported or invalid identity; refusing bootstrap", path)
+		}
+		tx := &bootstrapFileTransaction{journal: j, path: path}
+		switch j.Phase {
+		case "applying", "rolling_back":
+			if err := tx.Rollback(); err != nil {
+				return fmt.Errorf("recover bootstrap transaction %s (role=%s peer=%s slot=%d): %w", j.TxID, j.Role, j.PeerID, j.Slot, err)
+			}
+		case "committed", "rolled_back":
+			if err := tx.removeJournal(); err != nil { return fmt.Errorf("clean completed bootstrap journal %s: %w", path, err) }
+		default:
+			return fmt.Errorf("bootstrap journal %s has unknown phase %q; refusing bootstrap", path, j.Phase)
+		}
+	}
+	return nil
+}
+
+func (tx *bootstrapFileTransaction) removeJournal() error {
+	if err := os.Remove(tx.path); err != nil && !os.IsNotExist(err) { return err }
+	return syncBootstrapDirectory(filepath.Dir(tx.path))
+}
+
 func (tx *bootstrapFileTransaction) Commit() error {
 	if tx == nil { return fmt.Errorf("nil bootstrap file transaction") }
 	return tx.finish("committed")
@@ -167,13 +216,7 @@ func (tx *bootstrapFileTransaction) Commit() error {
 func (tx *bootstrapFileTransaction) finish(phase string) error {
 	tx.journal.Phase = phase
 	if err := tx.persist(); err != nil { return fmt.Errorf("checkpoint %s: %w", phase, err) }
-	if err := os.Remove(tx.path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove completed bootstrap journal: %w", err)
-	}
-	d, err := os.Open(filepath.Dir(tx.path))
-	if err != nil { return fmt.Errorf("open bootstrap journal directory: %w", err) }
-	defer d.Close()
-	if err := d.Sync(); err != nil { return fmt.Errorf("sync bootstrap journal removal: %w", err) }
+	if err := tx.removeJournal(); err != nil { return fmt.Errorf("remove completed bootstrap journal: %w", err) }
 	return nil
 }
 
