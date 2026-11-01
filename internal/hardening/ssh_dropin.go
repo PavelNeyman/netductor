@@ -178,6 +178,11 @@ else
   echo "$ST" > "$ND_BAK/ufw-status.txt"
 fi
 
+# Persist the management port for the independent rollback service. Older
+# transactions without this file fall back to the established Netductor port.
+printf '%s\n' "$ND_PORT" > "$ND_BAK/management-port"
+chmod 600 "$ND_BAK/management-port"
+
 # --- Arm rollback BEFORE mutations ---
 # Protocol: flock $B/lock; re-check CANCELLED under lock before each SSH mutation.
 cat > "$ND_RB_SCRIPT" << 'NDRBSH'
@@ -320,7 +325,18 @@ if [ "$FW_RESTORE_OK" -ne 1 ]; then
   # Best-effort emergency management access. This is intentionally an ALLOW
   # only when exact rollback failed; it is tagged for console-side cleanup.
   if command -v ufw >/dev/null 2>&1; then
-    if ufw insert 1 allow 22/tcp comment netductor-ssh-rollback-emergency; then
+    emergency_port=52222
+    if [ -f "$B/management-port" ]; then
+      candidate=$(cat "$B/management-port")
+      case "$candidate" in ''|*[!0-9]*) candidate= ;; esac
+      if [ -n "$candidate" ] && [ "$candidate" -ge 1 ] && [ "$candidate" -le 65535 ]; then
+        emergency_port=$candidate
+      fi
+    fi
+    if [ -f "$B/factory-ssh-present" ]; then
+      emergency_port=22
+    fi
+    if ufw insert 1 allow "$emergency_port"/tcp comment netductor-ssh-rollback-emergency; then
       ufw status numbered | grep -Fq 'netductor-ssh-rollback-emergency' || true
     fi
   fi
@@ -330,6 +346,7 @@ if [ "$FW_RESTORE_OK" -ne 1 ]; then
   exit 1
 fi
 
+rm -f "$B/ROLLBACK_FAILED"
 touch "$B/ROLLED_BACK"
 chmod 600 "$B/ROLLED_BACK"
 exit 0
