@@ -93,16 +93,18 @@ func save(r *registry) error {
 	return os.Rename(tmp, path())
 }
 
-func BumpConfigVer() int {
+func BumpConfigVer() (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	r.ConfigVer++
-	_ = save(r)
-	return r.ConfigVer
+	if err := save(r); err != nil {
+		return 0, fmt.Errorf("persist secondary config version: %w", err)
+	}
+	return r.ConfigVer, nil
 }
 
 func ConfigVer() int {
