@@ -51,10 +51,22 @@ func LoadPolicy() Policy {
 	return p
 }
 
+func savePolicyFile(path string, p Policy) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create failover policy directory: %w", err)
+	}
+	b, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal failover policy: %w", err)
+	}
+	if err := atomicWritePeerFile(path, b, 0o644); err != nil {
+		return fmt.Errorf("write failover policy: %w", err)
+	}
+	return nil
+}
+
 func SavePolicy(p Policy) error {
-	_ = os.MkdirAll(filepath.Dir(policyPath), 0o755)
-	b, _ := json.MarshalIndent(p, "", "  ")
-	return os.WriteFile(policyPath, b, 0o644)
+	return savePolicyFile(policyPath, p)
 }
 
 // State is persisted anti-flap counters and last decision.
