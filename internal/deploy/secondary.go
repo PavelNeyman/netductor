@@ -775,39 +775,70 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 		return err
 	}
 
-	// Primary firewall for this peer: mTLS 8789 from secondary WG IPs + WSS_SP listen.
-	// Fail deploy if ufw is active and rules cannot be applied.
+	// Primary firewall for this peer: mTLS 8789 from both secondary WG IPs + WSS_SP.
+	// Serialize every backend mutation with ApplyRole and peer WSS updates.
 	allowNoUFW := os.Getenv("NETDUCTOR_ALLOW_NO_UFW")
-	ufwPeer := fmt.Sprintf(`set -e
-export NETDUCTOR_ALLOW_NO_UFW=%s
-if ! command -v ufw >/dev/null 2>&1 || ! ufw status 2>/dev/null | grep -qi 'Status: active'; then
-  if [ "${NETDUCTOR_ALLOW_NO_UFW:-}" = "1" ]; then
-    echo "ufw inactive or missing - skip (NETDUCTOR_ALLOW_NO_UFW=1)"
+	ufwPeer := fmt.Sprintf(`set -euo pipefail
+ALLOW_NO_UFW=%s
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 9>/run/lock/netductor-firewall.lock
+flock 9
+if command -v ufw >/dev/null 2>&1; then
+  if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then
+    if [ "$ALLOW_NO_UFW" = "1" ]; then
+      echo "ufw inactive - skip by explicit NETDUCTOR_ALLOW_NO_UFW override"
+      exit 0
+    fi
+    echo "ufw is installed but inactive; refusing to mutate a different firewall backend" >&2
+    exit 1
+  fi
+  ufw allow from %s to any port 8789 proto tcp comment nd-mtls-sp
+  ufw allow from %s to any port 8789 proto tcp comment nd-mtls-ps
+  ufw allow from %s to any port %d proto tcp comment nd-wss-sp-slot
+  status=$(ufw status)
+  need() {
+    src="$1"; port="$2"
+    echo "$status" | awk -v src="$src" -v port="$port/tcp" '
+      /ALLOW[[:space:]]+IN/ {
+        s=0; p=0
+        for (i=1;i<=NF;i++) { if ($i==src) s=1; if ($i==port) p=1 }
+        if (s && p) found=1
+      }
+      END { exit found?0:1 }'
+  }
+  need %s 8789
+  need %s 8789
+  need %s %d
+  echo "ufw peer rules verified"
+elif command -v iptables >/dev/null 2>&1; then
+  chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
+  test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+  ensure_rule() {
+    if ! iptables -C "$chain" "$@"; then
+      iptables -I "$chain" 3 "$@"
+    fi
+  }
+  ensure_rule -p tcp -s %s --dport 8789 -j ACCEPT
+  ensure_rule -p tcp -s %s --dport 8789 -j ACCEPT
+  ensure_rule -p tcp -s %s --dport %d -j ACCEPT
+  command -v netfilter-persistent >/dev/null 2>&1
+  netfilter-persistent save
+  iptables -C "$chain" -p tcp -s %s --dport 8789 -j ACCEPT
+  iptables -C "$chain" -p tcp -s %s --dport 8789 -j ACCEPT
+  iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT
+  echo "iptables peer rules verified"
+else
+  if [ "$ALLOW_NO_UFW" = "1" ]; then
+    echo "no firewall binary - skip by explicit NETDUCTOR_ALLOW_NO_UFW override"
     exit 0
   fi
-  echo "ufw inactive or missing - refuse (set NETDUCTOR_ALLOW_NO_UFW=1 to override)" >&2
+  echo "no supported firewall backend on primary" >&2
   exit 1
 fi
-ufw allow from %s to any port 8789 proto tcp comment nd-mtls-sp
-ufw allow from %s to any port 8789 proto tcp comment nd-mtls-ps
-ufw allow from %s to any port %d proto tcp comment nd-wss-sp-slot
-status=$(ufw status)
-need() {
-  src="$1"; port="$2"
-  # Require same line: ALLOW IN + source IP + port/tcp.
-  echo "$status" | awk -v src="$src" -v port="$port/tcp" '
-    /ALLOW[[:space:]]+IN/ {
-      s=0; p=0
-      for (i=1;i<=NF;i++) { if ($i==src) s=1; if ($i==port) p=1 }
-      if (s && p) found=1
-    }
-    END { exit found?0:1 }'
-}
-need %s 8789
-need %s 8789
-need %s %d
-echo "ufw peer rules verified"
 `, ShellQuote(allowNoUFW), ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
+		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
+		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP,
 		ShellQuote(mat.AddrSSP), ShellQuote(mat.AddrSPS), ShellQuote(secIP), mat.WSSSP)
 	if outU, errU := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, ufwPeer, o.PrimaryKeyPassphrase); errU != nil {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("svc-paths primary firewall for peer slot: %w", errU))
