@@ -92,7 +92,11 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 		if !requireSession(w, r) {
 			return
 		}
-		ver := secondary.BumpConfigVer()
+		ver, err := secondary.BumpConfigVer()
+		if err != nil {
+			http.Error(w, "failed to persist secondary config version", http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, 200, map[string]any{"ok": true, "config_ver": ver})
 	})
 	mux.HandleFunc("/api/secondary/status", func(w http.ResponseWriter, r *http.Request) {
