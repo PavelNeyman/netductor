@@ -211,7 +211,9 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		}
 		return nil, nil, fmt.Errorf("save peers index: %w (retry: peer recover %s)", err, o.PeerID)
 	}
-	clearPeerOp(o.PeerID)
+	if err := clearPeerOp(o.PeerID); err != nil {
+		return nil, nil, fmt.Errorf("peer %s is indexed, but op journal cleanup is not durable: %w (retry peer recover %s)", o.PeerID, err, o.PeerID)
+	}
 	logPeerJournal("add", o.PeerID, "prepared", "")
 	return m.ForSecondary(), &sp, nil
 }
