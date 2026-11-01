@@ -501,6 +501,12 @@ func APIPublicStatusChecked() (armed bool, until time.Time, err error) {
 		}
 		return false, time.Time{}, nil
 	}
+	if out, timerErr := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput(); timerErr != nil || strings.TrimSpace(string(out)) != "active" {
+		if err := DisarmAPIPublic(); err != nil {
+			return false, st.Until, fmt.Errorf("API public disarm timer is not active and safe cleanup failed: %w", err)
+		}
+		return false, time.Time{}, fmt.Errorf("API public state was stale: disarm timer was not active; public access has been closed")
+	}
 	return true, st.Until, nil
 }
 
