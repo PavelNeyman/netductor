@@ -635,25 +635,31 @@ func ListPublicIPs() []string {
 	return out
 }
 
-// StoreRecoveryPeerFingerprint saves secondary recovery TLS fingerprint for DR on primary.
-// Written so recover --from-secondary can pin without INSECURE=1.
-func StoreRecoveryPeerFingerprint(deviceID, fp string) {
+// StoreRecoveryPeerFingerprint saves a per-device recovery TLS fingerprint.
+// A shared fingerprint is deliberately not written: multiple secondaries must
+// never overwrite one another's trust anchor.
+func StoreRecoveryPeerFingerprint(deviceID, fp string) error {
+	deviceID = strings.TrimSpace(deviceID)
 	fp = strings.TrimSpace(fp)
-	if fp == "" {
-		return
+	if deviceID == "" || fp == "" {
+		return fmt.Errorf("recovery fingerprint requires device ID and fingerprint")
 	}
-	if !strings.HasPrefix(strings.ToLower(fp), "sha256:") {
-		fp = "sha256:" + fp
+	fp = strings.TrimPrefix(strings.ToLower(fp), "sha256:")
+	raw, err := hex.DecodeString(fp)
+	if err != nil || len(raw) != sha256.Size {
+		return fmt.Errorf("invalid recovery SHA-256 fingerprint")
 	}
-	line := fp + "\n"
+	sum := sha256.Sum256([]byte(deviceID))
+	name := "recovery_peer_" + hex.EncodeToString(sum[:]) + ".fp"
 	dir := filepath.Join(paths.StateDir(), "secondary")
-	_ = os.MkdirAll(dir, 0o700)
-	_ = os.WriteFile(filepath.Join(dir, "recovery_peer.fp"), []byte(line), 0o600)
-	if deviceID != "" {
-		_ = os.WriteFile(filepath.Join(dir, "recovery_peer_"+sanitizeID(deviceID)+".fp"), []byte(line), 0o600)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create secondary recovery pin directory: %w", err)
 	}
-	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
-	_ = os.WriteFile("/etc/netductor/secrets/recovery_peer.fp", []byte(line), 0o600)
+	line := "sha256:" + fp + "\n"
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o600); err != nil {
+		return fmt.Errorf("store secondary recovery fingerprint: %w", err)
+	}
+	return nil
 }
 
 func sanitizeID(id string) string {
