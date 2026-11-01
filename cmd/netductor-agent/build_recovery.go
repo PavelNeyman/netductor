@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -209,4 +210,5 @@ func armBuildRecovery(ttl time.Duration) error {
 			fmt.Fprintln(os.Stderr, "build recovery disarmed")
 		}
 	}(bRecUntil)
+	return nil
 }
