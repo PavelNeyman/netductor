@@ -1439,12 +1439,18 @@ func Collect(role string) Status {
 		DenyWAN:   []string{"22/tcp", "10050/tcp"},
 	}
 	if role == "primary" {
-		st.OpenWAN = append(st.OpenWAN, ndconfig.RedirectHTTPSPort()+"/tcp", "8444/tcp", "80/tcp")
+		st.OpenWAN = append(st.OpenWAN, ndconfig.RedirectHTTPSPort()+"/tcp", "80/tcp")
 		st.Restricted = append(st.Restricted, ndconfig.AgentMTLSPort()+"/tcp ← "+ndconfig.SvcSPCIDR()+","+ndconfig.SvcPSCIDR()+",lo")
 		st.DenyWAN = append(st.DenyWAN, "8788/tcp")
 	} else {
-		st.OpenWAN = append(st.OpenWAN, "8445/tcp")
 		st.DenyWAN = append(st.DenyWAN, "8787/tcp", "8788/tcp", "8789/tcp", "80/tcp")
+	}
+	if wss, err := wssExpectations(role); err != nil {
+		st.Warnings = append(st.Warnings, "WSS peer inventory: "+err.Error())
+	} else {
+		for _, peer := range wss {
+			st.Restricted = append(st.Restricted, peer.Port+"/tcp ← "+peer.Source)
+		}
 	}
 
 	if _, err := exec.LookPath("ufw"); err == nil {
