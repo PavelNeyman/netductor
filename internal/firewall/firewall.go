@@ -293,21 +293,7 @@ func ApplyRoleBootstrap(role string) error {
 	if strings.ToLower(strings.TrimSpace(role)) != "secondary" {
 		return fmt.Errorf("firewall: bootstrap profile is only valid for secondary")
 	}
-	// EnsureHostBaseline is also used on already-hardened hosts. Do not reopen
-	// factory SSH :22 unless a listener is actually present.
-	out, err := exec.Command("ss", "-H", "-ltn").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("firewall: inspect SSH listeners before secondary bootstrap: %v (%s)", err, truncate(string(out), 160))
-	}
-	factorySSHActive := false
-	for _, line := range strings.Split(string(out), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 4 && strings.HasSuffix(fields[3], ":22") {
-			factorySSHActive = true
-			break
-		}
-	}
-	return applyRole(role, factorySSHActive)
+	return applyRole(role, true)
 }
 
 func applyRole(role string, bootstrapSSH bool) error {
@@ -316,6 +302,23 @@ func applyRole(role string, bootstrapSSH bool) error {
 		return err
 	}
 	defer unlock()
+
+	if bootstrapSSH {
+		// EnsureHostBaseline is also used on already-hardened hosts. Do not
+		// reopen factory SSH :22 unless a listener is actually present.
+		out, inspectErr := exec.Command("ss", "-H", "-ltn").CombinedOutput()
+		if inspectErr != nil {
+			return fmt.Errorf("firewall: inspect SSH listeners before secondary bootstrap: %v (%s)", inspectErr, truncate(string(out), 160))
+		}
+		bootstrapSSH = false
+		for _, line := range strings.Split(string(out), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) >= 4 && strings.HasSuffix(fields[3], ":22") {
+				bootstrapSSH = true
+				break
+			}
+		}
+	}
 
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "core" {
