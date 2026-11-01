@@ -796,44 +796,32 @@ func caPathFromEnv() string {
 // Escape: NETDUCTOR_RECOVERY_INSECURE=1 only (stderr WARN).
 func recoveryHTTPClient() (*http.Client, error) {
 	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
-	caPath := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA"))
+	explicitCA := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA"))
+	caPath := explicitCA
 	if caPath == "" {
 		caPath = "/etc/netductor/secrets/recovery_peer.crt"
 	}
-	if b, err := os.ReadFile(caPath); err == nil && len(b) > 0 {
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(b) {
-			return nil, fmt.Errorf("recovery CA pin present but not valid PEM (%s)", caPath)
+
+	// A device-scoped pin is refreshed by the authenticated secondary-agent
+	// heartbeat. Prefer it over the legacy shared CA file so old self-signed
+	// certificates without SAN remain recoverable during automatic migration.
+	// An explicitly configured CA always remains authoritative.
+	fp := recoveryFingerprint()
+	deviceScopedPin := explicitCA == "" &&
+		strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_DEVICE_ID")) != "" && fp != ""
+	if explicitCA != "" {
+		if err := setRecoveryRootCA(cfg, caPath); err != nil {
+			return nil, err
 		}
-		cfg.RootCAs = pool
-	} else if fp := recoveryFingerprint(); fp != "" {
-		want := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(fp), "sha256:"))
-		cfg.InsecureSkipVerify = true //nolint:gosec // exact certificate pin is the trust anchor
-		cfg.VerifyConnection = func(state tls.ConnectionState) error {
-			if len(state.PeerCertificates) == 0 {
-				return fmt.Errorf("recovery: empty peer certificate chain")
-			}
-			leaf := state.PeerCertificates[0]
-			sum := sha256.Sum256(leaf.Raw)
-			got := fmt.Sprintf("%x", sum[:])
-			if got != want {
-				return fmt.Errorf("recovery fingerprint mismatch (got sha256:%s)", got)
-			}
-			now := time.Now()
-			if now.Before(leaf.NotBefore) || now.After(leaf.NotAfter) {
-				return fmt.Errorf("recovery pinned certificate is outside its validity period")
-			}
-			serverAuth := false
-			for _, usage := range leaf.ExtKeyUsage {
-				if usage == x509.ExtKeyUsageServerAuth || usage == x509.ExtKeyUsageAny {
-					serverAuth = true
-					break
-				}
-			}
-			if !serverAuth {
-				return fmt.Errorf("recovery pinned certificate is not valid for server authentication")
-			}
-			return nil
+	} else if deviceScopedPin {
+		if err := setRecoveryFingerprint(cfg, fp); err != nil {
+			return nil, err
+		}
+	} else if err := setRecoveryRootCA(cfg, caPath); err == nil {
+		// Keep the legacy shared CA behavior for callers without a device ID.
+	} else if fp != "" {
+		if err := setRecoveryFingerprint(cfg, fp); err != nil {
+			return nil, err
 		}
 	} else if os.Getenv("NETDUCTOR_RECOVERY_INSECURE") == "1" {
 		cfg.InsecureSkipVerify = true //nolint:gosec
@@ -845,6 +833,58 @@ func recoveryHTTPClient() (*http.Client, error) {
 		Timeout:   30 * time.Minute,
 		Transport: &http.Transport{TLSClientConfig: cfg},
 	}, nil
+}
+
+func setRecoveryRootCA(cfg *tls.Config, path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if len(b) == 0 {
+		return fmt.Errorf("recovery CA file is empty (%s)", path)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(b) {
+		return fmt.Errorf("recovery CA pin present but not valid PEM (%s)", path)
+	}
+	cfg.RootCAs = pool
+	return nil
+}
+
+func setRecoveryFingerprint(cfg *tls.Config, fp string) error {
+	want := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(fp), "sha256:"))
+	decoded, err := hex.DecodeString(want)
+	if err != nil || len(decoded) != sha256.Size {
+		return fmt.Errorf("recovery fingerprint must be a SHA-256 hex digest")
+	}
+	cfg.InsecureSkipVerify = true //nolint:gosec // exact certificate pin is the trust anchor
+	cfg.VerifyConnection = func(state tls.ConnectionState) error {
+		if len(state.PeerCertificates) == 0 {
+			return fmt.Errorf("recovery: empty peer certificate chain")
+		}
+		leaf := state.PeerCertificates[0]
+		sum := sha256.Sum256(leaf.Raw)
+		got := fmt.Sprintf("%x", sum[:])
+		if got != want {
+			return fmt.Errorf("recovery fingerprint mismatch (got sha256:%s)", got)
+		}
+		now := time.Now()
+		if now.Before(leaf.NotBefore) || now.After(leaf.NotAfter) {
+			return fmt.Errorf("recovery pinned certificate is outside its validity period")
+		}
+		serverAuth := false
+		for _, usage := range leaf.ExtKeyUsage {
+			if usage == x509.ExtKeyUsageServerAuth || usage == x509.ExtKeyUsageAny {
+				serverAuth = true
+				break
+			}
+		}
+		if !serverAuth {
+			return fmt.Errorf("recovery pinned certificate is not valid for server authentication")
+		}
+		return nil
+	}
+	return nil
 }
 
 func recoveryFingerprint() string {
