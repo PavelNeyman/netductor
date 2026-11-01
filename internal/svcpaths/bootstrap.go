@@ -785,68 +785,94 @@ func ufwOpenPortAnywherePattern(port int) string {
 // applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
 // Also removes Anywhere rules for every SlotTable WSS_SP port (legacy A on slot 0 when adding B).
 func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
-	if secondaryPub == "" {
+	if secondaryPub == "" { return nil }
+	if _, err := exec.LookPath("ufw"); err == nil {
+		var dels []string
+		seen := map[int]bool{}
+		for _, s := range SlotTable() {
+			if s.WSS_SP > 0 && !seen[s.WSS_SP] {
+				seen[s.WSS_SP] = true
+				dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", s.WSS_SP))
+			}
+		}
+		if !seen[wssSP] {
+			seen[wssSP] = true
+			dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", wssSP))
+		}
+		ports := make([]int, 0, len(seen))
+		for port := range seen { ports = append(ports, port) }
+		sort.Ints(ports)
+		var openChecks []string
+		for _, port := range ports {
+			openChecks = append(openChecks, fmt.Sprintf(
+				"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-still-present port=%d; exit 1; fi",
+				ufwOpenPortAnywherePattern(port), port))
+		}
+		script := "set -e; mkdir -p /run/lock; test ! -L /run/lock/netductor-firewall.lock; exec 9>/run/lock/netductor-firewall.lock; flock 9; " +
+			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 1; fi; " +
+			strings.Join(dels, "; ") + "; " +
+			fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment nd-wss-sp; ", secondaryPub, wssSP) +
+			fmt.Sprintf("ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; ", sSP) +
+			strings.Join(openChecks, "; ") + "; echo primary-ufw-wss-ok"
+		out, err := exec.Command("bash", "-c", script).CombinedOutput()
+		if err != nil { return fmt.Errorf("primary ufw WSS: %w: %s", err, out) }
 		return nil
 	}
-	var dels []string
-	seen := map[int]bool{}
-	for _, s := range SlotTable() {
-		if s.WSS_SP > 0 && !seen[s.WSS_SP] {
-			seen[s.WSS_SP] = true
-			dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", s.WSS_SP))
-		}
+	if _, err := exec.LookPath("iptables"); err == nil {
+		script := fmt.Sprintf(`set -e
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 9>/run/lock/netductor-firewall.lock
+flock 9
+chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
+test "$(printf '%%s\\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null || iptables -I "$chain" 3 -p tcp -s %s --dport %d -j ACCEPT
+netfilter-persistent save
+echo primary-iptables-wss-ok
+`, secondaryPub, wssSP, secondaryPub, wssSP)
+		out, err := exec.Command("bash", "-c", script).CombinedOutput()
+		if err != nil { return fmt.Errorf("primary iptables WSS: %w: %s", err, out) }
+		return nil
 	}
-	if !seen[wssSP] {
-		seen[wssSP] = true
-		dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", wssSP))
-	}
-	ports := make([]int, 0, len(seen))
-	for port := range seen {
-		ports = append(ports, port)
-	}
-	sort.Ints(ports)
-	var openChecks []string
-	for _, port := range ports {
-		openChecks = append(openChecks, fmt.Sprintf(
-			"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-still-present port=%d; exit 1; fi",
-			ufwOpenPortAnywherePattern(port), port))
-	}
-	script := "set -e; " +
-		"mkdir -p /run/lock; test ! -L /run/lock/netductor-firewall.lock; exec 9>/run/lock/netductor-firewall.lock; flock 9; " +
-		"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; " +
-		"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; " +
-		strings.Join(dels, "; ") + "; " +
-		fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment nd-wss-sp; ", secondaryPub, wssSP) +
-		fmt.Sprintf("ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; ", sSP) +
-		strings.Join(openChecks, "; ") + "; " +
-		"echo primary-ufw-wss-ok"
-	out, err := exec.Command("bash", "-c", script).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("primary ufw WSS: %w: %s", err, out)
-	}
-	return nil
+	return fmt.Errorf("primary WSS: no supported firewall backend")
 }
 
 func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
-	if primaryPub == "" {
+	if primaryPub == "" { return nil }
+	if _, err := exec.LookPath("ufw"); err == nil {
+		openRE := ufwOpenPortAnywherePattern(wssPS)
+		script := fmt.Sprintf(`set -e
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 9>/run/lock/netductor-firewall.lock
+flock 9
+ufw status 2>/dev/null | grep -qi 'Status: active'
+ufw --force delete allow %d/tcp 2>/dev/null || true
+ufw allow from %s to any port %d proto tcp comment nd-wss-ps
+if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi
+echo secondary-ufw-wss-ok
+`, wssPS, primaryPub, wssPS, openRE)
+		out, err := exec.Command("bash", "-c", script).CombinedOutput()
+		if err != nil { return fmt.Errorf("secondary ufw WSS: %w: %s", err, out) }
 		return nil
 	}
-	openRE := ufwOpenPortAnywherePattern(wssPS)
-	script := fmt.Sprintf(
-		"set -e; "+
-			"mkdir -p /run/lock; test ! -L /run/lock/netductor-firewall.lock; exec 9>/run/lock/netductor-firewall.lock; flock 9; "+
-			"command -v ufw >/dev/null || { echo ufw-not-installed; exit 0; }; "+
-			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 0; fi; "+
-			"ufw --force delete allow %d/tcp 2>/dev/null || true; "+
-			"ufw allow from %s to any port %d proto tcp comment nd-wss-ps; "+
-			"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi; "+
-			"echo secondary-ufw-wss-ok",
-		wssPS, primaryPub, wssPS, openRE)
-	out, err := exec.Command("bash", "-c", script).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("secondary ufw WSS: %w: %s", err, out)
+	if _, err := exec.LookPath("iptables"); err == nil {
+		script := fmt.Sprintf(`set -e
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 9>/run/lock/netductor-firewall.lock
+flock 9
+chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
+test "$(printf '%%s\\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
+iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null || iptables -I "$chain" 3 -p tcp -s %s --dport %d -j ACCEPT
+netfilter-persistent save
+echo secondary-iptables-wss-ok
+`, primaryPub, wssPS, primaryPub, wssPS)
+		out, err := exec.Command("bash", "-c", script).CombinedOutput()
+		if err != nil { return fmt.Errorf("secondary iptables WSS: %w: %s", err, out) }
+		return nil
 	}
-	return nil
+	return fmt.Errorf("secondary WSS: no supported firewall backend")
 }
 
 // ufwStatusHasOpenPort reports whether ufw status text still allows PORT from Anywhere
