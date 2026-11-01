@@ -210,6 +210,9 @@ func applyAgentFirewallQuiet() error {
 	if err := ufwQuiet("deny", "8788/tcp"); err != nil {
 		return fmt.Errorf("ufw deny 8788/tcp: %w", err)
 	}
+	// Remove legacy unrestricted mTLS allows before restoring the CIDR policy.
+	_ = ufwQuiet("delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
+	_ = ufwQuiet("delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
 	seen := map[string]bool{}
 	for _, c := range cidrs {
 		if seen[c] {
