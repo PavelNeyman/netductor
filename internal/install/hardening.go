@@ -80,7 +80,14 @@ func EnsureHostBaseline(role string) error {
 	if role != "primary" && role != "secondary" {
 		return fmt.Errorf("role must be primary|secondary, got %q", role)
 	}
-	if err := firewall.ApplyRole(role); err != nil {
+	// Secondary installs may still be connected through factory SSH :22.
+	// Keep :22 and the hardened port open until the deploy workflow verifies
+	// key-only access and runs its explicit SSH finalize phase.
+	if role == "secondary" {
+		if err := firewall.ApplyRoleBootstrap(role); err != nil {
+			return fmt.Errorf("apply secondary bootstrap firewall policy: %w", err)
+		}
+	} else if err := firewall.ApplyRole(role); err != nil {
 		return err
 	}
 	if err := ensureWatchdogTimer(); err != nil {
