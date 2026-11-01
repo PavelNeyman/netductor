@@ -92,7 +92,7 @@ func armBuildRecovery(ttl time.Duration) {
 		var latest string
 		for _, e := range ents {
 			n := e.Name()
-			if e.IsDir() || strings.ContainsAny(n, "\\r\\n") ||
+			if e.IsDir() || strings.ContainsAny(n, "\r\n") ||
 				(!strings.HasSuffix(n, ".ndenc") && !strings.HasSuffix(n, ".tar.gz")) {
 				continue
 			}
