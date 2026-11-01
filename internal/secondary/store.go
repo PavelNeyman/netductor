@@ -598,13 +598,16 @@ func tokenSHAEq(a, b string) bool {
 	return subtle.ConstantTimeCompare(x[:], y[:]) == 1
 }
 
-// ListPublicIPs returns unique non-empty public IPs of registered secondaries.
-func ListPublicIPs() []string {
+// ListPublicIPsE returns unique non-empty public IPs and propagates registry errors.
+func ListPublicIPsE() ([]string, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
-	if err != nil || r == nil {
-		return nil
+	if err != nil {
+		return nil, fmt.Errorf("load secondary registry public IPs: %w", err)
+	}
+	if r == nil {
+		return nil, errors.New("secondary registry is nil")
 	}
 	seen := map[string]bool{}
 	var out []string
@@ -616,6 +619,12 @@ func ListPublicIPs() []string {
 		seen[ip] = true
 		out = append(out, ip)
 	}
+	return out, nil
+}
+
+// ListPublicIPs preserves the legacy fail-closed lookup contract.
+func ListPublicIPs() []string {
+	out, _ := ListPublicIPsE()
 	return out
 }
 
