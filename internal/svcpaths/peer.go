@@ -3,8 +3,10 @@ package svcpaths
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +19,81 @@ var keysRoot = KeysDir
 func peersDirPath() string       { return filepath.Join(keysRoot, "peers") }
 func peersIndexPath() string     { return filepath.Join(keysRoot, "peers.json") }
 func activePeerPathFile() string { return filepath.Join(keysRoot, "active_peer_id") }
+
+const maxPeerJSONBytes = 1 << 20
+
+func validatePeerDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil { return err }
+	stat, ok := info.Sys().(*unix.Stat_t)
+	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
+		stat.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("peer data directory %s must be a real directory owned by euid %d and not group/world-writable", path, os.Geteuid())
+	}
+	return nil
+}
+
+func validatePeerFileDirectories(path string) error {
+	dir := filepath.Dir(path)
+	if err := validatePeerDirectory(dir); err != nil { return err }
+	rel, err := filepath.Rel(keysRoot, path)
+	if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		if err := validatePeerDirectory(keysRoot); err != nil { return err }
+		peerRel, relErr := filepath.Rel(peersDirPath(), dir)
+		if relErr == nil && peerRel != ".." && !strings.HasPrefix(peerRel, ".."+string(os.PathSeparator)) {
+			if err := validatePeerDirectory(peersDirPath()); err != nil { return err }
+		}
+	}
+	return nil
+}
+
+// readPeerFile opens a single regular file without following symlinks, verifies
+// ownership and bounds, and tightens legacy read-only permissions to 0600.
+func readPeerFile(path string, maxBytes int64) ([]byte, error) {
+	if err := validatePeerFileDirectories(path); err != nil { return nil, err }
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil { return nil, err }
+	f := os.NewFile(uintptr(fd), path)
+	defer f.Close()
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil { return nil, fmt.Errorf("stat %s: %w", path, err) }
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) ||
+		st.Mode&0o022 != 0 || st.Size < 0 || st.Size > maxBytes {
+		return nil, fmt.Errorf("%s must be an owned regular file, not group/world-writable, and <=%d bytes", path, maxBytes)
+	}
+	if st.Mode&0o077 != 0 {
+		if err := f.Chmod(0o600); err != nil { return nil, fmt.Errorf("secure permissions on %s: %w", path, err) }
+		if err := f.Sync(); err != nil { return nil, fmt.Errorf("sync permissions on %s: %w", path, err) }
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
+	if err != nil { return nil, fmt.Errorf("read %s: %w", path, err) }
+	if int64(len(b)) > maxBytes { return nil, fmt.Errorf("%s exceeds %d bytes", path, maxBytes) }
+	return b, nil
+}
+
+// atomicWritePeerFile preserves the path and format while making peer state
+// crash-durable: private temp, fsync, atomic rename, then directory fsync.
+func atomicWritePeerFile(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil { return fmt.Errorf("create %s: %w", dir, err) }
+	if err := validatePeerFileDirectories(path); err != nil { return err }
+	f, err := os.CreateTemp(dir, ".netductor-peer-*")
+	if err != nil { return fmt.Errorf("create temp for %s: %w", path, err) }
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	if err := f.Chmod(mode.Perm()); err != nil { _ = f.Close(); return fmt.Errorf("chmod temp for %s: %w", path, err) }
+	n, err := f.Write(data)
+	if err != nil { _ = f.Close(); return fmt.Errorf("write temp for %s: %w", path, err) }
+	if n != len(data) { _ = f.Close(); return fmt.Errorf("write temp for %s: %w", path, io.ErrShortWrite) }
+	if err := f.Sync(); err != nil { _ = f.Close(); return fmt.Errorf("sync temp for %s: %w", path, err) }
+	if err := f.Close(); err != nil { return fmt.Errorf("close temp for %s: %w", path, err) }
+	if err := os.Rename(tmp, path); err != nil { return fmt.Errorf("replace %s: %w", path, err) }
+	d, err := os.Open(dir)
+	if err != nil { return fmt.Errorf("open directory %s for sync: %w", dir, err) }
+	defer d.Close()
+	if err := d.Sync(); err != nil { return fmt.Errorf("sync directory %s: %w", dir, err) }
+	return nil
+}
 
 // SetKeysRootForTest redirects peer registry paths; empty restores KeysDir.
 func SetKeysRootForTest(dir string) {
@@ -142,7 +219,7 @@ func peerMaterialPath(id string) string {
 }
 
 func LoadPeersIndex() (*PeersIndex, error) {
-	b, err := os.ReadFile(peersIndexPath())
+	b, err := readPeerFile(peersIndexPath(), maxPeerJSONBytes)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &PeersIndex{Version: 1}, nil
@@ -168,11 +245,7 @@ func SavePeersIndex(idx *PeersIndex) error {
 	if err != nil {
 		return err
 	}
-	tmp := peersIndexPath() + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, peersIndexPath())
+	return atomicWritePeerFile(peersIndexPath(), b, 0o600)
 }
 
 func (idx *PeersIndex) findAny(id string) *ServicePeer {
