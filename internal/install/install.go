@@ -113,6 +113,9 @@ func Run(opts Options) error {
 			fmt.Fprintf(os.Stderr, "skip unknown component %s\n", c)
 		}
 		if err != nil {
+			if c == "hardening" {
+				return fmt.Errorf("install hardening failed; refusing to continue or mark host ready: %w", err)
+			}
 			fmt.Fprintf(os.Stderr, "component %s: %v (continuing)\n", c, err)
 			errs = append(errs, fmt.Errorf("%s: %w", c, err))
 			continue
