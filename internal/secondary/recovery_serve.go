@@ -36,19 +36,64 @@ var (
 
 // EnsureRecoveryToken creates durable recovery token for DR pull from secondary.
 func EnsureRecoveryToken() (string, error) {
-	path := "/etc/netductor/secrets/recovery_token"
+	const dir = "/etc/netductor/secrets"
+	path := filepath.Join(dir, "recovery_token")
 	if b, err := os.ReadFile(path); err == nil {
 		t := strings.TrimSpace(string(b))
 		if len(t) >= 16 {
 			return t, nil
 		}
+		return "", fmt.Errorf("existing recovery token is invalid")
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("read recovery token: %w", err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create recovery secrets directory: %w", err)
 	}
 	buf := make([]byte, 24)
-	_, _ = rand.Read(buf)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return "", fmt.Errorf("generate recovery token: %w", err)
+	}
 	t := hex.EncodeToString(buf)
-	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
-	if err := os.WriteFile(path, []byte(t+"\n"), 0o600); err != nil {
-		return "", err
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			b, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return "", fmt.Errorf("read concurrently created recovery token: %w", readErr)
+			}
+			existing := strings.TrimSpace(string(b))
+			if len(existing) < 16 {
+				return "", fmt.Errorf("concurrently created recovery token is invalid")
+			}
+			return existing, nil
+		}
+		return "", fmt.Errorf("create recovery token: %w", err)
+	}
+	if _, err := io.WriteString(f, t+"\n"); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return "", fmt.Errorf("write recovery token: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return "", fmt.Errorf("sync recovery token: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", fmt.Errorf("close recovery token: %w", err)
+	}
+	d, err := os.Open(dir)
+	if err != nil {
+		return "", fmt.Errorf("open recovery secrets directory for sync: %w", err)
+	}
+	if err := d.Sync(); err != nil {
+		_ = d.Close()
+		return "", fmt.Errorf("sync recovery secrets directory: %w", err)
+	}
+	if err := d.Close(); err != nil {
+		return "", fmt.Errorf("close recovery secrets directory: %w", err)
 	}
 	return t, nil
 }
