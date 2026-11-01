@@ -275,35 +275,71 @@ func ArmRecovery(ttl time.Duration) error {
 	}
 
 	mux.HandleFunc("/recovery/latest", auth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "GET or HEAD only", http.StatusMethodNotAllowed)
+			return
+		}
 		dir := "/var/lib/netductor/backups/peers/core"
+		if err := ensureRecoveryBackupDir(dir); err != nil {
+			http.Error(w, "backup directory unavailable", 500)
+			return
+		}
 		ents, err := os.ReadDir(dir)
 		if err != nil {
 			http.Error(w, "no backups", 404)
 			return
 		}
-		var latest string
-		var latestT int64
-		for _, e := range ents {
-			n := e.Name()
-			if !strings.HasSuffix(n, ".ndenc") && !strings.HasSuffix(n, ".tar.gz") {
+		var latest *os.File
+		var latestName string
+		var latestInfo os.FileInfo
+		defer func() {
+			if latest != nil {
+				_ = latest.Close()
+			}
+		}()
+		for _, ent := range ents {
+			name := ent.Name()
+			lower := strings.ToLower(name)
+			if !strings.HasSuffix(lower, ".ndenc") && !strings.HasSuffix(lower, ".tar.gz") {
 				continue
 			}
-			info, _ := e.Info()
-			if info != nil && info.ModTime().Unix() >= latestT {
-				latestT = info.ModTime().Unix()
-				latest = filepath.Join(dir, n)
+			f, info, err := openRecoveryRegularFile(filepath.Join(dir, name), 512<<20)
+			if err != nil {
+				continue
+			}
+			if latestInfo == nil || info.ModTime().After(latestInfo.ModTime()) {
+				if latest != nil {
+					_ = latest.Close()
+				}
+				latest, latestName, latestInfo = f, name, info
+			} else {
+				_ = f.Close()
 			}
 		}
-		if latest == "" {
-			http.Error(w, "no backups", 404)
+		if latest ==	mux.HandleFunc("/recovery/components", auth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "GET or HEAD only", http.StatusMethodNotAllowed)
 			return
 		}
-		w.Header().Set("X-Netductor-Backup-Name", filepath.Base(latest))
-		http.ServeFile(w, r, latest)
-	}))
-	if serveKey {
-		mux.HandleFunc("/recovery/key", auth(func(w http.ResponseWriter, r *http.Request) {
-			for _, p := range []string{
+		dir := "/var/lib/netductor/backups/peers/core"
+		if err := ensureRecoveryBackupDir(dir); err != nil {
+			http.Error(w, "backup directory unavailable", 500)
+			return
+		}
+		f, _, err := openRecoveryRegularFile(filepath.Join(dir, "COMPONENTS.txt"), 1<<20)
+		if err != nil {
+			http.Error(w, "no components", 404)
+			return
+		}
+		defer f.Close()
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if r.Method == http.MethodHead {
+			return
+		}
+		if _, err := io.Copy(w, f); err != nil {
+			fmt.Fprintf(os.Stderr, "recovery-serve: components response failed: %v\\n", err)
+		}
+	}))ng{
 				"/var/lib/netductor/backups/peers/core/BACKUP_KEY.txt",
 				"/etc/netductor/secrets/backup_key",
 			} {
@@ -700,6 +736,29 @@ func writeRecoveryFingerprint(der []byte) error {
 // ensureRecoveryBackupDir validates every path component before recovery files are
 // read or published. Missing leaf directories are created one level at a time so
 // MkdirAll cannot traverse an unchecked symlink in the backup path.
+
+// openRecoveryRegularFile opens a root-owned regular file without following a
+// final-component symlink, then validates the opened inode rather than a prior
+// path lookup. The caller owns the returned descriptor.
+func openRecoveryRegularFile(path string, maxSize int64) (*os.File, os.FileInfo, error) {
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	f := os.NewFile(uintptr(fd), path)
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, nil, err
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !info.Mode().IsRegular() || !ok || st.Uid != 0 || info.Mode().Perm()&0o022 != 0 || info.Size() <= 0 || info.Size() > maxSize {
+		_ = f.Close()
+		return nil, nil, fmt.Errorf("recovery file is not a trusted regular file")
+	}
+	return f, info, nil
+}
+
 func ensureRecoveryBackupDir(dir string) error {
 	paths := []string{
 		"/var",
