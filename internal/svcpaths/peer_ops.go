@@ -257,6 +257,16 @@ func legacySlot0Footprint() ([]string, error) {
 			return nil, fmt.Errorf("inspect possible legacy slot-0 state %s: %w", path, err)
 		}
 	}
+	// A manually-created or orphaned kernel interface can outlive its
+	// WireGuard config and systemd unit. Never recycle slot 0 while it exists.
+	for _, iface := range []string{"nd-svc-sp", "nd-svc-ps"} {
+		path := filepath.Join("/sys/class/net", iface)
+		if _, err := os.Lstat(path); err == nil {
+			found = append(found, "kernel interface "+iface)
+		} else if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("inspect possible legacy interface %s: %w", iface, err)
+		}
+	}
 	for _, unit := range []string{"wg-quick@nd-svc-sp", "wg-quick@nd-svc-ps", "nd-wss-sp-server", "nd-wss-ps-client"} {
 		out, err := exec.Command("systemctl", "is-active", unit).CombinedOutput()
 		if err == nil && strings.TrimSpace(string(out)) == "active" {
