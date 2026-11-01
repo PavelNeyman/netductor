@@ -13,9 +13,16 @@ import (
 
 func usePrimaryRoleForTest(t *testing.T) {
 	t.Helper()
-	previous := detectHostRole
+	previousRoleDetector := detectHostRole
+	previousStateRepair := repairStateOnUpgrade
 	detectHostRole = func() (string, bool) { return "primary", true }
-	t.Cleanup(func() { detectHostRole = previous })
+	// Migration fixtures use isolated temporary roots. Do not let the repair
+	// migration create hooks under the real /etc/letsencrypt tree.
+	repairStateOnUpgrade = func() []string { return nil }
+	t.Cleanup(func() {
+		detectHostRole = previousRoleDetector
+		repairStateOnUpgrade = previousStateRepair
+	})
 }
 
 type stubMig struct {
