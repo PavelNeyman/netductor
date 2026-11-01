@@ -842,6 +842,9 @@ var peerUFWExec = func(args ...string) ([]byte, error) {
 var errUFWMissing = fmt.Errorf("ufw not installed")
 
 func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
+	unlock, lockErr := acquireFirewallMutationLock()
+	if lockErr != nil { return lockErr }
+	defer unlock()
 	out, err := peerUFWExec("status")
 	if err != nil && errors.Is(err, errUFWMissing) {
 		return nil
