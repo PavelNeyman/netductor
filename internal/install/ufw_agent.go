@@ -291,8 +291,12 @@ func applyAgentFirewallQuiet() error {
 
 // SyncAgentAllowFromSecondaryRegistry writes secondary public IPs into api-allow.cidr.
 func SyncAgentAllowFromSecondaryRegistry() error {
+	ips, err := secondary.ListPublicIPsE()
+	if err != nil {
+		return fmt.Errorf("load secondary mTLS allowlist sources: %w", err)
+	}
 	var failures []string
-	for _, ip := range secondary.ListPublicIPs() {
+	for _, ip := range ips {
 		if err := RestrictAgentMTLSToIP(ip); err != nil {
 			failures = append(failures, fmt.Sprintf("%s: %v", ip, err))
 		}
