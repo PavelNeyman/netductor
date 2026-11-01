@@ -47,7 +47,11 @@ func registerSessionSNI(mux *http.ServeMux) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		ver := secondary.BumpConfigVer()
+		ver, err := secondary.BumpConfigVer()
+		if err != nil {
+			http.Error(w, "persist secondary config version: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, 200, map[string]any{"ok": true, "active": vpn.ActiveSNI(), "secondary_config_ver": ver})
 	})
 
