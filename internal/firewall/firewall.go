@@ -112,7 +112,19 @@ func acquireFirewallApplyLock() (func(), error) {
 }
 
 // ApplyRole installs backend if needed and applies primary or secondary profile.
-func ApplyRole(role string) error {
+func ApplyRole(role string) error { return applyRole(role, false) }
+
+// ApplyRoleBootstrap applies the secondary profile while preserving the factory
+// SSH port 22 as a temporary management path. RemoteHardenFinalize must remove
+// this exception only after key-only access on the hardened port is verified.
+func ApplyRoleBootstrap(role string) error {
+	if strings.ToLower(strings.TrimSpace(role)) != "secondary" {
+		return fmt.Errorf("firewall: bootstrap profile is only valid for secondary")
+	}
+	return applyRole(role, true)
+}
+
+func applyRole(role string, bootstrapSSH bool) error {
 	unlock, err := acquireFirewallApplyLock()
 	if err != nil {
 		return err
@@ -141,9 +153,9 @@ func ApplyRole(role string) error {
 	}
 	switch be {
 	case BackendUFW:
-		return applyUFW(role)
+		return applyUFWMode(role, bootstrapSSH)
 	case BackendIPTables:
-		return applyIPTables(role)
+		return applyIPTablesMode(role, bootstrapSSH)
 	default:
 		return fmt.Errorf("firewall: no backend")
 	}
@@ -478,6 +490,10 @@ func ufwIPv6Enabled() (bool, error) {
 // broaden the role policy. Missing rules are safe to append; conflicting rules
 // are never deleted automatically because they may be administrator-owned.
 func ufwPreflightPolicy(status, role string) error {
+	return ufwPreflightPolicyMode(status, role, false)
+}
+
+func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	rules := parseUfwNumbered(status)
 	numberedLines := 0
 	for _, line := range strings.Split(status, "\n") {
@@ -522,10 +538,12 @@ func ufwPreflightPolicy(status, role string) error {
 		}
 	}
 	for _, item := range []struct{ port, action, label string }{
-		{"443", "ALLOW", "vless"}, {"22", "DENY", "ssh22"},
-		{"10050", "DENY", "zabbix"}, {"10051", "DENY", "zabbix"},
+		{"443", "ALLOW", "vless"}, {"10050", "DENY", "zabbix"}, {"10051", "DENY", "zabbix"},
 	} {
 		checkWAN(item.port, item.action, item.label)
+	}
+	if !bootstrapSSH {
+		checkWAN("22", "DENY", "ssh22")
 	}
 	for _, item := range []struct{ port, label string }{
 		{"443", "vless"},
@@ -536,14 +554,17 @@ func ufwPreflightPolicy(status, role string) error {
 	// The WAN-only matcher below intentionally ignores such rules, so reject
 	// them explicitly rather than claiming the management path is preserved.
 	for _, rule := range rules {
-		if ufwRuleMatchesPortTCP(rule, sshPort()) && (rule.Action == "DENY" || rule.Action == "REJECT") {
+		if !bootstrapSSH && ufwRuleMatchesPortTCP(rule, sshPort()) && (rule.Action == "DENY" || rule.Action == "REJECT") {
 			conflicts = append(conflicts, fmt.Sprintf("ssh %s has an existing %s from %s", sshPort(), rule.Action, rule.From))
 		}
 	}
 	for _, item := range []struct{ port, label string }{
-		{"22", "ssh22"}, {"10050", "zabbix"}, {"10051", "zabbix"},
+		{"10050", "zabbix"}, {"10051", "zabbix"},
 	} {
 		checkNoAllow(item.port, item.label)
+	}
+	if !bootstrapSSH {
+		checkNoAllow("22", "ssh22")
 	}
 	if role == "primary" {
 		for _, item := range []struct{ port, action, label string }{
@@ -625,7 +646,9 @@ func ufwPreflightPolicy(status, role string) error {
 	return nil
 }
 
-func applyUFW(role string) error {
+func applyUFW(role string) error { return applyUFWMode(role, false) }
+
+func applyUFWMode(role string, bootstrapSSH bool) error {
 	if _, err := ufwIPv6Enabled(); err != nil {
 		return fmt.Errorf("ufw IPv6 policy prerequisite: %w", err)
 	}
@@ -649,7 +672,7 @@ func applyUFW(role string) error {
 	if inspectErr != nil {
 		return fmt.Errorf("inspect UFW rules before SSH safeguard: %v (%s)", inspectErr, truncate(string(current), 200))
 	}
-	if err := ufwPreflightPolicy(string(current), role); err != nil {
+	if err := ufwPreflightPolicyMode(string(current), role, bootstrapSSH); err != nil {
 		return fmt.Errorf("UFW preflight: %w", err)
 	}
 	if strings.Contains(string(current), "Status: active") {
@@ -681,6 +704,13 @@ func applyUFW(role string) error {
 		// before changing defaults and enabling the firewall.
 		if err := must("insert", "1", "allow", sp+"/tcp", "comment", "netductor-ssh"); err != nil {
 			return fmt.Errorf("install SSH allow rule before default deny: %w", err)
+		}
+	}
+	if bootstrapSSH {
+		// Keep factory SSH reachable while the new key-only listener is prepared.
+		// This rule is deliberately first and is removed only by the finalize phase.
+		if err := must("insert", "1", "allow", "22/tcp", "comment", "netductor-ssh-bootstrap"); err != nil {
+			return fmt.Errorf("install temporary factory SSH allow before default deny: %w", err)
 		}
 	}
 
@@ -772,7 +802,19 @@ func applyUFW(role string) error {
 	if ok, reason := ufwDefaultIncomingDenied(string(verbose)); !ok {
 		return fmt.Errorf("ufw post-apply default policy verification failed: %s", reason)
 	}
-	if ok, warnings := ufwEffectivePolicy(string(status), role); !ok {
+	if bootstrapSSH {
+		rules := parseUfwNumbered(string(status))
+		for _, ipv6 := range []bool{false, true} {
+			action, found := firstTCPActionFromWANFamily(rules, "22", ipv6)
+			if !found || action != "ALLOW" {
+				return fmt.Errorf("ufw bootstrap SSH verification failed: port 22 family ipv6=%t action=%q found=%t", ipv6, action, found)
+			}
+			action, found = firstTCPActionFromWANFamily(rules, sp, ipv6)
+			if !found || action != "ALLOW" {
+				return fmt.Errorf("ufw bootstrap SSH verification failed: configured port %s family ipv6=%t action=%q found=%t", sp, ipv6, action, found)
+			}
+		}
+	} else if ok, warnings := ufwEffectivePolicy(string(status), role); !ok {
 		return fmt.Errorf("ufw post-apply policy verification failed: %s", strings.Join(warnings, "; "))
 	}
 	if err := persistRole(role); err != nil {
@@ -943,7 +985,9 @@ func iptablesHasExactRule(rules, chain string, variants ...[]string) bool {
 	return false
 }
 
-func applyIPTables(role string) error {
+func applyIPTables(role string) error { return applyIPTablesMode(role, false) }
+
+func applyIPTablesMode(role string, bootstrapSSH bool) error {
 	if err := requireIPv6Disabled(); err != nil {
 		return fmt.Errorf("iptables fallback IPv6 prerequisite: %w", err)
 	}
@@ -974,6 +1018,16 @@ func applyIPTables(role string) error {
 	if !inputStartsWithSSHAllow(string(inputBefore), sp) {
 		if err := must("-I", "INPUT", "1", "-p", "tcp", "--dport", sp, "-j", "ACCEPT"); err != nil {
 			return fmt.Errorf("iptables fallback: install leading SSH safeguard: %w", err)
+		}
+	}
+	if bootstrapSSH {
+		// Add a uniquely tagged exception after the configured-port safeguard
+		// and before the managed-chain jump. Finalize removes only this exact rule.
+		args := []string{"-p", "tcp", "--dport", "22", "-m", "comment", "--comment", "netductor-ssh-bootstrap", "-j", "ACCEPT"}
+		if err := exec.Command("iptables", append([]string{"-C", "INPUT"}, args...)...).Run(); err != nil {
+			if err := must(append([]string{"-I", "INPUT", "2"}, args...)...); err != nil {
+				return fmt.Errorf("iptables fallback: install temporary factory SSH safeguard: %w", err)
+			}
 		}
 	}
 
@@ -1112,9 +1166,10 @@ func applyIPTables(role string) error {
 			return fmt.Errorf("iptables fallback: atomic INPUT jump replacement: %w", err)
 		}
 	} else {
-		// The permanent SSH safeguard occupies INPUT position 1. Insert the
-		// first managed jump immediately after it, not ahead of management access.
-		if err := must("-I", "INPUT", "2", "-j", stagingChain); err != nil {
+		// Keep the managed chain behind both SSH safeguards during bootstrap.
+		jumpAt := "2"
+		if bootstrapSSH { jumpAt = "3" }
+		if err := must("-I", "INPUT", jumpAt, "-j", stagingChain); err != nil {
 			return fmt.Errorf("iptables fallback: install INPUT jump after SSH safeguard: %w", err)
 		}
 	}
@@ -1135,6 +1190,14 @@ func applyIPTables(role string) error {
 	}
 	if !inputStartsWithSSHAllow(string(verifiedInput), sp) {
 		return fmt.Errorf("iptables fallback: leading SSH safeguard is missing after INPUT switch")
+	}
+	if bootstrapSSH {
+		if !iptablesHasExactRule(string(verifiedInput), "INPUT",
+			[]string{"-p", "tcp", "--dport", "22", "-m", "comment", "--comment", "netductor-ssh-bootstrap", "-j", "ACCEPT"},
+			[]string{"-p", "tcp", "-m", "tcp", "--dport", "22", "-m", "comment", "--comment", "netductor-ssh-bootstrap", "-j", "ACCEPT"},
+		) {
+			return fmt.Errorf("iptables fallback: temporary factory SSH safeguard missing after INPUT switch")
+		}
 	}
 	verifiedRules, chainVerifyErr := exec.Command("iptables", "-S", stagingChain).CombinedOutput()
 	if chainVerifyErr != nil {
