@@ -135,6 +135,9 @@ func needsBootstrap(phase string) bool {
 
 // RecoverIncompletePeerAdd resumes or reports stuck add without regenerating keys if material exists.
 func RecoverIncompletePeerAdd(peerID string) (string, error) {
+	unlock, lockErr := acquirePeerRegistryLock()
+	if lockErr != nil { return "", lockErr }
+	defer unlock()
 	peerMu.Lock()
 	defer peerMu.Unlock()
 	op, err := loadPeerOp(peerID)
