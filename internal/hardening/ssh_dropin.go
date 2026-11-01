@@ -235,6 +235,7 @@ if [ -f "$B/ufw-policy" ] && command -v ufw >/dev/null 2>&1; then
       ;;
   esac
 fi
+set -e
 touch "$B/ROLLED_BACK"
 chmod 600 "$B/ROLLED_BACK"
 exit 0
