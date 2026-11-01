@@ -199,11 +199,6 @@ func ArmRecovery(ttl time.Duration) error {
 			return fmt.Errorf("NETDUCTOR_RECOVERY_ALLOW_CIDR has invalid entries: %v", parseErrs)
 		}
 	}
-	if os.Getenv("NETDUCTOR_RECOVERY_UFW") == "1" {
-		if err := exec.Command("ufw", "allow", recoveryPort+"/tcp", "comment", "netductor-recovery").Run(); err != nil {
-			return fmt.Errorf("recovery ufw allow %s: %w", recoveryPort, err)
-		}
-	}
 	serveKey := false // backup key is offline-only; SERVE_KEY removed
 
 	var mu sync.Mutex
@@ -391,38 +386,57 @@ func ArmRecovery(ttl time.Duration) error {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 
-	addr := bind + ":" + recoveryPort
+	addr := net.JoinHostPort(bind, recoveryPort)
 	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Minute, WriteTimeout: 5 * time.Minute}
+
+	certFile, keyFile, tlsOn, tlsErr := ensureRecoveryTLS()
+	if os.Getenv("NETDUCTOR_RECOVERY_TLS") != "0" && (tlsErr != nil || !tlsOn) {
+		if tlsErr != nil {
+			return fmt.Errorf("recovery TLS required: %w", tlsErr)
+		}
+		return fmt.Errorf("recovery TLS required but certs unavailable")
+	}
+
+	// Acquire the socket synchronously: ArmRecovery must not report success
+	// until the port is actually bound.
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("recovery listen %s: %w", addr, err)
+	}
+	if os.Getenv("NETDUCTOR_RECOVERY_UFW") == "1" {
+		if err := exec.Command("ufw", "allow", recoveryPort+"/tcp", "comment", "netductor-recovery").Run(); err != nil {
+			_ = listener.Close()
+			return fmt.Errorf("recovery ufw allow %s: %w", recoveryPort, err)
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	recSrv = srv
 	recCancel = cancel
 	recArmed = true
 	recUntil = time.Now().Add(ttl)
 
-	certFile, keyFile, tlsOn, tlsErr := ensureRecoveryTLS()
-	if os.Getenv("NETDUCTOR_RECOVERY_TLS") != "0" && (tlsErr != nil || !tlsOn) {
-		disarmLocked()
-		if tlsErr != nil {
-			return fmt.Errorf("recovery TLS required: %w", tlsErr)
-		}
-		return fmt.Errorf("recovery TLS required but certs unavailable")
+	if recoveryBindIsLoopback(bind) {
+		fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
+	}
+	if tlsOn {
+		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED https://%s until %s (Bearer; key on wire=%v)\\n",
+			addr, recUntil.Format(time.RFC3339), serveKey)
+	} else {
+		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED http://%s until %s (Bearer; key on wire=%v; NETDUCTOR_RECOVERY_TLS=0)\\n",
+			addr, recUntil.Format(time.RFC3339), serveKey)
 	}
 	go func() {
+		var serveErr error
 		if tlsOn {
-			if recoveryBindIsLoopback(bind) {
-				fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
-			}
-			fmt.Fprintf(os.Stderr, "recovery-serve: ARMED https://%s until %s (Bearer; key on wire=%v)\n",
-				addr, recUntil.Format(time.RFC3339), serveKey)
-			_ = srv.ListenAndServeTLS(certFile, keyFile)
-			return
+			serveErr = srv.ServeTLS(listener, certFile, keyFile)
+		} else {
+			serveErr = srv.Serve(listener)
 		}
-		if recoveryBindIsLoopback(bind) {
-			fmt.Fprintln(os.Stderr, "recovery-serve: loopback bind (local test; remote recover needs 0.0.0.0 or public IP)")
+		if serveErr != nil && serveErr != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "recovery-serve: listener failed: %v\\n", serveErr)
+			DisarmRecovery()
 		}
-		fmt.Fprintf(os.Stderr, "recovery-serve: ARMED http://%s until %s (Bearer; key on wire=%v; NETDUCTOR_RECOVERY_TLS=0)\n",
-			addr, recUntil.Format(time.RFC3339), serveKey)
-		_ = srv.ListenAndServe()
 	}()
 	go func(deadline time.Time) {
 		t := time.NewTimer(time.Until(deadline))
