@@ -102,6 +102,30 @@ func acquirePeerRegistryLock() (func(), error) {
 	}, nil
 }
 
+// acquireFirewallMutationLock shares the host-wide lock with firewall.ApplyRole.
+func acquireFirewallMutationLock() (func(), error) {
+	const path = "/run/lock/netductor-firewall.lock"
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, fmt.Errorf("create firewall lock directory: %w", err)
+	}
+	fd, err := unix.Open(path, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
+	if err != nil { return nil, fmt.Errorf("open firewall mutation lock: %w", err) }
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("inspect firewall mutation lock: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != 0 || st.Mode&0o022 != 0 {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("firewall mutation lock must be a root-owned regular file not writable by group/others")
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("acquire firewall mutation lock: %w", err)
+	}
+	return func() { _ = unix.Flock(fd, unix.LOCK_UN); _ = unix.Close(fd) }, nil
+}
+
 // SlotTable fixed non-overlapping /30 pairs (slot0 = legacy constants).
 func SlotTable() []PeerSlot {
 	// WSS_SP unique per slot on primary (nd-wss-sp-server[-iface]); WSS_PS unique on secondary.
