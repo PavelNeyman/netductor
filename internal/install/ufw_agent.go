@@ -16,6 +16,33 @@ import (
 
 var apiAllowFileMu sync.Mutex
 
+// acquireNetductorFirewallLock shares the process-wide firewall mutation lock
+// with the firewall package. All Netductor UFW writers must use this path.
+func acquireNetductorFirewallLock() (func(), error) {
+	const lockPath = "/run/lock/netductor-firewall.lock"
+	fd, err := unix.Open(lockPath, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open Netductor firewall lock: %w", err)
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("inspect Netductor firewall lock: %w", err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != 0 || st.Mode&0o022 != 0 {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("Netductor firewall lock is not a trusted root-owned regular file")
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("acquire Netductor firewall lock: %w", err)
+	}
+	return func() {
+		_ = unix.Flock(fd, unix.LOCK_UN)
+		_ = unix.Close(fd)
+	}, nil
+}
+
 // defaultAPIAllowCIDRs from ndconfig (SP/PS service paths only).
 func defaultAPIAllowCIDRs() []string {
 	return []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
@@ -23,6 +50,12 @@ func defaultAPIAllowCIDRs() []string {
 
 // ApplyAgentFirewall: deny plain :8788; restrict mTLS :8789.
 func ApplyAgentFirewall() error {
+	unlock, lockErr := acquireNetductorFirewallLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
+
 	if _, err := exec.LookPath("ufw"); err != nil {
 		return nil
 	}
@@ -197,6 +230,12 @@ func cidrAlreadyListed(cidr string) (bool, error) {
 // RestrictAgentMTLSToIP appends IP to api-allow.cidr once. Does NOT re-apply full ufw
 // when the IP is already listed (heartbeat used to spam ufw every 30s).
 func RestrictAgentMTLSToIP(ip string) error {
+	unlock, lockErr := acquireNetductorFirewallLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
+
 	ip = strings.TrimSpace(ip)
 	if ip == "" {
 		return nil
