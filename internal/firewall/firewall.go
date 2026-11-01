@@ -826,7 +826,7 @@ func inputStartsWithSSHAllow(rules, port string) bool {
 // fragments. Only the optional implicit TCP matcher emitted by iptables -S
 // is tolerated; any additional match changes the rule's security semantics.
 func iptablesHasExactRule(rules, chain string, variants ...[]string) bool {
-	for _, line := range strings.Split(rules, "\\n") {
+	for _, line := range strings.Split(rules, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 3 || fields[0] != "-A" || fields[1] != chain {
 			continue
