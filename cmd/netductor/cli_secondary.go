@@ -105,10 +105,6 @@ func runSecondary(args []string) {
 			os.Exit(1)
 		}
 		fmt.Printf("duplicates_removed=%d stale_removed=%d\n", n, s)
-		// drop offline secondary nodes from registry
-		for _, d := range secondary.List() {
-			_ = d
-		}
 		nodes.MarkStaleRelays(180)
 		if list, err := nodes.List(); err == nil {
 			for _, n := range list {
@@ -303,7 +299,12 @@ func runSecondary(args []string) {
 			fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
 			os.Exit(2)
 		}
-		for _, d := range secondary.List() {
+		devs, err := secondary.ListE()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "load secondary registry:", err)
+			os.Exit(1)
+		}
+		for _, d := range devs {
 			if d.ID != args[1] {
 				continue
 			}
@@ -356,7 +357,12 @@ func runSecondary(args []string) {
 		fmt.Println(cli18n.T("secondary.pull_hint"))
 	case "exit":
 		if len(args) < 2 || args[1] == "status" {
-			fmt.Println("exit_enabled", secondary.ExitEnabled())
+			enabled, err := secondary.ExitEnabledE()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "read secondary exit state:", err)
+				os.Exit(1)
+			}
+			fmt.Println("exit_enabled", enabled)
 			return
 		}
 		on := args[1] == "on" || args[1] == "1" || args[1] == "true"
@@ -377,7 +383,11 @@ func runSecondary(args []string) {
 		if _, err := secondary.PruneDuplicates(); err != nil {
 			fmt.Fprintln(os.Stderr, "warning: cannot prune duplicate secondary records:", err)
 		}
-		devs := secondary.List()
+		devs, err := secondary.ListE()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "load secondary registry:", err)
+			os.Exit(1)
+		}
 		if len(devs) == 0 {
 			b, err := os.ReadFile(filepath.Join(paths.SecondaryDir(), "bundle.json"))
 			if err != nil {
@@ -398,7 +408,12 @@ func runSecondary(args []string) {
 			}
 			fmt.Printf("%s\t%s\t%s\tip=%s\tsb=%v\tconfig_ver=%d\tagent=%s\tseen=%d\n", d.ID, d.Name, on, d.PublicIP, d.SingBoxOK, d.ConfigVer, d.Version, seen)
 		}
-		fmt.Println("config_ver", secondary.ConfigVer())
+		configVer, err := secondary.ConfigVerE()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "read secondary config version:", err)
+			os.Exit(1)
+		}
+		fmt.Println("config_ver", configVer)
 	default:
 		fmt.Fprintln(os.Stderr, "unknown secondary subcommand")
 		os.Exit(2)
