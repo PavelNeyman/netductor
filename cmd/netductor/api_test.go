@@ -34,17 +34,19 @@ func apiEnv(t *testing.T) {
 		[]byte("boot-token-at-least-32-characters-xx\n"), 0o600)
 }
 
-func TestHealth(t *testing.T) {
+func TestHealthReportsUnavailableAgentPlane(t *testing.T) {
 	apiEnv(t)
 	mux := buildAPIMux()
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health", nil))
-	if rr.Code != 200 {
-		t.Fatal(rr.Code, rr.Body.String())
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("health status = %d, want %d: %s", rr.Code, http.StatusServiceUnavailable, rr.Body.String())
 	}
 	var m map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &m)
-	if m["ok"] != true {
+	if err := json.Unmarshal(rr.Body.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["ok"] != false || m["error"] != "mTLS agent plane unavailable" {
 		t.Fatal(m)
 	}
 }
