@@ -693,12 +693,13 @@ func applyUFW(role string) error {
 // managedInputJump reports the position of the single Netductor-owned INPUT jump.
 // Position is the 1-based rule number accepted by iptables -R, not the line number.
 func managedInputJump(rules string) (position int, chain string, err error) {
+	inputPosition := 0
 	for _, line := range strings.Split(rules, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 3 || fields[0] != "-A" || fields[1] != "INPUT" {
 			continue
 		}
-		position++
+		inputPosition++
 		for i := 2; i+1 < len(fields); i++ {
 			if fields[i] != "-j" && fields[i] != "--jump" &&
 				fields[i] != "-g" && fields[i] != "--goto" {
@@ -712,9 +713,16 @@ func managedInputJump(rules string) (position int, chain string, err error) {
 				return 0, "", fmt.Errorf("multiple Netductor INPUT jumps (%s and %s)", chain, target)
 			}
 			chain = target
+			position = inputPosition
 			// Continue scanning to detect duplicate managed jumps.
 			break
 		}
+	}
+	// A non-empty INPUT chain without a Netductor jump is not an existing
+	// managed jump. Returning its rule count here would make the caller replace
+	// an unrelated administrator rule instead of inserting our first jump.
+	if chain == "" {
+		return 0, "", nil
 	}
 	return position, chain, nil
 }
