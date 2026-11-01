@@ -1050,8 +1050,15 @@ func Collect(role string) Status {
 
 	if _, err := exec.LookPath("ufw"); err == nil {
 		st.Backend = BackendUFW
-		out, _ := exec.Command("ufw", "status", "numbered").CombinedOutput()
+		out, statusErr := exec.Command("ufw", "status", "numbered").CombinedOutput()
 		s := string(out)
+		if statusErr != nil {
+			st.Active = false
+			st.Detail = firstLines(s, 16)
+			st.Warnings = append(st.Warnings, "cannot read UFW numbered status: "+truncate(statusErr.Error(), 160)+" ("+truncate(s, 160)+")")
+			st.OK = false
+			return st
+		}
 		st.Active = strings.Contains(s, "Status: active")
 		st.Detail = firstLines(s, 16)
 		ok, warns := ufwEffectivePolicy(s, role)
