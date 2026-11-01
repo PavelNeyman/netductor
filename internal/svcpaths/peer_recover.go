@@ -173,9 +173,18 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if idx.Find(peerID) != nil {
+	if existing := idx.Find(peerID); existing != nil {
+		// The registry entry alone does not prove that bootstrap completed.
+		// A crash may leave the index and op journal out of sync; retain the
+		// journal and fail closed unless the durable phase confirms bootstrap.
+		if existing.PublicIP != op.PublicIP || existing.Slot.Index != op.SlotIndex {
+			return "", fmt.Errorf("peer %s is indexed with a different IP or slot; retain op journal for manual reconciliation", peerID)
+		}
+		if op.Phase != "bootstrap" && op.Phase != "index_failed" {
+			return "", fmt.Errorf("peer %s is indexed but bootstrap completion is not durably confirmed (phase=%s); retain op journal and reconcile service-plane state before retry", peerID, op.Phase)
+		}
 		if err := clearPeerOp(peerID); err != nil {
-			return "", fmt.Errorf("peer already indexed but op journal cleanup is not durable: %w", err)
+			return "", fmt.Errorf("peer already indexed and bootstrap-confirmed but op journal cleanup is not durable: %w", err)
 		}
 		return "already indexed; cleared op", nil
 	}
