@@ -163,8 +163,6 @@ func applyAgentFirewallQuiet() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
 		return nil
 	}
-	_ = ufwQuiet("delete", "allow", "8788/tcp")
-	_ = ufwQuiet("deny", "8788/tcp")
 	cidrs, err := collectAPIAllowCIDRs()
 	if err != nil {
 		return fmt.Errorf("load API allow CIDRs: %w", err)
@@ -172,9 +170,7 @@ func applyAgentFirewallQuiet() error {
 	if err := validateAPIAllowCIDRs(cidrs); err != nil {
 		return err
 	}
-	if err := ufwQuiet("delete", "allow", "8788/tcp"); err != nil {
-		return fmt.Errorf("ufw delete allow 8788/tcp: %w", err)
-	}
+	_ = ufwQuiet("delete", "allow", "8788/tcp") // absent rule is expected
 	if err := ufwQuiet("deny", "8788/tcp"); err != nil {
 		return fmt.Errorf("ufw deny 8788/tcp: %w", err)
 	}
