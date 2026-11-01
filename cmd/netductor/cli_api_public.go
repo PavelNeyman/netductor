@@ -40,7 +40,11 @@ Default TTL 15m, min 1m, max 2h.
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		armed, until := install.APIPublicStatus()
+		armed, until, err := install.APIPublicStatusChecked()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		fmt.Printf("armed=%v until=%s\n", armed, until.UTC().Format(time.RFC3339))
 	case "disarm", "off":
 		if err := install.DisarmAPIPublic(); err != nil {
@@ -49,7 +53,11 @@ Default TTL 15m, min 1m, max 2h.
 		}
 		fmt.Println("armed=false")
 	case "status":
-		armed, until := install.APIPublicStatus()
+		armed, until, err := install.APIPublicStatusChecked()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		if !armed {
 			fmt.Println("armed=false")
 			return
