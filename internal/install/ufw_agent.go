@@ -39,12 +39,15 @@ func ApplyAgentFirewall() error {
 	}
 
 	// Configuration is fully read and validated before the first firewall mutation.
-	_ = run("ufw", "delete", "allow", "8788/tcp")
+	if err := deleteUFWUnrestrictedPort("8788"); err != nil {
+		return fmt.Errorf("remove unrestricted 8788 allow rules: %w", err)
+	}
 	if err := run("ufw", "deny", "8788/tcp"); err != nil {
 		return fmt.Errorf("ufw deny 8788/tcp: %w", err)
 	}
-	_ = run("ufw", "delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
-	_ = run("ufw", "delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
+	if err := deleteUFWUnrestrictedPort(ndconfig.AgentMTLSPort()); err != nil {
+		return fmt.Errorf("remove unrestricted mTLS allow rules: %w", err)
+	}
 
 	if os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") == "1" {
 		if err := run("ufw", "allow", ndconfig.AgentMTLSPort()+"/tcp", "comment", "netductor-api-public"); err != nil {
@@ -264,13 +267,15 @@ func applyAgentFirewallQuiet() error {
 	if err := validateAPIAllowCIDRs(cidrs); err != nil {
 		return err
 	}
-	_ = ufwQuiet("delete", "allow", "8788/tcp") // absent rule is expected
+	if err := deleteUFWUnrestrictedPort("8788"); err != nil {
+		return fmt.Errorf("remove unrestricted 8788 allow rules: %w", err)
+	}
 	if err := ufwQuiet("deny", "8788/tcp"); err != nil {
 		return fmt.Errorf("ufw deny 8788/tcp: %w", err)
 	}
-	// Remove legacy unrestricted mTLS allows before restoring the CIDR policy.
-	_ = ufwQuiet("delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
-	_ = ufwQuiet("delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
+	if err := deleteUFWUnrestrictedPort(ndconfig.AgentMTLSPort()); err != nil {
+		return fmt.Errorf("remove unrestricted mTLS allow rules: %w", err)
+	}
 	seen := map[string]bool{}
 	for _, c := range cidrs {
 		if seen[c] {
