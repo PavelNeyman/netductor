@@ -315,12 +315,15 @@ func SetExitEnabled(on bool) error {
 }
 
 // PruneDuplicates keeps the newest online device per PublicIP (or per token family).
-func PruneDuplicates() int {
+func PruneDuplicates() (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
-	if err != nil || r == nil {
-		return 0
+	if err != nil {
+		return 0, fmt.Errorf("load secondary registry for duplicate pruning: %w", err)
+	}
+	if r == nil {
+		return 0, errors.New("secondary registry is nil")
 	}
 	best := map[string]Device{}
 	order := []string{}
@@ -352,17 +355,22 @@ func PruneDuplicates() int {
 	}
 	before := len(r.Devices)
 	r.Devices = out
-	_ = save(r)
-	return before - len(out)
+	if err := save(r); err != nil {
+		return 0, fmt.Errorf("persist duplicate pruning: %w", err)
+	}
+	return before - len(out), nil
 }
 
 // PruneStale removes devices not seen within maxAge (and empty-IP ghosts).
-func PruneStale(maxAge time.Duration) int {
+func PruneStale(maxAge time.Duration) (int, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
-	if err != nil || r == nil {
-		return 0
+	if err != nil {
+		return 0, fmt.Errorf("load secondary registry for stale pruning: %w", err)
+	}
+	if r == nil {
+		return 0, errors.New("secondary registry is nil")
 	}
 	var keep []Device
 	removed := 0
@@ -393,21 +401,26 @@ func PruneStale(maxAge time.Duration) int {
 			keep = []Device{}
 		}
 		r.Devices = keep
-		_ = save(r)
+		if err := save(r); err != nil {
+			return 0, fmt.Errorf("persist stale secondary pruning: %w", err)
+		}
 	}
-	return removed
+	return removed, nil
 }
 
 // RemoveByPublicIP drops all devices for ip except optional keepID (empty = drop all).
-func RemoveByPublicIP(ip, keepID string) int {
+func RemoveByPublicIP(ip, keepID string) (int, error) {
 	if ip == "" {
-		return 0
+		return 0, nil
 	}
 	mu.Lock()
 	defer mu.Unlock()
 	r, err := load()
-	if err != nil || r == nil {
-		return 0
+	if err != nil {
+		return 0, fmt.Errorf("load secondary registry for IP removal: %w", err)
+	}
+	if r == nil {
+		return 0, errors.New("secondary registry is nil")
 	}
 	var out []Device
 	n := 0
@@ -420,9 +433,11 @@ func RemoveByPublicIP(ip, keepID string) int {
 	}
 	if n > 0 {
 		r.Devices = out
-		_ = save(r)
+		if err := save(r); err != nil {
+			return 0, fmt.Errorf("persist secondary IP removal: %w", err)
+		}
 	}
-	return n
+	return n, nil
 }
 
 // WaitOnlinePBK waits until a device for publicIP reports PBK (heartbeat after join).
