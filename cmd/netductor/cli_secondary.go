@@ -187,8 +187,6 @@ func runSecondary(args []string) {
 		_ = execLocal("ssh-keygen", "-f", "/root/.ssh/known_hosts", "-R", host)
 		sni = vpn.ResolveSecondarySNI(sni, host)
 		fmt.Fprintln(os.Stderr, "provision SNI:", sni)
-		// Pre-clean: same IP must not keep dead agents from previous install.
-		_ = secondary.RemoveByPublicIP(host, "")
 		b, err := vpn.ExportSecondaryBundle(sni)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -198,16 +196,22 @@ func runSecondary(args []string) {
 			fmt.Fprintln(os.Stderr, "mtls.EnsureAll:", err)
 			os.Exit(1)
 		}
+		id, tok, err := secondary.IssueToken("secondary")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "issue secondary agent credentials:", err)
+			os.Exit(1)
+		}
+		b.AgentID = id
+		b.AgentToken = tok
+		b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
+		// Pre-clean only after credentials have been durably issued. A failed
+		// issuance must not remove the previously registered secondary.
+		_ = secondary.RemoveByPublicIP(host, "")
 		var mtlsCA, mtlsCert, mtlsKey []byte
-		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
-			b.AgentID = id
-			b.AgentToken = tok
-			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
-			if ca, cert, key, err := mtls.EnsureClientFor(id); err != nil {
-				fmt.Fprintln(os.Stderr, "mtls EnsureClientFor:", err)
-			} else {
-				mtlsCA, mtlsCert, mtlsKey = ca, cert, key
-			}
+		if ca, cert, key, err := mtls.EnsureClientFor(id); err != nil {
+			fmt.Fprintln(os.Stderr, "mtls EnsureClientFor:", err)
+		} else {
+			mtlsCA, mtlsCert, mtlsKey = ca, cert, key
 		}
 		raw, _ := json.MarshalIndent(b, "", "  ")
 		res, err := secondary.ProvisionFromCore(secondary.ProvisionIn{
