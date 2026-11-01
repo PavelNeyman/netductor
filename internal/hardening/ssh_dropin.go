@@ -253,21 +253,28 @@ systemctl start ${ND_RB_TIMER}
 systemctl is-active ${ND_RB_TIMER}
 
 # --- Mutations only after rollback is armed ---
-export DEBIAN_FRONTEND=noninteractive
-if ! command -v ufw >/dev/null 2>&1; then
-  apt-get install -y ufw
+# Do not install/switch firewall backends here. EnsureHostBaseline already
+# selected and applied one backend; introducing UFW now could leave two
+# independent policies active with different defaults.
+if command -v ufw >/dev/null 2>&1; then
+  ufw allow "$ND_PORT"/tcp comment netductor-ssh
+  # Baseline normally installs this transition rule. Keep prepare idempotent.
+  if ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+    ufw insert 1 allow 22/tcp comment netductor-ssh-bootstrap
+  fi
+  ufw allow 443/tcp comment netductor-vless
+  ufw allow 8445/tcp comment nd-wss-ps
+  ufw --force enable
+  ufw status | grep -qE "$ND_PORT/tcp"
+elif command -v iptables >/dev/null 2>&1; then
+  iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
+  iptables -C INPUT -p tcp --dport "$ND_PORT" -j ACCEPT
+  command -v netfilter-persistent >/dev/null 2>&1
+  netfilter-persistent save
+else
+  echo "no firewall backend after secondary baseline" >&2
+  exit 1
 fi
-command -v ufw >/dev/null 2>&1
-ufw allow "$ND_PORT"/tcp comment netductor-ssh
-# Baseline normally installs this transition rule. Keep the prepare script
-# independently safe and idempotent for older/partially prepared hosts.
-if ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
-  ufw insert 1 allow 22/tcp comment netductor-ssh-bootstrap
-fi
-ufw allow 443/tcp comment netductor-vless || true
-ufw allow 8445/tcp comment nd-wss-ps || true
-echo y | ufw --force enable
-ufw status | grep -qE "$ND_PORT/tcp"
 
 mkdir -p /etc/ssh/sshd_config.d
 cat > /etc/ssh/sshd_config.d/00-netductor-harden.conf << 'NDSSH'
