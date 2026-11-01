@@ -141,7 +141,11 @@ func armBuildRecovery(ttl time.Duration) error {
 		_ = bRecSrv.Close()
 		bRecSrv = nil
 	}
-	token, err := ensureBuildRecoveryToken()\n\tif err != nil {\n\t\treturn err\n\t}\n\tbRecTok = token
+	token, err := ensureBuildRecoveryToken()
+	if err != nil {
+		return err
+	}
+	bRecTok = token
 	bRecUntil = time.Now().Add(ttl)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/recovery/latest", func(w http.ResponseWriter, r *http.Request) {
