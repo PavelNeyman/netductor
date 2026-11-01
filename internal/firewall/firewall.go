@@ -708,9 +708,17 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	}
 	if bootstrapSSH {
 		// Keep factory SSH reachable while the new key-only listener is prepared.
-		// This rule is deliberately first and is removed only by the finalize phase.
-		if err := must("insert", "1", "allow", "22/tcp", "comment", "netductor-ssh-bootstrap"); err != nil {
-			return fmt.Errorf("install temporary factory SSH allow before default deny: %w", err)
+		// Reuse an already-effective first rule; otherwise insert our tagged rule.
+		rules := parseUfwNumbered(string(current))
+		ready := true
+		for _, ipv6 := range []bool{false, true} {
+			action, found := firstTCPActionFromWANFamily(rules, "22", ipv6)
+			if !found || action != "ALLOW" { ready = false; break }
+		}
+		if !ready {
+			if err := must("insert", "1", "allow", "22/tcp", "comment", "netductor-ssh-bootstrap"); err != nil {
+				return fmt.Errorf("install temporary factory SSH allow before default deny: %w", err)
+			}
 		}
 	}
 
