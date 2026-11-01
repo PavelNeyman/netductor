@@ -55,6 +55,7 @@ type registry struct {
 var (
 	mu sync.Mutex
 	ErrUnauthorized = errors.New("unauthorized")
+	ErrInvalidCommand = errors.New("secondary command is not allowed")
 )
 
 func path() string {
@@ -551,7 +552,7 @@ func allowedSecondaryCmd(cmd string) bool {
 func EnqueueCmd(id, cmd string) error {
 	cmd = strings.TrimSpace(cmd)
 	if cmd == "" || !allowedSecondaryCmd(cmd) {
-		return fmt.Errorf("secondary cmd not allowed: %q", cmd)
+		return fmt.Errorf("%w: %q", ErrInvalidCommand, cmd)
 	}
 	mu.Lock()
 	defer mu.Unlock()
