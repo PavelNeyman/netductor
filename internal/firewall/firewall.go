@@ -978,6 +978,11 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if statusErr != nil {
 		return fmt.Errorf("ufw post-apply status: %v (%s)", statusErr, truncate(string(status), 200))
 	}
+	// UFW may hide saved rules while inactive. Re-run the exact-comment legacy
+	// migration after activation so old global WSS ALLOW rules cannot reappear.
+	if err := removeLegacyGlobalWSSRules(string(status)); err != nil { return err }
+	status, statusErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if statusErr != nil { return fmt.Errorf("ufw post-migration status: %v (%s)", statusErr, truncate(string(status), 200)) }
 	if !strings.Contains(string(status), "Status: active") {
 		return fmt.Errorf("ufw post-apply verification failed: firewall is not active (%s)", truncate(string(status), 200))
 	}
