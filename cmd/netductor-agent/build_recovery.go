@@ -48,23 +48,90 @@ func openBuildRecoveryBackup(path string) (*os.File, unix.Stat_t, error) {
 	return f, st, nil
 }
 
-func ensureBuildRecoveryToken() string {
-	path := "/etc/netductor/secrets/recovery_token"
-	if b, err := os.ReadFile(path); err == nil {
-		t := strings.TrimSpace(string(b))
-		if len(t) >= 16 {
-			return t
+func ensureBuildRecoveryToken() (string, error) {
+	const path = "/etc/netductor/secrets/recovery_token"
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err == nil {
+		var st unix.Stat_t
+		if statErr := unix.Fstat(fd, &st); statErr != nil {
+			_ = unix.Close(fd)
+			return "", fmt.Errorf("inspect recovery token: %w", statErr)
 		}
+		if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 || st.Size > 4096 {
+			_ = unix.Close(fd)
+			return "", fmt.Errorf("recovery token must be a private regular file owned by the service user")
+		}
+		f := os.NewFile(uintptr(fd), path)
+		if f == nil {
+			_ = unix.Close(fd)
+			return "", fmt.Errorf("open recovery token: invalid file descriptor")
+		}
+		b, readErr := io.ReadAll(io.LimitReader(f, 4097))
+		closeErr := f.Close()
+		if readErr != nil {
+			return "", fmt.Errorf("read recovery token: %w", readErr)
+		}
+		if closeErr != nil {
+			return "", fmt.Errorf("close recovery token: %w", closeErr)
+		}
+		t := strings.TrimSpace(string(b))
+		if len(b) > 4096 || len(t) < 16 {
+			return "", fmt.Errorf("existing recovery token is invalid; refusing implicit rotation")
+		}
+		return t, nil
+	}
+	if err != unix.ENOENT {
+		return "", fmt.Errorf("open recovery token: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", fmt.Errorf("create recovery secrets directory: %w", err)
 	}
 	buf := make([]byte, 24)
-	_, _ = rand.Read(buf)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate recovery token: %w", err)
+	}
 	t := hex.EncodeToString(buf)
-	_ = os.MkdirAll("/etc/netductor/secrets", 0o700)
-	_ = os.WriteFile(path, []byte(t+"\n"), 0o600)
-	return t
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".recovery_token-*")
+	if err != nil {
+		return "", fmt.Errorf("create recovery token temporary file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return "", fmt.Errorf("secure recovery token: %w", err)
+	}
+	if _, err := io.WriteString(tmp, t+"\n"); err != nil {
+		_ = tmp.Close()
+		return "", fmt.Errorf("write recovery token: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return "", fmt.Errorf("sync recovery token: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return "", fmt.Errorf("close recovery token: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return "", fmt.Errorf("install recovery token: %w", err)
+	}
+	d, err := os.Open(dir)
+	if err != nil {
+		return "", fmt.Errorf("open recovery secrets directory: %w", err)
+	}
+	syncErr := d.Sync()
+	closeErr := d.Close()
+	if syncErr != nil {
+		return "", fmt.Errorf("sync recovery secrets directory: %w", syncErr)
+	}
+	if closeErr != nil {
+		return "", fmt.Errorf("close recovery secrets directory: %w", closeErr)
+	}
+	return t, nil
 }
 
-func armBuildRecovery(ttl time.Duration) {
+func armBuildRecovery(ttl time.Duration) error {
 	if ttl <= 0 {
 		ttl = 30 * time.Minute
 	}
@@ -74,7 +141,7 @@ func armBuildRecovery(ttl time.Duration) {
 		_ = bRecSrv.Close()
 		bRecSrv = nil
 	}
-	bRecTok = ensureBuildRecoveryToken()
+	token, err := ensureBuildRecoveryToken()\n\tif err != nil {\n\t\treturn err\n\t}\n\tbRecTok = token
 	bRecUntil = time.Now().Add(ttl)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/recovery/latest", func(w http.ResponseWriter, r *http.Request) {
