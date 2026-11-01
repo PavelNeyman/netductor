@@ -1,5 +1,10 @@
 name: netductor
-on: [push]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -54,30 +59,6 @@ jobs:
           go build -o /tmp/netductor-tg ./cmd/netductor-tg
           go build -o /tmp/netductor-agent ./cmd/netductor-agent
           /tmp/netductor version | grep -q node
-  macos-cross:
-    runs-on: ubuntu-latest
-    container:
-      image: golang:1.26-bookworm
-      options: --user 1001:1001
-    defaults:
-      run:
-        shell: bash
-    env:
-      CGO_ENABLED: "0"
-      GOTOOLCHAIN: auto
-      GOFLAGS: -buildvcs=false
-      HOME: /tmp
-      GOPATH: /tmp/go
-      GOCACHE: /tmp/go-cache
-      GOMODCACHE: /tmp/go/pkg/mod
-      GOBIN: /tmp/go/bin
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
-      - name: deps
-        run: |
-          set -euo pipefail
-          go mod download
       - name: macOS operator cross-build
         run: |
           set -euo pipefail
