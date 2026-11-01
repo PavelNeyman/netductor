@@ -736,7 +736,7 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	if role == "primary" {
 		for _, item := range []struct{ port, action, label string }{
 			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
-			{"80", "ALLOW", "http-acme"}, {"8444", "ALLOW", "primary-wss"},
+			{"80", "ALLOW", "http-acme"},
 			{"8787", "DENY", "secondary-api"},
 			{"8788", "DENY", "plain-agent"}, {"9443", "DENY", "service-uplink"},
 		} { checkWAN(item.port, item.action, item.label) }
