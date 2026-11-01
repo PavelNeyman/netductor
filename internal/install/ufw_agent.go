@@ -3,6 +3,7 @@ package install
 import (
 	"bufio"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -22,7 +23,9 @@ func ApplyAgentFirewall() error {
 		return nil
 	}
 	_ = run("ufw", "delete", "allow", "8788/tcp")
-	_ = run("ufw", "deny", "8788/tcp")
+	if err := run("ufw", "deny", "8788/tcp"); err != nil {
+		return fmt.Errorf("ufw deny 8788/tcp: %w", err)
+	}
 	_ = run("ufw", "delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
 	_ = run("ufw", "delete", "allow", ndconfig.AgentMTLSPort()+"/tcp")
 
@@ -37,12 +40,13 @@ func ApplyAgentFirewall() error {
 	cidrs := collectAPIAllowCIDRs()
 	seen := map[string]bool{}
 	for _, c := range cidrs {
-		if seen[c] {
-			continue
+		if seen[c] { continue }
+		if _, _, err := net.ParseCIDR(c); err != nil {
+			return fmt.Errorf("invalid API allow CIDR %q: %w", c, err)
 		}
 		seen[c] = true
 		if err := run("ufw", "allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api"); err != nil {
-			fmt.Fprintf(os.Stderr, "ufw allow 8789 from %s: %v\n", c, err)
+			return fmt.Errorf("ufw allow mTLS from %s: %w", c, err)
 		}
 	}
 	fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 restricted to service CIDRs + api-allow.cidr")
