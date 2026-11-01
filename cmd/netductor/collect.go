@@ -212,7 +212,9 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	}
 	if enabled("secondary_offline") {
 		// Drop prepare-pack ghosts (never heartbeated) and long-stale empties
-		if n := secondary.PruneStale(24 * time.Hour); n > 0 {
+		if n, err := secondary.PruneStale(24 * time.Hour); err != nil {
+			fmt.Fprintf(os.Stderr, "secondary prune failed: %v\n", err)
+		} else if n > 0 {
 			fmt.Fprintf(os.Stderr, "secondary prune: removed %d stale/ghost device(s)\n", n)
 		}
 		for _, d := range secondary.List() {
