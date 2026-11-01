@@ -4,6 +4,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container: golang:1.26-bookworm
+    defaults:
+      run:
+        shell: bash
     env:
       CGO_ENABLED: "0"
       GOTOOLCHAIN: auto
@@ -40,6 +43,9 @@ jobs:
   windows-cross:
     runs-on: ubuntu-latest
     container: golang:1.26-bookworm
+    defaults:
+      run:
+        shell: bash
     env:
       CGO_ENABLED: "0"
       GOTOOLCHAIN: auto
