@@ -117,6 +117,13 @@ func removeAPIPublicTimerUnits() error {
 	if err := removeAPIPublicUnit(apiPublicService); err != nil {
 		return err
 	}
+	// Remove transient units written by releases before the reboot-safe timer.
+	for _, name := range []string{apiPublicTimer, apiPublicService} {
+		path := filepath.Join("/run/systemd/system", name)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove legacy transient unit %s: %w", name, err)
+		}
+	}
 	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
 		return fmt.Errorf("systemd daemon-reload: %v (%s)", err, strings.TrimSpace(string(out)))
 	}
