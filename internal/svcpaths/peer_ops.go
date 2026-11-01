@@ -119,6 +119,14 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 	if err := validatePublicIP(o.PublicIP); err != nil {
 		return nil, nil, err
 	}
+	// An op journal takes precedence over an apparently existing registry entry.
+	// Recovery must reconcile the interrupted bootstrap before PeerAdd can report
+	// success or proceed with another mutation for this identity.
+	if _, opErr := loadPeerOp(o.PeerID); opErr == nil {
+		return nil, nil, fmt.Errorf("peer %s has an incomplete operation journal; run peer recover before add", o.PeerID)
+	} else if !os.IsNotExist(opErr) {
+		return nil, nil, fmt.Errorf("inspect peer %s operation journal: %w", o.PeerID, opErr)
+	}
 	if removed := idx.findAny(o.PeerID); removed != nil && removed.State == "removed" {
 		return nil, nil, fmt.Errorf("peer %s is removed (units and configs were torn down); use a new id or peer recover — add does not rebuild a removed peer", o.PeerID)
 	}
