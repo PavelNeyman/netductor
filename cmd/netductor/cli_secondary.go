@@ -336,7 +336,11 @@ func runSecondary(args []string) {
 		}
 		fmt.Println("queued", args[2], "for", args[1])
 	case "sync":
-		ver := secondary.BumpConfigVer()
+		ver, err := secondary.BumpConfigVer()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "sync secondary config version:", err)
+			os.Exit(1)
+		}
 		fmt.Println("config_ver", ver)
 		fmt.Println(cli18n.T("secondary.pull_hint"))
 	case "exit":
