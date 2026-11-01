@@ -249,7 +249,9 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 		}
 		if in.CmdDone != "" {
 			if in.CmdDone == "ssh_keys" && in.CmdOK {
-				_ = integrity.CacheSecondaryKeys(r.Devices[i].ID, in.CmdLog)
+				if err := integrity.CacheSecondaryKeys(r.Devices[i].ID, in.CmdLog); err != nil {
+					return nil, 0, fmt.Errorf("cache secondary SSH keys: %w", err)
+				}
 			}
 			r.Devices[i].LastCmd = in.CmdDone
 			r.Devices[i].LastCmdOK = in.CmdOK
