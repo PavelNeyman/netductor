@@ -81,15 +81,27 @@ func ArmAPIPublic(ttl time.Duration) error {
 	if err := ufwQuiet("allow", apiPublicPort+"/tcp", "comment", apiPublicComment); err != nil {
 		return fmt.Errorf("ufw allow public %s: %w", apiPublicPort, err)
 	}
+	rollback := func(cause error) error {
+		if err := deleteUFWByComment(apiPublicComment); err != nil {
+			return fmt.Errorf("%v; additionally failed to remove temporary public UFW rule: %w", cause, err)
+		}
+		_ = os.Remove(apiPublicStatePath)
+		return cause
+	}
 	st := apiPublicState{
 		ArmedAt: time.Now().UTC(),
 		Until:   time.Now().UTC().Add(ttl),
 		TTL:     ttl.String(),
 	}
-	_ = os.MkdirAll(filepath.Dir(apiPublicStatePath), 0o755)
-	b, _ := json.MarshalIndent(st, "", "  ")
+	if err := os.MkdirAll(filepath.Dir(apiPublicStatePath), 0o755); err != nil {
+		return rollback(fmt.Errorf("create API public state directory: %w", err))
+	}
+	b, err := json.MarshalIndent(st, "", "  ")
+	if err != nil {
+		return rollback(fmt.Errorf("encode API public state: %w", err))
+	}
 	if err := os.WriteFile(apiPublicStatePath, b, 0o600); err != nil {
-		return err
+		return rollback(fmt.Errorf("write API public state: %w", err))
 	}
 	sec := int(ttl.Seconds())
 	if sec < 60 {
@@ -111,25 +123,20 @@ Unit=nd-api-public-disarm.service
 WantedBy=timers.target
 `, sec)
 	if err := os.WriteFile("/run/systemd/system/nd-api-public-disarm.service", []byte(unit), 0o644); err != nil {
-		deleteUFWByComment(apiPublicComment)
-		return fmt.Errorf("write disarm service: %w", err)
+		return rollback(fmt.Errorf("write disarm service: %w", err))
 	}
 	if err := os.WriteFile("/run/systemd/system/nd-api-public-disarm.timer", []byte(timer), 0o644); err != nil {
-		deleteUFWByComment(apiPublicComment)
-		return fmt.Errorf("write disarm timer: %w", err)
+		return rollback(fmt.Errorf("write disarm timer: %w", err))
 	}
 	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
-		deleteUFWByComment(apiPublicComment)
-		return fmt.Errorf("daemon-reload: %v (%s)", err, string(out))
+		return rollback(fmt.Errorf("daemon-reload: %v (%s)", err, string(out)))
 	}
 	if out, err := exec.Command("systemctl", "start", "nd-api-public-disarm.timer").CombinedOutput(); err != nil {
-		deleteUFWByComment(apiPublicComment)
-		return fmt.Errorf("start disarm timer: %v (%s)", err, string(out))
+		return rollback(fmt.Errorf("start disarm timer: %v (%s)", err, string(out)))
 	}
 	// confirm timer is active
 	if out, err := exec.Command("systemctl", "is-active", "nd-api-public-disarm.timer").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
-		deleteUFWByComment(apiPublicComment)
-		return fmt.Errorf("disarm timer not active after start: %s", strings.TrimSpace(string(out)))
+		return rollback(fmt.Errorf("disarm timer not active after start: %s", strings.TrimSpace(string(out))))
 	}
 	return nil
 }
