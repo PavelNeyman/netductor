@@ -99,7 +99,7 @@ if command -v ss >/dev/null 2>&1; then
     echo "cannot inspect TCP listeners before SSH hardening" >&2
     exit 1
   fi
-  if printf '%s\n' "$SS_LISTENERS" | awk '$4 ~ /:22$/ { found=1 } END { exit !found }'; then
+  if printf '%%s\n' "$SS_LISTENERS" | awk '$4 ~ /:22$/ { found=1 } END { exit !found }'; then
     : > "$ND_BAK/factory-ssh-present"
   fi
 else
