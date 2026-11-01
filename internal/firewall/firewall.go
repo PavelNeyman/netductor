@@ -293,7 +293,21 @@ func ApplyRoleBootstrap(role string) error {
 	if strings.ToLower(strings.TrimSpace(role)) != "secondary" {
 		return fmt.Errorf("firewall: bootstrap profile is only valid for secondary")
 	}
-	return applyRole(role, true)
+	// EnsureHostBaseline is also used on already-hardened hosts. Do not reopen
+	// factory SSH :22 unless a listener is actually present.
+	out, err := exec.Command("ss", "-H", "-ltn").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("firewall: inspect SSH listeners before secondary bootstrap: %v (%s)", err, truncate(string(out), 160))
+	}
+	factorySSHActive := false
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 4 && strings.HasSuffix(fields[3], ":22") {
+			factorySSHActive = true
+			break
+		}
+	}
+	return applyRole(role, factorySSHActive)
 }
 
 func applyRole(role string, bootstrapSSH bool) error {
