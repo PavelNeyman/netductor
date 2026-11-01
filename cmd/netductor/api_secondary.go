@@ -236,7 +236,11 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if n, ok, err := nodes.Get(d.ID); err == nil && ok && n.DesiredHN != "" {
 		desired = n.DesiredHN
 	}
-	cmds := secondary.TakeCmds(d.ID)
+	cmds, err := secondary.TakeCmds(d.ID)
+	if err != nil {
+		http.Error(w, "secondary command queue unavailable", http.StatusInternalServerError)
+		return
+	}
 	pol := svcpaths.LoadPolicy()
 	writeJSON(w, 200, map[string]any{
 		"ok": true, "config_ver": ver, "need_sync": in.ConfigVer < ver, "id": d.ID,
