@@ -268,10 +268,11 @@ systemctl is-active ${ND_RB_TIMER}
 
 # --- Mutations only after rollback is armed ---
 # Serialize firewall mutations with ApplyRole and peer WSS updates.
+# Keep fd 8 (the permanent prepare lock) open until this script exits.
 mkdir -p /run/lock
 test ! -L /run/lock/netductor-firewall.lock
-exec 8>/run/lock/netductor-firewall.lock
-flock 8
+exec 7>/run/lock/netductor-firewall.lock
+flock 7
 # Do not install/switch firewall backends here. EnsureHostBaseline already
 # selected and applied one backend; introducing UFW now could leave two
 # independent policies active with different defaults.
