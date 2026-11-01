@@ -180,7 +180,7 @@ fi
 
 # Persist the management port for the independent rollback service. Older
 # transactions without this file fall back to the established Netductor port.
-printf '%s\n' "$ND_PORT" > "$ND_BAK/management-port"
+printf '%%s\n' "$ND_PORT" > "$ND_BAK/management-port"
 chmod 600 "$ND_BAK/management-port"
 
 # --- Arm rollback BEFORE mutations ---
