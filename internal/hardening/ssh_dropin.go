@@ -66,9 +66,14 @@ systemctl daemon-reload 2>/dev/null || true
 rm -rf "$ND_BAK"
 mkdir -p "$ND_BAK"
 LOCK="$ND_BAK/lock"
-# rollback/cancel still share ND_BAK/lock for critical section
+# rollback/cancel/finalize share ND_BAK/lock for the critical section
 exec 9>"$LOCK"
 flock 9
+# Acquire the common firewall lock before snapshotting UFW or touching SSH.
+mkdir -p /run/lock
+test ! -L /run/lock/netductor-firewall.lock
+exec 7>/run/lock/netductor-firewall.lock
+flock 7
 
 # --- Mandatory SSH backup ---
 test -f /etc/ssh/sshd_config
@@ -267,12 +272,7 @@ systemctl start ${ND_RB_TIMER}
 systemctl is-active ${ND_RB_TIMER}
 
 # --- Mutations only after rollback is armed ---
-# Serialize firewall mutations with ApplyRole and peer WSS updates.
-# Keep fd 8 (the permanent prepare lock) open until this script exits.
-mkdir -p /run/lock
-test ! -L /run/lock/netductor-firewall.lock
-exec 7>/run/lock/netductor-firewall.lock
-flock 7
+# Firewall lock was acquired before the snapshot and remains held.
 # Do not install/switch firewall backends here. EnsureHostBaseline already
 # selected and applied one backend; introducing UFW now could leave two
 # independent policies active with different defaults.
