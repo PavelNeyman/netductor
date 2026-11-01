@@ -433,6 +433,12 @@ func writeFile(path, body string, mode os.FileMode) error {
 }
 
 func unitFile(name, execStart string) error {
+	if !safeUnitName(name) {
+		return fmt.Errorf("invalid systemd unit name %q", name)
+	}
+	if strings.ContainsAny(execStart, "\\r\\n") {
+		return fmt.Errorf("systemd ExecStart for %s contains a line break", name)
+	}
 	body := fmt.Sprintf(`[Unit]
 Description=Netductor %s
 After=network-online.target
@@ -451,6 +457,19 @@ WantedBy=multi-user.target
 }
 
 func enableRestart(units ...string) error {
+	if len(units) == 0 {
+		return fmt.Errorf("no systemd units supplied")
+	}
+	seen := make(map[string]bool, len(units))
+	for _, u := range units {
+		if !safeUnitName(u) {
+			return fmt.Errorf("invalid systemd unit name %q", u)
+		}
+		if seen[u] {
+			return fmt.Errorf("duplicate systemd unit %q", u)
+		}
+		seen[u] = true
+	}
 	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
 		return fmt.Errorf("daemon-reload: %v (%s)", err, strings.TrimSpace(string(out)))
 	}
