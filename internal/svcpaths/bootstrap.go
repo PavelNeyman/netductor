@@ -827,9 +827,10 @@ flock 9
 chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
 test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
 iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null || iptables -I "$chain" 3 -p tcp -s %s --dport %d -j ACCEPT
+iptables -C "$chain" -p tcp -s %s --dport 8789 -j ACCEPT 2>/dev/null || iptables -I "$chain" 3 -p tcp -s %s --dport 8789 -j ACCEPT
 netfilter-persistent save
 echo primary-iptables-wss-ok
-`, secondaryPub, wssSP, secondaryPub, wssSP)
+`, secondaryPub, wssSP, secondaryPub, wssSP, sSP, sSP)
 		out, err := exec.Command("bash", "-c", script).CombinedOutput()
 		if err != nil { return fmt.Errorf("primary iptables WSS: %w: %s", err, out) }
 		return nil
