@@ -605,7 +605,7 @@ PersistentKeepalive = 25
 		psClientUnit = "nd-wss-ps-client-" + ifacePS
 	}
 	if err := unitFile(psClientUnit,
-		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
+		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s",
 			portPS, portPS, net.JoinHostPort(m.Secondary, strconv.Itoa(wssPS)))); err != nil {
 		return err
 	}
@@ -700,7 +700,7 @@ AllowedIPs = %s/32
 		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
 	if err := unitFile("nd-wss-sp-client",
-		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s:%d",
+		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s",
 			portSP, portSP, net.JoinHostPort(m.Primary, strconv.Itoa(wssSP)))); err != nil {
 		return err
 	}
