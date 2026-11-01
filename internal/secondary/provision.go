@@ -462,7 +462,7 @@ sync -f "$P"
 trap - EXIT
 if [ "$HAD_OLD" -eq 1 ]; then printf 'MTLS_BACKUP=%s\n' "$BACKUP"; else printf 'MTLS_BACKUP=-\n'; fi
 `;
-	const out, err = runSSHWithStdin(client, script, buf.Bytes())
+	out, err := runSSHWithStdin(client, script, buf.Bytes())
 	if err != nil {
 		return "", fmt.Errorf("mTLS atomic install failed: %w (%s)", err, trimLog(out))
 	}
@@ -505,7 +505,7 @@ func finishMTLSMaterial(client *ssh.Client, backup string, restore bool) error {
 	if backup == "-" && !restore {
 		return nil
 	}
-	quoted := "'" + strings.ReplaceAll(backup, "'", "'\''") + "'"
+	quoted := "'" + backup + "'"
 	var script string
 	if restore {
 		if backup == "-" {
