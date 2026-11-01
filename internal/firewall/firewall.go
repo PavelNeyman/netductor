@@ -268,6 +268,9 @@ func truncate(s string, n int) string { return format.Truncate(strings.TrimSpace
 // It does not coordinate with UFW, iptables, or other external firewall managers.
 func AcquireMutationLock() (func(), error) {
 	const lockPath = "/run/lock/netductor-firewall.lock"
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
+		return nil, fmt.Errorf("firewall: create lock directory: %w", err)
+	}
 	fd, err := unix.Open(lockPath, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("firewall: open apply lock: %w", err)
