@@ -263,7 +263,7 @@ if command -v ufw >/dev/null 2>&1; then
     ufw insert 1 allow 22/tcp comment netductor-ssh-bootstrap
   fi
   ufw allow 443/tcp comment netductor-vless
-  ufw allow 8445/tcp comment nd-wss-ps
+  # WSS is opened later by service-plane bootstrap for the selected peer IP only.
   ufw --force enable
   ufw status | grep -qE "$ND_PORT/tcp"
 elif command -v iptables >/dev/null 2>&1; then
