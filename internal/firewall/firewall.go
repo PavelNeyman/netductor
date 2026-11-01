@@ -714,14 +714,14 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		for _, item := range []struct{ port, action, label string }{
 			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
 			{"80", "ALLOW", "http-acme"}, {"8444", "ALLOW", "primary-wss"},
-			{"8787", "DENY", "secondary-api"}, {"8445", "DENY", "secondary-wss"},
+			{"8787", "DENY", "secondary-api"},
 			{"8788", "DENY", "plain-agent"}, {"9443", "DENY", "service-uplink"},
 		} { checkWAN(item.port, item.action, item.label) }
 		for _, item := range []struct{ port, label string }{
-			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"}, {"8444", "primary-wss"},
+			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"},
 		} { checkNoDeny(item.port, item.label) }
 		for _, item := range []struct{ port, label string }{
-			{"8787", "secondary-api"}, {"8445", "secondary-wss"}, {"8788", "plain-agent"},
+			{"8787", "secondary-api"}, {"8788", "plain-agent"},
 		} { checkNoAllow(item.port, item.label) }
 		uplink := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
@@ -758,8 +758,6 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 			}
 		}
 	} else {
-		checkWAN("8445", "ALLOW", "secondary-wss")
-		checkNoDeny("8445", "secondary-wss")
 		for _, port := range []string{"80", "8787", "8788", "8789"} {
 			checkWAN(port, "DENY", "secondary-restricted")
 		}
@@ -769,7 +767,7 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		// A previous primary profile may have left source-restricted allows
 		// behind. UFW does not remove them when applying the secondary role.
 		primaryOnly := []struct{ port, label string }{
-			{"8444", "primary-wss"}, {"9443", "primary-service-uplink"},
+			{"9443", "primary-service-uplink"},
 			{ndconfig.AgentMTLSPort(), "primary-mtls"},
 			{ndconfig.RedirectHTTPSPort(), "primary-redirect"},
 		}
@@ -783,6 +781,9 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 				}
 			}
 		}
+	}
+	if err := verifyWSSRules(rules, role); err != nil {
+		conflicts = append(conflicts, "WSS peer policy: "+err.Error())
 	}
 	if len(conflicts) != 0 {
 		return fmt.Errorf("existing UFW policy conflicts; refusing mutation: %s", strings.Join(conflicts, "; "))
@@ -815,6 +816,15 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	current, inspectErr := exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if inspectErr != nil {
 		return fmt.Errorf("inspect UFW rules before SSH safeguard: %v (%s)", inspectErr, truncate(string(current), 200))
+	}
+	// Automatically migrate only the exact historical Netductor global WSS
+	// rules. Source-restricted peer rules and administrator-owned rules remain.
+	if err := removeLegacyGlobalWSSRules(string(current)); err != nil {
+		return err
+	}
+	current, inspectErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if inspectErr != nil {
+		return fmt.Errorf("inspect UFW rules after WSS migration: %v (%s)", inspectErr, truncate(string(current), 200))
 	}
 	if err := ufwPreflightPolicyMode(string(current), role, bootstrapSSH); err != nil {
 		return fmt.Errorf("UFW preflight: %w", err)
@@ -891,7 +901,6 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		if err := must("allow", "80/tcp", "comment", "netductor-http-acme"); err != nil {
 			return err
 		}
-		if err := must("allow", "8444/tcp", "comment", "nd-wss-sp"); err != nil { return fmt.Errorf("allow primary WSS port: %w", err) }
 		if err := must("deny", "8787/tcp", "comment", "no-secondary-api"); err != nil {
 			return fmt.Errorf("deny secondary API port: %w", err)
 		}
@@ -920,7 +929,6 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 			if err := must("deny", lp+"/tcp", "comment", "lampac-wan-deny"); err != nil { return fmt.Errorf("deny Lampac WAN port: %w", err) }
 		}
 	} else {
-		if err := must("allow", "8445/tcp", "comment", "nd-wss-ps"); err != nil { return fmt.Errorf("allow secondary WSS port: %w", err) }
 		if err := must("deny", "8787/tcp", "comment", "no-api-wan"); err != nil {
 			return err
 		}
@@ -1866,7 +1874,6 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		for _, item := range []struct{ port, action, label string }{
 			{ndconfig.RedirectHTTPSPort(), "ALLOW", "redirect"},
 			{"80", "ALLOW", "http-acme"},
-			{"8444", "ALLOW", "primary-wss"},
 			{"8787", "DENY", "secondary-api"},
 			{"8445", "DENY", "secondary-wss"},
 			{"8788", "DENY", "plain-agent"},
@@ -1875,7 +1882,7 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			requireBoth(item.port, item.action, item.label)
 		}
 		for _, item := range []struct{ port, label string }{
-			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"}, {"8444", "primary-wss"},
+			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"},
 		} { rejectAnyDeny(item.port, item.label) }
 		for _, item := range []struct{ port, label string }{
 			{"8787", "secondary-api"}, {"8445", "secondary-wss"}, {"8788", "plain-agent"},
@@ -1962,8 +1969,6 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			}
 		}
 	} else {
-		requireBoth("8445", "ALLOW", "secondary-wss")
-		rejectAnyDeny("8445", "secondary-wss")
 		requireBoth("80", "DENY", "secondary-http")
 		for _, port := range []string{"8787", "8788", "8789"} {
 			requireBoth(port, "DENY", "secondary-"+port)
@@ -1987,6 +1992,10 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 				}
 			}
 		}
+	}
+	if err := verifyWSSRules(rules, role); err != nil {
+		ok = false
+		warnings = append(warnings, "WSS peer policy: "+err.Error())
 	}
 	return ok, warnings
 }
