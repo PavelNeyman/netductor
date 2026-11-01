@@ -68,7 +68,8 @@ func TestUfwNumberedGoodPrimary(t *testing.T) {
 [26] 8789/tcp                   ALLOW IN    10.87.11.0/30
 [27] 9118/tcp                   DENY IN     Anywhere
 [28] 9118/tcp (v6)              DENY IN     Anywhere (v6)
-	`	if sshPort() != "52222" {
+	`
+	if sshPort() != "52222" {
 		t.Skip("ssh port not 52222 in test env")
 	}
 	ok, warns := ufwEffectivePolicy(status, "primary")
