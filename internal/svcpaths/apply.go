@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"syscall"
 )
 
 const (
@@ -232,27 +233,37 @@ func applyUserUplink(userPath string) error {
 	if err != nil {
 		return err
 	}
-	prev := mustRead(singBoxConfig)
-	bak := singBoxConfig + ".bak"
-	_ = os.WriteFile(bak, prev, 0o644)
-	tmp := singBoxConfig + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o644); err != nil {
-		return err
+	info, err := os.Stat(singBoxConfig)
+	if err != nil {
+		return fmt.Errorf("stat sing-box config before replacement: %w", err)
 	}
-	if err := os.Rename(tmp, singBoxConfig); err != nil {
-		return err
+	mode := info.Mode().Perm()
+	prev := append([]byte(nil), b...)
+	if err := writeFileAtomic(singBoxConfig, append(raw, '\\n'), mode); err != nil {
+		return fmt.Errorf("atomically replace sing-box config: %w", err)
 	}
-	if out, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput(); err != nil {
-		_ = os.WriteFile(singBoxConfig, prev, 0o644)
-		_ = exec.Command("systemctl", "restart", "sing-box").Run()
-		return fmt.Errorf("restart sing-box after uplink apply: %w: %s (restored previous config)", err, strings.TrimSpace(string(out)))
+	rollback := func(cause error) error {
+		if restoreErr := writeFileAtomic(singBoxConfig, prev, mode); restoreErr != nil {
+			return fmt.Errorf("%w; restore previous sing-box config failed: %v; manual recovery required", cause, restoreErr)
+		}
+		out, restartErr := exec.Command("systemctl", "restart", "sing-box").CombinedOutput()
+		if restartErr != nil {
+			return fmt.Errorf("%w; previous config restored but sing-box restart failed: %v: %s", cause, restartErr, strings.TrimSpace(string(out)))
+		}
+		st, activeErr := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput()
+		if activeErr != nil || strings.TrimSpace(string(st)) != "active" {
+			return fmt.Errorf("%w; previous config restored but sing-box is not active: %s (%v)", cause, strings.TrimSpace(string(st)), activeErr)
+		}
+		return cause
 	}
-	if st, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(st)) != "active" {
-		_ = os.WriteFile(singBoxConfig, prev, 0o644)
-		_ = exec.Command("systemctl", "restart", "sing-box").Run()
-		return fmt.Errorf("sing-box not active after uplink apply: %s (restored previous config)", strings.TrimSpace(string(st)))
+	out, restartErr := exec.Command("systemctl", "restart", "sing-box").CombinedOutput()
+	if restartErr != nil {
+		return rollback(fmt.Errorf("restart sing-box after uplink apply: %w: %s", restartErr, strings.TrimSpace(string(out))))
 	}
-	_ = os.Remove(bak)
+	st, activeErr := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput()
+	if activeErr != nil || strings.TrimSpace(string(st)) != "active" {
+		return rollback(fmt.Errorf("sing-box not active after uplink apply: %s (%v)", strings.TrimSpace(string(st)), activeErr))
+	}
 	return nil
 }
 
@@ -282,4 +293,46 @@ func probeHealthInvalid(why string) error {
 		time.Now().UTC().Format(time.RFC3339), why)
 	_ = os.WriteFile(HealthJSON, []byte(body), 0o644)
 	return fmt.Errorf("probe health: %s", why)
+}
+
+
+// writeFileAtomic replaces a file without exposing a partially written config.
+// The temporary file is created in the destination directory so rename is atomic.
+func writeFileAtomic(path string, data []byte, mode os.FileMode) (retErr error) {
+	dir := filepath.Dir(path)
+	f, err := os.CreateTemp(dir, ".netductor-atomic-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer func() {
+		_ = os.Remove(tmp)
+	}()
+	if err := f.Chmod(mode); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open parent directory for sync: %w", err)
+	}
+	defer d.Close()
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("sync parent directory: %w", err)
+	}
+	return nil
 }
