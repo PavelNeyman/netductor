@@ -169,6 +169,9 @@ func (m *ensureAptGuardPolicyMigration) Verify(ctx context.Context) error {
 
 type ensureRoleFileMigration struct{}
 
+// detectHostRole is replaceable in tests; production always uses strict host evidence.
+var detectHostRole = firewall.DetectRoleStrict
+
 func (m *ensureRoleFileMigration) ID() string { return "2026-10-ensure-role-file" }
 func (m *ensureRoleFileMigration) Description() string {
 	return "Write /etc/netductor/role from DetectRole when absent"
@@ -186,7 +189,7 @@ func (m *ensureRoleFileMigration) Required(ctx context.Context) (bool, error) {
 	return role != "primary" && role != "secondary", nil
 }
 func (m *ensureRoleFileMigration) Apply(ctx context.Context) error {
-	role, ok := firewall.DetectRoleStrict()
+	role, ok := detectHostRole()
 	if !ok || (role != "primary" && role != "secondary") {
 		return fmt.Errorf("cannot write role file: host role is unknown (need an explicit role marker; refuse to guess primary)")
 	}
