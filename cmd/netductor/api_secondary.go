@@ -171,9 +171,8 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/secondary/agent/backup/key", handleSecondaryBackupKey)
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
-		d := secondary.FindByToken(tok)
-		if d == nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		d, ok := lookupSecondaryAgentDevice(w, tok)
+		if !ok {
 			return
 		}
 		ca, cert, key, err := mtls.ReadMaterial(d.ID)
@@ -191,6 +190,19 @@ func agentToken(r *http.Request) string {
 		return strings.TrimSpace(h[7:])
 	}
 	return r.Header.Get("X-Secondary-Token")
+}
+
+func lookupSecondaryAgentDevice(w http.ResponseWriter, token string) (*secondary.Device, bool) {
+	d, err := secondary.LookupByToken(token)
+	if err != nil {
+		http.Error(w, "secondary registry unavailable", http.StatusInternalServerError)
+		return nil, false
+	}
+	if d == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return nil, false
+	}
+	return d, true
 }
 
 func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
@@ -266,8 +278,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
-	if tok == "" || len(tok) < 16 || secondary.FindByToken(tok) == nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	if _, ok := lookupSecondaryAgentDevice(w, tok); !ok {
 		return
 	}
 	sni := vpn.ActiveSNI()
@@ -300,8 +311,8 @@ func StartAgentPlane() error {
 	mux.HandleFunc("/api/secondary/agent/backup/key", handleSecondaryBackupKey)
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
-		d := secondary.FindByToken(tok)
-		if d == nil { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+		d, ok := lookupSecondaryAgentDevice(w, tok)
+		if !ok { return }
 		ca, cert, key, err := mtls.ReadMaterial(d.ID)
 		if err != nil { http.Error(w, err.Error(), 404); return }
 		writeJSON(w, 200, map[string]any{"ca_pem": string(ca), "cert_pem": string(cert), "key_pem": string(key), "node_id": d.ID})
@@ -349,8 +360,7 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 	}
 	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	tok = strings.TrimSpace(tok)
-	if secondary.FindByToken(tok) == nil {
-		http.Error(w, "unauthorized", 401)
+	if _, ok := lookupSecondaryAgentDevice(w, tok); !ok {
 		return
 	}
 	dir := filepath.Join(paths.StateDir(), "backups")
@@ -415,8 +425,7 @@ func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {
 	}
 	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	tok = strings.TrimSpace(tok)
-	if secondary.FindByToken(tok) == nil {
-		http.Error(w, "unauthorized", 401)
+	if _, ok := lookupSecondaryAgentDevice(w, tok); !ok {
 		return
 	}
 	keyPath := filepath.Join(paths.StateDir(), "backups", "BACKUP_KEY.txt")
