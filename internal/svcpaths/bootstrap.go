@@ -436,8 +436,17 @@ func unitFile(name, execStart string) error {
 	if !safeUnitName(name) {
 		return fmt.Errorf("invalid systemd unit name %q", name)
 	}
-	if strings.ContainsAny(execStart, "\r\n") {
-		return fmt.Errorf("systemd ExecStart for %s contains a line break", name)
+	if strings.TrimSpace(execStart) == "" {
+		return fmt.Errorf("systemd ExecStart for %s is empty", name)
+	}
+	if strings.ContainsAny(execStart, "\\r\\n\\x00") {
+		return fmt.Errorf("systemd ExecStart for %s contains a forbidden control character", name)
+	}
+	if strings.Contains(execStart, "%") {
+		return fmt.Errorf("systemd ExecStart for %s contains an unapproved systemd specifier", name)
+	}
+	if !strings.HasPrefix(execStart, "/") {
+		return fmt.Errorf("systemd ExecStart for %s must use an absolute executable path", name)
 	}
 	body := fmt.Sprintf(`[Unit]
 Description=Netductor %s
