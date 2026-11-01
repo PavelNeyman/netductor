@@ -778,7 +778,9 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		checkNoAllow(item.port, item.label)
 	}
 	if !bootstrapSSH {
-		checkNoAllow("22", "ssh22")
+		for _, rule := range ufwAllowsBeforeFirstWANAction(rules, "22", "DENY") {
+			conflicts = append(conflicts, fmt.Sprintf("ssh22 has an effective %s ALLOW from %s before the WAN deny", rule.Proto, rule.From))
+		}
 	}
 	if role == "primary" {
 		for _, item := range []struct{ port, action, label string }{
@@ -1791,6 +1793,29 @@ func firstTCPActionFromWANFamily(rules []ufwRule, port string, ipv6 bool) (actio
 	return "", false
 }
 
+// ufwAllowsBeforeFirstWANAction finds source-specific/global ALLOW rules that
+// precede the first WAN rule for each address family. Later ALLOW rules cannot
+// override an earlier matching DENY and are retained as administrator state.
+func ufwAllowsBeforeFirstWANAction(rules []ufwRule, port, wanAction string) []ufwRule {
+	var conflicts []ufwRule
+	for _, ipv6 := range []bool{false, true} {
+		boundary := int(^uint(0) >> 1)
+		for _, rule := range rules {
+			if rule.IPv6 == ipv6 && ufwRuleMatchesPortTCP(rule, port) && ufwFromIsWAN(rule.From) {
+				if rule.Action == wanAction { boundary = rule.Num }
+				break
+			}
+		}
+		for _, rule := range rules {
+			if rule.IPv6 == ipv6 && rule.Num < boundary &&
+				ufwRuleMatchesPortTCP(rule, port) && ufwRuleAllowsTraffic(rule.Action) {
+				conflicts = append(conflicts, rule)
+			}
+		}
+	}
+	return conflicts
+}
+
 // firstTCPActionFromWAN preserves the legacy IPv4 helper contract.
 func firstTCPActionFromWAN(rules []ufwRule, port string) (action string, found bool) {
 	return firstTCPActionFromWANFamily(rules, port, false)
@@ -1955,9 +1980,13 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		requireBoth(item.port, item.action, item.label)
 	}
 	for _, item := range []struct{ port, label string }{
-		{"22", "ssh22"}, {"10050", "zabbix"}, {"10051", "zabbix"},
+		{"10050", "zabbix"}, {"10051", "zabbix"},
 	} {
 		rejectAnyAllow(item.port, item.label)
+	}
+	for _, rule := range ufwAllowsBeforeFirstWANAction(rules, "22", "DENY") {
+		ok = false
+		warnings = append(warnings, "ssh22: effective "+rule.Action+" from "+rule.From+" precedes the WAN DENY")
 	}
 	rejectAnyDeny("443", "vless")
 	// Do not let a source-specific deny be hidden by a later global SSH
