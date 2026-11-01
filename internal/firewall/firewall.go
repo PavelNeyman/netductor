@@ -1030,8 +1030,22 @@ func applyIPTables(role string) error {
 
 // Collect returns firewall status for doctor/API.
 func Collect(role string) Status {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role == "core" {
+		role = "primary"
+	}
 	if role == "" {
 		role = detectRole()
+	}
+	if role != "primary" && role != "secondary" {
+		return Status{
+			Backend: BackendNone,
+			Role: role,
+			OK: false,
+			Detail: "cannot determine a valid firewall role",
+			Warnings: []string{"firewall health check refused an unknown role"},
+			CheckedAt: time.Now().UTC().Format(time.RFC3339),
+		}
 	}
 	st := Status{
 		Role:      role,
