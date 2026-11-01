@@ -3,6 +3,7 @@ package install
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"golang.org/x/sys/unix"
 )
 
 var apiAllowFileMu sync.Mutex
@@ -75,12 +77,12 @@ func collectAPIAllowCIDRs() ([]string, error) {
 			}
 		}
 	}
-	f, err := os.Open("/etc/netductor/api-allow.cidr")
+	f, err := openAPIAllowFile(unix.O_RDONLY, false)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("open /etc/netductor/api-allow.cidr: %w", err)
+		if os.IsNotExist(err) {
+			return cidrs, nil
 		}
-		return cidrs, nil
+		return nil, fmt.Errorf("open trusted api-allow.cidr: %w", err)
 	}
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
@@ -115,22 +117,79 @@ func validateAPIAllowCIDRs(cidrs []string) error {
 	return nil
 }
 
-// cidrAlreadyListed reports whether ip/CIDR is already in api-allow.cidr (exact line).
-func cidrAlreadyListed(cidr string) bool {
-	b, err := os.ReadFile("/etc/netductor/api-allow.cidr")
+// openAPIAllowFile opens the root-owned allowlist without following symlinks.
+// The containing directory and file must be root-owned and not group/world writable.
+func openAPIAllowFile(flags int, create bool) (*os.File, error) {
+	dirFD, err := unix.Open("/etc/netductor", unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
-		return false
+		return nil, err
 	}
-	for _, line := range strings.Split(string(b), "\n") {
-		line = strings.TrimSpace(line)
+	var dirStat unix.Stat_t
+	if err := unix.Fstat(dirFD, &dirStat); err != nil {
+		_ = unix.Close(dirFD)
+		return nil, fmt.Errorf("stat /etc/netductor: %w", err)
+	}
+	if dirStat.Mode&unix.S_IFMT != unix.S_IFDIR || dirStat.Uid != 0 || dirStat.Mode&0o022 != 0 {
+		_ = unix.Close(dirFD)
+		return nil, fmt.Errorf("/etc/netductor is not a trusted root-owned directory")
+	}
+
+	openFlags := flags | unix.O_CLOEXEC | unix.O_NOFOLLOW
+	if create {
+		openFlags |= unix.O_CREAT
+	}
+	fd, err := unix.Openat(dirFD, "api-allow.cidr", openFlags, 0o600)
+	_ = unix.Close(dirFD)
+	if err != nil {
+		return nil, err
+	}
+	var fileStat unix.Stat_t
+	if err := unix.Fstat(fd, &fileStat); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("stat api-allow.cidr: %w", err)
+	}
+	if fileStat.Mode&unix.S_IFMT != unix.S_IFREG || fileStat.Uid != 0 || fileStat.Mode&0o022 != 0 {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("api-allow.cidr is not a trusted root-owned regular file")
+	}
+	if flags&unix.O_WRONLY != 0 || flags&unix.O_RDWR != 0 {
+		if err := unix.Fchmod(fd, 0o600); err != nil {
+			_ = unix.Close(fd)
+			return nil, fmt.Errorf("chmod api-allow.cidr: %w", err)
+		}
+	}
+	return os.NewFile(uintptr(fd), "/etc/netductor/api-allow.cidr"), nil
+}
+
+// cidrAlreadyListed reports whether ip/CIDR is already in api-allow.cidr.
+func cidrAlreadyListed(cidr string) (bool, error) {
+	f, err := openAPIAllowFile(unix.O_RDONLY, false)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		if line == cidr {
-			return true
+			_ = f.Close()
+			return true, nil
 		}
 	}
-	return false
+	scanErr := sc.Err()
+	closeErr := f.Close()
+	if scanErr != nil {
+		return false, fmt.Errorf("scan api-allow.cidr: %w", scanErr)
+	}
+	if closeErr != nil {
+		return false, fmt.Errorf("close api-allow.cidr: %w", closeErr)
+	}
+	return false, nil
 }
 
 // RestrictAgentMTLSToIP appends IP to api-allow.cidr once. Does NOT re-apply full ufw
@@ -159,32 +218,32 @@ func RestrictAgentMTLSToIP(ip string) error {
 
 	apiAllowFileMu.Lock()
 	defer apiAllowFileMu.Unlock()
-	if cidrAlreadyListed(ip) {
-		return nil
+	listed, err := cidrAlreadyListed(ip)
+	if err != nil {
+		return fmt.Errorf("check api-allow.cidr: %w", err)
 	}
 	if err := os.MkdirAll("/etc/netductor", 0o755); err != nil {
 		return fmt.Errorf("create /etc/netductor: %w", err)
 	}
-	f, err := os.OpenFile("/etc/netductor/api-allow.cidr", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("open api-allow.cidr: %w", err)
+	if !listed {
+		f, err := openAPIAllowFile(unix.O_WRONLY|unix.O_APPEND, true)
+		if err != nil {
+			return fmt.Errorf("open trusted api-allow.cidr for append: %w", err)
+		}
+		if _, err := fmt.Fprintln(f, ip); err != nil {
+			_ = f.Close()
+			return fmt.Errorf("append api-allow.cidr: %w", err)
+		}
+		if err := f.Sync(); err != nil {
+			_ = f.Close()
+			return fmt.Errorf("sync api-allow.cidr: %w", err)
+		}
+		if err := f.Close(); err != nil {
+			return fmt.Errorf("close api-allow.cidr: %w", err)
+		}
 	}
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("chmod api-allow.cidr: %w", err)
-	}
-	if _, err := fmt.Fprintln(f, ip); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("append api-allow.cidr: %w", err)
-	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("sync api-allow.cidr: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("close api-allow.cidr: %w", err)
-	}
-	// Apply the new rule only after the allowlist entry is durable.
+	// Reassert this one rule even for an existing entry: a prior UFW failure
+	// must be retryable without re-appending the CIDR or rebuilding all rules.
 	if _, err := exec.LookPath("ufw"); err == nil {
 		if err := run("ufw", "allow", "from", ip, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api"); err != nil {
 			return fmt.Errorf("ufw allow mTLS from %s: %w", ip, err)
@@ -228,8 +287,14 @@ func applyAgentFirewallQuiet() error {
 
 // SyncAgentAllowFromSecondaryRegistry writes secondary public IPs into api-allow.cidr.
 func SyncAgentAllowFromSecondaryRegistry() error {
+	var failures []string
 	for _, ip := range secondary.ListPublicIPs() {
-		_ = RestrictAgentMTLSToIP(ip)
+		if err := RestrictAgentMTLSToIP(ip); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", ip, err))
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("sync secondary mTLS allowlist failed: %s", strings.Join(failures, "; "))
 	}
 	return nil
 }
