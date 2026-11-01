@@ -247,9 +247,12 @@ func applyUserUplink(userPath string) error {
 	if err != nil {
 		return err
 	}
-	info, err := os.Stat(singBoxConfig)
+	info, err := os.Lstat(singBoxConfig)
 	if err != nil {
 		return fmt.Errorf("stat sing-box config before replacement: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("sing-box config path is not a regular file")
 	}
 	mode := info.Mode().Perm()
 	stat, ok := info.Sys().(*syscall.Stat_t)
