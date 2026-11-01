@@ -125,8 +125,12 @@ func IssueToken(name string) (id, token string, err error) {
 		return "", "", err
 	}
 	var tb, ib [16]byte
-	_, _ = rand.Read(tb[:])
-	_, _ = rand.Read(ib[:])
+	if _, err := rand.Read(tb[:]); err != nil {
+		return "", "", fmt.Errorf("generate secondary token: %w", err)
+	}
+	if _, err := rand.Read(ib[:]); err != nil {
+		return "", "", fmt.Errorf("generate secondary ID: %w", err)
+	}
 	token = hex.EncodeToString(tb[:])
 	id = "secondary-" + hex.EncodeToString(ib[:8])
 	if name == "" {
