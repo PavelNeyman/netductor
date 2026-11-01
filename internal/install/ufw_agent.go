@@ -22,6 +22,19 @@ func ApplyAgentFirewall() error {
 	if _, err := exec.LookPath("ufw"); err != nil {
 		return nil
 	}
+	var cidrs []string
+	if os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") != "1" {
+		var err error
+		cidrs, err = collectAPIAllowCIDRs()
+		if err != nil {
+			return fmt.Errorf("load API allow CIDRs: %w", err)
+		}
+		if err := validateAPIAllowCIDRs(cidrs); err != nil {
+			return err
+		}
+	}
+
+	// Configuration is fully read and validated before the first firewall mutation.
 	_ = run("ufw", "delete", "allow", "8788/tcp")
 	if err := run("ufw", "deny", "8788/tcp"); err != nil {
 		return fmt.Errorf("ufw deny 8788/tcp: %w", err)
@@ -37,13 +50,9 @@ func ApplyAgentFirewall() error {
 		return nil
 	}
 
-	cidrs := collectAPIAllowCIDRs()
 	seen := map[string]bool{}
 	for _, c := range cidrs {
 		if seen[c] { continue }
-		if _, _, err := net.ParseCIDR(c); err != nil {
-			return fmt.Errorf("invalid API allow CIDR %q: %w", c, err)
-		}
 		seen[c] = true
 		if err := run("ufw", "allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api"); err != nil {
 			return fmt.Errorf("ufw allow mTLS from %s: %w", c, err)
@@ -53,7 +62,7 @@ func ApplyAgentFirewall() error {
 	return nil
 }
 
-func collectAPIAllowCIDRs() []string {
+func collectAPIAllowCIDRs() ([]string, error) {
 	cidrs := append([]string{}, defaultAPIAllowCIDRs()...)
 	if extra := strings.TrimSpace(os.Getenv("NETDUCTOR_API_ALLOW_CIDR")); extra != "" {
 		for _, p := range strings.Split(extra, ",") {
@@ -63,18 +72,44 @@ func collectAPIAllowCIDRs() []string {
 			}
 		}
 	}
-	if f, err := os.Open("/etc/netductor/api-allow.cidr"); err == nil {
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			line := strings.TrimSpace(sc.Text())
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			cidrs = append(cidrs, line)
+	f, err := os.Open("/etc/netductor/api-allow.cidr")
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("open /etc/netductor/api-allow.cidr: %w", err)
 		}
-		_ = f.Close()
+		return cidrs, nil
 	}
-	return cidrs
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		cidrs = append(cidrs, line)
+	}
+	scanErr := sc.Err()
+	closeErr := f.Close()
+	if scanErr != nil {
+		return nil, fmt.Errorf("scan /etc/netductor/api-allow.cidr: %w", scanErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close /etc/netductor/api-allow.cidr: %w", closeErr)
+	}
+	return cidrs, nil
+}
+
+func validateAPIAllowCIDRs(cidrs []string) error {
+	seen := make(map[string]bool, len(cidrs))
+	for _, c := range cidrs {
+		if seen[c] {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(c); err != nil {
+			return fmt.Errorf("invalid API allow CIDR %q: %w", c, err)
+		}
+		seen[c] = true
+	}
+	return nil
 }
 
 // cidrAlreadyListed reports whether ip/CIDR is already in api-allow.cidr (exact line).
@@ -130,13 +165,28 @@ func applyAgentFirewallQuiet() error {
 	}
 	_ = ufwQuiet("delete", "allow", "8788/tcp")
 	_ = ufwQuiet("deny", "8788/tcp")
+	cidrs, err := collectAPIAllowCIDRs()
+	if err != nil {
+		return fmt.Errorf("load API allow CIDRs: %w", err)
+	}
+	if err := validateAPIAllowCIDRs(cidrs); err != nil {
+		return err
+	}
+	if err := ufwQuiet("delete", "allow", "8788/tcp"); err != nil {
+		return fmt.Errorf("ufw delete allow 8788/tcp: %w", err)
+	}
+	if err := ufwQuiet("deny", "8788/tcp"); err != nil {
+		return fmt.Errorf("ufw deny 8788/tcp: %w", err)
+	}
 	seen := map[string]bool{}
-	for _, c := range collectAPIAllowCIDRs() {
+	for _, c := range cidrs {
 		if seen[c] {
 			continue
 		}
 		seen[c] = true
-		_ = ufwQuiet("allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api")
+		if err := ufwQuiet("allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api"); err != nil {
+			return fmt.Errorf("ufw allow mTLS from %s: %w", c, err)
+		}
 	}
 	return nil
 }
