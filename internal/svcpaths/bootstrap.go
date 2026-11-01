@@ -609,13 +609,12 @@ PersistentKeepalive = 25
 			portPS, portPS, net.JoinHostPort(m.Secondary, strconv.Itoa(wssPS)))); err != nil {
 		return err
 	}
-	if err := enableRestart(spServerUnit, psClientUnit, "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
+	// Restrict the peer's ingress before restarting any listener. A firewall
+	// failure must never leave newly restarted WSS services exposed.
+	if err := applyPrimaryWSSFirewall(m.Secondary, sSP, wssSP); err != nil {
 		return err
 	}
-
-	// UFW: WSS_SP only from secondary public IP; mTLS 8789 from secondary SP WG IP.
-	// When ufw is active, fail if open WSS remains or allow rules cannot be applied.
-	if err := applyPrimaryWSSFirewall(m.Secondary, sSP, wssSP); err != nil {
+	if err := enableRestart(spServerUnit, psClientUnit, "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
 		return err
 	}
 
@@ -708,10 +707,11 @@ AllowedIPs = %s/32
 		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", wssPS, portPS)); err != nil {
 		return err
 	}
-	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
+	// Restrict WSS ingress before starting/restarting the tunnel listeners.
+	if err := applySecondaryWSSFirewall(m.Primary, wssPS); err != nil {
 		return err
 	}
-	if err := applySecondaryWSSFirewall(m.Primary, wssPS); err != nil {
+	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
 		return err
 	}
 
