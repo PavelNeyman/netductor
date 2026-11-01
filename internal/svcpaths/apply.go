@@ -251,7 +251,7 @@ func applyUserUplink(userPath string) error {
 		return fmt.Errorf("atomically replace sing-box config: %w; previous config restored", err)
 	}
 	rollback := func(cause error) error {
-		if restoreErr := writeFileAtomic(singBoxConfig, prev, mode); restoreErr != nil {
+		if restoreErr := writeFileAtomic(singBoxConfig, prev, mode, uid, gid); restoreErr != nil {
 			return fmt.Errorf("%w; restore previous sing-box config failed: %v; manual recovery required", cause, restoreErr)
 		}
 		out, restartErr := exec.Command("systemctl", "restart", "sing-box").CombinedOutput()
