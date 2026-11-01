@@ -115,9 +115,9 @@ func acquireFirewallMutationLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("inspect firewall mutation lock: %w", err)
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != 0 || st.Mode&0o022 != 0 {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o022 != 0 {
 		_ = unix.Close(fd)
-		return nil, fmt.Errorf("firewall mutation lock must be a root-owned regular file not writable by group/others")
+		return nil, fmt.Errorf("firewall mutation lock must be owned by euid %d and not writable by group/others", os.Geteuid())
 	}
 	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
 		_ = unix.Close(fd)
