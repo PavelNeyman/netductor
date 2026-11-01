@@ -841,13 +841,68 @@ var peerUFWExec = func(args ...string) ([]byte, error) {
 
 var errUFWMissing = fmt.Errorf("ufw not installed")
 
+func peerIPTablesRuleExists(rules, chain string, expected []string) bool {
+	for _, line := range strings.Split(rules, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[0] != "-A" || fields[1] != chain { continue }
+		actual := make([]string, 0, len(fields)-2)
+		for i := 2; i < len(fields); i++ {
+			if fields[i] == "-m" && i+1 < len(fields) && fields[i+1] == "tcp" {
+				i++
+				continue
+			}
+			actual = append(actual, fields[i])
+		}
+		if len(actual) != len(expected) { continue }
+		match := true
+		for i := range actual { if actual[i] != expected[i] { match = false; break } }
+		if match { return true }
+	}
+	return false
+}
+
+func removePeerIPTablesRules(publicIP, addrSSP, addrSPS string, wssPort int) error {
+	input, err := exec.Command("iptables", "-S", "INPUT").CombinedOutput()
+	if err != nil { return fmt.Errorf("inspect iptables INPUT for peer cleanup: %v (%s)", err, strings.TrimSpace(string(input))) }
+	chain := ""
+	for _, line := range strings.Split(string(input), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 4 && fields[0] == "-A" && fields[1] == "INPUT" && fields[2] == "-j" &&
+			(fields[3] == "NETDUCTOR" || fields[3] == "NETDUCTOR_A" || fields[3] == "NETDUCTOR_B") {
+			if chain != "" { return fmt.Errorf("multiple Netductor INPUT chains during peer firewall cleanup") }
+			chain = fields[3]
+		}
+	}
+	if chain == "" { return fmt.Errorf("Netductor iptables INPUT chain missing during peer firewall cleanup") }
+	type rule struct { source, port string }
+	var targets []rule
+	if publicIP != "" && wssPort > 0 { targets = append(targets, rule{publicIP, strconv.Itoa(wssPort)}) }
+	for _, source := range []string{addrSSP, addrSPS} {
+		if source != "" { targets = append(targets, rule{source, "8789"}) }
+	}
+	for _, target := range targets {
+		expected := []string{"-p", "tcp", "-s", target.source, "--dport", target.port, "-j", "ACCEPT"}
+		for {
+			out, inspectErr := exec.Command("iptables", "-S", chain).CombinedOutput()
+			if inspectErr != nil { return fmt.Errorf("inspect iptables chain %s: %v (%s)", chain, inspectErr, strings.TrimSpace(string(out))) }
+			if !peerIPTablesRuleExists(string(out), chain, expected) { break }
+			args := append([]string{"-D", chain}, expected...)
+			out, deleteErr := exec.Command("iptables", args...).CombinedOutput()
+			if deleteErr != nil { return fmt.Errorf("delete peer iptables rule %s from %s: %v (%s)", target.port, target.source, deleteErr, strings.TrimSpace(string(out))) }
+		}
+	}
+	out, err := exec.Command("netfilter-persistent", "save").CombinedOutput()
+	if err != nil { return fmt.Errorf("persist peer iptables cleanup: %v (%s)", err, strings.TrimSpace(string(out))) }
+	return nil
+}
+
 func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 	unlock, lockErr := acquireFirewallMutationLock()
 	if lockErr != nil { return lockErr }
 	defer unlock()
 	out, err := peerUFWExec("status")
 	if err != nil && errors.Is(err, errUFWMissing) {
-		return nil
+		return removePeerIPTablesRules(publicIP, addrSSP, addrSPS, wssPort)
 	}
 	if err != nil {
 		return fmt.Errorf("ufw status: %v: %s", err, strings.TrimSpace(string(out)))
