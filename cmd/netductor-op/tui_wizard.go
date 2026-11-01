@@ -227,9 +227,8 @@ func (m *model) renderWizardSplitFields(bodyH, w int) string {
 	leftLines = append(leftLines, stMuted.Width(leftW).Render(hint))
 	leftLines = append(leftLines, stMuted.Width(leftW).Render(strings.ToUpper(string(m.wizTarget))))
 	for i, f := range m.wizFields {
-		val := f.Value
 		if i == m.wizFieldIdx {
-			val = m.wizInput
+			val := m.wizInput
 			if f.Toggle {
 				mark := "[ ]"
 				if yesish(val) {
