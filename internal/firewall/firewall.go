@@ -170,6 +170,29 @@ func verifyWSSRules(rules []ufwRule, role string) error {
 	return nil
 }
 
+func ensureWSSAllowRules(role string) error {
+	expected, err := wssExpectations(role)
+	if err != nil { return err }
+	status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if err != nil { return fmt.Errorf("inspect UFW before WSS peer migration: %v (%s)", err, truncate(string(status), 160)) }
+	rules := parseUfwNumbered(string(status))
+	for _, e := range expected {
+		action, found := firstTCPActionFromSource(rules, e.Port, e.Source, false)
+		if found {
+			if action != "ALLOW" { return fmt.Errorf("WSS %s from %s is shadowed by %s; refusing to reorder administrator rules", e.Port, e.Source, action) }
+			continue
+		}
+		comment := "nd-wss-sp"
+		if role == "secondary" { comment = "nd-wss-ps" }
+		out, addErr := exec.Command("ufw", "allow", "from", e.Source, "to", "any", "port", e.Port, "proto", "tcp", "comment", comment).CombinedOutput()
+		if addErr != nil { return fmt.Errorf("install source-restricted WSS %s from %s: %v (%s)", e.Port, e.Source, addErr, truncate(string(out), 160)) }
+		status, err = exec.Command("ufw", "status", "numbered").CombinedOutput()
+		if err != nil { return fmt.Errorf("verify WSS rule %s: %v (%s)", e.Port, err, truncate(string(status), 160)) }
+		rules = parseUfwNumbered(string(status))
+	}
+	return verifyWSSRules(rules, role)
+}
+
 // removeLegacyGlobalWSSRules migrates old Netductor-wide WSS ALLOW rules. It
 // removes only rules carrying Netductor's historical comments; administrator
 // rules are preserved and subsequently cause a fail-closed policy check.
@@ -820,6 +843,9 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	// Automatically migrate only the exact historical Netductor global WSS
 	// rules. Source-restricted peer rules and administrator-owned rules remain.
 	if err := removeLegacyGlobalWSSRules(string(current)); err != nil {
+		return err
+	}
+	if err := ensureWSSAllowRules(role); err != nil {
 		return err
 	}
 	current, inspectErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
