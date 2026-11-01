@@ -112,24 +112,25 @@ func ensureWstunnel() error {
 		return nil
 	}
 	// Pinned v10.1.9 + official checksums.txt SHA256 (linux amd64/arm64 only).
-	script := `set -e
+	script := `set -euo pipefail
 arch=$(uname -m)
 case "$arch" in
   x86_64) a=amd64; want=d4c6178e7e7756a49386ba6f419345da4b8b53996390100cfafb2323fc853fbb;;
   aarch64) a=arm64; want=77e256ccef8ab02d21752207fbdb8f27587cf53eafa98f7e878db8979a8a130f;;
   *) echo "unsupported arch $arch" >&2; exit 1;;
 esac
+tmpdir=$(mktemp -d /tmp/netductor-wstunnel.XXXXXX)
+trap 'rm -rf -- "$tmpdir"' EXIT
 u="https://github.com/erebe/wstunnel/releases/download/v10.1.9/wstunnel_10.1.9_linux_${a}.tar.gz"
-curl -fsSL "$u" -o /tmp/wst.tgz
-got=$(sha256sum /tmp/wst.tgz | awk '{print $1}')
+curl -fsSL "$u" -o "$tmpdir/wst.tgz"
+got=$(sha256sum "$tmpdir/wst.tgz" | awk '{print $1}')
 test "$got" = "$want" || { echo "wstunnel checksum mismatch: got $got want $want" >&2; exit 1; }
-rm -rf /tmp/wst-extract
-mkdir -p /tmp/wst-extract
-tar -xzf /tmp/wst.tgz -C /tmp/wst-extract
-bin=$(find /tmp/wst-extract -type f -name 'wstunnel' | head -1)
+mkdir "$tmpdir/extract"
+tar -xzf "$tmpdir/wst.tgz" -C "$tmpdir/extract"
+bin=$(find "$tmpdir/extract" -type f -name 'wstunnel' -print -quit)
 test -n "$bin"
-install -m 755 "$bin" /usr/local/bin/wstunnel
-rm -rf /tmp/wst.tgz /tmp/wst-extract
+install -m 755 "$bin" "/usr/local/bin/.wstunnel.$"
+mv -f -- "/usr/local/bin/.wstunnel.$" /usr/local/bin/wstunnel
 `
 	if out, err := exec.Command("bash", "-c", script).CombinedOutput(); err != nil {
 		return fmt.Errorf("wstunnel install: %v %s", err, strings.TrimSpace(string(out)))
