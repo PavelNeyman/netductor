@@ -335,14 +335,22 @@ if command -v ufw >/dev/null 2>&1; then
   ufw allow "$ND_PORT"/tcp comment netductor-ssh
   # Put the final deny ahead of the temporary bootstrap ALLOW, then remove
   # only the uniquely tagged Netductor transition rule (never admin rules).
-  ufw insert 1 deny 22/tcp comment netductor-no-ssh22
+  first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
+  case "$first22" in
+    *"DENY IN"*) ;;
+    *) ufw insert 1 deny 22/tcp comment netductor-no-ssh22 ;;
+  esac
   if ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
     line=$(ufw status numbered | grep -F 'netductor-ssh-bootstrap' | head -1)
     num=$(printf '%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
     test -n "$num"
     ufw --force delete "$num"
   fi
-  first22=$(ufw status numbered | grep -E '^[[:space:]]*\\[[^]]+\\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
+  if ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
+    echo "temporary SSH bootstrap rule remains after finalize" >&2
+    exit 1
+  fi
+  first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
   case "$first22" in
     *"DENY IN"*) ;;
     *) echo "final SSH firewall verification failed: port 22 is not denied first" >&2; exit 1 ;;
