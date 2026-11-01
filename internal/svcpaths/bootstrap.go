@@ -439,7 +439,7 @@ func unitFile(name, execStart string) error {
 	if strings.TrimSpace(execStart) == "" {
 		return fmt.Errorf("systemd ExecStart for %s is empty", name)
 	}
-	if strings.ContainsAny(execStart, "\\r\\n\\x00") {
+	if strings.ContainsAny(execStart, "\r\n\x00") {
 		return fmt.Errorf("systemd ExecStart for %s contains a forbidden control character", name)
 	}
 	if strings.Contains(execStart, "%") {
