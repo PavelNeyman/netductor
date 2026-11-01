@@ -357,7 +357,7 @@ elif systemctl restart ssh; then
   :
 else
   echo "sshd restart failed"
-  systemctl start ${ND_RB_UNIT} || true
+  systemctl start --no-block ${ND_RB_UNIT} || true
   exit 1
 fi
 
