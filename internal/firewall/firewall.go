@@ -291,6 +291,36 @@ func ApplyRole(role string) error { return applyRole(role, false) }
 // ApplyRoleBootstrap applies the secondary profile while preserving the factory
 // SSH port 22 as a temporary management path. RemoteHardenFinalize must remove
 // this exception only after key-only access on the hardened port is verified.
+func tcpPortListening(port uint16) (bool, error) {
+	if ss, err := exec.LookPath("ss"); err == nil {
+		if out, runErr := exec.Command(ss, "-H", "-ltn").CombinedOutput(); runErr == nil {
+			for _, line := range strings.Split(string(out), "\n") {
+				fields := strings.Fields(line)
+				if len(fields) >= 4 && strings.HasSuffix(fields[3], ":"+strconv.Itoa(int(port))) {
+					return true, nil
+				}
+			}
+			return false, nil
+		}
+	}
+	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) && path == "/proc/net/tcp6" { continue }
+			return false, fmt.Errorf("read TCP listener table %s: %w", path, err)
+		}
+		for _, line := range strings.Split(string(b), "\n")[1:] {
+			fields := strings.Fields(line)
+			if len(fields) < 4 || fields[3] != "0A" { continue } // TCP_LISTEN
+			colon := strings.LastIndexByte(fields[1], ':')
+			if colon < 0 { continue }
+			got, parseErr := strconv.ParseUint(fields[1][colon+1:], 16, 16)
+			if parseErr == nil && got == uint64(port) { return true, nil }
+		}
+	}
+	return false, nil
+}
+
 func ApplyRoleBootstrap(role string) error {
 	if strings.ToLower(strings.TrimSpace(role)) != "secondary" {
 		return fmt.Errorf("firewall: bootstrap profile is only valid for secondary")
@@ -308,18 +338,11 @@ func applyRole(role string, bootstrapSSH bool) error {
 	if bootstrapSSH {
 		// EnsureHostBaseline is also used on already-hardened hosts. Do not
 		// reopen factory SSH :22 unless a listener is actually present.
-		out, inspectErr := exec.Command("ss", "-H", "-ltn").CombinedOutput()
+		listening, inspectErr := tcpPortListening(22)
 		if inspectErr != nil {
-			return fmt.Errorf("firewall: inspect SSH listeners before secondary bootstrap: %v (%s)", inspectErr, truncate(string(out), 160))
+			return fmt.Errorf("firewall: inspect factory SSH listener before secondary bootstrap: %w", inspectErr)
 		}
-		bootstrapSSH = false
-		for _, line := range strings.Split(string(out), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) >= 4 && strings.HasSuffix(fields[3], ":22") {
-				bootstrapSSH = true
-				break
-			}
-		}
+		bootstrapSSH = listening
 	}
 
 	role = strings.ToLower(strings.TrimSpace(role))
