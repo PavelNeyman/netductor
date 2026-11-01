@@ -59,11 +59,14 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		if id, tok, err := secondary.IssueToken("secondary"); err == nil {
-			b.AgentID = id
-			b.AgentToken = tok
-			b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
+		id, tok, err := secondary.IssueToken("secondary")
+		if err != nil {
+			http.Error(w, "failed to issue secondary agent credentials", http.StatusInternalServerError)
+			return
 		}
+		b.AgentID = id
+		b.AgentToken = tok
+		b.CoreAgentURL = "https://" + b.CoreIP + ":" + mtls.AgentTLSPort
 		writeJSON(w, 200, b)
 	})
 	mux.HandleFunc("/api/secondary/cmd", func(w http.ResponseWriter, r *http.Request) {
