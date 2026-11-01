@@ -309,8 +309,22 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 2
 fi
 python3 -c '
-import json,sys
-a=json.load(open(sys.argv[1]))
+import json,sys,os,stat
+fd=os.open(sys.argv[1], os.O_RDONLY | getattr(os,"O_NOFOLLOW",0) | getattr(os,"O_CLOEXEC",0))
+try:
+    st=os.fstat(fd)
+    if not stat.S_ISREG(st.st_mode):
+        raise SystemExit("installed material is not a regular file")
+    if st.st_uid != os.geteuid() or (st.st_mode & 0o077):
+        raise SystemExit("installed material ownership or permissions are unsafe")
+    if st.st_size < 0 or st.st_size > 1048576:
+        raise SystemExit("installed material size is invalid")
+    with os.fdopen(fd, "r") as f:
+        fd=-1
+        a=json.load(f)
+finally:
+    if fd >= 0:
+        os.close(fd)
 b=json.load(sys.stdin)
 req=["peer_id","slot","sp_pub_p","ps_pub_p","sp_priv_s","ps_priv_s","sp_pub_s","ps_pub_s",
      "addr_p_sp","addr_s_sp","addr_p_ps","addr_s_ps","port_sp","port_ps","wss_sp","wss_ps","iface_sp","iface_ps"]
