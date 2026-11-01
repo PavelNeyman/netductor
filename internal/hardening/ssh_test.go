@@ -13,39 +13,34 @@ func TestDropInConf(t *testing.T) {
 
 func TestPrepareOrderAndFlock(t *testing.T) {
 	s := RemoteHardenPrepareScript()
-	if !strings.Contains(s, "previous rollback") && !strings.Contains(s, "refuse prepare") {
-		t.Fatal("must refuse prepare while old rollback active")
+	if !strings.Contains(s, "previous SSH rollback is not terminal") ||
+		!strings.Contains(s, "previous SSH rollback has no terminal marker") {
+		t.Fatal("must refuse prepare while a prior rollback is unresolved")
 	}
 	if !strings.Contains(s, "flock 9") {
-		t.Fatal("prepare must hold flock")
+		t.Fatal("prepare must hold the persistent backup lock")
 	}
-	// check stop before rm
-	idxStop := strings.Index(s, "systemctl stop")
-	idxRm := strings.Index(s, `rm -rf "$ND_BAK"`)
-	if idxStop < 0 || idxRm < 0 || idxStop > idxRm {
-		t.Fatal("stop old rollback before rm -rf backup")
+	cleanup := strings.Index(s, `find "$ND_BAK" -mindepth 1 -maxdepth 1 ! -name lock -exec rm -rf -- {} +`)
+	backup := strings.Index(s, "# --- Mandatory SSH backup ---")
+	if cleanup < 0 || backup < 0 || cleanup > backup {
+		t.Fatal("must clear only terminal transaction payload before taking a new snapshot")
 	}
-	if !strings.Contains(s, "flock 9") {
-		t.Fatal("rollback must use flock")
+	if strings.Contains(s, `rm -rf "$ND_BAK"`) {
+		t.Fatal("must preserve the persistent backup lock inode")
 	}
 	if !strings.Contains(s, "Mutations only after rollback is armed") {
 		t.Fatal("mutation marker")
 	}
-	idxTimer := strings.Index(s, "systemctl is-active ${ND_RB_TIMER}")
+	idxTimer := strings.Index(s, "systemctl start ${ND_RB_TIMER}")
 	idxMut := strings.Index(s, "Mutations only after rollback is armed")
 	if idxTimer < 0 || idxMut < 0 || idxTimer > idxMut {
-		t.Fatal("arm before mutate")
+		t.Fatal("arm rollback timer before mutating SSH or firewall")
 	}
 	if !strings.Contains(s, "user6.rules") {
 		t.Fatal("user6 snapshot path")
 	}
-	if strings.Contains(s, "ufw allow 22/tcp comment netductor-ssh-bootstrap || true") &&
-		strings.Contains(s[strings.Index(s, "NDRBSH"):], "ufw allow 22/tcp comment netductor-ssh-bootstrap") {
-		// heuristic allow in rollback body is forbidden; prepare mutation may still allow 22
-		rb := s[strings.Index(s, "NDRBSH") : strings.LastIndex(s, "NDRBSH")+6]
-		if strings.Contains(rb, "netductor-ssh-bootstrap") {
-			t.Fatal("rollback must not heuristic-allow 22")
-		}
+	if strings.Contains(s, "ufw allow 22/tcp comment netductor-ssh-bootstrap || true") {
+		t.Fatal("bootstrap SSH allow must not suppress failure")
 	}
 }
 
