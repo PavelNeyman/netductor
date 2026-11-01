@@ -223,6 +223,7 @@ func (tx *bootstrapFileTransaction) finish(phase string) error {
 func restoreBootstrapFile(image bootstrapFileImage) error {
 	if !image.Exists {
 		if err := os.Remove(image.Path); err != nil && !os.IsNotExist(err) { return err }
+		if _, err := os.Stat(filepath.Dir(image.Path)); os.IsNotExist(err) { return nil } else if err != nil { return err }
 		return syncBootstrapDirectory(filepath.Dir(image.Path))
 	}
 	dir := filepath.Dir(image.Path)
