@@ -261,10 +261,8 @@ func ArmAPIPublic(ttl time.Duration) error {
 	if err := deleteUFWByComment(apiPublicComment); err != nil {
 		return fmt.Errorf("remove previous temporary public rules: %w", err)
 	}
-	if out, err := exec.Command("systemctl", "is-active", apiPublicTimer).CombinedOutput(); strings.TrimSpace(string(out)) == "active" {
-		if stopOut, stopErr := exec.Command("systemctl", "stop", apiPublicTimer).CombinedOutput(); stopErr != nil {
-			return fmt.Errorf("stop previous disarm timer: %v (%s)", stopErr, strings.TrimSpace(string(stopOut)))
-		}
+	if err := removeAPIPublicTimerUnits(); err != nil {
+		return fmt.Errorf("clear previous API public disarm timer: %w", err)
 	}
 	rollback := func(cause error) error {
 		var cleanup []error
