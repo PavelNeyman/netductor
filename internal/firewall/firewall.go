@@ -80,8 +80,8 @@ func readFirewallJSON(path string, dst any) (bool, error) {
 	defer f.Close()
 	var st unix.Stat_t
 	if err := unix.Fstat(fd, &st); err != nil { return false, fmt.Errorf("stat %s: %w", path, err) }
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != 0 || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 1<<20 {
-		return false, fmt.Errorf("%s must be a root-owned regular file, not group/world-writable, <=1MiB", path)
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 1<<20 {
+		return false, fmt.Errorf("%s must be owned by euid %d, not group/world-writable, and <=1MiB", path, os.Geteuid())
 	}
 	b, err := io.ReadAll(io.LimitReader(f, (1<<20)+1))
 	if err != nil { return false, fmt.Errorf("read %s: %w", path, err) }
