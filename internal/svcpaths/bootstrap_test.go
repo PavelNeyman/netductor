@@ -40,6 +40,9 @@ func TestValidateUnitExecStart(t *testing.T) {
 
 func TestBootstrapFileTransactionRollbackRestoresBeforeImages(t *testing.T) {
 	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
 	oldRoot := bootstrapJournalRoot
 	bootstrapJournalRoot = filepath.Join(root, "journal")
 	defer func() { bootstrapJournalRoot = oldRoot }()
@@ -72,6 +75,9 @@ func TestRecoverBootstrapFileTransactionsIsIdempotent(t *testing.T) {
 	for _, phase := range []string{"applying", "rolling_back"} {
 		t.Run(phase, func(t *testing.T) {
 			root := t.TempDir()
+			oldAllowed := bootstrapAllowedFileRoots
+			bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+			t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
 			oldRoot := bootstrapJournalRoot
 			bootstrapJournalRoot = filepath.Join(root, "journal")
 			t.Cleanup(func() { bootstrapJournalRoot = oldRoot })
@@ -124,4 +130,20 @@ func TestBootstrapFileTransactionRejectsSymlinkTarget(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	if err := tx.SnapshotFile(target); err == nil { t.Fatal("expected symlink target rejection") }
 	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+}
+
+func TestBootstrapSnapshotRejectsOutsideManagedRoots(t *testing.T) {
+	if err := validateBootstrapSnapshotPath("/etc/passwd"); err == nil { t.Fatal("expected unmanaged path rejection") }
+}
+
+func TestBootstrapSnapshotRejectsSymlinkParent(t *testing.T) {
+	root := t.TempDir()
+	real := filepath.Join(root, "real")
+	if err := os.Mkdir(real, 0o700); err != nil { t.Fatal(err) }
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(real, link); err != nil { t.Fatal(err) }
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	if err := validateBootstrapSnapshotPath(filepath.Join(link, "target.conf")); err == nil { t.Fatal("expected symlink parent rejection") }
 }
