@@ -14,9 +14,31 @@ import (
 type firewallMutation struct {
 	apply    func() (bool, error)
 	rollback func() error
+	snapshot func() (bool, error)
+	image    bootstrapFirewallImage
 }
 
 func applyFirewallMutations(mutations []firewallMutation, persist func() error) error {
+	return applyFirewallMutationsWithTransaction(nil, mutations, persist)
+}
+
+func applyFirewallMutationsWithTransaction(tx *bootstrapFileTransaction, mutations []firewallMutation, persist func() error) error {
+	if tx != nil {
+		for i, mutation := range mutations {
+			if mutation.snapshot == nil {
+				return fmt.Errorf("firewall mutation %d has no durable before-image inspector", i)
+			}
+			exists, err := mutation.snapshot()
+			if err != nil { return fmt.Errorf("inspect firewall mutation %d before-image: %w", i, err) }
+			if err := tx.SnapshotFirewallRule(mutation.image, exists); err != nil {
+				return fmt.Errorf("journal firewall mutation %d: %w", i, err)
+			}
+		}
+	}
+	return applyFirewallMutationsCore(mutations, persist)
+}
+
+func applyFirewallMutationsCore(mutations []firewallMutation, persist func() error) error {
 	applied := make([]firewallMutation, 0, len(mutations))
 	rollback := func() error {
 		var errs []error
@@ -85,6 +107,12 @@ func ufwPeerRuleMutation(source string, port int, comment string) (firewallMutat
 	args := []string{"allow", "from", source, "to", "any", "port", strconv.Itoa(port), "proto", "tcp", "comment", comment}
 	deleteArgs := append([]string{"--force", "delete"}, args...)
 	return firewallMutation{
+		image: bootstrapFirewallImage{Backend: "ufw", Source: source, Port: port, Comment: comment},
+		snapshot: func() (bool, error) {
+			status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+			if err != nil { return false, fmt.Errorf("inspect UFW before-image: %w: %s", err, strings.TrimSpace(string(status))) }
+			return ufwStatusHasPeerRule(string(status), source, port, comment), nil
+		},
 		apply: func() (bool, error) {
 			status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
 			if err != nil { return false, fmt.Errorf("inspect UFW rules: %w: %s", err, strings.TrimSpace(string(status))) }
@@ -111,6 +139,14 @@ func iptablesPeerRuleMutation(chain, source string, port int) (firewallMutation,
 	insert := []string{"-I", chain, "3", "-p", "tcp", "-s", source, "--dport", strconv.Itoa(port), "-j", "ACCEPT"}
 	remove := []string{"-D", chain, "-p", "tcp", "-s", source, "--dport", strconv.Itoa(port), "-j", "ACCEPT"}
 	return firewallMutation{
+		image: bootstrapFirewallImage{Backend: "iptables", Chain: chain, Source: source, Port: port},
+		snapshot: func() (bool, error) {
+			out, err := exec.Command("iptables", check...).CombinedOutput()
+			if err == nil { return true, nil }
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 { return false, nil }
+			return false, fmt.Errorf("inspect iptables before-image: %w: %s", err, strings.TrimSpace(string(out)))
+		},
 		apply: func() (bool, error) {
 			checkOut, checkErr := exec.Command("iptables", check...).CombinedOutput()
 			if checkErr == nil { return false, nil }
@@ -155,4 +191,57 @@ func parseNetductorInputChain(output string) (string, error) {
 	}
 	if count != 1 { return "", fmt.Errorf("expected exactly one Netductor INPUT jump, found %d", count) }
 	return chain, nil
+}
+
+func restoreBootstrapFirewallRules(images []bootstrapFirewallImage) error {
+	unlock, err := firewall.AcquireMutationLock()
+	if err != nil { return fmt.Errorf("acquire firewall lock for bootstrap rollback: %w", err) }
+	defer unlock()
+	var errs []error
+	iptablesChanged := false
+	for i := len(images)-1; i >= 0; i-- {
+		rule := images[i]
+		if rule.BeforeExists { continue }
+		switch rule.Backend {
+		case "ufw":
+			status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("inspect UFW rollback rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(status))))
+				continue
+			}
+			if !ufwStatusHasPeerRule(string(status), rule.Source, rule.Port, rule.Comment) { continue }
+			args := []string{"--force", "delete", "allow", "from", rule.Source, "to", "any", "port", strconv.Itoa(rule.Port), "proto", "tcp", "comment", rule.Comment}
+			out, err := exec.Command("ufw", args...).CombinedOutput()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("remove transaction-created UFW rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(out))))
+				continue
+			}
+			verify, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+			if err != nil || ufwStatusHasPeerRule(string(verify), rule.Source, rule.Port, rule.Comment) {
+				errs = append(errs, fmt.Errorf("verify removal of transaction-created UFW rule %s:%d (err=%v): %s", rule.Source, rule.Port, err, strings.TrimSpace(string(verify))))
+			}
+		case "iptables":
+			check := []string{"-C", rule.Chain, "-p", "tcp", "-s", rule.Source, "--dport", strconv.Itoa(rule.Port), "-j", "ACCEPT"}
+			out, err := exec.Command("iptables", check...).CombinedOutput()
+			if err != nil {
+				var exitErr *exec.ExitError
+				if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 { continue }
+				errs = append(errs, fmt.Errorf("inspect transaction-created iptables rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(out))))
+				continue
+			}
+			remove := []string{"-D", rule.Chain, "-p", "tcp", "-s", rule.Source, "--dport", strconv.Itoa(rule.Port), "-j", "ACCEPT"}
+			out, err = exec.Command("iptables", remove...).CombinedOutput()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("remove transaction-created iptables rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(out))))
+				continue
+			}
+			iptablesChanged = true
+		default:
+			errs = append(errs, fmt.Errorf("unsupported firewall backend %q in rollback journal", rule.Backend))
+		}
+	}
+	if iptablesChanged {
+		if err := persistNetfilterRules(); err != nil { errs = append(errs, fmt.Errorf("persist iptables rollback: %w", err)) }
+	}
+	return errors.Join(errs...)
 }
