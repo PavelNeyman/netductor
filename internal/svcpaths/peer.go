@@ -254,13 +254,24 @@ func LoadPeersIndex() (*PeersIndex, error) {
 	if err := json.Unmarshal(b, &idx); err != nil {
 		return nil, fmt.Errorf("peers.json corrupt: %w", err)
 	}
+	// Version 0 is the original unversioned representation and is
+	// compatible with schema 1. Never reinterpret a future schema as v1:
+	// doing so could overwrite fields this binary does not understand.
 	if idx.Version == 0 {
 		idx.Version = 1
+	}
+	if idx.Version != 1 {
+		return nil, fmt.Errorf("peers.json schema version %d is unsupported (this binary supports 1); refusing peer mutations", idx.Version)
 	}
 	return &idx, nil
 }
 
 func SavePeersIndex(idx *PeersIndex) error {
+	if idx == nil { return fmt.Errorf("nil peers index") }
+	if idx.Version == 0 { idx.Version = 1 }
+	if idx.Version != 1 {
+		return fmt.Errorf("cannot write peers.json schema version %d (this binary supports 1)", idx.Version)
+	}
 	if err := os.MkdirAll(keysRoot, 0o700); err != nil {
 		return err
 	}
