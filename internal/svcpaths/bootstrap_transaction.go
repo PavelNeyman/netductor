@@ -251,6 +251,10 @@ func validateBootstrapSnapshotPath(path string) error {
 		}
 	}
 	if !allowed { return fmt.Errorf("bootstrap snapshot path is outside Netductor-managed roots: %q", path) }
+	if rel, err := filepath.Rel(bootstrapJournalRoot, path); err == nil &&
+		(rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))) {
+		return fmt.Errorf("bootstrap snapshot path must not target the journal store: %q", path)
+	}
 	return validateExistingDirectoryChain(filepath.Dir(path))
 }
 
