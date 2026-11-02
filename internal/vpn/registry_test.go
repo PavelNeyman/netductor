@@ -15,6 +15,20 @@ func TestValidName(t *testing.T) {
 	}
 }
 
+func TestLoadRegistryRejectsMissingOrNullUsersArray(t *testing.T) {
+	for _, raw := range []string{`{}`, `{"users":null}`, `{"users":{}}`,
+	} {
+		dir := t.TempDir()
+		t.Setenv("NETDUCTOR_ETC", dir)
+		if err := os.WriteFile(filepath.Join(dir, "vpn-users.json"), []byte(raw), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := loadRegistry(); err == nil {
+			t.Fatalf("loadRegistry accepted malformed registry %s", raw)
+		}
+	}
+}
+
 func TestRegistryRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	os.Setenv("NETDUCTOR_ETC", dir)
