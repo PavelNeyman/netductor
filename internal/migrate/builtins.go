@@ -93,6 +93,11 @@ func (m *repairStateOnUpgradeMigration) ID() string {
 func (m *repairStateOnUpgradeMigration) Description() string {
 	return "Idempotent LE hooks + state JSON mode repair (legacy RepairStateOnUpgrade)"
 }
+// Bump this value whenever RepairStateOnUpgrade gains new managed paths or
+// invariants. The previous marker was a timeless "ok", which caused hosts
+// upgraded once to skip repairs introduced by later releases.
+const repairMarkerVersion = "v2"
+
 func repairMarker() string {
 	return filepath.Join(paths.StateDir(), "migrate", "repair-state.done")
 }
@@ -111,7 +116,7 @@ func (m *repairStateOnUpgradeMigration) Required(ctx context.Context) (bool, err
 	if err != nil {
 		return false, err
 	}
-	return string(b) != "ok\n", nil
+	return string(b) != repairMarkerVersion+"\n", nil
 }
 func (m *repairStateOnUpgradeMigration) Apply(ctx context.Context) error {
 	notes := repairStateOnUpgrade()
@@ -124,7 +129,7 @@ func (m *repairStateOnUpgradeMigration) Apply(ctx context.Context) error {
 	if len(hard) > 0 {
 		return fmt.Errorf("RepairStateOnUpgrade incomplete: %s", strings.Join(hard, "; "))
 	}
-	return durableWriteFile(repairMarker(), []byte("ok\n"), 0o600)
+	return durableWriteFile(repairMarker(), []byte(repairMarkerVersion+"\n"), 0o600)
 }
 func (m *repairStateOnUpgradeMigration) Verify(ctx context.Context) error {
 	need, err := m.Required(ctx)
