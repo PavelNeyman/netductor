@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
 )
@@ -912,7 +913,7 @@ func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
 }
 
 func applyPrimaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, secondaryPub, sSP string, wssSP int) error {
-	unlock, err := firewall.AcquireMutationLock()
+	unlock, err := firewall.AcquireMutationLockTimeout(30 * time.Second)
 	if err != nil {
 		return fmt.Errorf("primary WSS firewall lock: %w", err)
 	}
