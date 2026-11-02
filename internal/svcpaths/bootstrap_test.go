@@ -3,6 +3,7 @@ package svcpaths
 import (
 	"os"
 	"errors"
+	"strings"
 	"path/filepath"
 	"testing"
 	"time"
