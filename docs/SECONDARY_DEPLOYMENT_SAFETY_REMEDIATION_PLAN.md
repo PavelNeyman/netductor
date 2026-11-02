@@ -89,3 +89,11 @@ Updated against current `main` after the initial plan commit.
 - [x] Firewall mutation lock acquisition now has a 30-second bounded variant, used by bootstrap and rollback so a competing firewall operation cannot block recovery indefinitely.
 - [x] Added focused UFW rollback tests proving that only the transaction-created peer rule is removed and a pre-existing peer rule is retained.
 - [ ] Focused tests have not been executed yet. The repository changes are source-reviewed only; no Actions workflow was dispatched.
+
+## Upgrade compatibility audit — implementation update
+
+- [x] Versioned the state-repair completion marker. Older installations contain the timeless `ok` marker; the new `v2` marker forces exactly one additional repair pass so files and invariants added to `RepairStateOnUpgrade` in later releases are not permanently skipped.
+- [x] Added a regression test proving that an old `ok` marker triggers the new repair generation once, then becomes idempotent.
+- [x] Peer registry loading now normalizes the original unversioned representation (version 0) to schema 1, but rejects unknown future schema versions. Saving also rejects unsupported versions instead of silently rewriting them.
+- [x] Added tests for legacy unversioned peer registry compatibility and fail-closed behavior for schema 2.
+- [ ] Remaining persisted formats and all version-negotiation call sites still require review. These changes have not been test-executed.
