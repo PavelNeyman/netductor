@@ -86,3 +86,23 @@ func TestUfwLineMentionsPort(t *testing.T) {
 		t.Fatal("must not match 22 inside 52222")
 	}
 }
+
+func TestHasExactWSSPeerAllowRequiresHostScopedRule(t *testing.T) {
+	peer := wssExpectation{Port: "8444", Source: "92.255.77.253"}
+	global := parseUfwNumbered("Status: active\n[ 1] 8444/tcp ALLOW IN Anywhere\n")
+	if hasExactWSSPeerAllow(global, peer) {
+		t.Fatal("global WSS allow must not count as a peer-scoped rule")
+	}
+	exact := parseUfwNumbered("Status: active\n[ 1] 8444/tcp ALLOW IN 92.255.77.253\n")
+	if !hasExactWSSPeerAllow(exact, peer) {
+		t.Fatal("exact peer address should count")
+	}
+	hostCIDR := parseUfwNumbered("Status: active\n[ 1] 8444/tcp ALLOW IN 92.255.77.253/32\n")
+	if !hasExactWSSPeerAllow(hostCIDR, peer) {
+		t.Fatal("exact /32 peer address should count")
+	}
+	broad := parseUfwNumbered("Status: active\n[ 1] 8444/tcp ALLOW IN 92.255.77.0/24\n")
+	if hasExactWSSPeerAllow(broad, peer) {
+		t.Fatal("broader subnet must not count as an exact peer rule")
+	}
+}
