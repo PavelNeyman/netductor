@@ -567,7 +567,7 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) (retErr error) {
 		return err
 	}
 	if o.WriteLegacyMaterial {
-		if err := atomicWritePeerFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
+		if err := tx.atomicWritePeerFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
 			return fmt.Errorf("material.json: %w", err)
 		}
 	}
@@ -598,10 +598,10 @@ PersistentKeepalive = 25
 	if err := os.MkdirAll("/etc/wireguard", 0o700); err != nil {
 		return err
 	}
-	if err := writeFile("/etc/wireguard/"+ifaceSP+".conf", spConf, 0o600); err != nil {
+	if err := tx.writeFile("/etc/wireguard/"+ifaceSP+".conf", spConf, 0o600); err != nil {
 		return fmt.Errorf("%s.conf: %w", ifaceSP, err)
 	}
-	if err := writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
+	if err := tx.writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
 		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
 	// Per-peer SP WSS server (unique port per slot) — adding B must not rewrite A's unit.
@@ -609,7 +609,7 @@ PersistentKeepalive = 25
 	if ifaceSP != "nd-svc-sp" {
 		spServerUnit = "nd-wss-sp-server-" + ifaceSP
 	}
-	if err := unitFile(spServerUnit,
+	if err := unitFileWithTransaction(tx, spServerUnit,
 		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", wssSP, portSP)); err != nil {
 		return err
 	}
@@ -617,7 +617,7 @@ PersistentKeepalive = 25
 	if ifacePS != "nd-svc-ps" {
 		psClientUnit = "nd-wss-ps-client-" + ifacePS
 	}
-	if err := unitFile(psClientUnit,
+	if err := unitFileWithTransaction(tx, psClientUnit,
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s",
 			portPS, portPS, net.JoinHostPort(m.Secondary, strconv.Itoa(wssPS)))); err != nil {
 		return err
@@ -632,11 +632,12 @@ PersistentKeepalive = 25
 	}
 
 	if o.InstallHealthTimer {
-		if err := installHealthTimer(); err != nil {
+		if err := installHealthTimerWithTransaction(tx); err != nil {
 			return err
 		}
 	}
 	if o.ResetPolicy {
+		if err := tx.SnapshotFile(policyPath); err != nil { return fmt.Errorf("snapshot policy: %w", err) }
 		if err := SavePolicy(DefaultPolicy()); err != nil {
 			return err
 		}
@@ -722,12 +723,12 @@ AllowedIPs = %s/32
 	if err := writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
 		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
-	if err := unitFile("nd-wss-sp-client",
+	if err := unitFileWithTransaction(tx, "nd-wss-sp-client",
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s",
 			portSP, portSP, net.JoinHostPort(m.Primary, strconv.Itoa(wssSP)))); err != nil {
 		return err
 	}
-	if err := unitFile("nd-wss-ps-server",
+	if err := unitFileWithTransaction(tx, "nd-wss-ps-server",
 		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", wssPS, portPS)); err != nil {
 		return err
 	}
@@ -743,10 +744,10 @@ AllowedIPs = %s/32
 		return err
 	}
 	pub := fmt.Sprintf("https://%s:8789", m.Primary)
-	if err := atomicWritePeerFile("/etc/netductor/secrets/secondary_core_url.public", []byte(pub+"\n"), 0o600); err != nil {
+	if err := tx.atomicWritePeerFile("/etc/netductor/secrets/secondary_core_url.public", []byte(pub+"\n"), 0o600); err != nil {
 		return err
 	}
-	if err := atomicWritePeerFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+pSP+":8789\n"), 0o600); err != nil {
+	if err := tx.atomicWritePeerFile("/etc/netductor/secrets/secondary_core_url", []byte("https://"+pSP+":8789\n"), 0o600); err != nil {
 		return err
 	}
 	// Agent must pick up secondary_core_url (SP). Restart failures are fatal unless unit is absent (pre-join).
@@ -764,6 +765,7 @@ AllowedIPs = %s/32
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("inspect secondary policy %s: %w", policyPath, err)
 		}
+		if err := tx.SnapshotFile(policyPath); err != nil { return fmt.Errorf("snapshot secondary policy: %w", err) }
 		if err := SavePolicy(DefaultPolicy()); err != nil {
 			return fmt.Errorf("initialize secondary policy: %w", err)
 		}
