@@ -254,3 +254,25 @@ func TestEnsureBootstrapJournalDirectoryRejectsWritableParent(t *testing.T) {
 		t.Fatalf("journal was created under unsafe parent: %v", err)
 	}
 }
+
+
+func TestValidateNoGlobalWSSAllows(t *testing.T) {
+	tests := []struct {
+		name string
+		status string
+		wantErr bool
+	}{
+		{name: "no broad rules", status: "Status: active\n8444/tcp ALLOW IN 10.0.0.1\n"},
+		{name: "ipv4 anywhere", status: "Status: active\n8444/tcp ALLOW IN Anywhere\n", wantErr: true},
+		{name: "ipv6 anywhere", status: "Status: active\n8444/tcp (v6) ALLOW IN Anywhere (v6)\n", wantErr: true},
+		{name: "untagged administrator rule", status: "Status: active\n8454/tcp ALLOW IN Anywhere\n", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateNoGlobalWSSAllows(tt.status, []int{8444, 8454})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateNoGlobalWSSAllows() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
