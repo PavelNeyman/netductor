@@ -348,3 +348,24 @@ func TestParseNetductorInputChainStrict(t *testing.T) {
 		})
 	}
 }
+
+func TestUFWStatusHasPeerRuleMatchesExactNumberedRule(t *testing.T) {
+	for _, tc := range []struct { name, status string; want bool }{
+		{name: "numbered split bracket", status: "Status: active\n[ 2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n", want: true},
+		{name: "numbered compact bracket", status: "[2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n", want: true},
+		{name: "wrong source", status: "[ 2] 8444/tcp ALLOW IN 203.0.113.70 # nd-wss-sp\n"},
+		{name: "wrong port", status: "[ 2] 18444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n"},
+		{name: "wrong comment", status: "[ 2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-ps\n"},
+		{name: "wrong action", status: "[ 2] 8444/tcp DENY IN 203.0.113.7 # nd-wss-sp\n"},
+		{name: "wrong direction", status: "[ 2] 8444/tcp ALLOW OUT 203.0.113.7 # nd-wss-sp\n"},
+		{name: "extra trailing fields", status: "[ 2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp extra\n"},
+		{name: "unnumbered status", status: "8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ufwStatusHasPeerRule(tc.status, "203.0.113.7", 8444, "nd-wss-sp"); got != tc.want {
+				t.Fatalf("ufwStatusHasPeerRule() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
