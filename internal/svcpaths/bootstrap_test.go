@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestValidateUnitExecStart(t *testing.T) {
@@ -149,4 +150,46 @@ func TestBootstrapSnapshotRejectsSymlinkParent(t *testing.T) {
 	link := filepath.Join(root, "link")
 	if err := os.Symlink(real, link); err != nil { t.Fatal(err) }
 	if err := validateBootstrapSnapshotPath(filepath.Join(link, "target.conf")); err == nil { t.Fatal("expected symlink parent rejection") }
+}
+
+func TestValidateBootstrapJournalRejectsMalformedMetadata(t *testing.T) {
+	now := time.Now().UTC()
+	valid := bootstrapJournal{
+		Version: bootstrapJournalVersion,
+		TxID: "0123456789abcdef0123456789abcdef",
+		Role: "secondary",
+		PeerID: "peer-b",
+		Slot: 1,
+		Phase: "applying",
+		CreatedAt: now,
+		UpdatedAt: now,
+		Files: []bootstrapFileImage{{Path: "/etc/netductor/keys/material.json", Exists: true, Data: []byte("before"), Mode: 0o600, UID: 0, GID: 0}},
+	}
+	tests := []struct {
+		name string
+		mutate func(*bootstrapJournal)
+	}{
+		{name: "malformed transaction id", mutate: func(j *bootstrapJournal) { j.TxID = "not-hex" }},
+		{name: "future creation time", mutate: func(j *bootstrapJournal) { j.CreatedAt = now.Add(time.Hour) }},
+		{name: "updated before created", mutate: func(j *bootstrapJournal) { j.UpdatedAt = now.Add(-time.Second) }},
+		{name: "negative uid", mutate: func(j *bootstrapJournal) { j.Files[0].UID = -1 }},
+		{name: "negative gid", mutate: func(j *bootstrapJournal) { j.Files[0].GID = -1 }},
+		{name: "oversized image", mutate: func(j *bootstrapJournal) { j.Files[0].Data = make([]byte, maxBootstrapImageBytes+1) }},
+		{name: "invalid mode", mutate: func(j *bootstrapJournal) { j.Files[0].Mode = os.ModeSymlink | 0o600 }},
+		{name: "unknown phase", mutate: func(j *bootstrapJournal) { j.Phase = "finished-ish" }},
+		{name: "invalid peer identity", mutate: func(j *bootstrapJournal) { j.PeerID = "../peer" }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := valid
+			j.Files = append([]bootstrapFileImage(nil), valid.Files...)
+			tt.mutate(&j)
+			if err := validateBootstrapJournal(j, j.TxID+".json"); err == nil {
+				t.Fatal("expected malformed journal rejection")
+			}
+		})
+	}
+	if err := validateBootstrapJournal(valid, valid.TxID+".json"); err != nil {
+		t.Fatalf("valid journal rejected: %v", err)
+	}
 }
