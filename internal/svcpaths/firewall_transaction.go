@@ -53,7 +53,7 @@ func ufwStatusHasPeerRule(output, source string, port int, comment string) bool 
 		fields := strings.Fields(line)
 		if len(fields) == 8 && fields[0] == "[" && strings.HasSuffix(fields[1], "]") {
 			if _, err := strconv.Atoi(strings.TrimSuffix(fields[1], "]")); err != nil { continue }
-			fields = fields[1:]
+			fields = fields[2:]
 		} else if len(fields) == 7 && strings.HasPrefix(fields[0], "[") && strings.HasSuffix(fields[0], "]") {
 			if _, err := strconv.Atoi(strings.Trim(fields[0], "[]")); err != nil { continue }
 			fields = fields[1:]
