@@ -360,6 +360,18 @@ func truncate(s string, n int) string { return format.Truncate(strings.TrimSpace
 // acquireFirewallApplyLock serializes Netductor firewall mutations across processes.
 // It does not coordinate with UFW, iptables, or other external firewall managers.
 func AcquireMutationLock() (func(), error) {
+	return acquireMutationLock(0)
+}
+
+// AcquireMutationLockTimeout acquires the same cross-process lock but refuses
+// to wait indefinitely. Bootstrap rollback uses this so recovery cannot hang
+// behind another firewall operation forever.
+func AcquireMutationLockTimeout(timeout time.Duration) (func(), error) {
+	if timeout <= 0 { return nil, fmt.Errorf("firewall: lock timeout must be positive") }
+	return acquireMutationLock(timeout)
+}
+
+func acquireMutationLock(timeout time.Duration) (func(), error) {
 	const lockPath = "/run/lock/netductor-firewall.lock"
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
 		return nil, fmt.Errorf("firewall: create lock directory: %w", err)
@@ -377,9 +389,26 @@ func AcquireMutationLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("firewall: apply lock must be a root-owned regular file not writable by group or others")
 	}
-	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
-		_ = unix.Close(fd)
-		return nil, fmt.Errorf("firewall: acquire apply lock: %w", err)
+	if timeout == 0 {
+		if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
+			_ = unix.Close(fd)
+			return nil, fmt.Errorf("firewall: acquire apply lock: %w", err)
+		}
+	} else {
+		deadline := time.Now().Add(timeout)
+		for {
+			err := unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
+			if err == nil { break }
+			if err != unix.EWOULDBLOCK && err != unix.EAGAIN {
+				_ = unix.Close(fd)
+				return nil, fmt.Errorf("firewall: acquire apply lock: %w", err)
+			}
+			if !time.Now().Before(deadline) {
+				_ = unix.Close(fd)
+				return nil, fmt.Errorf("firewall: apply lock acquisition timed out after %s", timeout)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 	return func() {
 		_ = unix.Flock(fd, unix.LOCK_UN)
