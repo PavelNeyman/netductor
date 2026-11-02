@@ -379,3 +379,30 @@ func TestUFWStatusHasPeerRuleMatchesExactNumberedRule(t *testing.T) {
 	}
 }
 
+
+func TestBootstrapTransactionWritersSnapshotBeforeMutation(t *testing.T) {
+	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	oldJournalRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
+
+	existing := filepath.Join(root, "existing.conf")
+	if err := os.WriteFile(existing, []byte("before"), 0o640); err != nil { t.Fatal(err) }
+	created := filepath.Join(root, "created.conf")
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.writeFile(existing, "after", 0o600); err != nil { t.Fatal(err) }
+	if err := tx.writeFile(created, "new", 0o600); err != nil { t.Fatal(err) }
+	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+
+	got, err := os.ReadFile(existing)
+	if err != nil { t.Fatal(err) }
+	if string(got) != "before" { t.Fatalf("existing content = %q, want before", got) }
+	info, err := os.Stat(existing)
+	if err != nil { t.Fatal(err) }
+	if info.Mode().Perm() != 0o640 { t.Fatalf("existing mode = %o, want 640", info.Mode().Perm()) }
+	if _, err := os.Lstat(created); !os.IsNotExist(err) { t.Fatalf("created file remains after rollback: %v", err) }
+}
