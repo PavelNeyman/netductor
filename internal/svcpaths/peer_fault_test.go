@@ -689,6 +689,30 @@ func TestMigrateLegacySetsPeerID(t *testing.T) {
 	}
 }
 
+func TestMigrateLegacyRejectsNonSlotZeroMaterial(t *testing.T) {
+	withTestRoot(t)
+	m := sampleMaterial("", "203.0.113.10", SlotTable()[1])
+	b, err := json.MarshalIndent(m, "", "  ")
+	if err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(keysRoot, 0o700); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(keysRoot, "material.json"), b, 0o600); err != nil { t.Fatal(err) }
+
+	peerMu.Lock()
+	err = MigrateLegacyPeerIfNeededUnlocked()
+	peerMu.Unlock()
+	if err == nil || !strings.Contains(err.Error(), "declares slot 1") {
+		t.Fatalf("expected non-slot-zero material to be rejected, got %v", err)
+	}
+	idx, loadErr := LoadPeersIndex()
+	if loadErr != nil { t.Fatal(loadErr) }
+	if len(idx.Peers) != 0 {
+		t.Fatalf("migration registered wrong peer: %+v", idx.Peers)
+	}
+	if _, statErr := os.Stat(peerMaterialPath("legacy-203-0-113-10")); !os.IsNotExist(statErr) {
+		t.Fatalf("migration wrote peer material despite rejection: %v", statErr)
+	}
+}
+
 func TestPeerAddRejectsIPBoundToOtherID(t *testing.T) {
 	withTestRoot(t)
 	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error { return nil }
