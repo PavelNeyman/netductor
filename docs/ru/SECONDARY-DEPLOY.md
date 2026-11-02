@@ -91,20 +91,25 @@ ssh -i "$KEY" -p 22 root@SECONDARY true && echo 'FAIL: :22 accepts key' || echo 
 
 ## Несколько Secondary и service plane
 
-Во fleet можно иметь **много** VPN-secondary (AgentID, tokens, Reality).
+Текущая реализация поддерживает несколько service-plane peers на одном Primary через peer registry и отдельные слоты `SlotTable`.
 
-**Service plane** (SP/PS WireGuard + wstunnel) — **один primary ↔ один secondary**:
+- Реестр: `/etc/netductor/svc-paths/peers.json`; material каждого peer хранится отдельно в `peers/<peer-id>/material.json`.
+- `svc-paths peer add` выделяет свободный слот, генерирует отдельные WG-ключи и применяет конфигурацию только для добавляемого peer.
+- Слоты 0–3 имеют отдельные WG-интерфейсы, адреса, порты и WSS-порты. Максимум одновременно доступных peer в текущей таблице — четыре.
+- На Primary WSS systemd units для слотов, отличных от legacy slot 0, получают суффикс интерфейса; конфигурация ранее добавленного peer не должна перезаписываться.
+- На каждом Secondary устанавливается собственный `material.json` и используются его slot-specific WG-интерфейсы. WSS client/server units на отдельном Secondary имеют локальные стандартные имена — это не конфликтует между разными хостами.
+- Первое добавление при наличии legacy `material.json` мигрирует прежний peer в slot 0. Нельзя удалять legacy material или вручную освобождать slot 0 до проверки этой миграции.
+- При повторном добавлении того же `peer-id` и IP операция проверяет существующий material и должна быть идемпотентной. Другой IP для уже занятого ID и тот же IP под другим ID отклоняются.
+- `--force-new-material` для legacy single-peer workflow не является способом добавить второй peer: это может заменить ключи существующего туннеля. Для blue-green использовать только `svc-paths peer add` и штатный deploy.
 
-| Ресурс | Значение |
-|--------|----------|
-| SP | `10.87.10.1/30` ↔ `10.87.10.2` |
-| PS | `10.87.11.1/30` ↔ `10.87.11.2` |
-| Порты | WG 51830/51832, WSS 8444/8445 |
+Перед новым deploy проверить:
+1. `svc-paths peer list` — активные/подготовленные peers и их слоты.
+2. `inventory list` — нет ли уже записи для целевого IP.
+3. Свободен ли слот в таблице 0–3.
+4. Текущая версия operator и Primary поддерживает blue-green workflow.
+5. В deploy journal целевого IP нет незавершённой операции либо её можно безопасно продолжить.
 
-Deploy **другого** secondary как HA-peer без `--force-new-material` отклоняется. Force заменяет ключи и **ломает** туннели прежнего secondary.
-
-Повторный deploy **того же** IP secondary **переиспользует** material (без смены ключей).
-
+**Документация старого single-peer режима ниже этого раздела не должна использоваться как описание текущей blue-green реализации.**
 ## 4. Семантика failover (v0.9.494+)
 
 | `user_path` | Цель uplink |
