@@ -13,7 +13,12 @@ import (
 	"time"
 )
 
-const bootstrapJournalVersion = 1
+const (
+	bootstrapJournalVersion = 1
+	maxBootstrapJournalBytes = 16 << 20
+	maxBootstrapImageBytes = 4 << 20
+	maxBootstrapJournalFiles = 128
+)
 
 var bootstrapJournalRoot = "/var/lib/netductor/bootstrap-transactions"
 
@@ -177,14 +182,25 @@ func recoverBootstrapFileTransactions() error {
 		return fmt.Errorf("read bootstrap transaction directory: %w", err)
 	}
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" { continue }
-		path := filepath.Join(bootstrapJournalRoot, entry.Name())
+		name := entry.Name()
+		path := filepath.Join(bootstrapJournalRoot, name)
 		info, err := os.Lstat(path)
-		if err != nil { return fmt.Errorf("inspect bootstrap journal %s: %w", path, err) }
+		if err != nil { return fmt.Errorf("inspect bootstrap journal entry %s: %w", path, err) }
 		st, ok := info.Sys().(*syscall.Stat_t)
 		if !ok || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
 			st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
-			return fmt.Errorf("bootstrap journal %s is not a private regular file owned by euid %d", path, os.Geteuid())
+			return fmt.Errorf("bootstrap journal entry %s is not a private regular file owned by euid %d", path, os.Geteuid())
+		}
+		if strings.HasPrefix(name, ".bootstrap-journal-") {
+			if err := os.Remove(path); err != nil { return fmt.Errorf("remove abandoned journal temp %s: %w", path, err) }
+			if err := syncBootstrapDirectory(bootstrapJournalRoot); err != nil { return err }
+			continue
+		}
+		if !strings.HasSuffix(name, ".json") || len(name) != 37 {
+			return fmt.Errorf("unexpected entry %q in bootstrap journal directory; refusing recovery", name)
+		}
+		if info.Size() <= 0 || info.Size() > maxBootstrapJournalBytes {
+			return fmt.Errorf("bootstrap journal %s has invalid size %d", path, info.Size())
 		}
 		b, err := os.ReadFile(path)
 		if err != nil { return fmt.Errorf("read bootstrap journal %s: %w", path, err) }
@@ -192,18 +208,17 @@ func recoverBootstrapFileTransactions() error {
 		if err := json.Unmarshal(b, &j); err != nil {
 			return fmt.Errorf("bootstrap journal %s is corrupt; refusing bootstrap: %w", path, err)
 		}
-		if j.Version != bootstrapJournalVersion || j.TxID == "" ||
-			filepath.Base(path) != j.TxID+".json" ||
-			(j.Role != "primary" && j.Role != "secondary") ||
-			j.Slot < 0 || j.Slot >= len(SlotTable()) {
-			return fmt.Errorf("bootstrap journal %s has unsupported or invalid identity; refusing bootstrap", path)
+		if err := validateBootstrapJournal(j, name); err != nil {
+			return fmt.Errorf("bootstrap journal %s is invalid; refusing recovery: %w", path, err)
 		}
+		seen := make(map[string]struct{}, len(j.Files))
 		for _, image := range j.Files {
+			if _, exists := seen[image.Path]; exists {
+				return fmt.Errorf("bootstrap journal %s contains duplicate target %q", path, image.Path)
+			}
+			seen[image.Path] = struct{}{}
 			if err := validateBootstrapSnapshotPathForIdentity(j.Role, j.Slot, image.Path); err != nil {
 				return fmt.Errorf("bootstrap journal %s contains unsafe target: %w", path, err)
-			}
-			if image.Exists && (image.Mode&^os.FileMode(0o777) != 0 || image.Mode.Perm() == 0) {
-				return fmt.Errorf("bootstrap journal %s contains invalid file metadata for %s", path, image.Path)
 			}
 		}
 		tx := &bootstrapFileTransaction{journal: j, path: path}
@@ -216,6 +231,50 @@ func recoverBootstrapFileTransactions() error {
 			if err := tx.removeJournal(); err != nil { return fmt.Errorf("clean completed bootstrap journal %s: %w", path, err) }
 		default:
 			return fmt.Errorf("bootstrap journal %s has unknown phase %q; refusing bootstrap", path, j.Phase)
+		}
+	}
+	return nil
+}
+
+func validateBootstrapJournal(j bootstrapJournal, filename string) error {
+	if j.Version != bootstrapJournalVersion || j.Role != "primary" && j.Role != "secondary" ||
+		j.Slot < 0 || j.Slot >= len(SlotTable()) {
+		return fmt.Errorf("unsupported version or invalid role/slot")
+	}
+	raw, err := hex.DecodeString(j.TxID)
+	if err != nil || len(raw) != 16 || filename != j.TxID+".json" {
+		return fmt.Errorf("invalid transaction id or filename")
+	}
+	if len(j.PeerID) > 128 || strings.ContainsAny(j.PeerID, "/\\\\\x00\r\n") {
+		return fmt.Errorf("invalid peer identity")
+	}
+	now := time.Now().UTC()
+	if j.CreatedAt.IsZero() || j.UpdatedAt.IsZero() ||
+		j.UpdatedAt.Before(j.CreatedAt) || j.CreatedAt.After(now.Add(5*time.Minute)) ||
+		j.UpdatedAt.After(now.Add(5*time.Minute)) {
+		return fmt.Errorf("invalid transaction timestamps")
+	}
+	switch j.Phase {
+	case "applying", "rolling_back", "committed", "rolled_back":
+	default:
+		return fmt.Errorf("unknown phase %q", j.Phase)
+	}
+	if len(j.Files) > maxBootstrapJournalFiles {
+		return fmt.Errorf("too many file images: %d", len(j.Files))
+	}
+	for _, image := range j.Files {
+		if image.Path == "" { return fmt.Errorf("empty snapshot path") }
+		if len(image.Data) > maxBootstrapImageBytes {
+			return fmt.Errorf("snapshot %s exceeds %d bytes", image.Path, maxBootstrapImageBytes)
+		}
+		if image.Exists {
+			if image.Mode&^os.FileMode(0o777) != 0 || image.Mode.Perm() == 0 ||
+				image.UID < 0 || image.GID < 0 ||
+				uint64(image.UID) > uint64(^uint32(0)) || uint64(image.GID) > uint64(^uint32(0)) {
+				return fmt.Errorf("invalid metadata for snapshot %s", image.Path)
+			}
+		} else if len(image.Data) != 0 || image.Mode != 0 || image.UID != 0 || image.GID != 0 {
+			return fmt.Errorf("non-existent snapshot %s carries file metadata", image.Path)
 		}
 	}
 	return nil
