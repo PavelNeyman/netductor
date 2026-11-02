@@ -1,6 +1,7 @@
 package svcpaths
 
 import (
+	"fmt"
 	"os"
 	"errors"
 	"strings"
@@ -535,4 +536,57 @@ func TestBootstrapRollbackDoesNotRestartUntouchedUnits(t *testing.T) {
 	if strings.Contains(joined, "restart nd-untouched.service") || strings.Contains(joined, "enable nd-untouched.service") {
 		t.Fatalf("rollback mutated an untouched unit:\n%s", joined)
 	}
+}
+
+func TestBootstrapRollbackRemovesOnlyTransactionCreatedUFWRule(t *testing.T) {
+	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	oldJournalRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
+	oldLock, oldExec := bootstrapFirewallLock, bootstrapFirewallExec
+	defer func() { bootstrapFirewallLock, bootstrapFirewallExec = oldLock, oldExec }()
+	bootstrapFirewallLock = func() (func(), error) { return func(){}, nil }
+	status := "Status: active\n[ 1] 8445/tcp ALLOW IN 203.0.113.20 # nd-wss-ps\n[ 2] 8444/tcp ALLOW IN 203.0.113.10 # nd-wss-sp\n"
+	var calls []string
+	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) {
+		calls = append(calls, name+" "+strings.Join(args, " "))
+		if name != "ufw" { return nil, fmt.Errorf("unexpected command %s", name) }
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" { return []byte(status), nil }
+		if len(args) > 0 && args[0] == "--force" {
+			if !strings.Contains(strings.Join(args, " "), "203.0.113.20") { return nil, fmt.Errorf("wrong rule deletion: %v", args) }
+			status = "Status: active\n[ 1] 8444/tcp ALLOW IN 203.0.113.10 # nd-wss-sp\n"
+			return nil, nil
+		}
+		return nil, fmt.Errorf("unexpected ufw args: %v", args)
+	}
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"203.0.113.20", Port:8445, Comment:"nd-wss-ps"}, false); err != nil { t.Fatal(err) }
+	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if strings.Contains(status, "203.0.113.20") { t.Fatalf("transaction-created rule remains: %s", status) }
+	if !strings.Contains(status, "203.0.113.10") { t.Fatalf("unrelated existing peer rule was removed: %s", status) }
+	if len(calls) != 3 { t.Fatalf("firewall calls = %v, want inspect/delete/verify", calls) }
+}
+
+func TestBootstrapRollbackPreservesPreexistingFirewallRule(t *testing.T) {
+	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	oldJournalRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
+	oldLock, oldExec := bootstrapFirewallLock, bootstrapFirewallExec
+	defer func() { bootstrapFirewallLock, bootstrapFirewallExec = oldLock, oldExec }()
+	bootstrapFirewallLock = func() (func(), error) { return func(){}, nil }
+	calls := 0
+	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) { calls++; return nil, nil }
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"203.0.113.20", Port:8445, Comment:"nd-wss-ps"}, true); err != nil { t.Fatal(err) }
+	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if calls != 0 { t.Fatalf("pre-existing firewall rule caused %d rollback commands", calls) }
 }
