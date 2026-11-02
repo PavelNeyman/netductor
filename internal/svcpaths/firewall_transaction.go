@@ -195,8 +195,16 @@ func parseNetductorInputChain(output string) (string, error) {
 	return chain, nil
 }
 
+var bootstrapFirewallLock = firewall.AcquireMutationLock
+var bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).CombinedOutput()
+}
+
 func restoreBootstrapFirewallRules(images []bootstrapFirewallImage) error {
-	unlock, err := firewall.AcquireMutationLock()
+	needed := false
+	for _, image := range images { if !image.BeforeExists { needed = true; break } }
+	if !needed { return nil }
+	unlock, err := bootstrapFirewallLock()
 	if err != nil { return fmt.Errorf("acquire firewall lock for bootstrap rollback: %w", err) }
 	defer unlock()
 	var errs []error
@@ -206,25 +214,25 @@ func restoreBootstrapFirewallRules(images []bootstrapFirewallImage) error {
 		if rule.BeforeExists { continue }
 		switch rule.Backend {
 		case "ufw":
-			status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+			status, err := bootstrapFirewallExec("ufw", "status", "numbered")
 			if err != nil {
 				errs = append(errs, fmt.Errorf("inspect UFW rollback rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(status))))
 				continue
 			}
 			if !ufwStatusHasPeerRule(string(status), rule.Source, rule.Port, rule.Comment) { continue }
 			args := []string{"--force", "delete", "allow", "from", rule.Source, "to", "any", "port", strconv.Itoa(rule.Port), "proto", "tcp", "comment", rule.Comment}
-			out, err := exec.Command("ufw", args...).CombinedOutput()
+			out, err := bootstrapFirewallExec("ufw", args...)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("remove transaction-created UFW rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(out))))
 				continue
 			}
-			verify, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+			verify, err := bootstrapFirewallExec("ufw", "status", "numbered")
 			if err != nil || ufwStatusHasPeerRule(string(verify), rule.Source, rule.Port, rule.Comment) {
 				errs = append(errs, fmt.Errorf("verify removal of transaction-created UFW rule %s:%d (err=%v): %s", rule.Source, rule.Port, err, strings.TrimSpace(string(verify))))
 			}
 		case "iptables":
 			check := []string{"-C", rule.Chain, "-p", "tcp", "-s", rule.Source, "--dport", strconv.Itoa(rule.Port), "-j", "ACCEPT"}
-			out, err := exec.Command("iptables", check...).CombinedOutput()
+			out, err := bootstrapFirewallExec("iptables", check...)
 			if err != nil {
 				var exitErr *exec.ExitError
 				if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 { continue }
@@ -232,7 +240,7 @@ func restoreBootstrapFirewallRules(images []bootstrapFirewallImage) error {
 				continue
 			}
 			remove := []string{"-D", rule.Chain, "-p", "tcp", "-s", rule.Source, "--dport", strconv.Itoa(rule.Port), "-j", "ACCEPT"}
-			out, err = exec.Command("iptables", remove...).CombinedOutput()
+			out, err = bootstrapFirewallExec("iptables", remove...)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("remove transaction-created iptables rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(out))))
 				continue
