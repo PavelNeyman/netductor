@@ -248,28 +248,31 @@ func restoreBootstrapUnits(images []bootstrapUnitImage, touched []string) error 
 			}
 			continue
 		}
-		if image.FileState == "masked" || image.FileState == "masked-runtime" {
+		if image.FileState != "masked" && image.FileState != "masked-runtime" {
+			out, err := bootstrapSystemctl("unmask", image.Name)
+			if err != nil { errs = append(errs, fmt.Errorf("unmask unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+		}
+		switch image.FileState {
+		case "masked", "masked-runtime":
 			args := []string{"mask"}
 			if image.FileState == "masked-runtime" { args = append(args, "--runtime") }
 			args = append(args, image.Name)
 			out, err := bootstrapSystemctl(args...)
 			if err != nil { errs = append(errs, fmt.Errorf("restore masked unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
-		} else {
-			out, err := bootstrapSystemctl("unmask", image.Name)
-			if err != nil { errs = append(errs, fmt.Errorf("unmask unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
-			if image.FileState == "enabled" || image.FileState == "enabled-runtime" {
-				args := []string{"enable"}
-				if image.FileState == "enabled-runtime" { args = append(args, "--runtime") }
-				args = append(args, image.Name)
-				out, err = bootstrapSystemctl(args...)
-			} else if image.FileState == "disabled" {
-				out, err = bootstrapSystemctl("disable", image.Name)
-			} else {
-				out, err = nil, nil // static/indirect/transient units are not enableable
-			}
+		case "enabled", "enabled-runtime":
+			args := []string{"enable"}
+			if image.FileState == "enabled-runtime" { args = append(args, "--runtime") }
+			args = append(args, image.Name)
+			out, err := bootstrapSystemctl(args...)
 			if err != nil { errs = append(errs, fmt.Errorf("restore enablement for %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+		case "disabled":
+			out, err := bootstrapSystemctl("disable", image.Name)
+			if err != nil { errs = append(errs, fmt.Errorf("restore enablement for %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+		default:
+			// Static, indirect, generated, linked and transient units are not
+			// modified by enable/disable during restoration.
 		}
-		if image.ActiveState == "active" {
+		if image.ActiveState == "active" || image.ActiveState == "activating" || image.ActiveState == "reloading" {
 			out, err := bootstrapSystemctl("restart", image.Name)
 			if err != nil { errs = append(errs, fmt.Errorf("restart previously active unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
 		} else {
