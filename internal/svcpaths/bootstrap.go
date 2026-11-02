@@ -891,30 +891,24 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 		if err := validateNoGlobalWSSAllows(string(status), ports); err != nil {
 			return fmt.Errorf("refusing to alter untagged/admin WSS firewall rules: %w", err)
 		}
-		script := "set -e; " +
-			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 1; fi; " +
-			// Replace only the exact current-peer Netductor rules.
-			fmt.Sprintf("while ufw --force delete allow from %s to any port %d proto tcp comment nd-wss-sp 2>/dev/null; do :; done; ", secondaryPub, wssSP) +
-			fmt.Sprintf("while ufw --force delete allow from %s to any port 8789 proto tcp comment nd-svc-sp 2>/dev/null; do :; done; ", sSP) +
-			fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment nd-wss-sp; ", secondaryPub, wssSP) +
-			fmt.Sprintf("ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; echo primary-ufw-wss-ok")
-		out, err := exec.Command("bash", "-c", script).CombinedOutput()
-		if err != nil { return fmt.Errorf("primary ufw WSS: %w: %s", err, out) }
+		if out, err := exec.Command("ufw", "status").CombinedOutput(); err != nil || !strings.Contains(strings.ToLower(string(out)), "status: active") {
+			return fmt.Errorf("primary UFW is not active: %w: %s", err, strings.TrimSpace(string(out)))
+		}
+		wssRule, err := ufwPeerRuleMutation(secondaryPub, wssSP, "nd-wss-sp")
+		if err != nil { return err }
+		svcRule, err := ufwPeerRuleMutation(sSP, 8789, "nd-svc-sp")
+		if err != nil { return err }
+		return applyFirewallMutations([]firewallMutation{wssRule, svcRule}, nil)
 		return nil
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
-		script := fmt.Sprintf(`set -e
-chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
-test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
-while iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null; do iptables -D "$chain" -p tcp -s %s --dport %d -j ACCEPT; done
-iptables -I "$chain" 3 -p tcp -s %s --dport %d -j ACCEPT
-while iptables -C "$chain" -p tcp -s %s --dport 8789 -j ACCEPT 2>/dev/null; do iptables -D "$chain" -p tcp -s %s --dport 8789 -j ACCEPT; done
-iptables -I "$chain" 3 -p tcp -s %s --dport 8789 -j ACCEPT
-netfilter-persistent save
-echo primary-iptables-wss-ok
-`, secondaryPub, wssSP, secondaryPub, wssSP, secondaryPub, wssSP, sSP, sSP, sSP)
-		out, err := exec.Command("bash", "-c", script).CombinedOutput()
-		if err != nil { return fmt.Errorf("primary iptables WSS: %w: %s", err, out) }
+		chain, err := netductorInputChain()
+		if err != nil { return err }
+		wssRule, err := iptablesPeerRuleMutation(chain, secondaryPub, wssSP)
+		if err != nil { return err }
+		svcRule, err := iptablesPeerRuleMutation(chain, sSP, 8789)
+		if err != nil { return err }
+		return applyFirewallMutations([]firewallMutation{wssRule, svcRule}, persistNetfilterRules)
 		return nil
 	}
 	return fmt.Errorf("primary WSS: no supported firewall backend")
@@ -959,27 +953,20 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		if err := validateNoGlobalWSSAllows(string(status), []int{wssPS}); err != nil {
 			return fmt.Errorf("refusing to alter untagged/admin secondary WSS firewall rules: %w", err)
 		}
-		script := fmt.Sprintf(`set -e
-ufw status 2>/dev/null | grep -qi 'Status: active'
-while ufw --force delete allow from %s to any port %d proto tcp comment nd-wss-ps 2>/dev/null; do :; done
-ufw allow from %s to any port %d proto tcp comment nd-wss-ps
-echo secondary-ufw-wss-ok
-`, primaryPub, wssPS, primaryPub, wssPS)
-		out, err := exec.Command("bash", "-c", script).CombinedOutput()
-		if err != nil { return fmt.Errorf("secondary ufw WSS: %w: %s", err, out) }
+		if out, err := exec.Command("ufw", "status").CombinedOutput(); err != nil || !strings.Contains(strings.ToLower(string(out)), "status: active") {
+			return fmt.Errorf("secondary UFW is not active: %w: %s", err, strings.TrimSpace(string(out)))
+		}
+		mutation, err := ufwPeerRuleMutation(primaryPub, wssPS, "nd-wss-ps")
+		if err != nil { return err }
+		return applyFirewallMutations([]firewallMutation{mutation}, nil)
 		return nil
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
-		script := fmt.Sprintf(`set -e
-chain=$(iptables -S INPUT | awk '$1=="-A" && $2=="INPUT" && $3=="-j" && ($4=="NETDUCTOR_A" || $4=="NETDUCTOR_B") {print $4}')
-test "$(printf '%%s\n' "$chain" | sed '/^$/d' | wc -l)" -eq 1
-while iptables -C "$chain" -p tcp -s %s --dport %d -j ACCEPT 2>/dev/null; do iptables -D "$chain" -p tcp -s %s --dport %d -j ACCEPT; done
-iptables -I "$chain" 3 -p tcp -s %s --dport %d -j ACCEPT
-netfilter-persistent save
-echo secondary-iptables-wss-ok
-`, primaryPub, wssPS, primaryPub, wssPS, primaryPub, wssPS)
-		out, err := exec.Command("bash", "-c", script).CombinedOutput()
-		if err != nil { return fmt.Errorf("secondary iptables WSS: %w: %s", err, out) }
+		chain, err := netductorInputChain()
+		if err != nil { return err }
+		mutation, err := iptablesPeerRuleMutation(chain, primaryPub, wssPS)
+		if err != nil { return err }
+		return applyFirewallMutations([]firewallMutation{mutation}, persistNetfilterRules)
 		return nil
 	}
 	return fmt.Errorf("secondary WSS: no supported firewall backend")
