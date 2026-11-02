@@ -838,6 +838,15 @@ WantedBy=timers.target
 //	8444/tcp                   ALLOW IN    Anywhere
 //	8444/tcp (v6)              ALLOW IN    Anywhere (v6)
 //	8444 ALLOW Anywhere
+func validateNoGlobalWSSAllows(status string, ports []int) error {
+	for _, port := range ports {
+		matched, err := regexp.MatchString(ufwOpenPortAnywherePattern(port), status)
+		if err != nil { return fmt.Errorf("build WSS rule matcher for port %d: %w", port, err) }
+		if matched { return fmt.Errorf("port %d still has an Anywhere ALLOW rule", port) }
+	}
+	return nil
+}
+
 func ufwOpenPortAnywherePattern(port int) string {
 	return fmt.Sprintf(`(^|[[:space:]])%d(/tcp)?([[:space:]]+\(v6\))?[[:space:]]+ALLOW([[:space:]]+IN)?[[:space:]]+Anywhere`, port)
 }
@@ -859,37 +868,38 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 		return fmt.Errorf("primary WSS firewall requires secondary public IP, SP peer address and valid WSS port")
 	}
 	if _, err := exec.LookPath("ufw"); err == nil {
-		var dels []string
-		seen := map[int]bool{}
-		for _, s := range SlotTable() {
-			if s.WSS_SP > 0 && !seen[s.WSS_SP] {
-				seen[s.WSS_SP] = true
-				dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", s.WSS_SP))
+		status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("inspect UFW WSS rules: %w: %s", err, strings.TrimSpace(string(status)))
+		}
+		// Remove only historical Netductor-tagged global rules. Untagged
+		// administrator rules are never deleted automatically.
+		if err := firewall.RemoveLegacyGlobalWSSRules(string(status)); err != nil {
+			return fmt.Errorf("migrate legacy Netductor WSS rules: %w", err)
+		}
+		status, err = exec.Command("ufw", "status").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("verify UFW WSS rules after migration: %w: %s", err, strings.TrimSpace(string(status)))
+		}
+		ports := make([]int, 0, len(SlotTable())+1)
+		seen := make(map[int]bool)
+		for _, slot := range SlotTable() {
+			if slot.WSS_SP > 0 && !seen[slot.WSS_SP] {
+				seen[slot.WSS_SP] = true
+				ports = append(ports, slot.WSS_SP)
 			}
 		}
-		if !seen[wssSP] {
-			seen[wssSP] = true
-			dels = append(dels, fmt.Sprintf("ufw --force delete allow %d/tcp 2>/dev/null || true", wssSP))
-		}
-		ports := make([]int, 0, len(seen))
-		for port := range seen { ports = append(ports, port) }
-		sort.Ints(ports)
-		var openChecks []string
-		for _, port := range ports {
-			openChecks = append(openChecks, fmt.Sprintf(
-				"if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-still-present port=%d; exit 1; fi",
-				ufwOpenPortAnywherePattern(port), port))
+		if !seen[wssSP] { ports = append(ports, wssSP) }
+		if err := validateNoGlobalWSSAllows(string(status), ports); err != nil {
+			return fmt.Errorf("refusing to alter untagged/admin WSS firewall rules: %w", err)
 		}
 		script := "set -e; " +
 			"if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then echo ufw-inactive; exit 1; fi; " +
-			strings.Join(dels, "; ") + "; " +
-			// Remove only the exact Netductor source rules before re-adding them.
-			// Never touch administrator rules or another peer's source restriction.
+			// Replace only the exact current-peer Netductor rules.
 			fmt.Sprintf("while ufw --force delete allow from %s to any port %d proto tcp comment nd-wss-sp 2>/dev/null; do :; done; ", secondaryPub, wssSP) +
 			fmt.Sprintf("while ufw --force delete allow from %s to any port 8789 proto tcp comment nd-svc-sp 2>/dev/null; do :; done; ", sSP) +
 			fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment nd-wss-sp; ", secondaryPub, wssSP) +
-			fmt.Sprintf("ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; ", sSP) +
-			strings.Join(openChecks, "; ") + "; echo primary-ufw-wss-ok"
+			fmt.Sprintf("ufw allow from %s to any port 8789 proto tcp comment nd-svc-sp; echo primary-ufw-wss-ok")
 		out, err := exec.Command("bash", "-c", script).CombinedOutput()
 		if err != nil { return fmt.Errorf("primary ufw WSS: %w: %s", err, out) }
 		return nil
