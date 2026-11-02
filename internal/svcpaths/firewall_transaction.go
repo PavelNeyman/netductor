@@ -38,7 +38,14 @@ func applyFirewallMutations(mutations []firewallMutation, persist func() error) 
 	}
 	if persist != nil {
 		if err := persist(); err != nil {
-			return errors.Join(fmt.Errorf("persist firewall changes: %w", err), rollback())
+			rollbackErr := rollback()
+			// A failed save may have partially replaced the persistent ruleset.
+			// Persist the restored runtime state as well; report both failures.
+			restorePersistErr := persist()
+			if restorePersistErr != nil {
+				restorePersistErr = fmt.Errorf("persist restored firewall state: %w", restorePersistErr)
+			}
+			return errors.Join(fmt.Errorf("persist firewall changes: %w", err), rollbackErr, restorePersistErr)
 		}
 	}
 	return nil
