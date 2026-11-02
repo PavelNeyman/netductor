@@ -122,7 +122,7 @@ func (tx *bootstrapFileTransaction) SnapshotFile(path string) error {
 	if tx == nil || tx.journal.Phase != "applying" {
 		return fmt.Errorf("bootstrap file transaction is not applying")
 	}
-	if err := validateBootstrapSnapshotPath(path); err != nil { return err }
+	if err := validateBootstrapSnapshotPathForIdentity(tx.journal.Role, tx.journal.Slot, path); err != nil { return err }
 	for _, image := range tx.journal.Files {
 		if image.Path == path { return nil }
 	}
@@ -199,7 +199,7 @@ func recoverBootstrapFileTransactions() error {
 			return fmt.Errorf("bootstrap journal %s has unsupported or invalid identity; refusing bootstrap", path)
 		}
 		for _, image := range j.Files {
-			if err := validateBootstrapSnapshotPath(image.Path); err != nil {
+			if err := validateBootstrapSnapshotPathForIdentity(j.Role, j.Slot, image.Path); err != nil {
 				return fmt.Errorf("bootstrap journal %s contains unsafe target: %w", path, err)
 			}
 			if image.Exists && (image.Mode&^os.FileMode(0o777) != 0 || image.Mode.Perm() == 0) {
@@ -235,6 +235,60 @@ func (tx *bootstrapFileTransaction) finish(phase string) error {
 	tx.journal.Phase = phase
 	if err := tx.persist(); err != nil { return fmt.Errorf("checkpoint %s: %w", phase, err) }
 	if err := tx.removeJournal(); err != nil { return fmt.Errorf("remove completed bootstrap journal: %w", err) }
+	return nil
+}
+
+// validateBootstrapSnapshotPathForIdentity binds every journal image to the
+// exact files that the recorded role and slot may mutate. Test-only roots remain
+// injectable through bootstrapAllowedFileRoots; production paths are exact.
+func validateBootstrapSnapshotPathForIdentity(role string, slot int, path string) error {
+	if slot < 0 || slot >= len(SlotTable()) {
+		return fmt.Errorf("invalid bootstrap transaction slot %d", slot)
+	}
+	if err := validateBootstrapSnapshotPath(path); err != nil { return err }
+	for _, root := range bootstrapAllowedFileRoots {
+		if root != "/etc/wireguard" && root != "/etc/systemd/system" &&
+			root != "/etc/netductor" && root != "/usr/local/bin" && root != "/var/lib/netductor" {
+			rel, err := filepath.Rel(root, path)
+			if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+				return nil
+			}
+		}
+	}
+	s := SlotTable()[slot]
+	allowed := map[string]bool{
+		filepath.Join("/etc/wireguard", s.IfaceSP+".conf"): true,
+		filepath.Join("/etc/wireguard", s.IfacePS+".conf"): true,
+		"/usr/local/bin/nd-svc-paths-health": true,
+		"/etc/systemd/system/nd-svc-paths-health.service": true,
+		"/etc/systemd/system/nd-svc-paths-health.timer": true,
+	}
+	if role == "primary" {
+		spUnit := "nd-wss-sp-server"
+		psUnit := "nd-wss-ps-client"
+		if s.Index != 0 {
+			spUnit += "-" + s.IfaceSP
+			psUnit += "-" + s.IfacePS
+		}
+		allowed[filepath.Join("/etc/systemd/system", spUnit+".service")] = true
+		allowed[filepath.Join("/etc/systemd/system", psUnit+".service")] = true
+		if s.Index == 0 {
+			allowed[filepath.Join(KeysDir, "material.json")] = true
+		}
+		allowed[policyPath] = true
+	} else if role == "secondary" {
+		allowed["/etc/systemd/system/nd-wss-sp-client.service"] = true
+		allowed["/etc/systemd/system/nd-wss-ps-server.service"] = true
+		allowed[filepath.Join(KeysDir, "material.json")] = true
+		allowed["/etc/netductor/secrets/secondary_core_url.public"] = true
+		allowed["/etc/netductor/secrets/secondary_core_url"] = true
+		allowed[policyPath] = true
+	} else {
+		return fmt.Errorf("invalid bootstrap transaction role %q", role)
+	}
+	if !allowed[path] {
+		return fmt.Errorf("bootstrap %s slot %d may not snapshot %q", role, slot, path)
+	}
 	return nil
 }
 
