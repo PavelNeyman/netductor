@@ -406,3 +406,72 @@ func TestBootstrapTransactionWritersSnapshotBeforeMutation(t *testing.T) {
 	if info.Mode().Perm() != 0o640 { t.Fatalf("existing mode = %o, want 640", info.Mode().Perm()) }
 	if _, err := os.Lstat(created); !os.IsNotExist(err) { t.Fatalf("created file remains after rollback: %v", err) }
 }
+
+func TestBootstrapTransactionSnapshotsAndRestoresSystemdState(t *testing.T) {
+	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	oldJournalRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
+	oldSystemctl := bootstrapSystemctl
+	defer func() { bootstrapSystemctl = oldSystemctl }()
+	var calls []string
+	bootstrapSystemctl = func(args ...string) ([]byte, error) {
+		calls = append(calls, strings.Join(args, " "))
+		if len(args) > 0 && args[0] == "show" {
+			return []byte("LoadState=loaded\nUnitFileState=enabled\nActiveState=active\n"), nil
+		}
+		return nil, nil
+	}
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.SnapshotUnits("nd-test.service", "nd-test.service"); err != nil { t.Fatal(err) }
+	if len(tx.journal.Units) != 1 { t.Fatalf("unit snapshots = %d, want deduplicated 1", len(tx.journal.Units)) }
+	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	joined := strings.Join(calls, "\n")
+	for _, want := range []string{"show --property=LoadState --property=UnitFileState --property=ActiveState nd-test.service", "daemon-reload", "enable nd-test.service", "restart nd-test.service"} {
+		if !strings.Contains(joined, want) { t.Fatalf("systemctl calls missing %q:\n%s", want, joined) }
+	}
+}
+
+func TestBootstrapTransactionRestoresPreviouslyAbsentUnit(t *testing.T) {
+	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	oldJournalRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
+	oldSystemctl := bootstrapSystemctl
+	defer func() { bootstrapSystemctl = oldSystemctl }()
+	var calls []string
+	bootstrapSystemctl = func(args ...string) ([]byte, error) {
+		calls = append(calls, strings.Join(args, " "))
+		if len(args) > 0 && args[0] == "show" {
+			return []byte("LoadState=not-found\n"), nil
+		}
+		return nil, nil
+	}
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	if err := tx.SnapshotUnits("nd-new.service"); err != nil { t.Fatal(err) }
+	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	joined := strings.Join(calls, "\n")
+	if !strings.Contains(joined, "stop nd-new.service") || !strings.Contains(joined, "disable nd-new.service") {
+		t.Fatalf("previously absent unit was not returned to absent/inactive state:\n%s", joined)
+	}
+}
+
+func TestValidateBootstrapJournalAcceptsLegacyV1(t *testing.T) {
+	now := time.Now().UTC()
+	j := bootstrapJournal{
+		Version: 1, TxID: "0123456789abcdef0123456789abcdef",
+		Role: "secondary", PeerID: "peer-b", Slot: 1, Phase: "applying",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := validateBootstrapJournal(j, j.TxID+".json"); err != nil {
+		t.Fatalf("legacy version-1 journal must remain recoverable: %v", err)
+	}
+}
