@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/firewall"
 )
 
 // firewallMutation applies one narrowly scoped peer rule and supplies an inverse
