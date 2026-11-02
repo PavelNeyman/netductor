@@ -687,7 +687,7 @@ func BootstrapSecondary(m *Material) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err := atomicWritePeerFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
+	if err := tx.atomicWritePeerFile(filepath.Join(KeysDir, "material.json"), b, 0o600); err != nil {
 		return fmt.Errorf("material.json: %w", err)
 	}
 
@@ -717,10 +717,10 @@ AllowedIPs = %s/32
 	if err := os.MkdirAll("/etc/wireguard", 0o700); err != nil {
 		return err
 	}
-	if err := writeFile("/etc/wireguard/"+ifaceSP+".conf", spConf, 0o600); err != nil {
+	if err := tx.writeFile("/etc/wireguard/"+ifaceSP+".conf", spConf, 0o600); err != nil {
 		return fmt.Errorf("%s.conf: %w", ifaceSP, err)
 	}
-	if err := writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
+	if err := tx.writeFile("/etc/wireguard/"+ifacePS+".conf", psConf, 0o600); err != nil {
 		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
 	if err := unitFileWithTransaction(tx, "nd-wss-sp-client",
@@ -758,7 +758,7 @@ AllowedIPs = %s/32
 		}
 	}
 
-	if err := installHealthTimer(); err != nil {
+	if err := installHealthTimerWithTransaction(tx); err != nil {
 		return err
 	}
 	if _, err := os.Stat(policyPath); err != nil {
