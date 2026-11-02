@@ -559,6 +559,17 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) (retErr error) {
 		if retErr != nil { retErr = errors.Join(retErr, tx.Rollback()); return }
 		if err := tx.Commit(); err != nil { retErr = fmt.Errorf("commit primary bootstrap transaction: %w", err) }
 	}()
+	spServerUnit := "nd-wss-sp-server"
+	if ifaceSP != "nd-svc-sp" { spServerUnit = "nd-wss-sp-server-" + ifaceSP }
+	psClientUnit := "nd-wss-ps-client"
+	if ifacePS != "nd-svc-ps" { psClientUnit = "nd-wss-ps-client-" + ifacePS }
+	unitsToSnapshot := []string{spServerUnit, psClientUnit, "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS}
+	if o.InstallHealthTimer {
+		unitsToSnapshot = append(unitsToSnapshot, "nd-svc-paths-health.service", "nd-svc-paths-health.timer")
+	}
+	if err := tx.SnapshotUnits(unitsToSnapshot...); err != nil {
+		return fmt.Errorf("snapshot primary systemd state: %w", err)
+	}
 	if err := os.MkdirAll(KeysDir, 0o700); err != nil {
 		return err
 	}
@@ -605,17 +616,9 @@ PersistentKeepalive = 25
 		return fmt.Errorf("%s.conf: %w", ifacePS, err)
 	}
 	// Per-peer SP WSS server (unique port per slot) — adding B must not rewrite A's unit.
-	spServerUnit := "nd-wss-sp-server"
-	if ifaceSP != "nd-svc-sp" {
-		spServerUnit = "nd-wss-sp-server-" + ifaceSP
-	}
 	if err := unitFileWithTransaction(tx, spServerUnit,
 		fmt.Sprintf("/usr/local/bin/wstunnel server wss://0.0.0.0:%d --restrict-to 127.0.0.1:%d", wssSP, portSP)); err != nil {
 		return err
-	}
-	psClientUnit := "nd-wss-ps-client"
-	if ifacePS != "nd-svc-ps" {
-		psClientUnit = "nd-wss-ps-client-" + ifacePS
 	}
 	if err := unitFileWithTransaction(tx, psClientUnit,
 		fmt.Sprintf("/usr/local/bin/wstunnel client -L udp://127.0.0.1:%d:127.0.0.1:%d?timeout_sec=0 wss://%s",
@@ -679,6 +682,11 @@ func BootstrapSecondary(m *Material) (retErr error) {
 		if retErr != nil { retErr = errors.Join(retErr, tx.Rollback()); return }
 		if err := tx.Commit(); err != nil { retErr = fmt.Errorf("commit secondary bootstrap transaction: %w", err) }
 	}()
+	if err := tx.SnapshotUnits("nd-wss-sp-client", "nd-wss-ps-server",
+		"wg-quick@"+ifaceSP, "wg-quick@"+ifacePS,
+		"netductor-secondary-agent", "nd-svc-paths-health.service", "nd-svc-paths-health.timer"); err != nil {
+		return fmt.Errorf("snapshot secondary systemd state: %w", err)
+	}
 	safe := m.ForSecondary()
 	if err := os.MkdirAll(KeysDir, 0o700); err != nil {
 		return err
