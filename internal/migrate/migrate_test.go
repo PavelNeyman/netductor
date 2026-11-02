@@ -492,3 +492,32 @@ func TestFixture0912PrimaryLayout(t *testing.T) {
 		t.Fatal("PostCheck after 0.9.612 fixture:", err)
 	}
 }
+
+func TestRepairStateMigrationReRunsForNewMarkerVersion(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	if err := os.MkdirAll(filepath.Join(root, "migrate"), 0o700); err != nil { t.Fatal(err) }
+	marker := filepath.Join(root, "migrate", "repair-state.done")
+	// Existing installations used a timeless "ok" marker. A new repair
+	// generation must execute again so newly added managed files are covered.
+	if err := os.WriteFile(marker, []byte("ok\n"), 0o600); err != nil { t.Fatal(err) }
+	previous := repairStateOnUpgrade
+	calls := 0
+	repairStateOnUpgrade = func() []string { calls++; return nil }
+	t.Cleanup(func() { repairStateOnUpgrade = previous })
+
+	m := &repairStateOnUpgradeMigration{}
+	need, err := m.Required(context.Background())
+	if err != nil || !need { t.Fatalf("old marker: need=%v err=%v", need, err) }
+	if err := m.Apply(context.Background()); err != nil { t.Fatal(err) }
+	if err := m.Verify(context.Background()); err != nil { t.Fatal(err) }
+	if calls != 1 { t.Fatalf("repair calls=%d want 1", calls) }
+	b, err := os.ReadFile(marker)
+	if err != nil { t.Fatal(err) }
+	if string(b) != repairMarkerVersion+"\n" {
+		t.Fatalf("marker=%q want %q", string(b), repairMarkerVersion+"\n")
+	}
+	need, err = m.Required(context.Background())
+	if err != nil || need { t.Fatalf("new marker: need=%v err=%v", need, err) }
+	if calls != 1 { t.Fatalf("repair unexpectedly reran: calls=%d", calls) }
+}
