@@ -75,3 +75,14 @@ Acceptance: a documented, repeatable deployment sequence can add the new Seconda
 5. End-to-end Secondary deploy-path audit and release preparation.
 
 Production deployment remains a separate, explicitly authorized step.
+
+## Implementation status
+
+Updated against current `main` after the initial plan commit.
+
+- [x] SSH rollback lock acquisition is bounded. On contention, the rollback attempt adds tagged emergency management ingress, records `ROLLBACK_FAILED`, and exits non-zero; systemd retries the rollback service until the transaction lock clears. The emergency iptables rules are tagged and removed only after the original firewall state is restored successfully.
+- [x] Bootstrap journal schema is now version 2 and records systemd load, enablement, and active state before service changes. Version-1 journals remain accepted and recoverable.
+- [x] Bootstrap records per-unit mutation intent durably immediately before each service mutation. Rollback restores only units that the transaction may have touched, after restoring files and running daemon-reload.
+- [x] Added focused tests for bounded SSH rollback/retry, systemd state restoration, absent units, atomic unit snapshots, untouched-unit preservation, and version-1 journal compatibility.
+- [ ] Focused tests have **not** been executed yet. Actions remain manual-only; no workflow was dispatched.
+- [ ] Firewall changes are not yet part of the bootstrap journal. This remains the next implementation block.
