@@ -1003,6 +1003,12 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if err := EnsureWSSPeerRulesLocked(role); err != nil {
 		return fmt.Errorf("preserve WSS peer access before migration: %w", err)
 	}
+	// Adding source-restricted rules changes UFW rule numbers. Refresh before
+	// deleting by number so we never remove a shifted administrator rule.
+	current, inspectErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if inspectErr != nil {
+		return fmt.Errorf("re-inspect UFW rules before legacy WSS removal: %v (%s)", inspectErr, truncate(string(current), 200))
+	}
 	if err := RemoveLegacyGlobalWSSRules(string(current)); err != nil {
 		return err
 	}
