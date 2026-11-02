@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -15,6 +16,12 @@ import (
 const bootstrapJournalVersion = 1
 
 var bootstrapJournalRoot = "/var/lib/netductor/bootstrap-transactions"
+
+// Snapshot targets are constrained to Netductor-managed configuration trees.
+var bootstrapAllowedFileRoots = []string{
+	"/etc/wireguard", "/etc/systemd/system", "/etc/netductor",
+	"/usr/local/bin", "/var/lib/netductor",
+}
 
 type bootstrapFileImage struct {
 	Path   string      `json:"path"`
@@ -52,6 +59,7 @@ func beginBootstrapFileTransaction(role, peerID string, slot int) (*bootstrapFil
 	if err := os.MkdirAll(bootstrapJournalRoot, 0o700); err != nil {
 		return nil, fmt.Errorf("create bootstrap journal directory: %w", err)
 	}
+	if err := validateBootstrapJournalDirectory(bootstrapJournalRoot); err != nil { return nil, err }
 	info, err := os.Lstat(bootstrapJournalRoot)
 	if err != nil {
 		return nil, fmt.Errorf("inspect bootstrap journal directory: %w", err)
@@ -114,9 +122,7 @@ func (tx *bootstrapFileTransaction) SnapshotFile(path string) error {
 	if tx == nil || tx.journal.Phase != "applying" {
 		return fmt.Errorf("bootstrap file transaction is not applying")
 	}
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-		return fmt.Errorf("bootstrap snapshot path must be clean and absolute: %q", path)
-	}
+	if err := validateBootstrapSnapshotPath(path); err != nil { return err }
 	for _, image := range tx.journal.Files {
 		if image.Path == path { return nil }
 	}
@@ -161,6 +167,10 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 
 
 func recoverBootstrapFileTransactions() error {
+	if err := validateBootstrapJournalDirectory(bootstrapJournalRoot); err != nil {
+		if os.IsNotExist(err) { return nil }
+		return err
+	}
 	entries, err := os.ReadDir(bootstrapJournalRoot)
 	if err != nil {
 		if os.IsNotExist(err) { return nil }
@@ -187,6 +197,14 @@ func recoverBootstrapFileTransactions() error {
 			(j.Role != "primary" && j.Role != "secondary") ||
 			j.Slot < 0 || j.Slot >= len(SlotTable()) {
 			return fmt.Errorf("bootstrap journal %s has unsupported or invalid identity; refusing bootstrap", path)
+		}
+		for _, image := range j.Files {
+			if err := validateBootstrapSnapshotPath(image.Path); err != nil {
+				return fmt.Errorf("bootstrap journal %s contains unsafe target: %w", path, err)
+			}
+			if image.Exists && (image.Mode&^os.FileMode(0o777) != 0 || image.Mode.Perm() == 0) {
+				return fmt.Errorf("bootstrap journal %s contains invalid file metadata for %s", path, image.Path)
+			}
 		}
 		tx := &bootstrapFileTransaction{journal: j, path: path}
 		switch j.Phase {
@@ -220,14 +238,59 @@ func (tx *bootstrapFileTransaction) finish(phase string) error {
 	return nil
 }
 
-func restoreBootstrapFile(image bootstrapFileImage) error {
-	if !image.Exists {
-		if err := os.Remove(image.Path); err != nil && !os.IsNotExist(err) { return err }
-		if _, err := os.Stat(filepath.Dir(image.Path)); os.IsNotExist(err) { return nil } else if err != nil { return err }
-		return syncBootstrapDirectory(filepath.Dir(image.Path))
+func validateBootstrapSnapshotPath(path string) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return fmt.Errorf("bootstrap snapshot path must be clean and absolute: %q", path)
 	}
+	allowed := false
+	for _, root := range bootstrapAllowedFileRoots {
+		rel, err := filepath.Rel(root, path)
+		if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			allowed = true
+			break
+		}
+	}
+	if !allowed { return fmt.Errorf("bootstrap snapshot path is outside Netductor-managed roots: %q", path) }
+	return validateExistingDirectoryChain(filepath.Dir(path))
+}
+
+func validateExistingDirectoryChain(dir string) error {
+	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir { return fmt.Errorf("directory path must be clean and absolute: %q", dir) }
+	current := string(os.PathSeparator)
+	for _, part := range strings.Split(strings.TrimPrefix(dir, current), current) {
+		if part == "" { continue }
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil { return err }
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() { return fmt.Errorf("path component %s is not a real directory", current) }
+	}
+	return nil
+}
+
+func validateBootstrapJournalDirectory(dir string) error {
+	if err := validateExistingDirectoryChain(dir); err != nil { return fmt.Errorf("unsafe bootstrap journal directory: %w", err) }
+	info, err := os.Lstat(dir)
+	if err != nil { return fmt.Errorf("inspect bootstrap journal directory: %w", err) }
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
+		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("bootstrap journal directory must be a real private directory owned by euid %d", os.Geteuid())
+	}
+	return nil
+}
+
+func restoreBootstrapFile(image bootstrapFileImage) error {
+	if err := validateBootstrapSnapshotPath(image.Path); err != nil { return err }
 	dir := filepath.Dir(image.Path)
-	if err := os.MkdirAll(dir, 0o700); err != nil { return err }
+	if !image.Exists {
+		if err := validateExistingDirectoryChain(dir); err != nil {
+			if os.IsNotExist(err) { return nil }
+			return err
+		}
+		if err := os.Remove(image.Path); err != nil && !os.IsNotExist(err) { return err }
+		return syncBootstrapDirectory(dir)
+	}
+	if err := validateExistingDirectoryChain(dir); err != nil { return fmt.Errorf("unsafe rollback parent: %w", err) }
 	if err := validateAtomicWriteTarget(image.Path); err != nil { return err }
 	f, err := os.CreateTemp(dir, ".netductor-rollback-*")
 	if err != nil { return err }
