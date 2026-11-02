@@ -390,7 +390,7 @@ func ensureBootstrapJournalDirectory(dir string) error {
 	}
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
+		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
 		return fmt.Errorf("bootstrap journal parent must be a real private directory owned by euid %d", os.Geteuid())
 	}
 
