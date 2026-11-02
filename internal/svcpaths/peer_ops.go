@@ -315,7 +315,6 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 		}
 		return err
 	}
-	id := "legacy-slot0"
 	// The root material.json is the legacy slot-0 record. Do not silently
 	// rewrite a material file belonging to a newer slot: that could redirect
 	// keys and tunnel endpoints onto the live legacy slot-0 interfaces.
