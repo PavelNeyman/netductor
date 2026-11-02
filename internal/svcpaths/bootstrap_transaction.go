@@ -55,7 +55,8 @@ type bootstrapJournal struct {
 	CreatedAt time.Time            `json:"created_at"`
 	UpdatedAt time.Time            `json:"updated_at"`
 	Files     []bootstrapFileImage `json:"files"`
-	Units     []bootstrapUnitImage `json:"units,omitempty"`
+	Units        []bootstrapUnitImage `json:"units,omitempty"`
+	TouchedUnits []string             `json:"touched_units,omitempty"`
 }
 
 type bootstrapFileTransaction struct {
@@ -202,7 +203,34 @@ func (tx *bootstrapFileTransaction) SnapshotUnits(names ...string) error {
 	return nil
 }
 
-func restoreBootstrapUnits(images []bootstrapUnitImage) error {
+func (tx *bootstrapFileTransaction) MarkUnitsTouched(names ...string) error {
+	if tx == nil || tx.journal.Phase != "applying" {
+		return fmt.Errorf("bootstrap file transaction is not applying")
+	}
+	known := make(map[string]bool, len(tx.journal.Units))
+	for _, image := range tx.journal.Units { known[image.Name] = true }
+	seen := make(map[string]bool, len(tx.journal.TouchedUnits)+len(names))
+	for _, name := range tx.journal.TouchedUnits { seen[name] = true }
+	pending := make([]string, 0, len(names))
+	for _, name := range names {
+		if !safeUnitName(name) || !known[name] {
+			return fmt.Errorf("systemd unit %q must be safely snapshotted before mutation", name)
+		}
+		if !seen[name] { pending = append(pending, name); seen[name] = true }
+	}
+	if len(pending) == 0 { return nil }
+	oldLen := len(tx.journal.TouchedUnits)
+	tx.journal.TouchedUnits = append(tx.journal.TouchedUnits, pending...)
+	if err := tx.persist(); err != nil {
+		tx.journal.TouchedUnits = tx.journal.TouchedUnits[:oldLen]
+		return fmt.Errorf("persist systemd mutation intent: %w", err)
+	}
+	return nil
+}
+
+func restoreBootstrapUnits(images []bootstrapUnitImage, touched []string) error {
+	wanted := make(map[string]bool, len(touched))
+	for _, name := range touched { wanted[name] = true }
 	var errs []error
 	for i := len(images)-1; i >= 0; i-- {
 		image := images[i]
@@ -210,6 +238,7 @@ func restoreBootstrapUnits(images []bootstrapUnitImage) error {
 			errs = append(errs, fmt.Errorf("unsafe systemd unit name %q in rollback journal", image.Name))
 			continue
 		}
+		if !wanted[image.Name] { continue }
 		if image.LoadState == "not-found" {
 			for _, action := range [][]string{{"stop", image.Name}, {"disable", image.Name}} {
 				out, err := bootstrapSystemctl(action...)
@@ -220,13 +249,19 @@ func restoreBootstrapUnits(images []bootstrapUnitImage) error {
 			continue
 		}
 		if image.FileState == "masked" || image.FileState == "masked-runtime" {
-			out, err := bootstrapSystemctl("mask", image.Name)
+			args := []string{"mask"}
+			if image.FileState == "masked-runtime" { args = append(args, "--runtime") }
+			args = append(args, image.Name)
+			out, err := bootstrapSystemctl(args...)
 			if err != nil { errs = append(errs, fmt.Errorf("restore masked unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
 		} else {
 			out, err := bootstrapSystemctl("unmask", image.Name)
 			if err != nil { errs = append(errs, fmt.Errorf("unmask unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
-			if image.FileState == "enabled" || image.FileState == "enabled-runtime" || image.FileState == "linked" || image.FileState == "linked-runtime" {
-				out, err = bootstrapSystemctl("enable", image.Name)
+			if image.FileState == "enabled" || image.FileState == "enabled-runtime" {
+				args := []string{"enable"}
+				if image.FileState == "enabled-runtime" { args = append(args, "--runtime") }
+				args = append(args, image.Name)
+				out, err = bootstrapSystemctl(args...)
 			} else if image.FileState == "disabled" {
 				out, err = bootstrapSystemctl("disable", image.Name)
 			} else {
@@ -279,7 +314,7 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 			return fmt.Errorf("reload systemd after bootstrap file rollback: %w: %s", err, strings.TrimSpace(string(out)))
 		}
 	}
-	if err := restoreBootstrapUnits(tx.journal.Units); err != nil {
+	if err := restoreBootstrapUnits(tx.journal.Units, tx.journal.TouchedUnits); err != nil {
 		return fmt.Errorf("restore systemd runtime/enablement state: %w", err)
 	}
 	return tx.finish("rolled_back")
@@ -400,6 +435,13 @@ func validateBootstrapJournal(j bootstrapJournal, filename string) error {
 		if unit.LoadState == "loaded" && (unit.FileState == "" || unit.ActiveState == "") {
 			return fmt.Errorf("incomplete systemd state for unit %s", unit.Name)
 		}
+	}
+	seenTouched := make(map[string]bool, len(j.TouchedUnits))
+	for _, name := range j.TouchedUnits {
+		if !safeUnitName(name) || !seenUnits[name] || seenTouched[name] {
+			return fmt.Errorf("invalid, duplicate, or unsnapshotted touched unit %q", name)
+		}
+		seenTouched[name] = true
 	}
 	for _, image := range j.Files {
 		if image.Path == "" { return fmt.Errorf("empty snapshot path") }
