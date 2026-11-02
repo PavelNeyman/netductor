@@ -6,6 +6,7 @@ import (
 	"net"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -99,4 +100,18 @@ func persistNetfilterRules() error {
 	out, err := exec.Command("netfilter-persistent", "save").CombinedOutput()
 	if err != nil { return fmt.Errorf("netfilter-persistent save: %w: %s", err, strings.TrimSpace(string(out))) }
 	return nil
+}
+
+func netductorInputChain() (string, error) {
+	out, err := exec.Command("iptables", "-S", "INPUT").CombinedOutput()
+	if err != nil { return "", fmt.Errorf("inspect INPUT chain: %w: %s", err, strings.TrimSpace(string(out))) }
+	seen := map[string]bool{}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 4 && fields[0] == "-A" && fields[1] == "INPUT" && fields[2] == "-j" &&
+			(fields[3] == "NETDUCTOR_A" || fields[3] == "NETDUCTOR_B") { seen[fields[3]] = true }
+	}
+	if len(seen) != 1 { return "", fmt.Errorf("expected exactly one Netductor INPUT chain, found %d", len(seen)) }
+	for chain := range seen { return chain, nil }
+	return "", fmt.Errorf("Netductor INPUT chain unresolved")
 }
