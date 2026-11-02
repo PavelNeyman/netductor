@@ -97,3 +97,10 @@ Updated against current `main` after the initial plan commit.
 - [x] Peer registry loading now normalizes the original unversioned representation (version 0) to schema 1, but rejects unknown future schema versions. Saving also rejects unsupported versions instead of silently rewriting them.
 - [x] Added tests for legacy unversioned peer registry compatibility and fail-closed behavior for schema 2.
 - [ ] Remaining persisted formats and all version-negotiation call sites still require review. These changes have not been test-executed.
+
+
+### Legacy peer-material import guard
+- The legacy root `material.json` import now validates its tunnel identity before normalization and refuses any material declaring a non-zero slot. This prevents an existing slot-1+ record from being silently rewritten as slot 0.
+- Existing legacy slot-0 material remains compatible, including keys-only legacy records whose slot-0 tunnel values are absent.
+- Added regression coverage proving a slot-1 root material is rejected without creating a peer registry entry or peer material file.
+- Tests have not been executed.
