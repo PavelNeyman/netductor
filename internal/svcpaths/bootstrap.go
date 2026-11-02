@@ -636,7 +636,7 @@ PersistentKeepalive = 25
 	}
 	// Restrict the peer's ingress before restarting any listener. A firewall
 	// failure must never leave newly restarted WSS services exposed.
-	if err := applyPrimaryWSSFirewall(m.Secondary, sSP, wssSP); err != nil {
+	if err := applyPrimaryWSSFirewallWithTransaction(tx, m.Secondary, sSP, wssSP); err != nil {
 		return err
 	}
 	unitsToRestart := []string{spServerUnit, psClientUnit, "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS}
@@ -751,7 +751,7 @@ AllowedIPs = %s/32
 		return err
 	}
 	// Restrict WSS ingress before starting/restarting the tunnel listeners.
-	if err := applySecondaryWSSFirewall(m.Primary, wssPS); err != nil {
+	if err := applySecondaryWSSFirewallWithTransaction(tx, m.Primary, wssPS); err != nil {
 		return err
 	}
 	secondaryUnits := []string{"nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS}
@@ -908,16 +908,24 @@ func ufwOpenPortAnywherePattern(port int) string {
 // applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
 // Also removes Anywhere rules for every SlotTable WSS_SP port (legacy A on slot 0 when adding B).
 func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
+	return applyPrimaryWSSFirewallWithTransaction(nil, secondaryPub, sSP, wssSP)
+}
+
+func applyPrimaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, secondaryPub, sSP string, wssSP int) error {
 	unlock, err := firewall.AcquireMutationLock()
 	if err != nil {
 		return fmt.Errorf("primary WSS firewall lock: %w", err)
 	}
 	defer unlock()
-	return applyPrimaryWSSFirewallLocked(secondaryPub, sSP, wssSP)
+	return applyPrimaryWSSFirewallLockedWithTransaction(tx, secondaryPub, sSP, wssSP)
 }
 
 // applyPrimaryWSSFirewallLocked requires the shared Netductor firewall lock.
 func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
+	return applyPrimaryWSSFirewallLockedWithTransaction(nil, secondaryPub, sSP, wssSP)
+}
+
+func applyPrimaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction, secondaryPub, sSP string, wssSP int) error {
 	if strings.TrimSpace(secondaryPub) == "" || strings.TrimSpace(sSP) == "" || wssSP <= 0 {
 		return fmt.Errorf("primary WSS firewall requires secondary public IP, SP peer address and valid WSS port")
 	}
@@ -967,7 +975,7 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 		if err != nil { return err }
 		svcRule, err := ufwPeerRuleMutation(sSP, 8789, "nd-svc-sp")
 		if err != nil { return err }
-		return applyFirewallMutations([]firewallMutation{wssRule, svcRule}, nil)
+		return applyFirewallMutationsWithTransaction(tx, []firewallMutation{wssRule, svcRule}, nil)
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		chain, err := netductorInputChain()
@@ -983,16 +991,24 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 }
 
 func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
+	return applySecondaryWSSFirewallWithTransaction(nil, primaryPub, wssPS)
+}
+
+func applySecondaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, primaryPub string, wssPS int) error {
 	unlock, err := firewall.AcquireMutationLock()
 	if err != nil {
 		return fmt.Errorf("secondary WSS firewall lock: %w", err)
 	}
 	defer unlock()
-	return applySecondaryWSSFirewallLocked(primaryPub, wssPS)
+	return applySecondaryWSSFirewallLockedWithTransaction(tx, primaryPub, wssPS)
 }
 
 // applySecondaryWSSFirewallLocked requires the shared Netductor firewall lock.
 func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
+	return applySecondaryWSSFirewallLockedWithTransaction(nil, primaryPub, wssPS)
+}
+
+func applySecondaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction, primaryPub string, wssPS int) error {
 	if strings.TrimSpace(primaryPub) == "" || wssPS <= 0 {
 		return fmt.Errorf("secondary WSS firewall requires primary public IP and valid WSS port")
 	}
@@ -1039,7 +1055,7 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		}
 		mutation, err := ufwPeerRuleMutation(primaryPub, wssPS, "nd-wss-ps")
 		if err != nil { return err }
-		return applyFirewallMutations([]firewallMutation{mutation}, nil)
+		return applyFirewallMutationsWithTransaction(tx, []firewallMutation{mutation}, nil)
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		chain, err := netductorInputChain()
