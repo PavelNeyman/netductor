@@ -209,8 +209,8 @@ if ! flock -w 60 9; then
     ufw allow "$emergency_port"/tcp comment netductor-ssh-rollback-emergency || true
     ufw allow 22/tcp comment netductor-ssh-rollback-emergency || true
   elif command -v iptables >/dev/null 2>&1; then
-    iptables -C INPUT -p tcp --dport "$emergency_port" -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport "$emergency_port" -j ACCEPT || true
-    iptables -C INPUT -p tcp --dport 22 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 22 -j ACCEPT || true
+    iptables -C INPUT -p tcp --dport "$emergency_port" -m comment --comment netductor-ssh-rollback-emergency -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport "$emergency_port" -m comment --comment netductor-ssh-rollback-emergency -j ACCEPT || true
+    iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-rollback-emergency -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 22 -m comment --comment netductor-ssh-rollback-emergency -j ACCEPT || true
     command -v netfilter-persistent >/dev/null 2>&1 && netfilter-persistent save || true
   fi
   touch "$B/ROLLBACK_FAILED"
@@ -342,6 +342,32 @@ else
       FW_RESTORE_OK=0
       ;;
   esac
+fi
+
+# Remove only our tagged iptables emergency rules after the original
+# firewall policy has been restored successfully. Keep them if restore failed.
+if [ "$FW_RESTORE_OK" -eq 1 ] && command -v iptables >/dev/null 2>&1; then
+  emergency_port=52222
+  if [ -f "$B/management-port" ]; then
+    candidate=$(cat "$B/management-port")
+    case "$candidate" in ''|*[!0-9]*) candidate= ;; esac
+    if [ -n "$candidate" ] && [ "$candidate" -ge 1 ] && [ "$candidate" -le 65535 ]; then emergency_port=$candidate; fi
+  fi
+  for port in "$emergency_port" 22; do
+    while iptables -C INPUT -p tcp --dport "$port" -m comment --comment netductor-ssh-rollback-emergency -j ACCEPT 2>/dev/null; do
+      if ! iptables -D INPUT -p tcp --dport "$port" -m comment --comment netductor-ssh-rollback-emergency -j ACCEPT; then
+        FW_RESTORE_OK=0
+        break
+      fi
+    done
+  done
+  if [ "$FW_RESTORE_OK" -eq 1 ]; then
+    if command -v netfilter-persistent >/dev/null 2>&1; then
+      netfilter-persistent save || FW_RESTORE_OK=0
+    else
+      FW_RESTORE_OK=0
+    fi
+  fi
 fi
 
 if [ "$FW_RESTORE_OK" -ne 1 ]; then
