@@ -154,8 +154,5 @@ func TestBootstrapSnapshotRejectsSymlinkParent(t *testing.T) {
 	if err := os.Mkdir(real, 0o700); err != nil { t.Fatal(err) }
 	link := filepath.Join(root, "link")
 	if err := os.Symlink(real, link); err != nil { t.Fatal(err) }
-	oldAllowed := bootstrapAllowedFileRoots
-	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
-	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
 	if err := validateBootstrapSnapshotPath(filepath.Join(link, "target.conf")); err == nil { t.Fatal("expected symlink parent rejection") }
 }
