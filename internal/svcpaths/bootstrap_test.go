@@ -43,9 +43,6 @@ func TestBootstrapFileTransactionRollbackRestoresBeforeImages(t *testing.T) {
 	oldAllowed := bootstrapAllowedFileRoots
 	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
 	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
-	oldAllowed := bootstrapAllowedFileRoots
-	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
-	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
 	oldRoot := bootstrapJournalRoot
 	bootstrapJournalRoot = filepath.Join(root, "journal")
 	defer func() { bootstrapJournalRoot = oldRoot }()
@@ -78,9 +75,6 @@ func TestRecoverBootstrapFileTransactionsIsIdempotent(t *testing.T) {
 	for _, phase := range []string{"applying", "rolling_back"} {
 		t.Run(phase, func(t *testing.T) {
 			root := t.TempDir()
-			oldAllowed := bootstrapAllowedFileRoots
-			bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
-			t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
 			oldAllowed := bootstrapAllowedFileRoots
 			bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
 			t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
