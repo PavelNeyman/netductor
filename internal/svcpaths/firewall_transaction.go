@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
 )
@@ -195,7 +196,7 @@ func parseNetductorInputChain(output string) (string, error) {
 	return chain, nil
 }
 
-var bootstrapFirewallLock = firewall.AcquireMutationLock
+var bootstrapFirewallLock = func() (func(), error) { return firewall.AcquireMutationLockTimeout(30 * time.Second) }
 var bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).CombinedOutput()
 }
