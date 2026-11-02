@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"net"
 	"time"
 )
 
@@ -45,6 +46,15 @@ type bootstrapUnitImage struct {
 	ActiveState string `json:"active_state"`
 }
 
+type bootstrapFirewallImage struct {
+	Backend      string `json:"backend"`
+	Chain        string `json:"chain,omitempty"`
+	Source       string `json:"source"`
+	Port         int    `json:"port"`
+	Comment      string `json:"comment,omitempty"`
+	BeforeExists bool   `json:"before_exists"`
+}
+
 type bootstrapJournal struct {
 	Version   int                  `json:"version"`
 	TxID      string               `json:"tx_id"`
@@ -57,6 +67,7 @@ type bootstrapJournal struct {
 	Files     []bootstrapFileImage `json:"files"`
 	Units        []bootstrapUnitImage `json:"units,omitempty"`
 	TouchedUnits []string             `json:"touched_units,omitempty"`
+	FirewallRules []bootstrapFirewallImage `json:"firewall_rules,omitempty"`
 }
 
 type bootstrapFileTransaction struct {
@@ -203,6 +214,44 @@ func (tx *bootstrapFileTransaction) SnapshotUnits(names ...string) error {
 	return nil
 }
 
+// SnapshotFirewallRule persists the exact pre-mutation state of one
+// Netductor-owned peer rule. Only rules absent before this transaction are
+// eligible for rollback deletion.
+func (tx *bootstrapFileTransaction) SnapshotFirewallRule(image bootstrapFirewallImage, exists bool) error {
+	if tx == nil || tx.journal.Phase != "applying" {
+		return fmt.Errorf("bootstrap file transaction is not applying")
+	}
+	image.Source = strings.TrimSpace(image.Source)
+	if image.Backend != "ufw" && image.Backend != "iptables" {
+		return fmt.Errorf("unsupported firewall backend %q", image.Backend)
+	}
+	ip := net.ParseIP(image.Source)
+	if ip == nil || ip.To4() == nil || image.Port < 1 || image.Port > 65535 {
+		return fmt.Errorf("invalid firewall rule tuple")
+	}
+	image.Source = ip.To4().String()
+	if image.Backend == "ufw" {
+		if image.Chain != "" || (image.Comment != "nd-wss-sp" && image.Comment != "nd-wss-ps" && image.Comment != "nd-svc-sp") {
+			return fmt.Errorf("invalid Netductor UFW firewall rule identity")
+		}
+	} else if (image.Chain != "NETDUCTOR_A" && image.Chain != "NETDUCTOR_B") || image.Comment != "" {
+		return fmt.Errorf("invalid Netductor iptables firewall rule identity")
+	}
+	for _, existing := range tx.journal.FirewallRules {
+		if existing.Backend == image.Backend && existing.Chain == image.Chain &&
+			existing.Source == image.Source && existing.Port == image.Port && existing.Comment == image.Comment {
+			return nil
+		}
+	}
+	image.BeforeExists = exists
+	tx.journal.FirewallRules = append(tx.journal.FirewallRules, image)
+	if err := tx.persist(); err != nil {
+		tx.journal.FirewallRules = tx.journal.FirewallRules[:len(tx.journal.FirewallRules)-1]
+		return fmt.Errorf("persist firewall before-image for %s:%d: %w", image.Source, image.Port, err)
+	}
+	return nil
+}
+
 func (tx *bootstrapFileTransaction) MarkUnitsTouched(names ...string) error {
 	if tx == nil || tx.journal.Phase != "applying" {
 		return fmt.Errorf("bootstrap file transaction is not applying")
@@ -319,6 +368,9 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 	}
 	if err := restoreBootstrapUnits(tx.journal.Units, tx.journal.TouchedUnits); err != nil {
 		return fmt.Errorf("restore systemd runtime/enablement state: %w", err)
+	}
+	if err := restoreBootstrapFirewallRules(tx.journal.FirewallRules); err != nil {
+		return fmt.Errorf("restore bootstrap firewall deltas: %w", err)
 	}
 	return tx.finish("rolled_back")
 }
@@ -445,6 +497,30 @@ func validateBootstrapJournal(j bootstrapJournal, filename string) error {
 			return fmt.Errorf("invalid, duplicate, or unsnapshotted touched unit %q", name)
 		}
 		seenTouched[name] = true
+	}
+	if len(j.FirewallRules) > 64 {
+		return fmt.Errorf("too many bootstrap firewall rule images: %d", len(j.FirewallRules))
+	}
+	seenFirewall := make(map[string]bool, len(j.FirewallRules))
+	for _, rule := range j.FirewallRules {
+		ip := net.ParseIP(rule.Source)
+		if ip == nil || ip.To4() == nil || rule.Port < 1 || rule.Port > 65535 {
+			return fmt.Errorf("invalid bootstrap firewall rule tuple")
+		}
+		key := fmt.Sprintf("%s|%s|%s|%d|%s", rule.Backend, rule.Chain, rule.Source, rule.Port, rule.Comment)
+		if seenFirewall[key] { return fmt.Errorf("duplicate bootstrap firewall rule image") }
+		seenFirewall[key] = true
+		if rule.Backend == "ufw" {
+			if rule.Chain != "" || (rule.Comment != "nd-wss-sp" && rule.Comment != "nd-wss-ps" && rule.Comment != "nd-svc-sp") {
+				return fmt.Errorf("invalid bootstrap UFW firewall rule image")
+			}
+		} else if rule.Backend == "iptables" {
+			if (rule.Chain != "NETDUCTOR_A" && rule.Chain != "NETDUCTOR_B") || rule.Comment != "" {
+				return fmt.Errorf("invalid bootstrap iptables firewall rule image")
+			}
+		} else {
+			return fmt.Errorf("unsupported bootstrap firewall backend %q", rule.Backend)
+		}
 	}
 	for _, image := range j.Files {
 		if image.Path == "" { return fmt.Errorf("empty snapshot path") }
