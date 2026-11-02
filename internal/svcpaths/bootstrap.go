@@ -943,7 +943,7 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		}
 		rules := parseUfwNumbered(string(status))
 		numberedLines := 0
-		for _, line := range strings.Split(string(status), "\\n") {
+		for _, line := range strings.Split(string(status), "\n") {
 			if strings.HasPrefix(strings.TrimSpace(line), "[") { numberedLines++ }
 		}
 		if len(rules) == 0 || len(rules) != numberedLines {
