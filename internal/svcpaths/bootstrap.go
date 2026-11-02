@@ -397,8 +397,7 @@ func MaterialIfacesStrict() (sp, ps string, err error) {
 	return sp, ps, nil
 }
 
-func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {
-	pSP, sSP, pPS, sPS = AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
+func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {	pSP, sSP, pPS, sPS = AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
 	portSP, portPS, wssSP, wssPS = PortSP, PortPS, WSS_SP, WSS_PS
 	ifaceSP, ifacePS = "nd-svc-sp", "nd-svc-ps"
 	if m != nil && m.AddrP_SP != "" {
@@ -797,7 +796,6 @@ sp=0; ps=0
 (ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1) && ps=1
 printf '{"ts":"%%s","role":"unknown","svc_sp_up":%%s,"svc_ps_up":%%s,"note":"shell-fallback-peer"}\n' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "$sp" "$ps" > "$OUT"
 `, pSP, sSP, pPS, sPS)
-
 	if err := writeFile(script, body, 0o755); err != nil {
 		return err
 	}
@@ -937,15 +935,36 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		return fmt.Errorf("secondary WSS firewall requires primary public IP and valid WSS port")
 	}
 	if _, err := exec.LookPath("ufw"); err == nil {
-		openRE := ufwOpenPortAnywherePattern(wssPS)
+		// Migrate only legacy Netductor-tagged global WSS rules. Never delete
+		// an untagged administrator rule as a side effect of peer bootstrap.
+		status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("inspect UFW secondary WSS rules: %w: %s", err, strings.TrimSpace(string(status)))
+		}
+		rules := parseUfwNumbered(string(status))
+		numberedLines := 0
+		for _, line := range strings.Split(string(status), "\\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "[") { numberedLines++ }
+		}
+		if len(rules) == 0 || len(rules) != numberedLines {
+			return fmt.Errorf("cannot completely parse numbered UFW rules for secondary WSS: parsed %d of %d", len(rules), numberedLines)
+		}
+		if err := firewall.RemoveLegacyGlobalWSSRules(string(status)); err != nil {
+			return fmt.Errorf("migrate legacy secondary WSS rules: %w", err)
+		}
+		status, err = exec.Command("ufw", "status").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("verify UFW secondary WSS rules after migration: %w: %s", err, strings.TrimSpace(string(status)))
+		}
+		if err := validateNoGlobalWSSAllows(string(status), []int{wssPS}); err != nil {
+			return fmt.Errorf("refusing to alter untagged/admin secondary WSS firewall rules: %w", err)
+		}
 		script := fmt.Sprintf(`set -e
 ufw status 2>/dev/null | grep -qi 'Status: active'
-ufw --force delete allow %d/tcp 2>/dev/null || true
 while ufw --force delete allow from %s to any port %d proto tcp comment nd-wss-ps 2>/dev/null; do :; done
 ufw allow from %s to any port %d proto tcp comment nd-wss-ps
-if ufw status | grep -E '%s' >/dev/null 2>&1; then echo open-wss-ps-still-present; exit 1; fi
 echo secondary-ufw-wss-ok
-`, wssPS, primaryPub, wssPS, primaryPub, wssPS, openRE)
+`, primaryPub, wssPS, primaryPub, wssPS)
 		out, err := exec.Command("bash", "-c", script).CombinedOutput()
 		if err != nil { return fmt.Errorf("secondary ufw WSS: %w: %s", err, out) }
 		return nil
