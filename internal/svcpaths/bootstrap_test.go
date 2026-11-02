@@ -332,3 +332,19 @@ func TestApplyFirewallMutationsRollbackOnPersistenceFailure(t *testing.T) {
 	err:=applyFirewallMutations([]firewallMutation{mutation},func()error{return errors.New("save failed")})
 	if err==nil { t.Fatal("expected persistence failure") }; if created { t.Fatal("rule not rolled back") }
 }
+
+func TestParseNetductorInputChainStrict(t *testing.T) {
+	for _, tc := range []struct{name, input, want string; wantErr bool}{
+		{name:"single A", input:"-P INPUT ACCEPT\n-A INPUT -j NETDUCTOR_A\n", want:"NETDUCTOR_A"},
+		{name:"single B", input:"-A INPUT -j NETDUCTOR_B\n", want:"NETDUCTOR_B"},
+		{name:"missing", input:"-P INPUT ACCEPT\n", wantErr:true},
+		{name:"duplicate jump", input:"-A INPUT -j NETDUCTOR_A\n-A INPUT -j NETDUCTOR_A\n", wantErr:true},
+		{name:"ambiguous chains", input:"-A INPUT -j NETDUCTOR_A\n-A INPUT -j NETDUCTOR_B\n", wantErr:true},
+	} {
+		t.Run(tc.name,func(t *testing.T){
+			got,err:=parseNetductorInputChain(tc.input)
+			if (err!=nil)!=tc.wantErr { t.Fatalf("error=%v wantErr=%v",err,tc.wantErr) }
+			if err==nil && got!=tc.want { t.Fatalf("chain=%q want %q",got,tc.want) }
+		})
+	}
+}
