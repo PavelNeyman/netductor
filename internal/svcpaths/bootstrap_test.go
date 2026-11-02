@@ -284,9 +284,9 @@ func TestValidateNoGlobalWSSAllowsProtectsAdministratorRules(t *testing.T) {
 		status string
 		wantErr bool
 	}{
-		{name: "no broad rule", status: "Status: active\\nTo                         Action      From\\n8445/tcp                   ALLOW       203.0.113.10\\n"},
-		{name: "untagged IPv4 administrator rule", status: "Status: active\\nTo                         Action      From\\n8445/tcp                   ALLOW       Anywhere\\n", wantErr: true},
-		{name: "untagged IPv6 administrator rule", status: "Status: active\\nTo                         Action      From\\n8445/tcp (v6)              ALLOW       Anywhere (v6)\\n", wantErr: true},
+		{name: "no broad rule", status: "Status: active\nTo                         Action      From\n8445/tcp                   ALLOW       203.0.113.10\n"},
+		{name: "untagged IPv4 administrator rule", status: "Status: active\nTo                         Action      From\n8445/tcp                   ALLOW       Anywhere\n", wantErr: true},
+		{name: "untagged IPv6 administrator rule", status: "Status: active\nTo                         Action      From\n8445/tcp (v6)              ALLOW       Anywhere (v6)\n", wantErr: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateNoGlobalWSSAllows(tc.status, []int{8445})
