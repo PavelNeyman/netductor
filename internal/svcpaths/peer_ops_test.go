@@ -464,3 +464,23 @@ func TestPeerAddRefusesIncompleteOp(t *testing.T) {
 		t.Fatalf("incomplete op must refuse add, got %v", err)
 	}
 }
+
+func TestPeersIndexRejectsUnknownSchemaButAcceptsLegacyUnversioned(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	path := peersIndexPath()
+
+	if err := os.WriteFile(path, []byte(`{"peers":[]}`), 0o600); err != nil { t.Fatal(err) }
+	legacy, err := LoadPeersIndex()
+	if err != nil { t.Fatalf("legacy unversioned registry rejected: %v", err) }
+	if legacy.Version != 1 { t.Fatalf("legacy version normalized to %d, want 1", legacy.Version) }
+
+	if err := os.WriteFile(path, []byte(`{"version":2,"peers":[]}`), 0o600); err != nil { t.Fatal(err) }
+	if _, err := LoadPeersIndex(); err == nil || !strings.Contains(err.Error(), "schema version 2 is unsupported") {
+		t.Fatalf("future schema should fail closed, got %v", err)
+	}
+	if err := SavePeersIndex(&PeersIndex{Version: 2}); err == nil {
+		t.Fatal("SavePeersIndex accepted unsupported schema")
+	}
+}
