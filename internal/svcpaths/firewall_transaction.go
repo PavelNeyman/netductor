@@ -208,7 +208,7 @@ func restoreBootstrapFirewallRules(images []bootstrapFirewallImage) error {
 	if err != nil { return fmt.Errorf("acquire firewall lock for bootstrap rollback: %w", err) }
 	defer unlock()
 	var errs []error
-	iptablesChanged := false
+	iptablesNeedsPersist := false
 	for i := len(images)-1; i >= 0; i-- {
 		rule := images[i]
 		if rule.BeforeExists { continue }
@@ -231,6 +231,7 @@ func restoreBootstrapFirewallRules(images []bootstrapFirewallImage) error {
 				errs = append(errs, fmt.Errorf("verify removal of transaction-created UFW rule %s:%d (err=%v): %s", rule.Source, rule.Port, err, strings.TrimSpace(string(verify))))
 			}
 		case "iptables":
+			iptablesNeedsPersist = true
 			check := []string{"-C", rule.Chain, "-p", "tcp", "-s", rule.Source, "--dport", strconv.Itoa(rule.Port), "-j", "ACCEPT"}
 			out, err := bootstrapFirewallExec("iptables", check...)
 			if err != nil {
@@ -245,12 +246,13 @@ func restoreBootstrapFirewallRules(images []bootstrapFirewallImage) error {
 				errs = append(errs, fmt.Errorf("remove transaction-created iptables rule %s:%d: %w: %s", rule.Source, rule.Port, err, strings.TrimSpace(string(out))))
 				continue
 			}
-			iptablesChanged = true
+			// The runtime rule is now absent; persist even if an earlier
+			// failed save left the on-disk ruleset stale.
 		default:
 			errs = append(errs, fmt.Errorf("unsupported firewall backend %q in rollback journal", rule.Backend))
 		}
 	}
-	if iptablesChanged {
+	if iptablesNeedsPersist {
 		if err := persistNetfilterRules(); err != nil { errs = append(errs, fmt.Errorf("persist iptables rollback: %w", err)) }
 	}
 	return errors.Join(errs...)
