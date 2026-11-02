@@ -164,18 +164,17 @@ func (tx *bootstrapFileTransaction) SnapshotUnits(names ...string) error {
 	if tx == nil || tx.journal.Phase != "applying" {
 		return fmt.Errorf("bootstrap file transaction is not applying")
 	}
+	seen := make(map[string]bool, len(tx.journal.Units)+len(names))
+	for _, image := range tx.journal.Units { seen[image.Name] = true }
+	pending := make([]bootstrapUnitImage, 0, len(names))
 	for _, name := range names {
 		if !safeUnitName(name) {
 			return fmt.Errorf("invalid systemd unit name %q", name)
 		}
-		found := false
-		for _, image := range tx.journal.Units {
-			if image.Name == name { found = true; break }
-		}
-		if found { continue }
+		if seen[name] { continue }
 		out, err := bootstrapSystemctl("show", "--property=LoadState", "--property=UnitFileState", "--property=ActiveState", name)
 		text := strings.TrimSpace(string(out))
-		if err != nil && !strings.Contains(text, "LoadState=not-found") {
+		if err != nil && !strings.Contains(text, "LoadState=not-found") && !strings.Contains(text, "LoadState=masked") {
 			return fmt.Errorf("snapshot systemd unit %s: %w: %s", name, err, text)
 		}
 		values := map[string]string{}
@@ -190,11 +189,15 @@ func (tx *bootstrapFileTransaction) SnapshotUnits(names ...string) error {
 		if image.LoadState != "not-found" && (image.FileState == "" || image.ActiveState == "") {
 			return fmt.Errorf("snapshot systemd unit %s: incomplete state in systemctl output %q", name, text)
 		}
-		tx.journal.Units = append(tx.journal.Units, image)
-		if err := tx.persist(); err != nil {
-			tx.journal.Units = tx.journal.Units[:len(tx.journal.Units)-1]
-			return fmt.Errorf("persist systemd before-image for %s: %w", name, err)
-		}
+		pending = append(pending, image)
+		seen[name] = true
+	}
+	if len(pending) == 0 { return nil }
+	oldLen := len(tx.journal.Units)
+	tx.journal.Units = append(tx.journal.Units, pending...)
+	if err := tx.persist(); err != nil {
+		tx.journal.Units = tx.journal.Units[:oldLen]
+		return fmt.Errorf("persist systemd before-images: %w", err)
 	}
 	return nil
 }
@@ -224,7 +227,7 @@ func restoreBootstrapUnits(images []bootstrapUnitImage) error {
 			if err != nil { errs = append(errs, fmt.Errorf("unmask unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
 			if image.FileState == "enabled" || image.FileState == "enabled-runtime" || image.FileState == "linked" || image.FileState == "linked-runtime" {
 				out, err = bootstrapSystemctl("enable", image.Name)
-			} else if image.FileState == "disabled" || image.FileState == "generated" {
+			} else if image.FileState == "disabled" {
 				out, err = bootstrapSystemctl("disable", image.Name)
 			} else {
 				out, err = nil, nil // static/indirect/transient units are not enableable
