@@ -105,7 +105,12 @@ func iptablesPeerRuleMutation(chain, source string, port int) (firewallMutation,
 	remove := []string{"-D", chain, "-p", "tcp", "-s", source, "--dport", strconv.Itoa(port), "-j", "ACCEPT"}
 	return firewallMutation{
 		apply: func() (bool, error) {
-			if err := exec.Command("iptables", check...).Run(); err == nil { return false, nil }
+			checkOut, checkErr := exec.Command("iptables", check...).CombinedOutput()
+			if checkErr == nil { return false, nil }
+			var exitErr *exec.ExitError
+			if !errors.As(checkErr, &exitErr) || exitErr.ExitCode() != 1 {
+				return false, fmt.Errorf("inspect iptables peer rule: %w: %s", checkErr, strings.TrimSpace(string(checkOut)))
+			}
 			out, err := exec.Command("iptables", insert...).CombinedOutput()
 			if err != nil { return false, fmt.Errorf("insert iptables peer rule: %w: %s", err, strings.TrimSpace(string(out))) }
 			return true, nil
