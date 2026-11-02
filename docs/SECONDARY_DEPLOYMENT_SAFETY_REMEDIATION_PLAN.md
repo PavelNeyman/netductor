@@ -85,4 +85,6 @@ Updated against current `main` after the initial plan commit.
 - [x] Bootstrap records per-unit mutation intent durably immediately before each service mutation. Rollback restores only units that the transaction may have touched, after restoring files and running daemon-reload.
 - [x] Added focused tests for bounded SSH rollback/retry, systemd state restoration, absent units, atomic unit snapshots, untouched-unit preservation, and version-1 journal compatibility.
 - [ ] Focused tests have **not** been executed yet. Actions remain manual-only; no workflow was dispatched.
-- [ ] Firewall changes are not yet part of the bootstrap journal. This remains the next implementation block.
+- [x] Bootstrap journal now records exact before-images for transaction-created source-restricted WSS/service peer rules on both UFW and iptables. Recovery removes only rules absent before the transaction; pre-existing rules and unrelated administrator rules are preserved. UFW migration rules for existing peers remain additive/restrictive and are deliberately not rolled back.
+- [x] Added focused UFW rollback tests proving that only the transaction-created peer rule is removed and a pre-existing peer rule is retained.
+- [ ] Focused tests have not been executed yet. The repository changes are source-reviewed only; no Actions workflow was dispatched.
