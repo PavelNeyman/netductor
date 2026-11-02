@@ -67,16 +67,35 @@ func loadRegistry() (*registry, error) {
 	if err := EnsureDirs(); err != nil {
 		return nil, err
 	}
-	var r registry
-	err := statefile.LoadJSON(usersFile(), &r)
+	// Validate the registry envelope before decoding into a struct. Go's JSON
+	// decoder treats both a missing "users" field and "users": null as a nil
+	// slice; silently normalizing either to empty would let the next mutation
+	// overwrite an existing but malformed registry and erase accounts.
+	var raw json.RawMessage
+	err := statefile.LoadJSON(usersFile(), &raw)
 	if statefile.IsNotExist(err) {
 		return &registry{Users: []UserRecord{}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil, fmt.Errorf("decode VPN user registry envelope: %w", err)
+	}
+	usersRaw, ok := envelope["users"]
+	if !ok || len(usersRaw) == 0 || string(usersRaw) == "null" {
+		return nil, fmt.Errorf("VPN user registry has no valid users array; refusing destructive normalization")
+	}
+	if usersRaw[0] != '[' {
+		return nil, fmt.Errorf("VPN user registry users field must be an array")
+	}
+	var r registry
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return nil, fmt.Errorf("decode VPN user registry: %w", err)
+	}
 	if r.Users == nil {
-		r.Users = []UserRecord{}
+		return nil, fmt.Errorf("VPN user registry users array is null")
 	}
 	changed := migrateUserPolicies(&r)
 	if changed {
