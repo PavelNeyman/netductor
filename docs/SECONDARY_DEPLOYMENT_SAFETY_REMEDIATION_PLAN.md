@@ -104,3 +104,9 @@ Updated against current `main` after the initial plan commit.
 - Existing legacy slot-0 material remains compatible, including keys-only legacy records whose slot-0 tunnel values are absent.
 - Added regression coverage proving a slot-1 root material is rejected without creating a peer registry entry or peer material file.
 - Tests have not been executed.
+
+
+### VPN user registry corruption guard
+- `loadRegistry` now validates that `vpn-users.json` contains a real `users` array before decoding into the typed registry. Missing, null, or non-array values fail closed instead of becoming an empty list and being overwritten by the next user mutation.
+- Added regression coverage for missing/null/object `users` envelopes. Existing absent-file behavior remains clean-install compatible.
+- Tests have not been executed.
