@@ -207,10 +207,10 @@ func ensureWSSAllowRules(role string) error {
 	return verifyWSSRules(rules, role)
 }
 
-// removeLegacyGlobalWSSRules migrates old Netductor-wide WSS ALLOW rules. It
+// RemoveLegacyGlobalWSSRules migrates old Netductor-wide WSS ALLOW rules. It
 // removes only rules carrying Netductor's historical comments; administrator
 // rules are preserved and subsequently cause a fail-closed policy check.
-func removeLegacyGlobalWSSRules(status string) error {
+func RemoveLegacyGlobalWSSRules(status string) error {
 	var numbers []int
 	for _, rule := range parseUfwNumbered(status) {
 		if rule.Action != "ALLOW" || !ufwFromIsWAN(rule.From) || (rule.Port != "8444" && rule.Port != "8445") { continue }
@@ -906,7 +906,7 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if _, err := wssExpectations(role); err != nil {
 		return fmt.Errorf("read WSS peer inventory before firewall mutation: %w", err)
 	}
-	if err := removeLegacyGlobalWSSRules(string(current)); err != nil {
+	if err := RemoveLegacyGlobalWSSRules(string(current)); err != nil {
 		return err
 	}
 	if err := ensureWSSAllowRules(role); err != nil {
@@ -1044,7 +1044,7 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	}
 	// UFW may hide saved rules while inactive. Re-run the exact-comment legacy
 	// migration after activation so old global WSS ALLOW rules cannot reappear.
-	if err := removeLegacyGlobalWSSRules(string(status)); err != nil { return err }
+	if err := RemoveLegacyGlobalWSSRules(string(status)); err != nil { return err }
 	if err := ensureWSSAllowRules(role); err != nil { return fmt.Errorf("post-enable WSS peer policy: %w", err) }
 	status, statusErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if statusErr != nil { return fmt.Errorf("ufw post-migration status: %v (%s)", statusErr, truncate(string(status), 200)) }
