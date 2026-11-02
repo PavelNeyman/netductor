@@ -630,7 +630,11 @@ PersistentKeepalive = 25
 	if err := applyPrimaryWSSFirewall(m.Secondary, sSP, wssSP); err != nil {
 		return err
 	}
-	if err := enableRestart(spServerUnit, psClientUnit, "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
+	unitsToRestart := []string{spServerUnit, psClientUnit, "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS}
+	if err := tx.MarkUnitsTouched(unitsToRestart...); err != nil {
+		return fmt.Errorf("record primary systemd mutation intent: %w", err)
+	}
+	if err := enableRestart(unitsToRestart...); err != nil {
 		return err
 	}
 
@@ -744,7 +748,11 @@ AllowedIPs = %s/32
 	if err := applySecondaryWSSFirewall(m.Primary, wssPS); err != nil {
 		return err
 	}
-	if err := enableRestart("nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@"+ifaceSP, "wg-quick@"+ifacePS); err != nil {
+	secondaryUnits := []string{"nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS}
+	if err := tx.MarkUnitsTouched(secondaryUnits...); err != nil {
+		return fmt.Errorf("record secondary systemd mutation intent: %w", err)
+	}
+	if err := enableRestart(secondaryUnits...); err != nil {
 		return err
 	}
 
@@ -759,6 +767,9 @@ AllowedIPs = %s/32
 		return err
 	}
 	// Agent must pick up secondary_core_url (SP). Restart failures are fatal unless unit is absent (pre-join).
+	if err := tx.MarkUnitsTouched("netductor-secondary-agent"); err != nil {
+		return fmt.Errorf("record secondary agent restart intent: %w", err)
+	}
 	if out, err := exec.Command("systemctl", "try-restart", "netductor-secondary-agent").CombinedOutput(); err != nil {
 		st := string(out)
 		if !strings.Contains(st, "not found") && !strings.Contains(st, "not-found") && !strings.Contains(st, "could not be found") {
@@ -857,6 +868,11 @@ WantedBy=timers.target
 	}
 	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
 		return fmt.Errorf("daemon-reload (health timer): %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if tx != nil {
+		if err := tx.MarkUnitsTouched("nd-svc-paths-health.timer"); err != nil {
+			return fmt.Errorf("record health timer mutation intent: %w", err)
+		}
 	}
 	if out, err := exec.Command("systemctl", "enable", "--now", "nd-svc-paths-health.timer").CombinedOutput(); err != nil {
 		return fmt.Errorf("enable nd-svc-paths-health.timer: %w: %s", err, strings.TrimSpace(string(out)))
