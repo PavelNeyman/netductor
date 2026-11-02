@@ -236,6 +236,14 @@ func TestEnsureBootstrapJournalDirectoryRejectsSymlinkRoot(t *testing.T) {
 	}
 }
 
+func TestEnsureBootstrapJournalDirectoryAllowsNonWritableSharedParent(t *testing.T) {
+	parent := t.TempDir()
+	if err := os.Chmod(parent, 0o755); err != nil { t.Fatal(err) }
+	if err := ensureBootstrapJournalDirectory(filepath.Join(parent, "journal")); err != nil {
+		t.Fatalf("read/execute-only parent should be accepted: %v", err)
+	}
+}
+
 func TestEnsureBootstrapJournalDirectoryRejectsWritableParent(t *testing.T) {
 	parent := t.TempDir()
 	if err := os.Chmod(parent, 0o770); err != nil { t.Fatal(err) }
