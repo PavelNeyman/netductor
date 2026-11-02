@@ -2,6 +2,7 @@ package svcpaths
 
 import (
 	"os"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -295,4 +296,39 @@ func TestValidateNoGlobalWSSAllowsProtectsAdministratorRules(t *testing.T) {
 			}
 		})
 	}
+}
+
+ 
+// Transaction tests use injected actions and never execute host firewall commands.
+func TestApplyFirewallMutationsRollsBackOnlyCreatedRules(t *testing.T) {
+	var state []string
+	mk := func(name string, fail bool) firewallMutation {
+		return firewallMutation{
+			apply: func() (bool, error) {
+				if fail { return false, errors.New("injected failure") }
+				state = append(state, name); return true, nil
+			},
+			rollback: func() error {
+				for i := len(state)-1; i >= 0; i-- {
+					if state[i] == name { state = append(state[:i], state[i+1:]...); return nil }
+				}
+				return nil
+			},
+		}
+	}
+	err := applyFirewallMutations([]firewallMutation{mk("peer-b-wss", false), mk("peer-b-svc", true)}, nil)
+	if err == nil { t.Fatal("expected injected failure") }
+	if len(state) != 0 { t.Fatalf("partial rule leaked after rollback: %v", state) }
+}
+func TestApplyFirewallMutationsPreservesExistingAndUnrelated(t *testing.T) {
+	state := []string{"peer-a-rule", "peer-b-existing"}
+	mutation := firewallMutation{apply: func() (bool,error) { return false,nil }, rollback: func() error { state=nil; return nil }}
+	if err := applyFirewallMutations([]firewallMutation{mutation},nil); err != nil { t.Fatal(err) }
+	if len(state)!=2 || state[0]!="peer-a-rule" || state[1]!="peer-b-existing" { t.Fatalf("existing rules changed: %v",state) }
+}
+func TestApplyFirewallMutationsRollbackOnPersistenceFailure(t *testing.T) {
+	created:=false
+	mutation:=firewallMutation{apply:func()(bool,error){created=true;return true,nil},rollback:func()error{created=false;return nil}}
+	err:=applyFirewallMutations([]firewallMutation{mutation},func()error{return errors.New("save failed")})
+	if err==nil { t.Fatal("expected persistence failure") }; if created { t.Fatal("rule not rolled back") }
 }
