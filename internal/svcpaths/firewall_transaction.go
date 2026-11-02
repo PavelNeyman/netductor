@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -45,6 +44,30 @@ func applyFirewallMutations(mutations []firewallMutation, persist func() error) 
 	return nil
 }
 
+// ufwStatusHasPeerRule matches one complete numbered UFW rule. Matching exact
+// fields prevents a different source address, port, action, or comment from
+// being mistaken for the peer rule being managed.
+func ufwStatusHasPeerRule(output, source string, port int, comment string) bool {
+	wantPort := strconv.Itoa(port) + "/tcp"
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 8 && fields[0] == "[" && strings.HasSuffix(fields[1], "]") {
+			if _, err := strconv.Atoi(strings.TrimSuffix(fields[1], "]")); err != nil { continue }
+			fields = fields[1:]
+		} else if len(fields) == 7 && strings.HasPrefix(fields[0], "[") && strings.HasSuffix(fields[0], "]") {
+			if _, err := strconv.Atoi(strings.Trim(fields[0], "[]")); err != nil { continue }
+			fields = fields[1:]
+		} else {
+			continue
+		}
+		if len(fields) == 6 && fields[0] == wantPort && fields[1] == "ALLOW" &&
+			fields[2] == "IN" && fields[3] == source && fields[4] == "#" && fields[5] == comment {
+			return true
+		}
+	}
+	return false
+}
+
 func ufwPeerRuleMutation(source string, port int, comment string) (firewallMutation, error) {
 	ip := net.ParseIP(source)
 	if ip == nil || ip.To4() == nil || port < 1 || port > 65535 ||
@@ -58,8 +81,7 @@ func ufwPeerRuleMutation(source string, port int, comment string) (firewallMutat
 		apply: func() (bool, error) {
 			status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
 			if err != nil { return false, fmt.Errorf("inspect UFW rules: %w: %s", err, strings.TrimSpace(string(status))) }
-			lineRE := regexp.MustCompile("(?m)^.*" + regexp.QuoteMeta(strconv.Itoa(port)+"/tcp") + ".*" + regexp.QuoteMeta(source) + ".*# " + regexp.QuoteMeta(comment) + "\\s*$")
-			if lineRE.Match(status) { return false, nil }
+			if ufwStatusHasPeerRule(string(status), source, port, comment) { return false, nil }
 			out, err := exec.Command("ufw", args...).CombinedOutput()
 			if err != nil { return false, fmt.Errorf("add UFW rule: %w: %s", err, strings.TrimSpace(string(out))) }
 			return true, nil
