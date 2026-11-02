@@ -326,11 +326,21 @@ func TestApplyFirewallMutationsPreservesExistingAndUnrelated(t *testing.T) {
 	if err := applyFirewallMutations([]firewallMutation{mutation},nil); err != nil { t.Fatal(err) }
 	if len(state)!=2 || state[0]!="peer-a-rule" || state[1]!="peer-b-existing" { t.Fatalf("existing rules changed: %v",state) }
 }
-func TestApplyFirewallMutationsRollbackOnPersistenceFailure(t *testing.T) {
-	created:=false
-	mutation:=firewallMutation{apply:func()(bool,error){created=true;return true,nil},rollback:func()error{created=false;return nil}}
-	err:=applyFirewallMutations([]firewallMutation{mutation},func()error{return errors.New("save failed")})
-	if err==nil { t.Fatal("expected persistence failure") }; if created { t.Fatal("rule not rolled back") }
+func TestApplyFirewallMutationsRollbackAndRepersistOnPersistenceFailure(t *testing.T) {
+	created := false
+	persistCalls := 0
+	mutation := firewallMutation{
+		apply: func() (bool, error) { created = true; return true, nil },
+		rollback: func() error { created = false; return nil },
+	}
+	err := applyFirewallMutations([]firewallMutation{mutation}, func() error {
+		persistCalls++
+		if persistCalls == 1 { return errors.New("injected initial save failure") }
+		return nil
+	})
+	if err == nil { t.Fatal("expected initial persistence failure") }
+	if created { t.Fatal("rule not rolled back") }
+	if persistCalls != 2 { t.Fatalf("persist called %d times, want initial save plus restored-state save", persistCalls) }
 }
 
 func TestParseNetductorInputChainStrict(t *testing.T) {
