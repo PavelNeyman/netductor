@@ -193,3 +193,56 @@ func TestValidateBootstrapJournalRejectsMalformedMetadata(t *testing.T) {
 		t.Fatalf("valid journal rejected: %v", err)
 	}
 }
+
+
+func TestEnsureBootstrapJournalDirectoryCreatesAndReusesPrivateRoot(t *testing.T) {
+	parent := t.TempDir()
+	journal := filepath.Join(parent, "journal")
+	if err := ensureBootstrapJournalDirectory(journal); err != nil {
+		t.Fatalf("create journal directory: %v", err)
+	}
+	if err := ensureBootstrapJournalDirectory(journal); err != nil {
+		t.Fatalf("repeat ensure must be idempotent: %v", err)
+	}
+	info, err := os.Lstat(journal)
+	if err != nil { t.Fatal(err) }
+	if !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("journal directory mode/type = %v, want private directory 0700", info.Mode())
+	}
+}
+
+func TestEnsureBootstrapJournalDirectoryRejectsSymlinkParent(t *testing.T) {
+	root := t.TempDir()
+	realParent := filepath.Join(root, "real")
+	if err := os.Mkdir(realParent, 0o700); err != nil { t.Fatal(err) }
+	linkParent := filepath.Join(root, "parent-link")
+	if err := os.Symlink(realParent, linkParent); err != nil { t.Fatal(err) }
+	if err := ensureBootstrapJournalDirectory(filepath.Join(linkParent, "journal")); err == nil {
+		t.Fatal("expected symlink parent rejection")
+	}
+	if _, err := os.Lstat(filepath.Join(realParent, "journal")); !os.IsNotExist(err) {
+		t.Fatalf("journal was created through symlink parent: %v", err)
+	}
+}
+
+func TestEnsureBootstrapJournalDirectoryRejectsSymlinkRoot(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	if err := os.Mkdir(target, 0o700); err != nil { t.Fatal(err) }
+	link := filepath.Join(root, "journal-link")
+	if err := os.Symlink(target, link); err != nil { t.Fatal(err) }
+	if err := ensureBootstrapJournalDirectory(link); err == nil {
+		t.Fatal("expected symlink journal root rejection")
+	}
+}
+
+func TestEnsureBootstrapJournalDirectoryRejectsWritableParent(t *testing.T) {
+	parent := t.TempDir()
+	if err := os.Chmod(parent, 0o770); err != nil { t.Fatal(err) }
+	if err := ensureBootstrapJournalDirectory(filepath.Join(parent, "journal")); err == nil {
+		t.Fatal("expected group-writable parent rejection")
+	}
+	if _, err := os.Lstat(filepath.Join(parent, "journal")); !os.IsNotExist(err) {
+		t.Fatalf("journal was created under unsafe parent: %v", err)
+	}
+}
