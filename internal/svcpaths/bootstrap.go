@@ -2,6 +2,7 @@ package svcpaths
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -450,7 +451,9 @@ func validateUnitExecStart(name, execStart string) error {
 	return nil
 }
 
-func unitFile(name, execStart string) error {
+func unitFile(name, execStart string) error { return unitFileWithTransaction(nil, name, execStart) }
+
+func unitFileWithTransaction(tx *bootstrapFileTransaction, name, execStart string) error {
 	if err := validateUnitExecStart(name, execStart); err != nil {
 		return err
 	}
@@ -468,7 +471,7 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 `, name, execStart)
-	return writeFile("/etc/systemd/system/"+name+".service", body, 0o644)
+	return tx.writeFile("/etc/systemd/system/"+name+".service", body, 0o644)
 }
 
 func enableRestart(units ...string) error {
@@ -519,7 +522,7 @@ func BootstrapPrimary(m *Material) error {
 }
 
 // BootstrapPrimaryWith applies one peer's WG/WSS on primary with explicit side effects.
-func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) error {
+func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) (retErr error) {
 	if m == nil {
 		return fmt.Errorf("nil material")
 	}
@@ -632,7 +635,7 @@ PersistentKeepalive = 25
 
 // BootstrapSecondary applies material on secondary.
 // Always persists ForSecondary() so primary privates never land on disk here.
-func BootstrapSecondary(m *Material) error {
+func BootstrapSecondary(m *Material) (retErr error) {
 	if m == nil {
 		return fmt.Errorf("nil material")
 	}
@@ -766,7 +769,9 @@ func healthTimerProbeAddrs() (pSP, sSP, pPS, sPS string, err error) {
 	return pSP, sSP, pPS, sPS, nil
 }
 
-func installHealthTimer() error {
+func installHealthTimer() error { return installHealthTimerWithTransaction(nil) }
+
+func installHealthTimerWithTransaction(tx *bootstrapFileTransaction) error {
 	script := `/usr/local/bin/nd-svc-paths-health`
 	// material missing → legacy slot 0; present but invalid → error before any unit write.
 	pSP, sSP, pPS, sPS, errA := healthTimerProbeAddrs()
@@ -796,10 +801,10 @@ sp=0; ps=0
 (ping -c1 -W2 %s >/dev/null 2>&1 || ping -c1 -W2 %s >/dev/null 2>&1) && ps=1
 printf '{"ts":"%%s","role":"unknown","svc_sp_up":%%s,"svc_ps_up":%%s,"note":"shell-fallback-peer"}\n' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "$sp" "$ps" > "$OUT"
 `, pSP, sSP, pPS, sPS)
-	if err := writeFile(script, body, 0o755); err != nil {
+	if err := tx.writeFile(script, body, 0o755); err != nil {
 		return err
 	}
-	if err := writeFile("/etc/systemd/system/nd-svc-paths-health.service", `[Unit]
+	if err := tx.writeFile("/etc/systemd/system/nd-svc-paths-health.service", `[Unit]
 Description=Netductor svc-paths health
 [Service]
 Type=oneshot
@@ -807,7 +812,7 @@ ExecStart=/usr/local/bin/nd-svc-paths-health
 `, 0o644); err != nil {
 		return err
 	}
-	if err := writeFile("/etc/systemd/system/nd-svc-paths-health.timer", `[Unit]
+	if err := tx.writeFile("/etc/systemd/system/nd-svc-paths-health.timer", `[Unit]
 Description=Netductor svc-paths health timer
 [Timer]
 OnBootSec=30
