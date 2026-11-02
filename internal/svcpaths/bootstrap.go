@@ -542,12 +542,23 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) (retErr error) {
 			m.Primary = strings.TrimSpace(string(b))
 		}
 	}
+	if err := recoverBootstrapFileTransactions(); err != nil {
+		return fmt.Errorf("recover prior bootstrap transaction: %w", err)
+	}
 	if err := ensureWireguardTools(); err != nil {
 		return err
 	}
 	if err := ensureWstunnel(); err != nil {
 		return err
 	}
+	peerID := m.PeerID
+	if peerID == "" { peerID = m.Secondary }
+	tx, err := beginBootstrapFileTransaction("primary", peerID, m.Slot)
+	if err != nil { return fmt.Errorf("begin primary bootstrap transaction: %w", err) }
+	defer func() {
+		if retErr != nil { retErr = errors.Join(retErr, tx.Rollback()); return }
+		if err := tx.Commit(); err != nil { retErr = fmt.Errorf("commit primary bootstrap transaction: %w", err) }
+	}()
 	if err := os.MkdirAll(KeysDir, 0o700); err != nil {
 		return err
 	}
@@ -650,12 +661,23 @@ func BootstrapSecondary(m *Material) (retErr error) {
 	if err := validatePublicIP(m.Primary); err != nil {
 		return fmt.Errorf("bootstrap secondary primary IP: %w", err)
 	}
+	if err := recoverBootstrapFileTransactions(); err != nil {
+		return fmt.Errorf("recover prior bootstrap transaction: %w", err)
+	}
 	if err := ensureWireguardTools(); err != nil {
 		return err
 	}
 	if err := ensureWstunnel(); err != nil {
 		return err
 	}
+	peerID := m.PeerID
+	if peerID == "" { peerID = m.Primary }
+	tx, err := beginBootstrapFileTransaction("secondary", peerID, m.Slot)
+	if err != nil { return fmt.Errorf("begin secondary bootstrap transaction: %w", err) }
+	defer func() {
+		if retErr != nil { retErr = errors.Join(retErr, tx.Rollback()); return }
+		if err := tx.Commit(); err != nil { retErr = fmt.Errorf("commit secondary bootstrap transaction: %w", err) }
+	}()
 	safe := m.ForSecondary()
 	if err := os.MkdirAll(KeysDir, 0o700); err != nil {
 		return err
