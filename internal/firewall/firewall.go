@@ -179,6 +179,98 @@ func verifyWSSRules(rules []ufwRule, role string) error {
 	return nil
 }
 
+// EnsureWSSPeerRulesLocked installs source-specific rules for every registered peer
+// before callers remove legacy global WSS allows. The caller must hold
+// AcquireMutationLock; this deliberately does not acquire it recursively.
+func EnsureWSSPeerRulesLocked(role string) error {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role != "primary" && role != "secondary" {
+		return fmt.Errorf("WSS peer policy: invalid role %q", role)
+	}
+	expected, err := wssExpectations(role)
+	if err != nil {
+		return err
+	}
+	status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("inspect UFW before preserving WSS peers: %v (%s)", err, truncate(string(status), 160))
+	}
+	rules := parseUfwNumbered(string(status))
+	active := strings.Contains(string(status), "Status: active")
+	if active {
+		numberedLines := 0
+		for _, line := range strings.Split(string(status), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "[") {
+				numberedLines++
+			}
+		}
+		if len(rules) != numberedLines {
+			return fmt.Errorf("cannot completely parse UFW rules before WSS migration (parsed %d of %d)", len(rules), numberedLines)
+		}
+	}
+	for _, e := range expected {
+		// A deny that would become effective after the global ALLOW is removed
+		// must be detected before mutation; otherwise migration could strand
+		// an already-connected peer.
+		if active {
+			for _, rule := range rules {
+				if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, e.Port) {
+					continue
+				}
+				if (rule.Action == "DENY" || rule.Action == "REJECT") && ufwSourceOverlaps(rule.From, e.Source) {
+					return fmt.Errorf("WSS %s from %s is shadowed by existing %s from %s; refusing legacy-rule removal",
+						e.Port, e.Source, rule.Action, rule.From)
+				}
+			}
+			if hasExactWSSPeerAllow(rules, e) {
+				continue
+			}
+		}
+		comment := "nd-wss-sp"
+		if role == "secondary" {
+			comment = "nd-wss-ps"
+		}
+		out, addErr := exec.Command("ufw", "allow", "from", e.Source, "to", "any", "port", e.Port, "proto", "tcp", "comment", comment).CombinedOutput()
+		if addErr != nil {
+			return fmt.Errorf("preserve WSS %s from %s before legacy migration: %v (%s)", e.Port, e.Source, addErr, truncate(string(out), 160))
+		}
+		status, err = exec.Command("ufw", "status", "numbered").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("verify preserved WSS rule %s: %v (%s)", e.Port, err, truncate(string(status), 160))
+		}
+		rules = parseUfwNumbered(string(status))
+		active = strings.Contains(string(status), "Status: active")
+		if active && !hasExactWSSPeerAllow(rules, e) {
+			return fmt.Errorf("UFW did not persist exact WSS allow for %s from %s", e.Port, e.Source)
+		}
+	}
+	return nil
+}
+
+func hasExactWSSPeerAllow(rules []ufwRule, e wssExpectation) bool {
+	target := net.ParseIP(e.Source).To4()
+	if target == nil {
+		return false
+	}
+	for _, rule := range rules {
+		if rule.IPv6 || rule.Action != "ALLOW" || !ufwRuleMatchesPortTCP(rule, e.Port) {
+			continue
+		}
+		from := strings.TrimSpace(rule.From)
+		if ip := net.ParseIP(from); ip != nil && ip.To4() != nil && ip.Equal(target) {
+			return true
+		}
+		ip, network, err := net.ParseCIDR(from)
+		if err == nil {
+			ones, bits := network.Mask.Size()
+			if bits == 32 && ones == 32 && ip.To4() != nil && ip.To4().Equal(target) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func ensureWSSAllowRules(role string) error {
 	expected, err := wssExpectations(role)
 	if err != nil { return err }
@@ -905,6 +997,11 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	// Then migrate only the exact historical Netductor global WSS rules.
 	if _, err := wssExpectations(role); err != nil {
 		return fmt.Errorf("read WSS peer inventory before firewall mutation: %w", err)
+	}
+	// Install exact peer allows first. Removing a legacy global WSS rule
+	// before these exist can disconnect an already-running secondary.
+	if err := EnsureWSSPeerRulesLocked(role); err != nil {
+		return fmt.Errorf("preserve WSS peer access before migration: %w", err)
 	}
 	if err := RemoveLegacyGlobalWSSRules(string(current)); err != nil {
 		return err
