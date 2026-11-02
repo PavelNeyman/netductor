@@ -504,7 +504,7 @@ func validateBootstrapJournal(j bootstrapJournal, filename string) error {
 	seenFirewall := make(map[string]bool, len(j.FirewallRules))
 	for _, rule := range j.FirewallRules {
 		ip := net.ParseIP(rule.Source)
-		if ip == nil || ip.To4() == nil || rule.Port < 1 || rule.Port > 65535 {
+		if ip == nil || ip.To4() == nil || ip.To4().String() != rule.Source || rule.Port < 1 || rule.Port > 65535 {
 			return fmt.Errorf("invalid bootstrap firewall rule tuple")
 		}
 		key := fmt.Sprintf("%s|%s|%s|%d|%s", rule.Backend, rule.Chain, rule.Source, rule.Port, rule.Comment)
