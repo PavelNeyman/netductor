@@ -192,8 +192,31 @@ B=/var/lib/netductor/ssh-harden-backup
 LOCK="$B/lock"
 mkdir -p "$B"
 exec 9>"$LOCK"
-# Exclusive lock for entire critical section (cancel/finalize acquire same lock)
-flock 9
+# Exclusive lock for entire critical section (cancel/finalize acquire same lock).
+# A hung prepare/finalize must not suppress recovery forever: expose the
+# management ports and fail this attempt; systemd retries until the lock clears.
+if ! flock -w 60 9; then
+  echo "nd-harden-rollback: transaction lock timeout; preserving emergency SSH ingress" >&2
+  emergency_port=52222
+  if [ -f "$B/management-port" ]; then
+    candidate=$(cat "$B/management-port")
+    case "$candidate" in ''|*[!0-9]*) candidate= ;; esac
+    if [ -n "$candidate" ] && [ "$candidate" -ge 1 ] && [ "$candidate" -le 65535 ]; then
+      emergency_port=$candidate
+    fi
+  fi
+  if command -v ufw >/dev/null 2>&1; then
+    ufw allow "$emergency_port"/tcp comment netductor-ssh-rollback-emergency || true
+    ufw allow 22/tcp comment netductor-ssh-rollback-emergency || true
+  elif command -v iptables >/dev/null 2>&1; then
+    iptables -C INPUT -p tcp --dport "$emergency_port" -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport "$emergency_port" -j ACCEPT || true
+    iptables -C INPUT -p tcp --dport 22 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 22 -j ACCEPT || true
+    command -v netfilter-persistent >/dev/null 2>&1 && netfilter-persistent save || true
+  fi
+  touch "$B/ROLLBACK_FAILED"
+  chmod 600 "$B/ROLLBACK_FAILED"
+  exit 1
+fi
 mkdir -p /run/lock
 test ! -L /run/lock/netductor-firewall.lock
 exec 8>/run/lock/netductor-firewall.lock
@@ -359,9 +382,13 @@ test -x "$ND_RB_SCRIPT"
 cat > /etc/systemd/system/${ND_RB_UNIT} << NDRB
 [Unit]
 Description=Netductor SSH harden rollback
+StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 ExecStart=$ND_RB_SCRIPT
+TimeoutStartSec=90s
+Restart=on-failure
+RestartSec=15s
 NDRB
 
 cat > /etc/systemd/system/${ND_RB_TIMER} << NDRT
