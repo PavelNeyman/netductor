@@ -391,7 +391,7 @@ func validateBootstrapJournal(j bootstrapJournal, filename string) error {
 			return fmt.Errorf("invalid or duplicate systemd unit image %q", unit.Name)
 		}
 		seenUnits[unit.Name] = true
-		if unit.LoadState != "loaded" && unit.LoadState != "not-found" {
+		if unit.LoadState != "loaded" && unit.LoadState != "masked" && unit.LoadState != "not-found" {
 			return fmt.Errorf("invalid LoadState for systemd unit %s: %q", unit.Name, unit.LoadState)
 		}
 		if unit.LoadState == "loaded" && (unit.FileState == "" || unit.ActiveState == "") {
