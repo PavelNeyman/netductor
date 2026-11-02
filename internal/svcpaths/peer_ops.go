@@ -316,6 +316,26 @@ func MigrateLegacyPeerIfNeededUnlocked() error {
 		return err
 	}
 	id := "legacy-slot0"
+	// The root material.json is the legacy slot-0 record. Do not silently
+	// rewrite a material file belonging to a newer slot: that could redirect
+	// keys and tunnel endpoints onto the live legacy slot-0 interfaces.
+	if err := validateMaterialTunnelIdentity(m); err != nil {
+		return fmt.Errorf("legacy material.json tunnel identity is invalid: %w", err)
+	}
+	if m.Slot != 0 {
+		return fmt.Errorf("legacy material.json declares slot %d; refusing to import it as slot 0", m.Slot)
+	}
+	if m.PeerID != "" {
+		if err := validatePeerID(m.PeerID); err != nil {
+			return fmt.Errorf("legacy material.json peer_id is invalid: %w", err)
+		}
+	}
+	if m.Secondary != "" {
+		if err := validatePublicIP(m.Secondary); err != nil {
+			return fmt.Errorf("legacy material.json secondary_ip is invalid: %w", err)
+		}
+	}
+	id := "legacy-slot0"
 	if m.Secondary != "" {
 		id = "legacy-" + strings.ReplaceAll(m.Secondary, ".", "-")
 		if err := validatePeerID(id); err != nil {
