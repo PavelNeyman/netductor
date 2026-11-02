@@ -984,7 +984,7 @@ func applyPrimaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction, 
 		if err != nil { return err }
 		svcRule, err := iptablesPeerRuleMutation(chain, sSP, 8789)
 		if err != nil { return err }
-		return applyFirewallMutations([]firewallMutation{wssRule, svcRule}, persistNetfilterRules)
+		return applyFirewallMutationsWithTransaction(tx, []firewallMutation{wssRule, svcRule}, persistNetfilterRules)
 
 	}
 	return fmt.Errorf("primary WSS: no supported firewall backend")
@@ -1062,7 +1062,7 @@ func applySecondaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction
 		if err != nil { return err }
 		mutation, err := iptablesPeerRuleMutation(chain, primaryPub, wssPS)
 		if err != nil { return err }
-		return applyFirewallMutations([]firewallMutation{mutation}, persistNetfilterRules)
+		return applyFirewallMutationsWithTransaction(tx, []firewallMutation{mutation}, persistNetfilterRules)
 
 	}
 	return fmt.Errorf("secondary WSS: no supported firewall backend")
