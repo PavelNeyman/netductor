@@ -61,18 +61,8 @@ func beginBootstrapFileTransaction(role, peerID string, slot int) (*bootstrapFil
 	if slot < 0 || slot >= len(SlotTable()) {
 		return nil, fmt.Errorf("invalid bootstrap transaction slot %d", slot)
 	}
-	if err := os.MkdirAll(bootstrapJournalRoot, 0o700); err != nil {
-		return nil, fmt.Errorf("create bootstrap journal directory: %w", err)
-	}
-	if err := validateBootstrapJournalDirectory(bootstrapJournalRoot); err != nil { return nil, err }
-	info, err := os.Lstat(bootstrapJournalRoot)
-	if err != nil {
-		return nil, fmt.Errorf("inspect bootstrap journal directory: %w", err)
-	}
-	st, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("bootstrap journal directory must be a real private directory owned by euid %d", os.Geteuid())
+	if err := ensureBootstrapJournalDirectory(bootstrapJournalRoot); err != nil {
+		return nil, err
 	}
 	txid, err := randomBootstrapTransactionID()
 	if err != nil {
@@ -380,6 +370,35 @@ func validateExistingDirectoryChain(dir string) error {
 		info, err := os.Lstat(current)
 		if err != nil { return err }
 		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() { return fmt.Errorf("path component %s is not a real directory", current) }
+	}
+	return nil
+}
+
+// ensureBootstrapJournalDirectory never creates or traverses an unchecked parent.
+// The parent must already exist as a private directory owned by the bootstrap euid.
+func ensureBootstrapJournalDirectory(dir string) error {
+	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir || dir == string(os.PathSeparator) {
+		return fmt.Errorf("bootstrap journal path must be clean, absolute, and non-root: %q", dir)
+	}
+	parent := filepath.Dir(dir)
+	if err := validateExistingDirectoryChain(parent); err != nil {
+		return fmt.Errorf("unsafe bootstrap journal parent: %w", err)
+	}
+	info, err := os.Lstat(parent)
+	if err != nil {
+		return fmt.Errorf("inspect bootstrap journal parent: %w", err)
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
+		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("bootstrap journal parent must be a real private directory owned by euid %d", os.Geteuid())
+	}
+
+	if err := os.Mkdir(dir, 0o700); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("create bootstrap journal directory: %w", err)
+	}
+	if err := validateBootstrapJournalDirectory(dir); err != nil {
+		return err
 	}
 	return nil
 }
