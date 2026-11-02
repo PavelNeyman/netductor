@@ -892,7 +892,7 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 			return fmt.Errorf("refusing to alter untagged/admin WSS firewall rules: %w", err)
 		}
 		if out, err := exec.Command("ufw", "status").CombinedOutput(); err != nil || !strings.Contains(strings.ToLower(string(out)), "status: active") {
-			return fmt.Errorf("primary UFW is not active: %w: %s", err, strings.TrimSpace(string(out)))
+			return fmt.Errorf("primary UFW is not active (command error=%v): %s", err, strings.TrimSpace(string(out)))
 		}
 		wssRule, err := ufwPeerRuleMutation(secondaryPub, wssSP, "nd-wss-sp")
 		if err != nil { return err }
@@ -908,7 +908,7 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 		svcRule, err := iptablesPeerRuleMutation(chain, sSP, 8789)
 		if err != nil { return err }
 		return applyFirewallMutations([]firewallMutation{wssRule, svcRule}, persistNetfilterRules)
-		return nil
+
 	}
 	return fmt.Errorf("primary WSS: no supported firewall backend")
 }
@@ -953,7 +953,7 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 			return fmt.Errorf("refusing to alter untagged/admin secondary WSS firewall rules: %w", err)
 		}
 		if out, err := exec.Command("ufw", "status").CombinedOutput(); err != nil || !strings.Contains(strings.ToLower(string(out)), "status: active") {
-			return fmt.Errorf("secondary UFW is not active: %w: %s", err, strings.TrimSpace(string(out)))
+			return fmt.Errorf("secondary UFW is not active (command error=%v): %s", err, strings.TrimSpace(string(out)))
 		}
 		mutation, err := ufwPeerRuleMutation(primaryPub, wssPS, "nd-wss-ps")
 		if err != nil { return err }
@@ -965,7 +965,7 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		mutation, err := iptablesPeerRuleMutation(chain, primaryPub, wssPS)
 		if err != nil { return err }
 		return applyFirewallMutations([]firewallMutation{mutation}, persistNetfilterRules)
-		return nil
+
 	}
 	return fmt.Errorf("secondary WSS: no supported firewall backend")
 }
