@@ -68,24 +68,49 @@ func TestBootstrapFileTransactionRollbackRestoresBeforeImages(t *testing.T) {
 	if len(entries) != 0 { t.Fatalf("rollback left journal entries: %v", entries) }
 }
 
-func TestRecoverBootstrapFileTransactionsRepeatsInterruptedRollback(t *testing.T) {
-	root := t.TempDir()
-	oldRoot := bootstrapJournalRoot
-	bootstrapJournalRoot = filepath.Join(root, "journal")
-	defer func() { bootstrapJournalRoot = oldRoot }()
+func TestRecoverBootstrapFileTransactionsIsIdempotent(t *testing.T) {
+	for _, phase := range []string{"applying", "rolling_back"} {
+		t.Run(phase, func(t *testing.T) {
+			root := t.TempDir()
+			oldRoot := bootstrapJournalRoot
+			bootstrapJournalRoot = filepath.Join(root, "journal")
+			t.Cleanup(func() { bootstrapJournalRoot = oldRoot })
 
-	target := filepath.Join(root, "peer.conf")
-	if err := os.WriteFile(target, []byte("before"), 0o600); err != nil { t.Fatal(err) }
-	tx, err := beginBootstrapFileTransaction("primary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFile(target); err != nil { t.Fatal(err) }
-	if err := os.WriteFile(target, []byte("after"), 0o600); err != nil { t.Fatal(err) }
+			target := filepath.Join(root, "peer.conf")
+			if err := os.WriteFile(target, []byte("before"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			tx, err := beginBootstrapFileTransaction("primary", "peer-b", 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := tx.SnapshotFile(target); err != nil {
+				t.Fatal(err)
+			}
+			// Persist the exact durable phase at which the process is assumed to crash.
+			tx.journal.Phase = phase
+			if err := tx.persist(); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(target, []byte("after"), 0o600); err != nil {
+				t.Fatal(err)
+			}
 
-	if err := recoverBootstrapFileTransactions(); err != nil { t.Fatal(err) }
-	got, err := os.ReadFile(target)
-	if err != nil { t.Fatal(err) }
-	if string(got) != "before" { t.Fatalf("recovered content = %q, want before", got) }
-	if err := recoverBootstrapFileTransactions(); err != nil { t.Fatalf("second recovery must be idempotent: %v", err) }
+			if err := recoverBootstrapFileTransactions(); err != nil {
+				t.Fatal(err)
+			}
+			got, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != "before" {
+				t.Fatalf("recovered content = %q, want before", got)
+			}
+			if err := recoverBootstrapFileTransactions(); err != nil {
+				t.Fatalf("second recovery must be idempotent: %v", err)
+			}
+		})
+	}
 }
 
 func TestBootstrapFileTransactionRejectsSymlinkTarget(t *testing.T) {
