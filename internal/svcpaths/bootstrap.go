@@ -899,7 +899,6 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 		svcRule, err := ufwPeerRuleMutation(sSP, 8789, "nd-svc-sp")
 		if err != nil { return err }
 		return applyFirewallMutations([]firewallMutation{wssRule, svcRule}, nil)
-		return nil
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		chain, err := netductorInputChain()
@@ -959,7 +958,6 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		mutation, err := ufwPeerRuleMutation(primaryPub, wssPS, "nd-wss-ps")
 		if err != nil { return err }
 		return applyFirewallMutations([]firewallMutation{mutation}, nil)
-		return nil
 	}
 	if _, err := exec.LookPath("iptables"); err == nil {
 		chain, err := netductorInputChain()
