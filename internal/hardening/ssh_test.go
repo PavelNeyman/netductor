@@ -78,3 +78,20 @@ func TestSSHPortPositive(t *testing.T) {
 		t.Fatalf("%d", SSHPort())
 	}
 }
+
+func TestRollbackLockIsBoundedAndRetriesAfterContention(t *testing.T) {
+	s := RemoteHardenPrepareScript()
+	if !strings.Contains(s, "flock -w 60 9") {
+		t.Fatal("rollback must not wait indefinitely for the transaction lock")
+	}
+	if !strings.Contains(s, "netductor-ssh-rollback-emergency") {
+		t.Fatal("lock timeout must preserve emergency management ingress")
+	}
+	if !strings.Contains(s, "ROLLBACK_FAILED") {
+		t.Fatal("lock timeout must remain explicitly recoverable")
+	}
+	if !strings.Contains(s, "Restart=on-failure") || !strings.Contains(s, "RestartSec=15s") ||
+		!strings.Contains(s, "TimeoutStartSec=90s") || !strings.Contains(s, "StartLimitIntervalSec=0") {
+		t.Fatal("rollback unit must retry bounded attempts until the lock clears")
+	}
+}
