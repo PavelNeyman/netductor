@@ -475,6 +475,10 @@ WantedBy=multi-user.target
 }
 
 func enableRestart(units ...string) error {
+	return enableRestartWithTransaction(nil, units...)
+}
+
+func enableRestartWithTransaction(tx *bootstrapFileTransaction, units ...string) error {
 	if len(units) == 0 {
 		return fmt.Errorf("no systemd units supplied")
 	}
@@ -492,6 +496,11 @@ func enableRestart(units ...string) error {
 		return fmt.Errorf("daemon-reload: %v (%s)", err, strings.TrimSpace(string(out)))
 	}
 	for _, u := range units {
+		if tx != nil {
+			if err := tx.MarkUnitsTouched(u); err != nil {
+				return fmt.Errorf("record systemd mutation intent for %s: %w", u, err)
+			}
+		}
 		if out, err := exec.Command("systemctl", "enable", u).CombinedOutput(); err != nil {
 			return fmt.Errorf("enable %s: %v (%s)", u, err, strings.TrimSpace(string(out)))
 		}
@@ -631,10 +640,7 @@ PersistentKeepalive = 25
 		return err
 	}
 	unitsToRestart := []string{spServerUnit, psClientUnit, "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS}
-	if err := tx.MarkUnitsTouched(unitsToRestart...); err != nil {
-		return fmt.Errorf("record primary systemd mutation intent: %w", err)
-	}
-	if err := enableRestart(unitsToRestart...); err != nil {
+	if err := enableRestartWithTransaction(tx, unitsToRestart...); err != nil {
 		return err
 	}
 
@@ -749,10 +755,7 @@ AllowedIPs = %s/32
 		return err
 	}
 	secondaryUnits := []string{"nd-wss-sp-client", "nd-wss-ps-server", "wg-quick@" + ifaceSP, "wg-quick@" + ifacePS}
-	if err := tx.MarkUnitsTouched(secondaryUnits...); err != nil {
-		return fmt.Errorf("record secondary systemd mutation intent: %w", err)
-	}
-	if err := enableRestart(secondaryUnits...); err != nil {
+	if err := enableRestartWithTransaction(tx, secondaryUnits...); err != nil {
 		return err
 	}
 
