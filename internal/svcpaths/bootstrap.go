@@ -907,6 +907,11 @@ func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
 		if err := firewall.EnsureWSSPeerRulesLocked("primary"); err != nil {
 			return fmt.Errorf("preserve existing primary WSS peers: %w", err)
 		}
+		// New allow rules shift UFW's numbered entries; refresh before deletion.
+		status, err = exec.Command("ufw", "status", "numbered").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("re-inspect primary UFW WSS rules: %w: %s", err, strings.TrimSpace(string(status)))
+		}
 		// Remove only historical Netductor-tagged global rules. Untagged
 		// administrator rules are never deleted automatically.
 		if err := firewall.RemoveLegacyGlobalWSSRules(string(status)); err != nil {
@@ -986,6 +991,11 @@ func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
 		// restricted allow before removing a legacy global WSS exception.
 		if err := firewall.EnsureWSSPeerRulesLocked("secondary"); err != nil {
 			return fmt.Errorf("preserve existing secondary WSS peer: %w", err)
+		}
+		// New allow rules shift UFW's numbered entries; refresh before deletion.
+		status, err = exec.Command("ufw", "status", "numbered").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("re-inspect secondary UFW WSS rules: %w: %s", err, strings.TrimSpace(string(status)))
 		}
 		if err := firewall.RemoveLegacyGlobalWSSRules(string(status)); err != nil {
 			return fmt.Errorf("migrate legacy secondary WSS rules: %w", err)
