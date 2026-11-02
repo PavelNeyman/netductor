@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -173,7 +174,21 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 	if len(errs) != 0 {
 		return errors.Join(errs...)
 	}
+	if tx.journalTouchesSystemdUnits() {
+		out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("reload systemd after bootstrap file rollback: %w: %s", err, strings.TrimSpace(string(out)))
+		}
+	}
 	return tx.finish("rolled_back")
+}
+
+func (tx *bootstrapFileTransaction) journalTouchesSystemdUnits() bool {
+	if tx == nil { return false }
+	for _, image := range tx.journal.Files {
+		if strings.HasPrefix(image.Path, "/etc/systemd/system/") { return true }
+	}
+	return false
 }
 
 
