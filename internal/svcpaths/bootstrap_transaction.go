@@ -144,6 +144,22 @@ func (tx *bootstrapFileTransaction) SnapshotFile(path string) error {
 	return nil
 }
 
+
+func (tx *bootstrapFileTransaction) writeFile(path, body string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil { return err }
+	if tx != nil {
+		if err := tx.SnapshotFile(path); err != nil { return err }
+	}
+	return atomicWritePeerFile(path, []byte(body), mode)
+}
+
+func (tx *bootstrapFileTransaction) atomicWritePeerFile(path string, body []byte, mode os.FileMode) error {
+	if tx != nil {
+		if err := tx.SnapshotFile(path); err != nil { return err }
+	}
+	return atomicWritePeerFile(path, body, mode)
+}
+
 func (tx *bootstrapFileTransaction) Rollback() error {
 	if tx == nil { return nil }
 	tx.journal.Phase = "rolling_back"
