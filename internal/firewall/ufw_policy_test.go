@@ -126,3 +126,20 @@ func TestSecondaryRestrictedAllowPreflight(t *testing.T) {
 		t.Fatal("incompletely parsed numbered rules must fail closed")
 	}
 }
+
+func TestSecondaryInactiveSavedAllowPreflight(t *testing.T) {
+	for _, rule := range []string{
+		"ufw allow 80/tcp",
+		"ufw allow from 192.0.2.10 to any port 8789 proto tcp",
+		"ufw allow 8787",
+	} {
+		if err := preflightSecondaryAddedRules("Added user rules:\\n"+rule+"\\n"); err == nil {
+			t.Fatalf("expected saved restricted allow to fail: %q", rule)
+		}
+	}
+	for _, rule := range []string{"ufw deny 80/tcp", "ufw allow 443/tcp", "ufw allow from 10.87.10.2 to any port 8445 proto tcp"} {
+		if err := preflightSecondaryAddedRules(rule); err != nil {
+			t.Fatalf("unrelated/non-allow rule should pass: %q: %v", rule, err)
+		}
+	}
+}
