@@ -324,7 +324,8 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if err := mtls.ConfirmCARolloverClient(d.ID, peerSerial); err != nil {
+	rolloverConfirmed, err := mtls.ConfirmCARolloverClient(d.ID, peerSerial)
+	if err != nil {
 		http.Error(w, "CA rollover adoption persistence failed", http.StatusInternalServerError)
 		return
 	}
@@ -370,6 +371,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		"desired_release":  "", /* operator-driven upgrades only */
 		"commands":         cmds,
 		"failover_policy":  pol,
+		"mtls_rollover_confirmed": rolloverConfirmed,
 	})
 }
 
