@@ -170,6 +170,23 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// A stale add journal must never resurrect an identity that has since been
+	// removed, or append a duplicate identity/IP/slot into a changed registry.
+	for i := range idx.Peers {
+		existing := &idx.Peers[i]
+		if existing.ID == peerID && existing.State == "removed" {
+			return "", fmt.Errorf("peer %s is already removed; refusing stale add recovery or identity resurrection", peerID)
+		}
+		if existing.State == "removed" {
+			continue
+		}
+		if existing.ID != peerID && existing.PublicIP == op.PublicIP {
+			return "", fmt.Errorf("public IP %s is now assigned to peer %s; refusing stale add recovery", op.PublicIP, existing.ID)
+		}
+		if existing.ID != peerID && existing.Slot.Index == op.SlotIndex {
+			return "", fmt.Errorf("slot %d is now assigned to peer %s; refusing stale add recovery", op.SlotIndex, existing.ID)
+		}
+	}
 	m, err := loadPeerMaterial(peerID)
 	if err != nil {
 		materialPath := peerMaterialPath(peerID)
