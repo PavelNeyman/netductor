@@ -477,10 +477,59 @@ func WriteOpenSSHKnownHostsFile(host, port, dest string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+	dir := filepath.Dir(dest)
+	if err := ensureRelayTrustDir(); err != nil {
 		return err
 	}
-	return os.WriteFile(dest, append([]byte(line), 10), 0o600)
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		return fmt.Errorf("refuse SSH known_hosts directory %s: expected a real directory", dir)
+	}
+	f, err := os.CreateTemp(dir, ".known-hosts-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	ok := false
+	defer func() {
+		if !ok {
+			_ = os.Remove(tmp)
+		}
+	}()
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if _, err := f.Write(append([]byte(line), 10)); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("sync SSH known_hosts temporary file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		return err
+	}
+	ok = true
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open SSH known_hosts directory for sync: %w", err)
+	}
+	if err := d.Sync(); err != nil {
+		_ = d.Close()
+		return fmt.Errorf("sync SSH known_hosts directory: %w", err)
+	}
+	if err := d.Close(); err != nil {
+		return fmt.Errorf("close SSH known_hosts directory: %w", err)
+	}
+	return nil
 }
 
 // MigrateSSHTrustSeen ensures all existing TOFU pins are recorded in ssh_hosts_seen.json.
