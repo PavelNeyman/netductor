@@ -379,6 +379,11 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 			}
 		}
 	}
+	if fileOK(certPath) != fileOK(keyPath) {
+		_ = os.Remove(tmpCert)
+		_ = os.Remove(tmpKey)
+		return nil, nil, nil, fmt.Errorf("client certificate/key recovery for %q remains incomplete", nodeID)
+	}
 	hadCert, hadKey := fileOK(certPath), fileOK(keyPath)
 	if hadCert {
 		if err := os.Rename(certPath, backupCert); err != nil {
