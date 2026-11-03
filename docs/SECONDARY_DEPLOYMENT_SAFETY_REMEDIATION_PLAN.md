@@ -210,6 +210,7 @@ Updated against current `main` after the initial plan commit.
 - [x] Edge heartbeat, command polling, command-result, and mTLS-material endpoints bind TLS client CN to the bearer-token device ID; rotation confirmation uses the TLS peer serial rather than JSON input.
 - [x] Secondary stages and swaps the mTLS directory with recovery support, preserves unrelated files, and retains the old directory until Primary confirms the new TLS identity.
 - [x] Secondary restores previous material after repeated failed heartbeat attempts with the new identity.
+- [x] Edge and Secondary agents distinguish TLS-handshake failure from a lost/error HTTP response; they do not roll back after the Primary has accepted the new TLS identity, preventing reversion to a certificate that may already have been revoked.
 - [x] Added focused regression tests for adoption, revocation, abort, material validation, and directory preservation.
 - [x] CA, server, and default client certificate promotion now uses a durable `promoting` journal and before-image backups. `EnsureAll` rolls back an interrupted promotion before starting mTLS services; the operation can then be retried.
 - [x] The promoted server and default client certificates are re-issued under the new CA. Backups and temporary CA files are removed only after the `done` journal is durable.
