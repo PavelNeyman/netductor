@@ -186,9 +186,10 @@ RECOVERY_TOKEN=%s
 ## Notes
 Version: %s
 After harden only key auth works.
-Restore example (on a new VPS after install):
-  tar xzf secrets-full.tgz -C /
-  # then fix perms: chmod -R go-rwx /etc/netductor/secrets
+Restore warning:
+  secrets-full.tgz is remote-produced input. Never extract it directly into /.
+  Inspect and validate every archive path and symlink in an isolated recovery
+  environment before performing a controlled restore.
 `, time.Now().UTC().Format(time.RFC3339), role,
 		hostname, ip, keyPath, sshPort, user, host, keyPath,
 		backupKey, recTok, secretsList, ver)
