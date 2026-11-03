@@ -196,6 +196,9 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	}
 	certPath := filepath.Join(dir, ClientCertFile)
 	keyPath := filepath.Join(dir, ClientKeyFile)
+	if fileOK(certPath) != fileOK(keyPath) {
+		return nil, nil, nil, fmt.Errorf("existing client certificate/key pair for %q is incomplete", nodeID)
+	}
 	oldSerial := ""
 	if fileOK(certPath) {
 		oldInfo, err := ReadClientInfo(nodeID)
