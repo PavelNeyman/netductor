@@ -93,21 +93,8 @@ func recoverRotationBackup(nodeID string, pending map[string]pendingRotate) erro
 	if keyBackupErr != nil && !os.IsNotExist(keyBackupErr) {
 		return fmt.Errorf("inspect key rotation backup: %w", keyBackupErr)
 	}
-	if certBackupExists != keyBackupExists {
-		return fmt.Errorf("incomplete mTLS rotation backup for %s; manual recovery required", nodeID)
-	}
-	if !certBackupExists {
+	if !certBackupExists && !keyBackupExists {
 		return nil
-	}
-
-	for _, path := range []string{certBackup, keyBackup} {
-		st, err := os.Lstat(path)
-		if err != nil {
-			return fmt.Errorf("inspect rotation backup %s: %w", path, err)
-		}
-		if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("refuse non-regular rotation backup %s", path)
-		}
 	}
 	if _, hasPending := pending[nodeID]; hasPending {
 		currentCert, err := parseCertFile(certPath)
@@ -121,13 +108,37 @@ func recoverRotationBackup(nodeID string, pending map[string]pendingRotate) erro
 		if serialHex(currentCert.SerialNumber) != pending[nodeID].NewSerial {
 			return fmt.Errorf("pending rotation certificate serial mismatch for %s", nodeID)
 		}
-		if err := os.Remove(certBackup); err != nil {
-			return fmt.Errorf("remove completed certificate rotation backup: %w", err)
-		}
-		if err := os.Remove(keyBackup); err != nil {
-			return fmt.Errorf("remove completed key rotation backup: %w", err)
+		for _, backup := range []struct {
+			path string
+			exists bool
+		}{{certBackup, certBackupExists}, {keyBackup, keyBackupExists}} {
+			if !backup.exists {
+				continue
+			}
+			st, err := os.Lstat(backup.path)
+			if err != nil {
+				return fmt.Errorf("inspect rotation backup %s: %w", backup.path, err)
+			}
+			if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+				return fmt.Errorf("refuse non-regular rotation backup %s", backup.path)
+			}
+			if err := os.Remove(backup.path); err != nil {
+				return fmt.Errorf("remove completed rotation backup %s: %w", backup.path, err)
+			}
 		}
 		return nil
+	}
+	if certBackupExists != keyBackupExists {
+		return fmt.Errorf("incomplete mTLS rotation backup for %s; manual recovery required", nodeID)
+	}
+	for _, path := range []string{certBackup, keyBackup} {
+		st, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("inspect rotation backup %s: %w", path, err)
+		}
+		if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refuse non-regular rotation backup %s", path)
+		}
 	}
 
 	// No durable pending record means promotion did not commit. Restore the
