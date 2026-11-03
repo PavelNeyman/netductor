@@ -754,35 +754,35 @@ func cleanupCARolloverBackups() error {
 		if err := os.Remove(path(name)); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("remove %s: %w", name, err)
 		}
-		clientsDir := filepath.Join(Dir(), "clients")
-		clients, err := os.ReadDir(clientsDir)
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("scan client rollover backup directories: %w", err)
+	}
+	clientsDir := filepath.Join(Dir(), "clients")
+	clients, err := os.ReadDir(clientsDir)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("scan client rollover backup directories: %w", err)
+	}
+	for _, entry := range clients {
+		if !entry.IsDir() {
+			continue
 		}
-		for _, entry := range clients {
-			if !entry.IsDir() {
-				continue
+		clientDir := filepath.Join(clientsDir, entry.Name())
+		for _, clientFile := range []string{
+			ClientCertFile + ".rollover-old", ClientKeyFile + ".rollover-old",
+			ClientCertFile + ".rollover-new", ClientKeyFile + ".rollover-new",
+		} {
+			if err := os.Remove(filepath.Join(clientDir, clientFile)); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("remove client rollover file %s/%s: %w", entry.Name(), clientFile, err)
 			}
-			clientDir := filepath.Join(clientsDir, entry.Name())
-			for _, clientFile := range []string{
-				ClientCertFile + ".rollover-old", ClientKeyFile + ".rollover-old",
-				ClientCertFile + ".rollover-new", ClientKeyFile + ".rollover-new",
-			} {
-				if err := os.Remove(filepath.Join(clientDir, clientFile)); err != nil && !os.IsNotExist(err) {
-					return fmt.Errorf("remove client rollover file %s/%s: %w", entry.Name(), clientFile, err)
-				}
-			}
-			clientDirFile, err := os.Open(clientDir)
-			if err != nil {
-				return fmt.Errorf("open client directory %s for sync: %w", entry.Name(), err)
-			}
-			if err := clientDirFile.Sync(); err != nil {
-				_ = clientDirFile.Close()
-				return fmt.Errorf("sync client directory %s: %w", entry.Name(), err)
-			}
-			if err := clientDirFile.Close(); err != nil {
-				return fmt.Errorf("close client directory %s: %w", entry.Name(), err)
-			}
+		}
+		clientDirFile, err := os.Open(clientDir)
+		if err != nil {
+			return fmt.Errorf("open client directory %s for sync: %w", entry.Name(), err)
+		}
+		if err := clientDirFile.Sync(); err != nil {
+			_ = clientDirFile.Close()
+			return fmt.Errorf("sync client directory %s: %w", entry.Name(), err)
+		}
+		if err := clientDirFile.Close(); err != nil {
+			return fmt.Errorf("close client directory %s: %w", entry.Name(), err)
 		}
 	}
 	dir, err := os.Open(Dir())
