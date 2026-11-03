@@ -134,6 +134,9 @@ func RevokeSerial(serialHexStr, nodeID, reason string) error {
 	if err != nil {
 		return err
 	}
+	if _, exists := m[serialHexStr]; exists {
+		return nil
+	}
 	m[serialHexStr] = revokeEntry{
 		Serial: serialHexStr, NodeID: nodeID, Reason: reason,
 		RevokedAt: time.Now().Unix(),
