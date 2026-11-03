@@ -103,6 +103,15 @@ func TestInstallEdgeMTLSMaterialCanRestoreBothPaths(t *testing.T) {
 			}
 		}
 	}
+	if err := installEdgeMTLSMaterial("newer-ca", "newer-cert", "newer-key"); err != nil {
+		t.Fatalf("repeat installEdgeMTLSMaterial: %v", err)
+	}
+	for _, dir := range mtlsDirs {
+		got, err := os.ReadFile(filepath.Join(dir, "client.crt"))
+		if err != nil || string(got) != "newer-cert" {
+			t.Fatalf("repeated install did not activate newer cert in %s: %q, %v", dir, got, err)
+		}
+	}
 	if !restoreEdgeMTLSMaterial() {
 		t.Fatal("restoreEdgeMTLSMaterial failed")
 	}
