@@ -120,6 +120,7 @@ Updated against current `main` after the initial plan commit.
 ### Pending Secondary pack identity isolation
 
 - [x] `IssueToken` now replaces only never-joined records with the same logical device name. Preparing a pack for another Secondary no longer deletes unrelated pending identities/tokens.
+- [x] `deploy secondary` supplies a deterministic host-scoped pack name, so concurrent deployments to different Secondary hosts cannot replace each other's pending token.
 - [x] Heartbeat pruning applies the same name-scoped rule; the first Secondary to join no longer invalidates other prepared packs.
 - [x] Added regression coverage: preparing `secondary-a` again and accepting its first heartbeat both preserve the pending token and identity for `secondary-b`.
 - [ ] Focused tests have not been executed; Actions remain manual-only.
