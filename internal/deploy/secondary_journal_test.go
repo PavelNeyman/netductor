@@ -481,3 +481,18 @@ func TestSafeStageErrOpenSSHHostKeyVerificationFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+
+func TestDeployJournalRejectsCrossHostState(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	requested := "203.0.113.101"
+	other := "203.0.113.102"
+	if err := saveDeployState(&DeployOrchState{
+		Host: other, PeerID: "peer-other", AgentID: "agent-other",
+		LastSuccessfulStage: StageProvisioned, Status: StatusRunning,
+	}); err != nil { t.Fatal(err) }
+	if _, err := loadDeployState(requested); err == nil || !strings.Contains(err.Error(), "cross-host resume") {
+		t.Fatalf("expected cross-host journal rejection, got %v", err)
+	}
+}
