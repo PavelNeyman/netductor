@@ -448,9 +448,12 @@ func CARolloverFinish() error {
 	if !fileOK(path(CANewCertFile)) || !fileOK(path(CANewKeyFile)) {
 		return fmt.Errorf("new CA certificate/key pair is incomplete")
 	}
-	oldCA, err := parseCertFile(path(CACertFile))
+	oldCA, oldCAKey, err := loadNamedCA(path(CACertFile), path(CAKeyFile))
 	if err != nil {
-		return fmt.Errorf("read current CA before promotion: %w", err)
+		return fmt.Errorf("read current CA pair before promotion: %w", err)
+	}
+	if err := validateCAKeyPair(oldCA, oldCAKey); err != nil {
+		return fmt.Errorf("validate current CA pair before promotion: %w", err)
 	}
 	clientsDir := filepath.Join(Dir(), "clients")
 	clients, err := os.ReadDir(clientsDir)
@@ -476,9 +479,8 @@ func CARolloverFinish() error {
 	if err != nil {
 		return fmt.Errorf("load new CA pair: %w", err)
 	}
-	newCAPub, ok := newCA.PublicKey.(*ecdsa.PublicKey)
-	if !ok || newCAPub.X.Cmp(newCAKey.PublicKey.X) != 0 || newCAPub.Y.Cmp(newCAKey.PublicKey.Y) != 0 {
-		return fmt.Errorf("new CA certificate and private key do not match")
+	if err := validateCAKeyPair(newCA, newCAKey); err != nil {
+		return fmt.Errorf("validate new CA pair: %w", err)
 	}
 	if err := newCA.CheckSignatureFrom(newCA); err != nil {
 		return fmt.Errorf("new CA certificate is not self-signed: %w", err)
@@ -604,6 +606,20 @@ var rolloverBackupFiles = []string{
 	rolloverBackupClientCert, rolloverBackupClientKey,
 }
 
+func validateCAKeyPair(cert *x509.Certificate, key *ecdsa.PrivateKey) error {
+	if cert == nil || key == nil {
+		return fmt.Errorf("CA certificate or key is nil")
+	}
+	pub, ok := cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok || pub.X == nil || pub.Y == nil || key.PublicKey.X == nil || key.PublicKey.Y == nil {
+		return fmt.Errorf("CA key is not an ECDSA P-256 key")
+	}
+	if pub.X.Cmp(key.PublicKey.X) != 0 || pub.Y.Cmp(key.PublicKey.Y) != 0 {
+		return fmt.Errorf("CA certificate and private key do not match")
+	}
+	return nil
+}
+
 func writeDurable(dst string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(dst)
 	tmp, err := os.CreateTemp(dir, ".ca-rollover-*")
@@ -697,6 +713,19 @@ func recoverCARolloverPromotion() error {
 	case "promoting":
 		if err := restoreCARolloverBackups(); err != nil {
 			return fmt.Errorf("recover interrupted CA promotion: %w", err)
+		}
+		restoredCA, restoredKey, err := loadNamedCA(path(CACertFile), path(CAKeyFile))
+		if err != nil {
+			return fmt.Errorf("validate restored CA pair: %w", err)
+		}
+		if err := validateCAKeyPair(restoredCA, restoredKey); err != nil {
+			return fmt.Errorf("validate restored CA pair: %w", err)
+		}
+		if _, err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile)); err != nil {
+			return fmt.Errorf("validate restored server certificate/key: %w", err)
+		}
+		if _, err := tls.LoadX509KeyPair(path(ClientCertFile), path(ClientKeyFile)); err != nil {
+			return fmt.Errorf("validate restored default client certificate/key: %w", err)
 		}
 		rollover.Phase = "dual"
 		if err := saveRollover(rollover); err != nil {
