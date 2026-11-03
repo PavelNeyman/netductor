@@ -203,7 +203,7 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/secondary/agent/backup/key", handleSecondaryBackupKey)
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
-		d, ok := lookupSecondaryAgentDevice(w, tok)
+		d, ok := lookupSecondaryAgentDevice(w, r, tok)
 		if !ok {
 			return
 		}
@@ -224,13 +224,21 @@ func agentToken(r *http.Request) string {
 	return r.Header.Get("X-Secondary-Token")
 }
 
-func lookupSecondaryAgentDevice(w http.ResponseWriter, token string) (*secondary.Device, bool) {
+func secondaryAgentCertificateMatches(r *http.Request, id string) bool {
+	if r == nil || r.TLS == nil || id == "" || len(r.TLS.PeerCertificates) == 0 {
+		return false
+	}
+	cert := r.TLS.PeerCertificates[0]
+	return cert != nil && cert.Subject.CommonName == "netductor-agent-"+id
+}
+
+func lookupSecondaryAgentDevice(w http.ResponseWriter, r *http.Request, token string) (*secondary.Device, bool) {
 	d, err := secondary.LookupByToken(token)
 	if err != nil {
 		http.Error(w, "secondary registry unavailable", http.StatusInternalServerError)
 		return nil, false
 	}
-	if d == nil {
+	if d == nil || !secondaryAgentCertificateMatches(r, d.ID) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return nil, false
 	}
@@ -257,6 +265,10 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid heartbeat JSON", http.StatusBadRequest)
 		return
 	}
+	authenticated, ok := lookupSecondaryAgentDevice(w, r, tok)
+	if !ok {
+		return
+	}
 	d, ver, err := secondary.Heartbeat(tok, in)
 	if err != nil {
 		if errors.Is(err, secondary.ErrUnauthorized) || errors.Is(err, os.ErrNotExist) {
@@ -264,6 +276,10 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Error(w, "heartbeat persistence failed", http.StatusInternalServerError)
+		return
+	}
+	if d.ID != authenticated.ID {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if fp := strings.TrimSpace(in.RecoveryFP); fp != "" {
@@ -313,7 +329,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 
 func handleSecondaryAgentConfig(w http.ResponseWriter, r *http.Request) {
 	tok := agentToken(r)
-	if _, ok := lookupSecondaryAgentDevice(w, tok); !ok {
+	if _, ok := lookupSecondaryAgentDevice(w, r, tok); !ok {
 		return
 	}
 	sni := vpn.ActiveSNI()
@@ -346,7 +362,7 @@ func StartAgentPlane() error {
 	mux.HandleFunc("/api/secondary/agent/backup/key", handleSecondaryBackupKey)
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
-		d, ok := lookupSecondaryAgentDevice(w, tok)
+		d, ok := lookupSecondaryAgentDevice(w, r, tok)
 		if !ok { return }
 		ca, cert, key, err := mtls.ReadMaterial(d.ID)
 		if err != nil { http.Error(w, err.Error(), 404); return }
@@ -421,7 +437,7 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 	}
 	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	tok = strings.TrimSpace(tok)
-	if _, ok := lookupSecondaryAgentDevice(w, tok); !ok {
+	if _, ok := lookupSecondaryAgentDevice(w, r, tok); !ok {
 		return
 	}
 	dir := filepath.Join(paths.StateDir(), "backups")
@@ -500,7 +516,7 @@ func handleSecondaryBackupKey(w http.ResponseWriter, r *http.Request) {
 	}
 	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	tok = strings.TrimSpace(tok)
-	if _, ok := lookupSecondaryAgentDevice(w, tok); !ok {
+	if _, ok := lookupSecondaryAgentDevice(w, r, tok); !ok {
 		return
 	}
 	keyPath := filepath.Join(paths.StateDir(), "backups", "BACKUP_KEY.txt")
