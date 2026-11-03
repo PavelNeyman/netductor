@@ -56,8 +56,11 @@ func TestCARolloverRequiresObservedNewTLSIdentityBeforeFinish(t *testing.T) {
 	if revoked, err := IsRevoked(oldSerial); err != nil || !revoked {
 		t.Fatalf("old certificate not revoked after adoption: revoked=%v err=%v", revoked, err)
 	}
-	if err := CARolloverFinish(); err == nil {
-		t.Fatal("CA promotion proceeded without a crash-recovery transaction")
+	if err := CARolloverFinish(); err != nil {
+		t.Fatalf("CARolloverFinish after verified adoption: %v", err)
+	}
+	if status := CARolloverStatus(); status["phase"] != "done" {
+		t.Fatalf("CA rollover phase after promotion = %v, want done", status["phase"])
 	}
 }
 
