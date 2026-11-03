@@ -24,6 +24,52 @@ const (
 
 var bootstrapJournalRoot = "/var/lib/netductor/bootstrap-transactions"
 
+var bootstrapLockPath = "/var/lib/netductor/bootstrap-transactions.lock"
+
+// acquireBootstrapMutationLock serializes recovery and the complete apply/rollback
+// lifecycle across processes. The lock lives beside the private transaction store.
+func acquireBootstrapMutationLock() (func(), error) {
+	parent := filepath.Dir(bootstrapLockPath)
+	if err := validateExistingDirectoryChain(parent); err != nil {
+		return nil, fmt.Errorf("validate bootstrap lock parent: %w", err)
+	}
+	parentInfo, err := os.Lstat(parent)
+	if err != nil { return nil, err }
+	parentStat, ok := parentInfo.Sys().(*syscall.Stat_t)
+	if !ok || !parentInfo.IsDir() || parentInfo.Mode()&os.ModeSymlink != 0 ||
+		parentStat.Uid != uint32(os.Geteuid()) || parentInfo.Mode().Perm()&0o022 != 0 {
+		return nil, fmt.Errorf("bootstrap lock parent must be a real directory owned by euid %d and not writable by group/others", os.Geteuid())
+	}
+	fd, err := syscall.Open(bootstrapLockPath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0o600)
+	if err != nil { return nil, fmt.Errorf("open bootstrap mutation lock: %w", err) }
+	f := os.NewFile(uintptr(fd), bootstrapLockPath)
+	fail := func(e error) (func(), error) { _ = f.Close(); return nil, e }
+	opened, err := f.Stat()
+	if err != nil { return fail(fmt.Errorf("stat bootstrap mutation lock: %w", err)) }
+	pathInfo, err := os.Lstat(bootstrapLockPath)
+	if err != nil { return fail(fmt.Errorf("inspect bootstrap mutation lock: %w", err)) }
+	lockStat, ok := opened.Sys().(*syscall.Stat_t)
+	if !ok || !opened.Mode().IsRegular() || pathInfo.Mode()&os.ModeSymlink != 0 ||
+		!os.SameFile(opened, pathInfo) || lockStat.Uid != uint32(os.Geteuid()) ||
+		opened.Mode().Perm()&0o077 != 0 {
+		return fail(fmt.Errorf("bootstrap mutation lock must be a private regular file owned by euid %d", os.Geteuid()))
+	}
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			return func() { _ = syscall.Flock(fd, syscall.LOCK_UN); _ = f.Close() }, nil
+		}
+		if err != syscall.EWOULDBLOCK && err != syscall.EAGAIN && err != syscall.EINTR {
+			return fail(fmt.Errorf("acquire bootstrap mutation lock: %w", err))
+		}
+		if time.Now().After(deadline) {
+			return fail(fmt.Errorf("timed out waiting 30s for bootstrap mutation lock"))
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 // Snapshot targets are constrained to Netductor-managed configuration trees.
 var bootstrapAllowedFileRoots = []string{
 	"/etc/wireguard", "/etc/systemd/system", "/etc/netductor",
