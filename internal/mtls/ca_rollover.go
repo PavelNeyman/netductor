@@ -471,6 +471,16 @@ func CARolloverFinish() error {
 	if err := validateCAKeyPair(oldCA, oldCAKey); err != nil {
 		return fmt.Errorf("validate current CA pair before promotion: %w", err)
 	}
+	newCA, newCAKey, err := loadNamedCA(path(CANewCertFile), path(CANewKeyFile))
+	if err != nil {
+		return fmt.Errorf("load new CA pair: %w", err)
+	}
+	if err := validateCAKeyPair(newCA, newCAKey); err != nil {
+		return fmt.Errorf("validate new CA pair: %w", err)
+	}
+	if err := newCA.CheckSignatureFrom(newCA); err != nil {
+		return fmt.Errorf("new CA certificate is not self-signed: %w", err)
+	}
 	clientsDir := filepath.Join(Dir(), "clients")
 	clients, err := os.ReadDir(clientsDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -504,32 +514,23 @@ func CARolloverFinish() error {
 			if err != nil {
 				return fmt.Errorf("inspect previous client certificate backup for %q: %w", entry.Name(), err)
 			}
-			if backupCert.Issuer.String() == oldCA.Subject.String() {
-				state, ok := rollover.Issued[entry.Name()]
-				if !ok || state.OldSerial != serialHex(backupCert.SerialNumber) || state.ConfirmedAt == 0 {
-					return fmt.Errorf("previous client certificate backup for %q is not confirmed in the rollover journal", entry.Name())
-				}
-				revoked, err := IsRevoked(backupCert.SerialNumber)
-				if err != nil {
-					return fmt.Errorf("check previous client certificate revocation for %q: %w", entry.Name(), err)
-				}
-				if !revoked {
-					return fmt.Errorf("previous client certificate for %q is not revoked", entry.Name())
-				}
+			if backupCert.Issuer.String() != oldCA.Subject.String() {
+				return fmt.Errorf("previous client certificate backup for %q has an unrecognized issuer", entry.Name())
+			}
+			state, ok := rollover.Issued[entry.Name()]
+			if !ok || state.OldSerial != serialHex(backupCert.SerialNumber) || state.ConfirmedAt == 0 {
+				return fmt.Errorf("previous client certificate backup for %q is not confirmed in the rollover journal", entry.Name())
+			}
+			revoked, err := IsRevoked(backupCert.SerialNumber)
+			if err != nil {
+				return fmt.Errorf("check previous client certificate revocation for %q: %w", entry.Name(), err)
+			}
+			if !revoked {
+				return fmt.Errorf("previous client certificate for %q is not revoked", entry.Name())
 			}
 		} else if !os.IsNotExist(err) {
 			return fmt.Errorf("inspect previous client certificate backup for %q: %w", entry.Name(), err)
 		}
-	}
-	newCA, newCAKey, err := loadNamedCA(path(CANewCertFile), path(CANewKeyFile))
-	if err != nil {
-		return fmt.Errorf("load new CA pair: %w", err)
-	}
-	if err := validateCAKeyPair(newCA, newCAKey); err != nil {
-		return fmt.Errorf("validate new CA pair: %w", err)
-	}
-	if err := newCA.CheckSignatureFrom(newCA); err != nil {
-		return fmt.Errorf("new CA certificate is not self-signed: %w", err)
 	}
 	if err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile)); err != nil {
 		return fmt.Errorf("validate current server certificate/key before promotion: %w", err)
