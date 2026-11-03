@@ -151,14 +151,16 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 				return nil, nil, nil, fmt.Errorf("remove stale rollover key backup: %w", err)
 			}
 		} else {
-			_ = os.Remove(certPath)
-			_ = os.Remove(keyPath)
+			// Restore only files that were actually moved to backup. A crash
+			// between the two backup renames must not delete the untouched half.
 			if fileOK(backupCert) {
+				_ = os.Remove(certPath)
 				if err := os.Rename(backupCert, certPath); err != nil {
 					return nil, nil, nil, fmt.Errorf("recover previous client certificate: %w", err)
 				}
 			}
 			if fileOK(backupKey) {
+				_ = os.Remove(keyPath)
 				if err := os.Rename(backupKey, keyPath); err != nil {
 					return nil, nil, nil, fmt.Errorf("recover previous client key: %w", err)
 				}
