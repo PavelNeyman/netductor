@@ -560,15 +560,14 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	// If provisioning completed but the local success checkpoint was lost,
 	// AgentID + the in-progress marker let us prove the hardened endpoint instead
 	// of blindly running the password/bootstrap path a second time.
-	uncertainProvision := prev != nil && !canSkipProvision(prev) &&
-		prev.CurrentStep == StageProvisionStarted && prev.AgentID != ""
+	uncertainProvision := canRecoverProvision(prev)
 	// Advanced journal: never auto-reprovision. SSH/resume problems fail closed.
 	advanced := canSkipProvision(prev) && prev != nil && prev.AgentID != ""
 	skipProv := false
 	if uncertainProvision {
 		fmt.Fprintln(os.Stderr, "==> provisioning checkpoint uncertain; verify finalized key-only SSH on :52222")
 		secKeyP, secPassP := secondaryDialKey(o)
-		verifyCmd := "set -e; test \\\"$(systemctl is-active netductor-secondary-agent)\\\" = active; test \\\"$(systemctl is-active sing-box)\\\" = active"
+		verifyCmd := "set -e; systemctl is-active --quiet netductor-secondary-agent; systemctl is-active --quiet sing-box"
 		if _, verifyErr := runSSHOnPort("52222", "", secKeyP, o.SecondaryUser, o.SecondaryHost, verifyCmd, secPassP); verifyErr != nil {
 			return failDeploy(&prev, peerIDEarly, prev.AgentID, o.SecondaryHost, fmt.Errorf("provision outcome is uncertain (journal current_step=%s, agent=%s); key-only SSH/service verification on :52222 failed — refusing automatic reprovision: %w", prev.CurrentStep, prev.AgentID, verifyErr))
 		}
