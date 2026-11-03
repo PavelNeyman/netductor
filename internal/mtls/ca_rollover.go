@@ -275,8 +275,18 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		return nil, nil, nil, fmt.Errorf("parse promoted client certificate: %w", err)
 	}
 	rollover.Issued = ensureRolloverIssued(rollover.Issued)
-	rollover.Issued[nodeID] = rolloverClientState{OldSerial: oldSerial, NewSerial: serialHex(newCert.SerialNumber)}
+	newSerial := serialHex(newCert.SerialNumber)
+	rollover.Issued[nodeID] = rolloverClientState{OldSerial: oldSerial, NewSerial: newSerial}
 	if err := saveRollover(rollover); err != nil {
+		// SaveJSON may report a directory-sync error after the atomic rename.
+		// If the journal entry is already visible, preserve the matching new
+		// pair so a retry can safely deliver and confirm it.
+		persisted, loadErr := loadRollover()
+		if loadErr == nil {
+			if state, ok := persisted.Issued[nodeID]; ok && state.NewSerial == newSerial {
+				return materialCA, materialCert, materialKey, nil
+			}
+		}
 		rollback()
 		return nil, nil, nil, fmt.Errorf("persist issued CA rollover identity: %w", err)
 	}
