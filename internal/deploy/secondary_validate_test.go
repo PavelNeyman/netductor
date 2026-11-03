@@ -3,6 +3,7 @@ package deploy
 import (
 	"encoding/json"
 	"testing"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
 )
@@ -105,5 +106,17 @@ func TestSecondaryPeerPreflight(t *testing.T) {
 	}
 	if err := validateSecondaryPeerPreflight(peerRegistryJSON(t, dup...), peerID, host); err == nil {
 		t.Fatal("duplicate active peer IDs must fail closed")
+	}
+}
+
+
+func TestValidateDeployPeerID(t *testing.T) {
+	valid := []string{"peer-195-140-147-20", "A", "a_1-B", "9peer"}
+	for _, id := range valid {
+		if err := validateDeployPeerID(id); err != nil { t.Errorf("validateDeployPeerID(%q): %v", id, err) }
+	}
+	invalid := []string{"", "-peer", "_peer", "peer;id", "peer$(id)", "peer`id`", "peer id", "peer\\nid", "peer'quoted", "peer\"quoted", strings.Repeat("a", 65)}
+	for _, id := range invalid {
+		if err := validateDeployPeerID(id); err == nil { t.Errorf("validateDeployPeerID(%q) unexpectedly succeeded", id) }
 	}
 }
