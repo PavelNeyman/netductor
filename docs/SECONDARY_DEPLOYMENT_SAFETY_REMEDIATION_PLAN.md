@@ -175,3 +175,13 @@ Updated against current `main` after the initial plan commit.
 - [x] The API view applies the existing authorized-keys log redaction before returning the last command log.
 - [x] Added regression coverage asserting that agent tokens and raw authorized-keys material are absent while device identity remains available.
 - [ ] Focused tests have not been executed; Actions remain manual-only.
+
+### mTLS client certificate rotation recovery
+
+- [x] Rotation stages the existing certificate/key pair before issuing replacements and restores it when issuance, metadata loading, or pending-journal persistence fails.
+- [x] Retries are idempotent while a rotation is pending; they return the same active replacement material instead of creating a chain of unconfirmed certificates.
+- [x] Interrupted rotations recover staged files automatically: without a committed pending record the old pair is restored; with a matching pending record the replacement pair is retained and stale backups are cleaned.
+- [x] A visible pending journal is never rolled back to the old pair merely because the final directory-sync confirmation failed.
+- [x] Grace-expiry revocation failures and confirmation revocation failures are propagated; pending state is not silently discarded.
+- [x] Added regression tests for idempotent rotation/confirmation, failed revocation, grace-expiry failure, and recovery after interruption.
+- [ ] Focused tests have not been executed; Actions remain manual-only.
