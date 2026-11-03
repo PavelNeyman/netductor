@@ -173,11 +173,10 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 	m, err := loadPeerMaterial(peerID)
 	if err != nil {
 		materialPath := peerMaterialPath(peerID)
-		st, statErr := os.Lstat(materialPath)
+		_, statErr := os.Lstat(materialPath)
 		if statErr == nil {
 			// Existing but unreadable/corrupt/incomplete material may contain keys
 			// already relied upon by an interrupted operation. Never replace it.
-			_ = st
 			return "", fmt.Errorf("incomplete add %s phase=%s: existing material is not valid (%v); refusing key regeneration", peerID, op.Phase, err)
 		}
 		if !os.IsNotExist(statErr) {
