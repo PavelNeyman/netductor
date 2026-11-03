@@ -248,6 +248,65 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		_ = os.Remove(tmpCert)
 		return nil, nil, nil, err
 	}
+	// Recover an issuance that promoted both files but crashed before its
+	// journal entry was saved. Do not discard the old identity in this case.
+	backupCertExists, backupKeyExists := fileOK(backupCert), fileOK(backupKey)
+	if backupCertExists && backupKeyExists && fileOK(certPath) && fileOK(keyPath) {
+		activeCert, err := parseCertFile(certPath)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("inspect active client certificate during recovery: %w", err)
+		}
+		oldBackupCert, err := parseCertFile(backupCert)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("inspect previous client certificate during recovery: %w", err)
+		}
+		if _, err := tls.LoadX509KeyPair(backupCert, backupKey); err != nil {
+			return nil, nil, nil, fmt.Errorf("validate previous client identity during recovery: %w", err)
+		}
+		if activeCert.Subject.CommonName != "netductor-agent-"+nodeID || oldBackupCert.Subject.CommonName != activeCert.Subject.CommonName {
+			return nil, nil, nil, fmt.Errorf("client certificate identity mismatch during rollover recovery")
+		}
+		oldCA, err := parseCertFile(path(CACertFile))
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("load previous CA during client recovery: %w", err)
+		}
+		if activeCert.Issuer.String() == caCert.Subject.String() {
+			if _, err := tls.LoadX509KeyPair(certPath, keyPath); err != nil {
+				return nil, nil, nil, fmt.Errorf("validate promoted client identity during recovery: %w", err)
+			}
+			newRoots := x509.NewCertPool()
+			newRoots.AddCert(caCert)
+			if _, err := activeCert.Verify(x509.VerifyOptions{Roots: newRoots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+				return nil, nil, nil, fmt.Errorf("verify promoted client identity during recovery: %w", err)
+			}
+			oldRoots := x509.NewCertPool()
+			oldRoots.AddCert(oldCA)
+			if _, err := oldBackupCert.Verify(x509.VerifyOptions{Roots: oldRoots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+				return nil, nil, nil, fmt.Errorf("verify previous client identity during recovery: %w", err)
+			}
+			rollover.Issued[nodeID] = rolloverIssued{OldSerial: serialHex(oldBackupCert.SerialNumber), NewSerial: serialHex(activeCert.SerialNumber), IssuedAt: time.Now().Unix()}
+			if err := saveRollover(rollover); err != nil {
+				return nil, nil, nil, fmt.Errorf("persist recovered client issuance: %w", err)
+			}
+			_ = os.Remove(tmpCert)
+			_ = os.Remove(tmpKey)
+			materialCA, materialCert, materialKey, err := ReadMaterial(nodeID)
+			return materialCA, materialCert, materialKey, err
+		}
+		if activeCert.Issuer.String() == oldCA.Subject.String() && serialHex(activeCert.SerialNumber) == serialHex(oldBackupCert.SerialNumber) {
+			if err := os.Remove(backupCert); err != nil && !os.IsNotExist(err) {
+				return nil, nil, nil, fmt.Errorf("remove duplicate previous certificate backup: %w", err)
+			}
+			if err := os.Remove(backupKey); err != nil && !os.IsNotExist(err) {
+				return nil, nil, nil, fmt.Errorf("remove duplicate previous key backup: %w", err)
+			}
+			backupCertExists, backupKeyExists = false, false
+		} else {
+			return nil, nil, nil, fmt.Errorf("ambiguous client identity state during CA rollover recovery")
+		}
+	} else if (backupCertExists || backupKeyExists) && fileOK(certPath) && fileOK(keyPath) {
+		return nil, nil, nil, fmt.Errorf("incomplete client backup exists for %q; refusing to discard it", nodeID)
+	}
 	// Keep the previous identity valid: delivery and adoption by the Secondary
 	// are not yet acknowledged by the current protocol. Never revoke it here.
 	if fileOK(backupCert) || fileOK(backupKey) {
