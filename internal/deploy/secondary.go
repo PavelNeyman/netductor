@@ -417,6 +417,12 @@ func validateSecondaryPeerPreflight(raw, peerID, publicIP string) error {
 		if p.State == "removed" {
 			continue
 		}
+		if p.Slot.Index < 0 || p.Slot.Index >= len(slots) || p.Slot != slots[p.Slot.Index] {
+			return fmt.Errorf("peer preflight: registry peer %q has invalid slot tuple (slot=%d)", p.ID, p.Slot.Index)
+		}
+		if used[p.Slot.Index] {
+			return fmt.Errorf("peer preflight: registry has duplicate active slot %d", p.Slot.Index)
+		}
 		used[p.Slot.Index] = true
 		if p.ID == peerID {
 			if p.PublicIP != publicIP {
