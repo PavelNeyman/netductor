@@ -155,6 +155,19 @@ func runMTLS(args []string) {
 			_ = secondary.EnqueueCmd(args[2], "mtls_refresh")
 			fmt.Println(cli18n.T("mtls.rollover_issued"), args[2])
 		case "finish":
+			devices, err := secondary.ListE()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "load registered Secondary inventory:", err)
+				os.Exit(1)
+			}
+			ids := make([]string, 0, len(devices))
+			for _, device := range devices {
+				ids = append(ids, device.ID)
+			}
+			if err := mtls.CARolloverValidateClients(ids); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 			if err := mtls.CARolloverFinish(); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
