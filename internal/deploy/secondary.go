@@ -557,9 +557,27 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	var raw string
 	var errJ error
 
+	// If provisioning completed but the local success checkpoint was lost,
+	// AgentID + the in-progress marker let us prove the hardened endpoint instead
+	// of blindly running the password/bootstrap path a second time.
+	uncertainProvision := prev != nil && !canSkipProvision(prev) &&
+		prev.CurrentStep == StageProvisionStarted && prev.AgentID != ""
 	// Advanced journal: never auto-reprovision. SSH/resume problems fail closed.
 	advanced := canSkipProvision(prev) && prev != nil && prev.AgentID != ""
 	skipProv := false
+	if uncertainProvision {
+		fmt.Fprintln(os.Stderr, "==> provisioning checkpoint uncertain; verify finalized key-only SSH on :52222")
+		secKeyP, secPassP := secondaryDialKey(o)
+		verifyCmd := "set -e; test \\\"$(systemctl is-active netductor-secondary-agent)\\\" = active; test \\\"$(systemctl is-active sing-box)\\\" = active"
+		if _, verifyErr := runSSHOnPort("52222", "", secKeyP, o.SecondaryUser, o.SecondaryHost, verifyCmd, secPassP); verifyErr != nil {
+			return failDeploy(&prev, peerIDEarly, prev.AgentID, o.SecondaryHost, fmt.Errorf("provision outcome is uncertain (journal current_step=%s, agent=%s); key-only SSH/service verification on :52222 failed — refusing automatic reprovision: %w", prev.CurrentStep, prev.AgentID, verifyErr))
+		}
+		pack.AgentID = prev.AgentID
+		if err := checkpointSuccess(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, StageProvisioned); err != nil {
+			return err
+		}
+		skipProv = true
+	}
 	if advanced {
 		if o.SSHMode != SSHModeResume {
 			return fmt.Errorf("deploy journal last_ok=%s agent=%s — refuse full provision in initial SSH mode; use resume (key :52222) or deploy journal clear %s",
@@ -645,6 +663,12 @@ func deploySecondaryBody(o SecondaryOpts) error {
 			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("prepare-pack", "mtls_key", err))
 		}
 
+		// Persist the pack's stable agent identity before touching the Secondary.
+		// If provisioning succeeds but its completion checkpoint cannot be written,
+		// the next run can verify :52222 and recover without re-provisioning.
+		if err := markCurrentStep(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, StageProvisionStarted); err != nil {
+			return err
+		}
 		if o.SSHMode == SSHModeResume {
 			fmt.Fprintln(os.Stderr, "==> 2/2 Mac → secondary", o.SecondaryHost, "(resume, key-only :52222)")
 		} else {
