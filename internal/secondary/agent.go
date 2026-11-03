@@ -70,6 +70,9 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 	if interval < 10*time.Second {
 		interval = 30 * time.Second
 	}
+	if _, err := mtls.ClientTLSConfig(); err != nil && restorePreviousMTLSMaterial() {
+		fmt.Fprintln(os.Stderr, "recovered interrupted mTLS material installation")
+	}
 	client := agentHTTPClient()
 	consecutiveAgentErrors := 0
 	if mtls.ClientReady() {
