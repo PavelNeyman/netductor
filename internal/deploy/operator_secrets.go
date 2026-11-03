@@ -72,11 +72,13 @@ cat /etc/netductor/secrets/recovery_token 2>/dev/null || true
 echo "===TAR_B64==="
 # secrets + conf + hostnames + secondary registry tokens + LE live certs if any
 TMP=$(mktemp) || exit 1
-chmod 600 "$TMP"
+chmod 600 "$TMP" || exit 1
 trap 'rm -f -- "$TMP"' EXIT
 trap 'exit 1' HUP INT TERM
-tar czf "$TMP" \
-  -C / etc/netductor/secrets \
+[ -d /etc/netductor/secrets ] || { echo "required secrets directory missing" >&2; exit 1; }
+set --
+for p in \
+  etc/netductor/secrets \
   etc/netductor/netductor.conf \
   etc/netductor/public_hostname \
   etc/netductor/vpn_hostname \
@@ -85,10 +87,23 @@ tar czf "$TMP" \
   var/lib/netductor/nodes/registry.json \
   etc/letsencrypt/live \
   etc/letsencrypt/archive \
-  etc/letsencrypt/renewal \
-  2>/dev/null
-base64 -w0 "$TMP" 2>/dev/null || base64 "$TMP" 2>/dev/null | tr -d '\n'
-echo
+  etc/letsencrypt/renewal
+do
+  if [ -e "/$p" ] || [ -L "/$p" ]; then
+    set -- "$@" "$p"
+  fi
+done
+[ "$#" -gt 0 ] || { echo "no recovery paths found" >&2; exit 1; }
+if ! tar czf "$TMP" -C / "$@" 2>/dev/null; then
+  echo "recovery archive creation failed" >&2
+  exit 1
+fi
+B64=$(base64 -w0 "$TMP" 2>/dev/null)
+if [ -z "$B64" ]; then
+  B64=$(base64 "$TMP" 2>/dev/null | tr -d '\n') || exit 1
+fi
+[ -n "$B64" ] || { echo "recovery archive encoding failed" >&2; exit 1; }
+printf '%s\n' "$B64"
 echo "===END==="
 `
 
@@ -133,6 +148,19 @@ echo "===END==="
 	// strip accidental newlines in b64
 	tarB64 = strings.ReplaceAll(tarB64, "\n", "")
 	tarB64 = strings.ReplaceAll(tarB64, "\r", "")
+	if tarB64 == "" {
+		return "", fmt.Errorf("ssh collect incomplete output (missing recovery archive)")
+	}
+	archiveBytes, err := base64.StdEncoding.DecodeString(tarB64)
+	if err != nil {
+		archiveBytes, err = base64.RawStdEncoding.DecodeString(tarB64)
+	}
+	if err != nil {
+		return "", fmt.Errorf("decode remote recovery archive: %w", err)
+	}
+	if len(archiveBytes) == 0 {
+		return "", fmt.Errorf("remote recovery archive is empty")
+	}
 
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "" {
@@ -165,25 +193,14 @@ echo "===END==="
 		return "", fmt.Errorf("create unique credentials bundle directory: %w", err)
 	}
 
-	// Decode full archive if present
+	// Persist only a fully decoded, non-empty recovery archive.
 	archivePath := filepath.Join(bundleDir, "secrets-full.tgz")
-	if tarB64 != "" {
-		bin, err := base64.StdEncoding.DecodeString(tarB64)
-		if err != nil {
-			// try raw StdEncoding with whitespace already stripped
-			bin, err = base64.RawStdEncoding.DecodeString(tarB64)
-		}
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "warn: could not decode secrets tar:", err)
-		} else if len(bin) > 0 {
-			if err := os.WriteFile(archivePath, bin, 0o600); err != nil {
-				return "", err
-			}
-			// Do not extract a remote-produced tar archive on the operator host.
-			// A compromised remote host could supply traversal paths or symlink
-			// entries and overwrite files outside this credentials directory.
-		}
+	if err := os.WriteFile(archivePath, archiveBytes, 0o600); err != nil {
+		_ = os.RemoveAll(bundleDir)
+		return "", fmt.Errorf("write recovery archive: %w", err)
 	}
+	// Do not extract remote-produced tar input on the operator host. A
+	// compromised remote host could supply traversal paths or symlink entries.
 
 	if conf != "" {
 		_ = os.WriteFile(filepath.Join(bundleDir, "netductor.conf"), []byte(conf+"\n"), 0o600)
