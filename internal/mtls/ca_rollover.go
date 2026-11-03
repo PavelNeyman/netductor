@@ -82,23 +82,36 @@ func CARolloverStart() error {
 
 // IssueClientFromNewCA issues client cert signed by ca-new.
 func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error) {
+	if strings.TrimSpace(nodeID) == "" || strings.ContainsAny(nodeID, "/\\\\") || nodeID == "." || nodeID == ".." {
+		return nil, nil, nil, fmt.Errorf("invalid node ID")
+	}
 	if !fileOK(path(CANewCertFile)) || !fileOK(path(CANewKeyFile)) {
 		return nil, nil, nil, fmt.Errorf("ca-new missing; run mtls rollover start")
+	}
+	rollover := loadRollover()
+	if rollover.Phase != "dual" || rollover.NewSerial == "" {
+		return nil, nil, nil, fmt.Errorf("CA rollover journal is not in a valid dual-trust phase")
 	}
 	caCert, caKey, err := loadNamedCA(path(CANewCertFile), path(CANewKeyFile))
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if serialHex(caCert.SerialNumber) != rollover.NewSerial {
+		return nil, nil, nil, fmt.Errorf("ca-new certificate does not match rollover journal")
+	}
 	dir := ClientDir(nodeID)
-	_ = os.MkdirAll(dir, 0o700)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, nil, nil, fmt.Errorf("create client directory: %w", err)
+	}
 	certPath := filepath.Join(dir, ClientCertFile)
 	keyPath := filepath.Join(dir, ClientKeyFile)
-	tmpCert := certPath + ".new"
-	tmpKey := keyPath + ".new"
-	oldSerial := ""
-	if fileOK(certPath) {
-		if c, e := parseCertFile(certPath); e == nil {
-			oldSerial = serialHex(c.SerialNumber)
+	tmpCert := certPath + ".rollover-new"
+	tmpKey := keyPath + ".rollover-new"
+	backupCert := certPath + ".rollover-old"
+	backupKey := keyPath + ".rollover-old"
+	for _, p := range []string{tmpCert, tmpKey} {
+		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+			return nil, nil, nil, fmt.Errorf("remove stale rollover staging file: %w", err)
 		}
 	}
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -107,11 +120,11 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: serial(),
-		Subject:      pkix.Name{CommonName: "netductor-agent-" + nodeID, Organization: []string{"netductor"}},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(5 * 365 * 24 * time.Hour),
-		KeyUsage:     x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		Subject: pkix.Name{CommonName: "netductor-agent-" + nodeID, Organization: []string{"netductor"}},
+		NotBefore: time.Now().Add(-time.Hour),
+		NotAfter: time.Now().Add(5 * 365 * 24 * time.Hour),
+		KeyUsage: x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, caCert, &k.PublicKey, caKey)
 	if err != nil {
@@ -124,20 +137,53 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		_ = os.Remove(tmpCert)
 		return nil, nil, nil, err
 	}
-	// Promote only after both files exist; keep old pair until rename succeeds.
-	if err := os.Rename(tmpCert, certPath); err != nil {
+	// Keep the previous identity valid: delivery and adoption by the Secondary
+	// are not yet acknowledged by the current protocol. Never revoke it here.
+	if fileOK(backupCert) || fileOK(backupKey) {
 		_ = os.Remove(tmpCert)
 		_ = os.Remove(tmpKey)
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("unfinished CA rollover backup exists for %s; recover before retrying", nodeID)
+	}
+	hadCert, hadKey := fileOK(certPath), fileOK(keyPath)
+	if hadCert {
+		if err := os.Rename(certPath, backupCert); err != nil {
+			_ = os.Remove(tmpCert)
+			_ = os.Remove(tmpKey)
+			return nil, nil, nil, fmt.Errorf("stage previous client certificate: %w", err)
+		}
+	}
+	if hadKey {
+		if err := os.Rename(keyPath, backupKey); err != nil {
+			if hadCert { _ = os.Rename(backupCert, certPath) }
+			_ = os.Remove(tmpCert)
+			_ = os.Remove(tmpKey)
+			return nil, nil, nil, fmt.Errorf("stage previous client key: %w", err)
+		}
+	}
+	rollback := func() {
+		_ = os.Remove(certPath)
+		_ = os.Remove(keyPath)
+		if hadCert { _ = os.Rename(backupCert, certPath) }
+		if hadKey { _ = os.Rename(backupKey, keyPath) }
+		_ = os.Remove(tmpCert)
+		_ = os.Remove(tmpKey)
+	}
+	if err := os.Rename(tmpCert, certPath); err != nil {
+		rollback()
+		return nil, nil, nil, fmt.Errorf("promote rollover client certificate: %w", err)
 	}
 	if err := os.Rename(tmpKey, keyPath); err != nil {
-		_ = os.Remove(tmpKey)
-		return nil, nil, nil, fmt.Errorf("client key promote: %w (cert already replaced)", err)
+		rollback()
+		return nil, nil, nil, fmt.Errorf("promote rollover client key: %w", err)
 	}
-	if oldSerial != "" {
-		_ = RevokeSerial(oldSerial, nodeID, "rollover-reissue")
+	materialCA, materialCert, materialKey, err := ReadMaterial(nodeID)
+	if err != nil {
+		rollback()
+		return nil, nil, nil, fmt.Errorf("read promoted rollover material: %w", err)
 	}
-	return ReadMaterial(nodeID)
+	// Retain the old pair until an explicit, separately verified adoption
+	// protocol can revoke it. Cleanup is intentionally deferred.
+	return materialCA, materialCert, materialKey, nil
 }
 
 func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, error) {
