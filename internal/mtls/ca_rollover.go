@@ -467,12 +467,20 @@ func CARolloverStatus() map[string]any {
 	if err != nil {
 		return map[string]any{"error": err.Error(), "ca_new_ready": fileOK(path(CANewCertFile))}
 	}
+	confirmed := 0
+	for _, client := range r.Issued {
+		if client.ConfirmedAt > 0 {
+			confirmed++
+		}
+	}
 	return map[string]any{
-		"phase":        r.Phase,
-		"started_at":   r.StartedAt,
-		"new_serial":   r.NewSerial,
-		"ca_new_ready": fileOK(path(CANewCertFile)),
-		"dual_trust":   fileOK(path(CANewCertFile)) && fileOK(path(CACertFile)),
+		"phase":             r.Phase,
+		"started_at":        r.StartedAt,
+		"new_serial":        r.NewSerial,
+		"issued_clients":    len(r.Issued),
+		"confirmed_clients": confirmed,
+		"ca_new_ready":      fileOK(path(CANewCertFile)),
+		"dual_trust":        fileOK(path(CANewCertFile)) && fileOK(path(CACertFile)),
 	}
 }
 
