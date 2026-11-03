@@ -334,7 +334,7 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 
 func parseSerial(serial string) *big.Int {
 	n, ok := new(big.Int).SetString(strings.TrimSpace(serial), 16)
-	if !ok {
+	if !ok || n.Sign() <= 0 {
 		return nil
 	}
 	return n
