@@ -996,7 +996,7 @@ func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
 }
 
 func applySecondaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, primaryPub string, wssPS int) error {
-	unlock, err := firewall.AcquireMutationLock()
+	unlock, err := firewall.AcquireMutationLockTimeout(30 * time.Second)
 	if err != nil {
 		return fmt.Errorf("secondary WSS firewall lock: %w", err)
 	}
