@@ -143,4 +143,5 @@ Updated against current `main` after the initial plan commit.
 
 - [x] Rollback now attempts file restoration, systemd daemon reload/runtime+enablement restoration, and firewall delta restoration independently. A failure in one domain no longer skips compensation in the others.
 - [x] The transaction journal remains in `rolling_back` unless all compensation steps succeed; recovery can retry the complete rollback idempotently.
+- [x] Added a regression test injecting file-restore failure and asserting systemd + firewall compensation still run and the journal remains `rolling_back`.
 - [ ] Focused rollback failure-injection tests have not been executed; Actions remain manual-only.
