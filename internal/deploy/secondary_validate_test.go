@@ -39,3 +39,17 @@ func contains(s, sub string) bool {
 			return false
 		})()))
 }
+
+func TestSecondaryPackNameIsScopedToHost(t *testing.T) {
+	first := secondaryPackName("195.140.147.20")
+	second := secondaryPackName("92.255.77.253")
+	if first != "secondary-195-140-147-20" {
+		t.Fatalf("unexpected first pack name %q", first)
+	}
+	if second != "secondary-92-255-77-253" {
+		t.Fatalf("unexpected second pack name %q", second)
+	}
+	if first == second {
+		t.Fatal("different Secondary hosts must not share a pending pack name")
+	}
+}
