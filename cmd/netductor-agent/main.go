@@ -1250,7 +1250,13 @@ func restoreEdgeMTLSMaterial() bool {
 		backup := dir + ".rollover-old"
 		backupInfo, err := os.Lstat(backup)
 		if os.IsNotExist(err) {
-			if _, currentErr := os.Lstat(dir); currentErr == nil {
+			if currentInfo, currentErr := os.Lstat(dir); currentErr == nil && currentInfo.IsDir() && currentInfo.Mode()&os.ModeSymlink == 0 {
+				if err := os.RemoveAll(dir + ".rollover-failed"); err != nil {
+					return false
+				}
+				if err := syncAgentDirectory(filepath.Dir(dir)); err != nil {
+					return false
+				}
 				continue // this directory was already restored by a prior retry
 			}
 			return false
