@@ -80,6 +80,9 @@ func saveRollover(r rolloverInfo) error {
 func CARolloverStart() error {
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
+	if err := recoverCARolloverPromotion(); err != nil {
+		return fmt.Errorf("recover prior CA promotion: %w", err)
+	}
 
 	rollover, err := loadRollover()
 	if err != nil {
@@ -414,6 +417,9 @@ func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, erro
 func CARolloverFinish() error {
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
+	if err := recoverCARolloverPromotion(); err != nil {
+		return fmt.Errorf("recover prior CA promotion: %w", err)
+	}
 	rollover, err := loadRollover()
 	if err != nil {
 		return err
@@ -679,6 +685,9 @@ func recoverCARolloverPromotion() error {
 func CARolloverAbort() error {
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
+	if err := recoverCARolloverPromotion(); err != nil {
+		return fmt.Errorf("recover prior CA promotion: %w", err)
+	}
 
 	rollover, err := loadRollover()
 	if err != nil {
