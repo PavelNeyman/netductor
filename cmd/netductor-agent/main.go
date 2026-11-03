@@ -83,6 +83,10 @@ Commands (from VPS):
 		runBuildAgent(cfg)
 		return
 	}
+	if err := recoverEdgeMTLSStartup(); err != nil {
+		fmt.Fprintln(os.Stderr, "recover mTLS material:", err)
+		os.Exit(1)
+	}
 	client := agentHTTPClient()
 	mtlsRefreshBackupActive = edgeMTLSBackupsPresent()
 	startRecoveryHTTP(&cfg)
@@ -1174,6 +1178,46 @@ func syncAgentDirectory(path string) error {
 	}
 	defer dir.Close()
 	return dir.Sync()
+}
+
+func recoverEdgeMTLSStartup() error {
+	if !edgeMTLSBackupsPresent() {
+		return nil
+	}
+	serial := ""
+	for _, dir := range mtlsDirs {
+		certPEM, err := os.ReadFile(filepath.Join(dir, "client.crt"))
+		if err != nil {
+			if restoreEdgeMTLSMaterial() {
+				return nil
+			}
+			return fmt.Errorf("inspect current client certificate in %s: %w", dir, err)
+		}
+		block, _ := pem.Decode(certPEM)
+		if block == nil {
+			if restoreEdgeMTLSMaterial() {
+				return nil
+			}
+			return fmt.Errorf("invalid current client certificate in %s", dir)
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			if restoreEdgeMTLSMaterial() {
+				return nil
+			}
+			return fmt.Errorf("parse current client certificate in %s: %w", dir, err)
+		}
+		current := strings.ToLower(cert.SerialNumber.Text(16))
+		if serial == "" {
+			serial = current
+		} else if serial != current {
+			if restoreEdgeMTLSMaterial() {
+				return nil
+			}
+			return fmt.Errorf("mTLS directories contain different client identities")
+		}
+	}
+	return nil
 }
 
 func edgeMTLSBackupsPresent() bool {
