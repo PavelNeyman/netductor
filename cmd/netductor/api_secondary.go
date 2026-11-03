@@ -56,7 +56,7 @@ type secondaryDeviceAPIView struct {
 	CreatedAt     time.Time      `json:"created_at"`
 }
 
-func secondaryDeviceAPIView(d secondary.Device) secondaryDeviceAPIView {
+func toSecondaryDeviceAPIView(d secondary.Device) secondaryDeviceAPIView {
 	return secondaryDeviceAPIView{
 		ID: d.ID, Name: d.Name, PublicIP: d.PublicIP, PBK: d.PBK, SID: d.SID, SNI: d.SNI,
 		Version: d.Version, SingBoxOK: d.SingBoxOK, UplinkOK: d.UplinkOK, ConfigVer: d.ConfigVer,
@@ -84,7 +84,7 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 		}
 		for _, d := range devs {
 			if d.ID == id {
-				writeJSON(w, 200, secondaryDeviceAPIView(d))
+				writeJSON(w, 200, toSecondaryDeviceAPIView(d))
 				return
 			}
 		}
