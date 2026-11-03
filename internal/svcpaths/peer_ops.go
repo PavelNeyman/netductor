@@ -42,9 +42,23 @@ func validatePeerID(id string) error {
 	return nil
 }
 
-func validatePublicIP(ip string) error {
-	if net.ParseIP(ip) == nil {
-		return fmt.Errorf("invalid public IP %q", ip)
+func validatePublicIP(value string) error {
+	ip := net.ParseIP(strings.TrimSpace(value))
+	if ip == nil || ip.To4() == nil {
+		return fmt.Errorf("invalid public IPv4 address %q", value)
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() {
+		return fmt.Errorf("IP %q is not a public IPv4 address", value)
+	}
+	for _, block := range []string{
+		"0.0.0.0/8", "100.64.0.0/10", "192.0.0.0/24",
+		"192.0.2.0/24", "192.88.99.0/24", "198.18.0.0/15",
+		"198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4",
+	} {
+		_, network, err := net.ParseCIDR(block)
+		if err == nil && network.Contains(ip) {
+			return fmt.Errorf("IP %q is in a reserved or non-public IPv4 range", value)
+		}
 	}
 	return nil
 }
@@ -117,7 +131,10 @@ func PeerAdd(o PeerAddOpts) (*Material, *ServicePeer, error) {
 		return nil, nil, err
 	}
 	if err := validatePublicIP(o.PublicIP); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("secondary peer IP: %w", err)
+	}
+	if err := validatePublicIP(o.PrimaryIP); err != nil {
+		return nil, nil, fmt.Errorf("primary peer IP: %w", err)
 	}
 	// An op journal takes precedence over an apparently existing registry entry.
 	// Recovery must reconcile the interrupted bootstrap before PeerAdd can report
