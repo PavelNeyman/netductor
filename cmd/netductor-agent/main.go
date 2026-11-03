@@ -1259,7 +1259,9 @@ func restoreEdgeMTLSMaterial() bool {
 			return false
 		}
 		failed := dir + ".rollover-failed"
-		_ = os.RemoveAll(failed)
+		if err := os.RemoveAll(failed); err != nil {
+			return false
+		}
 		if _, err := os.Lstat(dir); err == nil {
 			if err := os.Rename(dir, failed); err != nil {
 				return false
@@ -1269,7 +1271,9 @@ func restoreEdgeMTLSMaterial() bool {
 			_ = os.Rename(failed, dir)
 			return false
 		}
-		_ = os.RemoveAll(failed)
+		if err := os.RemoveAll(failed); err != nil {
+			return false
+		}
 		if err := syncAgentDirectory(filepath.Dir(dir)); err != nil {
 			return false
 		}
