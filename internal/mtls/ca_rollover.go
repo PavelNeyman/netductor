@@ -355,7 +355,11 @@ func CARolloverFinish() error {
 			return fmt.Errorf("CA rollover is not complete: Secondary %q has not confirmed its new TLS certificate", nodeID)
 		}
 		if state.OldSerial != "" {
-			revoked, err := IsRevoked(parseSerial(state.OldSerial))
+			oldSerial := parseSerial(state.OldSerial)
+			if oldSerial == nil {
+				return fmt.Errorf("invalid old certificate serial for %q", nodeID)
+			}
+			revoked, err := IsRevoked(oldSerial)
 			if err != nil {
 				return fmt.Errorf("check old certificate revocation for %q: %w", nodeID, err)
 			}
