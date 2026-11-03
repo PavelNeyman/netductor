@@ -377,7 +377,8 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 			r.Devices[i].LastCmdAt = time.Now().UTC()
 		}
 		r.Devices[i].LastSeen = time.Now().UTC()
-		// After first/real heartbeat: drop other never-joined tokens with same name
+		// After first/real heartbeat: drop only superseded never-joined tokens with the same name.
+		// Other empty-IP records may belong to independently prepared Secondary packs.
 		name := r.Devices[i].Name
 		curID := r.Devices[i].ID
 		var kept []Device
@@ -386,7 +387,7 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 				kept = append(kept, r.Devices[j])
 				continue
 			}
-			if r.Devices[j].LastSeen.IsZero() && (r.Devices[j].Name == name || r.Devices[j].PublicIP == "") {
+			if r.Devices[j].LastSeen.IsZero() && r.Devices[j].Name == name {
 				continue
 			}
 			kept = append(kept, r.Devices[j])
