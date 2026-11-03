@@ -99,4 +99,11 @@ func TestSecondaryPeerPreflight(t *testing.T) {
 	if err := validateSecondaryPeerPreflight(peerRegistryJSON(t, full...), peerID, host); err == nil {
 		t.Fatal("full registry must fail before provision")
 	}
+	dup := []svcpaths.ServicePeer{
+		{ID:"duplicate", PublicIP:"198.51.100.10", State:"prepared", Slot:slots[0]},
+		{ID:"duplicate", PublicIP:"198.51.100.11", State:"prepared", Slot:slots[1]},
+	}
+	if err := validateSecondaryPeerPreflight(peerRegistryJSON(t, dup...), peerID, host); err == nil {
+		t.Fatal("duplicate active peer IDs must fail closed")
+	}
 }
