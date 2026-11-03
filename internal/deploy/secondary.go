@@ -409,6 +409,8 @@ func validateSecondaryPeerPreflight(raw, peerID, publicIP string) error {
 	}
 	slots := svcpaths.SlotTable()
 	used := make(map[int]bool)
+	activeIDs := make(map[string]string)
+	activeIPs := make(map[string]string)
 	matched := false
 	for _, p := range idx.Peers {
 		if p.ID == peerID && p.State == "removed" {
@@ -417,6 +419,14 @@ func validateSecondaryPeerPreflight(raw, peerID, publicIP string) error {
 		if p.State == "removed" {
 			continue
 		}
+		if priorIP, exists := activeIDs[p.ID]; exists {
+			return fmt.Errorf("peer preflight: duplicate active peer ID %q for IPs %s and %s", p.ID, priorIP, p.PublicIP)
+		}
+		if priorID, exists := activeIPs[p.PublicIP]; exists {
+			return fmt.Errorf("peer preflight: duplicate active public IP %s for peers %q and %q", p.PublicIP, priorID, p.ID)
+		}
+		activeIDs[p.ID] = p.PublicIP
+		activeIPs[p.PublicIP] = p.ID
 		if p.Slot.Index < 0 || p.Slot.Index >= len(slots) || p.Slot != slots[p.Slot.Index] {
 			return fmt.Errorf("peer preflight: registry peer %q has invalid slot tuple (slot=%d)", p.ID, p.Slot.Index)
 		}
