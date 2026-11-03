@@ -117,6 +117,12 @@ Updated against current `main` after the initial plan commit.
 - [x] Bounded SSH Prepare locks (permanent, transaction, firewall), Finalize locks, CancelRollback locks, and HostAgentPurge firewall lock. Lock contention now returns an explicit error instead of indefinitely blocking the deploy workflow.
 - [ ] Manual/focused tests still pending; Actions remain manual-only.
 
+### Peer registry lock bound audit
+
+- [x] Primary service-peer registry mutations now use a non-blocking flock retry loop with a 30-second deadline. A stuck peer lifecycle process returns an explicit timeout instead of hanging Secondary deployment indefinitely.
+- [x] Added focused lock-contention regression coverage with a shortened test timeout.
+- [ ] Focused tests have not been executed; Actions remain manual-only.
+
 ### Deploy orchestration lock audit
 - [x] Primary peer firewall mutation in `deploy secondary` now uses a 30-second bounded lock; contention exits before UFW mutation rather than hanging the operator workflow.
 - [ ] Deploy resume/recovery review and focused tests remain pending.
