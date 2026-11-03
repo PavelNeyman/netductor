@@ -490,9 +490,16 @@ func CARolloverFinish() error {
 		if !entry.IsDir() {
 			continue
 		}
-		clientCert, err := parseCertFile(filepath.Join(clientsDir, entry.Name(), ClientCertFile))
+		clientPath := filepath.Join(clientsDir, entry.Name(), ClientCertFile)
+		clientCert, err := parseCertFile(clientPath)
 		if err != nil {
 			if os.IsNotExist(err) {
+				backupPath := clientPath + ".rollover-old"
+				if _, backupErr := os.Lstat(backupPath); backupErr == nil {
+					return fmt.Errorf("CA rollover is not complete: client %q has a previous certificate backup but no active certificate", entry.Name())
+				} else if !os.IsNotExist(backupErr) {
+					return fmt.Errorf("inspect client certificate backup for %q: %w", entry.Name(), backupErr)
+				}
 				continue
 			}
 			return fmt.Errorf("inspect client certificate %q before promotion: %w", entry.Name(), err)
