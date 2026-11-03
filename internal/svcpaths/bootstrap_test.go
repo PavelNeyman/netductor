@@ -536,6 +536,9 @@ func TestBootstrapRollbackDoesNotRestartUntouchedUnits(t *testing.T) {
 	if strings.Contains(joined, "restart nd-untouched.service") || strings.Contains(joined, "enable nd-untouched.service") {
 		t.Fatalf("rollback mutated an untouched unit:\n%s", joined)
 	}
+	if strings.Contains(joined, "daemon-reload") {
+		t.Fatalf("rollback reloaded systemd although no unit mutation occurred:\n%s", joined)
+	}
 }
 
 func TestBootstrapRollbackRemovesOnlyTransactionCreatedUFWRule(t *testing.T) {
