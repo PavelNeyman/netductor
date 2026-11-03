@@ -188,13 +188,19 @@ Updated against current `main` after the initial plan commit.
 
 ### CA rollover safety containment
 
-- [x] CA rollover journal loading now distinguishes a genuinely absent journal from malformed JSON and I/O errors. Corrupt or invalid phase data is returned as an error instead of being interpreted as an empty rollover.
-- [x] New-CA client issuance validates the journal phase and CA serial before issuing material.
-- [x] Client certificate/key replacement now stages the prior pair, restores only files actually moved if interrupted, and rolls back on promotion or material-read failure.
-- [x] New-CA issuance no longer revokes the previous client serial before the Secondary has adopted the replacement. The existing agent protocol does not yet provide a durable new-certificate TLS acknowledgement.
-- [x] CA promotion is blocked until per-Secondary adoption acknowledgements exist; this intentionally prevents removal of old-CA trust while an offline or unconfirmed Secondary may still depend on it.
-- [ ] The Secondary-side staged install, validation, reconnect acknowledgement, per-device durable rotation state, and safe abort checks remain to be implemented.
-- [ ] Regression tests have not been added or executed for this containment change. Actions remain manual-only.
+- [x] CA rollover journal loading distinguishes a genuinely absent journal from malformed JSON and I/O errors; invalid phases and incomplete state fail closed.
+- [x] New-CA issuance validates the journal and CA key pair, stages the previous client identity, and retains the old serial until the Secondary or Edge agent presents the new certificate over TLS.
+- [x] Secondary and Edge agents validate the CA bundle, certificate/key pair, client-auth chain, and certificate CN before installing staged material. Both preserve unrelated files and retain rollback material until the Primary confirms the active TLS identity.
+- [x] Agent rollback is handshake-aware: failed TLS handshakes can restore the old material, but a successful TLS handshake followed by a lost/error HTTP response does not revert to a certificate that may already have been revoked.
+- [x] Primary derives peer serials from authenticated TLS connections, binds Edge TLS CN to the bearer-token device ID, and persists server-observed identity rather than trusting JSON serial fields.
+- [x] Adoption confirmation and old-serial revocation are durable and retry-safe. The response acknowledges material only when the observed serial matches the currently active server-side certificate.
+- [x] CLI promotion checks the latest server-observed TLS serial for every registered Secondary and approved Edge agent. Missing, stale, or mismatched identities block promotion.
+- [x] Promotion verifies the exact new CA, every active new-CA client certificate, the previous client backups, and the new server/default-client certificate chains before committing.
+- [x] CA, server, and default client certificate promotion uses a durable `promoting` journal and before-image backups. `EnsureAll` restores the previous complete set after an interrupted promotion; retries are safe.
+- [x] Server mTLS configuration reloads the server certificate and client trust roots for each new TLS handshake, so promotion does not require restarting the listener.
+- [x] Backups and temporary CA files are cleaned only after the `done` journal is durable. Abort refuses to discard a new CA after any client identity has been issued or adopted.
+- [x] Added regression coverage for CA adoption, revocation failures, promotion recovery, Edge material validation, and Edge directory rollback.
+- [ ] Focused tests have not been executed. Actions remain manual-only.
 
 ### CA rollover adoption protocol
 
