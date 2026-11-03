@@ -563,6 +563,9 @@ func CARolloverValidateClients(nodeIDs []string) error {
 func CARolloverValidateObservedClients(observed map[string]string) error {
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
+	if err := recoverCARolloverPromotion(); err != nil {
+		return fmt.Errorf("recover prior CA promotion: %w", err)
+	}
 	rollover, err := loadRollover()
 	if err != nil {
 		return err
