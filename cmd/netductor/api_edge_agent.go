@@ -102,7 +102,7 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			}
 			hadPendingRotation := false
 			for _, pending := range pendingBefore {
-				if pending.NodeID == did {
+				if pending.NodeID == did && strings.EqualFold(pending.NewSerial, peerSerial) {
 					hadPendingRotation = true
 					break
 				}
