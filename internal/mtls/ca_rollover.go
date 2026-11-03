@@ -197,10 +197,24 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	}
 	certPath := filepath.Join(dir, ClientCertFile)
 	keyPath := filepath.Join(dir, ClientKeyFile)
-	if fileOK(certPath) != fileOK(keyPath) {
+	certExists, keyExists := fileOK(certPath), fileOK(keyPath)
+	if certExists != keyExists {
+		if !certExists && fileOK(backupCert) {
+			if err := os.Rename(backupCert, certPath); err != nil {
+				return nil, nil, nil, fmt.Errorf("recover interrupted client certificate staging: %w", err)
+			}
+		}
+		if !keyExists && fileOK(backupKey) {
+			if err := os.Rename(backupKey, keyPath); err != nil {
+				return nil, nil, nil, fmt.Errorf("recover interrupted client key staging: %w", err)
+			}
+		}
+		certExists, keyExists = fileOK(certPath), fileOK(keyPath)
+	}
+	if certExists != keyExists {
 		return nil, nil, nil, fmt.Errorf("existing client certificate/key pair for %q is incomplete", nodeID)
 	}
-	if fileOK(certPath) {
+	if certExists {
 		if _, err := tls.LoadX509KeyPair(certPath, keyPath); err != nil {
 			return nil, nil, nil, fmt.Errorf("existing client certificate/key pair for %q is invalid: %w", nodeID, err)
 		}
