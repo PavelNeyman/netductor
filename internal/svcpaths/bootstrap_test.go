@@ -590,3 +590,52 @@ func TestBootstrapRollbackPreservesPreexistingFirewallRule(t *testing.T) {
 	if err := tx.Rollback(); err != nil { t.Fatal(err) }
 	if calls != 0 { t.Fatalf("pre-existing firewall rule caused %d rollback commands", calls) }
 }
+
+
+func TestBootstrapRollbackAttemptsAllDomainsAfterFileRestoreFailure(t *testing.T) {
+	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	oldJournalRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
+	oldSystemctl := bootstrapSystemctl
+	oldLock, oldExec := bootstrapFirewallLock, bootstrapFirewallExec
+	defer func() {
+		bootstrapSystemctl = oldSystemctl
+		bootstrapFirewallLock, bootstrapFirewallExec = oldLock, oldExec
+	}()
+	var systemCalls, firewallCalls []string
+	bootstrapSystemctl = func(args ...string) ([]byte, error) {
+		systemCalls = append(systemCalls, strings.Join(args, " "))
+		if len(args) > 0 && args[0] == "show" {
+			return []byte("LoadState=loaded\nUnitFileState=enabled\nActiveState=active\n"), nil
+		}
+		return nil, nil
+	}
+	bootstrapFirewallLock = func() (func(), error) { return func(){}, nil }
+	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) {
+		firewallCalls = append(firewallCalls, name+" "+strings.Join(args, " "))
+		return []byte("Status: active\n"), nil
+	}
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil { t.Fatal(err) }
+	// Existing file image with a missing parent makes restoration fail safely.
+	tx.journal.Files = append(tx.journal.Files, bootstrapFileImage{
+		Path: filepath.Join(root, "missing", "managed.conf"), Exists: true,
+		Data: []byte("before"), Mode: 0o600, UID: os.Getuid(), GID: os.Getgid(),
+	})
+	if err := tx.SnapshotUnits("nd-test.service"); err != nil { t.Fatal(err) }
+	if err := tx.MarkUnitsTouched("nd-test.service"); err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{
+		Backend: "ufw", Source: "203.0.113.20", Port: 8445, Comment: "nd-wss-ps",
+	}, false); err != nil { t.Fatal(err) }
+	if err := tx.Rollback(); err == nil { t.Fatal("expected file restore failure") }
+	if !strings.Contains(strings.Join(systemCalls, "\n"), "daemon-reload") ||
+		!strings.Contains(strings.Join(systemCalls, "\n"), "restart nd-test.service") {
+		t.Fatalf("systemd compensation skipped after file error: %v", systemCalls)
+	}
+	if len(firewallCalls) == 0 { t.Fatal("firewall compensation skipped after file error") }
+	if tx.journal.Phase != "rolling_back" { t.Fatalf("journal phase = %q, want rolling_back", tx.journal.Phase) }
+}
