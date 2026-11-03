@@ -406,7 +406,7 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 	// Roll back each independent mutation domain even if another one failed.
 	// The journal remains in rolling_back until every compensation succeeds,
 	// so a later recovery can safely retry all before-images.
-	if tx.journalTouchesSystemdUnits() || len(tx.journal.Units) > 0 {
+	if tx.journalTouchesSystemdUnits() || len(tx.journal.TouchedUnits) > 0 {
 		out, err := bootstrapSystemctl("daemon-reload")
 		if err != nil {
 			errs = append(errs, fmt.Errorf("reload systemd after bootstrap file rollback: %w: %s", err, strings.TrimSpace(string(out))))
