@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -149,7 +150,14 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		if !strings.EqualFold(current.Serial, issued.NewSerial) {
 			return nil, nil, nil, fmt.Errorf("current client certificate for %q does not match its recorded rollover identity", nodeID)
 		}
-		return ReadMaterial(nodeID)
+		caBundle, clientCert, clientKey, err := ReadMaterial(nodeID)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if _, err := tls.X509KeyPair(clientCert, clientKey); err != nil {
+			return nil, nil, nil, fmt.Errorf("recorded rollover certificate/key pair is invalid: %w", err)
+		}
+		return caBundle, clientCert, clientKey, nil
 	}
 	dir := ClientDir(nodeID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
