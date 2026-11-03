@@ -150,12 +150,9 @@ echo "===END==="
 			if err := os.WriteFile(archivePath, bin, 0o600); err != nil {
 				return "", err
 			}
-			// extract for convenience
-			extractDir := filepath.Join(bundleDir, "extract")
-			_ = os.MkdirAll(extractDir, 0o700)
-			// use tar command
-			cmd := fmt.Sprintf("tar xzf %s -C %s", ShellQuote(archivePath), ShellQuote(extractDir))
-			_ = runLocal(cmd)
+			// Do not extract a remote-produced tar archive on the operator host.
+			// A compromised remote host could supply traversal paths or symlink
+			// entries and overwrite files outside this credentials directory.
 		}
 	}
 
@@ -256,11 +253,6 @@ func runSSHWithPortFallback(keyPath, user, host, script, keyPass string) (string
 		_ = os.Unsetenv("NETDUCTOR_SSH_PORT")
 	}
 	return lastOut, lastErr
-}
-
-func runLocal(cmd string) error {
-	c := exec.Command("sh", "-c", cmd)
-	return c.Run()
 }
 
 func pruneCredentials(dir, role string, keep int) {
