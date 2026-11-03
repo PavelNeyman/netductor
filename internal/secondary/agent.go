@@ -706,7 +706,11 @@ func installSecondaryMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 	}
 	// Preserve any other files owned by the mTLS directory (for example
 	// server material or future metadata) while replacing only the client set.
-	if err := copyMTLSDirectoryExtras(dir, staging); err != nil {
+	copySource := dir
+	if _, err := os.Lstat(copySource); os.IsNotExist(err) {
+		copySource = dir + ".rollover-old"
+	}
+	if err := copyMTLSDirectoryExtras(copySource, staging); err != nil {
 		return fmt.Errorf("preserve existing mTLS directory contents: %w", err)
 	}
 	if err := syncDir(staging); err != nil {
