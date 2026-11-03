@@ -52,3 +52,23 @@ func TestInstallSecondaryMTLSMaterialPreservesOtherFiles(t *testing.T) {
 		t.Fatalf("installed client material is not loadable: %v", err)
 	}
 }
+
+func TestHeartbeatPersistsServerObservedTLSIdentity(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_ETC", filepath.Join(root, "etc"))
+	t.Setenv("NETDUCTOR_STATE", filepath.Join(root, "state"))
+	id, token, err := IssueToken("secondary-test")
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+	d, _, err := HeartbeatWithTLSIdentity(token, HeartbeatIn{}, "ABCDEF123")
+	if err != nil {
+		t.Fatalf("HeartbeatWithTLSIdentity: %v", err)
+	}
+	if d.ID != id {
+		t.Fatalf("heartbeat device ID = %q, want %q", d.ID, id)
+	}
+	if d.MTLSSerial != "abcdef123" || d.MTLSSeenAt.IsZero() {
+		t.Fatalf("server-observed TLS identity not persisted: serial=%q seen_at=%v", d.MTLSSerial, d.MTLSSeenAt)
+	}
+}
