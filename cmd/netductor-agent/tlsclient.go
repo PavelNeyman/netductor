@@ -8,10 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 // Default locations for mTLS client material on the router.
+var agentTLSHandshakeSucceeded atomic.Bool
+
 var mtlsDirs = []string{
 	"/etc/netductor-agent/mtls",
 	"/etc/netductor/secrets/mtls",
@@ -95,6 +98,10 @@ func agentHTTPClient() *http.Client {
 			RootCAs:      pool,
 			MinVersion:   tls.VersionTLS13,
 			ServerName:   "netductor-agent-server",
+			VerifyConnection: func(tls.ConnectionState) error {
+				agentTLSHandshakeSucceeded.Store(true)
+				return nil
+			},
 		},
 	}
 	fmt.Fprintln(os.Stderr, "mtls: client certs from", dir)
