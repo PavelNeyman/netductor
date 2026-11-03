@@ -86,7 +86,8 @@ Updated against current `main` after the initial plan commit.
 - [x] Added focused tests for bounded SSH rollback/retry, systemd state restoration, absent units, atomic unit snapshots, untouched-unit preservation, and version-1 journal compatibility.
 - [ ] Focused tests have **not** been executed yet. Actions remain manual-only; no workflow was dispatched.
 - [x] Bootstrap journal now records exact before-images for transaction-created source-restricted WSS/service peer rules on both UFW and iptables. Recovery removes only rules absent before the transaction; pre-existing rules and unrelated administrator rules are preserved. UFW migration rules for existing peers remain additive/restrictive and are deliberately not rolled back.
-- [x] Firewall mutation lock acquisition now has a 30-second bounded variant, used by bootstrap and rollback so a competing firewall operation cannot block recovery indefinitely.
+- [x] Firewall mutation lock acquisition now has a 30-second bounded variant, used by Primary bootstrap and rollback.
+- [x] Secondary WSS bootstrap now also uses the 30-second bounded firewall lock; lock contention fails bootstrap cleanly instead of hanging indefinitely.
 - [x] Added focused UFW rollback tests proving that only the transaction-created peer rule is removed and a pre-existing peer rule is retained.
 - [ ] Focused tests have not been executed yet. The repository changes are source-reviewed only; no Actions workflow was dispatched.
 
