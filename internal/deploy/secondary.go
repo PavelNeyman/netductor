@@ -797,7 +797,7 @@ ALLOW_NO_UFW=%s
 mkdir -p /run/lock
 test ! -L /run/lock/netductor-firewall.lock
 exec 9>/run/lock/netductor-firewall.lock
-flock 9
+if ! flock -w 30 9; then echo "primary peer firewall lock timeout" >&2; exit 1; fi
 if command -v ufw >/dev/null 2>&1; then
   if ! ufw status 2>/dev/null | grep -qi 'Status: active'; then
     if [ "$ALLOW_NO_UFW" = "1" ]; then
