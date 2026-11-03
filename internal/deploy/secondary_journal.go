@@ -147,10 +147,17 @@ func saveDeployState(st *DeployOrchState) error {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("deploy state rename: %w", err)
 	}
-	// Best-effort directory fsync (durability of the rename).
-	if d, err := os.Open(dir); err == nil {
-		_ = d.Sync()
+	// The rename is not a durable checkpoint until its parent directory is synced.
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("deploy state open journal directory for sync: %w", err)
+	}
+	if err := d.Sync(); err != nil {
 		_ = d.Close()
+		return fmt.Errorf("deploy state sync journal directory: %w", err)
+	}
+	if err := d.Close(); err != nil {
+		return fmt.Errorf("deploy state close journal directory: %w", err)
 	}
 	return nil
 }
@@ -160,6 +167,20 @@ func clearDeployState(host string) error {
 	err := os.Remove(path)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("clear deploy state: %w", err)
+	}
+	if err == nil {
+		dir := filepath.Dir(path)
+		d, openErr := os.Open(dir)
+		if openErr != nil {
+			return fmt.Errorf("clear deploy state open journal directory for sync: %w", openErr)
+		}
+		if syncErr := d.Sync(); syncErr != nil {
+			_ = d.Close()
+			return fmt.Errorf("clear deploy state sync journal directory: %w", syncErr)
+		}
+		if closeErr := d.Close(); closeErr != nil {
+			return fmt.Errorf("clear deploy state close journal directory: %w", closeErr)
+		}
 	}
 	return nil
 }
