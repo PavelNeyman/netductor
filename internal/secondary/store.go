@@ -46,6 +46,8 @@ type Device struct {
 	LastCmdOK     bool           `json:"last_cmd_ok,omitempty"`
 	LastCmdLog    string         `json:"last_cmd_log,omitempty"`
 	LastSeen      time.Time      `json:"last_seen"`
+	MTLSSerial    string         `json:"mtls_serial,omitempty"`
+	MTLSSeenAt    time.Time      `json:"mtls_seen_at,omitempty"`
 	CreatedAt     time.Time      `json:"created_at"`
 }
 
@@ -327,6 +329,12 @@ type HeartbeatIn struct {
 }
 
 func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
+	return HeartbeatWithTLSIdentity(token, in, "")
+}
+
+// HeartbeatWithTLSIdentity persists the TLS identity observed by the server.
+// tlsSerial must be derived from r.TLS.PeerCertificates, never from request JSON.
+func HeartbeatWithTLSIdentity(token string, in HeartbeatIn, tlsSerial string) (*Device, int, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	unlock, lockErr := acquireRegistryLock()
@@ -376,7 +384,12 @@ func Heartbeat(token string, in HeartbeatIn) (*Device, int, error) {
 			r.Devices[i].LastCmdLog = in.CmdLog
 			r.Devices[i].LastCmdAt = time.Now().UTC()
 		}
-		r.Devices[i].LastSeen = time.Now().UTC()
+		now := time.Now().UTC()
+		r.Devices[i].LastSeen = now
+		if tlsSerial != "" {
+			r.Devices[i].MTLSSerial = strings.ToLower(tlsSerial)
+			r.Devices[i].MTLSSeenAt = now
+		}
 		// After first/real heartbeat: drop only superseded never-joined tokens with the same name.
 		// Other empty-IP records may belong to independently prepared Secondary packs.
 		name := r.Devices[i].Name
