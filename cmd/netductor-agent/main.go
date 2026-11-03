@@ -1339,8 +1339,10 @@ func restoreEdgeMTLSMaterial() bool {
 
 func cleanupEdgeMTLSBackups() error {
 	for _, dir := range mtlsDirs {
-		if err := os.RemoveAll(dir + ".rollover-old"); err != nil {
-			return err
+		for _, suffix := range []string{".rollover-old", ".rollover-failed"} {
+			if err := os.RemoveAll(dir + suffix); err != nil {
+				return err
+			}
 		}
 		if err := syncAgentDirectory(filepath.Dir(dir)); err != nil {
 			return err
