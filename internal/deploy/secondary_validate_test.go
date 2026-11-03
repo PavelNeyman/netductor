@@ -88,6 +88,10 @@ func TestSecondaryPeerPreflight(t *testing.T) {
 	if err := validateSecondaryPeerPreflight(peerRegistryJSON(t, existing), peerID, host); err == nil {
 		t.Fatal("matching peer with inconsistent slot tuple must fail")
 	}
+	existing.State, existing.Slot = "removed", slots[1]
+	if err := validateSecondaryPeerPreflight(peerRegistryJSON(t, existing), peerID, host); err == nil {
+		t.Fatal("removed peer ID must fail before provision")
+	}
 	full := make([]svcpaths.ServicePeer, 0, len(slots))
 	for i, slot := range slots {
 		full = append(full, svcpaths.ServicePeer{ID: "occupied-"+string(rune('a'+i)), PublicIP: "198.51.100."+string(rune('1'+i)), State: "prepared", Slot: slot})
