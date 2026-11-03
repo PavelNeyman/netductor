@@ -570,7 +570,9 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) (retErr error) {
 	if err != nil { return fmt.Errorf("begin primary bootstrap transaction: %w", err) }
 	defer func() {
 		if retErr != nil { retErr = errors.Join(retErr, tx.Rollback()); return }
-		if err := tx.Commit(); err != nil { retErr = fmt.Errorf("commit primary bootstrap transaction: %w", err) }
+		if err := commitBootstrapTransaction(tx, tx.Commit); err != nil {
+			retErr = fmt.Errorf("commit primary bootstrap transaction: %w", err)
+		}
 	}()
 	spServerUnit := "nd-wss-sp-server"
 	if ifaceSP != "nd-svc-sp" { spServerUnit = "nd-wss-sp-server-" + ifaceSP }
@@ -697,7 +699,9 @@ func BootstrapSecondary(m *Material) (retErr error) {
 	if err != nil { return fmt.Errorf("begin secondary bootstrap transaction: %w", err) }
 	defer func() {
 		if retErr != nil { retErr = errors.Join(retErr, tx.Rollback()); return }
-		if err := tx.Commit(); err != nil { retErr = fmt.Errorf("commit secondary bootstrap transaction: %w", err) }
+		if err := commitBootstrapTransaction(tx, tx.Commit); err != nil {
+			retErr = fmt.Errorf("commit secondary bootstrap transaction: %w", err)
+		}
 	}()
 	if err := tx.SnapshotUnits("nd-wss-sp-client", "nd-wss-ps-server",
 		"wg-quick@"+ifaceSP, "wg-quick@"+ifacePS,
