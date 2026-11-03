@@ -262,3 +262,8 @@ Updated against current `main` after the initial plan commit.
 - If that proof fails, fail closed and preserve the journal for operator reconciliation. This avoids a second password/bootstrap install after a possibly successful first run.
 - Added a unit test for the journal predicate. Runtime recovery and all Go tests remain unexecuted; tests are intentionally manual-only.
 
+
+### Stale peer-add recovery conflicts
+
+- `peer recover` now checks the current registry before resuming bootstrap/index writes. It refuses to resurrect an identity already marked `removed`, and refuses to reuse an IP or service-plane slot that has since been assigned to another active peer.
+- Added regression tests for removed identity, reassigned IP, and reassigned slot. Tests remain manual-only and were not run.
