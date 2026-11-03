@@ -254,3 +254,11 @@ Updated against current `main` after the initial plan commit.
 - [x] Inactive UFW saved-rule inspection also recognizes source-specific commands using `to any port N`, not only global `ufw allow N/tcp`.
 - [x] Focused tests cover duplicate peer IDs and source-specific port-80 ALLOW.
 - [ ] Tests have not been executed. Actions remain manual-only.
+
+### Provisioning checkpoint-gap recovery
+
+- Persist the Primary-issued `AgentID` in the local deploy journal before invoking Secondary provisioning, while retaining `current_step=provision_started`.
+- If the process later resumes with that in-progress marker but without a successful `provisioned` checkpoint, do not repeat provisioning. Require key-only SSH on `:52222` and verify both `netductor-secondary-agent` and `sing-box` are active; only then promote the local journal to `provisioned` and continue.
+- If that proof fails, fail closed and preserve the journal for operator reconciliation. This avoids a second password/bootstrap install after a possibly successful first run.
+- Added a unit test for the journal predicate. Runtime recovery and all Go tests remain unexecuted; tests are intentionally manual-only.
+
