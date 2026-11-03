@@ -165,10 +165,14 @@ func runMTLS(args []string) {
 				observed[device.ID] = device.MTLSSerial
 			}
 			for _, device := range edge.ListDevices() {
-				if device.Status == edge.StatusApproved && device.DeviceID != "" {
-					serial, _ := device.Extra["cert_serial"].(string)
-					observed[device.DeviceID] = serial
+				if device.Status != edge.StatusApproved || device.DeviceID == "" {
+					continue
 				}
+				if _, err := mtls.ReadClientInfo(device.DeviceID); err != nil {
+					continue // Edge device is not enrolled in the mTLS client CA.
+				}
+				serial, _ := device.Extra["cert_serial"].(string)
+				observed[device.DeviceID] = serial
 			}
 			if err := mtls.CARolloverValidateObservedClients(observed); err != nil {
 				fmt.Fprintln(os.Stderr, err)
