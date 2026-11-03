@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/statefile"
@@ -39,6 +40,8 @@ type rolloverInfo struct {
 
 func rolloverPath() string { return filepath.Join(Dir(), rolloverState) }
 
+var rolloverMu sync.Mutex
+
 func loadRollover() (rolloverInfo, error) {
 	var r rolloverInfo
 	if err := statefile.LoadJSON(rolloverPath(), &r); err != nil {
@@ -64,6 +67,9 @@ func saveRollover(r rolloverInfo) error {
 
 // CARolloverStart generates ca-new. Both CAs trusted until CARolloverFinish.
 func CARolloverStart() error {
+	rolloverMu.Lock()
+	defer rolloverMu.Unlock()
+
 	rollover, err := loadRollover()
 	if err != nil {
 		return err
@@ -122,6 +128,9 @@ func CARolloverStart() error {
 
 // IssueClientFromNewCA issues client cert signed by ca-new.
 func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error) {
+	rolloverMu.Lock()
+	defer rolloverMu.Unlock()
+
 	if strings.TrimSpace(nodeID) == "" || strings.ContainsAny(nodeID, "/\\") || nodeID == "." || nodeID == ".." {
 		return nil, nil, nil, fmt.Errorf("invalid node ID")
 	}
@@ -328,6 +337,9 @@ func ensureRolloverIssued(in map[string]rolloverClientState) map[string]rollover
 // serial matches the serial issued for this node. Old serial revocation follows
 // the durable confirmation and is safe to retry.
 func ConfirmCARolloverClient(nodeID, peerSerial string) (bool, error) {
+	rolloverMu.Lock()
+	defer rolloverMu.Unlock()
+
 	peerSerial = strings.ToLower(strings.TrimSpace(peerSerial))
 	if nodeID == "" || peerSerial == "" {
 		return false, nil
@@ -389,6 +401,9 @@ func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, erro
 // CARolloverFinish promotes ca-new to primary CA and removes dual trust.
 // Call only when all clients use certs from ca-new.
 func CARolloverFinish() error {
+	rolloverMu.Lock()
+	defer rolloverMu.Unlock()
+
 	rollover, err := loadRollover()
 	if err != nil {
 		return err
@@ -451,6 +466,9 @@ func CARolloverFinish() error {
 // issued by it. Once a client has received a new-CA identity, deleting that CA
 // would make the identity unverifiable and can strand the Secondary.
 func CARolloverAbort() error {
+	rolloverMu.Lock()
+	defer rolloverMu.Unlock()
+
 	rollover, err := loadRollover()
 	if err != nil {
 		return err
