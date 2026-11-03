@@ -451,6 +451,35 @@ func CARolloverValidateClients(nodeIDs []string) error {
 	return nil
 }
 
+func CARolloverValidateObservedClients(observed map[string]string) error {
+	rolloverMu.Lock()
+	defer rolloverMu.Unlock()
+	rollover, err := loadRollover()
+	if err != nil {
+		return err
+	}
+	if rollover.Phase != "dual" {
+		return fmt.Errorf("CA rollover is not in dual-trust phase")
+	}
+	for nodeID, peerSerial := range observed {
+		state, ok := rollover.Issued[nodeID]
+		if !ok || state.ConfirmedAt == 0 {
+			return fmt.Errorf("registered agent %q has not confirmed its new-CA identity", nodeID)
+		}
+		if peerSerial == "" || !strings.EqualFold(peerSerial, state.NewSerial) {
+			return fmt.Errorf("latest observed TLS identity for %q does not match the issued certificate", nodeID)
+		}
+		info, err := ReadClientInfo(nodeID)
+		if err != nil {
+			return fmt.Errorf("read registered agent %q certificate: %w", nodeID, err)
+		}
+		if info.Revoked || !strings.EqualFold(info.Serial, state.NewSerial) {
+			return fmt.Errorf("registered agent %q does not have its confirmed active certificate", nodeID)
+		}
+	}
+	return nil
+}
+
 func CARolloverFinish() error {
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
