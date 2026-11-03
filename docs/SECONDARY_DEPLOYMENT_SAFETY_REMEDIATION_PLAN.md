@@ -210,5 +210,6 @@ Updated against current `main` after the initial plan commit.
 - [x] Added focused regression tests for adoption, revocation, abort, material validation, and directory preservation.
 - [x] CA, server, and default client certificate promotion now uses a durable `promoting` journal and before-image backups. `EnsureAll` rolls back an interrupted promotion before starting mTLS services; the operation can then be retried.
 - [x] The promoted server and default client certificates are re-issued under the new CA. Backups and temporary CA files are removed only after the `done` journal is durable.
+- [x] The mTLS server reloads its server certificate and client trust roots for each new TLS handshake, so CA promotion does not depend on restarting the listener process.
 - [x] Added a recovery test that simulates a crash after only the CA certificate was replaced and verifies restoration of the CA, server, and default client material.
 - [ ] Tests have not been executed. Actions remain manual-only.
