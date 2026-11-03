@@ -137,3 +137,10 @@ Updated against current `main` after the initial plan commit.
 ### Provisioning recovery checkpoint
 - [x] Deploy journal now checkpoints `provisioned` immediately after successful `ProvisionFromCore` (which includes hardened SSH verification and rollback cancellation), before the separate operator-side :52222 probe and subsequent Primary sync. A failure in those later steps therefore resumes in key-only mode instead of incorrectly retrying initial password provisioning against an already-hardened host.
 - [ ] Focused tests still pending.
+
+
+### Bootstrap rollback compensation
+
+- [x] Rollback now attempts file restoration, systemd daemon reload/runtime+enablement restoration, and firewall delta restoration independently. A failure in one domain no longer skips compensation in the others.
+- [x] The transaction journal remains in `rolling_back` unless all compensation steps succeed; recovery can retry the complete rollback idempotently.
+- [ ] Focused rollback failure-injection tests have not been executed; Actions remain manual-only.
