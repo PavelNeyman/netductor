@@ -393,6 +393,52 @@ func printVPNHostnameStatus(out string) {
 	fmt.Fprintln(os.Stderr, "vpn-hostname: ok")
 }
 
+// validateSecondaryPeerPreflight rejects registry conflicts and slot exhaustion
+// before the operator performs irreversible SSH hardening on a new host.
+func validateSecondaryPeerPreflight(raw, peerID, publicIP string) error {
+	jsonText, err := extractJSONObject(raw)
+	if err != nil {
+		return fmt.Errorf("peer preflight: decode registry output: %w", err)
+	}
+	var idx svcpaths.PeersIndex
+	if err := json.Unmarshal([]byte(jsonText), &idx); err != nil {
+		return fmt.Errorf("peer preflight: parse registry: %w", err)
+	}
+	if idx.Version != 0 && idx.Version != 1 {
+		return fmt.Errorf("peer preflight: unsupported registry schema %d", idx.Version)
+	}
+	slots := svcpaths.SlotTable()
+	used := make(map[int]bool)
+	matched := false
+	for _, p := range idx.Peers {
+		if p.State == "removed" {
+			continue
+		}
+		used[p.Slot.Index] = true
+		if p.ID == peerID {
+			if p.PublicIP != publicIP {
+				return fmt.Errorf("peer preflight: id %q already belongs to IP %s (requested %s)", peerID, p.PublicIP, publicIP)
+			}
+			if p.Slot.Index < 0 || p.Slot.Index >= len(slots) || p.Slot != slots[p.Slot.Index] {
+				return fmt.Errorf("peer preflight: registered peer %q has invalid slot material (slot=%d)", peerID, p.Slot.Index)
+			}
+			matched = true
+		}
+		if p.PublicIP == publicIP && p.ID != peerID {
+			return fmt.Errorf("peer preflight: IP %s already belongs to peer %q (requested %q)", publicIP, p.ID, peerID)
+		}
+	}
+	if matched {
+		return nil
+	}
+	for _, slot := range slots {
+		if !used[slot.Index] {
+			return nil
+		}
+	}
+	return fmt.Errorf("peer preflight: no free service-plane slots (max %d); new Secondary was not provisioned", len(slots))
+}
+
 func secondaryPackName(host string) string {
 	return "secondary-" + strings.ReplaceAll(strings.TrimSpace(host), ".", "-")
 }
@@ -529,6 +575,17 @@ func deploySecondaryBody(o SecondaryOpts) error {
 				o.PrimaryHost, pPort, o.PrimaryHost, pPort))
 		}
 
+		// Check Primary registry/slot capacity before preparing credentials or
+		// touching the new host. This avoids hardening a host that cannot be
+		// attached to the service plane.
+		peerPreflight, errPreflight := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
+			"netductor svc-paths peer list", o.PrimaryKeyPassphrase)
+		if errPreflight != nil {
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErr("peer-preflight", "ssh", errPreflight))
+		}
+		if err := validateSecondaryPeerPreflight(peerPreflight, peerIDEarly, o.SecondaryHost); err != nil {
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, err)
+		}
 		prep := "netductor secondary prepare-pack --name " + ShellQuote(secondaryPackName(o.SecondaryHost)) + " --sni " + ShellQuote(o.SNI)
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 		if err != nil {
