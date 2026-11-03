@@ -172,6 +172,7 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 	}
 	// A stale add journal must never resurrect an identity that has since been
 	// removed, or append a duplicate identity/IP/slot into a changed registry.
+	activeIdentityCount := 0
 	for i := range idx.Peers {
 		existing := &idx.Peers[i]
 		if existing.ID == peerID && existing.State == "removed" {
@@ -180,12 +181,19 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 		if existing.State == "removed" {
 			continue
 		}
-		if existing.ID != peerID && existing.PublicIP == op.PublicIP {
+		if existing.ID == peerID {
+			activeIdentityCount++
+			continue
+		}
+		if existing.PublicIP == op.PublicIP {
 			return "", fmt.Errorf("public IP %s is now assigned to peer %s; refusing stale add recovery", op.PublicIP, existing.ID)
 		}
-		if existing.ID != peerID && existing.Slot.Index == op.SlotIndex {
+		if existing.Slot.Index == op.SlotIndex {
 			return "", fmt.Errorf("slot %d is now assigned to peer %s; refusing stale add recovery", op.SlotIndex, existing.ID)
 		}
+	}
+	if activeIdentityCount > 1 {
+		return "", fmt.Errorf("peer %s has %d active registry entries; refusing ambiguous stale add recovery", peerID, activeIdentityCount)
 	}
 	m, err := loadPeerMaterial(peerID)
 	if err != nil {
