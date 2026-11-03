@@ -130,6 +130,16 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	if serialHex(caCert.SerialNumber) != rollover.NewSerial {
 		return nil, nil, nil, fmt.Errorf("ca-new certificate does not match rollover journal")
 	}
+	if issued, ok := rollover.Issued[nodeID]; ok {
+		current, err := ReadClientInfo(nodeID)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("load previously issued rollover identity: %w", err)
+		}
+		if !strings.EqualFold(current.Serial, issued.NewSerial) {
+			return nil, nil, nil, fmt.Errorf("current client certificate for %q does not match its recorded rollover identity", nodeID)
+		}
+		return ReadMaterial(nodeID)
+	}
 	dir := ClientDir(nodeID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, nil, nil, fmt.Errorf("create client directory: %w", err)
