@@ -77,6 +77,72 @@ func GraceHours() int {
 
 // RotateClientForPush re-issues cert, keeping the previous certificate valid until
 // Confirm or grace expiry. Existing pending rotations are returned idempotently.
+func recoverRotationBackup(nodeID string, pending map[string]pendingRotate) error {
+	dir := ClientDir(nodeID)
+	certPath := filepath.Join(dir, ClientCertFile)
+	keyPath := filepath.Join(dir, ClientKeyFile)
+	certBackup := certPath + ".rotate-backup"
+	keyBackup := keyPath + ".rotate-backup"
+
+	_, certBackupErr := os.Lstat(certBackup)
+	_, keyBackupErr := os.Lstat(keyBackup)
+	certBackupExists, keyBackupExists := certBackupErr == nil, keyBackupErr == nil
+	if certBackupErr != nil && !os.IsNotExist(certBackupErr) {
+		return fmt.Errorf("inspect certificate rotation backup: %w", certBackupErr)
+	}
+	if keyBackupErr != nil && !os.IsNotExist(keyBackupErr) {
+		return fmt.Errorf("inspect key rotation backup: %w", keyBackupErr)
+	}
+	if certBackupExists != keyBackupExists {
+		return fmt.Errorf("incomplete mTLS rotation backup for %s; manual recovery required", nodeID)
+	}
+	if !certBackupExists {
+		return nil
+	}
+
+	for _, path := range []string{certBackup, keyBackup} {
+		st, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("inspect rotation backup %s: %w", path, err)
+		}
+		if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refuse non-regular rotation backup %s", path)
+		}
+	}
+	if _, hasPending := pending[nodeID]; hasPending {
+		currentCert, err := parseCertFile(certPath)
+		if err != nil {
+			return fmt.Errorf("pending rotation for %s has no valid current certificate: %w", nodeID, err)
+		}
+		currentKey, err := os.Lstat(keyPath)
+		if err != nil || !currentKey.Mode().IsRegular() || currentKey.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("pending rotation for %s has no valid current key", nodeID)
+		}
+		if serialHex(currentCert.SerialNumber) != pending[nodeID].NewSerial {
+			return fmt.Errorf("pending rotation certificate serial mismatch for %s", nodeID)
+		}
+		if err := os.Remove(certBackup); err != nil {
+			return fmt.Errorf("remove completed certificate rotation backup: %w", err)
+		}
+		if err := os.Remove(keyBackup); err != nil {
+			return fmt.Errorf("remove completed key rotation backup: %w", err)
+		}
+		return nil
+	}
+
+	// No durable pending record means promotion did not commit. Restore the
+	// previous pair, regardless of whether the process stopped mid-promotion.
+	_ = os.Remove(certPath)
+	_ = os.Remove(keyPath)
+	if err := os.Rename(certBackup, certPath); err != nil {
+		return fmt.Errorf("recover previous client certificate: %w", err)
+	}
+	if err := os.Rename(keyBackup, keyPath); err != nil {
+		return fmt.Errorf("recover previous client key: %w", err)
+	}
+	return nil
+}
+
 func RotateClientForPush(nodeID, reason string) (info ClientInfo, ca, cert, key []byte, err error) {
 	nodeID = strings.TrimSpace(nodeID)
 	if nodeID == "" {
@@ -109,17 +175,13 @@ func RotateClientForPush(nodeID, reason string) (info ClientInfo, ca, cert, key 
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return ClientInfo{}, nil, nil, nil, err
 	}
+	if err := recoverRotationBackup(nodeID, pending); err != nil {
+		return ClientInfo{}, nil, nil, nil, err
+	}
 	certPath := filepath.Join(dir, ClientCertFile)
 	keyPath := filepath.Join(dir, ClientKeyFile)
 	certBackup := certPath + ".rotate-backup"
 	keyBackup := keyPath + ".rotate-backup"
-	for _, backup := range []string{certBackup, keyBackup} {
-		if _, statErr := os.Lstat(backup); statErr == nil {
-			return ClientInfo{}, nil, nil, nil, fmt.Errorf("stale rotation backup exists: %s; manual recovery required", backup)
-		} else if !os.IsNotExist(statErr) {
-			return ClientInfo{}, nil, nil, nil, fmt.Errorf("inspect rotation backup %s: %w", backup, statErr)
-		}
-	}
 
 	_, certErr := os.Lstat(certPath)
 	_, keyErr := os.Lstat(keyPath)
