@@ -552,6 +552,9 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) (retErr error) {
 			m.Primary = strings.TrimSpace(string(b))
 		}
 	}
+	unlockBootstrap, err := acquireBootstrapMutationLock()
+	if err != nil { return fmt.Errorf("acquire bootstrap mutation lock: %w", err) }
+	defer unlockBootstrap()
 	if err := recoverBootstrapFileTransactions(); err != nil {
 		return fmt.Errorf("recover prior bootstrap transaction: %w", err)
 	}
@@ -676,6 +679,9 @@ func BootstrapSecondary(m *Material) (retErr error) {
 	if err := validatePublicIP(m.Primary); err != nil {
 		return fmt.Errorf("bootstrap secondary primary IP: %w", err)
 	}
+	unlockBootstrap, err := acquireBootstrapMutationLock()
+	if err != nil { return fmt.Errorf("acquire bootstrap mutation lock: %w", err) }
+	defer unlockBootstrap()
 	if err := recoverBootstrapFileTransactions(); err != nil {
 		return fmt.Errorf("recover prior bootstrap transaction: %w", err)
 	}
