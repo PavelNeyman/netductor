@@ -553,9 +553,6 @@ func CARolloverFinish() error {
 	if err != nil {
 		return rollback(fmt.Errorf("validate promoted server certificate/key: %w", err))
 	}
-	if _, err := tls.LoadX509KeyPair(path(ClientCertFile), path(ClientKeyFile)); err != nil {
-		return rollback(fmt.Errorf("validate promoted default client certificate/key: %w", err))
-	}
 	serverLeaf, err := x509.ParseCertificate(serverPair.Certificate[0])
 	if err != nil {
 		return rollback(fmt.Errorf("parse promoted server certificate: %w", err))
