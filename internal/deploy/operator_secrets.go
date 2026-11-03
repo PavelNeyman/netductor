@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -178,7 +177,6 @@ RECOVERY_TOKEN=%s
 
 ## Full dump
 - secrets-full.tgz — /etc/netductor/secrets + conf + hostnames + secondary devices.json + LE live (if present)
-- extract/ — unpacked copy of the archive
 - netductor.conf — domain/REDIRECT_BASE snapshot
 - secrets-list.txt — files that existed under /etc/netductor/secrets
 
