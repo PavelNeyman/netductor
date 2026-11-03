@@ -287,7 +287,7 @@ func TestValidateNoGlobalWSSAllowsProtectsAdministratorRules(t *testing.T) {
 		status string
 		wantErr bool
 	}{
-		{name: "no broad rule", status: "Status: active\nTo                         Action      From\n8445/tcp                   ALLOW       203.0.113.10\n"},
+		{name: "no broad rule", status: "Status: active\nTo                         Action      From\n8445/tcp                   ALLOW       8.8.8.10\n"},
 		{name: "untagged IPv4 administrator rule", status: "Status: active\nTo                         Action      From\n8445/tcp                   ALLOW       Anywhere\n", wantErr: true},
 		{name: "untagged IPv6 administrator rule", status: "Status: active\nTo                         Action      From\n8445/tcp (v6)              ALLOW       Anywhere (v6)\n", wantErr: true},
 	} {
@@ -363,18 +363,18 @@ func TestParseNetductorInputChainStrict(t *testing.T) {
 
 func TestUFWStatusHasPeerRuleMatchesExactNumberedRule(t *testing.T) {
 	for _, tc := range []struct { name, status string; want bool }{
-		{name: "numbered split bracket", status: "Status: active\n[ 2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n", want: true},
-		{name: "numbered compact bracket", status: "[2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n", want: true},
-		{name: "wrong source", status: "[ 2] 8444/tcp ALLOW IN 203.0.113.70 # nd-wss-sp\n"},
-		{name: "wrong port", status: "[ 2] 18444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n"},
-		{name: "wrong comment", status: "[ 2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-ps\n"},
-		{name: "wrong action", status: "[ 2] 8444/tcp DENY IN 203.0.113.7 # nd-wss-sp\n"},
-		{name: "wrong direction", status: "[ 2] 8444/tcp ALLOW OUT 203.0.113.7 # nd-wss-sp\n"},
-		{name: "extra trailing fields", status: "[ 2] 8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp extra\n"},
-		{name: "unnumbered status", status: "8444/tcp ALLOW IN 203.0.113.7 # nd-wss-sp\n"},
+		{name: "numbered split bracket", status: "Status: active\n[ 2] 8444/tcp ALLOW IN 8.8.8.7 # nd-wss-sp\n", want: true},
+		{name: "numbered compact bracket", status: "[2] 8444/tcp ALLOW IN 8.8.8.7 # nd-wss-sp\n", want: true},
+		{name: "wrong source", status: "[ 2] 8444/tcp ALLOW IN 8.8.8.70 # nd-wss-sp\n"},
+		{name: "wrong port", status: "[ 2] 18444/tcp ALLOW IN 8.8.8.7 # nd-wss-sp\n"},
+		{name: "wrong comment", status: "[ 2] 8444/tcp ALLOW IN 8.8.8.7 # nd-wss-ps\n"},
+		{name: "wrong action", status: "[ 2] 8444/tcp DENY IN 8.8.8.7 # nd-wss-sp\n"},
+		{name: "wrong direction", status: "[ 2] 8444/tcp ALLOW OUT 8.8.8.7 # nd-wss-sp\n"},
+		{name: "extra trailing fields", status: "[ 2] 8444/tcp ALLOW IN 8.8.8.7 # nd-wss-sp extra\n"},
+		{name: "unnumbered status", status: "8444/tcp ALLOW IN 8.8.8.7 # nd-wss-sp\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := ufwStatusHasPeerRule(tc.status, "203.0.113.7", 8444, "nd-wss-sp"); got != tc.want {
+			if got := ufwStatusHasPeerRule(tc.status, "8.8.8.7", 8444, "nd-wss-sp"); got != tc.want {
 				t.Fatalf("ufwStatusHasPeerRule() = %v, want %v", got, tc.want)
 			}
 		})
@@ -552,25 +552,25 @@ func TestBootstrapRollbackRemovesOnlyTransactionCreatedUFWRule(t *testing.T) {
 	oldLock, oldExec := bootstrapFirewallLock, bootstrapFirewallExec
 	defer func() { bootstrapFirewallLock, bootstrapFirewallExec = oldLock, oldExec }()
 	bootstrapFirewallLock = func() (func(), error) { return func(){}, nil }
-	status := "Status: active\n[ 1] 8445/tcp ALLOW IN 203.0.113.20 # nd-wss-ps\n[ 2] 8444/tcp ALLOW IN 203.0.113.10 # nd-wss-sp\n"
+	status := "Status: active\n[ 1] 8445/tcp ALLOW IN 8.8.8.20 # nd-wss-ps\n[ 2] 8444/tcp ALLOW IN 8.8.8.10 # nd-wss-sp\n"
 	var calls []string
 	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) {
 		calls = append(calls, name+" "+strings.Join(args, " "))
 		if name != "ufw" { return nil, fmt.Errorf("unexpected command %s", name) }
 		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" { return []byte(status), nil }
 		if len(args) > 0 && args[0] == "--force" {
-			if !strings.Contains(strings.Join(args, " "), "203.0.113.20") { return nil, fmt.Errorf("wrong rule deletion: %v", args) }
-			status = "Status: active\n[ 1] 8444/tcp ALLOW IN 203.0.113.10 # nd-wss-sp\n"
+			if !strings.Contains(strings.Join(args, " "), "8.8.8.20") { return nil, fmt.Errorf("wrong rule deletion: %v", args) }
+			status = "Status: active\n[ 1] 8444/tcp ALLOW IN 8.8.8.10 # nd-wss-sp\n"
 			return nil, nil
 		}
 		return nil, fmt.Errorf("unexpected ufw args: %v", args)
 	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
 	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"203.0.113.20", Port:8445, Comment:"nd-wss-ps"}, false); err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"8.8.8.20", Port:8445, Comment:"nd-wss-ps"}, false); err != nil { t.Fatal(err) }
 	if err := tx.Rollback(); err != nil { t.Fatal(err) }
-	if strings.Contains(status, "203.0.113.20") { t.Fatalf("transaction-created rule remains: %s", status) }
-	if !strings.Contains(status, "203.0.113.10") { t.Fatalf("unrelated existing peer rule was removed: %s", status) }
+	if strings.Contains(status, "8.8.8.20") { t.Fatalf("transaction-created rule remains: %s", status) }
+	if !strings.Contains(status, "8.8.8.10") { t.Fatalf("unrelated existing peer rule was removed: %s", status) }
 	if len(calls) != 3 { t.Fatalf("firewall calls = %v, want inspect/delete/verify", calls) }
 }
 
@@ -589,7 +589,7 @@ func TestBootstrapRollbackPreservesPreexistingFirewallRule(t *testing.T) {
 	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) { calls++; return nil, nil }
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
 	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"203.0.113.20", Port:8445, Comment:"nd-wss-ps"}, true); err != nil { t.Fatal(err) }
+	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"8.8.8.20", Port:8445, Comment:"nd-wss-ps"}, true); err != nil { t.Fatal(err) }
 	if err := tx.Rollback(); err != nil { t.Fatal(err) }
 	if calls != 0 { t.Fatalf("pre-existing firewall rule caused %d rollback commands", calls) }
 }
@@ -632,7 +632,7 @@ func TestBootstrapRollbackAttemptsAllDomainsAfterFileRestoreFailure(t *testing.T
 	if err := tx.SnapshotUnits("nd-test.service"); err != nil { t.Fatal(err) }
 	if err := tx.MarkUnitsTouched("nd-test.service"); err != nil { t.Fatal(err) }
 	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{
-		Backend: "ufw", Source: "203.0.113.20", Port: 8445, Comment: "nd-wss-ps",
+		Backend: "ufw", Source: "8.8.8.20", Port: 8445, Comment: "nd-wss-ps",
 	}, false); err != nil { t.Fatal(err) }
 	if err := tx.Rollback(); err == nil { t.Fatal("expected file restore failure") }
 	if !strings.Contains(strings.Join(systemCalls, "\n"), "daemon-reload") ||
