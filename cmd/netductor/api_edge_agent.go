@@ -21,16 +21,19 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
-		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0] == nil {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
-			return
+		peerSerial := ""
+		if r.TLS != nil {
+			if len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0] == nil {
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
+				return
+			}
+			peerCert := r.TLS.PeerCertificates[0]
+			if peerCert.Subject.CommonName != "netductor-agent-"+tokenDID {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "certificate_identity_mismatch"})
+				return
+			}
+			peerSerial = strings.ToLower(peerCert.SerialNumber.Text(16))
 		}
-		peerCert := r.TLS.PeerCertificates[0]
-		if peerCert.Subject.CommonName != "netductor-agent-"+tokenDID {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "certificate_identity_mismatch"})
-			return
-		}
-		peerSerial := strings.ToLower(peerCert.SerialNumber.Text(16))
 		payload := readJSON(r)
 		did, _ := payload["device_id"].(string)
 		if did == "" {
@@ -62,34 +65,36 @@ func registerEdgeAgent(mux *http.ServeMux) {
 				}
 			}
 		}
-		pendingBefore, err := mtls.PendingRotates()
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_state_unavailable"})
-			return
-		}
-		hadPendingRotation := false
-		for _, pending := range pendingBefore {
-			if pending.NodeID == did {
-				hadPendingRotation = true
-				break
-			}
-		}
-		if err := mtls.ConfirmRotate(did, peerSerial); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_confirmation_failed"})
-			return
-		}
 		rotationConfirmed := false
-		if hadPendingRotation {
-			pendingAfter, err := mtls.PendingRotates()
+		if peerSerial != "" {
+			pendingBefore, err := mtls.PendingRotates()
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_state_unavailable"})
 				return
 			}
-			rotationConfirmed = true
-			for _, pending := range pendingAfter {
+			hadPendingRotation := false
+			for _, pending := range pendingBefore {
 				if pending.NodeID == did {
-					rotationConfirmed = false
+					hadPendingRotation = true
 					break
+				}
+			}
+			if err := mtls.ConfirmRotate(did, peerSerial); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_confirmation_failed"})
+				return
+			}
+			if hadPendingRotation {
+				pendingAfter, err := mtls.PendingRotates()
+				if err != nil {
+					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_state_unavailable"})
+					return
+				}
+				rotationConfirmed = true
+				for _, pending := range pendingAfter {
+					if pending.NodeID == did {
+						rotationConfirmed = false
+						break
+					}
 				}
 			}
 		}
