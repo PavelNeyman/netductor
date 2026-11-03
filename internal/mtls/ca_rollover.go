@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -30,10 +31,23 @@ type rolloverInfo struct {
 
 func rolloverPath() string { return filepath.Join(Dir(), rolloverState) }
 
-func loadRollover() rolloverInfo {
+func loadRollover() (rolloverInfo, error) {
 	var r rolloverInfo
-	_ = statefile.LoadJSON(rolloverPath(), &r) // NotExist / corrupt → empty phase
-	return r
+	if err := statefile.LoadJSON(rolloverPath(), &r); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return rolloverInfo{}, nil
+		}
+		return rolloverInfo{}, fmt.Errorf("load CA rollover journal: %w", err)
+	}
+	switch r.Phase {
+	case "dual", "done":
+		if r.StartedAt <= 0 || (r.Phase == "dual" && r.NewSerial == "") {
+			return rolloverInfo{}, fmt.Errorf("invalid CA rollover journal: incomplete %q phase", r.Phase)
+		}
+	default:
+		return rolloverInfo{}, fmt.Errorf("invalid CA rollover journal phase %q", r.Phase)
+	}
+	return r, nil
 }
 
 func saveRollover(r rolloverInfo) error {
@@ -43,6 +57,9 @@ func saveRollover(r rolloverInfo) error {
 // CARolloverStart generates ca-new. Both CAs trusted until CARolloverFinish.
 func CARolloverStart() error {
 	if err := ensureCA(); err != nil {
+		return err
+	}
+	if _, err := loadRollover(); err != nil {
 		return err
 	}
 	if fileOK(path(CANewCertFile)) {
@@ -88,7 +105,10 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	if !fileOK(path(CANewCertFile)) || !fileOK(path(CANewKeyFile)) {
 		return nil, nil, nil, fmt.Errorf("ca-new missing; run mtls rollover start")
 	}
-	rollover := loadRollover()
+	rollover, err := loadRollover()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if rollover.Phase != "dual" || rollover.NewSerial == "" {
 		return nil, nil, nil, fmt.Errorf("CA rollover journal is not in a valid dual-trust phase")
 	}
@@ -240,6 +260,13 @@ func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, erro
 // CARolloverFinish promotes ca-new to primary CA and removes dual trust.
 // Call only when all clients use certs from ca-new.
 func CARolloverFinish() error {
+	rollover, err := loadRollover()
+	if err != nil {
+		return err
+	}
+	if rollover.Phase != "dual" {
+		return fmt.Errorf("CA rollover is not in dual-trust phase")
+	}
 	if !fileOK(path(CANewCertFile)) {
 		return fmt.Errorf("no ca-new")
 	}
@@ -311,6 +338,13 @@ func CARolloverFinish() error {
 
 // CARolloverAbort removes ca-new without promoting.
 func CARolloverAbort() error {
+	rollover, err := loadRollover()
+	if err != nil {
+		return err
+	}
+	if rollover.Phase == "done" {
+		return fmt.Errorf("cannot abort a completed CA rollover")
+	}
 	_ = os.Remove(path(CANewCertFile))
 	_ = os.Remove(path(CANewKeyFile))
 	return saveRollover(rolloverInfo{})
@@ -318,7 +352,10 @@ func CARolloverAbort() error {
 
 // CARolloverStatus returns phase and whether dual CA files exist.
 func CARolloverStatus() map[string]any {
-	r := loadRollover()
+	r, err := loadRollover()
+	if err != nil {
+		return map[string]any{"error": err.Error(), "ca_new_ready": fileOK(path(CANewCertFile))}
+	}
 	return map[string]any{
 		"phase":        r.Phase,
 		"started_at":   r.StartedAt,
