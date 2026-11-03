@@ -145,3 +145,10 @@ Updated against current `main` after the initial plan commit.
 - [x] The transaction journal remains in `rolling_back` unless all compensation steps succeed; recovery can retry the complete rollback idempotently.
 - [x] Added a regression test injecting file-restore failure and asserting systemd + firewall compensation still run and the journal remains `rolling_back`.
 - [ ] Focused rollback failure-injection tests have not been executed; Actions remain manual-only.
+
+
+### Secondary deploy journal host binding
+
+- [x] Resume rejects a journal whose embedded host differs from the requested target host; prevents copied/misplaced state from reusing peer/agent identity across targets.
+- [x] Added regression test for cross-host journal rejection.
+- [ ] Tests not executed (manual-only Actions).
