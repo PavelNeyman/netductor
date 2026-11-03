@@ -107,6 +107,11 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "ca_rollover_confirmation_failed"})
 			return
 		}
+		materialConfirmed := false
+		if peerSerial != "" {
+			info, err := mtls.ReadClientInfo(did)
+			materialConfirmed = err == nil && !info.Revoked && strings.EqualFold(info.Serial, peerSerial)
+		}
 		hn, _ := payload["hostname"].(string)
 		ip, _ := payload["wan_ip"].(string)
 		if ip == "" {
@@ -124,6 +129,7 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			"ok": true,
 			"mtls_rollover_confirmed": rolloverConfirmed,
 			"mtls_rotation_confirmed": rotationConfirmed,
+			"mtls_material_confirmed": materialConfirmed,
 		}
 		if did != "" {
 			n, err := nodes.UpsertFromDevice(nodes.Node{
