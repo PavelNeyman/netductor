@@ -83,7 +83,7 @@ Commands (from VPS):
 		runBuildAgent(cfg)
 		return
 	}
-	if err := recoverEdgeMTLSStartup(); err != nil {
+	if err := recoverEdgeMTLSStartup(cfg.DeviceID); err != nil {
 		fmt.Fprintln(os.Stderr, "recover mTLS material:", err)
 		os.Exit(1)
 	}
@@ -1180,18 +1180,30 @@ func syncAgentDirectory(path string) error {
 	return dir.Sync()
 }
 
-func recoverEdgeMTLSStartup() error {
+func recoverEdgeMTLSStartup(nodeID string) error {
 	if !edgeMTLSBackupsPresent() {
 		return nil
 	}
 	serial := ""
 	for _, dir := range mtlsDirs {
+		caPEM, err := os.ReadFile(filepath.Join(dir, "ca.crt"))
+		if err != nil {
+			if restoreEdgeMTLSMaterial() { return nil }
+			return fmt.Errorf("inspect current CA bundle in %s: %w", dir, err)
+		}
 		certPEM, err := os.ReadFile(filepath.Join(dir, "client.crt"))
 		if err != nil {
-			if restoreEdgeMTLSMaterial() {
-				return nil
-			}
+			if restoreEdgeMTLSMaterial() { return nil }
 			return fmt.Errorf("inspect current client certificate in %s: %w", dir, err)
+		}
+		keyPEM, err := os.ReadFile(filepath.Join(dir, "client.key"))
+		if err != nil {
+			if restoreEdgeMTLSMaterial() { return nil }
+			return fmt.Errorf("inspect current client key in %s: %w", dir, err)
+		}
+		if err := validateEdgeMTLSMaterial(nodeID, string(caPEM), string(certPEM), string(keyPEM)); err != nil {
+			if restoreEdgeMTLSMaterial() { return nil }
+			return fmt.Errorf("validate current mTLS directory %s: %w", dir, err)
 		}
 		block, _ := pem.Decode(certPEM)
 		if block == nil {
