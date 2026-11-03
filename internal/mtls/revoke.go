@@ -11,6 +11,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sys/unix"
+
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 const revokeFile = "revoked.json"
@@ -52,20 +56,41 @@ func loadRevoked() (map[string]revokeEntry, error) {
 }
 
 func saveRevoked(m map[string]revokeEntry) error {
-	_ = os.MkdirAll(Dir(), 0o700)
-	d := revokeFileData{}
+	d := revokeFileData{Entries: make([]revokeEntry, 0, len(m))}
 	for _, e := range m {
 		d.Entries = append(d.Entries, e)
 	}
-	raw, err := json.MarshalIndent(d, "", "  ")
+	return statefile.SaveJSON(revokePath(), d)
+}
+
+// acquireRevokeLock serializes read-modify-write transactions across processes.
+// The lock inode is separate from revoked.json, which is atomically replaced.
+func acquireRevokeLock() (func(), error) {
+	if err := os.MkdirAll(Dir(), 0o700); err != nil {
+		return nil, fmt.Errorf("create mTLS directory: %w", err)
+	}
+	lockPath := revokePath() + ".lock"
+	fd, err := unix.Open(lockPath, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("open revocation lock: %w", err)
 	}
-	tmp := revokePath() + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
-		return err
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("inspect revocation lock: %w", err)
 	}
-	return os.Rename(tmp, revokePath())
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("revocation lock must be a private regular file owned by the current user")
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("acquire revocation lock: %w", err)
+	}
+	return func() {
+		_ = unix.Flock(fd, unix.LOCK_UN)
+		_ = unix.Close(fd)
+	}, nil
 }
 
 func serialHex(s *big.Int) string {
@@ -100,6 +125,11 @@ func RevokeSerial(serialHexStr, nodeID, reason string) error {
 	}
 	revokeMu.Lock()
 	defer revokeMu.Unlock()
+	unlock, err := acquireRevokeLock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	m, err := loadRevoked()
 	if err != nil {
 		return err
