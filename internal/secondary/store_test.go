@@ -1,6 +1,9 @@
 package secondary
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestFindByTokenRejectEmpty(t *testing.T) {
 	if FindByToken("") != nil {
