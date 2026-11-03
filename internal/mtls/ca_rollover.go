@@ -548,10 +548,10 @@ func CARolloverFinish() error {
 	}
 	rollover.Phase = "done"
 	if err := saveRollover(rollover); err != nil {
-		persisted, loadErr := loadRollover()
-		if loadErr != nil || persisted.Phase != "done" {
-			return rollback(fmt.Errorf("persist completed CA rollover: %w", err))
-		}
+		// Do not guess whether the final journal rename became visible. The
+		// promotion backups remain intact; startup recovery will either roll
+		// back a promoting phase or finish cleanup for a done phase.
+		return fmt.Errorf("CA promotion completed but final journal state is uncertain; backups retained: %w", err)
 	}
 	if err := cleanupCARolloverBackups(); err != nil {
 		return fmt.Errorf("CA promoted but backup cleanup is pending: %w", err)
