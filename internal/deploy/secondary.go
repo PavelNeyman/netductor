@@ -393,6 +393,10 @@ func printVPNHostnameStatus(out string) {
 	fmt.Fprintln(os.Stderr, "vpn-hostname: ok")
 }
 
+func secondaryPackName(host string) string {
+	return "secondary-" + strings.ReplaceAll(strings.TrimSpace(host), ".", "-")
+}
+
 func DeploySecondary(o SecondaryOpts) error {
 	if o.Promote {
 		return fmt.Errorf("deploy does not promote: run client traffic test on B, then svc-paths peer ready/promote")
@@ -525,7 +529,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 				o.PrimaryHost, pPort, o.PrimaryHost, pPort))
 		}
 
-		prep := "netductor secondary prepare-pack --sni " + ShellQuote(o.SNI)
+		prep := "netductor secondary prepare-pack --name " + ShellQuote(secondaryPackName(o.SecondaryHost)) + " --sni " + ShellQuote(o.SNI)
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 		if err != nil {
 			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErr("prepare-pack", "ssh", err))
