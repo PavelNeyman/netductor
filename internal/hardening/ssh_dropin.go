@@ -38,7 +38,7 @@ ND_RB_SCRIPT="$ND_BAK/rollback.sh"
 PREP_LOCK=/var/lib/netductor/ssh-harden.lock
 mkdir -p /var/lib/netductor
 exec 8>"$PREP_LOCK"
-flock 8
+if ! flock -w 30 8; then echo "SSH prepare: permanent lock timeout" >&2; exit 1; fi
 
 # Serialize the complete prepare setup with other prepares, and share the
 # persistent backup lock with rollback/finalize/cancel. Never unlink this lock.
@@ -49,7 +49,7 @@ LOCK="$ND_BAK/lock"
 test ! -L "$LOCK"
 exec 9>"$LOCK"
 chmod 600 "$LOCK"
-flock 9
+if ! flock -w 30 9; then echo "SSH prepare: transaction lock timeout" >&2; exit 1; fi
 
 # A previous prepare may still own the rollback window even though its SSH
 # script has exited. Do not replace its backup while timer/service is active.
@@ -80,7 +80,7 @@ systemctl daemon-reload
 mkdir -p /run/lock
 test ! -L /run/lock/netductor-firewall.lock
 exec 7>/run/lock/netductor-firewall.lock
-flock 7
+if ! flock -w 30 7; then echo "SSH prepare: firewall lock timeout" >&2; exit 1; fi
 
 # --- Mandatory SSH backup ---
 test -f /etc/ssh/sshd_config
@@ -503,7 +503,7 @@ ND_BAK='%s'
 ND_PORT=%d
 mkdir -p "$ND_BAK"
 exec 7>"$ND_BAK/lock"
-flock 7
+if ! flock -w 30 7; then echo "SSH finalize: transaction lock timeout" >&2; exit 1; fi
 if [ -f "$ND_BAK/ROLLBACK_STARTED" ] || [ -f "$ND_BAK/ROLLED_BACK" ]; then
   echo "SSH rollback already started/completed; refusing to re-finalize" >&2
   exit 1
@@ -533,7 +533,7 @@ fi
 mkdir -p /run/lock
 test ! -L /run/lock/netductor-firewall.lock
 exec 8>/run/lock/netductor-firewall.lock
-flock 8
+if ! flock -w 30 8; then echo "SSH finalize: firewall lock timeout" >&2; exit 1; fi
 if command -v ufw >/dev/null 2>&1; then
   ufw allow "$ND_PORT"/tcp comment netductor-ssh
   # Put the final deny ahead of the temporary bootstrap ALLOW, then remove
@@ -579,8 +579,8 @@ ND_RB_TIMER='%s'
 LOCK="$ND_BAK/lock"
 mkdir -p "$ND_BAK"
 exec 9>"$LOCK"
-# Block until rollback critical section finishes (or free)
-flock 9
+# Wait for rollback critical section, but fail boundedly rather than hang deploy.
+if ! flock -w 60 9; then echo "SSH rollback cancel: transaction lock timeout" >&2; exit 1; fi
 if [ -f "$ND_BAK/ROLLBACK_STARTED" ] || [ -f "$ND_BAK/ROLLED_BACK" ]; then
   echo "SSH rollback already started/completed; cannot cancel it" >&2
   exit 1
@@ -614,7 +614,7 @@ fi
 mkdir -p /run/lock
 test ! -L /run/lock/netductor-firewall.lock
 exec 8>/run/lock/netductor-firewall.lock
-flock 8
+if ! flock -w 30 8; then echo "SSH rollback cancel: firewall lock timeout" >&2; exit 1; fi
 if command -v ufw >/dev/null 2>&1; then
   if ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
     echo "UFW SSH bootstrap rule unexpectedly remains after finalize" >&2
@@ -658,7 +658,7 @@ if command -v ufw >/dev/null 2>&1; then
   mkdir -p /run/lock
   test ! -L /run/lock/netductor-firewall.lock
   exec 8>/run/lock/netductor-firewall.lock
-  flock 8
+  if ! flock -w 30 8; then echo "host agent purge: firewall lock timeout" >&2; exit 1; fi
   ufw deny 10050/tcp 2>/dev/null || true
   ufw deny 10051/tcp 2>/dev/null || true
   ufw deny 8787/tcp 2>/dev/null || true
