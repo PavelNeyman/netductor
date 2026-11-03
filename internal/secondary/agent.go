@@ -194,13 +194,14 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		ConfigVer       int             `json:"config_ver"`
 		NeedSync        bool            `json:"need_sync"`
 		MTLSConfirmed   bool            `json:"mtls_rollover_confirmed"`
+		MTLSMaterialConfirmed bool `json:"mtls_material_confirmed"`
 		DesiredHostname string          `json:"desired_hostname"`
 		DesiredRelease  string          `json:"desired_release"`
 		Commands        []string        `json:"commands"`
 		FailoverPolicy  json.RawMessage `json:"failover_policy"`
 	}
 	_ = json.Unmarshal(raw, &hr)
-	if hr.MTLSConfirmed {
+	if hr.MTLSConfirmed || hr.MTLSMaterialConfirmed {
 		cleanupPreviousMTLSMaterial()
 	}
 	if hn := strings.TrimSpace(hr.DesiredHostname); hn != "" {
