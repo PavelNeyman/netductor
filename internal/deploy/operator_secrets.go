@@ -22,7 +22,9 @@ func CollectOperatorSecrets(role, user, host, keyPath, keyPass string) (string, 
 	if keyPath == "" {
 		return "", fmt.Errorf("SSH key path required")
 	}
-	_ = os.Chmod(keyPath, 0o600)
+	if err := os.Chmod(keyPath, 0o600); err != nil {
+		return "", fmt.Errorf("secure SSH private key permissions: %w", err)
+	}
 
 	// Full dump: text sections + base64 tar of secrets tree and critical state
 	script := `set +e
