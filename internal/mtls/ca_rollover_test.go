@@ -226,3 +226,26 @@ func TestEnsureAllRollsBackInterruptedCAPromotion(t *testing.T) {
 		t.Fatalf("rollover phase after recovery = %q, want dual", state.Phase)
 	}
 }
+
+func TestCARolloverRequiresCompleteRegisteredSecondaryInventory(t *testing.T) {
+	setupRotationTest(t)
+	if err := CARolloverStart(); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := IssueClientFromNewCA("secondary-test"); err != nil {
+		t.Fatal(err)
+	}
+	info, err := ReadClientInfo("secondary-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if confirmed, err := ConfirmCARolloverClient("secondary-test", info.Serial); err != nil || !confirmed {
+		t.Fatalf("confirm Secondary identity = %v, err=%v", confirmed, err)
+	}
+	if err := CARolloverValidateClients([]string{"secondary-test", "offline-secondary"}); err == nil {
+		t.Fatal("CA rollover accepted a registered Secondary without a confirmed new identity")
+	}
+	if err := CARolloverValidateClients([]string{"secondary-test"}); err != nil {
+		t.Fatalf("confirmed registered Secondary rejected: %v", err)
+	}
+}
