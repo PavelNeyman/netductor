@@ -117,6 +117,13 @@ Updated against current `main` after the initial plan commit.
 - [x] Bounded SSH Prepare locks (permanent, transaction, firewall), Finalize locks, CancelRollback locks, and HostAgentPurge firewall lock. Lock contention now returns an explicit error instead of indefinitely blocking the deploy workflow.
 - [ ] Manual/focused tests still pending; Actions remain manual-only.
 
+### Interrupted peer allocation recovery
+
+- [x] `peer recover` can regenerate material only when the durable operation phase is `allocating` and the material file is genuinely absent. It reuses the journaled peer ID and slot, verifies the slot/IP are not claimed, persists material atomically, then advances the journal before bootstrap.
+- [x] Existing but corrupt/incomplete material, a missing material file in any later phase, or conflicting registry state remains fail-closed; keys are never silently replaced.
+- [x] Added regression tests for safe regeneration and refusal to overwrite corrupt material.
+- [ ] Focused tests have not been executed; Actions remain manual-only.
+
 ### Peer registry lock bound audit
 
 - [x] Primary service-peer registry mutations now use a non-blocking flock retry loop with a 30-second deadline. A stuck peer lifecycle process returns an explicit timeout instead of hanging Secondary deployment indefinitely.
