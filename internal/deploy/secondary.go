@@ -621,14 +621,19 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 	} // end !skipProv
 
+	// ProvisionFromCore returns only after SSH hardening is finalized, rollback
+	// is cancelled, and the independent post-finalize key-only check passed.
+	// Persist that recovery boundary before later verification/sync can fail:
+	// retries must resume on :52222, never attempt password-based reprovision.
+	if err := checkpointSuccess(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, StageProvisioned); err != nil {
+		return err
+	}
+
 	const day2Port = "52222"
 	fmt.Fprintln(os.Stderr, "==> verify SSH key-only on", o.SecondaryHost+":"+day2Port)
 	secKey, secPass := secondaryDialKey(o)
 	if _, err := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, "true", secPass); err != nil {
 		return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, fmt.Errorf("post-harden SSH %s:%s failed (key-only): %w", o.SecondaryHost, day2Port, err))
-	}
-	if err := checkpointSuccess(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, StageProvisioned); err != nil {
-		return err
 	}
 
 	fmt.Fprintln(os.Stderr, "==> primary: secondary sync + fleet status")
