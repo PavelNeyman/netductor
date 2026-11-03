@@ -633,6 +633,20 @@ func TestRecoverIncompletePeerAddRejectsRemovedIdentity(t *testing.T) {
 	}
 }
 
+ 
+func TestRecoverIncompletePeerAddRejectsDuplicateActiveIdentity(t *testing.T) {
+	withTestRoot(t)
+	peer := ServicePeer{ID: "peer-duplicate", PublicIP: "203.0.113.44", State: "prepared", Slot: SlotTable()[1]}
+	other := peer
+	other.PublicIP = "203.0.113.45"
+	other.Slot = SlotTable()[2]
+	if err := SavePeersIndex(&PeersIndex{Version: 1, Peers: []ServicePeer{peer, other}}); err != nil { t.Fatal(err) }
+	if err := writePeerOp(peerOp{Op: "add", PeerID: peer.ID, PublicIP: peer.PublicIP, PrimaryIP: "198.51.100.1", SlotIndex: 1, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
+	if _, err := RecoverIncompletePeerAdd(peer.ID); err == nil || !strings.Contains(err.Error(), "ambiguous stale add recovery") {
+		t.Fatalf("duplicate active identity must be rejected: %v", err)
+	}
+}
+
 func TestRecoverIncompletePeerAddRejectsReassignedSlotAndIP(t *testing.T) {
 	for _, tc := range []struct{name, opIP, registryIP string; slot int; want string}{
 		{name: "ip", opIP: "203.0.113.41", registryIP: "203.0.113.41", slot: 2, want: "public IP"},
