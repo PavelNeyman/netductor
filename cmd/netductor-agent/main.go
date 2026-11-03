@@ -84,6 +84,7 @@ Commands (from VPS):
 		return
 	}
 	client := agentHTTPClient()
+	mtlsRefreshBackupActive = edgeMTLSBackupsPresent()
 	startRecoveryHTTP(&cfg)
 	startGuestHTTP(&cfg)
 
@@ -1173,6 +1174,16 @@ func syncAgentDirectory(path string) error {
 	}
 	defer dir.Close()
 	return dir.Sync()
+}
+
+func edgeMTLSBackupsPresent() bool {
+	for _, dir := range mtlsDirs {
+		info, err := os.Lstat(dir + ".rollover-old")
+		if err == nil && info.Mode()&os.ModeSymlink == 0 && info.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 func restoreEdgeMTLSMaterial() bool {
