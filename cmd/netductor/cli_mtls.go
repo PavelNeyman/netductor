@@ -166,7 +166,8 @@ func runMTLS(args []string) {
 			}
 			for _, device := range edge.ListDevices() {
 				if device.Status == edge.StatusApproved && device.DeviceID != "" {
-					observed[device.DeviceID] = device.Extra["cert_serial"].(string)
+					serial, _ := device.Extra["cert_serial"].(string)
+					observed[device.DeviceID] = serial
 				}
 			}
 			if err := mtls.CARolloverValidateObservedClients(observed); err != nil {
