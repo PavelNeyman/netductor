@@ -422,6 +422,34 @@ func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, erro
 
 // CARolloverFinish promotes ca-new to primary CA and removes dual trust.
 // Call only when all clients use certs from ca-new.
+// CARolloverValidateClients ensures every registered Secondary supplied by
+// the operator has a journaled and confirmed new-CA identity before promotion.
+func CARolloverValidateClients(nodeIDs []string) error {
+	rolloverMu.Lock()
+	defer rolloverMu.Unlock()
+	rollover, err := loadRollover()
+	if err != nil {
+		return err
+	}
+	if rollover.Phase != "dual" {
+		return fmt.Errorf("CA rollover is not in dual-trust phase")
+	}
+	for _, nodeID := range nodeIDs {
+		state, ok := rollover.Issued[nodeID]
+		if !ok || state.ConfirmedAt == 0 {
+			return fmt.Errorf("registered Secondary %q has not confirmed its new-CA identity", nodeID)
+		}
+		info, err := ReadClientInfo(nodeID)
+		if err != nil {
+			return fmt.Errorf("read registered Secondary %q certificate: %w", nodeID, err)
+		}
+		if info.Revoked || !strings.EqualFold(info.Serial, state.NewSerial) {
+			return fmt.Errorf("registered Secondary %q does not have its confirmed active certificate", nodeID)
+		}
+	}
+	return nil
+}
+
 func CARolloverFinish() error {
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
