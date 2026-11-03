@@ -554,6 +554,9 @@ func CARolloverFinish() error {
 	if err := newCA.CheckSignatureFrom(newCA); err != nil {
 		return fmt.Errorf("new CA certificate is not self-signed: %w", err)
 	}
+	if serialHex(newCA.SerialNumber) != rollover.NewSerial {
+		return fmt.Errorf("new CA does not match rollover state")
+	}
 	clientsDir := filepath.Join(Dir(), "clients")
 	clients, err := os.ReadDir(clientsDir)
 	if err != nil && !os.IsNotExist(err) {
