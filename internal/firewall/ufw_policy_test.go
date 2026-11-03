@@ -133,7 +133,7 @@ func TestSecondaryInactiveSavedAllowPreflight(t *testing.T) {
 		"ufw allow from 192.0.2.10 to any port 8789 proto tcp",
 		"ufw allow 8787",
 	} {
-		if err := preflightSecondaryAddedRules("Added user rules:\\n"+rule+"\\n"); err == nil {
+		if err := preflightSecondaryAddedRules("Added user rules:\n"+rule+"\n"); err == nil {
 			t.Fatalf("expected saved restricted allow to fail: %q", rule)
 		}
 	}
