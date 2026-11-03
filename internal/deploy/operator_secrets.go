@@ -71,7 +71,9 @@ echo "===END==="
 	out, err := runSSHWithPortFallback(keyPath, user, host, script, keyPass)
 	raw := out
 	if err != nil {
-		return "", fmt.Errorf("ssh collect secrets: %w\n%s", err, trimOut(raw))
+		// Remote output may contain plaintext recovery secrets or a partial
+		// credentials archive. Callers log this error, so suppress all output.
+		return "", fmt.Errorf("ssh collect secrets: %w (remote output suppressed)", err)
 	}
 	if !strings.Contains(raw, "===END===") {
 		return "", fmt.Errorf("ssh collect incomplete output (no END marker)")
