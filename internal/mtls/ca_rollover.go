@@ -431,10 +431,25 @@ func CARolloverFinish() error {
 		if state.ConfirmedAt == 0 {
 			return fmt.Errorf("CA rollover is not complete: Secondary %q has not confirmed its new TLS certificate", nodeID)
 		}
+		activeCert, err := parseCertFile(filepath.Join(ClientDir(nodeID), ClientCertFile))
+		if err != nil {
+			return fmt.Errorf("load active client certificate for %q: %w", nodeID, err)
+		}
+		if serialHex(activeCert.SerialNumber) != state.NewSerial {
+			return fmt.Errorf("active client certificate for %q does not match the rollover journal", nodeID)
+		}
 		if state.OldSerial != "" {
 			oldSerial := parseSerial(state.OldSerial)
 			if oldSerial == nil {
 				return fmt.Errorf("invalid old certificate serial for %q", nodeID)
+			}
+			backupPath := filepath.Join(ClientDir(nodeID), ClientCertFile+".rollover-old")
+			backupCert, err := parseCertFile(backupPath)
+			if err != nil {
+				return fmt.Errorf("load previous client certificate backup for %q: %w", nodeID, err)
+			}
+			if serialHex(backupCert.SerialNumber) != state.OldSerial {
+				return fmt.Errorf("previous client certificate backup for %q does not match the rollover journal", nodeID)
 			}
 			revoked, err := IsRevoked(oldSerial)
 			if err != nil {
@@ -473,6 +488,36 @@ func CARolloverFinish() error {
 		}
 		if clientCert.Issuer.String() == oldCA.Subject.String() {
 			return fmt.Errorf("CA rollover is not complete: active client certificate for %q still uses the old CA", entry.Name())
+		}
+		if clientCert.Issuer.String() == newCA.Subject.String() {
+			state, ok := rollover.Issued[entry.Name()]
+			if !ok || state.NewSerial != serialHex(clientCert.SerialNumber) || state.ConfirmedAt == 0 {
+				return fmt.Errorf("CA rollover is not complete: new-CA client certificate for %q has no matching confirmed journal entry", entry.Name())
+			}
+		} else {
+			return fmt.Errorf("client certificate for %q has an unrecognized issuer", entry.Name())
+		}
+		backupPath := filepath.Join(clientsDir, entry.Name(), ClientCertFile+".rollover-old")
+		if _, err := os.Lstat(backupPath); err == nil {
+			backupCert, err := parseCertFile(backupPath)
+			if err != nil {
+				return fmt.Errorf("inspect previous client certificate backup for %q: %w", entry.Name(), err)
+			}
+			if backupCert.Issuer.String() == oldCA.Subject.String() {
+				state, ok := rollover.Issued[entry.Name()]
+				if !ok || state.OldSerial != serialHex(backupCert.SerialNumber) || state.ConfirmedAt == 0 {
+					return fmt.Errorf("previous client certificate backup for %q is not confirmed in the rollover journal", entry.Name())
+				}
+				revoked, err := IsRevoked(backupCert.SerialNumber)
+				if err != nil {
+					return fmt.Errorf("check previous client certificate revocation for %q: %w", entry.Name(), err)
+				}
+				if !revoked {
+					return fmt.Errorf("previous client certificate for %q is not revoked", entry.Name())
+				}
+			}
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect previous client certificate backup for %q: %w", entry.Name(), err)
 		}
 	}
 	newCA, newCAKey, err := loadNamedCA(path(CANewCertFile), path(CANewKeyFile))
