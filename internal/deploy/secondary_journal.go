@@ -329,6 +329,13 @@ func canSkipProvision(st *DeployOrchState) bool {
 	return stageRank(effectiveStage(st)) >= stageRank(StageProvisioned)
 }
 
+// canRecoverProvision identifies a finalized-provisioning checkpoint gap.
+// Recovery still requires live key-only SSH and active service verification.
+func canRecoverProvision(st *DeployOrchState) bool {
+	return st != nil && !canSkipProvision(st) &&
+		st.CurrentStep == StageProvisionStarted && st.AgentID != ""
+}
+
 func canSkipPeerAdd(st *DeployOrchState) bool {
 	return stageRank(effectiveStage(st)) >= stageRank(StagePeerPrepared)
 }
