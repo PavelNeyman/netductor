@@ -59,8 +59,12 @@ func CARolloverStart() error {
 	if err := ensureCA(); err != nil {
 		return err
 	}
-	if _, err := loadRollover(); err != nil {
+	rollover, err := loadRollover()
+	if err != nil {
 		return err
+	}
+	if rollover.Phase == "dual" {
+		return fmt.Errorf("CA rollover is already in progress; finish or abort the existing operation")
 	}
 	if fileOK(path(CANewCertFile)) {
 		return fmt.Errorf("ca-new already exists; finish or abort first")
