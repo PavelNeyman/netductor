@@ -307,7 +307,11 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	d, ver, err := secondary.Heartbeat(tok, in)
+	peerSerial := ""
+	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 && r.TLS.PeerCertificates[0] != nil && r.TLS.PeerCertificates[0].SerialNumber != nil {
+		peerSerial = strings.ToLower(r.TLS.PeerCertificates[0].SerialNumber.Text(16))
+	}
+	d, ver, err := secondary.HeartbeatWithTLSIdentity(tok, in, peerSerial)
 	if err != nil {
 		if errors.Is(err, secondary.ErrUnauthorized) || errors.Is(err, os.ErrNotExist) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
