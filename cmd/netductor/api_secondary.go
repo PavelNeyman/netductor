@@ -329,6 +329,11 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "CA rollover adoption persistence failed", http.StatusInternalServerError)
 		return
 	}
+	materialConfirmed := false
+	if peerSerial != "" {
+		info, err := mtls.ReadClientInfo(d.ID)
+		materialConfirmed = err == nil && !info.Revoked && strings.EqualFold(info.Serial, peerSerial)
+	}
 	if fp := strings.TrimSpace(in.RecoveryFP); fp != "" {
 		if err := secondary.StoreRecoveryPeerFingerprint(d.ID, fp); err != nil {
 			http.Error(w, "recovery fingerprint persistence failed", http.StatusInternalServerError)
@@ -372,6 +377,7 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		"commands":         cmds,
 		"failover_policy":  pol,
 		"mtls_rollover_confirmed": rolloverConfirmed,
+		"mtls_material_confirmed":  materialConfirmed,
 	})
 }
 
