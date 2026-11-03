@@ -912,25 +912,300 @@ func mtlsRefresh(client *http.Client, cfg config) string {
 		return "mtls_refresh: " + err.Error()
 	}
 	var body struct {
-		CA   string `json:"ca_pem"`
-		Cert string `json:"cert_pem"`
-		Key  string `json:"key_pem"`
+		CA     string `json:"ca_pem"`
+		Cert   string `json:"cert_pem"`
+		Key    string `json:"key_pem"`
+		NodeID string `json:"node_id"`
 	}
 	if err := json.Unmarshal(data, &body); err != nil {
 		return "mtls_refresh: bad json"
 	}
-	if body.Cert == "" || body.Key == "" {
-		return "mtls_refresh: empty material"
+	if body.NodeID != cfg.DeviceID {
+		return "mtls_refresh: returned node identity mismatch"
 	}
-	dir := "/etc/netductor-agent/mtls"
-	_ = os.MkdirAll(dir, 0o700)
-	_ = os.WriteFile(filepath.Join(dir, "ca.crt"), []byte(body.CA), 0o600)
-	_ = os.WriteFile(filepath.Join(dir, "client.crt"), []byte(body.Cert), 0o600)
-	_ = os.WriteFile(filepath.Join(dir, "client.key"), []byte(body.Key), 0o600)
-	// also default path used by some installs
-	_ = os.MkdirAll("/etc/netductor/secrets/mtls", 0o700)
-	_ = os.WriteFile("/etc/netductor/secrets/mtls/ca.crt", []byte(body.CA), 0o600)
-	_ = os.WriteFile("/etc/netductor/secrets/mtls/client.crt", []byte(body.Cert), 0o600)
-	_ = os.WriteFile("/etc/netductor/secrets/mtls/client.key", []byte(body.Key), 0o600)
-	return "mtls material written — restart agent to use new cert"
+	if err := validateEdgeMTLSMaterial(body.NodeID, body.CA, body.Cert, body.Key); err != nil {
+		return "mtls_refresh: rejected material: " + err.Error()
+	}
+	if err := installEdgeMTLSMaterial(body.CA, body.Cert, body.Key); err != nil {
+		return "mtls_refresh: install failed: " + err.Error()
+	}
+	mtlsRefreshInstalled = true
+	mtlsRefreshBackupActive = true
+	return "mtls material validated and staged; switching to new TLS identity"
 }
+
+func validateEdgeMTLSMaterial(nodeID, caPEM, certPEM, keyPEM string) error {
+	if strings.TrimSpace(nodeID) == "" || strings.TrimSpace(caPEM) == "" || strings.TrimSpace(certPEM) == "" || strings.TrimSpace(keyPEM) == "" {
+		return fmt.Errorf("node ID, CA, certificate, and key are required")
+	}
+	pair, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		return fmt.Errorf("certificate/key pair: %w", err)
+	}
+	if len(pair.Certificate) == 0 {
+		return fmt.Errorf("client certificate is empty")
+	}
+	leaf, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil {
+		return fmt.Errorf("parse client certificate: %w", err)
+	}
+	if leaf.Subject.CommonName != "netductor-agent-"+nodeID {
+		return fmt.Errorf("client certificate identity does not match device ID")
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM([]byte(caPEM)) {
+		return fmt.Errorf("CA bundle contains no valid certificates")
+	}
+	if _, err := leaf.Verify(x509.VerifyOptions{Roots: roots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+		return fmt.Errorf("client certificate chain: %w", err)
+	}
+	return nil
+}
+
+type edgeMTLSStage struct {
+	dir     string
+	stage   string
+	backup  string
+	swapped bool
+}
+
+func installEdgeMTLSMaterial(caPEM, certPEM, keyPEM string) error {
+	stages := make([]edgeMTLSStage, 0, len(mtlsDirs))
+	cleanupStages := func() {
+		for _, stage := range stages {
+			_ = os.RemoveAll(stage.stage)
+		}
+	}
+	for _, dir := range mtlsDirs {
+		parent := filepath.Dir(dir)
+		if err := os.MkdirAll(parent, 0o700); err != nil {
+			cleanupStages()
+			return err
+		}
+		backup := dir + ".rollover-old"
+		currentInfo, currentErr := os.Lstat(dir)
+		backupInfo, backupErr := os.Lstat(backup)
+		if backupErr == nil && (backupInfo.Mode()&os.ModeSymlink != 0 || !backupInfo.IsDir()) {
+			cleanupStages()
+			return fmt.Errorf("previous mTLS backup is not a real directory: %s", backup)
+		}
+		if backupErr == nil && os.IsNotExist(currentErr) {
+			if err := os.Rename(backup, dir); err != nil {
+				cleanupStages()
+				return fmt.Errorf("recover previous mTLS directory %s: %w", dir, err)
+			}
+			currentErr = nil
+		} else if backupErr == nil && currentErr == nil {
+			if err := os.RemoveAll(backup); err != nil {
+				cleanupStages()
+				return fmt.Errorf("remove stale mTLS backup %s: %w", backup, err)
+			}
+		} else if backupErr != nil && !os.IsNotExist(backupErr) {
+			cleanupStages()
+			return fmt.Errorf("inspect previous mTLS backup %s: %w", backup, backupErr)
+		}
+		if currentErr != nil && !os.IsNotExist(currentErr) {
+			cleanupStages()
+			return fmt.Errorf("inspect current mTLS directory %s: %w", dir, currentErr)
+		}
+		if os.IsNotExist(currentErr) {
+			if err := os.Mkdir(dir, 0o700); err != nil && !os.IsExist(err) {
+				cleanupStages()
+				return fmt.Errorf("create empty mTLS directory %s: %w", dir, err)
+			}
+		}
+		stageDir, err := os.MkdirTemp(parent, ".mtls-staging-*")
+		if err != nil {
+			cleanupStages()
+			return err
+		}
+		stages = append(stages, edgeMTLSStage{dir: dir, stage: stageDir, backup: backup})
+		if err := copyAgentMTLSExtras(dir, stageDir, true); err != nil {
+			cleanupStages()
+			return fmt.Errorf("preserve mTLS directory %s: %w", dir, err)
+		}
+		for name, data := range map[string]string{
+			"ca.crt": caPEM, "client.crt": certPEM, "client.key": keyPEM,
+		} {
+			if err := writeAgentFileDurable(filepath.Join(stageDir, name), []byte(data), 0o600); err != nil {
+				cleanupStages()
+				return fmt.Errorf("stage %s in %s: %w", name, dir, err)
+			}
+		}
+		if err := syncAgentDirectory(stageDir); err != nil {
+			cleanupStages()
+			return fmt.Errorf("sync staged mTLS directory %s: %w", dir, err)
+		}
+	}
+	rollback := func() error {
+		var first error
+		for i := len(stages) - 1; i >= 0; i-- {
+			stage := &stages[i]
+			if !stage.swapped {
+				continue
+			}
+			if err := os.RemoveAll(stage.dir); err != nil && first == nil {
+				first = err
+			}
+			if err := os.Rename(stage.backup, stage.dir); err != nil && first == nil {
+				first = err
+			}
+			if err := syncAgentDirectory(filepath.Dir(stage.dir)); err != nil && first == nil {
+				first = err
+			}
+		}
+		return first
+	}
+	for i := range stages {
+		stage := &stages[i]
+		if err := os.Rename(stage.dir, stage.backup); err != nil {
+			_ = rollback()
+			cleanupStages()
+			return fmt.Errorf("backup current mTLS directory %s: %w", stage.dir, err)
+		}
+		if err := os.Rename(stage.stage, stage.dir); err != nil {
+			_ = os.Rename(stage.backup, stage.dir)
+			_ = rollback()
+			cleanupStages()
+			return fmt.Errorf("activate mTLS directory %s: %w", stage.dir, err)
+		}
+		stage.swapped = true
+		if err := syncAgentDirectory(filepath.Dir(stage.dir)); err != nil {
+			_ = rollback()
+			cleanupStages()
+			return fmt.Errorf("sync activated mTLS directory %s: %w", stage.dir, err)
+		}
+	}
+	return nil
+}
+
+func copyAgentMTLSExtras(source, destination string, root bool) error {
+	info, err := os.Lstat(source)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return fmt.Errorf("mTLS source is not a real directory: %s", source)
+	}
+	entries, err := os.ReadDir(source)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if root && (name == "ca.crt" || name == "client.crt" || name == "client.key") {
+			continue
+		}
+		src, dst := filepath.Join(source, name), filepath.Join(destination, name)
+		info, err := os.Lstat(src)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing symlink in mTLS directory: %s", name)
+		}
+		if info.IsDir() {
+			if err := os.Mkdir(dst, 0o700); err != nil && !os.IsExist(err) {
+				return err
+			}
+			if err := copyAgentMTLSExtras(src, dst, false); err != nil {
+				return err
+			}
+			continue
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("refusing non-regular mTLS entry: %s", name)
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		if err := writeAgentFileDurable(dst, data, info.Mode().Perm()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeAgentFileDurable(dst string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(dst)
+	tmp, err := os.CreateTemp(dir, ".mtls-write-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	n, err := tmp.Write(data)
+	if err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if n != len(data) {
+		_ = tmp.Close()
+		return fmt.Errorf("short write: %d of %d bytes", n, len(data))
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, dst); err != nil {
+		return err
+	}
+	return syncAgentDirectory(dir)
+}
+
+func syncAgentDirectory(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
+}
+
+func restoreEdgeMTLSMaterial() bool {
+	for i := len(mtlsDirs) - 1; i >= 0; i-- {
+		dir := mtlsDirs[i]
+		backup := dir + ".rollover-old"
+		backupInfo, err := os.Lstat(backup)
+		if err != nil || backupInfo.Mode()&os.ModeSymlink != 0 || !backupInfo.IsDir() {
+			return false
+		}
+		failed := dir + ".rollover-failed"
+		_ = os.RemoveAll(failed)
+		if _, err := os.Lstat(dir); err == nil {
+			if err := os.Rename(dir, failed); err != nil {
+				return false
+			}
+		}
+		if err := os.Rename(backup, dir); err != nil {
+			_ = os.Rename(failed, dir)
+			return false
+		}
+		_ = os.RemoveAll(failed)
+		if err := syncAgentDirectory(filepath.Dir(dir)); err != nil {
+			return false
+		}
+	}
+	mtlsRefreshBackupActive = false
+	return true
+}
+
+func cleanupEdgeMTLSBackups() {
+	for _, dir := range mtlsDirs {
+		_ = os.RemoveAll(dir + ".rollover-old")
+		_ = syncAgentDirectory(filepath.Dir(dir))
+	}
+	mtlsRefreshBackupActive = false
+}
+
