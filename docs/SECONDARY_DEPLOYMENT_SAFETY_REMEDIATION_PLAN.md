@@ -246,3 +246,11 @@ Updated against current `main` after the initial plan commit.
 - [x] When UFW is inactive (and hides its numbered policy), the preflight also inspects `ufw show added` and rejects saved restricted-port ALLOW commands before mutation.
 - [x] Added focused tests for active/inactive UFW, restricted ports, and incomplete rule parsing.
 - [ ] Tests have not been executed. Actions remain manual-only.
+
+
+### Registry and saved-firewall edge cases
+
+- [x] Deployment preflight rejects duplicate active peer IDs and public IPs, even if the requested peer itself would otherwise match.
+- [x] Inactive UFW saved-rule inspection also recognizes source-specific commands using `to any port N`, not only global `ufw allow N/tcp`.
+- [x] Focused tests cover duplicate peer IDs and source-specific port-80 ALLOW.
+- [ ] Tests have not been executed. Actions remain manual-only.
