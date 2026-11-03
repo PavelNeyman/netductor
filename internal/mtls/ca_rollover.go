@@ -610,8 +610,8 @@ func CARolloverFinish() error {
 		if err != nil {
 			return fmt.Errorf("load active client certificate for %q: %w", nodeID, err)
 		}
-		if serialHex(activeCert.SerialNumber) != state.NewSerial {
-			return fmt.Errorf("active client certificate for %q does not match the rollover journal", nodeID)
+		if serialHex(activeCert.SerialNumber) != state.NewSerial || activeCert.Subject.CommonName != "netductor-agent-"+nodeID {
+			return fmt.Errorf("active client certificate for %q does not match the rollover journal identity", nodeID)
 		}
 		if state.OldSerial != "" {
 			oldSerial := parseSerial(state.OldSerial)
@@ -623,8 +623,8 @@ func CARolloverFinish() error {
 			if err != nil {
 				return fmt.Errorf("load previous client certificate backup for %q: %w", nodeID, err)
 			}
-			if serialHex(backupCert.SerialNumber) != state.OldSerial {
-				return fmt.Errorf("previous client certificate backup for %q does not match the rollover journal", nodeID)
+			if serialHex(backupCert.SerialNumber) != state.OldSerial || backupCert.Subject.CommonName != "netductor-agent-"+nodeID {
+				return fmt.Errorf("previous client certificate backup for %q does not match the rollover journal identity", nodeID)
 			}
 			backupKeyPath := filepath.Join(ClientDir(nodeID), ClientKeyFile+".rollover-old")
 			if _, err := os.Lstat(backupKeyPath); err != nil {
