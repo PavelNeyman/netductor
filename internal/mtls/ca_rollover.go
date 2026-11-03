@@ -267,6 +267,10 @@ func CARolloverFinish() error {
 	if rollover.Phase != "dual" {
 		return fmt.Errorf("CA rollover is not in dual-trust phase")
 	}
+	// The current Secondary protocol has no durable acknowledgement that the
+	// agent reconnected using its new-CA certificate. Promoting the CA here
+	// would remove trust for potentially offline clients and lock them out.
+	return fmt.Errorf("CA rollover finish is blocked: per-Secondary new-certificate TLS acknowledgements are not implemented")
 	if !fileOK(path(CANewCertFile)) {
 		return fmt.Errorf("no ca-new")
 	}
