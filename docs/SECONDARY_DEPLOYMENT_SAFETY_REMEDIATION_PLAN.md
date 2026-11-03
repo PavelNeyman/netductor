@@ -159,3 +159,11 @@ Updated against current `main` after the initial plan commit.
 - [x] Resume rejects a journal whose embedded host differs from the requested target host; prevents copied/misplaced state from reusing peer/agent identity across targets.
 - [x] Added regression test for cross-host journal rejection.
 - [ ] Tests not executed (manual-only Actions).
+
+### Secondary agent mTLS identity binding
+
+- [x] Agent endpoints now require the TLS client certificate Common Name to equal `netductor-agent-<agent_id>` resolved from the Bearer token. Token-only identity is no longer sufficient.
+- [x] Heartbeat authenticates the certificate/token pair before persisting metrics, commands, recovery fingerprints, or online state.
+- [x] Config, backup, backup-key, and client-material endpoints use the same certificate-to-agent binding.
+- [x] Added regression coverage for absent TLS, absent peer certificate, matching identity, another Secondary identity, and the shared default client certificate.
+- [ ] Focused tests have not been executed; Actions remain manual-only.
