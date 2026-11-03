@@ -164,6 +164,11 @@ func runMTLS(args []string) {
 			for _, device := range devices {
 				ids = append(ids, device.ID)
 			}
+			for _, device := range edge.ListDevices() {
+				if device.Status == edge.StatusApproved && device.DeviceID != "" {
+					ids = append(ids, device.DeviceID)
+				}
+			}
 			if err := mtls.CARolloverValidateClients(ids); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
