@@ -460,6 +460,7 @@ func CARolloverFinish() error {
 			}
 		}
 	}
+
 	if !fileOK(path(CANewCertFile)) || !fileOK(path(CANewKeyFile)) {
 		return fmt.Errorf("new CA certificate/key pair is incomplete")
 	}
