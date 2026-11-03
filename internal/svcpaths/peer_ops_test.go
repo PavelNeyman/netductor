@@ -522,3 +522,102 @@ func TestPeerRegistryLockTimeout(t *testing.T) {
 		t.Fatalf("lock timeout was not bounded: %s", elapsed)
 	}
 }
+
+
+func TestPeerRecoverRegeneratesOnlyMissingAllocatingMaterial(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	if err := SavePeersIndex(&PeersIndex{}); err != nil {
+		t.Fatal(err)
+	}
+	op := peerOp{Op: "add", PeerID: "peer-recover", PublicIP: "203.0.113.50", PrimaryIP: "198.51.100.10", SlotIndex: 1, Phase: "allocating"}
+	if err := writePeerOpDefault(op); err != nil {
+		t.Fatal(err)
+	}
+
+	oldGenerate, oldBootstrap := generateMaterialFn, bootstrapPrimaryFn
+	oldWriteOp := writePeerOpFn
+	t.Cleanup(func() {
+		generateMaterialFn, bootstrapPrimaryFn, writePeerOpFn = oldGenerate, oldBootstrap, oldWriteOp
+	})
+	generated := 0
+	bootstrapped := 0
+	generateMaterialFn = func(primary, secondary string) (*Material, error) {
+		generated++
+		return &Material{SPPrivP: "private-primary", SPPrivS: "private-secondary"}, nil
+	}
+	bootstrapPrimaryFn = func(m *Material, _ BootstrapPrimaryOpts) error {
+		bootstrapped++
+		if m.PeerID != op.PeerID || m.Slot != op.SlotIndex || m.Secondary != op.PublicIP {
+			t.Fatalf("recovered material identity mismatch: %+v", m)
+		}
+		return nil
+	}
+	writePeerOpFn = writePeerOpDefault
+
+	status, err := RecoverIncompletePeerAdd(op.PeerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != "recovered to prepared" {
+		t.Fatalf("unexpected status %q", status)
+	}
+	if generated != 1 || bootstrapped != 1 {
+		t.Fatalf("generator/bootstrap calls = %d/%d, want 1/1", generated, bootstrapped)
+	}
+	m, err := loadPeerMaterial(op.PeerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assertPeerMaterialIdentity(m, op.PeerID, op.PublicIP, op.SlotIndex); err != nil {
+		t.Fatal(err)
+	}
+	idx, err := LoadPeersIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	peer := idx.Find(op.PeerID)
+	if peer == nil || peer.State != "prepared" || peer.Slot.Index != op.SlotIndex {
+		t.Fatalf("recovered peer registry entry invalid: %+v", peer)
+	}
+	if _, err := os.Stat(peerOpPath(op.PeerID)); !os.IsNotExist(err) {
+		t.Fatalf("operation journal should be cleared, stat err=%v", err)
+	}
+}
+
+func TestPeerRecoverDoesNotRegenerateExistingCorruptMaterial(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+	if err := SavePeersIndex(&PeersIndex{}); err != nil {
+		t.Fatal(err)
+	}
+	op := peerOp{Op: "add", PeerID: "peer-corrupt", PublicIP: "203.0.113.51", PrimaryIP: "198.51.100.10", SlotIndex: 1, Phase: "allocating"}
+	if err := writePeerOpDefault(op); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(peerMaterialPath(op.PeerID), []byte("{broken"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	oldGenerate := generateMaterialFn
+	t.Cleanup(func() { generateMaterialFn = oldGenerate })
+	generated := 0
+	generateMaterialFn = func(string, string) (*Material, error) {
+		generated++
+		return &Material{SPPrivP: "new-p", SPPrivS: "new-s"}, nil
+	}
+	if _, err := RecoverIncompletePeerAdd(op.PeerID); err == nil || !strings.Contains(err.Error(), "refusing key regeneration") {
+		t.Fatalf("expected fail-closed corrupt material error, got %v", err)
+	}
+	if generated != 0 {
+		t.Fatalf("generator called %d times for existing corrupt material", generated)
+	}
+	b, err := os.ReadFile(peerMaterialPath(op.PeerID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "{broken" {
+		t.Fatal("corrupt material was modified")
+	}
+}
