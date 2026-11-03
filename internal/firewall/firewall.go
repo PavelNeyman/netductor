@@ -1001,6 +1001,20 @@ func applyUFW(role string) error { return applyUFWMode(role, false) }
 // preflightSecondaryRestrictedAllows detects pre-existing administrator ALLOWs
 // before WSS migration can mutate any numbered UFW rules. UFW is first-match;
 // appending a DENY later does not neutralize an earlier ALLOW.
+func preflightSecondaryAddedRules(added string) error {
+	restricted := regexp.MustCompile(`(?i)(?:^|\\s)(?:80|8787|8788|8789)(?:/tcp)?(?:\\s|$)`)
+	for _, line := range strings.Split(added, "\\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(strings.ToLower(line), "ufw allow ") {
+			continue
+		}
+		if restricted.MatchString(line) {
+			return fmt.Errorf("inactive UFW has saved administrator ALLOW rule %q on a Secondary restricted port; resolve it explicitly before applying role", line)
+		}
+	}
+	return nil
+}
+
 func preflightSecondaryRestrictedAllows(status string) error {
 	rules := parseUfwNumbered(status)
 	numbered := 0
@@ -1049,6 +1063,15 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if role == "secondary" {
 		if err := preflightSecondaryRestrictedAllows(string(current)); err != nil {
 			return fmt.Errorf("UFW secondary preflight: %w", err)
+		}
+		if !strings.Contains(string(current), "Status: active") {
+			added, addedErr := exec.Command("ufw", "show", "added").CombinedOutput()
+			if addedErr != nil {
+				return fmt.Errorf("UFW secondary preflight: inspect saved inactive rules: %w: %s", addedErr, truncate(string(added), 200))
+			}
+			if err := preflightSecondaryAddedRules(string(added)); err != nil {
+				return fmt.Errorf("UFW secondary preflight: %w", err)
+			}
 		}
 	}
 	// Validate the complete peer inventory before any firewall mutation.
