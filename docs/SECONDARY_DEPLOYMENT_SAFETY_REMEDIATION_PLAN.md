@@ -120,3 +120,7 @@ Updated against current `main` after the initial plan commit.
 ### Deploy orchestration lock audit
 - [x] Primary peer firewall mutation in `deploy secondary` now uses a 30-second bounded lock; contention exits before UFW mutation rather than hanging the operator workflow.
 - [ ] Deploy resume/recovery review and focused tests remain pending.
+
+### Provisioning recovery checkpoint
+- [x] Deploy journal now checkpoints `provisioned` immediately after successful `ProvisionFromCore` (which includes hardened SSH verification and rollback cancellation), before the separate operator-side :52222 probe and subsequent Primary sync. A failure in those later steps therefore resumes in key-only mode instead of incorrectly retrying initial password provisioning against an already-hardened host.
+- [ ] Focused tests still pending.
