@@ -964,10 +964,12 @@ elif command -v iptables >/dev/null 2>&1; then
       iptables -I "$chain" 3 "$@"
     fi
   }
+  # Verify persistence support before the first firewall mutation. Otherwise
+  # a missing helper would leave runtime-only allowances after a failed deploy.
+  command -v netfilter-persistent >/dev/null 2>&1
   ensure_rule -p tcp -s %s --dport 8789 -j ACCEPT
   ensure_rule -p tcp -s %s --dport 8789 -j ACCEPT
   ensure_rule -p tcp -s %s --dport %d -j ACCEPT
-  command -v netfilter-persistent >/dev/null 2>&1
   netfilter-persistent save
   iptables -C "$chain" -p tcp -s %s --dport 8789 -j ACCEPT
   iptables -C "$chain" -p tcp -s %s --dport 8789 -j ACCEPT
