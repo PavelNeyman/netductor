@@ -478,8 +478,8 @@ func WriteOpenSSHKnownHostsFile(host, port, dest string) error {
 		return err
 	}
 	dir := filepath.Dir(dest)
-	if err := ensureRelayTrustDir(); err != nil {
-		return err
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create SSH known_hosts directory: %w", err)
 	}
 	fi, err := os.Lstat(dir)
 	if err != nil {
@@ -487,6 +487,11 @@ func WriteOpenSSHKnownHostsFile(host, port, dest string) error {
 	}
 	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
 		return fmt.Errorf("refuse SSH known_hosts directory %s: expected a real directory", dir)
+	}
+	if fi.Mode().Perm() != 0o700 {
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return fmt.Errorf("secure SSH known_hosts directory: %w", err)
+		}
 	}
 	f, err := os.CreateTemp(dir, ".known-hosts-*")
 	if err != nil {
