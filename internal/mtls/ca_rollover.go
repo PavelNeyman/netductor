@@ -588,6 +588,11 @@ func CARolloverFinish() error {
 			if !ok || state.NewSerial != serialHex(clientCert.SerialNumber) || state.ConfirmedAt == 0 {
 				return fmt.Errorf("CA rollover is not complete: new-CA client certificate for %q has no matching confirmed journal entry", entry.Name())
 			}
+			roots := x509.NewCertPool()
+			roots.AddCert(newCA)
+			if _, err := clientCert.Verify(x509.VerifyOptions{Roots: roots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+				return fmt.Errorf("new-CA client certificate for %q does not verify: %w", entry.Name(), err)
+			}
 		} else {
 			return fmt.Errorf("client certificate for %q has an unrecognized issuer", entry.Name())
 		}
