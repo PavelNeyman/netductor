@@ -51,8 +51,8 @@ func loadRollover() (rolloverInfo, error) {
 		return rolloverInfo{}, fmt.Errorf("load CA rollover journal: %w", err)
 	}
 	switch r.Phase {
-	case "dual", "done", "aborted":
-		if r.StartedAt <= 0 || (r.Phase == "dual" && r.NewSerial == "") {
+	case "dual", "done", "aborted", "promoting":
+		if r.StartedAt <= 0 || ((r.Phase == "dual" || r.Phase == "promoting") && r.NewSerial == "") {
 			return rolloverInfo{}, fmt.Errorf("invalid CA rollover journal: incomplete %q phase", r.Phase)
 		}
 	default:
@@ -414,7 +414,6 @@ func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, erro
 func CARolloverFinish() error {
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
-
 	rollover, err := loadRollover()
 	if err != nil {
 		return err
@@ -467,10 +466,211 @@ func CARolloverFinish() error {
 			return fmt.Errorf("CA rollover is not complete: active client certificate for %q still uses the old CA", entry.Name())
 		}
 	}
-	// Promotion still replaces the CA certificate, CA key, and server
-	// certificate/key as separate files. Keep it disabled until those changes
-	// are covered by a durable crash-recovery transaction.
-	return fmt.Errorf("CA rollover clients are confirmed, but crash-safe CA/server promotion is not implemented")
+	newCA, newCAKey, err := loadNamedCA(path(CANewCertFile), path(CANewKeyFile))
+	if err != nil {
+		return fmt.Errorf("load new CA pair: %w", err)
+	}
+	newCAPub, ok := newCA.PublicKey.(*ecdsa.PublicKey)
+	if !ok || newCAPub.X.Cmp(newCAKey.PublicKey.X) != 0 || newCAPub.Y.Cmp(newCAKey.PublicKey.Y) != 0 {
+		return fmt.Errorf("new CA certificate and private key do not match")
+	}
+	if err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile)); err != nil {
+		return fmt.Errorf("validate current server certificate/key before promotion: %w", err)
+	}
+	for _, name := range rolloverBackupFiles {
+		if err := os.Remove(path(name)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove stale rollover backup %s: %w", name, err)
+		}
+	}
+	for _, pair := range [][2]string{
+		{CACertFile, rolloverBackupCACert},
+		{CAKeyFile, rolloverBackupCAKey},
+		{ServerCertFile, rolloverBackupServerCert},
+		{ServerKeyFile, rolloverBackupServerKey},
+	} {
+		if err := copyDurable(path(pair[0]), path(pair[1])); err != nil {
+			return fmt.Errorf("backup %s before CA promotion: %w", pair[0], err)
+		}
+	}
+	rollover.Phase = "promoting"
+	if err := saveRollover(rollover); err != nil {
+		persisted, loadErr := loadRollover()
+		if loadErr != nil || persisted.Phase != "promoting" {
+			return fmt.Errorf("persist CA promotion intent: %w", err)
+		}
+	}
+	rollback := func(cause error) error {
+		if restoreErr := restoreCARolloverBackups(); restoreErr != nil {
+			return fmt.Errorf("%v; CA promotion rollback failed: %w", cause, restoreErr)
+		}
+		rollover.Phase = "dual"
+		if saveErr := saveRollover(rollover); saveErr != nil {
+			return fmt.Errorf("%v; rollback restored files but journal update failed: %w", cause, saveErr)
+		}
+		return cause
+	}
+	newCertPEM, err := os.ReadFile(path(CANewCertFile))
+	if err != nil {
+		return rollback(fmt.Errorf("read new CA certificate: %w", err))
+	}
+	newKeyPEM, err := os.ReadFile(path(CANewKeyFile))
+	if err != nil {
+		return rollback(fmt.Errorf("read new CA key: %w", err))
+	}
+	if err := writeDurable(path(CACertFile), newCertPEM, 0o644); err != nil {
+		return rollback(fmt.Errorf("promote new CA certificate: %w", err))
+	}
+	if err := writeDurable(path(CAKeyFile), newKeyPEM, 0o600); err != nil {
+		return rollback(fmt.Errorf("promote new CA key: %w", err))
+	}
+	for _, name := range []string{ServerCertFile, ServerKeyFile} {
+		if err := os.Remove(path(name)); err != nil && !os.IsNotExist(err) {
+			return rollback(fmt.Errorf("remove old %s before re-issuance: %w", name, err))
+		}
+	}
+	pub := ""
+	if b, err := os.ReadFile(filepath.Join(filepath.Dir(Dir()), "public_ip")); err == nil {
+		pub = strings.TrimSpace(string(b))
+	}
+	if err := ensureServer(pub); err != nil {
+		return rollback(fmt.Errorf("issue server certificate from new CA: %w", err))
+	}
+	serverPair, err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile))
+	if err != nil {
+		return rollback(fmt.Errorf("validate promoted server certificate/key: %w", err))
+	}
+	serverLeaf, err := x509.ParseCertificate(serverPair.Certificate[0])
+	if err != nil || serverLeaf.Issuer.String() != newCA.Subject.String() {
+		if err == nil {
+			err = fmt.Errorf("server certificate is not issued by the new CA")
+		}
+		return rollback(fmt.Errorf("validate promoted server certificate: %w", err))
+	}
+	rollover.Phase = "done"
+	if err := saveRollover(rollover); err != nil {
+		persisted, loadErr := loadRollover()
+		if loadErr != nil || persisted.Phase != "done" {
+			return rollback(fmt.Errorf("persist completed CA rollover: %w", err))
+		}
+	}
+	if err := cleanupCARolloverBackups(); err != nil {
+		return fmt.Errorf("CA promoted but backup cleanup is pending: %w", err)
+	}
+	return nil
+}
+
+const (
+	rolloverBackupCACert     = "ca-rollover-backup-ca.crt"
+	rolloverBackupCAKey      = "ca-rollover-backup-ca.key"
+	rolloverBackupServerCert = "ca-rollover-backup-server.crt"
+	rolloverBackupServerKey  = "ca-rollover-backup-server.key"
+)
+
+var rolloverBackupFiles = []string{
+	rolloverBackupCACert, rolloverBackupCAKey, rolloverBackupServerCert, rolloverBackupServerKey,
+}
+
+func writeDurable(dst string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(dst)
+	tmp, err := os.CreateTemp(dir, ".ca-rollover-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	n, err := tmp.Write(data)
+	if err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if n != len(data) {
+		_ = tmp.Close()
+		return fmt.Errorf("short write: %d of %d bytes", n, len(data))
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, dst); err != nil {
+		return err
+	}
+	df, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer df.Close()
+	return df.Sync()
+}
+
+func copyDurable(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return writeDurable(dst, data, info.Mode().Perm())
+}
+
+func restoreCARolloverBackups() error {
+	for _, pair := range [][2]string{
+		{rolloverBackupCACert, CACertFile},
+		{rolloverBackupCAKey, CAKeyFile},
+		{rolloverBackupServerCert, ServerCertFile},
+		{rolloverBackupServerKey, ServerKeyFile},
+	} {
+		if err := copyDurable(path(pair[0]), path(pair[1])); err != nil {
+			return fmt.Errorf("restore %s: %w", pair[1], err)
+		}
+	}
+	return nil
+}
+
+func cleanupCARolloverBackups() error {
+	for _, name := range append(append([]string{}, rolloverBackupFiles...), CANewCertFile, CANewKeyFile) {
+		if err := os.Remove(path(name)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove %s: %w", name, err)
+		}
+	}
+	dir, err := os.Open(Dir())
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
+}
+
+// recoverCARolloverPromotion always rolls back an interrupted promotion.
+// A retry can then run the complete promotion transaction again.
+func recoverCARolloverPromotion() error {
+	rollover, err := loadRollover()
+	if err != nil {
+		return err
+	}
+	switch rollover.Phase {
+	case "promoting":
+		if err := restoreCARolloverBackups(); err != nil {
+			return fmt.Errorf("recover interrupted CA promotion: %w", err)
+		}
+		rollover.Phase = "dual"
+		if err := saveRollover(rollover); err != nil {
+			return fmt.Errorf("persist CA promotion recovery: %w", err)
+		}
+	case "done":
+		if err := cleanupCARolloverBackups(); err != nil {
+			return fmt.Errorf("finish CA rollover cleanup: %w", err)
+		}
+	}
+	return nil
 }
 
 // CARolloverAbort removes ca-new only when no client certificate has been
