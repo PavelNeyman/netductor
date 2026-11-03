@@ -414,8 +414,8 @@ STAGE=
 BACKUP=
 HAD_OLD=0
 mkdir -p "$P"
+test -d "$P" && test ! -L "$P" || { echo "mTLS secrets parent is not a real directory" >&2; exit 1; }
 chmod 700 "$P"
-test ! -L "$P" || { echo "mTLS secrets parent is symlink" >&2; exit 1; }
 STAGE=$(mktemp -d "$P/.mtls-stage.XXXXXX")
 cleanup() {
   rc=$?
@@ -545,19 +545,20 @@ sync -f "$P"
 // ProvisionFromCore: password bootstrap → install pubkey → independent key-only gate → mTLS/join/harden on key session.
 func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, error) {
 	var log strings.Builder
-	// R6: never wipe TOFU on password alone. Only explicit ForceReinstall (or CLI ssh-hosts forget).
-	// Fail closed before any remote work if trust reset cannot be applied.
-	if in.ForceReinstall {
-		if err := ForgetSSHHost(in.Host); err != nil {
-			return nil, fmt.Errorf("ForceReinstall: cannot reset SSH trust for %s: %w", in.Host, err)
-		}
-	}
 	keys, err := resolveInstallPubKeys(in)
 	if err != nil {
 		return nil, err
 	}
 	if len(in.MTLSCA) == 0 || len(in.MTLSCert) == 0 || len(in.MTLSKey) == 0 {
 		return nil, fmt.Errorf("mTLS material required before secondary provision (ca=%d cert=%d key=%d)", len(in.MTLSCA), len(in.MTLSCert), len(in.MTLSKey))
+	}
+
+	// R6: reset TOFU only after all local prerequisites have passed. A malformed
+	// key or incomplete mTLS input must not erase an existing trust pin.
+	if in.ForceReinstall {
+		if err := ForgetSSHHost(in.Host); err != nil {
+			return nil, fmt.Errorf("ForceReinstall: cannot reset SSH trust for %s: %w", in.Host, err)
+		}
 	}
 	// Stage A: bootstrap (password if provided; key-only resume otherwise).
 	bootstrap, err := sshClient(in)
