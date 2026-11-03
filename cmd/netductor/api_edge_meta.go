@@ -17,6 +17,9 @@ func registerEdgeMeta(mux *http.ServeMux) {
 			if !requireSession(w, r) {
 				return
 			}
+		} else if !edgeTLSIdentityMatches(r, edgeDID) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
+			return
 		}
 		did := r.URL.Query().Get("device_id")
 		if did == "" {
@@ -68,6 +71,10 @@ func registerEdgeMeta(mux *http.ServeMux) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
+		if !edgeTLSIdentityMatches(r, did) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
+			return
+		}
 		if hdr := r.Header.Get("X-Device-ID"); hdr != "" && hdr != did {
 			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
 			return
@@ -88,6 +95,10 @@ func registerEdgeMeta(mux *http.ServeMux) {
 		tokenDID := edge.DeviceIDFromAuth(auth)
 		if tokenDID == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		if !edgeTLSIdentityMatches(r, tokenDID) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
 			return
 		}
 		var payload map[string]any
