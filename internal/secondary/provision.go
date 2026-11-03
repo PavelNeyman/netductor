@@ -67,7 +67,7 @@ func CoreSSHPublicKey() (string, error) {
 
 func validateOperatorPubKey(pk string) (string, error) {
 	pk = strings.TrimSpace(pk)
-	if pk == "" || strings.ContainsAny(pk, "\\r\\n") {
+	if pk == "" || strings.ContainsAny(pk, "\r\n") {
 		return "", fmt.Errorf("operator SSH public key must be exactly one non-empty line")
 	}
 	key, _, options, rest, err := ssh.ParseAuthorizedKey([]byte(pk))
