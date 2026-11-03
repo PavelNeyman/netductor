@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"errors"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -40,7 +39,7 @@ func loadRollover() (rolloverInfo, error) {
 		return rolloverInfo{}, fmt.Errorf("load CA rollover journal: %w", err)
 	}
 	switch r.Phase {
-	case "dual", "done":
+	case "dual", "done", "aborted":
 		if r.StartedAt <= 0 || (r.Phase == "dual" && r.NewSerial == "") {
 			return rolloverInfo{}, fmt.Errorf("invalid CA rollover journal: incomplete %q phase", r.Phase)
 		}
@@ -344,7 +343,9 @@ func CARolloverFinish() error {
 	return nil
 }
 
-// CARolloverAbort removes ca-new without promoting.
+// CARolloverAbort removes ca-new only when no client certificate has been
+// issued by it. Once a client has received a new-CA identity, deleting that CA
+// would make the identity unverifiable and can strand the Secondary.
 func CARolloverAbort() error {
 	rollover, err := loadRollover()
 	if err != nil {
@@ -353,9 +354,39 @@ func CARolloverAbort() error {
 	if rollover.Phase == "done" {
 		return fmt.Errorf("cannot abort a completed CA rollover")
 	}
-	_ = os.Remove(path(CANewCertFile))
-	_ = os.Remove(path(CANewKeyFile))
-	return saveRollover(rolloverInfo{})
+	if fileOK(path(CANewCertFile)) {
+		newCA, err := parseCertFile(path(CANewCertFile))
+		if err != nil {
+			return fmt.Errorf("read new CA before abort: %w", err)
+		}
+		root := filepath.Join(Dir(), "clients")
+		entries, err := os.ReadDir(root)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("scan client certificates before abort: %w", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			clientCert, err := parseCertFile(filepath.Join(root, entry.Name(), ClientCertFile))
+			if err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				return fmt.Errorf("inspect client certificate %q before abort: %w", entry.Name(), err)
+			}
+			if clientCert.Issuer.String() == newCA.Subject.String() {
+				return fmt.Errorf("cannot abort CA rollover: client certificate for %q has already been issued by the new CA", entry.Name())
+			}
+		}
+	}
+	if err := os.Remove(path(CANewCertFile)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove new CA certificate: %w", err)
+	}
+	if err := os.Remove(path(CANewKeyFile)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove new CA key: %w", err)
+	}
+	return saveRollover(rolloverInfo{Phase: "aborted", StartedAt: time.Now().Unix()})
 }
 
 // CARolloverStatus returns phase and whether dual CA files exist.
