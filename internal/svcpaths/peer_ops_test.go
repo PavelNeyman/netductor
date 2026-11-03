@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestValidatePeerID(t *testing.T) {
@@ -482,5 +485,40 @@ func TestPeersIndexRejectsUnknownSchemaButAcceptsLegacyUnversioned(t *testing.T)
 	}
 	if err := SavePeersIndex(&PeersIndex{Version: 2}); err == nil {
 		t.Fatal("SavePeersIndex accepted unsupported schema")
+	}
+}
+
+
+func TestPeerRegistryLockTimeout(t *testing.T) {
+	dir := t.TempDir()
+	SetKeysRootForTest(dir)
+	t.Cleanup(func() { SetKeysRootForTest("") })
+
+	lockPath := filepath.Join(dir, "peers.lock")
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Flock(int(f.Fd()), unix.LOCK_UN)
+
+	oldTimeout := peerRegistryLockTimeout
+	peerRegistryLockTimeout = 60 * time.Millisecond
+	t.Cleanup(func() { peerRegistryLockTimeout = oldTimeout })
+
+	started := time.Now()
+	unlock, err := acquirePeerRegistryLock()
+	if err == nil {
+		unlock()
+		t.Fatal("expected bounded lock acquisition to time out")
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Fatalf("unexpected lock error: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("lock timeout was not bounded: %s", elapsed)
 	}
 }
