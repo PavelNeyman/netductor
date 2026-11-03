@@ -10,6 +10,27 @@ import (
 	"time"
 )
 
+// ensureOperatorPrivateDir creates or hardens one credentials path component
+// without following an existing symlink or accepting a non-directory.
+func ensureOperatorPrivateDir(path string) error {
+	if err := os.Mkdir(path, 0o700); err != nil && !os.IsExist(err) {
+		return err
+	}
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		return fmt.Errorf("refuse %s: expected a real directory", path)
+	}
+	if fi.Mode().Perm() != 0o700 {
+		if err := os.Chmod(path, 0o700); err != nil {
+			return fmt.Errorf("chmod %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
 // CollectOperatorSecrets SSHs to host, archives ALL /etc/netductor secrets + recovery
 // material to ~/.netductor/credentials/ on the operator Mac.
 func CollectOperatorSecrets(role, user, host, keyPath, keyPass string) (string, error) {
@@ -122,9 +143,13 @@ echo "===END==="
 	if err != nil || dir == "" {
 		dir = "."
 	}
-	outDir := filepath.Join(dir, ".netductor", "credentials")
-	if err := os.MkdirAll(outDir, 0o700); err != nil {
-		return "", err
+	baseDir := filepath.Join(dir, ".netductor")
+	outDir := filepath.Join(baseDir, "credentials")
+	if err := ensureOperatorPrivateDir(baseDir); err != nil {
+		return "", fmt.Errorf("secure operator credentials directory: %w", err)
+	}
+	if err := ensureOperatorPrivateDir(outDir); err != nil {
+		return "", fmt.Errorf("secure operator credentials directory: %w", err)
 	}
 	ts := time.Now().UTC().Format("20060102-150405")
 	safeHost := strings.Map(func(r rune) rune {
@@ -135,8 +160,9 @@ echo "===END==="
 	}, host)
 
 	bundleDir := filepath.Join(outDir, fmt.Sprintf("%s-%s-%s", role, safeHost, ts))
-	if err := os.MkdirAll(bundleDir, 0o700); err != nil {
-		return "", err
+	// Never reuse a pre-existing timestamp directory or follow a symlink.
+	if err := os.Mkdir(bundleDir, 0o700); err != nil {
+		return "", fmt.Errorf("create unique credentials bundle directory: %w", err)
 	}
 
 	// Decode full archive if present
