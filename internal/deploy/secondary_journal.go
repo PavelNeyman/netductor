@@ -101,6 +101,12 @@ func loadDeployState(host string) (*DeployOrchState, error) {
 	if st.Status == "" {
 		st.Status = StatusRunning
 	}
+	// A successful provisioning checkpoint without AgentID cannot be safely
+	// resumed: deploySecondaryBody would otherwise miss the advanced-journal
+	// guard and could start provisioning again. Reject rather than infer identity.
+	if stageRank(effectiveStage(&st)) >= stageRank(StageProvisioned) && strings.TrimSpace(st.AgentID) == "" {
+		return nil, fmt.Errorf("deploy state at %s records stage %q without agent_id — refuse automatic re-provision; inspect the journal and host before clearing it", path, effectiveStage(&st))
+	}
 	return &st, nil
 }
 
