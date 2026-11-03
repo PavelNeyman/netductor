@@ -704,6 +704,11 @@ func installSecondaryMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 			return fmt.Errorf("write staged %s: %w", name, err)
 		}
 	}
+	// Preserve any other files owned by the mTLS directory (for example
+	// server material or future metadata) while replacing only the client set.
+	if err := copyMTLSDirectoryExtras(dir, staging); err != nil {
+		return fmt.Errorf("preserve existing mTLS directory contents: %w", err)
+	}
 	if err := syncDir(staging); err != nil {
 		return fmt.Errorf("sync staged mTLS directory: %w", err)
 	}
@@ -747,6 +752,51 @@ func installSecondaryMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 			_ = os.Rename(backup, dir)
 		}
 		return fmt.Errorf("sync mTLS parent directory: %w", err)
+	}
+	return nil
+}
+
+func copyMTLSDirectoryExtras(source, destination string) error {
+	entries, err := os.ReadDir(source)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == mtls.CACertFile || name == mtls.ClientCertFile || name == mtls.ClientKeyFile {
+			continue
+		}
+		src := filepath.Join(source, name)
+		dst := filepath.Join(destination, name)
+		info, err := os.Lstat(src)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing symlink in mTLS directory: %s", name)
+		}
+		if info.IsDir() {
+			if err := os.Mkdir(dst, 0o700); err != nil && !os.IsExist(err) {
+				return err
+			}
+			if err := copyMTLSDirectoryExtras(src, dst); err != nil {
+				return err
+			}
+			continue
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("refusing non-regular mTLS entry: %s", name)
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		if err := writeFileDurable(dst, data, info.Mode().Perm()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
