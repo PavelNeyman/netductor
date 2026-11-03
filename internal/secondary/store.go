@@ -354,7 +354,11 @@ func HeartbeatWithTLSIdentity(token string, in HeartbeatIn, tlsSerial string) (*
 		if t == "" || !tokenSHAEq(t, token) {
 			continue
 		}
-		r.Devices[i].PublicIP = in.PublicIP
+		// A transient public-IP probe failure must not erase the last known endpoint.
+		// Non-empty reports still replace it so real endpoint changes remain visible.
+		if ip := strings.TrimSpace(in.PublicIP); ip != "" {
+			r.Devices[i].PublicIP = ip
+		}
 		r.Devices[i].PBK = in.PBK
 		r.Devices[i].SID = in.SID
 		if in.SNI != "" {
