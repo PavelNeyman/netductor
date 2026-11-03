@@ -34,7 +34,7 @@ func rolloverPath() string { return filepath.Join(Dir(), rolloverState) }
 func loadRollover() (rolloverInfo, error) {
 	var r rolloverInfo
 	if err := statefile.LoadJSON(rolloverPath(), &r); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if statefile.IsNotExist(err) {
 			return rolloverInfo{}, nil
 		}
 		return rolloverInfo{}, fmt.Errorf("load CA rollover journal: %w", err)
@@ -103,7 +103,7 @@ func CARolloverStart() error {
 
 // IssueClientFromNewCA issues client cert signed by ca-new.
 func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error) {
-	if strings.TrimSpace(nodeID) == "" || strings.ContainsAny(nodeID, "/\\\\") || nodeID == "." || nodeID == ".." {
+	if strings.TrimSpace(nodeID) == "" || strings.ContainsAny(nodeID, "/\\") || nodeID == "." || nodeID == ".." {
 		return nil, nil, nil, fmt.Errorf("invalid node ID")
 	}
 	if !fileOK(path(CANewCertFile)) || !fileOK(path(CANewKeyFile)) {
