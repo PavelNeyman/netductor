@@ -324,6 +324,10 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if err := mtls.ConfirmCARolloverClient(d.ID, peerSerial); err != nil {
+		http.Error(w, "CA rollover adoption persistence failed", http.StatusInternalServerError)
+		return
+	}
 	if fp := strings.TrimSpace(in.RecoveryFP); fp != "" {
 		if err := secondary.StoreRecoveryPeerFingerprint(d.ID, fp); err != nil {
 			http.Error(w, "recovery fingerprint persistence failed", http.StatusInternalServerError)
