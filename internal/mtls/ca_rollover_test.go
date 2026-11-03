@@ -22,6 +22,16 @@ func TestCARolloverRequiresObservedNewTLSIdentityBeforeFinish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, _, _, err := IssueClientFromNewCA("secondary-test"); err != nil {
+		t.Fatalf("idempotent issuance retry: %v", err)
+	}
+	retryInfo, err := ReadClientInfo("secondary-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retryInfo.Serial != newInfo.Serial {
+		t.Fatalf("issuance retry changed serial: got %s want %s", retryInfo.Serial, newInfo.Serial)
+	}
 	if newInfo.Serial == oldInfo.Serial {
 		t.Fatal("CA rollover did not replace client certificate")
 	}
