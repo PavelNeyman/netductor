@@ -37,7 +37,11 @@ func TestIssueTokenPreservesOtherPendingDevice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := IssueToken("secondary-a"); err != nil {
+	currentAID, currentAToken, err := IssueToken("secondary-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Heartbeat(currentAToken, HeartbeatIn{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -50,7 +54,7 @@ func TestIssueTokenPreservesOtherPendingDevice(t *testing.T) {
 		if d.ID == secondID && d.Token == secondToken && d.Name == "secondary-b" {
 			found = true
 		}
-		if d.ID == firstID {
+		if d.ID == firstID || d.ID == currentAID {
 			t.Fatalf("same-name pending identity %q was not replaced", firstID)
 		}
 	}
