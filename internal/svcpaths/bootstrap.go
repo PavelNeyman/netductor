@@ -552,6 +552,9 @@ func BootstrapPrimaryWith(m *Material, o BootstrapPrimaryOpts) (retErr error) {
 			m.Primary = strings.TrimSpace(string(b))
 		}
 	}
+	if err := validatePublicIP(m.Primary); err != nil {
+		return fmt.Errorf("bootstrap primary primary IP: %w", err)
+	}
 	unlockBootstrap, err := acquireBootstrapMutationLock()
 	if err != nil { return fmt.Errorf("acquire bootstrap mutation lock: %w", err) }
 	defer unlockBootstrap()
