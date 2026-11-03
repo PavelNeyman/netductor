@@ -652,9 +652,10 @@ func heartbeat(client *http.Client, cfg config) error {
 	}
 	var ack struct {
 		MTLSRolloverConfirmed bool `json:"mtls_rollover_confirmed"`
+		MTLSRotationConfirmed bool `json:"mtls_rotation_confirmed"`
 	}
 	_ = json.Unmarshal(data, &ack)
-	if ack.MTLSRolloverConfirmed {
+	if ack.MTLSRolloverConfirmed || ack.MTLSRotationConfirmed {
 		cleanupEdgeMTLSBackups()
 	}
 	// also store metrics history on VPS
