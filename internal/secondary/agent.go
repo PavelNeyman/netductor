@@ -3,6 +3,8 @@ package secondary
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -62,6 +64,7 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 		interval = 30 * time.Second
 	}
 	client := agentHTTPClient()
+	consecutiveAgentErrors := 0
 	if mtls.ClientReady() {
 		// Always use mTLS agent port; never plain :8788 when client certs exist.
 		hostport := strings.TrimPrefix(strings.TrimPrefix(coreBase, "https://"), "http://")
@@ -77,7 +80,15 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 	var lastLog string
 	for {
 		if err := agentTick(client, coreBase, token, &applied, &lastDone, &lastOK, &lastLog); err != nil {
+			consecutiveAgentErrors++
 			fmt.Fprintf(os.Stderr, "agent tick: %v\n", err)
+			if consecutiveAgentErrors >= 3 && restorePreviousMTLSMaterial() {
+				fmt.Fprintln(os.Stderr, "mTLS refresh did not reconnect; restored previous client material")
+				client = agentHTTPClient()
+				consecutiveAgentErrors = 0
+			}
+		} else {
+			consecutiveAgentErrors = 0
 		}
 		time.Sleep(interval)
 	}
@@ -172,6 +183,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("heartbeat %s: %s", resp.Status, string(raw))
 	}
+	cleanupPreviousMTLSMaterial()
 	var hr struct {
 		ConfigVer       int             `json:"config_ver"`
 		NeedSync        bool            `json:"need_sync"`
@@ -591,27 +603,17 @@ func secondaryBackupLocal() (string, error) {
 }
 
 func secondaryMTLSRefresh() (bool, string) {
-	// load token + core URL from secrets
-	tok := ""
-	core := ""
-	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_agent_token"); err == nil {
-		tok = strings.TrimSpace(string(b))
-	}
-	if b, err := os.ReadFile("/etc/netductor/secrets/secondary_core_url"); err == nil {
-		core = strings.TrimSpace(string(b))
-	}
+	tok := strings.TrimSpace(readSecret("secondary_agent_token"))
+	core := strings.TrimSpace(readSecret("secondary_core_url"))
 	if tok == "" || core == "" {
 		return false, "missing secondary_agent_token or secondary_core_url"
 	}
 	core = strings.TrimRight(core, "/")
-	client := &http.Client{Timeout: 60 * time.Second}
-	// First refresh may still need existing certs; if none, try without client cert only for material endpoint is unsafe —
-	// primary requires mTLS. Surface clear error.
 	tlsCfg, err := mtls.ClientTLSConfig()
 	if err != nil {
 		return false, "mtls client material missing — re-seed from primary deploy/secondary pack: " + err.Error()
 	}
-	client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
+	client := &http.Client{Timeout: 60 * time.Second, Transport: &http.Transport{TLSClientConfig: tlsCfg}}
 	req, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/mtls/material", nil)
 	if err != nil {
 		return false, err.Error()
@@ -622,28 +624,141 @@ func secondaryMTLSRefresh() (bool, string) {
 		return false, err.Error()
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return false, "read mTLS material response: " + err.Error()
+	}
 	if resp.StatusCode >= 300 {
 		return false, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 	var mat struct {
-		CA   string `json:"ca_pem"`
-		Cert string `json:"cert_pem"`
-		Key  string `json:"key_pem"`
+		CA     string `json:"ca_pem"`
+		Cert   string `json:"cert_pem"`
+		Key    string `json:"key_pem"`
+		NodeID string `json:"node_id"`
 	}
-	if json.Unmarshal(body, &mat) != nil || mat.Cert == "" {
-		return false, "bad material json"
+	if err := json.Unmarshal(body, &mat); err != nil {
+		return false, "bad material json: " + err.Error()
 	}
-	dir := "/etc/netductor/secrets/mtls"
-	_ = os.MkdirAll(dir, 0o700)
-	_ = os.WriteFile(dir+"/ca.crt", []byte(mat.CA), 0o600)
-	_ = os.WriteFile(dir+"/client.crt", []byte(mat.Cert), 0o600)
-	_ = os.WriteFile(dir+"/client.key", []byte(mat.Key), 0o600)
+	if err := validateSecondaryMTLSMaterial(mat.NodeID, mat.CA, mat.Cert, mat.Key); err != nil {
+		return false, "rejected mTLS material: " + err.Error()
+	}
+	if err := installSecondaryMTLSMaterial(mat.CA, mat.Cert, mat.Key); err != nil {
+		return false, "install mTLS material: " + err.Error()
+	}
 	go func() {
 		time.Sleep(2 * time.Second)
-		_ = exec.Command("systemctl", "restart", "netductor-secondary-agent").Start()
+		if err := exec.Command("systemctl", "restart", "netductor-secondary-agent").Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "mTLS refresh agent restart failed: %v\n", err)
+		}
 	}()
-	return true, "mtls material written; restarting agent"
+	return true, "mTLS material validated and installed; waiting for new TLS heartbeat"
+}
+
+func validateSecondaryMTLSMaterial(nodeID, caPEM, certPEM, keyPEM string) error {
+	if strings.TrimSpace(nodeID) == "" || strings.TrimSpace(caPEM) == "" || strings.TrimSpace(certPEM) == "" || strings.TrimSpace(keyPEM) == "" {
+		return fmt.Errorf("node ID, CA, certificate, and key are required")
+	}
+	pair, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		return fmt.Errorf("certificate/key pair: %w", err)
+	}
+	if len(pair.Certificate) == 0 {
+		return fmt.Errorf("client certificate is empty")
+	}
+	leaf, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil {
+		return fmt.Errorf("parse client certificate: %w", err)
+	}
+	if leaf.Subject.CommonName != "netductor-agent-"+nodeID {
+		return fmt.Errorf("client certificate identity does not match node ID")
+	}
+	roots := x509.NewCertPool()
+	if ok := roots.AppendCertsFromPEM([]byte(caPEM)); !ok {
+		return fmt.Errorf("CA bundle contains no valid certificates")
+	}
+	if _, err := leaf.Verify(x509.VerifyOptions{Roots: roots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+		return fmt.Errorf("client certificate chain: %w", err)
+	}
+	return nil
+}
+
+func installSecondaryMTLSMaterial(caPEM, certPEM, keyPEM string) error {
+	dir := mtls.Dir()
+	parent := filepath.Dir(dir)
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return err
+	}
+	staging, err := os.MkdirTemp(parent, ".mtls-staging-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(staging)
+	for name, data := range map[string]string{
+		mtls.CACertFile: caPEM, mtls.ClientCertFile: certPEM, mtls.ClientKeyFile: keyPEM,
+	} {
+		if err := writeFileDurable(filepath.Join(staging, name), []byte(data), 0o600); err != nil {
+			return fmt.Errorf("write staged %s: %w", name, err)
+		}
+	}
+	if err := syncDir(staging); err != nil {
+		return fmt.Errorf("sync staged mTLS directory: %w", err)
+	}
+	backup := dir + ".rollover-old"
+	// The material endpoint authenticated this request with the active identity;
+	// an older backup from a completed refresh can now be discarded.
+	if err := os.RemoveAll(backup); err != nil {
+		return fmt.Errorf("remove stale mTLS backup: %w", err)
+	}
+	hadCurrent := false
+	if _, err := os.Lstat(dir); err == nil {
+		if err := os.Rename(dir, backup); err != nil {
+			return fmt.Errorf("stage current mTLS directory: %w", err)
+		}
+		hadCurrent = true
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("inspect current mTLS directory: %w", err)
+	}
+	if err := os.Rename(staging, dir); err != nil {
+		if hadCurrent {
+			_ = os.Rename(backup, dir)
+		}
+		return fmt.Errorf("activate staged mTLS directory: %w", err)
+	}
+	if err := syncDir(parent); err != nil {
+		_ = os.RemoveAll(dir)
+		if hadCurrent {
+			_ = os.Rename(backup, dir)
+		}
+		return fmt.Errorf("sync mTLS parent directory: %w", err)
+	}
+	return nil
+}
+
+func restorePreviousMTLSMaterial() bool {
+	dir := mtls.Dir()
+	backup := dir + ".rollover-old"
+	if _, err := os.Stat(backup); err != nil {
+		return false
+	}
+	failed := dir + ".rollover-failed"
+	_ = os.RemoveAll(failed)
+	if _, err := os.Stat(dir); err == nil {
+		if err := os.Rename(dir, failed); err != nil {
+			return false
+		}
+	}
+	if err := os.Rename(backup, dir); err != nil {
+		_ = os.Rename(failed, dir)
+		return false
+	}
+	_ = os.RemoveAll(failed)
+	_ = syncDir(filepath.Dir(dir))
+	return true
+}
+
+func cleanupPreviousMTLSMaterial() {
+	_ = os.RemoveAll(mtls.Dir() + ".rollover-old")
 }
 
 func secondaryBackupPull() (bool, string) {
