@@ -11,6 +11,15 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 )
 
+func edgeTLSIdentityMatches(r *http.Request, deviceID string) bool {
+	if r.TLS == nil {
+		return !edgeHasClientMaterial(deviceID)
+	}
+	return len(r.TLS.PeerCertificates) > 0 &&
+		r.TLS.PeerCertificates[0] != nil &&
+		r.TLS.PeerCertificates[0].Subject.CommonName == "netductor-agent-"+deviceID
+}
+
 func edgeHasClientMaterial(deviceID string) bool {
 	for _, name := range []string{mtls.ClientCertFile, mtls.ClientKeyFile} {
 		if _, err := os.Lstat(filepath.Join(mtls.ClientDir(deviceID), name)); err == nil {
