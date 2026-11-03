@@ -69,13 +69,35 @@ func deployStatePath(host string) string {
 	return filepath.Join(deployJournalDir(), "state-"+safe+".json")
 }
 
+func readDeployStateFile(path string) ([]byte, error) {
+	// Journal entries are local resume authority. Never follow a symlink, even
+	// inside the private journal directory.
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	f := os.NewFile(uintptr(fd), path)
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("refuse non-regular deploy state file %s", path)
+	}
+	if fi.Mode().Perm()&0o077 != 0 {
+		return nil, fmt.Errorf("refuse deploy state file %s with group/other permissions %04o", path, fi.Mode().Perm())
+	}
+	return os.ReadFile(f.Name())
+}
+
 func loadDeployState(host string) (*DeployOrchState, error) {
 	dir := deployJournalDir()
 	if err := ensureSecureDir(dir); err != nil {
 		return nil, fmt.Errorf("deploy state directory: %w", err)
 	}
 	path := deployStatePath(host)
-	b, err := os.ReadFile(path)
+	b, err := readDeployStateFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -442,7 +464,7 @@ func ListDeployStates() ([]*DeployOrchState, error) {
 		}
 		host := strings.TrimSuffix(strings.TrimPrefix(name, "state-"), ".json")
 		// Host may have been sanitized; load by reconstructed path via ReadFile of full path.
-		b, err := os.ReadFile(filepath.Join(dir, name))
+		b, err := readDeployStateFile(filepath.Join(dir, name))
 		if err != nil {
 			return nil, err
 		}
