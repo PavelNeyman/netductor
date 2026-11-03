@@ -3,12 +3,15 @@ package secondary
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"golang.org/x/sys/unix"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -26,11 +29,56 @@ func relaySeenPath() string {
 	return filepath.Join(paths.SecondaryDir(), "ssh_hosts_seen.json")
 }
 
+func ensureRelayTrustDir() error {
+	dir := paths.SecondaryDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		return fmt.Errorf("refuse SSH trust directory %s: expected a real directory", dir)
+	}
+	if fi.Mode().Perm() != 0o700 {
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return fmt.Errorf("secure SSH trust directory %s: %w", dir, err)
+		}
+	}
+	return nil
+}
+
+// readRelayTrustFile refuses symlinks, non-regular files, and group/world-readable
+// trust state. The bytes are read from the same descriptor that was validated.
+func readRelayTrustFile(path string) ([]byte, error) {
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	f := os.NewFile(uintptr(fd), path)
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("refuse non-regular SSH trust file %s", path)
+	}
+	if fi.Mode().Perm()&0o077 != 0 {
+		return nil, fmt.Errorf("refuse SSH trust file %s with group/other permissions %04o", path, fi.Mode().Perm())
+	}
+	return io.ReadAll(f)
+}
+
 // ErrPinLost: host was pinned before but entry is gone — not first contact.
 var ErrPinLost = fmt.Errorf("TOFU pin lost for previously known host")
 
 func loadSeenHosts() (map[string]bool, error) {
-	b, err := os.ReadFile(relaySeenPath())
+	if err := ensureRelayTrustDir(); err != nil {
+		return nil, fmt.Errorf("ssh trust directory: %w", err)
+	}
+	b, err := readRelayTrustFile(relaySeenPath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return map[string]bool{}, nil
@@ -152,7 +200,10 @@ type SSHHostEntry struct {
 // loadRelayKH returns TOFU map. Missing file → empty map.
 // Corrupt/unreadable file → error (never treat as empty — would allow re-pin MITM).
 func loadRelayKH() (map[string]string, error) {
-	b, err := os.ReadFile(relayKnownPath())
+	if err := ensureRelayTrustDir(); err != nil {
+		return nil, fmt.Errorf("ssh trust directory: %w", err)
+	}
+	b, err := readRelayTrustFile(relayKnownPath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return map[string]string{}, nil
@@ -171,7 +222,7 @@ func loadRelayKH() (map[string]string, error) {
 
 func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := ensureRelayTrustDir(); err != nil {
 		return err
 	}
 	f, err := os.CreateTemp(dir, ".tmp-*")
@@ -220,7 +271,7 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
 
 func saveRelayKH(f map[string]string) error {
 	path := relayKnownPath()
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := ensureRelayTrustDir(); err != nil {
 		return fmt.Errorf("ssh known_hosts dir %s: %w", filepath.Dir(path), err)
 	}
 	raw, err := json.MarshalIndent(f, "", "  ")
