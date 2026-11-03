@@ -121,16 +121,20 @@ func secondaryKeyPass(o SecondaryOpts) string {
 }
 
 func requirePublicIPv4(host string) error {
+	return requirePublicIPv4Role("secondary host", host)
+}
+
+func requirePublicIPv4Role(role, host string) error {
 	ip := net.ParseIP(strings.TrimSpace(host))
 	if ip == nil {
-		return fmt.Errorf("secondary host must be a public IP (got %q); hostname is not accepted for peer-id/svc-paths", host)
+		return fmt.Errorf("%s must be a public IPv4 address (got %q); hostnames are not accepted for service-plane peer identity", role, host)
 	}
 	ip4 := ip.To4()
 	if ip4 == nil {
-		return fmt.Errorf("secondary host IPv6 is not supported for peer-id encoding yet (got %q)", host)
+		return fmt.Errorf("%s IPv6 is not supported for service-plane peer identity yet (got %q)", role, host)
 	}
 	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() || nonPublicIPv4(ip4) {
-		return fmt.Errorf("secondary host %q is not a public IPv4 (private, CGNAT, documentation, benchmark, or reserved)", host)
+		return fmt.Errorf("%s %q is not a public IPv4 (private, CGNAT, documentation, benchmark, or reserved)", role, host)
 	}
 	return nil
 }
@@ -502,6 +506,9 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		return fmt.Errorf("secondary host required")
 	}
 	// Service-plane peer-ip requires a public IPv4 (not hostname). Fail before SSH harden.
+	if errIP := requirePublicIPv4Role("primary host", o.PrimaryHost); errIP != nil {
+		return errIP
+	}
 	if errIP := requirePublicIPv4(o.SecondaryHost); errIP != nil {
 		return errIP
 	}
@@ -1031,14 +1038,14 @@ echo "primary peer units+ping ok -> %s %s"
 	waitCmd := fmt.Sprintf(`ok=0
 id=%s
 now=$(date +%%s)
-for i in $(seq 1 18); do
+for i in $(seq 1 36); do
   st=$(netductor secondary status 2>/dev/null || true)
   echo "$st"
   if printf '%%s\n' "$st" | awk -F '\t' -v id="$id" -v now="$now" '
     $1 == id && $3 == "online" {
       for (i=1;i<=NF;i++) if ($i ~ /^seen=/) {
         split($i, a, "="); age = now - a[2];
-        if (age >= 0 && age <= 90) found=1
+        if (age >= 0 && age <= 120) found=1
       }
     }
     END { exit !found }'; then
