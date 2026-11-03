@@ -106,3 +106,23 @@ func TestHasExactWSSPeerAllowRequiresHostScopedRule(t *testing.T) {
 		t.Fatal("broader subnet must not count as an exact peer rule")
 	}
 }
+
+func TestSecondaryRestrictedAllowPreflight(t *testing.T) {
+	for _, status := range []string{
+		"Status: active\n[ 1] 80/tcp ALLOW IN Anywhere\n",
+		"Status: inactive\n[ 1] 8789/tcp ALLOW IN 10.87.10.2\n",
+		"Status: active\n[ 1] 8787/tcp ALLOW IN 192.0.2.10\n",
+	} {
+		if err := preflightSecondaryRestrictedAllows(status); err == nil {
+			t.Fatalf("expected pre-existing restricted-port ALLOW to fail: %q", status)
+		}
+	}
+	clean := "Status: active\n[ 1] 80/tcp DENY IN Anywhere\n[ 2] 8789/tcp DENY IN Anywhere\n"
+	if err := preflightSecondaryRestrictedAllows(clean); err != nil {
+		t.Fatalf("deny-only rules should pass preflight: %v", err)
+	}
+	incomplete := "Status: active\n[ 1] 80/tcp ALLOW IN Anywhere\nnot-numbered"
+	if err := preflightSecondaryRestrictedAllows(incomplete); err == nil {
+		t.Fatal("incompletely parsed numbered rules must fail closed")
+	}
+}
