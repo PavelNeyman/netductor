@@ -411,6 +411,9 @@ func validateSecondaryPeerPreflight(raw, peerID, publicIP string) error {
 	used := make(map[int]bool)
 	matched := false
 	for _, p := range idx.Peers {
+		if p.ID == peerID && p.State == "removed" {
+			return fmt.Errorf("peer preflight: id %q is removed; use a new peer ID or recover/remove its tombstone before provision", peerID)
+		}
 		if p.State == "removed" {
 			continue
 		}
