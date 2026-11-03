@@ -13,11 +13,23 @@ import (
 
 func edgeTLSIdentityMatches(r *http.Request, deviceID string) bool {
 	if r.TLS == nil {
-		return !edgeHasClientMaterial(deviceID)
+		return !edgeRequiresMTLS(deviceID)
 	}
 	return len(r.TLS.PeerCertificates) > 0 &&
 		r.TLS.PeerCertificates[0] != nil &&
 		r.TLS.PeerCertificates[0].Subject.CommonName == "netductor-agent-"+deviceID
+}
+
+func edgeRequiresMTLS(deviceID string) bool {
+	if edgeHasClientMaterial(deviceID) {
+		return true
+	}
+	for _, device := range edge.ListDevices() {
+		if device.DeviceID == deviceID && device.Status == edge.StatusApproved {
+			return true
+		}
+	}
+	return false
 }
 
 func edgeHasClientMaterial(deviceID string) bool {
@@ -42,7 +54,7 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			return
 		}
 		peerSerial := ""
-		if r.TLS == nil && edgeHasClientMaterial(tokenDID) {
+		if r.TLS == nil && edgeRequiresMTLS(tokenDID) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
 			return
 		}
@@ -176,7 +188,7 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
-		if r.TLS == nil && edgeHasClientMaterial(did) {
+		if r.TLS == nil && edgeRequiresMTLS(did) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
 			return
 		}
