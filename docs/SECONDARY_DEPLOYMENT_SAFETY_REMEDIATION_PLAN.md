@@ -116,3 +116,7 @@ Updated against current `main` after the initial plan commit.
 ### SSH hardening lock bound audit
 - [x] Bounded SSH Prepare locks (permanent, transaction, firewall), Finalize locks, CancelRollback locks, and HostAgentPurge firewall lock. Lock contention now returns an explicit error instead of indefinitely blocking the deploy workflow.
 - [ ] Manual/focused tests still pending; Actions remain manual-only.
+
+### Deploy orchestration lock audit
+- [x] Primary peer firewall mutation in `deploy secondary` now uses a 30-second bounded lock; contention exits before UFW mutation rather than hanging the operator workflow.
+- [ ] Deploy resume/recovery review and focused tests remain pending.
