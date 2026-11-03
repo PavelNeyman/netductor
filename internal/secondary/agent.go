@@ -718,7 +718,10 @@ func installSecondaryMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 	}
 	backup := dir + ".rollover-old"
 	_, currentErr := os.Lstat(dir)
-	_, backupErr := os.Lstat(backup)
+	backupInfo, backupErr := os.Lstat(backup)
+	if backupErr == nil && (backupInfo.Mode()&os.ModeSymlink != 0 || !backupInfo.IsDir()) {
+		return fmt.Errorf("previous mTLS backup is not a real directory")
+	}
 	if backupErr == nil && os.IsNotExist(currentErr) {
 		// Recover a crash after moving the active directory aside but before
 		// activating the staged directory.
@@ -765,11 +768,18 @@ func copyMTLSDirectoryExtras(source, destination string) error {
 }
 
 func copyMTLSDirectoryExtrasLevel(source, destination string, root bool) error {
-	entries, err := os.ReadDir(source)
+	info, err := os.Lstat(source)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return fmt.Errorf("mTLS source is not a real directory: %s", source)
+	}
+	entries, err := os.ReadDir(source)
+	if err != nil {
 		return err
 	}
 	for _, entry := range entries {
@@ -812,7 +822,8 @@ func copyMTLSDirectoryExtrasLevel(source, destination string, root bool) error {
 func restorePreviousMTLSMaterial() bool {
 	dir := mtls.Dir()
 	backup := dir + ".rollover-old"
-	if _, err := os.Stat(backup); err != nil {
+	backupInfo, err := os.Lstat(backup)
+	if err != nil || backupInfo.Mode()&os.ModeSymlink != 0 || !backupInfo.IsDir() {
 		return false
 	}
 	failed := dir + ".rollover-failed"
