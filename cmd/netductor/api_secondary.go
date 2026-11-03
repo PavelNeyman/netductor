@@ -166,7 +166,7 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 		}
 		var out []row
 		for _, d := range devs {
-			out = append(out, row{secondaryDeviceAPIView: secondaryDeviceAPIView(d), Online: secondary.Online(d, 2*time.Minute)})
+			out = append(out, row{secondaryDeviceAPIView: toSecondaryDeviceAPIView(d), Online: secondary.Online(d, 2*time.Minute)})
 		}
 		configVer, err := secondary.ConfigVerE()
 		if err != nil {
