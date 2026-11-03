@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"strings"
@@ -74,6 +75,11 @@ func openSSHPinPath(host, port string) (string, error) {
 	if port == "" {
 		port = "22"
 	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil || portNum < 1 || portNum > 65535 {
+		return "", fmt.Errorf("invalid SSH port %q: expected 1..65535", port)
+	}
+	port = strconv.Itoa(portNum)
 	dir := filepath.Join(home, ".cache", "netductor", "ssh-pins")
 	safe := strings.ReplaceAll(host, "/", "_")
 	dest := filepath.Join(dir, safe+"_"+port+".known_hosts")
@@ -135,9 +141,30 @@ func writeAskPass(secret string) (string, func(), error) {
 	path := f.Name()
 	// Avoid shell metachar issues: write secret to sidecar file, script cats it
 	secPath := path + ".secret"
-	if err := os.WriteFile(secPath, []byte(secret), 0o600); err != nil {
+	sec, err := os.OpenFile(secPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
 		_ = f.Close()
 		_ = os.Remove(path)
+		return "", nil, err
+	}
+	if _, err := sec.Write([]byte(secret)); err != nil {
+		_ = sec.Close()
+		_ = f.Close()
+		_ = os.Remove(path)
+		_ = os.Remove(secPath)
+		return "", nil, err
+	}
+	if err := sec.Sync(); err != nil {
+		_ = sec.Close()
+		_ = f.Close()
+		_ = os.Remove(path)
+		_ = os.Remove(secPath)
+		return "", nil, err
+	}
+	if err := sec.Close(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		_ = os.Remove(secPath)
 		return "", nil, err
 	}
 	body := "#!/bin/sh\ncat '" + secPath + "'\n"
@@ -147,8 +174,17 @@ func writeAskPass(secret string) (string, func(), error) {
 		_ = os.Remove(secPath)
 		return "", nil, err
 	}
-	_ = f.Close()
-	_ = os.Chmod(path, 0o700)
+	if err := f.Chmod(0o700); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		_ = os.Remove(secPath)
+		return "", nil, fmt.Errorf("secure SSH askpass helper: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		_ = os.Remove(secPath)
+		return "", nil, err
+	}
 	cleanup := func() {
 		_ = os.Remove(path)
 		_ = os.Remove(secPath)
