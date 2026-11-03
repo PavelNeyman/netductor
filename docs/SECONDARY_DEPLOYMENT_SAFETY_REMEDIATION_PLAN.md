@@ -228,3 +228,12 @@ Updated against current `main` after the initial plan commit.
 
 - [x] A post-hardening host-agent purge failure no longer reports Secondary provisioning as failed after SSH access has already been finalized and the rollback timer cancelled. The purge is non-fatal housekeeping and is retained as a warning in the provision result; the operator journal can safely checkpoint `provisioned` and continue on key-only SSH.
 - [ ] Focused tests and full deploy-path verification remain pending. No production deployment performed.
+
+
+### Secondary deploy preflight hardening
+
+- [x] Before `prepare-pack` or any SSH provisioning/hardening of the new host, the operator reads the Primary service-peer registry and validates the requested peer ID/IP binding and slot tuple.
+- [x] A new peer is rejected before touching the host when no service-plane slot is free.
+- [x] Existing matching peer registration is accepted idempotently; conflicting ID/IP or inconsistent registered slot fails closed.
+- [x] Added focused unit coverage for empty/full registry, matching peer, ID/IP conflicts, and invalid slot tuple.
+- [ ] Tests have not been executed. Actions remain manual-only.
