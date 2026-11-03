@@ -216,7 +216,21 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	}
 	if certExists {
 		if _, err := tls.LoadX509KeyPair(certPath, keyPath); err != nil {
-			return nil, nil, nil, fmt.Errorf("existing client certificate/key pair for %q is invalid: %w", nodeID, err)
+			if fileOK(backupCert) && fileOK(backupKey) {
+				_ = os.Remove(certPath)
+				_ = os.Remove(keyPath)
+				if restoreErr := os.Rename(backupCert, certPath); restoreErr != nil {
+					return nil, nil, nil, fmt.Errorf("restore previous client certificate after interrupted promotion: %w", restoreErr)
+				}
+				if restoreErr := os.Rename(backupKey, keyPath); restoreErr != nil {
+					return nil, nil, nil, fmt.Errorf("restore previous client key after interrupted promotion: %w", restoreErr)
+				}
+				if _, restoreErr := tls.LoadX509KeyPair(certPath, keyPath); restoreErr != nil {
+					return nil, nil, nil, fmt.Errorf("restored previous client pair is invalid: %w", restoreErr)
+				}
+			} else {
+				return nil, nil, nil, fmt.Errorf("existing client certificate/key pair for %q is invalid: %w", nodeID, err)
+			}
 		}
 	}
 	oldSerial := ""
