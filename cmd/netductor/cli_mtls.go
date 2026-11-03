@@ -160,16 +160,16 @@ func runMTLS(args []string) {
 				fmt.Fprintln(os.Stderr, "load registered Secondary inventory:", err)
 				os.Exit(1)
 			}
-			ids := make([]string, 0, len(devices))
+			observed := make(map[string]string, len(devices))
 			for _, device := range devices {
-				ids = append(ids, device.ID)
+				observed[device.ID] = device.MTLSSerial
 			}
 			for _, device := range edge.ListDevices() {
 				if device.Status == edge.StatusApproved && device.DeviceID != "" {
-					ids = append(ids, device.DeviceID)
+					observed[device.DeviceID] = device.Extra["cert_serial"].(string)
 				}
 			}
-			if err := mtls.CARolloverValidateClients(ids); err != nil {
+			if err := mtls.CARolloverValidateObservedClients(observed); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
