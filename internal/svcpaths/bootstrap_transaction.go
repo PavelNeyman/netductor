@@ -599,6 +599,18 @@ func (tx *bootstrapFileTransaction) Commit() error {
 	return tx.finish("committed")
 }
 
+// commitBootstrapTransaction compensates if the commit checkpoint or journal
+// removal fails. A failed commit must not silently leave applied mutations.
+func commitBootstrapTransaction(tx *bootstrapFileTransaction, commit func() error) error {
+	if tx == nil || commit == nil {
+		return fmt.Errorf("invalid bootstrap transaction commit")
+	}
+	if err := commit(); err != nil {
+		return errors.Join(fmt.Errorf("commit bootstrap transaction: %w", err), tx.Rollback())
+	}
+	return nil
+}
+
 func (tx *bootstrapFileTransaction) finish(phase string) error {
 	tx.journal.Phase = phase
 	if err := tx.persist(); err != nil { return fmt.Errorf("checkpoint %s: %w", phase, err) }
