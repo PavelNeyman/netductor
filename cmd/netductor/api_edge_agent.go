@@ -142,6 +142,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
+		if r.TLS != nil && (len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].Subject.CommonName != "netductor-agent-"+did) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "certificate_identity_mismatch"})
+			return
+		}
 		q := r.URL.Query().Get("device_id")
 		if q != "" && q != did {
 			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
@@ -241,6 +245,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 		tokenDID := edge.DeviceIDFromAuth(r.Header.Get("Authorization"))
 		if tokenDID == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		if r.TLS != nil && (len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].Subject.CommonName != "netductor-agent-"+tokenDID) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "certificate_identity_mismatch"})
 			return
 		}
 		body := readJSON(r)
