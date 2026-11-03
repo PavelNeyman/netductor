@@ -458,6 +458,26 @@ func validateSecondaryPeerPreflight(raw, peerID, publicIP string) error {
 	return fmt.Errorf("peer preflight: no free service-plane slots (max %d); new Secondary was not provisioned", len(slots))
 }
 
+// validateDeployPeerID validates the identifier before it is interpolated
+// into remote shell commands or regular expressions.
+func validateDeployPeerID(id string) error {
+	if len(id) == 0 || len(id) > 64 {
+		return fmt.Errorf("peer ID must contain 1..64 ASCII characters")
+	}
+	isAlphaNum := func(ch byte) bool {
+		return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9'
+	}
+	if !isAlphaNum(id[0]) {
+		return fmt.Errorf("invalid peer ID %q: first character must be alphanumeric", id)
+	}
+	for i := 1; i < len(id); i++ {
+		if !isAlphaNum(id[i]) && id[i] != '_' && id[i] != '-' {
+			return fmt.Errorf("invalid peer ID %q: use only ASCII letters, digits, underscore, and hyphen", id)
+		}
+	}
+	return nil
+}
+
 func secondaryPackName(host string) string {
 	return "secondary-" + strings.ReplaceAll(strings.TrimSpace(host), ".", "-")
 }
@@ -550,6 +570,9 @@ func deploySecondaryBody(o SecondaryOpts) error {
 			return fmt.Errorf("deploy journal peer_id %q != requested %q — refuse auto-switch", prev.PeerID, peerIDEarly)
 		}
 		peerIDEarly = prev.PeerID
+	}
+	if err := validateDeployPeerID(peerIDEarly); err != nil {
+		return fmt.Errorf("deploy peer identity: %w", err)
 	}
 	var pack secondaryPack
 	var out string
