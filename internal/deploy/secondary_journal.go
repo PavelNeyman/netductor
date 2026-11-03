@@ -105,6 +105,12 @@ func loadDeployState(host string) (*DeployOrchState, error) {
 	if st.Status == "" {
 		st.Status = StatusRunning
 	}
+	if !validDeployStage(effectiveStage(&st)) {
+		return nil, fmt.Errorf("deploy state at %s has unknown stage %q — refuse automatic resume; inspect the journal before clearing it", path, effectiveStage(&st))
+	}
+	if st.Status != StatusRunning && st.Status != StatusFailedRecoverable && st.Status != StatusComplete {
+		return nil, fmt.Errorf("deploy state at %s has unknown status %q — refuse automatic resume", path, st.Status)
+	}
 	// A successful provisioning checkpoint without AgentID cannot be safely
 	// resumed: deploySecondaryBody would otherwise miss the advanced-journal
 	// guard and could start provisioning again. Reject rather than infer identity.
@@ -329,6 +335,20 @@ func effectiveStage(st *DeployOrchState) string {
 		return st.LastSuccessfulStage
 	}
 	return st.Stage
+}
+
+func validDeployStage(s string) bool {
+	if s == "" {
+		return true
+	}
+	switch s {
+	case StageProvisionStarted, StageProvisioned, StagePeerAddStarted, StagePeerPrepared,
+		StageMaterialPrepared, StageMaterialTransferred, StageSecondaryBootstrapped,
+		StageFirewallVerified, StageNetworkVerified, StageHeartbeatVerified, StageDeployComplete:
+		return true
+	default:
+		return false
+	}
 }
 
 func stageRank(s string) int {
