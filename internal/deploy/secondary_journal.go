@@ -70,6 +70,10 @@ func deployStatePath(host string) string {
 }
 
 func loadDeployState(host string) (*DeployOrchState, error) {
+	dir := deployJournalDir()
+	if err := ensureSecureDir(dir); err != nil {
+		return nil, fmt.Errorf("deploy state directory: %w", err)
+	}
 	path := deployStatePath(host)
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -116,8 +120,8 @@ func saveDeployState(st *DeployOrchState) error {
 	}
 	st.UpdatedAt = time.Now().UTC()
 	dir := deployJournalDir()
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("deploy state mkdir: %w", err)
+	if err := ensureSecureDir(dir); err != nil {
+		return fmt.Errorf("deploy state directory: %w", err)
 	}
 	b, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
@@ -300,7 +304,7 @@ func checkpointFailure(prev **DeployOrchState, peerID, agentID, host, lastErr st
 // appendDeployLog is best-effort diagnostics only; JSON state is the resume source of truth.
 func appendDeployLog(peerID, agentID, host, stage, lastErr string) error {
 	dir := deployJournalDir()
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := ensureSecureDir(dir); err != nil {
 		return err
 	}
 	line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\n",
@@ -400,6 +404,9 @@ func writeDeployJournalErr(lastErr, peerID, agentID, host, _ string) {
 // ListDeployStates returns all state-*.json under the journal dir (may be empty).
 func ListDeployStates() ([]*DeployOrchState, error) {
 	dir := deployJournalDir()
+	if err := ensureSecureDir(dir); err != nil {
+		return nil, err
+	}
 	ents, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -476,8 +483,8 @@ func withHostDeployLock(host string, fn func() error) error {
 		return fn()
 	}
 	dir := deployJournalDir()
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("deploy lock mkdir: %w", err)
+	if err := ensureSecureDir(dir); err != nil {
+		return fmt.Errorf("deploy lock directory: %w", err)
 	}
 	f, err := os.OpenFile(hostLockPath(host), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
@@ -562,11 +569,14 @@ func ensureSecureDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	fi, err := os.Stat(dir)
+	fi, err := os.Lstat(dir)
 	if err != nil {
 		return err
 	}
-	if fi.Mode().Perm()&0o077 != 0 {
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		return fmt.Errorf("refuse insecure deploy journal path %s: expected a real directory, not a symlink or non-directory", dir)
+	}
+	if fi.Mode().Perm() != 0o700 {
 		if err := os.Chmod(dir, 0o700); err != nil {
 			return fmt.Errorf("chmod %s: %w", dir, err)
 		}
