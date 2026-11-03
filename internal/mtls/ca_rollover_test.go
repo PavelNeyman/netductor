@@ -14,7 +14,7 @@ func TestCARolloverRequiresObservedNewTLSIdentityBeforeFinish(t *testing.T) {
 	if err := CARolloverStart(); err != nil {
 		t.Fatalf("CARolloverStart: %v", err)
 	}
-	_, certPEM, _, err := IssueClientFromNewCA("secondary-test")
+	_, _, _, err = IssueClientFromNewCA("secondary-test")
 	if err != nil {
 		t.Fatalf("IssueClientFromNewCA: %v", err)
 	}
@@ -45,10 +45,9 @@ func TestCARolloverRequiresObservedNewTLSIdentityBeforeFinish(t *testing.T) {
 	if revoked, err := IsRevoked(oldSerial); err != nil || !revoked {
 		t.Fatalf("old certificate not revoked after adoption: revoked=%v err=%v", revoked, err)
 	}
-	if err := CARolloverFinish(); err != nil {
-		t.Fatalf("CARolloverFinish after verified adoption: %v", err)
+	if err := CARolloverFinish(); err == nil {
+		t.Fatal("CA promotion proceeded without a crash-recovery transaction")
 	}
-	_ = certPEM
 }
 
 func TestCARolloverAbortRefusesIssuedClientIdentity(t *testing.T) {
