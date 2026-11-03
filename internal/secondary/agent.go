@@ -708,19 +708,32 @@ func installSecondaryMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 		return fmt.Errorf("sync staged mTLS directory: %w", err)
 	}
 	backup := dir + ".rollover-old"
-	// The material endpoint authenticated this request with the active identity;
-	// an older backup from a completed refresh can now be discarded.
-	if err := os.RemoveAll(backup); err != nil {
-		return fmt.Errorf("remove stale mTLS backup: %w", err)
+	_, currentErr := os.Lstat(dir)
+	_, backupErr := os.Lstat(backup)
+	if backupErr == nil && os.IsNotExist(currentErr) {
+		// Recover a crash after moving the active directory aside but before
+		// activating the staged directory.
+		if err := os.Rename(backup, dir); err != nil {
+			return fmt.Errorf("recover previous mTLS directory: %w", err)
+		}
+		currentErr = nil
+	} else if backupErr != nil && !os.IsNotExist(backupErr) {
+		return fmt.Errorf("inspect previous mTLS backup: %w", backupErr)
+	} else if backupErr == nil && currentErr == nil {
+		// The material endpoint authenticated this request with the active
+		// identity, so a backup from a completed prior refresh is stale.
+		if err := os.RemoveAll(backup); err != nil {
+			return fmt.Errorf("remove stale mTLS backup: %w", err)
+		}
 	}
 	hadCurrent := false
-	if _, err := os.Lstat(dir); err == nil {
+	if currentErr == nil {
 		if err := os.Rename(dir, backup); err != nil {
 			return fmt.Errorf("stage current mTLS directory: %w", err)
 		}
 		hadCurrent = true
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("inspect current mTLS directory: %w", err)
+	} else if !os.IsNotExist(currentErr) {
+		return fmt.Errorf("inspect current mTLS directory: %w", currentErr)
 	}
 	if err := os.Rename(staging, dir); err != nil {
 		if hadCurrent {
