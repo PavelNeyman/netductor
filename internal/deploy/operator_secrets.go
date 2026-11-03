@@ -233,22 +233,12 @@ func runSSHWithPortFallback(keyPath, user, host, script, keyPass string) (string
 	}
 	var lastOut string
 	var lastErr error
-	prev := os.Getenv("NETDUCTOR_SSH_PORT")
 	for _, p := range ports {
-		_ = os.Setenv("NETDUCTOR_SSH_PORT", p)
-		out, err := runSSH("", keyPath, user, host, script, keyPass)
-		lastOut, lastErr = out, err
+		out, err := runSSHOnPort(p, "", keyPath, user, host, script, keyPass)
 		if err == nil {
-			if prev != "" {
-				_ = os.Setenv("NETDUCTOR_SSH_PORT", prev)
-			}
 			return out, nil
 		}
-	}
-	if prev != "" {
-		_ = os.Setenv("NETDUCTOR_SSH_PORT", prev)
-	} else {
-		_ = os.Unsetenv("NETDUCTOR_SSH_PORT")
+		lastOut, lastErr = out, err
 	}
 	return lastOut, lastErr
 }
