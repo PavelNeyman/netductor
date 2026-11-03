@@ -480,6 +480,9 @@ func CARolloverFinish() error {
 	if !ok || newCAPub.X.Cmp(newCAKey.PublicKey.X) != 0 || newCAPub.Y.Cmp(newCAKey.PublicKey.Y) != 0 {
 		return fmt.Errorf("new CA certificate and private key do not match")
 	}
+	if err := newCA.CheckSignatureFrom(newCA); err != nil {
+		return fmt.Errorf("new CA certificate is not self-signed: %w", err)
+	}
 	if err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile)); err != nil {
 		return fmt.Errorf("validate current server certificate/key before promotion: %w", err)
 	}
@@ -554,11 +557,28 @@ func CARolloverFinish() error {
 		return rollback(fmt.Errorf("validate promoted default client certificate/key: %w", err))
 	}
 	serverLeaf, err := x509.ParseCertificate(serverPair.Certificate[0])
-	if err != nil || serverLeaf.Issuer.String() != newCA.Subject.String() {
-		if err == nil {
-			err = fmt.Errorf("server certificate is not issued by the new CA")
-		}
-		return rollback(fmt.Errorf("validate promoted server certificate: %w", err))
+	if err != nil {
+		return rollback(fmt.Errorf("parse promoted server certificate: %w", err))
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(newCA)
+	serverVerify := x509.VerifyOptions{Roots: roots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
+	if hostname := publicHostname(); hostname != "" {
+		serverVerify.DNSName = hostname
+	}
+	if _, err := serverLeaf.Verify(serverVerify); err != nil {
+		return rollback(fmt.Errorf("verify promoted server certificate against new CA: %w", err))
+	}
+	clientPair, err := tls.LoadX509KeyPair(path(ClientCertFile), path(ClientKeyFile))
+	if err != nil {
+		return rollback(fmt.Errorf("validate promoted default client certificate/key: %w", err))
+	}
+	clientLeaf, err := x509.ParseCertificate(clientPair.Certificate[0])
+	if err != nil {
+		return rollback(fmt.Errorf("parse promoted default client certificate: %w", err))
+	}
+	if _, err := clientLeaf.Verify(x509.VerifyOptions{Roots: roots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+		return rollback(fmt.Errorf("verify promoted default client certificate against new CA: %w", err))
 	}
 	rollover.Phase = "done"
 	if err := saveRollover(rollover); err != nil {
@@ -627,9 +647,12 @@ func writeDurable(dst string, data []byte, mode os.FileMode) error {
 }
 
 func copyDurable(src, dst string) error {
-	info, err := os.Stat(src)
+	info, err := os.Lstat(src)
 	if err != nil {
 		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return fmt.Errorf("refusing non-regular rollover source file: %s", src)
 	}
 	data, err := os.ReadFile(src)
 	if err != nil {
