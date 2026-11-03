@@ -199,14 +199,25 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	keyPath := filepath.Join(dir, ClientKeyFile)
 	certExists, keyExists := fileOK(certPath), fileOK(keyPath)
 	if certExists != keyExists {
-		if !certExists && fileOK(backupCert) {
+		if fileOK(backupCert) && fileOK(backupKey) {
+			_ = os.Remove(certPath)
+			_ = os.Remove(keyPath)
 			if err := os.Rename(backupCert, certPath); err != nil {
-				return nil, nil, nil, fmt.Errorf("recover interrupted client certificate staging: %w", err)
+				return nil, nil, nil, fmt.Errorf("recover interrupted previous client certificate: %w", err)
 			}
-		}
-		if !keyExists && fileOK(backupKey) {
 			if err := os.Rename(backupKey, keyPath); err != nil {
-				return nil, nil, nil, fmt.Errorf("recover interrupted client key staging: %w", err)
+				return nil, nil, nil, fmt.Errorf("recover interrupted previous client key: %w", err)
+			}
+		} else {
+			if !certExists && fileOK(backupCert) {
+				if err := os.Rename(backupCert, certPath); err != nil {
+					return nil, nil, nil, fmt.Errorf("recover interrupted client certificate staging: %w", err)
+				}
+			}
+			if !keyExists && fileOK(backupKey) {
+				if err := os.Rename(backupKey, keyPath); err != nil {
+					return nil, nil, nil, fmt.Errorf("recover interrupted client key staging: %w", err)
+				}
 			}
 		}
 		certExists, keyExists = fileOK(certPath), fileOK(keyPath)
