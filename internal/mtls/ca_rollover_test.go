@@ -247,7 +247,7 @@ func TestCARolloverRequiresCompleteRegisteredSecondaryInventory(t *testing.T) {
 	}); err == nil {
 		t.Fatal("CA rollover accepted a registered Secondary without a confirmed observed identity")
 	}
-	if err := CARolloverValidateObservedClients(map[string]string{"secondary-test": oldInfoSerial(info.Serial)}); err != nil {
+	if err := CARolloverValidateObservedClients(map[string]string{"secondary-test": info.Serial}); err != nil {
 		t.Fatalf("confirmed registered Secondary rejected: %v", err)
 	}
 	if err := CARolloverValidateObservedClients(map[string]string{"secondary-test": "incorrect"}); err == nil {
