@@ -400,6 +400,10 @@ func CARolloverFinish() error {
 			return fmt.Errorf("CA rollover is not complete: active client certificate for %q still uses the old CA", entry.Name())
 		}
 	}
+	// The client-adoption phase is now verifiable, but the CA + server
+	// certificate promotion still spans multiple independent files. Do not
+	// execute that destructive phase until it has its own crash-recovery journal.
+	return fmt.Errorf("CA rollover clients are confirmed, but crash-safe CA/server promotion is not implemented")
 	// backup old (must succeed before promote)
 	if err := os.Rename(path(CACertFile), path("ca-old.crt")); err != nil {
 		return fmt.Errorf("backup ca.crt: %w", err)
