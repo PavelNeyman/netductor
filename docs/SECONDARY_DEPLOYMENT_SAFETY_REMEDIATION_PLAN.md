@@ -205,6 +205,8 @@ Updated against current `main` after the initial plan commit.
 - [x] Abort refuses to delete the new CA after a new-CA client identity has been issued.
 - [x] Finish checks issued-client confirmation, old-serial revocation, and absence of active per-node certificates signed by the old CA.
 - [x] Secondary validates the CA bundle, certificate/key pair, client-auth chain, and certificate CN before installation.
+- [x] Edge agents now use the same staged/validated dual-directory material replacement, switch their in-memory HTTP client after installation, and retain rollback material until the Primary confirms the observed TLS identity.
+- [x] Edge heartbeat, command polling, command-result, and mTLS-material endpoints bind TLS client CN to the bearer-token device ID; rotation confirmation uses the TLS peer serial rather than JSON input.
 - [x] Secondary stages and swaps the mTLS directory with recovery support, preserves unrelated files, and retains the old directory until Primary confirms the new TLS identity.
 - [x] Secondary restores previous material after repeated failed heartbeat attempts with the new identity.
 - [x] Added focused regression tests for adoption, revocation, abort, material validation, and directory preservation.
