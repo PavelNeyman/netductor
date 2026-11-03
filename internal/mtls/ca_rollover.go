@@ -140,9 +140,30 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	// Keep the previous identity valid: delivery and adoption by the Secondary
 	// are not yet acknowledged by the current protocol. Never revoke it here.
 	if fileOK(backupCert) || fileOK(backupKey) {
-		_ = os.Remove(tmpCert)
-		_ = os.Remove(tmpKey)
-		return nil, nil, nil, fmt.Errorf("unfinished CA rollover backup exists for %s; recover before retrying", nodeID)
+		// A complete active pair means the prior promotion reached its commit
+		// point; stale backups are cleanup residue. Otherwise restore the old
+		// pair before retrying so an interrupted promotion cannot strand it.
+		if fileOK(certPath) && fileOK(keyPath) {
+			if err := os.Remove(backupCert); err != nil && !os.IsNotExist(err) {
+				return nil, nil, nil, fmt.Errorf("remove stale rollover certificate backup: %w", err)
+			}
+			if err := os.Remove(backupKey); err != nil && !os.IsNotExist(err) {
+				return nil, nil, nil, fmt.Errorf("remove stale rollover key backup: %w", err)
+			}
+		} else {
+			_ = os.Remove(certPath)
+			_ = os.Remove(keyPath)
+			if fileOK(backupCert) {
+				if err := os.Rename(backupCert, certPath); err != nil {
+					return nil, nil, nil, fmt.Errorf("recover previous client certificate: %w", err)
+				}
+			}
+			if fileOK(backupKey) {
+				if err := os.Rename(backupKey, keyPath); err != nil {
+					return nil, nil, nil, fmt.Errorf("recover previous client key: %w", err)
+				}
+			}
+		}
 	}
 	hadCert, hadKey := fileOK(certPath), fileOK(keyPath)
 	if hadCert {
