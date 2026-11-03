@@ -150,7 +150,7 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		return nil, nil, nil, fmt.Errorf("invalid node ID")
 	}
 	for _, r := range nodeID {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.') {
 			return nil, nil, nil, fmt.Errorf("invalid node ID")
 		}
 	}
