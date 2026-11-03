@@ -1002,7 +1002,7 @@ func applyUFW(role string) error { return applyUFWMode(role, false) }
 // before WSS migration can mutate any numbered UFW rules. UFW is first-match;
 // appending a DENY later does not neutralize an earlier ALLOW.
 func preflightSecondaryAddedRules(added string) error {
-	restricted := regexp.MustCompile(`(?i)(?:^|\s)(?:80|8787|8788|8789)(?:/tcp)?(?:\s|$)`)
+	restricted := regexp.MustCompile(`(?i)(?:^|\s)(?:80|8787|8788|8789)(?:/tcp)?(?:\s|$)|(?:^|\s)port\s+(?:80|8787|8788|8789)(?:\s|$)`)
 	for _, line := range strings.Split(added, "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(strings.ToLower(line), "ufw allow ") {
