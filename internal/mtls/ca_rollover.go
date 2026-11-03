@@ -150,6 +150,9 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		if !strings.EqualFold(current.Serial, issued.NewSerial) {
 			return nil, nil, nil, fmt.Errorf("current client certificate for %q does not match its recorded rollover identity", nodeID)
 		}
+		if current.Revoked {
+			return nil, nil, nil, fmt.Errorf("recorded rollover certificate for %q is revoked or revocation state is unavailable", nodeID)
+		}
 		caBundle, clientCert, clientKey, err := ReadMaterial(nodeID)
 		if err != nil {
 			return nil, nil, nil, err
@@ -170,6 +173,9 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		oldInfo, err := ReadClientInfo(nodeID)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("read previous client identity: %w", err)
+		}
+		if oldInfo.Revoked {
+			return nil, nil, nil, fmt.Errorf("previous client certificate for %q is revoked or revocation state is unavailable", nodeID)
 		}
 		oldSerial = oldInfo.Serial
 	}
