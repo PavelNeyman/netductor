@@ -156,7 +156,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		uplinkFailStreak = 0
 	} else {
 		uplinkFailStreak++
-		fmt.Fprintf(os.Stderr, "uplink probe primary:443 fail streak=%d\n", uplinkFailStreak)
+		fmt.Fprintf(os.Stderr, "service-plane tunnel probe (SP/PS) failed; fail streak=%d\n", uplinkFailStreak)
 		// after 3 consecutive fails: let svc-paths apply switch path; also restart mux if still on vless
 		if uplinkFailStreak >= 3 && sbOK {
 			st := svcpaths.LoadState()
