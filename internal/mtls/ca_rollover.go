@@ -284,6 +284,9 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 			if _, err := oldBackupCert.Verify(x509.VerifyOptions{Roots: oldRoots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
 				return nil, nil, nil, fmt.Errorf("verify previous client identity during recovery: %w", err)
 			}
+			if rollover.Issued == nil {
+				rollover.Issued = make(map[string]rolloverClientState)
+			}
 			rollover.Issued[nodeID] = rolloverClientState{OldSerial: serialHex(oldBackupCert.SerialNumber), NewSerial: serialHex(activeCert.SerialNumber), IssuedAt: time.Now().Unix()}
 			if err := saveRollover(rollover); err != nil {
 				return nil, nil, nil, fmt.Errorf("persist recovered client issuance: %w", err)
