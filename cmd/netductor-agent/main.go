@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -26,6 +27,9 @@ import (
 
 // Follow internal/version.Release — never hardcode.
 var version = ndver.Release
+
+var mtlsRefreshInstalled bool
+var mtlsRefreshBackupActive bool
 
 type config struct {
 	Server   string
@@ -90,6 +94,7 @@ Commands (from VPS):
 	if backoff < 15*time.Second {
 		backoff = 15 * time.Second
 	}
+	mtlsRefreshFailures := 0
 	for {
 		if err := ensureEnrolled(client, &cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "enroll: %v (retry in %s)\n", err, backoff)
@@ -119,9 +124,28 @@ Commands (from VPS):
 		checkRelayAndFallback()
 		if err := heartbeat(client, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "heartbeat: %v\n", err)
+			if mtlsRefreshBackupActive && !agentTLSHandshakeSucceeded.Load() {
+				mtlsRefreshFailures++
+				if mtlsRefreshFailures >= 3 && restoreEdgeMTLSMaterial() {
+					fmt.Fprintln(os.Stderr, "mTLS refresh did not complete TLS handshake; restored previous client material")
+					client.CloseIdleConnections()
+					agentTLSHandshakeSucceeded.Store(false)
+					client = agentHTTPClient()
+					mtlsRefreshFailures = 0
+				}
+			}
+		} else {
+			mtlsRefreshFailures = 0
 		}
 		if err := pollCmds(client, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "poll: %v\n", err)
+		}
+		if mtlsRefreshInstalled {
+			client.CloseIdleConnections()
+			agentTLSHandshakeSucceeded.Store(false)
+			client = agentHTTPClient()
+			mtlsRefreshInstalled = false
+			mtlsRefreshFailures = 0
 		}
 		time.Sleep(time.Duration(cfg.Interval) * time.Second)
 	}
@@ -622,9 +646,16 @@ func heartbeat(client *http.Client, cfg config) error {
 	if ser := localClientCertSerial(); ser != "" {
 		payload["cert_serial"] = ser
 	}
-	_, err := doJSON(client, http.MethodPost, cfg.Server+"/api/edge/heartbeat", cfg.Token, payload)
+	data, err := doJSON(client, http.MethodPost, cfg.Server+"/api/edge/heartbeat", cfg.Token, payload)
 	if err != nil {
 		return err
+	}
+	var ack struct {
+		MTLSRolloverConfirmed bool `json:"mtls_rollover_confirmed"`
+	}
+	_ = json.Unmarshal(data, &ack)
+	if ack.MTLSRolloverConfirmed {
+		cleanupEdgeMTLSBackups()
 	}
 	// also store metrics history on VPS
 	_, _ = doJSON(client, http.MethodPost, cfg.Server+"/api/edge/metrics", cfg.Token, payload)
