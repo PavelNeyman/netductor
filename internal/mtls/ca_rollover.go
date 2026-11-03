@@ -281,35 +281,35 @@ func ensureRolloverIssued(in map[string]rolloverClientState) map[string]rollover
 // ConfirmCARolloverClient records adoption only when the server-observed TLS
 // serial matches the serial issued for this node. Old serial revocation follows
 // the durable confirmation and is safe to retry.
-func ConfirmCARolloverClient(nodeID, peerSerial string) error {
+func ConfirmCARolloverClient(nodeID, peerSerial string) (bool, error) {
 	peerSerial = strings.ToLower(strings.TrimSpace(peerSerial))
 	if nodeID == "" || peerSerial == "" {
-		return nil
+		return false, nil
 	}
 	rollover, err := loadRollover()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if rollover.Phase != "dual" {
-		return nil
+		return false, nil
 	}
 	state, ok := rollover.Issued[nodeID]
 	if !ok || !strings.EqualFold(state.NewSerial, peerSerial) {
-		return nil
+		return false, nil
 	}
 	if state.ConfirmedAt == 0 {
 		state.ConfirmedAt = time.Now().Unix()
 		rollover.Issued[nodeID] = state
 		if err := saveRollover(rollover); err != nil {
-			return fmt.Errorf("persist Secondary CA adoption: %w", err)
+			return false, fmt.Errorf("persist Secondary CA adoption: %w", err)
 		}
 	}
 	if state.OldSerial != "" {
 		if err := RevokeSerial(state.OldSerial, nodeID, "ca-rollover-adopted"); err != nil {
-			return fmt.Errorf("revoke previous Secondary certificate after adoption: %w", err)
+			return false, fmt.Errorf("revoke previous Secondary certificate after adoption: %w", err)
 		}
 	}
-	return nil
+	return true, nil
 }
 
 func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, error) {
