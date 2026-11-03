@@ -975,6 +975,7 @@ type edgeMTLSStage struct {
 	dir     string
 	stage   string
 	backup  string
+	failed  string
 	swapped bool
 }
 
@@ -1005,9 +1006,21 @@ func installEdgeMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 			}
 			currentErr = nil
 		} else if backupErr == nil && currentErr == nil {
-			if err := os.RemoveAll(backup); err != nil {
+			currentInfo, err := os.Lstat(dir)
+			if err != nil {
 				cleanupStages()
-				return fmt.Errorf("remove stale mTLS backup %s: %w", backup, err)
+				return fmt.Errorf("inspect current mTLS directory %s: %w", dir, err)
+			}
+			if currentInfo.Mode()&os.ModeSymlink != 0 || !currentInfo.IsDir() {
+				if err := os.RemoveAll(dir); err != nil {
+					cleanupStages()
+					return fmt.Errorf("remove invalid current mTLS path %s: %w", dir, err)
+				}
+				if err := os.Rename(backup, dir); err != nil {
+					cleanupStages()
+					return fmt.Errorf("restore previous mTLS directory %s: %w", dir, err)
+				}
+				currentErr = nil
 			}
 		} else if backupErr != nil && !os.IsNotExist(backupErr) {
 			cleanupStages()
@@ -1056,7 +1069,11 @@ func installEdgeMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 			if err := os.RemoveAll(stage.dir); err != nil && first == nil {
 				first = err
 			}
-			if err := os.Rename(stage.backup, stage.dir); err != nil && first == nil {
+			restorePath := stage.backup
+			if stage.failed != "" {
+				restorePath = stage.failed
+			}
+			if err := os.Rename(restorePath, stage.dir); err != nil && first == nil {
 				first = err
 			}
 			if err := syncAgentDirectory(filepath.Dir(stage.dir)); err != nil && first == nil {
@@ -1067,13 +1084,35 @@ func installEdgeMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 	}
 	for i := range stages {
 		stage := &stages[i]
-		if err := os.Rename(stage.dir, stage.backup); err != nil {
+		if _, err := os.Lstat(stage.backup); err == nil {
+			stage.failed = stage.dir + ".rollover-failed"
+			if err := os.RemoveAll(stage.failed); err != nil {
+				_ = rollback()
+				cleanupStages()
+				return fmt.Errorf("clear failed mTLS directory %s: %w", stage.failed, err)
+			}
+			if err := os.Rename(stage.dir, stage.failed); err != nil {
+				_ = rollback()
+				cleanupStages()
+				return fmt.Errorf("stage current mTLS directory %s: %w", stage.dir, err)
+			}
+		} else if os.IsNotExist(err) {
+			if err := os.Rename(stage.dir, stage.backup); err != nil {
+				_ = rollback()
+				cleanupStages()
+				return fmt.Errorf("backup current mTLS directory %s: %w", stage.dir, err)
+			}
+		} else {
 			_ = rollback()
 			cleanupStages()
-			return fmt.Errorf("backup current mTLS directory %s: %w", stage.dir, err)
+			return fmt.Errorf("inspect mTLS backup %s: %w", stage.backup, err)
 		}
 		if err := os.Rename(stage.stage, stage.dir); err != nil {
-			_ = os.Rename(stage.backup, stage.dir)
+			if stage.failed != "" {
+				_ = os.Rename(stage.failed, stage.dir)
+			} else {
+				_ = os.Rename(stage.backup, stage.dir)
+			}
 			_ = rollback()
 			cleanupStages()
 			return fmt.Errorf("activate mTLS directory %s: %w", stage.dir, err)
@@ -1083,6 +1122,16 @@ func installEdgeMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 			_ = rollback()
 			cleanupStages()
 			return fmt.Errorf("sync activated mTLS directory %s: %w", stage.dir, err)
+		}
+	}
+	for _, stage := range stages {
+		if stage.failed != "" {
+			if err := os.RemoveAll(stage.failed); err != nil {
+				return fmt.Errorf("remove superseded mTLS directory %s: %w", stage.failed, err)
+			}
+			if err := syncAgentDirectory(filepath.Dir(stage.dir)); err != nil {
+				return fmt.Errorf("sync superseded mTLS directory cleanup: %w", err)
+			}
 		}
 	}
 	return nil
