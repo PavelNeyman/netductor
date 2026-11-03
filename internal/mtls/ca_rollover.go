@@ -318,9 +318,7 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 			if _, err := activeCert.Verify(x509.VerifyOptions{Roots: newRoots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
 				return nil, nil, nil, fmt.Errorf("verify promoted client identity during recovery: %w", err)
 			}
-			oldRoots := x509.NewCertPool()
-			oldRoots.AddCert(oldCA)
-			if _, err := oldBackupCert.Verify(x509.VerifyOptions{Roots: oldRoots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+			if err := oldBackupCert.CheckSignatureFrom(oldCA); err != nil {
 				return nil, nil, nil, fmt.Errorf("verify previous client identity during recovery: %w", err)
 			}
 			if rollover.Issued == nil {
@@ -716,9 +714,7 @@ func CARolloverFinish() error {
 			if backupCert.Issuer.String() != oldCA.Subject.String() {
 				return fmt.Errorf("previous client certificate backup for %q has an unrecognized issuer", entry.Name())
 			}
-			oldRoots := x509.NewCertPool()
-			oldRoots.AddCert(oldCA)
-			if _, err := backupCert.Verify(x509.VerifyOptions{Roots: oldRoots, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+			if err := backupCert.CheckSignatureFrom(oldCA); err != nil {
 				return fmt.Errorf("previous client certificate backup for %q does not verify: %w", entry.Name(), err)
 			}
 			state, ok := rollover.Issued[entry.Name()]
