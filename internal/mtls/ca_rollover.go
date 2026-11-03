@@ -493,6 +493,8 @@ func CARolloverFinish() error {
 		{CAKeyFile, rolloverBackupCAKey},
 		{ServerCertFile, rolloverBackupServerCert},
 		{ServerKeyFile, rolloverBackupServerKey},
+		{ClientCertFile, rolloverBackupClientCert},
+		{ClientKeyFile, rolloverBackupClientKey},
 	} {
 		if err := copyDurable(path(pair[0]), path(pair[1])); err != nil {
 			return fmt.Errorf("backup %s before CA promotion: %w", pair[0], err)
@@ -529,7 +531,7 @@ func CARolloverFinish() error {
 	if err := writeDurable(path(CAKeyFile), newKeyPEM, 0o600); err != nil {
 		return rollback(fmt.Errorf("promote new CA key: %w", err))
 	}
-	for _, name := range []string{ServerCertFile, ServerKeyFile} {
+	for _, name := range []string{ServerCertFile, ServerKeyFile, ClientCertFile, ClientKeyFile} {
 		if err := os.Remove(path(name)); err != nil && !os.IsNotExist(err) {
 			return rollback(fmt.Errorf("remove old %s before re-issuance: %w", name, err))
 		}
@@ -541,9 +543,15 @@ func CARolloverFinish() error {
 	if err := ensureServer(pub); err != nil {
 		return rollback(fmt.Errorf("issue server certificate from new CA: %w", err))
 	}
+	if err := ensureClient(); err != nil {
+		return rollback(fmt.Errorf("issue default client certificate from new CA: %w", err))
+	}
 	serverPair, err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile))
 	if err != nil {
 		return rollback(fmt.Errorf("validate promoted server certificate/key: %w", err))
+	}
+	if _, err := tls.LoadX509KeyPair(path(ClientCertFile), path(ClientKeyFile)); err != nil {
+		return rollback(fmt.Errorf("validate promoted default client certificate/key: %w", err))
 	}
 	serverLeaf, err := x509.ParseCertificate(serverPair.Certificate[0])
 	if err != nil || serverLeaf.Issuer.String() != newCA.Subject.String() {
@@ -570,10 +578,13 @@ const (
 	rolloverBackupCAKey      = "ca-rollover-backup-ca.key"
 	rolloverBackupServerCert = "ca-rollover-backup-server.crt"
 	rolloverBackupServerKey  = "ca-rollover-backup-server.key"
+	rolloverBackupClientCert = "ca-rollover-backup-client.crt"
+	rolloverBackupClientKey  = "ca-rollover-backup-client.key"
 )
 
 var rolloverBackupFiles = []string{
 	rolloverBackupCACert, rolloverBackupCAKey, rolloverBackupServerCert, rolloverBackupServerKey,
+	rolloverBackupClientCert, rolloverBackupClientKey,
 }
 
 func writeDurable(dst string, data []byte, mode os.FileMode) error {
