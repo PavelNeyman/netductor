@@ -162,16 +162,76 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 		}
 		return "", err
 	}
-	m, err := loadPeerMaterial(peerID)
-	if err != nil {
-		return "", fmt.Errorf("incomplete add %s phase=%s: material missing (%v) — fix manually", peerID, op.Phase, err)
-	}
-	if err := validatePeerOp(op, peerID, m); err != nil {
+	// Validate the durable operation identity before considering material recovery.
+	if err := validatePeerOp(op, peerID, nil); err != nil {
 		return "", fmt.Errorf("refuse recover: %w", err)
 	}
 	idx, err := LoadPeersIndex()
 	if err != nil {
 		return "", err
+	}
+	m, err := loadPeerMaterial(peerID)
+	if err != nil {
+		materialPath := peerMaterialPath(peerID)
+		st, statErr := os.Lstat(materialPath)
+		if statErr == nil {
+			// Existing but unreadable/corrupt/incomplete material may contain keys
+			// already relied upon by an interrupted operation. Never replace it.
+			_ = st
+			return "", fmt.Errorf("incomplete add %s phase=%s: existing material is not valid (%v); refusing key regeneration", peerID, op.Phase, err)
+		}
+		if !os.IsNotExist(statErr) {
+			return "", fmt.Errorf("inspect incomplete add material %s: %w", peerID, statErr)
+		}
+		if op.Phase != "allocating" {
+			return "", fmt.Errorf("incomplete add %s phase=%s: material missing; refusing key regeneration outside allocating phase", peerID, op.Phase)
+		}
+		if existing := idx.findAny(peerID); existing != nil {
+			return "", fmt.Errorf("peer %s already has registry state %s; refusing to regenerate missing material", peerID, existing.State)
+		}
+		if byIP := idx.FindByIP(op.PublicIP); byIP != nil {
+			return "", fmt.Errorf("public IP %s is already assigned to peer %s; refusing recovery", op.PublicIP, byIP.ID)
+		}
+		for _, existing := range idx.Peers {
+			if existing.State != "removed" && existing.Slot.Index == op.SlotIndex {
+				return "", fmt.Errorf("slot %d is already assigned to peer %s; refusing recovery", op.SlotIndex, existing.ID)
+			}
+		}
+		generated, genErr := generateMaterialFn(op.PrimaryIP, op.PublicIP)
+		if genErr != nil {
+			return "", fmt.Errorf("regenerate material for interrupted allocating peer %s: %w", peerID, genErr)
+		}
+		if generated == nil {
+			return "", fmt.Errorf("regenerate material for interrupted allocating peer %s: generator returned nil", peerID)
+		}
+		generated.PeerID = peerID
+		generated.Primary = op.PrimaryIP
+		generated.Secondary = op.PublicIP
+		slot, ok := slotFromTable(op.SlotIndex)
+		if !ok {
+			return "", fmt.Errorf("operation slot %d not in SlotTable", op.SlotIndex)
+		}
+		applySlotToMaterial(generated, slot)
+		if generated.SPPrivP == "" || generated.SPPrivS == "" {
+			return "", fmt.Errorf("regenerated material for peer %s is incomplete; refusing to persist", peerID)
+		}
+		if err := assertPeerMaterialIdentity(generated, peerID, op.PublicIP, op.SlotIndex); err != nil {
+			return "", fmt.Errorf("regenerated material identity invalid: %w", err)
+		}
+		b, marshalErr := json.MarshalIndent(generated, "", "  ")
+		if marshalErr != nil {
+			return "", marshalErr
+		}
+		if err := atomicWritePeerFile(materialPath, b, 0o600); err != nil {
+			return "", fmt.Errorf("persist regenerated peer material: %w", err)
+		}
+		if err := writePeerOp(peerOp{Op: "add", PeerID: peerID, PublicIP: op.PublicIP, PrimaryIP: op.PrimaryIP, SlotIndex: op.SlotIndex, Phase: "material"}); err != nil {
+			return "", fmt.Errorf("material persisted but operation checkpoint failed: %w (retry peer recover %s)", err, peerID)
+		}
+		m = generated
+	}
+	if err := validatePeerOp(op, peerID, m); err != nil {
+		return "", fmt.Errorf("refuse recover: %w", err)
 	}
 	if existing := idx.Find(peerID); existing != nil {
 		// The registry entry alone does not prove that bootstrap completed.
