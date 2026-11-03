@@ -357,20 +357,23 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 			errs = append(errs, fmt.Errorf("restore %s: %w", tx.journal.Files[i].Path, err))
 		}
 	}
-	if len(errs) != 0 {
-		return errors.Join(errs...)
-	}
+	// Roll back each independent mutation domain even if another one failed.
+	// The journal remains in rolling_back until every compensation succeeds,
+	// so a later recovery can safely retry all before-images.
 	if tx.journalTouchesSystemdUnits() || len(tx.journal.Units) > 0 {
 		out, err := bootstrapSystemctl("daemon-reload")
 		if err != nil {
-			return fmt.Errorf("reload systemd after bootstrap file rollback: %w: %s", err, strings.TrimSpace(string(out)))
+			errs = append(errs, fmt.Errorf("reload systemd after bootstrap file rollback: %w: %s", err, strings.TrimSpace(string(out))))
 		}
 	}
 	if err := restoreBootstrapUnits(tx.journal.Units, tx.journal.TouchedUnits); err != nil {
-		return fmt.Errorf("restore systemd runtime/enablement state: %w", err)
+		errs = append(errs, fmt.Errorf("restore systemd runtime/enablement state: %w", err))
 	}
 	if err := restoreBootstrapFirewallRules(tx.journal.FirewallRules); err != nil {
-		return fmt.Errorf("restore bootstrap firewall deltas: %w", err)
+		errs = append(errs, fmt.Errorf("restore bootstrap firewall deltas: %w", err))
+	}
+	if len(errs) != 0 {
+		return errors.Join(errs...)
 	}
 	return tx.finish("rolled_back")
 }
