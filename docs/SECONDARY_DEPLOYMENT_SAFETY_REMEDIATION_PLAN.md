@@ -185,3 +185,14 @@ Updated against current `main` after the initial plan commit.
 - [x] Grace-expiry revocation failures and confirmation revocation failures are propagated; pending state is not silently discarded.
 - [x] Added regression tests for idempotent rotation/confirmation, failed revocation, grace-expiry failure, and recovery after interruption.
 - [ ] Focused tests have not been executed; Actions remain manual-only.
+
+### CA rollover safety containment
+
+- [x] CA rollover journal loading now distinguishes a genuinely absent journal from malformed JSON and I/O errors. Corrupt or invalid phase data is returned as an error instead of being interpreted as an empty rollover.
+- [x] New-CA client issuance validates the journal phase and CA serial before issuing material.
+- [x] Client certificate/key replacement now stages the prior pair, restores only files actually moved if interrupted, and rolls back on promotion or material-read failure.
+- [x] New-CA issuance no longer revokes the previous client serial before the Secondary has adopted the replacement. The existing agent protocol does not yet provide a durable new-certificate TLS acknowledgement.
+- [x] CA promotion is blocked until per-Secondary adoption acknowledgements exist; this intentionally prevents removal of old-CA trust while an offline or unconfirmed Secondary may still depend on it.
+- [ ] The Secondary-side staged install, validation, reconnect acknowledgement, per-device durable rotation state, and safe abort checks remain to be implemented.
+- [ ] Regression tests have not been added or executed for this containment change. Actions remain manual-only.
+
