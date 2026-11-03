@@ -37,9 +37,19 @@ func loadPending() (map[string]pendingRotate, error) {
 	}
 	now := time.Now().Unix()
 	for _, p := range list {
+		if strings.TrimSpace(p.NodeID) == "" || strings.TrimSpace(p.NewSerial) == "" {
+			return nil, fmt.Errorf("invalid pending rotate entry")
+		}
 		if p.ExpiresAt > 0 && now > p.ExpiresAt {
-			_ = RevokeSerial(p.OldSerial, p.NodeID, "grace-expired")
+			if p.OldSerial != "" {
+				if err := RevokeSerial(p.OldSerial, p.NodeID, "grace-expired"); err != nil {
+					return nil, fmt.Errorf("revoke expired client certificate for %s: %w", p.NodeID, err)
+				}
+			}
 			continue
+		}
+		if _, exists := out[p.NodeID]; exists {
+			return nil, fmt.Errorf("duplicate pending rotate entry for %s", p.NodeID)
 		}
 		out[p.NodeID] = p
 	}
@@ -65,48 +75,135 @@ func GraceHours() int {
 	return 24
 }
 
-// RotateClientForPush re-issues cert, keeps old serial valid until Confirm or grace.
-// Returns material for push + pending metadata.
+// RotateClientForPush re-issues cert, keeping the previous certificate valid until
+// Confirm or grace expiry. Existing pending rotations are returned idempotently.
 func RotateClientForPush(nodeID, reason string) (info ClientInfo, ca, cert, key []byte, err error) {
+	nodeID = strings.TrimSpace(nodeID)
+	if nodeID == "" {
+		return ClientInfo{}, nil, nil, nil, fmt.Errorf("empty node ID")
+	}
 	if reason == "" {
 		reason = "rotate"
 	}
-	certPath := filepath.Join(ClientDir(nodeID), ClientCertFile)
-	keyPath := filepath.Join(ClientDir(nodeID), ClientKeyFile)
-	var oldSerial string
-	if fileOK(certPath) {
-		if c, e := parseCertFile(certPath); e == nil {
-			oldSerial = serialHex(c.SerialNumber)
+
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+
+	pending, err := loadPending()
+	if err != nil {
+		return ClientInfo{}, nil, nil, nil, fmt.Errorf("load pending rotate: %w", err)
+	}
+	if _, exists := pending[nodeID]; exists {
+		ca, cert, key, err = ReadMaterial(nodeID)
+		if err != nil {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("read pending rotation material: %w", err)
 		}
+		info, err = ReadClientInfo(nodeID)
+		if err != nil {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("read pending rotation info: %w", err)
+		}
+		return info, ca, cert, key, nil
+	}
+
+	dir := ClientDir(nodeID)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return ClientInfo{}, nil, nil, nil, err
+	}
+	certPath := filepath.Join(dir, ClientCertFile)
+	keyPath := filepath.Join(dir, ClientKeyFile)
+	certBackup := certPath + ".rotate-backup"
+	keyBackup := keyPath + ".rotate-backup"
+	for _, backup := range []string{certBackup, keyBackup} {
+		if _, statErr := os.Lstat(backup); statErr == nil {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("stale rotation backup exists: %s; manual recovery required", backup)
+		} else if !os.IsNotExist(statErr) {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("inspect rotation backup %s: %w", backup, statErr)
+		}
+	}
+
+	_, certErr := os.Lstat(certPath)
+	_, keyErr := os.Lstat(keyPath)
+	certExists, keyExists := certErr == nil, keyErr == nil
+	if certErr != nil && !os.IsNotExist(certErr) {
+		return ClientInfo{}, nil, nil, nil, fmt.Errorf("inspect old client certificate: %w", certErr)
+	}
+	if keyErr != nil && !os.IsNotExist(keyErr) {
+		return ClientInfo{}, nil, nil, nil, fmt.Errorf("inspect old client key: %w", keyErr)
+	}
+	if certExists != keyExists {
+		return ClientInfo{}, nil, nil, nil, fmt.Errorf("incomplete existing client material for %s; refusing rotation", nodeID)
+	}
+
+	oldSerial := ""
+	if certExists {
+		oldCert, parseErr := parseCertFile(certPath)
+		if parseErr != nil {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("parse existing client certificate: %w", parseErr)
+		}
+		oldSerial = serialHex(oldCert.SerialNumber)
+		if oldSerial == "" {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("existing client certificate has empty serial")
+		}
+		if err := os.Rename(certPath, certBackup); err != nil {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("stage old client certificate: %w", err)
+		}
+		if err := os.Rename(keyPath, keyBackup); err != nil {
+			restoreErr := os.Rename(certBackup, certPath)
+			if restoreErr != nil {
+				return ClientInfo{}, nil, nil, nil, fmt.Errorf("stage old client key: %w; restore old certificate: %v", err, restoreErr)
+			}
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("stage old client key: %w", err)
+		}
+	}
+
+	restoreOld := func() error {
+		var errs []string
 		_ = os.Remove(certPath)
 		_ = os.Remove(keyPath)
+		if certExists {
+			if e := os.Rename(certBackup, certPath); e != nil {
+				errs = append(errs, "restore certificate: "+e.Error())
+			}
+			if e := os.Rename(keyBackup, keyPath); e != nil {
+				errs = append(errs, "restore key: "+e.Error())
+			}
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("%s", strings.Join(errs, "; "))
+		}
+		return nil
 	}
+
 	ca, cert, key, err = EnsureClientFor(nodeID)
 	if err != nil {
-		return ClientInfo{}, nil, nil, nil, err
+		if rbErr := restoreOld(); rbErr != nil {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("issue new client material: %w; rollback incomplete: %v", err, rbErr)
+		}
+		return ClientInfo{}, nil, nil, nil, fmt.Errorf("issue new client material: %w", err)
 	}
 	info, err = ReadClientInfo(nodeID)
 	if err != nil {
-		return ClientInfo{}, nil, nil, nil, err
+		if rbErr := restoreOld(); rbErr != nil {
+			return ClientInfo{}, nil, nil, nil, fmt.Errorf("read new client info: %w; rollback incomplete: %v", err, rbErr)
+		}
+		return ClientInfo{}, nil, nil, nil, fmt.Errorf("read new client info: %w", err)
 	}
 	if oldSerial != "" && oldSerial != info.Serial {
-		pendingMu.Lock()
-		m, errLoad := loadPending()
-		if errLoad != nil {
-			pendingMu.Unlock()
-			return ClientInfo{}, nil, nil, nil, fmt.Errorf("load pending rotate: %w", errLoad)
-		}
-		m[nodeID] = pendingRotate{
+		pending[nodeID] = pendingRotate{
 			NodeID: nodeID, OldSerial: oldSerial, NewSerial: info.Serial,
 			CreatedAt: time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Duration(GraceHours()) * time.Hour).Unix(),
 		}
-		if err := savePending(m); err != nil {
-			pendingMu.Unlock()
+		if err := savePending(pending); err != nil {
+			if rbErr := restoreOld(); rbErr != nil {
+				return ClientInfo{}, nil, nil, nil, fmt.Errorf("save pending rotate: %w; rollback incomplete: %v", err, rbErr)
+			}
 			return ClientInfo{}, nil, nil, nil, fmt.Errorf("save pending rotate: %w", err)
 		}
-		pendingMu.Unlock()
-		// do NOT revoke old yet — agent still uses it to fetch material
+	}
+	if certExists {
+		_ = os.Remove(certBackup)
+		_ = os.Remove(keyBackup)
 	}
 	return info, ca, cert, key, nil
 }
@@ -129,7 +226,9 @@ func ConfirmRotate(nodeID, presentedSerial string) error {
 		return nil
 	}
 	if p.OldSerial != "" {
-		_ = RevokeSerial(p.OldSerial, nodeID, "rotate-confirmed")
+		if err := RevokeSerial(p.OldSerial, nodeID, "rotate-confirmed"); err != nil {
+			return fmt.Errorf("revoke previous client certificate: %w", err)
+		}
 	}
 	delete(m, nodeID)
 	return savePending(m)
