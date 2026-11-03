@@ -263,14 +263,6 @@ func runLocal(cmd string) error {
 	return c.Run()
 }
 
-func trimOut(s string) string {
-	s = strings.TrimSpace(s)
-	if len(s) > 400 {
-		return s[:400] + "…"
-	}
-	return s
-}
-
 func pruneCredentials(dir, role string, keep int) {
 	if keep < 1 {
 		keep = 5
