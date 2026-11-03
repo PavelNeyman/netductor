@@ -451,6 +451,13 @@ func CARolloverFinish() error {
 			if serialHex(backupCert.SerialNumber) != state.OldSerial {
 				return fmt.Errorf("previous client certificate backup for %q does not match the rollover journal", nodeID)
 			}
+			backupKeyPath := filepath.Join(ClientDir(nodeID), ClientKeyFile+".rollover-old")
+			if _, err := os.Lstat(backupKeyPath); err != nil {
+				return fmt.Errorf("load previous client key backup for %q: %w", nodeID, err)
+			}
+			if _, err := tls.LoadX509KeyPair(backupPath, backupKeyPath); err != nil {
+				return fmt.Errorf("validate previous client certificate/key backup for %q: %w", nodeID, err)
+			}
 			revoked, err := IsRevoked(oldSerial)
 			if err != nil {
 				return fmt.Errorf("check old certificate revocation for %q: %w", nodeID, err)
