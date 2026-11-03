@@ -642,3 +642,44 @@ func TestBootstrapRollbackAttemptsAllDomainsAfterFileRestoreFailure(t *testing.T
 	if len(firewallCalls) == 0 { t.Fatal("firewall compensation skipped after file error") }
 	if tx.journal.Phase != "rolling_back" { t.Fatalf("journal phase = %q, want rolling_back", tx.journal.Phase) }
 }
+
+
+func TestBootstrapCommitFailureRollsBackAppliedMutations(t *testing.T) {
+	root := t.TempDir()
+	oldAllowed := bootstrapAllowedFileRoots
+	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
+	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
+	oldJournalRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
+
+	target := filepath.Join(root, "managed.conf")
+	if err := os.WriteFile(target, []byte("before"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.writeFile(target, "after", 0o600); err != nil {
+		t.Fatal(err)
+	}
+	commitErr := errors.New("injected commit failure")
+	err = commitBootstrapTransaction(tx, func() error { return commitErr })
+	if !errors.Is(err, commitErr) {
+		t.Fatalf("commit error = %v, want injected commit failure", err)
+	}
+	got, readErr := os.ReadFile(target)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(got) != "before" {
+		t.Fatalf("target content = %q, want before after failed commit", got)
+	}
+	if tx.journal.Phase != "rolled_back" {
+		t.Fatalf("transaction phase = %q, want rolled_back", tx.journal.Phase)
+	}
+	if _, statErr := os.Lstat(tx.path); !os.IsNotExist(statErr) {
+		t.Fatalf("completed rollback journal remains: %v", statErr)
+	}
+}
