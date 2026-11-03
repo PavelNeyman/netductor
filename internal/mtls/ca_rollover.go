@@ -58,6 +58,17 @@ func loadRollover() (rolloverInfo, error) {
 	default:
 		return rolloverInfo{}, fmt.Errorf("invalid CA rollover journal phase %q", r.Phase)
 	}
+	for nodeID, client := range r.Issued {
+		if strings.TrimSpace(nodeID) == "" || parseSerial(client.NewSerial) == nil {
+			return rolloverInfo{}, fmt.Errorf("invalid CA rollover journal client entry %q", nodeID)
+		}
+		if client.OldSerial != "" && parseSerial(client.OldSerial) == nil {
+			return rolloverInfo{}, fmt.Errorf("invalid old serial in CA rollover journal for %q", nodeID)
+		}
+		if client.ConfirmedAt < 0 {
+			return rolloverInfo{}, fmt.Errorf("invalid confirmation timestamp in CA rollover journal for %q", nodeID)
+		}
+	}
 	return r, nil
 }
 
