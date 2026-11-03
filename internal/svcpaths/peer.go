@@ -164,6 +164,9 @@ type PeersIndex struct {
 
 var peerMu sync.Mutex
 
+// peerRegistryLockTimeout bounds cross-process waits in deploy and peer lifecycle commands.
+var peerRegistryLockTimeout = 30 * time.Second
+
 // acquirePeerRegistryLock serializes peer-index read/modify/write operations
 // across CLI, API, recovery and agent processes. The lock lives beside peers.json.
 func acquirePeerRegistryLock() (func(), error) {
@@ -193,9 +196,21 @@ func acquirePeerRegistryLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("peer registry lock must be a private regular file owned by euid %d", os.Geteuid())
 	}
-	if err := unix.Flock(fd, unix.LOCK_EX); err != nil {
-		_ = unix.Close(fd)
-		return nil, fmt.Errorf("lock peer registry: %w", err)
+	deadline := time.Now().Add(peerRegistryLockTimeout)
+	for {
+		err = unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
+		if err == nil {
+			break
+		}
+		if err != unix.EWOULDBLOCK && err != unix.EAGAIN && err != unix.EINTR {
+			_ = unix.Close(fd)
+			return nil, fmt.Errorf("lock peer registry: %w", err)
+		}
+		if !time.Now().Before(deadline) {
+			_ = unix.Close(fd)
+			return nil, fmt.Errorf("lock peer registry timed out after %s", peerRegistryLockTimeout)
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
 	return func() {
 		_ = unix.Flock(fd, unix.LOCK_UN)
