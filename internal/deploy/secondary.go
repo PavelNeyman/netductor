@@ -1074,22 +1074,33 @@ ip=%s
 f=/var/lib/netductor/secondary/devices.json
 test -f "$f"
 python3 -c '
-import json,sys
+import json,sys,time,os
 id,ip=sys.argv[1],sys.argv[2]
-r=json.load(open("/var/lib/netductor/secondary/devices.json"))
-devs=r.get("devices") or []
-d=next((x for x in devs if x.get("id")==id), None)
-if not d:
-    raise SystemExit("agent id not in registry")
-if (d.get("public_ip") or "") != ip:
-    raise SystemExit("public_ip mismatch")
-if not (d.get("pbk") or "").strip():
-    raise SystemExit("empty pbk — subscription would omit this secondary")
-if not (d.get("sid") or "").strip():
-    raise SystemExit("empty sid — subscription would omit this secondary")
-if not d.get("singbox_ok"):
-    raise SystemExit("singbox_ok=false")
-print("profile ready id=%%s ip=%%s pbk_len=%%d"%%(id,ip,len(d.get("pbk") or "")))
+last="agent id not in registry"
+for attempt in range(24):
+    try:
+        with open("/var/lib/netductor/secondary/devices.json") as f:
+            r=json.load(f)
+        devs=r.get("devices") or []
+        d=next((x for x in devs if x.get("id")==id), None)
+        if not d:
+            last="agent id not in registry"
+        elif (d.get("public_ip") or "") != ip:
+            last="public_ip mismatch"
+        elif not (d.get("pbk") or "").strip():
+            last="empty pbk — subscription would omit this secondary"
+        elif not (d.get("sid") or "").strip():
+            last="empty sid — subscription would omit this secondary"
+        elif not d.get("singbox_ok"):
+            last="singbox_ok=false"
+        else:
+            print("profile ready id=%%s ip=%%s pbk_len=%%d"%%(id,ip,len(d.get("pbk") or "")))
+            sys.exit(0)
+    except Exception as e:
+        last="devices registry unavailable or invalid: "+type(e).__name__
+    if attempt < 23:
+        time.sleep(5)
+raise SystemExit(last)
 ' "$id" "$ip"
 `, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
 	outReady, errReady := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, readyCmd, o.PrimaryKeyPassphrase)
