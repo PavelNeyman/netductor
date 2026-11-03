@@ -827,9 +827,15 @@ func CARolloverAbort() error {
 			if !entry.IsDir() {
 				continue
 			}
-			clientCert, err := parseCertFile(filepath.Join(root, entry.Name(), ClientCertFile))
+			clientPath := filepath.Join(root, entry.Name(), ClientCertFile)
+			clientCert, err := parseCertFile(clientPath)
 			if err != nil {
 				if os.IsNotExist(err) {
+					if _, backupErr := os.Lstat(clientPath + ".rollover-old"); backupErr == nil {
+						return fmt.Errorf("cannot abort CA rollover: client %q has an interrupted certificate replacement", entry.Name())
+					} else if !os.IsNotExist(backupErr) {
+						return fmt.Errorf("inspect client backup for %q before abort: %w", entry.Name(), backupErr)
+					}
 					continue
 				}
 				return fmt.Errorf("inspect client certificate %q before abort: %w", entry.Name(), err)
