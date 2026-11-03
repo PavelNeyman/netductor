@@ -200,6 +200,11 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	if fileOK(certPath) != fileOK(keyPath) {
 		return nil, nil, nil, fmt.Errorf("existing client certificate/key pair for %q is incomplete", nodeID)
 	}
+	if fileOK(certPath) {
+		if _, err := tls.LoadX509KeyPair(certPath, keyPath); err != nil {
+			return nil, nil, nil, fmt.Errorf("existing client certificate/key pair for %q is invalid: %w", nodeID, err)
+		}
+	}
 	oldSerial := ""
 	if fileOK(certPath) {
 		oldInfo, err := ReadClientInfo(nodeID)
