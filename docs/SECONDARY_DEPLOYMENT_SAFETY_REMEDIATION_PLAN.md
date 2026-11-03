@@ -223,3 +223,8 @@ Updated against current `main` after the initial plan commit.
 - [x] The mTLS server reloads its server certificate and client trust roots for each new TLS handshake, so CA promotion does not depend on restarting the listener process.
 - [x] Added a recovery test that simulates a crash after only the CA certificate was replaced and verifies restoration of the CA, server, and default client material.
 - [ ] Tests have not been executed. Actions remain manual-only.
+
+### Deploy retry after committed SSH hardening
+
+- [x] A post-hardening host-agent purge failure no longer reports Secondary provisioning as failed after SSH access has already been finalized and the rollback timer cancelled. The purge is non-fatal housekeeping and is retained as a warning in the provision result; the operator journal can safely checkpoint `provisioned` and continue on key-only SSH.
+- [ ] Focused tests and full deploy-path verification remain pending. No production deployment performed.
