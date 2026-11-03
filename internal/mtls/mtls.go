@@ -49,6 +49,9 @@ func EnsureAll(serverIP string) error {
 	if err := os.MkdirAll(Dir(), 0o700); err != nil {
 		return err
 	}
+	if err := recoverCARolloverPromotion(); err != nil {
+		return fmt.Errorf("recover CA rollover transaction: %w", err)
+	}
 	if err := ensureCA(); err != nil {
 		return err
 	}
