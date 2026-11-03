@@ -21,15 +21,7 @@ func edgeTLSIdentityMatches(r *http.Request, deviceID string) bool {
 }
 
 func edgeRequiresMTLS(deviceID string) bool {
-	if edgeHasClientMaterial(deviceID) {
-		return true
-	}
-	for _, device := range edge.ListDevices() {
-		if device.DeviceID == deviceID && device.Status == edge.StatusApproved {
-			return true
-		}
-	}
-	return false
+	return edgeHasClientMaterial(deviceID)
 }
 
 func edgeHasClientMaterial(deviceID string) bool {
