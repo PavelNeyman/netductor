@@ -193,6 +193,10 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
 		_ = f.Close()
 		return err
 	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("sync temporary trust file: %w", err)
+	}
 	if err := f.Close(); err != nil {
 		return err
 	}
@@ -200,6 +204,17 @@ func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	ok = true
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open trust directory for sync: %w", err)
+	}
+	if err := d.Sync(); err != nil {
+		_ = d.Close()
+		return fmt.Errorf("sync trust directory: %w", err)
+	}
+	if err := d.Close(); err != nil {
+		return fmt.Errorf("close trust directory: %w", err)
+	}
 	return nil
 }
 
