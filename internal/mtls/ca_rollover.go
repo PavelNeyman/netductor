@@ -369,14 +369,9 @@ func CARolloverFinish() error {
 			}
 		}
 	}
-	if !fileOK(path(CANewCertFile)) {
-		return fmt.Errorf("no ca-new")
+	if !fileOK(path(CANewCertFile)) || !fileOK(path(CANewKeyFile)) {
+		return fmt.Errorf("new CA certificate/key pair is incomplete")
 	}
-	if !fileOK(path(CANewKeyFile)) {
-		return fmt.Errorf("no ca-new key")
-	}
-	// Refuse promotion while any active per-node certificate still chains
-	// directly to the old CA. This includes offline registered clients.
 	oldCA, err := parseCertFile(path(CACertFile))
 	if err != nil {
 		return fmt.Errorf("read current CA before promotion: %w", err)
@@ -401,71 +396,10 @@ func CARolloverFinish() error {
 			return fmt.Errorf("CA rollover is not complete: active client certificate for %q still uses the old CA", entry.Name())
 		}
 	}
-	// The client-adoption phase is now verifiable, but the CA + server
-	// certificate promotion still spans multiple independent files. Do not
-	// execute that destructive phase until it has its own crash-recovery journal.
+	// Promotion still replaces the CA certificate, CA key, and server
+	// certificate/key as separate files. Keep it disabled until those changes
+	// are covered by a durable crash-recovery transaction.
 	return fmt.Errorf("CA rollover clients are confirmed, but crash-safe CA/server promotion is not implemented")
-	// backup old (must succeed before promote)
-	if err := os.Rename(path(CACertFile), path("ca-old.crt")); err != nil {
-		return fmt.Errorf("backup ca.crt: %w", err)
-	}
-	if err := os.Rename(path(CAKeyFile), path("ca-old.key")); err != nil {
-		// try restore cert
-		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
-		return fmt.Errorf("backup ca.key: %w", err)
-	}
-	if err := os.Rename(path(CANewCertFile), path(CACertFile)); err != nil {
-		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
-		_ = os.Rename(path("ca-old.key"), path(CAKeyFile))
-		return fmt.Errorf("promote ca-new.crt: %w", err)
-	}
-	if err := os.Rename(path(CANewKeyFile), path(CAKeyFile)); err != nil {
-		_ = os.Rename(path(CACertFile), path(CANewCertFile))
-		_ = os.Rename(path("ca-old.crt"), path(CACertFile))
-		_ = os.Rename(path("ca-old.key"), path(CAKeyFile))
-		return fmt.Errorf("promote ca-new.key: %w", err)
-	}
-	// Backup server cert before re-issue so ensureServer failure can restore.
-	if err := os.Rename(path(ServerCertFile), path("server-old.crt")); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("backup server.crt: %w", err)
-	}
-	if err := os.Rename(path(ServerKeyFile), path("server-old.key")); err != nil && !os.IsNotExist(err) {
-		_ = os.Rename(path("server-old.crt"), path(ServerCertFile))
-		return fmt.Errorf("backup server.key: %w", err)
-	}
-	pub := ""
-	if b, err := os.ReadFile(filepath.Join(filepath.Dir(Dir()), "public_ip")); err == nil {
-		pub = string(b)
-	}
-	if err := ensureServer(strings.TrimSpace(pub)); err != nil {
-		var rb []string
-		for _, pair := range [][2]string{
-			{path(CACertFile), path(CANewCertFile)},
-			{path(CAKeyFile), path(CANewKeyFile)},
-			{path("ca-old.crt"), path(CACertFile)},
-			{path("ca-old.key"), path(CAKeyFile)},
-			{path("server-old.crt"), path(ServerCertFile)},
-			{path("server-old.key"), path(ServerKeyFile)},
-		} {
-			if e := os.Rename(pair[0], pair[1]); e != nil && !os.IsNotExist(e) {
-				rb = append(rb, e.Error())
-			}
-		}
-		_ = saveRollover(rolloverInfo{Phase: "dual", StartedAt: time.Now().Unix()})
-		msg := fmt.Sprintf("ensureServer after CA promote: %v", err)
-		if len(rb) > 0 {
-			msg += "; rollback errors: " + strings.Join(rb, "; ")
-		} else {
-			msg += " (rolled back to previous CA/server)"
-		}
-		return fmt.Errorf("%s", msg)
-	}
-	_ = os.Remove(path("server-old.crt"))
-	_ = os.Remove(path("server-old.key"))
-	if err := saveRollover(rolloverInfo{Phase: "done", StartedAt: time.Now().Unix()}); err != nil {
-		return fmt.Errorf("CA promoted and server re-issued but rollover state save failed: %w", err)
-	}
-	return nil
 }
 
 // CARolloverAbort removes ca-new only when no client certificate has been
