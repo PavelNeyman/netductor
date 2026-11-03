@@ -21,6 +21,16 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
+		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0] == nil {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
+			return
+		}
+		peerCert := r.TLS.PeerCertificates[0]
+		if peerCert.Subject.CommonName != "netductor-agent-"+tokenDID {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "certificate_identity_mismatch"})
+			return
+		}
+		peerSerial := strings.ToLower(peerCert.SerialNumber.Text(16))
 		payload := readJSON(r)
 		did, _ := payload["device_id"].(string)
 		if did == "" {
@@ -52,8 +62,14 @@ func registerEdgeAgent(mux *http.ServeMux) {
 				}
 			}
 		}
-		if ser, _ := payload["cert_serial"].(string); ser != "" {
-			_ = mtls.ConfirmRotate(did, ser)
+		if err := mtls.ConfirmRotate(did, peerSerial); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_confirmation_failed"})
+			return
+		}
+		rolloverConfirmed, err := mtls.ConfirmCARolloverClient(did, peerSerial)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "ca_rollover_confirmation_failed"})
+			return
 		}
 		hn, _ := payload["hostname"].(string)
 		ip, _ := payload["wan_ip"].(string)
@@ -68,7 +84,7 @@ func registerEdgeAgent(mux *http.ServeMux) {
 		if role == "" {
 			role = "edge"
 		}
-		resp := map[string]any{"ok": true}
+		resp := map[string]any{"ok": true, "mtls_rollover_confirmed": rolloverConfirmed}
 		if did != "" {
 			n, err := nodes.UpsertFromDevice(nodes.Node{
 				ID: did, Hostname: hn, Role: role, Kind: kind, PublicIP: ip, Status: "online",
