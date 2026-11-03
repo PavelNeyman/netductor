@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/aptguard"
@@ -29,10 +30,16 @@ import (
 )
 
 // AgentLoop runs on RU VPS: heartbeat + pull config when version drifts.
+var secondaryTLSHandshakeSucceeded atomic.Bool
+
 func agentHTTPClient() *http.Client {
 	c := &http.Client{Timeout: 20 * time.Second}
 	if mtls.ClientReady() {
 		if tlsCfg, err := mtls.ClientTLSConfig(); err == nil {
+			tlsCfg.VerifyConnection = func(tls.ConnectionState) error {
+				secondaryTLSHandshakeSucceeded.Store(true)
+				return nil
+			}
 			c.Transport = &http.Transport{TLSClientConfig: tlsCfg}
 		}
 	}
@@ -82,7 +89,7 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 		if err := agentTick(client, coreBase, token, &applied, &lastDone, &lastOK, &lastLog); err != nil {
 			consecutiveAgentErrors++
 			fmt.Fprintf(os.Stderr, "agent tick: %v\n", err)
-			if consecutiveAgentErrors >= 3 && restorePreviousMTLSMaterial() {
+			if consecutiveAgentErrors >= 3 && !secondaryTLSHandshakeSucceeded.Load() && restorePreviousMTLSMaterial() {
 				fmt.Fprintln(os.Stderr, "mTLS refresh did not reconnect; restored previous client material")
 				client = agentHTTPClient()
 				consecutiveAgentErrors = 0
