@@ -20,11 +20,13 @@ func TestValidatePeerID(t *testing.T) {
 	if err := validatePeerID("../evil"); err == nil {
 		t.Fatal("expected invalid")
 	}
-	if err := validatePublicIP("203.0.113.1"); err != nil {
+	if err := validatePublicIP("8.8.8.1"); err != nil {
 		t.Fatal(err)
 	}
-	if err := validatePublicIP("not-an-ip"); err == nil {
-		t.Fatal("expected invalid ip")
+	for _, ip := range []string{"not-an-ip", "10.0.0.1", "100.64.0.1", "203.0.113.1", "198.51.100.1", "192.0.2.1", "::1"} {
+		if err := validatePublicIP(ip); err == nil {
+			t.Fatalf("expected non-public IPv4 %q to be rejected", ip)
+		}
 	}
 }
 
@@ -176,13 +178,13 @@ func TestPeerAddRejectsRemoved(t *testing.T) {
 	SetKeysRootForTest(dir)
 	t.Cleanup(func() { SetKeysRootForTest("") })
 	idx := &PeersIndex{Peers: []ServicePeer{{
-		ID: "peer-old", State: "removed", PublicIP: "203.0.113.9",
+		ID: "peer-old", State: "removed", PublicIP: "8.8.8.9",
 		Slot: SlotTable()[1],
 	}}}
 	if err := SavePeersIndex(idx); err != nil {
 		t.Fatal(err)
 	}
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-old", PublicIP: "203.0.113.9", PrimaryIP: "198.51.100.1"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-old", PublicIP: "8.8.8.9", PrimaryIP: "1.1.1.1"})
 	if err == nil || !strings.Contains(err.Error(), "removed") {
 		t.Fatalf("add after remove must fail, got %v", err)
 	}
@@ -195,7 +197,7 @@ func TestPeerValidateSecondaryUsesLocalMaterial(t *testing.T) {
 	old := peerValidateRole
 	peerValidateRole = func() string { return "secondary" }
 	t.Cleanup(func() { peerValidateRole = old })
-	m := &Material{PeerID: "peer-b", Slot: 1, Secondary: "203.0.113.9", Primary: "198.51.100.1"}
+	m := &Material{PeerID: "peer-b", Slot: 1, Secondary: "8.8.8.9", Primary: "1.1.1.1"}
 	applySlotToMaterial(m, SlotTable()[1])
 	b, _ := json.MarshalIndent(m, "", "  ")
 	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
@@ -218,7 +220,7 @@ func TestPeerRemoveDeletesMaterialAndUFW(t *testing.T) {
 	t.Cleanup(func() { SetKeysRootForTest("") })
 	slot := SlotTable()[1]
 	idx := &PeersIndex{Peers: []ServicePeer{{
-		ID: "peer-a", State: "prepared", PublicIP: "203.0.113.8", Slot: slot,
+		ID: "peer-a", State: "prepared", PublicIP: "8.8.8.8", Slot: slot,
 	}}}
 	if err := SavePeersIndex(idx); err != nil {
 		t.Fatal(err)
@@ -237,7 +239,7 @@ func TestPeerRemoveDeletesMaterialAndUFW(t *testing.T) {
 	peerRemoveReload = func() error { return nil }
 	peerRemoveUFW = func(publicIP, addrSSP, addrSPS string, wss int) error {
 		ufwCalled = true
-		if publicIP != "203.0.113.8" || addrSSP == "" {
+		if publicIP != "8.8.8.8" || addrSSP == "" {
 			t.Fatalf("ufw args %s %s", publicIP, addrSSP)
 		}
 		return nil
@@ -260,7 +262,7 @@ func TestPeerValidateSecondaryRequiresPeerID(t *testing.T) {
 	old := peerValidateRole
 	peerValidateRole = func() string { return "secondary" }
 	t.Cleanup(func() { peerValidateRole = old })
-	m := &Material{PeerID: "", Slot: 1, Secondary: "203.0.113.9", Primary: "198.51.100.1"}
+	m := &Material{PeerID: "", Slot: 1, Secondary: "8.8.8.9", Primary: "1.1.1.1"}
 	applySlotToMaterial(m, SlotTable()[1])
 	b, _ := json.MarshalIndent(m, "", "  ")
 	if err := os.WriteFile(filepath.Join(dir, "material.json"), b, 0o600); err != nil {
@@ -281,7 +283,7 @@ func TestPeerRemoveRetryAfterReloadFail(t *testing.T) {
 	t.Cleanup(func() { SetKeysRootForTest("") })
 	slot := SlotTable()[1]
 	idx := &PeersIndex{Peers: []ServicePeer{{
-		ID: "peer-r", State: "prepared", PublicIP: "203.0.113.7", Slot: slot,
+		ID: "peer-r", State: "prepared", PublicIP: "8.8.8.7", Slot: slot,
 	}}}
 	if err := SavePeersIndex(idx); err != nil {
 		t.Fatal(err)
@@ -360,7 +362,7 @@ func TestPeerMarkReadyDoesNotReviveRemoved(t *testing.T) {
 }
 
 func TestRemovePeerUFWConfirmsGone(t *testing.T) {
-	rules := "Status: active\n8789/tcp ALLOW 10.87.20.2\n8444/tcp ALLOW 203.0.113.9\n"
+	rules := "Status: active\n8789/tcp ALLOW 10.87.20.2\n8444/tcp ALLOW 8.8.8.9\n"
 	old := peerUFWExec
 	t.Cleanup(func() { peerUFWExec = old })
 	peerUFWExec = func(args ...string) ([]byte, error) {
@@ -374,7 +376,7 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 		}
 		return nil, fmt.Errorf("unexpected %v", args)
 	}
-	if err := removePeerUFW("203.0.113.9", "10.87.20.2", "", 8444); err != nil {
+	if err := removePeerUFW("8.8.8.9", "10.87.20.2", "", 8444); err != nil {
 		t.Fatal(err)
 	}
 	peerUFWExec = func(args ...string) ([]byte, error) {
@@ -383,13 +385,13 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 		}
 		return []byte("deleted"), nil
 	}
-	if err := removePeerUFW("203.0.113.9", "10.87.20.2", "", 0); err == nil {
+	if err := removePeerUFW("8.8.8.9", "10.87.20.2", "", 0); err == nil {
 		t.Fatal("remaining rule must fail")
 	}
 	peerUFWExec = func(args ...string) ([]byte, error) {
 		return []byte("fail"), fmt.Errorf("status failed")
 	}
-	if err := removePeerUFW("203.0.113.9", "10.87.20.2", "", 0); err == nil {
+	if err := removePeerUFW("8.8.8.9", "10.87.20.2", "", 0); err == nil {
 		t.Fatal("status error must fail")
 	}
 }
@@ -429,24 +431,24 @@ func TestRemovePeerUFWIgnoresOtherRule(t *testing.T) {
 	t.Cleanup(func() { peerUFWExec = old })
 	peerUFWExec = func(args ...string) ([]byte, error) {
 		if args[0] == "status" {
-			return []byte("Status: active\n22/tcp ALLOW 203.0.113.9\n"), nil
+			return []byte("Status: active\n22/tcp ALLOW 8.8.8.9\n"), nil
 		}
 		return []byte("deleted"), nil
 	}
-	if err := removePeerUFW("203.0.113.9", "", "", 8444); err != nil {
+	if err := removePeerUFW("8.8.8.9", "", "", 8444); err != nil {
 		t.Fatalf("unrelated rule must not block remove: %v", err)
 	}
 }
 
 func TestUFWRulePresentExact(t *testing.T) {
-	status := "Status: active\n18444/tcp ALLOW 203.0.113.90\n22/tcp ALLOW 203.0.113.9\n"
-	if ufwRulePresent(status, "203.0.113.9", "8444") {
+	status := "Status: active\n18444/tcp ALLOW 8.8.8.90\n22/tcp ALLOW 8.8.8.9\n"
+	if ufwRulePresent(status, "8.8.8.9", "8444") {
 		t.Fatal("prefix IP or leading port digit must not match")
 	}
-	if !ufwRulePresent(status, "203.0.113.90", "18444") {
+	if !ufwRulePresent(status, "8.8.8.90", "18444") {
 		t.Fatal("exact longer IP and port should match")
 	}
-	if !ufwRulePresent("8444/tcp ALLOW 203.0.113.9\n", "203.0.113.9", "8444") {
+	if !ufwRulePresent("8444/tcp ALLOW 8.8.8.9\n", "8.8.8.9", "8444") {
 		t.Fatal("exact rule should match")
 	}
 }
@@ -458,11 +460,11 @@ func TestPeerAddRefusesIncompleteOp(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "peers", "peer-b"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	op := `{"op":"add","peer_id":"peer-b","public_ip":"203.0.113.9","primary_ip":"198.51.100.1","slot_index":1,"phase":"material"}`
+	op := `{"op":"add","peer_id":"peer-b","public_ip":"8.8.8.9","primary_ip":"1.1.1.1","slot_index":1,"phase":"material"}`
 	if err := os.WriteFile(filepath.Join(dir, "peers", "peer-b", "op.json"), []byte(op), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.9", PrimaryIP: "198.51.100.1"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "8.8.8.9", PrimaryIP: "1.1.1.1"})
 	if err == nil || !strings.Contains(err.Error(), "peer recover") {
 		t.Fatalf("incomplete op must refuse add, got %v", err)
 	}
@@ -531,7 +533,7 @@ func TestPeerRecoverRegeneratesOnlyMissingAllocatingMaterial(t *testing.T) {
 	if err := SavePeersIndex(&PeersIndex{}); err != nil {
 		t.Fatal(err)
 	}
-	op := peerOp{Op: "add", PeerID: "peer-recover", PublicIP: "203.0.113.50", PrimaryIP: "198.51.100.10", SlotIndex: 1, Phase: "allocating"}
+	op := peerOp{Op: "add", PeerID: "peer-recover", PublicIP: "8.8.8.50", PrimaryIP: "1.1.1.10", SlotIndex: 1, Phase: "allocating"}
 	if err := writePeerOpDefault(op); err != nil {
 		t.Fatal(err)
 	}
@@ -593,7 +595,7 @@ func TestPeerRecoverDoesNotRegenerateExistingCorruptMaterial(t *testing.T) {
 	if err := SavePeersIndex(&PeersIndex{}); err != nil {
 		t.Fatal(err)
 	}
-	op := peerOp{Op: "add", PeerID: "peer-corrupt", PublicIP: "203.0.113.51", PrimaryIP: "198.51.100.10", SlotIndex: 1, Phase: "allocating"}
+	op := peerOp{Op: "add", PeerID: "peer-corrupt", PublicIP: "8.8.8.51", PrimaryIP: "1.1.1.10", SlotIndex: 1, Phase: "allocating"}
 	if err := writePeerOpDefault(op); err != nil {
 		t.Fatal(err)
 	}
@@ -625,9 +627,9 @@ func TestPeerRecoverDoesNotRegenerateExistingCorruptMaterial(t *testing.T) {
 func TestRecoverIncompletePeerAddRejectsRemovedIdentity(t *testing.T) {
 	withTestRoot(t)
 	if err := SavePeersIndex(&PeersIndex{Version: 1, Peers: []ServicePeer{{
-		ID: "peer-retired", PublicIP: "203.0.113.40", State: "removed", Slot: SlotTable()[1],
+		ID: "peer-retired", PublicIP: "8.8.8.40", State: "removed", Slot: SlotTable()[1],
 	}}}); err != nil { t.Fatal(err) }
-	if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-retired", PublicIP: "203.0.113.40", PrimaryIP: "198.51.100.1", SlotIndex: 1, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
+	if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-retired", PublicIP: "8.8.8.40", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
 	if _, err := RecoverIncompletePeerAdd("peer-retired"); err == nil || !strings.Contains(err.Error(), "refusing stale add recovery") {
 		t.Fatalf("stale recovery must not resurrect removed identity: %v", err)
 	}
@@ -636,12 +638,12 @@ func TestRecoverIncompletePeerAddRejectsRemovedIdentity(t *testing.T) {
  
 func TestRecoverIncompletePeerAddRejectsDuplicateActiveIdentity(t *testing.T) {
 	withTestRoot(t)
-	peer := ServicePeer{ID: "peer-duplicate", PublicIP: "203.0.113.44", State: "prepared", Slot: SlotTable()[1]}
+	peer := ServicePeer{ID: "peer-duplicate", PublicIP: "8.8.8.44", State: "prepared", Slot: SlotTable()[1]}
 	other := peer
-	other.PublicIP = "203.0.113.45"
+	other.PublicIP = "8.8.8.45"
 	other.Slot = SlotTable()[2]
 	if err := SavePeersIndex(&PeersIndex{Version: 1, Peers: []ServicePeer{peer, other}}); err != nil { t.Fatal(err) }
-	if err := writePeerOp(peerOp{Op: "add", PeerID: peer.ID, PublicIP: peer.PublicIP, PrimaryIP: "198.51.100.1", SlotIndex: 1, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
+	if err := writePeerOp(peerOp{Op: "add", PeerID: peer.ID, PublicIP: peer.PublicIP, PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
 	if _, err := RecoverIncompletePeerAdd(peer.ID); err == nil || !strings.Contains(err.Error(), "ambiguous stale add recovery") {
 		t.Fatalf("duplicate active identity must be rejected: %v", err)
 	}
@@ -649,15 +651,15 @@ func TestRecoverIncompletePeerAddRejectsDuplicateActiveIdentity(t *testing.T) {
 
 func TestRecoverIncompletePeerAddRejectsReassignedSlotAndIP(t *testing.T) {
 	for _, tc := range []struct{name, opIP, registryIP string; slot int; want string}{
-		{name: "ip", opIP: "203.0.113.41", registryIP: "203.0.113.41", slot: 2, want: "public IP"},
-		{name: "slot", opIP: "203.0.113.42", registryIP: "203.0.113.43", slot: 1, want: "slot"},
+		{name: "ip", opIP: "8.8.8.41", registryIP: "8.8.8.41", slot: 2, want: "public IP"},
+		{name: "slot", opIP: "8.8.8.42", registryIP: "8.8.8.43", slot: 1, want: "slot"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			withTestRoot(t)
 			if err := SavePeersIndex(&PeersIndex{Version: 1, Peers: []ServicePeer{{
 				ID: "peer-current", PublicIP: tc.registryIP, State: "prepared", Slot: SlotTable()[tc.slot],
 			}}}); err != nil { t.Fatal(err) }
-			if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-stale", PublicIP: tc.opIP, PrimaryIP: "198.51.100.1", SlotIndex: tc.slot, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
+			if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-stale", PublicIP: tc.opIP, PrimaryIP: "1.1.1.1", SlotIndex: tc.slot, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
 			if _, err := RecoverIncompletePeerAdd("peer-stale"); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("stale recovery must reject reassigned %s: %v", tc.name, err)
 			}
