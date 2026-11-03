@@ -984,7 +984,7 @@ func installEdgeMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 			return err
 		}
 		backup := dir + ".rollover-old"
-		currentInfo, currentErr := os.Lstat(dir)
+		_, currentErr := os.Lstat(dir)
 		backupInfo, backupErr := os.Lstat(backup)
 		if backupErr == nil && (backupInfo.Mode()&os.ModeSymlink != 0 || !backupInfo.IsDir()) {
 			cleanupStages()
