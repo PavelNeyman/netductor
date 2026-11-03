@@ -128,6 +128,9 @@ func normalizeSSHIn(in *ProvisionIn) {
 
 // sshClientBootstrap: first contact. Password-only when password set (no key in Auth → no silent key fallback).
 func sshClientBootstrap(in ProvisionIn) (*ssh.Client, error) {
+	if in.Port > 65535 {
+		return nil, fmt.Errorf("invalid SSH port %d: expected 1..65535", in.Port)
+	}
 	normalizeSSHIn(&in)
 	var methods []ssh.AuthMethod
 	if in.Password != "" {
@@ -154,6 +157,9 @@ func sshClientBootstrap(in ProvisionIn) (*ssh.Client, error) {
 
 // sshClientKeyOnly: PublicKeys only — never password.
 func sshClientKeyOnly(in ProvisionIn) (*ssh.Client, error) {
+	if in.Port > 65535 {
+		return nil, fmt.Errorf("invalid SSH port %d: expected 1..65535", in.Port)
+	}
 	normalizeSSHIn(&in)
 	signer, err := sshSignerFromIn(in)
 	if err != nil {
