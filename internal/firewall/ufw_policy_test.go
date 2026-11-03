@@ -131,6 +131,7 @@ func TestSecondaryInactiveSavedAllowPreflight(t *testing.T) {
 	for _, rule := range []string{
 		"ufw allow 80/tcp",
 		"ufw allow from 192.0.2.10 to any port 8789 proto tcp",
+		"ufw allow from 192.0.2.10 to any port 80 proto tcp",
 		"ufw allow 8787",
 	} {
 		if err := preflightSecondaryAddedRules("Added user rules:\n"+rule+"\n"); err == nil {
