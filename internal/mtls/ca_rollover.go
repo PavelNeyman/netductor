@@ -22,10 +22,17 @@ const (
 	rolloverState = "ca_rollover.json"
 )
 
+type rolloverClientState struct {
+	OldSerial   string `json:"old_serial,omitempty"`
+	NewSerial   string `json:"new_serial"`
+	ConfirmedAt int64  `json:"confirmed_at,omitempty"`
+}
+
 type rolloverInfo struct {
-	StartedAt int64  `json:"started_at"`
-	Phase     string `json:"phase"` // "" | dual | done
-	NewSerial string `json:"new_serial,omitempty"`
+	StartedAt int64                           `json:"started_at"`
+	Phase     string                          `json:"phase"` // dual | done | aborted
+	NewSerial string                          `json:"new_serial,omitempty"`
+	Issued    map[string]rolloverClientState  `json:"issued,omitempty"`
 }
 
 func rolloverPath() string { return filepath.Join(Dir(), rolloverState) }
@@ -128,6 +135,14 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	}
 	certPath := filepath.Join(dir, ClientCertFile)
 	keyPath := filepath.Join(dir, ClientKeyFile)
+	oldSerial := ""
+	if fileOK(certPath) {
+		oldInfo, err := ReadClientInfo(nodeID)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("read previous client identity: %w", err)
+		}
+		oldSerial = oldInfo.Serial
+	}
 	tmpCert := certPath + ".rollover-new"
 	tmpKey := keyPath + ".rollover-new"
 	backupCert := certPath + ".rollover-old"
@@ -227,9 +242,74 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		rollback()
 		return nil, nil, nil, fmt.Errorf("read promoted rollover material: %w", err)
 	}
-	// Retain the old pair until an explicit, separately verified adoption
-	// protocol can revoke it. Cleanup is intentionally deferred.
+	newCertBlock, _ := pem.Decode(materialCert)
+	if newCertBlock == nil {
+		rollback()
+		return nil, nil, nil, fmt.Errorf("promoted client certificate is not PEM")
+	}
+	newCert, err := x509.ParseCertificate(newCertBlock.Bytes)
+	if err != nil {
+		rollback()
+		return nil, nil, nil, fmt.Errorf("parse promoted client certificate: %w", err)
+	}
+	rollover.Issued = ensureRolloverIssued(rollover.Issued)
+	rollover.Issued[nodeID] = rolloverClientState{OldSerial: oldSerial, NewSerial: serialHex(newCert.SerialNumber)}
+	if err := saveRollover(rollover); err != nil {
+		rollback()
+		return nil, nil, nil, fmt.Errorf("persist issued CA rollover identity: %w", err)
+	}
+	// The old serial remains valid until the Secondary presents this exact
+	// replacement certificate on an authenticated TLS heartbeat.
 	return materialCA, materialCert, materialKey, nil
+}
+
+func parseSerial(serial string) *big.Int {
+	n, ok := new(big.Int).SetString(strings.TrimSpace(serial), 16)
+	if !ok {
+		return nil
+	}
+	return n
+}
+
+func ensureRolloverIssued(in map[string]rolloverClientState) map[string]rolloverClientState {
+	if in == nil {
+		return make(map[string]rolloverClientState)
+	}
+	return in
+}
+
+// ConfirmCARolloverClient records adoption only when the server-observed TLS
+// serial matches the serial issued for this node. Old serial revocation follows
+// the durable confirmation and is safe to retry.
+func ConfirmCARolloverClient(nodeID, peerSerial string) error {
+	peerSerial = strings.ToLower(strings.TrimSpace(peerSerial))
+	if nodeID == "" || peerSerial == "" {
+		return nil
+	}
+	rollover, err := loadRollover()
+	if err != nil {
+		return err
+	}
+	if rollover.Phase != "dual" {
+		return nil
+	}
+	state, ok := rollover.Issued[nodeID]
+	if !ok || !strings.EqualFold(state.NewSerial, peerSerial) {
+		return nil
+	}
+	if state.ConfirmedAt == 0 {
+		state.ConfirmedAt = time.Now().Unix()
+		rollover.Issued[nodeID] = state
+		if err := saveRollover(rollover); err != nil {
+			return fmt.Errorf("persist Secondary CA adoption: %w", err)
+		}
+	}
+	if state.OldSerial != "" {
+		if err := RevokeSerial(state.OldSerial, nodeID, "ca-rollover-adopted"); err != nil {
+			return fmt.Errorf("revoke previous Secondary certificate after adoption: %w", err)
+		}
+	}
+	return nil
 }
 
 func loadNamedCA(certP, keyP string) (*x509.Certificate, *ecdsa.PrivateKey, error) {
@@ -270,15 +350,51 @@ func CARolloverFinish() error {
 	if rollover.Phase != "dual" {
 		return fmt.Errorf("CA rollover is not in dual-trust phase")
 	}
-	// The current Secondary protocol has no durable acknowledgement that the
-	// agent reconnected using its new-CA certificate. Promoting the CA here
-	// would remove trust for potentially offline clients and lock them out.
-	return fmt.Errorf("CA rollover finish is blocked: per-Secondary new-certificate TLS acknowledgements are not implemented")
+	for nodeID, state := range rollover.Issued {
+		if state.ConfirmedAt == 0 {
+			return fmt.Errorf("CA rollover is not complete: Secondary %q has not confirmed its new TLS certificate", nodeID)
+		}
+		if state.OldSerial != "" {
+			revoked, err := IsRevoked(parseSerial(state.OldSerial))
+			if err != nil {
+				return fmt.Errorf("check old certificate revocation for %q: %w", nodeID, err)
+			}
+			if !revoked {
+				return fmt.Errorf("CA rollover is not complete: old certificate for %q is not revoked", nodeID)
+			}
+		}
+	}
 	if !fileOK(path(CANewCertFile)) {
 		return fmt.Errorf("no ca-new")
 	}
 	if !fileOK(path(CANewKeyFile)) {
 		return fmt.Errorf("no ca-new key")
+	}
+	// Refuse promotion while any active per-node certificate still chains
+	// directly to the old CA. This includes offline registered clients.
+	oldCA, err := parseCertFile(path(CACertFile))
+	if err != nil {
+		return fmt.Errorf("read current CA before promotion: %w", err)
+	}
+	clientsDir := filepath.Join(Dir(), "clients")
+	clients, err := os.ReadDir(clientsDir)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("scan Secondary certificates before promotion: %w", err)
+	}
+	for _, entry := range clients {
+		if !entry.IsDir() {
+			continue
+		}
+		clientCert, err := parseCertFile(filepath.Join(clientsDir, entry.Name(), ClientCertFile))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("inspect client certificate %q before promotion: %w", entry.Name(), err)
+		}
+		if clientCert.Issuer.String() == oldCA.Subject.String() {
+			return fmt.Errorf("CA rollover is not complete: active client certificate for %q still uses the old CA", entry.Name())
+		}
 	}
 	// backup old (must succeed before promote)
 	if err := os.Rename(path(CACertFile), path("ca-old.crt")); err != nil {
@@ -353,6 +469,9 @@ func CARolloverAbort() error {
 	}
 	if rollover.Phase == "done" {
 		return fmt.Errorf("cannot abort a completed CA rollover")
+	}
+	if len(rollover.Issued) > 0 {
+		return fmt.Errorf("cannot abort CA rollover after new-CA client identities have been issued")
 	}
 	if fileOK(path(CANewCertFile)) {
 		newCA, err := parseCertFile(path(CANewCertFile))
