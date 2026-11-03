@@ -258,10 +258,11 @@ func IssueToken(name string) (id, token string, err error) {
 	if name == "" {
 		name = id
 	}
-	// Drop prepare-pack ghosts: same name never heartbeated, or any never-seen empty-IP
+	// Replace only an unjoined preparation for this same logical device name.
+	// Other names may represent independently prepared packs and must remain valid.
 	var kept []Device
 	for _, d := range r.Devices {
-		ghost := d.LastSeen.IsZero() && (d.Name == name || d.PublicIP == "")
+		ghost := d.LastSeen.IsZero() && d.Name == name
 		if ghost {
 			continue
 		}
