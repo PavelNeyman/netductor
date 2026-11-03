@@ -145,8 +145,13 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	rolloverMu.Lock()
 	defer rolloverMu.Unlock()
 
-	if strings.TrimSpace(nodeID) == "" || strings.ContainsAny(nodeID, "/\\") || nodeID == "." || nodeID == ".." {
+	if nodeID == "" || strings.TrimSpace(nodeID) != nodeID {
 		return nil, nil, nil, fmt.Errorf("invalid node ID")
+	}
+	for _, r := range nodeID {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+			return nil, nil, nil, fmt.Errorf("invalid node ID")
+		}
 	}
 	if !fileOK(path(CANewCertFile)) || !fileOK(path(CANewKeyFile)) {
 		return nil, nil, nil, fmt.Errorf("ca-new missing; run mtls rollover start")
