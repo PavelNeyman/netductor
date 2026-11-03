@@ -208,5 +208,7 @@ Updated against current `main` after the initial plan commit.
 - [x] Secondary stages and swaps the mTLS directory with recovery support, preserves unrelated files, and retains the old directory until Primary confirms the new TLS identity.
 - [x] Secondary restores previous material after repeated failed heartbeat attempts with the new identity.
 - [x] Added focused regression tests for adoption, revocation, abort, material validation, and directory preservation.
-- [ ] CA and server certificate promotion remains blocked pending a durable crash-recovery journal for its multi-file replacement.
+- [x] CA, server, and default client certificate promotion now uses a durable `promoting` journal and before-image backups. `EnsureAll` rolls back an interrupted promotion before starting mTLS services; the operation can then be retried.
+- [x] The promoted server and default client certificates are re-issued under the new CA. Backups and temporary CA files are removed only after the `done` journal is durable.
+- [x] Added a recovery test that simulates a crash after only the CA certificate was replaced and verifies restoration of the CA, server, and default client material.
 - [ ] Tests have not been executed. Actions remain manual-only.
