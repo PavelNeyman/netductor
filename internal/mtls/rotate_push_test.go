@@ -126,3 +126,42 @@ func mustReadFile(t *testing.T, path string) []byte {
 	}
 	return b
 }
+
+func TestRotateClientForPushRecoversBackupWithoutPendingJournal(t *testing.T) {
+	setupRotationTest(t)
+	dir := ClientDir("secondary-test")
+	certPath := filepath.Join(dir, ClientCertFile)
+	keyPath := filepath.Join(dir, ClientKeyFile)
+	oldInfo, err := ReadClientInfo("secondary-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	certBackup, keyBackup := certPath+".rotate-backup", keyPath+".rotate-backup"
+	if err := os.Rename(certPath, certBackup); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(keyPath, keyBackup); err != nil {
+		t.Fatal(err)
+	}
+
+	newInfo, _, _, _, err := RotateClientForPush("secondary-test", "recovery")
+	if err != nil {
+		t.Fatalf("rotation retry did not recover staged old pair: %v", err)
+	}
+	if newInfo.Serial == oldInfo.Serial {
+		t.Fatal("recovered retry did not issue a new certificate")
+	}
+	pending, err := PendingRotates()
+	if err != nil || len(pending) != 1 {
+		t.Fatalf("pending rotations = %d, err = %v", len(pending), err)
+	}
+	if pending[0].OldSerial != oldInfo.Serial {
+		t.Fatalf("pending old serial = %s, want %s", pending[0].OldSerial, oldInfo.Serial)
+	}
+	if _, err := os.Stat(certBackup); !os.IsNotExist(err) {
+		t.Fatalf("certificate backup remains after recovery: %v", err)
+	}
+	if _, err := os.Stat(keyBackup); !os.IsNotExist(err) {
+		t.Fatalf("key backup remains after recovery: %v", err)
+	}
+}
