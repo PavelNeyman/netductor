@@ -634,16 +634,16 @@ func TestRecoverIncompletePeerAddRejectsRemovedIdentity(t *testing.T) {
 }
 
 func TestRecoverIncompletePeerAddRejectsReassignedSlotAndIP(t *testing.T) {
-	for _, tc := range []struct{name, ip string; slot int; want string}{
-		{name: "ip", ip: "203.0.113.41", slot: 2, want: "public IP"},
-		{name: "slot", ip: "203.0.113.42", slot: 1, want: "slot"},
+	for _, tc := range []struct{name, opIP, registryIP string; slot int; want string}{
+		{name: "ip", opIP: "203.0.113.41", registryIP: "203.0.113.41", slot: 2, want: "public IP"},
+		{name: "slot", opIP: "203.0.113.42", registryIP: "203.0.113.43", slot: 1, want: "slot"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			withTestRoot(t)
 			if err := SavePeersIndex(&PeersIndex{Version: 1, Peers: []ServicePeer{{
-				ID: "peer-current", PublicIP: tc.ip, State: "prepared", Slot: SlotTable()[tc.slot],
+				ID: "peer-current", PublicIP: tc.registryIP, State: "prepared", Slot: SlotTable()[tc.slot],
 			}}}); err != nil { t.Fatal(err) }
-			if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-stale", PublicIP: tc.ip, PrimaryIP: "198.51.100.1", SlotIndex: tc.slot, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
+			if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-stale", PublicIP: tc.opIP, PrimaryIP: "198.51.100.1", SlotIndex: tc.slot, Phase: "bootstrap"}); err != nil { t.Fatal(err) }
 			if _, err := RecoverIncompletePeerAdd("peer-stale"); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("stale recovery must reject reassigned %s: %v", tc.name, err)
 			}
