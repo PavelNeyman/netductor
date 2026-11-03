@@ -83,7 +83,9 @@ func loadDeployState(host string) (*DeployOrchState, error) {
 		return nil, fmt.Errorf("deploy state corrupt at %s: %w (fix or remove file; refuse blind re-provision)", path, err)
 	}
 	if st.Host == "" {
-		st.Host = host
+		st.Host = host // legacy journal without host field
+	} else if st.Host != host {
+		return nil, fmt.Errorf("deploy state host mismatch at %s: journal=%q requested=%q — refuse cross-host resume", path, st.Host, host)
 	}
 	// Migrate legacy single-stage journals.
 	if st.LastSuccessfulStage == "" && st.Stage != "" && st.Stage != StageDeployComplete {
