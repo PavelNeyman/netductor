@@ -65,15 +65,34 @@ func CoreSSHPublicKey() (string, error) {
 	return "", fmt.Errorf("no SSH public key on core — create /root/.ssh/id_ed25519 or pass --operator-pubkey")
 }
 
-func resolveInstallPubKeys(in ProvisionIn) ([]string, error) {
-	if s := strings.TrimSpace(in.OperatorPubKey); s != "" {
-		return []string{s}, nil
+func validateOperatorPubKey(pk string) (string, error) {
+	pk = strings.TrimSpace(pk)
+	if pk == "" || strings.ContainsAny(pk, "\\r\\n") {
+		return "", fmt.Errorf("operator SSH public key must be exactly one non-empty line")
 	}
-	core, err := CoreSSHPublicKey()
+	key, _, options, rest, err := ssh.ParseAuthorizedKey([]byte(pk))
+	if err != nil || key == nil || len(options) != 0 || strings.TrimSpace(string(rest)) != "" {
+		return "", fmt.Errorf("invalid operator SSH public key: expected one plain authorized-key entry")
+	}
+	return pk, nil
+}
+
+func resolveInstallPubKeys(in ProvisionIn) ([]string, error) {
+	var candidate string
+	if s := strings.TrimSpace(in.OperatorPubKey); s != "" {
+		candidate = s
+	} else {
+		core, err := CoreSSHPublicKey()
+		if err != nil {
+			return nil, err
+		}
+		candidate = core
+	}
+	validated, err := validateOperatorPubKey(candidate)
 	if err != nil {
 		return nil, err
 	}
-	return []string{core}, nil
+	return []string{validated}, nil
 }
 
 // sshSignerFromIn loads the operator private key; required for key-only transport.
@@ -199,9 +218,10 @@ func runSSHWithStdin(client *ssh.Client, cmd string, stdin []byte) (string, erro
 func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {
 	var installLines strings.Builder
 	for _, pk := range pubKeys {
-		pk = strings.TrimSpace(pk)
-		if pk == "" {
-			continue
+		var err error
+		pk, err = validateOperatorPubKey(pk)
+		if err != nil {
+			return fmt.Errorf("%s: %w", StageInstallPublicKey, err)
 		}
 		esc := strings.ReplaceAll(pk, "'", `'"'"'`)
 		installLines.WriteString(fmt.Sprintf("grep -qxF '%s' /root/.ssh/authorized_keys || echo '%s' >> /root/.ssh/authorized_keys\n", esc, esc))
