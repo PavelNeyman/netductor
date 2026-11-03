@@ -243,5 +243,6 @@ Updated against current `main` after the initial plan commit.
 
 - [x] Secondary role application now detects existing ALLOW rules on restricted ports (including the known factory `80/tcp ALLOW`) before any WSS peer-rule migration or numbered-rule deletion.
 - [x] The check fails closed when numbered UFW rules cannot be completely parsed; it does not delete or reorder administrator rules.
+- [x] When UFW is inactive (and hides its numbered policy), the preflight also inspects `ufw show added` and rejects saved restricted-port ALLOW commands before mutation.
 - [x] Added focused tests for active/inactive UFW, restricted ports, and incomplete rule parsing.
 - [ ] Tests have not been executed. Actions remain manual-only.
