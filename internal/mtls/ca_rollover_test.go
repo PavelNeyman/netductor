@@ -139,3 +139,90 @@ func TestCARolloverRetriesOldSerialRevocationAfterDurableConfirmation(t *testing
 		t.Fatalf("old certificate revoked after retry = %v, err=%v", revoked, err)
 	}
 }
+
+func TestEnsureAllRollsBackInterruptedCAPromotion(t *testing.T) {
+	setupRotationTest(t)
+	oldCA, err := os.ReadFile(path(CACertFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldKey, err := os.ReadFile(path(CAKeyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldServer, err := os.ReadFile(path(ServerCertFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldServerKey, err := os.ReadFile(path(ServerKeyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldClient, err := os.ReadFile(path(ClientCertFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldClientKey, err := os.ReadFile(path(ClientKeyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := CARolloverStart(); err != nil {
+		t.Fatal(err)
+	}
+	for _, pair := range [][2]string{
+		{CACertFile, rolloverBackupCACert},
+		{CAKeyFile, rolloverBackupCAKey},
+		{ServerCertFile, rolloverBackupServerCert},
+		{ServerKeyFile, rolloverBackupServerKey},
+		{ClientCertFile, rolloverBackupClientCert},
+		{ClientKeyFile, rolloverBackupClientKey},
+	} {
+		if err := copyDurable(path(pair[0]), path(pair[1])); err != nil {
+			t.Fatalf("backup %s: %v", pair[0], err)
+		}
+	}
+	state, err := loadRollover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Phase = "promoting"
+	if err := saveRollover(state); err != nil {
+		t.Fatal(err)
+	}
+	newCA, err := os.ReadFile(path(CANewCertFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeDurable(path(CACertFile), newCA, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureAll("127.0.0.1"); err != nil {
+		t.Fatalf("EnsureAll recovery: %v", err)
+	}
+	for _, check := range []struct {
+		path string
+		want []byte
+	}{
+		{path(CACertFile), oldCA},
+		{path(CAKeyFile), oldKey},
+		{path(ServerCertFile), oldServer},
+		{path(ServerKeyFile), oldServerKey},
+		{path(ClientCertFile), oldClient},
+		{path(ClientKeyFile), oldClientKey},
+	} {
+		got, err := os.ReadFile(check.path)
+		if err != nil {
+			t.Fatalf("read restored %s: %v", check.path, err)
+		}
+		if string(got) != string(check.want) {
+			t.Fatalf("interrupted promotion did not restore %s", check.path)
+		}
+	}
+	state, err = loadRollover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Phase != "dual" {
+		t.Fatalf("rollover phase after recovery = %q, want dual", state.Phase)
+	}
+}
