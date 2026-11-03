@@ -761,6 +761,10 @@ func installSecondaryMTLSMaterial(caPEM, certPEM, keyPEM string) error {
 }
 
 func copyMTLSDirectoryExtras(source, destination string) error {
+	return copyMTLSDirectoryExtrasLevel(source, destination, true)
+}
+
+func copyMTLSDirectoryExtrasLevel(source, destination string, root bool) error {
 	entries, err := os.ReadDir(source)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -770,7 +774,7 @@ func copyMTLSDirectoryExtras(source, destination string) error {
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		if name == mtls.CACertFile || name == mtls.ClientCertFile || name == mtls.ClientKeyFile {
+		if root && (name == mtls.CACertFile || name == mtls.ClientCertFile || name == mtls.ClientKeyFile) {
 			continue
 		}
 		src := filepath.Join(source, name)
@@ -786,7 +790,7 @@ func copyMTLSDirectoryExtras(source, destination string) error {
 			if err := os.Mkdir(dst, 0o700); err != nil && !os.IsExist(err) {
 				return err
 			}
-			if err := copyMTLSDirectoryExtras(src, dst); err != nil {
+			if err := copyMTLSDirectoryExtrasLevel(src, dst, false); err != nil {
 				return err
 			}
 			continue
