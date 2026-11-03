@@ -225,6 +225,17 @@ func ServerTLSConfig() (*tls.Config, error) {
 			return nil
 		},
 	}
+	// Reload server certificate and client trust roots for every new TLS
+	// handshake. CA rollover updates files transactionally while the listener
+	// remains running; a static tls.Config would keep serving the old identity.
+	cfg.GetConfigForClient = func(*tls.ClientHelloInfo) (*tls.Config, error) {
+		fresh, err := ServerTLSConfig()
+		if err != nil {
+			return nil, err
+		}
+		fresh.GetConfigForClient = nil
+		return fresh, nil
+	}
 	return cfg, nil
 }
 
