@@ -3,6 +3,7 @@ package deploy
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -88,7 +89,7 @@ func readDeployStateFile(path string) ([]byte, error) {
 	if fi.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("refuse deploy state file %s with group/other permissions %04o", path, fi.Mode().Perm())
 	}
-	return os.ReadFile(f.Name())
+	return io.ReadAll(f)
 }
 
 func loadDeployState(host string) (*DeployOrchState, error) {
