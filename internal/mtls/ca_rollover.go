@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
@@ -639,7 +640,7 @@ func CARolloverFinish() error {
 		}
 	}
 	pub := ""
-	if b, err := os.ReadFile(filepath.Join(filepath.Dir(Dir()), "public_ip")); err == nil {
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "public_ip")); err == nil {
 		pub = strings.TrimSpace(string(b))
 	}
 	if err := ensureServer(pub); err != nil {
