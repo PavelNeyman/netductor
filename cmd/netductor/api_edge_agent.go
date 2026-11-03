@@ -44,6 +44,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, 403, map[string]string{"error": "device_mismatch"})
 			return
 		}
+		delete(payload, "cert_serial")
+		if peerSerial != "" {
+			payload["cert_serial"] = peerSerial
+		}
 		edge.Heartbeat(payload)
 		if raw, ok := payload["facts"]; ok {
 			if fm, ok := raw.(map[string]any); ok {
