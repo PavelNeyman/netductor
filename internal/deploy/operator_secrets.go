@@ -98,9 +98,11 @@ if ! tar czf "$TMP" -C / "$@" 2>/dev/null; then
   echo "recovery archive creation failed" >&2
   exit 1
 fi
-B64=$(base64 -w0 "$TMP" 2>/dev/null)
-if [ -z "$B64" ]; then
-  B64=$(base64 "$TMP" 2>/dev/null | tr -d '\n') || exit 1
+if B64=$(base64 -w0 "$TMP" 2>/dev/null) && [ -n "$B64" ]; then
+  :
+else
+  B64=$(base64 "$TMP" 2>/dev/null) || { echo "recovery archive encoding failed" >&2; exit 1; }
+  B64=$(printf '%s' "$B64" | tr -d '\n')
 fi
 [ -n "$B64" ] || { echo "recovery archive encoding failed" >&2; exit 1; }
 printf '%s\n' "$B64"
