@@ -2,12 +2,23 @@ package main
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 )
+
+func edgeHasClientMaterial(deviceID string) bool {
+	for _, name := range []string{mtls.ClientCertFile, mtls.ClientKeyFile} {
+		if _, err := os.Lstat(filepath.Join(mtls.ClientDir(deviceID), name)); err == nil {
+			return true
+		}
+	}
+	return false
+}
 
 func registerEdgeAgent(mux *http.ServeMux) {
 	mux.HandleFunc("/api/edge/heartbeat", func(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +33,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			return
 		}
 		peerSerial := ""
+		if r.TLS == nil && edgeHasClientMaterial(tokenDID) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
+			return
+		}
 		if r.TLS != nil {
 			if len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0] == nil {
 				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
@@ -152,6 +167,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
+		if r.TLS == nil && edgeHasClientMaterial(did) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
+			return
+		}
 		if r.TLS != nil && (len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].Subject.CommonName != "netductor-agent-"+did) {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "certificate_identity_mismatch"})
 			return
@@ -255,6 +274,10 @@ func registerEdgeAgent(mux *http.ServeMux) {
 		tokenDID := edge.DeviceIDFromAuth(r.Header.Get("Authorization"))
 		if tokenDID == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		if r.TLS == nil && edgeHasClientMaterial(tokenDID) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
 			return
 		}
 		if r.TLS != nil && (len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].Subject.CommonName != "netductor-agent-"+tokenDID) {
