@@ -496,3 +496,23 @@ func TestDeployJournalRejectsCrossHostState(t *testing.T) {
 		t.Fatalf("expected cross-host journal rejection, got %v", err)
 	}
 }
+
+func TestCanRecoverProvisionCheckpointGap(t *testing.T) {
+	st := &DeployOrchState{CurrentStep: StageProvisionStarted, AgentID: "agent-uncertain"}
+	if !canRecoverProvision(st) {
+		t.Fatal("provision_started with persisted agent identity should enter verified recovery")
+	}
+	st.AgentID = ""
+	if canRecoverProvision(st) {
+		t.Fatal("missing agent identity must not permit inferred recovery")
+	}
+	st.AgentID = "agent-uncertain"
+	st.LastSuccessfulStage = StageProvisioned
+	if canRecoverProvision(st) {
+		t.Fatal("already checkpointed provisioning is not an uncertain gap")
+	}
+	st.LastSuccessfulStage = StagePeerPrepared
+	if canRecoverProvision(st) {
+		t.Fatal("later successful stage must use normal advanced resume")
+	}
+}
