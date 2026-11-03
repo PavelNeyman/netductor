@@ -29,6 +29,44 @@ import (
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
+type secondaryDeviceAPIView struct {
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	PublicIP      string         `json:"public_ip"`
+	PBK           string         `json:"pbk"`
+	SID           string         `json:"sid"`
+	SNI           string         `json:"sni"`
+	Version       string         `json:"version"`
+	SingBoxOK     bool           `json:"singbox_ok"`
+	UplinkOK      bool           `json:"uplink_ok"`
+	ConfigVer     int            `json:"config_ver"`
+	CPUPercent    float64        `json:"cpu_percent"`
+	MemUsedMB     int64          `json:"mem_used_mb"`
+	MemTotalMB    int64          `json:"mem_total_mb"`
+	Load1         float64        `json:"load1"`
+	MismatchTotal int            `json:"mismatch_total,omitempty"`
+	MismatchByIP  map[string]int `json:"mismatch_by_ip,omitempty"`
+	RecoveryFP    string         `json:"recovery_fp,omitempty"`
+	PendingCmds   []string       `json:"pending_cmds,omitempty"`
+	LastCmd       string         `json:"last_cmd,omitempty"`
+	LastCmdAt     time.Time      `json:"last_cmd_at,omitempty"`
+	LastCmdOK     bool           `json:"last_cmd_ok,omitempty"`
+	LastCmdLog    string         `json:"last_cmd_log,omitempty"`
+	LastSeen      time.Time      `json:"last_seen"`
+	CreatedAt     time.Time      `json:"created_at"`
+}
+
+func secondaryDeviceAPIView(d secondary.Device) secondaryDeviceAPIView {
+	return secondaryDeviceAPIView{
+		ID: d.ID, Name: d.Name, PublicIP: d.PublicIP, PBK: d.PBK, SID: d.SID, SNI: d.SNI,
+		Version: d.Version, SingBoxOK: d.SingBoxOK, UplinkOK: d.UplinkOK, ConfigVer: d.ConfigVer,
+		CPUPercent: d.CPUPercent, MemUsedMB: d.MemUsedMB, MemTotalMB: d.MemTotalMB, Load1: d.Load1,
+		MismatchTotal: d.MismatchTotal, MismatchByIP: d.MismatchByIP, RecoveryFP: d.RecoveryFP,
+		PendingCmds: d.PendingCmds, LastCmd: d.LastCmd, LastCmdAt: d.LastCmdAt, LastCmdOK: d.LastCmdOK,
+		LastCmdLog: redactSecondaryCmdLog(d.LastCmd, d.LastCmdLog), LastSeen: d.LastSeen, CreatedAt: d.CreatedAt,
+	}
+}
+
 func registerSecondaryAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/secondary/device", func(w http.ResponseWriter, r *http.Request) {
 		if !requireSession(w, r) {
@@ -46,7 +84,7 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 		}
 		for _, d := range devs {
 			if d.ID == id {
-				writeJSON(w, 200, d)
+				writeJSON(w, 200, secondaryDeviceAPIView(d))
 				return
 			}
 		}
@@ -123,12 +161,12 @@ func registerSecondaryAPI(mux *http.ServeMux) {
 			return
 		}
 		type row struct {
-			secondary.Device
+			secondaryDeviceAPIView
 			Online bool `json:"online"`
 		}
 		var out []row
 		for _, d := range devs {
-			out = append(out, row{Device: d, Online: secondary.Online(d, 2*time.Minute)})
+			out = append(out, row{secondaryDeviceAPIView: secondaryDeviceAPIView(d), Online: secondary.Online(d, 2*time.Minute)})
 		}
 		configVer, err := secondary.ConfigVerE()
 		if err != nil {
