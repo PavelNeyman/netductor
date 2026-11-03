@@ -160,6 +160,14 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
+		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0] == nil {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "client_certificate_required"})
+			return
+		}
+		if r.TLS.PeerCertificates[0].Subject.CommonName != "netductor-agent-"+did {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "certificate_identity_mismatch"})
+			return
+		}
 		ca, cert, key, err := mtls.ReadMaterial(did)
 		if err != nil {
 			writeJSON(w, 404, map[string]string{"error": err.Error()})
