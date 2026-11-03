@@ -95,15 +95,26 @@ func CARolloverStart() error {
 		return err
 	}
 	if err := writeCert(path(CANewCertFile), der); err != nil {
-		return err
+		_ = os.Remove(path(CANewCertFile))
+		_ = os.Remove(path(CANewKeyFile))
+		return fmt.Errorf("write new CA certificate: %w", err)
 	}
 	if err := writeKey(path(CANewKeyFile), key); err != nil {
-		return err
+		_ = os.Remove(path(CANewCertFile))
+		_ = os.Remove(path(CANewKeyFile))
+		return fmt.Errorf("write new CA key: %w", err)
 	}
-	c, _ := parseCertFile(path(CANewCertFile))
-	ser := ""
-	if c != nil {
-		ser = serialHex(c.SerialNumber)
+	c, err := parseCertFile(path(CANewCertFile))
+	if err != nil {
+		_ = os.Remove(path(CANewCertFile))
+		_ = os.Remove(path(CANewKeyFile))
+		return fmt.Errorf("verify new CA certificate: %w", err)
+	}
+	ser := serialHex(c.SerialNumber)
+	if ser == "" {
+		_ = os.Remove(path(CANewCertFile))
+		_ = os.Remove(path(CANewKeyFile))
+		return fmt.Errorf("new CA certificate has no serial")
 	}
 	return saveRollover(rolloverInfo{StartedAt: time.Now().Unix(), Phase: "dual", NewSerial: ser})
 }
