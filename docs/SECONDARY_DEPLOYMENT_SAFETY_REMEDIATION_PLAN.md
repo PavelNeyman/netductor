@@ -111,3 +111,8 @@ Updated against current `main` after the initial plan commit.
 - `loadRegistry` now validates that `vpn-users.json` contains a real `users` array before decoding into the typed registry. Missing, null, or non-array values fail closed instead of becoming an empty list and being overwritten by the next user mutation.
 - Added regression coverage for missing/null/object `users` envelopes. Existing absent-file behavior remains clean-install compatible.
 - Tests have not been executed.
+
+
+### SSH hardening lock bound audit
+- [x] Bounded SSH Prepare locks (permanent, transaction, firewall), Finalize locks, CancelRollback locks, and HostAgentPurge firewall lock. Lock contention now returns an explicit error instead of indefinitely blocking the deploy workflow.
+- [ ] Manual/focused tests still pending; Actions remain manual-only.
