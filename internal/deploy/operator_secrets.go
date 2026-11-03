@@ -48,7 +48,10 @@ echo "===RECOVERY_TOKEN==="
 cat /etc/netductor/secrets/recovery_token 2>/dev/null || true
 echo "===TAR_B64==="
 # secrets + conf + hostnames + secondary registry tokens + LE live certs if any
-TMP=$(mktemp)
+TMP=$(mktemp) || exit 1
+chmod 600 "$TMP"
+trap 'rm -f -- "$TMP"' EXIT
+trap 'exit 1' HUP INT TERM
 tar czf "$TMP" \
   -C / etc/netductor/secrets \
   etc/netductor/netductor.conf \
@@ -62,7 +65,6 @@ tar czf "$TMP" \
   etc/letsencrypt/renewal \
   2>/dev/null
 base64 -w0 "$TMP" 2>/dev/null || base64 "$TMP" 2>/dev/null | tr -d '\n'
-rm -f "$TMP"
 echo
 echo "===END==="
 `
