@@ -675,11 +675,13 @@ func ProvisionFromCore(in ProvisionIn, bundleJSON string) (*ProvisionResult, err
 			fmt.Errorf("%s: transport state: %w", StageTransportSwitch, err)
 	}
 	// Non-SSH side effects only after access proven and rollback cancelled.
+	// Host-agent cleanup is post-commit housekeeping. SSH hardening is already
+	// finalized and its rollback timer cancelled; surfacing a purge error as a
+	// provisioning failure would leave the operator journal at provision_started
+	// and make a retry incorrectly attempt password SSH on port 22. Keep the
+	// deployment resumable and report the cleanup failure without undoing access.
 	if err := HardenSSHHostAgentPurge(finalC); err != nil {
-		_ = finalC.Close()
-		log.WriteString("host-agent-purge: " + err.Error() + "\n")
-		return &ProvisionResult{Host: in.Host, PublicKey: pubJoined, Log: log.String(), AgentOK: true, SingBoxOK: true},
-			err
+		log.WriteString("host-agent-purge: warning (SSH hardening committed): " + trimLog(err.Error()) + "\n")
 	}
 	_ = finalC.Close()
 	log.WriteString(StagePasswordAuthDisable + ": ok; transport=hardened; rollback cancelled\n")
