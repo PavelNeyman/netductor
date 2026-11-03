@@ -167,3 +167,10 @@ Updated against current `main` after the initial plan commit.
 - [x] Config, backup, backup-key, and client-material endpoints use the same certificate-to-agent binding.
 - [x] Added regression coverage for absent TLS, absent peer certificate, matching identity, another Secondary identity, and the shared default client certificate.
 - [ ] Focused tests have not been executed; Actions remain manual-only.
+
+### Secondary API credential disclosure
+
+- [x] The authenticated Secondary device and status endpoints now serialize an explicit API view that omits the stored agent Bearer token.
+- [x] The API view applies the existing authorized-keys log redaction before returning the last command log.
+- [x] Added regression coverage asserting that agent tokens and raw authorized-keys material are absent while device identity remains available.
+- [ ] Focused tests have not been executed; Actions remain manual-only.
