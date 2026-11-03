@@ -998,6 +998,28 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 
 func applyUFW(role string) error { return applyUFWMode(role, false) }
 
+// preflightSecondaryRestrictedAllows detects pre-existing administrator ALLOWs
+// before WSS migration can mutate any numbered UFW rules. UFW is first-match;
+// appending a DENY later does not neutralize an earlier ALLOW.
+func preflightSecondaryRestrictedAllows(status string) error {
+	rules := parseUfwNumbered(status)
+	numbered := 0
+	for _, line := range strings.Split(status, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "[") { numbered++ }
+	}
+	if len(rules) != numbered {
+		return fmt.Errorf("cannot completely parse UFW rules before secondary migration (parsed %d of %d)", len(rules), numbered)
+	}
+	for _, port := range []string{"80", "8787", "8788", "8789"} {
+		for _, rule := range rules {
+			if ufwRuleMatchesPortProtocol(rule, port, "tcp") && ufwRuleAllowsTraffic(rule.Action) {
+				return fmt.Errorf("secondary restricted port %s has pre-existing %s ALLOW from %s; resolve administrator rule explicitly before applying role", port, rule.Proto, rule.From)
+			}
+		}
+	}
+	return nil
+}
+
 func applyUFWMode(role string, bootstrapSSH bool) error {
 	if _, err := ufwIPv6Enabled(); err != nil {
 		return fmt.Errorf("ufw IPv6 policy prerequisite: %w", err)
@@ -1021,6 +1043,13 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	current, inspectErr := exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if inspectErr != nil {
 		return fmt.Errorf("inspect UFW rules before SSH safeguard: %v (%s)", inspectErr, truncate(string(current), 200))
+	}
+	// Known factory/admin 80/tcp ALLOW (and other restricted-port allows)
+	// must stop before source-WSS migration changes the firewall.
+	if role == "secondary" {
+		if err := preflightSecondaryRestrictedAllows(string(current)); err != nil {
+			return fmt.Errorf("UFW secondary preflight: %w", err)
+		}
 	}
 	// Validate the complete peer inventory before any firewall mutation.
 	// Then migrate only the exact historical Netductor global WSS rules.
