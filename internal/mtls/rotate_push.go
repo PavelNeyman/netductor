@@ -195,6 +195,17 @@ func RotateClientForPush(nodeID, reason string) (info ClientInfo, ca, cert, key 
 			ExpiresAt: time.Now().Add(time.Duration(GraceHours()) * time.Hour).Unix(),
 		}
 		if err := savePending(pending); err != nil {
+			// SaveJSON may report a directory-sync error after rename committed the
+			// journal. Never restore the old certificate if that journal is visible.
+			visible, loadErr := loadPending()
+			if loadErr == nil {
+				if committed, ok := visible[nodeID]; ok &&
+					committed.OldSerial == oldSerial && committed.NewSerial == info.Serial {
+					_ = os.Remove(certBackup)
+					_ = os.Remove(keyBackup)
+					return ClientInfo{}, nil, nil, nil, fmt.Errorf("pending rotation journal committed but durability confirmation failed: %w", err)
+				}
+			}
 			if rbErr := restoreOld(); rbErr != nil {
 				return ClientInfo{}, nil, nil, nil, fmt.Errorf("save pending rotate: %w; rollback incomplete: %v", err, rbErr)
 			}
