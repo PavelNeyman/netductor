@@ -1178,6 +1178,12 @@ func restoreEdgeMTLSMaterial() bool {
 		dir := mtlsDirs[i]
 		backup := dir + ".rollover-old"
 		backupInfo, err := os.Lstat(backup)
+		if os.IsNotExist(err) {
+			if _, currentErr := os.Lstat(dir); currentErr == nil {
+				continue // this directory was already restored by a prior retry
+			}
+			return false
+		}
 		if err != nil || backupInfo.Mode()&os.ModeSymlink != 0 || !backupInfo.IsDir() {
 			return false
 		}
