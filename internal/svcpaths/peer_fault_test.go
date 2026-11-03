@@ -56,7 +56,7 @@ func writePeerMaterial(t *testing.T, m *Material) {
 func TestLoadMaterialStrictCorruptRefuses(t *testing.T) {
 	withTestRoot(t)
 	slot := SlotTable()[0]
-	m := sampleMaterial("p1", "203.0.113.1", slot)
+	m := sampleMaterial("p1", "8.8.8.1", slot)
 	m.SPPrivP = ""
 	writePeerMaterial(t, m)
 	_, err := loadPeerMaterial("p1")
@@ -114,9 +114,9 @@ func TestRecoverAfterMaterialBeforeIndex(t *testing.T) {
 		return nil
 	}
 	slot := SlotTable()[1]
-	m := sampleMaterial("peer-b", "203.0.113.10", slot)
+	m := sampleMaterial("peer-b", "8.8.8.10", slot)
 	writePeerMaterial(t, m)
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "8.8.8.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
 
 	if _, err := RecoverIncompletePeerAdd("peer-b"); err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestRecoverMissingMaterialFails(t *testing.T) {
 		t.Fatal("should not bootstrap")
 		return nil
 	}
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "ghost", PublicIP: "203.0.113.9", Phase: "material"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "ghost", PublicIP: "8.8.8.9", Phase: "material"})
 	_, err := RecoverIncompletePeerAdd("ghost")
 	if err == nil {
 		t.Fatal("expected error")
@@ -152,10 +152,10 @@ func TestRecoverMissingMaterialFails(t *testing.T) {
 func TestRecoverBootstrapFailedRetriesSameKeys(t *testing.T) {
 	withTestRoot(t)
 	slot := SlotTable()[0]
-	m := sampleMaterial("peer-a", "203.0.113.5", slot)
+	m := sampleMaterial("peer-a", "8.8.8.5", slot)
 	writePeerMaterial(t, m)
 	privBefore := m.SPPrivP
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-a", PublicIP: "203.0.113.5", SlotIndex: 0, Phase: "bootstrap_failed"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-a", PublicIP: "8.8.8.5", SlotIndex: 0, Phase: "bootstrap_failed"})
 	var sawPriv string
 	bootstrapPrimaryFn = func(mm *Material, o BootstrapPrimaryOpts) error {
 		sawPriv = mm.SPPrivP
@@ -183,7 +183,7 @@ func TestPeerAddJournalFailureStopsBeforeBootstrap(t *testing.T) {
 	writePeerOpFn = func(op peerOp) error {
 		return fmt.Errorf("journal disk full")
 	}
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-x", PublicIP: "203.0.113.20", PrimaryIP: "1.1.1.1"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-x", PublicIP: "8.8.8.20", PrimaryIP: "1.1.1.1"})
 	if err == nil {
 		t.Fatal("expected journal error")
 	}
@@ -204,9 +204,9 @@ func TestRecoverAfterIndexSaveFailure(t *testing.T) {
 		return nil
 	}
 	slot := SlotTable()[1]
-	m := sampleMaterial("peer-b", "203.0.113.10", slot)
+	m := sampleMaterial("peer-b", "8.8.8.10", slot)
 	writePeerMaterial(t, m)
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "8.8.8.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
 
 	savePeersIndexFn = func(idx *PeersIndex) error {
 		return fmt.Errorf("disk full")
@@ -251,7 +251,7 @@ func TestRecoverCorruptOpJSON(t *testing.T) {
 	}
 	_ = os.MkdirAll(filepath.Join(peersDirPath(), "bad"), 0o700)
 	_ = os.WriteFile(peerOpPath("bad"), []byte("{not json"), 0o600)
-	writePeerMaterial(t, sampleMaterial("bad", "203.0.113.8", SlotTable()[0]))
+	writePeerMaterial(t, sampleMaterial("bad", "8.8.8.8", SlotTable()[0]))
 	_, err := RecoverIncompletePeerAdd("bad")
 	if err == nil {
 		t.Fatal("expected corrupt error")
@@ -264,9 +264,9 @@ func TestRecoverUnknownPhase(t *testing.T) {
 		t.Fatal("no bootstrap")
 		return nil
 	}
-	m := sampleMaterial("p", "203.0.113.7", SlotTable()[0])
+	m := sampleMaterial("p", "8.8.8.7", SlotTable()[0])
 	writePeerMaterial(t, m)
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "p", PublicIP: "203.0.113.7", SlotIndex: 0, Phase: "weird"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "p", PublicIP: "8.8.8.7", SlotIndex: 0, Phase: "weird"})
 	_, err := RecoverIncompletePeerAdd("p")
 	if err == nil {
 		t.Fatal("expected unknown phase")
@@ -276,8 +276,8 @@ func TestRecoverUnknownPhase(t *testing.T) {
 func TestPeerPromotePreparedAndReady(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
-		{ID: "p1", PublicIP: "203.0.113.2", State: "prepared", Slot: SlotTable()[1]},
+		{ID: "old", PublicIP: "8.8.8.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "8.8.8.2", State: "prepared", Slot: SlotTable()[1]},
 	}, ActiveID: "old"}
 	if err := SavePeersIndex(idx); err != nil {
 		t.Fatal(err)
@@ -303,7 +303,7 @@ func TestPeerPromotePreparedAndReady(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(b) != "203.0.113.2\n" {
+	if string(b) != "8.8.8.2\n" {
 		t.Fatalf("preferred %q", b)
 	}
 	ab, _ := os.ReadFile(activePeerPathFile())
@@ -329,10 +329,10 @@ func TestRecoverInvalidSlotRefused(t *testing.T) {
 		t.Fatal("no bootstrap")
 		return nil
 	}
-	m := sampleMaterial("p", "203.0.113.7", SlotTable()[0])
+	m := sampleMaterial("p", "8.8.8.7", SlotTable()[0])
 	m.Slot = 999
 	writePeerMaterial(t, m)
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "p", PublicIP: "203.0.113.7", SlotIndex: 999, Phase: "material"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "p", PublicIP: "8.8.8.7", SlotIndex: 999, Phase: "material"})
 	_, err := RecoverIncompletePeerAdd("p")
 	if err == nil {
 		t.Fatal("expected invalid slot")
@@ -347,9 +347,9 @@ func TestRecoverIndexFailedJournalErrorJoined(t *testing.T) {
 		return nil
 	}
 	slot := SlotTable()[1]
-	m := sampleMaterial("peer-b", "203.0.113.10", slot)
+	m := sampleMaterial("peer-b", "8.8.8.10", slot)
 	writePeerMaterial(t, m)
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "8.8.8.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"})
 	savePeersIndexFn = func(idx *PeersIndex) error {
 		return fmt.Errorf("disk full")
 	}
@@ -375,14 +375,14 @@ func TestRecoverIndexFailedJournalErrorJoined(t *testing.T) {
 func TestPeerPromoteSecretsFileWritten(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "8.8.8.2", State: "ready", Slot: SlotTable()[0]},
 	}}
 	_ = SavePeersIndex(idx)
 	if err := PeerPromote("p1"); err != nil {
 		t.Fatal(err)
 	}
 	b, err := os.ReadFile(preferredIPSecretsPath)
-	if err != nil || string(b) != "203.0.113.2\n" {
+	if err != nil || string(b) != "8.8.8.2\n" {
 		t.Fatalf("secrets preferred %v %q", err, b)
 	}
 }
@@ -390,7 +390,7 @@ func TestPeerPromoteSecretsFileWritten(t *testing.T) {
 func TestSnapshotRefusesUnreadablePath(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "8.8.8.2", State: "ready", Slot: SlotTable()[0]},
 	}}
 	_ = SavePeersIndex(idx)
 	if err := os.Mkdir(preferredIPPath, 0o700); err != nil {
@@ -412,14 +412,14 @@ func TestSnapshotRefusesUnreadablePath(t *testing.T) {
 func TestPeerPromoteActiveWriteFailFullRollback(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
+		{ID: "old", PublicIP: "8.8.8.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "8.8.8.2", State: "ready", Slot: SlotTable()[1]},
 	}, ActiveID: "old"}
 	_ = SavePeersIndex(idx)
 	_ = os.WriteFile(activePeerPathFile(), []byte("old\n"), 0o644)
-	_ = os.WriteFile(preferredIPPath, []byte("203.0.113.1\n"), 0o644)
+	_ = os.WriteFile(preferredIPPath, []byte("8.8.8.1\n"), 0o644)
 	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
-	_ = os.WriteFile(preferredIPSecretsPath, []byte("203.0.113.1\n"), 0o600)
+	_ = os.WriteFile(preferredIPSecretsPath, []byte("8.8.8.1\n"), 0o600)
 
 	failOnce := true
 	writeFileFn = func(name string, data []byte, perm os.FileMode) error {
@@ -445,8 +445,8 @@ func TestPeerPromoteActiveWriteFailFullRollback(t *testing.T) {
 	}
 	for path, want := range map[string]string{
 		activePeerPathFile():   "old\n",
-		preferredIPPath:        "203.0.113.1\n",
-		preferredIPSecretsPath: "203.0.113.1\n",
+		preferredIPPath:        "8.8.8.1\n",
+		preferredIPSecretsPath: "8.8.8.1\n",
 	} {
 		b, err := os.ReadFile(path)
 		if err != nil || string(b) != want {
@@ -462,14 +462,14 @@ func TestPeerPromoteActiveWriteFailFullRollback(t *testing.T) {
 func TestPeerPromotePreferredFailRestoresExisting(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
+		{ID: "old", PublicIP: "8.8.8.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "8.8.8.2", State: "ready", Slot: SlotTable()[1]},
 	}, ActiveID: "old"}
 	_ = SavePeersIndex(idx)
 	_ = os.WriteFile(activePeerPathFile(), []byte("old\n"), 0o644)
-	_ = os.WriteFile(preferredIPPath, []byte("203.0.113.1\n"), 0o644)
+	_ = os.WriteFile(preferredIPPath, []byte("8.8.8.1\n"), 0o644)
 	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
-	_ = os.WriteFile(preferredIPSecretsPath, []byte("203.0.113.1\n"), 0o600)
+	_ = os.WriteFile(preferredIPSecretsPath, []byte("8.8.8.1\n"), 0o600)
 
 	failOnce := true
 	writeFileFn = func(name string, data []byte, perm os.FileMode) error {
@@ -495,8 +495,8 @@ func TestPeerPromotePreferredFailRestoresExisting(t *testing.T) {
 	}
 	for path, want := range map[string]string{
 		activePeerPathFile():   "old\n",
-		preferredIPPath:        "203.0.113.1\n",
-		preferredIPSecretsPath: "203.0.113.1\n",
+		preferredIPPath:        "8.8.8.1\n",
+		preferredIPSecretsPath: "8.8.8.1\n",
 	} {
 		b, err := os.ReadFile(path)
 		if err != nil || string(b) != want {
@@ -522,7 +522,7 @@ func TestPeerPromotePreferredFailRestoresExisting(t *testing.T) {
 func TestPeerPromoteSecretsFailRemovesNewPreferred(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "8.8.8.2", State: "ready", Slot: SlotTable()[0]},
 	}}
 	_ = SavePeersIndex(idx)
 	writeFileFn = func(name string, data []byte, perm os.FileMode) error {
@@ -551,14 +551,14 @@ func TestPeerPromoteSecretsFailRemovesNewPreferred(t *testing.T) {
 func TestPeerPromoteAndRollbackBothFail(t *testing.T) {
 	withTestRoot(t)
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "old", PublicIP: "203.0.113.1", State: "active", Slot: SlotTable()[0]},
-		{ID: "p1", PublicIP: "203.0.113.2", State: "ready", Slot: SlotTable()[1]},
+		{ID: "old", PublicIP: "8.8.8.1", State: "active", Slot: SlotTable()[0]},
+		{ID: "p1", PublicIP: "8.8.8.2", State: "ready", Slot: SlotTable()[1]},
 	}, ActiveID: "old"}
 	_ = SavePeersIndex(idx)
 	_ = os.WriteFile(activePeerPathFile(), []byte("old\n"), 0o644)
-	_ = os.WriteFile(preferredIPPath, []byte("203.0.113.1\n"), 0o644)
+	_ = os.WriteFile(preferredIPPath, []byte("8.8.8.1\n"), 0o644)
 	_ = os.MkdirAll(filepath.Dir(preferredIPSecretsPath), 0o700)
-	_ = os.WriteFile(preferredIPSecretsPath, []byte("203.0.113.1\n"), 0o600)
+	_ = os.WriteFile(preferredIPSecretsPath, []byte("8.8.8.1\n"), 0o600)
 
 	writeFileFn = func(name string, data []byte, perm os.FileMode) error {
 		return fmt.Errorf("write always denied")
@@ -580,7 +580,7 @@ func TestPeerValidateLocalUsesPeerMaterialNotLegacy(t *testing.T) {
 	withTestRoot(t)
 	// Legacy slot0 material for A
 	slot0 := SlotTable()[0]
-	mA := sampleMaterial("peer-a", "203.0.113.1", slot0)
+	mA := sampleMaterial("peer-a", "8.8.8.1", slot0)
 	writePeerMaterial(t, mA)
 	// Also write legacy material.json path used by LoadMaterialStrict
 	b, _ := json.MarshalIndent(mA, "", "  ")
@@ -588,12 +588,12 @@ func TestPeerValidateLocalUsesPeerMaterialNotLegacy(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(keysRoot, "material.json"), b, 0o600)
 
 	slot1 := SlotTable()[1]
-	mB := sampleMaterial("peer-b", "203.0.113.2", slot1)
+	mB := sampleMaterial("peer-b", "8.8.8.2", slot1)
 	writePeerMaterial(t, mB)
 
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "peer-a", PublicIP: "203.0.113.1", State: "active", Slot: slot0},
-		{ID: "peer-b", PublicIP: "203.0.113.2", State: "prepared", Slot: slot1},
+		{ID: "peer-a", PublicIP: "8.8.8.1", State: "active", Slot: slot0},
+		{ID: "peer-b", PublicIP: "8.8.8.2", State: "prepared", Slot: slot1},
 	}, ActiveID: "peer-a"}
 	_ = SavePeersIndex(idx)
 
@@ -630,7 +630,7 @@ func TestPeerValidateLocalUsesPeerMaterialNotLegacy(t *testing.T) {
 func TestPeerValidateLocalRejectsEmptyOrWrongPeerID(t *testing.T) {
 	withTestRoot(t)
 	slot1 := SlotTable()[1]
-	m := sampleMaterial("peer-b", "203.0.113.2", slot1)
+	m := sampleMaterial("peer-b", "8.8.8.2", slot1)
 	m.PeerID = ""
 	writePeerMaterial(t, m)
 	// path is peers/peer-b but PeerID empty in JSON — write manually
@@ -664,7 +664,7 @@ func TestPeerValidateLocalRejectsEmptyOrWrongPeerID(t *testing.T) {
 func TestMigrateLegacySetsPeerID(t *testing.T) {
 	withTestRoot(t)
 	slot0 := SlotTable()[0]
-	m := sampleMaterial("", "203.0.113.9", slot0)
+	m := sampleMaterial("", "8.8.8.9", slot0)
 	m.PeerID = ""
 	b, _ := json.MarshalIndent(m, "", "  ")
 	_ = os.MkdirAll(keysRoot, 0o700)
@@ -691,7 +691,7 @@ func TestMigrateLegacySetsPeerID(t *testing.T) {
 
 func TestMigrateLegacyRejectsNonSlotZeroMaterial(t *testing.T) {
 	withTestRoot(t)
-	m := sampleMaterial("", "203.0.113.10", SlotTable()[1])
+	m := sampleMaterial("", "8.8.8.10", SlotTable()[1])
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil { t.Fatal(err) }
 	if err := os.MkdirAll(keysRoot, 0o700); err != nil { t.Fatal(err) }
@@ -720,12 +720,12 @@ func TestPeerAddRejectsIPBoundToOtherID(t *testing.T) {
 		return sampleMaterial("peer-x", secondaryIP, SlotTable()[0]), nil
 	}
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "peer-old", PublicIP: "203.0.113.50", State: "active", Slot: SlotTable()[0]},
+		{ID: "peer-old", PublicIP: "8.8.8.50", State: "active", Slot: SlotTable()[0]},
 	}}
 	_ = SavePeersIndex(idx)
-	m := sampleMaterial("peer-old", "203.0.113.50", SlotTable()[0])
+	m := sampleMaterial("peer-old", "8.8.8.50", SlotTable()[0])
 	writePeerMaterial(t, m)
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-new", PublicIP: "203.0.113.50", PrimaryIP: "1.1.1.1"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-new", PublicIP: "8.8.8.50", PrimaryIP: "1.1.1.1"})
 	if err == nil {
 		t.Fatal("expected refuse rebind")
 	}
@@ -738,15 +738,15 @@ func TestPeerAddExistingRequiresIdentity(t *testing.T) {
 	withTestRoot(t)
 	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error { return nil }
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "peer-b", PublicIP: "203.0.113.2", State: "prepared", Slot: SlotTable()[1]},
+		{ID: "peer-b", PublicIP: "8.8.8.2", State: "prepared", Slot: SlotTable()[1]},
 	}}
 	_ = SavePeersIndex(idx)
-	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m := sampleMaterial("peer-b", "8.8.8.2", SlotTable()[1])
 	m.PeerID = "wrong"
 	_ = os.MkdirAll(filepath.Join(peersDirPath(), "peer-b"), 0o700)
 	b, _ := json.MarshalIndent(m, "", "  ")
 	_ = os.WriteFile(peerMaterialPath("peer-b"), b, 0o600)
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.2", PrimaryIP: "1.1.1.1"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "8.8.8.2", PrimaryIP: "1.1.1.1"})
 	if err == nil {
 		t.Fatal("expected identity fail")
 	}
@@ -756,13 +756,13 @@ func TestAssertPeerMaterialRegistrySlotMismatch(t *testing.T) {
 	withTestRoot(t)
 	bootstrapPrimaryFn = func(m *Material, o BootstrapPrimaryOpts) error { return nil }
 	idx := &PeersIndex{Version: 1, Peers: []ServicePeer{
-		{ID: "peer-b", PublicIP: "203.0.113.2", State: "prepared", Slot: SlotTable()[1]},
+		{ID: "peer-b", PublicIP: "8.8.8.2", State: "prepared", Slot: SlotTable()[1]},
 	}}
 	_ = SavePeersIndex(idx)
 	// material claims peer-b but slot 0
-	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[0])
+	m := sampleMaterial("peer-b", "8.8.8.2", SlotTable()[0])
 	writePeerMaterial(t, m)
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.2", PrimaryIP: "1.1.1.1"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "8.8.8.2", PrimaryIP: "1.1.1.1"})
 	if err == nil {
 		t.Fatal("expected slot mismatch")
 	}
@@ -772,18 +772,18 @@ func TestAssertPeerMaterialRegistrySlotMismatch(t *testing.T) {
 }
 
 func TestAssertPeerMaterialEmptySecondary(t *testing.T) {
-	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m := sampleMaterial("peer-b", "8.8.8.2", SlotTable()[1])
 	m.Secondary = ""
-	err := assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	err := assertPeerMaterialIdentity(m, "peer-b", "8.8.8.2", 1)
 	if err == nil {
 		t.Fatal("expected empty secondary fail")
 	}
 }
 
 func TestAssertPeerMaterialIncompleteIfaces(t *testing.T) {
-	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m := sampleMaterial("peer-b", "8.8.8.2", SlotTable()[1])
 	m.IfaceSP = ""
-	err := assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	err := assertPeerMaterialIdentity(m, "peer-b", "8.8.8.2", 1)
 	if err == nil {
 		t.Fatal("expected incomplete fail")
 	}
@@ -801,7 +801,7 @@ To                         Action      From
 	if !ufwStatusHasOpenPort(sample, 8444) {
 		t.Fatal("expected detect open 8444")
 	}
-	restricted := `8444/tcp                   ALLOW IN    203.0.113.2
+	restricted := `8444/tcp                   ALLOW IN    8.8.8.2
 `
 	if ufwStatusHasOpenPort(restricted, 8444) {
 		t.Fatal("restricted rule must not count as open")
@@ -811,13 +811,13 @@ To                         Action      From
 
 To                         Action      From
 --                         ------      ----
-8444/tcp                   ALLOW IN    203.0.113.2
+8444/tcp                   ALLOW IN    8.8.8.2
 8444/tcp (v6)              ALLOW IN    Anywhere (v6)
 `
 	if !ufwStatusHasOpenPort(v6Only, 8444) {
 		t.Fatal("expected detect open 8444 from IPv6 Anywhere line alone")
 	}
-	restrictedV6 := `8444/tcp (v6)              ALLOW IN    203.0.113.2 (v6)
+	restrictedV6 := `8444/tcp (v6)              ALLOW IN    8.8.8.2 (v6)
 `
 	if ufwStatusHasOpenPort(restrictedV6, 8444) {
 		t.Fatal("restricted IPv6 rule must not count as open")
@@ -825,15 +825,15 @@ To                         Action      From
 }
 
 func TestAssertPeerMaterialWrongPorts(t *testing.T) {
-	m := sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m := sampleMaterial("peer-b", "8.8.8.2", SlotTable()[1])
 	m.WSS_SP = 8444 // slot0 port
-	err := assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	err := assertPeerMaterialIdentity(m, "peer-b", "8.8.8.2", 1)
 	if err == nil {
 		t.Fatal("expected port mismatch")
 	}
-	m = sampleMaterial("peer-b", "203.0.113.2", SlotTable()[1])
+	m = sampleMaterial("peer-b", "8.8.8.2", SlotTable()[1])
 	m.PortSP = 0
-	err = assertPeerMaterialIdentity(m, "peer-b", "203.0.113.2", 1)
+	err = assertPeerMaterialIdentity(m, "peer-b", "8.8.8.2", 1)
 	if err == nil {
 		t.Fatal("expected zero port fail")
 	}
@@ -842,9 +842,9 @@ func TestAssertPeerMaterialWrongPorts(t *testing.T) {
 func TestPeerAddRefusesIncompleteOpWithoutOverwritingKeys(t *testing.T) {
 	withTestRoot(t)
 	slot := SlotTable()[1]
-	m := sampleMaterial("peer-b", "203.0.113.10", slot)
+	m := sampleMaterial("peer-b", "8.8.8.10", slot)
 	writePeerMaterial(t, m)
-	if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"}); err != nil {
+	if err := writePeerOp(peerOp{Op: "add", PeerID: "peer-b", PublicIP: "8.8.8.10", PrimaryIP: "1.1.1.1", SlotIndex: 1, Phase: "material"}); err != nil {
 		t.Fatal(err)
 	}
 	genCalls := 0
@@ -852,7 +852,7 @@ func TestPeerAddRefusesIncompleteOpWithoutOverwritingKeys(t *testing.T) {
 		genCalls++
 		return sampleMaterial("peer-b", secondary, slot), nil
 	}
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "203.0.113.10", PrimaryIP: "1.1.1.1"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-b", PublicIP: "8.8.8.10", PrimaryIP: "1.1.1.1"})
 	if err == nil || !strings.Contains(err.Error(), "peer recover") {
 		t.Fatalf("want refuse incomplete + recover hint, got %v", err)
 	}
@@ -872,10 +872,10 @@ func TestPeerAddRefusesIncompleteOpWithoutOverwritingKeys(t *testing.T) {
 func TestPeerAddRefusesIncompleteByPublicIP(t *testing.T) {
 	withTestRoot(t)
 	slot := SlotTable()[0]
-	m := sampleMaterial("peer-old", "203.0.113.55", slot)
+	m := sampleMaterial("peer-old", "8.8.8.55", slot)
 	writePeerMaterial(t, m)
-	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-old", PublicIP: "203.0.113.55", PrimaryIP: "1.1.1.1", SlotIndex: 0, Phase: "bootstrap_failed"})
-	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-new", PublicIP: "203.0.113.55", PrimaryIP: "1.1.1.1"})
+	_ = writePeerOp(peerOp{Op: "add", PeerID: "peer-old", PublicIP: "8.8.8.55", PrimaryIP: "1.1.1.1", SlotIndex: 0, Phase: "bootstrap_failed"})
+	_, _, err := PeerAdd(PeerAddOpts{PeerID: "peer-new", PublicIP: "8.8.8.55", PrimaryIP: "1.1.1.1"})
 	if err == nil || !strings.Contains(err.Error(), "incomplete add") {
 		t.Fatalf("want refuse by IP, got %v", err)
 	}
