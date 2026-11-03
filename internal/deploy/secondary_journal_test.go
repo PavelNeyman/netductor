@@ -516,3 +516,36 @@ func TestCanRecoverProvisionCheckpointGap(t *testing.T) {
 		t.Fatal("later successful stage must use normal advanced resume")
 	}
 }
+
+
+func TestDeployJournalRejectsAdvancedStageWithoutAgentID(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "203.0.113.111"
+	for _, stage := range []string{StageProvisioned, StagePeerPrepared, StageMaterialPrepared, StageSecondaryBootstrapped, StageDeployComplete} {
+		t.Run(stage, func(t *testing.T) {
+			if err := saveDeployState(&DeployOrchState{
+				Host: host, PeerID: "peer-test", LastSuccessfulStage: stage, Status: StatusRunning,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := loadDeployState(host); err == nil || !strings.Contains(err.Error(), "without agent_id") {
+				t.Fatalf("expected fail-closed journal validation for %s, got %v", stage, err)
+			}
+		})
+	}
+}
+
+func TestDeployJournalAllowsProvisionStartedWithoutAgentID(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	host := "203.0.113.112"
+	if err := saveDeployState(&DeployOrchState{
+		Host: host, PeerID: "peer-test", LastSuccessfulStage: StageProvisionStarted, Status: StatusRunning,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadDeployState(host); err != nil {
+		t.Fatalf("provision_started without AgentID is a valid in-progress state: %v", err)
+	}
+}
