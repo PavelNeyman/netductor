@@ -363,7 +363,9 @@ func fileExists(p string) bool {
 
 func defaultKeyPath() (string, error) {
 	if p := os.Getenv("NETDUCTOR_KEY_PATH"); p != "" {
-		_ = os.MkdirAll(filepath.Dir(p), 0o700)
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			return "", fmt.Errorf("create SSH key directory: %w", err)
+		}
 		return p, nil
 	}
 	home, err := os.UserHomeDir()
@@ -371,7 +373,12 @@ func defaultKeyPath() (string, error) {
 		return "", err
 	}
 	dir := filepath.Join(home, ".ssh")
-	_ = os.MkdirAll(dir, 0o700)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create SSH directory: %w", err)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return "", fmt.Errorf("secure SSH directory: %w", err)
+	}
 	return filepath.Join(dir, "netductor_primary"), nil
 }
 
