@@ -62,9 +62,36 @@ func registerEdgeAgent(mux *http.ServeMux) {
 				}
 			}
 		}
+		pendingBefore, err := mtls.PendingRotates()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_state_unavailable"})
+			return
+		}
+		hadPendingRotation := false
+		for _, pending := range pendingBefore {
+			if pending.NodeID == did {
+				hadPendingRotation = true
+				break
+			}
+		}
 		if err := mtls.ConfirmRotate(did, peerSerial); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_confirmation_failed"})
 			return
+		}
+		rotationConfirmed := false
+		if hadPendingRotation {
+			pendingAfter, err := mtls.PendingRotates()
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "certificate_rotation_state_unavailable"})
+				return
+			}
+			rotationConfirmed = true
+			for _, pending := range pendingAfter {
+				if pending.NodeID == did {
+					rotationConfirmed = false
+					break
+				}
+			}
 		}
 		rolloverConfirmed, err := mtls.ConfirmCARolloverClient(did, peerSerial)
 		if err != nil {
@@ -84,7 +111,11 @@ func registerEdgeAgent(mux *http.ServeMux) {
 		if role == "" {
 			role = "edge"
 		}
-		resp := map[string]any{"ok": true, "mtls_rollover_confirmed": rolloverConfirmed}
+		resp := map[string]any{
+			"ok": true,
+			"mtls_rollover_confirmed": rolloverConfirmed,
+			"mtls_rotation_confirmed": rotationConfirmed,
+		}
 		if did != "" {
 			n, err := nodes.UpsertFromDevice(nodes.Node{
 				ID: did, Hostname: hn, Role: role, Kind: kind, PublicIP: ip, Status: "online",
