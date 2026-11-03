@@ -201,6 +201,7 @@ Updated against current `main` after the initial plan commit.
 - [x] Primary records the client certificate serial observed in authenticated TLS heartbeat; it is derived from the TLS peer certificate, never accepted from heartbeat JSON.
 - [x] Rollover journal records old/new serial per issued Secondary. Adoption requires exact match with the server-observed new serial.
 - [x] Old client serial is revoked only after durable adoption confirmation. Confirmation and revocation are retry-safe.
+- [x] Revocation storage uses the shared durable JSON writer and an inter-process lock for read-modify-write, preventing lost updates between concurrent Netductor processes.
 - [x] Abort refuses to delete the new CA after a new-CA client identity has been issued.
 - [x] Finish checks issued-client confirmation, old-serial revocation, and absence of active per-node certificates signed by the old CA.
 - [x] Secondary validates the CA bundle, certificate/key pair, client-auth chain, and certificate CN before installation.
