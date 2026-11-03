@@ -662,7 +662,9 @@ func heartbeat(client *http.Client, cfg config) error {
 	}
 	_ = json.Unmarshal(data, &ack)
 	if ack.MTLSRolloverConfirmed || ack.MTLSRotationConfirmed || ack.MTLSMaterialConfirmed {
-		cleanupEdgeMTLSBackups()
+		if err := cleanupEdgeMTLSBackups(); err != nil {
+			return fmt.Errorf("cleanup previous mTLS material: %w", err)
+		}
 	}
 	// also store metrics history on VPS
 	_, _ = doJSON(client, http.MethodPost, cfg.Server+"/api/edge/metrics", cfg.Token, payload)
@@ -1276,11 +1278,16 @@ func restoreEdgeMTLSMaterial() bool {
 	return true
 }
 
-func cleanupEdgeMTLSBackups() {
+func cleanupEdgeMTLSBackups() error {
 	for _, dir := range mtlsDirs {
-		_ = os.RemoveAll(dir + ".rollover-old")
-		_ = syncAgentDirectory(filepath.Dir(dir))
+		if err := os.RemoveAll(dir + ".rollover-old"); err != nil {
+			return err
+		}
+		if err := syncAgentDirectory(filepath.Dir(dir)); err != nil {
+			return err
+		}
 	}
 	mtlsRefreshBackupActive = false
+	return nil
 }
 
