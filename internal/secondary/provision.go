@@ -410,9 +410,14 @@ else
   sync -f /var/lib/netductor 2>/dev/null || echo "warning: rollback-image cleanup directory sync failed" >&2
 fi
 `, ver)
-	_, err := runSSHWithStdin(client, script, []byte(bundleJSON))
+	out, err := runSSHWithStdin(client, script, []byte(bundleJSON))
 	if err != nil {
-		return "", fmt.Errorf("remote join failed")
+		msg := strings.TrimSpace(out)
+		if msg == "" {
+			msg = err.Error()
+		}
+		// Never embed full bundle; remote script should not echo secrets.
+		return "", fmt.Errorf("remote join failed: %s", trimLog(msg))
 	}
 	return "join ok\n", nil
 }
