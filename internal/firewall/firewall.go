@@ -1807,6 +1807,13 @@ func Collect(role string) Status {
 	if role == "primary" {
 		st.OpenWAN = append(st.OpenWAN, ndconfig.RedirectHTTPSPort()+"/tcp", "80/tcp")
 		st.Restricted = append(st.Restricted, ndconfig.AgentMTLSPort()+"/tcp ← "+ndconfig.SvcSPCIDR()+","+ndconfig.SvcPSCIDR()+",lo")
+		if sources, err := registeredPeerAgentSources(); err != nil {
+			st.Warnings = append(st.Warnings, "peer mTLS inventory: "+err.Error())
+		} else {
+			for _, source := range sources {
+				st.Restricted = append(st.Restricted, ndconfig.AgentMTLSPort()+"/tcp ← "+source)
+			}
+		}
 		st.DenyWAN = append(st.DenyWAN, "8788/tcp")
 	} else {
 		st.DenyWAN = append(st.DenyWAN, "8787/tcp", "8788/tcp", "8789/tcp", "80/tcp")
