@@ -269,7 +269,13 @@ func readFile(p string) string {
 	return string(b)
 }
 func publicIP() string {
-	if v := os.Getenv("PUBLIC_IP"); v != "" {
+	// The deploy's explicit host identity is authoritative. A VPS may have
+	// multiple egress addresses or a provider NAT address that differs from
+	// the address used for the peer/firewall identity.
+	if v := strings.TrimSpace(readSecret("public_ip")); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(os.Getenv("PUBLIC_IP")); v != "" {
 		return v
 	}
 	out, err := exec.Command("curl", "-4", "-fsS", "--max-time", "5", "https://ifconfig.me").Output()
