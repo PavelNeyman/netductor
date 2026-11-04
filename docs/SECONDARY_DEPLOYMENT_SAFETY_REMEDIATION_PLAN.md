@@ -267,3 +267,20 @@ Updated against current `main` after the initial plan commit.
 
 - `peer recover` now checks the current registry before resuming bootstrap/index writes. It refuses to resurrect an identity already marked `removed`, and refuses to reuse an IP or service-plane slot that has since been assigned to another active peer.
 - Added regression tests for removed identity, reassigned IP, and reassigned slot. Tests remain manual-only and were not run.
+
+### UFW idempotency on re-deploy (observed 2026-11-04, host 195.140.147.20) — not fixed yet
+
+Code is intentionally unchanged. Recorded so the next hardening pass does not rediscover it.
+
+Prepare (`internal/hardening/ssh_dropin.go`):
+
+- If `:22` is listening, prepare writes `factory-ssh-present`, then refuses the snapshot unless numbered UFW contains the exact comment `netductor-ssh-bootstrap`.
+- A factory or previously provisioned host that already allows `22/tcp` under another comment (`factory-ssh`, `OpenSSH`) fails closed: `active UFW is missing the baseline factory SSH transition rule`.
+- Manual workaround used: `ufw allow 22/tcp comment netductor-ssh-bootstrap`.
+- Fix later: treat any existing `22/tcp ALLOW` as the transition rule, or insert the tagged rule ourselves when `:22` is already allowed. Do not require the operator to rename a comment.
+
+Finalize (same file, `set -e`):
+
+- `ufw allow` / `ufw insert` are not idempotent. On an already-provisioned host they print `Skipping adding existing rule` / `Skipping inserting existing rule` and exit 1.
+- Observed on retry after a partial run: allow skipped, insert skipped, bootstrap rule deleted (`Rule deleted`), then the script exited 1. Desired end state (52222 allow, 22 denied first) was not reached.
+- Fix later: treat UFW "already exists" / skip as success (`|| true` only after confirming the rule is present), and make the deny-then-delete sequence safe to re-run. Verification must still fail closed if `:22` is not denied first after the sequence.
