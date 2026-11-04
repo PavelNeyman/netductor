@@ -51,12 +51,9 @@ func TestSaveCurrentFromInstalledNodeUsesOnDiskBinary(t *testing.T) {
 	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho 'netductor 0.9.612 (node)'\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	output := binVersion(bin)
-	release := verNorm(parseVerField(output))
-	if release != "0.9.612" {
-		t.Fatalf("release=%q output=%q", release, output)
+	if err := saveCurrentFromBinary(bin); err != nil {
+		t.Fatal(err)
 	}
-	saveCurrent(release)
 	b, err := os.ReadFile(filepath.Join(state, "stack", "current.json"))
 	if err != nil {
 		t.Fatal(err)
