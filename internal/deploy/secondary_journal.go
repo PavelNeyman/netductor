@@ -572,8 +572,10 @@ func redactDeploySecrets(s string) string {
 	// token=VALUE / agent_token=VALUE style
 	s = regexp.MustCompile(`(?i)(token|secret|password|passphrase)=\S+`).ReplaceAllString(s, "$1=redacted")
 	s = reLongB64.ReplaceAllString(s, "[redacted]")
-	if len(s) > 800 {
-		s = s[:800] + "…"
+	// Keep the tail: join/sing-box failures append the real reason last.
+	const max = 2000
+	if len(s) > max {
+		s = "…" + s[len(s)-max:]
 	}
 	return s
 }

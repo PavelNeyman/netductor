@@ -1,3 +1,9 @@
+## 0.9.671
+
+- secondary sing-box config drops `domain_resolver` (unknown on pinned 1.11.15).
+- deploy errors keep the tail so sing-box FATAL is visible.
+
+
 ## 0.9.670
 
 - secondary sing-box DNS uses 1.11 `address` format (pinned v1.11.15 rejected `server`).

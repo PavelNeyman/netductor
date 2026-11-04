@@ -72,9 +72,8 @@ func buildSecondaryOutboundsAndSvcRules(b *SecondaryBundle) (outbounds []any, sv
 		"type": "vless", "tag": "uplink",
 		"server": "10.87.10.1", "server_port": b.CoreVless,
 		// no vision: required for multiplex (vision ⊕ mux unsupported)
-		"uuid":            b.UplinkUUID,
-		"domain_resolver": "quad9",
-		"tls":             uplinkTLS,
+		"uuid": b.UplinkUUID,
+		"tls":  uplinkTLS,
 	}
 	if mx := uplinkMultiplexObject(); mx != nil {
 		uplink["multiplex"] = mx
@@ -89,9 +88,8 @@ func buildSecondaryOutboundsAndSvcRules(b *SecondaryBundle) (outbounds []any, sv
 		outbounds = append(outbounds, map[string]any{
 			"type": "vless", "tag": tag,
 			"server": "10.87.10.1", "server_port": 9443,
-			"uuid":            u.UUID,
-			"domain_resolver": "quad9",
-			"tls":             uplinkTLS,
+			"uuid": u.UUID,
+			"tls":  uplinkTLS,
 		})
 		svcRules = append(svcRules, map[string]any{
 			"auth_user": []string{name},
@@ -140,10 +138,9 @@ func buildSecondaryRoute(svcRules []any, ruSuffixes []string) map[string]any {
 				"download_detour": "direct",
 			},
 		},
-		"rules":                   assembleSecondaryRouteRules(svcRules, ruSuffixes),
-		"final":                   "uplink",
-		"default_domain_resolver": "quad9",
-		"auto_detect_interface":   true,
+		"rules":                 assembleSecondaryRouteRules(svcRules, ruSuffixes),
+		"final":                 "uplink",
+		"auto_detect_interface": true,
 	}
 }
 
