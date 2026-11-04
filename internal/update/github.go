@@ -510,8 +510,8 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 	if name == "" {
 		return fmt.Errorf("update: no asset for component %s on %s/%s", comp, platform.GOOS, platform.GOARCH)
 	}
-	// Prefer the local release mirror first. Its own SHA256SUMS is verified by
-	// tryLocalNamedAsset, so this path remains usable when GitHub/CDN is offline.
+	// Prefer the local release mirror first. tryLocalNamedAsset verifies the
+	// artifact against that mirror's own SHA256SUMS before staging it.
 	if ok, err := tryLocalNamedAsset(tag, name, destPath); err != nil {
 		return err
 	} else if ok {
