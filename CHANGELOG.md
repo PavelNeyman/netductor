@@ -1,3 +1,10 @@
+## 0.9.665
+
+- fix(secondary): mTLS install via base64 (no SSH stdin tar race)
+- fix(secondary): surface RemoteJoin remote errors
+- fix(deploy): safeStageErr includes redacted detail; keyboard-interactive password bootstrap
+- secondary deploy path: password → key-only → mTLS → join (download published assets)
+
 ## 0.9.663
 
 - fix(deploy): require finalized checkpoint for provision recovery; distinguish in-flight vs finalized
