@@ -78,8 +78,8 @@ func uniqueProfileLabel(base string, used map[string]int) string {
 }
 
 // SubscriptionBody returns the complete VLESS profile list.
-// secondary: every recently seen Secondary, core only if none.
-// primary: core. both: every Secondary plus core.
+// secondary: the active promoted service-plane peer, core only if none.
+// primary: core. both: active promoted peer plus core.
 func SubscriptionBody(name string) (string, error) {
 	r, err := loadRegistry()
 	if err != nil {
