@@ -881,6 +881,7 @@ install -d -m 700 /etc/netductor/secrets
 printf '%s\n' %s > /etc/netductor/secrets/public_ip
 chmod 600 /etc/netductor/secrets/public_ip
 netductor svc-paths bootstrap-secondary --material -
+test "$(tr -d '\n' </etc/netductor/secrets/public_ip)" = %s
 test -f /etc/netductor/secrets/secondary_core_url
 grep -q %s /etc/netductor/secrets/secondary_core_url
 for u in nd-wss-sp-client nd-wss-ps-server wg-quick@%s wg-quick@%s; do
@@ -890,7 +891,7 @@ done
 ping -c1 -W3 %s >/dev/null
 ping -c1 -W3 %s >/dev/null
 echo "svc-paths secondary ok slot_iface=%s/%s"
-`, ShellQuote(o.SecondaryHost), ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
+`, ShellQuote(o.SecondaryHost), ShellQuote(o.SecondaryHost), ShellQuote(mat.AddrPSP), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS),
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 	useStdinShip := true
 	bootScript := secBoot
