@@ -1,3 +1,7 @@
+## 0.9.662
+
+- fix(stack): tolerate slow API startup during apply recovery
+
 ## 0.9.661
 
 - fix(firewall): UFW loopback policy
