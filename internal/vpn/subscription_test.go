@@ -332,8 +332,9 @@ func TestSubscriptionExcludesPreparedPeerUntilPromoted(t *testing.T) {
 	writePeers := func(bState string) {
 		t.Helper()
 		aState := "active"
-		if bState == "active" { aState = "ready" }
-		raw := `{"version":1,"peers":[
+		activeID := "peer-a"
+		if bState == "active" { aState = "ready"; activeID = "peer-b" }
+		raw := `{"version":1,"active_id":"` + activeID + `","peers":[
 			{"id":"peer-a","public_ip":"203.0.113.11","state":"` + aState + `"},
 			{"id":"peer-b","public_ip":"203.0.113.22","state":"` + bState + `"}
 		]}`
