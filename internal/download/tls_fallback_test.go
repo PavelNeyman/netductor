@@ -133,3 +133,43 @@ func TestTLSIPFallbackRetriesAfterHandshakeFailure(t *testing.T) {
 		t.Fatal("TLS server did not receive ClientHello")
 	}
 }
+
+func TestTLSIPFallbackPreservesBaseDialerForOtherHosts(t *testing.T) {
+	baseDialCalls := 0
+	fallbackDialCalls := 0
+	lookupCalls := 0
+	base := &http.Transport{
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			baseDialCalls++
+			clientConn, serverConn := net.Pipe()
+			go func() {
+				_, _ = serverConn.Write([]byte("not a TLS record"))
+				_ = serverConn.Close()
+			}()
+			return clientConn, nil
+		},
+	}
+	transport := newTransportWithIPFallback(base, map[string]struct{}{
+		"release-assets.githubusercontent.com": {},
+	}, func(ctx context.Context, host string) ([]net.IPAddr, error) {
+		lookupCalls++
+		return nil, fmt.Errorf("unexpected DNS lookup for %q", host)
+	}, func(ctx context.Context, network, address string) (net.Conn, error) {
+		fallbackDialCalls++
+		return nil, fmt.Errorf("unexpected fallback dial for %q", address)
+	})
+
+	_, err := transport.DialTLSContext(context.Background(), "tcp", "github.com:443")
+	if err == nil {
+		t.Fatal("expected TLS handshake error from test connection")
+	}
+	if baseDialCalls != 1 {
+		t.Fatalf("base dial calls = %d, want 1", baseDialCalls)
+	}
+	if fallbackDialCalls != 0 {
+		t.Fatalf("fallback dial calls = %d, want 0", fallbackDialCalls)
+	}
+	if lookupCalls != 0 {
+		t.Fatalf("DNS lookup calls = %d, want 0", lookupCalls)
+	}
+}
