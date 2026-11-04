@@ -950,7 +950,11 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	}
 	checkSource := func(port, source, label string) {
 		action, found := firstTCPActionFromSource(rules, port, source, false)
-		if found && action != "ALLOW" {
+		if !found {
+			conflicts = append(conflicts, fmt.Sprintf("%s %s has no source-restricted rule for %s", label, port, source))
+			return
+		}
+		if action != "ALLOW" {
 			conflicts = append(conflicts, fmt.Sprintf("%s %s first rule for %s is %s, want ALLOW", label, port, source, action))
 		}
 	}
