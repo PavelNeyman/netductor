@@ -1,6 +1,7 @@
 package update
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -124,5 +125,24 @@ func TestRollbackHostNoPrev(t *testing.T) {
 	_, err := RollbackHostComponent(HostApplyOpts{Component: ComponentTG, DestPath: dest})
 	if err == nil {
 		t.Fatal("want error")
+	}
+}
+
+func TestProbeRunningUnitBinaryChecksRestoredExecutable(t *testing.T) {
+	dir := t.TempDir()
+	fakeSystemctl := filepath.Join(dir, "systemctl")
+	script := "#!/bin/sh\nif [ \"$1\" = show ]; then echo \"$NETDUCTOR_TEST_PID\"; exit 0; fi\nif [ \"$1\" = is-active ]; then echo active; exit 0; fi\nexit 1\n"
+	if err := os.WriteFile(fakeSystemctl, []byte(script), 0o755); err != nil { t.Fatal(err) }
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("NETDUCTOR_TEST_PID", fmt.Sprint(os.Getpid()))
+	exe, err := os.Executable()
+	if err != nil { t.Fatal(err) }
+	if err := probeRunningUnitBinary("test.service", exe); err != nil {
+		t.Fatalf("running process should match current executable: %v", err)
+	}
+	other := filepath.Join(dir, "other")
+	if err := os.WriteFile(other, []byte("not the running executable"), 0o700); err != nil { t.Fatal(err) }
+	if err := probeRunningUnitBinary("test.service", other); err == nil {
+		t.Fatal("different on-disk executable must not pass process identity verification")
 	}
 }
