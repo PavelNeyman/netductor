@@ -1,3 +1,10 @@
+## 0.9.659
+
+- fix(stack): reconcile installed release metadata on pair rollback recovery
+- fix(firewall): ordered source-range/loopback policy; absent rules preflight
+- fix(download): honor configured TLS fallback timeout
+- tests: stack rollback metadata + firewall coverage
+
 ## 0.9.658
 
 - download: CDN TLS/IP fallback and request-deadline bounded attempts
