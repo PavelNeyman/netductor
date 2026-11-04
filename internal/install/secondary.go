@@ -87,20 +87,32 @@ func InstallRelay(bundlePath string) (retErr error) {
 		return fmt.Errorf("secondary host baseline: %w", err)
 	}
 	fmt.Fprintln(os.Stderr, "==> secondary: dirs")
-	if err := paths.EnsureLayout(); err != nil { return fmt.Errorf("secondary state layout: %w", err) }
+	if err := paths.EnsureLayout(); err != nil {
+		return fmt.Errorf("secondary state layout: %w", err)
+	}
 	// Snapshot every persistent file this install path can replace before the
 	// first hostname, secret, config, registry or client-link mutation.
 	stateTxn, err := beginSecondaryFileTransaction(secondaryInstallMutationPaths(b.Users))
-	if err != nil { return fmt.Errorf("snapshot secondary install state: %w", err) }
+	if err != nil {
+		return fmt.Errorf("snapshot secondary install state: %w", err)
+	}
 	defer func() {
-		if retErr == nil { return }
+		if retErr == nil {
+			return
+		}
 		if rollbackErr := stateTxn.rollback(); rollbackErr != nil {
 			retErr = fmt.Errorf("%w; secondary state rollback incomplete: %v", retErr, rollbackErr)
 		}
 	}()
-	if err := applyHostname("secondary"); err != nil { return fmt.Errorf("set secondary hostname: %w", err) }
-	if err := os.MkdirAll("/etc/sing-box/certs", 0o755); err != nil { return fmt.Errorf("create sing-box cert directory: %w", err) }
-	if err := os.MkdirAll("/usr/local/etc/sing-box", 0o755); err != nil { return fmt.Errorf("create sing-box config directory: %w", err) }
+	if err := applyHostname("secondary"); err != nil {
+		return fmt.Errorf("set secondary hostname: %w", err)
+	}
+	if err := os.MkdirAll("/etc/sing-box/certs", 0o755); err != nil {
+		return fmt.Errorf("create sing-box cert directory: %w", err)
+	}
+	if err := os.MkdirAll("/usr/local/etc/sing-box", 0o755); err != nil {
+		return fmt.Errorf("create sing-box config directory: %w", err)
+	}
 
 	fmt.Fprintln(os.Stderr, "==> secondary: sing-box binary")
 	if err := InstallSingBoxBinaryOnly(); err != nil {
@@ -147,8 +159,12 @@ func InstallRelay(bundlePath string) (retErr error) {
 	}
 
 	// store bundle for re-apply
-	if err := os.MkdirAll(paths.SecondaryDir(), 0o700); err != nil { return fmt.Errorf("create secondary state directory: %w", err) }
-	if err := writeInstallFileDurable(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600); err != nil { return fmt.Errorf("save secondary bundle: %w", err) }
+	if err := os.MkdirAll(paths.SecondaryDir(), 0o700); err != nil {
+		return fmt.Errorf("create secondary state directory: %w", err)
+	}
+	if err := writeInstallFileDurable(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600); err != nil {
+		return fmt.Errorf("save secondary bundle: %w", err)
+	}
 
 	if err := vpn.WriteSecondarySingBox(&b, priv, sid); err != nil {
 		return err
@@ -156,10 +172,14 @@ func InstallRelay(bundlePath string) (retErr error) {
 
 	// Preserve prior unit definitions and enablement until activation succeeds.
 	unitTxn, err := beginSecondaryUnitTransaction()
-	if err != nil { return fmt.Errorf("snapshot secondary systemd units: %w", err) }
+	if err != nil {
+		return fmt.Errorf("snapshot secondary systemd units: %w", err)
+	}
 	unitTxnTouched := false
 	defer func() {
-		if retErr == nil || !unitTxnTouched { return }
+		if retErr == nil || !unitTxnTouched {
+			return
+		}
 		if rollbackErr := unitTxn.rollback(); rollbackErr != nil {
 			retErr = fmt.Errorf("%w; secondary unit rollback incomplete: %v", retErr, rollbackErr)
 		}
@@ -190,18 +210,27 @@ WantedBy=multi-user.target
 		return err
 	}
 	if out, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
-		return fmt.Errorf("sing-box did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
+		j, _ := exec.Command("journalctl", "-u", "sing-box", "-n", "40", "--no-pager").CombinedOutput()
+		return fmt.Errorf("sing-box did not become active: %s (%v)\n%s", strings.TrimSpace(string(out)), err, strings.TrimSpace(string(j)))
 	}
 
 	pubIP := strings.TrimSpace(env("PUBLIC_IP", ""))
-	if pubIP == "" { pubIP = strings.TrimSpace(detectPublicIPv4()) }
+	if pubIP == "" {
+		pubIP = strings.TrimSpace(detectPublicIPv4())
+	}
 	parsedIP := net.ParseIP(pubIP)
-	if parsedIP == nil || parsedIP.To4() == nil { return fmt.Errorf("secondary public IPv4 could not be determined (got %q)", pubIP) }
-	if err := nodes.SelfRegisterLocal("", "secondary", pubIP); err != nil { return fmt.Errorf("register secondary node: %w", err) }
+	if parsedIP == nil || parsedIP.To4() == nil {
+		return fmt.Errorf("secondary public IPv4 could not be determined (got %q)", pubIP)
+	}
+	if err := nodes.SelfRegisterLocal("", "secondary", pubIP); err != nil {
+		return fmt.Errorf("register secondary node: %w", err)
+	}
 
 	// write mobile client links for operator convenience
 	outDir := filepath.Join(paths.SecondaryDir(), "clients")
-	if err := os.MkdirAll(outDir, 0o700); err != nil { return fmt.Errorf("create secondary client links directory: %w", err) }
+	if err := os.MkdirAll(outDir, 0o700); err != nil {
+		return fmt.Errorf("create secondary client links directory: %w", err)
+	}
 	for _, u := range b.Users {
 		link := vpn.ClientLinkForSecondary(u.Name, u.UUID, pubIP, pub, sid, b.SecondarySNI)
 		if err := writeInstallFileDurable(filepath.Join(outDir, u.Name+".txt"), []byte(link+"\n"), 0o600); err != nil {
@@ -210,8 +239,12 @@ WantedBy=multi-user.target
 	}
 	// install agent
 	if b.AgentToken != "" && b.CoreAgentURL != "" {
-		if err := paths.WriteSecret("secondary_agent_token", b.AgentToken); err != nil { return fmt.Errorf("save secondary agent token: %w", err) }
-		if err := paths.WriteSecret("secondary_core_url", b.CoreAgentURL); err != nil { return fmt.Errorf("save secondary core URL: %w", err) }
+		if err := paths.WriteSecret("secondary_agent_token", b.AgentToken); err != nil {
+			return fmt.Errorf("save secondary agent token: %w", err)
+		}
+		if err := paths.WriteSecret("secondary_core_url", b.CoreAgentURL); err != nil {
+			return fmt.Errorf("save secondary core URL: %w", err)
+		}
 		agentUnit := `[Unit]
 Description=Netductor secondary agent
 After=network-online.target sing-box.service
@@ -226,8 +259,12 @@ RestartSec=15
 [Install]
 WantedBy=multi-user.target
 `
-		if err := writeUnit("netductor-secondary-agent.service", agentUnit); err != nil { return err }
-		if err := enableStart("netductor-secondary-agent"); err != nil { return err }
+		if err := writeUnit("netductor-secondary-agent.service", agentUnit); err != nil {
+			return err
+		}
+		if err := enableStart("netductor-secondary-agent"); err != nil {
+			return err
+		}
 		if out, err := exec.Command("systemctl", "is-active", "netductor-secondary-agent").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
 			return fmt.Errorf("secondary agent did not become active: %s (%v)", strings.TrimSpace(string(out)), err)
 		}
@@ -283,18 +320,17 @@ func InstallSingBoxBinaryOnly() error {
 	return nil
 }
 
-
 type secondaryUnitSnapshot struct {
-	name string
-	path string
-	data []byte
-	mode os.FileMode
-	exists bool
+	name         string
+	path         string
+	data         []byte
+	mode         os.FileMode
+	exists       bool
 	enabledState string
-	activeState string
+	activeState  string
 }
 
-type secondaryUnitTransaction struct { units []secondaryUnitSnapshot }
+type secondaryUnitTransaction struct{ units []secondaryUnitSnapshot }
 
 func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
 	t := &secondaryUnitTransaction{}
@@ -303,18 +339,25 @@ func beginSecondaryUnitTransaction() (*secondaryUnitTransaction, error) {
 		u := secondaryUnitSnapshot{name: name, path: path}
 		st, err := os.Lstat(path)
 		if err == nil {
-			if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 { return nil, fmt.Errorf("unit %s is not a regular file", name) }
+			if !st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0 {
+				return nil, fmt.Errorf("unit %s is not a regular file", name)
+			}
 			u.data, err = os.ReadFile(path)
-			if err != nil { return nil, fmt.Errorf("read %s: %w", path, err) }
+			if err != nil {
+				return nil, fmt.Errorf("read %s: %w", path, err)
+			}
 			u.mode, u.exists = st.Mode().Perm(), true
-		} else if !os.IsNotExist(err) { return nil, fmt.Errorf("inspect %s: %w", path, err) }
+		} else if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("inspect %s: %w", path, err)
+		}
 		unit := strings.TrimSuffix(name, ".service")
 		out, enabledErr := exec.Command("systemctl", "is-enabled", unit).CombinedOutput()
 		u.enabledState = strings.TrimSpace(string(out))
 		if enabledErr != nil {
 			switch u.enabledState {
 			case "disabled", "not-found", "static", "indirect", "masked", "masked-runtime", "generated", "transient":
-			default: return nil, fmt.Errorf("query enablement for %s: %s: %w", name, u.enabledState, enabledErr)
+			default:
+				return nil, fmt.Errorf("query enablement for %s: %s: %w", name, u.enabledState, enabledErr)
 			}
 		}
 		activeOut, activeErr := exec.Command("systemctl", "is-active", unit).CombinedOutput()
@@ -339,15 +382,19 @@ func (t *secondaryUnitTransaction) rollback() error {
 		}
 	}
 	restoreFailed := make(map[string]bool, len(t.units))
-	for i := len(t.units)-1; i >= 0; i-- {
+	for i := len(t.units) - 1; i >= 0; i-- {
 		u := t.units[i]
 		var err error
 		if u.exists {
 			err = writeInstallFileDurable(u.path, u.data, u.mode)
 		} else {
 			err = os.Remove(u.path)
-			if os.IsNotExist(err) { err = nil }
-			if err == nil { err = syncDirectory(filepath.Dir(u.path)) }
+			if os.IsNotExist(err) {
+				err = nil
+			}
+			if err == nil {
+				err = syncDirectory(filepath.Dir(u.path))
+			}
 		}
 		if err != nil {
 			restoreFailed[u.name] = true
@@ -355,7 +402,9 @@ func (t *secondaryUnitTransaction) rollback() error {
 		}
 	}
 	reloadErr := run("systemctl", "daemon-reload")
-	if reloadErr != nil { errs = append(errs, fmt.Sprintf("daemon-reload: %v", reloadErr)) }
+	if reloadErr != nil {
+		errs = append(errs, fmt.Sprintf("daemon-reload: %v", reloadErr))
+	}
 	for _, u := range t.units {
 		unit := strings.TrimSuffix(u.name, ".service")
 		var err error
@@ -375,26 +424,32 @@ func (t *secondaryUnitTransaction) rollback() error {
 				err = run("systemctl", "mask", "--force", unit)
 			}
 		}
-		if err != nil { errs = append(errs, fmt.Sprintf("restore enablement %s (%s): %v", unit, u.enabledState, err)) }
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("restore enablement %s (%s): %v", unit, u.enabledState, err))
+		}
 		if u.activeState == "active" && reloadErr == nil && !restoreFailed[u.name] {
 			if err := run("systemctl", "start", unit); err != nil {
 				errs = append(errs, fmt.Sprintf("restore active state %s: %v", unit, err))
 			}
 		}
 	}
-	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
+	if len(errs) != 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
 	return nil
 }
 
-
 type secondaryFileSnapshot struct {
-	path string
-	data []byte
-	mode os.FileMode
+	path   string
+	data   []byte
+	mode   os.FileMode
 	exists bool
 }
 
-type secondaryFileTransaction struct { files []secondaryFileSnapshot; runtimeHostname string }
+type secondaryFileTransaction struct {
+	files           []secondaryFileSnapshot
+	runtimeHostname string
+}
 
 func secondaryInstallMutationPaths(users []vpn.RelayUser) []string {
 	etc := paths.EtcDir()
@@ -434,7 +489,9 @@ func beginSecondaryFileTransaction(pathsToCapture []string) (*secondaryFileTrans
 	}
 	seen := make(map[string]struct{}, len(pathsToCapture))
 	for _, path := range pathsToCapture {
-		if _, ok := seen[path]; ok { continue }
+		if _, ok := seen[path]; ok {
+			continue
+		}
 		seen[path] = struct{}{}
 		s := secondaryFileSnapshot{path: path}
 		st, err := os.Lstat(path)
@@ -443,7 +500,9 @@ func beginSecondaryFileTransaction(pathsToCapture []string) (*secondaryFileTrans
 				return nil, fmt.Errorf("refuse to snapshot non-regular file %s", path)
 			}
 			s.data, err = os.ReadFile(path)
-			if err != nil { return nil, fmt.Errorf("read %s: %w", path, err) }
+			if err != nil {
+				return nil, fmt.Errorf("read %s: %w", path, err)
+			}
 			s.mode, s.exists = st.Mode().Perm(), true
 		} else if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("inspect %s: %w", path, err)
@@ -455,7 +514,7 @@ func beginSecondaryFileTransaction(pathsToCapture []string) (*secondaryFileTrans
 
 func (t *secondaryFileTransaction) rollback() error {
 	var errs []string
-	for i := len(t.files)-1; i >= 0; i-- {
+	for i := len(t.files) - 1; i >= 0; i-- {
 		s := t.files[i]
 		var err error
 		if s.exists {
@@ -469,10 +528,14 @@ func (t *secondaryFileTransaction) rollback() error {
 				err = statErr
 			} else {
 				err = os.Remove(s.path)
-				if err == nil { err = syncDirectory(filepath.Dir(s.path)) }
+				if err == nil {
+					err = syncDirectory(filepath.Dir(s.path))
+				}
 			}
 		}
-		if err != nil { errs = append(errs, fmt.Sprintf("restore %s: %v", s.path, err)) }
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("restore %s: %v", s.path, err))
+		}
 	}
 	// Restore the kernel's runtime hostname only after the on-disk hostname is restored.
 	if t.runtimeHostname != "" {
@@ -480,6 +543,8 @@ func (t *secondaryFileTransaction) rollback() error {
 			errs = append(errs, fmt.Sprintf("restore runtime hostname %s: %v", t.runtimeHostname, err))
 		}
 	}
-	if len(errs) != 0 { return fmt.Errorf("%s", strings.Join(errs, "; ")) }
+	if len(errs) != 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
 	return nil
 }

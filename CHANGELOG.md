@@ -1,3 +1,9 @@
+## 0.9.670
+
+- secondary sing-box DNS uses 1.11 `address` format (pinned v1.11.15 rejected `server`).
+- sing-box start failures now include journalctl in the error.
+
+
 ## 0.9.669
 
 - secondary join: applyHostname no longer panics on empty or comment-only /etc/hosts lines.

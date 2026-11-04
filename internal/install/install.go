@@ -363,7 +363,12 @@ func enableStart(unit string) error {
 		return fmt.Errorf("systemctl enable %s: %w", unit, err)
 	}
 	if err := run("systemctl", "restart", unit); err != nil {
-		return fmt.Errorf("systemctl restart %s: %w", unit, err)
+		out, _ := exec.Command("journalctl", "-u", unit, "-n", "30", "--no-pager").CombinedOutput()
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return fmt.Errorf("systemctl restart %s: %w\n%s", unit, err, msg)
 	}
 	return nil
 }
