@@ -146,11 +146,6 @@ func applyHostComponentLocked(o HostApplyOpts) (*UpdateJob, error) {
 					j, _ := mark(StateFailed, msg.Error())
 					return j, msg
 				}
-				if journalErr != nil {
-					msg = ErrRollbackFailed(msg, fmt.Errorf("rollback journal transition: %w", journalErr))
-					j, _ := mark(StateFailed, msg.Error())
-					return j, msg
-				}
 				if o.Restart && o.Unit != "" {
 					if rerr := exec.Command("systemctl", "restart", o.Unit).Run(); rerr != nil {
 						msg = ErrRollbackFailed(msg, fmt.Errorf("restart restored %s: %w", o.Unit, rerr))
@@ -167,6 +162,11 @@ func applyHostComponentLocked(o HostApplyOpts) (*UpdateJob, error) {
 						j, _ := mark(StateFailed, msg.Error())
 						return j, msg
 					}
+				}
+				if journalErr != nil {
+					msg = ErrRollbackFailed(msg, fmt.Errorf("rollback journal transition: %w", journalErr))
+					j, _ := mark(StateFailed, msg.Error())
+					return j, msg
 				}
 				j, _ := mark(StateRolledBack, msg.Error())
 				return j, msg
