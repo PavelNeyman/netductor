@@ -106,28 +106,6 @@ func TestTLSIPFallbackRetriesAfterHandshakeFailure(t *testing.T) {
 		t.Fatalf("unexpected dial address %q", address)
 		return nil, nil
 	})
-	installTLSIPFallback(transport, map[string]struct{}{host: {}}, func(ctx context.Context, gotHost string) ([]net.IPAddr, error) {
-		return []net.IPAddr{
-			{IP: net.ParseIP("192.0.2.10")},
-			{IP: net.ParseIP("192.0.2.20")},
-		}, nil
-	}, func(ctx context.Context, network, address string) (net.Conn, error) {
-		attempted = append(attempted, address)
-		if strings.HasPrefix(address, "192.0.2.10:") {
-			clientConn, serverConn := net.Pipe()
-			go func() {
-				_, _ = serverConn.Write([]byte("not a TLS record"))
-				_ = serverConn.Close()
-			}()
-			return clientConn, nil
-		}
-		if strings.HasPrefix(address, "192.0.2.20:") {
-			return net.Dial(network, listener.Addr().String())
-		}
-		t.Fatalf("unexpected dial address %q", address)
-		return nil, nil
-	})
-
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	resp, err := client.Get("https://" + host + "/asset")
 	if err != nil {
