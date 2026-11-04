@@ -391,7 +391,10 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
 			return []byte("Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n"), nil
 		}
-		return []byte("deleted"), nil
+		if len(args) == 3 && args[0] == "--force" && args[1] == "delete" {
+			return []byte("permission denied"), fmt.Errorf("delete failed")
+		}
+		return nil, fmt.Errorf("unexpected %v", args)
 	}
 	if err := removePeerUFW("8.8.8.9", "10.87.20.2", "", 0); err == nil {
 		t.Fatal("remaining managed rule must fail when it cannot be removed")
