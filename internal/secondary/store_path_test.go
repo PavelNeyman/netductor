@@ -49,16 +49,23 @@ func TestIssueTokenPreservesOtherPendingDevice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := false
+	foundSecond := false
+	foundCurrentA := false
 	for _, d := range devices {
 		if d.ID == secondID && d.Token == secondToken && d.Name == "secondary-b" {
-			found = true
+			foundSecond = true
 		}
-		if d.ID == firstID || d.ID == currentAID {
-			t.Fatalf("same-name pending identity %q was not replaced", firstID)
+		if d.ID == firstID {
+			t.Fatalf("replaced pending identity %q is still present", firstID)
+		}
+		if d.ID == currentAID && d.Token == currentAToken && d.Name == "secondary-a" {
+			foundCurrentA = true
 		}
 	}
-	if !found {
+	if !foundSecond {
 		t.Fatalf("pre-existing pending identity %q was removed while preparing another name", secondID)
+	}
+	if !foundCurrentA {
+		t.Fatalf("joined replacement identity %q was unexpectedly removed", currentAID)
 	}
 }
