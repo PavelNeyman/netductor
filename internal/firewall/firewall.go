@@ -377,7 +377,25 @@ func RemoveLegacyGlobalWSSRules(status, role string) error {
 				legacyPeer = legacy.Primary
 			}
 			if materialExists && strings.TrimSpace(legacyPeer) != "" {
-				return fmt.Errorf("%s WSS inventory is empty but legacy material still identifies peer %s; refusing to remove the only potentially live access", role, legacyPeer)
+				retired := false
+				if role == "primary" {
+					var index wssPeerIndex
+					indexExists, indexErr := readFirewallJSON(filepath.Join(paths.EtcDir(), "svc-paths", "peers.json"), &index)
+					if indexErr != nil {
+						return fmt.Errorf("inspect peer registry for retired legacy material: %w", indexErr)
+					}
+					if indexExists {
+						for _, peer := range index.Peers {
+							if strings.TrimSpace(peer.PublicIP) == strings.TrimSpace(legacyPeer) && (peer.State == "removed" || peer.State == "removing") {
+								retired = true
+								break
+							}
+						}
+					}
+				}
+				if !retired {
+					return fmt.Errorf("%s WSS inventory is empty but legacy material still identifies peer %s without a matching removed registry entry; refusing to remove the only potentially live access", role, legacyPeer)
+				}
 			}
 		} else {
 			for _, peer := range expected {
