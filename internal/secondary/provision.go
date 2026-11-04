@@ -134,7 +134,17 @@ func sshClientBootstrap(in ProvisionIn) (*ssh.Client, error) {
 	normalizeSSHIn(&in)
 	var methods []ssh.AuthMethod
 	if in.Password != "" {
-		methods = append(methods, ssh.Password(in.Password))
+		pw := in.Password
+		methods = append(methods, ssh.Password(pw))
+		// Many cloud images accept keyboard-interactive but not the "password" method;
+		// OpenSSH CLI succeeds while ssh.Password alone fails with "no supported methods".
+		methods = append(methods, ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) (answers []string, err error) {
+			answers = make([]string, len(questions))
+			for i := range questions {
+				answers[i] = pw
+			}
+			return answers, nil
+		}))
 	} else {
 		signer, err := sshSignerFromIn(in)
 		if err != nil {

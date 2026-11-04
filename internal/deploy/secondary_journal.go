@@ -584,21 +584,29 @@ func redactDeploySecrets(s string) string {
 // It never embeds remote stdout, JSON, or token material — only stage, op, and a coarse class.
 func safeStageErr(stage, op string, err error) error {
 	class := "error"
+	detail := ""
 	if err != nil {
 		s := strings.ToLower(err.Error())
+		detail = redactDeploySecrets(err.Error())
 		switch {
 		case strings.Contains(s, "timeout") || strings.Contains(s, "deadline"):
 			class = "timeout"
 		case strings.Contains(s, "connection refused"):
 			class = "connection_refused"
+		case strings.Contains(s, "no route") || strings.Contains(s, "network is unreachable"):
+			class = "network"
 		case strings.Contains(s, "host key pin required") || strings.Contains(s, "tofu missing") || strings.Contains(s, "no tofu pin"):
 			class = "hostkey_pin_missing"
 		case strings.Contains(s, "pin lost") || strings.Contains(s, "tofu pin lost"):
 			class = "hostkey_pin_lost"
-		case strings.Contains(s, "host key mismatch") || strings.Contains(s, "remote host identification") || strings.Contains(s, "host key verification failed"):
+		case strings.Contains(s, "host key mismatch") || strings.Contains(s, "remote host identification") || strings.Contains(s, "host key verification failed") || strings.Contains(s, "knownhosts"):
 			class = "hostkey_mismatch"
-		case strings.Contains(s, "permission denied") || strings.Contains(s, "publickey"):
+		case strings.Contains(s, "unable to authenticate") || strings.Contains(s, "no supported methods") || strings.Contains(s, "permission denied") || strings.Contains(s, "publickey") || strings.Contains(s, "handshake failed"):
 			class = "auth"
+		case strings.Contains(s, "passphrase") || strings.Contains(s, "parse ssh private key") || strings.Contains(s, "parse private key"):
+			class = "key_parse"
+		case strings.Contains(s, "operator private key path required") || strings.Contains(s, "private key path required"):
+			class = "key_path"
 		case strings.Contains(s, "no such file"):
 			class = "missing"
 		case strings.Contains(s, "exit status"):
@@ -606,6 +614,9 @@ func safeStageErr(stage, op string, err error) error {
 		case strings.Contains(s, "json"):
 			class = "parse"
 		}
+	}
+	if detail != "" {
+		return fmt.Errorf("%s: %s failed (%s): %s", stage, op, class, detail)
 	}
 	return fmt.Errorf("%s: %s failed (%s)", stage, op, class)
 }
