@@ -1,3 +1,8 @@
+## 0.9.660
+
+- fix(firewall): health checks for ordered partial source allows
+- test(firewall): effective UFW source-range first-match coverage
+
 ## 0.9.659
 
 - fix(stack): reconcile installed release metadata on pair rollback recovery
