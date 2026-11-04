@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestRecoverRestoresNodeAfterKill(t *testing.T) {
@@ -66,5 +67,14 @@ func TestRecoverCorruptJournalBlocks(t *testing.T) {
 	}
 	if err := recoverApplyTx(att); err == nil {
 		t.Fatal("corrupt journal must block")
+	}
+}
+
+func TestApplyRecoveryHealthTimeoutAllowsSlowStartup(t *testing.T) {
+	if applyRecoveryHealthTimeout <= 30*time.Second {
+		t.Fatalf("recovery health timeout = %s, want > 30s", applyRecoveryHealthTimeout)
+	}
+	if applyRecoveryHealthTimeout < 60*time.Second {
+		t.Fatalf("recovery health timeout = %s, want at least 60s", applyRecoveryHealthTimeout)
 	}
 }
