@@ -168,6 +168,52 @@ func tryLocalNamedAsset(tag, name, destPath string) (bool, error) {
 	return true, nil
 }
 
+// VerifyLocalReleaseAssets verifies a complete local release manifest and the
+// exact assets required by stack apply. It is used only as a fallback when the
+// GitHub Release manifest cannot be fetched; every required file must exist as
+// a regular file and match its SHA256SUMS entry.
+func VerifyLocalReleaseAssets(tag string, names ...string) error {
+	dir := LocalTagDir(tag)
+	manifestPath := filepath.Join(dir, "SHA256SUMS")
+	b, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return fmt.Errorf("local SHA256SUMS: %w", err)
+	}
+	sums, err := ParseSHA256SUMS(b)
+	if err != nil {
+		return fmt.Errorf("local SHA256SUMS: %w", err)
+	}
+	if len(names) == 0 {
+		return fmt.Errorf("no required local release assets")
+	}
+	for _, name := range names {
+		name = filepath.Base(name)
+		if name == "" || name == "." || strings.Contains(name, "..") {
+			return fmt.Errorf("invalid local asset name")
+		}
+		want, ok := sums[name]
+		if !ok || !validSHA256Hex(want) {
+			return fmt.Errorf("local SHA256SUMS: missing or invalid checksum for %s", name)
+		}
+		path := filepath.Join(dir, name)
+		st, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("local asset %s: %w", name, err)
+		}
+		if !st.Mode().IsRegular() {
+			return fmt.Errorf("local asset %s is not a regular file", name)
+		}
+		got, err := fileSHA256(path)
+		if err != nil {
+			return fmt.Errorf("local asset %s: %w", name, err)
+		}
+		if !strings.EqualFold(got, want) {
+			return fmt.Errorf("local asset %s SHA256 mismatch", name)
+		}
+	}
+	return nil
+}
+
 // ImportReleaseDir copies all files from srcDir into LocalTagDir(tag).
 func ImportReleaseDir(tag, srcDir string) (string, error) {
 	tag, err := ValidReleaseTag(tag)
