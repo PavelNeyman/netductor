@@ -1,6 +1,7 @@
 package secondary
 
 import (
+	"encoding/base64"
 	"archive/tar"
 	"bytes"
 	"fmt"
@@ -443,12 +444,16 @@ func installMTLSMaterial(client *ssh.Client, ca, cert, key []byte) (string, erro
 	if err := tw.Close(); err != nil {
 		return "", err
 	}
+	// Avoid SSH stdin races (tar on stdin can yield empty extract + confusing exit on some hosts).
+	// Cert material is small; pass as base64 on the remote shell command.
+	b64 := base64.StdEncoding.EncodeToString(buf.Bytes())
 	script := `set -eu
 P=/etc/netductor/secrets
 TARGET="$P/mtls"
 STAGE=
 BACKUP=
 HAD_OLD=0
+nd_sync() { sync -f "$1" 2>/dev/null || sync 2>/dev/null || true; }
 mkdir -p "$P"
 test -d "$P" && test ! -L "$P" || { echo "mTLS secrets parent is not a real directory" >&2; exit 1; }
 chmod 700 "$P"
@@ -456,7 +461,7 @@ STAGE=$(mktemp -d "$P/.mtls-stage.XXXXXX")
 cleanup() {
   rc=$?
   if [ "$rc" -ne 0 ]; then
-    if [ -n "$BACKUP" ] && [ -d "$BACKUP" ]; then
+    if [ -n "${BACKUP:-}" ] && [ -d "$BACKUP" ]; then
       if { [ -e "$TARGET" ] || [ -L "$TARGET" ]; } && ! rm -rf "$TARGET"; then
         echo "CRITICAL: cannot clear partial mTLS target; backup remains at $BACKUP" >&2
         exit "$rc"
@@ -465,65 +470,70 @@ cleanup() {
         echo "CRITICAL: mTLS rollback failed; backup remains at $BACKUP" >&2
         exit "$rc"
       fi
-      sync -f "$P" || echo "CRITICAL: mTLS rollback directory sync failed" >&2
-    elif [ "$HAD_OLD" -eq 0 ]; then
-      rm -rf "$TARGET" || echo "CRITICAL: cannot remove partial mTLS target" >&2
-      sync -f "$P" || echo "CRITICAL: mTLS cleanup directory sync failed" >&2
+      nd_sync "$P"
+    elif [ "${HAD_OLD:-0}" -eq 0 ]; then
+      rm -rf "$TARGET" 2>/dev/null || echo "CRITICAL: cannot remove partial mTLS target" >&2
+      nd_sync "$P"
     fi
   fi
-  [ -z "$STAGE" ] || rm -rf "$STAGE"
+  [ -z "${STAGE:-}" ] || rm -rf "$STAGE"
   exit "$rc"
 }
 trap cleanup EXIT
-tar -x --no-same-owner -f - -C "$STAGE"
+echo "` + b64 + `" | base64 -d | tar -x --no-same-owner -f - -C "$STAGE"
 for f in ca.crt client.crt client.key; do
   test -f "$STAGE/$f" && test ! -L "$STAGE/$f" && test -s "$STAGE/$f"
   chmod 600 "$STAGE/$f"
-  sync -f "$STAGE/$f"
+  nd_sync "$STAGE/$f"
 done
-test "$(find "$STAGE" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 3
+test "$(find "$STAGE" -mindepth 1 -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')" -eq 3
 chmod 700 "$STAGE"
-sync -f "$STAGE"
+nd_sync "$STAGE"
 if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
   test -d "$TARGET" && test ! -L "$TARGET" || { echo "existing mTLS target is not a real directory" >&2; exit 1; }
   HAD_OLD=1
   BACKUP=$(mktemp -d "$P/.mtls-backup.XXXXXX")
   rmdir "$BACKUP"
   mv "$TARGET" "$BACKUP"
-  sync -f "$P"
+  nd_sync "$P"
 fi
 mv "$STAGE" "$TARGET"
 STAGE=
-sync -f "$P"
+nd_sync "$P"
 trap - EXIT
 if [ "$HAD_OLD" -eq 1 ]; then printf 'MTLS_BACKUP=%s\n' "$BACKUP"; else printf 'MTLS_BACKUP=-\n'; fi
-`;
-	out, err := runSSHWithStdin(client, script, buf.Bytes())
+`
+	out, err := runSSH(client, script)
 	if err != nil {
 		return "", fmt.Errorf("mTLS atomic install failed: %w (%s)", err, trimLog(out))
 	}
 	const marker = "MTLS_BACKUP="
 	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, marker) {
 			backup := strings.TrimSpace(strings.TrimPrefix(line, marker))
 			if backup == "-" {
 				return "-", nil
 			}
 			if !validMTLSBackupPath(backup) {
-				return "", fmt.Errorf("remote returned invalid mTLS backup path")
+				return "", fmt.Errorf("remote returned invalid mTLS backup path %q", backup)
 			}
 			return backup, nil
 		}
 	}
-	return "", fmt.Errorf("mTLS atomic install did not return transaction marker: %s", trimLog(out))
+	return "", fmt.Errorf("mTLS atomic install did not return transaction marker (out=%q)", trimLog(out))
 }
 
 func validMTLSBackupPath(path string) bool {
 	const prefix = "/etc/netductor/secrets/.mtls-backup."
-	if !strings.HasPrefix(path, prefix) || len(path) != len(prefix)+6 {
+	if !strings.HasPrefix(path, prefix) {
 		return false
 	}
-	for _, r := range path[len(prefix):] {
+	suf := path[len(prefix):]
+	if len(suf) < 6 || len(suf) > 32 {
+		return false
+	}
+	for _, r := range suf {
 		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9') {
 			return false
 		}
