@@ -304,6 +304,41 @@ func ensureWSSAllowRules(role string) error {
 // removes only rules carrying Netductor's historical comments; administrator
 // rules are preserved and subsequently cause a fail-closed policy check.
 func RemoveLegacyGlobalWSSRules(status string) error {
+	// A tagged global rule is the last known path for legacy peers when the
+	// registry is empty or incomplete. Never remove it unless every expected
+	// peer already has an exact source-restricted replacement.
+	for _, role := range []string{"primary", "secondary"} {
+		expected, err := wssExpectations(role)
+		if err != nil {
+			return fmt.Errorf("inspect %s WSS inventory before legacy cleanup: %w", role, err)
+		}
+		legacyPort := "8444"
+		legacyComment := "nd-wss-sp"
+		if role == "secondary" {
+			legacyPort, legacyComment = "8445", "nd-wss-ps"
+		}
+		hasLegacy := false
+		for _, rule := range parseUfwNumbered(status) {
+			if rule.Action == "ALLOW" && ufwFromIsWAN(rule.From) && rule.Port == legacyPort && strings.Contains(rule.Raw, legacyComment) {
+				hasLegacy = true
+				break
+			}
+		}
+		if !hasLegacy {
+			continue
+		}
+		if len(expected) == 0 {
+			return fmt.Errorf("%s WSS inventory is empty while a tagged global %s rule exists; refusing to remove the only potentially live peer access", role, legacyPort)
+		}
+		for _, peer := range expected {
+			if peer.Port != legacyPort {
+				continue
+			}
+			if !hasExactWSSPeerAllow(parseUfwNumbered(status), peer) {
+				return fmt.Errorf("%s WSS %s from %s has no exact source-restricted replacement; refusing legacy cleanup", role, peer.Port, peer.Source)
+			}
+		}
+	}
 	var numbers []int
 	for _, rule := range parseUfwNumbered(status) {
 		if rule.Action != "ALLOW" || !ufwFromIsWAN(rule.From) || (rule.Port != "8444" && rule.Port != "8445") { continue }
