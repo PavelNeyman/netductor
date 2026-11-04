@@ -2274,6 +2274,7 @@ func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool 
 	}
 	start := uint64(binary.BigEndian.Uint32(base))
 	count := uint64(1) << uint(32-ones)
+	foundAny, uncovered := false, false
 	for offset := uint64(0); offset < count; offset++ {
 		host := make(net.IP, net.IPv4len)
 		binary.BigEndian.PutUint32(host, uint32(start+offset))
@@ -2283,6 +2284,7 @@ func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool 
 			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, port) || !ufwSourceCovers(rule.From, hostCIDR) {
 				continue
 			}
+			foundAny = true
 			if rule.Action != "ALLOW" {
 				return false
 			}
@@ -2290,10 +2292,13 @@ func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool 
 			break
 		}
 		if !found {
-			return false
+			uncovered = true
 		}
 	}
-	return true
+	// A completely absent source policy is safe to append during apply.
+	// Once any overlapping rule exists, however, every address must resolve
+	// to an effective ALLOW before the policy is considered compatible.
+	return !foundAny || !uncovered
 }
 
 // firstTCPActionFromSource returns the first ordered rule that affects the
