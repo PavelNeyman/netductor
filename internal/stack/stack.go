@@ -231,14 +231,18 @@ func saveCurrent(tag string) {
 
 // saveCurrentFromInstalledNode records the version on disk, not the version
 // embedded in the currently running process (which may predate a rollback).
-func saveCurrentFromInstalledNode() error {
-	output := binVersion("/usr/local/bin/netductor")
+func saveCurrentFromBinary(path string) error {
+	output := binVersion(path)
 	release := verNorm(parseVerField(output))
 	if release == "" || !strings.Contains(release, ".") {
 		return fmt.Errorf("cannot determine installed netductor version from %q", output)
 	}
 	saveCurrent(release)
 	return nil
+}
+
+func saveCurrentFromInstalledNode() error {
+	return saveCurrentFromBinary("/usr/local/bin/netductor")
 }
 
 func attemptDir() string {
