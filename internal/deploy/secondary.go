@@ -1039,7 +1039,7 @@ echo "primary peer units+ping ok -> %s %s"
 	if pack.AgentID == "" {
 		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("prepare-pack missing agent_id — refuse to treat any online secondary as this deploy"))
 	}
-	// Exact AgentID + online + fresh last_seen (seen= unix, within 90s) after SP switch.
+	// Exact AgentID + online + fresh last_seen (seen= unix, within 120s) after SP switch; allow 10m for cold mTLS startup.
 	waitCmd := fmt.Sprintf(`ok=0
 id=%s
 now=$(date +%%s)
