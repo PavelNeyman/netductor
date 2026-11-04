@@ -17,8 +17,8 @@ func TestPrepareOrderAndFlock(t *testing.T) {
 		!strings.Contains(s, "previous SSH rollback has no terminal marker") {
 		t.Fatal("must refuse prepare while a prior rollback is unresolved")
 	}
-	if !strings.Contains(s, "flock 9") {
-		t.Fatal("prepare must hold the persistent backup lock")
+	if !strings.Contains(s, "flock -w 30 9") {
+		t.Fatal("prepare must hold the persistent backup lock with a bounded wait")
 	}
 	cleanup := strings.Index(s, `find "$ND_BAK" -mindepth 1 -maxdepth 1 ! -name lock -exec rm -rf -- {} +`)
 	backup := strings.Index(s, "# --- Mandatory SSH backup ---")
@@ -46,8 +46,8 @@ func TestPrepareOrderAndFlock(t *testing.T) {
 
 func TestCancelUsesFlockAndStamp(t *testing.T) {
 	s := RemoteHardenCancelRollbackScript()
-	if !strings.Contains(s, "flock 9") {
-		t.Fatal("cancel flock")
+	if !strings.Contains(s, "flock -w 60 9") {
+		t.Fatal("cancel must hold the persistent backup lock with a bounded wait")
 	}
 	if !strings.Contains(s, "CANCELLED") {
 		t.Fatal("CANCELLED")
