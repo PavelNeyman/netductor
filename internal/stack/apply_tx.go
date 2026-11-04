@@ -22,6 +22,9 @@ const (
 	txVerified      = "verified"
 	txCommitted     = "committed"
 	txRolledBack    = "rolled_back"
+
+	// Recovery must tolerate API startup migrations slower than normal apply.
+	applyRecoveryHealthTimeout = 60 * time.Second
 )
 
 type applyTx struct {
@@ -228,7 +231,7 @@ func RecoverIncompleteApply() error {
 		if err := exec.Command("systemctl", "restart", unit).Run(); err != nil { restartErrs = append(restartErrs, unit+": "+err.Error()) }
 	}
 	if len(restartErrs) > 0 { return fmt.Errorf("apply pair rolled back; service restart failed: %s", strings.Join(restartErrs, "; ")) }
-	if !waitAPIHealthy(20*time.Second) { return fmt.Errorf("apply pair rolled back; API health check failed") }
+	if !waitAPIHealthy(applyRecoveryHealthTimeout) { return fmt.Errorf("apply pair rolled back; API health check failed") }
 	for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
 		active, _ := unitState(unit)
 		if active != "active" { return fmt.Errorf("apply pair rolled back; service %s is %s", unit, active) }
