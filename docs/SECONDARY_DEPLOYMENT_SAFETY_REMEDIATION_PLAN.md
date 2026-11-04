@@ -284,3 +284,10 @@ Finalize (same file, `set -e`):
 - `ufw allow` / `ufw insert` are not idempotent. On an already-provisioned host they print `Skipping adding existing rule` / `Skipping inserting existing rule` and exit 1.
 - Observed on retry after a partial run: allow skipped, insert skipped, bootstrap rule deleted (`Rule deleted`), then the script exited 1. Desired end state (52222 allow, 22 denied first) was not reached.
 - Fix later: treat UFW "already exists" / skip as success (`|| true` only after confirming the rule is present), and make the deny-then-delete sequence safe to re-run. Verification must still fail closed if `:22` is not denied first after the sequence.
+
+Same host, next stage (join host baseline, still no code change):
+
+- After SSH had already moved to `:52222` key-only, the leftover `22/tcp ALLOW` comment `netductor-ssh-bootstrap` (added only to satisfy prepare) failed host-baseline preflight.
+- Preflight requires the first WAN action on `22` to be `DENY` for IPv4 and IPv6, and no effective `tcp ALLOW from Anywhere` before that deny (`internal/firewall/firewall.go` `checkWAN("22", "DENY", "ssh22")`).
+- So prepare and baseline disagree: prepare refuses without a tagged `22 ALLOW`, baseline refuses while that `ALLOW` is still first. A re-deploy of an already-hardened host cannot satisfy both.
+- Fix later together with the finalize idempotency item: once key-only `:52222` is proven, prepare must not demand a factory `22 ALLOW`, and baseline must not run against a mid-transition policy.
