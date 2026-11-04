@@ -13,7 +13,7 @@ netductor svc-paths peer rollback peer-a  # or promote peer-a
 netductor svc-paths peer remove peer-b    # only if not active
 ```
 
-Deploy secondary defaults to Promote=false. Slots: 0=`10.87.10/11`, 1=`20/21`, 2=`22/23`, 3=`24/25`.
+Deploy secondary defaults to Promote=false. `prepared`/`ready` peers are excluded from client subscriptions; only the explicitly promoted `active` peer is advertised. Slots: 0=`10.87.10/11`, 1=`20/21`, 2=`22/23`, 3=`24/25`.
 
 **EN** · [RU](ru/SECONDARY-DEPLOY.md)
 
@@ -65,10 +65,10 @@ netductor ssh-hosts forget --kind relay SECONDARY_IP
 3. Mac → secondary `:22` (password once) or key: install pubkey, mTLS, `secondary join`.
 4. Join rejects unsupported **bundle schema** or agent **older** than `min_agent_version` (R15).
 5. Harden → SSH **key-only** on **52222**; password auth off.
-6. SP/PS bootstrap: material SCP to secondary `/tmp/nd-svc-material.json` with **`trap EXIT` rm** + mode **600**.
+6. Before SP/PS bootstrap, pin the deployment IPv4 in `/etc/netductor/secrets/public_ip`; material is delivered to `bootstrap-secondary` over SSH stdin (no remote temporary material file).
 7. Peer-only pings (S→`10.87.10.1`/`10.87.11.1`, P→`10.87.10.2`/`10.87.11.2`); units active; **health timer** active.
-8. Wait registry: **this** `AgentID` **online** and `seen=` within **90s** (fresh heartbeat after SP URL).
-9. `preferred_secondary_ip` only if registry IP is **IPv4** for that AgentID.
+8. Wait for this exact `AgentID` to become online with `seen=` age ≤ **120s**; heartbeat wait is up to **10 minutes** for cold mTLS startup. The agent reports the pinned deployment IP, not an external IP-check service result.
+9. Verify profile readiness (`devices.json`: exact deployment IP, PBK, SID, `singbox_ok`). Deploy leaves the peer `prepared`: it does **not** promote it and does not expose it in `/sub`. Only `state=active` peers are advertised after `peer promote`; validate client Reality traffic before promotion and DNS cutover.
 
 Smoke tests ≠ full HA proof — see §4.
 
