@@ -1033,13 +1033,14 @@ func validatePeerRemovalUFWStatus(status string) error {
 // peerUFWRuleNumber locates an exact inbound TCP tuple. A matching tuple without
 // the expected ownership comment is reported as unowned and is never deleted.
 func peerUFWRuleNumber(status, source, port, expectedComment string) (number int, found, owned bool, err error) {
-	entryRE := regexp.MustCompile("^\\\\[\\\\s*([0-9]+)\\\\]\\\\s+(.+)$")
 	for _, line := range strings.Split(status, "\n") {
-		match := entryRE.FindStringSubmatch(strings.TrimSpace(line))
-		if len(match) != 3 { continue }
-		n, convErr := strconv.Atoi(match[1])
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "[") { continue }
+		closeBracket := strings.IndexByte(line, ']')
+		if closeBracket < 0 { return 0, false, false, fmt.Errorf("malformed UFW numbered rule %q", line) }
+		n, convErr := strconv.Atoi(strings.TrimSpace(line[1:closeBracket]))
 		if convErr != nil || n < 1 { return 0, false, false, fmt.Errorf("invalid UFW rule number in %q", line) }
-		body := strings.TrimSpace(match[2])
+		body := strings.TrimSpace(line[closeBracket+1:])
 		comment := ""
 		if i := strings.LastIndex(body, "#"); i >= 0 {
 			comment = strings.TrimSpace(body[i+1:])
