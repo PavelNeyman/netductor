@@ -1,3 +1,8 @@
+## 0.9.669
+
+- secondary join: applyHostname no longer panics on empty or comment-only /etc/hosts lines.
+
+
 ## 0.9.665
 
 - fix(secondary): mTLS install via base64 (no SSH stdin tar race)

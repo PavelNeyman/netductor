@@ -370,71 +370,126 @@ func enableStart(unit string) error {
 
 func writeInstallFileDurable(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil { return err }
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
 	tmp, err := os.CreateTemp(dir, ".netductor-install-*")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
 	n, err := tmp.Write(data)
-	if err != nil { _ = tmp.Close(); return err }
-	if n != len(data) { _ = tmp.Close(); return io.ErrShortWrite }
-	if err := tmp.Chmod(mode); err != nil { _ = tmp.Close(); return err }
-	if err := tmp.Sync(); err != nil { _ = tmp.Close(); return err }
-	if err := tmp.Close(); err != nil { return err }
-	if err := os.Rename(tmpName, path); err != nil { return err }
+	if err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if n != len(data) {
+		_ = tmp.Close()
+		return io.ErrShortWrite
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
 	df, err := os.Open(dir)
-	if err != nil { return err }
-	if err := df.Sync(); err != nil { _ = df.Close(); return err }
+	if err != nil {
+		return err
+	}
+	if err := df.Sync(); err != nil {
+		_ = df.Close()
+		return err
+	}
 	return df.Close()
 }
 
 // applyHostname sets a uniform node name.
 // Priority: NETDUCTOR_HOSTNAME env > existing /etc/netductor/node_id > auto nd-<role>-<ip-suffix>
 func applyHostname(role string) error {
-	if role == "" { role = "primary" }
+	if role == "" {
+		role = "primary"
+	}
 	name := strings.TrimSpace(os.Getenv("NETDUCTOR_HOSTNAME"))
 	if name == "" {
-		if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "node_id")); err == nil { name = strings.TrimSpace(string(b)) }
+		if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "node_id")); err == nil {
+			name = strings.TrimSpace(string(b))
+		}
 	}
 	if name == "" {
 		ip := detectPublicIP()
 		suf := "00"
 		if ip != "" {
 			parts := strings.Split(ip, ".")
-			if len(parts) == 4 { suf = parts[2] + parts[3]; if len(suf) > 6 { suf = suf[len(suf)-6:] } }
+			if len(parts) == 4 {
+				suf = parts[2] + parts[3]
+				if len(suf) > 6 {
+					suf = suf[len(suf)-6:]
+				}
+			}
 		}
 		name = fmt.Sprintf("nd-%s-%s", role, suf)
 	}
 	name = strings.ToLower(name)
-	if len(name) == 0 || len(name) > 63 || name[0] == '.' || name[len(name)-1] == '.' { return fmt.Errorf("invalid hostname %q", name) }
+	if len(name) == 0 || len(name) > 63 || name[0] == '.' || name[len(name)-1] == '.' {
+		return fmt.Errorf("invalid hostname %q", name)
+	}
 	for _, label := range strings.Split(name, ".") {
-		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' { return fmt.Errorf("invalid hostname label in %q", name) }
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return fmt.Errorf("invalid hostname label in %q", name)
+		}
 		for _, ch := range label {
-			if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '-' { return fmt.Errorf("invalid hostname character in %q", name) }
+			if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '-' {
+				return fmt.Errorf("invalid hostname character in %q", name)
+			}
 		}
 	}
-	if err := os.MkdirAll(paths.EtcDir(), 0o755); err != nil { return fmt.Errorf("create netductor config dir: %w", err) }
-	if err := writeInstallFileDurable(filepath.Join(paths.EtcDir(), "node_id"), []byte(name+"\n"), 0o644); err != nil { return fmt.Errorf("write node_id: %w", err) }
-	if err := writeInstallFileDurable("/etc/hostname", []byte(name+"\n"), 0o644); err != nil { return fmt.Errorf("write /etc/hostname: %w", err) }
-	if err := run("hostnamectl", "set-hostname", name); err != nil { return fmt.Errorf("hostnamectl: %w", err) }
-	hosts, err := os.ReadFile("/etc/hosts")
-	if err != nil { return fmt.Errorf("read /etc/hosts: %w", err) }
-	exists := false
-	for _, line := range strings.Split(string(hosts), "\n") {
-		fields := strings.Fields(strings.SplitN(line, "#", 2)[0])
-		for _, host := range fields[1:] { if host == name { exists = true; break } }
-		if exists { break }
+	if err := os.MkdirAll(paths.EtcDir(), 0o755); err != nil {
+		return fmt.Errorf("create netductor config dir: %w", err)
 	}
+	if err := writeInstallFileDurable(filepath.Join(paths.EtcDir(), "node_id"), []byte(name+"\n"), 0o644); err != nil {
+		return fmt.Errorf("write node_id: %w", err)
+	}
+	if err := writeInstallFileDurable("/etc/hostname", []byte(name+"\n"), 0o644); err != nil {
+		return fmt.Errorf("write /etc/hostname: %w", err)
+	}
+	if err := run("hostnamectl", "set-hostname", name); err != nil {
+		return fmt.Errorf("hostnamectl: %w", err)
+	}
+	hosts, err := os.ReadFile("/etc/hosts")
+	if err != nil {
+		return fmt.Errorf("read /etc/hosts: %w", err)
+	}
+	exists := hostsHasName(string(hosts), name)
 	if !exists {
 		f, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0o644)
-		if err != nil { return fmt.Errorf("open /etc/hosts: %w", err) }
+		if err != nil {
+			return fmt.Errorf("open /etc/hosts: %w", err)
+		}
 		line := []byte("127.0.1.1 " + name + "\n")
 		n, werr := f.Write(line)
-		if werr == nil && n != len(line) { werr = io.ErrShortWrite }
-		if werr == nil { werr = f.Sync() }
+		if werr == nil && n != len(line) {
+			werr = io.ErrShortWrite
+		}
+		if werr == nil {
+			werr = f.Sync()
+		}
 		cerr := f.Close()
-		if werr != nil { return fmt.Errorf("append /etc/hosts: %w", werr) }
-		if cerr != nil { return fmt.Errorf("close /etc/hosts: %w", cerr) }
+		if werr != nil {
+			return fmt.Errorf("append /etc/hosts: %w", werr)
+		}
+		if cerr != nil {
+			return fmt.Errorf("close /etc/hosts: %w", cerr)
+		}
 	}
 	return nil
 }
@@ -446,23 +501,33 @@ func detectPublicIPv4() string {
 		},
 	}
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 5 { return fmt.Errorf("too many redirects") }
-			if req.URL.Scheme != "https" { return fmt.Errorf("refuse non-HTTPS redirect") }
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			if req.URL.Scheme != "https" {
+				return fmt.Errorf("refuse non-HTTPS redirect")
+			}
 			return nil
 		},
 	}
 	for _, endpoint := range []string{"https://api4.ipify.org", "https://ipv4.icanhazip.com"} {
 		resp, err := client.Get(endpoint)
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64))
 		closeErr := resp.Body.Close()
-		if readErr != nil || closeErr != nil || resp.StatusCode != http.StatusOK { continue }
+		if readErr != nil || closeErr != nil || resp.StatusCode != http.StatusOK {
+			continue
+		}
 		ip := strings.TrimSpace(string(body))
 		parsed := net.ParseIP(ip)
-		if parsed != nil && parsed.To4() != nil { return parsed.To4().String() }
+		if parsed != nil && parsed.To4() != nil {
+			return parsed.To4().String()
+		}
 	}
 	return ""
 }
@@ -563,4 +628,19 @@ func ensureRegistryComponent() error {
 	_ = os.MkdirAll(data, 0o755)
 	return exec.Command("docker", "run", "-d", "--name", "netductor-registry", "--restart", "unless-stopped",
 		"-p", "127.0.0.1:5000:5000", "-v", data+":/var/lib/registry", "registry:2").Run()
+}
+
+func hostsHasName(hosts, name string) bool {
+	for _, line := range strings.Split(hosts, "\n") {
+		fields := strings.Fields(strings.SplitN(line, "#", 2)[0])
+		if len(fields) < 2 {
+			continue
+		}
+		for _, host := range fields[1:] {
+			if host == name {
+				return true
+			}
+		}
+	}
+	return false
 }

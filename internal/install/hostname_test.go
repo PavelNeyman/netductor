@@ -24,3 +24,13 @@ func TestApplyHostnameEnv(t *testing.T) {
 		t.Fatalf("%q", b)
 	}
 }
+
+func TestHostsHasNameEmptyLines(t *testing.T) {
+	hosts := "\n# comment only\n\n127.0.0.1 localhost\n"
+	if hostsHasName(hosts, "nd-secondary-00") {
+		t.Fatal("should not match")
+	}
+	if !hostsHasName(hosts+"127.0.1.1 nd-secondary-00\n", "nd-secondary-00") {
+		t.Fatal("should match")
+	}
+}
