@@ -130,7 +130,7 @@ Deploy only proves units + peer ICMP + policy file + timer **active**. Confirm r
 | 4 | Restore SP | Failback after policy window (~45s class) |
 | 5 | Stop PS while SP up | Main path stays up |
 | 6 | Both SP and PS down | Degraded/offline — not “healthy” |
-| 7 | Optional | Client `/sub/<token>` still usable after preferred IP / DNS as designed |
+| 7 | Before `peer ready/promote` | Test a real client directly against B using B's PBK/SID and endpoint; verify Reality handshake and sustained traffic while B is still hidden from `/sub` |\n| 8 | After promotion and DNS cutover | Fetch `/sub/<token>`, reconnect a client, and verify the active endpoint and real traffic |
 
 Record: time of fault, time of detect, time of switch, time of failback. Do **not** power off the whole secondary for the SP-only test.
 
