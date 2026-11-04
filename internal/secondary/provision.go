@@ -320,103 +320,92 @@ func trimLog(s string) string {
 // Bundle is passed only via SSH stdin (never base64 in remote argv).
 func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 	ver := version.Release
-	script := fmt.Sprintf(`set -e
-export DEBIAN_FRONTEND=noninteractive
-VER=%s
-TD=$(mktemp -d /tmp/nd-join.XXXXXX)
-chmod 700 "$TD"
-NEW=
-PREV_TMP=
-RESTORE=
-trap 'rm -rf "$TD"; rm -f /root/bundle.json "${NEW:-}" "${PREV_TMP:-}" "${RESTORE:-}"' EXIT
-NEW=$(mktemp /usr/local/bin/.netductor.new.XXXXXX)
-arch=$(uname -m)
-case "$arch" in
-  x86_64) ASSET=netductor-linux-amd64;;
-  aarch64|arm64) ASSET=netductor-linux-arm64;;
-  *) echo "unsupported arch $arch (need amd64 or arm64)" >&2; exit 1;;
-esac
-BASE="https://github.com/PavelNeyman/netductor/releases/download/v${VER}"
-dl() {
-  if command -v curl >/dev/null 2>&1; then curl -fsSL --proto "=https" --proto-redir "=https" -o "$1" "$2"
-  else wget --https-only -qO "$1" "$2"; fi
-}
-dl "$TD/$ASSET" "$BASE/$ASSET" || { echo "download $ASSET v$VER failed" >&2; exit 1; }
-if dl "$TD/SHA256SUMS" "$BASE/SHA256SUMS"; then
-  EXPECT=$(grep -E "[[:space:]]${ASSET}$" "$TD/SHA256SUMS" | awk '{print $1}' | head -1)
-  if [ -z "$EXPECT" ]; then echo "SHA256SUMS missing $ASSET" >&2; exit 1; fi
-  GOT=$(sha256sum "$TD/$ASSET" | awk '{print $1}')
-  if [ "$GOT" != "$EXPECT" ]; then echo "SHA256 mismatch: got $GOT want $EXPECT" >&2; exit 1; fi
-else
-  echo "SHA256SUMS download failed — refuse install without checksum" >&2
-  exit 1
-fi
-# Prev binary outside $TD so trap does not erase rollback source.
-PREV=
-mkdir -p /var/lib/netductor
-if [ -e /usr/local/bin/netductor ]; then
-  test -f /usr/local/bin/netductor && test ! -L /usr/local/bin/netductor || { echo "existing netductor binary is not a regular file" >&2; exit 1; }
-  PREV_TMP=$(mktemp /var/lib/netductor/.netductor.bin.prev.XXXXXX)
-  cp -a /usr/local/bin/netductor "$PREV_TMP"
-  sync -f "$PREV_TMP"
-  mv -f "$PREV_TMP" /var/lib/netductor/netductor.bin.prev
-  PREV_TMP=
-  sync -f /var/lib/netductor
-  PREV=/var/lib/netductor/netductor.bin.prev
-fi
-rollback() {
-  echo "join/health failed — restoring previous state if possible" >&2
-  # Configuration and credentials may already have been partially replaced by
-  # "netductor secondary join". Do not restart either service against mixed state.
-  systemctl stop netductor-secondary-agent 2>/dev/null || true
-  systemctl stop sing-box 2>/dev/null || true
-  if [ -n "$PREV" ] && [ -f "$PREV" ]; then
-    RESTORE=$(mktemp /usr/local/bin/.netductor.restore.XXXXXX)
-    if install -m 755 "$PREV" "$RESTORE" 2>/dev/null &&
-       sync -f "$RESTORE" &&
-       mv -f "$RESTORE" /usr/local/bin/netductor &&
-       sync -f /usr/local/bin; then
-      RESTORE=
-    else
-      echo "rollback: failed to durably restore previous binary" >&2
-      rm -f "$RESTORE"
-    fi
-  else
-    systemctl disable netductor-secondary-agent 2>/dev/null || true
-    rm -f /usr/local/bin/netductor
-    sync -f /usr/local/bin || true
-  fi
-  rm -f /root/bundle.json
-}
-# Any failure after we begin replacing the binary runs rollback.
-trap 'rollback; exit 1' ERR
-systemctl stop netductor-secondary-agent 2>/dev/null || true
-install -m 755 "$TD/$ASSET" "$NEW"
-sync -f "$NEW"
-mv -f "$NEW" /usr/local/bin/netductor
-NEW=
-sync -f /usr/local/bin
-# Bundle only via SSH stdin
-cat > /root/bundle.json
-chmod 600 /root/bundle.json
-netductor secondary join /root/bundle.json
-test "$(systemctl is-active sing-box)" = "active"
-test "$(systemctl is-active netductor-secondary-agent)" = "active"
-ss -tlnp | grep -qE ':443([^0-9]|$)'
-trap - ERR
-if ! rm -f /var/lib/netductor/netductor.bin.prev; then
-  echo "warning: unable to remove successful-install rollback image" >&2
-else
-  sync -f /var/lib/netductor 2>/dev/null || echo "warning: rollback-image cleanup directory sync failed" >&2
-fi
-`, ver)
-	out, err := runSSHWithStdin(client, script, []byte(bundleJSON))
+	if strings.TrimSpace(bundleJSON) == "" {
+		return "", fmt.Errorf("remote join: empty bundle")
+	}
+	b64 := base64.StdEncoding.EncodeToString([]byte(bundleJSON))
+	// Bundle as base64 (not session stdin). Progress lines so failures are never silent.
+	script := "set -eu\n" +
+		"export DEBIAN_FRONTEND=noninteractive\n" +
+		"VER=" + ver + "\n" +
+		"echo join:start ver=$VER arch=$(uname -m)\n" +
+		"TD=$(mktemp -d /tmp/nd-join.XXXXXX)\n" +
+		"chmod 700 \"$TD\"\n" +
+		"NEW=; PREV_TMP=; RESTORE=; PREV=\n" +
+		"nd_sync() { sync -f \"$1\" 2>/dev/null || sync 2>/dev/null || true; }\n" +
+		"trap 'rm -rf \"$TD\"; rm -f /root/bundle.json \"${NEW:-}\" \"${PREV_TMP:-}\" \"${RESTORE:-}\"' EXIT\n" +
+		"NEW=$(mktemp /usr/local/bin/.netductor.new.XXXXXX)\n" +
+		"arch=$(uname -m)\n" +
+		"case \"$arch\" in\n" +
+		"  x86_64) ASSET=netductor-linux-amd64;;\n" +
+		"  aarch64|arm64) ASSET=netductor-linux-arm64;;\n" +
+		"  *) echo \"unsupported arch $arch\" >&2; exit 1;;\n" +
+		"esac\n" +
+		"BASE=\"https://github.com/PavelNeyman/netductor/releases/download/v${VER}\"\n" +
+		"dl() { if command -v curl >/dev/null 2>&1; then curl -fsSL --proto \"=https\" --proto-redir \"=https\" -o \"$1\" \"$2\"; else wget --https-only -qO \"$1\" \"$2\"; fi; }\n" +
+		"echo join:download $ASSET\n" +
+		"dl \"$TD/$ASSET\" \"$BASE/$ASSET\" || { echo \"download $ASSET v$VER failed\" >&2; exit 1; }\n" +
+		"echo join:download SHA256SUMS\n" +
+		"dl \"$TD/SHA256SUMS\" \"$BASE/SHA256SUMS\" || { echo \"SHA256SUMS download failed\" >&2; exit 1; }\n" +
+		"EXPECT=$(grep -E \"[[:space:]]${ASSET}$\" \"$TD/SHA256SUMS\" | awk '{print $1}' | head -1)\n" +
+		"[ -n \"$EXPECT\" ] || { echo \"SHA256SUMS missing $ASSET\" >&2; exit 1; }\n" +
+		"GOT=$(sha256sum \"$TD/$ASSET\" | awk '{print $1}')\n" +
+		"[ \"$GOT\" = \"$EXPECT\" ] || { echo \"SHA256 mismatch got=$GOT want=$EXPECT\" >&2; exit 1; }\n" +
+		"echo join:checksum_ok\n" +
+		"mkdir -p /var/lib/netductor\n" +
+		"if [ -e /usr/local/bin/netductor ]; then\n" +
+		"  test -f /usr/local/bin/netductor && test ! -L /usr/local/bin/netductor || { echo \"existing netductor not a regular file\" >&2; exit 1; }\n" +
+		"  PREV_TMP=$(mktemp /var/lib/netductor/.netductor.bin.prev.XXXXXX)\n" +
+		"  cp -a /usr/local/bin/netductor \"$PREV_TMP\"\n" +
+		"  nd_sync \"$PREV_TMP\"\n" +
+		"  mv -f \"$PREV_TMP\" /var/lib/netductor/netductor.bin.prev\n" +
+		"  PREV_TMP=\n" +
+		"  nd_sync /var/lib/netductor\n" +
+		"  PREV=/var/lib/netductor/netductor.bin.prev\n" +
+		"fi\n" +
+		"rollback() {\n" +
+		"  echo \"join/health failed — rollback\" >&2\n" +
+		"  systemctl stop netductor-secondary-agent 2>/dev/null || true\n" +
+		"  systemctl stop sing-box 2>/dev/null || true\n" +
+		"  if [ -n \"${PREV:-}\" ] && [ -f \"$PREV\" ]; then\n" +
+		"    RESTORE=$(mktemp /usr/local/bin/.netductor.restore.XXXXXX)\n" +
+		"    if install -m 755 \"$PREV\" \"$RESTORE\" 2>/dev/null && nd_sync \"$RESTORE\" && mv -f \"$RESTORE\" /usr/local/bin/netductor; then nd_sync /usr/local/bin; RESTORE=; else echo \"rollback binary failed\" >&2; rm -f \"$RESTORE\"; fi\n" +
+		"  else\n" +
+		"    systemctl disable netductor-secondary-agent 2>/dev/null || true\n" +
+		"    rm -f /usr/local/bin/netductor; nd_sync /usr/local/bin\n" +
+		"  fi\n" +
+		"  rm -f /root/bundle.json\n" +
+		"}\n" +
+		"trap 'echo join:ERR line=$LINENO >&2; rollback; exit 1' ERR\n" +
+		"systemctl stop netductor-secondary-agent 2>/dev/null || true\n" +
+		"echo join:install_binary\n" +
+		"install -m 755 \"$TD/$ASSET\" \"$NEW\"\n" +
+		"nd_sync \"$NEW\"\n" +
+		"mv -f \"$NEW\" /usr/local/bin/netductor\n" +
+		"NEW=\n" +
+		"nd_sync /usr/local/bin\n" +
+		"echo join:write_bundle\n" +
+		"echo '" + b64 + "' | base64 -d > /root/bundle.json\n" +
+		"chmod 600 /root/bundle.json\n" +
+		"test -s /root/bundle.json || { echo \"bundle empty\" >&2; exit 1; }\n" +
+		"echo join:secondary_join\n" +
+		"netductor secondary join /root/bundle.json\n" +
+		"echo join:health\n" +
+		"SB=$(systemctl is-active sing-box 2>&1 || true)\n" +
+		"AG=$(systemctl is-active netductor-secondary-agent 2>&1 || true)\n" +
+		"[ \"$SB\" = active ] || { echo \"sing-box not active: $SB\" >&2; exit 1; }\n" +
+		"[ \"$AG\" = active ] || { echo \"agent not active: $AG\" >&2; exit 1; }\n" +
+		"ss -tlnp | grep -qE ':443([^0-9]|$)' || { echo \"nothing on :443\" >&2; ss -tlnp >&2 || true; exit 1; }\n" +
+		"trap - ERR\n" +
+		"rm -f /var/lib/netductor/netductor.bin.prev 2>/dev/null || true\n" +
+		"nd_sync /var/lib/netductor\n" +
+		"echo join:ok\n"
+	out, err := runSSH(client, script)
 	if err != nil {
 		msg := strings.TrimSpace(out)
 		if msg == "" {
 			msg = err.Error()
 		}
-		// Never embed full bundle; remote script should not echo secrets.
 		return "", fmt.Errorf("remote join failed: %s", trimLog(msg))
 	}
 	return "join ok\n", nil
