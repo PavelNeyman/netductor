@@ -505,13 +505,32 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 	if !ValidComponent(comp) {
 		return fmt.Errorf("update: unsupported component %q", component)
 	}
-	// ResolveReleaseAsset requires the release checksum manifest. There is no
-	// environment-variable escape hatch: installed binaries must be verified.
-	res, err := ResolveReleaseAsset(comp, PlatformFromRuntime(), tag)
+	platform := PlatformFromRuntime()
+	name := AssetName(comp, platform)
+	if name == "" {
+		return fmt.Errorf("update: no asset for component %s on %s/%s", comp, platform.GOOS, platform.GOARCH)
+	}
+	// Prefer the local release mirror first. Its own SHA256SUMS is verified by
+	// tryLocalNamedAsset, so this path remains usable when GitHub/CDN is offline.
+	if ok, err := tryLocalNamedAsset(tag, name, destPath); err != nil {
+		return err
+	} else if ok {
+		fmt.Fprintf(os.Stderr, "release: local %s/%s\\n", tag, name)
+		return nil
+	}
+	// Resolve once, then use that checksum directly. Calling DownloadNamedAsset
+	// here would fetch SHA256SUMS a second time for the same binary.
+	res, err := ResolveReleaseAsset(comp, platform, tag)
 	if err != nil {
 		return err
 	}
-	return DownloadNamedAsset(tag, res.Name, destPath)
+	return download.Get(downloadURL(tag, res.Name), destPath, download.Options{
+		MaxBytes:       512 << 20,
+		Timeout:        120 * time.Second,
+		UserAgent:      "netductor-update",
+		ExpectedSHA256: res.SHA256,
+		FileMode:       0o755,
+	})
 }
 
 func validSHA256Hex(s string) bool {
