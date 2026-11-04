@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1033,13 +1032,8 @@ func applySecondaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction
 		if err != nil {
 			return fmt.Errorf("inspect UFW secondary WSS rules: %w: %s", err, strings.TrimSpace(string(status)))
 		}
-		rules := parseUfwNumbered(string(status))
-		numberedLines := 0
-		for _, line := range strings.Split(string(status), "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), "[") { numberedLines++ }
-		}
-		if len(rules) == 0 || len(rules) != numberedLines {
-			return fmt.Errorf("cannot completely parse numbered UFW rules for secondary WSS: parsed %d of %d", len(rules), numberedLines)
+		if err := firewall.ValidateNumberedUFWStatus(string(status)); err != nil {
+			return fmt.Errorf("cannot completely parse numbered UFW rules for secondary WSS: %w", err)
 		}
 		if !strings.Contains(strings.ToLower(string(status)), "status: active") {
 			return fmt.Errorf("secondary UFW is not active; refusing WSS peer migration: %s", strings.TrimSpace(string(status)))
