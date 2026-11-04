@@ -163,3 +163,20 @@ func TestLegacyGlobalWSSRulePreservedWhenPeerInventoryEmpty(t *testing.T) {
 		t.Fatal("empty peer inventory must not authorize deletion of the last global WSS allow")
 	}
 }
+
+func TestLegacyGlobalWSSRuleRequiresExactPeerReplacement(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_ETC", root)
+	dir := filepath.Join(root, "svc-paths")
+	if err := os.MkdirAll(dir, 0o700); err != nil { t.Fatal(err) }
+	peers := `{"version":1,"peers":[
+		{"public_ip":"203.0.113.20","state":"prepared","slot":{"wss_sp":8444,"addr_s_sp":"10.87.20.2","addr_s_ps":"10.87.21.2"}}
+	]}`
+	if err := os.WriteFile(filepath.Join(dir, "peers.json"), []byte(peers), 0o600); err != nil { t.Fatal(err) }
+	status := `Status: active
+[ 1] 8444/tcp ALLOW IN Anywhere # nd-wss-sp
+`
+	if err := RemoveLegacyGlobalWSSRules(status, "primary"); err == nil {
+		t.Fatal("legacy global WSS allow must remain until exact peer-scoped replacement exists")
+	}
+}
