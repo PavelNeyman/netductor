@@ -12,7 +12,7 @@ netductor svc-paths peer rollback peer-a
 netductor svc-paths peer remove peer-b
 ```
 
-Deploy secondary: Promote=false по умолчанию. Слоты 0–3: `10.87.10/11` … `24/25`.
+Deploy secondary: Promote=false по умолчанию. Peers `prepared`/`ready` не попадают в клиентские подписки; публикуется только явно promoted peer со `state=active`. Слоты 0–3: `10.87.10/11` … `24/25`.
 
 **EN** · [RU](SECONDARY-DEPLOY.md)
 
@@ -64,10 +64,10 @@ netductor ssh-hosts forget --kind relay SECONDARY_IP
 3. Mac → secondary `:22` (пароль один раз) или ключ: pubkey, mTLS, `secondary join`.
 4. Join отклоняет неподдерживаемую **схему bundle** или agent **старше** `min_agent_version` (R15).
 5. Harden → SSH **только ключ** на **52222**; пароль выключен.
-6. Bootstrap SP/PS: SCP material на secondary `/tmp/nd-svc-material.json` с **`trap EXIT` rm** и правами **600**.
+6. До SP/PS bootstrap фиксируется deployment IPv4 в `/etc/netductor/secrets/public_ip`; material передаётся в `bootstrap-secondary` через SSH stdin, без временного файла на сервере.
 7. Ping только peer (S→`10.87.10.1`/`10.87.11.1`, P→`10.87.10.2`/`10.87.11.2`); units active; **health timer** active.
-8. Ожидание в registry: именно этот `AgentID` **online** и `seen=` не старше **90 с** (свежий heartbeat после URL на SP).
-9. `preferred_secondary_ip` пишется только если IP в registry — **IPv4** для этого AgentID.
+8. Ожидание именно этого `AgentID`: статус online и `seen=` не старше **120 с**. Окно ожидания heartbeat — до **10 минут** для холодного старта mTLS. Agent использует закреплённый deployment IP, а не результат внешнего IP-check сервиса.
+9. Проверяется готовность профиля (`devices.json`: точный deployment IP, PBK, SID, `singbox_ok`). Deploy оставляет peer в `prepared`: не выполняет promote и не публикует B в `/sub`. В подписке доступны только peers со `state=active`; после `peer promote`. До promote обязательна проверка клиентского Reality-трафика и затем DNS cutover.
 
 Smoke ≠ полное доказательство HA — см. §4.
 
