@@ -2472,10 +2472,9 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			warnings = append(warnings, "mtls: peer inventory: "+peerErr.Error())
 		}
 		// The configured service CIDRs and registered peers are trusted for
-		// remote mTLS access. UFW also contains an explicit source-based
-		// 127.0.0.1 ALLOW on this host; trust only that exact host address.
-		// Do not broaden this to the entire 127.0.0.0/8 loopback range.
-		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
+		// remote mTLS access. A source-based 127.0.0.1 rule is an optional
+		// explicit local exception; the built-in lo policy remains sufficient.
+		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		allowedMTLSSources = append(allowedMTLSSources, peerSources...)
 		for _, source := range allowedMTLSSources {
 			covered, found := ufwSourceRangeFirstAllow(rules, mtls, source)
@@ -2504,6 +2503,11 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 					trusted = true
 					break
 				}
+			}
+			// Accept only the exact IPv4 loopback host as an additional
+			// explicit local exception, without requiring such a rule.
+			if !trusted && ufwSourceContainedBy(rule.From, "127.0.0.1/32") {
+				trusted = true
 			}
 			if !trusted {
 				ok = false
