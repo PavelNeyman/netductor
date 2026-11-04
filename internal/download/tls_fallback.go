@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const maxTLSIPFallbackStageTimeout = 5 * time.Second
+const maxTLSIPFallbackStageTimeout = 20 * time.Second
 
 // installTLSIPFallback makes TLS establishment part of each address attempt.
 // net/http's DialTLSContext contract requires the returned connection to have
