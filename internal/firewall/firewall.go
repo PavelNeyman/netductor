@@ -965,11 +965,7 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	}
 	checkSource := func(port, source, label string) {
 		action, found := firstTCPActionFromSource(rules, port, source, false)
-		if !found {
-			conflicts = append(conflicts, fmt.Sprintf("%s %s has no source-restricted rule for %s", label, port, source))
-			return
-		}
-		if action != "ALLOW" {
+		if found && action != "ALLOW" {
 			conflicts = append(conflicts, fmt.Sprintf("%s %s first rule for %s is %s, want ALLOW", label, port, source, action))
 		}
 	}
@@ -2387,7 +2383,14 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 
 		mtls := ndconfig.AgentMTLSPort()
-		for _, source := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
+		peerSources, peerErr := registeredPeerAgentSources()
+		if peerErr != nil {
+			ok = false
+			warnings = append(warnings, "mtls: peer inventory: "+peerErr.Error())
+		}
+		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
+		allowedMTLSSources = append(allowedMTLSSources, peerSources...)
+		for _, source := range allowedMTLSSources {
 			action, found := firstTCPActionFromSource(rules, mtls, source, false)
 			if !found || action != "ALLOW" {
 				ok = false
@@ -2404,7 +2407,6 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 		// IPv4 mTLS must be reachable only from the configured service CIDRs.
 		// Loopback is handled by UFW's interface-scoped built-in lo rules.
-		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, rule := range rules {
 			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) {
 				continue
