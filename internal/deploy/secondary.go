@@ -591,6 +591,15 @@ func deploySecondaryBody(o SecondaryOpts) error {
 	// AgentID + the in-progress marker let us prove the hardened endpoint instead
 	// of blindly running the password/bootstrap path a second time.
 	uncertainProvision := canRecoverProvision(prev)
+	// Older journals may contain provision_started + AgentID even though AgentID
+	// was persisted before ProvisionFromCore. That state does not prove that
+	// provisioning completed; fail closed instead of probing :52222 or blindly
+	// repeating password bootstrap. Inspect the host before an explicit resume.
+	if prev != nil && prev.CurrentStep == StageProvisionStarted && prev.AgentID != "" {
+		return failDeploy(&prev, peerIDEarly, prev.AgentID, o.SecondaryHost, fmt.Errorf(
+			"provision outcome is ambiguous (journal current_step=%s, agent=%s): this checkpoint predates the explicit completion marker; refusing automatic recovery or reprovision — inspect SSH :22 and :52222 on the Secondary before choosing resume",
+			prev.CurrentStep, prev.AgentID))
+	}
 	// Advanced journal: never auto-reprovision. SSH/resume problems fail closed.
 	advanced := canSkipProvision(prev) && prev != nil && prev.AgentID != ""
 	skipProv := false
@@ -733,6 +742,12 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		}
 		if res == nil || !res.AgentOK || !res.SingBoxOK {
 			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("secondary-provision", "health", fmt.Errorf("not healthy")))
+		}
+		// This marker is written only after ProvisionFromCore returned success:
+		// SSH hardening is finalized, rollback cancelled, and key-only :52222
+		// independently verified. Only this state may use uncertain-success recovery.
+		if err := markCurrentStep(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, CurrentStepProvisionFinalized); err != nil {
+			return err
 		}
 		// Success only: allowlisted local status lines (no remote dump).
 		if res != nil {
