@@ -307,10 +307,12 @@ func HardenSSHHostAgentPurge(client *ssh.Client) error {
 
 func trimLog(s string) string {
 	s = strings.TrimSpace(s)
-	if len(s) > 200 {
-		return s[:200] + "…"
+	const max = 4000
+	if len(s) <= max {
+		return s
 	}
-	return s
+	// Keep the end: join/baseline failures append the real reason last.
+	return "…" + s[len(s)-max:]
 }
 
 // Legacy HardenSSH one-shot removed; use phased prepare/finalize/cancel only.
