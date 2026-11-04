@@ -3,6 +3,7 @@ package stack
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +41,28 @@ func TestPinUnpin(t *testing.T) {
 	_ = Unpin()
 	if ok, _ := IsPinned(); ok {
 		t.Fatal("still pinned")
+	}
+}
+
+func TestSaveCurrentFromInstalledNodeUsesOnDiskBinary(t *testing.T) {
+	state := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", state)
+	bin := filepath.Join(t.TempDir(), "netductor")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho 'netductor 0.9.612 (node)'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	output := binVersion(bin)
+	release := verNorm(parseVerField(output))
+	if release != "0.9.612" {
+		t.Fatalf("release=%q output=%q", release, output)
+	}
+	saveCurrent(release)
+	b, err := os.ReadFile(filepath.Join(state, "stack", "current.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"release": "0.9.612"`) {
+		t.Fatalf("current metadata does not reflect installed binary: %s", b)
 	}
 }
 
