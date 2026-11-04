@@ -180,3 +180,26 @@ func TestLegacyGlobalWSSRuleRequiresExactPeerReplacement(t *testing.T) {
 		t.Fatal("legacy global WSS allow must remain until exact peer-scoped replacement exists")
 	}
 }
+
+func TestLegacyGlobalWSSRuleCanBeRemovedAfterPeerRetirement(t *testing.T) {
+	root := t.TempDir()
+	etcDir := filepath.Join(root, "etc")
+	t.Setenv("NETDUCTOR_ETC", etcDir)
+	dir := filepath.Join(etcDir, "svc-paths")
+	if err := os.MkdirAll(dir, 0o700); err != nil { t.Fatal(err) }
+	peers := `{"version":1,"peers":[{"public_ip":"203.0.113.20","state":"removed","slot":{"wss_sp":8444,"addr_s_sp":"10.87.20.2","addr_s_ps":"10.87.21.2"}}]}`
+	material := `{"primary_ip":"198.51.100.1","secondary_ip":"203.0.113.20","wss_sp":8444}`
+	if err := os.WriteFile(filepath.Join(dir, "peers.json"), []byte(peers), 0o600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), []byte(material), 0o600); err != nil { t.Fatal(err) }
+	binDir := filepath.Join(root, "bin")
+	if err := os.MkdirAll(binDir, 0o700); err != nil { t.Fatal(err) }
+	ufw := filepath.Join(binDir, "ufw")
+	if err := os.WriteFile(ufw, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil { t.Fatal(err) }
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	status := `Status: active
+[ 1] 8444/tcp ALLOW IN Anywhere # nd-wss-sp
+`
+	if err := RemoveLegacyGlobalWSSRules(status, "primary"); err != nil {
+		t.Fatalf("removed peer should no longer pin the legacy global WSS allow: %v", err)
+	}
+}
