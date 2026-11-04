@@ -187,8 +187,7 @@ func VerifyLocalReleaseAssets(tag string, names ...string) error {
 		return fmt.Errorf("no required local release assets")
 	}
 	for _, name := range names {
-		name = filepath.Base(name)
-		if name == "" || name == "." || strings.Contains(name, "..") {
+		if name == "" || name != filepath.Base(name) || name == "." || strings.Contains(name, "..") {
 			return fmt.Errorf("invalid local asset name")
 		}
 		want, ok := sums[name]
