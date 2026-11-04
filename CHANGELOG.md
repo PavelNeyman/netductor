@@ -1,3 +1,9 @@
+## 0.9.658
+
+- download: CDN TLS/IP fallback and request-deadline bounded attempts
+- tests: TLS fixture/deadlock hardening for download transport
+- release tip after 0.9.657
+
 ## 0.9.657
 
 - release tip after 0.9.656 (formula pin + follow-ups on main)
