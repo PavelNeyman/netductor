@@ -83,7 +83,7 @@ func NewTransportWithIPFallback(hosts ...string) *http.Transport {
 		}
 	}
 	return newTransportWithIPFallback(http.DefaultTransport.(*http.Transport).Clone(), allow,
-		net.DefaultResolver.LookupIPAddr, (&net.Dialer{}).DialContext)
+		net.DefaultResolver.LookupIPAddr, (&net.Dialer{Timeout: 10 * time.Second}).DialContext)
 }
 
 type ipLookupFunc func(context.Context, string) ([]net.IPAddr, error)
