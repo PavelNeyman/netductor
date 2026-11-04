@@ -50,3 +50,51 @@ func TestRegisteredPeerAgentSourcesIncludesAdditionalSlots(t *testing.T) {
 		t.Fatalf("unexpected peer API sources: %#v", got)
 	}
 }
+
+func TestUFWSourceRangeFirstAllowAcceptsNarrowAllowBeforeCoveringRange(t *testing.T) {
+	rules := []ufwRule{
+		{Num: 1, Port: "9443", Proto: "tcp", Action: "ALLOW", Direction: "IN", From: "10.87.10.2"},
+		{Num: 2, Port: "9443", Proto: "tcp", Action: "ALLOW", Direction: "IN", From: "10.87.10.0/30"},
+	}
+	covered, found := ufwSourceRangeFirstAllow(rules, "9443", "10.87.10.0/30")
+	if !found || !covered {
+		t.Fatalf("narrow /32 followed by covering /30 should cover the full range: covered=%t found=%t", covered, found)
+	}
+}
+
+func TestUFWSourceRangeFirstAllowRejectsShadowedAddress(t *testing.T) {
+	rules := []ufwRule{
+		{Num: 1, Port: "9443", Proto: "tcp", Action: "DENY", Direction: "IN", From: "10.87.10.2"},
+		{Num: 2, Port: "9443", Proto: "tcp", Action: "ALLOW", Direction: "IN", From: "10.87.10.0/30"},
+	}
+	covered, found := ufwSourceRangeFirstAllow(rules, "9443", "10.87.10.0/30")
+	if !found || covered {
+		t.Fatalf("earlier /32 DENY must shadow the later /30 ALLOW: covered=%t found=%t", covered, found)
+	}
+}
+
+func TestUFWSourceRangeFirstAllowRequiresCompleteCoverage(t *testing.T) {
+	rules := []ufwRule{
+		{Num: 1, Port: "9443", Proto: "tcp", Action: "ALLOW", Direction: "IN", From: "10.87.10.2"},
+	}
+	covered, found := ufwSourceRangeFirstAllow(rules, "9443", "10.87.10.0/30")
+	if !found || covered {
+		t.Fatalf("a single /32 ALLOW must not cover the full /30: covered=%t found=%t", covered, found)
+	}
+}
+
+func TestUFWSourceRangeFirstAllowSupportsSingleHost(t *testing.T) {
+	rules := []ufwRule{
+		{Num: 1, Port: "8789", Proto: "tcp", Action: "ALLOW", Direction: "IN", From: "10.87.10.2"},
+	}
+	covered, found := ufwSourceRangeFirstAllow(rules, "8789", "10.87.10.2")
+	if !found || !covered {
+		t.Fatalf("individual IPv4 source should be evaluated as /32: covered=%t found=%t", covered, found)
+	}
+}
+
+func TestUFWSourceRangeHasFirstAllowAllowsAbsentPolicyForPreflight(t *testing.T) {
+	if !ufwSourceRangeHasFirstAllow(nil, "9443", "10.87.10.0/30") {
+		t.Fatal("absent policy must remain appendable during preflight")
+	}
+}
