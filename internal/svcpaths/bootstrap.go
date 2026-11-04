@@ -966,7 +966,7 @@ func applyPrimaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction, 
 		}
 		// Remove only historical Netductor-tagged global rules. Untagged
 		// administrator rules are never deleted automatically.
-		if err := firewall.RemoveLegacyGlobalWSSRules(string(status)); err != nil {
+		if err := firewall.RemoveLegacyGlobalWSSRules(string(status), "primary"); err != nil {
 			return fmt.Errorf("migrate legacy Netductor WSS rules: %w", err)
 		}
 		status, err = exec.Command("ufw", "status").CombinedOutput()
@@ -1054,7 +1054,7 @@ func applySecondaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction
 		if err != nil {
 			return fmt.Errorf("re-inspect secondary UFW WSS rules: %w: %s", err, strings.TrimSpace(string(status)))
 		}
-		if err := firewall.RemoveLegacyGlobalWSSRules(string(status)); err != nil {
+		if err := firewall.RemoveLegacyGlobalWSSRules(string(status), "secondary"); err != nil {
 			return fmt.Errorf("migrate legacy secondary WSS rules: %w", err)
 		}
 		status, err = exec.Command("ufw", "status").CombinedOutput()
