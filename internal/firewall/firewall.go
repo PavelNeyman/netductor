@@ -1273,7 +1273,13 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		return err
 	}
 	if err := must("default", "deny", "routed"); err != nil { return fmt.Errorf("set default routed deny: %w", err) }
-	if err := must("deny", "22/tcp", "comment", "netductor-no-ssh22"); err != nil { return fmt.Errorf("deny SSH port 22: %w", err) }
+	// During secondary bootstrap, factory :22 must stay reachable (password/key).
+	// Deny :22 only after key-only on hardened port is confirmed (RemoteHardenFinalize).
+	if !bootstrapSSH {
+		if err := must("deny", "22/tcp", "comment", "netductor-no-ssh22"); err != nil {
+			return fmt.Errorf("deny SSH port 22: %w", err)
+		}
+	}
 	if err := must("allow", "443/tcp", "comment", "netductor-vless"); err != nil {
 		return err
 	}
@@ -1968,7 +1974,12 @@ func ufwDefaultIncomingDenied(status string) (bool, string) {
 		if !found {
 			return false, "default " + item.direction + " policy is missing from UFW verbose status"
 		}
-		if got != item.policy && !(item.direction == "incoming" && got == "reject") {
+		// incoming: deny or reject; routed: deny OR disabled (UFW reports "disabled"
+		// when net.ipv4.ip_forward=0 — no forwarding is equivalent to deny for our threat model).
+		ok := got == item.policy ||
+			(item.direction == "incoming" && got == "reject") ||
+			(item.direction == "routed" && got == "disabled")
+		if !ok {
 			return false, "default " + item.direction + " policy is " + got + " (want " + item.policy + ")"
 		}
 	}
