@@ -1,6 +1,7 @@
 package update
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -136,13 +137,17 @@ func applyHostComponentLocked(o HostApplyOpts) (*UpdateJob, error) {
 	failHealth := func(msg error) (*UpdateJob, error) {
 		if !o.SkipDownload {
 			if _, e := os.Stat(prevPath); e == nil {
-				if _, markErr := mark(StateRollbackInProgress, ""); markErr != nil {
-					msg = ErrRollbackFailed(msg, markErr)
+				_, journalErr := mark(StateRollbackInProgress, "")
+				// A journal write failure must not prevent restoring the known-good
+				// executable; preserve the journal error and report rollback as
+				// incomplete rather than leaving the failed binary installed.
+				if rerr := restorePrevBinary(dest, prevPath); rerr != nil {
+					msg = ErrRollbackFailed(msg, errors.Join(journalErr, rerr))
 					j, _ := mark(StateFailed, msg.Error())
 					return j, msg
 				}
-				if rerr := restorePrevBinary(dest, prevPath); rerr != nil {
-					msg = ErrRollbackFailed(msg, rerr)
+				if journalErr != nil {
+					msg = ErrRollbackFailed(msg, fmt.Errorf("rollback journal transition: %w", journalErr))
 					j, _ := mark(StateFailed, msg.Error())
 					return j, msg
 				}
