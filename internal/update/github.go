@@ -400,17 +400,56 @@ func FetchSHA256SUMS(tag string) (map[string]string, error) {
 }
 
 // FetchSHA256SUMSRaw returns the raw file body and parsed map.
+func fetchSHA256SUMSBody(client *http.Client, rawURL string) ([]byte, error) {
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		req, err := http.NewRequest(http.MethodGet, rawURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := client.Do(req)
+		if err == nil {
+			if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+				lastErr = fmt.Errorf("SHA256SUMS HTTP %d", resp.StatusCode)
+				_ = resp.Body.Close()
+			} else if resp.StatusCode >= 300 {
+				_ = resp.Body.Close()
+				return nil, fmt.Errorf("SHA256SUMS HTTP %d", resp.StatusCode)
+			} else {
+				b, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+				closeErr := resp.Body.Close()
+				if readErr == nil && closeErr == nil {
+					return b, nil
+				}
+				if readErr != nil {
+					lastErr = readErr
+				} else {
+					lastErr = closeErr
+				}
+			}
+		} else {
+			lastErr = err
+		}
+		if attempt < 2 {
+			time.Sleep(time.Duration(attempt+1) * time.Second)
+		}
+	}
+	return nil, fmt.Errorf("SHA256SUMS download failed after 3 attempts: %w", lastErr)
+}
+
+// FetchSHA256SUMSRaw retries transient GitHub Release CDN failures. GitHub's
+// redirect is expected; the release-assets host can intermittently time out
+// during TLS setup even when github.com itself is reachable.
 func FetchSHA256SUMSRaw(tag string) ([]byte, map[string]string, error) {
-	client := &http.Client{Timeout: 30 * time.Second, CheckRedirect: requireHTTPSRedirect}
-	resp, err := client.Get(downloadURL(tag, "SHA256SUMS"))
-	if err != nil {
-		return nil, nil, err
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSHandshakeTimeout = 20 * time.Second
+	transport.ResponseHeaderTimeout = 30 * time.Second
+	client := &http.Client{
+		Transport: transport,
+		Timeout: 45 * time.Second,
+		CheckRedirect: requireHTTPSRedirect,
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return nil, nil, fmt.Errorf("SHA256SUMS HTTP %d", resp.StatusCode)
-	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	b, err := fetchSHA256SUMSBody(client, downloadURL(tag, "SHA256SUMS"))
 	if err != nil {
 		return nil, nil, err
 	}
