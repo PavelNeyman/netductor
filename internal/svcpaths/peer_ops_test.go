@@ -362,16 +362,24 @@ func TestPeerMarkReadyDoesNotReviveRemoved(t *testing.T) {
 }
 
 func TestRemovePeerUFWConfirmsGone(t *testing.T) {
-	rules := "Status: active\n8789/tcp ALLOW 10.87.20.2\n8444/tcp ALLOW 8.8.8.9\n"
+	rules := "Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n[ 2] 8444/tcp ALLOW IN 8.8.8.9 # nd-wss-sp\n"
 	old := peerUFWExec
 	t.Cleanup(func() { peerUFWExec = old })
 	peerUFWExec = func(args ...string) ([]byte, error) {
-		if args[0] == "status" {
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
 			return []byte(rules), nil
 		}
-		if args[0] == "delete" {
-			src := args[3]
-			rules = strings.ReplaceAll(rules, src, "")
+		if len(args) == 3 && args[0] == "--force" && args[1] == "delete" {
+			switch args[2] {
+			case "1":
+				rules = strings.Replace(rules, "[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n", "", 1)
+			case "2":
+				rules = strings.Replace(rules, "[ 2] 8444/tcp ALLOW IN 8.8.8.9 # nd-wss-sp\n", "", 1)
+			default:
+				return nil, fmt.Errorf("unexpected rule number %s", args[2])
+			}
+			// UFW renumbers remaining entries after every deletion.
+			rules = strings.ReplaceAll(rules, "[ 2]", "[ 1]")
 			return []byte("deleted"), nil
 		}
 		return nil, fmt.Errorf("unexpected %v", args)
@@ -380,13 +388,13 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 		t.Fatal(err)
 	}
 	peerUFWExec = func(args ...string) ([]byte, error) {
-		if args[0] == "status" {
-			return []byte("Status: active\n8789/tcp ALLOW 10.87.20.2\n"), nil
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
+			return []byte("Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n"), nil
 		}
 		return []byte("deleted"), nil
 	}
 	if err := removePeerUFW("8.8.8.9", "10.87.20.2", "", 0); err == nil {
-		t.Fatal("remaining rule must fail")
+		t.Fatal("remaining managed rule must fail when it cannot be removed")
 	}
 	peerUFWExec = func(args ...string) ([]byte, error) {
 		return []byte("fail"), fmt.Errorf("status failed")
@@ -394,6 +402,26 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 	if err := removePeerUFW("8.8.8.9", "10.87.20.2", "", 0); err == nil {
 		t.Fatal("status error must fail")
 	}
+}
+
+func TestRemovePeerUFWPreservesUnownedMatchingRule(t *testing.T) {
+	old := peerUFWExec
+	t.Cleanup(func() { peerUFWExec = old })
+	deleted := false
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
+			return []byte("Status: active\n[ 1] 8444/tcp ALLOW IN 8.8.8.9 # administrator-rule\n"), nil
+		}
+		if len(args) >= 2 && args[0] == "--force" && args[1] == "delete" {
+			deleted = true
+			return []byte("deleted"), nil
+		}
+		return nil, fmt.Errorf("unexpected %v", args)
+	}
+	if err := removePeerUFW("8.8.8.9", "", "", 8444); err == nil || !strings.Contains(err.Error(), "unowned") {
+		t.Fatalf("unowned matching rule must fail closed, got %v", err)
+	}
+	if deleted { t.Fatal("unowned administrator rule was deleted") }
 }
 
 func TestPeerMarkReadyDoesNotDemoteActive(t *testing.T) {
