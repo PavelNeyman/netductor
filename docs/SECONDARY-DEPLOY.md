@@ -130,7 +130,8 @@ Deploy only proves units + peer ICMP + policy file + timer **active**. Confirm r
 | 4 | Restore SP | Failback after policy window (~45s class) |
 | 5 | Stop PS while SP up | Main path stays up |
 | 6 | Both SP and PS down | Degraded/offline — not “healthy” |
-| 7 | Before `peer ready/promote` | Test a real client directly against B using B's PBK/SID and endpoint; verify Reality handshake and sustained traffic while B is still hidden from `/sub` |\n| 8 | After promotion and DNS cutover | Fetch `/sub/<token>`, reconnect a client, and verify the active endpoint and real traffic |
+| 7 | Before `peer ready/promote` | Test a real client directly against B using B's PBK/SID and endpoint; verify Reality handshake and sustained traffic while B is still hidden from `/sub` |
+| 8 | After promotion and DNS cutover | Fetch `/sub/<token>`, reconnect a client, and verify the active endpoint and real traffic |
 
 Record: time of fault, time of detect, time of switch, time of failback. Do **not** power off the whole secondary for the SP-only test.
 
@@ -157,7 +158,9 @@ Producer (primary `prepare-pack` / export) and consumer (`secondary join`) must 
 | Static VLESS QR / copied links | May go stale when Reality material rotates; **`/sub/<token>`** is canonical |
 | Session API `…/subscription` **410** | Operator API only — not the client subscription channel |
 | Auto-retire old secondary | **No** — explicit remove after observation |
-| Parallel deploy in one process + global `NETDUCTOR_SSH_PORT` | Avoid concurrent primary/secondary deploys in one op process (R13) |\n| Deploy journal resume | Operator orchestration journal is local to the Mac that started deploy; resume from that operator host. Primary `peers.json` and per-peer `op.json` remain the source of truth for peer lifecycle recovery. |\n| Service-plane capacity | Four slots maximum; a fifth peer is rejected, not automatically multiplexed. |
+| Parallel deploy in one process + global `NETDUCTOR_SSH_PORT` | Avoid concurrent primary/secondary deploys in one op process (R13) |
+| Deploy journal resume | Operator orchestration journal is local to the Mac that started deploy; resume from that operator host. Primary `peers.json` and per-peer `op.json` remain the source of truth for peer lifecycle recovery. |
+| Service-plane capacity | Four slots maximum; a fifth peer is rejected, not automatically multiplexed. |
 
 ---
 
