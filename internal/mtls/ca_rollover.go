@@ -198,6 +198,10 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 	}
 	certPath := filepath.Join(dir, ClientCertFile)
 	keyPath := filepath.Join(dir, ClientKeyFile)
+	tmpCert := certPath + ".rollover-new"
+	tmpKey := keyPath + ".rollover-new"
+	backupCert := certPath + ".rollover-old"
+	backupKey := keyPath + ".rollover-old"
 	certExists, keyExists := fileOK(certPath), fileOK(keyPath)
 	if certExists != keyExists {
 		if fileOK(backupCert) && fileOK(backupKey) {
@@ -256,10 +260,6 @@ func IssueClientFromNewCA(nodeID string) (caBundle, cert, key []byte, err error)
 		}
 		oldSerial = oldInfo.Serial
 	}
-	tmpCert := certPath + ".rollover-new"
-	tmpKey := keyPath + ".rollover-new"
-	backupCert := certPath + ".rollover-old"
-	backupKey := keyPath + ".rollover-old"
 	for _, p := range []string{tmpCert, tmpKey} {
 		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 			return nil, nil, nil, fmt.Errorf("remove stale rollover staging file: %w", err)
