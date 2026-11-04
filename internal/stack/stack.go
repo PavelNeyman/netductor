@@ -229,6 +229,18 @@ func saveCurrent(tag string) {
 	_ = os.WriteFile(curMetaPath(), append(raw, '\n'), 0o644)
 }
 
+// saveCurrentFromInstalledNode records the version on disk, not the version
+// embedded in the currently running process (which may predate a rollback).
+func saveCurrentFromInstalledNode() error {
+	output := binVersion("/usr/local/bin/netductor")
+	release := verNorm(parseVerField(output))
+	if release == "" || !strings.Contains(release, ".") {
+		return fmt.Errorf("cannot determine installed netductor version from %q", output)
+	}
+	saveCurrent(release)
+	return nil
+}
+
 func attemptDir() string {
 	return filepath.Join(paths.StateDir(), "stack", "attempt")
 }
@@ -812,6 +824,9 @@ func rollbackApplyFailure(att string, cause error) error {
 	}
 	if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("%v; rollback blocked: %w", cause, err) }
 	var rollbackPostcheckErrs []string
+	if err := saveCurrentFromInstalledNode(); err != nil {
+		rollbackPostcheckErrs = append(rollbackPostcheckErrs, "current release metadata: "+err.Error())
+	}
 	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
 		rollbackPostcheckErrs = append(rollbackPostcheckErrs, "host baseline: "+err.Error())
 	}
