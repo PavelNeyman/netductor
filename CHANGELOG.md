@@ -1,3 +1,8 @@
+## 0.9.672
+
+- secondary join download retries GitHub over HTTP/1.1 (curl 92 HTTP/2 PROTOCOL_ERROR).
+
+
 ## 0.9.671
 
 - secondary sing-box config drops `domain_resolver` (unknown on pinned 1.11.15).

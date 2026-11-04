@@ -1,9 +1,9 @@
 package secondary
 
 import (
-	"encoding/base64"
 	"archive/tar"
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -344,7 +344,20 @@ func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 		"  *) echo \"unsupported arch $arch\" >&2; exit 1;;\n" +
 		"esac\n" +
 		"BASE=\"https://github.com/PavelNeyman/netductor/releases/download/v${VER}\"\n" +
-		"dl() { if command -v curl >/dev/null 2>&1; then curl -fsSL --proto \"=https\" --proto-redir \"=https\" -o \"$1\" \"$2\"; else wget --https-only -qO \"$1\" \"$2\"; fi; }\n" +
+		"dl() {\n" +
+		"  i=1\n" +
+		"  while [ \"$i\" -le 4 ]; do\n" +
+		"    if command -v curl >/dev/null 2>&1; then\n" +
+		"      curl -fsSL --http1.1 --retry 2 --retry-all-errors --proto \"=https\" --proto-redir \"=https\" -o \"$1\" \"$2\" && return 0\n" +
+		"    else\n" +
+		"      wget --https-only -qO \"$1\" \"$2\" && return 0\n" +
+		"    fi\n" +
+		"    echo \"download retry $i: $2\" >&2\n" +
+		"    i=$((i+1))\n" +
+		"    sleep 2\n" +
+		"  done\n" +
+		"  return 1\n" +
+		"}\n" +
 		"echo join:download $ASSET\n" +
 		"dl \"$TD/$ASSET\" \"$BASE/$ASSET\" || { echo \"download $ASSET v$VER failed\" >&2; exit 1; }\n" +
 		"echo join:download SHA256SUMS\n" +
@@ -556,7 +569,7 @@ P=/etc/netductor/secrets
 TARGET="$P/mtls"
 rm -rf "$TARGET"
 sync -f "$P"
-`;
+`
 		} else {
 			script = `set -eu
 P=/etc/netductor/secrets
@@ -566,7 +579,7 @@ test -d "$BACKUP" && test ! -L "$BACKUP"
 rm -rf "$TARGET"
 mv "$BACKUP" "$TARGET"
 sync -f "$P"
-`;
+`
 		}
 	} else {
 		script = `set -eu
@@ -575,7 +588,7 @@ BACKUP=` + quoted + `
 test -d "$BACKUP" && test ! -L "$BACKUP"
 rm -rf "$BACKUP"
 sync -f "$P"
-`;
+`
 	}
 	out, err := runSSH(client, script)
 	if err != nil {
