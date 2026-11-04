@@ -91,13 +91,19 @@ type contextDialFunc func(context.Context, string, string) (net.Conn, error)
 
 func newTransportWithIPFallback(base *http.Transport, allow map[string]struct{}, lookup ipLookupFunc, dial contextDialFunc) *http.Transport {
 	transport := base.Clone()
+	// Preserve the base transport's normal dialer for every non-allowlisted
+	// host. The injected dialer is reserved for explicit IP fallback attempts.
+	normalDial := base.DialContext
+	if normalDial == nil {
+		normalDial = dial
+	}
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
 		if err != nil {
-			return dial(ctx, network, address)
+			return normalDial(ctx, network, address)
 		}
 		if _, ok := allow[strings.ToLower(strings.TrimSuffix(host, "."))]; !ok {
-			return dial(ctx, network, address)
+			return normalDial(ctx, network, address)
 		}
 		ips, lookupErr := lookup(ctx, host)
 		if lookupErr != nil {
@@ -120,7 +126,7 @@ func newTransportWithIPFallback(base *http.Transport, allow map[string]struct{},
 		}
 		return nil, fmt.Errorf("download: all addresses for %s failed: %w", host, errors.Join(failures...))
 	}
-	installTLSIPFallback(transport, allow, lookup, dial)
+	installTLSIPFallback(transport, allow, lookup, dial, normalDial)
 	return transport
 }
 
