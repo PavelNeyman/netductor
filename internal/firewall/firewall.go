@@ -59,7 +59,9 @@ type wssPeerIndex struct {
 		PublicIP string `json:"public_ip"`
 		State    string `json:"state"`
 		Slot     struct {
-			WSSSP int `json:"wss_sp"`
+			WSSSP   int    `json:"wss_sp"`
+			AddrSSP string `json:"addr_s_sp"`
+			AddrSPS string `json:"addr_s_ps"`
 		} `json:"slot"`
 	} `json:"peers"`
 }
@@ -149,6 +151,40 @@ func wssExpectations(role string) ([]wssExpectation, error) {
 		if err := add(port, local.Primary); err != nil { return nil, err }
 	}
 	return out, nil
+}
+
+// registeredPeerAgentSources returns the exact tunnel addresses from which
+// registered Secondary agents may reach Primary mTLS :8789. Slot-0 CIDRs alone
+// do not cover later blue-green slots.
+func registeredPeerAgentSources() ([]string, error) {
+	path := filepath.Join(paths.EtcDir(), "svc-paths", "peers.json")
+	var idx wssPeerIndex
+	exists, err := readFirewallJSON(path, &idx)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
+	}
+	seen := make(map[string]bool)
+	var sources []string
+	for _, peer := range idx.Peers {
+		if peer.State == "removed" || peer.State == "removing" {
+			continue
+		}
+		for _, raw := range []string{peer.Slot.AddrSSP, peer.Slot.AddrSPS} {
+			ip := net.ParseIP(strings.TrimSpace(raw))
+			if ip == nil || ip.To4() == nil {
+				return nil, fmt.Errorf("peer %s has invalid mTLS source address %q in peers.json", peer.PublicIP, raw)
+			}
+			value := ip.To4().String()
+			if !seen[value] {
+				seen[value] = true
+				sources = append(sources, value)
+			}
+		}
+	}
+	return sources, nil
 }
 
 // verifyWSSRules enforces per-peer source-restricted WSS. No WSS port is ever
