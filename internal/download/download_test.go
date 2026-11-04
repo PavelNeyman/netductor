@@ -1,6 +1,10 @@
 package download
 
 import (
+	"context"
+	"errors"
+	"net"
+	"strings"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
@@ -106,5 +110,71 @@ func TestGetLeavesNoTemporaryFileAfterFailure(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("temporary files remain after failure: %v", entries)
+	}
+}
+
+func TestIPFallbackTriesResolvedAddressesInOrder(t *testing.T) {
+	var attempted []string
+	transport := newTransportWithIPFallback(&http.Transport{}, map[string]struct{}{
+		"release-assets.githubusercontent.com": {},
+	}, func(ctx context.Context, host string) ([]net.IPAddr, error) {
+		if host != "release-assets.githubusercontent.com" {
+			t.Fatalf("unexpected lookup host %q", host)
+		}
+		return []net.IPAddr{{IP: net.ParseIP("192.0.2.10")}, {IP: net.ParseIP("192.0.2.20")}}, nil
+	}, func(ctx context.Context, network, address string) (net.Conn, error) {
+		attempted = append(attempted, address)
+		if strings.HasPrefix(address, "192.0.2.10:") {
+			return nil, errors.New("unreachable")
+		}
+		client, server := net.Pipe()
+		_ = server.Close()
+		return client, nil
+	})
+	conn, err := transport.DialContext(context.Background(), "tcp", "release-assets.githubusercontent.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = conn.Close()
+	if len(attempted) != 2 || attempted[0] != "192.0.2.10:443" || attempted[1] != "192.0.2.20:443" {
+		t.Fatalf("unexpected dial sequence: %v", attempted)
+	}
+}
+
+func TestIPFallbackDoesNotRewriteOrResolveOtherHosts(t *testing.T) {
+	var lookedUp bool
+	var dialed string
+	transport := newTransportWithIPFallback(&http.Transport{}, map[string]struct{}{
+		"release-assets.githubusercontent.com": {},
+	}, func(ctx context.Context, host string) ([]net.IPAddr, error) {
+		lookedUp = true
+		return nil, nil
+	}, func(ctx context.Context, network, address string) (net.Conn, error) {
+		dialed = address
+		client, server := net.Pipe()
+		_ = server.Close()
+		return client, nil
+	})
+	conn, err := transport.DialContext(context.Background(), "tcp", "github.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = conn.Close()
+	if lookedUp || dialed != "github.com:443" {
+		t.Fatalf("unexpected fallback behavior: lookedUp=%v dialed=%q", lookedUp, dialed)
+	}
+}
+
+func TestIPFallbackReportsAllDialFailures(t *testing.T) {
+	transport := newTransportWithIPFallback(&http.Transport{}, map[string]struct{}{
+		"release-assets.githubusercontent.com": {},
+	}, func(ctx context.Context, host string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("192.0.2.10")}, {IP: net.ParseIP("192.0.2.20")}}, nil
+	}, func(ctx context.Context, network, address string) (net.Conn, error) {
+		return nil, errors.New("unreachable")
+	})
+	_, err := transport.DialContext(context.Background(), "tcp", "release-assets.githubusercontent.com:443")
+	if err == nil || !strings.Contains(err.Error(), "all addresses") {
+		t.Fatalf("expected aggregated dial failure, got %v", err)
 	}
 }
