@@ -15,6 +15,8 @@ import (
 
 // Deploy stages for secondary orchestration journal (no secrets).
 const (
+	CurrentStepProvisionFinalized = "provision_finalized"
+
 	StageProvisionStarted      = "provision_started"
 	StageProvisioned           = "provisioned"
 	StagePeerAddStarted        = "peer_add_started"
@@ -407,7 +409,7 @@ func canSkipProvision(st *DeployOrchState) bool {
 // Recovery still requires live key-only SSH and active service verification.
 func canRecoverProvision(st *DeployOrchState) bool {
 	return st != nil && !canSkipProvision(st) &&
-		st.CurrentStep == StageProvisionStarted && st.AgentID != ""
+		st.CurrentStep == CurrentStepProvisionFinalized && st.AgentID != ""
 }
 
 func canSkipPeerAdd(st *DeployOrchState) bool {
