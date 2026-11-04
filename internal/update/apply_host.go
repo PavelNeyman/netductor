@@ -136,11 +136,32 @@ func applyHostComponentLocked(o HostApplyOpts) (*UpdateJob, error) {
 	failHealth := func(msg error) (*UpdateJob, error) {
 		if !o.SkipDownload {
 			if _, e := os.Stat(prevPath); e == nil {
-				_, _ = mark(StateRollbackInProgress, "")
+				if _, markErr := mark(StateRollbackInProgress, ""); markErr != nil {
+					msg = ErrRollbackFailed(msg, markErr)
+					j, _ := mark(StateFailed, msg.Error())
+					return j, msg
+				}
 				if rerr := restorePrevBinary(dest, prevPath); rerr != nil {
 					msg = ErrRollbackFailed(msg, rerr)
 					j, _ := mark(StateFailed, msg.Error())
 					return j, msg
+				}
+				if o.Restart && o.Unit != "" {
+					if rerr := exec.Command("systemctl", "restart", o.Unit).Run(); rerr != nil {
+						msg = ErrRollbackFailed(msg, fmt.Errorf("restart restored %s: %w", o.Unit, rerr))
+						j, _ := mark(StateFailed, msg.Error())
+						return j, msg
+					}
+					if rerr := healthUnitActive(o.Unit); rerr != nil {
+						msg = ErrRollbackFailed(msg, fmt.Errorf("restored unit health: %w", rerr))
+						j, _ := mark(StateFailed, msg.Error())
+						return j, msg
+					}
+					if rerr := probeRunningUnitBinary(o.Unit, dest); rerr != nil {
+						msg = ErrRollbackFailed(msg, fmt.Errorf("restored process identity: %w", rerr))
+						j, _ := mark(StateFailed, msg.Error())
+						return j, msg
+					}
 				}
 				j, _ := mark(StateRolledBack, msg.Error())
 				return j, msg
@@ -278,6 +299,32 @@ func healthUnitActive(unit string) error {
 	s := strings.TrimSpace(string(out))
 	if err != nil || (s != "active" && s != "activating") {
 		return fmt.Errorf("health: unit %s is %q", unit, s)
+	}
+	return nil
+}
+
+// probeRunningUnitBinary confirms that systemd restarted the unit from the
+// restored on-disk executable, rather than leaving the failed process in memory.
+func probeRunningUnitBinary(unit, binaryPath string) error {
+	out, err := exec.Command("systemctl", "show", "-p", "MainPID", "--value", unit).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("health: MainPID for %s: %v (%s)", unit, err, truncateOut(string(out), 80))
+	}
+	pid := strings.TrimSpace(string(out))
+	if pid == "" || pid == "0" {
+		return fmt.Errorf("health: unit %s has no MainPID", unit)
+	}
+	procExe := filepath.Join("/proc", pid, "exe")
+	procInfo, err := os.Stat(procExe)
+	if err != nil {
+		return fmt.Errorf("health: inspect running executable for %s: %w", unit, err)
+	}
+	destInfo, err := os.Stat(binaryPath)
+	if err != nil {
+		return fmt.Errorf("health: inspect restored executable %s: %w", binaryPath, err)
+	}
+	if !os.SameFile(procInfo, destInfo) {
+		return fmt.Errorf("health: unit %s is not running the restored executable %s", unit, binaryPath)
 	}
 	return nil
 }
