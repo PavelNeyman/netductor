@@ -1,6 +1,10 @@
 package firewall
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestParseUfwNumberedOrder(t *testing.T) {
 	status := `Status: active
@@ -142,5 +146,19 @@ func TestSecondaryInactiveSavedAllowPreflight(t *testing.T) {
 		if err := preflightSecondaryAddedRules(rule); err != nil {
 			t.Fatalf("unrelated/non-allow rule should pass: %q: %v", rule, err)
 		}
+	}
+}
+
+func TestLegacyGlobalWSSRulePreservedWhenPeerInventoryEmpty(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_ETC", root)
+	dir := filepath.Join(root, "svc-paths")
+	if err := os.MkdirAll(dir, 0o700); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(dir, "peers.json"), []byte(`{"version":1,"peers":[]}`), 0o600); err != nil { t.Fatal(err) }
+	status := `Status: active
+[ 1] 8444/tcp ALLOW IN Anywhere # nd-wss-sp
+`
+	if err := RemoveLegacyGlobalWSSRules(status); err == nil {
+		t.Fatal("empty peer inventory must not authorize deletion of the last global WSS allow")
 	}
 }
