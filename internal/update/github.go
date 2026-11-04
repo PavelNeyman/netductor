@@ -441,7 +441,7 @@ func fetchSHA256SUMSBody(client *http.Client, rawURL string) ([]byte, error) {
 // redirect is expected; the release-assets host can intermittently time out
 // during TLS setup even when github.com itself is reachable.
 func FetchSHA256SUMSRaw(tag string) ([]byte, map[string]string, error) {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport := download.NewTransportWithIPFallback("release-assets.githubusercontent.com")
 	transport.TLSHandshakeTimeout = 20 * time.Second
 	transport.ResponseHeaderTimeout = 30 * time.Second
 	client := &http.Client{
