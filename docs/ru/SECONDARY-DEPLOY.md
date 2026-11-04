@@ -173,3 +173,8 @@ netductor secondary prepare-pack
 netductor ssh-hosts list|forget|clear
 netductor svc-paths status
 ```
+## Ограничения Blue-Green
+
+- Журнал orchestration deploy хранится локально на Mac, с которого запущена операция; resume выполнять с того же Mac. Для восстановления peer lifecycle на Primary используются `peers.json` и `peers/<id>/op.json`.
+- Service plane имеет четыре слота. Пятый peer отклоняется; автоматического multiplexing нет.
+- Deploy проверяет инфраструктуру и наличие profile material, но не доказывает клиентский Reality-трафик. До `peer ready/promote` обязателен реальный тестовый клиент через B; после promote и DNS cutover — повторная проверка `/sub`.
