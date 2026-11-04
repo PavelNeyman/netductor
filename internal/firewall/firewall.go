@@ -339,39 +339,54 @@ func ensureWSSAllowRules(role string) error {
 // RemoveLegacyGlobalWSSRules migrates old Netductor-wide WSS ALLOW rules. It
 // removes only rules carrying Netductor's historical comments; administrator
 // rules are preserved and subsequently cause a fail-closed policy check.
-func RemoveLegacyGlobalWSSRules(status string) error {
-	// A tagged global rule is the last known path for legacy peers when the
-	// registry is empty or incomplete. Never remove it unless every expected
-	// peer already has an exact source-restricted replacement.
-	for _, role := range []string{"primary", "secondary"} {
+func RemoveLegacyGlobalWSSRules(status, role string) error {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role != "primary" && role != "secondary" {
+		return fmt.Errorf("legacy WSS cleanup: invalid role %q", role)
+	}
+	// Validate only the WSS listener owned by this host. The opposite-role
+	// legacy port is stale on this host and is removed with the same tagged
+	// cleanup, but it is not evidence about this host's active peer.
+	legacyPort, legacyComment := "8444", "nd-wss-sp"
+	if role == "secondary" {
+		legacyPort, legacyComment = "8445", "nd-wss-ps"
+	}
+	rules := parseUfwNumbered(status)
+	hasLegacy := false
+	for _, rule := range rules {
+		if rule.Action == "ALLOW" && ufwFromIsWAN(rule.From) && rule.Port == legacyPort && strings.Contains(rule.Raw, legacyComment) {
+			hasLegacy = true
+			break
+		}
+	}
+	if hasLegacy {
 		expected, err := wssExpectations(role)
 		if err != nil {
 			return fmt.Errorf("inspect %s WSS inventory before legacy cleanup: %w", role, err)
 		}
-		legacyPort := "8444"
-		legacyComment := "nd-wss-sp"
-		if role == "secondary" {
-			legacyPort, legacyComment = "8445", "nd-wss-ps"
-		}
-		hasLegacy := false
-		for _, rule := range parseUfwNumbered(status) {
-			if rule.Action == "ALLOW" && ufwFromIsWAN(rule.From) && rule.Port == legacyPort && strings.Contains(rule.Raw, legacyComment) {
-				hasLegacy = true
-				break
-			}
-		}
-		if !hasLegacy {
-			continue
-		}
 		if len(expected) == 0 {
-			return fmt.Errorf("%s WSS inventory is empty while a tagged global %s rule exists; refusing to remove the only potentially live peer access", role, legacyPort)
-		}
-		for _, peer := range expected {
-			if peer.Port != legacyPort {
-				continue
+			// An empty managed registry is authoritative only when no legacy
+			// material still identifies a peer that may be using this listener.
+			var legacy wssMaterial
+			materialExists, readErr := readFirewallJSON(filepath.Join(paths.EtcDir(), "svc-paths", "material.json"), &legacy)
+			if readErr != nil {
+				return fmt.Errorf("inspect legacy WSS material before cleanup: %w", readErr)
 			}
-			if !hasExactWSSPeerAllow(parseUfwNumbered(status), peer) {
-				return fmt.Errorf("%s WSS %s from %s has no exact source-restricted replacement; refusing legacy cleanup", role, peer.Port, peer.Source)
+			legacyPeer := legacy.Secondary
+			if role == "secondary" {
+				legacyPeer = legacy.Primary
+			}
+			if materialExists && strings.TrimSpace(legacyPeer) != "" {
+				return fmt.Errorf("%s WSS inventory is empty but legacy material still identifies peer %s; refusing to remove the only potentially live access", role, legacyPeer)
+			}
+		} else {
+			for _, peer := range expected {
+				if peer.Port != legacyPort {
+					continue
+				}
+				if !hasExactWSSPeerAllow(rules, peer) {
+					return fmt.Errorf("%s WSS %s from %s has no exact source-restricted replacement; refusing legacy cleanup", role, peer.Port, peer.Source)
+				}
 			}
 		}
 	}
@@ -1172,7 +1187,7 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if inspectErr != nil {
 		return fmt.Errorf("re-inspect UFW rules before legacy WSS removal: %v (%s)", inspectErr, truncate(string(current), 200))
 	}
-	if err := RemoveLegacyGlobalWSSRules(string(current)); err != nil {
+	if err := RemoveLegacyGlobalWSSRules(string(current), role); err != nil {
 		return err
 	}
 	if err := ensureWSSAllowRules(role); err != nil {
@@ -1319,7 +1334,7 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	}
 	// UFW may hide saved rules while inactive. Re-run the exact-comment legacy
 	// migration after activation so old global WSS ALLOW rules cannot reappear.
-	if err := RemoveLegacyGlobalWSSRules(string(status)); err != nil { return err }
+	if err := RemoveLegacyGlobalWSSRules(string(status), role); err != nil { return err }
 	if err := ensureWSSAllowRules(role); err != nil { return fmt.Errorf("post-enable WSS peer policy: %w", err) }
 	status, statusErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
 	if statusErr != nil { return fmt.Errorf("ufw post-migration status: %v (%s)", statusErr, truncate(string(status), 200)) }
