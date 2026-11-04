@@ -82,11 +82,8 @@ func NewTransportWithIPFallback(hosts ...string) *http.Transport {
 			allow[host] = struct{}{}
 		}
 	}
-	transport := newTransportWithIPFallback(http.DefaultTransport.(*http.Transport).Clone(), allow,
+	return newTransportWithIPFallback(http.DefaultTransport.(*http.Transport).Clone(), allow,
 		net.DefaultResolver.LookupIPAddr, (&net.Dialer{Timeout: 10 * time.Second}).DialContext)
-	installTLSIPFallback(transport, allow, net.DefaultResolver.LookupIPAddr,
-		(&net.Dialer{Timeout: 10 * time.Second}).DialContext)
-	return transport
 }
 
 type ipLookupFunc func(context.Context, string) ([]net.IPAddr, error)
@@ -123,6 +120,7 @@ func newTransportWithIPFallback(base *http.Transport, allow map[string]struct{},
 		}
 		return nil, fmt.Errorf("download: all addresses for %s failed: %w", host, errors.Join(failures...))
 	}
+	installTLSIPFallback(transport, allow, lookup, dial)
 	return transport
 }
 
