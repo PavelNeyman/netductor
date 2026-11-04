@@ -11,7 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"\n\t"github.com/PavelNeyman/netductor/internal/firewall"
+	"time"
+	"github.com/PavelNeyman/netductor/internal/firewall"
 )
 
 var peerIDRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
