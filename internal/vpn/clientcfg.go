@@ -51,6 +51,38 @@ func preferredSecondaryIP() string {
 	return ""
 }
 
+// activeServicePlanePeers returns the public IPs explicitly promoted to active.
+// If peers.json exists, it is authoritative: prepared/ready peers must never leak
+// into subscriptions. Missing registry preserves legacy single-peer behavior.
+func activeServicePlanePeers() (map[string]bool, bool) {
+	path := filepath.Join(paths.EtcDir(), "svc-paths", "peers.json")
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, false
+	}
+	active := make(map[string]bool)
+	if err != nil {
+		return active, true
+	}
+	var index struct {
+		Peers []struct {
+			PublicIP string `json:"public_ip"`
+			State    string `json:"state"`
+		} `json:"peers"`
+	}
+	if json.Unmarshal(b, &index) != nil {
+		return active, true
+	}
+	for _, peer := range index.Peers {
+		if strings.EqualFold(strings.TrimSpace(peer.State), "active") {
+			if ip := strings.TrimSpace(peer.PublicIP); ip != "" {
+				active[ip] = true
+			}
+		}
+	}
+	return active, true
+}
+
 func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 	b, err := os.ReadFile(paths.SecondaryDevicesFile())
 	if err != nil {
@@ -61,10 +93,16 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 		return nil
 	}
 	now := time.Now().UTC()
+	activePeers, hasPeerRegistry := activeServicePlanePeers()
 	type row struct{ Host, PBK, SID, SNI, PublicIP string }
 	var out []row
 	for _, d := range f.Devices {
 		d.PublicIP = strings.TrimSpace(d.PublicIP)
+		// The heartbeat registry proves liveness, not promotion. Once the
+		// service-plane peer registry exists, only state=active is advertised.
+		if hasPeerRegistry && !activePeers[d.PublicIP] {
+			continue
+		}
 		d.PBK = strings.TrimSpace(d.PBK)
 		d.SID = strings.TrimSpace(d.SID)
 		d.SNI = strings.TrimSpace(d.SNI)
