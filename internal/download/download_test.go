@@ -2,15 +2,15 @@ package download
 
 import (
 	"context"
-	"errors"
-	"net"
-	"strings"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
