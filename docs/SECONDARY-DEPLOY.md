@@ -157,7 +157,7 @@ Producer (primary `prepare-pack` / export) and consumer (`secondary join`) must 
 | Static VLESS QR / copied links | May go stale when Reality material rotates; **`/sub/<token>`** is canonical |
 | Session API `…/subscription` **410** | Operator API only — not the client subscription channel |
 | Auto-retire old secondary | **No** — explicit remove after observation |
-| Parallel deploy in one process + global `NETDUCTOR_SSH_PORT` | Avoid concurrent primary/secondary deploys in one op process (R13) |
+| Parallel deploy in one process + global `NETDUCTOR_SSH_PORT` | Avoid concurrent primary/secondary deploys in one op process (R13) |\n| Deploy journal resume | Operator orchestration journal is local to the Mac that started deploy; resume from that operator host. Primary `peers.json` and per-peer `op.json` remain the source of truth for peer lifecycle recovery. |\n| Service-plane capacity | Four slots maximum; a fifth peer is rejected, not automatically multiplexed. |
 
 ---
 
