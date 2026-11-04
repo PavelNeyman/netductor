@@ -990,7 +990,7 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 			if err := validatePeerRemovalUFWStatus(string(status)); err != nil {
 				return fmt.Errorf("refuse peer UFW cleanup with incomplete rule listing: %w", err)
 			}
-			number, found, owned, parseErr := peerUFWRuleNumber(string(status), target.src, target.port)
+			number, found, owned, parseErr := peerUFWRuleNumber(string(status), target.src, target.port, target.comment)
 			if parseErr != nil { return parseErr }
 			if !found { break }
 			if !owned {
@@ -1011,7 +1011,7 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 	}
 	for _, target := range checks {
 		if target.src == "" || target.port == "0" { continue }
-		_, found, _, parseErr := peerUFWRuleNumber(string(after), target.src, target.port)
+		_, found, _, parseErr := peerUFWRuleNumber(string(after), target.src, target.port, target.comment)
 		if parseErr != nil { return parseErr }
 		if found { return fmt.Errorf("ufw still has %s/tcp from %s", target.port, target.src) }
 	}
@@ -1031,7 +1031,7 @@ func validatePeerRemovalUFWStatus(status string) error {
 
 // peerUFWRuleNumber locates an exact inbound TCP tuple. A matching tuple without
 // the expected ownership comment is reported as unowned and is never deleted.
-func peerUFWRuleNumber(status, source, port string) (number int, found, owned bool, err error) {
+func peerUFWRuleNumber(status, source, port, expectedComment string) (number int, found, owned bool, err error) {
 	entryRE := regexp.MustCompile(`^\\[\\s*([0-9]+)\\]\\s+(.+)package svcpaths
 
 import (
@@ -2011,7 +2011,7 @@ func removePeerIPTablesRules(publicIP, addrSSP, addrSPS string, wssPort int) err
 		if len(fields) < 4 { continue }
 		if fields[0] != port+"/tcp" || fields[1] != "ALLOW" || fields[2] != "IN" || fields[3] != source { continue }
 		if found { return 0, false, false, fmt.Errorf("duplicate UFW rules for %s/tcp from %s; refusing ambiguous cleanup", port, source) }
-		found, number, owned = true, n, comment == "nd-svc-sp" || comment == "nd-wss-sp"
+		found, number, owned = true, n, comment == expectedComment
 	}
 	return number, found, owned, nil
 }
