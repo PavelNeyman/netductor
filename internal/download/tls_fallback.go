@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // installTLSIPFallback makes TLS establishment part of each address attempt.
@@ -84,5 +83,3 @@ func installTLSIPFallback(transport *http.Transport, allow map[string]struct{}, 
 	}
 }
 
-// Keep the time import tied to the explicit timeout semantics above.
-var _ = time.Second
