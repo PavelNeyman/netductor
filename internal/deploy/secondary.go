@@ -1042,7 +1042,7 @@ echo "primary peer units+ping ok -> %s %s"
 	waitCmd := fmt.Sprintf(`ok=0
 id=%s
 now=$(date +%%s)
-for i in $(seq 1 36); do
+for i in $(seq 1 120); do
   st=$(netductor secondary status 2>/dev/null || true)
   echo "$st"
   if printf '%%s\n' "$st" | awk -F '\t' -v id="$id" -v now="$now" '
@@ -1081,7 +1081,7 @@ python3 -c '
 import json,sys,time,os
 id,ip=sys.argv[1],sys.argv[2]
 last="agent id not in registry"
-for attempt in range(24):
+for attempt in range(60):
     try:
         with open("/var/lib/netductor/secondary/devices.json") as f:
             r=json.load(f)
@@ -1102,7 +1102,7 @@ for attempt in range(24):
             sys.exit(0)
     except Exception as e:
         last="devices registry unavailable or invalid: "+type(e).__name__
-    if attempt < 23:
+    if attempt < 59:
         time.sleep(5)
 raise SystemExit(last)
 ' "$id" "$ip"
