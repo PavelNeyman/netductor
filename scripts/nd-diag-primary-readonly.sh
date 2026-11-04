@@ -58,6 +58,24 @@ for unit in netductor.service netductor-agent.service; do
   fi
 done
 
+section "STACK APPLY SYSTEMD UNIT / LOG"
+systemctl show netductor-stack-apply.service \
+  -p LoadState -p ActiveState -p SubState -p Result -p ExecMainCode -p ExecMainStatus \
+  -p ExecMainStartTimestamp -p ExecMainExitTimestamp 2>/dev/null || true
+if [[ -r /var/log/netductor-stack-apply.log ]]; then
+  tail -n 240 /var/log/netductor-stack-apply.log | redact || true
+else
+  echo "/var/log/netductor-stack-apply.log: NOT FOUND"
+fi
+
+section "API / TELEGRAM JOURNALS (LAST 48H)"
+for unit in netductor-api.service netductor-telegram-bot.service netductor-stack-apply.service; do
+  echo "--- $unit ---"
+  journalctl -u "$unit" --since "48 hours ago" --no-pager -o short-iso 2>/dev/null |
+    grep -Ei 'stack|apply|upgrade|update|release|version|sha256|download|tls|handshake|telegram|notify|notification|alert|send|webhook|error|failed|timeout|scheduled|DONE' |
+    tail -n 160 | redact || true
+done
+
 section "UPDATE / STACK / NOTIFICATION JOURNAL (LAST 48H)"
 for unit in netductor.service netductor-agent.service; do
   journalctl -u "$unit" --since "48 hours ago" --no-pager -o short-iso 2>/dev/null || true
