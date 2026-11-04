@@ -1074,7 +1074,7 @@ test "$ok" = 1`, ShellQuote(pack.AgentID))
 		return err
 	}
 
-	// Profile readiness: B must be subscription-eligible (PBK/SID/PublicIP/sing-box).
+	// Profile material readiness only; peers.json keeps B out of /sub until explicit promotion.
 	fmt.Fprintln(os.Stderr, "==> check secondary profile readiness (PBK/SID/sing-box)")
 	readyCmd := fmt.Sprintf(`set -e
 id=%s
@@ -1113,7 +1113,7 @@ raise SystemExit(last)
 `, ShellQuote(pack.AgentID), ShellQuote(o.SecondaryHost))
 	outReady, errReady := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, readyCmd, o.PrimaryKeyPassphrase)
 	if errReady != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary profile not subscription-ready: %w", errReady))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, fmt.Errorf("secondary profile material incomplete: %w", errReady))
 	}
 	printRemoteAllowlist("profile-ready", outReady, "profile ready")
 
@@ -1136,10 +1136,10 @@ fi
 		return err
 	}
 
-	fmt.Fprintln(os.Stderr, "==> not promoted (after traffic test: peer validate/ready/promote", peerID+")")
+	fmt.Fprintln(os.Stderr, "==> peer remains prepared and excluded from /sub; test client Reality traffic, then peer validate/ready/promote", peerID)
 
 	fmt.Fprintf(os.Stderr, "    note: public surface may include :443 (Reality), :52222 (SSH), :%d (PS WSS)\n", mat.WSSPS)
-	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set, update DNS A to", o.SecondaryHost, "before clients reconnect")
+	fmt.Fprintln(os.Stderr, "    if vpn_hostname is set: after client traffic validation and peer promote, update DNS A to", o.SecondaryHost, "before clients reconnect")
 	return nil
 }
 
