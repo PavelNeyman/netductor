@@ -331,8 +331,10 @@ func TestSubscriptionExcludesPreparedPeerUntilPromoted(t *testing.T) {
 	peerPath := filepath.Join(peerDir, "peers.json")
 	writePeers := func(bState string) {
 		t.Helper()
+		aState := "active"
+		if bState == "active" { aState = "ready" }
 		raw := `{"version":1,"peers":[
-			{"id":"peer-a","public_ip":"203.0.113.11","state":"active"},
+			{"id":"peer-a","public_ip":"203.0.113.11","state":"` + aState + `"},
 			{"id":"peer-b","public_ip":"203.0.113.22","state":"` + bState + `"}
 		]}`
 		if err := os.WriteFile(peerPath, []byte(raw), 0o600); err != nil { t.Fatal(err) }
@@ -346,7 +348,7 @@ func TestSubscriptionExcludesPreparedPeerUntilPromoted(t *testing.T) {
 	writePeers("active")
 	body, err = SubscriptionBody("alice")
 	if err != nil { t.Fatal(err) }
-	if !strings.Contains(body, "pbk-a") || !strings.Contains(body, "pbk-b") {
-		t.Fatalf("promoted peer should be advertised alongside existing active peer: %q", body)
+	if strings.Contains(body, "pbk-a") || !strings.Contains(body, "pbk-b") {
+		t.Fatalf("after promotion, only the new active peer should be advertised: %q", body)
 	}
 }
