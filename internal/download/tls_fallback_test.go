@@ -98,8 +98,15 @@ func TestTLSIPFallbackRetriesAfterHandshakeFailure(t *testing.T) {
 		if strings.HasPrefix(address, "192.0.2.10:") {
 			clientConn, serverConn := net.Pipe()
 			go func() {
-				_, _ = serverConn.Write([]byte("not a TLS record"))
-				_ = serverConn.Close()
+				defer serverConn.Close()
+				// Drain the ClientHello before sending a fatal TLS alert. net.Pipe
+				// writes block until the peer reads, so writing first deadlocks
+				// the client's handshake.
+				buf := make([]byte, 4096)
+				if _, readErr := serverConn.Read(buf); readErr != nil {
+					return
+				}
+				_, _ = serverConn.Write([]byte{21, 3, 3, 0, 2, 2, 40})
 			}()
 			return clientConn, nil
 		}
