@@ -1,3 +1,8 @@
+## 0.9.661
+
+- fix(firewall): UFW loopback policy
+- fix(stack): rollback version marker
+
 ## 0.9.660
 
 - fix(firewall): health checks for ordered partial source allows
