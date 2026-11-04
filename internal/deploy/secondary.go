@@ -878,7 +878,7 @@ echo "svc-paths secondary verify ok slot_iface=%s/%s"
 		ShellQuote(mat.AddrPSP), ShellQuote(mat.AddrPPS), ShellQuote(mat.IfaceSP), ShellQuote(mat.IfacePS))
 	secBoot := fmt.Sprintf(`set -e
 install -d -m 700 /etc/netductor/secrets
-printf '%s\n' %s > /etc/netductor/secrets/public_ip
+printf '%%s\n' %s > /etc/netductor/secrets/public_ip
 chmod 600 /etc/netductor/secrets/public_ip
 netductor svc-paths bootstrap-secondary --material -
 test "$(tr -d '\n' </etc/netductor/secrets/public_ip)" = %s
