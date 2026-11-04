@@ -2259,22 +2259,32 @@ func ufwSourceOverlaps(from, targetCIDR string) bool {
 // ALLOW followed by a broader ALLOW to cover the complete range, while still
 // rejecting any address shadowed by DENY/REJECT or left uncovered. Large or
 // non-IPv4 ranges fail closed rather than being approximated.
-func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool {
-	ip, network, err := net.ParseCIDR(strings.TrimSpace(sourceCIDR))
-	if err != nil || ip == nil || ip.To4() == nil {
-		return false
+func ufwSourceRangeFirstAllow(rules []ufwRule, port, sourceCIDR string) (covered, foundAny bool) {
+	raw := strings.TrimSpace(sourceCIDR)
+	ip, network, err := net.ParseCIDR(raw)
+	if err != nil {
+		// Registered peer sources are individual IPv4 addresses rather than
+		// CIDRs. Treat them as /32 so they use the same ordered-policy logic.
+		ip = net.ParseIP(raw)
+		if ip == nil || ip.To4() == nil {
+			return false, false
+		}
+		network = &net.IPNet{IP: ip.To4(), Mask: net.CIDRMask(32, 32)}
+	}
+	if ip == nil || ip.To4() == nil {
+		return false, false
 	}
 	ones, bits := network.Mask.Size()
 	if bits != 32 || ones < 16 {
-		return false
+		return false, false
 	}
 	base := network.IP.To4()
 	if base == nil {
-		return false
+		return false, false
 	}
 	start := uint64(binary.BigEndian.Uint32(base))
 	count := uint64(1) << uint(32-ones)
-	foundAny, uncovered := false, false
+	uncovered := false
 	for offset := uint64(0); offset < count; offset++ {
 		host := make(net.IP, net.IPv4len)
 		binary.BigEndian.PutUint32(host, uint32(start+offset))
@@ -2286,7 +2296,7 @@ func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool 
 			}
 			foundAny = true
 			if rule.Action != "ALLOW" {
-				return false
+				return false, true
 			}
 			found = true
 			break
@@ -2295,10 +2305,15 @@ func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool 
 			uncovered = true
 		}
 	}
-	// A completely absent source policy is safe to append during apply.
-	// Once any overlapping rule exists, however, every address must resolve
-	// to an effective ALLOW before the policy is considered compatible.
-	return !foundAny || !uncovered
+	return !uncovered, foundAny
+}
+
+// A completely absent source policy is safe to append during apply. Health
+// checks must additionally require foundAny; preflight uses the permissive
+// wrapper so it can distinguish absent policy from conflicting policy.
+func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool {
+	covered, foundAny := ufwSourceRangeFirstAllow(rules, port, sourceCIDR)
+	return !foundAny || covered
 }
 
 // firstTCPActionFromSource returns the first ordered rule that affects the
@@ -2422,10 +2437,10 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		// interpreted as permission to expose the same port over IPv6.
 		allowedUplinkSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, cidr := range allowedUplinkSources {
-			action, found := firstTCPActionFromSource(rules, "9443", cidr, false)
-			if !found || action != "ALLOW" {
+			covered, found := ufwSourceRangeFirstAllow(rules, "9443", cidr)
+			if !found || !covered {
 				ok = false
-				warnings = append(warnings, "service uplink: first matching IPv4 rule for "+cidr+" on 9443/tcp is "+action+" (want ALLOW)")
+				warnings = append(warnings, "service uplink: source range "+cidr+" is not fully covered by effective IPv4 ALLOW rules on 9443/tcp")
 			}
 		}
 		for _, rule := range rules {
@@ -2459,10 +2474,10 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		allowedMTLSSources = append(allowedMTLSSources, peerSources...)
 		for _, source := range allowedMTLSSources {
-			action, found := firstTCPActionFromSource(rules, mtls, source, false)
-			if !found || action != "ALLOW" {
+			covered, found := ufwSourceRangeFirstAllow(rules, mtls, source)
+			if !found || !covered {
 				ok = false
-				warnings = append(warnings, "mtls: first matching IPv4 rule for "+source+" on "+mtls+"/tcp is "+action+" (want ALLOW)")
+				warnings = append(warnings, "mtls: source "+source+" is not covered by an effective IPv4 ALLOW rule on "+mtls+"/tcp")
 			}
 		}
 		// No IPv6 source is trusted for the current mTLS service topology.
