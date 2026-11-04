@@ -65,16 +65,18 @@ func activeServicePlanePeers() (map[string]bool, bool) {
 		return active, true
 	}
 	var index struct {
+		ActiveID string `json:"active_id"`
 		Peers []struct {
+			ID       string `json:"id"`
 			PublicIP string `json:"public_ip"`
 			State    string `json:"state"`
 		} `json:"peers"`
 	}
-	if json.Unmarshal(b, &index) != nil {
+	if json.Unmarshal(b, &index) != nil || strings.TrimSpace(index.ActiveID) == "" {
 		return active, true
 	}
 	for _, peer := range index.Peers {
-		if strings.EqualFold(strings.TrimSpace(peer.State), "active") {
+		if peer.ID == index.ActiveID && strings.EqualFold(strings.TrimSpace(peer.State), "active") {
 			if ip := strings.TrimSpace(peer.PublicIP); ip != "" {
 				active[ip] = true
 			}
