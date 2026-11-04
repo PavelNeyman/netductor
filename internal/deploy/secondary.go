@@ -794,7 +794,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		return err
 	}
 	pre := fmt.Sprintf(
-		"set -e; mkdir -p /etc/netductor/secrets; printf '%%s\\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
+		"set -e; mkdir -p /etc/netductor/secrets; printf '%%s\n' %s > /etc/netductor/secrets/public_ip; netductor svc-paths peer add --peer-ip %s --id %s --primary-ip %s",
 		ShellQuote(primIP), ShellQuote(secIP), ShellQuote(peerID), ShellQuote(primIP),
 	)
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
