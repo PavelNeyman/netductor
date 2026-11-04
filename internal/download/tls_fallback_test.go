@@ -150,8 +150,13 @@ func TestTLSIPFallbackPreservesBaseDialerForOtherHosts(t *testing.T) {
 			baseDialCalls++
 			clientConn, serverConn := net.Pipe()
 			go func() {
-				_, _ = serverConn.Write([]byte("not a TLS record"))
-				_ = serverConn.Close()
+				defer serverConn.Close()
+				// Drain the ClientHello before sending a fatal TLS alert.
+				buf := make([]byte, 4096)
+				if _, readErr := serverConn.Read(buf); readErr != nil {
+					return
+				}
+				_, _ = serverConn.Write([]byte{21, 3, 3, 0, 2, 2, 40})
 			}()
 			return clientConn, nil
 		},
