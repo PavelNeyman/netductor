@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -84,7 +85,7 @@ func TestTLSIPFallbackRetriesAfterHandshakeFailure(t *testing.T) {
 		TLSClientConfig:     &tls.Config{RootCAs: roots},
 	}, map[string]struct{}{host: {}}, func(ctx context.Context, gotHost string) ([]net.IPAddr, error) {
 		if gotHost != host {
-			t.Fatalf("lookup host = %q, want %q", gotHost, host)
+			return nil, fmt.Errorf("lookup host = %q, want %q", gotHost, host)
 		}
 		return []net.IPAddr{
 			{IP: net.ParseIP("192.0.2.10")},
@@ -103,8 +104,7 @@ func TestTLSIPFallbackRetriesAfterHandshakeFailure(t *testing.T) {
 		if strings.HasPrefix(address, "192.0.2.20:") {
 			return net.Dial(network, listener.Addr().String())
 		}
-		t.Fatalf("unexpected dial address %q", address)
-		return nil, nil
+		return nil, fmt.Errorf("unexpected dial address %q", address)
 	})
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	resp, err := client.Get("https://" + host + "/asset")
