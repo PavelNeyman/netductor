@@ -51,9 +51,9 @@ func preferredSecondaryIP() string {
 	return ""
 }
 
-// activeServicePlanePeers returns the public IPs explicitly promoted to active.
-// If peers.json exists, it is authoritative: prepared/ready peers must never leak
-// into subscriptions. Missing registry preserves legacy single-peer behavior.
+// activeServicePlanePeers returns the public IP of the explicitly promoted active_id.
+// If peers.json exists, it is authoritative: prepared/ready peers and stale active
+// entries must never leak into subscriptions. Missing registry preserves legacy behavior.
 func activeServicePlanePeers() (map[string]bool, bool) {
 	path := filepath.Join(paths.EtcDir(), "svc-paths", "peers.json")
 	b, err := os.ReadFile(path)
