@@ -155,10 +155,11 @@ func TestLegacyGlobalWSSRulePreservedWhenPeerInventoryEmpty(t *testing.T) {
 	dir := filepath.Join(root, "svc-paths")
 	if err := os.MkdirAll(dir, 0o700); err != nil { t.Fatal(err) }
 	if err := os.WriteFile(filepath.Join(dir, "peers.json"), []byte(`{"version":1,"peers":[]}`), 0o600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(dir, "material.json"), []byte(`{"primary_ip":"198.51.100.1","secondary_ip":"203.0.113.20","wss_sp":8444}`), 0o600); err != nil { t.Fatal(err) }
 	status := `Status: active
 [ 1] 8444/tcp ALLOW IN Anywhere # nd-wss-sp
 `
-	if err := RemoveLegacyGlobalWSSRules(status); err == nil {
+	if err := RemoveLegacyGlobalWSSRules(status, "primary"); err == nil {
 		t.Fatal("empty peer inventory must not authorize deletion of the last global WSS allow")
 	}
 }
