@@ -1925,7 +1925,7 @@ func parseUfwNumbered(status string) []ufwRule {
 func ValidateNumberedUFWStatus(status string) error {
 	rules := parseUfwNumbered(status)
 	numberedLines := 0
-	for _, line := range strings.Split(status, "\\n") {
+	for _, line := range strings.Split(status, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "[") {
 			numberedLines++
 		}
