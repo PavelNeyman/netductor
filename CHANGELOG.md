@@ -1,3 +1,8 @@
+## 0.9.656
+
+- fix(agent): cast Timespec to int64 for 32-bit GOARCH builds (arm/mipsle)
+- release from main tip including secondary deploy hardenings through 0.9.655 series
+
 ## 0.9.655
 
 - Apply pair install writes a durable tx journal. Startup recovers node_installed/tg_installed before API. Corrupt journal blocks start.

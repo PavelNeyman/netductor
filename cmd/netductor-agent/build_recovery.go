@@ -183,7 +183,7 @@ func armBuildRecovery(ttl time.Duration) error {
 		}
 		defer f.Close()
 		w.Header().Set("X-Netductor-Backup-Name", latest)
-		http.ServeContent(w, r, latest, time.Unix(st.Mtim.Sec, st.Mtim.Nsec), f)
+		http.ServeContent(w, r, latest, time.Unix(int64(st.Mtim.Sec), int64(st.Mtim.Nsec)), f)
 	})
 	mux.HandleFunc("/recovery/components", func(w http.ResponseWriter, r *http.Request) {
 		auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")

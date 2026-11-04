@@ -541,7 +541,7 @@ func handleSecondaryBackupLatest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Netductor-Backup-Size", fmt.Sprintf("%d", st.Size))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeAttachmentFilename(name)+"\"")
-	http.ServeContent(w, r, name, time.Unix(st.Mtim.Sec, st.Mtim.Nsec), f)
+	http.ServeContent(w, r, name, time.Unix(int64(st.Mtim.Sec), int64(st.Mtim.Nsec)), f)
 }
 
 func readSmallRegularFileNoFollow(path string, maxSize int64) ([]byte, error) {
