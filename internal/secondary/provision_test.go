@@ -1,10 +1,14 @@
 package secondary
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/ssh"
 )
 
 func TestForceReinstallStopsOnForgetError(t *testing.T) {
@@ -16,8 +20,17 @@ func TestForceReinstallStopsOnForgetError(t *testing.T) {
 	if err := os.WriteFile(relayKnownPath(), []byte("{bad"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := ProvisionFromCore(ProvisionIn{
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ProvisionFromCore(ProvisionIn{
 		Host:           "203.0.113.80",
+		OperatorPubKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub))),
 		ForceReinstall: true,
 		MTLSCA:         []byte("ca"),
 		MTLSCert:       []byte("cert"),
