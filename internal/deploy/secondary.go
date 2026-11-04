@@ -861,7 +861,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 
 	// Slot-aware verification on B (not hardcoded slot 0).
 	secVerify := fmt.Sprintf(`set -e
-test "$(tr -d '\\n' </etc/netductor/secrets/public_ip)" = %s
+test "$(tr -d '\n' </etc/netductor/secrets/public_ip)" = %s
 test -f /etc/netductor/secrets/secondary_core_url
 grep -q %s /etc/netductor/secrets/secondary_core_url
 test -f /etc/netductor/svc-paths/material.json
