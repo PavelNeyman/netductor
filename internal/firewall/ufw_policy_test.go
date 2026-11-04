@@ -3,6 +3,7 @@ package firewall
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -72,13 +73,30 @@ func TestUfwNumberedGoodPrimary(t *testing.T) {
 [26] 8789/tcp                   ALLOW IN    10.87.11.0/30
 [27] 9118/tcp                   DENY IN     Anywhere
 [28] 9118/tcp (v6)              DENY IN     Anywhere (v6)
+[29] 8789/tcp                   ALLOW IN    127.0.0.1
+[30] 9118/tcp                   ALLOW IN    127.0.0.1
 	`
 	if sshPort() != "52222" {
 		t.Skip("ssh port not 52222 in test env")
 	}
 	ok, warns := ufwEffectivePolicy(status, "primary")
 	if !ok {
-		t.Fatalf("want ok, warns=%v", warns)
+		t.Fatalf("exact IPv4 loopback ALLOW rules for mTLS and Lampac must pass, warns=%v", warns)
+	}
+	withoutLoopback := strings.Replace(status, "[29] 8789/tcp                   ALLOW IN    127.0.0.1" + "\n", "", 1)
+	withoutLoopback = strings.Replace(withoutLoopback, "[30] 9118/tcp                   ALLOW IN    127.0.0.1" + "\n", "", 1)
+	if ok, warns := ufwEffectivePolicy(withoutLoopback, "primary"); !ok {
+		t.Fatalf("built-in loopback policy must not require explicit source ALLOW rules, warns=%v", warns)
+	}
+
+	// A different loopback address is not the local host exception.
+	badMTLS := strings.Replace(status, "8789/tcp                   ALLOW IN    127.0.0.1", "8789/tcp                   ALLOW IN    127.0.0.2", 1)
+	if ok, warns := ufwEffectivePolicy(badMTLS, "primary"); ok {
+		t.Fatalf("non-exact mTLS loopback source must fail, warns=%v", warns)
+	}
+	badLampac := strings.Replace(status, "9118/tcp                   ALLOW IN    127.0.0.1", "9118/tcp                   ALLOW IN    127.0.0.0/8", 1)
+	if ok, warns := ufwEffectivePolicy(badLampac, "primary"); ok {
+		t.Fatalf("broad Lampac loopback range must fail, warns=%v", warns)
 	}
 }
 

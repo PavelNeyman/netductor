@@ -231,18 +231,35 @@ func saveCurrent(tag string) {
 
 // saveCurrentFromInstalledNode records the version on disk, not the version
 // embedded in the currently running process (which may predate a rollback).
-func saveCurrentFromBinary(path string) error {
+func installedNodeRelease(path string) (string, error) {
 	output := binVersion(path)
 	release := verNorm(parseVerField(output))
 	if release == "" || !strings.Contains(release, ".") {
-		return fmt.Errorf("cannot determine installed netductor version from %q", output)
+		return "", fmt.Errorf("cannot determine installed netductor version from %q", output)
+	}
+	return release, nil
+}
+
+func saveCurrentFromBinary(path string) error {
+	release, err := installedNodeRelease(path)
+	if err != nil {
+		return err
 	}
 	saveCurrent(release)
 	return nil
 }
 
+// saveCurrentFromInstalledNode reconciles both release markers from the
+// restored on-disk binary. A failed apply must never leave VERSION claiming
+// the rejected target release after the binary pair has been rolled back.
 func saveCurrentFromInstalledNode() error {
-	return saveCurrentFromBinary("/usr/local/bin/netductor")
+	release, err := installedNodeRelease("/usr/local/bin/netductor")
+	if err != nil {
+		return err
+	}
+	ndupdate.WriteVERSION(release)
+	saveCurrent(release)
+	return nil
 }
 
 func attemptDir() string {

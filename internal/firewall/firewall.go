@@ -2471,6 +2471,9 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			ok = false
 			warnings = append(warnings, "mtls: peer inventory: "+peerErr.Error())
 		}
+		// The configured service CIDRs and registered peers are trusted for
+		// remote mTLS access. A source-based 127.0.0.1 rule is an optional
+		// explicit local exception; the built-in lo policy remains sufficient.
 		allowedMTLSSources := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		allowedMTLSSources = append(allowedMTLSSources, peerSources...)
 		for _, source := range allowedMTLSSources {
@@ -2488,8 +2491,8 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 				warnings = append(warnings, "mtls: unexpected IPv6 ALLOW from "+rule.From+" for "+mtls+"/tcp")
 			}
 		}
-		// IPv4 mTLS must be reachable only from the configured service CIDRs.
-		// Loopback is handled by UFW's interface-scoped built-in lo rules.
+		// IPv4 mTLS must be reachable only from configured service CIDRs,
+		// registered peers, or the exact local loopback host 127.0.0.1.
 		for _, rule := range rules {
 			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) {
 				continue
@@ -2501,6 +2504,11 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 					break
 				}
 			}
+			// Accept only the exact IPv4 loopback host as an additional
+			// explicit local exception, without requiring such a rule.
+			if !trusted && ufwSourceContainedBy(rule.From, "127.0.0.1/32") {
+				trusted = true
+			}
 			if !trusted {
 				ok = false
 				warnings = append(warnings, "mtls: IPv4 ALLOW from untrusted source "+rule.From+" for "+mtls+"/tcp")
@@ -2511,10 +2519,16 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		if lp != "" && lp != "0" {
 			requireBoth(lp, "DENY", "lampac-wan")
 			for _, rule := range rules {
-				if ufwRuleMatchesPortTCP(rule, lp) && ufwRuleAllowsTraffic(rule.Action) {
-					ok = false
-					warnings = append(warnings, "lampac: unexpected source-based ALLOW from "+rule.From+" for "+lp+"/tcp")
+				if !ufwRuleMatchesPortTCP(rule, lp) || !ufwRuleAllowsTraffic(rule.Action) {
+					continue
 				}
+				// Lampac may be reachable locally, but only from the exact
+				// IPv4 loopback host. Any broader, remote, or IPv6 ALLOW fails.
+				if !rule.IPv6 && ufwSourceContainedBy(rule.From, "127.0.0.1/32") {
+					continue
+				}
+				ok = false
+				warnings = append(warnings, "lampac: unexpected source-based ALLOW from "+rule.From+" for "+lp+"/tcp")
 			}
 		}
 	} else {

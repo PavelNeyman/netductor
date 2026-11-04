@@ -78,3 +78,17 @@ func TestPrimaryUnitsRoles(t *testing.T) {
 		seen[u.Unit] = true
 	}
 }
+
+func TestInstalledNodeReleaseUsesOnDiskBinary(t *testing.T) {
+	bin := filepath.Join(t.TempDir(), "netductor")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho 'netductor 0.9.612 (node)'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	release, err := installedNodeRelease(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if release != "0.9.612" {
+		t.Fatalf("installed release=%q, want 0.9.612", release)
+	}
+}
