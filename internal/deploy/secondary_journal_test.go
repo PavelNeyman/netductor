@@ -504,9 +504,16 @@ func TestDeployJournalRejectsCrossHostState(t *testing.T) {
 }
 
 func TestCanRecoverProvisionCheckpointGap(t *testing.T) {
+	// provision_started is written before pack preparation and before the
+	// remote provisioning call. AgentID is also persisted before that call,
+	// so this combination does NOT prove that provisioning completed.
 	st := &DeployOrchState{CurrentStep: StageProvisionStarted, AgentID: "agent-uncertain"}
+	if canRecoverProvision(st) {
+		t.Fatal("provision_started must not be treated as completed provisioning")
+	}
+	st.CurrentStep = CurrentStepProvisionFinalized
 	if !canRecoverProvision(st) {
-		t.Fatal("provision_started with persisted agent identity should enter verified recovery")
+		t.Fatal("explicit post-provision finalized marker should enter verified recovery")
 	}
 	st.AgentID = ""
 	if canRecoverProvision(st) {
