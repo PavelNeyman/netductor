@@ -1262,6 +1262,15 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 				return err
 			}
 		}
+		peerSources, err := registeredPeerAgentSources()
+		if err != nil {
+			return fmt.Errorf("load registered peer mTLS sources: %w", err)
+		}
+		for _, source := range peerSources {
+			if err := must("allow", "from", source, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api-peer"); err != nil {
+				return fmt.Errorf("allow registered peer mTLS source %s: %w", source, err)
+			}
+		}
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			if err := must("allow", "from", c, "to", "any", "port", "9443", "proto", "tcp", "comment", "netductor-svc-uplink"); err != nil {
 				return err
@@ -1656,6 +1665,15 @@ func applyIPTablesMode(role string, bootstrapSSH bool) error {
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			if err := must("-A", stagingChain, "-p", "tcp", "-s", c, "--dport", mtls, "-j", "ACCEPT"); err != nil {
 				return fmt.Errorf("iptables fallback mtls allow %s: %w", c, err)
+			}
+		}
+		peerSources, err := registeredPeerAgentSources()
+		if err != nil {
+			return fmt.Errorf("load registered peer mTLS sources: %w", err)
+		}
+		for _, source := range peerSources {
+			if err := must("-A", stagingChain, "-p", "tcp", "-s", source, "--dport", mtls, "-j", "ACCEPT"); err != nil {
+				return fmt.Errorf("iptables fallback peer mTLS allow %s: %w", source, err)
 			}
 		}
 		if err := must("-A", stagingChain, "-p", "tcp", "--dport", mtls, "-j", "DROP"); err != nil {
