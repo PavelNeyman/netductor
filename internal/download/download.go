@@ -3,12 +3,15 @@
 package download
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -69,6 +72,58 @@ func validateDownloadURL(raw string, allowHTTPPrivate bool) (*url.URL, error) {
 	}
 }
 
+// NewTransportWithIPFallback returns a transport that retries resolved addresses for
+// explicitly allowlisted HTTPS hosts. The request URL and TLS server name remain
+// the original hostname, so normal certificate and hostname verification apply.
+func NewTransportWithIPFallback(hosts ...string) *http.Transport {
+	allow := make(map[string]struct{}, len(hosts))
+	for _, host := range hosts {
+		host = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
+		if host != "" {
+			allow[host] = struct{}{}
+		}
+	}
+	return newTransportWithIPFallback(http.DefaultTransport.(*http.Transport).Clone(), allow,
+		net.DefaultResolver.LookupIPAddr, (&net.Dialer{}).DialContext)
+}
+
+type ipLookupFunc func(context.Context, string) ([]net.IPAddr, error)
+type contextDialFunc func(context.Context, string, string) (net.Conn, error)
+
+func newTransportWithIPFallback(base *http.Transport, allow map[string]struct{}, lookup ipLookupFunc, dial contextDialFunc) *http.Transport {
+	transport := base.Clone()
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(address)
+		if err != nil {
+			return dial(ctx, network, address)
+		}
+		if _, ok := allow[strings.ToLower(strings.TrimSuffix(host, "."))]; !ok {
+			return dial(ctx, network, address)
+		}
+		ips, lookupErr := lookup(ctx, host)
+		if lookupErr != nil {
+			return nil, fmt.Errorf("download: resolve %s: %w", host, lookupErr)
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("download: no addresses returned for %s", host)
+		}
+		var failures []error
+		for _, ip := range ips {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			target := net.JoinHostPort(ip.String(), port)
+			conn, err := dial(ctx, network, target)
+			if err == nil {
+				return conn, nil
+			}
+			failures = append(failures, fmt.Errorf("%s: %w", target, err))
+		}
+		return nil, fmt.Errorf("download: all addresses for %s failed: %w", host, errors.Join(failures...))
+	}
+	return transport
+}
+
 // Get downloads rawURL to dest with scheme/size policy and optional SHA256 check.
 func Get(rawURL, dest string, opt Options) error {
 	opt.normalize()
@@ -79,6 +134,7 @@ func Get(rawURL, dest string, opt Options) error {
 	}
 
 	client := &http.Client{
+		Transport: NewTransportWithIPFallback("release-assets.githubusercontent.com"),
 		Timeout: opt.Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
