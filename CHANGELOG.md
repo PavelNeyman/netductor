@@ -1,3 +1,7 @@
+## 0.9.657
+
+- release tip after 0.9.656 (formula pin + follow-ups on main)
+
 ## 0.9.656
 
 - fix(agent): cast Timespec to int64 for 32-bit GOARCH builds (arm/mipsle)
