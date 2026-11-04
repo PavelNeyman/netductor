@@ -983,6 +983,10 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 	}
 	for _, target := range checks {
 		if target.src == "" || target.port == "0" { continue }
+		// A successful UFW command must remove a rule. Bound retries as a
+		// defensive guard against a broken wrapper or stale status provider.
+		maxDeletes := strings.Count(string(out), "\n") + 1
+		deletes := 0
 		for {
 			status, statusErr := peerUFWExec("status", "numbered")
 			if statusErr != nil {
@@ -997,10 +1001,14 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 			if !owned {
 				return fmt.Errorf("refuse to delete unowned UFW rule %s/tcp from %s", target.port, target.src)
 			}
+			if deletes >= maxDeletes {
+				return fmt.Errorf("UFW cleanup made no bounded progress for %s/tcp from %s", target.port, target.src)
+			}
 			deleted, deleteErr := peerUFWExec("--force", "delete", strconv.Itoa(number))
 			if deleteErr != nil {
 				return fmt.Errorf("delete Netductor UFW rule %d (%s/tcp from %s): %v: %s", number, target.port, target.src, deleteErr, strings.TrimSpace(string(deleted)))
 			}
+			deletes++
 		}
 	}
 	after, err := peerUFWExec("status", "numbered")
