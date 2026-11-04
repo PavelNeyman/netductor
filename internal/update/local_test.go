@@ -35,3 +35,37 @@ func TestTryLocalNamedAsset(t *testing.T) {
 		t.Fatal(string(b))
 	}
 }
+
+func TestVerifyLocalReleaseAssets(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_RELEASES_DIR", dir)
+	tagDir := filepath.Join(dir, "v1.2.3")
+	if err := os.MkdirAll(tagDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	names := []string{"netductor-linux-amd64", "netductor-tg-linux-amd64"}
+	var manifest string
+	for _, name := range names {
+		body := []byte("verified-" + name)
+		if err := os.WriteFile(filepath.Join(tagDir, name), body, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		sum := sha256.Sum256(body)
+		manifest += hex.EncodeToString(sum[:]) + "  " + name + "\n"
+	}
+	if err := os.WriteFile(filepath.Join(tagDir, "SHA256SUMS"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyLocalReleaseAssets("v1.2.3", names...); err != nil {
+		t.Fatalf("valid mirror rejected: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tagDir, names[1]), []byte("tampered"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyLocalReleaseAssets("v1.2.3", names...); err == nil {
+		t.Fatal("tampered asset accepted")
+	}
+	if err := VerifyLocalReleaseAssets("v1.2.3", names[0], "missing-asset"); err == nil {
+		t.Fatal("missing asset accepted")
+	}
+}
