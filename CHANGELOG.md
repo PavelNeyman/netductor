@@ -1,3 +1,8 @@
+## 0.9.663
+
+- fix(deploy): require finalized checkpoint for provision recovery; distinguish in-flight vs finalized
+- test(deploy): reject premature provision recovery
+
 ## 0.9.662
 
 - fix(stack): tolerate slow API startup during apply recovery
