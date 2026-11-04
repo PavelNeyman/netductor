@@ -32,7 +32,7 @@ func TestTLSIPFallbackRetriesAfterHandshakeFailure(t *testing.T) {
 		DNSNames:     []string{host},
 		NotBefore:    time.Now().Add(-time.Minute),
 		NotAfter:     time.Now().Add(time.Hour),
-		IsCA:         true,
+		IsCA:                  true,
 		BasicConstraintsValid: true,
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
