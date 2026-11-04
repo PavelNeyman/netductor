@@ -736,7 +736,7 @@ func CARolloverFinish() error {
 			return fmt.Errorf("inspect previous client certificate backup for %q: %w", entry.Name(), err)
 		}
 	}
-	if err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile)); err != nil {
+	if _, err := tls.LoadX509KeyPair(path(ServerCertFile), path(ServerKeyFile)); err != nil {
 		return fmt.Errorf("validate current server certificate/key before promotion: %w", err)
 	}
 	for _, name := range rolloverBackupFiles {
