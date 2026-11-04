@@ -370,13 +370,13 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 			return []byte(rules), nil
 		}
 		if len(args) == 3 && args[0] == "--force" && args[1] == "delete" {
-			switch args[2] {
-			case "1":
-				rules = strings.Replace(rules, "[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n", "", 1)
-			case "2":
-				rules = strings.Replace(rules, "[ 2] 8444/tcp ALLOW IN 8.8.8.9 # nd-wss-sp\n", "", 1)
-			default:
+			if args[2] != "1" {
 				return nil, fmt.Errorf("unexpected rule number %s", args[2])
+			}
+			if strings.Contains(rules, "8789/tcp") {
+				rules = strings.Replace(rules, "[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n", "", 1)
+			} else {
+				rules = strings.Replace(rules, "[ 1] 8444/tcp ALLOW IN 8.8.8.9 # nd-wss-sp\n", "", 1)
 			}
 			// UFW renumbers remaining entries after every deletion.
 			rules = strings.ReplaceAll(rules, "[ 2]", "[ 1]")
