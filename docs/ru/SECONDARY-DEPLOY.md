@@ -133,7 +133,7 @@ Deploy подтверждает units, ICMP peer, файл policy и **active** 
 | 4 | Вернуть SP | Failback по окну политики |
 | 5 | Остановить PS при живом SP | Основной путь работает |
 | 6 | Оба пути down | Degraded/offline, не «healthy» |
-| 7 | По желанию | Клиентский `/sub/<token>` после preferred IP / DNS |
+| 7 | До `peer ready/promote` | Проверить реальный клиент напрямую через B с PBK/SID и endpoint B; подтвердить Reality handshake и устойчивый трафик, пока B скрыт из `/sub` |\n| 8 | После promote и DNS cutover | Обновить `/sub/<token>`, переподключить клиент и проверить активный endpoint и реальный трафик |
 
 Фиксируйте время отказа, обнаружения, переключения и возврата. Не выключайте всю машину Secondary для теста «только SP».
 
