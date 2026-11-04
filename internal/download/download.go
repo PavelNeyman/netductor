@@ -82,8 +82,11 @@ func NewTransportWithIPFallback(hosts ...string) *http.Transport {
 			allow[host] = struct{}{}
 		}
 	}
-	return newTransportWithIPFallback(http.DefaultTransport.(*http.Transport).Clone(), allow,
+	transport := newTransportWithIPFallback(http.DefaultTransport.(*http.Transport).Clone(), allow,
 		net.DefaultResolver.LookupIPAddr, (&net.Dialer{Timeout: 10 * time.Second}).DialContext)
+	installTLSIPFallback(transport, allow, net.DefaultResolver.LookupIPAddr,
+		(&net.Dialer{Timeout: 10 * time.Second}).DialContext)
+	return transport
 }
 
 type ipLookupFunc func(context.Context, string) ([]net.IPAddr, error)
