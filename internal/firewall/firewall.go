@@ -1002,6 +1002,12 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
 		mtls := ndconfig.AgentMTLSPort()
 		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
+		peerSources, peerErr := registeredPeerAgentSources()
+		if peerErr != nil {
+			conflicts = append(conflicts, "peer mTLS inventory: "+peerErr.Error())
+		} else {
+			trustedMTLS = append(trustedMTLS, peerSources...)
+		}
 		for _, source := range trustedMTLS { checkSource(mtls, source, "mtls") }
 		for _, rule := range rules {
 			if !ufwRuleMatchesPortTCP(rule, "9443") || !ufwRuleAllowsTraffic(rule.Action) { continue }
