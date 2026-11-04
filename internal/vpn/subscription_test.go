@@ -304,3 +304,49 @@ func TestSubscriptionOmitsEmptyPBK(t *testing.T) {
 		t.Fatalf("want exactly 1 profile, got %d: %q", len(lines), body)
 	}
 }
+
+func TestSubscriptionExcludesPreparedPeerUntilPromoted(t *testing.T) {
+	root := t.TempDir()
+	etcDir := filepath.Join(root, "etc")
+	stateDir := filepath.Join(root, "state")
+	t.Setenv("NETDUCTOR_ETC", etcDir)
+	t.Setenv("NETDUCTOR_STATE", stateDir)
+	t.Setenv("NETDUCTOR_VPN_HOST", "vpn.example.test")
+	_ = os.MkdirAll(filepath.Join(etcDir, "secrets"), 0o700)
+	_ = os.WriteFile(filepath.Join(etcDir, "secrets", "singbox_reality_public"), []byte("core-pbk"), 0o600)
+	_ = os.WriteFile(filepath.Join(etcDir, "secrets", "singbox_short_id"), []byte("core-sid"), 0o600)
+	_ = os.WriteFile(filepath.Join(etcDir, "vpn-users.json"), []byte(
+		`{"users":[{"name":"alice","uuid":"00000000-0000-0000-0000-000000000001","enabled":true,"sub_profile":"secondary"}]}`,
+	), 0o600)
+	devicesPath := paths.SecondaryDevicesFile()
+	_ = os.MkdirAll(filepath.Dir(devicesPath), 0o700)
+	now := time.Now().UTC().Format(time.RFC3339)
+	devices := `{"devices":[
+		{"public_ip":"203.0.113.11","pbk":"pbk-a","sid":"sid-a","sni":"sni.example","last_seen":"` + now + `"},
+		{"public_ip":"203.0.113.22","pbk":"pbk-b","sid":"sid-b","sni":"sni.example","last_seen":"` + now + `"}
+	]}`
+	if err := os.WriteFile(devicesPath, []byte(devices), 0o600); err != nil { t.Fatal(err) }
+	peerDir := filepath.Join(etcDir, "svc-paths")
+	_ = os.MkdirAll(peerDir, 0o700)
+	peerPath := filepath.Join(peerDir, "peers.json")
+	writePeers := func(bState string) {
+		t.Helper()
+		raw := `{"version":1,"peers":[
+			{"id":"peer-a","public_ip":"203.0.113.11","state":"active"},
+			{"id":"peer-b","public_ip":"203.0.113.22","state":"` + bState + `"}
+		]}`
+		if err := os.WriteFile(peerPath, []byte(raw), 0o600); err != nil { t.Fatal(err) }
+	}
+	writePeers("prepared")
+	body, err := SubscriptionBody("alice")
+	if err != nil { t.Fatal(err) }
+	if !strings.Contains(body, "pbk-a") || strings.Contains(body, "pbk-b") {
+		t.Fatalf("prepared peer must not be advertised: %q", body)
+	}
+	writePeers("active")
+	body, err = SubscriptionBody("alice")
+	if err != nil { t.Fatal(err) }
+	if !strings.Contains(body, "pbk-a") || !strings.Contains(body, "pbk-b") {
+		t.Fatalf("promoted peer should be advertised alongside existing active peer: %q", body)
+	}
+}
