@@ -83,6 +83,11 @@ func TestUfwNumberedGoodPrimary(t *testing.T) {
 	if !ok {
 		t.Fatalf("exact IPv4 loopback ALLOW rules for mTLS and Lampac must pass, warns=%v", warns)
 	}
+	withoutLoopback := strings.Replace(status, "[29] 8789/tcp                   ALLOW IN    127.0.0.1\n", "", 1)
+	withoutLoopback = strings.Replace(withoutLoopback, "[30] 9118/tcp                   ALLOW IN    127.0.0.1\n", "", 1)
+	if ok, warns := ufwEffectivePolicy(withoutLoopback, "primary"); !ok {
+		t.Fatalf("built-in loopback policy must not require explicit source ALLOW rules, warns=%v", warns)
+	}
 
 	// A different loopback address is not the local host exception.
 	badMTLS := strings.Replace(status, "8789/tcp                   ALLOW IN    127.0.0.1", "8789/tcp                   ALLOW IN    127.0.0.2", 1)
