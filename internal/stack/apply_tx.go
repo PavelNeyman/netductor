@@ -205,6 +205,9 @@ func recoverIncompleteApply() (bool, error) {
 	rolledBack, err := recoverApplyTxForOwner(attemptDir(), ownerActive)
 	if err != nil { return false, err }
 	if rolledBack || wasRolledBack {
+		if err := saveCurrentFromInstalledNode(); err != nil {
+			return rolledBack, fmt.Errorf("apply rollback current release metadata: %w", err)
+		}
 		if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
 			return rolledBack, fmt.Errorf("apply pair rollback state requires host baseline repair: %w", err)
 		}
