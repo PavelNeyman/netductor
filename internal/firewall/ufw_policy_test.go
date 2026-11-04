@@ -203,3 +203,56 @@ func TestLegacyGlobalWSSRuleCanBeRemovedAfterPeerRetirement(t *testing.T) {
 		t.Fatalf("removed peer should no longer pin the legacy global WSS allow: %v", err)
 	}
 }
+
+func TestUfwSourceRangeHasFirstAllow(t *testing.T) {
+	source := "10.87.10.0/30"
+	tests := []struct {
+		name string
+		status string
+		want bool
+	}{
+		{
+			name: "narrow allow followed by complete subnet allow",
+			status: "Status: active\n[ 1] 9443/tcp ALLOW IN 10.87.10.2\n[ 2] 9443/tcp ALLOW IN 10.87.10.0/30\n",
+			want: true,
+		},
+		{
+			name: "narrow deny shadows one address",
+			status: "Status: active\n[ 1] 9443/tcp DENY IN 10.87.10.2\n[ 2] 9443/tcp ALLOW IN 10.87.10.0/30\n",
+			want: false,
+		},
+		{
+			name: "partial allow does not cover subnet",
+			status: "Status: active\n[ 1] 9443/tcp ALLOW IN 10.87.10.2\n",
+			want: false,
+		},
+		{
+			name: "complete allow",
+			status: "Status: active\n[ 1] 9443/tcp ALLOW IN 10.87.10.0/30\n",
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ufwSourceRangeHasFirstAllow(parseUfwNumbered(tt.status), "9443", source)
+			if got != tt.want {
+				t.Fatalf("got %t want %t", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUfwLoopbackSourceIsNarrowlyTrusted(t *testing.T) {
+	if !ufwSourceContainedBy("127.0.0.1", "127.0.0.1/32") {
+		t.Fatal("exact IPv4 loopback source should be trusted")
+	}
+	if !ufwSourceContainedBy("127.0.0.1/32", "127.0.0.1/32") {
+		t.Fatal("exact IPv4 loopback CIDR should be trusted")
+	}
+	for _, source := range []string{"127.0.0.0/8", "127.0.0.2", "192.0.2.1", "Anywhere"} {
+		if ufwSourceContainedBy(source, "127.0.0.1/32") {
+			t.Fatalf("unexpectedly trusted broader/unrelated source %q", source)
+		}
+	}
+}
+
