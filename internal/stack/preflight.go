@@ -46,19 +46,25 @@ func Preflight(tag string) PreflightReport {
 		return rep
 	}
 
-	// Release + SHA256SUMS (node + tg required)
+	// Release + SHA256SUMS (node + tg required). If GitHub's Release CDN is
+	// unreachable, accept the local release store only when the manifest and
+	// both binaries are present and independently hash-verified.
+	platform := ndupdate.PlatformFromRuntime()
+	nodeAsset := ndupdate.AssetName(ndupdate.ComponentNode, platform)
+	tgAsset := ndupdate.AssetName(ndupdate.ComponentTG, platform)
+	if nodeAsset == "" || tgAsset == "" {
+		add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf("unsupported host platform %s/%s", platform.GOOS, platform.GOARCH)})
+		return rep
+	}
+	need := []string{nodeAsset, tgAsset}
 	sums, err := ndupdate.FetchSHA256SUMS(tag)
 	if err != nil {
-		add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf("SHA256SUMS: %v", err)})
-	} else {
-		platform := ndupdate.PlatformFromRuntime()
-		nodeAsset := ndupdate.AssetName(ndupdate.ComponentNode, platform)
-		tgAsset := ndupdate.AssetName(ndupdate.ComponentTG, platform)
-		if nodeAsset == "" || tgAsset == "" {
-			add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf("unsupported host platform %s/%s", platform.GOOS, platform.GOARCH)})
-			return rep
+		if localErr := ndupdate.VerifyLocalReleaseAssets(tag, need...); localErr == nil {
+			add(PreflightCheck{ID: "release_sums", OK: true, Critical: true, Detail: fmt.Sprintf("%s local mirror: SHA256SUMS and required assets verified", tag)})
+		} else {
+			add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf("SHA256SUMS unavailable remotely (%v); local mirror unusable (%v)", err, localErr)})
 		}
-		need := []string{nodeAsset, tgAsset}
+	} else {
 		missing := []string{}
 		for _, n := range need {
 			if sums[n] == "" {
