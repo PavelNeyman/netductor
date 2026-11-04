@@ -4,6 +4,7 @@
 package firewall
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -982,9 +983,8 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		}
 	}
 	checkSource := func(port, source, label string) {
-		action, found := firstTCPActionFromSource(rules, port, source, false)
-		if found && action != "ALLOW" {
-			conflicts = append(conflicts, fmt.Sprintf("%s %s first rule for %s is %s, want ALLOW", label, port, source, action))
+		if !ufwSourceRangeHasFirstAllow(rules, port, source) {
+			conflicts = append(conflicts, fmt.Sprintf("%s %s is not fully covered by effective ALLOW rules for %s", label, port, source))
 		}
 	}
 	for _, item := range []struct{ port, action, label string }{
@@ -1034,7 +1034,7 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		uplink := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
 		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
 		mtls := ndconfig.AgentMTLSPort()
-		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
+		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
 		peerSources, peerErr := registeredPeerAgentSources()
 		if peerErr != nil {
 			conflicts = append(conflicts, "peer mTLS inventory: "+peerErr.Error())
@@ -1067,6 +1067,9 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 			checkWAN(lp, "DENY", "lampac")
 			for _, rule := range rules {
 				if ufwRuleMatchesPortTCP(rule, lp) && ufwRuleAllowsTraffic(rule.Action) {
+					if !rule.IPv6 && ufwSourceContainedBy(rule.From, "127.0.0.1/32") {
+						continue
+					}
 					conflicts = append(conflicts, "lampac has an existing source-based ALLOW from "+rule.From)
 				}
 			}
@@ -2249,6 +2252,48 @@ func ufwSourceOverlaps(from, targetCIDR string) bool {
 		return false
 	}
 	return a.Contains(b.IP) || b.Contains(a.IP)
+}
+
+// ufwSourceRangeHasFirstAllow verifies effective first-match policy for every
+// IPv4 address in a configured source range. This permits a narrow earlier
+// ALLOW followed by a broader ALLOW to cover the complete range, while still
+// rejecting any address shadowed by DENY/REJECT or left uncovered. Large or
+// non-IPv4 ranges fail closed rather than being approximated.
+func ufwSourceRangeHasFirstAllow(rules []ufwRule, port, sourceCIDR string) bool {
+	ip, network, err := net.ParseCIDR(strings.TrimSpace(sourceCIDR))
+	if err != nil || ip == nil || ip.To4() == nil {
+		return false
+	}
+	ones, bits := network.Mask.Size()
+	if bits != 32 || ones < 16 {
+		return false
+	}
+	base := network.IP.To4()
+	if base == nil {
+		return false
+	}
+	start := uint64(binary.BigEndian.Uint32(base))
+	count := uint64(1) << uint(32-ones)
+	for offset := uint64(0); offset < count; offset++ {
+		host := make(net.IP, net.IPv4len)
+		binary.BigEndian.PutUint32(host, uint32(start+offset))
+		hostCIDR := host.String() + "/32"
+		found := false
+		for _, rule := range rules {
+			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, port) || !ufwSourceCovers(rule.From, hostCIDR) {
+				continue
+			}
+			if rule.Action != "ALLOW" {
+				return false
+			}
+			found = true
+			break
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 // firstTCPActionFromSource returns the first ordered rule that affects the
