@@ -27,15 +27,15 @@ func TestTLSIPFallbackRetriesAfterHandshakeFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: host},
-		DNSNames:     []string{host},
-		NotBefore:    time.Now().Add(-time.Minute),
-		NotAfter:     time.Now().Add(time.Hour),
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		SerialNumber:            big.NewInt(1),
+		Subject:                 pkix.Name{CommonName: host},
+		DNSNames:                []string{host},
+		NotBefore:               time.Now().Add(-time.Minute),
+		NotAfter:                time.Now().Add(time.Hour),
+		IsCA:                    true,
+		BasicConstraintsValid:   true,
+		KeyUsage:                x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:             []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &serverKey.PublicKey, serverKey)
 	if err != nil {
