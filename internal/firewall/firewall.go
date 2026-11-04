@@ -1919,6 +1919,23 @@ func parseUfwNumbered(status string) []ufwRule {
 	return rules
 }
 
+// ValidateNumberedUFWStatus rejects incomplete or unparseable numbered UFW listings.
+// Callers that make targeted rule changes must fail closed rather than operate
+// on a partially parsed firewall policy.
+func ValidateNumberedUFWStatus(status string) error {
+	rules := parseUfwNumbered(status)
+	numberedLines := 0
+	for _, line := range strings.Split(status, "\\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "[") {
+			numberedLines++
+		}
+	}
+	if len(rules) == 0 || len(rules) != numberedLines {
+		return fmt.Errorf("cannot completely parse numbered UFW rules: parsed %d of %d", len(rules), numberedLines)
+	}
+	return nil
+}
+
 func ufwRuleAllowsTraffic(action string) bool {
 	// UFW LIMIT is rate-limited acceptance, not a deny. Treat it as an
 	// allow when checking that restricted ports have no exposure exceptions.
