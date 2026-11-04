@@ -231,6 +231,11 @@ func TestUfwSourceRangeHasFirstAllow(t *testing.T) {
 			status: "Status: active\n[ 1] 9443/tcp ALLOW IN 10.87.10.0/30\n",
 			want: true,
 		},
+		{
+			name: "no existing source rule can be appended",
+			status: "Status: active\n[ 1] 443/tcp ALLOW IN Anywhere\n",
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
