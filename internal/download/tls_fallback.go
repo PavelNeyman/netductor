@@ -16,7 +16,7 @@ const maxTLSIPFallbackStageTimeout = 5 * time.Second
 // installTLSIPFallback makes TLS establishment part of each address attempt.
 // net/http's DialTLSContext contract requires the returned connection to have
 // completed its handshake, which lets us retry when TCP succeeds but TLS fails.
-func installTLSIPFallback(transport *http.Transport, allow map[string]struct{}, lookup ipLookupFunc, dial contextDialFunc) {
+func installTLSIPFallback(transport *http.Transport, allow map[string]struct{}, lookup ipLookupFunc, dial, normalDial contextDialFunc) {
 	transport.DialTLSContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
 		if err != nil {
@@ -55,7 +55,7 @@ func installTLSIPFallback(transport *http.Transport, allow map[string]struct{}, 
 				conn, err = dial(dialCtx, network, target)
 				cancel()
 			} else {
-				conn, err = dial(ctx, network, target)
+				conn, err = normalDial(ctx, network, target)
 			}
 			if err != nil {
 				if ctx.Err() != nil {
