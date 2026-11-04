@@ -72,3 +72,15 @@ func TestHeartbeatPersistsServerObservedTLSIdentity(t *testing.T) {
 		t.Fatalf("server-observed TLS identity not persisted: serial=%q seen_at=%v", d.MTLSSerial, d.MTLSSeenAt)
 	}
 }
+
+func TestPublicIPPrefersPinnedDeploymentIdentity(t *testing.T) {
+	root := t.TempDir()
+	etcDir := filepath.Join(root, "etc")
+	t.Setenv("NETDUCTOR_ETC", etcDir)
+	t.Setenv("PUBLIC_IP", "203.0.113.99")
+	if err := os.MkdirAll(filepath.Join(etcDir, "secrets"), 0o700); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(etcDir, "secrets", "public_ip"), []byte("198.51.100.20\n"), 0o600); err != nil { t.Fatal(err) }
+	if got := publicIP(); got != "198.51.100.20" {
+		t.Fatalf("publicIP() = %q, want pinned deployment address", got)
+	}
+}
