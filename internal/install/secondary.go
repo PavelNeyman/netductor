@@ -18,6 +18,28 @@ import (
 )
 
 // InstallRelay joins a RU VPS to core using bundle.json from core export.
+// fetchGeoIPRU downloads the RU IP rule-set with the host HTTP client.
+// sing-box must not fetch it itself: at first start the SP tunnel is down and
+// its own resolver dials 10.87.10.1.
+func fetchGeoIPRU(dest string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return err
+	}
+	cmd := exec.Command("curl", "-fsSL", "--http1.1", "--retry", "2", "--proto", "=https", "--proto-redir", "=https",
+		"-o", dest, "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		os.Remove(dest)
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+	st, err := os.Stat(dest)
+	if err != nil || st.Size() == 0 {
+		os.Remove(dest)
+		return fmt.Errorf("empty geoip-ru")
+	}
+	return nil
+}
+
 func InstallRelay(bundlePath string) (retErr error) {
 	if bundlePath == "" {
 		bundlePath = "bundle.json"
@@ -166,6 +188,10 @@ func InstallRelay(bundlePath string) (retErr error) {
 		return fmt.Errorf("save secondary bundle: %w", err)
 	}
 
+	fmt.Fprintln(os.Stderr, "==> secondary: geoip-ru (optional)")
+	if err := fetchGeoIPRU("/var/lib/netductor/geoip-ru.srs"); err != nil {
+		fmt.Fprintf(os.Stderr, "geoip-ru skip: %v\n", err)
+	}
 	if err := vpn.WriteSecondarySingBox(&b, priv, sid); err != nil {
 		return err
 	}

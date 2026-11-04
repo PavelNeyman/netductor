@@ -1,6 +1,9 @@
 package vpn
 
-import "strings"
+import (
+	"os"
+	"strings"
+)
 
 // Secondary sing-box builders (R1): WriteSecondarySingBox stays orchestration-only.
 
@@ -126,26 +129,33 @@ func buildSecondaryDNS(ruSuffixes []string) map[string]any {
 }
 
 func buildSecondaryRoute(svcRules []any, ruSuffixes []string) map[string]any {
-	return map[string]any{
-		// domain_suffix list (fast, no download) + geoip-ru rule-set (IP ranges).
-		"rule_set": []any{
-			map[string]any{
-				"tag":    "geoip-ru",
-				"type":   "remote",
-				"format": "binary",
-				"url":    "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
-				// direct: uplink is Reality (SNI=api.vk.me) and breaks TLS to githubusercontent
-				"download_detour": "direct",
-			},
-		},
-		"rules":                 assembleSecondaryRouteRules(svcRules, ruSuffixes),
+	// Local only. Remote download at start dials the not-yet-up SP address
+	// (10.87.10.1) and crash-loops sing-box. Domain suffixes still cover RU.
+	const geo = "/var/lib/netductor/geoip-ru.srs"
+	hasGeo := false
+	if st, err := os.Stat(geo); err == nil && st.Size() > 0 {
+		hasGeo = true
+	}
+	route := map[string]any{
+		"rules":                 assembleSecondaryRouteRules(svcRules, ruSuffixes, hasGeo),
 		"final":                 "uplink",
 		"auto_detect_interface": true,
 	}
+	if hasGeo {
+		route["rule_set"] = []any{
+			map[string]any{
+				"tag":    "geoip-ru",
+				"type":   "local",
+				"format": "binary",
+				"path":   geo,
+			},
+		}
+	}
+	return route
 }
 
 // assembleSecondaryRouteRules keeps rule order explicit (R1 / R11b): service → sniff → DNS → geo → uplink.
-func assembleSecondaryRouteRules(svcRules []any, ruSuffixes []string) []any {
+func assembleSecondaryRouteRules(svcRules []any, ruSuffixes []string, hasGeo bool) []any {
 	rules := append([]any{}, svcRules...)
 	rules = append(rules,
 		map[string]any{"action": "sniff"},
@@ -155,8 +165,10 @@ func assembleSecondaryRouteRules(svcRules []any, ruSuffixes []string) []any {
 		map[string]any{"ip_is_private": true, "outbound": "direct"},
 		map[string]any{"domain_suffix": ruSuffixes, "outbound": "direct"},
 		map[string]any{"domain_keyword": RuDirectKeywords(), "outbound": "direct"},
-		map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"},
-		map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"},
 	)
+	if hasGeo {
+		rules = append(rules, map[string]any{"rule_set": []string{"geoip-ru"}, "outbound": "direct"})
+	}
+	rules = append(rules, map[string]any{"inbound": []string{"relay-in"}, "outbound": "uplink"})
 	return rules
 }

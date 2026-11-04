@@ -406,10 +406,14 @@ func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 		"echo join:secondary_join\n" +
 		"netductor secondary join /root/bundle.json\n" +
 		"echo join:health\n" +
-		"SB=$(systemctl is-active sing-box 2>&1 || true)\n" +
+		"for i in 1 2 3 4 5 6 7 8; do\n" +
+		"  SB=$(systemctl is-active sing-box 2>&1 || true)\n" +
+		"  [ \"$SB\" = active ] && break\n" +
+		"  sleep 2\n" +
+		"done\n" +
 		"AG=$(systemctl is-active netductor-secondary-agent 2>&1 || true)\n" +
-		"[ \"$SB\" = active ] || { echo \"sing-box not active: $SB\" >&2; exit 1; }\n" +
-		"[ \"$AG\" = active ] || { echo \"agent not active: $AG\" >&2; exit 1; }\n" +
+		"[ \"$SB\" = active ] || { echo \"sing-box not active: $SB\" >&2; journalctl -u sing-box -n 25 --no-pager >&2 || true; exit 1; }\n" +
+		"[ \"$AG\" = active ] || { echo \"agent not active: $AG\" >&2; journalctl -u netductor-secondary-agent -n 25 --no-pager >&2 || true; exit 1; }\n" +
 		"ss -tlnp | grep -qE ':443([^0-9]|$)' || { echo \"nothing on :443\" >&2; ss -tlnp >&2 || true; exit 1; }\n" +
 		"trap - ERR\n" +
 		"rm -f /var/lib/netductor/netductor.bin.prev 2>/dev/null || true\n" +

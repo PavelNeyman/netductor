@@ -1,3 +1,9 @@
+## 0.9.673
+
+- secondary sing-box no longer fetches geoip-ru at start (that dialed 10.87.10.1 and crash-looped). Host curl stores a local .srs; missing file is skipped.
+- join health waits for sing-box active and includes journalctl on failure.
+
+
 ## 0.9.672
 
 - secondary join download retries GitHub over HTTP/1.1 (curl 92 HTTP/2 PROTOCOL_ERROR).
