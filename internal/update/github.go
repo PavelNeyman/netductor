@@ -515,7 +515,7 @@ func DownloadReleaseAsset(tag, component, destPath string) error {
 	if ok, err := tryLocalNamedAsset(tag, name, destPath); err != nil {
 		return err
 	} else if ok {
-		fmt.Fprintf(os.Stderr, "release: local %s/%s\\n", tag, name)
+		fmt.Fprintf(os.Stderr, "release: local %s/%s\n", tag, name)
 		return nil
 	}
 	// Resolve once, then use that checksum directly. Calling DownloadNamedAsset
