@@ -29,6 +29,7 @@ const (
 type rolloverClientState struct {
 	OldSerial   string `json:"old_serial,omitempty"`
 	NewSerial   string `json:"new_serial"`
+	IssuedAt    int64  `json:"issued_at,omitempty"`
 	ConfirmedAt int64  `json:"confirmed_at,omitempty"`
 }
 
