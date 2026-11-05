@@ -438,13 +438,13 @@ systemctl is-active ${ND_RB_TIMER}
 # selected and applied one backend; introducing UFW now could leave two
 # independent policies active with different defaults.
 if command -v ufw >/dev/null 2>&1; then
-  ufw allow "$ND_PORT"/tcp comment netductor-ssh
+  ufw allow "$ND_PORT"/tcp comment netductor-ssh || true
   if [ -f "$ND_BAK/factory-ssh-present" ] && ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
     # UFW was inactive at snapshot time; install the transition exception
     # before enabling it. Rollback will restore the inactive snapshot.
-    ufw insert 1 allow 22/tcp comment netductor-ssh-bootstrap
+    ufw insert 1 allow 22/tcp comment netductor-ssh-bootstrap || true
   fi
-  ufw allow 443/tcp comment netductor-vless
+  ufw allow 443/tcp comment netductor-vless || true
   # WSS is opened later by service-plane bootstrap for the selected peer IP only.
   ufw --force enable
   ufw status | grep -qE "$ND_PORT/tcp"
@@ -535,19 +535,29 @@ test ! -L /run/lock/netductor-firewall.lock
 exec 8>/run/lock/netductor-firewall.lock
 if ! flock -w 30 8; then echo "SSH finalize: firewall lock timeout" >&2; exit 1; fi
 if command -v ufw >/dev/null 2>&1; then
-  ufw allow "$ND_PORT"/tcp comment netductor-ssh
+  # ufw exits 1 and prints "Skipping ... existing rule" when the rule is already
+  # there. That is the desired state on a re-run; do not fail the transaction.
+  ufw_idem() {
+    out=$(ufw "$@" 2>&1) || rc=$?
+    printf '%%s\n' "$out"
+    if printf '%%s\n' "$out" | grep -q 'Skipping'; then
+      return 0
+    fi
+    return ${rc:-0}
+  }
+  ufw_idem allow "$ND_PORT"/tcp comment netductor-ssh
   # Put the final deny ahead of the temporary bootstrap ALLOW, then remove
   # only the uniquely tagged Netductor transition rule (never admin rules).
   first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
   case "$first22" in
     *"DENY IN"*) ;;
-    *) ufw insert 1 deny 22/tcp comment netductor-no-ssh22 ;;
+    *) ufw_idem insert 1 deny 22/tcp comment netductor-no-ssh22 ;;
   esac
   while ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; do
     line=$(ufw status numbered | grep -F 'netductor-ssh-bootstrap' | head -1)
     num=$(printf '%%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
     test -n "$num"
-    ufw --force delete "$num"
+    ufw_idem --force delete "$num"
   done
   first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
   case "$first22" in

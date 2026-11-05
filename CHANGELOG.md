@@ -1,3 +1,8 @@
+## 0.9.674
+
+- SSH harden finalize treats an already-present UFW rule as success. `ufw allow`/`insert` exit 1 on "Skipping existing rule", which aborted a clean secondary deploy.
+
+
 ## 0.9.673
 
 - secondary sing-box no longer fetches geoip-ru at start (that dialed 10.87.10.1 and crash-looped). Host curl stores a local .srs; missing file is skipped.
