@@ -1,3 +1,9 @@
+## 0.9.681
+
+- Harden finalize no longer uses early awk exit under pipefail. That SIGPIPE class already killed a previous finalize after ufw succeeded.
+- Prepare treats `ufw --force enable` exit 1 as non-fatal and reports the status if the hardened port is missing.
+
+
 ## 0.9.680
 
 - Same mawk-safe 22/tcp match in harden prepare and cancel. 0.9.679 fixed only finalize.

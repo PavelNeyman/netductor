@@ -444,8 +444,8 @@ if command -v ufw >/dev/null 2>&1; then
   fi
   ufw allow 443/tcp comment netductor-vless || true
   # WSS is opened later by service-plane bootstrap for the selected peer IP only.
-  ufw --force enable
-  ufw status | grep -qE "$ND_PORT/tcp"
+  ufw --force enable || true
+  ufw status | grep -qE "$ND_PORT/tcp" || { echo "ufw enable did not keep $ND_PORT/tcp allow" >&2; ufw status >&2; exit 1; }
 elif command -v iptables >/dev/null 2>&1; then
   if [ -f "$ND_BAK/factory-ssh-present" ]; then
     iptables -C INPUT -p tcp --dport 22 -m comment --comment netductor-ssh-bootstrap -j ACCEPT
@@ -538,21 +538,22 @@ if command -v ufw >/dev/null 2>&1; then
   ufw allow "$ND_PORT"/tcp comment netductor-ssh || true
   # First IPv4 22/tcp rule. Ignore (v6). The old bracket class returned empty on mawk.
   ufw_first22() {
+    # Do not exit awk early: pipefail + SIGPIPE on printf is exit 141.
     printf '%%s\n' "$1" | awk '
-      /^\[/ {
+      /^\[/ && !done {
         n = index($0, "]")
         if (n < 2) next
         rest = substr($0, n + 1)
         sub(/^[[:space:]]+/, "", rest)
-        if (rest ~ /^22\/tcp([[:space:]]|$)/ && rest !~ /\(v6\)/) { print $0; exit }
+        if (rest ~ /^22\/tcp([[:space:]]|$)/ && rest !~ /\(v6\)/) { print $0; done=1 }
       }
-    '
+    ' || true
   }
   ufw_del_comment() {
     tag="$1"
     for _ in 1 2 3 4 5 6 7 8; do
       st=$(ufw status numbered || true)
-      line=$(printf '%%s\n' "$st" | awk -v t="$tag" 'index($0, t) { print; exit }')
+      line=$(printf '%%s\n' "$st" | awk -v t="$tag" '!done && index($0, t) { print; done=1 }' || true)
       [ -n "$line" ] || break
       num=$(printf '%%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
       [ -n "$num" ] || { echo "cannot parse ufw rule: $line" >&2; exit 1; }
