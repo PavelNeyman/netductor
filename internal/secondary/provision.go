@@ -362,7 +362,7 @@ func RemoteJoin(client *ssh.Client, bundleJSON string) (string, error) {
 		"dl \"$TD/$ASSET\" \"$BASE/$ASSET\" || { echo \"download $ASSET v$VER failed\" >&2; exit 1; }\n" +
 		"echo join:download SHA256SUMS\n" +
 		"dl \"$TD/SHA256SUMS\" \"$BASE/SHA256SUMS\" || { echo \"SHA256SUMS download failed\" >&2; exit 1; }\n" +
-		"EXPECT=$(grep -E \"[[:space:]]${ASSET}$\" \"$TD/SHA256SUMS\" | awk '{print $1}' | head -1)\n" +
+		"EXPECT=$(awk -v a=\"$ASSET\" '$2==a { print $1; exit }' \"$TD/SHA256SUMS\")\n" +
 		"[ -n \"$EXPECT\" ] || { echo \"SHA256SUMS missing $ASSET\" >&2; exit 1; }\n" +
 		"GOT=$(sha256sum \"$TD/$ASSET\" | awk '{print $1}')\n" +
 		"[ \"$GOT\" = \"$EXPECT\" ] || { echo \"SHA256 mismatch got=$GOT want=$EXPECT\" >&2; exit 1; }\n" +

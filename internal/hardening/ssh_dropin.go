@@ -55,20 +55,16 @@ if ! flock -w 30 9; then echo "SSH prepare: transaction lock timeout" >&2; exit 
 # script has exited. Do not replace its backup while timer/service is active.
 timer_state=$(systemctl is-active "$ND_RB_TIMER" 2>/dev/null || true)
 unit_state=$(systemctl is-active "$ND_RB_UNIT" 2>/dev/null || true)
-if [ "$timer_state" != "inactive" ] || [ "$unit_state" != "inactive" ]; then
-  echo "previous SSH rollback is not terminal (timer=$timer_state service=$unit_state) — refuse concurrent prepare" >&2
+# inactive/failed/unknown are not a live transaction. active/activating is.
+case "$timer_state" in active|activating) live=1 ;; *) live= ;; esac
+case "$unit_state" in active|activating) live=1 ;; esac
+if [ -n "$live" ]; then
+  echo "previous SSH rollback is still running (timer=$timer_state service=$unit_state) — refuse concurrent prepare" >&2
   exit 1
 fi
-
-# Legacy versions removed the rollback units after successful cancel. Accept
-# that terminal state, but refuse an orphaned backup with installed units and
-# no terminal marker; it may represent a failed rollback requiring recovery.
-if [ -f "$ND_RB_SCRIPT" ] && [ ! -f "$ND_BAK/CANCELLED" ] && [ ! -f "$ND_BAK/ROLLED_BACK" ]; then
-  if [ -e "/etc/systemd/system/$ND_RB_UNIT" ] || [ -e "/etc/systemd/system/$ND_RB_TIMER" ]; then
-    echo "previous SSH rollback has no terminal marker — inspect/recover before preparing again" >&2
-    exit 1
-  fi
-fi
+systemctl reset-failed "$ND_RB_UNIT" "$ND_RB_TIMER" 2>/dev/null || true
+# An abandoned backup (failed rollback, no marker) is not a live transaction.
+# Clear it below instead of forcing a manual recovery on every retry.
 
 # Previous transaction is terminal (or prepare never reached rollback script).
 # Keep the lock inode; remove only transaction payload while holding the lock.
@@ -165,8 +161,10 @@ else
     cp -a /etc/ufw/user6.rules "$ND_BAK/ufw/user6.rules"
   fi
   if grep -qx active "$ND_BAK/ufw-policy"; then
-    if [ -f "$ND_BAK/factory-ssh-present" ] && ! ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; then
-      echo "active UFW is missing the baseline factory SSH transition rule; refusing unsafe rollback snapshot" >&2
+    # Any 22/tcp ALLOW is a usable transition rule. The exact comment is only
+    # required when we have to install one ourselves later.
+    if [ -f "$ND_BAK/factory-ssh-present" ] && ! ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | grep -q 'ALLOW'; then
+      echo "active UFW has no 22/tcp ALLOW; refusing unsafe rollback snapshot" >&2
       exit 1
     fi
     test -f "$ND_BAK/ufw/user.rules"
@@ -627,7 +625,8 @@ if command -v ufw >/dev/null 2>&1; then
     echo "UFW SSH bootstrap rule unexpectedly remains after finalize" >&2
     exit 1
   fi
-  first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
+  ufw_status=$(ufw status numbered || true)
+  first22=$(printf '%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
   case "$first22" in
     *"DENY IN"*) ;;
     *) echo "UFW port 22 is not denied after rollback cancellation" >&2; exit 1 ;;
