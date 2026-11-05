@@ -144,7 +144,7 @@ else
     echo "ufw status failed: $ST" >&2
     exit 1
   fi
-  HEAD=$(printf '%s\n' "$ST" | awk 'NR==1 { print; exit }')
+  HEAD=$(printf '%%s\n' "$ST" | awk 'NR==1 { print; exit }')
   if echo "$HEAD" | grep -qi inactive; then
     echo inactive > "$ND_BAK/ufw-policy"
   elif echo "$HEAD" | grep -qi active; then
@@ -626,7 +626,7 @@ if command -v ufw >/dev/null 2>&1; then
     exit 1
   fi
   ufw_status=$(ufw status numbered || true)
-  first22=$(printf '%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
+  first22=$(printf '%%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
   case "$first22" in
     *"DENY IN"*) ;;
     *) echo "UFW port 22 is not denied after rollback cancellation" >&2; exit 1 ;;

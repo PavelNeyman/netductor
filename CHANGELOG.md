@@ -1,3 +1,8 @@
+## 0.9.678
+
+- Escape printf `%s` in harden prepare/cancel. They sit inside fmt.Sprintf, so a raw `%s` consumed the SSH drop-in and prepare reported `cannot determine ufw status: Port 52222`.
+
+
 ## 0.9.677
 
 - Harden prepare treats a failed/inactive rollback as abandoned and clears it, instead of refusing the next deploy.
