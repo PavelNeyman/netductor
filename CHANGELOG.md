@@ -1,3 +1,8 @@
+## 0.9.676
+
+- SSH harden finalize no longer uses `set -o pipefail` with `| head`. That SIGPIPE (141) aborted the script after ufw had already succeeded, with only the Skipping/Rule deleted lines in the error.
+
+
 ## 0.9.675
 
 - SSH harden finalize ignores ufw exit codes. ufw returns 1 for both "Skipping existing rule" and "Rule deleted"; 0.9.674 only treated the first as success.

@@ -148,7 +148,7 @@ else
     echo "ufw status failed: $ST" >&2
     exit 1
   fi
-  HEAD=$(echo "$ST" | head -1)
+  HEAD=$(printf '%s\n' "$ST" | awk 'NR==1 { print; exit }')
   if echo "$HEAD" | grep -qi inactive; then
     echo inactive > "$ND_BAK/ufw-policy"
   elif echo "$HEAD" | grep -qi active; then
@@ -538,23 +538,28 @@ if command -v ufw >/dev/null 2>&1; then
   # ufw exits 1 for both "already exists" and a successful delete. The exit
   # code is not the contract; the numbered status after the sequence is.
   ufw allow "$ND_PORT"/tcp comment netductor-ssh || true
-  # Put the final deny ahead of the temporary bootstrap ALLOW, then remove
-  # only the uniquely tagged Netductor transition rule (never admin rules).
-  first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
+  # pipefail + "| head" dies on SIGPIPE (exit 141) after ufw already succeeded.
+  # Read the full status, then parse it. No early-close pipelines.
+  ufw_status=$(ufw status numbered || true)
+  first22=$(printf '%%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
   case "$first22" in
     *"DENY IN"*) ;;
     *) ufw insert 1 deny 22/tcp comment netductor-no-ssh22 || true ;;
   esac
-  while ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; do
-    line=$(ufw status numbered | grep -F 'netductor-ssh-bootstrap' | head -1)
+  # Delete every bootstrap rule. Re-read after each delete; numbers shift.
+  for _ in 1 2 3 4 5 6 7 8; do
+    ufw_status=$(ufw status numbered || true)
+    line=$(printf '%%s\n' "$ufw_status" | awk '/netductor-ssh-bootstrap/ { print; exit }')
+    [ -n "$line" ] || break
     num=$(printf '%%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
-    test -n "$num"
+    [ -n "$num" ] || { echo "cannot parse bootstrap rule: $line" >&2; exit 1; }
     ufw --force delete "$num" || true
   done
-  first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
+  ufw_status=$(ufw status numbered || true)
+  first22=$(printf '%%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
   case "$first22" in
     *"DENY IN"*) ;;
-    *) echo "final SSH firewall verification failed: port 22 is not denied first" >&2; exit 1 ;;
+    *) echo "final SSH firewall verification failed: port 22 is not denied first: [$first22]" >&2; exit 1 ;;
   esac
 elif command -v iptables >/dev/null 2>&1; then
   # Keep the temporary :22 INPUT exception while rollback is armed. The
