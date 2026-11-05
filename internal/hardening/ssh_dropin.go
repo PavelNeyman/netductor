@@ -536,28 +536,51 @@ if command -v ufw >/dev/null 2>&1; then
   # ufw exits 1 for both "already exists" and a successful delete. The exit
   # code is not the contract; the numbered status after the sequence is.
   ufw allow "$ND_PORT"/tcp comment netductor-ssh || true
-  # pipefail + "| head" dies on SIGPIPE (exit 141) after ufw already succeeded.
-  # Read the full status, then parse it. No early-close pipelines.
-  ufw_status=$(ufw status numbered || true)
-  first22=$(printf '%%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
+  # First IPv4 22/tcp rule. Ignore (v6). Do not use a brittle [^]] class:
+  # mawk treats it differently and the previous parser returned empty.
+  ufw_first22() {
+    printf '%%s\n' "$1" | awk '
+      /^\[/ {
+        n = index($0, "]")
+        if (n < 2) next
+        rest = substr($0, n + 1)
+        sub(/^[[:space:]]+/, "", rest)
+        if (rest ~ /^22\/tcp([[:space:]]|$)/ && rest !~ /\(v6\)/) { print $0; exit }
+      }
+    '
+  }
+  ufw_del_comment() {
+    tag="$1"
+    for _ in 1 2 3 4 5 6 7 8; do
+      st=$(ufw status numbered || true)
+      line=$(printf '%%s\n' "$st" | awk -v t="$tag" 'index($0, t) { print; exit }')
+      [ -n "$line" ] || break
+      num=$(printf '%%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
+      [ -n "$num" ] || { echo "cannot parse ufw rule: $line" >&2; exit 1; }
+      ufw --force delete "$num" || true
+    done
+  }
+  # Drop the transition ALLOW, then make sure IPv4 :22 DENY is rule 1.
+  ufw_del_comment netductor-ssh-bootstrap
+  st=$(ufw status numbered || true)
+  first22=$(ufw_first22 "$st")
   case "$first22" in
     *"DENY IN"*) ;;
-    *) ufw insert 1 deny 22/tcp comment netductor-no-ssh22 || true ;;
+    *)
+      ufw_del_comment netductor-no-ssh22
+      ufw insert 1 deny 22/tcp comment netductor-no-ssh22 || true
+      ;;
   esac
-  # Delete every bootstrap rule. Re-read after each delete; numbers shift.
-  for _ in 1 2 3 4 5 6 7 8; do
-    ufw_status=$(ufw status numbered || true)
-    line=$(printf '%%s\n' "$ufw_status" | awk '/netductor-ssh-bootstrap/ { print; exit }')
-    [ -n "$line" ] || break
-    num=$(printf '%%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
-    [ -n "$num" ] || { echo "cannot parse bootstrap rule: $line" >&2; exit 1; }
-    ufw --force delete "$num" || true
-  done
-  ufw_status=$(ufw status numbered || true)
-  first22=$(printf '%%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
+  st=$(ufw status numbered || true)
+  first22=$(ufw_first22 "$st")
   case "$first22" in
     *"DENY IN"*) ;;
-    *) echo "final SSH firewall verification failed: port 22 is not denied first: [$first22]" >&2; exit 1 ;;
+    *)
+      echo "final SSH firewall verification failed: port 22 is not denied first: [$first22]" >&2
+      echo "----- ufw status numbered -----" >&2
+      printf '%%s\n' "$st" >&2
+      exit 1
+      ;;
   esac
 elif command -v iptables >/dev/null 2>&1; then
   # Keep the temporary :22 INPUT exception while rollback is armed. The

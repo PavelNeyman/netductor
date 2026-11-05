@@ -1,3 +1,8 @@
+## 0.9.679
+
+- Harden finalize parses the first IPv4 22/tcp rule without the mawk-hostile `[^]]` class. The old parser returned empty, so verification failed even when the deny rule existed. On failure the raw `ufw status numbered` is included.
+
+
 ## 0.9.678
 
 - Escape printf `%s` in harden prepare/cancel. They sit inside fmt.Sprintf, so a raw `%s` consumed the SSH drop-in and prepare reported `cannot determine ufw status: Port 52222`.
