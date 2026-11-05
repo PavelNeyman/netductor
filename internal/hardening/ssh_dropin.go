@@ -163,7 +163,7 @@ else
   if grep -qx active "$ND_BAK/ufw-policy"; then
     # Any 22/tcp ALLOW is a usable transition rule. The exact comment is only
     # required when we have to install one ourselves later.
-    if [ -f "$ND_BAK/factory-ssh-present" ] && ! ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | grep -q 'ALLOW'; then
+    if [ -f "$ND_BAK/factory-ssh-present" ] && ! ufw status numbered | grep -E '^\[[[:space:]]*[0-9]+\][[:space:]]+22/tcp([[:space:]]|$)' | grep -q 'ALLOW'; then
       echo "active UFW has no 22/tcp ALLOW; refusing unsafe rollback snapshot" >&2
       exit 1
     fi
@@ -536,8 +536,7 @@ if command -v ufw >/dev/null 2>&1; then
   # ufw exits 1 for both "already exists" and a successful delete. The exit
   # code is not the contract; the numbered status after the sequence is.
   ufw allow "$ND_PORT"/tcp comment netductor-ssh || true
-  # First IPv4 22/tcp rule. Ignore (v6). Do not use a brittle [^]] class:
-  # mawk treats it differently and the previous parser returned empty.
+  # First IPv4 22/tcp rule. Ignore (v6). The old bracket class returned empty on mawk.
   ufw_first22() {
     printf '%%s\n' "$1" | awk '
       /^\[/ {
@@ -649,7 +648,7 @@ if command -v ufw >/dev/null 2>&1; then
     exit 1
   fi
   ufw_status=$(ufw status numbered || true)
-  first22=$(printf '%%s\n' "$ufw_status" | awk '/^[[:space:]]*\[[^]]+\][[:space:]]+22\/tcp([[:space:]]|$)/ { if (!seen++) print }')
+  first22=$(printf '%%s\n' "$ufw_status" | awk '/^\[[[:space:]]*[0-9]+\][[:space:]]+22\/tcp([[:space:]]|$)/ && $0 !~ /\(v6\)/ { print; exit }')
   case "$first22" in
     *"DENY IN"*) ;;
     *) echo "UFW port 22 is not denied after rollback cancellation" >&2; exit 1 ;;

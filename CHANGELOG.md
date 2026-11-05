@@ -1,3 +1,8 @@
+## 0.9.680
+
+- Same mawk-safe 22/tcp match in harden prepare and cancel. 0.9.679 fixed only finalize.
+
+
 ## 0.9.679
 
 - Harden finalize parses the first IPv4 22/tcp rule without the mawk-hostile `[^]]` class. The old parser returned empty, so verification failed even when the deny rule existed. On failure the raw `ufw status numbered` is included.
