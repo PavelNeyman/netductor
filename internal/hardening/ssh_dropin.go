@@ -535,29 +535,21 @@ test ! -L /run/lock/netductor-firewall.lock
 exec 8>/run/lock/netductor-firewall.lock
 if ! flock -w 30 8; then echo "SSH finalize: firewall lock timeout" >&2; exit 1; fi
 if command -v ufw >/dev/null 2>&1; then
-  # ufw exits 1 and prints "Skipping ... existing rule" when the rule is already
-  # there. That is the desired state on a re-run; do not fail the transaction.
-  ufw_idem() {
-    out=$(ufw "$@" 2>&1) || rc=$?
-    printf '%%s\n' "$out"
-    if printf '%%s\n' "$out" | grep -q 'Skipping'; then
-      return 0
-    fi
-    return ${rc:-0}
-  }
-  ufw_idem allow "$ND_PORT"/tcp comment netductor-ssh
+  # ufw exits 1 for both "already exists" and a successful delete. The exit
+  # code is not the contract; the numbered status after the sequence is.
+  ufw allow "$ND_PORT"/tcp comment netductor-ssh || true
   # Put the final deny ahead of the temporary bootstrap ALLOW, then remove
   # only the uniquely tagged Netductor transition rule (never admin rules).
   first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
   case "$first22" in
     *"DENY IN"*) ;;
-    *) ufw_idem insert 1 deny 22/tcp comment netductor-no-ssh22 ;;
+    *) ufw insert 1 deny 22/tcp comment netductor-no-ssh22 || true ;;
   esac
   while ufw status numbered | grep -Fq 'netductor-ssh-bootstrap'; do
     line=$(ufw status numbered | grep -F 'netductor-ssh-bootstrap' | head -1)
     num=$(printf '%%s\n' "$line" | sed -nE 's/^[[:space:]]*\[[[:space:]]*([0-9]+)\].*/\1/p')
     test -n "$num"
-    ufw_idem --force delete "$num"
+    ufw --force delete "$num" || true
   done
   first22=$(ufw status numbered | grep -E '^[[:space:]]*\[[^]]+\][[:space:]]+22/tcp([[:space:]]|$)' | head -1)
   case "$first22" in

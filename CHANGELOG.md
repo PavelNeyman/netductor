@@ -1,3 +1,8 @@
+## 0.9.675
+
+- SSH harden finalize ignores ufw exit codes. ufw returns 1 for both "Skipping existing rule" and "Rule deleted"; 0.9.674 only treated the first as success.
+
+
 ## 0.9.674
 
 - SSH harden finalize treats an already-present UFW rule as success. `ufw allow`/`insert` exit 1 on "Skipping existing rule", which aborted a clean secondary deploy.
