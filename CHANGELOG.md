@@ -1,3 +1,11 @@
+## 0.9.682
+
+- Missing `/var/lib/netductor/bootstrap-transactions` is an empty journal, not a hard failure. `os.IsNotExist` does not unwrap the wrapped lstat error; recover now uses `errors.Is`. This is what blocked peer recover on primary and bootstrap-secondary on B.
+- Deploy stage errors include a redacted tail of remote SSH output instead of a bare `exit status N`.
+- Resume probes the secondary before re-shipping material. If units, material and pings already match, bootstrap stdin is skipped.
+- `/sub` includes online prepared/ready peers next to the active one, so a new Secondary can be tested before promote. removed/failed stay out.
+
+
 ## 0.9.681
 
 - Harden finalize no longer uses early awk exit under pipefail. That SIGPIPE class already killed a previous finalize after ufw succeeded.

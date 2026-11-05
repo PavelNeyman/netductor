@@ -51,38 +51,47 @@ func preferredSecondaryIP() string {
 	return ""
 }
 
-// activeServicePlanePeers returns the public IP of the explicitly promoted active_id.
-// If peers.json exists, it is authoritative: prepared/ready peers and stale active
-// entries must never leak into subscriptions. Missing registry preserves legacy behavior.
+// activeServicePlanePeers returns public IPs that may appear in /sub.
+// Registry present: active_id (if still active) plus prepared/ready peers, so a
+// new Secondary can be tested from the subscription before promotion.
+// removed/failed never leak. Missing registry preserves legacy heartbeat-only behavior.
 func activeServicePlanePeers() (map[string]bool, bool) {
 	path := filepath.Join(paths.EtcDir(), "svc-paths", "peers.json")
 	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return nil, false
 	}
-	active := make(map[string]bool)
+	allowed := make(map[string]bool)
 	if err != nil {
-		return active, true
+		return allowed, true
 	}
 	var index struct {
 		ActiveID string `json:"active_id"`
-		Peers []struct {
+		Peers    []struct {
 			ID       string `json:"id"`
 			PublicIP string `json:"public_ip"`
 			State    string `json:"state"`
 		} `json:"peers"`
 	}
-	if json.Unmarshal(b, &index) != nil || strings.TrimSpace(index.ActiveID) == "" {
-		return active, true
+	if json.Unmarshal(b, &index) != nil {
+		return allowed, true
 	}
 	for _, peer := range index.Peers {
-		if peer.ID == index.ActiveID && strings.EqualFold(strings.TrimSpace(peer.State), "active") {
-			if ip := strings.TrimSpace(peer.PublicIP); ip != "" {
-				active[ip] = true
+		ip := strings.TrimSpace(peer.PublicIP)
+		if ip == "" {
+			continue
+		}
+		state := strings.ToLower(strings.TrimSpace(peer.State))
+		switch state {
+		case "prepared", "ready":
+			allowed[ip] = true
+		case "active":
+			if peer.ID == strings.TrimSpace(index.ActiveID) {
+				allowed[ip] = true
 			}
 		}
 	}
-	return active, true
+	return allowed, true
 }
 
 func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
@@ -100,8 +109,8 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 	var out []row
 	for _, d := range f.Devices {
 		d.PublicIP = strings.TrimSpace(d.PublicIP)
-		// The heartbeat registry proves liveness, not promotion. Once the
-		// service-plane peer registry exists, only state=active is advertised.
+		// Heartbeat proves liveness. Registry, when present, allows the active
+		// peer plus prepared/ready peers (migration profiles). removed/failed stay out.
 		if hasPeerRegistry && !activePeers[d.PublicIP] {
 			continue
 		}

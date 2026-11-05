@@ -1,11 +1,11 @@
 package svcpaths
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"errors"
-	"strings"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -41,7 +41,6 @@ func TestValidateUnitExecStart(t *testing.T) {
 	}
 }
 
-
 func TestBootstrapFileTransactionRollbackRestoresBeforeImages(t *testing.T) {
 	root := t.TempDir()
 	oldAllowed := bootstrapAllowedFileRoots
@@ -52,27 +51,55 @@ func TestBootstrapFileTransactionRollbackRestoresBeforeImages(t *testing.T) {
 	defer func() { bootstrapJournalRoot = oldRoot }()
 
 	existing := filepath.Join(root, "existing.conf")
-	if err := os.WriteFile(existing, []byte("before"), 0o640); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(existing, []byte("before"), 0o640); err != nil {
+		t.Fatal(err)
+	}
 	created := filepath.Join(root, "created.conf")
 
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFile(existing); err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFile(created); err != nil { t.Fatal(err) }
-	if err := os.WriteFile(existing, []byte("after"), 0o600); err != nil { t.Fatal(err) }
-	if err := os.WriteFile(created, []byte("new"), 0o600); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotFile(existing); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotFile(created); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(existing, []byte("after"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(created, []byte("new"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 	got, err := os.ReadFile(existing)
-	if err != nil { t.Fatal(err) }
-	if string(got) != "before" { t.Fatalf("existing content = %q, want before", got) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "before" {
+		t.Fatalf("existing content = %q, want before", got)
+	}
 	info, err := os.Stat(existing)
-	if err != nil { t.Fatal(err) }
-	if info.Mode().Perm() != 0o640 { t.Fatalf("existing mode = %o, want 640", info.Mode().Perm()) }
-	if _, err := os.Lstat(created); !os.IsNotExist(err) { t.Fatalf("created file remains after rollback: %v", err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o640 {
+		t.Fatalf("existing mode = %o, want 640", info.Mode().Perm())
+	}
+	if _, err := os.Lstat(created); !os.IsNotExist(err) {
+		t.Fatalf("created file remains after rollback: %v", err)
+	}
 	entries, err := os.ReadDir(bootstrapJournalRoot)
-	if err != nil { t.Fatal(err) }
-	if len(entries) != 0 { t.Fatalf("rollback left journal entries: %v", entries) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("rollback left journal entries: %v", entries)
+	}
 }
 
 func TestRecoverBootstrapFileTransactionsIsIdempotent(t *testing.T) {
@@ -123,6 +150,19 @@ func TestRecoverBootstrapFileTransactionsIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestRecoverBootstrapFileTransactionsMissingDir(t *testing.T) {
+	root := t.TempDir()
+	oldRoot := bootstrapJournalRoot
+	bootstrapJournalRoot = filepath.Join(root, "missing-journal")
+	t.Cleanup(func() { bootstrapJournalRoot = oldRoot })
+	if _, err := os.Lstat(bootstrapJournalRoot); !os.IsNotExist(err) {
+		t.Fatalf("precondition: journal dir should be absent, err=%v", err)
+	}
+	if err := recoverBootstrapFileTransactions(); err != nil {
+		t.Fatalf("missing journal dir must be empty history, got %v", err)
+	}
+}
+
 func TestBootstrapFileTransactionRejectsSymlinkTarget(t *testing.T) {
 	root := t.TempDir()
 	oldAllowed := bootstrapAllowedFileRoots
@@ -132,15 +172,25 @@ func TestBootstrapFileTransactionRejectsSymlinkTarget(t *testing.T) {
 	bootstrapJournalRoot = filepath.Join(root, "journal")
 	defer func() { bootstrapJournalRoot = oldRoot }()
 	target := filepath.Join(root, "link")
-	if err := os.Symlink(filepath.Join(root, "missing"), target); err != nil { t.Fatal(err) }
+	if err := os.Symlink(filepath.Join(root, "missing"), target); err != nil {
+		t.Fatal(err)
+	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFile(target); err == nil { t.Fatal("expected symlink target rejection") }
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotFile(target); err == nil {
+		t.Fatal("expected symlink target rejection")
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestBootstrapSnapshotRejectsOutsideManagedRoots(t *testing.T) {
-	if err := validateBootstrapSnapshotPath("/etc/passwd"); err == nil { t.Fatal("expected unmanaged path rejection") }
+	if err := validateBootstrapSnapshotPath("/etc/passwd"); err == nil {
+		t.Fatal("expected unmanaged path rejection")
+	}
 }
 
 func TestBootstrapSnapshotRejectsSymlinkParent(t *testing.T) {
@@ -149,27 +199,33 @@ func TestBootstrapSnapshotRejectsSymlinkParent(t *testing.T) {
 	bootstrapAllowedFileRoots = append(append([]string(nil), oldAllowed...), root)
 	t.Cleanup(func() { bootstrapAllowedFileRoots = oldAllowed })
 	real := filepath.Join(root, "real")
-	if err := os.Mkdir(real, 0o700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(real, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	link := filepath.Join(root, "link")
-	if err := os.Symlink(real, link); err != nil { t.Fatal(err) }
-	if err := validateBootstrapSnapshotPath(filepath.Join(link, "target.conf")); err == nil { t.Fatal("expected symlink parent rejection") }
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBootstrapSnapshotPath(filepath.Join(link, "target.conf")); err == nil {
+		t.Fatal("expected symlink parent rejection")
+	}
 }
 
 func TestValidateBootstrapJournalRejectsMalformedMetadata(t *testing.T) {
 	now := time.Now().UTC()
 	valid := bootstrapJournal{
-		Version: bootstrapJournalVersion,
-		TxID: "0123456789abcdef0123456789abcdef",
-		Role: "secondary",
-		PeerID: "peer-b",
-		Slot: 1,
-		Phase: "applying",
+		Version:   bootstrapJournalVersion,
+		TxID:      "0123456789abcdef0123456789abcdef",
+		Role:      "secondary",
+		PeerID:    "peer-b",
+		Slot:      1,
+		Phase:     "applying",
 		CreatedAt: now,
 		UpdatedAt: now,
-		Files: []bootstrapFileImage{{Path: "/etc/netductor/keys/material.json", Exists: true, Data: []byte("before"), Mode: 0o600, UID: 0, GID: 0}},
+		Files:     []bootstrapFileImage{{Path: "/etc/netductor/keys/material.json", Exists: true, Data: []byte("before"), Mode: 0o600, UID: 0, GID: 0}},
 	}
 	tests := []struct {
-		name string
+		name   string
 		mutate func(*bootstrapJournal)
 	}{
 		{name: "malformed transaction id", mutate: func(j *bootstrapJournal) { j.TxID = "not-hex" }},
@@ -197,7 +253,6 @@ func TestValidateBootstrapJournalRejectsMalformedMetadata(t *testing.T) {
 	}
 }
 
-
 func TestEnsureBootstrapJournalDirectoryCreatesAndReusesPrivateRoot(t *testing.T) {
 	parent := t.TempDir()
 	journal := filepath.Join(parent, "journal")
@@ -208,7 +263,9 @@ func TestEnsureBootstrapJournalDirectoryCreatesAndReusesPrivateRoot(t *testing.T
 		t.Fatalf("repeat ensure must be idempotent: %v", err)
 	}
 	info, err := os.Lstat(journal)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !info.IsDir() || info.Mode().Perm() != 0o700 {
 		t.Fatalf("journal directory mode/type = %v, want private directory 0700", info.Mode())
 	}
@@ -217,9 +274,13 @@ func TestEnsureBootstrapJournalDirectoryCreatesAndReusesPrivateRoot(t *testing.T
 func TestEnsureBootstrapJournalDirectoryRejectsSymlinkParent(t *testing.T) {
 	root := t.TempDir()
 	realParent := filepath.Join(root, "real")
-	if err := os.Mkdir(realParent, 0o700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(realParent, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	linkParent := filepath.Join(root, "parent-link")
-	if err := os.Symlink(realParent, linkParent); err != nil { t.Fatal(err) }
+	if err := os.Symlink(realParent, linkParent); err != nil {
+		t.Fatal(err)
+	}
 	if err := ensureBootstrapJournalDirectory(filepath.Join(linkParent, "journal")); err == nil {
 		t.Fatal("expected symlink parent rejection")
 	}
@@ -231,9 +292,13 @@ func TestEnsureBootstrapJournalDirectoryRejectsSymlinkParent(t *testing.T) {
 func TestEnsureBootstrapJournalDirectoryRejectsSymlinkRoot(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "target")
-	if err := os.Mkdir(target, 0o700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	link := filepath.Join(root, "journal-link")
-	if err := os.Symlink(target, link); err != nil { t.Fatal(err) }
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
 	if err := ensureBootstrapJournalDirectory(link); err == nil {
 		t.Fatal("expected symlink journal root rejection")
 	}
@@ -241,7 +306,9 @@ func TestEnsureBootstrapJournalDirectoryRejectsSymlinkRoot(t *testing.T) {
 
 func TestEnsureBootstrapJournalDirectoryAllowsNonWritableSharedParent(t *testing.T) {
 	parent := t.TempDir()
-	if err := os.Chmod(parent, 0o755); err != nil { t.Fatal(err) }
+	if err := os.Chmod(parent, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := ensureBootstrapJournalDirectory(filepath.Join(parent, "journal")); err != nil {
 		t.Fatalf("read/execute-only parent should be accepted: %v", err)
 	}
@@ -249,7 +316,9 @@ func TestEnsureBootstrapJournalDirectoryAllowsNonWritableSharedParent(t *testing
 
 func TestEnsureBootstrapJournalDirectoryRejectsWritableParent(t *testing.T) {
 	parent := t.TempDir()
-	if err := os.Chmod(parent, 0o770); err != nil { t.Fatal(err) }
+	if err := os.Chmod(parent, 0o770); err != nil {
+		t.Fatal(err)
+	}
 	if err := ensureBootstrapJournalDirectory(filepath.Join(parent, "journal")); err == nil {
 		t.Fatal("expected group-writable parent rejection")
 	}
@@ -258,11 +327,10 @@ func TestEnsureBootstrapJournalDirectoryRejectsWritableParent(t *testing.T) {
 	}
 }
 
-
 func TestValidateNoGlobalWSSAllows(t *testing.T) {
 	tests := []struct {
-		name string
-		status string
+		name    string
+		status  string
 		wantErr bool
 	}{
 		{name: "no broad rules", status: "Status: active\n8444/tcp ALLOW IN 10.0.0.1\n"},
@@ -280,11 +348,10 @@ func TestValidateNoGlobalWSSAllows(t *testing.T) {
 	}
 }
 
-
 func TestValidateNoGlobalWSSAllowsProtectsAdministratorRules(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		status string
+		name    string
+		status  string
 		wantErr bool
 	}{
 		{name: "no broad rule", status: "Status: active\nTo                         Action      From\n8445/tcp                   ALLOW       8.8.8.10\n"},
@@ -300,69 +367,100 @@ func TestValidateNoGlobalWSSAllowsProtectsAdministratorRules(t *testing.T) {
 	}
 }
 
- 
 // Transaction tests use injected actions and never execute host firewall commands.
 func TestApplyFirewallMutationsRollsBackOnlyCreatedRules(t *testing.T) {
 	var state []string
 	mk := func(name string, fail bool) firewallMutation {
 		return firewallMutation{
 			apply: func() (bool, error) {
-				if fail { return false, errors.New("injected failure") }
-				state = append(state, name); return true, nil
+				if fail {
+					return false, errors.New("injected failure")
+				}
+				state = append(state, name)
+				return true, nil
 			},
 			rollback: func() error {
-				for i := len(state)-1; i >= 0; i-- {
-					if state[i] == name { state = append(state[:i], state[i+1:]...); return nil }
+				for i := len(state) - 1; i >= 0; i-- {
+					if state[i] == name {
+						state = append(state[:i], state[i+1:]...)
+						return nil
+					}
 				}
 				return nil
 			},
 		}
 	}
 	err := applyFirewallMutations([]firewallMutation{mk("peer-b-wss", false), mk("peer-b-svc", true)}, nil)
-	if err == nil { t.Fatal("expected injected failure") }
-	if len(state) != 0 { t.Fatalf("partial rule leaked after rollback: %v", state) }
+	if err == nil {
+		t.Fatal("expected injected failure")
+	}
+	if len(state) != 0 {
+		t.Fatalf("partial rule leaked after rollback: %v", state)
+	}
 }
 func TestApplyFirewallMutationsPreservesExistingAndUnrelated(t *testing.T) {
 	state := []string{"peer-a-rule", "peer-b-existing"}
-	mutation := firewallMutation{apply: func() (bool,error) { return false,nil }, rollback: func() error { state=nil; return nil }}
-	if err := applyFirewallMutations([]firewallMutation{mutation},nil); err != nil { t.Fatal(err) }
-	if len(state)!=2 || state[0]!="peer-a-rule" || state[1]!="peer-b-existing" { t.Fatalf("existing rules changed: %v",state) }
+	mutation := firewallMutation{apply: func() (bool, error) { return false, nil }, rollback: func() error { state = nil; return nil }}
+	if err := applyFirewallMutations([]firewallMutation{mutation}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(state) != 2 || state[0] != "peer-a-rule" || state[1] != "peer-b-existing" {
+		t.Fatalf("existing rules changed: %v", state)
+	}
 }
 func TestApplyFirewallMutationsRollbackAndRepersistOnPersistenceFailure(t *testing.T) {
 	created := false
 	persistCalls := 0
 	mutation := firewallMutation{
-		apply: func() (bool, error) { created = true; return true, nil },
+		apply:    func() (bool, error) { created = true; return true, nil },
 		rollback: func() error { created = false; return nil },
 	}
 	err := applyFirewallMutations([]firewallMutation{mutation}, func() error {
 		persistCalls++
-		if persistCalls == 1 { return errors.New("injected initial save failure") }
+		if persistCalls == 1 {
+			return errors.New("injected initial save failure")
+		}
 		return nil
 	})
-	if err == nil { t.Fatal("expected initial persistence failure") }
-	if created { t.Fatal("rule not rolled back") }
-	if persistCalls != 2 { t.Fatalf("persist called %d times, want initial save plus restored-state save", persistCalls) }
+	if err == nil {
+		t.Fatal("expected initial persistence failure")
+	}
+	if created {
+		t.Fatal("rule not rolled back")
+	}
+	if persistCalls != 2 {
+		t.Fatalf("persist called %d times, want initial save plus restored-state save", persistCalls)
+	}
 }
 
 func TestParseNetductorInputChainStrict(t *testing.T) {
-	for _, tc := range []struct{name, input, want string; wantErr bool}{
-		{name:"single A", input:"-P INPUT ACCEPT\n-A INPUT -j NETDUCTOR_A\n", want:"NETDUCTOR_A"},
-		{name:"single B", input:"-A INPUT -j NETDUCTOR_B\n", want:"NETDUCTOR_B"},
-		{name:"missing", input:"-P INPUT ACCEPT\n", wantErr:true},
-		{name:"duplicate jump", input:"-A INPUT -j NETDUCTOR_A\n-A INPUT -j NETDUCTOR_A\n", wantErr:true},
-		{name:"ambiguous chains", input:"-A INPUT -j NETDUCTOR_A\n-A INPUT -j NETDUCTOR_B\n", wantErr:true},
+	for _, tc := range []struct {
+		name, input, want string
+		wantErr           bool
+	}{
+		{name: "single A", input: "-P INPUT ACCEPT\n-A INPUT -j NETDUCTOR_A\n", want: "NETDUCTOR_A"},
+		{name: "single B", input: "-A INPUT -j NETDUCTOR_B\n", want: "NETDUCTOR_B"},
+		{name: "missing", input: "-P INPUT ACCEPT\n", wantErr: true},
+		{name: "duplicate jump", input: "-A INPUT -j NETDUCTOR_A\n-A INPUT -j NETDUCTOR_A\n", wantErr: true},
+		{name: "ambiguous chains", input: "-A INPUT -j NETDUCTOR_A\n-A INPUT -j NETDUCTOR_B\n", wantErr: true},
 	} {
-		t.Run(tc.name,func(t *testing.T){
-			got,err:=parseNetductorInputChain(tc.input)
-			if (err!=nil)!=tc.wantErr { t.Fatalf("error=%v wantErr=%v",err,tc.wantErr) }
-			if err==nil && got!=tc.want { t.Fatalf("chain=%q want %q",got,tc.want) }
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseNetductorInputChain(tc.input)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("error=%v wantErr=%v", err, tc.wantErr)
+			}
+			if err == nil && got != tc.want {
+				t.Fatalf("chain=%q want %q", got, tc.want)
+			}
 		})
 	}
 }
 
 func TestUFWStatusHasPeerRuleMatchesExactNumberedRule(t *testing.T) {
-	for _, tc := range []struct { name, status string; want bool }{
+	for _, tc := range []struct {
+		name, status string
+		want         bool
+	}{
 		{name: "numbered split bracket", status: "Status: active\n[ 2] 8444/tcp ALLOW IN 8.8.8.7 # nd-wss-sp\n", want: true},
 		{name: "numbered compact bracket", status: "[2] 8444/tcp ALLOW IN 8.8.8.7 # nd-wss-sp\n", want: true},
 		{name: "wrong source", status: "[ 2] 8444/tcp ALLOW IN 8.8.8.70 # nd-wss-sp\n"},
@@ -381,7 +479,6 @@ func TestUFWStatusHasPeerRuleMatchesExactNumberedRule(t *testing.T) {
 	}
 }
 
-
 func TestBootstrapTransactionWritersSnapshotBeforeMutation(t *testing.T) {
 	root := t.TempDir()
 	oldAllowed := bootstrapAllowedFileRoots
@@ -392,21 +489,41 @@ func TestBootstrapTransactionWritersSnapshotBeforeMutation(t *testing.T) {
 	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
 
 	existing := filepath.Join(root, "existing.conf")
-	if err := os.WriteFile(existing, []byte("before"), 0o640); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(existing, []byte("before"), 0o640); err != nil {
+		t.Fatal(err)
+	}
 	created := filepath.Join(root, "created.conf")
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.writeFile(existing, "after", 0o600); err != nil { t.Fatal(err) }
-	if err := tx.writeFile(created, "new", 0o600); err != nil { t.Fatal(err) }
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.writeFile(existing, "after", 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.writeFile(created, "new", 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := os.ReadFile(existing)
-	if err != nil { t.Fatal(err) }
-	if string(got) != "before" { t.Fatalf("existing content = %q, want before", got) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "before" {
+		t.Fatalf("existing content = %q, want before", got)
+	}
 	info, err := os.Stat(existing)
-	if err != nil { t.Fatal(err) }
-	if info.Mode().Perm() != 0o640 { t.Fatalf("existing mode = %o, want 640", info.Mode().Perm()) }
-	if _, err := os.Lstat(created); !os.IsNotExist(err) { t.Fatalf("created file remains after rollback: %v", err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o640 {
+		t.Fatalf("existing mode = %o, want 640", info.Mode().Perm())
+	}
+	if _, err := os.Lstat(created); !os.IsNotExist(err) {
+		t.Fatalf("created file remains after rollback: %v", err)
+	}
 }
 
 func TestBootstrapTransactionSnapshotsAndRestoresSystemdState(t *testing.T) {
@@ -428,14 +545,26 @@ func TestBootstrapTransactionSnapshotsAndRestoresSystemdState(t *testing.T) {
 		return nil, nil
 	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotUnits("nd-test.service", "nd-test.service"); err != nil { t.Fatal(err) }
-	if err := tx.MarkUnitsTouched("nd-test.service"); err != nil { t.Fatal(err) }
-	if len(tx.journal.Units) != 1 { t.Fatalf("unit snapshots = %d, want deduplicated 1", len(tx.journal.Units)) }
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotUnits("nd-test.service", "nd-test.service"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.MarkUnitsTouched("nd-test.service"); err != nil {
+		t.Fatal(err)
+	}
+	if len(tx.journal.Units) != 1 {
+		t.Fatalf("unit snapshots = %d, want deduplicated 1", len(tx.journal.Units))
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 	joined := strings.Join(calls, "\n")
 	for _, want := range []string{"show --property=LoadState --property=UnitFileState --property=ActiveState nd-test.service", "daemon-reload", "enable nd-test.service", "restart nd-test.service"} {
-		if !strings.Contains(joined, want) { t.Fatalf("systemctl calls missing %q:\n%s", want, joined) }
+		if !strings.Contains(joined, want) {
+			t.Fatalf("systemctl calls missing %q:\n%s", want, joined)
+		}
 	}
 }
 
@@ -458,10 +587,18 @@ func TestBootstrapTransactionRestoresPreviouslyAbsentUnit(t *testing.T) {
 		return nil, nil
 	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotUnits("nd-new.service"); err != nil { t.Fatal(err) }
-	if err := tx.MarkUnitsTouched("nd-new.service"); err != nil { t.Fatal(err) }
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotUnits("nd-new.service"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.MarkUnitsTouched("nd-new.service"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 	joined := strings.Join(calls, "\n")
 	if !strings.Contains(joined, "stop nd-new.service") || !strings.Contains(joined, "disable nd-new.service") {
 		t.Fatalf("previously absent unit was not returned to absent/inactive state:\n%s", joined)
@@ -494,20 +631,26 @@ func TestBootstrapUnitSnapshotsAreAtomicOnPartialReadFailure(t *testing.T) {
 	bootstrapSystemctl = func(args ...string) ([]byte, error) {
 		if len(args) > 0 && args[0] == "show" {
 			calls++
-			if calls == 1 { return []byte("LoadState=loaded\nUnitFileState=enabled\nActiveState=active\n"), nil }
+			if calls == 1 {
+				return []byte("LoadState=loaded\nUnitFileState=enabled\nActiveState=active\n"), nil
+			}
 			return []byte("systemctl unavailable"), errors.New("injected failure")
 		}
 		return nil, nil
 	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := tx.SnapshotUnits("nd-first.service", "nd-second.service"); err == nil {
 		t.Fatal("expected snapshot failure")
 	}
 	if len(tx.journal.Units) != 0 {
 		t.Fatalf("partial systemd snapshot persisted: %+v", tx.journal.Units)
 	}
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestBootstrapRollbackDoesNotRestartUntouchedUnits(t *testing.T) {
@@ -529,9 +672,15 @@ func TestBootstrapRollbackDoesNotRestartUntouchedUnits(t *testing.T) {
 		return nil, nil
 	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotUnits("nd-untouched.service"); err != nil { t.Fatal(err) }
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotUnits("nd-untouched.service"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
 	joined := strings.Join(calls, "\n")
 	if strings.Contains(joined, "restart nd-untouched.service") || strings.Contains(joined, "enable nd-untouched.service") {
 		t.Fatalf("rollback mutated an untouched unit:\n%s", joined)
@@ -551,27 +700,45 @@ func TestBootstrapRollbackRemovesOnlyTransactionCreatedUFWRule(t *testing.T) {
 	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
 	oldLock, oldExec := bootstrapFirewallLock, bootstrapFirewallExec
 	defer func() { bootstrapFirewallLock, bootstrapFirewallExec = oldLock, oldExec }()
-	bootstrapFirewallLock = func() (func(), error) { return func(){}, nil }
+	bootstrapFirewallLock = func() (func(), error) { return func() {}, nil }
 	status := "Status: active\n[ 1] 8445/tcp ALLOW IN 8.8.8.20 # nd-wss-ps\n[ 2] 8444/tcp ALLOW IN 8.8.8.10 # nd-wss-sp\n"
 	var calls []string
 	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) {
 		calls = append(calls, name+" "+strings.Join(args, " "))
-		if name != "ufw" { return nil, fmt.Errorf("unexpected command %s", name) }
-		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" { return []byte(status), nil }
+		if name != "ufw" {
+			return nil, fmt.Errorf("unexpected command %s", name)
+		}
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
+			return []byte(status), nil
+		}
 		if len(args) > 0 && args[0] == "--force" {
-			if !strings.Contains(strings.Join(args, " "), "8.8.8.20") { return nil, fmt.Errorf("wrong rule deletion: %v", args) }
+			if !strings.Contains(strings.Join(args, " "), "8.8.8.20") {
+				return nil, fmt.Errorf("wrong rule deletion: %v", args)
+			}
 			status = "Status: active\n[ 1] 8444/tcp ALLOW IN 8.8.8.10 # nd-wss-sp\n"
 			return nil, nil
 		}
 		return nil, fmt.Errorf("unexpected ufw args: %v", args)
 	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"8.8.8.20", Port:8445, Comment:"nd-wss-ps"}, false); err != nil { t.Fatal(err) }
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
-	if strings.Contains(status, "8.8.8.20") { t.Fatalf("transaction-created rule remains: %s", status) }
-	if !strings.Contains(status, "8.8.8.10") { t.Fatalf("unrelated existing peer rule was removed: %s", status) }
-	if len(calls) != 3 { t.Fatalf("firewall calls = %v, want inspect/delete/verify", calls) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend: "ufw", Source: "8.8.8.20", Port: 8445, Comment: "nd-wss-ps"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(status, "8.8.8.20") {
+		t.Fatalf("transaction-created rule remains: %s", status)
+	}
+	if !strings.Contains(status, "8.8.8.10") {
+		t.Fatalf("unrelated existing peer rule was removed: %s", status)
+	}
+	if len(calls) != 3 {
+		t.Fatalf("firewall calls = %v, want inspect/delete/verify", calls)
+	}
 }
 
 func TestBootstrapRollbackPreservesPreexistingFirewallRule(t *testing.T) {
@@ -584,16 +751,23 @@ func TestBootstrapRollbackPreservesPreexistingFirewallRule(t *testing.T) {
 	t.Cleanup(func() { bootstrapJournalRoot = oldJournalRoot })
 	oldLock, oldExec := bootstrapFirewallLock, bootstrapFirewallExec
 	defer func() { bootstrapFirewallLock, bootstrapFirewallExec = oldLock, oldExec }()
-	bootstrapFirewallLock = func() (func(), error) { return func(){}, nil }
+	bootstrapFirewallLock = func() (func(), error) { return func() {}, nil }
 	calls := 0
 	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) { calls++; return nil, nil }
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
-	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend:"ufw", Source:"8.8.8.20", Port:8445, Comment:"nd-wss-ps"}, true); err != nil { t.Fatal(err) }
-	if err := tx.Rollback(); err != nil { t.Fatal(err) }
-	if calls != 0 { t.Fatalf("pre-existing firewall rule caused %d rollback commands", calls) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{Backend: "ufw", Source: "8.8.8.20", Port: 8445, Comment: "nd-wss-ps"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("pre-existing firewall rule caused %d rollback commands", calls)
+	}
 }
-
 
 func TestBootstrapRollbackAttemptsAllDomainsAfterFileRestoreFailure(t *testing.T) {
 	root := t.TempDir()
@@ -617,32 +791,45 @@ func TestBootstrapRollbackAttemptsAllDomainsAfterFileRestoreFailure(t *testing.T
 		}
 		return nil, nil
 	}
-	bootstrapFirewallLock = func() (func(), error) { return func(){}, nil }
+	bootstrapFirewallLock = func() (func(), error) { return func() {}, nil }
 	bootstrapFirewallExec = func(name string, args ...string) ([]byte, error) {
 		firewallCalls = append(firewallCalls, name+" "+strings.Join(args, " "))
 		return []byte("Status: active\n"), nil
 	}
 	tx, err := beginBootstrapFileTransaction("secondary", "peer-b", 1)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Existing file image with a missing parent makes restoration fail safely.
 	tx.journal.Files = append(tx.journal.Files, bootstrapFileImage{
 		Path: filepath.Join(root, "missing", "managed.conf"), Exists: true,
 		Data: []byte("before"), Mode: 0o600, UID: os.Getuid(), GID: os.Getgid(),
 	})
-	if err := tx.SnapshotUnits("nd-test.service"); err != nil { t.Fatal(err) }
-	if err := tx.MarkUnitsTouched("nd-test.service"); err != nil { t.Fatal(err) }
+	if err := tx.SnapshotUnits("nd-test.service"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.MarkUnitsTouched("nd-test.service"); err != nil {
+		t.Fatal(err)
+	}
 	if err := tx.SnapshotFirewallRule(bootstrapFirewallImage{
 		Backend: "ufw", Source: "8.8.8.20", Port: 8445, Comment: "nd-wss-ps",
-	}, false); err != nil { t.Fatal(err) }
-	if err := tx.Rollback(); err == nil { t.Fatal("expected file restore failure") }
+	}, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err == nil {
+		t.Fatal("expected file restore failure")
+	}
 	if !strings.Contains(strings.Join(systemCalls, "\n"), "daemon-reload") ||
 		!strings.Contains(strings.Join(systemCalls, "\n"), "restart nd-test.service") {
 		t.Fatalf("systemd compensation skipped after file error: %v", systemCalls)
 	}
-	if len(firewallCalls) == 0 { t.Fatal("firewall compensation skipped after file error") }
-	if tx.journal.Phase != "rolling_back" { t.Fatalf("journal phase = %q, want rolling_back", tx.journal.Phase) }
+	if len(firewallCalls) == 0 {
+		t.Fatal("firewall compensation skipped after file error")
+	}
+	if tx.journal.Phase != "rolling_back" {
+		t.Fatalf("journal phase = %q, want rolling_back", tx.journal.Phase)
+	}
 }
-
 
 func TestBootstrapCommitFailureRollsBackAppliedMutations(t *testing.T) {
 	root := t.TempDir()

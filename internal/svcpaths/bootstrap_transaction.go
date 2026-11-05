@@ -6,19 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
-	"net"
 	"time"
 )
 
 const (
-	bootstrapJournalVersion = 2
+	bootstrapJournalVersion  = 2
 	maxBootstrapJournalBytes = 16 << 20
-	maxBootstrapImageBytes = 4 << 20
+	maxBootstrapImageBytes   = 4 << 20
 	maxBootstrapJournalFiles = 128
 )
 
@@ -34,20 +34,28 @@ func acquireBootstrapMutationLock() (func(), error) {
 		return nil, fmt.Errorf("validate bootstrap lock parent: %w", err)
 	}
 	parentInfo, err := os.Lstat(parent)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	parentStat, ok := parentInfo.Sys().(*syscall.Stat_t)
 	if !ok || !parentInfo.IsDir() || parentInfo.Mode()&os.ModeSymlink != 0 ||
 		parentStat.Uid != uint32(os.Geteuid()) || parentInfo.Mode().Perm()&0o022 != 0 {
 		return nil, fmt.Errorf("bootstrap lock parent must be a real directory owned by euid %d and not writable by group/others", os.Geteuid())
 	}
 	fd, err := syscall.Open(bootstrapLockPath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0o600)
-	if err != nil { return nil, fmt.Errorf("open bootstrap mutation lock: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("open bootstrap mutation lock: %w", err)
+	}
 	f := os.NewFile(uintptr(fd), bootstrapLockPath)
 	fail := func(e error) (func(), error) { _ = f.Close(); return nil, e }
 	opened, err := f.Stat()
-	if err != nil { return fail(fmt.Errorf("stat bootstrap mutation lock: %w", err)) }
+	if err != nil {
+		return fail(fmt.Errorf("stat bootstrap mutation lock: %w", err))
+	}
 	pathInfo, err := os.Lstat(bootstrapLockPath)
-	if err != nil { return fail(fmt.Errorf("inspect bootstrap mutation lock: %w", err)) }
+	if err != nil {
+		return fail(fmt.Errorf("inspect bootstrap mutation lock: %w", err))
+	}
 	lockStat, ok := opened.Sys().(*syscall.Stat_t)
 	if !ok || !opened.Mode().IsRegular() || pathInfo.Mode()&os.ModeSymlink != 0 ||
 		!os.SameFile(opened, pathInfo) || lockStat.Uid != uint32(os.Geteuid()) ||
@@ -86,9 +94,9 @@ type bootstrapFileImage struct {
 }
 
 type bootstrapUnitImage struct {
-	Name       string `json:"name"`
-	LoadState  string `json:"load_state"`
-	FileState  string `json:"file_state"`
+	Name        string `json:"name"`
+	LoadState   string `json:"load_state"`
+	FileState   string `json:"file_state"`
 	ActiveState string `json:"active_state"`
 }
 
@@ -102,17 +110,17 @@ type bootstrapFirewallImage struct {
 }
 
 type bootstrapJournal struct {
-	Version   int                  `json:"version"`
-	TxID      string               `json:"tx_id"`
-	Role      string               `json:"role"`
-	PeerID    string               `json:"peer_id,omitempty"`
-	Slot      int                  `json:"slot"`
-	Phase     string               `json:"phase"`
-	CreatedAt time.Time            `json:"created_at"`
-	UpdatedAt time.Time            `json:"updated_at"`
-	Files     []bootstrapFileImage `json:"files"`
-	Units        []bootstrapUnitImage `json:"units,omitempty"`
-	TouchedUnits []string             `json:"touched_units,omitempty"`
+	Version       int                      `json:"version"`
+	TxID          string                   `json:"tx_id"`
+	Role          string                   `json:"role"`
+	PeerID        string                   `json:"peer_id,omitempty"`
+	Slot          int                      `json:"slot"`
+	Phase         string                   `json:"phase"`
+	CreatedAt     time.Time                `json:"created_at"`
+	UpdatedAt     time.Time                `json:"updated_at"`
+	Files         []bootstrapFileImage     `json:"files"`
+	Units         []bootstrapUnitImage     `json:"units,omitempty"`
+	TouchedUnits  []string                 `json:"touched_units,omitempty"`
 	FirewallRules []bootstrapFirewallImage `json:"firewall_rules,omitempty"`
 }
 
@@ -166,15 +174,37 @@ func (tx *bootstrapFileTransaction) persist() error {
 	}
 	tmp := f.Name()
 	cleanup := func() { _ = f.Close(); _ = os.Remove(tmp) }
-	if err := f.Chmod(0o600); err != nil { cleanup(); return err }
-	if n, err := f.Write(b); err != nil { cleanup(); return err } else if n != len(b) { cleanup(); return fmt.Errorf("short bootstrap journal write") }
-	if err := f.Sync(); err != nil { cleanup(); return err }
-	if err := f.Close(); err != nil { _ = os.Remove(tmp); return err }
-	if err := os.Rename(tmp, tx.path); err != nil { _ = os.Remove(tmp); return fmt.Errorf("publish bootstrap journal: %w", err) }
+	if err := f.Chmod(0o600); err != nil {
+		cleanup()
+		return err
+	}
+	if n, err := f.Write(b); err != nil {
+		cleanup()
+		return err
+	} else if n != len(b) {
+		cleanup()
+		return fmt.Errorf("short bootstrap journal write")
+	}
+	if err := f.Sync(); err != nil {
+		cleanup()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, tx.path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("publish bootstrap journal: %w", err)
+	}
 	d, err := os.Open(dir)
-	if err != nil { return fmt.Errorf("open bootstrap journal directory for sync: %w", err) }
+	if err != nil {
+		return fmt.Errorf("open bootstrap journal directory for sync: %w", err)
+	}
 	defer d.Close()
-	if err := d.Sync(); err != nil { return fmt.Errorf("sync bootstrap journal directory: %w", err) }
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("sync bootstrap journal directory: %w", err)
+	}
 	return nil
 }
 
@@ -184,22 +214,32 @@ func (tx *bootstrapFileTransaction) SnapshotFile(path string) error {
 	if tx == nil || tx.journal.Phase != "applying" {
 		return fmt.Errorf("bootstrap file transaction is not applying")
 	}
-	if err := validateBootstrapSnapshotPathForIdentity(tx.journal.Role, tx.journal.Slot, path); err != nil { return err }
+	if err := validateBootstrapSnapshotPathForIdentity(tx.journal.Role, tx.journal.Slot, path); err != nil {
+		return err
+	}
 	for _, image := range tx.journal.Files {
-		if image.Path == path { return nil }
+		if image.Path == path {
+			return nil
+		}
 	}
 	image := bootstrapFileImage{Path: path}
 	info, err := os.Lstat(path)
 	if err != nil {
-		if !os.IsNotExist(err) { return fmt.Errorf("inspect bootstrap target %s: %w", path, err) }
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect bootstrap target %s: %w", path, err)
+		}
 	} else {
 		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 			return fmt.Errorf("bootstrap target %s must be a regular file, not symlink/special", path)
 		}
 		data, err := os.ReadFile(path)
-		if err != nil { return fmt.Errorf("read bootstrap target %s: %w", path, err) }
+		if err != nil {
+			return fmt.Errorf("read bootstrap target %s: %w", path, err)
+		}
 		st, ok := info.Sys().(*syscall.Stat_t)
-		if !ok { return fmt.Errorf("stat metadata unavailable for bootstrap target %s", path) }
+		if !ok {
+			return fmt.Errorf("stat metadata unavailable for bootstrap target %s", path)
+		}
 		image.Exists, image.Data, image.Mode = true, data, info.Mode().Perm()
 		image.UID, image.GID = int(st.Uid), int(st.Gid)
 	}
@@ -210,7 +250,6 @@ func (tx *bootstrapFileTransaction) SnapshotFile(path string) error {
 	}
 	return nil
 }
-
 
 var bootstrapSystemctl = func(args ...string) ([]byte, error) {
 	return exec.Command("systemctl", args...).CombinedOutput()
@@ -223,13 +262,17 @@ func (tx *bootstrapFileTransaction) SnapshotUnits(names ...string) error {
 		return fmt.Errorf("bootstrap file transaction is not applying")
 	}
 	seen := make(map[string]bool, len(tx.journal.Units)+len(names))
-	for _, image := range tx.journal.Units { seen[image.Name] = true }
+	for _, image := range tx.journal.Units {
+		seen[image.Name] = true
+	}
 	pending := make([]bootstrapUnitImage, 0, len(names))
 	for _, name := range names {
 		if !safeUnitName(name) {
 			return fmt.Errorf("invalid systemd unit name %q", name)
 		}
-		if seen[name] { continue }
+		if seen[name] {
+			continue
+		}
 		out, err := bootstrapSystemctl("show", "--property=LoadState", "--property=UnitFileState", "--property=ActiveState", name)
 		text := strings.TrimSpace(string(out))
 		if err != nil && !strings.Contains(text, "LoadState=not-found") && !strings.Contains(text, "LoadState=masked") {
@@ -238,19 +281,23 @@ func (tx *bootstrapFileTransaction) SnapshotUnits(names ...string) error {
 		values := map[string]string{}
 		for _, line := range strings.Split(text, "\n") {
 			key, value, ok := strings.Cut(strings.TrimSpace(line), "=")
-			if ok { values[key] = value }
+			if ok {
+				values[key] = value
+			}
 		}
 		if values["LoadState"] == "" {
 			return fmt.Errorf("snapshot systemd unit %s: missing LoadState in systemctl output %q", name, text)
 		}
-		image := bootstrapUnitImage{Name:name, LoadState:values["LoadState"], FileState:values["UnitFileState"], ActiveState:values["ActiveState"]}
+		image := bootstrapUnitImage{Name: name, LoadState: values["LoadState"], FileState: values["UnitFileState"], ActiveState: values["ActiveState"]}
 		if image.LoadState != "not-found" && (image.FileState == "" || image.ActiveState == "") {
 			return fmt.Errorf("snapshot systemd unit %s: incomplete state in systemctl output %q", name, text)
 		}
 		pending = append(pending, image)
 		seen[name] = true
 	}
-	if len(pending) == 0 { return nil }
+	if len(pending) == 0 {
+		return nil
+	}
 	oldLen := len(tx.journal.Units)
 	tx.journal.Units = append(tx.journal.Units, pending...)
 	if err := tx.persist(); err != nil {
@@ -303,17 +350,26 @@ func (tx *bootstrapFileTransaction) MarkUnitsTouched(names ...string) error {
 		return fmt.Errorf("bootstrap file transaction is not applying")
 	}
 	known := make(map[string]bool, len(tx.journal.Units))
-	for _, image := range tx.journal.Units { known[image.Name] = true }
+	for _, image := range tx.journal.Units {
+		known[image.Name] = true
+	}
 	seen := make(map[string]bool, len(tx.journal.TouchedUnits)+len(names))
-	for _, name := range tx.journal.TouchedUnits { seen[name] = true }
+	for _, name := range tx.journal.TouchedUnits {
+		seen[name] = true
+	}
 	pending := make([]string, 0, len(names))
 	for _, name := range names {
 		if !safeUnitName(name) || !known[name] {
 			return fmt.Errorf("systemd unit %q must be safely snapshotted before mutation", name)
 		}
-		if !seen[name] { pending = append(pending, name); seen[name] = true }
+		if !seen[name] {
+			pending = append(pending, name)
+			seen[name] = true
+		}
 	}
-	if len(pending) == 0 { return nil }
+	if len(pending) == 0 {
+		return nil
+	}
 	oldLen := len(tx.journal.TouchedUnits)
 	tx.journal.TouchedUnits = append(tx.journal.TouchedUnits, pending...)
 	if err := tx.persist(); err != nil {
@@ -325,15 +381,19 @@ func (tx *bootstrapFileTransaction) MarkUnitsTouched(names ...string) error {
 
 func restoreBootstrapUnits(images []bootstrapUnitImage, touched []string) error {
 	wanted := make(map[string]bool, len(touched))
-	for _, name := range touched { wanted[name] = true }
+	for _, name := range touched {
+		wanted[name] = true
+	}
 	var errs []error
-	for i := len(images)-1; i >= 0; i-- {
+	for i := len(images) - 1; i >= 0; i-- {
 		image := images[i]
 		if !safeUnitName(image.Name) {
 			errs = append(errs, fmt.Errorf("unsafe systemd unit name %q in rollback journal", image.Name))
 			continue
 		}
-		if !wanted[image.Name] { continue }
+		if !wanted[image.Name] {
+			continue
+		}
 		if image.LoadState == "not-found" {
 			for _, action := range [][]string{{"stop", image.Name}, {"disable", image.Name}} {
 				out, err := bootstrapSystemctl(action...)
@@ -345,12 +405,16 @@ func restoreBootstrapUnits(images []bootstrapUnitImage, touched []string) error 
 		}
 		isMasked := image.FileState == "masked" || image.FileState == "masked-runtime"
 		out, err := bootstrapSystemctl("unmask", image.Name)
-		if err != nil { errs = append(errs, fmt.Errorf("unmask unit %s for state restoration: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+		if err != nil {
+			errs = append(errs, fmt.Errorf("unmask unit %s for state restoration: %w: %s", image.Name, err, strings.TrimSpace(string(out))))
+		}
 		if !isMasked {
 			switch image.FileState {
 			case "enabled", "enabled-runtime":
 				args := []string{"enable"}
-				if image.FileState == "enabled-runtime" { args = append(args, "--runtime") }
+				if image.FileState == "enabled-runtime" {
+					args = append(args, "--runtime")
+				}
 				args = append(args, image.Name)
 				out, err = bootstrapSystemctl(args...)
 			case "disabled":
@@ -358,47 +422,67 @@ func restoreBootstrapUnits(images []bootstrapUnitImage, touched []string) error 
 			default:
 				out, err = nil, nil // static/indirect/generated/linked/transient units are not enableable
 			}
-			if err != nil { errs = append(errs, fmt.Errorf("restore enablement for %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+			if err != nil {
+				errs = append(errs, fmt.Errorf("restore enablement for %s: %w: %s", image.Name, err, strings.TrimSpace(string(out))))
+			}
 		}
 		if image.ActiveState == "active" || image.ActiveState == "activating" || image.ActiveState == "reloading" {
 			out, err = bootstrapSystemctl("restart", image.Name)
-			if err != nil { errs = append(errs, fmt.Errorf("restart previously active unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+			if err != nil {
+				errs = append(errs, fmt.Errorf("restart previously active unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out))))
+			}
 		} else {
 			out, err = bootstrapSystemctl("stop", image.Name)
-			if err != nil && !unitMissing(string(out)) { errs = append(errs, fmt.Errorf("stop previously inactive unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+			if err != nil && !unitMissing(string(out)) {
+				errs = append(errs, fmt.Errorf("stop previously inactive unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out))))
+			}
 		}
 		if isMasked {
 			args := []string{"mask"}
-			if image.FileState == "masked-runtime" { args = append(args, "--runtime") }
+			if image.FileState == "masked-runtime" {
+				args = append(args, "--runtime")
+			}
 			args = append(args, image.Name)
 			out, err = bootstrapSystemctl(args...)
-			if err != nil { errs = append(errs, fmt.Errorf("restore masked unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out)))) }
+			if err != nil {
+				errs = append(errs, fmt.Errorf("restore masked unit %s: %w: %s", image.Name, err, strings.TrimSpace(string(out))))
+			}
 		}
 	}
 	return errors.Join(errs...)
 }
 
 func (tx *bootstrapFileTransaction) writeFile(path, body string, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil { return err }
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
 	if tx != nil {
-		if err := tx.SnapshotFile(path); err != nil { return err }
+		if err := tx.SnapshotFile(path); err != nil {
+			return err
+		}
 	}
 	return atomicWritePeerFile(path, []byte(body), mode)
 }
 
 func (tx *bootstrapFileTransaction) atomicWritePeerFile(path string, body []byte, mode os.FileMode) error {
 	if tx != nil {
-		if err := tx.SnapshotFile(path); err != nil { return err }
+		if err := tx.SnapshotFile(path); err != nil {
+			return err
+		}
 	}
 	return atomicWritePeerFile(path, body, mode)
 }
 
 func (tx *bootstrapFileTransaction) Rollback() error {
-	if tx == nil { return nil }
+	if tx == nil {
+		return nil
+	}
 	tx.journal.Phase = "rolling_back"
-	if err := tx.persist(); err != nil { return fmt.Errorf("checkpoint rollback: %w", err) }
+	if err := tx.persist(); err != nil {
+		return fmt.Errorf("checkpoint rollback: %w", err)
+	}
 	var errs []error
-	for i := len(tx.journal.Files)-1; i >= 0; i-- {
+	for i := len(tx.journal.Files) - 1; i >= 0; i-- {
 		if err := restoreBootstrapFile(tx.journal.Files[i]); err != nil {
 			errs = append(errs, fmt.Errorf("restore %s: %w", tx.journal.Files[i].Path, err))
 		}
@@ -425,37 +509,52 @@ func (tx *bootstrapFileTransaction) Rollback() error {
 }
 
 func (tx *bootstrapFileTransaction) journalTouchesSystemdUnits() bool {
-	if tx == nil { return false }
+	if tx == nil {
+		return false
+	}
 	for _, image := range tx.journal.Files {
-		if strings.HasPrefix(image.Path, "/etc/systemd/system/") { return true }
+		if strings.HasPrefix(image.Path, "/etc/systemd/system/") {
+			return true
+		}
 	}
 	return false
 }
 
-
 func recoverBootstrapFileTransactions() error {
 	if err := validateBootstrapJournalDirectory(bootstrapJournalRoot); err != nil {
-		if os.IsNotExist(err) { return nil }
+		// validate wraps the lstat error. os.IsNotExist does not unwrap;
+		// a missing journal is an empty history, not an unsafe directory.
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
 	entries, err := os.ReadDir(bootstrapJournalRoot)
 	if err != nil {
-		if os.IsNotExist(err) { return nil }
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return fmt.Errorf("read bootstrap transaction directory: %w", err)
 	}
 	for _, entry := range entries {
 		name := entry.Name()
 		path := filepath.Join(bootstrapJournalRoot, name)
 		info, err := os.Lstat(path)
-		if err != nil { return fmt.Errorf("inspect bootstrap journal entry %s: %w", path, err) }
+		if err != nil {
+			return fmt.Errorf("inspect bootstrap journal entry %s: %w", path, err)
+		}
 		st, ok := info.Sys().(*syscall.Stat_t)
 		if !ok || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
 			st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
 			return fmt.Errorf("bootstrap journal entry %s is not a private regular file owned by euid %d", path, os.Geteuid())
 		}
 		if strings.HasPrefix(name, ".bootstrap-journal-") {
-			if err := os.Remove(path); err != nil { return fmt.Errorf("remove abandoned journal temp %s: %w", path, err) }
-			if err := syncBootstrapDirectory(bootstrapJournalRoot); err != nil { return err }
+			if err := os.Remove(path); err != nil {
+				return fmt.Errorf("remove abandoned journal temp %s: %w", path, err)
+			}
+			if err := syncBootstrapDirectory(bootstrapJournalRoot); err != nil {
+				return err
+			}
 			continue
 		}
 		if !strings.HasSuffix(name, ".json") || len(name) != 37 {
@@ -465,7 +564,9 @@ func recoverBootstrapFileTransactions() error {
 			return fmt.Errorf("bootstrap journal %s has invalid size %d", path, info.Size())
 		}
 		b, err := os.ReadFile(path)
-		if err != nil { return fmt.Errorf("read bootstrap journal %s: %w", path, err) }
+		if err != nil {
+			return fmt.Errorf("read bootstrap journal %s: %w", path, err)
+		}
 		var j bootstrapJournal
 		if err := json.Unmarshal(b, &j); err != nil {
 			return fmt.Errorf("bootstrap journal %s is corrupt; refusing bootstrap: %w", path, err)
@@ -490,7 +591,9 @@ func recoverBootstrapFileTransactions() error {
 				return fmt.Errorf("recover bootstrap transaction %s (role=%s peer=%s slot=%d): %w", j.TxID, j.Role, j.PeerID, j.Slot, err)
 			}
 		case "committed", "rolled_back":
-			if err := tx.removeJournal(); err != nil { return fmt.Errorf("clean completed bootstrap journal %s: %w", path, err) }
+			if err := tx.removeJournal(); err != nil {
+				return fmt.Errorf("clean completed bootstrap journal %s: %w", path, err)
+			}
 		default:
 			return fmt.Errorf("bootstrap journal %s has unknown phase %q; refusing bootstrap", path, j.Phase)
 		}
@@ -557,7 +660,9 @@ func validateBootstrapJournal(j bootstrapJournal, filename string) error {
 			return fmt.Errorf("invalid bootstrap firewall rule tuple")
 		}
 		key := fmt.Sprintf("%s|%s|%s|%d|%s", rule.Backend, rule.Chain, rule.Source, rule.Port, rule.Comment)
-		if seenFirewall[key] { return fmt.Errorf("duplicate bootstrap firewall rule image") }
+		if seenFirewall[key] {
+			return fmt.Errorf("duplicate bootstrap firewall rule image")
+		}
 		seenFirewall[key] = true
 		if rule.Backend == "ufw" {
 			if rule.Chain != "" || (rule.Comment != "nd-wss-sp" && rule.Comment != "nd-wss-ps" && rule.Comment != "nd-svc-sp") {
@@ -572,7 +677,9 @@ func validateBootstrapJournal(j bootstrapJournal, filename string) error {
 		}
 	}
 	for _, image := range j.Files {
-		if image.Path == "" { return fmt.Errorf("empty snapshot path") }
+		if image.Path == "" {
+			return fmt.Errorf("empty snapshot path")
+		}
 		if len(image.Data) > maxBootstrapImageBytes {
 			return fmt.Errorf("snapshot %s exceeds %d bytes", image.Path, maxBootstrapImageBytes)
 		}
@@ -590,12 +697,16 @@ func validateBootstrapJournal(j bootstrapJournal, filename string) error {
 }
 
 func (tx *bootstrapFileTransaction) removeJournal() error {
-	if err := os.Remove(tx.path); err != nil && !os.IsNotExist(err) { return err }
+	if err := os.Remove(tx.path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	return syncBootstrapDirectory(filepath.Dir(tx.path))
 }
 
 func (tx *bootstrapFileTransaction) Commit() error {
-	if tx == nil { return fmt.Errorf("nil bootstrap file transaction") }
+	if tx == nil {
+		return fmt.Errorf("nil bootstrap file transaction")
+	}
 	return tx.finish("committed")
 }
 
@@ -613,8 +724,12 @@ func commitBootstrapTransaction(tx *bootstrapFileTransaction, commit func() erro
 
 func (tx *bootstrapFileTransaction) finish(phase string) error {
 	tx.journal.Phase = phase
-	if err := tx.persist(); err != nil { return fmt.Errorf("checkpoint %s: %w", phase, err) }
-	if err := tx.removeJournal(); err != nil { return fmt.Errorf("remove completed bootstrap journal: %w", err) }
+	if err := tx.persist(); err != nil {
+		return fmt.Errorf("checkpoint %s: %w", phase, err)
+	}
+	if err := tx.removeJournal(); err != nil {
+		return fmt.Errorf("remove completed bootstrap journal: %w", err)
+	}
 	return nil
 }
 
@@ -625,7 +740,9 @@ func validateBootstrapSnapshotPathForIdentity(role string, slot int, path string
 	if slot < 0 || slot >= len(SlotTable()) {
 		return fmt.Errorf("invalid bootstrap transaction slot %d", slot)
 	}
-	if err := validateBootstrapSnapshotPath(path); err != nil { return err }
+	if err := validateBootstrapSnapshotPath(path); err != nil {
+		return err
+	}
 	for _, root := range bootstrapAllowedFileRoots {
 		if root != "/etc/wireguard" && root != "/etc/systemd/system" &&
 			root != "/etc/netductor" && root != "/usr/local/bin" && root != "/var/lib/netductor" {
@@ -639,9 +756,9 @@ func validateBootstrapSnapshotPathForIdentity(role string, slot int, path string
 	allowed := map[string]bool{
 		filepath.Join("/etc/wireguard", s.IfaceSP+".conf"): true,
 		filepath.Join("/etc/wireguard", s.IfacePS+".conf"): true,
-		"/usr/local/bin/nd-svc-paths-health": true,
-		"/etc/systemd/system/nd-svc-paths-health.service": true,
-		"/etc/systemd/system/nd-svc-paths-health.timer": true,
+		"/usr/local/bin/nd-svc-paths-health":               true,
+		"/etc/systemd/system/nd-svc-paths-health.service":  true,
+		"/etc/systemd/system/nd-svc-paths-health.timer":    true,
 	}
 	if role == "primary" {
 		spUnit := "nd-wss-sp-server"
@@ -684,7 +801,9 @@ func validateBootstrapSnapshotPath(path string) error {
 			break
 		}
 	}
-	if !allowed { return fmt.Errorf("bootstrap snapshot path is outside Netductor-managed roots: %q", path) }
+	if !allowed {
+		return fmt.Errorf("bootstrap snapshot path is outside Netductor-managed roots: %q", path)
+	}
 	if rel, err := filepath.Rel(bootstrapJournalRoot, path); err == nil &&
 		(rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)))) {
 		return fmt.Errorf("bootstrap snapshot path must not target the journal store: %q", path)
@@ -693,14 +812,22 @@ func validateBootstrapSnapshotPath(path string) error {
 }
 
 func validateExistingDirectoryChain(dir string) error {
-	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir { return fmt.Errorf("directory path must be clean and absolute: %q", dir) }
+	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir {
+		return fmt.Errorf("directory path must be clean and absolute: %q", dir)
+	}
 	current := string(os.PathSeparator)
 	for _, part := range strings.Split(strings.TrimPrefix(dir, current), current) {
-		if part == "" { continue }
+		if part == "" {
+			continue
+		}
 		current = filepath.Join(current, part)
 		info, err := os.Lstat(current)
-		if err != nil { return err }
-		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() { return fmt.Errorf("path component %s is not a real directory", current) }
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return fmt.Errorf("path component %s is not a real directory", current)
+		}
 	}
 	return nil
 }
@@ -735,9 +862,13 @@ func ensureBootstrapJournalDirectory(dir string) error {
 }
 
 func validateBootstrapJournalDirectory(dir string) error {
-	if err := validateExistingDirectoryChain(dir); err != nil { return fmt.Errorf("unsafe bootstrap journal directory: %w", err) }
+	if err := validateExistingDirectoryChain(dir); err != nil {
+		return fmt.Errorf("unsafe bootstrap journal directory: %w", err)
+	}
 	info, err := os.Lstat(dir)
-	if err != nil { return fmt.Errorf("inspect bootstrap journal directory: %w", err) }
+	if err != nil {
+		return fmt.Errorf("inspect bootstrap journal directory: %w", err)
+	}
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
 		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
@@ -747,34 +878,69 @@ func validateBootstrapJournalDirectory(dir string) error {
 }
 
 func restoreBootstrapFile(image bootstrapFileImage) error {
-	if err := validateBootstrapSnapshotPath(image.Path); err != nil { return err }
+	if err := validateBootstrapSnapshotPath(image.Path); err != nil {
+		return err
+	}
 	dir := filepath.Dir(image.Path)
 	if !image.Exists {
 		if err := validateExistingDirectoryChain(dir); err != nil {
-			if os.IsNotExist(err) { return nil }
+			if os.IsNotExist(err) {
+				return nil
+			}
 			return err
 		}
-		if err := os.Remove(image.Path); err != nil && !os.IsNotExist(err) { return err }
+		if err := os.Remove(image.Path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 		return syncBootstrapDirectory(dir)
 	}
-	if err := validateExistingDirectoryChain(dir); err != nil { return fmt.Errorf("unsafe rollback parent: %w", err) }
-	if err := validateAtomicWriteTarget(image.Path); err != nil { return err }
+	if err := validateExistingDirectoryChain(dir); err != nil {
+		return fmt.Errorf("unsafe rollback parent: %w", err)
+	}
+	if err := validateAtomicWriteTarget(image.Path); err != nil {
+		return err
+	}
 	f, err := os.CreateTemp(dir, ".netductor-rollback-*")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	tmp := f.Name()
 	cleanup := func() { _ = f.Close(); _ = os.Remove(tmp) }
-	if err := f.Chown(image.UID, image.GID); err != nil { cleanup(); return err }
-	if err := f.Chmod(image.Mode); err != nil { cleanup(); return err }
-	if n, err := f.Write(image.Data); err != nil { cleanup(); return err } else if n != len(image.Data) { cleanup(); return fmt.Errorf("short restore write") }
-	if err := f.Sync(); err != nil { cleanup(); return err }
-	if err := f.Close(); err != nil { _ = os.Remove(tmp); return err }
-	if err := os.Rename(tmp, image.Path); err != nil { _ = os.Remove(tmp); return err }
+	if err := f.Chown(image.UID, image.GID); err != nil {
+		cleanup()
+		return err
+	}
+	if err := f.Chmod(image.Mode); err != nil {
+		cleanup()
+		return err
+	}
+	if n, err := f.Write(image.Data); err != nil {
+		cleanup()
+		return err
+	} else if n != len(image.Data) {
+		cleanup()
+		return fmt.Errorf("short restore write")
+	}
+	if err := f.Sync(); err != nil {
+		cleanup()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, image.Path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
 	return syncBootstrapDirectory(dir)
 }
 
 func syncBootstrapDirectory(path string) error {
 	d, err := os.Open(path)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer d.Close()
 	return d.Sync()
 }

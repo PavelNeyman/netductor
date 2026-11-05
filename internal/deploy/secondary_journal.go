@@ -583,7 +583,7 @@ func redactDeploySecrets(s string) string {
 // ensureSecureDir creates dir at 0700 and forces mode if already present.
 
 // safeStageErr is the only error form allowed for sensitive deploy steps.
-// It never embeds remote stdout, JSON, or token material — only stage, op, and a coarse class.
+// It never embeds raw remote stdout, JSON, or token material — only stage, op, and a coarse class.
 func safeStageErr(stage, op string, err error) error {
 	class := "error"
 	detail := ""
@@ -621,6 +621,17 @@ func safeStageErr(stage, op string, err error) error {
 		return fmt.Errorf("%s: %s failed (%s): %s", stage, op, class, detail)
 	}
 	return fmt.Errorf("%s: %s failed (%s)", stage, op, class)
+}
+
+// safeStageErrOut is safeStageErr plus a redacted tail of remote output.
+// Deploy SSH failures otherwise collapse to "exit status N" and hide the reason.
+func safeStageErrOut(stage, op string, err error, remote string) error {
+	base := safeStageErr(stage, op, err)
+	tail := redactDeploySecrets(strings.TrimSpace(remote))
+	if tail == "" {
+		return base
+	}
+	return fmt.Errorf("%w | remote: %s", base, tail)
 }
 
 func ensureSecureDir(dir string) error {

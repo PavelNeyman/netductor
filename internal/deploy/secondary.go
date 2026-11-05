@@ -664,7 +664,7 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		prep := "netductor secondary prepare-pack --name " + ShellQuote(secondaryPackName(o.SecondaryHost)) + " --sni " + ShellQuote(o.SNI)
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, prep, o.PrimaryKeyPassphrase)
 		if err != nil {
-			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErr("prepare-pack", "ssh", err))
+			return failDeploy(&prev, peerIDEarly, "", o.SecondaryHost, safeStageErrOut("prepare-pack", "ssh", err, out))
 		}
 		raw, errJ = extractJSONObject(out)
 		if errJ != nil {
@@ -737,8 +737,12 @@ func deploySecondaryBody(o SecondaryOpts) error {
 				o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost, o.SecondaryHost))
 		}
 		if err != nil {
-			// Never print res.Log on failure — may contain remote join diagnostics.
-			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("secondary-provision", "ssh", err))
+			// Redacted tail only: raw join logs can contain tokens.
+			log := ""
+			if res != nil {
+				log = res.Log
+			}
+			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErrOut("secondary-provision", "ssh", err, log))
 		}
 		if res == nil || !res.AgentOK || !res.SingBoxOK {
 			return failDeploy(&prev, peerIDEarly, pack.AgentID, o.SecondaryHost, safeStageErr("secondary-provision", "health", fmt.Errorf("not healthy")))
@@ -818,13 +822,13 @@ func deploySecondaryBody(o SecondaryOpts) error {
 		rec := "netductor svc-paths peer recover " + ShellQuote(peerID)
 		outR, errR := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, rec, o.PrimaryKeyPassphrase)
 		if errR != nil {
-			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("peer-recover", "ssh", errR))
+			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErrOut("peer-recover", "ssh", errR, outR))
 		}
 		printRemoteAllowlist("peer-recover", outR, "svc-paths", "peer", "recovered")
 		out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, pre, o.PrimaryKeyPassphrase)
 	}
 	if err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("peer-add", "ssh", err))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErrOut("peer-add", "ssh", err, out))
 	}
 	raw, errJ = extractJSONObject(out)
 	if errJ != nil {
@@ -923,10 +927,24 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 
 	var out2 string
 	var err2 error
+	alreadyApplied := false
+	// Manual or previous bootstrap leaves material+units up while the Mac journal
+	// is still at peer_prepared. Verify first so we do not re-ship stdin and die
+	// on a transport error for work that is already done.
 	if useStdinShip {
-		out2, err2 = runSSHOnPortWithStdin(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass, ship)
-	} else {
-		out2, err2 = runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
+		outV, errV := runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, secVerify, secPass)
+		if errV == nil {
+			fmt.Fprintln(os.Stderr, "==> bootstrap-secondary already applied — verify only")
+			alreadyApplied = true
+			out2, err2 = outV, nil
+		}
+	}
+	if !alreadyApplied {
+		if useStdinShip {
+			out2, err2 = runSSHOnPortWithStdin(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass, ship)
+		} else {
+			out2, err2 = runSSHOnPort(day2Port, "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
+		}
 	}
 	if err2 != nil {
 		if o.SSHMode != SSHModeResume && day2Port == "52222" {
@@ -938,11 +956,11 @@ echo "svc-paths secondary ok slot_iface=%s/%s"
 				out2b, err2b = runSSHOnPort("22", "", secKey, o.SecondaryUser, o.SecondaryHost, bootScript, secPass)
 			}
 			if err2b != nil {
-				return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("bootstrap-secondary", "ssh", err2b))
+				return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErrOut("bootstrap-secondary", "ssh", err2b, out2b))
 			}
 			out2 = out2b
 		} else {
-			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("bootstrap-secondary", "ssh", err2))
+			return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErrOut("bootstrap-secondary", "ssh", err2, out2))
 		}
 	}
 	printRemoteAllowlist("bootstrap-secondary", out2, "svc-paths secondary", "join ok")
@@ -1081,7 +1099,7 @@ done
 test "$ok" = 1`, ShellQuote(pack.AgentID))
 	out, err = runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, waitCmd, o.PrimaryKeyPassphrase)
 	if err != nil {
-		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErr("heartbeat", "wait", err))
+		return failDeploy(&prev, peerID, pack.AgentID, o.SecondaryHost, safeStageErrOut("heartbeat", "wait", err, out))
 	}
 	printRemoteAllowlist("heartbeat", out, pack.AgentID, "online")
 

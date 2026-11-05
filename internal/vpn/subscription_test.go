@@ -305,7 +305,7 @@ func TestSubscriptionOmitsEmptyPBK(t *testing.T) {
 	}
 }
 
-func TestSubscriptionExcludesPreparedPeerUntilPromoted(t *testing.T) {
+func TestSubscriptionIncludesPreparedPeerBeforePromote(t *testing.T) {
 	root := t.TempDir()
 	etcDir := filepath.Join(root, "etc")
 	stateDir := filepath.Join(root, "state")
@@ -325,7 +325,9 @@ func TestSubscriptionExcludesPreparedPeerUntilPromoted(t *testing.T) {
 		{"public_ip":"203.0.113.11","pbk":"pbk-a","sid":"sid-a","sni":"sni.example","last_seen":"` + now + `"},
 		{"public_ip":"203.0.113.22","pbk":"pbk-b","sid":"sid-b","sni":"sni.example","last_seen":"` + now + `"}
 	]}`
-	if err := os.WriteFile(devicesPath, []byte(devices), 0o600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(devicesPath, []byte(devices), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	peerDir := filepath.Join(etcDir, "svc-paths")
 	_ = os.MkdirAll(peerDir, 0o700)
 	peerPath := filepath.Join(peerDir, "peers.json")
@@ -333,23 +335,40 @@ func TestSubscriptionExcludesPreparedPeerUntilPromoted(t *testing.T) {
 		t.Helper()
 		aState := "active"
 		activeID := "peer-a"
-		if bState == "active" { aState = "ready"; activeID = "peer-b" }
+		if bState == "active" {
+			aState = "ready"
+			activeID = "peer-b"
+		}
 		raw := `{"version":1,"active_id":"` + activeID + `","peers":[
 			{"id":"peer-a","public_ip":"203.0.113.11","state":"` + aState + `"},
 			{"id":"peer-b","public_ip":"203.0.113.22","state":"` + bState + `"}
 		]}`
-		if err := os.WriteFile(peerPath, []byte(raw), 0o600); err != nil { t.Fatal(err) }
+		if err := os.WriteFile(peerPath, []byte(raw), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	writePeers("prepared")
 	body, err := SubscriptionBody("alice")
-	if err != nil { t.Fatal(err) }
-	if !strings.Contains(body, "pbk-a") || strings.Contains(body, "pbk-b") {
-		t.Fatalf("prepared peer must not be advertised: %q", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, "pbk-a") || !strings.Contains(body, "pbk-b") {
+		t.Fatalf("prepared peer must be advertised next to active: %q", body)
 	}
 	writePeers("active")
 	body, err = SubscriptionBody("alice")
-	if err != nil { t.Fatal(err) }
-	if strings.Contains(body, "pbk-a") || !strings.Contains(body, "pbk-b") {
-		t.Fatalf("after promotion, only the new active peer should be advertised: %q", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, "pbk-a") || !strings.Contains(body, "pbk-b") {
+		t.Fatalf("after promotion, previous ready peer must stay as rollback profile: %q", body)
+	}
+	writePeers("removed")
+	body, err = SubscriptionBody("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, "pbk-a") || strings.Contains(body, "pbk-b") {
+		t.Fatalf("removed peer must not be advertised: %q", body)
 	}
 }
