@@ -355,6 +355,14 @@ func TestSubscriptionIncludesPreparedPeerBeforePromote(t *testing.T) {
 	if !strings.Contains(body, "pbk-a") || !strings.Contains(body, "pbk-b") {
 		t.Fatalf("prepared peer must be advertised next to active: %q", body)
 	}
+	// Active may use stable VPN hostname; prepared must keep its public IP so
+	// the client does not dial the old DNS target with the new Reality keys.
+	if !strings.Contains(body, "@203.0.113.22:443") {
+		t.Fatalf("prepared peer must advertise public IP, not only VPN hostname: %q", body)
+	}
+	if !strings.Contains(body, "@vpn.example.test:443") && !strings.Contains(body, "@203.0.113.11:443") {
+		t.Fatalf("active peer missing from body: %q", body)
+	}
 	writePeers("active")
 	body, err = SubscriptionBody("alice")
 	if err != nil {

@@ -51,19 +51,20 @@ func preferredSecondaryIP() string {
 	return ""
 }
 
-// activeServicePlanePeers returns public IPs that may appear in /sub.
+// activeServicePlanePeers returns public IPs that may appear in /sub and the
+// active peer's public IP (for stable VPN hostname advertising).
 // Registry present: active_id (if still active) plus prepared/ready peers, so a
 // new Secondary can be tested from the subscription before promotion.
 // removed/failed never leak. Missing registry preserves legacy heartbeat-only behavior.
-func activeServicePlanePeers() (map[string]bool, bool) {
+func activeServicePlanePeers() (allowed map[string]bool, activeIP string, present bool) {
 	path := filepath.Join(paths.EtcDir(), "svc-paths", "peers.json")
 	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return nil, false
+		return nil, "", false
 	}
-	allowed := make(map[string]bool)
+	allowed = make(map[string]bool)
 	if err != nil {
-		return allowed, true
+		return allowed, "", true
 	}
 	var index struct {
 		ActiveID string `json:"active_id"`
@@ -74,8 +75,9 @@ func activeServicePlanePeers() (map[string]bool, bool) {
 		} `json:"peers"`
 	}
 	if json.Unmarshal(b, &index) != nil {
-		return allowed, true
+		return allowed, "", true
 	}
+	activeID := strings.TrimSpace(index.ActiveID)
 	for _, peer := range index.Peers {
 		ip := strings.TrimSpace(peer.PublicIP)
 		if ip == "" {
@@ -86,12 +88,13 @@ func activeServicePlanePeers() (map[string]bool, bool) {
 		case "prepared", "ready":
 			allowed[ip] = true
 		case "active":
-			if peer.ID == strings.TrimSpace(index.ActiveID) {
+			if peer.ID == activeID {
 				allowed[ip] = true
+				activeIP = ip
 			}
 		}
 	}
-	return allowed, true
+	return allowed, activeIP, true
 }
 
 func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
@@ -104,7 +107,7 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 		return nil
 	}
 	now := time.Now().UTC()
-	activePeers, hasPeerRegistry := activeServicePlanePeers()
+	activePeers, activeIP, hasPeerRegistry := activeServicePlanePeers()
 	type row struct{ Host, PBK, SID, SNI, PublicIP string }
 	var out []row
 	for _, d := range f.Devices {
@@ -127,9 +130,14 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 		if sniName == "" {
 			sniName = DefaultRealitySNI
 		}
+		// Stable VPN hostname only for the *active* peer (DNS still points at it).
+		// prepared/ready candidates keep public_ip so the client reaches the new
+		// node before promote / DNS cutover — otherwise both profiles hit A.
 		host := d.PublicIP
 		if h := vpnAdvertiseHost(); h != "" {
-			host = h
+			if !hasPeerRegistry || activeIP == "" || d.PublicIP == activeIP {
+				host = h
+			}
 		}
 		out = append(out, row{host, d.PBK, d.SID, sniName, d.PublicIP})
 	}
@@ -178,11 +186,16 @@ func ClientLinkForSecondaryLocal(name, uuid, relayIP, pbk, sid, sniName string) 
 // ClientLinkForSecondaryProfile creates a VLESS URI for one Secondary.
 // The profile label distinguishes entries that share DNS but use different Reality keys.
 func ClientLinkForSecondaryProfile(name, uuid, relayIP, pbk, sid, sniName, profileLabel string) string {
-	host := relayIP
-	if h := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST")); h != "" {
-		host = h
-	} else if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "vpn_hostname")); err == nil && strings.TrimSpace(string(b)) != "" {
-		host = strings.TrimSpace(string(b))
+	// Host policy is applied by loadOnlineSecondarys (active → vpn hostname,
+	// prepared/ready → public IP). Do not force hostname again here — that
+	// made every dual-S profile point at the old DNS target.
+	host := strings.TrimSpace(relayIP)
+	if host == "" {
+		if h := strings.TrimSpace(os.Getenv("NETDUCTOR_VPN_HOST")); h != "" {
+			host = h
+		} else if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "vpn_hostname")); err == nil && strings.TrimSpace(string(b)) != "" {
+			host = strings.TrimSpace(string(b))
+		}
 	}
 	if sniName == "" {
 		sniName = DefaultRealitySNI
