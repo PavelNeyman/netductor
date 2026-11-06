@@ -87,3 +87,28 @@ func TestRunEmpty(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+func TestProbeTCPRemoteNotLocalSS(t *testing.T) {
+	// Local listener must not make a failed remote dial report ok (CF-1).
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+	// TEST-NET-1 — not routed; dial fails while local port is listening.
+	r := probeTCP("192.0.2.1", port, 300*time.Millisecond)
+	ok, _ := r["ok"].(bool)
+	if ok {
+		t.Fatalf("expected ok=false when remote dial fails despite local listen: %v", r)
+	}
+	if via, _ := r["via"].(string); via == "ss" {
+		t.Fatalf("via=ss must not appear on remote TCP probe: %v", r)
+	}
+	// Optional: local_listen uses ss; skip assert if ss unavailable in test env.
+	loc := probeLocalListen(port, false)
+	if ok, _ := loc["ok"].(bool); ok {
+		return
+	}
+	t.Logf("local_listen not detected (ss may be missing): %v", loc)
+}

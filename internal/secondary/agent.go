@@ -157,13 +157,10 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	} else {
 		uplinkFailStreak++
 		fmt.Fprintf(os.Stderr, "service-plane tunnel probe (SP/PS) failed; fail streak=%d\n", uplinkFailStreak)
-		// after 3 consecutive fails: let svc-paths apply switch path; also restart mux if still on vless
-		if uplinkFailStreak >= 3 && sbOK {
-			st := svcpaths.LoadState()
-			if st.UserPath == "vless" {
-				fmt.Fprintf(os.Stderr, "uplink watchdog: restarting sing-box\n")
-				_ = exec.Command("systemctl", "restart", "sing-box").Run()
-			}
+		// CF-2: SP/PS is control-plane (agent↔primary via WG). Do NOT restart sing-box
+		// on fail streak — that drops user VLESS sessions while public :443 may be fine.
+		// Path switching remains in svcpaths.RunSecondaryCycle; heartbeat reports UplinkOK=false.
+		if uplinkFailStreak >= 3 {
 			uplinkFailStreak = 0
 		}
 	}

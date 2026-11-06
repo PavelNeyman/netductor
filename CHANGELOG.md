@@ -1,3 +1,8 @@
+## 0.9.685
+
+- **CF-1:** remote TCP/UDP probes no longer report ok via local `ss` listener (Primary :443 no longer marks Secondary :443 up). New probe type `local_listen` for intentional host checks.
+- **CF-2:** secondary agent uplink watchdog no longer restarts sing-box on SP/PS fail streak (control plane ≠ user plane).
+
 ## 0.9.684
 
 - Doctor: summarize healthy mTLS client certs (one line) instead of one OK per node.

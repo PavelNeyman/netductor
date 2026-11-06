@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — implementation not started in this doc  
+**Status:** open — **CF-1 / CF-2 shipped in 0.9.685**; remaining CF-3…CF-13 open  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -34,7 +34,7 @@ Items already shipped during B firefight (do **not** re-open): opaque SSH errors
 
 ---
 
-## CF-1 — Remote TCP probe false positive (P0)
+## CF-1 — Remote TCP probe false positive (P0) — **done 0.9.685**
 
 **Evidence:** [PROBE-TCP-FALSE-POSITIVE-2026-11-06.md](audits/PROBE-TCP-FALSE-POSITIVE-2026-11-06.md)
 
@@ -52,7 +52,7 @@ Items already shipped during B firefight (do **not** re-open): opaque SSH errors
 
 ---
 
-## CF-2 — Watchdog restarts user plane on service-plane flap (P0)
+## CF-2 — Watchdog restarts user plane on service-plane flap (P0) — **done 0.9.685**
 
 **Evidence:** B agent logs 2026-11-05 and 2026-11-06 ~07:04–07:32 UTC — `service-plane tunnel probe (SP/PS) failed; fail streak=3` → `uplink watchdog: restarting sing-box` → client freezes.
 

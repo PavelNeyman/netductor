@@ -31,17 +31,21 @@ func probeTCP(host string, port int, timeout time.Duration) map[string]any {
 		_ = conn.Close()
 		return map[string]any{"ok": true, "ms": ms}
 	}
-	if ssListening(port, false) {
-		return map[string]any{"ok": true, "ms": ms, "via": "ss"}
-	}
+	// Never treat a *local* listener as success for a remote (or any) dial target.
+	// Primary *:443 must not mark Secondary :443 ok (see CF-1 / PROBE-TCP-FALSE-POSITIVE).
 	return map[string]any{"ok": false, "ms": ms, "error": err.Error()}
+}
+
+// probeLocalListen reports whether this host has a listener on port (TCP or UDP).
+// Separate from probeTCP/probeUDP so metrics never conflate local ss with remote reachability.
+func probeLocalListen(port int, udp bool) map[string]any {
+	t0 := time.Now()
+	ok := ssListening(port, udp)
+	return map[string]any{"ok": ok, "ms": float64(time.Since(t0).Milliseconds()), "via": "ss"}
 }
 
 func probeUDP(host string, port int, timeout time.Duration) map[string]any {
 	t0 := time.Now()
-	if ssListening(port, true) {
-		return map[string]any{"ok": true, "ms": float64(time.Since(t0).Milliseconds()), "via": "ss"}
-	}
 	c, err := net.DialTimeout("udp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
 	if err != nil {
 		return map[string]any{"ok": false, "ms": float64(time.Since(t0).Milliseconds()), "error": err.Error()}
@@ -49,7 +53,8 @@ func probeUDP(host string, port int, timeout time.Duration) map[string]any {
 	_ = c.SetDeadline(time.Now().Add(timeout))
 	_, _ = c.Write([]byte{0})
 	_ = c.Close()
-	return map[string]any{"ok": false, "ms": float64(time.Since(t0).Milliseconds()), "error": "no udp listener"}
+	// UDP dial success does not prove a remote service; keep conservative fail without local ss shortcut.
+	return map[string]any{"ok": false, "ms": float64(time.Since(t0).Milliseconds()), "error": "udp probe inconclusive"}
 }
 
 func probeHTTP(url string, timeout time.Duration, insecure bool) map[string]any {
