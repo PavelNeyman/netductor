@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
 )
 
@@ -282,6 +283,9 @@ func runSvcPeer(args []string) {
 			os.Exit(1)
 		}
 		fmt.Fprintf(os.Stderr, "peer %s prepared slot=%d ip=%s (not promoted)\n", peer.ID, peer.Slot.Index, peer.PublicIP)
+		if err := install.SnapshotHostBaseline(); err != nil {
+			fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(mat)
@@ -327,6 +331,9 @@ func runSvcPeer(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		if err := install.SnapshotHostBaseline(); err != nil {
+			fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
+		}
 		fmt.Println("promoted", args[1])
 	case "rollback":
 		to := ""
@@ -346,6 +353,9 @@ func runSvcPeer(args []string) {
 		if err := svcpaths.PeerRemove(args[1]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
+		}
+		if err := install.SnapshotHostBaseline(); err != nil {
+			fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
 		}
 		fmt.Println("removed", args[1])
 	case "recover":

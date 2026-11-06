@@ -440,20 +440,28 @@ func doctorRunChecks(h doctorHooks) {
 			}
 		}
 		if clients, err := mtls.ListClientCerts(); err == nil {
+			// Summary by default; only print individuals that need attention (revoked / ≤30d).
+			okN, warnN := 0, 0
 			for _, c := range clients {
-				tag := "OK  "
 				if c.Revoked {
 					doctorPrintf(cli18n.T("doctor.mtls_client_revoked")+"\n", c.NodeID, c.Serial)
 					(*h.warn)++
+					warnN++
 					continue
 				}
 				if c.DaysLeft <= 30 {
-					tag = "WARN"
+					doctorPrintf(cli18n.T("doctor.mtls_client_line")+"\n", "WARN", c.NodeID, c.DaysLeft, c.Serial)
 					(*h.warn)++
-				} else {
-					(*h.ok)++
+					warnN++
+					continue
 				}
-				doctorPrintf(cli18n.T("doctor.mtls_client_line")+"\n", tag, c.NodeID, c.DaysLeft, c.Serial)
+				okN++
+			}
+			if okN > 0 {
+				doctorPrintf("OK   mtls clients healthy=%d warn=%d total=%d\n", okN, warnN, len(clients))
+				(*h.ok)++
+			} else if len(clients) == 0 {
+				doctorPrintln("INFO mtls clients none issued")
 			}
 		}
 

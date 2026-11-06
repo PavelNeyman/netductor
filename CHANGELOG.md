@@ -1,3 +1,9 @@
+## 0.9.684
+
+- Doctor: summarize healthy mTLS client certs (one line) instead of one OK per node.
+- `host-baseline apply primary` also runs `servicenet.Ensure` (fixes "service-net: iface missing").
+- Refresh host baseline snapshot after svc-paths peer add/promote/remove so doctor does not WARN on expected slot units/ports/UFW.
+
 ## 0.9.682
 
 - Missing `/var/lib/netductor/bootstrap-transactions` is an empty journal, not a hard failure. `os.IsNotExist` does not unwrap the wrapped lstat error; recover now uses `errors.Is`. This is what blocked peer recover on primary and bootstrap-secondary on B.

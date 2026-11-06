@@ -104,6 +104,9 @@ func EnsureHostBaseline(role string) error {
 		fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
 	}
 	if role == "primary" {
+		if err := servicenet.Ensure(); err != nil {
+			fmt.Fprintf(os.Stderr, "servicenet: %v\n", err)
+		}
 		_ = vpn.EnsureCanarySeed()
 		_ = InstallBackupVerifyTimer()
 	}
