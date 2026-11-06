@@ -27,6 +27,8 @@ Related evidence:
 | P1 | **CF-9** | Secondary `pullAndApply` ignores sing-box restart failure | `internal/secondary/agent.go` |
 | P1 | **CF-10** | Primary `ApplyConfig` ignores local sing-box restart + `bumpSecondaryConfigVer` errors | `internal/vpn/apply.go` |
 | P2 | **CF-11** | `bumpSecondaryConfigVer` silent no-op / dual path `secondary`+`relay` | `internal/vpn/apply.go` |
+| P1 | **CF-12** | APT Guard default policy for Debian 13 (Trixie) | `internal/aptguard` |
+| P1 | **CF-13** | `stack apply` / host update path after manual binary replace | `internal/stack`, update engine |
 
 Items already shipped during B firefight (do **not** re-open): opaque SSH errors (0.9.664), mTLS without SSH stdin tar (0.9.665), join HTTP/1.1 + error tails (0.9.666–672), UFW routed=disabled + keep :22 (0.9.668), harden UFW idempotency / mawk / pipefail (0.9.674–683), prepared `/sub` public IP (0.9.682–683).
 
@@ -218,13 +220,65 @@ return nil
 
 ---
 
+
+## CF-12 — APT Guard policy for Debian Trixie (P1)
+
+**Evidence (primary 2026-11-06):** after host-baseline, doctor still:
+
+`FAIL aptguard … policy_v=1 fail=8` with findings:
+
+- `POLICY_MISMATCH` on `https://deb.debian.org/debian/` suites `trixie` / `trixie-updates` and security `trixie-security` (URI matches policy, suite/components/type/signed-by differ).
+- `MISSING_REQUIRED` for `debian-main` and `debian-security` (required entries not recognized as present).
+- Disabled cdrom line in `sources.list` → INFO only.
+
+**Verdict:** live sources are normal Debian 13 (Trixie). Default **policy v1** is written for an older suite (or stricter shape) and marks a healthy primary as FAIL. Not a broken APT install; not a reason for emergency `aptguard apply`.
+
+**Fix:**
+
+1. Ship default / migration policy that accepts Trixie (`trixie`, `trixie-updates`, `trixie-security`) with current components (`main`, `contrib`, `non-free`, `non-free-firmware`) and HTTPS mirrors.
+2. Map required `debian-main` / `debian-security` to those suites (or rename required keys and document).
+3. Optional: codename detection (`/etc/os-release`) so bookworm hosts keep bookworm policy.
+4. Doctor: after policy fix, `aptguard scan` → status OK or WARN only for true unknowns; no FAIL on stock Trixie sources.list.
+5. **Do not** require operators to `aptguard apply` solely to silence doctor on a correct Trixie mirror set.
+
+**Acceptance:** fresh `netductor aptguard scan` on stock Trixie primary with only official mirrors → no `POLICY_MISMATCH` / `MISSING_REQUIRED` for those lines; doctor aptguard not FAIL.
+
+**Ops until fixed:** leave FAIL; do **not** apply remediation to force policy v1 shape onto Trixie.
+
+---
+
+## CF-13 — Stack apply / normal update path (P1)
+
+**Evidence:** Primary was updated by **manual binary replace** because `netductor stack apply` did not complete successfully in the B-deploy window. Operator stayed on mixed versions (e.g. node 0.9.682, agents 0.9.656 / 0.9.681). Integrity WARN cleared only via `host-baseline apply` (re-snapshot), not via a successful transactional apply.
+
+**Scope:** restore a **safe, usable** apply path so production does not depend on scp/curl of binaries.
+
+**Investigate and fix (code + tests):**
+
+1. **Root cause audit** of recent stack apply failures (journal, bootstrap-transactions, download/SHA, installStagedPair, TG/node restart, post-check). Separate operator mistakes from hard bugs.
+2. **Fail closed with actionable errors** (no silent partial install); surface stage name + next recovery command.
+3. **Transaction / recovery** consistent with migrate + stack design: interrupted apply must be detectable at next start; no mixed Node/TG without recovery path.
+4. **VERSION + integrity:** successful apply must write `/etc/netductor/VERSION` and refresh integrity manifest (overlap with CF-7).
+5. **Secondary agents:** documented path to upgrade B (and A while retained) without manual file drops; align with update-system plan if already in tree.
+6. Regression: dry-run or unit tests around stages that failed in field notes; no requirement to weaken SHA verify.
+
+**Acceptance:**
+
+- On a healthy primary matching current release assets, `stack apply <tag>` completes or fails with a clear stage error and safe rollback/recovery instructions.
+- After success, `netductor version` / VERSION file / doctor integrity agree; no routine need for manual binary replace.
+- Documented operator runbook one-pager linked from this CF when closed.
+
+**Ops until fixed:** prefer host-baseline for firewall/snapshot noise only; do not force stack apply on production solely to quiet doctor.
+
+---
 ## Explicitly out of scope (not code in this backlog)
 
 | Item | Track |
 |------|--------|
 | R5 observation window / retire A | operator — [BLUE-GREEN-SECONDARY.md](BLUE-GREEN-SECONDARY.md) |
 | Edge / NVR / MikroTik lab e2e | [OPEN_ITEMS.md](OPEN_ITEMS.md) |
-| APT Guard / update-system live canary | ops evidence |
+| APT Guard **live apply** canary (after CF-12 policy) | ops evidence |
+| Update-system live canary on VPS | ops — blocked on **CF-13** |
 | Telegram HTMLBubbles | deferred product — [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) |
 | OIDC / read-only guest | future |
 
@@ -243,6 +297,8 @@ return nil
 | Metrics :443 ok while B down | probe `ss` fallback | **CF-1** |
 | Agent config pull / primary apply silent restart | ignored `systemctl restart` / bump | **CF-9**, **CF-10**, **CF-11** |
 | Client freezes, sing-box restarts | SP probe → watchdog | **CF-2**, **CF-3** |
+| Doctor aptguard FAIL on stock Trixie | policy v1 vs trixie suites | **CF-12** |
+| stack apply blocked → manual binary | update/stack transaction | **CF-13** |
 | Sub hostname pointed at A for prepared B | 0.9.682–683 | done |
 
 ---
