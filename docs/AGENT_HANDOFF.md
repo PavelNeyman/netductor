@@ -6,6 +6,9 @@
 
 **Stop line: v0.9.583** (2026-10-27). Edge token-ack retry, atomic recovery reserve, bootstrap perms, rotate-device-token.
 
+
+**Code backlog after Secondary B (2026-11):** [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) — CF-1 probeTCP, CF-2 watchdog, CF-3 slot VIP, … Diag: `scripts/diag-secondary-b.sh`.
+
 **Stop line: v0.9.582** (2026-10-27). Edge bootstrap/token-ack/reissue + recovery rebind.
 
 **0.9.462:** OpenWrt dry-run read-only, storage/VPN/kmod fail-closed, PARTIAL after extroot.

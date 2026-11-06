@@ -15,7 +15,7 @@
 - [Work summary for review (2026-10-29)](reviews/2026-10-29-WORK-SUMMARY.md) · [RU](ru/reviews/2026-10-29-WORK-SUMMARY.md)
 | [AUDIT-ARTIFACTS.md](AUDIT-ARTIFACTS.md) | [ru/AUDIT-ARTIFACTS.md](ru/AUDIT-ARTIFACTS.md) | Audit evidence, secret handling, and status rules |
 | [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md) | [ru/](ru/ARCHITECTURE-FREEZE.md) |
-| [OPEN_ITEMS.md](OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
+| [OPEN_ITEMS.md]; code backlog [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md)(OPEN_ITEMS.md) | [ru/](ru/OPEN_ITEMS.md) |
 | [RECOVER-DRILL.md](RECOVER-DRILL.md) | [ru/](ru/RECOVER-DRILL.md) |
 | [RUNBOOK-INSTALL-RECOVER.md](RUNBOOK-INSTALL-RECOVER.md) | [ru/](ru/RUNBOOK-INSTALL-RECOVER.md) |
 | [DEPLOY-MAC.md](DEPLOY-MAC.md) | [ru/](ru/DEPLOY-MAC.md) |

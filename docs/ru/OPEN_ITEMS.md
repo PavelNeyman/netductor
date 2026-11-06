@@ -1,3 +1,7 @@
+## Бэклог кода после Secondary B
+
+[PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) · EN [../PLAN-CODE-FIXES-AFTER-B.md](../PLAN-CODE-FIXES-AFTER-B.md)
+
 > **Стоп: v0.9.427.** Thin-UI jobs core + аудит Phase 3 + Operate Result dock. Остаётся: доработки по ревью F1–F10 (ниже), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
 
 **RU** · [EN](../OPEN_ITEMS.md)

@@ -128,6 +128,10 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 
 - [x] Unified **project ship** S0–S6 core (0.9.357); UI parity TG/Web open (pause/wait no VPS slot; Mac multi-wait; auto tag) — [PLAN-PROJECT-SHIP.md](PLAN-PROJECT-SHIP.md)
 
+## Code fix backlog (post Secondary B)
+
+Implementation items from B deploy + probe defect: [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) (CF-1…CF-8). RU: [ru/PLAN-CODE-FIXES-AFTER-B.md](ru/PLAN-CODE-FIXES-AFTER-B.md).
+
 ## Owner next
 
 - [x] Force-update live VPS to **0.9.197** (primary stack apply + secondary `cmd upgrade:v0.9.197`) 2026-10-03

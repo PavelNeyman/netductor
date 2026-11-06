@@ -1,0 +1,195 @@
+# Code fix backlog after Secondary B deploy (2026-11)
+
+**Status:** open — implementation not started in this doc  
+**Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
+**Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
+
+Related evidence:
+
+- [audits/PROBE-TCP-FALSE-POSITIVE-2026-11-06.md](audits/PROBE-TCP-FALSE-POSITIVE-2026-11-06.md)
+- Operator notes in [SECONDARY-FIRST-DEPLOY.md](SECONDARY-FIRST-DEPLOY.md)
+- Deploy friction captured during B provisioning (journal, redaction, UFW, join, SP/PS)
+
+---
+
+## Priority order
+
+| P | ID | Title | Area |
+|---|-----|--------|------|
+| P0 | **CF-1** | Remote TCP probe must not succeed via local `ss` | `internal/probes` |
+| P0 | **CF-2** | Uplink watchdog must not restart sing-box solely on SP/PS fail streak | secondary agent |
+| P1 | **CF-3** | Slot-aware agent / heartbeat / uplink VIP (no slot-0 addresses on slot-1 peer) | svc-paths + agent |
+| P1 | **CF-4** | Prepare ↔ host-baseline UFW policy contradiction on `:22` mid-transition | hardening + firewall |
+| P1 | **CF-5** | First-deploy hoster firewall cleanup (optional automated preflight remediation) | deploy / baseline |
+| P2 | **CF-6** | Residual SSH harden edge cases on re-deploy of already-hardened host | hardening |
+| P2 | **CF-7** | Integrity drift after manual binary replace (VERSION vs binary) | stack / doctor |
+| P2 | **CF-8** | Secondary safety plan residual test debt (focused tests never run in CI notes) | tests / CI |
+
+Items already shipped during B firefight (do **not** re-open): opaque SSH errors (0.9.664), mTLS without SSH stdin tar (0.9.665), join HTTP/1.1 + error tails (0.9.666–672), UFW routed=disabled + keep :22 (0.9.668), harden UFW idempotency / mawk / pipefail (0.9.674–683), prepared `/sub` public IP (0.9.682–683).
+
+---
+
+## CF-1 — Remote TCP probe false positive (P0)
+
+**Evidence:** [PROBE-TCP-FALSE-POSITIVE-2026-11-06.md](audits/PROBE-TCP-FALSE-POSITIVE-2026-11-06.md)
+
+**Code:** `internal/probes/run.go` `probeTCP` / `probeUDP`
+
+**Bug:** On dial failure to a **remote** host, success is inferred if **any** local process listens on the same port (`ssListening`). Primary’s `*:443` (sing-box) marks Secondary B `:443` as `ok=true` with `ms≈5000` and `via=ss`.
+
+**Fix:**
+
+1. `probeTCP`/`probeUDP` return only the remote dial (or explicit remote UDP semantics) result.
+2. Local listener health is a **separate** probe type/name (e.g. `local_listen`), never mixed into remote targets.
+3. Regression test: local listener on 443 + failed dial to non-local IP → `ok=false`.
+
+**Acceptance:** history for `secondary-*:443` never shows `ok=true` + timeout-length `ms` solely because Primary listens on 443.
+
+---
+
+## CF-2 — Watchdog restarts user plane on service-plane flap (P0)
+
+**Evidence:** B agent logs 2026-11-05 and 2026-11-06 ~07:04–07:32 UTC — `service-plane tunnel probe (SP/PS) failed; fail streak=3` → `uplink watchdog: restarting sing-box` → client freezes.
+
+**Code:** `internal/secondary/agent.go` (and related svc-paths apply)
+
+**Bug:** SP/PS control-plane probe failures restart **sing-box** (user VLESS path), dropping client sessions even when public `:443` / uplink may still be fine.
+
+**Fix direction:**
+
+1. Separate **control-plane health** (agent↔primary via WG) from **user-plane health** (sing-box / uplink / Reality).
+2. Restart sing-box only on user-plane failure criteria (e.g. local :443 down, uplink dial fail), not on SP/PS streak alone.
+3. SP/PS failures: switch agent URL / alert / optional WG bounce — **not** wholesale sing-box restart.
+4. Tests for streak thresholds and action matrix.
+
+**Acceptance:** simulated SP down does not restart sing-box; user sessions stay up; alerts still fire.
+
+---
+
+## CF-3 — Slot-aware paths on multi-peer (P1)
+
+**Evidence:** On slot-1 B, logs showed heartbeat/uplink targets including **slot-0** addresses (`10.87.11.1`, `10.87.10.1`) interleaved with slot-1 (`10.87.20.1` / `10.87.21.1`).
+
+**Fix direction:**
+
+1. Material + agent apply must pin agent URL and service VIP to **this peer’s slot** only.
+2. Fail closed if material slot ≠ runtime iface/addr.
+3. Doctor/peer validate: flag cross-slot URL.
+
+**Acceptance:** on slot-1 peer, no steady-state traffic to 10.87.10/11 except explicit migration windows documented in code.
+
+---
+
+## CF-4 — Prepare vs host-baseline UFW on `:22` (P1)
+
+**Evidence:** [SECONDARY_DEPLOYMENT_SAFETY_REMEDIATION_PLAN.md](SECONDARY_DEPLOYMENT_SAFETY_REMEDIATION_PLAN.md) residual notes; live B deploy required manual `ufw` comment / order surgery.
+
+**Symptom:** prepare path and `host-baseline apply secondary` disagree on first WAN action for port 22 during transition to key-only `:52222`. Re-deploy / partial harden leaves operator without a policy that satisfies both.
+
+**Fix direction:**
+
+1. Single transition state machine: factory → key-verified → hardened, with one owner of UFW mutations.
+2. After key-only `:52222` proven, baseline must accept hardened policy (deny 22 first) and must not require bootstrap ALLOW.
+3. Mid-transition: baseline either no-ops SSH rules or runs only after finalize success.
+
+**Acceptance:** clean and retry deploy on a host that already has 52222 key-only does not require manual `ufw` comment renames.
+
+---
+
+## CF-5 — First-deploy hoster shell (P1)
+
+**Evidence:** [SECONDARY-FIRST-DEPLOY.md](SECONDARY-FIRST-DEPLOY.md); live B had provider ALLOW 80 / ISPManager 1500 blocking baseline.
+
+**Code today:** preflight **fails closed** if 80/8787–8789 already ALLOW — correct, but operator must clean manually.
+
+**Optional product fix:**
+
+1. Deploy preflight lists offending rules with exact `ufw delete` lines.
+2. Optional explicit flag `--purge-hoster-allows` (or wizard confirm) that removes **only** documented hoster patterns (80, panel ports), never blind `ufw reset`.
+3. Never auto-delete without confirmation in UI/CLI.
+
+**Acceptance:** first deploy on stock hoster image either auto-clears known noise with confirm, or prints a one-shot remediation script; no silent reset.
+
+---
+
+## CF-6 — Harden re-deploy residuals (P2)
+
+Cross-check after 0.9.674–683:
+
+- [ ] Any remaining `netductor-ssh-bootstrap` **comment-only** requirements in prepare/cancel paths (grep `ssh_dropin.go`).
+- [ ] Cancel/rollback vs second Prepare on same host (abandoned timer / bak dir) — regression tests on real systemd preferred over string tests only.
+- [ ] Document which residual items from the safety remediation plan are **verified closed** vs still open; close the checklist in that file by reference to this plan.
+
+---
+
+## CF-7 — Integrity drift noise (P2)
+
+**Evidence:** primary `incident_timeline` flooded with `integrity:drift` (VERSION vs `/usr/local/bin/netductor`) after manual binary replace.
+
+**Fix direction:** doctor/stack should either update VERSION on forced install, or rate-limit / one-shot the alert after intentional offline replace; document recovery: `stack apply` or write VERSION to match binary.
+
+---
+
+## CF-8 — Test / CI debt from safety plan (P2)
+
+Many `[ ] Focused tests have not been executed` lines in the secondary safety remediation plan. Either:
+
+1. Run and mark evidence, or  
+2. Move “must automate” cases into `go test` / CI and delete the stale checklist noise.
+
+Do not treat unrun checkbox text as open product features.
+
+---
+
+## Explicitly out of scope (not code in this backlog)
+
+| Item | Track |
+|------|--------|
+| R5 observation window / retire A | operator — [BLUE-GREEN-SECONDARY.md](BLUE-GREEN-SECONDARY.md) |
+| Edge / NVR / MikroTik lab e2e | [OPEN_ITEMS.md](OPEN_ITEMS.md) |
+| APT Guard / update-system live canary | ops evidence |
+| Telegram HTMLBubbles | deferred product — [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) |
+| OIDC / read-only guest | future |
+
+---
+
+## B deploy friction → code map (chat 2026-11-04…06)
+
+| Symptom during B | Resolution | Backlog |
+|------------------|------------|---------|
+| `ssh failed (error)` empty | 0.9.664 surface redacted errors | done |
+| Journal `provision_started` ambiguous refuse | recovery checkpoint / clear journal ops | done + ops |
+| mTLS install no transaction marker | 0.9.665 base64 pipe | done |
+| `remote join failed` truncated | 0.9.666–667 tails, HTTP/1.1 | done |
+| host-baseline / UFW 80, routed, deny 22 lockout | 0.9.668 + ops cleanup | **CF-5**, **CF-4** residual |
+| Harden finalize ufw skip / pipefail / mawk | 0.9.674–681 | mostly done; **CF-6** audit |
+| Metrics :443 ok while B down | probe `ss` fallback | **CF-1** |
+| Client freezes, sing-box restarts | SP probe → watchdog | **CF-2**, **CF-3** |
+| Sub hostname pointed at A for prepared B | 0.9.682–683 | done |
+
+---
+
+## Implementation notes
+
+- Thin UI: any new flags/status must hit API first; Web/TG/TUI only present.
+- No weakening SSH host-key trust or auto-accept unknown keys.
+- Prefer small commits per CF-id with regression tests.
+
+When a CF item ships: mark `[x]` here, link commit/tag, and trim duplicate wording from evidence docs to a one-line pointer.
+
+---
+
+## Diagnostic script (deploy correctness)
+
+`scripts/diag-secondary-b.sh` — run after promote / when investigating B.
+
+```bash
+# on primary
+ROLE=primary PEER_IP=195.140.147.20 PEER_ID=peer-195-140-147-20 \
+  AGENT_ID=secondary-bb9952c66617ca91 bash scripts/diag-secondary-b.sh
+
+# on secondary B
+ROLE=secondary bash scripts/diag-secondary-b.sh
+```
+
+Checks: active/preferred peer, slot1 units + ping, devices entry, TCP :443 to B, on B — sing-box/agent/WG, mtls files, slot0 VIP leakage in logs, recent watchdog restarts.

@@ -272,22 +272,8 @@ Updated against current `main` after the initial plan commit.
 
 Code is intentionally unchanged. Recorded so the next hardening pass does not rediscover it.
 
-Prepare (`internal/hardening/ssh_dropin.go`):
+---
 
-- If `:22` is listening, prepare writes `factory-ssh-present`, then refuses the snapshot unless numbered UFW contains the exact comment `netductor-ssh-bootstrap`.
-- A factory or previously provisioned host that already allows `22/tcp` under another comment (`factory-ssh`, `OpenSSH`) fails closed: `active UFW is missing the baseline factory SSH transition rule`.
-- Manual workaround used: `ufw allow 22/tcp comment netductor-ssh-bootstrap`.
-- Fix later: treat any existing `22/tcp ALLOW` as the transition rule, or insert the tagged rule ourselves when `:22` is already allowed. Do not require the operator to rename a comment.
+## Remaining code work (moved)
 
-Finalize (same file, `set -e`):
-
-- `ufw allow` / `ufw insert` are not idempotent. On an already-provisioned host they print `Skipping adding existing rule` / `Skipping inserting existing rule` and exit 1.
-- Observed on retry after a partial run: allow skipped, insert skipped, bootstrap rule deleted (`Rule deleted`), then the script exited 1. Desired end state (52222 allow, 22 denied first) was not reached.
-- Fix later: treat UFW "already exists" / skip as success (`|| true` only after confirming the rule is present), and make the deny-then-delete sequence safe to re-run. Verification must still fail closed if `:22` is not denied first after the sequence.
-
-Same host, next stage (join host baseline, still no code change):
-
-- After SSH had already moved to `:52222` key-only, the leftover `22/tcp ALLOW` comment `netductor-ssh-bootstrap` (added only to satisfy prepare) failed host-baseline preflight.
-- Preflight requires the first WAN action on `22` to be `DENY` for IPv4 and IPv6, and no effective `tcp ALLOW from Anywhere` before that deny (`internal/firewall/firewall.go` `checkWAN("22", "DENY", "ssh22")`).
-- So prepare and baseline disagree: prepare refuses without a tagged `22 ALLOW`, baseline refuses while that `ALLOW` is still first. A re-deploy of an already-hardened host cannot satisfy both.
-- Fix later together with the finalize idempotency item: once key-only `:52222` is proven, prepare must not demand a factory `22 ALLOW`, and baseline must not run against a mid-transition policy.
+UFW prepare/finalize residual notes and related follow-ups were moved to [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) (**CF-4**, **CF-5**, **CF-6**). Many harden idempotency issues were fixed in **0.9.674–0.9.683**; re-verify against that plan before re-implementing.

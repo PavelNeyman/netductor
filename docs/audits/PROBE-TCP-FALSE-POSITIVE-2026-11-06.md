@@ -69,7 +69,11 @@ The independent channel/path checks use a separate TCP probe implementation that
 
 This defect does not establish the root cause of the 2026-11-06 network interruption. It explains why this particular probe series was misleading.
 
-## Required correction (not applied)
+## Required correction
+
+**Tracked as CF-1 in [PLAN-CODE-FIXES-AFTER-B.md](../PLAN-CODE-FIXES-AFTER-B.md).** Implementation not applied in the audit commit.
+
+### Required correction (detail)
 
 The remote TCP probe must report the result of the remote dial only. A local-listener check must not turn a failed remote connection into success.
 
