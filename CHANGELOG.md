@@ -1,3 +1,8 @@
+## 0.9.690
+
+- **CF-13:** `stack apply` when already at target tag refreshes VERSION/integrity/baseline only (manual binary replace recovery).
+- Preflight: actionable local-mirror path when SHA256SUMS missing on GitHub; clearer refuse-to-modify error.
+
 ## 0.9.689
 
 - **CF-12:** aptguard policy v2 — components are allowlist (subset OK); classic sources.list without Signed-By accepted for Debian mirrors; migrate stored policy when version behind.

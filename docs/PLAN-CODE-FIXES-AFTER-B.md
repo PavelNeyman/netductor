@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-4/5 0.9.688; CF-12 0.9.689; CF-14 naming recorded**; remaining CF-3…CF-13 open  
+**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-4/5 0.9.688; CF-12 0.9.689; CF-13 0.9.690; CF-14 naming recorded**; remaining CF-3…CF-13 open  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -248,7 +248,7 @@ return nil
 
 ---
 
-## CF-13 — Stack apply / normal update path (P1)
+## CF-13 — Stack apply / normal update path (P1) — **done 0.9.690** (idempotent + preflight UX; full GH asset pipeline still ops)
 
 **Evidence:** Primary was updated by **manual binary replace** because `netductor stack apply` did not complete successfully in the B-deploy window. Operator stayed on mixed versions (e.g. node 0.9.682, agents 0.9.656 / 0.9.681). Integrity WARN cleared only via `host-baseline apply` (re-snapshot), not via a successful transactional apply.
 

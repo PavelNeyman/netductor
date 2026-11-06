@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -62,7 +63,10 @@ func Preflight(tag string) PreflightReport {
 		if localErr := ndupdate.VerifyLocalReleaseAssets(tag, need...); localErr == nil {
 			add(PreflightCheck{ID: "release_sums", OK: true, Critical: true, Detail: fmt.Sprintf("%s local mirror: SHA256SUMS and required assets verified", tag)})
 		} else {
-			add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf("SHA256SUMS unavailable remotely (%v); local mirror unusable (%v)", err, localErr)})
+			mirror := filepath.Join(ndupdate.LocalReleasesDir(), tag)
+			add(PreflightCheck{ID: "release_sums", OK: false, Critical: true, Detail: fmt.Sprintf(
+				"SHA256SUMS unavailable remotely (%v); local mirror unusable (%v). Publish GitHub Release %s with SHA256SUMS + %s + %s, or place the same files under %s/",
+				err, localErr, tag, nodeAsset, tgAsset, mirror)})
 		}
 	} else {
 		missing := []string{}

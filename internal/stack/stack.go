@@ -270,26 +270,42 @@ func attemptDir() string {
 func preparePrevSnapshot(release string) error {
 	root := filepath.Join(paths.StateDir(), "stack")
 	next := filepath.Join(root, "prev.next")
-	if err := os.RemoveAll(next); err != nil { return err }
-	if err := os.MkdirAll(next, 0o755); err != nil { return err }
-	if err := syncDir(root); err != nil { return err }
+	if err := os.RemoveAll(next); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(next, 0o755); err != nil {
+		return err
+	}
+	if err := syncDir(root); err != nil {
+		return err
+	}
 	for _, src := range []string{"/usr/local/bin/netductor", "/usr/local/bin/netductor-tg"} {
 		b, err := os.ReadFile(src)
-		if err != nil { return fmt.Errorf("snapshot %s: %w", src, err) }
-		if err := durableWrite(filepath.Join(next, filepath.Base(src)), b, 0o755); err != nil { return err }
+		if err != nil {
+			return fmt.Errorf("snapshot %s: %w", src, err)
+		}
+		if err := durableWrite(filepath.Join(next, filepath.Base(src)), b, 0o755); err != nil {
+			return err
+		}
 	}
-	if err := durableWrite(filepath.Join(next, "VERSION"), []byte(strings.TrimSpace(release)+"\n"), 0o644); err != nil { return err }
+	if err := durableWrite(filepath.Join(next, "VERSION"), []byte(strings.TrimSpace(release)+"\n"), 0o644); err != nil {
+		return err
+	}
 	return syncDir(next)
 }
 
 func verifySnapshotPair(dir string, tx *applyTx) error {
-	for _, item := range []struct{name, path, want string}{
+	for _, item := range []struct{ name, path, want string }{
 		{"node", filepath.Join(dir, "netductor"), tx.NodeNewSHA},
 		{"tg", filepath.Join(dir, "netductor-tg"), tx.TGNewSHA},
 	} {
 		got, err := fileSHA(item.path)
-		if err != nil { return fmt.Errorf("verify %s last-good snapshot: %w", item.name, err) }
-		if got != item.want { return fmt.Errorf("verify %s last-good snapshot: sha256 mismatch", item.name) }
+		if err != nil {
+			return fmt.Errorf("verify %s last-good snapshot: %w", item.name, err)
+		}
+		if got != item.want {
+			return fmt.Errorf("verify %s last-good snapshot: sha256 mismatch", item.name)
+		}
 	}
 	return nil
 }
@@ -299,20 +315,41 @@ func promotePrevSnapshot() error {
 	prev, next := prevDir(), filepath.Join(root, "prev.next")
 	old := filepath.Join(root, "prev.old")
 	tx, err := loadTx(attemptDir())
-	if err != nil { return fmt.Errorf("load committed transaction for snapshot promotion: %w", err) }
-	if tx.Phase != txCommitted { return fmt.Errorf("refuse snapshot promotion for transaction phase %q", tx.Phase) }
-	if err := verifySnapshotPair(next, tx); err != nil { return err }
-	if err := os.RemoveAll(old); err != nil { return err }
-	if _, err := os.Stat(prev); err == nil {
-		if err := os.Rename(prev, old); err != nil { return err }
-		if err := syncDir(root); err != nil { return err }
-	} else if !os.IsNotExist(err) { return err }
-	if err := os.Rename(next, prev); err != nil {
-		if _, e := os.Stat(old); e == nil { _ = os.Rename(old, prev); _ = syncDir(root) }
+	if err != nil {
+		return fmt.Errorf("load committed transaction for snapshot promotion: %w", err)
+	}
+	if tx.Phase != txCommitted {
+		return fmt.Errorf("refuse snapshot promotion for transaction phase %q", tx.Phase)
+	}
+	if err := verifySnapshotPair(next, tx); err != nil {
 		return err
 	}
-	if err := syncDir(root); err != nil { return err }
-	if err := os.RemoveAll(old); err != nil { return err }
+	if err := os.RemoveAll(old); err != nil {
+		return err
+	}
+	if _, err := os.Stat(prev); err == nil {
+		if err := os.Rename(prev, old); err != nil {
+			return err
+		}
+		if err := syncDir(root); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(next, prev); err != nil {
+		if _, e := os.Stat(old); e == nil {
+			_ = os.Rename(old, prev)
+			_ = syncDir(root)
+		}
+		return err
+	}
+	if err := syncDir(root); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(old); err != nil {
+		return err
+	}
 	return syncDir(root)
 }
 
@@ -323,9 +360,15 @@ func recoverPrevSnapshotSwap() error {
 func recoverPrevSnapshotSwapForOwner(ownerActive bool) error {
 	// An active Apply owns prev.next/prev.old. Startup during its API restart
 	// must not clean up the in-flight directory promotion.
-	if ownerActive { return nil }
+	if ownerActive {
+		return nil
+	}
 	root := filepath.Join(paths.StateDir(), "stack")
-	if _, err := os.Stat(root); os.IsNotExist(err) { return nil } else if err != nil { return err }
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
 	prev := prevDir()
 	next := filepath.Join(root, "prev.next")
 	old := filepath.Join(root, "prev.old")
@@ -343,34 +386,57 @@ func recoverPrevSnapshotSwapForOwner(ownerActive bool) error {
 	}
 	if os.IsNotExist(prevErr) {
 		if committed && nextErr == nil {
-			if err := verifySnapshotPair(next, tx); err != nil { return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err) }
+			if err := verifySnapshotPair(next, tx); err != nil {
+				return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err)
+			}
 			// Finish the first promotion after a crash between commit and rename.
-			if err := os.Rename(next, prev); err != nil { return err }
-			if err := syncDir(root); err != nil { return err }
+			if err := os.Rename(next, prev); err != nil {
+				return err
+			}
+			if err := syncDir(root); err != nil {
+				return err
+			}
 		} else if committed && nextErr != nil && !os.IsNotExist(nextErr) {
 			return fmt.Errorf("inspect staged committed last-good snapshot: %w", nextErr)
 		} else if oldErr == nil {
 			// An uncommitted rename must restore the previous last-good directory.
-			if err := os.Rename(old, prev); err != nil { return err }
-			if err := syncDir(root); err != nil { return err }
+			if err := os.Rename(old, prev); err != nil {
+				return err
+			}
+			if err := syncDir(root); err != nil {
+				return err
+			}
 		}
-	} else if prevErr != nil { return prevErr
+	} else if prevErr != nil {
+		return prevErr
 	} else if committed {
 		// If prev already matches the committed pair, only cleanup remains.
 		// Otherwise finish the promotion from the verified staged directory.
 		prevPairErr := verifySnapshotPair(prev, tx)
 		if prevPairErr != nil {
-			if nextErr != nil { return fmt.Errorf("committed last-good snapshot is invalid and staged replacement is unavailable: %w", prevPairErr) }
-			if err := verifySnapshotPair(next, tx); err != nil { return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err) }
-			if oldErr == nil { return fmt.Errorf("ambiguous last-good promotion: prev differs from committed pair while prev.old exists") }
-			if err := os.Rename(prev, old); err != nil { return err }
-			if err := syncDir(root); err != nil { return err }
+			if nextErr != nil {
+				return fmt.Errorf("committed last-good snapshot is invalid and staged replacement is unavailable: %w", prevPairErr)
+			}
+			if err := verifySnapshotPair(next, tx); err != nil {
+				return fmt.Errorf("committed staged last-good snapshot is invalid: %w", err)
+			}
+			if oldErr == nil {
+				return fmt.Errorf("ambiguous last-good promotion: prev differs from committed pair while prev.old exists")
+			}
+			if err := os.Rename(prev, old); err != nil {
+				return err
+			}
+			if err := syncDir(root); err != nil {
+				return err
+			}
 			if err := os.Rename(next, prev); err != nil {
 				_ = os.Rename(old, prev)
 				_ = syncDir(root)
 				return err
 			}
-			if err := syncDir(root); err != nil { return err }
+			if err := syncDir(root); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -385,33 +451,61 @@ func recoverPrevSnapshotSwapForOwner(ownerActive bool) error {
 		}
 	}
 	// Once prev exists, old is obsolete. An uncommitted tx never promotes next.
-	if err := os.RemoveAll(old); err != nil { return err }
-	if err := os.RemoveAll(next); err != nil { return err }
+	if err := os.RemoveAll(old); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(next); err != nil {
+		return err
+	}
 	return syncDir(root)
 }
 
 // replaceExecutable performs a durable same-filesystem replacement and verifies bytes.
 func replaceExecutable(src, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil { return err }
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return err
+	}
 	tmp := dest + ".new"
-	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) { return err }
+	if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	in, err := os.Open(src)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer in.Close()
 	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	_, copyErr := io.Copy(out, in)
 	chmodErr := out.Chmod(0o755)
 	syncErr := out.Sync()
 	closeErr := out.Close()
 	for _, e := range []error{copyErr, chmodErr, syncErr, closeErr} {
-		if e != nil { _ = os.Remove(tmp); return e }
+		if e != nil {
+			_ = os.Remove(tmp)
+			return e
+		}
 	}
-	if err := os.Rename(tmp, dest); err != nil { _ = os.Remove(tmp); return err }
-	if err := syncDir(filepath.Dir(dest)); err != nil { return err }
-	a, err := fileSHA(src); if err != nil { return err }
-	b, err := fileSHA(dest); if err != nil { return err }
-	if a != b { return fmt.Errorf("replacement verification failed for %s", dest) }
+	if err := os.Rename(tmp, dest); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := syncDir(filepath.Dir(dest)); err != nil {
+		return err
+	}
+	a, err := fileSHA(src)
+	if err != nil {
+		return err
+	}
+	b, err := fileSHA(dest)
+	if err != nil {
+		return err
+	}
+	if a != b {
+		return fmt.Errorf("replacement verification failed for %s", dest)
+	}
 	return nil
 }
 
@@ -434,8 +528,12 @@ func installStagedPairTo(nodeSrc, tgSrc, nodeDest, tgDest, att string) error {
 		{tgDest, "netductor-tg", "tg"},
 	} {
 		st, err := os.Stat(pair.path)
-		if err != nil { return fmt.Errorf("stat required pre-image %s: %w", pair.name, err) }
-		if !st.Mode().IsRegular() { return fmt.Errorf("%s is not a regular file", pair.path) }
+		if err != nil {
+			return fmt.Errorf("stat required pre-image %s: %w", pair.name, err)
+		}
+		if !st.Mode().IsRegular() {
+			return fmt.Errorf("%s is not a regular file", pair.path)
+		}
 		sha, err := durableBackup(pair.path, filepath.Join(att, pair.name))
 		if err != nil {
 			return fmt.Errorf("backup %s: %w", pair.name, err)
@@ -547,7 +645,9 @@ func PromoteLastGood() bool {
 		fmt.Fprintln(os.Stderr, "promote failed:", err)
 		return false
 	}
-	if err := cleanupTerminalAttempt(attemptDir()); err != nil { fmt.Fprintln(os.Stderr, "promote: retain apply journal:", err) }
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+		fmt.Fprintln(os.Stderr, "promote: retain apply journal:", err)
+	}
 	notify.AlertOnce("stack:promote:"+prev, "⬆️ Stack promoted last-good <code>"+prev+"</code> (was <code>"+cur+"</code>)")
 	return true
 }
@@ -641,7 +741,9 @@ func ApplyOpts(tag string, noBackup bool) error {
 	}
 	// Recover stale journal before acquiring this run's owner lock; otherwise
 	// the new lock could make an old incomplete transaction look active.
-	if err := RecoverIncompleteApply(); err != nil { return err }
+	if err := RecoverIncompleteApply(); err != nil {
+		return err
+	}
 	if !TryAcquireApplyLock(tag) {
 		busy, cur, _ := ApplyInProgress()
 		_ = busy
@@ -672,14 +774,34 @@ func ApplyOpts(tag string, noBackup bool) error {
 		applyFail = fmt.Errorf("refuse downgrade: running %s > target %s (use manual binary replace if intentional)", cur, want)
 		return applyFail
 	}
+	// CF-13: binary already at target (e.g. after intentional manual replace) —
+	// skip download/install; refresh VERSION, integrity, baseline so doctor is quiet.
+	if cur != "" && want != "" && cur == want {
+		fmt.Fprintf(os.Stderr, "stack apply: already running %s — refresh VERSION/integrity/baseline only\n", tag)
+		ndupdate.WriteVERSION(tag)
+		saveCurrent(tag)
+		if err := integrity.WriteManifest(); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: write integrity manifest:", err)
+		}
+		if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
+			applyFail = fmt.Errorf("host baseline while already at %s: %w", tag, err)
+			return applyFail
+		}
+		applyOK = true
+		notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack already at <code>"+tag+"</code> (metadata refreshed)")
+		return nil
+	}
 	pf := Preflight(tag)
 	fmt.Fprint(os.Stderr, FormatPreflight(pf))
 	if !pf.OK {
-		applyFail = fmt.Errorf("preflight failed for %s; refusing to modify installed binaries", tag)
+		applyFail = fmt.Errorf("preflight failed for %s (see checks above; missing GitHub assets → publish release or local mirror under /var/lib/netductor/releases/%s); refusing to modify installed binaries", tag, tag)
 		return applyFail
 	}
 	// Only terminal evidence can be cleaned before a new attempt.
-	if err := cleanupTerminalAttempt(attemptDir()); err != nil { applyFail = fmt.Errorf("clean previous apply evidence: %w", err); return applyFail }
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+		applyFail = fmt.Errorf("clean previous apply evidence: %w", err)
+		return applyFail
+	}
 	if !noBackup {
 		fmt.Fprintln(os.Stderr, "stack apply: pre-backup")
 		path, err := install.Backup()
@@ -840,10 +962,14 @@ func ApplyOpts(tag string, noBackup bool) error {
 func rollbackApplyFailure(att string, cause error) error {
 	tx, err := loadTx(att)
 	if err != nil {
-		if os.IsNotExist(err) { return cause }
+		if os.IsNotExist(err) {
+			return cause
+		}
 		return fmt.Errorf("%v; load rollback journal: %w", cause, err)
 	}
-	if err := rollbackPair(att, tx); err != nil { return fmt.Errorf("%v; rollback blocked: %w", cause, err) }
+	if err := rollbackPair(att, tx); err != nil {
+		return fmt.Errorf("%v; rollback blocked: %w", cause, err)
+	}
 	var rollbackPostcheckErrs []string
 	if err := saveCurrentFromInstalledNode(); err != nil {
 		rollbackPostcheckErrs = append(rollbackPostcheckErrs, "current release metadata: "+err.Error())
@@ -867,7 +993,9 @@ func rollbackApplyFailure(att string, cause error) error {
 	if len(rollbackPostcheckErrs) == 0 {
 		for _, unit := range []string{"netductor-api", "netductor-telegram-bot"} {
 			active, _ := unitState(unit)
-			if active != "active" { rollbackPostcheckErrs = append(rollbackPostcheckErrs, unit+" is "+active) }
+			if active != "active" {
+				rollbackPostcheckErrs = append(rollbackPostcheckErrs, unit+" is "+active)
+			}
 		}
 	}
 	if len(rollbackPostcheckErrs) > 0 {
@@ -879,31 +1007,55 @@ func rollbackApplyFailure(att string, cause error) error {
 func restoreFrom(dir string) error {
 	// Recover before taking our own lock so an old journal is not mistaken for
 	// this restore's active transaction.
-	if err := RecoverIncompleteApply(); err != nil { return err }
-	if !TryAcquireApplyLock("manual-restore") { return fmt.Errorf("another stack apply/restore is active") }
+	if err := RecoverIncompleteApply(); err != nil {
+		return err
+	}
+	if !TryAcquireApplyLock("manual-restore") {
+		return fmt.Errorf("another stack apply/restore is active")
+	}
 	defer ClearApplyLock()
-	if err := cleanupTerminalAttempt(attemptDir()); err != nil { return err }
+	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
+		return err
+	}
 
 	root := filepath.Join(paths.StateDir(), "stack")
 	stage := filepath.Join(root, "restore-stage")
-	if err := os.RemoveAll(stage); err != nil { return err }
-	if err := os.MkdirAll(stage, 0o700); err != nil { return err }
+	if err := os.RemoveAll(stage); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(stage, 0o700); err != nil {
+		return err
+	}
 	defer os.RemoveAll(stage)
 	for _, name := range []string{"netductor", "netductor-tg"} {
 		src := filepath.Join(dir, name)
 		st, err := os.Stat(src)
-		if err != nil { return fmt.Errorf("rollback source %s: %w", name, err) }
-		if !st.Mode().IsRegular() { return fmt.Errorf("rollback source %s is not a regular file", name) }
+		if err != nil {
+			return fmt.Errorf("rollback source %s: %w", name, err)
+		}
+		if !st.Mode().IsRegular() {
+			return fmt.Errorf("rollback source %s is not a regular file", name)
+		}
 		data, err := os.ReadFile(src)
-		if err != nil { return err }
-		if err := durableWrite(filepath.Join(stage, name), data, 0o755); err != nil { return err }
+		if err != nil {
+			return err
+		}
+		if err := durableWrite(filepath.Join(stage, name), data, 0o755); err != nil {
+			return err
+		}
 	}
 	release := ""
 	if b, err := os.ReadFile(filepath.Join(dir, "VERSION")); err == nil {
 		release = strings.TrimSpace(string(b))
-	} else if !os.IsNotExist(err) { return err }
-	if release == "" { release = parseVerField(binVersion(filepath.Join(stage, "netductor"))) }
-	if release == "" { return fmt.Errorf("rollback source has no verifiable release marker") }
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if release == "" {
+		release = parseVerField(binVersion(filepath.Join(stage, "netductor")))
+	}
+	if release == "" {
+		return fmt.Errorf("rollback source has no verifiable release marker")
+	}
 
 	if err := installStagedPair(filepath.Join(stage, "netductor"), filepath.Join(stage, "netductor-tg")); err != nil {
 		return rollbackApplyFailure(attemptDir(), fmt.Errorf("install rollback pair: %w", err))
@@ -917,7 +1069,7 @@ func restoreFrom(dir string) error {
 	if err := exec.Command("systemctl", "restart", "netductor-api").Run(); err != nil {
 		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback restart netductor-api: %w", err))
 	}
-	if !waitAPIHealthy(30*time.Second) {
+	if !waitAPIHealthy(30 * time.Second) {
 		return rollbackApplyFailure(attemptDir(), fmt.Errorf("rollback API health/migrations check failed"))
 	}
 	// Start Telegram only after the API has completed startup migrations.
