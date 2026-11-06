@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-14 naming recorded**; remaining CF-3…CF-13 open  
+**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-4 + CF-5 partial 0.9.688; CF-14 naming recorded**; remaining CF-3…CF-13 open  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -86,7 +86,7 @@ Items already shipped during B firefight (do **not** re-open): opaque SSH errors
 
 ---
 
-## CF-4 — Prepare vs host-baseline UFW on `:22` (P1)
+## CF-4 — Prepare vs host-baseline UFW on `:22` (P1) — **done 0.9.688**
 
 **Evidence:** [SECONDARY_DEPLOYMENT_SAFETY_REMEDIATION_PLAN.md](SECONDARY_DEPLOYMENT_SAFETY_REMEDIATION_PLAN.md) residual notes; live B deploy required manual `ufw` comment / order surgery.
 
@@ -102,7 +102,7 @@ Items already shipped during B firefight (do **not** re-open): opaque SSH errors
 
 ---
 
-## CF-5 — First-deploy hoster shell (P1)
+## CF-5 — First-deploy hoster shell (P1) — **partial 0.9.688 (actionable preflight)**
 
 **Evidence:** [SECONDARY-FIRST-DEPLOY.md](SECONDARY-FIRST-DEPLOY.md); live B had provider ALLOW 80 / ISPManager 1500 blocking baseline.
 

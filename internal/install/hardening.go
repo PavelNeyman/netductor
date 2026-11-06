@@ -80,12 +80,20 @@ func EnsureHostBaseline(role string) error {
 	if role != "primary" && role != "secondary" {
 		return fmt.Errorf("role must be primary|secondary, got %q", role)
 	}
-	// Secondary installs may still be connected through factory SSH :22.
-	// Keep :22 and the hardened port open until the deploy workflow verifies
-	// key-only access and runs its explicit SSH finalize phase.
+	// CF-4: single owner of secondary SSH UFW transition.
+	// - Factory path (:22 still listening): bootstrap profile keeps temporary ALLOW :22.
+	// - Hardened path (key-only :52222, no :22 listener): full role policy with DENY :22
+	//   and removal of netductor-ssh-bootstrap leftovers.
+	// Do not reopen :22 on already-hardened secondaries via baseline.
 	if role == "secondary" {
-		if err := firewall.ApplyRoleBootstrap(role); err != nil {
-			return fmt.Errorf("apply secondary bootstrap firewall policy: %w", err)
+		if secondarySSHReadyHardened() {
+			if err := firewall.ApplyRole(role); err != nil {
+				return fmt.Errorf("apply secondary hardened firewall policy: %w", err)
+			}
+		} else {
+			if err := firewall.ApplyRoleBootstrap(role); err != nil {
+				return fmt.Errorf("apply secondary bootstrap firewall policy: %w", err)
+			}
 		}
 	} else if err := firewall.ApplyRole(role); err != nil {
 		return err
@@ -117,4 +125,19 @@ func EnsureHostBaseline(role string) error {
 		fmt.Fprintln(os.Stderr, "state repair:", n)
 	}
 	return nil
+}
+
+// secondarySSHReadyHardened is true when the host already runs key-only SSH on the
+// netductor port and factory :22 is no longer listening. Baseline must not re-open :22.
+func secondarySSHReadyHardened() bool {
+	const hardenedPort = uint16(52222)
+	listen22, err22 := firewall.TCPPortListening(22)
+	if err22 != nil {
+		return false
+	}
+	listenH, errH := firewall.TCPPortListening(hardenedPort)
+	if errH != nil {
+		return false
+	}
+	return listenH && !listen22
 }

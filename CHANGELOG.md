@@ -1,3 +1,8 @@
+## 0.9.688
+
+- **CF-4:** `host-baseline` on secondary uses hardened `ApplyRole` when :52222 listens and :22 does not; removes leftover `netductor-ssh-bootstrap` allows before DENY 22.
+- **CF-5 (partial):** secondary UFW preflight error includes exact `ufw delete N` remediation (no auto-reset).
+
 ## 0.9.687
 
 - **CF-9:** secondary `pullAndApply` — restart + is-active before writing `bundle.json`; failed restart does not advance applied marker.

@@ -7,12 +7,12 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -77,32 +77,51 @@ type wssMaterial struct {
 func readFirewallJSON(path string, dst any) (bool, error) {
 	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if err != nil {
-		if err == unix.ENOENT { return false, nil }
+		if err == unix.ENOENT {
+			return false, nil
+		}
 		return false, fmt.Errorf("open %s: %w", path, err)
 	}
 	f := os.NewFile(uintptr(fd), path)
-	if f == nil { _ = unix.Close(fd); return false, fmt.Errorf("open file handle for %s", path) }
+	if f == nil {
+		_ = unix.Close(fd)
+		return false, fmt.Errorf("open file handle for %s", path)
+	}
 	defer f.Close()
 	var st unix.Stat_t
-	if err := unix.Fstat(fd, &st); err != nil { return false, fmt.Errorf("stat %s: %w", path, err) }
+	if err := unix.Fstat(fd, &st); err != nil {
+		return false, fmt.Errorf("stat %s: %w", path, err)
+	}
 	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 1<<20 {
 		return false, fmt.Errorf("%s must be an owned regular file, not group/world-writable, and <=1MiB", path)
 	}
 	// These files can contain WireGuard private keys. Tighten legacy
 	// owner-readable modes in place; never accept group/world-writable files.
 	if st.Mode&0o077 != 0 {
-		if err := f.Chmod(0o600); err != nil { return false, fmt.Errorf("secure permissions on %s: %w", path, err) }
-		if err := f.Sync(); err != nil { return false, fmt.Errorf("sync secure permissions on %s: %w", path, err) }
+		if err := f.Chmod(0o600); err != nil {
+			return false, fmt.Errorf("secure permissions on %s: %w", path, err)
+		}
+		if err := f.Sync(); err != nil {
+			return false, fmt.Errorf("sync secure permissions on %s: %w", path, err)
+		}
 	}
 	b, err := io.ReadAll(io.LimitReader(f, (1<<20)+1))
-	if err != nil { return false, fmt.Errorf("read %s: %w", path, err) }
-	if len(b) > 1<<20 { return false, fmt.Errorf("%s exceeds 1MiB", path) }
-	if err := json.Unmarshal(b, dst); err != nil { return false, fmt.Errorf("parse %s: %w", path, err) }
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	if len(b) > 1<<20 {
+		return false, fmt.Errorf("%s exceeds 1MiB", path)
+	}
+	if err := json.Unmarshal(b, dst); err != nil {
+		return false, fmt.Errorf("parse %s: %w", path, err)
+	}
 	return true, nil
 }
 
 func roleWSSPorts(role string) []string {
-	if role == "primary" { return []string{"8444", "8454", "8464", "8474"} }
+	if role == "primary" {
+		return []string{"8444", "8454", "8464", "8474"}
+	}
 	return []string{"8445", "8455", "8465", "8475"}
 }
 
@@ -115,19 +134,32 @@ func wssExpectations(role string) ([]wssExpectation, error) {
 			return fmt.Errorf("invalid %s WSS peer tuple port=%d source=%q", role, port, source)
 		}
 		valid := false
-		for _, p := range roleWSSPorts(role) { if p == strconv.Itoa(port) { valid = true; break } }
-		if !valid { return fmt.Errorf("unexpected %s WSS port %d (not in reserved slot table)", role, port) }
+		for _, p := range roleWSSPorts(role) {
+			if p == strconv.Itoa(port) {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("unexpected %s WSS port %d (not in reserved slot table)", role, port)
+		}
 		out = append(out, wssExpectation{Port: strconv.Itoa(port), Source: ip.To4().String()})
 		return nil
 	}
 	if role == "primary" {
 		var idx wssPeerIndex
 		exists, err := readFirewallJSON(filepath.Join(dir, "peers.json"), &idx)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		if exists {
 			for _, p := range idx.Peers {
-				if p.State == "removed" || p.State == "removing" { continue }
-				if err := add(p.Slot.WSSSP, p.PublicIP); err != nil { return nil, err }
+				if p.State == "removed" || p.State == "removing" {
+					continue
+				}
+				if err := add(p.Slot.WSSSP, p.PublicIP); err != nil {
+					return nil, err
+				}
 			}
 			// An existing empty registry is authoritative: do not resurrect a
 			// retired legacy material.json peer after the last managed peer is removed.
@@ -135,21 +167,33 @@ func wssExpectations(role string) ([]wssExpectation, error) {
 		}
 		var legacy wssMaterial
 		exists, err = readFirewallJSON(filepath.Join(dir, "material.json"), &legacy)
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 		if exists && legacy.Secondary != "" {
 			port := legacy.WSSSP
-			if port == 0 { port = 8444 }
-			if err := add(port, legacy.Secondary); err != nil { return nil, err }
+			if port == 0 {
+				port = 8444
+			}
+			if err := add(port, legacy.Secondary); err != nil {
+				return nil, err
+			}
 		}
 		return out, nil
 	}
 	var local wssMaterial
 	exists, err := readFirewallJSON(filepath.Join(dir, "material.json"), &local)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if exists && local.Primary != "" {
 		port := local.WSSPS
-		if port == 0 { port = 8445 }
-		if err := add(port, local.Primary); err != nil { return nil, err }
+		if port == 0 {
+			port = 8445
+		}
+		if err := add(port, local.Primary); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }
@@ -192,7 +236,9 @@ func registeredPeerAgentSources() ([]string, error) {
 // expected to be globally exposed; prepared peers are included for blue-green.
 func verifyWSSRules(rules []ufwRule, role string) error {
 	expected, err := wssExpectations(role)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	ports := append(roleWSSPorts("primary"), roleWSSPorts("secondary")...)
 	for _, e := range expected {
 		action, found := firstTCPActionFromSource(rules, e.Port, e.Source, false)
@@ -201,18 +247,32 @@ func verifyWSSRules(rules []ufwRule, role string) error {
 		}
 	}
 	for _, rule := range rules {
-		if !ufwRuleAllowsTraffic(rule.Action) { continue }
+		if !ufwRuleAllowsTraffic(rule.Action) {
+			continue
+		}
 		isWSS := false
-		for _, port := range ports { if ufwRuleMatchesPortTCP(rule, port) { isWSS = true; break } }
-		if !isWSS { continue }
+		for _, port := range ports {
+			if ufwRuleMatchesPortTCP(rule, port) {
+				isWSS = true
+				break
+			}
+		}
+		if !isWSS {
+			continue
+		}
 		if rule.IPv6 || ufwFromIsWAN(rule.From) {
 			return fmt.Errorf("%s WSS port %s has broad/IPv6 ALLOW from %s", role, rule.Port, rule.From)
 		}
 		matched := false
 		for _, e := range expected {
-			if e.Port == rule.Port && ufwSourceCovers(e.Source, rule.From) { matched = true; break }
+			if e.Port == rule.Port && ufwSourceCovers(e.Source, rule.From) {
+				matched = true
+				break
+			}
 		}
-		if !matched { return fmt.Errorf("%s WSS port %s has unregistered ALLOW from %s", role, rule.Port, rule.From) }
+		if !matched {
+			return fmt.Errorf("%s WSS port %s has unregistered ALLOW from %s", role, rule.Port, rule.From)
+		}
 	}
 	return nil
 }
@@ -311,29 +371,43 @@ func hasExactWSSPeerAllow(rules []ufwRule, e wssExpectation) bool {
 
 func ensureWSSAllowRules(role string) error {
 	expected, err := wssExpectations(role)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	status, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
-	if err != nil { return fmt.Errorf("inspect UFW before WSS peer migration: %v (%s)", err, truncate(string(status), 160)) }
+	if err != nil {
+		return fmt.Errorf("inspect UFW before WSS peer migration: %v (%s)", err, truncate(string(status), 160))
+	}
 	rules := parseUfwNumbered(string(status))
 	active := strings.Contains(string(status), "Status: active")
 	for _, e := range expected {
 		if active {
 			action, found := firstTCPActionFromSource(rules, e.Port, e.Source, false)
 			if found {
-				if action != "ALLOW" { return fmt.Errorf("WSS %s from %s is shadowed by %s; refusing to reorder administrator rules", e.Port, e.Source, action) }
+				if action != "ALLOW" {
+					return fmt.Errorf("WSS %s from %s is shadowed by %s; refusing to reorder administrator rules", e.Port, e.Source, action)
+				}
 				continue
 			}
 		}
 		comment := "nd-wss-sp"
-		if role == "secondary" { comment = "nd-wss-ps" }
+		if role == "secondary" {
+			comment = "nd-wss-ps"
+		}
 		out, addErr := exec.Command("ufw", "allow", "from", e.Source, "to", "any", "port", e.Port, "proto", "tcp", "comment", comment).CombinedOutput()
-		if addErr != nil { return fmt.Errorf("install source-restricted WSS %s from %s: %v (%s)", e.Port, e.Source, addErr, truncate(string(out), 160)) }
+		if addErr != nil {
+			return fmt.Errorf("install source-restricted WSS %s from %s: %v (%s)", e.Port, e.Source, addErr, truncate(string(out), 160))
+		}
 		status, err = exec.Command("ufw", "status", "numbered").CombinedOutput()
-		if err != nil { return fmt.Errorf("verify WSS rule %s: %v (%s)", e.Port, err, truncate(string(status), 160)) }
+		if err != nil {
+			return fmt.Errorf("verify WSS rule %s: %v (%s)", e.Port, err, truncate(string(status), 160))
+		}
 		rules = parseUfwNumbered(string(status))
 		active = strings.Contains(string(status), "Status: active")
 	}
-	if !active { return nil } // UFW hides ordered rules until enabled; post-enable verification is mandatory.
+	if !active {
+		return nil
+	} // UFW hides ordered rules until enabled; post-enable verification is mandatory.
 	return verifyWSSRules(rules, role)
 }
 
@@ -411,7 +485,9 @@ func RemoveLegacyGlobalWSSRules(status, role string) error {
 	}
 	var numbers []int
 	for _, rule := range parseUfwNumbered(status) {
-		if rule.Action != "ALLOW" || !ufwFromIsWAN(rule.From) || (rule.Port != "8444" && rule.Port != "8445") { continue }
+		if rule.Action != "ALLOW" || !ufwFromIsWAN(rule.From) || (rule.Port != "8444" && rule.Port != "8445") {
+			continue
+		}
 		if strings.Contains(rule.Raw, "nd-wss-sp") || strings.Contains(rule.Raw, "nd-wss-ps") {
 			numbers = append(numbers, rule.Num)
 		}
@@ -419,7 +495,9 @@ func RemoveLegacyGlobalWSSRules(status, role string) error {
 	sort.Sort(sort.Reverse(sort.IntSlice(numbers)))
 	for _, n := range numbers {
 		out, err := exec.Command("ufw", "--force", "delete", strconv.Itoa(n)).CombinedOutput()
-		if err != nil { return fmt.Errorf("remove legacy global WSS rule %d: %v (%s)", n, err, truncate(string(out), 160)) }
+		if err != nil {
+			return fmt.Errorf("remove legacy global WSS rule %d: %v (%s)", n, err, truncate(string(out), 160))
+		}
 	}
 	return nil
 }
@@ -462,7 +540,6 @@ func EnsureInstalled() (Backend, error) {
 
 func truncate(s string, n int) string { return format.Truncate(strings.TrimSpace(s), n) }
 
-
 // acquireFirewallApplyLock serializes Netductor firewall mutations across processes.
 // It does not coordinate with UFW, iptables, or other external firewall managers.
 func AcquireMutationLock() (func(), error) {
@@ -473,7 +550,9 @@ func AcquireMutationLock() (func(), error) {
 // to wait indefinitely. Bootstrap rollback uses this so recovery cannot hang
 // behind another firewall operation forever.
 func AcquireMutationLockTimeout(timeout time.Duration) (func(), error) {
-	if timeout <= 0 { return nil, fmt.Errorf("firewall: lock timeout must be positive") }
+	if timeout <= 0 {
+		return nil, fmt.Errorf("firewall: lock timeout must be positive")
+	}
 	return acquireMutationLock(timeout)
 }
 
@@ -504,7 +583,9 @@ func acquireMutationLock(timeout time.Duration) (func(), error) {
 		deadline := time.Now().Add(timeout)
 		for {
 			err := unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
-			if err == nil { break }
+			if err == nil {
+				break
+			}
 			if err != unix.EWOULDBLOCK && err != unix.EAGAIN {
 				_ = unix.Close(fd)
 				return nil, fmt.Errorf("firewall: acquire apply lock: %w", err)
@@ -528,6 +609,9 @@ func ApplyRole(role string) error { return applyRole(role, false) }
 // ApplyRoleBootstrap applies the secondary profile while preserving the factory
 // SSH port 22 as a temporary management path. RemoteHardenFinalize must remove
 // this exception only after key-only access on the hardened port is verified.
+// TCPPortListening reports whether something is listening on TCP port (IPv4/IPv6).
+func TCPPortListening(port uint16) (bool, error) { return tcpPortListening(port) }
+
 func tcpPortListening(port uint16) (bool, error) {
 	if ss, err := exec.LookPath("ss"); err == nil {
 		if out, runErr := exec.Command(ss, "-H", "-ltn").CombinedOutput(); runErr == nil {
@@ -543,16 +627,24 @@ func tcpPortListening(port uint16) (bool, error) {
 	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
 		b, err := os.ReadFile(path)
 		if err != nil {
-			if os.IsNotExist(err) && path == "/proc/net/tcp6" { continue }
+			if os.IsNotExist(err) && path == "/proc/net/tcp6" {
+				continue
+			}
 			return false, fmt.Errorf("read TCP listener table %s: %w", path, err)
 		}
 		for _, line := range strings.Split(string(b), "\n")[1:] {
 			fields := strings.Fields(line)
-			if len(fields) < 4 || fields[3] != "0A" { continue } // TCP_LISTEN
+			if len(fields) < 4 || fields[3] != "0A" {
+				continue
+			} // TCP_LISTEN
 			colon := strings.LastIndexByte(fields[1], ':')
-			if colon < 0 { continue }
+			if colon < 0 {
+				continue
+			}
 			got, parseErr := strconv.ParseUint(fields[1][colon+1:], 16, 16)
-			if parseErr == nil && got == uint64(port) { return true, nil }
+			if parseErr == nil && got == uint64(port) {
+				return true, nil
+			}
 		}
 	}
 	return false, nil
@@ -768,7 +860,7 @@ func persistRole(role string) error {
 		_ = f.Close()
 		return fmt.Errorf("firewall: chmod role temp file: %w", err)
 	}
-	if _, err := f.WriteString(role+"\n"); err != nil {
+	if _, err := f.WriteString(role + "\n"); err != nil {
 		_ = f.Close()
 		return fmt.Errorf("firewall: write role: %w", err)
 	}
@@ -792,7 +884,6 @@ func persistRole(role string) error {
 	}
 	return nil
 }
-
 
 // validateRolePorts rejects invalid or colliding ports before installing or
 // mutating a firewall backend. In particular, SSH must never share a port
@@ -961,7 +1052,9 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 			action, found := firstTCPActionFromWANFamily(rules, port, ipv6)
 			if found && action != want {
 				family := "IPv4"
-				if ipv6 { family = "IPv6" }
+				if ipv6 {
+					family = "IPv6"
+				}
 				conflicts = append(conflicts, fmt.Sprintf("%s %s first %s WAN action is %s, want %s", label, port, family, action, want))
 			}
 		}
@@ -970,7 +1063,9 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		for _, rule := range rules {
 			if ufwRuleMatchesPortTCP(rule, port) && ufwRuleAllowsTraffic(rule.Action) {
 				family := "IPv4"
-				if rule.IPv6 { family = "IPv6" }
+				if rule.IPv6 {
+					family = "IPv6"
+				}
 				conflicts = append(conflicts, fmt.Sprintf("%s %s has existing %s ALLOW from %s", label, port, family, rule.From))
 			}
 		}
@@ -1024,15 +1119,23 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 			{"80", "ALLOW", "http-acme"},
 			{"8787", "DENY", "secondary-api"},
 			{"8788", "DENY", "plain-agent"}, {"9443", "DENY", "service-uplink"},
-		} { checkWAN(item.port, item.action, item.label) }
+		} {
+			checkWAN(item.port, item.action, item.label)
+		}
 		for _, item := range []struct{ port, label string }{
 			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"},
-		} { checkNoDeny(item.port, item.label) }
+		} {
+			checkNoDeny(item.port, item.label)
+		}
 		for _, item := range []struct{ port, label string }{
 			{"8787", "secondary-api"}, {"8788", "plain-agent"},
-		} { checkNoAllow(item.port, item.label) }
+		} {
+			checkNoAllow(item.port, item.label)
+		}
 		uplink := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()}
-		for _, source := range uplink { checkSource("9443", source, "service-uplink") }
+		for _, source := range uplink {
+			checkSource("9443", source, "service-uplink")
+		}
 		mtls := ndconfig.AgentMTLSPort()
 		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
 		peerSources, peerErr := registeredPeerAgentSources()
@@ -1041,26 +1144,42 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		} else {
 			trustedMTLS = append(trustedMTLS, peerSources...)
 		}
-		for _, source := range trustedMTLS { checkSource(mtls, source, "mtls") }
+		for _, source := range trustedMTLS {
+			checkSource(mtls, source, "mtls")
+		}
 		for _, rule := range rules {
-			if !ufwRuleMatchesPortTCP(rule, "9443") || !ufwRuleAllowsTraffic(rule.Action) { continue }
+			if !ufwRuleMatchesPortTCP(rule, "9443") || !ufwRuleAllowsTraffic(rule.Action) {
+				continue
+			}
 			trusted := false
 			if !rule.IPv6 {
 				for _, source := range uplink {
-					if ufwSourceContainedBy(rule.From, source) { trusted = true; break }
+					if ufwSourceContainedBy(rule.From, source) {
+						trusted = true
+						break
+					}
 				}
 			}
-			if !trusted { conflicts = append(conflicts, "service-uplink has an existing untrusted ALLOW from "+rule.From) }
+			if !trusted {
+				conflicts = append(conflicts, "service-uplink has an existing untrusted ALLOW from "+rule.From)
+			}
 		}
 		for _, rule := range rules {
-			if !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) { continue }
+			if !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) {
+				continue
+			}
 			trusted := false
 			if !rule.IPv6 {
 				for _, source := range trustedMTLS {
-					if ufwSourceContainedBy(rule.From, source) { trusted = true; break }
+					if ufwSourceContainedBy(rule.From, source) {
+						trusted = true
+						break
+					}
 				}
 			}
-			if !trusted { conflicts = append(conflicts, "mtls has an existing untrusted ALLOW from "+rule.From) }
+			if !trusted {
+				conflicts = append(conflicts, "mtls has an existing untrusted ALLOW from "+rule.From)
+			}
 		}
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
@@ -1133,7 +1252,9 @@ func preflightSecondaryRestrictedAllows(status string) error {
 	rules := parseUfwNumbered(status)
 	numbered := 0
 	for _, line := range strings.Split(status, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "[") { numbered++ }
+		if strings.HasPrefix(strings.TrimSpace(line), "[") {
+			numbered++
+		}
 	}
 	if len(rules) != numbered {
 		return fmt.Errorf("cannot completely parse UFW rules before secondary migration (parsed %d of %d)", len(rules), numbered)
@@ -1141,11 +1262,42 @@ func preflightSecondaryRestrictedAllows(status string) error {
 	for _, port := range []string{"80", "8787", "8788", "8789"} {
 		for _, rule := range rules {
 			if ufwRuleMatchesPortProtocol(rule, port, "tcp") && ufwRuleAllowsTraffic(rule.Action) {
-				return fmt.Errorf("secondary restricted port %s has pre-existing %s ALLOW from %s; resolve administrator rule explicitly before applying role", port, rule.Proto, rule.From)
+				// CF-5: actionable remediation (never auto-delete without confirm).
+				return fmt.Errorf("secondary restricted port %s has pre-existing %s ALLOW from %s (rule #%d); hoster noise on stock images is common — on the host run: ufw status numbered && ufw delete %d   (or ufw delete allow %s/tcp); never ufw reset; then re-run host-baseline / deploy", port, rule.Proto, rule.From, rule.Num, rule.Num, port)
 			}
 		}
 	}
 	return nil
+}
+
+// ufwDeleteRulesByComment removes every numbered UFW rule whose line contains tag
+// (highest numbers first). Missing rules are OK.
+func ufwDeleteRulesByComment(tag string) error {
+	if strings.TrimSpace(tag) == "" {
+		return fmt.Errorf("empty ufw comment tag")
+	}
+	for round := 0; round < 16; round++ {
+		out, err := exec.Command("ufw", "status", "numbered").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("ufw status numbered: %v (%s)", err, truncate(string(out), 160))
+		}
+		nums := []int{}
+		for _, rule := range parseUfwNumbered(string(out)) {
+			if strings.Contains(rule.Raw, tag) {
+				nums = append(nums, rule.Num)
+			}
+		}
+		if len(nums) == 0 {
+			return nil
+		}
+		sort.Sort(sort.Reverse(sort.IntSlice(nums)))
+		n := nums[0]
+		delOut, delErr := exec.Command("ufw", "--force", "delete", strconv.Itoa(n)).CombinedOutput()
+		if delErr != nil {
+			return fmt.Errorf("ufw delete %d (%s): %v (%s)", n, tag, delErr, truncate(string(delOut), 120))
+		}
+	}
+	return fmt.Errorf("ufw: too many rules still matching comment %q", tag)
 }
 
 func applyUFWMode(role string, bootstrapSSH bool) error {
@@ -1255,7 +1407,10 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		ready := strings.Contains(string(current), "netductor-ssh-bootstrap")
 		for _, ipv6 := range []bool{false, true} {
 			action, found := firstTCPActionFromWANFamily(rules, "22", ipv6)
-			if !found || action != "ALLOW" { ready = false; break }
+			if !found || action != "ALLOW" {
+				ready = false
+				break
+			}
 		}
 		if !ready {
 			if err := must("insert", "1", "allow", "22/tcp", "comment", "netductor-ssh-bootstrap"); err != nil {
@@ -1272,10 +1427,17 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if err := must("default", "allow", "outgoing"); err != nil {
 		return err
 	}
-	if err := must("default", "deny", "routed"); err != nil { return fmt.Errorf("set default routed deny: %w", err) }
+	if err := must("default", "deny", "routed"); err != nil {
+		return fmt.Errorf("set default routed deny: %w", err)
+	}
 	// During secondary bootstrap, factory :22 must stay reachable (password/key).
 	// Deny :22 only after key-only on hardened port is confirmed (RemoteHardenFinalize).
+	// CF-4: hardened apply must also drop leftover netductor-ssh-bootstrap ALLOW rules
+	// so baseline does not leave a permanent :22 hole next to deny 22.
 	if !bootstrapSSH {
+		if err := ufwDeleteRulesByComment("netductor-ssh-bootstrap"); err != nil {
+			return fmt.Errorf("remove temporary factory SSH bootstrap allows: %w", err)
+		}
 		if err := must("deny", "22/tcp", "comment", "netductor-no-ssh22"); err != nil {
 			return fmt.Errorf("deny SSH port 22: %w", err)
 		}
@@ -1283,15 +1445,21 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	if err := must("allow", "443/tcp", "comment", "netductor-vless"); err != nil {
 		return err
 	}
-	if err := must("deny", "10050/tcp", "comment", "no-zabbix"); err != nil { return fmt.Errorf("deny zabbix 10050: %w", err) }
-	if err := must("deny", "10051/tcp", "comment", "no-zabbix"); err != nil { return fmt.Errorf("deny zabbix 10051: %w", err) }
+	if err := must("deny", "10050/tcp", "comment", "no-zabbix"); err != nil {
+		return fmt.Errorf("deny zabbix 10050: %w", err)
+	}
+	if err := must("deny", "10051/tcp", "comment", "no-zabbix"); err != nil {
+		return fmt.Errorf("deny zabbix 10051: %w", err)
+	}
 
 	if role == "primary" {
 		redir := ndconfig.RedirectHTTPSPort()
 		if err := must("allow", redir+"/tcp", "comment", "netductor-redirect"); err != nil {
 			return err
 		}
-		if err := must("allow", redir+"/udp", "comment", "netductor-redirect"); err != nil { return fmt.Errorf("allow redirect UDP: %w", err) }
+		if err := must("allow", redir+"/udp", "comment", "netductor-redirect"); err != nil {
+			return fmt.Errorf("allow redirect UDP: %w", err)
+		}
 		if err := must("allow", "80/tcp", "comment", "netductor-http-acme"); err != nil {
 			return err
 		}
@@ -1329,7 +1497,9 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		}
 		lp := ndconfig.LampacPort()
 		if lp != "" && lp != "0" {
-			if err := must("deny", lp+"/tcp", "comment", "lampac-wan-deny"); err != nil { return fmt.Errorf("deny Lampac WAN port: %w", err) }
+			if err := must("deny", lp+"/tcp", "comment", "lampac-wan-deny"); err != nil {
+				return fmt.Errorf("deny Lampac WAN port: %w", err)
+			}
 		}
 	} else {
 		if err := must("deny", "8787/tcp", "comment", "no-api-wan"); err != nil {
@@ -1341,7 +1511,9 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		if err := must("deny", "8789/tcp", "comment", "no-mtls-wan-secondary"); err != nil {
 			return err
 		}
-		if err := must("deny", "80/tcp", "comment", "no-http-secondary"); err != nil { return fmt.Errorf("deny secondary HTTP port: %w", err) }
+		if err := must("deny", "80/tcp", "comment", "no-http-secondary"); err != nil {
+			return fmt.Errorf("deny secondary HTTP port: %w", err)
+		}
 	}
 
 	out, err := exec.Command("ufw", "--force", "enable").CombinedOutput()
@@ -1357,10 +1529,16 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 	}
 	// UFW may hide saved rules while inactive. Re-run the exact-comment legacy
 	// migration after activation so old global WSS ALLOW rules cannot reappear.
-	if err := RemoveLegacyGlobalWSSRules(string(status), role); err != nil { return err }
-	if err := ensureWSSAllowRules(role); err != nil { return fmt.Errorf("post-enable WSS peer policy: %w", err) }
+	if err := RemoveLegacyGlobalWSSRules(string(status), role); err != nil {
+		return err
+	}
+	if err := ensureWSSAllowRules(role); err != nil {
+		return fmt.Errorf("post-enable WSS peer policy: %w", err)
+	}
 	status, statusErr = exec.Command("ufw", "status", "numbered").CombinedOutput()
-	if statusErr != nil { return fmt.Errorf("ufw post-migration status: %v (%s)", statusErr, truncate(string(status), 200)) }
+	if statusErr != nil {
+		return fmt.Errorf("ufw post-migration status: %v (%s)", statusErr, truncate(string(status), 200))
+	}
 	if !strings.Contains(string(status), "Status: active") {
 		return fmt.Errorf("ufw post-apply verification failed: firewall is not active (%s)", truncate(string(status), 200))
 	}
@@ -1666,14 +1844,18 @@ func applyIPTablesMode(role string, bootstrapSSH bool) error {
 	// WSS listeners are per-peer and must never be exposed globally. Install
 	// source-specific allows first, then drop every reserved WSS port.
 	wssPeers, wssErr := wssExpectations(role)
-	if wssErr != nil { return fmt.Errorf("iptables fallback WSS inventory: %w", wssErr) }
+	if wssErr != nil {
+		return fmt.Errorf("iptables fallback WSS inventory: %w", wssErr)
+	}
 	for _, peer := range wssPeers {
 		if err := allowTCPFrom(peer.Port, peer.Source); err != nil {
 			return fmt.Errorf("iptables fallback WSS allow %s from %s: %w", peer.Port, peer.Source, err)
 		}
 	}
 	for _, port := range append(roleWSSPorts("primary"), roleWSSPorts("secondary")...) {
-		if err := denyTCP(port); err != nil { return fmt.Errorf("iptables fallback WSS drop %s: %w", port, err) }
+		if err := denyTCP(port); err != nil {
+			return fmt.Errorf("iptables fallback WSS drop %s: %w", port, err)
+		}
 	}
 	if role == "primary" {
 		redir := ndconfig.RedirectHTTPSPort()
@@ -1758,7 +1940,9 @@ func applyIPTablesMode(role string, bootstrapSSH bool) error {
 	} else {
 		// Keep the managed chain behind both SSH safeguards during bootstrap.
 		jumpAt := "2"
-		if bootstrapSSH { jumpAt = "3" }
+		if bootstrapSSH {
+			jumpAt = "3"
+		}
 		if err := must("-I", "INPUT", jumpAt, "-j", stagingChain); err != nil {
 			return fmt.Errorf("iptables fallback: install INPUT jump after SSH safeguard: %w", err)
 		}
@@ -1828,11 +2012,11 @@ func Collect(role string) Status {
 	}
 	if role != "primary" && role != "secondary" {
 		return Status{
-			Backend: BackendNone,
-			Role: role,
-			OK: false,
-			Detail: "cannot determine a valid firewall role",
-			Warnings: []string{"firewall health check refused an unknown role"},
+			Backend:   BackendNone,
+			Role:      role,
+			OK:        false,
+			Detail:    "cannot determine a valid firewall role",
+			Warnings:  []string{"firewall health check refused an unknown role"},
 			CheckedAt: time.Now().UTC().Format(time.RFC3339),
 		}
 	}
@@ -1929,7 +2113,6 @@ func Collect(role string) Status {
 	return st
 }
 
-
 // ufwDefaultIncomingDenied requires an explicit restrictive default incoming policy.
 // The setting is available in `ufw status verbose`, not reliably in numbered status.
 func ufwDefaultIncomingDenied(status string) (bool, string) {
@@ -1988,14 +2171,14 @@ func ufwDefaultIncomingDenied(status string) (bool, string) {
 
 // ufwRule is one line from `ufw status numbered`.
 type ufwRule struct {
-	Num    int
-	Port   string
-	Proto  string
+	Num       int
+	Port      string
+	Proto     string
 	Action    string
 	Direction string
 	From      string
 	IPv6      bool
-	Raw    string
+	Raw       string
 }
 
 // parseUfwNumbered preserves address-family identity. UFW marks IPv6 rules with
@@ -2166,7 +2349,9 @@ func ufwAllowsBeforeFirstWANAction(rules []ufwRule, port, wanAction string) []uf
 		boundary := int(^uint(0) >> 1)
 		for _, rule := range rules {
 			if rule.IPv6 == ipv6 && ufwRuleMatchesPortTCP(rule, port) && ufwFromIsWAN(rule.From) {
-				if rule.Action == wanAction { boundary = rule.Num }
+				if rule.Action == wanAction {
+					boundary = rule.Num
+				}
 				break
 			}
 		}
@@ -2382,7 +2567,9 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 			if ufwRuleMatchesPortTCP(rule, port) && ufwRuleAllowsTraffic(rule.Action) {
 				ok = false
 				family := "IPv4"
-				if rule.IPv6 { family = "IPv6" }
+				if rule.IPv6 {
+					family = "IPv6"
+				}
 				warnings = append(warnings, label+": unexpected "+family+" ALLOW from "+rule.From+" for "+port+"/tcp")
 			}
 		}
@@ -2437,7 +2624,9 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 		}
 		for _, item := range []struct{ port, label string }{
 			{ndconfig.RedirectHTTPSPort(), "redirect"}, {"80", "http-acme"},
-		} { rejectAnyDeny(item.port, item.label) }
+		} {
+			rejectAnyDeny(item.port, item.label)
+		}
 		for _, item := range []struct{ port, label string }{
 			{"8787", "secondary-api"}, {"8445", "secondary-wss"}, {"8788", "plain-agent"},
 		} {
