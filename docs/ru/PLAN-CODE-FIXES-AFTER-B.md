@@ -14,6 +14,9 @@
 | P2 | CF-6 | Остатки harden на re-deploy уже key-only хоста |
 | P2 | CF-7 | Шум integrity:drift после ручной подмены бинаря |
 | P2 | CF-8 | Протухшие «focused tests not run» в safety-плане → тесты или вычистить |
+| P1 | CF-9 | Secondary `pullAndApply` игнорирует ошибку restart sing-box |
+| P1 | CF-10 | Primary `ApplyConfig` глотает restart и bump config_ver |
+| P2 | CF-11 | `bumpSecondaryConfigVer` silent no-op / legacy `relay` |
 
 Сделано в ходе деплоя B (не открывать заново): 0.9.664–683 (ошибки SSH, mTLS, join, UFW routed, harden idempotency, prepared `/sub` IP).
 

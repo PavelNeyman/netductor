@@ -24,6 +24,9 @@ Related evidence:
 | P2 | **CF-6** | Residual SSH harden edge cases on re-deploy of already-hardened host | hardening |
 | P2 | **CF-7** | Integrity drift after manual binary replace (VERSION vs binary) | stack / doctor |
 | P2 | **CF-8** | Secondary safety plan residual test debt (focused tests never run in CI notes) | tests / CI |
+| P1 | **CF-9** | Secondary `pullAndApply` ignores sing-box restart failure | `internal/secondary/agent.go` |
+| P1 | **CF-10** | Primary `ApplyConfig` ignores local sing-box restart + `bumpSecondaryConfigVer` errors | `internal/vpn/apply.go` |
+| P2 | **CF-11** | `bumpSecondaryConfigVer` silent no-op / dual path `secondary`+`relay` | `internal/vpn/apply.go` |
 
 Items already shipped during B firefight (do **not** re-open): opaque SSH errors (0.9.664), mTLS without SSH stdin tar (0.9.665), join HTTP/1.1 + error tails (0.9.666–672), UFW routed=disabled + keep :22 (0.9.668), harden UFW idempotency / mawk / pipefail (0.9.674–683), prepared `/sub` public IP (0.9.682–683).
 
@@ -141,6 +144,80 @@ Do not treat unrun checkbox text as open product features.
 
 ---
 
+
+
+## CF-9 — Secondary pullAndApply ignores sing-box restart (P1)
+
+**Code:** `internal/secondary/agent.go` `pullAndApply()`
+
+```go
+if err := vpn.WriteSecondarySingBox(&b, priv, sid); err != nil {
+    return err
+}
+_ = exec.Command("systemctl", "restart", "sing-box").Run()
+_ = os.WriteFile(filepath.Join(paths.SecondaryDir(), "bundle.json"), raw, 0o600)
+return nil
+```
+
+**Why real (not over-defense):** config file and `bundle.json` advance while the running process may still serve the previous config. Heartbeat/`config_ver` then claim the node is in sync. Other paths in the same package already fail closed on restart (`restorePrevious` / join). Same bar for agent pull.
+
+**Fix:**
+
+1. Capture `systemctl restart sing-box` error (and optionally `is-active` / `sing-box check`).
+2. On failure: do **not** write success `bundle.json` / do not treat pull as applied; return error so the agent retries.
+3. Prefer: write config → `sing-box check` → restart → confirm active → then persist bundle marker.
+4. Regression test with fake runner / injectable exec.
+
+**Acceptance:** failed restart leaves last-good process + no advanced “applied” marker; next tick retries.
+
+---
+
+## CF-10 — Primary ApplyConfig swallows restart and bump errors (P1)
+
+**Code:** `internal/vpn/apply.go` `ApplyConfig()`
+
+```go
+_ = exec.Command("systemctl", "restart", "sing-box").Run()
+fmt.Fprintf(os.Stderr, "sing-box config variant=%s ...")
+_ = bumpSecondaryConfigVer()
+return nil
+```
+
+**Why real:** disk config updated, CLI reports success, local sing-box may still run the old JSON; secondaries may or may not be notified. Operators and UI assume apply is atomic enough for production.
+
+**Fix:**
+
+1. Surface restart failure as `ApplyConfig` error (after config is on disk, state is “written but not running” — document recovery: restart / re-apply).
+2. Surface `bumpSecondaryConfigVer` failure (no silent `_ =`).
+3. Optionally: if restart fails, still return error but leave files for inspection (no silent success).
+4. Tests for error propagation.
+
+**Acceptance:** `netductor vpn apply` / API apply non-zero when local restart or config_ver bump fails; stderr names the stage.
+
+---
+
+## CF-11 — bumpSecondaryConfigVer registry selection / silent success (P2)
+
+**Code:** `internal/vpn/apply.go` `bumpSecondaryConfigVer()`
+
+- Canonical consumer path is `paths.SecondaryDevicesFile()` → `state/secondary/devices.json` only.
+- Function tries `secondary` then `relay`, **returns nil after the first successful write**, and also **returns nil if neither file was updated** (all `continue`).
+
+**Verdict:** Not primarily “wrong registry on dual-B” in the current tree (only `secondary/devices.json` is authoritative). Real issues:
+
+1. Silent no-op when `devices.json` is missing/unreadable — primary thinks secondaries will pull, they will not.
+2. Legacy `relay/` name is a migration leftover; if both files existed they could diverge (only first is bumped).
+
+**Fix:**
+
+1. Prefer `SecondaryDevicesFile()` only; optional one-shot migration copy from `relay/` if secondary missing.
+2. Return error if no registry was successfully bumped.
+3. If both files must stay for a transition window, bump **both** or document single writer.
+
+**Acceptance:** bump failure is visible to `ApplyConfig`; doctor can WARN when `config_ver` cannot be read.
+
+---
+
 ## Explicitly out of scope (not code in this backlog)
 
 | Item | Track |
@@ -164,6 +241,7 @@ Do not treat unrun checkbox text as open product features.
 | host-baseline / UFW 80, routed, deny 22 lockout | 0.9.668 + ops cleanup | **CF-5**, **CF-4** residual |
 | Harden finalize ufw skip / pipefail / mawk | 0.9.674–681 | mostly done; **CF-6** audit |
 | Metrics :443 ok while B down | probe `ss` fallback | **CF-1** |
+| Agent config pull / primary apply silent restart | ignored `systemctl restart` / bump | **CF-9**, **CF-10**, **CF-11** |
 | Client freezes, sing-box restarts | SP probe → watchdog | **CF-2**, **CF-3** |
 | Sub hostname pointed at A for prepared B | 0.9.682–683 | done |
 
@@ -181,15 +259,23 @@ When a CF item ships: mark `[x]` here, link commit/tag, and trim duplicate wordi
 
 ## Diagnostic script (deploy correctness)
 
-`scripts/diag-secondary-b.sh` — run after promote / when investigating B.
+`scripts/diag-secondary-b.sh` — after promote / when investigating B.
 
 ```bash
-# on primary
+# Primary (download from main, run in-place)
 ROLE=primary PEER_IP=195.140.147.20 PEER_ID=peer-195-140-147-20 \
-  AGENT_ID=secondary-bb9952c66617ca91 bash scripts/diag-secondary-b.sh
+  AGENT_ID=secondary-bb9952c66617ca91 \
+  curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/diag-secondary-b.sh | bash
 
-# on secondary B
-ROLE=secondary bash scripts/diag-secondary-b.sh
+# Private repo
+ROLE=primary PEER_IP=195.140.147.20 PEER_ID=peer-195-140-147-20 \
+  AGENT_ID=secondary-bb9952c66617ca91 \
+  curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
+    https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/diag-secondary-b.sh | bash
+
+# On Secondary B
+ROLE=secondary curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/diag-secondary-b.sh | bash
+# or with token: ROLE=secondary curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" ... | bash
 ```
 
-Checks: active/preferred peer, slot1 units + ping, devices entry, TCP :443 to B, on B — sing-box/agent/WG, mtls files, slot0 VIP leakage in logs, recent watchdog restarts.
+Checks: active/preferred peer, slot1 units + ping, devices entry, TCP :443 to B; on B — sing-box/agent/WG, mtls, slot0 VIP leakage, recent watchdog restarts.

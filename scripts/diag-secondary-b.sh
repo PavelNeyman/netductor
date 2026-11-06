@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
 # Full post-deploy / post-promote diagnostics for Secondary B (slot-aware).
-# Usage:
-#   On PRIMARY:  ROLE=primary  PEER_IP=195.140.147.20 PEER_ID=peer-195-140-147-20 \
-#                AGENT_ID=secondary-bb9952c66617ca91 ./scripts/diag-secondary-b.sh
-#   On SECONDARY B: ROLE=secondary ./scripts/diag-secondary-b.sh
 #
-# Exit 0 = all critical checks passed; non-zero = at least one FAIL.
+# Download and run (public raw URL if repo is readable):
+#   curl -fsSL https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/diag-secondary-b.sh | bash
+#
+# Private repo (token with contents:read):
+#   GH_TOKEN=ghp_...  # or export from /etc/netductor/secrets
+#   curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
+#     https://raw.githubusercontent.com/PavelNeyman/netductor/main/scripts/diag-secondary-b.sh | bash
+#
+# Or pin a commit/tag:
+#   curl -fsSL .../netductor/<sha-or-tag>/scripts/diag-secondary-b.sh | bash
+#
+# Override targets without editing the script:
+#   ROLE=primary PEER_IP=195.140.147.20 PEER_ID=peer-195-140-147-20 \
+#     AGENT_ID=secondary-bb9952c66617ca91 bash
+#   ROLE=secondary bash
+#
+# Exit 0 = no FAIL lines; non-zero = at least one FAIL.
 set -euo pipefail
 
 ROLE="${ROLE:-auto}"
