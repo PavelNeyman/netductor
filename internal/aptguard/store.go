@@ -127,6 +127,30 @@ func findingKey(f Finding) string {
 func migratePolicySignedBy(path string, p Policy) (Policy, error) {
 	changed := false
 	def := DefaultPolicy()
+	// CF-12: refresh stock Debian allowlist when built-in policy version advances.
+	if p.Version < def.Version {
+		p.Version = def.Version
+		p.Debian = def.Debian
+		// Merge known stock repo IDs from default; keep custom third-party entries.
+		byID := map[string]int{}
+		for i, r := range p.Repos {
+			byID[r.ID] = i
+		}
+		for _, d := range def.Repos {
+			if i, ok := byID[d.ID]; ok {
+				p.Repos[i].URIs = append([]string{}, d.URIs...)
+				p.Repos[i].Suites = append([]string{}, d.Suites...)
+				p.Repos[i].Components = append([]string{}, d.Components...)
+				p.Repos[i].SignedBy = append([]string{}, d.SignedBy...)
+				p.Repos[i].Type = d.Type
+				p.Repos[i].Required = d.Required
+				p.Repos[i].Enabled = d.Enabled
+			} else {
+				p.Repos = append(p.Repos, d)
+			}
+		}
+		changed = true
+	}
 	defByID := map[string]RepositorySpec{}
 	for _, r := range def.Repos {
 		defByID[r.ID] = r

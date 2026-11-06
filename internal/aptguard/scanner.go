@@ -161,21 +161,11 @@ func matchPolicy(p Policy, s SourceEntry) string {
 				return "mismatch"
 			}
 		}
+		// Components in policy are an allowlist. Host may enable a subset
+		// (e.g. main only). Every host component must be allowed.
 		if len(r.Components) > 0 {
 			if len(s.Components) == 0 {
 				return "mismatch"
-			}
-			for _, want := range r.Components {
-				found := false
-				for _, got := range s.Components {
-					if want == got {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return "mismatch"
-				}
 			}
 			for _, got := range s.Components {
 				inPol := false
@@ -190,10 +180,9 @@ func matchPolicy(p Policy, s SourceEntry) string {
 				}
 			}
 		}
-		if len(r.SignedBy) > 0 {
-			if s.SignedBy == "" {
-				return "mismatch"
-			}
+		// Signed-By is optional on classic sources.list for known Debian mirrors.
+		// When present, it must match policy keyring paths.
+		if len(r.SignedBy) > 0 && s.SignedBy != "" {
 			okSig := false
 			for _, sb := range r.SignedBy {
 				if sb == s.SignedBy {

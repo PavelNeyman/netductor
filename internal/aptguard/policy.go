@@ -40,7 +40,7 @@ type RepositorySpec struct {
 // DefaultPolicy is a conservative Debian bookworm/trixie baseline.
 func DefaultPolicy() Policy {
 	return Policy{
-		Version: 1,
+		Version: 2,
 		Debian:  DebianPolicy{AllowedReleases: []string{"bookworm", "trixie"}},
 		Scope:   PolicyScope{ApplyTo: "all"},
 		Repos: []RepositorySpec{

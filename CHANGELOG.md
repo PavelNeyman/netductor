@@ -1,3 +1,8 @@
+## 0.9.689
+
+- **CF-12:** aptguard policy v2 — components are allowlist (subset OK); classic sources.list without Signed-By accepted for Debian mirrors; migrate stored policy when version behind.
+- Regression: Trixie `sources.list` with main-only trixie / trixie-security / trixie-updates no longer FAIL.
+
 ## 0.9.688
 
 - **CF-4:** `host-baseline` on secondary uses hardened `ApplyRole` when :52222 listens and :22 does not; removes leftover `netductor-ssh-bootstrap` allows before DENY 22.
