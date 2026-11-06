@@ -93,6 +93,7 @@ func (m *repairStateOnUpgradeMigration) ID() string {
 func (m *repairStateOnUpgradeMigration) Description() string {
 	return "Idempotent LE hooks + state JSON mode repair (legacy RepairStateOnUpgrade)"
 }
+
 // Bump this value whenever RepairStateOnUpgrade gains new managed paths or
 // invariants. The previous marker was a timeless "ok", which caused hosts
 // upgraded once to skip repairs introduced by later releases.
@@ -151,14 +152,24 @@ func (m *ensureAptGuardPolicyMigration) Description() string {
 	return "Ensure APT Guard policy file exists (does not quarantine sources)"
 }
 func (m *ensureAptGuardPolicyMigration) Required(ctx context.Context) (bool, error) {
-	_, err := os.Stat(aptguard.PolicyPath(paths.StateDir()))
-	if err == nil {
-		return false, nil
+	path := aptguard.PolicyPath(paths.StateDir())
+	st, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
 	}
-	if os.IsNotExist(err) {
+	_ = st
+	// Skip-version upgrades: EnsurePolicy migrates when policy.Version < DefaultPolicy().Version.
+	pol, err := aptguard.LoadPolicyFile(path)
+	if err != nil {
+		return true, nil // force Apply to rewrite/repair
+	}
+	if pol.Version < aptguard.DefaultPolicy().Version {
 		return true, nil
 	}
-	return false, err
+	return false, nil
 }
 func (m *ensureAptGuardPolicyMigration) Apply(ctx context.Context) error {
 	_, err := aptguard.EnsurePolicy(paths.StateDir())
@@ -172,6 +183,9 @@ func (m *ensureAptGuardPolicyMigration) Verify(ctx context.Context) error {
 	}
 	if err := p.Validate(); err != nil {
 		return err
+	}
+	if p.Version < aptguard.DefaultPolicy().Version {
+		return fmt.Errorf("aptguard policy still behind default version %d", aptguard.DefaultPolicy().Version)
 	}
 	return nil
 }

@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-4/5 0.9.688; CF-12 0.9.689; CF-13 0.9.690; CF-14 naming recorded**; remaining CF-3…CF-13 open  
+**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-4/5 0.9.688; CF-12 0.9.689; CF-13 0.9.690; CF-5/7 + skip-version migrate 0.9.691; CF-14 naming recorded**; remaining CF-3…CF-13 open  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -102,7 +102,7 @@ Items already shipped during B firefight (do **not** re-open): opaque SSH errors
 
 ---
 
-## CF-5 — First-deploy hoster shell (P1) — **partial 0.9.688 (actionable preflight)**
+## CF-5 — First-deploy hoster shell (P1) — **done 0.9.691** (purge-hoster CLI + preflight hints)
 
 **Evidence:** [SECONDARY-FIRST-DEPLOY.md](SECONDARY-FIRST-DEPLOY.md); live B had provider ALLOW 80 / ISPManager 1500 blocking baseline.
 
@@ -128,7 +128,7 @@ Cross-check after 0.9.674–683:
 
 ---
 
-## CF-7 — Integrity drift noise (P2)
+## CF-7 — Integrity drift noise (P2) — **done 0.9.691**
 
 **Evidence:** primary `incident_timeline` flooded with `integrity:drift` (VERSION vs `/usr/local/bin/netductor`) after manual binary replace.
 
@@ -298,6 +298,15 @@ return nil
 **Not in this CF:** renaming every internal package or WG iface.
 
 ---
+## Skip-version policy
+
+Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Requirements:
+
+1. Startup migrations remain **idempotent** and re-check `Required` even after journal `completed`.
+2. Policy/defaults that change (aptguard v2, role files, state dirs) must migrate without intermediate releases.
+3. Integrity must not spam on VERSION/binary drift after intentional multi-hop updates (auto-heal metadata only).
+4. `stack apply` already-at-tag refreshes metadata without re-download.
+
 ## Explicitly out of scope (not code in this backlog)
 
 | Item | Track |

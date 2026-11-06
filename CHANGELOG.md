@@ -1,3 +1,9 @@
+## 0.9.691
+
+- **Skip-version / migrations:** aptguard policy migration re-runs when stored `policy.Version` < default (e.g. jump across many releases).
+- **CF-7:** integrity auto-heal when only VERSION/node/tg binaries drifted (never SSH); `integrity:drift` alert cooldown 6h.
+- **CF-5:** `netductor firewall purge-hoster [--confirm]` lists/deletes stock hoster ALLOW 80/1500/ispmanager only (no `ufw reset`).
+
 ## 0.9.690
 
 - **CF-13:** `stack apply` when already at target tag refreshes VERSION/integrity/baseline only (manual binary replace recovery).

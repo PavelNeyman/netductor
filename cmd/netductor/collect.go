@@ -377,6 +377,11 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 
 	// File + SSH key integrity vs baseline manifest
 	{
+		// CF-7 / skip-version: VERSION+bin drift after jumping many releases is expected;
+		// auto-heal metadata only (never SSH). Then re-check.
+		if ok, det := integrity.HealStaleVersionAfterSkipUpdate(); ok {
+			fmt.Fprintln(os.Stderr, "integrity: auto-heal after version jump:", det)
+		}
 		d := integrity.Check()
 		if d.HaveManifest && !d.OK {
 			msg := "🔐 <b>Integrity drift</b>"

@@ -13,6 +13,7 @@ func runFirewall(args []string) {
 		fmt.Print(`netductor firewall status [--json]
 netductor firewall apply [primary|secondary]
 netductor firewall heal [--force]
+netductor firewall purge-hoster [--confirm]   # list or delete stock hoster ALLOW 80/1500/ispmanager
 `)
 		return
 	}
@@ -64,6 +65,39 @@ netductor firewall heal [--force]
 			fmt.Println("firewall healed")
 		} else {
 			fmt.Println("firewall ok or autoheal disabled (use --force or NETDUCTOR_FW_AUTOHEAL=1)")
+		}
+	case "purge-hoster":
+		confirm := false
+		for _, a := range args[1:] {
+			if a == "--confirm" {
+				confirm = true
+			}
+		}
+		nums, desc, err := firewall.ListHosterNoiseRules()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if len(nums) == 0 {
+			fmt.Println("no hoster noise ALLOW rules found")
+			return
+		}
+		fmt.Println("candidate hoster noise rules:")
+		for i, line := range desc {
+			fmt.Printf("  #%d %s\n", nums[i], line)
+		}
+		if !confirm {
+			fmt.Println("dry-run only; re-run with --confirm to delete (never uses ufw reset)")
+			return
+		}
+		n, lines, err := firewall.PurgeHosterNoiseRules(true)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("deleted %d hoster noise rule(s)\n", n)
+		for _, line := range lines {
+			fmt.Println(" -", line)
 		}
 	default:
 		fmt.Fprintln(os.Stderr, "unknown firewall subcommand")

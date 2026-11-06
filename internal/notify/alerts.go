@@ -74,6 +74,11 @@ func AlertOnce(key, msg string) bool {
 	if strings.HasPrefix(key, "git:mac-build") {
 		cd = 2 * time.Minute
 	}
+	// CF-7: after multi-release jumps, VERSION drift can persist until baseline;
+	// do not page every metrics tick.
+	if key == "integrity:drift" {
+		cd = 6 * time.Hour
+	}
 	if t, ok := lastSent[key]; ok && now.Sub(t) < cd {
 		return false
 	}
