@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual ValidateAgentCoreURL in 0.9.686; CF-14 naming recorded**; remaining CF-3…CF-13 open  
+**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-14 naming recorded**; remaining CF-3…CF-13 open  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -149,7 +149,7 @@ Do not treat unrun checkbox text as open product features.
 
 
 
-## CF-9 — Secondary pullAndApply ignores sing-box restart (P1)
+## CF-9 — Secondary pullAndApply ignores sing-box restart (P1) — **done 0.9.687**
 
 **Code:** `internal/secondary/agent.go` `pullAndApply()`
 
@@ -175,7 +175,7 @@ return nil
 
 ---
 
-## CF-10 — Primary ApplyConfig swallows restart and bump errors (P1)
+## CF-10 — Primary ApplyConfig swallows restart and bump errors (P1) — **done 0.9.687**
 
 **Code:** `internal/vpn/apply.go` `ApplyConfig()`
 
@@ -199,7 +199,7 @@ return nil
 
 ---
 
-## CF-11 — bumpSecondaryConfigVer registry selection / silent success (P2)
+## CF-11 — bumpSecondaryConfigVer registry selection / silent success (P2) — **done 0.9.687**
 
 **Code:** `internal/vpn/apply.go` `bumpSecondaryConfigVer()`
 

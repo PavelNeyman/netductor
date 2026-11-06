@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/notify"
@@ -127,23 +128,42 @@ func ApplyConfig() error {
 	}
 	_ = os.WriteFile(filepath.Join(paths.EtcDir(), "singbox-config-variant"), []byte(variant+"\n"), 0o644)
 	notify.SuppressUntil(90 * time.Second)
-	_ = exec.Command("systemctl", "restart", "sing-box").Run()
+	if out, err := exec.Command("systemctl", "restart", "sing-box").CombinedOutput(); err != nil {
+		return fmt.Errorf("sing-box restart after writing variant %s: %v (%s)", variant, err, strings.TrimSpace(string(out)))
+	}
+	if out, err := exec.Command("systemctl", "is-active", "sing-box").CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
+		return fmt.Errorf("sing-box not active after restart (config on disk variant=%s): %s", variant, strings.TrimSpace(string(out)))
+	}
 	fmt.Fprintf(os.Stderr, "sing-box config variant=%s (restart; alerts suppressed 90s)\n", variant)
-	_ = bumpSecondaryConfigVer() // end users on secondary VLESS must refresh
+	if err := bumpSecondaryConfigVer(); err != nil {
+		return fmt.Errorf("config written and sing-box restarted, but config_ver bump failed: %w", err)
+	}
 	return nil
 }
 
 // bumpSecondaryConfigVer asks secondary agents to pull a new ExportSecondaryBundle
 // (includes all VPN UUIDs). Avoids import cycle with package secondary.
 func bumpSecondaryConfigVer() error {
-	for _, name := range []string{"secondary", "relay"} {
-		path := filepath.Join(paths.StateDir(), name, "devices.json")
+	// CF-11: authoritative registry only (secondary/devices.json). Optional one-shot
+	// read of legacy relay/ if secondary missing — still error if nothing bumped.
+	pathsToTry := []string{filepath.Join(paths.StateDir(), "secondary", "devices.json")}
+	if _, err := os.Stat(pathsToTry[0]); err != nil {
+		legacy := filepath.Join(paths.StateDir(), "relay", "devices.json")
+		if _, err2 := os.Stat(legacy); err2 == nil {
+			pathsToTry = append(pathsToTry, legacy)
+		}
+	}
+	var lastErr error
+	bumped := false
+	for _, path := range pathsToTry {
 		b, err := os.ReadFile(path)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		var r map[string]any
 		if err := json.Unmarshal(b, &r); err != nil {
+			lastErr = err
 			continue
 		}
 		v := 1
@@ -158,15 +178,31 @@ func bumpSecondaryConfigVer() error {
 		r["config_ver"] = v
 		out, err := json.MarshalIndent(r, "", "  ")
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		tmp := path + ".tmp"
 		if err := os.WriteFile(tmp, append(out, '\n'), 0o600); err != nil {
+			lastErr = err
 			continue
 		}
-		_ = os.Rename(tmp, path)
-		fmt.Fprintf(os.Stderr, "secondary config_ver=%d (%s)\n", v, name)
+		if err := os.Rename(tmp, path); err != nil {
+			lastErr = err
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "secondary config_ver=%d (%s)\n", v, path)
+		bumped = true
+		// Prefer secondary path; if we only had legacy, stop after one success.
+		if strings.Contains(path, string(filepath.Separator)+"secondary"+string(filepath.Separator)) {
+			return nil
+		}
 		return nil
+	}
+	if !bumped {
+		if lastErr != nil {
+			return fmt.Errorf("bump config_ver: no registry updated: %w", lastErr)
+		}
+		return fmt.Errorf("bump config_ver: secondary devices.json not found under %s", paths.StateDir())
 	}
 	return nil
 }

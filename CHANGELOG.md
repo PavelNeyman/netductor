@@ -1,3 +1,9 @@
+## 0.9.687
+
+- **CF-9:** secondary `pullAndApply` — restart + is-active before writing `bundle.json`; failed restart does not advance applied marker.
+- **CF-10:** primary `ApplyConfig` returns error if sing-box restart/is-active fails.
+- **CF-11:** `bumpSecondaryConfigVer` fails if no registry updated; prefers `secondary/devices.json` (legacy `relay/` only if secondary missing).
+
 ## 0.9.686
 
 - **CF-3 residual:** `ValidateAgentCoreURL` after writing `secondary_core_url` — must match this material slot SP/PS VIP (refuse cross-slot URL).
