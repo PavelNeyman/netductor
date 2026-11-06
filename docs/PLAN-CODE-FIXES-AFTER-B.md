@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1 / CF-2 shipped in 0.9.685**; remaining CF-3…CF-13 open  
+**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual ValidateAgentCoreURL in 0.9.686; CF-14 naming recorded**; remaining CF-3…CF-13 open  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -29,6 +29,7 @@ Related evidence:
 | P2 | **CF-11** | `bumpSecondaryConfigVer` silent no-op / dual path `secondary`+`relay` | `internal/vpn/apply.go` |
 | P1 | **CF-12** | APT Guard default policy for Debian 13 (Trixie) | `internal/aptguard` |
 | P1 | **CF-13** | `stack apply` / host update path after manual binary replace | `internal/stack`, update engine |
+| P2 | **CF-14** | Naming: role control/egress + region (user-facing geo in sub) | docs, API, UI, role file |
 
 Items already shipped during B firefight (do **not** re-open): opaque SSH errors (0.9.664), mTLS without SSH stdin tar (0.9.665), join HTTP/1.1 + error tails (0.9.666–672), UFW routed=disabled + keep :22 (0.9.668), harden UFW idempotency / mawk / pipefail (0.9.674–683), prepared `/sub` public IP (0.9.682–683).
 
@@ -71,7 +72,7 @@ Items already shipped during B firefight (do **not** re-open): opaque SSH errors
 
 ---
 
-## CF-3 — Slot-aware paths on multi-peer (P1)
+## CF-3 — Slot-aware paths on multi-peer (P1) — **mostly done; residual 0.9.686**
 
 **Evidence:** On slot-1 B, logs showed heartbeat/uplink targets including **slot-0** addresses (`10.87.11.1`, `10.87.10.1`) interleaved with slot-1 (`10.87.20.1` / `10.87.21.1`).
 
@@ -269,6 +270,32 @@ return nil
 - Documented operator runbook one-pager linked from this CF when closed.
 
 **Ops until fixed:** prefer host-baseline for firewall/snapshot noise only; do not force stack apply on production solely to quiet doctor.
+
+---
+
+## CF-14 — Naming: control / egress + region (P2)
+
+**Decision (2026-11-06):** do **not** use in/out as the primary model. Split by **role** and **region**.
+
+| Axis | Values | Notes |
+|------|--------|--------|
+| **Role** | `control` (ex-primary), `egress` (ex-secondary), `build`, `edge` | Stable function of the node |
+| **Region** | user-facing geo labels e.g. `eu`, `ru` (also internal DC tags if useful) | Shown in **subscription / client profiles**, not only operator UI |
+| **Instance** | peer id + slot | Blue-green within a region |
+
+**Aliases:** keep `primary`≡`control`, `secondary`≡`egress` in CLI/API for a long transition; do not break role files in one shot.
+
+**Sub:** profiles and display names may include region (`nd-egress-eu`, human label “EU”) so users pick exit by geography; active peer still drives which IP/PBK/SID.
+
+**Implementation slices (later):**
+
+1. Document ADR + glossary EN/RU.
+2. Optional `region` field on peer / device registry; set at deploy.
+3. Subscription body includes region in profile name/tag when set.
+4. Web/TG/TUI labels; doctor role string.
+5. Migrate `/etc/netductor/role` values with dual-read.
+
+**Not in this CF:** renaming every internal package or WG iface.
 
 ---
 ## Explicitly out of scope (not code in this backlog)

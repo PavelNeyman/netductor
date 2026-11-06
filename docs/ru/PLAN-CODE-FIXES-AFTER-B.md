@@ -22,6 +22,7 @@
 | P2 | CF-11 | bumpSecondaryConfigVer silent no-op |
 | P1 | **CF-12** | **APT Guard policy под Debian 13 (Trixie)** |
 | P1 | **CF-13** | **Разбор и починка `stack apply` / нормального update path** |
+| P2 | **CF-14** | **Имена: role control/egress + region (гео в sub)** |
 
 ## CF-12 — policy под Trixie
 
@@ -40,3 +41,7 @@ Primary обновляли **ручной подменой бинаря**, по�
 ## Диагностика B
 
 См. EN: `scripts/diag-secondary-b.sh`.
+
+## CF-14 — control / egress + region
+
+Решение: не in/out. Роль (`control` / `egress` / build / edge) + **region** для пользователя в **sub** (eu/ru…). Aliases primary/secondary долго. Подробности — EN plan.

@@ -252,7 +252,36 @@ func applyAgentURL(mode string) error {
 		return fmt.Errorf("atomically write agent URL: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "svc-paths apply: agent URL → %s (tunnel-only)\n", want)
+	if err := ValidateAgentCoreURL(); err != nil {
+		return err
+	}
 	return nil
+}
+
+// ValidateAgentCoreURL checks secondary_core_url points at this material slot's
+// Primary SP or PS VIP (CF-3). Empty file is OK before first apply.
+func ValidateAgentCoreURL() error {
+	cur, err := os.ReadFile(coreURLPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	got := strings.TrimSpace(string(cur))
+	if got == "" {
+		return nil
+	}
+	pSP, pPS, addrErr := PrimaryTunnelAddrsStrict()
+	if addrErr != nil {
+		return fmt.Errorf("agent URL vs material: %w", addrErr)
+	}
+	wantSP := "https://" + pSP + ":8789"
+	wantPS := "https://" + pPS + ":8789"
+	if got == wantSP || got == wantPS {
+		return nil
+	}
+	return fmt.Errorf("agent URL %q is not this slot (want %s or %s)", got, wantSP, wantPS)
 }
 
 func applyUserUplink(userPath string) error {
@@ -384,7 +413,6 @@ func probeHealthInvalid(why string) error {
 	_ = os.WriteFile(HealthJSON, []byte(body), 0o644)
 	return fmt.Errorf("probe health: %s", why)
 }
-
 
 // writeFileAtomic replaces a file without exposing a partially written config.
 // The temporary file is created in the destination directory so rename is atomic.

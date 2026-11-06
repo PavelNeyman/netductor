@@ -1,3 +1,8 @@
+## 0.9.686
+
+- **CF-3 residual:** `ValidateAgentCoreURL` after writing `secondary_core_url` — must match this material slot SP/PS VIP (refuse cross-slot URL).
+- **CF-14 (plan):** naming model **control / egress + region** (user-facing geo in sub); not in/out.
+
 ## 0.9.685
 
 - **CF-1:** remote TCP/UDP probes no longer report ok via local `ss` listener (Primary :443 no longer marks Secondary :443 up). New probe type `local_listen` for intentional host checks.
