@@ -40,7 +40,10 @@ Primary обновляли **ручной подменой бинаря**, по�
 Полные acceptance и fix-direction — в EN-документе.
 
 
-## CF-15 — upgrade floors (ступеньки только при break)
+## CF-15 — upgrade floors (ступеньки только при break) — **в работе 0.9.692**
+
+Registry + preflight gate; автоцепочка ещё нет. EN § CF-15.
+
 
 **Проблема:** при прыжке через много тегов иногда нужен промежуточный бинарь (сломан on-disk format, опасный порядок apply, peer/slot material без recover). Ручная галочка `min_from` в релизе **будет забыта**.
 

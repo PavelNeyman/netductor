@@ -310,7 +310,7 @@ Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Baseline requirements
 
 **Not every release needs an intermediate binary step.** Stepping is required only when code cannot safely jump — see **CF-15**.
 
-## CF-15 — Upgrade floors from code (P1) — **planned**
+## CF-15 — Upgrade floors from code (P1) — **in progress (0.9.692: registry + preflight gate)**
 
 ### Goal
 
@@ -370,10 +370,11 @@ Phase A can ship before a full auto-chain. Phase C must be **role-aware** (contr
 
 ### Implementation order
 
-1. Floor registry + Declare API + unit tests.
-2. Generator + CI gate on release.
-3. Phase A refuse in stack/update.
-4. Phase B/C path planner + multi-step apply with resume.
+1. ~~Floor registry + Declare API + unit tests~~ — **0.9.692** (`internal/upgrade`).
+2. Generator script `scripts/gen-upgrade-json.go` (wire into release CI next).
+3. ~~Phase A refuse when target `upgrade.json` has min_from~~ — **0.9.692** preflight critical check.
+4. Phase B/C path planner + multi-step apply with resume — **open**.
+5. CI fail if floors ≠ generated metadata — **open**.
 
 ## Explicitly out of scope (not code in this backlog)
 

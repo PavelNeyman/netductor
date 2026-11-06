@@ -1,3 +1,9 @@
+## 0.9.692
+
+- **CF-15 (phase A start):** `internal/upgrade` — `DeclareBinaryFloor`, aggregate `min_from`, `upgrade.json` fetch, stack preflight gate when meta present.
+- `scripts/gen-upgrade-json.go` for CI/release artifact generation.
+- No floors declared yet → skip-version unchanged.
+
 ## 0.9.691
 
 - **Skip-version / migrations:** aptguard policy migration re-runs when stored `policy.Version` < default (e.g. jump across many releases).

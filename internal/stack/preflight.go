@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
+	"github.com/PavelNeyman/netductor/internal/upgrade"
 )
 
 // PreflightCheck is one gate before stack apply.
@@ -105,6 +107,28 @@ func Preflight(tag string) PreflightReport {
 		}
 	} else {
 		add(PreflightCheck{ID: "secondary", OK: true, Critical: false, Detail: "no secondaries enrolled"})
+	}
+
+	// CF-15 phase A: if target ships upgrade.json with min_from, refuse when local is older.
+	{
+		local := upgrade.LocalVersion()
+		if local == "" {
+			if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "VERSION")); err == nil {
+				local = strings.TrimSpace(string(b))
+			}
+		}
+		meta, hasMeta, merr := upgrade.FetchMeta(tag)
+		if merr != nil {
+			add(PreflightCheck{ID: "upgrade_floor", OK: false, Critical: false, Detail: "upgrade.json: " + merr.Error()})
+		} else if hasMeta && strings.TrimSpace(meta.MinFrom) != "" {
+			if err := upgrade.CheckLocalAllowed(local, meta.MinFrom); err != nil {
+				add(PreflightCheck{ID: "upgrade_floor", OK: false, Critical: true, Detail: err.Error()})
+			} else {
+				add(PreflightCheck{ID: "upgrade_floor", OK: true, Critical: true, Detail: fmt.Sprintf("local %s >= min_from %s", local, meta.MinFrom)})
+			}
+		} else {
+			add(PreflightCheck{ID: "upgrade_floor", OK: true, Critical: false, Detail: "no upgrade.json min_from for tag (skip-version OK)"})
+		}
 	}
 
 	d := fleet.Build()
