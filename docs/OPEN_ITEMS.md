@@ -130,7 +130,7 @@ Phased scenarios + module review: [VERIFICATION-PLAN.md](VERIFICATION-PLAN.md) (
 
 ## Code fix backlog (post Secondary B)
 
-Implementation items from B deploy + probe defect: [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) (CF-1…CF-13). RU: [ru/PLAN-CODE-FIXES-AFTER-B.md](ru/PLAN-CODE-FIXES-AFTER-B.md).
+Implementation items from B deploy + probe defect: [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) (CF-1…CF-15, incl. upgrade floors). RU: [ru/PLAN-CODE-FIXES-AFTER-B.md](ru/PLAN-CODE-FIXES-AFTER-B.md).
 
 ## Owner next
 

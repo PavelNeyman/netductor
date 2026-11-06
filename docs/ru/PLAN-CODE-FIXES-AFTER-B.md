@@ -23,6 +23,7 @@
 | P1 | **CF-12** | **APT Guard policy под Debian 13 (Trixie)** |
 | P1 | **CF-13** | **Разбор и починка `stack apply` / нормального update path** |
 | P2 | **CF-14** | **Имена: role control/egress + region (гео в sub)** |
+| P1 | **CF-15** | **Upgrade floors: `min_from` из кода + CI (ступеньки только при break)** |
 
 ## CF-12 — policy под Trixie
 
@@ -37,6 +38,24 @@ Primary обновляли **ручной подменой бинаря**, по�
 **Приёмка:** `stack apply <tag>` на здоровом primary с release assets либо успех, либо ясная стадия + recovery; без рутины scp бинарей.
 
 Полные acceptance и fix-direction — в EN-документе.
+
+
+## CF-15 — upgrade floors (ступеньки только при break)
+
+**Проблема:** при прыжке через много тегов иногда нужен промежуточный бинарь (сломан on-disk format, опасный порядок apply, peer/slot material без recover). Ручная галочка `min_from` в релизе **будет забыта**.
+
+**Решение:**
+1. Floor объявляется **в коде** в том же коммите (`DeclareBinaryFloor` / аналог) — только для реальных break.
+2. CI **сканирует** floors и **генерирует** `upgrade.json` / metadata релиза; рассинхрон → fail.
+3. Update: сначала **отказ**, если local < min_from; позже — автоцепочка download/apply + migrate между шагами.
+
+Идемпотентные миграции и обычные фичи **пола не ставят** → один прыжок + startup migrate (skip-version).
+
+Фазы A (gate) / B (path) / C (chain) и acceptance — EN: [PLAN-CODE-FIXES-AFTER-B.md](../PLAN-CODE-FIXES-AFTER-B.md) § CF-15.
+
+## Skip-version (кратко)
+
+Миграции идемпотентны; policy/defaults догоняют без промежуточных тегов; integrity не спамит VERSION после multi-hop. Ступеньки бинарей — только CF-15.
 
 ## Диагностика B
 

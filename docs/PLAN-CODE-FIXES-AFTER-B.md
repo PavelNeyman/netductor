@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1 / CF-2 shipped in 0.9.685; CF-3 residual 0.9.686; CF-9/10/11 0.9.687; CF-4/5 0.9.688; CF-12 0.9.689; CF-13 0.9.690; CF-5/7 + skip-version migrate 0.9.691; CF-14 naming recorded**; remaining CF-3…CF-13 open  
+**Status:** open — **CF-1…CF-5, CF-7, CF-9…CF-13 through 0.9.691; CF-14 naming recorded; CF-15 upgrade floors planned**; remaining CF-6, CF-8, CF-14, CF-15  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -30,6 +30,7 @@ Related evidence:
 | P1 | **CF-12** | APT Guard default policy for Debian 13 (Trixie) | `internal/aptguard` |
 | P1 | **CF-13** | `stack apply` / host update path after manual binary replace | `internal/stack`, update engine |
 | P2 | **CF-14** | Naming: role control/egress + region (user-facing geo in sub) | docs, API, UI, role file |
+| P1 | **CF-15** | Upgrade floors: auto `min_from` from code + CI (step only on break) | migrate, update/stack, release CI |
 
 Items already shipped during B firefight (do **not** re-open): opaque SSH errors (0.9.664), mTLS without SSH stdin tar (0.9.665), join HTTP/1.1 + error tails (0.9.666–672), UFW routed=disabled + keep :22 (0.9.668), harden UFW idempotency / mawk / pipefail (0.9.674–683), prepared `/sub` public IP (0.9.682–683).
 
@@ -300,12 +301,79 @@ return nil
 ---
 ## Skip-version policy
 
-Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Requirements:
+Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Baseline requirements (partly in 0.9.691):
 
 1. Startup migrations remain **idempotent** and re-check `Required` even after journal `completed`.
 2. Policy/defaults that change (aptguard v2, role files, state dirs) must migrate without intermediate releases.
 3. Integrity must not spam on VERSION/binary drift after intentional multi-hop updates (auto-heal metadata only).
 4. `stack apply` already-at-tag refreshes metadata without re-download.
+
+**Not every release needs an intermediate binary step.** Stepping is required only when code cannot safely jump — see **CF-15**.
+
+## CF-15 — Upgrade floors from code (P1) — **planned**
+
+### Goal
+
+When updating toward latest, the engine may need a **short chain** of intermediate releases — **only** when something actually breaks across versions. A manual “set `min_from` on the release” step will be forgotten (humans and coding agents). **Source of truth = code + CI**, not a release-notes checkbox.
+
+### When a floor is required (breaking)
+
+Register a floor in the **same commit** that introduces the break:
+
+1. **On-disk format** without a forward-compatible reader in older binaries.
+2. **Apply / SSH / harden / stack transaction order** such that applying the new binary from too-old local state is unsafe.
+3. **Peer / slot material** without a compatible recover path for older agents.
+
+Ordinary features and **idempotent** migrations that a new binary can run after any jump → **no floor**.
+
+### Code contract
+
+- API such as `migrate.DeclareBinaryFloor(id, minBinary, reason)` (final name TBD) next to the breaking change, migration, or format owner.
+- Optional format table: path → `MinBinary` + reason.
+- Contributor / agent rule: **breaking change without a floor in the same commit is incomplete**.
+
+### CI (so floors are not forgotten)
+
+1. Scan the repo for declared floors (registry / AST / grep).
+2. On release/tag, **generate** `upgrade.json` (or release sidecar): `version`, `min_from` (aggregate of floors for that jump), optional `reason[]`.
+3. Fail the release job if floors and generated metadata disagree.
+4. Prefer generated artifacts over hand-edited release text.
+
+### Update engine (phased)
+
+| Phase | Behavior |
+|-------|----------|
+| **A — gate** | `stack apply` / `update`: if `local < min_from` → **hard refuse** with a clear message (“install intermediate vX first”); no silent skip |
+| **B — path** | `ResolveUpgradePath(local, target)` using published `upgrade.json` history → ordered tag list |
+| **C — apply chain** | Download + verify + apply each step; migrate/health between steps; journal/resume on partial failure |
+
+Phase A can ship before a full auto-chain. Phase C must be **role-aware** (control node vs egress agent vs edge).
+
+### Tests
+
+- Old state + new binary where a floor exists → apply without intermediate **fails closed**.
+- Same with the required intermediate in path → succeeds (unit/integration as feasible).
+- CI: diff touches known breaking packages without a new/updated floor → fail (default; no silent omit).
+
+### Explicit non-goals
+
+- One intermediate step **per** tag by default.
+- Relying on memory or PR checkbox instead of CI.
+- Auto-guessing floors from arbitrary diffs without a declaration (unsafe).
+
+### Acceptance
+
+1. Breaking on-disk / apply-order / peer-material changes land with an in-tree floor.
+2. Release `min_from` is **generated**, not hand-waved.
+3. Jumping many **non-breaking** tags remains **one** apply + startup migrate.
+4. `local < min_from` → clear refuse (A) or safe automatic chain (C).
+
+### Implementation order
+
+1. Floor registry + Declare API + unit tests.
+2. Generator + CI gate on release.
+3. Phase A refuse in stack/update.
+4. Phase B/C path planner + multi-step apply with resume.
 
 ## Explicitly out of scope (not code in this backlog)
 
@@ -335,6 +403,7 @@ Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Requirements:
 | Client freezes, sing-box restarts | SP probe → watchdog | **CF-2**, **CF-3** |
 | Doctor aptguard FAIL on stock Trixie | policy v1 vs trixie suites | **CF-12** |
 | stack apply blocked → manual binary | update/stack transaction | **CF-13** |
+| Multi-release jump needs intermediate binary | upgrade floors / min_from | **CF-15** |
 | Sub hostname pointed at A for prepared B | 0.9.682–683 | done |
 
 ---
