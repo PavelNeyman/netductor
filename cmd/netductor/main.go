@@ -118,7 +118,7 @@ func main() {
 		fmt.Print(opcatalog.MatrixMarkdown())
 		return
 	case "status":
-		runStatus()
+		runStatus(os.Args[2:])
 	case "install":
 		runInstall(os.Args[2:])
 	case "probe":

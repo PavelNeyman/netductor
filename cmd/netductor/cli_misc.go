@@ -35,14 +35,26 @@ func lookPath(names ...string) string {
 	return ""
 }
 
-func runStatus() {
-	for _, u := range []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"} {
+func runStatus(args []string) {
+	o := parseCLIOpts(args)
+	units := []string{"sing-box", "blocky", "netductor-api", "netductor-telegram-bot"}
+	stMap := map[string]string{}
+	for _, u := range units {
 		out, _ := exec.Command("systemctl", "is-active", u).Output()
 		st := strings.TrimSpace(string(out))
 		if st == "" {
 			st = "inactive"
 		}
-		fmt.Printf("  %s: %s\n", u, st)
+		stMap[u] = st
+	}
+	if o.JSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(map[string]any{"units": stMap, "release": ndver.Release})
+		return
+	}
+	for _, u := range units {
+		fmt.Printf("  %s: %s\n", u, stMap[u])
 	}
 }
 

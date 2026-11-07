@@ -183,4 +183,5 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 
 - [x] **S-1 note** disable revokes the subscription URL. Re-enable issues a new token. Rename moves the token (0.9.439).
 
+- [ ] Mac Mail.app Gmail SMTP TLS/cert fails while Netductor VPN up; works offline — likely client route/DNS (smtp.gmail.com via PROXY). Investigate SR DIRECT for Google mail hosts / split policy (not server CF).
 - CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles status scaffold + migrate attention (gated)

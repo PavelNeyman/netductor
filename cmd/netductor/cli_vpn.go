@@ -17,12 +17,14 @@ import (
 )
 
 func runVPN(args []string) {
-	if len(args) == 0 {
+	o := parseCLIOpts(args)
+	if len(o.Rest) == 0 || o.Help {
 		fmt.Fprintln(os.Stderr, cli18n.T("vpn.usage"))
+		fmt.Fprintln(os.Stderr, "flags: --json (list)")
 		os.Exit(2)
 	}
-	cmd := args[0]
-	rest := args[1:]
+	cmd := o.Rest[0]
+	rest := o.Rest[1:]
 	switch cmd {
 	case "ensure-relay-uplink":
 		uuid, err := vpn.EnsureRelayUplink()
@@ -43,6 +45,26 @@ func runVPN(args []string) {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
+		}
+		if o.JSON {
+			type row struct {
+				Name, Enabled, UUID, Note, Created string
+			}
+			var rows []row
+			for _, u := range users {
+				if vpn.IsEdgeUser(u.Name) {
+					continue
+				}
+				en := "off"
+				if u.Enabled {
+					en = "on"
+				}
+				rows = append(rows, row{u.Name, en, u.UUID, u.Note, u.Created})
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(map[string]any{"users": rows})
+			return
 		}
 		for _, u := range users {
 			if vpn.IsEdgeUser(u.Name) {

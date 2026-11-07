@@ -403,7 +403,8 @@ Keep git-style aliases 1–2 releases (`secondary cmd ID upgrade:vX` stays).
 Group help by plane / host / edge. Completion follows canon.
 
 **Done:** shared `parseCLIOpts` (`--json`/`-j`, `--dry-run`, `-h`); grouped top-level help; `migrate`/`stack`/`fleet`/`secondary status` accept flags in any order; `stack apply --dry-run` → preflight only; stack apply + host-baseline install bash completion.
-**Left:** roll `--json`/`--dry-run` across remaining mutation CLIs (vpn, edge, git ship) as touched.
+**Done also:** `vpn list --json`, `channel status --json`, `status --json`.
+**Left:** edge/git ship mutation flags as touched; client Gmail SMTP-via-VPN investigation (OPEN_ITEMS).
 
 ### 18.4 HTMLBubbles / in-chat widgets — **scaffold in tree**
 Gated (`NETDUCTOR_TG_WIDGETS=1`): status bubble + Refresh/Versions/Channel/Menu; migrate attention line.

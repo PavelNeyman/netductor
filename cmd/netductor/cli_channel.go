@@ -9,21 +9,19 @@ import (
 )
 
 func runChannel(args []string) {
-	jsonOut := false
+	o := parseCLIOpts(args)
+	if o.Help {
+		fmt.Fprintln(os.Stderr, "usage: netductor channel status [--json]")
+		os.Exit(0)
+	}
 	sub := "status"
-	for _, a := range args {
-		if a == "--json" {
-			jsonOut = true
-			continue
-		}
-		if a != "" && a[0] != '-' {
-			sub = a
-		}
+	if len(o.Rest) > 0 {
+		sub = o.Rest[0]
 	}
 	switch sub {
 	case "status", "health":
 		r := channels.Collect()
-		if jsonOut {
+		if o.JSON {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			_ = enc.Encode(r)
