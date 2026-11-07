@@ -1,3 +1,7 @@
+## 0.9.694
+
+- stack apply (primary/control): after success print explicit secondary (egress) upgrade commands (`secondary cmd <id> upgrade:vX`) from registry; TG alert text includes tag.
+
 ## 0.9.693
 
 - **CF-16:** `PeerRemove` UFW cleanup accepts `netductor-api-peer` for :8789 (producer comment); legacy `nd-svc-sp` still OK.

@@ -31,6 +31,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/version"
 )
@@ -695,6 +696,40 @@ func Apply(tag string) error {
 	return ApplyOpts(tag, false)
 }
 
+
+// printSecondaryUpgradeHint reminds the operator that egress/secondary binaries
+// are not updated by primary stack apply; agent must pull upgrade:vX explicitly.
+func printSecondaryUpgradeHint(tag string) {
+	tag = strings.TrimPrefix(strings.TrimSpace(tag), "v")
+	if tag == "" {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "NOTE: primary (control) stack apply does NOT upgrade secondary (egress) agents.")
+	fmt.Fprintf(os.Stderr, "To upgrade each secondary to v%s, on primary run:\n", tag)
+	devs := secondary.List()
+	if len(devs) == 0 {
+		fmt.Fprintf(os.Stderr, "  netductor secondary cmd <agent-id> upgrade:v%s\n", tag)
+		fmt.Fprintln(os.Stderr, "  (agent-id from: netductor secondary status)")
+		return
+	}
+	for _, d := range devs {
+		id := strings.TrimSpace(d.ID)
+		if id == "" {
+			continue
+		}
+		label := id
+		if n := strings.TrimSpace(d.Name); n != "" {
+			label = id + " (" + n + ")"
+		}
+		if ip := strings.TrimSpace(d.PublicIP); ip != "" {
+			label += " ip=" + ip
+		}
+		fmt.Fprintf(os.Stderr, "  netductor secondary cmd %s upgrade:v%s   # %s\n", id, tag, label)
+	}
+	fmt.Fprintln(os.Stderr, "Then: netductor secondary status  # agent version column")
+}
+
 // ApplyOpts downloads node+tg; optional pre-backup; health + auto-rollback with TG alerts.
 func stackPinPath() string {
 	return filepath.Join(paths.StateDir(), "stack", "PIN")
@@ -788,7 +823,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 			return applyFail
 		}
 		applyOK = true
-		notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack already at <code>"+tag+"</code> (metadata refreshed)")
+		notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack already at <code>"+tag+"</code> (metadata refreshed; secondary: manual upgrade:v"+strings.TrimPrefix(tag, "v")+")")
+		printSecondaryUpgradeHint(tag)
 		return nil
 	}
 	pf := Preflight(tag)
@@ -946,7 +982,8 @@ func ApplyOpts(tag string, noBackup bool) error {
 	if err := integrity.WriteManifest(); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: write integrity manifest after commit:", err)
 	}
-	notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack apply committed <code>"+tag+"</code> (secondary: manual upgrade only)")
+	notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack apply committed <code>"+tag+"</code> (secondary: manual upgrade:v"+strings.TrimPrefix(tag, "v")+")")
+	printSecondaryUpgradeHint(tag)
 	_ = notify.FlushAlerts(true)
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
 		fmt.Fprintln(os.Stderr, "warn: retain committed apply evidence:", err)
