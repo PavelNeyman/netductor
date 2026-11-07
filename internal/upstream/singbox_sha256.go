@@ -3,6 +3,11 @@ package upstream
 import "strings"
 
 // SingBoxPinnedVersion is the release we ship/cache/install by default (no "v" prefix).
+//
+// Pin rationale (2026-11): stay on 1.11.15.
+// 1.12+ refactors DNS server config (old formats removed in 1.14); our generated
+// configs still target 1.11-era DNS. Bump only after config migration + canary.
+// 1.12.x/1.13.x have useful fixes (uTLS padding, auto_redirect) but need staged cutover.
 const SingBoxPinnedVersion = "1.11.15"
 
 // SingBoxTarballSHA256: SHA-256 of official SagerNet release tarballs for SingBoxPinnedVersion.

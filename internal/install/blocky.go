@@ -8,17 +8,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/upstream"
 )
+
+func resolveBlockyTag() string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_BLOCKY_TAG")); v != "" {
+		return v
+	}
+	if b, err := os.ReadFile("/etc/netductor/addons/blocky.tag"); err == nil {
+		if s := strings.TrimSpace(string(b)); s != "" {
+			return s
+		}
+	}
+	return upstream.BlockyPinnedTag
+}
 
 func InstallBlocky() error {
 	_ = aptInstall("curl", "tar", "dnsutils")
-	tag, err := latestTag("0xERR0R/blocky")
-	if err != nil {
-		return err
-	}
+	tag := resolveBlockyTag()
+	fmt.Fprintln(os.Stderr, "blocky pin:", tag)
 	if stateVersion("blocky") == tag {
 		if _, err := os.Stat("/usr/local/bin/blocky"); err == nil {
-			fmt.Fprintf(os.Stderr, "blocky %s already installed — skip\n", tag)
+			fmt.Fprintf(os.Stderr, "blocky %s already installed - skip\n", tag)
 			return enableStart("blocky")
 		}
 	}
@@ -110,6 +122,21 @@ WantedBy=multi-user.target
 }
 
 func verifyBlockyChecksum(tag, archivePath, assetName string) error {
+	if strings.TrimPrefix(tag, "v") == strings.TrimPrefix(upstream.BlockyPinnedTag, "v") {
+		for archKey, sum := range upstream.BlockyTarballSHA256 {
+			if strings.Contains(assetName, "_Linux_"+archKey+".tar.gz") {
+				got, err := fileSHA256Hex(archivePath)
+				if err != nil {
+					return err
+				}
+				if !upstream.MatchSHA(got, sum) {
+					return fmt.Errorf("blocky tarball SHA mismatch got=%s want=%s", got, sum)
+				}
+				fmt.Fprintln(os.Stderr, "blocky tarball sha256 ok (pin):", got)
+				return nil
+			}
+		}
+	}
 	sumURL := fmt.Sprintf("https://github.com/0xERR0R/blocky/releases/download/%s/blocky_checksums.txt", tag)
 	tmp, err := os.CreateTemp("", "blocky-sum-")
 	if err != nil {

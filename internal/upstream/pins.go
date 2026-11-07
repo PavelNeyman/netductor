@@ -40,8 +40,9 @@ func Load() []Pin {
 
 func defaultPins() []Pin {
 	return []Pin{
-		{Name: "sing-box", Note: "set version after install"},
-		{Name: "blocky", Note: "set version after install"},
+		{Name: "sing-box", Version: SingBoxPinnedVersion, Note: "binary pin; bump after config canary"},
+		{Name: "blocky", Version: strings.TrimPrefix(BlockyPinnedTag, "v"), Note: "binary pin + SHA"},
+		{Name: "lampac", Version: LampacPinnedTag, Note: "docker image tag"},
 	}
 }
 

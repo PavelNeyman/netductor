@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/upstream"
 )
 
 // InstallLampac pulls optional media aggregator (Docker). Off by default.
@@ -19,7 +20,7 @@ func InstallLampac() error {
 		return fmt.Errorf("docker for lampac: %w", err)
 	}
 	// Canonical image: https://github.com/lampac-nextgen/lampac (GHCR only).
-	img := env("NETDUCTOR_LAMPAC_IMAGE", "ghcr.io/lampac-nextgen/lampac:latest")
+	img := env("NETDUCTOR_LAMPAC_IMAGE", upstream.LampacPinnedImage)
 	port := env("NETDUCTOR_LAMPAC_PORT", "9118")
 	bind := env("NETDUCTOR_LAMPAC_BIND", "127.0.0.1")
 	publish := bind + ":" + port + ":9118"
@@ -47,6 +48,9 @@ func InstallLampac() error {
 
 	lockLampacToLocalhost(port)
 	MarkComponentInstalled("lampac")
+	_ = os.MkdirAll("/etc/netductor/addons", 0o755)
+	_ = os.WriteFile("/etc/netductor/addons/lampac.tag", []byte(upstream.LampacPinnedTag+"\n"), 0o644)
+	writeStateVersion("lampac", upstream.LampacPinnedTag)
 	fmt.Fprintf(os.Stderr, "lampac on %s:%s only (not public WAN); image %s\n", bind, port, img)
 	return nil
 }
