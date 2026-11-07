@@ -127,11 +127,64 @@ func unitActive(name string) string {
 	return s
 }
 
-// Status collects iface + unit + health JSON.
+// statusIfaces picks WG interfaces for Status/doctor.
+// On primary prefer the active service-plane peer slot (blue-green); material.json
+// may still describe a retired slot-0 layout after peer remove.
+// Secondary keeps material-derived ifaces (single local slot).
+func statusIfaces(role string) (sp, ps string) {
+	sp, ps = MaterialIfaces()
+	if role != "primary" {
+		return sp, ps
+	}
+	idx, err := LoadPeersIndex()
+	if err != nil || idx == nil {
+		return sp, ps
+	}
+	id := strings.TrimSpace(idx.ActiveID)
+	if id == "" {
+		return sp, ps
+	}
+	p := idx.Find(id)
+	if p == nil || p.State == "removed" || p.State == "removing" {
+		return sp, ps
+	}
+	if p.Slot.IfaceSP != "" {
+		sp = p.Slot.IfaceSP
+	}
+	if p.Slot.IfacePS != "" {
+		ps = p.Slot.IfacePS
+	}
+	return sp, ps
+}
+
+func primaryWSSUnits(ifaceSP, ifacePS string) (spServer, psClient string) {
+	spServer, psClient = "nd-wss-sp-server", "nd-wss-ps-client"
+	if ifaceSP != "" && ifaceSP != IfaceSP {
+		spServer = "nd-wss-sp-server-" + ifaceSP
+	}
+	if ifacePS != "" && ifacePS != IfacePS {
+		psClient = "nd-wss-ps-client-" + ifacePS
+	}
+	return spServer, psClient
+}
+
+func secondaryWSSUnits(ifaceSP, ifacePS string) (spClient, psServer string) {
+	spClient, psServer = "nd-wss-sp-client", "nd-wss-ps-server"
+	if ifaceSP != "" && ifaceSP != IfaceSP {
+		spClient = "nd-wss-sp-client-" + ifaceSP
+	}
+	if ifacePS != "" && ifacePS != IfacePS {
+		psServer = "nd-wss-ps-server-" + ifacePS
+	}
+	return spClient, psServer
+}
+
+// Status collects iface + unit + health JSON for the *active* service plane.
 func Status() StatusReport {
-	ifaceSP, ifacePS := MaterialIfaces()
+	role := detectRole()
+	ifaceSP, ifacePS := statusIfaces(role)
 	r := StatusReport{
-		HostRole:  detectRole(),
+		HostRole:  role,
 		SP:        pathStatus(ifaceSP),
 		PS:        pathStatus(ifacePS),
 		Units:     map[string]string{},
@@ -147,17 +200,20 @@ func Status() StatusReport {
 			r.HealthFile = m
 		}
 	}
-	role := r.HostRole
 	units := []string{
 		"wg-quick@" + ifaceSP,
 		"wg-quick@" + ifacePS,
 	}
 	if role == "primary" {
-		units = append(units, "nd-wss-sp-server", "nd-wss-ps-client")
+		a, b := primaryWSSUnits(ifaceSP, ifacePS)
+		units = append(units, a, b)
 	} else if role == "secondary" {
-		units = append(units, "nd-wss-sp-client", "nd-wss-ps-server")
+		a, b := secondaryWSSUnits(ifaceSP, ifacePS)
+		units = append(units, a, b)
 	} else {
-		units = append(units, "nd-wss-sp-server", "nd-wss-ps-client", "nd-wss-sp-client", "nd-wss-ps-server")
+		a, b := primaryWSSUnits(ifaceSP, ifacePS)
+		c, d := secondaryWSSUnits(ifaceSP, ifacePS)
+		units = append(units, a, b, c, d)
 	}
 	for _, u := range units {
 		r.Units[u] = unitActive(u)

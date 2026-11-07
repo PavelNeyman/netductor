@@ -1,3 +1,7 @@
+## 0.9.695
+
+- svc-paths Status/doctor: prefer active peer slot ifaces (fixes WARN SP/PS after A removed, B on slot1).
+
 ## 0.9.694
 
 - stack apply (primary/control): after success print explicit secondary (egress) upgrade commands (`secondary cmd <id> upgrade:vX`) from registry; TG alert text includes tag.

@@ -377,6 +377,13 @@ Phase A can ship before a full auto-chain. Phase C must be **role-aware** (contr
 4. Phase B/C path planner + multi-step apply with resume — **open**.
 5. CI fail if floors ≠ generated metadata — **open**.
 
+
+## CF-17 — svc-paths Status/doctor slot-aware (P1) — **done 0.9.695**
+
+After active peer is slot N, `MaterialIfaces()` / legacy material may still report slot-0 `nd-svc-sp` (down after A remove). Doctor WARN SP/PS peer was false-positive while slot1 ifaces were UP.
+
+**Fix:** `Status()` uses `active_id` peer slot ifaces + matching WSS unit names (`nd-wss-*-nd-svc-sp1`).
+
 ## CF-16 — PeerRemove UFW 8789 comment mismatch (P1) — **done 0.9.693**
 
 **Symptom:** `netductor svc-paths peer remove legacy-…` → `refuse to delete unowned UFW rule 8789/tcp from 10.87.10.2`.
