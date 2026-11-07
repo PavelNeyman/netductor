@@ -16,36 +16,45 @@ func TestResolveUpgradePathDirect(t *testing.T) {
 	}
 }
 
-func TestResolveUpgradePathNeedsIntermediate(t *testing.T) {
+// BUG-1: intermediate min_from must be respected.
+func TestResolveUpgradePathNestedIntermediateFloors(t *testing.T) {
 	hist := []Meta{
-		{Version: "0.9.400"},
-		{Version: "0.9.500", MinFrom: ""},
-		{Version: "0.9.600", MinFrom: "0.9.500"},
+		{Version: "0.9.500"},
+		{Version: "0.9.550", MinFrom: "0.9.500"},
+		{Version: "0.9.600", MinFrom: "0.9.550"},
 		{Version: "0.9.700", MinFrom: "0.9.600", Reasons: []string{"slot-material"}},
 	}
 	steps, err := ResolveUpgradePath("0.9.400", "0.9.700", hist)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 400 < 600 min_from of 700 → hop to 600 (oldest >= 600? min_from 600 → hop 0.9.600), then 700
-	if len(steps) < 2 {
-		t.Fatalf("expected multi-hop, got %v", steps)
+	got := FormatPathCLI(steps)
+	if len(steps) < 3 {
+		t.Fatalf("expected multi-hop with nested floors, got %s", got)
+	}
+	if steps[0].Tag == "0.9.600" {
+		t.Fatalf("BUG-1: jumped to 600 from 400: %s", got)
 	}
 	if steps[len(steps)-1].Tag != "0.9.700" {
-		t.Fatalf("last=%v", steps)
+		t.Fatalf("last=%v path=%s", steps, got)
 	}
-	if got := FormatPathCLI(steps); got == "" {
-		t.Fatal("empty format")
+	cur := "0.9.400"
+	for _, s := range steps {
+		if err := CheckLocalAllowed(cur, s.MinFrom); err != nil {
+			t.Fatalf("hop %s not installable from %s: %v (path %s)", s.Tag, cur, err, got)
+		}
+		cur = s.Tag
 	}
 }
 
-func TestResolveUpgradePathNoIntermediate(t *testing.T) {
+func TestResolveUpgradePathNoInstallableIntermediate(t *testing.T) {
 	hist := []Meta{
-		{Version: "0.9.700", MinFrom: "0.9.650"},
+		{Version: "0.9.600", MinFrom: "0.9.550"},
+		{Version: "0.9.700", MinFrom: "0.9.600"},
 	}
 	_, err := ResolveUpgradePath("0.9.400", "0.9.700", hist)
 	if err == nil {
-		t.Fatal("expected error when history has no intermediate")
+		t.Fatal("expected error when no intermediate is installable from 400")
 	}
 }
 

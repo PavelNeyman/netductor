@@ -22,7 +22,7 @@ func runEdgeCLI(args []string) {
 	o := parseCLIOpts(args)
 	if len(o.Rest) < 1 || o.Help {
 		fmt.Fprintln(os.Stderr, cli18n.T("edge.usage"))
-		fmt.Fprintln(os.Stderr, "flags: --json (list)")
+		fmt.Fprintln(os.Stderr, "flags: --json (list); --dry-run (mutations: approve/deny/revoke/cmd/…)")
 		os.Exit(2)
 	}
 	args = o.Rest
@@ -70,6 +70,9 @@ func runEdgeCLI(args []string) {
 			os.Exit(2)
 		}
 	case "reissue-token":
+		if refuseIfDryRun(o, "edge reissue-token") {
+			return
+		}
 		// Same token, arm pickup again (lost agent file). Not a rotation.
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge reissue-token <device_id>")
@@ -83,6 +86,9 @@ func runEdgeCLI(args []string) {
 		audit.Log("cli", "edge.reissue-token", args[1], "")
 		fmt.Println("reissue ok", args[1], "token_pickup=true (same token) token="+tok)
 	case "rotate-device-token":
+		if refuseIfDryRun(o, "edge rotate-device-token") {
+			return
+		}
 		// New token after compromise; old token stops working.
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge rotate-device-token <device_id>")
@@ -100,6 +106,9 @@ func runEdgeCLI(args []string) {
 			fmt.Printf("%s\t%s\t%s\t%s\n", d.DeviceID, d.Board, d.WANIP, d.Hostname)
 		}
 	case "approve":
+		if refuseIfDryRun(o, "edge approve") {
+			return
+		}
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge approve <device_id>")
 			os.Exit(2)
@@ -112,6 +121,9 @@ func runEdgeCLI(args []string) {
 		audit.Log("cli", "edge.approve", args[1], "")
 		fmt.Println(cli18n.T("edge.approved"), args[1], "token="+tok)
 	case "deny":
+		if refuseIfDryRun(o, "edge deny") {
+			return
+		}
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge deny <device_id>")
 			os.Exit(2)
@@ -123,6 +135,9 @@ func runEdgeCLI(args []string) {
 		audit.Log("cli", "edge.deny", args[1], "")
 		fmt.Println(cli18n.T("edge.denied"))
 	case "revoke":
+		if refuseIfDryRun(o, "edge revoke") {
+			return
+		}
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge revoke <device_id>")
 			os.Exit(2)
@@ -134,6 +149,9 @@ func runEdgeCLI(args []string) {
 		audit.Log("cli", "edge.revoke", args[1], "")
 		fmt.Println(cli18n.T("edge.revoked"))
 	case "cmd":
+		if refuseIfDryRun(o, "edge cmd") {
+			return
+		}
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor edge cmd <device_id> <action> [arg]")
 			os.Exit(2)

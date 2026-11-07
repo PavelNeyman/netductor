@@ -26,12 +26,15 @@ func runSecondary(args []string) {
 	o := parseCLIOpts(args)
 	if len(o.Rest) < 1 || o.Help {
 		fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
-		fmt.Fprintln(os.Stderr, "flags: --json (status)")
+		fmt.Fprintln(os.Stderr, "flags: --json (status); --dry-run (mutations: remove/prune/join/export/region)")
 		os.Exit(2)
 	}
 	args = o.Rest
 	switch args[0] {
 	case "export":
+		if refuseIfDryRun(o, "secondary export") {
+			return
+		}
 		out := "bundle.json"
 		sni := vpn.DefaultRealitySNI
 		for i := 1; i < len(args); i++ {
@@ -74,6 +77,9 @@ func runSecondary(args []string) {
 		fmt.Println("Copy to RU VPS and run: netductor secondary join", out)
 		fmt.Println("uplink user:", vpn.RelayUplinkName, "uuid="+b.UplinkUUID)
 	case "join":
+		if refuseIfDryRun(o, "secondary join") {
+			return
+		}
 		path := "bundle.json"
 		if len(args) > 1 {
 			path = args[1]
@@ -97,6 +103,9 @@ func runSecondary(args []string) {
 			fmt.Printf("## %s\n%s\n", e.Name(), string(b))
 		}
 	case "prune":
+		if refuseIfDryRun(o, "secondary prune") {
+			return
+		}
 		n, err := secondary.PruneDuplicates()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "prune secondary duplicates:", err)
@@ -117,6 +126,9 @@ func runSecondary(args []string) {
 			}
 		}
 	case "remove":
+		if refuseIfDryRun(o, "secondary remove") {
+			return
+		}
 		if len(args) < 2 {
 			os.Exit(2)
 		}
@@ -383,6 +395,9 @@ func runSecondary(args []string) {
 		fmt.Println("exit_enabled", on)
 		fmt.Println("sing-box re-applied on core; relays will sync on next agent poll")
 	case "region":
+		if refuseIfDryRun(o, "secondary region") {
+			return
+		}
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: netductor secondary region <id> <eu|ru|…>")
 			os.Exit(2)

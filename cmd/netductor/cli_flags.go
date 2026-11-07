@@ -72,3 +72,13 @@ func dieUnknownFlag(flag string) {
 	fmt.Fprintf(os.Stderr, "unknown flag: %s\n", flag)
 	os.Exit(2)
 }
+
+// refuseIfDryRun prints a one-liner and returns true when --dry-run was set.
+// Callers must return without mutating state.
+func refuseIfDryRun(o cliOpts, action string) bool {
+	if !o.DryRun {
+		return false
+	}
+	fmt.Fprintf(os.Stderr, "dry-run: would %s (not executed)\n", action)
+	return true
+}
