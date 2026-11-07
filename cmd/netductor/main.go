@@ -234,6 +234,8 @@ func main() {
 		runUpdate(true)
 	case "serve":
 		runServe(os.Args[2:])
+	case "completion":
+		runCompletion(os.Args[2:])
 	case "deploy", "operator", "credentials", "tui", "menu":
 		fmt.Fprintf(os.Stderr, "%s: not available on the node binary — use netductor-op on the workstation\n", os.Args[1])
 		os.Exit(2)
@@ -248,6 +250,7 @@ func printHelp() {
 
   install | serve | firewall | host-audit | vps-check | host-baseline | cleanup | tg-alerts | servicenet | doctor | status | vpn | services | policy | logs | channel | secondary | inventory | svc-paths | api-public | edge | mtls | nvr
   stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
+  completion bash|zsh
   version | help
 
 Workstation deploy / TUI: install netductor-op (not this binary).

@@ -19,6 +19,16 @@ type update struct {
 	ChannelPost   *message       `json:"channel_post"`
 	MyChatMember  *chatMemberUpd `json:"my_chat_member"`
 	CallbackQuery *callbackQuery `json:"callback_query"`
+	WidgetQuery   *widgetQuery   `json:"widget_query"`
+}
+
+type widgetQuery struct {
+	ID        string `json:"id"`
+	From      user   `json:"from"`
+	Chat      *chat  `json:"chat"`
+	MessageID int    `json:"message_id"`
+	Data      string `json:"data"`
+	WidgetID  string `json:"widget_id,omitempty"`
 }
 
 type message struct {

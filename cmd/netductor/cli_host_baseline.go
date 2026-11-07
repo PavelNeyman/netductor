@@ -49,6 +49,7 @@ netductor host-baseline repair   # LE hooks + statefile modes (idempotent)
 		}
 		// purge residual soft
 		install.PurgeHostMonitoring()
+		installBashCompletionBestEffort()
 		r := install.CheckHostBaseline()
 		fmt.Printf("host-baseline applied role=%s ok=%v\n", role, r.OK)
 		for _, i := range r.Issues {

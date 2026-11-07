@@ -183,4 +183,4 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 
 - [x] **S-1 note** disable revokes the subscription URL. Re-enable issues a new token. Rename moves the token (0.9.439).
 
-- CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles watch-only (no Bot API yet)
+- CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles status scaffold + migrate attention (gated)

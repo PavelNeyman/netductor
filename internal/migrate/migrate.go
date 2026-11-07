@@ -390,6 +390,44 @@ func LoadJournalPublic() (map[string]JournalRecord, error) {
 	return out, nil
 }
 
+// NeedsOperatorAttention reports whether TG/CLI should surface migrate repair controls.
+// True when journal has failed/running entries, journal cannot be read, or any
+// DefaultRegistry migration still reports Required (pending work).
+func NeedsOperatorAttention() bool {
+	j, err := loadJournal()
+	if err != nil {
+		return true
+	}
+	for _, r := range j.Records {
+		if r.Status == StatusFailed || r.Status == StatusRunning {
+			return true
+		}
+	}
+	ctx := context.Background()
+	for _, m := range DefaultRegistry {
+		need, err := m.Required(ctx)
+		if err != nil || need {
+			return true
+		}
+	}
+	return false
+}
+
+// PendingRequiredIDs lists migration IDs whose Required() is still true.
+func PendingRequiredIDs(ctx context.Context) ([]string, error) {
+	var out []string
+	for _, m := range DefaultRegistry {
+		need, err := m.Required(ctx)
+		if err != nil {
+			return out, err
+		}
+		if need {
+			out = append(out, m.ID())
+		}
+	}
+	return out, nil
+}
+
 // ClearFailedRecords resets failed entries so the next RunAll can retry Required work.
 // Holds the same exclusive lock as RunRegistry to avoid racing the Migration Runner.
 func ClearFailedRecords() error {

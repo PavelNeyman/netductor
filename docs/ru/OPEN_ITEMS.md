@@ -118,4 +118,4 @@
 - **Web-файловый менеджер** (agent `fs_list`/`fs_read`/`fs_write` + allowlist путей) — отложено.
 - **UI-скины A/B/C** — реализованы в operator Web (Settings → skin).
 
-- CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles watch-only (no Bot API yet)
+- CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles status scaffold + migrate attention (gated)

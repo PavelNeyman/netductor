@@ -138,6 +138,9 @@ func formatVersionsHTML(force bool) string {
 	}
 	b.WriteString(fmt.Sprintf("<tr><td>github token</td><td>%s</td></tr>"+nl, tokS))
 	b.WriteString("</table>" + nl + nl)
+	if !migrate.NeedsOperatorAttention() {
+		b.WriteString("🧩 Startup migrations: <b>ok</b>" + nl + nl)
+	}
 	b.WriteString(formatUpdateJobsSnippet(ru, nl))
 	b.WriteString("<i>" + T("ver_apply_hint") + "</i>" + nl)
 
@@ -205,11 +208,16 @@ func orDash(s string) string {
 }
 
 func versionsKeyboard() map[string]any {
-	return map[string]any{"inline_keyboard": [][]map[string]any{
-		{btn("📋 "+T("migrate_status"), "m:migrate:status", ""), btn("▶️ "+T("migrate_run"), "m:migrate:run", "primary")},
-		{btn("🧹 "+T("migrate_clear"), "m:migrate:clear", "")},
-		{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")},
-	}}
+	rows := [][]map[string]any{}
+	// CF-18.1: migrate repair tools only when journal/Required says work is needed.
+	if migrate.NeedsOperatorAttention() {
+		rows = append(rows,
+			[]map[string]any{btn("📋 "+T("migrate_status"), "m:migrate:status", ""), btn("▶️ "+T("migrate_run"), "m:migrate:run", "primary")},
+			[]map[string]any{btn("🧹 "+T("migrate_clear"), "m:migrate:clear", "")},
+		)
+	}
+	rows = append(rows, []map[string]any{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")})
+	return map[string]any{"inline_keyboard": rows}
 }
 
 func formatMigrateStatusHTML() string {

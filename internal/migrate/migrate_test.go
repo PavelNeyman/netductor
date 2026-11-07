@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -520,4 +521,23 @@ func TestRepairStateMigrationReRunsForNewMarkerVersion(t *testing.T) {
 	need, err = m.Required(context.Background())
 	if err != nil || need { t.Fatalf("new marker: need=%v err=%v", need, err) }
 	if calls != 1 { t.Fatalf("repair unexpectedly reran: calls=%d", calls) }
+}
+
+
+func TestNeedsOperatorAttentionFailedJournal(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", root)
+	if err := os.MkdirAll(filepath.Join(root, "migrate"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	j := journalFile{Schema: 1, Records: map[string]record{
+		"test-fail": {ID: "test-fail", Status: StatusFailed, Error: "boom"},
+	}}
+	b, _ := json.Marshal(j)
+	if err := os.WriteFile(filepath.Join(root, "migrate", "journal.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !NeedsOperatorAttention() {
+		t.Fatal("expected attention on failed journal entry")
+	}
 }

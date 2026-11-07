@@ -402,11 +402,9 @@ Canonical: `noun verb [options]` with `-h/--help`, `-v/--version`, `--json`, `--
 Keep git-style aliases 1–2 releases (`secondary cmd ID upgrade:vX` stays).
 Group help by plane / host / edge. Completion follows canon.
 
-### 18.4 HTMLBubbles / in-chat widgets (watch only)
-Telegram 13.2 client feature: HTML/CSS/JS widgets **inside message bubbles**, no separate Mini App webview.
-Reported limits: ~32 KiB code, ≤600×600, **no direct network** (fetch/XHR blocked), no external scripts, sandbox (WidgetSandbox/QuickJS).
-Bot API **10.4** (test docs): `sendWidget`, `editMessageWidgetData`, `answerWidgetQuery` — **not stable public API** as of 2026-11; send rights restricted.
-**For Netductor:** does **not** reopen a public HTTPS hole for Mini App hosting — payload is message content via Bot API. Still **cannot** call private primary API from widget JS (no network). Useful later for rich status/polls **if** API stabilizes; data path remains bot callbacks → primary over existing bot token. **Do not implement until Bot API 10.4 is official.** Track as research.
+### 18.4 HTMLBubbles / in-chat widgets — **scaffold in tree**
+Gated (`NETDUCTOR_TG_WIDGETS=1`): status bubble + Refresh/Versions/Channel/Menu; migrate attention line.
+Bot API 10.4 beta methods; soft-fail → classic status. No upgrade floor (UX only, AGENT_HANDOFF CF-15).
 
 ---
 ## CF-16 — PeerRemove UFW 8789 comment mismatch (P1) — **done 0.9.693**
@@ -427,7 +425,7 @@ Bot API **10.4** (test docs): `sendWidget`, `editMessageWidgetData`, `answerWidg
 | Edge / NVR / MikroTik lab e2e | [OPEN_ITEMS.md](OPEN_ITEMS.md) |
 | APT Guard **live apply** canary (after CF-12 policy) | ops evidence |
 | Update-system live canary on VPS | ops — blocked on **CF-13** |
-| Telegram HTMLBubbles | deferred product — [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) |
+| Telegram HTMLBubbles live canary | ops — Bot API 10.4 send rights |
 | OIDC / read-only guest | future |
 
 ---

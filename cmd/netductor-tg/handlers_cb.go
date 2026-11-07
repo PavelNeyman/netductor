@@ -335,6 +335,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:actions":
 		reply(token, chat, msgID, fleet.FormatActionsHTML(getLang() != "en"), statusKeyboard())
 	case "m:status":
+		if tryReplyStatusWidget(token, chat, msgID) {
+			return
+		}
 		reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
 	case "m:netmap":
 		reply(token, chat, msgID, formatNetmapHTML(), statusKeyboard())

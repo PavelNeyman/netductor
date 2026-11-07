@@ -894,7 +894,7 @@ func main() {
 		v := url.Values{}
 		v.Set("timeout", "30")
 		v.Set("offset", strconv.Itoa(offset))
-		v.Set("allowed_updates", `["message","callback_query","channel_post","my_chat_member"]`)
+		v.Set("allowed_updates", `["message","callback_query","channel_post","my_chat_member","widget_query"]`)
 		body, err := apiGet(token, "getUpdates", v)
 		if err != nil {
 			time.Sleep(3 * time.Second)
@@ -927,6 +927,13 @@ func main() {
 					continue
 				}
 				handleCallback(token, u.CallbackQuery, admin)
+				continue
+			}
+			if u.WidgetQuery != nil {
+				if admin == 0 {
+					continue
+				}
+				_ = handleWidgetQuery(token, u.WidgetQuery, admin)
 				continue
 			}
 			if u.Message != nil {
