@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1…CF-5, CF-7, CF-9…CF-13 through 0.9.691; CF-14 naming recorded; CF-15 upgrade floors planned**; remaining CF-6, CF-8, CF-14, CF-15  
+**Status:** open — **CF-1…CF-5, CF-7, CF-9…CF-13, CF-16…18 partial; CF-15 A+B+chain CLI**; remaining CF-6, CF-8, CF-14, CF-15 resume journal / CI floor scan  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -311,7 +311,7 @@ Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Baseline requirements
 
 **Not every release needs an intermediate binary step.** Stepping is required only when code cannot safely jump — see **CF-15**.
 
-## CF-15 — Upgrade floors from code (P1) — **in progress (0.9.692 gate; path resolver in tree)**
+## CF-15 — Upgrade floors from code (P1) — **in progress (gate+path+chain CLI; release ships upgrade.json)**
 
 ### Goal
 
@@ -346,7 +346,7 @@ Ordinary features and **idempotent** migrations that a new binary can run after 
 |-------|----------|
 | **A — gate** | `stack apply` / `update`: if `local < min_from` → **hard refuse** with a clear message (“install intermediate vX first”); no silent skip |
 | **B — path** | `ResolveUpgradePath(local, target)` using published `upgrade.json` history → ordered tag list |
-| **C — apply chain** | Download + verify + apply each step; migrate/health between steps; journal/resume on partial failure |
+| **C — apply chain** | Download + verify + apply each step — **`stack apply --chain`** (control node); journal/resume on partial failure still TODO |
 
 Phase A can ship before a full auto-chain. Phase C must be **role-aware** (control node vs egress agent vs edge).
 

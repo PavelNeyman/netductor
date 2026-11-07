@@ -62,6 +62,13 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="$LD" \
 (cd dist && sha256sum netductor-* > SHA256SUMS)
 ./scripts/verify-release-binaries.sh
 
+# CF-15: publish upgrade.json from in-code floors (may be empty min_from)
+echo "==> upgrade.json (CF-15 floors)"
+go run scripts/gen-upgrade-json.go "$VER" > dist/upgrade.json
+# rebuild SHA256SUMS including upgrade.json
+(cd dist && sha256sum netductor-* upgrade.json > SHA256SUMS)
+
+
 SHA_ARM=$(sha256sum dist/netductor-op-darwin-arm64 | awk '{print $1}')
 SHA_AMD=$(sha256sum dist/netductor-op-darwin-amd64 | awk '{print $1}')
 rm -f Formula/netductor.rb
@@ -156,6 +163,7 @@ REQUIRED_REMOTE=(
   netductor-agent-linux-amd64 netductor-agent-linux-arm64
   netductor-agent-linux-arm netductor-agent-linux-mipsle netductor-agent-linux-riscv64
   netductor-op-darwin-arm64 netductor-op-darwin-amd64
+  upgrade.json
   SHA256SUMS
 )
 
@@ -217,6 +225,7 @@ required = [
   "netductor-agent-linux-amd64", "netductor-agent-linux-arm64",
   "netductor-agent-linux-arm", "netductor-agent-linux-mipsle", "netductor-agent-linux-riscv64",
   "netductor-op-darwin-arm64", "netductor-op-darwin-amd64",
+  "upgrade.json",
   "SHA256SUMS",
 ]
 missing = [n for n in required if n not in assets]

@@ -13,6 +13,7 @@ type cliOpts struct {
 	JSON   bool
 	DryRun bool
 	Help   bool
+	Chain  bool // CF-15: multi-hop stack apply
 	// Rest is positional args with known flags stripped.
 	Rest []string
 }
@@ -27,6 +28,8 @@ func parseCLIOpts(args []string) cliOpts {
 			o.JSON = true
 		case "--dry-run":
 			o.DryRun = true
+		case "--chain":
+			o.Chain = true
 		case "-h", "--help":
 			o.Help = true
 		default:

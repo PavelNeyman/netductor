@@ -16,7 +16,7 @@ func runStack(args []string) {
 
   netductor stack status [--json]
   netductor stack preflight [vX.Y.Z]
-  netductor stack apply [vX.Y.Z] [--dry-run]
+  netductor stack apply [vX.Y.Z] [--dry-run] [--chain]
   netductor stack schedule [vX.Y.Z]
   netductor stack rollback | heal | promote
   netductor stack pin [reason] | unpin
@@ -52,13 +52,24 @@ func runStack(args []string) {
 		if o.DryRun {
 			pf := stack.Preflight(tag)
 			fmt.Print(stack.FormatPreflight(pf))
+			if o.Chain {
+				if steps, err := stack.ResolveApplyPath(tag); err == nil {
+					fmt.Println("chain:", stack.FormatApplyPath(steps))
+				}
+			}
 			fmt.Println("dry-run: stack apply not executed")
 			if !pf.OK {
 				os.Exit(1)
 			}
 			return
 		}
-		if err := stack.Apply(tag); err != nil {
+		var err error
+		if o.Chain {
+			err = stack.ApplyChain(tag)
+		} else {
+			err = stack.Apply(tag)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

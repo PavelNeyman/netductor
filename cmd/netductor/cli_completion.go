@@ -54,7 +54,7 @@ _netductor() {
   fi
   case "${COMP_WORDS[1]}" in
     svc-paths) COMPREPLY=( $(compgen -W "status apply peer failover doctor" -- "$cur") ) ;;
-    stack) COMPREPLY=( $(compgen -W "status apply schedule rollback preflight heal pin unpin promote watchdog --json --dry-run -h" -- "$cur") ) ;;
+    stack) COMPREPLY=( $(compgen -W "status apply schedule rollback preflight heal pin unpin promote watchdog --json --dry-run --chain -h" -- "$cur") ) ;;
     secondary) COMPREPLY=( $(compgen -W "status list cmd upgrade join remove export --json -h" -- "$cur") ) ;;
     migrate) COMPREPLY=( $(compgen -W "status run clear-failed list --json -h --help" -- "$cur") ) ;;
     vpn) COMPREPLY=( $(compgen -W "list add remove status" -- "$cur") ) ;;
