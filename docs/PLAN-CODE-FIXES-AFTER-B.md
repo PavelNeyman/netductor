@@ -384,6 +384,31 @@ After active peer is slot N, `MaterialIfaces()` / legacy material may still repo
 
 **Fix:** `Status()` uses `active_id` peer slot ifaces + matching WSS unit names (`nd-wss-*-nd-svc-sp1`).
 
+
+## CF-18 — UX: conditional migrate TG buttons + bash completion + unix-style CLI (P2)
+
+### 18.1 TG migrate buttons only when needed
+Startup migrations already run on API start (`migrate.RunAll`). Buttons status/run/clear on Versions are repair tools.
+**Change:** show migrate keyboard rows only when journal has `failed`/`running` or pending required migrations; otherwise hide. Optional one-line status if all ok.
+
+### 18.2 Bash/zsh completion
+- `netductor completion bash|zsh` (and `netductor-op`)
+- install under `/usr/share/bash-completion/completions/` on stack apply / host-baseline (node)
+- brew path for op on Mac
+- v1: top-level + depth-2 subcommands
+
+### 18.3 Unix-style flags (compat layer)
+Canonical: `noun verb [options]` with `-h/--help`, `-v/--version`, `--json`, `--dry-run` where mutations.
+Keep git-style aliases 1–2 releases (`secondary cmd ID upgrade:vX` stays).
+Group help by plane / host / edge. Completion follows canon.
+
+### 18.4 HTMLBubbles / in-chat widgets (watch only)
+Telegram 13.2 client feature: HTML/CSS/JS widgets **inside message bubbles**, no separate Mini App webview.
+Reported limits: ~32 KiB code, ≤600×600, **no direct network** (fetch/XHR blocked), no external scripts, sandbox (WidgetSandbox/QuickJS).
+Bot API **10.4** (test docs): `sendWidget`, `editMessageWidgetData`, `answerWidgetQuery` — **not stable public API** as of 2026-11; send rights restricted.
+**For Netductor:** does **not** reopen a public HTTPS hole for Mini App hosting — payload is message content via Bot API. Still **cannot** call private primary API from widget JS (no network). Useful later for rich status/polls **if** API stabilizes; data path remains bot callbacks → primary over existing bot token. **Do not implement until Bot API 10.4 is official.** Track as research.
+
+---
 ## CF-16 — PeerRemove UFW 8789 comment mismatch (P1) — **done 0.9.693**
 
 **Symptom:** `netductor svc-paths peer remove legacy-…` → `refuse to delete unowned UFW rule 8789/tcp from 10.87.10.2`.
