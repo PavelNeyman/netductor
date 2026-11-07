@@ -1,13 +1,43 @@
 package stack
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/PavelNeyman/netductor/internal/paths"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	"github.com/PavelNeyman/netductor/internal/upgrade"
 )
+
+// chainJournal tracks in-progress multi-hop apply (CF-15 phase C resume hint).
+type chainJournal struct {
+	Target    string   `json:"target"`
+	Path      []string `json:"path"`
+	Done      []string `json:"done"`
+	Current   string   `json:"current,omitempty"`
+	StartedAt string   `json:"started_at"`
+	UpdatedAt string   `json:"updated_at"`
+	Error     string   `json:"error,omitempty"`
+}
+
+func chainJournalPath() string {
+	return filepath.Join(paths.StateDir(), "stack", "chain-apply.json")
+}
+
+func writeChainJournal(j chainJournal) {
+	j.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	_ = os.MkdirAll(filepath.Dir(chainJournalPath()), 0o755)
+	b, _ := json.MarshalIndent(j, "", "  ")
+	_ = os.WriteFile(chainJournalPath(), b, 0o644)
+}
+
+func clearChainJournal() {
+	_ = os.Remove(chainJournalPath())
+}
 
 // ResolveApplyPath builds CF-15 hop list for tag using local release store + target meta.
 func ResolveApplyPath(tag string) ([]upgrade.PathStep, error) {
@@ -43,7 +73,7 @@ func FormatApplyPath(steps []upgrade.PathStep) string {
 }
 
 // ApplyChain resolves the upgrade path and applies each hop in order (CF-15 phase C, control node).
-// Single-hop paths are identical to Apply. On intermediate failure, stops; no auto-skip.
+// Writes stack/chain-apply.json during the run for operator resume visibility; clears on success.
 func ApplyChain(tag string) error {
 	steps, err := ResolveApplyPath(tag)
 	if err != nil {
@@ -52,13 +82,31 @@ func ApplyChain(tag string) error {
 	if len(steps) == 0 {
 		return fmt.Errorf("stack apply --chain: empty path")
 	}
+	pathTags := make([]string, len(steps))
+	for i, s := range steps {
+		pathTags[i] = "v" + strings.TrimPrefix(s.Tag, "v")
+	}
 	fmt.Fprintf(os.Stderr, "stack apply --chain: %s\n", FormatApplyPath(steps))
+	j := chainJournal{
+		Target:    pathTags[len(pathTags)-1],
+		Path:      pathTags,
+		StartedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+	writeChainJournal(j)
 	for i, s := range steps {
 		hop := "v" + strings.TrimPrefix(s.Tag, "v")
+		j.Current = hop
+		writeChainJournal(j)
 		fmt.Fprintf(os.Stderr, "stack apply --chain: hop %d/%d %s\n", i+1, len(steps), hop)
 		if err := Apply(hop); err != nil {
-			return fmt.Errorf("stack apply --chain hop %s: %w", hop, err)
+			j.Error = err.Error()
+			writeChainJournal(j)
+			return fmt.Errorf("stack apply --chain hop %s: %w (journal %s)", hop, err, chainJournalPath())
 		}
+		j.Done = append(j.Done, hop)
+		j.Current = ""
+		writeChainJournal(j)
 	}
+	clearChainJournal()
 	return nil
 }

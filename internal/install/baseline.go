@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
+	"github.com/PavelNeyman/netductor/internal/role"
 )
 
 // BaselineReport is a machine-readable host baseline integrity check.
@@ -27,7 +28,7 @@ func CheckHostBaseline() BaselineReport {
 	var r BaselineReport
 	if b, err := os.ReadFile("/etc/netductor/role"); err == nil {
 		r.RoleFile = strings.TrimSpace(strings.ToLower(string(b)))
-		r.RoleOK = r.RoleFile == "primary" || r.RoleFile == "secondary"
+		r.RoleOK = role.AcceptsRoleFile(r.RoleFile)
 	} else {
 		r.RoleFile = "missing"
 		r.RoleOK = false
@@ -55,11 +56,15 @@ func CheckHostBaseline() BaselineReport {
 		r.Issues = append(r.Issues, "netductor-stack-watchdog.timer not active")
 	}
 
-	role := r.RoleFile
-	if role != "primary" && role != "secondary" {
-		role = ""
+	diskRole := r.RoleFile
+	if !role.AcceptsRoleFile(diskRole) {
+		diskRole = ""
+	} else if role.IsControl(diskRole) {
+		diskRole = "primary" // firewall.Collect still primary|secondary
+	} else if role.IsEgress(diskRole) {
+		diskRole = "secondary"
 	}
-	fw := firewall.Collect(role)
+	fw := firewall.Collect(diskRole)
 	r.FirewallOK = fw.OK
 	if !fw.OK {
 		r.Issues = append(r.Issues, fmt.Sprintf("firewall not ok backend=%s", fw.Backend))

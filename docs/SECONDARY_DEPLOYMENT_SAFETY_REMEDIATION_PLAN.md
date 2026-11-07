@@ -277,3 +277,5 @@ Code is intentionally unchanged. Recorded so the next hardening pass does not re
 ## Remaining code work (moved)
 
 UFW prepare/finalize residual notes and related follow-ups were moved to [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) (**CF-4**, **CF-5**, **CF-6**). Many harden idempotency issues were fixed in **0.9.674–0.9.683**; re-verify against that plan before re-implementing.
+
+**CF-8 closed as process (2026-11-07):** stale “Focused tests have not been executed” rows below are historical notes, not open features. CI/`go test` is the gate.

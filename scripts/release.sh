@@ -8,6 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 ./scripts/check-versions.sh
+./scripts/check-upgrade-floors.sh
 ./scripts/check-web-ui.sh
 
 VER="${VERSION:-$(tr -d '[:space:]' < VERSION)}"

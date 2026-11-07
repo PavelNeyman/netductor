@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/firewall"
+	"github.com/PavelNeyman/netductor/internal/role"
 	"github.com/PavelNeyman/netductor/internal/hardening"
 	"github.com/PavelNeyman/netductor/internal/logs"
 	"github.com/PavelNeyman/netductor/internal/servicenet"
@@ -72,36 +73,37 @@ func ensureWatchdogTimer() error {
 
 // EnsureHostBaseline re-applies role firewall (writes /etc/netductor/role), stack watchdog timer,
 // and apt pin block for hoster packages. Idempotent.
-func EnsureHostBaseline(role string) error {
-	role = strings.TrimSpace(strings.ToLower(role))
-	if role == "" {
-		role = "primary"
+func EnsureHostBaseline(roleName string) error {
+	roleName = strings.TrimSpace(strings.ToLower(roleName))
+	if roleName == "" {
+		roleName = "primary"
 	}
-	if role != "primary" && role != "secondary" {
-		return fmt.Errorf("role must be primary|secondary, got %q", role)
+	if !role.AcceptsRoleFile(roleName) {
+		return fmt.Errorf("role must be primary|secondary|control|egress, got %q", roleName)
 	}
+	diskRole := role.LegacyWrite(roleName) // on-disk dual-write still primary|secondary
 	// CF-4: single owner of secondary SSH UFW transition.
 	// - Factory path (:22 still listening): bootstrap profile keeps temporary ALLOW :22.
 	// - Hardened path (key-only :52222, no :22 listener): full role policy with DENY :22
 	//   and removal of netductor-ssh-bootstrap leftovers.
 	// Do not reopen :22 on already-hardened secondaries via baseline.
-	if role == "secondary" {
+	if diskRole == "secondary" {
 		if secondarySSHReadyHardened() {
-			if err := firewall.ApplyRole(role); err != nil {
+			if err := firewall.ApplyRole(diskRole); err != nil {
 				return fmt.Errorf("apply secondary hardened firewall policy: %w", err)
 			}
 		} else {
-			if err := firewall.ApplyRoleBootstrap(role); err != nil {
+			if err := firewall.ApplyRoleBootstrap(diskRole); err != nil {
 				return fmt.Errorf("apply secondary bootstrap firewall policy: %w", err)
 			}
 		}
-	} else if err := firewall.ApplyRole(role); err != nil {
+	} else if err := firewall.ApplyRole(diskRole); err != nil {
 		return err
 	}
 	if err := ensureWatchdogTimer(); err != nil {
 		return fmt.Errorf("watchdog baseline: %w", err)
 	}
-	fmt.Fprintln(os.Stderr, "host baseline: firewall="+role+" + netductor-stack-watchdog.timer")
+	fmt.Fprintln(os.Stderr, "host baseline: firewall="+diskRole+" + netductor-stack-watchdog.timer")
 	if err := logs.EnsureTimer(); err != nil {
 		fmt.Fprintf(os.Stderr, "logs-rotate timer: %v\n", err)
 	}
@@ -111,7 +113,7 @@ func EnsureHostBaseline(role string) error {
 	if err := SnapshotHostBaseline(); err != nil {
 		fmt.Fprintf(os.Stderr, "host baseline snapshot: %v\n", err)
 	}
-	if role == "primary" {
+	if diskRole == "primary" {
 		if err := servicenet.Ensure(); err != nil {
 			fmt.Fprintf(os.Stderr, "servicenet: %v\n", err)
 		}

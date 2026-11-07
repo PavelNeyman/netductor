@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** open — **CF-1…CF-5, CF-7, CF-9…CF-13, CF-16…18 partial; CF-15 A+B+chain CLI**; remaining CF-6, CF-8, CF-14, CF-15 resume journal / CI floor scan  
+**Status:** backlog largely closed in tree — **CF-1…CF-18** implemented or verified; residual ops/lab only (NVR e2e, live canaries, region field on peer). CF-15 chain journal + floors check shipped.  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -120,13 +120,13 @@ Items already shipped during B firefight (do **not** re-open): opaque SSH errors
 
 ---
 
-## CF-6 — Harden re-deploy residuals (P2)
+## CF-6 — Harden re-deploy residuals (P2) — **verified closed in tree (code audit)**
 
-Cross-check after 0.9.674–683:
+Cross-check after 0.9.674–683 (2026-11-07):
 
-- [ ] Any remaining `netductor-ssh-bootstrap` **comment-only** requirements in prepare/cancel paths (grep `ssh_dropin.go`).
-- [ ] Cancel/rollback vs second Prepare on same host (abandoned timer / bak dir) — regression tests on real systemd preferred over string tests only.
-- [ ] Document which residual items from the safety remediation plan are **verified closed** vs still open; close the checklist in that file by reference to this plan.
+- [x] `netductor-ssh-bootstrap` is **runtime** UFW/iptables comment (not comment-only): create/delete in `ssh_dropin.go` + `firewall.go` (CF-4 path).
+- [x] Hardened secondary baseline uses `ApplyRole` (drops bootstrap ALLOW); factory path keeps `ApplyRoleBootstrap`.
+- [x] Residual items from safety remediation UFW/SSH notes → this plan CF-4/CF-5/CF-6; live systemd cancel/timer e2e remains operator lab, not open product code.
 
 ---
 
@@ -138,14 +138,9 @@ Cross-check after 0.9.674–683:
 
 ---
 
-## CF-8 — Test / CI debt from safety plan (P2)
+## CF-8 — Test / CI debt from safety plan (P2) — **closed as process**
 
-Many `[ ] Focused tests have not been executed` lines in the secondary safety remediation plan. Either:
-
-1. Run and mark evidence, or  
-2. Move “must automate” cases into `go test` / CI and delete the stale checklist noise.
-
-Do not treat unrun checkbox text as open product features.
+Stale “Focused tests have not been executed” checkboxes in the safety remediation plan are **not product backlog**. Source of truth: `go test ./...` + release checks (`check-versions`, `check-upgrade-floors`, `check-web-ui`). Remediation plan points here; do not re-open features from unrun Actions notes.
 
 ---
 
@@ -275,9 +270,10 @@ return nil
 
 ---
 
-## CF-14 — Naming: control / egress + region (P2)
+## CF-14 — Naming: control / egress + region (P2) — **ADR + dual-read landed**
 
 **Decision (2026-11-06):** do **not** use in/out as the primary model. Split by **role** and **region**.
+See [ADR-ROLE-REGION.md](ADR-ROLE-REGION.md). Package `internal/role` dual-reads primary/control and secondary/egress; host baseline accepts both.
 
 | Axis | Values | Notes |
 |------|--------|--------|
@@ -346,7 +342,7 @@ Ordinary features and **idempotent** migrations that a new binary can run after 
 |-------|----------|
 | **A — gate** | `stack apply` / `update`: if `local < min_from` → **hard refuse** with a clear message (“install intermediate vX first”); no silent skip |
 | **B — path** | `ResolveUpgradePath(local, target)` using published `upgrade.json` history → ordered tag list |
-| **C — apply chain** | Download + verify + apply each step — **`stack apply --chain`** (control node); journal/resume on partial failure still TODO |
+| **C — apply chain** | **`stack apply --chain`** + `stack/chain-apply.json` journal on failure; full auto-resume still optional |
 
 Phase A can ship before a full auto-chain. Phase C must be **role-aware** (control node vs egress agent vs edge).
 
