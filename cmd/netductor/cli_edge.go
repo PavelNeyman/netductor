@@ -19,16 +19,19 @@ import (
 )
 
 func runEdgeCLI(args []string) {
-	if len(args) < 1 {
+	o := parseCLIOpts(args)
+	if len(o.Rest) < 1 || o.Help {
 		fmt.Fprintln(os.Stderr, cli18n.T("edge.usage"))
+		fmt.Fprintln(os.Stderr, "flags: --json (list)")
 		os.Exit(2)
 	}
+	args = o.Rest
 	switch args[0] {
 
 	case "storage":
 		runEdgeStorageCLI(args[1:])
 	case "list":
-		runEdgeList()
+		runEdgeList(o.JSON)
 	case "bootstrap-token":
 		// ensure | show | rotate
 		sub := "ensure"
@@ -409,8 +412,14 @@ func runEdgeCLI(args []string) {
 	}
 }
 
-func runEdgeList() {
+func runEdgeList(asJSON bool) {
 	devs := edge.ListDevices()
+	if asJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(map[string]any{"devices": devs})
+		return
+	}
 	for _, d := range devs {
 		st := "offline"
 		if d.Healthy {

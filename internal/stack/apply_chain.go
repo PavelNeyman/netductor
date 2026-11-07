@@ -39,6 +39,18 @@ func clearChainJournal() {
 	_ = os.Remove(chainJournalPath())
 }
 
+func loadChainJournal() (chainJournal, bool) {
+	var j chainJournal
+	b, err := os.ReadFile(chainJournalPath())
+	if err != nil {
+		return j, false
+	}
+	if json.Unmarshal(b, &j) != nil || len(j.Path) == 0 {
+		return j, false
+	}
+	return j, true
+}
+
 // ResolveApplyPath builds CF-15 hop list for tag using local release store + target meta.
 func ResolveApplyPath(tag string) ([]upgrade.PathStep, error) {
 	tag = strings.TrimSpace(tag)
@@ -92,9 +104,27 @@ func ApplyChain(tag string) error {
 		Path:      pathTags,
 		StartedAt: time.Now().UTC().Format(time.RFC3339),
 	}
+	// Resume: reuse Done from prior failed journal when same target.
+	if prev, ok := loadChainJournal(); ok && strings.TrimPrefix(prev.Target, "v") == strings.TrimPrefix(j.Target, "v") {
+		j.Done = append([]string{}, prev.Done...)
+		j.StartedAt = prev.StartedAt
+		if len(prev.Done) > 0 {
+			fmt.Fprintf(os.Stderr, "stack apply --chain: resume after %v\n", prev.Done)
+		}
+	}
+	j.Error = ""
 	writeChainJournal(j)
+	doneSet := map[string]bool{}
+	for _, d := range j.Done {
+		doneSet[d] = true
+		doneSet[strings.TrimPrefix(d, "v")] = true
+	}
 	for i, s := range steps {
 		hop := "v" + strings.TrimPrefix(s.Tag, "v")
+		if doneSet[hop] || doneSet[strings.TrimPrefix(hop, "v")] {
+			fmt.Fprintf(os.Stderr, "stack apply --chain: skip done hop %d/%d %s\n", i+1, len(steps), hop)
+			continue
+		}
 		j.Current = hop
 		writeChainJournal(j)
 		fmt.Fprintf(os.Stderr, "stack apply --chain: hop %d/%d %s\n", i+1, len(steps), hop)

@@ -1,6 +1,6 @@
 # Code fix backlog after Secondary B deploy (2026-11)
 
-**Status:** backlog largely closed in tree — **CF-1…CF-18** implemented or verified; residual ops/lab only (NVR e2e, live canaries, region field on peer). CF-15 chain journal + floors check shipped.  
+**Status:** **code backlog closed** — CF-1…CF-18 in tree. Residual: ops/lab only (NVR e2e, live canaries, R5 cutover).  
 **Scope:** code changes only (not lab/hardware e2e, not pure operator steps)  
 **Context:** second Secondary `195.140.147.20` (peer `peer-195-140-147-20`, slot 1) was deployed and **promoted** 2026-11-06; A remains `ready` for observation.
 
@@ -307,7 +307,7 @@ Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Baseline requirements
 
 **Not every release needs an intermediate binary step.** Stepping is required only when code cannot safely jump — see **CF-15**.
 
-## CF-15 — Upgrade floors from code (P1) — **in progress (gate+path+chain CLI; release ships upgrade.json)**
+## CF-15 — Upgrade floors from code (P1) — **done in tree** (gate+path+chain+journal resume+release upgrade.json+floors check)
 
 ### Goal
 
@@ -342,7 +342,7 @@ Ordinary features and **idempotent** migrations that a new binary can run after 
 |-------|----------|
 | **A — gate** | `stack apply` / `update`: if `local < min_from` → **hard refuse** with a clear message (“install intermediate vX first”); no silent skip |
 | **B — path** | `ResolveUpgradePath(local, target)` using published `upgrade.json` history → ordered tag list |
-| **C — apply chain** | **`stack apply --chain`** + `stack/chain-apply.json` journal on failure; full auto-resume still optional |
+| **C — apply chain** | **`stack apply --chain`** + journal + **resume skips Done hops** |
 
 Phase A can ship before a full auto-chain. Phase C must be **role-aware** (control node vs egress agent vs edge).
 
@@ -400,7 +400,7 @@ Group help by plane / host / edge. Completion follows canon.
 
 **Done:** shared `parseCLIOpts` (`--json`/`-j`, `--dry-run`, `-h`); grouped top-level help; `migrate`/`stack`/`fleet`/`secondary status` accept flags in any order; `stack apply --dry-run` → preflight only; stack apply + host-baseline install bash completion.
 **Done also:** `vpn list --json`, `channel status --json`, `status --json`.
-**Left:** edge/git ship mutation flags as touched; client Gmail SMTP-via-VPN investigation (OPEN_ITEMS).
+**Left:** none material (edge list --json done; Gmail SMTP → SR mail-direct defaults).
 
 ### 18.4 HTMLBubbles / in-chat widgets — **scaffold in tree**
 Gated (`NETDUCTOR_TG_WIDGETS=1`): status bubble + Refresh/Versions/Channel/Menu; migrate attention line.

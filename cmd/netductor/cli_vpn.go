@@ -387,7 +387,7 @@ func runVPN(args []string) {
 		fmt.Println(tok)
 		fmt.Fprintf(os.Stderr, cli18n.T("vpn.expires")+"\n", exp, hours)
 	case "edge-list":
-		runEdgeList()
+		runEdgeList(false)
 	case "edge-cmd":
 		if len(rest) < 2 {
 			fmt.Fprintln(os.Stderr, cli18n.T("vpn.usage.edge_cmd"))

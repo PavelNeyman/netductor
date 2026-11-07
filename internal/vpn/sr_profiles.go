@@ -55,6 +55,19 @@ var defaultWorkDirectDomains = []string{
 	"tealpos.ru",
 }
 
+// defaultMailDirectDomains — Mac Mail.app SMTP fails TLS via VLESS (IMAP often OK).
+// Keep SMTP (and related Google mail hosts) on DIRECT; override via file/env.
+var defaultMailDirectDomains = []string{
+	"smtp.gmail.com",
+	"imap.gmail.com",
+	"gmail.com",
+	"googlemail.com",
+	"smtp.yandex.ru",
+	"imap.yandex.ru",
+	"smtp.mail.ru",
+	"imap.mail.ru",
+}
+
 // SRProfileMeta is UI-facing metadata (EN/RU labels + short help).
 type SRProfileMeta struct {
 	ID       string
@@ -131,6 +144,7 @@ func BuildShadowrocketRoutingConfProfile(profile string) string {
 		writeCIDRRules(&rb, "# home LAN", homeLANCIDRs(), "DIRECT")
 		writeCIDRRules(&rb, "# work VPN / corporate (utun) — do not send via VLESS", workDirectCIDRs(), "DIRECT")
 		writeDomainSuffixRules(&rb, "# work DNS names (browser path)", workDirectDomains(), "DIRECT")
+		writeDomainSuffixRules(&rb, "# mail SMTP/IMAP direct (Mail.app TLS via VLESS)", mailDirectDomains(), "DIRECT")
 		for _, line := range ShadowrocketAdsRejectRules() {
 			rb.WriteString(line)
 			rb.WriteByte('\n')
@@ -149,6 +163,7 @@ func BuildShadowrocketRoutingConfProfile(profile string) string {
 		writeCIDRRules(&rb, "# home LAN", homeLANCIDRs(), "DIRECT")
 		writeCIDRRules(&rb, "# work VPN / corporate — required on any Wi‑Fi", workDirectCIDRs(), "DIRECT")
 		writeDomainSuffixRules(&rb, "# work DNS names (browser path)", workDirectDomains(), "DIRECT")
+		writeDomainSuffixRules(&rb, "# mail SMTP/IMAP direct (Mail.app TLS via VLESS)", mailDirectDomains(), "DIRECT")
 		// No client RU DIRECT — secondary split+DNS handles RU for tunnel traffic.
 		// REJECT ads optional; keep light list (duplicates blocky for non-PROXY edge cases).
 		for _, line := range ShadowrocketAdsRejectRules() {
@@ -238,6 +253,26 @@ func workDirectDomains() []string {
 		}
 	}
 	return append([]string{}, defaultWorkDirectDomains...)
+}
+
+func mailDirectDomains() []string {
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_MAIL_DIRECT_DOMAINS")); v != "" {
+		return splitCIDRList(v)
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "mail-direct-domains")); err == nil {
+		var out []string
+		for _, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			out = append(out, line)
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return append([]string{}, defaultMailDirectDomains...)
 }
 
 func writeDomainSuffixRules(rb *strings.Builder, comment string, domains []string, policy string) {
@@ -366,6 +401,14 @@ func ShadowrocketGeneralBlockFor(profile string) string {
 			parts = append(parts, c)
 		}
 		for _, d := range workDirectDomains() {
+			d = strings.TrimSpace(d)
+			d = strings.TrimPrefix(d, "*.")
+			if d == "" {
+				continue
+			}
+			parts = append(parts, d, "*."+d)
+		}
+		for _, d := range mailDirectDomains() {
 			d = strings.TrimSpace(d)
 			d = strings.TrimPrefix(d, "*.")
 			if d == "" {

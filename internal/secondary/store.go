@@ -25,6 +25,7 @@ type Device struct {
 	ID            string         `json:"id"`
 	Token         string         `json:"token"` // agent auth
 	Name          string         `json:"name"`
+	Region        string         `json:"region,omitempty"` // CF-14 geo label e.g. eu, ru
 	PublicIP      string         `json:"public_ip"`
 	PBK           string         `json:"pbk"`
 	SID           string         `json:"sid"`
@@ -876,4 +877,21 @@ func sanitizeID(id string) string {
 		s = s[:64]
 	}
 	return s
+}
+
+// SetRegion sets CF-14 region label on a secondary device (eu, ru, …).
+func SetRegion(id, region string) error {
+	id = strings.TrimSpace(id)
+	region = strings.TrimSpace(strings.ToLower(region))
+	r, err := load()
+	if err != nil {
+		return err
+	}
+	for i := range r.Devices {
+		if r.Devices[i].ID == id {
+			r.Devices[i].Region = region
+			return save(r)
+		}
+	}
+	return fmt.Errorf("secondary device not found: %s", id)
 }

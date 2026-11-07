@@ -382,6 +382,16 @@ func runSecondary(args []string) {
 		_ = vpn.ApplyConfig()
 		fmt.Println("exit_enabled", on)
 		fmt.Println("sing-box re-applied on core; relays will sync on next agent poll")
+	case "region":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: netductor secondary region <id> <eu|ru|…>")
+			os.Exit(2)
+		}
+		if err := secondary.SetRegion(args[1], args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("region %s → %s\n", args[1], strings.ToLower(args[2]))
 	case "status":
 		if _, err := secondary.PruneDuplicates(); err != nil {
 			fmt.Fprintln(os.Stderr, "warning: cannot prune duplicate secondary records:", err)
