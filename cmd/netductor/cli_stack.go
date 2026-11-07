@@ -10,26 +10,29 @@ import (
 )
 
 func runStack(args []string) {
-	if len(args) == 0 || args[0] == "help" || args[0] == "-h" {
-		fmt.Print(`netductor stack status
-netductor stack apply [vX.Y.Z]
-netductor stack rollback
-netductor stack watchdog
-netductor stack heal               # if prev > running, restore prev
-netductor stack watchdog-install
-netductor stack pin [reason]
-netductor stack unpin
-netductor stack promote
-netductor stack schedule [vX.Y.Z]
+	o := parseCLIOpts(args)
+	if len(o.Rest) == 0 || o.Help || (len(o.Rest) > 0 && (o.Rest[0] == "help")) {
+		fmt.Print(`netductor stack — release apply on this node (CF-18.3)
+
+  netductor stack status [--json]
+  netductor stack preflight [vX.Y.Z]
+  netductor stack apply [vX.Y.Z] [--dry-run]
+  netductor stack schedule [vX.Y.Z]
+  netductor stack rollback | heal | promote
+  netductor stack pin [reason] | unpin
+  netductor stack watchdog | watchdog-install
 `)
 		return
 	}
+	args = o.Rest
 	switch args[0] {
 	case "status":
 		st := stack.Collect()
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		_ = enc.Encode(st)
+		if o.JSON || true { // status is always structured; --json kept for canon
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(st)
+		}
 	case "preflight":
 		tag := ""
 		if len(args) > 1 {
@@ -46,10 +49,20 @@ netductor stack schedule [vX.Y.Z]
 		if len(args) > 1 {
 			tag = args[1]
 		}
+		if o.DryRun {
+			pf := stack.Preflight(tag)
+			fmt.Print(stack.FormatPreflight(pf))
+			fmt.Println("dry-run: stack apply not executed")
+			if !pf.OK {
+				os.Exit(1)
+			}
+			return
+		}
 		if err := stack.Apply(tag); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		installBashCompletionBestEffort()
 	case "rollback":
 		if err := stack.Rollback(); err != nil {
 			fmt.Fprintln(os.Stderr, err)

@@ -23,10 +23,13 @@ import (
 )
 
 func runSecondary(args []string) {
-	if len(args) < 1 {
+	o := parseCLIOpts(args)
+	if len(o.Rest) < 1 || o.Help {
 		fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
+		fmt.Fprintln(os.Stderr, "flags: --json (status)")
 		os.Exit(2)
 	}
+	args = o.Rest
 	switch args[0] {
 	case "export":
 		out := "bundle.json"
@@ -387,6 +390,34 @@ func runSecondary(args []string) {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "load secondary registry:", err)
 			os.Exit(1)
+		}
+		if o.JSON {
+			type row struct {
+				ID, Name, State, IP, Agent string
+				SingBoxOK                  bool
+				ConfigVer                  int
+				Seen                       int64
+			}
+			var rows []row
+			for _, d := range devs {
+				on := "offline"
+				if secondary.Online(d, 2*time.Minute) {
+					on = "online"
+				}
+				seen := int64(0)
+				if !d.LastSeen.IsZero() {
+					seen = d.LastSeen.Unix()
+				}
+				rows = append(rows, row{d.ID, d.Name, on, d.PublicIP, d.Version, d.SingBoxOK, d.ConfigVer, seen})
+			}
+			out := map[string]any{"secondaries": rows}
+			if cv, err := secondary.ConfigVerE(); err == nil {
+				out["config_ver"] = cv
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(out)
+			return
 		}
 		if len(devs) == 0 {
 			b, err := os.ReadFile(filepath.Join(paths.SecondaryDir(), "bundle.json"))

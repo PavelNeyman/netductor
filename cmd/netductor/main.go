@@ -248,11 +248,25 @@ func main() {
 func printHelp() {
 	fmt.Print(`netductor — node control plane (VPS / primary / secondary)
 
-  install | serve | firewall | host-audit | vps-check | host-baseline | cleanup | tg-alerts | servicenet | doctor | status | vpn | services | policy | logs | channel | secondary | inventory | svc-paths | api-public | edge | mtls | nvr
-  stack | redirect-serve | domain | fleet | backup | restore | sites | nodes | …
-  completion bash|zsh
-  version | help
+Global:  -h/--help · -v/--version · completion bash|zsh
+Common:  --json · --dry-run (where mutations are reversible)
 
-Workstation deploy / TUI: install netductor-op (not this binary).
+Host / baseline
+  install · serve · host-baseline · host-audit · vps-check · doctor · cleanup
+  firewall · servicenet · aptguard · migrate · stack · status · logs
+
+Fleet / channel
+  secondary · svc-paths · channel · fleet · inventory · nodes · sites
+  mtls · api-public · uplink-mux
+
+VPN / edge
+  vpn · policy · services · edge · nvr · dns · domain
+
+Operator / release (node-side)
+  update · release · build-host · project · git · registry · ci · backup · restore
+  tg-alerts · completion
+
+Workstation deploy / TUI: use netductor-op (not this binary).
+Flags: prefer "noun verb --flags" (CF-18.3); legacy order kept where already used.
 `)
 }

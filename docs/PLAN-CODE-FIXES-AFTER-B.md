@@ -397,10 +397,13 @@ Startup migrations already run on API start (`migrate.RunAll`). Buttons status/r
 - brew path for op on Mac
 - v1: top-level + depth-2 subcommands
 
-### 18.3 Unix-style flags (compat layer)
+### 18.3 Unix-style flags (compat layer) — **partial**
 Canonical: `noun verb [options]` with `-h/--help`, `-v/--version`, `--json`, `--dry-run` where mutations.
 Keep git-style aliases 1–2 releases (`secondary cmd ID upgrade:vX` stays).
 Group help by plane / host / edge. Completion follows canon.
+
+**Done:** shared `parseCLIOpts` (`--json`/`-j`, `--dry-run`, `-h`); grouped top-level help; `migrate`/`stack`/`fleet`/`secondary status` accept flags in any order; `stack apply --dry-run` → preflight only; stack apply + host-baseline install bash completion.
+**Left:** roll `--json`/`--dry-run` across remaining mutation CLIs (vpn, edge, git ship) as touched.
 
 ### 18.4 HTMLBubbles / in-chat widgets — **scaffold in tree**
 Gated (`NETDUCTOR_TG_WIDGETS=1`): status bubble + Refresh/Versions/Channel/Menu; migrate attention line.

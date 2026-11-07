@@ -12,8 +12,9 @@ import (
 )
 
 func runFleet(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, `usage: netductor fleet <cmd>
+	o := parseCLIOpts(args)
+	if len(o.Rest) < 1 || o.Help {
+		fmt.Fprintln(os.Stderr, `usage: netductor fleet <cmd> [--json]
   digest | status | bootstrap
   set-primary <id> | set-secondary <id>
   provision-secondary --host --password [--user root] [--port 22] [--sni SNI]
@@ -26,6 +27,7 @@ removed (secondary is VPN entry only):
 VPN users → secondary: automatic on vpn add (config_ver); force: netductor secondary sync`)
 		os.Exit(2)
 	}
+	args = o.Rest
 	switch args[0] {
 	case "digest":
 		d := fleet.Build()
@@ -34,6 +36,13 @@ VPN users → secondary: automatic on vpn add (config_ver); force: netductor sec
 		_ = enc.Encode(d)
 		return
 	case "status":
+		if o.JSON {
+			d := fleet.Build()
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(d)
+			return
+		}
 		fmt.Print(fleet.StatusSummary())
 	case "set-primary":
 		if len(args) < 2 {
