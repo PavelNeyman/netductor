@@ -311,7 +311,7 @@ Operators often jump many tags (e.g. 0.9.650 → 0.9.690). Baseline requirements
 
 **Not every release needs an intermediate binary step.** Stepping is required only when code cannot safely jump — see **CF-15**.
 
-## CF-15 — Upgrade floors from code (P1) — **in progress (0.9.692: registry + preflight gate)**
+## CF-15 — Upgrade floors from code (P1) — **in progress (0.9.692 gate; path resolver in tree)**
 
 ### Goal
 

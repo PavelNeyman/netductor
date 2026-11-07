@@ -118,5 +118,5 @@
 - **Web-файловый менеджер** (agent `fs_list`/`fs_read`/`fs_write` + allowlist путей) — отложено.
 - **UI-скины A/B/C** — реализованы в operator Web (Settings → skin).
 
-- [ ] Mac Mail.app Gmail SMTP TLS/cert fails while Netductor VPN up; works offline — likely client route/DNS (smtp.gmail.com via PROXY). Investigate SR DIRECT for Google mail hosts / split policy (not server CF).
+- [ ] Mac Mail.app Gmail SMTP TLS/cert fails while Netductor VPN up; works offline; IMAP to same Gmail accounts works under VPN — outbound SMTP (465/587) path only. Likely PROXY/DNS for smtp.gmail.com; investigate SR DIRECT for Google SMTP hosts (not server CF).
 - CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles status scaffold + migrate attention (gated)

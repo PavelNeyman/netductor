@@ -122,7 +122,21 @@ func Preflight(tag string) PreflightReport {
 			add(PreflightCheck{ID: "upgrade_floor", OK: false, Critical: false, Detail: "upgrade.json: " + merr.Error()})
 		} else if hasMeta && strings.TrimSpace(meta.MinFrom) != "" {
 			if err := upgrade.CheckLocalAllowed(local, meta.MinFrom); err != nil {
-				add(PreflightCheck{ID: "upgrade_floor", OK: false, Critical: true, Detail: err.Error()})
+				detail := err.Error()
+				// CF-15 phase B: best-effort path hint from local release store + target meta.
+				var hist []upgrade.Meta
+				if tags, lerr := ndupdate.ListLocalTags(); lerr == nil {
+					for _, tg := range tags {
+						if m, ok, _ := upgrade.FetchMeta(tg); ok {
+							hist = append(hist, m)
+						}
+					}
+				}
+				hist = append(hist, meta)
+				if steps, perr := upgrade.ResolveUpgradePath(local, meta.Version, hist); perr == nil && len(steps) > 1 {
+					detail += "; suggested path: " + upgrade.FormatPathCLI(steps)
+				}
+				add(PreflightCheck{ID: "upgrade_floor", OK: false, Critical: true, Detail: detail})
 			} else {
 				add(PreflightCheck{ID: "upgrade_floor", OK: true, Critical: true, Detail: fmt.Sprintf("local %s >= min_from %s", local, meta.MinFrom)})
 			}
