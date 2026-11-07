@@ -1,3 +1,8 @@
+## 0.9.693
+
+- **CF-16:** `PeerRemove` UFW cleanup accepts `netductor-api-peer` for :8789 (producer comment); legacy `nd-svc-sp` still OK.
+- Docs: mandatory coding-agent rules for CF-15 floors + UFW ownership in AGENT_HANDOFF.
+
 ## 0.9.692
 
 - **CF-15 (phase A start):** `internal/upgrade` — `DeclareBinaryFloor`, aggregate `min_from`, `upgrade.json` fetch, stack preflight gate when meta present.

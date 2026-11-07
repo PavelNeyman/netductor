@@ -976,10 +976,16 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 	if err != nil {
 		return fmt.Errorf("ufw numbered status: %v: %s", err, strings.TrimSpace(string(out)))
 	}
-	checks := []struct{ src, port, comment string }{
-		{addrSSP, "8789", "nd-svc-sp"},
-		{addrSPS, "8789", "nd-svc-sp"},
-		{publicIP, strconv.Itoa(wssPort), "nd-wss-sp"},
+	// 8789 is created by applyPrimaryWSSFirewall with comment netductor-api-peer
+	// (not nd-svc-sp). Accept legacy nd-svc-sp if any older rule used that label.
+	checks := []struct {
+		src      string
+		port     string
+		comments []string
+	}{
+		{addrSSP, "8789", []string{"netductor-api-peer", "nd-svc-sp"}},
+		{addrSPS, "8789", []string{"netductor-api-peer", "nd-svc-sp"}},
+		{publicIP, strconv.Itoa(wssPort), []string{"nd-wss-sp"}},
 	}
 	for _, target := range checks {
 		if target.src == "" || target.port == "0" { continue }
@@ -995,7 +1001,7 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 			if err := validatePeerRemovalUFWStatus(string(status)); err != nil {
 				return fmt.Errorf("refuse peer UFW cleanup with incomplete rule listing: %w", err)
 			}
-			number, found, owned, parseErr := peerUFWRuleNumber(string(status), target.src, target.port, target.comment)
+			number, found, owned, parseErr := peerUFWRuleNumber(string(status), target.src, target.port, target.comments...)
 			if parseErr != nil { return parseErr }
 			if !found { break }
 			if !owned {
@@ -1020,7 +1026,7 @@ func removePeerUFW(publicIP, addrSSP, addrSPS string, wssPort int) error {
 	}
 	for _, target := range checks {
 		if target.src == "" || target.port == "0" { continue }
-		_, found, _, parseErr := peerUFWRuleNumber(string(after), target.src, target.port, target.comment)
+		_, found, _, parseErr := peerUFWRuleNumber(string(after), target.src, target.port, target.comments...)
 		if parseErr != nil { return parseErr }
 		if found { return fmt.Errorf("ufw still has %s/tcp from %s", target.port, target.src) }
 	}
@@ -1040,14 +1046,27 @@ func validatePeerRemovalUFWStatus(status string) error {
 
 // peerUFWRuleNumber locates an exact inbound TCP tuple. A matching tuple without
 // the expected ownership comment is reported as unowned and is never deleted.
-func peerUFWRuleNumber(status, source, port, expectedComment string) (number int, found, owned bool, err error) {
+func peerUFWRuleNumber(status, source, port string, expectedComments ...string) (number int, found, owned bool, err error) {
+	allowed := map[string]bool{}
+	for _, c := range expectedComments {
+		c = strings.TrimSpace(c)
+		if c != "" {
+			allowed[c] = true
+		}
+	}
 	for _, line := range strings.Split(status, "\n") {
 		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "[") { continue }
+		if !strings.HasPrefix(line, "[") {
+			continue
+		}
 		closeBracket := strings.IndexByte(line, ']')
-		if closeBracket < 0 { return 0, false, false, fmt.Errorf("malformed UFW numbered rule %q", line) }
+		if closeBracket < 0 {
+			return 0, false, false, fmt.Errorf("malformed UFW numbered rule %q", line)
+		}
 		n, convErr := strconv.Atoi(strings.TrimSpace(line[1:closeBracket]))
-		if convErr != nil || n < 1 { return 0, false, false, fmt.Errorf("invalid UFW rule number in %q", line) }
+		if convErr != nil || n < 1 {
+			return 0, false, false, fmt.Errorf("invalid UFW rule number in %q", line)
+		}
 		body := strings.TrimSpace(line[closeBracket+1:])
 		comment := ""
 		if i := strings.LastIndex(body, "#"); i >= 0 {
@@ -1055,10 +1074,16 @@ func peerUFWRuleNumber(status, source, port, expectedComment string) (number int
 			body = strings.TrimSpace(body[:i])
 		}
 		fields := strings.Fields(body)
-		if len(fields) < 4 { continue }
-		if fields[0] != port+"/tcp" || fields[1] != "ALLOW" || fields[2] != "IN" || fields[3] != source { continue }
-		if found { return 0, false, false, fmt.Errorf("duplicate UFW rules for %s/tcp from %s; refusing ambiguous cleanup", port, source) }
-		found, number, owned = true, n, comment == expectedComment
+		if len(fields) < 4 {
+			continue
+		}
+		if fields[0] != port+"/tcp" || fields[1] != "ALLOW" || fields[2] != "IN" || fields[3] != source {
+			continue
+		}
+		if found {
+			return 0, false, false, fmt.Errorf("duplicate UFW rules for %s/tcp from %s; refusing ambiguous cleanup", port, source)
+		}
+		found, number, owned = true, n, allowed[comment]
 	}
 	return number, found, owned, nil
 }

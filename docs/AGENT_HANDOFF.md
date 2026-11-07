@@ -1,3 +1,40 @@
+
+## Mandatory rules for any coding agent (do not skip)
+
+### CF-15 — upgrade floors
+
+If a change **breaks** any of:
+
+1. on-disk format without a forward-compatible reader in older binaries,
+2. apply / SSH / harden / stack transaction order such that jumping from a too-old local binary is unsafe,
+3. peer / slot material without compatible recover for older agents,
+
+then the **same commit** MUST call:
+
+```go
+upgrade.DeclareBinaryFloor("stable-id", "0.9.XXX", "short reason")
+```
+
+in `internal/upgrade` registry (or `init()` next to the breaking code).  
+Ordinary features and idempotent migrations → **no** floor.
+
+Release must ship generated `upgrade.json` (`go run scripts/gen-upgrade-json.go <ver>`).  
+Do not rely on memory or PR checkbox alone — CI will eventually fail mismatched floors.
+
+### Firewall ownership comments
+
+UFW rules created by Netductor use **exact** comments. Cleanup (`PeerRemove`, etc.) must match the **producer** comment, not a guessed iface name.
+
+Canonical today:
+
+| Rule | Comment |
+|------|---------|
+| Primary API mTLS 8789 from peer SP/PS | `netductor-api-peer` |
+| WSS from public secondary IP | `nd-wss-sp` (slot-aware names may vary) |
+| Service uplink 9443 | `netductor-svc-uplink` |
+
+Changing a create-side comment without updating remove-side ownership is a **P1 defect**.
+
 **Stop line: v0.9.586** (2026-10-27). Recovery TTL regression test + comment fix.
 
 **Stop line: v0.9.585** (2026-10-27). Atomic token_ack_done + recovery Finalize without TTL steal.

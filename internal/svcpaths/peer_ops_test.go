@@ -362,7 +362,7 @@ func TestPeerMarkReadyDoesNotReviveRemoved(t *testing.T) {
 }
 
 func TestRemovePeerUFWConfirmsGone(t *testing.T) {
-	rules := "Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n[ 2] 8444/tcp ALLOW IN 8.8.8.9 # nd-wss-sp\n"
+	rules := "Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.20.2 # netductor-api-peer\n[ 2] 8444/tcp ALLOW IN 8.8.8.9 # nd-wss-sp\n"
 	old := peerUFWExec
 	t.Cleanup(func() { peerUFWExec = old })
 	peerUFWExec = func(args ...string) ([]byte, error) {
@@ -374,7 +374,7 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 				return nil, fmt.Errorf("unexpected rule number %s", args[2])
 			}
 			if strings.Contains(rules, "8789/tcp") {
-				rules = strings.Replace(rules, "[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n", "", 1)
+				rules = strings.Replace(rules, "[ 1] 8789/tcp ALLOW IN 10.87.20.2 # netductor-api-peer\n", "", 1)
 			} else {
 				rules = strings.Replace(rules, "[ 1] 8444/tcp ALLOW IN 8.8.8.9 # nd-wss-sp\n", "", 1)
 			}
@@ -389,7 +389,7 @@ func TestRemovePeerUFWConfirmsGone(t *testing.T) {
 	}
 	peerUFWExec = func(args ...string) ([]byte, error) {
 		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
-			return []byte("Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.20.2 # nd-svc-sp\n"), nil
+			return []byte("Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.20.2 # netductor-api-peer\n"), nil
 		}
 		if len(args) == 3 && args[0] == "--force" && args[1] == "delete" {
 			return []byte("permission denied"), fmt.Errorf("delete failed")
@@ -695,5 +695,92 @@ func TestRecoverIncompletePeerAddRejectsReassignedSlotAndIP(t *testing.T) {
 				t.Fatalf("stale recovery must reject reassigned %s: %v", tc.name, err)
 			}
 		})
+	}
+}
+
+func TestRemovePeerUFWAcceptsAPIPeerComment(t *testing.T) {
+	rules := "Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.10.2 # netductor-api-peer\n[ 2] 8789/tcp ALLOW IN 10.87.11.2 # netductor-api-peer\n"
+	old := peerUFWExec
+	t.Cleanup(func() { peerUFWExec = old })
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
+			return []byte(rules), nil
+		}
+		if len(args) == 3 && args[0] == "--force" && args[1] == "delete" {
+			n := args[2]
+			if n == "1" && strings.Contains(rules, "10.87.10.2") {
+				rules = strings.Replace(rules, "[ 1] 8789/tcp ALLOW IN 10.87.10.2 # netductor-api-peer\n", "", 1)
+				rules = strings.ReplaceAll(rules, "[ 2]", "[ 1]")
+				return []byte("deleted"), nil
+			}
+			if n == "1" && strings.Contains(rules, "10.87.11.2") {
+				rules = strings.Replace(rules, "[ 1] 8789/tcp ALLOW IN 10.87.11.2 # netductor-api-peer\n", "", 1)
+				return []byte("deleted"), nil
+			}
+			return nil, fmt.Errorf("unexpected delete %s in %s", n, rules)
+		}
+		return nil, fmt.Errorf("unexpected %v", args)
+	}
+	if err := removePeerUFW("", "10.87.10.2", "10.87.11.2", 0); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(rules, "8789") {
+		t.Fatalf("rules left: %s", rules)
+	}
+}
+
+func TestRemovePeerUFWLegacyNdSvcSpCommentStillOK(t *testing.T) {
+	rules := "Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.10.2 # nd-svc-sp\n"
+	old := peerUFWExec
+	t.Cleanup(func() { peerUFWExec = old })
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
+			return []byte(rules), nil
+		}
+		if len(args) == 3 && args[0] == "--force" && args[1] == "delete" {
+			rules = "Status: active\n"
+			return []byte("deleted"), nil
+		}
+		return nil, fmt.Errorf("unexpected %v", args)
+	}
+	if err := removePeerUFW("", "10.87.10.2", "", 0); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRemovePeerUFWWrong8789CommentRefused(t *testing.T) {
+	old := peerUFWExec
+	t.Cleanup(func() { peerUFWExec = old })
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
+			return []byte("Status: active\n[ 1] 8789/tcp ALLOW IN 10.87.10.2 # someone-else\n"), nil
+		}
+		return []byte("deleted"), nil
+	}
+	err := removePeerUFW("", "10.87.10.2", "", 0)
+	if err == nil || !strings.Contains(err.Error(), "unowned") {
+		t.Fatalf("want unowned refuse, got %v", err)
+	}
+}
+
+func TestRemovePeerUFWDoesNotTouch9443(t *testing.T) {
+	old := peerUFWExec
+	t.Cleanup(func() { peerUFWExec = old })
+	deleted := false
+	peerUFWExec = func(args ...string) ([]byte, error) {
+		if len(args) == 2 && args[0] == "status" && args[1] == "numbered" {
+			return []byte("Status: active\n[ 1] 9443/tcp ALLOW IN 10.87.10.2 # netductor-svc-uplink\n"), nil
+		}
+		if len(args) >= 2 && args[0] == "--force" && args[1] == "delete" {
+			deleted = true
+			return []byte("deleted"), nil
+		}
+		return nil, fmt.Errorf("unexpected %v", args)
+	}
+	if err := removePeerUFW("8.8.8.9", "10.87.10.2", "10.87.11.2", 8444); err != nil {
+		t.Fatal(err)
+	}
+	if deleted {
+		t.Fatal("must not delete 9443 uplink rule")
 	}
 }

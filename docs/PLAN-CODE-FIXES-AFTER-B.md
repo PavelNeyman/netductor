@@ -31,6 +31,7 @@ Related evidence:
 | P1 | **CF-13** | `stack apply` / host update path after manual binary replace | `internal/stack`, update engine |
 | P2 | **CF-14** | Naming: role control/egress + region (user-facing geo in sub) | docs, API, UI, role file |
 | P1 | **CF-15** | Upgrade floors: auto `min_from` from code + CI (step only on break) | migrate, update/stack, release CI |
+| P1 | **CF-16** | PeerRemove UFW 8789 ownership comment mismatch (`netductor-api-peer`) | `svcpaths` peer_ops |
 
 Items already shipped during B firefight (do **not** re-open): opaque SSH errors (0.9.664), mTLS without SSH stdin tar (0.9.665), join HTTP/1.1 + error tails (0.9.666–672), UFW routed=disabled + keep :22 (0.9.668), harden UFW idempotency / mawk / pipefail (0.9.674–683), prepared `/sub` public IP (0.9.682–683).
 
@@ -375,6 +376,16 @@ Phase A can ship before a full auto-chain. Phase C must be **role-aware** (contr
 3. ~~Phase A refuse when target `upgrade.json` has min_from~~ — **0.9.692** preflight critical check.
 4. Phase B/C path planner + multi-step apply with resume — **open**.
 5. CI fail if floors ≠ generated metadata — **open**.
+
+## CF-16 — PeerRemove UFW 8789 comment mismatch (P1) — **done 0.9.693**
+
+**Symptom:** `netductor svc-paths peer remove legacy-…` → `refuse to delete unowned UFW rule 8789/tcp from 10.87.10.2`.
+
+**Cause:** `applyPrimaryWSSFirewall` creates `8789` with comment `netductor-api-peer`; `removePeerUFW` expected `nd-svc-sp`.
+
+**Fix:** accept `netductor-api-peer` (canonical) and legacy `nd-svc-sp`; leave 9443 / wrong comments alone.
+
+**Tests:** API-peer delete, legacy comment, wrong comment refuse, 9443 untouched.
 
 ## Explicitly out of scope (not code in this backlog)
 

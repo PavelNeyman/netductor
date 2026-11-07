@@ -24,6 +24,7 @@
 | P1 | **CF-13** | **Разбор и починка `stack apply` / нормального update path** |
 | P2 | **CF-14** | **Имена: role control/egress + region (гео в sub)** |
 | P1 | **CF-15** | **Upgrade floors: `min_from` из кода + CI (ступеньки только при break)** |
+| P1 | **CF-16** | **PeerRemove: UFW 8789 comment `netductor-api-peer`** |
 
 ## CF-12 — policy под Trixie
 
@@ -67,3 +68,7 @@ Registry + preflight gate; автоцепочка ещё нет. EN § CF-15.
 ## CF-14 — control / egress + region
 
 Решение: не in/out. Роль (`control` / `egress` / build / edge) + **region** для пользователя в **sub** (eu/ru…). Aliases primary/secondary долго. Подробности — EN plan.
+
+## CF-16 — PeerRemove 8789
+
+Создание: `netductor-api-peer`. Удаление раньше ждало `nd-svc-sp` → refuse. Исправлено в 0.9.693 (оба комментария). После обновления primary: `netductor svc-paths peer remove <id>`.
