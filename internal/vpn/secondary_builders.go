@@ -1,6 +1,7 @@
 package vpn
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -72,6 +73,14 @@ func buildSecondaryUplinkTLS(b *SecondaryBundle) map[string]any {
 func buildSecondaryOutboundsAndSvcRules(b *SecondaryBundle) (outbounds []any, svcRules []any) {
 	uplinkTLS := buildSecondaryUplinkTLS(b)
 	coreSP := primarySPAddrForSecondary()
+	if coreSP == "" && strings.TrimSpace(b.CoreIP) != "" {
+		// Degraded: no material addr_p_sp — public core (not SP WG). Prefer fixing material.
+		fmt.Fprintln(os.Stderr, "vpn: secondary uplink: no addr_p_sp in material; using CoreIP", b.CoreIP)
+		coreSP = strings.TrimSpace(b.CoreIP)
+	}
+	if coreSP == "" {
+		fmt.Fprintln(os.Stderr, "vpn: secondary uplink: empty primary SP addr (material/peers missing addr_p_sp)")
+	}
 	uplink := map[string]any{
 		"type": "vless", "tag": "uplink",
 		"server": coreSP, "server_port": b.CoreVless,

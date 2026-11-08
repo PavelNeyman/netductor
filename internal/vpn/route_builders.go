@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -14,12 +15,90 @@ import (
 
 const svcPlanePort = 9443
 
-// knownSPPrimary mirrors svcpaths.SlotTable AddrP_SP (avoid import cycle vpn↔svcpaths).
-var knownSPPrimary = []string{
-	"10.87.10.1", // slot 0
-	"10.87.20.1", // slot 1
-	"10.87.22.1", // slot 2
-	"10.87.24.1", // slot 3
+// peerMaterialAddrP_SPList scans multi-peer materials (primary) + host material (secondary).
+// Root material.json is often legacy without addr_* fields; slot addresses live under peers/<id>/.
+func peerMaterialAddrP_SPList() []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(a string) {
+		a = strings.TrimSpace(a)
+		if a == "" || seen[a] {
+			return
+		}
+		seen[a] = true
+		out = append(out, a)
+	}
+	roots := []string{
+		filepath.Join(paths.EtcDir(), "svc-paths"),
+		"/etc/netductor/svc-paths",
+	}
+	if st := paths.StateDir(); st != "" {
+		roots = append(roots, filepath.Join(st, "svc-paths"))
+	}
+	type mat struct {
+		AddrP_SP string `json:"addr_p_sp"`
+	}
+	readMat := func(path string) {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return
+		}
+		var m mat
+		if json.Unmarshal(b, &m) == nil {
+			add(m.AddrP_SP)
+		}
+	}
+	for _, root := range roots {
+		readMat(filepath.Join(root, "material.json"))
+		entries, err := os.ReadDir(filepath.Join(root, "peers"))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				readMat(filepath.Join(root, "peers", e.Name(), "material.json"))
+			}
+		}
+	}
+	return out
+}
+
+// localSPPrimaryFromIfaces returns IPv4 addresses on nd-svc-sp* interfaces.
+func localSPPrimaryFromIfaces() []string {
+	seen := map[string]bool{}
+	var out []string
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return out
+	}
+	for _, iface := range ifaces {
+		if !strings.HasPrefix(iface.Name, "nd-svc-sp") {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, a := range addrs {
+			var ip net.IP
+			switch v := a.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.To4() == nil {
+				continue
+			}
+			s := ip.To4().String()
+			if seen[s] {
+				continue
+			}
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func localIPv4Present(addr string) bool {
@@ -52,55 +131,40 @@ func localIPv4Present(addr string) bool {
 	return false
 }
 
-// materialAddrP_SP reads addr_p_sp from host material.json (slot-aware).
-func materialAddrP_SP() string {
-	candidates := []string{
-		filepath.Join(paths.EtcDir(), "svc-paths", "material.json"),
-		"/etc/netductor/svc-paths/material.json",
-	}
-	// also first peer material under state
-	if st := paths.StateDir(); st != "" {
-		candidates = append(candidates, filepath.Join(st, "svc-paths", "material.json"))
-	}
-	for _, path := range candidates {
-		b, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		var m struct {
-			AddrP_SP string `json:"addr_p_sp"`
-		}
-		if json.Unmarshal(b, &m) == nil && m.AddrP_SP != "" {
-			return m.AddrP_SP
-		}
-	}
-	return ""
-}
-
-// primarySPListenAddrs: SP primary IPs present on this host (multi-slot safe).
+// primarySPListenAddrs — bind vless-svc on:
+// 1) live nd-svc-sp* addresses (source of truth on primary)
+// 2) peer materials whose addr_p_sp is currently local
 func primarySPListenAddrs() []string {
 	seen := map[string]bool{}
 	var out []string
-	if a := materialAddrP_SP(); a != "" && localIPv4Present(a) {
-		seen[a] = true
-		out = append(out, a)
-	}
-	for _, a := range knownSPPrimary {
-		if seen[a] || !localIPv4Present(a) {
-			continue
+	add := func(a string) {
+		if a == "" || seen[a] {
+			return
 		}
 		seen[a] = true
 		out = append(out, a)
+	}
+	for _, a := range localSPPrimaryFromIfaces() {
+		add(a)
+	}
+	for _, a := range peerMaterialAddrP_SPList() {
+		if localIPv4Present(a) {
+			add(a)
+		}
 	}
 	return out
 }
 
-// primarySPAddrForSecondary is the primary address secondary should dial over SP WG.
+// primarySPAddrForSecondary — SP primary IP secondary dials over WG (from material).
 func primarySPAddrForSecondary() string {
-	if a := materialAddrP_SP(); a != "" {
-		return a
+	list := peerMaterialAddrP_SPList()
+	if len(list) > 0 {
+		return list[0]
 	}
-	return knownSPPrimary[0]
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_PRIMARY_SP_ADDR")); v != "" {
+		return v
+	}
+	return ""
 }
 
 func buildPrimaryInbounds(vusers, svcUsers any, sniVal, priv, sid string) []any {
