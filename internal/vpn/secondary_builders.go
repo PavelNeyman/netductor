@@ -137,9 +137,10 @@ func buildSecondaryRoute(svcRules []any, ruSuffixes []string) map[string]any {
 		hasGeo = true
 	}
 	route := map[string]any{
-		"rules":                 assembleSecondaryRouteRules(svcRules, ruSuffixes, hasGeo),
-		"final":                 "uplink",
-		"auto_detect_interface": true,
+		"rules":                    assembleSecondaryRouteRules(svcRules, ruSuffixes, hasGeo),
+		"final":                    "uplink",
+		"auto_detect_interface":    true,
+		"default_domain_resolver":  "quad9", // sing-box 1.12+ required for dial fields
 	}
 	if hasGeo {
 		route["rule_set"] = []any{
