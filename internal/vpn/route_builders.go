@@ -1,18 +1,27 @@
 package vpn
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
+
+	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
 // Route / inbound builders (R1): keep ApplyConfig thin; edit order of rules carefully.
 
-const svcPlaneListen = "10.87.10.1"
 const svcPlanePort = 9443
 
-// localIPv4Present reports whether addr is assigned on a local interface.
-// Used so vless-svc does not crash sing-box when service-plane WG is down.
+// knownSPPrimary mirrors svcpaths.SlotTable AddrP_SP (avoid import cycle vpn↔svcpaths).
+var knownSPPrimary = []string{
+	"10.87.10.1", // slot 0
+	"10.87.20.1", // slot 1
+	"10.87.22.1", // slot 2
+	"10.87.24.1", // slot 3
+}
+
 func localIPv4Present(addr string) bool {
 	ip := net.ParseIP(addr)
 	if ip == nil {
@@ -43,13 +52,62 @@ func localIPv4Present(addr string) bool {
 	return false
 }
 
+// materialAddrP_SP reads addr_p_sp from host material.json (slot-aware).
+func materialAddrP_SP() string {
+	candidates := []string{
+		filepath.Join(paths.EtcDir(), "svc-paths", "material.json"),
+		"/etc/netductor/svc-paths/material.json",
+	}
+	// also first peer material under state
+	if st := paths.StateDir(); st != "" {
+		candidates = append(candidates, filepath.Join(st, "svc-paths", "material.json"))
+	}
+	for _, path := range candidates {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var m struct {
+			AddrP_SP string `json:"addr_p_sp"`
+		}
+		if json.Unmarshal(b, &m) == nil && m.AddrP_SP != "" {
+			return m.AddrP_SP
+		}
+	}
+	return ""
+}
+
+// primarySPListenAddrs: SP primary IPs present on this host (multi-slot safe).
+func primarySPListenAddrs() []string {
+	seen := map[string]bool{}
+	var out []string
+	if a := materialAddrP_SP(); a != "" && localIPv4Present(a) {
+		seen[a] = true
+		out = append(out, a)
+	}
+	for _, a := range knownSPPrimary {
+		if seen[a] || !localIPv4Present(a) {
+			continue
+		}
+		seen[a] = true
+		out = append(out, a)
+	}
+	return out
+}
+
+// primarySPAddrForSecondary is the primary address secondary should dial over SP WG.
+func primarySPAddrForSecondary() string {
+	if a := materialAddrP_SP(); a != "" {
+		return a
+	}
+	return knownSPPrimary[0]
+}
+
 func buildPrimaryInbounds(vusers, svcUsers any, sniVal, priv, sid string) []any {
 	inbounds := []any{
 		map[string]any{
 			"type": "vless", "tag": "vless-reality", "listen": "::", "listen_port": vlessPort(),
 			"users": vusers,
-			// multiplex for secondary uplink (no vision). End-user vision streams stay non-mux.
-			// inbound mux (sing-box ≥1.10): no max_connections here — those are outbound-only
 			"multiplex": map[string]any{
 				"enabled": true,
 				"padding": true,
@@ -64,11 +122,17 @@ func buildPrimaryInbounds(vusers, svcUsers any, sniVal, priv, sid string) []any 
 			},
 		},
 	}
-	// Service-plane inbound only when 10.87.10.1 is up. Binding a missing address
-	// is FATAL in sing-box and crash-loops the whole process (public :443 dies too).
-	if localIPv4Present(svcPlaneListen) {
+	spAddrs := primarySPListenAddrs()
+	if len(spAddrs) == 0 {
+		fmt.Fprintln(os.Stderr, "vpn: skip vless-svc — no local SP primary address (service-plane WG)")
+	}
+	for i, addr := range spAddrs {
+		tag := "vless-svc"
+		if i > 0 {
+			tag = fmt.Sprintf("vless-svc-%d", i)
+		}
 		inbounds = append(inbounds, map[string]any{
-			"type": "vless", "tag": "vless-svc", "listen": svcPlaneListen, "listen_port": svcPlanePort,
+			"type": "vless", "tag": tag, "listen": addr, "listen_port": svcPlanePort,
 			"users": svcUsers,
 			"tls": map[string]any{
 				"enabled": true, "server_name": sniVal,
@@ -79,8 +143,6 @@ func buildPrimaryInbounds(vusers, svcUsers any, sniVal, priv, sid string) []any 
 				},
 			},
 		})
-	} else {
-		fmt.Fprintln(os.Stderr, "vpn: skip vless-svc —", svcPlaneListen, "not assigned (bring up service-plane WG)")
 	}
 	return inbounds
 }

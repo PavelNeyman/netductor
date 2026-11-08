@@ -71,9 +71,10 @@ func buildSecondaryUplinkTLS(b *SecondaryBundle) map[string]any {
 // and service ACL rules for 10.88.0.0/24.
 func buildSecondaryOutboundsAndSvcRules(b *SecondaryBundle) (outbounds []any, svcRules []any) {
 	uplinkTLS := buildSecondaryUplinkTLS(b)
+	coreSP := primarySPAddrForSecondary()
 	uplink := map[string]any{
 		"type": "vless", "tag": "uplink",
-		"server": "10.87.10.1", "server_port": b.CoreVless,
+		"server": coreSP, "server_port": b.CoreVless,
 		// no vision: required for multiplex (vision ⊕ mux unsupported)
 		"uuid": b.UplinkUUID,
 		"tls":  uplinkTLS,
@@ -90,7 +91,7 @@ func buildSecondaryOutboundsAndSvcRules(b *SecondaryBundle) (outbounds []any, sv
 		tag := "uplink-svc-" + sanitizeTag(name)
 		outbounds = append(outbounds, map[string]any{
 			"type": "vless", "tag": tag,
-			"server": "10.87.10.1", "server_port": 9443,
+			"server": coreSP, "server_port": 9443,
 			"uuid": u.UUID,
 			"tls":  uplinkTLS,
 		})
