@@ -20,7 +20,7 @@ import (
 
 // pinnedSingBoxTag is the default install target (R11a). Override with /etc/netductor/addons/singbox.tag
 // or NETDUCTOR_SINGBOX_TAG. Floating "latest" is no longer used by default.
-const pinnedSingBoxTag = "v1.11.15" // must match upstream.SingBoxPinnedVersion
+const pinnedSingBoxTag = "v1.12.22" // must match upstream.SingBoxPinnedVersion
 
 func resolveSingBoxTag() string {
 	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_SINGBOX_TAG")); v != "" {

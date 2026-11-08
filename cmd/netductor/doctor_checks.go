@@ -74,6 +74,17 @@ func doctorRunChecks(h doctorHooks) {
 		h.check("sing-box config", exec.Command("/usr/local/bin/sing-box", "check", "-c", "/usr/local/etc/sing-box/config.json").Run() == nil)
 		fi, err := os.Stat("/usr/local/etc/sing-box/config.json")
 		h.warnCheck("sing-box config perms 600", err == nil && fi.Mode().Perm()&0o077 == 0)
+		// Prefer variant a (blocky DNS). b/c are fallbacks after check failure.
+		varFile := filepath.Join(h.etc, "singbox-config-variant")
+		varName := strings.TrimSpace(string(mustReadFile(varFile)))
+		if varName == "" {
+			doctorPrintln("INFO sing-box config variant unset (pre-variant installs OK)")
+		} else if varName == "a" {
+			h.check("sing-box config variant a (blocky DNS)", true)
+		} else {
+			h.warnCheck("sing-box config variant a (blocky DNS)", false)
+			doctorPrintf("WARN sing-box config variant=%s (want a; re-run vpn apply after blocky up)\n", varName)
+		}
 	} else {
 		h.check("sing-box config", false)
 	}
@@ -725,6 +736,15 @@ func doctorRunChecks(h doctorHooks) {
 		Detail: "client → VPN → blocky (ads/YouTube filtering) or direct system DNS. PROXY path uses node blocky; DIRECT uses client DNS.",
 	})
 	doctorPrintln("INFO dns-path: client→VPN→blocky vs direct (see detail)")
+	// SR client ads RULE-SET (Shadowrocket) — independent of server blocky
+	adsRules := vpn.ShadowrocketAdsRejectRules()
+	if len(adsRules) == 0 {
+		h.warnCheck("SR ads REJECT rules present", false)
+		doctorPrintln("WARN SR ads REJECT disabled (NETDUCTOR_SR_ADS_REJECT=0 or empty sr-ads-rulesets)")
+	} else {
+		h.check("SR ads REJECT rules present", true)
+		doctorPrintf("OK   SR ads REJECT rulesets=%d\n", len(adsRules)-1) // minus comment line
+	}
 	// VERSION vs latest GitHub tag (best-effort)
 	ver := strings.TrimSpace(string(mustReadFile("VERSION")))
 	if ver == "" {

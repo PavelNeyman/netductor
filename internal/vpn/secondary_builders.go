@@ -112,13 +112,13 @@ func buildSecondaryOutboundsAndSvcRules(b *SecondaryBundle) (outbounds []any, sv
 }
 
 func buildSecondaryDNS(ruSuffixes []string) map[string]any {
+	// sing-box 1.12+ DNS: type + server (legacy "address" removed in 1.14).
 	return map[string]any{
 		"servers": []any{
-			// sing-box 1.11 (pinned): address, not 1.12 type+server.
-			map[string]any{"tag": "ru-dns", "address": "77.88.8.8"},
-			map[string]any{"tag": "quad9", "address": "9.9.9.9"},
-			map[string]any{"tag": "cf", "address": "1.1.1.1"},
-			map[string]any{"tag": "local", "address": "local"},
+			map[string]any{"type": "udp", "tag": "ru-dns", "server": "77.88.8.8"},
+			map[string]any{"type": "udp", "tag": "quad9", "server": "9.9.9.9"},
+			map[string]any{"type": "udp", "tag": "cf", "server": "1.1.1.1"},
+			map[string]any{"type": "local", "tag": "local"},
 		},
 		"rules": []any{
 			map[string]any{"domain_suffix": ruSuffixes, "server": "ru-dns"},
