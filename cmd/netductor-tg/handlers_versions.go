@@ -257,6 +257,9 @@ func handleVersionsCB(token string, chat int64, msgID int, data string) {
 	case data == "m:ver:refresh":
 		reply(token, chat, msgID, formatVersionsHTML(true), versionsKeyboard())
 	case data == "m:versions" || data == "m:updates":
+		if tryReplyWidget(token, chat, msgID, "versions") {
+			return
+		}
 		reply(token, chat, msgID, formatVersionsHTML(false), versionsKeyboard())
 	case data == "m:ver:toggle:primary":
 		verSelToggle("primary")

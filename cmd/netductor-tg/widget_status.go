@@ -180,6 +180,9 @@ func handleStatusWidgetAct(token string, q *widgetQuery, admin int64, act string
 		return false // core default refresh
 	case "versions":
 		answerWidgetQuery(token, q.ID, `{"ok":true,"nav":"versions"}`)
+		if tryReplyWidget(token, chat, q.MessageID, "versions") {
+			return true
+		}
 		reply(token, chat, q.MessageID, formatVersionsHTML(false), versionsKeyboard())
 		return true
 	case "channel":

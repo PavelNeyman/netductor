@@ -73,3 +73,35 @@ func TestWidgetRegistryHasStatusAndChannel(t *testing.T) {
 		t.Fatal("channel not registered")
 	}
 }
+
+func TestPhase1WidgetsRegistered(t *testing.T) {
+	for _, id := range []string{"netmap", "secondary", "probes", "versions"} {
+		if widgetRegistry[id] == nil {
+			t.Fatalf("missing %s", id)
+		}
+		if len(widgetRegistry[id].HTML) > 32768 {
+			t.Fatalf("%s HTML too large", id)
+		}
+	}
+}
+
+func TestPhase1ChatData(t *testing.T) {
+	t.Setenv("NETDUCTOR_STATE", t.TempDir())
+	for _, fn := range []struct {
+		name string
+		f    func() (string, error)
+		max  int
+	}{
+		{"netmap", netmapWidgetChatDataJSON, 1500},
+		{"secondary", secondaryWidgetChatDataJSON, 1024},
+		{"versions", versionsWidgetChatDataJSON, 1024},
+	} {
+		s, err := fn.f()
+		if err != nil {
+			t.Fatalf("%s: %v", fn.name, err)
+		}
+		if len(s) > fn.max {
+			t.Fatalf("%s len %d > %d", fn.name, len(s), fn.max)
+		}
+	}
+}

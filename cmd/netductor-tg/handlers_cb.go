@@ -302,6 +302,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:relay:list", "m:secondary:list":
 		reply(token, chat, msgID, formatRelayListHTML(), relayKeyboard())
 	case "m:probes":
+		if tryReplyWidget(token, chat, msgID, "probes") {
+			return
+		}
 		out := runND("probe")
 		r := format.API("probes", []byte(out), catalogLang())
 		reply(token, chat, msgID, r.HTML, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
@@ -309,6 +312,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		// folded into main Status (no separate Metrics screen)
 		reply(token, chat, msgID, formatStatusPretty(), backKeyboard())
 	case "m:secondary:status":
+		if tryReplyWidget(token, chat, msgID, "secondary") {
+			return
+		}
 		out := runND("secondary", "status")
 		r := format.API("secondary", []byte(out), catalogLang())
 		nl2 := string([]byte{10})
@@ -340,6 +346,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, formatStatusPretty(), statusKeyboard())
 	case "m:netmap":
+		if tryReplyWidget(token, chat, msgID, "netmap") {
+			return
+		}
 		reply(token, chat, msgID, formatNetmapHTML(), statusKeyboard())
 	case "m:channel":
 		if tryReplyWidget(token, chat, msgID, "channel") {
