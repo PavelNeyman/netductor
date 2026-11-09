@@ -81,9 +81,18 @@ func InstalledVersion(name string) string {
 				return f
 			}
 		}
-		return line
+		// do not return non-version words like "blocky"
 	}
-	return s
+	if name == "blocky" {
+		for _, pth := range []string{"/etc/netductor/addons/blocky.tag", filepath.Join(paths.EtcDir(), "addons", "blocky.tag")} {
+			if b, err := os.ReadFile(pth); err == nil {
+				if v := strings.TrimSpace(strings.TrimPrefix(string(b), "v")); v != "" {
+					return v
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // installedLampacVersion reads running container image tag, then addons/tag file.

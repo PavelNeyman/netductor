@@ -77,7 +77,13 @@ func BuildPreview(serverID, fsRoot string, policy Policy) (Preview, error) {
 		byFile[s.File] = append(byFile[s.File], s)
 	}
 
-	for path, ents := range byFile {
+	filePaths := make([]string, 0, len(byFile))
+	for path := range byFile {
+		filePaths = append(filePaths, path)
+	}
+	sort.Strings(filePaths)
+	for _, path := range filePaths {
+		ents := byFile[path]
 		if !strings.Contains(path, "sources.list.d") {
 			continue
 		}
@@ -267,7 +273,17 @@ func previewToken(pv Preview, policy Policy, fsRoot string) string {
 	h := sha256.New()
 	_, _ = fmt.Fprintf(h, "policy=%s\n", policyFingerprint(policy))
 	_, _ = fmt.Fprintf(h, "sources=%s\n", aptSourcesFingerprint(fsRoot))
-	for _, c := range pv.Changes {
+	changes := append([]Change(nil), pv.Changes...)
+	sort.Slice(changes, func(i, j int) bool {
+		if changes[i].Path != changes[j].Path {
+			return changes[i].Path < changes[j].Path
+		}
+		if changes[i].Action != changes[j].Action {
+			return changes[i].Action < changes[j].Action
+		}
+		return changes[i].Detail < changes[j].Detail
+	})
+	for _, c := range changes {
 		_, _ = fmt.Fprintf(h, "%s|%s|%s\n", c.Action, c.Path, c.Detail)
 		sum := sha256.Sum256([]byte(c.Content))
 		_, _ = fmt.Fprintf(h, "c=%s\n", hex.EncodeToString(sum[:]))
