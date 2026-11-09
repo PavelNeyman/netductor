@@ -49,6 +49,9 @@ func defaultPins() []Pin {
 
 // InstalledVersion best-effort --version parse.
 func InstalledVersion(name string) string {
+	if name == "lampac" {
+		return installedLampacVersion()
+	}
 	bin := name
 	switch name {
 	case "sing-box":
@@ -82,6 +85,38 @@ func InstalledVersion(name string) string {
 	}
 	return s
 }
+
+// installedLampacVersion reads running container image tag, then addons/tag file.
+func installedLampacVersion() string {
+	out, err := exec.Command("docker", "inspect", "-f", "{{.Config.Image}}", "netductor-lampac").CombinedOutput()
+	if err == nil {
+		img := strings.TrimSpace(string(out))
+		if img != "" {
+			// ghcr.io/lampac-nextgen/lampac:1.87.8 or :latest
+			if i := strings.LastIndex(img, ":"); i >= 0 && i+1 < len(img) {
+				tag := img[i+1:]
+				if tag != "" && tag != "latest" {
+					return tag
+				}
+				// latest → still report so doctor shows drift vs pin, not missing
+				return tag
+			}
+			return img
+		}
+	}
+	for _, p := range []string{
+		"/etc/netductor/addons/lampac.tag",
+		filepath.Join(paths.EtcDir(), "addons", "lampac.tag"),
+	} {
+		if b, err := os.ReadFile(p); err == nil {
+			if v := strings.TrimSpace(string(b)); v != "" {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
 
 // Check returns human lines for doctor.
 func Check() []string {

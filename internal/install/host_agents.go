@@ -274,7 +274,57 @@ func HostAgentResidual() (packages []string, paths []string) {
 		}
 	}
 	paths = append(paths, scanUnwantedAptResiduals()...)
+	paths = append(paths, ScanHosterSSHAuthorizedKeys()...)
 	return packages, uniqueStrings(paths)
+}
+
+// hosterSSHKeyMarkers: substring match (case-insensitive) on authorized_keys lines.
+// Hoztnode bssh, generic "support" hoster blobs, from="..." with known support ranges.
+var hosterSSHKeyMarkers = []string{
+	"hoztnode",
+	"bssh-",
+	"bssh.",
+	"supportaccess",
+	"support-access",
+	"support_key",
+	"hoster-support",
+	"timeweb",
+	"selectel-support",
+	"firstvds",
+	"85.198.118.171", // bssh-1.hoztnode.net
+	"85.198.75.83",   // bssh-2.hoztnode.net
+}
+
+// ScanHosterSSHAuthorizedKeys returns descriptive residual entries for hoster/support
+// pubkeys in common authorized_keys locations (does not modify files).
+func ScanHosterSSHAuthorizedKeys() []string {
+	candidates := []string{
+		"/root/.ssh/authorized_keys",
+		"/home/debian/.ssh/authorized_keys",
+		"/home/ubuntu/.ssh/authorized_keys",
+		"/home/admin/.ssh/authorized_keys",
+	}
+	var out []string
+	for _, path := range candidates {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for i, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			low := strings.ToLower(line)
+			for _, m := range hosterSSHKeyMarkers {
+				if strings.Contains(low, strings.ToLower(m)) {
+					out = append(out, fmt.Sprintf("%s:%d hoster/support ssh key (%s)", path, i+1, m))
+					break
+				}
+			}
+		}
+	}
+	return out
 }
 
 func scanUnwantedAptResiduals() []string {
