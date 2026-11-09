@@ -94,6 +94,10 @@ func sendWidgetScreen(token string, chat int64, screenID string) bool {
 		fmt.Fprintln(os.Stderr, "widget chat_data:", screenID, err)
 		return false
 	}
+	if cd, err = clipWidgetChatData(cd); err != nil {
+		fmt.Fprintln(os.Stderr, "widget chat_data:", screenID, err)
+		return false
+	}
 	_, err = apiPostWidget(token, "sendWidget", map[string]any{
 		"chat_id": chat, "html": s.HTML, "chat_data": cd, "allow_queries": true,
 	})
@@ -114,6 +118,10 @@ func editWidgetScreenData(token string, chat int64, msgID int, screenID string) 
 	}
 	cd, err := s.BuildData()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "widget chat_data:", screenID, err)
+		return false
+	}
+	if cd, err = clipWidgetChatData(cd); err != nil {
 		fmt.Fprintln(os.Stderr, "widget chat_data:", screenID, err)
 		return false
 	}
@@ -174,15 +182,14 @@ func handleWidgetQuery(token string, q *widgetQuery, admin int64) bool {
 	}
 	// default refresh
 	if act == "refresh" || act == "" {
-		cd, err := s.BuildData()
-		if err != nil {
+		if _, err := s.BuildData(); err != nil {
 			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
 			return true
 		}
 		if q.MessageID != 0 && q.Chat != nil {
 			_ = editWidgetScreenData(token, q.Chat.ID, q.MessageID, screenID)
 		}
-		answerWidgetQuery(token, q.ID, `{"ok":true,"d":`+cd+`}`)
+		answerWidgetQuery(token, q.ID, `{"ok":true}`)
 		return true
 	}
 	answerWidgetQuery(token, q.ID, `{"err":"unknown"}`)

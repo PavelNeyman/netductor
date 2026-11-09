@@ -15,7 +15,8 @@ import (
 
 // Status HTML widget (CF-18.4). Actions use screen prefix status:*.
 
-const statusWidgetHTML = `<!DOCTYPE html>
+func statusWidgetHTML() string {
+	return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/>
 <style>
 body{margin:0;padding:10px;font:13px/1.35 system-ui,sans-serif;background:#0f1419;color:#e7ecf3}
@@ -40,30 +41,20 @@ button.primary{background:#2a6df4}.hint{margin-top:8px;color:#8b98a5;font-size:1
 <button data-act="status:menu">Menu</button>
 </div>
 <div class="hint" id="hint">Refresh · Versions shows migrate tools when needed</div>
-<script>
+<script>` + widgetBootJS + `
 (function(){
 function set(id,t,cls){var el=document.getElementById(id);if(!el)return;el.textContent=t||'—';el.className='v'+(cls?' '+cls:'');}
 function paint(d){if(!d)return;set('title',d.title||'Netductor');set('ver',d.ver);set('host',d.host);set('nodes',d.nodes);
 set('svc',d.svc,d.svc_ok===false?'bad':(d.svc_ok?'ok':''));set('res',d.res);
 set('sec',d.sec,d.sec_ok===false?'bad':(d.sec_ok?'ok':''));set('mig',d.mig,d.mig_ok===false?'bad':(d.mig_ok?'ok':''));
 if(d.hint){var h=document.getElementById('hint');if(h)h.textContent=d.hint;}}
-function data(){try{if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.initDataUnsafe&&Telegram.WebApp.initDataUnsafe.chat_data)return JSON.parse(Telegram.WebApp.initDataUnsafe.chat_data);}catch(e){}
-try{if(window.__tgChatData)return typeof __tgChatData==='string'?JSON.parse(__tgChatData):__tgChatData;}catch(e){}
-return null;}
-function applyChatData(raw){try{var d=typeof raw==='string'?JSON.parse(raw):raw;if(d&&d.d)d=d.d;paint(d);}catch(e){}}
-paint(data());
+__ndBind(paint);
 document.querySelectorAll('[data-act]').forEach(function(btn){
-btn.addEventListener('click',function(){
-var act=btn.getAttribute('data-act')||'status:refresh';
-if(window.TelegramWidget&&TelegramWidget.sendData){TelegramWidget.sendData(act);}
-else if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.sendData){Telegram.WebApp.sendData(act);}
+btn.addEventListener('click',function(){__ndSend(btn.getAttribute('data-act')||'status:refresh');});
 });
-});
-if(window.TelegramWidget&&TelegramWidget.onEvent){
-TelegramWidget.onEvent('widget_query_result',function(r){if(r&&r.d)paint(r.d);else applyChatData(r);});
-}
 })();
 </script></body></html>`
+}
 
 type statusWidgetData struct {
 	Title string `json:"title"`
@@ -208,7 +199,7 @@ func tryReplyStatusWidget(token string, chat int64, msgID int) bool {
 func init() {
 	registerWidget(&widgetScreen{
 		ID:        "status",
-		HTML:      statusWidgetHTML,
+		HTML:      statusWidgetHTML(),
 		BuildData: statusWidgetChatDataJSON,
 		HandleAct: handleStatusWidgetAct,
 	})

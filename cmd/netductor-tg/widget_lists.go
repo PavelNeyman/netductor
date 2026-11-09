@@ -31,7 +31,7 @@ button.primary{background:#2a6df4}.hint{margin-top:6px;color:#8b98a5;font-size:1
 <div class="nums" id="nums"></div>
 <div class="nav" id="nav"></div>
 <div class="hint" id="hint"></div>
-<script>
+<script>` + widgetBootJS + `
 (function(){
 var SCREEN="__SCREEN__";
 function paint(d){if(!d)return;
@@ -53,18 +53,18 @@ if(d.more)add(SCREEN+':page:'+(d.page+1),'»');
 add(SCREEN+':menu','Menu','');
 }
 function send(ev){var act=ev.currentTarget.getAttribute('data-act');
-if(window.TelegramWidget&&TelegramWidget.sendData)TelegramWidget.sendData(act);
-else if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.sendData)Telegram.WebApp.sendData(act);}
-function data(){try{if(window.__tgChatData)return typeof __tgChatData==='string'?JSON.parse(__tgChatData):__tgChatData;}catch(e){}return null;}
+if(window.__ndSend)__ndSend(act);else if(window.TelegramWidget&&TelegramWidget.request)TelegramWidget.request(act);}
+function data(){return window.__ndData?__ndData():null;}
 paint(data());
 if(window.TelegramWidget&&TelegramWidget.onEvent){
-TelegramWidget.onEvent('widget_query_result',function(r){if(r&&r.d)paint(r.d);});
+TelegramWidget.onEvent('chatDataChanged',function(){paint(data());});
 }
 })();
 </script></body></html>`
 
 func listWidgetHTML(screen string) string {
-	return strings.ReplaceAll(listWidgetHTMLShell, "__SCREEN__", screen)
+	s := strings.ReplaceAll(listWidgetHTMLShell, "__SCREEN__", screen)
+	return strings.Replace(s, "<script>", "<script>"+widgetBootJS, 1)
 }
 
 type listWidgetItem struct {
@@ -119,8 +119,8 @@ func listWidgetChatData(title, hint string, all []listWidgetItem, page int) (str
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1800 {
-		return "", fmt.Errorf("list chat_data %d > 1800", len(b))
+	if len(b) > widgetChatDataMax {
+		return "", fmt.Errorf("list chat_data %d > %d", len(b), widgetChatDataMax)
 	}
 	return string(b), nil
 }

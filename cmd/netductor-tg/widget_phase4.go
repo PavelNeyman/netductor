@@ -196,7 +196,7 @@ func actionsWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("actions data %d", len(b))
 	}
 	return string(b), nil
@@ -256,7 +256,7 @@ func auditWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("audit data %d", len(b))
 	}
 	return string(b), nil
@@ -314,7 +314,7 @@ func sessionsWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("sessions data %d", len(b))
 	}
 	return string(b), nil
@@ -377,7 +377,7 @@ func routersWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("routers data %d", len(b))
 	}
 	return string(b), nil
@@ -446,7 +446,7 @@ func lampacWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("lampac data %d", len(b))
 	}
 	return string(b), nil
@@ -517,7 +517,7 @@ func canaryWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("canary data %d", len(b))
 	}
 	return string(b), nil

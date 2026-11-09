@@ -11,7 +11,8 @@ import (
 
 // Channel HTML widget — Phase 1 read-only family.
 
-const channelWidgetHTML = `<!DOCTYPE html>
+func channelWidgetHTML() string {
+	return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/>
 <style>
 body{margin:0;padding:10px;font:13px/1.35 system-ui,sans-serif;background:#0f1419;color:#e7ecf3}
@@ -33,26 +34,19 @@ button.primary{background:#2a6df4}.hint{margin-top:8px;color:#8b98a5;font-size:1
 <button data-act="channel:menu">Menu</button>
 </div>
 <div class="hint" id="hint">Channel path summary</div>
-<script>
+<script>` + widgetBootJS + `
 (function(){
 function set(id,t,cls){var el=document.getElementById(id);if(!el)return;el.textContent=t||'—';el.className='v'+(cls?' '+cls:'');}
 function paint(d){if(!d)return;set('title',d.title||'Channel');set('pri',d.pri);set('sec',d.sec,d.sec_ok===false?'bad':(d.sec_ok?'ok':''));
 set('up',d.up,d.up_ok===false?'bad':(d.up_ok?'ok':''));set('face',d.face);set('path',d.path,d.path_ok===false?'bad':(d.path_ok?'ok':''));
 if(d.hint){var h=document.getElementById('hint');if(h)h.textContent=d.hint;}}
-function data(){try{if(window.__tgChatData)return typeof __tgChatData==='string'?JSON.parse(__tgChatData):__tgChatData;}catch(e){}return null;}
-paint(data());
+__ndBind(paint);
 document.querySelectorAll('[data-act]').forEach(function(btn){
-btn.addEventListener('click',function(){
-var act=btn.getAttribute('data-act')||'channel:refresh';
-if(window.TelegramWidget&&TelegramWidget.sendData)TelegramWidget.sendData(act);
-else if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.sendData)Telegram.WebApp.sendData(act);
+btn.addEventListener('click',function(){__ndSend(btn.getAttribute('data-act')||'channel:refresh');});
 });
-});
-if(window.TelegramWidget&&TelegramWidget.onEvent){
-TelegramWidget.onEvent('widget_query_result',function(r){if(r&&r.d)paint(r.d);});
-}
 })();
 </script></body></html>`
+}
 
 type channelWidgetData struct {
 	Title  string `json:"title"`
@@ -150,7 +144,7 @@ func handleChannelWidgetAct(token string, q *widgetQuery, admin int64, act strin
 func init() {
 	registerWidget(&widgetScreen{
 		ID:        "channel",
-		HTML:      channelWidgetHTML,
+		HTML:      channelWidgetHTML(),
 		BuildData: channelWidgetChatDataJSON,
 		HandleAct: handleChannelWidgetAct,
 	})

@@ -26,7 +26,9 @@ button.primary{background:#2a6df4}.hint{margin-top:8px;color:#8b98a5;font-size:1
 `
 
 func phase1WidgetJS(screen string) string {
-	return `(function(){
+	return widgetBootJS + `
+(function(){
+var SCREEN="` + screen + `";
 function set(id,t,cls){var el=document.getElementById(id);if(!el)return;el.textContent=t||'—';if(cls!==undefined)el.className='v'+(cls?' '+cls:'');}
 function paint(d){if(!d)return;if(d.title){var t=document.getElementById('title');if(t)t.textContent=d.title;}
 document.querySelectorAll('[data-f]').forEach(function(el){var k=el.getAttribute('data-f');if(!k||d[k]===undefined)return;
@@ -34,18 +36,10 @@ var cls='';if(d[k+'_ok']===false)cls='bad';else if(d[k+'_ok']===true)cls='ok';
 el.textContent=d[k]||'—';el.className='v'+(cls?' '+cls:'');});
 if(d.body){var p=document.getElementById('body');if(p)p.textContent=d.body;}
 if(d.hint){var h=document.getElementById('hint');if(h)h.textContent=d.hint;}}
-function data(){try{if(window.__tgChatData)return typeof __tgChatData==='string'?JSON.parse(__tgChatData):__tgChatData;}catch(e){}return null;}
-paint(data());
+__ndBind(paint);
 document.querySelectorAll('[data-act]').forEach(function(btn){
-btn.addEventListener('click',function(){
-var act=btn.getAttribute('data-act')||'` + screen + `:refresh';
-if(window.TelegramWidget&&TelegramWidget.sendData)TelegramWidget.sendData(act);
-else if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.sendData)Telegram.WebApp.sendData(act);
+btn.addEventListener('click',function(){__ndSend(btn.getAttribute('data-act')||SCREEN+':refresh');});
 });
-});
-if(window.TelegramWidget&&TelegramWidget.onEvent){
-TelegramWidget.onEvent('widget_query_result',function(r){if(r&&r.d)paint(r.d);});
-}
 })();`
 }
 
@@ -122,8 +116,8 @@ func netmapWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
-		return "", fmt.Errorf("widget chat_data %d > 1500", len(b))
+	if len(b) > widgetChatDataMax {
+		return "", fmt.Errorf("widget chat_data %d > widgetChatDataMax", len(b))
 	}
 	return string(b), nil
 }
@@ -221,8 +215,8 @@ func secondaryWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1024 {
-		return "", fmt.Errorf("widget chat_data %d > 1024", len(b))
+	if len(b) > widgetChatDataMax {
+		return "", fmt.Errorf("widget chat_data %d > widgetChatDataMax", len(b))
 	}
 	return string(b), nil
 }
@@ -273,8 +267,8 @@ func probesWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
-		return "", fmt.Errorf("widget chat_data %d > 1500", len(b))
+	if len(b) > widgetChatDataMax {
+		return "", fmt.Errorf("widget chat_data %d > widgetChatDataMax", len(b))
 	}
 	return string(b), nil
 }
@@ -356,8 +350,8 @@ func versionsWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1024 {
-		return "", fmt.Errorf("widget chat_data %d > 1024", len(b))
+	if len(b) > widgetChatDataMax {
+		return "", fmt.Errorf("widget chat_data %d > widgetChatDataMax", len(b))
 	}
 	return string(b), nil
 }

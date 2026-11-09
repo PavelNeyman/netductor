@@ -7,14 +7,14 @@ import (
 )
 
 func TestStatusWidgetHTMLUnder32KiB(t *testing.T) {
-	if len(statusWidgetHTML) > 32768 {
-		t.Fatalf("statusWidgetHTML %d > 32768", len(statusWidgetHTML))
+	if len(statusWidgetHTML()) > 32768 {
+		t.Fatalf("statusWidgetHTML %d > 32768", len(statusWidgetHTML()))
 	}
 }
 
 func TestChannelWidgetHTMLUnder32KiB(t *testing.T) {
-	if len(channelWidgetHTML) > 32768 {
-		t.Fatalf("channelWidgetHTML %d > 32768", len(channelWidgetHTML))
+	if len(channelWidgetHTML()) > 32768 {
+		t.Fatalf("channelWidgetHTML %d > 32768", len(channelWidgetHTML()))
 	}
 }
 

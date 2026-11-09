@@ -22,7 +22,7 @@ button.primary{background:#2a6df4}button.danger{background:#a33}.hint{margin-top
 `
 
 func cardWidgetJS(screen string) string {
-	return `(function(){
+	return widgetBootJS + `(function(){
 var SCREEN="` + screen + `";
 function set(id,t,cls){var el=document.getElementById(id);if(!el)return;el.textContent=t||'—';el.className=(el.className||'').indexOf('pre')>=0?'pre':'v';if(cls)el.className+=' '+cls;}
 function paint(d){if(!d)return;if(d.title){var t=document.getElementById('title');if(t)t.textContent=d.title;}
@@ -37,13 +37,12 @@ var ctx=window.__cardCtx||'';
 if(act.indexOf(':')===act.lastIndexOf(':')&&ctx&&act!==SCREEN+':refresh'&&act!==SCREEN+':menu'&&act!==SCREEN+':users'&&act!==SCREEN+':nodes'){
   act=act+':'+ctx;
 }
-if(window.TelegramWidget&&TelegramWidget.sendData)TelegramWidget.sendData(act);
-else if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.sendData)Telegram.WebApp.sendData(act);}
-function data(){try{if(window.__tgChatData)return typeof __tgChatData==='string'?JSON.parse(__tgChatData):__tgChatData;}catch(e){}return null;}
+if(window.__ndSend)__ndSend(act);else if(window.TelegramWidget&&TelegramWidget.request)TelegramWidget.request(act);}
+function data(){return window.__ndData?__ndData():null;}
 paint(data());
 document.querySelectorAll('[data-act]').forEach(function(btn){btn.addEventListener('click',send);});
 if(window.TelegramWidget&&TelegramWidget.onEvent){
-TelegramWidget.onEvent('widget_query_result',function(r){if(r&&r.d)paint(r.d);});
+TelegramWidget.onEvent('chatDataChanged',function(){paint(data());});
 }
 })();`
 }
@@ -469,7 +468,7 @@ func addonsWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("addons data %d", len(b))
 	}
 	return string(b), nil
@@ -528,7 +527,7 @@ func svcpathsWidgetChatDataJSON() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(b) > 1500 {
+	if len(b) > widgetChatDataMax {
 		return "", fmt.Errorf("svcpaths data %d", len(b))
 	}
 	return string(b), nil
