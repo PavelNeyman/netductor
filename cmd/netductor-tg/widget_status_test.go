@@ -127,3 +127,11 @@ func TestPhase3CardWidgetsRegistered(t *testing.T) {
 		}
 	}
 }
+
+func TestPhase4ResidualWidgetsRegistered(t *testing.T) {
+	for _, id := range []string{"digest", "actions", "audit", "sessions", "routers", "lampac", "canary"} {
+		if widgetRegistry[id] == nil {
+			t.Fatalf("missing phase4 widget %s", id)
+		}
+	}
+}

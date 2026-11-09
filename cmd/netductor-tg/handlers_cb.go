@@ -177,6 +177,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		// Explicit singleton reset (user deleted hub "for me" / cleared chat).
 		forceHub(token, chat, menuText(), mainKeyboard())
 	case "m:digest":
+		if tryReplyWidget(token, chat, msgID, "digest") {
+			return
+		}
 		// Fleet digest card (not Updates). Parent = Status.
 		reply(token, chat, msgID, formatFleetDigestHTML(), statusKeyboard())
 	case "m:dr":
@@ -216,8 +219,14 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:routers":
 		setState(chat, "", "")
+		if tryReplyWidget(token, chat, msgID, "routers") {
+			return
+		}
 		reply(token, chat, msgID, routersHubHTML(), routersKeyboard("m:fleet"))
 	case "m:cat:sites":
+		if tryReplyWidget(token, chat, msgID, "sites") {
+			return
+		}
 		reply(token, chat, msgID, sitesHubHTML(), sitesKeyboard())
 	case "m:sites:list":
 		if tryReplyWidget(token, chat, msgID, "sites") {
@@ -228,6 +237,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, formatSitesRSCHTML(), sitesListKeyboard())
 	case "m:cat:nodes":
 		setState(chat, "", "")
+		if tryReplyWidget(token, chat, msgID, "nodes") {
+			return
+		}
 		reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
 	case "m:nodes_list":
 		if tryReplyWidget(token, chat, msgID, "nodes") {
@@ -245,6 +257,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, Tf("lang_now", label), langKeyboard())
 	case "m:routers":
+		if tryReplyWidget(token, chat, msgID, "routers") {
+			return
+		}
 		reply(token, chat, msgID, formatEdgeListHTML(routersText()), backTo("routers"))
 	case "m:pending":
 		if tryReplyWidget(token, chat, msgID, "pending") {
@@ -279,6 +294,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		setState(chat, "wait_edge_bind_dev", "")
 		reply(token, chat, msgID, T("bind_prompt"), backTo("routers"))
 	case "m:cat:relay":
+		if tryReplyWidget(token, chat, msgID, "seclist") {
+			return
+		}
 		// Relay is part of Nodes
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>role=secondary = RU ingress node</i>", nodesKeyboard())
 	case "m:relay:export", "m:secondary:export":
@@ -360,12 +378,18 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		out := runND("addons", "update")
 		reply(token, chat, msgID, formatAddonsHTML()+"\n<pre>"+esc(truncate(out, 1200))+"</pre>", addonsKeyboard())
 	case "m:addon:lampac":
+		if tryReplyWidget(token, chat, msgID, "lampac") {
+			return
+		}
 		pl := "Addons"
 		if getLang() != "en" {
 			pl = "Аддоны"
 		}
 		reply(token, chat, msgID, formatLampacHTML(), navKeyboard("m:addons", pl))
 	case "m:actions":
+		if tryReplyWidget(token, chat, msgID, "actions") {
+			return
+		}
 		reply(token, chat, msgID, fleet.FormatActionsHTML(getLang() != "en"), statusKeyboard())
 	case "m:status":
 		if tryReplyStatusWidget(token, chat, msgID) {
@@ -401,6 +425,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		out := runND("vpn", "refresh-links")
 		reply(token, chat, msgID, "🔄 <pre>"+esc(out)+"</pre>", operatorSubKeyboard())
 	case "m:audit":
+		if tryReplyWidget(token, chat, msgID, "audit") {
+			return
+		}
 		out := runND("audit", "tail")
 		if strings.TrimSpace(out) == "" {
 			out = "(empty)"
@@ -411,6 +438,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, title+"<pre>"+esc(truncate(out, 3500))+"</pre>", operatorSubKeyboard())
 	case "m:sessions":
+		if tryReplyWidget(token, chat, msgID, "sessions") {
+			return
+		}
 		out := runND("vpn", "session", "list")
 		if strings.TrimSpace(out) == "" {
 			out = "(none)"

@@ -33,6 +33,9 @@ func handleCanaryCB(token string, chat int64, msgID int, data string) bool {
 		return true
 	}
 	if data == "m:canary" || data == "m:canary:refresh" {
+		if tryReplyWidget(token, chat, msgID, "canary") {
+			return true
+		}
 		reply(token, chat, msgID, formatCanaryHub(), canaryHubKB())
 		return true
 	}
