@@ -397,6 +397,9 @@ func init() {
 		ID: "users", HTML: listWidgetHTML("users"),
 		BuildData: makeListBuildData("users", "Users", "Users", "# open card · ↻ refresh", "# карточка · ↻ refresh", collectUsersListItems),
 		HandleAct: handleListWidgetAct("users", collectUsersListItems, func(token string, chat int64, msgID int, item listWidgetItem) {
+			if tryReplyUserWidget(token, chat, msgID, item.N) {
+				return
+			}
 			reply(token, chat, msgID, formatUserHubHTML(item.N), userHubKeyboard(item.N))
 		}),
 	})
@@ -426,6 +429,9 @@ func init() {
 				}
 			}
 			if id != "" {
+				if tryReplyNodeWidget(token, chat, msgID, id) {
+					return
+				}
 				reply(token, chat, msgID, formatNodeDetailHTML(id), nodeCardKeyboard(id))
 			}
 		}),

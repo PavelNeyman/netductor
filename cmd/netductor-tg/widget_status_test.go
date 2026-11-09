@@ -116,3 +116,14 @@ func TestPhase2ListWidgetsRegistered(t *testing.T) {
 		}
 	}
 }
+
+func TestPhase3CardWidgetsRegistered(t *testing.T) {
+	for _, id := range []string{"user", "node", "operator", "addons", "svcpaths"} {
+		if widgetRegistry[id] == nil {
+			t.Fatalf("missing card widget %s", id)
+		}
+		if len(widgetRegistry[id].HTML) > 32768 {
+			t.Fatalf("%s HTML too large", id)
+		}
+	}
+}

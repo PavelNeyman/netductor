@@ -20,6 +20,9 @@ func handleCBNodes(token string, chat int64, msgID int, data string) bool {
 			act, id := parts[0], parts[1]
 			switch act {
 			case "o": // open card
+				if tryReplyNodeWidget(token, chat, msgID, id) {
+					return true
+				}
 				reply(token, chat, msgID, formatNodeDetailHTML(id), nodeCardKeyboard(id))
 			case "m": // metrics
 				reply(token, chat, msgID, formatNodeDetailHTML(id), nodeCardKeyboard(id))

@@ -23,6 +23,9 @@ func handleCBUsers(token string, chat int64, msgID int, data string) bool {
 					sendSRProfileDocument(token, chat, vpn.SRProfileFamily)
 				}
 			case "open":
+				if tryReplyUserWidget(token, chat, msgID, name) {
+					return true
+				}
 				reply(token, chat, msgID, formatUserHubHTML(name), userHubKeyboard(name))
 			case "app":
 				// u:app:name:mode:sr|happ|incy — deep-link as code (TG forbids custom schemes in url buttons)

@@ -199,6 +199,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
 	case "m:operator":
+		if tryReplyWidget(token, chat, msgID, "operator") {
+			return
+		}
 		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
 	case "m:cat:users":
 		if tryReplyWidget(token, chat, msgID, "users") {
@@ -349,6 +352,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, body, map[string]any{"inline_keyboard": [][]map[string]any{{btn("⬅️ "+parentTools(), "m:tools", "primary"), btn(T("main_menu"), "m:menu", "")}}})
 	case "m:addons":
+		if tryReplyWidget(token, chat, msgID, "addons") {
+			return
+		}
 		reply(token, chat, msgID, formatAddonsHTML(), addonsKeyboard())
 	case "m:addons:update":
 		out := runND("addons", "update")
@@ -500,6 +506,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
 	case "m:svc_paths":
+		if tryReplyWidget(token, chat, msgID, "svcpaths") {
+			return
+		}
 		out := runND("svc-paths", "status")
 		title := "🔗 <b>Service paths SP/PS</b>"
 		if getLang() != "en" {
