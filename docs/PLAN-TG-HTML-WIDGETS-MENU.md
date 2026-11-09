@@ -2,7 +2,7 @@
 
 # Plan: migrate TG operator menu to HTML Widgets (Bot API 10.4)
 
-**Status:** planned · **Gate:** `NETDUCTOR_TG_WIDGETS=1` (off by default until soak)  
+**Status:** Phase 0+1 in progress (status+channel widgets, registry) · **Gate:** `NETDUCTOR_TG_WIDGETS=1` (off by default until soak)  
 **Basis:** CF-18.4 status widget (`cmd/netductor-tg/widget_status.go`, commit `cfe6535`)  
 **Related:** [TG-UI-PATTERN.md](TG-UI-PATTERN.md) (rich templates A/B/C remain fallback)
 
@@ -62,7 +62,9 @@ widgetsEnabled()  // NETDUCTOR_TG_WIDGETS=1
 4. Docs: this plan; note in AGENT_HANDOFF / OPEN_ITEMS  
 5. Tests: HTML size, chat_data size, gate off by default, admin deny  
 
-**Exit:** status widget still works; no behavior change when gate off.
+**Done (main):** `widget_core.go` registry; status + channel screens; acts `screen:action`; gate still default off.
+
+**Exit:** status widget still works; no behavior change when gate off. ✅
 
 ### Phase 1 — Read-only / status family (soak candidate)
 

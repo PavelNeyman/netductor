@@ -2,7 +2,7 @@
 
 # План: меню TG-оператора на HTML Widgets (Bot API 10.4)
 
-**Статус:** план · **Флаг:** `NETDUCTOR_TG_WIDGETS=1` (по умолчанию выкл. до soak)  
+**Статус:** Phase 0+1 в работе (registry, status+channel; флаг off) · **Флаг:** `NETDUCTOR_TG_WIDGETS=1` (по умолчанию выкл. до soak)  
 **База:** CF-18.4 status widget (`widget_status.go`)  
 **Связано:** [TG-UI-PATTERN.md](../TG-UI-PATTERN.md) — rich A/B/C остаются fallback
 

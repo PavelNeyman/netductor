@@ -342,6 +342,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:netmap":
 		reply(token, chat, msgID, formatNetmapHTML(), statusKeyboard())
 	case "m:channel":
+		if tryReplyWidget(token, chat, msgID, "channel") {
+			return
+		}
 		reply(token, chat, msgID, formatChannelDetailHTML(), statusKeyboard())
 	case "m:vpn_devices":
 		reply(token, chat, msgID, formatDevicesListHTML(0), usersListKeyboard())
