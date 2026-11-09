@@ -194,13 +194,22 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 			return
 		}
 	case "m:fleet":
+		if tryReplyWidget(token, chat, msgID, "fleet") {
+			return
+		}
 		reply(token, chat, msgID, fleetHubHTML(), fleetKeyboard())
 	case "m:operator":
 		reply(token, chat, msgID, operatorHubHTML(), operatorKeyboard())
 	case "m:cat:users":
+		if tryReplyWidget(token, chat, msgID, "users") {
+			return
+		}
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:vpn":
 		setState(chat, "", "")
+		if tryReplyWidget(token, chat, msgID, "users") {
+			return
+		}
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:cat:routers":
 		setState(chat, "", "")
@@ -208,6 +217,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:cat:sites":
 		reply(token, chat, msgID, sitesHubHTML(), sitesKeyboard())
 	case "m:sites:list":
+		if tryReplyWidget(token, chat, msgID, "sites") {
+			return
+		}
 		reply(token, chat, msgID, T("sites_title")+string([]byte{10, 10})+formatSitesHTML(), sitesListKeyboard())
 	case "m:sites:rsc":
 		reply(token, chat, msgID, formatSitesRSCHTML(), sitesListKeyboard())
@@ -215,6 +227,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		setState(chat, "", "")
 		reply(token, chat, msgID, nodesHubHTML()+"\n<i>"+T("nodes_hint")+"</i>", nodesKeyboard())
 	case "m:nodes_list":
+		if tryReplyWidget(token, chat, msgID, "nodes") {
+			return
+		}
 		reply(token, chat, msgID, T("nodes_title")+string([]byte{10, 10})+formatNodesListHTML()+string([]byte{10, 10})+"<i>"+T("nodes_hint")+"</i>", nodesListKeyboard())
 	case "m:node_rename":
 		setState(chat, "", "")
@@ -229,6 +244,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:routers":
 		reply(token, chat, msgID, formatEdgeListHTML(routersText()), backTo("routers"))
 	case "m:pending":
+		if tryReplyWidget(token, chat, msgID, "pending") {
+			return
+		}
 		t := pendingText()
 		reply(token, chat, msgID, formatPendingHTML(t), pendingKeyboard(t))
 	case "m:templates":
@@ -300,6 +318,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, off, relayKeyboard())
 	case "m:relay:list", "m:secondary:list":
+		if tryReplyWidget(token, chat, msgID, "seclist") {
+			return
+		}
 		reply(token, chat, msgID, formatRelayListHTML(), relayKeyboard())
 	case "m:probes":
 		if tryReplyWidget(token, chat, msgID, "probes") {
@@ -356,8 +377,14 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		}
 		reply(token, chat, msgID, formatChannelDetailHTML(), statusKeyboard())
 	case "m:vpn_devices":
+		if tryReplyWidget(token, chat, msgID, "devices") {
+			return
+		}
 		reply(token, chat, msgID, formatDevicesListHTML(0), usersListKeyboard())
 	case "m:users", "m:vpn_list":
+		if tryReplyWidget(token, chat, msgID, "users") {
+			return
+		}
 		reply(token, chat, msgID, formatUsersListHTML(), usersListKeyboard())
 	case "m:vpn_list_legacy":
 		reply(token, chat, msgID, formatVPNListPretty(runVPN("list")), vpnUsersKeyboard())
@@ -441,6 +468,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		setState(chat, "wait_backup_peer", "")
 		reply(token, chat, msgID, "root@HOST:/var/lib/netductor/backups/peers/core/", backKeyboard())
 	case "m:sshhosts":
+		if tryReplyWidget(token, chat, msgID, "sshhosts") {
+			return
+		}
 		reply(token, chat, msgID, formatSSHHostsHTML(), sshHostsKeyboard())
 	case "m:ssh:clear:mt":
 		_ = runND("ssh-hosts", "clear", "--kind", "mt")

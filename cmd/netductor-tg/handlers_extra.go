@@ -158,6 +158,9 @@ func handleBackupCB(token string, chat int64, msgID int, data string) {
 	ru := getLang() != "en"
 	s := install.LoadBackupSchedule()
 	if data == "m:backup" {
+		if tryReplyWidget(token, chat, msgID, "backup") {
+			return
+		}
 		showBackupMenu(token, chat, msgID, s, "")
 		return
 	}

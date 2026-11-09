@@ -105,3 +105,14 @@ func TestPhase1ChatData(t *testing.T) {
 		}
 	}
 }
+
+func TestPhase2ListWidgetsRegistered(t *testing.T) {
+	for _, id := range []string{"users", "devices", "nodes", "sites", "pending", "sshhosts", "backup", "seclist", "fleet"} {
+		if widgetRegistry[id] == nil {
+			t.Fatalf("missing list widget %s", id)
+		}
+		if len(widgetRegistry[id].HTML) > 32768 {
+			t.Fatalf("%s HTML too large", id)
+		}
+	}
+}
