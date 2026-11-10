@@ -29,6 +29,12 @@ var widgetRegistry = map[string]*widgetScreen{}
 var lastAppMsgID = map[int64]int{}
 var lastAppMu sync.Mutex
 
+func forgetAppMsg(chat int64) {
+	lastAppMu.Lock()
+	delete(lastAppMsgID, chat)
+	lastAppMu.Unlock()
+}
+
 func registerWidget(s *widgetScreen) {
 	if s == nil || s.ID == "" {
 		return
@@ -201,6 +207,8 @@ func openAppScreen(token string, chat int64, screenID string) bool {
 				}
 			}
 		}
+		// Stale id after chat clear / delete — force a new sendWidget.
+		forgetAppMsg(chat)
 	}
 	return sendWidgetScreen(token, chat, "app")
 }

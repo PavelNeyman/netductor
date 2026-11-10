@@ -290,7 +290,7 @@ func buildAppHome() (string, error) {
 	return appMarshal(appState{
 		S: "home",
 		T: "Netductor",
-		H: appTitle("choose a section", "выберите раздел"),
+		H: appTitle("Status · Users · Fleet · Tools · Operator", "Статус · Пользователи · Флот · Инструменты · Оператор"),
 		B: " ",
 		Nav: []string{"status", "users", "fleet", "tools", "operator"},
 	})
@@ -309,7 +309,7 @@ func buildAppStatusHub() (string, error) {
 	}
 	return appMarshal(appState{
 		S: "status", T: d.Title, Rows: rows, H: d.Hint,
-		Nav: []string{"channel", "netmap", "digest", "versions", "actions", "sessions", "probes"},
+		Nav: []string{"channel", "netmap", "actions", "sessions", "digest"},
 	})
 }
 
@@ -332,15 +332,17 @@ func buildAppFleetHub() (string, error) {
 	}
 	return appMarshal(appState{
 		S: "fleet", T: appTitle("Fleet", "Флот"), Rows: rows,
-		Nav: []string{"nodes", "routers", "sites", "secondary", "addons", "seclist"},
+		Nav: []string{"nodes", "routers", "sites", "secondary", "addons"},
 	})
 }
 
 func buildAppToolsHub() (string, error) {
+	// Parity with classic Tools (Day2): edge/media/data/adv + updates/logs/ssh
 	return appMarshal(appState{
 		S: "tools", T: appTitle("Tools", "Инструменты"),
-		B: appTitle("backup · ssh · lampac · audit", "бэкапы · ssh · lampac · аудит"),
-		Nav: []string{"backup", "ssh", "lampac", "audit", "canary", "pending", "devices"},
+		B: appTitle("DNS · backup · edge · media · probes", "DNS · бэкап · edge · медиа · probes"),
+		H: appTitle("no Status/Users/Fleet duplicates", "без дублей главных хабов"),
+		Nav: []string{"routers", "sites", "lampac", "backup", "ssh", "versions", "probes", "audit", "canary", "pending"},
 	})
 }
 

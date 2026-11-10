@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"github.com/PavelNeyman/netductor/internal/dnsblock"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
@@ -452,19 +453,9 @@ func handleMessage(token string, m *message, admin int64) {
 
 	switch cmd {
 	case "/start", "/menu":
-		if widgetsEnabled() && strings.TrimSpace(arg1) == "" {
-			if uid > 0 {
-				_ = deleteMessage(token, chat, uid)
-			}
-			if tryReplyAppWidget(token, chat, 0) {
-				return
-			}
-		}
-		// Always replace hub; delete the user command line (/start, /menu) when API allows.
 		// Deep links from channel alerts: /start updates → Versions hub in private chat.
 		switch strings.TrimSpace(strings.ToLower(arg1)) {
 		case "updates", "update":
-			// Drop /start updates text + previous hub so only Versions remains.
 			if uid > 0 {
 				_ = deleteMessage(token, chat, uid)
 			}
@@ -476,7 +467,23 @@ func handleMessage(token string, m *message, admin int64) {
 			handleVersionsCB(token, chat, 0, "m:versions")
 			return
 		case "force", "new", "reset":
-			// explicit refresh
+			// fall through — force fresh hub below
+		}
+		// SPA menu: always send a NEW widget on /start|/menu (chat clear leaves stale message_id).
+		// Send first, then delete the command — never leave the chat empty.
+		if widgetsEnabled() && strings.TrimSpace(arg1) == "" {
+			forgetAppMsg(chat)
+			appMu.Lock()
+			appScreen = "home"
+			appMu.Unlock()
+			ok := sendWidgetScreen(token, chat, "app")
+			if uid > 0 {
+				_ = deleteMessage(token, chat, uid)
+			}
+			if ok {
+				return
+			}
+			fmt.Fprintln(os.Stderr, "sendWidget app failed; falling back to classic hub")
 		}
 		if uid > 0 {
 			_ = deleteMessage(token, chat, uid)
