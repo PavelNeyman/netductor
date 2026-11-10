@@ -31,7 +31,7 @@ func buildAppPresets() (string, error) {
 		S: "presets", T: appTitle("Presets", "Пресеты"),
 		Lines: strings.Join(lines, "\n"),
 		IDs:   strings.Join(ids, ","),
-		Acts:  "pr_new",
+		Acts:  "pr_new,pr_draft",
 		H:     appTitle("# custom · new via chat name", "# свои · new = имя в чат"),
 	})
 }
@@ -125,12 +125,9 @@ func buildAppEdgePolicyCard(id string) (string, error) {
 func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 	switch act {
 	case "pr_new":
-		if q.Chat == nil {
-			return true
-		}
-		beginTextInput(token, q.Chat.ID, "wait_preset_name",
-			appTitle("Send preset <b>name</b>", "Пришлите <b>имя</b> пресета"))
-		cd, _ := appMarshal(appState{S: "presets", T: "Presets", B: appTitle("waiting name…", "ждём имя…"), Acts: "pr_new"})
+		appPresetOK = true
+		appPresetDraft = presetDraft{AllowInternet: true, ServicesMode: "list"}
+		cd, _ := buildAppPresetDraft()
 		appPushState(token, q, cd)
 		return true
 	case "mt_list":

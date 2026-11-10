@@ -711,7 +711,7 @@ func buildAppUserCard(name string) (string, error) {
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
 		H:    appTitle("actions below", "действия ниже"),
-		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
+		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 	})
 }
 
@@ -899,7 +899,17 @@ func buildAppScreen(screen string) (string, error) {
 	case "addons":
 		return appFromLegacyWidget("addons", "Addons", "Аддоны", addonsWidgetChatDataJSON)
 	case "svcpaths":
-		return appFromLegacyWidget("svcpaths", "Svc paths", "Svc paths", svcpathsWidgetChatDataJSON)
+		return buildAppSvcPaths()
+	case "prdraft":
+		return buildAppPresetDraft()
+	case "upol":
+		appMu.Lock()
+		n := appFocus
+		appMu.Unlock()
+		if n == "" {
+			return appMarshal(appState{S: "upol", T: "policy", B: "no user"})
+		}
+		return buildAppUserPolicy(n)
 	case "lampac":
 		return appFromLegacyWidget("lampac", "Lampac", "Lampac", lampacWidgetChatDataJSON)
 	case "presets":
@@ -1101,7 +1111,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "alerts", T: appTitle("Alerts", "Алерты"),
 				B: appTitle("bound to", "привязано") + " " + id,
-				Acts: "al_test,al_clr,al_pick",
+				Acts: "al_test,al_clr",
 			})
 		case "edgeguest":
 			appMu.Lock()
@@ -1125,17 +1135,16 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Lock()
 			appFocus = id
 			appMu.Unlock()
-			cd, err = appMarshal(appState{
-				S: "edgetpl", T: id,
-				Acts: "et_on,et_off,et_dns,et_mode,et_fb,et_soft",
-				H: id,
-			})
+			cd, err = buildAppTemplateCard(id)
 		case "edgepol", "edgelife":
 			appMu.Lock()
 			appFocus = id
 			appMu.Unlock()
 			cd, err = buildAppEdgePolicyCard(id)
 		case "loc":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
 			rooms, _ := sites.ListRooms(id)
 			var lines []string
 			for i, r := range rooms {
@@ -1147,7 +1156,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "loc", T: id,
 				Lines: strings.Join(lines, "\n"),
-				B: appTitle("rooms", "комнаты"),
+				Acts: "room_add",
 				H: id,
 			})
 		case "canary":
@@ -1224,7 +1233,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B: appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
 			H: appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1255,7 +1264,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B: appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
 			H: appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1409,7 +1418,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: focus, B: "sub → " + msg,
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1504,7 +1513,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		uri := strings.TrimSpace(accessPayload(focus, "vless"))
 		if uri == "" {
-			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv"})
+			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv"})
 			appPushState(token, q, cd)
 			return true
 		}
@@ -1545,7 +1554,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			Rows:  [][2]string{{"mode", mode}},
 			Lines: link,
 			H:    appTitle("link / sub URI", "ссылка / sub"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1722,7 +1731,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: screen, T: title, Pad: true, Draft: show,
 			H: appTitle("pad · OK to apply", "панель · OK"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1773,6 +1782,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		return true
 	}
 	if handleAppGapsAct(token, q, act, focus) {
+		return true
+	}
+	if handleAppFinalAct(token, q, act, focus) {
 		return true
 	}
 	return false

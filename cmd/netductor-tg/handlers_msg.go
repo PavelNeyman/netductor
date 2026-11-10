@@ -457,6 +457,24 @@ func handleMessage(token string, m *message, admin int64) {
 		return
 	}
 
+
+	if strings.HasPrefix(st, "wait_room_add:") {
+		siteID := strings.TrimPrefix(st, "wait_room_add:")
+		setState(chat, "", "")
+		rid := strings.TrimSpace(text)
+		if rid == "" {
+			completeInput(token, chat, uid, "room id required", nil)
+			return
+		}
+		_, err := sites.UpsertRoom(sites.Room{ID: rid, SiteID: siteID, Name: rid})
+		msg := "✅ room " + rid
+		if err != nil {
+			msg = "❌ " + err.Error()
+		}
+		completeInput(token, chat, uid, msg, nil)
+		return
+	}
+
 	if st == "wait_session_hours" {
 		h := text
 		if h == "" {
