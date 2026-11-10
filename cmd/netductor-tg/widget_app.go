@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
+	"github.com/PavelNeyman/netductor/internal/notify"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -20,6 +22,8 @@ var (
 	appScreen  = "home"
 	appListIDs []string
 	appFocus   string // current user name or node id for card actions
+	appRebootTarget string
+	appBackupName   string
 )
 
 const appWidgetBoot = `(function(){
@@ -39,6 +43,9 @@ en:{
   nodata:"no data",empty:"empty",
   en:"Enable",di:"Disable",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"Confirm revoke",
   up:"Upgrade",rb:"Reboot",jn:"Journal",y_rb:"Confirm reboot",
+  q50:"50 GiB",q200:"200 GiB",q0:"∞ quota",rn:"Rename",add:"Add user",
+  heal:"Heal",rbk:"Rollback",y_rbk:"Confirm rollback",wd:"Watchdog",
+  y_rst:"Confirm restore",al_test:"Test alert",al_clr:"Clear alerts chat",
   st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
 },
 ru:{
@@ -55,6 +62,9 @@ ru:{
   nodata:"нет данных",empty:"пусто",
   en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Удалить",y_rv:"Подтвердить удаление",
   up:"Upgrade",rb:"Reboot",jn:"Journal",y_rb:"Подтвердить reboot",
+  q50:"50 GiB",q200:"200 GiB",q0:"∞ квота",rn:"Имя",add:"Добавить",
+  heal:"Heal",rbk:"Откат",y_rbk:"Подтвердить откат",wd:"Watchdog",
+  y_rst:"Подтвердить restore",al_test:"Тест алерта",al_clr:"Сбросить alerts chat",
   st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
 }
 };
@@ -118,8 +128,15 @@ function paint(d){
         var lab=tr(d,acts[a]);
         if(acts[a].indexOf("y_")==0)lab=tr(d,acts[a]);
         var cls="";
-        if(acts[a]==="rv"||acts[a]==="y_rv"||acts[a]==="rb"||acts[a]==="y_rb")cls="danger";
+        if(acts[a]==="rv"||acts[a]==="y_rv"||acts[a]==="rb"||acts[a]==="y_rb"||acts[a]==="y_rbk"||acts[a]==="y_rst")cls="danger";
         add(acts[a],lab,cls);
+      }
+    }
+    if(d.btns&&d.btns.length){
+      for(var bi=0;bi<d.btns.length;bi++){
+        var pair=d.btns[bi];
+        if(!pair||!pair[0])continue;
+        add(String(pair[0]),String(pair[1]||pair[0]),"");
       }
     }
     if(d.s!=="home")add("g:home",tr(d,"menu"));
@@ -172,6 +189,7 @@ type appState struct {
 	IDs   string      `json:"ids,omitempty"`
 	Nav   []string    `json:"nav,omitempty"`
 	Acts  string      `json:"acts,omitempty"` // comma-separated act codes for buttons
+	Btns  [][2]string `json:"btns,omitempty"` // dynamic [{act,label},...] for challenge codes etc.
 	TS    int64       `json:"ts"`
 }
 
@@ -403,8 +421,60 @@ func buildAppStack() (string, error) {
 	out := runND("stack", "status")
 	return appMarshal(appState{
 		S: "stack", T: appTitle("Stack", "Стек"),
-		Lines: widgetTruncate(strings.TrimSpace(out), 500),
-		H: appTitle("heal/rollback via classic if needed", "heal/rollback — classic при необходимости"),
+		Lines: widgetTruncate(strings.TrimSpace(out), 420),
+		Acts:  "heal,rbk,wd",
+		H:     appTitle("heal · rollback · watchdog", "heal · откат · watchdog"),
+	})
+}
+
+
+func buildAppRebootPick() (string, error) {
+	var lines []string
+	var ids []string
+	lines = append(lines, "1 primary")
+	ids = append(ids, "primary")
+	for _, d := range secondary.List() {
+		if len(ids) >= 10 {
+			break
+		}
+		name := d.Name
+		if name == "" {
+			name = d.ID
+		}
+		lines = append(lines, fmt.Sprintf("%d %s", len(ids)+1, name))
+		ids = append(ids, d.ID)
+	}
+	appMu.Lock()
+	appListIDs = ids
+	appMu.Unlock()
+	return appMarshal(appState{
+		S: "reboot", T: appTitle("Reboot", "Перезагрузка"),
+		Lines: strings.Join(lines, "\n"),
+		IDs:   strings.Join(ids, ","),
+		H:     appTitle("# pick node → challenge codes", "# выбор → коды подтверждения"),
+	})
+}
+
+func buildAppRebootChallenge(target, display string) (string, error) {
+	code, err := notify.BeginRebootChallenge(target)
+	if err != nil {
+		return appMarshal(appState{S: "reboot", T: "Reboot", B: err.Error()})
+	}
+	codes := notify.DecoyCodes(code, 3)
+	appMu.Lock()
+	appRebootTarget = target
+	appFocus = target
+	appMu.Unlock()
+	btns := make([][2]string, 0, 3)
+	for _, c := range codes {
+		// act rc:<code> ≤64
+		btns = append(btns, [2]string{"rc:" + c, c})
+	}
+	return appMarshal(appState{
+		S: "reboot", T: appTitle("Confirm reboot", "Подтверждение reboot"),
+		Rows: [][2]string{{"node", display}, {"code", code}},
+		H:    appTitle("tap the matching code", "нажмите кнопку с верным кодом"),
+		Btns: btns,
 	})
 }
 
@@ -493,7 +563,7 @@ func buildAppUserCard(name string) (string, error) {
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
 		H:    appTitle("actions below", "действия ниже"),
-		Acts: "en,di,lk,sb,rv",
+		Acts: "en,di,lk,sb,q50,q200,q0,rn,rv",
 	})
 }
 
@@ -541,8 +611,9 @@ func buildAppUsersHub() (string, error) {
 	return appMarshal(appState{
 		S: "users", T: appTitle("Users", "Пользователи"),
 		B: appTitle("VPN users · device profiles", "VPN пользователи · устройства"),
-		Nav: []string{"ulist", "devices"},
-		H: appTitle("open list or devices", "список или устройства"),
+		Nav:  []string{"ulist", "devices"},
+		Acts: "add",
+		H:    appTitle("list · devices · add (reply with name)", "список · устройства · добавить (имя сообщением)"),
 	})
 }
 
@@ -620,11 +691,7 @@ func buildAppScreen(screen string) (string, error) {
 	case "incident":
 		return buildAppND("incident", "Incident", "Инцидент", "doctor", "incident")
 	case "reboot":
-		return appMarshal(appState{
-			S: "reboot", T: appTitle("Reboot", "Reboot"),
-			B: appTitle("node reboot is on node card (confirm)", "reboot ноды — в карточке ноды (confirm)"),
-			H: appTitle("Fleet → Nodes → #", "Флот → Ноды → #"),
-		})
+		return buildAppRebootPick()
 	case "dns":
 		return buildAppND("dns", "DNS", "DNS", "dns", "status")
 	case "git":
@@ -642,7 +709,16 @@ func buildAppScreen(screen string) (string, error) {
 	case "session":
 		return buildAppND("session", "Session", "Сессия", "session", "status")
 	case "alerts":
-		return buildAppND("alerts", "Alerts", "Алерты", "alerts", "status")
+		out := strings.TrimSpace(runND("alerts", "status"))
+		if out == "" {
+			out = appTitle("alerts channel status", "статус alerts-chat")
+		}
+		return appMarshal(appState{
+			S: "alerts", T: appTitle("Alerts", "Алерты"),
+			Lines: widgetTruncate(out, 400),
+			Acts:  "al_test,al_clr",
+			H:     appTitle("test / clear channel binding", "тест / сброс привязки канала"),
+		})
 	case "nvr":
 		return buildAppND("nvr", "NVR", "NVR", "nvr", "status")
 	case "devices":
@@ -824,8 +900,22 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = buildAppUserCard(id)
 		case "nodes":
 			cd, err = buildAppNodeCard(id)
+		case "reboot":
+			disp := id
+			if id == "primary" {
+				disp = "primary"
+			}
+			cd, err = buildAppRebootChallenge(id, disp)
+		case "backup":
+			appMu.Lock()
+			appBackupName = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "backup", T: appTitle("Restore?", "Restore?"),
+				B: id, Acts: "y_rst",
+				H: appTitle("confirm restore from backup", "подтвердите восстановление"),
+			})
 		default:
-			// no card — stay
 			cd, err = buildAppScreen(screen)
 		}
 		if err != nil {
@@ -873,6 +963,102 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		})
 		appPushState(token, q, cd)
 		return true
+	case "q50", "q200", "q0":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		gb := 50.0
+		if act == "q200" {
+			gb = 200
+		}
+		if act == "q0" {
+			gb = 0
+		}
+		_ = vpn.SetSoftLimitGB(focus, gb)
+		cd, _ := buildAppUserCard(focus)
+		appPushState(token, q, cd)
+		return true
+	case "rn":
+		if focus == "" || q.Chat == nil {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		setState(q.Chat.ID, "wait_rename_new:"+focus, "")
+		hint := Tf("rename_new_hint", focus)
+		sendHTML(token, q.Chat.ID, hint, userHubKeyboard(focus))
+		cd, _ := appMarshal(appState{
+			S: "ucard", T: focus,
+			B: appTitle("send new name as next message", "отправьте новое имя следующим сообщением"),
+			Acts: "en,di,lk,sb,q50,q200,q0,rn,rv",
+		})
+		appPushState(token, q, cd)
+		return true
+	case "add":
+		if q.Chat == nil {
+			answerWidgetQuery(token, q.ID, `{"err":"nochat"}`)
+			return true
+		}
+		setState(q.Chat.ID, "wait_vpn_add_name", "")
+		sendHTML(token, q.Chat.ID, T("add_prompt"), backTo("users"))
+		cd, _ := appMarshal(appState{
+			S: "users", T: appTitle("Users", "Пользователи"),
+			B: appTitle("send new username as next message", "отправьте имя пользователя сообщением"),
+			Nav: []string{"ulist", "devices"}, Acts: "add",
+		})
+		appPushState(token, q, cd)
+		return true
+	case "heal":
+		out := runND("stack", "heal")
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: widgetTruncate(out, 450), Acts: "heal,rbk,wd"})
+		appPushState(token, q, cd)
+		return true
+	case "wd":
+		out := runND("stack", "watchdog")
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: widgetTruncate(out, 450), Acts: "heal,rbk,wd"})
+		appPushState(token, q, cd)
+		return true
+	case "rbk":
+		cd, _ := appMarshal(appState{
+			S: "stack", T: appTitle("Rollback?", "Откат?"),
+			B: appTitle("restore last-good stack", "восстановить last-good"),
+			Acts: "y_rbk",
+		})
+		appPushState(token, q, cd)
+		return true
+	case "y_rbk":
+		out := runND("stack", "rollback")
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: widgetTruncate(out, 450), Acts: "heal,rbk,wd"})
+		appPushState(token, q, cd)
+		return true
+	case "y_rst":
+		appMu.Lock()
+		name := appBackupName
+		appMu.Unlock()
+		if name == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nobak"}`)
+			return true
+		}
+		out := runND("backup", "restore", name)
+		cd, _ := appMarshal(appState{
+			S: "backup", T: appTitle("Restore", "Restore"),
+			Lines: widgetTruncate(out, 450),
+		})
+		appPushState(token, q, cd)
+		return true
+	case "al_test":
+		out := runND("alerts", "test")
+		if strings.TrimSpace(out) == "" {
+			out = runND("notify", "test")
+		}
+		cd, _ := appMarshal(appState{S: "alerts", T: appTitle("Alerts", "Алерты"), Lines: widgetTruncate(out, 400), Acts: "al_test,al_clr"})
+		appPushState(token, q, cd)
+		return true
+	case "al_clr":
+		out := runND("alerts", "clear")
+		cd, _ := appMarshal(appState{S: "alerts", T: appTitle("Alerts", "Алерты"), Lines: widgetTruncate(out, 400), Acts: "al_test,al_clr"})
+		appPushState(token, q, cd)
+		return true
 	case "en":
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
@@ -912,7 +1098,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			Rows:  [][2]string{{"mode", mode}},
 			Lines: link,
 			H:    appTitle("link / sub URI", "ссылка / sub"),
-			Acts: "en,di,lk,sb,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,rn,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -966,23 +1152,22 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		cd, _ := appMarshal(appState{
-			S: "ncard", T: appTitle("Reboot?", "Reboot?"),
-			B: focus, Acts: "y_rb",
-			H: appTitle("confirm reboot", "подтвердите reboot"),
-		})
+		disp := focus
+		cd, err := buildAppRebootChallenge(focus, disp)
+		if err != nil {
+			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+			return true
+		}
 		appPushState(token, q, cd)
 		return true
 	case "y_rb":
+		// legacy simple path unused; kept for safety
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		out := enqueueNodeCmd(focus, "reboot")
-		cd, _ := appMarshal(appState{
-			S: "ncard", T: focus, Lines: widgetTruncate(out, 400),
-			Acts: "up,rb,jn",
-		})
+		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: widgetTruncate(out, 400), Acts: "up,rb,jn"})
 		appPushState(token, q, cd)
 		return true
 	case "jn":
@@ -990,7 +1175,6 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		// plain text journal (same sources as formatJournalHTML)
 		var out string
 		role := nodeRole(focus)
 		if role == "secondary" || strings.HasPrefix(focus, "secondary-") {
@@ -1004,6 +1188,44 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: "ncard", T: focus, Lines: widgetTruncate(out, 450),
 			Acts: "up,rb,jn",
+		})
+		appPushState(token, q, cd)
+		return true
+	}
+
+	// reboot challenge code button
+	if strings.HasPrefix(act, "rc:") {
+		code := strings.TrimPrefix(act, "rc:")
+		appMu.Lock()
+		target := appRebootTarget
+		if target == "" {
+			target = appFocus
+		}
+		appMu.Unlock()
+		if target == "" || code == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"reboot"}`)
+			return true
+		}
+		if err := notify.ConsumeRebootChallenge(target, code); err != nil {
+			cd, _ := appMarshal(appState{
+				S: "reboot", T: "Reboot",
+				B: err.Error(),
+				H: appTitle("request reboot again", "запросите reboot снова"),
+			})
+			appPushState(token, q, cd)
+			return true
+		}
+		var out string
+		if target == "primary" {
+			out = appTitle("reboot queued (+1 min)", "reboot поставлен (+1 мин)")
+			go func() { _ = exec.Command("shutdown", "-r", "+1", "netductor TG reboot").Run() }()
+		} else {
+			out = enqueueNodeCmd(target, "reboot")
+		}
+		cd, _ := appMarshal(appState{
+			S: "reboot", T: appTitle("Reboot", "Reboot"),
+			Lines: widgetTruncate(out, 400),
+			H:     target,
 		})
 		appPushState(token, q, cd)
 		return true

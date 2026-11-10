@@ -247,6 +247,10 @@ func parseWidgetAct(data string) (screen, act string) {
 		data == "en" || data == "di" || data == "lk" || data == "sb" || data == "rv" || data == "y_rv" ||
 		data == "up" || data == "rb" || data == "jn" || data == "y_rb" ||
 		data == "api_tg" || data == "usp_tg" || data == "vpnref" ||
+		data == "q50" || data == "q200" || data == "q0" || data == "rn" || data == "add" ||
+		data == "heal" || data == "rbk" || data == "y_rbk" || data == "wd" || data == "y_rst" ||
+		data == "al_test" || data == "al_clr" ||
+		strings.HasPrefix(data, "rc:") ||
 		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") || strings.HasPrefix(data, "L:") {
 		return "app", data
 	}

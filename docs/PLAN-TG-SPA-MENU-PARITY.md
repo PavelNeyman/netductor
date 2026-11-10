@@ -7,42 +7,51 @@ Flag: `NETDUCTOR_TG_WIDGETS=1`. Entry: `/start`, `/menu`, `m:menu`.
 | Classic | SPA screen |
 |---------|------------|
 | Status | `status` |
-| Users | `users` → `ulist` / `devices` |
+| Users | `users` → `ulist` / `devices` / **Add** |
 | Fleet | `fleet` |
 | Tools | `tools` |
 | Operator | `operator` |
 | Lang | `L:ru` / `L:en` |
 | Help | `help` |
 
-## Status (= statusKeyboard)
+## Status
 
-channel, netmap, actions, sessions, digest, incident, reboot(hint→node card)
+channel, netmap, actions, sessions, digest, incident, **reboot** (pick → challenge codes)
 
-## Fleet (= fleetHubHTML)
+## Fleet
 
-nodes, routers*, sites*, secondary, addons  
-\*routers/sites also under Tools→Edge
+nodes, routers, sites, secondary, addons
 
-## Tools (= Day2 + extras)
+## Tools (Day2)
 
-- **edge** → routers, sites, pending  
-- **media** → lampac, canary, nvr  
-- **data** → backup, logs, dns  
-- **adv** → probes, stack, doctor, certs, fw, cleanup  
-- versions, logs, ssh, git  
+edge / media / data / adv + versions, logs, ssh, git
 
-## Operator (= operatorHubHTML)
+## Operator
 
-Nav: session, alerts, sessions, audit, svcpaths, stack, admin  
-Acts: API WAN arm/disarm 15m, Users→SP on/off, VPN refresh links  
+session, alerts (**test/clear**), sessions, audit, svcpaths, stack (**heal / rollback confirm / watchdog**), admin  
+Acts: API WAN, Users→SP, VPN refresh links
 
-## Cards
+## User card
 
-- Users list `#` → `ucard` (enable/disable/link/sub/revoke)  
-- Nodes list `#` → `ncard` (upgrade/reboot/journal)  
+enable, disable, link, sub, **quota 50/200/∞**, **rename** (hybrid: next text message), revoke+confirm
 
-## Intentionally still classic (input / multi-step / media)
+## Node card
 
-rename user, quota N, QR photo, git project flows, edge luci/guest wizards,  
-backup restore confirm paths, stack heal/rollback confirm, reboot challenge codes,  
-alerts-chat pick, text prompts (add user, ssh forget, …).
+upgrade, **reboot challenge**, journal
+
+## Backup
+
+list `#` → restore confirm
+
+## Hybrid text input (classic message state)
+
+- Rename: SPA sets `wait_rename_new:` → user sends name in chat  
+- Add user: SPA sets `wait_vpn_add_name` → user sends name  
+
+## Still limited / deep wizards
+
+- QR as photo (link text in SPA; photo stays classic)  
+- Git project multi-step ship/migrate  
+- Edge luci/guest multi-step wizards  
+- Alerts-chat pick from list of known chats (test/clear done)  
+- Custom quota N (preset 50/200/∞ in SPA; custom still classic text)
