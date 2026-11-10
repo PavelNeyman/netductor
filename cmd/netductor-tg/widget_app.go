@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
+	"github.com/PavelNeyman/netductor/internal/incident"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
@@ -51,7 +52,7 @@ en:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ quota",rn:"Rename",add:"Add user",
   heal:"Heal",rbk:"Rollback",y_rbk:"Confirm rollback",wd:"Watchdog",
   y_rst:"Confirm restore",al_test:"Test alert",al_clr:"Clear alerts chat",
-  qn:"Custom GiB",qr:"QR",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
+  qn:"Custom GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
   gsync:"Sync",gship:"Ship",eg_gr:"Grant",eg_rv:"Revoke guest",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
@@ -73,7 +74,7 @@ ru:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ квота",rn:"Имя",add:"Добавить",
   heal:"Heal",rbk:"Откат",y_rbk:"Подтвердить откат",wd:"Watchdog",
   y_rst:"Подтвердить restore",al_test:"Тест алерта",al_clr:"Сбросить alerts chat",
-  qn:"Своя GiB",qr:"QR",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
+  qn:"Своя GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
   gsync:"Sync",gship:"Ship",eg_gr:"Выдать",eg_rv:"Отозвать",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
@@ -416,7 +417,7 @@ func buildAppToolsHub() (string, error) {
 		S: "tools", T: appTitle("Tools", "Инструменты"),
 		B: appTitle("Edge · Media · Data · Advanced", "Edge · Медиа · Данные · Ещё"),
 		H: appTitle("no Status/Users/Fleet duplicates", "без дублей главных хабов"),
-		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh", "git"},
+		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh", "sshkeys", "git"},
 	})
 }
 
@@ -546,7 +547,7 @@ func buildAppGit() (string, error) {
 	st := appState{
 		S: "git", T: "Git",
 		H: appTitle("# card · sync-all / ship via acts on card", "# карточка · sync/ship"),
-		Acts: "gsync,gship",
+		Acts: "gsync,gship,gsall",
 	}
 	if len(lines) == 0 {
 		st.B = appTitle("no projects", "нет проектов")
@@ -634,6 +635,29 @@ func buildAppEdgeLuci() (string, error) {
 	})
 }
 
+
+func buildAppIncident() (string, error) {
+	ev := incident.ListEvents(20)
+	var lines []string
+	for _, e := range ev {
+		lines = append(lines, widgetTruncate(fmt.Sprintf("%s %s", e.Kind, e.Text), 90))
+		if len(lines) >= 12 {
+			break
+		}
+	}
+	st := appState{
+		S: "incident", T: appTitle("Incident", "Инцидент"),
+		Acts: "inc1h",
+		H:    appTitle("1h pack → document in chat (auto-clean)", "пакет 1ч → документ в чат"),
+	}
+	if len(lines) == 0 {
+		st.B = appTitle("no recent events", "нет событий")
+	} else {
+		st.Lines = strings.Join(lines, "\n")
+	}
+	return appMarshal(st)
+}
+
 func buildAppHelp() (string, error) {
 	h := helpText()
 	r := strings.NewReplacer("<b>", "", "</b>", "", "<i>", "", "</i>", "",
@@ -719,7 +743,7 @@ func buildAppUserCard(name string) (string, error) {
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
 		H:    appTitle("actions below", "действия ниже"),
-		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
+		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
 	})
 }
 
@@ -759,7 +783,7 @@ func buildAppNodeCard(id string) (string, error) {
 	return appMarshal(appState{
 		S: "ncard", T: host, Rows: rs,
 		H:    appTitle("node actions", "действия ноды"),
-		Acts: "up,rb,jn",
+		Acts: "up,rb,jn,rs",
 	})
 }
 
@@ -845,7 +869,9 @@ func buildAppScreen(screen string) (string, error) {
 	case "nodes":
 		return buildAppNodes()
 	case "incident":
-		return buildAppND("incident", "Incident", "Инцидент", "doctor", "incident")
+		return buildAppIncident()
+	case "sshkeys":
+		return buildAppND("sshkeys", "SSH keys", "SSH ключи", "ssh-keys", "status")
 	case "reboot":
 		return buildAppRebootPick()
 	case "dns":
@@ -1002,7 +1028,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			parent = "data"
 		case "probes", "stack", "doctor", "certs", "fw", "cleanup":
 			parent = "adv"
-		case "edge", "media", "data", "adv", "versions", "ssh", "git":
+		case "edge", "media", "data", "adv", "versions", "ssh", "sshkeys", "git":
 			parent = "tools"
 		case "svcpaths", "session", "alerts", "admin", "audit", "sessions":
 			parent = "operator"
@@ -1155,7 +1181,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B: appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
 			H: appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1186,7 +1212,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B: appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
 			H: appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1310,6 +1336,106 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := buildAppAlerts()
 		appPushState(token, q, cd)
 		return true
+	case "kd":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		_ = vpn.SetKind(focus, "device")
+		cd, _ := buildAppUserCard(focus)
+		appPushState(token, q, cd)
+		return true
+	case "ku":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		_ = vpn.SetKind(focus, "user")
+		cd, _ := buildAppUserCard(focus)
+		appPushState(token, q, cd)
+		return true
+	case "sp":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		next, err := vpn.CycleSubProfile(focus)
+		msg := next
+		if err != nil {
+			msg = err.Error()
+		}
+		cd, _ := appMarshal(appState{
+			S: "ucard", T: focus, B: "sub → " + msg,
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
+		})
+		appPushState(token, q, cd)
+		return true
+	case "rs":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := restartSingBox(focus)
+		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: widgetTruncate(out, 400), Acts: "up,rb,jn,rs"})
+		appPushState(token, q, cd)
+		return true
+	case "gsall":
+		list, err := gitstore.LoadProjects()
+		var b strings.Builder
+		if err != nil {
+			b.WriteString(err.Error())
+		} else {
+			for _, pr := range list {
+				out, e := gitstore.SyncProject(pr.Name)
+				if e != nil {
+					b.WriteString(pr.Name + ": " + e.Error() + "\n")
+				} else {
+					b.WriteString(pr.Name + ": ok\n")
+				}
+				_ = out
+			}
+		}
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: widgetTruncate(b.String(), 450), Acts: "gsync,gship,gsall"})
+		appPushState(token, q, cd)
+		return true
+	case "inc1h":
+		if q.Chat == nil {
+			answerWidgetQuery(token, q.ID, `{"err":"nochat"}`)
+			return true
+		}
+		go func(token string, chat int64) {
+			_, arch, err := incident.Collect(1)
+			if err != nil {
+				mid := sendPlainHTML(token, chat, "❌ incident: "+esc(err.Error()))
+				if mid > 0 {
+					go scheduleDelete(token, chat, mid, 60)
+				}
+				return
+			}
+			mid, err := sendPhotoFileID(token, chat, arch, "Incident 1h (doc)", nil)
+			// sendDocument better
+			_ = mid
+			if err := sendDocumentFile(token, chat, arch, "Incident pack 1h", nil); err != nil {
+				mid := sendPlainHTML(token, chat, "✅ "+esc(arch))
+				if mid > 0 {
+					go scheduleDelete(token, chat, mid, 120)
+				}
+				return
+			}
+			// cannot easily get doc msg id from sendDocumentFile — leave 2 min note
+			mid = sendPlainHTML(token, chat, appTitle("incident pack sent (delete manually if needed)", "пакет инцидента отправлен"))
+			if mid > 0 {
+				go scheduleDelete(token, chat, mid, 60)
+			}
+		}(token, q.Chat.ID)
+		cd, _ := appMarshal(appState{
+			S: "incident", T: appTitle("Incident", "Инцидент"),
+			B: appTitle("collecting 1h pack…", "собираю пакет 1ч…"),
+			Acts: "inc1h",
+		})
+		appPushState(token, q, cd)
+		return true
+
 	case "en":
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
@@ -1335,7 +1461,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		uri := strings.TrimSpace(accessPayload(focus, "vless"))
 		if uri == "" {
-			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv"})
+			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv"})
 			appPushState(token, q, cd)
 			return true
 		}
@@ -1376,7 +1502,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			Rows:  [][2]string{{"mode", mode}},
 			Lines: link,
 			H:    appTitle("link / sub URI", "ссылка / sub"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1421,7 +1547,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		out := enqueueNodeCmd(focus, "upgrade")
 		cd, _ := appMarshal(appState{
 			S: "ncard", T: focus, Lines: widgetTruncate(out, 400),
-			Acts: "up,rb,jn", H: appTitle("upgrade queued/result", "upgrade"),
+			Acts: "up,rb,jn,rs", H: appTitle("upgrade queued/result", "upgrade"),
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1553,7 +1679,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: screen, T: title, Pad: true, Draft: show,
 			H: appTitle("pad · OK to apply", "панель · OK"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
 		})
 		appPushState(token, q, cd)
 		return true
