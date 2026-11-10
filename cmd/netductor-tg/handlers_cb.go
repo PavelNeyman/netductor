@@ -186,6 +186,9 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 		reply(token, chat, msgID, formatDisasterHTML(), mainKeyboard())
 	case "m:menu", "m:help":
 		setState(chat, "", "")
+		if data == "m:menu" && tryReplyAppWidget(token, chat, 0) {
+			return
+		}
 		// Singleton hub in admin DM (edit-in-place).
 		body := menuText()
 		if data == "m:help" {

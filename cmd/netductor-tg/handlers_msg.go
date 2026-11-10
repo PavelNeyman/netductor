@@ -452,6 +452,14 @@ func handleMessage(token string, m *message, admin int64) {
 
 	switch cmd {
 	case "/start", "/menu":
+		if widgetsEnabled() && strings.TrimSpace(arg1) == "" {
+			if uid > 0 {
+				_ = deleteMessage(token, chat, uid)
+			}
+			if tryReplyAppWidget(token, chat, 0) {
+				return
+			}
+		}
 		// Always replace hub; delete the user command line (/start, /menu) when API allows.
 		// Deep links from channel alerts: /start updates → Versions hub in private chat.
 		switch strings.TrimSpace(strings.ToLower(arg1)) {

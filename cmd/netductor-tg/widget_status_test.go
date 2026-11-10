@@ -60,8 +60,12 @@ func TestParseWidgetAct(t *testing.T) {
 		t.Fatalf("got %q %q", sc, act)
 	}
 	sc, act = parseWidgetAct("refresh")
-	if sc != "" || act != "refresh" {
-		t.Fatalf("legacy got %q %q", sc, act)
+	if sc != "app" || act != "refresh" {
+		t.Fatalf("spa short act got %q %q", sc, act)
+	}
+	sc, act = parseWidgetAct("g:status")
+	if sc != "app" || act != "g:status" {
+		t.Fatalf("g: got %q %q", sc, act)
 	}
 }
 
@@ -133,5 +137,14 @@ func TestPhase4ResidualWidgetsRegistered(t *testing.T) {
 		if widgetRegistry[id] == nil {
 			t.Fatalf("missing phase4 widget %s", id)
 		}
+	}
+}
+
+func TestAppWidgetRegistered(t *testing.T) {
+	if widgetRegistry["app"] == nil {
+		t.Fatal("app not registered")
+	}
+	if len(widgetRegistry["app"].HTML) > 32768 {
+		t.Fatal("app HTML too large")
 	}
 }

@@ -72,9 +72,10 @@ func apiPostWidget(token, method string, payload any) ([]byte, error) {
 }
 
 func answerWidgetQuery(token, queryID, result string) {
+	// Bot API 10.4: parameter is "data" (not "result"); widget promise gets { result: data }.
 	payload := map[string]any{"widget_query_id": queryID}
 	if result != "" {
-		payload["result"] = result
+		payload["data"] = result
 	}
 	if _, err := apiPostWidget(token, "answerWidgetQuery", payload); err != nil {
 		fmt.Fprintln(os.Stderr, "answerWidgetQuery:", err)
@@ -150,12 +151,17 @@ func tryReplyWidget(token string, chat int64, msgID int, screenID string) bool {
 func parseWidgetAct(data string) (screen, act string) {
 	data = strings.TrimSpace(data)
 	if data == "" {
-		return "", "refresh"
+		return "app", "r"
+	}
+	// SPA short acts (single app widget)
+	if data == "r" || data == "b" || data == "m" || data == "refresh" || data == "back" || data == "menu" ||
+		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") {
+		return "app", data
 	}
 	if i := strings.IndexByte(data, ':'); i > 0 {
 		return data[:i], data[i+1:]
 	}
-	return "", data
+	return "app", data
 }
 
 func handleWidgetQuery(token string, q *widgetQuery, admin int64) bool {
@@ -170,7 +176,7 @@ func handleWidgetQuery(token string, q *widgetQuery, admin int64) bool {
 	}
 	screenID, act := parseWidgetAct(q.Data)
 	if screenID == "" {
-		screenID = "status" // legacy buttons without prefix
+		screenID = "app"
 	}
 	s := widgetRegistry[screenID]
 	if s == nil {
