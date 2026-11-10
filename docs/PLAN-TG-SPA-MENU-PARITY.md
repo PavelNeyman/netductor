@@ -1,24 +1,11 @@
-# TG SPA menu parity
+# TG SPA menu parity — residual closed
 
-Widget: no free-text → chat message + auto-delete prompt/user; QR photo 60s.
+| Residual | SPA |
+|----------|-----|
+| Guest grant CODE minutes | eg_code + chat (prompt/user deleted) |
+| Edge storage | device list # → backup/restore/list/mute |
+| Edge templates | device list # → on/off/dns/mode |
+| Ship job log | glog on job card |
+| Admin Mac help | admin screen + session presets |
 
-## Coverage (ops)
-
-| Area | SPA |
-|------|-----|
-| Session | 1h/4h/24h/72h + custom hours |
-| Sessions | list + revoke all |
-| Canary | list # toggle + user card |
-| SSH keys | status, protect on/off, scan |
-| Certs | status + renew |
-| Firewall | status + apply |
-| Aptguard | status/preview/scan |
-| Git | sync/ship/sync-all/build-all/mirror/jobs pause|resume|rm/add/migrate |
-| Edge guest | grant/revoke/facts |
-| Edge LuCI | 1/4/24/72h, extend, off |
-| Edge storage/policy/templates | status acts |
-| Node | upgrade, reboot challenge, journal, restart SB, rename, metrics |
-| User | full card + kind/sub/canary/quota/QR |
-| Stack/backup/reboot/alerts/incident | as before |
-
-Pad UI removed from HTML (size limit); text input is chat-only.
+Free text always via chat message with auto-delete where wired.

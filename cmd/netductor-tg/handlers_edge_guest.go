@@ -125,13 +125,25 @@ func handleEdgeGuestCB(token string, chat int64, msgID int, data string) bool {
 	return true
 }
 
-func handleEdgeGuestText(token string, chat int64, text string) bool {
+func handleEdgeGuestText(token string, chat int64, userMsgID int, text string) bool {
 	st, ok := chatState[chat]
 	if !ok || st != "wait_edgeguest_grant" {
 		return false
 	}
-	id := chatExtra[chat]
+	extra := chatExtra[chat]
+	id := extra
+	promptID := 0
+	if i := strings.Index(extra, "|"); i >= 0 {
+		fmt.Sscanf(extra[:i], "%d", &promptID)
+		id = extra[i+1:]
+	}
 	setState(chat, "", "")
+	if promptID > 0 {
+		_ = deleteMessage(token, chat, promptID)
+	}
+	if userMsgID > 0 {
+		_ = deleteMessage(token, chat, userMsgID)
+	}
 	ru := getLang() != "en"
 	parts := strings.Fields(text)
 	if len(parts) < 1 {

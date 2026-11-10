@@ -216,7 +216,7 @@ func handleMessage(token string, m *message, admin int64) {
 		completeInput(token, chat, uid, msg, navKeyboard("m:git:proj:list", "Projects"))
 		return
 	}
-	if handleEdgeGuestText(token, chat, text) {
+	if handleEdgeGuestText(token, chat, uid, text) {
 		return
 	}
 	if st == "wait_node_newname" {

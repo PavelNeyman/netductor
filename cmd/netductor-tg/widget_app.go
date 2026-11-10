@@ -52,7 +52,7 @@ en:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ quota",rn:"Rename",add:"Add user",
   heal:"Heal",rbk:"Rollback",y_rbk:"Confirm rollback",wd:"Watchdog",
   y_rst:"Confirm restore",al_test:"Test alert",al_clr:"Clear alerts chat",
-  qn:"Custom GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours…",srev:"Revoke all",cy:"Canary",sk_on:"Protect ON",sk_off:"Protect OFF",sk_scan:"Scan keys",cert_ren:"Renew",fw_apply:"Apply FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Rename node",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Remove job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
+  qn:"Custom GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours…",srev:"Revoke all",cy:"Canary",sk_on:"Protect ON",sk_off:"Protect OFF",sk_scan:"Scan keys",cert_ren:"Renew",fw_apply:"Apply FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Rename node",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Remove job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",es_bak:"Backup",es_rst:"Restore",es_list:"List USB",es_mute:"Mute",et_on:"Tpl on",et_off:"Tpl off",et_dns:"DNS blocky",et_mode:"Mode full",glog:"Job log",eg_code:"Grant code",es_bak:"Backup",es_rst:"Restore",es_list:"List USB",es_mute:"Mute",et_on:"Tpl on",et_off:"Tpl off",et_dns:"DNS blocky",et_mode:"Mode full",glog:"Job log",eg_code:"Grant code",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
   gsync:"Sync",gship:"Ship",eg_gr:"Grant",eg_rv:"Revoke guest",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
@@ -74,7 +74,7 @@ ru:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ квота",rn:"Имя",add:"Добавить",
   heal:"Heal",rbk:"Откат",y_rbk:"Подтвердить откат",wd:"Watchdog",
   y_rst:"Подтвердить restore",al_test:"Тест алерта",al_clr:"Сбросить alerts chat",
-  qn:"Своя GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Часы…",srev:"Отозвать все",cy:"Canary",sk_on:"Защита ON",sk_off:"Защита OFF",sk_scan:"Скан ключей",cert_ren:"Продлить",fw_apply:"Применить FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Имя ноды",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Удалить job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
+  qn:"Своя GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Часы…",srev:"Отозвать все",cy:"Canary",sk_on:"Защита ON",sk_off:"Защита OFF",sk_scan:"Скан ключей",cert_ren:"Продлить",fw_apply:"Применить FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Имя ноды",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Удалить job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",es_bak:"Backup",es_rst:"Restore",es_list:"List USB",es_mute:"Mute",et_on:"Tpl on",et_off:"Tpl off",et_dns:"DNS blocky",et_mode:"Mode full",glog:"Job log",eg_code:"Grant code",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
   gsync:"Sync",gship:"Ship",eg_gr:"Выдать",eg_rv:"Отозвать",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
@@ -854,17 +854,17 @@ func buildAppScreen(screen string) (string, error) {
 	case "cleanup":
 		return buildAppND("cleanup", "Cleanup", "Очистка", "cleanup", "status")
 	case "admin":
-		return buildAppND("admin", "Admin", "Админ", "status")
+		return buildAppAdmin()
 	case "session":
 		return buildAppSession()
 	case "alerts":
 		return buildAppAlerts()
 	case "edgestor":
-		return appMarshal(appState{S: "edgestor", T: "Edge storage", Acts: "es_st", H: appTitle("status", "статус")})
+		return buildAppEdgeStorage()
 	case "edgepol":
 		return appMarshal(appState{S: "edgepol", T: "Edge policy", Acts: "ep_st", H: appTitle("status", "статус")})
 	case "edgetpl":
-		return appMarshal(appState{S: "edgetpl", T: "Edge templates", Acts: "et_st", H: appTitle("list", "список")})
+		return buildAppEdgeTemplates()
 	case "edgeguest":
 		return buildAppEdgeGuest()
 	case "edgeluci":
@@ -1099,7 +1099,25 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "edgeguest", T: id,
 				B: appTitle("guest device", "guest устройство"),
-				Acts: "eg_gr,eg_rv,eg_facts",
+				Acts: "eg_gr,eg_rv,eg_facts,eg_code",
+			})
+		case "edgestor":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "edgestor", T: id,
+				Acts: "es_bak,es_rst,es_list,es_mute",
+				H: id,
+			})
+		case "edgetpl":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "edgetpl", T: id,
+				Acts: "et_on,et_off,et_dns,et_mode",
+				H: id,
 			})
 		case "canary":
 			appMu.Lock()
@@ -1113,7 +1131,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "gjobs", T: id,
-				Acts: "gpause,gresume,grm",
+				Acts: "gpause,gresume,grm,glog",
 				H: id,
 			})
 		default:
@@ -1718,6 +1736,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	}
 
 	if handleAppOpsAct(token, q, act, focus) {
+		return true
+	}
+	if handleAppResidualAct(token, q, act, focus) {
 		return true
 	}
 	return false
