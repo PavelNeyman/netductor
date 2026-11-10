@@ -75,3 +75,28 @@ func TestSPAContentRoutingMaps(t *testing.T) {
 		t.Fatal("status should be SPA")
 	}
 }
+
+func TestSPAMenuParityScreensBuild(t *testing.T) {
+	screens := []string{
+		"home", "status", "users", "ulist", "fleet", "tools", "operator", "help",
+		"channel", "netmap", "actions", "sessions", "digest", "incident", "reboot",
+		"nodes", "secondary", "addons", "seclist",
+		"edge", "routers", "sites", "pending",
+		"media", "lampac", "canary", "nvr",
+		"data", "backup", "logs", "dns",
+		"adv", "probes", "stack", "doctor", "certs", "fw", "cleanup",
+		"versions", "ssh", "git",
+		"session", "alerts", "admin", "audit", "svcpaths",
+		"devices",
+	}
+	for _, s := range screens {
+		cd, err := buildAppScreen(s)
+		if err != nil {
+			t.Errorf("%s: %v", s, err)
+			continue
+		}
+		if len(cd) > 1024 {
+			t.Errorf("%s chat_data %d > 1024", s, len(cd))
+		}
+	}
+}

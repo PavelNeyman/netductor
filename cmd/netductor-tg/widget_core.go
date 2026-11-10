@@ -178,6 +178,9 @@ var spaContentScreens = map[string]bool{
 	"actions": true, "routers": true,
 	"tools": true, "edge": true, "media": true, "data": true, "adv": true,
 	"logs": true, "stack": true, "help": true, "ucard": true, "ncard": true,
+	"ulist": true, "incident": true, "reboot": true, "dns": true, "git": true,
+	"certs": true, "fw": true, "doctor": true, "cleanup": true, "admin": true,
+	"session": true, "alerts": true, "nvr": true,
 }
 
 func openAppScreen(token string, chat int64, screenID string) bool {
@@ -243,6 +246,7 @@ func parseWidgetAct(data string) (screen, act string) {
 	if data == "r" || data == "b" || data == "m" || data == "refresh" || data == "back" || data == "menu" ||
 		data == "en" || data == "di" || data == "lk" || data == "sb" || data == "rv" || data == "y_rv" ||
 		data == "up" || data == "rb" || data == "jn" || data == "y_rb" ||
+		data == "api_tg" || data == "usp_tg" || data == "vpnref" ||
 		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") || strings.HasPrefix(data, "L:") {
 		return "app", data
 	}

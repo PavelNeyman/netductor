@@ -32,6 +32,9 @@ en:{
   sessions:"Sessions",audit:"Audit",actions:"Actions",routers:"Routers",nodes:"Nodes",
   devices:"Devices",sites:"Sites",pending:"Pending",ssh:"SSH",backup:"Backups",seclist:"Secondaries",
   edge:"Edge",media:"Media",data:"Data",adv:"Advanced",logs:"Logs",stack:"Stack",help:"Help",
+  ulist:"List",incident:"Incident",reboot:"Reboot",dns:"DNS",git:"Git",certs:"Certs",fw:"Firewall",
+  doctor:"Doctor",admin:"Admin",session:"Session",alerts:"Alerts",nvr:"NVR",cleanup:"Cleanup",
+  api_tg:"API WAN",usp_tg:"Users→SP",vpnref:"Refresh links",
   ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",hint_home:"choose a section",
   nodata:"no data",empty:"empty",
   en:"Enable",di:"Disable",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"Confirm revoke",
@@ -45,6 +48,9 @@ ru:{
   sessions:"Сессии",audit:"Аудит",actions:"Действия",routers:"Роутеры",nodes:"Ноды",
   devices:"Устройства",sites:"Сайты",pending:"Pending",ssh:"SSH",backup:"Бэкапы",seclist:"Secondary",
   edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",
+  ulist:"Список",incident:"Инцидент",reboot:"Reboot",dns:"DNS",git:"Git",certs:"Серты",fw:"Firewall",
+  doctor:"Doctor",admin:"Админ",session:"Сессия",alerts:"Алерты",nvr:"NVR",cleanup:"Очистка",
+  api_tg:"API WAN",usp_tg:"Users→SP",vpnref:"Обновить ссылки",
   ucard:"Пользователь",ncard:"Нода",menu:"Меню",back:"←",refresh:"↻",hint_home:"выберите раздел",
   nodata:"нет данных",empty:"пусто",
   en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Удалить",y_rv:"Подтвердить удаление",
@@ -98,7 +104,7 @@ function paint(d){
     if(d.s==="home"&&d.nav){
       for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));
     }
-    if(d.nav&&d.s!=="home"&&(d.s==="status"||d.s==="fleet"||d.s==="tools"||d.s==="operator"||d.s==="edge"||d.s==="media"||d.s==="data"||d.s==="adv")){
+    if(d.nav&&d.s!=="home"){
       for(var j2=0;j2<d.nav.length;j2++)add("g:"+d.nav[j2],tr(d,d.nav[j2]));
     }
     if(d.ids){
@@ -312,7 +318,7 @@ func buildAppStatusHub() (string, error) {
 	// classic also: incident, node reboot — multi-step stay out of SPA for now
 	return appMarshal(appState{
 		S: "status", T: d.Title, Rows: rows, H: d.Hint,
-		Nav: []string{"channel", "netmap", "actions", "sessions", "digest"},
+		Nav: []string{"channel", "netmap", "actions", "sessions", "digest", "incident", "reboot"},
 	})
 }
 
@@ -345,7 +351,7 @@ func buildAppToolsHub() (string, error) {
 		S: "tools", T: appTitle("Tools", "Инструменты"),
 		B: appTitle("Edge · Media · Data · Advanced", "Edge · Медиа · Данные · Ещё"),
 		H: appTitle("no Status/Users/Fleet duplicates", "без дублей главных хабов"),
-		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh"},
+		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh", "git"},
 	})
 }
 
@@ -361,7 +367,7 @@ func buildAppMediaHub() (string, error) {
 	return appMarshal(appState{
 		S: "media", T: appTitle("Media", "Медиа"),
 		B: appTitle("lampac · canary", "lampac · canary"),
-		Nav: []string{"lampac", "canary"},
+		Nav: []string{"lampac", "canary", "nvr"},
 	})
 }
 
@@ -369,7 +375,7 @@ func buildAppDataHub() (string, error) {
 	return appMarshal(appState{
 		S: "data", T: appTitle("Data", "Данные"),
 		B: appTitle("backup · logs", "бэкапы · логи"),
-		Nav: []string{"backup", "logs"},
+		Nav: []string{"backup", "logs", "dns"},
 	})
 }
 
@@ -377,7 +383,7 @@ func buildAppAdvHub() (string, error) {
 	return appMarshal(appState{
 		S: "adv", T: appTitle("Advanced", "Ещё"),
 		B: appTitle("probes · stack", "probes · стек"),
-		Nav: []string{"probes", "stack"},
+		Nav: []string{"probes", "stack", "doctor", "certs", "fw", "cleanup"},
 	})
 }
 
@@ -415,31 +421,40 @@ func buildAppHelp() (string, error) {
 
 
 func buildAppOperatorHub() (string, error) {
-	// Classic operator: session, alerts, sessions, audit, stack, svc paths, toggles.
-	cd, err := operatorWidgetChatDataJSON()
+	// Classic operatorHub: session, alerts, sessions, audit, stack, svc paths, admin, toggles, vpn refresh.
+	apiArmed := strings.Contains(runND("api-public", "status"), "armed=true")
+	pol := runND("svc-paths", "failover", "status")
+	usersSP := strings.Contains(pol, `"users_to_sp_on_vless_down": true`) || strings.Contains(pol, `"users_to_sp_on_vless_down":true`)
+	apiCell := "closed"
+	if apiArmed {
+		apiCell = "OPEN"
+	}
+	uspCell := "off"
+	if usersSP {
+		uspCell = "on"
+	}
 	st := appState{
 		S: "operator", T: appTitle("Operator", "Оператор"),
-		Nav: []string{"sessions", "audit", "svcpaths", "stack"},
-		H: appTitle("admin · session · failover", "админ · сессия · failover"),
-	}
-	if err == nil {
-		var m map[string]any
-		if json.Unmarshal([]byte(cd), &m) == nil {
-			if title, ok := m["title"].(string); ok && title != "" {
-				st.T = title
-			}
-			body, _ := m["body"].(string)
-			st.Lines = widgetTruncate(body, 350)
-			for _, k := range []string{"api", "users_sp", "fo"} {
-				if v, ok := m[k]; ok {
-					st.Rows = append(st.Rows, [2]string{k, fmt.Sprint(v)})
-				}
-			}
-		}
-	} else {
-		st.B = widgetTruncate(err.Error(), 200)
+		Rows: [][2]string{
+			{"API WAN", apiCell},
+			{"Users→SP", uspCell},
+		},
+		Nav:  []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
+		Acts: "api_tg,usp_tg,vpnref",
+		H:    appTitle("toggles + admin sections", "переключатели и разделы"),
 	}
 	return appMarshal(st)
+}
+
+func buildAppND(screen, en, ru string, args ...string) (string, error) {
+	out := strings.TrimSpace(runND(args...))
+	if out == "" {
+		out = appTitle("(empty)", "(пусто)")
+	}
+	return appMarshal(appState{
+		S: screen, T: appTitle(en, ru),
+		Lines: widgetTruncate(out, 500),
+	})
 }
 
 func buildAppUserCard(name string) (string, error) {
@@ -522,8 +537,17 @@ func buildAppNodeCard(id string) (string, error) {
 	})
 }
 
+func buildAppUsersHub() (string, error) {
+	return appMarshal(appState{
+		S: "users", T: appTitle("Users", "Пользователи"),
+		B: appTitle("VPN users · device profiles", "VPN пользователи · устройства"),
+		Nav: []string{"ulist", "devices"},
+		H: appTitle("open list or devices", "список или устройства"),
+	})
+}
+
 func buildAppUsers() (string, error) {
-	return appListFromItems("users", "Users", "Пользователи", collectUsersListItems())
+	return appListFromItems("ulist", "Users", "Пользователи", collectUsersListItems())
 }
 
 func buildAppNodes() (string, error) {
@@ -588,9 +612,39 @@ func buildAppScreen(screen string) (string, error) {
 	case "operator":
 		return buildAppOperatorHub()
 	case "users":
+		return buildAppUsersHub()
+	case "ulist":
 		return buildAppUsers()
 	case "nodes":
 		return buildAppNodes()
+	case "incident":
+		return buildAppND("incident", "Incident", "Инцидент", "doctor", "incident")
+	case "reboot":
+		return appMarshal(appState{
+			S: "reboot", T: appTitle("Reboot", "Reboot"),
+			B: appTitle("node reboot is on node card (confirm)", "reboot ноды — в карточке ноды (confirm)"),
+			H: appTitle("Fleet → Nodes → #", "Флот → Ноды → #"),
+		})
+	case "dns":
+		return buildAppND("dns", "DNS", "DNS", "dns", "status")
+	case "git":
+		return buildAppND("git", "Git", "Git", "git", "status")
+	case "certs":
+		return buildAppND("certs", "Certs", "Серты", "certs", "status")
+	case "fw":
+		return buildAppND("fw", "Firewall", "Firewall", "firewall", "status")
+	case "doctor":
+		return buildAppND("doctor", "Doctor", "Doctor", "doctor")
+	case "cleanup":
+		return buildAppND("cleanup", "Cleanup", "Очистка", "cleanup", "status")
+	case "admin":
+		return buildAppND("admin", "Admin", "Админ", "status")
+	case "session":
+		return buildAppND("session", "Session", "Сессия", "session", "status")
+	case "alerts":
+		return buildAppND("alerts", "Alerts", "Алерты", "alerts", "status")
+	case "nvr":
+		return buildAppND("nvr", "NVR", "NVR", "nvr", "status")
 	case "devices":
 		return appListFromItems("devices", "Devices", "Устройства", collectDevicesListItems())
 	case "sites":
@@ -705,25 +759,25 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appMu.Unlock()
 		parent := "home"
 		switch s {
-		case "ucard":
+		case "ucard", "ulist", "devices":
 			parent = "users"
 		case "ncard":
 			parent = "nodes"
-		case "channel", "netmap", "digest", "actions", "sessions":
+		case "channel", "netmap", "digest", "actions", "incident", "reboot":
 			parent = "status"
 		case "nodes", "secondary", "addons", "seclist":
 			parent = "fleet"
 		case "routers", "sites", "pending":
 			parent = "edge"
-		case "lampac", "canary":
+		case "lampac", "canary", "nvr":
 			parent = "media"
-		case "backup", "logs":
+		case "backup", "logs", "dns":
 			parent = "data"
-		case "probes", "stack":
+		case "probes", "stack", "doctor", "certs", "fw", "cleanup":
 			parent = "adv"
-		case "edge", "media", "data", "adv", "versions", "ssh", "audit", "devices":
+		case "edge", "media", "data", "adv", "versions", "ssh", "git":
 			parent = "tools"
-		case "svcpaths":
+		case "svcpaths", "session", "alerts", "admin", "audit", "sessions":
 			parent = "operator"
 		case "users", "status", "fleet", "tools", "operator", "help":
 			parent = "home"
@@ -766,7 +820,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		var cd string
 		var err error
 		switch screen {
-		case "users", "devices":
+		case "users", "ulist", "devices":
 			cd, err = buildAppUserCard(id)
 		case "nodes":
 			cd, err = buildAppNodeCard(id)
@@ -788,6 +842,37 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	appMu.Unlock()
 
 	switch act {
+	case "api_tg":
+		st := runND("api-public", "status")
+		if strings.Contains(st, "armed=true") {
+			_ = runND("api-public", "disarm")
+		} else {
+			_ = runND("api-public", "arm", "--ttl", "15m")
+		}
+		cd, _ := buildAppOperatorHub()
+		appPushState(token, q, cd)
+		return true
+	case "usp_tg":
+		pol := runND("svc-paths", "failover", "status")
+		on := strings.Contains(pol, `"users_to_sp_on_vless_down": true`) || strings.Contains(pol, `"users_to_sp_on_vless_down":true`)
+		if on {
+			_ = runND("svc-paths", "failover", "set-users-sp", "off")
+		} else {
+			_ = runND("svc-paths", "failover", "set-users-sp", "on")
+		}
+		cd, _ := buildAppOperatorHub()
+		appPushState(token, q, cd)
+		return true
+	case "vpnref":
+		out := runND("vpn", "refresh-links")
+		cd, _ := appMarshal(appState{
+			S: "operator", T: appTitle("Operator", "Оператор"),
+			Lines: widgetTruncate(out, 400),
+			Nav:  []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
+			Acts: "api_tg,usp_tg,vpnref",
+		})
+		appPushState(token, q, cd)
+		return true
 	case "en":
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
