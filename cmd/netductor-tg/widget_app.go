@@ -15,6 +15,7 @@ import (
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
+	"github.com/PavelNeyman/netductor/internal/sites"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
@@ -384,7 +385,7 @@ func buildAppToolsHub() (string, error) {
 		S: "tools", T: appTitle("Tools", "Инструменты"),
 		B: appTitle("Edge · Media · Data · Advanced", "Edge · Медиа · Данные · Ещё"),
 		H: appTitle("no Status/Users/Fleet duplicates", "без дублей главных хабов"),
-		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh", "sshkeys", "git"},
+		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh", "sshkeys", "git", "presets", "mtls"},
 	})
 }
 
@@ -392,7 +393,7 @@ func buildAppEdgeHub() (string, error) {
 	return appMarshal(appState{
 		S: "edge", T: appTitle("Edge", "Edge"),
 		B: appTitle("routers · sites · pending", "роутеры · сайты · pending"),
-		Nav: []string{"routers", "sites", "pending", "edgeguest", "edgeluci", "edgestor", "edgepol", "edgetpl"},
+		Nav: []string{"routers", "sites", "pending", "edgeguest", "edgeluci", "edgestor", "edgepol", "edgetpl", "edgelife", "loc"},
 	})
 }
 
@@ -862,7 +863,7 @@ func buildAppScreen(screen string) (string, error) {
 	case "edgestor":
 		return buildAppEdgeStorage()
 	case "edgepol":
-		return appMarshal(appState{S: "edgepol", T: "Edge policy", Acts: "ep_st", H: appTitle("status", "статус")})
+		return buildAppEdgeLife() // pick device then policy via o:
 	case "edgetpl":
 		return buildAppEdgeTemplates()
 	case "edgeguest":
@@ -901,6 +902,16 @@ func buildAppScreen(screen string) (string, error) {
 		return appFromLegacyWidget("svcpaths", "Svc paths", "Svc paths", svcpathsWidgetChatDataJSON)
 	case "lampac":
 		return appFromLegacyWidget("lampac", "Lampac", "Lampac", lampacWidgetChatDataJSON)
+	case "presets":
+		return buildAppPresets()
+	case "mtls":
+		return buildAppMTLS()
+	case "secops":
+		return buildAppSecondaryOps()
+	case "edgelife":
+		return buildAppEdgeLife()
+	case "loc":
+		return buildAppLoc()
 	case "aptguard":
 		return buildAppAptguard()
 	case "canary":
@@ -997,9 +1008,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			parent = "nodes"
 		case "channel", "netmap", "digest", "actions", "incident", "reboot":
 			parent = "status"
-		case "nodes", "secondary", "addons", "seclist":
+		case "nodes", "secondary", "addons", "seclist", "secops":
 			parent = "fleet"
-		case "routers", "sites", "pending", "edgeguest", "edgeluci", "edgestor", "edgepol", "edgetpl":
+		case "routers", "sites", "pending", "edgeguest", "edgeluci", "edgestor", "edgepol", "edgetpl", "edgelife", "loc":
 			parent = "edge"
 		case "lampac", "canary", "nvr", "aptguard":
 			parent = "media"
@@ -1007,7 +1018,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			parent = "data"
 		case "probes", "stack", "doctor", "certs", "fw", "cleanup":
 			parent = "adv"
-		case "edge", "media", "data", "adv", "versions", "ssh", "sshkeys", "git":
+		case "edge", "media", "data", "adv", "versions", "ssh", "sshkeys", "git", "presets", "mtls":
 			parent = "tools"
 		case "svcpaths", "session", "alerts", "admin", "audit", "sessions":
 			parent = "operator"
@@ -1107,7 +1118,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "edgestor", T: id,
-				Acts: "es_bak,es_rst,es_list,es_mute",
+				Acts: "es_bak,es_rst,es_list,es_mute,es_fmt",
 				H: id,
 			})
 		case "edgetpl":
@@ -1116,7 +1127,27 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "edgetpl", T: id,
-				Acts: "et_on,et_off,et_dns,et_mode",
+				Acts: "et_on,et_off,et_dns,et_mode,et_fb,et_soft",
+				H: id,
+			})
+		case "edgepol", "edgelife":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			cd, err = buildAppEdgePolicyCard(id)
+		case "loc":
+			rooms, _ := sites.ListRooms(id)
+			var lines []string
+			for i, r := range rooms {
+				if i >= 10 {
+					break
+				}
+				lines = append(lines, fmt.Sprintf("%d %s %s", i+1, r.ID, r.Name))
+			}
+			cd, err = appMarshal(appState{
+				S: "loc", T: id,
+				Lines: strings.Join(lines, "\n"),
+				B: appTitle("rooms", "комнаты"),
 				H: id,
 			})
 		case "canary":
@@ -1739,6 +1770,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		return true
 	}
 	if handleAppResidualAct(token, q, act, focus) {
+		return true
+	}
+	if handleAppGapsAct(token, q, act, focus) {
 		return true
 	}
 	return false
