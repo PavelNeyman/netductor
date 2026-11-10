@@ -31,6 +31,7 @@ en:{
   digest:"Digest",addons:"Addons",svcpaths:"Svc paths",lampac:"Lampac",canary:"Canary",
   sessions:"Sessions",audit:"Audit",actions:"Actions",routers:"Routers",nodes:"Nodes",
   devices:"Devices",sites:"Sites",pending:"Pending",ssh:"SSH",backup:"Backups",seclist:"Secondaries",
+  edge:"Edge",media:"Media",data:"Data",adv:"Advanced",logs:"Logs",stack:"Stack",help:"Help",
   ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",hint_home:"choose a section",
   nodata:"no data",empty:"empty",
   en:"Enable",di:"Disable",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"Confirm revoke",
@@ -43,6 +44,7 @@ ru:{
   digest:"Дайджест",addons:"Аддоны",svcpaths:"Svc paths",lampac:"Lampac",canary:"Canary",
   sessions:"Сессии",audit:"Аудит",actions:"Действия",routers:"Роутеры",nodes:"Ноды",
   devices:"Устройства",sites:"Сайты",pending:"Pending",ssh:"SSH",backup:"Бэкапы",seclist:"Secondary",
+  edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",
   ucard:"Пользователь",ncard:"Нода",menu:"Меню",back:"←",refresh:"↻",hint_home:"выберите раздел",
   nodata:"нет данных",empty:"пусто",
   en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Удалить",y_rv:"Подтвердить удаление",
@@ -96,7 +98,7 @@ function paint(d){
     if(d.s==="home"&&d.nav){
       for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));
     }
-    if(d.nav&&d.s!=="home"&&(d.s==="status"||d.s==="fleet"||d.s==="tools"||d.s==="operator")){
+    if(d.nav&&d.s!=="home"&&(d.s==="status"||d.s==="fleet"||d.s==="tools"||d.s==="operator"||d.s==="edge"||d.s==="media"||d.s==="data"||d.s==="adv")){
       for(var j2=0;j2<d.nav.length;j2++)add("g:"+d.nav[j2],tr(d,d.nav[j2]));
     }
     if(d.ids){
@@ -290,9 +292,9 @@ func buildAppHome() (string, error) {
 	return appMarshal(appState{
 		S: "home",
 		T: "Netductor",
-		H: appTitle("Status · Users · Fleet · Tools · Operator", "Статус · Пользователи · Флот · Инструменты · Оператор"),
+		H: appTitle("same hubs as classic main menu", "те же хабы, что classic-меню"),
 		B: " ",
-		Nav: []string{"status", "users", "fleet", "tools", "operator"},
+		Nav: []string{"status", "users", "fleet", "tools", "operator", "help"},
 	})
 }
 
@@ -307,6 +309,7 @@ func buildAppStatusHub() (string, error) {
 		{appTitle("secondary", "secondary"), d.Sec},
 		{appTitle("migrate", "миграции"), d.Mig},
 	}
+	// classic also: incident, node reboot — multi-step stay out of SPA for now
 	return appMarshal(appState{
 		S: "status", T: d.Title, Rows: rows, H: d.Hint,
 		Nav: []string{"channel", "netmap", "actions", "sessions", "digest"},
@@ -337,17 +340,106 @@ func buildAppFleetHub() (string, error) {
 }
 
 func buildAppToolsHub() (string, error) {
-	// Parity with classic Tools (Day2): edge/media/data/adv + updates/logs/ssh
+	// Classic Tools = Day2Groups (edge/media/data/adv) + Git/Updates/Logs/SSH keys rows.
 	return appMarshal(appState{
 		S: "tools", T: appTitle("Tools", "Инструменты"),
-		B: appTitle("DNS · backup · edge · media · probes", "DNS · бэкап · edge · медиа · probes"),
+		B: appTitle("Edge · Media · Data · Advanced", "Edge · Медиа · Данные · Ещё"),
 		H: appTitle("no Status/Users/Fleet duplicates", "без дублей главных хабов"),
-		Nav: []string{"routers", "sites", "lampac", "backup", "ssh", "versions", "probes", "audit", "canary", "pending"},
+		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh"},
 	})
 }
 
+func buildAppEdgeHub() (string, error) {
+	return appMarshal(appState{
+		S: "edge", T: appTitle("Edge", "Edge"),
+		B: appTitle("routers · sites · pending", "роутеры · сайты · pending"),
+		Nav: []string{"routers", "sites", "pending"},
+	})
+}
+
+func buildAppMediaHub() (string, error) {
+	return appMarshal(appState{
+		S: "media", T: appTitle("Media", "Медиа"),
+		B: appTitle("lampac · canary", "lampac · canary"),
+		Nav: []string{"lampac", "canary"},
+	})
+}
+
+func buildAppDataHub() (string, error) {
+	return appMarshal(appState{
+		S: "data", T: appTitle("Data", "Данные"),
+		B: appTitle("backup · logs", "бэкапы · логи"),
+		Nav: []string{"backup", "logs"},
+	})
+}
+
+func buildAppAdvHub() (string, error) {
+	return appMarshal(appState{
+		S: "adv", T: appTitle("Advanced", "Ещё"),
+		B: appTitle("probes · stack", "probes · стек"),
+		Nav: []string{"probes", "stack"},
+	})
+}
+
+func buildAppLogs() (string, error) {
+	out := runND("logs", "tail")
+	if strings.TrimSpace(out) == "" {
+		out = runND("status")
+	}
+	return appMarshal(appState{
+		S: "logs", T: appTitle("Logs", "Логи"),
+		Lines: widgetTruncate(strings.TrimSpace(out), 500),
+		H: appTitle("refresh for latest", "обновите для свежих"),
+	})
+}
+
+func buildAppStack() (string, error) {
+	out := runND("stack", "status")
+	return appMarshal(appState{
+		S: "stack", T: appTitle("Stack", "Стек"),
+		Lines: widgetTruncate(strings.TrimSpace(out), 500),
+		H: appTitle("heal/rollback via classic if needed", "heal/rollback — classic при необходимости"),
+	})
+}
+
+func buildAppHelp() (string, error) {
+	h := helpText()
+	r := strings.NewReplacer("<b>", "", "</b>", "", "<i>", "", "</i>", "",
+		"<br>", " ", "<br/>", " ", "<br />", " ")
+	h = r.Replace(h)
+	return appMarshal(appState{
+		S: "help", T: appTitle("Help", "Справка"),
+		Lines: widgetTruncate(h, 500),
+	})
+}
+
+
 func buildAppOperatorHub() (string, error) {
-	return appFromLegacyWidget("operator", "Operator", "Оператор", operatorWidgetChatDataJSON)
+	// Classic operator: session, alerts, sessions, audit, stack, svc paths, toggles.
+	cd, err := operatorWidgetChatDataJSON()
+	st := appState{
+		S: "operator", T: appTitle("Operator", "Оператор"),
+		Nav: []string{"sessions", "audit", "svcpaths", "stack"},
+		H: appTitle("admin · session · failover", "админ · сессия · failover"),
+	}
+	if err == nil {
+		var m map[string]any
+		if json.Unmarshal([]byte(cd), &m) == nil {
+			if title, ok := m["title"].(string); ok && title != "" {
+				st.T = title
+			}
+			body, _ := m["body"].(string)
+			st.Lines = widgetTruncate(body, 350)
+			for _, k := range []string{"api", "users_sp", "fo"} {
+				if v, ok := m[k]; ok {
+					st.Rows = append(st.Rows, [2]string{k, fmt.Sprint(v)})
+				}
+			}
+		}
+	} else {
+		st.B = widgetTruncate(err.Error(), 200)
+	}
+	return appMarshal(st)
 }
 
 func buildAppUserCard(name string) (string, error) {
@@ -479,6 +571,20 @@ func buildAppScreen(screen string) (string, error) {
 		return buildAppFleetHub()
 	case "tools":
 		return buildAppToolsHub()
+	case "edge":
+		return buildAppEdgeHub()
+	case "media":
+		return buildAppMediaHub()
+	case "data":
+		return buildAppDataHub()
+	case "adv":
+		return buildAppAdvHub()
+	case "logs":
+		return buildAppLogs()
+	case "stack":
+		return buildAppStack()
+	case "help":
+		return buildAppHelp()
 	case "operator":
 		return buildAppOperatorHub()
 	case "users":
@@ -603,13 +709,23 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			parent = "users"
 		case "ncard":
 			parent = "nodes"
-		case "channel", "netmap", "digest", "versions", "actions", "sessions", "probes":
+		case "channel", "netmap", "digest", "actions", "sessions":
 			parent = "status"
-		case "nodes", "routers", "sites", "secondary", "addons", "seclist":
+		case "nodes", "secondary", "addons", "seclist":
 			parent = "fleet"
-		case "backup", "ssh", "lampac", "audit", "canary", "pending", "devices":
+		case "routers", "sites", "pending":
+			parent = "edge"
+		case "lampac", "canary":
+			parent = "media"
+		case "backup", "logs":
+			parent = "data"
+		case "probes", "stack":
+			parent = "adv"
+		case "edge", "media", "data", "adv", "versions", "ssh", "audit", "devices":
 			parent = "tools"
-		case "users", "status", "fleet", "tools", "operator":
+		case "svcpaths":
+			parent = "operator"
+		case "users", "status", "fleet", "tools", "operator", "help":
 			parent = "home"
 		}
 		cd, err := buildAppScreen(parent)

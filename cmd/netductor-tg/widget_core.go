@@ -176,6 +176,8 @@ var spaContentScreens = map[string]bool{
 	"seclist": true, "operator": true, "addons": true, "svcpaths": true,
 	"lampac": true, "canary": true, "sessions": true, "audit": true,
 	"actions": true, "routers": true,
+	"tools": true, "edge": true, "media": true, "data": true, "adv": true,
+	"logs": true, "stack": true, "help": true, "ucard": true, "ncard": true,
 }
 
 func openAppScreen(token string, chat int64, screenID string) bool {
