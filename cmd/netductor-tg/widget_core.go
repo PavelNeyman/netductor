@@ -155,7 +155,7 @@ func parseWidgetAct(data string) (screen, act string) {
 	}
 	// SPA short acts (single app widget)
 	if data == "r" || data == "b" || data == "m" || data == "refresh" || data == "back" || data == "menu" ||
-		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") {
+		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") || strings.HasPrefix(data, "L:") {
 		return "app", data
 	}
 	if i := strings.IndexByte(data, ':'); i > 0 {
